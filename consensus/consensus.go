@@ -12,6 +12,7 @@ import (
 	"github.com/vechain/thor/state"
 	"github.com/vechain/thor/tx"
 	"github.com/vechain/thor/xenv"
+    "github.com/vechain/thor/types"
 )
 
 // Consensus check whether the block is verified,
@@ -19,6 +20,7 @@ import (
 type Consensus struct {
 	chain        *chain.Chain
 	stateCreator *state.Creator
+    delegate     []types.Delegate   //just reference types package, remove it later.
 }
 
 // New create a Consensus instance.
