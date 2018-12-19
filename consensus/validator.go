@@ -1,234 +1,610 @@
-// Copyright (c) 2018 The VeChainThor developers
+/*****
+ Validator is the normal member of committee. they vote for proposal and notary.
+    Functionalities include:
+    1) add peer to proposer each round
+    2) validate and vote for proposal and notary
 
-// Distributed under the GNU Lesser General Public License v3.0 software license, see the accompanying
-// file LICENSE or <https://www.gnu.org/licenses/lgpl-3.0.html>
+    3) reponse group announce
+    4) reponse shift new round
+***/
 
 package consensus
 
 import (
+	//    "errors"
+	"bytes"
+	"encoding/binary"
 	"fmt"
+	"time"
 
-	"github.com/pkg/errors"
-	"github.com/vechain/thor/block"
-	"github.com/vechain/thor/builtin"
-	"github.com/vechain/thor/poa"
-	"github.com/vechain/thor/runtime"
-	"github.com/vechain/thor/state"
-	"github.com/vechain/thor/thor"
-	"github.com/vechain/thor/tx"
-	"github.com/vechain/thor/xenv"
+	//"github.com/vechain/thor/block"
+	//"github.com/vechain/thor/chain"
+	//"github.com/vechain/thor/runtime"
+	//"github.com/vechain/thor/state"
+	//"github.com/vechain/thor/tx"
+	//"github.com/vechain/thor/xenv"
+	crypto "github.com/ethereum/go-ethereum/crypto"
+	bls "github.com/vechain/thor/crypto/multi_sig"
+
+	//	p2p "github.com/dfinlab/go-zdollar/p2p"
+	types "github.com/vechain/thor/types"
 )
 
-func (c *Consensus) validate(
-	state *state.State,
-	block *block.Block,
-	parentHeader *block.Header,
-	nowTimestamp uint64,
-) (*state.Stage, tx.Receipts, error) {
-	header := block.Header()
+// for all committee mermbers
+const (
+	// FSM of VALIDATOR
+	COMMITTEE_VALIDATOR_INIT       = byte(0x01)
+	COMMITTEE_VALIDATOR_COMMITSENT = byte(0x02)
 
-	if err := c.validateBlockHeader(header, parentHeader, nowTimestamp); err != nil {
-		return nil, nil, err
-	}
+	//MsgSubType of VoteForNotary is the responses
+	VOTE_FOR_NOTARY_ANNOUNCE = byte(0x01)
+	VOTE_FOR_NOTARY_BLOCK    = byte(0x02)
+)
 
-	if err := c.validateProposer(header, parentHeader, state); err != nil {
-		return nil, nil, err
-	}
+type ConsensusValidator struct {
+	node_id     uint32
+	CommitteeID int // unique identifier for this consensus session
 
-	if err := c.validateBlockBody(block); err != nil {
-		return nil, nil, err
-	}
-
-	stage, receipts, err := c.verifyBlock(block, state)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	return stage, receipts, nil
+	csReactor *ConsensusReactor //global reactor info
+	state     byte
+	csPeers   []*ConsensusPeer // consensus message peers
 }
 
-func (c *Consensus) validateBlockHeader(header *block.Header, parent *block.Header, nowTimestamp uint64) error {
-	if header.Timestamp() <= parent.Timestamp() {
-		return consensusError(fmt.Sprintf("block timestamp behind parents: parent %v, current %v", parent.Timestamp(), header.Timestamp()))
+// send consensus message to all connected peers
+func (cv *ConsensusValidator) SendMsg(msg *ConsensusMessage) bool {
+
+	if len(cv.csPeers) == 0 {
+		cv.csReactor.sendConsensusMsg(msg, nil)
+		return true
 	}
 
-	if (header.Timestamp()-parent.Timestamp())%thor.BlockInterval != 0 {
-		return consensusError(fmt.Sprintf("block interval not rounded: parent %v, current %v", parent.Timestamp(), header.Timestamp()))
-	}
-
-	if header.Timestamp() > nowTimestamp+thor.BlockInterval {
-		return errFutureBlock
-	}
-
-	if !block.GasLimit(header.GasLimit()).IsValid(parent.GasLimit()) {
-		return consensusError(fmt.Sprintf("block gas limit invalid: parent %v, current %v", parent.GasLimit(), header.GasLimit()))
-	}
-
-	if header.GasUsed() > header.GasLimit() {
-		return consensusError(fmt.Sprintf("block gas used exceeds limit: limit %v, used %v", header.GasLimit(), header.GasUsed()))
-	}
-
-	if header.TotalScore() <= parent.TotalScore() {
-		return consensusError(fmt.Sprintf("block total score invalid: parent %v, current %v", parent.TotalScore(), header.TotalScore()))
-	}
-
-	return nil
-}
-
-func (c *Consensus) validateProposer(header *block.Header, parent *block.Header, st *state.State) error {
-	signer, err := header.Signer()
-	if err != nil {
-		return consensusError(fmt.Sprintf("block signer unavailable: %v", err))
-	}
-
-	authority := builtin.Authority.Native(st)
-	endorsement := builtin.Params.Native(st).Get(thor.KeyProposerEndorsement)
-
-	candidates := authority.Candidates(endorsement, thor.MaxBlockProposers)
-	proposers := make([]poa.Proposer, 0, len(candidates))
-	for _, c := range candidates {
-		proposers = append(proposers, poa.Proposer{
-			Address: c.NodeMaster,
-			Active:  c.Active,
-		})
-	}
-
-	sched, err := poa.NewScheduler(signer, proposers, parent.Number(), parent.Timestamp())
-	if err != nil {
-		return consensusError(fmt.Sprintf("block signer invalid: %v %v", signer, err))
-	}
-
-	if !sched.IsTheTime(header.Timestamp()) {
-		return consensusError(fmt.Sprintf("block timestamp unscheduled: t %v, s %v", header.Timestamp(), signer))
-	}
-
-	updates, score := sched.Updates(header.Timestamp())
-	if parent.TotalScore()+score != header.TotalScore() {
-		return consensusError(fmt.Sprintf("block total score invalid: want %v, have %v", parent.TotalScore()+score, header.TotalScore()))
-	}
-
-	for _, proposer := range updates {
-		authority.Update(proposer.Address, proposer.Active)
-	}
-
-	return nil
-}
-
-func (c *Consensus) validateBlockBody(blk *block.Block) error {
-	header := blk.Header()
-	txs := blk.Transactions()
-	if header.TxsRoot() != txs.RootHash() {
-		return consensusError(fmt.Sprintf("block txs root mismatch: want %v, have %v", header.TxsRoot(), txs.RootHash()))
-	}
-
-	for _, tx := range txs {
-		if _, err := tx.Signer(); err != nil {
-			return consensusError(fmt.Sprintf("tx signer unavailable: %v", err))
-		}
-
-		switch {
-		case tx.ChainTag() != c.chain.Tag():
-			return consensusError(fmt.Sprintf("tx chain tag mismatch: want %v, have %v", c.chain.Tag(), tx.ChainTag()))
-		case header.Number() < tx.BlockRef().Number():
-			return consensusError(fmt.Sprintf("tx ref future block: ref %v, current %v", tx.BlockRef().Number(), header.Number()))
-		case tx.IsExpired(header.Number()):
-			return consensusError(fmt.Sprintf("tx expired: ref %v, current %v, expiration %v", tx.BlockRef().Number(), header.Number(), tx.Expiration()))
-		case tx.HasReservedFields():
-			return consensusError(fmt.Sprintf("tx reserved fields not empty"))
+	for _, p := range cv.csPeers {
+		//p.sendConsensusMsg(msg)
+		if cv.csReactor.sendConsensusMsg(msg, p) {
+			fmt.Println("send consnmessage to ", p, " succesfully")
+		} else {
+			fmt.Println("send consnmessage to ", p, " failed")
 		}
 	}
 
-	return nil
+	return true
 }
 
-func (c *Consensus) verifyBlock(blk *block.Block, state *state.State) (*state.Stage, tx.Receipts, error) {
-	var totalGasUsed uint64
-	txs := blk.Transactions()
-	receipts := make(tx.Receipts, 0, len(txs))
-	processedTxs := make(map[thor.Bytes32]bool)
-	header := blk.Header()
-	signer, _ := header.Signer()
-	rt := runtime.New(
-		c.chain.NewSeeker(header.ParentID()),
-		state,
-		&xenv.BlockContext{
-			Beneficiary: header.Beneficiary(),
-			Signer:      signer,
-			Number:      header.Number(),
-			Time:        header.Timestamp(),
-			GasLimit:    header.GasLimit(),
-			TotalScore:  header.TotalScore(),
-		})
+//validator receives the initiated messages
+func NewConsensusValidator(conR *ConsensusReactor) *ConsensusValidator {
+	var cv ConsensusValidator
 
-	findTx := func(txID thor.Bytes32) (found bool, reverted bool, err error) {
-		if reverted, ok := processedTxs[txID]; ok {
-			return true, reverted, nil
-		}
-		meta, err := c.chain.GetTransactionMeta(txID, header.ParentID())
+	// initialize the ConsenusLeader
+	//cv.CommitteeID = conR.CommitteeID
+	cv.state = COMMITTEE_VALIDATOR_INIT
+	cv.csReactor = conR
+
+	return &cv
+}
+
+// validator need to build consensus peer topology
+func (cv *ConsensusValidator) RemoveAllcsPeers() bool {
+	cv.csPeers = []*ConsensusPeer{}
+	return true
+}
+
+func (cv *ConsensusValidator) AddcsPeer(netAddr types.NetAddress) bool {
+	csPeer := newConsensusPeer(netAddr.IP, netAddr.Port)
+	cv.csPeers = append(cv.csPeers, csPeer)
+	return true
+}
+
+// Generate commitCommittee Message
+func (cv *ConsensusValidator) GenerateCommitMessage(sig bls.Signature, msgHash [32]byte) *CommitCommitteeMessage {
+
+	curHeight := cv.csReactor.curHeight
+	curRound := cv.csReactor.curRound
+	myPubKey := cv.csReactor.myPubKey
+
+	cmnHdr := ConsensusMsgCommonHeader{
+		Height:    curHeight,
+		Round:     curRound,
+		Sender:    myPubKey,
+		Timestamp: time.Now(),
+		MsgType:   CONSENSUS_MSG_COMMIT_COMMITTEE,
+	}
+
+	index := cv.csReactor.GetCommitteeMemberIndex(myPubKey)
+	msg := &CommitCommitteeMessage{
+		CSMsgCommonHeader: cmnHdr,
+
+		CommitteeID:        uint32(cv.CommitteeID),
+		CommitteeSize:      cv.csReactor.committeeSize,
+		CommitterID:        myPubKey,
+		CSCommitterPubKey:  cv.csReactor.csCommon.system.PubKeyToBytes(cv.csReactor.csCommon.PubKey), //bls pubkey
+		CommitterSignature: cv.csReactor.csCommon.system.SigToBytes(sig),                             //TBD
+		CommitterIndex:     index,
+		SignedMessageHash:  msgHash,
+	}
+
+	//fmt.Println("CommitCommittee Message: ", msg.String())
+	return msg
+}
+
+// get the proposer in validator set based on round
+func (cv *ConsensusValidator) GetCurRoundProposer() *CommitteeMember {
+	curRound := cv.csReactor.curRound
+	return &cv.csReactor.curActualCommittee[curRound]
+}
+
+// process Announcement from committee leader, join the committee
+// if I am included
+func (cv *ConsensusValidator) ProcessAnnounceCommittee(announceMsg *AnnounceCommitteeMessage, src *ConsensusPeer) bool {
+	//logger := cv.csReactor.Logger
+
+	// only process this message at the state of init
+	if cv.state != COMMITTEE_VALIDATOR_INIT {
+		fmt.Println("only process announcement in state COMMITTEE_VALIDATOR_INIT, current state is %v",
+			cv.state)
+		return true
+	}
+
+	//Decode Nonce form message, create validator set
+
+	// valid the common header first
+	/*** keep it for a while
+	announceMsg, ok := interface{}(announce).(AnnounceCommitteeMessage)
+	if ok != false {
+		fmt.Println("Message type is not AnnounceCommitteeMessage")
+		return false
+	}
+	***/
+
+	ch := announceMsg.CSMsgCommonHeader
+	if ch.Height != cv.csReactor.curHeight {
+		fmt.Println("Height mismatch!, curHeight %d, the incoming %d", cv.csReactor.curHeight, ch.Height)
+		return false
+	}
+
+	if ch.Round != 0 && ch.Round != cv.csReactor.curRound {
+		fmt.Println("Round mismatch!, curRound %d, the incoming %d", cv.csReactor.curRound, ch.Round)
+		return false
+	}
+
+	if ch.MsgType != CONSENSUS_MSG_ANNOUNCE_COMMITTEE {
+		fmt.Println("MsgType is not CONSENSUS_MSG_ANNOUNCE_COMMITTEE")
+		return false
+	}
+
+	// valid the senderindex is leader from the publicKey
+	if ch.Sender != announceMsg.AnnouncerID {
+		fmt.Println("Announce sender and AnnouncerID mismatch")
+		return false
+	}
+
+	// Now the announce message is OK
+
+	//get the nonce
+	nonce := announceMsg.Nonce
+	buf := make([]byte, binary.MaxVarintLen64)
+	binary.PutUvarint(buf, nonce)
+	role, inCommittee := cv.csReactor.NewValidatorSetByNonce(buf)
+	if !inCommittee {
+		fmt.Println("I am not in committee, do nothing ...")
+		return false
+	}
+
+	if (role != CONSENSUS_COMMIT_ROLE_VALIDATOR) && (role != CONSENSUS_COMMIT_ROLE_LEADER) {
+		fmt.Println("I am not the validtor/leader of committee ...")
+		return false
+	}
+
+	// Verify Leader is announce sender?
+	lv := cv.csReactor.curCommittee.Validators[0]
+	if lv.PubKey != ch.Sender {
+		fmt.Println("Sender is not leader in my committee ...")
+		return false
+	}
+
+	// update cspeers, build consensus peer topology
+	// Right now is HUB topology, simply point back to proposer or leader
+	cv.RemoveAllcsPeers()
+	cv.AddcsPeer(src.netAddr)
+
+	// I am in committee, sends the commit message to join the CommitCommitteeMessage
+	//build signature
+	// initiate csCommon based on received params and system
+	cv.csReactor.csCommon = NewValidatorConsensusCommon(cv.csReactor, announceMsg.CSParams, announceMsg.CSSystem)
+
+	offset := announceMsg.SignOffset
+	length := announceMsg.SignLength
+
+	signMsg := cv.csReactor.BuildAnnounceSignMsg(announceMsg.AnnouncerID, uint32(announceMsg.CommitteeID), uint64(ch.Height), uint32(ch.Round))
+	fmt.Println("offset & length: ", offset, length, "sign msg:", signMsg)
+
+	if int(offset+length) > len(signMsg) {
+		fmt.Println("out of boundary ...")
+		return false
+	}
+
+	sign := cv.csReactor.csCommon.SignMessage([]byte(signMsg), uint32(offset), uint32(length))
+	msgHash := cv.csReactor.csCommon.Hash256Msg([]byte(signMsg), uint32(offset), uint32(length))
+	msg := cv.GenerateCommitMessage(sign, msgHash)
+
+	fmt.Println("CommitCommittee Message: ", msg.String())
+	var m ConsensusMessage = msg
+	cv.SendMsg(&m)
+	cv.state = COMMITTEE_VALIDATOR_COMMITSENT
+
+	//update conR
+	cv.csReactor.curRound = 0
+	cv.csReactor.curCommitteeID = announceMsg.CommitteeID
+	return true
+}
+
+// Generate VoteForProposal Message
+func (cv *ConsensusValidator) GenerateVoteForProposalMessage(sig bls.Signature, msgHash [32]byte) *VoteForProposalMessage {
+
+	curHeight := cv.csReactor.curHeight
+	curRound := cv.csReactor.curRound
+
+	cmnHdr := ConsensusMsgCommonHeader{
+		Height:    curHeight,
+		Round:     curRound,
+		Sender:    cv.csReactor.myPubKey,
+		Timestamp: time.Now(),
+		MsgType:   CONSENSUS_MSG_VOTE_FOR_PROPOSAL,
+	}
+
+	myPubKey := cv.csReactor.myPubKey
+	index := cv.csReactor.GetCommitteeMemberIndex(myPubKey)
+	msg := &VoteForProposalMessage{
+		CSMsgCommonHeader: cmnHdr,
+
+		VoterID:           myPubKey,
+		CSVoterPubKey:     cv.csReactor.csCommon.system.PubKeyToBytes(cv.csReactor.csCommon.PubKey),
+		VoterSignature:    cv.csReactor.csCommon.system.SigToBytes(sig), //TBD
+		VoterIndex:        index,
+		SignedMessageHash: msgHash,
+	}
+
+	//fmt.Println("VoterForProposal Message: ", msg.String())
+	return msg
+}
+
+func (cv *ConsensusValidator) ProcessProposalBlockMessage(proposalMsg *ProposalBlockMessage, src *ConsensusPeer) bool {
+	//logger := cv.csReactor.Logger
+
+	// only process this message at the state of commitsent
+	if cv.state != COMMITTEE_VALIDATOR_COMMITSENT {
+		fmt.Println("only process announcement in state COMMITTEE_VALIDATOR_COMMITSENT, current state is %v",
+			cv.state)
+		return false
+	}
+
+	// valid the common header first
+	/****
+	proposalMsg, ok := interface{}(proposal).(ProposalBlockMessage)
+	if ok != false {
+		fmt.Println("Message type is not ProposalBlockMessage")
+		return false
+	}
+	****/
+
+	ch := proposalMsg.CSMsgCommonHeader
+	if ch.Height != cv.csReactor.curHeight {
+		fmt.Println("Height mismatch!, curHeight %d, the incoming %d", cv.csReactor.curHeight, ch.Height)
+		return false
+	}
+
+	if ch.Round != 0 && ch.Round != cv.csReactor.curRound {
+		fmt.Println("Round mismatch!, curRound %d, the incoming %d", cv.csReactor.curRound, ch.Round)
+		return false
+	}
+
+	if ch.MsgType != CONSENSUS_MSG_PROPOSAL_BLOCK {
+		fmt.Println("MsgType is not CONSENSUS_MSG_PROPOSAL_BLOCK")
+		return false
+	}
+
+	// valid the senderindex is leader from the publicKey
+	if ch.Sender != proposalMsg.ProposerID {
+		fmt.Println("Proposal sender and proposalID mismatch")
+		return false
+	}
+
+	// Now the proposal message is OK
+	block := proposalMsg.ProposedBlock
+	size := proposalMsg.ProposedSize
+	if size != len(block) {
+		//logger.Error("proposal block size mismatch")
+		fmt.Println("proposal block size mismatch ...")
+		return false
+	}
+
+	//isKBlock := (ch.MsgSubType == PROPOSE_MSG_SUBTYPE_KBLOCK)
+	// TBD: Validate block
+	// XXX: Yang: address it later
+	/****************
+	if isKBlock {
+		kblock, err := blockchain.DeserializedKblock(block)
 		if err != nil {
-			if c.chain.IsNotFound(err) {
-				return false, false, nil
-			}
-			return false, false, err
+			//logger.Error("Deserialed kblock failed")
+			fmt.Println("Deserialed kblock failed ...")
+			return false
 		}
-		return true, meta.Reverted, nil
-	}
-
-	for _, tx := range txs {
-		// check if tx existed
-		if found, _, err := findTx(tx.ID()); err != nil {
-			return nil, nil, err
-		} else if found {
-			return nil, nil, consensusError("tx already exists")
-		}
-
-		// check depended tx
-		if dep := tx.DependsOn(); dep != nil {
-			found, reverted, err := findTx(*dep)
-			if err != nil {
-				return nil, nil, err
-			}
-			if !found {
-				return nil, nil, consensusError("tx dep broken")
-			}
-
-			if reverted {
-				return nil, nil, consensusError("tx dep reverted")
-			}
-		}
-
-		receipt, err := rt.ExecuteTransaction(tx)
+		// TODO: wait for API
+		fmt.Println("Deserilaized Kblock:", kblock)
+		//if blockchain.ValidateKBlock(kblock) == false {
+		//      fmt.Println("validate Kblock failed")
+		//      return false
+		//}
+	} else {
+		mblock, err := blockchain.DeserializedMBlock(block)
 		if err != nil {
-			return nil, nil, err
+			//logger.Error("Deserialize Mblock failed")
+			fmt.Println("Deserialize Mblock failed...")
+			return false
 		}
+		fmt.Println("Deserialized Mblock:", mblock)
+		//ValidateMBlock(block, size)
+	}
+	***********/
 
-		totalGasUsed += receipt.GasUsed
-		receipts = append(receipts, receipt)
-		processedTxs[tx.ID()] = receipt.Reverted
+	// update cspeers, build consensus peer topology
+	// Right now is HUB topology, simply point back to proposer or leader
+	cv.RemoveAllcsPeers()
+	cv.AddcsPeer(src.netAddr)
+
+	// Block is OK, send back voting
+	offset := proposalMsg.SignOffset
+	length := proposalMsg.SignLength
+	signMsg := cv.csReactor.BuildProposalBlockSignMsg(proposalMsg.ProposerID, uint32(ch.MsgSubType), uint64(ch.Height), uint32(ch.Round))
+	fmt.Println("offset & legnth: ", offset, length, " sign Msg:", signMsg)
+
+	sign := cv.csReactor.csCommon.SignMessage([]byte(signMsg), uint32(offset), uint32(length))
+	msgHash := cv.csReactor.csCommon.Hash256Msg([]byte(signMsg), uint32(offset), uint32(length))
+	msg := cv.GenerateVoteForProposalMessage(sign, msgHash)
+
+	fmt.Println("VoterForProposal Message: ", msg.String())
+	var m ConsensusMessage = msg
+	cv.SendMsg(&m)
+	cv.state = COMMITTEE_VALIDATOR_COMMITSENT
+
+	return true
+}
+
+// process notary Block Messag
+func (cv *ConsensusValidator) ProcessNotaryBlockMessage(notaryMsg *NotaryBlockMessage, src *ConsensusPeer) bool {
+	// only process this message at the state of commitsent
+	if cv.state != COMMITTEE_VALIDATOR_COMMITSENT {
+		fmt.Println("only process Notary in state COMMITTEE_VALIDATOR_COMMITSENT, current state is %v",
+			cv.state)
+		return false
 	}
 
-	if header.GasUsed() != totalGasUsed {
-		return nil, nil, consensusError(fmt.Sprintf("block gas used mismatch: want %v, have %v", header.GasUsed(), totalGasUsed))
+	// valid the common header first
+	/****
+	notaryMsg, ok := interface{}(notary).(NotaryBlockMessage)
+	if ok != false {
+		fmt.Println("Message type is not NotaryBlockMessage")
+		return false
+	}
+	****/
+
+	ch := notaryMsg.CSMsgCommonHeader
+	if ch.Height != cv.csReactor.curHeight {
+		fmt.Println("Height mismatch!, curHeight %d, the incoming %d", cv.csReactor.curHeight, ch.Height)
+		return false
 	}
 
-	receiptsRoot := receipts.RootHash()
-	if header.ReceiptsRoot() != receiptsRoot {
-		return nil, nil, consensusError(fmt.Sprintf("block receipts root mismatch: want %v, have %v", header.ReceiptsRoot(), receiptsRoot))
+	if ch.Round != 0 && ch.Round != cv.csReactor.curRound {
+		fmt.Println("Round mismatch!, curRound %d, the incoming %d", cv.csReactor.curRound, ch.Round)
+		return false
 	}
 
-	if err := rt.Seeker().Err(); err != nil {
-		return nil, nil, errors.WithMessage(err, "chain")
+	if ch.MsgType != CONSENSUS_MSG_NOTARY_BLOCK {
+		fmt.Println("MsgType is not CONSENSUS_MSG_NOTARY_BLOCK")
+		return false
 	}
 
-	stage := state.Stage()
-	stateRoot, err := stage.Hash()
-	if err != nil {
-		return nil, nil, err
+	// valid the senderindex is leader from the publicKey
+	if ch.Sender != notaryMsg.ProposerID {
+		fmt.Println("Proposal sender and proposalID mismatch")
+		return false
 	}
 
-	if blk.Header().StateRoot() != stateRoot {
-		return nil, nil, consensusError(fmt.Sprintf("block state root mismatch: want %v, have %v", header.StateRoot(), stateRoot))
+	// Now validate voter bitarray and aggaregated signature.
+
+	// Block is OK, send notary voting back
+	offset := notaryMsg.SignOffset
+	length := notaryMsg.SignLength
+
+	signMsg := cv.csReactor.BuildNotaryBlockSignMsg(notaryMsg.ProposerID, uint32(ch.MsgSubType), uint64(ch.Height), uint32(ch.Round))
+	fmt.Println(signMsg)
+
+	sign := cv.csReactor.csCommon.SignMessage([]byte(signMsg), uint32(offset), uint32(length))
+	msgHash := cv.csReactor.csCommon.Hash256Msg([]byte(signMsg), uint32(offset), uint32(length))
+	msg := cv.GenerateVoteForNotaryMessage(sign, msgHash, VOTE_FOR_NOTARY_BLOCK)
+
+	fmt.Println("VoteForNotary(Block) Message: ", msg.String())
+	var m ConsensusMessage = msg
+	cv.SendMsg(&m)
+
+	return true
+}
+
+// process notary Block Message
+func (cv *ConsensusValidator) ProcessNotaryAnnounceMessage(notaryMsg *NotaryAnnounceMessage, src *ConsensusPeer) bool {
+	// only process this message at the state of commitsent
+	if cv.state != COMMITTEE_VALIDATOR_COMMITSENT {
+		fmt.Println("only process Notary in state COMMITTEE_VALIDATOR_COMMITSENT, current state is %v",
+			cv.state)
+		return false
 	}
 
-	return stage, receipts, nil
+	// valid the common header first
+	/***
+	notaryMsg, ok := interface{}(notary).(NotaryAnnounceMessage)
+	if ok != false {
+		fmt.Println("Message type is not NotaryBlockMessage")
+		return false
+	}
+	***/
+
+	ch := notaryMsg.CSMsgCommonHeader
+	if ch.Height != cv.csReactor.curHeight {
+		fmt.Println("Height mismatch!, curHeight %d, the incoming %d", cv.csReactor.curHeight, ch.Height)
+		return false
+	}
+
+	if ch.Round != 0 && ch.Round != cv.csReactor.curRound {
+		fmt.Println("Round mismatch!, curRound %d, the incoming %d", cv.csReactor.curRound, ch.Round)
+		return false
+	}
+
+	if ch.MsgType != CONSENSUS_MSG_NOTARY_ANNOUNCE {
+		fmt.Println("MsgType is not CONSENSUS_MSG_NOTARY_ANNOUNCE")
+		return false
+	}
+
+	// valid the senderindex is leader from the publicKey
+
+	if ch.Sender != notaryMsg.AnnouncerID {
+		fmt.Println("Proposal sender and AnnouncerID mismatch")
+		return false
+	}
+
+	// Now the notary Announce message is OK
+
+	// Validate Actual Committee
+	if notaryMsg.CommitteeActualSize != len(notaryMsg.CommitteeActualMembers) {
+		fmt.Println("ActualCommittee length mismatch ...")
+		return false
+	}
+
+	// Update the curActualCommittee by receving Notary message
+	cv.csReactor.curActualCommittee = cv.csReactor.BuildCommitteeMemberFromInfo(notaryMsg.CommitteeActualMembers)
+
+	// TBD: validate announce bitarray & signature
+
+	// Block is OK, send back voting
+	offset := notaryMsg.SignOffset
+	length := notaryMsg.SignLength
+
+	signMsg := cv.csReactor.BuildNotaryAnnounceSignMsg(notaryMsg.AnnouncerID, uint32(notaryMsg.CommitteeID), uint64(ch.Height), uint32(ch.Round))
+	fmt.Println(signMsg)
+
+	sign := cv.csReactor.csCommon.SignMessage([]byte(signMsg), uint32(offset), uint32(length))
+	msgHash := cv.csReactor.csCommon.Hash256Msg([]byte(signMsg), uint32(offset), uint32(length))
+	msg := cv.GenerateVoteForNotaryMessage(sign, msgHash, VOTE_FOR_NOTARY_ANNOUNCE)
+
+	fmt.Println("VoteForNotary(Announce) Message: ", msg.String())
+	var m ConsensusMessage = msg
+	cv.SendMsg(&m)
+
+	return true
+}
+
+// Generate VoteForProposal Message
+func (cv *ConsensusValidator) GenerateVoteForNotaryMessage(sig bls.Signature, msgHash [32]byte, MsgSubType byte) *VoteForNotaryMessage {
+
+	curHeight := cv.csReactor.curHeight
+	curRound := cv.csReactor.curRound
+
+	cmnHdr := ConsensusMsgCommonHeader{
+		Height:     curHeight,
+		Round:      curRound,
+		Sender:     cv.csReactor.myPubKey,
+		Timestamp:  time.Now(),
+		MsgType:    CONSENSUS_MSG_VOTE_FOR_NOTARY,
+		MsgSubType: MsgSubType,
+	}
+
+	myPubKey := cv.csReactor.myPubKey
+	index := cv.csReactor.GetCommitteeMemberIndex(myPubKey)
+	msg := &VoteForNotaryMessage{
+		CSMsgCommonHeader: cmnHdr,
+
+		VoterID:           myPubKey,
+		CSVoterPubKey:     cv.csReactor.csCommon.system.PubKeyToBytes(cv.csReactor.csCommon.PubKey),
+		VoterSignature:    cv.csReactor.csCommon.system.SigToBytes(sig), //TBD
+		VoterIndex:        index,
+		SignedMessageHash: msgHash,
+	}
+
+	//fmt.Println("VoterForNotary Message: ", msg.String())
+	return msg
+}
+
+// Process the MoveNewRoundMessage
+func (cv *ConsensusValidator) ProcessMoveNewRoundMessage(newRoundMsg *MoveNewRoundMessage, src *ConsensusPeer) bool {
+	// only process this message at the state of commitsent
+	if cv.state != COMMITTEE_VALIDATOR_COMMITSENT {
+		fmt.Println("only process Notary in state COMMITTEE_VALIDATOR_COMMITSENT, current state is %v",
+			cv.state)
+		return false
+	}
+
+	ch := newRoundMsg.CSMsgCommonHeader
+	if ch.Height != cv.csReactor.curHeight {
+		fmt.Println("Height mismatch!, curHeight %d, the incoming %d", cv.csReactor.curHeight, ch.Height)
+		return false
+	}
+
+	if ch.Round != 0 && ch.Round != cv.csReactor.curRound {
+		fmt.Println("Round mismatch!, curRound %d, the incoming %d", cv.csReactor.curRound, ch.Round)
+
+		// since the height is the same, it is possible we missed some rounds, pace the round!
+		if ch.Round > cv.csReactor.curRound {
+			cv.csReactor.curRound = ch.Round
+		} else {
+			return false
+		}
+	}
+
+	if ch.MsgType != CONSENSUS_MSG_MOVE_NEW_ROUND {
+		fmt.Println("MsgType is not CONSENSUS_MSG_MOVE_NEW_ROUND")
+		return false
+	}
+
+	// TBD: sender must be current proposer or leader
+	/****
+	if ch.Sender != newRoundMsg.CurProposer {
+		fmt.Println("Proposal sender and proposalID mismatch")
+		return false
+	}
+	***/
+
+	if cv.csReactor.curRound != newRoundMsg.CurRound {
+		fmt.Println("curRound mismatch! curRound:", cv.csReactor.curRound, " in msg: ", newRoundMsg.CurRound)
+		return false
+	}
+
+	if cv.csReactor.curHeight != newRoundMsg.Height {
+		fmt.Println("curRound mismatch! curHeight:", cv.csReactor.curHeight, " in msg: ", newRoundMsg.Height)
+		return false
+	}
+
+	//HACK for test: Right now the ActualCommittee is empty.
+
+	// Now validate current proposer and new proposer
+	curProposer := cv.csReactor.getCurrentProposer()
+	if bytes.Equal(crypto.FromECDSAPub(&curProposer.PubKey), crypto.FromECDSAPub(&newRoundMsg.CurProposer)) == false {
+		fmt.Println("curProposer mismacth!")
+		return false
+	}
+
+	newProposer := cv.csReactor.getRoundProposer(newRoundMsg.NewRound)
+	if bytes.Equal(crypto.FromECDSAPub(&newProposer.PubKey), crypto.FromECDSAPub(&newRoundMsg.NewProposer)) == false {
+		fmt.Println("newProposer mismacth!")
+		return false
+	}
+
+	cv.csReactor.updateHeightRound(newRoundMsg.Height, newRoundMsg.NewRound)
+
+	// Have move to next round, check I am the new round proposer
+	if bytes.Equal(crypto.FromECDSAPub(&newProposer.PubKey), crypto.FromECDSAPub(&cv.csReactor.myPubKey)) {
+		fmt.Println("I am porposer of round", newRoundMsg.NewRound)
+		cv.csReactor.ScheduleProposer(0)
+	}
+
+	//XXX: TBD if I am the next proposer, wait for more time to schedule myself as
+	//proposer in case the proposers before me are all dead.
+	return true
 }

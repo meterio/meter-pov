@@ -16,6 +16,11 @@ import (
 	"github.com/vechain/thor/thor"
 )
 
+const (
+	BLOCK_TYPE_K_BLOCK = uint32(1)
+	BLOCK_TYPE_M_BLOCK = uint32(2)
+)
+
 // Header contains almost all information about a block, except block body.
 // It's immutable.
 type Header struct {
@@ -30,10 +35,13 @@ type Header struct {
 
 // headerBody body of header
 type headerBody struct {
-	ParentID    thor.Bytes32
-	Timestamp   uint64
-	GasLimit    uint64
-	Beneficiary thor.Address
+	ParentID     thor.Bytes32
+	LastKBlockID thor.Bytes32
+	Timestamp    uint64
+	GasLimit     uint64
+	BlockType    uint32
+	Beneficiary  thor.Address
+	Proposer     thor.Address
 
 	GasUsed    uint64
 	TotalScore uint64

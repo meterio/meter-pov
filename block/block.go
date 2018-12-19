@@ -8,18 +8,52 @@ package block
 import (
 	"fmt"
 	"io"
+	"math/big"
 	"sync/atomic"
 
 	"github.com/ethereum/go-ethereum/rlp"
+	cmn "github.com/vechain/thor/libs/common"
 	"github.com/vechain/thor/metric"
+	"github.com/vechain/thor/thor"
 	"github.com/vechain/thor/tx"
+	"github.com/vechain/thor/types"
 )
+
+// NewEvidence records the voting/notarization aggregated signatures and bitmap
+// of validators.
+// Validators info can get from 1st proposaed block meta data
+type Evidence struct {
+	VotingSig        []byte //serialized bls signature
+	VotingBitArray   cmn.BitArray
+	NotarizeSig      []byte
+	NotarizeBitArray cmn.BitArray
+}
+
+type kBlockData struct {
+	leader     thor.Address // The new committee Leader, proposer also
+	miner      thor.Address
+	nonce      uint64   // the last of the pow block
+	difficulty *big.Int // total difficaulty
+	data       []byte
+}
+
+type CommitteeInfo struct {
+	PubKey      []byte // ecdsa pubkey
+	VotingPower int64
+	Accum       int64
+	NetAddr     types.NetAddress
+	CSPubKey    []byte // Bls pubkey
+	CSIndex     int    // Index, corresponding to the bitarray
+}
 
 // Block is an immutable block type.
 type Block struct {
-	header *Header
-	txs    tx.Transactions
-	cache  struct {
+	header        *Header
+	txs           tx.Transactions
+	evidence      Evidence
+	committeeInfo []byte
+	kBlockData    []byte
+	cache         struct {
 		size atomic.Value
 	}
 }
@@ -27,6 +61,28 @@ type Block struct {
 // Body defines body of a block.
 type Body struct {
 	Txs tx.Transactions
+}
+
+// Create new Evidence
+func NewEvidence(votingSig []byte, votingBA cmn.BitArray, notarizeSig []byte, notarizeBA cmn.BitArray) *Evidence {
+	return &Evidence{
+		VotingSig:        votingSig,
+		VotingBitArray:   votingBA,
+		NotarizeSig:      notarizeSig,
+		NotarizeBitArray: notarizeBA,
+	}
+}
+
+// Create new committee Info
+func NewCommitteeInfo(pubKey []byte, power int64, accum int64, netAddr types.NetAddress, csPubKey []byte, csIndex int) *CommitteeInfo {
+	return &CommitteeInfo{
+		PubKey:      pubKey,
+		VotingPower: power,
+		Accum:       accum,
+		NetAddr:     netAddr,
+		CSPubKey:    csPubKey,
+		CSIndex:     csIndex,
+	}
 }
 
 // Compose compose a block with all needed components

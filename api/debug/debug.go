@@ -54,7 +54,7 @@ func (d *Debug) handleTxEnv(ctx context.Context, blockID thor.Bytes32, txIndex u
 	if clauseIndex >= uint64(len(txs[txIndex].Clauses())) {
 		return nil, nil, utils.Forbidden(errors.New("clause index out of range"))
 	}
-	rt, err := consensus.New(d.chain, d.stateC).NewRuntimeForReplay(block.Header())
+	rt, err := consensus.NewConsensusReactor(d.chain, d.stateC).NewRuntimeForReplay(block.Header())
 	if err != nil {
 		return nil, nil, err
 	}

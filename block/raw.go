@@ -46,3 +46,5 @@ func (r Raw) DecodeBody() (*Body, error) {
 	}
 	return &Body{txs}, nil
 }
+
+// XXX: Decode Evidence, CommitteeInfo, KBlockData

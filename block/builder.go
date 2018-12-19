@@ -12,8 +12,11 @@ import (
 
 // Builder to make it easy to build a block object.
 type Builder struct {
-	headerBody headerBody
-	txs        tx.Transactions
+	headerBody    headerBody
+	txs           tx.Transactions
+	ev            Evidence
+	committeeInfo CommitteeInfo
+	kBlockData    kBlockData
 }
 
 // ParentID set parent id.
@@ -22,9 +25,21 @@ func (b *Builder) ParentID(id thor.Bytes32) *Builder {
 	return b
 }
 
+// LastKBlockID set last KBlock id.
+func (b *Builder) LastKBlockID(id thor.Bytes32) *Builder {
+	b.headerBody.LastKBlockID = id
+	return b
+}
+
 // Timestamp set timestamp.
 func (b *Builder) Timestamp(ts uint64) *Builder {
 	b.headerBody.Timestamp = ts
+	return b
+}
+
+// BlockType set block type BLOCK_TYPE_K_BLOCK/BLOCK_TYPE_M_BLOCK.
+func (b *Builder) BlockType(t uint32) *Builder {
+	b.headerBody.BlockType = t
 	return b
 }
 

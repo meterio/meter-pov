@@ -1,0 +1,33 @@
+[
+    {
+        "address" : "a0da10fa4e8e810c4ef3f9a3cd8091a7b10e05fd",
+        "pub_key" : {
+            "type": "tendermint/PubKeyEd25519",
+            "value": "1PX7n2DcCqpjsS3mwNEIkUUDvhcKqPBS5h6+TBgLWdM="
+        },
+        "voting_power" : "90",
+        "network_addr" : {
+            "id" : "1000",
+            "ip" : "10.1.10.12",
+            "port" : 8080,
+            "name" : "DelegateSample0"
+        },
+        "accum" : "7689255112978"
+    },
+    {
+        "address" : "d4be94fda23e12ee656b5123c9ac80bbf81971a5",
+        "pub_key": {
+            "type": "tendermint/PubKeyEd25519",
+            "value": "BE8qgZsDzJ7RqzwuSHqIHsdfHLKHrq8Gpel38/04kMM="
+        },
+        "voting_power" : "100",
+        "network_addr" : {
+            "id" : "1001",
+            "ip" : "10.1.10.183",
+            "port" : 8080,
+            "name" : "DelegateSample1"
+        },
+        "accum" : "2057045235008"
+    }
+]
+

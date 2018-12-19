@@ -38,7 +38,7 @@ var log = log15.New("pkg", "node")
 type Node struct {
 	goes   co.Goes
 	packer *packer.Packer
-	cons   *consensus.Consensus
+	cons   *consensus.ConsensusReactor
 
 	master      *Master
 	chain       *chain.Chain
@@ -60,7 +60,7 @@ func New(
 ) *Node {
 	return &Node{
 		packer:      packer.New(chain, stateCreator, master.Address(), master.Beneficiary),
-		cons:        consensus.New(chain, stateCreator),
+		cons:        consensus.NewConsensusReactor(chain, stateCreator),
 		master:      master,
 		chain:       chain,
 		logDB:       logDB,
