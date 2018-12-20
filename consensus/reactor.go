@@ -99,8 +99,8 @@ type ConsensusReactor struct {
 	csValidator       *ConsensusValidator
 
 	// store key states here
-	lastKBlockID   thor.Bytes32
-	parentBlockID  thor.Bytes32
+	lastKBlockID thor.Bytes32
+	//parentBlockID  thor.Bytes32
 	curNonce       uint64
 	curCommitteeID uint32
 	curHeight      int64 // come from parentBlockID first 4 bytes uint32
@@ -129,11 +129,8 @@ func NewConsensusReactor(chain *chain.Chain, state *state.Creator) *ConsensusRea
 	conR.internalMsgQueue = make(chan consensusMsgInfo, 100)
 	conR.schedulerQueue = make(chan consensusTimeOutInfo, 100)
 
-	//XXX: Yang: Address it later
 	//initialize height/round
-	//bcR := blockchain.GetGlobBlockChainReactor()
-	//XXX: Yang: Address it later
-	//conR.curHeight = bcR.GetBlockStore().Height()
+	conR.curHeight = int64(chain.BestBlock().Header().Number())
 	conR.curRound = 0
 
 	//XXX: Yang: Address it later Get the public key
@@ -148,25 +145,6 @@ func NewConsensusReactor(chain *chain.Chain, state *state.Creator) *ConsensusRea
 // OnStart implements BaseService by subscribing to events, which later will be
 // broadcasted to other peers and starting state if we're not in fast sync.
 func (conR *ConsensusReactor) OnStart() error {
-	//conR.Logger.Info("ConsensusReactor ", "fastSync", conR.FastSync())
-
-	// start routine that computes peer statistics for evaluating peer quality
-	//go conR.peerStatsRoutine()
-
-	//conR.subscribeToBroadcastEvents()
-
-	/*** New Consensus: This is part is entry point of consensus FSM ***/
-
-	/**************
-
-		if !conR.FastSync() {
-			err := conR.conS.Start()
-			if err != nil {
-				return err
-			}
-		}
-
-	    **************/
 
 	// Start new consensus
 	conR.NewConsensusStart()
@@ -181,16 +159,6 @@ func (conR *ConsensusReactor) OnStart() error {
 // OnStop implements BaseService by unsubscribing from events and stopping
 // state.
 func (conR *ConsensusReactor) OnStop() {
-	//conR.unsubscribeFromBroadcastEvents()
-
-	/******************
-
-		conR.conS.Stop()
-		if !conR.FastSync() {
-			conR.conS.Wait()
-		}
-
-	    *******************/
 
 	// New consensus
 	conR.NewConsensusStop()
@@ -306,8 +274,14 @@ func (conR *ConsensusReactor) UpdateHeight(height int64) bool {
 	return true
 }
 
+func (conR *ConsensusReactor) UpdateRound(round int) bool {
+	fmt.Println("Update conR.curRound to ", round)
+	conR.curRound = round
+	return true
+}
+
 // update the Height
-func (conR *ConsensusReactor) updateHeightRound(height int64, round int) bool {
+func (conR *ConsensusReactor) UpdateHeightRound(height int64, round int) bool {
 	if height != 0 {
 		conR.curHeight = height
 	}

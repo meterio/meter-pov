@@ -35,6 +35,10 @@ import (
 
 var log = log15.New("pkg", "node")
 
+var (
+    GlobNodeInst  *Node
+)
+
 type Node struct {
 	goes   co.Goes
 	packer *packer.Packer
@@ -49,6 +53,15 @@ type Node struct {
 	commitLock  sync.Mutex
 }
 
+func SetGlobNode (node *Node) bool {
+    GlobNodeInst = node
+    return true
+}
+
+func GetGlobNode () *Node {
+    return GlobNodeInst
+}
+
 func New(
 	master *Master,
 	chain *chain.Chain,
@@ -58,7 +71,7 @@ func New(
 	txStashPath string,
 	comm *comm.Communicator,
 ) *Node {
-	return &Node{
+	node := &Node{
 		packer:      packer.New(chain, stateCreator, master.Address(), master.Beneficiary),
 		cons:        consensus.NewConsensusReactor(chain, stateCreator),
 		master:      master,
@@ -68,6 +81,8 @@ func New(
 		txStashPath: txStashPath,
 		comm:        comm,
 	}
+    SetGlobNode(node)
+    return  node
 }
 
 func (n *Node) Run(ctx context.Context) error {

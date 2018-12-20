@@ -69,6 +69,11 @@ func (h *Header) Timestamp() uint64 {
 	return h.body.Timestamp
 }
 
+// BlockType returns block type of this block.
+func (h *Header) BlockType() uint32 {
+	return h.body.BlockType
+}
+
 // TotalScore returns total score that cumulated from genesis block to this one.
 func (h *Header) TotalScore() uint64 {
 	return h.body.TotalScore

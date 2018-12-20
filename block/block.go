@@ -162,3 +162,18 @@ func (b *Block) String() string {
 %v
 Transactions: %v`, b.Size(), b.header, b.txs)
 }
+
+func (b *Block) SetBlockEvidence(ev *Evidence) *Block {
+	b.evidence = *ev
+	return b
+}
+
+func (b *Block) SetBlockCommitteeInfo(ci []byte) *Block {
+	b.committeeInfo = ci
+	return b
+}
+
+func (b *Block) SetKBlockData(kBlockData []byte) *Block {
+	b.kBlockData = kBlockData
+	return b
+}

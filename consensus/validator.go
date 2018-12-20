@@ -596,7 +596,7 @@ func (cv *ConsensusValidator) ProcessMoveNewRoundMessage(newRoundMsg *MoveNewRou
 		return false
 	}
 
-	cv.csReactor.updateHeightRound(newRoundMsg.Height, newRoundMsg.NewRound)
+	cv.csReactor.UpdateHeightRound(newRoundMsg.Height, newRoundMsg.NewRound)
 
 	// Have move to next round, check I am the new round proposer
 	if bytes.Equal(crypto.FromECDSAPub(&newProposer.PubKey), crypto.FromECDSAPub(&cv.csReactor.myPubKey)) {

@@ -14,7 +14,7 @@ import (
 	"time"
 
 	//"unsafe"
-	//"github.com/vechain/thor/block"
+	"github.com/vechain/thor/block"
 	//"github.com/vechain/thor/chain"
 	//"github.com/vechain/thor/runtime"
 	//"github.com/vechain/thor/state"
@@ -579,36 +579,39 @@ func (cp *ConsensusProposer) ProcessVoteForNotary(vote4NotaryMsg *VoteForNotaryM
 		fmt.Println("===============================================================")
 		//logger.Info("")
 
-		//Yang: Address this commit later
-		/**********************************
-		//commit block height + 1, same round
-		var committeeInfo []byte
-		if cp.csReactor.curRound == 0 {
-			committeeInfo = []byte{}
-		} else {
-			committeeInfo = cp.csReactor.MakeBlockCommitteeInfo(cp.csReactor.curActualCommittee)
-		}
-
+		// only the block body are filled. Now fill the Evidence / committeeInfo/ Kblock Data if needed
 		votingSig := cp.csReactor.csCommon.system.SigToBytes(cp.proposalVoterAggSig)
 		notarizeSig := cp.csReactor.csCommon.system.SigToBytes(cp.notaryVoterAggSig)
-		evidence := blockchain.MakeNewEvidence(votingSig, *cp.proposalVoterBitArray, notarizeSig, *cp.notaryVoterBitArray)
-		block := blockchain.MakeNewBlock(cp.csReactor.curHeight+1, cp.csReactor.lastKBlockHeight, int(cp.curProposedBlockType), cp.curProposedBlock, committeeInfo, evidence)
+		evidence := block.NewEvidence(votingSig, *cp.proposalVoterBitArray, notarizeSig, *cp.notaryVoterBitArray)
 
-		if cp.csReactor.finalizeCommitBlock(block) == true {
-			cp.csReactor.updateHeightRound(cp.csReactor.curHeight+1, cp.csReactor.curRound)
-
-			logger.Info("commit block successfully")
-			time.Sleep(5 * time.Second)
-		} else {
-			logger.Info("commit block failed ...")
+		blkRaw := cp.curProposedBlock
+		blk, err := block.Raw(blkRaw).DecodeBlockBody()
+		if err != nil {
+			fmt.Println("decode block failed")
+			goto INIT_STATE
 		}
-		**************************************/
+
+		if cp.curProposedBlockType == PROPOSE_MSG_SUBTYPE_KBLOCK {
+			// XXX fill KBlockData later
+			var kBlockData []byte
+			cp.csReactor.finalizeKBlock(blk, evidence, kBlockData)
+		} else if cp.curProposedBlockType == PROPOSE_MSG_SUBTYPE_KBLOCK {
+			cp.csReactor.finalizeMBlock(blk, evidence)
+		}
+
+		if cp.csReactor.finalizeCommitBlock(blk) == true {
+			fmt.Println("commit block successfully")
+		} else {
+			fmt.Println("commit block failed ...")
+		}
 	}
 
+INIT_STATE:
 	//Finally, go to init
+	time.Sleep(5 * time.Second)
 	cp.MoveInitState(cp.state)
 
-	cp.csReactor.updateHeightRound(cp.csReactor.curHeight, cp.csReactor.curRound+1)
+	cp.csReactor.UpdateRound(cp.csReactor.curRound + 1)
 
 	return true
 }

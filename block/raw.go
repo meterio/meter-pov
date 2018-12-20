@@ -7,6 +7,7 @@ package block
 
 import (
 	"bytes"
+	"fmt"
 
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/vechain/thor/tx"
@@ -48,3 +49,22 @@ func (r Raw) DecodeBody() (*Body, error) {
 }
 
 // XXX: Decode Evidence, CommitteeInfo, KBlockData
+
+// DecodeBlockBody decode block header & tx part.
+func (r Raw) DecodeBlockBody() (*Block, error) {
+
+	//XXX Address this later
+	hdr, err := r.DecodeHeader()
+	if err != nil {
+		fmt.Println("header decode fail")
+		return nil, err
+	}
+
+	body, err := r.DecodeBody()
+	if err != nil {
+		fmt.Println("body decode fail")
+		return nil, err
+	}
+
+	return Compose(hdr, body.Txs), nil
+}

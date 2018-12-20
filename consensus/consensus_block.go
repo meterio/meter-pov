@@ -8,6 +8,7 @@ package consensus
 import (
 	//"crypto/ecdsa"
 	"fmt"
+	"time"
 
 	"github.com/pkg/errors"
 	"github.com/vechain/thor/block"
@@ -324,64 +325,63 @@ func (c *ConsensusReactor) verifyBlock(blk *block.Block, state *state.State) (*s
 //---------------block store new wrappers routines ----------
 
 //
-func (conR *ConsensusReactor) finalizeMBlock(block *block.Block) bool {
+func (conR *ConsensusReactor) finalizeMBlock(blk *block.Block, ev *block.Evidence) bool {
+
+	var committeeInfo []byte
+	if conR.curRound == 0 {
+		committeeInfo = []byte{}
+	} else {
+		committeeInfo = conR.MakeBlockCommitteeInfo(conR.curActualCommittee)
+	}
+
+	blk.SetBlockEvidence(ev)
+	blk.SetBlockCommitteeInfo(committeeInfo)
+
+	// XXX: update the cache size of this block. the
 	return true
 }
 
-func (conR *ConsensusReactor) finalizeKBlock(block *block.Block) bool {
+func (conR *ConsensusReactor) finalizeKBlock(blk *block.Block, ev *block.Evidence, kBlockData []byte) bool {
+	blk.SetBlockEvidence(ev)
+	blk.SetKBlockData(kBlockData)
+
+	// XXX:update the cache size
 	return true
 }
 
-func (conR *ConsensusReactor) finalizeCommitBlock(block *block.Block) bool {
-	/*******************
-	height := block.BlockHeight
+func (conR *ConsensusReactor) finalizeCommitBlock(blk *block.Block) bool {
+	height := int64(blk.Header().Number())
 	if (conR.curHeight + 1) != height {
-		conR.Logger.Error(fmt.Sprintf("finalizeCommitBlock(%v): Invalid height. Current: %v/%v", height, conR.curHeight, conR.curRound))
+		fmt.Println(fmt.Sprintf("finalizeCommitBlock(%v): Invalid height. Current: %v/%v", height, conR.curHeight, conR.curRound))
 		return false
 	}
 
-	//get block reactor
-	bcR := blockchain.GetGlobBlockChainReactor()
-	if bcR == nil {
-		panic("Error getting block chain reactor ")
+	// similar to node.processBlock
+	now := uint64(time.Now().Unix())
+	stage, receipts, err := conR.Process(blk, now)
+	if err != nil {
+		fmt.Println("failed to process block", "err", err)
 		return false
 	}
 
-	blockStore := bcR.GetBlockStore()
-	fmt.Println("blockStore Height", blockStore.Height(), "commit height", height)
-	if height <= blockStore.Height() {
-		fmt.Println("Height mismatch. my height", height, "stored height", blockStore.Height())
+	if _, err := stage.Commit(); err != nil {
+		fmt.Println("failed to commit state", "err", err)
 		return false
 	}
 
-	// XXX: need to validate the block with newEvidence
-	//if blockchain.ValidateBlock(block) == false {
-	//	fmt.Println("Validate block failed ...")
-	//	return false
-	//}
-
-	// set prevHash
-	if height > 0 {
-		prevBlock := blockStore.LoadBlock(height - 1)
-		if prevBlock != nil {
-			block.SetBlockPrevHash(prevBlock.GetHash())
-		}
+	fork, err := conR.chain.AddBlock(blk, receipts)
+	if err != nil {
+		fmt.Println("add block failed ...", "err", err)
+		return false
 	}
 
-	// get current block hash
-	//blockHash := block.getHash()
+	// unlike processBlock, we do not need to handle fork
+	if fork != nil {
+		panic(" chain is in forked state, something wrong")
+	}
 
-	// save this block to persistence store
-	blockParts := block.MakePartSet(types.BlockPartSizeBytes)
-	blockStore.SaveBlock(block, blockParts)
-
-	// block is saved. before broadcast out, update pool height to indicated I
-	// already have this block.
-	bcR.GetBlockPool().IncrPoolHeight()
-	bcR.BroadcastBlock(block)
-
-	// apply block???
-	*******************/
+	// successfully added the block, update the current hight of consensus
+	conR.UpdateHeight(int64(conR.chain.BestBlock().Header().Number()))
 
 	return true
 }
