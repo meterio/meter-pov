@@ -20,6 +20,7 @@ import (
 	"github.com/vechain/thor/state"
 	"github.com/vechain/thor/thor"
 	"github.com/vechain/thor/tx"
+	"github.com/vechain/thor/txpool"
 
 	//"github.com/vechain/thor/types"
 	crypto "github.com/ethereum/go-ethereum/crypto"
@@ -440,4 +441,39 @@ func (conR *ConsensusReactor) MakeBlockCommitteeInfo(cms []CommitteeMember) []by
 func (conR *ConsensusReactor) DecodeBlockCommitteeInfo(ciBytes []byte) (cis []block.CommitteeInfo, err error) {
 	err = cdc.UnmarshalBinaryBare(ciBytes, &cis)
 	return
+}
+
+// MBlock Routine
+//=================================================
+func GetTxFromPool(num int) tx.Transactions {
+	pool := txpool.GetGlobTxPoolInst()
+	if pool == nil {
+		fmt.Println("get tx pool failed ...")
+		return nil
+	}
+
+	txs := pool.Executables()
+	var txsToRemove []thor.Bytes32
+	defer func() {
+		for _, id := range txsToRemove {
+			pool.Remove(id)
+		}
+	}()
+
+	var rt tx.Transactions
+	for _, tx := range txs {
+		rt = append(rt, tx)
+		txsToRemove = append(txsToRemove, tx.ID())
+
+		if len(rt) >= num {
+			break
+		}
+	}
+	return rt
+}
+
+func BuildMBlock() *block.Block {
+	hdr := &block.Header{}
+	txs := GetTxFromPool(100)
+	return block.Compose(hdr, txs)
 }

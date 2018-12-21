@@ -177,3 +177,19 @@ func (b *Block) SetKBlockData(kBlockData []byte) *Block {
 	b.kBlockData = kBlockData
 	return b
 }
+
+//
+func BlockEncodeBytes(blk *Block) []byte {
+	blockBytes := cdc.MustMarshalBinaryBare(blk)
+	return blockBytes
+}
+
+func BlockDecodeFromBytes(blkBytes []byte) (*Block, error) {
+	var blk = new(Block)
+
+	err := cdc.UnmarshalBinaryBare(blkBytes, blk)
+	if err != nil {
+		panic(cmn.ErrorWrap(err, "Error reading block part"))
+	}
+	return blk, err
+}

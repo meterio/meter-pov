@@ -29,7 +29,8 @@ const (
 )
 
 var (
-	log = log15.New("pkg", "txpool")
+	log            = log15.New("pkg", "txpool")
+	GlobTxPoolInst *TxPool
 )
 
 // Options options for tx pool.
@@ -61,6 +62,15 @@ type TxPool struct {
 	goes   co.Goes
 }
 
+func SetGlobTxPoolInst(pool *TxPool) bool {
+	GlobTxPoolInst = pool
+	return true
+}
+
+func GetGlobTxPoolInst() *TxPool {
+	return GlobTxPoolInst
+}
+
 // New create a new TxPool instance.
 // Shutdown is required to be called at end.
 func New(chain *chain.Chain, stateCreator *state.Creator, options Options) *TxPool {
@@ -72,6 +82,7 @@ func New(chain *chain.Chain, stateCreator *state.Creator, options Options) *TxPo
 		done:         make(chan struct{}),
 	}
 	pool.goes.Go(pool.housekeeping)
+	SetGlobTxPoolInst(pool)
 	return pool
 }
 

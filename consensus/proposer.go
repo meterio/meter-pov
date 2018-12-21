@@ -276,8 +276,9 @@ func (cp *ConsensusProposer) buildMBlock(buildEmptyBlock bool) ([]byte, error) {
 		return []byte{}, nil
 	}
 	***************/
-	var block []byte
-	return block, nil
+	blk := BuildMBlock()
+	blkBytes := block.BlockEncodeBytes(blk)
+	return blkBytes, nil
 }
 
 // Propose the Kblock
@@ -584,8 +585,8 @@ func (cp *ConsensusProposer) ProcessVoteForNotary(vote4NotaryMsg *VoteForNotaryM
 		notarizeSig := cp.csReactor.csCommon.system.SigToBytes(cp.notaryVoterAggSig)
 		evidence := block.NewEvidence(votingSig, *cp.proposalVoterBitArray, notarizeSig, *cp.notaryVoterBitArray)
 
-		blkRaw := cp.curProposedBlock
-		blk, err := block.Raw(blkRaw).DecodeBlockBody()
+		blkBytes := cp.curProposedBlock
+		blk, err := block.BlockDecodeFromBytes(blkBytes)
 		if err != nil {
 			fmt.Println("decode block failed")
 			goto INIT_STATE

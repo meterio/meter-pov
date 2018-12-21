@@ -17,7 +17,7 @@ import (
 	"fmt"
 	"time"
 
-	//"github.com/vechain/thor/block"
+	"github.com/vechain/thor/block"
 	//"github.com/vechain/thor/chain"
 	//"github.com/vechain/thor/runtime"
 	//"github.com/vechain/thor/state"
@@ -309,42 +309,41 @@ func (cv *ConsensusValidator) ProcessProposalBlockMessage(proposalMsg *ProposalB
 	}
 
 	// Now the proposal message is OK
-	block := proposalMsg.ProposedBlock
+	blkBytes := proposalMsg.ProposedBlock
 	size := proposalMsg.ProposedSize
-	if size != len(block) {
+	if size != len(blkBytes) {
 		//logger.Error("proposal block size mismatch")
 		fmt.Println("proposal block size mismatch ...")
 		return false
 	}
 
-	//isKBlock := (ch.MsgSubType == PROPOSE_MSG_SUBTYPE_KBLOCK)
+	blk, err := block.BlockDecodeFromBytes(blkBytes)
+	if err != nil {
+		fmt.Println("Decode Block failed")
+	}
+	fmt.Println("Decoded Block", blk)
+
+	isKBlock := (ch.MsgSubType == PROPOSE_MSG_SUBTYPE_KBLOCK)
 	// TBD: Validate block
-	// XXX: Yang: address it later
-	/****************
 	if isKBlock {
-		kblock, err := blockchain.DeserializedKblock(block)
-		if err != nil {
-			//logger.Error("Deserialed kblock failed")
-			fmt.Println("Deserialed kblock failed ...")
+		if blk.Header().BlockType() != block.BLOCK_TYPE_K_BLOCK {
+			fmt.Println("block type check failed ...")
 			return false
 		}
+
 		// TODO: wait for API
-		fmt.Println("Deserilaized Kblock:", kblock)
 		//if blockchain.ValidateKBlock(kblock) == false {
 		//      fmt.Println("validate Kblock failed")
 		//      return false
 		//}
 	} else {
-		mblock, err := blockchain.DeserializedMBlock(block)
-		if err != nil {
-			//logger.Error("Deserialize Mblock failed")
-			fmt.Println("Deserialize Mblock failed...")
+		if blk.Header().BlockType() != block.BLOCK_TYPE_M_BLOCK {
+			fmt.Println("block type check failed ...")
 			return false
 		}
-		fmt.Println("Deserialized Mblock:", mblock)
+
 		//ValidateMBlock(block, size)
 	}
-	***********/
 
 	// update cspeers, build consensus peer topology
 	// Right now is HUB topology, simply point back to proposer or leader
