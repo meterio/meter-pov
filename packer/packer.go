@@ -17,6 +17,10 @@ import (
 	"github.com/vechain/thor/xenv"
 )
 
+var (
+	GlobPackerInst *Packer
+)
+
 // Packer to pack txs and build new blocks.
 type Packer struct {
 	chain          *chain.Chain
@@ -24,6 +28,15 @@ type Packer struct {
 	nodeMaster     thor.Address
 	beneficiary    *thor.Address
 	targetGasLimit uint64
+}
+
+func GetGlobPackerInst() *Packer {
+	return GlobPackerInst
+}
+
+func SetGlobPackerInst(p *Packer) bool {
+	GlobPackerInst = p
+	return true
 }
 
 // New create a new Packer instance.
@@ -34,13 +47,16 @@ func New(
 	nodeMaster thor.Address,
 	beneficiary *thor.Address) *Packer {
 
-	return &Packer{
+	p := &Packer{
 		chain,
 		stateCreator,
 		nodeMaster,
 		beneficiary,
 		0,
 	}
+
+	SetGlobPackerInst(p)
+	return p
 }
 
 // Schedule schedule a packing flow to pack new block upon given parent and clock time.
@@ -93,7 +109,7 @@ func (p *Packer) Schedule(parent *block.Header, nowTimestamp uint64) (flow *Flow
 			Signer:      p.nodeMaster,
 			Number:      parent.Number() + 1,
 			Time:        newBlockTime,
-			GasLimit:    p.gasLimit(parent.GasLimit()),
+			GasLimit:    p.GasLimit(parent.GasLimit()),
 			TotalScore:  parent.TotalScore() + score,
 		})
 
@@ -124,7 +140,7 @@ func (p *Packer) Mock(parent *block.Header, targetTime uint64, gasLimit uint64) 
 	return newFlow(p, parent, rt), nil
 }
 
-func (p *Packer) gasLimit(parentGasLimit uint64) uint64 {
+func (p *Packer) GasLimit(parentGasLimit uint64) uint64 {
 	if p.targetGasLimit != 0 {
 		return block.GasLimit(p.targetGasLimit).Qualify(parentGasLimit)
 	}

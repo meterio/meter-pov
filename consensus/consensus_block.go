@@ -23,7 +23,9 @@ import (
 	"github.com/vechain/thor/txpool"
 
 	//"github.com/vechain/thor/types"
+	"github.com/ethereum/go-ethereum/common/mclock"
 	crypto "github.com/ethereum/go-ethereum/crypto"
+	"github.com/vechain/thor/packer"
 	"github.com/vechain/thor/xenv"
 )
 
@@ -42,6 +44,7 @@ func New(chain *chain.Chain, stateCreator *state.Creator) *Consensus {
 		stateCreator: stateCreator}
 }
 ******************/
+
 // Process process a block.
 func (c *ConsensusReactor) Process(blk *block.Block, nowTimestamp uint64) (*state.Stage, tx.Receipts, error) {
 	header := blk.Header()
@@ -445,10 +448,28 @@ func (conR *ConsensusReactor) DecodeBlockCommitteeInfo(ciBytes []byte) (cis []bl
 
 // MBlock Routine
 //=================================================
-func GetTxFromPool(num int) tx.Transactions {
+
+// proposed block info
+type ProposedBlockInfo struct {
+	ProposedBlock *block.Block
+	Stage         *state.Stage
+	Receipts      *tx.Receipts
+}
+
+// Build MBlock
+func (conR *ConsensusReactor) BuildMBlock() *ProposedBlockInfo {
+	best := conR.chain.BestBlock()
+	now := uint64(time.Now().Unix())
+	if conR.curHeight != int64(best.Header().Number()) {
+		fmt.Println("Proposed block parent is not current best block")
+		return nil
+	}
+
+	startTime := mclock.Now()
 	pool := txpool.GetGlobTxPoolInst()
 	if pool == nil {
 		fmt.Println("get tx pool failed ...")
+		panic("get tx pool failed ...")
 		return nil
 	}
 
@@ -460,20 +481,66 @@ func GetTxFromPool(num int) tx.Transactions {
 		}
 	}()
 
-	var rt tx.Transactions
-	for _, tx := range txs {
-		rt = append(rt, tx)
-		txsToRemove = append(txsToRemove, tx.ID())
+	p := packer.GetGlobPackerInst()
+	if p == nil {
+		fmt.Println("get packer failed ...")
+		panic("get packer failed")
+		return nil
+	}
 
-		if len(rt) >= num {
-			break
+	gasLimit := p.GasLimit(best.Header().GasLimit())
+	flow, err := p.Mock(best.Header(), now, gasLimit)
+	if err != nil {
+		fmt.Println("mock packer", "error", err)
+		return nil
+	}
+
+	for _, tx := range txs {
+		if err := flow.Adopt(tx); err != nil {
+			if packer.IsGasLimitReached(err) {
+				break
+			}
+			if packer.IsTxNotAdoptableNow(err) {
+				continue
+			}
+			txsToRemove = append(txsToRemove, tx.ID())
 		}
 	}
-	return rt
+
+	newBlock, stage, receipts, err := flow.Pack(&conR.myPrivKey)
+	if err != nil {
+		fmt.Println("build block failed")
+		return nil
+	}
+
+	execElapsed := mclock.Now() - startTime
+	fmt.Println("MBlock built", "Height", conR.curHeight, "elapse time", execElapsed)
+	return &ProposedBlockInfo{newBlock, stage, &receipts}
 }
 
-func BuildMBlock() *block.Block {
-	hdr := &block.Header{}
-	txs := GetTxFromPool(100)
-	return block.Compose(hdr, txs)
+//=================================================
+// Packer info message from packer_loop
+const (
+	PACKER_BLOCK_SUCCESS = int(1)
+	PACKER_BLOCK_FAILED  = int(2)
+)
+
+type PackerBlockInfo struct {
+	State  int
+	Reason string
+	blk    *block.Block
+}
+
+func (conR *ConsensusReactor) HandlePackerInfo(pi PackerBlockInfo) {
+	if pi.State == PACKER_BLOCK_SUCCESS {
+		height := int64(pi.blk.Header().Number())
+		fmt.Println("pack block successfully", "height", height, pi.Reason)
+
+		// update consensus height
+		if height > conR.curHeight {
+			conR.UpdateHeight(height)
+		}
+	} else {
+		fmt.Println("pack block failed", "height", pi.blk.Header().Number(), pi.Reason)
+	}
 }

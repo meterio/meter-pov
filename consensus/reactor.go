@@ -79,7 +79,10 @@ type ConsensusReactor struct {
 	chain        *chain.Chain
 	stateCreator *state.Creator
 
-	myPubKey ecdsa.PublicKey // this is my public identification !!
+	// copy of master/node
+	myPubKey      ecdsa.PublicKey  // this is my public identification !!
+	myPrivKey     ecdsa.PrivateKey // copy of private key
+	myBeneficiary thor.Address
 
 	// still references above consensuStae, reactor if this node is
 	// involved the consensus
@@ -114,6 +117,10 @@ type ConsensusReactor struct {
 	peerMsgQueue     chan consensusMsgInfo
 	internalMsgQueue chan consensusMsgInfo
 	schedulerQueue   chan consensusTimeOutInfo
+
+	// interactive with packer
+	proposedBlockQueue chan ProposedBlockInfo
+	packerInfoQueue    chan PackerBlockInfo
 }
 
 // NewConsensusReactor returns a new ConsensusReactor with the given
@@ -597,6 +604,9 @@ func (conR *ConsensusReactor) receiveRoutine() {
 
 		case ti := <-conR.schedulerQueue:
 			conR.HandleSchedule(ti)
+
+		case pi := <-conR.packerInfoQueue:
+			conR.HandlePackerInfo(pi)
 			/***********
 			case <-conR.Quit():
 				onExit(conR)

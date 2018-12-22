@@ -45,7 +45,8 @@ type ConsensusProposer struct {
 	csReactor   *ConsensusReactor //global reactor info
 
 	// local copy of proposed block
-	curProposedBlock     []byte
+	curProposedBlockInfo ProposedBlockInfo //data structure
+	curProposedBlock     []byte            // byte slice block
 	curProposedBlockType byte
 
 	//signature data , slice signature and public key must be match
@@ -181,8 +182,8 @@ func (cp *ConsensusProposer) ProposalBlockMsg(proposalEmptyBlock bool) bool {
 			fmt.Println("build Kblock failed ...")
 			return false
 		}
-		cp.curProposedBlock = kblock
-		cp.curProposedBlockType = PROPOSE_MSG_SUBTYPE_KBLOCK
+		//cp.curProposedBlock = kblock
+		//cp.curProposedBlockType = PROPOSE_MSG_SUBTYPE_KBLOCK
 
 		cp.GenerateKBlockMsg(kblock)
 
@@ -194,8 +195,8 @@ func (cp *ConsensusProposer) ProposalBlockMsg(proposalEmptyBlock bool) bool {
 			fmt.Println("build Mblock failed ...")
 			return false
 		}
-		cp.curProposedBlock = mblock
-		cp.curProposedBlockType = PROPOSE_MSG_SUBTYPE_MBLOCK
+		//cp.curProposedBlock = mblock
+		//cp.curProposedBlockType = PROPOSE_MSG_SUBTYPE_MBLOCK
 
 		cp.GenerateMBlockMsg(mblock)
 	}
@@ -276,8 +277,14 @@ func (cp *ConsensusProposer) buildMBlock(buildEmptyBlock bool) ([]byte, error) {
 		return []byte{}, nil
 	}
 	***************/
-	blk := BuildMBlock()
-	blkBytes := block.BlockEncodeBytes(blk)
+	blkInfo := cp.csReactor.BuildMBlock()
+	blkBytes := block.BlockEncodeBytes(blkInfo.ProposedBlock)
+
+	//save to local
+	cp.curProposedBlockInfo = *blkInfo
+	cp.curProposedBlock = blkBytes
+	cp.curProposedBlockType = PROPOSE_MSG_SUBTYPE_MBLOCK
+
 	return blkBytes, nil
 }
 
