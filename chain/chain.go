@@ -170,10 +170,13 @@ func (c *Chain) AddBlock(newBlock *block.Block, receipts tx.Receipts) (*Fork, er
 		return nil, err
 	}
 
-	raw, err := rlp.EncodeToBytes(newBlock)
+	//raw, err := rlp.EncodeToBytes(newBlock)
+	raw := block.BlockEncodeBytes(newBlock)
+	/****
 	if err != nil {
 		return nil, err
 	}
+	****/
 
 	batch := c.kv.NewBatch()
 

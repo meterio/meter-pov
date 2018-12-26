@@ -607,7 +607,8 @@ func (cp *ConsensusProposer) ProcessVoteForNotary(vote4NotaryMsg *VoteForNotaryM
 			cp.csReactor.finalizeMBlock(blk, evidence)
 		}
 
-		if cp.csReactor.finalizeCommitBlock(blk) == true {
+		// commit the approved block
+		if cp.csReactor.finalizeCommitBlock(&cp.curProposedBlockInfo) == true {
 			fmt.Println("commit block successfully")
 		} else {
 			fmt.Println("commit block failed ...")

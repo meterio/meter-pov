@@ -353,7 +353,11 @@ func (conR *ConsensusReactor) finalizeKBlock(blk *block.Block, ev *block.Evidenc
 	return true
 }
 
-func (conR *ConsensusReactor) finalizeCommitBlock(blk *block.Block) bool {
+func (conR *ConsensusReactor) finalizeCommitBlock(blkInfo *ProposedBlockInfo) bool {
+	blk := blkInfo.ProposedBlock
+	stage := blkInfo.Stage
+	receipts := blkInfo.Receipts
+
 	height := int64(blk.Header().Number())
 	if (conR.curHeight + 1) != height {
 		fmt.Println(fmt.Sprintf("finalizeCommitBlock(%v): Invalid height. Current: %v/%v", height, conR.curHeight, conR.curRound))
@@ -361,19 +365,14 @@ func (conR *ConsensusReactor) finalizeCommitBlock(blk *block.Block) bool {
 	}
 
 	// similar to node.processBlock
-	now := uint64(time.Now().Unix())
-	stage, receipts, err := conR.Process(blk, now)
-	if err != nil {
-		fmt.Println("failed to process block", "err", err)
-		return false
-	}
+	startTime := mclock.Now()
 
 	if _, err := stage.Commit(); err != nil {
 		fmt.Println("failed to commit state", "err", err)
 		return false
 	}
 
-	fork, err := conR.chain.AddBlock(blk, receipts)
+	fork, err := conR.chain.AddBlock(blk, *receipts)
 	if err != nil {
 		fmt.Println("add block failed ...", "err", err)
 		return false
@@ -382,9 +381,14 @@ func (conR *ConsensusReactor) finalizeCommitBlock(blk *block.Block) bool {
 	// unlike processBlock, we do not need to handle fork
 	if fork != nil {
 		panic(" chain is in forked state, something wrong")
+		return false
 	}
 
+	commitElapsed := mclock.Now() - startTime
+
 	// successfully added the block, update the current hight of consensus
+	fmt.Println("block is commited", "height", height, "elapsed time", commitElapsed)
+	fmt.Println("block is commited", "best block height", conR.chain.BestBlock().Header().Number())
 	conR.UpdateHeight(int64(conR.chain.BestBlock().Header().Number()))
 
 	return true

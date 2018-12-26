@@ -10,13 +10,14 @@ import (
 	"github.com/vechain/thor/tx"
 )
 
+// XXX: Yang: Builder only build header and txs. evidence/committee info and kblock data built by app.
 // Builder to make it easy to build a block object.
 type Builder struct {
-	headerBody    headerBody
-	txs           tx.Transactions
-	ev            Evidence
-	committeeInfo CommitteeInfo
-	kBlockData    kBlockData
+	headerBody headerBody
+	txs        tx.Transactions
+	//	ev            Evidence
+	//	committeeInfo CommitteeInfo
+	//	kBlockData    kBlockData
 }
 
 // ParentID set parent id.
