@@ -157,7 +157,7 @@ func (conR *ConsensusReactor) OnStart() error {
 	conR.NewConsensusStart()
 
 	// force to receive nonce
-	// conR.ConsensusHandleReceivedNonce(1001)
+	conR.ConsensusHandleReceivedNonce(0, 1001)
 
 	fmt.Println("Consensus started ... ")
 	return nil
@@ -1425,9 +1425,9 @@ func configDelegates( /*myPubKey ecdsa.PublicKey*/ ) []*types.Delegate {
 
 	delegates := make([]*types.Delegate, 0)
 	for i, d := range delegates1 {
-		fmt.Printf("Delegate %d:\n Address:%s\n Public Key: %v\nVoting Power:%d\n Network Address:%v\n Accum:%d\n",
-			i+1, d.Address, d.PubKey, d.VotingPower, d.NetAddr, d.Accum)
-		fmt.Println()
+		//fmt.Printf("Delegate %d:\n Address:%s\n Public Key: %v\nVoting Power:%d\n Network Address:%v\n Accum:%d\n",
+		//	i+1, d.Address, d.PubKey, d.VotingPower, d.NetAddr, d.Accum)
+		//fmt.Println()
 		pubKey, err := crypto.UnmarshalPubkey(d.PubKey)
 		if err != nil {
 			fmt.Println("translate pubkey from bytes error")

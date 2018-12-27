@@ -36,7 +36,7 @@ import (
 var log = log15.New("pkg", "node")
 
 var (
-    GlobNodeInst  *Node
+	GlobNodeInst *Node
 )
 
 type Node struct {
@@ -53,13 +53,13 @@ type Node struct {
 	commitLock  sync.Mutex
 }
 
-func SetGlobNode (node *Node) bool {
-    GlobNodeInst = node
-    return true
+func SetGlobNode(node *Node) bool {
+	GlobNodeInst = node
+	return true
 }
 
-func GetGlobNode () *Node {
-    return GlobNodeInst
+func GetGlobNode() *Node {
+	return GlobNodeInst
 }
 
 func New(
@@ -81,8 +81,8 @@ func New(
 		txStashPath: txStashPath,
 		comm:        comm,
 	}
-    SetGlobNode(node)
-    return  node
+	SetGlobNode(node)
+	return node
 }
 
 func (n *Node) Run(ctx context.Context) error {
@@ -91,8 +91,9 @@ func (n *Node) Run(ctx context.Context) error {
 	n.goes.Go(func() { n.houseKeeping(ctx) })
 	n.goes.Go(func() { n.txStashLoop(ctx) })
 
-    //XXX: Yang: removed by new consensu. Integrated to consensus
+	//XXX: Yang: removed by new consensu. Integrated to consensus
 	//n.goes.Go(func() { n.packerLoop(ctx) })
+	n.goes.Go(func() { n.cons.OnStart() })
 
 	n.goes.Wait()
 	return nil
