@@ -27,8 +27,8 @@ func (b *Builder) ParentID(id thor.Bytes32) *Builder {
 }
 
 // LastKBlockID set last KBlock id.
-func (b *Builder) LastKBlockID(id thor.Bytes32) *Builder {
-	b.headerBody.LastKBlockID = id
+func (b *Builder) LastKBlockHeight(height uint32) *Builder {
+	b.headerBody.LastKBlockHeight = height
 	return b
 }
 

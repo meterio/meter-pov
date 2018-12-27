@@ -12,10 +12,11 @@ import (
 
 	"github.com/pkg/errors"
 	"github.com/vechain/thor/block"
-	"github.com/vechain/thor/builtin"
+
+	//"github.com/vechain/thor/builtin"
 
 	//"github.com/vechain/thor/chain"
-	"github.com/vechain/thor/poa"
+	//"github.com/vechain/thor/poa"
 	"github.com/vechain/thor/runtime"
 	"github.com/vechain/thor/state"
 	"github.com/vechain/thor/thor"
@@ -25,6 +26,7 @@ import (
 	//"github.com/vechain/thor/types"
 	"github.com/ethereum/go-ethereum/common/mclock"
 	crypto "github.com/ethereum/go-ethereum/crypto"
+	bls "github.com/vechain/thor/crypto/multi_sig"
 	"github.com/vechain/thor/packer"
 	"github.com/vechain/thor/xenv"
 )
@@ -98,6 +100,15 @@ func (c *ConsensusReactor) NewRuntimeForReplay(header *block.Header) (*runtime.R
 		return nil, err
 	}
 
+	blk, err := c.chain.GetBlock(header.ID())
+	if err != nil {
+		return nil, err
+	}
+
+	if err := c.validateEvidence(blk.GetBlockEvidence(), header); err != nil {
+		return nil, err
+	}
+
 	return runtime.New(
 		c.chain.NewSeeker(header.ParentID()),
 		state,
@@ -120,6 +131,10 @@ func (c *ConsensusReactor) validate(
 	header := block.Header()
 
 	if err := c.validateBlockHeader(header, parentHeader, nowTimestamp); err != nil {
+		return nil, nil, err
+	}
+
+	if err := c.validateEvidence(block.GetBlockEvidence(), header); err != nil {
 		return nil, nil, err
 	}
 
@@ -167,12 +182,74 @@ func (c *ConsensusReactor) validateBlockHeader(header *block.Header, parent *blo
 	return nil
 }
 
+func (c *ConsensusReactor) validateEvidence(ev *block.Evidence, header *block.Header) error {
+
+	// find out the block which has the committee info
+	// Normally we store the committee info in the first of Mblock after Kblock
+	lastKBlock := header.LastKBlockHeight()
+	b, err := c.chain.GetTrunkBlock(lastKBlock + 1)
+	if err != nil {
+		fmt.Printf("get committee info block error")
+		return consensusError(fmt.Sprintf("get committee info block failed: %v", err))
+	}
+
+	// committee members
+	cis, err := c.DecodeBlockCommitteeInfo(b.GetBlockCommitteeInfo())
+	if err != nil {
+		fmt.Printf("decode committee info block error")
+		return consensusError(fmt.Sprintf("decode committee info block failed: %v", err))
+	}
+
+	cms := c.BuildCommitteeMemberFromInfo(cis)
+	if len(cms) == 0 {
+		fmt.Printf("get committee members error")
+		return consensusError(fmt.Sprintf("get committee members failed: %v", err))
+	}
+
+	//validate voting signature
+	voteSig, err := c.csCommon.system.SigFromBytes(ev.VotingSig)
+	if err != nil {
+		fmt.Printf("Sig from bytes error")
+		return consensusError(fmt.Sprintf("voting signature from bytes failed: %v", err))
+	}
+	voteBA := ev.VotingBitArray
+
+	for _, cm := range cms {
+		if voteBA.GetIndex(cm.CSIndex) == true {
+			if bls.Verify(voteSig, ev.VotingMsgHash, cm.CSPubKey) != true {
+				fmt.Printf("voting signature validate error")
+				return consensusError(fmt.Sprintf("voting signature validate error"))
+			}
+		}
+	}
+
+	//validate notarize signature
+	notarizeSig, err := c.csCommon.system.SigFromBytes(ev.NotarizeSig)
+	if err != nil {
+		fmt.Printf("Notarize Sig from bytes error")
+		return consensusError(fmt.Sprintf("notarize signature from bytes failed: %v", err))
+	}
+	notarizeBA := ev.NotarizeBitArray
+
+	for _, cm := range cms {
+		if notarizeBA.GetIndex(cm.CSIndex) == true {
+			if bls.Verify(notarizeSig, ev.NotarizeMsgHash, cm.CSPubKey) != true {
+				fmt.Printf("notarize signature validate error")
+				return consensusError(fmt.Sprintf("notarize signature validate error"))
+			}
+		}
+	}
+
+	return nil
+}
+
 func (c *ConsensusReactor) validateProposer(header *block.Header, parent *block.Header, st *state.State) error {
 	signer, err := header.Signer()
 	if err != nil {
 		return consensusError(fmt.Sprintf("block signer unavailable: %v", err))
 	}
-
+	fmt.Println("signer", signer)
+	/***************
 	authority := builtin.Authority.Native(st)
 	endorsement := builtin.Params.Native(st).Get(thor.KeyProposerEndorsement)
 
@@ -202,7 +279,7 @@ func (c *ConsensusReactor) validateProposer(header *block.Header, parent *block.
 	for _, proposer := range updates {
 		authority.Update(proposer.Address, proposer.Active)
 	}
-
+	**************/
 	return nil
 }
 

@@ -35,13 +35,13 @@ type Header struct {
 
 // headerBody body of header
 type headerBody struct {
-	ParentID     thor.Bytes32
-	LastKBlockID thor.Bytes32
-	Timestamp    uint64
-	GasLimit     uint64
-	BlockType    uint32
-	Beneficiary  thor.Address
-	Proposer     thor.Address
+	ParentID         thor.Bytes32
+	Timestamp        uint64
+	GasLimit         uint64
+	LastKBlockHeight uint32
+	BlockType        uint32
+	Beneficiary      thor.Address
+	Proposer         thor.Address
 
 	GasUsed    uint64
 	TotalScore uint64
@@ -56,6 +56,11 @@ type headerBody struct {
 // ParentID returns id of parent block.
 func (h *Header) ParentID() thor.Bytes32 {
 	return h.body.ParentID
+}
+
+// LastBlocID returns id of parent block.
+func (h *Header) LastKBlockHeight() uint32 {
+	return h.body.LastKBlockHeight
 }
 
 // Number returns sequential number of this block.
@@ -147,6 +152,8 @@ func (h *Header) SigningHash() (hash thor.Bytes32) {
 		h.body.Timestamp,
 		h.body.GasLimit,
 		h.body.Beneficiary,
+		h.body.BlockType,
+		h.body.LastKBlockHeight,
 
 		h.body.GasUsed,
 		h.body.TotalScore,

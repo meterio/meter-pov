@@ -590,7 +590,8 @@ func (cp *ConsensusProposer) ProcessVoteForNotary(vote4NotaryMsg *VoteForNotaryM
 		// only the block body are filled. Now fill the Evidence / committeeInfo/ Kblock Data if needed
 		votingSig := cp.csReactor.csCommon.system.SigToBytes(cp.proposalVoterAggSig)
 		notarizeSig := cp.csReactor.csCommon.system.SigToBytes(cp.notaryVoterAggSig)
-		evidence := block.NewEvidence(votingSig, *cp.proposalVoterBitArray, notarizeSig, *cp.notaryVoterBitArray)
+		evidence := block.NewEvidence(votingSig, cp.proposalVoterMsgHash[0], *cp.proposalVoterBitArray,
+			notarizeSig, cp.notaryVoterMsgHash[0], *cp.notaryVoterBitArray)
 
 		blkBytes := cp.curProposedBlock
 		blk, err := block.BlockDecodeFromBytes(blkBytes)

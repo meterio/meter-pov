@@ -118,9 +118,8 @@ type ConsensusReactor struct {
 	internalMsgQueue chan consensusMsgInfo
 	schedulerQueue   chan consensusTimeOutInfo
 
-	// interactive with packer
-	proposedBlockQueue chan ProposedBlockInfo
-	packerInfoQueue    chan PackerBlockInfo
+	// kBlock data
+	KBlockDataQueue chan block.KBlockData
 }
 
 // NewConsensusReactor returns a new ConsensusReactor with the given
@@ -135,6 +134,7 @@ func NewConsensusReactor(chain *chain.Chain, state *state.Creator) *ConsensusRea
 	conR.peerMsgQueue = make(chan consensusMsgInfo, 100)
 	conR.internalMsgQueue = make(chan consensusMsgInfo, 100)
 	conR.schedulerQueue = make(chan consensusTimeOutInfo, 100)
+	conR.KBlockDataQueue = make(chan block.KBlockData, 100)
 
 	//initialize height/round
 	conR.curHeight = int64(chain.BestBlock().Header().Number())
@@ -142,7 +142,7 @@ func NewConsensusReactor(chain *chain.Chain, state *state.Creator) *ConsensusRea
 
 	//XXX: Yang: Address it later Get the public key
 	//initialize Delegates
-	//conR.curDelegates = types.NewDelegateSet(configDelegates())
+	conR.curDelegates = types.NewDelegateSet(configDelegates())
 	conR.delegateSize = 2  // 10 //DELEGATES_SIZE
 	conR.committeeSize = 2 // 4 //COMMITTEE_SIZE
 
@@ -601,13 +601,15 @@ func (conR *ConsensusReactor) receiveRoutine() {
 			// handles proposals, block parts, votes
 			fmt.Println("received msg from InternalMsgQueue ...")
 			conR.handleMsg(mi)
-
 		case ti := <-conR.schedulerQueue:
 			conR.HandleSchedule(ti)
 
-		case pi := <-conR.packerInfoQueue:
-			conR.HandlePackerInfo(pi)
-			/***********
+			//case ki := <-conR.KBlockDataQueue:
+			//conR.HandleKBlockData(ki)
+
+			/*******
+			case pi := <-conR.packerInfoQueue:
+				conR.HandlePackerInfo(pi)
 			case <-conR.Quit():
 				onExit(conR)
 			************/
@@ -1396,27 +1398,56 @@ func (conR *ConsensusReactor) DecodeBlockCommitteeInfo(ciBytes []byte) (cis []Co
 // Testing support code
 //============================================================================
 //============================================================================
+type Delegate1 struct {
+	Address     thor.Address     `json:"address"`
+	PubKey      []byte           `json:"pub_key"`
+	VotingPower int64            `json:"voting_power"`
+	NetAddr     types.NetAddress `json:"network_addr"`
 
-func configDelegates(myPubKey ecdsa.PublicKey) []*types.Delegate {
-	delegates := make([]*types.Delegate, 0)
+	Accum int64 `json:"accum"`
+}
+
+func configDelegates( /*myPubKey ecdsa.PublicKey*/ ) []*types.Delegate {
+	delegates1 := make([]*Delegate1, 0)
 
 	// Hack for compile
-	file, err := ioutil.ReadFile("$HOME" /*config.DefaultDelegatePath*/)
+	file, err := ioutil.ReadFile("/home/yang/tree/src/github.com/dfinlab/thor-consensus/consensus/delegates.json" /*config.DefaultDelegatePath*/)
 	if err != nil {
-		fmt.Println("unable load delegate file")
+		fmt.Println("unable load delegate file", "error", err)
 		fmt.Println("File is at", "$HOME" /*config.DefaultDelegatePath*/)
 	}
 
-	err = cdc.UnmarshalJSON(file, &delegates)
+	err = cdc.UnmarshalJSON(file, &delegates1)
 	if err != nil {
 		fmt.Println("Unable unmarshal delegate file")
 		fmt.Println(err)
 	}
 
-	for i, d := range delegates {
-		fmt.Printf("Delegate %d:\n Address:%s\n Public Key: %s\nVoting Power:%d\n Network Address:%v\n Accum:%d\n",
+	delegates := make([]*types.Delegate, 0)
+	for i, d := range delegates1 {
+		fmt.Printf("Delegate %d:\n Address:%s\n Public Key: %v\nVoting Power:%d\n Network Address:%v\n Accum:%d\n",
 			i+1, d.Address, d.PubKey, d.VotingPower, d.NetAddr, d.Accum)
 		fmt.Println()
+		pubKey, err := crypto.UnmarshalPubkey(d.PubKey)
+		if err != nil {
+			fmt.Println("translate pubkey from bytes error")
+			//privKey := crypto.ToECDSAUnsafe(d.PubKey)
+			privKey, err1 := crypto.GenerateKey()
+			if err1 != nil {
+				fmt.Println("generate private key failed")
+			}
+			pubKey = &privKey.PublicKey
+			pubKeyBytes := crypto.FromECDSAPub(pubKey)
+			fmt.Println(hex.Dump(pubKeyBytes))
+		}
+
+		dd := types.NewDelegate(*pubKey, d.VotingPower)
+		dd.Address = d.Address
+		dd.NetAddr = d.NetAddr
+		fmt.Printf("Delegate DD %d:\n Address:%s\n Public Key: %v\nVoting Power:%d\n Network Address:%v\n Accum:%d\n",
+			i+1, dd.Address, dd.PubKey, dd.VotingPower, dd.NetAddr, d.Accum)
+
+		delegates = append(delegates, dd)
 	}
 	return delegates
 }

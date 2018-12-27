@@ -24,12 +24,14 @@ import (
 // Validators info can get from 1st proposaed block meta data
 type Evidence struct {
 	VotingSig        []byte //serialized bls signature
+	VotingMsgHash    [32]byte
 	VotingBitArray   cmn.BitArray
 	NotarizeSig      []byte
+	NotarizeMsgHash  [32]byte
 	NotarizeBitArray cmn.BitArray
 }
 
-type kBlockData struct {
+type KBlockData struct {
 	leader     thor.Address // The new committee Leader, proposer also
 	miner      thor.Address
 	nonce      uint64   // the last of the pow block
@@ -64,11 +66,14 @@ type Body struct {
 }
 
 // Create new Evidence
-func NewEvidence(votingSig []byte, votingBA cmn.BitArray, notarizeSig []byte, notarizeBA cmn.BitArray) *Evidence {
+func NewEvidence(votingSig []byte, votingMsgHash [32]byte, votingBA cmn.BitArray,
+	notarizeSig []byte, notarizeMsgHash [32]byte, notarizeBA cmn.BitArray) *Evidence {
 	return &Evidence{
 		VotingSig:        votingSig,
+		VotingMsgHash:    votingMsgHash,
 		VotingBitArray:   votingBA,
 		NotarizeSig:      notarizeSig,
+		NotarizeMsgHash:  notarizeMsgHash,
 		NotarizeBitArray: notarizeBA,
 	}
 }
@@ -163,6 +168,7 @@ func (b *Block) String() string {
 Transactions: %v`, b.Size(), b.header, b.txs)
 }
 
+//-----------------
 func (b *Block) SetBlockEvidence(ev *Evidence) *Block {
 	b.evidence = *ev
 	return b
@@ -178,7 +184,19 @@ func (b *Block) SetKBlockData(kBlockData []byte) *Block {
 	return b
 }
 
-//
+func (b *Block) GetBlockEvidence() *Evidence {
+	return &b.evidence
+}
+
+func (b *Block) GetBlockCommitteeInfo() []byte {
+	return b.committeeInfo
+}
+
+func (b *Block) GetKBlockData() []byte {
+	return b.kBlockData
+}
+
+//--------------
 func BlockEncodeBytes(blk *Block) []byte {
 	blockBytes := cdc.MustMarshalBinaryBare(blk)
 	return blockBytes
