@@ -18,6 +18,7 @@ import (
 	//node "github.com/dfinlab/go-zdollar/node"
 	"math/rand"
 
+	crypto "github.com/ethereum/go-ethereum/crypto"
 	bls "github.com/vechain/thor/crypto/multi_sig"
 	cmn "github.com/vechain/thor/libs/common"
 )
@@ -137,7 +138,7 @@ func (cl *ConsensusLeader) GenerateAnnounceMsg() bool {
 	cmnHdr := ConsensusMsgCommonHeader{
 		Height:    curHeight,
 		Round:     curRound,
-		Sender:    cl.csReactor.myPubKey,
+		Sender:    crypto.FromECDSAPub(&cl.csReactor.myPubKey),
 		Timestamp: time.Now(),
 		MsgType:   CONSENSUS_MSG_ANNOUNCE_COMMITTEE,
 	}
@@ -147,7 +148,7 @@ func (cl *ConsensusLeader) GenerateAnnounceMsg() bool {
 	msg := &AnnounceCommitteeMessage{
 		CSMsgCommonHeader: cmnHdr,
 
-		AnnouncerID:   cl.csReactor.myPubKey,
+		AnnouncerID:   crypto.FromECDSAPub(&cl.csReactor.myPubKey),
 		CommitteeID:   cl.CommitteeID,
 		CommitteeSize: cl.csReactor.committeeSize,
 		Nonce:         cl.Nonce,
@@ -224,7 +225,7 @@ func (cl *ConsensusLeader) GenerateNotaryAnnounceMsg() bool {
 	cmnHdr := ConsensusMsgCommonHeader{
 		Height:    curHeight,
 		Round:     curRound,
-		Sender:    cl.csReactor.myPubKey,
+		Sender:    crypto.FromECDSAPub(&cl.csReactor.myPubKey),
 		Timestamp: time.Now(),
 		MsgType:   CONSENSUS_MSG_NOTARY_ANNOUNCE,
 	}
@@ -232,7 +233,7 @@ func (cl *ConsensusLeader) GenerateNotaryAnnounceMsg() bool {
 	msg := &NotaryAnnounceMessage{
 		CSMsgCommonHeader: cmnHdr,
 
-		AnnouncerID:   cl.csReactor.myPubKey,
+		AnnouncerID:   crypto.FromECDSAPub(&cl.csReactor.myPubKey),
 		CommitteeID:   cl.CommitteeID,
 		CommitteeSize: cl.csReactor.committeeSize,
 
@@ -288,7 +289,12 @@ func (cl *ConsensusLeader) ProcessCommitMsg(commitMsg *CommitCommitteeMessage, s
 	}
 
 	// valid the voter index. we can get the index from the publicKey
-	index := cl.csReactor.GetCommitteeMemberIndex(ch.Sender)
+	senderPubKey, err := crypto.UnmarshalPubkey(ch.Sender)
+	if err != nil {
+		fmt.Println("ummarshal public key of sender failed ")
+		return false
+	}
+	index := cl.csReactor.GetCommitteeMemberIndex(*senderPubKey)
 	if index != commitMsg.CommitterIndex {
 		fmt.Println("Voter index mismatch ", index, " vs ", commitMsg.CommitterIndex)
 		return false
@@ -395,7 +401,12 @@ func (cl *ConsensusLeader) ProcessVoteNotaryAnnounce(vote4NotaryMsg *VoteForNota
 	}
 
 	// valid the voter index. we can get the index from the publicKey
-	index := cl.csReactor.GetCommitteeMemberIndex(ch.Sender)
+	senderPubKey, err := crypto.UnmarshalPubkey(ch.Sender)
+	if err != nil {
+		fmt.Println("ummarshal public key of sender failed ")
+		return false
+	}
+	index := cl.csReactor.GetCommitteeMemberIndex(*senderPubKey)
 	if index != vote4NotaryMsg.VoterIndex {
 		fmt.Println("Voter index mismatch %d vs %d", index, vote4NotaryMsg.VoterIndex)
 		return false

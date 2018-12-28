@@ -21,6 +21,7 @@ import (
 	//"github.com/vechain/thor/tx"
 	//"github.com/vechain/thor/xenv"
 
+	crypto "github.com/ethereum/go-ethereum/crypto"
 	bls "github.com/vechain/thor/crypto/multi_sig"
 	cmn "github.com/vechain/thor/libs/common"
 )
@@ -133,7 +134,7 @@ func (cp *ConsensusProposer) MoveInitState(curState byte) bool {
 		CSMsgCommonHeader: ConsensusMsgCommonHeader{
 			Height:    curHeight,
 			Round:     curRound,
-			Sender:    cp.csReactor.myPubKey,
+			Sender:    crypto.FromECDSAPub(&cp.csReactor.myPubKey),
 			Timestamp: time.Now(),
 			MsgType:   CONSENSUS_MSG_MOVE_NEW_ROUND,
 		},
@@ -143,8 +144,8 @@ func (cp *ConsensusProposer) MoveInitState(curState byte) bool {
 		NewRound: curRound + 1,
 		//CurProposer: cp.csReactor.curActualCommittee[curRound].PubKey,
 		//NewProposer: cp.csReactor.curActualCommittee[curRound+1].PubKey,
-		CurProposer: cp.csReactor.curCommittee.Validators[curRound%curActualSize].PubKey,
-		NewProposer: cp.csReactor.curCommittee.Validators[(curRound+1)%curActualSize].PubKey,
+		CurProposer: crypto.FromECDSAPub(&cp.csReactor.curCommittee.Validators[curRound%curActualSize].PubKey),
+		NewProposer: crypto.FromECDSAPub(&cp.csReactor.curCommittee.Validators[(curRound+1)%curActualSize].PubKey),
 	}
 
 	// state to init & send move to next round
@@ -214,7 +215,7 @@ func (cp *ConsensusProposer) GenerateMBlockMsg(mblock []byte) bool {
 	cmnHdr := ConsensusMsgCommonHeader{
 		Height:     curHeight,
 		Round:      curRound,
-		Sender:     cp.csReactor.myPubKey,
+		Sender:     crypto.FromECDSAPub(&cp.csReactor.myPubKey),
 		Timestamp:  time.Now(),
 		MsgType:    CONSENSUS_MSG_PROPOSAL_BLOCK,
 		MsgSubType: PROPOSE_MSG_SUBTYPE_MBLOCK,
@@ -224,7 +225,7 @@ func (cp *ConsensusProposer) GenerateMBlockMsg(mblock []byte) bool {
 		CSMsgCommonHeader: cmnHdr,
 
 		CommitteeID:      cp.CommitteeID,
-		ProposerID:       cp.csReactor.myPubKey,
+		ProposerID:       crypto.FromECDSAPub(&cp.csReactor.myPubKey),
 		CSProposerPubKey: cp.csReactor.csCommon.system.PubKeyToBytes(cp.csReactor.csCommon.PubKey),
 		KBlockHeight:     0, //TBD
 		SignOffset:       MSG_SIGN_OFFSET_DEFAULT,
@@ -297,7 +298,7 @@ func (cp *ConsensusProposer) GenerateKBlockMsg(kblock []byte) bool {
 	cmnHdr := ConsensusMsgCommonHeader{
 		Height:     curHeight,
 		Round:      curRound,
-		Sender:     cp.csReactor.myPubKey,
+		Sender:     crypto.FromECDSAPub(&cp.csReactor.myPubKey),
 		Timestamp:  time.Now(),
 		MsgType:    CONSENSUS_MSG_PROPOSAL_BLOCK,
 		MsgSubType: PROPOSE_MSG_SUBTYPE_KBLOCK,
@@ -307,7 +308,7 @@ func (cp *ConsensusProposer) GenerateKBlockMsg(kblock []byte) bool {
 		CSMsgCommonHeader: cmnHdr,
 
 		CommitteeID:      cp.CommitteeID,
-		ProposerID:       cp.csReactor.myPubKey,
+		ProposerID:       crypto.FromECDSAPub(&cp.csReactor.myPubKey),
 		CSProposerPubKey: cp.csReactor.csCommon.system.PubKeyToBytes(cp.csReactor.csCommon.PubKey),
 		KBlockHeight:     0, //TBD
 		SignOffset:       MSG_SIGN_OFFSET_DEFAULT,
@@ -354,7 +355,7 @@ func (cp *ConsensusProposer) GenerateNotaryBlockMsg() bool {
 	cmnHdr := ConsensusMsgCommonHeader{
 		Height:    curHeight,
 		Round:     curRound,
-		Sender:    cp.csReactor.myPubKey,
+		Sender:    crypto.FromECDSAPub(&cp.csReactor.myPubKey),
 		Timestamp: time.Now(),
 		MsgType:   CONSENSUS_MSG_NOTARY_BLOCK,
 	}
@@ -362,7 +363,7 @@ func (cp *ConsensusProposer) GenerateNotaryBlockMsg() bool {
 	msg := &NotaryBlockMessage{
 		CSMsgCommonHeader: cmnHdr,
 
-		ProposerID:    cp.csReactor.myPubKey,
+		ProposerID:    crypto.FromECDSAPub(&cp.csReactor.myPubKey),
 		CommitteeID:   cp.CommitteeID,
 		CommitteeSize: cp.csReactor.committeeSize,
 
@@ -413,7 +414,12 @@ func (cp *ConsensusProposer) ProcessVoteForProposal(vote4ProposalMsg *VoteForPro
 	}
 
 	// valid the voter index. we can get the index from the publicKey
-	index := cp.csReactor.GetCommitteeMemberIndex(ch.Sender)
+	senderPubKey, err := crypto.UnmarshalPubkey(ch.Sender)
+	if err != nil {
+		fmt.Println("ummarshal public key of sender failed ")
+		return false
+	}
+	index := cp.csReactor.GetCommitteeMemberIndex(*senderPubKey)
 	if index != vote4ProposalMsg.VoterIndex {
 		fmt.Println("Voter index mismatch %d vs %d", index, vote4ProposalMsg.VoterIndex)
 		return false
@@ -519,7 +525,12 @@ func (cp *ConsensusProposer) ProcessVoteForNotary(vote4NotaryMsg *VoteForNotaryM
 	}
 
 	// valid the voter index. we can get the index from the publicKey
-	index := cp.csReactor.GetCommitteeMemberIndex(ch.Sender)
+	senderPubKey, err := crypto.UnmarshalPubkey(ch.Sender)
+	if err != nil {
+		fmt.Println("ummarshal public key of sender failed ")
+		return false
+	}
+	index := cp.csReactor.GetCommitteeMemberIndex(*senderPubKey)
 	if index != vote4NotaryMsg.VoterIndex {
 		fmt.Println("Voter index mismatch %d vs %d", index, vote4NotaryMsg.VoterIndex)
 		return false

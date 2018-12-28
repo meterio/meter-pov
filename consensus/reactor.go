@@ -142,10 +142,12 @@ func NewConsensusReactor(chain *chain.Chain, state *state.Creator) *ConsensusRea
 
 	//XXX: Yang: Address it later Get the public key
 	//initialize Delegates
-	conR.curDelegates = types.NewDelegateSet(configDelegates())
+	ds := configDelegates()
+	conR.curDelegates = types.NewDelegateSet(ds)
 	conR.delegateSize = 2  // 10 //DELEGATES_SIZE
 	conR.committeeSize = 2 // 4 //COMMITTEE_SIZE
 
+	conR.myPubKey = ds[0].PubKey
 	return conR
 }
 
@@ -953,7 +955,7 @@ func decodeMsg(bz []byte) (msg ConsensusMessage, err error) {
 type ConsensusMsgCommonHeader struct {
 	Height     int64
 	Round      int
-	Sender     ecdsa.PublicKey
+	Sender     []byte //ecdsa.PublicKey
 	Timestamp  time.Time
 	MsgType    byte
 	MsgSubType byte
@@ -967,7 +969,7 @@ type ConsensusMsgCommonHeader struct {
 type AnnounceCommitteeMessage struct {
 	CSMsgCommonHeader ConsensusMsgCommonHeader
 
-	AnnouncerID   ecdsa.PublicKey
+	AnnouncerID   []byte //ecdsa.PublicKey
 	CommitteeID   uint32
 	CommitteeSize int
 	Nonce         uint64 //nonce is 8 bytes
@@ -998,7 +1000,7 @@ type CommitCommitteeMessage struct {
 
 	CommitteeID   uint32
 	CommitteeSize int
-	CommitterID   ecdsa.PublicKey
+	CommitterID   []byte //ecdsa.PublicKey
 
 	CSCommitterPubKey  []byte //bls.PublicKey
 	CommitterSignature []byte //bls.Signature
@@ -1020,7 +1022,7 @@ type ProposalBlockMessage struct {
 	CSMsgCommonHeader ConsensusMsgCommonHeader
 
 	CommitteeID      uint32
-	ProposerID       ecdsa.PublicKey
+	ProposerID       []byte //ecdsa.PublicKey
 	CSProposerPubKey []byte //bls.PublicKey
 	KBlockHeight     int64
 	SignOffset       uint
@@ -1041,7 +1043,7 @@ func (m *ProposalBlockMessage) String() string {
 type NotaryAnnounceMessage struct {
 	CSMsgCommonHeader ConsensusMsgCommonHeader
 
-	AnnouncerID   ecdsa.PublicKey
+	AnnouncerID   []byte //ecdsa.PublicKey
 	CommitteeID   uint32
 	CommitteeSize int
 
@@ -1065,7 +1067,7 @@ func (m *NotaryAnnounceMessage) String() string {
 type NotaryBlockMessage struct {
 	CSMsgCommonHeader ConsensusMsgCommonHeader
 
-	ProposerID        ecdsa.PublicKey
+	ProposerID        []byte //ecdsa.PublicKey
 	CommitteeID       uint32
 	CommitteeSize     int
 	SignOffset        uint
@@ -1087,7 +1089,7 @@ func (m *NotaryBlockMessage) String() string {
 type VoteForProposalMessage struct {
 	CSMsgCommonHeader ConsensusMsgCommonHeader
 
-	VoterID           ecdsa.PublicKey
+	VoterID           []byte //ecdsa.PublicKey
 	VoteSummary       int64
 	CSVoterPubKey     []byte //bls.PublicKey
 	VoterSignature    []byte //bls.Signature
@@ -1107,7 +1109,7 @@ func (m *VoteForProposalMessage) String() string {
 type VoteForNotaryMessage struct {
 	CSMsgCommonHeader ConsensusMsgCommonHeader //subtype: 1 - vote for Announce 2 - vote for proposal
 
-	VoterID           ecdsa.PublicKey
+	VoterID           []byte //ecdsa.PublicKey
 	VoteSummary       int64
 	CSVoterPubKey     []byte //bls.PublicKey
 	VoterSignature    []byte //bls.Signature
@@ -1134,8 +1136,8 @@ type MoveNewRoundMessage struct {
 	Height      int64
 	CurRound    int
 	NewRound    int
-	CurProposer ecdsa.PublicKey
-	NewProposer ecdsa.PublicKey
+	CurProposer []byte //ecdsa.PublicKey
+	NewProposer []byte //ecdsa.PublicKey
 }
 
 // String returns a string representation.

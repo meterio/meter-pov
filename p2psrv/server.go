@@ -6,6 +6,7 @@
 package p2psrv
 
 import (
+	"fmt"
 	"math"
 	"net"
 	"time"
@@ -99,8 +100,10 @@ func (s *Server) Start(protocols []*Protocol) error {
 	}
 
 	if err := s.srv.Start(); err != nil {
+		fmt.Println("p2p start failed")
 		return err
 	}
+	fmt.Println("server Node:", s.NodeInfo())
 	if !s.opts.NoDiscovery {
 		if err := s.listenDiscV5(); err != nil {
 			return err
@@ -118,7 +121,6 @@ func (s *Server) Start(protocols []*Protocol) error {
 			s.goes.Go(func() { s.discoverLoop(topicToSearch) })
 		}
 	}
-
 	log.Debug("start up", "self", s.Self())
 
 	s.goes.Go(s.dialLoop)

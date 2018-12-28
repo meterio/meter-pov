@@ -99,23 +99,22 @@ func (cv *ConsensusValidator) GenerateCommitMessage(sig bls.Signature, msgHash [
 
 	curHeight := cv.csReactor.curHeight
 	curRound := cv.csReactor.curRound
-	myPubKey := cv.csReactor.myPubKey
 
 	cmnHdr := ConsensusMsgCommonHeader{
 		Height:    curHeight,
 		Round:     curRound,
-		Sender:    myPubKey,
+		Sender:    crypto.FromECDSAPub(&cv.csReactor.myPubKey),
 		Timestamp: time.Now(),
 		MsgType:   CONSENSUS_MSG_COMMIT_COMMITTEE,
 	}
 
-	index := cv.csReactor.GetCommitteeMemberIndex(myPubKey)
+	index := cv.csReactor.GetCommitteeMemberIndex(cv.csReactor.myPubKey)
 	msg := &CommitCommitteeMessage{
 		CSMsgCommonHeader: cmnHdr,
 
 		CommitteeID:        uint32(cv.CommitteeID),
 		CommitteeSize:      cv.csReactor.committeeSize,
-		CommitterID:        myPubKey,
+		CommitterID:        crypto.FromECDSAPub(&cv.csReactor.myPubKey),
 		CSCommitterPubKey:  cv.csReactor.csCommon.system.PubKeyToBytes(cv.csReactor.csCommon.PubKey), //bls pubkey
 		CommitterSignature: cv.csReactor.csCommon.system.SigToBytes(sig),                             //TBD
 		CommitterIndex:     index,
@@ -172,7 +171,7 @@ func (cv *ConsensusValidator) ProcessAnnounceCommittee(announceMsg *AnnounceComm
 	}
 
 	// valid the senderindex is leader from the publicKey
-	if ch.Sender != announceMsg.AnnouncerID {
+	if bytes.Equal(ch.Sender, announceMsg.AnnouncerID) == false {
 		fmt.Println("Announce sender and AnnouncerID mismatch")
 		return false
 	}
@@ -196,7 +195,7 @@ func (cv *ConsensusValidator) ProcessAnnounceCommittee(announceMsg *AnnounceComm
 
 	// Verify Leader is announce sender?
 	lv := cv.csReactor.curCommittee.Validators[0]
-	if lv.PubKey != ch.Sender {
+	if bytes.Equal(crypto.FromECDSAPub(&lv.PubKey), ch.Sender) == false {
 		fmt.Println("Sender is not leader in my committee ...")
 		return false
 	}
@@ -214,7 +213,12 @@ func (cv *ConsensusValidator) ProcessAnnounceCommittee(announceMsg *AnnounceComm
 	offset := announceMsg.SignOffset
 	length := announceMsg.SignLength
 
-	signMsg := cv.csReactor.BuildAnnounceSignMsg(announceMsg.AnnouncerID, uint32(announceMsg.CommitteeID), uint64(ch.Height), uint32(ch.Round))
+	announcerPubKey, err := crypto.UnmarshalPubkey(announceMsg.AnnouncerID)
+	if err != nil {
+		fmt.Println("ummarshal announcer public key of sender failed ")
+		return false
+	}
+	signMsg := cv.csReactor.BuildAnnounceSignMsg(*announcerPubKey, uint32(announceMsg.CommitteeID), uint64(ch.Height), uint32(ch.Round))
 	fmt.Println("offset & length: ", offset, length, "sign msg:", signMsg)
 
 	if int(offset+length) > len(signMsg) {
@@ -246,17 +250,16 @@ func (cv *ConsensusValidator) GenerateVoteForProposalMessage(sig bls.Signature, 
 	cmnHdr := ConsensusMsgCommonHeader{
 		Height:    curHeight,
 		Round:     curRound,
-		Sender:    cv.csReactor.myPubKey,
+		Sender:    crypto.FromECDSAPub(&cv.csReactor.myPubKey),
 		Timestamp: time.Now(),
 		MsgType:   CONSENSUS_MSG_VOTE_FOR_PROPOSAL,
 	}
 
-	myPubKey := cv.csReactor.myPubKey
-	index := cv.csReactor.GetCommitteeMemberIndex(myPubKey)
+	index := cv.csReactor.GetCommitteeMemberIndex(cv.csReactor.myPubKey)
 	msg := &VoteForProposalMessage{
 		CSMsgCommonHeader: cmnHdr,
 
-		VoterID:           myPubKey,
+		VoterID:           crypto.FromECDSAPub(&cv.csReactor.myPubKey),
 		CSVoterPubKey:     cv.csReactor.csCommon.system.PubKeyToBytes(cv.csReactor.csCommon.PubKey),
 		VoterSignature:    cv.csReactor.csCommon.system.SigToBytes(sig), //TBD
 		VoterIndex:        index,
@@ -303,7 +306,7 @@ func (cv *ConsensusValidator) ProcessProposalBlockMessage(proposalMsg *ProposalB
 	}
 
 	// valid the senderindex is leader from the publicKey
-	if ch.Sender != proposalMsg.ProposerID {
+	if bytes.Equal(ch.Sender, proposalMsg.ProposerID) == false {
 		fmt.Println("Proposal sender and proposalID mismatch")
 		return false
 	}
@@ -351,9 +354,15 @@ func (cv *ConsensusValidator) ProcessProposalBlockMessage(proposalMsg *ProposalB
 	cv.AddcsPeer(src.netAddr)
 
 	// Block is OK, send back voting
+	proposerPubKey, err := crypto.UnmarshalPubkey(proposalMsg.ProposerID)
+	if err != nil {
+		fmt.Println("ummarshal proposer public key of sender failed ")
+		return false
+	}
+
 	offset := proposalMsg.SignOffset
 	length := proposalMsg.SignLength
-	signMsg := cv.csReactor.BuildProposalBlockSignMsg(proposalMsg.ProposerID, uint32(ch.MsgSubType), uint64(ch.Height), uint32(ch.Round))
+	signMsg := cv.csReactor.BuildProposalBlockSignMsg(*proposerPubKey, uint32(ch.MsgSubType), uint64(ch.Height), uint32(ch.Round))
 	fmt.Println("offset & legnth: ", offset, length, " sign Msg:", signMsg)
 
 	sign := cv.csReactor.csCommon.SignMessage([]byte(signMsg), uint32(offset), uint32(length))
@@ -403,7 +412,7 @@ func (cv *ConsensusValidator) ProcessNotaryBlockMessage(notaryMsg *NotaryBlockMe
 	}
 
 	// valid the senderindex is leader from the publicKey
-	if ch.Sender != notaryMsg.ProposerID {
+	if bytes.Equal(ch.Sender, notaryMsg.ProposerID) == false {
 		fmt.Println("Proposal sender and proposalID mismatch")
 		return false
 	}
@@ -411,10 +420,16 @@ func (cv *ConsensusValidator) ProcessNotaryBlockMessage(notaryMsg *NotaryBlockMe
 	// Now validate voter bitarray and aggaregated signature.
 
 	// Block is OK, send notary voting back
+	notaryPubKey, err := crypto.UnmarshalPubkey(notaryMsg.ProposerID)
+	if err != nil {
+		fmt.Println("ummarshal proposer public key of sender failed ")
+		return false
+	}
+
 	offset := notaryMsg.SignOffset
 	length := notaryMsg.SignLength
 
-	signMsg := cv.csReactor.BuildNotaryBlockSignMsg(notaryMsg.ProposerID, uint32(ch.MsgSubType), uint64(ch.Height), uint32(ch.Round))
+	signMsg := cv.csReactor.BuildNotaryBlockSignMsg(*notaryPubKey, uint32(ch.MsgSubType), uint64(ch.Height), uint32(ch.Round))
 	fmt.Println(signMsg)
 
 	sign := cv.csReactor.csCommon.SignMessage([]byte(signMsg), uint32(offset), uint32(length))
@@ -463,9 +478,8 @@ func (cv *ConsensusValidator) ProcessNotaryAnnounceMessage(notaryMsg *NotaryAnno
 	}
 
 	// valid the senderindex is leader from the publicKey
-
-	if ch.Sender != notaryMsg.AnnouncerID {
-		fmt.Println("Proposal sender and AnnouncerID mismatch")
+	if bytes.Equal(ch.Sender, notaryMsg.AnnouncerID) == false {
+		fmt.Println("Proposal sender and proposalID mismatch")
 		return false
 	}
 
@@ -483,10 +497,15 @@ func (cv *ConsensusValidator) ProcessNotaryAnnounceMessage(notaryMsg *NotaryAnno
 	// TBD: validate announce bitarray & signature
 
 	// Block is OK, send back voting
+	announcerPubKey, err := crypto.UnmarshalPubkey(notaryMsg.AnnouncerID)
+	if err != nil {
+		fmt.Println("ummarshal announcer public key of sender failed ")
+		return false
+	}
 	offset := notaryMsg.SignOffset
 	length := notaryMsg.SignLength
 
-	signMsg := cv.csReactor.BuildNotaryAnnounceSignMsg(notaryMsg.AnnouncerID, uint32(notaryMsg.CommitteeID), uint64(ch.Height), uint32(ch.Round))
+	signMsg := cv.csReactor.BuildNotaryAnnounceSignMsg(*announcerPubKey, uint32(notaryMsg.CommitteeID), uint64(ch.Height), uint32(ch.Round))
 	fmt.Println(signMsg)
 
 	sign := cv.csReactor.csCommon.SignMessage([]byte(signMsg), uint32(offset), uint32(length))
@@ -509,18 +528,17 @@ func (cv *ConsensusValidator) GenerateVoteForNotaryMessage(sig bls.Signature, ms
 	cmnHdr := ConsensusMsgCommonHeader{
 		Height:     curHeight,
 		Round:      curRound,
-		Sender:     cv.csReactor.myPubKey,
+		Sender:     crypto.FromECDSAPub(&cv.csReactor.myPubKey),
 		Timestamp:  time.Now(),
 		MsgType:    CONSENSUS_MSG_VOTE_FOR_NOTARY,
 		MsgSubType: MsgSubType,
 	}
 
-	myPubKey := cv.csReactor.myPubKey
-	index := cv.csReactor.GetCommitteeMemberIndex(myPubKey)
+	index := cv.csReactor.GetCommitteeMemberIndex(cv.csReactor.myPubKey)
 	msg := &VoteForNotaryMessage{
 		CSMsgCommonHeader: cmnHdr,
 
-		VoterID:           myPubKey,
+		VoterID:           crypto.FromECDSAPub(&cv.csReactor.myPubKey),
 		CSVoterPubKey:     cv.csReactor.csCommon.system.PubKeyToBytes(cv.csReactor.csCommon.PubKey),
 		VoterSignature:    cv.csReactor.csCommon.system.SigToBytes(sig), //TBD
 		VoterIndex:        index,
@@ -584,13 +602,13 @@ func (cv *ConsensusValidator) ProcessMoveNewRoundMessage(newRoundMsg *MoveNewRou
 
 	// Now validate current proposer and new proposer
 	curProposer := cv.csReactor.getCurrentProposer()
-	if bytes.Equal(crypto.FromECDSAPub(&curProposer.PubKey), crypto.FromECDSAPub(&newRoundMsg.CurProposer)) == false {
+	if bytes.Equal(crypto.FromECDSAPub(&curProposer.PubKey), newRoundMsg.CurProposer) == false {
 		fmt.Println("curProposer mismacth!")
 		return false
 	}
 
 	newProposer := cv.csReactor.getRoundProposer(newRoundMsg.NewRound)
-	if bytes.Equal(crypto.FromECDSAPub(&newProposer.PubKey), crypto.FromECDSAPub(&newRoundMsg.NewProposer)) == false {
+	if bytes.Equal(crypto.FromECDSAPub(&newProposer.PubKey), newRoundMsg.NewProposer) == false {
 		fmt.Println("newProposer mismacth!")
 		return false
 	}
