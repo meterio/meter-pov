@@ -72,7 +72,7 @@ func loadOrGeneratePrivateKey(path string) (*ecdsa.PrivateKey, error) {
 
 func verifyPublicKey(privKey *ecdsa.PrivateKey, pubKey *ecdsa.PublicKey) bool {
 	hash := []byte("testing")
-	r, s, err := ecdsa.Sign(strings.NewReader("test-plain-text"), privKey, hash)
+	r, s, err := ecdsa.Sign(strings.NewReader("test-plain-text-some-thing"), privKey, hash)
 	if err != nil {
 		fmt.Println("Error during sign: ", err)
 		return false
