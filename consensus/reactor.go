@@ -22,6 +22,8 @@ import (
 	"path"
 	"runtime"
 
+	b64 "encoding/base64"
+
 	"github.com/gorilla/mux"
 	"github.com/rs/cors"
 
@@ -150,9 +152,8 @@ func NewConsensusReactor(chain *chain.Chain, state *state.Creator, privKey *ecds
 	conR.curDelegates = types.NewDelegateSet(ds)
 	conR.delegateSize = 2  // 10 //DELEGATES_SIZE
 	conR.committeeSize = 2 // 4 //COMMITTEE_SIZE
-
-	conR.myPrivKey = privKey
-	conR.myPubKey = pubKey
+	conR.myPrivKey = *privKey
+	conR.myPubKey = *pubKey
 	return conR
 }
 
@@ -1407,7 +1408,7 @@ func (conR *ConsensusReactor) DecodeBlockCommitteeInfo(ciBytes []byte) (cis []Co
 //============================================================================
 type Delegate1 struct {
 	Address     thor.Address     `json:"address"`
-	PubKey      []byte           `json:"pub_key"`
+	PubKey      string           `json:"pub_key"`
 	VotingPower int64            `json:"voting_power"`
 	NetAddr     types.NetAddress `json:"network_addr"`
 
@@ -1444,7 +1445,8 @@ func configDelegates( /*myPubKey ecdsa.PublicKey*/ ) []*types.Delegate {
 
 	delegates := make([]*types.Delegate, 0)
 	for i, d := range delegates1 {
-		pubKey, err := crypto.UnmarshalPubkey(d.PubKey)
+		pubKeyBytes, err := b64.StdEncoding.DecodeString(d.PubKey)
+		pubKey, err := crypto.UnmarshalPubkey(pubKeyBytes)
 		if err != nil {
 			panic("can't read public key for delegate")
 		}
