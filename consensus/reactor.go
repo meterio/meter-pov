@@ -33,6 +33,7 @@ import (
 	//"github.com/ethereum/go-ethereum/rlp"
 	//"github.com/vechain/thor/block"
 	//"github.com/ethereum/go-ethereum/p2p"
+	"github.com/inconshreveable/log15"
 	"github.com/vechain/thor/block"
 	"github.com/vechain/thor/chain"
 	bls "github.com/vechain/thor/crypto/multi_sig"
@@ -100,6 +101,7 @@ type ConsensusReactor struct {
 	curCommittee       *types.ValidatorSet // This is top 400 of delegates by given nonce
 	curActualCommittee []CommitteeMember   // Real committee, should be subset of curCommittee if someone is offline.
 	curCommitteeIndex  int
+	logger             log15.Logger
 
 	csRoleInitialized uint
 	csCommon          *ConsensusCommon //this must be allocated as validator
@@ -134,6 +136,7 @@ func NewConsensusReactor(chain *chain.Chain, state *state.Creator, privKey *ecds
 	conR := &ConsensusReactor{
 		chain:        chain,
 		stateCreator: state,
+		logger:       log15.New("pkg", "consensus"),
 	}
 
 	//initialize message channel
@@ -146,14 +149,15 @@ func NewConsensusReactor(chain *chain.Chain, state *state.Creator, privKey *ecds
 	conR.curHeight = int64(chain.BestBlock().Header().Number())
 	conR.curRound = 0
 
-	//XXX: Yang: Address it later Get the public key
 	//initialize Delegates
 	ds := configDelegates()
 	conR.curDelegates = types.NewDelegateSet(ds)
 	conR.delegateSize = 2  // 10 //DELEGATES_SIZE
 	conR.committeeSize = 2 // 4 //COMMITTEE_SIZE
+
 	conR.myPrivKey = *privKey
 	conR.myPubKey = *pubKey
+
 	return conR
 }
 
@@ -363,7 +367,7 @@ func (conR *ConsensusReactor) UpdateActualCommittee(indexes []int, pubKeys []bls
 	})
 
 	// I am Leader, first one should be myself.
-	if conR.curActualCommittee[0].PubKey != conR.myPubKey {
+	if bytes.Equal(crypto.FromECDSAPub(&conR.curActualCommittee[0].PubKey), crypto.FromECDSAPub(&conR.myPubKey)) == false {
 		fmt.Println("I am leader and not in first place of curActualCommittee, must correct ...")
 		return false
 	}
@@ -408,14 +412,14 @@ func (conR *ConsensusReactor) NewValidatorSetByNonce(nonce []byte) (uint, bool) 
 
 	//conR.conS.Validators = types.NewValidatorSet2(vals[:conR.committeeSize])
 	conR.curCommittee = types.NewValidatorSet2(vals[:conR.committeeSize])
-	if vals[0].PubKey == conR.myPubKey {
+	if bytes.Equal(crypto.FromECDSAPub(&vals[0].PubKey), crypto.FromECDSAPub(&conR.myPubKey)) == true {
 		conR.csMode = CONSENSUS_MODE_COMMITTEE
 		conR.curCommitteeIndex = 0
 		return CONSENSUS_COMMIT_ROLE_LEADER, true
 	}
 
 	for i, val := range vals {
-		if val.PubKey == conR.myPubKey {
+		if bytes.Equal(crypto.FromECDSAPub(&val.PubKey), crypto.FromECDSAPub(&conR.myPubKey)) == true {
 			conR.csMode = CONSENSUS_MODE_COMMITTEE
 			conR.curCommitteeIndex = i
 			return CONSENSUS_COMMIT_ROLE_VALIDATOR, true
