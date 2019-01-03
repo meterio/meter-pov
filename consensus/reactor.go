@@ -151,7 +151,8 @@ func NewConsensusReactor(chain *chain.Chain, state *state.Creator, privKey *ecds
 	conR.delegateSize = 2  // 10 //DELEGATES_SIZE
 	conR.committeeSize = 2 // 4 //COMMITTEE_SIZE
 
-	conR.myPubKey = ds[0].PubKey
+	conR.myPrivKey = privKey
+	conR.myPubKey = pubKey
 	return conR
 }
 
