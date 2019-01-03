@@ -14,6 +14,7 @@ import (
 
 type Master struct {
 	PrivateKey  *ecdsa.PrivateKey
+	PublicKey   *ecdsa.PublicKey
 	Beneficiary *thor.Address
 }
 

@@ -154,6 +154,11 @@ func masterKeyPath(ctx *cli.Context) string {
 	return filepath.Join(configDir, "master.key")
 }
 
+func publicKeyPath(ctx *cli.Context) string {
+	configDir := makeConfigDir(ctx)
+	return filepath.Join(configDir, "public.key")
+}
+
 func beneficiary(ctx *cli.Context) *thor.Address {
 	value := ctx.String(beneficiaryFlag.Name)
 	if value == "" {
@@ -179,7 +184,12 @@ func loadNodeMaster(ctx *cli.Context) *node.Master {
 	if err != nil {
 		fatal("load or generate master key:", err)
 	}
-	master := &node.Master{PrivateKey: key}
+
+	err = updatePublicKey(publicKeyPath(ctx), &key.PublicKey)
+	if err != nil {
+		fatal("update public key:", err)
+	}
+	master := &node.Master{PrivateKey: key, PublicKey: &key.PublicKey}
 	master.Beneficiary = beneficiary(ctx)
 	return master
 }

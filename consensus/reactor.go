@@ -18,6 +18,10 @@ import (
 	"sync"
 	"time"
 
+	"os"
+	"path"
+	"runtime"
+
 	"github.com/gorilla/mux"
 	"github.com/rs/cors"
 
@@ -124,7 +128,7 @@ type ConsensusReactor struct {
 
 // NewConsensusReactor returns a new ConsensusReactor with the given
 // consensusState.
-func NewConsensusReactor(chain *chain.Chain, state *state.Creator) *ConsensusReactor {
+func NewConsensusReactor(chain *chain.Chain, state *state.Creator, privKey *ecdsa.PrivateKey, pubKey *ecdsa.PublicKey) *ConsensusReactor {
 	conR := &ConsensusReactor{
 		chain:        chain,
 		stateCreator: state,
@@ -1409,16 +1413,28 @@ type Delegate1 struct {
 	Accum int64 `json:"accum"`
 }
 
+func UserHomeDir() string {
+	if runtime.GOOS == "windows" {
+		home := os.Getenv("HOMEDRIVE") + os.Getenv("HOMEPATH")
+		if home == "" {
+			home = os.Getenv("USERPROFILE")
+		}
+		return home
+	}
+	return os.Getenv("HOME")
+}
+
 func configDelegates( /*myPubKey ecdsa.PublicKey*/ ) []*types.Delegate {
 	delegates1 := make([]*Delegate1, 0)
 
 	// Hack for compile
-	file, err := ioutil.ReadFile("/home/yang/tree/src/github.com/dfinlab/thor-consensus/consensus/delegates.json" /*config.DefaultDelegatePath*/)
+	// TODO: move these hard-coded filepath to config
+	filePath := path.Join(UserHomeDir(), ".org.vechain.thor", "delegates.json")
+	file, err := ioutil.ReadFile(filePath)
 	if err != nil {
 		fmt.Println("unable load delegate file", "error", err)
-		fmt.Println("File is at", "$HOME" /*config.DefaultDelegatePath*/)
+		fmt.Println("File is at", filePath /*config.DefaultDelegatePath*/)
 	}
-
 	err = cdc.UnmarshalJSON(file, &delegates1)
 	if err != nil {
 		fmt.Println("Unable unmarshal delegate file")
@@ -1427,26 +1443,15 @@ func configDelegates( /*myPubKey ecdsa.PublicKey*/ ) []*types.Delegate {
 
 	delegates := make([]*types.Delegate, 0)
 	for i, d := range delegates1 {
-		//fmt.Printf("Delegate %d:\n Address:%s\n Public Key: %v\nVoting Power:%d\n Network Address:%v\n Accum:%d\n",
-		//	i+1, d.Address, d.PubKey, d.VotingPower, d.NetAddr, d.Accum)
-		//fmt.Println()
 		pubKey, err := crypto.UnmarshalPubkey(d.PubKey)
 		if err != nil {
-			fmt.Println("translate pubkey from bytes error")
-			//privKey := crypto.ToECDSAUnsafe(d.PubKey)
-			privKey, err1 := crypto.GenerateKey()
-			if err1 != nil {
-				fmt.Println("generate private key failed")
-			}
-			pubKey = &privKey.PublicKey
-			pubKeyBytes := crypto.FromECDSAPub(pubKey)
-			fmt.Println(hex.Dump(pubKeyBytes))
+			panic("can't read public key for delegate")
 		}
 
 		dd := types.NewDelegate(*pubKey, d.VotingPower)
 		dd.Address = d.Address
 		dd.NetAddr = d.NetAddr
-		fmt.Printf("Delegate DD %d:\n Address:%s\n Public Key: %v\nVoting Power:%d\n Network Address:%v\n Accum:%d\n",
+		fmt.Printf("Delegate %d:\n Address:%s\n Public Key: %v\n Voting Power:%d\n Network Address:%v\n Accum:%d\n",
 			i+1, dd.Address, dd.PubKey, dd.VotingPower, dd.NetAddr, d.Accum)
 
 		delegates = append(delegates, dd)

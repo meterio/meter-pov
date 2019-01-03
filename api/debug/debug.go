@@ -12,6 +12,8 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/ethereum/go-ethereum/crypto"
+
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/gorilla/mux"
@@ -54,7 +56,15 @@ func (d *Debug) handleTxEnv(ctx context.Context, blockID thor.Bytes32, txIndex u
 	if clauseIndex >= uint64(len(txs[txIndex].Clauses())) {
 		return nil, nil, utils.Forbidden(errors.New("clause index out of range"))
 	}
-	rt, err := consensus.NewConsensusReactor(d.chain, d.stateC).NewRuntimeForReplay(block.Header())
+
+	// XXX TODO: make sure this won't change anything
+	// The reason why we have these lines is interface change of NewConsensusReactor( with private and public key added)
+	privKey, err := crypto.GenerateKey()
+	if err != nil {
+		return nil, nil, utils.Forbidden(errors.New("can not generate private/public key"))
+	}
+
+	rt, err := consensus.NewConsensusReactor(d.chain, d.stateC, privKey, &privKey.PublicKey).NewRuntimeForReplay(block.Header())
 	if err != nil {
 		return nil, nil, err
 	}

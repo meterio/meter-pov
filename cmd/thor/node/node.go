@@ -73,7 +73,7 @@ func New(
 ) *Node {
 	node := &Node{
 		packer:      packer.New(chain, stateCreator, master.Address(), master.Beneficiary),
-		cons:        consensus.NewConsensusReactor(chain, stateCreator),
+		cons:        consensus.NewConsensusReactor(chain, stateCreator, master.PrivateKey, master.PublicKey),
 		master:      master,
 		chain:       chain,
 		logDB:       logDB,
