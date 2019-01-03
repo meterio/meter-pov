@@ -185,11 +185,11 @@ func loadNodeMaster(ctx *cli.Context) *node.Master {
 		fatal("load or generate master key:", err)
 	}
 
-	err = updatePublicKey(publicKeyPath(ctx), &key.PublicKey)
+	pubKey, err := loadOrUpdatePublicKey(publicKeyPath(ctx), &key.PublicKey)
 	if err != nil {
 		fatal("update public key:", err)
 	}
-	master := &node.Master{PrivateKey: key, PublicKey: &key.PublicKey}
+	master := &node.Master{PrivateKey: key, PublicKey: pubKey}
 	master.Beneficiary = beneficiary(ctx)
 	return master
 }

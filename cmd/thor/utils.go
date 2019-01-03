@@ -20,8 +20,8 @@ import (
 	"syscall"
 	"time"
 
-	// b64 "encoding/base64"
-	"encoding/hex"
+	b64 "encoding/base64"
+	// "encoding/hex"
 
 	"github.com/ethereum/go-ethereum/crypto"
 	tty "github.com/mattn/go-tty"
@@ -70,10 +70,22 @@ func loadOrGeneratePrivateKey(path string) (*ecdsa.PrivateKey, error) {
 }
 
 func updatePublicKey(path string, pubKey *ecdsa.PublicKey) error {
-	k := hex.EncodeToString(crypto.FromECDSAPub(pubKey))
-	// b := b64.StdEncoding.EncodeToString(crypto.FromECDSAPub(pubKey))
-	// fmt.Println("BASE64: ", b)
-	return ioutil.WriteFile(path, []byte(k), 0600)
+	b := b64.StdEncoding.EncodeToString(crypto.FromECDSAPub(pubKey))
+	return ioutil.WriteFile(path, []byte(b), 0600)
+}
+
+// Save public key with BASE64 encoding
+func loadOrUpdatePublicKey(path string, pubKey *ecdsa.PublicKey) (*ecdsa.PublicKey, error) {
+	keyBytes, err := ioutil.ReadFile(path)
+	if err != nil {
+		return pubKey, updatePublicKey(path, pubKey)
+	}
+	key, err := crypto.UnmarshalPubkey(keyBytes)
+	if err != nil {
+		return pubKey, updatePublicKey(path, pubKey)
+	}
+	// k := hex.EncodeToString(crypto.FromECDSAPub(pubKey))
+	return key, err
 }
 
 func defaultConfigDir() string {
