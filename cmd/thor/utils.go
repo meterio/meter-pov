@@ -21,6 +21,7 @@ import (
 	"time"
 
 	b64 "encoding/base64"
+	"strings"
 	// "encoding/hex"
 
 	"github.com/ethereum/go-ethereum/crypto"
@@ -69,21 +70,46 @@ func loadOrGeneratePrivateKey(path string) (*ecdsa.PrivateKey, error) {
 	return key, nil
 }
 
+func verifyPublicKey(privKey *ecdsa.PrivateKey, pubKey *ecdsa.PublicKey) bool {
+	hash := []byte("testing")
+	r, s, err := ecdsa.Sign(strings.NewReader("test-plain-text-some-thing"), privKey, hash)
+	if err != nil {
+		fmt.Println("Error during sign: ", err)
+		return false
+	}
+	return ecdsa.Verify(pubKey, hash, r, s)
+}
+
 func updatePublicKey(path string, pubKey *ecdsa.PublicKey) error {
 	b := b64.StdEncoding.EncodeToString(crypto.FromECDSAPub(pubKey))
 	return ioutil.WriteFile(path, []byte(b), 0600)
 }
 
+func fromBase64Pub(pub string) (*ecdsa.PublicKey, error) {
+	b, err := b64.StdEncoding.DecodeString(pub)
+	if err != nil {
+		return nil, err
+	}
+
+	return crypto.UnmarshalPubkey(b)
+}
+
 // Save public key with BASE64 encoding
-func loadOrUpdatePublicKey(path string, pubKey *ecdsa.PublicKey) (*ecdsa.PublicKey, error) {
-	keyBytes, err := ioutil.ReadFile(path)
+func loadOrUpdatePublicKey(path string, privKey *ecdsa.PrivateKey, newPubKey *ecdsa.PublicKey) (*ecdsa.PublicKey, error) {
+	b, err := ioutil.ReadFile(path)
 	if err != nil {
-		return pubKey, updatePublicKey(path, pubKey)
+		return newPubKey, updatePublicKey(path, newPubKey)
 	}
-	key, err := crypto.UnmarshalPubkey(keyBytes)
+
+	key, err := fromBase64Pub(string(b))
 	if err != nil {
-		return pubKey, updatePublicKey(path, pubKey)
+		return newPubKey, updatePublicKey(path, newPubKey)
 	}
+
+	if !verifyPublicKey(privKey, key) {
+		return newPubKey, updatePublicKey(path, newPubKey)
+	}
+
 	// k := hex.EncodeToString(crypto.FromECDSAPub(pubKey))
 	return key, err
 }
