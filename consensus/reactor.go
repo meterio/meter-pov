@@ -36,6 +36,7 @@ import (
 	"github.com/inconshreveable/log15"
 	"github.com/vechain/thor/block"
 	"github.com/vechain/thor/chain"
+	"github.com/vechain/thor/comm"
 	bls "github.com/vechain/thor/crypto/multi_sig"
 	"github.com/vechain/thor/thor"
 
@@ -44,13 +45,7 @@ import (
 	//"github.com/vechain/thor/tx"
 	"github.com/vechain/thor/types"
 	//"github.com/vechain/thor/xenv"
-	// "github.com/dfinlab/go-zdollar/crypto/ed25519"
-	//config "github.com/dfinlab/go-zdollar/config"
 	cmn "github.com/vechain/thor/libs/common"
-	//tmevents "github.com/dfinlab/go-zdollar/libs/events"
-	//"github.com/dfinlab/go-zdollar/libs/log"
-	//sm "github.com/dfinlab/go-zdollar/state"
-	//tmtime "github.com/dfinlab/go-zdollar/types/time"
 )
 
 const (
@@ -186,10 +181,10 @@ func (conR *ConsensusReactor) OnStop() {
 
 // SwitchToConsensus switches from fast_sync mode to consensus mode.
 // It resets the state, turns off fast_sync, and starts the consensus state-machine
-func (conR *ConsensusReactor) SwitchToConsensus(blocksSynced int) {
+func (conR *ConsensusReactor) SwitchToConsensus() {
 	//conR.Logger.Info("SwitchToConsensus")
-	fmt.Println("SwitchToConsensus")
-	fmt.Println("blockSynced", blocksSynced)
+	fmt.Println("Synchnization is done. SwitchToConsensus ...")
+
 	conR.ConsensusHandleReceivedNonce(0, 1001)
 }
 
@@ -600,6 +595,17 @@ func (conR *ConsensusReactor) receiveRoutine() {
 		return
 	}
 	*******/
+	//wait for synchronization is done
+	communicator := comm.GetGlobCommInst()
+	if communicator == nil {
+		fmt.Println("get communicator instance failed ...")
+		return
+	}
+	select {
+	case <-communicator.Synced():
+		conR.SwitchToConsensus()
+	}
+	fmt.Println("synch is done, start to receive consensus message")
 
 	for {
 		var mi consensusMsgInfo

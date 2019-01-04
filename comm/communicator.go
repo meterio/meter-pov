@@ -26,7 +26,10 @@ import (
 	"github.com/vechain/thor/txpool"
 )
 
-var log = log15.New("pkg", "comm")
+var (
+	log          = log15.New("pkg", "comm")
+	GlobCommInst *Communicator
+)
 
 // Communicator communicates with remote p2p peers to exchange blocks and txs, etc.
 type Communicator struct {
@@ -43,10 +46,19 @@ type Communicator struct {
 	onceSynced     sync.Once
 }
 
+func SetGlobCommInst(c *Communicator) error {
+	GlobCommInst = c
+	return nil
+}
+
+func GetGlobCommInst() *Communicator {
+	return GlobCommInst
+}
+
 // New create a new Communicator instance.
 func New(chain *chain.Chain, txPool *txpool.TxPool) *Communicator {
 	ctx, cancel := context.WithCancel(context.Background())
-	return &Communicator{
+	c := &Communicator{
 		chain:          chain,
 		txPool:         txPool,
 		ctx:            ctx,
@@ -55,6 +67,9 @@ func New(chain *chain.Chain, txPool *txpool.TxPool) *Communicator {
 		syncedCh:       make(chan struct{}),
 		announcementCh: make(chan *announcement),
 	}
+
+	SetGlobCommInst(c)
+	return c
 }
 
 // Synced returns a channel indicates if synchronization process passed.

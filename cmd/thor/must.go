@@ -233,7 +233,7 @@ func newP2PComm(ctx *cli.Context, chain *chain.Chain, txPool *txpool.TxPool, ins
 		log.Warn("failed to load peers cache", "err", err)
 	}
 
-	opts.KnownNodes = append(opts.KnownNodes, sweetNodes...)
+	opts.KnownNodes = append(opts.KnownNodes, KnownNodes...)
 
 	return &p2pComm{
 		comm:           comm.New(chain, txPool),
