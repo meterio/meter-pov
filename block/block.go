@@ -50,12 +50,13 @@ type CommitteeInfo struct {
 
 // Block is an immutable block type.
 type Block struct {
-	header        *Header
-	txs           tx.Transactions
-	evidence      Evidence
-	committeeInfo []byte
-	kBlockData    []byte
-	cache         struct {
+	BlockHeader   *Header
+	Txs           tx.Transactions
+	Evidence      Evidence
+	CommitteeInfo []byte
+	KBlockData    []byte
+
+	cache struct {
 		size atomic.Value
 	}
 }
@@ -95,39 +96,39 @@ func NewCommitteeInfo(pubKey []byte, power int64, accum int64, netAddr types.Net
 // To build up a block, use a Builder.
 func Compose(header *Header, txs tx.Transactions) *Block {
 	return &Block{
-		header: header,
-		txs:    append(tx.Transactions(nil), txs...),
+		BlockHeader: header,
+		Txs:         append(tx.Transactions(nil), txs...),
 	}
 }
 
 // WithSignature create a new block object with signature set.
 func (b *Block) WithSignature(sig []byte) *Block {
 	return &Block{
-		header: b.header.withSignature(sig),
-		txs:    b.txs,
+		BlockHeader: b.BlockHeader.withSignature(sig),
+		Txs:         b.Txs,
 	}
 }
 
 // Header returns the block header.
 func (b *Block) Header() *Header {
-	return b.header
+	return b.BlockHeader
 }
 
 // Transactions returns a copy of transactions.
 func (b *Block) Transactions() tx.Transactions {
-	return append(tx.Transactions(nil), b.txs...)
+	return append(tx.Transactions(nil), b.Txs...)
 }
 
 // Body returns body of a block.
 func (b *Block) Body() *Body {
-	return &Body{append(tx.Transactions(nil), b.txs...)}
+	return &Body{append(tx.Transactions(nil), b.Txs...)}
 }
 
 // EncodeRLP implements rlp.Encoder.
 func (b *Block) EncodeRLP(w io.Writer) error {
 	return rlp.Encode(w, []interface{}{
-		b.header,
-		b.txs,
+		b.BlockHeader,
+		b.Txs,
 	})
 }
 
@@ -144,8 +145,8 @@ func (b *Block) DecodeRLP(s *rlp.Stream) error {
 	}
 
 	*b = Block{
-		header: &payload.Header,
-		txs:    payload.Txs,
+		BlockHeader: &payload.Header,
+		Txs:         payload.Txs,
 	}
 	b.cache.size.Store(metric.StorageSize(rlp.ListSize(size)))
 	return nil
@@ -165,35 +166,35 @@ func (b *Block) Size() metric.StorageSize {
 func (b *Block) String() string {
 	return fmt.Sprintf(`Block(%v)
 %v
-Transactions: %v`, b.Size(), b.header, b.txs)
+Transactions: %v`, b.Size(), b.BlockHeader, b.Txs)
 }
 
 //-----------------
 func (b *Block) SetBlockEvidence(ev *Evidence) *Block {
-	b.evidence = *ev
+	b.Evidence = *ev
 	return b
 }
 
 func (b *Block) SetBlockCommitteeInfo(ci []byte) *Block {
-	b.committeeInfo = ci
+	b.CommitteeInfo = ci
 	return b
 }
 
 func (b *Block) SetKBlockData(kBlockData []byte) *Block {
-	b.kBlockData = kBlockData
+	b.KBlockData = kBlockData
 	return b
 }
 
 func (b *Block) GetBlockEvidence() *Evidence {
-	return &b.evidence
+	return &b.Evidence
 }
 
 func (b *Block) GetBlockCommitteeInfo() []byte {
-	return b.committeeInfo
+	return b.CommitteeInfo
 }
 
 func (b *Block) GetKBlockData() []byte {
-	return b.kBlockData
+	return b.KBlockData
 }
 
 //--------------

@@ -88,11 +88,11 @@ func (b *Builder) Transaction(tx *tx.Transaction) *Builder {
 
 // Build build a block object.
 func (b *Builder) Build() *Block {
-	header := Header{body: b.headerBody}
-	header.body.TxsRoot = b.txs.RootHash()
+	header := Header{Body: b.headerBody}
+	header.Body.TxsRoot = b.txs.RootHash()
 
 	return &Block{
-		header: &header,
-		txs:    b.txs,
+		BlockHeader: &header,
+		Txs:         b.txs,
 	}
 }

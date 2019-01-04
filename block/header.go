@@ -8,7 +8,7 @@ package block
 import (
 	"encoding/binary"
 	"fmt"
-	"io"
+	// "io"
 	"sync/atomic"
 
 	"github.com/ethereum/go-ethereum/crypto"
@@ -24,7 +24,7 @@ const (
 // Header contains almost all information about a block, except block body.
 // It's immutable.
 type Header struct {
-	body headerBody
+	Body headerBody
 
 	cache struct {
 		signingHash atomic.Value
@@ -55,63 +55,63 @@ type headerBody struct {
 
 // ParentID returns id of parent block.
 func (h *Header) ParentID() thor.Bytes32 {
-	return h.body.ParentID
+	return h.Body.ParentID
 }
 
 // LastBlocID returns id of parent block.
 func (h *Header) LastKBlockHeight() uint32 {
-	return h.body.LastKBlockHeight
+	return h.Body.LastKBlockHeight
 }
 
 // Number returns sequential number of this block.
 func (h *Header) Number() uint32 {
 	// inferred from parent id
-	return Number(h.body.ParentID) + 1
+	return Number(h.Body.ParentID) + 1
 }
 
 // Timestamp returns timestamp of this block.
 func (h *Header) Timestamp() uint64 {
-	return h.body.Timestamp
+	return h.Body.Timestamp
 }
 
 // BlockType returns block type of this block.
 func (h *Header) BlockType() uint32 {
-	return h.body.BlockType
+	return h.Body.BlockType
 }
 
 // TotalScore returns total score that cumulated from genesis block to this one.
 func (h *Header) TotalScore() uint64 {
-	return h.body.TotalScore
+	return h.Body.TotalScore
 }
 
 // GasLimit returns gas limit of this block.
 func (h *Header) GasLimit() uint64 {
-	return h.body.GasLimit
+	return h.Body.GasLimit
 }
 
 // GasUsed returns gas used by txs.
 func (h *Header) GasUsed() uint64 {
-	return h.body.GasUsed
+	return h.Body.GasUsed
 }
 
 // Beneficiary returns reward recipient.
 func (h *Header) Beneficiary() thor.Address {
-	return h.body.Beneficiary
+	return h.Body.Beneficiary
 }
 
 // TxsRoot returns merkle root of txs contained in this block.
 func (h *Header) TxsRoot() thor.Bytes32 {
-	return h.body.TxsRoot
+	return h.Body.TxsRoot
 }
 
 // StateRoot returns account state merkle root just afert this block being applied.
 func (h *Header) StateRoot() thor.Bytes32 {
-	return h.body.StateRoot
+	return h.Body.StateRoot
 }
 
 // ReceiptsRoot returns merkle root of tx receipts.
 func (h *Header) ReceiptsRoot() thor.Bytes32 {
-	return h.body.ReceiptsRoot
+	return h.Body.ReceiptsRoot
 }
 
 // ID computes id of block.
@@ -148,19 +148,19 @@ func (h *Header) SigningHash() (hash thor.Bytes32) {
 
 	hw := thor.NewBlake2b()
 	rlp.Encode(hw, []interface{}{
-		h.body.ParentID,
-		h.body.Timestamp,
-		h.body.GasLimit,
-		h.body.Beneficiary,
-		h.body.BlockType,
-		h.body.LastKBlockHeight,
+		h.Body.ParentID,
+		h.Body.Timestamp,
+		h.Body.GasLimit,
+		h.Body.Beneficiary,
+		h.Body.BlockType,
+		h.Body.LastKBlockHeight,
 
-		h.body.GasUsed,
-		h.body.TotalScore,
+		h.Body.GasUsed,
+		h.Body.TotalScore,
 
-		h.body.TxsRoot,
-		h.body.StateRoot,
-		h.body.ReceiptsRoot,
+		h.Body.TxsRoot,
+		h.Body.StateRoot,
+		h.Body.ReceiptsRoot,
 	})
 	hw.Sum(hash[:0])
 	return
@@ -168,13 +168,13 @@ func (h *Header) SigningHash() (hash thor.Bytes32) {
 
 // Signature returns signature.
 func (h *Header) Signature() []byte {
-	return append([]byte(nil), h.body.Signature...)
+	return append([]byte(nil), h.Body.Signature...)
 }
 
 // withSignature create a new Header object with signature set.
 func (h *Header) withSignature(sig []byte) *Header {
-	cpy := Header{body: h.body}
-	cpy.body.Signature = append([]byte(nil), sig...)
+	cpy := Header{Body: h.Body}
+	cpy.Body.Signature = append([]byte(nil), sig...)
 	return &cpy
 }
 
@@ -194,29 +194,13 @@ func (h *Header) Signer() (signer thor.Address, err error) {
 		}
 	}()
 
-	pub, err := crypto.SigToPub(h.SigningHash().Bytes(), h.body.Signature)
+	pub, err := crypto.SigToPub(h.SigningHash().Bytes(), h.Body.Signature)
 	if err != nil {
 		return thor.Address{}, err
 	}
 
 	signer = thor.Address(crypto.PubkeyToAddress(*pub))
 	return
-}
-
-// EncodeRLP implements rlp.Encoder
-func (h *Header) EncodeRLP(w io.Writer) error {
-	return rlp.Encode(w, &h.body)
-}
-
-// DecodeRLP implements rlp.Decoder.
-func (h *Header) DecodeRLP(s *rlp.Stream) error {
-	var body headerBody
-
-	if err := s.Decode(&body); err != nil {
-		return err
-	}
-	*h = Header{body: body}
-	return nil
 }
 
 func (h *Header) String() string {
@@ -239,9 +223,9 @@ func (h *Header) String() string {
 	TxsRoot:		%v
 	StateRoot:		%v
 	ReceiptsRoot:	%v
-	Signature:		0x%x`, h.ID(), h.Number(), h.body.ParentID, h.body.Timestamp, signerStr,
-		h.body.Beneficiary, h.body.GasLimit, h.body.GasUsed, h.body.TotalScore,
-		h.body.TxsRoot, h.body.StateRoot, h.body.ReceiptsRoot, h.body.Signature)
+	Signature:		0x%x`, h.ID(), h.Number(), h.Body.ParentID, h.Body.Timestamp, signerStr,
+		h.Body.Beneficiary, h.Body.GasLimit, h.Body.GasUsed, h.Body.TotalScore,
+		h.Body.TxsRoot, h.Body.StateRoot, h.Body.ReceiptsRoot, h.Body.Signature)
 }
 
 // Number extract block number from block id.
