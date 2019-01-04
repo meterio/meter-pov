@@ -167,7 +167,7 @@ func (conR *ConsensusReactor) OnStart() error {
 	conR.NewConsensusStart()
 
 	// force to receive nonce
-	conR.ConsensusHandleReceivedNonce(0, 1001)
+	//conR.ConsensusHandleReceivedNonce(0, 1001)
 
 	fmt.Println("Consensus started ... ")
 	return nil
@@ -431,7 +431,7 @@ func (conR *ConsensusReactor) NewValidatorSetByNonce(nonce []byte) (uint, bool) 
 
 func (conR *ConsensusReactor) GetCommitteeMemberIndex(pubKey ecdsa.PublicKey) int {
 	for i, v := range conR.curCommittee.Validators {
-		if v.PubKey == pubKey {
+		if bytes.Equal(crypto.FromECDSAPub(&v.PubKey), crypto.FromECDSAPub(&pubKey)) == true {
 			return i
 		}
 	}

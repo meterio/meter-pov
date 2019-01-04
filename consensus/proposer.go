@@ -10,6 +10,7 @@ package consensus
 
 import (
 	//    "errors"
+	"bytes"
 	"fmt"
 	"time"
 
@@ -85,7 +86,7 @@ func NewCommitteeProposer(conR *ConsensusReactor) *ConsensusProposer {
 	// form topology,
 	for _, v := range conR.curActualCommittee {
 		//skip myself
-		if v.PubKey == cp.csReactor.myPubKey {
+		if bytes.Equal(crypto.FromECDSAPub(&v.PubKey), crypto.FromECDSAPub(&cp.csReactor.myPubKey)) == true {
 			continue
 		}
 		// initialize PeerConn

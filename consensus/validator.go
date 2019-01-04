@@ -323,6 +323,7 @@ func (cv *ConsensusValidator) ProcessProposalBlockMessage(proposalMsg *ProposalB
 	blk, err := block.BlockDecodeFromBytes(blkBytes)
 	if err != nil {
 		fmt.Println("Decode Block failed")
+		return false
 	}
 	fmt.Println("Decoded Block", blk)
 
