@@ -457,8 +457,10 @@ func (conR *ConsensusReactor) finalizeCommitBlock(blkInfo *ProposedBlockInfo) bo
 
 	// unlike processBlock, we do not need to handle fork
 	if fork != nil {
-		panic(" chain is in forked state, something wrong")
-		return false
+		//panic(" chain is in forked state, something wrong")
+		//return false
+		// process fork????
+		fmt.Println("FORK HAPPENED ...", "fork.Branch", len(fork.Branch))
 	}
 
 	commitElapsed := mclock.Now() - startTime
@@ -588,7 +590,7 @@ func (conR *ConsensusReactor) BuildMBlock() *ProposedBlockInfo {
 		}
 	}
 
-	newBlock, stage, receipts, err := flow.Pack(&conR.myPrivKey)
+	newBlock, stage, receipts, err := flow.Pack(&conR.myPrivKey, block.BLOCK_TYPE_M_BLOCK)
 	if err != nil {
 		fmt.Println("build block failed")
 		return nil

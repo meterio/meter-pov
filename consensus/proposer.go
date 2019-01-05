@@ -464,7 +464,7 @@ func (cp *ConsensusProposer) ProcessVoteForProposal(vote4ProposalMsg *VoteForPro
 
 	cp.proposalVoterSig = append(cp.proposalVoterSig, sig)
 	cp.proposalVoterPubKey = append(cp.proposalVoterPubKey, pubKey)
-	cp.notaryVoterMsgHash = append(cp.proposalVoterMsgHash, msgHash)
+	cp.proposalVoterMsgHash = append(cp.proposalVoterMsgHash, msgHash)
 
 	// XXX::: Yang: Hack here +2 to pass 2/3
 	// 3. if the totoal vote > 2/3, move to NotarySent state

@@ -18,7 +18,7 @@ var bootstrapNodes = []*discover.Node{
 var KnownNodes = []*discover.Node{
 	// Nodes for Yang
 	//discover.MustParseNode("enode://a00f8a399e25e72d92534236d7683b9c4c23582045c7d081735e4badf09d0775797819791502893df901c6b9dd26281f31bf6850fdfcebb48ea37cdbf63a95ae@10.1.10.50:11235"),
-	//discover.MustParseNode("enode://719d706c31723dca3cc5eb9c325b9bf842c4301ec3cc0086beb7823ecf428034b6a6c4f93efd1958a54746ee3d3312c3c26253c88b11c2cc6b08683a4e597190@10.1.10.9:11235"),
+	discover.MustParseNode("enode://719d706c31723dca3cc5eb9c325b9bf842c4301ec3cc0086beb7823ecf428034b6a6c4f93efd1958a54746ee3d3312c3c26253c88b11c2cc6b08683a4e597190@10.1.10.9:11235"),
 
 	// Nodes for Simon
 	// discover.MustParseNode("enode://615dea026b3dac00b6b9935a412bed586ea4e5ce8ac9c2dc45db40c4cdeee2fd4db24c5af897dc1b6516429a33f3e7840ea38feec637fd6d405e4c50776b5739@10.1.10.12:11235")

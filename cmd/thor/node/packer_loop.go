@@ -100,7 +100,7 @@ func (n *Node) pack(flow *packer.Flow) error {
 		}
 	}
 
-	newBlock, stage, receipts, err := flow.Pack(n.master.PrivateKey)
+	newBlock, stage, receipts, err := flow.Pack(n.master.PrivateKey, uint32(1) /*block.BLOCK_TYPE_M_BLOCK*/)
 	if err != nil {
 		return err
 	}

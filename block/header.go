@@ -8,6 +8,7 @@ package block
 import (
 	"encoding/binary"
 	"fmt"
+
 	// "io"
 	"sync/atomic"
 
@@ -216,7 +217,9 @@ func (h *Header) String() string {
 	ParentID:		%v
 	Timestamp:		%v
 	Signer:			%v
-	Beneficiary:	%v
+	Beneficiary:		%v
+	BlockType:		%v
+	LastKBlockHieght:		%v
 	GasLimit:		%v
 	GasUsed:		%v
 	TotalScore:		%v
@@ -224,7 +227,7 @@ func (h *Header) String() string {
 	StateRoot:		%v
 	ReceiptsRoot:	%v
 	Signature:		0x%x`, h.ID(), h.Number(), h.Body.ParentID, h.Body.Timestamp, signerStr,
-		h.Body.Beneficiary, h.Body.GasLimit, h.Body.GasUsed, h.Body.TotalScore,
+		h.Body.Beneficiary, h.Body.BlockType, h.Body.LastKBlockHeight, h.Body.GasLimit, h.Body.GasUsed, h.Body.TotalScore,
 		h.Body.TxsRoot, h.Body.StateRoot, h.Body.ReceiptsRoot, h.Body.Signature)
 }
 
