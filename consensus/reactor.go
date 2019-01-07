@@ -304,6 +304,15 @@ func (conR *ConsensusReactor) UpdateHeightRound(height int64, round int) bool {
 	return true
 }
 
+// Refresh the current Height from the best block
+// normally call this routine after block chain changed
+func (conR *ConsensusReactor) RefreshCurHeight() error {
+	prev := conR.curHeight
+	conR.curHeight = int64(conR.chain.BestBlock().Header().Number())
+	fmt.Println("Refresh curHeight", "previous", prev, "now", conR.curHeight)
+	return nil
+}
+
 // after announce/commit, Leader got the actual committee, which is the subset of curCommittee if some committee member offline.
 // indexs and pubKeys are not sorted slice, AcutalCommittee must be sorted.
 // Only Leader can call this method. indexes do not include the leader itself.

@@ -159,9 +159,12 @@ func (c *ConsensusReactor) validateBlockHeader(header *block.Header, parent *blo
 		return consensusError(fmt.Sprintf("block timestamp behind parents: parent %v, current %v", parent.Timestamp(), header.Timestamp()))
 	}
 
+	// XXX: unlike vechain, our block generation is not periodically. It is on varied speed, basically 5s < t  < 15s
+	/*****
 	if (header.Timestamp()-parent.Timestamp())%thor.BlockInterval != 0 {
 		return consensusError(fmt.Sprintf("block interval not rounded: parent %v, current %v", parent.Timestamp(), header.Timestamp()))
 	}
+	******/
 
 	if header.Timestamp() > nowTimestamp+thor.BlockInterval {
 		return errFutureBlock
@@ -183,7 +186,8 @@ func (c *ConsensusReactor) validateBlockHeader(header *block.Header, parent *blo
 }
 
 func (c *ConsensusReactor) validateEvidence(ev *block.Evidence, header *block.Header) error {
-
+	// Yang: XXX: tmp only
+	return nil
 	// find out the block which has the committee info
 	// Normally we store the committee info in the first of Mblock after Kblock
 	lastKBlock := header.LastKBlockHeight()
