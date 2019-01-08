@@ -117,7 +117,8 @@ func (c *Communicator) Sync(handler HandleBlockStream) {
 					return totalScore >= best.TotalScore()
 				})
 				if peer == nil {
-					if c.peerSet.Len() < 3 {
+					// XXX: original setting was 3, changed to 1 for cold start
+					if c.peerSet.Len() < 1 {
 						log.Debug("no suitable peer to sync")
 						break
 					}
@@ -245,6 +246,7 @@ func (c *Communicator) SubscribeBlock(ch chan *NewBlockEvent) event.Subscription
 
 // BroadcastBlock broadcast a block to remote peers.
 func (c *Communicator) BroadcastBlock(blk *block.Block) {
+	fmt.Println("-----------BROADCAST BLOCK-----------\n", blk.Header())
 	peers := c.peerSet.Slice().Filter(func(p *Peer) bool {
 		return !p.IsBlockKnown(blk.Header().ID())
 	})

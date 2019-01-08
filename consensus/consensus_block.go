@@ -17,6 +17,7 @@ import (
 
 	//"github.com/vechain/thor/chain"
 	//"github.com/vechain/thor/poa"
+	"github.com/vechain/thor/comm"
 	"github.com/vechain/thor/runtime"
 	"github.com/vechain/thor/state"
 	"github.com/vechain/thor/thor"
@@ -469,6 +470,8 @@ func (conR *ConsensusReactor) finalizeCommitBlock(blkInfo *ProposedBlockInfo) bo
 
 	commitElapsed := mclock.Now() - startTime
 
+	// XXX: broadcast the new block to all peers
+	comm.GetGlobCommInst().BroadcastBlock(blk)
 	// successfully added the block, update the current hight of consensus
 	fmt.Println("block is commited", "height", height, "elapsed time", commitElapsed)
 	fmt.Println("block is commited", "best block height", conR.chain.BestBlock().Header().Number())

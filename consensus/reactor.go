@@ -159,14 +159,13 @@ func NewConsensusReactor(chain *chain.Chain, state *state.Creator, privKey *ecds
 // OnStart implements BaseService by subscribing to events, which later will be
 // broadcasted to other peers and starting state if we're not in fast sync.
 func (conR *ConsensusReactor) OnStart() error {
-
 	// Start new consensus
 	conR.NewConsensusStart()
 
 	// force to receive nonce
 	//conR.ConsensusHandleReceivedNonce(0, 1001)
 
-	fmt.Println("Consensus started ... ")
+	conR.logger.Info("Consensus started ... ", "curHeight", conR.curHeight, "curRound", conR.curRound)
 	return nil
 }
 
@@ -183,7 +182,7 @@ func (conR *ConsensusReactor) OnStop() {
 // It resets the state, turns off fast_sync, and starts the consensus state-machine
 func (conR *ConsensusReactor) SwitchToConsensus() {
 	//conR.Logger.Info("SwitchToConsensus")
-	fmt.Println("Synchnization is done. SwitchToConsensus ...")
+	conR.logger.Info("Synchnization is done. SwitchToConsensus ...")
 
 	conR.ConsensusHandleReceivedNonce(0, 1001)
 }
@@ -798,7 +797,7 @@ func (conR *ConsensusReactor) sendConsensusMsg(msg *ConsensusMessage, csPeer *Co
 	}
 
 	fmt.Println("try send msg out, size: ", len(rawMsg))
-	fmt.Println(hex.Dump(rawMsg))
+	// fmt.Println(hex.Dump(rawMsg))
 
 	if csPeer == nil {
 		conR.internalMsgQueue <- consensusMsgInfo{rawMsg, nil}
@@ -941,7 +940,7 @@ func (cp *ConsensusPeer) sendConsensusMsg(msg *ConsensusMessage) bool {
 
 	// XXX: need to send rawMsg to peer
 	fmt.Println("try send msg out, size: ", len(rawMsg))
-	fmt.Println(hex.Dump(rawMsg))
+	// fmt.Println(hex.Dump(rawMsg))
 
 	return true
 }

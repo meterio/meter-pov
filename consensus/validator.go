@@ -560,6 +560,9 @@ func (cv *ConsensusValidator) ProcessMoveNewRoundMessage(newRoundMsg *MoveNewRou
 	}
 
 	ch := newRoundMsg.CSMsgCommonHeader
+
+	chainCurHeight := int64(cv.csReactor.chain.BestBlock().Header().Number())
+	fmt.Println("Chain curHeight=", chainCurHeight, ", Reactor curHeight=", cv.csReactor.curHeight)
 	if ch.Height != cv.csReactor.curHeight {
 		fmt.Println("Height mismatch!, curHeight %d, the incoming %d", cv.csReactor.curHeight, ch.Height)
 		return false

@@ -109,9 +109,6 @@ func (n *Node) handleBlockStream(ctx context.Context, stream <-chan *block.Block
 		log.Info(fmt.Sprintf("imported blocks (%v)", stats.processed), stats.LogContext(block.Header())...)
 		stats = blockStats{}
 		startTime = mclock.Now()
-
-		//XXX: Yang, refresh consensus curHeight
-		n.cons.RefreshCurHeight()
 	}
 
 	var blk *block.Block
@@ -291,6 +288,11 @@ func (n *Node) processBlock(blk *block.Block, stats *blockStats) (bool, error) {
 	commitElapsed := mclock.Now() - startTime - execElapsed
 	stats.UpdateProcessed(1, len(receipts), execElapsed, commitElapsed, blk.Header().GasUsed())
 	n.processFork(fork)
+
+	// XXX: shortcut to refresh height
+	n.cons.RefreshCurHeight()
+	// end of shortcut
+
 	return len(fork.Trunk) > 0, nil
 }
 
