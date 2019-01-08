@@ -23,6 +23,7 @@ import (
 	"runtime"
 
 	b64 "encoding/base64"
+	"strings"
 
 	"github.com/gorilla/mux"
 	"github.com/rs/cors"
@@ -282,13 +283,13 @@ func (conR *ConsensusReactor) isCSDelegates() bool {
 }
 
 func (conR *ConsensusReactor) UpdateHeight(height int64) bool {
-	fmt.Println("Update conR.curHeight to ", height)
+	conR.logger.Info(fmt.Sprintf("Update conR.curHeight from %d to %d", conR.curHeight, height))
 	conR.curHeight = height
 	return true
 }
 
 func (conR *ConsensusReactor) UpdateRound(round int) bool {
-	fmt.Println("Update conR.curRound to ", round)
+	conR.logger.Info(fmt.Sprintf("Update conR.curRound from %d to %d", conR.curRound, round))
 	conR.curRound = round
 	return true
 }
@@ -306,9 +307,7 @@ func (conR *ConsensusReactor) UpdateHeightRound(height int64, round int) bool {
 // Refresh the current Height from the best block
 // normally call this routine after block chain changed
 func (conR *ConsensusReactor) RefreshCurHeight() error {
-	prev := conR.curHeight
-	conR.curHeight = int64(conR.chain.BestBlock().Header().Number())
-	fmt.Println("Refresh curHeight", "previous", prev, "now", conR.curHeight)
+	conR.UpdateHeight(int64(conR.chain.BestBlock().Header().Number()))
 	return nil
 }
 
@@ -319,7 +318,7 @@ func (conR *ConsensusReactor) UpdateActualCommittee(indexes []int, pubKeys []bls
 
 	if len(indexes) != len(pubKeys) ||
 		len(indexes) > conR.committeeSize {
-		fmt.Println("failed to update reactor actual committee ...")
+		conR.logger.Error("failed to update reactor actual committee ...")
 		return false
 	}
 
@@ -340,7 +339,7 @@ func (conR *ConsensusReactor) UpdateActualCommittee(indexes []int, pubKeys []bls
 		//sanity check
 		if index == -1 ||
 			index > conR.committeeSize {
-			fmt.Println(i, "index", index)
+			// fmt.Println(i, "index", index)
 			continue
 		}
 
@@ -371,7 +370,7 @@ func (conR *ConsensusReactor) UpdateActualCommittee(indexes []int, pubKeys []bls
 
 	// I am Leader, first one should be myself.
 	if bytes.Equal(crypto.FromECDSAPub(&conR.curActualCommittee[0].PubKey), crypto.FromECDSAPub(&conR.myPubKey)) == false {
-		fmt.Println("I am leader and not in first place of curActualCommittee, must correct ...")
+		conR.logger.Error("I am leader and not in first place of curActualCommittee, must correct ...")
 		return false
 	}
 
@@ -402,7 +401,7 @@ func (conR *ConsensusReactor) NewValidatorSetByNonce(nonce []byte) (uint, bool) 
 		// sorted key is pubkey + nonce ...
 		ck := crypto.Keccak256(append(crypto.FromECDSAPub(&pubKey), nonce...))
 		vals[i].CommitKey = append(vals[i].CommitKey, ck...)
-		fmt.Println(vals[i].CommitKey)
+		// fmt.Println(vals[i].CommitKey)
 	}
 
 	sort.SliceStable(vals, func(i, j int) bool {
@@ -441,7 +440,7 @@ func (conR *ConsensusReactor) GetCommitteeMemberIndex(pubKey ecdsa.PublicKey) in
 		}
 	}
 
-	fmt.Println("not in committee", pubKey)
+	conR.logger.Error("I'm not in committee, please check public key settings", "pubKey", pubKey)
 	return -1
 }
 
@@ -451,24 +450,29 @@ func (conR *ConsensusReactor) handleMsg(mi consensusMsgInfo) {
 	defer conR.mtx.Unlock()
 
 	rawMsg, peer := mi.Msg, mi.csPeer
-	fmt.Println("from peer ", peer)
-	fmt.Println("receives msg: ", rawMsg)
 
 	msg, err := decodeMsg(rawMsg)
 	if err != nil {
-		fmt.Println("Error decoding message", "src", peer, "msg", msg, "err", err, "bytes", rawMsg)
+		conR.logger.Error("Error decoding message", "src", peer, "msg", msg, "err", err, "bytes", rawMsg)
 		return
 	}
+
+	typeName := reflect.TypeOf(msg).String()
+	if strings.Contains(typeName, ".") {
+		typeName = strings.Split(typeName, ".")[1]
+	}
+	conR.logger.Info("Received message from peer",
+		"type", typeName,
+		"length", len(rawMsg),
+		"ip", peer.netAddr.IP.String())
 
 	switch msg := msg.(type) {
 
 	// New consensus Messages
 	case *AnnounceCommitteeMessage:
-		fmt.Println("receives AnnounceCommitteeMessage ...")
-
 		if (conR.csRoleInitialized&CONSENSUS_COMMIT_ROLE_VALIDATOR) == 0 ||
 			(conR.csValidator == nil) {
-			fmt.Println("not in validator role, enter validator first ...")
+			conR.logger.Error("not in validator role, enter validator first ...")
 			// if find out we are not in committee, then exit validator
 			conR.enterConsensusValidator()
 		}
@@ -476,121 +480,114 @@ func (conR *ConsensusReactor) handleMsg(mi consensusMsgInfo) {
 		success := conR.csValidator.ProcessAnnounceCommittee(msg, peer)
 		// For ProcessAnnounceCommittee, it is not validator if return is false
 		if success == false {
-			fmt.Println("process announce failed")
+			conR.logger.Error("process announce failed")
 			conR.exitConsensusValidator()
 		}
 
 	case *CommitCommitteeMessage:
-		fmt.Println("receives CommitCommitteeMessage ...")
 		if (conR.csRoleInitialized&CONSENSUS_COMMIT_ROLE_LEADER) == 0 ||
 			(conR.csLeader == nil) {
-			fmt.Println("not in leader role, ignore CommitCommitteeMessage")
+			conR.logger.Error("not in leader role, ignore CommitCommitteeMessage")
 			break
 		}
 
 		success := conR.csLeader.ProcessCommitMsg(msg, peer)
 		if success == false {
-			fmt.Println("process CommitCommitteeMessage failed")
+			conR.logger.Error("process CommitCommitteeMessage failed")
 		}
 
 	case *ProposalBlockMessage:
-		fmt.Println("receives ProposalBlockMessage ...")
 		if (conR.csRoleInitialized&CONSENSUS_COMMIT_ROLE_VALIDATOR) == 0 ||
 			(conR.csValidator == nil) {
-			fmt.Println("not in validator role, ignore ProposalBlockMessage")
+			conR.logger.Error("not in validator role, ignore ProposalBlockMessage")
 			break
 		}
 
 		success := conR.csValidator.ProcessProposalBlockMessage(msg, peer)
 		if success == false {
-			fmt.Println("process ProposalBlockMessage failed")
+			conR.logger.Error("process ProposalBlockMessage failed")
 		}
 
 	case *NotaryAnnounceMessage:
-		fmt.Println("receives NotaryAnnounceMessage ...")
 		if (conR.csRoleInitialized&CONSENSUS_COMMIT_ROLE_VALIDATOR) == 0 ||
 			(conR.csValidator == nil) {
-			fmt.Println("not in validator role, ignore NotaryAnnounceMessage")
+			conR.logger.Error("not in validator role, ignore NotaryAnnounceMessage")
 			break
 		}
 
 		success := conR.csValidator.ProcessNotaryAnnounceMessage(msg, peer)
 		if success == false {
-			fmt.Println("process NotaryAnnounceMessage failed")
+			conR.logger.Error("process NotaryAnnounceMessage failed")
 		}
 
 	case *NotaryBlockMessage:
-		fmt.Println("receives NotaryBlockMessage ...")
 		if (conR.csRoleInitialized&CONSENSUS_COMMIT_ROLE_VALIDATOR) == 0 ||
 			(conR.csValidator == nil) {
-			fmt.Println("not in validator role, ignore NotaryBlockMessage")
+			conR.logger.Error("not in validator role, ignore NotaryBlockMessage")
 			break
 		}
 
 		success := conR.csValidator.ProcessNotaryBlockMessage(msg, peer)
 		if success == false {
-			fmt.Println("process NotaryBlockMessage failed")
+			conR.logger.Error("process NotaryBlockMessage failed")
 		}
 
 	case *VoteForProposalMessage:
-		fmt.Println("receives VoteForProposalMessage ...")
 		if (conR.csRoleInitialized&CONSENSUS_COMMIT_ROLE_PROPOSER) == 0 ||
 			(conR.csProposer == nil) {
-			fmt.Println("not in proposer role, ignore VoteForProposalMessage")
+			conR.logger.Error("not in proposer role, ignore VoteForProposalMessage")
 			break
 		}
 
 		success := conR.csProposer.ProcessVoteForProposal(msg, peer)
 		if success == false {
-			fmt.Println("process VoteForProposal failed")
+			conR.logger.Error("process VoteForProposal failed")
 		}
 
 	case *VoteForNotaryMessage:
-		fmt.Println("receives VoteForNotaryMessage ...")
 		ch := msg.CSMsgCommonHeader
 
 		if ch.MsgSubType == VOTE_FOR_NOTARY_ANNOUNCE {
 			// vote for notary announce
 			if (conR.csRoleInitialized&CONSENSUS_COMMIT_ROLE_LEADER) == 0 ||
 				(conR.csLeader == nil) {
-				fmt.Println("not in leader role, ignore VoteForNotaryMessage")
+				conR.logger.Error("not in leader role, ignore VoteForNotaryMessage")
 				break
 			}
 
 			success := conR.csLeader.ProcessVoteNotaryAnnounce(msg, peer)
 			if success == false {
-				fmt.Println("process VoteForNotary(Announce) failed")
+				conR.logger.Error("process VoteForNotary(Announce) failed")
 			}
 
 		} else if ch.MsgSubType == VOTE_FOR_NOTARY_BLOCK {
 			if (conR.csRoleInitialized&CONSENSUS_COMMIT_ROLE_PROPOSER) == 0 ||
 				(conR.csProposer == nil) {
-				fmt.Println("not in proposer role, ignore VoteForNotaryMessage")
+				conR.logger.Error("not in proposer role, ignore VoteForNotaryMessage")
 				break
 			}
 
 			success := conR.csProposer.ProcessVoteForNotary(msg, peer)
 			if success == false {
-				fmt.Println("process VoteForNotary(Block) failed")
+				conR.logger.Error("process VoteForNotary(Block) failed")
 			}
 		} else {
-			fmt.Println("Unknown MsgSubType", ch.MsgSubType)
+			conR.logger.Error("Unknown MsgSubType", "value", ch.MsgSubType)
 		}
 	case *MoveNewRoundMessage:
-		fmt.Println("receives MoveNewRoundMessage ...")
 		if (conR.csRoleInitialized&CONSENSUS_COMMIT_ROLE_VALIDATOR) == 0 ||
 			(conR.csValidator == nil) {
-			fmt.Println("not in validator role, ignore MoveNewRoundMessage")
+			conR.logger.Error("not in validator role, ignore MoveNewRoundMessage")
 			break
 		}
 
 		success := conR.csValidator.ProcessMoveNewRoundMessage(msg, peer)
 		if success == false {
-			fmt.Println("process MoveNewRound failed")
+			conR.logger.Error("process MoveNewRound failed")
 		}
 
 	default:
-		fmt.Println("Unknown msg type", reflect.TypeOf(msg))
+		conR.logger.Error("Unknown msg type", "value", reflect.TypeOf(msg))
 	}
 }
 
@@ -606,14 +603,14 @@ func (conR *ConsensusReactor) receiveRoutine() {
 	//wait for synchronization is done
 	communicator := comm.GetGlobCommInst()
 	if communicator == nil {
-		fmt.Println("get communicator instance failed ...")
+		conR.logger.Error("get communicator instance failed ...")
 		return
 	}
 	select {
 	case <-communicator.Synced():
 		conR.SwitchToConsensus()
 	}
-	fmt.Println("synch is done, start to receive consensus message")
+	conR.logger.Info("Sync is done, start to accept consensus message")
 
 	for {
 		var mi consensusMsgInfo
@@ -621,11 +618,11 @@ func (conR *ConsensusReactor) receiveRoutine() {
 		case mi = <-conR.peerMsgQueue:
 			// handles proposals, block parts, votes
 			// may generate internal events (votes, complete proposals, 2/3 majorities)
-			fmt.Println("received msg from peerMsgQueue ...")
+			// conR.logger.Debug("Received message from peerMsgQueue")
 			conR.handleMsg(mi)
 		case mi = <-conR.internalMsgQueue:
 			// handles proposals, block parts, votes
-			fmt.Println("received msg from InternalMsgQueue ...")
+			conR.logger.Debug("Received message from InternalMsgQueue")
 			conR.handleMsg(mi)
 		case ti := <-conR.schedulerQueue:
 			conR.HandleSchedule(ti)
@@ -697,7 +694,7 @@ func (conR *ConsensusReactor) receivePeerMsgRoutine() {
 
 //Entry point of new consensus
 func (conR *ConsensusReactor) NewConsensusStart() int {
-	fmt.Println("    Starting New Consensus ...")
+	conR.logger.Debug("Starting New Consensus ...")
 
 	/***** Yang: Common init is based on role: leader and normal validator.
 	 ***** Leader generate bls type/params/system and send out those params
@@ -718,7 +715,7 @@ func (conR *ConsensusReactor) NewConsensusStart() int {
 
 // called by reactor stop
 func (conR *ConsensusReactor) NewConsensusStop() int {
-	fmt.Println("Stop New Consensus ...")
+	conR.logger.Warn("Stop New Consensus ...")
 
 	// Deinitialize consensus common
 	conR.csCommon.ConsensusCommonDeinit()
@@ -729,7 +726,7 @@ func (conR *ConsensusReactor) NewConsensusStop() int {
 // -------
 // Enter validator
 func (conR *ConsensusReactor) enterConsensusValidator() int {
-	fmt.Println("enter consensus validator")
+	conR.logger.Debug("Enter consensus validator")
 
 	conR.csValidator = NewConsensusValidator(conR)
 	conR.csRoleInitialized |= CONSENSUS_COMMIT_ROLE_VALIDATOR
@@ -739,7 +736,7 @@ func (conR *ConsensusReactor) enterConsensusValidator() int {
 
 func (conR *ConsensusReactor) exitConsensusValidator() int {
 
-	fmt.Println("exit consensus validator")
+	conR.logger.Debug("Exit consensus validator")
 	conR.csValidator = nil
 	conR.csRoleInitialized &= ^CONSENSUS_COMMIT_ROLE_VALIDATOR
 
@@ -748,7 +745,7 @@ func (conR *ConsensusReactor) exitConsensusValidator() int {
 
 // Enter proposer
 func (conR *ConsensusReactor) enterConsensusProposer() int {
-	fmt.Println("enter consensus proposer")
+	conR.logger.Debug("Enter consensus proposer")
 
 	conR.csProposer = NewCommitteeProposer(conR)
 	conR.csRoleInitialized |= CONSENSUS_COMMIT_ROLE_PROPOSER
@@ -757,7 +754,7 @@ func (conR *ConsensusReactor) enterConsensusProposer() int {
 }
 
 func (conR *ConsensusReactor) exitConsensusProposer() int {
-	fmt.Println("enter consensus proposer")
+	conR.logger.Debug("Enter consensus proposer")
 
 	conR.csProposer = nil
 	conR.csRoleInitialized &= ^CONSENSUS_COMMIT_ROLE_PROPOSER
@@ -767,7 +764,7 @@ func (conR *ConsensusReactor) exitConsensusProposer() int {
 
 // Enter leader
 func (conR *ConsensusReactor) enterConsensusLeader() int {
-	fmt.Println("enter consensus leader")
+	conR.logger.Debug("Enter consensus leader")
 
 	// init consensus common as leader
 	// need to deinit to avoid the memory leak
@@ -780,7 +777,7 @@ func (conR *ConsensusReactor) enterConsensusLeader() int {
 }
 
 func (conR *ConsensusReactor) exitConsensusLeader() int {
-	fmt.Println("exit consensus leader")
+	conR.logger.Warn("Exit consensus leader")
 
 	conR.csLeader = nil
 	conR.csRoleInitialized &= ^CONSENSUS_COMMIT_ROLE_LEADER
@@ -790,13 +787,18 @@ func (conR *ConsensusReactor) exitConsensusLeader() int {
 
 // XXX. For test only
 func (conR *ConsensusReactor) sendConsensusMsg(msg *ConsensusMessage, csPeer *ConsensusPeer) bool {
+	typeName := reflect.TypeOf(msg).String()
+	if strings.Contains(typeName, ".") {
+		typeName = strings.Split(typeName, ".")[1]
+	}
+
 	rawMsg := cdc.MustMarshalBinaryBare(msg)
 	if len(rawMsg) > maxMsgSize {
 		fmt.Errorf("Msg exceeds max size (%d > %d)", len(rawMsg), maxMsgSize)
 		return false
 	}
 
-	fmt.Println("try send msg out, size: ", len(rawMsg))
+	conR.logger.Debug("Try send consensus msg out", "type", typeName, "size", len(rawMsg))
 	// fmt.Println(hex.Dump(rawMsg))
 
 	if csPeer == nil {
@@ -827,11 +829,10 @@ func (conR *ConsensusReactor) sendConsensusMsg(msg *ConsensusMessage, csPeer *Co
 
 		resp, err := http.Post("http://"+csPeer.netAddr.IP.String()+":8080/peer", "application/json", bytes.NewBuffer(jsonStr))
 		if err != nil {
-			fmt.Println("Failed to send message to peer: ", csPeer.netAddr.IP.String())
-			fmt.Println(err)
+			conR.logger.Error("Failed to send message to peer", "peer", csPeer.String(), "err", err)
 			return false
 		}
-		fmt.Println("sent message to peer: ", csPeer.netAddr.IP.String())
+		conR.logger.Info("Sent consensus message to peer", "peer", csPeer.String())
 		var result map[string]interface{}
 		json.NewDecoder(resp.Body).Decode(&result)
 	}
@@ -939,10 +940,17 @@ func (cp *ConsensusPeer) sendConsensusMsg(msg *ConsensusMessage) bool {
 	}
 
 	// XXX: need to send rawMsg to peer
-	fmt.Println("try send msg out, size: ", len(rawMsg))
+	fmt.Println("try send msg out", "size", len(rawMsg))
 	// fmt.Println(hex.Dump(rawMsg))
 
 	return true
+}
+func (cp *ConsensusPeer) FullString() string {
+	return fmt.Sprintf("%s:%d", cp.netAddr.IP.String(), cp.netAddr.Port)
+}
+
+func (cp *ConsensusPeer) String() string {
+	return cp.netAddr.IP.String()
 }
 
 //-----------------------------------------------------------------------------
@@ -1258,10 +1266,10 @@ func HandleScheduleValidator(conR *ConsensusReactor) bool {
 // Handle Schedules from conR.scheduleQueue
 func (conR *ConsensusReactor) HandleSchedule(ti consensusTimeOutInfo) bool {
 	if ti.arg != conR {
-		fmt.Println("ConsensusReactor changed ...")
+		conR.logger.Debug("ConsensusReactor changed ...")
 		return false
 	}
-	fmt.Println("Handle schedule at height", ti.Height, "round", ti.Round, "scheduling", ti.fn)
+	conR.logger.Debug("Handle schedule", "height", ti.Height, "round", ti.Round, "scheduling", ti.fn)
 	ti.fn(ti.arg)
 	return true
 }
@@ -1269,7 +1277,7 @@ func (conR *ConsensusReactor) HandleSchedule(ti consensusTimeOutInfo) bool {
 //////////////////////////////////////////////////////
 // Consensus module handle received nonce from kblock
 func (conR *ConsensusReactor) ConsensusHandleReceivedNonce(kBlockHeight int64, nonce uint64) {
-	fmt.Println("Consensus receives a nonce ...", nonce, "kBlockHeight", kBlockHeight)
+	conR.logger.Info("Received a nonce ...", "nonce", nonce, "kBlockHeight", kBlockHeight)
 
 	//XXX: Yang:
 	//conR.lastKBlockHeight = kBlockHeight
@@ -1277,14 +1285,13 @@ func (conR *ConsensusReactor) ConsensusHandleReceivedNonce(kBlockHeight int64, n
 
 	buf := make([]byte, binary.MaxVarintLen64)
 	binary.PutUvarint(buf, nonce)
-	role, inCommittee := conR.NewValidatorSetByNonce(buf)
-	fmt.Println("receives nonce", nonce, "inCommittee", inCommittee, "role", role)
+	role, _ := conR.NewValidatorSetByNonce(buf)
 
 	if role == CONSENSUS_COMMIT_ROLE_LEADER {
-		fmt.Println("I am committee leader for nonce", nonce)
+		conR.logger.Info("I am committee leader for nonce", "nonce", nonce)
 		conR.ScheduleLeader(0)
 	} else if role == CONSENSUS_COMMIT_ROLE_VALIDATOR {
-		fmt.Println("I am committee validator for nonce", nonce)
+		conR.logger.Info("I am committee validator for nonce", "nonce", nonce)
 		conR.ScheduleValidator(0)
 	}
 

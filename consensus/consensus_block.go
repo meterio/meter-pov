@@ -442,7 +442,7 @@ func (conR *ConsensusReactor) finalizeCommitBlock(blkInfo *ProposedBlockInfo) bo
 
 	height := int64(blk.Header().Number())
 	if (conR.curHeight + 1) != height {
-		fmt.Println(fmt.Sprintf("finalizeCommitBlock(%v): Invalid height. Current: %v/%v", height, conR.curHeight, conR.curRound))
+		conR.logger.Error(fmt.Sprintf("finalizeCommitBlock(%v): Invalid height. curHeight:%v / curRound: %v", height, conR.curHeight, conR.curRound))
 		return false
 	}
 
@@ -450,13 +450,13 @@ func (conR *ConsensusReactor) finalizeCommitBlock(blkInfo *ProposedBlockInfo) bo
 	startTime := mclock.Now()
 
 	if _, err := stage.Commit(); err != nil {
-		fmt.Println("failed to commit state", "err", err)
+		conR.logger.Error("failed to commit state", "err", err)
 		return false
 	}
 
 	fork, err := conR.chain.AddBlock(blk, *receipts)
 	if err != nil {
-		fmt.Println("add block failed ...", "err", err)
+		conR.logger.Error("add block failed ...", "err", err)
 		return false
 	}
 
@@ -465,7 +465,7 @@ func (conR *ConsensusReactor) finalizeCommitBlock(blkInfo *ProposedBlockInfo) bo
 		//panic(" chain is in forked state, something wrong")
 		//return false
 		// process fork????
-		fmt.Println("FORK HAPPENED ...", "fork.Branch", len(fork.Branch))
+		conR.logger.Info("Fork Happened ...", "fork.Branch", len(fork.Branch))
 	}
 
 	commitElapsed := mclock.Now() - startTime
@@ -473,8 +473,11 @@ func (conR *ConsensusReactor) finalizeCommitBlock(blkInfo *ProposedBlockInfo) bo
 	// XXX: broadcast the new block to all peers
 	comm.GetGlobCommInst().BroadcastBlock(blk)
 	// successfully added the block, update the current hight of consensus
-	fmt.Println("block is commited", "height", height, "elapsed time", commitElapsed)
-	fmt.Println("block is commited", "best block height", conR.chain.BestBlock().Header().Number())
+	conR.logger.Info(fmt.Sprintf(`
+===========================================================
+Block commited at height %d
+===========================================================`, height), "elapsedTime", commitElapsed, "bestBlockHeight", conR.chain.BestBlock().Header().Number())
+	fmt.Println(blk)
 	conR.UpdateHeight(int64(conR.chain.BestBlock().Header().Number()))
 
 	return true
@@ -551,14 +554,14 @@ func (conR *ConsensusReactor) BuildMBlock() *ProposedBlockInfo {
 	best := conR.chain.BestBlock()
 	now := uint64(time.Now().Unix())
 	if conR.curHeight != int64(best.Header().Number()) {
-		fmt.Println("Proposed block parent is not current best block")
+		conR.logger.Error("Proposed block parent is not current best block")
 		return nil
 	}
 
 	startTime := mclock.Now()
 	pool := txpool.GetGlobTxPoolInst()
 	if pool == nil {
-		fmt.Println("get tx pool failed ...")
+		conR.logger.Error("get tx pool failed ...")
 		panic("get tx pool failed ...")
 		return nil
 	}
@@ -573,7 +576,7 @@ func (conR *ConsensusReactor) BuildMBlock() *ProposedBlockInfo {
 
 	p := packer.GetGlobPackerInst()
 	if p == nil {
-		fmt.Println("get packer failed ...")
+		conR.logger.Error("get packer failed ...")
 		panic("get packer failed")
 		return nil
 	}
@@ -581,7 +584,7 @@ func (conR *ConsensusReactor) BuildMBlock() *ProposedBlockInfo {
 	gasLimit := p.GasLimit(best.Header().GasLimit())
 	flow, err := p.Mock(best.Header(), now, gasLimit)
 	if err != nil {
-		fmt.Println("mock packer", "error", err)
+		conR.logger.Error("mock packer", "error", err)
 		return nil
 	}
 
@@ -599,12 +602,12 @@ func (conR *ConsensusReactor) BuildMBlock() *ProposedBlockInfo {
 
 	newBlock, stage, receipts, err := flow.Pack(&conR.myPrivKey, block.BLOCK_TYPE_M_BLOCK)
 	if err != nil {
-		fmt.Println("build block failed")
+		conR.logger.Error("build block failed")
 		return nil
 	}
 
 	execElapsed := mclock.Now() - startTime
-	fmt.Println("MBlock built", "Height", conR.curHeight, "elapse time", execElapsed)
+	conR.logger.Info("MBlock built", "height", conR.curHeight, "elapseTime", execElapsed)
 	return &ProposedBlockInfo{newBlock, stage, &receipts}
 }
 
@@ -624,13 +627,13 @@ type PackerBlockInfo struct {
 func (conR *ConsensusReactor) HandlePackerInfo(pi PackerBlockInfo) {
 	if pi.State == PACKER_BLOCK_SUCCESS {
 		height := int64(pi.blk.Header().Number())
-		fmt.Println("pack block successfully", "height", height, pi.Reason)
+		conR.logger.Info("pack block successfully", "height", height, "reason", pi.Reason)
 
 		// update consensus height
 		if height > conR.curHeight {
 			conR.UpdateHeight(height)
 		}
 	} else {
-		fmt.Println("pack block failed", "height", pi.blk.Header().Number(), pi.Reason)
+		conR.logger.Error("pack block failed", "height", pi.blk.Header().Number(), "reason", pi.Reason)
 	}
 }

@@ -77,11 +77,7 @@ func (cl *ConsensusLeader) SendMsg(msg *ConsensusMessage) bool {
 
 	for _, p := range cl.csPeers {
 		//p.sendConsensusMsg(msg)
-		if cl.csReactor.sendConsensusMsg(msg, p) {
-			fmt.Println("send consnmessage to %v succesfully", p)
-		} else {
-			fmt.Println("send consnmessage to %v failed", p)
-		}
+		cl.csReactor.sendConsensusMsg(msg, p)
 	}
 	return true
 }
@@ -89,7 +85,12 @@ func (cl *ConsensusLeader) SendMsg(msg *ConsensusMessage) bool {
 // Move to the init State
 func (cl *ConsensusLeader) MoveInitState(curState byte) bool {
 	// should not send move to next round message for leader state machine
-	fmt.Println("current state %v, move to state init", curState)
+	r := cl.csReactor
+	cl.csReactor.logger.Info("Move to init state of leader",
+		"curHeight", r.curHeight, "curRound", r.curRound,
+		"curState", curState,
+		"comitteeSize", len(r.curActualCommittee),
+		"comitteeSize", len(r.curCommittee.Validators))
 	cl.state = COMMITTEE_LEADER_INIT
 	return true
 }
@@ -130,11 +131,10 @@ func (cl *ConsensusLeader) GenerateAnnounceMsg() bool {
 
 	// curRound must be zero while sending announce
 	if curRound != 0 {
-		fmt.Println("curRound is %d, expected 0", curRound)
+		cl.csReactor.logger.Error("curRound must be zero while sending announce", "expected", 0, "actual", curRound)
 		curRound = 0
 	}
 
-	fmt.Println("curHeight = ", curHeight, ", curRound = ", curRound)
 	cmnHdr := ConsensusMsgCommonHeader{
 		Height:    curHeight,
 		Round:     curRound,
@@ -163,23 +163,22 @@ func (cl *ConsensusLeader) GenerateAnnounceMsg() bool {
 		SignLength: MSG_SIGN_LENGTH_DEFAULT,
 	}
 
-	fmt.Println("Announce Msg: ", msg.String())
+	cl.csReactor.logger.Debug("Generate Announce Comittee Message", "msg", msg.String())
 	var m ConsensusMessage = msg
 	cl.SendMsg(&m)
 	cl.state = COMMITTEE_LEADER_ANNOUNCED
 
 	//timeout function
 	announceExpire := func() {
-		fmt.Println("reach 2/3 votes of announce expired ...")
+		cl.csReactor.logger.Error("reach 2/3 votes of announce expired ...", "comitteeSize", cl.csReactor.committeeSize, "totalComitter", cl.announceVoterNum)
 
 		//XXX: Yang: Hack here +2 to pass 2/3
-		fmt.Println("total committer", (cl.announceVoterNum), "commtteeSize", cl.csReactor.committeeSize)
 		if cl.announceVoterNum != 0 && (cl.announceVoterNum+1) >= (cl.csReactor.committeeSize*2/3) &&
 			//fmt.Println("total committer", cl.announceVoterNum, "commtteeSize", cl.csReactor.committeeSize)
 			//if cl.announceVoterNum >= (cl.csReactor.committeeSize*2/3) &&
 			cl.state == COMMITTEE_LEADER_ANNOUNCED {
 
-			fmt.Println("Committers reach 2/3 of Committee")
+			cl.csReactor.logger.Info("Committers reach 2/3 of Committee")
 
 			//stop announce Timer
 			//cl.announceThresholdTimer.Stop()
@@ -194,13 +193,12 @@ func (cl *ConsensusLeader) GenerateAnnounceMsg() bool {
 
 			//timeout function
 			notaryExpire := func() {
-				fmt.Println("reach 2/3 vote of notary expired ...")
-				fmt.Println("total committer", cl.notaryVoterNum, "commtteeSize", cl.csReactor.committeeSize)
+				cl.csReactor.logger.Error("reach 2/3 votes of notary expired ...", "comitteeSize", cl.csReactor.committeeSize, "totalComitter", cl.notaryVoterNum)
 				cl.MoveInitState(cl.state)
 			}
 			cl.notaryThresholdTimer = time.AfterFunc(THRESHOLD_TIMER_TIMEOUT, notaryExpire)
 		} else {
-			fmt.Println("did not reach 2/3 committer of announce ...")
+			cl.csReactor.logger.Error("did not reach 2/3 committer of announce ...", "comitteeSize", cl.csReactor.committeeSize, "totalComitter", cl.notaryVoterNum)
 			cl.MoveInitState(cl.state)
 		}
 	}
@@ -218,7 +216,7 @@ func (cl *ConsensusLeader) GenerateNotaryAnnounceMsg() bool {
 
 	// curRound must be zero while sending announce
 	if curRound != 0 {
-		fmt.Println("curRound is ", curRound, " expected 0")
+		cl.csReactor.logger.Error("curRound must be zero while sending announce", "expected", 0, "actual", curRound)
 		curRound = 0
 	}
 
@@ -245,7 +243,7 @@ func (cl *ConsensusLeader) GenerateNotaryAnnounceMsg() bool {
 		CommitteeActualMembers: cl.csReactor.BuildCommitteeInfoFromMember(cl.csReactor.curActualCommittee),
 	}
 
-	fmt.Println("NotaryAnnounce Msg: ", msg.String())
+	cl.csReactor.logger.Debug("Generate Notary Announce Message", "msg", msg.String())
 	var m ConsensusMessage = msg
 	cl.SendMsg(&m)
 	cl.state = COMMITTEE_LEADER_NOTARYSENT
@@ -258,7 +256,7 @@ func (cl *ConsensusLeader) ProcessCommitMsg(commitMsg *CommitCommitteeMessage, s
 
 	// only process Vote in state announced
 	if cl.state < COMMITTEE_LEADER_ANNOUNCED {
-		fmt.Println("state machine incorrect, expected ANNOUNCED, actual %v", cl.state)
+		cl.csReactor.logger.Error("state machine incorrect", "expected", "ANNOUNCED", "actual", cl.state)
 		return false
 	}
 
@@ -266,37 +264,31 @@ func (cl *ConsensusLeader) ProcessCommitMsg(commitMsg *CommitCommitteeMessage, s
 	/***
 	commitMsg, ok := interface{}(commit).(CommitCommitteeMessage)
 	if ok != false {
-		fmt.Println("Message type is not CommitCommitteeMessage")
+		cl.csReactor.logger.Error("Message type is not CommitCommitteeMessage")
 		return false
 	}
 	***/
 
 	ch := commitMsg.CSMsgCommonHeader
-	if ch.Height != cl.csReactor.curHeight {
-		fmt.Println("Height mismatch!, curHeight ", cl.csReactor.curHeight, " the incoming ", ch.Height)
-		return false
-	}
-
-	if ch.Round != cl.csReactor.curRound {
-		fmt.Println("Round mismatch!, curRound ", cl.csReactor.curRound, " the incoming ", ch.Round)
+	if !cl.checkHeightAndRound(ch) {
 		return false
 	}
 
 	if ch.MsgType != CONSENSUS_MSG_COMMIT_COMMITTEE {
-		fmt.Println("MsgType is not CONSENSUS_MSG_COMMIT_COMMITTEE but ", ch.MsgType)
-		fmt.Println(ch)
+		cl.csReactor.logger.Error("MsgType mismatch", "expected", "CONSENSUS_MSG_COMMIT_COMMITTEE", "actual", ch.MsgType)
+		// cl.csReactor.logger.Error(ch)
 		return false
 	}
 
 	// valid the voter index. we can get the index from the publicKey
 	senderPubKey, err := crypto.UnmarshalPubkey(ch.Sender)
 	if err != nil {
-		fmt.Println("ummarshal public key of sender failed ")
+		cl.csReactor.logger.Error("ummarshal public key of sender failed ")
 		return false
 	}
 	index := cl.csReactor.GetCommitteeMemberIndex(*senderPubKey)
 	if index != commitMsg.CommitterIndex {
-		fmt.Println("Voter index mismatch ", index, " vs ", commitMsg.CommitterIndex)
+		cl.csReactor.logger.Error("Voter index mismatch", "expected", index, "actual", commitMsg.CommitterIndex)
 		return false
 	}
 
@@ -304,32 +296,32 @@ func (cl *ConsensusLeader) ProcessCommitMsg(commitMsg *CommitCommitteeMessage, s
 	// 1. validate vote signature
 	myPubKey := cl.csReactor.myPubKey
 	signMsg := cl.csReactor.BuildAnnounceSignMsg(myPubKey, uint32(commitMsg.CommitteeID), uint64(ch.Height), uint32(ch.Round))
-	fmt.Println("sign message: ", signMsg)
+	cl.csReactor.logger.Debug("Sign message", "msg", signMsg)
 
 	// validate the message hash
 	msgHash := cl.csReactor.csCommon.Hash256Msg([]byte(signMsg), uint32(MSG_SIGN_OFFSET_DEFAULT), uint32(MSG_SIGN_LENGTH_DEFAULT))
 	if msgHash != commitMsg.SignedMessageHash {
-		fmt.Println("msgHash mismatch ...")
+		cl.csReactor.logger.Error("msgHash mismatch ...")
 		return false
 	}
 
 	// validate the signature
 	sig, err := cl.csReactor.csCommon.system.SigFromBytes(commitMsg.CommitterSignature)
 	if err != nil {
-		fmt.Println("get signature failed ...")
+		cl.csReactor.logger.Error("get signature failed ...")
 		return false
 	}
 
 	pubKey, err := cl.csReactor.csCommon.system.PubKeyFromBytes(commitMsg.CSCommitterPubKey)
 	if err != nil {
-		fmt.Println("get PubKey failed ...")
+		cl.csReactor.logger.Error("get PubKey failed ...")
 		return false
 	}
 
 	//valid := bls.Verify(commitMsg.CommitterSignature, msgHash, commitMsg.CSCommitterPubKey)
 	valid := bls.Verify(sig, msgHash, pubKey)
 	if valid == false {
-		fmt.Println("validate voter signature failed")
+		cl.csReactor.logger.Error("validate voter signature failed")
 		return false
 	}
 
@@ -357,7 +349,7 @@ func (cl *ConsensusLeader) ProcessCommitMsg(commitMsg *CommitCommitteeMessage, s
 
 			//timeout function
 			notaryExpire := func() {
-				fmt.Println("reach 2/3 vote of notary expired ...")
+				cl.csReactor.logger.Error("reach 2/3 vote of notary expired ...")
 				cl.MoveInitState(cl.state)
 			}
 			cl.notaryThresholdTimer = time.AfterFunc(THRESHOLD_TIMER_TIMEOUT, notaryExpire)
@@ -371,7 +363,7 @@ func (cl *ConsensusLeader) ProcessVoteNotaryAnnounce(vote4NotaryMsg *VoteForNota
 
 	// only process Vote Notary in state NotarySent
 	if cl.state != COMMITTEE_LEADER_NOTARYSENT {
-		fmt.Println("state machine incorrect, expected COMMITTEE_LEADER_NOTARYSENT, actual: ", cl.state)
+		cl.csReactor.logger.Error("state machine incorrect", "expected", "COMMITTEE_LEADER_NOTARYSENT", "actual", cl.state)
 		return false
 	}
 
@@ -379,36 +371,30 @@ func (cl *ConsensusLeader) ProcessVoteNotaryAnnounce(vote4NotaryMsg *VoteForNota
 	/****
 	vote4NotaryMsg, ok := interface{}(vote).(VoteForNotaryMessage)
 	if ok != false {
-		fmt.Println("Message type is not VoteForNotaryMessage")
+		cl.csReactor.logger.Error("Message type is not VoteForNotaryMessage")
 		return false
 	}
 	****/
 
 	ch := vote4NotaryMsg.CSMsgCommonHeader
-	if ch.Height != cl.csReactor.curHeight {
-		fmt.Println("Height mismatch!, curHeight %d, the incoming %d", cl.csReactor.curHeight, ch.Height)
-		return false
-	}
-
-	if ch.Round != cl.csReactor.curRound {
-		fmt.Println("Round mismatch!, curRound %d, the incoming %d", cl.csReactor.curRound, ch.Round)
+	if !cl.checkHeightAndRound(ch) {
 		return false
 	}
 
 	if ch.MsgType != CONSENSUS_MSG_VOTE_FOR_NOTARY {
-		fmt.Println("MsgType is not CONSENSUS_MSG_VOTE_FOR_NOTARY")
+		cl.csReactor.logger.Error("MsgType is not CONSENSUS_MSG_VOTE_FOR_NOTARY")
 		return false
 	}
 
 	// valid the voter index. we can get the index from the publicKey
 	senderPubKey, err := crypto.UnmarshalPubkey(ch.Sender)
 	if err != nil {
-		fmt.Println("ummarshal public key of sender failed ")
+		cl.csReactor.logger.Error("ummarshal public key of sender failed ")
 		return false
 	}
 	index := cl.csReactor.GetCommitteeMemberIndex(*senderPubKey)
 	if index != vote4NotaryMsg.VoterIndex {
-		fmt.Println("Voter index mismatch %d vs %d", index, vote4NotaryMsg.VoterIndex)
+		cl.csReactor.logger.Error("Voter index mismatch", "expected", index, "actual", vote4NotaryMsg.VoterIndex)
 		return false
 	}
 
@@ -416,30 +402,30 @@ func (cl *ConsensusLeader) ProcessVoteNotaryAnnounce(vote4NotaryMsg *VoteForNota
 	// 1. validate voter signature
 	myPubKey := cl.csReactor.myPubKey
 	signMsg := cl.csReactor.BuildNotaryAnnounceSignMsg(myPubKey, uint32(cl.CommitteeID), uint64(ch.Height), uint32(ch.Round))
-	fmt.Println("sign message: ", signMsg)
+	cl.csReactor.logger.Debug("Sign message", "msg", signMsg)
 
 	// validate the message hash
 	msgHash := cl.csReactor.csCommon.Hash256Msg([]byte(signMsg), uint32(MSG_SIGN_OFFSET_DEFAULT), uint32(MSG_SIGN_LENGTH_DEFAULT))
 	if msgHash != vote4NotaryMsg.SignedMessageHash {
-		fmt.Println("msgHash mismatch ...")
+		cl.csReactor.logger.Error("msgHash mismatch ...")
 		return false
 	}
 
 	sig, err := cl.csReactor.csCommon.system.SigFromBytes(vote4NotaryMsg.VoterSignature)
 	if err != nil {
-		fmt.Println("get signature failed ...")
+		cl.csReactor.logger.Error("get signature failed ...")
 		return false
 	}
 
 	pubKey, err := cl.csReactor.csCommon.system.PubKeyFromBytes(vote4NotaryMsg.CSVoterPubKey)
 	if err != nil {
-		fmt.Println("get PubKey failed ...")
+		cl.csReactor.logger.Error("get PubKey failed ...")
 		return false
 	}
 
 	valid := bls.Verify(sig, msgHash, pubKey)
 	if valid == false {
-		fmt.Println("validate voter signature failed")
+		cl.csReactor.logger.Error("validate voter signature failed")
 		return false
 	}
 
@@ -469,12 +455,11 @@ func (cl *ConsensusLeader) ProcessVoteNotaryAnnounce(vote4NotaryMsg *VoteForNota
 		cl.MoveInitState(cl.state)
 
 		//Committee is established. Myself is Leader, server as 1st proposer.
-		fmt.Println("")
-		fmt.Println("====================================================")
-		fmt.Println("Committee is established!!! ... #", cl.CommitteeID)
-		fmt.Println("Myself is Leader, Let's move to 1st proposer for Round 0.")
-		fmt.Println("=====================================================")
-		fmt.Println("")
+		cl.csReactor.logger.Info(`
+===========================================================
+Committee is established!!! ...
+Myself is Leader, Let's move to 1st proposal for Round 0.
+===========================================================`, "committeeID", cl.CommitteeID)
 
 		//Now move to propose the 1st block in round 0
 		cl.csReactor.enterConsensusValidator()
@@ -484,8 +469,21 @@ func (cl *ConsensusLeader) ProcessVoteNotaryAnnounce(vote4NotaryMsg *VoteForNota
 		return true
 
 	} else {
-		// not reach 3/2 yet, wait for more
-		fmt.Println("Vote for NotaryAnnounce processed ...")
+		// not reach 2/3 yet, wait for more
+		cl.csReactor.logger.Debug("Vote for NotaryAnnounce processed (2/3 not reached yet, wait for more)")
 		return true
 	}
+}
+
+func (cl *ConsensusLeader) checkHeightAndRound(ch ConsensusMsgCommonHeader) bool {
+	if ch.Height != cl.csReactor.curHeight {
+		cl.csReactor.logger.Error("Height mismatch!", "curHeight", cl.csReactor.curHeight, "incomingHeight", ch.Height)
+		return false
+	}
+
+	if ch.Round != cl.csReactor.curRound {
+		cl.csReactor.logger.Error("Round mismatch!", "curRound", cl.csReactor.curRound, "incomingRound", ch.Round)
+		return false
+	}
+	return true
 }
