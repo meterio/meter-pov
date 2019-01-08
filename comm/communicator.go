@@ -246,7 +246,12 @@ func (c *Communicator) SubscribeBlock(ch chan *NewBlockEvent) event.Subscription
 
 // BroadcastBlock broadcast a block to remote peers.
 func (c *Communicator) BroadcastBlock(blk *block.Block) {
-	fmt.Println("-----------BROADCAST BLOCK-----------\n", blk.Header())
+	h := blk.Header()
+	log.Info("Broadcast block",
+		"id", h.ID(),
+		"parentID", h.ParentID(),
+		"height", h.LastKBlockHeight(),
+		"timestamp", h.Timestamp())
 	peers := c.peerSet.Slice().Filter(func(p *Peer) bool {
 		return !p.IsBlockKnown(blk.Header().ID())
 	})

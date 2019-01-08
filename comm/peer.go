@@ -6,6 +6,7 @@
 package comm
 
 import (
+	"fmt"
 	"math/rand"
 	"sync"
 	"time"
@@ -104,6 +105,10 @@ func (p *Peer) IsBlockKnown(id thor.Bytes32) bool {
 // Duration returns duration of connection.
 func (p *Peer) Duration() mclock.AbsTime {
 	return mclock.Now() - p.createdTime
+}
+
+func (p *Peer) String() string {
+	return fmt.Sprintf("%s(%d)", p.head.id.String(), p.head.totalScore)
 }
 
 // Peers slice of peers
