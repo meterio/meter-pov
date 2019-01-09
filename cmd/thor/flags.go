@@ -60,7 +60,10 @@ var (
 		Value: int(log15.LvlInfo),
 		Usage: "log verbosity (0-9)",
 	}
-
+	peersFlag = cli.StringSliceFlag{
+		Name:  "peers, P",
+		Usage: "P2P peers in enode format",
+	}
 	maxPeersFlag = cli.IntFlag{
 		Name:  "max-peers",
 		Usage: "maximum number of P2P network peers (P2P network disabled if set to 0)",

@@ -34,6 +34,8 @@ import (
 	"github.com/vechain/thor/thor"
 	"github.com/vechain/thor/txpool"
 	cli "gopkg.in/urfave/cli.v1"
+
+	"github.com/ethereum/go-ethereum/p2p/discover"
 )
 
 func initLogger(ctx *cli.Context) {
@@ -233,7 +235,15 @@ func newP2PComm(ctx *cli.Context, chain *chain.Chain, txPool *txpool.TxPool, ins
 		log.Warn("failed to load peers cache", "err", err)
 	}
 
-	opts.KnownNodes = append(opts.KnownNodes, KnownNodes...)
+	peers := ctx.StringSlice("peers")
+	validNodes := make([]*discover.Node, 0)
+	for _, p := range peers {
+		node, err := discover.ParseNode(p)
+		if err == nil {
+			validNodes = append(validNodes, node)
+		}
+	}
+	opts.KnownNodes = append(opts.KnownNodes, validNodes...)
 
 	return &p2pComm{
 		comm:           comm.New(chain, txPool),

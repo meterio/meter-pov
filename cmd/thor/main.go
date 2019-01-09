@@ -72,6 +72,7 @@ func main() {
 			maxPeersFlag,
 			p2pPortFlag,
 			natFlag,
+			peersFlag,
 		},
 		Action: defaultAction,
 		Commands: []cli.Command{
