@@ -123,7 +123,7 @@ func (f *Flow) Adopt(tx *tx.Transaction) error {
 }
 
 // Pack build and sign the new block.
-func (f *Flow) Pack(privateKey *ecdsa.PrivateKey, blockType uint32) (*block.Block, *state.Stage, tx.Receipts, error) {
+func (f *Flow) Pack(privateKey *ecdsa.PrivateKey, blockType uint32, lastKBlock uint32) (*block.Block, *state.Stage, tx.Receipts, error) {
 	if f.packer.nodeMaster != thor.Address(crypto.PubkeyToAddress(privateKey.PublicKey)) {
 		return nil, nil, nil, errors.New("private key mismatch")
 	}
@@ -147,7 +147,8 @@ func (f *Flow) Pack(privateKey *ecdsa.PrivateKey, blockType uint32) (*block.Bloc
 		GasUsed(f.gasUsed).
 		ReceiptsRoot(f.receipts.RootHash()).
 		StateRoot(stateRoot).
-		BlockType(blockType)
+		BlockType(blockType).
+		LastKBlockHeight(lastKBlock)
 
 	for _, tx := range f.txs {
 		builder.Transaction(tx)

@@ -114,7 +114,7 @@ func (cp *ConsensusProposer) SendMsg(msg *ConsensusMessage) bool {
 }
 
 // Move to the init State
-func (cp *ConsensusProposer) MoveInitState(curState byte) bool {
+func (cp *ConsensusProposer) MoveInitState(curState byte, sendNewRoundMsg bool) bool {
 	curHeight := cp.csReactor.curHeight
 	curRound := cp.csReactor.curRound
 	cp.csReactor.logger.Info("Move to init state of proposer",
@@ -122,6 +122,13 @@ func (cp *ConsensusProposer) MoveInitState(curState byte) bool {
 		"curState", curState,
 		"comitteeSize", len(cp.csReactor.curActualCommittee),
 		"comitteeSize", len(cp.csReactor.curCommittee.Validators))
+
+	if !sendNewRoundMsg {
+		cp.csReactor.logger.Info("current state %v, move to state init", curState)
+		cp.state = COMMITTEE_PROPOSER_INIT
+		return true
+	}
+
 	/*********
 	if len(cp.csReactor.curActualCommittee) == 0 {
 		cp.csReactor.logger.Error("ActualCommittee len is 0")
@@ -176,7 +183,7 @@ func (cp *ConsensusProposer) ProposalBlockMsg(proposalEmptyBlock bool) bool {
 	// check TX pool and POW pool, decide to go which block
 	// if there is nothing to do, move to next round.
 	if proposalKBlock {
-		kblock, err := cp.buildKBlock()
+		kblock, err := cp.buildKBlock(&block.KBlockData{})
 		if err != nil {
 			//cp.csReactor.Logger.Error("build Kblock failed ...")
 			cp.csReactor.logger.Error("build Kblock failed ...")
@@ -226,7 +233,7 @@ func (cp *ConsensusProposer) GenerateMBlockMsg(mblock []byte) bool {
 		CommitteeID:      cp.CommitteeID,
 		ProposerID:       crypto.FromECDSAPub(&cp.csReactor.myPubKey),
 		CSProposerPubKey: cp.csReactor.csCommon.system.PubKeyToBytes(cp.csReactor.csCommon.PubKey),
-		KBlockHeight:     0, //TBD
+		KBlockHeight:     int64(cp.csReactor.lastKBlockHeight),
 		SignOffset:       MSG_SIGN_OFFSET_DEFAULT,
 		SignLength:       MSG_SIGN_LENGTH_DEFAULT,
 		ProposedSize:     len(mblock),
@@ -241,7 +248,7 @@ func (cp *ConsensusProposer) GenerateMBlockMsg(mblock []byte) bool {
 	//timeout function
 	proposalExpire := func() {
 		cp.csReactor.logger.Warn("Reach 2/3 votes of proposal expired", "comitteeSize", cp.csReactor.committeeSize, "voterCount", cp.proposalVoterNum)
-		cp.MoveInitState(cp.state)
+		cp.MoveInitState(cp.state, true)
 	}
 	cp.proposalThresholdTimer = time.AfterFunc(THRESHOLD_TIMER_TIMEOUT, proposalExpire)
 
@@ -308,7 +315,7 @@ func (cp *ConsensusProposer) GenerateKBlockMsg(kblock []byte) bool {
 		CommitteeID:      cp.CommitteeID,
 		ProposerID:       crypto.FromECDSAPub(&cp.csReactor.myPubKey),
 		CSProposerPubKey: cp.csReactor.csCommon.system.PubKeyToBytes(cp.csReactor.csCommon.PubKey),
-		KBlockHeight:     0, //TBD
+		KBlockHeight:     int64(cp.csReactor.lastKBlockHeight),
 		SignOffset:       MSG_SIGN_OFFSET_DEFAULT,
 		SignLength:       MSG_SIGN_LENGTH_DEFAULT,
 		ProposedSize:     len(kblock),
@@ -324,7 +331,7 @@ func (cp *ConsensusProposer) GenerateKBlockMsg(kblock []byte) bool {
 	//timeout function
 	proposalExpire := func() {
 		cp.csReactor.logger.Warn("Reach 2/3 votes of proposal expired", "comitteeSize", cp.csReactor.committeeSize, "voterCount", cp.proposalVoterNum)
-		cp.MoveInitState(cp.state)
+		cp.MoveInitState(cp.state, true)
 	}
 	cp.proposalThresholdTimer = time.AfterFunc(THRESHOLD_TIMER_TIMEOUT, proposalExpire)
 
@@ -332,17 +339,16 @@ func (cp *ConsensusProposer) GenerateKBlockMsg(kblock []byte) bool {
 }
 
 // ConsenusLeader generate the 1st block. With meta data of group
-func (cp *ConsensusProposer) buildKBlock() ([]byte, error) {
-	/*************
-	kblock := blockchain.PrepareKblock()
-	block, err := kblock.Serialized()
-	if err != nil {
-		fmt.Println("build Kblock failed")
-		return nil, err
-	}
-	***************/
-	var block []byte
-	return block, nil
+func (cp *ConsensusProposer) buildKBlock(data *block.KBlockData) ([]byte, error) {
+	blkInfo := cp.csReactor.BuildKBlock(data)
+	blkBytes := block.BlockEncodeBytes(blkInfo.ProposedBlock)
+
+	//save to local
+	cp.curProposedBlockInfo = *blkInfo
+	cp.curProposedBlock = blkBytes
+	cp.curProposedBlockType = PROPOSE_MSG_SUBTYPE_KBLOCK
+
+	return blkBytes, nil
 }
 
 // After blockproposal vote > 2/3, proposer generates NotaryBlock
@@ -475,7 +481,7 @@ func (cp *ConsensusProposer) ProcessVoteForProposal(vote4ProposalMsg *VoteForPro
 		//timeout function
 		notaryBlockExpire := func() {
 			cp.csReactor.logger.Warn("reach 2/3 vote of notaryBlock expired ...", "comitteeSize", cp.csReactor.committeeSize, "receivedVotesOfNotary", cp.notaryVoterNum)
-			cp.MoveInitState(cp.state)
+			cp.MoveInitState(cp.state, true)
 		}
 
 		cp.notaryThresholdTimer = time.AfterFunc(PROPOSER_THRESHOLD_TIMER_TIMEOUT, notaryBlockExpire)
@@ -601,9 +607,8 @@ Move to next height
 
 		if cp.curProposedBlockType == PROPOSE_MSG_SUBTYPE_KBLOCK {
 			// XXX fill KBlockData later
-			var kBlockData []byte
-			cp.csReactor.finalizeKBlock(blk, evidence, kBlockData)
-		} else if cp.curProposedBlockType == PROPOSE_MSG_SUBTYPE_KBLOCK {
+			cp.csReactor.finalizeKBlock(blk, evidence)
+		} else if cp.curProposedBlockType == PROPOSE_MSG_SUBTYPE_MBLOCK {
 			cp.csReactor.finalizeMBlock(blk, evidence)
 		}
 
@@ -616,10 +621,13 @@ Move to next height
 INIT_STATE:
 	//Finally, go to init
 	time.Sleep(5 * time.Second)
-	cp.MoveInitState(cp.state)
+	if cp.curProposedBlockType == PROPOSE_MSG_SUBTYPE_KBLOCK {
+		cp.MoveInitState(cp.state, false)
+	} else if cp.curProposedBlockType == PROPOSE_MSG_SUBTYPE_MBLOCK {
+		cp.MoveInitState(cp.state, true)
+	}
 
 	cp.csReactor.UpdateRound(cp.csReactor.curRound + 1)
-
 	return true
 }
 

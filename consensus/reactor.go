@@ -106,13 +106,12 @@ type ConsensusReactor struct {
 	csValidator       *ConsensusValidator
 
 	// store key states here
-	lastKBlockID thor.Bytes32
-	//parentBlockID  thor.Bytes32
-	curNonce       uint64
-	curCommitteeID uint32
-	curHeight      int64 // come from parentBlockID first 4 bytes uint32
-	curRound       int
-	mtx            sync.RWMutex
+	lastKBlockHeight uint32
+	curNonce         uint64
+	curCommitteeID   uint32
+	curHeight        int64 // come from parentBlockID first 4 bytes uint32
+	curRound         int
+	mtx              sync.RWMutex
 
 	// consensus state for new consensus, similar to old conS
 
@@ -123,7 +122,8 @@ type ConsensusReactor struct {
 	schedulerQueue   chan consensusTimeOutInfo
 
 	// kBlock data
-	KBlockDataQueue chan block.KBlockData
+	KBlockDataQueue    chan block.KBlockData // from POW simulation
+	RcvKBlockInfoQueue chan RecvKBlockInfo   // this channel for kblock notify from node module.
 }
 
 // NewConsensusReactor returns a new ConsensusReactor with the given
@@ -141,7 +141,11 @@ func NewConsensusReactor(chain *chain.Chain, state *state.Creator, privKey *ecds
 	conR.schedulerQueue = make(chan consensusTimeOutInfo, 100)
 	conR.KBlockDataQueue = make(chan block.KBlockData, 100)
 
+	// add the hardcoded genesis nonce in the case every node in block 0
+	conR.RcvKBlockInfoQueue = make(chan RecvKBlockInfo, 100)
+
 	//initialize height/round
+	conR.lastKBlockHeight = chain.BestBlock().Header().LastKBlockHeight()
 	conR.curHeight = int64(chain.BestBlock().Header().Number())
 	conR.curRound = 0
 
@@ -185,7 +189,23 @@ func (conR *ConsensusReactor) SwitchToConsensus() {
 	//conR.Logger.Info("SwitchToConsensus")
 	conR.logger.Info("Synchnization is done. SwitchToConsensus ...")
 
-	conR.ConsensusHandleReceivedNonce(0, 1001)
+	// --force-last-kframe
+	best := conR.chain.BestBlock()
+	lastKBlockHeight := best.Header().LastKBlockHeight()
+	var nonce uint64
+	if lastKBlockHeight == 0 {
+		nonce = genesisNonce
+	} else {
+		//kblock, err := conR.chain.GetTrunkBlock(lastKBlockHeight)
+		_, err := conR.chain.GetTrunkBlock(lastKBlockHeight)
+		if err != nil {
+			panic(fmt.Sprintf("get last kblock %v failed", lastKBlockHeight))
+		}
+		// XXX
+		//nonce = kblock.GetKBlockData().Nonce
+	}
+
+	conR.ConsensusHandleReceivedNonce(int64(best.Header().Number()), nonce)
 }
 
 // String returns a string representation of the ConsensusReactor.
@@ -307,7 +327,9 @@ func (conR *ConsensusReactor) UpdateHeightRound(height int64, round int) bool {
 // Refresh the current Height from the best block
 // normally call this routine after block chain changed
 func (conR *ConsensusReactor) RefreshCurHeight() error {
-	conR.UpdateHeight(int64(conR.chain.BestBlock().Header().Number()))
+	prev := conR.curHeight
+	conR.lastKBlockHeight = conR.chain.BestBlock().Header().LastKBlockHeight()
+	conR.logger.Info("Refresh curHeight", "previous", prev, "now", conR.curHeight, "lastKBlockHeight", conR.lastKBlockHeight)
 	return nil
 }
 
@@ -627,6 +649,9 @@ func (conR *ConsensusReactor) receiveRoutine() {
 		case ti := <-conR.schedulerQueue:
 			conR.HandleSchedule(ti)
 
+		case ki := <-conR.RcvKBlockInfoQueue:
+			conR.HandleRecvKBlockInfo(ki)
+
 			//case ki := <-conR.KBlockDataQueue:
 			//conR.HandleKBlockData(ki)
 
@@ -783,6 +808,18 @@ func (conR *ConsensusReactor) exitConsensusLeader() int {
 	conR.csRoleInitialized &= ^CONSENSUS_COMMIT_ROLE_LEADER
 
 	return 0
+}
+
+// Cleanup all roles before the comittee relay
+func (conR *ConsensusReactor) exitCurCommittee() error {
+	conR.exitConsensusLeader()
+	conR.exitConsensusProposer()
+	conR.exitConsensusValidator()
+	conR.csCommon.ConsensusCommonDeinit()
+
+	// XXX: clean up current parameters
+
+	return nil
 }
 
 func getConcreteName(msg ConsensusMessage) string {
@@ -1308,12 +1345,12 @@ func (conR *ConsensusReactor) ConsensusHandleReceivedNonce(kBlockHeight int64, n
 
 	if role == CONSENSUS_COMMIT_ROLE_LEADER {
 		conR.logger.Info("I am committee leader for nonce", "nonce", nonce)
+		time.Sleep(2 * time.Second)
 		conR.ScheduleLeader(0)
 	} else if role == CONSENSUS_COMMIT_ROLE_VALIDATOR {
 		conR.logger.Info("I am committee validator for nonce", "nonce", nonce)
 		conR.ScheduleValidator(0)
 	}
-
 }
 
 //-----------------------------------------------------------

@@ -146,7 +146,7 @@ func (s *Solo) packing(pendingTxs tx.Transactions) error {
 		}
 	}
 
-	b, stage, receipts, err := flow.Pack(genesis.DevAccounts()[0].PrivateKey, block.BLOCK_TYPE_M_BLOCK)
+	b, stage, receipts, err := flow.Pack(genesis.DevAccounts()[0].PrivateKey, block.BLOCK_TYPE_M_BLOCK, 0)
 	if err != nil {
 		return errors.WithMessage(err, "pack")
 	}

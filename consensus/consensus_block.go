@@ -106,7 +106,7 @@ func (c *ConsensusReactor) NewRuntimeForReplay(header *block.Header) (*runtime.R
 		return nil, err
 	}
 
-	if err := c.validateEvidence(blk.GetBlockEvidence(), header); err != nil {
+	if err := c.validateEvidence(blk.GetBlockEvidence(), blk); err != nil {
 		return nil, err
 	}
 
@@ -135,7 +135,7 @@ func (c *ConsensusReactor) validate(
 		return nil, nil, err
 	}
 
-	if err := c.validateEvidence(block.GetBlockEvidence(), header); err != nil {
+	if err := c.validateEvidence(block.GetBlockEvidence(), block); err != nil {
 		return nil, nil, err
 	}
 
@@ -186,17 +186,26 @@ func (c *ConsensusReactor) validateBlockHeader(header *block.Header, parent *blo
 	return nil
 }
 
-func (c *ConsensusReactor) validateEvidence(ev *block.Evidence, header *block.Header) error {
+func (c *ConsensusReactor) validateEvidence(ev *block.Evidence, blk *block.Block) error {
 	// Yang: XXX: tmp only
 	return nil
+	header := blk.Header()
+
 	// find out the block which has the committee info
 	// Normally we store the committee info in the first of Mblock after Kblock
 	lastKBlock := header.LastKBlockHeight()
-	b, err := c.chain.GetTrunkBlock(lastKBlock + 1)
-	if err != nil {
-		fmt.Printf("get committee info block error")
-		return consensusError(fmt.Sprintf("get committee info block failed: %v", err))
+	var b *block.Block
+	if (lastKBlock + 1) == header.Number() {
+		b = blk
+	} else {
+		var err error
+		b, err = c.chain.GetTrunkBlock(lastKBlock + 1)
+		if err != nil {
+			fmt.Printf("get committee info block error")
+			return consensusError(fmt.Sprintf("get committee info block failed: %v", err))
+		}
 	}
+	c.logger.Info("get committeeinfo from block", b.Header().Number())
 
 	// committee members
 	cis, err := c.DecodeBlockCommitteeInfo(b.GetBlockCommitteeInfo())
@@ -427,9 +436,8 @@ func (conR *ConsensusReactor) finalizeMBlock(blk *block.Block, ev *block.Evidenc
 	return true
 }
 
-func (conR *ConsensusReactor) finalizeKBlock(blk *block.Block, ev *block.Evidence, kBlockData []byte) bool {
+func (conR *ConsensusReactor) finalizeKBlock(blk *block.Block, ev *block.Evidence) bool {
 	blk.SetBlockEvidence(ev)
-	blk.SetKBlockData(kBlockData)
 
 	// XXX:update the cache size
 	return true
@@ -603,7 +611,7 @@ func (conR *ConsensusReactor) BuildMBlock() *ProposedBlockInfo {
 		}
 	}
 
-	newBlock, stage, receipts, err := flow.Pack(&conR.myPrivKey, block.BLOCK_TYPE_M_BLOCK)
+	newBlock, stage, receipts, err := flow.Pack(&conR.myPrivKey, block.BLOCK_TYPE_M_BLOCK, conR.lastKBlockHeight)
 	if err != nil {
 		conR.logger.Error("build block failed")
 		return nil
@@ -614,29 +622,88 @@ func (conR *ConsensusReactor) BuildMBlock() *ProposedBlockInfo {
 	return &ProposedBlockInfo{newBlock, stage, &receipts}
 }
 
-//=================================================
-// Packer info message from packer_loop
-const (
-	PACKER_BLOCK_SUCCESS = int(1)
-	PACKER_BLOCK_FAILED  = int(2)
-)
+func (conR *ConsensusReactor) BuildKBlock(data *block.KBlockData) *ProposedBlockInfo {
+	best := conR.chain.BestBlock()
+	now := uint64(time.Now().Unix())
+	if conR.curHeight != int64(best.Header().Number()) {
+		conR.logger.Info("Proposed block parent is not current best block")
+		return nil
+	}
 
-type PackerBlockInfo struct {
-	State  int
-	Reason string
-	blk    *block.Block
+	startTime := mclock.Now()
+	//XXX: Build kblock coinbse Tranactions
+	txs := tx.Transactions{}
+
+	p := packer.GetGlobPackerInst()
+	if p == nil {
+		conR.logger.Warn("get packer failed ...")
+		panic("get packer failed")
+		return nil
+	}
+
+	var txsToRemove []thor.Bytes32
+	gasLimit := p.GasLimit(best.Header().GasLimit())
+	flow, err := p.Mock(best.Header(), now, gasLimit)
+	if err != nil {
+		conR.logger.Warn("mock packer", "error", err)
+		return nil
+	}
+
+	for _, tx := range txs {
+		if err := flow.Adopt(tx); err != nil {
+			if packer.IsGasLimitReached(err) {
+				break
+			}
+			if packer.IsTxNotAdoptableNow(err) {
+				continue
+			}
+			txsToRemove = append(txsToRemove, tx.ID())
+		}
+	}
+
+	newBlock, stage, receipts, err := flow.Pack(&conR.myPrivKey, block.BLOCK_TYPE_K_BLOCK, conR.lastKBlockHeight)
+	if err != nil {
+		conR.logger.Error("build block failed")
+		return nil
+	}
+
+	//serialize KBlockData
+	dataInfo := []byte{}
+	newBlock.SetKBlockData(dataInfo)
+
+	execElapsed := mclock.Now() - startTime
+	conR.logger.Info("MBlock built", "height", conR.curHeight, "elapseTime", execElapsed)
+	return &ProposedBlockInfo{newBlock, stage, &receipts}
 }
 
-func (conR *ConsensusReactor) HandlePackerInfo(pi PackerBlockInfo) {
-	if pi.State == PACKER_BLOCK_SUCCESS {
-		height := int64(pi.blk.Header().Number())
-		conR.logger.Info("pack block successfully", "height", height, "reason", pi.Reason)
+//=================================================
+// handle KBlock info info message from node
+const (
+	genesisNonce = uint64(1001)
+)
 
-		// update consensus height
-		if height > conR.curHeight {
-			conR.UpdateHeight(height)
-		}
-	} else {
-		conR.logger.Error("pack block failed", "height", pi.blk.Header().Number(), "reason", pi.Reason)
+type RecvKBlockInfo struct {
+	Height           int64
+	LastKBlockHeight uint32
+	Nonce            uint64
+}
+
+func (conR *ConsensusReactor) HandleRecvKBlockInfo(ki RecvKBlockInfo) error {
+	best := conR.chain.BestBlock()
+
+	if ki.Height != int64(best.Header().Number()) {
+		conR.logger.Info("kblock info height ", ki.Height, "my best", best.Header().Number(), "is ignored")
+		return nil
 	}
+
+	if best.Header().BlockType() != block.BLOCK_TYPE_K_BLOCK {
+		conR.logger.Info("best block is not kblock")
+		return nil
+	}
+	// Now handle this nonce. Exit the committee if it is still in.
+	conR.exitCurCommittee()
+
+	// run new one.
+	conR.ConsensusHandleReceivedNonce(ki.Height, ki.Nonce)
+	return nil
 }
