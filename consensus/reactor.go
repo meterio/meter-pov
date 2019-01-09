@@ -655,8 +655,8 @@ func (conR *ConsensusReactor) receiveRoutine() {
 		case ki := <-conR.RcvKBlockInfoQueue:
 			conR.HandleRecvKBlockInfo(ki)
 
-			//case ki := <-conR.KBlockDataQueue:
-			//conR.HandleKBlockData(ki)
+			//case kd := <-conR.KBlockDataQueue:
+			//conR.HandleKBlockData(kd)
 
 			/*******
 			case pi := <-conR.packerInfoQueue:

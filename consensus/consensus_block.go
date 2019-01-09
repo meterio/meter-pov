@@ -491,6 +491,11 @@ Block commited at height %d
 	fmt.Println(blk)
 	conR.UpdateHeight(int64(conR.chain.BestBlock().Header().Number()))
 
+	// Update lastKBlockHeight if necessary
+	if blk.Header().BlockType() == block.BLOCK_TYPE_K_BLOCK {
+		conR.lastKBlockHeight = blk.Header().Number()
+	}
+
 	return true
 }
 
@@ -671,7 +676,7 @@ func (conR *ConsensusReactor) BuildKBlock(data *block.KBlockData) *ProposedBlock
 	newBlock.SetKBlockData(data)
 
 	execElapsed := mclock.Now() - startTime
-	conR.logger.Info("MBlock built", "height", conR.curHeight, "elapseTime", execElapsed)
+	conR.logger.Info("KBlock built", "height", conR.curHeight, "elapseTime", execElapsed)
 	return &ProposedBlockInfo{newBlock, stage, &receipts}
 }
 
