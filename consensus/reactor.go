@@ -184,6 +184,10 @@ func (conR *ConsensusReactor) OnStop() {
 
 }
 
+func (conR *ConsensusReactor) GetLastKBlockHeight() uint32 {
+	return conR.lastKBlockHeight
+}
+
 // SwitchToConsensus switches from fast_sync mode to consensus mode.
 // It resets the state, turns off fast_sync, and starts the consensus state-machine
 func (conR *ConsensusReactor) SwitchToConsensus() {
