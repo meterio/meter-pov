@@ -465,7 +465,10 @@ func (conR *ConsensusReactor) finalizeCommitBlock(blkInfo *ProposedBlockInfo) bo
 		//panic(" chain is in forked state, something wrong")
 		//return false
 		// process fork????
-		conR.logger.Info("Fork Happened ...", "fork.Branch", len(fork.Branch))
+		if len(fork.Branch) > 0 {
+			conR.logger.Warn("Fork Happened ...", "fork.Branch", len(fork.Branch))
+			panic("Fork happened!")
+		}
 	}
 
 	commitElapsed := mclock.Now() - startTime

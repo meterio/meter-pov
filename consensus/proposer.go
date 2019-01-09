@@ -474,7 +474,7 @@ func (cp *ConsensusProposer) ProcessVoteForProposal(vote4ProposalMsg *VoteForPro
 
 		//timeout function
 		notaryBlockExpire := func() {
-			cp.csReactor.logger.Error("reach 2/3 vote of notaryBlock expired ...", "comitteeSize", cp.csReactor.committeeSize, "receivedVotesOfNotary", cp.notaryVoterNum)
+			cp.csReactor.logger.Warn("reach 2/3 vote of notaryBlock expired ...", "comitteeSize", cp.csReactor.committeeSize, "receivedVotesOfNotary", cp.notaryVoterNum)
 			cp.MoveInitState(cp.state)
 		}
 
@@ -579,10 +579,10 @@ func (cp *ConsensusProposer) ProcessVoteForNotary(vote4NotaryMsg *VoteForNotaryM
 		// Now commit this block
 		//logger.Info("")
 		cp.csReactor.logger.Info(`
-==========================================================
+===========================================================
 Block proposal is approved, commit now ...
 Move to next height
-==========================================================`,
+===========================================================`,
 			"height", cp.csReactor.curHeight, "round", cp.csReactor.curRound)
 		//logger.Info("")
 

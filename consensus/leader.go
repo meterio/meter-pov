@@ -170,7 +170,7 @@ func (cl *ConsensusLeader) GenerateAnnounceMsg() bool {
 
 	//timeout function
 	announceExpire := func() {
-		cl.csReactor.logger.Error("reach 2/3 votes of announce expired ...", "comitteeSize", cl.csReactor.committeeSize, "totalComitter", cl.announceVoterNum)
+		cl.csReactor.logger.Warn("reach 2/3 votes of announce expired ...", "comitteeSize", cl.csReactor.committeeSize, "totalComitter", cl.announceVoterNum)
 
 		//XXX: Yang: Hack here +2 to pass 2/3
 		if cl.announceVoterNum != 0 && (cl.announceVoterNum+1) >= (cl.csReactor.committeeSize*2/3) &&
@@ -193,12 +193,12 @@ func (cl *ConsensusLeader) GenerateAnnounceMsg() bool {
 
 			//timeout function
 			notaryExpire := func() {
-				cl.csReactor.logger.Error("reach 2/3 votes of notary expired ...", "comitteeSize", cl.csReactor.committeeSize, "totalComitter", cl.notaryVoterNum)
+				cl.csReactor.logger.Warn("reach 2/3 votes of notary expired ...", "comitteeSize", cl.csReactor.committeeSize, "totalComitter", cl.notaryVoterNum)
 				cl.MoveInitState(cl.state)
 			}
 			cl.notaryThresholdTimer = time.AfterFunc(THRESHOLD_TIMER_TIMEOUT, notaryExpire)
 		} else {
-			cl.csReactor.logger.Error("did not reach 2/3 committer of announce ...", "comitteeSize", cl.csReactor.committeeSize, "totalComitter", cl.notaryVoterNum)
+			cl.csReactor.logger.Warn("did not reach 2/3 committer of announce ...", "comitteeSize", cl.csReactor.committeeSize, "totalComitter", cl.notaryVoterNum)
 			cl.MoveInitState(cl.state)
 		}
 	}
@@ -349,7 +349,7 @@ func (cl *ConsensusLeader) ProcessCommitMsg(commitMsg *CommitCommitteeMessage, s
 
 			//timeout function
 			notaryExpire := func() {
-				cl.csReactor.logger.Error("reach 2/3 vote of notary expired ...")
+				cl.csReactor.logger.Warn("reach 2/3 vote of notary expired ...")
 				cl.MoveInitState(cl.state)
 			}
 			cl.notaryThresholdTimer = time.AfterFunc(THRESHOLD_TIMER_TIMEOUT, notaryExpire)

@@ -472,7 +472,7 @@ func (conR *ConsensusReactor) handleMsg(mi consensusMsgInfo) {
 	case *AnnounceCommitteeMessage:
 		if (conR.csRoleInitialized&CONSENSUS_COMMIT_ROLE_VALIDATOR) == 0 ||
 			(conR.csValidator == nil) {
-			conR.logger.Error("not in validator role, enter validator first ...")
+			conR.logger.Warn("not in validator role, enter validator first ...")
 			// if find out we are not in committee, then exit validator
 			conR.enterConsensusValidator()
 		}
@@ -487,7 +487,7 @@ func (conR *ConsensusReactor) handleMsg(mi consensusMsgInfo) {
 	case *CommitCommitteeMessage:
 		if (conR.csRoleInitialized&CONSENSUS_COMMIT_ROLE_LEADER) == 0 ||
 			(conR.csLeader == nil) {
-			conR.logger.Error("not in leader role, ignore CommitCommitteeMessage")
+			conR.logger.Warn("not in leader role, ignore CommitCommitteeMessage")
 			break
 		}
 
@@ -499,7 +499,7 @@ func (conR *ConsensusReactor) handleMsg(mi consensusMsgInfo) {
 	case *ProposalBlockMessage:
 		if (conR.csRoleInitialized&CONSENSUS_COMMIT_ROLE_VALIDATOR) == 0 ||
 			(conR.csValidator == nil) {
-			conR.logger.Error("not in validator role, ignore ProposalBlockMessage")
+			conR.logger.Warn("not in validator role, ignore ProposalBlockMessage")
 			break
 		}
 
@@ -511,7 +511,7 @@ func (conR *ConsensusReactor) handleMsg(mi consensusMsgInfo) {
 	case *NotaryAnnounceMessage:
 		if (conR.csRoleInitialized&CONSENSUS_COMMIT_ROLE_VALIDATOR) == 0 ||
 			(conR.csValidator == nil) {
-			conR.logger.Error("not in validator role, ignore NotaryAnnounceMessage")
+			conR.logger.Warn("not in validator role, ignore NotaryAnnounceMessage")
 			break
 		}
 
@@ -523,7 +523,7 @@ func (conR *ConsensusReactor) handleMsg(mi consensusMsgInfo) {
 	case *NotaryBlockMessage:
 		if (conR.csRoleInitialized&CONSENSUS_COMMIT_ROLE_VALIDATOR) == 0 ||
 			(conR.csValidator == nil) {
-			conR.logger.Error("not in validator role, ignore NotaryBlockMessage")
+			conR.logger.Warn("not in validator role, ignore NotaryBlockMessage")
 			break
 		}
 
@@ -535,7 +535,7 @@ func (conR *ConsensusReactor) handleMsg(mi consensusMsgInfo) {
 	case *VoteForProposalMessage:
 		if (conR.csRoleInitialized&CONSENSUS_COMMIT_ROLE_PROPOSER) == 0 ||
 			(conR.csProposer == nil) {
-			conR.logger.Error("not in proposer role, ignore VoteForProposalMessage")
+			conR.logger.Warn("not in proposer role, ignore VoteForProposalMessage")
 			break
 		}
 
@@ -551,7 +551,7 @@ func (conR *ConsensusReactor) handleMsg(mi consensusMsgInfo) {
 			// vote for notary announce
 			if (conR.csRoleInitialized&CONSENSUS_COMMIT_ROLE_LEADER) == 0 ||
 				(conR.csLeader == nil) {
-				conR.logger.Error("not in leader role, ignore VoteForNotaryMessage")
+				conR.logger.Warn("not in leader role, ignore VoteForNotaryMessage")
 				break
 			}
 
@@ -563,7 +563,7 @@ func (conR *ConsensusReactor) handleMsg(mi consensusMsgInfo) {
 		} else if ch.MsgSubType == VOTE_FOR_NOTARY_BLOCK {
 			if (conR.csRoleInitialized&CONSENSUS_COMMIT_ROLE_PROPOSER) == 0 ||
 				(conR.csProposer == nil) {
-				conR.logger.Error("not in proposer role, ignore VoteForNotaryMessage")
+				conR.logger.Warn("not in proposer role, ignore VoteForNotaryMessage")
 				break
 			}
 
@@ -577,7 +577,7 @@ func (conR *ConsensusReactor) handleMsg(mi consensusMsgInfo) {
 	case *MoveNewRoundMessage:
 		if (conR.csRoleInitialized&CONSENSUS_COMMIT_ROLE_VALIDATOR) == 0 ||
 			(conR.csValidator == nil) {
-			conR.logger.Error("not in validator role, ignore MoveNewRoundMessage")
+			conR.logger.Warn("not in validator role, ignore MoveNewRoundMessage")
 			break
 		}
 
@@ -785,12 +785,31 @@ func (conR *ConsensusReactor) exitConsensusLeader() int {
 	return 0
 }
 
+func getConcreteName(msg ConsensusMessage) string {
+	switch msg.(type) {
+	case *AnnounceCommitteeMessage:
+		return "AnnounceCommitteeMessage"
+	case *CommitCommitteeMessage:
+		return "CommitCommitteeMessage"
+	case *ProposalBlockMessage:
+		return "ProposalBlockMessage"
+	case *NotaryAnnounceMessage:
+		return "NotaryAnnounceMessage"
+	case *NotaryBlockMessage:
+		return "NotaryBlockMessage"
+	case *VoteForProposalMessage:
+		return "VoteForProposalMessage"
+	case *VoteForNotaryMessage:
+		return "VoteForNotaryMessage"
+	case *MoveNewRoundMessage:
+		return "MoveNewRoundMessage"
+	}
+	return ""
+}
+
 // XXX. For test only
 func (conR *ConsensusReactor) sendConsensusMsg(msg *ConsensusMessage, csPeer *ConsensusPeer) bool {
-	typeName := reflect.TypeOf(msg).String()
-	if strings.Contains(typeName, ".") {
-		typeName = strings.Split(typeName, ".")[1]
-	}
+	typeName := getConcreteName(*msg)
 
 	rawMsg := cdc.MustMarshalBinaryBare(msg)
 	if len(rawMsg) > maxMsgSize {
@@ -832,7 +851,7 @@ func (conR *ConsensusReactor) sendConsensusMsg(msg *ConsensusMessage, csPeer *Co
 			conR.logger.Error("Failed to send message to peer", "peer", csPeer.String(), "err", err)
 			return false
 		}
-		conR.logger.Info("Sent consensus message to peer", "peer", csPeer.String())
+		conR.logger.Info("Sent consensus message to peer", "type", typeName, "peer", csPeer.String(), "size", len(rawMsg))
 		var result map[string]interface{}
 		json.NewDecoder(resp.Body).Decode(&result)
 	}
@@ -963,14 +982,14 @@ func RegisterConsensusMessages(cdc *amino.Codec) {
 	cdc.RegisterInterface((*ConsensusMessage)(nil), nil)
 
 	// New consensus
-	cdc.RegisterConcrete(&AnnounceCommitteeMessage{}, "tendermint/AnnounceCommittee", nil)
-	cdc.RegisterConcrete(&CommitCommitteeMessage{}, "tendermint/CommitCommittee", nil)
-	cdc.RegisterConcrete(&ProposalBlockMessage{}, "tendermint/ProposalBlock", nil)
-	cdc.RegisterConcrete(&NotaryAnnounceMessage{}, "tendermint/NotaryAnnounce", nil)
-	cdc.RegisterConcrete(&NotaryBlockMessage{}, "tendermint/NotaryBlock", nil)
-	cdc.RegisterConcrete(&VoteForProposalMessage{}, "tendermint/VoteForProposal", nil)
-	cdc.RegisterConcrete(&VoteForNotaryMessage{}, "tendermint/VoteForNotary", nil)
-	cdc.RegisterConcrete(&MoveNewRoundMessage{}, "tendermint/MoveNewRound", nil)
+	cdc.RegisterConcrete(&AnnounceCommitteeMessage{}, "dfinlab/AnnounceCommittee", nil)
+	cdc.RegisterConcrete(&CommitCommitteeMessage{}, "dfinlab/CommitCommittee", nil)
+	cdc.RegisterConcrete(&ProposalBlockMessage{}, "dfinlab/ProposalBlock", nil)
+	cdc.RegisterConcrete(&NotaryAnnounceMessage{}, "dfinlab/NotaryAnnounce", nil)
+	cdc.RegisterConcrete(&NotaryBlockMessage{}, "dfinlab/NotaryBlock", nil)
+	cdc.RegisterConcrete(&VoteForProposalMessage{}, "dfinlab/VoteForProposal", nil)
+	cdc.RegisterConcrete(&VoteForNotaryMessage{}, "dfinlab/VoteForNotary", nil)
+	cdc.RegisterConcrete(&MoveNewRoundMessage{}, "dfinlab/MoveNewRound", nil)
 }
 
 func decodeMsg(bz []byte) (msg ConsensusMessage, err error) {
