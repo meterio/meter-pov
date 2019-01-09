@@ -165,8 +165,7 @@ func (cp *ConsensusProposer) MoveInitState(curState byte, sendNewRoundMsg bool) 
 
 // Check Kblock in available in
 func (cp *ConsensusProposer) CheckKblock() bool {
-
-	return false
+	return cp.csReactor.kBlockData != nil
 }
 
 // Proposer needs to chek POW pool and TX pool, make decision
@@ -183,15 +182,13 @@ func (cp *ConsensusProposer) ProposalBlockMsg(proposalEmptyBlock bool) bool {
 	// check TX pool and POW pool, decide to go which block
 	// if there is nothing to do, move to next round.
 	if proposalKBlock {
-		kblock, err := cp.buildKBlock(&block.KBlockData{})
+		kblock, err := cp.buildKBlock(cp.csReactor.kBlockData)
 		if err != nil {
 			//cp.csReactor.Logger.Error("build Kblock failed ...")
 			cp.csReactor.logger.Error("build Kblock failed ...")
 			return false
 		}
-		//cp.curProposedBlock = kblock
-		//cp.curProposedBlockType = PROPOSE_MSG_SUBTYPE_KBLOCK
-
+		cp.csReactor.kBlockData = nil
 		cp.GenerateKBlockMsg(kblock)
 
 	} else {
@@ -202,8 +199,6 @@ func (cp *ConsensusProposer) ProposalBlockMsg(proposalEmptyBlock bool) bool {
 			cp.csReactor.logger.Error("build Mblock failed ...")
 			return false
 		}
-		//cp.curProposedBlock = mblock
-		//cp.curProposedBlockType = PROPOSE_MSG_SUBTYPE_MBLOCK
 
 		cp.GenerateMBlockMsg(mblock)
 	}

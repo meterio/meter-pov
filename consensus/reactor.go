@@ -113,6 +113,7 @@ type ConsensusReactor struct {
 	curRound         int
 	mtx              sync.RWMutex
 
+	kBlockData *block.KBlockData
 	// consensus state for new consensus, similar to old conS
 
 	// state changes may be triggered by: msgs from peers,
@@ -655,8 +656,8 @@ func (conR *ConsensusReactor) receiveRoutine() {
 		case ki := <-conR.RcvKBlockInfoQueue:
 			conR.HandleRecvKBlockInfo(ki)
 
-			//case kd := <-conR.KBlockDataQueue:
-			//conR.HandleKBlockData(kd)
+		case kd := <-conR.KBlockDataQueue:
+			conR.HandleKBlockData(kd)
 
 			/*******
 			case pi := <-conR.packerInfoQueue:
@@ -824,6 +825,7 @@ func (conR *ConsensusReactor) exitCurCommittee() error {
 	conR.curCommittee.Validators = make([]*types.Validator, 0)
 	conR.curActualCommittee = make([]CommitteeMember, 0)
 	conR.curCommitteeIndex = 0
+	conR.kBlockData = nil
 
 	conR.curNonce = 0
 	conR.curCommitteeID = 0

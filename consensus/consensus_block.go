@@ -711,3 +711,7 @@ func (conR *ConsensusReactor) HandleRecvKBlockInfo(ki RecvKBlockInfo) error {
 	conR.ConsensusHandleReceivedNonce(ki.Height, ki.Nonce)
 	return nil
 }
+
+func (conR *ConsensusReactor) HandleKBlockData(kd block.KBlockData) {
+	conR.kBlockData = &kd
+}
