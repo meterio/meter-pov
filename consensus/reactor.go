@@ -196,13 +196,16 @@ func (conR *ConsensusReactor) SwitchToConsensus() {
 	if lastKBlockHeight == 0 {
 		nonce = genesisNonce
 	} else {
-		//kblock, err := conR.chain.GetTrunkBlock(lastKBlockHeight)
-		_, err := conR.chain.GetTrunkBlock(lastKBlockHeight)
+		kblock, err := conR.chain.GetTrunkBlock(lastKBlockHeight)
 		if err != nil {
 			panic(fmt.Sprintf("get last kblock %v failed", lastKBlockHeight))
 		}
-		// XXX
-		//nonce = kblock.GetKBlockData().Nonce
+
+		kBlockData, err := kblock.GetKBlockData()
+		if err != nil {
+			panic("can't get KBlockData")
+		}
+		nonce = kBlockData.Nonce
 	}
 
 	conR.ConsensusHandleReceivedNonce(int64(best.Header().Number()), nonce)

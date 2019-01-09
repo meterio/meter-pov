@@ -32,11 +32,11 @@ type Evidence struct {
 }
 
 type KBlockData struct {
-	leader     thor.Address // The new committee Leader, proposer also
-	miner      thor.Address
-	nonce      uint64   // the last of the pow block
-	difficulty *big.Int // total difficaulty
-	data       []byte
+	Leader     thor.Address // The new committee Leader, proposer also
+	Miner      thor.Address
+	Nonce      uint64   // the last of the pow block
+	Difficulty *big.Int // total difficaulty
+	Data       []byte
 }
 
 type CommitteeInfo struct {
@@ -180,11 +180,6 @@ func (b *Block) SetBlockCommitteeInfo(ci []byte) *Block {
 	return b
 }
 
-func (b *Block) SetKBlockData(kBlockData []byte) *Block {
-	b.KBlockData = kBlockData
-	return b
-}
-
 func (b *Block) GetBlockEvidence() *Evidence {
 	return &b.Evidence
 }
@@ -193,22 +188,45 @@ func (b *Block) GetBlockCommitteeInfo() []byte {
 	return b.CommitteeInfo
 }
 
-func (b *Block) GetKBlockData() []byte {
-	return b.KBlockData
+// Serialization for KBlockData and ComitteeInfo
+func (b *Block) GetKBlockData() (*KBlockData, error) {
+	data := KBlockData{}
+	err := rlp.DecodeBytes(b.KBlockData, &data)
+	return &data, err
+}
+
+func (b *Block) SetKBlockData(data *KBlockData) error {
+	bytes, err := rlp.EncodeToBytes(*data)
+	b.KBlockData = bytes
+	return err
+}
+
+func (b *Block) GetComitteeInfo() (*CommitteeInfo, error) {
+	info := CommitteeInfo{}
+	err := rlp.DecodeBytes(b.CommitteeInfo, &info)
+	return &info, err
+}
+
+func (b *Block) SetCommitteeInfo(info *CommitteeInfo) error {
+	bytes, err := rlp.EncodeToBytes(*info)
+	b.CommitteeInfo = bytes
+	return err
+}
+
+func (b *Block) ToBytes() []byte {
+	bytes, _ := rlp.EncodeToBytes(b)
+	return bytes
 }
 
 //--------------
 func BlockEncodeBytes(blk *Block) []byte {
-	blockBytes := cdc.MustMarshalBinaryBare(blk)
+	blockBytes, _ := rlp.EncodeToBytes(blk)
+
 	return blockBytes
 }
 
-func BlockDecodeFromBytes(blkBytes []byte) (*Block, error) {
-	var blk = new(Block)
-
-	err := cdc.UnmarshalBinaryBare(blkBytes, blk)
-	if err != nil {
-		panic(cmn.ErrorWrap(err, "Error reading block part"))
-	}
-	return blk, err
+func BlockDecodeFromBytes(bytes []byte) (*Block, error) {
+	blk := Block{}
+	err := rlp.DecodeBytes(bytes, &blk)
+	return &blk, err
 }

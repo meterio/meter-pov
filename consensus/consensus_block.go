@@ -668,8 +668,7 @@ func (conR *ConsensusReactor) BuildKBlock(data *block.KBlockData) *ProposedBlock
 	}
 
 	//serialize KBlockData
-	dataInfo := []byte{}
-	newBlock.SetKBlockData(dataInfo)
+	newBlock.SetKBlockData(data)
 
 	execElapsed := mclock.Now() - startTime
 	conR.logger.Info("MBlock built", "height", conR.curHeight, "elapseTime", execElapsed)
