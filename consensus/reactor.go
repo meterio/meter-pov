@@ -820,7 +820,14 @@ func (conR *ConsensusReactor) exitCurCommittee() error {
 	conR.exitConsensusValidator()
 	conR.csCommon.ConsensusCommonDeinit()
 
-	// XXX: clean up current parameters
+	// clean up current parameters
+	conR.curCommittee.Validators = make([]*types.Validator, 0)
+	conR.curActualCommittee = make([]CommitteeMember, 0)
+	conR.curCommitteeIndex = 0
+
+	conR.curNonce = 0
+	conR.curCommitteeID = 0
+	conR.curRound = 0
 
 	return nil
 }
