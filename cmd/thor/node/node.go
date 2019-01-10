@@ -70,10 +70,11 @@ func New(
 	txPool *txpool.TxPool,
 	txStashPath string,
 	comm *comm.Communicator,
+	cons *consensus.ConsensusReactor,
 ) *Node {
 	node := &Node{
 		packer:      packer.New(chain, stateCreator, master.Address(), master.Beneficiary),
-		cons:        consensus.NewConsensusReactor(chain, stateCreator, master.PrivateKey, master.PublicKey),
+		cons:        cons,
 		master:      master,
 		chain:       chain,
 		logDB:       logDB,

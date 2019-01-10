@@ -47,6 +47,8 @@ import (
 	"github.com/vechain/thor/types"
 	//"github.com/vechain/thor/xenv"
 	cmn "github.com/vechain/thor/libs/common"
+
+	cli "gopkg.in/urfave/cli.v1"
 )
 
 const (
@@ -81,6 +83,8 @@ const (
 type ConsensusReactor struct {
 	chain        *chain.Chain
 	stateCreator *state.Creator
+
+	ForceLastKFrame bool
 
 	// copy of master/node
 	myPubKey      ecdsa.PublicKey  // this is my public identification !!
@@ -129,11 +133,15 @@ type ConsensusReactor struct {
 
 // NewConsensusReactor returns a new ConsensusReactor with the given
 // consensusState.
-func NewConsensusReactor(chain *chain.Chain, state *state.Creator, privKey *ecdsa.PrivateKey, pubKey *ecdsa.PublicKey) *ConsensusReactor {
+func NewConsensusReactor(ctx *cli.Context, chain *chain.Chain, state *state.Creator, privKey *ecdsa.PrivateKey, pubKey *ecdsa.PublicKey) *ConsensusReactor {
 	conR := &ConsensusReactor{
 		chain:        chain,
 		stateCreator: state,
 		logger:       log15.New("pkg", "consensus"),
+	}
+
+	if ctx != nil {
+		conR.ForceLastKFrame = ctx.Bool("force-last-kframe")
 	}
 
 	//initialize message channel

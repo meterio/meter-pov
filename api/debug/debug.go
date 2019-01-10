@@ -64,7 +64,7 @@ func (d *Debug) handleTxEnv(ctx context.Context, blockID thor.Bytes32, txIndex u
 		return nil, nil, utils.Forbidden(errors.New("can not generate private/public key"))
 	}
 
-	rt, err := consensus.NewConsensusReactor(d.chain, d.stateC, privKey, &privKey.PublicKey).NewRuntimeForReplay(block.Header())
+	rt, err := consensus.NewConsensusReactor(nil, d.chain, d.stateC, privKey, &privKey.PublicKey).NewRuntimeForReplay(block.Header())
 	if err != nil {
 		return nil, nil, err
 	}

@@ -9,6 +9,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"math/big"
+	"math/rand"
 	"os"
 	"path/filepath"
 	"time"
@@ -20,8 +22,10 @@ import (
 	"github.com/pborman/uuid"
 	"github.com/pkg/errors"
 	"github.com/vechain/thor/api"
+	"github.com/vechain/thor/block"
 	"github.com/vechain/thor/cmd/thor/node"
 	"github.com/vechain/thor/cmd/thor/solo"
+	"github.com/vechain/thor/consensus"
 	"github.com/vechain/thor/genesis"
 	"github.com/vechain/thor/logdb"
 	"github.com/vechain/thor/lvldb"
@@ -73,6 +77,8 @@ func main() {
 			p2pPortFlag,
 			natFlag,
 			peersFlag,
+			forceLastKFrameFlag,
+			generateKFrameFlag,
 		},
 		Action: defaultAction,
 		Commands: []cli.Command{
@@ -140,6 +146,13 @@ func defaultAction(ctx *cli.Context) error {
 	apiURL, srvCloser := startAPIServer(ctx, apiHandler, chain.GenesisBlock().Header().ID())
 	defer func() { log.Info("stopping API server..."); srvCloser() }()
 
+	stateCreator := state.NewCreator(mainDB)
+	cons := consensus.NewConsensusReactor(ctx, chain, stateCreator, master.PrivateKey, master.PublicKey)
+
+	// XXX: generate kframe (FOR TEST ONLY)
+	genCloser := newKFrameGenerator(ctx, cons)
+	defer func() { log.Info("stopping kframe generator service ..."); genCloser() }()
+
 	printStartupMessage(gene, chain, master, instanceDir, apiURL)
 
 	p2pcom.Start()
@@ -148,12 +161,39 @@ func defaultAction(ctx *cli.Context) error {
 	return node.New(
 		master,
 		chain,
-		state.NewCreator(mainDB),
+		stateCreator,
 		logDB,
 		txPool,
 		filepath.Join(instanceDir, "tx.stash"),
-		p2pcom.comm).
+		p2pcom.comm,
+		cons).
 		Run(exitSignal)
+}
+
+func newKFrameGenerator(ctx *cli.Context, cons *consensus.ConsensusReactor) func() {
+	var done chan int
+
+	if ctx.Bool("gen-kframe") {
+		ticker := time.NewTicker(time.Minute * 5)
+		for {
+			select {
+			case <-ticker.C:
+				data := block.KBlockData{
+					Leader:     thor.Address{},
+					Miner:      thor.Address{},
+					Nonce:      rand.Uint64(),
+					Difficulty: big.NewInt(0),
+					Data:       []byte{},
+				}
+				cons.KBlockDataQueue <- data
+			case <-done:
+				break
+			}
+		}
+	}
+	return func() {
+		close(done)
+	}
 }
 
 func soloAction(ctx *cli.Context) error {
