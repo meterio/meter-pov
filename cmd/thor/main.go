@@ -171,26 +171,28 @@ func defaultAction(ctx *cli.Context) error {
 }
 
 func newKFrameGenerator(ctx *cli.Context, cons *consensus.ConsensusReactor) func() {
-	var done chan int
-
-	if ctx.Bool("gen-kframe") {
-		ticker := time.NewTicker(time.Minute * 5)
-		for {
-			select {
-			case <-ticker.C:
-				data := block.KBlockData{
-					Leader:     thor.Address{},
-					Miner:      thor.Address{},
-					Nonce:      rand.Uint64(),
-					Difficulty: big.NewInt(0),
-					Data:       []byte{},
+	done := make(chan int)
+	go func() {
+		if ctx.Bool("gen-kframe") {
+			ticker := time.NewTicker(time.Minute * 5)
+			for {
+				select {
+				case <-ticker.C:
+					data := block.KBlockData{
+						Leader:     thor.Address{},
+						Miner:      thor.Address{},
+						Nonce:      rand.Uint64(),
+						Difficulty: big.NewInt(0),
+						Data:       []byte{},
+					}
+					cons.KBlockDataQueue <- data
+				case <-done:
+					return
 				}
-				cons.KBlockDataQueue <- data
-			case <-done:
-				break
 			}
 		}
-	}
+	}()
+
 	return func() {
 		close(done)
 	}
