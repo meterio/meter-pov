@@ -208,7 +208,7 @@ func (c *ConsensusReactor) validateEvidence(ev *block.Evidence, blk *block.Block
 	c.logger.Info("get committeeinfo from block", b.Header().Number())
 
 	// committee members
-	cis, err := c.DecodeBlockCommitteeInfo(b.GetBlockCommitteeInfo())
+	cis, err := b.GetComitteeInfo()
 	if err != nil {
 		fmt.Printf("decode committee info block error")
 		return consensusError(fmt.Sprintf("decode committee info block failed: %v", err))
@@ -263,37 +263,7 @@ func (c *ConsensusReactor) validateProposer(header *block.Header, parent *block.
 		return consensusError(fmt.Sprintf("block signer unavailable: %v", err))
 	}
 	fmt.Println("signer", signer)
-	/***************
-	authority := builtin.Authority.Native(st)
-	endorsement := builtin.Params.Native(st).Get(thor.KeyProposerEndorsement)
 
-	candidates := authority.Candidates(endorsement, thor.MaxBlockProposers)
-	proposers := make([]poa.Proposer, 0, len(candidates))
-	for _, c := range candidates {
-		proposers = append(proposers, poa.Proposer{
-			Address: c.NodeMaster,
-			Active:  c.Active,
-		})
-	}
-
-	sched, err := poa.NewScheduler(signer, proposers, parent.Number(), parent.Timestamp())
-	if err != nil {
-		return consensusError(fmt.Sprintf("block signer invalid: %v %v", signer, err))
-	}
-
-	if !sched.IsTheTime(header.Timestamp()) {
-		return consensusError(fmt.Sprintf("block timestamp unscheduled: t %v, s %v", header.Timestamp(), signer))
-	}
-
-	updates, score := sched.Updates(header.Timestamp())
-	if parent.TotalScore()+score != header.TotalScore() {
-		return consensusError(fmt.Sprintf("block total score invalid: want %v, have %v", parent.TotalScore()+score, header.TotalScore()))
-	}
-
-	for _, proposer := range updates {
-		authority.Update(proposer.Address, proposer.Active)
-	}
-	**************/
 	return nil
 }
 
@@ -422,15 +392,15 @@ func (c *ConsensusReactor) verifyBlock(blk *block.Block, state *state.State) (*s
 //
 func (conR *ConsensusReactor) finalizeMBlock(blk *block.Block, ev *block.Evidence) bool {
 
-	var committeeInfo []byte
+	var committeeInfo []block.CommitteeInfo
 	if conR.curRound == 0 {
-		committeeInfo = []byte{}
+		committeeInfo = []block.CommitteeInfo{}
 	} else {
 		committeeInfo = conR.MakeBlockCommitteeInfo(conR.curActualCommittee)
 	}
 
 	blk.SetBlockEvidence(ev)
-	blk.SetBlockCommitteeInfo(committeeInfo)
+	blk.SetCommitteeInfo(committeeInfo)
 
 	// XXX: update the cache size of this block. the
 	return true
@@ -487,7 +457,8 @@ func (conR *ConsensusReactor) finalizeCommitBlock(blkInfo *ProposedBlockInfo) bo
 	conR.logger.Info(fmt.Sprintf(`
 ===========================================================
 Block commited at height %d
-===========================================================`, height), "elapsedTime", commitElapsed, "bestBlockHeight", conR.chain.BestBlock().Header().Number())
+===========================================================
+`, height), "elapsedTime", commitElapsed, "bestBlockHeight", conR.chain.BestBlock().Header().Number())
 	fmt.Println(blk)
 	conR.UpdateHeight(int64(conR.chain.BestBlock().Header().Number()))
 
@@ -538,7 +509,7 @@ func (conR *ConsensusReactor) BuildCommitteeMemberFromInfo(cis []block.Committee
 }
 
 //build block committee info part
-func (conR *ConsensusReactor) MakeBlockCommitteeInfo(cms []CommitteeMember) []byte {
+func (conR *ConsensusReactor) MakeBlockCommitteeInfo(cms []CommitteeMember) []block.CommitteeInfo {
 	cis := []block.CommitteeInfo{}
 
 	for _, cm := range cms {
@@ -546,13 +517,7 @@ func (conR *ConsensusReactor) MakeBlockCommitteeInfo(cms []CommitteeMember) []by
 			conR.csCommon.system.PubKeyToBytes(cm.CSPubKey), cm.CSIndex)
 		cis = append(cis, *ci)
 	}
-	return (cdc.MustMarshalBinaryBare(&cis))
-}
-
-//de-serialize the block committee info part
-func (conR *ConsensusReactor) DecodeBlockCommitteeInfo(ciBytes []byte) (cis []block.CommitteeInfo, err error) {
-	err = cdc.UnmarshalBinaryBare(ciBytes, &cis)
-	return
+	return (cis)
 }
 
 // MBlock Routine

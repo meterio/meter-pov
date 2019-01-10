@@ -203,6 +203,10 @@ func (conR *ConsensusReactor) SwitchToConsensus() {
 	conR.logger.Info("Synchnization is done. SwitchToConsensus ...")
 
 	// --force-last-kframe
+	if !conR.ForceLastKFrame {
+		return
+	}
+
 	best := conR.chain.BestBlock()
 	lastKBlockHeight := best.Header().LastKBlockHeight()
 	var nonce uint64
@@ -1382,133 +1386,7 @@ func (conR *ConsensusReactor) ConsensusHandleReceivedNonce(kBlockHeight int64, n
 
 //-----------------------------------------------------------
 //---------------block store new wrappers routines ----------
-// XXX: Yang: moved to consensus_block.go
 
-/*******************
-type CommitteeInfo struct {
-	PubKey      ecdsa.PublicKey // committee pubkey
-	VotingPower int64
-	Accum       int64
-	NetAddr     types.NetAddress
-	CSPubKey    []byte // Bls pubkey
-	CSIndex     int    // Index, corresponding to the bitarray
-}
-
-func NewCommitteeInfo(pubKey ecdsa.PublicKey, power int64, accum int64, netAddr types.NetAddress, csPubKey []byte, csIndex int) *CommitteeInfo {
-	return &CommitteeInfo{
-		PubKey:      pubKey,
-		VotingPower: power,
-		Accum:       accum,
-		NetAddr:     netAddr,
-		CSPubKey:    csPubKey,
-		CSIndex:     csIndex,
-	}
-}
-
-func (conR *ConsensusReactor) finalizeCommitBlock(block *blockchain.NewBlock) bool {
-
-	height := block.BlockHeight
-	if (conR.curHeight + 1) != height {
-		conR.Logger.Error(fmt.Sprintf("finalizeCommitBlock(%v): Invalid height. Current: %v/%v", height, conR.curHeight, conR.curRound))
-		return false
-	}
-
-	//get block reactor
-	bcR := blockchain.GetGlobBlockChainReactor()
-	if bcR == nil {
-		panic("Error getting block chain reactor ")
-		return false
-	}
-
-	blockStore := bcR.GetBlockStore()
-	fmt.Println("blockStore Height", blockStore.Height(), "commit height", height)
-	if height <= blockStore.Height() {
-		fmt.Println("Height mismatch. my height", height, "stored height", blockStore.Height())
-		return false
-	}
-
-	// XXX: need to validate the block with newEvidence
-	//if blockchain.ValidateBlock(block) == false {
-	//	fmt.Println("Validate block failed ...")
-	//	return false
-	//}
-
-	// set prevHash
-	if height > 0 {
-		prevBlock := blockStore.LoadBlock(height - 1)
-		if prevBlock != nil {
-			block.SetBlockPrevHash(prevBlock.GetHash())
-		}
-	}
-
-	// get current block hash
-	//blockHash := block.getHash()
-
-	// save this block to persistence store
-	blockParts := block.MakePartSet(types.BlockPartSizeBytes)
-	blockStore.SaveBlock(block, blockParts)
-
-	// block is saved. before broadcast out, update pool height to indicated I
-	// already have this block.
-	bcR.GetBlockPool().IncrPoolHeight()
-	bcR.BroadcastBlock(block)
-
-	// apply block???
-
-	return true
-}
-
-//build block committee info part
-func (conR *ConsensusReactor) BuildCommitteeInfoFromMember(cms []CommitteeMember) []CommitteeInfo {
-	cis := []CommitteeInfo{}
-
-	for _, cm := range cms {
-		ci := NewCommitteeInfo(cm.PubKey, cm.VotingPower, cm.Accum, cm.NetAddr,
-			conR.csCommon.system.PubKeyToBytes(cm.CSPubKey), cm.CSIndex)
-		cis = append(cis, *ci)
-	}
-	return (cis)
-}
-
-//de-serialize the block committee info part
-func (conR *ConsensusReactor) BuildCommitteeMemberFromInfo(cis []CommitteeInfo) []CommitteeMember {
-	cms := []CommitteeMember{}
-	for _, ci := range cis {
-		cm := NewCommitteeMember()
-		cm.PubKey = ci.PubKey
-		cm.VotingPower = ci.VotingPower
-		cm.NetAddr = ci.NetAddr
-
-		CSPubKey, err := conR.csCommon.system.PubKeyFromBytes(ci.CSPubKey)
-		if err != nil {
-			panic(err)
-		}
-		cm.CSPubKey = CSPubKey
-		cm.CSIndex = ci.CSIndex
-
-		cms = append(cms, *cm)
-	}
-	return (cms)
-}
-
-//build block committee info part
-func (conR *ConsensusReactor) MakeBlockCommitteeInfo(cms []CommitteeMember) []byte {
-	cis := []CommitteeInfo{}
-
-	for _, cm := range cms {
-		ci := NewCommitteeInfo(cm.PubKey, cm.VotingPower, cm.Accum, cm.NetAddr,
-			conR.csCommon.system.PubKeyToBytes(cm.CSPubKey), cm.CSIndex)
-		cis = append(cis, *ci)
-	}
-	return (cdc.MustMarshalBinaryBare(&cis))
-}
-
-//de-serialize the block committee info part
-func (conR *ConsensusReactor) DecodeBlockCommitteeInfo(ciBytes []byte) (cis []CommitteeInfo, err error) {
-	err = cdc.UnmarshalBinaryBare(ciBytes, &cis)
-	return
-}
-********************/
 //============================================================================
 //============================================================================
 // Testing support code

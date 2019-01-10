@@ -175,17 +175,8 @@ func (b *Block) SetBlockEvidence(ev *Evidence) *Block {
 	return b
 }
 
-func (b *Block) SetBlockCommitteeInfo(ci []byte) *Block {
-	b.CommitteeInfo = ci
-	return b
-}
-
 func (b *Block) GetBlockEvidence() *Evidence {
 	return &b.Evidence
-}
-
-func (b *Block) GetBlockCommitteeInfo() []byte {
-	return b.CommitteeInfo
 }
 
 // Serialization for KBlockData and ComitteeInfo
@@ -201,14 +192,14 @@ func (b *Block) SetKBlockData(data *KBlockData) error {
 	return err
 }
 
-func (b *Block) GetComitteeInfo() (*CommitteeInfo, error) {
-	info := CommitteeInfo{}
+func (b *Block) GetComitteeInfo() ([]CommitteeInfo, error) {
+	info := []CommitteeInfo{}
 	err := rlp.DecodeBytes(b.CommitteeInfo, &info)
-	return &info, err
+	return info, err
 }
 
-func (b *Block) SetCommitteeInfo(info *CommitteeInfo) error {
-	bytes, err := rlp.EncodeToBytes(*info)
+func (b *Block) SetCommitteeInfo(info []CommitteeInfo) error {
+	bytes, err := rlp.EncodeToBytes(info)
 	b.CommitteeInfo = bytes
 	return err
 }
