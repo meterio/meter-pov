@@ -344,7 +344,10 @@ func (conR *ConsensusReactor) UpdateHeightRound(height int64, round int) bool {
 // normally call this routine after block chain changed
 func (conR *ConsensusReactor) RefreshCurHeight() error {
 	prev := conR.curHeight
-	conR.lastKBlockHeight = conR.chain.BestBlock().Header().LastKBlockHeight()
+
+	bestHeader := conR.chain.BestBlock().Header()
+	conR.curHeight = int64(bestHeader.Number())
+	conR.lastKBlockHeight = bestHeader.LastKBlockHeight()
 	conR.logger.Info("Refresh curHeight", "previous", prev, "now", conR.curHeight, "lastKBlockHeight", conR.lastKBlockHeight)
 	return nil
 }
