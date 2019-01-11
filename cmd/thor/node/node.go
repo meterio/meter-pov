@@ -299,10 +299,10 @@ func (n *Node) processBlock(blk *block.Block, stats *blockStats) (bool, error) {
 			LastKBlockHeight: n.cons.GetLastKBlockHeight(),
 			Nonce:            data.Nonce,
 		}
+		log.Info("received kblock...", "nonce", info.Nonce, "height", info.Height)
 		n.cons.RcvKBlockInfoQueue <- info
 	}
 	// end of shortcut
-
 	return len(fork.Trunk) > 0, nil
 }
 

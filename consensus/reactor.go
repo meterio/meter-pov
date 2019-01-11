@@ -802,7 +802,7 @@ func (conR *ConsensusReactor) enterConsensusProposer() int {
 }
 
 func (conR *ConsensusReactor) exitConsensusProposer() int {
-	conR.logger.Debug("Enter consensus proposer")
+	conR.logger.Debug("Exit consensus proposer")
 
 	conR.csProposer = nil
 	conR.csRoleInitialized &= ^CONSENSUS_COMMIT_ROLE_PROPOSER
@@ -1372,11 +1372,18 @@ func (conR *ConsensusReactor) ConsensusHandleReceivedNonce(kBlockHeight int64, n
 
 	buf := make([]byte, binary.MaxVarintLen64)
 	binary.PutUvarint(buf, nonce)
-	role, _ := conR.NewValidatorSetByNonce(buf)
+	role, inCommittee := conR.NewValidatorSetByNonce(buf)
+
+	if inCommittee {
+		conR.logger.Info("I am in committee!!!")
+	} else {
+		conR.logger.Info("I am NOT in committee!!! nonce", "nonce", nonce)
+	}
 
 	if role == CONSENSUS_COMMIT_ROLE_LEADER {
 		conR.logger.Info("I am committee leader for nonce", "nonce", nonce)
-		time.Sleep(2 * time.Second)
+		// XXX: wait a while for synchronization
+		time.Sleep(5 * time.Second)
 		conR.ScheduleLeader(0)
 	} else if role == CONSENSUS_COMMIT_ROLE_VALIDATOR {
 		conR.logger.Info("I am committee validator for nonce", "nonce", nonce)

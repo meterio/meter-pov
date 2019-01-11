@@ -393,7 +393,7 @@ func (c *ConsensusReactor) verifyBlock(blk *block.Block, state *state.State) (*s
 func (conR *ConsensusReactor) finalizeMBlock(blk *block.Block, ev *block.Evidence) bool {
 
 	var committeeInfo []block.CommitteeInfo
-	if conR.curRound == 0 {
+	if conR.curRound != 0 {
 		committeeInfo = []block.CommitteeInfo{}
 	} else {
 		committeeInfo = conR.MakeBlockCommitteeInfo(conR.curActualCommittee)
@@ -596,10 +596,11 @@ func (conR *ConsensusReactor) BuildKBlock(data *block.KBlockData) *ProposedBlock
 	best := conR.chain.BestBlock()
 	now := uint64(time.Now().Unix())
 	if conR.curHeight != int64(best.Header().Number()) {
-		conR.logger.Info("Proposed block parent is not current best block")
+		conR.logger.Warn("Proposed block parent is not current best block")
 		return nil
 	}
 
+	conR.logger.Info("build kblock ...", "nonce", data.Nonce)
 	startTime := mclock.Now()
 	//XXX: Build kblock coinbse Tranactions
 	txs := tx.Transactions{}

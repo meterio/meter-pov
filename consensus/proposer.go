@@ -593,13 +593,7 @@ Move to next height
 		evidence := block.NewEvidence(votingSig, cp.proposalVoterMsgHash[0], *cp.proposalVoterBitArray,
 			notarizeSig, cp.notaryVoterMsgHash[0], *cp.notaryVoterBitArray)
 
-		blkBytes := cp.curProposedBlock
-		blk, err := block.BlockDecodeFromBytes(blkBytes)
-		if err != nil {
-			cp.csReactor.logger.Error("decode block failed")
-			goto INIT_STATE
-		}
-
+		blk := cp.curProposedBlockInfo.ProposedBlock
 		if cp.curProposedBlockType == PROPOSE_MSG_SUBTYPE_KBLOCK {
 			// XXX fill KBlockData later
 			cp.csReactor.finalizeKBlock(blk, evidence)
@@ -610,6 +604,25 @@ Move to next height
 		// commit the approved block
 		if cp.csReactor.finalizeCommitBlock(&cp.curProposedBlockInfo) == false {
 			cp.csReactor.logger.Error("Commit block failed ...")
+			goto INIT_STATE
+		}
+
+		// blcok is commited
+		if cp.curProposedBlockType == PROPOSE_MSG_SUBTYPE_KBLOCK {
+			cp.MoveInitState(cp.state, false)
+
+			//blk := cp.curProposedBlockInfo.ProposedBlock
+			kBlockData, err := blk.GetKBlockData()
+			if err != nil {
+				panic("can't get KBlockData")
+			}
+			nonce := kBlockData.Nonce
+			height := blk.Header().Number()
+
+			//exit committee first
+			cp.csReactor.exitCurCommittee()
+			cp.csReactor.ConsensusHandleReceivedNonce(int64(height), nonce)
+			return true
 		}
 	}
 
