@@ -464,7 +464,7 @@ Block commited at height %d
 
 	// Update lastKBlockHeight if necessary
 	if blk.Header().BlockType() == block.BLOCK_TYPE_K_BLOCK {
-		conR.lastKBlockHeight = blk.Header().Number()
+		conR.lastKBlockHeight = conR.chain.BestBlock().Header().Number()
 	}
 
 	return true

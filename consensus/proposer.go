@@ -253,31 +253,7 @@ func (cp *ConsensusProposer) GenerateMBlockMsg(mblock []byte) bool {
 // Build MBlock for consensus and commit it after consensus
 // ConsenusLeader generate the 1st block. With meta data of group
 func (cp *ConsensusProposer) buildMBlock(buildEmptyBlock bool) ([]byte, error) {
-	//logger := cp.csReactor.Logger
 
-	/****************
-	txs := blockchain.BuildMBlockTxs(-1)
-	if buildEmptyBlock == false && len(txs) == 0 {
-		//logger.Error("No txs, but buildEmptyBlock is disabled ...")
-		fmt.Println("No txs, but buildEmptyBlock is disabled ...")
-		return []byte{}, nil
-	}
-
-	mblock, err := blockchain.PrepareMBlock(cp.csReactor.curHeight, cp.csReactor.lastKBlockHeight,
-		blockchain.BLOCKTYPE_MBLOCK, cp.csReactor.myPubKey, txs)
-	if err != nil {
-		//logger.Error("build Mblock failed ...")
-		fmt.Println("build Mblock failed ...")
-		return []byte{}, nil
-	}
-
-	block, err := mblock.Serialize()
-	if err != nil {
-		//logger.Error("build Mblock failed")
-		fmt.Println("build Mblock failed ...")
-		return []byte{}, nil
-	}
-	***************/
 	blkInfo := cp.csReactor.BuildMBlock()
 	blkBytes := block.BlockEncodeBytes(blkInfo.ProposedBlock)
 
