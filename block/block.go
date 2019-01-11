@@ -32,20 +32,20 @@ type Evidence struct {
 }
 
 type KBlockData struct {
+	Nonce      uint64       // the last of the pow block
 	Leader     thor.Address // The new committee Leader, proposer also
 	Miner      thor.Address
-	Nonce      uint64   // the last of the pow block
 	Difficulty *big.Int // total difficaulty
 	Data       []byte
 }
 
 type CommitteeInfo struct {
-	PubKey      []byte // ecdsa pubkey
-	VotingPower int64
-	Accum       int64
-	NetAddr     types.NetAddress
+	VotingPower uint64
+	Accum       uint64
+	CSIndex     uint32 // Index, corresponding to the bitarray
 	CSPubKey    []byte // Bls pubkey
-	CSIndex     int    // Index, corresponding to the bitarray
+	PubKey      []byte // ecdsa pubkey
+	NetAddr     types.NetAddress
 }
 
 // Block is an immutable block type.
@@ -53,8 +53,8 @@ type Block struct {
 	BlockHeader   *Header
 	Txs           tx.Transactions
 	Evidence      Evidence
-	CommitteeInfo []byte
-	KBlockData    []byte
+	CommitteeInfo []CommitteeInfo
+	KBlockData    KBlockData
 
 	cache struct {
 		size atomic.Value
@@ -80,7 +80,7 @@ func NewEvidence(votingSig []byte, votingMsgHash [32]byte, votingBA cmn.BitArray
 }
 
 // Create new committee Info
-func NewCommitteeInfo(pubKey []byte, power int64, accum int64, netAddr types.NetAddress, csPubKey []byte, csIndex int) *CommitteeInfo {
+func NewCommitteeInfo(pubKey []byte, power uint64, accum uint64, netAddr types.NetAddress, csPubKey []byte, csIndex uint32) *CommitteeInfo {
 	return &CommitteeInfo{
 		PubKey:      pubKey,
 		VotingPower: power,
@@ -129,6 +129,9 @@ func (b *Block) EncodeRLP(w io.Writer) error {
 	return rlp.Encode(w, []interface{}{
 		b.BlockHeader,
 		b.Txs,
+		b.KBlockData,
+		b.CommitteeInfo,
+		b.Evidence,
 	})
 }
 
@@ -136,8 +139,11 @@ func (b *Block) EncodeRLP(w io.Writer) error {
 func (b *Block) DecodeRLP(s *rlp.Stream) error {
 	_, size, _ := s.Kind()
 	payload := struct {
-		Header Header
-		Txs    tx.Transactions
+		Header        Header
+		Txs           tx.Transactions
+		KBlockData    KBlockData
+		CommitteeInfo []CommitteeInfo
+		Evidence      Evidence
 	}{}
 
 	if err := s.Decode(&payload); err != nil {
@@ -145,8 +151,11 @@ func (b *Block) DecodeRLP(s *rlp.Stream) error {
 	}
 
 	*b = Block{
-		BlockHeader: &payload.Header,
-		Txs:         payload.Txs,
+		BlockHeader:   &payload.Header,
+		Txs:           payload.Txs,
+		KBlockData:    payload.KBlockData,
+		CommitteeInfo: payload.CommitteeInfo,
+		Evidence:      payload.Evidence,
 	}
 	b.cache.size.Store(metric.StorageSize(rlp.ListSize(size)))
 	return nil
@@ -164,9 +173,13 @@ func (b *Block) Size() metric.StorageSize {
 }
 
 func (b *Block) String() string {
-	return fmt.Sprintf(`Block(%v)
-%v
-Transactions: %v`, b.Size(), b.BlockHeader, b.Txs)
+	return fmt.Sprintf(`
+Block(%v){
+BlockHeader: %v,
+Transactions: %v,
+KBlockData: %v,
+CommitteeInfo: %v
+}`, b.Size(), b.BlockHeader, b.Txs, b.KBlockData, b.CommitteeInfo)
 }
 
 //-----------------
@@ -181,27 +194,21 @@ func (b *Block) GetBlockEvidence() *Evidence {
 
 // Serialization for KBlockData and ComitteeInfo
 func (b *Block) GetKBlockData() (*KBlockData, error) {
-	data := KBlockData{}
-	err := rlp.DecodeBytes(b.KBlockData, &data)
-	return &data, err
+	return &b.KBlockData, nil
 }
 
-func (b *Block) SetKBlockData(data *KBlockData) error {
-	bytes, err := rlp.EncodeToBytes(*data)
-	b.KBlockData = bytes
-	return err
+func (b *Block) SetKBlockData(data KBlockData) error {
+	b.KBlockData = data
+	return nil
 }
 
-func (b *Block) GetComitteeInfo() ([]CommitteeInfo, error) {
-	info := []CommitteeInfo{}
-	err := rlp.DecodeBytes(b.CommitteeInfo, &info)
-	return info, err
+func (b *Block) GetCommitteeInfo() ([]CommitteeInfo, error) {
+	return b.CommitteeInfo, nil
 }
 
 func (b *Block) SetCommitteeInfo(info []CommitteeInfo) error {
-	bytes, err := rlp.EncodeToBytes(info)
-	b.CommitteeInfo = bytes
-	return err
+	b.CommitteeInfo = info
+	return nil
 }
 
 func (b *Block) ToBytes() []byte {

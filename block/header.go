@@ -25,7 +25,7 @@ const (
 // Header contains almost all information about a block, except block body.
 // It's immutable.
 type Header struct {
-	Body headerBody
+	Body HeaderBody
 
 	cache struct {
 		signingHash atomic.Value
@@ -35,7 +35,7 @@ type Header struct {
 }
 
 // headerBody body of header
-type headerBody struct {
+type HeaderBody struct {
 	ParentID         thor.Bytes32
 	Timestamp        uint64
 	GasLimit         uint64

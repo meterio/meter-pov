@@ -13,7 +13,7 @@ import (
 // XXX: Yang: Builder only build header and txs. evidence/committee info and kblock data built by app.
 // Builder to make it easy to build a block object.
 type Builder struct {
-	headerBody headerBody
+	headerBody HeaderBody
 	txs        tx.Transactions
 	//	ev            Evidence
 	//	committeeInfo CommitteeInfo

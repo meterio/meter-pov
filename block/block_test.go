@@ -18,9 +18,27 @@ import (
 	"github.com/vechain/thor/thor"
 	"github.com/vechain/thor/tx"
 
-	"crypto/rand"
-	cmn "github.com/vechain/thor/libs/common"
+	// "crypto/rand"
+	// cmn "github.com/vechain/thor/libs/common"
+
+	"github.com/vechain/thor/types"
 )
+
+func TestSerialize(t *testing.T) {
+	bb, err := rlp.EncodeToBytes([]byte{1, 2, 3})
+	fmt.Println("byte slice encoded:", bb, err)
+
+	ok := KBlockData{Data: []byte{1, 2, 3}}
+
+	b := &Block{BlockHeader: &Header{}}
+	b.SetKBlockData(ok)
+	bBytes, err := rlp.EncodeToBytes(b)
+	fmt.Println("Block encoded:", bBytes, err)
+
+	bt := &Block{}
+	err = rlp.DecodeBytes(bBytes, bt)
+	fmt.Println("Block: ", bt, err)
+}
 
 func TestBlock(t *testing.T) {
 
@@ -76,69 +94,37 @@ func TestBlock(t *testing.T) {
 	sig, _ := crypto.Sign(block.Header().SigningHash().Bytes(), key)
 
 	block = block.WithSignature(sig)
+	kBlockData := KBlockData{Nonce: 1111}
 
-	data, _ := rlp.EncodeToBytes(block)
-	fmt.Println("DATA: ", data)
-	fmt.Println("DATA STRING: ", string(data))
+	addr := types.NetAddress{IP: []byte{}, Port: 4444, Str: "xxxx"}
+	committeeInfo := CommitteeInfo{Accum: 2222, VotingPower: 20, CSPubKey: []byte{}, PubKey: []byte{}, CSIndex: 0, NetAddr: addr}
+	addrBytes, err := rlp.EncodeToBytes(addr)
+	fmt.Println(addrBytes, err)
+	m, err := rlp.EncodeToBytes(committeeInfo)
+	fmt.Println(m, err)
 
-	b := Block{}
+	fmt.Println("SET BLOCK DATA ERROR:", block.SetKBlockData(kBlockData))
+	block.SetCommitteeInfo(committeeInfo)
 
-	rlp.DecodeBytes(data, &b)
-	fmt.Println("BLOCK:", &b)
-}
+	fmt.Println("BEFORE KBlockData data:", kBlockData)
+	fmt.Println("BEFORE block.KBlockData:", block.KBlockData)
+	fmt.Println("BEFORE block.CommitteeInfo: ", committeeInfo)
+	fmt.Println("BEFORE block.CommitteeInfo: ", block.CommitteeInfo)
+	fmt.Println("BEFORE BLOCK:", block)
+	data, err := rlp.EncodeToBytes(block)
+	fmt.Println("ENCODE ERROR: ", err)
+	fmt.Println("BLOCK SERIALIZED TO:", data)
 
-func TestBlockSerializeWithAmino(t *testing.T) {
+	b := &Block{}
 
-	tx1 := new(tx.Builder).Clause(tx.NewClause(&thor.Address{})).Clause(tx.NewClause(&thor.Address{})).Build()
-	tx2 := new(tx.Builder).Clause(tx.NewClause(nil)).Build()
+	err = rlp.DecodeBytes(data, b)
+	fmt.Println("DECODE ERROR:", err)
+	fmt.Println("AFTER BLOCK:", b)
+	kb, err := b.GetKBlockData()
+	fmt.Println("AFTER KBlockData: ", kb, err)
+	fmt.Println("AFTER block.KBlockData:", b.KBlockData)
 
-	privKey := string("dce1443bd2ef0c2631adc1c67e5c93f13dc23a41c18b536effbbdcbcdb96fb65")
-
-	now := uint64(time.Now().UnixNano())
-
-	var (
-		gasUsed     uint64       = 1000
-		gasLimit    uint64       = 14000
-		totalScore  uint64       = 101
-		emptyRoot   thor.Bytes32 = thor.BytesToBytes32([]byte("0"))
-		beneficiary thor.Address = thor.BytesToAddress([]byte("abc"))
-	)
-
-	block := new(Builder).
-		GasUsed(gasUsed).
-		Transaction(tx1).
-		Transaction(tx2).
-		GasLimit(gasLimit).
-		TotalScore(totalScore).
-		StateRoot(emptyRoot).
-		ReceiptsRoot(emptyRoot).
-		Timestamp(now).
-		ParentID(emptyRoot).
-		Beneficiary(beneficiary).
-		Build()
-
-	key, _ := crypto.HexToECDSA(privKey)
-	sig, _ := crypto.Sign(block.Header().SigningHash().Bytes(), key)
-
-	block = block.WithSignature(sig)
-
-	var votingMsgHash, notarizeMsgHash [32]byte
-	var votingBA, notarizeBA cmn.BitArray
-	votingSig := make([]byte, 128)
-	notarizeSig := make([]byte, 512)
-	rand.Read(votingSig)
-	rand.Read(notarizeSig)
-	ev := NewEvidence(votingSig, votingMsgHash, votingBA, notarizeSig, notarizeMsgHash, notarizeBA)
-
-	// func NewCommitteeInfo(pubKey []byte, power int64, accum int64, netAddr types.NetAddress, csPubKey []byte, csIndex int)
-
-	block.SetBlockEvidence(ev)
-
-	data := BlockEncodeBytes(block)
-	fmt.Println("ENCODED BLOCK DATA: ", data)
-	blk, err := BlockDecodeFromBytes(data)
-	if err != nil {
-		fmt.Println("ERROR: ", err)
-	}
-	fmt.Println("DECODED BLOCK: ", blk)
+	db, err := rlp.EncodeToBytes(b)
+	fmt.Println(err)
+	fmt.Println("BLOCK SERIALIZED TO:", db)
 }

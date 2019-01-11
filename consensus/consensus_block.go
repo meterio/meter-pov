@@ -208,7 +208,7 @@ func (c *ConsensusReactor) validateEvidence(ev *block.Evidence, blk *block.Block
 	c.logger.Info("get committeeinfo from block", b.Header().Number())
 
 	// committee members
-	cis, err := b.GetComitteeInfo()
+	cis, err := b.GetCommitteeInfo()
 	if err != nil {
 		fmt.Printf("decode committee info block error")
 		return consensusError(fmt.Sprintf("decode committee info block failed: %v", err))
@@ -475,8 +475,8 @@ func (conR *ConsensusReactor) BuildCommitteeInfoFromMember(cms []CommitteeMember
 	cis := []block.CommitteeInfo{}
 
 	for _, cm := range cms {
-		ci := block.NewCommitteeInfo(crypto.FromECDSAPub(&cm.PubKey), cm.VotingPower, cm.Accum, cm.NetAddr,
-			conR.csCommon.system.PubKeyToBytes(cm.CSPubKey), cm.CSIndex)
+		ci := block.NewCommitteeInfo(crypto.FromECDSAPub(&cm.PubKey), uint64(cm.VotingPower), uint64(cm.Accum), cm.NetAddr,
+			conR.csCommon.system.PubKeyToBytes(cm.CSPubKey), uint32(cm.CSIndex))
 		cis = append(cis, *ci)
 	}
 	return (cis)
@@ -493,7 +493,7 @@ func (conR *ConsensusReactor) BuildCommitteeMemberFromInfo(cis []block.Committee
 			panic(err)
 		}
 		cm.PubKey = *pubKey
-		cm.VotingPower = ci.VotingPower
+		cm.VotingPower = int64(ci.VotingPower)
 		cm.NetAddr = ci.NetAddr
 
 		CSPubKey, err := conR.csCommon.system.PubKeyFromBytes(ci.CSPubKey)
@@ -501,7 +501,7 @@ func (conR *ConsensusReactor) BuildCommitteeMemberFromInfo(cis []block.Committee
 			panic(err)
 		}
 		cm.CSPubKey = CSPubKey
-		cm.CSIndex = ci.CSIndex
+		cm.CSIndex = int(ci.CSIndex)
 
 		cms = append(cms, *cm)
 	}
@@ -513,8 +513,8 @@ func (conR *ConsensusReactor) MakeBlockCommitteeInfo(cms []CommitteeMember) []bl
 	cis := []block.CommitteeInfo{}
 
 	for _, cm := range cms {
-		ci := block.NewCommitteeInfo(crypto.FromECDSAPub(&cm.PubKey), cm.VotingPower, cm.Accum, cm.NetAddr,
-			conR.csCommon.system.PubKeyToBytes(cm.CSPubKey), cm.CSIndex)
+		ci := block.NewCommitteeInfo(crypto.FromECDSAPub(&cm.PubKey), uint64(cm.VotingPower), uint64(cm.Accum), cm.NetAddr,
+			conR.csCommon.system.PubKeyToBytes(cm.CSPubKey), uint32(cm.CSIndex))
 		cis = append(cis, *ci)
 	}
 	return (cis)
@@ -638,7 +638,7 @@ func (conR *ConsensusReactor) BuildKBlock(data *block.KBlockData) *ProposedBlock
 	}
 
 	//serialize KBlockData
-	newBlock.SetKBlockData(data)
+	newBlock.SetKBlockData(*data)
 
 	execElapsed := mclock.Now() - startTime
 	conR.logger.Info("KBlock built", "height", conR.curHeight, "elapseTime", execElapsed)
