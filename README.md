@@ -205,3 +205,43 @@ Please check the following:
 VeChain Thor is licensed under the
 [GNU Lesser General Public License v3.0](https://www.gnu.org/licenses/lgpl-3.0.html), also included
 in *LICENSE* file in repository.
+
+
+#### 
+New CLI command examples
+Right now only support 2 nodes and above consensus. solo does not work anymore.
+1) node 1
+./thor --network test --verbosity 9 --force-last-kframe --peers enode://719d706c31723dca3cc5eb9c325b9bf842c4301ec3cc0086beb7823ecf428034b6a6c4f93efd1958a54746ee3d3312c3c26253c88b11c2cc6b08683a4e597190@10.1.10.9:11235 --api-addr 0.0.0.0:8669
+
+2) node 2
+./thor --network test --verbosity 9 --force-last-kframe --gen-kframe --peers enode://a00f8a399e25e72d92534236d7683b9c4c23582045c7d081735e4badf09d0775797819791502893df901c6b9dd26281f31bf6850fdfcebb48ea37cdbf63a95ae@10.1.10.50:11235
+
+3) edit ~/.org.vechain.thor/delegates.json
+[
+    {
+        "address" : "a0da10fa4e8e810c4ef3f9a3cd8091a7b10e05fd",
+        "pub_key" : "BIkIwtMaCdFZTjhwVOwJTytO5OvjFSkjnmlV3H12up/Zre8RHy44183AwBmC2xB+2VrYMqnqie9gYAyTixgsTfU=",
+        "voting_power" : "90",
+        "network_addr" : {
+            "id" : "1000",
+            "ip" : "10.1.10.50",
+            "port" : 8080,
+            "name" : "DelegateSample0"
+        },
+        "accum" : "7689255112978"
+    },
+    {
+        "address" : "d4be94fda23e12ee656b5123c9ac80bbf81971a5",
+        "pub_key" : "BEMbnhStJtqqC1MBv6dnJnt8xAd6Wp5/y/PT9xzyvRGyz6X5BbvrcPRpEqzzOkHqRrx3iX7G3ZCyEXey7qerbIs=",
+        "voting_power" : "100",
+        "network_addr" : {
+            "id" : "1001",
+            "ip" : "10.1.10.9",
+            "port" : 8080,
+            "name" : "DelegateSample1"
+        },
+        "accum" : "2057045235008"
+    }
+]
+
+
