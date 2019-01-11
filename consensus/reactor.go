@@ -344,6 +344,12 @@ func (conR *ConsensusReactor) UpdateHeightRound(height int64, round int) bool {
 	return true
 }
 
+// update the LastKBlockHeight
+func (conR *ConsensusReactor) UpdateLastKBlockHeight(height uint32) bool {
+	conR.lastKBlockHeight = height
+	return true
+}
+
 // Refresh the current Height from the best block
 // normally call this routine after block chain changed
 func (conR *ConsensusReactor) RefreshCurHeight() error {

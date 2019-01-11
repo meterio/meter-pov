@@ -184,7 +184,6 @@ func (cp *ConsensusProposer) ProposalBlockMsg(proposalEmptyBlock bool) bool {
 	if proposalKBlock {
 		kblock, err := cp.buildKBlock(cp.csReactor.kBlockData)
 		if err != nil {
-			//cp.csReactor.Logger.Error("build Kblock failed ...")
 			cp.csReactor.logger.Error("build Kblock failed ...")
 			return false
 		}
@@ -195,7 +194,6 @@ func (cp *ConsensusProposer) ProposalBlockMsg(proposalEmptyBlock bool) bool {
 
 		mblock, err := cp.buildMBlock(proposalEmptyBlock)
 		if err != nil {
-			//cp.csReactor.Logger.Error("build Mblock failed ...")
 			cp.csReactor.logger.Error("build Mblock failed ...")
 			return false
 		}
@@ -208,7 +206,6 @@ func (cp *ConsensusProposer) ProposalBlockMsg(proposalEmptyBlock bool) bool {
 
 //XXX: ConsensusLeader always propose the 1st block. With meta data of group
 func (cp *ConsensusProposer) GenerateMBlockMsg(mblock []byte) bool {
-	//logger := cp.csReactor.Logger
 
 	curHeight := cp.csReactor.curHeight
 	curRound := cp.csReactor.curRound
@@ -585,9 +582,13 @@ Move to next height
 
 		// blcok is commited
 		if cp.curProposedBlockType == PROPOSE_MSG_SUBTYPE_KBLOCK {
+
 			cp.MoveInitState(cp.state, false)
 
+			// update the lastKBlockHeight since the kblock is handled
 			//blk := cp.curProposedBlockInfo.ProposedBlock
+			cp.csReactor.UpdateLastKBlockHeight(blk.Header().Number())
+
 			kBlockData, err := blk.GetKBlockData()
 			if err != nil {
 				panic("can't get KBlockData")

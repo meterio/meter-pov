@@ -462,11 +462,6 @@ Block commited at height %d
 	fmt.Println(blk)
 	conR.UpdateHeight(int64(conR.chain.BestBlock().Header().Number()))
 
-	// Update lastKBlockHeight if necessary
-	if blk.Header().BlockType() == block.BLOCK_TYPE_K_BLOCK {
-		conR.lastKBlockHeight = conR.chain.BestBlock().Header().Number()
-	}
-
 	return true
 }
 
@@ -670,8 +665,14 @@ func (conR *ConsensusReactor) HandleRecvKBlockInfo(ki RecvKBlockInfo) error {
 		conR.logger.Info("best block is not kblock")
 		return nil
 	}
+
+	conR.logger.Info("received KBlock ...", "height", ki.Height, "lastKBlockHeight", ki.LastKBlockHeight, "nonce", ki.Nonce)
+
 	// Now handle this nonce. Exit the committee if it is still in.
 	conR.exitCurCommittee()
+
+	// update last kblock height sine kblock is handled
+	conR.UpdateLastKBlockHeight(ki.LastKBlockHeight)
 
 	// run new one.
 	conR.ConsensusHandleReceivedNonce(ki.Height, ki.Nonce)
