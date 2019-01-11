@@ -135,6 +135,36 @@ func (a *Accounts) handleGetStorage(w http.ResponseWriter, req *http.Request) er
 	return utils.WriteJSON(w, map[string]string{"value": storage.String()})
 }
 
+func (a *Accounts) handleCallPow(w http.ResponseWriter, req *http.Request) error {
+        callData := &CallData{}
+	callPow := &CallPow{}
+        if err := utils.ParseJSON(req.Body, &callPow); err != nil {
+                return utils.BadRequest(errors.WithMessage(err, "body"))
+        }
+        h, err := a.handleRevision(req.URL.Query().Get("revision"))
+        if err != nil {
+                return err
+        }
+	var addr *thor.Address
+        var batchCallData = &BatchCallData{
+                Clauses: Clauses{
+                        Clause{
+                                To:    addr,
+                                Value: callData.Value,
+                                Data:  callData.Data,
+                        },
+                },
+        }
+	fmt.Println("received data", callPow.Miner, callPow.Nonce, callPow.Difficulty)
+        // results, err := a.batchPow(req.Context(), batchCallData, h)
+        results, err := a.batchCall(req.Context(), batchCallData, h)
+        if err != nil {
+                return err
+        }
+        return utils.WriteJSON(w, results[0])
+}
+
+
 func (a *Accounts) handleCallContract(w http.ResponseWriter, req *http.Request) error {
 	callData := &CallData{}
 	if err := utils.ParseJSON(req.Body, &callData); err != nil {
@@ -318,7 +348,7 @@ func (a *Accounts) Mount(root *mux.Router, pathPrefix string) {
 	sub.Path("/{address}").Methods(http.MethodGet).HandlerFunc(utils.WrapHandlerFunc(a.handleGetAccount))
 	sub.Path("/{address}/code").Methods(http.MethodGet).HandlerFunc(utils.WrapHandlerFunc(a.handleGetCode))
 	sub.Path("/{address}/storage/{key}").Methods("GET").HandlerFunc(utils.WrapHandlerFunc(a.handleGetStorage))
-	sub.Path("").Methods("POST").HandlerFunc(utils.WrapHandlerFunc(a.handleCallContract))
+	sub.Path("").Methods("POST").HandlerFunc(utils.WrapHandlerFunc(a.handleCallPow))
 	sub.Path("/{address}").Methods("POST").HandlerFunc(utils.WrapHandlerFunc(a.handleCallContract))
 
 }
