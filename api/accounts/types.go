@@ -6,6 +6,8 @@
 package accounts
 
 import (
+	"math/big"
+
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/common/math"
 	"github.com/vechain/thor/api/transactions"
@@ -27,6 +29,12 @@ type CallData struct {
 	Gas      uint64                `json:"gas"`
 	GasPrice *math.HexOrDecimal256 `json:"gasPrice"`
 	Caller   *thor.Address         `json:"caller"`
+}
+
+type CallPow struct {
+	Miner   *thor.Address   `json:"miner"`
+	Nonce   uint64  `json:"nonce"`
+	Difficulty big.Int  `json:"difficulty"`
 }
 
 type CallResult struct {
