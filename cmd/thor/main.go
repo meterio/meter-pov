@@ -9,7 +9,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"math/big"
 	"math/rand"
 	"os"
 	"path/filepath"
@@ -179,10 +178,8 @@ func newKFrameGenerator(ctx *cli.Context, cons *consensus.ConsensusReactor) func
 				select {
 				case <-ticker.C:
 					data := block.KBlockData{
-						Leader:     thor.Address{},
 						Miner:      thor.Address{},
 						Nonce:      rand.Uint64(),
-						Difficulty: big.NewInt(0),
 						Data:       []byte{},
 					}
 					cons.KBlockDataQueue <- data

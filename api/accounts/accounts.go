@@ -155,7 +155,14 @@ func (a *Accounts) handleCallPow(w http.ResponseWriter, req *http.Request) error
                         },
                 },
         }
-	fmt.Println("received data", callPow.Miner, callPow.Nonce, callPow.Difficulty)
+	data := block.KBlockData{
+                Miner:      *callPow.Miner,
+                Nonce:      callPow.Nonce,
+                Data:       []byte{},
+        }
+        //cons.KBlockDataQueue <- data
+
+	fmt.Println("received data", data.Miner, data.Nonce, callPow.Difficulty)
         // results, err := a.batchPow(req.Context(), batchCallData, h)
         results, err := a.batchCall(req.Context(), batchCallData, h)
         if err != nil {
@@ -163,7 +170,6 @@ func (a *Accounts) handleCallPow(w http.ResponseWriter, req *http.Request) error
         }
         return utils.WriteJSON(w, results[0])
 }
-
 
 func (a *Accounts) handleCallContract(w http.ResponseWriter, req *http.Request) error {
 	callData := &CallData{}
