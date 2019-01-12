@@ -77,6 +77,10 @@ const (
 	NOTARY_BLOCK_SIGN_MSG_SIZE = int(130)
 )
 
+var (
+	ConsensusGlobInst *ConsensusReactor
+)
+
 //-----------------------------------------------------------------------------
 
 // ConsensusReactor defines a reactor for the consensus service.
@@ -131,6 +135,15 @@ type ConsensusReactor struct {
 	RcvKBlockInfoQueue chan RecvKBlockInfo   // this channel for kblock notify from node module.
 }
 
+// Glob Instance
+func GetConsensusGlobInst() *ConsensusReactor {
+	return ConsensusGlobInst
+}
+
+func SetConsensusGlobInst(inst *ConsensusReactor) {
+	ConsensusGlobInst = inst
+}
+
 // NewConsensusReactor returns a new ConsensusReactor with the given
 // consensusState.
 func NewConsensusReactor(ctx *cli.Context, chain *chain.Chain, state *state.Creator, privKey *ecdsa.PrivateKey, pubKey *ecdsa.PublicKey) *ConsensusReactor {
@@ -167,6 +180,7 @@ func NewConsensusReactor(ctx *cli.Context, chain *chain.Chain, state *state.Crea
 	conR.myPrivKey = *privKey
 	conR.myPubKey = *pubKey
 
+	SetConsensusGlobInst(conR)
 	return conR
 }
 

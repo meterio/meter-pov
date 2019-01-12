@@ -178,9 +178,9 @@ func newKFrameGenerator(ctx *cli.Context, cons *consensus.ConsensusReactor) func
 				select {
 				case <-ticker.C:
 					data := block.KBlockData{
-						Miner:      thor.Address{},
-						Nonce:      rand.Uint64(),
-						Data:       []byte{},
+						Miner: thor.Address{},
+						Nonce: rand.Uint64(),
+						Data:  []byte{},
 					}
 					cons.KBlockDataQueue <- data
 				case <-done:
