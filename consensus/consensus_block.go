@@ -671,8 +671,8 @@ func (conR *ConsensusReactor) HandleRecvKBlockInfo(ki RecvKBlockInfo) error {
 	// Now handle this nonce. Exit the committee if it is still in.
 	conR.exitCurCommittee()
 
-	// update last kblock height sine kblock is handled
-	conR.UpdateLastKBlockHeight(ki.LastKBlockHeight)
+	// update last kblock height with current Height sine kblock is handled
+	conR.UpdateLastKBlockHeight(best.Header().Number())
 
 	// run new one.
 	conR.ConsensusHandleReceivedNonce(ki.Height, ki.Nonce)
