@@ -24,6 +24,7 @@ import (
 	"github.com/vechain/thor/thor"
 	"github.com/vechain/thor/tx"
 	"github.com/vechain/thor/xenv"
+	"github.com/vechain/thor/consensus"
 )
 
 type Accounts struct {
@@ -138,6 +139,8 @@ func (a *Accounts) handleGetStorage(w http.ResponseWriter, req *http.Request) er
 func (a *Accounts) handleCallPow(w http.ResponseWriter, req *http.Request) error {
         callData := &CallData{}
 	callPow := &CallPow{}
+	
+	ConReactor := consensus.GetConsensusGlobInst()
         if err := utils.ParseJSON(req.Body, &callPow); err != nil {
                 return utils.BadRequest(errors.WithMessage(err, "body"))
         }
@@ -160,7 +163,7 @@ func (a *Accounts) handleCallPow(w http.ResponseWriter, req *http.Request) error
                 Nonce:      callPow.Nonce,
                 Data:       []byte{},
         }
-        //cons.KBlockDataQueue <- data
+        ConReactor.KBlockDataQueue <- data
 
 	fmt.Println("received data", data.Miner, data.Nonce, callPow.Difficulty)
         // results, err := a.batchPow(req.Context(), batchCallData, h)
