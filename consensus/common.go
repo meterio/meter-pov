@@ -7,10 +7,7 @@ import (
 	//"time"
 	sha256 "crypto/sha256"
 
-	//crypto "github.com/dfinlab/go-zdollar/crypto"
 	bls "github.com/vechain/thor/crypto/multi_sig"
-	//types "github.com/dfinlab/go-zdollar/types"
-	//    cmn "github.com/dfinlab/go-zdollar/libs/common"
 )
 
 const (
