@@ -393,7 +393,7 @@ func (c *ConsensusReactor) verifyBlock(blk *block.Block, state *state.State) (*s
 func (conR *ConsensusReactor) finalizeMBlock(blk *block.Block, ev *block.Evidence) bool {
 
 	var committeeInfo []block.CommitteeInfo
-	if conR.curRound == 0 {
+	if conR.curRound != 0 {
 		committeeInfo = []block.CommitteeInfo{}
 	} else {
 		committeeInfo = conR.MakeBlockCommitteeInfo(conR.curActualCommittee)
@@ -461,11 +461,6 @@ Block commited at height %d
 `, height), "elapsedTime", commitElapsed, "bestBlockHeight", conR.chain.BestBlock().Header().Number())
 	fmt.Println(blk)
 	conR.UpdateHeight(int64(conR.chain.BestBlock().Header().Number()))
-
-	// Update lastKBlockHeight if necessary
-	if blk.Header().BlockType() == block.BLOCK_TYPE_K_BLOCK {
-		conR.lastKBlockHeight = blk.Header().Number()
-	}
 
 	return true
 }
@@ -596,10 +591,11 @@ func (conR *ConsensusReactor) BuildKBlock(data *block.KBlockData) *ProposedBlock
 	best := conR.chain.BestBlock()
 	now := uint64(time.Now().Unix())
 	if conR.curHeight != int64(best.Header().Number()) {
-		conR.logger.Info("Proposed block parent is not current best block")
+		conR.logger.Warn("Proposed block parent is not current best block")
 		return nil
 	}
 
+	conR.logger.Info("build kblock ...", "nonce", data.Nonce)
 	startTime := mclock.Now()
 	//XXX: Build kblock coinbse Tranactions
 	txs := tx.Transactions{}
@@ -669,8 +665,14 @@ func (conR *ConsensusReactor) HandleRecvKBlockInfo(ki RecvKBlockInfo) error {
 		conR.logger.Info("best block is not kblock")
 		return nil
 	}
+
+	conR.logger.Info("received KBlock ...", "height", ki.Height, "lastKBlockHeight", ki.LastKBlockHeight, "nonce", ki.Nonce)
+
 	// Now handle this nonce. Exit the committee if it is still in.
 	conR.exitCurCommittee()
+
+	// update last kblock height with current Height sine kblock is handled
+	conR.UpdateLastKBlockHeight(best.Header().Number())
 
 	// run new one.
 	conR.ConsensusHandleReceivedNonce(ki.Height, ki.Nonce)

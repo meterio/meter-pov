@@ -8,7 +8,6 @@ package block
 import (
 	"fmt"
 	"io"
-	"math/big"
 	"sync/atomic"
 
 	"github.com/ethereum/go-ethereum/rlp"
@@ -33,9 +32,7 @@ type Evidence struct {
 
 type KBlockData struct {
 	Nonce      uint64       // the last of the pow block
-	Leader     thor.Address // The new committee Leader, proposer also
 	Miner      thor.Address
-	Difficulty *big.Int // total difficaulty
 	Data       []byte
 }
 

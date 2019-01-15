@@ -184,7 +184,6 @@ func (cp *ConsensusProposer) ProposalBlockMsg(proposalEmptyBlock bool) bool {
 	if proposalKBlock {
 		kblock, err := cp.buildKBlock(cp.csReactor.kBlockData)
 		if err != nil {
-			//cp.csReactor.Logger.Error("build Kblock failed ...")
 			cp.csReactor.logger.Error("build Kblock failed ...")
 			return false
 		}
@@ -195,7 +194,6 @@ func (cp *ConsensusProposer) ProposalBlockMsg(proposalEmptyBlock bool) bool {
 
 		mblock, err := cp.buildMBlock(proposalEmptyBlock)
 		if err != nil {
-			//cp.csReactor.Logger.Error("build Mblock failed ...")
 			cp.csReactor.logger.Error("build Mblock failed ...")
 			return false
 		}
@@ -208,7 +206,6 @@ func (cp *ConsensusProposer) ProposalBlockMsg(proposalEmptyBlock bool) bool {
 
 //XXX: ConsensusLeader always propose the 1st block. With meta data of group
 func (cp *ConsensusProposer) GenerateMBlockMsg(mblock []byte) bool {
-	//logger := cp.csReactor.Logger
 
 	curHeight := cp.csReactor.curHeight
 	curRound := cp.csReactor.curRound
@@ -253,31 +250,7 @@ func (cp *ConsensusProposer) GenerateMBlockMsg(mblock []byte) bool {
 // Build MBlock for consensus and commit it after consensus
 // ConsenusLeader generate the 1st block. With meta data of group
 func (cp *ConsensusProposer) buildMBlock(buildEmptyBlock bool) ([]byte, error) {
-	//logger := cp.csReactor.Logger
 
-	/****************
-	txs := blockchain.BuildMBlockTxs(-1)
-	if buildEmptyBlock == false && len(txs) == 0 {
-		//logger.Error("No txs, but buildEmptyBlock is disabled ...")
-		fmt.Println("No txs, but buildEmptyBlock is disabled ...")
-		return []byte{}, nil
-	}
-
-	mblock, err := blockchain.PrepareMBlock(cp.csReactor.curHeight, cp.csReactor.lastKBlockHeight,
-		blockchain.BLOCKTYPE_MBLOCK, cp.csReactor.myPubKey, txs)
-	if err != nil {
-		//logger.Error("build Mblock failed ...")
-		fmt.Println("build Mblock failed ...")
-		return []byte{}, nil
-	}
-
-	block, err := mblock.Serialize()
-	if err != nil {
-		//logger.Error("build Mblock failed")
-		fmt.Println("build Mblock failed ...")
-		return []byte{}, nil
-	}
-	***************/
 	blkInfo := cp.csReactor.BuildMBlock()
 	blkBytes := block.BlockEncodeBytes(blkInfo.ProposedBlock)
 
@@ -593,13 +566,7 @@ Move to next height
 		evidence := block.NewEvidence(votingSig, cp.proposalVoterMsgHash[0], *cp.proposalVoterBitArray,
 			notarizeSig, cp.notaryVoterMsgHash[0], *cp.notaryVoterBitArray)
 
-		blkBytes := cp.curProposedBlock
-		blk, err := block.BlockDecodeFromBytes(blkBytes)
-		if err != nil {
-			cp.csReactor.logger.Error("decode block failed")
-			goto INIT_STATE
-		}
-
+		blk := cp.curProposedBlockInfo.ProposedBlock
 		if cp.curProposedBlockType == PROPOSE_MSG_SUBTYPE_KBLOCK {
 			// XXX fill KBlockData later
 			cp.csReactor.finalizeKBlock(blk, evidence)
@@ -610,6 +577,29 @@ Move to next height
 		// commit the approved block
 		if cp.csReactor.finalizeCommitBlock(&cp.curProposedBlockInfo) == false {
 			cp.csReactor.logger.Error("Commit block failed ...")
+			goto INIT_STATE
+		}
+
+		// blcok is commited
+		if cp.curProposedBlockType == PROPOSE_MSG_SUBTYPE_KBLOCK {
+
+			cp.MoveInitState(cp.state, false)
+
+			// update the lastKBlockHeight since the kblock is handled
+			//blk := cp.curProposedBlockInfo.ProposedBlock
+			cp.csReactor.UpdateLastKBlockHeight(blk.Header().Number())
+
+			kBlockData, err := blk.GetKBlockData()
+			if err != nil {
+				panic("can't get KBlockData")
+			}
+			nonce := kBlockData.Nonce
+			height := blk.Header().Number()
+
+			//exit committee first
+			cp.csReactor.exitCurCommittee()
+			cp.csReactor.ConsensusHandleReceivedNonce(int64(height), nonce)
+			return true
 		}
 	}
 

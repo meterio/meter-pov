@@ -77,6 +77,10 @@ const (
 	NOTARY_BLOCK_SIGN_MSG_SIZE = int(130)
 )
 
+var (
+	ConsensusGlobInst *ConsensusReactor
+)
+
 //-----------------------------------------------------------------------------
 
 // ConsensusReactor defines a reactor for the consensus service.
@@ -131,6 +135,15 @@ type ConsensusReactor struct {
 	RcvKBlockInfoQueue chan RecvKBlockInfo   // this channel for kblock notify from node module.
 }
 
+// Glob Instance
+func GetConsensusGlobInst() *ConsensusReactor {
+	return ConsensusGlobInst
+}
+
+func SetConsensusGlobInst(inst *ConsensusReactor) {
+	ConsensusGlobInst = inst
+}
+
 // NewConsensusReactor returns a new ConsensusReactor with the given
 // consensusState.
 func NewConsensusReactor(ctx *cli.Context, chain *chain.Chain, state *state.Creator, privKey *ecdsa.PrivateKey, pubKey *ecdsa.PublicKey) *ConsensusReactor {
@@ -167,6 +180,7 @@ func NewConsensusReactor(ctx *cli.Context, chain *chain.Chain, state *state.Crea
 	conR.myPrivKey = *privKey
 	conR.myPubKey = *pubKey
 
+	SetConsensusGlobInst(conR)
 	return conR
 }
 
@@ -341,6 +355,12 @@ func (conR *ConsensusReactor) UpdateHeightRound(height int64, round int) bool {
 	}
 
 	conR.curRound = round
+	return true
+}
+
+// update the LastKBlockHeight
+func (conR *ConsensusReactor) UpdateLastKBlockHeight(height uint32) bool {
+	conR.lastKBlockHeight = height
 	return true
 }
 
@@ -802,7 +822,7 @@ func (conR *ConsensusReactor) enterConsensusProposer() int {
 }
 
 func (conR *ConsensusReactor) exitConsensusProposer() int {
-	conR.logger.Debug("Enter consensus proposer")
+	conR.logger.Debug("Exit consensus proposer")
 
 	conR.csProposer = nil
 	conR.csRoleInitialized &= ^CONSENSUS_COMMIT_ROLE_PROPOSER
@@ -1372,11 +1392,18 @@ func (conR *ConsensusReactor) ConsensusHandleReceivedNonce(kBlockHeight int64, n
 
 	buf := make([]byte, binary.MaxVarintLen64)
 	binary.PutUvarint(buf, nonce)
-	role, _ := conR.NewValidatorSetByNonce(buf)
+	role, inCommittee := conR.NewValidatorSetByNonce(buf)
+
+	if inCommittee {
+		conR.logger.Info("I am in committee!!!")
+	} else {
+		conR.logger.Info("I am NOT in committee!!! nonce", "nonce", nonce)
+	}
 
 	if role == CONSENSUS_COMMIT_ROLE_LEADER {
 		conR.logger.Info("I am committee leader for nonce", "nonce", nonce)
-		time.Sleep(2 * time.Second)
+		// XXX: wait a while for synchronization
+		time.Sleep(5 * time.Second)
 		conR.ScheduleLeader(0)
 	} else if role == CONSENSUS_COMMIT_ROLE_VALIDATOR {
 		conR.logger.Info("I am committee validator for nonce", "nonce", nonce)
