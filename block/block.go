@@ -23,17 +23,17 @@ import (
 // Validators info can get from 1st proposaed block meta data
 type Evidence struct {
 	VotingSig        []byte //serialized bls signature
-	VotingMsgHash    [32]byte
+	VotingMsgHash    []byte //[][32]byte
 	VotingBitArray   cmn.BitArray
 	NotarizeSig      []byte
-	NotarizeMsgHash  [32]byte
+	NotarizeMsgHash  []byte //[][32]byte
 	NotarizeBitArray cmn.BitArray
 }
 
 type KBlockData struct {
-	Nonce      uint64       // the last of the pow block
-	Miner      thor.Address
-	Data       []byte
+	Nonce uint64 // the last of the pow block
+	Miner thor.Address
+	Data  []byte
 }
 
 type CommitteeInfo struct {
@@ -45,13 +45,19 @@ type CommitteeInfo struct {
 	NetAddr     types.NetAddress
 }
 
+type CommitteeInfos struct {
+	SystemBytes   []byte //bls.System //global parameters for that committee
+	ParamsBytes   []byte //bls.Params
+	CommitteeInfo []CommitteeInfo
+}
+
 // Block is an immutable block type.
 type Block struct {
-	BlockHeader   *Header
-	Txs           tx.Transactions
-	Evidence      Evidence
-	CommitteeInfo []CommitteeInfo
-	KBlockData    KBlockData
+	BlockHeader    *Header
+	Txs            tx.Transactions
+	Evidence       Evidence
+	CommitteeInfos CommitteeInfos
+	KBlockData     KBlockData
 
 	cache struct {
 		size atomic.Value
@@ -64,14 +70,14 @@ type Body struct {
 }
 
 // Create new Evidence
-func NewEvidence(votingSig []byte, votingMsgHash [32]byte, votingBA cmn.BitArray,
-	notarizeSig []byte, notarizeMsgHash [32]byte, notarizeBA cmn.BitArray) *Evidence {
+func NewEvidence(votingSig []byte, votingMsgHash [][32]byte, votingBA cmn.BitArray,
+	notarizeSig []byte, notarizeMsgHash [][32]byte, notarizeBA cmn.BitArray) *Evidence {
 	return &Evidence{
 		VotingSig:        votingSig,
-		VotingMsgHash:    votingMsgHash,
+		VotingMsgHash:    cmn.Byte32ToByteSlice(votingMsgHash),
 		VotingBitArray:   votingBA,
 		NotarizeSig:      notarizeSig,
-		NotarizeMsgHash:  notarizeMsgHash,
+		NotarizeMsgHash:  cmn.Byte32ToByteSlice(notarizeMsgHash),
 		NotarizeBitArray: notarizeBA,
 	}
 }
@@ -127,7 +133,7 @@ func (b *Block) EncodeRLP(w io.Writer) error {
 		b.BlockHeader,
 		b.Txs,
 		b.KBlockData,
-		b.CommitteeInfo,
+		b.CommitteeInfos,
 		b.Evidence,
 	})
 }
@@ -136,11 +142,11 @@ func (b *Block) EncodeRLP(w io.Writer) error {
 func (b *Block) DecodeRLP(s *rlp.Stream) error {
 	_, size, _ := s.Kind()
 	payload := struct {
-		Header        Header
-		Txs           tx.Transactions
-		KBlockData    KBlockData
-		CommitteeInfo []CommitteeInfo
-		Evidence      Evidence
+		Header         Header
+		Txs            tx.Transactions
+		KBlockData     KBlockData
+		CommitteeInfos CommitteeInfos
+		Evidence       Evidence
 	}{}
 
 	if err := s.Decode(&payload); err != nil {
@@ -148,11 +154,11 @@ func (b *Block) DecodeRLP(s *rlp.Stream) error {
 	}
 
 	*b = Block{
-		BlockHeader:   &payload.Header,
-		Txs:           payload.Txs,
-		KBlockData:    payload.KBlockData,
-		CommitteeInfo: payload.CommitteeInfo,
-		Evidence:      payload.Evidence,
+		BlockHeader:    &payload.Header,
+		Txs:            payload.Txs,
+		KBlockData:     payload.KBlockData,
+		CommitteeInfos: payload.CommitteeInfos,
+		Evidence:       payload.Evidence,
 	}
 	b.cache.size.Store(metric.StorageSize(rlp.ListSize(size)))
 	return nil
@@ -176,7 +182,7 @@ BlockHeader: %v,
 Transactions: %v,
 KBlockData: %v,
 CommitteeInfo: %v
-}`, b.Size(), b.BlockHeader, b.Txs, b.KBlockData, b.CommitteeInfo)
+}`, b.Size(), b.BlockHeader, b.Txs, b.KBlockData, b.CommitteeInfos)
 }
 
 //-----------------
@@ -200,11 +206,29 @@ func (b *Block) SetKBlockData(data KBlockData) error {
 }
 
 func (b *Block) GetCommitteeInfo() ([]CommitteeInfo, error) {
-	return b.CommitteeInfo, nil
+	return b.CommitteeInfos.CommitteeInfo, nil
 }
 
 func (b *Block) SetCommitteeInfo(info []CommitteeInfo) error {
-	b.CommitteeInfo = info
+	b.CommitteeInfos.CommitteeInfo = info
+	return nil
+}
+
+func (b *Block) GetSystemBytes() ([]byte, error) {
+	return b.CommitteeInfos.SystemBytes, nil
+}
+
+func (b *Block) SetSystemBytes(system []byte) error {
+	b.CommitteeInfos.SystemBytes = system
+	return nil
+}
+
+func (b *Block) GetParamsBytes() ([]byte, error) {
+	return b.CommitteeInfos.ParamsBytes, nil
+}
+
+func (b *Block) SetParamsBytes(params []byte) error {
+	b.CommitteeInfos.ParamsBytes = params
 	return nil
 }
 
@@ -223,5 +247,6 @@ func BlockEncodeBytes(blk *Block) []byte {
 func BlockDecodeFromBytes(bytes []byte) (*Block, error) {
 	blk := Block{}
 	err := rlp.DecodeBytes(bytes, &blk)
+	//fmt.Println("decode failed", err)
 	return &blk, err
 }

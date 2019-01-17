@@ -8,6 +8,8 @@ package chain
 import (
 	"sync/atomic"
 
+	"fmt"
+
 	"github.com/vechain/thor/block"
 )
 
@@ -58,6 +60,32 @@ func (rb *rawBlock) Block() (*block.Block, error) {
 
 	h, err := rb.Header()
 	if err != nil {
+		fmt.Println("decode header error")
+		return nil, err
+	}
+
+	fmt.Println("height", h.Number())
+	if h.Number() == 0 {
+		b, err := rb.Body()
+		if err != nil {
+			return nil, err
+		}
+
+		block := block.Compose(h, b.Txs)
+
+		rb.block.Store(block)
+		return block, nil
+	} else {
+		blk, err := block.BlockDecodeFromBytes(rb.raw)
+		if err != nil {
+			panic("load block failed.")
+		}
+		rb.block.Store(blk)
+		return blk, nil
+	}
+	/************
+	h, err := rb.Header()
+	if err != nil {
 		return nil, err
 	}
 	b, err := rb.Body()
@@ -69,4 +97,5 @@ func (rb *rawBlock) Block() (*block.Block, error) {
 
 	rb.block.Store(block)
 	return block, nil
+	*************/
 }

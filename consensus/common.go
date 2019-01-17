@@ -52,6 +52,7 @@ func NewConsensusCommon(conR *ConsensusReactor) *ConsensusCommon {
 	if err != nil {
 		panic(err)
 	}
+	// XXX backup to file
 
 	return &ConsensusCommon{
 		PrivKey:     PrivKey,
@@ -84,6 +85,81 @@ func NewValidatorConsensusCommon(conR *ConsensusReactor, paramBytes []byte, syst
 	if err != nil {
 		panic(err)
 	}
+	//backup to file
+
+	return &ConsensusCommon{
+		PrivKey:     PrivKey,
+		PubKey:      PubKey,
+		csReactor:   conR,
+		system:      system,
+		params:      params,
+		pairing:     pairing,
+		initialized: true,
+		initialRole: INITIALIZE_AS_VALIDATOR,
+	}
+}
+
+// Leader in replay mode should use existed paramBytes, systemBytes  and generate key pair
+func NewReplayLeaderConsensusCommon(conR *ConsensusReactor, paramBytes []byte, systemBytes []byte) *ConsensusCommon {
+	params, err := bls.ParamsFromBytes(paramBytes)
+	if err != nil {
+		fmt.Println("initialize param failed...")
+		panic(err)
+	}
+
+	pairing := bls.GenPairing(params)
+	system, err := bls.SystemFromBytes(pairing, systemBytes)
+	if err != nil {
+		fmt.Println("initialize system failed...")
+		panic(err)
+	}
+
+	// XXX: read from file
+	/****
+	PubKey, PrivKey, err := bls.GenKeys(system)
+	if err != nil {
+		panic(err)
+	}
+	***/
+	PrivKey := bls.PrivateKey{}
+	PubKey := bls.PublicKey{}
+
+	return &ConsensusCommon{
+		PrivKey:     PrivKey,
+		PubKey:      PubKey,
+		csReactor:   conR,
+		system:      system,
+		params:      params,
+		pairing:     pairing,
+		initialized: true,
+		initialRole: INITIALIZE_AS_LEADER,
+	}
+}
+
+// Validator receives paramBytes, systemBytes from Leader and generate key pair
+func NewValidatorReplayConsensusCommon(conR *ConsensusReactor, paramBytes []byte, systemBytes []byte) *ConsensusCommon {
+	params, err := bls.ParamsFromBytes(paramBytes)
+	if err != nil {
+		fmt.Println("initialize param failed...")
+		panic(err)
+	}
+
+	pairing := bls.GenPairing(params)
+	system, err := bls.SystemFromBytes(pairing, systemBytes)
+	if err != nil {
+		fmt.Println("initialize system failed...")
+		panic(err)
+	}
+
+	// read from file
+	/***********
+	PubKey, PrivKey, err := bls.GenKeys(system)
+	if err != nil {
+		panic(err)
+	}
+	**************/
+	PrivKey := bls.PrivateKey{}
+	PubKey := bls.PublicKey{}
 
 	return &ConsensusCommon{
 		PrivKey:     PrivKey,

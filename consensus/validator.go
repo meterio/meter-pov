@@ -14,6 +14,7 @@ import (
 	//    "errors"
 	"bytes"
 	"encoding/binary"
+
 	// "fmt"
 	"time"
 
@@ -42,7 +43,7 @@ const (
 )
 
 type ConsensusValidator struct {
-	node_id     uint32
+	replay      bool
 	CommitteeID int // unique identifier for this consensus session
 
 	csReactor *ConsensusReactor //global reactor info
@@ -198,7 +199,12 @@ func (cv *ConsensusValidator) ProcessAnnounceCommittee(announceMsg *AnnounceComm
 	// I am in committee, sends the commit message to join the CommitCommitteeMessage
 	//build signature
 	// initiate csCommon based on received params and system
-	cv.csReactor.csCommon = NewValidatorConsensusCommon(cv.csReactor, announceMsg.CSParams, announceMsg.CSSystem)
+	if cv.replay {
+		cv.csReactor.csCommon = NewValidatorReplayConsensusCommon(cv.csReactor, announceMsg.CSParams, announceMsg.CSSystem)
+		cv.replay = false
+	} else {
+		cv.csReactor.csCommon = NewValidatorConsensusCommon(cv.csReactor, announceMsg.CSParams, announceMsg.CSSystem)
+	}
 
 	offset := announceMsg.SignOffset
 	length := announceMsg.SignLength
@@ -467,7 +473,7 @@ func (cv *ConsensusValidator) ProcessNotaryAnnounceMessage(notaryMsg *NotaryAnno
 	}
 
 	// Update the curActualCommittee by receving Notary message
-	cv.csReactor.curActualCommittee = cv.csReactor.BuildCommitteeMemberFromInfo(notaryMsg.CommitteeActualMembers)
+	cv.csReactor.curActualCommittee = cv.csReactor.BuildCommitteeMemberFromInfo(cv.csReactor.csCommon.system, notaryMsg.CommitteeActualMembers)
 
 	// TBD: validate announce bitarray & signature
 
