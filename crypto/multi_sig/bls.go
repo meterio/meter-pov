@@ -570,12 +570,12 @@ func (system System) PubKeyFromBytes(bytes []byte) (PublicKey, error) {
 	return PublicKey{system, gx}, nil
 }
 
-// Convert a PrivKey to a byte slice
+// Convert a PrivateKey to a byte slice
 func (system System) PrivKeyToBytes(privKey PrivateKey) []byte {
 	return system.PrivSigToBytes(privKey.x)
 }
 
-// Convert a byte slice to a PublicKey.
+// Convert a byte slice to a PivateKey.
 func (system System) PrivKeyFromBytes(bytes []byte) (PrivateKey, error) {
 	x, err := system.PrivSigFromBytes(bytes)
 	if err != nil {

@@ -247,11 +247,13 @@ func (c *ConsensusReactor) validateEvidence(ev *block.Evidence, blk *block.Block
 		}
 	}
 
+	/*****
 	fmt.Println("VoterMsgHash", cmn.ByteSliceToByte32(ev.VotingMsgHash))
 	for _, p := range voteCSPubKeys {
 		fmt.Println("pubkey:::", system.PubKeyToBytes(p))
 	}
 	fmt.Println("aggrsig", system.SigToBytes(voteSig), "system", system.ToBytes())
+	*****/
 
 	voteValid, err := bls.AggregateVerify(voteSig, cmn.ByteSliceToByte32(ev.VotingMsgHash), voteCSPubKeys)
 	if (err != nil) || (voteValid != true) {

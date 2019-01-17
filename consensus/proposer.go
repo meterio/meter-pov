@@ -443,11 +443,13 @@ func (cp *ConsensusProposer) ProcessVoteForProposal(vote4ProposalMsg *VoteForPro
 		// Now it is OK to aggregate signatures
 		cp.proposalVoterAggSig = cp.csReactor.csCommon.AggregateSign(cp.proposalVoterSig)
 
+		/*****
 		fmt.Println("VoterMsgHash", cp.proposalVoterMsgHash)
 		for _, p := range cp.proposalVoterPubKey {
 			fmt.Println("pubkey:::", cp.csReactor.csCommon.system.PubKeyToBytes(p))
 		}
 		fmt.Println("aggrsig", cp.csReactor.csCommon.system.SigToBytes(cp.proposalVoterAggSig), "system", cp.csReactor.csCommon.system.ToBytes())
+		******/
 
 		//send out notary
 		cp.GenerateNotaryBlockMsg()
