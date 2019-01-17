@@ -15,7 +15,6 @@ import (
 
 	//"unsafe"
 
-	//node "github.com/dfinlab/go-zdollar/node"
 	"math/rand"
 
 	crypto "github.com/ethereum/go-ethereum/crypto"
@@ -240,7 +239,7 @@ func (cl *ConsensusLeader) GenerateNotaryAnnounceMsg() bool {
 		VoterBitArray:          *cl.announceVoterBitArray,
 		VoterAggSignature:      cl.csReactor.csCommon.system.SigToBytes(cl.announceVoterAggSig),
 		CommitteeActualSize:    len(cl.csReactor.curActualCommittee),
-		CommitteeActualMembers: cl.csReactor.BuildCommitteeInfoFromMember(cl.csReactor.curActualCommittee),
+		CommitteeActualMembers: cl.csReactor.BuildCommitteeInfoFromMember(cl.csReactor.csCommon.system, cl.csReactor.curActualCommittee),
 	}
 
 	cl.csReactor.logger.Debug("Generate Notary Announce Message", "msg", msg.String())

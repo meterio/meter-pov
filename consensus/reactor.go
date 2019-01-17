@@ -89,6 +89,7 @@ type ConsensusReactor struct {
 	stateCreator *state.Creator
 
 	ForceLastKFrame bool
+	ConfigPath      string
 
 	// copy of master/node
 	myPubKey      ecdsa.PublicKey  // this is my public identification !!
@@ -155,6 +156,7 @@ func NewConsensusReactor(ctx *cli.Context, chain *chain.Chain, state *state.Crea
 
 	if ctx != nil {
 		conR.ForceLastKFrame = ctx.Bool("force-last-kframe")
+		conR.ConfigPath = ctx.String("config-dir")
 	}
 
 	//initialize message channel
@@ -221,25 +223,52 @@ func (conR *ConsensusReactor) SwitchToConsensus() {
 		return
 	}
 
-	best := conR.chain.BestBlock()
-	lastKBlockHeight := best.Header().LastKBlockHeight()
+	var replay bool
 	var nonce uint64
-	if lastKBlockHeight == 0 {
-		nonce = genesisNonce
-	} else {
-		kblock, err := conR.chain.GetTrunkBlock(lastKBlockHeight)
-		if err != nil {
-			panic(fmt.Sprintf("get last kblock %v failed", lastKBlockHeight))
-		}
+	best := conR.chain.BestBlock()
 
-		kBlockData, err := kblock.GetKBlockData()
+	// special handle genesis.
+	if best.Header().Number() == 0 {
+		nonce = genesisNonce
+		replay = false
+		conR.ConsensusHandleReceivedNonce(int64(best.Header().Number()), nonce, replay)
+		return
+	}
+
+	// best is kblock, use this kblock
+	if best.Header().BlockType() == block.BLOCK_TYPE_K_BLOCK {
+		kBlockData, err := best.GetKBlockData()
 		if err != nil {
 			panic("can't get KBlockData")
 		}
 		nonce = kBlockData.Nonce
+		replay = false
+		conR.ConsensusHandleReceivedNonce(int64(best.Header().Number()), nonce, replay)
+	} else {
+		// mblock
+		lastKBlockHeight := best.Header().LastKBlockHeight()
+		if lastKBlockHeight == 0 {
+			nonce = genesisNonce
+		} else {
+			kblock, err := conR.chain.GetTrunkBlock(lastKBlockHeight)
+			if err != nil {
+				panic(fmt.Sprintf("get last kblock %v failed", lastKBlockHeight))
+			}
+
+			kBlockData, err := kblock.GetKBlockData()
+			if err != nil {
+				panic("can't get KBlockData")
+			}
+			nonce = kBlockData.Nonce
+		}
+
+		//mark the flag of replay. should initialize by existed the BLS system
+		replay = true
+
+		conR.ConsensusHandleReceivedNonce(int64(lastKBlockHeight), nonce, replay)
 	}
 
-	conR.ConsensusHandleReceivedNonce(int64(best.Header().Number()), nonce)
+	return
 }
 
 // String returns a string representation of the ConsensusReactor.
@@ -1316,12 +1345,38 @@ func (conR *ConsensusReactor) ScheduleLeader(d time.Duration) bool {
 	return true
 }
 
+func (conR *ConsensusReactor) ScheduleReplayLeader(d time.Duration) bool {
+	ti := consensusTimeOutInfo{
+		Duration: d,
+		Height:   conR.curHeight,
+		Round:    conR.curRound,
+		fn:       HandleScheduleReplayLeader,
+		arg:      conR,
+	}
+
+	conR.schedulerQueue <- ti
+	return true
+}
+
 func (conR *ConsensusReactor) ScheduleValidator(d time.Duration) bool {
 	ti := consensusTimeOutInfo{
 		Duration: d,
 		Height:   conR.curHeight,
 		Round:    conR.curRound,
 		fn:       HandleScheduleValidator,
+		arg:      conR,
+	}
+
+	conR.schedulerQueue <- ti
+	return true
+}
+
+func (conR *ConsensusReactor) ScheduleReplayValidator(d time.Duration) bool {
+	ti := consensusTimeOutInfo{
+		Duration: d,
+		Height:   conR.curHeight,
+		Round:    conR.curRound,
+		fn:       HandleScheduleReplayValidator,
 		arg:      conR,
 	}
 
@@ -1343,29 +1398,74 @@ func (conR *ConsensusReactor) ScheduleProposer(d time.Duration) bool {
 }
 
 // -------------------------------
-func HandleScheduleLeader(conR *ConsensusReactor) bool {
-	if (conR.csRoleInitialized&CONSENSUS_COMMIT_ROLE_LEADER) == 0 ||
-		(conR.csLeader == nil) {
-		conR.enterConsensusLeader()
+func HandleScheduleReplayLeader(conR *ConsensusReactor) bool {
+	conR.exitConsensusLeader()
+
+	conR.logger.Debug("Enter consensus replay leader")
+
+	// init consensus common as leader
+	// need to deinit to avoid the memory leak
+	best := conR.chain.BestBlock()
+	lastKBlockHeight := best.Header().LastKBlockHeight()
+
+	b, err := conR.chain.GetTrunkBlock(lastKBlockHeight + 1)
+	if err != nil {
+		conR.logger.Error("get committee info block error")
+		return false
 	}
+
+	// committee members
+	cis, err := b.GetCommitteeInfo()
+	if err != nil {
+		conR.logger.Error("decode committee info block error")
+		return false
+	}
+	fmt.Println("cis", cis)
+
+	systemBytes, _ := b.GetSystemBytes()
+	paramsBytes, _ := b.GetParamsBytes()
+	conR.csCommon = NewReplayLeaderConsensusCommon(conR, paramsBytes, systemBytes)
+
+	conR.csLeader = NewCommitteeLeader(conR)
+	conR.csRoleInitialized |= CONSENSUS_COMMIT_ROLE_LEADER
+
+	conR.csLeader.GenerateAnnounceMsg()
+	return true
+}
+
+func HandleScheduleReplayValidator(conR *ConsensusReactor) bool {
+	conR.exitConsensusValidator()
+
+	conR.logger.Debug("Enter consensus replay validator")
+
+	conR.csValidator = NewConsensusValidator(conR)
+	conR.csRoleInitialized |= CONSENSUS_COMMIT_ROLE_VALIDATOR
+	conR.csValidator.replay = true
+
+	// Validator only responses the incoming message
+	return true
+}
+
+func HandleScheduleLeader(conR *ConsensusReactor) bool {
+	conR.exitConsensusLeader()
+	conR.enterConsensusLeader()
+
 	conR.csLeader.GenerateAnnounceMsg()
 	return true
 }
 
 func HandleScheduleProposer(conR *ConsensusReactor) bool {
-	if (conR.csRoleInitialized&CONSENSUS_COMMIT_ROLE_PROPOSER) == 0 ||
-		(conR.csProposer == nil) {
-		conR.enterConsensusProposer()
-	}
+	conR.exitConsensusProposer()
+	conR.enterConsensusProposer()
+
 	conR.csProposer.ProposalBlockMsg(true)
 	return true
 }
 
 func HandleScheduleValidator(conR *ConsensusReactor) bool {
-	if (conR.csRoleInitialized&CONSENSUS_COMMIT_ROLE_VALIDATOR) == 0 ||
-		(conR.csValidator == nil) {
-		conR.enterConsensusValidator()
-	}
+	conR.exitConsensusValidator()
+	conR.enterConsensusValidator()
+
 	// Validator only responses the incoming message
 	return true
 }
@@ -1383,10 +1483,9 @@ func (conR *ConsensusReactor) HandleSchedule(ti consensusTimeOutInfo) bool {
 
 //////////////////////////////////////////////////////
 // Consensus module handle received nonce from kblock
-func (conR *ConsensusReactor) ConsensusHandleReceivedNonce(kBlockHeight int64, nonce uint64) {
+func (conR *ConsensusReactor) ConsensusHandleReceivedNonce(kBlockHeight int64, nonce uint64, replay bool) {
 	conR.logger.Info("Received a nonce ...", "nonce", nonce, "kBlockHeight", kBlockHeight)
 
-	//XXX: Yang:
 	//conR.lastKBlockHeight = kBlockHeight
 	conR.curNonce = nonce
 
@@ -1404,10 +1503,18 @@ func (conR *ConsensusReactor) ConsensusHandleReceivedNonce(kBlockHeight int64, n
 		conR.logger.Info("I am committee leader for nonce", "nonce", nonce)
 		// XXX: wait a while for synchronization
 		time.Sleep(5 * time.Second)
-		conR.ScheduleLeader(0)
+		if replay {
+			conR.ScheduleReplayLeader(0)
+		} else {
+			conR.ScheduleLeader(0)
+		}
 	} else if role == CONSENSUS_COMMIT_ROLE_VALIDATOR {
 		conR.logger.Info("I am committee validator for nonce", "nonce", nonce)
-		conR.ScheduleValidator(0)
+		if replay {
+			conR.ScheduleReplayValidator(0)
+		} else {
+			conR.ScheduleValidator(0)
+		}
 	}
 }
 

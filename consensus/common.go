@@ -1,11 +1,14 @@
 package consensus
 
 import (
-	//"bytes"
+	"bytes"
 	//    "errors"
 	"fmt"
 	//"time"
 	sha256 "crypto/sha256"
+	"encoding/hex"
+	"io/ioutil"
+	"path/filepath"
 
 	bls "github.com/vechain/thor/crypto/multi_sig"
 )
@@ -50,6 +53,9 @@ func NewConsensusCommon(conR *ConsensusReactor) *ConsensusCommon {
 		panic(err)
 	}
 
+	// write to file for replay
+	writeOutKeyPairs(conR, system, PubKey, PrivKey)
+
 	return &ConsensusCommon{
 		PrivKey:     PrivKey,
 		PubKey:      PubKey,
@@ -81,10 +87,78 @@ func NewValidatorConsensusCommon(conR *ConsensusReactor, paramBytes []byte, syst
 	if err != nil {
 		panic(err)
 	}
+	//backup to file
+	writeOutKeyPairs(conR, system, PubKey, PrivKey)
 
 	return &ConsensusCommon{
 		PrivKey:     PrivKey,
 		PubKey:      PubKey,
+		csReactor:   conR,
+		system:      system,
+		params:      params,
+		pairing:     pairing,
+		initialized: true,
+		initialRole: INITIALIZE_AS_VALIDATOR,
+	}
+}
+
+// Leader in replay mode should use existed paramBytes, systemBytes  and generate key pair
+func NewReplayLeaderConsensusCommon(conR *ConsensusReactor, paramBytes []byte, systemBytes []byte) *ConsensusCommon {
+	params, err := bls.ParamsFromBytes(paramBytes)
+	if err != nil {
+		fmt.Println("initialize param failed...")
+		panic(err)
+	}
+
+	pairing := bls.GenPairing(params)
+	system, err := bls.SystemFromBytes(pairing, systemBytes)
+	if err != nil {
+		fmt.Println("initialize system failed...")
+		panic(err)
+	}
+
+	// read from backup file
+	PubKey, PrivKey, err := readBackKeyPairs(conR, system)
+	if err != nil {
+		panic(err)
+	}
+
+	return &ConsensusCommon{
+		PrivKey:     *PrivKey,
+		PubKey:      *PubKey,
+		csReactor:   conR,
+		system:      system,
+		params:      params,
+		pairing:     pairing,
+		initialized: true,
+		initialRole: INITIALIZE_AS_LEADER,
+	}
+}
+
+// Validator receives paramBytes, systemBytes from Leader and generate key pair
+func NewValidatorReplayConsensusCommon(conR *ConsensusReactor, paramBytes []byte, systemBytes []byte) *ConsensusCommon {
+	params, err := bls.ParamsFromBytes(paramBytes)
+	if err != nil {
+		fmt.Println("initialize param failed...")
+		panic(err)
+	}
+
+	pairing := bls.GenPairing(params)
+	system, err := bls.SystemFromBytes(pairing, systemBytes)
+	if err != nil {
+		fmt.Println("initialize system failed...")
+		panic(err)
+	}
+
+	// read from file
+	PubKey, PrivKey, err := readBackKeyPairs(conR, system)
+	if err != nil {
+		panic(err)
+	}
+
+	return &ConsensusCommon{
+		PrivKey:     *PrivKey,
+		PubKey:      *PubKey,
 		csReactor:   conR,
 		system:      system,
 		params:      params,
@@ -188,4 +262,72 @@ func (cc *ConsensusCommon) AggregateSign2(sigs []bls.Signature) []byte {
 func (cc *ConsensusCommon) AggregateVerify(sig bls.Signature, hashes [][32]byte, pubKeys []bls.PublicKey) (bool, error) {
 	cc.checkConsensusCommonInit()
 	return bls.AggregateVerify(sig, hashes, pubKeys)
+}
+
+// backup BLS pubkey/privkey into file in case of replay, this backup happens every committee establishment (30mins)
+func writeOutKeyPairs(conR *ConsensusReactor, system bls.System, pubKey bls.PublicKey, privKey bls.PrivateKey) error {
+	// write pub/pri key to file
+	pubBytes := system.PubKeyToBytes(pubKey)
+	privBytes := system.PrivKeyToBytes(privKey)
+
+	isolator := []byte{0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff}
+	content := make([]byte, 0)
+	content = append(content, pubBytes...)
+	content = append(content, isolator...)
+	content = append(content, privBytes...)
+	/*
+		var hash [sha256.Size]byte
+		fmt.Println("PUB KEY BYTES: ", pubBytes)
+		fmt.Println("PRIV KEY BYTES: ", privBytes)
+
+		pk, err := system.PubKeyFromBytes(pubBytes)
+		rk, err := system.PrivKeyFromBytes(privBytes)
+		s := bls.Sign(hash, rk)
+		result := bls.Verify(s, hash, pk)
+		fmt.Println("VERIFY RESULT:    ", result)
+		content := system.PubKeyToBytes(PubKey)
+		content = append(content, ([]byte("\n"))...)
+		content = append(content, system.PrivKeyToBytes(PrivKey)...)
+	*/
+	ioutil.WriteFile(filepath.Join(conR.ConfigPath, "consensus.key"), []byte(hex.EncodeToString(content)), 0644)
+	return nil
+}
+
+func readBackKeyPairs(conR *ConsensusReactor, system bls.System) (*bls.PublicKey, *bls.PrivateKey, error) {
+	readBytes, err := ioutil.ReadFile(filepath.Join(conR.ConfigPath, "consensus.key"))
+	if err != nil {
+		conR.logger.Error("read consesus.key file error ...")
+		return nil, nil, err
+	}
+
+	keyBytes, err := hex.DecodeString(string(readBytes))
+	if err != nil {
+		conR.logger.Error("convert hex error ...")
+		return nil, nil, err
+	}
+
+	isolator := []byte{0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff}
+	split := bytes.Split(keyBytes, isolator)
+
+	pubBytes := split[0]
+	privBytes := split[1]
+
+	/****
+	fmt.Println("Pub", pubBytes)
+	fmt.Println("Priv", privBytes)
+	****/
+
+	pubKey, err := system.PubKeyFromBytes(pubBytes)
+	if err != nil {
+		conR.logger.Error("read pubKey error ...")
+		return nil, nil, err
+	}
+
+	privKey, err := system.PrivKeyFromBytes(privBytes)
+	if err != nil {
+		conR.logger.Error("read privKey error ...")
+		return nil, nil, err
+	}
+
+	return &pubKey, &privKey, nil
 }

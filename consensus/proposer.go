@@ -123,6 +123,8 @@ func (cp *ConsensusProposer) MoveInitState(curState byte, sendNewRoundMsg bool) 
 		"comitteeSize", len(cp.csReactor.curActualCommittee),
 		"comitteeSize", len(cp.csReactor.curCommittee.Validators))
 
+	// clean up all data
+
 	if !sendNewRoundMsg {
 		cp.csReactor.logger.Info("current state %v, move to state init", curState)
 		cp.state = COMMITTEE_PROPOSER_INIT
@@ -441,6 +443,14 @@ func (cp *ConsensusProposer) ProcessVoteForProposal(vote4ProposalMsg *VoteForPro
 		// Now it is OK to aggregate signatures
 		cp.proposalVoterAggSig = cp.csReactor.csCommon.AggregateSign(cp.proposalVoterSig)
 
+		/*****
+		fmt.Println("VoterMsgHash", cp.proposalVoterMsgHash)
+		for _, p := range cp.proposalVoterPubKey {
+			fmt.Println("pubkey:::", cp.csReactor.csCommon.system.PubKeyToBytes(p))
+		}
+		fmt.Println("aggrsig", cp.csReactor.csCommon.system.SigToBytes(cp.proposalVoterAggSig), "system", cp.csReactor.csCommon.system.ToBytes())
+		******/
+
 		//send out notary
 		cp.GenerateNotaryBlockMsg()
 		cp.state = COMMITTEE_PROPOSER_NOTARYSENT
@@ -563,8 +573,8 @@ Move to next height
 		// only the block body are filled. Now fill the Evidence / committeeInfo/ Kblock Data if needed
 		votingSig := cp.csReactor.csCommon.system.SigToBytes(cp.proposalVoterAggSig)
 		notarizeSig := cp.csReactor.csCommon.system.SigToBytes(cp.notaryVoterAggSig)
-		evidence := block.NewEvidence(votingSig, cp.proposalVoterMsgHash[0], *cp.proposalVoterBitArray,
-			notarizeSig, cp.notaryVoterMsgHash[0], *cp.notaryVoterBitArray)
+		evidence := block.NewEvidence(votingSig, cp.proposalVoterMsgHash, *cp.proposalVoterBitArray,
+			notarizeSig, cp.notaryVoterMsgHash, *cp.notaryVoterBitArray)
 
 		blk := cp.curProposedBlockInfo.ProposedBlock
 		if cp.curProposedBlockType == PROPOSE_MSG_SUBTYPE_KBLOCK {
@@ -598,7 +608,7 @@ Move to next height
 
 			//exit committee first
 			cp.csReactor.exitCurCommittee()
-			cp.csReactor.ConsensusHandleReceivedNonce(int64(height), nonce)
+			cp.csReactor.ConsensusHandleReceivedNonce(int64(height), nonce, false)
 			return true
 		}
 	}
