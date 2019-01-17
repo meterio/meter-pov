@@ -89,6 +89,7 @@ type ConsensusReactor struct {
 	stateCreator *state.Creator
 
 	ForceLastKFrame bool
+	ConfigPath      string
 
 	// copy of master/node
 	myPubKey      ecdsa.PublicKey  // this is my public identification !!
@@ -155,6 +156,7 @@ func NewConsensusReactor(ctx *cli.Context, chain *chain.Chain, state *state.Crea
 
 	if ctx != nil {
 		conR.ForceLastKFrame = ctx.Bool("force-last-kframe")
+		conR.ConfigPath = ctx.String("config-dir")
 	}
 
 	//initialize message channel

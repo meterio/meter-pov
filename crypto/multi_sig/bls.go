@@ -14,14 +14,14 @@ package bls
 import (
 	"crypto/sha256"
 	"errors"
+	"fmt"
 	"math/big"
 	"unsafe"
-	"fmt"
 )
 
 /*
 #cgo LDFLAGS: -L. -lgmp -lpbc
-#cgo CFLAGS: -I./include 
+#cgo CFLAGS: -I./include
 #include "pbc.h"
 int callback(pbc_cm_t cm, void *data) {
 	pbc_param_init_d_gen(data, cm);
@@ -89,12 +89,12 @@ func (secret PrivateKey) ToString() string {
 }
 
 //Below function receives object of Struct Hex32
-//and formats it according to the %x format specifier 
+//and formats it according to the %x format specifier
 //and returns the resulting string.
 func (h Hex32) ToString() string {
 	str := ""
-	for j :=0; j<len(h.Input);j++{
-		str += fmt.Sprintf("%x", h.Input[j])	
+	for j := 0; j < len(h.Input); j++ {
+		str += fmt.Sprintf("%x", h.Input[j])
 	}
 	return str
 }
@@ -104,7 +104,7 @@ func (h Hex32) ToString() string {
 //and returns the resulting string.
 func (temp Element) ToString() string {
 	return fmt.Sprintf("%x", temp)
-}	
+}
 
 // Generate type A pairing parameters. This function allocates C structures on
 // the C heap using malloc. It is the responsibility of the caller to prevent
@@ -521,6 +521,18 @@ func (system System) SigToBytes(signature Signature) []byte {
 	return bytes
 }
 
+// Convert a signature to a byte slice.
+func (system System) PrivSigToBytes(signature Signature) []byte {
+	n := int(C.pairing_length_in_bytes_Zr(system.pairing.get))
+	if n < 1 {
+		return nil
+	}
+	fmt.Println("SIZE:   ", n)
+	bytes := make([]byte, n)
+	C.element_to_bytes((*C.uchar)(unsafe.Pointer(&bytes[0])), signature.get)
+	return bytes
+}
+
 // Convert a byte slice to a signature.
 func (system System) SigFromBytes(bytes []byte) (Signature, error) {
 	n := int(C.pairing_length_in_bytes_compressed_G1(system.pairing.get))
@@ -533,18 +545,45 @@ func (system System) SigFromBytes(bytes []byte) (Signature, error) {
 	return Element{sigma}, nil
 }
 
+// Convert a byte slice to a signature.
+func (system System) PrivSigFromBytes(bytes []byte) (Signature, error) {
+	n := int(C.pairing_length_in_bytes_Zr(system.pairing.get))
+	if n != len(bytes) {
+		return Element{}, errors.New("bls.FromBytes: Signature length mismatch.")
+	}
+	sigma := (*C.struct_element_s)(C.malloc(sizeOfElement))
+	C.element_init_Zr(sigma, system.pairing.get)
+	C.element_from_bytes(sigma, (*C.uchar)(unsafe.Pointer(&bytes[0])))
+	return Element{sigma}, nil
+}
+
 // Convert a PublicKey to a byte slice.
 func (system System) PubKeyToBytes(pubKey PublicKey) []byte {
-    return  system.SigToBytes(pubKey.gx)
+	return system.SigToBytes(pubKey.gx)
 }
 
 // Convert a byte slice to a PublicKey.
 func (system System) PubKeyFromBytes(bytes []byte) (PublicKey, error) {
-    gx, err := system.SigFromBytes(bytes)
-    if err != nil {
-        errors.New("bls.FromBytes: get PublicKey failed.")
-    }
-    return PublicKey{system, gx}, nil
+	gx, err := system.SigFromBytes(bytes)
+	if err != nil {
+		errors.New("bls.FromBytes: get PublicKey failed.")
+	}
+	return PublicKey{system, gx}, nil
+}
+
+// Convert a PrivKey to a byte slice
+func (system System) PrivKeyToBytes(privKey PrivateKey) []byte {
+	fmt.Println("PRIV KEY GET:", privKey.x.get)
+	return system.PrivSigToBytes(privKey.x)
+}
+
+// Convert a byte slice to a PublicKey.
+func (system System) PrivKeyFromBytes(bytes []byte) (PrivateKey, error) {
+	x, err := system.PrivSigFromBytes(bytes)
+	if err != nil {
+		errors.New("bls.FromBytes: get PrivateKey failed.")
+	}
+	return PrivateKey{system, x}, nil
 }
 
 // Free the memory occupied by the element. The element cannot be used after
