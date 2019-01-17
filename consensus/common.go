@@ -6,11 +6,11 @@ import (
 	"fmt"
 	//"time"
 	sha256 "crypto/sha256"
+	"encoding/hex"
+	"io/ioutil"
+	"path/filepath"
 
-	//crypto "github.com/dfinlab/go-zdollar/crypto"
 	bls "github.com/vechain/thor/crypto/multi_sig"
-	//types "github.com/dfinlab/go-zdollar/types"
-	//    cmn "github.com/dfinlab/go-zdollar/libs/common"
 )
 
 const (
@@ -53,6 +53,8 @@ func NewConsensusCommon(conR *ConsensusReactor) *ConsensusCommon {
 		panic(err)
 	}
 	// XXX backup to file
+
+	writeOutKeyPairs(conR, system, PubKey, PrivKey)
 
 	return &ConsensusCommon{
 		PrivKey:     PrivKey,
@@ -161,6 +163,8 @@ func NewValidatorReplayConsensusCommon(conR *ConsensusReactor, paramBytes []byte
 	PrivKey := bls.PrivateKey{}
 	PubKey := bls.PublicKey{}
 
+	writeOutKeyPairs(conR, system, PubKey, PrivKey)
+
 	return &ConsensusCommon{
 		PrivKey:     PrivKey,
 		PubKey:      PubKey,
@@ -171,6 +175,31 @@ func NewValidatorReplayConsensusCommon(conR *ConsensusReactor, paramBytes []byte
 		initialized: true,
 		initialRole: INITIALIZE_AS_VALIDATOR,
 	}
+}
+
+func writeOutKeyPairs(conR *ConsensusReactor, system bls.System, pubKey bls.PublicKey, privKey bls.PrivateKey) {
+	// write pub/pri key to file
+	pubBytes := system.PubKeyToBytes(pubKey)
+	privBytes := system.PrivKeyToBytes(privKey)
+	content := make([]byte, 0)
+	content = append(content, pubBytes...)
+	content = append(content, []byte("\n")...)
+	content = append(content, privBytes...)
+	/*
+		var hash [sha256.Size]byte
+		fmt.Println("PUB KEY BYTES: ", pubBytes)
+		fmt.Println("PRIV KEY BYTES: ", privBytes)
+
+		pk, err := system.PubKeyFromBytes(pubBytes)
+		rk, err := system.PrivKeyFromBytes(privBytes)
+		s := bls.Sign(hash, rk)
+		result := bls.Verify(s, hash, pk)
+		fmt.Println("VERIFY RESULT:    ", result)
+		content := system.PubKeyToBytes(PubKey)
+		content = append(content, ([]byte("\n"))...)
+		content = append(content, system.PrivKeyToBytes(PrivKey)...)
+	*/
+	ioutil.WriteFile(filepath.Join(conR.ConfigPath, "consensus.key"), []byte(hex.EncodeToString(content)), 0644)
 }
 
 // BLS is implemented by C, memeory need to be freed.

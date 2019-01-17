@@ -15,7 +15,6 @@ import (
 
 	//"unsafe"
 
-	//node "github.com/dfinlab/go-zdollar/node"
 	"math/rand"
 
 	crypto "github.com/ethereum/go-ethereum/crypto"
