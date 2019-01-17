@@ -47,19 +47,6 @@
   version = "v0.14.1"
 
 [[projects]]
-  digest = "1:bffe2920bafdc42608552f9127db5bef31323fef749db17049bcfc66a96a9fad"
-  name = "github.com/dfinlab/go-zdollar"
-  packages = [
-    "crypto",
-    "crypto/ed25519",
-    "libs/common",
-    "types/time",
-  ]
-  pruneopts = "UT"
-  revision = "0c9c3292c918617624f6f3fbcd95eceade18bcd5"
-  version = "v0.25.0"
-
-[[projects]]
   digest = "1:f4f6279cb37479954644babd8f8ef00584ff9fa63555d2c6718c1c3517170202"
   name = "github.com/elazarl/go-bindata-assetfs"
   packages = ["."]
@@ -508,10 +495,6 @@
     "github.com/beevik/ntp",
     "github.com/davecgh/go-spew/spew",
     "github.com/dfinlab/go-amino",
-    "github.com/dfinlab/go-zdollar/crypto",
-    "github.com/dfinlab/go-zdollar/crypto/ed25519",
-    "github.com/dfinlab/go-zdollar/libs/common",
-    "github.com/dfinlab/go-zdollar/types/time",
     "github.com/elazarl/go-bindata-assetfs",
     "github.com/ethereum/go-ethereum/accounts/abi",
     "github.com/ethereum/go-ethereum/accounts/keystore",

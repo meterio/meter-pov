@@ -26,7 +26,6 @@ import (
 	crypto "github.com/ethereum/go-ethereum/crypto"
 	bls "github.com/vechain/thor/crypto/multi_sig"
 
-	//	p2p "github.com/dfinlab/go-zdollar/p2p"
 	types "github.com/vechain/thor/types"
 )
 
