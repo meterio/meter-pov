@@ -173,7 +173,7 @@ func newKFrameGenerator(ctx *cli.Context, cons *consensus.ConsensusReactor) func
 	done := make(chan int)
 	go func() {
 		if ctx.Bool("gen-kframe") {
-			ticker := time.NewTicker(time.Minute * 1)
+			ticker := time.NewTicker(time.Minute * 5)
 			for {
 				select {
 				case <-ticker.C:
