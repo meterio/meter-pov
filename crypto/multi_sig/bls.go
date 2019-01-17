@@ -527,7 +527,6 @@ func (system System) PrivSigToBytes(signature Signature) []byte {
 	if n < 1 {
 		return nil
 	}
-	fmt.Println("SIZE:   ", n)
 	bytes := make([]byte, n)
 	C.element_to_bytes((*C.uchar)(unsafe.Pointer(&bytes[0])), signature.get)
 	return bytes
@@ -573,7 +572,6 @@ func (system System) PubKeyFromBytes(bytes []byte) (PublicKey, error) {
 
 // Convert a PrivKey to a byte slice
 func (system System) PrivKeyToBytes(privKey PrivateKey) []byte {
-	fmt.Println("PRIV KEY GET:", privKey.x.get)
 	return system.PrivSigToBytes(privKey.x)
 }
 
