@@ -9,7 +9,6 @@ import (
 	//       "math"
 	//       "sort"
 
-	//"github.com/dfinlab/go-zdollar/crypto/merkle"
 	"github.com/ethereum/go-ethereum/crypto"
 	//"github.com/ethereum/go-ethereum/rlp"
 	//"github.com/vechain/thor/block"
