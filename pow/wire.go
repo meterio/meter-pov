@@ -1,4 +1,4 @@
-package powpool
+package pow
 
 import (
 	"github.com/dfinlab/go-amino"
@@ -7,5 +7,5 @@ import (
 var cdc = amino.NewCodec()
 
 func init() {
-	RegisterPowpoolMessages(cdc)
+	RegisterPowMessages(cdc)
 }

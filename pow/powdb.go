@@ -1,4 +1,4 @@
-package powpool
+package pow
 
 import (
         "fmt"

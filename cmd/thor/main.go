@@ -31,6 +31,7 @@ import (
 	"github.com/vechain/thor/state"
 	"github.com/vechain/thor/thor"
 	"github.com/vechain/thor/txpool"
+	"github.com/vechain/thor/pow"
 	cli "gopkg.in/urfave/cli.v1"
 )
 
@@ -45,6 +46,12 @@ var (
 		LimitPerAccount: 16,
 		MaxLifetime:     20 * time.Minute,
 	}
+
+	defaultPowpoolOptions = pow.Options{
+                Limit:           10000,
+                LimitPerAccount: 16,
+                MaxLifetime:     20 * time.Minute,
+        }
 )
 
 func fullVersion() string {
@@ -148,6 +155,10 @@ func defaultAction(ctx *cli.Context) error {
 	stateCreator := state.NewCreator(mainDB)
 	cons := consensus.NewConsensusReactor(ctx, chain, stateCreator, master.PrivateKey, master.PublicKey)
 
+	//also create the POW components
+	powpool := pow.NewPowpool(chain, stateCreator, defaultPowpoolOptions)  
+	powR := pow.NewPowpoolReactor(chain, stateCreator, powpool)
+
 	// XXX: generate kframe (FOR TEST ONLY)
 	genCloser := newKFrameGenerator(ctx, cons)
 	defer func() { log.Info("stopping kframe generator service ..."); genCloser() }()
@@ -165,7 +176,8 @@ func defaultAction(ctx *cli.Context) error {
 		txPool,
 		filepath.Join(instanceDir, "tx.stash"),
 		p2pcom.comm,
-		cons).
+		cons,
+		powR,).
 		Run(exitSignal)
 }
 

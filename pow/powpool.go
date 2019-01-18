@@ -1,335 +1,309 @@
-package powpool
+// Copyright (c) 2018 The VeChainThor developers
+
+// Distributed under the GNU Lesser General Public License v3.0 software license, see the accompanying
+// file LICENSE or <https://www.gnu.org/licenses/lgpl-3.0.html>
+
+package pow 
 
 import (
-	"bytes"
-	"container/list"
-	"fmt"
-	"sync"
 	"sync/atomic"
 	"time"
 
+	"github.com/ethereum/go-ethereum/event"
+	"github.com/inconshreveable/log15"
 	"github.com/pkg/errors"
-	"github.com/thor/clist"
+	"github.com/vechain/thor/block"
+	"github.com/vechain/thor/builtin"
+	"github.com/vechain/thor/chain"
+	"github.com/vechain/thor/co"
+	"github.com/vechain/thor/state"
+	"github.com/vechain/thor/thor"
+	"github.com/vechain/thor/tx"
 )
 
-/*
-
-The powpool pushes new pow txs onto the proxyAppConn.
-*/
+const (
+	// max size of tx allowed
+	maxTxSize = 64 * 1024
+)
 
 var (
-	// ErrTxInCache is returned to the client if we saw tx earlier
-	ErrTxInCache = errors.New("Tx already exists in cache")
-
-	// ErrMempoolIsFull means Tendermint & an application can't handle that much load
-	ErrPowpoolIsFull = errors.New("Powpool is full")
-	ErrPowSynFail = errors.New("Kblock Sync to PoW chain failed")
-	ErrOK = errors.New("Ok")
-
-	maxPowHeight = 20
-	pow *Powpool
+	log            = log15.New("pkg", "powpool")
+	PowTxPoolInst *Powpool
 )
 
-// TxID is the hex encoded hash of the bytes as a types.Tx.
-func TxID(tx []byte) string {
-	return fmt.Sprintf("%X", types.Tx(tx).Hash())
+// Options options for tx pool.
+type Options struct {
+	Limit           int
+	LimitPerAccount int
+	MaxLifetime     time.Duration
 }
 
-// Powpool is an ordered in-memory pool for transactions before they are proposed in a consensus
-// round. Transaction validity is checked using the CheckTx abci message before the transaction is
-// added to the pool. The Mempool uses a concurrent list structure for storing transactions that
-// can be efficiently accessed by multiple concurrent readers.
+// TxEvent will be posted when tx is added or status changed.
+type PowTxEvent struct {
+	Tx         *tx.Transaction
+	Executable *bool
+}
+
+// TxPool maintains unprocessed transactions.
 type Powpool struct {
-	config *cfg.PowpoolConfig
+	options      Options
+	chain        *chain.Chain
+	stateCreator *state.Creator
 
-	proxyMtx             sync.Mutex
-	txs                  *clist.CList    // concurrent linked-list of good txs
-	counter              int64           // simple incrementing counter
-	height               int64           // the last block Update()'d to
-	notifiedTxsAvailable bool
-	txsAvailable         chan struct{} // fires once for each height, when the mempool is not empty
+	executables    atomic.Value
+	all            *txObjectMap
+	addedAfterWash uint32
 
-	ht  *powHeader
+	done   chan struct{}
+	txFeed event.Feed
+	scope  event.SubscriptionScope
+	goes   co.Goes
 }
 
-// poolOption sets an optional parameter on the pool.
-type PowpoolOption func(*Powpool)
+func SetPowTxPoolInst(pool *Powpool) bool {
+	PowTxPoolInst = pool
+	return true
+}
 
-// NewPowpool returns a new Powpool with the given configuration and connection to an application.
-func NewPowpool(
-	config *cfg.PowpoolConfig,
-	height int64,
-) *Powpool {
-	powpool := &Powpool{
-		config:        config,
-		txs:           clist.New(),
-		counter:       0,
-		height:        height,
+func GetPowTxPoolInst() *Powpool {
+	return PowTxPoolInst
+}
+
+type badTxError struct {
+        msg string
+}
+
+func (e badTxError) Error() string {
+        return "bad tx: " + e.msg
+}
+
+
+// New create a new TxPool instance.
+// Shutdown is required to be called at end.
+func NewPowpool(chain *chain.Chain, stateCreator *state.Creator, options Options) *Powpool {
+	pool := &Powpool{
+		options:      options,
+		chain:        chain,
+		stateCreator: stateCreator,
+		all:          newTxObjectMap(),
+		done:         make(chan struct{}),
 	}
-
-	powpool.ht = newPowHeader(100, maxPowHeight) 
-	pow = powpool
-
-	return powpool
+	pool.goes.Go(pool.housekeeping)
+	SetPowTxPoolInst(pool)
+	return pool
 }
 
-// EnableTxsAvailable initializes the TxsAvailable channel,
-// ensuring it will trigger once every height when transactions are available.
-// NOTE: not thread safe - should only be called once, on startup
-func (mem *Powpool) EnableTxsAvailable() {
-	mem.txsAvailable = make(chan struct{}, 1)
-}
+func (p *Powpool) housekeeping() {
+	log.Debug("enter housekeeping")
+	defer log.Debug("leave housekeeping")
 
-func SetPool(pow *Powpool) {
-	pow = pow 
-}
+	ticker := time.NewTicker(time.Second * 2)
+	defer ticker.Stop()
 
-func GetPool() *Powpool {
-	return pow
-}
+	headBlock := p.chain.BestBlock().Header()
+	log.Debug("header at", headBlock)
 
-func GetHeaderPool () *powHeader {
-	return pow.ht
-}
-
-
-// Lock locks the mempool. The consensus must be able to hold lock to safely update.
-func (mem *Powpool) Lock() {
-	mem.proxyMtx.Lock()
-}
-
-// Unlock unlocks the mempool.
-func (mem *Powpool) Unlock() {
-	mem.proxyMtx.Unlock()
-}
-
-// Size returns the number of transactions in the mempool.
-// TODO currently just one list... will handle complicated cases later
-func (mem *Powpool) Size() int {
-	return mem.txs.Len()
-}
-
-// Flushes the pool connection to ensure async resCb calls are done e.g.
-// from CheckTx.
-func (mem *Powpool) FlushAppConn() error {
-	return mem.proxyAppConn.FlushSync()
-}
-
-// Flush removes all transactions from the mempool and cache
-func (mem *Powpool) Flush() {
-	mem.proxyMtx.Lock()
-	defer mem.proxyMtx.Unlock()
-
-	mem.cache.Reset()
-
-	for e := mem.txs.Front(); e != nil; e = e.Next() {
-		mem.txs.Remove(e)
-		e.DetachPrev()
-	}
-}
-
-// TxsFront returns the first transaction in the ordered list for peer
-// goroutines to call .NextWait() on.
-func (mem *Powpool) TxsFront() *clist.CElement {
-	return mem.txs.Front()
-}
-
-// TxsWaitChan returns a channel to wait on transactions. It will be closed
-// once the mempool is not empty (ie. the internal `mem.txs` has at least one
-// element)
-func (mem *Powpool) TxsWaitChan() <-chan struct{} {
-	return mem.txs.WaitChan()
-}
-
-// CheckTx executes a new transaction against the application to determine its validity
-// and whether it should be added to the mempool.
-// It blocks if we're waiting on Update() or Reap().
-// cb: A callback from the CheckTx command.
-//     It gets called from another goroutine.
-// CONTRACT: Either cb will get called, or err returned.
-func (mem *Powpool) CheckPowTx(tx types.Tx, cb func(*abci.Response)) (err error) {
-	mem.proxyMtx.Lock()
-	defer mem.proxyMtx.Unlock()
-
-	if mem.Size() >= mem.config.Size {
-		return ErrPowpoolIsFull
-	}
-
-	// CACHE
-	if !mem.cache.Push(tx) {
-		return ErrTxInCache
-	}
-	// END CACHE
-
-	// WAL
-	// END WAL
-
-	// NOTE: proxyAppConn may error if tx buffer is full
-	if err = mem.proxyAppConn.Error(); err != nil {
-		return err
-	}
-	reqRes := mem.proxyAppConn.CheckPowTxAsync(tx)
-	if cb != nil {
-		reqRes.SetCallback(cb)
-	}
-
-	return nil
-}
-
-// TxsAvailable returns a channel which fires once for every height,
-// and only when transactions are available in the mempool.
-// NOTE: the returned channel may be nil if EnableTxsAvailable was not called.
-func (mem *Powpool) TxsAvailable() <-chan struct{} {
-	return mem.txsAvailable
-}
-
-func (mem *Powpool) notifyTxsAvailable() {
-	if mem.Size() == 0 {
-		panic("notified txs available but powpool is empty!")
-	}
-	if mem.txsAvailable != nil && !mem.notifiedTxsAvailable {
-		// channel cap is 1, so this will send once
-		mem.notifiedTxsAvailable = true
+	for {
 		select {
-		case mem.txsAvailable <- struct{}{}:
-		default:
+		case <-p.done:
+			return
+		case <-ticker.C:
+				log.Debug("wash done")
 		}
 	}
 }
 
-// Reap returns a list of transactions currently in the mempool.
-// If maxTxs is -1, there is no cap on the number of returned transactions.
-func (mem *Powpool) Reap(maxTxs int) types.Txs {
-	mem.proxyMtx.Lock()
-	defer mem.proxyMtx.Unlock()
+// Close cleanup inner go routines.
+func (p *Powpool) Close() {
+	close(p.done)
+	p.scope.Close()
+	p.goes.Wait()
+	log.Debug("closed")
+}
 
-	for atomic.LoadInt32(&mem.rechecking) > 0 {
-		// TODO: Something better?
-		time.Sleep(time.Millisecond * 10)
+//SubscribeTxEvent receivers will receive a tx
+func (p *Powpool) SubscribeTxEvent(ch chan *PowTxEvent) event.Subscription {
+	return p.scope.Track(p.txFeed.Subscribe(ch))
+}
+
+func (p *Powpool) add(newTx *tx.Transaction, rejectNonexecutable bool) error {
+	if p.all.Contains(newTx.ID()) {
+		// tx already in the pool
+		return nil
 	}
 
-	txs := mem.collectTxs(maxTxs)
-	return txs
-}
-
-// maxTxs: -1 means uncapped, 0 means none
-func (mem *Powpool) collectTxs(maxTxs int) types.Txs {
-	if maxTxs == 0 {
-		return []types.Tx{}
-	} else if maxTxs < 0 {
-		maxTxs = mem.txs.Len()
-	}
-	txs := make([]types.Tx, 0, cmn.MinInt(mem.txs.Len(), maxTxs))
-	for e := mem.txs.Front(); e != nil && len(txs) < maxTxs; e = e.Next() {
-		memTx := e.Value.(*powpoolTx)
-		txs = append(txs, memTx.tx)
-	}
-	return txs
-}
-
-
-//Will pass the Kblock agreed Pow Headers back to POW chain
-func SyncPowChain(txs []byte) error {
-
-	fmt.Println("Handling txs %s", txs)
- 	mem := GetPool()
-	mem.proxyAppConn.CheckPowTxAsync(txs)
-	mem.proxyAppConn.FlushAsync()
-
-	return ErrOK 
-
-}
-
-//--------------------------------------------------------------------------------
-
-// mempoolTx is a transaction that successfully ran
-type powpoolTx struct {
-	counter int64    // a simple incrementing counter
-	height  int64    // height that this tx had been validated in
-	tx      types.Tx //
-}
-
-// Height returns the height for this transaction
-func (memTx *powpoolTx) Height() int64 {
-	return atomic.LoadInt64(&memTx.height)
-}
-
-// ------------------------------------------------------------------------------
-
-// set POW chain to the current height from POS consensus
-func syncPowChain() {
-	
-}
-
-//--------------------------------------------------------------------------------
-
-type txCache interface {
-	Reset()
-	Push(tx types.Tx) bool
-	Remove(tx types.Tx)
-}
-
-// mapTxCache maintains a cache of transactions.
-type mapTxCache struct {
-	mtx  sync.Mutex
-	size int
-	map_ map[string]struct{}
-	list *list.List // to remove oldest tx when cache gets too big
-}
-
-var _ txCache = (*mapTxCache)(nil)
-
-// newMapTxCache returns a new mapTxCache.
-func newMapTxCache(cacheSize int) *mapTxCache {
-	return &mapTxCache{
-		size: cacheSize,
-		map_: make(map[string]struct{}, cacheSize),
-		list: list.New(),
-	}
-}
-
-// Reset resets the cache to an empty state.
-func (cache *mapTxCache) Reset() {
-	cache.mtx.Lock()
-	cache.map_ = make(map[string]struct{}, cache.size)
-	cache.list.Init()
-	cache.mtx.Unlock()
-}
-
-// Push adds the given tx to the cache and returns true. It returns false if tx
-// is already in the cache.
-func (cache *mapTxCache) Push(tx types.Tx) bool {
-	cache.mtx.Lock()
-	defer cache.mtx.Unlock()
-
-	if _, exists := cache.map_[string(tx)]; exists {
-		return false
+	// validation
+	switch {
+	case newTx.ChainTag() != p.chain.Tag():
+		return badTxError{"chain tag mismatch"}
+	case newTx.HasReservedFields():
+		return badTxError{"reserved fields not empty"}
+	case newTx.Size() > maxTxSize:
+		return badTxError{"size too large"}
 	}
 
-	if cache.list.Len() >= cache.size {
-		popped := cache.list.Front()
-		poppedTx := popped.Value.(types.Tx)
-		// NOTE: the tx may have already been removed from the map
-		// but deleting a non-existent element is fine
-		delete(cache.map_, string(poppedTx))
-		cache.list.Remove(popped)
+	txObj, err := resolveTx(newTx)
+	if err != nil {
+		return badTxError{err.Error()}
 	}
-	cache.map_[string(tx)] = struct{}{}
-	cache.list.PushBack(tx)
-	return true
+
+	headBlock := p.chain.BestBlock().Header()
+	if isChainSynced(uint64(time.Now().Unix()), headBlock.Timestamp()) {
+		log.Debug("Synced Chain with Pow Tx", "id", newTx.ID())
+	} else {
+		// we skip steps that rely on head block when chain is not synced,
+		// but check the pool's limit
+		// this is for test only. TODO will remove this after testing
+		if p.all.Len() >= p.options.Limit {
+			return badTxError{"pool is full"}
+		}
+
+		if err := p.all.Add(txObj, p.options.LimitPerAccount); err != nil {
+			return badTxError{err.Error()}
+		}
+		log.Debug("tx added", "id", newTx.ID())
+		p.txFeed.Send(&PowTxEvent{newTx, nil})
+	}
+	atomic.AddUint32(&p.addedAfterWash, 1)
+	return nil
 }
 
-// Remove removes the given tx from the cache.
-func (cache *mapTxCache) Remove(tx types.Tx) {
-	cache.mtx.Lock()
-	delete(cache.map_, string(tx))
-	cache.mtx.Unlock()
+// Add add new tx into pool.
+// It's not assumed as an error if the tx to be added is already in the pool,
+func (p *Powpool) Add(newTx *tx.Transaction) error {
+	return p.add(newTx, false)
 }
 
-type nopTxCache struct{}
+// StrictlyAdd add new tx into pool. A rejection error will be returned, if tx is not executable at this time.
+func (p *Powpool) StrictlyAdd(newTx *tx.Transaction) error {
+	return p.add(newTx, true)
+}
 
-var _ txCache = (*nopTxCache)(nil)
+// Remove removes tx from pool by its ID.
+func (p *Powpool) Remove(txID thor.Bytes32) bool {
+	if p.all.Remove(txID) {
+		log.Debug("tx removed", "id", txID)
+		return true
+	}
+	return false
+}
 
-func (nopTxCache) Reset()             {}
-func (nopTxCache) Push(types.Tx) bool { return true }
-func (nopTxCache) Remove(types.Tx)    {}
+// Executables returns executable txs.
+func (p *Powpool) Executables() tx.Transactions {
+	if sorted := p.executables.Load(); sorted != nil {
+		return sorted.(tx.Transactions)
+	}
+	return nil
+}
+
+// Fill fills txs into pool.
+func (p *Powpool) Fill(txs tx.Transactions) {
+	txObjs := make([]*txObject, 0, len(txs))
+	for _, tx := range txs {
+		// here we ignore errors
+		if txObj, err := resolveTx(tx); err == nil {
+			txObjs = append(txObjs, txObj)
+		}
+	}
+	p.all.Fill(txObjs)
+}
+
+// Dump dumps all txs in the pool.
+func (p *Powpool) Dump() tx.Transactions {
+	return p.all.ToTxs()
+}
+
+// wash to evict txs that are after each kblock or after over limits
+// this method should only be called in housekeeping go routine
+func (p *Powpool) wash(headBlock *block.Header) (executables tx.Transactions, removed int, err error) {
+	all := p.all.ToTxObjects()
+	var toRemove []thor.Bytes32
+	defer func() {
+		if err != nil {
+			// in case of error, simply cut pool size to limit
+			for i, txObj := range all {
+				if len(all)-i <= p.options.Limit {
+					break
+				}
+				removed++
+				p.all.Remove(txObj.ID())
+			}
+		} else {
+			for _, id := range toRemove {
+				p.all.Remove(id)
+			}
+			removed = len(toRemove)
+		}
+	}()
+
+	state, err := p.stateCreator.NewState(headBlock.StateRoot())
+	if err != nil {
+		return nil, 0, errors.WithMessage(err, "new state")
+	}
+	var (
+		seeker            = p.chain.NewSeeker(headBlock.ID())
+		baseGasPrice      = builtin.Params.Native(state).Get(thor.KeyBaseGasPrice)
+		executableObjs    = make([]*txObject, 0, len(all))
+		nonExecutableObjs = make([]*txObject, 0, len(all))
+		now               = time.Now().UnixNano()
+	)
+	for _, txObj := range all {
+		// out of lifetime
+		if now > txObj.timeAdded+int64(p.options.MaxLifetime) {
+			toRemove = append(toRemove, txObj.ID())
+			log.Debug("tx washed out", "id", txObj.ID(), "err", "out of lifetime")
+			continue
+		}
+		// settled, out of energy or dep broken
+		executable, err := txObj.Executable(p.chain, state, headBlock)
+		if err != nil {
+			toRemove = append(toRemove, txObj.ID())
+			log.Debug("tx washed out", "id", txObj.ID(), "err", err)
+			continue
+		}
+
+		if executable {
+			txObj.overallGasPrice = txObj.OverallGasPrice(
+				baseGasPrice,
+				headBlock.Number(),
+				seeker.GetID)
+			executableObjs = append(executableObjs, txObj)
+		} else {
+			nonExecutableObjs = append(nonExecutableObjs, txObj)
+		}
+	}
+
+	if err := state.Err(); err != nil {
+		return nil, 0, errors.WithMessage(err, "state")
+	}
+
+	if err := seeker.Err(); err != nil {
+		return nil, 0, errors.WithMessage(err, "seeker")
+	}
+
+	var toBroadcast tx.Transactions
+
+	for _, obj := range executableObjs {
+		executables = append(executables, obj.Transaction)
+		if !obj.executable {
+			obj.executable = true
+			toBroadcast = append(toBroadcast, obj.Transaction)
+		}
+	}
+
+	p.goes.Go(func() {
+		for _, tx := range toBroadcast {
+			executable := true
+			p.txFeed.Send(&PowTxEvent{tx, &executable})
+		}
+	})
+	return executables, 0, nil
+}
+
+func isChainSynced(nowTimestamp, blockTimestamp uint64) bool {
+	timeDiff := nowTimestamp - blockTimestamp
+	if blockTimestamp > nowTimestamp {
+		timeDiff = blockTimestamp - nowTimestamp
+	}
+	return timeDiff < thor.BlockInterval*6
+}

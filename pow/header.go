@@ -130,9 +130,6 @@ func (h *Header) SigningHash() (hash thor.Bytes32) {
 		h.body.GasLimit,
 		h.body.Beneficiary,
 
-		h.body.GasUsed,
-		h.body.TotalScore,
-
 		h.body.TxsRoot,
 		h.body.StateRoot,
 		h.body.ReceiptsRoot,
@@ -209,13 +206,11 @@ func (h *Header) String() string {
 	Signer:			%v
 	Beneficiary:	%v
 	GasLimit:		%v
-	GasUsed:		%v
-	TotalScore:		%v
 	TxsRoot:		%v
 	StateRoot:		%v
 	ReceiptsRoot:	%v
 	Signature:		0x%x`, h.ID(), h.Number(), h.body.ParentID, h.body.Timestamp, signerStr,
-		h.body.Beneficiary, h.body.GasLimit, h.body.GasUsed, h.body.TotalScore,
+		h.body.Beneficiary, h.body.GasLimit,
 		h.body.TxsRoot, h.body.StateRoot, h.body.ReceiptsRoot, h.body.Signature)
 }
 
