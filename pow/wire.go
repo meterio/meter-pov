@@ -1,4 +1,4 @@
-package powpool
+package pow
 
 import (
 	"github.com/dfinlab/go-amino"

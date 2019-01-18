@@ -1,22 +1,32 @@
-package powpool
+package pow
 
 import (
 	"fmt"
 	"reflect"
 	"time"
+	"sync"
 
 	amino "github.com/dfinlab/go-amino"
-	"github.conm/thor/tx"
+	"github.com/inconshreveable/log15"
+	//"github.conm/thor/tx"
+
+	"github.com/vechain/thor/state"
+	"github.com/vechain/thor/chain"
+
+	"github.com/ethereum/go-ethereum/p2p"
 )
 
 const (
 	PowpoolChannel = byte(0x50)
-	powInstance
 	maxMsgSize                 = 1048576 // 1MB TODO make it configurable
 	peerCatchupSleepIntervalMS = 100     // If peer is behind, sleep this amount
 )
 
-struct powMsgInfo {
+var (
+	powInstance *PowpoolReactor
+)
+
+type powMsgInfo struct {
 	msg []byte
 	peer *p2p.Peer 
 }
@@ -31,24 +41,24 @@ type PowpoolReactor struct {
 }
 
 // NewPowpoolReactor returns a new MempoolReactor with the given config and mempool.
-func NewPowpoolReactor(powpool *Powpool) *PowpoolReactor {
+func NewPowpoolReactor(chain *chain.Chain, state *state.Creator, powpool *Powpool) *PowpoolReactor {
 	powR := &PowpoolReactor{
 		Powpool: powpool,
 		logger:  log15.New("pkg", "powpool"),
 	}
 
 	powR.peerMsgQueue = make(chan powMsgInfo, 100)
-
+	powR.logger.Info("New POW reactor started")
 	SetPowpoolReactor(powR)
-	return memR
+	return powR
 }
 
 func GetPowpoolReactor() *PowpoolReactor {
-	return powReactor
+	return powInstance
 }
 
-func SetPowpoolReactor(*PowpoolReactor) {
-	powInstance = PowpoolReactor
+func SetPowpoolReactor(powR *PowpoolReactor) {
+	powInstance = powR
 }
 
 // OnStart implements powReactor.
@@ -64,11 +74,11 @@ func (memR *PowpoolReactor) OnStop() error {
 
 // Receive implements Reactor.
 // It adds any received transactions to the mempool.
-func (memR *PowpoolReactor) Receive(msg powMsgInfo) {
+func (memR *PowpoolReactor) Receive(msgInfo powMsgInfo) {
 	memR.mtx.Lock()
 	defer memR.mtx.Unlock()
 
-	rawMsg, peer := msg.msg, msg.peer
+	rawMsg, peer := msgInfo.msg, msgInfo.peer
 	msg, err := decodeMsg(rawMsg)
 	if err != nil {
 		memR.logger.Error("Error decoding message", "src", peer, "msg", msg, "err", err)
