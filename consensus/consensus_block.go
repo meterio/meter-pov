@@ -719,7 +719,7 @@ func (conR *ConsensusReactor) HandleRecvKBlockInfo(ki RecvKBlockInfo) error {
 	best := conR.chain.BestBlock()
 
 	if ki.Height != int64(best.Header().Number()) {
-		conR.logger.Info("kblock info height ", ki.Height, "my best", best.Header().Number(), "is ignored")
+		conR.logger.Info("kblock info is ignored ...", "received hight", ki.Height, "my best", best.Header().Number())
 		return nil
 	}
 

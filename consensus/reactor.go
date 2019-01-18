@@ -887,10 +887,15 @@ func (conR *ConsensusReactor) exitCurCommittee() error {
 	conR.exitConsensusLeader()
 	conR.exitConsensusProposer()
 	conR.exitConsensusValidator()
-	conR.csCommon.ConsensusCommonDeinit()
+	// Only node in committee did initilize common
+	if conR.csCommon != nil {
+		conR.csCommon.ConsensusCommonDeinit()
+	}
 
 	// clean up current parameters
-	conR.curCommittee.Validators = make([]*types.Validator, 0)
+	if conR.curCommittee != nil {
+		conR.curCommittee.Validators = make([]*types.Validator, 0)
+	}
 	conR.curActualCommittee = make([]CommitteeMember, 0)
 	conR.curCommitteeIndex = 0
 	conR.kBlockData = nil
