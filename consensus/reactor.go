@@ -1518,8 +1518,24 @@ func (conR *ConsensusReactor) ConsensusHandleReceivedNonce(kBlockHeight int64, n
 	}
 }
 
-//-----------------------------------------------------------
-//---------------block store new wrappers routines ----------
+// Easier adjust the logic of major 2/3
+func MajorityTwoThird(voterNum, committeeSize int) bool {
+	if (voterNum < 0) || (committeeSize < 1) {
+		fmt.Println("MajorityTwoThird, inputs out of range")
+		return false
+	}
+
+	if voterNum >= (committeeSize * 2 / 3) {
+		return true
+	}
+
+	// for 1 or 2 nodes case
+	if (committeeSize <= 2) && (voterNum >= 1) {
+		return true
+	}
+
+	return false
+}
 
 //============================================================================
 //============================================================================

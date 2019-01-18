@@ -434,10 +434,8 @@ func (cp *ConsensusProposer) ProcessVoteForProposal(vote4ProposalMsg *VoteForPro
 	cp.proposalVoterPubKey = append(cp.proposalVoterPubKey, pubKey)
 	cp.proposalVoterMsgHash = append(cp.proposalVoterMsgHash, msgHash)
 
-	// XXX::: Yang: Hack here +2 to pass 2/3
 	// 3. if the totoal vote > 2/3, move to NotarySent state
-	//if cp.proposalVoterNum >= cp.csReactor.committeeSize*2/3 &&
-	if (cp.proposalVoterNum+1) >= cp.csReactor.committeeSize*2/3 &&
+	if MajorityTwoThird(cp.proposalVoterNum, cp.csReactor.committeeSize) &&
 		cp.state == COMMITTEE_PROPOSER_PROPOSED {
 
 		// Now it is OK to aggregate signatures
@@ -548,8 +546,8 @@ func (cp *ConsensusProposer) ProcessVoteForNotary(vote4NotaryMsg *VoteForNotaryM
 
 	// XXX:  Yang: Hack here +2 to pass 2/3
 	// 3. if the totoal vote > 2/3, move to Commit state
-	//if cp.notaryVoterNum >= cp.csReactor.committeeSize*2/3 &&
-	if (cp.notaryVoterNum+1) >= cp.csReactor.committeeSize*2/3 &&
+
+	if MajorityTwoThird(cp.notaryVoterNum, cp.csReactor.committeeSize) &&
 		cp.state == COMMITTEE_PROPOSER_NOTARYSENT {
 
 		//save all group info as meta data

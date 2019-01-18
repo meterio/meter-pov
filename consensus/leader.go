@@ -171,10 +171,9 @@ func (cl *ConsensusLeader) GenerateAnnounceMsg() bool {
 	announceExpire := func() {
 		cl.csReactor.logger.Warn("reach 2/3 votes of announce expired ...", "comitteeSize", cl.csReactor.committeeSize, "totalComitter", cl.announceVoterNum)
 
-		//XXX: Yang: Hack here +2 to pass 2/3
-		if cl.announceVoterNum != 0 && (cl.announceVoterNum+1) >= (cl.csReactor.committeeSize*2/3) &&
-			//fmt.Println("total committer", cl.announceVoterNum, "commtteeSize", cl.csReactor.committeeSize)
-			//if cl.announceVoterNum >= (cl.csReactor.committeeSize*2/3) &&
+		//if cl.announceVoterNum >= (cl.csReactor.committeeSize*2/3) &
+		if (cl.announceVoterNum != 0) && MajorityTwoThird(cl.announceVoterNum, cl.csReactor.committeeSize) &&
+
 			cl.state == COMMITTEE_LEADER_ANNOUNCED {
 
 			cl.csReactor.logger.Info("Committers reach 2/3 of Committee")
@@ -437,10 +436,8 @@ func (cl *ConsensusLeader) ProcessVoteNotaryAnnounce(vote4NotaryMsg *VoteForNota
 	cl.notaryVoterPubKey = append(cl.notaryVoterPubKey, pubKey)
 	cl.notaryVoterMsgHash = append(cl.notaryVoterMsgHash, msgHash)
 
-	// XXX Yang: Hack here +2 to get 2/3
 	// 3. if the totoal vote > 2/3, move to Commit state
-	if (cl.notaryVoterNum+1) >= cl.csReactor.committeeSize*2/3 &&
-		//if cl.notaryVoterNum >= cl.csReactor.committeeSize*2/3 &&
+	if MajorityTwoThird(cl.notaryVoterNum, cl.csReactor.committeeSize) &&
 		cl.state == COMMITTEE_LEADER_NOTARYSENT {
 		//save all group info as meta data
 		cl.state = COMMITTEE_LEADER_COMMITED
