@@ -72,6 +72,27 @@ To build the main app `thor`, just run
 make
 ```
 
+#### Tips
+
+You might encounter problems like this during `make`:
+
+```
+vendor/github.com/ethereum/go-ethereum/crypto/secp256k1/curve.go:43:44: fatal error: libsecp256k1/include/secp256k1.h: No such file or directory
+ #include "libsecp256k1/include/secp256k1.h"
+                                            ^
+compilation terminated.
+```
+
+Then solution will be like this: 
+```
+go get github.com/ethereum/go-ethereum
+cp -r \
+  "${GOPATH}/src/github.com/ethereum/go-ethereum/crypto/secp256k1/libsecp256k1" \
+  "vendor/github.com/ethereum/go-ethereum/crypto/secp256k1/"
+
+```
+
+
 or build the full suite:
 
 ```
