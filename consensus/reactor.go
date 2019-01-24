@@ -81,6 +81,12 @@ var (
 	ConsensusGlobInst *ConsensusReactor
 )
 
+type ConsensusConfig struct {
+	ForceLastKFrame   bool
+	ConfigPath        string
+	SkipEvidenceCheck bool
+}
+
 //-----------------------------------------------------------------------------
 
 // ConsensusReactor defines a reactor for the consensus service.
@@ -88,8 +94,7 @@ type ConsensusReactor struct {
 	chain        *chain.Chain
 	stateCreator *state.Creator
 
-	ForceLastKFrame bool
-	ConfigPath      string
+	config ConsensusConfig
 
 	// copy of master/node
 	myPubKey      ecdsa.PublicKey  // this is my public identification !!
@@ -155,8 +160,11 @@ func NewConsensusReactor(ctx *cli.Context, chain *chain.Chain, state *state.Crea
 	}
 
 	if ctx != nil {
-		conR.ForceLastKFrame = ctx.Bool("force-last-kframe")
-		conR.ConfigPath = ctx.String("config-dir")
+		conR.config = ConsensusConfig{
+			ForceLastKFrame:   ctx.Bool("force-last-kframe"),
+			ConfigPath:        ctx.String("config-dir"),
+			SkipEvidenceCheck: ctx.Bool("skip-evidence-check"),
+		}
 	}
 
 	//initialize message channel
@@ -219,7 +227,7 @@ func (conR *ConsensusReactor) SwitchToConsensus() {
 	conR.logger.Info("Synchnization is done. SwitchToConsensus ...")
 
 	// --force-last-kframe
-	if !conR.ForceLastKFrame {
+	if !conR.config.ForceLastKFrame {
 		return
 	}
 

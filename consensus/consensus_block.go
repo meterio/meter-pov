@@ -188,6 +188,10 @@ func (c *ConsensusReactor) validateBlockHeader(header *block.Header, parent *blo
 }
 
 func (c *ConsensusReactor) validateEvidence(ev *block.Evidence, blk *block.Block) error {
+	// skip the validation if the 'skip-evidence-check' flag is configured
+	if c.config.SkipEvidenceCheck {
+		return nil
+	}
 
 	header := blk.Header()
 
