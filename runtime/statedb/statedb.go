@@ -112,6 +112,29 @@ func (s *StateDB) AddBalance(addr common.Address, amount *big.Int) {
 	s.state.SetBalance(thor.Address(addr), new(big.Int).Add(balance, amount))
 }
 
+// GetEnergy stub.
+func (s *StateDB) GetEnergy(addr common.Address) *big.Int {
+	return s.state.GetEnergy(thor.Address(addr), 0)
+}
+
+// SubEnergy stub.
+func (s *StateDB) SubEnergy(addr common.Address, amount *big.Int) {
+	if amount.Sign() == 0 {
+		return
+	}
+	balance := s.state.GetEnergy(thor.Address(addr), 0)
+	s.state.SetEnergy(thor.Address(addr), new(big.Int).Sub(balance, amount), 0)
+}
+
+// AddEnergy stub.
+func (s *StateDB) AddEnergy(addr common.Address, amount *big.Int) {
+	if amount.Sign() == 0 {
+		return
+	}
+	balance := s.state.GetEnergy(thor.Address(addr), 0)
+	s.state.SetEnergy(thor.Address(addr), new(big.Int).Add(balance, amount), 0)
+}
+
 // GetNonce stub.
 func (s *StateDB) GetNonce(addr common.Address) uint64 { return 0 }
 

@@ -22,6 +22,11 @@ import (
 	"github.com/vechain/thor/thor"
 )
 
+const (
+	TOKEN_METER_GOV = byte(0)
+	TOKEN_METER = byte(1)
+)
+
 var (
 	errIntrinsicGasOverflow = errors.New("intrinsic gas overflow")
 )

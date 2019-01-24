@@ -191,7 +191,6 @@ func opSlt(pc *uint64, evm *EVM, contract *Contract, memory *Memory, stack *Stac
 
 	case xSign < 0 && ySign >= 0:
 		y.SetUint64(0)
-
 	default:
 		if x.Cmp(y) < 0 {
 			y.SetUint64(1)
@@ -644,7 +643,7 @@ func opCreate(pc *uint64, evm *EVM, contract *Contract, memory *Memory, stack *S
 	}
 
 	contract.UseGas(gas)
-	res, addr, returnGas, suberr := evm.Create(contract, input, gas, value)
+	res, addr, returnGas, suberr := evm.Create(contract, input, gas, value, 0 /*XXX: tx.TOKEN_METR_GOV*/)
 	// Push item on the stack based on the returned error. If the ruleset is
 	// homestead we must check for CodeStoreOutOfGasError (homestead only
 	// rule) and treat as an error, if the ruleset is frontier we must
@@ -679,7 +678,7 @@ func opCall(pc *uint64, evm *EVM, contract *Contract, memory *Memory, stack *Sta
 	if value.Sign() != 0 {
 		gas += params.CallStipend
 	}
-	ret, returnGas, err := evm.Call(contract, toAddr, args, gas, value)
+	ret, returnGas, err := evm.Call(contract, toAddr, args, gas, value, 0 /*tx.TOKEN_METER_GOV*/)
 	if err != nil {
 		stack.push(evm.interpreter.intPool.getZero())
 	} else {
@@ -708,7 +707,7 @@ func opCallCode(pc *uint64, evm *EVM, contract *Contract, memory *Memory, stack 
 	if value.Sign() != 0 {
 		gas += params.CallStipend
 	}
-	ret, returnGas, err := evm.CallCode(contract, toAddr, args, gas, value)
+	ret, returnGas, err := evm.CallCode(contract, toAddr, args, gas, value, 0 /*tx.TOKEN_METER_GOV*/)
 	if err != nil {
 		stack.push(evm.interpreter.intPool.getZero())
 	} else {
