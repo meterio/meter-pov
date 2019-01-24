@@ -1501,11 +1501,11 @@ func (conR *ConsensusReactor) ConsensusHandleReceivedNonce(kBlockHeight int64, n
 	if inCommittee {
 		conR.logger.Info("I am in committee!!!")
 	} else {
-		conR.logger.Info("I am NOT in committee!!! nonce", "nonce", nonce)
+		conR.logger.Info("I am NOT in committee!!!", "nonce", nonce)
 	}
 
 	if role == CONSENSUS_COMMIT_ROLE_LEADER {
-		conR.logger.Info("I am committee leader for nonce", "nonce", nonce)
+		conR.logger.Info("I am committee leader for nonce!", "nonce", nonce)
 		// XXX: wait a while for synchronization
 		time.Sleep(5 * time.Second)
 		if replay {
@@ -1514,7 +1514,7 @@ func (conR *ConsensusReactor) ConsensusHandleReceivedNonce(kBlockHeight int64, n
 			conR.ScheduleLeader(0)
 		}
 	} else if role == CONSENSUS_COMMIT_ROLE_VALIDATOR {
-		conR.logger.Info("I am committee validator for nonce", "nonce", nonce)
+		conR.logger.Info("I am committee validator for nonce!", "nonce", nonce)
 		if replay {
 			conR.ScheduleReplayValidator(0)
 		} else {

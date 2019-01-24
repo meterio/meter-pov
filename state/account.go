@@ -36,6 +36,10 @@ var bigE18 = big.NewInt(1e18)
 
 // CalcEnergy calculates energy based on current block time.
 func (a *Account) CalcEnergy(blockTime uint64) *big.Int {
+
+	// XXX: Yang remove the interest of Engery (Meter)
+	return a.Energy
+	
 	if a.BlockTime == 0 {
 		return a.Energy
 	}

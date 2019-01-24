@@ -31,6 +31,10 @@ type StateDB interface {
 	AddBalance(common.Address, *big.Int)
 	GetBalance(common.Address) *big.Int
 
+	SubEnergy(common.Address, *big.Int)
+	AddEnergy(common.Address, *big.Int)
+	GetEnergy(common.Address) *big.Int
+
 	GetNonce(common.Address) uint64
 	SetNonce(common.Address, uint64)
 
@@ -68,11 +72,11 @@ type StateDB interface {
 // depends on this context being implemented for doing subcalls and initialising new EVM contracts.
 type CallContext interface {
 	// Call another contract
-	Call(env *EVM, me ContractRef, addr common.Address, data []byte, gas, value *big.Int) ([]byte, error)
+	Call(env *EVM, me ContractRef, addr common.Address, data []byte, gas, value *big.Int, token byte) ([]byte, error)
 	// Take another's contract code and execute within our own context
-	CallCode(env *EVM, me ContractRef, addr common.Address, data []byte, gas, value *big.Int) ([]byte, error)
+	CallCode(env *EVM, me ContractRef, addr common.Address, data []byte, gas, value *big.Int, token byte) ([]byte, error)
 	// Same as CallCode except sender and value is propagated from parent to child scope
 	DelegateCall(env *EVM, me ContractRef, addr common.Address, data []byte, gas *big.Int) ([]byte, error)
 	// Create a new contract
-	Create(env *EVM, me ContractRef, data []byte, gas, value *big.Int) ([]byte, common.Address, error)
+	Create(env *EVM, me ContractRef, data []byte, gas, value *big.Int, token byte) ([]byte, common.Address, error)
 }

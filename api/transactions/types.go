@@ -23,6 +23,7 @@ import (
 type Clause struct {
 	To    *thor.Address        `json:"to"`
 	Value math.HexOrDecimal256 `json:"value"`
+	Token byte                 `json:"token"`
 	Data  string               `json:"data"`
 }
 
@@ -34,6 +35,7 @@ func convertClause(c *tx.Clause) Clause {
 	return Clause{
 		c.To(),
 		math.HexOrDecimal256(*c.Value()),
+		c.Token(),
 		hexutil.Encode(c.Data()),
 	}
 }
@@ -42,9 +44,11 @@ func (c *Clause) String() string {
 	return fmt.Sprintf(`Clause(
 		To    %v
 		Value %v
+		Token %v
 		Data  %v
 		)`, c.To,
 		c.Value,
+		c.Token,
 		c.Data)
 }
 
@@ -225,6 +229,7 @@ type Transfer struct {
 	Sender    thor.Address          `json:"sender"`
 	Recipient thor.Address          `json:"recipient"`
 	Amount    *math.HexOrDecimal256 `json:"amount"`
+	Token     byte                  `json:"token"`
 }
 
 //ConvertReceipt convert a raw clause into a jason format clause
@@ -278,6 +283,7 @@ func convertReceipt(txReceipt *tx.Receipt, header *block.Header, tx *tx.Transact
 				Sender:    txTransfer.Sender,
 				Recipient: txTransfer.Recipient,
 				Amount:    (*math.HexOrDecimal256)(txTransfer.Amount),
+				Token: 		txTransfer.Token,
 			}
 			otp.Transfers[j] = transfer
 		}

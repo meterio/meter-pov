@@ -17,6 +17,7 @@ import (
 type clauseBody struct {
 	To    *thor.Address `rlp:"nil"`
 	Value *big.Int
+	Token byte
 	Data  []byte
 }
 
@@ -36,6 +37,7 @@ func NewClause(to *thor.Address) *Clause {
 		clauseBody{
 			to,
 			&big.Int{},
+			TOKEN_METER_GOV,
 			nil,
 		},
 	}
@@ -74,6 +76,11 @@ func (c *Clause) Data() []byte {
 	return append([]byte(nil), c.body.Data...)
 }
 
+// Data returns 'Token'.
+func (c *Clause) Token() byte {
+	return c.body.Token
+}
+
 // IsCreatingContract return if this clause is going to create a contract.
 func (c *Clause) IsCreatingContract() bool {
 	return c.body.To == nil
@@ -104,5 +111,6 @@ func (c *Clause) String() string {
 	return fmt.Sprintf(`
 		(To:	%v
 		 Value:	%v
-		 Data:	0x%x)`, to, c.body.Value, c.body.Data)
+		 Token: %v
+		 Data:	0x%x)`, to, c.body.Value, c.body.Token, c.body.Data)
 }

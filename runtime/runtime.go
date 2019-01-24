@@ -116,22 +116,35 @@ func (rt *Runtime) SetVMConfig(config vm.Config) *Runtime {
 func (rt *Runtime) newEVM(stateDB *statedb.StateDB, clauseIndex uint32, txCtx *xenv.TransactionContext) *vm.EVM {
 	var lastNonNativeCallGas uint64
 	return vm.NewEVM(vm.Context{
-		CanTransfer: func(_ vm.StateDB, addr common.Address, amount *big.Int) bool {
-			return stateDB.GetBalance(addr).Cmp(amount) >= 0
+		CanTransfer: func(_ vm.StateDB, addr common.Address, amount *big.Int, token byte) bool {
+			if token == tx.TOKEN_METER_GOV {
+				return stateDB.GetBalance(addr).Cmp(amount) >= 0
+			} else /*if token == tx.TOKEN_METER*/ {
+				// XXX. Yang: add gas fee in comparasion
+				return stateDB.GetEnergy(addr).Cmp(amount) >= 0
+			}
 		},
-		Transfer: func(_ vm.StateDB, sender, recipient common.Address, amount *big.Int) {
+		Transfer: func(_ vm.StateDB, sender, recipient common.Address, amount *big.Int, token byte) {
 			if amount.Sign() == 0 {
 				return
 			}
 			// touch energy balance when token balance changed
 			// SHOULD be performed before transfer
+			// XXX: Yang with no interest of engery, the following touch is meaningless.
+			/**************
 			rt.state.SetEnergy(thor.Address(sender),
 				rt.state.GetEnergy(thor.Address(sender), rt.ctx.Time), rt.ctx.Time)
 			rt.state.SetEnergy(thor.Address(recipient),
 				rt.state.GetEnergy(thor.Address(recipient), rt.ctx.Time), rt.ctx.Time)
+			***************/
 
-			stateDB.SubBalance(common.Address(sender), amount)
-			stateDB.AddBalance(common.Address(recipient), amount)
+			if token == tx.TOKEN_METER_GOV {
+				stateDB.SubBalance(common.Address(sender), amount)
+				stateDB.AddBalance(common.Address(recipient), amount)
+			} else if token == tx.TOKEN_METER {
+				stateDB.SubEnergy(common.Address(sender), amount)
+				stateDB.AddEnergy(common.Address(recipient), amount)
+			}
 
 			if rt.ctx.Number >= rt.forkConfig.FixTransferLog {
 				// `amount` will be recycled by evm(OP_CALL) right after this function return,
@@ -144,6 +157,7 @@ func (rt *Runtime) newEVM(stateDB *statedb.StateDB, clauseIndex uint32, txCtx *x
 				Sender:    thor.Address(sender),
 				Recipient: thor.Address(recipient),
 				Amount:    amount,
+				Token: 	   token,
 			})
 		},
 		GetHash: func(num uint64) common.Hash {
@@ -232,6 +246,13 @@ func (rt *Runtime) newEVM(stateDB *statedb.StateDB, clauseIndex uint32, txCtx *x
 					Topics:  topics,
 					Data:    data,
 				})
+
+				stateDB.AddTransfer(&tx.Transfer{
+					Sender:    thor.Address(contractAddr),
+					Recipient: thor.Address(tokenReceiver),
+					Amount:    amount,
+					Token:	   tx.TOKEN_METER,
+				})
 			}
 
 			if amount := stateDB.GetBalance(contractAddr); amount.Sign() != 0 {
@@ -241,6 +262,7 @@ func (rt *Runtime) newEVM(stateDB *statedb.StateDB, clauseIndex uint32, txCtx *x
 					Sender:    thor.Address(contractAddr),
 					Recipient: thor.Address(tokenReceiver),
 					Amount:    amount,
+					Token:     tx.TOKEN_METER_GOV,
 				})
 			}
 		},
@@ -287,10 +309,10 @@ func (rt *Runtime) PrepareClause(
 	exec = func() (*Output, bool) {
 		if clause.To() == nil {
 			var caddr common.Address
-			data, caddr, leftOverGas, vmErr = evm.Create(vm.AccountRef(txCtx.Origin), clause.Data(), gas, clause.Value())
+			data, caddr, leftOverGas, vmErr = evm.Create(vm.AccountRef(txCtx.Origin), clause.Data(), gas, clause.Value(), clause.Token())
 			contractAddr = (*thor.Address)(&caddr)
 		} else {
-			data, leftOverGas, vmErr = evm.Call(vm.AccountRef(txCtx.Origin), common.Address(*clause.To()), clause.Data(), gas, clause.Value())
+			data, leftOverGas, vmErr = evm.Call(vm.AccountRef(txCtx.Origin), common.Address(*clause.To()), clause.Data(), gas, clause.Value(), clause.Token())
 		}
 
 		interrupted := atomic.LoadUint32(&interruptFlag) != 0
