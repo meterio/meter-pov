@@ -108,8 +108,8 @@ var (
 		Name:  "force-last-kframe",
 		Usage: "force to use last K frame",
 	}
-	skipEvidenceCheckFlag = cli.BoolFlag{
-		Name:  "skip-evidence-check",
-		Usage: "skip evidence check",
+	skipSignatureCheckFlag = cli.BoolFlag{
+		Name:  "skip-signature-check",
+		Usage: "skip signature check",
 	}
 )

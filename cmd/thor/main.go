@@ -85,7 +85,7 @@ func main() {
 			peersFlag,
 			forceLastKFrameFlag,
 			generateKFrameFlag,
-			skipEvidenceCheckFlag,
+			skipSignatureCheckFlag,
 		},
 		Action: defaultAction,
 		Commands: []cli.Command{

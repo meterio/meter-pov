@@ -320,7 +320,11 @@ func (cl *ConsensusLeader) ProcessCommitMsg(commitMsg *CommitCommitteeMessage, s
 	valid := bls.Verify(sig, msgHash, pubKey)
 	if valid == false {
 		cl.csReactor.logger.Error("validate voter signature failed")
-		return false
+		if cl.csReactor.config.SkipSignatureCheck == true {
+			cl.csReactor.logger.Error("but SkipSignatureCheck is true, continue ...")
+		} else {
+			return false
+		}
 	}
 
 	// 2. add src to bitArray.
@@ -424,7 +428,11 @@ func (cl *ConsensusLeader) ProcessVoteNotaryAnnounce(vote4NotaryMsg *VoteForNota
 	valid := bls.Verify(sig, msgHash, pubKey)
 	if valid == false {
 		cl.csReactor.logger.Error("validate voter signature failed")
-		return false
+		if cl.csReactor.config.SkipSignatureCheck == true {
+			cl.csReactor.logger.Error("but SkipSignatureCheck is true, continue ...")
+		} else {
+			return false
+		}
 	}
 
 	// 2. add src to bitArray.
