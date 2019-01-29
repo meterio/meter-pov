@@ -19,12 +19,12 @@ import (
 	"github.com/vechain/thor/api/utils"
 	"github.com/vechain/thor/block"
 	"github.com/vechain/thor/chain"
+	"github.com/vechain/thor/consensus"
 	"github.com/vechain/thor/runtime"
 	"github.com/vechain/thor/state"
 	"github.com/vechain/thor/thor"
 	"github.com/vechain/thor/tx"
 	"github.com/vechain/thor/xenv"
-	"github.com/vechain/thor/consensus"
 )
 
 type Accounts struct {
@@ -137,41 +137,42 @@ func (a *Accounts) handleGetStorage(w http.ResponseWriter, req *http.Request) er
 }
 
 func (a *Accounts) handleCallPow(w http.ResponseWriter, req *http.Request) error {
-        callData := &CallData{}
+	callData := &CallData{}
 	callPow := &CallPow{}
-	
+
 	ConReactor := consensus.GetConsensusGlobInst()
-        if err := utils.ParseJSON(req.Body, &callPow); err != nil {
-                return utils.BadRequest(errors.WithMessage(err, "body"))
-        }
-        h, err := a.handleRevision(req.URL.Query().Get("revision"))
-        if err != nil {
-                return err
-        }
+	if err := utils.ParseJSON(req.Body, &callPow); err != nil {
+		return utils.BadRequest(errors.WithMessage(err, "body"))
+	}
+	h, err := a.handleRevision(req.URL.Query().Get("revision"))
+	if err != nil {
+		return err
+	}
 	var addr *thor.Address
-        var batchCallData = &BatchCallData{
-                Clauses: Clauses{
-                        Clause{
-                                To:    addr,
-                                Value: callData.Value,
-                                Data:  callData.Data,
-                        },
-                },
-        }
+	var batchCallData = &BatchCallData{
+		Clauses: Clauses{
+			Clause{
+				To:    addr,
+				Value: callData.Value,
+				Data:  callData.Data,
+				Token: callData.Token,
+			},
+		},
+	}
 	data := block.KBlockData{
-                Miner:      *callPow.Miner,
-                Nonce:      callPow.Nonce,
-                Data:       []byte{},
-        }
-        ConReactor.KBlockDataQueue <- data
+		Miner: *callPow.Miner,
+		Nonce: callPow.Nonce,
+		Data:  []byte{},
+	}
+	ConReactor.KBlockDataQueue <- data
 
 	fmt.Println("received data", data.Miner, data.Nonce, callPow.Difficulty)
-        // results, err := a.batchPow(req.Context(), batchCallData, h)
-        results, err := a.batchCall(req.Context(), batchCallData, h)
-        if err != nil {
-                return err
-        }
-        return utils.WriteJSON(w, results[0])
+	// results, err := a.batchPow(req.Context(), batchCallData, h)
+	results, err := a.batchCall(req.Context(), batchCallData, h)
+	if err != nil {
+		return err
+	}
+	return utils.WriteJSON(w, results[0])
 }
 
 func (a *Accounts) handleCallContract(w http.ResponseWriter, req *http.Request) error {
@@ -197,6 +198,7 @@ func (a *Accounts) handleCallContract(w http.ResponseWriter, req *http.Request) 
 				To:    addr,
 				Value: callData.Value,
 				Data:  callData.Data,
+				Token: callData.Token,
 			},
 		},
 		Gas:      callData.Gas,

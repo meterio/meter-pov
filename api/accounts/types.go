@@ -26,15 +26,16 @@ type Account struct {
 type CallData struct {
 	Value    *math.HexOrDecimal256 `json:"value"`
 	Data     string                `json:"data"`
+	Token    byte                  `json:"token"`
 	Gas      uint64                `json:"gas"`
 	GasPrice *math.HexOrDecimal256 `json:"gasPrice"`
 	Caller   *thor.Address         `json:"caller"`
 }
 
 type CallPow struct {
-	Miner   *thor.Address   `json:"miner"`
-	Nonce   uint64  `json:"nonce"`
-	Difficulty big.Int  `json:"difficulty"`
+	Miner      *thor.Address `json:"miner"`
+	Nonce      uint64        `json:"nonce"`
+	Difficulty big.Int       `json:"difficulty"`
 }
 
 type CallResult struct {
@@ -95,6 +96,7 @@ type Clause struct {
 	To    *thor.Address         `json:"to"`
 	Value *math.HexOrDecimal256 `json:"value"`
 	Data  string                `json:"data"`
+	Token byte                  `json:"token"`
 }
 
 //Clauses array of clauses.
