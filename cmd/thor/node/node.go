@@ -304,6 +304,16 @@ func (n *Node) processBlock(blk *block.Block, stats *blockStats) (bool, error) {
 			Nonce:            data.Nonce,
 		}
 		log.Info("received kblock...", "nonce", info.Nonce, "height", info.Height)
+		// this chan is initialized as 100, we should clean up if it is almost full.
+		// only the last one is processed. 
+		chanLength := len(n.cons.RcvKBlockInfoQueue)
+		chanCap := cap(n.cons.RcvKBlockInfoQueue)
+		if chanLength >= (chanCap / 10 * 9) {
+			for i := int(0); i < chanLength; i++ {
+				<- n.cons.RcvKBlockInfoQueue
+			}
+			log.Info("garbaged all kblock infoi ...")
+		}
 		n.cons.RcvKBlockInfoQueue <- info
 	}
 	// end of shortcut

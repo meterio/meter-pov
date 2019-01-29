@@ -75,6 +75,8 @@ const (
 	// Sign Notary Block Message
 	// "Block Notarization Message: Proposer <pubkey 64(32x3)> BlockType <8 bytes> Height <16 (8x2) bytes> Round <8 (4x2) bytes>
 	NOTARY_BLOCK_SIGN_MSG_SIZE = int(130)
+
+	CHAN_DEFAULT_BUF_SIZE = 100
 )
 
 var (
@@ -84,7 +86,7 @@ var (
 type ConsensusConfig struct {
 	ForceLastKFrame   bool
 	ConfigPath        string
-	SkipEvidenceCheck bool
+	SkipSignatureCheck bool
 }
 
 //-----------------------------------------------------------------------------
@@ -163,18 +165,18 @@ func NewConsensusReactor(ctx *cli.Context, chain *chain.Chain, state *state.Crea
 		conR.config = ConsensusConfig{
 			ForceLastKFrame:   ctx.Bool("force-last-kframe"),
 			ConfigPath:        ctx.String("config-dir"),
-			SkipEvidenceCheck: ctx.Bool("skip-evidence-check"),
+			SkipSignatureCheck: ctx.Bool("skip-signature-check"),
 		}
 	}
 
 	//initialize message channel
-	conR.peerMsgQueue = make(chan consensusMsgInfo, 100)
-	conR.internalMsgQueue = make(chan consensusMsgInfo, 100)
-	conR.schedulerQueue = make(chan consensusTimeOutInfo, 100)
-	conR.KBlockDataQueue = make(chan block.KBlockData, 100)
+	conR.peerMsgQueue = make(chan consensusMsgInfo, CHAN_DEFAULT_BUF_SIZE)
+	conR.internalMsgQueue = make(chan consensusMsgInfo, CHAN_DEFAULT_BUF_SIZE)
+	conR.schedulerQueue = make(chan consensusTimeOutInfo, CHAN_DEFAULT_BUF_SIZE)
+	conR.KBlockDataQueue = make(chan block.KBlockData, CHAN_DEFAULT_BUF_SIZE)
 
 	// add the hardcoded genesis nonce in the case every node in block 0
-	conR.RcvKBlockInfoQueue = make(chan RecvKBlockInfo, 100)
+	conR.RcvKBlockInfoQueue = make(chan RecvKBlockInfo, CHAN_DEFAULT_BUF_SIZE)
 
 	//initialize height/round
 	conR.lastKBlockHeight = chain.BestBlock().Header().LastKBlockHeight()

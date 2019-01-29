@@ -423,7 +423,11 @@ func (cp *ConsensusProposer) ProcessVoteForProposal(vote4ProposalMsg *VoteForPro
 	valid := bls.Verify(sig, msgHash, pubKey)
 	if valid == false {
 		cp.csReactor.logger.Error("validate voter signature failed")
-		return false
+		if cp.csReactor.config.SkipSignatureCheck == true {
+			cp.csReactor.logger.Error("but SkipSignatureCheck is true, continue ...")
+		} else {
+			return false
+		}
 	}
 
 	// 2. add src to bitArray.
@@ -533,7 +537,11 @@ func (cp *ConsensusProposer) ProcessVoteForNotary(vote4NotaryMsg *VoteForNotaryM
 	valid := bls.Verify(sig, msgHash, pubKey)
 	if valid == false {
 		cp.csReactor.logger.Error("validate voter signature failed")
-		return false
+		if cp.csReactor.config.SkipSignatureCheck == true {
+			cp.csReactor.logger.Error("but SkipSignatureCheck is true, continue ...")
+		} else {
+			return false
+		}
 	}
 
 	// 2. add src to bitArray.
