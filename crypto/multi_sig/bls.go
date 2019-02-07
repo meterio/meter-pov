@@ -405,9 +405,13 @@ func AggregateVerify(signature Signature, hashes [][sha256.Size]byte, keys []Pub
 	}
 
 	// Check the uniqueness constraint.
+
+	// We are using the same message for all validators, temporarily comment this out.
+	/****
 	if !uniqueHashes(hashes) {
 		return false, errors.New("bls.AggregateVerify: Message digests must be distinct.")
 	}
+	****/
 
 	// Calculate the left-hand side.
 	lhs := (*C.struct_element_s)(C.malloc(sizeOfElement))

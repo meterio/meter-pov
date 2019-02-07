@@ -84,8 +84,8 @@ var (
 )
 
 type ConsensusConfig struct {
-	ForceLastKFrame   bool
-	ConfigPath        string
+	ForceLastKFrame    bool
+	ConfigPath         string
 	SkipSignatureCheck bool
 }
 
@@ -163,8 +163,8 @@ func NewConsensusReactor(ctx *cli.Context, chain *chain.Chain, state *state.Crea
 
 	if ctx != nil {
 		conR.config = ConsensusConfig{
-			ForceLastKFrame:   ctx.Bool("force-last-kframe"),
-			ConfigPath:        ctx.String("config-dir"),
+			ForceLastKFrame:    ctx.Bool("force-last-kframe"),
+			ConfigPath:         ctx.String("config-dir"),
 			SkipSignatureCheck: ctx.Bool("skip-signature-check"),
 		}
 	}
@@ -228,11 +228,6 @@ func (conR *ConsensusReactor) SwitchToConsensus() {
 	//conR.Logger.Info("SwitchToConsensus")
 	conR.logger.Info("Synchnization is done. SwitchToConsensus ...")
 
-	// --force-last-kframe
-	if !conR.config.ForceLastKFrame {
-		return
-	}
-
 	var replay bool
 	var nonce uint64
 	best := conR.chain.BestBlock()
@@ -242,6 +237,11 @@ func (conR *ConsensusReactor) SwitchToConsensus() {
 		nonce = genesisNonce
 		replay = false
 		conR.ConsensusHandleReceivedNonce(int64(best.Header().Number()), nonce, replay)
+		return
+	}
+
+	// --force-last-kframe
+	if !conR.config.ForceLastKFrame {
 		return
 	}
 

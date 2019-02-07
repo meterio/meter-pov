@@ -160,6 +160,9 @@ func (cp *ConsensusProposer) MoveInitState(curState byte, sendNewRoundMsg bool) 
 	// fmt.Println("msg: %v", msg.String())
 	var m ConsensusMessage = msg
 	cp.SendMsg(&m)
+
+	cp.csReactor.UpdateRound(cp.csReactor.curRound + 1)
+
 	// fmt.Println("current state %v, move to state init", curState)
 	cp.state = COMMITTEE_PROPOSER_INIT
 	return true
@@ -236,8 +239,8 @@ func (cp *ConsensusProposer) GenerateMBlockMsg(mblock []byte) bool {
 
 	cp.csReactor.logger.Debug("Generated Proposal Block Message for MBlock", "height", msg.CSMsgCommonHeader.Height, "timestamp", msg.CSMsgCommonHeader.Timestamp)
 	var m ConsensusMessage = msg
-	cp.SendMsg(&m)
 	cp.state = COMMITTEE_PROPOSER_PROPOSED
+	cp.SendMsg(&m)
 
 	//timeout function
 	proposalExpire := func() {
@@ -295,8 +298,8 @@ func (cp *ConsensusProposer) GenerateKBlockMsg(kblock []byte) bool {
 	cp.csReactor.logger.Debug("Generate Proposal Block Message for KBlock", "height", msg.CSMsgCommonHeader.Height, "timestamp", msg.CSMsgCommonHeader.Timestamp)
 
 	var m ConsensusMessage = msg
-	cp.SendMsg(&m)
 	cp.state = COMMITTEE_PROPOSER_PROPOSED
+	cp.SendMsg(&m)
 
 	//timeout function
 	proposalExpire := func() {
@@ -445,7 +448,7 @@ func (cp *ConsensusProposer) ProcessVoteForProposal(vote4ProposalMsg *VoteForPro
 		// Now it is OK to aggregate signatures
 		cp.proposalVoterAggSig = cp.csReactor.csCommon.AggregateSign(cp.proposalVoterSig)
 
-		/*****
+		/******
 		fmt.Println("VoterMsgHash", cp.proposalVoterMsgHash)
 		for _, p := range cp.proposalVoterPubKey {
 			fmt.Println("pubkey:::", cp.csReactor.csCommon.system.PubKeyToBytes(p))
@@ -617,6 +620,9 @@ Move to next height
 			cp.csReactor.ConsensusHandleReceivedNonce(int64(height), nonce, false)
 			return true
 		}
+	} else {
+		// received VoteForNotary but 2/3 is not reached, keep waiting.
+		return true
 	}
 
 INIT_STATE:
@@ -628,7 +634,7 @@ INIT_STATE:
 		cp.MoveInitState(cp.state, true)
 	}
 
-	cp.csReactor.UpdateRound(cp.csReactor.curRound + 1)
+	// cp.csReactor.UpdateRound(cp.csReactor.curRound + 1)
 	return true
 }
 

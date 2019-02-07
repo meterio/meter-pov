@@ -164,8 +164,8 @@ func (cl *ConsensusLeader) GenerateAnnounceMsg() bool {
 
 	cl.csReactor.logger.Debug("Generate Announce Comittee Message", "msg", msg.String())
 	var m ConsensusMessage = msg
-	cl.SendMsg(&m)
 	cl.state = COMMITTEE_LEADER_ANNOUNCED
+	cl.SendMsg(&m)
 
 	//timeout function
 	announceExpire := func() {
@@ -186,8 +186,8 @@ func (cl *ConsensusLeader) GenerateAnnounceMsg() bool {
 			cl.csReactor.UpdateActualCommittee(cl.announceVoterIndexs, cl.announceVoterPubKey, cl.announceVoterBitArray)
 
 			//send out announce notary
-			cl.GenerateNotaryAnnounceMsg()
 			cl.state = COMMITTEE_LEADER_NOTARYSENT
+			cl.GenerateNotaryAnnounceMsg()
 
 			//timeout function
 			notaryExpire := func() {
@@ -244,7 +244,7 @@ func (cl *ConsensusLeader) GenerateNotaryAnnounceMsg() bool {
 	cl.csReactor.logger.Debug("Generate Notary Announce Message", "msg", msg.String())
 	var m ConsensusMessage = msg
 	cl.SendMsg(&m)
-	cl.state = COMMITTEE_LEADER_NOTARYSENT
+	// cl.state = COMMITTEE_LEADER_NOTARYSENT
 
 	return true
 }
