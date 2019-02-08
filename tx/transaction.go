@@ -23,8 +23,8 @@ import (
 )
 
 const (
-	TOKEN_METER_GOV = byte(0)
-	TOKEN_METER = byte(1)
+	TOKEN_METER_GOV = byte(1)
+	TOKEN_METER     = byte(0)
 )
 
 var (

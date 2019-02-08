@@ -37,7 +37,7 @@ func NewClause(to *thor.Address) *Clause {
 		clauseBody{
 			to,
 			&big.Int{},
-			TOKEN_METER_GOV,
+			TOKEN_METER,
 			nil,
 		},
 	}
