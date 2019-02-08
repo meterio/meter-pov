@@ -3,7 +3,7 @@
 // Distributed under the GNU Lesser General Public License v3.0 software license, see the accompanying
 // file LICENSE or <https://www.gnu.org/licenses/lgpl-3.0.html>
 
-package pow 
+package pow
 
 import (
 	"sync/atomic"
@@ -27,7 +27,7 @@ const (
 )
 
 var (
-	log            = log15.New("pkg", "powpool")
+	log           = log15.New("pkg", "powpool")
 	PowTxPoolInst *Powpool
 )
 
@@ -70,13 +70,12 @@ func GetPowTxPoolInst() *Powpool {
 }
 
 type badTxError struct {
-        msg string
+	msg string
 }
 
 func (e badTxError) Error() string {
-        return "bad tx: " + e.msg
+	return "bad tx: " + e.msg
 }
-
 
 // New create a new TxPool instance.
 // Shutdown is required to be called at end.
@@ -100,15 +99,15 @@ func (p *Powpool) housekeeping() {
 	ticker := time.NewTicker(time.Second * 2)
 	defer ticker.Stop()
 
-	headBlock := p.chain.BestBlock().Header()
-	log.Debug("header at", headBlock)
+	// headBlock := p.chain.BestBlock().Header()
+	// log.Debug("header at", headBlock)
 
 	for {
 		select {
 		case <-p.done:
 			return
 		case <-ticker.C:
-				log.Debug("wash done")
+			log.Debug("wash done")
 		}
 	}
 }
