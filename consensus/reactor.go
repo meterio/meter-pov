@@ -136,7 +136,7 @@ type ConsensusReactor struct {
 	// msgs from ourself, or by timeouts
 	peerMsgQueue     chan consensusMsgInfo
 	internalMsgQueue chan consensusMsgInfo
-	schedulerQueue   chan consensusTimeOutInfo
+	schedulerQueue   chan func()
 
 	// kBlock data
 	KBlockDataQueue    chan block.KBlockData // from POW simulation
@@ -172,7 +172,7 @@ func NewConsensusReactor(ctx *cli.Context, chain *chain.Chain, state *state.Crea
 	//initialize message channel
 	conR.peerMsgQueue = make(chan consensusMsgInfo, CHAN_DEFAULT_BUF_SIZE)
 	conR.internalMsgQueue = make(chan consensusMsgInfo, CHAN_DEFAULT_BUF_SIZE)
-	conR.schedulerQueue = make(chan consensusTimeOutInfo, CHAN_DEFAULT_BUF_SIZE)
+	conR.schedulerQueue = make(chan func(), CHAN_DEFAULT_BUF_SIZE)
 	conR.KBlockDataQueue = make(chan block.KBlockData, CHAN_DEFAULT_BUF_SIZE)
 
 	// add the hardcoded genesis nonce in the case every node in block 0
@@ -673,7 +673,7 @@ func (conR *ConsensusReactor) handleMsg(mi consensusMsgInfo) {
 
 			success := conR.csProposer.ProcessVoteForNotary(msg, peer)
 			if success == false {
-				conR.logger.Error("process VoteForNotary(Block) failed")
+				conR.logger.Warn("process VoteForNotary(Block) failed")
 			}
 		} else {
 			conR.logger.Error("Unknown MsgSubType", "value", ch.MsgSubType)
@@ -1334,81 +1334,39 @@ func (m *MoveNewRoundMessage) String() string {
 // New consensus timed schedule util
 type Scheduler func(conR *ConsensusReactor) bool
 
-type consensusTimeOutInfo struct {
-	Duration time.Duration
-	Height   int64 //Hight when triggered
-	Round    int   //Round when triggered
-	fn       Scheduler
-	arg      *ConsensusReactor
-}
-
-func (ti *consensusTimeOutInfo) String() string {
-	return fmt.Sprintf("%v ; %d/%d %v %v", ti.Duration, ti.Height, ti.Round, ti.fn, ti.arg)
-}
-
 //TBD: implemente timed schedule, Duration is not used right now
 func (conR *ConsensusReactor) ScheduleLeader(d time.Duration) bool {
-	ti := consensusTimeOutInfo{
-		Duration: d,
-		Height:   conR.curHeight,
-		Round:    conR.curRound,
-		fn:       HandleScheduleLeader,
-		arg:      conR,
-	}
-
-	conR.schedulerQueue <- ti
+	time.AfterFunc(d, func() {
+		conR.schedulerQueue <- func() { HandleScheduleLeader(conR) }
+	})
 	return true
 }
 
 func (conR *ConsensusReactor) ScheduleReplayLeader(d time.Duration) bool {
-	ti := consensusTimeOutInfo{
-		Duration: d,
-		Height:   conR.curHeight,
-		Round:    conR.curRound,
-		fn:       HandleScheduleReplayLeader,
-		arg:      conR,
-	}
-
-	conR.schedulerQueue <- ti
+	time.AfterFunc(d, func() {
+		conR.schedulerQueue <- func() { HandleScheduleReplayLeader(conR) }
+	})
 	return true
 }
 
 func (conR *ConsensusReactor) ScheduleValidator(d time.Duration) bool {
-	ti := consensusTimeOutInfo{
-		Duration: d,
-		Height:   conR.curHeight,
-		Round:    conR.curRound,
-		fn:       HandleScheduleValidator,
-		arg:      conR,
-	}
-
-	conR.schedulerQueue <- ti
+	time.AfterFunc(d, func() {
+		conR.schedulerQueue <- func() { HandleScheduleValidator(conR) }
+	})
 	return true
 }
 
 func (conR *ConsensusReactor) ScheduleReplayValidator(d time.Duration) bool {
-	ti := consensusTimeOutInfo{
-		Duration: d,
-		Height:   conR.curHeight,
-		Round:    conR.curRound,
-		fn:       HandleScheduleReplayValidator,
-		arg:      conR,
-	}
-
-	conR.schedulerQueue <- ti
+	time.AfterFunc(d, func() {
+		conR.schedulerQueue <- func() { HandleScheduleReplayValidator(conR) }
+	})
 	return true
 }
 
 func (conR *ConsensusReactor) ScheduleProposer(d time.Duration) bool {
-	ti := consensusTimeOutInfo{
-		Duration: d,
-		Height:   conR.curHeight,
-		Round:    conR.curRound,
-		fn:       HandleScheduleProposer,
-		arg:      conR,
-	}
-
-	conR.schedulerQueue <- ti
+	time.AfterFunc(d, func() {
+		conR.schedulerQueue <- func() { HandleScheduleProposer(conR) }
+	})
 	return true
 }
 
@@ -1486,13 +1444,15 @@ func HandleScheduleValidator(conR *ConsensusReactor) bool {
 }
 
 // Handle Schedules from conR.scheduleQueue
-func (conR *ConsensusReactor) HandleSchedule(ti consensusTimeOutInfo) bool {
+func (conR *ConsensusReactor) HandleSchedule(fn func()) bool {
+	/***
 	if ti.arg != conR {
 		conR.logger.Debug("ConsensusReactor changed ...")
 		return false
 	}
-	conR.logger.Debug("Handle schedule", "height", ti.Height, "round", ti.Round, "scheduling", ti.fn)
-	ti.fn(ti.arg)
+	***/
+	conR.logger.Debug("Handle schedule", "scheduling", fn)
+	fn()
 	return true
 }
 

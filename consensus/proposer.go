@@ -120,7 +120,7 @@ func (cp *ConsensusProposer) MoveInitState(curState byte, sendNewRoundMsg bool) 
 	cp.csReactor.logger.Info("Move to init state of proposer",
 		"curHeight", curHeight, "curRound", curRound,
 		"curState", curState,
-		"comitteeSize", len(cp.csReactor.curActualCommittee),
+		"actualComitteeSize", len(cp.csReactor.curActualCommittee),
 		"comitteeSize", len(cp.csReactor.curCommittee.Validators))
 
 	// clean up all data
@@ -247,7 +247,10 @@ func (cp *ConsensusProposer) GenerateMBlockMsg(mblock []byte) bool {
 		cp.csReactor.logger.Warn("Reach 2/3 votes of proposal expired", "comitteeSize", cp.csReactor.committeeSize, "voterCount", cp.proposalVoterNum)
 		cp.MoveInitState(cp.state, true)
 	}
-	cp.proposalThresholdTimer = time.AfterFunc(THRESHOLD_TIMER_TIMEOUT, proposalExpire)
+
+	cp.proposalThresholdTimer = time.AfterFunc(THRESHOLD_TIMER_TIMEOUT, func() {
+		cp.csReactor.schedulerQueue <- proposalExpire
+	})
 
 	return true
 }
@@ -306,7 +309,9 @@ func (cp *ConsensusProposer) GenerateKBlockMsg(kblock []byte) bool {
 		cp.csReactor.logger.Warn("Reach 2/3 votes of proposal expired", "comitteeSize", cp.csReactor.committeeSize, "voterCount", cp.proposalVoterNum)
 		cp.MoveInitState(cp.state, true)
 	}
-	cp.proposalThresholdTimer = time.AfterFunc(THRESHOLD_TIMER_TIMEOUT, proposalExpire)
+	cp.proposalThresholdTimer = time.AfterFunc(THRESHOLD_TIMER_TIMEOUT, func() {
+		cp.csReactor.schedulerQueue <- proposalExpire
+	})
 
 	return true
 }
@@ -363,7 +368,7 @@ func (cp *ConsensusProposer) GenerateNotaryBlockMsg() bool {
 func (cp *ConsensusProposer) ProcessVoteForProposal(vote4ProposalMsg *VoteForProposalMessage, src *ConsensusPeer) bool {
 	// only process Vote in state proposed
 	if cp.state < COMMITTEE_PROPOSER_PROPOSED {
-		cp.csReactor.logger.Error("state machine incorrect", "expected", "PROPOSED", "actual", cp.state)
+		cp.csReactor.logger.Warn("state machine incorrect", "expected", "PROPOSED", "actual", cp.state)
 		return false
 	}
 
@@ -445,16 +450,7 @@ func (cp *ConsensusProposer) ProcessVoteForProposal(vote4ProposalMsg *VoteForPro
 	if MajorityTwoThird(cp.proposalVoterNum, cp.csReactor.committeeSize) &&
 		cp.state == COMMITTEE_PROPOSER_PROPOSED {
 
-		// Now it is OK to aggregate signatures
 		cp.proposalVoterAggSig = cp.csReactor.csCommon.AggregateSign(cp.proposalVoterSig)
-
-		/******
-		fmt.Println("VoterMsgHash", cp.proposalVoterMsgHash)
-		for _, p := range cp.proposalVoterPubKey {
-			fmt.Println("pubkey:::", cp.csReactor.csCommon.system.PubKeyToBytes(p))
-		}
-		fmt.Println("aggrsig", cp.csReactor.csCommon.system.SigToBytes(cp.proposalVoterAggSig), "system", cp.csReactor.csCommon.system.ToBytes())
-		******/
 
 		//send out notary
 		cp.GenerateNotaryBlockMsg()
@@ -467,7 +463,9 @@ func (cp *ConsensusProposer) ProcessVoteForProposal(vote4ProposalMsg *VoteForPro
 			cp.MoveInitState(cp.state, true)
 		}
 
-		cp.notaryThresholdTimer = time.AfterFunc(PROPOSER_THRESHOLD_TIMER_TIMEOUT, notaryBlockExpire)
+		cp.notaryThresholdTimer = time.AfterFunc(PROPOSER_THRESHOLD_TIMER_TIMEOUT, func() {
+			cp.csReactor.schedulerQueue <- notaryBlockExpire
+		})
 	}
 	return true
 }
@@ -477,7 +475,7 @@ func (cp *ConsensusProposer) ProcessVoteForNotary(vote4NotaryMsg *VoteForNotaryM
 
 	// only process Vote Notary in state NotarySent
 	if cp.state != COMMITTEE_PROPOSER_NOTARYSENT {
-		cp.csReactor.logger.Error("state machine incorrect", "expected", "NOTARYSENT", "actual", cp.state)
+		cp.csReactor.logger.Warn("state machine incorrect", "expected", "NOTARYSENT", "actual", cp.state)
 		return false
 	}
 
@@ -565,10 +563,6 @@ func (cp *ConsensusProposer) ProcessVoteForNotary(vote4NotaryMsg *VoteForNotaryM
 		cp.state = COMMITTEE_PROPOSER_COMMITED
 		cp.notaryThresholdTimer.Stop()
 
-		//aggregate signature
-		// Aggregate signature here
-		cp.notaryVoterAggSig = cp.csReactor.csCommon.AggregateSign(cp.notaryVoterSig)
-
 		// Now commit this block
 		//logger.Info("")
 		cp.csReactor.logger.Info(`
@@ -579,9 +573,22 @@ Move to next height
 			"height", cp.csReactor.curHeight, "round", cp.csReactor.curRound)
 		//logger.Info("")
 
+		// Aggregate signatures
+		cp.notaryVoterAggSig = cp.csReactor.csCommon.AggregateSign(cp.notaryVoterSig)
+		cp.proposalVoterAggSig = cp.csReactor.csCommon.AggregateSign(cp.proposalVoterSig)
+
+		/******
+		fmt.Println("VoterMsgHash", cp.proposalVoterMsgHash)
+		for _, p := range cp.proposalVoterPubKey {
+			fmt.Println("pubkey:::", cp.csReactor.csCommon.system.PubKeyToBytes(p))
+		}
+		fmt.Println("aggrsig", cp.csReactor.csCommon.system.SigToBytes(cp.proposalVoterAggSig), "system", cp.csReactor.csCommon.system.ToBytes())
+		******/
+
 		// only the block body are filled. Now fill the Evidence / committeeInfo/ Kblock Data if needed
 		votingSig := cp.csReactor.csCommon.system.SigToBytes(cp.proposalVoterAggSig)
 		notarizeSig := cp.csReactor.csCommon.system.SigToBytes(cp.notaryVoterAggSig)
+
 		evidence := block.NewEvidence(votingSig, cp.proposalVoterMsgHash, *cp.proposalVoterBitArray,
 			notarizeSig, cp.notaryVoterMsgHash, *cp.notaryVoterBitArray)
 
@@ -627,11 +634,15 @@ Move to next height
 
 INIT_STATE:
 	//Finally, go to init
-	time.Sleep(5 * time.Second)
+	// time.Sleep(5 * time.Second)
 	if cp.curProposedBlockType == PROPOSE_MSG_SUBTYPE_KBLOCK {
 		cp.MoveInitState(cp.state, false)
 	} else if cp.curProposedBlockType == PROPOSE_MSG_SUBTYPE_MBLOCK {
-		cp.MoveInitState(cp.state, true)
+		time.AfterFunc(5*time.Second, func() {
+			cp.csReactor.schedulerQueue <- func() {
+				cp.MoveInitState(cp.state, true)
+			}
+		})
 	}
 
 	// cp.csReactor.UpdateRound(cp.csReactor.curRound + 1)

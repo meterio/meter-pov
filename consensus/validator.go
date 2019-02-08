@@ -405,7 +405,7 @@ func (cv *ConsensusValidator) ProcessNotaryBlockMessage(notaryMsg *NotaryBlockMe
 		return false
 	}
 
-	// Now validate voter bitarray and aggaregated signature.
+	// XXX: Now validate voter bitarray and aggaregated signature.
 
 	// Block is OK, send notary voting back
 	notaryPubKey, err := crypto.UnmarshalPubkey(notaryMsg.ProposerID)

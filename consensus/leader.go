@@ -88,7 +88,7 @@ func (cl *ConsensusLeader) MoveInitState(curState byte) bool {
 	cl.csReactor.logger.Info("Move to init state of leader",
 		"curHeight", r.curHeight, "curRound", r.curRound,
 		"curState", curState,
-		"comitteeSize", len(r.curActualCommittee),
+		"actualComitteeSize", len(r.curActualCommittee),
 		"comitteeSize", len(r.curCommittee.Validators))
 	cl.state = COMMITTEE_LEADER_INIT
 	return true
@@ -194,13 +194,18 @@ func (cl *ConsensusLeader) GenerateAnnounceMsg() bool {
 				cl.csReactor.logger.Warn("reach 2/3 votes of notary expired ...", "comitteeSize", cl.csReactor.committeeSize, "totalComitter", cl.notaryVoterNum)
 				cl.MoveInitState(cl.state)
 			}
-			cl.notaryThresholdTimer = time.AfterFunc(THRESHOLD_TIMER_TIMEOUT, notaryExpire)
+			cl.notaryThresholdTimer = time.AfterFunc(THRESHOLD_TIMER_TIMEOUT, func() {
+				cl.csReactor.schedulerQueue <- notaryExpire
+			})
+
 		} else {
 			cl.csReactor.logger.Warn("did not reach 2/3 committer of announce ...", "comitteeSize", cl.csReactor.committeeSize, "totalComitter", cl.notaryVoterNum)
 			cl.MoveInitState(cl.state)
 		}
 	}
-	cl.announceThresholdTimer = time.AfterFunc(THRESHOLD_TIMER_TIMEOUT, announceExpire)
+	cl.announceThresholdTimer = time.AfterFunc(THRESHOLD_TIMER_TIMEOUT, func() {
+		cl.csReactor.schedulerQueue <- announceExpire
+	})
 
 	return true
 }
