@@ -128,10 +128,16 @@ func (r *ResolvedTransaction) BuyGas(state *state.State, blockTime uint64) (
 	}
 
 	// fallback to deduct from tx origin
-	if energy.Sub(r.Origin, prepaid) {
+	// XXX reward transaction (Origin is nil) should not to deduct 
+	if !r.Origin.IsZero() {
+		if energy.Sub(r.Origin, prepaid) {
+			return baseGasPrice, gasPrice, r.Origin, func(rgas uint64) { doReturnGas(rgas) }, nil
+		} else {
+			return nil, nil, thor.Address{}, nil, errors.New("insufficient energy")
+		}
+	} else {
 		return baseGasPrice, gasPrice, r.Origin, func(rgas uint64) { doReturnGas(rgas) }, nil
 	}
-	return nil, nil, thor.Address{}, nil, errors.New("insufficient energy")
 }
 
 // ToContext create a tx context object.

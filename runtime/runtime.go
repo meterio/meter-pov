@@ -8,6 +8,7 @@ package runtime
 import (
 	"math/big"
 	"sync/atomic"
+	"fmt"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -117,11 +118,16 @@ func (rt *Runtime) newEVM(stateDB *statedb.StateDB, clauseIndex uint32, txCtx *x
 	var lastNonNativeCallGas uint64
 	return vm.NewEVM(vm.Context{
 		CanTransfer: func(_ vm.StateDB, addr common.Address, amount *big.Int, token byte) bool {
-			if token == tx.TOKEN_METER_GOV {
-				return stateDB.GetBalance(addr).Cmp(amount) >= 0
-			} else /*if token == tx.TOKEN_METER*/ {
-				// XXX. Yang: add gas fee in comparasion
-				return stateDB.GetEnergy(addr).Cmp(amount) >= 0
+			if !thor.Address(addr).IsZero() {
+				if token == tx.TOKEN_METER_GOV {
+					return stateDB.GetBalance(addr).Cmp(amount) >= 0
+				} else /*if token == tx.TOKEN_METER*/ {
+					// XXX. Yang: add gas fee in comparasion
+					return stateDB.GetEnergy(addr).Cmp(amount) >= 0
+				}
+			} else {
+				// mint transaction always good
+				return true
 			}
 		},
 		Transfer: func(_ vm.StateDB, sender, recipient common.Address, amount *big.Int, token byte) {
@@ -137,13 +143,22 @@ func (rt *Runtime) newEVM(stateDB *statedb.StateDB, clauseIndex uint32, txCtx *x
 			rt.state.SetEnergy(thor.Address(recipient),
 				rt.state.GetEnergy(thor.Address(recipient), rt.ctx.Time), rt.ctx.Time)
 			***************/
-
-			if token == tx.TOKEN_METER_GOV {
-				stateDB.SubBalance(common.Address(sender), amount)
-				stateDB.AddBalance(common.Address(recipient), amount)
-			} else if token == tx.TOKEN_METER {
-				stateDB.SubEnergy(common.Address(sender), amount)
-				stateDB.AddEnergy(common.Address(recipient), amount)
+			// mint transaction (sender is zero) means mint token, otherwise is regular transfer
+			if thor.Address(sender).IsZero() {
+				if token == tx.TOKEN_METER_GOV {
+					stateDB.MintBalance(recipient, amount)
+				} else if token == tx.TOKEN_METER {
+					stateDB.MintEnergy(recipient, amount)
+				}
+			} else {
+				//regular transfer
+				if token == tx.TOKEN_METER_GOV {
+					stateDB.SubBalance(common.Address(sender), amount)
+					stateDB.AddBalance(common.Address(recipient), amount)
+				} else if token == tx.TOKEN_METER {
+					stateDB.SubEnergy(common.Address(sender), amount)
+					stateDB.AddEnergy(common.Address(recipient), amount)
+				}
 			}
 
 			if rt.ctx.Number >= rt.forkConfig.FixTransferLog {
@@ -341,6 +356,7 @@ func (rt *Runtime) ExecuteTransaction(tx *tx.Transaction) (receipt *tx.Receipt, 
 	if err != nil {
 		return nil, err
 	}
+
 	for executor.HasNextClause() {
 		if _, _, err := executor.NextClause(); err != nil {
 			return nil, err
@@ -363,6 +379,7 @@ func (rt *Runtime) PrepareTransaction(tx *tx.Transaction) (*TransactionExecutor,
 
 	// ResolveTransaction has checked that tx.Gas() >= IntrinsicGas
 	leftOverGas := tx.Gas() - resolvedTx.IntrinsicGas
+
 	// checkpoint to be reverted when clause failure.
 	checkpoint := rt.state.NewCheckpoint()
 
@@ -399,6 +416,7 @@ func (rt *Runtime) PrepareTransaction(tx *tx.Transaction) (*TransactionExecutor,
 			if output.VMErr != nil {
 				// vm exception here
 				// revert all executed clauses
+				fmt.Println("output Error:", output.VMErr)
 				rt.state.RevertTo(checkpoint)
 				reverted = true
 				txOutputs = nil
@@ -435,6 +453,9 @@ func (rt *Runtime) PrepareTransaction(tx *tx.Transaction) (*TransactionExecutor,
 			reward.Mul(reward, overallGasPrice)
 			reward.Mul(reward, rewardRatio)
 			reward.Div(reward, big.NewInt(1e18))
+			//XXX ??? Mint transaction gas ?
+			//XXX 1.30% gas to benificiary. 70% is burned, need to update totalAddSub.
+			//XXX.2. mint transaction gas is not paid by other, should not touch state
 			builtin.Energy.Native(rt.state, rt.ctx.Time).Add(rt.ctx.Beneficiary, reward)
 
 			receipt.Reward = reward

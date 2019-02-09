@@ -23,8 +23,8 @@ import (
 )
 
 const (
+	TOKEN_METER = byte(0)
 	TOKEN_METER_GOV = byte(1)
-	TOKEN_METER     = byte(0)
 )
 
 var (
@@ -206,6 +206,11 @@ func (t *Transaction) Signature() []byte {
 
 // Signer extract signer of tx from signature.
 func (t *Transaction) Signer() (signer thor.Address, err error) {
+	// set the origin to nil if no signature
+	if len(t.body.Signature) == 0 {
+		return thor.Address{}, nil
+	}
+
 	if cached := t.cache.signer.Load(); cached != nil {
 		return cached.(thor.Address), nil
 	}

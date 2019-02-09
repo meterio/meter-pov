@@ -16,6 +16,7 @@ import (
 	"github.com/vechain/thor/state"
 	"github.com/vechain/thor/thor"
 	"github.com/vechain/thor/tx"
+	"github.com/vechain/thor/builtin/energy"
 )
 
 var codeSizeCache, _ = lru.New(32 * 1024)
@@ -112,6 +113,20 @@ func (s *StateDB) AddBalance(addr common.Address, amount *big.Int) {
 	s.state.SetBalance(thor.Address(addr), new(big.Int).Add(balance, amount))
 }
 
+// mintBalance stub
+func (s *StateDB) MintBalance(addr common.Address, amount *big.Int) {
+	a := thor.Address(addr)
+	e := energy.New(a, s.state, 0)
+	e.MintMeterGov(a, amount)
+}
+
+func (s *StateDB) BurnBalance(addr common.Address, amount *big.Int) {
+	a := thor.Address(addr)
+	e := energy.New(a, s.state, 0)
+	e.BurnMeterGov(a, amount)
+}
+
+
 // GetEnergy stub.
 func (s *StateDB) GetEnergy(addr common.Address) *big.Int {
 	return s.state.GetEnergy(thor.Address(addr), 0)
@@ -133,6 +148,19 @@ func (s *StateDB) AddEnergy(addr common.Address, amount *big.Int) {
 	}
 	balance := s.state.GetEnergy(thor.Address(addr), 0)
 	s.state.SetEnergy(thor.Address(addr), new(big.Int).Add(balance, amount), 0)
+}
+
+// minEnergy stub
+func (s *StateDB) MintEnergy(addr common.Address, amount *big.Int) {
+	a := thor.Address(addr)
+	e := energy.New(a, s.state, 0)
+	e.MintMeter(a, amount)
+}
+
+func (s *StateDB) BurnEnergy(addr common.Address, amount *big.Int) {
+	a := thor.Address(addr)
+	e := energy.New(a, s.state, 0)
+	e.BurnMeter(a, amount)
 }
 
 // GetNonce stub.

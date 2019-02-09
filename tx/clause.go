@@ -57,6 +57,13 @@ func (c *Clause) WithData(data []byte) *Clause {
 	return &newClause
 }
 
+// WithToken create a new clause copy with value changed.
+func (c *Clause) WithToken(token byte) *Clause {
+	newClause := *c
+	newClause.body.Token = token
+	return &newClause
+}
+
 // To returns 'To' address.
 func (c *Clause) To() *thor.Address {
 	if c.body.To == nil {

@@ -15,7 +15,13 @@ type (
 		Energy    *big.Int
 		BlockTime uint64
 	}
+	// meter
 	totalAddSub struct {
+		TotalAdd *big.Int
+		TotalSub *big.Int
+	}
+	// meter gov
+	tokenTotalAddSub struct {
 		TotalAdd *big.Int
 		TotalSub *big.Int
 	}
