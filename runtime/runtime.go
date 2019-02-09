@@ -443,7 +443,11 @@ func (rt *Runtime) PrepareTransaction(tx *tx.Transaction) (*TransactionExecutor,
 
 			receipt.Paid = new(big.Int).Mul(new(big.Int).SetUint64(receipt.GasUsed), gasPrice)
 
-			returnGas(leftOverGas)
+			// mint transaction gas is not prepaid, so do not return the leftover.
+			origin, _ := tx.Signer()
+			if !origin.IsZero() {
+				returnGas(leftOverGas)
+			}
 
 			// reward
 			//rewardRatio := builtin.Params.Native(rt.state).Get(thor.KeyRewardRatio)
@@ -456,7 +460,6 @@ func (rt *Runtime) PrepareTransaction(tx *tx.Transaction) (*TransactionExecutor,
 			reward.Div(reward, big.NewInt(1e18))
 
 			// mint transaction gas is not prepaid, so no reward.
-			origin, _ := tx.Signer()
 			if !origin.IsZero() {
 				builtin.Energy.Native(rt.state, rt.ctx.Time).Add(rt.ctx.Beneficiary, reward)
 			}
