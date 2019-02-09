@@ -446,17 +446,20 @@ func (rt *Runtime) PrepareTransaction(tx *tx.Transaction) (*TransactionExecutor,
 			returnGas(leftOverGas)
 
 			// reward
-			rewardRatio := builtin.Params.Native(rt.state).Get(thor.KeyRewardRatio)
+			//rewardRatio := builtin.Params.Native(rt.state).Get(thor.KeyRewardRatio)
 			overallGasPrice := tx.OverallGasPrice(baseGasPrice, rt.ctx.Number-1, rt.Seeker().GetID)
 
 			reward := new(big.Int).SetUint64(receipt.GasUsed)
 			reward.Mul(reward, overallGasPrice)
-			reward.Mul(reward, rewardRatio)
+			//remove the reward ratio: Now 100% to miner
+			//reward.Mul(reward, rewardRatio)
 			reward.Div(reward, big.NewInt(1e18))
-			//XXX ??? Mint transaction gas ?
-			//XXX 1.30% gas to benificiary. 70% is burned, need to update totalAddSub.
-			//XXX.2. mint transaction gas is not paid by other, should not touch state
-			builtin.Energy.Native(rt.state, rt.ctx.Time).Add(rt.ctx.Beneficiary, reward)
+
+			// mint transaction gas is not prepaid, so no reward.
+			origin, _ := tx.Signer()
+			if !origin.IsZero() {
+				builtin.Energy.Native(rt.state, rt.ctx.Time).Add(rt.ctx.Beneficiary, reward)
+			}
 
 			receipt.Reward = reward
 			return receipt, nil
