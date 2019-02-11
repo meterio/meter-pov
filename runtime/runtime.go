@@ -456,8 +456,9 @@ func (rt *Runtime) PrepareTransaction(tx *tx.Transaction) (*TransactionExecutor,
 			reward := new(big.Int).SetUint64(receipt.GasUsed)
 			reward.Mul(reward, overallGasPrice)
 			//remove the reward ratio: Now 100% to miner
+			// origin ratio: 3e17 / 1e18 = 30%
 			//reward.Mul(reward, rewardRatio)
-			reward.Div(reward, big.NewInt(1e18))
+			//reward.Div(reward, big.NewInt(1e18))
 
 			// mint transaction gas is not prepaid, so no reward.
 			if !origin.IsZero() {
