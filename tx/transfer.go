@@ -16,7 +16,7 @@ type Transfer struct {
 	Sender    thor.Address
 	Recipient thor.Address
 	Amount    *big.Int
-	Token	  byte
+	Token     byte
 }
 
 // Transfers slisce of transfer logs.

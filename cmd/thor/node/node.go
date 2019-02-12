@@ -27,11 +27,11 @@ import (
 	"github.com/vechain/thor/logdb"
 	"github.com/vechain/thor/lvldb"
 	"github.com/vechain/thor/packer"
+	"github.com/vechain/thor/pow"
 	"github.com/vechain/thor/state"
 	"github.com/vechain/thor/thor"
 	"github.com/vechain/thor/tx"
 	"github.com/vechain/thor/txpool"
-	"github.com/vechain/thor/pow"
 )
 
 var log = log15.New("pkg", "node")
@@ -305,12 +305,12 @@ func (n *Node) processBlock(blk *block.Block, stats *blockStats) (bool, error) {
 		}
 		log.Info("received kblock...", "nonce", info.Nonce, "height", info.Height)
 		// this chan is initialized as 100, we should clean up if it is almost full.
-		// only the last one is processed. 
+		// only the last one is processed.
 		chanLength := len(n.cons.RcvKBlockInfoQueue)
 		chanCap := cap(n.cons.RcvKBlockInfoQueue)
 		if chanLength >= (chanCap / 10 * 9) {
 			for i := int(0); i < chanLength; i++ {
-				<- n.cons.RcvKBlockInfoQueue
+				<-n.cons.RcvKBlockInfoQueue
 			}
 			log.Info("garbaged all kblock infoi ...")
 		}

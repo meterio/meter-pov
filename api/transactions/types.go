@@ -229,7 +229,7 @@ type Transfer struct {
 	Sender    thor.Address          `json:"sender"`
 	Recipient thor.Address          `json:"recipient"`
 	Amount    *math.HexOrDecimal256 `json:"amount"`
-	Token     byte                  `json:"token"`
+	Token     uint32                `json:"token"`
 }
 
 //ConvertReceipt convert a raw clause into a jason format clause
@@ -283,7 +283,7 @@ func convertReceipt(txReceipt *tx.Receipt, header *block.Header, tx *tx.Transact
 				Sender:    txTransfer.Sender,
 				Recipient: txTransfer.Recipient,
 				Amount:    (*math.HexOrDecimal256)(txTransfer.Amount),
-				Token: 		txTransfer.Token,
+				Token:     uint32(txTransfer.Token),
 			}
 			otp.Transfers[j] = transfer
 		}

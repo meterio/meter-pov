@@ -55,6 +55,7 @@ type Transfer struct {
 	Sender      thor.Address
 	Recipient   thor.Address
 	Amount      *big.Int
+	Token       uint32
 }
 
 //newTransfer converts tx.Transfer to Transfer.
@@ -69,6 +70,7 @@ func newTransfer(header *block.Header, index uint32, txID thor.Bytes32, txOrigin
 		Sender:      transfer.Sender,
 		Recipient:   transfer.Recipient,
 		Amount:      transfer.Amount,
+		Token:       uint32(transfer.Token),
 	}
 }
 

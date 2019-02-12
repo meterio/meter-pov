@@ -44,7 +44,8 @@ CREATE INDEX IF NOT EXISTS topicIndex4 ON event(topic4);`
 	txOrigin BLOB(20),
 	sender BLOB(20),
 	recipient BLOB(20),
-	amount BLOB
+	amount BLOB,
+	token BLOB(1)
 );
 
 CREATE UNIQUE INDEX IF NOT EXISTS prim ON transfer(blockID, transferIndex);
