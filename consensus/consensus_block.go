@@ -29,6 +29,7 @@ import (
 	crypto "github.com/ethereum/go-ethereum/crypto"
 	bls "github.com/vechain/thor/crypto/multi_sig"
 	cmn "github.com/vechain/thor/libs/common"
+	"github.com/vechain/thor/logdb"
 	"github.com/vechain/thor/packer"
 	"github.com/vechain/thor/xenv"
 )
@@ -310,7 +311,7 @@ func (c *ConsensusReactor) validateBlockBody(blk *block.Block) error {
 	}
 
 	for i, tx := range txs {
-		signer, err := tx.Signer();
+		signer, err := tx.Signer()
 		if err != nil {
 			return consensusError(fmt.Sprintf("tx signer unavailable: %v", err))
 		}
@@ -319,8 +320,8 @@ func (c *ConsensusReactor) validateBlockBody(blk *block.Block) error {
 		// 1. no signature (no signer)
 		// 2. only located in 1st transaction in kblock.
 		if signer.IsZero() {
-			if  (i != 0) || (blk.Header().BlockType() != block.BLOCK_TYPE_K_BLOCK) {
-				return consensusError(fmt.Sprintf("tx signer unavailable"))	
+			if (i != 0) || (blk.Header().BlockType() != block.BLOCK_TYPE_K_BLOCK) {
+				return consensusError(fmt.Sprintf("tx signer unavailable"))
 			}
 		}
 
@@ -382,8 +383,8 @@ func (c *ConsensusReactor) verifyBlock(blk *block.Block, state *state.State) (*s
 		}
 
 		if signer.IsZero() {
-			if  (i != 0) || (blk.Header().BlockType() != block.BLOCK_TYPE_K_BLOCK) {
-				return nil, nil, consensusError(fmt.Sprintf("tx signer unavailable"))	
+			if (i != 0) || (blk.Header().BlockType() != block.BLOCK_TYPE_K_BLOCK) {
+				return nil, nil, consensusError(fmt.Sprintf("tx signer unavailable"))
 			}
 		}
 
@@ -494,6 +495,20 @@ func (conR *ConsensusReactor) finalizeCommitBlock(blkInfo *ProposedBlockInfo) bo
 
 	if _, err := stage.Commit(); err != nil {
 		conR.logger.Error("failed to commit state", "err", err)
+		return false
+	}
+
+	batch := logdb.GetGlobalLogDBInstance().Prepare(blk.Header())
+	for i, tx := range blk.Transactions() {
+		origin, _ := tx.Signer()
+		txBatch := batch.ForTransaction(tx.ID(), origin)
+		for _, output := range (*(*receipts)[i]).Outputs {
+			txBatch.Insert(output.Events, output.Transfers)
+		}
+	}
+
+	if err := batch.Commit(); err != nil {
+		conR.logger.Error("commit logs failed ...", "err", err)
 		return false
 	}
 

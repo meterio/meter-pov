@@ -181,7 +181,11 @@ func (cp *ConsensusProposer) ProposalBlockMsg(proposalEmptyBlock bool) bool {
 	proposalEmptyBlock = true
 
 	//check POW pool and TX pool, propose kblock/mblock/no need to propose.
-	proposalKBlock := cp.CheckKblock()
+	// The first MBlock must be generated because committee info is in this block
+	proposalKBlock := false
+	if cp.csReactor.curRound != 0 {
+		proposalKBlock = cp.CheckKblock()
+	}
 
 	// XXX: only generate empty Block at initial test
 	// check TX pool and POW pool, decide to go which block
