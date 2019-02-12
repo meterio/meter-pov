@@ -221,14 +221,8 @@ Please check the following:
 - Give a brief title.
 - Explain the major changes you are asking to be code reviewed. Often it is useful to open a second tab in your browser where you can look through the diff yourself to remind yourself of all the changes you have made.
 
-## License
 
-VeChain Thor is licensed under the
-[GNU Lesser General Public License v3.0](https://www.gnu.org/licenses/lgpl-3.0.html), also included
-in *LICENSE* file in repository.
-
-
-#### Deployment Steps
+## Deployment Steps
 
 Right now, only node mode is supported. solo mode is not supported anymore. The next few steps will show you how to setup a cluster with 2 nodes (named as `node1` and `node2`)
 
@@ -321,3 +315,10 @@ CommitteeInfo: {[] [] []}
 ```
 
 That's it. The next time, you won't need the `--peers` flag for `node2` any more, since it's already stored in cache. Enjoy!
+
+## License
+
+VeChain Thor is licensed under the
+[GNU Lesser General Public License v3.0](https://www.gnu.org/licenses/lgpl-3.0.html), also included
+in *LICENSE* file in repository.
+
