@@ -228,41 +228,96 @@ VeChain Thor is licensed under the
 in *LICENSE* file in repository.
 
 
-#### 
-New CLI command examples
-Right now only support 2 nodes and above consensus. solo does not work anymore.
-1) node 1
-./thor --network test --verbosity 9 --force-last-kframe --peers enode://719d706c31723dca3cc5eb9c325b9bf842c4301ec3cc0086beb7823ecf428034b6a6c4f93efd1958a54746ee3d3312c3c26253c88b11c2cc6b08683a4e597190@10.1.10.9:11235 --api-addr 0.0.0.0:8669
+#### Deployment Steps
 
-2) node 2
-./thor --network test --verbosity 9 --force-last-kframe --gen-kframe --peers enode://a00f8a399e25e72d92534236d7683b9c4c23582045c7d081735e4badf09d0775797819791502893df901c6b9dd26281f31bf6850fdfcebb48ea37cdbf63a95ae@10.1.10.50:11235
+Right now, only node mode is supported. solo mode is not supported anymore. The next few steps will show you how to setup a cluster with 2 nodes (named as `node1` and `node2`)
 
-3) edit ~/.org.vechain.thor/delegates.json
+1. prepare the binary and copy it to `node1` and `node2` (take a look at [build instruction](./BUILD.md) )
+2. run the binary first with `./bin/thor --network test --verbosity 9`
+3. take a note on the enode id for `node1`, you could find it in log here:
+
+```
+INFO[02-12|14:45:46] starting P2P networking
+server Node: &{615dea026b3dac00b6b9935a412bed586ea4e5ce8ac9c2dc45db40c4cdeee2fd4db24c5af897dc1b6516429a33f3e7840ea38feec637fd6d405e4c50776b5739 thor/v1.0.5-1886cd9-dev/linux/go1.10.4 enode://615dea026b3dac00b6b9935a412bed586ea4e5ce8ac9c2dc45db40c4cdeee2fd4db24c5af897dc1b6516429a33f3e7840ea38feec637fd6d405e4c50776b5739@[::]:11235?discport=0 :: {0 11235} [::]:11235 map[thor:unknown]}
+```
+
+The `enode://xxxx@[::]:11235` part is the enode, replace the `[::]` part with actual ip of `node1`
+
+4. now you need to prepare a config file named `delegates.json`, a sample file looks like this:
+
+```
 [
     {
         "address" : "a0da10fa4e8e810c4ef3f9a3cd8091a7b10e05fd",
-        "pub_key" : "BIkIwtMaCdFZTjhwVOwJTytO5OvjFSkjnmlV3H12up/Zre8RHy44183AwBmC2xB+2VrYMqnqie9gYAyTixgsTfU=",
+        "pub_key" : "node1-pub-key",
         "voting_power" : "90",
         "network_addr" : {
             "id" : "1000",
-            "ip" : "10.1.10.50",
+            "ip" : "node1-ip",
             "port" : 8080,
-            "name" : "DelegateSample0"
+            "name" : "nod1"
         },
         "accum" : "7689255112978"
     },
     {
         "address" : "d4be94fda23e12ee656b5123c9ac80bbf81971a5",
-        "pub_key" : "BEMbnhStJtqqC1MBv6dnJnt8xAd6Wp5/y/PT9xzyvRGyz6X5BbvrcPRpEqzzOkHqRrx3iX7G3ZCyEXey7qerbIs=",
+        "pub_key" : "node2-pub-key",
         "voting_power" : "100",
         "network_addr" : {
             "id" : "1001",
-            "ip" : "10.1.10.9",
+            "ip" : "node2-ip",
             "port" : 8080,
-            "name" : "DelegateSample1"
+            "name" : "node2"
         },
         "accum" : "2057045235008"
     }
 ]
 
+```
 
+replace node1-ip with ip of `node1`
+replace node1-pub-key with content from `~/.org.vechain.thor/public.key` on `node1`
+replace node2-ip with ip of `node2`
+replace node2-pub-key with content from `~/.org.vechain.thor/public.key` on `node2`
+
+5. copy `delegates.json` on to `node1` and `node2`, place it under `~/.org.vechain.thor/delegates.json`
+
+6. now you're ready to boot up
+
+on `node1`, use `./bin/thor --network test --verbosity 9`
+on `node2`, use `./bin/thor --network test --verbosity 9 --peers [enode-id-of-node1]`
+
+7. if you see from the log that block has been generated with consensus, everything is up and running!
+
+A sample log for commited block:
+
+```
+INFO[02-12|14:45:40]
+===========================================================
+Block commited at height 1
+===========================================================
+ pkg=consensus elapsedTime=707218 bestBlockHeight=1
+
+Block(504 B){
+BlockHeader: Header(0x0000055d29c1adde910544507f7b712370f2a91dcc4b34d21f3b696e4c10f515):
+        Number:                 1
+        ParentID:               0x0000055c3a8556200e83ac9fe80e0323de76f529edeb150613d2af5166dfc12d
+        Timestamp:              1550011540
+        Signer:                 0x7280d2f760ce59c5a2e0bb04eccdef45c6bb7d14
+        Beneficiary:            0x7280d2f760ce59c5a2e0bb04eccdef45c6bb7d14
+        BlockType:              2
+        LastKBlockHieght:       0
+        GasLimit:               10000000
+        GasUsed:                0
+        TotalScore:             1
+        TxsRoot:                0x45b0cfc220ceec5b7c1c62c4d4193d38e4eba48e8815729ce75f9c0ab0e4c1c0
+        StateRoot:              0x7d7cb8edd7a420953caad0a9a90583dd6fc6fc0a52235f2d801ee16d43a3f389
+        ReceiptsRoot:   0x45b0cfc220ceec5b7c1c62c4d4193d38e4eba48e8815729ce75f9c0ab0e4c1c0
+        Signature:              0xfca190d1e2388e52d290ec91777c3e4b2db7b6273ddfd27c344062d14355c92b56d69a2c5da2da39a69e43425c0fa5402928bb41315c0f87fe299bd7820e08db01,
+Transactions: [],
+KBlockData: {0 0x0000000000000000000000000000000000000000 []},
+CommitteeInfo: {[] [] []}
+}
+```
+
+That's it. The next time, you won't need the `--peers` flag for `node2` any more, since it's already stored in cache. Enjoy!
