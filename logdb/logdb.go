@@ -23,6 +23,18 @@ type LogDB struct {
 	driverVersion string
 }
 
+var (
+	GlobalLogDBInstance *LogDB
+)
+
+func setGlobalLogDBInstance(db *LogDB) {
+	GlobalLogDBInstance = db
+}
+
+func GetGlobalLogDBInstance() *LogDB {
+	return GlobalLogDBInstance
+}
+
 // New create or open log db at given path.
 func New(path string) (logDB *LogDB, err error) {
 	db, err := sql.Open("sqlite3", path)
@@ -39,11 +51,13 @@ func New(path string) (logDB *LogDB, err error) {
 	}
 
 	driverVer, _, _ := sqlite3.Version()
-	return &LogDB{
+	logdbInstance := &LogDB{
 		path,
 		db,
 		driverVer,
-	}, nil
+	}
+	setGlobalLogDBInstance(logdbInstance)
+	return logdbInstance, nil
 }
 
 // NewMem create a log db in ram.
@@ -267,6 +281,7 @@ func (db *LogDB) queryTransfers(ctx context.Context, stmt string, args ...interf
 			sender      []byte
 			recipient   []byte
 			amount      []byte
+			token       uint32
 		)
 		if err := rows.Scan(
 			&blockID,
@@ -278,6 +293,7 @@ func (db *LogDB) queryTransfers(ctx context.Context, stmt string, args ...interf
 			&sender,
 			&recipient,
 			&amount,
+			&token,
 		); err != nil {
 			return nil, err
 		}
@@ -291,6 +307,7 @@ func (db *LogDB) queryTransfers(ctx context.Context, stmt string, args ...interf
 			Sender:      thor.BytesToAddress(sender),
 			Recipient:   thor.BytesToAddress(recipient),
 			Amount:      new(big.Int).SetBytes(amount),
+			Token:       token,
 		}
 		transfers = append(transfers, trans)
 	}
@@ -349,7 +366,7 @@ func (bb *BlockBatch) Commit(abandonedBlocks ...thor.Bytes32) error {
 		}
 
 		for _, transfer := range bb.transfers {
-			if _, err := tx.Exec("INSERT OR REPLACE INTO transfer(blockID ,transferIndex, blockNumber ,blockTime ,txID ,txOrigin ,sender ,recipient ,amount) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?);",
+			if _, err := tx.Exec("INSERT OR REPLACE INTO transfer(blockID ,transferIndex, blockNumber ,blockTime ,txID ,txOrigin ,sender ,recipient ,amount, token) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);",
 				transfer.BlockID.Bytes(),
 				transfer.Index,
 				transfer.BlockNumber,
@@ -359,6 +376,7 @@ func (bb *BlockBatch) Commit(abandonedBlocks ...thor.Bytes32) error {
 				transfer.Sender.Bytes(),
 				transfer.Recipient.Bytes(),
 				transfer.Amount.Bytes(),
+				transfer.Token,
 			); err != nil {
 				return err
 			}

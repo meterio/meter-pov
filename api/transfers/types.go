@@ -17,6 +17,7 @@ type FilteredTransfer struct {
 	Recipient thor.Address          `json:"recipient"`
 	Amount    *math.HexOrDecimal256 `json:"amount"`
 	Meta      transactions.LogMeta  `json:"meta"`
+	Token     uint32                `json:"token"`
 }
 
 func convertTransfer(transfer *logdb.Transfer) *FilteredTransfer {
@@ -25,6 +26,7 @@ func convertTransfer(transfer *logdb.Transfer) *FilteredTransfer {
 		Sender:    transfer.Sender,
 		Recipient: transfer.Recipient,
 		Amount:    &v,
+		Token:     transfer.Token,
 		Meta: transactions.LogMeta{
 			BlockID:        transfer.BlockID,
 			BlockNumber:    transfer.BlockNumber,

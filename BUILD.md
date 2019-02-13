@@ -26,7 +26,9 @@ sudo apt install libgmp3-dev
 ### build
 
 make sure you have $GOPATH configured
+make sure you install dep before you execute `make dep`, otherwise you'll get errors about dependencies such as go-amino and rs/cors
 
+```
 cd $GOPATH/src
 mkdir -p github.com/dfinlab
 cd github.com/dfinlab
@@ -37,3 +39,4 @@ git clone https://github.com/dfinlab/thor-consensus
 cd thor-consensus
 make dep
 make
+```

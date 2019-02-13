@@ -6,9 +6,9 @@
 package runtime
 
 import (
+	"fmt"
 	"math/big"
 	"sync/atomic"
-	"fmt"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -167,12 +167,11 @@ func (rt *Runtime) newEVM(stateDB *statedb.StateDB, clauseIndex uint32, txCtx *x
 				// Make a copy to prevent it.
 				amount = new(big.Int).Set(amount)
 			}
-
 			stateDB.AddTransfer(&tx.Transfer{
 				Sender:    thor.Address(sender),
 				Recipient: thor.Address(recipient),
 				Amount:    amount,
-				Token: 	   token,
+				Token:     token,
 			})
 		},
 		GetHash: func(num uint64) common.Hash {
@@ -266,7 +265,7 @@ func (rt *Runtime) newEVM(stateDB *statedb.StateDB, clauseIndex uint32, txCtx *x
 					Sender:    thor.Address(contractAddr),
 					Recipient: thor.Address(tokenReceiver),
 					Amount:    amount,
-					Token:	   tx.TOKEN_METER,
+					Token:     tx.TOKEN_METER,
 				})
 			}
 
