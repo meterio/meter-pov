@@ -5,7 +5,7 @@ a) nodejs 10.15.1 or above
 b) load required module (meterify) and provision the provider 
 
 ```
-const thorify = require("meterify").meterify;
+const meterify = require("meterify").meterify;
 const Web3 = require("web3");
 const web3 = meterify(new Web3(), "http://localhost:8669");
 ```
@@ -72,11 +72,14 @@ contractInstance.events.allEvents({ }, (error, result) => { if(error){ console.l
 
 d) the message call all the methods in contracts.
 
+The followings are a few examples message call
+
 ```
 contractInstance.methods._transferFrom('0x0205c2D862cA051010698b69b54278cbAf945C0b', '0x8A88c59bF15451F9Deb1d62f7734FeCe2002668E', '9999').send({from: '0x0205c2D862cA051010698b69b54278cbAf945C0b', gas: 4700000 }).then(function(data){console.log(data)}).catch(function(err){console.log(err)})
 
 contractInstance.methods.getAccountBalanceOf('0x0205c2D862cA051010698b69b54278cbAf945C0b').send({from: '0x0205c2D862cA051010698b69b54278cbAf945C0b', gas: 4700000 }).then(function(data){console.log(data)}).catch(function(err){console.log(err)})
 
+contractInstance.methods.getAccountBalanceOf('0x0205c2D862cA051010698b69b54278cbAf945C0b').call({from: '0x0205c2D862cA051010698b69b54278cbAf945C0b', gas: 4700000 }).then(function(data){console.log(data)}).catch(function(err){console.log(err)})
 contractInstance.methods.mintToken('0x0205c2D862cA051010698b69b54278cbAf945C0b', '99999999999999999999999').send({from: '0x0205c2D862cA051010698b69b54278cbAf945C0b', gas: 4700000 }).then(function(data){console.log(data)}).catch(function(err){console.log(err)})
 ```
 
