@@ -249,6 +249,15 @@ func (cp *ConsensusProposer) GenerateMBlockMsg(mblock []byte) bool {
 	//timeout function
 	proposalExpire := func() {
 		cp.csReactor.logger.Warn("Reach 2/3 votes of proposal expired", "comitteeSize", cp.csReactor.committeeSize, "voterCount", cp.proposalVoterNum)
+
+		//revert to checkpoint
+		best := cp.csReactor.chain.BestBlock()
+		state, err := cp.csReactor.stateCreator.NewState(best.Header().StateRoot())
+		if err != nil {
+			panic(fmt.Sprintf("revert state failed ... %v", err))
+		}
+		state.RevertTo(cp.curProposedBlockInfo.CheckPoint)
+
 		cp.MoveInitState(cp.state, true)
 	}
 
@@ -311,6 +320,15 @@ func (cp *ConsensusProposer) GenerateKBlockMsg(kblock []byte) bool {
 	//timeout function
 	proposalExpire := func() {
 		cp.csReactor.logger.Warn("Reach 2/3 votes of proposal expired", "comitteeSize", cp.csReactor.committeeSize, "voterCount", cp.proposalVoterNum)
+
+		//revert to checkpoint
+		best := cp.csReactor.chain.BestBlock()
+		state, err := cp.csReactor.stateCreator.NewState(best.Header().StateRoot())
+		if err != nil {
+			panic(fmt.Sprintf("revert state failed ... %v", err))
+		}
+		state.RevertTo(cp.curProposedBlockInfo.CheckPoint)
+
 		cp.MoveInitState(cp.state, true)
 	}
 	cp.proposalThresholdTimer = time.AfterFunc(THRESHOLD_TIMER_TIMEOUT, func() {
@@ -464,6 +482,15 @@ func (cp *ConsensusProposer) ProcessVoteForProposal(vote4ProposalMsg *VoteForPro
 		//timeout function
 		notaryBlockExpire := func() {
 			cp.csReactor.logger.Warn("reach 2/3 vote of notaryBlock expired ...", "comitteeSize", cp.csReactor.committeeSize, "receivedVotesOfNotary", cp.notaryVoterNum)
+
+			//revert to checkpoint
+			best := cp.csReactor.chain.BestBlock()
+			state, err := cp.csReactor.stateCreator.NewState(best.Header().StateRoot())
+			if err != nil {
+				panic(fmt.Sprintf("revert the state faild ... %v", err))
+			}
+			state.RevertTo(cp.curProposedBlockInfo.CheckPoint)
+
 			cp.MoveInitState(cp.state, true)
 		}
 
@@ -600,6 +627,7 @@ Move to next height
 		if cp.curProposedBlockType == PROPOSE_MSG_SUBTYPE_KBLOCK {
 			// XXX fill KBlockData later
 			cp.csReactor.finalizeKBlock(blk, evidence)
+
 		} else if cp.curProposedBlockType == PROPOSE_MSG_SUBTYPE_MBLOCK {
 			cp.csReactor.finalizeMBlock(blk, evidence)
 		}

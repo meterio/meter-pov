@@ -529,6 +529,9 @@ func (conR *ConsensusReactor) finalizeCommitBlock(blkInfo *ProposedBlockInfo) bo
 		}
 	}
 
+	// now only Mblock remove the txs from txpool
+	blkInfo.txsToRemoved()
+
 	commitElapsed := mclock.Now() - startTime
 
 	// XXX: broadcast the new block to all peers
@@ -628,6 +631,8 @@ type ProposedBlockInfo struct {
 	ProposedBlock *block.Block
 	Stage         *state.Stage
 	Receipts      *tx.Receipts
+	txsToRemoved  func() bool
+	CheckPoint    int
 }
 
 // Build MBlock
@@ -649,11 +654,12 @@ func (conR *ConsensusReactor) BuildMBlock() *ProposedBlockInfo {
 
 	txs := pool.Executables()
 	var txsToRemove []thor.Bytes32
-	defer func() {
+	txsToRemoved := func() bool {
 		for _, id := range txsToRemove {
 			pool.Remove(id)
 		}
-	}()
+		return true
+	}
 
 	p := packer.GetGlobPackerInst()
 	if p == nil {
@@ -669,6 +675,14 @@ func (conR *ConsensusReactor) BuildMBlock() *ProposedBlockInfo {
 		return nil
 	}
 
+	//create checkPoint before build block
+	state, err := conR.stateCreator.NewState(best.Header().StateRoot())
+	if err != nil {
+		conR.logger.Error("revert state failed ...", "error", err)
+		return nil
+	}
+	checkPoint := state.NewCheckpoint()
+
 	for _, tx := range txs {
 		if err := flow.Adopt(tx); err != nil {
 			if packer.IsGasLimitReached(err) {
@@ -683,13 +697,13 @@ func (conR *ConsensusReactor) BuildMBlock() *ProposedBlockInfo {
 
 	newBlock, stage, receipts, err := flow.Pack(&conR.myPrivKey, block.BLOCK_TYPE_M_BLOCK, conR.lastKBlockHeight)
 	if err != nil {
-		conR.logger.Error("build block failed")
+		conR.logger.Error("build block failed", "error", err)
 		return nil
 	}
 
 	execElapsed := mclock.Now() - startTime
 	conR.logger.Info("MBlock built", "height", conR.curHeight, "elapseTime", execElapsed)
-	return &ProposedBlockInfo{newBlock, stage, &receipts}
+	return &ProposedBlockInfo{newBlock, stage, &receipts, txsToRemoved, checkPoint}
 }
 
 func (conR *ConsensusReactor) BuildKBlock(data *block.KBlockData) *ProposedBlockInfo {
@@ -713,13 +727,26 @@ func (conR *ConsensusReactor) BuildKBlock(data *block.KBlockData) *ProposedBlock
 		return nil
 	}
 
-	var txsToRemove []thor.Bytes32
+	//var txsToRemove []thor.Bytes32
+	txsToRemoved := func() bool {
+		// Kblock does not need to clean up txs now
+		return true
+	}
+
 	gasLimit := p.GasLimit(best.Header().GasLimit())
 	flow, err := p.Mock(best.Header(), now, gasLimit)
 	if err != nil {
 		conR.logger.Warn("mock packer", "error", err)
 		return nil
 	}
+
+	//create checkPoint before build block
+	state, err := conR.stateCreator.NewState(best.Header().StateRoot())
+	if err != nil {
+		conR.logger.Error("revert state failed ...", "error", err)
+		return nil
+	}
+	checkPoint := state.NewCheckpoint()
 
 	for _, tx := range txs {
 		if err := flow.Adopt(tx); err != nil {
@@ -729,13 +756,13 @@ func (conR *ConsensusReactor) BuildKBlock(data *block.KBlockData) *ProposedBlock
 			if packer.IsTxNotAdoptableNow(err) {
 				continue
 			}
-			txsToRemove = append(txsToRemove, tx.ID())
+			//txsToRemove = append(txsToRemove, tx.ID())
 		}
 	}
 
 	newBlock, stage, receipts, err := flow.Pack(&conR.myPrivKey, block.BLOCK_TYPE_K_BLOCK, conR.lastKBlockHeight)
 	if err != nil {
-		conR.logger.Error("build block failed")
+		conR.logger.Error("build block failed...", "error", err)
 		return nil
 	}
 
@@ -744,7 +771,7 @@ func (conR *ConsensusReactor) BuildKBlock(data *block.KBlockData) *ProposedBlock
 
 	execElapsed := mclock.Now() - startTime
 	conR.logger.Info("KBlock built", "height", conR.curHeight, "elapseTime", execElapsed)
-	return &ProposedBlockInfo{newBlock, stage, &receipts}
+	return &ProposedBlockInfo{newBlock, stage, &receipts, txsToRemoved, checkPoint}
 }
 
 //=================================================
