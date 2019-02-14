@@ -28,6 +28,7 @@ import (
 )
 
 const (
+
 	// FSM of PROPOSER
 	COMMITTEE_PROPOSER_INIT       = byte(0x01)
 	COMMITTEE_PROPOSER_PROPOSED   = byte(0x02)
@@ -635,10 +636,26 @@ Move to next height
 		// commit the approved block
 		if cp.csReactor.finalizeCommitBlock(&cp.curProposedBlockInfo) == false {
 			cp.csReactor.logger.Error("Commit block failed ...")
-			goto INIT_STATE
+
+			//revert to checkpoint
+			best := cp.csReactor.chain.BestBlock()
+			state, err := cp.csReactor.stateCreator.NewState(best.Header().StateRoot())
+			if err != nil {
+				panic(fmt.Sprintf("revert the state faild ... %v", err))
+			}
+			state.RevertTo(cp.curProposedBlockInfo.CheckPoint)
+
+			// wait 5 send and move to next round
+			time.AfterFunc(WHOLE_NETWORK_BLOCK_SYNC_TIME*time.Second, func() {
+				cp.csReactor.schedulerQueue <- func() {
+					cp.MoveInitState(cp.state, true)
+				}
+			})
+
+			return true
 		}
 
-		// blcok is commited
+		// blcok is successfully commited
 		if cp.curProposedBlockType == PROPOSE_MSG_SUBTYPE_KBLOCK {
 
 			cp.MoveInitState(cp.state, false)
@@ -658,23 +675,19 @@ Move to next height
 			cp.csReactor.exitCurCommittee()
 			cp.csReactor.ConsensusHandleReceivedNonce(int64(height), nonce, false)
 			return true
+
+		} else {
+			// mblock, wait for 5 s and sends move to next round msg
+			time.AfterFunc(WHOLE_NETWORK_BLOCK_SYNC_TIME*time.Second, func() {
+				cp.csReactor.schedulerQueue <- func() {
+					cp.MoveInitState(cp.state, true)
+				}
+			})
+			return true
 		}
 	} else {
 		// received VoteForNotary but 2/3 is not reached, keep waiting.
 		return true
-	}
-
-INIT_STATE:
-	//Finally, go to init
-	// time.Sleep(5 * time.Second)
-	if cp.curProposedBlockType == PROPOSE_MSG_SUBTYPE_KBLOCK {
-		cp.MoveInitState(cp.state, false)
-	} else if cp.curProposedBlockType == PROPOSE_MSG_SUBTYPE_MBLOCK {
-		time.AfterFunc(5*time.Second, func() {
-			cp.csReactor.schedulerQueue <- func() {
-				cp.MoveInitState(cp.state, true)
-			}
-		})
 	}
 
 	// cp.csReactor.UpdateRound(cp.csReactor.curRound + 1)

@@ -54,6 +54,9 @@ import (
 const (
 	maxMsgSize = 1048576 // 1MB; NOTE/TODO: keep in sync with types.PartSet sizes.
 
+	//normally when a block is committed, wait for a while to let whole network to sync and move to next round
+	WHOLE_NETWORK_BLOCK_SYNC_TIME = 5
+
 	blocksToContributeToBecomeGoodPeer = 10000
 	votesToContributeToBecomeGoodPeer  = 10000
 
@@ -1477,7 +1480,7 @@ func (conR *ConsensusReactor) ConsensusHandleReceivedNonce(kBlockHeight int64, n
 	if role == CONSENSUS_COMMIT_ROLE_LEADER {
 		conR.logger.Info("I am committee leader for nonce!", "nonce", nonce)
 		// XXX: wait a while for synchronization
-		time.Sleep(5 * time.Second)
+		time.Sleep(WHOLE_NETWORK_BLOCK_SYNC_TIME * time.Second)
 		if replay {
 			conR.ScheduleReplayLeader(0)
 		} else {
