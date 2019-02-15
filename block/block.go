@@ -18,6 +18,20 @@ import (
 	"github.com/vechain/thor/types"
 )
 
+// This is clone dat astructure from POW(cpp). If it is changed in POW(cpp),
+// must update here !!!
+type PowBlockHeader struct {
+	Version        uint32
+	HashPrevBlock  thor.Bytes32
+	HashMerkleRoot thor.Bytes32
+	TimeStamp      uint32
+	NBits          uint32
+	Nonce          uint32
+	Beneficiary    thor.Address
+	PowHeight      uint32
+	RewardCoef     uint64
+}
+
 // NewEvidence records the voting/notarization aggregated signatures and bitmap
 // of validators.
 // Validators info can get from 1st proposaed block meta data
@@ -32,8 +46,7 @@ type Evidence struct {
 
 type KBlockData struct {
 	Nonce uint64 // the last of the pow block
-	Miner thor.Address
-	Data  []byte
+	Data  []PowBlockHeader
 }
 
 type CommitteeInfo struct {
