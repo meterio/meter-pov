@@ -27,7 +27,6 @@ import (
 	"github.com/vechain/thor/logdb"
 	"github.com/vechain/thor/lvldb"
 	"github.com/vechain/thor/packer"
-	"github.com/vechain/thor/pow"
 	"github.com/vechain/thor/state"
 	"github.com/vechain/thor/thor"
 	"github.com/vechain/thor/tx"
@@ -44,7 +43,6 @@ type Node struct {
 	goes   co.Goes
 	packer *packer.Packer
 	cons   *consensus.ConsensusReactor
-	pow    *pow.PowpoolReactor
 
 	master      *Master
 	chain       *chain.Chain
@@ -73,7 +71,6 @@ func New(
 	txStashPath string,
 	comm *comm.Communicator,
 	cons *consensus.ConsensusReactor,
-	pow *pow.PowpoolReactor,
 ) *Node {
 	node := &Node{
 		packer:      packer.New(chain, stateCreator, master.Address(), master.Beneficiary),
@@ -84,7 +81,6 @@ func New(
 		txPool:      txPool,
 		txStashPath: txStashPath,
 		comm:        comm,
-		pow:         pow,
 	}
 	SetGlobNode(node)
 	return node

@@ -29,6 +29,8 @@ import (
 	"github.com/vechain/thor/logdb"
 	"github.com/vechain/thor/lvldb"
 	"github.com/vechain/thor/pow"
+	"github.com/vechain/thor/powpool"
+	pow_api "github.com/vechain/thor/powpool/api"
 	"github.com/vechain/thor/state"
 	"github.com/vechain/thor/thor"
 	"github.com/vechain/thor/txpool"
@@ -153,18 +155,24 @@ func defaultAction(ctx *cli.Context) error {
 	apiURL, srvCloser := startAPIServer(ctx, apiHandler, chain.GenesisBlock().Header().ID())
 	defer func() { log.Info("stopping API server..."); srvCloser() }()
 
+	powPool := powpool.New()
+	powApiHandler, powApiCloser := pow_api.New(powPool)
+	defer func() { log.Info("closing Pow Pool API..."); powApiCloser() }()
+
+	powApiURL, powSrvCloser := startPowAPIServer(ctx, powApiHandler)
+	defer func() { log.Info("stopping Pow API server..."); powSrvCloser() }()
+
 	stateCreator := state.NewCreator(mainDB)
 	cons := consensus.NewConsensusReactor(ctx, chain, stateCreator, master.PrivateKey, master.PublicKey)
 
 	//also create the POW components
-	powpool := pow.NewPowpool(chain, stateCreator, defaultPowpoolOptions)
-	powR := pow.NewPowpoolReactor(chain, stateCreator, powpool)
+	// powR := pow.NewPowpoolReactor(chain, stateCreator, powpool)
 
 	// XXX: generate kframe (FOR TEST ONLY)
 	genCloser := newKFrameGenerator(ctx, cons)
 	defer func() { log.Info("stopping kframe generator service ..."); genCloser() }()
 
-	printStartupMessage(gene, chain, master, instanceDir, apiURL)
+	printStartupMessage(gene, chain, master, instanceDir, apiURL, powApiURL)
 
 	p2pcom.Start()
 	defer p2pcom.Stop()
@@ -177,8 +185,7 @@ func defaultAction(ctx *cli.Context) error {
 		txPool,
 		filepath.Join(instanceDir, "tx.stash"),
 		p2pcom.comm,
-		cons,
-		powR).
+		cons).
 		Run(exitSignal)
 }
 

@@ -304,23 +304,47 @@ func startAPIServer(ctx *cli.Context, handler http.Handler, genesisID thor.Bytes
 	}
 }
 
+func startPowAPIServer(ctx *cli.Context, handler http.Handler) (string, func()) {
+	addr := "localhost:8668" //ctx.String(apiAddrFlag.Name)
+	listener, err := net.Listen("tcp", addr)
+	if err != nil {
+		fatal(fmt.Sprintf("listen API addr [%v]: %v", addr, err))
+	}
+	timeout := ctx.Int(apiTimeoutFlag.Name)
+	if timeout > 0 {
+		handler = handleAPITimeout(handler, time.Duration(timeout)*time.Millisecond)
+	}
+	handler = requestBodyLimit(handler)
+	srv := &http.Server{Handler: handler}
+	var goes co.Goes
+	goes.Go(func() {
+		srv.Serve(listener)
+	})
+	return "http://" + listener.Addr().String() + "/", func() {
+		srv.Close()
+		goes.Wait()
+	}
+}
+
 func printStartupMessage(
 	gene *genesis.Genesis,
 	chain *chain.Chain,
 	master *node.Master,
 	dataDir string,
 	apiURL string,
+	powApiURL string,
 ) {
 	bestBlock := chain.BestBlock()
 
 	fmt.Printf(`Starting %v
-    Network      [ %v %v ]    
-    Best block   [ %v #%v @%v ]
-    Forks        [ %v ]
-    Master       [ %v ]
-    Beneficiary  [ %v ]
-    Instance dir [ %v ]
-    API portal   [ %v ]
+    Network        [ %v %v ]    
+    Best block     [ %v #%v @%v ]
+    Forks          [ %v ]
+    Master         [ %v ]
+    Beneficiary    [ %v ]
+    Instance dir   [ %v ]
+    API portal     [ %v ]
+    POW API portal [ %v ]
 `,
 		common.MakeName("Thor", fullVersion()),
 		gene.ID(), gene.Name(),
@@ -334,7 +358,7 @@ func printStartupMessage(
 			return master.Beneficiary.String()
 		}(),
 		dataDir,
-		apiURL)
+		apiURL, powApiURL)
 }
 
 func openMemMainDB() *lvldb.LevelDB {
