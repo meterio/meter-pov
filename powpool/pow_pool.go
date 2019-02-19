@@ -25,16 +25,6 @@ type PowEvent struct {
 	Header *block.PowBlockHeader
 }
 
-type powObjectMap struct {
-}
-
-func newPowObjectMap() *powObjectMap {
-	return &powObjectMap{}
-}
-func (p *powObjectMap) Contains(thor.Bytes32) bool {
-	return true
-}
-
 // PowPool maintains unprocessed transactions.
 type PowPool struct {
 	executables    atomic.Value
