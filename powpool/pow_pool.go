@@ -7,6 +7,7 @@ package powpool
 
 import (
 	"sync/atomic"
+	"time"
 
 	"github.com/ethereum/go-ethereum/event"
 	"github.com/inconshreveable/log15"
@@ -20,13 +21,21 @@ var (
 	GlobPowPoolInst *PowPool
 )
 
-// PowEvent will be posted when pow is added or status changed.
-type PowEvent struct {
+// Options options for tx pool.
+type Options struct {
+	Limit           int
+	LimitPerAccount int
+	MaxLifetime     time.Duration
+}
+
+// PowBlockEvent will be posted when pow is added or status changed.
+type PowBlockEvent struct {
 	Header *block.PowBlockHeader
 }
 
 // PowPool maintains unprocessed transactions.
 type PowPool struct {
+	options        Options
 	executables    atomic.Value
 	all            *powObjectMap
 	addedAfterWash uint32
@@ -48,10 +57,11 @@ func GetGlobPowPoolInst() *PowPool {
 
 // New create a new PowPool instance.
 // Shutdown is required to be called at end.
-func New() *PowPool {
+func New(options Options) *PowPool {
 	pool := &PowPool{
-		all:  newPowObjectMap(),
-		done: make(chan struct{}),
+		options: options,
+		all:     newPowObjectMap(),
+		done:    make(chan struct{}),
 	}
 	pool.goes.Go(pool.housekeeping)
 	SetGlobPowPoolInst(pool)
@@ -69,22 +79,37 @@ func (p *PowPool) Close() {
 	log.Debug("closed")
 }
 
-//SubscribePowEvent receivers will receive a pow
-func (p *PowPool) SubscribePowEvent(ch chan *PowEvent) event.Subscription {
+//SubscribePowBlockEvent receivers will receive a pow
+func (p *PowPool) SubscribePowBlockEvent(ch chan *PowBlockEvent) event.Subscription {
 	return p.scope.Track(p.powFeed.Subscribe(ch))
 }
 
-func (p *PowPool) add(newPowHeader *block.PowBlockHeader, rejectNonexecutable bool) error {
-	if p.all.Contains(newPowHeader.HashMerkleRoot) {
+func (p *PowPool) add(newPowHeader *block.PowBlockHeader) error {
+	if p.all.Contains(newPowHeader.HashID()) {
 		// pow already in the pool
 		return nil
 	}
-
+	p.powFeed.Send(&PowBlockEvent{Header: newPowHeader})
+	powObj := NewPowObject(newPowHeader)
+	p.all.Add(powObj)
 	return nil
 }
 
 // Add add new pow into pool.
 // It's not assumed as an error if the pow to be added is already in the pool,
 func (p *PowPool) Add(newPowHeader *block.PowBlockHeader) error {
-	return p.add(newPowHeader, false)
+	return p.add(newPowHeader)
+}
+
+// Remove removes powObj from pool by its ID.
+func (p *PowPool) Remove(powID thor.Bytes32) bool {
+	if p.all.Remove(powID) {
+		log.Debug("pow header removed", "id", powID)
+		return true
+	}
+	return false
+}
+
+func (p *PowPool) wash() error {
+	return nil
 }

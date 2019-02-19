@@ -28,7 +28,6 @@ import (
 	"github.com/vechain/thor/genesis"
 	"github.com/vechain/thor/logdb"
 	"github.com/vechain/thor/lvldb"
-	"github.com/vechain/thor/pow"
 	"github.com/vechain/thor/powpool"
 	pow_api "github.com/vechain/thor/powpool/api"
 	"github.com/vechain/thor/state"
@@ -49,7 +48,7 @@ var (
 		MaxLifetime:     20 * time.Minute,
 	}
 
-	defaultPowpoolOptions = pow.Options{
+	defaultPowPoolOptions = powpool.Options{
 		Limit:           10000,
 		LimitPerAccount: 16,
 		MaxLifetime:     20 * time.Minute,
@@ -148,14 +147,16 @@ func defaultAction(ctx *cli.Context) error {
 	txPool := txpool.New(chain, state.NewCreator(mainDB), defaultTxPoolOptions)
 	defer func() { log.Info("closing tx pool..."); txPool.Close() }()
 
-	p2pcom := newP2PComm(ctx, chain, txPool, instanceDir)
+	powPool := powpool.New(defaultPowPoolOptions)
+	defer func() { log.Info("closing pow pool..."); powPool.Close() }()
+
+	p2pcom := newP2PComm(ctx, chain, txPool, instanceDir, powPool)
 	apiHandler, apiCloser := api.New(chain, state.NewCreator(mainDB), txPool, logDB, p2pcom.comm, ctx.String(apiCorsFlag.Name), uint32(ctx.Int(apiBacktraceLimitFlag.Name)), uint64(ctx.Int(apiCallGasLimitFlag.Name)))
 	defer func() { log.Info("closing API..."); apiCloser() }()
 
 	apiURL, srvCloser := startAPIServer(ctx, apiHandler, chain.GenesisBlock().Header().ID())
 	defer func() { log.Info("stopping API server..."); srvCloser() }()
 
-	powPool := powpool.New()
 	powApiHandler, powApiCloser := pow_api.New(powPool)
 	defer func() { log.Info("closing Pow Pool API..."); powApiCloser() }()
 
@@ -193,7 +194,7 @@ func newKFrameGenerator(ctx *cli.Context, cons *consensus.ConsensusReactor) func
 	done := make(chan int)
 	go func() {
 		if ctx.Bool("gen-kframe") {
-			ticker := time.NewTicker(time.Minute * 1)
+			ticker := time.NewTicker(time.Minute * 5)
 			for {
 				select {
 				case <-ticker.C:

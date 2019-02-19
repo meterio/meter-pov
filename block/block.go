@@ -32,6 +32,21 @@ type PowBlockHeader struct {
 	RewardCoef     uint64
 }
 
+func (h *PowBlockHeader) HashID() thor.Bytes32 {
+	hash, _ := rlp.EncodeToBytes([]interface{}{
+		h.Version,
+		h.HashPrevBlock,
+		h.HashMerkleRoot,
+		h.TimeStamp,
+		h.NBits,
+		h.Nonce,
+		h.Beneficiary,
+		h.PowHeight,
+		h.RewardCoef,
+	})
+	return thor.Blake2b(hash)
+}
+
 // NewEvidence records the voting/notarization aggregated signatures and bitmap
 // of validators.
 // Validators info can get from 1st proposaed block meta data

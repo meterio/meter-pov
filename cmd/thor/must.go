@@ -30,6 +30,7 @@ import (
 	"github.com/vechain/thor/logdb"
 	"github.com/vechain/thor/lvldb"
 	"github.com/vechain/thor/p2psrv"
+	"github.com/vechain/thor/powpool"
 	"github.com/vechain/thor/state"
 	"github.com/vechain/thor/thor"
 	"github.com/vechain/thor/txpool"
@@ -203,7 +204,7 @@ type p2pComm struct {
 	peersCachePath string
 }
 
-func newP2PComm(ctx *cli.Context, chain *chain.Chain, txPool *txpool.TxPool, instanceDir string) *p2pComm {
+func newP2PComm(ctx *cli.Context, chain *chain.Chain, txPool *txpool.TxPool, instanceDir string, powPool *powpool.PowPool) *p2pComm {
 	configDir := makeConfigDir(ctx)
 	key, err := loadOrGeneratePrivateKey(filepath.Join(configDir, "p2p.key"))
 	if err != nil {
@@ -247,7 +248,7 @@ func newP2PComm(ctx *cli.Context, chain *chain.Chain, txPool *txpool.TxPool, ins
 	opts.KnownNodes = append(opts.KnownNodes, validNodes...)
 
 	return &p2pComm{
-		comm:           comm.New(chain, txPool),
+		comm:           comm.New(chain, txPool, powPool),
 		p2pSrv:         p2psrv.New(opts),
 		peersCachePath: peersCachePath,
 	}

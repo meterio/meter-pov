@@ -21,8 +21,9 @@ import (
 )
 
 const (
-	maxKnownTxs    = 32768 // Maximum transactions IDs to keep in the known list (prevent DOS)
-	maxKnownBlocks = 1024  // Maximum block IDs to keep in the known list (prevent DOS)
+	maxKnownTxs       = 32768 // Maximum transactions IDs to keep in the known list (prevent DOS)
+	maxKnownBlocks    = 1024  // Maximum block IDs to keep in the known list (prevent DOS)
+	maxKnownPowBlocks = 1024
 )
 
 func init() {
@@ -35,10 +36,11 @@ type Peer struct {
 	*rpc.RPC
 	logger log15.Logger
 
-	createdTime mclock.AbsTime
-	knownTxs    *lru.Cache
-	knownBlocks *lru.Cache
-	head        struct {
+	createdTime    mclock.AbsTime
+	knownTxs       *lru.Cache
+	knownBlocks    *lru.Cache
+	knownPowBlocks *lru.Cache
+	head           struct {
 		sync.Mutex
 		id         thor.Bytes32
 		totalScore uint64
@@ -56,13 +58,15 @@ func newPeer(peer *p2p.Peer, rw p2p.MsgReadWriter) *Peer {
 	}
 	knownTxs, _ := lru.New(maxKnownTxs)
 	knownBlocks, _ := lru.New(maxKnownBlocks)
+	knownPowBlocks, _ := lru.New(maxKnownPowBlocks)
 	return &Peer{
-		Peer:        peer,
-		RPC:         rpc.New(peer, rw),
-		logger:      log.New(ctx...),
-		createdTime: mclock.Now(),
-		knownTxs:    knownTxs,
-		knownBlocks: knownBlocks,
+		Peer:           peer,
+		RPC:            rpc.New(peer, rw),
+		logger:         log.New(ctx...),
+		createdTime:    mclock.Now(),
+		knownTxs:       knownTxs,
+		knownBlocks:    knownBlocks,
+		knownPowBlocks: knownPowBlocks,
 	}
 }
 
@@ -87,6 +91,10 @@ func (p *Peer) MarkTransaction(id thor.Bytes32) {
 	p.knownTxs.Add(id, struct{}{})
 }
 
+func (p *Peer) MarkPowBlock(id thor.Bytes32) {
+	p.knownPowBlocks.Add(id, struct{}{})
+}
+
 // MarkBlock marks a block to known.
 func (p *Peer) MarkBlock(id thor.Bytes32) {
 	p.knownBlocks.Add(id, struct{}{})
@@ -95,6 +103,10 @@ func (p *Peer) MarkBlock(id thor.Bytes32) {
 // IsTransactionKnown returns if the transaction is known.
 func (p *Peer) IsTransactionKnown(id thor.Bytes32) bool {
 	return p.knownTxs.Contains(id)
+}
+
+func (p *Peer) IsPowBlockKnown(id thor.Bytes32) bool {
+	return p.knownPowBlocks.Contains(id)
 }
 
 // IsBlockKnown returns if the block is known.

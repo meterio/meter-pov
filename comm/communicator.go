@@ -21,6 +21,7 @@ import (
 	"github.com/vechain/thor/co"
 	"github.com/vechain/thor/comm/proto"
 	"github.com/vechain/thor/p2psrv"
+	"github.com/vechain/thor/powpool"
 	"github.com/vechain/thor/thor"
 	"github.com/vechain/thor/tx"
 	"github.com/vechain/thor/txpool"
@@ -44,6 +45,8 @@ type Communicator struct {
 	feedScope      event.SubscriptionScope
 	goes           co.Goes
 	onceSynced     sync.Once
+
+	powPool *powpool.PowPool
 }
 
 func SetGlobCommInst(c *Communicator) error {
@@ -56,11 +59,12 @@ func GetGlobCommInst() *Communicator {
 }
 
 // New create a new Communicator instance.
-func New(chain *chain.Chain, txPool *txpool.TxPool) *Communicator {
+func New(chain *chain.Chain, txPool *txpool.TxPool, powPool *powpool.PowPool) *Communicator {
 	ctx, cancel := context.WithCancel(context.Background())
 	c := &Communicator{
 		chain:          chain,
 		txPool:         txPool,
+		powPool:        powPool,
 		ctx:            ctx,
 		cancel:         cancel,
 		peerSet:        newPeerSet(),

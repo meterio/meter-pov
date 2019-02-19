@@ -6,7 +6,7 @@
 package api
 
 import (
-	"fmt"
+	// "fmt"
 	"net/http"
 
 	"github.com/gorilla/mux"
@@ -30,7 +30,7 @@ func (ah *ApiHandler) handleRecvPowMessage(w http.ResponseWriter, req *http.Requ
 	if err := utils.ParseJSON(req.Body, &msg); err != nil {
 		return utils.BadRequest(errors.WithMessage(err, "body"))
 	}
-	fmt.Println(msg.Raw)
+	// FIXME: send event here
 	return nil
 }
 
