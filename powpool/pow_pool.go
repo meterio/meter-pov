@@ -101,6 +101,10 @@ func (p *PowPool) Add(newPowHeader *block.PowBlockHeader) error {
 	return p.add(newPowHeader)
 }
 
+func (p *PowPool) StrictlyAdd(newPowHeader *block.PowBlockHeader) error {
+	return p.add(newPowHeader)
+}
+
 // Remove removes powObj from pool by its ID.
 func (p *PowPool) Remove(powID thor.Bytes32) bool {
 	if p.all.Remove(powID) {
