@@ -78,6 +78,30 @@ func (m *powObjectMap) Remove(powID thor.Bytes32) bool {
 	return false
 }
 
+func (m *powObjectMap) Get(powID thor.Bytes32) *powObject {
+	m.lock.RLock()
+	defer m.lock.RUnlock()
+
+	if powObj, found := m.powObjMap[powID]; found {
+		return powObj
+	}
+	return nil
+}
+
+func (m *powObjectMap) GetLatestObjects() []*powObject {
+	m.lock.RLock()
+	defer m.lock.RUnlock()
+
+	return m.latestHeightMkr.powObjs
+}
+
+func (m *powObjectMap) Empty() {
+	m.lock.Lock()
+	defer m.lock.Unlock()
+	m.powObjMap = make(map[thor.Bytes32]*powObject)
+	m.latestHeightMkr = newLatestHeightMarker()
+}
+
 func (m *powObjectMap) Len() int {
 	m.lock.RLock()
 	defer m.lock.RUnlock()

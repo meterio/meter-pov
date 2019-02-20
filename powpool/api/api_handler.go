@@ -7,22 +7,26 @@ package api
 
 import (
 	// "fmt"
+	"github.com/ethereum/go-ethereum/rlp"
 	"net/http"
 
 	"github.com/gorilla/mux"
 	"github.com/pkg/errors"
 	"github.com/vechain/thor/api/utils"
+	"github.com/vechain/thor/block"
+	"github.com/vechain/thor/powpool"
 )
 
 type ApiHandler struct {
+	powPool *powpool.PowPool
 }
 
 type PowMessage struct {
 	Raw string `json:"raw"`
 }
 
-func NewApiHandler() *ApiHandler {
-	return &ApiHandler{}
+func NewApiHandler(powPool *powpool.PowPool) *ApiHandler {
+	return &ApiHandler{powPool: powPool}
 }
 
 func (ah *ApiHandler) handleRecvPowMessage(w http.ResponseWriter, req *http.Request) error {
@@ -30,7 +34,13 @@ func (ah *ApiHandler) handleRecvPowMessage(w http.ResponseWriter, req *http.Requ
 	if err := utils.ParseJSON(req.Body, &msg); err != nil {
 		return utils.BadRequest(errors.WithMessage(err, "body"))
 	}
-	// FIXME: send event here
+
+	bytes := []byte(msg.Raw)
+	powBlockHeader := &block.PowBlockHeader{}
+	rlp.DecodeBytes(bytes, powBlockHeader)
+
+	ah.powPool.Add(powBlockHeader)
+
 	return nil
 }
 

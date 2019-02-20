@@ -16,7 +16,7 @@ import (
 func New(powPool *powpool.PowPool) (http.HandlerFunc, func()) {
 	router := mux.NewRouter()
 
-	NewApiHandler().
+	NewApiHandler(powPool).
 		Mount(router, "/pow")
 
 	return router.ServeHTTP, func() {}
