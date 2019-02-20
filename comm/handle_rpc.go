@@ -164,6 +164,16 @@ func (c *Communicator) handleRPC(peer *Peer, msg *p2p.Msg, write func(interface{
 			}
 			write(toSend)
 		}
+	case proto.MsgNewPowBlock:
+		// XXX: filter out-dated pow-block
+		var newPowBlock *block.PowBlockHeader
+		if err := msg.Decode(&newPowBlock); err != nil {
+			return errors.WithMessage(err, "decode msg")
+		}
+		powID := newPowBlock.HashID()
+		peer.MarkPowBlock(powID)
+		c.powPool.StrictlyAdd(newPowBlock)
+		write(&struct{}{})
 	default:
 		return fmt.Errorf("unknown message (%v)", msg.Code)
 	}
