@@ -6,7 +6,7 @@
 package api
 
 import (
-	// "fmt"
+	"fmt"
 	"github.com/ethereum/go-ethereum/rlp"
 	"net/http"
 
@@ -34,7 +34,7 @@ func (ah *ApiHandler) handleRecvPowMessage(w http.ResponseWriter, req *http.Requ
 	if err := utils.ParseJSON(req.Body, &msg); err != nil {
 		return utils.BadRequest(errors.WithMessage(err, "body"))
 	}
-
+	fmt.Println("RAW: ", msg.Raw)
 	bytes := []byte(msg.Raw)
 	powBlockHeader := &block.PowBlockHeader{}
 	rlp.DecodeBytes(bytes, powBlockHeader)
