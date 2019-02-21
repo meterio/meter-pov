@@ -161,7 +161,7 @@ func (a *Accounts) handleCallPow(w http.ResponseWriter, req *http.Request) error
 	}
 	data := block.KBlockData{
 		Nonce: callPow.Nonce,
-		Data:  []block.PowBlockHeader{},
+		Data:  []block.PowRawBlock{},
 	}
 	ConReactor.KBlockDataQueue <- data
 

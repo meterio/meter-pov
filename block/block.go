@@ -13,39 +13,9 @@ import (
 	"github.com/ethereum/go-ethereum/rlp"
 	cmn "github.com/vechain/thor/libs/common"
 	"github.com/vechain/thor/metric"
-	"github.com/vechain/thor/thor"
 	"github.com/vechain/thor/tx"
 	"github.com/vechain/thor/types"
 )
-
-// This is clone dat astructure from POW(cpp). If it is changed in POW(cpp),
-// must update here !!!
-type PowBlockHeader struct {
-	Version        uint32
-	HashPrevBlock  thor.Bytes32
-	HashMerkleRoot thor.Bytes32
-	TimeStamp      uint32
-	NBits          uint32
-	Nonce          uint32
-	Beneficiary    thor.Address
-	PowHeight      uint32
-	RewardCoef     uint64
-}
-
-func (h *PowBlockHeader) HashID() thor.Bytes32 {
-	hash, _ := rlp.EncodeToBytes([]interface{}{
-		h.Version,
-		h.HashPrevBlock,
-		h.HashMerkleRoot,
-		h.TimeStamp,
-		h.NBits,
-		h.Nonce,
-		h.Beneficiary,
-		h.PowHeight,
-		h.RewardCoef,
-	})
-	return thor.Blake2b(hash)
-}
 
 // NewEvidence records the voting/notarization aggregated signatures and bitmap
 // of validators.
@@ -59,9 +29,11 @@ type Evidence struct {
 	NotarizeBitArray cmn.BitArray
 }
 
+type PowRawBlock []byte
+
 type KBlockData struct {
 	Nonce uint64 // the last of the pow block
-	Data  []PowBlockHeader
+	Data  []PowRawBlock
 }
 
 type CommitteeInfo struct {

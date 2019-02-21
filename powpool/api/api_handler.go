@@ -13,7 +13,6 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/pkg/errors"
 	"github.com/vechain/thor/api/utils"
-	"github.com/vechain/thor/block"
 	"github.com/vechain/thor/powpool"
 )
 
@@ -36,7 +35,7 @@ func (ah *ApiHandler) handleRecvPowMessage(w http.ResponseWriter, req *http.Requ
 	}
 	fmt.Println("RAW: ", msg.Raw)
 	bytes := []byte(msg.Raw)
-	powBlockHeader := &block.PowBlockHeader{}
+	powBlockHeader := &powpool.PowBlockHeader{}
 	rlp.DecodeBytes(bytes, powBlockHeader)
 
 	ah.powPool.Add(powBlockHeader)

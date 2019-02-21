@@ -200,7 +200,7 @@ func newKFrameGenerator(ctx *cli.Context, cons *consensus.ConsensusReactor) func
 				case <-ticker.C:
 					data := block.KBlockData{
 						Nonce: rand.Uint64(),
-						Data:  []block.PowBlockHeader{},
+						Data:  []block.PowRawBlock{},
 					}
 					cons.KBlockDataQueue <- data
 				case <-done:

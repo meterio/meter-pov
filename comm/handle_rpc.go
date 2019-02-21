@@ -15,6 +15,7 @@ import (
 	"github.com/vechain/thor/block"
 	"github.com/vechain/thor/comm/proto"
 	"github.com/vechain/thor/metric"
+	"github.com/vechain/thor/powpool"
 	"github.com/vechain/thor/thor"
 	"github.com/vechain/thor/tx"
 )
@@ -166,7 +167,7 @@ func (c *Communicator) handleRPC(peer *Peer, msg *p2p.Msg, write func(interface{
 		}
 	case proto.MsgNewPowBlock:
 		// XXX: filter out-dated pow-block
-		var newPowBlock *block.PowBlockHeader
+		var newPowBlock *powpool.PowBlockHeader
 		if err := msg.Decode(&newPowBlock); err != nil {
 			return errors.WithMessage(err, "decode msg")
 		}

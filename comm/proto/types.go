@@ -10,6 +10,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/vechain/thor/block"
+	"github.com/vechain/thor/powpool"
 	"github.com/vechain/thor/thor"
 	"github.com/vechain/thor/tx"
 )
@@ -56,7 +57,7 @@ func NotifyNewTx(ctx context.Context, rpc RPC, tx *tx.Transaction) error {
 }
 
 // NotifyNewPow notify new pow block to remote peer.
-func NotifyNewPowBlock(ctx context.Context, rpc RPC, powBlockHeader *block.PowBlockHeader) error {
+func NotifyNewPowBlock(ctx context.Context, rpc RPC, powBlockHeader *powpool.PowBlockHeader) error {
 	return rpc.Notify(ctx, MsgNewPowBlock, powBlockHeader)
 }
 

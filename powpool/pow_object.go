@@ -8,14 +8,16 @@ package powpool
 import (
 	"time"
 
-	"github.com/vechain/thor/block"
 	"github.com/vechain/thor/thor"
 )
 
 type powObject struct {
 	hashID      thor.Bytes32
-	blockHeader block.PowBlockHeader
+	blockHeader PowBlockHeader
+	beneficiary thor.Address
+	height      uint32
 	timeAdded   int64
+	rawBlock    []byte
 }
 
 // HashID returns the Hash of powBlkHdr only, as the key of powObject
@@ -24,10 +26,14 @@ func (p *powObject) HashID() thor.Bytes32 {
 }
 
 func (p *powObject) Height() uint32 {
-	return p.blockHeader.PowHeight
+	return p.height
 }
 
-func NewPowObject(powHeader *block.PowBlockHeader) *powObject {
+func (p *powObject) Beneficiary() thor.Address {
+	return p.beneficiary
+}
+
+func NewPowObject(powHeader *PowBlockHeader) *powObject {
 	po := &powObject{
 		hashID:      powHeader.HashID(),
 		blockHeader: *powHeader,

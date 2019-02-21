@@ -10,14 +10,13 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/vechain/thor/block"
 	"github.com/vechain/thor/genesis"
 	"github.com/vechain/thor/lvldb"
 	"github.com/vechain/thor/tx"
 )
 
-func newPowBlock(prevHash thor.Bytes32, hashMerkleRoot thor.Bytes32, nonce uint32, beneficiary thor.Address, height uint32) *block.PowBlockHeader {
-	return &block.PowBlockHeader{
+func newPowBlock(prevHash thor.Bytes32, hashMerkleRoot thor.Bytes32, nonce uint32, beneficiary thor.Address, height uint32) *PowBlockHeader {
+	return &PowBlockHeader{
 		Version:        100,
 		HashPrevBlock:  prevHash,
 		HashMerkleRoot: hashMerkleRoot,
