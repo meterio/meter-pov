@@ -12,32 +12,27 @@ import (
 )
 
 type powObject struct {
-	hashID      thor.Bytes32
-	blockHeader PowBlockHeader
-	beneficiary thor.Address
-	height      uint32
-	timeAdded   int64
-	rawBlock    []byte
+	blockInfo PowBlockInfo
+	timeAdded int64
+}
+
+func NewPowObject(powBlockInfo *PowBlockInfo) *powObject {
+	po := &powObject{
+		blockInfo: *powBlockInfo,
+		timeAdded: time.Now().UnixNano(),
+	}
+	return po
 }
 
 // HashID returns the Hash of powBlkHdr only, as the key of powObject
 func (p *powObject) HashID() thor.Bytes32 {
-	return p.hashID
+	return p.blockInfo.HeaderHash
 }
 
 func (p *powObject) Height() uint32 {
-	return p.height
+	return p.blockInfo.PowHeight
 }
 
 func (p *powObject) Beneficiary() thor.Address {
-	return p.beneficiary
-}
-
-func NewPowObject(powHeader *PowBlockHeader) *powObject {
-	po := &powObject{
-		hashID:      powHeader.HashID(),
-		blockHeader: *powHeader,
-		timeAdded:   time.Now().UnixNano(),
-	}
-	return po
+	return p.blockInfo.Beneficiary
 }

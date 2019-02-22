@@ -6,14 +6,18 @@
 package api
 
 import (
+	"bytes"
 	"fmt"
-	"github.com/ethereum/go-ethereum/rlp"
 	"net/http"
+	"strings"
 
 	"github.com/gorilla/mux"
 	"github.com/pkg/errors"
 	"github.com/vechain/thor/api/utils"
 	"github.com/vechain/thor/powpool"
+
+	"github.com/btcsuite/btcd/chaincfg/chainhash"
+	"github.com/btcsuite/btcd/wire"
 )
 
 type ApiHandler struct {
@@ -28,23 +32,38 @@ func NewApiHandler(powPool *powpool.PowPool) *ApiHandler {
 	return &ApiHandler{powPool: powPool}
 }
 
-func (ah *ApiHandler) handleRecvPowMessage(w http.ResponseWriter, req *http.Request) error {
+func (h *ApiHandler) handleRecvPowMessage(w http.ResponseWriter, req *http.Request) error {
 	var msg PowMessage
 	if err := utils.ParseJSON(req.Body, &msg); err != nil {
 		return utils.BadRequest(errors.WithMessage(err, "body"))
 	}
 	fmt.Println("RAW: ", msg.Raw)
-	bytes := []byte(msg.Raw)
-	powBlockHeader := &powpool.PowBlockHeader{}
-	rlp.DecodeBytes(bytes, powBlockHeader)
 
-	ah.powPool.Add(powBlockHeader)
+	prevHash, _ := chainhash.NewHashFromStr("abcdef0123456789")
+	merkleRootHash, _ := chainhash.NewHashFromStr("0123456789abcdef")
+	newBlock := wire.NewMsgBlock(wire.NewBlockHeader(111, prevHash, merkleRootHash, 2222, 3333))
+	var buf bytes.Buffer
+	newBlock.Serialize(&buf)
+	fmt.Println("BUF: ", buf)
+	powBlock := wire.MsgBlock{}
+	powBlock.Deserialize(strings.NewReader(buf.String())) // req.Body)
+	var hash chainhash.Hash
+	hash = powBlock.Header.BlockHash()
+
+	fmt.Println("POW BLOCK: ", powBlock)
+	fmt.Println("HASH: ", hash)
+
+	newPowBlock := powpool.PowBlock{}
+	newPowBlock.Deserialize(req.Body)
+
+	info := powpool.NewPowBlockInfoFromBlock(&newPowBlock)
+	h.powPool.Add(info)
 
 	return nil
 }
 
-func (ah *ApiHandler) Mount(root *mux.Router, pathPrefix string) {
+func (h *ApiHandler) Mount(root *mux.Router, pathPrefix string) {
 	sub := root.PathPrefix(pathPrefix).Subrouter()
 
-	sub.Path("").Methods("POST").HandlerFunc(utils.WrapHandlerFunc(ah.handleRecvPowMessage))
+	sub.Path("").Methods("POST").HandlerFunc(utils.WrapHandlerFunc(h.handleRecvPowMessage))
 }

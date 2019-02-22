@@ -6,14 +6,14 @@
 package powpool
 
 import (
-	"sync/atomic"
 	"time"
 
 	"github.com/ethereum/go-ethereum/event"
-	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/inconshreveable/log15"
 	"github.com/vechain/thor/co"
 	"github.com/vechain/thor/thor"
+
+	"github.com/btcsuite/btcd/wire"
 )
 
 var (
@@ -28,46 +28,19 @@ type Options struct {
 	MaxLifetime     time.Duration
 }
 
-// This is clone dat astructure from POW(cpp). If it is changed in POW(cpp),
-// must update here !!!
-type PowBlockHeader struct {
-	Version        uint32
-	HashPrevBlock  thor.Bytes32
-	HashMerkleRoot thor.Bytes32
-	TimeStamp      uint32
-	NBits          uint32
-	Nonce          uint32
-	// Beneficiary    thor.Address
-	// PowHeight      uint32
-	// RewardCoef     uint64
-}
-
-func (h *PowBlockHeader) HashID() thor.Bytes32 {
-	hash, _ := rlp.EncodeToBytes([]interface{}{
-		h.Version,
-		h.HashPrevBlock,
-		h.HashMerkleRoot,
-		h.TimeStamp,
-		h.NBits,
-		h.Nonce,
-		// h.Beneficiary,
-		// h.PowHeight,
-		// h.RewardCoef,
-	})
-	return thor.Blake2b(hash)
-}
-
 // PowBlockEvent will be posted when pow is added or status changed.
 type PowBlockEvent struct {
-	Header *PowBlockHeader
+	BlockInfo *PowBlockInfo
+}
+
+type PowBlock struct {
+	wire.MsgBlock
 }
 
 // PowPool maintains unprocessed transactions.
 type PowPool struct {
-	options        Options
-	executables    atomic.Value
-	all            *powObjectMap
-	addedAfterWash uint32
+	options Options
+	all     *powObjectMap
 
 	done    chan struct{}
 	powFeed event.Feed
@@ -113,25 +86,21 @@ func (p *PowPool) SubscribePowBlockEvent(ch chan *PowBlockEvent) event.Subscript
 	return p.scope.Track(p.powFeed.Subscribe(ch))
 }
 
-func (p *PowPool) add(newPowHeader *PowBlockHeader) error {
-	if p.all.Contains(newPowHeader.HashID()) {
+func (p *PowPool) add(newPowBlockInfo *PowBlockInfo) error {
+	if p.all.Contains(newPowBlockInfo.HeaderHash) {
 		// pow already in the pool
 		return nil
 	}
-	p.powFeed.Send(&PowBlockEvent{Header: newPowHeader})
-	powObj := NewPowObject(newPowHeader)
+	p.powFeed.Send(&PowBlockEvent{BlockInfo: newPowBlockInfo})
+	powObj := NewPowObject(newPowBlockInfo)
 	p.all.Add(powObj)
 	return nil
 }
 
-// Add add new pow into pool.
+// Add add new pow block into pool.
 // It's not assumed as an error if the pow to be added is already in the pool,
-func (p *PowPool) Add(newPowHeader *PowBlockHeader) error {
-	return p.add(newPowHeader)
-}
-
-func (p *PowPool) StrictlyAdd(newPowHeader *PowBlockHeader) error {
-	return p.add(newPowHeader)
+func (p *PowPool) Add(newPowBlockInfo *PowBlockInfo) error {
+	return p.add(newPowBlockInfo)
 }
 
 // Remove removes powObj from pool by its ID.

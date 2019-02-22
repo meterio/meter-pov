@@ -27,7 +27,7 @@ func (mkr *latestHeightMarker) update(powObj *powObject) {
 	} else if newHeight == mkr.height {
 		mkr.powObjs = append(mkr.powObjs, powObj)
 	} else {
-		// do nothing if newHeight < lhm.height
+		// do nothing if newHeight < mkr.height
 	}
 }
 

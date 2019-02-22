@@ -57,8 +57,8 @@ func NotifyNewTx(ctx context.Context, rpc RPC, tx *tx.Transaction) error {
 }
 
 // NotifyNewPow notify new pow block to remote peer.
-func NotifyNewPowBlock(ctx context.Context, rpc RPC, powBlockHeader *powpool.PowBlockHeader) error {
-	return rpc.Notify(ctx, MsgNewPowBlock, powBlockHeader)
+func NotifyNewPowBlock(ctx context.Context, rpc RPC, powBlockInfo *powpool.PowBlockInfo) error {
+	return rpc.Notify(ctx, MsgNewPowBlock, powBlockInfo.Raw)
 }
 
 // GetBlockByID query block from remote peer by given block ID.

@@ -21,8 +21,8 @@ func (c *Communicator) powsLoop() {
 		case <-c.ctx.Done():
 			return
 		case powBlockEv := <-powBlockEvCh:
-			powBlockHeader := powBlockEv.Header
-			powID := powBlockHeader.HashID()
+			powBlockInfo := powBlockEv.BlockInfo
+			powID := powBlockInfo.HeaderHash
 			peers := c.peerSet.Slice().Filter(func(p *Peer) bool {
 				return !p.IsPowBlockKnown(powID)
 			})
@@ -31,8 +31,8 @@ func (c *Communicator) powsLoop() {
 				peer := peer
 				peer.MarkPowBlock(powID)
 				c.goes.Go(func() {
-					if err := proto.NotifyNewPowBlock(c.ctx, peer, powBlockHeader); err != nil {
-						peer.logger.Debug("failed to broadcast tx", "err", err)
+					if err := proto.NotifyNewPowBlock(c.ctx, peer, powBlockInfo); err != nil {
+						peer.logger.Debug("failed to broadcast block info", "err", err)
 					}
 				})
 			}
