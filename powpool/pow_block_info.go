@@ -1,7 +1,6 @@
 package powpool
 
 import (
-	"bufio"
 	"bytes"
 	"strings"
 
@@ -30,21 +29,31 @@ type PowBlockInfo struct {
 	Raw []byte
 }
 
-func NewPowBlockInfoFromBlock(powBlock *PowBlock) *PowBlockInfo {
-	var buf bytes.Buffer
-	writer := bufio.NewWriter(&buf)
-	powBlock.Serialize(writer)
+func NewPowBlockInfoFromBlock(powBlock *wire.MsgBlock) *PowBlockInfo {
+	buf := bytes.NewBufferString("")
+	powBlock.Serialize(buf)
 	return NewPowBlockInfo(buf.Bytes())
+}
+
+func reverse(a []byte) []byte {
+	for i := len(a)/2 - 1; i >= 0; i-- {
+		opp := len(a) - 1 - i
+		a[i], a[opp] = a[opp], a[i]
+	}
+	return a
 }
 
 func NewPowBlockInfo(raw []byte) *PowBlockInfo {
 	blk := wire.MsgBlock{}
 	blk.Deserialize(strings.NewReader(string(raw)))
 	hdr := blk.Header
+	prevBytes := reverse(hdr.PrevBlock.CloneBytes())
+	merkleRootBytes := reverse(hdr.MerkleRoot.CloneBytes())
+
 	info := &PowBlockInfo{
 		Version:        uint32(hdr.Version),
-		HashPrevBlock:  thor.BytesToBytes32(hdr.PrevBlock.CloneBytes()),
-		HashMerkleRoot: thor.BytesToBytes32(hdr.MerkleRoot.CloneBytes()),
+		HashPrevBlock:  thor.BytesToBytes32(prevBytes),
+		HashMerkleRoot: thor.BytesToBytes32(merkleRootBytes),
 		Timestamp:      uint32(hdr.Timestamp.UnixNano()),
 		NBits:          hdr.Bits,
 		Nonce:          hdr.Nonce,

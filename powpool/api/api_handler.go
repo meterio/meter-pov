@@ -53,7 +53,7 @@ func (h *ApiHandler) handleRecvPowMessage(w http.ResponseWriter, req *http.Reque
 	fmt.Println("POW BLOCK: ", powBlock)
 	fmt.Println("HASH: ", hash)
 
-	newPowBlock := powpool.PowBlock{}
+	newPowBlock := wire.MsgBlock{}
 	newPowBlock.Deserialize(req.Body)
 
 	info := powpool.NewPowBlockInfoFromBlock(&newPowBlock)

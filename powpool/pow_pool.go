@@ -12,8 +12,6 @@ import (
 	"github.com/inconshreveable/log15"
 	"github.com/vechain/thor/co"
 	"github.com/vechain/thor/thor"
-
-	"github.com/btcsuite/btcd/wire"
 )
 
 var (
@@ -31,10 +29,6 @@ type Options struct {
 // PowBlockEvent will be posted when pow is added or status changed.
 type PowBlockEvent struct {
 	BlockInfo *PowBlockInfo
-}
-
-type PowBlock struct {
-	wire.MsgBlock
 }
 
 // PowPool maintains unprocessed transactions.
