@@ -1,6 +1,7 @@
 package powpool
 
 import (
+	"fmt"
 	"sync"
 
 	"github.com/vechain/thor/thor"
@@ -33,27 +34,21 @@ func (mkr *latestHeightMarker) update(powObj *powObject) {
 
 // powObjectMap to maintain mapping of ID to tx object, and account quota.
 type powObjectMap struct {
-	lock            sync.RWMutex
-	latestHeightMkr *latestHeightMarker
-	powObjMap       map[thor.Bytes32]*powObject
+	lock             sync.RWMutex
+	latestHeightMkr  *latestHeightMarker
+	lastKframePowObj *powObject //last kblock of powObject
+	powObjMap        map[thor.Bytes32]*powObject
 }
 
 func newPowObjectMap() *powObjectMap {
 	return &powObjectMap{
-		powObjMap:       make(map[thor.Bytes32]*powObject),
-		latestHeightMkr: newLatestHeightMarker(),
+		powObjMap:        make(map[thor.Bytes32]*powObject),
+		latestHeightMkr:  newLatestHeightMarker(),
+		lastKframePowObj: nil,
 	}
 }
 
-func (m *powObjectMap) Contains(powID thor.Bytes32) bool {
-	m.lock.RLock()
-	defer m.lock.RUnlock()
-
-	_, found := m.powObjMap[powID]
-	return found
-}
-
-func (m *powObjectMap) Add(powObj *powObject) error {
+func (m *powObjectMap) _add(powObj *powObject) error {
 	m.lock.Lock()
 	defer m.lock.Unlock()
 
@@ -65,6 +60,52 @@ func (m *powObjectMap) Add(powObj *powObject) error {
 	m.powObjMap[powID] = powObj
 	m.latestHeightMkr.update(powObj)
 	return nil
+}
+
+func (m *powObjectMap) isKframeInitialAdded() bool {
+	return (m.lastKframePowObj != nil)
+}
+
+func (m *powObjectMap) Contains(powID thor.Bytes32) bool {
+	m.lock.RLock()
+	defer m.lock.RUnlock()
+
+	_, found := m.powObjMap[powID]
+	return found
+}
+
+func (m *powObjectMap) InitialAddKframe(powObj *powObject) error {
+	if powObj.blockInfo.Version != powKframeBlockVersion {
+		log.Error("InitialAddKframe: Invalid version", "verson", powObj.blockInfo.Version)
+		return fmt.Errorf("InitialAddKframe: Invalid version (%v)", powObj.blockInfo.Version)
+	}
+
+	if m.isKframeInitialAdded() {
+		return fmt.Errorf("Kframe already added, flush object map first")
+	}
+
+	err := m._add(powObj)
+	if err != nil {
+		return err
+	}
+
+	m.lastKframePowObj = powObj
+	return nil
+}
+
+func (m *powObjectMap) Add(powObj *powObject) error {
+	if !m.isKframeInitialAdded() {
+		return fmt.Errorf("Kframe is not added")
+	}
+
+	// object with previous hash MUST be in this pool
+	previous := m.Get(powObj.blockInfo.HashPrevBlock)
+	if previous == nil {
+		return fmt.Errorf("HashPrevBlock")
+	}
+
+	err := m._add(powObj)
+	return err
 }
 
 func (m *powObjectMap) Remove(powID thor.Bytes32) bool {
@@ -95,11 +136,12 @@ func (m *powObjectMap) GetLatestObjects() []*powObject {
 	return m.latestHeightMkr.powObjs
 }
 
-func (m *powObjectMap) Empty() {
+func (m *powObjectMap) Flush() {
 	m.lock.Lock()
 	defer m.lock.Unlock()
 	m.powObjMap = make(map[thor.Bytes32]*powObject)
 	m.latestHeightMkr = newLatestHeightMarker()
+	m.lastKframePowObj = nil
 }
 
 func (m *powObjectMap) Len() int {

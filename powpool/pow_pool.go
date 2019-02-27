@@ -10,8 +10,14 @@ import (
 
 	"github.com/ethereum/go-ethereum/event"
 	"github.com/inconshreveable/log15"
+	"github.com/vechain/thor/block"
 	"github.com/vechain/thor/co"
 	"github.com/vechain/thor/thor"
+)
+
+const (
+	// minimum height for committee relay
+	POW_MINIMUM_HEIGHT_INTV = int(20)
 )
 
 var (
@@ -24,6 +30,18 @@ type Options struct {
 	Limit           int
 	LimitPerAccount int
 	MaxLifetime     time.Duration
+}
+
+type powReward struct {
+	rewarder thor.Address
+	value    uint32
+}
+
+// pow decisions
+type PowResult struct {
+	nonce   uint32
+	rewards []powReward
+	raw     []block.PowRawBlock
 }
 
 // PowBlockEvent will be posted when pow is added or status changed.
@@ -80,7 +98,9 @@ func (p *PowPool) SubscribePowBlockEvent(ch chan *PowBlockEvent) event.Subscript
 	return p.scope.Track(p.powFeed.Subscribe(ch))
 }
 
-func (p *PowPool) add(newPowBlockInfo *PowBlockInfo) error {
+// Add add new pow block into pool.
+// It's not assumed as an error if the pow to be added is already in the pool,
+func (p *PowPool) Add(newPowBlockInfo *PowBlockInfo) error {
 	if p.all.Contains(newPowBlockInfo.HeaderHash) {
 		// pow already in the pool
 		return nil
@@ -89,12 +109,6 @@ func (p *PowPool) add(newPowBlockInfo *PowBlockInfo) error {
 	powObj := NewPowObject(newPowBlockInfo)
 	p.all.Add(powObj)
 	return nil
-}
-
-// Add add new pow block into pool.
-// It's not assumed as an error if the pow to be added is already in the pool,
-func (p *PowPool) Add(newPowBlockInfo *PowBlockInfo) error {
-	return p.add(newPowBlockInfo)
 }
 
 // Remove removes powObj from pool by its ID.
@@ -106,6 +120,11 @@ func (p *PowPool) Remove(powID thor.Bytes32) bool {
 	return false
 }
 
-func (p *PowPool) wash() error {
+func (p *PowPool) Wash() error {
+	p.all.Flush()
 	return nil
+}
+
+func (p *PowPool) GetPowDecision() (decided bool, decision PowResult) {
+	return
 }

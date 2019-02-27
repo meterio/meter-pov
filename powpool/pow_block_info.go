@@ -11,6 +11,11 @@ import (
 	"github.com/btcsuite/btcd/wire"
 )
 
+var (
+	powBlockVersion       = uint32(0x20000000)
+	powKframeBlockVersion = uint32(0x20100000)
+)
+
 type PowBlockInfo struct {
 	// Pow header part
 	Version        uint32
