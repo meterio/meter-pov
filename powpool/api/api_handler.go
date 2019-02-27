@@ -7,7 +7,7 @@ package api
 
 import (
 	// "bytes"
-	// "fmt"
+	"fmt"
 	// "strings"
 	"net/http"
 
@@ -32,32 +32,19 @@ func NewApiHandler(powPool *powpool.PowPool) *ApiHandler {
 }
 
 func (h *ApiHandler) handleRecvPowMessage(w http.ResponseWriter, req *http.Request) error {
-	// var msg PowMessage
-	// if err := utils.ParseJSON(req.Body, &msg); err != nil {
-	// return utils.BadRequest(errors.WithMessage(err, "body"))
-	// }
-	// fmt.Println("RAW: ", msg.Raw)
-	//
-	// prevHash, _ := chainhash.NewHashFromStr("abcdef0123456789")
-	// merkleRootHash, _ := chainhash.NewHashFromStr("0123456789abcdef")
-	// newBlock := wire.NewMsgBlock(wire.NewBlockHeader(111, prevHash, merkleRootHash, 2222, 3333))
-	// var buf bytes.Buffer
-	// newBlock.Serialize(&buf)
-	// fmt.Println("BUF: ", buf)
-	// powBlock := wire.MsgBlock{}
-	// powBlock.Deserialize(strings.NewReader(buf.String())) // req.Body)
-	// var hash chainhash.Hash
-	// hash = powBlock.Header.BlockHash()
-
-	// fmt.Println("POW BLOCK: ", powBlock)
-	// fmt.Println("HASH: ", hash)
-
 	newPowBlock := wire.MsgBlock{}
-	newPowBlock.Deserialize(req.Body)
+	err := newPowBlock.Deserialize(req.Body)
+	if err != nil {
+		fmt.Println("Could not deserialize pow block")
+		return err
+	}
+
+	fmt.Println("Recved Pow Block: ", newPowBlock)
 
 	info := powpool.NewPowBlockInfoFromBlock(&newPowBlock)
 	h.powPool.Add(info)
 
+	fmt.Println("Added to pool:", info.ToString())
 	return nil
 }
 
