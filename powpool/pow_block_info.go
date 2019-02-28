@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/ethereum/go-ethereum/rlp"
+	"github.com/vechain/thor/block"
 	"github.com/vechain/thor/thor"
 
 	"github.com/btcsuite/btcd/wire"
@@ -35,10 +36,55 @@ type PowBlockInfo struct {
 	Raw []byte
 }
 
-func NewPowBlockInfoFromBlock(powBlock *wire.MsgBlock) *PowBlockInfo {
+func NewPowBlockInfoFromPosKBlock(posBlock block.Block) *PowBlockInfo {
+	if len(posBlock.KBlockData.Data) > 0 {
+		data := posBlock.KBlockData.Data[0]
+		powBlock := wire.MsgBlock{}
+		powBlock.Deserialize(strings.NewReader(string(data)))
+		info := NewPowBlockInfoFromPowBlock(&powBlock)
+
+		buf := bytes.NewBufferString(string(data))
+		buf.Write([]byte{0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff})
+		posBlock.EncodeRLP(buf)
+
+		info.Raw = buf.Bytes()
+		return info
+	}
+	return nil
+}
+
+func NewPowBlockInfoFromPowBlock(powBlock *wire.MsgBlock) *PowBlockInfo {
+	hdr := powBlock.Header
+	prevBytes := reverse(hdr.PrevBlock.CloneBytes())
+	merkleRootBytes := reverse(hdr.MerkleRoot.CloneBytes())
+
 	buf := bytes.NewBufferString("")
 	powBlock.Serialize(buf)
-	return NewPowBlockInfo(buf.Bytes())
+
+	var height uint32
+	beneficiaryAddr := "0x"
+	if len(powBlock.Transactions) == 1 && len(powBlock.Transactions[0].TxIn) == 1 {
+		ss := powBlock.Transactions[0].TxIn[0].SignatureScript
+		height, beneficiaryAddr = DecodeSignatureScript(ss)
+	}
+	beneficiary, _ := thor.ParseAddress(beneficiaryAddr)
+
+	info := &PowBlockInfo{
+		Version:        uint32(hdr.Version),
+		HashPrevBlock:  thor.BytesToBytes32(prevBytes),
+		HashMerkleRoot: thor.BytesToBytes32(merkleRootBytes),
+		Timestamp:      uint32(hdr.Timestamp.UnixNano()),
+		NBits:          hdr.Bits,
+		Nonce:          hdr.Nonce,
+
+		Raw: buf.Bytes(),
+
+		PowHeight:   height,
+		Beneficiary: beneficiary,
+	}
+
+	info.HeaderHash = info.HashID()
+	return info
 }
 
 func reverse(a []byte) []byte {
@@ -75,34 +121,7 @@ func DecodeSignatureScript(bytes []byte) (uint32, string) {
 func NewPowBlockInfo(raw []byte) *PowBlockInfo {
 	blk := wire.MsgBlock{}
 	blk.Deserialize(strings.NewReader(string(raw)))
-	hdr := blk.Header
-	prevBytes := reverse(hdr.PrevBlock.CloneBytes())
-	merkleRootBytes := reverse(hdr.MerkleRoot.CloneBytes())
-
-	var height uint32
-	beneficiaryAddr := "0x"
-	if len(blk.Transactions) == 1 && len(blk.Transactions[0].TxIn) == 1 {
-		ss := blk.Transactions[0].TxIn[0].SignatureScript
-		height, beneficiaryAddr = DecodeSignatureScript(ss)
-	}
-	beneficiary, _ := thor.ParseAddress(beneficiaryAddr)
-
-	info := &PowBlockInfo{
-		Version:        uint32(hdr.Version),
-		HashPrevBlock:  thor.BytesToBytes32(prevBytes),
-		HashMerkleRoot: thor.BytesToBytes32(merkleRootBytes),
-		Timestamp:      uint32(hdr.Timestamp.UnixNano()),
-		NBits:          hdr.Bits,
-		Nonce:          hdr.Nonce,
-
-		// HeaderHash:
-		Raw: raw,
-		//FIXME: get beneficiary and height from tx information
-		PowHeight:   height,
-		Beneficiary: beneficiary,
-	}
-
-	info.HeaderHash = info.HashID()
+	info := NewPowBlockInfoFromPowBlock(&blk)
 	return info
 }
 

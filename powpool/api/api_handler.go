@@ -41,7 +41,7 @@ func (h *ApiHandler) handleRecvPowMessage(w http.ResponseWriter, req *http.Reque
 
 	fmt.Println("Recved Pow Block: ", newPowBlock)
 
-	info := powpool.NewPowBlockInfoFromBlock(&newPowBlock)
+	info := powpool.NewPowBlockInfoFromPowBlock(&newPowBlock)
 	h.powPool.Add(info)
 
 	fmt.Println("Added to pool:", info.ToString())

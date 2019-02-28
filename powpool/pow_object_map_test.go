@@ -7,12 +7,14 @@ package powpool
 
 import (
 	// "errors"
+	// "encoding/hex"
 	"fmt"
 	"testing"
 
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
 	"github.com/btcsuite/btcd/wire"
 	"github.com/stretchr/testify/assert"
+	"github.com/vechain/thor/thor"
 )
 
 func newBlock(version int32, prevHash, merkleRoot string, nonce, nbits uint32) *wire.MsgBlock {
@@ -24,21 +26,25 @@ func newBlock(version int32, prevHash, merkleRoot string, nonce, nbits uint32) *
 func TestPowObjMap(t *testing.T) {
 
 	h0 := "00000000000000000000000000000000"
-	h1 := "11111111111111111111111111111111"
-	h2 := "22222222222222222222222222222222"
-	h3 := "33333333333333333333333333333333"
+	merkle1 := "11111111111111111111111111111111"
+	merkle2 := "22222222222222222222222222222222"
+	merkle3 := "33333333333333333333333333333333"
 
 	var version int32
-	var nbits, nonce1, nonce2, nocne3 uint32
-	version, nbits, nonce1, nonce2, nocne3 = 1, 10000, 1000, 2000, 3000
+	var nbits, nonce1, nonce2, nonce3 uint32
+	version, nbits, nonce1, nonce2, nonce3 = 1, 10000, 1000, 2000, 3000
 
-	blk1 := newBlock(version, h0, h1, nbits, nonce1)
-	blk2 := newBlock(version, h1, h2, nbits, nonce2)
-	blk3 := newBlock(version, h2, h3, nbits, nocne3)
+	blk1 := newBlock(int32(powKframeBlockVersion), h0, merkle1, nbits, nonce1)
+	info1 := NewPowBlockInfoFromPowBlock(blk1)
+	h1 := info1.HashID().String()[2:]
 
-	info1 := NewPowBlockInfoFromBlock(blk1)
-	info2 := NewPowBlockInfoFromBlock(blk2)
-	info3 := NewPowBlockInfoFromBlock(blk3)
+	blk2 := newBlock(version, h1, merkle2, nbits, nonce2)
+	info2 := NewPowBlockInfoFromPowBlock(blk2)
+	h2 := info2.HashID().String()[2:]
+
+	blk3 := newBlock(version, h2, merkle3, nbits, nonce3)
+	info3 := NewPowBlockInfoFromPowBlock(blk3)
+	// h3 := info3.HashID().String()[2:]
 
 	//FIXME: hard coded only to pass
 	info1.PowHeight = 1
@@ -51,8 +57,9 @@ func TestPowObjMap(t *testing.T) {
 
 	m := newPowObjectMap()
 	assert.Zero(t, m.Len())
-
-	assert.Nil(t, m.Add(po1))
+	b1, _ := thor.ParseBytes32(h1)
+	assert.Nil(t, m.InitialAddKframe(po1))
+	fmt.Println(m.Contains(b1))
 	assert.Nil(t, m.Add(po1), "should no error if exists")
 	assert.Equal(t, 1, m.Len())
 

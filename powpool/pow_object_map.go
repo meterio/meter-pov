@@ -98,6 +98,9 @@ func (m *powObjectMap) Add(powObj *powObject) error {
 		return fmt.Errorf("Kframe is not added")
 	}
 
+	if m.Contains(powObj.HashID()) {
+		return nil
+	}
 	// object with previous hash MUST be in this pool
 	previous := m.Get(powObj.blockInfo.HashPrevBlock)
 	if previous == nil {

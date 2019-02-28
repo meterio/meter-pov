@@ -32,7 +32,7 @@ func TestBlock(t *testing.T) {
 		fmt.Println("SignatureScript: ", tx.TxIn[0].SignatureScript)
 	}
 
-	info := NewPowBlockInfoFromBlock(&blk)
+	info := NewPowBlockInfoFromPowBlock(&blk)
 	fmt.Println(info.ToString())
 }
 
