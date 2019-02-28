@@ -124,14 +124,15 @@ func reverse(a []byte) []byte {
 	return a
 }
 
-func DecodeSignatureScript(bytes []byte) (uint32, string) {
+func DecodeSignatureScript(bs []byte) (uint32, string) {
 	items := make([][]byte, 0)
+	fmt.Println("SS: ", bs)
 
-	for len(bytes) > 0 {
-		l := int(bytes[0])
+	for len(bs) > 0 {
+		l := int(bs[0])
 		end := 1 + l
-		items = append(items, bytes[1:end])
-		bytes = bytes[end:]
+		items = append(items, bs[1:end])
+		bs = bs[end:]
 	}
 
 	var height uint32
