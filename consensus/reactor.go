@@ -39,6 +39,7 @@ import (
 	"github.com/vechain/thor/chain"
 	"github.com/vechain/thor/comm"
 	bls "github.com/vechain/thor/crypto/multi_sig"
+	"github.com/vechain/thor/powpool"
 	"github.com/vechain/thor/thor"
 
 	//"github.com/vechain/thor/runtime"
@@ -239,6 +240,11 @@ func (conR *ConsensusReactor) SwitchToConsensus() {
 	if best.Header().Number() == 0 {
 		nonce = genesisNonce
 		replay = false
+
+		pool := powpool.GetGlobPowPoolInst()
+		info := powpool.GetPowGenesisBlockInfo()
+		pool.InitialAddKframe(info)
+
 		conR.ConsensusHandleReceivedNonce(int64(best.Header().Number()), nonce, replay)
 		return
 	}

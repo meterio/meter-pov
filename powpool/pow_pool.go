@@ -18,6 +18,7 @@ import (
 const (
 	// minimum height for committee relay
 	POW_MINIMUM_HEIGHT_INTV = int(20)
+	POW_DEFAULT_REWARD_COEF = uint64(1e12)
 )
 
 var (
@@ -96,6 +97,12 @@ func (p *PowPool) Close() {
 //SubscribePowBlockEvent receivers will receive a pow
 func (p *PowPool) SubscribePowBlockEvent(ch chan *PowBlockEvent) event.Subscription {
 	return p.scope.Track(p.powFeed.Subscribe(ch))
+}
+
+func (p *PowPool) InitialAddKframe(newPowBlockInfo *PowBlockInfo) error {
+	p.Wash()
+	powObj := NewPowObject(newPowBlockInfo)
+	return p.all.InitialAddKframe(powObj)
 }
 
 // Add add new pow block into pool.

@@ -18,6 +18,7 @@ import (
 	//"github.com/vechain/thor/chain"
 	//"github.com/vechain/thor/poa"
 	"github.com/vechain/thor/comm"
+	"github.com/vechain/thor/powpool"
 	"github.com/vechain/thor/runtime"
 	"github.com/vechain/thor/state"
 	"github.com/vechain/thor/thor"
@@ -806,6 +807,10 @@ func (conR *ConsensusReactor) HandleRecvKBlockInfo(ki RecvKBlockInfo) error {
 
 	// update last kblock height with current Height sine kblock is handled
 	conR.UpdateLastKBlockHeight(best.Header().Number())
+
+	pool := powpool.GetGlobPowPoolInst()
+	info := powpool.NewPowBlockInfoFromPosKBlock(best)
+	pool.InitialAddKframe(info)
 
 	// run new one.
 	conR.ConsensusHandleReceivedNonce(ki.Height, ki.Nonce, false)
