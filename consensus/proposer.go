@@ -16,6 +16,7 @@ import (
 
 	//"unsafe"
 	"github.com/vechain/thor/block"
+	"github.com/vechain/thor/powpool"
 	//"github.com/vechain/thor/chain"
 	//"github.com/vechain/thor/runtime"
 	//"github.com/vechain/thor/state"
@@ -170,8 +171,10 @@ func (cp *ConsensusProposer) MoveInitState(curState byte, sendNewRoundMsg bool) 
 }
 
 // Check Kblock in available in
-func (cp *ConsensusProposer) CheckKblock() bool {
-	return cp.csReactor.kBlockData != nil
+func (cp *ConsensusProposer) CheckKblockDecision() (bool, *powpool.PowResult) {
+	decided, results := powpool.GetGlobPowPoolInst().GetPowDecision()
+
+	return decided, results
 }
 
 // Proposer needs to chek POW pool and TX pool, make decision
@@ -184,15 +187,18 @@ func (cp *ConsensusProposer) ProposalBlockMsg(proposalEmptyBlock bool) bool {
 	//check POW pool and TX pool, propose kblock/mblock/no need to propose.
 	// The first MBlock must be generated because committee info is in this block
 	proposalKBlock := false
+	powResults := &powpool.PowResult{}
 	if cp.csReactor.curRound != 0 {
-		proposalKBlock = cp.CheckKblock()
+		proposalKBlock, powResults = cp.CheckKblockDecision()
 	}
 
 	// XXX: only generate empty Block at initial test
 	// check TX pool and POW pool, decide to go which block
 	// if there is nothing to do, move to next round.
 	if proposalKBlock {
-		kblock, err := cp.buildKBlock(cp.csReactor.kBlockData)
+		//kblock, err := cp.buildKBlock(cp.csReactor.kBlockData)
+		kblock, err := cp.buildKBlock(&block.KBlockData{uint64(powResults.Nonce), powResults.Raw},
+			powResults.Rewards)
 		if err != nil {
 			cp.csReactor.logger.Error("build Kblock failed ...")
 			return false
@@ -340,8 +346,8 @@ func (cp *ConsensusProposer) GenerateKBlockMsg(kblock []byte) bool {
 }
 
 // ConsenusLeader generate the 1st block. With meta data of group
-func (cp *ConsensusProposer) buildKBlock(data *block.KBlockData) ([]byte, error) {
-	blkInfo := cp.csReactor.BuildKBlock(data)
+func (cp *ConsensusProposer) buildKBlock(data *block.KBlockData, rewards []powpool.PowReward) ([]byte, error) {
+	blkInfo := cp.csReactor.BuildKBlock(data, rewards)
 	blkBytes := block.BlockEncodeBytes(blkInfo.ProposedBlock)
 
 	//save to local

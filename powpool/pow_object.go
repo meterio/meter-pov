@@ -36,3 +36,7 @@ func (p *powObject) Height() uint32 {
 func (p *powObject) Beneficiary() thor.Address {
 	return p.blockInfo.Beneficiary
 }
+
+func (p *powObject) Nonce() uint32 {
+	return p.blockInfo.Nonce
+}

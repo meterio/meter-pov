@@ -17,11 +17,39 @@
   version = "v0.2.0"
 
 [[projects]]
-  digest = "1:477f6df8a1915abb180d730179a4a45212328effdf98cc6ca5b0e5741db00125"
+  digest = "1:c41118009ad97a8133c1c6215bc8acbe3d3a3825fbd809540354202d4c33bd91"
   name = "github.com/btcsuite/btcd"
-  packages = ["btcec"]
+  packages = [
+    "blockchain",
+    "btcec",
+    "chaincfg",
+    "chaincfg/chainhash",
+    "database",
+    "txscript",
+    "wire",
+  ]
   pruneopts = "UT"
   revision = "2e60448ffcc6bf78332d1fe590260095f554dd78"
+
+[[projects]]
+  branch = "master"
+  digest = "1:30d4a548e09bca4a0c77317c58e7407e2a65c15325e944f9c08a7b7992f8a59e"
+  name = "github.com/btcsuite/btclog"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "84c8d2346e9fc8c7b947e243b9c24e6df9fd206a"
+
+[[projects]]
+  branch = "master"
+  digest = "1:d0a31b77988b04afbfa2c5ee38567a7a35d5a95de2266a644a7bc8d5c898e68d"
+  name = "github.com/btcsuite/btcutil"
+  packages = [
+    ".",
+    "base58",
+    "bech32",
+  ]
+  pruneopts = "UT"
+  revision = "4c204d6978034c001714728401fcd63060d568b4"
 
 [[projects]]
   digest = "1:ffe9824d294da03b391f44e1ae8281281b4afc1bdaa9588c9097785e3af10cec"
@@ -101,52 +129,12 @@
   version = "v1.3.0"
 
 [[projects]]
-  digest = "1:704b145137b5555c6bac6a7e52875e4df8a0a1b7ea74aaae864abcab61e672b0"
-  name = "github.com/go-kit/kit"
-  packages = [
-    "log",
-    "log/level",
-    "log/term",
-  ]
-  pruneopts = "UT"
-  revision = "4dc7be5d2d12881735283bcab7352178e190fc71"
-  version = "v0.6.0"
-
-[[projects]]
-  digest = "1:4062bc6de62d73e2be342243cf138cf499b34d558876db8d9430e2149388a4d8"
-  name = "github.com/go-logfmt/logfmt"
-  packages = ["."]
-  pruneopts = "UT"
-  revision = "07c9b44f60d7ffdfb7d8efe1ad539965737836dc"
-  version = "v0.4.0"
-
-[[projects]]
   digest = "1:586ea76dbd0374d6fb649a91d70d652b7fe0ccffb8910a77468e7702e7901f3d"
   name = "github.com/go-stack/stack"
   packages = ["."]
   pruneopts = "UT"
   revision = "2fee6af1a9795aafbe0253a0cfbdf668e1fb8a9a"
   version = "v1.8.0"
-
-[[projects]]
-  digest = "1:bfc758d5a03d57d97226fac6934551c01bd76612adb119c177395b057a0a46db"
-  name = "github.com/gogo/protobuf"
-  packages = [
-    "gogoproto",
-    "proto",
-    "protoc-gen-gogo/descriptor",
-  ]
-  pruneopts = "UT"
-  revision = "636bf0302bc95575d69441b25a2603156ffdddf1"
-  version = "v1.1.1"
-
-[[projects]]
-  digest = "1:15042ad3498153684d09f393bbaec6b216c8eec6d61f63dff711de7d64ed8861"
-  name = "github.com/golang/protobuf"
-  packages = ["proto"]
-  pruneopts = "UT"
-  revision = "b4deda0973fb4c70b50d226b1af49f3da59f5265"
-  version = "v1.1.0"
 
 [[projects]]
   branch = "master"
@@ -236,14 +224,6 @@
   packages = ["."]
   pruneopts = "UT"
   revision = "1fa385a6f45828c83361136b45b1a21a12139493"
-
-[[projects]]
-  branch = "master"
-  digest = "1:a64e323dc06b73892e5bb5d040ced475c4645d456038333883f58934abbf6f72"
-  name = "github.com/kr/logfmt"
-  packages = ["."]
-  pruneopts = "UT"
-  revision = "b84e30acd515aadc4b783ad4ff83aff3299bdfe0"
 
 [[projects]]
   digest = "1:c658e84ad3916da105a761660dcaeb01e63416c8ec7bc62256a9b411a05fcd67"
@@ -359,39 +339,6 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:087aaa7920e5d0bf79586feb57ce01c35c830396ab4392798112e8aae8c47722"
-  name = "github.com/tendermint/ed25519"
-  packages = [
-    ".",
-    "edwards25519",
-    "extra25519",
-  ]
-  pruneopts = "UT"
-  revision = "d8387025d2b9d158cf4efb07e7ebf814bcce2057"
-
-[[projects]]
-  digest = "1:2c971a45c89ca2ccc735af50919cdee05fbdc54d4bf50625073693300e31ead8"
-  name = "github.com/tendermint/go-amino"
-  packages = ["."]
-  pruneopts = "UT"
-  revision = "faa6e731944e2b7b6a46ad202902851e8ce85bee"
-  version = "v0.12.0"
-
-[[projects]]
-  digest = "1:6b2f6c76fcf082c7818bf187671d9097c98ba1421fb82e22d65384239fb66f77"
-  name = "github.com/tendermint/tendermint"
-  packages = [
-    "crypto",
-    "crypto/tmhash",
-    "libs/common",
-    "libs/log",
-  ]
-  pruneopts = "UT"
-  revision = "0c9c3292c918617624f6f3fbcd95eceade18bcd5"
-  version = "v0.25.0"
-
-[[projects]]
-  branch = "master"
   digest = "1:11de691e0caf12d4ac7bc76d427726691a5718fd5e0ecf0a82cec04518fb2669"
   name = "golang.org/x/crypto"
   packages = [
@@ -493,6 +440,9 @@
   analyzer-version = 1
   input-imports = [
     "github.com/beevik/ntp",
+    "github.com/btcsuite/btcd/blockchain",
+    "github.com/btcsuite/btcd/chaincfg/chainhash",
+    "github.com/btcsuite/btcd/wire",
     "github.com/davecgh/go-spew/spew",
     "github.com/dfinlab/go-amino",
     "github.com/elazarl/go-bindata-assetfs",

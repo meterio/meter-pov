@@ -346,6 +346,7 @@ const (
 
 // CommitteeMember is validator structure + consensus fields
 type CommitteeMember struct {
+	Address     thor.Address
 	PubKey      ecdsa.PublicKey
 	VotingPower int64
 	Accum       int64
@@ -438,6 +439,7 @@ func (conR *ConsensusReactor) UpdateActualCommittee(indexes []int, pubKeys []bls
 	// Add leader (myself) to the AcutalCommittee
 	l := conR.curCommittee.Validators[0]
 	cm := CommitteeMember{
+		Address:     l.Address,
 		PubKey:      l.PubKey,
 		VotingPower: l.VotingPower,
 		Accum:       l.Accum,
@@ -460,6 +462,7 @@ func (conR *ConsensusReactor) UpdateActualCommittee(indexes []int, pubKeys []bls
 		v := conR.curCommittee.Validators[index]
 
 		cm := CommitteeMember{
+			Address:     v.Address,
 			PubKey:      v.PubKey,
 			VotingPower: v.VotingPower,
 			Accum:       v.Accum,

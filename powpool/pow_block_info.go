@@ -31,7 +31,7 @@ type PowBlockInfo struct {
 	HeaderHash  thor.Bytes32
 	Beneficiary thor.Address
 	PowHeight   uint32
-	RewardCoef  uint64
+	RewardCoef  int64
 
 	// Raw block
 	Raw []byte

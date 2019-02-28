@@ -2,8 +2,10 @@ package powpool
 
 import (
 	"fmt"
+	"math/big"
 	"sync"
 
+	"github.com/btcsuite/btcd/blockchain"
 	"github.com/vechain/thor/thor"
 )
 
@@ -137,6 +139,44 @@ func (m *powObjectMap) GetLatestObjects() []*powObject {
 	defer m.lock.RUnlock()
 
 	return m.latestHeightMkr.powObjs
+}
+
+func (m *powObjectMap) GetLatestHeight() uint32 {
+	m.lock.RLock()
+	defer m.lock.RUnlock()
+
+	return m.latestHeightMkr.height
+}
+
+func (m *powObjectMap) FillLatestObjChain(obj *powObject) (*PowResult, error) {
+	result := NewPowResult(obj.Nonce())
+
+	difficaulty := blockchain.CompactToBig(obj.blockInfo.NBits)
+	coef := big.NewInt(obj.blockInfo.RewardCoef)
+	reward := &PowReward{obj.blockInfo.Beneficiary, *coef.Mul(coef, difficaulty)}
+
+	result.Rewards = append(result.Rewards, *reward)
+	result.Difficaulties = result.Difficaulties.Add(result.Difficaulties, difficaulty)
+	result.Raw = append(result.Raw, obj.blockInfo.Raw)
+
+	prev := m.Get(obj.blockInfo.HashPrevBlock)
+	interval := obj.Height() - m.lastKframePowObj.Height()
+
+	for prev != nil && prev != m.lastKframePowObj && interval >= 0 {
+
+		difficaulty := blockchain.CompactToBig(prev.blockInfo.NBits)
+		coef := big.NewInt(prev.blockInfo.RewardCoef)
+		reward := &PowReward{prev.blockInfo.Beneficiary, *coef.Mul(coef, difficaulty)}
+
+		result.Rewards = append(result.Rewards, *reward)
+		result.Difficaulties = result.Difficaulties.Add(result.Difficaulties, difficaulty)
+		result.Raw = append(result.Raw, prev.blockInfo.Raw)
+
+		prev = m.Get(prev.blockInfo.HashPrevBlock)
+		interval--
+	}
+
+	return result, nil
 }
 
 func (m *powObjectMap) Flush() {

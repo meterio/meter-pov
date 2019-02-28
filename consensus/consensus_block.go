@@ -707,7 +707,7 @@ func (conR *ConsensusReactor) BuildMBlock() *ProposedBlockInfo {
 	return &ProposedBlockInfo{newBlock, stage, &receipts, txsToRemoved, checkPoint}
 }
 
-func (conR *ConsensusReactor) BuildKBlock(data *block.KBlockData) *ProposedBlockInfo {
+func (conR *ConsensusReactor) BuildKBlock(data *block.KBlockData, rewards []powpool.PowReward) *ProposedBlockInfo {
 	best := conR.chain.BestBlock()
 	now := uint64(time.Now().Unix())
 	if conR.curHeight != int64(best.Header().Number()) {
@@ -717,9 +717,9 @@ func (conR *ConsensusReactor) BuildKBlock(data *block.KBlockData) *ProposedBlock
 
 	conR.logger.Info("build kblock ...", "nonce", data.Nonce)
 	startTime := mclock.Now()
-	//XXX: Build kblock coinbse Tranactions
+	//XXX: Build kblock coinbase Tranactions
 	//txs := tx.Transactions{}
-	txs := conR.GetKBlockRewards()
+	txs := conR.GetKBlockRewardTxs(rewards)
 
 	p := packer.GetGlobPackerInst()
 	if p == nil {

@@ -6,6 +6,8 @@
 package powpool
 
 import (
+	"fmt"
+	"math/big"
 	"time"
 
 	"github.com/ethereum/go-ethereum/event"
@@ -17,8 +19,8 @@ import (
 
 const (
 	// minimum height for committee relay
-	POW_MINIMUM_HEIGHT_INTV = int(20)
-	POW_DEFAULT_REWARD_COEF = uint64(1e12)
+	POW_MINIMUM_HEIGHT_INTV = uint32(20)
+	POW_DEFAULT_REWARD_COEF = int64(1e12)
 )
 
 var (
@@ -33,16 +35,17 @@ type Options struct {
 	MaxLifetime     time.Duration
 }
 
-type powReward struct {
-	rewarder thor.Address
-	value    uint32
+type PowReward struct {
+	Rewarder thor.Address
+	Value    big.Int
 }
 
 // pow decisions
 type PowResult struct {
-	nonce   uint32
-	rewards []powReward
-	raw     []block.PowRawBlock
+	Nonce         uint32
+	Rewards       []PowReward
+	Difficaulties *big.Int
+	Raw           []block.PowRawBlock
 }
 
 // PowBlockEvent will be posted when pow is added or status changed.
@@ -132,6 +135,50 @@ func (p *PowPool) Wash() error {
 	return nil
 }
 
-func (p *PowPool) GetPowDecision() (decided bool, decision PowResult) {
-	return
+//==============APIs for consensus ===================
+func NewPowResult(nonce uint32) *PowResult {
+	return &PowResult{
+		Nonce:         nonce,
+		Difficaulties: big.NewInt(0),
+	}
+}
+
+// consensus APIs
+func (p *PowPool) GetPowDecision() (bool, *PowResult) {
+	var mostDifficaultResult *PowResult = nil
+
+	// cases can not be decided
+	if !p.all.isKframeInitialAdded() {
+		return false, nil
+	}
+
+	latestHeight := p.all.GetLatestHeight()
+	lastKframeHeight := p.all.lastKframePowObj.Height()
+	if (latestHeight < lastKframeHeight) ||
+		((latestHeight - lastKframeHeight) < POW_MINIMUM_HEIGHT_INTV) {
+		return false, nil
+	}
+
+	// Now have enough info to process
+	for _, latestObj := range p.all.GetLatestObjects() {
+		result, err := p.all.FillLatestObjChain(latestObj)
+		if err != nil {
+			fmt.Print(err)
+			continue
+		}
+
+		if mostDifficaultResult == nil {
+			mostDifficaultResult = result
+		} else {
+			if result.Difficaulties.Cmp(mostDifficaultResult.Difficaulties) == 1 {
+				mostDifficaultResult = result
+			}
+		}
+	}
+
+	if mostDifficaultResult == nil {
+		return false, nil
+	} else {
+		return true, mostDifficaultResult
+	}
 }
