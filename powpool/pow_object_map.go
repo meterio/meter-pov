@@ -153,8 +153,11 @@ func (m *powObjectMap) FillLatestObjChain(obj *powObject) (*PowResult, error) {
 	result := NewPowResult(obj.Nonce())
 
 	difficaulty := blockchain.CompactToBig(obj.blockInfo.NBits)
-	coef := big.NewInt(obj.blockInfo.RewardCoef)
-	reward := &PowReward{obj.blockInfo.Beneficiary, *coef.Mul(coef, difficaulty)}
+	genesisDiff := blockchain.CompactToBig(GetPowGenesisBlockInfo().NBits)
+	coef := big.NewInt(RewardCoef)
+	coef = coef.Mul(coef, difficaulty)
+	coef = coef.Div(coef, genesisDiff)
+	reward := &PowReward{obj.blockInfo.Beneficiary, *coef}
 
 	result.Rewards = append(result.Rewards, *reward)
 	result.Difficaulties = result.Difficaulties.Add(result.Difficaulties, difficaulty)
@@ -166,8 +169,10 @@ func (m *powObjectMap) FillLatestObjChain(obj *powObject) (*PowResult, error) {
 	for prev != nil && prev != m.lastKframePowObj && interval >= 0 {
 
 		difficaulty := blockchain.CompactToBig(prev.blockInfo.NBits)
-		coef := big.NewInt(prev.blockInfo.RewardCoef)
-		reward := &PowReward{prev.blockInfo.Beneficiary, *coef.Mul(coef, difficaulty)}
+		coef := big.NewInt(RewardCoef)
+		coef = coef.Mul(coef, difficaulty)
+		coef = coef.Div(coef, genesisDiff)
+		reward := &PowReward{prev.blockInfo.Beneficiary, *coef}
 
 		result.Rewards = append(result.Rewards, *reward)
 		result.Difficaulties = result.Difficaulties.Add(result.Difficaulties, difficaulty)

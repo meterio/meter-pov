@@ -26,6 +26,7 @@ const (
 var (
 	log             = log15.New("pkg", "powpool")
 	GlobPowPoolInst *PowPool
+	RewardCoef      = POW_DEFAULT_REWARD_COEF
 )
 
 // Options options for tx pool.
@@ -118,8 +119,8 @@ func (p *PowPool) Add(newPowBlockInfo *PowBlockInfo) error {
 	}
 	p.powFeed.Send(&PowBlockEvent{BlockInfo: newPowBlockInfo})
 	powObj := NewPowObject(newPowBlockInfo)
-	p.all.Add(powObj)
-	return nil
+	err := p.all.Add(powObj)
+	return err
 }
 
 // Remove removes powObj from pool by its ID.

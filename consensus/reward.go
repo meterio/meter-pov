@@ -7,7 +7,8 @@ package consensus
 
 import (
 	//"crypto/ecdsa"
-	"math/big"
+	"fmt"
+	// "math/big"
 
 	//"github.com/vechain/thor/runtime"
 	//"github.com/vechain/thor/state"
@@ -26,7 +27,7 @@ func (conR *ConsensusReactor) GetKBlockRewardTxs(rewards []powpool.PowReward) tx
 	rewarders = append(rewarders, account0)
 	****/
 	trx := conR.MinerRewards(rewards)
-	conR.logger.Info("built rewards tx.", "the transaction:", trx)
+	fmt.Println("Built rewards tx:", trx)
 	return append(tx.Transactions{}, trx)
 }
 
@@ -41,7 +42,7 @@ func (conR *ConsensusReactor) MinerRewards(rewards []powpool.PowReward) *tx.Tran
 		BlockRef(tx.NewBlockRef(conR.chain.BestBlock().Header().Number() + 1)).
 		Expiration(720).
 		GasPriceCoef(0).
-		Gas(210000). //builder.Build().IntrinsicGas()
+		Gas(2100000). //builder.Build().IntrinsicGas()
 		DependsOn(nil).
 		Nonce(12345678)
 
@@ -53,10 +54,12 @@ func (conR *ConsensusReactor) MinerRewards(rewards []powpool.PowReward) *tx.Tran
 	}
 
 	//TBD: issue 1 METER_GOV to each committee member
-	amount, _ := new(big.Int).SetString("10000000000000000000", 1)
-	for _, cm := range conR.curActualCommittee {
-		builder.Clause(tx.NewClause(&cm.Address).WithValue(amount).WithToken(tx.TOKEN_METER_GOV))
-	}
+	/*
+		amount, _ := new(big.Int).SetString("10000000000000000000", 10)
+		for _, cm := range conR.curActualCommittee {
+			builder.Clause(tx.NewClause(&cm.Address).WithValue(amount).WithToken(tx.TOKEN_METER_GOV))
+		}
+	*/
 
 	builder.Build().IntrinsicGas()
 	return builder.Build()

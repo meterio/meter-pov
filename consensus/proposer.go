@@ -677,6 +677,10 @@ Move to next height
 			nonce := kBlockData.Nonce
 			height := blk.Header().Number()
 
+			pool := powpool.GetGlobPowPoolInst()
+			info := powpool.NewPowBlockInfoFromPosKBlock(blk)
+			pool.InitialAddKframe(info)
+
 			//exit committee first
 			cp.csReactor.exitCurCommittee()
 			cp.csReactor.ConsensusHandleReceivedNonce(int64(height), nonce, false)
