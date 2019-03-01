@@ -13,11 +13,6 @@ import (
 	"github.com/btcsuite/btcd/wire"
 )
 
-var (
-	powBlockVersion       = uint32(0x20000000)
-	powKframeBlockVersion = uint32(0x20100000)
-)
-
 type PowBlockInfo struct {
 	// Pow header part
 	Version        uint32
@@ -126,7 +121,6 @@ func reverse(a []byte) []byte {
 
 func DecodeSignatureScript(bs []byte) (uint32, string) {
 	items := make([][]byte, 0)
-	fmt.Println("SS: ", bs)
 
 	for len(bs) > 0 {
 		l := int(bs[0])

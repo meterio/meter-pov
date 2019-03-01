@@ -105,6 +105,7 @@ func (p *PowPool) SubscribePowBlockEvent(ch chan *PowBlockEvent) event.Subscript
 func (p *PowPool) InitialAddKframe(newPowBlockInfo *PowBlockInfo) error {
 	p.Wash()
 	powObj := NewPowObject(newPowBlockInfo)
+	p.powFeed.Send(&PowBlockEvent{BlockInfo: newPowBlockInfo})
 	return p.all.InitialAddKframe(powObj)
 }
 

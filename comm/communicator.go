@@ -167,6 +167,7 @@ func (c *Communicator) Protocols() []*p2psrv.Protocol {
 func (c *Communicator) Start() {
 	c.goes.Go(c.txsLoop)
 	c.goes.Go(c.announcementLoop)
+	c.goes.Go(c.powsLoop)
 }
 
 // Stop stop the communicator.

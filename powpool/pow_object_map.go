@@ -58,7 +58,7 @@ func (m *powObjectMap) _add(powObj *powObject) error {
 	if _, found := m.powObjMap[powID]; found {
 		return nil
 	}
-
+	fmt.Println("Added to powpool: ", powObj.blockInfo.ToString())
 	m.powObjMap[powID] = powObj
 	m.latestHeightMkr.update(powObj)
 	return nil
@@ -77,10 +77,10 @@ func (m *powObjectMap) Contains(powID thor.Bytes32) bool {
 }
 
 func (m *powObjectMap) InitialAddKframe(powObj *powObject) error {
-	if powObj.blockInfo.Version != powKframeBlockVersion {
-		log.Error("InitialAddKframe: Invalid version", "verson", powObj.blockInfo.Version)
-		return fmt.Errorf("InitialAddKframe: Invalid version (%v)", powObj.blockInfo.Version)
-	}
+	// if powObj.blockInfo.Version != powKframeBlockVersion {
+	// 	log.Error("InitialAddKframe: Invalid version", "verson", powObj.blockInfo.Version)
+	// 	return fmt.Errorf("InitialAddKframe: Invalid version (%v)", powObj.blockInfo.Version)
+	// }
 
 	if m.isKframeInitialAdded() {
 		return fmt.Errorf("Kframe already added, flush object map first")
@@ -101,6 +101,7 @@ func (m *powObjectMap) Add(powObj *powObject) error {
 	}
 
 	if m.Contains(powObj.HashID()) {
+		log.Error("Hash ID existed")
 		return nil
 	}
 	// object with previous hash MUST be in this pool
