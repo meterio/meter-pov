@@ -168,7 +168,7 @@ func (c *Communicator) handleRPC(peer *Peer, msg *p2p.Msg, write func(interface{
 	case proto.MsgNewPowBlock:
 		// XXX: filter out-dated pow-block
 		var newPowBlockInfo *powpool.PowBlockInfo
-		if err := msg.Decode(newPowBlockInfo); err != nil {
+		if err := msg.Decode(&newPowBlockInfo); err != nil {
 			return errors.WithMessage(err, "decode msg")
 		}
 		powID := newPowBlockInfo.HeaderHash

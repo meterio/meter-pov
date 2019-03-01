@@ -9,7 +9,12 @@ import (
 	"net/http"
 
 	"github.com/gorilla/mux"
+	"github.com/inconshreveable/log15"
 	"github.com/vechain/thor/powpool"
+)
+
+var (
+	log = log15.New("pkg", "powpool/api")
 )
 
 //New return api router

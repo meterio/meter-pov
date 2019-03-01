@@ -6,8 +6,6 @@
 package comm
 
 import (
-	"fmt"
-
 	"github.com/vechain/thor/comm/proto"
 	"github.com/vechain/thor/powpool"
 )
@@ -24,19 +22,16 @@ func (c *Communicator) powsLoop() {
 			return
 		case powBlockEv := <-powBlockEvCh:
 			powBlockInfo := powBlockEv.BlockInfo
-			fmt.Println("pows loop recevived event")
-			fmt.Println(powBlockInfo.ToString())
+
 			powID := powBlockInfo.HeaderHash
 			peers := c.peerSet.Slice().Filter(func(p *Peer) bool {
 				return !p.IsPowBlockKnown(powID)
 			})
-			fmt.Println("Broadcast pow block event")
 			for _, peer := range peers {
-				peer := peer
 				peer.MarkPowBlock(powID)
 				c.goes.Go(func() {
 					if err := proto.NotifyNewPowBlock(c.ctx, peer, powBlockInfo); err != nil {
-						peer.logger.Debug("failed to broadcast block info", "err", err)
+						peer.logger.Error("failed to broadcast block info", "err", err)
 					}
 				})
 			}

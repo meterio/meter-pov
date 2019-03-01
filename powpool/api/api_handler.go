@@ -7,7 +7,6 @@ package api
 
 import (
 	"bytes"
-	"fmt"
 	// "strings"
 	"encoding/hex"
 	"io/ioutil"
@@ -35,21 +34,19 @@ func NewApiHandler(powPool *powpool.PowPool) *ApiHandler {
 
 func (h *ApiHandler) handleRecvPowMessage(w http.ResponseWriter, req *http.Request) error {
 	hexBytes, _ := ioutil.ReadAll(req.Body)
-	fmt.Println(string(hexBytes))
 	actualBytes, _ := hex.DecodeString(string(hexBytes))
 	newPowBlock := wire.MsgBlock{}
 	err := newPowBlock.Deserialize(bytes.NewReader(actualBytes))
 	if err != nil {
-		fmt.Println("Could not deserialize pow block", err)
+		log.Error("Could not deserialize pow block", "err", err)
 		return err
 	}
 
-	fmt.Println("Recved Pow Block: ", newPowBlock)
+	log.Info("Recved Pow Block", "hex", string(hexBytes))
 
 	info := powpool.NewPowBlockInfoFromPowBlock(&newPowBlock)
 	h.powPool.Add(info)
 
-	fmt.Println("Added to pool:", info.ToString())
 	return nil
 }
 

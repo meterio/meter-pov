@@ -13,7 +13,7 @@ import (
 const (
 	Name              = "thor"
 	Version    uint   = 1
-	Length     uint64 = 8
+	Length     uint64 = 9
 	MaxMsgSize        = 10 * 1024 * 1024
 )
 
