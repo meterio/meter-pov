@@ -6,10 +6,11 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/ethereum/go-ethereum/rlp"
+	// "github.com/ethereum/go-ethereum/rlp"
 	"github.com/vechain/thor/block"
 	"github.com/vechain/thor/thor"
 
+	"github.com/btcsuite/btcd/chaincfg/chainhash"
 	"github.com/btcsuite/btcd/wire"
 )
 
@@ -26,7 +27,6 @@ type PowBlockInfo struct {
 	HeaderHash  thor.Bytes32
 	Beneficiary thor.Address
 	PowHeight   uint32
-	RewardCoef  int64
 
 	// Raw block
 	Raw []byte
@@ -54,25 +54,8 @@ func GetPowGenesisBlockInfo() *PowBlockInfo {
 	b, _ := hex.DecodeString(h)
 	powBlk := wire.MsgBlock{}
 	powBlk.Deserialize(bytes.NewReader(b))
-	powHdr := powBlk.Header
-
-	prevBytes := reverse(powHdr.PrevBlock.CloneBytes())
-	merkleRootBytes := reverse(powHdr.MerkleRoot.CloneBytes())
-
-	info := &PowBlockInfo{
-		Version:        uint32(powHdr.Version),
-		HashPrevBlock:  thor.BytesToBytes32(prevBytes),
-		HashMerkleRoot: thor.BytesToBytes32(merkleRootBytes),
-		Timestamp:      uint32(powHdr.Timestamp.UnixNano()),
-		NBits:          powHdr.Bits,
-		Nonce:          powHdr.Nonce,
-
-		Raw:        b,
-		RewardCoef: POW_DEFAULT_REWARD_COEF,
-
-		PowHeight: 0,
-	}
-	info.HeaderHash = info.HashID()
+	info := NewPowBlockInfoFromPowBlock(&powBlk)
+	info.PowHeight = 0
 	return info
 }
 
@@ -100,8 +83,7 @@ func NewPowBlockInfoFromPowBlock(powBlock *wire.MsgBlock) *PowBlockInfo {
 		NBits:          hdr.Bits,
 		Nonce:          hdr.Nonce,
 
-		Raw:        buf.Bytes(),
-		RewardCoef: POW_DEFAULT_REWARD_COEF,
+		Raw: buf.Bytes(),
 
 		PowHeight:   height,
 		Beneficiary: beneficiary,
@@ -150,15 +132,18 @@ func NewPowBlockInfo(raw []byte) *PowBlockInfo {
 }
 
 func (info *PowBlockInfo) HashID() thor.Bytes32 {
-	hash, _ := rlp.EncodeToBytes([]interface{}{
-		info.Version,
-		info.HashPrevBlock,
-		info.HashMerkleRoot,
-		info.Timestamp,
-		info.NBits,
-		info.Nonce,
-	})
-	return thor.Blake2b(hash)
+	powBlk := wire.MsgBlock{}
+	powBlk.Deserialize(bytes.NewReader(info.Raw))
+	var powBlkPtr *wire.MsgBlock
+	powBlkPtr = &powBlk
+	hash := powBlkPtr.BlockHash()
+	var hashPtr *chainhash.Hash
+	hashPtr = &hash
+	bs := hashPtr.CloneBytes()
+	var bss []byte
+	bss = bs
+
+	return thor.BytesToBytes32(reverse(bss))
 }
 
 func (info *PowBlockInfo) ToString() string {
