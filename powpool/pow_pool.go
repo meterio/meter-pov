@@ -10,6 +10,7 @@ import (
 	"math/big"
 	"time"
 
+	"github.com/btcsuite/btcd/rpcclient"
 	"github.com/ethereum/go-ethereum/event"
 	"github.com/inconshreveable/log15"
 	"github.com/vechain/thor/block"
@@ -183,4 +184,43 @@ func (p *PowPool) GetPowDecision() (bool, *PowResult) {
 	} else {
 		return true, mostDifficaultResult
 	}
+}
+
+func (p *PowPool) ReplayFrom(startHeight int32) error {
+	p.Wash()
+
+	client, err := rpcclient.New(&rpcclient.ConnConfig{
+		HTTPPostMode: true,
+		DisableTLS:   true,
+		Host:         "127.0.0.1:8332",
+		User:         "admin1",
+		Pass:         "123",
+	}, nil)
+	if err != nil {
+		log.Error("error creating new btc client", "err", err)
+		return err
+	}
+	_, endHeight, err := client.GetBestBlock()
+	if err != nil {
+		log.Error("error contacting POW service", "err", err)
+		return err
+	}
+	pool := GetGlobPowPoolInst()
+	height := startHeight
+	for height <= endHeight {
+		hash, err := client.GetBlockHash(int64(height))
+		if err != nil {
+			log.Error("error getting block hash", "err", err)
+			return err
+		}
+		blk, err := client.GetBlock(hash)
+		if err != nil {
+			log.Error("error getting block", "err", err)
+			return err
+		}
+		info := NewPowBlockInfoFromPowBlock(blk)
+		pool.Add(info)
+		height++
+	}
+	return nil
 }

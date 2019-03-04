@@ -1482,6 +1482,19 @@ func (conR *ConsensusReactor) ConsensusHandleReceivedNonce(kBlockHeight int64, n
 
 	if inCommittee {
 		conR.logger.Info("I am in committee!!!")
+		if replay == true {
+			best := conR.chain.BestBlock()
+			lastKBlockHeight := best.Header().LastKBlockHeight()
+			pool := powpool.GetGlobPowPoolInst()
+
+			if lastKBlockHeight == 0 {
+				pool.ReplayFrom(0)
+			} else {
+				kb, _ := conR.chain.GetTrunkBlock(lastKBlockHeight)
+				info := powpool.NewPowBlockInfoFromPosKBlock(kb)
+				pool.ReplayFrom(int32(info.PowHeight))
+			}
+		}
 	} else {
 		conR.logger.Info("I am NOT in committee!!!", "nonce", nonce)
 	}
