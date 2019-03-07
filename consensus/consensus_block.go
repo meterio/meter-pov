@@ -477,6 +477,16 @@ func (conR *ConsensusReactor) finalizeKBlock(blk *block.Block, ev *block.Evidenc
 	blk.SetBlockEvidence(ev)
 
 	// XXX:update the cache size
+
+	// only round 0 Mblock contains the following info
+	committeeInfo := conR.MakeBlockCommitteeInfo(conR.csCommon.system, conR.curActualCommittee)
+	systemBytes := conR.csCommon.system.ToBytes()
+	blk.SetSystemBytes(systemBytes)
+
+	paramsBytes, _ := conR.csCommon.params.ToBytes()
+	blk.SetParamsBytes(paramsBytes)
+	blk.SetCommitteeInfo(committeeInfo)
+
 	return true
 }
 
