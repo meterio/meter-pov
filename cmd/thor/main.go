@@ -49,6 +49,8 @@ var (
 	}
 
 	defaultPowPoolOptions = powpool.Options{
+		Node:            "localhost",
+		Port:            8332,
 		Limit:           10000,
 		LimitPerAccount: 16,
 		MaxLifetime:     20 * time.Minute,
@@ -87,6 +89,10 @@ func main() {
 			forceLastKFrameFlag,
 			generateKFrameFlag,
 			skipSignatureCheckFlag,
+			powNodeFlag,
+			powPortFlag,
+			powUserFlag,
+			powPassFlag,
 		},
 		Action: defaultAction,
 		Commands: []cli.Command{
@@ -146,6 +152,12 @@ func defaultAction(ctx *cli.Context) error {
 
 	txPool := txpool.New(chain, state.NewCreator(mainDB), defaultTxPoolOptions)
 	defer func() { log.Info("closing tx pool..."); txPool.Close() }()
+
+	defaultPowPoolOptions.Node = ctx.String("pow-node")
+	defaultPowPoolOptions.Port = ctx.Int("pow-port")
+	defaultPowPoolOptions.User = ctx.String("pow-user")
+	defaultPowPoolOptions.Pass = ctx.String("pow-pass")
+	fmt.Println(defaultPowPoolOptions)
 
 	powPool := powpool.New(defaultPowPoolOptions)
 	defer func() { log.Info("closing pow pool..."); powPool.Close() }()

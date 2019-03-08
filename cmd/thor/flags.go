@@ -112,4 +112,24 @@ var (
 		Name:  "skip-signature-check",
 		Usage: "skip signature check",
 	}
+	powNodeFlag = cli.StringFlag{
+		Name:  "pow-node",
+		Usage: "address of pow node",
+		Value: "localhost",
+	}
+	powPortFlag = cli.IntFlag{
+		Name:  "pow-port",
+		Usage: "port of pow node",
+		Value: 8332,
+	}
+	powUserFlag = cli.StringFlag{
+		Name:  "pow-user",
+		Usage: "user of pow node",
+		Value: "admin1",
+	}
+	powPassFlag = cli.StringFlag{
+		Name:  "pow-pass",
+		Usage: "password of pow node",
+		Value: "123",
+	}
 )

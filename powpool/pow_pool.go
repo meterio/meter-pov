@@ -37,6 +37,10 @@ var (
 
 // Options options for tx pool.
 type Options struct {
+	Node            string
+	Port            int
+	User            string
+	Pass            string
 	Limit           int
 	LimitPerAccount int
 	MaxLifetime     time.Duration
@@ -114,8 +118,15 @@ func (p *PowPool) InitialAddKframe(newPowBlockInfo *PowBlockInfo) error {
 	powObj := NewPowObject(newPowBlockInfo)
 	p.powFeed.Send(&PowBlockEvent{BlockInfo: newPowBlockInfo})
 	// XXX: send block to POW
-	blockHex := hex.EncodeToString(newPowBlockInfo.Raw)
-	go p.submitPosKblock(blockHex)
+	raw := newPowBlockInfo.Raw
+	blks := bytes.Split(raw, []byte{0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff})
+	if len(blks) == 2 {
+		powHex := hex.EncodeToString(blks[0])
+		posHex := hex.EncodeToString(blks[1])
+		go p.submitPosKblock(powHex, posHex)
+	} else {
+		fmt.Println("not enough items in raw block")
+	}
 
 	return p.all.InitialAddKframe(powObj)
 }
@@ -127,19 +138,20 @@ type RPCData struct {
 	Params  []string `json:"params"`
 }
 
-func (p *PowPool) submitPosKblock(blockHex string) (string, string) {
+func (p *PowPool) submitPosKblock(powHex, posHex string) (string, string) {
 	client := &http.Client{}
 	data := &RPCData{
 		Jsonrpc: "1.0",
 		Id:      "test-id",
 		Method:  "submitposkblock",
-		Params:  []string{blockHex},
+		Params:  []string{powHex, posHex},
 	}
 	b, _ := json.Marshal(data)
 
-	req, _ := http.NewRequest("POST", "http://192.168.1.153:8332", bytes.NewReader(b))
+	url := fmt.Sprintf("http://%v:%v", p.options.Node, p.options.Port)
+	req, _ := http.NewRequest("POST", url, bytes.NewReader(b))
 
-	auth := "admin1" + ":" + "123"
+	auth := fmt.Sprintf("%v:%v", p.options.User, p.options.Pass)
 	authToken := base64.StdEncoding.EncodeToString([]byte(auth))
 
 	req.Header.Add("Authorization", "Basic "+authToken)
@@ -234,25 +246,32 @@ func (p *PowPool) GetPowDecision() (bool, *PowResult) {
 func (p *PowPool) ReplayFrom(startHeight int32) error {
 	p.Wash()
 
+	host := fmt.Sprintf("%v:%v", p.options.Node, p.options.Port)
 	client, err := rpcclient.New(&rpcclient.ConnConfig{
 		HTTPPostMode: true,
 		DisableTLS:   true,
-		Host:         "127.0.0.1:8332",
-		User:         "admin1",
-		Pass:         "123",
+		Host:         host,
+		User:         p.options.User,
+		Pass:         p.options.Pass,
 	}, nil)
 	if err != nil {
 		log.Error("error creating new btc client", "err", err)
 		return err
 	}
-	_, endHeight, err := client.GetBestBlock()
+	hash, err := client.GetBestBlockHash()
 	if err != nil {
-		log.Error("error contacting POW service", "err", err)
+		log.Error("error occured during getbestblockhash", "err", err)
+		return err
+	}
+
+	headerVerbose, err := client.GetBlockHeaderVerbose(hash)
+	if err != nil {
+		log.Error("error occured during getblockheaderverbose", "err", err)
 		return err
 	}
 	pool := GetGlobPowPoolInst()
 	height := startHeight
-	for height <= endHeight {
+	for height <= headerVerbose.Height {
 		hash, err := client.GetBlockHash(int64(height))
 		if err != nil {
 			log.Error("error getting block hash", "err", err)
