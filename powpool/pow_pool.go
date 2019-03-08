@@ -6,8 +6,13 @@
 package powpool
 
 import (
+	"bytes"
+	"encoding/base64"
+	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"math/big"
+	"net/http"
 	"time"
 
 	"github.com/btcsuite/btcd/rpcclient"
@@ -108,7 +113,47 @@ func (p *PowPool) InitialAddKframe(newPowBlockInfo *PowBlockInfo) error {
 	p.Wash()
 	powObj := NewPowObject(newPowBlockInfo)
 	p.powFeed.Send(&PowBlockEvent{BlockInfo: newPowBlockInfo})
+	// XXX: send block to POW
+	blockHex := hex.EncodeToString(newPowBlockInfo.Raw)
+	go p.submitPosKblock(blockHex)
+
 	return p.all.InitialAddKframe(powObj)
+}
+
+type RPCData struct {
+	Jsonrpc string   `json:"jsonrpc"`
+	Id      string   `json:"id"`
+	Method  string   `json:"method"`
+	Params  []string `json:"params"`
+}
+
+func (p *PowPool) submitPosKblock(blockHex string) (string, string) {
+	client := &http.Client{}
+	data := &RPCData{
+		Jsonrpc: "1.0",
+		Id:      "test-id",
+		Method:  "submitposkblock",
+		Params:  []string{blockHex},
+	}
+	b, _ := json.Marshal(data)
+
+	req, _ := http.NewRequest("POST", "http://192.168.1.153:8332", bytes.NewReader(b))
+
+	auth := "admin1" + ":" + "123"
+	authToken := base64.StdEncoding.EncodeToString([]byte(auth))
+
+	req.Header.Add("Authorization", "Basic "+authToken)
+	req.Header.Set("Content-Type", "text/plain")
+
+	res, _ := client.Do(req)
+	tmp := make([]byte, 1)
+	content := make([]byte, 0)
+	i, err := res.Body.Read(tmp)
+	for i > 0 && err == nil {
+		i, err = res.Body.Read(tmp)
+		content = append(content, tmp...)
+	}
+	return res.Status, string(content)
 }
 
 // Add add new pow block into pool.
