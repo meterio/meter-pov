@@ -30,14 +30,6 @@
   version = "0.2.0"
 
 [[constraint]]
-  name = "github.com/btcsuite/btcutil"
-  version = "BTCUTIL_0_5_0"
-
-[[constraint]]
-  name = "github.com/btcsuite/btclog"
-  version = "BTCLOG_0_0_3"
-
-[[constraint]]
   name = "github.com/davecgh/go-spew"
   version = "1.1.1"
 
@@ -135,4 +127,8 @@
 
 [prune]
   go-tests = true
-  unused-packages = true
+  unused-packages = true 
+
+[[constraint]]
+  branch = "master"
+  name = "github.com/btcsuite/btcd"
