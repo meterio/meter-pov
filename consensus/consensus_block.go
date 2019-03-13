@@ -818,10 +818,6 @@ func (conR *ConsensusReactor) HandleRecvKBlockInfo(ki RecvKBlockInfo) error {
 	// update last kblock height with current Height sine kblock is handled
 	conR.UpdateLastKBlockHeight(best.Header().Number())
 
-	pool := powpool.GetGlobPowPoolInst()
-	info := powpool.NewPowBlockInfoFromPosKBlock(best)
-	pool.InitialAddKframe(info)
-
 	// run new one.
 	conR.ConsensusHandleReceivedNonce(ki.Height, ki.Nonce, false)
 	return nil

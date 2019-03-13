@@ -241,10 +241,6 @@ func (conR *ConsensusReactor) SwitchToConsensus() {
 		nonce = genesisNonce
 		replay = false
 
-		pool := powpool.GetGlobPowPoolInst()
-		info := powpool.GetPowGenesisBlockInfo()
-		pool.InitialAddKframe(info)
-
 		conR.ConsensusHandleReceivedNonce(int64(best.Header().Number()), nonce, replay)
 		return
 	}
@@ -262,12 +258,14 @@ func (conR *ConsensusReactor) SwitchToConsensus() {
 		}
 		nonce = kBlockData.Nonce
 		replay = false
+
 		conR.ConsensusHandleReceivedNonce(int64(best.Header().Number()), nonce, replay)
 	} else {
 		// mblock
 		lastKBlockHeight := best.Header().LastKBlockHeight()
 		if lastKBlockHeight == 0 {
 			nonce = genesisNonce
+
 		} else {
 			kblock, err := conR.chain.GetTrunkBlock(lastKBlockHeight)
 			if err != nil {
@@ -1482,16 +1480,27 @@ func (conR *ConsensusReactor) ConsensusHandleReceivedNonce(kBlockHeight int64, n
 
 	if inCommittee {
 		conR.logger.Info("I am in committee!!!")
-		if replay == true {
-			best := conR.chain.BestBlock()
-			lastKBlockHeight := best.Header().LastKBlockHeight()
-			pool := powpool.GetGlobPowPoolInst()
 
-			if lastKBlockHeight == 0 {
+		info := &powpool.PowBlockInfo{}
+		if kBlockHeight == 0 {
+			info = powpool.GetPowGenesisBlockInfo()
+		} else {
+			kblock, _ := conR.chain.GetTrunkBlock(uint32(kBlockHeight))
+			info = powpool.NewPowBlockInfoFromPosKBlock(kblock)
+		}
+		pool := powpool.GetGlobPowPoolInst()
+		pool.Wash()
+		pool.InitialAddKframe(info)
+		conR.logger.Info("PowPool initial added kblock", "kblock height", kBlockHeight, "powHeight", info.PowHeight)
+
+		if replay == true {
+			if kBlockHeight == 0 {
+				conR.logger.Info("Replay", "replay from", 0)
+				//POW node already can push up all block behind the kblock. does not need replayfrom any more
 				pool.ReplayFrom(0)
 			} else {
-				kb, _ := conR.chain.GetTrunkBlock(lastKBlockHeight)
-				info := powpool.NewPowBlockInfoFromPosKBlock(kb)
+				conR.logger.Info("Replay", "replay from powHeight", info.PowHeight)
+				//POW node already can push up all block behind the kblock. does not need replayfrom any more
 				pool.ReplayFrom(int32(info.PowHeight))
 			}
 		}

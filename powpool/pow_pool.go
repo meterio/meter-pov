@@ -173,6 +173,7 @@ func (p *PowPool) submitPosKblock(powHex, posHex string) (string, string) {
 func (p *PowPool) Add(newPowBlockInfo *PowBlockInfo) error {
 	if p.all.Contains(newPowBlockInfo.HeaderHash) {
 		// pow already in the pool
+		log.Info("PowPool Add, hash already in PowPool", "hash", newPowBlockInfo.HeaderHash)
 		return nil
 	}
 	p.powFeed.Send(&PowBlockEvent{BlockInfo: newPowBlockInfo})
@@ -244,7 +245,6 @@ func (p *PowPool) GetPowDecision() (bool, *PowResult) {
 }
 
 func (p *PowPool) ReplayFrom(startHeight int32) error {
-	p.Wash()
 
 	host := fmt.Sprintf("%v:%v", p.options.Node, p.options.Port)
 	client, err := rpcclient.New(&rpcclient.ConnConfig{
@@ -283,7 +283,11 @@ func (p *PowPool) ReplayFrom(startHeight int32) error {
 			return err
 		}
 		info := NewPowBlockInfoFromPowBlock(blk)
-		pool.Add(info)
+		Err := pool.Add(info)
+		if Err != nil {
+			log.Error("add to pool failed", "err", Err)
+			return Err
+		}
 		height++
 	}
 	return nil

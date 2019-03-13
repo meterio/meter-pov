@@ -34,7 +34,13 @@ func NewApiHandler(powPool *powpool.PowPool) *ApiHandler {
 
 func (h *ApiHandler) handleRecvPowMessage(w http.ResponseWriter, req *http.Request) error {
 	hexBytes, _ := ioutil.ReadAll(req.Body)
-	actualBytes, _ := hex.DecodeString(string(hexBytes))
+
+	actualBytes, Err := hex.DecodeString(string(hexBytes))
+	if Err != nil {
+		log.Error("Decode String", "error=", Err)
+		return Err
+	}
+
 	newPowBlock := wire.MsgBlock{}
 	err := newPowBlock.Deserialize(bytes.NewReader(actualBytes))
 	if err != nil {
