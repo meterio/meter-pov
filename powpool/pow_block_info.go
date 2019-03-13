@@ -29,7 +29,8 @@ type PowBlockInfo struct {
 	PowHeight   uint32
 
 	// Raw block
-	Raw []byte
+	PosRaw []byte
+	PowRaw []byte
 }
 
 func NewPowBlockInfoFromPosKBlock(posBlock *block.Block) *PowBlockInfo {
@@ -39,11 +40,11 @@ func NewPowBlockInfoFromPosKBlock(posBlock *block.Block) *PowBlockInfo {
 		powBlock.Deserialize(strings.NewReader(string(data)))
 		info := NewPowBlockInfoFromPowBlock(&powBlock)
 
-		buf := bytes.NewBufferString(string(data))
-		buf.Write([]byte{0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff})
+		buf := bytes.NewBufferString("")
 		posBlock.EncodeRLP(buf)
 
-		info.Raw = buf.Bytes()
+		info.PowRaw = data
+		info.PosRaw = buf.Bytes()
 		return info
 	}
 	return nil
@@ -83,7 +84,7 @@ func NewPowBlockInfoFromPowBlock(powBlock *wire.MsgBlock) *PowBlockInfo {
 		NBits:          hdr.Bits,
 		Nonce:          hdr.Nonce,
 
-		Raw: buf.Bytes(),
+		PowRaw: buf.Bytes(),
 
 		PowHeight:   height,
 		Beneficiary: beneficiary,
@@ -133,7 +134,7 @@ func NewPowBlockInfo(raw []byte) *PowBlockInfo {
 
 func (info *PowBlockInfo) HashID() thor.Bytes32 {
 	powBlk := wire.MsgBlock{}
-	powBlk.Deserialize(bytes.NewReader(info.Raw))
+	powBlk.Deserialize(bytes.NewReader(info.PowRaw))
 	var powBlkPtr *wire.MsgBlock
 	powBlkPtr = &powBlk
 	hash := powBlkPtr.BlockHash()
