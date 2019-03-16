@@ -12,10 +12,10 @@ import (
 	"github.com/ethereum/go-ethereum/common/math"
 	"github.com/gorilla/mux"
 	"github.com/pkg/errors"
-	"github.com/vechain/thor/api/utils"
-	"github.com/vechain/thor/block"
-	"github.com/vechain/thor/chain"
-	"github.com/vechain/thor/thor"
+	"github.com/dfinlab/meter/api/utils"
+	"github.com/dfinlab/meter/block"
+	"github.com/dfinlab/meter/chain"
+	"github.com/dfinlab/meter/meter"
 )
 
 type Blocks struct {
@@ -56,7 +56,7 @@ func (b *Blocks) parseRevision(revision string) (interface{}, error) {
 		return nil, nil
 	}
 	if len(revision) == 66 || len(revision) == 64 {
-		blockID, err := thor.ParseBytes32(revision)
+		blockID, err := meter.ParseBytes32(revision)
 		if err != nil {
 			return nil, err
 		}
@@ -74,8 +74,8 @@ func (b *Blocks) parseRevision(revision string) (interface{}, error) {
 
 func (b *Blocks) getBlock(revision interface{}) (*block.Block, error) {
 	switch revision.(type) {
-	case thor.Bytes32:
-		return b.chain.GetBlock(revision.(thor.Bytes32))
+	case meter.Bytes32:
+		return b.chain.GetBlock(revision.(meter.Bytes32))
 	case uint32:
 		return b.chain.GetTrunkBlock(revision.(uint32))
 	default:
@@ -83,7 +83,7 @@ func (b *Blocks) getBlock(revision interface{}) (*block.Block, error) {
 	}
 }
 
-func (b *Blocks) isTrunk(blkID thor.Bytes32, blkNum uint32) (bool, error) {
+func (b *Blocks) isTrunk(blkID meter.Bytes32, blkNum uint32) (bool, error) {
 	best := b.chain.BestBlock()
 	ancestorID, err := b.chain.GetAncestorBlockID(best.Header().ID(), blkNum)
 	if err != nil {

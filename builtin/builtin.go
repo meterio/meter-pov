@@ -6,16 +6,16 @@
 package builtin
 
 import (
+	"github.com/dfinlab/meter/abi"
+	"github.com/dfinlab/meter/builtin/authority"
+	"github.com/dfinlab/meter/builtin/energy"
+	"github.com/dfinlab/meter/builtin/gen"
+	"github.com/dfinlab/meter/builtin/params"
+	"github.com/dfinlab/meter/builtin/prototype"
+	"github.com/dfinlab/meter/meter"
+	"github.com/dfinlab/meter/state"
+	"github.com/dfinlab/meter/xenv"
 	"github.com/pkg/errors"
-	"github.com/vechain/thor/abi"
-	"github.com/vechain/thor/builtin/authority"
-	"github.com/vechain/thor/builtin/energy"
-	"github.com/vechain/thor/builtin/gen"
-	"github.com/vechain/thor/builtin/params"
-	"github.com/vechain/thor/builtin/prototype"
-	"github.com/vechain/thor/state"
-	"github.com/vechain/thor/thor"
-	"github.com/vechain/thor/xenv"
 )
 
 // Builtin contracts binding.
@@ -70,14 +70,14 @@ type nativeMethod struct {
 }
 
 type methodKey struct {
-	thor.Address
+	meter.Address
 	abi.MethodID
 }
 
 var nativeMethods = make(map[methodKey]*nativeMethod)
 
 // FindNativeCall find native calls.
-func FindNativeCall(to thor.Address, input []byte) (*abi.Method, func(*xenv.Environment) []interface{}, bool) {
+func FindNativeCall(to meter.Address, input []byte) (*abi.Method, func(*xenv.Environment) []interface{}, bool) {
 	methodID, err := abi.ExtractMethodID(input)
 	if err != nil {
 		return nil, nil, false

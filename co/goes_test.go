@@ -8,7 +8,7 @@ package co_test
 import (
 	"testing"
 
-	"github.com/vechain/thor/co"
+	"github.com/dfinlab/meter/co"
 )
 
 func TestGoes(t *testing.T) {

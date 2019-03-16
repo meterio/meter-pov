@@ -14,15 +14,15 @@ import (
 
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/stretchr/testify/assert"
-	"github.com/vechain/thor/builtin"
-	"github.com/vechain/thor/chain"
-	"github.com/vechain/thor/consensus"
-	"github.com/vechain/thor/genesis"
-	"github.com/vechain/thor/lvldb"
-	"github.com/vechain/thor/packer"
-	"github.com/vechain/thor/state"
-	"github.com/vechain/thor/thor"
-	"github.com/vechain/thor/tx"
+	"github.com/dfinlab/meter/builtin"
+	"github.com/dfinlab/meter/chain"
+	"github.com/dfinlab/meter/consensus"
+	"github.com/dfinlab/meter/genesis"
+	"github.com/dfinlab/meter/lvldb"
+	"github.com/dfinlab/meter/packer"
+	"github.com/dfinlab/meter/state"
+	"github.com/dfinlab/meter/meter"
+	"github.com/dfinlab/meter/tx"
 )
 
 type txIterator struct {
@@ -57,7 +57,7 @@ func (ti *txIterator) Next() *tx.Transaction {
 	return tx
 }
 
-func (ti *txIterator) OnProcessed(txID thor.Bytes32, err error) {
+func (ti *txIterator) OnProcessed(txID meter.Bytes32, err error) {
 }
 
 func TestP(t *testing.T) {

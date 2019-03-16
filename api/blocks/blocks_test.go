@@ -17,15 +17,15 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/gorilla/mux"
 	"github.com/stretchr/testify/assert"
-	"github.com/vechain/thor/api/blocks"
-	"github.com/vechain/thor/block"
-	"github.com/vechain/thor/chain"
-	"github.com/vechain/thor/genesis"
-	"github.com/vechain/thor/lvldb"
-	"github.com/vechain/thor/packer"
-	"github.com/vechain/thor/state"
-	"github.com/vechain/thor/thor"
-	"github.com/vechain/thor/tx"
+	"github.com/dfinlab/meter/api/blocks"
+	"github.com/dfinlab/meter/block"
+	"github.com/dfinlab/meter/chain"
+	"github.com/dfinlab/meter/genesis"
+	"github.com/dfinlab/meter/lvldb"
+	"github.com/dfinlab/meter/packer"
+	"github.com/dfinlab/meter/state"
+	"github.com/dfinlab/meter/meter"
+	"github.com/dfinlab/meter/tx"
 )
 
 const (
@@ -83,7 +83,7 @@ func initBlockServer(t *testing.T) {
 		t.Fatal(err)
 	}
 	chain, _ := chain.New(db, b)
-	addr := thor.BytesToAddress([]byte("to"))
+	addr := meter.BytesToAddress([]byte("to"))
 	cla := tx.NewClause(&addr).WithValue(big.NewInt(10000))
 	tx := new(tx.Builder).
 		ChainTag(chain.Tag()).

@@ -10,7 +10,7 @@ import (
 
 	"fmt"
 
-	"github.com/vechain/thor/block"
+	"github.com/dfinlab/meter/block"
 )
 
 type rawBlock struct {

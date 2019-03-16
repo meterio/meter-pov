@@ -9,9 +9,9 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/vechain/thor/genesis"
-	"github.com/vechain/thor/lvldb"
-	"github.com/vechain/thor/state"
+	"github.com/dfinlab/meter/genesis"
+	"github.com/dfinlab/meter/lvldb"
+	"github.com/dfinlab/meter/state"
 )
 
 func TestTestnetGenesis(t *testing.T) {

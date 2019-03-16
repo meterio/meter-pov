@@ -10,14 +10,14 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/crypto/secp256k1"
 	"github.com/stretchr/testify/assert"
-	"github.com/vechain/thor/builtin"
-	"github.com/vechain/thor/chain"
-	"github.com/vechain/thor/genesis"
-	"github.com/vechain/thor/lvldb"
-	"github.com/vechain/thor/runtime"
-	"github.com/vechain/thor/state"
-	"github.com/vechain/thor/thor"
-	"github.com/vechain/thor/tx"
+	"github.com/dfinlab/meter/builtin"
+	"github.com/dfinlab/meter/chain"
+	"github.com/dfinlab/meter/genesis"
+	"github.com/dfinlab/meter/lvldb"
+	"github.com/dfinlab/meter/runtime"
+	"github.com/dfinlab/meter/state"
+	"github.com/dfinlab/meter/meter"
+	"github.com/dfinlab/meter/tx"
 )
 
 func TestResolvedTx(t *testing.T) {
@@ -85,7 +85,7 @@ func (tr *testResolvedTransaction) TestResolveTransaction() {
 	_, err = runtime.ResolveTransaction(txSign(txBuild().Gas(21000 - 1)))
 	tr.assert.NotNil(err)
 
-	address := thor.BytesToAddress([]byte("addr"))
+	address := meter.BytesToAddress([]byte("addr"))
 	_, err = runtime.ResolveTransaction(txSign(txBuild().Clause(tx.NewClause(&address).WithValue(big.NewInt(-10)).WithData(nil))))
 	tr.assert.NotNil(err)
 
@@ -120,7 +120,7 @@ func (tr *testResolvedTransaction) TestCommonTo() {
 
 	commonTo(txSign(txBuild().Clause(clause()).Clause(tx.NewClause(nil))), tr.assert.Nil)
 
-	address := thor.BytesToAddress([]byte("addr1"))
+	address := meter.BytesToAddress([]byte("addr1"))
 	commonTo(txSign(txBuild().
 		Clause(clause()).
 		Clause(tx.NewClause(&address)),
@@ -139,9 +139,9 @@ func (tr *testResolvedTransaction) TestBuyGas() {
 		return txBuilder(tr.chain.Tag())
 	}
 
-	targetTime := tr.chain.BestBlock().Header().Timestamp() + thor.BlockInterval
+	targetTime := tr.chain.BestBlock().Header().Timestamp() + meter.BlockInterval
 
-	buyGas := func(tx *tx.Transaction) thor.Address {
+	buyGas := func(tx *tx.Transaction) meter.Address {
 		resolve, err := runtime.ResolveTransaction(tx)
 		if err != nil {
 			tr.t.Fatal(err)

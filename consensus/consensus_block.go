@@ -11,28 +11,28 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
-	"github.com/vechain/thor/block"
+	"github.com/dfinlab/meter/block"
 
-	//"github.com/vechain/thor/builtin"
+	//"github.com/dfinlab/meter/builtin"
 
-	//"github.com/vechain/thor/chain"
-	//"github.com/vechain/thor/poa"
-	"github.com/vechain/thor/comm"
-	"github.com/vechain/thor/powpool"
-	"github.com/vechain/thor/runtime"
-	"github.com/vechain/thor/state"
-	"github.com/vechain/thor/thor"
-	"github.com/vechain/thor/tx"
-	"github.com/vechain/thor/txpool"
+	//"github.com/dfinlab/meter/chain"
+	//"github.com/dfinlab/meter/poa"
+	"github.com/dfinlab/meter/comm"
+	"github.com/dfinlab/meter/powpool"
+	"github.com/dfinlab/meter/runtime"
+	"github.com/dfinlab/meter/state"
+	"github.com/dfinlab/meter/meter"
+	"github.com/dfinlab/meter/tx"
+	"github.com/dfinlab/meter/txpool"
 
-	//"github.com/vechain/thor/types"
+	//"github.com/dfinlab/meter/types"
 	"github.com/ethereum/go-ethereum/common/mclock"
 	crypto "github.com/ethereum/go-ethereum/crypto"
-	bls "github.com/vechain/thor/crypto/multi_sig"
-	cmn "github.com/vechain/thor/libs/common"
-	"github.com/vechain/thor/logdb"
-	"github.com/vechain/thor/packer"
-	"github.com/vechain/thor/xenv"
+	bls "github.com/dfinlab/meter/crypto/multi_sig"
+	cmn "github.com/dfinlab/meter/libs/common"
+	"github.com/dfinlab/meter/logdb"
+	"github.com/dfinlab/meter/packer"
+	"github.com/dfinlab/meter/xenv"
 )
 
 // Consensus check whether the block is verified,
@@ -165,12 +165,12 @@ func (c *ConsensusReactor) validateBlockHeader(header *block.Header, parent *blo
 
 	// XXX: unlike vechain, our block generation is not periodically. It is on varied speed, basically 5s < t  < 15s
 	/*****
-	if (header.Timestamp()-parent.Timestamp())%thor.BlockInterval != 0 {
+	if (header.Timestamp()-parent.Timestamp())%meter.BlockInterval != 0 {
 		return consensusError(fmt.Sprintf("block interval not rounded: parent %v, current %v", parent.Timestamp(), header.Timestamp()))
 	}
 	******/
 
-	if header.Timestamp() > nowTimestamp+thor.BlockInterval {
+	if header.Timestamp() > nowTimestamp+meter.BlockInterval {
 		return errFutureBlock
 	}
 
@@ -345,7 +345,7 @@ func (c *ConsensusReactor) verifyBlock(blk *block.Block, state *state.State) (*s
 	var totalGasUsed uint64
 	txs := blk.Transactions()
 	receipts := make(tx.Receipts, 0, len(txs))
-	processedTxs := make(map[thor.Bytes32]bool)
+	processedTxs := make(map[meter.Bytes32]bool)
 	header := blk.Header()
 	signer, _ := header.Signer()
 	rt := runtime.New(
@@ -360,7 +360,7 @@ func (c *ConsensusReactor) verifyBlock(blk *block.Block, state *state.State) (*s
 			TotalScore:  header.TotalScore(),
 		})
 
-	findTx := func(txID thor.Bytes32) (found bool, reverted bool, err error) {
+	findTx := func(txID meter.Bytes32) (found bool, reverted bool, err error) {
 		if reverted, ok := processedTxs[txID]; ok {
 			return true, reverted, nil
 		}
@@ -664,7 +664,7 @@ func (conR *ConsensusReactor) BuildMBlock() *ProposedBlockInfo {
 	}
 
 	txs := pool.Executables()
-	var txsToRemove []thor.Bytes32
+	var txsToRemove []meter.Bytes32
 	txsToRemoved := func() bool {
 		for _, id := range txsToRemove {
 			pool.Remove(id)
@@ -738,7 +738,7 @@ func (conR *ConsensusReactor) BuildKBlock(data *block.KBlockData, rewards []powp
 		return nil
 	}
 
-	//var txsToRemove []thor.Bytes32
+	//var txsToRemove []meter.Bytes32
 	txsToRemoved := func() bool {
 		// Kblock does not need to clean up txs now
 		return true

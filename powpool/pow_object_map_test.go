@@ -14,7 +14,7 @@ import (
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
 	"github.com/btcsuite/btcd/wire"
 	"github.com/stretchr/testify/assert"
-	"github.com/vechain/thor/thor"
+	"github.com/dfinlab/meter/meter"
 )
 
 func newBlock(version int32, prevHash, merkleRoot string, nonce, nbits uint32) *wire.MsgBlock {
@@ -57,7 +57,7 @@ func TestPowObjMap(t *testing.T) {
 
 	m := newPowObjectMap()
 	assert.Zero(t, m.Len())
-	b1, _ := thor.ParseBytes32(h1)
+	b1, _ := meter.ParseBytes32(h1)
 	assert.Nil(t, m.InitialAddKframe(po1))
 	fmt.Println(m.Contains(b1))
 	assert.Nil(t, m.Add(po1), "should no error if exists")

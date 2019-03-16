@@ -21,15 +21,15 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/gorilla/mux"
 	"github.com/stretchr/testify/assert"
-	ABI "github.com/vechain/thor/abi"
-	"github.com/vechain/thor/api/accounts"
-	"github.com/vechain/thor/chain"
-	"github.com/vechain/thor/genesis"
-	"github.com/vechain/thor/lvldb"
-	"github.com/vechain/thor/packer"
-	"github.com/vechain/thor/state"
-	"github.com/vechain/thor/thor"
-	"github.com/vechain/thor/tx"
+	ABI "github.com/dfinlab/meter/abi"
+	"github.com/dfinlab/meter/api/accounts"
+	"github.com/dfinlab/meter/chain"
+	"github.com/dfinlab/meter/genesis"
+	"github.com/dfinlab/meter/lvldb"
+	"github.com/dfinlab/meter/packer"
+	"github.com/dfinlab/meter/state"
+	"github.com/dfinlab/meter/meter"
+	"github.com/dfinlab/meter/tx"
 )
 
 var sol = `	pragma solidity ^0.4.18;
@@ -82,12 +82,12 @@ var abiJSON = `[
 		"type": "function"
 	}
 ]`
-var addr = thor.BytesToAddress([]byte("to"))
+var addr = meter.BytesToAddress([]byte("to"))
 var value = big.NewInt(10000)
-var storageKey = thor.Bytes32{}
+var storageKey = meter.Bytes32{}
 var storageValue = byte(1)
 
-var contractAddr thor.Address
+var contractAddr meter.Address
 
 var bytecode = common.Hex2Bytes("608060405234801561001057600080fd5b50610125806100206000396000f3006080604052600436106049576000357c0100000000000000000000000000000000000000000000000000000000900463ffffffff16806324b8ba5f14604e578063bb4e3f4d14607b575b600080fd5b348015605957600080fd5b506079600480360381019080803560ff16906020019092919050505060cf565b005b348015608657600080fd5b5060b3600480360381019080803560ff169060200190929190803560ff16906020019092919050505060ec565b604051808260ff1660ff16815260200191505060405180910390f35b806000806101000a81548160ff021916908360ff16021790555050565b60008183019050929150505600a165627a7a723058201584add23e31d36c569b468097fe01033525686b59bbb263fb3ab82e9553dae50029")
 
@@ -165,11 +165,11 @@ func getStorage(t *testing.T) {
 	if err := json.Unmarshal(res, &value); err != nil {
 		t.Fatal(err)
 	}
-	h, err := thor.ParseBytes32(value["value"])
+	h, err := meter.ParseBytes32(value["value"])
 	if err != nil {
 		t.Fatal(err)
 	}
-	assert.Equal(t, thor.BytesToBytes32([]byte{storageValue}), h, "storage should be equal")
+	assert.Equal(t, meter.BytesToBytes32([]byte{storageValue}), h, "storage should be equal")
 	assert.Equal(t, http.StatusOK, statusCode, "OK")
 }
 
@@ -186,7 +186,7 @@ func initAccountServer(t *testing.T) {
 	claTransfer := tx.NewClause(&addr).WithValue(value)
 	claDeploy := tx.NewClause(nil).WithData(bytecode)
 	transaction := buildTxWithClauses(t, chain.Tag(), claTransfer, claDeploy)
-	contractAddr = thor.CreateContractAddress(transaction.ID(), 1, 0)
+	contractAddr = meter.CreateContractAddress(transaction.ID(), 1, 0)
 	packTx(chain, stateC, transaction, t)
 
 	method := "set"

@@ -12,18 +12,18 @@ import (
 
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/rlp"
-	"github.com/vechain/thor/kv"
-	"github.com/vechain/thor/stackedmap"
-	"github.com/vechain/thor/thor"
-	"github.com/vechain/thor/trie"
+	"github.com/dfinlab/meter/kv"
+	"github.com/dfinlab/meter/stackedmap"
+	"github.com/dfinlab/meter/meter"
+	"github.com/dfinlab/meter/trie"
 )
 
 // State manages the main accounts trie.
 type State struct {
-	root     thor.Bytes32 // root of initial accounts trie
+	root     meter.Bytes32 // root of initial accounts trie
 	kv       kv.GetPutter
 	trie     trieReader                     // the accounts trie reader
-	cache    map[thor.Address]*cachedObject // cache of accounts trie
+	cache    map[meter.Address]*cachedObject // cache of accounts trie
 	sm       *stackedmap.StackedMap         // keeps revisions of accounts state
 	err      error
 	setError func(err error)
@@ -41,7 +41,7 @@ type trieWriter interface {
 }
 
 // New create an state object.
-func New(root thor.Bytes32, kv kv.GetPutter) (*State, error) {
+func New(root meter.Bytes32, kv kv.GetPutter) (*State, error) {
 	trie, err := trCache.Get(root, kv, false)
 	if err != nil {
 		return nil, err
@@ -51,7 +51,7 @@ func New(root thor.Bytes32, kv kv.GetPutter) (*State, error) {
 		root:  root,
 		kv:    kv,
 		trie:  trie,
-		cache: make(map[thor.Address]*cachedObject),
+		cache: make(map[meter.Address]*cachedObject),
 	}
 	state.setError = func(err error) {
 		if state.err == nil {
@@ -66,11 +66,11 @@ func New(root thor.Bytes32, kv kv.GetPutter) (*State, error) {
 
 // Spawn create a new state object shares current state's underlying db.
 // Also errors will be reported to current state.
-func (s *State) Spawn(root thor.Bytes32) *State {
+func (s *State) Spawn(root meter.Bytes32) *State {
 	newState, err := New(root, s.kv)
 	if err != nil {
 		s.setError(err)
-		newState, _ = New(thor.Bytes32{}, s.kv)
+		newState, _ = New(meter.Bytes32{}, s.kv)
 	}
 	newState.setError = s.setError
 	return newState
@@ -79,10 +79,10 @@ func (s *State) Spawn(root thor.Bytes32) *State {
 // implements stackedmap.MapGetter
 func (s *State) cacheGetter(key interface{}) (value interface{}, exist bool) {
 	switch k := key.(type) {
-	case thor.Address: // get account
+	case meter.Address: // get account
 		return &s.getCachedObject(k).data, true
 	case codeKey: // get code
-		co := s.getCachedObject(thor.Address(k))
+		co := s.getCachedObject(meter.Address(k))
 		code, err := co.GetCode()
 		if err != nil {
 			s.setError(err)
@@ -101,11 +101,11 @@ func (s *State) cacheGetter(key interface{}) (value interface{}, exist bool) {
 }
 
 // build changes via journal of stackedMap.
-func (s *State) changes() map[thor.Address]*changedObject {
-	changes := make(map[thor.Address]*changedObject)
+func (s *State) changes() map[meter.Address]*changedObject {
+	changes := make(map[meter.Address]*changedObject)
 
 	// get or create changedObject
-	getOrNewObj := func(addr thor.Address) *changedObject {
+	getOrNewObj := func(addr meter.Address) *changedObject {
 		if obj, ok := changes[addr]; ok {
 			return obj
 		}
@@ -117,14 +117,14 @@ func (s *State) changes() map[thor.Address]*changedObject {
 	// traverse journal to build changes
 	s.sm.Journal(func(k, v interface{}) bool {
 		switch key := k.(type) {
-		case thor.Address:
+		case meter.Address:
 			getOrNewObj(key).data = *(v.(*Account))
 		case codeKey:
-			getOrNewObj(thor.Address(key)).code = v.([]byte)
+			getOrNewObj(meter.Address(key)).code = v.([]byte)
 		case storageKey:
 			o := getOrNewObj(key.addr)
 			if o.storage == nil {
-				o.storage = make(map[thor.Bytes32]rlp.RawValue)
+				o.storage = make(map[meter.Bytes32]rlp.RawValue)
 			}
 			o.storage[key.key] = v.(rlp.RawValue)
 		}
@@ -134,7 +134,7 @@ func (s *State) changes() map[thor.Address]*changedObject {
 	return changes
 }
 
-func (s *State) getCachedObject(addr thor.Address) *cachedObject {
+func (s *State) getCachedObject(addr meter.Address) *cachedObject {
 	if co, ok := s.cache[addr]; ok {
 		return co
 	}
@@ -149,29 +149,29 @@ func (s *State) getCachedObject(addr thor.Address) *cachedObject {
 }
 
 // the returned account should not be modified
-func (s *State) getAccount(addr thor.Address) *Account {
+func (s *State) getAccount(addr meter.Address) *Account {
 	v, _ := s.sm.Get(addr)
 	return v.(*Account)
 }
 
-func (s *State) getAccountCopy(addr thor.Address) Account {
+func (s *State) getAccountCopy(addr meter.Address) Account {
 	return *s.getAccount(addr)
 }
 
-func (s *State) updateAccount(addr thor.Address, acc *Account) {
+func (s *State) updateAccount(addr meter.Address, acc *Account) {
 	s.sm.Put(addr, acc)
 }
 
 // ForEachStorage iterates all storage key-value pairs for given address.
 // It's for debug purpose.
-// func (s *State) ForEachStorage(addr thor.Address, cb func(key thor.Bytes32, value []byte) bool) {
+// func (s *State) ForEachStorage(addr meter.Address, cb func(key meter.Bytes32, value []byte) bool) {
 // 	// skip if no code
-// 	if (s.GetCodeHash(addr) == thor.Bytes32{}) {
+// 	if (s.GetCodeHash(addr) == meter.Bytes32{}) {
 // 		return
 // 	}
 
 // 	// build ongoing key-value pairs
-// 	ongoing := make(map[thor.Bytes32][]byte)
+// 	ongoing := make(map[meter.Bytes32][]byte)
 // 	s.sm.Journal(func(k, v interface{}) bool {
 // 		if key, ok := k.(storageKey); ok {
 // 			if key.addr == addr {
@@ -188,7 +188,7 @@ func (s *State) updateAccount(addr thor.Address, acc *Account) {
 // 	}
 
 // 	co := s.getCachedObject(addr)
-// 	strie, err := trie.NewSecure(thor.BytesToBytes32(co.data.StorageRoot), s.kv, 0)
+// 	strie, err := trie.NewSecure(meter.BytesToBytes32(co.data.StorageRoot), s.kv, 0)
 // 	if err != nil {
 // 		s.setError(err)
 // 		return
@@ -200,7 +200,7 @@ func (s *State) updateAccount(addr thor.Address, acc *Account) {
 // 			return
 // 		}
 // 		// skip cached values
-// 		key := thor.BytesToBytes32(strie.GetKey(iter.Key))
+// 		key := meter.BytesToBytes32(strie.GetKey(iter.Key))
 // 		if _, ok := ongoing[key]; !ok {
 // 			if !cb(key, iter.Value) {
 // 				return
@@ -215,24 +215,24 @@ func (s *State) Err() error {
 }
 
 // GetBalance returns balance for the given address.
-func (s *State) GetBalance(addr thor.Address) *big.Int {
+func (s *State) GetBalance(addr meter.Address) *big.Int {
 	return s.getAccount(addr).Balance
 }
 
 // SetBalance set balance for the given address.
-func (s *State) SetBalance(addr thor.Address, balance *big.Int) {
+func (s *State) SetBalance(addr meter.Address, balance *big.Int) {
 	cpy := s.getAccountCopy(addr)
 	cpy.Balance = balance
 	s.updateAccount(addr, &cpy)
 }
 
 // GetEnergy get energy for the given address at block number specified.
-func (s *State) GetEnergy(addr thor.Address, blockTime uint64) *big.Int {
+func (s *State) GetEnergy(addr meter.Address, blockTime uint64) *big.Int {
 	return s.getAccount(addr).CalcEnergy(blockTime)
 }
 
 // SetEnergy set energy at block number for the given address.
-func (s *State) SetEnergy(addr thor.Address, energy *big.Int, blockTime uint64) {
+func (s *State) SetEnergy(addr meter.Address, energy *big.Int, blockTime uint64) {
 	cpy := s.getAccountCopy(addr)
 	cpy.Energy, cpy.BlockTime = energy, blockTime
 	s.updateAccount(addr, &cpy)
@@ -240,12 +240,12 @@ func (s *State) SetEnergy(addr thor.Address, energy *big.Int, blockTime uint64) 
 
 // GetMaster get master for the given address.
 // Master can move energy, manage users...
-func (s *State) GetMaster(addr thor.Address) thor.Address {
-	return thor.BytesToAddress(s.getAccount(addr).Master)
+func (s *State) GetMaster(addr meter.Address) meter.Address {
+	return meter.BytesToAddress(s.getAccount(addr).Master)
 }
 
 // SetMaster set master for the given address.
-func (s *State) SetMaster(addr thor.Address, master thor.Address) {
+func (s *State) SetMaster(addr meter.Address, master meter.Address) {
 	cpy := s.getAccountCopy(addr)
 	if master.IsZero() {
 		cpy.Master = nil
@@ -256,26 +256,26 @@ func (s *State) SetMaster(addr thor.Address, master thor.Address) {
 }
 
 // GetStorage returns storage value for the given address and key.
-func (s *State) GetStorage(addr thor.Address, key thor.Bytes32) thor.Bytes32 {
+func (s *State) GetStorage(addr meter.Address, key meter.Bytes32) meter.Bytes32 {
 	raw := s.GetRawStorage(addr, key)
 	if len(raw) == 0 {
-		return thor.Bytes32{}
+		return meter.Bytes32{}
 	}
 	kind, content, _, err := rlp.Split(raw)
 	if err != nil {
 		s.setError(err)
-		return thor.Bytes32{}
+		return meter.Bytes32{}
 	}
 	if kind == rlp.List {
 		// special case for rlp list, it should be customized storage value
 		// return hash of raw data
-		return thor.Blake2b(raw)
+		return meter.Blake2b(raw)
 	}
-	return thor.BytesToBytes32(content)
+	return meter.BytesToBytes32(content)
 }
 
 // SetStorage set storage value for the given address and key.
-func (s *State) SetStorage(addr thor.Address, key, value thor.Bytes32) {
+func (s *State) SetStorage(addr meter.Address, key, value meter.Bytes32) {
 	if value.IsZero() {
 		s.SetRawStorage(addr, key, nil)
 		return
@@ -285,19 +285,19 @@ func (s *State) SetStorage(addr thor.Address, key, value thor.Bytes32) {
 }
 
 // GetRawStorage returns storage value in rlp raw for given address and key.
-func (s *State) GetRawStorage(addr thor.Address, key thor.Bytes32) rlp.RawValue {
+func (s *State) GetRawStorage(addr meter.Address, key meter.Bytes32) rlp.RawValue {
 	data, _ := s.sm.Get(storageKey{addr, key})
 	return data.(rlp.RawValue)
 }
 
 // SetRawStorage set storage value in rlp raw.
-func (s *State) SetRawStorage(addr thor.Address, key thor.Bytes32, raw rlp.RawValue) {
+func (s *State) SetRawStorage(addr meter.Address, key meter.Bytes32, raw rlp.RawValue) {
 	s.sm.Put(storageKey{addr, key}, raw)
 }
 
 // EncodeStorage set storage value encoded by given enc method.
 // Error returned by end will be absorbed by State instance.
-func (s *State) EncodeStorage(addr thor.Address, key thor.Bytes32, enc func() ([]byte, error)) {
+func (s *State) EncodeStorage(addr meter.Address, key meter.Bytes32, enc func() ([]byte, error)) {
 	raw, err := enc()
 	if err != nil {
 		s.setError(err)
@@ -308,7 +308,7 @@ func (s *State) EncodeStorage(addr thor.Address, key thor.Bytes32, enc func() ([
 
 // DecodeStorage get and decode storage value.
 // Error returned by dec will be absorbed by State instance.
-func (s *State) DecodeStorage(addr thor.Address, key thor.Bytes32, dec func([]byte) error) {
+func (s *State) DecodeStorage(addr meter.Address, key meter.Bytes32, dec func([]byte) error) {
 	raw := s.GetRawStorage(addr, key)
 	if err := dec(raw); err != nil {
 		s.setError(err)
@@ -316,18 +316,18 @@ func (s *State) DecodeStorage(addr thor.Address, key thor.Bytes32, dec func([]by
 }
 
 // GetCode returns code for the given address.
-func (s *State) GetCode(addr thor.Address) []byte {
+func (s *State) GetCode(addr meter.Address) []byte {
 	v, _ := s.sm.Get(codeKey(addr))
 	return v.([]byte)
 }
 
 // GetCodeHash returns code hash for the given address.
-func (s *State) GetCodeHash(addr thor.Address) thor.Bytes32 {
-	return thor.BytesToBytes32(s.getAccount(addr).CodeHash)
+func (s *State) GetCodeHash(addr meter.Address) meter.Bytes32 {
+	return meter.BytesToBytes32(s.getAccount(addr).CodeHash)
 }
 
 // SetCode set code for the given address.
-func (s *State) SetCode(addr thor.Address, code []byte) {
+func (s *State) SetCode(addr meter.Address, code []byte) {
 	var codeHash []byte
 	if len(code) > 0 {
 		s.sm.Put(codeKey(addr), code)
@@ -342,13 +342,13 @@ func (s *State) SetCode(addr thor.Address, code []byte) {
 
 // Exists returns whether an account exists at the given address.
 // See Account.IsEmpty()
-func (s *State) Exists(addr thor.Address) bool {
+func (s *State) Exists(addr meter.Address) bool {
 	return !s.getAccount(addr).IsEmpty()
 }
 
 // Delete delete an account at the given address.
 // That's set balance, energy and code to zero value.
-func (s *State) Delete(addr thor.Address) {
+func (s *State) Delete(addr meter.Address) {
 	s.sm.Put(codeKey(addr), []byte(nil))
 	s.updateAccount(addr, emptyAccount())
 }
@@ -365,10 +365,10 @@ func (s *State) RevertTo(revision int) {
 }
 
 // BuildStorageTrie build up storage trie for given address with cumulative changes.
-func (s *State) BuildStorageTrie(addr thor.Address) (*trie.SecureTrie, error) {
+func (s *State) BuildStorageTrie(addr meter.Address) (*trie.SecureTrie, error) {
 	acc := s.getAccount(addr)
 
-	root := thor.BytesToBytes32(acc.StorageRoot)
+	root := meter.BytesToBytes32(acc.StorageRoot)
 
 	// retrieve a copied trie
 	trie, err := trCache.Get(root, s.kv, true)
@@ -406,13 +406,13 @@ func (s *State) Stage() *Stage {
 
 type (
 	storageKey struct {
-		addr thor.Address
-		key  thor.Bytes32
+		addr meter.Address
+		key  meter.Bytes32
 	}
-	codeKey       thor.Address
+	codeKey       meter.Address
 	changedObject struct {
 		data    Account
-		storage map[thor.Bytes32]rlp.RawValue
+		storage map[meter.Bytes32]rlp.RawValue
 		code    []byte
 	}
 )

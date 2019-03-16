@@ -8,13 +8,13 @@ package comm
 import (
 	"github.com/ethereum/go-ethereum/p2p/discover"
 	"github.com/ethereum/go-ethereum/rlp"
-	"github.com/vechain/thor/block"
-	"github.com/vechain/thor/comm/proto"
-	"github.com/vechain/thor/thor"
+	"github.com/dfinlab/meter/block"
+	"github.com/dfinlab/meter/comm/proto"
+	"github.com/dfinlab/meter/meter"
 )
 
 type announcement struct {
-	newBlockID thor.Bytes32
+	newBlockID meter.Bytes32
 	peer       *Peer
 }
 
@@ -22,7 +22,7 @@ func (c *Communicator) announcementLoop() {
 	const maxFetches = 3 // per block ID
 
 	fetchingPeers := map[discover.NodeID]bool{}
-	fetchingBlockIDs := map[thor.Bytes32]int{}
+	fetchingBlockIDs := map[meter.Bytes32]int{}
 
 	fetchDone := make(chan *announcement)
 
@@ -58,7 +58,7 @@ func (c *Communicator) announcementLoop() {
 	}
 }
 
-func (c *Communicator) fetchBlockByID(peer *Peer, newBlockID thor.Bytes32) {
+func (c *Communicator) fetchBlockByID(peer *Peer, newBlockID meter.Bytes32) {
 	if _, err := c.chain.GetBlockHeader(newBlockID); err != nil {
 		if !c.chain.IsNotFound(err) {
 			peer.logger.Error("failed to get block header", "err", err)

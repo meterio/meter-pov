@@ -5,7 +5,7 @@
 
 package doc
 
-//go:generate go-bindata -nometadata -ignore=.DS_Store -pkg doc -o bindata.go swagger-ui/... thor.yaml
+//go:generate go-bindata -nometadata -ignore=.DS_Store -pkg doc -o bindata.go swagger-ui/... meter.yaml
 
 import (
 	yaml "gopkg.in/yaml.v2"
@@ -26,7 +26,7 @@ type openAPIInfo struct {
 
 func init() {
 	var oai openAPIInfo
-	if err := yaml.Unmarshal(MustAsset("thor.yaml"), &oai); err != nil {
+	if err := yaml.Unmarshal(MustAsset("meter.yaml"), &oai); err != nil {
 		panic(err)
 	}
 	version = oai.Info.Version

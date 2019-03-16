@@ -7,9 +7,9 @@ package state
 
 import (
 	lru "github.com/hashicorp/golang-lru"
-	"github.com/vechain/thor/kv"
-	"github.com/vechain/thor/thor"
-	"github.com/vechain/thor/trie"
+	"github.com/dfinlab/meter/kv"
+	"github.com/dfinlab/meter/meter"
+	"github.com/dfinlab/meter/trie"
 )
 
 var trCache = newTrieCache()
@@ -29,7 +29,7 @@ func newTrieCache() *trieCache {
 }
 
 // to get a trie for writing, copy should be set to true
-func (tc *trieCache) Get(root thor.Bytes32, kv kv.GetPutter, copy bool) (*trie.SecureTrie, error) {
+func (tc *trieCache) Get(root meter.Bytes32, kv kv.GetPutter, copy bool) (*trie.SecureTrie, error) {
 
 	if v, ok := tc.cache.Get(root); ok {
 		entry := v.(*trieCacheEntry)
@@ -51,6 +51,6 @@ func (tc *trieCache) Get(root thor.Bytes32, kv kv.GetPutter, copy bool) (*trie.S
 	return tr, nil
 }
 
-func (tc *trieCache) Add(root thor.Bytes32, trie *trie.SecureTrie, kv kv.GetPutter) {
+func (tc *trieCache) Add(root meter.Bytes32, trie *trie.SecureTrie, kv kv.GetPutter) {
 	tc.cache.Add(root, &trieCacheEntry{trie.Copy(), kv})
 }

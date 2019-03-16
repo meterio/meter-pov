@@ -10,9 +10,9 @@ import (
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/common/math"
-	"github.com/vechain/thor/api/transactions"
-	"github.com/vechain/thor/runtime"
-	"github.com/vechain/thor/thor"
+	"github.com/dfinlab/meter/api/transactions"
+	"github.com/dfinlab/meter/runtime"
+	"github.com/dfinlab/meter/meter"
 )
 
 //Account for marshal account
@@ -29,11 +29,11 @@ type CallData struct {
 	Token    byte                  `json:"token"`
 	Gas      uint64                `json:"gas"`
 	GasPrice *math.HexOrDecimal256 `json:"gasPrice"`
-	Caller   *thor.Address         `json:"caller"`
+	Caller   *meter.Address         `json:"caller"`
 }
 
 type CallPow struct {
-	Miner      *thor.Address `json:"miner"`
+	Miner      *meter.Address `json:"miner"`
 	Nonce      uint64        `json:"nonce"`
 	Difficulty big.Int       `json:"difficulty"`
 }
@@ -67,7 +67,7 @@ func convertCallResultWithInputGas(vo *runtime.Output, inputGas uint64) *CallRes
 			Address: txEvent.Address,
 			Data:    hexutil.Encode(txEvent.Data),
 		}
-		event.Topics = make([]thor.Bytes32, len(txEvent.Topics))
+		event.Topics = make([]meter.Bytes32, len(txEvent.Topics))
 		for k, topic := range txEvent.Topics {
 			event.Topics[k] = topic
 		}
@@ -93,7 +93,7 @@ func convertCallResultWithInputGas(vo *runtime.Output, inputGas uint64) *CallRes
 }
 
 type Clause struct {
-	To    *thor.Address         `json:"to"`
+	To    *meter.Address         `json:"to"`
 	Value *math.HexOrDecimal256 `json:"value"`
 	Data  string                `json:"data"`
 	Token byte                  `json:"token"`
@@ -107,7 +107,7 @@ type BatchCallData struct {
 	Clauses  Clauses               `json:"clauses"`
 	Gas      uint64                `json:"gas"`
 	GasPrice *math.HexOrDecimal256 `json:"gasPrice"`
-	Caller   *thor.Address         `json:"caller"`
+	Caller   *meter.Address         `json:"caller"`
 }
 
 type BatchCallResults []*CallResult

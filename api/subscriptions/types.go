@@ -8,28 +8,28 @@ package subscriptions
 import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/common/math"
-	"github.com/vechain/thor/block"
-	"github.com/vechain/thor/chain"
-	"github.com/vechain/thor/thor"
-	"github.com/vechain/thor/tx"
+	"github.com/dfinlab/meter/block"
+	"github.com/dfinlab/meter/chain"
+	"github.com/dfinlab/meter/meter"
+	"github.com/dfinlab/meter/tx"
 )
 
 //BlockMessage block piped by websocket
 type BlockMessage struct {
 	Number       uint32         `json:"number"`
-	ID           thor.Bytes32   `json:"id"`
+	ID           meter.Bytes32   `json:"id"`
 	Size         uint32         `json:"size"`
-	ParentID     thor.Bytes32   `json:"parentID"`
+	ParentID     meter.Bytes32   `json:"parentID"`
 	Timestamp    uint64         `json:"timestamp"`
 	GasLimit     uint64         `json:"gasLimit"`
-	Beneficiary  thor.Address   `json:"beneficiary"`
+	Beneficiary  meter.Address   `json:"beneficiary"`
 	GasUsed      uint64         `json:"gasUsed"`
 	TotalScore   uint64         `json:"totalScore"`
-	TxsRoot      thor.Bytes32   `json:"txsRoot"`
-	StateRoot    thor.Bytes32   `json:"stateRoot"`
-	ReceiptsRoot thor.Bytes32   `json:"receiptsRoot"`
-	Signer       thor.Address   `json:"signer"`
-	Transactions []thor.Bytes32 `json:"transactions"`
+	TxsRoot      meter.Bytes32   `json:"txsRoot"`
+	StateRoot    meter.Bytes32   `json:"stateRoot"`
+	ReceiptsRoot meter.Bytes32   `json:"receiptsRoot"`
+	Signer       meter.Address   `json:"signer"`
+	Transactions []meter.Bytes32 `json:"transactions"`
 	Obsolete     bool           `json:"obsolete"`
 }
 
@@ -41,7 +41,7 @@ func convertBlock(b *chain.Block) (*BlockMessage, error) {
 	}
 
 	txs := b.Transactions()
-	txIds := make([]thor.Bytes32, len(txs))
+	txIds := make([]meter.Bytes32, len(txs))
 	for i, tx := range txs {
 		txIds[i] = tx.ID()
 	}
@@ -65,17 +65,17 @@ func convertBlock(b *chain.Block) (*BlockMessage, error) {
 }
 
 type LogMeta struct {
-	BlockID        thor.Bytes32 `json:"blockID"`
+	BlockID        meter.Bytes32 `json:"blockID"`
 	BlockNumber    uint32       `json:"blockNumber"`
 	BlockTimestamp uint64       `json:"blockTimestamp"`
-	TxID           thor.Bytes32 `json:"txID"`
-	TxOrigin       thor.Address `json:"txOrigin"`
+	TxID           meter.Bytes32 `json:"txID"`
+	TxOrigin       meter.Address `json:"txOrigin"`
 }
 
 //TransferMessage transfer piped by websocket
 type TransferMessage struct {
-	Sender    thor.Address          `json:"sender"`
-	Recipient thor.Address          `json:"recipient"`
+	Sender    meter.Address          `json:"sender"`
+	Recipient meter.Address          `json:"recipient"`
 	Amount    *math.HexOrDecimal256 `json:"amount"`
 	Meta      LogMeta               `json:"meta"`
 	Obsolete  bool                  `json:"obsolete"`
@@ -104,8 +104,8 @@ func convertTransfer(header *block.Header, tx *tx.Transaction, transfer *tx.Tran
 
 //EventMessage event piped by websocket
 type EventMessage struct {
-	Address  thor.Address   `json:"address"`
-	Topics   []thor.Bytes32 `json:"topics"`
+	Address  meter.Address   `json:"address"`
+	Topics   []meter.Bytes32 `json:"topics"`
 	Data     string         `json:"data"`
 	Meta     LogMeta        `json:"meta"`
 	Obsolete bool           `json:"obsolete"`
@@ -133,12 +133,12 @@ func convertEvent(header *block.Header, tx *tx.Transaction, event *tx.Event, obs
 
 // EventFilter contains options for contract event filtering.
 type EventFilter struct {
-	Address *thor.Address // restricts matches to events created by specific contracts
-	Topic0  *thor.Bytes32
-	Topic1  *thor.Bytes32
-	Topic2  *thor.Bytes32
-	Topic3  *thor.Bytes32
-	Topic4  *thor.Bytes32
+	Address *meter.Address // restricts matches to events created by specific contracts
+	Topic0  *meter.Bytes32
+	Topic1  *meter.Bytes32
+	Topic2  *meter.Bytes32
+	Topic3  *meter.Bytes32
+	Topic4  *meter.Bytes32
 }
 
 // Match returs whether event matches filter
@@ -147,7 +147,7 @@ func (ef *EventFilter) Match(event *tx.Event) bool {
 		return false
 	}
 
-	matchTopic := func(topic *thor.Bytes32, index int) bool {
+	matchTopic := func(topic *meter.Bytes32, index int) bool {
 		if topic != nil {
 			if len(event.Topics) <= index {
 				return false
@@ -169,13 +169,13 @@ func (ef *EventFilter) Match(event *tx.Event) bool {
 
 // TransferFilter contains options for contract transfer filtering.
 type TransferFilter struct {
-	TxOrigin  *thor.Address // who send transaction
-	Sender    *thor.Address // who transferred tokens
-	Recipient *thor.Address // who received tokens
+	TxOrigin  *meter.Address // who send transaction
+	Sender    *meter.Address // who transferred tokens
+	Recipient *meter.Address // who received tokens
 }
 
 // Match returs whether transfer matches filter
-func (tf *TransferFilter) Match(transfer *tx.Transfer, origin thor.Address) bool {
+func (tf *TransferFilter) Match(transfer *tx.Transfer, origin meter.Address) bool {
 	if (tf.TxOrigin != nil) && (*tf.TxOrigin != origin) {
 		return false
 	}
@@ -192,8 +192,8 @@ func (tf *TransferFilter) Match(transfer *tx.Transfer, origin thor.Address) bool
 
 type BeatMessage struct {
 	Number    uint32       `json:"number"`
-	ID        thor.Bytes32 `json:"id"`
-	ParentID  thor.Bytes32 `json:"parentID"`
+	ID        meter.Bytes32 `json:"id"`
+	ParentID  meter.Bytes32 `json:"parentID"`
 	Timestamp uint64       `json:"timestamp"`
 	Bloom     string       `json:"bloom"`
 	K         uint32       `json:"k"`

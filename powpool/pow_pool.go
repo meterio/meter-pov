@@ -18,9 +18,9 @@ import (
 	"github.com/btcsuite/btcd/rpcclient"
 	"github.com/ethereum/go-ethereum/event"
 	"github.com/inconshreveable/log15"
-	"github.com/vechain/thor/block"
-	"github.com/vechain/thor/co"
-	"github.com/vechain/thor/thor"
+	"github.com/dfinlab/meter/block"
+	"github.com/dfinlab/meter/co"
+	"github.com/dfinlab/meter/meter"
 )
 
 const (
@@ -47,7 +47,7 @@ type Options struct {
 }
 
 type PowReward struct {
-	Rewarder thor.Address
+	Rewarder meter.Address
 	Value    big.Int
 }
 
@@ -183,7 +183,7 @@ func (p *PowPool) Add(newPowBlockInfo *PowBlockInfo) error {
 }
 
 // Remove removes powObj from pool by its ID.
-func (p *PowPool) Remove(powID thor.Bytes32) bool {
+func (p *PowPool) Remove(powID meter.Bytes32) bool {
 	if p.all.Remove(powID) {
 		log.Debug("pow header removed", "id", powID)
 		return true

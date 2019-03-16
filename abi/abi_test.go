@@ -11,9 +11,9 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/assert"
-	"github.com/vechain/thor/abi"
-	"github.com/vechain/thor/builtin/gen"
-	"github.com/vechain/thor/thor"
+	"github.com/dfinlab/meter/abi"
+	"github.com/dfinlab/meter/builtin/gen"
+	"github.com/dfinlab/meter/meter"
 )
 
 func TestABI(t *testing.T) {
@@ -29,7 +29,7 @@ func TestABI(t *testing.T) {
 		assert.NotNil(t, method)
 		assert.Equal(t, name, method.Name())
 
-		key := thor.BytesToBytes32([]byte("k"))
+		key := meter.BytesToBytes32([]byte("k"))
 		value := big.NewInt(1)
 
 		input, err := method.EncodeInput(key, value)
@@ -44,7 +44,7 @@ func TestABI(t *testing.T) {
 			Value *big.Int
 		}
 		assert.Nil(t, method.DecodeInput(input, &v))
-		assert.Equal(t, key, thor.Bytes32(v.Key))
+		assert.Equal(t, key, meter.Bytes32(v.Key))
 		assert.Equal(t, value, v.Value)
 	}
 

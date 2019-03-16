@@ -8,7 +8,7 @@ package powpool
 import (
 	"time"
 
-	"github.com/vechain/thor/thor"
+	"github.com/dfinlab/meter/meter"
 )
 
 type powObject struct {
@@ -25,7 +25,7 @@ func NewPowObject(powBlockInfo *PowBlockInfo) *powObject {
 }
 
 // HashID returns the Hash of powBlkHdr only, as the key of powObject
-func (p *powObject) HashID() thor.Bytes32 {
+func (p *powObject) HashID() meter.Bytes32 {
 	return p.blockInfo.HeaderHash
 }
 
@@ -33,7 +33,7 @@ func (p *powObject) Height() uint32 {
 	return p.blockInfo.PowHeight
 }
 
-func (p *powObject) Beneficiary() thor.Address {
+func (p *powObject) Beneficiary() meter.Address {
 	return p.blockInfo.Beneficiary
 }
 

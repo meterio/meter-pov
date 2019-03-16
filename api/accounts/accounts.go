@@ -16,15 +16,15 @@ import (
 	"github.com/ethereum/go-ethereum/common/math"
 	"github.com/gorilla/mux"
 	"github.com/pkg/errors"
-	"github.com/vechain/thor/api/utils"
-	"github.com/vechain/thor/block"
-	"github.com/vechain/thor/chain"
-	"github.com/vechain/thor/consensus"
-	"github.com/vechain/thor/runtime"
-	"github.com/vechain/thor/state"
-	"github.com/vechain/thor/thor"
-	"github.com/vechain/thor/tx"
-	"github.com/vechain/thor/xenv"
+	"github.com/dfinlab/meter/api/utils"
+	"github.com/dfinlab/meter/block"
+	"github.com/dfinlab/meter/chain"
+	"github.com/dfinlab/meter/consensus"
+	"github.com/dfinlab/meter/runtime"
+	"github.com/dfinlab/meter/state"
+	"github.com/dfinlab/meter/meter"
+	"github.com/dfinlab/meter/tx"
+	"github.com/dfinlab/meter/xenv"
 )
 
 type Accounts struct {
@@ -41,7 +41,7 @@ func New(chain *chain.Chain, stateCreator *state.Creator, callGasLimit uint64) *
 	}
 }
 
-func (a *Accounts) getCode(addr thor.Address, stateRoot thor.Bytes32) ([]byte, error) {
+func (a *Accounts) getCode(addr meter.Address, stateRoot meter.Bytes32) ([]byte, error) {
 	state, err := a.stateCreator.NewState(stateRoot)
 	if err != nil {
 		return nil, err
@@ -55,7 +55,7 @@ func (a *Accounts) getCode(addr thor.Address, stateRoot thor.Bytes32) ([]byte, e
 
 func (a *Accounts) handleGetCode(w http.ResponseWriter, req *http.Request) error {
 	hexAddr := mux.Vars(req)["address"]
-	addr, err := thor.ParseAddress(hexAddr)
+	addr, err := meter.ParseAddress(hexAddr)
 	if err != nil {
 		return utils.BadRequest(errors.WithMessage(err, "address"))
 	}
@@ -70,7 +70,7 @@ func (a *Accounts) handleGetCode(w http.ResponseWriter, req *http.Request) error
 	return utils.WriteJSON(w, map[string]string{"code": hexutil.Encode(code)})
 }
 
-func (a *Accounts) getAccount(addr thor.Address, header *block.Header) (*Account, error) {
+func (a *Accounts) getAccount(addr meter.Address, header *block.Header) (*Account, error) {
 	state, err := a.stateCreator.NewState(header.StateRoot())
 	if err != nil {
 		return nil, err
@@ -88,20 +88,20 @@ func (a *Accounts) getAccount(addr thor.Address, header *block.Header) (*Account
 	}, nil
 }
 
-func (a *Accounts) getStorage(addr thor.Address, key thor.Bytes32, stateRoot thor.Bytes32) (thor.Bytes32, error) {
+func (a *Accounts) getStorage(addr meter.Address, key meter.Bytes32, stateRoot meter.Bytes32) (meter.Bytes32, error) {
 	state, err := a.stateCreator.NewState(stateRoot)
 	if err != nil {
-		return thor.Bytes32{}, err
+		return meter.Bytes32{}, err
 	}
 	storage := state.GetStorage(addr, key)
 	if err := state.Err(); err != nil {
-		return thor.Bytes32{}, err
+		return meter.Bytes32{}, err
 	}
 	return storage, nil
 }
 
 func (a *Accounts) handleGetAccount(w http.ResponseWriter, req *http.Request) error {
-	addr, err := thor.ParseAddress(mux.Vars(req)["address"])
+	addr, err := meter.ParseAddress(mux.Vars(req)["address"])
 	if err != nil {
 		return utils.BadRequest(errors.WithMessage(err, "address"))
 	}
@@ -117,11 +117,11 @@ func (a *Accounts) handleGetAccount(w http.ResponseWriter, req *http.Request) er
 }
 
 func (a *Accounts) handleGetStorage(w http.ResponseWriter, req *http.Request) error {
-	addr, err := thor.ParseAddress(mux.Vars(req)["address"])
+	addr, err := meter.ParseAddress(mux.Vars(req)["address"])
 	if err != nil {
 		return utils.BadRequest(errors.WithMessage(err, "address"))
 	}
-	key, err := thor.ParseBytes32(mux.Vars(req)["key"])
+	key, err := meter.ParseBytes32(mux.Vars(req)["key"])
 	if err != nil {
 		return utils.BadRequest(errors.WithMessage(err, "key"))
 	}
@@ -148,7 +148,7 @@ func (a *Accounts) handleCallPow(w http.ResponseWriter, req *http.Request) error
 	if err != nil {
 		return err
 	}
-	var addr *thor.Address
+	var addr *meter.Address
 	var batchCallData = &BatchCallData{
 		Clauses: Clauses{
 			Clause{
@@ -183,9 +183,9 @@ func (a *Accounts) handleCallContract(w http.ResponseWriter, req *http.Request) 
 	if err != nil {
 		return err
 	}
-	var addr *thor.Address
+	var addr *meter.Address
 	if mux.Vars(req)["address"] != "" {
-		address, err := thor.ParseAddress(mux.Vars(req)["address"])
+		address, err := meter.ParseAddress(mux.Vars(req)["address"])
 		if err != nil {
 			return utils.BadRequest(errors.WithMessage(err, "address"))
 		}
@@ -277,7 +277,7 @@ func (a *Accounts) batchCall(ctx context.Context, batchCallData *BatchCallData, 
 	return results, nil
 }
 
-func (a *Accounts) handleBatchCallData(batchCallData *BatchCallData) (gas uint64, gasPrice *big.Int, caller *thor.Address, clauses []*tx.Clause, err error) {
+func (a *Accounts) handleBatchCallData(batchCallData *BatchCallData) (gas uint64, gasPrice *big.Int, caller *meter.Address, clauses []*tx.Clause, err error) {
 	if batchCallData.Gas > a.callGasLimit {
 		return 0, nil, nil, nil, utils.Forbidden(errors.New("gas: exceeds limit"))
 	} else if batchCallData.Gas == 0 {
@@ -291,7 +291,7 @@ func (a *Accounts) handleBatchCallData(batchCallData *BatchCallData) (gas uint64
 		gasPrice = (*big.Int)(batchCallData.GasPrice)
 	}
 	if batchCallData.Caller == nil {
-		caller = &thor.Address{}
+		caller = &meter.Address{}
 	} else {
 		caller = batchCallData.Caller
 	}
@@ -321,7 +321,7 @@ func (a *Accounts) handleRevision(revision string) (*block.Header, error) {
 		return a.chain.BestBlock().Header(), nil
 	}
 	if len(revision) == 66 || len(revision) == 64 {
-		blockID, err := thor.ParseBytes32(revision)
+		blockID, err := meter.ParseBytes32(revision)
 		if err != nil {
 			return nil, utils.BadRequest(errors.WithMessage(err, "revision"))
 		}

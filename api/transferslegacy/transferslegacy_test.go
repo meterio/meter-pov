@@ -16,11 +16,11 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/stretchr/testify/assert"
-	"github.com/vechain/thor/api/transferslegacy"
-	"github.com/vechain/thor/block"
-	"github.com/vechain/thor/logdb"
-	"github.com/vechain/thor/thor"
-	"github.com/vechain/thor/tx"
+	"github.com/dfinlab/meter/api/transferslegacy"
+	"github.com/dfinlab/meter/block"
+	"github.com/dfinlab/meter/logdb"
+	"github.com/dfinlab/meter/meter"
+	"github.com/dfinlab/meter/tx"
 )
 
 var ts *httptest.Server
@@ -33,8 +33,8 @@ func TestTransfers(t *testing.T) {
 
 func getTransfers(t *testing.T) {
 	limit := 5
-	from := thor.BytesToAddress([]byte("from"))
-	to := thor.BytesToAddress([]byte("to"))
+	from := meter.BytesToAddress([]byte("from"))
+	to := meter.BytesToAddress([]byte("to"))
 	tf := &transferslegacy.TransferFilter{
 		AddressSets: []*transferslegacy.AddressSet{
 			&transferslegacy.AddressSet{
@@ -67,8 +67,8 @@ func initLogServer(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	from := thor.BytesToAddress([]byte("from"))
-	to := thor.BytesToAddress([]byte("to"))
+	from := meter.BytesToAddress([]byte("from"))
+	to := meter.BytesToAddress([]byte("to"))
 	value := big.NewInt(10)
 	header := new(block.Builder).Build().Header()
 	count := 100
@@ -79,7 +79,7 @@ func initLogServer(t *testing.T) {
 			Amount:    value,
 		}
 		header = new(block.Builder).ParentID(header.ID()).Build().Header()
-		if err := db.Prepare(header).ForTransaction(thor.Bytes32{}, from).Insert(nil, tx.Transfers{transLog}).
+		if err := db.Prepare(header).ForTransaction(meter.Bytes32{}, from).Insert(nil, tx.Transfers{transLog}).
 			Commit(); err != nil {
 			t.Fatal(err)
 		}

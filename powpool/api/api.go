@@ -10,7 +10,7 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/inconshreveable/log15"
-	"github.com/vechain/thor/powpool"
+	"github.com/dfinlab/meter/powpool"
 )
 
 var (

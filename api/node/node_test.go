@@ -14,13 +14,13 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/stretchr/testify/assert"
-	"github.com/vechain/thor/api/node"
-	"github.com/vechain/thor/chain"
-	"github.com/vechain/thor/comm"
-	"github.com/vechain/thor/genesis"
-	"github.com/vechain/thor/lvldb"
-	"github.com/vechain/thor/state"
-	"github.com/vechain/thor/txpool"
+	"github.com/dfinlab/meter/api/node"
+	"github.com/dfinlab/meter/chain"
+	"github.com/dfinlab/meter/comm"
+	"github.com/dfinlab/meter/genesis"
+	"github.com/dfinlab/meter/lvldb"
+	"github.com/dfinlab/meter/state"
+	"github.com/dfinlab/meter/txpool"
 )
 
 var ts *httptest.Server

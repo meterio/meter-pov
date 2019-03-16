@@ -7,8 +7,8 @@ package builtin
 
 import (
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/vechain/thor/thor"
-	"github.com/vechain/thor/xenv"
+	"github.com/dfinlab/meter/meter"
+	"github.com/dfinlab/meter/xenv"
 )
 
 func init() {
@@ -17,8 +17,8 @@ func init() {
 		run  func(env *xenv.Environment) []interface{}
 	}{
 		{"native_executor", func(env *xenv.Environment) []interface{} {
-			env.UseGas(thor.SloadGas)
-			addr := thor.BytesToAddress(Params.Native(env.State()).Get(thor.KeyExecutorAddress).Bytes())
+			env.UseGas(meter.SloadGas)
+			addr := meter.BytesToAddress(Params.Native(env.State()).Get(meter.KeyExecutorAddress).Bytes())
 			return []interface{}{addr}
 		}},
 		{"native_add", func(env *xenv.Environment) []interface{} {
@@ -29,15 +29,15 @@ func init() {
 			}
 			env.ParseArgs(&args)
 
-			env.UseGas(thor.SloadGas)
+			env.UseGas(meter.SloadGas)
 			ok := Authority.Native(env.State()).Add(
-				thor.Address(args.NodeMaster),
-				thor.Address(args.Endorsor),
-				thor.Bytes32(args.Identity))
+				meter.Address(args.NodeMaster),
+				meter.Address(args.Endorsor),
+				meter.Bytes32(args.Identity))
 
 			if ok {
-				env.UseGas(thor.SstoreSetGas)
-				env.UseGas(thor.SstoreResetGas)
+				env.UseGas(meter.SstoreSetGas)
+				env.UseGas(meter.SstoreResetGas)
 			}
 			return []interface{}{ok}
 		}},
@@ -45,10 +45,10 @@ func init() {
 			var nodeMaster common.Address
 			env.ParseArgs(&nodeMaster)
 
-			env.UseGas(thor.SloadGas)
-			ok := Authority.Native(env.State()).Revoke(thor.Address(nodeMaster))
+			env.UseGas(meter.SloadGas)
+			ok := Authority.Native(env.State()).Revoke(meter.Address(nodeMaster))
 			if ok {
-				env.UseGas(thor.SstoreResetGas * 3)
+				env.UseGas(meter.SstoreResetGas * 3)
 			}
 			return []interface{}{ok}
 		}},
@@ -56,43 +56,43 @@ func init() {
 			var nodeMaster common.Address
 			env.ParseArgs(&nodeMaster)
 
-			env.UseGas(thor.SloadGas * 2)
-			listed, endorsor, identity, active := Authority.Native(env.State()).Get(thor.Address(nodeMaster))
+			env.UseGas(meter.SloadGas * 2)
+			listed, endorsor, identity, active := Authority.Native(env.State()).Get(meter.Address(nodeMaster))
 
 			return []interface{}{listed, endorsor, identity, active}
 		}},
 		{"native_first", func(env *xenv.Environment) []interface{} {
-			env.UseGas(thor.SloadGas)
+			env.UseGas(meter.SloadGas)
 			if nodeMaster := Authority.Native(env.State()).First(); nodeMaster != nil {
 				return []interface{}{*nodeMaster}
 			}
-			return []interface{}{thor.Address{}}
+			return []interface{}{meter.Address{}}
 		}},
 		{"native_next", func(env *xenv.Environment) []interface{} {
 			var nodeMaster common.Address
 			env.ParseArgs(&nodeMaster)
 
-			env.UseGas(thor.SloadGas)
-			if next := Authority.Native(env.State()).Next(thor.Address(nodeMaster)); next != nil {
+			env.UseGas(meter.SloadGas)
+			if next := Authority.Native(env.State()).Next(meter.Address(nodeMaster)); next != nil {
 				return []interface{}{*next}
 			}
-			return []interface{}{thor.Address{}}
+			return []interface{}{meter.Address{}}
 		}},
 		{"native_isEndorsed", func(env *xenv.Environment) []interface{} {
 			var nodeMaster common.Address
 			env.ParseArgs(&nodeMaster)
 
-			env.UseGas(thor.SloadGas * 2)
-			listed, endorsor, _, _ := Authority.Native(env.State()).Get(thor.Address(nodeMaster))
+			env.UseGas(meter.SloadGas * 2)
+			listed, endorsor, _, _ := Authority.Native(env.State()).Get(meter.Address(nodeMaster))
 			if !listed {
 				return []interface{}{false}
 			}
 
-			env.UseGas(thor.GetBalanceGas)
+			env.UseGas(meter.GetBalanceGas)
 			bal := env.State().GetBalance(endorsor)
 
-			env.UseGas(thor.SloadGas)
-			endorsement := Params.Native(env.State()).Get(thor.KeyProposerEndorsement)
+			env.UseGas(meter.SloadGas)
+			endorsement := Params.Native(env.State()).Get(meter.KeyProposerEndorsement)
 			return []interface{}{bal.Cmp(endorsement) >= 0}
 		}},
 	}

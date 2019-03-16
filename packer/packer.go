@@ -7,14 +7,14 @@ package packer
 
 import (
 	"github.com/pkg/errors"
-	"github.com/vechain/thor/block"
-	"github.com/vechain/thor/builtin"
-	"github.com/vechain/thor/chain"
-	"github.com/vechain/thor/poa"
-	"github.com/vechain/thor/runtime"
-	"github.com/vechain/thor/state"
-	"github.com/vechain/thor/thor"
-	"github.com/vechain/thor/xenv"
+	"github.com/dfinlab/meter/block"
+	"github.com/dfinlab/meter/builtin"
+	"github.com/dfinlab/meter/chain"
+	"github.com/dfinlab/meter/poa"
+	"github.com/dfinlab/meter/runtime"
+	"github.com/dfinlab/meter/state"
+	"github.com/dfinlab/meter/meter"
+	"github.com/dfinlab/meter/xenv"
 )
 
 var (
@@ -25,8 +25,8 @@ var (
 type Packer struct {
 	chain          *chain.Chain
 	stateCreator   *state.Creator
-	nodeMaster     thor.Address
-	beneficiary    *thor.Address
+	nodeMaster     meter.Address
+	beneficiary    *meter.Address
 	targetGasLimit uint64
 }
 
@@ -44,8 +44,8 @@ func SetGlobPackerInst(p *Packer) bool {
 func New(
 	chain *chain.Chain,
 	stateCreator *state.Creator,
-	nodeMaster thor.Address,
-	beneficiary *thor.Address) *Packer {
+	nodeMaster meter.Address,
+	beneficiary *meter.Address) *Packer {
 
 	p := &Packer{
 		chain,
@@ -67,11 +67,11 @@ func (p *Packer) Schedule(parent *block.Header, nowTimestamp uint64) (flow *Flow
 	}
 
 	var (
-		endorsement = builtin.Params.Native(state).Get(thor.KeyProposerEndorsement)
+		endorsement = builtin.Params.Native(state).Get(meter.KeyProposerEndorsement)
 		authority   = builtin.Authority.Native(state)
-		candidates  = authority.Candidates(endorsement, thor.MaxBlockProposers)
+		candidates  = authority.Candidates(endorsement, meter.MaxBlockProposers)
 		proposers   = make([]poa.Proposer, 0, len(candidates))
-		beneficiary thor.Address
+		beneficiary meter.Address
 	)
 	if p.beneficiary != nil {
 		beneficiary = *p.beneficiary

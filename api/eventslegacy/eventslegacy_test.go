@@ -15,15 +15,15 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/stretchr/testify/assert"
-	"github.com/vechain/thor/api/events"
-	"github.com/vechain/thor/api/eventslegacy"
-	"github.com/vechain/thor/block"
-	"github.com/vechain/thor/logdb"
-	"github.com/vechain/thor/thor"
-	"github.com/vechain/thor/tx"
+	"github.com/dfinlab/meter/api/events"
+	"github.com/dfinlab/meter/api/eventslegacy"
+	"github.com/dfinlab/meter/block"
+	"github.com/dfinlab/meter/logdb"
+	"github.com/dfinlab/meter/meter"
+	"github.com/dfinlab/meter/tx"
 )
 
-var contractAddr = thor.BytesToAddress([]byte("contract"))
+var contractAddr = meter.BytesToAddress([]byte("contract"))
 var ts *httptest.Server
 
 func TestEvents(t *testing.T) {
@@ -33,8 +33,8 @@ func TestEvents(t *testing.T) {
 }
 
 func getEvents(t *testing.T) {
-	t0 := thor.BytesToBytes32([]byte("topic0"))
-	t1 := thor.BytesToBytes32([]byte("topic1"))
+	t0 := meter.BytesToBytes32([]byte("topic0"))
+	t1 := meter.BytesToBytes32([]byte("topic1"))
 	limit := 5
 	filter := &eventslegacy.FilterLegacy{
 		Range: &logdb.Range{
@@ -72,13 +72,13 @@ func initEventServer(t *testing.T) {
 	}
 	txEv := &tx.Event{
 		Address: contractAddr,
-		Topics:  []thor.Bytes32{thor.BytesToBytes32([]byte("topic0")), thor.BytesToBytes32([]byte("topic1"))},
+		Topics:  []meter.Bytes32{meter.BytesToBytes32([]byte("topic0")), meter.BytesToBytes32([]byte("topic1"))},
 		Data:    []byte("data"),
 	}
 
 	header := new(block.Builder).Build().Header()
 	for i := 0; i < 100; i++ {
-		if err := db.Prepare(header).ForTransaction(thor.BytesToBytes32([]byte("txID")), thor.BytesToAddress([]byte("txOrigin"))).
+		if err := db.Prepare(header).ForTransaction(meter.BytesToBytes32([]byte("txID")), meter.BytesToAddress([]byte("txOrigin"))).
 			Insert(tx.Events{txEv}, nil).Commit(); err != nil {
 			if err != nil {
 				t.Fatal(err)

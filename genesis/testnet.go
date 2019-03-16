@@ -8,11 +8,11 @@ package genesis
 import (
 	"math/big"
 
-	"github.com/vechain/thor/builtin"
-	"github.com/vechain/thor/state"
-	"github.com/vechain/thor/thor"
-	"github.com/vechain/thor/tx"
-	"github.com/vechain/thor/vm"
+	"github.com/dfinlab/meter/builtin"
+	"github.com/dfinlab/meter/state"
+	"github.com/dfinlab/meter/meter"
+	"github.com/dfinlab/meter/tx"
+	"github.com/dfinlab/meter/vm"
 )
 
 // NewTestnet create genesis for testnet.
@@ -20,22 +20,22 @@ func NewTestnet() *Genesis {
 	launchTime := uint64(1530014400) // 'Tue Jun 26 2018 20:00:00 GMT+0800 (CST)'
 
 	// use this address as executor instead of builtin one, for test purpose
-	executor, _ := thor.ParseAddress("0xd1e56316b6472cbe9897a577a0f3826932e95863")
-	acccount0, _ := thor.ParseAddress("0x1de8ca2f973d026300af89041b0ecb1c0803a7e6")
+	executor, _ := meter.ParseAddress("0xd1e56316b6472cbe9897a577a0f3826932e95863")
+	acccount0, _ := meter.ParseAddress("0x1de8ca2f973d026300af89041b0ecb1c0803a7e6")
 
-	master0, _ := thor.ParseAddress("0xbc675bf8f737faad6195d20917a57bb0f0ddb5f6")
-	endorser0, _ := thor.ParseAddress("0x1a07d16b152e9a3f5c353bf05944ade8de1a37e9")
+	master0, _ := meter.ParseAddress("0xbc675bf8f737faad6195d20917a57bb0f0ddb5f6")
+	endorser0, _ := meter.ParseAddress("0x1a07d16b152e9a3f5c353bf05944ade8de1a37e9")
 
 	builder := new(Builder).
 		Timestamp(launchTime).
-		GasLimit(thor.InitialGasLimit).
+		GasLimit(meter.InitialGasLimit).
 		State(func(state *state.State) error {
 			tokenSupply := new(big.Int)
 			energySupply := new(big.Int)
 
 			// alloc precompiled contracts
 			for addr := range vm.PrecompiledContractsByzantium {
-				state.SetCode(thor.Address(addr), emptyRuntimeBytecode)
+				state.SetCode(meter.Address(addr), emptyRuntimeBytecode)
 			}
 
 			// setup builtin contracts
@@ -67,19 +67,19 @@ func NewTestnet() *Genesis {
 		// set initial params
 		// use an external account as executor to manage testnet easily
 		Call(
-			tx.NewClause(&builtin.Params.Address).WithData(mustEncodeInput(builtin.Params.ABI, "set", thor.KeyExecutorAddress, new(big.Int).SetBytes(executor[:]))),
-			thor.Address{}).
+			tx.NewClause(&builtin.Params.Address).WithData(mustEncodeInput(builtin.Params.ABI, "set", meter.KeyExecutorAddress, new(big.Int).SetBytes(executor[:]))),
+			meter.Address{}).
 		Call(
-			tx.NewClause(&builtin.Params.Address).WithData(mustEncodeInput(builtin.Params.ABI, "set", thor.KeyRewardRatio, thor.InitialRewardRatio)),
+			tx.NewClause(&builtin.Params.Address).WithData(mustEncodeInput(builtin.Params.ABI, "set", meter.KeyRewardRatio, meter.InitialRewardRatio)),
 			executor).
 		Call(
-			tx.NewClause(&builtin.Params.Address).WithData(mustEncodeInput(builtin.Params.ABI, "set", thor.KeyBaseGasPrice, thor.InitialBaseGasPrice)),
+			tx.NewClause(&builtin.Params.Address).WithData(mustEncodeInput(builtin.Params.ABI, "set", meter.KeyBaseGasPrice, meter.InitialBaseGasPrice)),
 			executor).
 		Call(
-			tx.NewClause(&builtin.Params.Address).WithData(mustEncodeInput(builtin.Params.ABI, "set", thor.KeyProposerEndorsement, thor.InitialProposerEndorsement)),
+			tx.NewClause(&builtin.Params.Address).WithData(mustEncodeInput(builtin.Params.ABI, "set", meter.KeyProposerEndorsement, meter.InitialProposerEndorsement)),
 			executor).
 		// add master0 as the initial block proposer
-		Call(tx.NewClause(&builtin.Authority.Address).WithData(mustEncodeInput(builtin.Authority.ABI, "add", master0, endorser0, thor.BytesToBytes32([]byte("master0")))),
+		Call(tx.NewClause(&builtin.Authority.Address).WithData(mustEncodeInput(builtin.Authority.ABI, "add", master0, endorser0, meter.BytesToBytes32([]byte("master0")))),
 			executor)
 
 	id, err := builder.ComputeID()

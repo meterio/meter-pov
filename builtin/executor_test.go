@@ -14,47 +14,47 @@ import (
 
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/stretchr/testify/assert"
-	"github.com/vechain/thor/builtin"
-	"github.com/vechain/thor/chain"
-	"github.com/vechain/thor/lvldb"
-	"github.com/vechain/thor/runtime"
-	"github.com/vechain/thor/state"
-	"github.com/vechain/thor/thor"
-	"github.com/vechain/thor/tx"
-	"github.com/vechain/thor/xenv"
+	"github.com/dfinlab/meter/builtin"
+	"github.com/dfinlab/meter/chain"
+	"github.com/dfinlab/meter/lvldb"
+	"github.com/dfinlab/meter/runtime"
+	"github.com/dfinlab/meter/state"
+	"github.com/dfinlab/meter/meter"
+	"github.com/dfinlab/meter/tx"
+	"github.com/dfinlab/meter/xenv"
 )
 
-func approverEvent(approver thor.Address, action string) *tx.Event {
+func approverEvent(approver meter.Address, action string) *tx.Event {
 	ev, _ := builtin.Executor.ABI.EventByName("Approver")
-	var b32 thor.Bytes32
+	var b32 meter.Bytes32
 	copy(b32[:], action)
 	data, _ := ev.Encode(b32)
 	return &tx.Event{
 		Address: builtin.Executor.Address,
-		Topics:  []thor.Bytes32{ev.ID(), thor.BytesToBytes32(approver.Bytes())},
+		Topics:  []meter.Bytes32{ev.ID(), meter.BytesToBytes32(approver.Bytes())},
 		Data:    data,
 	}
 }
-func proposalEvent(id thor.Bytes32, action string) *tx.Event {
+func proposalEvent(id meter.Bytes32, action string) *tx.Event {
 	ev, _ := builtin.Executor.ABI.EventByName("Proposal")
-	var b32 thor.Bytes32
+	var b32 meter.Bytes32
 	copy(b32[:], action)
 	data, _ := ev.Encode(b32)
 	return &tx.Event{
 		Address: builtin.Executor.Address,
-		Topics:  []thor.Bytes32{ev.ID(), id},
+		Topics:  []meter.Bytes32{ev.ID(), id},
 		Data:    data,
 	}
 }
 
-func votingContractEvent(addr thor.Address, action string) *tx.Event {
+func votingContractEvent(addr meter.Address, action string) *tx.Event {
 	ev, _ := builtin.Executor.ABI.EventByName("VotingContract")
-	var b32 thor.Bytes32
+	var b32 meter.Bytes32
 	copy(b32[:], action)
 	data, _ := ev.Encode(b32)
 	return &tx.Event{
 		Address: builtin.Executor.Address,
-		Topics:  []thor.Bytes32{ev.ID(), thor.BytesToBytes32(addr.Bytes())},
+		Topics:  []meter.Bytes32{ev.ID(), meter.BytesToBytes32(addr.Bytes())},
 		Data:    data,
 	}
 }
@@ -65,7 +65,7 @@ func initExectorTest() *ctest {
 		state.SetCode(builtin.Prototype.Address, builtin.Prototype.RuntimeBytecodes())
 		state.SetCode(builtin.Executor.Address, builtin.Executor.RuntimeBytecodes())
 		state.SetCode(builtin.Params.Address, builtin.Params.RuntimeBytecodes())
-		builtin.Params.Native(state).Set(thor.KeyExecutorAddress, new(big.Int).SetBytes(builtin.Executor.Address[:]))
+		builtin.Params.Native(state).Set(meter.KeyExecutorAddress, new(big.Int).SetBytes(builtin.Executor.Address[:]))
 		return nil
 	})
 
@@ -84,23 +84,23 @@ func initExectorTest() *ctest {
 
 func TestExecutorApprover(t *testing.T) {
 	test := initExectorTest()
-	var approvers []thor.Address
+	var approvers []meter.Address
 	for i := 0; i < 7; i++ {
-		approvers = append(approvers, thor.BytesToAddress([]byte(fmt.Sprintf("approver%d", i))))
+		approvers = append(approvers, meter.BytesToAddress([]byte(fmt.Sprintf("approver%d", i))))
 	}
 
 	for _, a := range approvers {
 		// zero identity
-		test.Case("addApprover", a, thor.Bytes32{}).
+		test.Case("addApprover", a, meter.Bytes32{}).
 			ShouldVMError(errReverted).
 			Assert(t)
 
-		test.Case("addApprover", a, thor.BytesToBytes32(a.Bytes())).
-			Caller(thor.BytesToAddress([]byte("other"))).
+		test.Case("addApprover", a, meter.BytesToBytes32(a.Bytes())).
+			Caller(meter.BytesToAddress([]byte("other"))).
 			ShouldVMError(errReverted).
 			Assert(t)
 
-		test.Case("addApprover", a, thor.BytesToBytes32(a.Bytes())).
+		test.Case("addApprover", a, meter.BytesToBytes32(a.Bytes())).
 			Caller(builtin.Executor.Address).
 			ShouldLog(approverEvent(a, "added")).
 			Assert(t)
@@ -111,14 +111,14 @@ func TestExecutorApprover(t *testing.T) {
 		ShouldOutput(uint8(len(approvers))).
 		Assert(t)
 
-	test.Case("addApprover", approvers[0], thor.BytesToBytes32(approvers[0].Bytes())).
+	test.Case("addApprover", approvers[0], meter.BytesToBytes32(approvers[0].Bytes())).
 		Caller(builtin.Executor.Address).
 		ShouldVMError(errReverted).
 		Assert(t)
 
 	for _, a := range approvers {
 		test.Case("approvers", a).
-			ShouldOutput(thor.BytesToBytes32(a.Bytes()), true).
+			ShouldOutput(meter.BytesToBytes32(a.Bytes()), true).
 			Assert(t)
 	}
 
@@ -141,7 +141,7 @@ func TestExecutorApprover(t *testing.T) {
 func TestExecutorVotingContract(t *testing.T) {
 
 	test := initExectorTest()
-	voting := thor.BytesToAddress([]byte("voting"))
+	voting := meter.BytesToAddress([]byte("voting"))
 	test.Case("attachVotingContract", voting).
 		ShouldVMError(errReverted).
 		Assert(t)
@@ -178,20 +178,20 @@ func TestExecutorProposal(t *testing.T) {
 
 	target := builtin.Params.Address
 	setParam, _ := builtin.Params.ABI.MethodByName("set")
-	data, _ := setParam.EncodeInput(thor.BytesToBytes32([]byte("paramKey")), big.NewInt(12345))
+	data, _ := setParam.EncodeInput(meter.BytesToBytes32([]byte("paramKey")), big.NewInt(12345))
 	test.Case("propose", target, data).
 		ShouldVMError(errReverted).
 		Assert(t)
 
-	approver := thor.BytesToAddress([]byte("approver"))
-	test.Case("addApprover", approver, thor.BytesToBytes32(approver.Bytes())).
+	approver := meter.BytesToAddress([]byte("approver"))
+	test.Case("addApprover", approver, meter.BytesToBytes32(approver.Bytes())).
 		Caller(builtin.Executor.Address).
 		Assert(t)
 
-	proposalID := func() thor.Bytes32 {
+	proposalID := func() meter.Bytes32 {
 		var b8 [8]byte
 		binary.BigEndian.PutUint64(b8[:], test.rt.Context().Time)
-		return thor.Bytes32(crypto.Keccak256Hash(b8[:], approver[:]))
+		return meter.Bytes32(crypto.Keccak256Hash(b8[:], approver[:]))
 	}()
 	test.Case("propose", target, data).
 		Caller(approver).
@@ -251,5 +251,5 @@ func TestExecutorProposal(t *testing.T) {
 			data).
 		Assert(t)
 
-	assert.Equal(t, builtin.Params.Native(test.rt.State()).Get(thor.BytesToBytes32([]byte("paramKey"))), big.NewInt(12345))
+	assert.Equal(t, builtin.Params.Native(test.rt.State()).Get(meter.BytesToBytes32([]byte("paramKey"))), big.NewInt(12345))
 }

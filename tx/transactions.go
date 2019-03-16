@@ -7,8 +7,8 @@ package tx
 
 import (
 	"github.com/ethereum/go-ethereum/rlp"
-	"github.com/vechain/thor/thor"
-	"github.com/vechain/thor/trie"
+	"github.com/dfinlab/meter/meter"
+	"github.com/dfinlab/meter/trie"
 )
 
 var (
@@ -19,7 +19,7 @@ var (
 type Transactions []*Transaction
 
 // RootHash computes merkle root hash of transactions.
-func (txs Transactions) RootHash() thor.Bytes32 {
+func (txs Transactions) RootHash() meter.Bytes32 {
 	if len(txs) == 0 {
 		// optimized
 		return emptyRoot

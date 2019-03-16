@@ -11,13 +11,13 @@ import (
 
 	"github.com/inconshreveable/log15"
 	"github.com/stretchr/testify/assert"
-	"github.com/vechain/thor/block"
-	"github.com/vechain/thor/genesis"
-	"github.com/vechain/thor/lvldb"
-	"github.com/vechain/thor/state"
-	"github.com/vechain/thor/thor"
-	"github.com/vechain/thor/tx"
-	Tx "github.com/vechain/thor/tx"
+	"github.com/dfinlab/meter/block"
+	"github.com/dfinlab/meter/genesis"
+	"github.com/dfinlab/meter/lvldb"
+	"github.com/dfinlab/meter/state"
+	"github.com/dfinlab/meter/meter"
+	"github.com/dfinlab/meter/tx"
+	Tx "github.com/dfinlab/meter/tx"
 )
 
 func init() {
@@ -129,7 +129,7 @@ func TestAdd(t *testing.T) {
 		errStr string
 	}{
 		{newTx(pool.chain.Tag(), nil, 21000, tx.NewBlockRef(200), 100, nil, acc), "tx rejected: tx is not executable"},
-		{newTx(pool.chain.Tag(), nil, 21000, tx.BlockRef{}, 100, &thor.Bytes32{1}, acc), "tx rejected: tx is not executable"},
+		{newTx(pool.chain.Tag(), nil, 21000, tx.BlockRef{}, 100, &meter.Bytes32{1}, acc), "tx rejected: tx is not executable"},
 	}
 
 	for _, tt := range tests {

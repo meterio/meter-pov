@@ -8,11 +8,11 @@ package genesis
 import (
 	"math/big"
 
-	"github.com/vechain/thor/builtin"
-	"github.com/vechain/thor/state"
-	"github.com/vechain/thor/thor"
-	"github.com/vechain/thor/tx"
-	"github.com/vechain/thor/vm"
+	"github.com/dfinlab/meter/builtin"
+	"github.com/dfinlab/meter/state"
+	"github.com/dfinlab/meter/meter"
+	"github.com/dfinlab/meter/tx"
+	"github.com/dfinlab/meter/vm"
 )
 
 // NewMainnet create mainnet genesis.
@@ -23,11 +23,11 @@ func NewMainnet() *Genesis {
 
 	builder := new(Builder).
 		Timestamp(launchTime).
-		GasLimit(thor.InitialGasLimit).
+		GasLimit(meter.InitialGasLimit).
 		State(func(state *state.State) error {
 			// alloc precompiled contracts
 			for addr := range vm.PrecompiledContractsByzantium {
-				state.SetCode(thor.Address(addr), emptyRuntimeBytecode)
+				state.SetCode(meter.Address(addr), emptyRuntimeBytecode)
 			}
 
 			// alloc builtin contracts
@@ -43,8 +43,8 @@ func NewMainnet() *Genesis {
 
 			// alloc tokens for authority node endorsor
 			for _, anode := range initialAuthorityNodes {
-				tokenSupply.Add(tokenSupply, thor.InitialProposerEndorsement)
-				state.SetBalance(anode.endorsorAddress, thor.InitialProposerEndorsement)
+				tokenSupply.Add(tokenSupply, meter.InitialProposerEndorsement)
+				state.SetBalance(anode.endorsorAddress, meter.InitialProposerEndorsement)
 				state.SetEnergy(anode.endorsorAddress, &big.Int{}, launchTime)
 			}
 
@@ -52,20 +52,20 @@ func NewMainnet() *Genesis {
 			// 21,046,908,616.5 x 4
 			amount := new(big.Int).Mul(big.NewInt(210469086165), big.NewInt(1e17))
 			tokenSupply.Add(tokenSupply, amount)
-			state.SetBalance(thor.MustParseAddress("0x137053dfbe6c0a43f915ad2efefefdcc2708e975"), amount)
-			state.SetEnergy(thor.MustParseAddress("0x137053dfbe6c0a43f915ad2efefefdcc2708e975"), &big.Int{}, launchTime)
+			state.SetBalance(meter.MustParseAddress("0x137053dfbe6c0a43f915ad2efefefdcc2708e975"), amount)
+			state.SetEnergy(meter.MustParseAddress("0x137053dfbe6c0a43f915ad2efefefdcc2708e975"), &big.Int{}, launchTime)
 
 			tokenSupply.Add(tokenSupply, amount)
-			state.SetBalance(thor.MustParseAddress("0xaf111431c1284a5e16d2eecd2daed133ce96820e"), amount)
-			state.SetEnergy(thor.MustParseAddress("0xaf111431c1284a5e16d2eecd2daed133ce96820e"), &big.Int{}, launchTime)
+			state.SetBalance(meter.MustParseAddress("0xaf111431c1284a5e16d2eecd2daed133ce96820e"), amount)
+			state.SetEnergy(meter.MustParseAddress("0xaf111431c1284a5e16d2eecd2daed133ce96820e"), &big.Int{}, launchTime)
 
 			tokenSupply.Add(tokenSupply, amount)
-			state.SetBalance(thor.MustParseAddress("0x997522a4274336f4b86af4a6ed9e45aedcc6d360"), amount)
-			state.SetEnergy(thor.MustParseAddress("0x997522a4274336f4b86af4a6ed9e45aedcc6d360"), &big.Int{}, launchTime)
+			state.SetBalance(meter.MustParseAddress("0x997522a4274336f4b86af4a6ed9e45aedcc6d360"), amount)
+			state.SetEnergy(meter.MustParseAddress("0x997522a4274336f4b86af4a6ed9e45aedcc6d360"), &big.Int{}, launchTime)
 
 			tokenSupply.Add(tokenSupply, amount)
-			state.SetBalance(thor.MustParseAddress("0x0bd7b06debd1522e75e4b91ff598f107fd826c8a"), amount)
-			state.SetEnergy(thor.MustParseAddress("0x0bd7b06debd1522e75e4b91ff598f107fd826c8a"), &big.Int{}, launchTime)
+			state.SetBalance(meter.MustParseAddress("0x0bd7b06debd1522e75e4b91ff598f107fd826c8a"), amount)
+			state.SetEnergy(meter.MustParseAddress("0x0bd7b06debd1522e75e4b91ff598f107fd826c8a"), &big.Int{}, launchTime)
 
 			builtin.Energy.Native(state, launchTime).SetInitialSupply(tokenSupply, energySupply)
 			return nil
@@ -74,16 +74,16 @@ func NewMainnet() *Genesis {
 	///// initialize builtin contracts
 
 	// initialize params
-	data := mustEncodeInput(builtin.Params.ABI, "set", thor.KeyExecutorAddress, new(big.Int).SetBytes(builtin.Executor.Address[:]))
-	builder.Call(tx.NewClause(&builtin.Params.Address).WithData(data), thor.Address{})
+	data := mustEncodeInput(builtin.Params.ABI, "set", meter.KeyExecutorAddress, new(big.Int).SetBytes(builtin.Executor.Address[:]))
+	builder.Call(tx.NewClause(&builtin.Params.Address).WithData(data), meter.Address{})
 
-	data = mustEncodeInput(builtin.Params.ABI, "set", thor.KeyRewardRatio, thor.InitialRewardRatio)
+	data = mustEncodeInput(builtin.Params.ABI, "set", meter.KeyRewardRatio, meter.InitialRewardRatio)
 	builder.Call(tx.NewClause(&builtin.Params.Address).WithData(data), builtin.Executor.Address)
 
-	data = mustEncodeInput(builtin.Params.ABI, "set", thor.KeyBaseGasPrice, thor.InitialBaseGasPrice)
+	data = mustEncodeInput(builtin.Params.ABI, "set", meter.KeyBaseGasPrice, meter.InitialBaseGasPrice)
 	builder.Call(tx.NewClause(&builtin.Params.Address).WithData(data), builtin.Executor.Address)
 
-	data = mustEncodeInput(builtin.Params.ABI, "set", thor.KeyProposerEndorsement, thor.InitialProposerEndorsement)
+	data = mustEncodeInput(builtin.Params.ABI, "set", meter.KeyProposerEndorsement, meter.InitialProposerEndorsement)
 	builder.Call(tx.NewClause(&builtin.Params.Address).WithData(data), builtin.Executor.Address)
 
 	// add initial authority nodes
@@ -94,7 +94,7 @@ func NewMainnet() *Genesis {
 
 	// add initial approvers (steering committee)
 	for _, approver := range loadApprovers() {
-		data := mustEncodeInput(builtin.Executor.ABI, "addApprover", approver.address, thor.BytesToBytes32([]byte(approver.identity)))
+		data := mustEncodeInput(builtin.Executor.ABI, "addApprover", approver.address, meter.BytesToBytes32([]byte(approver.identity)))
 		builder.Call(tx.NewClause(&builtin.Executor.Address).WithData(data), builtin.Executor.Address)
 	}
 
@@ -109,25 +109,25 @@ func NewMainnet() *Genesis {
 }
 
 type authorityNode struct {
-	masterAddress   thor.Address
-	endorsorAddress thor.Address
-	identity        thor.Bytes32
+	masterAddress   meter.Address
+	endorsorAddress meter.Address
+	identity        meter.Bytes32
 }
 
 type approver struct {
-	address  thor.Address
+	address  meter.Address
 	identity string
 }
 
 func loadApprovers() []*approver {
 	return []*approver{
-		{thor.MustParseAddress("0xb0f6d9933c1c2f4d891ca479343921f2d32e0fad"), "CY Cheung"},
-		{thor.MustParseAddress("0xda48cc4d23b41158e1294e0e4bcce8e9953cee26"), "George Kang"},
-		{thor.MustParseAddress("0xca7b45abe0d421e5628d2224bfe8fa6a6cf7c51b"), "Jay Zhang"},
-		{thor.MustParseAddress("0xa03f185f2a0def1efdd687ef3b96e404869d93de"), "Margaret Rui Zhu"},
-		{thor.MustParseAddress("0x74bac19f78369637db63f7496ecb5f88cc183672"), "Peter Zhou"},
-		{thor.MustParseAddress("0x5fefc7836af047c949d1fea72839823d2f06f7e3"), "Renato Grottola"},
-		{thor.MustParseAddress("0x7519874d0f7d31b5f0fd6f0429a4e5ece6f3fd49"), "Sunny Lu"},
+		{meter.MustParseAddress("0xb0f6d9933c1c2f4d891ca479343921f2d32e0fad"), "CY Cheung"},
+		{meter.MustParseAddress("0xda48cc4d23b41158e1294e0e4bcce8e9953cee26"), "George Kang"},
+		{meter.MustParseAddress("0xca7b45abe0d421e5628d2224bfe8fa6a6cf7c51b"), "Jay Zhang"},
+		{meter.MustParseAddress("0xa03f185f2a0def1efdd687ef3b96e404869d93de"), "Margaret Rui Zhu"},
+		{meter.MustParseAddress("0x74bac19f78369637db63f7496ecb5f88cc183672"), "Peter Zhou"},
+		{meter.MustParseAddress("0x5fefc7836af047c949d1fea72839823d2f06f7e3"), "Renato Grottola"},
+		{meter.MustParseAddress("0x7519874d0f7d31b5f0fd6f0429a4e5ece6f3fd49"), "Sunny Lu"},
 	}
 }
 
@@ -239,9 +239,9 @@ func loadAuthorityNodes() []*authorityNode {
 	candidates := make([]*authorityNode, 0, len(all))
 	for _, item := range all {
 		candidates = append(candidates, &authorityNode{
-			masterAddress:   thor.MustParseAddress(item[0]),
-			endorsorAddress: thor.MustParseAddress(item[1]),
-			identity:        thor.MustParseBytes32(item[2]),
+			masterAddress:   meter.MustParseAddress(item[0]),
+			endorsorAddress: meter.MustParseAddress(item[1]),
+			identity:        meter.MustParseBytes32(item[2]),
 		})
 	}
 	return candidates

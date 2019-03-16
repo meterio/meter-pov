@@ -9,8 +9,8 @@ import (
 	"bytes"
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/vechain/thor/chain"
-	"github.com/vechain/thor/thor"
+	"github.com/dfinlab/meter/chain"
+	"github.com/dfinlab/meter/meter"
 )
 
 type beatReader struct {
@@ -18,7 +18,7 @@ type beatReader struct {
 	blockReader chain.BlockReader
 }
 
-func newBeatReader(chain *chain.Chain, position thor.Bytes32) *beatReader {
+func newBeatReader(chain *chain.Chain, position meter.Bytes32) *beatReader {
 	return &beatReader{
 		chain:       chain,
 		blockReader: chain.NewBlockReader(position),
@@ -59,8 +59,8 @@ func (br *beatReader) Read() ([]interface{}, bool, error) {
 		bloomContent.add(signer.Bytes())
 		bloomContent.add(header.Beneficiary().Bytes())
 
-		k := thor.EstimateBloomK(bloomContent.len())
-		bloom := thor.NewBloom(k)
+		k := meter.EstimateBloomK(bloomContent.len())
+		bloom := meter.NewBloom(k)
 		for _, item := range bloomContent.items {
 			bloom.Add(item)
 		}

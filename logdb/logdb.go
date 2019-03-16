@@ -12,9 +12,9 @@ import (
 	"math/big"
 
 	sqlite3 "github.com/mattn/go-sqlite3"
-	"github.com/vechain/thor/block"
-	"github.com/vechain/thor/thor"
-	"github.com/vechain/thor/tx"
+	"github.com/dfinlab/meter/block"
+	"github.com/dfinlab/meter/meter"
+	"github.com/dfinlab/meter/tx"
 )
 
 type LogDB struct {
@@ -235,18 +235,18 @@ func (db *LogDB) queryEvents(ctx context.Context, stmt string, args ...interface
 			return nil, err
 		}
 		event := &Event{
-			BlockID:     thor.BytesToBytes32(blockID),
+			BlockID:     meter.BytesToBytes32(blockID),
 			Index:       index,
 			BlockNumber: blockNumber,
 			BlockTime:   blockTime,
-			TxID:        thor.BytesToBytes32(txID),
-			TxOrigin:    thor.BytesToAddress(txOrigin),
-			Address:     thor.BytesToAddress(address),
+			TxID:        meter.BytesToBytes32(txID),
+			TxOrigin:    meter.BytesToAddress(txOrigin),
+			Address:     meter.BytesToAddress(address),
 			Data:        data,
 		}
 		for i, topic := range topics {
 			if len(topic) > 0 {
-				h := thor.BytesToBytes32(topic)
+				h := meter.BytesToBytes32(topic)
 				event.Topics[i] = &h
 			}
 		}
@@ -298,14 +298,14 @@ func (db *LogDB) queryTransfers(ctx context.Context, stmt string, args ...interf
 			return nil, err
 		}
 		trans := &Transfer{
-			BlockID:     thor.BytesToBytes32(blockID),
+			BlockID:     meter.BytesToBytes32(blockID),
 			Index:       index,
 			BlockNumber: blockNumber,
 			BlockTime:   blockTime,
-			TxID:        thor.BytesToBytes32(txID),
-			TxOrigin:    thor.BytesToAddress(txOrigin),
-			Sender:      thor.BytesToAddress(sender),
-			Recipient:   thor.BytesToAddress(recipient),
+			TxID:        meter.BytesToBytes32(txID),
+			TxOrigin:    meter.BytesToAddress(txOrigin),
+			Sender:      meter.BytesToAddress(sender),
+			Recipient:   meter.BytesToAddress(recipient),
 			Amount:      new(big.Int).SetBytes(amount),
 			Token:       token,
 		}
@@ -317,7 +317,7 @@ func (db *LogDB) queryTransfers(ctx context.Context, stmt string, args ...interf
 	return transfers, nil
 }
 
-func topicValue(topic *thor.Bytes32) []byte {
+func topicValue(topic *meter.Bytes32) []byte {
 	if topic == nil {
 		return nil
 	}
@@ -343,7 +343,7 @@ func (bb *BlockBatch) execInTx(proc func(*sql.Tx) error) (err error) {
 	return tx.Commit()
 }
 
-func (bb *BlockBatch) Commit(abandonedBlocks ...thor.Bytes32) error {
+func (bb *BlockBatch) Commit(abandonedBlocks ...meter.Bytes32) error {
 	return bb.execInTx(func(tx *sql.Tx) error {
 		for _, event := range bb.events {
 			if _, err := tx.Exec("INSERT OR REPLACE INTO event(blockID ,eventIndex, blockNumber ,blockTime ,txID ,txOrigin ,address ,topic0 ,topic1 ,topic2 ,topic3 ,topic4, data) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);",
@@ -393,7 +393,7 @@ func (bb *BlockBatch) Commit(abandonedBlocks ...thor.Bytes32) error {
 	})
 }
 
-func (bb *BlockBatch) ForTransaction(txID thor.Bytes32, txOrigin thor.Address) struct {
+func (bb *BlockBatch) ForTransaction(txID meter.Bytes32, txOrigin meter.Address) struct {
 	Insert func(tx.Events, tx.Transfers) *BlockBatch
 } {
 	return struct {

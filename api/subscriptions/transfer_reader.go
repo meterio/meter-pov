@@ -6,8 +6,8 @@
 package subscriptions
 
 import (
-	"github.com/vechain/thor/chain"
-	"github.com/vechain/thor/thor"
+	"github.com/dfinlab/meter/chain"
+	"github.com/dfinlab/meter/meter"
 )
 
 type transferReader struct {
@@ -16,7 +16,7 @@ type transferReader struct {
 	blockReader chain.BlockReader
 }
 
-func newTransferReader(chain *chain.Chain, position thor.Bytes32, filter *TransferFilter) *transferReader {
+func newTransferReader(chain *chain.Chain, position meter.Bytes32, filter *TransferFilter) *transferReader {
 	return &transferReader{
 		chain:       chain,
 		filter:      filter,

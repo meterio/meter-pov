@@ -8,17 +8,17 @@ package genesis
 import (
 	"encoding/hex"
 
-	"github.com/vechain/thor/abi"
-	"github.com/vechain/thor/block"
-	"github.com/vechain/thor/state"
-	"github.com/vechain/thor/thor"
-	"github.com/vechain/thor/tx"
+	"github.com/dfinlab/meter/abi"
+	"github.com/dfinlab/meter/block"
+	"github.com/dfinlab/meter/state"
+	"github.com/dfinlab/meter/meter"
+	"github.com/dfinlab/meter/tx"
 )
 
 // Genesis to build genesis block.
 type Genesis struct {
 	builder *Builder
-	id      thor.Bytes32
+	id      meter.Bytes32
 	name    string
 }
 
@@ -35,7 +35,7 @@ func (g *Genesis) Build(stateCreator *state.Creator) (blk *block.Block, events t
 }
 
 // ID returns genesis block ID.
-func (g *Genesis) ID() thor.Bytes32 {
+func (g *Genesis) ID() meter.Bytes32 {
 	return g.id
 }
 

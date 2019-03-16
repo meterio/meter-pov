@@ -20,7 +20,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/vechain/thor/thor"
+	"github.com/dfinlab/meter/meter"
 	"gopkg.in/karalabe/cookiejar.v2/collections/prque"
 )
 
@@ -34,7 +34,7 @@ var ErrAlreadyProcessed = errors.New("already processed")
 
 // request represents a scheduled or already in-flight state retrieval request.
 type request struct {
-	hash thor.Bytes32 // Hash of the node data content to retrieve
+	hash meter.Bytes32 // Hash of the node data content to retrieve
 	data []byte       // Data content of the node, cached until all subtrees complete
 	raw  bool         // Whether this is a raw entry (code) or a trie node
 
@@ -48,29 +48,29 @@ type request struct {
 // SyncResult is a simple list to return missing nodes along with their request
 // hashes.
 type SyncResult struct {
-	Hash thor.Bytes32 // Hash of the originally unknown trie node
+	Hash meter.Bytes32 // Hash of the originally unknown trie node
 	Data []byte       // Data content of the retrieved node
 }
 
 // syncMemBatch is an in-memory buffer of successfully downloaded but not yet
 // persisted data items.
 type syncMemBatch struct {
-	batch map[thor.Bytes32][]byte // In-memory membatch of recently completed items
-	order []thor.Bytes32          // Order of completion to prevent out-of-order data loss
+	batch map[meter.Bytes32][]byte // In-memory membatch of recently completed items
+	order []meter.Bytes32          // Order of completion to prevent out-of-order data loss
 }
 
 // newSyncMemBatch allocates a new memory-buffer for not-yet persisted trie nodes.
 func newSyncMemBatch() *syncMemBatch {
 	return &syncMemBatch{
-		batch: make(map[thor.Bytes32][]byte),
-		order: make([]thor.Bytes32, 0, 256),
+		batch: make(map[meter.Bytes32][]byte),
+		order: make([]meter.Bytes32, 0, 256),
 	}
 }
 
 // TrieSyncLeafCallback is a callback type invoked when a trie sync reaches a
 // leaf node. It's used by state syncing to check if the leaf node requires some
 // further data syncing.
-type TrieSyncLeafCallback func(leaf []byte, parent thor.Bytes32) error
+type TrieSyncLeafCallback func(leaf []byte, parent meter.Bytes32) error
 
 // TrieSync is the main state trie synchronisation scheduler, which provides yet
 // unknown trie hashes to retrieve, accepts node data associated with said hashes
@@ -78,24 +78,24 @@ type TrieSyncLeafCallback func(leaf []byte, parent thor.Bytes32) error
 type TrieSync struct {
 	database DatabaseReader            // Persistent database to check for existing entries
 	membatch *syncMemBatch             // Memory buffer to avoid frequest database writes
-	requests map[thor.Bytes32]*request // Pending requests pertaining to a key hash
+	requests map[meter.Bytes32]*request // Pending requests pertaining to a key hash
 	queue    *prque.Prque              // Priority queue with the pending requests
 }
 
 // NewTrieSync creates a new trie data download scheduler.
-func NewTrieSync(root thor.Bytes32, database DatabaseReader, callback TrieSyncLeafCallback) *TrieSync {
+func NewTrieSync(root meter.Bytes32, database DatabaseReader, callback TrieSyncLeafCallback) *TrieSync {
 	ts := &TrieSync{
 		database: database,
 		membatch: newSyncMemBatch(),
-		requests: make(map[thor.Bytes32]*request),
+		requests: make(map[meter.Bytes32]*request),
 		queue:    prque.New(),
 	}
-	ts.AddSubTrie(root, 0, thor.Bytes32{}, callback)
+	ts.AddSubTrie(root, 0, meter.Bytes32{}, callback)
 	return ts
 }
 
 // AddSubTrie registers a new trie to the sync code, rooted at the designated parent.
-func (s *TrieSync) AddSubTrie(root thor.Bytes32, depth int, parent thor.Bytes32, callback TrieSyncLeafCallback) {
+func (s *TrieSync) AddSubTrie(root meter.Bytes32, depth int, parent meter.Bytes32, callback TrieSyncLeafCallback) {
 	// Short circuit if the trie is empty or already known
 	if root == emptyRoot {
 		return
@@ -115,7 +115,7 @@ func (s *TrieSync) AddSubTrie(root thor.Bytes32, depth int, parent thor.Bytes32,
 		callback: callback,
 	}
 	// If this sub-trie has a designated parent, link them together
-	if parent != (thor.Bytes32{}) {
+	if parent != (meter.Bytes32{}) {
 		ancestor := s.requests[parent]
 		if ancestor == nil {
 			panic(fmt.Sprintf("sub-trie ancestor not found: %x", parent))
@@ -130,7 +130,7 @@ func (s *TrieSync) AddSubTrie(root thor.Bytes32, depth int, parent thor.Bytes32,
 // interpreted as a trie node, but rather accepted and stored into the database
 // as is. This method's goal is to support misc state metadata retrievals (e.g.
 // contract code).
-func (s *TrieSync) AddRawEntry(hash thor.Bytes32, depth int, parent thor.Bytes32) {
+func (s *TrieSync) AddRawEntry(hash meter.Bytes32, depth int, parent meter.Bytes32) {
 	// Short circuit if the entry is empty or already known
 	if hash == emptyState {
 		return
@@ -148,7 +148,7 @@ func (s *TrieSync) AddRawEntry(hash thor.Bytes32, depth int, parent thor.Bytes32
 		depth: depth,
 	}
 	// If this sub-trie has a designated parent, link them together
-	if parent != (thor.Bytes32{}) {
+	if parent != (meter.Bytes32{}) {
 		ancestor := s.requests[parent]
 		if ancestor == nil {
 			panic(fmt.Sprintf("raw-entry ancestor not found: %x", parent))
@@ -160,10 +160,10 @@ func (s *TrieSync) AddRawEntry(hash thor.Bytes32, depth int, parent thor.Bytes32
 }
 
 // Missing retrieves the known missing nodes from the trie for retrieval.
-func (s *TrieSync) Missing(max int) []thor.Bytes32 {
-	requests := []thor.Bytes32{}
+func (s *TrieSync) Missing(max int) []meter.Bytes32 {
+	requests := []meter.Bytes32{}
 	for !s.queue.Empty() && (max == 0 || len(requests) < max) {
-		requests = append(requests, s.queue.PopItem().(thor.Bytes32))
+		requests = append(requests, s.queue.PopItem().(meter.Bytes32))
 	}
 	return requests
 }
@@ -292,7 +292,7 @@ func (s *TrieSync) children(req *request, object node) ([]*request, error) {
 		// If the child references another node, resolve or schedule
 		if node, ok := (child.node).(hashNode); ok {
 			// Try to resolve the node from the local database
-			hash := thor.BytesToBytes32(node)
+			hash := meter.BytesToBytes32(node)
 			if _, ok := s.membatch.batch[hash]; ok {
 				continue
 			}

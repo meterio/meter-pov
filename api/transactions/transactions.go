@@ -15,11 +15,11 @@ import (
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/gorilla/mux"
 	"github.com/pkg/errors"
-	"github.com/vechain/thor/api/utils"
-	"github.com/vechain/thor/chain"
-	"github.com/vechain/thor/thor"
-	"github.com/vechain/thor/tx"
-	"github.com/vechain/thor/txpool"
+	"github.com/dfinlab/meter/api/utils"
+	"github.com/dfinlab/meter/chain"
+	"github.com/dfinlab/meter/meter"
+	"github.com/dfinlab/meter/tx"
+	"github.com/dfinlab/meter/txpool"
 )
 
 type Transactions struct {
@@ -34,7 +34,7 @@ func New(chain *chain.Chain, pool *txpool.TxPool) *Transactions {
 	}
 }
 
-func (t *Transactions) getRawTransaction(txID thor.Bytes32, blockID thor.Bytes32) (*rawTransaction, error) {
+func (t *Transactions) getRawTransaction(txID meter.Bytes32, blockID meter.Bytes32) (*rawTransaction, error) {
 	txMeta, err := t.chain.GetTransactionMeta(txID, blockID)
 	if err != nil {
 		if t.chain.IsNotFound(err) {
@@ -64,7 +64,7 @@ func (t *Transactions) getRawTransaction(txID thor.Bytes32, blockID thor.Bytes32
 	}, nil
 }
 
-func (t *Transactions) getTransactionByID(txID thor.Bytes32, blockID thor.Bytes32) (*Transaction, error) {
+func (t *Transactions) getTransactionByID(txID meter.Bytes32, blockID meter.Bytes32) (*Transaction, error) {
 	txMeta, err := t.chain.GetTransactionMeta(txID, blockID)
 	if err != nil {
 		if t.chain.IsNotFound(err) {
@@ -84,7 +84,7 @@ func (t *Transactions) getTransactionByID(txID thor.Bytes32, blockID thor.Bytes3
 }
 
 //GetTransactionReceiptByID get tx's receipt
-func (t *Transactions) getTransactionReceiptByID(txID thor.Bytes32, blockID thor.Bytes32) (*Receipt, error) {
+func (t *Transactions) getTransactionReceiptByID(txID meter.Bytes32, blockID meter.Bytes32) (*Receipt, error) {
 	txMeta, err := t.chain.GetTransactionMeta(txID, blockID)
 	if err != nil {
 		if t.chain.IsNotFound(err) {
@@ -170,7 +170,7 @@ func (t *Transactions) handleSendTransaction(w http.ResponseWriter, req *http.Re
 
 func (t *Transactions) handleGetTransactionByID(w http.ResponseWriter, req *http.Request) error {
 	id := mux.Vars(req)["id"]
-	txID, err := thor.ParseBytes32(id)
+	txID, err := meter.ParseBytes32(id)
 	if err != nil {
 		return utils.BadRequest(errors.WithMessage(err, "id"))
 	}
@@ -206,7 +206,7 @@ func (t *Transactions) handleGetTransactionByID(w http.ResponseWriter, req *http
 
 func (t *Transactions) handleGetTransactionReceiptByID(w http.ResponseWriter, req *http.Request) error {
 	id := mux.Vars(req)["id"]
-	txID, err := thor.ParseBytes32(id)
+	txID, err := meter.ParseBytes32(id)
 	if err != nil {
 		return utils.BadRequest(errors.WithMessage(err, "id"))
 	}
@@ -228,13 +228,13 @@ func (t *Transactions) handleGetTransactionReceiptByID(w http.ResponseWriter, re
 	return utils.WriteJSON(w, receipt)
 }
 
-func (t *Transactions) parseHead(head string) (thor.Bytes32, error) {
+func (t *Transactions) parseHead(head string) (meter.Bytes32, error) {
 	if head == "" {
 		return t.chain.BestBlock().Header().ID(), nil
 	}
-	h, err := thor.ParseBytes32(head)
+	h, err := meter.ParseBytes32(head)
 	if err != nil {
-		return thor.Bytes32{}, err
+		return meter.Bytes32{}, err
 	}
 	return h, nil
 }

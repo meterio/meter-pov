@@ -24,7 +24,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethdb"
-	"github.com/vechain/thor/thor"
+	"github.com/dfinlab/meter/meter"
 )
 
 func TestIterator(t *testing.T) {
@@ -102,9 +102,9 @@ func TestNodeIteratorCoverage(t *testing.T) {
 	db, trie, _ := makeTestTrie()
 
 	// Gather all the node hashes found by the iterator
-	hashes := make(map[thor.Bytes32]struct{})
+	hashes := make(map[meter.Bytes32]struct{})
 	for it := trie.NodeIterator(nil); it.Next(true); {
-		if it.Hash() != (thor.Bytes32{}) {
+		if it.Hash() != (meter.Bytes32{}) {
 			hashes[it.Hash()] = struct{}{}
 		}
 	}
@@ -115,7 +115,7 @@ func TestNodeIteratorCoverage(t *testing.T) {
 		}
 	}
 	for _, key := range db.(*ethdb.MemDatabase).Keys() {
-		if _, ok := hashes[thor.BytesToBytes32(key)]; !ok {
+		if _, ok := hashes[meter.BytesToBytes32(key)]; !ok {
 			t.Errorf("state entry not reported %x", key)
 		}
 	}
@@ -281,7 +281,7 @@ func TestIteratorNoDups(t *testing.T) {
 // This test checks that nodeIterator.Next can be retried after inserting missing trie nodes.
 func TestIteratorContinueAfterError(t *testing.T) {
 	db := ethdb.NewMemDatabase()
-	tr, _ := New(thor.Bytes32{}, db)
+	tr, _ := New(meter.Bytes32{}, db)
 	for _, val := range testdata1 {
 		tr.Update([]byte(val.k), []byte(val.v))
 	}
@@ -332,12 +332,12 @@ func TestIteratorContinueAfterError(t *testing.T) {
 func TestIteratorContinueAfterSeekError(t *testing.T) {
 	// Commit test trie to db, then remove the node containing "bars".
 	db := ethdb.NewMemDatabase()
-	ctr, _ := New(thor.Bytes32{}, db)
+	ctr, _ := New(meter.Bytes32{}, db)
 	for _, val := range testdata1 {
 		ctr.Update([]byte(val.k), []byte(val.v))
 	}
 	root, _ := ctr.Commit()
-	barNodeHash, _ := thor.ParseBytes32("d32fb77ad25227d60b76d53a512d28137304c9c03556db08a1709563c7ae9c9f")
+	barNodeHash, _ := meter.ParseBytes32("d32fb77ad25227d60b76d53a512d28137304c9c03556db08a1709563c7ae9c9f")
 	barNode, _ := db.Get(barNodeHash[:])
 	db.Delete(barNodeHash[:])
 

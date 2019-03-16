@@ -9,29 +9,29 @@ import (
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/rlp"
-	"github.com/vechain/thor/state"
-	"github.com/vechain/thor/thor"
+	"github.com/dfinlab/meter/state"
+	"github.com/dfinlab/meter/meter"
 )
 
 var (
-	headKey = thor.Blake2b([]byte("head"))
-	tailKey = thor.Blake2b([]byte("tail"))
+	headKey = meter.Blake2b([]byte("head"))
+	tailKey = meter.Blake2b([]byte("tail"))
 )
 
 // Authority implements native methods of `Authority` contract.
 type Authority struct {
-	addr  thor.Address
+	addr  meter.Address
 	state *state.State
 }
 
 // New create a new instance.
-func New(addr thor.Address, state *state.State) *Authority {
+func New(addr meter.Address, state *state.State) *Authority {
 	return &Authority{addr, state}
 }
 
-func (a *Authority) getEntry(nodeMaster thor.Address) *entry {
+func (a *Authority) getEntry(nodeMaster meter.Address) *entry {
 	var entry entry
-	a.state.DecodeStorage(a.addr, thor.BytesToBytes32(nodeMaster[:]), func(raw []byte) error {
+	a.state.DecodeStorage(a.addr, meter.BytesToBytes32(nodeMaster[:]), func(raw []byte) error {
 		if len(raw) == 0 {
 			return nil
 		}
@@ -40,8 +40,8 @@ func (a *Authority) getEntry(nodeMaster thor.Address) *entry {
 	return &entry
 }
 
-func (a *Authority) setEntry(nodeMaster thor.Address, entry *entry) {
-	a.state.EncodeStorage(a.addr, thor.BytesToBytes32(nodeMaster[:]), func() ([]byte, error) {
+func (a *Authority) setEntry(nodeMaster meter.Address, entry *entry) {
+	a.state.EncodeStorage(a.addr, meter.BytesToBytes32(nodeMaster[:]), func() ([]byte, error) {
 		if entry.IsEmpty() {
 			return nil, nil
 		}
@@ -49,7 +49,7 @@ func (a *Authority) setEntry(nodeMaster thor.Address, entry *entry) {
 	})
 }
 
-func (a *Authority) getAddressPtr(key thor.Bytes32) (addr *thor.Address) {
+func (a *Authority) getAddressPtr(key meter.Bytes32) (addr *meter.Address) {
 	a.state.DecodeStorage(a.addr, key, func(raw []byte) error {
 		if len(raw) == 0 {
 			return nil
@@ -59,7 +59,7 @@ func (a *Authority) getAddressPtr(key thor.Bytes32) (addr *thor.Address) {
 	return
 }
 
-func (a *Authority) setAddressPtr(key thor.Bytes32, addr *thor.Address) {
+func (a *Authority) setAddressPtr(key meter.Bytes32, addr *meter.Address) {
 	a.state.EncodeStorage(a.addr, key, func() ([]byte, error) {
 		if addr == nil {
 			return nil, nil
@@ -69,7 +69,7 @@ func (a *Authority) setAddressPtr(key thor.Bytes32, addr *thor.Address) {
 }
 
 // Get get candidate by node master address.
-func (a *Authority) Get(nodeMaster thor.Address) (listed bool, endorsor thor.Address, identity thor.Bytes32, active bool) {
+func (a *Authority) Get(nodeMaster meter.Address) (listed bool, endorsor meter.Address, identity meter.Bytes32, active bool) {
 	entry := a.getEntry(nodeMaster)
 	if entry.IsLinked() {
 		return true, entry.Endorsor, entry.Identity, entry.Active
@@ -82,7 +82,7 @@ func (a *Authority) Get(nodeMaster thor.Address) (listed bool, endorsor thor.Add
 }
 
 // Add add a new candidate.
-func (a *Authority) Add(nodeMaster thor.Address, endorsor thor.Address, identity thor.Bytes32) bool {
+func (a *Authority) Add(nodeMaster meter.Address, endorsor meter.Address, identity meter.Bytes32) bool {
 	entry := a.getEntry(nodeMaster)
 	if !entry.IsEmpty() {
 		return false
@@ -110,7 +110,7 @@ func (a *Authority) Add(nodeMaster thor.Address, endorsor thor.Address, identity
 
 // Revoke revoke candidate by given node master address.
 // The entry is not removed, but set unlisted and inactive.
-func (a *Authority) Revoke(nodeMaster thor.Address) bool {
+func (a *Authority) Revoke(nodeMaster meter.Address) bool {
 	entry := a.getEntry(nodeMaster)
 	if !entry.IsLinked() {
 		return false
@@ -140,7 +140,7 @@ func (a *Authority) Revoke(nodeMaster thor.Address) bool {
 }
 
 // Update update candidate's status.
-func (a *Authority) Update(nodeMaster thor.Address, active bool) bool {
+func (a *Authority) Update(nodeMaster meter.Address, active bool) bool {
 	entry := a.getEntry(nodeMaster)
 	if !entry.IsLinked() {
 		return false
@@ -170,11 +170,11 @@ func (a *Authority) Candidates(endorsement *big.Int, limit uint64) []*Candidate 
 }
 
 // First returns node master address of first entry.
-func (a *Authority) First() *thor.Address {
+func (a *Authority) First() *meter.Address {
 	return a.getAddressPtr(headKey)
 }
 
 // Next returns address of next node master address after given node master address.
-func (a *Authority) Next(nodeMaster thor.Address) *thor.Address {
+func (a *Authority) Next(nodeMaster meter.Address) *meter.Address {
 	return a.getEntry(nodeMaster).Next
 }

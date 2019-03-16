@@ -7,14 +7,14 @@ package transfers
 
 import (
 	"github.com/ethereum/go-ethereum/common/math"
-	"github.com/vechain/thor/api/transactions"
-	"github.com/vechain/thor/logdb"
-	"github.com/vechain/thor/thor"
+	"github.com/dfinlab/meter/api/transactions"
+	"github.com/dfinlab/meter/logdb"
+	"github.com/dfinlab/meter/meter"
 )
 
 type FilteredTransfer struct {
-	Sender    thor.Address          `json:"sender"`
-	Recipient thor.Address          `json:"recipient"`
+	Sender    meter.Address          `json:"sender"`
+	Recipient meter.Address          `json:"recipient"`
 	Amount    *math.HexOrDecimal256 `json:"amount"`
 	Meta      transactions.LogMeta  `json:"meta"`
 	Token     uint32                `json:"token"`

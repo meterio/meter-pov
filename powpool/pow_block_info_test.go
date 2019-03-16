@@ -11,7 +11,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/vechain/thor/block"
+	"github.com/dfinlab/meter/block"
 
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
 	"github.com/btcsuite/btcd/wire"

@@ -9,13 +9,13 @@ import (
 	"math"
 
 	"github.com/pkg/errors"
-	"github.com/vechain/thor/block"
-	"github.com/vechain/thor/lvldb"
-	"github.com/vechain/thor/runtime"
-	"github.com/vechain/thor/state"
-	"github.com/vechain/thor/thor"
-	"github.com/vechain/thor/tx"
-	"github.com/vechain/thor/xenv"
+	"github.com/dfinlab/meter/block"
+	"github.com/dfinlab/meter/lvldb"
+	"github.com/dfinlab/meter/runtime"
+	"github.com/dfinlab/meter/state"
+	"github.com/dfinlab/meter/meter"
+	"github.com/dfinlab/meter/tx"
+	"github.com/dfinlab/meter/xenv"
 )
 
 // Builder helper to build genesis block.
@@ -30,7 +30,7 @@ type Builder struct {
 
 type call struct {
 	clause *tx.Clause
-	caller thor.Address
+	caller meter.Address
 }
 
 // Timestamp set timestamp.
@@ -52,7 +52,7 @@ func (b *Builder) State(proc func(state *state.State) error) *Builder {
 }
 
 // Call add a contrct call.
-func (b *Builder) Call(clause *tx.Clause, caller thor.Address) *Builder {
+func (b *Builder) Call(clause *tx.Clause, caller meter.Address) *Builder {
 	b.calls = append(b.calls, call{clause, caller})
 	return b
 }
@@ -64,21 +64,21 @@ func (b *Builder) ExtraData(data [28]byte) *Builder {
 }
 
 // ComputeID compute genesis ID.
-func (b *Builder) ComputeID() (thor.Bytes32, error) {
+func (b *Builder) ComputeID() (meter.Bytes32, error) {
 	kv, err := lvldb.NewMem()
 	if err != nil {
-		return thor.Bytes32{}, err
+		return meter.Bytes32{}, err
 	}
 	blk, _, err := b.Build(state.NewCreator(kv))
 	if err != nil {
-		return thor.Bytes32{}, err
+		return meter.Bytes32{}, err
 	}
 	return blk.Header().ID(), nil
 }
 
 // Build build genesis block according to presets.
 func (b *Builder) Build(stateCreator *state.Creator) (blk *block.Block, events tx.Events, err error) {
-	state, err := stateCreator.NewState(thor.Bytes32{})
+	state, err := stateCreator.NewState(meter.Bytes32{})
 	if err != nil {
 		return nil, nil, err
 	}
@@ -112,7 +112,7 @@ func (b *Builder) Build(stateCreator *state.Creator) (blk *block.Block, events t
 		return nil, nil, errors.Wrap(err, "commit state")
 	}
 
-	parentID := thor.Bytes32{0xff, 0xff, 0xff, 0xff} //so, genesis number is 0
+	parentID := meter.Bytes32{0xff, 0xff, 0xff, 0xff} //so, genesis number is 0
 	copy(parentID[4:], b.extraData[:])
 
 	return new(block.Builder).

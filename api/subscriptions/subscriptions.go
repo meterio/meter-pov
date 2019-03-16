@@ -13,10 +13,10 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/inconshreveable/log15"
 	"github.com/pkg/errors"
-	"github.com/vechain/thor/api/utils"
-	"github.com/vechain/thor/block"
-	"github.com/vechain/thor/chain"
-	"github.com/vechain/thor/thor"
+	"github.com/dfinlab/meter/api/utils"
+	"github.com/dfinlab/meter/block"
+	"github.com/dfinlab/meter/chain"
+	"github.com/dfinlab/meter/meter"
 )
 
 type Subscriptions struct {
@@ -238,37 +238,37 @@ func (s *Subscriptions) pipe(conn *websocket.Conn, reader msgReader) error {
 	}
 }
 
-func (s *Subscriptions) parsePosition(posStr string) (thor.Bytes32, error) {
+func (s *Subscriptions) parsePosition(posStr string) (meter.Bytes32, error) {
 	bestID := s.chain.BestBlock().Header().ID()
 	if posStr == "" {
 		return bestID, nil
 	}
-	pos, err := thor.ParseBytes32(posStr)
+	pos, err := meter.ParseBytes32(posStr)
 	if err != nil {
-		return thor.Bytes32{}, utils.BadRequest(errors.WithMessage(err, "pos"))
+		return meter.Bytes32{}, utils.BadRequest(errors.WithMessage(err, "pos"))
 	}
 	if block.Number(bestID)-block.Number(pos) > s.backtraceLimit {
-		return thor.Bytes32{}, utils.Forbidden(errors.New("pos: backtrace limit exceeded"))
+		return meter.Bytes32{}, utils.Forbidden(errors.New("pos: backtrace limit exceeded"))
 	}
 	return pos, nil
 }
 
-func parseTopic(t string) (*thor.Bytes32, error) {
+func parseTopic(t string) (*meter.Bytes32, error) {
 	if t == "" {
 		return nil, nil
 	}
-	topic, err := thor.ParseBytes32(t)
+	topic, err := meter.ParseBytes32(t)
 	if err != nil {
 		return nil, err
 	}
 	return &topic, nil
 }
 
-func parseAddress(addr string) (*thor.Address, error) {
+func parseAddress(addr string) (*meter.Address, error) {
 	if addr == "" {
 		return nil, nil
 	}
-	address, err := thor.ParseAddress(addr)
+	address, err := meter.ParseAddress(addr)
 	if err != nil {
 		return nil, err
 	}

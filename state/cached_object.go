@@ -7,8 +7,8 @@ package state
 
 import (
 	"github.com/ethereum/go-ethereum/rlp"
-	"github.com/vechain/thor/kv"
-	"github.com/vechain/thor/thor"
+	"github.com/dfinlab/meter/kv"
+	"github.com/dfinlab/meter/meter"
 )
 
 // cachedObject to cache code and storage of an account.
@@ -19,7 +19,7 @@ type cachedObject struct {
 	cache struct {
 		code        []byte
 		storageTrie trieReader
-		storage     map[thor.Bytes32]rlp.RawValue
+		storage     map[meter.Bytes32]rlp.RawValue
 	}
 }
 
@@ -32,7 +32,7 @@ func (co *cachedObject) getOrCreateStorageTrie() (trieReader, error) {
 		return co.cache.storageTrie, nil
 	}
 
-	root := thor.BytesToBytes32(co.data.StorageRoot)
+	root := meter.BytesToBytes32(co.data.StorageRoot)
 
 	trie, err := trCache.Get(root, co.kv, false)
 	if err != nil {
@@ -43,11 +43,11 @@ func (co *cachedObject) getOrCreateStorageTrie() (trieReader, error) {
 }
 
 // GetStorage returns storage value for given key.
-func (co *cachedObject) GetStorage(key thor.Bytes32) (rlp.RawValue, error) {
+func (co *cachedObject) GetStorage(key meter.Bytes32) (rlp.RawValue, error) {
 	cache := &co.cache
 	// retrive from storage cache
 	if cache.storage == nil {
-		cache.storage = make(map[thor.Bytes32]rlp.RawValue)
+		cache.storage = make(map[meter.Bytes32]rlp.RawValue)
 	} else {
 		if v, ok := cache.storage[key]; ok {
 			return v, nil

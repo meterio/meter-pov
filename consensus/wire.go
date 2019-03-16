@@ -2,7 +2,7 @@ package consensus
 
 import (
 	"github.com/dfinlab/go-amino"
-	//"github.com/vechain/thor/types"
+	//"github.com/dfinlab/meter/types"
 )
 
 var cdc = amino.NewCodec()

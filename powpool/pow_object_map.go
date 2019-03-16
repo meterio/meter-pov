@@ -6,7 +6,7 @@ import (
 	"sync"
 
 	"github.com/btcsuite/btcd/blockchain"
-	"github.com/vechain/thor/thor"
+	"github.com/dfinlab/meter/meter"
 )
 
 // record the latest heights and powObjects
@@ -39,12 +39,12 @@ type powObjectMap struct {
 	lock             sync.RWMutex
 	latestHeightMkr  *latestHeightMarker
 	lastKframePowObj *powObject //last kblock of powObject
-	powObjMap        map[thor.Bytes32]*powObject
+	powObjMap        map[meter.Bytes32]*powObject
 }
 
 func newPowObjectMap() *powObjectMap {
 	return &powObjectMap{
-		powObjMap:        make(map[thor.Bytes32]*powObject),
+		powObjMap:        make(map[meter.Bytes32]*powObject),
 		latestHeightMkr:  newLatestHeightMarker(),
 		lastKframePowObj: nil,
 	}
@@ -68,7 +68,7 @@ func (m *powObjectMap) isKframeInitialAdded() bool {
 	return (m.lastKframePowObj != nil)
 }
 
-func (m *powObjectMap) Contains(powID thor.Bytes32) bool {
+func (m *powObjectMap) Contains(powID meter.Bytes32) bool {
 	m.lock.RLock()
 	defer m.lock.RUnlock()
 
@@ -114,7 +114,7 @@ func (m *powObjectMap) Add(powObj *powObject) error {
 	return err
 }
 
-func (m *powObjectMap) Remove(powID thor.Bytes32) bool {
+func (m *powObjectMap) Remove(powID meter.Bytes32) bool {
 	m.lock.Lock()
 	defer m.lock.Unlock()
 
@@ -125,7 +125,7 @@ func (m *powObjectMap) Remove(powID thor.Bytes32) bool {
 	return false
 }
 
-func (m *powObjectMap) Get(powID thor.Bytes32) *powObject {
+func (m *powObjectMap) Get(powID meter.Bytes32) *powObject {
 	m.lock.RLock()
 	defer m.lock.RUnlock()
 
@@ -188,7 +188,7 @@ func (m *powObjectMap) FillLatestObjChain(obj *powObject) (*PowResult, error) {
 func (m *powObjectMap) Flush() {
 	m.lock.Lock()
 	defer m.lock.Unlock()
-	m.powObjMap = make(map[thor.Bytes32]*powObject)
+	m.powObjMap = make(map[meter.Bytes32]*powObject)
 	m.latestHeightMkr = newLatestHeightMarker()
 	m.lastKframePowObj = nil
 }

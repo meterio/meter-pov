@@ -13,8 +13,8 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/mclock"
 	"github.com/pkg/errors"
-	"github.com/vechain/thor/packer"
-	"github.com/vechain/thor/thor"
+	"github.com/dfinlab/meter/packer"
+	"github.com/dfinlab/meter/meter"
 )
 
 func (n *Node) packerLoop(ctx context.Context) {
@@ -80,7 +80,7 @@ func (n *Node) packerLoop(ctx context.Context) {
 
 func (n *Node) pack(flow *packer.Flow) error {
 	txs := n.txPool.Executables()
-	var txsToRemove []thor.Bytes32
+	var txsToRemove []meter.Bytes32
 	defer func() {
 		for _, id := range txsToRemove {
 			n.txPool.Remove(id)
@@ -133,7 +133,7 @@ func (n *Node) pack(flow *packer.Flow) error {
 		gasUsed := newBlock.Header().GasUsed()
 		// calc target gas limit only if gas used above third of gas limit
 		if gasUsed > newBlock.Header().GasLimit()/3 {
-			targetGasLimit := uint64(thor.TolerableBlockPackingTime) * gasUsed / uint64(execElapsed)
+			targetGasLimit := uint64(meter.TolerableBlockPackingTime) * gasUsed / uint64(execElapsed)
 			n.packer.SetTargetGasLimit(targetGasLimit)
 			log.Debug("reset target gas limit", "value", targetGasLimit)
 		}

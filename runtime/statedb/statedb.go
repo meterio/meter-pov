@@ -12,11 +12,11 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	lru "github.com/hashicorp/golang-lru"
-	"github.com/vechain/thor/stackedmap"
-	"github.com/vechain/thor/state"
-	"github.com/vechain/thor/thor"
-	"github.com/vechain/thor/tx"
-	"github.com/vechain/thor/builtin/energy"
+	"github.com/dfinlab/meter/stackedmap"
+	"github.com/dfinlab/meter/state"
+	"github.com/dfinlab/meter/meter"
+	"github.com/dfinlab/meter/tx"
+	"github.com/dfinlab/meter/builtin/energy"
 )
 
 var codeSizeCache, _ = lru.New(32 * 1024)
@@ -81,7 +81,7 @@ func (s *StateDB) GetLogs() (tx.Events, tx.Transfers) {
 
 // ForEachStorage see state.State.ForEachStorage.
 // func (s *StateDB) ForEachStorage(addr common.Address, cb func(common.Hash, common.Hash) bool) {
-// 	s.state.ForEachStorage(thor.Address(addr), func(k thor.Bytes32, v []byte) bool {
+// 	s.state.ForEachStorage(meter.Address(addr), func(k meter.Bytes32, v []byte) bool {
 // 		// TODO should rlp decode v
 // 		return cb(common.Hash(k), common.BytesToHash(v))
 // 	})
@@ -92,7 +92,7 @@ func (s *StateDB) CreateAccount(addr common.Address) {}
 
 // GetBalance stub.
 func (s *StateDB) GetBalance(addr common.Address) *big.Int {
-	return s.state.GetBalance(thor.Address(addr))
+	return s.state.GetBalance(meter.Address(addr))
 }
 
 // SubBalance stub.
@@ -100,8 +100,8 @@ func (s *StateDB) SubBalance(addr common.Address, amount *big.Int) {
 	if amount.Sign() == 0 {
 		return
 	}
-	balance := s.state.GetBalance(thor.Address(addr))
-	s.state.SetBalance(thor.Address(addr), new(big.Int).Sub(balance, amount))
+	balance := s.state.GetBalance(meter.Address(addr))
+	s.state.SetBalance(meter.Address(addr), new(big.Int).Sub(balance, amount))
 }
 
 // AddBalance stub.
@@ -109,19 +109,19 @@ func (s *StateDB) AddBalance(addr common.Address, amount *big.Int) {
 	if amount.Sign() == 0 {
 		return
 	}
-	balance := s.state.GetBalance(thor.Address(addr))
-	s.state.SetBalance(thor.Address(addr), new(big.Int).Add(balance, amount))
+	balance := s.state.GetBalance(meter.Address(addr))
+	s.state.SetBalance(meter.Address(addr), new(big.Int).Add(balance, amount))
 }
 
 // mintBalance stub
 func (s *StateDB) MintBalance(addr common.Address, amount *big.Int) {
-	a := thor.Address(addr)
+	a := meter.Address(addr)
 	e := energy.New(a, s.state, 0)
 	e.MintMeterGov(a, amount)
 }
 
 func (s *StateDB) BurnBalance(addr common.Address, amount *big.Int) {
-	a := thor.Address(addr)
+	a := meter.Address(addr)
 	e := energy.New(a, s.state, 0)
 	e.BurnMeterGov(a, amount)
 }
@@ -129,7 +129,7 @@ func (s *StateDB) BurnBalance(addr common.Address, amount *big.Int) {
 
 // GetEnergy stub.
 func (s *StateDB) GetEnergy(addr common.Address) *big.Int {
-	return s.state.GetEnergy(thor.Address(addr), 0)
+	return s.state.GetEnergy(meter.Address(addr), 0)
 }
 
 // SubEnergy stub.
@@ -137,8 +137,8 @@ func (s *StateDB) SubEnergy(addr common.Address, amount *big.Int) {
 	if amount.Sign() == 0 {
 		return
 	}
-	balance := s.state.GetEnergy(thor.Address(addr), 0)
-	s.state.SetEnergy(thor.Address(addr), new(big.Int).Sub(balance, amount), 0)
+	balance := s.state.GetEnergy(meter.Address(addr), 0)
+	s.state.SetEnergy(meter.Address(addr), new(big.Int).Sub(balance, amount), 0)
 }
 
 // AddEnergy stub.
@@ -146,19 +146,19 @@ func (s *StateDB) AddEnergy(addr common.Address, amount *big.Int) {
 	if amount.Sign() == 0 {
 		return
 	}
-	balance := s.state.GetEnergy(thor.Address(addr), 0)
-	s.state.SetEnergy(thor.Address(addr), new(big.Int).Add(balance, amount), 0)
+	balance := s.state.GetEnergy(meter.Address(addr), 0)
+	s.state.SetEnergy(meter.Address(addr), new(big.Int).Add(balance, amount), 0)
 }
 
 // minEnergy stub
 func (s *StateDB) MintEnergy(addr common.Address, amount *big.Int) {
-	a := thor.Address(addr)
+	a := meter.Address(addr)
 	e := energy.New(a, s.state, 0)
 	e.MintMeter(a, amount)
 }
 
 func (s *StateDB) BurnEnergy(addr common.Address, amount *big.Int) {
-	a := thor.Address(addr)
+	a := meter.Address(addr)
 	e := energy.New(a, s.state, 0)
 	e.BurnMeter(a, amount)
 }
@@ -171,31 +171,31 @@ func (s *StateDB) SetNonce(addr common.Address, nonce uint64) {}
 
 // GetCodeHash stub.
 func (s *StateDB) GetCodeHash(addr common.Address) common.Hash {
-	return common.Hash(s.state.GetCodeHash(thor.Address(addr)))
+	return common.Hash(s.state.GetCodeHash(meter.Address(addr)))
 }
 
 // GetCode stub.
 func (s *StateDB) GetCode(addr common.Address) []byte {
-	return s.state.GetCode(thor.Address(addr))
+	return s.state.GetCode(meter.Address(addr))
 }
 
 // GetCodeSize stub.
 func (s *StateDB) GetCodeSize(addr common.Address) int {
-	hash := s.state.GetCodeHash(thor.Address(addr))
+	hash := s.state.GetCodeHash(meter.Address(addr))
 	if hash.IsZero() {
 		return 0
 	}
 	if v, ok := codeSizeCache.Get(hash); ok {
 		return v.(int)
 	}
-	size := len(s.state.GetCode(thor.Address(addr)))
+	size := len(s.state.GetCode(meter.Address(addr)))
 	codeSizeCache.Add(hash, size)
 	return size
 }
 
 // SetCode stub.
 func (s *StateDB) SetCode(addr common.Address, code []byte) {
-	s.state.SetCode(thor.Address(addr), code)
+	s.state.SetCode(meter.Address(addr), code)
 }
 
 // HasSuicided stub.
@@ -210,32 +210,32 @@ func (s *StateDB) HasSuicided(addr common.Address) bool {
 // 1, delete account
 // 2, set suicide flag
 func (s *StateDB) Suicide(addr common.Address) bool {
-	if !s.state.Exists(thor.Address(addr)) {
+	if !s.state.Exists(meter.Address(addr)) {
 		return false
 	}
-	s.state.Delete(thor.Address(addr))
+	s.state.Delete(meter.Address(addr))
 	s.repo.Put(suicideFlagKey(addr), true)
 	return true
 }
 
 // GetState stub.
 func (s *StateDB) GetState(addr common.Address, key common.Hash) common.Hash {
-	return common.Hash(s.state.GetStorage(thor.Address(addr), thor.Bytes32(key)))
+	return common.Hash(s.state.GetStorage(meter.Address(addr), meter.Bytes32(key)))
 }
 
 // SetState stub.
 func (s *StateDB) SetState(addr common.Address, key, value common.Hash) {
-	s.state.SetStorage(thor.Address(addr), thor.Bytes32(key), thor.Bytes32(value))
+	s.state.SetStorage(meter.Address(addr), meter.Bytes32(key), meter.Bytes32(value))
 }
 
 // Exist stub.
 func (s *StateDB) Exist(addr common.Address) bool {
-	return s.state.Exists(thor.Address(addr))
+	return s.state.Exists(meter.Address(addr))
 }
 
 // Empty stub.
 func (s *StateDB) Empty(addr common.Address) bool {
-	return !s.state.Exists(thor.Address(addr))
+	return !s.state.Exists(meter.Address(addr))
 }
 
 // AddRefund stub.
@@ -277,15 +277,15 @@ func (s *StateDB) RevertToSnapshot(rev int) {
 }
 
 func ethlogToEvent(ethlog *types.Log) *tx.Event {
-	var topics []thor.Bytes32
+	var topics []meter.Bytes32
 	if len(ethlog.Topics) > 0 {
-		topics = make([]thor.Bytes32, 0, len(ethlog.Topics))
+		topics = make([]meter.Bytes32, 0, len(ethlog.Topics))
 		for _, t := range ethlog.Topics {
-			topics = append(topics, thor.Bytes32(t))
+			topics = append(topics, meter.Bytes32(t))
 		}
 	}
 	return &tx.Event{
-		thor.Address(ethlog.Address),
+		meter.Address(ethlog.Address),
 		topics,
 		ethlog.Data,
 	}

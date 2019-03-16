@@ -6,18 +6,18 @@
 package chain
 
 import (
-	"github.com/vechain/thor/block"
-	"github.com/vechain/thor/thor"
+	"github.com/dfinlab/meter/block"
+	"github.com/dfinlab/meter/meter"
 )
 
 // Seeker to seek block by given number on the chain defined by head block ID.
 type Seeker struct {
 	chain       *Chain
-	headBlockID thor.Bytes32
+	headBlockID meter.Bytes32
 	err         error
 }
 
-func newSeeker(chain *Chain, headBlockID thor.Bytes32) *Seeker {
+func newSeeker(chain *Chain, headBlockID meter.Bytes32) *Seeker {
 	return &Seeker{
 		chain:       chain,
 		headBlockID: headBlockID,
@@ -36,7 +36,7 @@ func (s *Seeker) Err() error {
 }
 
 // GetID returns block ID by the given number.
-func (s *Seeker) GetID(num uint32) thor.Bytes32 {
+func (s *Seeker) GetID(num uint32) meter.Bytes32 {
 	if num > block.Number(s.headBlockID) {
 		panic("num exceeds head block")
 	}
@@ -46,7 +46,7 @@ func (s *Seeker) GetID(num uint32) thor.Bytes32 {
 }
 
 // GetHeader returns block header by the given number.
-func (s *Seeker) GetHeader(id thor.Bytes32) *block.Header {
+func (s *Seeker) GetHeader(id meter.Bytes32) *block.Header {
 	header, err := s.chain.GetBlockHeader(id)
 	if err != nil {
 		s.setError(err)
@@ -56,6 +56,6 @@ func (s *Seeker) GetHeader(id thor.Bytes32) *block.Header {
 }
 
 // GenesisID get genesis block ID.
-func (s *Seeker) GenesisID() thor.Bytes32 {
+func (s *Seeker) GenesisID() meter.Bytes32 {
 	return s.chain.GenesisBlock().Header().ID()
 }

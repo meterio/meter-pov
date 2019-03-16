@@ -13,10 +13,10 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/vechain/thor/block"
-	"github.com/vechain/thor/logdb"
-	"github.com/vechain/thor/thor"
-	"github.com/vechain/thor/tx"
+	"github.com/dfinlab/meter/block"
+	"github.com/dfinlab/meter/logdb"
+	"github.com/dfinlab/meter/meter"
+	"github.com/dfinlab/meter/tx"
 )
 
 func TestEvents(t *testing.T) {
@@ -27,15 +27,15 @@ func TestEvents(t *testing.T) {
 	defer db.Close()
 
 	txEvent := &tx.Event{
-		Address: thor.BytesToAddress([]byte("addr")),
-		Topics:  []thor.Bytes32{thor.BytesToBytes32([]byte("topic0")), thor.BytesToBytes32([]byte("topic1"))},
+		Address: meter.BytesToAddress([]byte("addr")),
+		Topics:  []meter.Bytes32{meter.BytesToBytes32([]byte("topic0")), meter.BytesToBytes32([]byte("topic1"))},
 		Data:    []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 97, 48},
 	}
 
 	header := new(block.Builder).Build().Header()
 
 	for i := 0; i < 100; i++ {
-		if err := db.Prepare(header).ForTransaction(thor.BytesToBytes32([]byte("txID")), thor.BytesToAddress([]byte("txOrigin"))).
+		if err := db.Prepare(header).ForTransaction(meter.BytesToBytes32([]byte("txID")), meter.BytesToAddress([]byte("txOrigin"))).
 			Insert(tx.Events{txEvent}, nil).Commit(); err != nil {
 			t.Fatal(err)
 		}
@@ -44,9 +44,9 @@ func TestEvents(t *testing.T) {
 	}
 
 	limit := 5
-	t0 := thor.BytesToBytes32([]byte("topic0"))
-	t1 := thor.BytesToBytes32([]byte("topic1"))
-	addr := thor.BytesToAddress([]byte("addr"))
+	t0 := meter.BytesToBytes32([]byte("topic0"))
+	t1 := meter.BytesToBytes32([]byte("topic1"))
+	addr := meter.BytesToAddress([]byte("addr"))
 	es, err := db.FilterEvents(context.Background(), &logdb.EventFilter{
 		Range: &logdb.Range{
 			Unit: logdb.Block,
@@ -61,7 +61,7 @@ func TestEvents(t *testing.T) {
 		CriteriaSet: []*logdb.EventCriteria{
 			&logdb.EventCriteria{
 				Address: &addr,
-				Topics: [5]*thor.Bytes32{nil,
+				Topics: [5]*meter.Bytes32{nil,
 					nil,
 					nil,
 					nil,
@@ -69,7 +69,7 @@ func TestEvents(t *testing.T) {
 			},
 			&logdb.EventCriteria{
 				Address: &addr,
-				Topics: [5]*thor.Bytes32{&t0,
+				Topics: [5]*meter.Bytes32{&t0,
 					&t1,
 					nil,
 					nil,
@@ -90,8 +90,8 @@ func TestTransfers(t *testing.T) {
 	}
 	defer db.Close()
 
-	from := thor.BytesToAddress([]byte("from"))
-	to := thor.BytesToAddress([]byte("to"))
+	from := meter.BytesToAddress([]byte("from"))
+	to := meter.BytesToAddress([]byte("to"))
 	value := big.NewInt(10)
 	header := new(block.Builder).Build().Header()
 	count := 100
@@ -102,7 +102,7 @@ func TestTransfers(t *testing.T) {
 			Amount:    value,
 		}
 		header = new(block.Builder).ParentID(header.ID()).Build().Header()
-		if err := db.Prepare(header).ForTransaction(thor.Bytes32{}, from).Insert(nil, tx.Transfers{transLog}).
+		if err := db.Prepare(header).ForTransaction(meter.Bytes32{}, from).Insert(nil, tx.Transfers{transLog}).
 			Commit(); err != nil {
 			t.Fatal(err)
 		}
@@ -163,8 +163,8 @@ func BenchmarkLog(b *testing.B) {
 		b.Fatal(err)
 	}
 	l := &tx.Event{
-		Address: thor.BytesToAddress([]byte("addr")),
-		Topics:  []thor.Bytes32{thor.BytesToBytes32([]byte("topic0")), thor.BytesToBytes32([]byte("topic1"))},
+		Address: meter.BytesToAddress([]byte("addr")),
+		Topics:  []meter.Bytes32{meter.BytesToBytes32([]byte("topic0")), meter.BytesToBytes32([]byte("topic1"))},
 		Data:    []byte("data"),
 	}
 
@@ -172,7 +172,7 @@ func BenchmarkLog(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		header := new(block.Builder).Build().Header()
 		batch := db.Prepare(header)
-		txBatch := batch.ForTransaction(thor.BytesToBytes32([]byte("txID")), thor.BytesToAddress([]byte("txOrigin")))
+		txBatch := batch.ForTransaction(meter.BytesToBytes32([]byte("txID")), meter.BytesToAddress([]byte("txOrigin")))
 		for j := 0; j < 100; j++ {
 			txBatch.Insert(tx.Events{l}, nil)
 			header = new(block.Builder).ParentID(header.ID()).Build().Header()

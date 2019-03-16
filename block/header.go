@@ -14,7 +14,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/rlp"
-	"github.com/vechain/thor/thor"
+	"github.com/dfinlab/meter/meter"
 )
 
 const (
@@ -36,26 +36,26 @@ type Header struct {
 
 // headerBody body of header
 type HeaderBody struct {
-	ParentID         thor.Bytes32
+	ParentID         meter.Bytes32
 	Timestamp        uint64
 	GasLimit         uint64
 	LastKBlockHeight uint32
 	BlockType        uint32
-	Beneficiary      thor.Address
-	Proposer         thor.Address
+	Beneficiary      meter.Address
+	Proposer         meter.Address
 
 	GasUsed    uint64
 	TotalScore uint64
 
-	TxsRoot      thor.Bytes32
-	StateRoot    thor.Bytes32
-	ReceiptsRoot thor.Bytes32
+	TxsRoot      meter.Bytes32
+	StateRoot    meter.Bytes32
+	ReceiptsRoot meter.Bytes32
 
 	Signature []byte
 }
 
 // ParentID returns id of parent block.
-func (h *Header) ParentID() thor.Bytes32 {
+func (h *Header) ParentID() meter.Bytes32 {
 	return h.Body.ParentID
 }
 
@@ -96,30 +96,30 @@ func (h *Header) GasUsed() uint64 {
 }
 
 // Beneficiary returns reward recipient.
-func (h *Header) Beneficiary() thor.Address {
+func (h *Header) Beneficiary() meter.Address {
 	return h.Body.Beneficiary
 }
 
 // TxsRoot returns merkle root of txs contained in this block.
-func (h *Header) TxsRoot() thor.Bytes32 {
+func (h *Header) TxsRoot() meter.Bytes32 {
 	return h.Body.TxsRoot
 }
 
 // StateRoot returns account state merkle root just afert this block being applied.
-func (h *Header) StateRoot() thor.Bytes32 {
+func (h *Header) StateRoot() meter.Bytes32 {
 	return h.Body.StateRoot
 }
 
 // ReceiptsRoot returns merkle root of tx receipts.
-func (h *Header) ReceiptsRoot() thor.Bytes32 {
+func (h *Header) ReceiptsRoot() meter.Bytes32 {
 	return h.Body.ReceiptsRoot
 }
 
 // ID computes id of block.
 // The block ID is defined as: blockNumber + hash(signingHash, signer)[4:].
-func (h *Header) ID() (id thor.Bytes32) {
+func (h *Header) ID() (id meter.Bytes32) {
 	if cached := h.cache.id.Load(); cached != nil {
-		return cached.(thor.Bytes32)
+		return cached.(meter.Bytes32)
 	}
 	defer func() {
 		// overwrite first 4 bytes of block hash to block number.
@@ -132,7 +132,7 @@ func (h *Header) ID() (id thor.Bytes32) {
 		return
 	}
 
-	hw := thor.NewBlake2b()
+	hw := meter.NewBlake2b()
 	hw.Write(h.SigningHash().Bytes())
 	hw.Write(signer.Bytes())
 	hw.Sum(id[:0])
@@ -141,13 +141,13 @@ func (h *Header) ID() (id thor.Bytes32) {
 }
 
 // SigningHash computes hash of all header fields excluding signature.
-func (h *Header) SigningHash() (hash thor.Bytes32) {
+func (h *Header) SigningHash() (hash meter.Bytes32) {
 	if cached := h.cache.signingHash.Load(); cached != nil {
-		return cached.(thor.Bytes32)
+		return cached.(meter.Bytes32)
 	}
 	defer func() { h.cache.signingHash.Store(hash) }()
 
-	hw := thor.NewBlake2b()
+	hw := meter.NewBlake2b()
 	rlp.Encode(hw, []interface{}{
 		h.Body.ParentID,
 		h.Body.Timestamp,
@@ -180,14 +180,14 @@ func (h *Header) withSignature(sig []byte) *Header {
 }
 
 // Signer extract signer of the block from signature.
-func (h *Header) Signer() (signer thor.Address, err error) {
+func (h *Header) Signer() (signer meter.Address, err error) {
 	if h.Number() == 0 {
 		// special case for genesis block
-		return thor.Address{}, nil
+		return meter.Address{}, nil
 	}
 
 	if cached := h.cache.signer.Load(); cached != nil {
-		return cached.(thor.Address), nil
+		return cached.(meter.Address), nil
 	}
 	defer func() {
 		if err == nil {
@@ -197,10 +197,10 @@ func (h *Header) Signer() (signer thor.Address, err error) {
 
 	pub, err := crypto.SigToPub(h.SigningHash().Bytes(), h.Body.Signature)
 	if err != nil {
-		return thor.Address{}, err
+		return meter.Address{}, err
 	}
 
-	signer = thor.Address(crypto.PubkeyToAddress(*pub))
+	signer = meter.Address(crypto.PubkeyToAddress(*pub))
 	return
 }
 
@@ -232,7 +232,7 @@ func (h *Header) String() string {
 }
 
 // Number extract block number from block id.
-func Number(blockID thor.Bytes32) uint32 {
+func Number(blockID meter.Bytes32) uint32 {
 	// first 4 bytes are over written by block number (big endian).
 	return binary.BigEndian.Uint32(blockID[:])
 }

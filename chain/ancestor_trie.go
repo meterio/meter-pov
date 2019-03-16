@@ -10,10 +10,10 @@ import (
 
 	lru "github.com/hashicorp/golang-lru"
 	"github.com/pkg/errors"
-	"github.com/vechain/thor/block"
-	"github.com/vechain/thor/kv"
-	"github.com/vechain/thor/thor"
-	"github.com/vechain/thor/trie"
+	"github.com/dfinlab/meter/block"
+	"github.com/dfinlab/meter/kv"
+	"github.com/dfinlab/meter/meter"
+	"github.com/dfinlab/meter/trie"
 )
 
 const rootCacheLimit = 2048
@@ -26,7 +26,7 @@ type ancestorTrie struct {
 
 func newAncestorTrie(kv kv.GetPutter) *ancestorTrie {
 	rootsCache := newCache(rootCacheLimit, func(key interface{}) (interface{}, error) {
-		return loadBlockNumberIndexTrieRoot(kv, key.(thor.Bytes32))
+		return loadBlockNumberIndexTrieRoot(kv, key.(meter.Bytes32))
 	})
 	return &ancestorTrie{kv, rootsCache, newTrieCache()}
 }
@@ -37,15 +37,15 @@ func numberAsKey(num uint32) []byte {
 	return key[:]
 }
 
-func (at *ancestorTrie) Update(w kv.Putter, id, parentID thor.Bytes32) error {
-	var parentRoot thor.Bytes32
+func (at *ancestorTrie) Update(w kv.Putter, id, parentID meter.Bytes32) error {
+	var parentRoot meter.Bytes32
 	if block.Number(id) > 0 {
 		// non-genesis
 		root, err := at.rootsCache.GetOrLoad(parentID)
 		if err != nil {
 			return errors.WithMessage(err, "load index root")
 		}
-		parentRoot = root.(thor.Bytes32)
+		parentRoot = root.(meter.Bytes32)
 	}
 
 	tr, err := at.trieCache.Get(parentRoot, at.kv, true)
@@ -69,9 +69,9 @@ func (at *ancestorTrie) Update(w kv.Putter, id, parentID thor.Bytes32) error {
 	return nil
 }
 
-func (at *ancestorTrie) GetAncestor(descendantID thor.Bytes32, ancestorNum uint32) (thor.Bytes32, error) {
+func (at *ancestorTrie) GetAncestor(descendantID meter.Bytes32, ancestorNum uint32) (meter.Bytes32, error) {
 	if ancestorNum > block.Number(descendantID) {
-		return thor.Bytes32{}, errNotFound
+		return meter.Bytes32{}, errNotFound
 	}
 	if ancestorNum == block.Number(descendantID) {
 		return descendantID, nil
@@ -79,18 +79,18 @@ func (at *ancestorTrie) GetAncestor(descendantID thor.Bytes32, ancestorNum uint3
 
 	root, err := at.rootsCache.GetOrLoad(descendantID)
 	if err != nil {
-		return thor.Bytes32{}, errors.WithMessage(err, "load index root")
+		return meter.Bytes32{}, errors.WithMessage(err, "load index root")
 	}
-	tr, err := at.trieCache.Get(root.(thor.Bytes32), at.kv, false)
+	tr, err := at.trieCache.Get(root.(meter.Bytes32), at.kv, false)
 	if err != nil {
-		return thor.Bytes32{}, err
+		return meter.Bytes32{}, err
 	}
 
 	id, err := tr.TryGet(numberAsKey(ancestorNum))
 	if err != nil {
-		return thor.Bytes32{}, err
+		return meter.Bytes32{}, err
 	}
-	return thor.BytesToBytes32(id), nil
+	return meter.BytesToBytes32(id), nil
 }
 
 ///
@@ -109,7 +109,7 @@ func newTrieCache() *trieCache {
 }
 
 // to get a trie for writing, copy should be set to true
-func (tc *trieCache) Get(root thor.Bytes32, kv kv.GetPutter, copy bool) (*trie.Trie, error) {
+func (tc *trieCache) Get(root meter.Bytes32, kv kv.GetPutter, copy bool) (*trie.Trie, error) {
 
 	if v, ok := tc.cache.Get(root); ok {
 		entry := v.(*trieCacheEntry)
@@ -134,7 +134,7 @@ func (tc *trieCache) Get(root thor.Bytes32, kv kv.GetPutter, copy bool) (*trie.T
 	return tr, nil
 }
 
-func (tc *trieCache) Add(root thor.Bytes32, trie *trie.Trie, kv kv.GetPutter) {
+func (tc *trieCache) Add(root meter.Bytes32, trie *trie.Trie, kv kv.GetPutter) {
 	cpy := *trie
 	tc.cache.Add(root, &trieCacheEntry{&cpy, kv})
 }

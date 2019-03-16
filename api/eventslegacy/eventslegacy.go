@@ -11,9 +11,9 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/pkg/errors"
-	"github.com/vechain/thor/api/utils"
-	"github.com/vechain/thor/logdb"
-	"github.com/vechain/thor/thor"
+	"github.com/dfinlab/meter/api/utils"
+	"github.com/dfinlab/meter/logdb"
+	"github.com/dfinlab/meter/meter"
 )
 
 type EventsLegacy struct {
@@ -47,7 +47,7 @@ func (e *EventsLegacy) handleFilter(w http.ResponseWriter, req *http.Request) er
 	}
 	query := req.URL.Query()
 	if query.Get("address") != "" {
-		addr, err := thor.ParseAddress(query.Get("address"))
+		addr, err := meter.ParseAddress(query.Get("address"))
 		if err != nil {
 			return utils.BadRequest(errors.WithMessage(err, "address"))
 		}

@@ -9,16 +9,16 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/vechain/thor/poa"
-	"github.com/vechain/thor/thor"
+	"github.com/dfinlab/meter/poa"
+	"github.com/dfinlab/meter/meter"
 )
 
 var (
-	p1 = thor.BytesToAddress([]byte("p1"))
-	p2 = thor.BytesToAddress([]byte("p2"))
-	p3 = thor.BytesToAddress([]byte("p3"))
-	p4 = thor.BytesToAddress([]byte("p4"))
-	p5 = thor.BytesToAddress([]byte("p5"))
+	p1 = meter.BytesToAddress([]byte("p1"))
+	p2 = meter.BytesToAddress([]byte("p2"))
+	p3 = meter.BytesToAddress([]byte("p3"))
+	p4 = meter.BytesToAddress([]byte("p4"))
+	p5 = meter.BytesToAddress([]byte("p5"))
 
 	proposers = []poa.Proposer{
 		{p1, false},
@@ -33,13 +33,13 @@ var (
 
 func TestSchedule(t *testing.T) {
 
-	_, err := poa.NewScheduler(thor.BytesToAddress([]byte("px")), proposers, 1, parentTime)
+	_, err := poa.NewScheduler(meter.BytesToAddress([]byte("px")), proposers, 1, parentTime)
 	assert.NotNil(t, err)
 
 	sched, _ := poa.NewScheduler(p1, proposers, 1, parentTime)
 
 	for i := uint64(0); i < 100; i++ {
-		now := parentTime + i*thor.BlockInterval/2
+		now := parentTime + i*meter.BlockInterval/2
 		nbt := sched.Schedule(now)
 		assert.True(t, nbt >= now)
 		assert.True(t, sched.IsTheTime(nbt))
@@ -54,8 +54,8 @@ func TestIsTheTime(t *testing.T) {
 		want bool
 	}{
 		{parentTime - 1, false},
-		{parentTime + thor.BlockInterval/2, false},
-		{parentTime + thor.BlockInterval, true},
+		{parentTime + meter.BlockInterval/2, false},
+		{parentTime + meter.BlockInterval, true},
 	}
 
 	for _, tt := range tests {
@@ -71,8 +71,8 @@ func TestUpdates(t *testing.T) {
 		newBlockTime uint64
 		want         uint64
 	}{
-		{parentTime + thor.BlockInterval, 2},
-		{parentTime + thor.BlockInterval*30, 1},
+		{parentTime + meter.BlockInterval, 2},
+		{parentTime + meter.BlockInterval*30, 1},
 	}
 
 	for _, tt := range tests {

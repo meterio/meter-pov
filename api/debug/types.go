@@ -3,10 +3,10 @@ package debug
 import (
 	"fmt"
 
-	"github.com/vechain/thor/thor"
+	"github.com/dfinlab/meter/meter"
 
 	"github.com/ethereum/go-ethereum/common/math"
-	"github.com/vechain/thor/vm"
+	"github.com/dfinlab/meter/vm"
 )
 
 type TracerOption struct {
@@ -71,7 +71,7 @@ func formatLogs(logs []vm.StructLog) []StructLogRes {
 }
 
 type StorageRangeOption struct {
-	Address   thor.Address
+	Address   meter.Address
 	KeyStart  string
 	MaxResult int
 	Target    string
@@ -79,12 +79,12 @@ type StorageRangeOption struct {
 
 type StorageRangeResult struct {
 	Storage StorageMap    `json:"storage"`
-	NextKey *thor.Bytes32 `json:"nextKey"` // nil if Storage includes the last key in the trie.
+	NextKey *meter.Bytes32 `json:"nextKey"` // nil if Storage includes the last key in the trie.
 }
 
 type StorageMap map[string]StorageEntry
 
 type StorageEntry struct {
-	Key   *thor.Bytes32 `json:"key"`
-	Value *thor.Bytes32 `json:"value"`
+	Key   *meter.Bytes32 `json:"key"`
+	Value *meter.Bytes32 `json:"value"`
 }

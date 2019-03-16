@@ -13,7 +13,7 @@ import (
 	"strings"
 	"time"
 
-	cmn "github.com/vechain/thor/libs/common"
+	cmn "github.com/dfinlab/meter/libs/common"
 )
 
 // NetAddress defines information about a peer on the network

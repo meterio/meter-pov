@@ -6,23 +6,23 @@
 package authority
 
 import (
-	"github.com/vechain/thor/thor"
+	"github.com/dfinlab/meter/meter"
 )
 
 type (
 	entry struct {
-		Endorsor thor.Address
-		Identity thor.Bytes32
+		Endorsor meter.Address
+		Identity meter.Bytes32
 		Active   bool
-		Prev     *thor.Address `rlp:"nil"`
-		Next     *thor.Address `rlp:"nil"`
+		Prev     *meter.Address `rlp:"nil"`
+		Next     *meter.Address `rlp:"nil"`
 	}
 
 	// Candidate candidate of block proposer.
 	Candidate struct {
-		NodeMaster thor.Address
-		Endorsor   thor.Address
-		Identity   thor.Bytes32
+		NodeMaster meter.Address
+		Endorsor   meter.Address
+		Identity   meter.Bytes32
 		Active     bool
 	}
 )

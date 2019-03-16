@@ -11,8 +11,8 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/pkg/errors"
-	"github.com/vechain/thor/api/utils"
-	"github.com/vechain/thor/logdb"
+	"github.com/dfinlab/meter/api/utils"
+	"github.com/dfinlab/meter/logdb"
 )
 
 type TransfersLegacy struct {

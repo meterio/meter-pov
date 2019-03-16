@@ -8,7 +8,7 @@ package tx
 import (
 	"encoding/binary"
 
-	"github.com/vechain/thor/thor"
+	"github.com/dfinlab/meter/meter"
 )
 
 // BlockRef is block reference.
@@ -26,7 +26,7 @@ func NewBlockRef(blockNum uint32) (br BlockRef) {
 }
 
 // NewBlockRefFromID create block reference from block id.
-func NewBlockRefFromID(blockID thor.Bytes32) (br BlockRef) {
+func NewBlockRefFromID(blockID meter.Bytes32) (br BlockRef) {
 	copy(br[:], blockID[:])
 	return
 }

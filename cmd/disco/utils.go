@@ -43,7 +43,7 @@ func loadOrGenerateKeyFile(keyFile string) (key *ecdsa.PrivateKey, err error) {
 }
 
 func defaultKeyFile() string {
-	return filepath.Join(mustHomeDir(), ".thor-disco.key")
+	return filepath.Join(mustHomeDir(), ".meter-disco.key")
 }
 
 func mustHomeDir() string {

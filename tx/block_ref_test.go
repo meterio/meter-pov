@@ -9,10 +9,10 @@ import (
 	"math/rand"
 	"testing"
 
-	"github.com/vechain/thor/thor"
+	"github.com/dfinlab/meter/meter"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/vechain/thor/tx"
+	"github.com/dfinlab/meter/tx"
 )
 
 func TestBlockRef(t *testing.T) {
@@ -20,7 +20,7 @@ func TestBlockRef(t *testing.T) {
 
 	assert.Equal(t, tx.BlockRef{0, 0, 0, 0xff, 0, 0, 0, 0}, tx.NewBlockRef(0xff))
 
-	var bid thor.Bytes32
+	var bid meter.Bytes32
 	rand.Read(bid[:])
 
 	br := tx.NewBlockRefFromID(bid)

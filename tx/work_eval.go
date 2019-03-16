@@ -9,7 +9,7 @@ import (
 	"math"
 	"math/big"
 
-	"github.com/vechain/thor/thor"
+	"github.com/dfinlab/meter/meter"
 )
 
 var (
@@ -27,7 +27,7 @@ func workToGas(work *big.Int, blockNum uint32) uint64 {
 		return 0
 	}
 
-	months := new(big.Int).SetUint64(uint64(blockNum) * thor.BlockInterval / 3600 / 24 / 30)
+	months := new(big.Int).SetUint64(uint64(blockNum) * meter.BlockInterval / 3600 / 24 / 30)
 	if months.Sign() != 0 {
 		x := &big.Int{}
 		gas.Mul(gas, x.Exp(big100, months, nil))

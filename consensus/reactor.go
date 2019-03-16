@@ -32,22 +32,22 @@ import (
 	crypto "github.com/ethereum/go-ethereum/crypto"
 
 	//"github.com/ethereum/go-ethereum/rlp"
-	//"github.com/vechain/thor/block"
+	//"github.com/dfinlab/meter/block"
 	//"github.com/ethereum/go-ethereum/p2p"
+	"github.com/dfinlab/meter/block"
+	"github.com/dfinlab/meter/chain"
+	"github.com/dfinlab/meter/comm"
+	bls "github.com/dfinlab/meter/crypto/multi_sig"
+	"github.com/dfinlab/meter/meter"
+	"github.com/dfinlab/meter/powpool"
 	"github.com/inconshreveable/log15"
-	"github.com/vechain/thor/block"
-	"github.com/vechain/thor/chain"
-	"github.com/vechain/thor/comm"
-	bls "github.com/vechain/thor/crypto/multi_sig"
-	"github.com/vechain/thor/powpool"
-	"github.com/vechain/thor/thor"
 
-	//"github.com/vechain/thor/runtime"
-	"github.com/vechain/thor/state"
-	//"github.com/vechain/thor/tx"
-	"github.com/vechain/thor/types"
-	//"github.com/vechain/thor/xenv"
-	cmn "github.com/vechain/thor/libs/common"
+	//"github.com/dfinlab/meter/runtime"
+	"github.com/dfinlab/meter/state"
+	//"github.com/dfinlab/meter/tx"
+	"github.com/dfinlab/meter/types"
+	//"github.com/dfinlab/meter/xenv"
+	cmn "github.com/dfinlab/meter/libs/common"
 
 	cli "gopkg.in/urfave/cli.v1"
 )
@@ -105,7 +105,7 @@ type ConsensusReactor struct {
 	// copy of master/node
 	myPubKey      ecdsa.PublicKey  // this is my public identification !!
 	myPrivKey     ecdsa.PrivateKey // copy of private key
-	myBeneficiary thor.Address
+	myBeneficiary meter.Address
 
 	// still references above consensuStae, reactor if this node is
 	// involved the consensus
@@ -344,7 +344,7 @@ const (
 
 // CommitteeMember is validator structure + consensus fields
 type CommitteeMember struct {
-	Address     thor.Address
+	Address     meter.Address
 	PubKey      ecdsa.PublicKey
 	VotingPower int64
 	Accum       int64
@@ -1552,7 +1552,7 @@ func MajorityTwoThird(voterNum, committeeSize int) bool {
 //============================================================================
 //============================================================================
 type Delegate1 struct {
-	Address     thor.Address     `json:"address"`
+	Address     meter.Address    `json:"address"`
 	PubKey      string           `json:"pub_key"`
 	VotingPower int64            `json:"voting_power"`
 	NetAddr     types.NetAddress `json:"network_addr"`
@@ -1576,7 +1576,7 @@ func configDelegates( /*myPubKey ecdsa.PublicKey*/ ) []*types.Delegate {
 
 	// Hack for compile
 	// TODO: move these hard-coded filepath to config
-	filePath := path.Join(UserHomeDir(), ".org.vechain.thor", "delegates.json")
+	filePath := path.Join(UserHomeDir(), ".org.dfinlab.meter", "delegates.json")
 	file, err := ioutil.ReadFile(filePath)
 	if err != nil {
 		fmt.Println("unable load delegate file", "error", err)

@@ -10,7 +10,7 @@ import (
 	"fmt"
 
 	"github.com/ethereum/go-ethereum/rlp"
-	"github.com/vechain/thor/tx"
+	"github.com/dfinlab/meter/tx"
 )
 
 // Raw allows to partially decode components of a block.

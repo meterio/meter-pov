@@ -14,16 +14,16 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/pkg/errors"
-	"github.com/vechain/thor/abi"
-	"github.com/vechain/thor/builtin"
-	"github.com/vechain/thor/chain"
-	"github.com/vechain/thor/runtime/statedb"
-	"github.com/vechain/thor/state"
-	"github.com/vechain/thor/thor"
-	"github.com/vechain/thor/tx"
-	Tx "github.com/vechain/thor/tx"
-	"github.com/vechain/thor/vm"
-	"github.com/vechain/thor/xenv"
+	"github.com/dfinlab/meter/abi"
+	"github.com/dfinlab/meter/builtin"
+	"github.com/dfinlab/meter/chain"
+	"github.com/dfinlab/meter/runtime/statedb"
+	"github.com/dfinlab/meter/state"
+	"github.com/dfinlab/meter/meter"
+	"github.com/dfinlab/meter/tx"
+	Tx "github.com/dfinlab/meter/tx"
+	"github.com/dfinlab/meter/vm"
+	"github.com/dfinlab/meter/xenv"
 )
 
 var (
@@ -65,7 +65,7 @@ type Output struct {
 	LeftOverGas     uint64
 	RefundGas       uint64
 	VMErr           error         // VMErr identify the execution result of the contract function, not evm function's err.
-	ContractAddress *thor.Address // if create a new contract, or is nil.
+	ContractAddress *meter.Address // if create a new contract, or is nil.
 }
 
 type TransactionExecutor struct {
@@ -80,7 +80,7 @@ type Runtime struct {
 	seeker     *chain.Seeker
 	state      *state.State
 	ctx        *xenv.BlockContext
-	forkConfig thor.ForkConfig
+	forkConfig meter.ForkConfig
 }
 
 // New create a Runtime object.
@@ -95,10 +95,10 @@ func New(
 		ctx:    ctx,
 	}
 	if seeker != nil {
-		rt.forkConfig = thor.GetForkConfig(seeker.GenesisID())
+		rt.forkConfig = meter.GetForkConfig(seeker.GenesisID())
 	} else {
 		// for genesis building stage
-		rt.forkConfig = thor.NoFork
+		rt.forkConfig = meter.NoFork
 	}
 	return &rt
 }
@@ -118,7 +118,7 @@ func (rt *Runtime) newEVM(stateDB *statedb.StateDB, clauseIndex uint32, txCtx *x
 	var lastNonNativeCallGas uint64
 	return vm.NewEVM(vm.Context{
 		CanTransfer: func(_ vm.StateDB, addr common.Address, amount *big.Int, token byte) bool {
-			if !thor.Address(addr).IsZero() {
+			if !meter.Address(addr).IsZero() {
 				if token == tx.TOKEN_METER_GOV {
 					return stateDB.GetBalance(addr).Cmp(amount) >= 0
 				} else /*if token == tx.TOKEN_METER*/ {
@@ -138,13 +138,13 @@ func (rt *Runtime) newEVM(stateDB *statedb.StateDB, clauseIndex uint32, txCtx *x
 			// SHOULD be performed before transfer
 			// XXX: Yang with no interest of engery, the following touch is meaningless.
 			/**************
-			rt.state.SetEnergy(thor.Address(sender),
-				rt.state.GetEnergy(thor.Address(sender), rt.ctx.Time), rt.ctx.Time)
-			rt.state.SetEnergy(thor.Address(recipient),
-				rt.state.GetEnergy(thor.Address(recipient), rt.ctx.Time), rt.ctx.Time)
+			rt.state.SetEnergy(meter.Address(sender),
+				rt.state.GetEnergy(meter.Address(sender), rt.ctx.Time), rt.ctx.Time)
+			rt.state.SetEnergy(meter.Address(recipient),
+				rt.state.GetEnergy(meter.Address(recipient), rt.ctx.Time), rt.ctx.Time)
 			***************/
 			// mint transaction (sender is zero) means mint token, otherwise is regular transfer
-			if thor.Address(sender).IsZero() {
+			if meter.Address(sender).IsZero() {
 				if token == tx.TOKEN_METER_GOV {
 					stateDB.MintBalance(recipient, amount)
 				} else if token == tx.TOKEN_METER {
@@ -168,8 +168,8 @@ func (rt *Runtime) newEVM(stateDB *statedb.StateDB, clauseIndex uint32, txCtx *x
 				amount = new(big.Int).Set(amount)
 			}
 			stateDB.AddTransfer(&tx.Transfer{
-				Sender:    thor.Address(sender),
-				Recipient: thor.Address(recipient),
+				Sender:    meter.Address(sender),
+				Recipient: meter.Address(recipient),
 				Amount:    amount,
 				Token:     token,
 			})
@@ -178,7 +178,7 @@ func (rt *Runtime) newEVM(stateDB *statedb.StateDB, clauseIndex uint32, txCtx *x
 			return common.Hash(rt.seeker.GetID(uint32(num)))
 		},
 		NewContractAddress: func(_ *vm.EVM, counter uint32) common.Address {
-			return common.Address(thor.CreateContractAddress(txCtx.ID, clauseIndex, counter))
+			return common.Address(meter.CreateContractAddress(txCtx.ID, clauseIndex, counter))
 		},
 		InterceptContractCall: func(evm *vm.EVM, contract *vm.Contract, readonly bool) ([]byte, error, bool) {
 			if evm.Depth() < 2 {
@@ -193,7 +193,7 @@ func (rt *Runtime) newEVM(stateDB *statedb.StateDB, clauseIndex uint32, txCtx *x
 				return nil, nil, false
 			}
 
-			abi, run, found := builtin.FindNativeCall(thor.Address(contract.Address()), contract.Input)
+			abi, run, found := builtin.FindNativeCall(meter.Address(contract.Address()), contract.Input)
 			if !found {
 				lastNonNativeCallGas = contract.Gas
 				return nil, nil, false
@@ -220,7 +220,7 @@ func (rt *Runtime) newEVM(stateDB *statedb.StateDB, clauseIndex uint32, txCtx *x
 		},
 		OnCreateContract: func(_ *vm.EVM, contractAddr, caller common.Address) {
 			// set master for created contract
-			rt.state.SetMaster(thor.Address(contractAddr), thor.Address(caller))
+			rt.state.SetMaster(meter.Address(contractAddr), meter.Address(caller))
 
 			data, err := prototypeSetMasterEvent.Encode(caller)
 			if err != nil {
@@ -235,12 +235,12 @@ func (rt *Runtime) newEVM(stateDB *statedb.StateDB, clauseIndex uint32, txCtx *x
 		},
 		OnSuicideContract: func(_ *vm.EVM, contractAddr, tokenReceiver common.Address) {
 			// it's IMPORTANT to process energy before token
-			if amount := rt.state.GetEnergy(thor.Address(contractAddr), rt.ctx.Time); amount.Sign() != 0 {
+			if amount := rt.state.GetEnergy(meter.Address(contractAddr), rt.ctx.Time); amount.Sign() != 0 {
 				// add remained energy of suiciding contract to receiver.
 				// no need to clear contract's energy, vm will delete the whole contract later.
 				rt.state.SetEnergy(
-					thor.Address(tokenReceiver),
-					new(big.Int).Add(rt.state.GetEnergy(thor.Address(tokenReceiver), rt.ctx.Time), amount),
+					meter.Address(tokenReceiver),
+					new(big.Int).Add(rt.state.GetEnergy(meter.Address(tokenReceiver), rt.ctx.Time), amount),
 					rt.ctx.Time)
 
 				// see ERC20's Transfer event
@@ -262,8 +262,8 @@ func (rt *Runtime) newEVM(stateDB *statedb.StateDB, clauseIndex uint32, txCtx *x
 				})
 
 				stateDB.AddTransfer(&tx.Transfer{
-					Sender:    thor.Address(contractAddr),
-					Recipient: thor.Address(tokenReceiver),
+					Sender:    meter.Address(contractAddr),
+					Recipient: meter.Address(tokenReceiver),
 					Amount:    amount,
 					Token:     tx.TOKEN_METER,
 				})
@@ -273,8 +273,8 @@ func (rt *Runtime) newEVM(stateDB *statedb.StateDB, clauseIndex uint32, txCtx *x
 				stateDB.AddBalance(tokenReceiver, amount)
 
 				stateDB.AddTransfer(&tx.Transfer{
-					Sender:    thor.Address(contractAddr),
-					Recipient: thor.Address(tokenReceiver),
+					Sender:    meter.Address(contractAddr),
+					Recipient: meter.Address(tokenReceiver),
 					Amount:    amount,
 					Token:     tx.TOKEN_METER_GOV,
 				})
@@ -316,7 +316,7 @@ func (rt *Runtime) PrepareClause(
 		data          []byte
 		leftOverGas   uint64
 		vmErr         error
-		contractAddr  *thor.Address
+		contractAddr  *meter.Address
 		interruptFlag uint32
 	)
 
@@ -324,7 +324,7 @@ func (rt *Runtime) PrepareClause(
 		if clause.To() == nil {
 			var caddr common.Address
 			data, caddr, leftOverGas, vmErr = evm.Create(vm.AccountRef(txCtx.Origin), clause.Data(), gas, clause.Value(), clause.Token())
-			contractAddr = (*thor.Address)(&caddr)
+			contractAddr = (*meter.Address)(&caddr)
 		} else {
 			data, leftOverGas, vmErr = evm.Call(vm.AccountRef(txCtx.Origin), common.Address(*clause.To()), clause.Data(), gas, clause.Value(), clause.Token())
 		}
@@ -449,7 +449,7 @@ func (rt *Runtime) PrepareTransaction(tx *tx.Transaction) (*TransactionExecutor,
 			}
 
 			// reward
-			//rewardRatio := builtin.Params.Native(rt.state).Get(thor.KeyRewardRatio)
+			//rewardRatio := builtin.Params.Native(rt.state).Get(meter.KeyRewardRatio)
 			overallGasPrice := tx.OverallGasPrice(baseGasPrice, rt.ctx.Number-1, rt.Seeker().GetID)
 
 			reward := new(big.Int).SetUint64(receipt.GasUsed)

@@ -6,27 +6,27 @@
 package blocks
 
 import (
-	"github.com/vechain/thor/block"
-	"github.com/vechain/thor/thor"
+	"github.com/dfinlab/meter/block"
+	"github.com/dfinlab/meter/meter"
 )
 
 //Block block
 type Block struct {
 	Number       uint32         `json:"number"`
-	ID           thor.Bytes32   `json:"id"`
+	ID           meter.Bytes32   `json:"id"`
 	Size         uint32         `json:"size"`
-	ParentID     thor.Bytes32   `json:"parentID"`
+	ParentID     meter.Bytes32   `json:"parentID"`
 	Timestamp    uint64         `json:"timestamp"`
 	GasLimit     uint64         `json:"gasLimit"`
-	Beneficiary  thor.Address   `json:"beneficiary"`
+	Beneficiary  meter.Address   `json:"beneficiary"`
 	GasUsed      uint64         `json:"gasUsed"`
 	TotalScore   uint64         `json:"totalScore"`
-	TxsRoot      thor.Bytes32   `json:"txsRoot"`
-	StateRoot    thor.Bytes32   `json:"stateRoot"`
-	ReceiptsRoot thor.Bytes32   `json:"receiptsRoot"`
-	Signer       thor.Address   `json:"signer"`
+	TxsRoot      meter.Bytes32   `json:"txsRoot"`
+	StateRoot    meter.Bytes32   `json:"stateRoot"`
+	ReceiptsRoot meter.Bytes32   `json:"receiptsRoot"`
+	Signer       meter.Address   `json:"signer"`
 	IsTrunk      bool           `json:"isTrunk"`
-	Transactions []thor.Bytes32 `json:"transactions"`
+	Transactions []meter.Bytes32 `json:"transactions"`
 }
 
 func convertBlock(b *block.Block, isTrunk bool) (*Block, error) {
@@ -38,7 +38,7 @@ func convertBlock(b *block.Block, isTrunk bool) (*Block, error) {
 		return nil, err
 	}
 	txs := b.Transactions()
-	txIds := make([]thor.Bytes32, len(txs))
+	txIds := make([]meter.Bytes32, len(txs))
 	for i, tx := range txs {
 		txIds[i] = tx.ID()
 	}

@@ -13,23 +13,23 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/stretchr/testify/assert"
-	"github.com/vechain/thor/lvldb"
-	"github.com/vechain/thor/thor"
-	"github.com/vechain/thor/trie"
+	"github.com/dfinlab/meter/lvldb"
+	"github.com/dfinlab/meter/meter"
+	"github.com/dfinlab/meter/trie"
 )
 
 func TestCachedObject(t *testing.T) {
 	kv, _ := lvldb.NewMem()
 
-	stgTrie, _ := trie.NewSecure(thor.Bytes32{}, kv, 0)
+	stgTrie, _ := trie.NewSecure(meter.Bytes32{}, kv, 0)
 	storages := []struct {
-		k thor.Bytes32
+		k meter.Bytes32
 		v rlp.RawValue
 	}{
-		{thor.BytesToBytes32([]byte("key1")), []byte("value1")},
-		{thor.BytesToBytes32([]byte("key2")), []byte("value2")},
-		{thor.BytesToBytes32([]byte("key3")), []byte("value3")},
-		{thor.BytesToBytes32([]byte("key4")), []byte("value4")},
+		{meter.BytesToBytes32([]byte("key1")), []byte("value1")},
+		{meter.BytesToBytes32([]byte("key2")), []byte("value2")},
+		{meter.BytesToBytes32([]byte("key3")), []byte("value3")},
+		{meter.BytesToBytes32([]byte("key4")), []byte("value4")},
 	}
 
 	for _, s := range storages {

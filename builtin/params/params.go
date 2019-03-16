@@ -9,22 +9,22 @@ import (
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/rlp"
-	"github.com/vechain/thor/state"
-	"github.com/vechain/thor/thor"
+	"github.com/dfinlab/meter/state"
+	"github.com/dfinlab/meter/meter"
 )
 
 // Params binder of `Params` contract.
 type Params struct {
-	addr  thor.Address
+	addr  meter.Address
 	state *state.State
 }
 
-func New(addr thor.Address, state *state.State) *Params {
+func New(addr meter.Address, state *state.State) *Params {
 	return &Params{addr, state}
 }
 
 // Get native way to get param.
-func (p *Params) Get(key thor.Bytes32) (value *big.Int) {
+func (p *Params) Get(key meter.Bytes32) (value *big.Int) {
 	p.state.DecodeStorage(p.addr, key, func(raw []byte) error {
 		if len(raw) == 0 {
 			value = &big.Int{}
@@ -36,7 +36,7 @@ func (p *Params) Get(key thor.Bytes32) (value *big.Int) {
 }
 
 // Set native way to set param.
-func (p *Params) Set(key thor.Bytes32, value *big.Int) {
+func (p *Params) Set(key meter.Bytes32, value *big.Int) {
 	p.state.EncodeStorage(p.addr, key, func() ([]byte, error) {
 		if value.Sign() == 0 {
 			return nil, nil

@@ -6,11 +6,11 @@
 package poa
 
 import (
-	"github.com/vechain/thor/thor"
+	"github.com/dfinlab/meter/meter"
 )
 
 // Proposer address with status.
 type Proposer struct {
-	Address thor.Address
+	Address meter.Address
 	Active  bool
 }

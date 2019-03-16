@@ -14,8 +14,8 @@ import (
 
 	"github.com/btcsuite/btcd/wire"
 	"github.com/gorilla/mux"
-	"github.com/vechain/thor/api/utils"
-	"github.com/vechain/thor/powpool"
+	"github.com/dfinlab/meter/api/utils"
+	"github.com/dfinlab/meter/powpool"
 	// "github.com/pkg/errors"
 	// "github.com/btcsuite/btcd/chaincfg/chainhash"
 )

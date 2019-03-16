@@ -9,14 +9,14 @@ import (
 	"encoding/hex"
 
 	"github.com/pkg/errors"
-	"github.com/vechain/thor/abi"
-	"github.com/vechain/thor/builtin/gen"
-	"github.com/vechain/thor/thor"
+	"github.com/dfinlab/meter/abi"
+	"github.com/dfinlab/meter/builtin/gen"
+	"github.com/dfinlab/meter/meter"
 )
 
 type contract struct {
 	name    string
-	Address thor.Address
+	Address meter.Address
 	ABI     *abi.ABI
 }
 
@@ -30,7 +30,7 @@ func mustLoadContract(name string) *contract {
 
 	return &contract{
 		name,
-		thor.BytesToAddress([]byte(name)),
+		meter.BytesToAddress([]byte(name)),
 		abi,
 	}
 }

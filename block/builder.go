@@ -6,8 +6,8 @@
 package block
 
 import (
-	"github.com/vechain/thor/thor"
-	"github.com/vechain/thor/tx"
+	"github.com/dfinlab/meter/meter"
+	"github.com/dfinlab/meter/tx"
 )
 
 // XXX: Yang: Builder only build header and txs. evidence/committee info and kblock data built by app.
@@ -21,7 +21,7 @@ type Builder struct {
 }
 
 // ParentID set parent id.
-func (b *Builder) ParentID(id thor.Bytes32) *Builder {
+func (b *Builder) ParentID(id meter.Bytes32) *Builder {
 	b.headerBody.ParentID = id
 	return b
 }
@@ -63,19 +63,19 @@ func (b *Builder) GasUsed(used uint64) *Builder {
 }
 
 // Beneficiary set recipient of reward.
-func (b *Builder) Beneficiary(addr thor.Address) *Builder {
+func (b *Builder) Beneficiary(addr meter.Address) *Builder {
 	b.headerBody.Beneficiary = addr
 	return b
 }
 
 // StateRoot set state root.
-func (b *Builder) StateRoot(hash thor.Bytes32) *Builder {
+func (b *Builder) StateRoot(hash meter.Bytes32) *Builder {
 	b.headerBody.StateRoot = hash
 	return b
 }
 
 // ReceiptsRoot set receipts root.
-func (b *Builder) ReceiptsRoot(hash thor.Bytes32) *Builder {
+func (b *Builder) ReceiptsRoot(hash meter.Bytes32) *Builder {
 	b.headerBody.ReceiptsRoot = hash
 	return b
 }

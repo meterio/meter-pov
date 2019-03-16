@@ -20,19 +20,19 @@ import (
 	"github.com/mattn/go-isatty"
 	"github.com/pborman/uuid"
 	"github.com/pkg/errors"
-	"github.com/vechain/thor/api"
-	"github.com/vechain/thor/block"
-	"github.com/vechain/thor/cmd/thor/node"
-	"github.com/vechain/thor/cmd/thor/solo"
-	"github.com/vechain/thor/consensus"
-	"github.com/vechain/thor/genesis"
-	"github.com/vechain/thor/logdb"
-	"github.com/vechain/thor/lvldb"
-	"github.com/vechain/thor/powpool"
-	pow_api "github.com/vechain/thor/powpool/api"
-	"github.com/vechain/thor/state"
-	"github.com/vechain/thor/thor"
-	"github.com/vechain/thor/txpool"
+	"github.com/dfinlab/meter/api"
+	"github.com/dfinlab/meter/block"
+	"github.com/dfinlab/meter/cmd/meter/node"
+	"github.com/dfinlab/meter/cmd/meter/solo"
+	"github.com/dfinlab/meter/consensus"
+	"github.com/dfinlab/meter/genesis"
+	"github.com/dfinlab/meter/logdb"
+	"github.com/dfinlab/meter/lvldb"
+	"github.com/dfinlab/meter/powpool"
+	pow_api "github.com/dfinlab/meter/powpool/api"
+	"github.com/dfinlab/meter/state"
+	"github.com/dfinlab/meter/meter"
+	"github.com/dfinlab/meter/txpool"
 	cli "gopkg.in/urfave/cli.v1"
 )
 
@@ -307,7 +307,7 @@ func masterKeyAction(ctx *cli.Context) error {
 		if err := crypto.SaveECDSA(masterKeyPath(ctx), key.PrivateKey); err != nil {
 			return err
 		}
-		fmt.Println("Master key imported:", thor.Address(key.Address))
+		fmt.Println("Master key imported:", meter.Address(key.Address))
 		return nil
 	}
 

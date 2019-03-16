@@ -10,8 +10,8 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/mclock"
-	"github.com/vechain/thor/block"
-	"github.com/vechain/thor/thor"
+	"github.com/dfinlab/meter/block"
+	"github.com/dfinlab/meter/meter"
 )
 
 type blockStats struct {
@@ -47,6 +47,6 @@ func (s *blockStats) LogContext(last *block.Header) []interface{} {
 	}
 }
 
-func shortID(id thor.Bytes32) string {
+func shortID(id meter.Bytes32) string {
 	return fmt.Sprintf("[#%v…%x]", block.Number(id), id[28:])
 }

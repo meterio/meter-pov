@@ -8,13 +8,13 @@ package tx
 import (
 	"math/big"
 
-	"github.com/vechain/thor/thor"
+	"github.com/dfinlab/meter/meter"
 )
 
 // Transfer token transfer log.
 type Transfer struct {
-	Sender    thor.Address
-	Recipient thor.Address
+	Sender    meter.Address
+	Recipient meter.Address
 	Amount    *big.Int
 	Token     byte
 }

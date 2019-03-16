@@ -9,19 +9,19 @@ import (
 	"math/big"
 	"testing"
 
+	"github.com/dfinlab/meter/lvldb"
+	"github.com/dfinlab/meter/meter"
+	"github.com/dfinlab/meter/state"
 	"github.com/stretchr/testify/assert"
-	"github.com/vechain/thor/lvldb"
-	"github.com/vechain/thor/state"
-	"github.com/vechain/thor/thor"
 )
 
 func TestEnergy(t *testing.T) {
 	kv, _ := lvldb.NewMem()
-	st, _ := state.New(thor.Bytes32{}, kv)
+	st, _ := state.New(meter.Bytes32{}, kv)
 
-	acc := thor.BytesToAddress([]byte("a1"))
+	acc := meter.BytesToAddress([]byte("a1"))
 
-	eng := New(thor.BytesToAddress([]byte("eng")), st, 0)
+	eng := New(meter.BytesToAddress([]byte("eng")), st, 0)
 	tests := []struct {
 		ret      interface{}
 		expected interface{}
@@ -42,19 +42,19 @@ func TestEnergy(t *testing.T) {
 
 func TestEnergyGrowth(t *testing.T) {
 	kv, _ := lvldb.NewMem()
-	st, _ := state.New(thor.Bytes32{}, kv)
+	st, _ := state.New(meter.Bytes32{}, kv)
 
-	acc := thor.BytesToAddress([]byte("a1"))
+	acc := meter.BytesToAddress([]byte("a1"))
 
 	st.SetEnergy(acc, &big.Int{}, 10)
 
 	vetBal := big.NewInt(1e18)
 	st.SetBalance(acc, vetBal)
 
-	bal1 := New(thor.Address{}, st, 1000).
+	bal1 := New(meter.Address{}, st, 1000).
 		Get(acc)
 
-	x := new(big.Int).Mul(thor.EnergyGrowthRate, vetBal)
+	x := new(big.Int).Mul(meter.EnergyGrowthRate, vetBal)
 	x.Mul(x, new(big.Int).SetUint64(1000-10))
 	x.Div(x, big.NewInt(1e18))
 

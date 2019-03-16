@@ -6,12 +6,12 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/stretchr/testify/assert"
-	"github.com/vechain/thor/block"
-	"github.com/vechain/thor/thor"
+	"github.com/dfinlab/meter/block"
+	"github.com/dfinlab/meter/meter"
 )
 
 func TestRawBlock(t *testing.T) {
-	b := new(block.Builder).ParentID(thor.Bytes32{1, 2, 3}).Build()
+	b := new(block.Builder).ParentID(meter.Bytes32{1, 2, 3}).Build()
 
 	priv, _ := crypto.GenerateKey()
 	sig, err := crypto.Sign(b.Header().SigningHash().Bytes(), priv)

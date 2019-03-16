@@ -10,7 +10,7 @@ import (
 	"io/ioutil"
 	"path/filepath"
 
-	bls "github.com/vechain/thor/crypto/multi_sig"
+	bls "github.com/dfinlab/meter/crypto/multi_sig"
 )
 
 const (

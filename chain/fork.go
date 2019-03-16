@@ -6,7 +6,7 @@
 package chain
 
 import (
-	"github.com/vechain/thor/block"
+	"github.com/dfinlab/meter/block"
 )
 
 // Fork describes forked chain.

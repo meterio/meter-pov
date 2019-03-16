@@ -11,10 +11,10 @@ import (
 	"sync/atomic"
 
 	"github.com/ethereum/go-ethereum/rlp"
-	cmn "github.com/vechain/thor/libs/common"
-	"github.com/vechain/thor/metric"
-	"github.com/vechain/thor/tx"
-	"github.com/vechain/thor/types"
+	cmn "github.com/dfinlab/meter/libs/common"
+	"github.com/dfinlab/meter/metric"
+	"github.com/dfinlab/meter/tx"
+	"github.com/dfinlab/meter/types"
 )
 
 // NewEvidence records the voting/notarization aggregated signatures and bitmap

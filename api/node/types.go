@@ -6,8 +6,8 @@
 package node
 
 import (
-	"github.com/vechain/thor/comm"
-	"github.com/vechain/thor/thor"
+	"github.com/dfinlab/meter/comm"
+	"github.com/dfinlab/meter/meter"
 )
 
 type Network interface {
@@ -16,7 +16,7 @@ type Network interface {
 
 type PeerStats struct {
 	Name        string       `json:"name"`
-	BestBlockID thor.Bytes32 `json:"bestBlockID"`
+	BestBlockID meter.Bytes32 `json:"bestBlockID"`
 	TotalScore  uint64       `json:"totalScore"`
 	PeerID      string       `json:"peerID"`
 	NetAddr     string       `json:"netAddr"`

@@ -12,12 +12,12 @@ import (
 	"github.com/ethereum/go-ethereum/p2p"
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/pkg/errors"
-	"github.com/vechain/thor/block"
-	"github.com/vechain/thor/comm/proto"
-	"github.com/vechain/thor/metric"
-	"github.com/vechain/thor/powpool"
-	"github.com/vechain/thor/thor"
-	"github.com/vechain/thor/tx"
+	"github.com/dfinlab/meter/block"
+	"github.com/dfinlab/meter/comm/proto"
+	"github.com/dfinlab/meter/metric"
+	"github.com/dfinlab/meter/powpool"
+	"github.com/dfinlab/meter/meter"
+	"github.com/dfinlab/meter/tx"
 )
 
 // peer will be disconnected if error returned
@@ -55,7 +55,7 @@ func (c *Communicator) handleRPC(peer *Peer, msg *p2p.Msg, write func(interface{
 		c.newBlockFeed.Send(&NewBlockEvent{Block: newBlock})
 		write(&struct{}{})
 	case proto.MsgNewBlockID:
-		var newBlockID thor.Bytes32
+		var newBlockID meter.Bytes32
 		if err := msg.Decode(&newBlockID); err != nil {
 			return errors.WithMessage(err, "decode msg")
 		}
@@ -74,7 +74,7 @@ func (c *Communicator) handleRPC(peer *Peer, msg *p2p.Msg, write func(interface{
 		c.txPool.StrictlyAdd(newTx)
 		write(&struct{}{})
 	case proto.MsgGetBlockByID:
-		var blockID thor.Bytes32
+		var blockID meter.Bytes32
 		if err := msg.Decode(&blockID); err != nil {
 			return errors.WithMessage(err, "decode msg")
 		}
@@ -99,7 +99,7 @@ func (c *Communicator) handleRPC(peer *Peer, msg *p2p.Msg, write func(interface{
 			if !c.chain.IsNotFound(err) {
 				log.Error("failed to get block id by number", "err", err)
 			}
-			write(thor.Bytes32{})
+			write(meter.Bytes32{})
 		} else {
 			write(id)
 		}

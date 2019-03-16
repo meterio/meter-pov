@@ -8,7 +8,7 @@ package tx
 import (
 	"encoding/binary"
 
-	"github.com/vechain/thor/thor"
+	"github.com/dfinlab/meter/meter"
 )
 
 // Builder to make it easy to build transaction.
@@ -59,7 +59,7 @@ func (b *Builder) Nonce(nonce uint64) *Builder {
 }
 
 // DependsOn set depended tx.
-func (b *Builder) DependsOn(txID *thor.Bytes32) *Builder {
+func (b *Builder) DependsOn(txID *meter.Bytes32) *Builder {
 	if txID == nil {
 		b.body.DependsOn = nil
 	} else {

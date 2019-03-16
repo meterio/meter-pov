@@ -18,19 +18,19 @@ import (
 	"github.com/ethereum/go-ethereum/event"
 	"github.com/inconshreveable/log15"
 	"github.com/pkg/errors"
-	"github.com/vechain/thor/block"
-	"github.com/vechain/thor/cache"
-	"github.com/vechain/thor/chain"
-	"github.com/vechain/thor/co"
-	"github.com/vechain/thor/comm"
-	"github.com/vechain/thor/consensus"
-	"github.com/vechain/thor/logdb"
-	"github.com/vechain/thor/lvldb"
-	"github.com/vechain/thor/packer"
-	"github.com/vechain/thor/state"
-	"github.com/vechain/thor/thor"
-	"github.com/vechain/thor/tx"
-	"github.com/vechain/thor/txpool"
+	"github.com/dfinlab/meter/block"
+	"github.com/dfinlab/meter/cache"
+	"github.com/dfinlab/meter/chain"
+	"github.com/dfinlab/meter/co"
+	"github.com/dfinlab/meter/comm"
+	"github.com/dfinlab/meter/consensus"
+	"github.com/dfinlab/meter/logdb"
+	"github.com/dfinlab/meter/lvldb"
+	"github.com/dfinlab/meter/packer"
+	"github.com/dfinlab/meter/state"
+	"github.com/dfinlab/meter/meter"
+	"github.com/dfinlab/meter/tx"
+	"github.com/dfinlab/meter/txpool"
 )
 
 var log = log15.New("pkg", "node")
@@ -145,7 +145,7 @@ func (n *Node) houseKeeping(ctx context.Context) {
 	newBlockCh := make(chan *comm.NewBlockEvent)
 	scope.Track(n.comm.SubscribeBlock(newBlockCh))
 
-	futureTicker := time.NewTicker(time.Duration(thor.BlockInterval) * time.Second)
+	futureTicker := time.NewTicker(time.Duration(meter.BlockInterval) * time.Second)
 	defer futureTicker.Stop()
 
 	connectivityTicker := time.NewTicker(time.Second)
@@ -325,7 +325,7 @@ func (n *Node) commitBlock(newBlock *block.Block, receipts tx.Receipts) (*chain.
 		return nil, err
 	}
 
-	forkIDs := make([]thor.Bytes32, 0, len(fork.Branch))
+	forkIDs := make([]meter.Bytes32, 0, len(fork.Branch))
 	for _, header := range fork.Branch {
 		forkIDs = append(forkIDs, header.ID())
 	}
@@ -377,7 +377,7 @@ func checkClockOffset() {
 		log.Debug("failed to access NTP", "err", err)
 		return
 	}
-	if resp.ClockOffset > time.Duration(thor.BlockInterval)*time.Second/2 {
+	if resp.ClockOffset > time.Duration(meter.BlockInterval)*time.Second/2 {
 		log.Warn("clock offset detected", "offset", common.PrettyDuration(resp.ClockOffset))
 	}
 }

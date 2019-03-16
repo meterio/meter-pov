@@ -14,13 +14,13 @@ import (
 	"github.com/ethereum/go-ethereum/event"
 	"github.com/inconshreveable/log15"
 	"github.com/pkg/errors"
-	"github.com/vechain/thor/block"
-	"github.com/vechain/thor/builtin"
-	"github.com/vechain/thor/chain"
-	"github.com/vechain/thor/co"
-	"github.com/vechain/thor/state"
-	"github.com/vechain/thor/thor"
-	"github.com/vechain/thor/tx"
+	"github.com/dfinlab/meter/block"
+	"github.com/dfinlab/meter/builtin"
+	"github.com/dfinlab/meter/chain"
+	"github.com/dfinlab/meter/co"
+	"github.com/dfinlab/meter/state"
+	"github.com/dfinlab/meter/meter"
+	"github.com/dfinlab/meter/tx"
 )
 
 const (
@@ -229,7 +229,7 @@ func (p *TxPool) StrictlyAdd(newTx *tx.Transaction) error {
 }
 
 // Remove removes tx from pool by its ID.
-func (p *TxPool) Remove(txID thor.Bytes32) bool {
+func (p *TxPool) Remove(txID meter.Bytes32) bool {
 	if p.all.Remove(txID) {
 		log.Debug("tx removed", "id", txID)
 		return true
@@ -266,7 +266,7 @@ func (p *TxPool) Dump() tx.Transactions {
 // this method should only be called in housekeeping go routine
 func (p *TxPool) wash(headBlock *block.Header) (executables tx.Transactions, removed int, err error) {
 	all := p.all.ToTxObjects()
-	var toRemove []thor.Bytes32
+	var toRemove []meter.Bytes32
 	defer func() {
 		if err != nil {
 			// in case of error, simply cut pool size to limit
@@ -291,7 +291,7 @@ func (p *TxPool) wash(headBlock *block.Header) (executables tx.Transactions, rem
 	}
 	var (
 		seeker            = p.chain.NewSeeker(headBlock.ID())
-		baseGasPrice      = builtin.Params.Native(state).Get(thor.KeyBaseGasPrice)
+		baseGasPrice      = builtin.Params.Native(state).Get(meter.KeyBaseGasPrice)
 		executableObjs    = make([]*txObject, 0, len(all))
 		nonExecutableObjs = make([]*txObject, 0, len(all))
 		now               = time.Now().UnixNano()
@@ -379,5 +379,5 @@ func isChainSynced(nowTimestamp, blockTimestamp uint64) bool {
 	if blockTimestamp > nowTimestamp {
 		timeDiff = blockTimestamp - nowTimestamp
 	}
-	return timeDiff < thor.BlockInterval*6
+	return timeDiff < meter.BlockInterval*6
 }

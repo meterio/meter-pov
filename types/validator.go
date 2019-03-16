@@ -7,21 +7,21 @@ import (
 
 	"github.com/ethereum/go-ethereum/crypto"
 	//"github.com/ethereum/go-ethereum/rlp"
-	//"github.com/vechain/thor/block"
-	//"github.com/vechain/thor/chain"
-	cmn "github.com/vechain/thor/libs/common"
-	//"github.com/vechain/thor/runtime"
-	//"github.com/vechain/thor/state"
-	//"github.com/vechain/thor/tx"
-	"github.com/vechain/thor/thor"
-	//"github.com/vechain/thor/xenv"
+	//"github.com/dfinlab/meter/block"
+	//"github.com/dfinlab/meter/chain"
+	cmn "github.com/dfinlab/meter/libs/common"
+	//"github.com/dfinlab/meter/runtime"
+	//"github.com/dfinlab/meter/state"
+	//"github.com/dfinlab/meter/tx"
+	"github.com/dfinlab/meter/meter"
+	//"github.com/dfinlab/meter/xenv"
 )
 
 // Volatile state for each Validator
 // NOTE: The Accum is not included in Validator.Hash();
 // make sure to update that method if changes are made here
 type Validator struct {
-	Address     thor.Address    `json:"address"`
+	Address     meter.Address    `json:"address"`
 	PubKey      ecdsa.PublicKey `json:"pub_key"`
 	VotingPower int64           `json:"voting_power"`
 
@@ -32,7 +32,7 @@ type Validator struct {
 
 func NewValidator(pubKey ecdsa.PublicKey, votingPower int64) *Validator {
 	return &Validator{
-		Address:     thor.Address(crypto.PubkeyToAddress(pubKey)),
+		Address:     meter.Address(crypto.PubkeyToAddress(pubKey)),
 		PubKey:      pubKey,
 		VotingPower: votingPower,
 		Accum:       0,

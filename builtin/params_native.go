@@ -9,8 +9,8 @@ import (
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/vechain/thor/thor"
-	"github.com/vechain/thor/xenv"
+	"github.com/dfinlab/meter/meter"
+	"github.com/dfinlab/meter/xenv"
 )
 
 func init() {
@@ -19,16 +19,16 @@ func init() {
 		run  func(env *xenv.Environment) []interface{}
 	}{
 		{"native_executor", func(env *xenv.Environment) []interface{} {
-			env.UseGas(thor.SloadGas)
-			addr := thor.BytesToAddress(Params.Native(env.State()).Get(thor.KeyExecutorAddress).Bytes())
+			env.UseGas(meter.SloadGas)
+			addr := meter.BytesToAddress(Params.Native(env.State()).Get(meter.KeyExecutorAddress).Bytes())
 			return []interface{}{addr}
 		}},
 		{"native_get", func(env *xenv.Environment) []interface{} {
 			var key common.Hash
 			env.ParseArgs(&key)
 
-			env.UseGas(thor.SloadGas)
-			v := Params.Native(env.State()).Get(thor.Bytes32(key))
+			env.UseGas(meter.SloadGas)
+			v := Params.Native(env.State()).Get(meter.Bytes32(key))
 			return []interface{}{v}
 		}},
 		{"native_set", func(env *xenv.Environment) []interface{} {
@@ -38,8 +38,8 @@ func init() {
 			}
 			env.ParseArgs(&args)
 
-			env.UseGas(thor.SstoreSetGas)
-			Params.Native(env.State()).Set(thor.Bytes32(args.Key), args.Value)
+			env.UseGas(meter.SstoreSetGas)
+			Params.Native(env.State()).Set(meter.Bytes32(args.Key), args.Value)
 			return nil
 		}},
 	}

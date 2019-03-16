@@ -6,8 +6,8 @@
 package subscriptions
 
 import (
-	"github.com/vechain/thor/chain"
-	"github.com/vechain/thor/thor"
+	"github.com/dfinlab/meter/chain"
+	"github.com/dfinlab/meter/meter"
 )
 
 type blockReader struct {
@@ -15,7 +15,7 @@ type blockReader struct {
 	blockReader chain.BlockReader
 }
 
-func newBlockReader(chain *chain.Chain, position thor.Bytes32) *blockReader {
+func newBlockReader(chain *chain.Chain, position meter.Bytes32) *blockReader {
 	return &blockReader{
 		chain:       chain,
 		blockReader: chain.NewBlockReader(position),

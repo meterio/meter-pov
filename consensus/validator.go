@@ -18,16 +18,16 @@ import (
 	// "fmt"
 	"time"
 
-	"github.com/vechain/thor/block"
-	//"github.com/vechain/thor/chain"
-	//"github.com/vechain/thor/runtime"
-	//"github.com/vechain/thor/state"
-	//"github.com/vechain/thor/tx"
-	//"github.com/vechain/thor/xenv"
+	"github.com/dfinlab/meter/block"
+	//"github.com/dfinlab/meter/chain"
+	//"github.com/dfinlab/meter/runtime"
+	//"github.com/dfinlab/meter/state"
+	//"github.com/dfinlab/meter/tx"
+	//"github.com/dfinlab/meter/xenv"
 	crypto "github.com/ethereum/go-ethereum/crypto"
-	bls "github.com/vechain/thor/crypto/multi_sig"
+	bls "github.com/dfinlab/meter/crypto/multi_sig"
 
-	types "github.com/vechain/thor/types"
+	types "github.com/dfinlab/meter/types"
 )
 
 // for all committee mermbers

@@ -10,17 +10,17 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/vechain/thor/lvldb"
-	"github.com/vechain/thor/state"
-	"github.com/vechain/thor/thor"
+	"github.com/dfinlab/meter/lvldb"
+	"github.com/dfinlab/meter/state"
+	"github.com/dfinlab/meter/meter"
 )
 
 func TestParamsGetSet(t *testing.T) {
 	kv, _ := lvldb.NewMem()
-	st, _ := state.New(thor.Bytes32{}, kv)
+	st, _ := state.New(meter.Bytes32{}, kv)
 	setv := big.NewInt(10)
-	key := thor.BytesToBytes32([]byte("key"))
-	p := New(thor.BytesToAddress([]byte("par")), st)
+	key := meter.BytesToBytes32([]byte("key"))
+	p := New(meter.BytesToAddress([]byte("par")), st)
 	p.Set(key, setv)
 
 	getv := p.Get(key)

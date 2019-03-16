@@ -1,4 +1,4 @@
-package thor
+package meter
 
 import (
 	"math"

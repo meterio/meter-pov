@@ -7,8 +7,8 @@ import (
 	"strings"
 
 	// "github.com/ethereum/go-ethereum/rlp"
-	"github.com/vechain/thor/block"
-	"github.com/vechain/thor/thor"
+	"github.com/dfinlab/meter/block"
+	"github.com/dfinlab/meter/meter"
 
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
 	"github.com/btcsuite/btcd/wire"
@@ -17,15 +17,15 @@ import (
 type PowBlockInfo struct {
 	// Pow header part
 	Version        uint32
-	HashPrevBlock  thor.Bytes32
-	HashMerkleRoot thor.Bytes32
+	HashPrevBlock  meter.Bytes32
+	HashMerkleRoot meter.Bytes32
 	Timestamp      uint32
 	NBits          uint32
 	Nonce          uint32
 	// End of pow header part
 
-	HeaderHash  thor.Bytes32
-	Beneficiary thor.Address
+	HeaderHash  meter.Bytes32
+	Beneficiary meter.Address
 	PowHeight   uint32
 
 	// Raw block
@@ -74,12 +74,12 @@ func NewPowBlockInfoFromPowBlock(powBlock *wire.MsgBlock) *PowBlockInfo {
 		ss := powBlock.Transactions[0].TxIn[0].SignatureScript
 		height, beneficiaryAddr = DecodeSignatureScript(ss)
 	}
-	beneficiary, _ := thor.ParseAddress(beneficiaryAddr)
+	beneficiary, _ := meter.ParseAddress(beneficiaryAddr)
 
 	info := &PowBlockInfo{
 		Version:        uint32(hdr.Version),
-		HashPrevBlock:  thor.BytesToBytes32(prevBytes),
-		HashMerkleRoot: thor.BytesToBytes32(merkleRootBytes),
+		HashPrevBlock:  meter.BytesToBytes32(prevBytes),
+		HashMerkleRoot: meter.BytesToBytes32(merkleRootBytes),
 		Timestamp:      uint32(hdr.Timestamp.UnixNano()),
 		NBits:          hdr.Bits,
 		Nonce:          hdr.Nonce,
@@ -132,7 +132,7 @@ func NewPowBlockInfo(raw []byte) *PowBlockInfo {
 	return info
 }
 
-func (info *PowBlockInfo) HashID() thor.Bytes32 {
+func (info *PowBlockInfo) HashID() meter.Bytes32 {
 	powBlk := wire.MsgBlock{}
 	powBlk.Deserialize(bytes.NewReader(info.PowRaw))
 	var powBlkPtr *wire.MsgBlock
@@ -144,7 +144,7 @@ func (info *PowBlockInfo) HashID() thor.Bytes32 {
 	var bss []byte
 	bss = bs
 
-	return thor.BytesToBytes32(reverse(bss))
+	return meter.BytesToBytes32(reverse(bss))
 }
 
 func (info *PowBlockInfo) ToString() string {

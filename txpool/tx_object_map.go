@@ -9,25 +9,25 @@ import (
 	"errors"
 	"sync"
 
-	"github.com/vechain/thor/thor"
-	"github.com/vechain/thor/tx"
+	"github.com/dfinlab/meter/meter"
+	"github.com/dfinlab/meter/tx"
 )
 
 // txObjectMap to maintain mapping of ID to tx object, and account quota.
 type txObjectMap struct {
 	lock     sync.RWMutex
-	txObjMap map[thor.Bytes32]*txObject
-	quota    map[thor.Address]int
+	txObjMap map[meter.Bytes32]*txObject
+	quota    map[meter.Address]int
 }
 
 func newTxObjectMap() *txObjectMap {
 	return &txObjectMap{
-		txObjMap: make(map[thor.Bytes32]*txObject),
-		quota:    make(map[thor.Address]int),
+		txObjMap: make(map[meter.Bytes32]*txObject),
+		quota:    make(map[meter.Address]int),
 	}
 }
 
-func (m *txObjectMap) Contains(txID thor.Bytes32) bool {
+func (m *txObjectMap) Contains(txID meter.Bytes32) bool {
 	m.lock.RLock()
 	defer m.lock.RUnlock()
 	_, found := m.txObjMap[txID]
@@ -51,7 +51,7 @@ func (m *txObjectMap) Add(txObj *txObject, limitPerAccount int) error {
 	return nil
 }
 
-func (m *txObjectMap) Remove(txID thor.Bytes32) bool {
+func (m *txObjectMap) Remove(txID meter.Bytes32) bool {
 	m.lock.Lock()
 	defer m.lock.Unlock()
 

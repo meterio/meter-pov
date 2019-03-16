@@ -13,16 +13,16 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/assert"
-	"github.com/vechain/thor/abi"
-	"github.com/vechain/thor/builtin"
-	"github.com/vechain/thor/chain"
-	"github.com/vechain/thor/genesis"
-	"github.com/vechain/thor/lvldb"
-	"github.com/vechain/thor/runtime"
-	"github.com/vechain/thor/state"
-	"github.com/vechain/thor/thor"
-	"github.com/vechain/thor/tx"
-	"github.com/vechain/thor/xenv"
+	"github.com/dfinlab/meter/abi"
+	"github.com/dfinlab/meter/builtin"
+	"github.com/dfinlab/meter/chain"
+	"github.com/dfinlab/meter/genesis"
+	"github.com/dfinlab/meter/lvldb"
+	"github.com/dfinlab/meter/runtime"
+	"github.com/dfinlab/meter/state"
+	"github.com/dfinlab/meter/meter"
+	"github.com/dfinlab/meter/tx"
+	"github.com/dfinlab/meter/xenv"
 )
 
 func TestContractSuicide(t *testing.T) {
@@ -48,7 +48,7 @@ func TestContractSuicide(t *testing.T) {
 	// }
 	data, _ := hex.DecodeString("608060405260043610603f576000357c0100000000000000000000000000000000000000000000000000000000900463ffffffff168063085da1b3146044575b600080fd5b348015604f57600080fd5b5060566058565b005b3373ffffffffffffffffffffffffffffffffffffffff16ff00a165627a7a723058204cb70b653a3d1821e00e6ade869638e80fa99719931c9fa045cec2189d94086f0029")
 	time := b0.Header().Timestamp()
-	addr := thor.BytesToAddress([]byte("acc01"))
+	addr := meter.BytesToAddress([]byte("acc01"))
 	state, _ := stateCreator.NewState(b0.Header().StateRoot())
 	state.SetCode(addr, data)
 	state.SetEnergy(addr, big.NewInt(100), time)
@@ -88,7 +88,7 @@ func TestContractSuicide(t *testing.T) {
 	event, _ := builtin.Energy.ABI.EventByName("Transfer")
 	expectedEvent := &tx.Event{
 		Address: builtin.Energy.Address,
-		Topics:  []thor.Bytes32{event.ID(), thor.BytesToBytes32(addr.Bytes()), thor.BytesToBytes32(origin.Bytes())},
+		Topics:  []meter.Bytes32{event.ID(), meter.BytesToBytes32(addr.Bytes()), meter.BytesToBytes32(origin.Bytes())},
 		Data:    []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 100},
 	}
 	assert.Equal(1, len(out.Events))
@@ -136,7 +136,7 @@ func TestCall(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	assert.Equal(t, thor.Address(addr), genesis.DevAccounts()[0].Address)
+	assert.Equal(t, meter.Address(addr), genesis.DevAccounts()[0].Address)
 
 	// contract NeverStop {
 	// 	constructor() public {
@@ -161,8 +161,8 @@ func TestExecuteTransaction(t *testing.T) {
 	// kv, _ := lvldb.NewMem()
 
 	// key, _ := crypto.GenerateKey()
-	// addr1 := thor.Address(crypto.PubkeyToAddress(key.PublicKey))
-	// addr2 := thor.BytesToAddress([]byte("acc2"))
+	// addr1 := meter.Address(crypto.PubkeyToAddress(key.PublicKey))
+	// addr2 := meter.BytesToAddress([]byte("acc2"))
 	// balance1 := big.NewInt(1000 * 1000 * 1000)
 
 	// b0, err := new(genesis.Builder).
@@ -186,7 +186,7 @@ func TestExecuteTransaction(t *testing.T) {
 
 	// state, _ := state.New(b0.Header().StateRoot(), kv)
 	// rt := runtime.New(state,
-	// 	thor.Address{}, 0, 0, 0, func(uint32) thor.Bytes32 { return thor.Bytes32{} })
+	// 	meter.Address{}, 0, 0, 0, func(uint32) meter.Bytes32 { return meter.Bytes32{} })
 	// receipt, _, err := rt.ExecuteTransaction(tx)
 	// if err != nil {
 	// 	t.Fatal(err)

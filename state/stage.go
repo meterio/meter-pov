@@ -6,9 +6,9 @@
 package state
 
 import (
-	"github.com/vechain/thor/kv"
-	"github.com/vechain/thor/thor"
-	"github.com/vechain/thor/trie"
+	"github.com/dfinlab/meter/kv"
+	"github.com/dfinlab/meter/meter"
+	"github.com/dfinlab/meter/trie"
 )
 
 // Stage abstracts changes on the main accounts trie.
@@ -26,7 +26,7 @@ type codeWithHash struct {
 	hash []byte
 }
 
-func newStage(root thor.Bytes32, kv kv.GetPutter, changes map[thor.Address]*changedObject) *Stage {
+func newStage(root meter.Bytes32, kv kv.GetPutter, changes map[meter.Address]*changedObject) *Stage {
 
 	accountTrie, err := trCache.Get(root, kv, true)
 	if err != nil {
@@ -48,7 +48,7 @@ func newStage(root thor.Bytes32, kv kv.GetPutter, changes map[thor.Address]*chan
 		// skip storage changes if account is empty
 		if !dataCpy.IsEmpty() {
 			if len(obj.storage) > 0 {
-				strie, err := trCache.Get(thor.BytesToBytes32(dataCpy.StorageRoot), kv, true)
+				strie, err := trCache.Get(meter.BytesToBytes32(dataCpy.StorageRoot), kv, true)
 				if err != nil {
 					return &Stage{err: err}
 				}
@@ -75,23 +75,23 @@ func newStage(root thor.Bytes32, kv kv.GetPutter, changes map[thor.Address]*chan
 }
 
 // Hash computes hash of the main accounts trie.
-func (s *Stage) Hash() (thor.Bytes32, error) {
+func (s *Stage) Hash() (meter.Bytes32, error) {
 	if s.err != nil {
-		return thor.Bytes32{}, s.err
+		return meter.Bytes32{}, s.err
 	}
 	return s.accountTrie.Hash(), nil
 }
 
 // Commit commits all changes into main accounts trie and storage tries.
-func (s *Stage) Commit() (thor.Bytes32, error) {
+func (s *Stage) Commit() (meter.Bytes32, error) {
 	if s.err != nil {
-		return thor.Bytes32{}, s.err
+		return meter.Bytes32{}, s.err
 	}
 	batch := s.kv.NewBatch()
 	// write codes
 	for _, code := range s.codes {
 		if err := batch.Put(code.hash, code.code); err != nil {
-			return thor.Bytes32{}, err
+			return meter.Bytes32{}, err
 		}
 	}
 
@@ -99,7 +99,7 @@ func (s *Stage) Commit() (thor.Bytes32, error) {
 	for _, strie := range s.storageTries {
 		root, err := strie.CommitTo(batch)
 		if err != nil {
-			return thor.Bytes32{}, err
+			return meter.Bytes32{}, err
 		}
 		trCache.Add(root, strie, s.kv)
 	}
@@ -107,11 +107,11 @@ func (s *Stage) Commit() (thor.Bytes32, error) {
 	// commit accounts trie
 	root, err := s.accountTrie.CommitTo(batch)
 	if err != nil {
-		return thor.Bytes32{}, err
+		return meter.Bytes32{}, err
 	}
 
 	if err := batch.Write(); err != nil {
-		return thor.Bytes32{}, err
+		return meter.Bytes32{}, err
 	}
 
 	trCache.Add(root, s.accountTrie, s.kv)

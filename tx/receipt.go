@@ -9,8 +9,8 @@ import (
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/rlp"
-	"github.com/vechain/thor/thor"
-	"github.com/vechain/thor/trie"
+	"github.com/dfinlab/meter/meter"
+	"github.com/dfinlab/meter/trie"
 )
 
 // Receipt represents the results of a transaction.
@@ -18,7 +18,7 @@ type Receipt struct {
 	// gas used by this tx
 	GasUsed uint64
 	// the one who paid for gas
-	GasPayer thor.Address
+	GasPayer meter.Address
 	// energy paid for used gas
 	Paid *big.Int
 	// energy reward given to block proposer
@@ -41,7 +41,7 @@ type Output struct {
 type Receipts []*Receipt
 
 // RootHash computes merkle root hash of receipts.
-func (rs Receipts) RootHash() thor.Bytes32 {
+func (rs Receipts) RootHash() meter.Bytes32 {
 	if len(rs) == 0 {
 		// optimized
 		return emptyRoot

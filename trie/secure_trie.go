@@ -22,7 +22,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/log"
 	lru "github.com/hashicorp/golang-lru"
-	"github.com/vechain/thor/thor"
+	"github.com/dfinlab/meter/meter"
 )
 
 var keyCache, _ = lru.New(32 * 1024)
@@ -53,7 +53,7 @@ type SecureTrie struct {
 // Loaded nodes are kept around until their 'cache generation' expires.
 // A new cache generation is created by each call to Commit.
 // cachelimit sets the number of past cache generations to keep.
-func NewSecure(root thor.Bytes32, db Database, cachelimit uint16) (*SecureTrie, error) {
+func NewSecure(root meter.Bytes32, db Database, cachelimit uint16) (*SecureTrie, error) {
 	if db == nil {
 		panic("NewSecure called with nil database")
 	}
@@ -141,11 +141,11 @@ func (t *SecureTrie) GetKey(shaKey []byte) []byte {
 //
 // Committing flushes nodes from memory. Subsequent Get calls will load nodes
 // from the database.
-func (t *SecureTrie) Commit() (root thor.Bytes32, err error) {
+func (t *SecureTrie) Commit() (root meter.Bytes32, err error) {
 	return t.CommitTo(t.trie.db)
 }
 
-func (t *SecureTrie) Hash() thor.Bytes32 {
+func (t *SecureTrie) Hash() meter.Bytes32 {
 	return t.trie.Hash()
 }
 
@@ -170,7 +170,7 @@ func (t *SecureTrie) NodeIterator(start []byte) NodeIterator {
 // Committing flushes nodes from memory. Subsequent Get calls will load nodes from
 // the trie's database. Calling code must ensure that the changes made to db are
 // written back to the trie's attached database before using the trie.
-func (t *SecureTrie) CommitTo(db DatabaseWriter) (root thor.Bytes32, err error) {
+func (t *SecureTrie) CommitTo(db DatabaseWriter) (root meter.Bytes32, err error) {
 	// Write all the pre-images to the actual disk database
 	if len(t.getSecKeyCache()) > 0 {
 		for hk, key := range t.secKeyCache {
@@ -193,7 +193,7 @@ func (t *SecureTrie) hashKey(key []byte) []byte {
 	h := newHasher(0, 0)
 	h.sha.Reset()
 	h.sha.Write(key)
-	var buf thor.Bytes32
+	var buf meter.Bytes32
 	h.sha.Sum(buf[:0])
 	returnHasherToPool(h)
 	keyCache.Add(strKey, buf[:])

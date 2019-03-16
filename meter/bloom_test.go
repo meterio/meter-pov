@@ -1,17 +1,17 @@
-package thor_test
+package meter.test
 
 import (
 	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/vechain/thor/thor"
+	"github.com/dfinlab/meter/meter"
 )
 
 func TestBloom(t *testing.T) {
 
 	itemCount := 100
-	bloom := thor.NewBloom(thor.EstimateBloomK(itemCount))
+	bloom := meter.NewBloom(meter.EstimateBloomK(itemCount))
 
 	for i := 0; i < itemCount; i++ {
 		bloom.Add([]byte(fmt.Sprintf("%v", i)))

@@ -20,17 +20,17 @@ import (
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/gorilla/mux"
 	"github.com/stretchr/testify/assert"
-	"github.com/vechain/thor/api/transactions"
-	"github.com/vechain/thor/block"
-	"github.com/vechain/thor/chain"
-	"github.com/vechain/thor/genesis"
-	"github.com/vechain/thor/logdb"
-	"github.com/vechain/thor/lvldb"
-	"github.com/vechain/thor/packer"
-	"github.com/vechain/thor/state"
-	"github.com/vechain/thor/thor"
-	"github.com/vechain/thor/tx"
-	"github.com/vechain/thor/txpool"
+	"github.com/dfinlab/meter/api/transactions"
+	"github.com/dfinlab/meter/block"
+	"github.com/dfinlab/meter/chain"
+	"github.com/dfinlab/meter/genesis"
+	"github.com/dfinlab/meter/logdb"
+	"github.com/dfinlab/meter/lvldb"
+	"github.com/dfinlab/meter/packer"
+	"github.com/dfinlab/meter/state"
+	"github.com/dfinlab/meter/meter"
+	"github.com/dfinlab/meter/tx"
+	"github.com/dfinlab/meter/txpool"
 )
 
 var c *chain.Chain
@@ -148,8 +148,8 @@ func initTransactionServer(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	from := thor.BytesToAddress([]byte("from"))
-	to := thor.BytesToAddress([]byte("to"))
+	from := meter.BytesToAddress([]byte("from"))
+	to := meter.BytesToAddress([]byte("to"))
 	value := big.NewInt(10)
 	header := new(block.Builder).Build().Header()
 	count := 100
@@ -160,7 +160,7 @@ func initTransactionServer(t *testing.T) {
 			Amount:    value,
 		}
 		header = new(block.Builder).ParentID(header.ID()).Build().Header()
-		if err := logDB.Prepare(header).ForTransaction(thor.Bytes32{}, from).
+		if err := logDB.Prepare(header).ForTransaction(meter.Bytes32{}, from).
 			Insert(nil, tx.Transfers{transLog}).Commit(); err != nil {
 			t.Fatal(err)
 		}
@@ -174,7 +174,7 @@ func initTransactionServer(t *testing.T) {
 		t.Fatal(err)
 	}
 	c, _ = chain.New(db, b)
-	addr := thor.BytesToAddress([]byte("to"))
+	addr := meter.BytesToAddress([]byte("to"))
 	cla := tx.NewClause(&addr).WithValue(big.NewInt(10000))
 	transaction = new(tx.Builder).
 		ChainTag(c.Tag()).

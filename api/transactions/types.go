@@ -14,14 +14,14 @@ import (
 	"github.com/ethereum/go-ethereum/common/math"
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/pkg/errors"
-	"github.com/vechain/thor/block"
-	"github.com/vechain/thor/thor"
-	"github.com/vechain/thor/tx"
+	"github.com/dfinlab/meter/block"
+	"github.com/dfinlab/meter/meter"
+	"github.com/dfinlab/meter/tx"
 )
 
 // Clause for json marshal
 type Clause struct {
-	To    *thor.Address        `json:"to"`
+	To    *meter.Address        `json:"to"`
 	Value math.HexOrDecimal256 `json:"value"`
 	Token byte                 `json:"token"`
 	Data  string               `json:"data"`
@@ -63,16 +63,16 @@ func hasKey(m map[string]interface{}, key string) bool {
 
 //Transaction transaction
 type Transaction struct {
-	ID           thor.Bytes32        `json:"id"`
+	ID           meter.Bytes32        `json:"id"`
 	ChainTag     byte                `json:"chainTag"`
 	BlockRef     string              `json:"blockRef"`
 	Expiration   uint32              `json:"expiration"`
 	Clauses      Clauses             `json:"clauses"`
 	GasPriceCoef uint8               `json:"gasPriceCoef"`
 	Gas          uint64              `json:"gas"`
-	Origin       thor.Address        `json:"origin"`
+	Origin       meter.Address        `json:"origin"`
 	Nonce        math.HexOrDecimal64 `json:"nonce"`
-	DependsOn    *thor.Bytes32       `json:"dependsOn"`
+	DependsOn    *meter.Bytes32       `json:"dependsOn"`
 	Size         uint32              `json:"size"`
 	Meta         TxMeta              `json:"meta"`
 }
@@ -83,7 +83,7 @@ type UnSignedTx struct {
 	Clauses      Clauses             `json:"clauses"`
 	GasPriceCoef uint8               `json:"gasPriceCoef"`
 	Gas          uint64              `json:"gas"`
-	DependsOn    *thor.Bytes32       `json:"dependsOn"`
+	DependsOn    *meter.Bytes32       `json:"dependsOn"`
 	Nonce        math.HexOrDecimal64 `json:"nonce"`
 }
 
@@ -186,23 +186,23 @@ func convertTransaction(tx *tx.Transaction, header *block.Header, txIndex uint64
 }
 
 type TxMeta struct {
-	BlockID        thor.Bytes32 `json:"blockID"`
+	BlockID        meter.Bytes32 `json:"blockID"`
 	BlockNumber    uint32       `json:"blockNumber"`
 	BlockTimestamp uint64       `json:"blockTimestamp"`
 }
 
 type LogMeta struct {
-	BlockID        thor.Bytes32 `json:"blockID"`
+	BlockID        meter.Bytes32 `json:"blockID"`
 	BlockNumber    uint32       `json:"blockNumber"`
 	BlockTimestamp uint64       `json:"blockTimestamp"`
-	TxID           thor.Bytes32 `json:"txID"`
-	TxOrigin       thor.Address `json:"txOrigin"`
+	TxID           meter.Bytes32 `json:"txID"`
+	TxOrigin       meter.Address `json:"txOrigin"`
 }
 
 //Receipt for json marshal
 type Receipt struct {
 	GasUsed  uint64                `json:"gasUsed"`
-	GasPayer thor.Address          `json:"gasPayer"`
+	GasPayer meter.Address          `json:"gasPayer"`
 	Paid     *math.HexOrDecimal256 `json:"paid"`
 	Reward   *math.HexOrDecimal256 `json:"reward"`
 	Reverted bool                  `json:"reverted"`
@@ -212,22 +212,22 @@ type Receipt struct {
 
 // Output output of clause execution.
 type Output struct {
-	ContractAddress *thor.Address `json:"contractAddress"`
+	ContractAddress *meter.Address `json:"contractAddress"`
 	Events          []*Event      `json:"events"`
 	Transfers       []*Transfer   `json:"transfers"`
 }
 
 // Event event.
 type Event struct {
-	Address thor.Address   `json:"address"`
-	Topics  []thor.Bytes32 `json:"topics"`
+	Address meter.Address   `json:"address"`
+	Topics  []meter.Bytes32 `json:"topics"`
 	Data    string         `json:"data"`
 }
 
 // Transfer transfer log.
 type Transfer struct {
-	Sender    thor.Address          `json:"sender"`
-	Recipient thor.Address          `json:"recipient"`
+	Sender    meter.Address          `json:"sender"`
+	Recipient meter.Address          `json:"recipient"`
 	Amount    *math.HexOrDecimal256 `json:"amount"`
 	Token     uint32                `json:"token"`
 }
@@ -257,9 +257,9 @@ func convertReceipt(txReceipt *tx.Receipt, header *block.Header, tx *tx.Transact
 	receipt.Outputs = make([]*Output, len(txReceipt.Outputs))
 	for i, output := range txReceipt.Outputs {
 		clause := tx.Clauses()[i]
-		var contractAddr *thor.Address
+		var contractAddr *meter.Address
 		if clause.To() == nil {
-			cAddr := thor.CreateContractAddress(tx.ID(), uint32(i), 0)
+			cAddr := meter.CreateContractAddress(tx.ID(), uint32(i), 0)
 			contractAddr = &cAddr
 		}
 		otp := &Output{contractAddr,
@@ -271,7 +271,7 @@ func convertReceipt(txReceipt *tx.Receipt, header *block.Header, tx *tx.Transact
 				Address: txEvent.Address,
 				Data:    hexutil.Encode(txEvent.Data),
 			}
-			event.Topics = make([]thor.Bytes32, len(txEvent.Topics))
+			event.Topics = make([]meter.Bytes32, len(txEvent.Topics))
 			for k, topic := range txEvent.Topics {
 				event.Topics[k] = topic
 			}

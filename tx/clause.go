@@ -11,11 +11,11 @@ import (
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/rlp"
-	"github.com/vechain/thor/thor"
+	"github.com/dfinlab/meter/meter"
 )
 
 type clauseBody struct {
-	To    *thor.Address `rlp:"nil"`
+	To    *meter.Address `rlp:"nil"`
 	Value *big.Int
 	Token byte
 	Data  []byte
@@ -27,7 +27,7 @@ type Clause struct {
 }
 
 // NewClause create a new clause instance.
-func NewClause(to *thor.Address) *Clause {
+func NewClause(to *meter.Address) *Clause {
 	if to != nil {
 		// make a copy of 'to'
 		cpy := *to
@@ -65,7 +65,7 @@ func (c *Clause) WithToken(token byte) *Clause {
 }
 
 // To returns 'To' address.
-func (c *Clause) To() *thor.Address {
+func (c *Clause) To() *meter.Address {
 	if c.body.To == nil {
 		return nil
 	}

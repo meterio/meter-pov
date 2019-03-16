@@ -24,10 +24,10 @@ import (
 	"strings"
 	// "encoding/hex"
 
+	"github.com/dfinlab/meter/api/doc"
+	"github.com/dfinlab/meter/meter"
 	"github.com/ethereum/go-ethereum/crypto"
 	tty "github.com/mattn/go-tty"
-	"github.com/vechain/thor/api/doc"
-	"github.com/vechain/thor/thor"
 )
 
 func fatal(args ...interface{}) {
@@ -116,7 +116,7 @@ func loadOrUpdatePublicKey(path string, privKey *ecdsa.PrivateKey, newPubKey *ec
 
 func defaultConfigDir() string {
 	if home := homeDir(); home != "" {
-		return filepath.Join(home, ".org.vechain.thor")
+		return filepath.Join(home, ".org.dfinlab.meter")
 	}
 	return ""
 }
@@ -126,11 +126,11 @@ func defaultDataDir() string {
 	// Try to place the data folder in the user's home dir
 	if home := homeDir(); home != "" {
 		if runtime.GOOS == "darwin" {
-			return filepath.Join(home, "Library", "Application Support", "org.vechain.thor")
+			return filepath.Join(home, "Library", "Application Support", "org.dfinlab.meter")
 		} else if runtime.GOOS == "windows" {
-			return filepath.Join(home, "AppData", "Roaming", "org.vechain.thor")
+			return filepath.Join(home, "AppData", "Roaming", "org.dfinlab.meter")
 		} else {
-			return filepath.Join(home, ".org.vechain.thor")
+			return filepath.Join(home, ".org.dfinlab.meter")
 		}
 	}
 	// As we cannot guess a stable location, return empty and handle later
@@ -171,7 +171,7 @@ func requestBodyLimit(h http.Handler) http.Handler {
 }
 
 // middleware to verify 'x-genesis-id' header in request, and set to response headers.
-func handleXGenesisID(h http.Handler, genesisID thor.Bytes32) http.Handler {
+func handleXGenesisID(h http.Handler, genesisID meter.Bytes32) http.Handler {
 	const headerKey = "x-genesis-id"
 	expectedID := genesisID.String()
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

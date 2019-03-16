@@ -10,17 +10,17 @@ import (
 
 	"github.com/ethereum/go-ethereum/common/math"
 	"github.com/pkg/errors"
-	"github.com/vechain/thor/builtin"
-	"github.com/vechain/thor/state"
-	"github.com/vechain/thor/thor"
-	"github.com/vechain/thor/tx"
-	"github.com/vechain/thor/xenv"
+	"github.com/dfinlab/meter/builtin"
+	"github.com/dfinlab/meter/state"
+	"github.com/dfinlab/meter/meter"
+	"github.com/dfinlab/meter/tx"
+	"github.com/dfinlab/meter/xenv"
 )
 
 // ResolvedTransaction resolve the transaction according to given state.
 type ResolvedTransaction struct {
 	tx           *tx.Transaction
-	Origin       thor.Address
+	Origin       meter.Address
 	IntrinsicGas uint64
 	Clauses      []*tx.Clause
 }
@@ -63,7 +63,7 @@ func ResolveTransaction(tx *tx.Transaction) (*ResolvedTransaction, error) {
 
 // CommonTo returns common 'To' field of clauses if any.
 // Nil returned if no common 'To'.
-func (r *ResolvedTransaction) CommonTo() *thor.Address {
+func (r *ResolvedTransaction) CommonTo() *meter.Address {
 	if len(r.Clauses) == 0 {
 		return nil
 	}
@@ -89,10 +89,10 @@ func (r *ResolvedTransaction) CommonTo() *thor.Address {
 func (r *ResolvedTransaction) BuyGas(state *state.State, blockTime uint64) (
 	baseGasPrice *big.Int,
 	gasPrice *big.Int,
-	payer thor.Address,
+	payer meter.Address,
 	returnGas func(uint64), err error) {
 
-	baseGasPrice = builtin.Params.Native(state).Get(thor.KeyBaseGasPrice)
+	baseGasPrice = builtin.Params.Native(state).Get(meter.KeyBaseGasPrice)
 	gasPrice = r.tx.GasPrice(baseGasPrice)
 
 	energy := builtin.Energy.Native(state, blockTime)
@@ -133,7 +133,7 @@ func (r *ResolvedTransaction) BuyGas(state *state.State, blockTime uint64) (
 		if energy.Sub(r.Origin, prepaid) {
 			return baseGasPrice, gasPrice, r.Origin, func(rgas uint64) { doReturnGas(rgas) }, nil
 		} else {
-			return nil, nil, thor.Address{}, nil, errors.New("insufficient energy")
+			return nil, nil, meter.Address{}, nil, errors.New("insufficient energy")
 		}
 	} else {
 		return baseGasPrice, gasPrice, r.Origin, func(rgas uint64) { doReturnGas(rgas) }, nil
@@ -141,7 +141,7 @@ func (r *ResolvedTransaction) BuyGas(state *state.State, blockTime uint64) (
 }
 
 // ToContext create a tx context object.
-func (r *ResolvedTransaction) ToContext(gasPrice *big.Int, blockNumber uint32, getID func(uint32) thor.Bytes32) *xenv.TransactionContext {
+func (r *ResolvedTransaction) ToContext(gasPrice *big.Int, blockNumber uint32, getID func(uint32) meter.Bytes32) *xenv.TransactionContext {
 	return &xenv.TransactionContext{
 		ID:         r.tx.ID(),
 		Origin:     r.Origin,

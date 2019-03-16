@@ -6,8 +6,8 @@
 package comm
 
 import (
-	"github.com/vechain/thor/comm/proto"
-	"github.com/vechain/thor/powpool"
+	"github.com/dfinlab/meter/comm/proto"
+	"github.com/dfinlab/meter/powpool"
 )
 
 func (c *Communicator) powsLoop() {

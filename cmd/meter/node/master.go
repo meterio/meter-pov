@@ -8,16 +8,16 @@ package node
 import (
 	"crypto/ecdsa"
 
+	"github.com/dfinlab/meter/meter"
 	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/vechain/thor/thor"
 )
 
 type Master struct {
 	PrivateKey  *ecdsa.PrivateKey
 	PublicKey   *ecdsa.PublicKey
-	Beneficiary *thor.Address
+	Beneficiary *meter.Address
 }
 
-func (m *Master) Address() thor.Address {
-	return thor.Address(crypto.PubkeyToAddress(m.PrivateKey.PublicKey))
+func (m *Master) Address() meter.Address {
+	return meter.Address(crypto.PubkeyToAddress(m.PrivateKey.PublicKey))
 }

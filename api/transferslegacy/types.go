@@ -7,14 +7,14 @@ package transferslegacy
 
 import (
 	"github.com/ethereum/go-ethereum/common/math"
-	"github.com/vechain/thor/api/transactions"
-	"github.com/vechain/thor/logdb"
-	"github.com/vechain/thor/thor"
+	"github.com/dfinlab/meter/api/transactions"
+	"github.com/dfinlab/meter/logdb"
+	"github.com/dfinlab/meter/meter"
 )
 
 type FilteredTransfer struct {
-	Sender    thor.Address          `json:"sender"`
-	Recipient thor.Address          `json:"recipient"`
+	Sender    meter.Address          `json:"sender"`
+	Recipient meter.Address          `json:"recipient"`
 	Amount    *math.HexOrDecimal256 `json:"amount"`
 	Meta      transactions.LogMeta  `json:"meta"`
 }
@@ -36,13 +36,13 @@ func convertTransfer(transfer *logdb.Transfer) *FilteredTransfer {
 }
 
 type AddressSet struct {
-	TxOrigin  *thor.Address //who send transaction
-	Sender    *thor.Address //who transferred tokens
-	Recipient *thor.Address //who recieved tokens
+	TxOrigin  *meter.Address //who send transaction
+	Sender    *meter.Address //who transferred tokens
+	Recipient *meter.Address //who recieved tokens
 }
 
 type TransferFilter struct {
-	TxID        *thor.Bytes32
+	TxID        *meter.Bytes32
 	AddressSets []*AddressSet
 	Range       *logdb.Range
 	Options     *logdb.Options

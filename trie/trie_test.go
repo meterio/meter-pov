@@ -34,7 +34,7 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethdb"
 	"github.com/ethereum/go-ethereum/rlp"
-	"github.com/vechain/thor/thor"
+	"github.com/dfinlab/meter/meter"
 )
 
 func init() {
@@ -45,7 +45,7 @@ func init() {
 // Used for testing
 func newEmpty() *Trie {
 	db := ethdb.NewMemDatabase()
-	trie, _ := New(thor.Bytes32{}, db)
+	trie, _ := New(meter.Bytes32{}, db)
 	return trie
 }
 
@@ -53,7 +53,7 @@ func TestEmptyTrie(t *testing.T) {
 	var trie Trie
 	res := trie.Hash()
 	exp := emptyRoot
-	if res != thor.Bytes32(exp) {
+	if res != meter.Bytes32(exp) {
 		t.Errorf("expected %x got %x", exp, res)
 	}
 }
@@ -70,7 +70,7 @@ func TestNull(t *testing.T) {
 
 func TestMissingRoot(t *testing.T) {
 	db := ethdb.NewMemDatabase()
-	root := thor.Bytes32{1, 2, 3, 4, 5}
+	root := meter.Bytes32{1, 2, 3, 4, 5}
 	trie, err := New(root, db)
 	if trie != nil {
 		t.Error("New returned non-nil trie for invalid root")
@@ -82,7 +82,7 @@ func TestMissingRoot(t *testing.T) {
 
 func TestMissingNode(t *testing.T) {
 	db := ethdb.NewMemDatabase()
-	trie, _ := New(thor.Bytes32{}, db)
+	trie, _ := New(meter.Bytes32{}, db)
 	updateString(trie, "120000", "qwerqwerqwerqwerqwerqwerqwerqwer")
 	updateString(trie, "123456", "asdfasdfasdfasdfasdfasdfasdfasdf")
 	root, _ := trie.Commit()
@@ -157,7 +157,7 @@ func TestInsert(t *testing.T) {
 	updateString(trie, "dog", "puppy")
 	updateString(trie, "dogglesworth", "cat")
 
-	exp, _ := thor.ParseBytes32("6ca394ff9b13d6690a51dea30b1b5c43108e52944d30b9095227c49bae03ff8b")
+	exp, _ := meter.ParseBytes32("6ca394ff9b13d6690a51dea30b1b5c43108e52944d30b9095227c49bae03ff8b")
 	root := trie.Hash()
 	if root != exp {
 		t.Errorf("exp %v got %v", exp, root)
@@ -166,7 +166,7 @@ func TestInsert(t *testing.T) {
 	trie = newEmpty()
 	updateString(trie, "A", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
 
-	exp, _ = thor.ParseBytes32("e9d7f23f40cd82fe35f5a7a6778c3503f775f3623ba7a71fb335f0eee29dac8a")
+	exp, _ = meter.ParseBytes32("e9d7f23f40cd82fe35f5a7a6778c3503f775f3623ba7a71fb335f0eee29dac8a")
 	root, err := trie.Commit()
 	if err != nil {
 		t.Fatalf("commit error: %v", err)
@@ -221,7 +221,7 @@ func TestDelete(t *testing.T) {
 	}
 
 	hash := trie.Hash()
-	exp, _ := thor.ParseBytes32("79a9b42da0e261b9f3ca9e78560ac8d486bcce2da8a5ddb2df8721d4c0dc2d0a")
+	exp, _ := meter.ParseBytes32("79a9b42da0e261b9f3ca9e78560ac8d486bcce2da8a5ddb2df8721d4c0dc2d0a")
 	if hash != exp {
 		t.Errorf("expected %v got %v", exp, hash)
 	}
@@ -245,7 +245,7 @@ func TestEmptyValues(t *testing.T) {
 	}
 
 	hash := trie.Hash()
-	exp, _ := thor.ParseBytes32("79a9b42da0e261b9f3ca9e78560ac8d486bcce2da8a5ddb2df8721d4c0dc2d0a")
+	exp, _ := meter.ParseBytes32("79a9b42da0e261b9f3ca9e78560ac8d486bcce2da8a5ddb2df8721d4c0dc2d0a")
 	if hash != exp {
 		t.Errorf("expected %v got %v", exp, hash)
 	}
@@ -410,7 +410,7 @@ func (randTest) Generate(r *rand.Rand, size int) reflect.Value {
 
 func runRandTest(rt randTest) bool {
 	db := ethdb.NewMemDatabase()
-	tr, _ := New(thor.Bytes32{}, db)
+	tr, _ := New(meter.Bytes32{}, db)
 	values := make(map[string]string) // tracks content of the trie
 
 	for i, step := range rt {
@@ -444,7 +444,7 @@ func runRandTest(rt randTest) bool {
 			}
 			tr = newtr
 		case opItercheckhash:
-			checktr, _ := New(thor.Bytes32{}, nil)
+			checktr, _ := New(meter.Bytes32{}, nil)
 			it := NewIterator(tr.NodeIterator(nil))
 			for it.Next() {
 				checktr.Update(it.Key, it.Value)
@@ -517,7 +517,7 @@ func benchGet(b *testing.B, commit bool) {
 	trie := new(Trie)
 	if commit {
 		_, tmpdb := tempDB()
-		trie, _ = New(thor.Bytes32{}, tmpdb)
+		trie, _ = New(meter.Bytes32{}, tmpdb)
 	}
 	k := make([]byte, 32)
 	for i := 0; i < benchElemCount; i++ {
@@ -580,7 +580,7 @@ func BenchmarkHash(b *testing.B) {
 	// Insert the accounts into the trie and hash it
 	trie := newEmpty()
 	for i := 0; i < len(addresses); i++ {
-		trie.Update(thor.Blake2b(addresses[i][:]).Bytes(), accounts[i])
+		trie.Update(meter.Blake2b(addresses[i][:]).Bytes(), accounts[i])
 	}
 	b.ResetTimer()
 	b.ReportAllocs()

@@ -4,7 +4,7 @@ import (
 	"bytes"
 
 	"github.com/ethereum/go-ethereum/rlp"
-	"github.com/vechain/thor/thor"
+	"github.com/dfinlab/meter/meter"
 )
 
 // see "github.com/ethereum/go-ethereum/types/derive_sha.go"
@@ -14,7 +14,7 @@ type DerivableList interface {
 	GetRlp(i int) []byte
 }
 
-func DeriveRoot(list DerivableList) thor.Bytes32 {
+func DeriveRoot(list DerivableList) meter.Bytes32 {
 	keybuf := new(bytes.Buffer)
 	trie := new(Trie)
 	for i := 0; i < list.Len(); i++ {

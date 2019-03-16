@@ -11,12 +11,12 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
-	"github.com/vechain/thor/block"
-	"github.com/vechain/thor/chain"
-	"github.com/vechain/thor/runtime"
-	"github.com/vechain/thor/state"
-	"github.com/vechain/thor/thor"
-	"github.com/vechain/thor/tx"
+	"github.com/dfinlab/meter/block"
+	"github.com/dfinlab/meter/chain"
+	"github.com/dfinlab/meter/runtime"
+	"github.com/dfinlab/meter/state"
+	"github.com/dfinlab/meter/meter"
+	"github.com/dfinlab/meter/tx"
 )
 
 type txObject struct {
@@ -41,7 +41,7 @@ func resolveTx(tx *tx.Transaction) (*txObject, error) {
 	}, nil
 }
 
-func (o *txObject) Origin() thor.Address {
+func (o *txObject) Origin() meter.Address {
 	return o.resolved.Origin
 }
 
@@ -51,7 +51,7 @@ func (o *txObject) Executable(chain *chain.Chain, state *state.State, headBlock 
 		return false, errors.New("gas too large")
 	case o.IsExpired(headBlock.Number()):
 		return false, errors.New("expired")
-	case o.BlockRef().Number() > headBlock.Number()+uint32(3600*24/thor.BlockInterval):
+	case o.BlockRef().Number() > headBlock.Number()+uint32(3600*24/meter.BlockInterval):
 		return false, errors.New("block ref out of schedule")
 	}
 
@@ -83,7 +83,7 @@ func (o *txObject) Executable(chain *chain.Chain, state *state.State, headBlock 
 	checkpoint := state.NewCheckpoint()
 	defer state.RevertTo(checkpoint)
 
-	if _, _, _, _, err := o.resolved.BuyGas(state, headBlock.Timestamp()+thor.BlockInterval); err != nil {
+	if _, _, _, _, err := o.resolved.BuyGas(state, headBlock.Timestamp()+meter.BlockInterval); err != nil {
 		return false, err
 	}
 	return true, nil

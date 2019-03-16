@@ -7,12 +7,12 @@ package abi
 
 import (
 	ethabi "github.com/ethereum/go-ethereum/accounts/abi"
-	"github.com/vechain/thor/thor"
+	"github.com/dfinlab/meter/meter"
 )
 
 // Event see abi.Event in go-ethereum.
 type Event struct {
-	id                 thor.Bytes32
+	id                 meter.Bytes32
 	event              *ethabi.Event
 	argsWithoutIndexed ethabi.Arguments
 }
@@ -25,14 +25,14 @@ func newEvent(event *ethabi.Event) *Event {
 		}
 	}
 	return &Event{
-		thor.Bytes32(event.Id()),
+		meter.Bytes32(event.Id()),
 		event,
 		argsWithoutIndexed,
 	}
 }
 
 // ID returns event id.
-func (e *Event) ID() thor.Bytes32 {
+func (e *Event) ID() meter.Bytes32 {
 	return e.id
 }
 

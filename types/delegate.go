@@ -11,21 +11,21 @@ import (
 
 	"github.com/ethereum/go-ethereum/crypto"
 	//"github.com/ethereum/go-ethereum/rlp"
-	//"github.com/vechain/thor/block"
-	//"github.com/vechain/thor/chain"
-	cmn "github.com/vechain/thor/libs/common"
-	"github.com/vechain/thor/thor"
-	//"github.com/vechain/thor/runtime"
-	//"github.com/vechain/thor/state"
-	//"github.com/vechain/thor/tx"
-	//"github.com/vechain/thor/xenv"
+	//"github.com/dfinlab/meter/block"
+	//"github.com/dfinlab/meter/chain"
+	cmn "github.com/dfinlab/meter/libs/common"
+	"github.com/dfinlab/meter/meter"
+	//"github.com/dfinlab/meter/runtime"
+	//"github.com/dfinlab/meter/state"
+	//"github.com/dfinlab/meter/tx"
+	//"github.com/dfinlab/meter/xenv"
 )
 
 // Volatile state for each Delegate
 // NOTE: The Accum is not included in Delegate.Hash();
 // make sure to update that method if changes are made here
 type Delegate struct {
-	Address     thor.Address    `json:"address"`
+	Address     meter.Address    `json:"address"`
 	PubKey      ecdsa.PublicKey `json:"pub_key"`
 	VotingPower int64           `json:"voting_power"`
 	NetAddr     NetAddress      `json:"network_addr"`
@@ -35,7 +35,7 @@ type Delegate struct {
 
 func NewDelegate(pubKey ecdsa.PublicKey, votingPower int64) *Delegate {
 	return &Delegate{
-		Address:     thor.Address(crypto.PubkeyToAddress(pubKey)),
+		Address:     meter.Address(crypto.PubkeyToAddress(pubKey)),
 		PubKey:      pubKey,
 		VotingPower: votingPower,
 		Accum:       0,

@@ -24,12 +24,12 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethdb"
-	"github.com/vechain/thor/thor"
+	"github.com/dfinlab/meter/meter"
 )
 
 func newEmptySecure() *SecureTrie {
 	db := ethdb.NewMemDatabase()
-	trie, _ := NewSecure(thor.Bytes32{}, db, 0)
+	trie, _ := NewSecure(meter.Bytes32{}, db, 0)
 	return trie
 }
 
@@ -37,7 +37,7 @@ func newEmptySecure() *SecureTrie {
 func makeTestSecureTrie() (ethdb.Database, *SecureTrie, map[string][]byte) {
 	// Create an empty trie
 	db := ethdb.NewMemDatabase()
-	trie, _ := NewSecure(thor.Bytes32{}, db, 0)
+	trie, _ := NewSecure(meter.Bytes32{}, db, 0)
 
 	// Fill it with some arbitrary data
 	content := make(map[string][]byte)
@@ -84,7 +84,7 @@ func TestSecureDelete(t *testing.T) {
 		}
 	}
 	hash := trie.Hash()
-	exp, _ := thor.ParseBytes32("30fdcda4361594056bef1527ce3d71f7fb38a46a5f6cb0369d52d4a6ffb95f2a")
+	exp, _ := meter.ParseBytes32("30fdcda4361594056bef1527ce3d71f7fb38a46a5f6cb0369d52d4a6ffb95f2a")
 	if hash != exp {
 		t.Errorf("expected %v got %v", exp, hash)
 	}
@@ -96,7 +96,7 @@ func TestSecureGetKey(t *testing.T) {
 
 	key := []byte("foo")
 	value := []byte("bar")
-	seckey := thor.Blake2b(key).Bytes()
+	seckey := meter.Blake2b(key).Bytes()
 
 	if !bytes.Equal(trie.Get(key), value) {
 		t.Errorf("Get did not return bar")

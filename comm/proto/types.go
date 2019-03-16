@@ -9,19 +9,19 @@ import (
 	"context"
 
 	"github.com/ethereum/go-ethereum/rlp"
-	"github.com/vechain/thor/block"
-	"github.com/vechain/thor/powpool"
-	"github.com/vechain/thor/thor"
-	"github.com/vechain/thor/tx"
+	"github.com/dfinlab/meter/block"
+	"github.com/dfinlab/meter/powpool"
+	"github.com/dfinlab/meter/meter"
+	"github.com/dfinlab/meter/tx"
 )
 
 type (
 
 	// Status result of MsgGetStatus.
 	Status struct {
-		GenesisBlockID thor.Bytes32
+		GenesisBlockID meter.Bytes32
 		SysTimestamp   uint64
-		BestBlockID    thor.Bytes32
+		BestBlockID    meter.Bytes32
 		TotalScore     uint64
 	}
 )
@@ -42,7 +42,7 @@ func GetStatus(ctx context.Context, rpc RPC) (*Status, error) {
 }
 
 // NotifyNewBlockID notify new block ID to remote peer.
-func NotifyNewBlockID(ctx context.Context, rpc RPC, id thor.Bytes32) error {
+func NotifyNewBlockID(ctx context.Context, rpc RPC, id meter.Bytes32) error {
 	return rpc.Notify(ctx, MsgNewBlockID, &id)
 }
 
@@ -63,7 +63,7 @@ func NotifyNewPowBlock(ctx context.Context, rpc RPC, powBlockInfo *powpool.PowBl
 
 // GetBlockByID query block from remote peer by given block ID.
 // It may return nil block even no error.
-func GetBlockByID(ctx context.Context, rpc RPC, id thor.Bytes32) (rlp.RawValue, error) {
+func GetBlockByID(ctx context.Context, rpc RPC, id meter.Bytes32) (rlp.RawValue, error) {
 	var result []rlp.RawValue
 	if err := rpc.Call(ctx, MsgGetBlockByID, id, &result); err != nil {
 		return nil, err
@@ -75,10 +75,10 @@ func GetBlockByID(ctx context.Context, rpc RPC, id thor.Bytes32) (rlp.RawValue, 
 }
 
 // GetBlockIDByNumber query block ID from remote peer by given number.
-func GetBlockIDByNumber(ctx context.Context, rpc RPC, num uint32) (thor.Bytes32, error) {
-	var id thor.Bytes32
+func GetBlockIDByNumber(ctx context.Context, rpc RPC, num uint32) (meter.Bytes32, error) {
+	var id meter.Bytes32
 	if err := rpc.Call(ctx, MsgGetBlockIDByNumber, num, &id); err != nil {
-		return thor.Bytes32{}, err
+		return meter.Bytes32{}, err
 	}
 	return id, nil
 }

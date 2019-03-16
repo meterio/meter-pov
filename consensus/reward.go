@@ -10,20 +10,20 @@ import (
 	"fmt"
 	// "math/big"
 
-	//"github.com/vechain/thor/runtime"
-	//"github.com/vechain/thor/state"
-	//"github.com/vechain/thor/thor"
-	"github.com/vechain/thor/powpool"
-	"github.com/vechain/thor/tx"
-	//"github.com/vechain/thor/txpool"
+	//"github.com/dfinlab/meter/runtime"
+	//"github.com/dfinlab/meter/state"
+	//"github.com/dfinlab/meter/meter"
+	"github.com/dfinlab/meter/powpool"
+	"github.com/dfinlab/meter/tx"
+	//"github.com/dfinlab/meter/txpool"
 )
 
 func (conR *ConsensusReactor) GetKBlockRewardTxs(rewards []powpool.PowReward) tx.Transactions {
 	/****
-	executor, _ := thor.ParseAddress("0xd1e56316b6472cbe9897a577a0f3826932e95863")
-	account0, _ := thor.ParseAddress("0x1de8ca2f973d026300af89041b0ecb1c0803a7e6")
+	executor, _ := meter.ParseAddress("0xd1e56316b6472cbe9897a577a0f3826932e95863")
+	account0, _ := meter.ParseAddress("0x1de8ca2f973d026300af89041b0ecb1c0803a7e6")
 
-	rewarders := append([]thor.Address{}, executor)
+	rewarders := append([]meter.Address{}, executor)
 	rewarders = append(rewarders, account0)
 	****/
 	trx := conR.MinerRewards(rewards)

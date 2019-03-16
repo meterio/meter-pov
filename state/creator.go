@@ -6,8 +6,8 @@
 package state
 
 import (
-	"github.com/vechain/thor/kv"
-	"github.com/vechain/thor/thor"
+	"github.com/dfinlab/meter/kv"
+	"github.com/dfinlab/meter/meter"
 )
 
 // Creator state creator to cut-off kv dependency.
@@ -21,6 +21,6 @@ func NewCreator(kv kv.GetPutter) *Creator {
 }
 
 // NewState create a new state object.
-func (c *Creator) NewState(root thor.Bytes32) (*State, error) {
+func (c *Creator) NewState(root meter.Bytes32) (*State, error) {
 	return New(root, c.kv)
 }

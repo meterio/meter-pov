@@ -16,15 +16,15 @@ import (
 	"github.com/ethereum/go-ethereum/event"
 	"github.com/ethereum/go-ethereum/p2p"
 	"github.com/inconshreveable/log15"
-	"github.com/vechain/thor/block"
-	"github.com/vechain/thor/chain"
-	"github.com/vechain/thor/co"
-	"github.com/vechain/thor/comm/proto"
-	"github.com/vechain/thor/p2psrv"
-	"github.com/vechain/thor/powpool"
-	"github.com/vechain/thor/thor"
-	"github.com/vechain/thor/tx"
-	"github.com/vechain/thor/txpool"
+	"github.com/dfinlab/meter/block"
+	"github.com/dfinlab/meter/chain"
+	"github.com/dfinlab/meter/co"
+	"github.com/dfinlab/meter/comm/proto"
+	"github.com/dfinlab/meter/p2psrv"
+	"github.com/dfinlab/meter/powpool"
+	"github.com/dfinlab/meter/meter"
+	"github.com/dfinlab/meter/tx"
+	"github.com/dfinlab/meter/txpool"
 )
 
 var (
@@ -96,7 +96,7 @@ func (c *Communicator) Sync(handler HandleBlockStream) {
 		shouldSynced := func() bool {
 			bestBlockTime := c.chain.BestBlock().Header().Timestamp()
 			now := uint64(time.Now().Unix())
-			if bestBlockTime+thor.BlockInterval >= now {
+			if bestBlockTime+meter.BlockInterval >= now {
 				return true
 			}
 			if syncCount > 2 {
@@ -218,7 +218,7 @@ func (c *Communicator) runPeer(peer *Peer) {
 	if localClock < remoteClock {
 		diff = remoteClock - localClock
 	}
-	if diff > thor.BlockInterval*2 {
+	if diff > meter.BlockInterval*2 {
 		peer.logger.Debug("failed to handshake", "err", "sys time diff too large")
 		return
 	}

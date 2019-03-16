@@ -14,14 +14,14 @@ import (
 
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/rlp"
-	. "github.com/vechain/thor/block"
-	"github.com/vechain/thor/thor"
-	"github.com/vechain/thor/tx"
+	. "github.com/dfinlab/meter/block"
+	"github.com/dfinlab/meter/meter"
+	"github.com/dfinlab/meter/tx"
 
 	// "crypto/rand"
-	// cmn "github.com/vechain/thor/libs/common"
+	// cmn "github.com/dfinlab/meter/libs/common"
 
-	"github.com/vechain/thor/types"
+	"github.com/dfinlab/meter/types"
 )
 
 func TestSerialize(t *testing.T) {
@@ -42,7 +42,7 @@ func TestSerialize(t *testing.T) {
 
 func TestBlock(t *testing.T) {
 
-	tx1 := new(tx.Builder).Clause(tx.NewClause(&thor.Address{})).Clause(tx.NewClause(&thor.Address{})).Build()
+	tx1 := new(tx.Builder).Clause(tx.NewClause(&meter.Address{})).Clause(tx.NewClause(&meter.Address{})).Build()
 	tx2 := new(tx.Builder).Clause(tx.NewClause(nil)).Build()
 
 	privKey := string("dce1443bd2ef0c2631adc1c67e5c93f13dc23a41c18b536effbbdcbcdb96fb65")
@@ -53,8 +53,8 @@ func TestBlock(t *testing.T) {
 		gasUsed     uint64       = 1000
 		gasLimit    uint64       = 14000
 		totalScore  uint64       = 101
-		emptyRoot   thor.Bytes32 = thor.BytesToBytes32([]byte("0"))
-		beneficiary thor.Address = thor.BytesToAddress([]byte("abc"))
+		emptyRoot   meter.Bytes32 = meter.BytesToBytes32([]byte("0"))
+		beneficiary meter.Address = meter.BytesToAddress([]byte("abc"))
 	)
 
 	block := new(Builder).

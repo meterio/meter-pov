@@ -10,21 +10,21 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/dfinlab/meter/block"
+	"github.com/dfinlab/meter/chain"
+	"github.com/dfinlab/meter/co"
+	"github.com/dfinlab/meter/genesis"
+	"github.com/dfinlab/meter/logdb"
+	"github.com/dfinlab/meter/meter"
+	"github.com/dfinlab/meter/packer"
+	"github.com/dfinlab/meter/state"
+	"github.com/dfinlab/meter/tx"
+	"github.com/dfinlab/meter/txpool"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/mclock"
 	"github.com/ethereum/go-ethereum/event"
 	"github.com/inconshreveable/log15"
 	"github.com/pkg/errors"
-	"github.com/vechain/thor/block"
-	"github.com/vechain/thor/chain"
-	"github.com/vechain/thor/co"
-	"github.com/vechain/thor/genesis"
-	"github.com/vechain/thor/logdb"
-	"github.com/vechain/thor/packer"
-	"github.com/vechain/thor/state"
-	"github.com/vechain/thor/thor"
-	"github.com/vechain/thor/tx"
-	"github.com/vechain/thor/txpool"
 )
 
 var log = log15.New()
@@ -118,7 +118,7 @@ func (s *Solo) loop(ctx context.Context) {
 
 func (s *Solo) packing(pendingTxs tx.Transactions) error {
 	best := s.chain.BestBlock()
-	var txsToRemove []thor.Bytes32
+	var txsToRemove []meter.Bytes32
 	defer func() {
 		for _, id := range txsToRemove {
 			s.txPool.Remove(id)

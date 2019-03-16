@@ -9,25 +9,25 @@ import (
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/rlp"
-	"github.com/vechain/thor/state"
-	"github.com/vechain/thor/thor"
+	"github.com/dfinlab/meter/state"
+	"github.com/dfinlab/meter/meter"
 )
 
 var (
-	initialSupplyKey = thor.Blake2b([]byte("initial-supply"))
-	totalAddSubKey   = thor.Blake2b([]byte("total-add-sub"))
-	tokenTotalAddSubKey = thor.Blake2b([]byte("token-total-add-sub"))
+	initialSupplyKey = meter.Blake2b([]byte("initial-supply"))
+	totalAddSubKey   = meter.Blake2b([]byte("total-add-sub"))
+	tokenTotalAddSubKey = meter.Blake2b([]byte("token-total-add-sub"))
 )
 
 // Energy implements energy operations.
 type Energy struct {
-	addr      thor.Address
+	addr      meter.Address
 	state     *state.State
 	blockTime uint64
 }
 
 // New creates a new energy instance.
-func New(addr thor.Address, state *state.State, blockTime uint64) *Energy {
+func New(addr meter.Address, state *state.State, blockTime uint64) *Energy {
 	return &Energy{addr, state, blockTime}
 }
 
@@ -147,7 +147,7 @@ func (e *Energy) TotalBurned() *big.Int {
 
 ///////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////
-func (e *Energy) MintMeter(addr thor.Address, amount *big.Int) {
+func (e *Energy) MintMeter(addr meter.Address, amount *big.Int) {
 	if amount.Sign() == 0 {
 		return
 	}
@@ -161,7 +161,7 @@ func (e *Energy) MintMeter(addr thor.Address, amount *big.Int) {
 	e.state.SetEnergy(addr, new(big.Int).Add(meter, amount), e.blockTime)
 }
 
-func (e *Energy) BurnMeter(addr thor.Address, amount *big.Int){
+func (e *Energy) BurnMeter(addr meter.Address, amount *big.Int){
 	if amount.Sign() == 0 {
 		return 
 	}
@@ -180,7 +180,7 @@ func (e *Energy) BurnMeter(addr thor.Address, amount *big.Int){
 }
 
 //Meter Gov
-func (e *Energy) MintMeterGov(addr thor.Address, amount *big.Int) {
+func (e *Energy) MintMeterGov(addr meter.Address, amount *big.Int) {
 	if amount.Sign() == 0 {
 		return
 	}
@@ -194,7 +194,7 @@ func (e *Energy) MintMeterGov(addr thor.Address, amount *big.Int) {
 	e.state.SetBalance(addr, new(big.Int).Add(gov, amount))
 }
 
-func (e *Energy) BurnMeterGov(addr thor.Address, amount *big.Int){
+func (e *Energy) BurnMeterGov(addr meter.Address, amount *big.Int){
 	if amount.Sign() == 0 {
 		return 
 	}
@@ -215,12 +215,12 @@ func (e *Energy) BurnMeterGov(addr thor.Address, amount *big.Int){
 
 ////////////////////////////////////////////////////////
 // Get returns energy of an account at given block time.
-func (e *Energy) Get(addr thor.Address) *big.Int {
+func (e *Energy) Get(addr meter.Address) *big.Int {
 	return e.state.GetEnergy(addr, e.blockTime)
 }
 
 // Add add amount of energy to given address.
-func (e *Energy) Add(addr thor.Address, amount *big.Int) {
+func (e *Energy) Add(addr meter.Address, amount *big.Int) {
 	if amount.Sign() == 0 {
 		return
 	}
@@ -235,7 +235,7 @@ func (e *Energy) Add(addr thor.Address, amount *big.Int) {
 
 // Sub sub amount of energy from given address.
 // False is returned if no enough energy.
-func (e *Energy) Sub(addr thor.Address, amount *big.Int) bool {
+func (e *Energy) Sub(addr meter.Address, amount *big.Int) bool {
 	if amount.Sign() == 0 {
 		return true
 	}

@@ -18,15 +18,15 @@ import (
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/gorilla/mux"
 	"github.com/pkg/errors"
-	"github.com/vechain/thor/api/utils"
-	"github.com/vechain/thor/chain"
-	"github.com/vechain/thor/consensus"
-	"github.com/vechain/thor/runtime"
-	"github.com/vechain/thor/state"
-	"github.com/vechain/thor/thor"
-	"github.com/vechain/thor/tracers"
-	"github.com/vechain/thor/trie"
-	"github.com/vechain/thor/vm"
+	"github.com/dfinlab/meter/api/utils"
+	"github.com/dfinlab/meter/chain"
+	"github.com/dfinlab/meter/consensus"
+	"github.com/dfinlab/meter/runtime"
+	"github.com/dfinlab/meter/state"
+	"github.com/dfinlab/meter/meter"
+	"github.com/dfinlab/meter/tracers"
+	"github.com/dfinlab/meter/trie"
+	"github.com/dfinlab/meter/vm"
 )
 
 type Debug struct {
@@ -41,7 +41,7 @@ func New(chain *chain.Chain, stateC *state.Creator) *Debug {
 	}
 }
 
-func (d *Debug) handleTxEnv(ctx context.Context, blockID thor.Bytes32, txIndex uint64, clauseIndex uint64) (*runtime.Runtime, *runtime.TransactionExecutor, error) {
+func (d *Debug) handleTxEnv(ctx context.Context, blockID meter.Bytes32, txIndex uint64, clauseIndex uint64) (*runtime.Runtime, *runtime.TransactionExecutor, error) {
 	block, err := d.chain.GetBlock(blockID)
 	if err != nil {
 		if d.chain.IsNotFound(err) {
@@ -99,7 +99,7 @@ func (d *Debug) handleTxEnv(ctx context.Context, blockID thor.Bytes32, txIndex u
 }
 
 //trace an existed transaction
-func (d *Debug) traceTransaction(ctx context.Context, tracer vm.Tracer, blockID thor.Bytes32, txIndex uint64, clauseIndex uint64) (interface{}, error) {
+func (d *Debug) traceTransaction(ctx context.Context, tracer vm.Tracer, blockID meter.Bytes32, txIndex uint64, clauseIndex uint64) (interface{}, error) {
 	rt, txExec, err := d.handleTxEnv(ctx, blockID, txIndex, clauseIndex)
 	if err != nil {
 		return nil, err
@@ -161,7 +161,7 @@ func (d *Debug) handleTraceTransaction(w http.ResponseWriter, req *http.Request)
 	return utils.WriteJSON(w, res)
 }
 
-func (d *Debug) debugStorage(ctx context.Context, contractAddress thor.Address, blockID thor.Bytes32, txIndex uint64, clauseIndex uint64, keyStart []byte, maxResult int) (*StorageRangeResult, error) {
+func (d *Debug) debugStorage(ctx context.Context, contractAddress meter.Address, blockID meter.Bytes32, txIndex uint64, clauseIndex uint64, keyStart []byte, maxResult int) (*StorageRangeResult, error) {
 	rt, _, err := d.handleTxEnv(ctx, blockID, txIndex, clauseIndex)
 	if err != nil {
 		return nil, err
@@ -181,16 +181,16 @@ func storageRangeAt(t *trie.SecureTrie, start []byte, maxResult int) (*StorageRa
 		if err != nil {
 			return nil, err
 		}
-		v := thor.BytesToBytes32(content)
+		v := meter.BytesToBytes32(content)
 		e := StorageEntry{Value: &v}
 		if preimage := t.GetKey(it.Key); preimage != nil {
-			preimage := thor.BytesToBytes32(preimage)
+			preimage := meter.BytesToBytes32(preimage)
 			e.Key = &preimage
 		}
-		result.Storage[thor.BytesToBytes32(it.Key).String()] = e
+		result.Storage[meter.BytesToBytes32(it.Key).String()] = e
 	}
 	if it.Next() {
-		next := thor.BytesToBytes32(it.Key)
+		next := meter.BytesToBytes32(it.Key)
 		result.NextKey = &next
 	}
 	return &result, nil
@@ -223,38 +223,38 @@ func (d *Debug) handleDebugStorage(w http.ResponseWriter, req *http.Request) err
 	return utils.WriteJSON(w, res)
 }
 
-func (d *Debug) parseTarget(target string) (blockID thor.Bytes32, txIndex uint64, clauseIndex uint64, err error) {
+func (d *Debug) parseTarget(target string) (blockID meter.Bytes32, txIndex uint64, clauseIndex uint64, err error) {
 	parts := strings.Split(target, "/")
 	if len(parts) != 3 {
-		return thor.Bytes32{}, 0, 0, utils.BadRequest(errors.New("target:" + target + " unsupported"))
+		return meter.Bytes32{}, 0, 0, utils.BadRequest(errors.New("target:" + target + " unsupported"))
 	}
-	blockID, err = thor.ParseBytes32(parts[0])
+	blockID, err = meter.ParseBytes32(parts[0])
 	if err != nil {
-		return thor.Bytes32{}, 0, 0, utils.BadRequest(errors.WithMessage(err, "target[0]"))
+		return meter.Bytes32{}, 0, 0, utils.BadRequest(errors.WithMessage(err, "target[0]"))
 	}
 	if len(parts[1]) == 64 || len(parts[1]) == 66 {
-		txID, err := thor.ParseBytes32(parts[1])
+		txID, err := meter.ParseBytes32(parts[1])
 		if err != nil {
-			return thor.Bytes32{}, 0, 0, utils.BadRequest(errors.WithMessage(err, "target[1]"))
+			return meter.Bytes32{}, 0, 0, utils.BadRequest(errors.WithMessage(err, "target[1]"))
 		}
 		txMeta, err := d.chain.GetTransactionMeta(txID, blockID)
 		if err != nil {
 			if d.chain.IsNotFound(err) {
-				return thor.Bytes32{}, 0, 0, utils.Forbidden(errors.New("transaction not found"))
+				return meter.Bytes32{}, 0, 0, utils.Forbidden(errors.New("transaction not found"))
 			}
-			return thor.Bytes32{}, 0, 0, err
+			return meter.Bytes32{}, 0, 0, err
 		}
 		txIndex = txMeta.Index
 	} else {
 		i, err := strconv.ParseUint(parts[1], 0, 0)
 		if err != nil {
-			return thor.Bytes32{}, 0, 0, utils.BadRequest(errors.WithMessage(err, "target[1]"))
+			return meter.Bytes32{}, 0, 0, utils.BadRequest(errors.WithMessage(err, "target[1]"))
 		}
 		txIndex = i
 	}
 	clauseIndex, err = strconv.ParseUint(parts[2], 0, 0)
 	if err != nil {
-		return thor.Bytes32{}, 0, 0, utils.BadRequest(errors.WithMessage(err, "target[2]"))
+		return meter.Bytes32{}, 0, 0, utils.BadRequest(errors.WithMessage(err, "target[2]"))
 	}
 	return
 }

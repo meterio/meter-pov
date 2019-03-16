@@ -6,8 +6,8 @@
 package subscriptions
 
 import (
-	"github.com/vechain/thor/chain"
-	"github.com/vechain/thor/thor"
+	"github.com/dfinlab/meter/chain"
+	"github.com/dfinlab/meter/meter"
 )
 
 type eventReader struct {
@@ -16,7 +16,7 @@ type eventReader struct {
 	blockReader chain.BlockReader
 }
 
-func newEventReader(chain *chain.Chain, position thor.Bytes32, filter *EventFilter) *eventReader {
+func newEventReader(chain *chain.Chain, position meter.Bytes32, filter *EventFilter) *eventReader {
 	return &eventReader{
 		chain:       chain,
 		filter:      filter,

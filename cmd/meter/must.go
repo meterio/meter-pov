@@ -22,18 +22,18 @@ import (
 	"github.com/ethereum/go-ethereum/p2p/nat"
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/inconshreveable/log15"
-	"github.com/vechain/thor/chain"
-	"github.com/vechain/thor/cmd/thor/node"
-	"github.com/vechain/thor/co"
-	"github.com/vechain/thor/comm"
-	"github.com/vechain/thor/genesis"
-	"github.com/vechain/thor/logdb"
-	"github.com/vechain/thor/lvldb"
-	"github.com/vechain/thor/p2psrv"
-	"github.com/vechain/thor/powpool"
-	"github.com/vechain/thor/state"
-	"github.com/vechain/thor/thor"
-	"github.com/vechain/thor/txpool"
+	"github.com/dfinlab/meter/chain"
+	"github.com/dfinlab/meter/cmd/meter/node"
+	"github.com/dfinlab/meter/co"
+	"github.com/dfinlab/meter/comm"
+	"github.com/dfinlab/meter/genesis"
+	"github.com/dfinlab/meter/logdb"
+	"github.com/dfinlab/meter/lvldb"
+	"github.com/dfinlab/meter/p2psrv"
+	"github.com/dfinlab/meter/powpool"
+	"github.com/dfinlab/meter/state"
+	"github.com/dfinlab/meter/meter"
+	"github.com/dfinlab/meter/txpool"
 	cli "gopkg.in/urfave/cli.v1"
 
 	"github.com/ethereum/go-ethereum/p2p/discover"
@@ -146,7 +146,7 @@ func initChain(gene *genesis.Genesis, mainDB *lvldb.LevelDB, logDB *logdb.LogDB)
 	fmt.Println("GENESIS BLOCK:\n", genesisBlock)
 
 	if err := logDB.Prepare(genesisBlock.Header()).
-		ForTransaction(thor.Bytes32{}, thor.Address{}).
+		ForTransaction(meter.Bytes32{}, meter.Address{}).
 		Insert(genesisEvents, nil).Commit(); err != nil {
 		fatal("write genesis events: ", err)
 	}
@@ -163,12 +163,12 @@ func publicKeyPath(ctx *cli.Context) string {
 	return filepath.Join(configDir, "public.key")
 }
 
-func beneficiary(ctx *cli.Context) *thor.Address {
+func beneficiary(ctx *cli.Context) *meter.Address {
 	value := ctx.String(beneficiaryFlag.Name)
 	if value == "" {
 		return nil
 	}
-	addr, err := thor.ParseAddress(value)
+	addr, err := meter.ParseAddress(value)
 	if err != nil {
 		fatal("invalid beneficiary:", err)
 	}
@@ -281,7 +281,7 @@ func (p *p2pComm) Stop() {
 	}
 }
 
-func startAPIServer(ctx *cli.Context, handler http.Handler, genesisID thor.Bytes32) (string, func()) {
+func startAPIServer(ctx *cli.Context, handler http.Handler, genesisID meter.Bytes32) (string, func()) {
 	addr := ctx.String(apiAddrFlag.Name)
 	listener, err := net.Listen("tcp", addr)
 	if err != nil {
@@ -350,7 +350,7 @@ func printStartupMessage(
 		common.MakeName("Thor", fullVersion()),
 		gene.ID(), gene.Name(),
 		bestBlock.Header().ID(), bestBlock.Header().Number(), time.Unix(int64(bestBlock.Header().Timestamp()), 0),
-		thor.GetForkConfig(gene.ID()),
+		meter.GetForkConfig(gene.ID()),
 		master.Address(),
 		func() string {
 			if master.Beneficiary == nil {
@@ -404,7 +404,7 @@ func printSoloStartupMessage(
 		common.MakeName("Thor solo", fullVersion()),
 		gene.ID(), gene.Name(),
 		bestBlock.Header().ID(), bestBlock.Header().Number(), time.Unix(int64(bestBlock.Header().Timestamp()), 0),
-		thor.GetForkConfig(gene.ID()),
+		meter.GetForkConfig(gene.ID()),
 		dataDir,
 		apiURL)
 
@@ -413,7 +413,7 @@ func printSoloStartupMessage(
 	for _, a := range genesis.DevAccounts() {
 		info += fmt.Sprintf(tableContent,
 			a.Address,
-			thor.BytesToBytes32(crypto.FromECDSA(a.PrivateKey)),
+			meter.BytesToBytes32(crypto.FromECDSA(a.PrivateKey)),
 		)
 	}
 	info += tableEnd + "\r\n"
