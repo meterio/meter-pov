@@ -119,15 +119,15 @@ func (p *PowPool) InitialAddKframe(newPowBlockInfo *PowBlockInfo) error {
 	powObj := NewPowObject(newPowBlockInfo)
 	p.powFeed.Send(&PowBlockEvent{BlockInfo: newPowBlockInfo})
 	// XXX: send block to POW
-	raw := newPowBlockInfo.Raw
-	blks := bytes.Split(raw, []byte{0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff})
-	if len(blks) == 2 {
-		powHex := hex.EncodeToString(blks[0])
-		posHex := hex.EncodeToString(blks[1])
-		go p.submitPosKblock(powHex, posHex)
-	} else {
-		fmt.Println("not enough items in raw block")
-	}
+	// raw := newPowBlockInfo.Raw
+	// blks := bytes.Split(raw, []byte{0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff})
+	// if len(blks) == 2 {
+	powHex := hex.EncodeToString(newPowBlockInfo.PowRaw)
+	posHex := hex.EncodeToString(newPowBlockInfo.PosRaw)
+	go p.submitPosKblock(powHex, posHex)
+	// } else {
+	// fmt.Println("not enough items in raw block")
+	// }
 
 	return p.all.InitialAddKframe(powObj)
 }

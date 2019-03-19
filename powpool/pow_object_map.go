@@ -161,7 +161,7 @@ func (m *powObjectMap) FillLatestObjChain(obj *powObject) (*PowResult, error) {
 
 	result.Rewards = append(result.Rewards, *reward)
 	result.Difficaulties = result.Difficaulties.Add(result.Difficaulties, difficaulty)
-	result.Raw = append(result.Raw, obj.blockInfo.Raw)
+	result.Raw = append(result.Raw, obj.blockInfo.PowRaw)
 
 	prev := m.Get(obj.blockInfo.HashPrevBlock)
 	interval := obj.Height() - m.lastKframePowObj.Height()
@@ -176,7 +176,7 @@ func (m *powObjectMap) FillLatestObjChain(obj *powObject) (*PowResult, error) {
 
 		result.Rewards = append(result.Rewards, *reward)
 		result.Difficaulties = result.Difficaulties.Add(result.Difficaulties, nDifficaulty)
-		result.Raw = append(result.Raw, prev.blockInfo.Raw)
+		result.Raw = append(result.Raw, prev.blockInfo.PowRaw)
 
 		prev = m.Get(prev.blockInfo.HashPrevBlock)
 		interval--

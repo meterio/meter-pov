@@ -1,17 +1,13 @@
 # Build thor in a stock Go builder container
-FROM ubuntu:18.04 as builder
-RUN apt-get update && apt-get install -y software-properties-common
-RUN add-apt-repository ppa:gophers/archive
-RUN apt-get update && apt-get -y install build-essential libgmp3-dev git curl golang-1.11-go go-dep 
-
-ENV PATH /usr/lib/go-1.11/bin:$PATH
-
-RUN mkdir -p /go/
-ENV GOPATH /go/
+FROM golang:1.11-alpine as builder
+RUN apk add --no-cache make gcc musl-dev linux-headers git curl gmp-dev
+RUN curl https://raw.githubusercontent.com/golang/dep/master/install.sh | sh
 
 WORKDIR  /thor
 
 COPY . .
+
+RUN cp /thor/crypto/multi_sig/alpine/* /thor/crypto/multi_sig/
 
 RUN make dep
 RUN go get github.com/ethereum/go-ethereum
@@ -19,11 +15,11 @@ RUN cp -r "${GOPATH}/src/github.com/ethereum/go-ethereum/crypto/secp256k1/libsec
 RUN make thor
 
 # Pull thor into a second stage deploy alpine container
-FROM ubuntu:18.04
+FROM alpine:latest
 
-# RUN apk add --no-cache ca-certificates
+RUN apk add --no-cache ca-certificates gmp-dev
 COPY --from=builder /thor/bin/thor /usr/local/bin/
-COPY --from=builder /thor/crypto/multi_sig/libpbc.so* /usr/local/lib/
+COPY --from=builder /thor/crypto/multi_sig/libpbc.* /usr/local/lib/
 ENV LD_LIBRARY_PATH=/usr/local/lib
 
 EXPOSE 8669 11223 11223/udp 11235 11235/udp 5555 8668
