@@ -32,7 +32,8 @@ const (
 var (
 	log             = log15.New("pkg", "powpool")
 	GlobPowPoolInst *PowPool
-	RewardCoef      = POW_DEFAULT_REWARD_COEF
+
+	RewardCoef int64 = POW_DEFAULT_REWARD_COEF
 )
 
 // Options options for tx pool.
