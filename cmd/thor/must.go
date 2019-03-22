@@ -224,7 +224,7 @@ func newP2PComm(ctx *cli.Context, chain *chain.Chain, txPool *txpool.TxPool, ins
 		ListenAddr:     fmt.Sprintf(":%v", ctx.Int(p2pPortFlag.Name)),
 		BootstrapNodes: bootstrapNodes,
 		NAT:            nat,
-		NoDiscovery:    false, //XXX: force to disable Discovery
+		NoDiscovery:    ctx.Bool("no-discover"), //XXX: force to disable Discovery
 	}
 
 	peersCachePath := filepath.Join(instanceDir, "peers.cache")

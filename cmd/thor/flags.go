@@ -125,11 +125,15 @@ var (
 	powUserFlag = cli.StringFlag{
 		Name:  "pow-user",
 		Usage: "user of pow node",
-		Value: "admin1",
+		Value: "testuser",
 	}
 	powPassFlag = cli.StringFlag{
 		Name:  "pow-pass",
 		Usage: "password of pow node",
-		Value: "123",
+		Value: "testpass",
+	}
+	noDiscoverFlag = cli.BoolFlag{
+		Name:  "no-discover",
+		Usage: "disable auto discovery mode",
 	}
 )
