@@ -18,9 +18,9 @@ RUN make thor
 FROM alpine:latest
 
 RUN apk add --no-cache ca-certificates gmp-dev
-COPY --from=builder /thor/bin/thor /usr/local/bin/
-COPY --from=builder /thor/crypto/multi_sig/libpbc.* /usr/local/lib/
-ENV LD_LIBRARY_PATH=/usr/local/lib
+COPY --from=builder /thor/bin/thor /usr/bin/
+COPY --from=builder /thor/crypto/multi_sig/libpbc.* /usr/lib/
+ENV LD_LIBRARY_PATH=/usr/lib
 
-EXPOSE 8669 11223 11223/udp 11235 11235/udp 5555 8668
+EXPOSE 8669 11223 11223/udp 11235 11235/udp 55555 8668
 ENTRYPOINT ["thor"]
