@@ -141,6 +141,7 @@ type RPCData struct {
 
 func (p *PowPool) submitPosKblock(powHex, posHex string) (string, string) {
 	client := &http.Client{}
+
 	data := &RPCData{
 		Jsonrpc: "1.0",
 		Id:      "test-id",
@@ -158,7 +159,12 @@ func (p *PowPool) submitPosKblock(powHex, posHex string) (string, string) {
 	req.Header.Add("Authorization", "Basic "+authToken)
 	req.Header.Set("Content-Type", "text/plain")
 
-	res, _ := client.Do(req)
+	res, err := client.Do(req)
+	if err != nil {
+		log.Warn("Post kblock failed", "url=", url)
+		return "", ""
+	}
+
 	tmp := make([]byte, 1)
 	content := make([]byte, 0)
 	i, err := res.Body.Read(tmp)
