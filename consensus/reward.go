@@ -49,8 +49,13 @@ func (conR *ConsensusReactor) MinerRewards(rewards []powpool.PowReward) *tx.Tran
 	//now build Clauses
 
 	// Only reward METER
-	for _, reward := range rewards {
+	for i, reward := range rewards {
 		builder.Clause(tx.NewClause(&reward.Rewarder).WithValue(&reward.Value).WithToken(tx.TOKEN_METER))
+		// it is possilbe that POW will give POS long list of reward under some cases, should not
+		// build long mint transaction.
+		if i >= int(2*powpool.POW_MINIMUM_HEIGHT_INTV) {
+			break
+		}
 	}
 
 	//TBD: issue 1 METER_GOV to each committee member

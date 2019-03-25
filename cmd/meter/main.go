@@ -93,6 +93,7 @@ func main() {
 			powPortFlag,
 			powUserFlag,
 			powPassFlag,
+			noDiscoverFlag,
 		},
 		Action: defaultAction,
 		Commands: []cli.Command{
