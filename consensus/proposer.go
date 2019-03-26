@@ -36,7 +36,7 @@ const (
 	COMMITTEE_PROPOSER_NOTARYSENT = byte(0x03)
 	COMMITTEE_PROPOSER_COMMITED   = byte(0x04)
 
-	PROPOSER_THRESHOLD_TIMER_TIMEOUT = 1 * time.Second //wait for reach 2/3 consensus timeout
+	PROPOSER_THRESHOLD_TIMER_TIMEOUT = 2 * time.Second //wait for reach 2/3 consensus timeout
 
 	PROPOSE_MSG_SUBTYPE_KBLOCK = byte(0x01)
 	PROPOSE_MSG_SUBTYPE_MBLOCK = byte(0x02)
@@ -481,10 +481,11 @@ func (cp *ConsensusProposer) ProcessVoteForProposal(vote4ProposalMsg *VoteForPro
 
 		cp.proposalVoterAggSig = cp.csReactor.csCommon.AggregateSign(cp.proposalVoterSig)
 
+		cp.proposalThresholdTimer.Stop()
+
 		//send out notary
 		cp.GenerateNotaryBlockMsg()
 		cp.state = COMMITTEE_PROPOSER_NOTARYSENT
-		cp.proposalThresholdTimer.Stop()
 
 		//timeout function
 		notaryBlockExpire := func() {

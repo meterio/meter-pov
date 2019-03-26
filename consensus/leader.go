@@ -29,7 +29,7 @@ const (
 	COMMITTEE_LEADER_NOTARYSENT = byte(0x03)
 	COMMITTEE_LEADER_COMMITED   = byte(0x04)
 
-	THRESHOLD_TIMER_TIMEOUT = 1 * time.Second //wait for reach 2/3 consensus timeout
+	THRESHOLD_TIMER_TIMEOUT = 2 * time.Second //wait for reach 2/3 consensus timeout
 	// 1s by default
 )
 

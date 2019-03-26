@@ -1496,11 +1496,9 @@ func (conR *ConsensusReactor) ConsensusHandleReceivedNonce(kBlockHeight int64, n
 		if replay == true {
 			if kBlockHeight == 0 {
 				conR.logger.Info("Replay", "replay from", 0)
-				//POW node already can push up all block behind the kblock. does not need replayfrom any more
 				pool.ReplayFrom(0)
 			} else {
 				conR.logger.Info("Replay", "replay from powHeight", info.PowHeight)
-				//POW node already can push up all block behind the kblock. does not need replayfrom any more
 				pool.ReplayFrom(int32(info.PowHeight))
 			}
 		}
@@ -1510,8 +1508,8 @@ func (conR *ConsensusReactor) ConsensusHandleReceivedNonce(kBlockHeight int64, n
 
 	if role == CONSENSUS_COMMIT_ROLE_LEADER {
 		conR.logger.Info("I am committee leader for nonce!", "nonce", nonce)
-		// XXX: wait a while for synchronization
-		time.Sleep(WHOLE_NETWORK_BLOCK_SYNC_TIME * time.Second)
+		// wait 30 seconds for synchronization
+		time.Sleep(6 * WHOLE_NETWORK_BLOCK_SYNC_TIME * time.Second)
 		if replay {
 			conR.ScheduleReplayLeader(0)
 		} else {
