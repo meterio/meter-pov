@@ -10,29 +10,29 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/pkg/errors"
 	"github.com/dfinlab/meter/block"
+	"github.com/pkg/errors"
 
 	//"github.com/dfinlab/meter/builtin"
 
 	//"github.com/dfinlab/meter/chain"
 	//"github.com/dfinlab/meter/poa"
 	"github.com/dfinlab/meter/comm"
+	"github.com/dfinlab/meter/meter"
 	"github.com/dfinlab/meter/powpool"
 	"github.com/dfinlab/meter/runtime"
 	"github.com/dfinlab/meter/state"
-	"github.com/dfinlab/meter/meter"
 	"github.com/dfinlab/meter/tx"
 	"github.com/dfinlab/meter/txpool"
 
 	//"github.com/dfinlab/meter/types"
-	"github.com/ethereum/go-ethereum/common/mclock"
-	crypto "github.com/ethereum/go-ethereum/crypto"
 	bls "github.com/dfinlab/meter/crypto/multi_sig"
 	cmn "github.com/dfinlab/meter/libs/common"
 	"github.com/dfinlab/meter/logdb"
 	"github.com/dfinlab/meter/packer"
 	"github.com/dfinlab/meter/xenv"
+	"github.com/ethereum/go-ethereum/common/mclock"
+	crypto "github.com/ethereum/go-ethereum/crypto"
 )
 
 // Consensus check whether the block is verified,
@@ -564,7 +564,7 @@ func (conR *ConsensusReactor) BuildCommitteeInfoFromMember(system bls.System, cm
 	cis := []block.CommitteeInfo{}
 
 	for _, cm := range cms {
-		ci := block.NewCommitteeInfo(crypto.FromECDSAPub(&cm.PubKey), uint64(cm.VotingPower), uint64(cm.Accum), cm.NetAddr,
+		ci := block.NewCommitteeInfo(crypto.FromECDSAPub(&cm.PubKey), uint64(cm.VotingPower), cm.NetAddr,
 			system.PubKeyToBytes(cm.CSPubKey), uint32(cm.CSIndex))
 		cis = append(cis, *ci)
 	}
@@ -584,6 +584,7 @@ func (conR *ConsensusReactor) BuildCommitteeMemberFromInfo(system bls.System, ci
 		cm.PubKey = *pubKey
 		cm.VotingPower = int64(ci.VotingPower)
 		cm.NetAddr = ci.NetAddr
+		cm.Address = meter.Address(crypto.PubkeyToAddress(*pubKey))
 
 		CSPubKey, err := system.PubKeyFromBytes(ci.CSPubKey)
 		if err != nil {
@@ -602,7 +603,7 @@ func (conR *ConsensusReactor) MakeBlockCommitteeInfo(system bls.System, cms []Co
 	cis := []block.CommitteeInfo{}
 
 	for _, cm := range cms {
-		ci := block.NewCommitteeInfo(crypto.FromECDSAPub(&cm.PubKey), uint64(cm.VotingPower), uint64(cm.Accum), cm.NetAddr,
+		ci := block.NewCommitteeInfo(crypto.FromECDSAPub(&cm.PubKey), uint64(cm.VotingPower), cm.NetAddr,
 			system.PubKeyToBytes(cm.CSPubKey), uint32(cm.CSIndex))
 		cis = append(cis, *ci)
 	}

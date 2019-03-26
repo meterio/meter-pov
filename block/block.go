@@ -10,11 +10,11 @@ import (
 	"io"
 	"sync/atomic"
 
-	"github.com/ethereum/go-ethereum/rlp"
 	cmn "github.com/dfinlab/meter/libs/common"
 	"github.com/dfinlab/meter/metric"
 	"github.com/dfinlab/meter/tx"
 	"github.com/dfinlab/meter/types"
+	"github.com/ethereum/go-ethereum/rlp"
 )
 
 // NewEvidence records the voting/notarization aggregated signatures and bitmap
@@ -38,11 +38,10 @@ type KBlockData struct {
 
 type CommitteeInfo struct {
 	VotingPower uint64
-	Accum       uint64
 	CSIndex     uint32 // Index, corresponding to the bitarray
+	NetAddr     types.NetAddress
 	CSPubKey    []byte // Bls pubkey
 	PubKey      []byte // ecdsa pubkey
-	NetAddr     types.NetAddress
 }
 
 type CommitteeInfos struct {
@@ -83,11 +82,10 @@ func NewEvidence(votingSig []byte, votingMsgHash [][32]byte, votingBA cmn.BitArr
 }
 
 // Create new committee Info
-func NewCommitteeInfo(pubKey []byte, power uint64, accum uint64, netAddr types.NetAddress, csPubKey []byte, csIndex uint32) *CommitteeInfo {
+func NewCommitteeInfo(pubKey []byte, power uint64, netAddr types.NetAddress, csPubKey []byte, csIndex uint32) *CommitteeInfo {
 	return &CommitteeInfo{
 		PubKey:      pubKey,
 		VotingPower: power,
-		Accum:       accum,
 		NetAddr:     netAddr,
 		CSPubKey:    csPubKey,
 		CSIndex:     csIndex,

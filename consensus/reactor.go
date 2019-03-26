@@ -347,7 +347,6 @@ type CommitteeMember struct {
 	Address     meter.Address
 	PubKey      ecdsa.PublicKey
 	VotingPower int64
-	Accum       int64
 	CommitKey   []byte
 	NetAddr     types.NetAddress
 	CSPubKey    bls.PublicKey
@@ -440,7 +439,6 @@ func (conR *ConsensusReactor) UpdateActualCommittee(indexes []int, pubKeys []bls
 		Address:     l.Address,
 		PubKey:      l.PubKey,
 		VotingPower: l.VotingPower,
-		Accum:       l.Accum,
 		CommitKey:   l.CommitKey,
 		NetAddr:     l.NetAddr,
 		CSPubKey:    conR.csCommon.PubKey, //bls PublicKey
@@ -463,7 +461,6 @@ func (conR *ConsensusReactor) UpdateActualCommittee(indexes []int, pubKeys []bls
 			Address:     v.Address,
 			PubKey:      v.PubKey,
 			VotingPower: v.VotingPower,
-			Accum:       v.Accum,
 			CommitKey:   v.CommitKey,
 			NetAddr:     v.NetAddr,
 			CSPubKey:    pubKeys[i], //bls PublicKey
@@ -1550,12 +1547,9 @@ func MajorityTwoThird(voterNum, committeeSize int) bool {
 //============================================================================
 //============================================================================
 type Delegate1 struct {
-	Address     meter.Address    `json:"address"`
 	PubKey      string           `json:"pub_key"`
 	VotingPower int64            `json:"voting_power"`
 	NetAddr     types.NetAddress `json:"network_addr"`
-
-	Accum int64 `json:"accum"`
 }
 
 func UserHomeDir() string {
@@ -1595,10 +1589,9 @@ func configDelegates( /*myPubKey ecdsa.PublicKey*/ ) []*types.Delegate {
 		}
 
 		dd := types.NewDelegate(*pubKey, d.VotingPower)
-		dd.Address = d.Address
 		dd.NetAddr = d.NetAddr
-		fmt.Printf("Delegate %d:\n Address:%s\n Public Key: %v\n Voting Power:%d\n Network Address:%v\n Accum:%d\n",
-			i+1, dd.Address, dd.PubKey, dd.VotingPower, dd.NetAddr, d.Accum)
+		fmt.Printf("Delegate %d:\n Address:%s\n Public Key: %v\n Voting Power:%d\n Network Address:%v\n",
+			i+1, dd.Address, dd.PubKey, dd.VotingPower, dd.NetAddr)
 
 		delegates = append(delegates, dd)
 	}

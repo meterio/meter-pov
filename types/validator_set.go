@@ -2,20 +2,9 @@ package types
 
 import (
 	"bytes"
-	"fmt"
+	//"fmt"
 	"math"
 	"sort"
-	"strings"
-
-	//"github.com/ethereum/go-ethereum/crypto"
-	//"github.com/ethereum/go-ethereum/rlp"
-	//"github.com/dfinlab/meter/block"
-	//"github.com/dfinlab/meter/chain"
-	cmn "github.com/dfinlab/meter/libs/common"
-	//"github.com/dfinlab/meter/runtime"
-	//"github.com/dfinlab/meter/state"
-	//"github.com/dfinlab/meter/tx"
-	//"github.com/dfinlab/meter/xenv"
 )
 
 // ValidatorSet represent a set of *Validator at a given height.
@@ -48,9 +37,6 @@ func NewValidatorSet(valz []*Validator) *ValidatorSet {
 	vals := &ValidatorSet{
 		Validators: validators,
 	}
-	if len(valz) > 0 {
-		vals.IncrementAccum(1)
-	}
 
 	return vals
 }
@@ -71,39 +57,6 @@ func NewValidatorSet2(vals []*Validator) *ValidatorSet {
 // Nil or empty validator sets are invalid.
 func (vals *ValidatorSet) IsNilOrEmpty() bool {
 	return vals == nil || len(vals.Validators) == 0
-}
-
-// Increment Accum and update the proposer on a copy, and return it.
-func (vals *ValidatorSet) CopyIncrementAccum(times int) *ValidatorSet {
-	copy := vals.Copy()
-	copy.IncrementAccum(times)
-	return copy
-}
-
-// IncrementAccum increments accum of each validator and updates the
-// proposer. Panics if validator set is empty.
-func (vals *ValidatorSet) IncrementAccum(times int) {
-
-	// Add VotingPower * times to each validator and order into heap.
-	validatorsHeap := cmn.NewHeap()
-	for _, val := range vals.Validators {
-		// Check for overflow both multiplication and sum.
-		val.Accum = safeAddClip(val.Accum, safeMulClip(val.VotingPower, int64(times)))
-		validatorsHeap.PushComparable(val, accumComparable{val})
-	}
-
-	// Decrement the validator with most accum times times.
-	for i := 0; i < times; i++ {
-		mostest := validatorsHeap.Peek().(*Validator)
-		// mind underflow
-		mostest.Accum = safeSubClip(mostest.Accum, vals.TotalVotingPower())
-
-		if i == times-1 {
-			vals.Proposer = mostest
-		} else {
-			validatorsHeap.Update(mostest, accumComparable{mostest})
-		}
-	}
 }
 
 // Copy each validator into a new ValidatorSet
@@ -167,43 +120,6 @@ func (vals *ValidatorSet) TotalVotingPower() int64 {
 	}
 	return vals.totalVotingPower
 }
-
-// GetProposer returns the current proposer. If the validator set is empty, nil
-// is returned.
-func (vals *ValidatorSet) GetProposer() (proposer *Validator) {
-	if len(vals.Validators) == 0 {
-		return nil
-	}
-	if vals.Proposer == nil {
-		vals.Proposer = vals.findProposer()
-	}
-	return vals.Proposer.Copy()
-}
-
-func (vals *ValidatorSet) findProposer() *Validator {
-	var proposer *Validator
-	for _, val := range vals.Validators {
-		if proposer == nil || !bytes.Equal(val.Address.Bytes(), proposer.Address.Bytes()) {
-			proposer = proposer.CompareAccum(val)
-		}
-	}
-	return proposer
-}
-
-/*********************
-// Hash returns the Merkle root hash build using validators (as leaves) in the
-// set.
-func (vals *ValidatorSet) Hash() []byte {
-	if len(vals.Validators) == 0 {
-		return nil
-	}
-	hashers := make([]merkle.Hasher, len(vals.Validators))
-	for i, val := range vals.Validators {
-		hashers[i] = val
-	}
-	return merkle.SimpleHashFromHashers(hashers)
-}
-********************/
 
 // Add adds val to the validator set and returns true. It returns false if val
 // is already in the set.
@@ -278,32 +194,6 @@ func (vals *ValidatorSet) Iterate(fn func(index int, val *Validator) bool) {
 	}
 }
 
-func (vals *ValidatorSet) String() string {
-	return vals.StringIndented("")
-}
-
-// String
-func (vals *ValidatorSet) StringIndented(indent string) string {
-	if vals == nil {
-		return "nil-ValidatorSet"
-	}
-	valStrings := []string{}
-	vals.Iterate(func(index int, val *Validator) bool {
-		valStrings = append(valStrings, val.String())
-		return false
-	})
-	return fmt.Sprintf(`ValidatorSet{
-%s  Proposer: %v
-%s  Validators:
-%s    %v
-%s}`,
-		indent, vals.GetProposer().String(),
-		indent,
-		indent, strings.Join(valStrings, "\n"+indent+"    "),
-		indent)
-
-}
-
 //-------------------------------------
 // Implements sort for sorting validators by address.
 
@@ -324,44 +214,8 @@ func (valz ValidatorsByAddress) Swap(i, j int) {
 	valz[j] = it
 }
 
-//-------------------------------------
-// Use with Heap for sorting validators by accum
-
-type accumComparable struct {
-	*Validator
-}
-
-// We want to find the validator with the greatest accum.
-func (ac accumComparable) Less(o interface{}) bool {
-	other := o.(accumComparable).Validator
-	larger := ac.CompareAccum(other)
-	return bytes.Equal(larger.Address.Bytes(), ac.Address.Bytes())
-}
-
-/*******************
-//----------------------------------------
-// For testing
-
-// RandValidatorSet returns a randomized validator set, useful for testing.
-// NOTE: PrivValidator are in order.
-// UNSTABLE
-func RandValidatorSet(numValidators int, votingPower int64) (*ValidatorSet, []PrivValidator) {
-	valz := make([]*Validator, numValidators)
-	privValidators := make([]PrivValidator, numValidators)
-	for i := 0; i < numValidators; i++ {
-		val, privValidator := RandValidator(false, votingPower)
-		valz[i] = val
-		privValidators[i] = privValidator
-	}
-	vals := NewValidatorSet(valz)
-	sort.Sort(PrivValidatorsByAddress(privValidators))
-	return vals, privValidators
-}
-*******************/
-
 ///////////////////////////////////////////////////////////////////////////////
 // Safe multiplication and addition/subtraction
-
 func safeMul(a, b int64) (int64, bool) {
 	if a == 0 || b == 0 {
 		return 0, false
