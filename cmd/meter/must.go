@@ -218,7 +218,7 @@ func newP2PComm(ctx *cli.Context, chain *chain.Chain, txPool *txpool.TxPool, ins
 		os.Exit(1)
 	}
 	opts := &p2psrv.Options{
-		Name:           common.MakeName("thor", fullVersion()),
+		Name:           common.MakeName("meter", fullVersion()),
 		PrivateKey:     key,
 		MaxPeers:       ctx.Int(maxPeersFlag.Name),
 		ListenAddr:     fmt.Sprintf(":%v", ctx.Int(p2pPortFlag.Name)),
@@ -347,7 +347,7 @@ func printStartupMessage(
     API portal     [ %v ]
     POW API portal [ %v ]
 `,
-		common.MakeName("Thor", fullVersion()),
+		common.MakeName("Meter", fullVersion()),
 		gene.ID(), gene.Name(),
 		bestBlock.Header().ID(), bestBlock.Header().Number(), time.Unix(int64(bestBlock.Header().Timestamp()), 0),
 		meter.GetForkConfig(gene.ID()),
@@ -401,7 +401,7 @@ func printSoloStartupMessage(
     Forks       [ %v ]
     Data dir    [ %v ]
     API portal  [ %v ]`,
-		common.MakeName("Thor solo", fullVersion()),
+		common.MakeName("Meter solo", fullVersion()),
 		gene.ID(), gene.Name(),
 		bestBlock.Header().ID(), bestBlock.Header().Number(), time.Unix(int64(bestBlock.Header().Timestamp()), 0),
 		meter.GetForkConfig(gene.ID()),
