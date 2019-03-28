@@ -23,9 +23,9 @@ import (
 	//"github.com/dfinlab/meter/tx"
 	//"github.com/dfinlab/meter/xenv"
 
-	crypto "github.com/ethereum/go-ethereum/crypto"
 	bls "github.com/dfinlab/meter/crypto/multi_sig"
 	cmn "github.com/dfinlab/meter/libs/common"
+	crypto "github.com/ethereum/go-ethereum/crypto"
 )
 
 const (
@@ -101,18 +101,7 @@ func NewCommitteeProposer(conR *ConsensusReactor) *ConsensusProposer {
 
 // send consensus message to all connected peers
 func (cp *ConsensusProposer) SendMsg(msg *ConsensusMessage) bool {
-
-	if len(cp.csPeers) == 0 {
-		cp.csReactor.sendConsensusMsg(msg, nil)
-		return true
-	}
-
-	for _, p := range cp.csPeers {
-		//p.sendConsensusMsg(msg)
-		cp.csReactor.sendConsensusMsg(msg, p)
-	}
-
-	return true
+	return cp.csReactor.SendMsgToPeers(cp.csPeers, msg)
 }
 
 // Move to the init State

@@ -6,6 +6,7 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
+	"sync"
 
 	//"errors"
 	"fmt"
@@ -15,7 +16,6 @@ import (
 	"reflect"
 	"sort"
 	"strconv"
-	"sync"
 	"time"
 
 	"os"
@@ -946,6 +946,20 @@ func getConcreteName(msg ConsensusMessage) string {
 	return ""
 }
 
+func (conR *ConsensusReactor) SendMsgToPeers(csPeers []*ConsensusPeer, msg *ConsensusMessage) bool {
+	var wg sync.WaitGroup
+	for _, p := range csPeers {
+		wg.Add(1)
+		go func(msg *ConsensusMessage, p *ConsensusPeer) {
+			defer wg.Done()
+			conR.sendConsensusMsg(msg, p)
+		}(msg, p)
+	}
+
+	wg.Wait()
+	return true
+}
+
 // XXX. For test only
 func (conR *ConsensusReactor) sendConsensusMsg(msg *ConsensusMessage, csPeer *ConsensusPeer) bool {
 	typeName := getConcreteName(*msg)
@@ -985,7 +999,10 @@ func (conR *ConsensusReactor) sendConsensusMsg(msg *ConsensusMessage, csPeer *Co
 			return false
 		}
 
-		resp, err := http.Post("http://"+csPeer.netAddr.IP.String()+":8080/peer", "application/json", bytes.NewBuffer(jsonStr))
+		var netClient = &http.Client{
+			Timeout: time.Second * 1,
+		}
+		resp, err := netClient.Post("http://"+csPeer.netAddr.IP.String()+":8080/peer", "application/json", bytes.NewBuffer(jsonStr))
 		if err != nil {
 			conR.logger.Error("Failed to send message to peer", "peer", csPeer.String(), "err", err)
 			return false

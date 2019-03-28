@@ -68,17 +68,7 @@ type ConsensusLeader struct {
 
 // send consensus message to all connected peers
 func (cl *ConsensusLeader) SendMsg(msg *ConsensusMessage) bool {
-
-	if len(cl.csPeers) == 0 {
-		cl.csReactor.sendConsensusMsg(msg, nil)
-		return true
-	}
-
-	for _, p := range cl.csPeers {
-		//p.sendConsensusMsg(msg)
-		cl.csReactor.sendConsensusMsg(msg, p)
-	}
-	return true
+	return cl.csReactor.SendMsgToPeers(cl.csPeers, msg)
 }
 
 // Move to the init State

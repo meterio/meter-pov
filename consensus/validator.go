@@ -52,18 +52,7 @@ type ConsensusValidator struct {
 
 // send consensus message to all connected peers
 func (cv *ConsensusValidator) SendMsg(msg *ConsensusMessage) bool {
-
-	if len(cv.csPeers) == 0 {
-		cv.csReactor.sendConsensusMsg(msg, nil)
-		return true
-	}
-
-	for _, p := range cv.csPeers {
-		//p.sendConsensusMsg(msg)
-		cv.csReactor.sendConsensusMsg(msg, p)
-	}
-
-	return true
+	return cv.csReactor.SendMsgToPeers(cv.csPeers, msg)
 }
 
 //validator receives the initiated messages
