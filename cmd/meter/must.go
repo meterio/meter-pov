@@ -15,13 +15,6 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/fdlimit"
-	"github.com/ethereum/go-ethereum/crypto"
-	ethlog "github.com/ethereum/go-ethereum/log"
-	"github.com/ethereum/go-ethereum/p2p/nat"
-	"github.com/ethereum/go-ethereum/rlp"
-	"github.com/inconshreveable/log15"
 	"github.com/dfinlab/meter/chain"
 	"github.com/dfinlab/meter/cmd/meter/node"
 	"github.com/dfinlab/meter/co"
@@ -29,11 +22,18 @@ import (
 	"github.com/dfinlab/meter/genesis"
 	"github.com/dfinlab/meter/logdb"
 	"github.com/dfinlab/meter/lvldb"
+	"github.com/dfinlab/meter/meter"
 	"github.com/dfinlab/meter/p2psrv"
 	"github.com/dfinlab/meter/powpool"
 	"github.com/dfinlab/meter/state"
-	"github.com/dfinlab/meter/meter"
 	"github.com/dfinlab/meter/txpool"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/fdlimit"
+	"github.com/ethereum/go-ethereum/crypto"
+	ethlog "github.com/ethereum/go-ethereum/log"
+	"github.com/ethereum/go-ethereum/p2p/nat"
+	"github.com/ethereum/go-ethereum/rlp"
+	"github.com/inconshreveable/log15"
 	cli "gopkg.in/urfave/cli.v1"
 
 	"github.com/ethereum/go-ethereum/p2p/discover"
@@ -218,7 +218,7 @@ func newP2PComm(ctx *cli.Context, chain *chain.Chain, txPool *txpool.TxPool, ins
 		os.Exit(1)
 	}
 	opts := &p2psrv.Options{
-		Name:           common.MakeName("thor", fullVersion()),
+		Name:           common.MakeName("meter", fullVersion()),
 		PrivateKey:     key,
 		MaxPeers:       ctx.Int(maxPeersFlag.Name),
 		ListenAddr:     fmt.Sprintf(":%v", ctx.Int(p2pPortFlag.Name)),
@@ -347,7 +347,7 @@ func printStartupMessage(
     API portal     [ %v ]
     POW API portal [ %v ]
 `,
-		common.MakeName("Thor", fullVersion()),
+		common.MakeName("Meter", fullVersion()),
 		gene.ID(), gene.Name(),
 		bestBlock.Header().ID(), bestBlock.Header().Number(), time.Unix(int64(bestBlock.Header().Timestamp()), 0),
 		meter.GetForkConfig(gene.ID()),
@@ -401,7 +401,7 @@ func printSoloStartupMessage(
     Forks       [ %v ]
     Data dir    [ %v ]
     API portal  [ %v ]`,
-		common.MakeName("Thor solo", fullVersion()),
+		common.MakeName("Meter solo", fullVersion()),
 		gene.ID(), gene.Name(),
 		bestBlock.Header().ID(), bestBlock.Header().Number(), time.Unix(int64(bestBlock.Header().Timestamp()), 0),
 		meter.GetForkConfig(gene.ID()),

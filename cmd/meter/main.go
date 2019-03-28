@@ -14,12 +14,6 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/ethereum/go-ethereum/accounts/keystore"
-	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/inconshreveable/log15"
-	"github.com/mattn/go-isatty"
-	"github.com/pborman/uuid"
-	"github.com/pkg/errors"
 	"github.com/dfinlab/meter/api"
 	"github.com/dfinlab/meter/block"
 	"github.com/dfinlab/meter/cmd/meter/node"
@@ -28,11 +22,17 @@ import (
 	"github.com/dfinlab/meter/genesis"
 	"github.com/dfinlab/meter/logdb"
 	"github.com/dfinlab/meter/lvldb"
+	"github.com/dfinlab/meter/meter"
 	"github.com/dfinlab/meter/powpool"
 	pow_api "github.com/dfinlab/meter/powpool/api"
 	"github.com/dfinlab/meter/state"
-	"github.com/dfinlab/meter/meter"
 	"github.com/dfinlab/meter/txpool"
+	"github.com/ethereum/go-ethereum/accounts/keystore"
+	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/inconshreveable/log15"
+	"github.com/mattn/go-isatty"
+	"github.com/pborman/uuid"
+	"github.com/pkg/errors"
 	cli "gopkg.in/urfave/cli.v1"
 )
 
@@ -68,9 +68,9 @@ func fullVersion() string {
 func main() {
 	app := cli.App{
 		Version:   fullVersion(),
-		Name:      "Thor",
-		Usage:     "Node of VeChain Thor Network",
-		Copyright: "2018 VeChain Foundation <https://vechain.org/>",
+		Name:      "Meter",
+		Usage:     "Node of Meter.io",
+		Copyright: "2018 Meter Foundation <https://meter.io/>",
 		Flags: []cli.Flag{
 			networkFlag,
 			configDirFlag,
