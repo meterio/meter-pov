@@ -24,8 +24,8 @@ import (
 	//"github.com/dfinlab/meter/state"
 	//"github.com/dfinlab/meter/tx"
 	//"github.com/dfinlab/meter/xenv"
-	crypto "github.com/ethereum/go-ethereum/crypto"
 	bls "github.com/dfinlab/meter/crypto/multi_sig"
+	crypto "github.com/ethereum/go-ethereum/crypto"
 
 	types "github.com/dfinlab/meter/types"
 )
@@ -39,6 +39,14 @@ const (
 	//MsgSubType of VoteForNotary is the responses
 	VOTE_FOR_NOTARY_ANNOUNCE = byte(0x01)
 	VOTE_FOR_NOTARY_BLOCK    = byte(0x02)
+
+	NEW_ROUND_EXPECT_TIMEOUT = 150 * time.Second // 150s timeout between notary and NRM
+)
+
+var (
+	expectedTimer *time.Timer
+	expectedState bool
+	expectedRound int
 )
 
 type ConsensusValidator struct {
@@ -77,6 +85,56 @@ func (cv *ConsensusValidator) AddcsPeer(netAddr types.NetAddress) bool {
 	csPeer := newConsensusPeer(netAddr.IP, netAddr.Port)
 	cv.csPeers = append(cv.csPeers, csPeer)
 	return true
+}
+
+func (cv *ConsensusValidator) nextRoundExpectationCancel() {
+	expectedState = false
+	expectedRound = 0
+	if expectedTimer != nil {
+		expectedTimer.Stop()
+		expectedTimer = nil
+	}
+}
+
+func (cv *ConsensusValidator) nextRoundExpectationExpire() {
+	cv.csReactor.logger.Warn("next round expecation timer expired", "round=", expectedRound)
+
+	// now expectedRound moves to next
+	cv.csReactor.UpdateRound(expectedRound) //pace myself round first
+
+	expectedRound += 1
+	expectedProposer := cv.csReactor.getRoundProposer(expectedRound)
+
+	if bytes.Equal(crypto.FromECDSAPub(&expectedProposer.PubKey), crypto.FromECDSAPub(&cv.csReactor.myPubKey)) == true {
+		cv.csReactor.logger.Info("*** NEXT ROUND EXPECATION EXPIRED! SET MYSELF THE PROPOSER! ***", "round", expectedRound)
+		// wait longer here to guranttee whole committee in same state
+		cv.csReactor.ScheduleProposer(5 * PROPOSER_THRESHOLD_TIMER_TIMEOUT)
+		return
+	}
+
+	//set expectation
+	cv.nextRoundExpectationStart(expectedRound, NEW_ROUND_EXPECT_TIMEOUT)
+}
+
+func (cv *ConsensusValidator) nextRoundExpectationStart(round int, duration time.Duration) {
+	expectedState = true
+	expectedRound = round
+	//expectedProposer := cv.csReactor.getRoundProposer(round)
+	if expectedTimer != nil {
+		expectedTimer.Stop()
+	}
+
+	expectedTimer = time.AfterFunc(duration, func() {
+		cv.csReactor.schedulerQueue <- cv.nextRoundExpectationExpire
+	})
+	cv.csReactor.logger.Info("set next round expecation", "round=", expectedRound, "timeout=", duration)
+}
+
+func (cv *ConsensusValidator) nextRoundExpectationGetRound() int {
+	if expectedState {
+		return expectedRound
+	}
+	return 0
 }
 
 // Generate commitCommittee Message
@@ -309,6 +367,10 @@ func (cv *ConsensusValidator) ProcessProposalBlockMessage(proposalMsg *ProposalB
 		"height", h.LastKBlockHeight(),
 		"timestamp", h.Timestamp())
 
+	// receive valid proposal. fully in this round.
+	cv.nextRoundExpectationCancel()
+	cv.nextRoundExpectationStart(cv.csReactor.curRound, NEW_ROUND_EXPECT_TIMEOUT)
+
 	isKBlock := (ch.MsgSubType == PROPOSE_MSG_SUBTYPE_KBLOCK)
 	// TBD: Validate block
 	if isKBlock {
@@ -414,6 +476,10 @@ func (cv *ConsensusValidator) ProcessNotaryBlockMessage(notaryMsg *NotaryBlockMe
 
 	var m ConsensusMessage = msg
 	cv.SendMsg(&m)
+
+	// send back the notary and expect next round
+	cv.nextRoundExpectationCancel()
+	cv.nextRoundExpectationStart(cv.csReactor.curRound+1, NEW_ROUND_EXPECT_TIMEOUT)
 
 	return true
 }
@@ -588,11 +654,16 @@ func (cv *ConsensusValidator) ProcessMoveNewRoundMessage(newRoundMsg *MoveNewRou
 	// Have move to next round, check I am the new round proposer
 	if bytes.Equal(crypto.FromECDSAPub(&newProposer.PubKey), crypto.FromECDSAPub(&cv.csReactor.myPubKey)) {
 		cv.csReactor.logger.Info("*** I AM THE PROPOSER! ***", "height", newRoundMsg.Height, "round", newRoundMsg.NewRound)
-		cv.csReactor.ScheduleProposer(0)
+
+		//start next round expectation
+		cv.nextRoundExpectationCancel()
+		cv.csReactor.ScheduleProposer(PROPOSER_THRESHOLD_TIMER_TIMEOUT)
+		return true
 	}
 
-	//XXX: TBD if I am the next proposer, wait for more time to schedule myself as
-	//proposer in case the proposers before me are all dead.
+	//start next round expectation
+	cv.nextRoundExpectationCancel()
+	cv.nextRoundExpectationStart(cv.csReactor.curRound, NEW_ROUND_EXPECT_TIMEOUT)
 	return true
 }
 

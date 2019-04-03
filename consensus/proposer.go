@@ -36,7 +36,7 @@ const (
 	COMMITTEE_PROPOSER_NOTARYSENT = byte(0x03)
 	COMMITTEE_PROPOSER_COMMITED   = byte(0x04)
 
-	PROPOSER_THRESHOLD_TIMER_TIMEOUT = 2 * time.Second //wait for reach 2/3 consensus timeout
+	PROPOSER_THRESHOLD_TIMER_TIMEOUT = 3 * time.Second //wait for reach 2/3 consensus timeout
 
 	PROPOSE_MSG_SUBTYPE_KBLOCK = byte(0x01)
 	PROPOSE_MSG_SUBTYPE_MBLOCK = byte(0x02)
@@ -128,7 +128,7 @@ func (cp *ConsensusProposer) MoveInitState(curState byte, sendNewRoundMsg bool) 
 		return false
 	}
 	***********/
-	curActualSize := len(cp.csReactor.curCommittee.Validators) //Hack here, should use curActualCommittee
+	curActualSize := len(cp.csReactor.curActualCommittee)
 	msg := &MoveNewRoundMessage{
 		CSMsgCommonHeader: ConsensusMsgCommonHeader{
 			Height:    curHeight,
@@ -143,8 +143,8 @@ func (cp *ConsensusProposer) MoveInitState(curState byte, sendNewRoundMsg bool) 
 		NewRound: curRound + 1,
 		//CurProposer: cp.csReactor.curActualCommittee[curRound].PubKey,
 		//NewProposer: cp.csReactor.curActualCommittee[curRound+1].PubKey,
-		CurProposer: crypto.FromECDSAPub(&cp.csReactor.curCommittee.Validators[curRound%curActualSize].PubKey),
-		NewProposer: crypto.FromECDSAPub(&cp.csReactor.curCommittee.Validators[(curRound+1)%curActualSize].PubKey),
+		CurProposer: crypto.FromECDSAPub(&cp.csReactor.curActualCommittee[curRound%curActualSize].PubKey),
+		NewProposer: crypto.FromECDSAPub(&cp.csReactor.curActualCommittee[(curRound+1)%curActualSize].PubKey),
 	}
 
 	// state to init & send move to next round
@@ -642,7 +642,7 @@ Move to next height
 			state.RevertTo(cp.curProposedBlockInfo.CheckPoint)
 
 			// wait 5 send and move to next round
-			time.AfterFunc(WHOLE_NETWORK_BLOCK_SYNC_TIME*time.Second, func() {
+			time.AfterFunc(WHOLE_NETWORK_BLOCK_SYNC_TIME, func() {
 				cp.csReactor.schedulerQueue <- func() {
 					cp.MoveInitState(cp.state, true)
 				}
@@ -674,7 +674,7 @@ Move to next height
 
 		} else {
 			// mblock, wait for 5 s and sends move to next round msg
-			time.AfterFunc(WHOLE_NETWORK_BLOCK_SYNC_TIME*time.Second, func() {
+			time.AfterFunc(WHOLE_NETWORK_BLOCK_SYNC_TIME, func() {
 				cp.csReactor.schedulerQueue <- func() {
 					cp.MoveInitState(cp.state, true)
 				}
