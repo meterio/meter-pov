@@ -29,7 +29,7 @@ const (
 	COMMITTEE_LEADER_NOTARYSENT = byte(0x03)
 	COMMITTEE_LEADER_COMMITED   = byte(0x04)
 
-	THRESHOLD_TIMER_TIMEOUT = 2 * time.Second //wait for reach 2/3 consensus timeout
+	THRESHOLD_TIMER_TIMEOUT = 3 * time.Second //wait for reach 2/3 consensus timeout
 	// 1s by default
 )
 
@@ -463,6 +463,8 @@ Myself is Leader, Let's move to 1st proposal for Round 0.
 		//Now move to propose the 1st block in round 0
 		cl.csReactor.enterConsensusValidator()
 		cl.csReactor.csValidator.state = COMMITTEE_VALIDATOR_COMMITSENT
+
+		//committee is waiting for this first block, so move forward immediatly
 		cl.csReactor.ScheduleProposer(0)
 
 		return true

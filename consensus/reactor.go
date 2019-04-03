@@ -56,7 +56,7 @@ const (
 	maxMsgSize = 1048576 // 1MB; NOTE/TODO: keep in sync with types.PartSet sizes.
 
 	//normally when a block is committed, wait for a while to let whole network to sync and move to next round
-	WHOLE_NETWORK_BLOCK_SYNC_TIME = 5
+	WHOLE_NETWORK_BLOCK_SYNC_TIME = 6 * time.Second
 
 	blocksToContributeToBecomeGoodPeer = 10000
 	votesToContributeToBecomeGoodPeer  = 10000
@@ -1046,7 +1046,7 @@ func (conR *ConsensusReactor) sendConsensusMsg(msg *ConsensusMessage, csPeer *Co
 		}
 
 		var netClient = &http.Client{
-			Timeout: time.Second * 1,
+			Timeout: time.Second * 2,
 		}
 		resp, err := netClient.Post("http://"+csPeer.netAddr.IP.String()+":8080/peer", "application/json", bytes.NewBuffer(jsonStr))
 		if err != nil {
@@ -1569,7 +1569,7 @@ func (conR *ConsensusReactor) ConsensusHandleReceivedNonce(kBlockHeight int64, n
 	if role == CONSENSUS_COMMIT_ROLE_LEADER {
 		conR.logger.Info("I am committee leader for nonce!", "nonce", nonce)
 		// wait 30 seconds for synchronization
-		time.Sleep(2 * time.Second)
+		time.Sleep(5 * WHOLE_NETWORK_BLOCK_SYNC_TIME)
 		if replay {
 			conR.ScheduleReplayLeader(0)
 		} else {
