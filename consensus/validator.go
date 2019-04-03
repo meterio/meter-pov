@@ -24,8 +24,8 @@ import (
 	//"github.com/dfinlab/meter/state"
 	//"github.com/dfinlab/meter/tx"
 	//"github.com/dfinlab/meter/xenv"
-	crypto "github.com/ethereum/go-ethereum/crypto"
 	bls "github.com/dfinlab/meter/crypto/multi_sig"
+	crypto "github.com/ethereum/go-ethereum/crypto"
 
 	types "github.com/dfinlab/meter/types"
 )
@@ -53,6 +53,11 @@ type ConsensusValidator struct {
 // send consensus message to all connected peers
 func (cv *ConsensusValidator) SendMsg(msg *ConsensusMessage) bool {
 	return cv.csReactor.SendMsgToPeers(cv.csPeers, msg)
+}
+
+func (cv *ConsensusValidator) SendMsgToPeer(msg *ConsensusMessage, netAddr types.NetAddress) bool {
+	csPeer := newConsensusPeer(netAddr.IP, netAddr.Port)
+	return cv.csReactor.SendMsgToPeers([]*ConsensusPeer{csPeer}, msg)
 }
 
 //validator receives the initiated messages
@@ -182,7 +187,7 @@ func (cv *ConsensusValidator) ProcessAnnounceCommittee(announceMsg *AnnounceComm
 	// update cspeers, build consensus peer topology
 	// Right now is HUB topology, simply point back to proposer or leader
 	cv.RemoveAllcsPeers()
-	cv.AddcsPeer(src.netAddr)
+	// cv.AddcsPeer(src.netAddr)
 
 	// I am in committee, sends the commit message to join the CommitCommitteeMessage
 	//build signature
@@ -215,7 +220,8 @@ func (cv *ConsensusValidator) ProcessAnnounceCommittee(announceMsg *AnnounceComm
 	msg := cv.GenerateCommitMessage(sign, msgHash)
 
 	var m ConsensusMessage = msg
-	cv.SendMsg(&m)
+	leaderNetAddr := src.netAddr
+	cv.SendMsgToPeer(&m, leaderNetAddr)
 	cv.state = COMMITTEE_VALIDATOR_COMMITSENT
 
 	//update conR
@@ -333,14 +339,20 @@ func (cv *ConsensusValidator) ProcessProposalBlockMessage(proposalMsg *ProposalB
 
 	// update cspeers, build consensus peer topology
 	// Right now is HUB topology, simply point back to proposer or leader
-	cv.RemoveAllcsPeers()
-	cv.AddcsPeer(src.netAddr)
+	// cv.AddcsPeer(src.netAddr)
 
 	// Block is OK, send back voting
 	proposerPubKey, err := crypto.UnmarshalPubkey(proposalMsg.ProposerID)
 	if err != nil {
 		cv.csReactor.logger.Error("ummarshal proposer public key of sender failed ")
 		return false
+	}
+
+	cv.RemoveAllcsPeers()
+
+	peers, err := cv.csReactor.GetMyPeers()
+	for _, p := range peers {
+		cv.csPeers = append(cv.csPeers, p)
 	}
 
 	offset := proposalMsg.SignOffset
@@ -354,8 +366,15 @@ func (cv *ConsensusValidator) ProcessProposalBlockMessage(proposalMsg *ProposalB
 
 	// fmt.Println("VoterForProposal Message: ", msg.String())
 	var m ConsensusMessage = msg
-	cv.SendMsg(&m)
+
+	proposerNetAddr := cv.csReactor.getCurrentProposer().NetAddr
+	cv.SendMsgToPeer(&m, proposerNetAddr)
+
 	cv.state = COMMITTEE_VALIDATOR_COMMITSENT
+
+	var srcMsg ConsensusMessage = *proposalMsg
+	// forward the message to peers
+	cv.SendMsg(&srcMsg)
 
 	return true
 }
@@ -413,7 +432,12 @@ func (cv *ConsensusValidator) ProcessNotaryBlockMessage(notaryMsg *NotaryBlockMe
 	msg := cv.GenerateVoteForNotaryMessage(sign, msgHash, VOTE_FOR_NOTARY_BLOCK)
 
 	var m ConsensusMessage = msg
-	cv.SendMsg(&m)
+	proposerNetAddr := cv.csReactor.getCurrentProposer().NetAddr
+	cv.SendMsgToPeer(&m, proposerNetAddr)
+
+	var srcMsg ConsensusMessage = *notaryMsg
+	// forward messages to peers
+	cv.SendMsg(&srcMsg)
 
 	return true
 }
@@ -481,7 +505,8 @@ func (cv *ConsensusValidator) ProcessNotaryAnnounceMessage(notaryMsg *NotaryAnno
 	msg := cv.GenerateVoteForNotaryMessage(sign, msgHash, VOTE_FOR_NOTARY_ANNOUNCE)
 
 	var m ConsensusMessage = msg
-	cv.SendMsg(&m)
+	leaderNetAddr := src.netAddr
+	cv.SendMsgToPeer(&m, leaderNetAddr)
 
 	return true
 }
@@ -590,6 +615,10 @@ func (cv *ConsensusValidator) ProcessMoveNewRoundMessage(newRoundMsg *MoveNewRou
 		cv.csReactor.logger.Info("*** I AM THE PROPOSER! ***", "height", newRoundMsg.Height, "round", newRoundMsg.NewRound)
 		cv.csReactor.ScheduleProposer(0)
 	}
+
+	// forward message to peers
+	var m ConsensusMessage = newRoundMsg
+	cv.SendMsg(&m)
 
 	//XXX: TBD if I am the next proposer, wait for more time to schedule myself as
 	//proposer in case the proposers before me are all dead.

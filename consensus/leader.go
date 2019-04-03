@@ -17,9 +17,9 @@ import (
 
 	"math/rand"
 
-	crypto "github.com/ethereum/go-ethereum/crypto"
 	bls "github.com/dfinlab/meter/crypto/multi_sig"
 	cmn "github.com/dfinlab/meter/libs/common"
+	crypto "github.com/ethereum/go-ethereum/crypto"
 )
 
 const (
