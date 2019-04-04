@@ -947,16 +947,16 @@ func getConcreteName(msg ConsensusMessage) string {
 }
 
 func (conR *ConsensusReactor) SendMsgToPeers(csPeers []*ConsensusPeer, msg *ConsensusMessage) bool {
-	var wg sync.WaitGroup
+	//var wg sync.WaitGroup
 	for _, p := range csPeers {
-		wg.Add(1)
+		//wg.Add(1)
 		go func(msg *ConsensusMessage, p *ConsensusPeer) {
-			defer wg.Done()
+			//defer wg.Done()
 			conR.sendConsensusMsg(msg, p)
 		}(msg, p)
 	}
 
-	wg.Wait()
+	//wg.Wait()
 	return true
 }
 

@@ -127,7 +127,7 @@ func (cv *ConsensusValidator) nextRoundExpectationStart(round int, duration time
 	expectedTimer = time.AfterFunc(duration, func() {
 		cv.csReactor.schedulerQueue <- cv.nextRoundExpectationExpire
 	})
-	cv.csReactor.logger.Info("set next round expecation", "round=", expectedRound, "timeout=", duration)
+	cv.csReactor.logger.Info("set next round expectation", "round=", expectedRound, "timeout=", duration)
 }
 
 func (cv *ConsensusValidator) nextRoundExpectationGetRound() int {
@@ -369,7 +369,7 @@ func (cv *ConsensusValidator) ProcessProposalBlockMessage(proposalMsg *ProposalB
 
 	// receive valid proposal. fully in this round.
 	cv.nextRoundExpectationCancel()
-	cv.nextRoundExpectationStart(cv.csReactor.curRound, NEW_ROUND_EXPECT_TIMEOUT)
+	cv.nextRoundExpectationStart(cv.csReactor.curRound+1, NEW_ROUND_EXPECT_TIMEOUT)
 
 	isKBlock := (ch.MsgSubType == PROPOSE_MSG_SUBTYPE_KBLOCK)
 	// TBD: Validate block
