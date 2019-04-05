@@ -102,7 +102,6 @@ func (cv *ConsensusValidator) nextRoundExpectationExpire() {
 	// now expectedRound moves to next
 	cv.csReactor.UpdateRound(expectedRound) //pace myself round first
 
-	expectedRound += 1
 	expectedProposer := cv.csReactor.getRoundProposer(expectedRound)
 
 	if bytes.Equal(crypto.FromECDSAPub(&expectedProposer.PubKey), crypto.FromECDSAPub(&cv.csReactor.myPubKey)) == true {
@@ -113,6 +112,7 @@ func (cv *ConsensusValidator) nextRoundExpectationExpire() {
 	}
 
 	//set expectation
+	expectedRound += 1
 	cv.nextRoundExpectationStart(expectedRound, NEW_ROUND_EXPECT_TIMEOUT)
 }
 
