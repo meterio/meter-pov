@@ -494,12 +494,20 @@ func (conR *ConsensusReactor) UpdateActualCommittee(indexes []int, pubKeys []bls
 
 // get current round proposer
 func (conR *ConsensusReactor) getCurrentProposer() CommitteeMember {
+	size := len(conR.curActualCommittee)
+	if size == 0 {
+		return CommitteeMember{}
+	}
 	return conR.curActualCommittee[conR.curRound%len(conR.curActualCommittee)]
 }
 
 // get the specific round proposer
 func (conR *ConsensusReactor) getRoundProposer(round int) CommitteeMember {
-	return conR.curActualCommittee[round%len(conR.curActualCommittee)]
+	size := len(conR.curActualCommittee)
+	if size == 0 {
+		return CommitteeMember{}
+	}
+	return conR.curActualCommittee[round%size]
 }
 
 //create validatorSet by a given nonce. return by my self role
@@ -866,10 +874,12 @@ func (conR *ConsensusReactor) enterConsensusValidator() int {
 
 func (conR *ConsensusReactor) exitConsensusValidator() int {
 
-	conR.logger.Debug("Exit consensus validator")
+	// cancel if needed
+	conR.csValidator.nextRoundExpectationCancel()
+
 	conR.csValidator = nil
 	conR.csRoleInitialized &= ^CONSENSUS_COMMIT_ROLE_VALIDATOR
-
+	conR.logger.Debug("Exit consensus validator")
 	return 0
 }
 

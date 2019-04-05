@@ -144,13 +144,12 @@ func (cp *ConsensusProposer) MoveInitState(curState byte, sendNewRoundMsg bool) 
 		return true
 	}
 
-	/*********
-	if len(cp.csReactor.curActualCommittee) == 0 {
+	curActualSize := len(cp.csReactor.curActualCommittee)
+	if curActualSize == 0 {
 		cp.csReactor.logger.Error("ActualCommittee len is 0")
 		return false
 	}
-	***********/
-	curActualSize := len(cp.csReactor.curActualCommittee)
+
 	msg := &MoveNewRoundMessage{
 		CSMsgCommonHeader: ConsensusMsgCommonHeader{
 			Height:    curHeight,
