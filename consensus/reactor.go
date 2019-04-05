@@ -81,6 +81,8 @@ const (
 	NOTARY_BLOCK_SIGN_MSG_SIZE = int(130)
 
 	CHAN_DEFAULT_BUF_SIZE = 100
+
+	MAX_PEERS = 8
 )
 
 var (
@@ -555,6 +557,17 @@ func (conR *ConsensusReactor) GetCommitteeMemberIndex(pubKey ecdsa.PublicKey) in
 	return -1
 }
 
+func (conR *ConsensusReactor) GetActualCommitteeMemberIndex(pubKey *ecdsa.PublicKey) int {
+	for i, member := range conR.curActualCommittee {
+		if bytes.Equal(crypto.FromECDSAPub(&member.PubKey), crypto.FromECDSAPub(pubKey)) == true {
+			return i
+		}
+	}
+
+	conR.logger.Error("public key not found in actual committee", "pubKey", pubKey)
+	return -1
+}
+
 // Handle received Message
 func (conR *ConsensusReactor) handleMsg(mi consensusMsgInfo) {
 	conR.mtx.Lock()
@@ -958,6 +971,39 @@ func (conR *ConsensusReactor) SendMsgToPeers(csPeers []*ConsensusPeer, msg *Cons
 
 	//wg.Wait()
 	return true
+}
+
+func (conR *ConsensusReactor) GetMyPeers() ([]*ConsensusPeer, error) {
+	proposer := conR.getCurrentProposer()
+	proposalActualIndex := conR.GetActualCommitteeMemberIndex(&proposer.PubKey)
+	myIndex := conR.GetActualCommitteeMemberIndex(&conR.myPubKey)
+	count := len(conR.curActualCommittee)
+	if myIndex < proposalActualIndex {
+		myIndex += count
+	}
+	d := myIndex - proposalActualIndex
+	l := MAX_PEERS*d + 1 + proposalActualIndex
+	r := MAX_PEERS*(d+1) + proposalActualIndex
+	max := count + proposalActualIndex - 1
+	peers := make([]*ConsensusPeer, 0)
+	if r > max {
+		r = max
+	}
+	if l <= max {
+		i := l
+		for i <= r {
+			if myIndex%count == i%count {
+				continue
+			}
+			index := i % count
+			addr := conR.curActualCommittee[index].NetAddr
+			p := newConsensusPeer(addr.IP, addr.Port)
+			peers = append(peers, p)
+			i++
+		}
+	}
+	conR.logger.Info("Get My Peers", "proposer", proposer.NetAddr.IP, "proposerIndex", proposalActualIndex, "myIndex", myIndex, "count", count, "max", max, "l", l, "r", r, "result", peers)
+	return peers, nil
 }
 
 // XXX. For test only

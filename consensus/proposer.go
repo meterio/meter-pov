@@ -10,7 +10,7 @@ package consensus
 
 import (
 	//    "errors"
-	"bytes"
+	// "bytes"
 	"fmt"
 	"time"
 
@@ -86,15 +86,37 @@ func NewCommitteeProposer(conR *ConsensusReactor) *ConsensusProposer {
 	cp.notaryVoterBitArray = cmn.NewBitArray(conR.committeeSize)
 
 	// form topology,
-	for _, v := range conR.curActualCommittee {
-		//skip myself
-		if bytes.Equal(crypto.FromECDSAPub(&v.PubKey), crypto.FromECDSAPub(&cp.csReactor.myPubKey)) == true {
-			continue
+	/*
+		for _, v := range conR.curActualCommittee {
+			//skip myself
+			if bytes.Equal(crypto.FromECDSAPub(&v.PubKey), crypto.FromECDSAPub(&cp.csReactor.myPubKey)) == true {
+				continue
+			}
+			// initialize PeerConn
+			p := newConsensusPeer(v.NetAddr.IP, v.NetAddr.Port)
+			cp.csPeers = append(cp.csPeers, p)
 		}
-		// initialize PeerConn
-		p := newConsensusPeer(v.NetAddr.IP, v.NetAddr.Port)
-		cp.csPeers = append(cp.csPeers, p)
-	}
+	*/
+
+	/*
+		myIndex := conR.GetActualCommitteeMemberIndex(&conR.myPubKey)
+		l := myIndex + 1
+		r := myIndex + MAX_PEERS
+		count := len(conR.curActualCommittee)
+		max := count + myIndex - 1
+		if r > max {
+			r = max
+		}
+		if l <= max {
+			i := l
+			for i <= r {
+				netAddr := conR.curActualCommittee[i%count].NetAddr
+				p := newConsensusPeer(netAddr.IP, netAddr.Port)
+				cp.csPeers = append(cp.csPeers, p)
+				i++
+			}
+		}
+	*/
 
 	return &cp
 }
@@ -172,6 +194,13 @@ func (cp *ConsensusProposer) ProposalBlockMsg(proposalEmptyBlock bool) bool {
 	// XXX: propose an empty block by default. Will add option --consensus.create_empty_block = false
 	// force it to true at this time
 	proposalEmptyBlock = true
+
+	cp.csPeers = make([]*ConsensusPeer, 0)
+	peers, _ := cp.csReactor.GetMyPeers()
+	for _, p := range peers {
+		cp.csPeers = append(cp.csPeers, p)
+		// fmt.Println("added peer: ", p.netAddr.IP, ":", p.netAddr.Port)
+	}
 
 	//check POW pool and TX pool, propose kblock/mblock/no need to propose.
 	// The first MBlock must be generated because committee info is in this block
