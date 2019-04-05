@@ -102,7 +102,8 @@ type ConsensusReactor struct {
 	chain        *chain.Chain
 	stateCreator *state.Creator
 
-	config ConsensusConfig
+	config   ConsensusConfig
+	SyncDone bool
 
 	// copy of master/node
 	myPubKey      ecdsa.PublicKey  // this is my public identification !!
@@ -165,6 +166,7 @@ func NewConsensusReactor(ctx *cli.Context, chain *chain.Chain, state *state.Crea
 		chain:        chain,
 		stateCreator: state,
 		logger:       log15.New("pkg", "consensus"),
+		SyncDone:     false,
 	}
 
 	if ctx != nil {
@@ -735,6 +737,7 @@ func (conR *ConsensusReactor) receiveRoutine() {
 		conR.SwitchToConsensus()
 	}
 	conR.logger.Info("Sync is done, start to accept consensus message")
+	conR.SyncDone = true
 
 	for {
 		var mi consensusMsgInfo

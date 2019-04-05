@@ -13,18 +13,18 @@ import (
 	"sync"
 	"time"
 
-	"github.com/ethereum/go-ethereum/event"
-	"github.com/ethereum/go-ethereum/p2p"
-	"github.com/inconshreveable/log15"
 	"github.com/dfinlab/meter/block"
 	"github.com/dfinlab/meter/chain"
 	"github.com/dfinlab/meter/co"
 	"github.com/dfinlab/meter/comm/proto"
+	"github.com/dfinlab/meter/meter"
 	"github.com/dfinlab/meter/p2psrv"
 	"github.com/dfinlab/meter/powpool"
-	"github.com/dfinlab/meter/meter"
 	"github.com/dfinlab/meter/tx"
 	"github.com/dfinlab/meter/txpool"
+	"github.com/ethereum/go-ethereum/event"
+	"github.com/ethereum/go-ethereum/p2p"
+	"github.com/inconshreveable/log15"
 )
 
 var (
@@ -83,9 +83,8 @@ func (c *Communicator) Synced() <-chan struct{} {
 
 // Sync start synchronization process.
 func (c *Communicator) Sync(handler HandleBlockStream) {
-	// XXX: Yang: shorten the interval?
 	const initSyncInterval = 2 * time.Second
-	const syncInterval = /*30*/ 2 * time.Second
+	const syncInterval = 30 * time.Second
 
 	c.goes.Go(func() {
 		timer := time.NewTimer(0)

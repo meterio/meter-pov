@@ -191,6 +191,7 @@ func (cp *ConsensusProposer) CheckKblockDecision() (bool, *powpool.PowResult) {
 // Proposer needs to chek POW pool and TX pool, make decision
 // to propose the Kblock or mBlock.
 func (cp *ConsensusProposer) ProposalBlockMsg(proposalEmptyBlock bool) bool {
+
 	// XXX: propose an empty block by default. Will add option --consensus.create_empty_block = false
 	// force it to true at this time
 	proposalEmptyBlock = true

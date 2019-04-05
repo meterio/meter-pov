@@ -13,11 +13,6 @@ import (
 	"time"
 
 	"github.com/beevik/ntp"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/mclock"
-	"github.com/ethereum/go-ethereum/event"
-	"github.com/inconshreveable/log15"
-	"github.com/pkg/errors"
 	"github.com/dfinlab/meter/block"
 	"github.com/dfinlab/meter/cache"
 	"github.com/dfinlab/meter/chain"
@@ -26,11 +21,16 @@ import (
 	"github.com/dfinlab/meter/consensus"
 	"github.com/dfinlab/meter/logdb"
 	"github.com/dfinlab/meter/lvldb"
+	"github.com/dfinlab/meter/meter"
 	"github.com/dfinlab/meter/packer"
 	"github.com/dfinlab/meter/state"
-	"github.com/dfinlab/meter/meter"
 	"github.com/dfinlab/meter/tx"
 	"github.com/dfinlab/meter/txpool"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/mclock"
+	"github.com/ethereum/go-ethereum/event"
+	"github.com/inconshreveable/log15"
+	"github.com/pkg/errors"
 )
 
 var log = log15.New("pkg", "node")
@@ -114,8 +114,13 @@ func (n *Node) handleBlockStream(ctx context.Context, stream <-chan *block.Block
 
 	var blk *block.Block
 	for blk = range stream {
-		if _, err := n.processBlock(blk, &stats); err != nil {
+		if isTrunk, err := n.processBlock(blk, &stats); err != nil {
 			return err
+		} else if isTrunk {
+			// this processBlock happens after consensus SyncDone, need to broadcast
+			if n.cons.SyncDone {
+				n.comm.BroadcastBlock(blk)
+			}
 		}
 
 		if stats.processed > 0 &&
