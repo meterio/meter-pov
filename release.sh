@@ -1,7 +1,7 @@
 #!/bin/bash
 
 PROJECT_NAME=meter-pos
-VERSION=1.0
+VERSION=1.1.1
 
 DOCKER_TAG=dfinlab/${PROJECT_NAME}:$VERSION
 LATEST_TAG=dfinlab/${PROJECT_NAME}:latest
@@ -18,7 +18,7 @@ docker run -d --name $TEMP_CONTAINER_NAME $DOCKER_TAG
 echo "Brought up a temporary docker container"
 mkdir -p $RELEASE_DIR/bin
 mkdir -p $RELEASE_DIR/lib
-docker cp $TEMP_CONTAINER_NAME:/usr/bin/thor $RELEASE_DIR/bin/
+docker cp $TEMP_CONTAINER_NAME:/usr/bin/meter $RELEASE_DIR/bin/
 docker cp $TEMP_CONTAINER_NAME:/usr/bin/disco $RELEASE_DIR/bin/
 docker cp $TEMP_CONTAINER_NAME:/usr/lib/libpbc.so $RELEASE_DIR/lib/
 docker cp $TEMP_CONTAINER_NAME:/usr/lib/libpbc.so.1 $RELEASE_DIR/lib/
