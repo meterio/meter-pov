@@ -194,8 +194,8 @@ func NewConsensusReactor(ctx *cli.Context, chain *chain.Chain, state *state.Crea
 	//initialize Delegates
 	ds := configDelegates()
 	conR.curDelegates = types.NewDelegateSet(ds)
-	conR.delegateSize = 2  // 10 //DELEGATES_SIZE
-	conR.committeeSize = 2 // 4 //COMMITTEE_SIZE
+	conR.delegateSize = ctx.Int("delegate-size")   // 10 //DELEGATES_SIZE
+	conR.committeeSize = ctx.Int("committee-size") // 4 //COMMITTEE_SIZE
 
 	conR.myPrivKey = *privKey
 	conR.myPubKey = *pubKey

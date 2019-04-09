@@ -136,4 +136,14 @@ var (
 		Name:  "no-discover",
 		Usage: "disable auto discovery mode",
 	}
+	committeeSizeFlag = cli.IntFlag{
+		Name:  "committee-size",
+		Usage: "committee size",
+		Value: 2,
+	}
+	delegateSizeFlag = cli.IntFlag{
+		Name:  "delegate-size",
+		Usage: "delegate size",
+		Value: 2,
+	}
 )

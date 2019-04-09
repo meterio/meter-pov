@@ -94,6 +94,8 @@ func main() {
 			powUserFlag,
 			powPassFlag,
 			noDiscoverFlag,
+			committeeSizeFlag,
+			delegateSizeFlag,
 		},
 		Action: defaultAction,
 		Commands: []cli.Command{
