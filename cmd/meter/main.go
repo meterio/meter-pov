@@ -181,6 +181,9 @@ func defaultAction(ctx *cli.Context) error {
 	stateCreator := state.NewCreator(mainDB)
 	cons := consensus.NewConsensusReactor(ctx, chain, stateCreator, master.PrivateKey, master.PublicKey)
 
+	observeURL, observeSrvCloser := startObserveServer(ctx)
+	defer func() { log.Info("closing Observe Server ..."); observeSrvCloser() }()
+
 	//also create the POW components
 	// powR := pow.NewPowpoolReactor(chain, stateCreator, powpool)
 
@@ -188,7 +191,7 @@ func defaultAction(ctx *cli.Context) error {
 	genCloser := newKFrameGenerator(ctx, cons)
 	defer func() { log.Info("stopping kframe generator service ..."); genCloser() }()
 
-	printStartupMessage(gene, chain, master, instanceDir, apiURL, powApiURL)
+	printStartupMessage(gene, chain, master, instanceDir, apiURL, powApiURL, observeURL)
 
 	p2pcom.Start()
 	defer p2pcom.Stop()

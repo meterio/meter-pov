@@ -91,6 +91,8 @@ func (m *powObjectMap) InitialAddKframe(powObj *powObject) error {
 		return err
 	}
 
+	powBlockRecvedGauge.Inc()
+
 	m.lastKframePowObj = powObj
 	return nil
 }
@@ -191,6 +193,8 @@ func (m *powObjectMap) Flush() {
 	m.powObjMap = make(map[meter.Bytes32]*powObject)
 	m.latestHeightMkr = newLatestHeightMarker()
 	m.lastKframePowObj = nil
+
+	powBlockRecvedGauge.Set(float64(0))
 }
 
 func (m *powObjectMap) Len() int {

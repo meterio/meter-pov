@@ -545,6 +545,8 @@ func (conR *ConsensusReactor) finalizeCommitBlock(blkInfo *ProposedBlockInfo) bo
 
 	commitElapsed := mclock.Now() - startTime
 
+	blocksCommitedCounter.Inc()
+
 	// XXX: broadcast the new block to all peers
 	comm.GetGlobCommInst().BroadcastBlock(blk)
 	// successfully added the block, update the current hight of consensus

@@ -48,6 +48,7 @@ import (
 	"github.com/dfinlab/meter/types"
 	//"github.com/dfinlab/meter/xenv"
 	cmn "github.com/dfinlab/meter/libs/common"
+	"github.com/prometheus/client_golang/prometheus"
 
 	cli "gopkg.in/urfave/cli.v1"
 )
@@ -87,6 +88,23 @@ const (
 
 var (
 	ConsensusGlobInst *ConsensusReactor
+
+	curRoundGauge = prometheus.NewGauge(prometheus.GaugeOpts{
+		Name: "current_round",
+		Help: "Current round of consensus",
+	})
+	curHeightGauge = prometheus.NewGauge(prometheus.GaugeOpts{
+		Name: "current_height",
+		Help: "Current height of block",
+	})
+	lastKBlockHeightGauge = prometheus.NewGauge(prometheus.GaugeOpts{
+		Name: "last_kblock_height",
+		Help: "Height of last k-block",
+	})
+	blocksCommitedCounter = prometheus.NewCounter(prometheus.CounterOpts{
+		Name: "blocks_commited_total",
+		Help: "Counter of commited blocks locally",
+	})
 )
 
 type ConsensusConfig struct {
@@ -191,6 +209,15 @@ func NewConsensusReactor(ctx *cli.Context, chain *chain.Chain, state *state.Crea
 	conR.curHeight = int64(chain.BestBlock().Header().Number())
 	conR.curRound = 0
 
+	prometheus.MustRegister(curRoundGauge)
+	prometheus.MustRegister(curHeightGauge)
+	prometheus.MustRegister(lastKBlockHeightGauge)
+	prometheus.MustRegister(blocksCommitedCounter)
+
+	curRoundGauge.Set(float64(conR.curRound))
+	curHeightGauge.Set(float64(conR.curHeight))
+	lastKBlockHeightGauge.Set(float64(conR.lastKBlockHeight))
+
 	//initialize Delegates
 	ds := configDelegates()
 	conR.curDelegates = types.NewDelegateSet(ds)
@@ -267,6 +294,8 @@ func (conR *ConsensusReactor) SwitchToConsensus() {
 	} else {
 		// mblock
 		lastKBlockHeight := best.Header().LastKBlockHeight()
+		lastKBlockHeightGauge.Set(float64(lastKBlockHeight))
+
 		if lastKBlockHeight == 0 {
 			nonce = genesisNonce
 
@@ -389,12 +418,14 @@ func (conR *ConsensusReactor) isCSDelegates() bool {
 func (conR *ConsensusReactor) UpdateHeight(height int64) bool {
 	conR.logger.Info(fmt.Sprintf("Update conR.curHeight from %d to %d", conR.curHeight, height))
 	conR.curHeight = height
+	curHeightGauge.Set(float64(height))
 	return true
 }
 
 func (conR *ConsensusReactor) UpdateRound(round int) bool {
 	conR.logger.Info(fmt.Sprintf("Update conR.curRound from %d to %d", conR.curRound, round))
 	conR.curRound = round
+	curRoundGauge.Set(float64(round))
 	return true
 }
 
@@ -402,15 +433,18 @@ func (conR *ConsensusReactor) UpdateRound(round int) bool {
 func (conR *ConsensusReactor) UpdateHeightRound(height int64, round int) bool {
 	if height != 0 {
 		conR.curHeight = height
+		curHeightGauge.Set(float64(height))
 	}
 
 	conR.curRound = round
+	curRoundGauge.Set(float64(round))
 	return true
 }
 
 // update the LastKBlockHeight
 func (conR *ConsensusReactor) UpdateLastKBlockHeight(height uint32) bool {
 	conR.lastKBlockHeight = height
+	lastKBlockHeightGauge.Set(float64(height))
 	return true
 }
 
@@ -422,6 +456,10 @@ func (conR *ConsensusReactor) RefreshCurHeight() error {
 	bestHeader := conR.chain.BestBlock().Header()
 	conR.curHeight = int64(bestHeader.Number())
 	conR.lastKBlockHeight = bestHeader.LastKBlockHeight()
+
+	curHeightGauge.Set(float64(conR.curHeight))
+	lastKBlockHeightGauge.Set(float64(conR.lastKBlockHeight))
+
 	conR.logger.Info("Refresh curHeight", "previous", prev, "now", conR.curHeight, "lastKBlockHeight", conR.lastKBlockHeight)
 	return nil
 }
@@ -1463,6 +1501,7 @@ func HandleScheduleReplayLeader(conR *ConsensusReactor) bool {
 	// need to deinit to avoid the memory leak
 	best := conR.chain.BestBlock()
 	lastKBlockHeight := best.Header().LastKBlockHeight()
+	lastKBlockHeightGauge.Set(float64(lastKBlockHeight))
 
 	b, err := conR.chain.GetTrunkBlock(lastKBlockHeight + 1)
 	if err != nil {

@@ -16,11 +16,12 @@ import (
 	"time"
 
 	"github.com/btcsuite/btcd/rpcclient"
-	"github.com/ethereum/go-ethereum/event"
-	"github.com/inconshreveable/log15"
 	"github.com/dfinlab/meter/block"
 	"github.com/dfinlab/meter/co"
 	"github.com/dfinlab/meter/meter"
+	"github.com/ethereum/go-ethereum/event"
+	"github.com/inconshreveable/log15"
+	"github.com/prometheus/client_golang/prometheus"
 )
 
 const (
@@ -34,6 +35,11 @@ var (
 	GlobPowPoolInst *PowPool
 
 	RewardCoef int64 = POW_DEFAULT_REWARD_COEF
+
+	powBlockRecvedGauge = prometheus.NewGauge(prometheus.GaugeOpts{
+		Name: "pow_block_recved",
+		Help: "Accumulated counter for received pow blocks since last k-block",
+	})
 )
 
 // Options options for tx pool.
@@ -95,6 +101,8 @@ func New(options Options) *PowPool {
 	}
 	pool.goes.Go(pool.housekeeping)
 	SetGlobPowPoolInst(pool)
+	prometheus.MustRegister(powBlockRecvedGauge)
+
 	return pool
 }
 

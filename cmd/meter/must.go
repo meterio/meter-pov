@@ -37,6 +37,7 @@ import (
 	cli "gopkg.in/urfave/cli.v1"
 
 	"github.com/ethereum/go-ethereum/p2p/discover"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 func initLogger(ctx *cli.Context) {
@@ -281,12 +282,33 @@ func (p *p2pComm) Stop() {
 	}
 }
 
+func startObserveServer(ctx *cli.Context) (string, func()) {
+	addr := "0.0.0.0:8667"
+	listener, err := net.Listen("tcp", addr)
+	if err != nil {
+		fatal(fmt.Sprintf("listen API addr [%v]: %v", addr, err))
+	}
+	mux := http.NewServeMux()
+	mux.Handle("/metrics", promhttp.Handler())
+
+	srv := &http.Server{Handler: mux}
+	var goes co.Goes
+	goes.Go(func() {
+		srv.Serve(listener)
+	})
+	return "http://" + listener.Addr().String() + "/", func() {
+		srv.Close()
+		goes.Wait()
+	}
+}
+
 func startAPIServer(ctx *cli.Context, handler http.Handler, genesisID meter.Bytes32) (string, func()) {
 	addr := ctx.String(apiAddrFlag.Name)
 	listener, err := net.Listen("tcp", addr)
 	if err != nil {
 		fatal(fmt.Sprintf("listen API addr [%v]: %v", addr, err))
 	}
+
 	timeout := ctx.Int(apiTimeoutFlag.Name)
 	if timeout > 0 {
 		handler = handleAPITimeout(handler, time.Duration(timeout)*time.Millisecond)
@@ -334,18 +356,20 @@ func printStartupMessage(
 	dataDir string,
 	apiURL string,
 	powApiURL string,
+	observeURL string,
 ) {
 	bestBlock := chain.BestBlock()
 
 	fmt.Printf(`Starting %v
-    Network        [ %v %v ]    
-    Best block     [ %v #%v @%v ]
-    Forks          [ %v ]
-    Master         [ %v ]
-    Beneficiary    [ %v ]
-    Instance dir   [ %v ]
-    API portal     [ %v ]
-    POW API portal [ %v ]
+    Network         [ %v %v ]    
+    Best block      [ %v #%v @%v ]
+    Forks           [ %v ]
+    Master          [ %v ]
+    Beneficiary     [ %v ]
+    Instance dir    [ %v ]
+    API portal      [ %v ]
+    POW API portal  [ %v ]
+    Observe service [ %v ]
 `,
 		common.MakeName("Meter", fullVersion()),
 		gene.ID(), gene.Name(),
@@ -359,7 +383,7 @@ func printStartupMessage(
 			return master.Beneficiary.String()
 		}(),
 		dataDir,
-		apiURL, powApiURL)
+		apiURL, powApiURL, observeURL)
 }
 
 func openMemMainDB() *lvldb.LevelDB {
