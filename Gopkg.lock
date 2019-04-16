@@ -2,14 +2,6 @@
 
 
 [[projects]]
-  digest = "1:1c10bf6793afd790b0949d5384403d8d4850bf8f5f72ab6fc232277daaa5057b"
-  name = "github.com/aead/siphash"
-  packages = ["."]
-  pruneopts = "UT"
-  revision = "83563a290f60225eb120d724600b9690c3fb536f"
-  version = "v1.0.1"
-
-[[projects]]
   digest = "1:f5322546f652db78b7a8efd35047a61d1e492abca2263e1c647eca49e1c8a354"
   name = "github.com/aristanetworks/goarista"
   packages = ["monotime"]
@@ -25,28 +17,24 @@
   version = "v0.2.0"
 
 [[projects]]
+  digest = "1:d6afaeed1502aa28e80a4ed0981d570ad91b2579193404256ce672ed0a609e0d"
+  name = "github.com/beorn7/perks"
+  packages = ["quantile"]
+  pruneopts = "UT"
+  revision = "4b2b341e8d7715fae06375aa633dbb6e91b3fb46"
+  version = "v1.0.0"
+
+[[projects]]
   branch = "master"
-  digest = "1:c727921450582e2450d6f33848ea7ae6db90fa65a60911401f87c908c49534b0"
+  digest = "1:127bbf69730dc88e675e753cc648475ac91a71a1f895e2623dbaba7ec7f4c5dc"
   name = "github.com/btcsuite/btcd"
   packages = [
-    ".",
-    "addrmgr",
     "blockchain",
-    "blockchain/indexers",
     "btcec",
     "btcjson",
     "chaincfg",
     "chaincfg/chainhash",
-    "connmgr",
     "database",
-    "database/ffldb",
-    "database/internal/treap",
-    "limits",
-    "mempool",
-    "mining",
-    "mining/cpuminer",
-    "netsync",
-    "peer",
     "rpcclient",
     "txscript",
     "wire",
@@ -64,15 +52,12 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:374aa93e842716549a0244cdeeb510397351729f25ef1bfe69fd4c7355bd0865"
+  digest = "1:d0a31b77988b04afbfa2c5ee38567a7a35d5a95de2266a644a7bc8d5c898e68d"
   name = "github.com/btcsuite/btcutil"
   packages = [
     ".",
     "base58",
     "bech32",
-    "bloom",
-    "gcs",
-    "gcs/builder",
   ]
   pruneopts = "UT"
   revision = "4c204d6978034c001714728401fcd63060d568b4"
@@ -86,55 +71,12 @@
   revision = "4720035b7bfd2a9bb130b1c184f8bbe41b6f0d0f"
 
 [[projects]]
-  digest = "1:3255ef5e4238fb5ef9a5fffc789d5032d5863c4a47cfdbf11d9626f17d36e901"
-  name = "github.com/btcsuite/goleveldb"
-  packages = [
-    "leveldb",
-    "leveldb/cache",
-    "leveldb/comparer",
-    "leveldb/errors",
-    "leveldb/filter",
-    "leveldb/iterator",
-    "leveldb/journal",
-    "leveldb/memdb",
-    "leveldb/opt",
-    "leveldb/storage",
-    "leveldb/table",
-    "leveldb/util",
-  ]
-  pruneopts = "UT"
-  revision = "3fd0373267b6461dbefe91cef614278064d05465"
-  version = "v1.0.0"
-
-[[projects]]
-  digest = "1:f9bf7ab1aef6d501f1c51179e96d75a75526a85fd0f18bb2b285eaae058df084"
-  name = "github.com/btcsuite/snappy-go"
-  packages = ["."]
-  pruneopts = "UT"
-  revision = "b3db38edf0a9a11a115eb6b022d8c946024a9ac0"
-  version = "v1.0.0"
-
-[[projects]]
   branch = "master"
   digest = "1:0b2242fd2f4f51fb491e97e204464f75da680897a0db10ec7554c87b71b5afc3"
   name = "github.com/btcsuite/websocket"
   packages = ["."]
   pruneopts = "UT"
   revision = "31079b6807923eb23992c421b114992b95131b55"
-
-[[projects]]
-  digest = "1:a0faecc39336c429a46476189bcb276e47aac54b531bd5c03650319cb759fedc"
-  name = "github.com/btcsuite/winsvc"
-  packages = [
-    "eventlog",
-    "mgr",
-    "registry",
-    "svc",
-    "winapi",
-  ]
-  pruneopts = "UT"
-  revision = "f8fb11f83f7e860e3769a08e6811d1b399a43722"
-  version = "v1.0.0"
 
 [[projects]]
   digest = "1:ffe9824d294da03b391f44e1ae8281281b4afc1bdaa9588c9097785e3af10cec"
@@ -220,6 +162,14 @@
   pruneopts = "UT"
   revision = "2fee6af1a9795aafbe0253a0cfbdf668e1fb8a9a"
   version = "v1.8.0"
+
+[[projects]]
+  digest = "1:318f1c959a8a740366fce4b1e1eb2fd914036b4af58fbd0a003349b305f118ad"
+  name = "github.com/golang/protobuf"
+  packages = ["proto"]
+  pruneopts = "UT"
+  revision = "b5d812f8a3706043e23a9cd5babf2e5423744d30"
+  version = "v1.3.1"
 
 [[projects]]
   branch = "master"
@@ -311,30 +261,6 @@
   revision = "1fa385a6f45828c83361136b45b1a21a12139493"
 
 [[projects]]
-  digest = "1:a2cff208d4759f6ba1b1cd228587b0a1869f95f22542ec9cd17fff64430113c7"
-  name = "github.com/jessevdk/go-flags"
-  packages = ["."]
-  pruneopts = "UT"
-  revision = "c6ca198ec95c841fdb89fc0de7496fed11ab854e"
-  version = "v1.4.0"
-
-[[projects]]
-  digest = "1:4b6a85c651ea3faa6dfb4e6de5249b602226270b9eb3dfb8f49ec91fa3ef08ff"
-  name = "github.com/jrick/logrotate"
-  packages = ["rotator"]
-  pruneopts = "UT"
-  revision = "a93b200c26cbae3bb09dd0dc2c7c7fe1468a034a"
-  version = "v1.0.0"
-
-[[projects]]
-  branch = "master"
-  digest = "1:39016aee9299043adc48cdab6eff2da3814ca210d561b0a0cdea103b1705ce26"
-  name = "github.com/kkdai/bstream"
-  packages = ["."]
-  pruneopts = "UT"
-  revision = "b3251f7901ec4dd4ec66b3210e8f4bd5c0f1c5a3"
-
-[[projects]]
   digest = "1:c658e84ad3916da105a761660dcaeb01e63416c8ec7bc62256a9b411a05fcd67"
   name = "github.com/mattn/go-colorable"
   packages = ["."]
@@ -367,6 +293,14 @@
   revision = "e4f871175a2f903ed2e6353334fdccb507c1d09e"
 
 [[projects]]
+  digest = "1:ff5ebae34cfbf047d505ee150de27e60570e8c394b3b8fdbb720ff6ac71985fc"
+  name = "github.com/matttproud/golang_protobuf_extensions"
+  packages = ["pbutil"]
+  pruneopts = "UT"
+  revision = "c12348ce28de40eed0136aa2b644d0ee0650e56c"
+  version = "v1.0.1"
+
+[[projects]]
   digest = "1:e5d0bd87abc2781d14e274807a470acd180f0499f8bf5bb18606e9ec22ad9de9"
   name = "github.com/pborman/uuid"
   packages = ["."]
@@ -389,6 +323,46 @@
   pruneopts = "UT"
   revision = "792786c7400a136282c1664665ae0a8db921c6c2"
   version = "v1.0.0"
+
+[[projects]]
+  digest = "1:93a746f1060a8acbcf69344862b2ceced80f854170e1caae089b2834c5fbf7f4"
+  name = "github.com/prometheus/client_golang"
+  packages = [
+    "prometheus",
+    "prometheus/internal",
+    "prometheus/promhttp",
+  ]
+  pruneopts = "UT"
+  revision = "505eaef017263e299324067d40ca2c48f6a2cf50"
+  version = "v0.9.2"
+
+[[projects]]
+  branch = "master"
+  digest = "1:2d5cd61daa5565187e1d96bae64dbbc6080dacf741448e9629c64fd93203b0d4"
+  name = "github.com/prometheus/client_model"
+  packages = ["go"]
+  pruneopts = "UT"
+  revision = "fd36f4220a901265f90734c3183c5f0c91daa0b8"
+
+[[projects]]
+  digest = "1:35cf6bdf68db765988baa9c4f10cc5d7dda1126a54bd62e252dbcd0b1fc8da90"
+  name = "github.com/prometheus/common"
+  packages = [
+    "expfmt",
+    "internal/bitbucket.org/ww/goautoneg",
+    "model",
+  ]
+  pruneopts = "UT"
+  revision = "a82f4c12f983cc2649298185f296632953e50d3e"
+  version = "v0.3.0"
+
+[[projects]]
+  branch = "master"
+  digest = "1:5e412e2a03bd0cfdb102db97212be2e625df74fa8b2d4a8a51f107b1456e256b"
+  name = "github.com/prometheus/procfs"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "e22ddced71425e65e388b17b7d0289c5ea77d06e"
 
 [[projects]]
   branch = "master"
@@ -549,7 +523,6 @@
   analyzer-version = 1
   input-imports = [
     "github.com/beevik/ntp",
-    "github.com/btcsuite/btcd",
     "github.com/btcsuite/btcd/blockchain",
     "github.com/btcsuite/btcd/chaincfg/chainhash",
     "github.com/btcsuite/btcd/rpcclient",
@@ -590,6 +563,8 @@
     "github.com/mattn/go-tty",
     "github.com/pborman/uuid",
     "github.com/pkg/errors",
+    "github.com/prometheus/client_golang/prometheus",
+    "github.com/prometheus/client_golang/prometheus/promhttp",
     "github.com/rcrowley/go-metrics",
     "github.com/rs/cors",
     "github.com/stretchr/testify/assert",
