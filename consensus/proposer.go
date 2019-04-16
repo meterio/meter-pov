@@ -168,6 +168,14 @@ func (cp *ConsensusProposer) MoveInitState(curState byte, sendNewRoundMsg bool) 
 		NewProposer: crypto.FromECDSAPub(&cp.csReactor.curActualCommittee[(curRound+1)%curActualSize].PubKey),
 	}
 
+	// sign message
+	msgSig, err := cp.csReactor.SignConsensusMsg(msg.SigningHash().Bytes())
+	if err != nil {
+		cp.csReactor.logger.Error("Sign message failed", "error", err)
+		return false
+	}
+	msg.CSMsgCommonHeader.SetMsgSignature(msgSig)
+
 	// state to init & send move to next round
 	// fmt.Println("msg: %v", msg.String())
 	var m ConsensusMessage = msg
@@ -266,6 +274,13 @@ func (cp *ConsensusProposer) GenerateMBlockMsg(mblock []byte) bool {
 		ProposedBlock:    mblock,
 	}
 
+	// sign message
+	msgSig, err := cp.csReactor.SignConsensusMsg(msg.SigningHash().Bytes())
+	if err != nil {
+		cp.csReactor.logger.Error("Sign message failed", "error", err)
+		return false
+	}
+	msg.CSMsgCommonHeader.SetMsgSignature(msgSig)
 	cp.csReactor.logger.Debug("Generated Proposal Block Message for MBlock", "height", msg.CSMsgCommonHeader.Height, "timestamp", msg.CSMsgCommonHeader.Timestamp)
 	var m ConsensusMessage = msg
 	cp.state = COMMITTEE_PROPOSER_PROPOSED
@@ -336,6 +351,13 @@ func (cp *ConsensusProposer) GenerateKBlockMsg(kblock []byte) bool {
 		ProposedBlock:    kblock,
 	}
 
+	// sign message
+	msgSig, err := cp.csReactor.SignConsensusMsg(msg.SigningHash().Bytes())
+	if err != nil {
+		cp.csReactor.logger.Error("Sign message failed", "error", err)
+		return false
+	}
+	msg.CSMsgCommonHeader.SetMsgSignature(msgSig)
 	cp.csReactor.logger.Debug("Generate Proposal Block Message for KBlock", "height", msg.CSMsgCommonHeader.Height, "timestamp", msg.CSMsgCommonHeader.Timestamp)
 
 	var m ConsensusMessage = msg
@@ -403,7 +425,15 @@ func (cp *ConsensusProposer) GenerateNotaryBlockMsg() bool {
 		VoterAggSignature: cp.csReactor.csCommon.system.SigToBytes(cp.proposalVoterAggSig),
 	}
 
+	// sign message
+	msgSig, err := cp.csReactor.SignConsensusMsg(msg.SigningHash().Bytes())
+	if err != nil {
+		cp.csReactor.logger.Error("Sign message failed", "error", err)
+		return false
+	}
+	msg.CSMsgCommonHeader.SetMsgSignature(msgSig)
 	cp.csReactor.logger.Debug("Generate Notary Block Message", "msg", msg.String())
+
 	var m ConsensusMessage = msg
 	cp.SendMsg(&m)
 	cp.state = COMMITTEE_PROPOSER_NOTARYSENT
@@ -434,6 +464,11 @@ func (cp *ConsensusProposer) ProcessVoteForProposal(vote4ProposalMsg *VoteForPro
 
 	if ch.MsgType != CONSENSUS_MSG_VOTE_FOR_PROPOSAL {
 		cp.csReactor.logger.Error("MsgType is not CONSENSUS_MSG_VOTE_FOR_PROPOSAL")
+		return false
+	}
+
+	if cp.csReactor.ValidateCMheaderSig(&ch, vote4ProposalMsg.SigningHash().Bytes()) == false {
+		cp.csReactor.logger.Error("Signature validate failed")
 		return false
 	}
 
@@ -551,6 +586,11 @@ func (cp *ConsensusProposer) ProcessVoteForNotary(vote4NotaryMsg *VoteForNotaryM
 
 	if ch.MsgType != CONSENSUS_MSG_VOTE_FOR_NOTARY {
 		cp.csReactor.logger.Error("MsgType is not CONSENSUS_MSG_VOTE_FOR_NOTARY")
+		return false
+	}
+
+	if cp.csReactor.ValidateCMheaderSig(&ch, vote4NotaryMsg.SigningHash().Bytes()) == false {
+		cp.csReactor.logger.Error("Signature validate failed")
 		return false
 	}
 

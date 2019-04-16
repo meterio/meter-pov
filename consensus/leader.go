@@ -152,7 +152,15 @@ func (cl *ConsensusLeader) GenerateAnnounceMsg() bool {
 		SignLength: MSG_SIGN_LENGTH_DEFAULT,
 	}
 
+	// sign message
+	msgSig, err := cl.csReactor.SignConsensusMsg(msg.SigningHash().Bytes())
+	if err != nil {
+		cl.csReactor.logger.Error("Sign message failed", "error", err)
+		return false
+	}
+	msg.CSMsgCommonHeader.SetMsgSignature(msgSig)
 	cl.csReactor.logger.Debug("Generate Announce Comittee Message", "msg", msg.String())
+
 	var m ConsensusMessage = msg
 	cl.state = COMMITTEE_LEADER_ANNOUNCED
 	cl.SendMsg(&m)
@@ -236,7 +244,15 @@ func (cl *ConsensusLeader) GenerateNotaryAnnounceMsg() bool {
 		CommitteeActualMembers: cl.csReactor.BuildCommitteeInfoFromMember(cl.csReactor.csCommon.system, cl.csReactor.curActualCommittee),
 	}
 
+	// sign message
+	msgSig, err := cl.csReactor.SignConsensusMsg(msg.SigningHash().Bytes())
+	if err != nil {
+		cl.csReactor.logger.Error("Sign message failed", "error", err)
+		return false
+	}
+	msg.CSMsgCommonHeader.SetMsgSignature(msgSig)
 	cl.csReactor.logger.Debug("Generate Notary Announce Message", "msg", msg.String())
+
 	var m ConsensusMessage = msg
 	cl.SendMsg(&m)
 	// cl.state = COMMITTEE_LEADER_NOTARYSENT
@@ -270,6 +286,11 @@ func (cl *ConsensusLeader) ProcessCommitMsg(commitMsg *CommitCommitteeMessage, s
 	if ch.MsgType != CONSENSUS_MSG_COMMIT_COMMITTEE {
 		cl.csReactor.logger.Error("MsgType mismatch", "expected", "CONSENSUS_MSG_COMMIT_COMMITTEE", "actual", ch.MsgType)
 		// cl.csReactor.logger.Error(ch)
+		return false
+	}
+
+	if cl.csReactor.ValidateCMheaderSig(&ch, commitMsg.SigningHash().Bytes()) == false {
+		cl.csReactor.logger.Error("Signature validate failed")
 		return false
 	}
 
@@ -380,6 +401,11 @@ func (cl *ConsensusLeader) ProcessVoteNotaryAnnounce(vote4NotaryMsg *VoteForNota
 
 	if ch.MsgType != CONSENSUS_MSG_VOTE_FOR_NOTARY {
 		cl.csReactor.logger.Error("MsgType is not CONSENSUS_MSG_VOTE_FOR_NOTARY")
+		return false
+	}
+
+	if cl.csReactor.ValidateCMheaderSig(&ch, vote4NotaryMsg.SigningHash().Bytes()) == false {
+		cl.csReactor.logger.Error("Signature validate failed")
 		return false
 	}
 

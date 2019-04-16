@@ -28,7 +28,7 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/rs/cors"
 
-	amino "github.com/dfinlab/go-amino"
+	//amino "github.com/dfinlab/go-amino"
 	crypto "github.com/ethereum/go-ethereum/crypto"
 
 	//"github.com/ethereum/go-ethereum/rlp"
@@ -1026,6 +1026,7 @@ func (conR *ConsensusReactor) sendConsensusMsg(msg *ConsensusMessage, csPeer *Co
 	rawMsg := cdc.MustMarshalBinaryBare(msg)
 	if len(rawMsg) > maxMsgSize {
 		fmt.Errorf("Msg exceeds max size (%d > %d)", len(rawMsg), maxMsgSize)
+		conR.logger.Error("Msg exceeds max size", "rawMsg=", len(rawMsg), "maxMsgSize=", maxMsgSize)
 		return false
 	}
 
@@ -1069,6 +1070,41 @@ func (conR *ConsensusReactor) sendConsensusMsg(msg *ConsensusMessage, csPeer *Co
 		conR.logger.Info("Sent consensus message to peer", "type", typeName, "peer", csPeer.String(), "size", len(rawMsg))
 		var result map[string]interface{}
 		json.NewDecoder(resp.Body).Decode(&result)
+	}
+	return true
+}
+
+//============================================
+// Signer extract signer of the block from signature.
+func (conR *ConsensusReactor) ConsensusMsgSigner(msgHash, sig []byte) (ecdsa.PublicKey, error) {
+	pub, err := crypto.SigToPub(msgHash, sig)
+	if err != nil {
+		return ecdsa.PublicKey{}, err
+	}
+
+	//signer = meter.Address(crypto.PubkeyToAddress(*pub))
+	return *pub, nil
+}
+
+func (conR *ConsensusReactor) SignConsensusMsg(msgHash []byte) (sig []byte, err error) {
+	sig, err = crypto.Sign(msgHash, &conR.myPrivKey)
+	if err != nil {
+		return []byte{}, err
+	}
+
+	return sig, nil
+}
+
+func (conR *ConsensusReactor) ValidateCMheaderSig(cmh *ConsensusMsgCommonHeader, msgHash []byte) bool {
+	sender := cmh.Sender // send is byte slice format
+	signer, err := conR.ConsensusMsgSigner(msgHash, cmh.Signature)
+	if err != nil {
+		conR.logger.Error("signature validate failed!", err)
+	}
+
+	if bytes.Equal(crypto.FromECDSAPub(&signer), sender) == false {
+		conR.logger.Error("signature validate mismacth!")
+		return false
 	}
 	return true
 }
@@ -1185,232 +1221,6 @@ func (cp *ConsensusPeer) FullString() string {
 
 func (cp *ConsensusPeer) String() string {
 	return cp.netAddr.IP.String()
-}
-
-//-----------------------------------------------------------------------------
-// Messages
-
-// ConsensusMessage is a message that can be sent and received on the ConsensusReactor
-type ConsensusMessage interface{}
-
-func RegisterConsensusMessages(cdc *amino.Codec) {
-	cdc.RegisterInterface((*ConsensusMessage)(nil), nil)
-
-	// New consensus
-	cdc.RegisterConcrete(&AnnounceCommitteeMessage{}, "dfinlab/AnnounceCommittee", nil)
-	cdc.RegisterConcrete(&CommitCommitteeMessage{}, "dfinlab/CommitCommittee", nil)
-	cdc.RegisterConcrete(&ProposalBlockMessage{}, "dfinlab/ProposalBlock", nil)
-	cdc.RegisterConcrete(&NotaryAnnounceMessage{}, "dfinlab/NotaryAnnounce", nil)
-	cdc.RegisterConcrete(&NotaryBlockMessage{}, "dfinlab/NotaryBlock", nil)
-	cdc.RegisterConcrete(&VoteForProposalMessage{}, "dfinlab/VoteForProposal", nil)
-	cdc.RegisterConcrete(&VoteForNotaryMessage{}, "dfinlab/VoteForNotary", nil)
-	cdc.RegisterConcrete(&MoveNewRoundMessage{}, "dfinlab/MoveNewRound", nil)
-}
-
-func decodeMsg(bz []byte) (msg ConsensusMessage, err error) {
-	if len(bz) > maxMsgSize {
-		return msg, fmt.Errorf("Msg exceeds max size (%d > %d)", len(bz), maxMsgSize)
-	}
-	err = cdc.UnmarshalBinaryBare(bz, &msg)
-	return
-}
-
-//-------------------------------------
-// new consensus
-// ConsensusMsgCommonHeader
-type ConsensusMsgCommonHeader struct {
-	Height     int64
-	Round      int
-	Sender     []byte //ecdsa.PublicKey
-	Timestamp  time.Time
-	MsgType    byte
-	MsgSubType byte
-}
-
-// New Consensus
-// Message Definitions
-//---------------------------------------
-// AnnounceCommitteeMessage is sent when new committee is relayed. The leader of new committee
-// send out to announce the new committee is setup.
-type AnnounceCommitteeMessage struct {
-	CSMsgCommonHeader ConsensusMsgCommonHeader
-
-	AnnouncerID   []byte //ecdsa.PublicKey
-	CommitteeID   uint32
-	CommitteeSize int
-	Nonce         uint64 //nonce is 8 bytes
-
-	CSParams       []byte
-	CSSystem       []byte
-	CSLeaderPubKey []byte //bls.PublicKey
-	KBlockHeight   int64
-	POWBlockHeight int64
-
-	SignOffset uint
-	SignLength uint
-	//possible POW info
-	//...
-}
-
-// String returns a string representation.
-func (m *AnnounceCommitteeMessage) String() string {
-	return fmt.Sprintf("[AnnounceCommittee H:%v R:%v S:%v Type:%v]",
-		m.CSMsgCommonHeader.Height, m.CSMsgCommonHeader.Round,
-		m.CSMsgCommonHeader.Sender, m.CSMsgCommonHeader.MsgType)
-}
-
-// CommitCommitteMessage is sent after announce committee is received. Told the Leader
-// there is enough member to setup the committee.
-type CommitCommitteeMessage struct {
-	CSMsgCommonHeader ConsensusMsgCommonHeader
-
-	CommitteeID   uint32
-	CommitteeSize int
-	CommitterID   []byte //ecdsa.PublicKey
-
-	CSCommitterPubKey  []byte //bls.PublicKey
-	CommitterSignature []byte //bls.Signature
-	CommitterIndex     int
-	SignedMessageHash  [32]byte
-}
-
-// String returns a string representation.
-func (m *CommitCommitteeMessage) String() string {
-	return fmt.Sprintf("[CommitCommittee H:%v R:%v S:%v Type:%v]",
-		m.CSMsgCommonHeader.Height, m.CSMsgCommonHeader.Round,
-		m.CSMsgCommonHeader.Sender, m.CSMsgCommonHeader.MsgType)
-}
-
-//-------------------------------------
-
-// ProposalBlockMessage is sent when a new mblock is proposed.
-type ProposalBlockMessage struct {
-	CSMsgCommonHeader ConsensusMsgCommonHeader
-
-	CommitteeID      uint32
-	ProposerID       []byte //ecdsa.PublicKey
-	CSProposerPubKey []byte //bls.PublicKey
-	KBlockHeight     int64
-	SignOffset       uint
-	SignLength       uint
-	ProposedSize     int
-	ProposedBlock    []byte
-}
-
-// String returns a string representation.
-func (m *ProposalBlockMessage) String() string {
-	return fmt.Sprintf("[ProposalBlockMessage H:%v R:%v S:%v Type:%v]",
-		m.CSMsgCommonHeader.Height, m.CSMsgCommonHeader.Round,
-		m.CSMsgCommonHeader.Sender, m.CSMsgCommonHeader.MsgType)
-}
-
-//-------------------------------------
-// NotaryBlockMessage is sent when a prevois proposal reaches 2/3
-type NotaryAnnounceMessage struct {
-	CSMsgCommonHeader ConsensusMsgCommonHeader
-
-	AnnouncerID   []byte //ecdsa.PublicKey
-	CommitteeID   uint32
-	CommitteeSize int
-
-	SignOffset             uint
-	SignLength             uint
-	VoterBitArray          cmn.BitArray
-	VoterAggSignature      []byte //bls.Signature
-	CommitteeActualSize    int
-	CommitteeActualMembers []block.CommitteeInfo
-}
-
-// String returns a string representation.
-func (m *NotaryAnnounceMessage) String() string {
-	return fmt.Sprintf("[NotaryAnnounceMessage H:%v R:%v S:%v Type:%v]",
-		m.CSMsgCommonHeader.Height, m.CSMsgCommonHeader.Round,
-		m.CSMsgCommonHeader.Sender, m.CSMsgCommonHeader.MsgType)
-}
-
-//-------------------------------------
-// NotaryBlockMessage is sent when a prevois proposal reaches 2/3
-type NotaryBlockMessage struct {
-	CSMsgCommonHeader ConsensusMsgCommonHeader
-
-	ProposerID        []byte //ecdsa.PublicKey
-	CommitteeID       uint32
-	CommitteeSize     int
-	SignOffset        uint
-	SignLength        uint
-	VoterBitArray     cmn.BitArray
-	VoterAggSignature []byte //bls.Signature
-}
-
-// String returns a string representation.
-func (m *NotaryBlockMessage) String() string {
-	return fmt.Sprintf("[NotaryBlockMessage H:%v R:%v S:%v Type:%v]",
-		m.CSMsgCommonHeader.Height, m.CSMsgCommonHeader.Round,
-		m.CSMsgCommonHeader.Sender, m.CSMsgCommonHeader.MsgType)
-}
-
-//-------------------------------------
-
-// VoteResponseMessage is sent when voting for a proposal (or lack thereof).
-type VoteForProposalMessage struct {
-	CSMsgCommonHeader ConsensusMsgCommonHeader
-
-	VoterID           []byte //ecdsa.PublicKey
-	VoteSummary       int64
-	CSVoterPubKey     []byte //bls.PublicKey
-	VoterSignature    []byte //bls.Signature
-	VoterIndex        int
-	SignedMessageHash [32]byte
-}
-
-// String returns a string representation.
-func (m *VoteForProposalMessage) String() string {
-	return fmt.Sprintf("[VoteForProposalMessage H:%v R:%v S:%v Type:%v]",
-		m.CSMsgCommonHeader.Height, m.CSMsgCommonHeader.Round,
-		m.CSMsgCommonHeader.Sender, m.CSMsgCommonHeader.MsgType)
-}
-
-//------------------------------------
-// VoteResponseMessage is sent when voting for a proposal (or lack thereof).
-type VoteForNotaryMessage struct {
-	CSMsgCommonHeader ConsensusMsgCommonHeader //subtype: 1 - vote for Announce 2 - vote for proposal
-
-	VoterID           []byte //ecdsa.PublicKey
-	VoteSummary       int64
-	CSVoterPubKey     []byte //bls.PublicKey
-	VoterSignature    []byte //bls.Signature
-	VoterIndex        int
-	SignedMessageHash [32]byte
-}
-
-// String returns a string representation.
-func (m *VoteForNotaryMessage) String() string {
-	return fmt.Sprintf("[VoteForNotaryMessage H:%v R:%v S:%v Type:%v]",
-		m.CSMsgCommonHeader.Height, m.CSMsgCommonHeader.Round,
-		m.CSMsgCommonHeader.Sender, m.CSMsgCommonHeader.MsgType)
-}
-
-//------------------------------------
-// MoveNewRound message:
-// 1. when a proposer can not get the consensus, so it sends out
-// this message to give up.
-// 2. Proposer disfunctional, the next proposer send out it after a certain time.
-//
-type MoveNewRoundMessage struct {
-	CSMsgCommonHeader ConsensusMsgCommonHeader
-
-	Height      int64
-	CurRound    int
-	NewRound    int
-	CurProposer []byte //ecdsa.PublicKey
-	NewProposer []byte //ecdsa.PublicKey
-}
-
-// String returns a string representation.
-func (m *MoveNewRoundMessage) String() string {
-	return fmt.Sprintf("[MoveNewRoundMessage H:%v R:%v S:%v Type:%v]",
-		m.CSMsgCommonHeader.Height, m.CSMsgCommonHeader.Round,
-		m.CSMsgCommonHeader.Sender, m.CSMsgCommonHeader.MsgType)
 }
 
 // -------------------------------------------------------------------------

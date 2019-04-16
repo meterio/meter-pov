@@ -469,7 +469,14 @@ func (conR *ConsensusReactor) finalizeMBlock(blk *block.Block, ev *block.Evidenc
 	blk.SetBlockEvidence(ev)
 	blk.SetCommitteeInfo(committeeInfo)
 
-	// XXX: update the cache size of this block. the
+	//Fill new info into block, re-calc hash/signature
+	blk.SetEvidenceDataHash(blk.EvidenceDataHash())
+	sig, err := crypto.Sign(blk.Header().SigningHash().Bytes(), &conR.myPrivKey)
+	if err != nil {
+		return false
+	}
+
+	blk.SetBlockSignature(sig)
 	return true
 }
 
@@ -487,6 +494,14 @@ func (conR *ConsensusReactor) finalizeKBlock(blk *block.Block, ev *block.Evidenc
 	blk.SetParamsBytes(paramsBytes)
 	blk.SetCommitteeInfo(committeeInfo)
 
+	//Fill new info into block, re-calc hash/signature
+	blk.SetEvidenceDataHash(blk.EvidenceDataHash())
+	sig, err := crypto.Sign(blk.Header().SigningHash().Bytes(), &conR.myPrivKey)
+	if err != nil {
+		return false
+	}
+
+	blk.SetBlockSignature(sig)
 	return true
 }
 

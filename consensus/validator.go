@@ -169,6 +169,13 @@ func (cv *ConsensusValidator) GenerateCommitMessage(sig bls.Signature, msgHash [
 		SignedMessageHash:  msgHash,
 	}
 
+	// sign message
+	msgSig, err := cv.csReactor.SignConsensusMsg(msg.SigningHash().Bytes())
+	if err != nil {
+		cv.csReactor.logger.Error("Sign message failed", "error", err)
+		return nil
+	}
+	msg.CSMsgCommonHeader.SetMsgSignature(msgSig)
 	cv.csReactor.logger.Debug("Generate Commit Committee Message", "msg", msg.String())
 	return msg
 }
@@ -209,6 +216,11 @@ func (cv *ConsensusValidator) ProcessAnnounceCommittee(announceMsg *AnnounceComm
 
 	if ch.MsgType != CONSENSUS_MSG_ANNOUNCE_COMMITTEE {
 		cv.csReactor.logger.Error("MsgType is not CONSENSUS_MSG_ANNOUNCE_COMMITTEE")
+		return false
+	}
+
+	if cv.csReactor.ValidateCMheaderSig(&ch, announceMsg.SigningHash().Bytes()) == false {
+		cv.csReactor.logger.Error("Signature validate failed")
 		return false
 	}
 
@@ -313,6 +325,13 @@ func (cv *ConsensusValidator) GenerateVoteForProposalMessage(sig bls.Signature, 
 		SignedMessageHash: msgHash,
 	}
 
+	// sign message
+	msgSig, err := cv.csReactor.SignConsensusMsg(msg.SigningHash().Bytes())
+	if err != nil {
+		cv.csReactor.logger.Error("Sign message failed", "error", err)
+		return nil
+	}
+	msg.CSMsgCommonHeader.SetMsgSignature(msgSig)
 	cv.csReactor.logger.Debug("Generate Voter For Proposal Message", "msg", msg.String())
 	return msg
 }
@@ -475,6 +494,11 @@ func (cv *ConsensusValidator) ProcessNotaryBlockMessage(notaryMsg *NotaryBlockMe
 		return false
 	}
 
+	if cv.csReactor.ValidateCMheaderSig(&ch, notaryMsg.SigningHash().Bytes()) == false {
+		cv.csReactor.logger.Error("Signature validate failed")
+		return false
+	}
+
 	// XXX: Now validate voter bitarray and aggaregated signature.
 
 	// Block is OK, send notary voting back
@@ -542,6 +566,11 @@ func (cv *ConsensusValidator) ProcessNotaryAnnounceMessage(notaryMsg *NotaryAnno
 		return false
 	}
 
+	if cv.csReactor.ValidateCMheaderSig(&ch, notaryMsg.SigningHash().Bytes()) == false {
+		cv.csReactor.logger.Error("Signature validate failed")
+		return false
+	}
+
 	// Now the notary Announce message is OK
 
 	// Validate Actual Committee
@@ -603,6 +632,13 @@ func (cv *ConsensusValidator) GenerateVoteForNotaryMessage(sig bls.Signature, ms
 		SignedMessageHash: msgHash,
 	}
 
+	// sign message
+	msgSig, err := cv.csReactor.SignConsensusMsg(msg.SigningHash().Bytes())
+	if err != nil {
+		cv.csReactor.logger.Error("Sign message failed", "error", err)
+		return nil
+	}
+	msg.CSMsgCommonHeader.SetMsgSignature(msgSig)
 	cv.csReactor.logger.Debug("Generate Voter For Notary Message", "msg", msg.String())
 	return msg
 }
@@ -617,6 +653,11 @@ func (cv *ConsensusValidator) ProcessMoveNewRoundMessage(newRoundMsg *MoveNewRou
 	}
 
 	ch := newRoundMsg.CSMsgCommonHeader
+
+	if cv.csReactor.ValidateCMheaderSig(&ch, newRoundMsg.SigningHash().Bytes()) == false {
+		cv.csReactor.logger.Error("Signature validate failed")
+		return false
+	}
 
 	chainCurHeight := int64(cv.csReactor.chain.BestBlock().Header().Number())
 	cv.csReactor.logger.Debug("ProcessMoveNewRound", "Chain curHeight", chainCurHeight, "Reactor curHeight", cv.csReactor.curHeight)

@@ -12,9 +12,9 @@ import (
 	// "io"
 	"sync/atomic"
 
+	"github.com/dfinlab/meter/meter"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/rlp"
-	"github.com/dfinlab/meter/meter"
 )
 
 const (
@@ -47,9 +47,10 @@ type HeaderBody struct {
 	GasUsed    uint64
 	TotalScore uint64
 
-	TxsRoot      meter.Bytes32
-	StateRoot    meter.Bytes32
-	ReceiptsRoot meter.Bytes32
+	TxsRoot          meter.Bytes32
+	StateRoot        meter.Bytes32
+	ReceiptsRoot     meter.Bytes32
+	EvidenceDataRoot meter.Bytes32
 
 	Signature []byte
 }
@@ -115,6 +116,11 @@ func (h *Header) ReceiptsRoot() meter.Bytes32 {
 	return h.Body.ReceiptsRoot
 }
 
+// EvidenceDataRoot returns merkle root of tx receipts.
+func (h *Header) EvidenceDataRoot() meter.Bytes32 {
+	return h.Body.EvidenceDataRoot
+}
+
 // ID computes id of block.
 // The block ID is defined as: blockNumber + hash(signingHash, signer)[4:].
 func (h *Header) ID() (id meter.Bytes32) {
@@ -162,6 +168,7 @@ func (h *Header) SigningHash() (hash meter.Bytes32) {
 		h.Body.TxsRoot,
 		h.Body.StateRoot,
 		h.Body.ReceiptsRoot,
+		h.Body.EvidenceDataRoot,
 	})
 	hw.Sum(hash[:0])
 	return

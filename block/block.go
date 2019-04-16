@@ -11,6 +11,7 @@ import (
 	"sync/atomic"
 
 	cmn "github.com/dfinlab/meter/libs/common"
+	"github.com/dfinlab/meter/meter"
 	"github.com/dfinlab/meter/metric"
 	"github.com/dfinlab/meter/tx"
 	"github.com/dfinlab/meter/types"
@@ -233,6 +234,28 @@ func (b *Block) SetParamsBytes(params []byte) error {
 func (b *Block) ToBytes() []byte {
 	bytes, _ := rlp.EncodeToBytes(b)
 	return bytes
+}
+
+func (b *Block) EvidenceDataHash() (hash meter.Bytes32) {
+	hw := meter.NewBlake2b()
+	rlp.Encode(hw, []interface{}{
+		b.Evidence,
+		b.CommitteeInfos,
+		b.KBlockData,
+	})
+	hw.Sum(hash[:0])
+	return
+}
+
+func (b *Block) SetEvidenceDataHash(hash meter.Bytes32) error {
+	b.BlockHeader.Body.EvidenceDataRoot = hash
+	return nil
+}
+
+func (b *Block) SetBlockSignature(sig []byte) error {
+	cpy := append([]byte(nil), sig...)
+	b.BlockHeader.Body.Signature = cpy
+	return nil
 }
 
 //--------------

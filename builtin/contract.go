@@ -8,10 +8,10 @@ package builtin
 import (
 	"encoding/hex"
 
-	"github.com/pkg/errors"
 	"github.com/dfinlab/meter/abi"
 	"github.com/dfinlab/meter/builtin/gen"
 	"github.com/dfinlab/meter/meter"
+	"github.com/pkg/errors"
 )
 
 type contract struct {
@@ -24,6 +24,7 @@ func mustLoadContract(name string) *contract {
 	asset := "compiled/" + name + ".abi"
 	data := gen.MustAsset(asset)
 	abi, err := abi.New(data)
+
 	if err != nil {
 		panic(errors.Wrap(err, "load ABI for '"+name+"'"))
 	}
