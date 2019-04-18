@@ -9,18 +9,18 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/dfinlab/meter/block"
+	"github.com/dfinlab/meter/builtin"
+	"github.com/dfinlab/meter/chain"
+	"github.com/dfinlab/meter/co"
+	"github.com/dfinlab/meter/meter"
+	"github.com/dfinlab/meter/state"
+	"github.com/dfinlab/meter/tx"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/mclock"
 	"github.com/ethereum/go-ethereum/event"
 	"github.com/inconshreveable/log15"
 	"github.com/pkg/errors"
-	"github.com/dfinlab/meter/block"
-	"github.com/dfinlab/meter/builtin"
-	"github.com/dfinlab/meter/chain"
-	"github.com/dfinlab/meter/co"
-	"github.com/dfinlab/meter/state"
-	"github.com/dfinlab/meter/meter"
-	"github.com/dfinlab/meter/tx"
 )
 
 const (
