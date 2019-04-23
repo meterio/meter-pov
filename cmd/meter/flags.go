@@ -89,7 +89,7 @@ var (
 	}
 	gasLimitFlag = cli.IntFlag{
 		Name:  "gas-limit",
-		Value: 10000000,
+		Value: 200000000,
 		Usage: "block gas limit",
 	}
 	importMasterKeyFlag = cli.BoolFlag{
@@ -145,5 +145,9 @@ var (
 		Name:  "delegate-size",
 		Usage: "delegate size",
 		Value: 2,
+	}
+	discoServerFlag = cli.StringSliceFlag{
+		Name:  "disco-server",
+		Usage: "override the default discover servers setting",
 	}
 )

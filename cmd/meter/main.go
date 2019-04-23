@@ -43,8 +43,8 @@ var (
 	log       = log15.New()
 
 	defaultTxPoolOptions = txpool.Options{
-		Limit:           10000,
-		LimitPerAccount: 16,
+		Limit:           200000,
+		LimitPerAccount: 1024, /*16,*/ //XXX: increase to 1024 from 16 during the testing
 		MaxLifetime:     20 * time.Minute,
 	}
 
@@ -96,6 +96,7 @@ func main() {
 			noDiscoverFlag,
 			committeeSizeFlag,
 			delegateSizeFlag,
+			discoServerFlag,
 		},
 		Action: defaultAction,
 		Commands: []cli.Command{

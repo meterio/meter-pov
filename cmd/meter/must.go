@@ -176,6 +176,26 @@ func beneficiary(ctx *cli.Context) *meter.Address {
 	return &addr
 }
 
+func discoServerParse(ctx *cli.Context) ([]*discover.Node, bool, error) {
+
+	nd := ctx.StringSlice(discoServerFlag.Name)
+	if len(nd) == 0 {
+		return []*discover.Node{}, false, nil
+	}
+
+	nodes := make([]*discover.Node, 0)
+	for _, n := range nd {
+		node, err := discover.ParseNode(n)
+		if err != nil {
+			return []*discover.Node{}, false, err
+		}
+
+		nodes = append(nodes, node)
+	}
+
+	return nodes, true, nil
+}
+
 func loadNodeMaster(ctx *cli.Context) *node.Master {
 	if ctx.String(networkFlag.Name) == "dev" {
 		i := rand.Intn(len(genesis.DevAccounts()))
@@ -218,14 +238,30 @@ func newP2PComm(ctx *cli.Context, chain *chain.Chain, txPool *txpool.TxPool, ins
 		fmt.Println("parse -nat flag:", err)
 		os.Exit(1)
 	}
+
+	discoSvr, overrided, err := discoServerParse(ctx)
+	if err != nil {
+		cli.ShowAppHelp(ctx)
+		fmt.Println("parse bootstrap nodes failed:", err)
+		os.Exit(1)
+	}
+
+	// if the discoverServerFlag is not set, use default hardcoded nodes
+	var BootstrapNodes []*discover.Node
+	if overrided == true {
+		BootstrapNodes = discoSvr
+	} else {
+		BootstrapNodes = bootstrapNodes
+	}
+
 	opts := &p2psrv.Options{
 		Name:           common.MakeName("meter", fullVersion()),
 		PrivateKey:     key,
 		MaxPeers:       ctx.Int(maxPeersFlag.Name),
 		ListenAddr:     fmt.Sprintf(":%v", ctx.Int(p2pPortFlag.Name)),
-		BootstrapNodes: bootstrapNodes,
+		BootstrapNodes: BootstrapNodes,
 		NAT:            nat,
-		NoDiscovery:    ctx.Bool("no-discover"), //XXX: force to disable Discovery
+		NoDiscovery:    ctx.Bool("no-discover"),
 	}
 
 	peersCachePath := filepath.Join(instanceDir, "peers.cache")
