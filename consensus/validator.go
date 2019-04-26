@@ -717,6 +717,10 @@ func (cv *ConsensusValidator) ProcessMoveNewRoundMessage(newRoundMsg *MoveNewRou
 
 	cv.csReactor.UpdateHeightRound(newRoundMsg.Height, newRoundMsg.NewRound)
 
+	// relay message to peers first
+	var m ConsensusMessage = newRoundMsg
+	cv.SendMsg(&m)
+
 	// Have move to next round, check I am the new round proposer
 	if bytes.Equal(crypto.FromECDSAPub(&newProposer.PubKey), crypto.FromECDSAPub(&cv.csReactor.myPubKey)) {
 		cv.csReactor.logger.Info("*** I AM THE PROPOSER! ***", "height", newRoundMsg.Height, "round", newRoundMsg.NewRound)
@@ -726,10 +730,6 @@ func (cv *ConsensusValidator) ProcessMoveNewRoundMessage(newRoundMsg *MoveNewRou
 		cv.csReactor.ScheduleProposer(PROPOSER_THRESHOLD_TIMER_TIMEOUT)
 		return true
 	}
-
-	// forward message to peers
-	var m ConsensusMessage = newRoundMsg
-	cv.SendMsg(&m)
 
 	//start next round expectation
 	cv.nextRoundExpectationCancel()
