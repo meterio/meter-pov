@@ -1,7 +1,7 @@
 #!/bin/bash
 
 PROJECT_NAME=meter-pos
-VERSION=1.1.3-beta3
+VERSION=1.1.3
 
 DOCKER_TAG=dfinlab/${PROJECT_NAME}:$VERSION
 LATEST_TAG=dfinlab/${PROJECT_NAME}:latest
