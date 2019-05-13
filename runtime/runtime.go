@@ -10,20 +10,20 @@ import (
 	"math/big"
 	"sync/atomic"
 
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/params"
-	"github.com/pkg/errors"
 	"github.com/dfinlab/meter/abi"
 	"github.com/dfinlab/meter/builtin"
 	"github.com/dfinlab/meter/chain"
+	"github.com/dfinlab/meter/meter"
 	"github.com/dfinlab/meter/runtime/statedb"
 	"github.com/dfinlab/meter/state"
-	"github.com/dfinlab/meter/meter"
 	"github.com/dfinlab/meter/tx"
 	Tx "github.com/dfinlab/meter/tx"
 	"github.com/dfinlab/meter/vm"
 	"github.com/dfinlab/meter/xenv"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/params"
+	"github.com/pkg/errors"
 )
 
 var (
@@ -64,7 +64,7 @@ type Output struct {
 	Transfers       tx.Transfers
 	LeftOverGas     uint64
 	RefundGas       uint64
-	VMErr           error         // VMErr identify the execution result of the contract function, not evm function's err.
+	VMErr           error          // VMErr identify the execution result of the contract function, not evm function's err.
 	ContractAddress *meter.Address // if create a new contract, or is nil.
 }
 
@@ -235,13 +235,12 @@ func (rt *Runtime) newEVM(stateDB *statedb.StateDB, clauseIndex uint32, txCtx *x
 		},
 		OnSuicideContract: func(_ *vm.EVM, contractAddr, tokenReceiver common.Address) {
 			// it's IMPORTANT to process energy before token
-			if amount := rt.state.GetEnergy(meter.Address(contractAddr), rt.ctx.Time); amount.Sign() != 0 {
+			if amount := rt.state.GetEnergy(meter.Address(contractAddr)); amount.Sign() != 0 {
 				// add remained energy of suiciding contract to receiver.
 				// no need to clear contract's energy, vm will delete the whole contract later.
 				rt.state.SetEnergy(
 					meter.Address(tokenReceiver),
-					new(big.Int).Add(rt.state.GetEnergy(meter.Address(tokenReceiver), rt.ctx.Time), amount),
-					rt.ctx.Time)
+					new(big.Int).Add(rt.state.GetEnergy(meter.Address(tokenReceiver)), amount))
 
 				// see ERC20's Transfer event
 				topics := []common.Hash{

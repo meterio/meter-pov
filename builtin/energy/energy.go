@@ -8,33 +8,32 @@ package energy
 import (
 	"math/big"
 
-	"github.com/ethereum/go-ethereum/rlp"
-	"github.com/dfinlab/meter/state"
 	"github.com/dfinlab/meter/meter"
+	"github.com/dfinlab/meter/state"
+	"github.com/ethereum/go-ethereum/rlp"
 )
 
 var (
-	initialSupplyKey = meter.Blake2b([]byte("initial-supply"))
-	totalAddSubKey   = meter.Blake2b([]byte("total-add-sub"))
+	initialSupplyKey    = meter.Blake2b([]byte("initial-supply"))
+	totalAddSubKey      = meter.Blake2b([]byte("total-add-sub"))
 	tokenTotalAddSubKey = meter.Blake2b([]byte("token-total-add-sub"))
 )
 
 // Energy implements energy operations.
 type Energy struct {
-	addr      meter.Address
-	state     *state.State
-	blockTime uint64
+	addr  meter.Address
+	state *state.State
 }
 
 // New creates a new energy instance.
 func New(addr meter.Address, state *state.State, blockTime uint64) *Energy {
-	return &Energy{addr, state, blockTime}
+	return &Energy{addr, state}
 }
 
 func (e *Energy) GetInitialSupply() (init initialSupply) {
 	e.state.DecodeStorage(e.addr, initialSupplyKey, func(raw []byte) error {
 		if len(raw) == 0 {
-			init = initialSupply{&big.Int{}, &big.Int{}, 0}
+			init = initialSupply{&big.Int{}, &big.Int{}}
 			return nil
 		}
 		return rlp.DecodeBytes(raw, &init)
@@ -46,14 +45,13 @@ func (e *Energy) GetInitialSupply() (init initialSupply) {
 func (e *Energy) SetInitialSupply(token *big.Int, energy *big.Int) {
 	e.state.EncodeStorage(e.addr, initialSupplyKey, func() ([]byte, error) {
 		return rlp.EncodeToBytes(&initialSupply{
-			Token:     token,
-			Energy:    energy,
-			BlockTime: e.blockTime,
+			Token:  token,
+			Energy: energy,
 		})
 	})
 }
 
-// MTR Gov 
+// MTR Gov
 func (e *Energy) GetTokenTotalAddSub() (total tokenTotalAddSub) {
 	e.state.DecodeStorage(e.addr, tokenTotalAddSubKey, func(raw []byte) error {
 		if len(raw) == 0 {
@@ -98,16 +96,16 @@ func (e *Energy) InitialSupply() *big.Int {
 
 	// calc grown energy for total token supply
 	acc := state.Account{
-		Balance:   initialSupply.Token,
-		Energy:    initialSupply.Energy,
-		BlockTime: initialSupply.BlockTime}
-	return acc.CalcEnergy(e.blockTime)
+		Balance: initialSupply.Token,
+		Energy:  initialSupply.Energy,
+	}
+	return acc.CalcEnergy()
 }
 
 // TokenTotalSupply returns total supply of Meter Gov.
 func (e *Energy) TokenTotalSupply() *big.Int {
 	initSupply := e.GetInitialSupply().Token
-	
+
 	total := e.GetTokenTotalAddSub()
 	delta := new(big.Int).Sub(total.TotalAdd, total.TotalSub)
 
@@ -151,24 +149,24 @@ func (e *Energy) MintMeter(addr meter.Address, amount *big.Int) {
 	if amount.Sign() == 0 {
 		return
 	}
-	meter := e.state.GetEnergy(addr, e.blockTime)
+	meter := e.state.GetEnergy(addr)
 
 	total := e.GetTotalAddSub()
 	total.TotalAdd = new(big.Int).Add(total.TotalAdd, amount)
 	e.SetTotalAddSub(total)
 
 	//update state
-	e.state.SetEnergy(addr, new(big.Int).Add(meter, amount), e.blockTime)
+	e.state.SetEnergy(addr, new(big.Int).Add(meter, amount))
 }
 
-func (e *Energy) BurnMeter(addr meter.Address, amount *big.Int){
+func (e *Energy) BurnMeter(addr meter.Address, amount *big.Int) {
 	if amount.Sign() == 0 {
-		return 
+		return
 	}
-	meter := e.state.GetEnergy(addr, e.blockTime)
+	meter := e.state.GetEnergy(addr)
 	if meter.Cmp(amount) < 0 {
 		// not enough
-		return 
+		return
 	}
 
 	total := e.GetTotalAddSub()
@@ -176,7 +174,7 @@ func (e *Energy) BurnMeter(addr meter.Address, amount *big.Int){
 	e.SetTotalAddSub(total)
 
 	//update state
-	e.state.SetEnergy(addr, new(big.Int).Sub(meter, amount), e.blockTime)
+	e.state.SetEnergy(addr, new(big.Int).Sub(meter, amount))
 }
 
 //Meter Gov
@@ -194,14 +192,14 @@ func (e *Energy) MintMeterGov(addr meter.Address, amount *big.Int) {
 	e.state.SetBalance(addr, new(big.Int).Add(gov, amount))
 }
 
-func (e *Energy) BurnMeterGov(addr meter.Address, amount *big.Int){
+func (e *Energy) BurnMeterGov(addr meter.Address, amount *big.Int) {
 	if amount.Sign() == 0 {
-		return 
+		return
 	}
 	gov := e.state.GetBalance(addr)
 	if gov.Cmp(amount) < 0 {
 		// not enough
-		return 
+		return
 	}
 
 	total := e.GetTokenTotalAddSub()
@@ -212,11 +210,10 @@ func (e *Energy) BurnMeterGov(addr meter.Address, amount *big.Int){
 	e.state.SetBalance(addr, new(big.Int).Sub(gov, amount))
 }
 
-
 ////////////////////////////////////////////////////////
-// Get returns energy of an account at given block time.
+// Get returns energy of an account
 func (e *Energy) Get(addr meter.Address) *big.Int {
-	return e.state.GetEnergy(addr, e.blockTime)
+	return e.state.GetEnergy(addr)
 }
 
 // Add add amount of energy to given address.
@@ -224,13 +221,13 @@ func (e *Energy) Add(addr meter.Address, amount *big.Int) {
 	if amount.Sign() == 0 {
 		return
 	}
-	eng := e.state.GetEnergy(addr, e.blockTime)
+	eng := e.state.GetEnergy(addr)
 
 	total := e.GetTotalAddSub()
 	total.TotalAdd = new(big.Int).Add(total.TotalAdd, amount)
 	e.SetTotalAddSub(total)
 
-	e.state.SetEnergy(addr, new(big.Int).Add(eng, amount), e.blockTime)
+	e.state.SetEnergy(addr, new(big.Int).Add(eng, amount))
 }
 
 // Sub sub amount of energy from given address.
@@ -239,7 +236,7 @@ func (e *Energy) Sub(addr meter.Address, amount *big.Int) bool {
 	if amount.Sign() == 0 {
 		return true
 	}
-	eng := e.state.GetEnergy(addr, e.blockTime)
+	eng := e.state.GetEnergy(addr)
 	if eng.Cmp(amount) < 0 {
 		return false
 	}
@@ -247,6 +244,6 @@ func (e *Energy) Sub(addr meter.Address, amount *big.Int) bool {
 	total.TotalSub = new(big.Int).Add(total.TotalSub, amount)
 	e.SetTotalAddSub(total)
 
-	e.state.SetEnergy(addr, new(big.Int).Sub(eng, amount), e.blockTime)
+	e.state.SetEnergy(addr, new(big.Int).Sub(eng, amount))
 	return true
 }

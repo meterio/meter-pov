@@ -10,21 +10,21 @@ import (
 	"fmt"
 	"math/big"
 
+	"github.com/dfinlab/meter/kv"
+	"github.com/dfinlab/meter/meter"
+	"github.com/dfinlab/meter/stackedmap"
+	"github.com/dfinlab/meter/trie"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/rlp"
-	"github.com/dfinlab/meter/kv"
-	"github.com/dfinlab/meter/stackedmap"
-	"github.com/dfinlab/meter/meter"
-	"github.com/dfinlab/meter/trie"
 )
 
 // State manages the main accounts trie.
 type State struct {
 	root     meter.Bytes32 // root of initial accounts trie
 	kv       kv.GetPutter
-	trie     trieReader                     // the accounts trie reader
+	trie     trieReader                      // the accounts trie reader
 	cache    map[meter.Address]*cachedObject // cache of accounts trie
-	sm       *stackedmap.StackedMap         // keeps revisions of accounts state
+	sm       *stackedmap.StackedMap          // keeps revisions of accounts state
 	err      error
 	setError func(err error)
 }
@@ -227,14 +227,38 @@ func (s *State) SetBalance(addr meter.Address, balance *big.Int) {
 }
 
 // GetEnergy get energy for the given address at block number specified.
-func (s *State) GetEnergy(addr meter.Address, blockTime uint64) *big.Int {
-	return s.getAccount(addr).CalcEnergy(blockTime)
+func (s *State) GetEnergy(addr meter.Address) *big.Int {
+	return s.getAccount(addr).CalcEnergy()
 }
 
 // SetEnergy set energy at block number for the given address.
-func (s *State) SetEnergy(addr meter.Address, energy *big.Int, blockTime uint64) {
+func (s *State) SetEnergy(addr meter.Address, energy *big.Int) {
 	cpy := s.getAccountCopy(addr)
-	cpy.Energy, cpy.BlockTime = energy, blockTime
+	cpy.Energy = energy
+	s.updateAccount(addr, &cpy)
+}
+
+// GetBalance returns balance for the given address.
+func (s *State) GetBoundedBalance(addr meter.Address) *big.Int {
+	return s.getAccount(addr).BoundBalance
+}
+
+// SetBalance set balance for the given address.
+func (s *State) SetBoundedBalance(addr meter.Address, balance *big.Int) {
+	cpy := s.getAccountCopy(addr)
+	cpy.BoundBalance = balance
+	s.updateAccount(addr, &cpy)
+}
+
+// GetEnergy get energy for the given address at block number specified.
+func (s *State) GetBoundedEnergy(addr meter.Address) *big.Int {
+	return s.getAccount(addr).BoundEnergy
+}
+
+// SetEnergy set energy at block number for the given address.
+func (s *State) SetBoundedEnergy(addr meter.Address, energy *big.Int) {
+	cpy := s.getAccountCopy(addr)
+	cpy.BoundEnergy = energy
 	s.updateAccount(addr, &cpy)
 }
 

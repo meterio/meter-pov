@@ -8,10 +8,10 @@ package builtin
 import (
 	"math/big"
 
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/dfinlab/meter/abi"
 	"github.com/dfinlab/meter/meter"
 	"github.com/dfinlab/meter/xenv"
+	"github.com/ethereum/go-ethereum/common"
 )
 
 func init() {
@@ -109,7 +109,7 @@ func init() {
 
 			if args.BlockNumber == ctx.Number {
 				env.UseGas(meter.GetBalanceGas)
-				val := env.State().GetEnergy(meter.Address(args.Self), ctx.Time)
+				val := env.State().GetEnergy(meter.Address(args.Self))
 				return []interface{}{val}
 			}
 
@@ -123,7 +123,7 @@ func init() {
 			state := env.State().Spawn(header.StateRoot())
 
 			env.UseGas(meter.GetBalanceGas)
-			val := state.GetEnergy(meter.Address(args.Self), header.Timestamp())
+			val := state.GetEnergy(meter.Address(args.Self))
 
 			return []interface{}{val}
 		}},

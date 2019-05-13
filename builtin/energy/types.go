@@ -11,9 +11,8 @@ import (
 
 type (
 	initialSupply struct {
-		Token     *big.Int
-		Energy    *big.Int
-		BlockTime uint64
+		Token  *big.Int
+		Energy *big.Int
 	}
 	// meter
 	totalAddSub struct {

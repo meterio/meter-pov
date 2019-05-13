@@ -10,12 +10,12 @@ import (
 	"math/big"
 	"sync/atomic"
 
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/dfinlab/meter/builtin"
-	"github.com/dfinlab/meter/state"
 	"github.com/dfinlab/meter/meter"
+	"github.com/dfinlab/meter/state"
 	"github.com/dfinlab/meter/tx"
 	"github.com/dfinlab/meter/vm"
+	"github.com/ethereum/go-ethereum/crypto"
 )
 
 // DevAccount account for development.
@@ -85,7 +85,7 @@ func NewDevnet() *Genesis {
 			for _, a := range DevAccounts() {
 				bal, _ := new(big.Int).SetString("1000000000000000000000000000", 10)
 				state.SetBalance(a.Address, bal)
-				state.SetEnergy(a.Address, bal, launchTime)
+				state.SetEnergy(a.Address, bal)
 				tokenSupply.Add(tokenSupply, bal)
 				energySupply.Add(energySupply, bal)
 			}

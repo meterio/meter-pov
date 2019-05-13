@@ -8,19 +8,20 @@ package state
 import (
 	"math/big"
 
-	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/dfinlab/meter/meter"
+	"github.com/ethereum/go-ethereum/rlp"
 )
 
 // Account is the Thor consensus representation of an account.
 // RLP encoded objects are stored in main account trie.
 type Account struct {
-	Balance     *big.Int
-	Energy      *big.Int
-	BlockTime   uint64
-	Master      []byte // master address
-	CodeHash    []byte // hash of code
-	StorageRoot []byte // merkle root of the storage trie
+	Balance      *big.Int
+	Energy       *big.Int
+	BoundBalance *big.Int
+	BoundEnergy  *big.Int
+	Master       []byte // master address
+	CodeHash     []byte // hash of code
+	StorageRoot  []byte // merkle root of the storage trie
 }
 
 // IsEmpty returns if an account is empty.
@@ -35,28 +36,8 @@ func (a *Account) IsEmpty() bool {
 var bigE18 = big.NewInt(1e18)
 
 // CalcEnergy calculates energy based on current block time.
-func (a *Account) CalcEnergy(blockTime uint64) *big.Int {
-
-	// XXX: Yang remove the interest of Engery (Meter)
+func (a *Account) CalcEnergy() *big.Int {
 	return a.Energy
-	
-	if a.BlockTime == 0 {
-		return a.Energy
-	}
-
-	if a.Balance.Sign() == 0 {
-		return a.Energy
-	}
-
-	if blockTime <= a.BlockTime {
-		return a.Energy
-	}
-
-	x := new(big.Int).SetUint64(blockTime - a.BlockTime)
-	x.Mul(x, a.Balance)
-	x.Mul(x, meter.EnergyGrowthRate)
-	x.Div(x, bigE18)
-	return new(big.Int).Add(a.Energy, x)
 }
 
 func emptyAccount() *Account {

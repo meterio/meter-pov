@@ -9,8 +9,8 @@ import (
 	"math/big"
 
 	"github.com/dfinlab/meter/builtin"
-	"github.com/dfinlab/meter/state"
 	"github.com/dfinlab/meter/meter"
+	"github.com/dfinlab/meter/state"
 	"github.com/dfinlab/meter/tx"
 	"github.com/dfinlab/meter/vm"
 )
@@ -48,19 +48,18 @@ func NewTestnet() *Genesis {
 			// 50 billion for account0
 			amount := new(big.Int).Mul(big.NewInt(1e18), big.NewInt(50*1000*1000*1000))
 			state.SetBalance(acccount0, amount)
-			state.SetEnergy(acccount0, amount, launchTime)
-			//state.SetEnergy(acccount0, &big.Int{}, launchTime)
+			state.SetEnergy(acccount0, amount)
+
 			tokenSupply.Add(tokenSupply, amount)
 			energySupply.Add(energySupply, amount)
 
 			// 25 million for endorser0
 			amount = new(big.Int).Mul(big.NewInt(1e18), big.NewInt(25*1000*1000))
 			state.SetBalance(endorser0, amount)
-			state.SetEnergy(endorser0, &big.Int{}, launchTime)
+			state.SetEnergy(endorser0, amount)
 			tokenSupply.Add(tokenSupply, amount)
 			energySupply.Add(energySupply, amount)
 
-			//builtin.Energy.Native(state, launchTime).SetInitialSupply(tokenSupply, &big.Int{})
 			builtin.Energy.Native(state, launchTime).SetInitialSupply(tokenSupply, energySupply)
 			return nil
 		}).

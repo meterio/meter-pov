@@ -9,8 +9,8 @@ import (
 	"math/big"
 
 	"github.com/dfinlab/meter/builtin"
-	"github.com/dfinlab/meter/state"
 	"github.com/dfinlab/meter/meter"
+	"github.com/dfinlab/meter/state"
 	"github.com/dfinlab/meter/tx"
 	"github.com/dfinlab/meter/vm"
 )
@@ -45,7 +45,7 @@ func NewMainnet() *Genesis {
 			for _, anode := range initialAuthorityNodes {
 				tokenSupply.Add(tokenSupply, meter.InitialProposerEndorsement)
 				state.SetBalance(anode.endorsorAddress, meter.InitialProposerEndorsement)
-				state.SetEnergy(anode.endorsorAddress, &big.Int{}, launchTime)
+				state.SetEnergy(anode.endorsorAddress, &big.Int{})
 			}
 
 			// alloc all other tokens
@@ -53,19 +53,19 @@ func NewMainnet() *Genesis {
 			amount := new(big.Int).Mul(big.NewInt(210469086165), big.NewInt(1e17))
 			tokenSupply.Add(tokenSupply, amount)
 			state.SetBalance(meter.MustParseAddress("0x137053dfbe6c0a43f915ad2efefefdcc2708e975"), amount)
-			state.SetEnergy(meter.MustParseAddress("0x137053dfbe6c0a43f915ad2efefefdcc2708e975"), &big.Int{}, launchTime)
+			state.SetEnergy(meter.MustParseAddress("0x137053dfbe6c0a43f915ad2efefefdcc2708e975"), &big.Int{})
 
 			tokenSupply.Add(tokenSupply, amount)
 			state.SetBalance(meter.MustParseAddress("0xaf111431c1284a5e16d2eecd2daed133ce96820e"), amount)
-			state.SetEnergy(meter.MustParseAddress("0xaf111431c1284a5e16d2eecd2daed133ce96820e"), &big.Int{}, launchTime)
+			state.SetEnergy(meter.MustParseAddress("0xaf111431c1284a5e16d2eecd2daed133ce96820e"), &big.Int{})
 
 			tokenSupply.Add(tokenSupply, amount)
 			state.SetBalance(meter.MustParseAddress("0x997522a4274336f4b86af4a6ed9e45aedcc6d360"), amount)
-			state.SetEnergy(meter.MustParseAddress("0x997522a4274336f4b86af4a6ed9e45aedcc6d360"), &big.Int{}, launchTime)
+			state.SetEnergy(meter.MustParseAddress("0x997522a4274336f4b86af4a6ed9e45aedcc6d360"), &big.Int{})
 
 			tokenSupply.Add(tokenSupply, amount)
 			state.SetBalance(meter.MustParseAddress("0x0bd7b06debd1522e75e4b91ff598f107fd826c8a"), amount)
-			state.SetEnergy(meter.MustParseAddress("0x0bd7b06debd1522e75e4b91ff598f107fd826c8a"), &big.Int{}, launchTime)
+			state.SetEnergy(meter.MustParseAddress("0x0bd7b06debd1522e75e4b91ff598f107fd826c8a"), &big.Int{})
 
 			builtin.Energy.Native(state, launchTime).SetInitialSupply(tokenSupply, energySupply)
 			return nil

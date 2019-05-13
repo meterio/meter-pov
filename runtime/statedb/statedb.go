@@ -9,14 +9,14 @@ import (
 	"fmt"
 	"math/big"
 
+	"github.com/dfinlab/meter/builtin/energy"
+	"github.com/dfinlab/meter/meter"
+	"github.com/dfinlab/meter/stackedmap"
+	"github.com/dfinlab/meter/state"
+	"github.com/dfinlab/meter/tx"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	lru "github.com/hashicorp/golang-lru"
-	"github.com/dfinlab/meter/stackedmap"
-	"github.com/dfinlab/meter/state"
-	"github.com/dfinlab/meter/meter"
-	"github.com/dfinlab/meter/tx"
-	"github.com/dfinlab/meter/builtin/energy"
 )
 
 var codeSizeCache, _ = lru.New(32 * 1024)
@@ -126,10 +126,9 @@ func (s *StateDB) BurnBalance(addr common.Address, amount *big.Int) {
 	e.BurnMeterGov(a, amount)
 }
 
-
 // GetEnergy stub.
 func (s *StateDB) GetEnergy(addr common.Address) *big.Int {
-	return s.state.GetEnergy(meter.Address(addr), 0)
+	return s.state.GetEnergy(meter.Address(addr))
 }
 
 // SubEnergy stub.
@@ -137,8 +136,8 @@ func (s *StateDB) SubEnergy(addr common.Address, amount *big.Int) {
 	if amount.Sign() == 0 {
 		return
 	}
-	balance := s.state.GetEnergy(meter.Address(addr), 0)
-	s.state.SetEnergy(meter.Address(addr), new(big.Int).Sub(balance, amount), 0)
+	balance := s.state.GetEnergy(meter.Address(addr))
+	s.state.SetEnergy(meter.Address(addr), new(big.Int).Sub(balance, amount))
 }
 
 // AddEnergy stub.
@@ -146,8 +145,8 @@ func (s *StateDB) AddEnergy(addr common.Address, amount *big.Int) {
 	if amount.Sign() == 0 {
 		return
 	}
-	balance := s.state.GetEnergy(meter.Address(addr), 0)
-	s.state.SetEnergy(meter.Address(addr), new(big.Int).Add(balance, amount), 0)
+	balance := s.state.GetEnergy(meter.Address(addr))
+	s.state.SetEnergy(meter.Address(addr), new(big.Int).Add(balance, amount))
 }
 
 // minEnergy stub
@@ -161,6 +160,52 @@ func (s *StateDB) BurnEnergy(addr common.Address, amount *big.Int) {
 	a := meter.Address(addr)
 	e := energy.New(a, s.state, 0)
 	e.BurnMeter(a, amount)
+}
+
+// GetBoundedBalance stub.
+func (s *StateDB) GetBoundedBalance(addr common.Address) *big.Int {
+	return s.state.GetBoundedBalance(meter.Address(addr))
+}
+
+// SubBoundedBalance stub.
+func (s *StateDB) SubBoundedBalance(addr common.Address, amount *big.Int) {
+	if amount.Sign() == 0 {
+		return
+	}
+	balance := s.state.GetBoundedBalance(meter.Address(addr))
+	s.state.SetBoundedBalance(meter.Address(addr), new(big.Int).Sub(balance, amount))
+}
+
+// AddBoundedBalance stub.
+func (s *StateDB) AddBoundedBalance(addr common.Address, amount *big.Int) {
+	if amount.Sign() == 0 {
+		return
+	}
+	balance := s.state.GetBoundedBalance(meter.Address(addr))
+	s.state.SetBoundedBalance(meter.Address(addr), new(big.Int).Add(balance, amount))
+}
+
+// GetBoundedEnergy stub.
+func (s *StateDB) GetBoundedEnergy(addr common.Address) *big.Int {
+	return s.state.GetBoundedEnergy(meter.Address(addr))
+}
+
+// SubBoundedEnergy stub.
+func (s *StateDB) SubBoundedEnergy(addr common.Address, amount *big.Int) {
+	if amount.Sign() == 0 {
+		return
+	}
+	balance := s.state.GetBoundedEnergy(meter.Address(addr))
+	s.state.SetBoundedEnergy(meter.Address(addr), new(big.Int).Sub(balance, amount))
+}
+
+// AddBoundedEnergy stub.
+func (s *StateDB) AddBoundedEnergy(addr common.Address, amount *big.Int) {
+	if amount.Sign() == 0 {
+		return
+	}
+	balance := s.state.GetBoundedEnergy(meter.Address(addr))
+	s.state.SetBoundedEnergy(meter.Address(addr), new(big.Int).Add(balance, amount))
 }
 
 // GetNonce stub.
