@@ -27,7 +27,9 @@ import (
 const (
 	// minimum height for committee relay
 	POW_MINIMUM_HEIGHT_INTV = uint32(20)
-	POW_DEFAULT_REWARD_COEF = int64(1e12)
+	//This ceof is based s9 ant miner, 1.3Kw 13.5T hashrate 1.04488168724e10
+	//python -c "print 2**32 * 1.3 /120/13.5/1024/1024/1024/1024/10/30"
+	POW_DEFAULT_REWARD_COEF = int64(1044881687)
 )
 
 var (

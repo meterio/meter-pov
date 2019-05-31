@@ -46,6 +46,7 @@ type CommitteeInfo struct {
 }
 
 type CommitteeInfos struct {
+	Epoch         uint32
 	SystemBytes   []byte //bls.System //global parameters for that committee
 	ParamsBytes   []byte //bls.Params
 	CommitteeInfo []CommitteeInfo
@@ -202,6 +203,14 @@ func (b *Block) GetKBlockData() (*KBlockData, error) {
 func (b *Block) SetKBlockData(data KBlockData) error {
 	b.KBlockData = data
 	return nil
+}
+
+func (b *Block) GetCommitteeEpoch() uint32 {
+	return b.CommitteeInfos.Epoch
+}
+
+func (b *Block) SetCommitteeEpoch(epoch uint32) {
+	b.CommitteeInfos.Epoch = epoch
 }
 
 func (b *Block) GetCommitteeInfo() ([]CommitteeInfo, error) {

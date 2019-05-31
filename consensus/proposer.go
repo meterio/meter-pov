@@ -81,6 +81,7 @@ func NewCommitteeProposer(conR *ConsensusReactor) *ConsensusProposer {
 	//cl.consensus_id = conR.consensus_id
 	cp.state = COMMITTEE_PROPOSER_INIT
 	cp.csReactor = conR
+	cp.CommitteeID = conR.curEpoch
 
 	cp.proposalVoterBitArray = cmn.NewBitArray(conR.committeeSize)
 	cp.notaryVoterBitArray = cmn.NewBitArray(conR.committeeSize)

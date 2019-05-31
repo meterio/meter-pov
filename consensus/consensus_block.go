@@ -464,6 +464,8 @@ func (conR *ConsensusReactor) finalizeMBlock(blk *block.Block, ev *block.Evidenc
 
 		paramsBytes, _ := conR.csCommon.params.ToBytes()
 		blk.SetParamsBytes(paramsBytes)
+
+		blk.SetCommitteeEpoch(conR.curEpoch)
 	}
 
 	blk.SetBlockEvidence(ev)
@@ -493,6 +495,7 @@ func (conR *ConsensusReactor) finalizeKBlock(blk *block.Block, ev *block.Evidenc
 	paramsBytes, _ := conR.csCommon.params.ToBytes()
 	blk.SetParamsBytes(paramsBytes)
 	blk.SetCommitteeInfo(committeeInfo)
+	blk.SetCommitteeEpoch(conR.curEpoch)
 
 	//Fill new info into block, re-calc hash/signature
 	blk.SetEvidenceDataHash(blk.EvidenceDataHash())

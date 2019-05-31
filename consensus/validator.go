@@ -51,7 +51,7 @@ var (
 
 type ConsensusValidator struct {
 	replay      bool
-	CommitteeID int // unique identifier for this consensus session
+	CommitteeID uint32 // epoch ID of this committee
 
 	csReactor *ConsensusReactor //global reactor info
 	state     byte
@@ -285,6 +285,8 @@ func (cv *ConsensusValidator) ProcessAnnounceCommittee(announceMsg *AnnounceComm
 		return false
 	}
 
+	cv.CommitteeID = announceMsg.CommitteeID
+
 	sign := cv.csReactor.csCommon.SignMessage([]byte(signMsg), uint32(offset), uint32(length))
 	msgHash := cv.csReactor.csCommon.Hash256Msg([]byte(signMsg), uint32(offset), uint32(length))
 	msg := cv.GenerateCommitMessage(sign, msgHash)
@@ -296,7 +298,8 @@ func (cv *ConsensusValidator) ProcessAnnounceCommittee(announceMsg *AnnounceComm
 
 	//update conR
 	cv.csReactor.curRound = 0
-	cv.csReactor.curCommitteeID = announceMsg.CommitteeID
+	cv.csReactor.curEpoch = cv.CommitteeID
+	cv.csReactor.logger.Info("curEpoch is updated", "curEpoch=", cv.CommitteeID)
 	return true
 }
 

@@ -25,6 +25,7 @@ import (
 	"github.com/dfinlab/meter/meter"
 	"github.com/dfinlab/meter/powpool"
 	pow_api "github.com/dfinlab/meter/powpool/api"
+	"github.com/dfinlab/meter/staking"
 	"github.com/dfinlab/meter/state"
 	"github.com/dfinlab/meter/txpool"
 	"github.com/ethereum/go-ethereum/accounts/keystore"
@@ -181,6 +182,8 @@ func defaultAction(ctx *cli.Context) error {
 
 	stateCreator := state.NewCreator(mainDB)
 	cons := consensus.NewConsensusReactor(ctx, chain, stateCreator, master.PrivateKey, master.PublicKey)
+
+	staking.NewStaking(chain, stateCreator)
 
 	observeURL, observeSrvCloser := startObserveServer(ctx)
 	defer func() { log.Info("closing Observe Server ..."); observeSrvCloser() }()

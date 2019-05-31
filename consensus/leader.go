@@ -13,10 +13,6 @@ import (
 	"fmt"
 	"time"
 
-	//"unsafe"
-
-	"math/rand"
-
 	bls "github.com/dfinlab/meter/crypto/multi_sig"
 	cmn "github.com/dfinlab/meter/libs/common"
 	crypto "github.com/ethereum/go-ethereum/crypto"
@@ -95,9 +91,7 @@ func NewCommitteeLeader(conR *ConsensusReactor) *ConsensusLeader {
 	cl.csReactor = conR
 
 	// create committee ID
-	r := rand.New(rand.NewSource(99))
-	cl.CommitteeID = r.Uint32()
-	conR.curCommitteeID = cl.CommitteeID
+	cl.CommitteeID = conR.curEpoch + 1
 
 	cl.announceVoterBitArray = cmn.NewBitArray(conR.committeeSize)
 	cl.notaryVoterBitArray = cmn.NewBitArray(conR.committeeSize)
@@ -484,7 +478,10 @@ func (cl *ConsensusLeader) ProcessVoteNotaryAnnounce(vote4NotaryMsg *VoteForNota
 ===========================================================
 Committee is established!!! ...
 Myself is Leader, Let's move to 1st proposal for Round 0.
-===========================================================`, "committeeID", cl.CommitteeID)
+===========================================================`, "Committee Epoch", cl.CommitteeID)
+
+		//Now we are in new epoch
+		cl.csReactor.curEpoch = cl.CommitteeID
 
 		//Now move to propose the 1st block in round 0
 		cl.csReactor.enterConsensusValidator()

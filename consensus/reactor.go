@@ -150,7 +150,7 @@ type ConsensusReactor struct {
 	// store key states here
 	lastKBlockHeight uint32
 	curNonce         uint64
-	curCommitteeID   uint32
+	curEpoch         uint32
 	curHeight        int64 // come from parentBlockID first 4 bytes uint32
 	curRound         int
 	mtx              sync.RWMutex
@@ -209,6 +209,19 @@ func NewConsensusReactor(ctx *cli.Context, chain *chain.Chain, state *state.Crea
 	conR.lastKBlockHeight = chain.BestBlock().Header().LastKBlockHeight()
 	conR.curHeight = int64(chain.BestBlock().Header().Number())
 	conR.curRound = 0
+
+	// committee info is stored in the first of Mblock after Kblock
+	if conR.curHeight != 0 {
+		b, err := conR.chain.GetTrunkBlock(conR.lastKBlockHeight + 1)
+		if err != nil {
+			conR.logger.Error("get committee info block error")
+			return nil
+		}
+		conR.logger.Info("get committeeinfo from block", "height", b.Header().Number())
+		conR.curEpoch = b.GetCommitteeEpoch()
+	} else {
+		conR.curEpoch = 0
+	}
 
 	prometheus.MustRegister(curRoundGauge)
 	prometheus.MustRegister(curHeightGauge)
@@ -983,7 +996,6 @@ func (conR *ConsensusReactor) exitCurCommittee() error {
 	conR.kBlockData = nil
 
 	conR.curNonce = 0
-	conR.curCommitteeID = 0
 	conR.curRound = 0
 
 	return nil
