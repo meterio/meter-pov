@@ -262,6 +262,11 @@ func (cv *ConsensusValidator) ProcessAnnounceCommittee(announceMsg *AnnounceComm
 	// I am in committee, sends the commit message to join the CommitCommitteeMessage
 	//build signature
 	// initiate csCommon based on received params and system
+	if cv.csReactor.csCommon != nil {
+		cv.csReactor.csCommon.ConsensusCommonDeinit()
+		cv.csReactor.csCommon = nil
+	}
+
 	if cv.replay {
 		cv.csReactor.csCommon = NewValidatorReplayConsensusCommon(cv.csReactor, announceMsg.CSParams, announceMsg.CSSystem)
 		cv.replay = false

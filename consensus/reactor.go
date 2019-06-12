@@ -960,6 +960,10 @@ func (conR *ConsensusReactor) enterConsensusLeader() int {
 
 	// init consensus common as leader
 	// need to deinit to avoid the memory leak
+	if conR.csCommon != nil {
+		conR.csCommon.ConsensusCommonDeinit()
+	}
+
 	conR.csCommon = NewConsensusCommon(conR)
 
 	conR.csLeader = NewCommitteeLeader(conR)
@@ -985,6 +989,7 @@ func (conR *ConsensusReactor) exitCurCommittee() error {
 	// Only node in committee did initilize common
 	if conR.csCommon != nil {
 		conR.csCommon.ConsensusCommonDeinit()
+		conR.csCommon = nil
 	}
 
 	// clean up current parameters
@@ -1342,6 +1347,12 @@ func HandleScheduleReplayLeader(conR *ConsensusReactor) bool {
 
 	systemBytes, _ := b.GetSystemBytes()
 	paramsBytes, _ := b.GetParamsBytes()
+
+	// to avoid memory leak
+	if conR.csCommon != nil {
+		conR.csCommon.ConsensusCommonDeinit()
+		conR.csCommon = nil
+	}
 	conR.csCommon = NewReplayLeaderConsensusCommon(conR, paramsBytes, systemBytes)
 
 	conR.csLeader = NewCommitteeLeader(conR)

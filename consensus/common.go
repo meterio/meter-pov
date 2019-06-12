@@ -16,8 +16,10 @@ import (
 const (
 	TYPE_A_SIGNATRUE_SIZE = int(65)
 
-	INITIALIZE_AS_LEADER    = int(1)
-	INITIALIZE_AS_VALIDATOR = int(2)
+	INITIALIZE_AS_LEADER           = int(1)
+	INITIALIZE_AS_VALIDATOR        = int(2)
+	INITIALIZE_AS_REPLAY_LEADER    = int(3)
+	INITIALIZE_AS_REPLAY_VALIDATOR = int(4)
 )
 
 type ConsensusCommon struct {
@@ -131,7 +133,7 @@ func NewReplayLeaderConsensusCommon(conR *ConsensusReactor, paramBytes []byte, s
 		params:      params,
 		pairing:     pairing,
 		initialized: true,
-		initialRole: INITIALIZE_AS_LEADER,
+		initialRole: INITIALIZE_AS_REPLAY_LEADER,
 	}
 }
 
@@ -164,7 +166,7 @@ func NewValidatorReplayConsensusCommon(conR *ConsensusReactor, paramBytes []byte
 		params:      params,
 		pairing:     pairing,
 		initialized: true,
-		initialRole: INITIALIZE_AS_VALIDATOR,
+		initialRole: INITIALIZE_AS_REPLAY_VALIDATOR,
 	}
 }
 
@@ -185,6 +187,11 @@ func (cc *ConsensusCommon) ConsensusCommonDeinit() bool {
 	} else if cc.initialRole == INITIALIZE_AS_VALIDATOR {
 		cc.PubKey.Free()
 		cc.PrivKey.Free()
+		cc.pairing.Free()
+	} else if cc.initialRole == INITIALIZE_AS_REPLAY_LEADER {
+		cc.pairing.Free()
+	} else if cc.initialRole == INITIALIZE_AS_REPLAY_VALIDATOR {
+		cc.pairing.Free()
 	}
 
 	cc.initialized = false
