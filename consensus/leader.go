@@ -488,8 +488,10 @@ Myself is Leader, Let's move to 1st proposal for Round 0.
 		cl.csReactor.csValidator.state = COMMITTEE_VALIDATOR_COMMITSENT
 
 		//committee is waiting for this first block, so move forward immediatly
-		cl.csReactor.ScheduleProposer(0)
+		//cl.csReactor.ScheduleProposer(0)
 
+		// Now start the pacemaker
+		cl.csReactor.csPacemaker.Start()
 		return true
 
 	} else {

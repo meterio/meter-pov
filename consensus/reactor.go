@@ -146,6 +146,7 @@ type ConsensusReactor struct {
 	csLeader          *ConsensusLeader
 	csProposer        *ConsensusProposer
 	csValidator       *ConsensusValidator
+	csPacemaker       *Pacemaker
 
 	// store key states here
 	lastKBlockHeight uint32
@@ -209,6 +210,9 @@ func NewConsensusReactor(ctx *cli.Context, chain *chain.Chain, state *state.Crea
 	conR.lastKBlockHeight = chain.BestBlock().Header().LastKBlockHeight()
 	conR.curHeight = int64(chain.BestBlock().Header().Number())
 	conR.curRound = 0
+
+	// initialize pacemaker
+	conR.csPacemaker = NewPaceMaker(conR)
 
 	// committee info is stored in the first of Mblock after Kblock
 	if conR.curHeight != 0 {
@@ -983,6 +987,9 @@ func (conR *ConsensusReactor) exitConsensusLeader() int {
 
 // Cleanup all roles before the comittee relay
 func (conR *ConsensusReactor) exitCurCommittee() error {
+	// stop packermaker
+	conR.csPacemaker.Stop()
+
 	conR.exitConsensusLeader()
 	conR.exitConsensusProposer()
 	conR.exitConsensusValidator()

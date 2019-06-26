@@ -611,6 +611,9 @@ func (cv *ConsensusValidator) ProcessNotaryAnnounceMessage(notaryMsg *NotaryAnno
 	leaderNetAddr := src.netAddr
 	cv.SendMsgToPeer(&m, leaderNetAddr)
 
+	// XXX: Start pacemaker here at this time.
+	// TODO: we should design a meessage like committee decided and ask every committee member start pacemaker
+	cv.csReactor.csPacemaker.Start()
 	return true
 }
 

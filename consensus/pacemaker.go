@@ -114,8 +114,11 @@ func (p *Pacemaker) Update(bnew *pmBlock) error {
 	return nil
 }
 
-func (P *Pacemaker) OnCommit(b *pmBlock) error {
-
+func (p *Pacemaker) OnCommit(b *pmBlock) error {
+	if p.blockExecuted.Height < b.Height {
+		p.csReactor.logger.Info("Commit", "Height = ", b.Height)
+		p.OnCommit(b.Parent)
+	}
 	return nil
 }
 
