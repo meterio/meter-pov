@@ -7,6 +7,15 @@ import (
 
 const (
 	TIME_ROUND_INTVL_DEF = int(15)
+
+	//pacemake message type
+	PACEMAKER_MSG_PROPOSAL = byte(1)
+	PACEMAKER_MSG_VOTE     = byte(2)
+	PACEMAKER_MSG_NEWVIEW  = byte(3)
+)
+
+var (
+	genericQC *QuorumCert = &QuorumCert{}
 )
 
 type QuorumCert struct {
@@ -122,6 +131,7 @@ func (p *Pacemaker) OnReceiveProposal(bnew *pmBlock) error {
 		p.lastVotingHeight = bnew.Height
 
 		// send vote message to leader
+		p.sendMsg(bnew.Round, PACEMAKER_MSG_VOTE, genericQC, bnew)
 	}
 
 	p.Update(bnew)
@@ -140,7 +150,8 @@ func (p *Pacemaker) OnReceiveVote(b *pmBlock) error {
 func (p *Pacemaker) OnPropose(b *pmBlock, qc *QuorumCert, height int64, round int) *pmBlock {
 	bnew := p.CreateLeaf(b, qc, height+1, round)
 
-	//XXX:send proposal to all include myself
+	//send proposal to all include myself
+	p.broadcastMsg(round, PACEMAKER_MSG_PROPOSAL, genericQC, bnew)
 
 	return bnew
 }
@@ -178,7 +189,7 @@ func (p *Pacemaker) OnBeat(height int64, round int) {
 
 func (p *Pacemaker) OnNextSyncView(nextHeight int64, nextRound int) error {
 	// send new round msg to next round proposer
-
+	p.sendMsg(nextRound, PACEMAKER_MSG_NEWVIEW, p.QCHigh, &pmBlock{})
 	return nil
 }
 
@@ -195,5 +206,5 @@ func (p *Pacemaker) Start(height int64, round int) {
 }
 
 //actions of commites/receives kblock, stop pacemake to next committee
-// all proposal need to be reclaimed before stop
+// all proposal txs need to be reclaimed before stop
 func (p *Pacemaker) Stop() {}

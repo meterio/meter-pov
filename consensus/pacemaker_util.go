@@ -1,8 +1,7 @@
 package consensus
 
 import (
-//"github.com/dfinlab/meter/block"
-//"github.com/dfinlab/meter/meter"
+	"github.com/ethereum/go-ethereum/rlp"
 )
 
 func (q *QuorumCert) Assign(dst, src *QuorumCert) error {
@@ -41,4 +40,70 @@ func (p *Pacemaker) IsExtendedFromBLocked(b *pmBlock) bool {
 		tmp = tmp.Parent
 	}
 	return false
+}
+
+// ****** test code ***********
+type PMessage struct {
+	Round   int
+	MsgType byte
+	QC      QuorumCert
+	Block   pmBlock
+}
+
+func (p *Pacemaker) Send(to CommitteeMember, m []byte) error {
+
+	return nil
+}
+
+func (p *Pacemaker) sendMsg(round int, msgType byte, qc *QuorumCert, b *pmBlock) error {
+	m := &PMessage{
+		Round:   round,
+		MsgType: msgType,
+		QC:      *qc,
+		Block:   *b,
+	}
+	msgByte, err := rlp.EncodeToBytes(m)
+	if err != nil {
+		panic("message encode failed")
+	}
+
+	to := p.csReactor.getRoundProposer(round)
+	p.Send(to, msgByte)
+	return nil
+}
+
+// everybody in committee include myself
+func (p *Pacemaker) broadcastMsg(round int, msgType byte, qc *QuorumCert, b *pmBlock) error {
+	m := &PMessage{
+		Round:   round,
+		MsgType: msgType,
+		QC:      *qc,
+		Block:   *b,
+	}
+	msgByte, err := rlp.EncodeToBytes(m)
+	if err != nil {
+		panic("message encode failed")
+	}
+
+	for _, cm := range p.csReactor.curActualCommittee {
+		p.Send(cm, msgByte)
+	}
+	return nil
+}
+
+func (p *Pacemaker) Receive(msg []byte) error {
+	m := &PMessage{}
+	if err := rlp.DecodeBytes(msg, m); err != nil {
+		panic("decode message failed")
+	}
+
+	switch m.MsgType {
+	case PACEMAKER_MSG_PROPOSAL:
+		return p.OnReceiveProposal(&m.Block)
+	case PACEMAKER_MSG_VOTE:
+		return p.OnReceiveVote(&m.Block)
+	case PACEMAKER_MSG_NEWVIEW:
+		return p.OnRecieveNewView(&m.QC)
+	}
+	return nil
 }
