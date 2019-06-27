@@ -12,7 +12,7 @@ const (
 type QuorumCert struct {
 	//QCHieght/QCround must be the same with QCNode.Height/QCnode.Round
 	QCHeight int64
-	QCRound  uint32
+	QCRound  int
 	QCNode   *pmBlock
 
 	//signature data , slice signature and public key must be match
@@ -26,7 +26,7 @@ type QuorumCert struct {
 
 type pmBlock struct {
 	Height int64
-	Round  uint32
+	Round  int
 
 	Parent  *pmBlock
 	Justify *QuorumCert
@@ -43,14 +43,14 @@ type Pacemaker struct {
 	// Determines the time interval for a round interval
 	timeRoundInterval int
 	// Highest round that a block was committed
-	highestCommittedRound uint32
+	highestCommittedRound int
 	// Highest round known certified by QC.
-	highestQCRound uint32
+	highestQCRound int
 	// Current round (current_round - highest_qc_round determines the timeout).
 	// Current round is basically max(highest_qc_round, highest_received_tc, highest_local_tc) + 1
 	// update_current_round take care of updating current_round and sending new round event if
 	// it changes
-	currentRound uint32
+	currentRound int
 
 	lastVotingHeight int64
 	QCHigh           *QuorumCert
@@ -74,13 +74,7 @@ func NewPaceMaker(conR *ConsensusReactor) *Pacemaker {
 	return p
 }
 
-//Committee Leader triggers
-func (p *Pacemaker) Start() {}
-
-//actions of commites/receives kblock, stop pacemake to next committee
-func (p *Pacemaker) Stop() {}
-
-func (p *Pacemaker) CreateLeaf(parent *pmBlock, qc *QuorumCert, height int64, round uint32) *pmBlock {
+func (p *Pacemaker) CreateLeaf(parent *pmBlock, qc *QuorumCert, height int64, round int) *pmBlock {
 	b := &pmBlock{
 		Height:  height,
 		Round:   round,
@@ -122,12 +116,29 @@ func (p *Pacemaker) OnCommit(b *pmBlock) error {
 	return nil
 }
 
-func (p *Pacemaker) OnReceiveProposal() error { return nil }
+func (p *Pacemaker) OnReceiveProposal(bnew *pmBlock) error {
+	if (bnew.Height > p.lastVotingHeight) &&
+		(p.IsExtendedFromBLocked(bnew) || bnew.Justify.QCHeight > p.blockLocked.Height) {
+		p.lastVotingHeight = bnew.Height
 
-func (p *Pacemaker) OnReceiveVote() error { return nil }
+		// send vote message to leader
+	}
 
-func (p *Pacemaker) OnPropose(b *pmBlock, qc *QuorumCert, height int64, round uint32) *pmBlock {
-	bnew := p.CreateLeaf(b, qc, height, round)
+	p.Update(bnew)
+	return nil
+}
+
+func (p *Pacemaker) OnReceiveVote(b *pmBlock) error {
+	//XXX: signature handling
+
+	// if reach 2/3 majority
+	// 		p.UpdateQCHigh(qc)
+
+	return nil
+}
+
+func (p *Pacemaker) OnPropose(b *pmBlock, qc *QuorumCert, height int64, round int) *pmBlock {
+	bnew := p.CreateLeaf(b, qc, height+1, round)
 
 	//XXX:send proposal to all include myself
 
@@ -135,9 +146,11 @@ func (p *Pacemaker) OnPropose(b *pmBlock, qc *QuorumCert, height int64, round ui
 }
 
 // **************
-func (p *Pacemaker) GetProposer(height int64, round uint32) {
+/****
+func (p *Pacemaker) GetProposer(height int64, round int) {
 	return
 }
+****/
 
 func (p *Pacemaker) UpdateQCHigh(qc *QuorumCert) error {
 	if qc.QCHeight > p.QCHigh.QCHeight {
@@ -148,19 +161,39 @@ func (p *Pacemaker) UpdateQCHigh(qc *QuorumCert) error {
 	return nil
 }
 
-func (p *Pacemaker) OnBeat(height int64, round uint32) {
+func (p *Pacemaker) OnBeat(height int64, round int) {
 
-	// If I am leader of height/round
-	if true {
+	if p.csReactor.amIRoundProproser(round) {
+		p.csReactor.logger.Info("OnBeat: I am round proposer", "round=", round)
 		bleaf := p.OnPropose(p.blockLeaf, p.QCHigh, height, round)
 		if bleaf == nil {
 			panic("Propose failed")
 		}
 		p.blockLeaf.Assign(p.blockLeaf, bleaf)
+	} else {
+		p.csReactor.logger.Info("OnBeat: I am NOT round proposer", "round=", round)
 	}
 
 }
 
-func (p *Pacemaker) OnNextSyncView() error { return nil }
+func (p *Pacemaker) OnNextSyncView(nextHeight int64, nextRound int) error {
+	// send new round msg to next round proposer
 
-func (p *Pacemaker) OnRecieveNewView() error { return nil }
+	return nil
+}
+
+func (p *Pacemaker) OnRecieveNewView(qch *QuorumCert) error {
+	p.UpdateQCHigh(qch)
+	return nil
+}
+
+//=========== Routines ==================================
+//Committee Leader triggers
+func (p *Pacemaker) Start(height int64, round int) {
+	//TBD: should initialize to height/round
+	p.OnBeat(height, round)
+}
+
+//actions of commites/receives kblock, stop pacemake to next committee
+// all proposal need to be reclaimed before stop
+func (p *Pacemaker) Stop() {}

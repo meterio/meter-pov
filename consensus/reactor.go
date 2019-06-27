@@ -566,6 +566,11 @@ func (conR *ConsensusReactor) getRoundProposer(round int) CommitteeMember {
 	return conR.curActualCommittee[round%size]
 }
 
+func (conR *ConsensusReactor) amIRoundProproser(round int) bool {
+	p := conR.getRoundProposer(round)
+	return bytes.Equal(crypto.FromECDSAPub(&p.PubKey), crypto.FromECDSAPub(&conR.myPubKey))
+}
+
 //create validatorSet by a given nonce. return by my self role
 func (conR *ConsensusReactor) NewValidatorSetByNonce(nonce []byte) (uint, bool) {
 	//vals []*types.Validator
