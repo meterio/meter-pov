@@ -566,8 +566,8 @@ func (conR *ConsensusReactor) getRoundProposer(round int) CommitteeMember {
 	return conR.curActualCommittee[round%size]
 }
 
-func (conR *ConsensusReactor) amIRoundProproser(round int) bool {
-	p := conR.getRoundProposer(round)
+func (conR *ConsensusReactor) amIRoundProproser(round uint64) bool {
+	p := conR.getRoundProposer(int(round))
 	return bytes.Equal(crypto.FromECDSAPub(&p.PubKey), crypto.FromECDSAPub(&conR.myPubKey))
 }
 
@@ -891,6 +891,19 @@ func (conR *ConsensusReactor) receivePeerMsgRoutine() {
 	}
 }
 
+func (conR *ConsensusReactor) receivePacemakerMsgRoutine() {
+
+	c := cors.New(cors.Options{
+		AllowedOrigins: []string{"*"},    // All origins
+		AllowedMethods: []string{"POST"}, // Only allows POST requests
+	})
+	r := mux.NewRouter()
+	r.HandleFunc("/peer", conR.csPacemaker.receivePacemakerMsg).Methods("POST")
+	if err := http.ListenAndServe(":8670", c.Handler(r)); err != nil {
+		fmt.Errorf("HTTP receiver error!")
+	}
+}
+
 //Entry point of new consensus
 func (conR *ConsensusReactor) NewConsensusStart() int {
 	conR.logger.Debug("Starting New Consensus ...")
@@ -906,6 +919,9 @@ func (conR *ConsensusReactor) NewConsensusStart() int {
 
 	// Uncomment following to enable peer messages between nodes
 	go conR.receivePeerMsgRoutine()
+
+	// pacemaker
+	go conR.receivePacemakerMsgRoutine()
 
 	// Start receive routine
 	go conR.receiveRoutine() //only handles from channel

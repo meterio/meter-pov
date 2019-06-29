@@ -491,7 +491,7 @@ Myself is Leader, Let's move to 1st proposal for Round 0.
 		//cl.csReactor.ScheduleProposer(0)
 
 		// Now start the pacemaker
-		cl.csReactor.csPacemaker.Start(cl.csReactor.curHeight, 0)
+		cl.csReactor.csPacemaker.Start(uint64(cl.csReactor.curHeight), 0)
 		return true
 
 	} else {

@@ -1,8 +1,8 @@
 package consensus
 
 import (
-	bls "github.com/dfinlab/meter/crypto/multi_sig"
-	cmn "github.com/dfinlab/meter/libs/common"
+//bls "github.com/dfinlab/meter/crypto/multi_sig"
+//cmn "github.com/dfinlab/meter/libs/common"
 )
 
 const (
@@ -16,34 +16,51 @@ const (
 
 var (
 	genericQC *QuorumCert = &QuorumCert{}
+
+	qc0 QuorumCert = QuorumCert{
+		QCHeight: 0,
+		QCRound:  0,
+		QCNode:   nil,
+	}
+
+	b0 pmBlock = pmBlock{
+		Height:  0,
+		Round:   0,
+		Parent:  nil,
+		Justify: &qc0,
+	}
 )
 
 type QuorumCert struct {
 	//QCHieght/QCround must be the same with QCNode.Height/QCnode.Round
-	QCHeight int64
-	QCRound  int
+	QCHeight uint64
+	QCRound  uint64
 	QCNode   *pmBlock
 
 	//signature data , slice signature and public key must be match
+	/*******
 	proposalVoterBitArray *cmn.BitArray
 	proposalVoterSig      []bls.Signature
 	proposalVoterPubKey   []bls.PublicKey
 	proposalVoterMsgHash  [][32]byte
 	proposalVoterAggSig   bls.Signature
-	proposalVoterNum      int
+	proposalVoterNum      uint32
+	**********/
 }
 
 type pmBlock struct {
-	Height int64
-	Round  int
+	Height uint64
+	Round  uint64
 
 	Parent  *pmBlock
 	Justify *QuorumCert
 
 	// local copy of proposed block
+	/**********
 	ProposedBlockInfo ProposedBlockInfo //data structure
 	ProposedBlock     []byte            // byte slice block
 	ProposedBlockType byte
+	************/
 }
 
 type Pacemaker struct {
@@ -61,7 +78,7 @@ type Pacemaker struct {
 	// it changes
 	currentRound int
 
-	lastVotingHeight int64
+	lastVotingHeight uint64
 	QCHigh           *QuorumCert
 
 	blockLeaf *pmBlock
@@ -83,7 +100,7 @@ func NewPaceMaker(conR *ConsensusReactor) *Pacemaker {
 	return p
 }
 
-func (p *Pacemaker) CreateLeaf(parent *pmBlock, qc *QuorumCert, height int64, round int) *pmBlock {
+func (p *Pacemaker) CreateLeaf(parent *pmBlock, qc *QuorumCert, height uint64, round uint64) *pmBlock {
 	b := &pmBlock{
 		Height:  height,
 		Round:   round,
@@ -142,12 +159,17 @@ func (p *Pacemaker) OnReceiveVote(b *pmBlock) error {
 	//XXX: signature handling
 
 	// if reach 2/3 majority
-	// 		p.UpdateQCHigh(qc)
+	qc := &QuorumCert{
+		QCHeight: b.Height,
+		QCRound:  b.Round,
+		QCNode:   b,
+	}
+	p.UpdateQCHigh(qc)
 
 	return nil
 }
 
-func (p *Pacemaker) OnPropose(b *pmBlock, qc *QuorumCert, height int64, round int) *pmBlock {
+func (p *Pacemaker) OnPropose(b *pmBlock, qc *QuorumCert, height uint64, round uint64) *pmBlock {
 	bnew := p.CreateLeaf(b, qc, height+1, round)
 
 	//send proposal to all include myself
@@ -172,7 +194,7 @@ func (p *Pacemaker) UpdateQCHigh(qc *QuorumCert) error {
 	return nil
 }
 
-func (p *Pacemaker) OnBeat(height int64, round int) {
+func (p *Pacemaker) OnBeat(height uint64, round uint64) {
 
 	if p.csReactor.amIRoundProproser(round) {
 		p.csReactor.logger.Info("OnBeat: I am round proposer", "round=", round)
@@ -187,7 +209,7 @@ func (p *Pacemaker) OnBeat(height int64, round int) {
 
 }
 
-func (p *Pacemaker) OnNextSyncView(nextHeight int64, nextRound int) error {
+func (p *Pacemaker) OnNextSyncView(nextHeight uint64, nextRound uint64) error {
 	// send new round msg to next round proposer
 	p.sendMsg(nextRound, PACEMAKER_MSG_NEWVIEW, p.QCHigh, &pmBlock{})
 	return nil
@@ -199,9 +221,24 @@ func (p *Pacemaker) OnRecieveNewView(qch *QuorumCert) error {
 }
 
 //=========== Routines ==================================
+
 //Committee Leader triggers
-func (p *Pacemaker) Start(height int64, round int) {
-	//TBD: should initialize to height/round
+func (p *Pacemaker) Start(height uint64, round uint64) {
+
+	//initiation to height/round
+	b0.Height = height
+	b0.Round = round
+	b0.Justify.QCHeight = height
+	b0.Justify.QCRound = round
+	b0.Justify.QCNode = &b0
+
+	// now assign b_lock b_exec, b_leaf qc_high
+	p.block = &b0
+	p.blockLocked = &b0
+	p.blockExecuted = &b0
+	p.blockLeaf = &b0
+	p.QCHigh = &qc0
+
 	p.OnBeat(height, round)
 }
 
