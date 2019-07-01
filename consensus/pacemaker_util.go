@@ -6,11 +6,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+
 	//"github.com/dfinlab/meter/types"
-	"github.com/ethereum/go-ethereum/rlp"
 	"net"
 	"net/http"
 	"time"
+
+	"github.com/ethereum/go-ethereum/rlp"
 )
 
 func (q *QuorumCert) Assign(dst, src *QuorumCert) error {
@@ -29,6 +31,9 @@ func (q *QuorumCert) Assign(dst, src *QuorumCert) error {
 }
 
 func (b *pmBlock) Assign(dst, src *pmBlock) error {
+	if dst == nil {
+		dst = &pmBlock{Height: 0, Round: 0}
+	}
 	dst.Height = src.Height
 	dst.Round = src.Round
 	dst.Parent = src.Parent
@@ -159,24 +164,28 @@ func (p *Pacemaker) AddressBlock(height uint64, round uint64) *pmBlock {
 		return p.block
 	}
 	if (p.blockPrime != nil) && (p.blockPrime.Height == height) && (p.blockPrime.Round == round) {
-		p.csReactor.logger.Info("addressed b Prime", height, "round", round)
+		p.csReactor.logger.Info("addressed b Prime", "height", height, "round", round)
 		return p.blockPrime
 	}
 	if (p.blockPrimePrime != nil) && (p.blockPrimePrime.Height == height) && (p.blockPrimePrime.Round == round) {
-		p.csReactor.logger.Info("addressed b PrimePrime", height, "round", round)
+		p.csReactor.logger.Info("addressed b PrimePrime", "height", height, "round", round)
 		return p.blockPrimePrime
 	}
 
-	p.csReactor.logger.Info("Could not find out block", height, "round", round)
+	p.csReactor.logger.Info("Could not find out block", "height", height, "round", round)
 	return nil
 }
 
-func (p *Pacemaker) Receive(msg []byte) error {
+func (p *Pacemaker) decodeMsg(msg []byte) (error, *PMessage) {
 	m := &PMessage{}
 	if err := rlp.DecodeBytes(msg, m); err != nil {
 		fmt.Println("Decode message failed", err)
-		panic("decode message failed")
+		return errors.New("decode message failed"), &PMessage{}
 	}
+	return nil, m
+}
+
+func (p *Pacemaker) Receive(m *PMessage) error {
 
 	// receives proposal message, block is new one. parent is one of (b,b',b")
 	if m.MsgType == PACEMAKER_MSG_PROPOSAL {
@@ -244,9 +253,15 @@ func (p *Pacemaker) receivePacemakerMsg(w http.ResponseWriter, r *http.Request) 
 	}
 	peerIP := net.ParseIP(params["peer_ip"])
 
-	p.csReactor.logger.Info("receive pacemaker msg from", "IP", peerIP)
 	msgByteSlice, _ := hex.DecodeString(params["message"])
+	err, message := p.decodeMsg(msgByteSlice)
+	if err != nil {
+		p.csReactor.logger.Error("message decode error", err)
+		panic("message decode error")
+	} else {
+		p.csReactor.logger.Info("receive pacemaker msg from", "IP", peerIP, "msgType", message.MsgType)
+		p.Receive(message)
+	}
 	respondWithJson(w, http.StatusOK, map[string]string{"result": "success"})
 
-	p.Receive(msgByteSlice)
 }
