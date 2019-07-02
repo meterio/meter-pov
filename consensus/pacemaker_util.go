@@ -15,35 +15,25 @@ import (
 	"github.com/ethereum/go-ethereum/rlp"
 )
 
-func (q *QuorumCert) Assign(dst, src *QuorumCert) error {
-	dst.QCHeight = src.QCHeight
-	dst.QCRound = src.QCRound
-	dst.QCNode = src.QCNode
-	/********
-	dst.proposalVoterBitArray = src.proposalVoterBitArray
-	dst.proposalVoterSig = src.proposalVoterSig
-	dst.proposalVoterPubKey = src.proposalVoterPubKey
-	dst.proposalVoterMsgHash = src.proposalVoterMsgHash
-	dst.proposalVoterAggSig = src.proposalVoterAggSig
-	dst.proposalVoterNum = src.proposalVoterNum
-	**************/
-	return nil
+// ****** test code ***********
+type PMessage struct {
+	Round                   uint64
+	MsgType                 byte
+	QC_height               uint64
+	QC_round                uint64
+	Block_height            uint64
+	Block_round             uint64
+	Block_parent_height     uint64
+	Block_parent_round      uint64
+	Block_justify_QC_height uint64
+	Block_justify_QC_round  uint64
 }
 
-func (b *pmBlock) Assign(dst, src *pmBlock) error {
-	if dst == nil {
-		dst = &pmBlock{Height: 0, Round: 0}
-	}
-	dst.Height = src.Height
-	dst.Round = src.Round
-	dst.Parent = src.Parent
-	dst.Justify = src.Justify
-	/**********
-	dst.ProposedBlockInfo = src.ProposedBlockInfo
-	dst.ProposedBlock = src.ProposedBlock
-	dst.ProposedBlockType = src.ProposedBlockType
-	********/
-	return nil
+// String returns a string representation.
+func (m *PMessage) String() string {
+	return fmt.Sprintf("PMessage: Round(%v), MsgtType(%v), QC_height(%v), QC_round(%v), Block_height(%v), Block_round(%v), Block_parent_height(%v), Block_parent_round(%v), Block_justify_QC_height(%v), Block_justify_QC_round(%v)",
+		m.Round, m.MsgType, m.QC_height, m.QC_round, m.Block_height, m.Block_round, m.Block_parent_height,
+		m.Block_parent_round, m.Block_justify_QC_height, m.Block_justify_QC_round)
 }
 
 // check a pmBlock is the extension of b_locked, max 10 hops
@@ -59,20 +49,6 @@ func (p *Pacemaker) IsExtendedFromBLocked(b *pmBlock) bool {
 		i++
 	}
 	return false
-}
-
-// ****** test code ***********
-type PMessage struct {
-	Round                   uint64
-	MsgType                 byte
-	QC_height               uint64
-	QC_round                uint64
-	Block_height            uint64
-	Block_round             uint64
-	Block_parent_height     uint64
-	Block_parent_round      uint64
-	Block_justify_QC_height uint64
-	Block_justify_QC_round  uint64
 }
 
 func (p *Pacemaker) Send(cm CommitteeMember, m []byte) error {
@@ -127,6 +103,8 @@ func (p *Pacemaker) sendMsg(round uint64, msgType byte, qc *QuorumCert, b *pmBlo
 
 	to := p.csReactor.getRoundProposer(int(round))
 	p.Send(to, msgByte)
+
+	p.csReactor.logger.Info("Sent message", "message", m.String())
 	return nil
 }
 
@@ -154,22 +132,16 @@ func (p *Pacemaker) broadcastMsg(round uint64, msgType byte, qc *QuorumCert, b *
 	for _, cm := range p.csReactor.curActualCommittee {
 		p.Send(cm, msgByte)
 	}
+
+	p.csReactor.logger.Info("Beoadcasted message", "message", m.String())
 	return nil
 }
 
 // find out b b' b"
 func (p *Pacemaker) AddressBlock(height uint64, round uint64) *pmBlock {
-	if (p.block != nil) && (p.block.Height == height) && (p.block.Round == round) {
-		p.csReactor.logger.Info("addressed b", "height", height, "round", round)
-		return p.block
-	}
-	if (p.blockPrime != nil) && (p.blockPrime.Height == height) && (p.blockPrime.Round == round) {
-		p.csReactor.logger.Info("addressed b Prime", "height", height, "round", round)
-		return p.blockPrime
-	}
-	if (p.blockPrimePrime != nil) && (p.blockPrimePrime.Height == height) && (p.blockPrimePrime.Round == round) {
-		p.csReactor.logger.Info("addressed b PrimePrime", "height", height, "round", round)
-		return p.blockPrimePrime
+	if (p.proposalMap[round] != nil) && (p.proposalMap[round].Height == height) && (p.proposalMap[round].Round == round) {
+		p.csReactor.logger.Info("addressed block", "height", height, "round", round)
+		return p.proposalMap[round]
 	}
 
 	p.csReactor.logger.Info("Could not find out block", "height", height, "round", round)
@@ -187,6 +159,7 @@ func (p *Pacemaker) decodeMsg(msg []byte) (error, *PMessage) {
 
 func (p *Pacemaker) Receive(m *PMessage) error {
 
+	p.csReactor.logger.Info("Receives a pacemaker message", "message", m.String())
 	// receives proposal message, block is new one. parent is one of (b,b',b")
 	if m.MsgType == PACEMAKER_MSG_PROPOSAL {
 		parent := p.AddressBlock(m.Block_parent_height, m.Block_parent_round)
@@ -205,13 +178,14 @@ func (p *Pacemaker) Receive(m *PMessage) error {
 			QCNode:   qcNode,
 		}
 
-		b := &pmBlock{
+		p.proposalMap[m.Round] = &pmBlock{
 			Height:  m.Block_height,
 			Round:   m.Block_round,
 			Parent:  parent,
 			Justify: justify,
 		}
-		return p.OnReceiveProposal(b)
+		return p.OnReceiveProposal(p.proposalMap[m.Round])
+
 	} else if m.MsgType == PACEMAKER_MSG_VOTE {
 		// must be in (b, b', b")
 		b := p.AddressBlock(m.Block_height, m.Block_round)

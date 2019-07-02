@@ -77,14 +77,16 @@ type Pacemaker struct {
 	// update_current_round take care of updating current_round and sending new round event if
 	// it changes
 	currentRound int
+	proposalMap  map[uint64]*pmBlock
+	sigCounter   map[uint64]int
 
 	lastVotingHeight uint64
 	QCHigh           *QuorumCert
 
-	blockLeaf *pmBlock
+	blockLeaf     *pmBlock
+	blockExecuted *pmBlock
+	blockLocked   *pmBlock
 
-	blockExecuted   *pmBlock
-	blockLocked     *pmBlock
 	block           *pmBlock
 	blockPrime      *pmBlock
 	blockPrimePrime *pmBlock
@@ -96,6 +98,8 @@ func NewPaceMaker(conR *ConsensusReactor) *Pacemaker {
 		timeRoundInterval: TIME_ROUND_INTVL_DEF,
 	}
 
+	p.proposalMap = make(map[uint64]*pmBlock, 1000) //XXX:better way?
+	p.sigCounter = make(map[uint64]int, 1000)
 	//TBD: blockLocked/Executed/Leaf to genesis(b0). QCHigh to qc of genesis
 	return p
 }
@@ -114,23 +118,30 @@ func (p *Pacemaker) CreateLeaf(parent *pmBlock, qc *QuorumCert, height uint64, r
 // b_exec  b_lock   b <- b' <- b"  b*
 func (p *Pacemaker) Update(bnew *pmBlock) error {
 
-	bnew.Assign(p.blockPrimePrime, bnew.Justify.QCNode)
-	bnew.Assign(p.blockPrime, p.blockPrimePrime.Justify.QCNode)
-	bnew.Assign(p.block, p.blockPrime.Justify.QCNode)
+	//now pipeline full, roll this pipeline first
+	p.blockPrimePrime = bnew.Justify.QCNode
+	p.blockPrime = p.blockPrimePrime.Justify.QCNode
+	p.block = p.blockPrime.Justify.QCNode
 
 	// pre-commit phase on b"
 	p.UpdateQCHigh(bnew.Justify)
 
 	if p.blockPrime.Height > p.blockLocked.Height {
-		bnew.Assign(p.blockLocked, p.blockPrime) // commit phase on b'
+		p.blockLocked = p.blockPrime // commit phase on b'
 	}
 
 	if p.blockPrimePrime.Parent == p.blockPrime &&
 		p.blockPrime.Parent == p.block {
 		p.OnCommit(p.block)
-		bnew.Assign(p.blockExecuted, p.block) // decide phase on b
+		p.blockExecuted = p.block // decide phase on b
 	}
 
+	return nil
+}
+
+// TBD: how to emboy b.cmd
+func (p *Pacemaker) Execute(b *pmBlock) error {
+	p.csReactor.logger.Info("Exec block:", "height", b.Height, "round", b.Round)
 	return nil
 }
 
@@ -138,6 +149,7 @@ func (p *Pacemaker) OnCommit(b *pmBlock) error {
 	if p.blockExecuted.Height < b.Height {
 		p.csReactor.logger.Info("Commit", "Height = ", b.Height)
 		p.OnCommit(b.Parent)
+		p.Execute(b)
 	}
 	return nil
 }
@@ -157,8 +169,16 @@ func (p *Pacemaker) OnReceiveProposal(bnew *pmBlock) error {
 
 func (p *Pacemaker) OnReceiveVote(b *pmBlock) error {
 	//XXX: signature handling
+	p.sigCounter[b.Round]++
+	if MajorityTwoThird(p.sigCounter[b.Round], p.csReactor.committeeSize) == false {
+		// not reach 2/3
+		p.csReactor.logger.Info("not reach majority", "count", p.sigCounter[b.Round], "committeeSize", p.csReactor.committeeSize)
+		return nil
+	} else {
+		p.csReactor.logger.Info("reach majority", "count", p.sigCounter[b.Round], "committeeSize", p.csReactor.committeeSize)
+	}
 
-	// if reach 2/3 majority
+	//reach 2/3 majority
 	qc := &QuorumCert{
 		QCHeight: b.Height,
 		QCRound:  b.Round,
@@ -187,8 +207,8 @@ func (p *Pacemaker) GetProposer(height int64, round int) {
 
 func (p *Pacemaker) UpdateQCHigh(qc *QuorumCert) error {
 	if qc.QCHeight > p.QCHigh.QCHeight {
-		p.blockLeaf.Assign(p.blockLeaf, p.QCHigh.QCNode)
-		qc.Assign(p.QCHigh, qc)
+		p.QCHigh = qc
+		p.blockLeaf = p.QCHigh.QCNode
 	}
 
 	return nil
@@ -202,7 +222,7 @@ func (p *Pacemaker) OnBeat(height uint64, round uint64) {
 		if bleaf == nil {
 			panic("Propose failed")
 		}
-		p.blockLeaf.Assign(p.blockLeaf, bleaf)
+		p.blockLeaf = bleaf
 	} else {
 		p.csReactor.logger.Info("OnBeat: I am NOT round proposer", "round=", round)
 	}
@@ -237,7 +257,11 @@ func (p *Pacemaker) Start(height uint64, round uint64) {
 	p.blockLocked = &b0
 	p.blockExecuted = &b0
 	p.blockLeaf = &b0
+	p.proposalMap[round] = &b0
 	p.QCHigh = &qc0
+
+	p.blockPrime = nil
+	p.blockPrimePrime = nil
 
 	p.OnBeat(height, round)
 }
