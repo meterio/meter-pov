@@ -82,17 +82,28 @@ func (p *Pacemaker) Send(cm CommitteeMember, m []byte) error {
 }
 
 func (p *Pacemaker) sendMsg(round uint64, msgType byte, qc *QuorumCert, b *pmBlock) error {
-	m := &PMessage{
-		Round:                   round,
-		MsgType:                 msgType,
-		QC_height:               qc.QCHeight,
-		QC_round:                qc.QCRound,
-		Block_height:            b.Height,
-		Block_round:             b.Round,
-		Block_parent_height:     b.Parent.Height,
-		Block_parent_round:      b.Parent.Round,
-		Block_justify_QC_height: b.Justify.QCHeight,
-		Block_justify_QC_round:  b.Justify.QCRound,
+	var m *PMessage
+
+	if b == nil {
+		m = &PMessage{
+			Round:     round,
+			MsgType:   msgType,
+			QC_height: qc.QCHeight,
+			QC_round:  qc.QCRound,
+		}
+	} else {
+		m = &PMessage{
+			Round:                   round,
+			MsgType:                 msgType,
+			QC_height:               qc.QCHeight,
+			QC_round:                qc.QCRound,
+			Block_height:            b.Height,
+			Block_round:             b.Round,
+			Block_parent_height:     b.Parent.Height,
+			Block_parent_round:      b.Parent.Round,
+			Block_justify_QC_height: b.Justify.QCHeight,
+			Block_justify_QC_round:  b.Justify.QCRound,
+		}
 	}
 
 	msgByte, err := rlp.EncodeToBytes(m)
@@ -129,8 +140,18 @@ func (p *Pacemaker) broadcastMsg(round uint64, msgType byte, qc *QuorumCert, b *
 		panic("message encode failed")
 	}
 
+	// send myself first, a little bit ugly, but ...
+	myNetAddr := p.csReactor.curCommittee.Validators[p.csReactor.curCommitteeIndex].NetAddr
 	for _, cm := range p.csReactor.curActualCommittee {
-		p.Send(cm, msgByte)
+		if bytes.Equal(myNetAddr.IP, cm.NetAddr.IP) == true {
+			p.Send(cm, msgByte)
+			break
+		}
+	}
+	for _, cm := range p.csReactor.curActualCommittee {
+		if bytes.Equal(myNetAddr.IP, cm.NetAddr.IP) == false {
+			p.Send(cm, msgByte)
+		}
 	}
 
 	p.csReactor.logger.Info("Beoadcasted message", "message", m.String())
@@ -139,9 +160,9 @@ func (p *Pacemaker) broadcastMsg(round uint64, msgType byte, qc *QuorumCert, b *
 
 // find out b b' b"
 func (p *Pacemaker) AddressBlock(height uint64, round uint64) *pmBlock {
-	if (p.proposalMap[round] != nil) && (p.proposalMap[round].Height == height) && (p.proposalMap[round].Round == round) {
+	if (p.proposalMap[height] != nil) && (p.proposalMap[height].Height == height) && (p.proposalMap[height].Round == round) {
 		p.csReactor.logger.Info("addressed block", "height", height, "round", round)
-		return p.proposalMap[round]
+		return p.proposalMap[height]
 	}
 
 	p.csReactor.logger.Info("Could not find out block", "height", height, "round", round)
@@ -178,13 +199,13 @@ func (p *Pacemaker) Receive(m *PMessage) error {
 			QCNode:   qcNode,
 		}
 
-		p.proposalMap[m.Round] = &pmBlock{
+		p.proposalMap[m.Block_height] = &pmBlock{
 			Height:  m.Block_height,
 			Round:   m.Block_round,
 			Parent:  parent,
 			Justify: justify,
 		}
-		return p.OnReceiveProposal(p.proposalMap[m.Round])
+		return p.OnReceiveProposal(p.proposalMap[m.Block_height])
 
 	} else if m.MsgType == PACEMAKER_MSG_VOTE {
 		// must be in (b, b', b")

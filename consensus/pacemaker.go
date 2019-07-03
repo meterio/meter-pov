@@ -1,8 +1,9 @@
 package consensus
 
 import (
-//bls "github.com/dfinlab/meter/crypto/multi_sig"
-//cmn "github.com/dfinlab/meter/libs/common"
+	//bls "github.com/dfinlab/meter/crypto/multi_sig"
+	//cmn "github.com/dfinlab/meter/libs/common"
+	"time"
 )
 
 const (
@@ -54,6 +55,9 @@ type pmBlock struct {
 
 	Parent  *pmBlock
 	Justify *QuorumCert
+
+	// derived
+	Decided bool
 
 	// local copy of proposed block
 	/**********
@@ -130,26 +134,33 @@ func (p *Pacemaker) Update(bnew *pmBlock) error {
 		p.blockLocked = p.blockPrime // commit phase on b'
 	}
 
-	if p.blockPrimePrime.Parent == p.blockPrime &&
-		p.blockPrime.Parent == p.block {
-		p.OnCommit(p.block)
-		p.blockExecuted = p.block // decide phase on b
+	/* commit requires direct parent */
+	if (p.blockPrimePrime.Parent != p.blockPrime) ||
+		(p.blockPrime.Parent != p.block) {
+		return nil
 	}
 
+	commitReady := []*pmBlock{}
+	for b := p.block; b.Height > p.blockExecuted.Height; b = b.Parent {
+		commitReady = append(commitReady, b)
+	}
+	p.OnCommit(commitReady)
+
+	p.blockExecuted = p.block // decide phase on b
 	return nil
 }
 
 // TBD: how to emboy b.cmd
 func (p *Pacemaker) Execute(b *pmBlock) error {
 	p.csReactor.logger.Info("Exec block:", "height", b.Height, "round", b.Round)
+
 	return nil
 }
 
-func (p *Pacemaker) OnCommit(b *pmBlock) error {
-	if p.blockExecuted.Height < b.Height {
-		p.csReactor.logger.Info("Commit", "Height = ", b.Height)
-		p.OnCommit(b.Parent)
-		p.Execute(b)
+func (p *Pacemaker) OnCommit(commitReady []*pmBlock) error {
+	for _, b := range commitReady {
+		p.csReactor.logger.Info("Committed", "Height = ", b.Height)
+		p.Execute(b) //b.cmd
 	}
 	return nil
 }
@@ -170,7 +181,8 @@ func (p *Pacemaker) OnReceiveProposal(bnew *pmBlock) error {
 func (p *Pacemaker) OnReceiveVote(b *pmBlock) error {
 	//XXX: signature handling
 	p.sigCounter[b.Round]++
-	if MajorityTwoThird(p.sigCounter[b.Round], p.csReactor.committeeSize) == false {
+	//if MajorityTwoThird(p.sigCounter[b.Round], p.csReactor.committeeSize) == false {
+	if p.sigCounter[b.Round] < p.csReactor.committeeSize {
 		// not reach 2/3
 		p.csReactor.logger.Info("not reach majority", "count", p.sigCounter[b.Round], "committeeSize", p.csReactor.committeeSize)
 		return nil
@@ -184,7 +196,20 @@ func (p *Pacemaker) OnReceiveVote(b *pmBlock) error {
 		QCRound:  b.Round,
 		QCNode:   b,
 	}
-	p.UpdateQCHigh(qc)
+	changed := p.UpdateQCHigh(qc)
+	if changed == true {
+		if qc.QCHeight > p.blockLocked.Height {
+			if p.csReactor.amIRoundProproser(qc.QCRound+1) == true {
+				time.AfterFunc(1*time.Second, func() {
+					p.csReactor.schedulerQueue <- func() { p.OnBeat(qc.QCHeight, qc.QCRound+1) }
+				})
+			} else {
+				time.AfterFunc(1*time.Second, func() {
+					p.OnNextSyncView(qc.QCRound + 1)
+				})
+			}
+		}
+	}
 
 	return nil
 }
@@ -205,13 +230,15 @@ func (p *Pacemaker) GetProposer(height int64, round int) {
 }
 ****/
 
-func (p *Pacemaker) UpdateQCHigh(qc *QuorumCert) error {
+func (p *Pacemaker) UpdateQCHigh(qc *QuorumCert) bool {
+	updated := false
 	if qc.QCHeight > p.QCHigh.QCHeight {
 		p.QCHigh = qc
 		p.blockLeaf = p.QCHigh.QCNode
+		updated = true
 	}
 
-	return nil
+	return updated
 }
 
 func (p *Pacemaker) OnBeat(height uint64, round uint64) {
@@ -229,14 +256,28 @@ func (p *Pacemaker) OnBeat(height uint64, round uint64) {
 
 }
 
-func (p *Pacemaker) OnNextSyncView(nextHeight uint64, nextRound uint64) error {
+func (p *Pacemaker) OnNextSyncView(nextRound uint64) error {
 	// send new round msg to next round proposer
-	p.sendMsg(nextRound, PACEMAKER_MSG_NEWVIEW, p.QCHigh, &pmBlock{})
+	p.sendMsg(nextRound, PACEMAKER_MSG_NEWVIEW, p.QCHigh, nil)
 	return nil
 }
 
-func (p *Pacemaker) OnRecieveNewView(qch *QuorumCert) error {
-	p.UpdateQCHigh(qch)
+func (p *Pacemaker) OnRecieveNewView(qc *QuorumCert) error {
+	changed := p.UpdateQCHigh(qc)
+
+	if changed == true {
+		if qc.QCHeight > p.blockLocked.Height {
+			if p.csReactor.amIRoundProproser(qc.QCRound+1) == true {
+				time.AfterFunc(1*time.Second, func() {
+					p.csReactor.schedulerQueue <- func() { p.OnBeat(qc.QCHeight, qc.QCRound+1) }
+				})
+			} else {
+				time.AfterFunc(1*time.Second, func() {
+					p.OnNextSyncView(qc.QCRound + 1)
+				})
+			}
+		}
+	}
 	return nil
 }
 
@@ -252,12 +293,24 @@ func (p *Pacemaker) Start(height uint64, round uint64) {
 	b0.Justify.QCRound = round
 	b0.Justify.QCNode = &b0
 
+	b0.Height = height
+	b0.Round = round
+	b0.Justify.QCHeight = height
+	b0.Justify.QCRound = round
+	b0.Justify.QCNode = &b0
+
+	b0.Height = height
+	b0.Round = round
+	b0.Justify.QCHeight = height
+	b0.Justify.QCRound = round
+	b0.Justify.QCNode = &b0
+
 	// now assign b_lock b_exec, b_leaf qc_high
 	p.block = &b0
 	p.blockLocked = &b0
 	p.blockExecuted = &b0
 	p.blockLeaf = &b0
-	p.proposalMap[round] = &b0
+	p.proposalMap[height] = &b0
 	p.QCHigh = &qc0
 
 	p.blockPrime = nil
