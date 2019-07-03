@@ -13,6 +13,8 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/rlp"
+
+	"github.com/dfinlab/meter/types"
 )
 
 // ****** test code ***********
@@ -51,7 +53,7 @@ func (p *Pacemaker) IsExtendedFromBLocked(b *pmBlock) bool {
 	return false
 }
 
-func (p *Pacemaker) Send(cm CommitteeMember, m []byte) error {
+func (p *Pacemaker) Send(netAddr types.NetAddress, m []byte) error {
 	myNetAddr := p.csReactor.curCommittee.Validators[p.csReactor.curCommitteeIndex].NetAddr
 	payload := map[string]interface{}{
 		"message": hex.EncodeToString(m),
@@ -69,12 +71,12 @@ func (p *Pacemaker) Send(cm CommitteeMember, m []byte) error {
 	var netClient = &http.Client{
 		Timeout: time.Second * 2,
 	}
-	resp, err := netClient.Post("http://"+cm.NetAddr.IP.String()+":8670/peer", "application/json", bytes.NewBuffer(jsonStr))
+	resp, err := netClient.Post("http://"+netAddr.IP.String()+":8670/peer", "application/json", bytes.NewBuffer(jsonStr))
 	if err != nil {
-		p.csReactor.logger.Error("Failed to send message to peer", "peer", cm.NetAddr.IP.String(), "err", err)
+		p.csReactor.logger.Error("Failed to send message to peer", "peer", netAddr.IP.String(), "err", err)
 		return err
 	}
-	p.csReactor.logger.Info("Sent consensus message to peer", "peer", cm.NetAddr.IP.String(), "size", len(m))
+	p.csReactor.logger.Info("Sent consensus message to peer", "peer", netAddr.IP.String(), "size", len(m))
 	var result map[string]interface{}
 	json.NewDecoder(resp.Body).Decode(&result)
 
@@ -113,7 +115,7 @@ func (p *Pacemaker) sendMsg(round uint64, msgType byte, qc *QuorumCert, b *pmBlo
 	}
 
 	to := p.csReactor.getRoundProposer(int(round))
-	p.Send(to, msgByte)
+	p.Send(to.NetAddr, msgByte)
 
 	p.csReactor.logger.Info("Sent message", "message", m.String())
 	return nil
@@ -140,17 +142,14 @@ func (p *Pacemaker) broadcastMsg(round uint64, msgType byte, qc *QuorumCert, b *
 		panic("message encode failed")
 	}
 
-	// send myself first, a little bit ugly, but ...
+	// send myself first
 	myNetAddr := p.csReactor.curCommittee.Validators[p.csReactor.curCommitteeIndex].NetAddr
-	for _, cm := range p.csReactor.curActualCommittee {
-		if bytes.Equal(myNetAddr.IP, cm.NetAddr.IP) == true {
-			p.Send(cm, msgByte)
-			break
-		}
-	}
+	p.Send(myNetAddr, msgByte)
+
+	// send to replicas except myself
 	for _, cm := range p.csReactor.curActualCommittee {
 		if bytes.Equal(myNetAddr.IP, cm.NetAddr.IP) == false {
-			p.Send(cm, msgByte)
+			p.Send(cm.NetAddr, msgByte)
 		}
 	}
 
