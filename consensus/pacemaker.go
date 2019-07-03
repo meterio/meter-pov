@@ -94,6 +94,8 @@ type Pacemaker struct {
 	block           *pmBlock
 	blockPrime      *pmBlock
 	blockPrimePrime *pmBlock
+
+	roundTimerStop chan bool
 }
 
 func NewPaceMaker(conR *ConsensusReactor) *Pacemaker {
@@ -170,8 +172,31 @@ func (p *Pacemaker) OnReceiveProposal(bnew *pmBlock) error {
 		(p.IsExtendedFromBLocked(bnew) || bnew.Justify.QCHeight > p.blockLocked.Height) {
 		p.lastVotingHeight = bnew.Height
 
+		if int(bnew.Round) > p.currentRound {
+			p.currentRound = int(bnew.Round)
+		}
+
+		// stop previous round timer
+		close(p.roundTimerStop)
+
 		// send vote message to leader
 		p.sendMsg(bnew.Round, PACEMAKER_MSG_VOTE, genericQC, bnew)
+
+		// start the round timer
+		p.roundTimerStop = make(chan bool)
+		go func() {
+			count := 0
+			for {
+				select {
+				case <-time.After(time.Second * 5 * time.Duration(count)):
+					p.currentRound++
+					count++
+					p.sendMsg(uint64(p.currentRound), PACEMAKER_MSG_NEWVIEW, p.QCHigh, nil)
+				case <-p.roundTimerStop:
+					return
+				}
+			}
+		}()
 	}
 
 	p.Update(bnew)
