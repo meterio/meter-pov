@@ -9,6 +9,7 @@ import (
 const (
 	TIME_ROUND_INTVL_DEF = int(15)
 
+	// TODO: define message struct separately to include common head
 	//pacemake message type
 	PACEMAKER_MSG_PROPOSAL = byte(1)
 	PACEMAKER_MSG_VOTE     = byte(2)
@@ -16,15 +17,15 @@ const (
 )
 
 var (
-	genericQC *QuorumCert = &QuorumCert{}
+	genericQC = &QuorumCert{}
 
-	qc0 QuorumCert = QuorumCert{
+	qc0 = QuorumCert{
 		QCHeight: 0,
 		QCRound:  0,
 		QCNode:   nil,
 	}
 
-	b0 pmBlock = pmBlock{
+	b0 = pmBlock{
 		Height:  0,
 		Round:   0,
 		Parent:  nil,
@@ -38,6 +39,7 @@ type QuorumCert struct {
 	QCRound  uint64
 	QCNode   *pmBlock
 
+	// FIXME: put evidence in QC
 	//signature data , slice signature and public key must be match
 	/*******
 	proposalVoterBitArray *cmn.BitArray
@@ -59,6 +61,7 @@ type pmBlock struct {
 	// derived
 	Decided bool
 
+	// FIXME: put block info in pmBlock
 	// local copy of proposed block
 	/**********
 	ProposedBlockInfo ProposedBlockInfo //data structure
@@ -104,7 +107,7 @@ func NewPaceMaker(conR *ConsensusReactor) *Pacemaker {
 		timeRoundInterval: TIME_ROUND_INTVL_DEF,
 	}
 
-	p.proposalMap = make(map[uint64]*pmBlock, 1000) //XXX:better way?
+	p.proposalMap = make(map[uint64]*pmBlock, 1000) // TODO:better way?
 	p.sigCounter = make(map[uint64]int, 1000)
 	//TBD: blockLocked/Executed/Leaf to genesis(b0). QCHigh to qc of genesis
 	return p
@@ -163,6 +166,7 @@ func (p *Pacemaker) OnCommit(commitReady []*pmBlock) error {
 	for _, b := range commitReady {
 		p.csReactor.logger.Info("Committed", "Height = ", b.Height)
 		p.Execute(b) //b.cmd
+		//FIXME: write block to db
 	}
 	return nil
 }
@@ -204,7 +208,7 @@ func (p *Pacemaker) OnReceiveProposal(bnew *pmBlock) error {
 }
 
 func (p *Pacemaker) OnReceiveVote(b *pmBlock) error {
-	//XXX: signature handling
+	//TODO: signature handling
 	p.sigCounter[b.Round]++
 	//if MajorityTwoThird(p.sigCounter[b.Round], p.csReactor.committeeSize) == false {
 	if p.sigCounter[b.Round] < p.csReactor.committeeSize {
@@ -242,6 +246,7 @@ func (p *Pacemaker) OnReceiveVote(b *pmBlock) error {
 func (p *Pacemaker) OnPropose(b *pmBlock, qc *QuorumCert, height uint64, round uint64) *pmBlock {
 	bnew := p.CreateLeaf(b, qc, height+1, round)
 
+	// TODO: create slot in proposalMap directly, instead of sendmsg to self.
 	//send proposal to all include myself
 	p.broadcastMsg(round, PACEMAKER_MSG_PROPOSAL, genericQC, bnew)
 
