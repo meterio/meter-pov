@@ -156,6 +156,7 @@ type ConsensusReactor struct {
 	curRound         int
 	mtx              sync.RWMutex
 
+	// TODO: remove this, not used anymore
 	kBlockData *block.KBlockData
 	// consensus state for new consensus, similar to old conS
 
