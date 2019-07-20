@@ -73,7 +73,6 @@ func NewConsensusValidator(conR *ConsensusReactor) *ConsensusValidator {
 	var cv ConsensusValidator
 
 	// initialize the ConsenusLeader
-	//cv.CommitteeID = conR.CommitteeID
 	cv.state = COMMITTEE_VALIDATOR_INIT
 	cv.csReactor = conR
 
@@ -161,7 +160,6 @@ func (cv *ConsensusValidator) GenerateCommitMessage(sig bls.Signature, msgHash [
 	msg := &CommitCommitteeMessage{
 		CSMsgCommonHeader: cmnHdr,
 
-		// CommitteeID:        uint32(cv.CommitteeID),
 		CommitteeSize:      cv.csReactor.committeeSize,
 		CommitterID:        crypto.FromECDSAPub(&cv.csReactor.myPubKey),
 		CSCommitterPubKey:  cv.csReactor.csCommon.system.PubKeyToBytes(cv.csReactor.csCommon.PubKey), //bls pubkey
@@ -292,7 +290,6 @@ func (cv *ConsensusValidator) ProcessAnnounceCommittee(announceMsg *AnnounceComm
 	}
 
 	cv.EpochID = announceMsg.CSMsgCommonHeader.EpochID
-	// cv.CommitteeID = announceMsg.CommitteeID
 
 	sign := cv.csReactor.csCommon.SignMessage([]byte(signMsg), uint32(offset), uint32(length))
 	msgHash := cv.csReactor.csCommon.Hash256Msg([]byte(signMsg), uint32(offset), uint32(length))
