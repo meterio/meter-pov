@@ -29,6 +29,10 @@ func RegisterConsensusMessages(cdc *amino.Codec) {
 	cdc.RegisterConcrete(&VoteForProposalMessage{}, "dfinlab/VoteForProposal", nil)
 	cdc.RegisterConcrete(&VoteForNotaryMessage{}, "dfinlab/VoteForNotary", nil)
 	cdc.RegisterConcrete(&MoveNewRoundMessage{}, "dfinlab/MoveNewRound", nil)
+
+	cdc.RegisterConcrete(&PMProposalMessage{}, "dfinlab/PMProposal", nil)
+	cdc.RegisterConcrete(&PMVoteForProposalMessage{}, "dfinlab/PMVoteForProposal", nil)
+	cdc.RegisterConcrete(&PMNewViewMessage{}, "dfinlab/PMNewView", nil)
 }
 
 func decodeMsg(bz []byte) (msg ConsensusMessage, err error) {
@@ -428,4 +432,142 @@ func (m *MoveNewRoundMessage) String() string {
 	return fmt.Sprintf("[MoveNewRoundMessage H:%v R:%v S:%v Type:%v]",
 		m.CSMsgCommonHeader.Height, m.CSMsgCommonHeader.Round,
 		m.CSMsgCommonHeader.Sender, m.CSMsgCommonHeader.MsgType)
+}
+
+// PMProposalMessage is sent when a new block leaf is proposed
+type PMProposalMessage struct {
+	CSMsgCommonHeader ConsensusMsgCommonHeader
+
+	CommitteeID      uint32
+	ProposerID       []byte //ecdsa.PublicKey
+	CSProposerPubKey []byte //bls.PublicKey
+	KBlockHeight     int64
+	SignOffset       uint
+	SignLength       uint
+	ProposedSize     int
+	ProposedBlock    []byte
+}
+
+// SigningHash computes hash of all header fields excluding signature.
+func (m *PMProposalMessage) SigningHash() (hash meter.Bytes32) {
+	hw := meter.NewBlake2b()
+	rlp.Encode(hw, []interface{}{
+		m.CSMsgCommonHeader.Height,
+		m.CSMsgCommonHeader.Round,
+		m.CSMsgCommonHeader.Sender,
+		m.CSMsgCommonHeader.Timestamp,
+		m.CSMsgCommonHeader.MsgType,
+		m.CSMsgCommonHeader.MsgSubType,
+
+		m.CommitteeID,
+		m.ProposerID,
+		m.CSProposerPubKey,
+		m.KBlockHeight,
+		m.SignOffset,
+		m.SignLength,
+		m.ProposedSize,
+		m.ProposedBlock,
+	})
+	hw.Sum(hash[:0])
+	return
+}
+
+// String returns a string representation.
+func (m *PMProposalMessage) String() string {
+	return fmt.Sprintf("[ProposalBlockMessage H:%v R:%v S:%v Type:%v]",
+		m.CSMsgCommonHeader.Height, m.CSMsgCommonHeader.Round,
+		m.CSMsgCommonHeader.Sender, m.CSMsgCommonHeader.MsgType)
+}
+
+// PMVoteResponseMessage is sent when voting for a proposal (or lack thereof).
+type PMVoteForProposalMessage struct {
+	CSMsgCommonHeader ConsensusMsgCommonHeader
+
+	VoterID           []byte //ecdsa.PublicKey
+	VoteSummary       int64
+	CSVoterPubKey     []byte //bls.PublicKey
+	VoterSignature    []byte //bls.Signature
+	VoterIndex        int64
+	SignedMessageHash [32]byte
+}
+
+// SigningHash computes hash of all header fields excluding signature.
+func (m *PMVoteForProposalMessage) SigningHash() (hash meter.Bytes32) {
+	hw := meter.NewBlake2b()
+	rlp.Encode(hw, []interface{}{
+		m.CSMsgCommonHeader.Height,
+		m.CSMsgCommonHeader.Round,
+		m.CSMsgCommonHeader.Sender,
+		m.CSMsgCommonHeader.Timestamp,
+		m.CSMsgCommonHeader.MsgType,
+		m.CSMsgCommonHeader.MsgSubType,
+
+		m.VoterID,
+		m.VoteSummary,
+		m.CSVoterPubKey,
+		m.VoterSignature,
+		m.VoterIndex,
+		m.SignedMessageHash,
+	})
+	hw.Sum(hash[:0])
+	return
+}
+
+// String returns a string representation.
+func (m *PMVoteForProposalMessage) String() string {
+	return fmt.Sprintf("[VoteForProposalMessage H:%v R:%v S:%v Type:%v]",
+		m.CSMsgCommonHeader.Height, m.CSMsgCommonHeader.Round,
+		m.CSMsgCommonHeader.Sender, m.CSMsgCommonHeader.MsgType)
+}
+
+// QuorumCertMessage encapsulates the QC information
+type QuorumCertMessage struct {
+	QCHeight uint64
+	QCRound  uint64
+	Evidence []byte
+}
+
+// PMNewViewMessage is sent to the next leader in these two senarios
+// 1. leader relay
+// 2. repica timeout
+type PMNewViewMessage struct {
+	CSMsgCommonHeader ConsensusMsgCommonHeader
+
+	VoterBitArray          cmn.BitArray
+	VoterAggSignature      []byte //bls.Signature
+	CommitteeActualSize    int
+	CommitteeActualMembers []block.CommitteeInfo
+
+	QCHigh QuorumCertMessage
+}
+
+// SigningHash computes hash of all header fields excluding signature.
+func (m *PMNewViewMessage) SigningHash() (hash meter.Bytes32) {
+	hw := meter.NewBlake2b()
+	rlp.Encode(hw, []interface{}{
+		m.CSMsgCommonHeader.Height,
+		m.CSMsgCommonHeader.Round,
+		m.CSMsgCommonHeader.Sender,
+		m.CSMsgCommonHeader.Timestamp,
+		m.CSMsgCommonHeader.MsgType,
+		m.CSMsgCommonHeader.MsgSubType,
+
+		m.VoterBitArray,
+		m.VoterAggSignature,
+		m.CommitteeActualSize,
+		m.CommitteeActualMembers,
+
+		m.QCHigh.QCHeight,
+		m.QCHigh.QCRound,
+		m.QCHigh.Evidence,
+	})
+	hw.Sum(hash[:0])
+	return
+}
+
+// String returns a string representation.
+func (m *PMNewViewMessage) String() string {
+	return fmt.Sprintf("[MoveNewRoundMessage H:%v R:%v S:%v Type:%v, QCHeight:%d, QCRound:%d]",
+		m.CSMsgCommonHeader.Height, m.CSMsgCommonHeader.Round,
+		m.CSMsgCommonHeader.Sender, m.CSMsgCommonHeader.MsgType, m.QCHigh.QCHeight, m.QCHigh.QCRound)
 }
