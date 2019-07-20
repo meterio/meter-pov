@@ -51,6 +51,7 @@ type ConsensusMsgCommonHeader struct {
 	Timestamp  time.Time
 	MsgType    byte
 	MsgSubType byte
+	EpochID    uint64
 
 	Signature []byte //signature of whole consensus message
 }
@@ -70,7 +71,6 @@ type AnnounceCommitteeMessage struct {
 	CSMsgCommonHeader ConsensusMsgCommonHeader
 
 	AnnouncerID   []byte //ecdsa.PublicKey
-	CommitteeID   uint32
 	CommitteeSize int
 	Nonce         uint64 //nonce is 8 bytes
 
@@ -96,9 +96,9 @@ func (m *AnnounceCommitteeMessage) SigningHash() (hash meter.Bytes32) {
 		m.CSMsgCommonHeader.Timestamp,
 		m.CSMsgCommonHeader.MsgType,
 		m.CSMsgCommonHeader.MsgSubType,
+		m.CSMsgCommonHeader.EpochID,
 
 		m.AnnouncerID,
-		m.CommitteeID,
 		m.CommitteeSize,
 		m.Nonce,
 		m.CSParams,
@@ -125,7 +125,6 @@ func (m *AnnounceCommitteeMessage) String() string {
 type CommitCommitteeMessage struct {
 	CSMsgCommonHeader ConsensusMsgCommonHeader
 
-	CommitteeID   uint32
 	CommitteeSize int
 	CommitterID   []byte //ecdsa.PublicKey
 
@@ -145,8 +144,8 @@ func (m *CommitCommitteeMessage) SigningHash() (hash meter.Bytes32) {
 		m.CSMsgCommonHeader.Timestamp,
 		m.CSMsgCommonHeader.MsgType,
 		m.CSMsgCommonHeader.MsgSubType,
+		m.CSMsgCommonHeader.EpochID,
 
-		m.CommitteeID,
 		m.CommitteeSize,
 		m.CommitterID,
 		m.CSCommitterPubKey,
@@ -171,7 +170,6 @@ func (m *CommitCommitteeMessage) String() string {
 type ProposalBlockMessage struct {
 	CSMsgCommonHeader ConsensusMsgCommonHeader
 
-	CommitteeID      uint32
 	ProposerID       []byte //ecdsa.PublicKey
 	CSProposerPubKey []byte //bls.PublicKey
 	KBlockHeight     int64
@@ -191,8 +189,8 @@ func (m *ProposalBlockMessage) SigningHash() (hash meter.Bytes32) {
 		m.CSMsgCommonHeader.Timestamp,
 		m.CSMsgCommonHeader.MsgType,
 		m.CSMsgCommonHeader.MsgSubType,
+		m.CSMsgCommonHeader.EpochID,
 
-		m.CommitteeID,
 		m.ProposerID,
 		m.CSProposerPubKey,
 		m.KBlockHeight,
@@ -218,7 +216,6 @@ type NotaryAnnounceMessage struct {
 	CSMsgCommonHeader ConsensusMsgCommonHeader
 
 	AnnouncerID   []byte //ecdsa.PublicKey
-	CommitteeID   uint32
 	CommitteeSize int
 
 	SignOffset             uint
@@ -239,9 +236,9 @@ func (m *NotaryAnnounceMessage) SigningHash() (hash meter.Bytes32) {
 		m.CSMsgCommonHeader.Timestamp,
 		m.CSMsgCommonHeader.MsgType,
 		m.CSMsgCommonHeader.MsgSubType,
+		m.CSMsgCommonHeader.EpochID,
 
 		m.AnnouncerID,
-		m.CommitteeID,
 		m.CommitteeSize,
 		m.SignOffset,
 		m.SignLength,
@@ -267,7 +264,6 @@ type NotaryBlockMessage struct {
 	CSMsgCommonHeader ConsensusMsgCommonHeader
 
 	ProposerID        []byte //ecdsa.PublicKey
-	CommitteeID       uint32
 	CommitteeSize     int
 	SignOffset        uint
 	SignLength        uint
@@ -285,9 +281,9 @@ func (m *NotaryBlockMessage) SigningHash() (hash meter.Bytes32) {
 		m.CSMsgCommonHeader.Timestamp,
 		m.CSMsgCommonHeader.MsgType,
 		m.CSMsgCommonHeader.MsgSubType,
+		m.CSMsgCommonHeader.EpochID,
 
 		m.ProposerID,
-		m.CommitteeID,
 		m.CommitteeSize,
 		m.SignOffset,
 		m.SignLength,
@@ -329,6 +325,7 @@ func (m *VoteForProposalMessage) SigningHash() (hash meter.Bytes32) {
 		m.CSMsgCommonHeader.Timestamp,
 		m.CSMsgCommonHeader.MsgType,
 		m.CSMsgCommonHeader.MsgSubType,
+		m.CSMsgCommonHeader.EpochID,
 
 		m.VoterID,
 		m.VoteSummary,
@@ -438,7 +435,6 @@ func (m *MoveNewRoundMessage) String() string {
 type PMProposalMessage struct {
 	CSMsgCommonHeader ConsensusMsgCommonHeader
 
-	CommitteeID      uint32
 	ProposerID       []byte //ecdsa.PublicKey
 	CSProposerPubKey []byte //bls.PublicKey
 	KBlockHeight     int64
@@ -459,7 +455,6 @@ func (m *PMProposalMessage) SigningHash() (hash meter.Bytes32) {
 		m.CSMsgCommonHeader.MsgType,
 		m.CSMsgCommonHeader.MsgSubType,
 
-		m.CommitteeID,
 		m.ProposerID,
 		m.CSProposerPubKey,
 		m.KBlockHeight,

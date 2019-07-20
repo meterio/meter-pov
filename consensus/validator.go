@@ -50,8 +50,8 @@ var (
 )
 
 type ConsensusValidator struct {
-	replay      bool
-	CommitteeID uint32 // epoch ID of this committee
+	replay  bool
+	EpochID uint64 // epoch ID of this committee
 
 	csReactor *ConsensusReactor //global reactor info
 	state     byte
@@ -154,13 +154,14 @@ func (cv *ConsensusValidator) GenerateCommitMessage(sig bls.Signature, msgHash [
 		Sender:    crypto.FromECDSAPub(&cv.csReactor.myPubKey),
 		Timestamp: time.Now(),
 		MsgType:   CONSENSUS_MSG_COMMIT_COMMITTEE,
+		EpochID:   cv.EpochID,
 	}
 
 	index := cv.csReactor.GetCommitteeMemberIndex(cv.csReactor.myPubKey)
 	msg := &CommitCommitteeMessage{
 		CSMsgCommonHeader: cmnHdr,
 
-		CommitteeID:        uint32(cv.CommitteeID),
+		// CommitteeID:        uint32(cv.CommitteeID),
 		CommitteeSize:      cv.csReactor.committeeSize,
 		CommitterID:        crypto.FromECDSAPub(&cv.csReactor.myPubKey),
 		CSCommitterPubKey:  cv.csReactor.csCommon.system.PubKeyToBytes(cv.csReactor.csCommon.PubKey), //bls pubkey
@@ -282,7 +283,7 @@ func (cv *ConsensusValidator) ProcessAnnounceCommittee(announceMsg *AnnounceComm
 		cv.csReactor.logger.Error("ummarshal announcer public key of sender failed ")
 		return false
 	}
-	signMsg := cv.csReactor.BuildAnnounceSignMsg(*announcerPubKey, uint32(announceMsg.CommitteeID), uint64(ch.Height), uint32(ch.Round))
+	signMsg := cv.csReactor.BuildAnnounceSignMsg(*announcerPubKey, announceMsg.CSMsgCommonHeader.EpochID, uint64(ch.Height), uint32(ch.Round))
 	// fmt.Println("offset & length: ", offset, length, "sign msg:", signMsg)
 
 	if int(offset+length) > len(signMsg) {
@@ -290,7 +291,8 @@ func (cv *ConsensusValidator) ProcessAnnounceCommittee(announceMsg *AnnounceComm
 		return false
 	}
 
-	cv.CommitteeID = announceMsg.CommitteeID
+	cv.EpochID = announceMsg.CSMsgCommonHeader.EpochID
+	// cv.CommitteeID = announceMsg.CommitteeID
 
 	sign := cv.csReactor.csCommon.SignMessage([]byte(signMsg), uint32(offset), uint32(length))
 	msgHash := cv.csReactor.csCommon.Hash256Msg([]byte(signMsg), uint32(offset), uint32(length))
@@ -303,8 +305,8 @@ func (cv *ConsensusValidator) ProcessAnnounceCommittee(announceMsg *AnnounceComm
 
 	//update conR
 	cv.csReactor.curRound = 0
-	cv.csReactor.curEpoch = cv.CommitteeID
-	cv.csReactor.logger.Info("curEpoch is updated", "curEpoch=", cv.CommitteeID)
+	cv.csReactor.curEpoch = cv.EpochID
+	cv.csReactor.logger.Info("curEpoch is updated", "curEpoch=", cv.EpochID)
 	return true
 }
 
@@ -601,7 +603,7 @@ func (cv *ConsensusValidator) ProcessNotaryAnnounceMessage(notaryMsg *NotaryAnno
 	offset := notaryMsg.SignOffset
 	length := notaryMsg.SignLength
 
-	signMsg := cv.csReactor.BuildNotaryAnnounceSignMsg(*announcerPubKey, uint32(notaryMsg.CommitteeID), uint64(ch.Height), uint32(ch.Round))
+	signMsg := cv.csReactor.BuildNotaryAnnounceSignMsg(*announcerPubKey, notaryMsg.CSMsgCommonHeader.EpochID, uint64(ch.Height), uint32(ch.Round))
 
 	sign := cv.csReactor.csCommon.SignMessage([]byte(signMsg), uint32(offset), uint32(length))
 	msgHash := cv.csReactor.csCommon.Hash256Msg([]byte(signMsg), uint32(offset), uint32(length))

@@ -17,6 +17,7 @@ import (
 	//"unsafe"
 	"github.com/dfinlab/meter/block"
 	"github.com/dfinlab/meter/powpool"
+
 	//"github.com/dfinlab/meter/chain"
 	//"github.com/dfinlab/meter/runtime"
 	//"github.com/dfinlab/meter/state"
@@ -43,10 +44,10 @@ const (
 )
 
 type ConsensusProposer struct {
-	node_id     uint32
-	CommitteeID uint32 // unique identifier for this consensus session
-	state       byte
-	csReactor   *ConsensusReactor //global reactor info
+	node_id   uint32
+	EpochID   uint64 // unique identifier for this consensus session
+	state     byte
+	csReactor *ConsensusReactor //global reactor info
 
 	// local copy of proposed block
 	curProposedBlockInfo ProposedBlockInfo //data structure
@@ -81,7 +82,7 @@ func NewCommitteeProposer(conR *ConsensusReactor) *ConsensusProposer {
 	//cl.consensus_id = conR.consensus_id
 	cp.state = COMMITTEE_PROPOSER_INIT
 	cp.csReactor = conR
-	cp.CommitteeID = conR.curEpoch
+	cp.EpochID = conR.curEpoch
 
 	cp.proposalVoterBitArray = cmn.NewBitArray(conR.committeeSize)
 	cp.notaryVoterBitArray = cmn.NewBitArray(conR.committeeSize)
@@ -260,12 +261,12 @@ func (cp *ConsensusProposer) GenerateMBlockMsg(mblock []byte) bool {
 		Timestamp:  time.Now(),
 		MsgType:    CONSENSUS_MSG_PROPOSAL_BLOCK,
 		MsgSubType: PROPOSE_MSG_SUBTYPE_MBLOCK,
+		EpochID:    cp.EpochID,
 	}
 
 	msg := &ProposalBlockMessage{
 		CSMsgCommonHeader: cmnHdr,
 
-		CommitteeID:      cp.CommitteeID,
 		ProposerID:       crypto.FromECDSAPub(&cp.csReactor.myPubKey),
 		CSProposerPubKey: cp.csReactor.csCommon.system.PubKeyToBytes(cp.csReactor.csCommon.PubKey),
 		KBlockHeight:     int64(cp.csReactor.lastKBlockHeight),
@@ -337,12 +338,12 @@ func (cp *ConsensusProposer) GenerateKBlockMsg(kblock []byte) bool {
 		Timestamp:  time.Now(),
 		MsgType:    CONSENSUS_MSG_PROPOSAL_BLOCK,
 		MsgSubType: PROPOSE_MSG_SUBTYPE_KBLOCK,
+		EpochID:    cp.EpochID,
 	}
 
 	msg := &ProposalBlockMessage{
 		CSMsgCommonHeader: cmnHdr,
 
-		CommitteeID:      cp.CommitteeID,
 		ProposerID:       crypto.FromECDSAPub(&cp.csReactor.myPubKey),
 		CSProposerPubKey: cp.csReactor.csCommon.system.PubKeyToBytes(cp.csReactor.csCommon.PubKey),
 		KBlockHeight:     int64(cp.csReactor.lastKBlockHeight),
@@ -411,13 +412,13 @@ func (cp *ConsensusProposer) GenerateNotaryBlockMsg() bool {
 		Sender:    crypto.FromECDSAPub(&cp.csReactor.myPubKey),
 		Timestamp: time.Now(),
 		MsgType:   CONSENSUS_MSG_NOTARY_BLOCK,
+		EpochID:   cp.EpochID,
 	}
 
 	msg := &NotaryBlockMessage{
 		CSMsgCommonHeader: cmnHdr,
 
 		ProposerID:    crypto.FromECDSAPub(&cp.csReactor.myPubKey),
-		CommitteeID:   cp.CommitteeID,
 		CommitteeSize: cp.csReactor.committeeSize,
 
 		SignOffset:        MSG_SIGN_OFFSET_DEFAULT,

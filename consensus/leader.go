@@ -33,10 +33,10 @@ type ConsensusLeader struct {
 	node_id      uint32
 	consensus_id uint32 // unique identifier for this consensus session
 
-	CommitteeID uint32
-	Nonce       uint64
-	state       byte
-	csReactor   *ConsensusReactor //global reactor info
+	EpochID   uint64
+	Nonce     uint64
+	state     byte
+	csReactor *ConsensusReactor //global reactor info
 
 	//signature data
 	announceVoterBitArray *cmn.BitArray
@@ -91,7 +91,7 @@ func NewCommitteeLeader(conR *ConsensusReactor) *ConsensusLeader {
 	cl.csReactor = conR
 
 	// create committee ID
-	cl.CommitteeID = conR.curEpoch + 1
+	cl.EpochID = conR.curEpoch + 1
 
 	cl.announceVoterBitArray = cmn.NewBitArray(conR.committeeSize)
 	cl.notaryVoterBitArray = cmn.NewBitArray(conR.committeeSize)
@@ -124,6 +124,7 @@ func (cl *ConsensusLeader) GenerateAnnounceMsg() bool {
 		Sender:    crypto.FromECDSAPub(&cl.csReactor.myPubKey),
 		Timestamp: time.Now(),
 		MsgType:   CONSENSUS_MSG_ANNOUNCE_COMMITTEE,
+		EpochID:   cl.EpochID,
 	}
 
 	paramBytes, _ := cl.csReactor.csCommon.params.ToBytes()
@@ -132,7 +133,6 @@ func (cl *ConsensusLeader) GenerateAnnounceMsg() bool {
 		CSMsgCommonHeader: cmnHdr,
 
 		AnnouncerID:   crypto.FromECDSAPub(&cl.csReactor.myPubKey),
-		CommitteeID:   cl.CommitteeID,
 		CommitteeSize: cl.csReactor.committeeSize,
 		Nonce:         cl.Nonce,
 
@@ -221,13 +221,13 @@ func (cl *ConsensusLeader) GenerateNotaryAnnounceMsg() bool {
 		Sender:    crypto.FromECDSAPub(&cl.csReactor.myPubKey),
 		Timestamp: time.Now(),
 		MsgType:   CONSENSUS_MSG_NOTARY_ANNOUNCE,
+		EpochID:   cl.EpochID,
 	}
 
 	msg := &NotaryAnnounceMessage{
 		CSMsgCommonHeader: cmnHdr,
 
 		AnnouncerID:   crypto.FromECDSAPub(&cl.csReactor.myPubKey),
-		CommitteeID:   cl.CommitteeID,
 		CommitteeSize: cl.csReactor.committeeSize,
 
 		SignOffset:             MSG_SIGN_OFFSET_DEFAULT,
@@ -303,7 +303,7 @@ func (cl *ConsensusLeader) ProcessCommitMsg(commitMsg *CommitCommitteeMessage, s
 	//so far so good
 	// 1. validate vote signature
 	myPubKey := cl.csReactor.myPubKey
-	signMsg := cl.csReactor.BuildAnnounceSignMsg(myPubKey, uint32(commitMsg.CommitteeID), uint64(ch.Height), uint32(ch.Round))
+	signMsg := cl.csReactor.BuildAnnounceSignMsg(myPubKey, commitMsg.CSMsgCommonHeader.EpochID, uint64(ch.Height), uint32(ch.Round))
 	cl.csReactor.logger.Debug("Sign message", "msg", signMsg)
 
 	// validate the message hash
@@ -418,7 +418,7 @@ func (cl *ConsensusLeader) ProcessVoteNotaryAnnounce(vote4NotaryMsg *VoteForNota
 	//so far so good
 	// 1. validate voter signature
 	myPubKey := cl.csReactor.myPubKey
-	signMsg := cl.csReactor.BuildNotaryAnnounceSignMsg(myPubKey, uint32(cl.CommitteeID), uint64(ch.Height), uint32(ch.Round))
+	signMsg := cl.csReactor.BuildNotaryAnnounceSignMsg(myPubKey, cl.EpochID, uint64(ch.Height), uint32(ch.Round))
 	cl.csReactor.logger.Debug("Sign message", "msg", signMsg)
 
 	// validate the message hash
@@ -478,10 +478,10 @@ func (cl *ConsensusLeader) ProcessVoteNotaryAnnounce(vote4NotaryMsg *VoteForNota
 ===========================================================
 Committee is established!!! ...
 Myself is Leader, Let's move to 1st proposal for Round 0.
-===========================================================`, "Committee Epoch", cl.CommitteeID)
+===========================================================`, "Committee Epoch", cl.EpochID)
 
 		//Now we are in new epoch
-		cl.csReactor.curEpoch = cl.CommitteeID
+		cl.csReactor.curEpoch = cl.EpochID
 
 		//Now move to propose the 1st block in round 0
 		cl.csReactor.enterConsensusValidator()

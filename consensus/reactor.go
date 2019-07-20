@@ -151,7 +151,7 @@ type ConsensusReactor struct {
 	// store key states here
 	lastKBlockHeight uint32
 	curNonce         uint64
-	curEpoch         uint32
+	curEpoch         uint64
 	curHeight        int64 // come from parentBlockID first 4 bytes uint32
 	curRound         int
 	mtx              sync.RWMutex
@@ -1205,9 +1205,9 @@ const (
 
 // Sign Announce Committee
 // "Announce Committee Message: Leader <pubkey 64(hexdump 32x2) bytes> CommitteeID <8 (4x2)bytes> Height <16 (8x2) bytes> Round <8(4x2)bytes>
-func (conR *ConsensusReactor) BuildAnnounceSignMsg(pubKey ecdsa.PublicKey, committeeID uint32, height uint64, round uint32) string {
+func (conR *ConsensusReactor) BuildAnnounceSignMsg(pubKey ecdsa.PublicKey, epochID uint64, height uint64, round uint32) string {
 	c := make([]byte, binary.MaxVarintLen32)
-	binary.BigEndian.PutUint32(c, committeeID)
+	binary.BigEndian.PutUint64(c, epochID)
 
 	h := make([]byte, binary.MaxVarintLen64)
 	binary.BigEndian.PutUint64(h, height)
@@ -1237,9 +1237,9 @@ func (conR *ConsensusReactor) BuildProposalBlockSignMsg(pubKey ecdsa.PublicKey, 
 
 // Sign Notary Announce Message
 // "Announce Notarization Message: Leader <pubkey 64(32x3)> CommitteeID <8 bytes> Height <16 (8x2) bytes> Round <8 (4x2) bytes>
-func (conR *ConsensusReactor) BuildNotaryAnnounceSignMsg(pubKey ecdsa.PublicKey, committeeID uint32, height uint64, round uint32) string {
+func (conR *ConsensusReactor) BuildNotaryAnnounceSignMsg(pubKey ecdsa.PublicKey, epochID uint64, height uint64, round uint32) string {
 	c := make([]byte, binary.MaxVarintLen32)
-	binary.BigEndian.PutUint32(c, committeeID)
+	binary.BigEndian.PutUint64(c, epochID)
 
 	h := make([]byte, binary.MaxVarintLen64)
 	binary.BigEndian.PutUint64(h, height)
