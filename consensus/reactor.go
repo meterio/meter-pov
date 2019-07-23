@@ -1204,9 +1204,9 @@ const (
 )
 
 // Sign Announce Committee
-// "Announce Committee Message: Leader <pubkey 64(hexdump 32x2) bytes> EpochID <8 (4x2)bytes> Height <16 (8x2) bytes> Round <8(4x2)bytes>
+// "Announce Committee Message: Leader <pubkey 64(hexdump 32x2) bytes> EpochID <16 (8x2)bytes> Height <16 (8x2) bytes> Round <8(4x2)bytes>
 func (conR *ConsensusReactor) BuildAnnounceSignMsg(pubKey ecdsa.PublicKey, epochID uint64, height uint64, round uint32) string {
-	c := make([]byte, binary.MaxVarintLen32)
+	c := make([]byte, binary.MaxVarintLen64)
 	binary.BigEndian.PutUint64(c, epochID)
 
 	h := make([]byte, binary.MaxVarintLen64)
@@ -1236,9 +1236,9 @@ func (conR *ConsensusReactor) BuildProposalBlockSignMsg(pubKey ecdsa.PublicKey, 
 }
 
 // Sign Notary Announce Message
-// "Announce Notarization Message: Leader <pubkey 64(32x3)> EpochID <8 bytes> Height <16 (8x2) bytes> Round <8 (4x2) bytes>
+// "Announce Notarization Message: Leader <pubkey 64(32x3)> EpochID <16 (8x2)bytes> Height <16 (8x2) bytes> Round <8 (4x2) bytes>
 func (conR *ConsensusReactor) BuildNotaryAnnounceSignMsg(pubKey ecdsa.PublicKey, epochID uint64, height uint64, round uint32) string {
-	c := make([]byte, binary.MaxVarintLen32)
+	c := make([]byte, binary.MaxVarintLen64)
 	binary.BigEndian.PutUint64(c, epochID)
 
 	h := make([]byte, binary.MaxVarintLen64)

@@ -14,6 +14,14 @@ const (
 	PACEMAKER_MSG_PROPOSAL = byte(1)
 	PACEMAKER_MSG_VOTE     = byte(2)
 	PACEMAKER_MSG_NEWVIEW  = byte(3)
+
+	//round state machine
+	PACEMAKER_ROUND_STATE_INIT          = byte(1)
+	PACEMAKER_ROUND_STATE_PROPOSE_RCVD  = byte(2) // validator omly
+	PACEMAKER_ROUND_STATE_PROPOSE_SNT   = byte(3) // proposer only
+	PACEMAKER_ROUND_STATE_MAJOR_REACHED = byte(4) // proposer only
+	PACEMAKER_ROUND_STATE_COMMITTED     = byte(5)
+	PACEMAKER_ROUND_STATE_DECIDED       = byte(6)
 )
 
 var (
@@ -59,7 +67,8 @@ type pmBlock struct {
 	Justify *QuorumCert
 
 	// derived
-	Decided bool
+	Decided    bool
+	RoundState PMState
 
 	// FIXME: put block info in pmBlock
 	// local copy of proposed block
@@ -98,7 +107,8 @@ type Pacemaker struct {
 	blockPrime      *pmBlock
 	blockPrimePrime *pmBlock
 
-	roundTimerStop chan bool
+	roundTimeOutCounter uint32
+	//roundTimerStop      chan bool
 }
 
 func NewPaceMaker(conR *ConsensusReactor) *Pacemaker {
@@ -157,14 +167,14 @@ func (p *Pacemaker) Update(bnew *pmBlock) error {
 
 // TBD: how to emboy b.cmd
 func (p *Pacemaker) Execute(b *pmBlock) error {
-	p.csReactor.logger.Info("Exec block:", "height", b.Height, "round", b.Round)
+	p.csReactor.logger.Info("Exec cmd:", "height", b.Height, "round", b.Round)
 
 	return nil
 }
 
 func (p *Pacemaker) OnCommit(commitReady []*pmBlock) error {
 	for _, b := range commitReady {
-		p.csReactor.logger.Info("Committed", "Height = ", b.Height)
+		p.csReactor.logger.Info("Committed Block", "Height = ", b.Height, "round", b.Round)
 		p.Execute(b) //b.cmd
 		//FIXME: write block to db
 	}
@@ -181,11 +191,12 @@ func (p *Pacemaker) OnReceiveProposal(bnew *pmBlock) error {
 		}
 
 		// stop previous round timer
-		close(p.roundTimerStop)
+		//close(p.roundTimerStop)
 
 		// send vote message to leader
 		p.sendMsg(bnew.Round, PACEMAKER_MSG_VOTE, genericQC, bnew)
 
+		/***********
 		// start the round timer
 		p.roundTimerStop = make(chan bool)
 		go func() {
@@ -201,6 +212,7 @@ func (p *Pacemaker) OnReceiveProposal(bnew *pmBlock) error {
 				}
 			}
 		}()
+		***********/
 	}
 
 	p.Update(bnew)
@@ -219,26 +231,13 @@ func (p *Pacemaker) OnReceiveVote(b *pmBlock) error {
 		p.csReactor.logger.Info("reach majority", "count", p.sigCounter[b.Round], "committeeSize", p.csReactor.committeeSize)
 	}
 
-	//reach 2/3 majority
+	//reach 2/3 majority, trigger the pipeline cmd
 	qc := &QuorumCert{
 		QCHeight: b.Height,
 		QCRound:  b.Round,
 		QCNode:   b,
 	}
-	changed := p.UpdateQCHigh(qc)
-	if changed == true {
-		if qc.QCHeight > p.blockLocked.Height {
-			if p.csReactor.amIRoundProproser(qc.QCRound+1) == true {
-				time.AfterFunc(1*time.Second, func() {
-					p.csReactor.schedulerQueue <- func() { p.OnBeat(qc.QCHeight, qc.QCRound+1) }
-				})
-			} else {
-				time.AfterFunc(1*time.Second, func() {
-					p.OnNextSyncView(qc.QCRound + 1)
-				})
-			}
-		}
-	}
+	p.OnRecieveNewView(qc)
 
 	return nil
 }

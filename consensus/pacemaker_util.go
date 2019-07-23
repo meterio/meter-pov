@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math"
 
 	//"github.com/dfinlab/meter/types"
 	"net"
@@ -16,6 +17,32 @@ import (
 
 	"github.com/dfinlab/meter/types"
 )
+
+// ****************statevcode *******
+type PMState byte
+
+func (s PMState) MoveToState(state PMState) error {
+	s = state
+	return nil
+}
+
+func (s PMState) GetState() PMState {
+	return s
+}
+
+func (s PMState) HandleEvent(ev byte) error {
+	return nil
+}
+
+// noramally TO with exponential
+func (s PMState) StartTimeOut(duration time.Duration) {
+
+}
+
+// ***********************************
+func (p *Pacemaker) TimeOutExponential() int {
+	return (TIME_ROUND_INTVL_DEF * int(math.Pow(2, float64(p.roundTimeOutCounter))))
+}
 
 // ****** test code ***********
 type PMessage struct {
