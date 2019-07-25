@@ -3,7 +3,10 @@ package consensus
 import (
 	//bls "github.com/dfinlab/meter/crypto/multi_sig"
 	//cmn "github.com/dfinlab/meter/libs/common"
+
 	"time"
+
+	"github.com/inconshreveable/log15"
 )
 
 const (
@@ -109,12 +112,15 @@ type Pacemaker struct {
 
 	roundTimeOutCounter uint32
 	//roundTimerStop      chan bool
+
+	logger log15.Logger
 }
 
 func NewPaceMaker(conR *ConsensusReactor) *Pacemaker {
 	p := &Pacemaker{
 		csReactor:         conR,
 		timeRoundInterval: TIME_ROUND_INTVL_DEF,
+		logger:            log15.New("pkg", "consensus"),
 	}
 
 	p.proposalMap = make(map[uint64]*pmBlock, 1000) // TODO:better way?
