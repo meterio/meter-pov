@@ -1220,7 +1220,7 @@ func (conR *ConsensusReactor) BuildAnnounceSignMsg(pubKey ecdsa.PublicKey, epoch
 }
 
 // Sign Propopal Message
-// "Proposal Block Message: Proposer <pubkey 64(32x3)> BlockType <8 bytes> Height <16 (8x2) bytes> Round <8 (4x2) bytes>
+// "Proposal Block Message: Proposer <pubkey 64(32x2)> BlockType <8 bytes> Height <16 (8x2) bytes> Round <8 (4x2) bytes>
 func (conR *ConsensusReactor) BuildProposalBlockSignMsg(pubKey ecdsa.PublicKey, blockType uint32, height uint64, round uint32) string {
 	c := make([]byte, binary.MaxVarintLen32)
 	binary.BigEndian.PutUint32(c, blockType)
@@ -1236,7 +1236,7 @@ func (conR *ConsensusReactor) BuildProposalBlockSignMsg(pubKey ecdsa.PublicKey, 
 }
 
 // Sign Notary Announce Message
-// "Announce Notarization Message: Leader <pubkey 64(32x3)> EpochID <16 (8x2)bytes> Height <16 (8x2) bytes> Round <8 (4x2) bytes>
+// "Announce Notarization Message: Leader <pubkey 64(32x2)> EpochID <16 (8x2)bytes> Height <16 (8x2) bytes> Round <8 (4x2) bytes>
 func (conR *ConsensusReactor) BuildNotaryAnnounceSignMsg(pubKey ecdsa.PublicKey, epochID uint64, height uint64, round uint32) string {
 	c := make([]byte, binary.MaxVarintLen64)
 	binary.BigEndian.PutUint64(c, epochID)
@@ -1252,7 +1252,7 @@ func (conR *ConsensusReactor) BuildNotaryAnnounceSignMsg(pubKey ecdsa.PublicKey,
 }
 
 // Sign Notary Block Message
-// "Block Notarization Message: Proposer <pubkey 64(32x3)> BlockType <8 bytes> Height <16 (8x2) bytes> Round <8 (4x2) bytes>
+// "Block Notarization Message: Proposer <pubkey 64(32x2)> BlockType <8 bytes> Height <16 (8x2) bytes> Round <8 (4x2) bytes>
 func (conR *ConsensusReactor) BuildNotaryBlockSignMsg(pubKey ecdsa.PublicKey, blockType uint32, height uint64, round uint32) string {
 	c := make([]byte, binary.MaxVarintLen32)
 	binary.BigEndian.PutUint32(c, blockType)
@@ -1265,6 +1265,23 @@ func (conR *ConsensusReactor) BuildNotaryBlockSignMsg(pubKey ecdsa.PublicKey, bl
 	return fmt.Sprintf("%s %s %s %s %s %s %s %s", "Proposal Block Message: Proposer", hex.EncodeToString(crypto.FromECDSAPub(&pubKey)),
 		"BlockType", hex.EncodeToString(c), "Height", hex.EncodeToString(h),
 		"Round", hex.EncodeToString(r))
+}
+
+// Sign Timeout
+// "Timeout Message: Proposer <pubkey 64(32x2)> TimeoutRound <16(8x2) bytes> TimeoutHeight <16 (8x2) bytes> TimeoutCounter <8 (4x2) bytes>
+func (conR *ConsensusReactor) BuildTimeoutSignMsg(pubKey ecdsa.PublicKey, round uint64, height uint64, counter uint32) string {
+	r := make([]byte, binary.MaxVarintLen64)
+	binary.BigEndian.PutUint64(r, round)
+
+	h := make([]byte, binary.MaxVarintLen64)
+	binary.BigEndian.PutUint64(h, height)
+
+	c := make([]byte, binary.MaxVarintLen32)
+	binary.BigEndian.PutUint32(c, counter)
+
+	return fmt.Sprintf("%s %s %s %s %s %s %s %s", "Timeout Message: Proposer", hex.EncodeToString(crypto.FromECDSAPub(&pubKey)),
+		"TimeoutRound", hex.EncodeToString(r), "Height", hex.EncodeToString(h),
+		"TimeoutCounter", hex.EncodeToString(c))
 }
 
 //======end of New consensus =========================================

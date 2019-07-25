@@ -40,6 +40,13 @@ func (s PMState) StartTimeOut(duration time.Duration) {
 }
 
 // ***********************************
+type Timeout struct {
+	TimeoutRound     uint64
+	TimeoutHeight    uint64
+	TimeOutCounter   uint32
+	TimeOutSignature []byte
+}
+
 func (p *Pacemaker) TimeOutExponential() int {
 	return (TIME_ROUND_INTVL_DEF * int(math.Pow(2, float64(p.roundTimeOutCounter))))
 }
