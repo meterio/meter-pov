@@ -308,7 +308,6 @@ type VoteForProposalMessage struct {
 	CSMsgCommonHeader ConsensusMsgCommonHeader
 
 	VoterID           []byte //ecdsa.PublicKey
-	VoteSummary       int64
 	CSVoterPubKey     []byte //bls.PublicKey
 	VoterSignature    []byte //bls.Signature
 	VoterIndex        int
@@ -328,7 +327,6 @@ func (m *VoteForProposalMessage) SigningHash() (hash meter.Bytes32) {
 		m.CSMsgCommonHeader.EpochID,
 
 		m.VoterID,
-		m.VoteSummary,
 		m.CSVoterPubKey,
 		m.VoterSignature,
 		m.VoterIndex,
@@ -351,7 +349,6 @@ type VoteForNotaryMessage struct {
 	CSMsgCommonHeader ConsensusMsgCommonHeader //subtype: 1 - vote for Announce 2 - vote for proposal
 
 	VoterID           []byte //ecdsa.PublicKey
-	VoteSummary       int64
 	CSVoterPubKey     []byte //bls.PublicKey
 	VoterSignature    []byte //bls.Signature
 	VoterIndex        int
@@ -370,7 +367,6 @@ func (m *VoteForNotaryMessage) SigningHash() (hash meter.Bytes32) {
 		m.CSMsgCommonHeader.MsgSubType,
 
 		m.VoterID,
-		m.VoteSummary,
 		m.CSVoterPubKey,
 		m.VoterSignature,
 		m.VoterIndex,
@@ -454,6 +450,7 @@ func (m *PMProposalMessage) SigningHash() (hash meter.Bytes32) {
 		m.CSMsgCommonHeader.Timestamp,
 		m.CSMsgCommonHeader.MsgType,
 		m.CSMsgCommonHeader.MsgSubType,
+		m.CSMsgCommonHeader.Signature,
 
 		m.ProposerID,
 		m.CSProposerPubKey,
@@ -479,7 +476,6 @@ type PMVoteForProposalMessage struct {
 	CSMsgCommonHeader ConsensusMsgCommonHeader
 
 	VoterID           []byte //ecdsa.PublicKey
-	VoteSummary       int64
 	CSVoterPubKey     []byte //bls.PublicKey
 	VoterSignature    []byte //bls.Signature
 	VoterIndex        int64
@@ -496,9 +492,9 @@ func (m *PMVoteForProposalMessage) SigningHash() (hash meter.Bytes32) {
 		m.CSMsgCommonHeader.Timestamp,
 		m.CSMsgCommonHeader.MsgType,
 		m.CSMsgCommonHeader.MsgSubType,
+		m.CSMsgCommonHeader.Signature,
 
 		m.VoterID,
-		m.VoteSummary,
 		m.CSVoterPubKey,
 		m.VoterSignature,
 		m.VoterIndex,
@@ -515,25 +511,15 @@ func (m *PMVoteForProposalMessage) String() string {
 		m.CSMsgCommonHeader.Sender, m.CSMsgCommonHeader.MsgType)
 }
 
-// QuorumCertMessage encapsulates the QC information
-type QuorumCertMessage struct {
-	QCHeight uint64
-	QCRound  uint64
-	Evidence []byte
-}
-
 // PMNewViewMessage is sent to the next leader in these two senarios
 // 1. leader relay
 // 2. repica timeout
 type PMNewViewMessage struct {
 	CSMsgCommonHeader ConsensusMsgCommonHeader
 
-	VoterBitArray          cmn.BitArray
-	VoterAggSignature      []byte //bls.Signature
-	CommitteeActualSize    int
-	CommitteeActualMembers []block.CommitteeInfo
-
-	QCHigh QuorumCertMessage
+	QCHeight uint64
+	QCRound  uint64
+	QCHigh   []byte
 }
 
 // SigningHash computes hash of all header fields excluding signature.
@@ -546,15 +532,11 @@ func (m *PMNewViewMessage) SigningHash() (hash meter.Bytes32) {
 		m.CSMsgCommonHeader.Timestamp,
 		m.CSMsgCommonHeader.MsgType,
 		m.CSMsgCommonHeader.MsgSubType,
+		m.CSMsgCommonHeader.Signature,
 
-		m.VoterBitArray,
-		m.VoterAggSignature,
-		m.CommitteeActualSize,
-		m.CommitteeActualMembers,
-
-		m.QCHigh.QCHeight,
-		m.QCHigh.QCRound,
-		m.QCHigh.Evidence,
+		m.QCHeight,
+		m.QCRound,
+		m.QCHigh,
 	})
 	hw.Sum(hash[:0])
 	return
@@ -564,5 +546,5 @@ func (m *PMNewViewMessage) SigningHash() (hash meter.Bytes32) {
 func (m *PMNewViewMessage) String() string {
 	return fmt.Sprintf("[MoveNewRoundMessage H:%v R:%v S:%v Type:%v, QCHeight:%d, QCRound:%d]",
 		m.CSMsgCommonHeader.Height, m.CSMsgCommonHeader.Round,
-		m.CSMsgCommonHeader.Sender, m.CSMsgCommonHeader.MsgType, m.QCHigh.QCHeight, m.QCHigh.QCRound)
+		m.CSMsgCommonHeader.Sender, m.CSMsgCommonHeader.MsgType, m.QCHeight, m.QCRound)
 }
