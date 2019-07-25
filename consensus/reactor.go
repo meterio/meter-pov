@@ -384,14 +384,17 @@ const (
 	CONSENSUS_COMMIT_ROLE_VALIDATOR = uint(0x04)
 
 	//Consensus Message Type
-	CONSENSUS_MSG_ANNOUNCE_COMMITTEE = byte(0x01)
-	CONSENSUS_MSG_COMMIT_COMMITTEE   = byte(0x02)
-	CONSENSUS_MSG_PROPOSAL_BLOCK     = byte(0x03)
-	CONSENSUS_MSG_NOTARY_ANNOUNCE    = byte(0x04)
-	CONSENSUS_MSG_NOTARY_BLOCK       = byte(0x05)
-	CONSENSUS_MSG_VOTE_FOR_PROPOSAL  = byte(0x06)
-	CONSENSUS_MSG_VOTE_FOR_NOTARY    = byte(0x07)
-	CONSENSUS_MSG_MOVE_NEW_ROUND     = byte(0x08)
+	CONSENSUS_MSG_ANNOUNCE_COMMITTEE          = byte(0x01)
+	CONSENSUS_MSG_COMMIT_COMMITTEE            = byte(0x02)
+	CONSENSUS_MSG_PROPOSAL_BLOCK              = byte(0x03)
+	CONSENSUS_MSG_NOTARY_ANNOUNCE             = byte(0x04)
+	CONSENSUS_MSG_NOTARY_BLOCK                = byte(0x05)
+	CONSENSUS_MSG_VOTE_FOR_PROPOSAL           = byte(0x06)
+	CONSENSUS_MSG_VOTE_FOR_NOTARY             = byte(0x07)
+	CONSENSUS_MSG_MOVE_NEW_ROUND              = byte(0x08)
+	CONSENSUS_MSG_PACEMAKER_PROPOSAL          = byte(0x09)
+	CONSENSUS_MSG_PACEMAKER_VOTE_FOR_PROPOSAL = byte(0x10)
+	CONSENSUS_MSG_PACEMAKER_NEW_VIEW          = byte(0x10)
 )
 
 // CommitteeMember is validator structure + consensus fields
@@ -1053,6 +1056,13 @@ func getConcreteName(msg ConsensusMessage) string {
 		return "VoteForNotaryMessage"
 	case *MoveNewRoundMessage:
 		return "MoveNewRoundMessage"
+
+	case *PMProposalMessage:
+		return "PMProposalMessage"
+	case *PMVoteForProposalMessage:
+		return "PMVoteForProposalMessage"
+	case *PMNewViewMessage:
+		return "PMNewViewMessage"
 	}
 	return ""
 }
@@ -1271,42 +1281,6 @@ func (conR *ConsensusReactor) BuildNotaryBlockSignMsg(pubKey ecdsa.PublicKey, bl
 //-----------------------------------------------------------------------------
 
 //-----------------------------------------------------------------------------
-
-// Consensus Topology Peer
-type ConsensusPeer struct {
-	netAddr types.NetAddress
-}
-
-func newConsensusPeer(ip net.IP, port uint16) *ConsensusPeer {
-	return &ConsensusPeer{
-		netAddr: types.NetAddress{
-			IP:   ip,
-			Port: port,
-		},
-	}
-}
-
-// XXX. Zilliqa just use socket, can we use http to simplify this
-func (cp *ConsensusPeer) sendConsensusMsg(msg *ConsensusMessage) bool {
-	rawMsg := cdc.MustMarshalBinaryBare(msg)
-	if len(rawMsg) > maxMsgSize {
-		fmt.Errorf("Msg exceeds max size (%d > %d)", len(rawMsg), maxMsgSize)
-		return false
-	}
-
-	// XXX: need to send rawMsg to peer
-	fmt.Println("try send msg out", "size", len(rawMsg))
-	// fmt.Println(hex.Dump(rawMsg))
-
-	return true
-}
-func (cp *ConsensusPeer) FullString() string {
-	return fmt.Sprintf("%s:%d", cp.netAddr.IP.String(), cp.netAddr.Port)
-}
-
-func (cp *ConsensusPeer) String() string {
-	return cp.netAddr.IP.String()
-}
 
 // -------------------------------------------------------------------------
 // New consensus timed schedule util
