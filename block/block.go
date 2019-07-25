@@ -52,11 +52,26 @@ type CommitteeInfos struct {
 	CommitteeInfo []CommitteeInfo
 }
 
+type QuorumCert struct {
+	QCHeight uint64
+	QCRound  uint64
+	EpochID  uint64
+
+	VotingSig      []byte     //serialized bls signature
+	VotingMsgHash  [][32]byte //[][32]byte
+	VotingBitArray cmn.BitArray
+}
+
+func (qc *QuorumCert) ToBytes() []byte {
+	bytes, _ := rlp.EncodeToBytes(qc)
+	return bytes
+}
+
 // Block is an immutable block type.
 type Block struct {
 	BlockHeader    *Header
 	Txs            tx.Transactions
-	Evidence       Evidence
+	QC             QuorumCert
 	CommitteeInfos CommitteeInfos
 	KBlockData     KBlockData
 
@@ -134,7 +149,11 @@ func (b *Block) EncodeRLP(w io.Writer) error {
 		b.Txs,
 		b.KBlockData,
 		b.CommitteeInfos,
-		b.Evidence,
+		b.QC.QCHeight,
+		b.QC.QCRound,
+		b.QC.VotingBitArray,
+		b.QC.VotingMsgHash,
+		b.QC.VotingSig,
 	})
 }
 
@@ -146,7 +165,7 @@ func (b *Block) DecodeRLP(s *rlp.Stream) error {
 		Txs            tx.Transactions
 		KBlockData     KBlockData
 		CommitteeInfos CommitteeInfos
-		Evidence       Evidence
+		QC             QuorumCert
 	}{}
 
 	if err := s.Decode(&payload); err != nil {
@@ -158,7 +177,7 @@ func (b *Block) DecodeRLP(s *rlp.Stream) error {
 		Txs:            payload.Txs,
 		KBlockData:     payload.KBlockData,
 		CommitteeInfos: payload.CommitteeInfos,
-		Evidence:       payload.Evidence,
+		QC:             payload.QC,
 	}
 	b.cache.size.Store(metric.StorageSize(rlp.ListSize(size)))
 	return nil
@@ -187,12 +206,14 @@ CommitteeInfo: %v
 
 //-----------------
 func (b *Block) SetBlockEvidence(ev *Evidence) *Block {
-	b.Evidence = *ev
+	// FIXME: set QCHeight and QCRound, set voting msg hash
+	b.QC = QuorumCert{VotingBitArray: ev.VotingBitArray, VotingMsgHash: make([][32]byte, 0), VotingSig: ev.VotingSig}
 	return b
 }
 
 func (b *Block) GetBlockEvidence() *Evidence {
-	return &b.Evidence
+	// FIXME: fill real evidence
+	return &Evidence{VotingBitArray: b.QC.VotingBitArray, VotingMsgHash: make([]byte, 0), VotingSig: b.QC.VotingSig}
 }
 
 // Serialization for KBlockData and ComitteeInfo
@@ -248,7 +269,11 @@ func (b *Block) ToBytes() []byte {
 func (b *Block) EvidenceDataHash() (hash meter.Bytes32) {
 	hw := meter.NewBlake2b()
 	rlp.Encode(hw, []interface{}{
-		b.Evidence,
+		b.QC.QCHeight,
+		b.QC.QCRound,
+		b.QC.VotingBitArray,
+		b.QC.VotingMsgHash,
+		b.QC.VotingSig,
 		b.CommitteeInfos,
 		b.KBlockData,
 	})
