@@ -517,9 +517,11 @@ func (m *PMVoteForProposalMessage) String() string {
 type PMNewViewMessage struct {
 	CSMsgCommonHeader ConsensusMsgCommonHeader
 
-	QCHeight uint64
-	QCRound  uint64
-	QCHigh   []byte
+	QCHeight        uint64
+	QCRound         uint64
+	QCHigh          []byte
+	NextRoundReason byte
+	Timeout         Timeout
 }
 
 // SigningHash computes hash of all header fields excluding signature.
@@ -537,6 +539,8 @@ func (m *PMNewViewMessage) SigningHash() (hash meter.Bytes32) {
 		m.QCHeight,
 		m.QCRound,
 		m.QCHigh,
+		m.NextRoundReason,
+		m.Timeout,
 	})
 	hw.Sum(hash[:0])
 	return

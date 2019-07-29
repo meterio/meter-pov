@@ -1,12 +1,10 @@
 package consensus
 
 import (
-	//bls "github.com/dfinlab/meter/crypto/multi_sig"
-	//cmn "github.com/dfinlab/meter/libs/common"
-
-	"time"
-
+	bls "github.com/dfinlab/meter/crypto/multi_sig"
+	cmn "github.com/dfinlab/meter/libs/common"
 	"github.com/inconshreveable/log15"
+	"time"
 )
 
 const (
@@ -50,16 +48,13 @@ type QuorumCert struct {
 	QCRound  uint64
 	QCNode   *pmBlock
 
-	// FIXME: put evidence in QC
 	//signature data , slice signature and public key must be match
-	/*******
 	proposalVoterBitArray *cmn.BitArray
 	proposalVoterSig      []bls.Signature
 	proposalVoterPubKey   []bls.PublicKey
 	proposalVoterMsgHash  [][32]byte
 	proposalVoterAggSig   bls.Signature
 	proposalVoterNum      uint32
-	**********/
 }
 
 type pmBlock struct {
@@ -73,13 +68,11 @@ type pmBlock struct {
 	Decided    bool
 	RoundState PMState
 
-	// FIXME: put block info in pmBlock
-	// local copy of proposed block
-	/**********
+	/****
 	ProposedBlockInfo ProposedBlockInfo //data structure
-	ProposedBlock     []byte            // byte slice block
+	***/
+	ProposedBlock     []byte // byte slice block
 	ProposedBlockType byte
-	************/
 }
 
 type Pacemaker struct {
