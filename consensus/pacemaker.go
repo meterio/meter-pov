@@ -54,7 +54,6 @@ type QuorumCert struct {
 	QCRound  uint64
 	QCNode   *pmBlock
 
-	// FIXME: put evidence in QC
 	//signature data , slice signature and public key must be match
 	VoterBitArray *cmn.BitArray
 	VoterSig      [][]byte
@@ -89,8 +88,9 @@ type pmBlock struct {
 	Decided    bool
 	RoundState PMState
 
-	// FIXME: put block info in pmBlock
-	// local copy of proposed block
+	/****
+	ProposedBlockInfo ProposedBlockInfo //data structure
+	***/
 	ProposedBlockInfo ProposedBlockInfo //data structure
 	ProposedBlock     []byte            // byte slice block
 	ProposedBlockType BlockType
