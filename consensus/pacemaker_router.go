@@ -5,11 +5,11 @@ func (p *Pacemaker) getProposerByRound(round int) *ConsensusPeer {
 	return &ConsensusPeer{}
 }
 
-func (p *Pacemaker) SendConsensusMessage(msg *ConsensusMessage) bool {
+func (p *Pacemaker) SendConsensusMessage(msg ConsensusMessage) bool {
 	var rawMsg []byte
 	var peers []*ConsensusPeer
 	typeName := getConcreteName(msg)
-	switch (*msg).(type) {
+	switch msg.(type) {
 	case PMProposalMessage:
 		rawMsg = cdc.MustMarshalBinaryBare(msg)
 		if len(rawMsg) > maxMsgSize {
