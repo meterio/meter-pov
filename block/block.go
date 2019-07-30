@@ -57,9 +57,11 @@ type QuorumCert struct {
 	QCRound  uint64
 	EpochID  uint64
 
-	VotingSig      []byte     //serialized bls signature
+	// FIXME: ??? VotingSig was originally set to []byte. Shouldn't it store all the signatures as [][]byte?
+	VotingSig      [][]byte   //serialized bls signature
 	VotingMsgHash  [][32]byte //[][32]byte
 	VotingBitArray cmn.BitArray
+	VotingAggSig   []byte
 }
 
 func (qc *QuorumCert) ToBytes() []byte {
@@ -206,14 +208,14 @@ CommitteeInfo: %v
 
 //-----------------
 func (b *Block) SetBlockEvidence(ev *Evidence) *Block {
-	// FIXME: set QCHeight and QCRound, set voting msg hash
-	b.QC = QuorumCert{VotingBitArray: ev.VotingBitArray, VotingMsgHash: make([][32]byte, 0), VotingSig: ev.VotingSig}
+	// FIXME: set QCHeight and QCRound, set voting msg hash, and votingSig
+	b.QC = QuorumCert{VotingBitArray: ev.VotingBitArray, VotingMsgHash: make([][32]byte, 0)}
 	return b
 }
 
 func (b *Block) GetBlockEvidence() *Evidence {
 	// FIXME: fill real evidence
-	return &Evidence{VotingBitArray: b.QC.VotingBitArray, VotingMsgHash: make([]byte, 0), VotingSig: b.QC.VotingSig}
+	return &Evidence{VotingBitArray: b.QC.VotingBitArray, VotingMsgHash: make([]byte, 0)}
 }
 
 // Serialization for KBlockData and ComitteeInfo
