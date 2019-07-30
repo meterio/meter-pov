@@ -658,6 +658,13 @@ func (conR *ConsensusReactor) FreeCSSystem(system bls.System, params bls.Params,
 // MBlock Routine
 //=================================================
 
+type BlockType int
+
+const (
+	KBlockType BlockType = 1
+	MBlockType BlockType = 2
+)
+
 // proposed block info
 type ProposedBlockInfo struct {
 	ProposedBlock *block.Block
@@ -665,6 +672,7 @@ type ProposedBlockInfo struct {
 	Receipts      *tx.Receipts
 	txsToRemoved  func() bool
 	CheckPoint    int
+	BlockType     BlockType
 }
 
 // Build MBlock
@@ -735,7 +743,7 @@ func (conR *ConsensusReactor) BuildMBlock() *ProposedBlockInfo {
 
 	execElapsed := mclock.Now() - startTime
 	conR.logger.Info("MBlock built", "height", conR.curHeight, "elapseTime", execElapsed)
-	return &ProposedBlockInfo{newBlock, stage, &receipts, txsToRemoved, checkPoint}
+	return &ProposedBlockInfo{newBlock, stage, &receipts, txsToRemoved, checkPoint, MBlockType}
 }
 
 func (conR *ConsensusReactor) BuildKBlock(data *block.KBlockData, rewards []powpool.PowReward) *ProposedBlockInfo {
@@ -803,7 +811,7 @@ func (conR *ConsensusReactor) BuildKBlock(data *block.KBlockData, rewards []powp
 
 	execElapsed := mclock.Now() - startTime
 	conR.logger.Info("KBlock built", "height", conR.curHeight, "elapseTime", execElapsed)
-	return &ProposedBlockInfo{newBlock, stage, &receipts, txsToRemoved, checkPoint}
+	return &ProposedBlockInfo{newBlock, stage, &receipts, txsToRemoved, checkPoint, KBlockType}
 }
 
 //=================================================
