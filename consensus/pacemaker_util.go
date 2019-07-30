@@ -15,6 +15,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/rlp"
 
+	"github.com/dfinlab/meter/block"
 	"github.com/dfinlab/meter/types"
 )
 
@@ -202,70 +203,79 @@ func (p *Pacemaker) AddressBlock(height uint64, round uint64) *pmBlock {
 	return nil
 }
 
-func (p *Pacemaker) decodeMsg(msg []byte) (error, *PMessage) {
-	m := &PMessage{}
-	if err := rlp.DecodeBytes(msg, m); err != nil {
-		fmt.Println("Decode message failed", err)
-		return errors.New("decode message failed"), &PMessage{}
-	}
-	return nil, m
-}
+func (p *Pacemaker) Receive(m ConsensusMessage) error {
 
-func (p *Pacemaker) Receive(m *PMessage) error {
-
-	p.csReactor.logger.Info("Receives a pacemaker message", "message", m.String())
+	p.csReactor.logger.Info("Receives a pacemaker message", "message", getConcreteName(m))
 	// receives proposal message, block is new one. parent is one of (b,b',b")
-	if m.MsgType == PACEMAKER_MSG_PROPOSAL {
-		parent := p.AddressBlock(m.Block_parent_height, m.Block_parent_round)
+	switch m.(type) {
+	case *PMProposalMessage:
+		proposalMsg := m.(*PMProposalMessage)
+		blk, _ := block.BlockDecodeFromBytes(proposalMsg.ProposedBlock)
+		qc := blk.QC
+		msgHeader := proposalMsg.CSMsgCommonHeader
+		// blockHeader := blk.Header()
+		// parentID := h.ParentID()
+		parent := p.AddressBlock(0, 0) // FIXME: convert parentID to height/round
 		if parent == nil {
 			return errors.New("can not address parent")
 		}
 
-		qcNode := p.AddressBlock(m.Block_justify_QC_height, m.Block_justify_QC_round)
+		qcNode := p.AddressBlock(qc.QCHeight, qc.QCRound)
 		if qcNode == nil {
 			return errors.New("can not address qcNode")
 		}
 
 		justify := &QuorumCert{
-			QCHeight: m.Block_justify_QC_height,
-			QCRound:  m.Block_justify_QC_round,
+			QCHeight: qc.QCHeight,
+			QCRound:  qc.QCRound,
 			QCNode:   qcNode,
+
+			VoterBitArray: &qc.VotingBitArray,
+			VoterSig:      qc.VotingSig,
+			VoterMsgHash:  qc.VotingMsgHash,
+			VoterAggSig:   qc.VotingAggSig,
 		}
 
-		p.proposalMap[m.Block_height] = &pmBlock{
-			Height:  m.Block_height,
-			Round:   m.Block_round,
+		p.proposalMap[uint64(msgHeader.Height)] = &pmBlock{
+			Height:  uint64(msgHeader.Height),
+			Round:   uint64(msgHeader.Round),
 			Parent:  parent,
 			Justify: justify,
 		}
-		return p.OnReceiveProposal(p.proposalMap[m.Block_height])
-
-	} else if m.MsgType == PACEMAKER_MSG_VOTE {
+		return p.OnReceiveProposal(proposalMsg)
+	case *PMVoteForProposalMessage:
 		// must be in (b, b', b")
-		b := p.AddressBlock(m.Block_height, m.Block_round)
+		v4pMsg := m.(*PMVoteForProposalMessage)
+		msgHeader := v4pMsg.CSMsgCommonHeader
+
+		b := p.AddressBlock(uint64(msgHeader.Height), uint64(msgHeader.Round))
 		if b == nil {
 			return errors.New("can not address block")
 		}
 
+		/* FIXME: commented out becauase m.Block_* and m.Block_justify are not available in PMVoteForProposalMessage
 		if (b.Parent.Height != m.Block_parent_height) ||
 			(b.Parent.Round != m.Block_parent_round) ||
 			(b.Justify.QCHeight != m.Block_justify_QC_height) ||
 			(b.Justify.QCRound != m.Block_justify_QC_round) {
 			return errors.New("mismatch, something wrong")
 		}
+		*/
+
 		return p.OnReceiveVote(b)
-	} else if m.MsgType == PACEMAKER_MSG_NEWVIEW {
-		qcNode := p.AddressBlock(m.QC_height, m.QC_round)
+	case *PMNewViewMessage:
+		newViewMsg := m.(*PMNewViewMessage)
+		qcNode := p.AddressBlock(newViewMsg.QCHeight, newViewMsg.QCRound)
 		if qcNode == nil {
 			return errors.New("can not address qcNode")
 		}
 		qc := &QuorumCert{
-			QCHeight: m.QC_height,
-			QCRound:  m.QC_round,
+			QCHeight: newViewMsg.QCHeight,
+			QCRound:  newViewMsg.QCRound,
 			QCNode:   qcNode,
 		}
 		return p.OnRecieveNewView(qc)
-	} else {
+	default:
 		return errors.New("unknown pacemaker message type")
 	}
 }
@@ -282,13 +292,13 @@ func (p *Pacemaker) receivePacemakerMsg(w http.ResponseWriter, r *http.Request) 
 	peerIP := net.ParseIP(params["peer_ip"])
 
 	msgByteSlice, _ := hex.DecodeString(params["message"])
-	err, message := p.decodeMsg(msgByteSlice)
+	msg, err := decodeMsg(msgByteSlice)
 	if err != nil {
 		p.csReactor.logger.Error("message decode error", err)
 		panic("message decode error")
 	} else {
-		p.csReactor.logger.Info("receive pacemaker msg from", "IP", peerIP, "msgType", message.MsgType)
-		p.Receive(message)
+		p.csReactor.logger.Info("receive pacemaker msg from", "IP", peerIP, "msgType", getConcreteName(msg))
+		p.Receive(msg)
 	}
 	respondWithJson(w, http.StatusOK, map[string]string{"result": "success"})
 

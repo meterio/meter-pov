@@ -4,8 +4,12 @@ import (
 	//bls "github.com/dfinlab/meter/crypto/multi_sig"
 	//cmn "github.com/dfinlab/meter/libs/common"
 
+	"fmt"
 	"time"
 
+	"github.com/dfinlab/meter/block"
+	bls "github.com/dfinlab/meter/crypto/multi_sig"
+	cmn "github.com/dfinlab/meter/libs/common"
 	"github.com/inconshreveable/log15"
 )
 
@@ -52,14 +56,26 @@ type QuorumCert struct {
 
 	// FIXME: put evidence in QC
 	//signature data , slice signature and public key must be match
-	/*******
-	proposalVoterBitArray *cmn.BitArray
-	proposalVoterSig      []bls.Signature
-	proposalVoterPubKey   []bls.PublicKey
-	proposalVoterMsgHash  [][32]byte
-	proposalVoterAggSig   bls.Signature
-	proposalVoterNum      uint32
-	**********/
+	VoterBitArray *cmn.BitArray
+	VoterSig      [][]byte
+	VoterPubKey   []bls.PublicKey
+	VoterMsgHash  [][32]byte
+	VoterAggSig   []byte
+	VoterNum      uint32
+}
+
+func (p *Pacemaker) EncodeQCToBytes(qc *QuorumCert) []byte {
+	blockQC := &block.QuorumCert{
+		QCHeight: qc.QCHeight,
+		QCRound:  qc.QCRound,
+		EpochID:  0, // FIXME: use real epoch id
+
+		VotingSig:      qc.VoterSig,
+		VotingMsgHash:  qc.VoterMsgHash,
+		VotingBitArray: *qc.VoterBitArray,
+		VotingAggSig:   qc.VoterAggSig,
+	}
+	return blockQC.ToBytes()
 }
 
 type pmBlock struct {
@@ -75,11 +91,9 @@ type pmBlock struct {
 
 	// FIXME: put block info in pmBlock
 	// local copy of proposed block
-	/**********
 	ProposedBlockInfo ProposedBlockInfo //data structure
 	ProposedBlock     []byte            // byte slice block
-	ProposedBlockType byte
-	************/
+	ProposedBlockType BlockType
 }
 
 type Pacemaker struct {
@@ -130,11 +144,17 @@ func NewPaceMaker(conR *ConsensusReactor) *Pacemaker {
 }
 
 func (p *Pacemaker) CreateLeaf(parent *pmBlock, qc *QuorumCert, height uint64, round uint64) *pmBlock {
+	info, blockBytes := p.proposeBlock(height, round, true)
+
 	b := &pmBlock{
 		Height:  height,
 		Round:   round,
 		Parent:  parent,
 		Justify: qc,
+
+		ProposedBlockInfo: *info,
+		ProposedBlock:     blockBytes,
+		ProposedBlockType: info.BlockType,
 	}
 
 	return b
@@ -187,7 +207,8 @@ func (p *Pacemaker) OnCommit(commitReady []*pmBlock) error {
 	return nil
 }
 
-func (p *Pacemaker) OnReceiveProposal(bnew *pmBlock) error {
+func (p *Pacemaker) OnReceiveProposal(proposalMsg *PMProposalMessage) error {
+	bnew := p.proposalMap[uint64(proposalMsg.CSMsgCommonHeader.Height)]
 	if (bnew.Height > p.lastVotingHeight) &&
 		(p.IsExtendedFromBLocked(bnew) || bnew.Justify.QCHeight > p.blockLocked.Height) {
 		p.lastVotingHeight = bnew.Height
@@ -199,8 +220,10 @@ func (p *Pacemaker) OnReceiveProposal(bnew *pmBlock) error {
 		// stop previous round timer
 		//close(p.roundTimerStop)
 
+		msg, _ := p.BuildVoteForProposalMessage(proposalMsg)
 		// send vote message to leader
-		p.sendMsg(bnew.Round, PACEMAKER_MSG_VOTE, genericQC, bnew)
+		// p.sendMsg(bnew.Round, PACEMAKER_MSG_VOTE, genericQC, bnew)
+		p.SendConsensusMessage(msg)
 
 		/***********
 		// start the round timer
@@ -251,9 +274,17 @@ func (p *Pacemaker) OnReceiveVote(b *pmBlock) error {
 func (p *Pacemaker) OnPropose(b *pmBlock, qc *QuorumCert, height uint64, round uint64) *pmBlock {
 	bnew := p.CreateLeaf(b, qc, height+1, round)
 
-	// TODO: create slot in proposalMap directly, instead of sendmsg to self.
+	msg, err := p.BuildProposalMessage(height, round, &b.ProposedBlockInfo, b.ProposedBlock)
+	if err != nil {
+		fmt.Println("Error", err)
+	}
+
+	// create slot in proposalMap directly, instead of sendmsg to self.
+	p.proposalMap[round] = bnew
+
 	//send proposal to all include myself
-	p.broadcastMsg(round, PACEMAKER_MSG_PROPOSAL, genericQC, bnew)
+	p.SendConsensusMessage(msg)
+	// p.broadcastMsg(round, PACEMAKER_MSG_PROPOSAL, genericQC, bnew)
 
 	return bnew
 }
@@ -294,6 +325,12 @@ func (p *Pacemaker) OnBeat(height uint64, round uint64) {
 func (p *Pacemaker) OnNextSyncView(nextRound uint64) error {
 	// send new round msg to next round proposer
 	p.sendMsg(nextRound, PACEMAKER_MSG_NEWVIEW, p.QCHigh, nil)
+	msg, err := p.BuildNewViewMessage(p.QCHigh)
+	if err != nil {
+		fmt.Println("Error", err)
+	}
+	p.SendConsensusMessage(msg)
+
 	return nil
 }
 
