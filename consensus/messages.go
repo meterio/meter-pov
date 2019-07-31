@@ -392,11 +392,16 @@ func (m *VoteForNotaryMessage) String() string {
 type MoveNewRoundMessage struct {
 	CSMsgCommonHeader ConsensusMsgCommonHeader
 
-	Height      int64
-	CurRound    int
-	NewRound    int
-	CurProposer []byte //ecdsa.PublicKey
-	NewProposer []byte //ecdsa.PublicKey
+	Height             int64
+	CurRound           int
+	NewRound           int
+	CurProposer        []byte //ecdsa.PublicKey
+	NewProposer        []byte //ecdsa.PublicKey
+	ValidatorID        []byte //ecdsa.PublicKey
+	ValidatorPubkey    []byte //bls.PublicKey
+	ValidatorSignature []byte //bls.Signature
+	ValidatorIndex     int
+	SignedMessageHash  [32]byte
 }
 
 // SigningHash computes hash of all header fields excluding signature.
@@ -415,6 +420,11 @@ func (m *MoveNewRoundMessage) SigningHash() (hash meter.Bytes32) {
 		m.NewRound,
 		m.CurProposer,
 		m.NewProposer,
+		m.ValidatorID,
+		m.ValidatorPubkey,
+		m.ValidatorSignature,
+		m.ValidatorIndex,
+		m.SignedMessageHash,
 	})
 	hw.Sum(hash[:0])
 	return

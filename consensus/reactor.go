@@ -1475,22 +1475,31 @@ func (conR *ConsensusReactor) ConsensusHandleReceivedNonce(kBlockHeight int64, n
 		conR.logger.Info("I am NOT in committee!!!", "nonce", nonce)
 	}
 
+	// hotstuff: check the mechnism:
+	// 1) send movenextround (with signature) to new leader. if new leader receives majority signature, then send out announce.
 	if role == CONSENSUS_COMMIT_ROLE_LEADER {
 		conR.logger.Info("I am committee leader for nonce!", "nonce", nonce)
+		//TBD:
 		// wait 30 seconds for synchronization
+		/******
 		time.Sleep(5 * WHOLE_NETWORK_BLOCK_SYNC_TIME)
 		if replay {
 			conR.ScheduleReplayLeader(0)
 		} else {
 			conR.ScheduleLeader(0)
 		}
+		*******/
 	} else if role == CONSENSUS_COMMIT_ROLE_VALIDATOR {
 		conR.logger.Info("I am committee validator for nonce!", "nonce", nonce)
+		/****
 		if replay {
 			conR.ScheduleReplayValidator(0)
 		} else {
 			conR.ScheduleValidator(0)
 		}
+		****/
+		// send future leader of next round message.
+		conR.csValidator.sendNewRoundMessage()
 	}
 }
 

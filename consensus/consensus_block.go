@@ -104,6 +104,9 @@ func (c *ConsensusReactor) NewRuntimeForReplay(header *block.Header) (*runtime.R
 		return nil, err
 	}
 
+	//TBD: hotstuff, current block's evidence is not available yet. comment out
+	// we can validate this evidence with block parent.
+	/******
 	blk, err := c.chain.GetBlock(header.ID())
 	if err != nil {
 		return nil, err
@@ -112,7 +115,7 @@ func (c *ConsensusReactor) NewRuntimeForReplay(header *block.Header) (*runtime.R
 	if err := c.validateEvidence(blk.GetBlockEvidence(), blk); err != nil {
 		return nil, err
 	}
-
+	****/
 	return runtime.New(
 		c.chain.NewSeeker(header.ParentID()),
 		state,
@@ -138,10 +141,12 @@ func (c *ConsensusReactor) validate(
 		return nil, nil, err
 	}
 
+	//same above reason.
+	/****
 	if err := c.validateEvidence(block.GetBlockEvidence(), block); err != nil {
 		return nil, nil, err
 	}
-
+	****/
 	if err := c.validateProposer(header, parentHeader, state); err != nil {
 		return nil, nil, err
 	}

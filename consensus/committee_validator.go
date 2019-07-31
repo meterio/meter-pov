@@ -759,3 +759,48 @@ func (cv *ConsensusValidator) checkHeightAndRound(ch ConsensusMsgCommonHeader) b
 	}
 	return true
 }
+
+func (cv *ConsensusValidator) sendNewRoundMessage() error {
+	curHeight := cv.csReactor.curHeight
+	curRound := cv.csReactor.curRound
+	curActualSize := len(cv.csReactor.curActualCommittee)
+	if curActualSize == 0 {
+		cv.csReactor.logger.Error("ActualCommittee len is 0")
+		return nil
+	}
+
+	msg := &MoveNewRoundMessage{
+		CSMsgCommonHeader: ConsensusMsgCommonHeader{
+			Height:    curHeight,
+			Round:     curRound,
+			Sender:    crypto.FromECDSAPub(&cv.csReactor.myPubKey),
+			Timestamp: time.Now(),
+			MsgType:   CONSENSUS_MSG_MOVE_NEW_ROUND,
+		},
+
+		Height:   curHeight,
+		CurRound: curRound,
+		NewRound: curRound + 1,
+		//CurProposer: cp.csReactor.curActualCommittee[curRound].PubKey,
+		//NewProposer: cp.csReactor.curActualCommittee[curRound+1].PubKey,
+		CurProposer: crypto.FromECDSAPub(&cv.csReactor.curActualCommittee[curRound%curActualSize].PubKey),
+		NewProposer: crypto.FromECDSAPub(&cv.csReactor.curActualCommittee[(curRound+1)%curActualSize].PubKey),
+
+		// Signature part.
+	}
+
+	// sign message
+	msgSig, err := cv.csReactor.SignConsensusMsg(msg.SigningHash().Bytes())
+	if err != nil {
+		cv.csReactor.logger.Error("Sign message failed", "error", err)
+		return err
+	}
+	msg.CSMsgCommonHeader.SetMsgSignature(msgSig)
+
+	// state to init & send move to next round
+	// fmt.Println("msg: %v", msg.String())
+	var m ConsensusMessage = msg
+	cv.SendMsg(&m)
+
+	return nil
+}
