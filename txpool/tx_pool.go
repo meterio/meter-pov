@@ -93,6 +93,7 @@ func (p *TxPool) housekeeping() {
 	ticker := time.NewTicker(time.Second * 2)
 	defer ticker.Stop()
 
+	// Hotstuff: Should change to after seem new proposal and do wash txs.
 	headBlock := p.chain.BestBlock().Header()
 
 	for {

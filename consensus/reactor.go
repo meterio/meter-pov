@@ -169,6 +169,9 @@ type ConsensusReactor struct {
 	// kBlock data
 	KBlockDataQueue    chan block.KBlockData // from POW simulation
 	RcvKBlockInfoQueue chan RecvKBlockInfo   // this channel for kblock notify from node module.
+
+	// pacemaker last QC if the
+	SavedLastKblockQC *QuorumCert
 }
 
 // Glob Instance

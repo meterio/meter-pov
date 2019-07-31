@@ -201,8 +201,24 @@ func (p *Pacemaker) Execute(b *pmBlock) error {
 func (p *Pacemaker) OnCommit(commitReady []*pmBlock) error {
 	for _, b := range commitReady {
 		p.csReactor.logger.Info("Committed Block", "Height = ", b.Height, "round", b.Round)
+
+		// commit the approved block
+		if p.csReactor.finalizeCommitBlock(&b.ProposedBlockInfo) == false {
+			p.csReactor.logger.Error("Commit block failed ...")
+
+			//revert to checkpoint
+			best := p.csReactor.chain.BestBlock()
+			state, err := p.csReactor.stateCreator.NewState(best.Header().StateRoot())
+			if err != nil {
+				panic(fmt.Sprintf("revert the state faild ... %v", err))
+			}
+			state.RevertTo(b.ProposedBlockInfo.CheckPoint)
+		}
+
 		p.Execute(b) //b.cmd
-		//FIXME: write block to db
+
+		// remove this pmBlock from map.
+		delete(p.proposalMap, b.Height)
 	}
 	return nil
 }
@@ -319,7 +335,6 @@ func (p *Pacemaker) OnBeat(height uint64, round uint64) {
 	} else {
 		p.csReactor.logger.Info("OnBeat: I am NOT round proposer", "round=", round)
 	}
-
 }
 
 func (p *Pacemaker) OnNextSyncView(nextRound uint64) error {
@@ -354,11 +369,34 @@ func (p *Pacemaker) OnRecieveNewView(qc *QuorumCert) error {
 }
 
 //=========== Routines ==================================
-
+// TODO: 1. start from genesis. 2. start from a specified height.
+// assume saveLastKblockQC is already stored
 //Committee Leader triggers
-func (p *Pacemaker) Start(height uint64, round uint64) {
+func (p *Pacemaker) Start(height uint64) {
+	if height == 1 {
+		p.StartFromGenesis()
+	} else {
+		p.StartNewCommittee(height, 0)
+	}
+}
 
-	//initiation to height/round
+func (p *Pacemaker) StartFromGenesis() {
+	// now assign b_lock b_exec, b_leaf qc_high
+	p.block = &b0
+	p.blockLocked = &b0
+	p.blockExecuted = &b0
+	p.blockLeaf = &b0
+	p.proposalMap[0] = &b0
+	p.QCHigh = &qc0
+
+	p.blockPrime = nil
+	p.blockPrimePrime = nil
+
+	p.OnBeat(1, 0)
+}
+
+func (p *Pacemaker) StartNewCommittee(height uint64, round uint64) {
+	/****
 	b0.Height = height
 	b0.Round = round
 	b0.Justify.QCHeight = height
@@ -376,7 +414,7 @@ func (p *Pacemaker) Start(height uint64, round uint64) {
 	b0.Justify.QCHeight = height
 	b0.Justify.QCRound = round
 	b0.Justify.QCNode = &b0
-
+	****/
 	// now assign b_lock b_exec, b_leaf qc_high
 	p.block = &b0
 	p.blockLocked = &b0
@@ -393,4 +431,8 @@ func (p *Pacemaker) Start(height uint64, round uint64) {
 
 //actions of commites/receives kblock, stop pacemake to next committee
 // all proposal txs need to be reclaimed before stop
-func (p *Pacemaker) Stop() {}
+func (p *Pacemaker) Stop() {
+	// backup last two QC
+	p.csReactor.SavedLastKblockQC = p.blockLocked.Justify
+
+}
