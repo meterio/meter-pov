@@ -69,10 +69,13 @@ func (p *Pacemaker) EncodeQCToBytes(qc *QuorumCert) []byte {
 		QCRound:  qc.QCRound,
 		EpochID:  0, // FIXME: use real epoch id
 
-		VotingSig:      qc.VoterSig,
-		VotingMsgHash:  qc.VoterMsgHash,
-		VotingBitArray: *qc.VoterBitArray,
-		VotingAggSig:   qc.VoterAggSig,
+		VotingSig:     qc.VoterSig,
+		VotingMsgHash: qc.VoterMsgHash,
+		//VotingBitArray: *qc.VoterBitArray,
+		VotingAggSig: qc.VoterAggSig,
+	}
+	if qc.VoterBitArray != nil {
+		blockQC.VotingBitArray = *qc.VoterBitArray
 	}
 	return blockQC.ToBytes()
 }
@@ -166,6 +169,9 @@ func (p *Pacemaker) Update(bnew *pmBlock) error {
 	//now pipeline full, roll this pipeline first
 	p.blockPrimePrime = bnew.Justify.QCNode
 	p.blockPrime = p.blockPrimePrime.Justify.QCNode
+	if p.blockPrime == nil {
+		return nil
+	}
 	p.block = p.blockPrime.Justify.QCNode
 
 	// pre-commit phase on b"
@@ -239,7 +245,7 @@ func (p *Pacemaker) OnReceiveProposal(proposalMsg *PMProposalMessage) error {
 		msg, _ := p.BuildVoteForProposalMessage(proposalMsg)
 		// send vote message to leader
 		// p.sendMsg(bnew.Round, PACEMAKER_MSG_VOTE, genericQC, bnew)
-		p.SendConsensusMessage(msg)
+		p.SendConsensusMessage(uint64(proposalMsg.CSMsgCommonHeader.Round), msg)
 
 		/***********
 		// start the round timer
@@ -288,18 +294,19 @@ func (p *Pacemaker) OnReceiveVote(b *pmBlock) error {
 }
 
 func (p *Pacemaker) OnPropose(b *pmBlock, qc *QuorumCert, height uint64, round uint64) *pmBlock {
-	bnew := p.CreateLeaf(b, qc, height+1, round)
+	bnew := p.CreateLeaf(b, qc, height, round)
 
-	msg, err := p.BuildProposalMessage(height, round, &b.ProposedBlockInfo, b.ProposedBlock)
+	msg, err := p.BuildProposalMessage(height, round, &bnew.ProposedBlockInfo, bnew.ProposedBlock)
 	if err != nil {
-		fmt.Println("Error", err)
+		p.logger.Error("could not build proposal message", "err", err)
 	}
 
 	// create slot in proposalMap directly, instead of sendmsg to self.
-	p.proposalMap[round] = bnew
+	p.sigCounter[bnew.Round]++
+	p.proposalMap[height] = bnew
 
 	//send proposal to all include myself
-	p.SendConsensusMessage(msg)
+	p.SendConsensusMessage(round, msg)
 	// p.broadcastMsg(round, PACEMAKER_MSG_PROPOSAL, genericQC, bnew)
 
 	return bnew
@@ -339,12 +346,12 @@ func (p *Pacemaker) OnBeat(height uint64, round uint64) {
 
 func (p *Pacemaker) OnNextSyncView(nextRound uint64) error {
 	// send new round msg to next round proposer
-	p.sendMsg(nextRound, PACEMAKER_MSG_NEWVIEW, p.QCHigh, nil)
+	// p.sendMsg(nextRound, PACEMAKER_MSG_NEWVIEW, p.QCHigh, nil)
 	msg, err := p.BuildNewViewMessage(p.QCHigh)
 	if err != nil {
-		fmt.Println("Error", err)
+		p.logger.Error("could not build new view message", "err", err)
 	}
-	p.SendConsensusMessage(msg)
+	p.SendConsensusMessage(nextRound, msg)
 
 	return nil
 }
@@ -356,7 +363,7 @@ func (p *Pacemaker) OnRecieveNewView(qc *QuorumCert) error {
 		if qc.QCHeight > p.blockLocked.Height {
 			if p.csReactor.amIRoundProproser(qc.QCRound+1) == true {
 				time.AfterFunc(1*time.Second, func() {
-					p.csReactor.schedulerQueue <- func() { p.OnBeat(qc.QCHeight, qc.QCRound+1) }
+					p.csReactor.schedulerQueue <- func() { p.OnBeat(qc.QCHeight+1, qc.QCRound+1) }
 				})
 			} else {
 				time.AfterFunc(1*time.Second, func() {
@@ -373,7 +380,8 @@ func (p *Pacemaker) OnRecieveNewView(qc *QuorumCert) error {
 // assume saveLastKblockQC is already stored
 //Committee Leader triggers
 func (p *Pacemaker) Start(height uint64) {
-	if height == 1 {
+	p.logger.Debug("Pacemaker start", "height", height)
+	if height == 0 {
 		p.StartFromGenesis()
 	} else {
 		p.StartNewCommittee(height, 0)

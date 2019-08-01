@@ -76,7 +76,7 @@ func (p *Pacemaker) BuildProposalMessage(height, round uint64, info *ProposedBlo
 		return nil, err
 	}
 	msg.CSMsgCommonHeader.SetMsgSignature(msgSig)
-	p.logger.Debug("Generate Proposal Block Message for KBlock", "height", msg.CSMsgCommonHeader.Height, "timestamp", msg.CSMsgCommonHeader.Timestamp)
+	p.logger.Debug("Built Proposal Message", "height", msg.CSMsgCommonHeader.Height, "timestamp", msg.CSMsgCommonHeader.Timestamp)
 
 	return msg, nil
 }
@@ -97,12 +97,9 @@ func (p *Pacemaker) BuildVoteForProposalMessage(proposalMsg *PMProposalMessage) 
 	sign := p.csReactor.csCommon.SignMessage([]byte(signMsg), uint32(offset), uint32(length))
 	msgHash := p.csReactor.csCommon.Hash256Msg([]byte(signMsg), uint32(offset), uint32(length))
 
-	curHeight := p.csReactor.curHeight
-	curRound := p.csReactor.curRound
-
 	cmnHdr := ConsensusMsgCommonHeader{
-		Height:    curHeight,
-		Round:     curRound,
+		Height:    ch.Height,
+		Round:     ch.Round,
 		Sender:    crypto.FromECDSAPub(&p.csReactor.myPubKey),
 		Timestamp: time.Now(),
 		MsgType:   CONSENSUS_MSG_VOTE_FOR_PROPOSAL,
@@ -126,7 +123,7 @@ func (p *Pacemaker) BuildVoteForProposalMessage(proposalMsg *PMProposalMessage) 
 		return nil, err
 	}
 	msg.CSMsgCommonHeader.SetMsgSignature(msgSig)
-	p.logger.Debug("Generate Voter For Proposal Message", "msg", msg.String())
+	p.logger.Debug("Built Vote For Proposal Message", "msg", msg.String())
 	return msg, nil
 }
 
@@ -159,6 +156,6 @@ func (p *Pacemaker) BuildNewViewMessage(qcHigh *QuorumCert) (*PMNewViewMessage, 
 		return nil, err
 	}
 	msg.CSMsgCommonHeader.SetMsgSignature(msgSig)
-	p.logger.Debug("Generate Voter For Proposal Message", "msg", msg.String())
+	p.logger.Debug("Built New View Message", "msg", msg.String())
 	return msg, nil
 }
