@@ -57,9 +57,8 @@ type QuorumCert struct {
 	QCRound  uint64
 	EpochID  uint64
 
-	// FIXME: ??? VotingSig was originally set to []byte. Shouldn't it store all the signatures as [][]byte?
-	VotingSig      [][]byte   //serialized bls signature
-	VotingMsgHash  [][32]byte //[][32]byte
+	VotingSig      [][]byte   // [] of serialized bls signature
+	VotingMsgHash  [][32]byte // [][32]byte
 	VotingBitArray cmn.BitArray
 	VotingAggSig   []byte
 }
