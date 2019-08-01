@@ -1,11 +1,9 @@
 package consensus
 
 import (
-	"bytes"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"math"
 
 	//"github.com/dfinlab/meter/types"
@@ -13,10 +11,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/ethereum/go-ethereum/rlp"
-
 	"github.com/dfinlab/meter/block"
-	"github.com/dfinlab/meter/types"
 )
 
 // ****************statevcode *******
@@ -53,6 +48,7 @@ func (p *Pacemaker) TimeOutExponential() int {
 }
 
 // ****** test code ***********
+/*
 type PMessage struct {
 	Round                   uint64
 	MsgType                 byte
@@ -73,6 +69,8 @@ func (m *PMessage) String() string {
 		m.Block_parent_round, m.Block_justify_QC_height, m.Block_justify_QC_round)
 }
 
+*/
+
 // check a pmBlock is the extension of b_locked, max 10 hops
 func (p *Pacemaker) IsExtendedFromBLocked(b *pmBlock) bool {
 
@@ -88,6 +86,7 @@ func (p *Pacemaker) IsExtendedFromBLocked(b *pmBlock) bool {
 	return false
 }
 
+/*
 func (p *Pacemaker) Send(netAddr types.NetAddress, m []byte) error {
 	myNetAddr := p.csReactor.curCommittee.Validators[p.csReactor.curCommitteeIndex].NetAddr
 	payload := map[string]interface{}{
@@ -191,6 +190,7 @@ func (p *Pacemaker) broadcastMsg(round uint64, msgType byte, qc *QuorumCert, b *
 	p.csReactor.logger.Info("Beoadcasted message", "message", m.String())
 	return nil
 }
+*/
 
 // find out b b' b"
 func (p *Pacemaker) AddressBlock(height uint64, round uint64) *pmBlock {
@@ -204,8 +204,6 @@ func (p *Pacemaker) AddressBlock(height uint64, round uint64) *pmBlock {
 }
 
 func (p *Pacemaker) Receive(m ConsensusMessage) error {
-
-	p.csReactor.logger.Info("Receives a pacemaker message", "message", getConcreteName(m))
 	// receives proposal message, block is new one. parent is one of (b,b',b")
 	switch m.(type) {
 	case *PMProposalMessage:
@@ -281,7 +279,6 @@ func (p *Pacemaker) Receive(m ConsensusMessage) error {
 }
 
 func (p *Pacemaker) receivePacemakerMsg(w http.ResponseWriter, r *http.Request) {
-
 	defer r.Body.Close()
 	var params map[string]string
 	if err := json.NewDecoder(r.Body).Decode(&params); err != nil {
@@ -290,16 +287,16 @@ func (p *Pacemaker) receivePacemakerMsg(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	peerIP := net.ParseIP(params["peer_ip"])
+	respondWithJson(w, http.StatusOK, map[string]string{"result": "success"})
 
 	msgByteSlice, _ := hex.DecodeString(params["message"])
 	msg, err := decodeMsg(msgByteSlice)
 	if err != nil {
-		p.csReactor.logger.Error("message decode error", err)
+		p.csReactor.logger.Error("message decode error", "err", err)
 		panic("message decode error")
 	} else {
-		p.csReactor.logger.Info("receive pacemaker msg from", "IP", peerIP, "msgType", getConcreteName(msg))
+		p.logger.Info("Receive pacemaker msg", "from", peerIP, "type", getConcreteName(msg))
 		p.Receive(msg)
 	}
-	respondWithJson(w, http.StatusOK, map[string]string{"result": "success"})
 
 }
