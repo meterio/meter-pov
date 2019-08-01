@@ -1488,25 +1488,20 @@ func (conR *ConsensusReactor) ConsensusHandleReceivedNonce(kBlockHeight int64, n
 		// wait 30 seconds for synchronization
 		time.Sleep(5 * WHOLE_NETWORK_BLOCK_SYNC_TIME)
 		// time.Sleep(1 * WHOLE_NETWORK_BLOCK_SYNC_TIME)
-		/****
 		if replay {
 			conR.ScheduleReplayLeader(0)
 		} else {
 			conR.ScheduleLeader(0)
 		}
-		****/
 	} else if role == CONSENSUS_COMMIT_ROLE_VALIDATOR {
 		conR.logger.Info("I am committee validator for nonce!", "nonce", nonce)
-		/****
 		if replay {
 			conR.ScheduleReplayValidator(0)
 		} else {
 			conR.ScheduleValidator(0)
 		}
-		****/
 		// send future leader of next round message.
-		// conR.csValidator = NewConsensusValidator(conR)
-		conR.csValidator.sendNewRoundMessage()
+		//conR.csValidator.sendNewRoundMessage()
 	}
 }
 
