@@ -487,7 +487,7 @@ func (m *PMProposalMessage) SigningHash() (hash meter.Bytes32) {
 
 // String returns a string representation.
 func (m *PMProposalMessage) String() string {
-	return fmt.Sprintf("[ProposalBlockMessage H:%v R:%v S:%v Type:%v]",
+	return fmt.Sprintf("[PMProposalBlockMessage H:%v R:%v S:%v Type:%v]",
 		m.CSMsgCommonHeader.Height, m.CSMsgCommonHeader.Round,
 		m.CSMsgCommonHeader.Sender, m.CSMsgCommonHeader.MsgType)
 }
@@ -527,7 +527,7 @@ func (m *PMVoteForProposalMessage) SigningHash() (hash meter.Bytes32) {
 
 // String returns a string representation.
 func (m *PMVoteForProposalMessage) String() string {
-	return fmt.Sprintf("[VoteForProposalMessage H:%v R:%v S:%v Type:%v]",
+	return fmt.Sprintf("[PMVoteForProposalMessage H:%v R:%v S:%v Type:%v]",
 		m.CSMsgCommonHeader.Height, m.CSMsgCommonHeader.Round,
 		m.CSMsgCommonHeader.Sender, m.CSMsgCommonHeader.MsgType)
 }
@@ -569,7 +569,7 @@ func (m *PMNewViewMessage) SigningHash() (hash meter.Bytes32) {
 
 // String returns a string representation.
 func (m *PMNewViewMessage) String() string {
-	return fmt.Sprintf("[MoveNewRoundMessage H:%v R:%v S:%v Type:%v, QCHeight:%d, QCRound:%d]",
+	return fmt.Sprintf("[PMNewViewMessage H:%v R:%v S:%v Type:%v, QCHeight:%d, QCRound:%d]",
 		m.CSMsgCommonHeader.Height, m.CSMsgCommonHeader.Round,
 		m.CSMsgCommonHeader.Sender, m.CSMsgCommonHeader.MsgType, m.QCHeight, m.QCRound)
 }
