@@ -10,6 +10,7 @@ package consensus
 
 import (
 	//    "errors"
+	"bytes"
 	"fmt"
 	"time"
 
@@ -39,6 +40,14 @@ type ConsensusLeader struct {
 	csReactor *ConsensusReactor //global reactor info
 
 	//signature data
+	newRoundVoterBitArray *cmn.BitArray
+	newRoundVoterIndexs   []int
+	newRoundVoterSig      []bls.Signature
+	newRoundVoterPubKey   []bls.PublicKey
+	newRoundVoterMsgHash  [][32]byte
+	newRoundVoterAggSig   bls.Signature
+	newRoundVoterNum      int
+
 	announceVoterBitArray *cmn.BitArray
 	announceVoterIndexs   []int
 	announceVoterSig      []bls.Signature
@@ -512,4 +521,134 @@ func (cl *ConsensusLeader) checkHeightAndRound(ch ConsensusMsgCommonHeader) bool
 		return false
 	}
 	return true
+}
+
+// next round process the MoveNewRoundMessage
+// once reach 2/3 send aout annouce message
+func (cl *ConsensusLeader) ProcessMoveNewRoundMessage(newRoundMsg *MoveNewRoundMessage, src *ConsensusPeer) bool {
+	// only process this message at the state of commitsent
+	/****
+	if cl.state != COMMITTEE_VALIDATOR_COMMITSENT {
+		cl.csReactor.logger.Error("only process Notary in state", "expected", "COMMITTEE_VALIDATOR_COMMITSENT", "actual",
+			cv.state)
+		return false
+	}
+	****/
+
+	ch := newRoundMsg.CSMsgCommonHeader
+
+	if cl.csReactor.ValidateCMheaderSig(&ch, newRoundMsg.SigningHash().Bytes()) == false {
+		cl.csReactor.logger.Error("Signature validate failed")
+		return false
+	}
+
+	chainCurHeight := int64(cl.csReactor.chain.BestBlock().Header().Number())
+	cl.csReactor.logger.Debug("ProcessMoveNewRound", "Chain curHeight", chainCurHeight, "Reactor curHeight", cl.csReactor.curHeight)
+	if ch.Height != cl.csReactor.curHeight {
+		cl.csReactor.logger.Error("Height mismatch!", "curHeight", cl.csReactor.curHeight, "incomingHeight", ch.Height)
+		return false
+	}
+
+	if ch.Round != 0 && ch.Round != cl.csReactor.curRound {
+		cl.csReactor.logger.Error("Round mismatch!", "curRound", cl.csReactor.curRound, "incomingRound", ch.Round)
+
+		// since the height is the same, it is possible we missed some rounds, pace the round!
+		if ch.Round > cl.csReactor.curRound {
+			cl.csReactor.curRound = ch.Round
+		} else {
+			return false
+		}
+	}
+
+	if ch.MsgType != CONSENSUS_MSG_MOVE_NEW_ROUND {
+		cl.csReactor.logger.Error("MsgType is not CONSENSUS_MSG_MOVE_NEW_ROUND")
+		return false
+	}
+
+	// TBD: sender must be current proposer or leader
+	/****
+	if ch.Sender != newRoundMsg.CurProposer {
+		cv.csReactor.logger.Error("Proposal sender and proposalID mismatch")
+		return false
+	}
+	***/
+
+	if cl.csReactor.curRound != newRoundMsg.CurRound {
+		cl.csReactor.logger.Error("curRound mismatch!", "curRound", cl.csReactor.curRound, "newRoundMsg.CurRound", newRoundMsg.CurRound)
+		return false
+	}
+
+	if cl.csReactor.curHeight != newRoundMsg.Height {
+		cl.csReactor.logger.Error("curHeight mismatch!", "curHeight", cl.csReactor.curHeight, "newRoundMsg.CurHeight", newRoundMsg.Height)
+		return false
+	}
+
+	//HACK for test: Right now the ActualCommittee is empty.
+
+	// Now validate current proposer and new proposer
+	curProposer := cl.csReactor.getCurrentProposer()
+	if bytes.Equal(crypto.FromECDSAPub(&curProposer.PubKey), newRoundMsg.CurProposer) == false {
+		cl.csReactor.logger.Error("curProposer mismacth!")
+		return false
+	}
+
+	newProposer := cl.csReactor.getRoundProposer(newRoundMsg.NewRound)
+	if bytes.Equal(crypto.FromECDSAPub(&newProposer.PubKey), newRoundMsg.NewProposer) == false {
+		cl.csReactor.logger.Error("newProposer mismacth!")
+		return false
+	}
+
+	//so far so good
+	// 1. validate signature
+	myPubKey := cl.csReactor.myPubKey
+	signMsg := cl.csReactor.BuildNewRoundSignMsg(myPubKey, cl.EpochID, uint64(ch.Height), uint32(0) /*TBD timeout*/)
+	cl.csReactor.logger.Debug("Sign message", "msg", signMsg)
+
+	// validate the message hash
+	msgHash := cl.csReactor.csCommon.Hash256Msg([]byte(signMsg), uint32(MSG_SIGN_OFFSET_DEFAULT), uint32(MSG_SIGN_LENGTH_DEFAULT))
+	if msgHash != newRoundMsg.SignedMessageHash {
+		cl.csReactor.logger.Error("msgHash mismatch ...")
+		return false
+	}
+
+	sig, err := cl.csReactor.csCommon.system.SigFromBytes(newRoundMsg.ValidatorSignature)
+	if err != nil {
+		cl.csReactor.logger.Error("get signature failed ...")
+		return false
+	}
+
+	pubKey, err := cl.csReactor.csCommon.system.PubKeyFromBytes(newRoundMsg.ValidatorPubkey)
+	if err != nil {
+		cl.csReactor.logger.Error("get PubKey failed ...")
+		return false
+	}
+
+	valid := bls.Verify(sig, msgHash, pubKey)
+	if valid == false {
+		cl.csReactor.logger.Error("validate voter signature failed")
+		if cl.csReactor.config.SkipSignatureCheck == true {
+			cl.csReactor.logger.Error("but SkipSignatureCheck is true, continue ...")
+		} else {
+			return false
+		}
+	}
+
+	// 2. add src to bitArray.
+	cl.newRoundVoterNum++
+	cl.newRoundVoterIndexs = append(cl.newRoundVoterIndexs, newRoundMsg.ValidatorIndex)
+	cl.newRoundVoterSig = append(cl.newRoundVoterSig, sig)
+	cl.newRoundVoterPubKey = append(cl.newRoundVoterPubKey, pubKey)
+	cl.newRoundVoterMsgHash = append(cl.newRoundVoterMsgHash, msgHash)
+
+	// 3. if the totoal vote > 2/3, move to Commit state
+	if MajorityTwoThird(cl.newRoundVoterNum, cl.csReactor.committeeSize) {
+		cl.csReactor.ScheduleLeader(0)
+		return true
+
+	} else {
+		// not reach 2/3 yet, wait for more
+		cl.csReactor.logger.Debug("Vote for NotaryAnnounce processed (2/3 not reached yet, wait for more)")
+		return true
+	}
+
 }

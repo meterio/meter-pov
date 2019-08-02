@@ -66,7 +66,8 @@ func (cmh *ConsensusMsgCommonHeader) SetMsgSignature(sig []byte) error {
 // Message Definitions
 //---------------------------------------
 // AnnounceCommitteeMessage is sent when new committee is relayed. The leader of new committee
-// send out to announce the new committee is setup.
+// send out to announce the new committee is setup, after collects the majority signature from
+// new committee members.
 type AnnounceCommitteeMessage struct {
 	CSMsgCommonHeader ConsensusMsgCommonHeader
 
@@ -83,6 +84,11 @@ type AnnounceCommitteeMessage struct {
 	SignOffset uint
 	SignLength uint
 	//possible POW info
+	VoterBitArray *cmn.BitArray
+	VoterSig      [][]byte
+	VoterPubKey   [][]byte //slice of bls.PublicKey
+	VoterMsgHash  [][32]byte
+	VoterAggSig   []byte
 	//...
 }
 
@@ -108,6 +114,11 @@ func (m *AnnounceCommitteeMessage) SigningHash() (hash meter.Bytes32) {
 		m.POWBlockHeight,
 		m.SignOffset,
 		m.SignLength,
+		m.VoterBitArray,
+		m.VoterSig,
+		m.VoterPubKey,
+		m.VoterMsgHash,
+		m.VoterAggSig,
 	})
 	hw.Sum(hash[:0])
 	return

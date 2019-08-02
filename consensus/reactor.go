@@ -1285,6 +1285,23 @@ func (conR *ConsensusReactor) BuildNotaryBlockSignMsg(pubKey ecdsa.PublicKey, bl
 		"Round", hex.EncodeToString(r))
 }
 
+// Sign newRound
+// "NewRound Message: Validator <pubkey 64(32x2)> EpochID <16(8x2) bytes> Height <16 (8x2) bytes> Counter <8 (4x2) bytes>
+func (conR *ConsensusReactor) BuildNewRoundSignMsg(pubKey ecdsa.PublicKey, epochID uint64, height uint64, counter uint32) string {
+	e := make([]byte, binary.MaxVarintLen64)
+	binary.BigEndian.PutUint64(e, epochID)
+
+	h := make([]byte, binary.MaxVarintLen64)
+	binary.BigEndian.PutUint64(h, height)
+
+	c := make([]byte, binary.MaxVarintLen32)
+	binary.BigEndian.PutUint32(c, counter)
+
+	return fmt.Sprintf("%s %s %s %s %s %s %s %s", "NewRound Message: Validator", hex.EncodeToString(crypto.FromECDSAPub(&pubKey)),
+		"EpochID", hex.EncodeToString(e), "Height", hex.EncodeToString(h),
+		"Counter", hex.EncodeToString(c))
+}
+
 // Sign Timeout
 // "Timeout Message: Proposer <pubkey 64(32x2)> TimeoutRound <16(8x2) bytes> TimeoutHeight <16 (8x2) bytes> TimeoutCounter <8 (4x2) bytes>
 func (conR *ConsensusReactor) BuildTimeoutSignMsg(pubKey ecdsa.PublicKey, round uint64, height uint64, counter uint32) string {
