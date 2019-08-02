@@ -18,11 +18,10 @@ func (p *Pacemaker) SendConsensusMessage(round uint64, msg ConsensusMessage) boo
 	case *PMProposalMessage:
 		peers, _ = p.csReactor.GetMyPeers()
 	case *PMVoteForProposalMessage:
-		proposer := p.getProposerByRound(p.csReactor.curRound)
+		proposer := p.getProposerByRound(int(round))
 		peers = []*ConsensusPeer{proposer}
 	case *PMNewViewMessage:
-		nxtRound := 1
-		nxtProposer := p.getProposerByRound(nxtRound)
+		nxtProposer := p.getProposerByRound(int(round))
 		peers = []*ConsensusPeer{nxtProposer}
 	}
 
