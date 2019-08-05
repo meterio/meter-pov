@@ -195,7 +195,7 @@ func (p *Pacemaker) broadcastMsg(round uint64, msgType byte, qc *QuorumCert, b *
 // find out b b' b"
 func (p *Pacemaker) AddressBlock(height uint64, round uint64) *pmBlock {
 	if (p.proposalMap[height] != nil) && (p.proposalMap[height].Height == height) && (p.proposalMap[height].Round == round) {
-		p.csReactor.logger.Info("addressed block", "height", height, "round", round)
+		// p.csReactor.logger.Debug("Addressed block", "height", height, "round", round)
 		return p.proposalMap[height]
 	}
 
@@ -213,12 +213,14 @@ func (p *Pacemaker) Receive(m ConsensusMessage) error {
 		msgHeader := proposalMsg.CSMsgCommonHeader
 		// blockHeader := blk.Header()
 		// parentID := h.ParentID()
-		parent := p.AddressBlock(0, 0) // FIXME: convert parentID to height/round
+		parent := p.AddressBlock(proposalMsg.ParentHeight, proposalMsg.ParentRound)
+		p.logger.Info("Parent: ", "height", parent.Height, "round", parent.Round)
 		if parent == nil {
 			return errors.New("can not address parent")
 		}
 
 		qcNode := p.AddressBlock(qc.QCHeight, qc.QCRound)
+		p.logger.Info("QC: ", "height", qcNode.Height, "round", qcNode.Round)
 		if qcNode == nil {
 			return errors.New("can not address qcNode")
 		}
@@ -295,7 +297,12 @@ func (p *Pacemaker) receivePacemakerMsg(w http.ResponseWriter, r *http.Request) 
 		p.csReactor.logger.Error("message decode error", "err", err)
 		panic("message decode error")
 	} else {
-		p.logger.Info("Receive pacemaker msg", "from", peerIP, "type", getConcreteName(msg))
+		typeName := getConcreteName(msg)
+		if peerIP.String() == p.csReactor.GetMyNetAddr().IP.String() {
+			p.logger.Info("Received pacemaker msg from myself", "type", typeName, "from", peerIP.String())
+		} else {
+			p.logger.Info("Received pacemaker msg from peer", "type", typeName, "from", peerIP.String())
+		}
 		p.Receive(msg)
 	}
 

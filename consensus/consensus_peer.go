@@ -48,14 +48,14 @@ func (peer *ConsensusPeer) sendData(srcNetAddr types.NetAddress, typeName string
 		Timeout: time.Second * 2,
 	}
 	url := "http://" + peer.netAddr.IP.String() + ":8670/peer"
-	peer.logger.Debug("Send", "data", string(jsonStr), "to", url)
+	// peer.logger.Debug("Send", "data", string(jsonStr), "to", url)
 	_, err = netClient.Post(url, "application/json", bytes.NewBuffer(jsonStr))
 	if err != nil {
 		peer.logger.Error("Failed to send message to peer", "peer", peer.String(), "err", err)
 		return err
 	}
 	// TODO: check response to verify this action
-	peer.logger.Info("Sent consensus message to peer", "type", typeName, "size", len(rawMsg))
+	// peer.logger.Info("Sent consensus message to peer", "type", typeName, "size", len(rawMsg))
 	return nil
 
 }

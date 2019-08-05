@@ -245,7 +245,7 @@ func (p *Pacemaker) OnReceiveProposal(proposalMsg *PMProposalMessage) error {
 		msg, _ := p.BuildVoteForProposalMessage(proposalMsg)
 		// send vote message to leader
 		// p.sendMsg(bnew.Round, PACEMAKER_MSG_VOTE, genericQC, bnew)
-		p.SendConsensusMessage(uint64(proposalMsg.CSMsgCommonHeader.Round), msg)
+		p.SendConsensusMessage(uint64(proposalMsg.CSMsgCommonHeader.Round), msg, false)
 
 		/***********
 		// start the round timer
@@ -296,17 +296,17 @@ func (p *Pacemaker) OnReceiveVote(b *pmBlock) error {
 func (p *Pacemaker) OnPropose(b *pmBlock, qc *QuorumCert, height uint64, round uint64) *pmBlock {
 	bnew := p.CreateLeaf(b, qc, height, round)
 
-	msg, err := p.BuildProposalMessage(height, round, &bnew.ProposedBlockInfo, bnew.ProposedBlock)
+	msg, err := p.BuildProposalMessage(height, round, b)
 	if err != nil {
 		p.logger.Error("could not build proposal message", "err", err)
 	}
 
 	// create slot in proposalMap directly, instead of sendmsg to self.
-	p.sigCounter[bnew.Round]++
-	p.proposalMap[height] = bnew
+	// p.sigCounter[bnew.Round]++
+	// p.proposalMap[height] = bnew
 
 	//send proposal to all include myself
-	p.SendConsensusMessage(round, msg)
+	p.SendConsensusMessage(round, msg, true)
 	// p.broadcastMsg(round, PACEMAKER_MSG_PROPOSAL, genericQC, bnew)
 
 	return bnew
@@ -351,7 +351,7 @@ func (p *Pacemaker) OnNextSyncView(nextRound uint64) error {
 	if err != nil {
 		p.logger.Error("could not build new view message", "err", err)
 	}
-	p.SendConsensusMessage(nextRound, msg)
+	p.SendConsensusMessage(nextRound, msg, false)
 
 	return nil
 }
