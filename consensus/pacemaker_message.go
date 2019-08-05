@@ -39,8 +39,11 @@ func (p *Pacemaker) proposeBlock(height, round uint64, allowEmptyBlock bool) (*P
 	return blkInfo, blockBytes
 }
 
-func (p *Pacemaker) BuildProposalMessage(height, round uint64, info *ProposedBlockInfo, blockBytes []byte) (*PMProposalMessage, error) {
+func (p *Pacemaker) BuildProposalMessage(height, round uint64, bnew *pmBlock) (*PMProposalMessage, error) {
 	var msgSubType byte
+	info := bnew.ProposedBlockInfo
+	blockBytes := bnew.ProposedBlock
+
 	if info.BlockType == KBlockType {
 		msgSubType = PROPOSE_MSG_SUBTYPE_KBLOCK
 	} else {
@@ -57,9 +60,17 @@ func (p *Pacemaker) BuildProposalMessage(height, round uint64, info *ProposedBlo
 		// TODO: set epochID EpochID:    p.EpochID,
 	}
 
+	parentHeight := uint64(0)
+	parentRound := uint64(0)
+	if bnew.Parent != nil {
+		parentHeight = bnew.Parent.Height
+		parentRound = bnew.Parent.Round
+	}
 	msg := &PMProposalMessage{
 		CSMsgCommonHeader: cmnHdr,
 
+		ParentHeight:     parentHeight,
+		ParentRound:      parentRound,
 		ProposerID:       crypto.FromECDSAPub(&p.csReactor.myPubKey),
 		CSProposerPubKey: p.csReactor.csCommon.system.PubKeyToBytes(p.csReactor.csCommon.PubKey),
 		KBlockHeight:     int64(p.csReactor.lastKBlockHeight),

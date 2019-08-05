@@ -452,6 +452,8 @@ func (m *MoveNewRoundMessage) String() string {
 type PMProposalMessage struct {
 	CSMsgCommonHeader ConsensusMsgCommonHeader
 
+	ParentHeight     uint64
+	ParentRound      uint64
 	ProposerID       []byte //ecdsa.PublicKey
 	CSProposerPubKey []byte //bls.PublicKey
 	KBlockHeight     int64
