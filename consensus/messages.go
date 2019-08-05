@@ -452,8 +452,11 @@ func (m *MoveNewRoundMessage) String() string {
 type PMProposalMessage struct {
 	CSMsgCommonHeader ConsensusMsgCommonHeader
 
-	ParentHeight     uint64
-	ParentRound      uint64
+	ParentHeight uint64
+	ParentRound  uint64
+	QCHeight     uint64
+	QCRound      uint64
+
 	ProposerID       []byte //ecdsa.PublicKey
 	CSProposerPubKey []byte //bls.PublicKey
 	KBlockHeight     int64
@@ -475,6 +478,11 @@ func (m *PMProposalMessage) SigningHash() (hash meter.Bytes32) {
 		m.CSMsgCommonHeader.MsgSubType,
 		m.CSMsgCommonHeader.Signature,
 
+		m.ParentHeight,
+		m.ParentRound,
+		m.QCHeight,
+		m.QCRound,
+
 		m.ProposerID,
 		m.CSProposerPubKey,
 		m.KBlockHeight,
@@ -489,8 +497,10 @@ func (m *PMProposalMessage) SigningHash() (hash meter.Bytes32) {
 
 // String returns a string representation.
 func (m *PMProposalMessage) String() string {
-	return fmt.Sprintf("[PMProposalBlockMessage H:%v R:%v S:%v Type:%v]",
+	return fmt.Sprintf("[PMProposalBlockMessage H:%v, R:%v, ParentHeight: %v, ParentRound: %v, QCHeight: %v, QCRound: %v, S:%v, Type:%v]",
 		m.CSMsgCommonHeader.Height, m.CSMsgCommonHeader.Round,
+		m.ParentHeight, m.ParentRound,
+		m.QCHeight, m.QCRound,
 		m.CSMsgCommonHeader.Sender, m.CSMsgCommonHeader.MsgType)
 }
 
