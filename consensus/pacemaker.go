@@ -80,6 +80,14 @@ func (p *Pacemaker) EncodeQCToBytes(qc *QuorumCert) []byte {
 	return blockQC.ToBytes()
 }
 
+func (qc *QuorumCert) ToString() string {
+	if qc.QCNode != nil {
+		return fmt.Sprintf("QuorumCert(QCHeight: %v, QCRound: %v, qcNodeHeight: %v, qcNodeRound: %v)", qc.QCHeight, qc.QCRound, qc.QCNode.Height, qc.QCNode.Round)
+	} else {
+		return fmt.Sprintf("QuorumCert(QCHeight: %v, QCRound: %v, qcNode: nil)", qc.QCHeight, qc.QCRound)
+	}
+}
+
 type pmBlock struct {
 	Height uint64
 	Round  uint64
@@ -97,6 +105,10 @@ type pmBlock struct {
 	ProposedBlockInfo ProposedBlockInfo //data structure
 	ProposedBlock     []byte            // byte slice block
 	ProposedBlockType BlockType
+}
+
+func (pb *pmBlock) ToString() string {
+	return fmt.Sprintf("PMBlock(Height: %v, Round: %v, QCHeight: %v, QCRound: %v)", pb.Height, pb.Round, pb.Justify.QCHeight, pb.Justify.QCRound)
 }
 
 type Pacemaker struct {
@@ -170,9 +182,16 @@ func (p *Pacemaker) Update(bnew *pmBlock) error {
 	p.blockPrimePrime = bnew.Justify.QCNode
 	p.blockPrime = p.blockPrimePrime.Justify.QCNode
 	if p.blockPrime == nil {
+		p.logger.Warn("blockPrime is empty, set it to b0")
+		p.blockPrime = &b0
 		return nil
 	}
 	p.block = p.blockPrime.Justify.QCNode
+
+	p.logger.Debug("B New", "pmblock", bnew.ToString())
+	p.logger.Debug("B Prime Prime", "pmblock", p.blockPrimePrime.ToString())
+	p.logger.Debug("B Prime", "pmblock", p.blockPrime.ToString())
+	p.logger.Debug("B", "pmblock", p.block.ToString())
 
 	// pre-commit phase on b"
 	p.UpdateQCHigh(bnew.Justify)
@@ -288,7 +307,7 @@ func (p *Pacemaker) OnReceiveVote(b *pmBlock) error {
 		QCRound:  b.Round,
 		QCNode:   b,
 	}
-	p.OnRecieveNewView(qc)
+	p.OnReceiveNewView(qc)
 
 	return nil
 }
@@ -296,7 +315,7 @@ func (p *Pacemaker) OnReceiveVote(b *pmBlock) error {
 func (p *Pacemaker) OnPropose(b *pmBlock, qc *QuorumCert, height uint64, round uint64) *pmBlock {
 	bnew := p.CreateLeaf(b, qc, height, round)
 
-	msg, err := p.BuildProposalMessage(height, round, b)
+	msg, err := p.BuildProposalMessage(height, round, bnew)
 	if err != nil {
 		p.logger.Error("could not build proposal message", "err", err)
 	}
@@ -321,11 +340,13 @@ func (p *Pacemaker) GetProposer(height int64, round int) {
 
 func (p *Pacemaker) UpdateQCHigh(qc *QuorumCert) bool {
 	updated := false
+	p.logger.Debug("Current QCHigh", "qc", p.QCHigh.ToString())
 	if qc.QCHeight > p.QCHigh.QCHeight {
 		p.QCHigh = qc
 		p.blockLeaf = p.QCHigh.QCNode
 		updated = true
 	}
+	p.logger.Debug("After update QCHigh", "qc", p.QCHigh.ToString())
 
 	return updated
 }
@@ -333,21 +354,22 @@ func (p *Pacemaker) UpdateQCHigh(qc *QuorumCert) bool {
 func (p *Pacemaker) OnBeat(height uint64, round uint64) {
 
 	if p.csReactor.amIRoundProproser(round) {
-		p.csReactor.logger.Info("OnBeat: I am round proposer", "round=", round)
+		p.csReactor.logger.Info("OnBeat: I am round proposer", "round", round)
+		p.logger.Info("p.blockLeaf", "pmblock", p.blockLeaf.ToString())
 		bleaf := p.OnPropose(p.blockLeaf, p.QCHigh, height, round)
 		if bleaf == nil {
 			panic("Propose failed")
 		}
 		p.blockLeaf = bleaf
 	} else {
-		p.csReactor.logger.Info("OnBeat: I am NOT round proposer", "round=", round)
+		p.csReactor.logger.Info("OnBeat: I am NOT round proposer", "round", round)
 	}
 }
 
-func (p *Pacemaker) OnNextSyncView(nextRound uint64) error {
+func (p *Pacemaker) OnNextSyncView(nextHeight, nextRound uint64) error {
 	// send new round msg to next round proposer
 	// p.sendMsg(nextRound, PACEMAKER_MSG_NEWVIEW, p.QCHigh, nil)
-	msg, err := p.BuildNewViewMessage(p.QCHigh)
+	msg, err := p.BuildNewViewMessage(nextHeight, nextRound, p.QCHigh)
 	if err != nil {
 		p.logger.Error("could not build new view message", "err", err)
 	}
@@ -356,18 +378,18 @@ func (p *Pacemaker) OnNextSyncView(nextRound uint64) error {
 	return nil
 }
 
-func (p *Pacemaker) OnRecieveNewView(qc *QuorumCert) error {
+func (p *Pacemaker) OnReceiveNewView(qc *QuorumCert) error {
 	changed := p.UpdateQCHigh(qc)
 
 	if changed == true {
 		if qc.QCHeight > p.blockLocked.Height {
 			if p.csReactor.amIRoundProproser(qc.QCRound+1) == true {
 				time.AfterFunc(1*time.Second, func() {
-					p.csReactor.schedulerQueue <- func() { p.OnBeat(qc.QCHeight+1, qc.QCRound+1) }
+					p.OnBeat(qc.QCHeight+1, qc.QCRound+1)
 				})
 			} else {
 				time.AfterFunc(1*time.Second, func() {
-					p.OnNextSyncView(qc.QCRound + 1)
+					p.OnNextSyncView(qc.QCHeight+1, qc.QCRound+1)
 				})
 			}
 		}
@@ -380,7 +402,7 @@ func (p *Pacemaker) OnRecieveNewView(qc *QuorumCert) error {
 // assume saveLastKblockQC is already stored
 //Committee Leader triggers
 func (p *Pacemaker) Start(height uint64) {
-	p.logger.Debug("Pacemaker start", "height", height)
+	p.logger.Info("\n----------------------------------------\nPacemaker start at height " + string(height) + "\n---------------------------------------")
 	if height == 0 {
 		p.StartFromGenesis()
 	} else {
