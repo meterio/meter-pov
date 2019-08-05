@@ -66,11 +66,20 @@ func (p *Pacemaker) BuildProposalMessage(height, round uint64, bnew *pmBlock) (*
 		parentHeight = bnew.Parent.Height
 		parentRound = bnew.Parent.Round
 	}
+	qcHeight := uint64(0)
+	qcRound := uint64(0)
+	if bnew.Justify != nil {
+		qcHeight = bnew.Justify.QCHeight
+		qcRound = bnew.Justify.QCRound
+	}
 	msg := &PMProposalMessage{
 		CSMsgCommonHeader: cmnHdr,
 
-		ParentHeight:     parentHeight,
-		ParentRound:      parentRound,
+		ParentHeight: parentHeight,
+		ParentRound:  parentRound,
+		QCHeight:     qcHeight,
+		QCRound:      qcRound,
+
 		ProposerID:       crypto.FromECDSAPub(&p.csReactor.myPubKey),
 		CSProposerPubKey: p.csReactor.csCommon.system.PubKeyToBytes(p.csReactor.csCommon.PubKey),
 		KBlockHeight:     int64(p.csReactor.lastKBlockHeight),
@@ -87,7 +96,7 @@ func (p *Pacemaker) BuildProposalMessage(height, round uint64, bnew *pmBlock) (*
 		return nil, err
 	}
 	msg.CSMsgCommonHeader.SetMsgSignature(msgSig)
-	p.logger.Debug("Built Proposal Message", "height", msg.CSMsgCommonHeader.Height, "timestamp", msg.CSMsgCommonHeader.Timestamp)
+	p.logger.Debug("Built Proposal Message", "height", msg.CSMsgCommonHeader.Height, "msg", msg.String(), "timestamp", msg.CSMsgCommonHeader.Timestamp)
 
 	return msg, nil
 }
@@ -139,14 +148,11 @@ func (p *Pacemaker) BuildVoteForProposalMessage(proposalMsg *PMProposalMessage) 
 }
 
 // BuildVoteForProposalMsg build VFP message for proposal
-func (p *Pacemaker) BuildNewViewMessage(qcHigh *QuorumCert) (*PMNewViewMessage, error) {
-
-	curHeight := p.csReactor.curHeight
-	curRound := p.csReactor.curRound
+func (p *Pacemaker) BuildNewViewMessage(nextHeight, nextRound uint64, qcHigh *QuorumCert) (*PMNewViewMessage, error) {
 
 	cmnHdr := ConsensusMsgCommonHeader{
-		Height:    curHeight,
-		Round:     curRound,
+		Height:    int64(nextHeight),
+		Round:     int(nextRound),
 		Sender:    crypto.FromECDSAPub(&p.csReactor.myPubKey),
 		Timestamp: time.Now(),
 		MsgType:   CONSENSUS_MSG_VOTE_FOR_PROPOSAL,

@@ -210,24 +210,27 @@ func (p *Pacemaker) Receive(m ConsensusMessage) error {
 		proposalMsg := m.(*PMProposalMessage)
 		blk, _ := block.BlockDecodeFromBytes(proposalMsg.ProposedBlock)
 		qc := blk.QC
+		// TODO: use height/round information directly from qc
+		qcHeight := proposalMsg.QCHeight
+		qcRound := proposalMsg.QCRound
 		msgHeader := proposalMsg.CSMsgCommonHeader
-		// blockHeader := blk.Header()
-		// parentID := h.ParentID()
+		p.logger.Info("Received Proposal ", "height", msgHeader.Height, "round", msgHeader.Round,
+			"parentHeight", proposalMsg.ParentHeight, "parentRound", proposalMsg.ParentRound,
+			"qcHeight", qcHeight, "qcRound", qcRound)
+
 		parent := p.AddressBlock(proposalMsg.ParentHeight, proposalMsg.ParentRound)
-		p.logger.Info("Parent: ", "height", parent.Height, "round", parent.Round)
 		if parent == nil {
 			return errors.New("can not address parent")
 		}
 
-		qcNode := p.AddressBlock(qc.QCHeight, qc.QCRound)
-		p.logger.Info("QC: ", "height", qcNode.Height, "round", qcNode.Round)
+		qcNode := p.AddressBlock(qcHeight, qcRound)
 		if qcNode == nil {
 			return errors.New("can not address qcNode")
 		}
 
 		justify := &QuorumCert{
-			QCHeight: qc.QCHeight,
-			QCRound:  qc.QCRound,
+			QCHeight: qcHeight,
+			QCRound:  qcRound,
 			QCNode:   qcNode,
 
 			VoterBitArray: &qc.VotingBitArray,
@@ -274,7 +277,7 @@ func (p *Pacemaker) Receive(m ConsensusMessage) error {
 			QCRound:  newViewMsg.QCRound,
 			QCNode:   qcNode,
 		}
-		return p.OnRecieveNewView(qc)
+		return p.OnReceiveNewView(qc)
 	default:
 		return errors.New("unknown pacemaker message type")
 	}
