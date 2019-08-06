@@ -16,12 +16,6 @@ import (
 const (
 	TIME_ROUND_INTVL_DEF = int(15)
 
-	// TODO: define message struct separately to include common head
-	//pacemake message type
-	PACEMAKER_MSG_PROPOSAL = byte(1)
-	PACEMAKER_MSG_VOTE     = byte(2)
-	PACEMAKER_MSG_NEWVIEW  = byte(3)
-
 	//round state machine
 	PACEMAKER_ROUND_STATE_INIT          = byte(1)
 	PACEMAKER_ROUND_STATE_PROPOSE_RCVD  = byte(2) // validator omly
@@ -29,6 +23,17 @@ const (
 	PACEMAKER_ROUND_STATE_MAJOR_REACHED = byte(4) // proposer only
 	PACEMAKER_ROUND_STATE_COMMITTED     = byte(5)
 	PACEMAKER_ROUND_STATE_DECIDED       = byte(6)
+)
+
+type PMRoundState byte
+
+const (
+	PMRoundStateInit                 PMRoundState = 1
+	PMRoundStateProposalRcvd         PMRoundState = 2
+	PMRoundStateProposalSent         PMRoundState = 3
+	PMRoundStateProposalMajorReached PMRoundState = 4
+	PMRoundStateProposalCommitted    PMRoundState = 4
+	PMRoundStateProposalDecided      PMRoundState = 4
 )
 
 var (
@@ -102,8 +107,9 @@ type pmBlock struct {
 	/****
 	ProposedBlockInfo ProposedBlockInfo //data structure
 	***/
-	ProposedBlockInfo ProposedBlockInfo //data structure
-	ProposedBlock     []byte            // byte slice block
+	// FIXME: validator could NOT get the full data for ProposedBlockInfo
+	ProposedBlockInfo *ProposedBlockInfo //data structure
+	ProposedBlock     []byte             // byte slice block
 	ProposedBlockType BlockType
 }
 
@@ -160,6 +166,7 @@ func NewPaceMaker(conR *ConsensusReactor) *Pacemaker {
 
 func (p *Pacemaker) CreateLeaf(parent *pmBlock, qc *QuorumCert, height uint64, round uint64) *pmBlock {
 	info, blockBytes := p.proposeBlock(height, round, true)
+	p.logger.Info("Proposed Block: ", "block", info.ProposedBlock.String())
 
 	b := &pmBlock{
 		Height:  height,
@@ -167,7 +174,7 @@ func (p *Pacemaker) CreateLeaf(parent *pmBlock, qc *QuorumCert, height uint64, r
 		Parent:  parent,
 		Justify: qc,
 
-		ProposedBlockInfo: *info,
+		ProposedBlockInfo: info,
 		ProposedBlock:     blockBytes,
 		ProposedBlockType: info.BlockType,
 	}
@@ -182,11 +189,16 @@ func (p *Pacemaker) Update(bnew *pmBlock) error {
 	p.blockPrimePrime = bnew.Justify.QCNode
 	p.blockPrime = p.blockPrimePrime.Justify.QCNode
 	if p.blockPrime == nil {
-		p.logger.Warn("blockPrime is empty, set it to b0")
+		p.logger.Warn("p.blockPrime is empty, set it to b0")
 		p.blockPrime = &b0
 		return nil
 	}
 	p.block = p.blockPrime.Justify.QCNode
+	if p.block == nil {
+		p.logger.Warn("p.block is empty, set it to b0")
+		p.block = &b0
+		return nil
+	}
 
 	p.logger.Debug("B New", "pmblock", bnew.ToString())
 	p.logger.Debug("B Prime Prime", "pmblock", p.blockPrimePrime.ToString())
@@ -225,10 +237,11 @@ func (p *Pacemaker) Execute(b *pmBlock) error {
 
 func (p *Pacemaker) OnCommit(commitReady []*pmBlock) error {
 	for _, b := range commitReady {
-		p.csReactor.logger.Info("Committed Block", "Height = ", b.Height, "round", b.Round)
+		p.csReactor.logger.Info("Commit block", "height", b.Height, "round", b.Round)
 
+		// FIXME: ProposedBlockInfo is incomplete due to serialization/deserialization
 		// commit the approved block
-		if p.csReactor.finalizeCommitBlock(&b.ProposedBlockInfo) == false {
+		if p.csReactor.finalizeCommitBlock(b.ProposedBlockInfo) == false {
 			p.csReactor.logger.Error("Commit block failed ...")
 
 			//revert to checkpoint
@@ -263,7 +276,6 @@ func (p *Pacemaker) OnReceiveProposal(proposalMsg *PMProposalMessage) error {
 
 		msg, _ := p.BuildVoteForProposalMessage(proposalMsg)
 		// send vote message to leader
-		// p.sendMsg(bnew.Round, PACEMAKER_MSG_VOTE, genericQC, bnew)
 		p.SendConsensusMessage(uint64(proposalMsg.CSMsgCommonHeader.Round), msg, false)
 
 		/***********
@@ -326,7 +338,6 @@ func (p *Pacemaker) OnPropose(b *pmBlock, qc *QuorumCert, height uint64, round u
 
 	//send proposal to all include myself
 	p.SendConsensusMessage(round, msg, true)
-	// p.broadcastMsg(round, PACEMAKER_MSG_PROPOSAL, genericQC, bnew)
 
 	return bnew
 }
@@ -368,7 +379,6 @@ func (p *Pacemaker) OnBeat(height uint64, round uint64) {
 
 func (p *Pacemaker) OnNextSyncView(nextHeight, nextRound uint64) error {
 	// send new round msg to next round proposer
-	// p.sendMsg(nextRound, PACEMAKER_MSG_NEWVIEW, p.QCHigh, nil)
 	msg, err := p.BuildNewViewMessage(nextHeight, nextRound, p.QCHigh)
 	if err != nil {
 		p.logger.Error("could not build new view message", "err", err)

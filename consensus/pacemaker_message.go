@@ -9,8 +9,6 @@ import (
 )
 
 func (p *Pacemaker) proposeBlock(height, round uint64, allowEmptyBlock bool) (*ProposedBlockInfo, []byte) {
-	//FIXME: use height and round information during pospose
-
 	// XXX: propose an empty block by default. Will add option --consensus.allow_empty_block = false
 	// force it to true at this time
 	allowEmptyBlock = true
@@ -41,9 +39,9 @@ func (p *Pacemaker) proposeBlock(height, round uint64, allowEmptyBlock bool) (*P
 
 func (p *Pacemaker) BuildProposalMessage(height, round uint64, bnew *pmBlock) (*PMProposalMessage, error) {
 	var msgSubType byte
-	info := bnew.ProposedBlockInfo
 	blockBytes := bnew.ProposedBlock
 
+	info := bnew.ProposedBlockInfo
 	if info.BlockType == KBlockType {
 		msgSubType = PROPOSE_MSG_SUBTYPE_KBLOCK
 	} else {
@@ -87,6 +85,8 @@ func (p *Pacemaker) BuildProposalMessage(height, round uint64, bnew *pmBlock) (*
 		SignLength:       MSG_SIGN_LENGTH_DEFAULT,
 		ProposedSize:     len(blockBytes),
 		ProposedBlock:    blockBytes,
+
+		ProposedBlockInfo: info,
 	}
 
 	// sign message

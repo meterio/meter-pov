@@ -680,6 +680,17 @@ type ProposedBlockInfo struct {
 	BlockType     BlockType
 }
 
+func (pb *ProposedBlockInfo) String() string {
+	if pb == nil {
+		return "ProposedBlockInfo(nil)"
+	}
+	if pb.ProposedBlock != nil {
+		return "ProposedBlockInfo[block: " + pb.ProposedBlock.String() + "]"
+	} else {
+		return "ProposedBlockInfo[block: nil]"
+	}
+}
+
 // Build MBlock
 func (conR *ConsensusReactor) BuildMBlock() *ProposedBlockInfo {
 	best := conR.chain.BestBlock()

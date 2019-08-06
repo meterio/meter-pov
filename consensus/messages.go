@@ -464,6 +464,8 @@ type PMProposalMessage struct {
 	SignLength       uint
 	ProposedSize     int
 	ProposedBlock    []byte
+
+	ProposedBlockInfo *ProposedBlockInfo
 }
 
 // SigningHash computes hash of all header fields excluding signature.
@@ -490,6 +492,8 @@ func (m *PMProposalMessage) SigningHash() (hash meter.Bytes32) {
 		m.SignLength,
 		m.ProposedSize,
 		m.ProposedBlock,
+
+		m.ProposedBlockInfo,
 	})
 	hw.Sum(hash[:0])
 	return

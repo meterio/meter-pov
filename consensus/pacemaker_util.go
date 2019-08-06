@@ -240,10 +240,12 @@ func (p *Pacemaker) Receive(m ConsensusMessage) error {
 		}
 
 		p.proposalMap[uint64(msgHeader.Height)] = &pmBlock{
-			Height:  uint64(msgHeader.Height),
-			Round:   uint64(msgHeader.Round),
-			Parent:  parent,
-			Justify: justify,
+			Height:            uint64(msgHeader.Height),
+			Round:             uint64(msgHeader.Round),
+			Parent:            parent,
+			Justify:           justify,
+			ProposedBlock:     proposalMsg.ProposedBlock,
+			ProposedBlockInfo: proposalMsg.ProposedBlockInfo,
 		}
 		return p.OnReceiveProposal(proposalMsg)
 	case *PMVoteForProposalMessage:
