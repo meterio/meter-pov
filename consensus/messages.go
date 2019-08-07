@@ -492,8 +492,6 @@ func (m *PMProposalMessage) SigningHash() (hash meter.Bytes32) {
 		m.SignLength,
 		m.ProposedSize,
 		m.ProposedBlock,
-
-		m.ProposedBlockInfo,
 	})
 	hw.Sum(hash[:0])
 	return
