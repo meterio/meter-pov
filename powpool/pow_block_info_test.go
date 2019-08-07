@@ -81,10 +81,10 @@ func TestNewBlockInfoFromPosBlock(t *testing.T) {
 	buf := bytes.NewBufferString("")
 	blk.EncodeRLP(buf)
 
-	info := NewPowBlockInfoFromPosKBlock(blk)
-	fmt.Println(info.Raw)
+	info := NewPowBlockInfoFromPosKBlock(&blk)
+	fmt.Println(info.PosRaw)
 
 	assert.Equal(t, powBlock.Header.PrevBlock.CloneBytes(), reverse(info.HashPrevBlock.Bytes()))
 	assert.Equal(t, powBlock.Header.MerkleRoot.CloneBytes(), reverse(info.HashMerkleRoot.Bytes()))
-	assert.Equal(t, len(info.Raw), len(buf.Bytes())+len(powBytes)+16)
+	assert.Equal(t, len(info.PosRaw), len(buf.Bytes())+len(powBytes)+16)
 }

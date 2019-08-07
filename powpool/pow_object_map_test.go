@@ -13,8 +13,8 @@ import (
 
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
 	"github.com/btcsuite/btcd/wire"
-	"github.com/stretchr/testify/assert"
 	"github.com/dfinlab/meter/meter"
+	"github.com/stretchr/testify/assert"
 )
 
 func newBlock(version int32, prevHash, merkleRoot string, nonce, nbits uint32) *wire.MsgBlock {
@@ -34,6 +34,7 @@ func TestPowObjMap(t *testing.T) {
 	var nbits, nonce1, nonce2, nonce3 uint32
 	version, nbits, nonce1, nonce2, nonce3 = 1, 10000, 1000, 2000, 3000
 
+	powKframeBlockVersion := 1
 	blk1 := newBlock(int32(powKframeBlockVersion), h0, merkle1, nbits, nonce1)
 	info1 := NewPowBlockInfoFromPowBlock(blk1)
 	h1 := info1.HashID().String()[2:]
