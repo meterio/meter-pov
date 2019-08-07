@@ -79,9 +79,9 @@ func (p *Pacemaker) EncodeQCToBytes(qc *QuorumCert) []byte {
 		//VotingBitArray: *qc.VoterBitArray,
 		VotingAggSig: qc.VoterAggSig,
 	}
-	if qc.VoterBitArray != nil {
-		blockQC.VotingBitArray = *qc.VoterBitArray
-	}
+	// if qc.VoterBitArray != nil {
+	// blockQC.VotingBitArray = *qc.VoterBitArray
+	// }
 	return blockQC.ToBytes()
 }
 
@@ -278,6 +278,7 @@ func (p *Pacemaker) OnReceiveProposal(proposalMsg *PMProposalMessage) error {
 
 		// stop previous round timer
 		//close(p.roundTimerStop)
+
 		if err := p.ValidateProposal(bnew); err != nil {
 			p.csReactor.logger.Error("Validate Proposal failed", "error", err)
 			return err
@@ -343,7 +344,7 @@ func (p *Pacemaker) OnPropose(b *pmBlock, qc *QuorumCert, height uint64, round u
 
 	// create slot in proposalMap directly, instead of sendmsg to self.
 	// p.sigCounter[bnew.Round]++
-	// p.proposalMap[height] = bnew
+	p.proposalMap[height] = bnew
 
 	//send proposal to all include myself
 	p.SendConsensusMessage(round, msg, true)
@@ -488,6 +489,14 @@ func (p *Pacemaker) Stop() {
 
 func (p *Pacemaker) ValidateProposal(b *pmBlock) error {
 
+	p.logger.Info("Validate Proposal", "height", b.Height, "hash")
+	if b.ProposedBlockInfo != nil {
+		// if this proposal is proposed by myself, don't execute it again
+		p.logger.Info("Proposed Block Info", "blockInfo", b.ProposedBlockInfo.String())
+		b.SuccessProcessed = true
+		return nil
+	}
+
 	blockBytes := b.ProposedBlock
 	blk, err := block.BlockDecodeFromBytes(blockBytes)
 	if err != nil {
@@ -508,7 +517,9 @@ func (p *Pacemaker) ValidateProposal(b *pmBlock) error {
 		ProposedBlock: blk,
 		Stage:         stage,
 		Receipts:      &receipts,
+		txsToRemoved:  func() bool { return true },
 	}
+	p.logger.Info("Proposed Block Info After Validate", "blockInfo", b.ProposedBlockInfo.String())
 
 	b.SuccessProcessed = true
 

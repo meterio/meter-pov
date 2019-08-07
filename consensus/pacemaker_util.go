@@ -233,19 +233,22 @@ func (p *Pacemaker) Receive(m ConsensusMessage) error {
 			QCRound:  qcRound,
 			QCNode:   qcNode,
 
-			VoterBitArray: &qc.VotingBitArray,
-			VoterSig:      qc.VotingSig,
-			VoterMsgHash:  qc.VotingMsgHash,
-			VoterAggSig:   qc.VotingAggSig,
+			// VoterBitArray: &qc.VotingBitArray,
+			VoterSig:     qc.VotingSig,
+			VoterMsgHash: qc.VotingMsgHash,
+			VoterAggSig:  qc.VotingAggSig,
 		}
-
+		pmb, proposedByMe := p.proposalMap[uint64(msgHeader.Height)]
 		p.proposalMap[uint64(msgHeader.Height)] = &pmBlock{
-			Height:            uint64(msgHeader.Height),
-			Round:             uint64(msgHeader.Round),
-			Parent:            parent,
-			Justify:           justify,
-			ProposedBlock:     proposalMsg.ProposedBlock,
-			ProposedBlockInfo: proposalMsg.ProposedBlockInfo,
+			Height:        uint64(msgHeader.Height),
+			Round:         uint64(msgHeader.Round),
+			Parent:        parent,
+			Justify:       justify,
+			ProposedBlock: proposalMsg.ProposedBlock,
+		}
+		if proposedByMe {
+			p.proposalMap[uint64(msgHeader.Height)].ProposedBlock = pmb.ProposedBlock
+			p.proposalMap[uint64(msgHeader.Height)].ProposedBlockInfo = pmb.ProposedBlockInfo
 		}
 		return p.OnReceiveProposal(proposalMsg)
 	case *PMVoteForProposalMessage:
