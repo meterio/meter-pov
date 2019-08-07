@@ -518,11 +518,14 @@ func (conR *ConsensusReactor) finalizeCommitBlock(blkInfo *ProposedBlockInfo) bo
 	stage := blkInfo.Stage
 	receipts := blkInfo.Receipts
 
-	height := int64(blk.Header().Number())
-	if (conR.curHeight + 1) != height {
-		conR.logger.Error(fmt.Sprintf("finalizeCommitBlock(%v): Invalid height. curHeight:%v / curRound: %v", height, conR.curHeight, conR.curRound))
-		return false
-	}
+	height := uint64(blk.Header().Number())
+
+	// TODO: temporary remove
+	// if conR.csPacemaker.blockLocked.Height != height+1 {
+	// conR.logger.Error(fmt.Sprintf("finalizeCommitBlock(H:%v): Invalid height. bLocked Height:%v, curRround: %v", height, conR.csPacemaker.blockLocked.Height, conR.curRound))
+	// return false
+	// }
+	fmt.Println("Trying to commit block at height", height, ":", blk.String())
 
 	// similar to node.processBlock
 	startTime := mclock.Now()
