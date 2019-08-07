@@ -41,8 +41,7 @@ func (p *Pacemaker) BuildProposalMessage(height, round uint64, bnew *pmBlock) (*
 	var msgSubType byte
 	blockBytes := bnew.ProposedBlock
 
-	info := bnew.ProposedBlockInfo
-	if info.BlockType == KBlockType {
+	if bnew.ProposedBlockType == KBlockType {
 		msgSubType = PROPOSE_MSG_SUBTYPE_KBLOCK
 	} else {
 		msgSubType = PROPOSE_MSG_SUBTYPE_MBLOCK
@@ -85,8 +84,6 @@ func (p *Pacemaker) BuildProposalMessage(height, round uint64, bnew *pmBlock) (*
 		SignLength:       MSG_SIGN_LENGTH_DEFAULT,
 		ProposedSize:     len(blockBytes),
 		ProposedBlock:    blockBytes,
-
-		ProposedBlockInfo: info,
 	}
 
 	// sign message

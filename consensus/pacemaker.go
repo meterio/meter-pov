@@ -104,13 +104,13 @@ type pmBlock struct {
 	Decided    bool
 	RoundState PMState
 
-	/****
-	ProposedBlockInfo ProposedBlockInfo //data structure
-	***/
-	// FIXME: validator could NOT get the full data for ProposedBlockInfo
-	ProposedBlockInfo *ProposedBlockInfo //data structure
-	ProposedBlock     []byte             // byte slice block
+	ProposedBlock     []byte // byte slice block
 	ProposedBlockType BlockType
+
+	// local derived data structure, re-exec all txs and get
+	// states. If states are match proposer, then vote, otherwise decline.
+	ProposedBlockInfo *ProposedBlockInfo
+	SuccessProcessed  bool
 }
 
 func (pb *pmBlock) ToString() string {
@@ -174,7 +174,8 @@ func (p *Pacemaker) CreateLeaf(parent *pmBlock, qc *QuorumCert, height uint64, r
 		Parent:  parent,
 		Justify: qc,
 
-		ProposedBlockInfo: info,
+		ProposedBlockInfo: info, //save to local
+		SuccessProcessed:  true,
 		ProposedBlock:     blockBytes,
 		ProposedBlockType: info.BlockType,
 	}
@@ -239,7 +240,11 @@ func (p *Pacemaker) OnCommit(commitReady []*pmBlock) error {
 	for _, b := range commitReady {
 		p.csReactor.logger.Info("Commit block", "height", b.Height, "round", b.Round)
 
-		// FIXME: ProposedBlockInfo is incomplete due to serialization/deserialization
+		// TBD: how to handle this case???
+		if b.SuccessProcessed == false {
+			p.csReactor.logger.Error("Process this propsoal failed, possible my states are wrong", "height", b.Height, "round", b.Round)
+			continue
+		}
 		// commit the approved block
 		if p.csReactor.finalizeCommitBlock(b.ProposedBlockInfo) == false {
 			p.csReactor.logger.Error("Commit block failed ...")
@@ -273,6 +278,10 @@ func (p *Pacemaker) OnReceiveProposal(proposalMsg *PMProposalMessage) error {
 
 		// stop previous round timer
 		//close(p.roundTimerStop)
+		if err := p.ValidateProposal(bnew); err != nil {
+			p.csReactor.logger.Error("Validate Proposal failed", "error", err)
+			return err
+		}
 
 		msg, _ := p.BuildVoteForProposalMessage(proposalMsg)
 		// send vote message to leader
@@ -475,4 +484,33 @@ func (p *Pacemaker) Stop() {
 	// backup last two QC
 	p.csReactor.SavedLastKblockQC = p.blockLocked.Justify
 
+}
+
+func (p *Pacemaker) ValidateProposal(b *pmBlock) error {
+
+	blockBytes := b.ProposedBlock
+	blk, err := block.BlockDecodeFromBytes(blockBytes)
+	if err != nil {
+		p.logger.Error("Decode block failed", "err", err)
+		return err
+	}
+
+	now := uint64(time.Now().Unix())
+	stage, receipts, err := p.csReactor.Process(blk, now)
+	if err != nil {
+		p.logger.Error("process block failed", "error", err)
+		b.SuccessProcessed = false
+		return err
+	}
+
+	b.ProposedBlockInfo = &ProposedBlockInfo{
+		BlockType:     b.ProposedBlockType,
+		ProposedBlock: blk,
+		Stage:         stage,
+		Receipts:      &receipts,
+	}
+
+	b.SuccessProcessed = true
+
+	return nil
 }
