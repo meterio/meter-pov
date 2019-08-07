@@ -57,10 +57,10 @@ type QuorumCert struct {
 	QCRound  uint64
 	EpochID  uint64
 
-	VotingSig      [][]byte   // [] of serialized bls signature
-	VotingMsgHash  [][32]byte // [][32]byte
-	VotingBitArray cmn.BitArray
-	VotingAggSig   []byte
+	VotingSig     [][]byte   // [] of serialized bls signature
+	VotingMsgHash [][32]byte // [][32]byte
+	// VotingBitArray cmn.BitArray
+	VotingAggSig []byte
 }
 
 func (qc *QuorumCert) ToBytes() []byte {
@@ -150,11 +150,7 @@ func (b *Block) EncodeRLP(w io.Writer) error {
 		b.Txs,
 		b.KBlockData,
 		b.CommitteeInfos,
-		b.QC.QCHeight,
-		b.QC.QCRound,
-		b.QC.VotingBitArray,
-		b.QC.VotingMsgHash,
-		b.QC.VotingSig,
+		b.QC,
 	})
 }
 
@@ -208,13 +204,14 @@ CommitteeInfo: %v
 //-----------------
 func (b *Block) SetBlockEvidence(ev *Evidence) *Block {
 	// FIXME: set QCHeight and QCRound, set voting msg hash, and votingSig
-	b.QC = QuorumCert{VotingBitArray: ev.VotingBitArray, VotingMsgHash: make([][32]byte, 0)}
+	// b.QC = QuorumCert{VotingBitArray: ev.VotingBitArray, VotingMsgHash: make([][32]byte, 0)}
 	return b
 }
 
 func (b *Block) GetBlockEvidence() *Evidence {
 	// FIXME: fill real evidence
-	return &Evidence{VotingBitArray: b.QC.VotingBitArray, VotingMsgHash: make([]byte, 0)}
+	// return &Evidence{VotingBitArray: b.QC.VotingBitArray, VotingMsgHash: make([]byte, 0)}
+	return nil
 }
 
 // Serialization for KBlockData and ComitteeInfo
@@ -272,9 +269,10 @@ func (b *Block) EvidenceDataHash() (hash meter.Bytes32) {
 	rlp.Encode(hw, []interface{}{
 		b.QC.QCHeight,
 		b.QC.QCRound,
-		b.QC.VotingBitArray,
+		// b.QC.VotingBitArray,
 		b.QC.VotingMsgHash,
 		b.QC.VotingSig,
+		b.QC.VotingAggSig,
 		b.CommitteeInfos,
 		b.KBlockData,
 	})

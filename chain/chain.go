@@ -7,15 +7,16 @@ package chain
 
 import (
 	"bytes"
+	"fmt"
 	"sync"
 
-	"github.com/ethereum/go-ethereum/rlp"
-	"github.com/pkg/errors"
 	"github.com/dfinlab/meter/block"
 	"github.com/dfinlab/meter/co"
 	"github.com/dfinlab/meter/kv"
 	"github.com/dfinlab/meter/meter"
 	"github.com/dfinlab/meter/tx"
+	"github.com/ethereum/go-ethereum/rlp"
+	"github.com/pkg/errors"
 )
 
 const (
@@ -153,6 +154,7 @@ func (c *Chain) AddBlock(newBlock *block.Block, receipts tx.Receipts) (*Fork, er
 
 	newBlockID := newBlock.Header().ID()
 
+	fmt.Println("New Block ID: ", newBlockID)
 	if _, err := c.getBlockHeader(newBlockID); err != nil {
 		if !c.IsNotFound(err) {
 			return nil, err
