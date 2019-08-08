@@ -1575,3 +1575,8 @@ func configDelegates( /*myPubKey ecdsa.PublicKey*/ ) []*types.Delegate {
 	}
 	return delegates
 }
+
+func (conR *ConsensusReactor) GetGenesisBlockBytes() []byte {
+	genesis := conR.chain.GenesisBlock()
+	return block.BlockEncodeBytes(genesis)
+}
