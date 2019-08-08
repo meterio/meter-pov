@@ -7,7 +7,6 @@ package chain
 
 import (
 	"bytes"
-	"fmt"
 	"sync"
 
 	"github.com/dfinlab/meter/block"
@@ -154,7 +153,6 @@ func (c *Chain) AddBlock(newBlock *block.Block, receipts tx.Receipts) (*Fork, er
 
 	newBlockID := newBlock.Header().ID()
 
-	fmt.Println("New Block ID: ", newBlockID)
 	if _, err := c.getBlockHeader(newBlockID); err != nil {
 		if !c.IsNotFound(err) {
 			return nil, err
