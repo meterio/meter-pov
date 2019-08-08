@@ -197,8 +197,13 @@ Block(%v){
 BlockHeader: %v,
 Transactions: %v,
 KBlockData: %v,
-CommitteeInfo: %v
-}`, b.Size(), b.BlockHeader, b.Txs, b.KBlockData, b.CommitteeInfos)
+CommitteeInfo: %v,
+QuorumCert: %v,
+}`, b.Size(), b.BlockHeader, b.Txs, b.KBlockData, b.CommitteeInfos, b.QC)
+}
+
+func (b *Block) CompactString() string {
+	return fmt.Sprintf("Block(%v) %v Parent:%v, Txs#:%v, QC:(H:%v,R:%v)", b.BlockHeader.Number(), b.BlockHeader.ID().String(), b.BlockHeader.ParentID().String(), len(b.Txs), b.QC.QCHeight, b.QC.QCRound)
 }
 
 //-----------------
