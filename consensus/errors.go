@@ -10,9 +10,11 @@ import (
 )
 
 var (
-	errFutureBlock   = errors.New("block in the future")
-	errParentMissing = errors.New("parent block is missing")
-	errKnownBlock    = errors.New("block already in the chain")
+	errFutureBlock         = errors.New("block in the future")
+	errParentMissing       = errors.New("parent block is missing")
+	errKnownBlock          = errors.New("block already in the chain")
+	errParentHeaderMissing = errors.New("parent header is missing")
+	errDecodeParentFailed  = errors.New("decode parent failed")
 )
 
 type consensusError string
