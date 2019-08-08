@@ -84,6 +84,34 @@ func (c *ConsensusReactor) Process(blk *block.Block, nowTimestamp uint64) (*stat
 	return stage, receipts, nil
 }
 
+func (c *ConsensusReactor) ProcessProposedBlock(parentHeader *block.Header, blk *block.Block, nowTimestamp uint64) (*state.Stage, tx.Receipts, error) {
+	header := blk.Header()
+
+	if _, err := c.chain.GetBlockHeader(header.ID()); err != nil {
+		if !c.chain.IsNotFound(err) {
+			return nil, nil, err
+		}
+	} else {
+		return nil, nil, errKnownBlock
+	}
+
+	if parentHeader == nil {
+		return nil, nil, errParentHeaderMissing
+	}
+
+	state, err := c.stateCreator.NewState(parentHeader.StateRoot())
+	if err != nil {
+		return nil, nil, err
+	}
+
+	stage, receipts, err := c.validate(state, blk, parentHeader, nowTimestamp)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return stage, receipts, nil
+}
+
 func (c *ConsensusReactor) NewRuntimeForReplay(header *block.Header) (*runtime.Runtime, error) {
 	signer, err := header.Signer()
 	if err != nil {
@@ -525,7 +553,7 @@ func (conR *ConsensusReactor) finalizeCommitBlock(blkInfo *ProposedBlockInfo) bo
 	// conR.logger.Error(fmt.Sprintf("finalizeCommitBlock(H:%v): Invalid height. bLocked Height:%v, curRround: %v", height, conR.csPacemaker.blockLocked.Height, conR.curRound))
 	// return false
 	// }
-	fmt.Println("Trying to commit block at height", height, ":", blk.String())
+	conR.logger.Debug("Try to commit block: ", "block", blk.CompactString())
 
 	// similar to node.processBlock
 	startTime := mclock.Now()
@@ -695,13 +723,16 @@ func (pb *ProposedBlockInfo) String() string {
 }
 
 // Build MBlock
-func (conR *ConsensusReactor) BuildMBlock() *ProposedBlockInfo {
-	best := conR.chain.BestBlock()
+func (conR *ConsensusReactor) BuildMBlock(parentBlock *block.Block) *ProposedBlockInfo {
+	best := parentBlock
 	now := uint64(time.Now().Unix())
-	if conR.curHeight != int64(best.Header().Number()) {
-		conR.logger.Error("Proposed block parent is not current best block")
-		return nil
-	}
+	/*
+		TODO: better check this, comment out temporarily
+		if conR.curHeight != int64(best.Header().Number()) {
+			conR.logger.Error("Proposed block parent is not current best block")
+			return nil
+		}
+	*/
 
 	startTime := mclock.Now()
 	pool := txpool.GetGlobTxPoolInst()
@@ -765,13 +796,16 @@ func (conR *ConsensusReactor) BuildMBlock() *ProposedBlockInfo {
 	return &ProposedBlockInfo{newBlock, stage, &receipts, txsToRemoved, checkPoint, MBlockType}
 }
 
-func (conR *ConsensusReactor) BuildKBlock(data *block.KBlockData, rewards []powpool.PowReward) *ProposedBlockInfo {
-	best := conR.chain.BestBlock()
+func (conR *ConsensusReactor) BuildKBlock(parentBlock *block.Block, data *block.KBlockData, rewards []powpool.PowReward) *ProposedBlockInfo {
+	best := parentBlock
 	now := uint64(time.Now().Unix())
-	if conR.curHeight != int64(best.Header().Number()) {
-		conR.logger.Warn("Proposed block parent is not current best block")
-		return nil
-	}
+	/*
+		TODO: better check this, comment out temporarily
+		if conR.curHeight != int64(best.Header().Number()) {
+			conR.logger.Warn("Proposed block parent is not current best block")
+			return nil
+		}
+	*/
 
 	conR.logger.Info("build kblock ...", "nonce", data.Nonce)
 	startTime := mclock.Now()

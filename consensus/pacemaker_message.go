@@ -8,7 +8,7 @@ import (
 	crypto "github.com/ethereum/go-ethereum/crypto"
 )
 
-func (p *Pacemaker) proposeBlock(height, round uint64, allowEmptyBlock bool) (*ProposedBlockInfo, []byte) {
+func (p *Pacemaker) proposeBlock(parentBlock *block.Block, height, round uint64, allowEmptyBlock bool) (*ProposedBlockInfo, []byte) {
 	// XXX: propose an empty block by default. Will add option --consensus.allow_empty_block = false
 	// force it to true at this time
 	allowEmptyBlock = true
@@ -28,10 +28,10 @@ func (p *Pacemaker) proposeBlock(height, round uint64, allowEmptyBlock bool) (*P
 	if proposalKBlock {
 		data := &block.KBlockData{uint64(powResults.Nonce), powResults.Raw}
 		rewards := powResults.Rewards
-		blkInfo = p.csReactor.BuildKBlock(data, rewards)
+		blkInfo = p.csReactor.BuildKBlock(parentBlock, data, rewards)
 		blockBytes = block.BlockEncodeBytes(blkInfo.ProposedBlock)
 	} else {
-		blkInfo = p.csReactor.BuildMBlock()
+		blkInfo = p.csReactor.BuildMBlock(parentBlock)
 		blockBytes = block.BlockEncodeBytes(blkInfo.ProposedBlock)
 	}
 	return blkInfo, blockBytes

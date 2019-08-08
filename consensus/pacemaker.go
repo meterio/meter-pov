@@ -114,7 +114,13 @@ type pmBlock struct {
 }
 
 func (pb *pmBlock) ToString() string {
-	return fmt.Sprintf("PMBlock(Height: %v, Round: %v, QCHeight: %v, QCRound: %v)", pb.Height, pb.Round, pb.Justify.QCHeight, pb.Justify.QCRound)
+	if pb.Parent != nil {
+		return fmt.Sprintf("PMBlock(Height: %v, Round: %v, QCHeight: %v, QCRound: %v, ParentHeight: %v, ParentRound: %v)",
+			pb.Height, pb.Round, pb.Justify.QCHeight, pb.Justify.QCRound, pb.Parent.Height, pb.Parent.Round)
+	} else {
+		return fmt.Sprintf("PMBlock(Height: %v, Round: %v, QCHeight: %v, QCRound: %v)",
+			pb.Height, pb.Round, pb.Justify.QCHeight, pb.Justify.QCRound)
+	}
 }
 
 type Pacemaker struct {
@@ -122,17 +128,23 @@ type Pacemaker struct {
 
 	// Determines the time interval for a round interval
 	timeRoundInterval int
+
 	// Highest round that a block was committed
+	// TODO: update this
 	highestCommittedRound int
+
 	// Highest round known certified by QC.
+	// TODO: update this
 	highestQCRound int
+
 	// Current round (current_round - highest_qc_round determines the timeout).
 	// Current round is basically max(highest_qc_round, highest_received_tc, highest_local_tc) + 1
 	// update_current_round take care of updating current_round and sending new round event if
 	// it changes
 	currentRound int
-	proposalMap  map[uint64]*pmBlock
-	sigCounter   map[uint64]int
+
+	proposalMap map[uint64]*pmBlock
+	sigCounter  map[uint64]int
 
 	lastVotingHeight uint64
 	QCHigh           *QuorumCert
@@ -165,8 +177,12 @@ func NewPaceMaker(conR *ConsensusReactor) *Pacemaker {
 }
 
 func (p *Pacemaker) CreateLeaf(parent *pmBlock, qc *QuorumCert, height uint64, round uint64) *pmBlock {
-	info, blockBytes := p.proposeBlock(height, round, true)
-	p.logger.Info("Proposed Block: ", "block", info.ProposedBlock.String())
+	parentBlock, err := block.BlockDecodeFromBytes(parent.ProposedBlock)
+	if err != nil {
+		panic("Error decode the parent block")
+	}
+	info, blockBytes := p.proposeBlock(parentBlock, height, round, true)
+	p.logger.Info(fmt.Sprintf("Proposed Block: %v", info.ProposedBlock.CompactString()))
 
 	b := &pmBlock{
 		Height:  height,
@@ -201,10 +217,10 @@ func (p *Pacemaker) Update(bnew *pmBlock) error {
 		return nil
 	}
 
-	p.logger.Debug("B New", "pmblock", bnew.ToString())
-	p.logger.Debug("B Prime Prime", "pmblock", p.blockPrimePrime.ToString())
-	p.logger.Debug("B Prime", "pmblock", p.blockPrime.ToString())
-	p.logger.Debug("B", "pmblock", p.block.ToString())
+	p.logger.Debug(fmt.Sprintf("bnew = %v", bnew.ToString()))
+	p.logger.Debug(fmt.Sprintf("b\"   = %v", p.blockPrimePrime.ToString()))
+	p.logger.Debug(fmt.Sprintf("b'   = %v", p.blockPrime.ToString()))
+	p.logger.Debug(fmt.Sprintf("b    = %v", p.block.ToString()))
 
 	// pre-commit phase on b"
 	p.UpdateQCHigh(bnew.Justify)
@@ -280,7 +296,7 @@ func (p *Pacemaker) OnReceiveProposal(proposalMsg *PMProposalMessage) error {
 		//close(p.roundTimerStop)
 
 		if err := p.ValidateProposal(bnew); err != nil {
-			p.csReactor.logger.Error("Validate Proposal failed", "error", err)
+			p.logger.Error("Validate Proposal failed", "error", err)
 			return err
 		}
 
@@ -361,22 +377,24 @@ func (p *Pacemaker) GetProposer(height int64, round int) {
 
 func (p *Pacemaker) UpdateQCHigh(qc *QuorumCert) bool {
 	updated := false
-	p.logger.Debug("Current QCHigh", "qc", p.QCHigh.ToString())
+	oqc := p.QCHigh
 	if qc.QCHeight > p.QCHigh.QCHeight {
 		p.QCHigh = qc
 		p.blockLeaf = p.QCHigh.QCNode
 		updated = true
 	}
-	p.logger.Debug("After update QCHigh", "qc", p.QCHigh.ToString())
+	p.logger.Debug("After update QCHigh", "updated", updated, "from", oqc.ToString(), "to", p.QCHigh.ToString())
 
 	return updated
 }
 
 func (p *Pacemaker) OnBeat(height uint64, round uint64) {
 
+	p.logger.Info("--------------------------------------------------")
+	p.logger.Info(fmt.Sprintf("                 OnBeat Round: %v                  ", round))
+	p.logger.Info("--------------------------------------------------")
 	if p.csReactor.amIRoundProproser(round) {
 		p.csReactor.logger.Info("OnBeat: I am round proposer", "round", round)
-		p.logger.Info("p.blockLeaf", "pmblock", p.blockLeaf.ToString())
 		bleaf := p.OnPropose(p.blockLeaf, p.QCHigh, height, round)
 		if bleaf == nil {
 			panic("Propose failed")
@@ -422,7 +440,7 @@ func (p *Pacemaker) OnReceiveNewView(qc *QuorumCert) error {
 // assume saveLastKblockQC is already stored
 //Committee Leader triggers
 func (p *Pacemaker) Start(height uint64) {
-	p.logger.Info("\n----------------------------------------\nPacemaker start at height " + string(height) + "\n---------------------------------------")
+	p.logger.Info(fmt.Sprintf("*** Pacemaker start at height %v", height))
 	if height == 0 {
 		p.StartFromGenesis()
 	} else {
@@ -432,6 +450,7 @@ func (p *Pacemaker) Start(height uint64) {
 
 func (p *Pacemaker) StartFromGenesis() {
 	// now assign b_lock b_exec, b_leaf qc_high
+	b0.ProposedBlock = p.csReactor.GetGenesisBlockBytes()
 	p.block = &b0
 	p.blockLocked = &b0
 	p.blockExecuted = &b0
@@ -488,15 +507,6 @@ func (p *Pacemaker) Stop() {
 }
 
 func (p *Pacemaker) ValidateProposal(b *pmBlock) error {
-
-	p.logger.Info("Validate Proposal", "height", b.Height, "hash")
-	if b.ProposedBlockInfo != nil {
-		// if this proposal is proposed by myself, don't execute it again
-		p.logger.Info("Proposed Block Info", "blockInfo", b.ProposedBlockInfo.String())
-		b.SuccessProcessed = true
-		return nil
-	}
-
 	blockBytes := b.ProposedBlock
 	blk, err := block.BlockDecodeFromBytes(blockBytes)
 	if err != nil {
@@ -504,8 +514,27 @@ func (p *Pacemaker) ValidateProposal(b *pmBlock) error {
 		return err
 	}
 
+	p.logger.Info(fmt.Sprintf("Validate Proposal for %v", blk.CompactString()))
+
+	if b.ProposedBlockInfo != nil {
+		// if this proposal is proposed by myself, don't execute it again
+		p.logger.Debug("skip validate the proposal, because it's proposed by myself")
+		b.SuccessProcessed = true
+		return nil
+	}
+
+	parentPMBlock := b.Parent
+	if parentPMBlock == nil || parentPMBlock.ProposedBlock == nil {
+		return errParentMissing
+	}
+	parentBlock, err := block.BlockDecodeFromBytes(parentPMBlock.ProposedBlock)
+	if err != nil {
+		return errDecodeParentFailed
+	}
+	parentHeader := parentBlock.Header()
+
 	now := uint64(time.Now().Unix())
-	stage, receipts, err := p.csReactor.Process(blk, now)
+	stage, receipts, err := p.csReactor.ProcessProposedBlock(parentHeader, blk, now)
 	if err != nil {
 		p.logger.Error("process block failed", "error", err)
 		b.SuccessProcessed = false
@@ -519,9 +548,9 @@ func (p *Pacemaker) ValidateProposal(b *pmBlock) error {
 		Receipts:      &receipts,
 		txsToRemoved:  func() bool { return true },
 	}
-	p.logger.Info("Proposed Block Info After Validate", "blockInfo", b.ProposedBlockInfo.String())
 
 	b.SuccessProcessed = true
 
+	p.logger.Info("Validated block")
 	return nil
 }

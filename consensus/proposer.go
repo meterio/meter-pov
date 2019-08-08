@@ -314,7 +314,7 @@ func (cp *ConsensusProposer) GenerateMBlockMsg(mblock []byte) bool {
 // ConsenusLeader generate the 1st block. With meta data of group
 func (cp *ConsensusProposer) buildMBlock(buildEmptyBlock bool) ([]byte, error) {
 
-	blkInfo := cp.csReactor.BuildMBlock()
+	blkInfo := cp.csReactor.BuildMBlock(cp.csReactor.chain.BestBlock())
 	blkBytes := block.BlockEncodeBytes(blkInfo.ProposedBlock)
 
 	//save to local
@@ -389,7 +389,7 @@ func (cp *ConsensusProposer) GenerateKBlockMsg(kblock []byte) bool {
 
 // ConsenusLeader generate the 1st block. With meta data of group
 func (cp *ConsensusProposer) buildKBlock(data *block.KBlockData, rewards []powpool.PowReward) ([]byte, error) {
-	blkInfo := cp.csReactor.BuildKBlock(data, rewards)
+	blkInfo := cp.csReactor.BuildKBlock(cp.csReactor.chain.BestBlock(), data, rewards)
 	blkBytes := block.BlockEncodeBytes(blkInfo.ProposedBlock)
 
 	//save to local
