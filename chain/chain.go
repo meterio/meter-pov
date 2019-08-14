@@ -25,6 +25,7 @@ const (
 
 var errNotFound = errors.New("not found")
 var errBlockExist = errors.New("block already exists")
+var errParentNotFinalized = errors.New("parent is not finalized")
 
 // Chain describes a persistent block chain.
 // It's thread-safe.
@@ -156,21 +157,34 @@ func (c *Chain) PreCommitBlock() *block.Block {
 // AddBlock add a new block into block chain.
 // Once reorg happened (len(Trunk) > 0 && len(Branch) >0), Fork.Branch will be the chain transitted from trunk to branch.
 // Reorg happens when isTrunk is true.
-func (c *Chain) AddBlock(newBlock *block.Block, receipts tx.Receipts /*, finalize bool*/) (*Fork, error) {
+func (c *Chain) AddBlock(newBlock *block.Block, receipts tx.Receipts, finalize bool) (*Fork, error) {
 	c.rw.Lock()
 	defer c.rw.Unlock()
 
 	newBlockID := newBlock.Header().ID()
 
-	if _, err := c.getBlockHeader(newBlockID); err != nil {
+	if header, err := c.getBlockHeader(newBlockID); err != nil {
 		if !c.IsNotFound(err) {
 			return nil, err
 		}
 	} else {
 		// block already there
-		return nil, errBlockExist
+		newHeader := newBlock.Header()
+		if header.Number() == newHeader.Number() &&
+			header.ParentID() == newHeader.ParentID() &&
+			string(header.Signature()) == string(newHeader.Signature()) &&
+			header.ReceiptsRoot() == newHeader.ReceiptsRoot() &&
+			header.Timestamp() == newHeader.Timestamp() &&
+			header.Finalized == false &&
+			finalize == true {
+			// if the current block is the finalized version of saved block, update it accordingly
+			// do nothing
+		} else {
+			return nil, errBlockExist
+		}
 	}
 
+	newBlock.Header().Finalized = finalize
 	parent, err := c.getBlockHeader(newBlock.Header().ParentID())
 	if err != nil {
 		if c.IsNotFound(err) {
@@ -178,6 +192,13 @@ func (c *Chain) AddBlock(newBlock *block.Block, receipts tx.Receipts /*, finaliz
 		}
 		return nil, err
 	}
+
+	// finalized block need to have a finalized parent block
+	/** FIXME: comment temporarily
+	if finalize == true && parent.Finalized == false {
+		return nil, errParentNotFinalized
+	}
+	**/
 
 	raw, err := rlp.EncodeToBytes(newBlock)
 	// raw := block.BlockEncodeBytes(newBlock)
@@ -233,7 +254,11 @@ func (c *Chain) AddBlock(newBlock *block.Block, receipts tx.Receipts /*, finaliz
 	}
 
 	if isTrunk {
-		c.bestBlock = newBlock
+		if finalize == true {
+			c.bestBlock = newBlock
+		} else {
+			c.preCommitBlock = newBlock
+		}
 	}
 
 	c.caches.rawBlocks.Add(newBlockID, newRawBlock(raw, newBlock))
