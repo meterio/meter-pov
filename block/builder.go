@@ -18,6 +18,7 @@ type Builder struct {
 	//	ev            Evidence
 	//	committeeInfo CommitteeInfo
 	//	kBlockData    kBlockData
+	finalized bool
 }
 
 // ParentID set parent id.
@@ -86,9 +87,14 @@ func (b *Builder) Transaction(tx *tx.Transaction) *Builder {
 	return b
 }
 
+func (b *Builder) Finalized(finalized bool) *Builder {
+	b.finalized = finalized
+	return b
+}
+
 // Build build a block object.
 func (b *Builder) Build() *Block {
-	header := Header{Body: b.headerBody}
+	header := Header{Body: b.headerBody, Finalized: b.finalized}
 	header.Body.TxsRoot = b.txs.RootHash()
 
 	return &Block{

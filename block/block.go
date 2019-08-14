@@ -191,19 +191,39 @@ func (b *Block) Size() metric.StorageSize {
 	return size
 }
 
+func (b *Block) prefix() string {
+	prefix := "Temporary "
+	if b.BlockHeader.Finalized {
+		prefix = "Finalized "
+	}
+	return prefix
+}
+
 func (b *Block) String() string {
-	return fmt.Sprintf(`
-Block(%v){
+	return fmt.Sprintf(`%vBlock(%v){
 BlockHeader: %v,
 Transactions: %v,
 KBlockData: %v,
 CommitteeInfo: %v,
 QuorumCert: %v,
-}`, b.Size(), b.BlockHeader, b.Txs, b.KBlockData, b.CommitteeInfos, b.QC)
+}`, b.prefix(), b.BlockHeader.Number(), b.BlockHeader, b.Txs, b.KBlockData, b.CommitteeInfos, b.QC)
 }
 
 func (b *Block) CompactString() string {
-	return fmt.Sprintf("Block(%v) %v Parent:%v, Txs#:%v, QC:(H:%v,R:%v)", b.BlockHeader.Number(), b.BlockHeader.ID().String(), b.BlockHeader.ParentID().String(), len(b.Txs), b.QC.QCHeight, b.QC.QCRound)
+	header := b.BlockHeader
+	return fmt.Sprintf(`%vBlock(%v) %v 
+	Parent:%v,
+	QC:(H:%v,R:%v), LastKBHeight:%v, Txs#:%v,
+	StateRoot:%v,
+	ReceiptsRoot: %v`, b.prefix(), header.Number(), header.ID().String(),
+		header.ParentID().String(),
+		b.QC.QCHeight, b.QC.QCRound, header.LastKBlockHeight(), len(b.Txs),
+		header.StateRoot().String(), header.ReceiptsRoot().String())
+}
+
+func (b *Block) Oneliner() string {
+	header := b.BlockHeader
+	return fmt.Sprintf("%v Block(%v) %v - Parent:%v", b.prefix(), header.Number(), header.ID().String(), header.ParentID())
 }
 
 //-----------------
