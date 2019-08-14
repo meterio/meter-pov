@@ -262,7 +262,7 @@ func (p *Pacemaker) OnCommit(commitReady []*pmBlock) error {
 			continue
 		}
 		// commit the approved block
-		if p.csReactor.finalizeCommitBlock(b.ProposedBlockInfo) == false {
+		if p.csReactor.finalizeCommitBlock222(b.ProposedBlockInfo) == false {
 			p.csReactor.logger.Error("Commit block failed ...")
 
 			//revert to checkpoint
@@ -292,6 +292,11 @@ func (p *Pacemaker) OnReceiveProposal(proposalMsg *PMProposalMessage) error {
 			p.currentRound = int(bnew.Round)
 		}
 
+		// parent got QC, pre-commit
+		parent := p.proposalMap[bnew.Justify.QCHeight] //Justify.QCNode
+		if parent.Height >= 1 {
+			p.csReactor.PreCommitBlock(parent.ProposedBlockInfo)
+		}
 		// stop previous round timer
 		//close(p.roundTimerStop)
 
@@ -347,6 +352,11 @@ func (p *Pacemaker) OnReceiveVote(b *pmBlock) error {
 	}
 	p.OnReceiveNewView(qc)
 
+	/****
+		if b.Height >= 1 {
+			p.csReactor.PreCommitBlock(b.ProposedBlockInfo)
+		}
+	****/
 	return nil
 }
 
@@ -389,6 +399,12 @@ func (p *Pacemaker) UpdateQCHigh(qc *QuorumCert) bool {
 }
 
 func (p *Pacemaker) OnBeat(height uint64, round uint64) {
+	// parent already got QC, pre-commit it
+	//b := p.QCHigh.QCNode
+	b := p.proposalMap[p.QCHigh.QCHeight]
+	if b.Height >= 1 {
+		p.csReactor.PreCommitBlock(b.ProposedBlockInfo)
+	}
 
 	p.logger.Info("--------------------------------------------------")
 	p.logger.Info(fmt.Sprintf("                 OnBeat Round: %v                  ", round))

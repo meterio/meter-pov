@@ -29,14 +29,15 @@ var errBlockExist = errors.New("block already exists")
 // Chain describes a persistent block chain.
 // It's thread-safe.
 type Chain struct {
-	kv           kv.GetPutter
-	ancestorTrie *ancestorTrie
-	genesisBlock *block.Block
-	bestBlock    *block.Block
-	tag          byte
-	caches       caches
-	rw           sync.RWMutex
-	tick         co.Signal
+	kv             kv.GetPutter
+	ancestorTrie   *ancestorTrie
+	genesisBlock   *block.Block
+	bestBlock      *block.Block
+	preCommitBlock *block.Block
+	tag            byte
+	caches         caches
+	rw             sync.RWMutex
+	tick           co.Signal
 }
 
 type caches struct {
@@ -115,11 +116,12 @@ func New(kv kv.GetPutter, genesisBlock *block.Block) (*Chain, error) {
 	})
 
 	return &Chain{
-		kv:           kv,
-		ancestorTrie: ancestorTrie,
-		genesisBlock: genesisBlock,
-		bestBlock:    bestBlock,
-		tag:          genesisBlock.Header().ID()[31],
+		kv:             kv,
+		ancestorTrie:   ancestorTrie,
+		genesisBlock:   genesisBlock,
+		bestBlock:      bestBlock,
+		preCommitBlock: bestBlock,
+		tag:            genesisBlock.Header().ID()[31],
 		caches: caches{
 			rawBlocks: rawBlocksCache,
 			receipts:  receiptsCache,
@@ -144,10 +146,17 @@ func (c *Chain) BestBlock() *block.Block {
 	return c.bestBlock
 }
 
+// BestBlock returns the newest block on trunk.
+func (c *Chain) PreCommitBlock() *block.Block {
+	c.rw.RLock()
+	defer c.rw.RUnlock()
+	return c.preCommitBlock
+}
+
 // AddBlock add a new block into block chain.
 // Once reorg happened (len(Trunk) > 0 && len(Branch) >0), Fork.Branch will be the chain transitted from trunk to branch.
 // Reorg happens when isTrunk is true.
-func (c *Chain) AddBlock(newBlock *block.Block, receipts tx.Receipts) (*Fork, error) {
+func (c *Chain) AddBlock(newBlock *block.Block, receipts tx.Receipts /*, finalize bool*/) (*Fork, error) {
 	c.rw.Lock()
 	defer c.rw.Unlock()
 
