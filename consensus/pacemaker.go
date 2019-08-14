@@ -407,7 +407,7 @@ func (p *Pacemaker) OnBeat(height uint64, round uint64) {
 	}
 
 	p.logger.Info("--------------------------------------------------")
-	p.logger.Info(fmt.Sprintf("                 OnBeat Round: %v                  ", round))
+	p.logger.Info(fmt.Sprintf("                OnBeat Round: %v                 ", round))
 	p.logger.Info("--------------------------------------------------")
 	if p.csReactor.amIRoundProproser(round) {
 		p.csReactor.logger.Info("OnBeat: I am round proposer", "round", round)
@@ -530,7 +530,7 @@ func (p *Pacemaker) ValidateProposal(b *pmBlock) error {
 		return err
 	}
 
-	p.logger.Info(fmt.Sprintf("Validate Proposal for %v", blk.CompactString()))
+	p.logger.Info("Validate Proposal", "block", blk.Oneliner())
 
 	if b.ProposedBlockInfo != nil {
 		// if this proposal is proposed by myself, don't execute it again

@@ -553,7 +553,7 @@ func (conR *ConsensusReactor) finalizeCommitBlock(blkInfo *ProposedBlockInfo) bo
 	// conR.logger.Error(fmt.Sprintf("finalizeCommitBlock(H:%v): Invalid height. bLocked Height:%v, curRround: %v", height, conR.csPacemaker.blockLocked.Height, conR.curRound))
 	// return false
 	// }
-	conR.logger.Debug("Try to commit block: ", "block", blk.CompactString())
+	conR.logger.Debug("Try to commit block: ", "block", blk.Oneliner())
 
 	// similar to node.processBlock
 	startTime := mclock.Now()
@@ -577,7 +577,7 @@ func (conR *ConsensusReactor) finalizeCommitBlock(blkInfo *ProposedBlockInfo) bo
 		return false
 	}
 
-	fork, err := conR.chain.AddBlock(blk, *receipts)
+	fork, err := conR.chain.AddBlock(blk, *receipts, true)
 	if err != nil {
 		conR.logger.Error("add block failed ...", "err", err)
 		return false
@@ -922,7 +922,7 @@ func (conR *ConsensusReactor) PreCommitBlock(blkInfo *ProposedBlockInfo) bool {
 	// conR.logger.Error(fmt.Sprintf("finalizeCommitBlock(H:%v): Invalid height. bLocked Height:%v, curRround: %v", height, conR.csPacemaker.blockLocked.Height, conR.curRound))
 	// return false
 	// }
-	conR.logger.Debug("Try to pre-commit block: ", "block", blk.CompactString())
+	conR.logger.Debug("Try to pre-commit block", "block", blk.Oneliner())
 
 	// similar to node.processBlock
 	startTime := mclock.Now()
@@ -947,7 +947,7 @@ func (conR *ConsensusReactor) PreCommitBlock(blkInfo *ProposedBlockInfo) bool {
 			return false
 		}
 	******/
-	fork, err := conR.chain.AddBlock(blk, *receipts)
+	fork, err := conR.chain.AddBlock(blk, *receipts, false)
 	if err != nil {
 		conR.logger.Error("add block failed ...", "err", err)
 		return false
@@ -971,8 +971,8 @@ func (conR *ConsensusReactor) PreCommitBlock(blkInfo *ProposedBlockInfo) bool {
 
 	blocksCommitedCounter.Inc()
 	conR.logger.Info(fmt.Sprintf(`
-	  Block precommited at height %d `, height), "elapsedTime", commitElapsed, "bestBlockHeight", conR.chain.BestBlock().Header().Number())
-	fmt.Println(blk)
+Block precommited at height %d
+%v`, height, blk.CompactString()), "elapsedTime", commitElapsed, "bestBlockHeight", conR.chain.BestBlock().Header().Number())
 	/*****
 	  	// XXX: broadcast the new block to all peers
 	  	comm.GetGlobCommInst().BroadcastBlock(blk)
@@ -991,7 +991,7 @@ func (conR *ConsensusReactor) PreCommitBlock(blkInfo *ProposedBlockInfo) bool {
 func (conR *ConsensusReactor) finalizeCommitBlock222(blkInfo *ProposedBlockInfo) bool {
 	blk := blkInfo.ProposedBlock
 	//stage := blkInfo.Stage
-	//receipts := blkInfo.Receipts
+	receipts := blkInfo.Receipts
 
 	height := uint64(blk.Header().Number())
 
@@ -1000,47 +1000,49 @@ func (conR *ConsensusReactor) finalizeCommitBlock222(blkInfo *ProposedBlockInfo)
 	// conR.logger.Error(fmt.Sprintf("finalizeCommitBlock(H:%v): Invalid height. bLocked Height:%v, curRround: %v", height, conR.csPacemaker.blockLocked.Height, conR.curRound))
 	// return false
 	// }
-	conR.logger.Debug("Try to finalized commit block: ", "block", blk.CompactString())
+	conR.logger.Debug("Try to finalize block", "block", blk.Oneliner())
 
 	/***********************
-		// similar to node.processBlock
-		startTime := mclock.Now()
+			// similar to node.processBlock
+			startTime := mclock.Now()
 
-		if _, err := stage.Commit(); err != nil {
-			conR.logger.Error("failed to commit state", "err", err)
-			return false
-		}
-
-		batch := logdb.GetGlobalLogDBInstance().Prepare(blk.Header())
-		for i, tx := range blk.Transactions() {
-			origin, _ := tx.Signer()
-			txBatch := batch.ForTransaction(tx.ID(), origin)
-			for _, output := range (*(*receipts)[i]).Outputs {
-				txBatch.Insert(output.Events, output.Transfers)
+			if _, err := stage.Commit(); err != nil {
+				conR.logger.Error("failed to commit state", "err", err)
+				return false
 			}
-		}
 
-		if err := batch.Commit(); err != nil {
-			conR.logger.Error("commit logs failed ...", "err", err)
-			return false
-		}
-
-		fork, err := conR.chain.AddBlock(blk, *receipts)
-		if err != nil {
-			conR.logger.Error("add block failed ...", "err", err)
-			return false
-		}
-
-		// unlike processBlock, we do not need to handle fork
-		if fork != nil {
-			//panic(" chain is in forked state, something wrong")
-			//return false
-			// process fork????
-			if len(fork.Branch) > 0 {
-				conR.logger.Warn("Fork Happened ...", "fork.Branch", len(fork.Branch))
-				panic("Fork happened!")
+			batch := logdb.GetGlobalLogDBInstance().Prepare(blk.Header())
+			for i, tx := range blk.Transactions() {
+				origin, _ := tx.Signer()
+				txBatch := batch.ForTransaction(tx.ID(), origin)
+				for _, output := range (*(*receipts)[i]).Outputs {
+					txBatch.Insert(output.Events, output.Transfers)
+				}
 			}
+
+			if err := batch.Commit(); err != nil {
+				conR.logger.Error("commit logs failed ...", "err", err)
+				return false
+			}
+	*****/
+
+	fork, err := conR.chain.AddBlock(blk, *receipts, true)
+	if err != nil {
+		conR.logger.Error("add block failed ...", "err", err)
+		return false
+	}
+
+	// unlike processBlock, we do not need to handle fork
+	if fork != nil {
+		//panic(" chain is in forked state, something wrong")
+		//return false
+		// process fork????
+		if len(fork.Branch) > 0 {
+			conR.logger.Warn("Fork Happened ...", "fork.Branch", len(fork.Branch))
+			panic("Fork happened!")
 		}
+	}
+	/*****k
 
 		// now only Mblock remove the txs from txpool
 		blkInfo.txsToRemoved()
@@ -1053,11 +1055,11 @@ func (conR *ConsensusReactor) finalizeCommitBlock222(blkInfo *ProposedBlockInfo)
 	comm.GetGlobCommInst().BroadcastBlock(blk)
 	// successfully added the block, update the current hight of consensus
 	conR.logger.Info(fmt.Sprintf(`
-===========================================================
+-----------------------------------------------------------
 Block commited at height %d
-===========================================================
-`, height), /***"elapsedTime", commitElapsed,***/ "bestBlockHeight", conR.chain.BestBlock().Header().Number())
-	fmt.Println(blk)
+-----------------------------------------------------------
+%v
+`, height, blk.String()), /***"elapsedTime", commitElapsed,***/ "bestBlockHeight", conR.chain.BestBlock().Header().Number())
 	conR.UpdateHeight(int64(conR.chain.BestBlock().Header().Number()))
 
 	return true
