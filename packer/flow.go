@@ -8,13 +8,13 @@ package packer
 import (
 	"crypto/ecdsa"
 
-	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/pkg/errors"
 	"github.com/dfinlab/meter/block"
+	"github.com/dfinlab/meter/meter"
 	"github.com/dfinlab/meter/runtime"
 	"github.com/dfinlab/meter/state"
-	"github.com/dfinlab/meter/meter"
 	"github.com/dfinlab/meter/tx"
+	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/pkg/errors"
 )
 
 // Flow the flow of packing a new block.
@@ -148,7 +148,8 @@ func (f *Flow) Pack(privateKey *ecdsa.PrivateKey, blockType uint32, lastKBlock u
 		ReceiptsRoot(f.receipts.RootHash()).
 		StateRoot(stateRoot).
 		BlockType(blockType).
-		LastKBlockHeight(lastKBlock)
+		LastKBlockHeight(lastKBlock).
+		Finalized(false)
 
 	for _, tx := range f.txs {
 		builder.Transaction(tx)
