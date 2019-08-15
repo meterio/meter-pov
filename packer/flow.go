@@ -148,8 +148,7 @@ func (f *Flow) Pack(privateKey *ecdsa.PrivateKey, blockType uint32, lastKBlock u
 		ReceiptsRoot(f.receipts.RootHash()).
 		StateRoot(stateRoot).
 		BlockType(blockType).
-		LastKBlockHeight(lastKBlock).
-		Finalized(false)
+		LastKBlockHeight(lastKBlock)
 
 	for _, tx := range f.txs {
 		builder.Transaction(tx)

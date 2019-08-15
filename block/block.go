@@ -192,11 +192,7 @@ func (b *Block) Size() metric.StorageSize {
 }
 
 func (b *Block) prefix() string {
-	prefix := "Temporary "
-	if b.BlockHeader.Finalized {
-		prefix = "Finalized "
-	}
-	return prefix
+	return ""
 }
 
 func (b *Block) String() string {

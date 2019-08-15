@@ -64,6 +64,7 @@ func New(kv kv.GetPutter, genesisBlock *block.Block) (*Chain, error) {
 		}
 		// no genesis yet
 		raw, err := rlp.EncodeToBytes(genesisBlock)
+		raw = append([]byte{1}, raw...)
 		if err != nil {
 			return nil, err
 		}
@@ -168,6 +169,11 @@ func (c *Chain) AddBlock(newBlock *block.Block, receipts tx.Receipts, finalize b
 			return nil, err
 		}
 	} else {
+		parentRaw, err := c.GetBlockRaw(header.ParentID())
+		if err != nil {
+			return nil, errParentNotFinalized
+		}
+		parentFinalized, _ := parentRaw.DecodeFinalized()
 		// block already there
 		newHeader := newBlock.Header()
 		if header.Number() == newHeader.Number() &&
@@ -175,7 +181,7 @@ func (c *Chain) AddBlock(newBlock *block.Block, receipts tx.Receipts, finalize b
 			string(header.Signature()) == string(newHeader.Signature()) &&
 			header.ReceiptsRoot() == newHeader.ReceiptsRoot() &&
 			header.Timestamp() == newHeader.Timestamp() &&
-			header.Finalized == false &&
+			parentFinalized == false &&
 			finalize == true {
 			// if the current block is the finalized version of saved block, update it accordingly
 			// do nothing
@@ -184,7 +190,7 @@ func (c *Chain) AddBlock(newBlock *block.Block, receipts tx.Receipts, finalize b
 		}
 	}
 
-	newBlock.Header().Finalized = finalize
+	// newBlock.Header().Finalized = finalize
 	parent, err := c.getBlockHeader(newBlock.Header().ParentID())
 	if err != nil {
 		if c.IsNotFound(err) {
@@ -201,6 +207,13 @@ func (c *Chain) AddBlock(newBlock *block.Block, receipts tx.Receipts, finalize b
 	**/
 
 	raw, err := rlp.EncodeToBytes(newBlock)
+	var fb block.FinalizeByte
+	if finalize {
+		fb = block.Finalized
+	} else {
+		fb = block.Unfinalized
+	}
+	raw = append([]byte{byte(fb)}, raw...)
 	// raw := block.BlockEncodeBytes(newBlock)
 	if err != nil {
 		return nil, err

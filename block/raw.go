@@ -9,16 +9,32 @@ import (
 	"bytes"
 	"fmt"
 
-	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/dfinlab/meter/tx"
+	"github.com/ethereum/go-ethereum/rlp"
 )
 
 // Raw allows to partially decode components of a block.
 type Raw []byte
 
+type FinalizeByte byte
+
+const (
+	Finalized   FinalizeByte = FinalizeByte(1)
+	Unfinalized FinalizeByte = FinalizeByte(2)
+)
+
+func (r Raw) DecodeFinalized() (bool, error) {
+	fb := r[0]
+	if FinalizeByte(fb) == Finalized {
+		return false, nil
+	}
+	return true, nil
+}
+
 // DecodeHeader decode only the header.
 func (r Raw) DecodeHeader() (*Header, error) {
-	content, _, err := rlp.SplitList(r)
+	tail := r[1:]
+	content, _, err := rlp.SplitList(tail)
 	if err != nil {
 		return nil, err
 	}
@@ -32,7 +48,8 @@ func (r Raw) DecodeHeader() (*Header, error) {
 
 // DecodeBody decode only the body.
 func (r Raw) DecodeBody() (*Body, error) {
-	content, _, err := rlp.SplitList(r)
+	tail := r[1:]
+	content, _, err := rlp.SplitList(tail)
 	if err != nil {
 		return nil, err
 	}

@@ -949,7 +949,11 @@ func (conR *ConsensusReactor) PreCommitBlock(blkInfo *ProposedBlockInfo) bool {
 	******/
 	fork, err := conR.chain.AddBlock(blk, *receipts, false)
 	if err != nil {
-		conR.logger.Error("add block failed ...", "err", err)
+		if err == errKnownBlock {
+			conR.logger.Warn("known block", "err", err)
+		} else {
+			conR.logger.Warn("add block failed ...", "err", err)
+		}
 		return false
 	}
 
