@@ -16,25 +16,8 @@ import (
 // Raw allows to partially decode components of a block.
 type Raw []byte
 
-type StateByte byte
-
-const (
-	Finalized   StateByte = StateByte(1)
-	Unfinalized StateByte = StateByte(2)
-)
-
-/****
-func (r Raw) DecodeFinalized() (bool, error) {
-	fb := r[0]
-	if StateByte(fb) == Finalized {
-		return false, nil
-	}
-	return true, nil
-}
-*****/
 // DecodeHeader decode only the header.
 func (r Raw) DecodeHeader() (*Header, error) {
-	//tail := r[1:]
 	content, _, err := rlp.SplitList(r)
 	if err != nil {
 		return nil, err
@@ -49,7 +32,6 @@ func (r Raw) DecodeHeader() (*Header, error) {
 
 // DecodeBody decode only the body.
 func (r Raw) DecodeBody() (*Body, error) {
-	//tail := r[1:]
 	content, _, err := rlp.SplitList(r)
 	if err != nil {
 		return nil, err

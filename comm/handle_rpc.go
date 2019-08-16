@@ -79,8 +79,8 @@ func (c *Communicator) handleRPC(peer *Peer, msg *p2p.Msg, write func(interface{
 			return errors.WithMessage(err, "decode msg")
 		}
 		var result []rlp.RawValue
-		raw, s, err := c.chain.GetBlockRaw(blockID)
-		if err != nil || s != block.Finalized {
+		raw, err := c.chain.GetBlockRaw(blockID)
+		if err != nil {
 			if !c.chain.IsNotFound(err) {
 				log.Error("failed to get block", "err", err)
 			}
