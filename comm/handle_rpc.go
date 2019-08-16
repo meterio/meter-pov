@@ -9,15 +9,15 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/dfinlab/meter/block"
+	"github.com/dfinlab/meter/comm/proto"
+	"github.com/dfinlab/meter/meter"
+	"github.com/dfinlab/meter/metric"
+	"github.com/dfinlab/meter/powpool"
+	"github.com/dfinlab/meter/tx"
 	"github.com/ethereum/go-ethereum/p2p"
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/pkg/errors"
-	"github.com/dfinlab/meter/block"
-	"github.com/dfinlab/meter/comm/proto"
-	"github.com/dfinlab/meter/metric"
-	"github.com/dfinlab/meter/powpool"
-	"github.com/dfinlab/meter/meter"
-	"github.com/dfinlab/meter/tx"
 )
 
 // peer will be disconnected if error returned
@@ -79,8 +79,8 @@ func (c *Communicator) handleRPC(peer *Peer, msg *p2p.Msg, write func(interface{
 			return errors.WithMessage(err, "decode msg")
 		}
 		var result []rlp.RawValue
-		raw, err := c.chain.GetBlockRaw(blockID)
-		if err != nil {
+		raw, s, err := c.chain.GetBlockRaw(blockID)
+		if err != nil || s != block.Finalized {
 			if !c.chain.IsNotFound(err) {
 				log.Error("failed to get block", "err", err)
 			}

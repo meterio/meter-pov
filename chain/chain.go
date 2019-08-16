@@ -7,6 +7,7 @@ package chain
 
 import (
 	"bytes"
+	"fmt"
 	"sync"
 
 	"github.com/dfinlab/meter/block"
@@ -169,11 +170,11 @@ func (c *Chain) AddBlock(newBlock *block.Block, receipts tx.Receipts, finalize b
 			return nil, err
 		}
 	} else {
-		parentRaw, err := c.GetBlockRaw(header.ParentID())
+		parentFinalized, err := c.GetBlockState(header.ParentID())
 		if err != nil {
 			return nil, errParentNotFinalized
 		}
-		parentFinalized, _ := parentRaw.DecodeFinalized()
+
 		// block already there
 		newHeader := newBlock.Header()
 		if header.Number() == newHeader.Number() &&
@@ -181,7 +182,7 @@ func (c *Chain) AddBlock(newBlock *block.Block, receipts tx.Receipts, finalize b
 			string(header.Signature()) == string(newHeader.Signature()) &&
 			header.ReceiptsRoot() == newHeader.ReceiptsRoot() &&
 			header.Timestamp() == newHeader.Timestamp() &&
-			parentFinalized == false &&
+			parentFinalized == block.Unfinalized &&
 			finalize == true {
 			// if the current block is the finalized version of saved block, update it accordingly
 			// do nothing
@@ -207,7 +208,7 @@ func (c *Chain) AddBlock(newBlock *block.Block, receipts tx.Receipts, finalize b
 	**/
 
 	raw, err := rlp.EncodeToBytes(newBlock)
-	var fb block.FinalizeByte
+	var fb block.StateByte
 	if finalize {
 		fb = block.Finalized
 	} else {
@@ -304,14 +305,25 @@ func (c *Chain) GetBlock(id meter.Bytes32) (*block.Block, error) {
 
 // GetBlockRaw get block rlp encoded bytes for given id.
 // Never modify the returned raw block.
-func (c *Chain) GetBlockRaw(id meter.Bytes32) (block.Raw, error) {
+func (c *Chain) GetBlockRaw(id meter.Bytes32) (block.Raw, block.StateByte, error) {
 	c.rw.RLock()
 	defer c.rw.RUnlock()
-	raw, err := c.getRawBlock(id)
+	raw, s, err := c.getRawBlock(id)
 	if err != nil {
-		return nil, err
+		return nil, block.Unfinalized, err
 	}
-	return raw.raw, nil
+	return raw.raw, s, nil
+}
+
+// GetBlockState retunns finalzed or unfinalized state
+func (c *Chain) GetBlockState(id meter.Bytes32) (block.StateByte, error) {
+	c.rw.RLock()
+	defer c.rw.RUnlock()
+	s, err := c.getBlockState(id)
+	if err != nil {
+		return block.Unfinalized, err
+	}
+	return s, nil
 }
 
 // GetBlockReceipts get all tx receipts in the block for given block id.
@@ -393,8 +405,8 @@ func (c *Chain) GetTrunkBlockRaw(num uint32) (block.Raw, error) {
 	if err != nil {
 		return nil, err
 	}
-	raw, err := c.getRawBlock(id)
-	if err != nil {
+	raw, s, err := c.getRawBlock(id)
+	if err != nil || s != block.Finalized {
 		return nil, err
 	}
 	return raw.raw, nil
@@ -503,16 +515,30 @@ func (c *Chain) buildFork(trunkHead *block.Header, branchHead *block.Header) (*F
 	}
 }
 
-func (c *Chain) getRawBlock(id meter.Bytes32) (*rawBlock, error) {
+func (c *Chain) getRawBlock(id meter.Bytes32) (*rawBlock, block.StateByte, error) {
 	raw, err := c.caches.rawBlocks.GetOrLoad(id)
 	if err != nil {
-		return nil, err
+		return nil, block.Unfinalized, err
 	}
-	return raw.(*rawBlock), nil
+	r := raw.(*rawBlock)
+	s := block.StateByte(r.raw[0])
+	fmt.Println("rrrr", r)
+	r.raw = append([]byte{}, r.raw[1:]...)
+	fmt.Println("rxxxxxx", r)
+	return r, s, nil
+	//return raw.(*rawBlock), nil
+}
+
+func (c *Chain) getBlockState(id meter.Bytes32) (block.StateByte, error) {
+	_, s, err := c.getRawBlock(id)
+	if err != nil {
+		return block.Unfinalized, err
+	}
+	return s, nil
 }
 
 func (c *Chain) getBlockHeader(id meter.Bytes32) (*block.Header, error) {
-	raw, err := c.getRawBlock(id)
+	raw, _, err := c.getRawBlock(id)
 	if err != nil {
 		return nil, err
 	}
@@ -520,14 +546,14 @@ func (c *Chain) getBlockHeader(id meter.Bytes32) (*block.Header, error) {
 }
 
 func (c *Chain) getBlockBody(id meter.Bytes32) (*block.Body, error) {
-	raw, err := c.getRawBlock(id)
+	raw, _, err := c.getRawBlock(id)
 	if err != nil {
 		return nil, err
 	}
 	return raw.Body()
 }
 func (c *Chain) getBlock(id meter.Bytes32) (*block.Block, error) {
-	raw, err := c.getRawBlock(id)
+	raw, _, err := c.getRawBlock(id)
 	if err != nil {
 		return nil, err
 	}
