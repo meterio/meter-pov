@@ -181,6 +181,26 @@ func (p *Pacemaker) CreateLeaf(parent *pmBlock, qc *QuorumCert, height uint64, r
 	if err != nil {
 		panic("Error decode the parent block")
 	}
+
+	// after kblock is proposed, we should propose 2 rounds of stopcommitteetype block
+	// to finish the pipeline. This mechnism guranttee kblock get into block server.
+
+	// resend the previous kblock as special type to get vote stop message to get vote
+	// This proposal will not get into block database
+	if parent.ProposedBlockType == KBlockType || parent.ProposedBlockType == StopCommitteeType {
+		p.logger.Info(fmt.Sprintf("Proposed Stop pacemaker message: height=%v, round=%v", height, round))
+		return &pmBlock{
+			Height:  height,
+			Round:   round,
+			Parent:  parent,
+			Justify: qc,
+
+			ProposedBlock:     parent.ProposedBlock,
+			ProposedBlockType: StopCommitteeType,
+		}
+
+	}
+
 	info, blockBytes := p.proposeBlock(parentBlock, height, round, true)
 	p.logger.Info(fmt.Sprintf("Proposed Block: %v", info.ProposedBlock.CompactString()))
 
@@ -276,9 +296,14 @@ func (p *Pacemaker) OnCommit(commitReady []*pmBlock) error {
 
 		p.Execute(b) //b.cmd
 
+		if b.ProposedBlockType == KBlockType {
+			p.Stop()
+			return nil
+		}
 		// remove this pmBlock from map.
 		delete(p.proposalMap, b.Height)
 	}
+
 	return nil
 }
 
@@ -528,6 +553,26 @@ func (p *Pacemaker) ValidateProposal(b *pmBlock) error {
 	if err != nil {
 		p.logger.Error("Decode block failed", "err", err)
 		return err
+	}
+
+	// special valiadte StopCommitteeType
+	// possible 2 rounds of stop messagB
+	if b.ProposedBlockType == StopCommitteeType {
+		parent := p.proposalMap[b.Height-1]
+		if parent.ProposedBlockType == KBlockType {
+			p.logger.Info("the first stop committee block")
+			return nil
+		} else if parent.ProposedBlockType == StopCommitteeType {
+			grandParent := p.proposalMap[b.Height-2]
+			if grandParent.ProposedBlockType == KBlockType {
+				p.logger.Info("The second stop committee block")
+				return nil
+			} else {
+				return errParentMissing
+			}
+		} else {
+			return errParentMissing
+		}
 	}
 
 	p.logger.Info("Validate Proposal", "block", blk.Oneliner())

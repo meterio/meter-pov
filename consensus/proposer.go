@@ -39,8 +39,9 @@ const (
 
 	PROPOSER_THRESHOLD_TIMER_TIMEOUT = 3 * time.Second //wait for reach 2/3 consensus timeout
 
-	PROPOSE_MSG_SUBTYPE_KBLOCK = byte(0x01)
-	PROPOSE_MSG_SUBTYPE_MBLOCK = byte(0x02)
+	PROPOSE_MSG_SUBTYPE_KBLOCK        = byte(0x01)
+	PROPOSE_MSG_SUBTYPE_MBLOCK        = byte(0x02)
+	PROPOSE_MSG_SUBTYPE_STOPCOMMITTEE = byte(255)
 )
 
 type ConsensusProposer struct {

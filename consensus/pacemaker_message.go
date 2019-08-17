@@ -6,6 +6,7 @@ import (
 	"github.com/dfinlab/meter/block"
 	"github.com/dfinlab/meter/powpool"
 	crypto "github.com/ethereum/go-ethereum/crypto"
+	"github.com/pkg/errors"
 )
 
 func (p *Pacemaker) proposeBlock(parentBlock *block.Block, height, round uint64, allowEmptyBlock bool) (*ProposedBlockInfo, []byte) {
@@ -43,8 +44,13 @@ func (p *Pacemaker) BuildProposalMessage(height, round uint64, bnew *pmBlock) (*
 
 	if bnew.ProposedBlockType == KBlockType {
 		msgSubType = PROPOSE_MSG_SUBTYPE_KBLOCK
-	} else {
+	} else if bnew.ProposedBlockType == MBlockType {
 		msgSubType = PROPOSE_MSG_SUBTYPE_MBLOCK
+	} else if bnew.ProposedBlockType == StopCommitteeType {
+		msgSubType = PROPOSE_MSG_SUBTYPE_STOPCOMMITTEE
+	} else {
+		p.logger.Error("Build Proposal Message", "wrong type", bnew.ProposedBlockType)
+		return nil, errors.New("wrong block type")
 	}
 
 	cmnHdr := ConsensusMsgCommonHeader{

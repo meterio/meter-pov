@@ -697,8 +697,9 @@ func (conR *ConsensusReactor) FreeCSSystem(system bls.System, params bls.Params,
 type BlockType int
 
 const (
-	KBlockType BlockType = 1
-	MBlockType BlockType = 2
+	KBlockType        BlockType = 1
+	MBlockType        BlockType = 2
+	StopCommitteeType BlockType = 255 //special message to stop pacemake, not a block
 )
 
 // proposed block info

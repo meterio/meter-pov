@@ -214,6 +214,19 @@ func (p *Pacemaker) Receive(m ConsensusMessage) error {
 		qcHeight := proposalMsg.QCHeight
 		qcRound := proposalMsg.QCRound
 		msgHeader := proposalMsg.CSMsgCommonHeader
+
+		var blockType BlockType
+		if msgHeader.MsgSubType == PROPOSE_MSG_SUBTYPE_KBLOCK {
+			blockType = KBlockType
+		} else if msgHeader.MsgSubType == PROPOSE_MSG_SUBTYPE_MBLOCK {
+			blockType = MBlockType
+		} else if msgHeader.MsgSubType == PROPOSE_MSG_SUBTYPE_STOPCOMMITTEE {
+			blockType = StopCommitteeType
+		} else {
+			p.logger.Error("Received Proposal", "wrong type", msgHeader.MsgSubType)
+			return errors.New("wrong MsgSubType")
+		}
+
 		p.logger.Info("Received Proposal ", "height", msgHeader.Height, "round", msgHeader.Round,
 			"parentHeight", proposalMsg.ParentHeight, "parentRound", proposalMsg.ParentRound,
 			"qcHeight", qcHeight, "qcRound", qcRound)
@@ -238,13 +251,15 @@ func (p *Pacemaker) Receive(m ConsensusMessage) error {
 			VoterMsgHash: qc.VotingMsgHash,
 			VoterAggSig:  qc.VotingAggSig,
 		}
+
 		pmb, proposedByMe := p.proposalMap[uint64(msgHeader.Height)]
 		p.proposalMap[uint64(msgHeader.Height)] = &pmBlock{
-			Height:        uint64(msgHeader.Height),
-			Round:         uint64(msgHeader.Round),
-			Parent:        parent,
-			Justify:       justify,
-			ProposedBlock: proposalMsg.ProposedBlock,
+			Height:            uint64(msgHeader.Height),
+			Round:             uint64(msgHeader.Round),
+			Parent:            parent,
+			Justify:           justify,
+			ProposedBlock:     proposalMsg.ProposedBlock,
+			ProposedBlockType: blockType,
 		}
 		if proposedByMe {
 			p.proposalMap[uint64(msgHeader.Height)].ProposedBlock = pmb.ProposedBlock
