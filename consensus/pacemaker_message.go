@@ -1,6 +1,7 @@
 package consensus
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/dfinlab/meter/block"
@@ -9,7 +10,7 @@ import (
 	"github.com/pkg/errors"
 )
 
-func (p *Pacemaker) proposeBlock(parentBlock *block.Block, height, round uint64, allowEmptyBlock bool) (*ProposedBlockInfo, []byte) {
+func (p *Pacemaker) proposeBlock(parentBlock *block.Block, height, round uint64, qc *QuorumCert, allowEmptyBlock bool) (*ProposedBlockInfo, []byte) {
 	// XXX: propose an empty block by default. Will add option --consensus.allow_empty_block = false
 	// force it to true at this time
 	allowEmptyBlock = true
@@ -30,12 +31,54 @@ func (p *Pacemaker) proposeBlock(parentBlock *block.Block, height, round uint64,
 		data := &block.KBlockData{uint64(powResults.Nonce), powResults.Raw}
 		rewards := powResults.Rewards
 		blkInfo = p.csReactor.BuildKBlock(parentBlock, data, rewards)
-		blockBytes = block.BlockEncodeBytes(blkInfo.ProposedBlock)
 	} else {
 		blkInfo = p.csReactor.BuildMBlock(parentBlock)
-		blockBytes = block.BlockEncodeBytes(blkInfo.ProposedBlock)
+		if round == 0 {
+			// set committee info
+			p.packCommitteeInfo(blkInfo.ProposedBlock)
+		}
 	}
+	p.packQuorumCert(blkInfo.ProposedBlock, qc)
+	blockBytes = block.BlockEncodeBytes(blkInfo.ProposedBlock)
+
 	return blkInfo, blockBytes
+}
+
+func (p *Pacemaker) packCommitteeInfo(blk *block.Block) error {
+	fmt.Println("PACK COMMITTEE INFO")
+	committeeInfo := []block.CommitteeInfo{}
+	// only round 0 Mblock contains the following info
+	system := p.csReactor.csCommon.system
+	blk.SetSystemBytes(system.ToBytes())
+	fmt.Println("system: ", system)
+
+	params := p.csReactor.csCommon.params
+	paramsBytes, _ := params.ToBytes()
+	blk.SetParamsBytes(paramsBytes)
+	fmt.Println("params: ", params)
+
+	// blk.SetCommitteeEpoch(conR.curEpoch)
+
+	// blk.SetBlockEvidence(ev)
+	committeeInfo = p.csReactor.MakeBlockCommitteeInfo(system, p.csReactor.curActualCommittee)
+	fmt.Println("committee info: ", committeeInfo)
+	blk.SetCommitteeInfo(committeeInfo)
+
+	//Fill new info into block, re-calc hash/signature
+	// blk.SetEvidenceDataHash(blk.EvidenceDataHash())
+	return nil
+}
+
+func (p *Pacemaker) packQuorumCert(blk *block.Block, qc *QuorumCert) error {
+	blockQC := &block.QuorumCert{
+		QCHeight:      qc.QCHeight,
+		QCRound:       qc.QCRound,
+		VotingMsgHash: qc.VoterMsgHash,
+		VotingAggSig:  qc.VoterAggSig,
+		VotingSig:     qc.VoterSig,
+	}
+	blk.SetQC(blockQC)
+	return nil
 }
 
 func (p *Pacemaker) BuildProposalMessage(height, round uint64, bnew *pmBlock) (*PMProposalMessage, error) {
