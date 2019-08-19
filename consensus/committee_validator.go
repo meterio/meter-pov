@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"github.com/dfinlab/meter/block"
+
 	//"github.com/dfinlab/meter/chain"
 	//"github.com/dfinlab/meter/runtime"
 	//"github.com/dfinlab/meter/state"
@@ -612,7 +613,7 @@ func (cv *ConsensusValidator) ProcessNotaryAnnounceMessage(notaryMsg *NotaryAnno
 
 	// XXX: Start pacemaker here at this time.
 	// TODO: we should design a meessage like committee decided and ask every committee member start pacemaker
-	cv.csReactor.csPacemaker.Start(uint64(cv.csReactor.curHeight))
+	cv.csReactor.csPacemaker.Start(cv.csReactor.chain.InitQC())
 	return true
 }
 

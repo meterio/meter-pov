@@ -608,7 +608,7 @@ func (conR *ConsensusReactor) finalizeCommitBlock(blkInfo *ProposedBlockInfo) bo
 ===========================================================
 Block commited at height %d
 ===========================================================
-`, height), "elapsedTime", commitElapsed, "bestBlockHeight", conR.chain.BestBlock().Header().Number())
+`, height), "elapsedTime", commitElapsed, "bestBlockHeight", conR.chain.BestBlock().Header().Number(), "leafBlockHeight", conR.chain.LeafBlock().Header().Number())
 	fmt.Println(blk)
 	conR.UpdateHeight(int64(conR.chain.BestBlock().Header().Number()))
 
@@ -1064,7 +1064,7 @@ func (conR *ConsensusReactor) finalizeCommitBlock222(blkInfo *ProposedBlockInfo)
 Block commited at height %d
 -----------------------------------------------------------
 %v
-`, height, blk.String()), /***"elapsedTime", commitElapsed,***/ "bestBlockHeight", conR.chain.BestBlock().Header().Number())
+`, height, blk.String()), /***"elapsedTime", commitElapsed,***/ "bestBlockHeight", conR.chain.BestBlock().Header().Number(), "leafBlockHeight", conR.chain.LeafBlock().Header().Number())
 	conR.UpdateHeight(int64(conR.chain.BestBlock().Header().Number()))
 
 	return true

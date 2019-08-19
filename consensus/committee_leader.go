@@ -500,7 +500,7 @@ Myself is Leader, Let's move to 1st proposal for Round 0.
 		//cl.csReactor.ScheduleProposer(0)
 
 		// Now start the pacemaker
-		cl.csReactor.csPacemaker.Start(uint64(cl.csReactor.curHeight))
+		cl.csReactor.csPacemaker.Start(cl.csReactor.chain.InitQC())
 		return true
 
 	} else {
