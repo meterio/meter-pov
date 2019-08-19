@@ -188,7 +188,6 @@ func (p *Pacemaker) CreateLeaf(parent *pmBlock, qc *QuorumCert, height uint64, r
 			ProposedBlock:     parent.ProposedBlock,
 			ProposedBlockType: StopCommitteeType,
 		}
-
 	}
 
 	info, blockBytes := p.proposeBlock(parentBlock, height, round, qc, true)
@@ -367,11 +366,6 @@ func (p *Pacemaker) OnReceiveVote(b *pmBlock) error {
 	}
 	p.OnReceiveNewView(qc)
 
-	/****
-		if b.Height >= 1 {
-			p.csReactor.PreCommitBlock(b.ProposedBlockInfo)
-		}
-	****/
 	return nil
 }
 
@@ -467,14 +461,6 @@ func (p *Pacemaker) OnReceiveNewView(qc *QuorumCert) error {
 }
 
 //=========== Routines ==================================
-// TODO: 1. start from genesis. 2. start from a specified height.
-// assume saveLastKblockQC is already stored
-//Committee Leader triggers
-func (p *Pacemaker) Start(blockQC *block.QuorumCert) {
-	p.logger.Info(fmt.Sprintf("*** Pacemaker start at height %v, QC:%v", blockQC.QCHeight, blockQC.String()))
-	p.StartNewCommittee(blockQC)
-}
-
 /*
 func (p *Pacemaker) StartFromGenesis() {
 	// now assign b_lock b_exec, b_leaf qc_high
@@ -493,7 +479,10 @@ func (p *Pacemaker) StartFromGenesis() {
 }
 */
 
-func (p *Pacemaker) StartNewCommittee(blockQC *block.QuorumCert) {
+//Committee Leader triggers
+func (p *Pacemaker) Start(blockQC *block.QuorumCert, newCommittee bool) {
+	p.logger.Info(fmt.Sprintf("*** Pacemaker start at height %v, QC:%v, newCommittee:%v",
+		blockQC.QCHeight, blockQC.String(), newCommittee))
 
 	height := blockQC.QCHeight
 	round := blockQC.QCRound
@@ -521,7 +510,12 @@ func (p *Pacemaker) StartNewCommittee(blockQC *block.QuorumCert) {
 	p.blockPrime = nil
 	p.blockPrimePrime = nil
 
-	p.OnBeat(height+1, round)
+	// start with new committee or replay
+	if newCommittee == true {
+		p.OnBeat(height+1, 0)
+	} else {
+		p.OnBeat(height+1, round)
+	}
 }
 
 //actions of commites/receives kblock, stop pacemake to next committee
@@ -530,73 +524,4 @@ func (p *Pacemaker) Stop() {
 	// backup last two QC
 	p.csReactor.SavedLastKblockQC = p.blockLocked.Justify
 
-}
-
-func (p *Pacemaker) ValidateProposal(b *pmBlock) error {
-	blockBytes := b.ProposedBlock
-	blk, err := block.BlockDecodeFromBytes(blockBytes)
-	if err != nil {
-		p.logger.Error("Decode block failed", "err", err)
-		return err
-	}
-
-	// special valiadte StopCommitteeType
-	// possible 2 rounds of stop messagB
-	if b.ProposedBlockType == StopCommitteeType {
-		parent := p.proposalMap[b.Height-1]
-		if parent.ProposedBlockType == KBlockType {
-			p.logger.Info("the first stop committee block")
-			return nil
-		} else if parent.ProposedBlockType == StopCommitteeType {
-			grandParent := p.proposalMap[b.Height-2]
-			if grandParent.ProposedBlockType == KBlockType {
-				p.logger.Info("The second stop committee block")
-				return nil
-			} else {
-				return errParentMissing
-			}
-		} else {
-			return errParentMissing
-		}
-	}
-
-	p.logger.Info("Validate Proposal", "block", blk.Oneliner())
-
-	if b.ProposedBlockInfo != nil {
-		// if this proposal is proposed by myself, don't execute it again
-		p.logger.Debug("skip validate the proposal, because it's proposed by myself")
-		b.SuccessProcessed = true
-		return nil
-	}
-
-	parentPMBlock := b.Parent
-	if parentPMBlock == nil || parentPMBlock.ProposedBlock == nil {
-		return errParentMissing
-	}
-	parentBlock, err := block.BlockDecodeFromBytes(parentPMBlock.ProposedBlock)
-	if err != nil {
-		return errDecodeParentFailed
-	}
-	parentHeader := parentBlock.Header()
-
-	now := uint64(time.Now().Unix())
-	stage, receipts, err := p.csReactor.ProcessProposedBlock(parentHeader, blk, now)
-	if err != nil {
-		p.logger.Error("process block failed", "error", err)
-		b.SuccessProcessed = false
-		return err
-	}
-
-	b.ProposedBlockInfo = &ProposedBlockInfo{
-		BlockType:     b.ProposedBlockType,
-		ProposedBlock: blk,
-		Stage:         stage,
-		Receipts:      &receipts,
-		txsToRemoved:  func() bool { return true },
-	}
-
-	b.SuccessProcessed = true
-
-	p.logger.Info("Validated block")
-	return nil
 }

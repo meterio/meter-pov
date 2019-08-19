@@ -269,7 +269,7 @@ func (cv *ConsensusValidator) ProcessAnnounceCommittee(announceMsg *AnnounceComm
 
 	if cv.replay {
 		cv.csReactor.csCommon = NewValidatorReplayConsensusCommon(cv.csReactor, announceMsg.CSParams, announceMsg.CSSystem)
-		cv.replay = false
+		//cv.replay = false
 	} else {
 		cv.csReactor.csCommon = NewValidatorConsensusCommon(cv.csReactor, announceMsg.CSParams, announceMsg.CSSystem)
 	}
@@ -612,8 +612,8 @@ func (cv *ConsensusValidator) ProcessNotaryAnnounceMessage(notaryMsg *NotaryAnno
 	cv.SendMsgToPeer(&m, leaderNetAddr)
 
 	// XXX: Start pacemaker here at this time.
-	// TODO: we should design a meessage like committee decided and ask every committee member start pacemaker
-	cv.csReactor.csPacemaker.Start(cv.csReactor.chain.InitQC())
+	newCommittee := !cv.replay
+	cv.csReactor.csPacemaker.Start(cv.csReactor.chain.InitQC(), newCommittee)
 	return true
 }
 

@@ -328,5 +328,73 @@ func (p *Pacemaker) receivePacemakerMsg(w http.ResponseWriter, r *http.Request) 
 		}
 		p.Receive(msg)
 	}
+}
 
+func (p *Pacemaker) ValidateProposal(b *pmBlock) error {
+	blockBytes := b.ProposedBlock
+	blk, err := block.BlockDecodeFromBytes(blockBytes)
+	if err != nil {
+		p.logger.Error("Decode block failed", "err", err)
+		return err
+	}
+
+	// special valiadte StopCommitteeType
+	// possible 2 rounds of stop messagB
+	if b.ProposedBlockType == StopCommitteeType {
+		parent := p.proposalMap[b.Height-1]
+		if parent.ProposedBlockType == KBlockType {
+			p.logger.Info("the first stop committee block")
+			return nil
+		} else if parent.ProposedBlockType == StopCommitteeType {
+			grandParent := p.proposalMap[b.Height-2]
+			if grandParent.ProposedBlockType == KBlockType {
+				p.logger.Info("The second stop committee block")
+				return nil
+			} else {
+				return errParentMissing
+			}
+		} else {
+			return errParentMissing
+		}
+	}
+
+	p.logger.Info("Validate Proposal", "block", blk.Oneliner())
+
+	if b.ProposedBlockInfo != nil {
+		// if this proposal is proposed by myself, don't execute it again
+		p.logger.Debug("this proposal is created by myself, skip the validation...")
+		b.SuccessProcessed = true
+		return nil
+	}
+
+	parentPMBlock := b.Parent
+	if parentPMBlock == nil || parentPMBlock.ProposedBlock == nil {
+		return errParentMissing
+	}
+	parentBlock, err := block.BlockDecodeFromBytes(parentPMBlock.ProposedBlock)
+	if err != nil {
+		return errDecodeParentFailed
+	}
+	parentHeader := parentBlock.Header()
+
+	now := uint64(time.Now().Unix())
+	stage, receipts, err := p.csReactor.ProcessProposedBlock(parentHeader, blk, now)
+	if err != nil {
+		p.logger.Error("process block failed", "error", err)
+		b.SuccessProcessed = false
+		return err
+	}
+
+	b.ProposedBlockInfo = &ProposedBlockInfo{
+		BlockType:     b.ProposedBlockType,
+		ProposedBlock: blk,
+		Stage:         stage,
+		Receipts:      &receipts,
+		txsToRemoved:  func() bool { return true },
+	}
+
+	b.SuccessProcessed = true
+
+	p.logger.Info("Validated block")
+	return nil
 }

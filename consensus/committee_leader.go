@@ -38,6 +38,7 @@ type ConsensusLeader struct {
 	Nonce     uint64
 	state     byte
 	csReactor *ConsensusReactor //global reactor info
+	replay    bool
 
 	//signature data
 	newRoundVoterBitArray *cmn.BitArray
@@ -486,7 +487,7 @@ func (cl *ConsensusLeader) ProcessVoteNotaryAnnounce(vote4NotaryMsg *VoteForNota
 		cl.csReactor.logger.Info(`
 ===========================================================
 Committee is established!!! ...
-Myself is Leader, Let's move to 1st proposal for Round 0.
+Myself is Leader, Let's move to 1st proposal.
 ===========================================================`, "Committee Epoch", cl.EpochID)
 
 		//Now we are in new epoch
@@ -500,7 +501,8 @@ Myself is Leader, Let's move to 1st proposal for Round 0.
 		//cl.csReactor.ScheduleProposer(0)
 
 		// Now start the pacemaker
-		cl.csReactor.csPacemaker.Start(cl.csReactor.chain.InitQC())
+		newCommittee := !cl.replay
+		cl.csReactor.csPacemaker.Start(cl.csReactor.chain.InitQC(), newCommittee)
 		return true
 
 	} else {

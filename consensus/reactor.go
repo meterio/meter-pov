@@ -1380,6 +1380,7 @@ func HandleScheduleReplayLeader(conR *ConsensusReactor) bool {
 
 	conR.csLeader = NewCommitteeLeader(conR)
 	conR.csRoleInitialized |= CONSENSUS_COMMIT_ROLE_LEADER
+	conR.csLeader.replay = true
 
 	conR.csLeader.GenerateAnnounceMsg()
 	return true
