@@ -1576,7 +1576,11 @@ func configDelegates( /*myPubKey ecdsa.PublicKey*/ ) []*types.Delegate {
 	return delegates
 }
 
-func (conR *ConsensusReactor) GetGenesisBlockBytes() []byte {
-	genesis := conR.chain.GenesisBlock()
-	return block.BlockEncodeBytes(genesis)
+func (conR *ConsensusReactor) LoadBlockBytes(num uint32) []byte {
+	raw, err := conR.chain.GetTrunkBlockRaw(num)
+	if err != nil {
+		fmt.Print("Error load raw block: ", err)
+		return []byte{}
+	}
+	return raw[:]
 }
