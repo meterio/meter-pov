@@ -6,11 +6,11 @@
 package chain
 
 import (
-	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/dfinlab/meter/block"
 	"github.com/dfinlab/meter/kv"
 	"github.com/dfinlab/meter/meter"
 	"github.com/dfinlab/meter/tx"
+	"github.com/ethereum/go-ethereum/rlp"
 )
 
 var (
@@ -19,6 +19,7 @@ var (
 	txMetaPrefix        = []byte("t") // (prefix, tx id) -> tx location
 	blockReceiptsPrefix = []byte("r") // (prefix, block id) -> receipts
 	indexTrieRootPrefix = []byte("i") // (prefix, block id) -> trie root
+	leafBlockKey        = []byte("leaf")
 )
 
 // TxMeta contains information about a tx is settled.
@@ -61,6 +62,18 @@ func saveBestBlockID(w kv.Putter, id meter.Bytes32) error {
 	return w.Put(bestBlockKey, id[:])
 }
 
+func loadLeafBlockID(r kv.Getter) (meter.Bytes32, error) {
+	data, err := r.Get(leafBlockKey)
+	if err != nil {
+		return meter.Bytes32{}, err
+	}
+	return meter.BytesToBytes32(data), nil
+}
+
+func saveLeafBlockID(w kv.Putter, id meter.Bytes32) error {
+	return w.Put(leafBlockKey, id[:])
+}
+
 // loadBlockRaw load rlp encoded block raw data.
 func loadBlockRaw(r kv.Getter, id meter.Bytes32) (block.Raw, error) {
 	return r.Get(append(blockPrefix, id[:]...))
@@ -69,6 +82,10 @@ func loadBlockRaw(r kv.Getter, id meter.Bytes32) (block.Raw, error) {
 // saveBlockRaw save rlp encoded block raw data.
 func saveBlockRaw(w kv.Putter, id meter.Bytes32, raw block.Raw) error {
 	return w.Put(append(blockPrefix, id[:]...), raw)
+}
+
+func deleteBlockRaw(w kv.Putter, id meter.Bytes32) error {
+	return w.Delete(append(blockPrefix, id[:]...))
 }
 
 // saveBlockNumberIndexTrieRoot save the root of trie that contains number to id index.
@@ -90,6 +107,10 @@ func saveTxMeta(w kv.Putter, txID meter.Bytes32, meta []TxMeta) error {
 	return saveRLP(w, append(txMetaPrefix, txID[:]...), meta)
 }
 
+func deleteTxMeta(w kv.Putter, txID meter.Bytes32) error {
+	return w.Delete(append(txMetaPrefix, txID[:]...))
+}
+
 // loadTxMeta load tx meta info by tx id.
 func loadTxMeta(r kv.Getter, txID meter.Bytes32) ([]TxMeta, error) {
 	var meta []TxMeta
@@ -104,6 +125,10 @@ func saveBlockReceipts(w kv.Putter, blockID meter.Bytes32, receipts tx.Receipts)
 	return saveRLP(w, append(blockReceiptsPrefix, blockID[:]...), receipts)
 }
 
+func deleteBlockReceipts(w kv.Putter, blockID meter.Bytes32) error {
+	return w.Delete(append(blockReceiptsPrefix, blockID[:]...))
+}
+
 // loadBlockReceipts load tx receipts of a block.
 func loadBlockReceipts(r kv.Getter, blockID meter.Bytes32) (tx.Receipts, error) {
 	var receipts tx.Receipts
@@ -111,4 +136,31 @@ func loadBlockReceipts(r kv.Getter, blockID meter.Bytes32) (tx.Receipts, error) 
 		return nil, err
 	}
 	return receipts, nil
+}
+
+func deleteBlock(rw kv.GetPutter, blockID meter.Bytes32) (*block.Block, error) {
+	raw, err := loadBlockRaw(rw, blockID)
+	if err != nil {
+		return nil, err
+	}
+
+	blk, err := (&rawBlock{raw: raw}).Block()
+	if err != nil {
+		return nil, err
+	}
+
+	for _, tx := range blk.Transactions() {
+		err = deleteTxMeta(rw, tx.ID())
+		if err != nil {
+			return blk, err
+		}
+	}
+
+	err = deleteBlockReceipts(rw, blockID)
+	if err != nil {
+		return blk, err
+	}
+
+	err = deleteBlockRaw(rw, blockID)
+	return blk, err
 }

@@ -7,6 +7,7 @@ package chain
 
 import (
 	"bytes"
+	"fmt"
 	"sync"
 
 	"github.com/dfinlab/meter/block"
@@ -30,15 +31,16 @@ var errParentNotFinalized = errors.New("parent is not finalized")
 // Chain describes a persistent block chain.
 // It's thread-safe.
 type Chain struct {
-	kv             kv.GetPutter
-	ancestorTrie   *ancestorTrie
-	genesisBlock   *block.Block
-	bestBlock      *block.Block
-	preCommitBlock *block.Block
-	tag            byte
-	caches         caches
-	rw             sync.RWMutex
-	tick           co.Signal
+	kv           kv.GetPutter
+	ancestorTrie *ancestorTrie
+	genesisBlock *block.Block
+	bestBlock    *block.Block
+	leafBlock    *block.Block
+	initQC       *block.QuorumCert
+	tag          byte
+	caches       caches
+	rw           sync.RWMutex
+	tick         co.Signal
 }
 
 type caches struct {
@@ -55,7 +57,8 @@ func New(kv kv.GetPutter, genesisBlock *block.Block) (*Chain, error) {
 		return nil, errors.New("genesis block should not have transactions")
 	}
 	ancestorTrie := newAncestorTrie(kv)
-	var bestBlock *block.Block
+	var bestBlock, leafBlock *block.Block
+	var initQC *block.QuorumCert
 
 	genesisID := genesisBlock.Header().ID()
 	if bestBlockID, err := loadBestBlockID(kv); err != nil {
@@ -102,6 +105,18 @@ func New(kv kv.GetPutter, genesisBlock *block.Block) (*Chain, error) {
 		if err != nil {
 			return nil, err
 		}
+
+		// Load leaf block
+		if leafBlockID, err := loadLeafBlockID(kv); err == nil {
+			leafBlockRaw, err := loadBlockRaw(kv, leafBlockID)
+			if err != nil {
+				return nil, err
+			}
+			leafBlock, err = (&rawBlock{raw: leafBlockRaw}).Block()
+			if err != nil {
+				return nil, err
+			}
+		}
 	}
 
 	rawBlocksCache := newCache(blockCacheLimit, func(key interface{}) (interface{}, error) {
@@ -116,18 +131,62 @@ func New(kv kv.GetPutter, genesisBlock *block.Block) (*Chain, error) {
 		return loadBlockReceipts(kv, key.(meter.Bytes32))
 	})
 
-	return &Chain{
-		kv:             kv,
-		ancestorTrie:   ancestorTrie,
-		genesisBlock:   genesisBlock,
-		bestBlock:      bestBlock,
-		preCommitBlock: bestBlock,
-		tag:            genesisBlock.Header().ID()[31],
+	if leafBlock == nil {
+		leafBlock = bestBlock
+	} else {
+		fmt.Println("Leaf Block, start to prune: ", leafBlock.CompactString())
+		// remove all leaf blocks that are not finalized
+		deletedBlock := leafBlock
+		for leafBlock.Header().TotalScore() > bestBlock.Header().TotalScore() {
+			parentID, err := ancestorTrie.GetAncestor(leafBlock.Header().ID(), leafBlock.Header().Number()-1)
+			if err != nil {
+				break
+			}
+			deletedBlock, err = deleteBlock(kv, leafBlock.Header().ID())
+			if err != nil {
+				fmt.Println("Error delEte block: ", err)
+				break
+			}
+			fmt.Println("Delted block:", deletedBlock.CompactString())
+			parentRaw, err := loadBlockRaw(kv, parentID)
+			if err != nil {
+				fmt.Println("ERROR LOAD PARENT", err)
+			}
+			parentBlk, err := (&rawBlock{raw: parentRaw}).Block()
+			leafBlock = parentBlk
+		}
+
+		initQC = &deletedBlock.QC
+		fmt.Println("Init QC to:", (&deletedBlock.QC).String())
+		saveLeafBlockID(kv, leafBlock.Header().ID())
+	}
+
+	if initQC == nil {
+		fmt.Println("QC is empty, set it to use genesis QC")
+		initQC = block.GenesisQuorumCert()
+	}
+	fmt.Println("--------------------------------------------------")
+	fmt.Println("                 CHAIN INITIALIZED                ")
+	fmt.Println("--------------------------------------------------")
+	fmt.Println("Init QC: ", initQC.String())
+	fmt.Println("Leaf Block: ", leafBlock.CompactString())
+	fmt.Println("Best Block: ", bestBlock.CompactString())
+	fmt.Println("--------------------------------------------------")
+	c := &Chain{
+		kv:           kv,
+		ancestorTrie: ancestorTrie,
+		genesisBlock: genesisBlock,
+		bestBlock:    bestBlock,
+		leafBlock:    leafBlock,
+		initQC:       initQC,
+		tag:          genesisBlock.Header().ID()[31],
 		caches: caches{
 			rawBlocks: rawBlocksCache,
 			receipts:  receiptsCache,
 		},
-	}, nil
+	}
+
+	return c, nil
 }
 
 // Tag returns chain tag, which is the last byte of genesis id.
@@ -145,13 +204,6 @@ func (c *Chain) BestBlock() *block.Block {
 	c.rw.RLock()
 	defer c.rw.RUnlock()
 	return c.bestBlock
-}
-
-// BestBlock returns the newest block on trunk.
-func (c *Chain) PreCommitBlock() *block.Block {
-	c.rw.RLock()
-	defer c.rw.RUnlock()
-	return c.preCommitBlock
 }
 
 // AddBlock add a new block into block chain.
@@ -240,8 +292,18 @@ func (c *Chain) AddBlock(newBlock *block.Block, receipts tx.Receipts, finalize b
 		if fork, err = c.buildFork(newBlock.Header(), c.bestBlock.Header()); err != nil {
 			return nil, err
 		}
-		if err := saveBestBlockID(batch, newBlockID); err != nil {
-			return nil, err
+		if finalize == true {
+			if err := saveBestBlockID(batch, newBlockID); err != nil {
+				return nil, err
+			}
+			c.bestBlock = newBlock
+		} else {
+			if newBlock.Header().TotalScore() > c.leafBlock.Header().TotalScore() {
+				if err := saveLeafBlockID(batch, newBlockID); err != nil {
+					return nil, err
+				}
+				c.leafBlock = newBlock
+			}
 		}
 	} else {
 		fork = &Fork{Ancestor: parent, Branch: []*block.Header{newBlock.Header()}}
@@ -249,14 +311,6 @@ func (c *Chain) AddBlock(newBlock *block.Block, receipts tx.Receipts, finalize b
 
 	if err := batch.Write(); err != nil {
 		return nil, err
-	}
-
-	if isTrunk {
-		if finalize == true {
-			c.bestBlock = newBlock
-		} else {
-			c.preCommitBlock = newBlock
-		}
 	}
 
 	c.caches.rawBlocks.Add(newBlockID, newRawBlock(raw, newBlock))
@@ -649,4 +703,12 @@ func (c *Chain) nextBlock(descendantID meter.Bytes32, num uint32) (*block.Block,
 	}
 
 	return c.getBlock(next)
+}
+
+func (c *Chain) InitQC() *block.QuorumCert {
+	return c.initQC
+}
+
+func (c *Chain) LeafBlock() *block.Block {
+	return c.leafBlock
 }

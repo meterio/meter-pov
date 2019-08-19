@@ -64,7 +64,6 @@ func (rb *rawBlock) Block() (*block.Block, error) {
 		return nil, err
 	}
 
-	fmt.Println("height", h.Number())
 	if h.Number() == 0 {
 		b, err := rb.Body()
 		if err != nil {
