@@ -5,66 +5,31 @@
 
 package block
 
-import (
-	"bytes"
-	"fmt"
-
-	"github.com/dfinlab/meter/tx"
-	"github.com/ethereum/go-ethereum/rlp"
-)
-
 // Raw allows to partially decode components of a block.
 type Raw []byte
 
 // DecodeHeader decode only the header.
 func (r Raw) DecodeHeader() (*Header, error) {
-	content, _, err := rlp.SplitList(r)
+	blk, err := r.DecodeBlockBody()
 	if err != nil {
 		return nil, err
 	}
+	return blk.Header(), nil
 
-	var header Header
-	if err := rlp.Decode(bytes.NewReader(content), &header); err != nil {
-		return nil, err
-	}
-	return &header, nil
 }
 
 // DecodeBody decode only the body.
 func (r Raw) DecodeBody() (*Body, error) {
-	content, _, err := rlp.SplitList(r)
+	blk, err := r.DecodeBlockBody()
 	if err != nil {
 		return nil, err
 	}
-
-	_, _, rest, err := rlp.Split(content)
-	if err != nil {
-		return nil, err
-	}
-	var txs tx.Transactions
-	if err := rlp.Decode(bytes.NewReader(rest), &txs); err != nil {
-		return nil, err
-	}
-	return &Body{txs}, nil
+	return blk.Body(), nil
 }
 
 // XXX: Decode Evidence, CommitteeInfo, KBlockData
 
 // DecodeBlockBody decode block header & tx part.
 func (r Raw) DecodeBlockBody() (*Block, error) {
-
-	//XXX Address this later
-	hdr, err := r.DecodeHeader()
-	if err != nil {
-		fmt.Println("header decode fail")
-		return nil, err
-	}
-
-	body, err := r.DecodeBody()
-	if err != nil {
-		fmt.Println("body decode fail")
-		return nil, err
-	}
-
-	return Compose(hdr, body.Txs), nil
+	return BlockDecodeFromBytes(r)
 }

@@ -63,9 +63,20 @@ type QuorumCert struct {
 	VotingAggSig []byte
 }
 
+func (qc *QuorumCert) String() string {
+	if qc != nil {
+		return fmt.Sprintf("QuorumCert(Height:%v, Round:%v, EpochID:%v)", qc.QCHeight, qc.QCRound, qc.EpochID)
+	}
+	return "EMPTY QC"
+}
+
 func (qc *QuorumCert) ToBytes() []byte {
 	bytes, _ := rlp.EncodeToBytes(qc)
 	return bytes
+}
+
+func GenesisQuorumCert() *QuorumCert {
+	return &QuorumCert{QCHeight: 0, QCRound: 0}
 }
 
 // Block is an immutable block type.
@@ -207,22 +218,43 @@ QuorumCert: %v,
 
 func (b *Block) CompactString() string {
 	header := b.BlockHeader
+	hasCommittee := len(b.CommitteeInfos.CommitteeInfo) > 0
+	ci := "no"
+	if hasCommittee {
+		ci = "YES"
+	}
 	return fmt.Sprintf(`%vBlock(%v) %v 
 	Parent:%v,
 	QC:(H:%v,R:%v), LastKBHeight:%v, Txs#:%v,
+	CommitteeInfo: %v,
 	StateRoot:%v,
 	ReceiptsRoot: %v`, b.prefix(), header.Number(), header.ID().String(),
 		header.ParentID().String(),
 		b.QC.QCHeight, b.QC.QCRound, header.LastKBlockHeight(), len(b.Txs),
+		ci,
 		header.StateRoot().String(), header.ReceiptsRoot().String())
 }
 
 func (b *Block) Oneliner() string {
 	header := b.BlockHeader
-	return fmt.Sprintf("%v Block(%v) %v - Parent:%v", b.prefix(), header.Number(), header.ID().String(), header.ParentID())
+	hasCommittee := len(b.CommitteeInfos.CommitteeInfo) > 0
+	ci := "no"
+	if hasCommittee {
+		ci = "YES"
+	}
+	return fmt.Sprintf("%v Block(%v) %v - #Txs:%v, CI:%v, QC:%v, Parent:%v",
+		b.prefix(), header.Number(), header.ID().String(), len(b.Transactions()), ci, b.QC.String(), header.ParentID())
 }
 
 //-----------------
+func (b *Block) SetQC(qc *QuorumCert) *Block {
+	b.QC = *qc
+	return b
+}
+func (b *Block) GetQC() QuorumCert {
+	return b.QC
+}
+
 func (b *Block) SetBlockEvidence(ev *Evidence) *Block {
 	// FIXME: set QCHeight and QCRound, set voting msg hash, and votingSig
 	// b.QC = QuorumCert{VotingBitArray: ev.VotingBitArray, VotingMsgHash: make([][32]byte, 0)}
