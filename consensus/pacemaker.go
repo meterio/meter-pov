@@ -37,20 +37,8 @@ const (
 )
 
 var (
-	genericQC = &QuorumCert{}
-
-	qc0 = QuorumCert{
-		QCHeight: 0,
-		QCRound:  0,
-		QCNode:   nil,
-	}
-
-	b0 = pmBlock{
-		Height:  0,
-		Round:   0,
-		Parent:  nil,
-		Justify: &qc0,
-	}
+	qcInit QuorumCert
+	bInit  pmBlock
 )
 
 type QuorumCert struct {
@@ -157,6 +145,8 @@ type Pacemaker struct {
 	blockPrime      *pmBlock
 	blockPrimePrime *pmBlock
 
+	startHeight uint64
+
 	roundTimeOutCounter uint32
 	//roundTimerStop      chan bool
 
@@ -201,7 +191,7 @@ func (p *Pacemaker) CreateLeaf(parent *pmBlock, qc *QuorumCert, height uint64, r
 
 	}
 
-	info, blockBytes := p.proposeBlock(parentBlock, height, round, true)
+	info, blockBytes := p.proposeBlock(parentBlock, height, round, qc, true)
 	p.logger.Info(fmt.Sprintf("Proposed Block: %v", info.ProposedBlock.CompactString()))
 
 	b := &pmBlock{
@@ -227,13 +217,13 @@ func (p *Pacemaker) Update(bnew *pmBlock) error {
 	p.blockPrime = p.blockPrimePrime.Justify.QCNode
 	if p.blockPrime == nil {
 		p.logger.Warn("p.blockPrime is empty, set it to b0")
-		p.blockPrime = &b0
+		p.blockPrime = &bInit
 		return nil
 	}
 	p.block = p.blockPrime.Justify.QCNode
 	if p.block == nil {
 		p.logger.Warn("p.block is empty, set it to b0")
-		p.block = &b0
+		p.block = &bInit
 		return nil
 	}
 
@@ -319,7 +309,7 @@ func (p *Pacemaker) OnReceiveProposal(proposalMsg *PMProposalMessage) error {
 
 		// parent got QC, pre-commit
 		parent := p.proposalMap[bnew.Justify.QCHeight] //Justify.QCNode
-		if parent.Height >= 1 {
+		if parent.Height > p.startHeight {
 			p.csReactor.PreCommitBlock(parent.ProposedBlockInfo)
 		}
 		// stop previous round timer
@@ -427,7 +417,7 @@ func (p *Pacemaker) OnBeat(height uint64, round uint64) {
 	// parent already got QC, pre-commit it
 	//b := p.QCHigh.QCNode
 	b := p.proposalMap[p.QCHigh.QCHeight]
-	if b.Height >= 1 {
+	if b.Height > p.startHeight {
 		p.csReactor.PreCommitBlock(b.ProposedBlockInfo)
 	}
 
@@ -480,18 +470,15 @@ func (p *Pacemaker) OnReceiveNewView(qc *QuorumCert) error {
 // TODO: 1. start from genesis. 2. start from a specified height.
 // assume saveLastKblockQC is already stored
 //Committee Leader triggers
-func (p *Pacemaker) Start(height uint64) {
-	p.logger.Info(fmt.Sprintf("*** Pacemaker start at height %v", height))
-	if height == 0 {
-		p.StartFromGenesis()
-	} else {
-		p.StartNewCommittee(height, 0)
-	}
+func (p *Pacemaker) Start(blockQC *block.QuorumCert) {
+	p.logger.Info(fmt.Sprintf("*** Pacemaker start at height %v, QC:%v", blockQC.QCHeight, blockQC.String()))
+	p.StartNewCommittee(blockQC)
 }
 
+/*
 func (p *Pacemaker) StartFromGenesis() {
 	// now assign b_lock b_exec, b_leaf qc_high
-	b0.ProposedBlock = p.csReactor.GetGenesisBlockBytes()
+	b0.ProposedBlock = p.csReactor.LoadBlockBytes(0)
 	p.block = &b0
 	p.blockLocked = &b0
 	p.blockExecuted = &b0
@@ -504,39 +491,37 @@ func (p *Pacemaker) StartFromGenesis() {
 
 	p.OnBeat(1, 0)
 }
+*/
 
-func (p *Pacemaker) StartNewCommittee(height uint64, round uint64) {
-	/****
-	b0.Height = height
-	b0.Round = round
-	b0.Justify.QCHeight = height
-	b0.Justify.QCRound = round
-	b0.Justify.QCNode = &b0
+func (p *Pacemaker) StartNewCommittee(blockQC *block.QuorumCert) {
 
-	b0.Height = height
-	b0.Round = round
-	b0.Justify.QCHeight = height
-	b0.Justify.QCRound = round
-	b0.Justify.QCNode = &b0
-
-	b0.Height = height
-	b0.Round = round
-	b0.Justify.QCHeight = height
-	b0.Justify.QCRound = round
-	b0.Justify.QCNode = &b0
-	****/
+	height := blockQC.QCHeight
+	round := blockQC.QCRound
+	p.startHeight = height
+	qcInit = QuorumCert{
+		QCHeight: height,
+		QCRound:  round,
+		QCNode:   nil,
+	}
+	bInit = pmBlock{
+		Height:        height,
+		Round:         round,
+		Parent:        nil,
+		Justify:       &qcInit,
+		ProposedBlock: p.csReactor.LoadBlockBytes(uint32(height)),
+	}
 	// now assign b_lock b_exec, b_leaf qc_high
-	p.block = &b0
-	p.blockLocked = &b0
-	p.blockExecuted = &b0
-	p.blockLeaf = &b0
-	p.proposalMap[height] = &b0
-	p.QCHigh = &qc0
+	p.block = &bInit
+	p.blockLocked = &bInit
+	p.blockExecuted = &bInit
+	p.blockLeaf = &bInit
+	p.proposalMap[height] = &bInit
+	p.QCHigh = &qcInit
 
 	p.blockPrime = nil
 	p.blockPrimePrime = nil
 
-	p.OnBeat(height, round)
+	p.OnBeat(height+1, round)
 }
 
 //actions of commites/receives kblock, stop pacemake to next committee
