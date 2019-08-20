@@ -271,7 +271,7 @@ func (p *Pacemaker) OnCommit(commitReady []*pmBlock) error {
 			continue
 		}
 		// commit the approved block
-		if p.csReactor.finalizeCommitBlock222(b.ProposedBlockInfo) == false {
+		if p.csReactor.FinalizeCommitBlock(b.ProposedBlockInfo) == false {
 			p.csReactor.logger.Error("Commit block failed ...")
 
 			//revert to checkpoint
@@ -522,7 +522,9 @@ func (p *Pacemaker) Start(blockQC *block.QuorumCert, newCommittee bool) {
 //actions of commites/receives kblock, stop pacemake to next committee
 // all proposal txs need to be reclaimed before stop
 func (p *Pacemaker) Stop() {
-	// backup last two QC
-	p.csReactor.SavedLastKblockQC = p.blockLocked.Justify
+	chain := p.csReactor.chain
+	p.logger.Info(fmt.Sprintf("*** Pacemaker stopped. Current best %v, leaf %v\n",
+		chain.BestBlock().Oneliner(), chain.LeafBlock().Oneliner()))
 
+	// clean off chain for next committee.
 }

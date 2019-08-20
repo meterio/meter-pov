@@ -15,6 +15,10 @@ import (
 	"github.com/dfinlab/meter/tx"
 )
 
+const (
+	GenesisNonce = uint64(1001)
+)
+
 // Genesis to build genesis block.
 type Genesis struct {
 	builder *Builder

@@ -38,6 +38,7 @@ import (
 	"github.com/dfinlab/meter/chain"
 	"github.com/dfinlab/meter/comm"
 	bls "github.com/dfinlab/meter/crypto/multi_sig"
+	"github.com/dfinlab/meter/genesis"
 	"github.com/dfinlab/meter/meter"
 	"github.com/dfinlab/meter/powpool"
 	"github.com/inconshreveable/log15"
@@ -292,7 +293,7 @@ func (conR *ConsensusReactor) SwitchToConsensus() {
 
 	// special handle genesis.
 	if best.Header().Number() == 0 {
-		nonce = genesisNonce
+		nonce = genesis.GenesisNonce
 		replay = false
 
 		conR.ConsensusHandleReceivedNonce(int64(best.Header().Number()), nonce, replay)
@@ -320,7 +321,7 @@ func (conR *ConsensusReactor) SwitchToConsensus() {
 		lastKBlockHeightGauge.Set(float64(lastKBlockHeight))
 
 		if lastKBlockHeight == 0 {
-			nonce = genesisNonce
+			nonce = genesis.GenesisNonce
 
 		} else {
 			kblock, err := conR.chain.GetTrunkBlock(lastKBlockHeight)

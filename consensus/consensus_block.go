@@ -870,9 +870,6 @@ func (conR *ConsensusReactor) BuildKBlock(parentBlock *block.Block, data *block.
 
 //=================================================
 // handle KBlock info info message from node
-const (
-	genesisNonce = uint64(1001)
-)
 
 type RecvKBlockInfo struct {
 	Height           int64
@@ -993,7 +990,7 @@ Block precommited at height %d
 	return true
 }
 
-func (conR *ConsensusReactor) finalizeCommitBlock222(blkInfo *ProposedBlockInfo) bool {
+func (conR *ConsensusReactor) FinalizeCommitBlock(blkInfo *ProposedBlockInfo) bool {
 	blk := blkInfo.ProposedBlock
 	//stage := blkInfo.Stage
 	receipts := blkInfo.Receipts
@@ -1007,29 +1004,29 @@ func (conR *ConsensusReactor) finalizeCommitBlock222(blkInfo *ProposedBlockInfo)
 	// }
 	conR.logger.Debug("Try to finalize block", "block", blk.Oneliner())
 
-	/***********************
-			// similar to node.processBlock
-			startTime := mclock.Now()
+	/*******************
+	// similar to node.processBlock
+	startTime := mclock.Now()
 
-			if _, err := stage.Commit(); err != nil {
-				conR.logger.Error("failed to commit state", "err", err)
-				return false
-			}
+	if _, err := stage.Commit(); err != nil {
+		conR.logger.Error("failed to commit state", "err", err)
+		return false
+	}
 
-			batch := logdb.GetGlobalLogDBInstance().Prepare(blk.Header())
-			for i, tx := range blk.Transactions() {
-				origin, _ := tx.Signer()
-				txBatch := batch.ForTransaction(tx.ID(), origin)
-				for _, output := range (*(*receipts)[i]).Outputs {
-					txBatch.Insert(output.Events, output.Transfers)
-				}
-			}
-
-			if err := batch.Commit(); err != nil {
-				conR.logger.Error("commit logs failed ...", "err", err)
-				return false
-			}
 	*****/
+	batch := logdb.GetGlobalLogDBInstance().Prepare(blk.Header())
+	for i, tx := range blk.Transactions() {
+		origin, _ := tx.Signer()
+		txBatch := batch.ForTransaction(tx.ID(), origin)
+		for _, output := range (*(*receipts)[i]).Outputs {
+			txBatch.Insert(output.Events, output.Transfers)
+		}
+	}
+
+	if err := batch.Commit(); err != nil {
+		conR.logger.Error("commit logs failed ...", "err", err)
+		return false
+	}
 
 	fork, err := conR.chain.AddBlock(blk, *receipts, true)
 	if err != nil {
@@ -1047,7 +1044,7 @@ func (conR *ConsensusReactor) finalizeCommitBlock222(blkInfo *ProposedBlockInfo)
 			panic("Fork happened!")
 		}
 	}
-	/*****k
+	/*****
 
 		// now only Mblock remove the txs from txpool
 		blkInfo.txsToRemoved()
