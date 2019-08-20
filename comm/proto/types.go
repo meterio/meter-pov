@@ -8,11 +8,11 @@ package proto
 import (
 	"context"
 
-	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/dfinlab/meter/block"
-	"github.com/dfinlab/meter/powpool"
 	"github.com/dfinlab/meter/meter"
+	"github.com/dfinlab/meter/powpool"
 	"github.com/dfinlab/meter/tx"
+	"github.com/ethereum/go-ethereum/rlp"
 )
 
 type (
@@ -90,6 +90,14 @@ func GetBlocksFromNumber(ctx context.Context, rpc RPC, num uint32) ([]rlp.RawVal
 		return nil, err
 	}
 	return blocks, nil
+}
+
+func GetBestQC(ctx context.Context, rpc RPC) (*block.QuorumCert, error) {
+	var qc block.QuorumCert
+	if err := rpc.Call(ctx, MsgGetBestQC, nil, &qc); err != nil {
+		return nil, err
+	}
+	return &qc, nil
 }
 
 // GetTxs get txs from remote peer.

@@ -87,7 +87,7 @@ func New(
 }
 
 func (n *Node) Run(ctx context.Context) error {
-	n.comm.Sync(n.handleBlockStream)
+	n.comm.Sync(n.handleBlockStream, n.handleQC)
 
 	n.goes.Go(func() { n.houseKeeping(ctx) })
 	n.goes.Go(func() { n.txStashLoop(ctx) })
@@ -97,6 +97,16 @@ func (n *Node) Run(ctx context.Context) error {
 	n.goes.Go(func() { n.cons.OnStart() })
 
 	n.goes.Wait()
+	return nil
+}
+
+func (n *Node) handleQC(ctx context.Context, qc *block.QuorumCert) (err error) {
+	log.Debug("start to handle received qc")
+	defer log.Debug("handle qc done", "err", err)
+	e := n.chain.SetBestQCCandidate(qc)
+	if e != nil {
+		fmt.Println("Error while update best qc: ", e)
+	}
 	return nil
 }
 

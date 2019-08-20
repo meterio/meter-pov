@@ -13,7 +13,7 @@ import (
 const (
 	Name              = "meter"
 	Version    uint   = 1
-	Length     uint64 = 9
+	Length     uint64 = 10
 	MaxMsgSize        = 10 * 1024 * 1024
 )
 
@@ -28,6 +28,7 @@ const (
 	MsgGetBlocksFromNumber // fetch blocks from given number (including given number)
 	MsgGetTxs
 	MsgNewPowBlock
+	MsgGetBestQC
 )
 
 // MsgName convert msg code to string.
@@ -51,6 +52,8 @@ func MsgName(msgCode uint64) string {
 		return "MsgGetTxs"
 	case MsgNewPowBlock:
 		return "MsgNewPowBlock"
+	case MsgGetBestQC:
+		return "MsgGetBestQC"
 	default:
 		return fmt.Sprintf("unknown msg code(%v)", msgCode)
 	}

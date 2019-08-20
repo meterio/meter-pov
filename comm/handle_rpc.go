@@ -175,6 +175,10 @@ func (c *Communicator) handleRPC(peer *Peer, msg *p2p.Msg, write func(interface{
 		peer.MarkPowBlock(powID)
 		c.powPool.Add(newPowBlockInfo)
 		write(&struct{}{})
+	case proto.MsgGetBestQC:
+		qc := c.chain.BestQC()
+		fmt.Println("WRITE QC: ", qc.String())
+		write(qc)
 	default:
 		return fmt.Errorf("unknown message (%v)", msg.Code)
 	}

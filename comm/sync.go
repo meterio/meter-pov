@@ -9,22 +9,22 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/ethereum/go-ethereum/rlp"
-	"github.com/pkg/errors"
 	"github.com/dfinlab/meter/block"
 	"github.com/dfinlab/meter/co"
 	"github.com/dfinlab/meter/comm/proto"
+	"github.com/ethereum/go-ethereum/rlp"
+	"github.com/pkg/errors"
 )
 
-func (c *Communicator) sync(peer *Peer, headNum uint32, handler HandleBlockStream) error {
+func (c *Communicator) sync(peer *Peer, headNum uint32, handler HandleBlockStream, qcHandler HandleQC) error {
 	ancestor, err := c.findCommonAncestor(peer, headNum)
 	if err != nil {
 		return errors.WithMessage(err, "find common ancestor")
 	}
-	return c.download(peer, ancestor+1, handler)
+	return c.download(peer, ancestor+1, handler, qcHandler)
 }
 
-func (c *Communicator) download(peer *Peer, fromNum uint32, handler HandleBlockStream) error {
+func (c *Communicator) download(peer *Peer, fromNum uint32, handler HandleBlockStream, qcHandler HandleQC) error {
 
 	// it's important to set cap to 2
 	errCh := make(chan error, 2)
@@ -50,6 +50,17 @@ func (c *Communicator) download(peer *Peer, fromNum uint32, handler HandleBlockS
 			}
 			if len(result) == 0 {
 				return
+			}
+
+			qc, err := proto.GetBestQC(ctx, peer)
+			if err != nil {
+				errCh <- err
+				return
+			}
+			fmt.Println("GOT QC: ", qc.String())
+			err = qcHandler(ctx, qc)
+			if err != nil {
+				errCh <- err
 			}
 
 			blocks = blocks[:0]
