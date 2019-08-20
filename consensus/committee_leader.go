@@ -502,7 +502,7 @@ Myself is Leader, Let's move to 1st proposal.
 
 		// Now start the pacemaker
 		newCommittee := !cl.replay
-		cl.csReactor.csPacemaker.Start(cl.csReactor.chain.InitQC(), newCommittee)
+		cl.csReactor.csPacemaker.Start(cl.csReactor.chain.BestQC(), newCommittee)
 		return true
 
 	} else {

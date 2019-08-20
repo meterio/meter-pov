@@ -20,6 +20,7 @@ var (
 	blockReceiptsPrefix = []byte("r") // (prefix, block id) -> receipts
 	indexTrieRootPrefix = []byte("i") // (prefix, block id) -> trie root
 	leafBlockKey        = []byte("leaf")
+	bestQCKey           = []byte("best-qc")
 )
 
 // TxMeta contains information about a tx is settled.
@@ -163,4 +164,18 @@ func deleteBlock(rw kv.GetPutter, blockID meter.Bytes32) (*block.Block, error) {
 
 	err = deleteBlockRaw(rw, blockID)
 	return blk, err
+}
+
+// saveBestQC save the best qc
+func saveBestQC(w kv.Putter, qc *block.QuorumCert) error {
+	return saveRLP(w, bestQCKey, qc)
+}
+
+// loadBestQC load the best qc
+func loadBestQC(r kv.Getter) (*block.QuorumCert, error) {
+	var qc block.QuorumCert
+	if err := loadRLP(r, bestQCKey, &qc); err != nil {
+		return nil, err
+	}
+	return &qc, nil
 }

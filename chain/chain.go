@@ -36,7 +36,7 @@ type Chain struct {
 	genesisBlock *block.Block
 	bestBlock    *block.Block
 	leafBlock    *block.Block
-	initQC       *block.QuorumCert
+	bestQC       *block.QuorumCert
 	tag          byte
 	caches       caches
 	rw           sync.RWMutex
@@ -58,7 +58,6 @@ func New(kv kv.GetPutter, genesisBlock *block.Block) (*Chain, error) {
 	}
 	ancestorTrie := newAncestorTrie(kv)
 	var bestBlock, leafBlock *block.Block
-	var initQC *block.QuorumCert
 
 	genesisID := genesisBlock.Header().ID()
 	if bestBlockID, err := loadBestBlockID(kv); err != nil {
@@ -134,43 +133,42 @@ func New(kv kv.GetPutter, genesisBlock *block.Block) (*Chain, error) {
 	if leafBlock == nil {
 		leafBlock = bestBlock
 	} else {
-		fmt.Println("Leaf Block, start to prune: ", leafBlock.CompactString())
+		fmt.Println("Leaf Block", leafBlock.CompactString())
+		fmt.Println("*** Start pruning")
 		// remove all leaf blocks that are not finalized
-		deletedBlock := leafBlock
 		for leafBlock.Header().TotalScore() > bestBlock.Header().TotalScore() {
 			parentID, err := ancestorTrie.GetAncestor(leafBlock.Header().ID(), leafBlock.Header().Number()-1)
 			if err != nil {
 				break
 			}
-			deletedBlock, err = deleteBlock(kv, leafBlock.Header().ID())
+			deletedBlock, err := deleteBlock(kv, leafBlock.Header().ID())
 			if err != nil {
-				fmt.Println("Error delEte block: ", err)
+				fmt.Println("Error delete block: ", err)
 				break
 			}
-			fmt.Println("Delted block:", deletedBlock.CompactString())
+			fmt.Println("Deleted block:", deletedBlock.CompactString())
 			parentRaw, err := loadBlockRaw(kv, parentID)
 			if err != nil {
-				fmt.Println("ERROR LOAD PARENT", err)
+				fmt.Println("Error load parent", err)
 			}
 			parentBlk, err := (&rawBlock{raw: parentRaw}).Block()
 			leafBlock = parentBlk
 		}
 
-		initQC = &deletedBlock.QC
-		fmt.Println("Init QC to:", (&deletedBlock.QC).String())
 		saveLeafBlockID(kv, leafBlock.Header().ID())
 	}
 
-	if initQC == nil {
-		fmt.Println("QC is empty, set it to use genesis QC")
-		initQC = block.GenesisQuorumCert()
+	bestQC, err := loadBestQC(kv)
+	if err != nil {
+		fmt.Println("QC is empty, set it to use genesis QC, error: ", err)
+		bestQC = block.GenesisQC()
 	}
 	fmt.Println("--------------------------------------------------")
 	fmt.Println("                 CHAIN INITIALIZED                ")
 	fmt.Println("--------------------------------------------------")
-	fmt.Println("Init QC: ", initQC.String())
 	fmt.Println("Leaf Block: ", leafBlock.CompactString())
 	fmt.Println("Best Block: ", bestBlock.CompactString())
+	fmt.Println("Best QC: ", bestQC.String())
 	fmt.Println("--------------------------------------------------")
 	c := &Chain{
 		kv:           kv,
@@ -178,7 +176,7 @@ func New(kv kv.GetPutter, genesisBlock *block.Block) (*Chain, error) {
 		genesisBlock: genesisBlock,
 		bestBlock:    bestBlock,
 		leafBlock:    leafBlock,
-		initQC:       initQC,
+		bestQC:       bestQC,
 		tag:          genesisBlock.Header().ID()[31],
 		caches: caches{
 			rawBlocks: rawBlocksCache,
@@ -297,11 +295,16 @@ func (c *Chain) AddBlock(newBlock *block.Block, receipts tx.Receipts, finalize b
 				return nil, err
 			}
 			c.bestBlock = newBlock
+			err := c.updateBestQC()
+			if err != nil {
+				fmt.Println("Error during update QC: ", err)
+			}
 		} else {
 			if newBlock.Header().TotalScore() > c.leafBlock.Header().TotalScore() {
 				if err := saveLeafBlockID(batch, newBlockID); err != nil {
 					return nil, err
 				}
+
 				c.leafBlock = newBlock
 			}
 		}
@@ -705,10 +708,33 @@ func (c *Chain) nextBlock(descendantID meter.Bytes32, num uint32) (*block.Block,
 	return c.getBlock(next)
 }
 
-func (c *Chain) InitQC() *block.QuorumCert {
-	return c.initQC
+func (c *Chain) BestQC() *block.QuorumCert {
+	return c.bestQC
 }
 
 func (c *Chain) LeafBlock() *block.Block {
 	return c.leafBlock
+}
+
+func (c *Chain) updateBestQC() error {
+	if c.leafBlock.Header().ID().String() == c.bestBlock.Header().ID().String() {
+		return saveBestQC(c.kv, c.bestQC)
+	}
+	id, err := c.ancestorTrie.GetAncestor(c.leafBlock.Header().ID(), c.bestBlock.Header().Number()+1)
+	if err != nil {
+		return err
+	}
+	raw, err := loadBlockRaw(c.kv, id)
+	if err != nil {
+		return err
+	}
+	blk, err := raw.DecodeBlockBody()
+	if err != nil {
+		return err
+	}
+	if blk.Header().ParentID().String() != c.bestBlock.Header().ID().String() {
+		return errors.New("parent mismatch ")
+	}
+	c.bestQC = blk.QC
+	return saveBestQC(c.kv, c.bestQC)
 }

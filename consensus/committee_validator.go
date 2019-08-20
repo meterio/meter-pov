@@ -613,7 +613,7 @@ func (cv *ConsensusValidator) ProcessNotaryAnnounceMessage(notaryMsg *NotaryAnno
 
 	// XXX: Start pacemaker here at this time.
 	newCommittee := !cv.replay
-	cv.csReactor.csPacemaker.Start(cv.csReactor.chain.InitQC(), newCommittee)
+	cv.csReactor.csPacemaker.Start(cv.csReactor.chain.BestQC(), newCommittee)
 	return true
 }
 
