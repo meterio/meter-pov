@@ -52,38 +52,11 @@ type CommitteeInfos struct {
 	CommitteeInfo []CommitteeInfo
 }
 
-type QuorumCert struct {
-	QCHeight uint64
-	QCRound  uint64
-	EpochID  uint64
-
-	VotingSig     [][]byte   // [] of serialized bls signature
-	VotingMsgHash [][32]byte // [][32]byte
-	// VotingBitArray cmn.BitArray
-	VotingAggSig []byte
-}
-
-func (qc *QuorumCert) String() string {
-	if qc != nil {
-		return fmt.Sprintf("QuorumCert(Height:%v, Round:%v, EpochID:%v)", qc.QCHeight, qc.QCRound, qc.EpochID)
-	}
-	return "EMPTY QC"
-}
-
-func (qc *QuorumCert) ToBytes() []byte {
-	bytes, _ := rlp.EncodeToBytes(qc)
-	return bytes
-}
-
-func GenesisQuorumCert() *QuorumCert {
-	return &QuorumCert{QCHeight: 0, QCRound: 0}
-}
-
 // Block is an immutable block type.
 type Block struct {
 	BlockHeader    *Header
 	Txs            tx.Transactions
-	QC             QuorumCert
+	QC             *QuorumCert
 	CommitteeInfos CommitteeInfos
 	KBlockData     KBlockData
 
@@ -173,7 +146,7 @@ func (b *Block) DecodeRLP(s *rlp.Stream) error {
 		Txs            tx.Transactions
 		KBlockData     KBlockData
 		CommitteeInfos CommitteeInfos
-		QC             QuorumCert
+		QC             *QuorumCert
 	}{}
 
 	if err := s.Decode(&payload); err != nil {
@@ -225,8 +198,7 @@ func (b *Block) CompactString() string {
 	}
 	return fmt.Sprintf(`%vBlock(%v) %v 
 	Parent:%v,
-	QC:(H:%v,R:%v), LastKBHeight:%v, Txs#:%v,
-	CommitteeInfo: %v,
+	QC:(H:%v,R:%v), LastKBHeight:%v, Txs#:%v, CommitteeInfo: %v,
 	StateRoot:%v,
 	ReceiptsRoot: %v`, b.prefix(), header.Number(), header.ID().String(),
 		header.ParentID().String(),
@@ -248,10 +220,10 @@ func (b *Block) Oneliner() string {
 
 //-----------------
 func (b *Block) SetQC(qc *QuorumCert) *Block {
-	b.QC = *qc
+	b.QC = qc
 	return b
 }
-func (b *Block) GetQC() QuorumCert {
+func (b *Block) GetQC() *QuorumCert {
 	return b.QC
 }
 
