@@ -416,17 +416,23 @@ func (p *Pacemaker) OnBeat(height uint64, round uint64) {
 	}
 
 	p.logger.Info("--------------------------------------------------")
-	p.logger.Info(fmt.Sprintf("                OnBeat Round: %v                 ", round))
+	p.logger.Info(fmt.Sprintf("                OnBeat Round: %v                  ", round))
+	if p.csReactor.amIRoundProproser(round) {
+		p.logger.Info("                I AM round proposer               ")
+	} else {
+		p.logger.Info("              I am NOT round proposer             ")
+	}
 	p.logger.Info("--------------------------------------------------")
 	if p.csReactor.amIRoundProproser(round) {
-		p.csReactor.logger.Info("OnBeat: I am round proposer", "round", round)
+		// p.csReactor.logger.Info("OnBeat: I am round proposer", "round", round)
 		bleaf := p.OnPropose(p.blockLeaf, p.QCHigh, height, round)
 		if bleaf == nil {
 			panic("Propose failed")
 		}
 		p.blockLeaf = bleaf
 	} else {
-		p.csReactor.logger.Info("OnBeat: I am NOT round proposer", "round", round)
+		// p.csReactor.logger.Info("OnBeat: I am NOT round proposer", "round", round)
+		p.OnNextSyncView(height, round)
 	}
 }
 
@@ -446,15 +452,9 @@ func (p *Pacemaker) OnReceiveNewView(qc *QuorumCert) error {
 
 	if changed == true {
 		if qc.QCHeight > p.blockLocked.Height {
-			if p.csReactor.amIRoundProproser(qc.QCRound+1) == true {
-				time.AfterFunc(1*time.Second, func() {
-					p.OnBeat(qc.QCHeight+1, qc.QCRound+1)
-				})
-			} else {
-				time.AfterFunc(1*time.Second, func() {
-					p.OnNextSyncView(qc.QCHeight+1, qc.QCRound+1)
-				})
-			}
+			time.AfterFunc(1*time.Second, func() {
+				p.OnBeat(qc.QCHeight+1, qc.QCRound+1)
+			})
 		}
 	}
 	return nil
