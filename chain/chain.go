@@ -41,6 +41,8 @@ type Chain struct {
 	caches       caches
 	rw           sync.RWMutex
 	tick         co.Signal
+
+	bestQCCandidate *block.QuorumCert
 }
 
 type caches struct {
@@ -182,6 +184,7 @@ func New(kv kv.GetPutter, genesisBlock *block.Block) (*Chain, error) {
 			rawBlocks: rawBlocksCache,
 			receipts:  receiptsCache,
 		},
+		bestQCCandidate: nil,
 	}
 
 	return c, nil
@@ -720,6 +723,12 @@ func (c *Chain) updateBestQC() error {
 	if c.leafBlock.Header().ID().String() == c.bestBlock.Header().ID().String() {
 		return saveBestQC(c.kv, c.bestQC)
 	}
+	if c.bestQCCandidate != nil && c.bestQCCandidate.QCHeight == uint64(c.bestBlock.Header().Number()) {
+		c.bestQC = c.bestQCCandidate
+		c.bestQCCandidate = nil
+		return saveBestQC(c.kv, c.bestQC)
+
+	}
 	id, err := c.ancestorTrie.GetAncestor(c.leafBlock.Header().ID(), c.bestBlock.Header().Number()+1)
 	if err != nil {
 		return err
@@ -737,4 +746,12 @@ func (c *Chain) updateBestQC() error {
 	}
 	c.bestQC = blk.QC
 	return saveBestQC(c.kv, c.bestQC)
+}
+
+func (c *Chain) SetBestQCCandidate(qc *block.QuorumCert) error {
+	if qc.QCHeight < uint64(c.bestBlock.Header().Number()) {
+		return errors.New("invalid best qc")
+	}
+	c.bestQCCandidate = qc
+	return nil
 }
