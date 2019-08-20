@@ -408,13 +408,6 @@ func (p *Pacemaker) UpdateQCHigh(qc *QuorumCert) bool {
 }
 
 func (p *Pacemaker) OnBeat(height uint64, round uint64) {
-	// parent already got QC, pre-commit it
-	//b := p.QCHigh.QCNode
-	b := p.proposalMap[p.QCHigh.QCHeight]
-	if b.Height > p.startHeight {
-		p.csReactor.PreCommitBlock(b.ProposedBlockInfo)
-	}
-
 	p.logger.Info("--------------------------------------------------")
 	p.logger.Info(fmt.Sprintf("                OnBeat Round: %v                  ", round))
 	if p.csReactor.amIRoundProproser(round) {
@@ -423,6 +416,14 @@ func (p *Pacemaker) OnBeat(height uint64, round uint64) {
 		p.logger.Info("              I am NOT round proposer             ")
 	}
 	p.logger.Info("--------------------------------------------------")
+
+	// parent already got QC, pre-commit it
+	//b := p.QCHigh.QCNode
+	b := p.proposalMap[p.QCHigh.QCHeight]
+	if b.Height > p.startHeight {
+		p.csReactor.PreCommitBlock(b.ProposedBlockInfo)
+	}
+
 	if p.csReactor.amIRoundProproser(round) {
 		// p.csReactor.logger.Info("OnBeat: I am round proposer", "round", round)
 		bleaf := p.OnPropose(p.blockLeaf, p.QCHigh, height, round)
