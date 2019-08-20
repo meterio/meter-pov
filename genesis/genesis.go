@@ -10,8 +10,8 @@ import (
 
 	"github.com/dfinlab/meter/abi"
 	"github.com/dfinlab/meter/block"
-	"github.com/dfinlab/meter/state"
 	"github.com/dfinlab/meter/meter"
+	"github.com/dfinlab/meter/state"
 	"github.com/dfinlab/meter/tx"
 )
 
@@ -23,15 +23,16 @@ type Genesis struct {
 }
 
 // Build build the genesis block.
-func (g *Genesis) Build(stateCreator *state.Creator) (blk *block.Block, events tx.Events, err error) {
-	block, events, err := g.builder.Build(stateCreator)
+func (g *Genesis) Build(stateCreator *state.Creator) (*block.Block, tx.Events, error) {
+	blk, events, err := g.builder.Build(stateCreator)
 	if err != nil {
 		return nil, nil, err
 	}
-	if block.Header().ID() != g.id {
+	if blk.Header().ID() != g.id {
 		panic("built genesis ID incorrect")
 	}
-	return block, events, nil
+	blk.QC = block.GenesisQC()
+	return blk, events, nil
 }
 
 // ID returns genesis block ID.
