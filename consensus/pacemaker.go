@@ -364,8 +364,14 @@ func (p *Pacemaker) OnReceiveVote(b *pmBlock) error {
 		QCRound:  b.Round,
 		QCNode:   b,
 	}
-	p.OnReceiveNewView(qc)
+	changed := p.UpdateQCHigh(qc)
 
+	if changed == true {
+		// if QC is updated, relay it to the next proposer
+		time.AfterFunc(1*time.Second, func() {
+			p.OnNextSyncView(qc.QCHeight+1, qc.QCRound+1)
+		})
+	}
 	return nil
 }
 
@@ -447,17 +453,9 @@ func (p *Pacemaker) OnReceiveNewView(qc *QuorumCert) error {
 
 	if changed == true {
 		if qc.QCHeight > p.blockLocked.Height {
-			if p.csReactor.amIRoundProproser(qc.QCRound + 1) {
-				time.AfterFunc(1*time.Second, func() {
-					p.logger.Info("I am next PROPOSER, calling OnBeat", "height", qc.QCHeight+1, "round", qc.QCRound+1)
-					p.OnBeat(qc.QCHeight+1, qc.QCRound+1)
-				})
-			} else {
-				p.logger.Info("I am next VALIDATOR, calling OnNextSyncView", "expectedHeight", qc.QCHeight+1, "expectedRound", qc.QCRound+1)
-				time.AfterFunc(1*time.Second, func() {
-					p.OnNextSyncView(qc.QCHeight+1, qc.QCRound+1)
-				})
-			}
+			time.AfterFunc(1*time.Second, func() {
+				p.OnBeat(qc.QCHeight+1, qc.QCRound+1)
+			})
 		}
 	}
 	return nil
