@@ -527,4 +527,14 @@ func (p *Pacemaker) Stop() {
 		chain.BestBlock().Oneliner(), chain.LeafBlock().Oneliner()))
 
 	// clean off chain for next committee.
+	best := chain.BestBlock()
+	if best.Header().BlockType() == block.BLOCK_TYPE_K_BLOCK {
+		data, _ := best.GetKBlockData()
+		info := RecvKBlockInfo{
+			Height:           int64(best.Header().Number()),
+			LastKBlockHeight: best.Header().LastKBlockHeight(),
+			Nonce:            data.Nonce,
+		}
+		p.logger.Info("received kblock", "nonce", info.Nonce, "height", info.Height)
+	}
 }

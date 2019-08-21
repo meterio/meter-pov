@@ -29,6 +29,7 @@ func RegisterConsensusMessages(cdc *amino.Codec) {
 	cdc.RegisterConcrete(&VoteForProposalMessage{}, "dfinlab/VoteForProposal", nil)
 	cdc.RegisterConcrete(&VoteForNotaryMessage{}, "dfinlab/VoteForNotary", nil)
 	cdc.RegisterConcrete(&MoveNewRoundMessage{}, "dfinlab/MoveNewRound", nil)
+	cdc.RegisterConcrete(&NewCommitteeMessage{}, "dfinlab/NewCommittee", nil)
 
 	cdc.RegisterConcrete(&PMProposalMessage{}, "dfinlab/PMProposal", nil)
 	cdc.RegisterConcrete(&PMVoteForProposalMessage{}, "dfinlab/PMVoteForProposal", nil)
@@ -444,6 +445,51 @@ func (m *MoveNewRoundMessage) SigningHash() (hash meter.Bytes32) {
 // String returns a string representation.
 func (m *MoveNewRoundMessage) String() string {
 	return fmt.Sprintf("[MoveNewRoundMessage H:%v R:%v S:%v Type:%v]",
+		m.CSMsgCommonHeader.Height, m.CSMsgCommonHeader.Round,
+		m.CSMsgCommonHeader.Sender, m.CSMsgCommonHeader.MsgType)
+}
+
+//------------------------------------
+// NewCommitteeRound message:
+// 1. when a proposer can not get the consensus, so it sends out
+// this message to give up.
+// 2. Proposer disfunctional, the next proposer send out it after a certain time.
+//
+type NewCommitteeMessage struct {
+	CSMsgCommonHeader ConsensusMsgCommonHeader
+
+	NewEpochID        uint64
+	NewLeaderPubKey   []byte //ecdsa.PublicKey
+	ValidatorPubkey   []byte //ecdsa.PublicKey
+	Nonce             uint64 // 8 bytes
+	KBlockHeight      int64
+	SignedMessageHash [32]byte
+}
+
+// SigningHash computes hash of all header fields excluding signature.
+func (m *NewCommitteeMessage) SigningHash() (hash meter.Bytes32) {
+	hw := meter.NewBlake2b()
+	rlp.Encode(hw, []interface{}{
+		m.CSMsgCommonHeader.Height,
+		m.CSMsgCommonHeader.Round,
+		m.CSMsgCommonHeader.Sender,
+		m.CSMsgCommonHeader.Timestamp,
+		m.CSMsgCommonHeader.MsgType,
+		m.CSMsgCommonHeader.MsgSubType,
+
+		m.NewEpochID,
+		m.NewLeaderPubKey,
+		m.ValidatorPubkey,
+		m.Nonce,
+		m.KBlockHeight,
+	})
+	hw.Sum(hash[:0])
+	return
+}
+
+// String returns a string representation.
+func (m *NewCommitteeMessage) String() string {
+	return fmt.Sprintf("[NewCommitteeMessage H:%v R:%v S:%v Type:%v]",
 		m.CSMsgCommonHeader.Height, m.CSMsgCommonHeader.Round,
 		m.CSMsgCommonHeader.Sender, m.CSMsgCommonHeader.MsgType)
 }

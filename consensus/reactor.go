@@ -171,9 +171,6 @@ type ConsensusReactor struct {
 	// kBlock data
 	KBlockDataQueue    chan block.KBlockData // from POW simulation
 	RcvKBlockInfoQueue chan RecvKBlockInfo   // this channel for kblock notify from node module.
-
-	// pacemaker last QC if the
-	SavedLastKblockQC *QuorumCert
 }
 
 // Glob Instance
@@ -399,7 +396,8 @@ const (
 	CONSENSUS_MSG_MOVE_NEW_ROUND              = byte(0x08)
 	CONSENSUS_MSG_PACEMAKER_PROPOSAL          = byte(0x09)
 	CONSENSUS_MSG_PACEMAKER_VOTE_FOR_PROPOSAL = byte(0x10)
-	CONSENSUS_MSG_PACEMAKER_NEW_VIEW          = byte(0x10)
+	CONSENSUS_MSG_PACEMAKER_NEW_VIEW          = byte(0x11)
+	CONSENSUS_MSG_NEW_COMMITTEE               = byte(0x12)
 )
 
 // CommitteeMember is validator structure + consensus fields
@@ -790,6 +788,18 @@ func (conR *ConsensusReactor) handleMsg(mi consensusMsgInfo) {
 			conR.logger.Error("process MoveNewRound failed")
 		}
 
+	case *NewCommitteeMessage:
+		if (conR.csRoleInitialized&CONSENSUS_COMMIT_ROLE_LEADER) == 0 ||
+			(conR.csLeader == nil) {
+			conR.logger.Warn("not in leader role yet, enter leader first ...")
+			// if find out we are not in committee, then exit validator
+			conR.enterConsensusLeader()
+		}
+
+		success := conR.csLeader.ProcessNewCommitteeMessage(msg, peer)
+		if success == false {
+			conR.logger.Error("process NewcommitteeMessage failed")
+		}
 	default:
 		conR.logger.Error("Unknown msg type", "value", reflect.TypeOf(msg))
 	}
@@ -1068,6 +1078,8 @@ func getConcreteName(msg ConsensusMessage) string {
 		return "PMVoteForProposalMessage"
 	case *PMNewViewMessage:
 		return "PMNewViewMessage"
+	case *NewCommitteeMessage:
+		return "NewCommitteeMessage"
 	}
 	return ""
 }
@@ -1478,28 +1490,73 @@ func (conR *ConsensusReactor) ConsensusHandleReceivedNonce(kBlockHeight int64, n
 	}
 
 	// hotstuff: check the mechnism:
-	// 1) send movenextround (with signature) to new leader. if new leader receives majority signature, then send out announce.
+	// 1) send moveNewRound (with signature) to new leader. if new leader receives majority signature, then send out announce.
 	if role == CONSENSUS_COMMIT_ROLE_LEADER {
 		conR.logger.Info("I am committee leader for nonce!", "nonce", nonce)
 		//TBD:
 		// wait 30 seconds for synchronization
 		// time.Sleep(5 * WHOLE_NETWORK_BLOCK_SYNC_TIME)
+		/***********
 		time.Sleep(1 * WHOLE_NETWORK_BLOCK_SYNC_TIME)
 		if replay {
 			conR.ScheduleReplayLeader(0)
 		} else {
 			conR.ScheduleLeader(0)
 		}
+		***********/
+		//wait for majority
 	} else if role == CONSENSUS_COMMIT_ROLE_VALIDATOR {
 		conR.logger.Info("I am committee validator for nonce!", "nonce", nonce)
+		/*****
 		if replay {
 			conR.ScheduleReplayValidator(0)
 		} else {
 			conR.ScheduleValidator(0)
 		}
+		****/
 		// send future leader of next round message.
-		//conR.csValidator.sendNewRoundMessage()
+		leader := newConsensusPeer(conR.curCommittee.Validators[0].NetAddr.IP,
+			conR.curCommittee.Validators[0].NetAddr.Port)
+		leaderPubKey := conR.curCommittee.Validators[0].PubKey
+
+		conR.sendNewCommitteeMessage(leader, leaderPubKey, kBlockHeight, nonce)
 	}
+}
+
+// send new round message to future committee leader
+func (conR *ConsensusReactor) sendNewCommitteeMessage(peer *ConsensusPeer, pubKey ecdsa.PublicKey, kblockHeight int64, nonce uint64) error {
+
+	msg := &NewCommitteeMessage{
+		CSMsgCommonHeader: ConsensusMsgCommonHeader{
+			Height:    conR.curHeight,
+			Round:     0,
+			Sender:    crypto.FromECDSAPub(&conR.myPubKey),
+			Timestamp: time.Now(),
+			MsgType:   CONSENSUS_MSG_NEW_COMMITTEE,
+		},
+
+		NewEpochID:      conR.curEpoch + 1,
+		NewLeaderPubKey: crypto.FromECDSAPub(&pubKey),
+		ValidatorPubkey: crypto.FromECDSAPub(&conR.myPubKey),
+		Nonce:           nonce,
+		KBlockHeight:    kblockHeight,
+
+		// Signature part.
+	}
+
+	// sign message
+	msgSig, err := conR.SignConsensusMsg(msg.SigningHash().Bytes())
+	if err != nil {
+		conR.logger.Error("Sign message failed", "error", err)
+		return err
+	}
+	msg.CSMsgCommonHeader.SetMsgSignature(msgSig)
+
+	// state to init & send move to next round
+	// fmt.Println("msg: %v", msg.String())
+	var m ConsensusMessage = msg
+	conR.sendConsensusMsg(&m, peer)
+	return nil
 }
 
 // Easier adjust the logic of major 2/3
