@@ -364,8 +364,14 @@ func (p *Pacemaker) OnReceiveVote(b *pmBlock) error {
 		QCRound:  b.Round,
 		QCNode:   b,
 	}
-	p.OnReceiveNewView(qc)
+	changed := p.UpdateQCHigh(qc)
 
+	if changed == true {
+		// if QC is updated, relay it to the next proposer
+		time.AfterFunc(1*time.Second, func() {
+			p.OnNextSyncView(qc.QCHeight+1, qc.QCRound+1)
+		})
+	}
 	return nil
 }
 
@@ -410,11 +416,6 @@ func (p *Pacemaker) UpdateQCHigh(qc *QuorumCert) bool {
 func (p *Pacemaker) OnBeat(height uint64, round uint64) {
 	p.logger.Info("--------------------------------------------------")
 	p.logger.Info(fmt.Sprintf("                OnBeat Round: %v                  ", round))
-	if p.csReactor.amIRoundProproser(round) {
-		p.logger.Info("                I AM round proposer               ")
-	} else {
-		p.logger.Info("              I am NOT round proposer             ")
-	}
 	p.logger.Info("--------------------------------------------------")
 
 	// parent already got QC, pre-commit it
@@ -425,15 +426,14 @@ func (p *Pacemaker) OnBeat(height uint64, round uint64) {
 	}
 
 	if p.csReactor.amIRoundProproser(round) {
-		// p.csReactor.logger.Info("OnBeat: I am round proposer", "round", round)
+		p.csReactor.logger.Info("OnBeat: I am round proposer", "round", round)
 		bleaf := p.OnPropose(p.blockLeaf, p.QCHigh, height, round)
 		if bleaf == nil {
 			panic("Propose failed")
 		}
 		p.blockLeaf = bleaf
 	} else {
-		// p.csReactor.logger.Info("OnBeat: I am NOT round proposer", "round", round)
-		p.OnNextSyncView(height, round)
+		p.csReactor.logger.Info("OnBeat: I am NOT round proposer", "round", round)
 	}
 }
 
