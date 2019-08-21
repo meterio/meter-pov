@@ -194,7 +194,7 @@ func (p *Pacemaker) BuildVoteForProposalMessage(proposalMsg *PMProposalMessage) 
 }
 
 // BuildVoteForProposalMsg build VFP message for proposal
-func (p *Pacemaker) BuildNewViewMessage(nextHeight, nextRound uint64, qcHigh *QuorumCert) (*PMNewViewMessage, error) {
+func (p *Pacemaker) BuildNewViewMessage(nextHeight, nextRound uint64, qcHigh *QuorumCert, reason byte, timeout *TimeoutCert) (*PMNewViewMessage, error) {
 
 	cmnHdr := ConsensusMsgCommonHeader{
 		Height:    int64(nextHeight),
@@ -207,9 +207,11 @@ func (p *Pacemaker) BuildNewViewMessage(nextHeight, nextRound uint64, qcHigh *Qu
 	msg := &PMNewViewMessage{
 		CSMsgCommonHeader: cmnHdr,
 
-		QCHeight: qcHigh.QCHeight,
-		QCRound:  qcHigh.QCRound,
-		QCHigh:   p.EncodeQCToBytes(qcHigh),
+		QCHeight:      qcHigh.QCHeight,
+		QCRound:       qcHigh.QCRound,
+		QCHigh:        p.EncodeQCToBytes(qcHigh),
+		NewViewReason: reason,
+		Timeout:       *timeout,
 	}
 
 	// sign message

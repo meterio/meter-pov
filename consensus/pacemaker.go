@@ -89,8 +89,7 @@ type pmBlock struct {
 	Justify *QuorumCert
 
 	// derived
-	Decided    bool
-	RoundState PMState
+	Decided bool
 
 	ProposedBlock     []byte // byte slice block
 	ProposedBlockType BlockType
@@ -439,7 +438,9 @@ func (p *Pacemaker) OnBeat(height uint64, round uint64) {
 
 func (p *Pacemaker) OnNextSyncView(nextHeight, nextRound uint64) error {
 	// send new round msg to next round proposer
-	msg, err := p.BuildNewViewMessage(nextHeight, nextRound, p.QCHigh)
+	reason := NEWVIEW_HIGHER_QC_SEEN
+	timeout := &TimeoutCert{}
+	msg, err := p.BuildNewViewMessage(nextHeight, nextRound, p.QCHigh, reason, timeout)
 	if err != nil {
 		p.logger.Error("could not build new view message", "err", err)
 	}

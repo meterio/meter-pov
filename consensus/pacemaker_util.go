@@ -14,29 +14,14 @@ import (
 	"github.com/dfinlab/meter/block"
 )
 
-// ****************statevcode *******
-type PMState byte
-
-func (s PMState) MoveToState(state PMState) error {
-	s = state
-	return nil
-}
-
-func (s PMState) GetState() PMState {
-	return s
-}
-
-func (s PMState) HandleEvent(ev byte) error {
-	return nil
-}
-
-// noramally TO with exponential
-func (s PMState) StartTimeOut(duration time.Duration) {
-
-}
+// reasons for new view
+const (
+	NEWVIEW_HIGHER_QC_SEEN = byte(1)
+	NEWVIEW_ROUND_TIMEOUT  = byte(2)
+)
 
 // ***********************************
-type Timeout struct {
+type TimeoutCert struct {
 	TimeoutRound     uint64
 	TimeoutHeight    uint64
 	TimeOutCounter   uint32
