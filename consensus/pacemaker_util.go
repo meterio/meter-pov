@@ -1,9 +1,9 @@
 package consensus
 
 import (
+	"bytes"
 	"encoding/hex"
 	"encoding/json"
-	"errors"
 
 	//"github.com/dfinlab/meter/types"
 	"net"
@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/dfinlab/meter/block"
+	crypto "github.com/ethereum/go-ethereum/crypto"
 )
 
 // reasons for new view
@@ -187,78 +188,6 @@ func (p *Pacemaker) AddressBlock(height uint64, round uint64) *pmBlock {
 	return nil
 }
 
-func (p *Pacemaker) Receive(m ConsensusMessage) error {
-	// receives proposal message, block is new one. parent is one of (b,b',b")
-	switch m.(type) {
-	case *PMProposalMessage:
-		proposalMsg := m.(*PMProposalMessage)
-		blk, _ := block.BlockDecodeFromBytes(proposalMsg.ProposedBlock)
-		qc := blk.QC
-		// TODO: use height/round information directly from qc
-
-		parent := p.AddressBlock(proposalMsg.ParentHeight, proposalMsg.ParentRound)
-		if parent == nil {
-			return errors.New("can not address parent")
-		}
-
-		qcNode := p.AddressBlock(qc.QCHeight, qc.QCRound)
-		if qcNode == nil {
-			return errors.New("can not address qcNode")
-		}
-
-		justify := newpmQuorumCert(qc, qcNode)
-
-		msgHeader := proposalMsg.CSMsgCommonHeader
-		height := uint64(msgHeader.Height)
-		round := uint64(msgHeader.Round)
-		if _, proposedByMe := p.proposalMap[height]; !proposedByMe {
-			p.proposalMap[height] = &pmBlock{
-				Height:            height,
-				Round:             round,
-				Parent:            parent,
-				Justify:           justify,
-				ProposedBlock:     proposalMsg.ProposedBlock,
-				ProposedBlockType: proposalMsg.ProposedBlockType,
-			}
-		}
-		return p.OnReceiveProposal(proposalMsg)
-	case *PMVoteForProposalMessage:
-		// must be in (b, b', b")
-		v4pMsg := m.(*PMVoteForProposalMessage)
-		msgHeader := v4pMsg.CSMsgCommonHeader
-
-		b := p.AddressBlock(uint64(msgHeader.Height), uint64(msgHeader.Round))
-		if b == nil {
-			return errors.New("can not address block")
-		}
-
-		/* FIXME: commented out becauase m.Block_* and m.Block_justify are not available in PMVoteForProposalMessage
-		if (b.Parent.Height != m.Block_parent_height) ||
-			(b.Parent.Round != m.Block_parent_round) ||
-			(b.Justify.QCHeight != m.Block_justify_QC_height) ||
-			(b.Justify.QCRound != m.Block_justify_QC_round) {
-			return errors.New("mismatch, something wrong")
-		}
-		*/
-
-		return p.OnReceiveVote(b)
-	case *PMNewViewMessage:
-		newViewMsg := m.(*PMNewViewMessage)
-		qcNode := p.AddressBlock(newViewMsg.QCHeight, newViewMsg.QCRound)
-		if qcNode == nil {
-			return errors.New("can not address qcNode")
-		}
-		qc := &pmQuorumCert{
-			QCHeight: newViewMsg.QCHeight,
-			QCRound:  newViewMsg.QCRound,
-			QCNode:   qcNode,
-		}
-		return p.OnReceiveNewView(qc)
-	default:
-		return errors.New("unknown pacemaker message type")
-	}
-}
-
 func (p *Pacemaker) receivePacemakerMsg(w http.ResponseWriter, r *http.Request) {
 	defer r.Body.Close()
 	var params map[string]string
@@ -282,7 +211,7 @@ func (p *Pacemaker) receivePacemakerMsg(w http.ResponseWriter, r *http.Request) 
 		} else {
 			p.logger.Info("Received pacemaker msg from peer", "type", typeName, "from", peerIP.String())
 		}
-		p.Receive(msg)
+		p.pacemakerMsgCh <- msg
 	}
 }
 
@@ -353,4 +282,9 @@ func (p *Pacemaker) ValidateProposal(b *pmBlock) error {
 
 	p.logger.Info("Validated block")
 	return nil
+}
+
+func (p *Pacemaker) isMine(key []byte) bool {
+	myKey := crypto.FromECDSAPub(&p.csReactor.myPubKey)
+	return bytes.Equal(key, myKey)
 }

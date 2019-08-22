@@ -4,7 +4,9 @@ import (
 	//bls "github.com/dfinlab/meter/crypto/multi_sig"
 	//cmn "github.com/dfinlab/meter/libs/common"
 
+	"errors"
 	"fmt"
+	"os"
 	"time"
 
 	"github.com/dfinlab/meter/block"
@@ -49,7 +51,7 @@ type pmQuorumCert struct {
 	VoterNum      uint32
 }
 
-func newpmQuorumCert(qc *block.QuorumCert, qcNode *pmBlock) *pmQuorumCert {
+func newPMQuorumCert(qc *block.QuorumCert, qcNode *pmBlock) *pmQuorumCert {
 	return &pmQuorumCert{
 		QCHeight: qc.QCHeight,
 		QCRound:  qc.QCRound,
@@ -119,6 +121,15 @@ type PMTimeoutInfo struct {
 	round uint32
 }
 
+type PMStopInfo struct {
+	round uint32
+}
+
+type PMBeatInfo struct {
+	height uint64
+	round  uint64
+}
+
 type Pacemaker struct {
 	csReactor *ConsensusReactor //global reactor info
 
@@ -158,6 +169,8 @@ type Pacemaker struct {
 
 	pacemakerMsgCh chan ConsensusMessage
 	timeoutCh      chan PMTimeoutInfo
+	stopCh         chan PMStopInfo
+	beatCh         chan PMBeatInfo
 }
 
 func NewPaceMaker(conR *ConsensusReactor) *Pacemaker {
@@ -168,6 +181,8 @@ func NewPaceMaker(conR *ConsensusReactor) *Pacemaker {
 
 		pacemakerMsgCh: make(chan ConsensusMessage, 128),
 		timeoutCh:      make(chan PMTimeoutInfo, 128),
+		stopCh:         make(chan PMStopInfo, 1),
+		beatCh:         make(chan PMBeatInfo, 1),
 	}
 
 	p.proposalMap = make(map[uint64]*pmBlock, 1000) // TODO:better way?
@@ -224,16 +239,18 @@ func (p *Pacemaker) Update(bnew *pmBlock) error {
 	var block, blockPrime, blockPrimePrime *pmBlock
 	//now pipeline full, roll this pipeline first
 	blockPrimePrime = bnew.Justify.QCNode
+	if blockPrimePrime == nil {
+		p.logger.Warn("blockPrimePrime is empty, early termination of Update")
+		return nil
+	}
 	blockPrime = blockPrimePrime.Justify.QCNode
 	if blockPrime == nil {
-		p.logger.Warn("p.blockPrime is empty, set it to b0")
-		blockPrime = &bInit
+		p.logger.Warn("blockPrime is empty, early termination of Update")
 		return nil
 	}
 	block = blockPrime.Justify.QCNode
 	if block == nil {
-		p.logger.Warn("p.block is empty, set it to b0")
-		block = &bInit
+		p.logger.Warn("block is empty, early termination of Update")
 		return nil
 	}
 
@@ -308,7 +325,50 @@ func (p *Pacemaker) OnCommit(commitReady []*pmBlock) error {
 }
 
 func (p *Pacemaker) OnReceiveProposal(proposalMsg *PMProposalMessage) error {
-	bnew := p.proposalMap[uint64(proposalMsg.CSMsgCommonHeader.Height)]
+	msgHeader := proposalMsg.CSMsgCommonHeader
+	height := uint64(msgHeader.Height)
+	round := uint64(msgHeader.Round)
+
+	// decode block to get qc
+	blk, err := block.BlockDecodeFromBytes(proposalMsg.ProposedBlock)
+	if err != nil {
+		return errors.New("can not decode proposed block")
+	}
+	qc := blk.QC
+	p.logger.Info("Received Proposal ", "height", msgHeader.Height, "round", msgHeader.Round,
+		"parentHeight", proposalMsg.ParentHeight, "parentRound", proposalMsg.ParentRound,
+		"qcHeight", qc.QCHeight, "qcRound", qc.QCRound)
+
+	// address parent
+	parent := p.AddressBlock(proposalMsg.ParentHeight, proposalMsg.ParentRound)
+	if parent == nil {
+		return errors.New("can not address parent")
+	}
+
+	// address qcNode
+	qcNode := p.AddressBlock(qc.QCHeight, qc.QCRound)
+	if qcNode == nil {
+		return errors.New("can not address qcNode")
+	}
+
+	// create justify node
+	justify := newPMQuorumCert(qc, qcNode)
+
+	// update the proposalMap only in these this scenario: not tracked and not proposed by me
+	proposedByMe := p.isMine(proposalMsg.ProposerID)
+	if _, tracked := p.proposalMap[height]; !proposedByMe && !tracked {
+		p.proposalMap[height] = &pmBlock{
+			Height:            height,
+			Round:             round,
+			Parent:            parent,
+			Justify:           justify,
+			ProposedBlock:     proposalMsg.ProposedBlock,
+			ProposedBlockType: proposalMsg.ProposedBlockType,
+		}
+	}
+
+	bnew := p.proposalMap[height]
+	fmt.Println(bnew.Justify.ToString())
 	if (bnew.Height > p.lastVotingHeight) &&
 		(p.IsExtendedFromBLocked(bnew) || bnew.Justify.QCHeight > p.blockLocked.Height) {
 		p.lastVotingHeight = bnew.Height
@@ -357,7 +417,18 @@ func (p *Pacemaker) OnReceiveProposal(proposalMsg *PMProposalMessage) error {
 	return nil
 }
 
-func (p *Pacemaker) OnReceiveVote(b *pmBlock) error {
+func (p *Pacemaker) OnReceiveVote(voteMsg *PMVoteForProposalMessage) error {
+	msgHeader := voteMsg.CSMsgCommonHeader
+
+	height := uint64(msgHeader.Height)
+	round := uint64(msgHeader.Round)
+	p.logger.Info("Received Vote", "height", height, "round", round, "from", voteMsg.VoterID)
+
+	b := p.AddressBlock(height, round)
+	if b == nil {
+		return errors.New("can not address block")
+	}
+
 	//TODO: signature handling
 	p.sigCounter[b.Round]++
 	//if MajorityTwoThird(p.sigCounter[b.Round], p.csReactor.committeeSize) == false {
@@ -459,13 +530,25 @@ func (p *Pacemaker) OnNextSyncView(nextHeight, nextRound uint64) error {
 	return nil
 }
 
-func (p *Pacemaker) OnReceiveNewView(qc *pmQuorumCert) error {
+func (p *Pacemaker) OnReceiveNewView(newViewMsg *PMNewViewMessage) error {
+	p.logger.Info("Received NewView", "qcHeight", newViewMsg.QCHeight, "qcRound", newViewMsg.QCRound, "reason", newViewMsg.NewViewReason)
+	qcNode := p.AddressBlock(newViewMsg.QCHeight, newViewMsg.QCRound)
+	if qcNode == nil {
+		return errors.New("can not address qcNode")
+	}
+
+	qc := &pmQuorumCert{
+		QCHeight: newViewMsg.QCHeight,
+		QCRound:  newViewMsg.QCRound,
+		QCNode:   qcNode,
+	}
+
 	changed := p.UpdateQCHigh(qc)
 
 	if changed == true {
 		if qc.QCHeight > p.blockLocked.Height {
 			time.AfterFunc(RoundInterval, func() {
-				p.OnBeat(qc.QCHeight+1, qc.QCRound+1)
+				p.beatCh <- PMBeatInfo{uint64(qc.QCHeight + 1), uint64(qc.QCRound + 1)}
 			})
 		}
 	}
@@ -520,36 +603,43 @@ func (p *Pacemaker) Start(blockQC *block.QuorumCert, newCommittee bool) {
 
 	// start with new committee or replay
 	if newCommittee == true {
-		p.OnBeat(height+1, 0)
+		p.beatCh <- PMBeatInfo{height + 1, 0}
 	} else {
-		p.OnBeat(height+1, round)
+		p.beatCh <- PMBeatInfo{height + 1, round}
 	}
 
+	p.mainLoop()
 }
 
 func (p *Pacemaker) mainLoop() {
+	interruptCh := make(chan os.Signal, 1)
+	// signal.Notify(interruptCh, syscall.SIGINT, syscall.SIGTERM)
+
 	for {
 		select {
+		case b := <-p.beatCh:
+			p.OnBeat(b.height, b.round)
 		case m := <-p.pacemakerMsgCh:
 			//
 			switch m.(type) {
 			case *PMProposalMessage:
-				proposalMsg := m.(*PMProposalMessage)
-				qcHeight := proposalMsg.QCHeight
-				qcRound := proposalMsg.QCRound
-				msgHeader := proposalMsg.CSMsgCommonHeader
-
-				p.logger.Info("Received Proposal ", "height", msgHeader.Height, "round", msgHeader.Round,
-					"parentHeight", proposalMsg.ParentHeight, "parentRound", proposalMsg.ParentRound,
-					"qcHeight", qcHeight, "qcRound", qcRound)
-				p.OnReceiveProposal(proposalMsg)
+				p.OnReceiveProposal(m.(*PMProposalMessage))
 			case *PMVoteForProposalMessage:
-
+				p.OnReceiveVote(m.(*PMVoteForProposalMessage))
 			case *PMNewViewMessage:
+				p.OnReceiveNewView(m.(*PMNewViewMessage))
+			default:
+				p.logger.Warn("Received an message in unknown type")
 			}
 		case ti := <-p.timeoutCh:
 			//
 			fmt.Println(ti)
+		case <-p.stopCh:
+			p.logger.Warn("Scheduled stop, exit pacemaker now")
+			return
+		case <-interruptCh:
+			p.logger.Warn("Interrupt by user, exit now")
+			return
 		}
 
 	}
