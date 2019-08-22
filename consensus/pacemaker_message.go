@@ -7,7 +7,6 @@ import (
 	"github.com/dfinlab/meter/block"
 	"github.com/dfinlab/meter/powpool"
 	crypto "github.com/ethereum/go-ethereum/crypto"
-	"github.com/pkg/errors"
 )
 
 func (p *Pacemaker) proposeBlock(parentBlock *block.Block, height, round uint64, qc *QuorumCert, allowEmptyBlock bool) (*ProposedBlockInfo, []byte) {
@@ -82,27 +81,15 @@ func (p *Pacemaker) packQuorumCert(blk *block.Block, qc *QuorumCert) error {
 }
 
 func (p *Pacemaker) BuildProposalMessage(height, round uint64, bnew *pmBlock) (*PMProposalMessage, error) {
-	var msgSubType byte
 	blockBytes := bnew.ProposedBlock
 
-	if bnew.ProposedBlockType == KBlockType {
-		msgSubType = PROPOSE_MSG_SUBTYPE_KBLOCK
-	} else if bnew.ProposedBlockType == MBlockType {
-		msgSubType = PROPOSE_MSG_SUBTYPE_MBLOCK
-	} else if bnew.ProposedBlockType == StopCommitteeType {
-		msgSubType = PROPOSE_MSG_SUBTYPE_STOPCOMMITTEE
-	} else {
-		p.logger.Error("Build Proposal Message", "wrong type", bnew.ProposedBlockType)
-		return nil, errors.New("wrong block type")
-	}
-
 	cmnHdr := ConsensusMsgCommonHeader{
-		Height:     int64(height),
-		Round:      int(round),
-		Sender:     crypto.FromECDSAPub(&p.csReactor.myPubKey),
-		Timestamp:  time.Now(),
-		MsgType:    CONSENSUS_MSG_PROPOSAL_BLOCK,
-		MsgSubType: msgSubType,
+		Height:    int64(height),
+		Round:     int(round),
+		Sender:    crypto.FromECDSAPub(&p.csReactor.myPubKey),
+		Timestamp: time.Now(),
+		MsgType:   CONSENSUS_MSG_PROPOSAL_BLOCK,
+		// MsgSubType: msgSubType,
 		// TODO: set epochID EpochID:    p.EpochID,
 	}
 
@@ -126,13 +113,14 @@ func (p *Pacemaker) BuildProposalMessage(height, round uint64, bnew *pmBlock) (*
 		QCHeight:     qcHeight,
 		QCRound:      qcRound,
 
-		ProposerID:       crypto.FromECDSAPub(&p.csReactor.myPubKey),
-		CSProposerPubKey: p.csReactor.csCommon.system.PubKeyToBytes(p.csReactor.csCommon.PubKey),
-		KBlockHeight:     int64(p.csReactor.lastKBlockHeight),
-		SignOffset:       MSG_SIGN_OFFSET_DEFAULT,
-		SignLength:       MSG_SIGN_LENGTH_DEFAULT,
-		ProposedSize:     len(blockBytes),
-		ProposedBlock:    blockBytes,
+		ProposerID:        crypto.FromECDSAPub(&p.csReactor.myPubKey),
+		CSProposerPubKey:  p.csReactor.csCommon.system.PubKeyToBytes(p.csReactor.csCommon.PubKey),
+		KBlockHeight:      int64(p.csReactor.lastKBlockHeight),
+		SignOffset:        MSG_SIGN_OFFSET_DEFAULT,
+		SignLength:        MSG_SIGN_LENGTH_DEFAULT,
+		ProposedSize:      len(blockBytes),
+		ProposedBlock:     blockBytes,
+		ProposedBlockType: bnew.ProposedBlockType,
 	}
 
 	// sign message

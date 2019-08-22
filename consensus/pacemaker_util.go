@@ -4,7 +4,6 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
-	"math"
 
 	//"github.com/dfinlab/meter/types"
 	"net"
@@ -28,8 +27,8 @@ type TimeoutCert struct {
 	TimeOutSignature []byte
 }
 
-func (p *Pacemaker) TimeOutExponential() int {
-	return (TIME_ROUND_INTVL_DEF * int(math.Pow(2, float64(p.roundTimeOutCounter))))
+func (p *Pacemaker) GetTimeOutInterval() time.Duration {
+	return TimeOutInterval * (2 << p.roundTimeOutCounter)
 }
 
 // ****** test code ***********
@@ -200,18 +199,6 @@ func (p *Pacemaker) Receive(m ConsensusMessage) error {
 		qcRound := proposalMsg.QCRound
 		msgHeader := proposalMsg.CSMsgCommonHeader
 
-		var blockType BlockType
-		if msgHeader.MsgSubType == PROPOSE_MSG_SUBTYPE_KBLOCK {
-			blockType = KBlockType
-		} else if msgHeader.MsgSubType == PROPOSE_MSG_SUBTYPE_MBLOCK {
-			blockType = MBlockType
-		} else if msgHeader.MsgSubType == PROPOSE_MSG_SUBTYPE_STOPCOMMITTEE {
-			blockType = StopCommitteeType
-		} else {
-			p.logger.Error("Received Proposal", "wrong type", msgHeader.MsgSubType)
-			return errors.New("wrong MsgSubType")
-		}
-
 		p.logger.Info("Received Proposal ", "height", msgHeader.Height, "round", msgHeader.Round,
 			"parentHeight", proposalMsg.ParentHeight, "parentRound", proposalMsg.ParentRound,
 			"qcHeight", qcHeight, "qcRound", qcRound)
@@ -244,7 +231,7 @@ func (p *Pacemaker) Receive(m ConsensusMessage) error {
 			Parent:            parent,
 			Justify:           justify,
 			ProposedBlock:     proposalMsg.ProposedBlock,
-			ProposedBlockType: blockType,
+			ProposedBlockType: proposalMsg.ProposedBlockType,
 		}
 		if proposedByMe {
 			p.proposalMap[uint64(msgHeader.Height)].ProposedBlock = pmb.ProposedBlock

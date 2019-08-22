@@ -103,11 +103,15 @@ func (pb *pmBlock) ToString() string {
 	}
 }
 
+type PMTimeoutInfo struct {
+	round uint32
+}
+
 type Pacemaker struct {
 	csReactor *ConsensusReactor //global reactor info
 
 	// Determines the time interval for a round interval
-	timeRoundInterval int
+	timeOutInterval time.Duration
 
 	// Highest round that a block was committed
 	// TODO: update this
@@ -133,23 +137,25 @@ type Pacemaker struct {
 	blockExecuted *pmBlock
 	blockLocked   *pmBlock
 
-	block           *pmBlock
-	blockPrime      *pmBlock
-	blockPrimePrime *pmBlock
-
 	startHeight uint64
 
 	roundTimeOutCounter uint32
 	//roundTimerStop      chan bool
 
 	logger log15.Logger
+
+	pacemakerMsgCh chan ConsensusMessage
+	timeoutCh      chan PMTimeoutInfo
 }
 
 func NewPaceMaker(conR *ConsensusReactor) *Pacemaker {
 	p := &Pacemaker{
-		csReactor:         conR,
-		timeRoundInterval: TIME_ROUND_INTVL_DEF,
-		logger:            log15.New("pkg", "consensus"),
+		csReactor:       conR,
+		timeOutInterval: TimeOutInterval,
+		logger:          log15.New("pkg", "consensus"),
+
+		pacemakerMsgCh: make(chan ConsensusMessage, 128),
+		timeoutCh:      make(chan PMTimeoutInfo, 128),
 	}
 
 	p.proposalMap = make(map[uint64]*pmBlock, 1000) // TODO:better way?
@@ -203,46 +209,47 @@ func (p *Pacemaker) CreateLeaf(parent *pmBlock, qc *QuorumCert, height uint64, r
 // b_exec  b_lock   b <- b' <- b"  b*
 func (p *Pacemaker) Update(bnew *pmBlock) error {
 
+	var block, blockPrime, blockPrimePrime *pmBlock
 	//now pipeline full, roll this pipeline first
-	p.blockPrimePrime = bnew.Justify.QCNode
-	p.blockPrime = p.blockPrimePrime.Justify.QCNode
-	if p.blockPrime == nil {
+	blockPrimePrime = bnew.Justify.QCNode
+	blockPrime = blockPrimePrime.Justify.QCNode
+	if blockPrime == nil {
 		p.logger.Warn("p.blockPrime is empty, set it to b0")
-		p.blockPrime = &bInit
+		blockPrime = &bInit
 		return nil
 	}
-	p.block = p.blockPrime.Justify.QCNode
-	if p.block == nil {
+	block = blockPrime.Justify.QCNode
+	if block == nil {
 		p.logger.Warn("p.block is empty, set it to b0")
-		p.block = &bInit
+		block = &bInit
 		return nil
 	}
 
 	p.logger.Debug(fmt.Sprintf("bnew = %v", bnew.ToString()))
-	p.logger.Debug(fmt.Sprintf("b\"   = %v", p.blockPrimePrime.ToString()))
-	p.logger.Debug(fmt.Sprintf("b'   = %v", p.blockPrime.ToString()))
-	p.logger.Debug(fmt.Sprintf("b    = %v", p.block.ToString()))
+	p.logger.Debug(fmt.Sprintf("b\"   = %v", blockPrimePrime.ToString()))
+	p.logger.Debug(fmt.Sprintf("b'   = %v", blockPrime.ToString()))
+	p.logger.Debug(fmt.Sprintf("b    = %v", block.ToString()))
 
 	// pre-commit phase on b"
 	p.UpdateQCHigh(bnew.Justify)
 
-	if p.blockPrime.Height > p.blockLocked.Height {
-		p.blockLocked = p.blockPrime // commit phase on b'
+	if blockPrime.Height > p.blockLocked.Height {
+		p.blockLocked = blockPrime // commit phase on b'
 	}
 
 	/* commit requires direct parent */
-	if (p.blockPrimePrime.Parent != p.blockPrime) ||
-		(p.blockPrime.Parent != p.block) {
+	if (blockPrimePrime.Parent != blockPrime) ||
+		(blockPrime.Parent != block) {
 		return nil
 	}
 
 	commitReady := []*pmBlock{}
-	for b := p.block; b.Height > p.blockExecuted.Height; b = b.Parent {
+	for b := block; b.Height > p.blockExecuted.Height; b = b.Parent {
 		commitReady = append(commitReady, b)
 	}
 	p.OnCommit(commitReady)
 
-	p.blockExecuted = p.block // decide phase on b
+	p.blockExecuted = block // decide phase on b
 	return nil
 }
 
@@ -493,15 +500,11 @@ func (p *Pacemaker) Start(blockQC *block.QuorumCert, newCommittee bool) {
 		ProposedBlock: p.csReactor.LoadBlockBytes(uint32(height)),
 	}
 	// now assign b_lock b_exec, b_leaf qc_high
-	p.block = &bInit
 	p.blockLocked = &bInit
 	p.blockExecuted = &bInit
 	p.blockLeaf = &bInit
 	p.proposalMap[height] = &bInit
 	p.QCHigh = &qcInit
-
-	p.blockPrime = nil
-	p.blockPrimePrime = nil
 
 	// start with new committee or replay
 	if newCommittee == true {
@@ -509,6 +512,28 @@ func (p *Pacemaker) Start(blockQC *block.QuorumCert, newCommittee bool) {
 	} else {
 		p.OnBeat(height+1, round)
 	}
+
+	/*
+		for {
+			select {
+			case m := <-p.pacemakerMsgCh:
+				//
+				switch m.(type) {
+				case *PMProposalMessage:
+					proposalMsg := m.(*PMProposalMessage)
+					p.OnReceiveProposal(proposalMsg)
+				case *PMVoteForProposalMessage:
+
+				case *PMNewViewMessage:
+				}
+			case ti := <-p.timeoutCh:
+				//
+				fmt.Println(ti)
+			}
+
+		}
+	*/
+
 }
 
 //actions of commites/receives kblock, stop pacemake to next committee

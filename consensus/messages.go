@@ -503,15 +503,14 @@ type PMProposalMessage struct {
 	QCHeight     uint64
 	QCRound      uint64
 
-	ProposerID       []byte //ecdsa.PublicKey
-	CSProposerPubKey []byte //bls.PublicKey
-	KBlockHeight     int64
-	SignOffset       uint
-	SignLength       uint
-	ProposedSize     int
-	ProposedBlock    []byte
-
-	ProposedBlockInfo *ProposedBlockInfo
+	ProposerID        []byte //ecdsa.PublicKey
+	CSProposerPubKey  []byte //bls.PublicKey
+	KBlockHeight      int64
+	SignOffset        uint
+	SignLength        uint
+	ProposedSize      int
+	ProposedBlock     []byte
+	ProposedBlockType BlockType
 }
 
 // SigningHash computes hash of all header fields excluding signature.
@@ -538,6 +537,7 @@ func (m *PMProposalMessage) SigningHash() (hash meter.Bytes32) {
 		m.SignLength,
 		m.ProposedSize,
 		m.ProposedBlock,
+		m.ProposedBlockType,
 	})
 	hw.Sum(hash[:0])
 	return
