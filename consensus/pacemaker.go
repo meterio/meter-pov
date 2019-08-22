@@ -14,15 +14,8 @@ import (
 )
 
 const (
-	TIME_ROUND_INTVL_DEF = int(15)
-
-	//round state machine
-	PACEMAKER_ROUND_STATE_INIT          = byte(1)
-	PACEMAKER_ROUND_STATE_PROPOSE_RCVD  = byte(2) // validator omly
-	PACEMAKER_ROUND_STATE_PROPOSE_SNT   = byte(3) // proposer only
-	PACEMAKER_ROUND_STATE_MAJOR_REACHED = byte(4) // proposer only
-	PACEMAKER_ROUND_STATE_COMMITTED     = byte(5)
-	PACEMAKER_ROUND_STATE_DECIDED       = byte(6)
+	RoundInterval   = 2 * time.Second
+	TimeOutInterval = 8 * time.Second
 )
 
 type PMRoundState byte
@@ -367,9 +360,7 @@ func (p *Pacemaker) OnReceiveVote(b *pmBlock) error {
 
 	if changed == true {
 		// if QC is updated, relay it to the next proposer
-		time.AfterFunc(1*time.Second, func() {
-			p.OnNextSyncView(qc.QCHeight+1, qc.QCRound+1)
-		})
+		p.OnNextSyncView(qc.QCHeight+1, qc.QCRound+1)
 	}
 	return nil
 }
@@ -454,7 +445,7 @@ func (p *Pacemaker) OnReceiveNewView(qc *QuorumCert) error {
 
 	if changed == true {
 		if qc.QCHeight > p.blockLocked.Height {
-			time.AfterFunc(1*time.Second, func() {
+			time.AfterFunc(RoundInterval, func() {
 				p.OnBeat(qc.QCHeight+1, qc.QCRound+1)
 			})
 		}
