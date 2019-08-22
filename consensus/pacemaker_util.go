@@ -28,10 +28,6 @@ type TimeoutCert struct {
 	TimeOutSignature []byte
 }
 
-func (p *Pacemaker) GetTimeOutInterval() time.Duration {
-	return TimeOutInterval * (2 << p.roundTimeOutCounter)
-}
-
 // ****** test code ***********
 /*
 type PMessage struct {

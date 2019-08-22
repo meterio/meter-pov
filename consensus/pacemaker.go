@@ -16,8 +16,8 @@ import (
 )
 
 const (
-	RoundInterval   = 2 * time.Second
-	TimeOutInterval = 8 * time.Second
+	RoundInterval        = 2 * time.Second
+	RoundTimeoutInterval = 8 * time.Second
 )
 
 type PMRoundState byte
@@ -117,12 +117,15 @@ func (pb *pmBlock) ToString() string {
 	}
 }
 
-type PMTimeoutInfo struct {
-	round uint32
+type PMRoundTimeoutInfo struct {
+	height  uint64
+	round   uint64
+	counter uint64
 }
 
 type PMStopInfo struct {
-	round uint32
+	height uint64
+	round  uint64
 }
 
 type PMBeatInfo struct {
@@ -132,9 +135,6 @@ type PMBeatInfo struct {
 
 type Pacemaker struct {
 	csReactor *ConsensusReactor //global reactor info
-
-	// Determines the time interval for a round interval
-	timeOutInterval time.Duration
 
 	// Highest round that a block was committed
 	// TODO: update this
@@ -162,27 +162,28 @@ type Pacemaker struct {
 
 	startHeight uint64
 
-	roundTimeOutCounter uint32
+	// roundTimeOutCounter uint32
 	//roundTimerStop      chan bool
+	roundTimer *time.Timer
 
 	logger log15.Logger
 
 	pacemakerMsgCh chan ConsensusMessage
-	timeoutCh      chan PMTimeoutInfo
+	roundTimeoutCh chan PMRoundTimeoutInfo
 	stopCh         chan PMStopInfo
 	beatCh         chan PMBeatInfo
 }
 
 func NewPaceMaker(conR *ConsensusReactor) *Pacemaker {
 	p := &Pacemaker{
-		csReactor:       conR,
-		timeOutInterval: TimeOutInterval,
-		logger:          log15.New("pkg", "consensus"),
+		csReactor: conR,
+		logger:    log15.New("pkg", "consensus"),
 
 		pacemakerMsgCh: make(chan ConsensusMessage, 128),
-		timeoutCh:      make(chan PMTimeoutInfo, 128),
 		stopCh:         make(chan PMStopInfo, 1),
 		beatCh:         make(chan PMBeatInfo, 1),
+		roundTimeoutCh: make(chan PMRoundTimeoutInfo, 1),
+		roundTimer:     nil,
 	}
 
 	p.proposalMap = make(map[uint64]*pmBlock, 1000) // TODO:better way?
@@ -368,9 +369,10 @@ func (p *Pacemaker) OnReceiveProposal(proposalMsg *PMProposalMessage) error {
 	}
 
 	bnew := p.proposalMap[height]
-	fmt.Println(bnew.Justify.ToString())
 	if (bnew.Height > p.lastVotingHeight) &&
 		(p.IsExtendedFromBLocked(bnew) || bnew.Justify.QCHeight > p.blockLocked.Height) {
+		//TODO: compare with my expected round
+		p.stopRoundTimer()
 		p.lastVotingHeight = bnew.Height
 
 		if int(bnew.Round) > p.currentRound {
@@ -411,6 +413,7 @@ func (p *Pacemaker) OnReceiveProposal(proposalMsg *PMProposalMessage) error {
 			}
 		}()
 		***********/
+		p.startRoundTimer(bnew.Height, bnew.Round, 0)
 	}
 
 	p.Update(bnew)
@@ -449,8 +452,14 @@ func (p *Pacemaker) OnReceiveVote(voteMsg *PMVoteForProposalMessage) error {
 	changed := p.UpdateQCHigh(qc)
 
 	if changed == true {
+		// stop timer if current proposal is approved
+		p.stopRoundTimer()
+
 		// if QC is updated, relay it to the next proposer
 		p.OnNextSyncView(qc.QCHeight+1, qc.QCRound+1)
+
+		// start timer for next round
+		p.startRoundTimer(qc.QCHeight+1, qc.QCRound+1, 0)
 	}
 	return nil
 }
@@ -493,7 +502,7 @@ func (p *Pacemaker) UpdateQCHigh(qc *pmQuorumCert) bool {
 	return updated
 }
 
-func (p *Pacemaker) OnBeat(height uint64, round uint64) {
+func (p *Pacemaker) OnBeat(height uint64, round uint64) error {
 	p.logger.Info("--------------------------------------------------")
 	p.logger.Info(fmt.Sprintf("                OnBeat Round: %v                  ", round))
 	p.logger.Info("--------------------------------------------------")
@@ -507,14 +516,18 @@ func (p *Pacemaker) OnBeat(height uint64, round uint64) {
 
 	if p.csReactor.amIRoundProproser(round) {
 		p.csReactor.logger.Info("OnBeat: I am round proposer", "round", round)
+
+		// initiate the timer if I'm round proposer
+		p.startRoundTimer(height, round, 0)
 		bleaf := p.OnPropose(p.blockLeaf, p.QCHigh, height, round)
 		if bleaf == nil {
-			panic("Propose failed")
+			return errors.New("propose failed")
 		}
 		p.blockLeaf = bleaf
 	} else {
 		p.csReactor.logger.Info("OnBeat: I am NOT round proposer", "round", round)
 	}
+	return nil
 }
 
 func (p *Pacemaker) OnNextSyncView(nextHeight, nextRound uint64) error {
@@ -616,22 +629,24 @@ func (p *Pacemaker) mainLoop() {
 	// signal.Notify(interruptCh, syscall.SIGINT, syscall.SIGTERM)
 
 	for {
+		var err error
 		select {
 		case b := <-p.beatCh:
-			p.OnBeat(b.height, b.round)
+			err = p.OnBeat(b.height, b.round)
 		case m := <-p.pacemakerMsgCh:
 			//
 			switch m.(type) {
 			case *PMProposalMessage:
-				p.OnReceiveProposal(m.(*PMProposalMessage))
+				err = p.OnReceiveProposal(m.(*PMProposalMessage))
 			case *PMVoteForProposalMessage:
-				p.OnReceiveVote(m.(*PMVoteForProposalMessage))
+				err = p.OnReceiveVote(m.(*PMVoteForProposalMessage))
 			case *PMNewViewMessage:
-				p.OnReceiveNewView(m.(*PMNewViewMessage))
+				err = p.OnReceiveNewView(m.(*PMNewViewMessage))
 			default:
 				p.logger.Warn("Received an message in unknown type")
 			}
-		case ti := <-p.timeoutCh:
+		case ti := <-p.roundTimeoutCh:
+			err = p.OnRoundTimeout(ti)
 			//
 			fmt.Println(ti)
 		case <-p.stopCh:
@@ -641,8 +656,19 @@ func (p *Pacemaker) mainLoop() {
 			p.logger.Warn("Interrupt by user, exit now")
 			return
 		}
+		if err != nil {
+			p.logger.Error("Error during handling ", "err", err)
+		}
 
 	}
+}
+
+func (p *Pacemaker) OnRoundTimeout(ti PMRoundTimeoutInfo) error {
+	fmt.Println("Round Time Out:", ti.round)
+	p.currentRound = int(ti.round + 1)
+	p.OnNextSyncView(ti.height, ti.round+1)
+	p.startRoundTimer(ti.height, ti.round+1, ti.counter+1)
+	return nil
 }
 
 //actions of commites/receives kblock, stop pacemake to next committee
@@ -662,5 +688,21 @@ func (p *Pacemaker) Stop() {
 			Nonce:            data.Nonce,
 		}
 		p.logger.Info("received kblock", "nonce", info.Nonce, "height", info.Height)
+	}
+}
+
+func (p *Pacemaker) startRoundTimer(height, round, counter uint64) {
+	if p.roundTimer == nil {
+		timeoutInterval := RoundTimeoutInterval * (2 << counter)
+		p.roundTimer = time.AfterFunc(timeoutInterval, func() {
+			p.roundTimeoutCh <- PMRoundTimeoutInfo{height, round, counter}
+		})
+	}
+}
+
+func (p *Pacemaker) stopRoundTimer() {
+	if p.roundTimer != nil {
+		p.roundTimer.Stop()
+		p.roundTimer = nil
 	}
 }
