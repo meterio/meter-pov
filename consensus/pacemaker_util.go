@@ -195,47 +195,31 @@ func (p *Pacemaker) Receive(m ConsensusMessage) error {
 		blk, _ := block.BlockDecodeFromBytes(proposalMsg.ProposedBlock)
 		qc := blk.QC
 		// TODO: use height/round information directly from qc
-		qcHeight := proposalMsg.QCHeight
-		qcRound := proposalMsg.QCRound
-		msgHeader := proposalMsg.CSMsgCommonHeader
-
-		p.logger.Info("Received Proposal ", "height", msgHeader.Height, "round", msgHeader.Round,
-			"parentHeight", proposalMsg.ParentHeight, "parentRound", proposalMsg.ParentRound,
-			"qcHeight", qcHeight, "qcRound", qcRound)
 
 		parent := p.AddressBlock(proposalMsg.ParentHeight, proposalMsg.ParentRound)
 		if parent == nil {
 			return errors.New("can not address parent")
 		}
 
-		qcNode := p.AddressBlock(qcHeight, qcRound)
+		qcNode := p.AddressBlock(qc.QCHeight, qc.QCRound)
 		if qcNode == nil {
 			return errors.New("can not address qcNode")
 		}
 
-		justify := &QuorumCert{
-			QCHeight: qcHeight,
-			QCRound:  qcRound,
-			QCNode:   qcNode,
+		justify := newpmQuorumCert(qc, qcNode)
 
-			// VoterBitArray: &qc.VotingBitArray,
-			VoterSig:     qc.VotingSig,
-			VoterMsgHash: qc.VotingMsgHash,
-			VoterAggSig:  qc.VotingAggSig,
-		}
-
-		pmb, proposedByMe := p.proposalMap[uint64(msgHeader.Height)]
-		p.proposalMap[uint64(msgHeader.Height)] = &pmBlock{
-			Height:            uint64(msgHeader.Height),
-			Round:             uint64(msgHeader.Round),
-			Parent:            parent,
-			Justify:           justify,
-			ProposedBlock:     proposalMsg.ProposedBlock,
-			ProposedBlockType: proposalMsg.ProposedBlockType,
-		}
-		if proposedByMe {
-			p.proposalMap[uint64(msgHeader.Height)].ProposedBlock = pmb.ProposedBlock
-			p.proposalMap[uint64(msgHeader.Height)].ProposedBlockInfo = pmb.ProposedBlockInfo
+		msgHeader := proposalMsg.CSMsgCommonHeader
+		height := uint64(msgHeader.Height)
+		round := uint64(msgHeader.Round)
+		if _, proposedByMe := p.proposalMap[height]; !proposedByMe {
+			p.proposalMap[height] = &pmBlock{
+				Height:            height,
+				Round:             round,
+				Parent:            parent,
+				Justify:           justify,
+				ProposedBlock:     proposalMsg.ProposedBlock,
+				ProposedBlockType: proposalMsg.ProposedBlockType,
+			}
 		}
 		return p.OnReceiveProposal(proposalMsg)
 	case *PMVoteForProposalMessage:
@@ -264,7 +248,7 @@ func (p *Pacemaker) Receive(m ConsensusMessage) error {
 		if qcNode == nil {
 			return errors.New("can not address qcNode")
 		}
-		qc := &QuorumCert{
+		qc := &pmQuorumCert{
 			QCHeight: newViewMsg.QCHeight,
 			QCRound:  newViewMsg.QCRound,
 			QCNode:   qcNode,

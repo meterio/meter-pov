@@ -9,7 +9,7 @@ import (
 	crypto "github.com/ethereum/go-ethereum/crypto"
 )
 
-func (p *Pacemaker) proposeBlock(parentBlock *block.Block, height, round uint64, qc *QuorumCert, allowEmptyBlock bool) (*ProposedBlockInfo, []byte) {
+func (p *Pacemaker) proposeBlock(parentBlock *block.Block, height, round uint64, qc *pmQuorumCert, allowEmptyBlock bool) (*ProposedBlockInfo, []byte) {
 	// XXX: propose an empty block by default. Will add option --consensus.allow_empty_block = false
 	// force it to true at this time
 	allowEmptyBlock = true
@@ -68,7 +68,7 @@ func (p *Pacemaker) packCommitteeInfo(blk *block.Block) error {
 	return nil
 }
 
-func (p *Pacemaker) packQuorumCert(blk *block.Block, qc *QuorumCert) error {
+func (p *Pacemaker) packQuorumCert(blk *block.Block, qc *pmQuorumCert) error {
 	blockQC := &block.QuorumCert{
 		QCHeight:      qc.QCHeight,
 		QCRound:       qc.QCRound,
@@ -182,7 +182,7 @@ func (p *Pacemaker) BuildVoteForProposalMessage(proposalMsg *PMProposalMessage) 
 }
 
 // BuildVoteForProposalMsg build VFP message for proposal
-func (p *Pacemaker) BuildNewViewMessage(nextHeight, nextRound uint64, qcHigh *QuorumCert, reason byte, timeout *TimeoutCert) (*PMNewViewMessage, error) {
+func (p *Pacemaker) BuildNewViewMessage(nextHeight, nextRound uint64, qcHigh *pmQuorumCert, reason byte, timeout *TimeoutCert) (*PMNewViewMessage, error) {
 
 	cmnHdr := ConsensusMsgCommonHeader{
 		Height:    int64(nextHeight),

@@ -30,11 +30,11 @@ const (
 )
 
 var (
-	qcInit QuorumCert
+	qcInit pmQuorumCert
 	bInit  pmBlock
 )
 
-type QuorumCert struct {
+type pmQuorumCert struct {
 	//QCHieght/QCround must be the same with QCNode.Height/QCnode.Round
 	QCHeight uint64
 	QCRound  uint64
@@ -49,7 +49,19 @@ type QuorumCert struct {
 	VoterNum      uint32
 }
 
-func (p *Pacemaker) EncodeQCToBytes(qc *QuorumCert) []byte {
+func newpmQuorumCert(qc *block.QuorumCert, qcNode *pmBlock) *pmQuorumCert {
+	return &pmQuorumCert{
+		QCHeight: qc.QCHeight,
+		QCRound:  qc.QCRound,
+		QCNode:   qcNode,
+
+		VoterMsgHash: qc.VotingMsgHash,
+		VoterSig:     qc.VotingSig,
+		VoterAggSig:  qc.VotingAggSig,
+	}
+}
+
+func (p *Pacemaker) EncodeQCToBytes(qc *pmQuorumCert) []byte {
 	blockQC := &block.QuorumCert{
 		QCHeight: qc.QCHeight,
 		QCRound:  qc.QCRound,
@@ -66,7 +78,7 @@ func (p *Pacemaker) EncodeQCToBytes(qc *QuorumCert) []byte {
 	return blockQC.ToBytes()
 }
 
-func (qc *QuorumCert) ToString() string {
+func (qc *pmQuorumCert) ToString() string {
 	if qc.QCNode != nil {
 		return fmt.Sprintf("QuorumCert(QCHeight: %v, QCRound: %v, qcNodeHeight: %v, qcNodeRound: %v)", qc.QCHeight, qc.QCRound, qc.QCNode.Height, qc.QCNode.Round)
 	} else {
@@ -79,7 +91,7 @@ type pmBlock struct {
 	Round  uint64
 
 	Parent  *pmBlock
-	Justify *QuorumCert
+	Justify *pmQuorumCert
 
 	// derived
 	Decided bool
@@ -131,7 +143,7 @@ type Pacemaker struct {
 	sigCounter  map[uint64]int
 
 	lastVotingHeight uint64
-	QCHigh           *QuorumCert
+	QCHigh           *pmQuorumCert
 
 	blockLeaf     *pmBlock
 	blockExecuted *pmBlock
@@ -164,7 +176,7 @@ func NewPaceMaker(conR *ConsensusReactor) *Pacemaker {
 	return p
 }
 
-func (p *Pacemaker) CreateLeaf(parent *pmBlock, qc *QuorumCert, height uint64, round uint64) *pmBlock {
+func (p *Pacemaker) CreateLeaf(parent *pmBlock, qc *pmQuorumCert, height uint64, round uint64) *pmBlock {
 	parentBlock, err := block.BlockDecodeFromBytes(parent.ProposedBlock)
 	if err != nil {
 		panic("Error decode the parent block")
@@ -358,7 +370,7 @@ func (p *Pacemaker) OnReceiveVote(b *pmBlock) error {
 	}
 
 	//reach 2/3 majority, trigger the pipeline cmd
-	qc := &QuorumCert{
+	qc := &pmQuorumCert{
 		QCHeight: b.Height,
 		QCRound:  b.Round,
 		QCNode:   b,
@@ -372,7 +384,7 @@ func (p *Pacemaker) OnReceiveVote(b *pmBlock) error {
 	return nil
 }
 
-func (p *Pacemaker) OnPropose(b *pmBlock, qc *QuorumCert, height uint64, round uint64) *pmBlock {
+func (p *Pacemaker) OnPropose(b *pmBlock, qc *pmQuorumCert, height uint64, round uint64) *pmBlock {
 	bnew := p.CreateLeaf(b, qc, height, round)
 
 	msg, err := p.BuildProposalMessage(height, round, bnew)
@@ -397,7 +409,7 @@ func (p *Pacemaker) GetProposer(height int64, round int) {
 }
 ****/
 
-func (p *Pacemaker) UpdateQCHigh(qc *QuorumCert) bool {
+func (p *Pacemaker) UpdateQCHigh(qc *pmQuorumCert) bool {
 	updated := false
 	oqc := p.QCHigh
 	if qc.QCHeight > p.QCHigh.QCHeight {
@@ -447,7 +459,7 @@ func (p *Pacemaker) OnNextSyncView(nextHeight, nextRound uint64) error {
 	return nil
 }
 
-func (p *Pacemaker) OnReceiveNewView(qc *QuorumCert) error {
+func (p *Pacemaker) OnReceiveNewView(qc *pmQuorumCert) error {
 	changed := p.UpdateQCHigh(qc)
 
 	if changed == true {
@@ -487,7 +499,7 @@ func (p *Pacemaker) Start(blockQC *block.QuorumCert, newCommittee bool) {
 	height := blockQC.QCHeight
 	round := blockQC.QCRound
 	p.startHeight = height
-	qcInit = QuorumCert{
+	qcInit = pmQuorumCert{
 		QCHeight: height,
 		QCRound:  round,
 		QCNode:   nil,
@@ -513,27 +525,34 @@ func (p *Pacemaker) Start(blockQC *block.QuorumCert, newCommittee bool) {
 		p.OnBeat(height+1, round)
 	}
 
-	/*
-		for {
-			select {
-			case m := <-p.pacemakerMsgCh:
-				//
-				switch m.(type) {
-				case *PMProposalMessage:
-					proposalMsg := m.(*PMProposalMessage)
-					p.OnReceiveProposal(proposalMsg)
-				case *PMVoteForProposalMessage:
+}
 
-				case *PMNewViewMessage:
-				}
-			case ti := <-p.timeoutCh:
-				//
-				fmt.Println(ti)
+func (p *Pacemaker) mainLoop() {
+	for {
+		select {
+		case m := <-p.pacemakerMsgCh:
+			//
+			switch m.(type) {
+			case *PMProposalMessage:
+				proposalMsg := m.(*PMProposalMessage)
+				qcHeight := proposalMsg.QCHeight
+				qcRound := proposalMsg.QCRound
+				msgHeader := proposalMsg.CSMsgCommonHeader
+
+				p.logger.Info("Received Proposal ", "height", msgHeader.Height, "round", msgHeader.Round,
+					"parentHeight", proposalMsg.ParentHeight, "parentRound", proposalMsg.ParentRound,
+					"qcHeight", qcHeight, "qcRound", qcRound)
+				p.OnReceiveProposal(proposalMsg)
+			case *PMVoteForProposalMessage:
+
+			case *PMNewViewMessage:
 			}
-
+		case ti := <-p.timeoutCh:
+			//
+			fmt.Println(ti)
 		}
-	*/
 
+	}
 }
 
 //actions of commites/receives kblock, stop pacemake to next committee
