@@ -170,8 +170,8 @@ type Pacemaker struct {
 
 	pacemakerMsgCh chan ConsensusMessage
 	roundTimeoutCh chan PMRoundTimeoutInfo
-	stopCh         chan PMStopInfo
-	beatCh         chan PMBeatInfo
+	stopCh         chan *PMStopInfo
+	beatCh         chan *PMBeatInfo
 }
 
 func NewPaceMaker(conR *ConsensusReactor) *Pacemaker {
@@ -180,8 +180,8 @@ func NewPaceMaker(conR *ConsensusReactor) *Pacemaker {
 		logger:    log15.New("pkg", "consensus"),
 
 		pacemakerMsgCh: make(chan ConsensusMessage, 128),
-		stopCh:         make(chan PMStopInfo, 1),
-		beatCh:         make(chan PMBeatInfo, 1),
+		stopCh:         make(chan *PMStopInfo, 1),
+		beatCh:         make(chan *PMBeatInfo, 1),
 		roundTimeoutCh: make(chan PMRoundTimeoutInfo, 1),
 		roundTimer:     nil,
 	}
@@ -315,6 +315,7 @@ func (p *Pacemaker) OnCommit(commitReady []*pmBlock) error {
 		p.Execute(b) //b.cmd
 
 		if b.ProposedBlockType == KBlockType {
+			p.SendKblockInfo(b)
 			p.Stop()
 			return nil
 		}
@@ -561,7 +562,7 @@ func (p *Pacemaker) OnReceiveNewView(newViewMsg *PMNewViewMessage) error {
 	if changed == true {
 		if qc.QCHeight > p.blockLocked.Height {
 			time.AfterFunc(RoundInterval, func() {
-				p.beatCh <- PMBeatInfo{uint64(qc.QCHeight + 1), uint64(qc.QCRound + 1)}
+				p.beatCh <- &PMBeatInfo{uint64(qc.QCHeight + 1), uint64(qc.QCRound + 1)}
 			})
 		}
 	}
@@ -614,14 +615,21 @@ func (p *Pacemaker) Start(blockQC *block.QuorumCert, newCommittee bool) {
 	p.proposalMap[height] = &bInit
 	p.QCHigh = &qcInit
 
+	go p.mainLoop()
+
 	// start with new committee or replay
 	if newCommittee == true {
-		p.beatCh <- PMBeatInfo{height + 1, 0}
+		p.ScheduleOnBeat(height+1, 0, 1) //delay 1s
 	} else {
-		p.beatCh <- PMBeatInfo{height + 1, round}
+		p.ScheduleOnBeat(height+1, round, 1) //delay 1s
 	}
+}
 
-	p.mainLoop()
+func (p *Pacemaker) ScheduleOnBeat(height uint64, round uint64, d time.Duration) bool {
+	time.AfterFunc(d, func() {
+		p.beatCh <- &PMBeatInfo{height, round}
+	})
+	return true
 }
 
 func (p *Pacemaker) mainLoop() {
@@ -634,7 +642,6 @@ func (p *Pacemaker) mainLoop() {
 		case b := <-p.beatCh:
 			err = p.OnBeat(b.height, b.round)
 		case m := <-p.pacemakerMsgCh:
-			//
 			switch m.(type) {
 			case *PMProposalMessage:
 				err = p.OnReceiveProposal(m.(*PMProposalMessage))
@@ -649,8 +656,8 @@ func (p *Pacemaker) mainLoop() {
 			err = p.OnRoundTimeout(ti)
 			//
 			fmt.Println(ti)
-		case <-p.stopCh:
-			p.logger.Warn("Scheduled stop, exit pacemaker now")
+		case si := <-p.stopCh:
+			p.logger.Warn("Scheduled stop, exit pacemaker now", "QCHeight", si.height, "QCRound", si.round)
 			return
 		case <-interruptCh:
 			p.logger.Warn("Interrupt by user, exit now")
@@ -671,6 +678,21 @@ func (p *Pacemaker) OnRoundTimeout(ti PMRoundTimeoutInfo) error {
 	return nil
 }
 
+func (p *Pacemaker) SendKblockInfo(b *pmBlock) error {
+	// clean off chain for next committee.
+	blk := b.ProposedBlockInfo.ProposedBlock
+	if blk.Header().BlockType() == block.BLOCK_TYPE_K_BLOCK {
+		data, _ := blk.GetKBlockData()
+		info := RecvKBlockInfo{
+			Height:           int64(blk.Header().Number()),
+			LastKBlockHeight: blk.Header().LastKBlockHeight(),
+			Nonce:            data.Nonce,
+		}
+		p.logger.Info("received kblock", "nonce", info.Nonce, "height", info.Height)
+	}
+	return nil
+}
+
 //actions of commites/receives kblock, stop pacemake to next committee
 // all proposal txs need to be reclaimed before stop
 func (p *Pacemaker) Stop() {
@@ -679,16 +701,9 @@ func (p *Pacemaker) Stop() {
 		chain.BestBlock().Oneliner(), chain.LeafBlock().Oneliner()))
 
 	// clean off chain for next committee.
-	best := chain.BestBlock()
-	if best.Header().BlockType() == block.BLOCK_TYPE_K_BLOCK {
-		data, _ := best.GetKBlockData()
-		info := RecvKBlockInfo{
-			Height:           int64(best.Header().Number()),
-			LastKBlockHeight: best.Header().LastKBlockHeight(),
-			Nonce:            data.Nonce,
-		}
-		p.logger.Info("received kblock", "nonce", info.Nonce, "height", info.Height)
-	}
+
+	// suicide
+	p.stopCh <- &PMStopInfo{p.QCHigh.QCHeight, p.QCHigh.QCRound}
 }
 
 func (p *Pacemaker) startRoundTimer(height, round, counter uint64) {

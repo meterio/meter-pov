@@ -1514,7 +1514,7 @@ func (conR *ConsensusReactor) ConsensusHandleReceivedNonce(kBlockHeight int64, n
 			conR.ScheduleValidator(0)
 		}
 		****/
-		// send future leader of next round message.
+		// send future leader of newcommittee message.
 		leader := newConsensusPeer(conR.curCommittee.Validators[0].NetAddr.IP,
 			conR.curCommittee.Validators[0].NetAddr.Port)
 		leaderPubKey := conR.curCommittee.Validators[0].PubKey
