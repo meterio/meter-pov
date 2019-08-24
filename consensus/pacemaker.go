@@ -670,14 +670,6 @@ func (p *Pacemaker) mainLoop() {
 	}
 }
 
-func (p *Pacemaker) OnRoundTimeout(ti PMRoundTimeoutInfo) error {
-	fmt.Println("Round Time Out:", ti.round)
-	p.currentRound = int(ti.round + 1)
-	p.OnNextSyncView(ti.height, ti.round+1)
-	p.startRoundTimer(ti.height, ti.round+1, ti.counter+1)
-	return nil
-}
-
 func (p *Pacemaker) SendKblockInfo(b *pmBlock) error {
 	// clean off chain for next committee.
 	blk := b.ProposedBlockInfo.ProposedBlock
@@ -704,6 +696,14 @@ func (p *Pacemaker) Stop() {
 
 	// suicide
 	p.stopCh <- &PMStopInfo{p.QCHigh.QCHeight, p.QCHigh.QCRound}
+}
+
+func (p *Pacemaker) OnRoundTimeout(ti PMRoundTimeoutInfo) error {
+	fmt.Println("Round Time Out:", ti.round)
+	p.currentRound = int(ti.round + 1)
+	p.OnNextSyncView(ti.height, ti.round+1)
+	p.startRoundTimer(ti.height, ti.round+1, ti.counter+1)
+	return nil
 }
 
 func (p *Pacemaker) startRoundTimer(height, round, counter uint64) {

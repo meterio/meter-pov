@@ -462,7 +462,8 @@ type NewCommitteeMessage struct {
 	NewLeaderPubKey   []byte //ecdsa.PublicKey
 	ValidatorPubkey   []byte //ecdsa.PublicKey
 	Nonce             uint64 // 8 bytes
-	KBlockHeight      int64
+	KBlockHeight      uint64
+	Signature         []byte
 	SignedMessageHash [32]byte
 }
 
@@ -482,6 +483,7 @@ func (m *NewCommitteeMessage) SigningHash() (hash meter.Bytes32) {
 		m.ValidatorPubkey,
 		m.Nonce,
 		m.KBlockHeight,
+		m.Signature,
 	})
 	hw.Sum(hash[:0])
 	return

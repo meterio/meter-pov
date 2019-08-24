@@ -12,7 +12,7 @@ package consensus
 
 import (
 	"bytes"
-	"encoding/binary"
+	//	"crypto/ecdsa"
 	"time"
 
 	"github.com/dfinlab/meter/block"
@@ -51,9 +51,10 @@ type ConsensusValidator struct {
 	replay  bool
 	EpochID uint64 // epoch ID of this committee
 
-	csReactor *ConsensusReactor //global reactor info
-	state     byte
-	csPeers   []*ConsensusPeer // consensus message peers
+	csReactor    *ConsensusReactor //global reactor info
+	state        byte
+	csPeers      []*ConsensusPeer // consensus message peers
+	newCommittee NewCommittee
 }
 
 // send consensus message to all connected peers
@@ -231,9 +232,7 @@ func (cv *ConsensusValidator) ProcessAnnounceCommittee(announceMsg *AnnounceComm
 
 	//get the nonce
 	nonce := announceMsg.Nonce
-	buf := make([]byte, binary.MaxVarintLen64)
-	binary.PutUvarint(buf, nonce)
-	role, inCommittee := cv.csReactor.NewValidatorSetByNonce(buf)
+	role, inCommittee := cv.csReactor.NewValidatorSetByNonce(nonce)
 	if !inCommittee {
 		cv.csReactor.logger.Error("I am not in committee, do nothing ...")
 		return false
@@ -607,6 +606,9 @@ func (cv *ConsensusValidator) ProcessNotaryAnnounceMessage(notaryMsg *NotaryAnno
 	var m ConsensusMessage = msg
 	leaderNetAddr := src.netAddr
 	cv.SendMsgToPeer(&m, leaderNetAddr)
+
+	// stop new committee timer cos it is established
+	cv.csReactor.NewCommitteeTimerStop()
 
 	// XXX: Start pacemaker here at this time.
 	newCommittee := !cv.replay

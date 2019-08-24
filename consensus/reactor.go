@@ -171,6 +171,8 @@ type ConsensusReactor struct {
 	// kBlock data
 	KBlockDataQueue    chan block.KBlockData // from POW simulation
 	RcvKBlockInfoQueue chan RecvKBlockInfo   // this channel for kblock notify from node module.
+
+	newCommittee NewCommittee
 }
 
 // Glob Instance
@@ -579,18 +581,39 @@ func (conR *ConsensusReactor) amIRoundProproser(round uint64) bool {
 }
 
 //create validatorSet by a given nonce. return by my self role
-func (conR *ConsensusReactor) NewValidatorSetByNonce(nonce []byte) (uint, bool) {
+func (conR *ConsensusReactor) NewValidatorSetByNonce(nonce uint64) (uint, bool) {
 	//vals []*types.Validator
+
+	committee, role, index, inCommittee := conR.CalcCommitteeByNonce(nonce)
+	conR.curCommittee = committee
+	if inCommittee == true {
+		conR.csMode = CONSENSUS_MODE_COMMITTEE
+		conR.curCommitteeIndex = index
+		conR.logger.Info("New curCommittee", "inCommittee", committee, "index", index, "role", role)
+	} else {
+		conR.csMode = CONSENSUS_MODE_DELEGATE
+		conR.curCommitteeIndex = 0
+		conR.logger.Info("New curCommittee", "inCommittee", committee)
+	}
+
+	return role, inCommittee
+}
+
+//This is similar routine of NewValidatorSetByNonce.
+//it is used for temp calculate committee set by a given nonce in the fly.
+// also return the committee
+func (conR *ConsensusReactor) CalcCommitteeByNonce(nonce uint64) (*types.ValidatorSet, uint, int, bool) {
+	buf := make([]byte, binary.MaxVarintLen64)
+	binary.PutUvarint(buf, nonce)
 
 	vals := make([]*types.Validator, conR.delegateSize)
 	for i := 0; i < conR.delegateSize; i++ {
-
 		pubKey := conR.curDelegates.Delegates[i].PubKey
 		votePower := int64(1000)
 		vals[i] = types.NewValidator(pubKey, votePower)
 		vals[i].NetAddr = conR.curDelegates.Delegates[i].NetAddr
 		// sorted key is pubkey + nonce ...
-		ck := crypto.Keccak256(append(crypto.FromECDSAPub(&pubKey), nonce...))
+		ck := crypto.Keccak256(append(crypto.FromECDSAPub(&pubKey), buf...))
 		vals[i].CommitKey = append(vals[i].CommitKey, ck...)
 		// fmt.Println(vals[i].CommitKey)
 	}
@@ -603,25 +626,19 @@ func (conR *ConsensusReactor) NewValidatorSetByNonce(nonce []byte) (uint, bool) 
 	// To become a validator (real member in committee), must repond the leader's
 	// announce. Validators are stored in conR.conS.Vlidators
 
-	//conR.conS.Validators = types.NewValidatorSet2(vals[:conR.committeeSize])
-	conR.curCommittee = types.NewValidatorSet2(vals[:conR.committeeSize])
+	//conR.curCommittee = types.NewValidatorSet2(vals[:conR.committeeSize])
+	Committee := types.NewValidatorSet2(vals[:conR.committeeSize])
 	if bytes.Equal(crypto.FromECDSAPub(&vals[0].PubKey), crypto.FromECDSAPub(&conR.myPubKey)) == true {
-		conR.csMode = CONSENSUS_MODE_COMMITTEE
-		conR.curCommitteeIndex = 0
-		return CONSENSUS_COMMIT_ROLE_LEADER, true
+		return Committee, CONSENSUS_COMMIT_ROLE_LEADER, 0, true
 	}
 
 	for i, val := range vals {
 		if bytes.Equal(crypto.FromECDSAPub(&val.PubKey), crypto.FromECDSAPub(&conR.myPubKey)) == true {
-			conR.csMode = CONSENSUS_MODE_COMMITTEE
-			conR.curCommitteeIndex = i
-			return CONSENSUS_COMMIT_ROLE_VALIDATOR, true
+			return Committee, CONSENSUS_COMMIT_ROLE_VALIDATOR, i, true
 		}
 	}
 
-	conR.csMode = CONSENSUS_MODE_DELEGATE
-	conR.curCommitteeIndex = 0
-	return CONSENSUS_COMMIT_ROLE_NONE, false
+	return Committee, CONSENSUS_COMMIT_ROLE_NONE, 0, false
 }
 
 func (conR *ConsensusReactor) GetCommitteeMemberIndex(pubKey ecdsa.PublicKey) int {
@@ -1457,9 +1474,9 @@ func (conR *ConsensusReactor) ConsensusHandleReceivedNonce(kBlockHeight int64, n
 	//conR.lastKBlockHeight = kBlockHeight
 	conR.curNonce = nonce
 
-	buf := make([]byte, binary.MaxVarintLen64)
-	binary.PutUvarint(buf, nonce)
-	role, inCommittee := conR.NewValidatorSetByNonce(buf)
+	//buf := make([]byte, binary.MaxVarintLen64)
+	//binary.PutUvarint(buf, nonce)
+	role, inCommittee := conR.NewValidatorSetByNonce(nonce)
 
 	if inCommittee {
 		conR.logger.Info("I am in committee!!!")
@@ -1513,23 +1530,47 @@ func (conR *ConsensusReactor) ConsensusHandleReceivedNonce(kBlockHeight int64, n
 		} else {
 			conR.ScheduleValidator(0)
 		}
-		****/
-		// send future leader of newcommittee message.
-		leader := newConsensusPeer(conR.curCommittee.Validators[0].NetAddr.IP,
-			conR.curCommittee.Validators[0].NetAddr.Port)
-		leaderPubKey := conR.curCommittee.Validators[0].PubKey
+		*****/
 
-		conR.sendNewCommitteeMessage(leader, leaderPubKey, kBlockHeight, nonce)
+		conR.NewCommitteeInit(uint64(kBlockHeight), nonce)
+
+		newCommittee := conR.newCommittee
+		nl := newCommittee.Committee.Validators[newCommittee.Round]
+		leader := newConsensusPeer(nl.NetAddr.IP, nl.NetAddr.Port)
+		leaderPubKey := nl.PubKey
+		conR.sendNewCommitteeMessage(leader, leaderPubKey, newCommittee.KblockHeight,
+			newCommittee.Nonce, newCommittee.Round)
+		conR.NewCommitteeTimerStart()
 	}
+	return
+}
+
+// Easier adjust the logic of major 2/3
+func MajorityTwoThird(voterNum, committeeSize int) bool {
+	if (voterNum < 0) || (committeeSize < 1) {
+		fmt.Println("MajorityTwoThird, inputs out of range")
+		return false
+	}
+
+	if voterNum >= (committeeSize * 2 / 3) {
+		return true
+	}
+
+	// for 1 or 2 nodes case
+	if (committeeSize <= 2) && (voterNum >= 1) {
+		return true
+	}
+
+	return false
 }
 
 // send new round message to future committee leader
-func (conR *ConsensusReactor) sendNewCommitteeMessage(peer *ConsensusPeer, pubKey ecdsa.PublicKey, kblockHeight int64, nonce uint64) error {
+func (conR *ConsensusReactor) sendNewCommitteeMessage(peer *ConsensusPeer, pubKey ecdsa.PublicKey, kblockHeight uint64, nonce uint64, round uint64) error {
 
 	msg := &NewCommitteeMessage{
 		CSMsgCommonHeader: ConsensusMsgCommonHeader{
 			Height:    conR.curHeight,
-			Round:     0,
+			Round:     int(round),
 			Sender:    crypto.FromECDSAPub(&conR.myPubKey),
 			Timestamp: time.Now(),
 			MsgType:   CONSENSUS_MSG_NEW_COMMITTEE,
@@ -1557,25 +1598,6 @@ func (conR *ConsensusReactor) sendNewCommitteeMessage(peer *ConsensusPeer, pubKe
 	var m ConsensusMessage = msg
 	conR.sendConsensusMsg(&m, peer)
 	return nil
-}
-
-// Easier adjust the logic of major 2/3
-func MajorityTwoThird(voterNum, committeeSize int) bool {
-	if (voterNum < 0) || (committeeSize < 1) {
-		fmt.Println("MajorityTwoThird, inputs out of range")
-		return false
-	}
-
-	if voterNum >= (committeeSize * 2 / 3) {
-		return true
-	}
-
-	// for 1 or 2 nodes case
-	if (committeeSize <= 2) && (voterNum >= 1) {
-		return true
-	}
-
-	return false
 }
 
 //============================================================================
