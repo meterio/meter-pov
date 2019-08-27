@@ -16,6 +16,10 @@ import (
 
 // reasons for new view
 const (
+	PROPOSE_MSG_SUBTYPE_KBLOCK        = byte(0x01)
+	PROPOSE_MSG_SUBTYPE_MBLOCK        = byte(0x02)
+	PROPOSE_MSG_SUBTYPE_STOPCOMMITTEE = byte(255)
+
 	NEWVIEW_HIGHER_QC_SEEN = byte(1)
 	NEWVIEW_ROUND_TIMEOUT  = byte(2)
 )

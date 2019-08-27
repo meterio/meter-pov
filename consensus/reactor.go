@@ -146,9 +146,9 @@ type ConsensusReactor struct {
 	csRoleInitialized uint
 	csCommon          *ConsensusCommon //this must be allocated as validator
 	csLeader          *ConsensusLeader
-	csProposer        *ConsensusProposer
-	csValidator       *ConsensusValidator
-	csPacemaker       *Pacemaker
+	//	csProposer        *ConsensusProposer
+	csValidator *ConsensusValidator
+	csPacemaker *Pacemaker
 
 	// store key states here
 	lastKBlockHeight uint32
@@ -715,18 +715,6 @@ func (conR *ConsensusReactor) handleMsg(mi consensusMsgInfo) {
 			conR.logger.Error("process CommitCommitteeMessage failed")
 		}
 
-	case *ProposalBlockMessage:
-		if (conR.csRoleInitialized&CONSENSUS_COMMIT_ROLE_VALIDATOR) == 0 ||
-			(conR.csValidator == nil) {
-			conR.logger.Warn("not in validator role, ignore ProposalBlockMessage")
-			break
-		}
-
-		success := conR.csValidator.ProcessProposalBlockMessage(msg, peer)
-		if success == false {
-			conR.logger.Error("process ProposalBlockMessage failed")
-		}
-
 	case *NotaryAnnounceMessage:
 		if (conR.csRoleInitialized&CONSENSUS_COMMIT_ROLE_VALIDATOR) == 0 ||
 			(conR.csValidator == nil) {
@@ -737,30 +725,6 @@ func (conR *ConsensusReactor) handleMsg(mi consensusMsgInfo) {
 		success := conR.csValidator.ProcessNotaryAnnounceMessage(msg, peer)
 		if success == false {
 			conR.logger.Error("process NotaryAnnounceMessage failed")
-		}
-
-	case *NotaryBlockMessage:
-		if (conR.csRoleInitialized&CONSENSUS_COMMIT_ROLE_VALIDATOR) == 0 ||
-			(conR.csValidator == nil) {
-			conR.logger.Warn("not in validator role, ignore NotaryBlockMessage")
-			break
-		}
-
-		success := conR.csValidator.ProcessNotaryBlockMessage(msg, peer)
-		if success == false {
-			conR.logger.Error("process NotaryBlockMessage failed")
-		}
-
-	case *VoteForProposalMessage:
-		if (conR.csRoleInitialized&CONSENSUS_COMMIT_ROLE_PROPOSER) == 0 ||
-			(conR.csProposer == nil) {
-			conR.logger.Warn("not in proposer role, ignore VoteForProposalMessage")
-			break
-		}
-
-		success := conR.csProposer.ProcessVoteForProposal(msg, peer)
-		if success == false {
-			conR.logger.Error("process VoteForProposal failed")
 		}
 
 	case *VoteForNotaryMessage:
@@ -779,30 +743,8 @@ func (conR *ConsensusReactor) handleMsg(mi consensusMsgInfo) {
 				conR.logger.Error("process VoteForNotary(Announce) failed")
 			}
 
-		} else if ch.MsgSubType == VOTE_FOR_NOTARY_BLOCK {
-			if (conR.csRoleInitialized&CONSENSUS_COMMIT_ROLE_PROPOSER) == 0 ||
-				(conR.csProposer == nil) {
-				conR.logger.Warn("not in proposer role, ignore VoteForNotaryMessage")
-				break
-			}
-
-			success := conR.csProposer.ProcessVoteForNotary(msg, peer)
-			if success == false {
-				conR.logger.Warn("process VoteForNotary(Block) failed")
-			}
 		} else {
 			conR.logger.Error("Unknown MsgSubType", "value", ch.MsgSubType)
-		}
-	case *MoveNewRoundMessage:
-		if (conR.csRoleInitialized&CONSENSUS_COMMIT_ROLE_VALIDATOR) == 0 ||
-			(conR.csValidator == nil) {
-			conR.logger.Warn("not in validator role, ignore MoveNewRoundMessage")
-			break
-		}
-
-		success := conR.csValidator.ProcessMoveNewRoundMessage(msg, peer)
-		if success == false {
-			conR.logger.Error("process MoveNewRound failed")
 		}
 
 	case *NewCommitteeMessage:
@@ -987,31 +929,9 @@ func (conR *ConsensusReactor) enterConsensusValidator() int {
 
 func (conR *ConsensusReactor) exitConsensusValidator() int {
 
-	// cancel if needed
-	conR.csValidator.nextRoundExpectationCancel()
-
 	conR.csValidator = nil
 	conR.csRoleInitialized &= ^CONSENSUS_COMMIT_ROLE_VALIDATOR
 	conR.logger.Debug("Exit consensus validator")
-	return 0
-}
-
-// Enter proposer
-func (conR *ConsensusReactor) enterConsensusProposer() int {
-	conR.logger.Debug("Enter consensus proposer")
-
-	conR.csProposer = NewCommitteeProposer(conR)
-	conR.csRoleInitialized |= CONSENSUS_COMMIT_ROLE_PROPOSER
-
-	return 0
-}
-
-func (conR *ConsensusReactor) exitConsensusProposer() int {
-	conR.logger.Debug("Exit consensus proposer")
-
-	conR.csProposer = nil
-	conR.csRoleInitialized &= ^CONSENSUS_COMMIT_ROLE_PROPOSER
-
 	return 0
 }
 
@@ -1048,7 +968,6 @@ func (conR *ConsensusReactor) exitCurCommittee() error {
 	conR.csPacemaker.Stop()
 
 	conR.exitConsensusLeader()
-	conR.exitConsensusProposer()
 	conR.exitConsensusValidator()
 	// Only node in committee did initilize common
 	if conR.csCommon != nil {
@@ -1076,18 +995,10 @@ func getConcreteName(msg ConsensusMessage) string {
 		return "AnnounceCommitteeMessage"
 	case *CommitCommitteeMessage:
 		return "CommitCommitteeMessage"
-	case *ProposalBlockMessage:
-		return "ProposalBlockMessage"
 	case *NotaryAnnounceMessage:
 		return "NotaryAnnounceMessage"
-	case *NotaryBlockMessage:
-		return "NotaryBlockMessage"
-	case *VoteForProposalMessage:
-		return "VoteForProposalMessage"
 	case *VoteForNotaryMessage:
 		return "VoteForNotaryMessage"
-	case *MoveNewRoundMessage:
-		return "MoveNewRoundMessage"
 
 	case *PMProposalMessage:
 		return "PMProposalMessage"
@@ -1365,13 +1276,6 @@ func (conR *ConsensusReactor) ScheduleReplayValidator(d time.Duration) bool {
 	return true
 }
 
-func (conR *ConsensusReactor) ScheduleProposer(d time.Duration) bool {
-	time.AfterFunc(d, func() {
-		conR.schedulerQueue <- func() { HandleScheduleProposer(conR) }
-	})
-	return true
-}
-
 // -------------------------------
 func HandleScheduleReplayLeader(conR *ConsensusReactor) bool {
 	conR.exitConsensusLeader()
@@ -1434,14 +1338,6 @@ func HandleScheduleLeader(conR *ConsensusReactor) bool {
 	conR.enterConsensusLeader()
 
 	conR.csLeader.GenerateAnnounceMsg()
-	return true
-}
-
-func HandleScheduleProposer(conR *ConsensusReactor) bool {
-	conR.exitConsensusProposer()
-	conR.enterConsensusProposer()
-
-	conR.csProposer.ProposalBlockMsg(true)
 	return true
 }
 
