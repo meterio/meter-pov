@@ -18,7 +18,7 @@ func (p *Pacemaker) proposeBlock(parentBlock *block.Block, height, round uint64,
 	// The first MBlock must be generated because committee info is in this block
 	proposalKBlock := false
 	var powResults *powpool.PowResult
-	if p.csReactor.curRound != 0 {
+	if round != 0 {
 		proposalKBlock, powResults = powpool.GetGlobPowPoolInst().GetPowDecision()
 	}
 

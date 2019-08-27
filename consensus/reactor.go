@@ -1365,7 +1365,7 @@ func (conR *ConsensusReactor) HandleSchedule(fn func()) bool {
 //////////////////////////////////////////////////////
 // Consensus module handle received nonce from kblock
 func (conR *ConsensusReactor) ConsensusHandleReceivedNonce(kBlockHeight int64, nonce uint64, replay bool) {
-	conR.logger.Info("Received a nonce ...", "nonce", nonce, "kBlockHeight", kBlockHeight)
+	conR.logger.Info("Received a nonce ...", "nonce", nonce, "kBlockHeight", kBlockHeight, "replay", replay)
 
 	//conR.lastKBlockHeight = kBlockHeight
 	conR.curNonce = nonce
@@ -1390,13 +1390,10 @@ func (conR *ConsensusReactor) ConsensusHandleReceivedNonce(kBlockHeight int64, n
 		conR.logger.Info("PowPool initial added kblock", "kblock height", kBlockHeight, "powHeight", info.PowHeight)
 
 		if replay == true {
-			if kBlockHeight == 0 {
-				conR.logger.Info("Replay", "replay from", 0)
-				pool.ReplayFrom(0)
-			} else {
-				conR.logger.Info("Replay", "replay from powHeight", info.PowHeight)
-				pool.ReplayFrom(int32(info.PowHeight))
-			}
+			//kblock is already added to pool, should start with next one
+			startHeight := info.PowHeight + 1
+			conR.logger.Info("Replay", "replay from powHeight", startHeight)
+			pool.ReplayFrom(int32(startHeight))
 		}
 	} else {
 		conR.logger.Info("I am NOT in committee!!!", "nonce", nonce)

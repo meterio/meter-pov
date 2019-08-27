@@ -383,7 +383,9 @@ func (p *Pacemaker) OnReceiveProposal(proposalMsg *PMProposalMessage) error {
 		// parent got QC, pre-commit
 		parent := p.proposalMap[bnew.Justify.QCHeight] //Justify.QCNode
 		if parent.Height > p.startHeight {
-			p.csReactor.PreCommitBlock(parent.ProposedBlockInfo)
+			if bnew.ProposedBlockType != StopCommitteeType {
+				p.csReactor.PreCommitBlock(parent.ProposedBlockInfo)
+			}
 		}
 		// stop previous round timer
 		//close(p.roundTimerStop)
@@ -511,8 +513,11 @@ func (p *Pacemaker) OnBeat(height uint64, round uint64) error {
 	// parent already got QC, pre-commit it
 	//b := p.QCHigh.QCNode
 	b := p.proposalMap[p.QCHigh.QCHeight]
+	// StopCommitteeType should not be committed.
 	if b.Height > p.startHeight {
-		p.csReactor.PreCommitBlock(b.ProposedBlockInfo)
+		if b.ProposedBlockType != StopCommitteeType {
+			p.csReactor.PreCommitBlock(b.ProposedBlockInfo)
+		}
 	}
 
 	if p.csReactor.amIRoundProproser(round) {

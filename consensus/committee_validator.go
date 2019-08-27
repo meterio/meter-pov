@@ -121,12 +121,6 @@ func (cv *ConsensusValidator) GenerateCommitMessage(sig bls.Signature, msgHash [
 	return msg
 }
 
-// get the proposer in validator set based on round
-func (cv *ConsensusValidator) GetCurRoundProposer() *CommitteeMember {
-	curRound := cv.csReactor.curRound
-	return &cv.csReactor.curActualCommittee[curRound]
-}
-
 // process Announcement from committee leader, join the committee
 // if I am included
 func (cv *ConsensusValidator) ProcessAnnounceCommittee(announceMsg *AnnounceCommitteeMessage, src *ConsensusPeer) bool {

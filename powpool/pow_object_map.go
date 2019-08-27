@@ -56,11 +56,13 @@ func (m *powObjectMap) _add(powObj *powObject) error {
 
 	powID := powObj.HashID()
 	if _, found := m.powObjMap[powID]; found {
+		fmt.Println("Duplicated HashID: ", powID.String())
 		return nil
 	}
-	fmt.Println("Added to powpool: ", powObj.blockInfo.ToString())
+
 	m.powObjMap[powID] = powObj
 	m.latestHeightMkr.update(powObj)
+	fmt.Println("Added to powObjectMap: ", powObj.blockInfo.ToString(), "poolSize: ", m.Size())
 	return nil
 }
 
@@ -106,12 +108,18 @@ func (m *powObjectMap) Add(powObj *powObject) error {
 		log.Error("Hash ID existed")
 		return nil
 	}
+
 	// object with previous hash MUST be in this pool
+	// header hash calculation is different with pow node
+	// we comment it out for short term use.
+	// MUST FIX
+	/*****
 	previous := m.Get(powObj.blockInfo.HashPrevBlock)
 	if previous == nil {
 		return fmt.Errorf("HashPrevBlock")
 	}
-
+	******/
+	fmt.Println("Added to powpool: ", powObj.blockInfo.ToString(), "poolSize: ", m.Size())
 	err := m._add(powObj)
 	return err
 }
@@ -125,6 +133,10 @@ func (m *powObjectMap) Remove(powID meter.Bytes32) bool {
 		return true
 	}
 	return false
+}
+
+func (m *powObjectMap) Size() int {
+	return len(m.powObjMap)
 }
 
 func (m *powObjectMap) Get(powID meter.Bytes32) *powObject {

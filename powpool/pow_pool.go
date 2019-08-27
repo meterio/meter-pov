@@ -27,9 +27,9 @@ import (
 const (
 	// minimum height for committee relay
 	POW_MINIMUM_HEIGHT_INTV = uint32(20)
-	//This ceof is based s9 ant miner, 1.3Kw 13.5T hashrate 1.04488168724e10
-	//python -c "print 2**32 * 1.3 /120/13.5/1024/1024/1024/1024/10/30"
-	POW_DEFAULT_REWARD_COEF = int64(1044881687)
+	//This ceof is based s9 ant miner, 1.323Kw 13.5T hashrate coef 11691855416.9
+	//python -c "print 2**32 * 1.323 /120/13.5/1000/1000/1000/1000/10/30"
+	POW_DEFAULT_REWARD_COEF = int64(11691855417)
 )
 
 var (
@@ -193,6 +193,7 @@ func (p *PowPool) Add(newPowBlockInfo *PowBlockInfo) error {
 		log.Info("PowPool Add, hash already in PowPool", "hash", newPowBlockInfo.HeaderHash)
 		return nil
 	}
+	log.Info("PowPool Add: ", "hash", newPowBlockInfo.HeaderHash, "height", newPowBlockInfo.PowHeight, "powpoolSize", p.all.Size())
 	p.powFeed.Send(&PowBlockEvent{BlockInfo: newPowBlockInfo})
 	powObj := NewPowObject(newPowBlockInfo)
 	err := p.all.Add(powObj)
@@ -227,6 +228,7 @@ func (p *PowPool) GetPowDecision() (bool, *PowResult) {
 
 	// cases can not be decided
 	if !p.all.isKframeInitialAdded() {
+		fmt.Println("GetPowDecision false: kframe is not initially added")
 		return false, nil
 	}
 
@@ -234,6 +236,7 @@ func (p *PowPool) GetPowDecision() (bool, *PowResult) {
 	lastKframeHeight := p.all.lastKframePowObj.Height()
 	if (latestHeight < lastKframeHeight) ||
 		((latestHeight - lastKframeHeight) < POW_MINIMUM_HEIGHT_INTV) {
+		log.Debug("GetPowDecision false", "latestHeight", latestHeight, "lastKframeHeight", lastKframeHeight)
 		return false, nil
 	}
 
@@ -255,8 +258,10 @@ func (p *PowPool) GetPowDecision() (bool, *PowResult) {
 	}
 
 	if mostDifficaultResult == nil {
+		fmt.Println("GetPowDecision false: not result")
 		return false, nil
 	} else {
+		fmt.Println("GetPowDecision true")
 		return true, mostDifficaultResult
 	}
 }

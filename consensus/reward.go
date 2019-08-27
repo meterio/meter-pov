@@ -8,7 +8,7 @@ package consensus
 import (
 	//"crypto/ecdsa"
 	"fmt"
-	// "math/big"
+	"math/big"
 
 	//"github.com/dfinlab/meter/runtime"
 	//"github.com/dfinlab/meter/state"
@@ -47,16 +47,19 @@ func (conR *ConsensusReactor) MinerRewards(rewards []powpool.PowReward) *tx.Tran
 		Nonce(12345678)
 
 	//now build Clauses
-
 	// Only reward METER
+	sum := big.NewInt(0)
 	for i, reward := range rewards {
 		builder.Clause(tx.NewClause(&reward.Rewarder).WithValue(&reward.Value).WithToken(tx.TOKEN_METER))
+		conR.logger.Info("Reward:", "rewarder", reward.Rewarder, "value", reward.Value)
+		sum = sum.Add(sum, &reward.Value)
 		// it is possilbe that POW will give POS long list of reward under some cases, should not
 		// build long mint transaction.
 		if i >= int(2*powpool.POW_MINIMUM_HEIGHT_INTV) {
 			break
 		}
 	}
+	conR.logger.Info("Reward", "Kblock Height", conR.chain.BestBlock().Header().Number()+1, "Total", sum)
 
 	//TBD: issue 1 METER_GOV to each committee member
 	/*
