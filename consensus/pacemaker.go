@@ -465,7 +465,7 @@ func (p *Pacemaker) OnReceiveVote(voteMsg *PMVoteForProposalMessage) error {
 		p.stopRoundTimer()
 
 		// if QC is updated, relay it to the next proposer
-		p.OnNextSyncView(qc.QCHeight+1, qc.QCRound+1)
+		p.OnNextSyncView(qc.QCHeight+1, qc.QCRound+1, HigherQCSeen, nil)
 
 		// start timer for next round
 		p.startRoundTimer(qc.QCHeight+1, qc.QCRound+1, 0)
@@ -542,11 +542,9 @@ func (p *Pacemaker) OnBeat(height uint64, round uint64) error {
 	return nil
 }
 
-func (p *Pacemaker) OnNextSyncView(nextHeight, nextRound uint64) error {
+func (p *Pacemaker) OnNextSyncView(nextHeight, nextRound uint64, reason NewViewReason, tc *TimeoutCert) error {
 	// send new round msg to next round proposer
-	reason := NEWVIEW_HIGHER_QC_SEEN
-	timeout := &TimeoutCert{}
-	msg, err := p.BuildNewViewMessage(nextHeight, nextRound, p.QCHigh, reason, timeout)
+	msg, err := p.BuildNewViewMessage(nextHeight, nextRound, p.QCHigh, reason, tc)
 	if err != nil {
 		p.logger.Error("could not build new view message", "err", err)
 	}
@@ -556,7 +554,7 @@ func (p *Pacemaker) OnNextSyncView(nextHeight, nextRound uint64) error {
 }
 
 func (p *Pacemaker) OnReceiveNewView(newViewMsg *PMNewViewMessage) error {
-	p.logger.Info("Received NewView", "qcHeight", newViewMsg.QCHeight, "qcRound", newViewMsg.QCRound, "reason", newViewMsg.NewViewReason)
+	p.logger.Info("Received NewView", "qcHeight", newViewMsg.QCHeight, "qcRound", newViewMsg.QCRound, "reason", newViewMsg.Reason)
 
 	qc, err := p.DecodeQCFromBytes(newViewMsg.QCHigh)
 	if err != nil {
@@ -709,7 +707,13 @@ func (p *Pacemaker) Stop() {
 func (p *Pacemaker) OnRoundTimeout(ti PMRoundTimeoutInfo) error {
 	p.logger.Warn("Round Time Out", "round", ti.round, "counter", ti.counter)
 	p.currentRound = int(ti.round + 1)
-	p.OnNextSyncView(ti.height, ti.round+1)
+	// FIXME: use real data in this
+	tc := &TimeoutCert{
+		TimeoutRound:   ti.round + 1,
+		TimeoutHeight:  ti.height,
+		TimeoutCounter: uint32(ti.counter + 1),
+	}
+	p.OnNextSyncView(ti.height, ti.round+1, RoundTimeout, tc)
 	p.stopRoundTimer()
 	p.startRoundTimer(ti.height, ti.round+1, ti.counter+1)
 	return nil

@@ -11,7 +11,9 @@ import (
 	"time"
 
 	"github.com/dfinlab/meter/block"
+	"github.com/dfinlab/meter/meter"
 	crypto "github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/rlp"
 )
 
 // reasons for new view
@@ -19,42 +21,41 @@ const (
 	PROPOSE_MSG_SUBTYPE_KBLOCK        = byte(0x01)
 	PROPOSE_MSG_SUBTYPE_MBLOCK        = byte(0x02)
 	PROPOSE_MSG_SUBTYPE_STOPCOMMITTEE = byte(255)
+)
 
-	NEWVIEW_HIGHER_QC_SEEN = byte(1)
-	NEWVIEW_ROUND_TIMEOUT  = byte(2)
+type NewViewReason byte
+
+const (
+	HigherQCSeen NewViewReason = NewViewReason(1)
+	RoundTimeout NewViewReason = NewViewReason(2)
 )
 
 // ***********************************
 type TimeoutCert struct {
 	TimeoutRound     uint64
 	TimeoutHeight    uint64
-	TimeOutCounter   uint32
-	TimeOutSignature []byte
+	TimeoutCounter   uint32
+	TimeoutSignature []byte
 }
 
-// ****** test code ***********
-/*
-type PMessage struct {
-	Round                   uint64
-	MsgType                 byte
-	QC_height               uint64
-	QC_round                uint64
-	Block_height            uint64
-	Block_round             uint64
-	Block_parent_height     uint64
-	Block_parent_round      uint64
-	Block_justify_QC_height uint64
-	Block_justify_QC_round  uint64
+func newTimeoutCert(height, round uint64, counter uint32) *TimeoutCert {
+	return &TimeoutCert{
+		TimeoutRound:   round,
+		TimeoutHeight:  height,
+		TimeoutCounter: counter,
+	}
 }
 
-// String returns a string representation.
-func (m *PMessage) String() string {
-	return fmt.Sprintf("PMessage: Round(%v), MsgtType(%v), QC_height(%v), QC_round(%v), Block_height(%v), Block_round(%v), Block_parent_height(%v), Block_parent_round(%v), Block_justify_QC_height(%v), Block_justify_QC_round(%v)",
-		m.Round, m.MsgType, m.QC_height, m.QC_round, m.Block_height, m.Block_round, m.Block_parent_height,
-		m.Block_parent_round, m.Block_justify_QC_height, m.Block_justify_QC_round)
+func (tc *TimeoutCert) SigningHash() (hash meter.Bytes32) {
+	hw := meter.NewBlake2b()
+	rlp.Encode(hw, []interface{}{
+		tc.TimeoutRound,
+		tc.TimeoutHeight,
+		tc.TimeoutCounter,
+	})
+	hw.Sum(hash[:0])
+	return
 }
-
-*/
 
 // check a pmBlock is the extension of b_locked, max 10 hops
 func (p *Pacemaker) IsExtendedFromBLocked(b *pmBlock) bool {
