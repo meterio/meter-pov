@@ -1,7 +1,6 @@
 package consensus
 
 import (
-	"fmt"
 	"time"
 
 	"github.com/dfinlab/meter/block"
@@ -44,23 +43,22 @@ func (p *Pacemaker) proposeBlock(parentBlock *block.Block, height, round uint64,
 }
 
 func (p *Pacemaker) packCommitteeInfo(blk *block.Block) error {
-	fmt.Println("PACK COMMITTEE INFO")
 	committeeInfo := []block.CommitteeInfo{}
 	// only round 0 Mblock contains the following info
 	system := p.csReactor.csCommon.system
 	blk.SetSystemBytes(system.ToBytes())
-	fmt.Println("system: ", system)
+	// fmt.Println("system: ", system)
 
 	params := p.csReactor.csCommon.params
 	paramsBytes, _ := params.ToBytes()
 	blk.SetParamsBytes(paramsBytes)
-	fmt.Println("params: ", params)
+	// fmt.Println("params: ", params)
 
 	// blk.SetCommitteeEpoch(conR.curEpoch)
 
 	// blk.SetBlockEvidence(ev)
 	committeeInfo = p.csReactor.MakeBlockCommitteeInfo(system, p.csReactor.curActualCommittee)
-	fmt.Println("committee info: ", committeeInfo)
+	// fmt.Println("committee info: ", committeeInfo)
 	blk.SetCommitteeInfo(committeeInfo)
 
 	//Fill new info into block, re-calc hash/signature
