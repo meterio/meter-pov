@@ -18,7 +18,7 @@ func (p *Pacemaker) proposeBlock(parentBlock *block.Block, height, round uint64,
 	// The first MBlock must be generated because committee info is in this block
 	proposalKBlock := false
 	var powResults *powpool.PowResult
-	if round != 0 {
+	if round >= 5 {
 		proposalKBlock, powResults = powpool.GetGlobPowPoolInst().GetPowDecision()
 	}
 
@@ -37,6 +37,18 @@ func (p *Pacemaker) proposeBlock(parentBlock *block.Block, height, round uint64,
 			p.packCommitteeInfo(blkInfo.ProposedBlock)
 		}
 	}
+	p.packQuorumCert(blkInfo.ProposedBlock, qc)
+	blockBytes = block.BlockEncodeBytes(blkInfo.ProposedBlock)
+
+	return blkInfo, blockBytes
+}
+
+func (p *Pacemaker) proposeStopCommitteeBlock(parentBlock *block.Block, height, round uint64, qc *pmQuorumCert) (*ProposedBlockInfo, []byte) {
+
+	var blockBytes []byte
+	var blkInfo *ProposedBlockInfo
+
+	blkInfo = p.csReactor.BuildStopCommitteeBlock(parentBlock)
 	p.packQuorumCert(blkInfo.ProposedBlock, qc)
 	blockBytes = block.BlockEncodeBytes(blkInfo.ProposedBlock)
 
@@ -81,6 +93,7 @@ func (p *Pacemaker) packQuorumCert(blk *block.Block, qc *pmQuorumCert) error {
 }
 
 func (p *Pacemaker) BuildProposalMessage(height, round uint64, bnew *pmBlock) (*PMProposalMessage, error) {
+	p.logger.Info("BuildProposalMessage", "height", height, "round", round, "bnew", bnew.ToString())
 	blockBytes := bnew.ProposedBlock
 
 	cmnHdr := ConsensusMsgCommonHeader{

@@ -110,6 +110,7 @@ func (p *Pacemaker) receivePacemakerMsg(w http.ResponseWriter, r *http.Request) 
 }
 
 func (p *Pacemaker) ValidateProposal(b *pmBlock) error {
+	p.logger.Info("ValidateProposal", "height", b.Height, "round", b.Round, "type", b.ProposedBlockType)
 	blockBytes := b.ProposedBlock
 	blk, err := block.BlockDecodeFromBytes(blockBytes)
 	if err != nil {
@@ -120,20 +121,21 @@ func (p *Pacemaker) ValidateProposal(b *pmBlock) error {
 	// special valiadte StopCommitteeType
 	// possible 2 rounds of stop messagB
 	if b.ProposedBlockType == StopCommitteeType {
+
 		parent := p.proposalMap[b.Height-1]
 		if parent.ProposedBlockType == KBlockType {
 			p.logger.Info("the first stop committee block")
-			return nil
+			//return nil
 		} else if parent.ProposedBlockType == StopCommitteeType {
 			grandParent := p.proposalMap[b.Height-2]
 			if grandParent.ProposedBlockType == KBlockType {
 				p.logger.Info("The second stop committee block")
-				return nil
+				//return nil
 			} else {
-				return errParentMissing
+				//return errParentMissing
 			}
 		} else {
-			return errParentMissing
+			//return errParentMissing
 		}
 	}
 

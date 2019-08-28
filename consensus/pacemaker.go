@@ -197,7 +197,7 @@ func (p *Pacemaker) CreateLeaf(parent *pmBlock, qc *pmQuorumCert, height uint64,
 	if err != nil {
 		panic("Error decode the parent block")
 	}
-
+	p.logger.Info(fmt.Sprintf("CreateLeaf: height=%v, round=%v, QCHight=%v, QCRound=%v, ParentHeight=%v, ParentRound=%v", height, round, qc.QCHeight, qc.QCRound, parent.Height, parent.Round))
 	// after kblock is proposed, we should propose 2 rounds of stopcommitteetype block
 	// to finish the pipeline. This mechnism guranttee kblock get into block server.
 
@@ -205,15 +205,20 @@ func (p *Pacemaker) CreateLeaf(parent *pmBlock, qc *pmQuorumCert, height uint64,
 	// This proposal will not get into block database
 	if parent.ProposedBlockType == KBlockType || parent.ProposedBlockType == StopCommitteeType {
 		p.logger.Info(fmt.Sprintf("Proposed Stop pacemaker message: height=%v, round=%v", height, round))
-		return &pmBlock{
+		info, blockBytes := p.proposeStopCommitteeBlock(parentBlock, height, round, qc)
+		b := &pmBlock{
 			Height:  height,
 			Round:   round,
 			Parent:  parent,
 			Justify: qc,
 
-			ProposedBlock:     parent.ProposedBlock,
-			ProposedBlockType: StopCommitteeType,
+			ProposedBlockInfo: info,
+			SuccessProcessed:  true,
+			ProposedBlock:     blockBytes,
+			ProposedBlockType: info.BlockType,
 		}
+		fmt.Print(b.ToString())
+		return b
 	}
 
 	info, blockBytes := p.proposeBlock(parentBlock, height, round, qc, true)
@@ -231,6 +236,7 @@ func (p *Pacemaker) CreateLeaf(parent *pmBlock, qc *pmQuorumCert, height uint64,
 		ProposedBlockType: info.BlockType,
 	}
 
+	fmt.Print(b.ToString())
 	return b
 }
 
@@ -315,10 +321,11 @@ func (p *Pacemaker) OnCommit(commitReady []*pmBlock) error {
 		p.Execute(b) //b.cmd
 
 		if b.ProposedBlockType == KBlockType {
+			p.csReactor.logger.Info("committed a kblock, stop pacemaker", "height", b.Height, "round", b.Round)
 			p.SendKblockInfo(b)
 			p.Stop()
-			return nil
 		}
+
 		// remove this pmBlock from map.
 		delete(p.proposalMap, b.Height)
 	}
@@ -383,9 +390,7 @@ func (p *Pacemaker) OnReceiveProposal(proposalMsg *PMProposalMessage) error {
 		// parent got QC, pre-commit
 		parent := p.proposalMap[bnew.Justify.QCHeight] //Justify.QCNode
 		if parent.Height > p.startHeight {
-			if bnew.ProposedBlockType != StopCommitteeType {
-				p.csReactor.PreCommitBlock(parent.ProposedBlockInfo)
-			}
+			p.csReactor.PreCommitBlock(parent.ProposedBlockInfo)
 		}
 		// stop previous round timer
 		//close(p.roundTimerStop)
@@ -513,11 +518,10 @@ func (p *Pacemaker) OnBeat(height uint64, round uint64) error {
 	// parent already got QC, pre-commit it
 	//b := p.QCHigh.QCNode
 	b := p.proposalMap[p.QCHigh.QCHeight]
-	// StopCommitteeType should not be committed.
+
 	if b.Height > p.startHeight {
-		if b.ProposedBlockType != StopCommitteeType {
-			p.csReactor.PreCommitBlock(b.ProposedBlockInfo)
-		}
+		p.logger.Info("PrecommitBlock 523:::::", "info", b.ProposedBlockInfo.String())
+		p.csReactor.PreCommitBlock(b.ProposedBlockInfo)
 	}
 
 	if p.csReactor.amIRoundProproser(round) {
@@ -685,7 +689,9 @@ func (p *Pacemaker) SendKblockInfo(b *pmBlock) error {
 			LastKBlockHeight: blk.Header().LastKBlockHeight(),
 			Nonce:            data.Nonce,
 		}
-		p.logger.Info("received kblock", "nonce", info.Nonce, "height", info.Height)
+		p.csReactor.RcvKBlockInfoQueue <- info
+
+		p.logger.Info("sent kblock info to reactor", "nonce", info.Nonce, "height", info.Height)
 	}
 	return nil
 }
@@ -700,7 +706,8 @@ func (p *Pacemaker) Stop() {
 	// clean off chain for next committee.
 
 	// suicide
-	p.stopCh <- &PMStopInfo{p.QCHigh.QCHeight, p.QCHigh.QCRound}
+	//p.stopCh <- &PMStopInfo{p.QCHigh.QCHeight, p.QCHigh.QCRound}
+	p.stopCh <- &PMStopInfo{0, 0}
 }
 
 func (p *Pacemaker) OnRoundTimeout(ti PMRoundTimeoutInfo) error {
