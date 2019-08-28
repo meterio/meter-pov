@@ -106,6 +106,10 @@ func New(kv kv.GetPutter, genesisBlock *block.Block) (*Chain, error) {
 		if err != nil {
 			return nil, err
 		}
+		if bestBlock.Header().Number() == 0 && bestBlock.QC == nil {
+			fmt.Println("QC of best block is empty, set it to genesis QC")
+			bestBlock.QC = block.GenesisQC()
+		}
 
 		// Load leaf block
 		if leafBlockID, err := loadLeafBlockID(kv); err == nil {
@@ -133,6 +137,7 @@ func New(kv kv.GetPutter, genesisBlock *block.Block) (*Chain, error) {
 	})
 
 	if leafBlock == nil {
+		fmt.Println("Leaf Block is empty, set it to genesis block")
 		leafBlock = bestBlock
 	} else {
 		fmt.Println("Leaf Block", leafBlock.CompactString())
@@ -168,6 +173,8 @@ func New(kv kv.GetPutter, genesisBlock *block.Block) (*Chain, error) {
 	fmt.Println("--------------------------------------------------")
 	fmt.Println("                 CHAIN INITIALIZED                ")
 	fmt.Println("--------------------------------------------------")
+	fmt.Println("LeafBlock Header: ", leafBlock.Header())
+	fmt.Println("LeafBlock QC: ", leafBlock.QC)
 	fmt.Println("Leaf Block: ", leafBlock.CompactString())
 	fmt.Println("Best Block: ", bestBlock.CompactString())
 	fmt.Println("Best QC: ", bestQC.String())

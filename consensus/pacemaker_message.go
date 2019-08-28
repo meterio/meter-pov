@@ -1,7 +1,6 @@
 package consensus
 
 import (
-	"fmt"
 	"time"
 
 	"github.com/dfinlab/meter/block"
@@ -56,23 +55,22 @@ func (p *Pacemaker) proposeStopCommitteeBlock(parentBlock *block.Block, height, 
 }
 
 func (p *Pacemaker) packCommitteeInfo(blk *block.Block) error {
-	fmt.Println("PACK COMMITTEE INFO")
 	committeeInfo := []block.CommitteeInfo{}
 	// only round 0 Mblock contains the following info
 	system := p.csReactor.csCommon.system
 	blk.SetSystemBytes(system.ToBytes())
-	fmt.Println("system: ", system)
+	// fmt.Println("system: ", system)
 
 	params := p.csReactor.csCommon.params
 	paramsBytes, _ := params.ToBytes()
 	blk.SetParamsBytes(paramsBytes)
-	fmt.Println("params: ", params)
+	// fmt.Println("params: ", params)
 
 	// blk.SetCommitteeEpoch(conR.curEpoch)
 
 	// blk.SetBlockEvidence(ev)
 	committeeInfo = p.csReactor.MakeBlockCommitteeInfo(system, p.csReactor.curActualCommittee)
-	fmt.Println("committee info: ", committeeInfo)
+	// fmt.Println("committee info: ", committeeInfo)
 	blk.SetCommitteeInfo(committeeInfo)
 
 	//Fill new info into block, re-calc hash/signature
@@ -195,7 +193,7 @@ func (p *Pacemaker) BuildVoteForProposalMessage(proposalMsg *PMProposalMessage) 
 }
 
 // BuildVoteForProposalMsg build VFP message for proposal
-func (p *Pacemaker) BuildNewViewMessage(nextHeight, nextRound uint64, qcHigh *pmQuorumCert, reason byte, timeout *TimeoutCert) (*PMNewViewMessage, error) {
+func (p *Pacemaker) BuildNewViewMessage(nextHeight, nextRound uint64, qcHigh *pmQuorumCert, reason NewViewReason, tc *TimeoutCert) (*PMNewViewMessage, error) {
 
 	cmnHdr := ConsensusMsgCommonHeader{
 		Height:    int64(nextHeight),
@@ -208,11 +206,13 @@ func (p *Pacemaker) BuildNewViewMessage(nextHeight, nextRound uint64, qcHigh *pm
 	msg := &PMNewViewMessage{
 		CSMsgCommonHeader: cmnHdr,
 
-		QCHeight:      qcHigh.QCHeight,
-		QCRound:       qcHigh.QCRound,
-		QCHigh:        p.EncodeQCToBytes(qcHigh),
-		NewViewReason: reason,
-		Timeout:       *timeout,
+		QCHeight: qcHigh.QCHeight,
+		QCRound:  qcHigh.QCRound,
+		QCHigh:   p.EncodeQCToBytes(qcHigh),
+		Reason:   byte(reason),
+	}
+	if tc != nil {
+		msg.TimeoutCert = *tc
 	}
 
 	// sign message

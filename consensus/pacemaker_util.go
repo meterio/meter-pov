@@ -11,7 +11,9 @@ import (
 	"time"
 
 	"github.com/dfinlab/meter/block"
+	"github.com/dfinlab/meter/meter"
 	crypto "github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/rlp"
 )
 
 // reasons for new view
@@ -19,42 +21,41 @@ const (
 	PROPOSE_MSG_SUBTYPE_KBLOCK        = byte(0x01)
 	PROPOSE_MSG_SUBTYPE_MBLOCK        = byte(0x02)
 	PROPOSE_MSG_SUBTYPE_STOPCOMMITTEE = byte(255)
+)
 
-	NEWVIEW_HIGHER_QC_SEEN = byte(1)
-	NEWVIEW_ROUND_TIMEOUT  = byte(2)
+type NewViewReason byte
+
+const (
+	HigherQCSeen NewViewReason = NewViewReason(1)
+	RoundTimeout NewViewReason = NewViewReason(2)
 )
 
 // ***********************************
 type TimeoutCert struct {
 	TimeoutRound     uint64
 	TimeoutHeight    uint64
-	TimeOutCounter   uint32
-	TimeOutSignature []byte
+	TimeoutCounter   uint32
+	TimeoutSignature []byte
 }
 
-// ****** test code ***********
-/*
-type PMessage struct {
-	Round                   uint64
-	MsgType                 byte
-	QC_height               uint64
-	QC_round                uint64
-	Block_height            uint64
-	Block_round             uint64
-	Block_parent_height     uint64
-	Block_parent_round      uint64
-	Block_justify_QC_height uint64
-	Block_justify_QC_round  uint64
+func newTimeoutCert(height, round uint64, counter uint32) *TimeoutCert {
+	return &TimeoutCert{
+		TimeoutRound:   round,
+		TimeoutHeight:  height,
+		TimeoutCounter: counter,
+	}
 }
 
-// String returns a string representation.
-func (m *PMessage) String() string {
-	return fmt.Sprintf("PMessage: Round(%v), MsgtType(%v), QC_height(%v), QC_round(%v), Block_height(%v), Block_round(%v), Block_parent_height(%v), Block_parent_round(%v), Block_justify_QC_height(%v), Block_justify_QC_round(%v)",
-		m.Round, m.MsgType, m.QC_height, m.QC_round, m.Block_height, m.Block_round, m.Block_parent_height,
-		m.Block_parent_round, m.Block_justify_QC_height, m.Block_justify_QC_round)
+func (tc *TimeoutCert) SigningHash() (hash meter.Bytes32) {
+	hw := meter.NewBlake2b()
+	rlp.Encode(hw, []interface{}{
+		tc.TimeoutRound,
+		tc.TimeoutHeight,
+		tc.TimeoutCounter,
+	})
+	hw.Sum(hash[:0])
+	return
 }
-
-*/
 
 // check a pmBlock is the extension of b_locked, max 10 hops
 func (p *Pacemaker) IsExtendedFromBLocked(b *pmBlock) bool {
@@ -183,4 +184,56 @@ func (p *Pacemaker) ValidateProposal(b *pmBlock) error {
 func (p *Pacemaker) isMine(key []byte) bool {
 	myKey := crypto.FromECDSAPub(&p.csReactor.myPubKey)
 	return bytes.Equal(key, myKey)
+}
+
+func (p *Pacemaker) getProposerByRound(round int) *ConsensusPeer {
+	proposer := p.csReactor.getRoundProposer(round)
+	return newConsensusPeer(proposer.NetAddr.IP, 8080)
+}
+
+// ------------------------------------------------------
+// Message Delivery Utilities
+// ------------------------------------------------------
+func (p *Pacemaker) SendConsensusMessage(round uint64, msg ConsensusMessage, copyMyself bool) bool {
+	typeName := getConcreteName(msg)
+	rawMsg := cdc.MustMarshalBinaryBare(msg)
+	if len(rawMsg) > maxMsgSize {
+		p.logger.Error("Msg exceeds max size", "rawMsg=", len(rawMsg), "maxMsgSize=", maxMsgSize)
+		return false
+	}
+
+	myNetAddr := p.csReactor.curCommittee.Validators[p.csReactor.curCommitteeIndex].NetAddr
+	myself := newConsensusPeer(myNetAddr.IP, myNetAddr.Port)
+
+	var peers []*ConsensusPeer
+	switch msg.(type) {
+	case *PMProposalMessage:
+		peers, _ = p.csReactor.GetMyPeers()
+	case *PMVoteForProposalMessage:
+		proposer := p.getProposerByRound(int(round))
+		peers = []*ConsensusPeer{proposer}
+	case *PMNewViewMessage:
+		nxtProposer := p.getProposerByRound(int(round))
+		peers = []*ConsensusPeer{nxtProposer}
+		myself = nil // don't send new view to myself
+	}
+
+	// send consensus message to myself first (except for PMNewViewMessage)
+	if copyMyself && myself != nil {
+		p.logger.Debug("Sending pacemaker msg to myself", "type", typeName, "to", myNetAddr.IP.String())
+		myself.sendData(myNetAddr, typeName, rawMsg)
+	}
+
+	// broadcast consensus message to peers
+	for _, peer := range peers {
+		hint := "Sending pacemaker msg to peer"
+		if peer.netAddr.IP.String() == myNetAddr.IP.String() {
+			hint = "Sending pacemaker msg to myself"
+		}
+		p.logger.Debug(hint, "type", typeName, "to", peer.netAddr.IP.String())
+
+		// TODO: make this asynchornous
+		peer.sendData(myNetAddr, typeName, rawMsg)
+	}
+	return true
 }

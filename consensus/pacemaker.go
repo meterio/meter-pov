@@ -80,6 +80,26 @@ func (p *Pacemaker) EncodeQCToBytes(qc *pmQuorumCert) []byte {
 	return blockQC.ToBytes()
 }
 
+func (p *Pacemaker) DecodeQCFromBytes(bytes []byte) (*pmQuorumCert, error) {
+	blockQC, err := block.QCDecodeFromBytes(bytes)
+	if err != nil {
+		return nil, err
+	}
+	qcNode := p.AddressBlock(blockQC.QCHeight, blockQC.QCRound)
+	if qcNode == nil {
+		return nil, errors.New("can not address qcNode")
+	}
+	return &pmQuorumCert{
+		QCHeight: blockQC.QCHeight,
+		QCRound:  blockQC.QCRound,
+
+		VoterSig:     blockQC.VotingSig,
+		VoterMsgHash: blockQC.VotingMsgHash,
+		VoterAggSig:  blockQC.VotingAggSig,
+		QCNode:       qcNode,
+	}, nil
+}
+
 func (qc *pmQuorumCert) ToString() string {
 	if qc.QCNode != nil {
 		return fmt.Sprintf("QuorumCert(QCHeight: %v, QCRound: %v, qcNodeHeight: %v, qcNodeRound: %v)", qc.QCHeight, qc.QCRound, qc.QCNode.Height, qc.QCNode.Round)
@@ -402,25 +422,11 @@ func (p *Pacemaker) OnReceiveProposal(proposalMsg *PMProposalMessage) error {
 
 		msg, _ := p.BuildVoteForProposalMessage(proposalMsg)
 		// send vote message to leader
+		// added for test
+		// if round < 5 || round > 7 {
 		p.SendConsensusMessage(uint64(proposalMsg.CSMsgCommonHeader.Round), msg, false)
+		// }
 
-		/***********
-		// start the round timer
-		p.roundTimerStop = make(chan bool)
-		go func() {
-			count := 0
-			for {
-				select {
-				case <-time.After(time.Second * 5 * time.Duration(count)):
-					p.currentRound++
-					count++
-					p.sendMsg(uint64(p.currentRound), PACEMAKER_MSG_NEWVIEW, p.QCHigh, nil)
-				case <-p.roundTimerStop:
-					return
-				}
-			}
-		}()
-		***********/
 		p.startRoundTimer(bnew.Height, bnew.Round, 0)
 	}
 
@@ -464,7 +470,7 @@ func (p *Pacemaker) OnReceiveVote(voteMsg *PMVoteForProposalMessage) error {
 		p.stopRoundTimer()
 
 		// if QC is updated, relay it to the next proposer
-		p.OnNextSyncView(qc.QCHeight+1, qc.QCRound+1)
+		p.OnNextSyncView(qc.QCHeight+1, qc.QCRound+1, HigherQCSeen, nil)
 
 		// start timer for next round
 		p.startRoundTimer(qc.QCHeight+1, qc.QCRound+1, 0)
@@ -540,11 +546,9 @@ func (p *Pacemaker) OnBeat(height uint64, round uint64) error {
 	return nil
 }
 
-func (p *Pacemaker) OnNextSyncView(nextHeight, nextRound uint64) error {
+func (p *Pacemaker) OnNextSyncView(nextHeight, nextRound uint64, reason NewViewReason, tc *TimeoutCert) error {
 	// send new round msg to next round proposer
-	reason := NEWVIEW_HIGHER_QC_SEEN
-	timeout := &TimeoutCert{}
-	msg, err := p.BuildNewViewMessage(nextHeight, nextRound, p.QCHigh, reason, timeout)
+	msg, err := p.BuildNewViewMessage(nextHeight, nextRound, p.QCHigh, reason, tc)
 	if err != nil {
 		p.logger.Error("could not build new view message", "err", err)
 	}
@@ -554,25 +558,20 @@ func (p *Pacemaker) OnNextSyncView(nextHeight, nextRound uint64) error {
 }
 
 func (p *Pacemaker) OnReceiveNewView(newViewMsg *PMNewViewMessage) error {
-	p.logger.Info("Received NewView", "qcHeight", newViewMsg.QCHeight, "qcRound", newViewMsg.QCRound, "reason", newViewMsg.NewViewReason)
-	qcNode := p.AddressBlock(newViewMsg.QCHeight, newViewMsg.QCRound)
-	if qcNode == nil {
-		return errors.New("can not address qcNode")
-	}
+	p.logger.Info("Received NewView", "qcHeight", newViewMsg.QCHeight, "qcRound", newViewMsg.QCRound, "reason", newViewMsg.Reason)
 
-	qc := &pmQuorumCert{
-		QCHeight: newViewMsg.QCHeight,
-		QCRound:  newViewMsg.QCRound,
-		QCNode:   qcNode,
+	qc, err := p.DecodeQCFromBytes(newViewMsg.QCHigh)
+	if err != nil {
+		fmt.Println("can not decode qc from new view message")
+		return nil
 	}
 
 	changed := p.UpdateQCHigh(qc)
 
+	// TODO: what if the qchigh is not changed, but I'm the proposer for the next round?
 	if changed == true {
 		if qc.QCHeight > p.blockLocked.Height {
-			time.AfterFunc(RoundInterval, func() {
-				p.beatCh <- &PMBeatInfo{uint64(qc.QCHeight + 1), uint64(qc.QCRound + 1)}
-			})
+			p.ScheduleOnBeat(uint64(qc.QCHeight+1), uint64(qc.QCRound+1), RoundInterval)
 		}
 	}
 	return nil
@@ -628,9 +627,9 @@ func (p *Pacemaker) Start(blockQC *block.QuorumCert, newCommittee bool) {
 
 	// start with new committee or replay
 	if newCommittee == true {
-		p.ScheduleOnBeat(height+1, 0, 1) //delay 1s
+		p.ScheduleOnBeat(height+1, 0, 1*time.Second) //delay 1s
 	} else {
-		p.ScheduleOnBeat(height+1, round, 1) //delay 1s
+		p.ScheduleOnBeat(height+1, round, 1*time.Second) //delay 1s
 	}
 }
 
@@ -711,15 +710,23 @@ func (p *Pacemaker) Stop() {
 }
 
 func (p *Pacemaker) OnRoundTimeout(ti PMRoundTimeoutInfo) error {
-	fmt.Println("Round Time Out:", ti.round)
+	p.logger.Warn("Round Time Out", "round", ti.round, "counter", ti.counter)
 	p.currentRound = int(ti.round + 1)
-	p.OnNextSyncView(ti.height, ti.round+1)
+	// FIXME: add signature
+	tc := &TimeoutCert{
+		TimeoutRound:   ti.round,
+		TimeoutHeight:  ti.height,
+		TimeoutCounter: uint32(ti.counter),
+	}
+	p.stopRoundTimer()
+	p.OnNextSyncView(ti.height, ti.round+1, RoundTimeout, tc)
 	p.startRoundTimer(ti.height, ti.round+1, ti.counter+1)
 	return nil
 }
 
 func (p *Pacemaker) startRoundTimer(height, round, counter uint64) {
 	if p.roundTimer == nil {
+		p.logger.Debug("Start round timer", "round", round, "counter", counter)
 		timeoutInterval := RoundTimeoutInterval * (2 << counter)
 		p.roundTimer = time.AfterFunc(timeoutInterval, func() {
 			p.roundTimeoutCh <- PMRoundTimeoutInfo{height, round, counter}
@@ -729,6 +736,7 @@ func (p *Pacemaker) startRoundTimer(height, round, counter uint64) {
 
 func (p *Pacemaker) stopRoundTimer() {
 	if p.roundTimer != nil {
+		p.logger.Debug("Stop round timer")
 		p.roundTimer.Stop()
 		p.roundTimer = nil
 	}
