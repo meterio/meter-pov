@@ -567,9 +567,7 @@ func (p *Pacemaker) OnReceiveNewView(newViewMsg *PMNewViewMessage) error {
 	// TODO: what if the qchigh is not changed, but I'm the proposer for the next round?
 	if changed == true {
 		if qc.QCHeight > p.blockLocked.Height {
-			time.AfterFunc(RoundInterval, func() {
-				p.beatCh <- &PMBeatInfo{uint64(qc.QCHeight + 1), uint64(qc.QCRound + 1)}
-			})
+			p.ScheduleOnBeat(uint64(qc.QCHeight+1), uint64(qc.QCRound+1), RoundInterval)
 		}
 	}
 	return nil
@@ -625,9 +623,9 @@ func (p *Pacemaker) Start(blockQC *block.QuorumCert, newCommittee bool) {
 
 	// start with new committee or replay
 	if newCommittee == true {
-		p.ScheduleOnBeat(height+1, 0, 1) //delay 1s
+		p.ScheduleOnBeat(height+1, 0, 1*time.Second) //delay 1s
 	} else {
-		p.ScheduleOnBeat(height+1, round, 1) //delay 1s
+		p.ScheduleOnBeat(height+1, round, 1*time.Second) //delay 1s
 	}
 }
 
@@ -707,14 +705,14 @@ func (p *Pacemaker) Stop() {
 func (p *Pacemaker) OnRoundTimeout(ti PMRoundTimeoutInfo) error {
 	p.logger.Warn("Round Time Out", "round", ti.round, "counter", ti.counter)
 	p.currentRound = int(ti.round + 1)
-	// FIXME: use real data in this
+	// FIXME: add signature
 	tc := &TimeoutCert{
-		TimeoutRound:   ti.round + 1,
+		TimeoutRound:   ti.round,
 		TimeoutHeight:  ti.height,
-		TimeoutCounter: uint32(ti.counter + 1),
+		TimeoutCounter: uint32(ti.counter),
 	}
-	p.OnNextSyncView(ti.height, ti.round+1, RoundTimeout, tc)
 	p.stopRoundTimer()
+	p.OnNextSyncView(ti.height, ti.round+1, RoundTimeout, tc)
 	p.startRoundTimer(ti.height, ti.round+1, ti.counter+1)
 	return nil
 }
