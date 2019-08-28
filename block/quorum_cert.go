@@ -71,3 +71,15 @@ func (qc *QuorumCert) DecodeRLP(s *rlp.Stream) error {
 func GenesisQC() *QuorumCert {
 	return &QuorumCert{QCHeight: 0, QCRound: 0}
 }
+
+//--------------
+func QCEncodeBytes(qc *QuorumCert) []byte {
+	blockBytes, _ := rlp.EncodeToBytes(qc)
+	return blockBytes
+}
+
+func QCDecodeFromBytes(bytes []byte) (*QuorumCert, error) {
+	qc := QuorumCert{}
+	err := rlp.DecodeBytes(bytes, &qc)
+	return &qc, err
+}
