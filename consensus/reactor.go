@@ -967,7 +967,7 @@ func (conR *ConsensusReactor) exitCurCommittee() error {
 	// stop packermaker
 	// need the state pacemaker is running
 	if conR.csPacemaker != nil {
-		conR.csPacemaker.Stop()
+		//conR.csPacemaker.Stop()
 	}
 
 	conR.exitConsensusLeader()

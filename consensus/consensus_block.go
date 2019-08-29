@@ -589,8 +589,9 @@ func (conR *ConsensusReactor) finalizeCommitBlock(blkInfo *ProposedBlockInfo) bo
 		//return false
 		// process fork????
 		if len(fork.Branch) > 0 {
-			conR.logger.Warn("Fork Happened ...", "fork.Branch", len(fork.Branch))
-			panic("Fork happened!")
+			conR.logger.Error("Fork Happened ...", "fork.Branch", len(fork.Branch))
+			// XXX: comment out for a while
+			// panic("Fork happened!")
 		}
 	}
 

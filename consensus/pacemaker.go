@@ -526,7 +526,6 @@ func (p *Pacemaker) OnBeat(height uint64, round uint64) error {
 	b := p.proposalMap[p.QCHigh.QCHeight]
 
 	if b.Height > p.startHeight {
-		p.logger.Info("PrecommitBlock 523:::::", "info", b.ProposedBlockInfo.String())
 		p.csReactor.PreCommitBlock(b.ProposedBlockInfo)
 	}
 
@@ -601,8 +600,14 @@ func (p *Pacemaker) Start(blockQC *block.QuorumCert, newCommittee bool) {
 	p.logger.Info(fmt.Sprintf("*** Pacemaker start at height %v, QC:%v, newCommittee:%v",
 		blockQC.QCHeight, blockQC.String(), newCommittee))
 
+	var round uint64
 	height := blockQC.QCHeight
-	round := blockQC.QCRound
+	if newCommittee != true {
+		round = blockQC.QCRound
+	} else {
+		round = 0
+	}
+
 	p.startHeight = height
 	qcInit = pmQuorumCert{
 		QCHeight: height,
@@ -616,6 +621,7 @@ func (p *Pacemaker) Start(blockQC *block.QuorumCert, newCommittee bool) {
 		Justify:       &qcInit,
 		ProposedBlock: p.csReactor.LoadBlockBytes(uint32(height)),
 	}
+
 	// now assign b_lock b_exec, b_leaf qc_high
 	p.blockLocked = &bInit
 	p.blockExecuted = &bInit
@@ -625,12 +631,7 @@ func (p *Pacemaker) Start(blockQC *block.QuorumCert, newCommittee bool) {
 
 	go p.mainLoop()
 
-	// start with new committee or replay
-	if newCommittee == true {
-		p.ScheduleOnBeat(height+1, 0, 1*time.Second) //delay 1s
-	} else {
-		p.ScheduleOnBeat(height+1, round, 1*time.Second) //delay 1s
-	}
+	p.ScheduleOnBeat(height+1, round, 1*time.Second) //delay 1s
 }
 
 func (p *Pacemaker) ScheduleOnBeat(height uint64, round uint64, d time.Duration) bool {
@@ -695,6 +696,24 @@ func (p *Pacemaker) SendKblockInfo(b *pmBlock) error {
 	return nil
 }
 
+func (p *Pacemaker) stopCleanup() {
+	// clean up propose map
+	l := []*pmBlock{}
+	for _, b := range p.proposalMap {
+		l = append(l, b)
+	}
+	for _, b := range l {
+		delete(p.proposalMap, b.Height)
+	}
+
+	p.currentRound = 0
+	p.lastVotingHeight = 0
+	p.QCHigh = nil
+	p.blockLeaf = nil
+	p.blockExecuted = nil
+	p.blockLocked = nil
+}
+
 //actions of commites/receives kblock, stop pacemake to next committee
 // all proposal txs need to be reclaimed before stop
 func (p *Pacemaker) Stop() {
@@ -703,6 +722,7 @@ func (p *Pacemaker) Stop() {
 		chain.BestBlock().Oneliner(), chain.LeafBlock().Oneliner()))
 
 	// clean off chain for next committee.
+	p.stopCleanup()
 
 	// suicide
 	//p.stopCh <- &PMStopInfo{p.QCHigh.QCHeight, p.QCHigh.QCRound}
