@@ -10,8 +10,6 @@ import (
 	"time"
 
 	"github.com/dfinlab/meter/block"
-	bls "github.com/dfinlab/meter/crypto/multi_sig"
-	cmn "github.com/dfinlab/meter/libs/common"
 	"github.com/inconshreveable/log15"
 )
 
@@ -20,138 +18,10 @@ const (
 	RoundTimeoutInterval = 8 * time.Second
 )
 
-type PMRoundState byte
-
-const (
-	PMRoundStateInit                 PMRoundState = 1
-	PMRoundStateProposalRcvd         PMRoundState = 2
-	PMRoundStateProposalSent         PMRoundState = 3
-	PMRoundStateProposalMajorReached PMRoundState = 4
-	PMRoundStateProposalCommitted    PMRoundState = 4
-	PMRoundStateProposalDecided      PMRoundState = 4
-)
-
 var (
 	qcInit pmQuorumCert
 	bInit  pmBlock
 )
-
-type pmQuorumCert struct {
-	//QCHieght/QCround must be the same with QCNode.Height/QCnode.Round
-	QCHeight uint64
-	QCRound  uint64
-	QCNode   *pmBlock
-
-	//signature data , slice signature and public key must be match
-	VoterBitArray *cmn.BitArray
-	VoterSig      [][]byte
-	VoterPubKey   []bls.PublicKey
-	VoterMsgHash  [][32]byte
-	VoterAggSig   []byte
-	VoterNum      uint32
-}
-
-func newPMQuorumCert(qc *block.QuorumCert, qcNode *pmBlock) *pmQuorumCert {
-	return &pmQuorumCert{
-		QCHeight: qc.QCHeight,
-		QCRound:  qc.QCRound,
-		QCNode:   qcNode,
-
-		VoterMsgHash: qc.VotingMsgHash,
-		VoterSig:     qc.VotingSig,
-		VoterAggSig:  qc.VotingAggSig,
-	}
-}
-
-func (p *Pacemaker) EncodeQCToBytes(qc *pmQuorumCert) []byte {
-	blockQC := &block.QuorumCert{
-		QCHeight: qc.QCHeight,
-		QCRound:  qc.QCRound,
-		EpochID:  0, // FIXME: use real epoch id
-
-		VotingSig:     qc.VoterSig,
-		VotingMsgHash: qc.VoterMsgHash,
-		//VotingBitArray: *qc.VoterBitArray,
-		VotingAggSig: qc.VoterAggSig,
-	}
-	// if qc.VoterBitArray != nil {
-	// blockQC.VotingBitArray = *qc.VoterBitArray
-	// }
-	return blockQC.ToBytes()
-}
-
-func (p *Pacemaker) DecodeQCFromBytes(bytes []byte) (*pmQuorumCert, error) {
-	blockQC, err := block.QCDecodeFromBytes(bytes)
-	if err != nil {
-		return nil, err
-	}
-	qcNode := p.AddressBlock(blockQC.QCHeight, blockQC.QCRound)
-	if qcNode == nil {
-		return nil, errors.New("can not address qcNode")
-	}
-	return &pmQuorumCert{
-		QCHeight: blockQC.QCHeight,
-		QCRound:  blockQC.QCRound,
-
-		VoterSig:     blockQC.VotingSig,
-		VoterMsgHash: blockQC.VotingMsgHash,
-		VoterAggSig:  blockQC.VotingAggSig,
-		QCNode:       qcNode,
-	}, nil
-}
-
-func (qc *pmQuorumCert) ToString() string {
-	if qc.QCNode != nil {
-		return fmt.Sprintf("QuorumCert(QCHeight: %v, QCRound: %v, qcNodeHeight: %v, qcNodeRound: %v)", qc.QCHeight, qc.QCRound, qc.QCNode.Height, qc.QCNode.Round)
-	} else {
-		return fmt.Sprintf("QuorumCert(QCHeight: %v, QCRound: %v, qcNode: nil)", qc.QCHeight, qc.QCRound)
-	}
-}
-
-type pmBlock struct {
-	Height uint64
-	Round  uint64
-
-	Parent  *pmBlock
-	Justify *pmQuorumCert
-
-	// derived
-	Decided bool
-
-	ProposedBlock     []byte // byte slice block
-	ProposedBlockType BlockType
-
-	// local derived data structure, re-exec all txs and get
-	// states. If states are match proposer, then vote, otherwise decline.
-	ProposedBlockInfo *ProposedBlockInfo
-	SuccessProcessed  bool
-}
-
-func (pb *pmBlock) ToString() string {
-	if pb.Parent != nil {
-		return fmt.Sprintf("PMBlock(Height: %v, Round: %v, QCHeight: %v, QCRound: %v, ParentHeight: %v, ParentRound: %v)",
-			pb.Height, pb.Round, pb.Justify.QCHeight, pb.Justify.QCRound, pb.Parent.Height, pb.Parent.Round)
-	} else {
-		return fmt.Sprintf("PMBlock(Height: %v, Round: %v, QCHeight: %v, QCRound: %v)",
-			pb.Height, pb.Round, pb.Justify.QCHeight, pb.Justify.QCRound)
-	}
-}
-
-type PMRoundTimeoutInfo struct {
-	height  uint64
-	round   uint64
-	counter uint64
-}
-
-type PMStopInfo struct {
-	height uint64
-	round  uint64
-}
-
-type PMBeatInfo struct {
-	height uint64
-	round  uint64
-}
 
 type Pacemaker struct {
 	csReactor *ConsensusReactor //global reactor info

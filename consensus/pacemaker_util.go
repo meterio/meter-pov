@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 
 	//"github.com/dfinlab/meter/types"
 	"net"
@@ -11,51 +12,8 @@ import (
 	"time"
 
 	"github.com/dfinlab/meter/block"
-	"github.com/dfinlab/meter/meter"
 	crypto "github.com/ethereum/go-ethereum/crypto"
-	"github.com/ethereum/go-ethereum/rlp"
 )
-
-// reasons for new view
-const (
-	PROPOSE_MSG_SUBTYPE_KBLOCK        = byte(0x01)
-	PROPOSE_MSG_SUBTYPE_MBLOCK        = byte(0x02)
-	PROPOSE_MSG_SUBTYPE_STOPCOMMITTEE = byte(255)
-)
-
-type NewViewReason byte
-
-const (
-	HigherQCSeen NewViewReason = NewViewReason(1)
-	RoundTimeout NewViewReason = NewViewReason(2)
-)
-
-// ***********************************
-type TimeoutCert struct {
-	TimeoutRound     uint64
-	TimeoutHeight    uint64
-	TimeoutCounter   uint32
-	TimeoutSignature []byte
-}
-
-func newTimeoutCert(height, round uint64, counter uint32) *TimeoutCert {
-	return &TimeoutCert{
-		TimeoutRound:   round,
-		TimeoutHeight:  height,
-		TimeoutCounter: counter,
-	}
-}
-
-func (tc *TimeoutCert) SigningHash() (hash meter.Bytes32) {
-	hw := meter.NewBlake2b()
-	rlp.Encode(hw, []interface{}{
-		tc.TimeoutRound,
-		tc.TimeoutHeight,
-		tc.TimeoutCounter,
-	})
-	hw.Sum(hash[:0])
-	return
-}
 
 // check a pmBlock is the extension of b_locked, max 10 hops
 func (p *Pacemaker) IsExtendedFromBLocked(b *pmBlock) bool {
@@ -234,4 +192,44 @@ func (p *Pacemaker) SendConsensusMessage(round uint64, msg ConsensusMessage, cop
 		peer.sendData(myNetAddr, typeName, rawMsg)
 	}
 	return true
+}
+
+// ---------------------------------------------------
+// Message Delivery Utilities
+// ---------------------------------------------------
+func (p *Pacemaker) EncodeQCToBytes(qc *pmQuorumCert) []byte {
+	blockQC := &block.QuorumCert{
+		QCHeight: qc.QCHeight,
+		QCRound:  qc.QCRound,
+		EpochID:  0, // FIXME: use real epoch id
+
+		VotingSig:     qc.VoterSig,
+		VotingMsgHash: qc.VoterMsgHash,
+		//VotingBitArray: *qc.VoterBitArray,
+		VotingAggSig: qc.VoterAggSig,
+	}
+	// if qc.VoterBitArray != nil {
+	// blockQC.VotingBitArray = *qc.VoterBitArray
+	// }
+	return blockQC.ToBytes()
+}
+
+func (p *Pacemaker) DecodeQCFromBytes(bytes []byte) (*pmQuorumCert, error) {
+	blockQC, err := block.QCDecodeFromBytes(bytes)
+	if err != nil {
+		return nil, err
+	}
+	qcNode := p.AddressBlock(blockQC.QCHeight, blockQC.QCRound)
+	if qcNode == nil {
+		return nil, errors.New("can not address qcNode")
+	}
+	return &pmQuorumCert{
+		QCHeight: blockQC.QCHeight,
+		QCRound:  blockQC.QCRound,
+
+		VoterSig:     blockQC.VotingSig,
+		VoterMsgHash: blockQC.VotingMsgHash,
+		VoterAggSig:  blockQC.VotingAggSig,
+		QCNode:       qcNode,
+	}, nil
 }
