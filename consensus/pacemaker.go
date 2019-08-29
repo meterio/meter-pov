@@ -40,8 +40,9 @@ type Pacemaker struct {
 	// it changes
 	currentRound int
 
-	proposalMap map[uint64]*pmBlock
-	sigCounter  map[uint64]int
+	proposalMap    map[uint64]*pmBlock
+	sigCounter     map[uint64]int
+	timeoutCounter map[uint64]int
 
 	lastVotingHeight uint64
 	QCHigh           *pmQuorumCert
@@ -74,11 +75,11 @@ func NewPaceMaker(conR *ConsensusReactor) *Pacemaker {
 		beatCh:         make(chan *PMBeatInfo, 1),
 		roundTimeoutCh: make(chan PMRoundTimeoutInfo, 1),
 		roundTimer:     nil,
+		proposalMap:    make(map[uint64]*pmBlock, 1000), // TODO:better way?
+		sigCounter:     make(map[uint64]int, 1024),
+		timeoutCounter: make(map[uint64]int, 1024),
 	}
 
-	p.proposalMap = make(map[uint64]*pmBlock, 1000) // TODO:better way?
-	p.sigCounter = make(map[uint64]int, 1000)
-	//TBD: blockLocked/Executed/Leaf to genesis(b0). QCHigh to qc of genesis
 	return p
 }
 
@@ -264,7 +265,6 @@ func (p *Pacemaker) OnReceiveProposal(proposalMsg *PMProposalMessage) error {
 		(p.IsExtendedFromBLocked(bnew) || bnew.Justify.QCHeight > p.blockLocked.Height) {
 		//TODO: compare with my expected round
 		p.stopRoundTimer()
-		p.lastVotingHeight = bnew.Height
 
 		if int(bnew.Round) > p.currentRound {
 			p.currentRound = int(bnew.Round)
@@ -288,8 +288,9 @@ func (p *Pacemaker) OnReceiveProposal(proposalMsg *PMProposalMessage) error {
 		msg, _ := p.BuildVoteForProposalMessage(proposalMsg)
 		// send vote message to leader
 		// added for test
-		// if round < 5 || round > 7 {
+		// if round < 5 || round > 6 {
 		p.SendConsensusMessage(uint64(proposalMsg.CSMsgCommonHeader.Round), msg, false)
+		p.lastVotingHeight = bnew.Height
 		// }
 
 		p.startRoundTimer(bnew.Height, bnew.Round, 0)
@@ -418,13 +419,17 @@ func (p *Pacemaker) OnNextSyncView(nextHeight, nextRound uint64, reason NewViewR
 	if err != nil {
 		p.logger.Error("could not build new view message", "err", err)
 	}
+	if reason == RoundTimeout {
+		p.revertTo(nextHeight)
+	}
 	p.SendConsensusMessage(nextRound, msg, false)
 
 	return nil
 }
 
 func (p *Pacemaker) OnReceiveNewView(newViewMsg *PMNewViewMessage) error {
-	p.logger.Info("Received NewView", "qcHeight", newViewMsg.QCHeight, "qcRound", newViewMsg.QCRound, "reason", newViewMsg.Reason)
+	header := newViewMsg.CSMsgCommonHeader
+	p.logger.Info("Received NewView", "height", header.Height, "round", header.Round, "qcHeight", newViewMsg.QCHeight, "qcRound", newViewMsg.QCRound, "reason", newViewMsg.Reason)
 
 	qc, err := p.DecodeQCFromBytes(newViewMsg.QCHigh)
 	if err != nil {
@@ -433,13 +438,29 @@ func (p *Pacemaker) OnReceiveNewView(newViewMsg *PMNewViewMessage) error {
 	}
 
 	changed := p.UpdateQCHigh(qc)
+	valid := p.isValidTimeout(newViewMsg)
+	timedOut := false
+	if valid {
+		tc := newViewMsg.TimeoutCert
+		p.timeoutCounter[tc.TimeoutRound]++
+		if p.timeoutCounter[tc.TimeoutRound] < p.csReactor.committeeSize {
+			p.logger.Info("not reaching majority on timeout", "height", tc.TimeoutHeight, "round", tc.TimeoutRound, "counter", tc.TimeoutCounter)
+		} else {
+			p.logger.Info("reaching majority on timeout", "height", tc.TimeoutHeight, "round", tc.TimeoutRound, "counter", tc.TimeoutCounter)
+			timedOut = true
+		}
+	}
 
 	// TODO: what if the qchigh is not changed, but I'm the proposer for the next round?
-	if changed == true {
+	if changed {
 		if qc.QCHeight > p.blockLocked.Height {
 			p.ScheduleOnBeat(uint64(qc.QCHeight+1), uint64(qc.QCRound+1), RoundInterval)
 		}
+	} else if timedOut {
+		header := newViewMsg.CSMsgCommonHeader
+		p.ScheduleOnBeat(uint64(header.Height), uint64(header.Round), RoundInterval)
 	}
+
 	return nil
 }
 
@@ -603,4 +624,27 @@ func (p *Pacemaker) stopRoundTimer() {
 		p.roundTimer.Stop()
 		p.roundTimer = nil
 	}
+}
+
+func (p *Pacemaker) isValidTimeout(m *PMNewViewMessage) bool {
+	if m.Reason != byte(RoundTimeout) {
+		return false
+	}
+	// tc := m.TimeoutCert
+	// if int(tc.TimeoutRound+1) == p.currentRound {
+	// FIXME: verify the signature here
+	return true
+	// }
+	p.logger.Warn("invalid timeout cert")
+	return false
+}
+
+func (p *Pacemaker) revertTo(height uint64) {
+	for p.blockLeaf.Height > p.blockLocked.Height && p.blockLeaf.Height >= height {
+		fmt.Println("leaf = " + p.blockLeaf.ToString())
+		fmt.Println("parent = ", p.blockLeaf.Parent.ToString())
+		p.blockLeaf = p.blockLeaf.Parent
+		// FIXME: remove precommited block and release tx
+	}
+	p.logger.Info("Reverted !!!", "height", height, "B-leaf height", p.blockLeaf.Height)
 }
