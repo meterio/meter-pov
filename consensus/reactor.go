@@ -965,7 +965,10 @@ func (conR *ConsensusReactor) exitConsensusLeader() int {
 // Cleanup all roles before the comittee relay
 func (conR *ConsensusReactor) exitCurCommittee() error {
 	// stop packermaker
-	conR.csPacemaker.Stop()
+	// need the state pacemaker is running
+	if conR.csPacemaker != nil {
+		conR.csPacemaker.Stop()
+	}
 
 	conR.exitConsensusLeader()
 	conR.exitConsensusValidator()

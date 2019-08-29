@@ -868,6 +868,48 @@ func (conR *ConsensusReactor) BuildKBlock(parentBlock *block.Block, data *block.
 	return &ProposedBlockInfo{newBlock, stage, &receipts, txsToRemoved, checkPoint, KBlockType}
 }
 
+func (conR *ConsensusReactor) BuildStopCommitteeBlock(parentBlock *block.Block) *ProposedBlockInfo {
+	best := parentBlock
+	now := uint64(time.Now().Unix())
+
+	startTime := mclock.Now()
+	pool := txpool.GetGlobTxPoolInst()
+	if pool == nil {
+		conR.logger.Error("get tx pool failed ...")
+		panic("get tx pool failed ...")
+		return nil
+	}
+
+	p := packer.GetGlobPackerInst()
+	if p == nil {
+		conR.logger.Error("get packer failed ...")
+		panic("get packer failed")
+		return nil
+	}
+
+	txsToRemoved := func() bool {
+		// Kblock does not need to clean up txs now
+		return true
+	}
+
+	gasLimit := p.GasLimit(best.Header().GasLimit())
+	flow, err := p.Mock(best.Header(), now, gasLimit)
+	if err != nil {
+		conR.logger.Error("mock packer", "error", err)
+		return nil
+	}
+
+	newBlock, stage, receipts, err := flow.Pack(&conR.myPrivKey, block.BLOCK_TYPE_S_BLOCK, conR.lastKBlockHeight)
+	if err != nil {
+		conR.logger.Error("build block failed", "error", err)
+		return nil
+	}
+
+	execElapsed := mclock.Now() - startTime
+	conR.logger.Info("Stop Committee Block built", "height", conR.curHeight, "elapseTime", execElapsed)
+	return &ProposedBlockInfo{newBlock, stage, &receipts, txsToRemoved, 0, StopCommitteeType}
+}
+
 //=================================================
 // handle KBlock info info message from node
 

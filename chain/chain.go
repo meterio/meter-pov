@@ -167,7 +167,7 @@ func New(kv kv.GetPutter, genesisBlock *block.Block) (*Chain, error) {
 
 	bestQC, err := loadBestQC(kv)
 	if err != nil {
-		fmt.Println("QC is empty, set it to use genesis QC, error: ", err)
+		fmt.Println("Best QC is not in database, set it to use genesis QC, error: ", err)
 		bestQC = block.GenesisQC()
 	}
 	fmt.Println("--------------------------------------------------")
