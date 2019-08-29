@@ -10,8 +10,6 @@ import (
 	"time"
 
 	"github.com/dfinlab/meter/block"
-	bls "github.com/dfinlab/meter/crypto/multi_sig"
-	cmn "github.com/dfinlab/meter/libs/common"
 	"github.com/inconshreveable/log15"
 )
 
@@ -20,138 +18,10 @@ const (
 	RoundTimeoutInterval = 8 * time.Second
 )
 
-type PMRoundState byte
-
-const (
-	PMRoundStateInit                 PMRoundState = 1
-	PMRoundStateProposalRcvd         PMRoundState = 2
-	PMRoundStateProposalSent         PMRoundState = 3
-	PMRoundStateProposalMajorReached PMRoundState = 4
-	PMRoundStateProposalCommitted    PMRoundState = 4
-	PMRoundStateProposalDecided      PMRoundState = 4
-)
-
 var (
 	qcInit pmQuorumCert
 	bInit  pmBlock
 )
-
-type pmQuorumCert struct {
-	//QCHieght/QCround must be the same with QCNode.Height/QCnode.Round
-	QCHeight uint64
-	QCRound  uint64
-	QCNode   *pmBlock
-
-	//signature data , slice signature and public key must be match
-	VoterBitArray *cmn.BitArray
-	VoterSig      [][]byte
-	VoterPubKey   []bls.PublicKey
-	VoterMsgHash  [][32]byte
-	VoterAggSig   []byte
-	VoterNum      uint32
-}
-
-func newPMQuorumCert(qc *block.QuorumCert, qcNode *pmBlock) *pmQuorumCert {
-	return &pmQuorumCert{
-		QCHeight: qc.QCHeight,
-		QCRound:  qc.QCRound,
-		QCNode:   qcNode,
-
-		VoterMsgHash: qc.VotingMsgHash,
-		VoterSig:     qc.VotingSig,
-		VoterAggSig:  qc.VotingAggSig,
-	}
-}
-
-func (p *Pacemaker) EncodeQCToBytes(qc *pmQuorumCert) []byte {
-	blockQC := &block.QuorumCert{
-		QCHeight: qc.QCHeight,
-		QCRound:  qc.QCRound,
-		EpochID:  0, // FIXME: use real epoch id
-
-		VotingSig:     qc.VoterSig,
-		VotingMsgHash: qc.VoterMsgHash,
-		//VotingBitArray: *qc.VoterBitArray,
-		VotingAggSig: qc.VoterAggSig,
-	}
-	// if qc.VoterBitArray != nil {
-	// blockQC.VotingBitArray = *qc.VoterBitArray
-	// }
-	return blockQC.ToBytes()
-}
-
-func (p *Pacemaker) DecodeQCFromBytes(bytes []byte) (*pmQuorumCert, error) {
-	blockQC, err := block.QCDecodeFromBytes(bytes)
-	if err != nil {
-		return nil, err
-	}
-	qcNode := p.AddressBlock(blockQC.QCHeight, blockQC.QCRound)
-	if qcNode == nil {
-		return nil, errors.New("can not address qcNode")
-	}
-	return &pmQuorumCert{
-		QCHeight: blockQC.QCHeight,
-		QCRound:  blockQC.QCRound,
-
-		VoterSig:     blockQC.VotingSig,
-		VoterMsgHash: blockQC.VotingMsgHash,
-		VoterAggSig:  blockQC.VotingAggSig,
-		QCNode:       qcNode,
-	}, nil
-}
-
-func (qc *pmQuorumCert) ToString() string {
-	if qc.QCNode != nil {
-		return fmt.Sprintf("QuorumCert(QCHeight: %v, QCRound: %v, qcNodeHeight: %v, qcNodeRound: %v)", qc.QCHeight, qc.QCRound, qc.QCNode.Height, qc.QCNode.Round)
-	} else {
-		return fmt.Sprintf("QuorumCert(QCHeight: %v, QCRound: %v, qcNode: nil)", qc.QCHeight, qc.QCRound)
-	}
-}
-
-type pmBlock struct {
-	Height uint64
-	Round  uint64
-
-	Parent  *pmBlock
-	Justify *pmQuorumCert
-
-	// derived
-	Decided bool
-
-	ProposedBlock     []byte // byte slice block
-	ProposedBlockType BlockType
-
-	// local derived data structure, re-exec all txs and get
-	// states. If states are match proposer, then vote, otherwise decline.
-	ProposedBlockInfo *ProposedBlockInfo
-	SuccessProcessed  bool
-}
-
-func (pb *pmBlock) ToString() string {
-	if pb.Parent != nil {
-		return fmt.Sprintf("PMBlock(Height: %v, Round: %v, QCHeight: %v, QCRound: %v, ParentHeight: %v, ParentRound: %v)",
-			pb.Height, pb.Round, pb.Justify.QCHeight, pb.Justify.QCRound, pb.Parent.Height, pb.Parent.Round)
-	} else {
-		return fmt.Sprintf("PMBlock(Height: %v, Round: %v, QCHeight: %v, QCRound: %v)",
-			pb.Height, pb.Round, pb.Justify.QCHeight, pb.Justify.QCRound)
-	}
-}
-
-type PMRoundTimeoutInfo struct {
-	height  uint64
-	round   uint64
-	counter uint64
-}
-
-type PMStopInfo struct {
-	height uint64
-	round  uint64
-}
-
-type PMBeatInfo struct {
-	height uint64
-	round  uint64
-}
 
 type Pacemaker struct {
 	csReactor *ConsensusReactor //global reactor info
@@ -170,8 +40,9 @@ type Pacemaker struct {
 	// it changes
 	currentRound int
 
-	proposalMap map[uint64]*pmBlock
-	sigCounter  map[uint64]int
+	proposalMap    map[uint64]*pmBlock
+	sigCounter     map[uint64]int
+	timeoutCounter map[uint64]int
 
 	lastVotingHeight uint64
 	QCHigh           *pmQuorumCert
@@ -204,11 +75,11 @@ func NewPaceMaker(conR *ConsensusReactor) *Pacemaker {
 		beatCh:         make(chan *PMBeatInfo, 1),
 		roundTimeoutCh: make(chan PMRoundTimeoutInfo, 1),
 		roundTimer:     nil,
+		proposalMap:    make(map[uint64]*pmBlock, 1000), // TODO:better way?
+		sigCounter:     make(map[uint64]int, 1024),
+		timeoutCounter: make(map[uint64]int, 1024),
 	}
 
-	p.proposalMap = make(map[uint64]*pmBlock, 1000) // TODO:better way?
-	p.sigCounter = make(map[uint64]int, 1000)
-	//TBD: blockLocked/Executed/Leaf to genesis(b0). QCHigh to qc of genesis
 	return p
 }
 
@@ -401,7 +272,6 @@ func (p *Pacemaker) OnReceiveProposal(proposalMsg *PMProposalMessage) error {
 		(p.IsExtendedFromBLocked(bnew) || bnew.Justify.QCHeight > p.blockLocked.Height) {
 		//TODO: compare with my expected round
 		p.stopRoundTimer()
-		p.lastVotingHeight = bnew.Height
 
 		if int(bnew.Round) > p.currentRound {
 			p.currentRound = int(bnew.Round)
@@ -423,8 +293,9 @@ func (p *Pacemaker) OnReceiveProposal(proposalMsg *PMProposalMessage) error {
 		msg, _ := p.BuildVoteForProposalMessage(proposalMsg)
 		// send vote message to leader
 		// added for test
-		// if round < 5 || round > 7 {
+		// if round < 5 || round > 6 {
 		p.SendConsensusMessage(uint64(proposalMsg.CSMsgCommonHeader.Round), msg, false)
+		p.lastVotingHeight = bnew.Height
 		// }
 
 		p.startRoundTimer(bnew.Height, bnew.Round, 0)
@@ -551,13 +422,17 @@ func (p *Pacemaker) OnNextSyncView(nextHeight, nextRound uint64, reason NewViewR
 	if err != nil {
 		p.logger.Error("could not build new view message", "err", err)
 	}
+	if reason == RoundTimeout {
+		p.revertTo(nextHeight)
+	}
 	p.SendConsensusMessage(nextRound, msg, false)
 
 	return nil
 }
 
 func (p *Pacemaker) OnReceiveNewView(newViewMsg *PMNewViewMessage) error {
-	p.logger.Info("Received NewView", "qcHeight", newViewMsg.QCHeight, "qcRound", newViewMsg.QCRound, "reason", newViewMsg.Reason)
+	header := newViewMsg.CSMsgCommonHeader
+	p.logger.Info("Received NewView", "height", header.Height, "round", header.Round, "qcHeight", newViewMsg.QCHeight, "qcRound", newViewMsg.QCRound, "reason", newViewMsg.Reason)
 
 	qc, err := p.DecodeQCFromBytes(newViewMsg.QCHigh)
 	if err != nil {
@@ -566,13 +441,29 @@ func (p *Pacemaker) OnReceiveNewView(newViewMsg *PMNewViewMessage) error {
 	}
 
 	changed := p.UpdateQCHigh(qc)
+	valid := p.isValidTimeout(newViewMsg)
+	timedOut := false
+	if valid {
+		tc := newViewMsg.TimeoutCert
+		p.timeoutCounter[tc.TimeoutRound]++
+		if p.timeoutCounter[tc.TimeoutRound] < p.csReactor.committeeSize {
+			p.logger.Info("not reaching majority on timeout", "height", tc.TimeoutHeight, "round", tc.TimeoutRound, "counter", tc.TimeoutCounter)
+		} else {
+			p.logger.Info("reaching majority on timeout", "height", tc.TimeoutHeight, "round", tc.TimeoutRound, "counter", tc.TimeoutCounter)
+			timedOut = true
+		}
+	}
 
 	// TODO: what if the qchigh is not changed, but I'm the proposer for the next round?
-	if changed == true {
+	if changed {
 		if qc.QCHeight > p.blockLocked.Height {
 			p.ScheduleOnBeat(uint64(qc.QCHeight+1), uint64(qc.QCRound+1), RoundInterval)
 		}
+	} else if timedOut {
+		header := newViewMsg.CSMsgCommonHeader
+		p.ScheduleOnBeat(uint64(header.Height), uint64(header.Round), RoundInterval)
 	}
+
 	return nil
 }
 
@@ -760,4 +651,29 @@ func (p *Pacemaker) stopRoundTimer() {
 		p.roundTimer.Stop()
 		p.roundTimer = nil
 	}
+}
+
+func (p *Pacemaker) isValidTimeout(m *PMNewViewMessage) bool {
+	if m.Reason != byte(RoundTimeout) {
+		return false
+	}
+	// tc := m.TimeoutCert
+	// if int(tc.TimeoutRound+1) == p.currentRound {
+	// FIXME: verify the signature here
+	return true
+	// }
+	p.logger.Warn("invalid timeout cert")
+	return false
+}
+
+func (p *Pacemaker) revertTo(height uint64) {
+	for p.blockLeaf.Height > p.blockLocked.Height && p.blockLeaf.Height >= height {
+		fmt.Println("leaf = " + p.blockLeaf.ToString())
+		fmt.Println("parent = ", p.blockLeaf.Parent.ToString())
+		height := p.blockLeaf.Height
+		p.blockLeaf = p.blockLeaf.Parent
+		delete(p.proposalMap, height)
+		// FIXME: remove precommited block and release tx
+	}
+	p.logger.Info("Reverted !!!", "height", height, "B-leaf height", p.blockLeaf.Height)
 }
