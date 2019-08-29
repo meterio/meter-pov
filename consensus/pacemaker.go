@@ -650,7 +650,9 @@ func (p *Pacemaker) revertTo(height uint64) {
 	for p.blockLeaf.Height > p.blockLocked.Height && p.blockLeaf.Height >= height {
 		fmt.Println("leaf = " + p.blockLeaf.ToString())
 		fmt.Println("parent = ", p.blockLeaf.Parent.ToString())
+		height := p.blockLeaf.Height
 		p.blockLeaf = p.blockLeaf.Parent
+		delete(p.proposalMap, height)
 		// FIXME: remove precommited block and release tx
 	}
 	p.logger.Info("Reverted !!!", "height", height, "B-leaf height", p.blockLeaf.Height)
