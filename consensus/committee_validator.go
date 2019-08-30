@@ -315,6 +315,13 @@ func (cv *ConsensusValidator) ProcessNotaryAnnounceMessage(notaryMsg *NotaryAnno
 	// stop new committee timer cos it is established
 	cv.csReactor.NewCommitteeTimerStop()
 
+	//Committee is established. Myself is Leader, server as 1st proposer.
+	cv.csReactor.logger.Info(`
+===========================================================
+Committee is established!!! ...
+Let's start the pacemaker...
+===========================================================`, "Committee Epoch", cv.csReactor.curEpoch)
+
 	// XXX: Start pacemaker here at this time.
 	newCommittee := !cv.replay
 	cv.csReactor.csPacemaker.Start(cv.csReactor.chain.BestQC(), newCommittee)

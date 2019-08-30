@@ -486,7 +486,7 @@ func (cl *ConsensusLeader) ProcessVoteNotaryAnnounce(vote4NotaryMsg *VoteForNota
 		cl.csReactor.logger.Info(`
 ===========================================================
 Committee is established!!! ...
-Myself is Leader, Let's move to 1st proposal.
+Myself is Leader, Let's start the pacemaker.
 ===========================================================`, "Committee Epoch", cl.EpochID)
 
 		//Now we are in new epoch
@@ -601,7 +601,7 @@ func (cl *ConsensusLeader) ProcessNewCommitteeMessage(newCommitteeMsg *NewCommit
 
 	} else {
 		// not reach 2/3 yet, wait for more
-		cl.csReactor.logger.Debug(" received NewCommitteeMessage (2/3 not reached yet, wait for more)")
+		cl.csReactor.logger.Debug("received NewCommitteeMessage (2/3 not reached yet, wait for more)", "Recvd", cl.newCommitteeVoterNum, "committeeSize", cl.csReactor.committeeSize)
 		return true
 	}
 
