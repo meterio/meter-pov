@@ -967,7 +967,7 @@ func (conR *ConsensusReactor) exitCurCommittee() error {
 	// stop packermaker
 	// need the state pacemaker is running
 	if conR.csPacemaker != nil {
-		conR.csPacemaker.Stop()
+		//conR.csPacemaker.Stop()
 	}
 
 	conR.exitConsensusLeader()
@@ -1406,6 +1406,7 @@ func (conR *ConsensusReactor) ConsensusHandleReceivedNonce(kBlockHeight int64, n
 	// 1) send moveNewRound (with signature) to new leader. if new leader receives majority signature, then send out announce.
 	if role == CONSENSUS_COMMIT_ROLE_LEADER {
 		conR.logger.Info("I am committee leader for nonce!", "nonce", nonce)
+		conR.enterConsensusLeader()
 		//TBD:
 		// wait 30 seconds for synchronization
 		// time.Sleep(5 * WHOLE_NETWORK_BLOCK_SYNC_TIME)

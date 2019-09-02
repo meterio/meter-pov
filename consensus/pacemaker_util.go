@@ -33,7 +33,7 @@ func (p *Pacemaker) IsExtendedFromBLocked(b *pmBlock) bool {
 // find out b b' b"
 func (p *Pacemaker) AddressBlock(height uint64, round uint64) *pmBlock {
 	if (p.proposalMap[height] != nil) && (p.proposalMap[height].Height == height) && (p.proposalMap[height].Round == round) {
-		// p.csReactor.logger.Debug("Addressed block", "height", height, "round", round)
+		//p.csReactor.logger.Debug("Addressed block", "height", height, "round", round)
 		return p.proposalMap[height]
 	}
 

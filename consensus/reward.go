@@ -55,7 +55,7 @@ func (conR *ConsensusReactor) MinerRewards(rewards []powpool.PowReward) *tx.Tran
 		sum = sum.Add(sum, &reward.Value)
 		// it is possilbe that POW will give POS long list of reward under some cases, should not
 		// build long mint transaction.
-		if i >= int(2*powpool.POW_MINIMUM_HEIGHT_INTV) {
+		if i >= int(2*powpool.POW_MINIMUM_HEIGHT_INTV-1) {
 			break
 		}
 	}
