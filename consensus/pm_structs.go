@@ -109,9 +109,9 @@ func newPMQuorumCert(qc *block.QuorumCert, qcNode *pmBlock) *pmQuorumCert {
 		QCRound:  qc.QCRound,
 		QCNode:   qcNode,
 
-		VoterMsgHash: qc.VotingMsgHash,
-		VoterSig:     qc.VotingSig,
-		VoterAggSig:  qc.VotingAggSig,
+		VoterMsgHash: qc.VoterMsgHash,
+		VoterSig:     qc.VoterSig,
+		VoterAggSig:  qc.VoterAggSig,
 	}
 }
 

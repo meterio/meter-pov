@@ -295,9 +295,9 @@ func (b *Block) EvidenceDataHash() (hash meter.Bytes32) {
 		b.QC.QCHeight,
 		b.QC.QCRound,
 		// b.QC.VotingBitArray,
-		b.QC.VotingMsgHash,
-		b.QC.VotingSig,
-		b.QC.VotingAggSig,
+		b.QC.VoterMsgHash,
+		b.QC.VoterSig,
+		b.QC.VoterAggSig,
 		b.CommitteeInfos,
 		b.KBlockData,
 	})
