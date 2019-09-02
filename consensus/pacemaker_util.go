@@ -205,10 +205,10 @@ func (p *Pacemaker) EncodeQCToBytes(qc *pmQuorumCert) []byte {
 		QCRound:  qc.QCRound,
 		EpochID:  0, // FIXME: use real epoch id
 
-		VotingSig:     qc.VoterSig,
-		VotingMsgHash: qc.VoterMsgHash,
+		VoterSig:     qc.VoterSig,
+		VoterMsgHash: qc.VoterMsgHash,
 		//VotingBitArray: *qc.VoterBitArray,
-		VotingAggSig: qc.VoterAggSig,
+		VoterAggSig: qc.VoterAggSig,
 	}
 	// if qc.VoterBitArray != nil {
 	// blockQC.VotingBitArray = *qc.VoterBitArray
@@ -229,9 +229,9 @@ func (p *Pacemaker) DecodeQCFromBytes(bytes []byte) (*pmQuorumCert, error) {
 		QCHeight: blockQC.QCHeight,
 		QCRound:  blockQC.QCRound,
 
-		VoterSig:     blockQC.VotingSig,
-		VoterMsgHash: blockQC.VotingMsgHash,
-		VoterAggSig:  blockQC.VotingAggSig,
+		VoterSig:     blockQC.VoterSig,
+		VoterMsgHash: blockQC.VoterMsgHash,
+		VoterAggSig:  blockQC.VoterAggSig,
 		QCNode:       qcNode,
 	}, nil
 }

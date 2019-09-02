@@ -80,11 +80,11 @@ func (p *Pacemaker) packCommitteeInfo(blk *block.Block) error {
 
 func (p *Pacemaker) packQuorumCert(blk *block.Block, qc *pmQuorumCert) error {
 	blockQC := &block.QuorumCert{
-		QCHeight:      qc.QCHeight,
-		QCRound:       qc.QCRound,
-		VotingMsgHash: qc.VoterMsgHash,
-		VotingAggSig:  qc.VoterAggSig,
-		VotingSig:     qc.VoterSig,
+		QCHeight:     qc.QCHeight,
+		QCRound:      qc.QCRound,
+		VoterMsgHash: qc.VoterMsgHash,
+		VoterAggSig:  qc.VoterAggSig,
+		VoterSig:     qc.VoterSig,
 	}
 	blk.SetQC(blockQC)
 	return nil

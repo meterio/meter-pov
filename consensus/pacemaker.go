@@ -1,15 +1,14 @@
 package consensus
 
 import (
-	//bls "github.com/dfinlab/meter/crypto/multi_sig"
-	//cmn "github.com/dfinlab/meter/libs/common"
-
 	"errors"
 	"fmt"
 	"os"
 	"time"
 
 	"github.com/dfinlab/meter/block"
+	bls "github.com/dfinlab/meter/crypto/multi_sig"
+	cmn "github.com/dfinlab/meter/libs/common"
 	"github.com/inconshreveable/log15"
 )
 
@@ -23,6 +22,11 @@ var (
 	bInit  pmBlock
 )
 
+type PMVote struct {
+	index     int64
+	msgHash   [32]byte
+	signature bls.Signature
+}
 type Pacemaker struct {
 	csReactor *ConsensusReactor //global reactor info
 
@@ -63,6 +67,9 @@ type Pacemaker struct {
 	roundTimeoutCh chan PMRoundTimeoutInfo
 	stopCh         chan *PMStopInfo
 	beatCh         chan *PMBeatInfo
+
+	voterBitArray *cmn.BitArray
+	votes         []*PMVote
 }
 
 func NewPaceMaker(conR *ConsensusReactor) *Pacemaker {
@@ -275,6 +282,9 @@ func (p *Pacemaker) OnReceiveProposal(proposalMsg *PMProposalMessage) error {
 
 		if int(bnew.Round) > p.currentRound {
 			p.currentRound = int(bnew.Round)
+			committeeSize := p.csReactor.committeeSize
+			p.voterBitArray = cmn.NewBitArray(committeeSize)
+			p.votes = make([]*PMVote, 0)
 		}
 
 		// parent got QC, pre-commit
@@ -317,6 +327,23 @@ func (p *Pacemaker) OnReceiveVote(voteMsg *PMVoteForProposalMessage) error {
 		return errors.New("can not address block")
 	}
 
+	p.logger.Info("ROUND", "round", round, "currentRound", p.currentRound)
+	if round == uint64(p.currentRound) {
+		p.logger.Info("received ", "signature", voteMsg.VoterSignature, "index", voteMsg.VoterIndex)
+
+		sig, err := p.csReactor.csCommon.system.SigFromBytes(voteMsg.VoterSignature)
+		if err != nil {
+			p.logger.Error("Error getting signature", "err", err)
+			return err
+		}
+		vote := &PMVote{
+			index:     voteMsg.VoterIndex,
+			msgHash:   voteMsg.SignedMessageHash,
+			signature: sig,
+		}
+		p.voterBitArray.SetIndex(int(voteMsg.VoterIndex), true)
+		p.votes = append(p.votes, vote)
+	}
 	//TODO: signature handling
 	p.sigCounter[b.Round]++
 	//if MajorityTwoThird(p.sigCounter[b.Round], p.csReactor.committeeSize) == false {
@@ -328,11 +355,28 @@ func (p *Pacemaker) OnReceiveVote(voteMsg *PMVoteForProposalMessage) error {
 		p.csReactor.logger.Info("reach majority", "count", p.sigCounter[b.Round], "committeeSize", p.csReactor.committeeSize)
 	}
 
+	sigs := make([]bls.Signature, 0)
+	msgHashes := make([][32]byte, 0)
+	sigBytes := make([][]byte, 0)
+	for _, v := range p.votes {
+		sigs = append(sigs, v.signature)
+		sigBytes = append(sigBytes, p.csReactor.csCommon.system.SigToBytes(v.signature))
+		msgHashes = append(msgHashes, v.msgHash)
+	}
+	aggSig := p.csReactor.csCommon.AggregateSign(sigs)
+	aggSigBytes := p.csReactor.csCommon.system.SigToBytes(aggSig)
+
 	//reach 2/3 majority, trigger the pipeline cmd
 	qc := &pmQuorumCert{
 		QCHeight: b.Height,
 		QCRound:  b.Round,
 		QCNode:   b,
+
+		VoterBitArray: p.voterBitArray,
+		VoterMsgHash:  msgHashes,
+		VoterSig:      sigBytes,
+		VoterAggSig:   aggSigBytes,
+		VoterNum:      uint32(len(p.votes)),
 	}
 	changed := p.UpdateQCHigh(qc)
 
@@ -513,6 +557,9 @@ func (p *Pacemaker) Start(blockQC *block.QuorumCert, newCommittee bool) {
 	p.blockLeaf = &bInit
 	p.proposalMap[height] = &bInit
 	p.QCHigh = &qcInit
+	committeeSize := p.csReactor.committeeSize
+	p.voterBitArray = cmn.NewBitArray(committeeSize)
+	p.votes = make([]*PMVote, 0)
 
 	go p.mainLoop()
 
@@ -603,6 +650,9 @@ func (p *Pacemaker) Stop() {
 func (p *Pacemaker) OnRoundTimeout(ti PMRoundTimeoutInfo) error {
 	p.logger.Warn("Round Time Out", "round", ti.round, "counter", ti.counter)
 	p.currentRound = int(ti.round + 1)
+	committeeSize := p.csReactor.committeeSize
+	p.voterBitArray = cmn.NewBitArray(committeeSize)
+	p.votes = make([]*PMVote, 0)
 	// FIXME: add signature
 	tc := &TimeoutCert{
 		TimeoutRound:   ti.round,
