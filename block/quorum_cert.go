@@ -15,14 +15,34 @@ type QuorumCert struct {
 
 	VoterBitArray    *cmn.BitArray
 	VoterBitArrayStr string
-	VoterSig         [][]byte   // [] of serialized bls signature
 	VoterMsgHash     [][32]byte // [][32]byte
 	VoterAggSig      []byte
 }
 
 func (qc *QuorumCert) String() string {
+	qc.VoterBitArrayStr = "nil-BitArray"
+	if qc.VoterBitArray != nil {
+		qc.VoterBitArrayStr = qc.VoterBitArray.String()
+	}
 	if qc != nil {
-		return fmt.Sprintf("QuorumCert(Height:%v, Round:%v, EpochID:%v, #VoterSig:%v, #VoterMsgHash:%v, len(VoterAggSig):%v)", qc.QCHeight, qc.QCRound, qc.EpochID, len(qc.VoterSig), len(qc.VoterMsgHash), len(qc.VoterAggSig))
+		return fmt.Sprintf("QuorumCert(Height:%v, Round:%v, EpochID:%v, VoterBitArray:%v, len(VoterMsgHash):%v, len(VoterAggSig):%v)",
+			qc.QCHeight, qc.QCRound, qc.EpochID, qc.VoterBitArrayStr, len(qc.VoterMsgHash), len(qc.VoterAggSig))
+	}
+	return "EMPTY QC"
+}
+
+func (qc *QuorumCert) CompactString() string {
+	qc.VoterBitArrayStr = "nil-BitArray"
+	if qc.VoterBitArray != nil {
+		qc.VoterBitArrayStr = qc.VoterBitArray.String()
+	}
+	if qc != nil {
+		hasAggSig := "no"
+		if len(qc.VoterAggSig) > 0 {
+			hasAggSig = "YES"
+		}
+		return fmt.Sprintf("QC(H:%v, R:%v, EpochID:%v, VoterBitArray:%v, VoterAggSig:%v)",
+			qc.QCHeight, qc.QCRound, qc.EpochID, qc.VoterBitArrayStr, hasAggSig)
 	}
 	return "EMPTY QC"
 }
@@ -43,7 +63,6 @@ func (qc *QuorumCert) EncodeRLP(w io.Writer) error {
 		qc.QCRound,
 		qc.EpochID,
 		qc.VoterMsgHash,
-		qc.VoterSig,
 		qc.VoterAggSig,
 		qc.VoterBitArrayStr,
 	})
@@ -56,7 +75,6 @@ func (qc *QuorumCert) DecodeRLP(s *rlp.Stream) error {
 		QCRound          uint64
 		EpochID          uint64
 		VoterMsgHash     [][32]byte
-		VoterSig         [][]byte
 		VoterAggSig      []byte
 		VoterBitArrayStr string
 	}{}
@@ -84,7 +102,6 @@ func (qc *QuorumCert) DecodeRLP(s *rlp.Stream) error {
 		QCRound:          payload.QCRound,
 		EpochID:          payload.EpochID,
 		VoterMsgHash:     payload.VoterMsgHash,
-		VoterSig:         payload.VoterSig,
 		VoterAggSig:      payload.VoterAggSig,
 		VoterBitArray:    bitArray,
 		VoterBitArrayStr: payload.VoterBitArrayStr,

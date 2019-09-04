@@ -1015,8 +1015,7 @@ func (conR *ConsensusReactor) PreCommitBlock(blkInfo *ProposedBlockInfo) bool {
 	commitElapsed := mclock.Now() - startTime
 
 	blocksCommitedCounter.Inc()
-	conR.logger.Info(fmt.Sprintf(`
-Block precommited at height %d
+	conR.logger.Info(fmt.Sprintf(`Block precommited at height %d
 %v`, height, blk.CompactString()), "elapsedTime", commitElapsed, "bestBlockHeight", conR.chain.BestBlock().Header().Number())
 	/*****
 	  	// XXX: broadcast the new block to all peers

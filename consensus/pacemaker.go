@@ -127,7 +127,7 @@ func (p *Pacemaker) CreateLeaf(parent *pmBlock, qc *pmQuorumCert, height uint64,
 	}
 
 	info, blockBytes := p.proposeBlock(parentBlock, height, round, qc, true)
-	p.logger.Info(fmt.Sprintf("Proposed Block: %v", info.ProposedBlock.CompactString()))
+	p.logger.Info(fmt.Sprintf("Proposed Block:\n%v", info.ProposedBlock.CompactString()))
 
 	b := &pmBlock{
 		Height:  height,
@@ -141,7 +141,7 @@ func (p *Pacemaker) CreateLeaf(parent *pmBlock, qc *pmQuorumCert, height uint64,
 		ProposedBlockType: info.BlockType,
 	}
 
-	fmt.Print(b.ToString())
+	// fmt.Print(b.ToString())
 	return b
 }
 
@@ -289,18 +289,13 @@ func (p *Pacemaker) OnReceiveProposal(proposalMsg *PMProposalMessage) error {
 
 		if int(bnew.Round) > p.currentRound {
 			p.currentRound = int(bnew.Round)
-			committeeSize := p.csReactor.committeeSize
-			p.voterBitArray = cmn.NewBitArray(committeeSize)
-			p.voteSigs = make([]*PMSignature, 0)
 		}
 
 		// parent got QC, pre-commit
-		parent := p.proposalMap[bnew.Justify.QC.QCHeight] //Justify.QCNode
-		if parent.Height > p.startHeight {
-			p.csReactor.PreCommitBlock(parent.ProposedBlockInfo)
+		justify := p.proposalMap[bnew.Justify.QC.QCHeight] //Justify.QCNode
+		if justify.Height > p.startHeight {
+			p.csReactor.PreCommitBlock(justify.ProposedBlockInfo)
 		}
-		// stop previous round timer
-		//close(p.roundTimerStop)
 
 		if err := p.ValidateProposal(bnew); err != nil {
 			p.logger.Error("Validate Proposal failed", "error", err)
@@ -308,9 +303,11 @@ func (p *Pacemaker) OnReceiveProposal(proposalMsg *PMProposalMessage) error {
 		}
 
 		msg, _ := p.BuildVoteForProposalMessage(proposalMsg)
-		// send vote message to leader
-		// added for test
+
+		// TODO: added for test
 		// if round < 5 || round > 6 {
+
+		// send vote message to leader
 		p.SendConsensusMessage(uint64(proposalMsg.CSMsgCommonHeader.Round), msg, false)
 		p.lastVotingHeight = bnew.Height
 		// }
@@ -327,34 +324,19 @@ func (p *Pacemaker) OnReceiveVote(voteMsg *PMVoteForProposalMessage) error {
 
 	height := uint64(msgHeader.Height)
 	round := uint64(msgHeader.Round)
-	p.logger.Info("Received Vote", "height", height, "round", round, "from", voteMsg.VoterID)
 
 	b := p.AddressBlock(height, round)
 	if b == nil {
 		return errors.New("can not address block")
 	}
 
-	p.logger.Info("ROUND", "round", round, "currentRound", p.currentRound)
-	if round == uint64(p.currentRound) {
-		p.logger.Info("received ", "signature", voteMsg.VoterSignature, "index", voteMsg.VoterIndex)
-
-		sigBytes, err := p.csReactor.csCommon.system.SigFromBytes(voteMsg.VoterSignature)
-		if err != nil {
-			p.logger.Error("Error getting signature", "err", err)
-			return err
-		}
-		sig := &PMSignature{
-			index:     voteMsg.VoterIndex,
-			msgHash:   voteMsg.SignedMessageHash,
-			signature: sigBytes,
-		}
-		p.voterBitArray.SetIndex(int(voteMsg.VoterIndex), true)
-		p.voteSigs = append(p.voteSigs, sig)
+	err := p.collectVoteSignature(voteMsg)
+	if err != nil {
+		return err
 	}
-	//TODO: signature handling
-	p.sigCounter[b.Round]++
-	//if MajorityTwoThird(p.sigCounter[b.Round], p.csReactor.committeeSize) == false {
-	if p.sigCounter[b.Round] < p.csReactor.committeeSize {
+	voteCount := len(p.voteSigs)
+	//if MajorityTwoThird(voteCount, p.csReactor.committeeSize) == false {
+	if voteCount < p.csReactor.committeeSize {
 		// not reach 2/3
 		p.csReactor.logger.Info("not reach majority", "count", p.sigCounter[b.Round], "committeeSize", p.csReactor.committeeSize)
 		return nil
@@ -362,32 +344,12 @@ func (p *Pacemaker) OnReceiveVote(voteMsg *PMVoteForProposalMessage) error {
 		p.csReactor.logger.Info("reach majority", "count", p.sigCounter[b.Round], "committeeSize", p.csReactor.committeeSize)
 	}
 
-	sigs := make([]bls.Signature, 0)
-	msgHashes := make([][32]byte, 0)
-	sigBytes := make([][]byte, 0)
-	for _, s := range p.voteSigs {
-		sigs = append(sigs, s.signature)
-		sigBytes = append(sigBytes, p.csReactor.csCommon.system.SigToBytes(s.signature))
-		msgHashes = append(msgHashes, s.msgHash)
-	}
-	aggSig := p.csReactor.csCommon.AggregateSign(sigs)
-	aggSigBytes := p.csReactor.csCommon.system.SigToBytes(aggSig)
-
 	//reach 2/3 majority, trigger the pipeline cmd
-	qc := &pmQuorumCert{
-		QCNode: b,
-
-		QC: &block.QuorumCert{
-			QCHeight:      b.Height,
-			QCRound:       b.Round,
-			VoterBitArray: p.voterBitArray,
-			VoterMsgHash:  msgHashes,
-			VoterAggSig:   aggSigBytes,
-		},
-
-		VoterSig: sigBytes,
-		VoterNum: uint32(len(p.voteSigs)),
+	qc, err := p.generateNewQCNode(b)
+	if err != nil {
+		return err
 	}
+
 	changed := p.UpdateQCHigh(qc)
 
 	if changed == true {
@@ -404,6 +366,12 @@ func (p *Pacemaker) OnReceiveVote(voteMsg *PMVoteForProposalMessage) error {
 }
 
 func (p *Pacemaker) OnPropose(b *pmBlock, qc *pmQuorumCert, height uint64, round uint64) *pmBlock {
+	// clean signature cache
+	committeeSize := p.csReactor.committeeSize
+	fmt.Println("COMMITTEE SIZE: ", committeeSize)
+	p.voterBitArray = cmn.NewBitArray(committeeSize)
+	p.voteSigs = make([]*PMSignature, 0)
+
 	bnew := p.CreateLeaf(b, qc, height, round)
 
 	msg, err := p.BuildProposalMessage(height, round, bnew)
@@ -485,9 +453,6 @@ func (p *Pacemaker) OnNextSyncView(nextHeight, nextRound uint64, reason NewViewR
 }
 
 func (p *Pacemaker) OnReceiveNewView(newViewMsg *PMNewViewMessage) error {
-	header := newViewMsg.CSMsgCommonHeader
-	p.logger.Info("Received NewView", "height", header.Height, "round", header.Round, "qcHeight", newViewMsg.QCHeight, "qcRound", newViewMsg.QCRound, "reason", newViewMsg.Reason)
-
 	qc := block.QuorumCert{}
 	err := rlp.DecodeBytes(newViewMsg.QCHigh, &qc)
 	if err != nil {
@@ -598,9 +563,6 @@ func (p *Pacemaker) Start(blockQC *block.QuorumCert, newCommittee bool) {
 	p.blockLeaf = &bInit
 	p.proposalMap[height] = &bInit
 	p.QCHigh = &qcInit
-	committeeSize := p.csReactor.committeeSize
-	p.voterBitArray = cmn.NewBitArray(committeeSize)
-	p.voteSigs = make([]*PMSignature, 0)
 
 	go p.mainLoop()
 
@@ -703,10 +665,6 @@ func (p *Pacemaker) Stop() {
 func (p *Pacemaker) OnRoundTimeout(ti PMRoundTimeoutInfo) error {
 	p.logger.Warn("Round Time Out", "round", ti.round, "counter", ti.counter)
 	p.currentRound = int(ti.round + 1)
-	committeeSize := p.csReactor.committeeSize
-	p.voterBitArray = cmn.NewBitArray(committeeSize)
-	p.voteSigs = make([]*PMSignature, 0)
-	// FIXME: add signature
 
 	p.stopRoundTimer()
 	p.OnNextSyncView(ti.height, ti.round+1, RoundTimeout, &ti)

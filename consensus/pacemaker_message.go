@@ -89,7 +89,6 @@ func (p *Pacemaker) packQuorumCert(blk *block.Block, qc *pmQuorumCert) error {
 }
 
 func (p *Pacemaker) BuildProposalMessage(height, round uint64, bnew *pmBlock) (*PMProposalMessage, error) {
-	p.logger.Info("BuildProposalMessage", "height", height, "round", round, "bnew", bnew.ToString())
 	blockBytes := bnew.ProposedBlock
 
 	cmnHdr := ConsensusMsgCommonHeader{
@@ -98,8 +97,7 @@ func (p *Pacemaker) BuildProposalMessage(height, round uint64, bnew *pmBlock) (*
 		Sender:    crypto.FromECDSAPub(&p.csReactor.myPubKey),
 		Timestamp: time.Now(),
 		MsgType:   CONSENSUS_MSG_PROPOSAL_BLOCK,
-		// MsgSubType: msgSubType,
-		// TODO: set epochID EpochID:    p.EpochID,
+		EpochID:   p.csReactor.curEpoch,
 	}
 
 	parentHeight := uint64(0)
@@ -108,19 +106,11 @@ func (p *Pacemaker) BuildProposalMessage(height, round uint64, bnew *pmBlock) (*
 		parentHeight = bnew.Parent.Height
 		parentRound = bnew.Parent.Round
 	}
-	qcHeight := uint64(0)
-	qcRound := uint64(0)
-	if bnew.Justify != nil {
-		qcHeight = bnew.Justify.QC.QCHeight
-		qcRound = bnew.Justify.QC.QCRound
-	}
 	msg := &PMProposalMessage{
 		CSMsgCommonHeader: cmnHdr,
 
 		ParentHeight: parentHeight,
 		ParentRound:  parentRound,
-		QCHeight:     qcHeight,
-		QCRound:      qcRound,
 
 		ProposerID:        crypto.FromECDSAPub(&p.csReactor.myPubKey),
 		CSProposerPubKey:  p.csReactor.csCommon.system.PubKeyToBytes(p.csReactor.csCommon.PubKey),

@@ -175,18 +175,14 @@ func (b *Block) Size() metric.StorageSize {
 	return size
 }
 
-func (b *Block) prefix() string {
-	return ""
-}
-
 func (b *Block) String() string {
-	return fmt.Sprintf(`%vBlock(%v){
+	return fmt.Sprintf(`Block(%v){
 BlockHeader: %v,
 Transactions: %v,
 KBlockData: %v,
 CommitteeInfo: %v,
 QuorumCert: %v,
-}`, b.prefix(), b.BlockHeader.Number(), b.BlockHeader, b.Txs, b.KBlockData, b.CommitteeInfos, b.QC)
+}`, b.BlockHeader.Number(), b.BlockHeader, b.Txs, b.KBlockData, b.CommitteeInfos, b.QC)
 }
 
 func (b *Block) CompactString() string {
@@ -196,14 +192,15 @@ func (b *Block) CompactString() string {
 	if hasCommittee {
 		ci = "YES"
 	}
-	return fmt.Sprintf(`%vBlock(%v) %v 
-	Parent:%v,
-	QC:(H:%v,R:%v), LastKBHeight:%v, Txs#:%v, CommitteeInfo: %v,
-	StateRoot:%v,
-	ReceiptsRoot: %v`, b.prefix(), header.Number(), header.ID().String(),
+	return fmt.Sprintf(`Block(%v) %v 
+	Parent: %v,
+	QC: %v,
+	LastKBHeight: %v, #Txs: %v, CommitteeInfo: %v,
+	StateRoot: %v,
+	ReceiptsRoot: %v`, header.Number(), header.ID().String(),
 		header.ParentID().String(),
-		b.QC.QCHeight, b.QC.QCRound, header.LastKBlockHeight(), len(b.Txs),
-		ci,
+		b.QC.CompactString(),
+		header.LastKBlockHeight(), len(b.Txs), ci,
 		header.StateRoot().String(), header.ReceiptsRoot().String())
 }
 
@@ -214,8 +211,8 @@ func (b *Block) Oneliner() string {
 	if hasCommittee {
 		ci = "YES"
 	}
-	return fmt.Sprintf("%v Block(%v) %v - #Txs:%v, CI:%v, QC:%v, Parent:%v",
-		b.prefix(), header.Number(), header.ID().String(), len(b.Transactions()), ci, b.QC.String(), header.ParentID())
+	return fmt.Sprintf("Block(%v) %v - #Txs:%v, CI:%v, QC:%v, Parent:%v",
+		header.Number(), header.ID().String(), len(b.Transactions()), ci, b.QC.CompactString(), header.ParentID())
 }
 
 //-----------------
@@ -296,7 +293,6 @@ func (b *Block) EvidenceDataHash() (hash meter.Bytes32) {
 		b.QC.QCRound,
 		// b.QC.VotingBitArray,
 		b.QC.VoterMsgHash,
-		b.QC.VoterSig,
 		b.QC.VoterAggSig,
 		b.CommitteeInfos,
 		b.KBlockData,

@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/dfinlab/meter/block"
+	bls "github.com/dfinlab/meter/crypto/multi_sig"
 	crypto "github.com/ethereum/go-ethereum/crypto"
 )
 
@@ -61,20 +62,20 @@ func (p *Pacemaker) receivePacemakerMsg(w http.ResponseWriter, r *http.Request) 
 		if peerIP.String() == p.csReactor.GetMyNetAddr().IP.String() {
 			p.logger.Info("Received pacemaker msg from myself", "type", typeName, "from", peerIP.String())
 		} else {
-			p.logger.Info("Received pacemaker msg from peer", "type", typeName, "from", peerIP.String())
+			p.logger.Info("Received pacemaker msg from peer", "msg", msg.String(), "from", peerIP.String())
 		}
 		p.pacemakerMsgCh <- msg
 	}
 }
 
 func (p *Pacemaker) ValidateProposal(b *pmBlock) error {
-	p.logger.Info("ValidateProposal", "height", b.Height, "round", b.Round, "type", b.ProposedBlockType)
 	blockBytes := b.ProposedBlock
 	blk, err := block.BlockDecodeFromBytes(blockBytes)
 	if err != nil {
 		p.logger.Error("Decode block failed", "err", err)
 		return err
 	}
+	p.logger.Info("Validate proposal", "type", b.ProposedBlockType, "block", blk.Oneliner())
 
 	// special valiadte StopCommitteeType
 	// possible 2 rounds of stop messagB
@@ -96,8 +97,6 @@ func (p *Pacemaker) ValidateProposal(b *pmBlock) error {
 			//return errParentMissing
 		}
 	}
-
-	p.logger.Info("Validate Proposal", "block", blk.Oneliner())
 
 	if b.ProposedBlockInfo != nil {
 		// if this proposal is proposed by myself, don't execute it again
@@ -193,4 +192,56 @@ func (p *Pacemaker) SendConsensusMessage(round uint64, msg ConsensusMessage, cop
 		peer.sendData(myNetAddr, typeName, rawMsg)
 	}
 	return true
+}
+
+func (p *Pacemaker) generateNewQCNode(b *pmBlock) (*pmQuorumCert, error) {
+	sigs := make([]bls.Signature, 0)
+	msgHashes := make([][32]byte, 0)
+	sigBytes := make([][]byte, 0)
+	for _, s := range p.voteSigs {
+		sigs = append(sigs, s.signature)
+		sigBytes = append(sigBytes, p.csReactor.csCommon.system.SigToBytes(s.signature))
+		msgHashes = append(msgHashes, s.msgHash)
+	}
+	aggSig := p.csReactor.csCommon.AggregateSign(sigs)
+	aggSigBytes := p.csReactor.csCommon.system.SigToBytes(aggSig)
+
+	return &pmQuorumCert{
+		QCNode: b,
+
+		QC: &block.QuorumCert{
+			QCHeight:      b.Height,
+			QCRound:       b.Round,
+			EpochID:       p.csReactor.curEpoch,
+			VoterBitArray: p.voterBitArray,
+			VoterMsgHash:  msgHashes,
+			VoterAggSig:   aggSigBytes,
+		},
+
+		VoterSig: sigBytes,
+		VoterNum: uint32(len(p.voteSigs)),
+	}, nil
+}
+
+func (p *Pacemaker) collectVoteSignature(voteMsg *PMVoteForProposalMessage) error {
+	round := uint64(voteMsg.CSMsgCommonHeader.Round)
+	if round == uint64(p.currentRound) && p.csReactor.amIRoundProproser(round) {
+		// if round matches and I am proposer, collect signature and store in cache
+		sigBytes, err := p.csReactor.csCommon.system.SigFromBytes(voteMsg.VoterSignature)
+		if err != nil {
+			return err
+		}
+		sig := &PMSignature{
+			index:     voteMsg.VoterIndex,
+			msgHash:   voteMsg.SignedMessageHash,
+			signature: sigBytes,
+		}
+		p.voterBitArray.SetIndex(int(voteMsg.VoterIndex), true)
+		p.voteSigs = append(p.voteSigs, sig)
+		p.logger.Debug("Collected signature ", "index", voteMsg.VoterIndex, "signature", hex.EncodeToString(voteMsg.VoterSignature))
+	} else {
+		p.logger.Debug("Signature ignored because of round mismatch", "round", round, "currRound", p.currentRound)
+	}
+	// ignore the signatures if the round doesn't match
+	return nil
 }
