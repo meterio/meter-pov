@@ -1,7 +1,12 @@
 package consensus
 
 import (
+	"crypto/ecdsa"
+	"encoding/hex"
+	"fmt"
 	"time"
+
+	"github.com/ethereum/go-ethereum/rlp"
 
 	"github.com/dfinlab/meter/block"
 	"github.com/dfinlab/meter/powpool"
@@ -79,14 +84,7 @@ func (p *Pacemaker) packCommitteeInfo(blk *block.Block) error {
 }
 
 func (p *Pacemaker) packQuorumCert(blk *block.Block, qc *pmQuorumCert) error {
-	blockQC := &block.QuorumCert{
-		QCHeight:     qc.QCHeight,
-		QCRound:      qc.QCRound,
-		VoterMsgHash: qc.VoterMsgHash,
-		VoterAggSig:  qc.VoterAggSig,
-		VoterSig:     qc.VoterSig,
-	}
-	blk.SetQC(blockQC)
+	blk.SetQC(qc.QC)
 	return nil
 }
 
@@ -113,8 +111,8 @@ func (p *Pacemaker) BuildProposalMessage(height, round uint64, bnew *pmBlock) (*
 	qcHeight := uint64(0)
 	qcRound := uint64(0)
 	if bnew.Justify != nil {
-		qcHeight = bnew.Justify.QCHeight
-		qcRound = bnew.Justify.QCRound
+		qcHeight = bnew.Justify.QC.QCHeight
+		qcRound = bnew.Justify.QC.QCRound
 	}
 	msg := &PMProposalMessage{
 		CSMsgCommonHeader: cmnHdr,
@@ -193,7 +191,7 @@ func (p *Pacemaker) BuildVoteForProposalMessage(proposalMsg *PMProposalMessage) 
 }
 
 // BuildVoteForProposalMsg build VFP message for proposal
-func (p *Pacemaker) BuildNewViewMessage(nextHeight, nextRound uint64, qcHigh *pmQuorumCert, reason NewViewReason, tc *TimeoutCert) (*PMNewViewMessage, error) {
+func (p *Pacemaker) BuildNewViewMessage(nextHeight, nextRound uint64, qcHigh *pmQuorumCert, reason NewViewReason, ti *PMRoundTimeoutInfo) (*PMNewViewMessage, error) {
 
 	cmnHdr := ConsensusMsgCommonHeader{
 		Height:    int64(nextHeight),
@@ -203,18 +201,38 @@ func (p *Pacemaker) BuildNewViewMessage(nextHeight, nextRound uint64, qcHigh *pm
 		MsgType:   CONSENSUS_MSG_VOTE_FOR_PROPOSAL,
 	}
 
+	index := p.csReactor.GetCommitteeMemberIndex(p.csReactor.myPubKey)
+
+	signMsg := p.BuildNewViewSignMsg(p.csReactor.myPubKey, reason, nextHeight, nextRound, qcHigh.QC)
+
+	offset := uint32(0)
+	length := uint32(len(signMsg))
+	sign := p.csReactor.csCommon.SignMessage([]byte(signMsg), offset, length)
+	msgHash := p.csReactor.csCommon.Hash256Msg([]byte(signMsg), offset, length)
+
+	qcBytes, err := rlp.EncodeToBytes(qcHigh.QC)
+	if err != nil {
+		p.logger.Error("Error encode qc", "err", err)
+	}
 	msg := &PMNewViewMessage{
 		CSMsgCommonHeader: cmnHdr,
 
-		QCHeight: qcHigh.QCHeight,
-		QCRound:  qcHigh.QCRound,
-		QCHigh:   p.EncodeQCToBytes(qcHigh),
-		Reason:   byte(reason),
-	}
-	if tc != nil {
-		msg.TimeoutCert = *tc
+		QCHeight: qcHigh.QC.QCHeight,
+		QCRound:  qcHigh.QC.QCRound,
+		QCHigh:   qcBytes,
+		Reason:   reason,
+
+		PeerID:            crypto.FromECDSAPub(&p.csReactor.myPubKey),
+		PeerIndex:         index,
+		SignedMessageHash: msgHash,
+		PeerSignature:     p.csReactor.csCommon.system.SigToBytes(sign),
 	}
 
+	if ti != nil {
+		msg.TimeoutHeight = ti.height
+		msg.TimeoutRound = ti.round
+		msg.TimeoutCounter = ti.counter
+	}
 	// sign message
 	msgSig, err := p.csReactor.SignConsensusMsg(msg.SigningHash().Bytes())
 	if err != nil {
@@ -224,4 +242,9 @@ func (p *Pacemaker) BuildNewViewMessage(nextHeight, nextRound uint64, qcHigh *pm
 	msg.CSMsgCommonHeader.SetMsgSignature(msgSig)
 	p.logger.Debug("Built New View Message", "msg", msg.String())
 	return msg, nil
+}
+
+func (p *Pacemaker) BuildNewViewSignMsg(pubKey ecdsa.PublicKey, reason NewViewReason, height, round uint64, qc *block.QuorumCert) string {
+	return fmt.Sprintf("New View Message: Peer:%s Height:%v Round:%v Reason:%v QC:(%d,%d,%v,%v)",
+		hex.EncodeToString(crypto.FromECDSAPub(&pubKey)), height, round, reason, qc.QCHeight, qc.QCRound, qc.EpochID, hex.EncodeToString(qc.VoterAggSig))
 }

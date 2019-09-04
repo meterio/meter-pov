@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/hex"
 	"encoding/json"
-	"errors"
 
 	//"github.com/dfinlab/meter/types"
 	"net"
@@ -194,44 +193,4 @@ func (p *Pacemaker) SendConsensusMessage(round uint64, msg ConsensusMessage, cop
 		peer.sendData(myNetAddr, typeName, rawMsg)
 	}
 	return true
-}
-
-// ---------------------------------------------------
-// Message Delivery Utilities
-// ---------------------------------------------------
-func (p *Pacemaker) EncodeQCToBytes(qc *pmQuorumCert) []byte {
-	blockQC := &block.QuorumCert{
-		QCHeight: qc.QCHeight,
-		QCRound:  qc.QCRound,
-		EpochID:  0, // FIXME: use real epoch id
-
-		VoterSig:     qc.VoterSig,
-		VoterMsgHash: qc.VoterMsgHash,
-		//VotingBitArray: *qc.VoterBitArray,
-		VoterAggSig: qc.VoterAggSig,
-	}
-	// if qc.VoterBitArray != nil {
-	// blockQC.VotingBitArray = *qc.VoterBitArray
-	// }
-	return blockQC.ToBytes()
-}
-
-func (p *Pacemaker) DecodeQCFromBytes(bytes []byte) (*pmQuorumCert, error) {
-	blockQC, err := block.QCDecodeFromBytes(bytes)
-	if err != nil {
-		return nil, err
-	}
-	qcNode := p.AddressBlock(blockQC.QCHeight, blockQC.QCRound)
-	if qcNode == nil {
-		return nil, errors.New("can not address qcNode")
-	}
-	return &pmQuorumCert{
-		QCHeight: blockQC.QCHeight,
-		QCRound:  blockQC.QCRound,
-
-		VoterSig:     blockQC.VoterSig,
-		VoterMsgHash: blockQC.VoterMsgHash,
-		VoterAggSig:  blockQC.VoterAggSig,
-		QCNode:       qcNode,
-	}, nil
 }
