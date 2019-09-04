@@ -592,13 +592,13 @@ func (cl *ConsensusLeader) ProcessNewCommitteeMessage(newCommitteeMsg *NewCommit
 	cl.newRoundVoterPubKey = append(cl.newRoundVoterPubKey, pubKey)
 	cl.newRoundVoterMsgHash = append(cl.newRoundVoterMsgHash, msgHash)
 	********************/
-
+	epochID := newCommitteeMsg.NewEpochID
 	cl.newCommitteeVoterNum++
 	// 3. if the totoal vote > 2/3, move to Commit state
 	if MajorityTwoThird(cl.newCommitteeVoterNum, cl.csReactor.committeeSize) {
-		cl.csReactor.ScheduleLeader(1)
+		cl.csReactor.logger.Debug("NewCommitteeMessage, 2/3 Majority reached", "Recvd", cl.newCommitteeVoterNum, "committeeSize", cl.csReactor.committeeSize)
+		cl.csReactor.ScheduleLeader(epochID, 1*time.Second)
 		return true
-
 	} else {
 		// not reach 2/3 yet, wait for more
 		cl.csReactor.logger.Debug("received NewCommitteeMessage (2/3 not reached yet, wait for more)", "Recvd", cl.newCommitteeVoterNum, "committeeSize", cl.csReactor.committeeSize)

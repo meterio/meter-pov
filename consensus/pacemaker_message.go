@@ -101,7 +101,7 @@ func (p *Pacemaker) BuildProposalMessage(height, round uint64, bnew *pmBlock) (*
 		Timestamp: time.Now(),
 		MsgType:   CONSENSUS_MSG_PROPOSAL_BLOCK,
 		// MsgSubType: msgSubType,
-		// TODO: set epochID EpochID:    p.EpochID,
+		EpochID:    p.csReactor.curEpoch,
 	}
 
 	parentHeight := uint64(0)

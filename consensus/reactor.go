@@ -750,9 +750,9 @@ func (conR *ConsensusReactor) handleMsg(mi consensusMsgInfo) {
 	case *NewCommitteeMessage:
 		if (conR.csRoleInitialized&CONSENSUS_COMMIT_ROLE_LEADER) == 0 ||
 			(conR.csLeader == nil) {
-			conR.logger.Warn("not in leader role yet, enter leader first ...")
+			conR.logger.Warn("not in leader role yet, enter leader first ...", "EpochID", msg.NewEpochID)
 			// if find out we are not in committee, then exit validator
-			conR.enterConsensusLeader()
+			conR.enterConsensusLeader(msg.NewEpochID)
 		}
 
 		success := conR.csLeader.ProcessNewCommitteeMessage(msg, peer)
@@ -936,8 +936,12 @@ func (conR *ConsensusReactor) exitConsensusValidator() int {
 }
 
 // Enter leader
-func (conR *ConsensusReactor) enterConsensusLeader() int {
-	conR.logger.Debug("Enter consensus leader")
+func (conR *ConsensusReactor) enterConsensusLeader(epochID uint64) {
+	conR.logger.Debug("Enter consensus leader", "epochID", epochID)
+	if epochID <= conR.curEpoch {
+		conR.logger.Warn("enterConsensusLeader: epochID less than current Epoch, do not update leader", "curEpochID", conR.curEpoch, "epochID", epochID)
+		return
+	}
 
 	// init consensus common as leader
 	// need to deinit to avoid the memory leak
@@ -950,16 +954,21 @@ func (conR *ConsensusReactor) enterConsensusLeader() int {
 	conR.csLeader = NewCommitteeLeader(conR)
 	conR.csRoleInitialized |= CONSENSUS_COMMIT_ROLE_LEADER
 
-	return 0
+	conR.curEpoch = epochID
+	conR.csLeader.EpochID = epochID
+	return
 }
 
-func (conR *ConsensusReactor) exitConsensusLeader() int {
-	conR.logger.Warn("Exit consensus leader")
-
+func (conR *ConsensusReactor) exitConsensusLeader(epochID uint64) {
+	conR.logger.Warn("Exit consensus leader", "epochID", epochID)
+	if conR.curEpoch != epochID {
+		conR.logger.Warn("exitConsensusLeader: epochID mismatch, do not update leader", "curEpochID", conR.curEpoch, "epochID", epochID)
+		return
+	}
 	conR.csLeader = nil
 	conR.csRoleInitialized &= ^CONSENSUS_COMMIT_ROLE_LEADER
 
-	return 0
+	return
 }
 
 // Cleanup all roles before the comittee relay
@@ -970,7 +979,7 @@ func (conR *ConsensusReactor) exitCurCommittee() error {
 		//conR.csPacemaker.Stop()
 	}
 
-	conR.exitConsensusLeader()
+	conR.exitConsensusLeader(conR.curEpoch)
 	conR.exitConsensusValidator()
 	// Only node in committee did initilize common
 	if conR.csCommon != nil {
@@ -1248,19 +1257,19 @@ func (conR *ConsensusReactor) BuildTimeoutSignMsg(pubKey ecdsa.PublicKey, round 
 
 // -------------------------------------------------------------------------
 // New consensus timed schedule util
-type Scheduler func(conR *ConsensusReactor) bool
+//type Scheduler func(conR *ConsensusReactor) bool
 
 //TBD: implemente timed schedule, Duration is not used right now
-func (conR *ConsensusReactor) ScheduleLeader(d time.Duration) bool {
+func (conR *ConsensusReactor) ScheduleLeader(epochID uint64, d time.Duration) bool {
 	time.AfterFunc(d, func() {
-		conR.schedulerQueue <- func() { HandleScheduleLeader(conR) }
+		conR.schedulerQueue <- func() { HandleScheduleLeader(conR, epochID) }
 	})
 	return true
 }
 
-func (conR *ConsensusReactor) ScheduleReplayLeader(d time.Duration) bool {
+func (conR *ConsensusReactor) ScheduleReplayLeader(epochID uint64, d time.Duration) bool {
 	time.AfterFunc(d, func() {
-		conR.schedulerQueue <- func() { HandleScheduleReplayLeader(conR) }
+		conR.schedulerQueue <- func() { HandleScheduleReplayLeader(conR, epochID) }
 	})
 	return true
 }
@@ -1280,10 +1289,10 @@ func (conR *ConsensusReactor) ScheduleReplayValidator(d time.Duration) bool {
 }
 
 // -------------------------------
-func HandleScheduleReplayLeader(conR *ConsensusReactor) bool {
-	conR.exitConsensusLeader()
+func HandleScheduleReplayLeader(conR *ConsensusReactor, epochID uint64) bool {
+	conR.exitConsensusLeader(conR.curEpoch)
 
-	conR.logger.Debug("Enter consensus replay leader")
+	conR.logger.Debug("Enter consensus replay leader", "curEpochID", conR.curEpoch, "epochID", epochID)
 
 	// init consensus common as leader
 	// need to deinit to avoid the memory leak
@@ -1318,6 +1327,8 @@ func HandleScheduleReplayLeader(conR *ConsensusReactor) bool {
 	conR.csLeader = NewCommitteeLeader(conR)
 	conR.csRoleInitialized |= CONSENSUS_COMMIT_ROLE_LEADER
 	conR.csLeader.replay = true
+	conR.curEpoch = epochID
+	conR.csLeader.EpochID = epochID
 
 	conR.csLeader.GenerateAnnounceMsg()
 	return true
@@ -1336,9 +1347,9 @@ func HandleScheduleReplayValidator(conR *ConsensusReactor) bool {
 	return true
 }
 
-func HandleScheduleLeader(conR *ConsensusReactor) bool {
-	conR.exitConsensusLeader()
-	conR.enterConsensusLeader()
+func HandleScheduleLeader(conR *ConsensusReactor, epochID uint64) bool {
+	//conR.exitConsensusLeader(conR.curEpoch)
+	conR.enterConsensusLeader(epochID)
 
 	conR.csLeader.GenerateAnnounceMsg()
 	return true
@@ -1406,7 +1417,9 @@ func (conR *ConsensusReactor) ConsensusHandleReceivedNonce(kBlockHeight int64, n
 	// 1) send moveNewRound (with signature) to new leader. if new leader receives majority signature, then send out announce.
 	if role == CONSENSUS_COMMIT_ROLE_LEADER {
 		conR.logger.Info("I am committee leader for nonce!", "nonce", nonce)
-		conR.enterConsensusLeader()
+		epochID := conR.curEpoch
+		conR.exitConsensusLeader(epochID)
+		conR.enterConsensusLeader(epochID + 1)
 		//TBD:
 		// wait 30 seconds for synchronization
 		// time.Sleep(5 * WHOLE_NETWORK_BLOCK_SYNC_TIME)
