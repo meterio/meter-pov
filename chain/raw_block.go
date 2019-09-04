@@ -78,8 +78,8 @@ func (rb *rawBlock) Block() (*block.Block, error) {
 		panic("load block failed.")
 	}
 	rb.block.Store(blk)
-	rb.header.Store(blk.Header)
-	rb.body.Store(blk.Body)
+	rb.header.Store(blk.Header())
+	rb.body.Store(blk.Body())
 	return blk, nil
 	// }
 	/************
