@@ -1,6 +1,7 @@
 package consensus
 
 import (
+	"encoding/hex"
 	"fmt"
 	"time"
 
@@ -15,7 +16,7 @@ import (
 // Messages
 
 // ConsensusMessage is a message that can be sent and received on the ConsensusReactor
-type ConsensusMessage interface{}
+type ConsensusMessage interface{ String() string }
 
 func RegisterConsensusMessages(cdc *amino.Codec) {
 	cdc.RegisterInterface((*ConsensusMessage)(nil), nil)
@@ -302,9 +303,9 @@ func (m *NewCommitteeMessage) SigningHash() (hash meter.Bytes32) {
 
 // String returns a string representation.
 func (m *NewCommitteeMessage) String() string {
-	return fmt.Sprintf("[NewCommitteeMessage H:%v R:%v S:%v Type:%v]",
+	return fmt.Sprintf("[NewCommitteeMessage Height:%v Round:%v Type:%v Sender:%v]",
 		m.CSMsgCommonHeader.Height, m.CSMsgCommonHeader.Round,
-		m.CSMsgCommonHeader.Sender, m.CSMsgCommonHeader.MsgType)
+		m.CSMsgCommonHeader.MsgType, hex.EncodeToString(m.CSMsgCommonHeader.Sender))
 }
 
 // PMProposalMessage is sent when a new block leaf is proposed
@@ -313,8 +314,6 @@ type PMProposalMessage struct {
 
 	ParentHeight uint64
 	ParentRound  uint64
-	QCHeight     uint64
-	QCRound      uint64
 
 	ProposerID        []byte //ecdsa.PublicKey
 	CSProposerPubKey  []byte //bls.PublicKey
@@ -324,6 +323,8 @@ type PMProposalMessage struct {
 	ProposedSize      int
 	ProposedBlock     []byte
 	ProposedBlockType BlockType
+
+	TimeoutCert *PMTimeoutCert
 }
 
 // SigningHash computes hash of all header fields excluding signature.
@@ -340,8 +341,6 @@ func (m *PMProposalMessage) SigningHash() (hash meter.Bytes32) {
 
 		m.ParentHeight,
 		m.ParentRound,
-		m.QCHeight,
-		m.QCRound,
 
 		m.ProposerID,
 		m.CSProposerPubKey,
@@ -351,6 +350,8 @@ func (m *PMProposalMessage) SigningHash() (hash meter.Bytes32) {
 		m.ProposedSize,
 		m.ProposedBlock,
 		m.ProposedBlockType,
+
+		m.TimeoutCert,
 	})
 	hw.Sum(hash[:0])
 	return
@@ -358,11 +359,10 @@ func (m *PMProposalMessage) SigningHash() (hash meter.Bytes32) {
 
 // String returns a string representation.
 func (m *PMProposalMessage) String() string {
-	return fmt.Sprintf("[PMProposalBlockMessage H:%v, R:%v, ParentHeight: %v, ParentRound: %v, QCHeight: %v, QCRound: %v, S:%v, Type:%v]",
+	return fmt.Sprintf("[PMProposalBlockMessage Height:%v, Round:%v, ParentHeight: %v, ParentRound: %v, Type:%v, Sender:%v]",
 		m.CSMsgCommonHeader.Height, m.CSMsgCommonHeader.Round,
 		m.ParentHeight, m.ParentRound,
-		m.QCHeight, m.QCRound,
-		m.CSMsgCommonHeader.Sender, m.CSMsgCommonHeader.MsgType)
+		m.CSMsgCommonHeader.MsgType, hex.EncodeToString(m.CSMsgCommonHeader.Sender))
 }
 
 // PMVoteResponseMessage is sent when voting for a proposal (or lack thereof).
@@ -400,9 +400,9 @@ func (m *PMVoteForProposalMessage) SigningHash() (hash meter.Bytes32) {
 
 // String returns a string representation.
 func (m *PMVoteForProposalMessage) String() string {
-	return fmt.Sprintf("[PMVoteForProposalMessage H:%v R:%v S:%v Type:%v]",
+	return fmt.Sprintf("[PMVoteForProposalMessage Height:%v Round:%v Type:%v Sender:%v]",
 		m.CSMsgCommonHeader.Height, m.CSMsgCommonHeader.Round,
-		m.CSMsgCommonHeader.Sender, m.CSMsgCommonHeader.MsgType)
+		m.CSMsgCommonHeader.MsgType, hex.EncodeToString(m.CSMsgCommonHeader.Sender))
 }
 
 // PMNewViewMessage is sent to the next leader in these two senarios
@@ -411,11 +411,18 @@ func (m *PMVoteForProposalMessage) String() string {
 type PMNewViewMessage struct {
 	CSMsgCommonHeader ConsensusMsgCommonHeader
 
-	QCHeight    uint64
-	QCRound     uint64
-	QCHigh      []byte
-	Reason      byte
-	TimeoutCert TimeoutCert
+	QCHeight       uint64
+	QCRound        uint64
+	QCHigh         []byte
+	Reason         NewViewReason
+	TimeoutHeight  uint64
+	TimeoutRound   uint64
+	TimeoutCounter uint64
+
+	PeerID            []byte
+	PeerIndex         int
+	SignedMessageHash [32]byte
+	PeerSignature     []byte
 }
 
 // SigningHash computes hash of all header fields excluding signature.
@@ -434,7 +441,14 @@ func (m *PMNewViewMessage) SigningHash() (hash meter.Bytes32) {
 		m.QCRound,
 		m.QCHigh,
 		m.Reason,
-		m.TimeoutCert,
+		m.TimeoutHeight,
+		m.TimeoutRound,
+		m.TimeoutCounter,
+
+		m.PeerID,
+		m.PeerIndex,
+		m.SignedMessageHash,
+		m.PeerSignature,
 	})
 	hw.Sum(hash[:0])
 	return
@@ -442,7 +456,7 @@ func (m *PMNewViewMessage) SigningHash() (hash meter.Bytes32) {
 
 // String returns a string representation.
 func (m *PMNewViewMessage) String() string {
-	return fmt.Sprintf("[PMNewViewMessage H:%v R:%v S:%v Type:%v, QCHeight:%d, QCRound:%d]",
-		m.CSMsgCommonHeader.Height, m.CSMsgCommonHeader.Round,
-		m.CSMsgCommonHeader.Sender, m.CSMsgCommonHeader.MsgType, m.QCHeight, m.QCRound)
+	return fmt.Sprintf("[PMNewViewMessage Height:%v Round:%v Reason:%s Type:%v QCHeight:%d QCRound:%d Sender:%v]",
+		m.CSMsgCommonHeader.Height, m.CSMsgCommonHeader.Round, m.Reason.String(),
+		m.CSMsgCommonHeader.MsgType, m.QCHeight, m.QCRound, hex.EncodeToString(m.CSMsgCommonHeader.Sender))
 }

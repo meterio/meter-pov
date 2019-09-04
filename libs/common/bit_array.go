@@ -415,3 +415,13 @@ func (bA *BitArray) UnmarshalJSON(bz []byte) error {
 	*bA = *bA2
 	return nil
 }
+
+func (bA *BitArray) Count() int {
+	count := 0
+	for i := 0; i < int(bA.Bits); i++ {
+		if bA.getIndex(i) {
+			count++
+		}
+	}
+	return count
+}

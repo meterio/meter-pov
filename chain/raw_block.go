@@ -8,8 +8,6 @@ package chain
 import (
 	"sync/atomic"
 
-	"fmt"
-
 	"github.com/dfinlab/meter/block"
 )
 
@@ -58,30 +56,32 @@ func (rb *rawBlock) Block() (*block.Block, error) {
 		return cached.(*block.Block), nil
 	}
 
-	h, err := rb.Header()
+	// h, err := rb.Header()
+	// if err != nil {
+	// 	fmt.Println("decode header error")
+	// 	return nil, err
+	// }
+
+	// if h.Number() == 0 {
+	// 	b, err := rb.Body()
+	// 	if err != nil {
+	// 		return nil, err
+	// 	}
+
+	// 	block := block.Compose(h, b.Txs)
+
+	// 	rb.block.Store(block)
+	// 	return block, nil
+	// } else {
+	blk, err := block.BlockDecodeFromBytes(rb.raw)
 	if err != nil {
-		fmt.Println("decode header error")
-		return nil, err
+		panic("load block failed.")
 	}
-
-	if h.Number() == 0 {
-		b, err := rb.Body()
-		if err != nil {
-			return nil, err
-		}
-
-		block := block.Compose(h, b.Txs)
-
-		rb.block.Store(block)
-		return block, nil
-	} else {
-		blk, err := block.BlockDecodeFromBytes(rb.raw)
-		if err != nil {
-			panic("load block failed.")
-		}
-		rb.block.Store(blk)
-		return blk, nil
-	}
+	rb.block.Store(blk)
+	rb.header.Store(blk.Header())
+	rb.body.Store(blk.Body())
+	return blk, nil
+	// }
 	/************
 	h, err := rb.Header()
 	if err != nil {

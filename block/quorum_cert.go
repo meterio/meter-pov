@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 
+	cmn "github.com/dfinlab/meter/libs/common"
 	"github.com/ethereum/go-ethereum/rlp"
 )
 
@@ -12,15 +13,29 @@ type QuorumCert struct {
 	QCRound  uint64
 	EpochID  uint64
 
-	VotingSig     [][]byte   // [] of serialized bls signature
-	VotingMsgHash [][32]byte // [][32]byte
-	// VotingBitArray cmn.BitArray
-	VotingAggSig []byte
+	VoterBitArrayStr string
+	VoterMsgHash     [][32]byte // [][32]byte
+	VoterAggSig      []byte
+
+	voterBitArray *cmn.BitArray
 }
 
 func (qc *QuorumCert) String() string {
 	if qc != nil {
-		return fmt.Sprintf("QuorumCert(Height:%v, Round:%v, EpochID:%v)", qc.QCHeight, qc.QCRound, qc.EpochID)
+		return fmt.Sprintf("QuorumCert(Height:%v, Round:%v, EpochID:%v, VoterBitArray:%v, len(VoterMsgHash):%v, len(VoterAggSig):%v)",
+			qc.QCHeight, qc.QCRound, qc.EpochID, qc.VoterBitArrayStr, len(qc.VoterMsgHash), len(qc.VoterAggSig))
+	}
+	return "EMPTY QC"
+}
+
+func (qc *QuorumCert) CompactString() string {
+	if qc != nil {
+		hasAggSig := "no"
+		if len(qc.VoterAggSig) > 0 {
+			hasAggSig = "YES"
+		}
+		return fmt.Sprintf("QC(H:%v, R:%v, EpochID:%v, VoterBitArray:%v, VoterAggSig:%v)",
+			qc.QCHeight, qc.QCRound, qc.EpochID, qc.VoterBitArrayStr, hasAggSig)
 	}
 	return "EMPTY QC"
 }
@@ -36,21 +51,21 @@ func (qc *QuorumCert) EncodeRLP(w io.Writer) error {
 		qc.QCHeight,
 		qc.QCRound,
 		qc.EpochID,
-		qc.VotingMsgHash,
-		qc.VotingSig,
-		qc.VotingAggSig,
+		qc.VoterMsgHash,
+		qc.VoterAggSig,
+		qc.VoterBitArrayStr,
 	})
 }
 
 // DecodeRLP implements rlp.Decoder.
 func (qc *QuorumCert) DecodeRLP(s *rlp.Stream) error {
 	payload := struct {
-		QCHeight      uint64
-		QCRound       uint64
-		EpochID       uint64
-		VotingMsgHash [][32]byte
-		VotingSig     [][]byte
-		VotingAggSig  []byte
+		QCHeight         uint64
+		QCRound          uint64
+		EpochID          uint64
+		VoterMsgHash     [][32]byte
+		VoterAggSig      []byte
+		VoterBitArrayStr string
 	}{}
 
 	if err := s.Decode(&payload); err != nil {
@@ -58,18 +73,27 @@ func (qc *QuorumCert) DecodeRLP(s *rlp.Stream) error {
 	}
 
 	*qc = QuorumCert{
-		QCHeight:      payload.QCHeight,
-		QCRound:       payload.QCRound,
-		EpochID:       payload.EpochID,
-		VotingMsgHash: payload.VotingMsgHash,
-		VotingSig:     payload.VotingSig,
-		VotingAggSig:  payload.VotingAggSig,
+		QCHeight:         payload.QCHeight,
+		QCRound:          payload.QCRound,
+		EpochID:          payload.EpochID,
+		VoterMsgHash:     payload.VoterMsgHash,
+		VoterAggSig:      payload.VoterAggSig,
+		VoterBitArrayStr: payload.VoterBitArrayStr,
 	}
 	return nil
 }
 
+func (qc *QuorumCert) VoterBitArray() *cmn.BitArray {
+	bitArray := &cmn.BitArray{}
+	err := bitArray.UnmarshalJSON([]byte(qc.VoterBitArrayStr))
+	if err != nil {
+		return nil
+	}
+	return bitArray
+}
+
 func GenesisQC() *QuorumCert {
-	return &QuorumCert{QCHeight: 0, QCRound: 0}
+	return &QuorumCert{QCHeight: 0, QCRound: 0, EpochID: 0}
 }
 
 //--------------

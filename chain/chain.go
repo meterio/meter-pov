@@ -214,6 +214,12 @@ func (c *Chain) BestBlock() *block.Block {
 	return c.bestBlock
 }
 
+func (c *Chain) BestQC() *block.QuorumCert {
+	c.rw.RLock()
+	defer c.rw.RUnlock()
+	return c.bestQC
+}
+
 // AddBlock add a new block into block chain.
 // Once reorg happened (len(Trunk) > 0 && len(Branch) >0), Fork.Branch will be the chain transitted from trunk to branch.
 // Reorg happens when isTrunk is true.
@@ -716,10 +722,6 @@ func (c *Chain) nextBlock(descendantID meter.Bytes32, num uint32) (*block.Block,
 	}
 
 	return c.getBlock(next)
-}
-
-func (c *Chain) BestQC() *block.QuorumCert {
-	return c.bestQC
 }
 
 func (c *Chain) LeafBlock() *block.Block {
