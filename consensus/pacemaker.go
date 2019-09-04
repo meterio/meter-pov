@@ -74,9 +74,8 @@ type Pacemaker struct {
 	voterBitArray *cmn.BitArray
 	voteSigs      []*PMSignature
 
-	peerTimeoutBitArray *cmn.BitArray
-	peerTimeoutSigs     []*PMSignature
-	timeoutCert         *PMTimeoutCert
+	timeoutCertManager *PMTimeoutCertManager
+	timeoutCert        *PMTimeoutCert
 }
 
 func NewPaceMaker(conR *ConsensusReactor) *Pacemaker {
@@ -93,6 +92,7 @@ func NewPaceMaker(conR *ConsensusReactor) *Pacemaker {
 		sigCounter:     make(map[uint64]int, 1024),
 		timeoutCounter: make(map[uint64]int, 1024),
 	}
+	p.timeoutCertManager = newPMTimeoutCertManager(p)
 
 	return p
 }
@@ -306,7 +306,6 @@ func (p *Pacemaker) OnReceiveProposal(proposalMsg *PMProposalMessage) error {
 
 		// TODO: added for test
 		// if round < 5 || round > 6 {
-
 		// send vote message to leader
 		p.SendConsensusMessage(uint64(proposalMsg.CSMsgCommonHeader.Round), msg, false)
 		p.lastVotingHeight = bnew.Height
@@ -372,10 +371,11 @@ func (p *Pacemaker) OnPropose(b *pmBlock, qc *pmQuorumCert, height uint64, round
 
 	bnew := p.CreateLeaf(b, qc, height, round)
 
-	msg, err := p.BuildProposalMessage(height, round, bnew)
+	msg, err := p.BuildProposalMessage(height, round, bnew, p.timeoutCert)
 	if err != nil {
 		p.logger.Error("could not build proposal message", "err", err)
 	}
+	p.timeoutCert = nil
 
 	// create slot in proposalMap directly, instead of sendmsg to self.
 	// p.sigCounter[bnew.Round]++
@@ -466,33 +466,15 @@ func (p *Pacemaker) OnReceiveNewView(newViewMsg *PMNewViewMessage) error {
 	pmQC := newPMQuorumCert(&qc, qcNode)
 	changed := p.UpdateQCHigh(pmQC)
 	timedOut := false
-	if newViewMsg.Reason == RoundTimeout {
-		index := newViewMsg.PeerIndex
-		// append signature only if it doesn't exist
-		if p.peerTimeoutBitArray.GetIndex(index) == false {
-			p.peerTimeoutBitArray.SetIndex(index, true)
-			sig, err := p.csReactor.csCommon.system.SigFromBytes(newViewMsg.PeerSignature)
-			if err != nil {
-				p.logger.Error("error convert signature", "err", err)
-			}
-			p.peerTimeoutSigs = append(p.peerTimeoutSigs, &PMSignature{
-				index:     int64(index),
-				msgHash:   newViewMsg.SignedMessageHash,
-				signature: sig,
-			})
-		}
-		p.timeoutCounter[newViewMsg.TimeoutRound]++
-		if p.timeoutCounter[newViewMsg.TimeoutRound] < p.csReactor.committeeSize {
+	if newViewMsg.Reason == RoundTimeout && p.csReactor.amIRoundProproser(uint64(newViewMsg.CSMsgCommonHeader.Round)) {
+		p.timeoutCertManager.collectSignature(newViewMsg)
+		timeoutCount := p.timeoutCertManager.count(newViewMsg.TimeoutHeight, newViewMsg.TimeoutRound)
+		if timeoutCount < p.csReactor.committeeSize {
 			p.logger.Info("not reaching majority on timeout", "height", newViewMsg.TimeoutHeight, "round", newViewMsg.TimeoutRound, "counter", newViewMsg.TimeoutCounter)
 		} else {
 			p.logger.Info("reaching majority on timeout", "height", newViewMsg.TimeoutHeight, "round", newViewMsg.TimeoutRound, "counter", newViewMsg.TimeoutCounter)
 			timedOut = true
-
-			p.timeoutCert = &PMTimeoutCert{
-				TimeoutHeight:  newViewMsg.TimeoutHeight,
-				TimeoutRound:   newViewMsg.TimeoutRound,
-				TimeoutCounter: uint32(newViewMsg.TimeoutCounter),
-			}
+			p.timeoutCert = p.timeoutCertManager.getTimeoutCert(newViewMsg.TimeoutHeight, newViewMsg.TimeoutRound)
 		}
 	}
 

@@ -2,6 +2,7 @@ package consensus
 
 import (
 	"fmt"
+	"io"
 
 	"github.com/dfinlab/meter/block"
 	bls "github.com/dfinlab/meter/crypto/multi_sig"
@@ -76,6 +77,49 @@ func (tc *PMTimeoutCert) SigningHash() (hash meter.Bytes32) {
 	})
 	hw.Sum(hash[:0])
 	return
+}
+
+// EncodeRLP implements rlp.Encoder.
+func (tc *PMTimeoutCert) EncodeRLP(w io.Writer) error {
+	s := []byte("")
+	if tc.TimeoutBitArray != nil {
+		s, _ = tc.TimeoutBitArray.MarshalJSON()
+	}
+	return rlp.Encode(w, []interface{}{
+		tc.TimeoutHeight,
+		tc.TimeoutRound,
+		tc.TimeoutCounter,
+		string(s),
+		tc.TimeoutAggSig,
+	})
+}
+
+// DecodeRLP implements rlp.Decoder.
+func (tc *PMTimeoutCert) DecodeRLP(s *rlp.Stream) error {
+	payload := struct {
+		Height      uint64
+		Round       uint64
+		Counter     uint32
+		BitArrayStr string
+		AggSig      []byte
+	}{}
+
+	if err := s.Decode(&payload); err != nil {
+		return err
+	}
+	bitArray := &cmn.BitArray{}
+	err := bitArray.UnmarshalJSON([]byte(payload.BitArrayStr))
+	if err != nil {
+		bitArray = nil
+	}
+	*tc = PMTimeoutCert{
+		TimeoutHeight:   payload.Height,
+		TimeoutRound:    payload.Round,
+		TimeoutCounter:  payload.Counter,
+		TimeoutBitArray: bitArray,
+		TimeoutAggSig:   payload.AggSig,
+	}
+	return nil
 }
 
 type pmBlock struct {

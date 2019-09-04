@@ -88,7 +88,7 @@ func (p *Pacemaker) packQuorumCert(blk *block.Block, qc *pmQuorumCert) error {
 	return nil
 }
 
-func (p *Pacemaker) BuildProposalMessage(height, round uint64, bnew *pmBlock) (*PMProposalMessage, error) {
+func (p *Pacemaker) BuildProposalMessage(height, round uint64, bnew *pmBlock, tc *PMTimeoutCert) (*PMProposalMessage, error) {
 	blockBytes := bnew.ProposedBlock
 
 	cmnHdr := ConsensusMsgCommonHeader{
@@ -120,6 +120,8 @@ func (p *Pacemaker) BuildProposalMessage(height, round uint64, bnew *pmBlock) (*
 		ProposedSize:      len(blockBytes),
 		ProposedBlock:     blockBytes,
 		ProposedBlockType: bnew.ProposedBlockType,
+
+		TimeoutCert: tc,
 	}
 
 	// sign message

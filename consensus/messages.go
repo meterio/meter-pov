@@ -324,8 +324,7 @@ type PMProposalMessage struct {
 	ProposedBlock     []byte
 	ProposedBlockType BlockType
 
-	PeerTimeoutBitArray *cmn.BitArray
-	PeerTimeoutAggSig   [][]byte
+	TimeoutCert *PMTimeoutCert
 }
 
 // SigningHash computes hash of all header fields excluding signature.
@@ -351,6 +350,8 @@ func (m *PMProposalMessage) SigningHash() (hash meter.Bytes32) {
 		m.ProposedSize,
 		m.ProposedBlock,
 		m.ProposedBlockType,
+
+		m.TimeoutCert,
 	})
 	hw.Sum(hash[:0])
 	return
