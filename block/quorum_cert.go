@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 
+	cmn "github.com/dfinlab/meter/libs/common"
 	"github.com/ethereum/go-ethereum/rlp"
 )
 
@@ -12,10 +13,11 @@ type QuorumCert struct {
 	QCRound  uint64
 	EpochID  uint64
 
-	VoterSig     [][]byte   // [] of serialized bls signature
-	VoterMsgHash [][32]byte // [][32]byte
-	// VoterBitArray *cmn.BitArray
-	VoterAggSig []byte
+	VoterBitArray    *cmn.BitArray
+	VoterBitArrayStr string
+	VoterSig         [][]byte   // [] of serialized bls signature
+	VoterMsgHash     [][32]byte // [][32]byte
+	VoterAggSig      []byte
 }
 
 func (qc *QuorumCert) String() string {
@@ -32,12 +34,10 @@ func (qc *QuorumCert) ToBytes() []byte {
 
 // EncodeRLP implements rlp.Encoder.
 func (qc *QuorumCert) EncodeRLP(w io.Writer) error {
-	/*
-		bitArrayStr := "nil-BitArray"
-		if qc.VoterBitArray != nil {
-			bitArrayStr = qc.VoterBitArray.String()
-		}
-	*/
+	qc.VoterBitArrayStr = "nil-BitArray"
+	if qc.VoterBitArray != nil {
+		qc.VoterBitArrayStr = qc.VoterBitArray.String()
+	}
 	return rlp.Encode(w, []interface{}{
 		qc.QCHeight,
 		qc.QCRound,
@@ -45,20 +45,20 @@ func (qc *QuorumCert) EncodeRLP(w io.Writer) error {
 		qc.VoterMsgHash,
 		qc.VoterSig,
 		qc.VoterAggSig,
-		// bitArrayStr,
+		qc.VoterBitArrayStr,
 	})
 }
 
 // DecodeRLP implements rlp.Decoder.
 func (qc *QuorumCert) DecodeRLP(s *rlp.Stream) error {
 	payload := struct {
-		QCHeight     uint64
-		QCRound      uint64
-		EpochID      uint64
-		VoterMsgHash [][32]byte
-		VoterSig     [][]byte
-		VoterAggSig  []byte
-		// bitArrayStr  string
+		QCHeight         uint64
+		QCRound          uint64
+		EpochID          uint64
+		VoterMsgHash     [][32]byte
+		VoterSig         [][]byte
+		VoterAggSig      []byte
+		VoterBitArrayStr string
 	}{}
 
 	if err := s.Decode(&payload); err != nil {
@@ -66,35 +66,34 @@ func (qc *QuorumCert) DecodeRLP(s *rlp.Stream) error {
 	}
 
 	// decode BitArray
-	/*
-		var bitArray *cmn.BitArray
-		if payload.bitArrayStr == "nil-BitArray" {
-			bitArray = nil
-		} else {
-			n := len(payload.bitArrayStr)
-			bitArray = cmn.NewBitArray(n)
-			for i := 0; i < n; i++ {
-				if payload.bitArrayStr[i] == 'x' {
-					bitArray.SetIndex(i, true)
-				}
+	var bitArray *cmn.BitArray
+	if payload.VoterBitArrayStr == "nil-BitArray" {
+		bitArray = nil
+	} else {
+		n := len(payload.VoterBitArrayStr)
+		bitArray = cmn.NewBitArray(n)
+		for i := 0; i < n; i++ {
+			if payload.VoterBitArrayStr[i] == 'x' {
+				bitArray.SetIndex(i, true)
 			}
 		}
-	*/
+	}
 
 	*qc = QuorumCert{
-		QCHeight:     payload.QCHeight,
-		QCRound:      payload.QCRound,
-		EpochID:      payload.EpochID,
-		VoterMsgHash: payload.VoterMsgHash,
-		VoterSig:     payload.VoterSig,
-		VoterAggSig:  payload.VoterAggSig,
-		// VoterBitArray: bitArray,
+		QCHeight:         payload.QCHeight,
+		QCRound:          payload.QCRound,
+		EpochID:          payload.EpochID,
+		VoterMsgHash:     payload.VoterMsgHash,
+		VoterSig:         payload.VoterSig,
+		VoterAggSig:      payload.VoterAggSig,
+		VoterBitArray:    bitArray,
+		VoterBitArrayStr: payload.VoterBitArrayStr,
 	}
 	return nil
 }
 
 func GenesisQC() *QuorumCert {
-	return &QuorumCert{QCHeight: 0, QCRound: 0}
+	return &QuorumCert{QCHeight: 0, QCRound: 0, EpochID: 0}
 }
 
 //--------------
