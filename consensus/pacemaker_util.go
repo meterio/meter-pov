@@ -32,7 +32,7 @@ func (p *Pacemaker) IsExtendedFromBLocked(b *pmBlock) bool {
 
 // find out b b' b"
 func (p *Pacemaker) AddressBlock(height uint64, round uint64) *pmBlock {
-	if (p.proposalMap[height] != nil) && (p.proposalMap[height].Height == height) && (p.proposalMap[height].Round == round) {
+	if (p.proposalMap[height] != nil) && (p.proposalMap[height].Height == height) {
 		//p.csReactor.logger.Debug("Addressed block", "height", height, "round", round)
 		return p.proposalMap[height]
 	}
@@ -206,16 +206,17 @@ func (p *Pacemaker) generateNewQCNode(b *pmBlock) (*pmQuorumCert, error) {
 	aggSig := p.csReactor.csCommon.AggregateSign(sigs)
 	aggSigBytes := p.csReactor.csCommon.system.SigToBytes(aggSig)
 
+	voterBitArrayStr, _ := p.voterBitArray.MarshalJSON()
 	return &pmQuorumCert{
 		QCNode: b,
 
 		QC: &block.QuorumCert{
-			QCHeight:      b.Height,
-			QCRound:       b.Round,
-			EpochID:       p.csReactor.curEpoch,
-			VoterBitArray: p.voterBitArray,
-			VoterMsgHash:  msgHashes,
-			VoterAggSig:   aggSigBytes,
+			QCHeight:         b.Height,
+			QCRound:          b.Round,
+			EpochID:          p.csReactor.curEpoch,
+			VoterBitArrayStr: string(voterBitArrayStr),
+			VoterMsgHash:     msgHashes,
+			VoterAggSig:      aggSigBytes,
 		},
 
 		VoterSig: sigBytes,

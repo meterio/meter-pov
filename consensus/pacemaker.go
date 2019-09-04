@@ -367,9 +367,7 @@ func (p *Pacemaker) OnReceiveVote(voteMsg *PMVoteForProposalMessage) error {
 
 func (p *Pacemaker) OnPropose(b *pmBlock, qc *pmQuorumCert, height uint64, round uint64) *pmBlock {
 	// clean signature cache
-	committeeSize := p.csReactor.committeeSize
-	fmt.Println("COMMITTEE SIZE: ", committeeSize)
-	p.voterBitArray = cmn.NewBitArray(committeeSize)
+	p.voterBitArray = cmn.NewBitArray(p.csReactor.committeeSize)
 	p.voteSigs = make([]*PMSignature, 0)
 
 	bnew := p.CreateLeaf(b, qc, height, round)
