@@ -13,17 +13,14 @@ type QuorumCert struct {
 	QCRound  uint64
 	EpochID  uint64
 
-	VoterBitArray    *cmn.BitArray
 	VoterBitArrayStr string
 	VoterMsgHash     [][32]byte // [][32]byte
 	VoterAggSig      []byte
+
+	voterBitArray *cmn.BitArray
 }
 
 func (qc *QuorumCert) String() string {
-	qc.VoterBitArrayStr = "nil-BitArray"
-	if qc.VoterBitArray != nil {
-		qc.VoterBitArrayStr = qc.VoterBitArray.String()
-	}
 	if qc != nil {
 		return fmt.Sprintf("QuorumCert(Height:%v, Round:%v, EpochID:%v, VoterBitArray:%v, len(VoterMsgHash):%v, len(VoterAggSig):%v)",
 			qc.QCHeight, qc.QCRound, qc.EpochID, qc.VoterBitArrayStr, len(qc.VoterMsgHash), len(qc.VoterAggSig))
@@ -32,10 +29,6 @@ func (qc *QuorumCert) String() string {
 }
 
 func (qc *QuorumCert) CompactString() string {
-	qc.VoterBitArrayStr = "nil-BitArray"
-	if qc.VoterBitArray != nil {
-		qc.VoterBitArrayStr = qc.VoterBitArray.String()
-	}
 	if qc != nil {
 		hasAggSig := "no"
 		if len(qc.VoterAggSig) > 0 {
@@ -54,10 +47,6 @@ func (qc *QuorumCert) ToBytes() []byte {
 
 // EncodeRLP implements rlp.Encoder.
 func (qc *QuorumCert) EncodeRLP(w io.Writer) error {
-	qc.VoterBitArrayStr = "nil-BitArray"
-	if qc.VoterBitArray != nil {
-		qc.VoterBitArrayStr = qc.VoterBitArray.String()
-	}
 	return rlp.Encode(w, []interface{}{
 		qc.QCHeight,
 		qc.QCRound,
@@ -83,30 +72,24 @@ func (qc *QuorumCert) DecodeRLP(s *rlp.Stream) error {
 		return err
 	}
 
-	// decode BitArray
-	var bitArray *cmn.BitArray
-	if payload.VoterBitArrayStr == "nil-BitArray" {
-		bitArray = nil
-	} else {
-		n := len(payload.VoterBitArrayStr)
-		bitArray = cmn.NewBitArray(n)
-		for i := 0; i < n; i++ {
-			if payload.VoterBitArrayStr[i] == 'x' {
-				bitArray.SetIndex(i, true)
-			}
-		}
-	}
-
 	*qc = QuorumCert{
 		QCHeight:         payload.QCHeight,
 		QCRound:          payload.QCRound,
 		EpochID:          payload.EpochID,
 		VoterMsgHash:     payload.VoterMsgHash,
 		VoterAggSig:      payload.VoterAggSig,
-		VoterBitArray:    bitArray,
 		VoterBitArrayStr: payload.VoterBitArrayStr,
 	}
 	return nil
+}
+
+func (qc *QuorumCert) VoterBitArray() *cmn.BitArray {
+	bitArray := &cmn.BitArray{}
+	err := bitArray.UnmarshalJSON([]byte(qc.VoterBitArrayStr))
+	if err != nil {
+		return nil
+	}
+	return bitArray
 }
 
 func GenesisQC() *QuorumCert {
