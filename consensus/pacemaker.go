@@ -310,10 +310,10 @@ func (p *Pacemaker) OnReceiveProposal(proposalMsg *PMProposalMessage) error {
 		msg, _ := p.BuildVoteForProposalMessage(proposalMsg)
 		// send vote message to leader
 		// added for test
-		if round < 5 || round > 6 {
-			p.SendConsensusMessage(uint64(proposalMsg.CSMsgCommonHeader.Round), msg, false)
-			p.lastVotingHeight = bnew.Height
-		}
+		// if round < 5 || round > 6 {
+		p.SendConsensusMessage(uint64(proposalMsg.CSMsgCommonHeader.Round), msg, false)
+		p.lastVotingHeight = bnew.Height
+		// }
 
 		p.startRoundTimer(bnew.Height, bnew.Round, 0)
 	}
