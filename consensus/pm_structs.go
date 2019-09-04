@@ -19,6 +19,17 @@ const (
 	RoundTimeout NewViewReason = NewViewReason(2)
 )
 
+func (r NewViewReason) String() string {
+	switch r {
+	case HigherQCSeen:
+		return "HigherQCSeen"
+	case RoundTimeout:
+		return "RoundTimeout"
+	default:
+		return ""
+	}
+}
+
 // PMRoundState is the const state for pacemaker state machine
 type PMRoundState byte
 
@@ -32,27 +43,36 @@ const (
 )
 
 // TimeoutCert
-type TimeoutCert struct {
-	TimeoutRound     uint64
-	TimeoutHeight    uint64
-	TimeoutCounter   uint32
-	TimeoutSignature []byte
+type PMTimeoutCert struct {
+	TimeoutRound   uint64
+	TimeoutHeight  uint64
+	TimeoutCounter uint32
+
+	TimeoutBitArray *cmn.BitArray
+	TimeoutAggSig   []byte
 }
 
-func newTimeoutCert(height, round uint64, counter uint32) *TimeoutCert {
-	return &TimeoutCert{
+func newPMTimeoutCert(height, round uint64, counter uint32, committeeSize int) *PMTimeoutCert {
+
+	return &PMTimeoutCert{
 		TimeoutRound:   round,
 		TimeoutHeight:  height,
 		TimeoutCounter: counter,
+
+		TimeoutBitArray: cmn.NewBitArray(committeeSize),
+		TimeoutAggSig:   make([]byte, 0),
 	}
 }
 
-func (tc *TimeoutCert) SigningHash() (hash meter.Bytes32) {
+func (tc *PMTimeoutCert) SigningHash() (hash meter.Bytes32) {
 	hw := meter.NewBlake2b()
 	rlp.Encode(hw, []interface{}{
 		tc.TimeoutRound,
 		tc.TimeoutHeight,
 		tc.TimeoutCounter,
+
+		tc.TimeoutBitArray.String(),
+		tc.TimeoutAggSig,
 	})
 	hw.Sum(hash[:0])
 	return
@@ -80,46 +100,38 @@ type pmBlock struct {
 func (pb *pmBlock) ToString() string {
 	if pb.Parent != nil {
 		return fmt.Sprintf("PMBlock(Height: %v, Round: %v, QCHeight: %v, QCRound: %v, ParentHeight: %v, ParentRound: %v)",
-			pb.Height, pb.Round, pb.Justify.QCHeight, pb.Justify.QCRound, pb.Parent.Height, pb.Parent.Round)
+			pb.Height, pb.Round, pb.Justify.QC.QCHeight, pb.Justify.QC.QCRound, pb.Parent.Height, pb.Parent.Round)
 	} else {
 		return fmt.Sprintf("PMBlock(Height: %v, Round: %v, QCHeight: %v, QCRound: %v)",
-			pb.Height, pb.Round, pb.Justify.QCHeight, pb.Justify.QCRound)
+			pb.Height, pb.Round, pb.Justify.QC.QCHeight, pb.Justify.QC.QCRound)
 	}
 }
 
 // Definition for pmQuorumCert
 type pmQuorumCert struct {
 	//QCHieght/QCround must be the same with QCNode.Height/QCnode.Round
-	QCHeight uint64
-	QCRound  uint64
-	QCNode   *pmBlock
+	QCNode *pmBlock
+	QC     *block.QuorumCert
 
-	//signature data , slice signature and public key must be match
-	VoterBitArray *cmn.BitArray
-	VoterSig      [][]byte
-	VoterPubKey   []bls.PublicKey
-	VoterMsgHash  [][32]byte
-	VoterAggSig   []byte
-	VoterNum      uint32
+	// temporary data
+	VoterPubKey []bls.PublicKey
+	VoterSig    [][]byte
+	VoterNum    uint32
 }
 
 func newPMQuorumCert(qc *block.QuorumCert, qcNode *pmBlock) *pmQuorumCert {
 	return &pmQuorumCert{
-		QCHeight: qc.QCHeight,
-		QCRound:  qc.QCRound,
-		QCNode:   qcNode,
+		QCNode: qcNode,
 
-		VoterMsgHash: qc.VoterMsgHash,
-		VoterSig:     qc.VoterSig,
-		VoterAggSig:  qc.VoterAggSig,
+		QC: qc,
 	}
 }
 
 func (qc *pmQuorumCert) ToString() string {
 	if qc.QCNode != nil {
-		return fmt.Sprintf("QuorumCert(QCHeight: %v, QCRound: %v, qcNodeHeight: %v, qcNodeRound: %v)", qc.QCHeight, qc.QCRound, qc.QCNode.Height, qc.QCNode.Round)
+		return fmt.Sprintf("QuorumCert(QCHeight: %v, QCRound: %v, qcNodeHeight: %v, qcNodeRound: %v)", qc.QC.QCHeight, qc.QC.QCRound, qc.QCNode.Height, qc.QCNode.Round)
 	} else {
-		return fmt.Sprintf("QuorumCert(QCHeight: %v, QCRound: %v, qcNode: nil)", qc.QCHeight, qc.QCRound)
+		return fmt.Sprintf("QuorumCert(QCHeight: %v, QCRound: %v, qcNode: nil)", qc.QC.QCHeight, qc.QC.QCRound)
 	}
 }
 
