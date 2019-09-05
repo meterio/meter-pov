@@ -364,8 +364,7 @@ func startAPIServer(ctx *cli.Context, handler http.Handler, genesisID meter.Byte
 }
 
 func startPowAPIServer(ctx *cli.Context, handler http.Handler) (string, func()) {
-	//addr := "localhost:8668" //ctx.String(apiAddrFlag.Name)
-	addr := "0.0.0.0:8668" //ctx.String(apiAddrFlag.Name)
+	addr := "localhost:8668" //ctx.String(apiAddrFlag.Name)
 	listener, err := net.Listen("tcp", addr)
 	if err != nil {
 		fatal(fmt.Sprintf("listen API addr [%v]: %v", addr, err))
