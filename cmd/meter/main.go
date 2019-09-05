@@ -25,7 +25,7 @@ import (
 	"github.com/dfinlab/meter/meter"
 	"github.com/dfinlab/meter/powpool"
 	pow_api "github.com/dfinlab/meter/powpool/api"
-	"github.com/dfinlab/meter/staking"
+	"github.com/dfinlab/meter/script/staking"
 	"github.com/dfinlab/meter/state"
 	"github.com/dfinlab/meter/txpool"
 	"github.com/ethereum/go-ethereum/accounts/keystore"
