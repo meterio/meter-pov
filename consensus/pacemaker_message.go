@@ -97,7 +97,9 @@ func (p *Pacemaker) BuildProposalMessage(height, round uint64, bnew *pmBlock, tc
 		Sender:    crypto.FromECDSAPub(&p.csReactor.myPubKey),
 		Timestamp: time.Now(),
 		MsgType:   CONSENSUS_MSG_PROPOSAL_BLOCK,
-		EpochID:   p.csReactor.curEpoch,
+
+		// MsgSubType: msgSubType,
+		EpochID: p.csReactor.curEpoch,
 	}
 
 	parentHeight := uint64(0)
