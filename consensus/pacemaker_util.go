@@ -246,3 +246,11 @@ func (p *Pacemaker) collectVoteSignature(voteMsg *PMVoteForProposalMessage) erro
 	// ignore the signatures if the round doesn't match
 	return nil
 }
+
+func (p *Pacemaker) verifyTimeoutCert(tc *PMTimeoutCert, height, round uint64) bool {
+	if tc != nil {
+		//FIXME: check timeout cert
+		return tc.TimeoutHeight == height && tc.TimeoutRound < round
+	}
+	return false
+}

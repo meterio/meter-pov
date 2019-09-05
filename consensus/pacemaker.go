@@ -281,9 +281,11 @@ func (p *Pacemaker) OnReceiveProposal(proposalMsg *PMProposalMessage) error {
 		}
 	}
 
+	tc := proposalMsg.TimeoutCert
+	validTimeout := p.verifyTimeoutCert(tc, height, round)
 	bnew := p.proposalMap[height]
-	if (bnew.Height > p.lastVotingHeight) &&
-		(p.IsExtendedFromBLocked(bnew) || bnew.Justify.QC.QCHeight > p.blockLocked.Height) {
+	if ((bnew.Height > p.lastVotingHeight) &&
+		(p.IsExtendedFromBLocked(bnew) || bnew.Justify.QC.QCHeight > p.blockLocked.Height)) || (validTimeout) {
 		//TODO: compare with my expected round
 		p.stopRoundTimer()
 
@@ -477,6 +479,8 @@ func (p *Pacemaker) OnReceiveNewView(newViewMsg *PMNewViewMessage) error {
 			p.timeoutCert = p.timeoutCertManager.getTimeoutCert(newViewMsg.TimeoutHeight, newViewMsg.TimeoutRound)
 		}
 	}
+
+	p.timeoutCertManager.cleanup(newViewMsg.TimeoutHeight, newViewMsg.TimeoutRound)
 
 	// TODO: what if the qchigh is not changed, but I'm the proposer for the next round?
 	if changed {

@@ -116,3 +116,14 @@ func (tm *PMTimeoutCertManager) getTimeoutCert(height, round uint64) *PMTimeoutC
 		TimeoutAggSig:   aggSigBytes,
 	}
 }
+
+func (tm *PMTimeoutCertManager) cleanup(height, round uint64) error {
+	tm.Lock()
+	defer tm.Unlock()
+	for k, _ := range tm.cache {
+		if k.Height <= height || k.Round <= k.Round {
+			delete(tm.cache, k)
+		}
+	}
+	return nil
+}
