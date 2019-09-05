@@ -15,32 +15,20 @@ const (
 
 const ()
 
-var (
-	StakingGlobInst *Staking
-)
-
 // Candidate indicates the structure of a candidate
 type Staking struct {
+	script       *script.ScriptEngine
 	chain        *chain.Chain
 	stateCreator *state.Creator
 	logger       log15.Logger
 }
 
-// Glob Instance
-func GetStakingGlobInst() *Staking {
-	return StakingGlobInst
-}
-
-func SetStakingGlobInst(inst *Staking) {
-	StakingGlobInst = inst
-}
-
-func NewStaking(chain *chain.Chain, state *state.Creator) *Staking {
+func NewStaking(script *script.ScriptEngine) *Staking {
 	staking := &Staking{
-		chain:        chain,
-		stateCreator: state,
+		script:       script,
+		chain:        script.chain,
+		stateCreator: script.state,
 		logger:       log15.New("pkg", "staking"),
 	}
-	SetStakingGlobInst(staking)
 	return staking
 }

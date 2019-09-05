@@ -1,8 +1,6 @@
 package script
 
-import (
-    "math/big"
-)
+import ()
 
 // Builder is used to build an action.
 type Builder struct {
@@ -12,115 +10,37 @@ type Builder struct {
 
 // SetVersion sets action's version.
 func (b *Builder) SetVersion(v uint32) *Builder {
-    b.act.version = v
+    b.Header.Version = v
     return b
 }
 
 // SetNonce sets action's nonce.
-func (b *Builder) SetNonce(n uint64) *Builder {
-    b.act.nonce = n
+func (b *Builder) SetPattern(pa [4]byte) *Builder {
+    b.Header.Pattern = pa
     return b
 }
 
-// SetSourcePublicKey sets action's source's public key.
-func (b *Builder) SetSourcePublicKey(key crypto.PublicKey) *Builder {
-    b.act.srcPubkey = key
-    return b
-}
-
-// SetGasLimit sets action's gas limit.
-func (b *Builder) SetGasLimit(l uint64) *Builder {
-    b.act.gasLimit = l
-    return b
-}
-
-// SetGasPrice sets action's gas price.
-func (b *Builder) SetGasPrice(p *big.Int) *Builder {
-    if p == nil {
-        return b
-    }
-    b.act.gasPrice = &big.Int{}
-    b.act.gasPrice.Set(p)
-    return b
-}
-
-// SetGasPriceByBytes sets action's gas price from a byte slice source.
-func (b *Builder) SetGasPriceByBytes(buf []byte) *Builder {
-    if len(buf) == 0 {
-        return b
-    }
-    b.act.gasPrice = &big.Int{}
-    b.act.gasPrice.SetBytes(buf)
-    return b
-}
-
-// Build builds a new action.
-func (b *Builder) Build() AbstractAction {
-    if b.act.gasPrice == nil {
-        b.act.gasPrice = big.NewInt(0)
-    }
-    if b.act.version == 0 {
-        b.act.version = version.ProtocolVersion
-    }
-    return b.act
-}
-
-// EnvelopeBuilder is the builder to build Envelope.
-type EnvelopeBuilder struct {
-    elp Envelope
-}
-
-// SetVersion sets action's version.
-func (b *EnvelopeBuilder) SetVersion(v uint32) *EnvelopeBuilder {
-    b.elp.version = v
-    return b
-}
-
-// SetNonce sets action's nonce.
-func (b *EnvelopeBuilder) SetNonce(n uint64) *EnvelopeBuilder {
-    b.elp.nonce = n
+func (b *Builder) SetModID(id uint32) *Builder {
+    b.Header.ModID = id
     return b
 }
 
 // SetGasLimit sets action's gas limit.
-func (b *EnvelopeBuilder) SetGasLimit(l uint64) *EnvelopeBuilder {
-    b.elp.gasLimit = l
+func (b *Builder) SetPayLoadLen(l uint32) *Builder {
+    b.Header.PayloadLen = l
     return b
 }
 
 // SetGasPrice sets action's gas price.
-func (b *EnvelopeBuilder) SetGasPrice(p *big.Int) *EnvelopeBuilder {
-    if p == nil {
-        return b
-    }
-    b.elp.gasPrice = &big.Int{}
-    b.elp.gasPrice.Set(p)
+func (b *Builder) SetPayload(p []byte) *Builder {
+    b.Payload = p
     return b
 }
 
-// SetGasPriceByBytes sets action's gas price from a byte slice source.
-func (b *EnvelopeBuilder) SetGasPriceByBytes(buf []byte) *EnvelopeBuilder {
-    if len(buf) == 0 {
-        return b
+// Build build a block object.
+func (b *Builder) Build() *Script {
+    return &Script{
+        Header:  b.Header,
+        Payload: b.Payload,
     }
-    b.elp.gasPrice = &big.Int{}
-    b.elp.gasPrice.SetBytes(buf)
-    return b
-}
-
-// SetAction sets the action payload for the Envelope Builder is building.
-func (b *EnvelopeBuilder) SetAction(action actionPayload) *EnvelopeBuilder {
-    b.elp.payload = action
-    return b
-}
-
-// Build builds a new action.
-func (b *EnvelopeBuilder) Build() Envelope {
-    if b.elp.gasPrice == nil {
-        b.elp.gasPrice = big.NewInt(0)
-    }
-    if b.elp.version == 0 {
-        b.elp.version = version.ProtocolVersion
-    }
-    return b.elp
 }

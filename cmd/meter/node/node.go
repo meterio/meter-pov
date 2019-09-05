@@ -23,6 +23,7 @@ import (
 	"github.com/dfinlab/meter/lvldb"
 	"github.com/dfinlab/meter/meter"
 	"github.com/dfinlab/meter/packer"
+	"github.com/dfinlab/meter/script"
 	"github.com/dfinlab/meter/state"
 	"github.com/dfinlab/meter/tx"
 	"github.com/dfinlab/meter/txpool"
@@ -50,6 +51,7 @@ type Node struct {
 	txPool      *txpool.TxPool
 	txStashPath string
 	comm        *comm.Communicator
+	script      *script.ScriptEngine
 	commitLock  sync.Mutex
 }
 
@@ -71,6 +73,7 @@ func New(
 	txStashPath string,
 	comm *comm.Communicator,
 	cons *consensus.ConsensusReactor,
+	script *script.ScriptEngine,
 ) *Node {
 	node := &Node{
 		packer:      packer.New(chain, stateCreator, master.Address(), master.Beneficiary),
@@ -81,6 +84,7 @@ func New(
 		txPool:      txPool,
 		txStashPath: txStashPath,
 		comm:        comm,
+		script:      script,
 	}
 	SetGlobNode(node)
 	return node

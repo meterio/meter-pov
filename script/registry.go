@@ -1,22 +1,24 @@
 package script
 
 import (
+        "errors"
+        "fmt"
         "sync"
 )
 
-// Registry is the hub of all protocols deployed on the chain
+// Registry is the hub of all modules on the chain
 type Module interface {
-        msgHdler
+        //msgHdler
 }
 
 type Registry struct {
-        modules sync.Map
+        Modules sync.Map
 }
 
 func (r *Registry) Register(id string, p Module) error {
-        _, loaded := r.moudles.LoadOrStore(id, p)
+        _, loaded := r.Modules.LoadOrStore(id, p)
         if loaded {
-                return errors.Errorf("Module with ID %s is already registered", id)
+                return errors.New(fmt.Sprintf("Module with ID %s is already registered", id))
         }
         return nil
 }
@@ -27,26 +29,25 @@ func (r *Registry) ForceRegister(id string, p Module) error {
         return nil
 }
 
-// Find finds a protocol by ID
+// Find  by ID
 func (r *Registry) Find(id string) (Module, bool) {
         value, ok := r.Modules.Load(id)
         if !ok {
                 return nil, false
         }
-        p, ok := value.(Moudle)
+        p, ok := value.(Module)
         if !ok {
-                log.S().Panic("Registry stores the item which is not a Module")
+                panic("Registry stores the item which is not a Module")
         }
         return p, true
 }
 
-// All returns all protocols
 func (r *Registry) All() []Module {
         all := make([]Module, 0)
-        r.protocols.Range(func(_, value interface{}) bool {
+        r.Modules.Range(func(_, value interface{}) bool {
                 p, ok := value.(Module)
                 if !ok {
-                        log.S().Panic("Registry stores the item which is not a module")
+                        panic("Registry stores the item which is not a module")
                 }
                 all = append(all, p)
                 return true
