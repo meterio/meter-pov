@@ -71,12 +71,11 @@ func (p *Pacemaker) packCommitteeInfo(blk *block.Block) error {
 	blk.SetParamsBytes(paramsBytes)
 	// fmt.Println("params: ", params)
 
-	// blk.SetCommitteeEpoch(conR.curEpoch)
-
 	// blk.SetBlockEvidence(ev)
 	committeeInfo = p.csReactor.MakeBlockCommitteeInfo(system, p.csReactor.curActualCommittee)
 	// fmt.Println("committee info: ", committeeInfo)
 	blk.SetCommitteeInfo(committeeInfo)
+	blk.SetCommitteeEpoch(p.csReactor.curEpoch)
 
 	//Fill new info into block, re-calc hash/signature
 	// blk.SetEvidenceDataHash(blk.EvidenceDataHash())
