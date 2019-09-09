@@ -287,7 +287,10 @@ func (p *Pacemaker) OnReceiveProposal(proposalMsg *PMProposalMessage) error {
 	if ((bnew.Height > p.lastVotingHeight) &&
 		(p.IsExtendedFromBLocked(bnew) || bnew.Justify.QC.QCHeight > p.blockLocked.Height)) || (validTimeout) {
 		//TODO: compare with my expected round
+
+		// new proposal received, reset the timer
 		p.stopRoundTimer()
+		p.startRoundTimer(bnew.Height, bnew.Round, 0)
 
 		if int(bnew.Round) > p.currentRound {
 			p.currentRound = int(bnew.Round)
@@ -312,8 +315,6 @@ func (p *Pacemaker) OnReceiveProposal(proposalMsg *PMProposalMessage) error {
 		p.SendConsensusMessage(uint64(proposalMsg.CSMsgCommonHeader.Round), msg, false)
 		p.lastVotingHeight = bnew.Height
 		// }
-
-		p.startRoundTimer(bnew.Height, bnew.Round, 0)
 	}
 
 	p.Update(bnew)
@@ -354,14 +355,13 @@ func (p *Pacemaker) OnReceiveVote(voteMsg *PMVoteForProposalMessage) error {
 	changed := p.UpdateQCHigh(qc)
 
 	if changed == true {
-		// stop timer if current proposal is approved
+		// the proposal is approved, start the timer before new view is sent
 		p.stopRoundTimer()
+		p.startRoundTimer(qc.QC.QCHeight+1, qc.QC.QCRound+1, 0)
 
 		// if QC is updated, relay it to the next proposer
 		p.OnNextSyncView(qc.QC.QCHeight+1, qc.QC.QCRound+1, HigherQCSeen, nil)
 
-		// start timer for next round
-		p.startRoundTimer(qc.QC.QCHeight+1, qc.QC.QCRound+1, 0)
 	}
 	return nil
 }
@@ -388,13 +388,6 @@ func (p *Pacemaker) OnPropose(b *pmBlock, qc *pmQuorumCert, height uint64, round
 
 	return bnew
 }
-
-// **************
-/****
-func (p *Pacemaker) GetProposer(height int64, round int) {
-	return
-}
-****/
 
 func (p *Pacemaker) UpdateQCHigh(qc *pmQuorumCert) bool {
 	updated := false
@@ -425,8 +418,10 @@ func (p *Pacemaker) OnBeat(height uint64, round uint64) error {
 	if p.csReactor.amIRoundProproser(round) {
 		p.csReactor.logger.Info("OnBeat: I am round proposer", "round", round)
 
-		// initiate the timer if I'm round proposer
+		// if I'm round proposer, start the timer
+		p.stopRoundTimer()
 		p.startRoundTimer(height, round, 0)
+
 		bleaf := p.OnPropose(p.blockLeaf, p.QCHigh, height, round)
 		if bleaf == nil {
 			return errors.New("propose failed")
@@ -659,7 +654,7 @@ func (p *Pacemaker) OnRoundTimeout(ti PMRoundTimeoutInfo) error {
 func (p *Pacemaker) startRoundTimer(height, round, counter uint64) {
 	if p.roundTimer == nil {
 		p.logger.Debug("Start round timer", "round", round, "counter", counter)
-		timeoutInterval := RoundTimeoutInterval * (2 << counter)
+		timeoutInterval := RoundTimeoutInterval * (1 << counter)
 		p.roundTimer = time.AfterFunc(timeoutInterval, func() {
 			p.roundTimeoutCh <- PMRoundTimeoutInfo{height, round, counter}
 		})
