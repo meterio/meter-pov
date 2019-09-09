@@ -13,22 +13,25 @@ const (
 	RESTAKING
 )
 
-const ()
-
 // Candidate indicates the structure of a candidate
 type Staking struct {
-	script       *script.ScriptEngine
 	chain        *chain.Chain
 	stateCreator *state.Creator
 	logger       log15.Logger
 }
 
-func NewStaking(script *script.ScriptEngine) *Staking {
+func NewStaking(ch *chain.Chain, sc *state.Creator) *Staking {
 	staking := &Staking{
-		script:       script,
-		chain:        script.chain,
-		stateCreator: script.state,
+		chain:        ch,
+		stateCreator: sc,
 		logger:       log15.New("pkg", "staking"),
 	}
 	return staking
 }
+
+func (s *Staking) Start() error {
+	s.logger.Info("staking module started")
+	return nil
+}
+
+func StakingHandler(msg []byte) error { return nil }

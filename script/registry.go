@@ -7,31 +7,37 @@ import (
 )
 
 // Registry is the hub of all modules on the chain
-type Module interface {
-        //msgHdler
+type Module struct {
+        modName    string
+        modID      uint32
+        modHandler interface{}
+}
+
+func (m *Module) ToString() string {
+        return fmt.Sprintf("Module::: Name: %v, ID: %v", m.modName, m.modID)
 }
 
 type Registry struct {
         Modules sync.Map
 }
 
-func (r *Registry) Register(id string, p Module) error {
-        _, loaded := r.Modules.LoadOrStore(id, p)
+func (r *Registry) Register(modID uint32, p *Module) error {
+        _, loaded := r.Modules.LoadOrStore(modID, *p)
         if loaded {
-                return errors.New(fmt.Sprintf("Module with ID %s is already registered", id))
+                return errors.New(fmt.Sprintf("Module with ID %s is already registered", modID))
         }
         return nil
 }
 
 // ForceRegister registers with a unique ID and force replacing the previous module if it exists
-func (r *Registry) ForceRegister(id string, p Module) error {
-        r.Modules.Store(id, p)
+func (r *Registry) ForceRegister(modID uint32, p *Module) error {
+        r.Modules.Store(modID, *p)
         return nil
 }
 
-// Find  by ID
-func (r *Registry) Find(id string) (Module, bool) {
-        value, ok := r.Modules.Load(id)
+// Find by ID
+func (r *Registry) Find(modID uint32) (*Module, bool) {
+        value, ok := r.Modules.Load(modID)
         if !ok {
                 return nil, false
         }
@@ -39,7 +45,7 @@ func (r *Registry) Find(id string) (Module, bool) {
         if !ok {
                 panic("Registry stores the item which is not a Module")
         }
-        return p, true
+        return &p, true
 }
 
 func (r *Registry) All() []Module {

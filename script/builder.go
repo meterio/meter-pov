@@ -25,12 +25,6 @@ func (b *Builder) SetModID(id uint32) *Builder {
     return b
 }
 
-// SetGasLimit sets action's gas limit.
-func (b *Builder) SetPayLoadLen(l uint32) *Builder {
-    b.Header.PayloadLen = l
-    return b
-}
-
 // SetGasPrice sets action's gas price.
 func (b *Builder) SetPayload(p []byte) *Builder {
     b.Payload = p

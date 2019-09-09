@@ -98,8 +98,6 @@ func NewCommitteeLeader(conR *ConsensusReactor) *ConsensusLeader {
 	cl.Nonce = conR.curNonce
 	cl.state = COMMITTEE_LEADER_INIT
 	cl.csReactor = conR
-
-	// create committee ID
 	cl.EpochID = conR.curEpoch
 
 	cl.announceVoterBitArray = cmn.NewBitArray(conR.committeeSize)
