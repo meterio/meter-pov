@@ -344,8 +344,8 @@ func (p *Pacemaker) OnReceiveVote(voteMsg *PMVoteForProposalMessage) error {
 		return err
 	}
 	voteCount := len(p.voteSigs)
-	//if MajorityTwoThird(voteCount, p.csReactor.committeeSize) == false {
-	if voteCount < p.csReactor.committeeSize {
+	if MajorityTwoThird(voteCount, p.csReactor.committeeSize) == false {
+		// if voteCount < p.csReactor.committeeSize {
 		// not reach 2/3
 		p.csReactor.logger.Info("not reach majority", "count", p.sigCounter[b.Round], "committeeSize", p.csReactor.committeeSize)
 		return nil
@@ -471,7 +471,8 @@ func (p *Pacemaker) OnReceiveNewView(newViewMsg *PMNewViewMessage) error {
 	if newViewMsg.Reason == RoundTimeout && p.csReactor.amIRoundProproser(uint64(newViewMsg.CSMsgCommonHeader.Round)) {
 		p.timeoutCertManager.collectSignature(newViewMsg)
 		timeoutCount := p.timeoutCertManager.count(newViewMsg.TimeoutHeight, newViewMsg.TimeoutRound)
-		if timeoutCount < p.csReactor.committeeSize {
+		if MajorityTwoThird(timeoutCount, p.csReactor.committeeSize) == false {
+			// if timeoutCount < p.csReactor.committeeSize {
 			p.logger.Info("not reaching majority on timeout", "height", newViewMsg.TimeoutHeight, "round", newViewMsg.TimeoutRound, "counter", newViewMsg.TimeoutCounter)
 		} else {
 			p.logger.Info("reaching majority on timeout", "height", newViewMsg.TimeoutHeight, "round", newViewMsg.TimeoutRound, "counter", newViewMsg.TimeoutCounter)
