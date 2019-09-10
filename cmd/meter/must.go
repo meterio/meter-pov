@@ -101,12 +101,17 @@ func makeInstanceDir(ctx *cli.Context, gene *genesis.Genesis) string {
 }
 
 func openMainDB(ctx *cli.Context, dataDir string) *lvldb.LevelDB {
+	if err := fdlimit.Raise(5120); err != nil {
+		fatal("failed to increase fd limit", err)
+	}
 	limit, err := fdlimit.Current()
 	if err != nil {
 		fatal("failed to get fd limit:", err)
 	}
 	if limit <= 1024 {
 		log.Warn("low fd limit, increase it if possible", "limit", limit)
+	} else {
+		log.Info("fd limit", "limit", limit)
 	}
 
 	fileCache := limit / 2

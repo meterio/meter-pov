@@ -3,6 +3,7 @@ package staking
 import (
 	"github.com/dfinlab/meter/chain"
 	"github.com/dfinlab/meter/state"
+	"github.com/dfinlab/meter/xenv"
 	"github.com/inconshreveable/log15"
 )
 
@@ -34,4 +35,6 @@ func (s *Staking) Start() error {
 	return nil
 }
 
-func StakingHandler(msg []byte) error { return nil }
+func StakingHandler(data []byte, txCtx *xenv.TransactionContext, gas uint64) (ret []byte, leftOverGas uint64, err error) {
+	return nil, gas, nil
+}
