@@ -268,8 +268,17 @@ func (p *Pacemaker) OnReceiveProposal(proposalMsg *PMProposalMessage) error {
 	// create justify node
 	justify := newPMQuorumCert(qc, qcNode)
 
-	// update the proposalMap only in these this scenario: not tracked and not proposed by me
 	proposedByMe := p.isMine(proposalMsg.ProposerID)
+
+	// timeout
+	tc := proposalMsg.TimeoutCert
+	validTimeout := p.verifyTimeoutCert(tc, height, round)
+	if !proposedByMe && validTimeout {
+		// revert the proposals if I'm not the round proposer and I received a proposal with a valid TC
+		p.revertTo(height)
+	}
+
+	// update the proposalMap only in these this scenario: not tracked and not proposed by me
 	if _, tracked := p.proposalMap[height]; !proposedByMe && !tracked {
 		p.proposalMap[height] = &pmBlock{
 			Height:            height,
@@ -281,8 +290,6 @@ func (p *Pacemaker) OnReceiveProposal(proposalMsg *PMProposalMessage) error {
 		}
 	}
 
-	tc := proposalMsg.TimeoutCert
-	validTimeout := p.verifyTimeoutCert(tc, height, round)
 	bnew := p.proposalMap[height]
 	if ((bnew.Height > p.lastVotingHeight) &&
 		(p.IsExtendedFromBLocked(bnew) || bnew.Justify.QC.QCHeight > p.blockLocked.Height)) || (validTimeout) {
@@ -439,9 +446,7 @@ func (p *Pacemaker) OnNextSyncView(nextHeight, nextRound uint64, reason NewViewR
 	if err != nil {
 		p.logger.Error("could not build new view message", "err", err)
 	}
-	if reason == RoundTimeout {
-		p.revertTo(nextHeight)
-	}
+
 	p.SendConsensusMessage(nextRound, msg, false)
 
 	return nil
@@ -671,12 +676,11 @@ func (p *Pacemaker) stopRoundTimer() {
 
 func (p *Pacemaker) revertTo(height uint64) {
 	for p.blockLeaf.Height > p.blockLocked.Height && p.blockLeaf.Height >= height {
-		// fmt.Println("leaf = " + p.blockLeaf.ToString())
-		// fmt.Println("parent = ", p.blockLeaf.Parent.ToString())
 		height := p.blockLeaf.Height
 		p.blockLeaf = p.blockLeaf.Parent
+		p.logger.Warn("Deleted from proposalMap:", "block", p.blockLeaf.ToString())
 		delete(p.proposalMap, height)
 		// FIXME: remove precommited block and release tx
 	}
-	p.logger.Info("Reverted !!!", "height", height, "B-leaf height", p.blockLeaf.Height)
+	p.logger.Info("Reverted !!!", "current B-leaf height", p.blockLeaf.Height)
 }
