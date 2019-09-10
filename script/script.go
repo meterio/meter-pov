@@ -1,10 +1,12 @@
 package script
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"github.com/dfinlab/meter/chain"
 	"github.com/dfinlab/meter/state"
+	"github.com/dfinlab/meter/xenv"
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/inconshreveable/log15"
 )
@@ -48,7 +50,40 @@ func (se *ScriptEngine) StartAllModules() {
 	ModuleStakingInit(se)
 }
 
+func (se *ScriptEngine) HandleScriptData(data []byte, txCtx *xenv.TransactionContext, gas uint64) (ret []byte, leftOverGas uint64, err error) {
+	se.logger.Info("received script data", "txCtx", txCtx, "gas", gas)
+	script, err := ScriptDecodeFromBytes(data)
+	if err != nil {
+		fmt.Println("Decode message failed", err)
+		return nil, gas, err
+	}
+
+	header := script.Header
+	fmt.Println(header.ToString())
+	if bytes.Compare(header.Pattern[:], ScriptPattern[:]) != 0 {
+		err := errors.New(fmt.Sprintf("Pattern mismatch, pattern = %v", header.Pattern))
+		fmt.Println(err)
+		return nil, gas, err
+	}
+
+	mod, find := se.modReg.Find(header.GetModID())
+	if find == false {
+		err := errors.New(fmt.Sprintf("could not address module", "modeID", header.GetModID()))
+		fmt.Println(err)
+		return nil, gas, err
+	}
+
+	fmt.Println(mod.ToString())
+	//module handler
+	//mod.modHandler(script.Payload)
+	return nil, gas, err
+}
+
 //======================
+var (
+	ScriptPattern = [4]byte{0xde, 0xad, 0xbe, 0xef} //pattern: deadbeef
+)
+
 type ScriptHeader struct {
 	Pattern [4]byte
 	Version uint32
@@ -77,31 +112,4 @@ func ScriptDecodeFromBytes(bytes []byte) (*Script, error) {
 	script := Script{}
 	err := rlp.DecodeBytes(bytes, &script)
 	return &script, err
-}
-
-func HandleScriptData(data []byte) error {
-	script, err := ScriptDecodeFromBytes(data)
-	if err != nil {
-		fmt.Println("Decode message failed", err)
-		return err
-	}
-
-	se := ScriptGlobInst
-	if se == nil {
-		return errors.New(fmt.Sprintf("script engine is not initialized yet"))
-	}
-
-	header := script.Header
-	fmt.Println(header.ToString())
-	mod, find := se.modReg.Find(header.GetModID())
-	if find == false {
-		err := errors.New(fmt.Sprintf("could not address module", "modeID", header.GetModID()))
-		fmt.Println(err)
-		return err
-	}
-
-	fmt.Println(mod.ToString())
-	//module handler
-	//mod.modHandler(script.Payload)
-	return nil
 }

@@ -3,9 +3,6 @@ package script
 import (
 	//"github.com/dfinlab/meter/chain"
 	"github.com/dfinlab/meter/script/staking"
-	//"github.com/dfinlab/meter/state"
-	//"github.com/ethereum/go-ethereum/rlp"
-	//"github.com/inconshreveable/log15"
 )
 
 const (

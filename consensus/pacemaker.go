@@ -593,7 +593,6 @@ func (p *Pacemaker) mainLoop() {
 		if err != nil {
 			p.logger.Error("Error during handling ", "err", err)
 		}
-
 	}
 }
 

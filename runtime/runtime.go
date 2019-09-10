@@ -15,6 +15,7 @@ import (
 	"github.com/dfinlab/meter/chain"
 	"github.com/dfinlab/meter/meter"
 	"github.com/dfinlab/meter/runtime/statedb"
+	"github.com/dfinlab/meter/script"
 	"github.com/dfinlab/meter/state"
 	"github.com/dfinlab/meter/tx"
 	Tx "github.com/dfinlab/meter/tx"
@@ -30,6 +31,7 @@ var (
 	energyTransferEvent     *abi.Event
 	prototypeSetMasterEvent *abi.Event
 	nativeCallReturnGas     uint64 = 1562 // see test case for calculation
+	minScriptEngDataLen     int    = 16   //script engine data min size
 )
 
 func init() {
@@ -106,6 +108,9 @@ func New(
 func (rt *Runtime) Seeker() *chain.Seeker       { return rt.seeker }
 func (rt *Runtime) State() *state.State         { return rt.state }
 func (rt *Runtime) Context() *xenv.BlockContext { return rt.ctx }
+func (rt *Runtime) ScriptEngineCheck(d []byte) bool {
+	return (d[0] == 0xff) && (d[1] == 0xff) && (d[2] == 0xff) && (d[4] == 0xff)
+}
 
 // SetVMConfig config VM.
 // Returns this runtime.
@@ -122,7 +127,7 @@ func (rt *Runtime) newEVM(stateDB *statedb.StateDB, clauseIndex uint32, txCtx *x
 				if token == tx.TOKEN_METER_GOV {
 					return stateDB.GetBalance(addr).Cmp(amount) >= 0
 				} else /*if token == tx.TOKEN_METER*/ {
-					// XXX. Yang: add gas fee in comparasion
+					// XXX. add gas fee in comparasion
 					return stateDB.GetEnergy(addr).Cmp(amount) >= 0
 				}
 			} else {
@@ -136,7 +141,7 @@ func (rt *Runtime) newEVM(stateDB *statedb.StateDB, clauseIndex uint32, txCtx *x
 			}
 			// touch energy balance when token balance changed
 			// SHOULD be performed before transfer
-			// XXX: Yang with no interest of engery, the following touch is meaningless.
+			// XXX: with no interest of engery, the following touch is meaningless.
 			/**************
 			rt.state.SetEnergy(meter.Address(sender),
 				rt.state.GetEnergy(meter.Address(sender), rt.ctx.Time), rt.ctx.Time)
@@ -320,6 +325,28 @@ func (rt *Runtime) PrepareClause(
 	)
 
 	exec = func() (*Output, bool) {
+		// does not handle any transfer, it is a pure script running engine
+		if (clause.Value().Sign() == 0) && (len(clause.Data()) > minScriptEngDataLen) && rt.ScriptEngineCheck(clause.Data()) {
+			se := script.GetScriptGlobInst()
+			if se == nil {
+				fmt.Println("script engine is not initialized")
+				return nil, true
+			}
+			// exclude 4 bytes of clause data
+			data, leftOverGas, vmErr = se.HandleScriptData(clause.Data()[4:], txCtx, gas)
+			fmt.Println("scriptEngine handling return", data, leftOverGas, vmErr)
+
+			interrupted := false
+			output := &Output{
+				Data:            data,
+				LeftOverGas:     leftOverGas,
+				RefundGas:       stateDB.GetRefund(),
+				VMErr:           vmErr,
+				ContractAddress: contractAddr,
+			}
+			return output, interrupted
+		}
+
 		if clause.To() == nil {
 			var caddr common.Address
 			data, caddr, leftOverGas, vmErr = evm.Create(vm.AccountRef(txCtx.Origin), clause.Data(), gas, clause.Value(), clause.Token())
