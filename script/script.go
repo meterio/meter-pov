@@ -54,7 +54,7 @@ func (se *ScriptEngine) HandleScriptData(data []byte, txCtx *xenv.TransactionCon
 	se.logger.Info("received script data", "txCtx", txCtx, "gas", gas)
 	script, err := ScriptDecodeFromBytes(data)
 	if err != nil {
-		fmt.Println("Decode message failed", err)
+		fmt.Println("Decode script message failed", err)
 		return nil, gas, err
 	}
 
@@ -75,7 +75,7 @@ func (se *ScriptEngine) HandleScriptData(data []byte, txCtx *xenv.TransactionCon
 
 	fmt.Println(mod.ToString())
 	//module handler
-	//mod.modHandler(script.Payload)
+	fmt.Println("HandleScriptData", "moHandler", mod.modHandler)
 	return nil, gas, err
 }
 
