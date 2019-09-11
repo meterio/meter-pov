@@ -170,8 +170,7 @@ func (cl *ConsensusLeader) GenerateAnnounceMsg() bool {
 	announceExpire := func() {
 		cl.csReactor.logger.Warn("reach 2/3 votes of announce expired ...", "comitteeSize", cl.csReactor.committeeSize, "totalComitter", cl.announceVoterNum)
 
-		//if cl.announceVoterNum >= (cl.csReactor.committeeSize*2/3) &
-		if MajorityTwoThird(cl.announceVoterNum, cl.csReactor.committeeSize) && cl.state == COMMITTEE_LEADER_ANNOUNCED {
+		if LeaderMajorityTwoThird(cl.announceVoterNum, cl.csReactor.committeeSize) && cl.state == COMMITTEE_LEADER_ANNOUNCED {
 
 			cl.csReactor.logger.Info("Committers reach 2/3 of Committee")
 
@@ -465,7 +464,7 @@ func (cl *ConsensusLeader) ProcessVoteNotaryAnnounce(vote4NotaryMsg *VoteForNota
 	cl.notaryVoterMsgHash = append(cl.notaryVoterMsgHash, msgHash)
 
 	// 3. if the totoal vote > 2/3, move to Commit state
-	if MajorityTwoThird(cl.notaryVoterNum, cl.csReactor.committeeSize) &&
+	if LeaderMajorityTwoThird(cl.notaryVoterNum, cl.csReactor.committeeSize) &&
 		cl.state == COMMITTEE_LEADER_NOTARYSENT {
 		//save all group info as meta data
 		cl.state = COMMITTEE_LEADER_COMMITED
@@ -591,7 +590,7 @@ func (cl *ConsensusLeader) ProcessNewCommitteeMessage(newCommitteeMsg *NewCommit
 	epochID := newCommitteeMsg.NewEpochID
 	cl.newCommitteeVoterNum++
 	// 3. if the totoal vote > 2/3, move to Commit state
-	if MajorityTwoThird(cl.newCommitteeVoterNum, cl.csReactor.committeeSize) {
+	if LeaderMajorityTwoThird(cl.newCommitteeVoterNum, cl.csReactor.committeeSize) {
 		cl.csReactor.logger.Debug("NewCommitteeMessage, 2/3 Majority reached", "Recvd", cl.newCommitteeVoterNum, "committeeSize", cl.csReactor.committeeSize)
 		cl.csReactor.ScheduleLeader(epochID, 1*time.Second)
 		// to avoid duplicate trigger

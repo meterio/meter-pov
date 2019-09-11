@@ -1471,12 +1471,33 @@ func MajorityTwoThird(voterNum, committeeSize int) bool {
 	// committeeSize= 5 twoThirds= 4
 	// committeeSize= 6 twoThirds= 4
 	twoThirds := math.Ceil(float64(committeeSize) * 2 / 3)
-
-	// for 2 nodes testing  ONLY
-	if committeeSize == 2 {
-		twoThirds = 1
+	if float64(voterNum) >= twoThirds {
+		return true
 	}
 
+	return false
+}
+
+// Easier adjust the logic of major 2/3
+func LeaderMajorityTwoThird(voterNum, committeeSize int) bool {
+	if (voterNum < 0) || (committeeSize < 1) {
+		fmt.Println("MajorityTwoThird, inputs out of range")
+		return false
+	}
+
+	// Examples
+	// committeeSize= 1 twoThirds= 1
+	// committeeSize= 2 twoThirds= 2   <====== 1
+	// committeeSize= 3 twoThirds= 2
+	// committeeSize= 4 twoThirds= 3
+	// committeeSize= 5 twoThirds= 4
+	// committeeSize= 6 twoThirds= 4
+	var twoThirds float64
+	if committeeSize == 2 {
+		twoThirds = 1
+	} else {
+		twoThirds = math.Ceil(float64(committeeSize) * 2 / 3)
+	}
 	if float64(voterNum) >= twoThirds {
 		return true
 	}
