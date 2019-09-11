@@ -1470,8 +1470,14 @@ func MajorityTwoThird(voterNum, committeeSize int) bool {
 	// committeeSize= 4 twoThirds= 3
 	// committeeSize= 5 twoThirds= 4
 	// committeeSize= 6 twoThirds= 4
-	twoThrids := math.Ceil(float64(committeeSize) * 2 / 3)
-	if float64(voterNum) >= twoThrids {
+	twoThirds := math.Ceil(float64(committeeSize) * 2 / 3)
+
+	// for 2 nodes testing  ONLY
+	if committeeSize == 2 {
+		twoThirds = 1
+	}
+
+	if float64(voterNum) >= twoThirds {
 		return true
 	}
 
