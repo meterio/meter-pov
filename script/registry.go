@@ -3,6 +3,7 @@ package script
 import (
     "errors"
     "fmt"
+    "github.com/dfinlab/meter/xenv"
     "sync"
 )
 
@@ -10,7 +11,7 @@ import (
 type Module struct {
     modName    string
     modID      uint32
-    modHandler interface{}
+    modHandler func(data []byte, txCtx *xenv.TransactionContext, gas uint64) (ret []byte, leftOverGas uint64, err error)
 }
 
 func (m *Module) ToString() string {

@@ -76,7 +76,9 @@ func (se *ScriptEngine) HandleScriptData(data []byte, txCtx *xenv.TransactionCon
 	fmt.Println(mod.ToString())
 	//module handler
 	fmt.Println("HandleScriptData", "moHandler", mod.modHandler)
-	return nil, gas, err
+	mod.modHandler = 
+	ret, leftOverGas, err = mod.modHandler(script.Payload, txCtx, gas)
+	return ret, leftOverGas, err
 }
 
 //======================

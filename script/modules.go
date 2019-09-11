@@ -19,7 +19,7 @@ func ModuleStakingInit(se *ScriptEngine) *staking.Staking {
 	mod := &Module{
 		modName:    STAKING_MODULE_NAME,
 		modID:      STAKING_MODULE_ID,
-		modHandler: staking.StakingHandler,
+		modHandler: stk.PrepareStakingHandler(),
 	}
 	if err := se.modReg.Register(STAKING_MODULE_ID, mod); err != nil {
 		panic("register staking module failed")
