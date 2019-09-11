@@ -6,6 +6,7 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
+	"math"
 	"sync"
 
 	//"errors"
@@ -1456,21 +1457,21 @@ func (conR *ConsensusReactor) ConsensusHandleReceivedNonce(kBlockHeight int64, n
 }
 
 // Easier adjust the logic of major 2/3
-// special case: committee with only one or two members
-// in this case, 2/3 is passed only when everyone voted.
-// assumption: everyone votes, including the proposer
 func MajorityTwoThird(voterNum, committeeSize int) bool {
 	if (voterNum < 0) || (committeeSize < 1) {
 		fmt.Println("MajorityTwoThird, inputs out of range")
 		return false
 	}
 
-	if voterNum >= (committeeSize * 2 / 3) {
-		return true
-	}
-
-	// for 1 or 2 nodes case
-	if (committeeSize <= 2) && (voterNum == committeeSize) {
+	// Examples
+	// committeeSize= 1 twoThirds= 1
+	// committeeSize= 2 twoThirds= 2
+	// committeeSize= 3 twoThirds= 2
+	// committeeSize= 4 twoThirds= 3
+	// committeeSize= 5 twoThirds= 4
+	// committeeSize= 6 twoThirds= 4
+	twoThrids := math.Ceil(float64(committeeSize) * 2 / 3)
+	if float64(voterNum) >= twoThrids {
 		return true
 	}
 

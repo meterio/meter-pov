@@ -122,6 +122,13 @@ func (tc *PMTimeoutCert) DecodeRLP(s *rlp.Stream) error {
 	return nil
 }
 
+func (tc *PMTimeoutCert) String() string {
+	if tc != nil {
+		return fmt.Sprintf("PMTimeoutCert (H:%v, R:%v, C:%v, BitArray:%v, AggSig:%v)", tc.TimeoutHeight, tc.TimeoutRound, tc.TimeoutCounter, tc.TimeoutBitArray.String(), tc.TimeoutAggSig)
+	}
+	return "PMTimeoutCert(nil)"
+}
+
 type pmBlock struct {
 	Height uint64
 	Round  uint64

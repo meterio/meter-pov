@@ -347,10 +347,10 @@ func (p *Pacemaker) OnReceiveVote(voteMsg *PMVoteForProposalMessage) error {
 	if MajorityTwoThird(voteCount, p.csReactor.committeeSize) == false {
 		// if voteCount < p.csReactor.committeeSize {
 		// not reach 2/3
-		p.csReactor.logger.Info("not reach majority", "count", p.sigCounter[b.Round], "committeeSize", p.csReactor.committeeSize)
+		p.csReactor.logger.Info("not reach majority", "count", voteCount, "committeeSize", p.csReactor.committeeSize)
 		return nil
 	} else {
-		p.csReactor.logger.Info("reach majority", "count", p.sigCounter[b.Round], "committeeSize", p.csReactor.committeeSize)
+		p.csReactor.logger.Info("reach majority", "count", voteCount, "committeeSize", p.csReactor.committeeSize)
 	}
 
 	//reach 2/3 majority, trigger the pipeline cmd
@@ -473,23 +473,24 @@ func (p *Pacemaker) OnReceiveNewView(newViewMsg *PMNewViewMessage) error {
 		timeoutCount := p.timeoutCertManager.count(newViewMsg.TimeoutHeight, newViewMsg.TimeoutRound)
 		if MajorityTwoThird(timeoutCount, p.csReactor.committeeSize) == false {
 			// if timeoutCount < p.csReactor.committeeSize {
-			p.logger.Info("not reaching majority on timeout", "height", newViewMsg.TimeoutHeight, "round", newViewMsg.TimeoutRound, "counter", newViewMsg.TimeoutCounter)
+			p.logger.Info("not reaching majority on timeout", "timeoutCount", timeoutCount, "timeoutHeight", newViewMsg.TimeoutHeight, "round", newViewMsg.TimeoutRound, "counter", newViewMsg.TimeoutCounter)
 		} else {
-			p.logger.Info("reaching majority on timeout", "height", newViewMsg.TimeoutHeight, "round", newViewMsg.TimeoutRound, "counter", newViewMsg.TimeoutCounter)
+			p.logger.Info("reaching majority on timeout", "timeoutCount", timeoutCount, "timeoutHeight", newViewMsg.TimeoutHeight, "round", newViewMsg.TimeoutRound, "counter", newViewMsg.TimeoutCounter)
 			timedOut = true
 			p.timeoutCert = p.timeoutCertManager.getTimeoutCert(newViewMsg.TimeoutHeight, newViewMsg.TimeoutRound)
+			p.timeoutCertManager.cleanup(newViewMsg.TimeoutHeight, newViewMsg.TimeoutRound)
 		}
 	}
-
-	p.timeoutCertManager.cleanup(newViewMsg.TimeoutHeight, newViewMsg.TimeoutRound)
 
 	// TODO: what if the qchigh is not changed, but I'm the proposer for the next round?
 	if changed {
 		if qc.QCHeight > p.blockLocked.Height {
+			p.logger.Info("Received a newview with higher QC, scheduleOnBeat now", "height", qc.QCHeight+1, "round", qc.QCRound+1)
 			p.ScheduleOnBeat(uint64(qc.QCHeight+1), uint64(qc.QCRound+1), RoundInterval)
 		}
 	} else if timedOut {
 		header := newViewMsg.CSMsgCommonHeader
+		p.logger.Info("Received a newview with timeoutCert, scheduleOnBeat now", "height", header.Height, "round", header.Round)
 		p.ScheduleOnBeat(uint64(header.Height), uint64(header.Round), RoundInterval)
 	}
 
@@ -675,12 +676,14 @@ func (p *Pacemaker) stopRoundTimer() {
 }
 
 func (p *Pacemaker) revertTo(height uint64) {
+	p.logger.Info("Start revert", "height", height, "current block-leaf", p.blockLeaf.ToString())
 	for p.blockLeaf.Height > p.blockLocked.Height && p.blockLeaf.Height >= height {
-		height := p.blockLeaf.Height
+		p.logger.Info("Revert loop", "block-leaf", p.blockLeaf.ToString(), "parent", p.blockLeaf.Parent.ToString())
+		blockHeight := p.blockLeaf.Height
 		p.blockLeaf = p.blockLeaf.Parent
-		p.logger.Warn("Deleted from proposalMap:", "block", p.blockLeaf.ToString())
-		delete(p.proposalMap, height)
+		p.logger.Warn("Deleted from proposalMap:", "blockHeight", blockHeight, "block", p.proposalMap[blockHeight].ToString())
+		delete(p.proposalMap, blockHeight)
 		// FIXME: remove precommited block and release tx
 	}
-	p.logger.Info("Reverted !!!", "current B-leaf height", p.blockLeaf.Height)
+	p.logger.Info("Reverted !!!", "current block-leaf", p.blockLeaf.ToString())
 }

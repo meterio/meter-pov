@@ -171,9 +171,7 @@ func (cl *ConsensusLeader) GenerateAnnounceMsg() bool {
 		cl.csReactor.logger.Warn("reach 2/3 votes of announce expired ...", "comitteeSize", cl.csReactor.committeeSize, "totalComitter", cl.announceVoterNum)
 
 		//if cl.announceVoterNum >= (cl.csReactor.committeeSize*2/3) &
-		if (cl.announceVoterNum != 0) && MajorityTwoThird(cl.announceVoterNum, cl.csReactor.committeeSize) &&
-
-			cl.state == COMMITTEE_LEADER_ANNOUNCED {
+		if MajorityTwoThird(cl.announceVoterNum, cl.csReactor.committeeSize) && cl.state == COMMITTEE_LEADER_ANNOUNCED {
 
 			cl.csReactor.logger.Info("Committers reach 2/3 of Committee")
 
@@ -190,7 +188,7 @@ func (cl *ConsensusLeader) GenerateAnnounceMsg() bool {
 
 			//timeout function
 			notaryExpire := func() {
-				cl.csReactor.logger.Warn("reach 2/3 votes of notary expired ...", "comitteeSize", cl.csReactor.committeeSize, "totalComitter", cl.notaryVoterNum)
+				cl.csReactor.logger.Warn("reach 2/3 votes of notary expired ...", "comitteeSize", cl.csReactor.committeeSize, "totalComitter", cl.announceVoterNum)
 				cl.MoveInitState(cl.state)
 			}
 			cl.notaryThresholdTimer = time.AfterFunc(THRESHOLD_TIMER_TIMEOUT, func() {
@@ -198,7 +196,7 @@ func (cl *ConsensusLeader) GenerateAnnounceMsg() bool {
 			})
 
 		} else {
-			cl.csReactor.logger.Warn("did not reach 2/3 committer of announce ...", "comitteeSize", cl.csReactor.committeeSize, "totalComitter", cl.notaryVoterNum)
+			cl.csReactor.logger.Warn("did not reach 2/3 committer of announce ...", "comitteeSize", cl.csReactor.committeeSize, "totalComitter", cl.announceVoterNum)
 			cl.MoveInitState(cl.state)
 		}
 	}
@@ -596,6 +594,9 @@ func (cl *ConsensusLeader) ProcessNewCommitteeMessage(newCommitteeMsg *NewCommit
 	if MajorityTwoThird(cl.newCommitteeVoterNum, cl.csReactor.committeeSize) {
 		cl.csReactor.logger.Debug("NewCommitteeMessage, 2/3 Majority reached", "Recvd", cl.newCommitteeVoterNum, "committeeSize", cl.csReactor.committeeSize)
 		cl.csReactor.ScheduleLeader(epochID, 1*time.Second)
+		// to avoid duplicate trigger
+		// TODO: better way to do this?
+		cl.newCommitteeVoterNum = 0
 		return true
 	} else {
 		// not reach 2/3 yet, wait for more
