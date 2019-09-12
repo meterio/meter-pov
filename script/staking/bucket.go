@@ -1,9 +1,10 @@
 package staking
 
 import (
+	"math/big"
+
 	"github.com/dfinlab/meter/meter"
 	"github.com/google/uuid"
-	"math/big"
 )
 
 var (

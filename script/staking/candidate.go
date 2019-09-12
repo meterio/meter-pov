@@ -1,9 +1,10 @@
 package staking
 
 import (
+	"math/big"
+
 	"github.com/dfinlab/meter/meter"
 	"github.com/google/uuid"
-	"math/big"
 )
 
 var (
@@ -47,6 +48,17 @@ func CandidateMapToList() ([]Candidate, error) {
 	return candidateList, nil
 }
 
-func (c *Candidate) Add()    {}
-func (c *Candidate) Update() {}
-func (c *Candidate) Remove() {}
+// TODO: what's the difference between Add and Update ?
+func (c *Candidate) Add() {
+	CandidateMap[c.RewardAddr] = c
+}
+
+func (c *Candidate) Update() {
+	CandidateMap[c.RewardAddr] = c
+}
+
+func (c *Candidate) Remove() {
+	if _, ok := CandidateMap[c.RewardAddr]; ok {
+		delete(CandidateMap, c.RewardAddr)
+	}
+}

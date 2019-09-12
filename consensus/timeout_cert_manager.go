@@ -123,6 +123,7 @@ func (tm *PMTimeoutCertManager) cleanup(height, round uint64) error {
 	for k, _ := range tm.cache {
 		if k.Height <= height || k.Round <= k.Round {
 			delete(tm.cache, k)
+			delete(tm.bitArrays, k)
 		}
 	}
 	return nil

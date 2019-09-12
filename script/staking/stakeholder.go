@@ -1,9 +1,10 @@
 package staking
 
 import (
+	"math/big"
+
 	"github.com/dfinlab/meter/meter"
 	"github.com/google/uuid"
-	"math/big"
 )
 
 var (
@@ -40,6 +41,33 @@ func StakeholderMapToList() ([]Stakeholder, error) {
 	return StakeholderList, nil
 }
 
-func (c *Stakeholder) Add()    {}
-func (c *Stakeholder) Update() {}
-func (c *Stakeholder) Remove() {}
+func (s *Stakeholder) AddBucket(bucket *Bucket) {
+	// TODO: deal with duplicates?
+	bucketID := bucket.BucketID
+	s.Buckets = append(s.Buckets, bucketID)
+	s.TotalStake.Add(s.TotalStake, bucket.Value)
+}
+
+// func (s *Stakeholder) Update() {}
+
+func (s *Stakeholder) RemoveBucket(bucket *Bucket) {
+	bucketID := bucket.BucketID
+	for i, id := range s.Buckets {
+		if id.String() == bucketID.String() {
+			// inplace remove match element
+			s.Buckets = append(s.Buckets[:i], s.Buckets[i+1:]...)
+			s.TotalStake.Sub(s.TotalStake, bucket.Value)
+			return
+		}
+	}
+}
+
+func (s *Stakeholder) Add() {
+	StakeholderMap[s.Holder] = s
+}
+
+func (s *Stakeholder) Remove() {
+	if _, ok := StakeholderMap[s.Holder]; ok {
+		delete(StakeholderMap, s.Holder)
+	}
+}
