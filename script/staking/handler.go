@@ -1,10 +1,11 @@
 package staking
 
 import (
+	"math/big"
+
 	"github.com/dfinlab/meter/meter"
 	"github.com/dfinlab/meter/xenv"
 	"github.com/ethereum/go-ethereum/rlp"
-	"math/big"
 )
 
 const (
@@ -39,14 +40,28 @@ func StakingDecodeFromBytes(bytes []byte) (*StakingBody, error) {
 }
 
 func (sb *StakingBody) BoundHandler(txCtx *xenv.TransactionContext, gas uint64) (ret []byte, leftOverGas uint64, err error) {
+	// FIXME: token/ duration ?
+	bucket := NewBucket(sb.HolderAddr, &sb.Amount, uint8(0), uint64(0))
+	bucket.Add()
+	if stakeholder, ok := StakeholderMap[sb.HolderAddr]; ok {
+		stakeholder.AddBucket(bucket)
+	} else {
+		stakeholder = NewStakeholder(sb.HolderAddr)
+		stakeholder.AddBucket(bucket)
+		stakeholder.Add()
+	}
 	return
 }
 func (sb *StakingBody) UnBoundHandler(txCtx *xenv.TransactionContext, gas uint64) (ret []byte, leftOverGas uint64, err error) {
+	// XXX: should they provide bucketID as well in sb?
 	return
 }
 func (sb *StakingBody) CandidateHandler(txCtx *xenv.TransactionContext, gas uint64) (ret []byte, leftOverGas uint64, err error) {
+	candidate := NewCandidate(sb.CandAddr, sb.CandPubKey, sb.CandIP, sb.CandPort)
+	candidate.Add()
 	return
 }
 func (sb *StakingBody) QueryHandler(txCtx *xenv.TransactionContext, gas uint64) (ret []byte, leftOverGas uint64, err error) {
+	// XXX: what should we return here?
 	return
 }
