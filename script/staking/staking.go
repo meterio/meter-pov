@@ -54,17 +54,27 @@ func (s *Staking) PrepareStakingHandler() (StakingHandler func(data []byte, txCt
 		switch sb.Opcode {
 		case op_bound:
 			ret, leftOverGas, err = sb.BoundHandler(txCtx, gas)
+			s.SyncCandidateList()
+			s.SyncStakerholderList()
+			s.SyncBucketList()
+
 		case op_unbound:
 			ret, leftOverGas, err = sb.UnBoundHandler(txCtx, gas)
+			s.SyncCandidateList()
+			s.SyncStakerholderList()
+			s.SyncBucketList()
+
 		case op_candidate:
 			ret, leftOverGas, err = sb.CandidateHandler(txCtx, gas)
+			s.SyncCandidateList()
+			s.SyncStakerholderList()
+
 		case op_query:
 			ret, leftOverGas, err = sb.QueryHandler(txCtx, gas)
 		default:
 			s.logger.Error("unknown Opcode", "Opcode", sb.Opcode)
 			return nil, gas, errors.New("unknow staking opcode")
 		}
-
 		return
 	}
 	return

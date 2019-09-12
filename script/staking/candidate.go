@@ -13,29 +13,29 @@ var (
 
 // Candidate indicates the structure of a candidate
 type Candidate struct {
-	RewardAddr meter.Address // the address for staking / reward
-	Name       []byte
-	PubKey     []byte // node public key
-	IPAddr     []byte // network addr
-	Port       uint16
-	Votes      *big.Int    // total voting from all buckets
-	Buckets    []uuid.UUID // all buckets voted for this candidate
+	Addr    meter.Address // the address for staking / reward
+	Name    []byte
+	PubKey  []byte // node public key
+	IPAddr  []byte // network addr
+	Port    uint16
+	Votes   *big.Int    // total voting from all buckets
+	Buckets []uuid.UUID // all buckets voted for this candidate
 }
 
-func NewCandidate(rewardAddr meter.Address, pubKey []byte, ip []byte, port uint16) *Candidate {
+func NewCandidate(addr meter.Address, pubKey []byte, ip []byte, port uint16) *Candidate {
 	return &Candidate{
-		RewardAddr: rewardAddr,
-		PubKey:     pubKey,
-		IPAddr:     ip,
-		Port:       port,
-		Votes:      big.NewInt(0),
-		Buckets:    []uuid.UUID{},
+		Addr:    addr,
+		PubKey:  pubKey,
+		IPAddr:  ip,
+		Port:    port,
+		Votes:   big.NewInt(0),
+		Buckets: []uuid.UUID{},
 	}
 }
 
 func CandidateListToMap(candidateList []Candidate) error {
 	for _, c := range candidateList {
-		CandidateMap[c.RewardAddr] = &c
+		CandidateMap[c.Addr] = &c
 	}
 	return nil
 }
@@ -50,15 +50,15 @@ func CandidateMapToList() ([]Candidate, error) {
 
 // TODO: what's the difference between Add and Update ?
 func (c *Candidate) Add() {
-	CandidateMap[c.RewardAddr] = c
+	CandidateMap[c.Addr] = c
 }
 
 func (c *Candidate) Update() {
-	CandidateMap[c.RewardAddr] = c
+	CandidateMap[c.Addr] = c
 }
 
 func (c *Candidate) Remove() {
-	if _, ok := CandidateMap[c.RewardAddr]; ok {
-		delete(CandidateMap, c.RewardAddr)
+	if _, ok := CandidateMap[c.Addr]; ok {
+		delete(CandidateMap, c.Addr)
 	}
 }

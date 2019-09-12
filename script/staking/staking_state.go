@@ -5,6 +5,7 @@ import (
 	"github.com/dfinlab/meter/state"
 	"github.com/dfinlab/meter/types"
 	"github.com/ethereum/go-ethereum/rlp"
+	"math/big"
 )
 
 // the global variables in staking
@@ -140,3 +141,25 @@ func (s *Staking) SetDelegateList(delegateList []types.Delegate) {
 		return rlp.EncodeToBytes(&delegateList)
 	})
 }
+
+//=======================
+func (s *Staking) SyncCandidateList() {
+	list, _ := CandidateMapToList()
+	s.SetCandidateList(list)
+}
+
+func (s *Staking) SyncStakerholderList() {
+	list, _ := StakeholderMapToList()
+	s.SetStakeHolderList(list)
+}
+
+func (s *Staking) SyncBucketList() {
+	list, _ := BucketMapToList()
+	s.SetBucketList(list)
+}
+
+//==================== bound/unbound account ===========================
+func (s *Staking) BoundAccountMeter(addr meter.Address, amount big.Int)      {}
+func (s *Staking) UnboundAccountMeter(addr meter.Address, amount big.Int)    {}
+func (s *Staking) BoundAccountMeterGov(addr meter.Address, amount big.Int)   {}
+func (s *Staking) UnboundAccountMeterGov(addr meter.Address, amount big.Int) {}

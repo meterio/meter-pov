@@ -19,6 +19,7 @@ const (
 type StakingBody struct {
 	Opcode     uint32
 	Version    uint32
+	option     uint32
 	HolderAddr meter.Address
 	CandAddr   meter.Address
 	CandName   []byte
@@ -26,6 +27,7 @@ type StakingBody struct {
 	CandIP     []byte
 	CandPort   uint16
 	Amount     big.Int
+	Token      byte // meter or meter gov
 }
 
 func StakingEncodeBytes(sb *StakingBody) []byte {
@@ -54,14 +56,32 @@ func (sb *StakingBody) BoundHandler(txCtx *xenv.TransactionContext, gas uint64) 
 }
 func (sb *StakingBody) UnBoundHandler(txCtx *xenv.TransactionContext, gas uint64) (ret []byte, leftOverGas uint64, err error) {
 	// XXX: should they provide bucketID as well in sb?
+
+	if gas < meter.ClauseGas {
+		leftOverGas = 0
+	} else {
+		leftOverGas = gas - meter.ClauseGas
+	}
 	return
 }
 func (sb *StakingBody) CandidateHandler(txCtx *xenv.TransactionContext, gas uint64) (ret []byte, leftOverGas uint64, err error) {
 	candidate := NewCandidate(sb.CandAddr, sb.CandPubKey, sb.CandIP, sb.CandPort)
 	candidate.Add()
+
+	if gas < meter.ClauseGas {
+		leftOverGas = 0
+	} else {
+		leftOverGas = gas - meter.ClauseGas
+	}
 	return
 }
 func (sb *StakingBody) QueryHandler(txCtx *xenv.TransactionContext, gas uint64) (ret []byte, leftOverGas uint64, err error) {
 	// XXX: what should we return here?
+
+	if gas < meter.ClauseGas {
+		leftOverGas = 0
+	} else {
+		leftOverGas = gas - meter.ClauseGas
+	}
 	return
 }
