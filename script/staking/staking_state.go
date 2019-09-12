@@ -7,14 +7,16 @@ import (
 	"github.com/ethereum/go-ethereum/rlp"
 )
 
+// the global variables in staking
 var (
-	StakingModuleAddr  = meter.BytesToAddress([]byte("staking-module"))
+	StakingModuleAddr  = meter.BytesToAddress([]byte("staking-module-address"))
 	DelegateListKey    = meter.Blake2b([]byte("delegate-list-key"))
 	CandidateListKey   = meter.Blake2b([]byte("candidate-list-key"))
 	StakeHolderListKey = meter.Blake2b([]byte("stake-holder-list-key"))
 	BucketListKey      = meter.Blake2b([]byte("global-bucket-list-key"))
 )
 
+//
 func (s *Staking) GetStakingState() (st *state.State, err error) {
 	cachedHeight := s.cache.bestHeight.Load()
 	bestHeight := s.chain.BestBlock().Header().Number()
@@ -23,7 +25,6 @@ func (s *Staking) GetStakingState() (st *state.State, err error) {
 		return cachedState.(*state.State), nil
 	}
 	defer func() {
-		// overwrite first 4 bytes of block hash to block number.
 		s.cache.bestHeight.Store(bestHeight)
 		s.cache.stakingState.Store(st)
 	}()
