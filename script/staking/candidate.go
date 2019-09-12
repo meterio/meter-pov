@@ -13,8 +13,9 @@ var (
 // Candidate indicates the structure of a candidate
 type Candidate struct {
 	RewardAddr meter.Address // the address for staking / reward
-	PubKey     []byte        // node public key
-	IPAddr     []byte        // network addr
+	Name       []byte
+	PubKey     []byte // node public key
+	IPAddr     []byte // network addr
 	Port       uint16
 	Votes      *big.Int    // total voting from all buckets
 	Buckets    []uuid.UUID // all buckets voted for this candidate

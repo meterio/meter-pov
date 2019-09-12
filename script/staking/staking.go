@@ -6,6 +6,7 @@ import (
 	"github.com/dfinlab/meter/state"
 	"github.com/dfinlab/meter/xenv"
 	"github.com/inconshreveable/log15"
+	"sync/atomic"
 )
 
 const (
@@ -20,6 +21,11 @@ type Staking struct {
 	chain        *chain.Chain
 	stateCreator *state.Creator
 	logger       log15.Logger
+
+	cache struct {
+		bestHeight   atomic.Value
+		stakingState atomic.Value
+	}
 }
 
 func NewStaking(ch *chain.Chain, sc *state.Creator) *Staking {
