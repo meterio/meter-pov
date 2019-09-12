@@ -1,9 +1,12 @@
 package staking
 
 import (
+	"io"
+	"math/big"
+
+	"github.com/dfinlab/geth-zDollar/rlp"
 	"github.com/dfinlab/meter/meter"
 	"github.com/google/uuid"
-	"math/big"
 )
 
 var (
@@ -40,6 +43,35 @@ func StakeholderMapToList() ([]Stakeholder, error) {
 	return StakeholderList, nil
 }
 
-func (c *Stakeholder) Add()    {}
-func (c *Stakeholder) Update() {}
-func (c *Stakeholder) Remove() {}
+// EncodeRLP implements rlp.Encoder.
+func (s *Stakeholder) EncodeRLP(w io.Writer) error {
+	return rlp.Encode(w, []interface{}{
+		s.Holder,
+		s.TotalStake,
+		s.Buckets,
+	})
+}
+
+// DecodeRLP implements rlp.Decoder.
+func (s *Stakeholder) DecodeRLP(stream *rlp.Stream) error {
+	payload := struct {
+		Holder     meter.Address
+		TotalStake *big.Int
+		Buckets    []uuid.UUID
+	}{}
+
+	if err := stream.Decode(&payload); err != nil {
+		return err
+	}
+
+	*s = Stakeholder{
+		Holder:     payload.Holder,
+		TotalStake: payload.TotalStake,
+		Buckets:    payload.Buckets,
+	}
+	return nil
+}
+
+func (s *Stakeholder) Add()    {}
+func (s *Stakeholder) Update() {}
+func (s *Stakeholder) Remove() {}
