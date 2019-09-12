@@ -3,7 +3,6 @@ package staking_test
 import (
 	"bytes"
 	"fmt"
-	"math"
 	"math/big"
 	"math/rand"
 
@@ -96,7 +95,7 @@ func TestRlpForBucket(t *testing.T) {
 	}
 	token := uint8(rand.Int())
 	duration := rand.Uint64()
-	src := staking.NewBucket(addr, big.NewInt(int64(math.Abs(float64(rand.Uint64())))), token, duration)
+	src := staking.NewBucket(addr, big.NewInt(int64(rand.Int())), token, duration)
 
 	data, err := rlp.EncodeToBytes(src)
 	if err != nil {
