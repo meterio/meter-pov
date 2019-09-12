@@ -109,8 +109,7 @@ func (rt *Runtime) Seeker() *chain.Seeker       { return rt.seeker }
 func (rt *Runtime) State() *state.State         { return rt.state }
 func (rt *Runtime) Context() *xenv.BlockContext { return rt.ctx }
 func (rt *Runtime) ScriptEngineCheck(d []byte) bool {
-	ret := (d[0] == 0xff) && (d[1] == 0xff) && (d[2] == 0xff) && (d[3] == 0xff)
-	return ret
+	return (d[0] == 0xff) && (d[1] == 0xff) && (d[2] == 0xff) && (d[3] == 0xff)
 }
 
 // SetVMConfig config VM.
