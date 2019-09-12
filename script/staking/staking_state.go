@@ -1,6 +1,7 @@
 package staking
 
 import (
+	"errors"
 	"github.com/dfinlab/meter/meter"
 	"github.com/dfinlab/meter/state"
 	"github.com/dfinlab/meter/types"
@@ -159,7 +160,55 @@ func (s *Staking) SyncBucketList() {
 }
 
 //==================== bound/unbound account ===========================
-func (s *Staking) BoundAccountMeter(addr meter.Address, amount big.Int)      {}
-func (s *Staking) UnboundAccountMeter(addr meter.Address, amount big.Int)    {}
-func (s *Staking) BoundAccountMeterGov(addr meter.Address, amount big.Int)   {}
-func (s *Staking) UnboundAccountMeterGov(addr meter.Address, amount big.Int) {}
+func (s *Staking) BoundAccountMeter(addr meter.Address, amount *big.Int)   {}
+func (s *Staking) UnboundAccountMeter(addr meter.Address, amount *big.Int) {}
+
+// bound a meter gov in an account -- move amount from balance to bounded balance
+func (s *Staking) BoundAccountMeterGov(addr meter.Address, amount *big.Int) error {
+	if amount.Sign() == 0 {
+		return nil
+	}
+
+	state, err := s.GetStakingState()
+	if err != nil {
+		s.logger.Error("get state failed", "error", err)
+		return err
+	}
+	meterGov := state.GetBalance(addr)
+	meterGovBounded := state.GetBoundedBalance(addr)
+
+	// meterGov should >= amount
+	if meterGov.Cmp(amount) == -1 {
+		s.logger.Error("not enough balance", "account", addr, "bound amount", amount)
+		return errors.New("not enough balance")
+	}
+
+	state.SetBalance(addr, new(big.Int).Sub(meterGov, amount))
+	state.SetBoundedBalance(addr, new(big.Int).Add(meterGovBounded, amount))
+	return nil
+}
+
+// unbound a meter gov in an account -- move amount from bounded balance to balance
+func (s *Staking) UnboundAccountMeterGov(addr meter.Address, amount *big.Int) error {
+	if amount.Sign() == 0 {
+		return nil
+	}
+
+	state, err := s.GetStakingState()
+	if err != nil {
+		s.logger.Error("get state failed", "error", err)
+		return err
+	}
+	meterGov := state.GetBalance(addr)
+	meterGovBounded := state.GetBoundedBalance(addr)
+
+	// meterGovBounded should >= amount
+	if meterGovBounded.Cmp(amount) >= 0 {
+		s.logger.Error("not enough bounded balance", "account", addr, "unbound amount", amount)
+		return errors.New("not enough bounded balance")
+	}
+
+	state.SetBalance(addr, new(big.Int).Add(meterGov, amount))
+	state.SetBoundedBalance(addr, new(big.Int).Sub(meterGovBounded, amount))
+	return nil
+}
