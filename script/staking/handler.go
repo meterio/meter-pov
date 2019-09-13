@@ -3,6 +3,7 @@ package staking
 import (
 	"encoding/json"
 	"errors"
+	"github.com/google/uuid"
 	"math/big"
 
 	"github.com/dfinlab/meter/meter"
@@ -34,6 +35,7 @@ type StakingBody struct {
 	CandPubKey []byte //ecdsa.PublicKey
 	CandIP     []byte
 	CandPort   uint16
+	StakingID  uuid.UUID // only for unbound, uuid is [16]byte
 	Amount     big.Int
 	Token      byte // meter or meter gov
 }
@@ -50,7 +52,7 @@ func StakingDecodeFromBytes(bytes []byte) (*StakingBody, error) {
 }
 
 func (sb *StakingBody) BoundHandler(txCtx *xenv.TransactionContext, gas uint64) (ret []byte, leftOverGas uint64, err error) {
-	bucket := NewBucket(sb.HolderAddr, &sb.Amount, uint8(sb.Token), uint64(0))
+	bucket := NewBucket(sb.HolderAddr, sb.CandAddr, &sb.Amount, uint8(sb.Token), uint64(0))
 	bucket.Add()
 	if stakeholder, ok := StakeholderMap[sb.HolderAddr]; ok {
 		stakeholder.AddBucket(bucket)
@@ -62,15 +64,56 @@ func (sb *StakingBody) BoundHandler(txCtx *xenv.TransactionContext, gas uint64) 
 	return
 }
 func (sb *StakingBody) UnBoundHandler(txCtx *xenv.TransactionContext, gas uint64) (ret []byte, leftOverGas uint64, err error) {
-	// XXX: should they provide bucketID as well in sb?
-
 	if gas < meter.ClauseGas {
 		leftOverGas = 0
 	} else {
 		leftOverGas = gas - meter.ClauseGas
 	}
+
+	b := BucketMap[sb.StakingID]
+	if b == nil {
+		return nil, leftOverGas, errors.New("staking not found")
+	}
+	if (b.Owner != sb.HolderAddr) || (b.Value.Cmp(&sb.Amount) != 0) || (b.Token != sb.Token) {
+		return nil, leftOverGas, errors.New("staking info mismatch")
+	}
+
+	// update stake holder
+	if holder, ok := StakeholderMap[sb.HolderAddr]; ok {
+		buckets := RemoveUuIDFromSlice(holder.Buckets, sb.StakingID)
+		if len(buckets) == 0 {
+			delete(StakeholderMap, sb.HolderAddr)
+		} else {
+			StakeholderMap[sb.HolderAddr] = &Stakeholder{
+				Holder:     sb.HolderAddr,
+				TotalStake: b.Value.Sub(holder.TotalStake, b.Value),
+				Buckets:    buckets,
+			}
+		}
+	}
+
+	// update candidate list
+	if cand, ok := CandidateMap[b.Candidate]; ok {
+		buckets := RemoveUuIDFromSlice(cand.Buckets, b.BucketID)
+		if len(buckets) == 0 {
+			delete(CandidateMap, b.Candidate)
+		} else {
+			CandidateMap[b.Candidate] = &Candidate{
+				Addr:       cand.Addr,
+				Name:       cand.Name,
+				PubKey:     cand.PubKey,
+				IPAddr:     cand.IPAddr,
+				Port:       cand.Port,
+				TotalVotes: b.TotalVotes.Sub(cand.TotalVotes, b.TotalVotes),
+				Buckets:    buckets,
+			}
+		}
+	}
+
+	delete(BucketMap, sb.StakingID)
 	return
 }
+
 func (sb *StakingBody) CandidateHandler(txCtx *xenv.TransactionContext, gas uint64) (ret []byte, leftOverGas uint64, err error) {
 	candidate := NewCandidate(sb.CandAddr, sb.CandPubKey, sb.CandIP, sb.CandPort)
 	candidate.Add()

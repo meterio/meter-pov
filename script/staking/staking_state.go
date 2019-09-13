@@ -180,8 +180,8 @@ func (s *Staking) BoundAccountMeter(addr meter.Address, amount *big.Int) error {
 		return errors.New("not enough balance")
 	}
 
-	state.SetBalance(addr, new(big.Int).Sub(meterBalance, amount))
-	state.SetBoundedBalance(addr, new(big.Int).Add(meterBoundedBalance, amount))
+	state.SetEnergy(addr, new(big.Int).Sub(meterBalance, amount))
+	state.SetBoundedEnergy(addr, new(big.Int).Add(meterBoundedBalance, amount))
 	return nil
 }
 
@@ -204,8 +204,8 @@ func (s *Staking) UnboundAccountMeter(addr meter.Address, amount *big.Int) error
 		return errors.New("not enough bounded balance")
 	}
 
-	state.SetBalance(addr, new(big.Int).Add(meterBalance, amount))
-	state.SetBoundedBalance(addr, new(big.Int).Sub(meterBoundedBalance, amount))
+	state.SetEnergy(addr, new(big.Int).Add(meterBalance, amount))
+	state.SetBoundedEnergy(addr, new(big.Int).Sub(meterBoundedBalance, amount))
 	return nil
 
 }

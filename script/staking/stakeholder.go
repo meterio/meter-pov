@@ -1,6 +1,7 @@
 package staking
 
 import (
+	"fmt"
 	"math/big"
 
 	"github.com/dfinlab/meter/meter"
@@ -39,6 +40,11 @@ func StakeholderMapToList() ([]Stakeholder, error) {
 		StakeholderList = append(StakeholderList, *c)
 	}
 	return StakeholderList, nil
+}
+
+func (s *Stakeholder) ToString() string {
+	return fmt.Sprintf("Stakeholder: Addr=%v, TotoalStake=%v",
+		s.Holder, s.TotalStake)
 }
 
 func (s *Stakeholder) AddBucket(bucket *Bucket) {

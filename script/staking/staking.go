@@ -11,13 +11,6 @@ import (
 )
 
 const (
-	// 0x0 range - arithmetic ops
-	STAKING byte = iota
-	UNSTAKING
-	RESTAKING
-)
-
-const (
 	TOKEN_METER     = byte(0)
 	TOKEN_METER_GOV = byte(1)
 )
