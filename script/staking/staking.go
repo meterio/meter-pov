@@ -2,11 +2,12 @@ package staking
 
 import (
 	"errors"
+	"sync/atomic"
+
 	"github.com/dfinlab/meter/chain"
 	"github.com/dfinlab/meter/state"
 	"github.com/dfinlab/meter/xenv"
 	"github.com/inconshreveable/log15"
-	"sync/atomic"
 )
 
 const (
@@ -14,6 +15,11 @@ const (
 	STAKING byte = iota
 	UNSTAKING
 	RESTAKING
+)
+
+const (
+	TOKEN_METER     = byte(0)
+	TOKEN_METER_GOV = byte(1)
 )
 
 // Candidate indicates the structure of a candidate
@@ -53,12 +59,37 @@ func (s *Staking) PrepareStakingHandler() (StakingHandler func(data []byte, txCt
 		}
 		switch sb.Opcode {
 		case op_bound:
+			var err error
+			switch sb.Token {
+			case TOKEN_METER:
+				err = s.BoundAccountMeter(sb.HolderAddr, &sb.Amount)
+			case TOKEN_METER_GOV:
+				err = s.BoundAccountMeterGov(sb.HolderAddr, &sb.Amount)
+			default:
+				err = errors.New("Invalid token parameter")
+			}
+			if err != nil {
+				return nil, gas, err
+			}
+
 			ret, leftOverGas, err = sb.BoundHandler(txCtx, gas)
 			s.SyncCandidateList()
 			s.SyncStakerholderList()
 			s.SyncBucketList()
 
 		case op_unbound:
+			var err error
+			switch sb.Token {
+			case TOKEN_METER:
+				err = s.UnboundAccountMeter(sb.HolderAddr, &sb.Amount)
+			case TOKEN_METER_GOV:
+				err = s.UnboundAccountMeterGov(sb.HolderAddr, &sb.Amount)
+			default:
+				err = errors.New("Invalid token parameter")
+			}
+			if err != nil {
+				return nil, gas, err
+			}
 			ret, leftOverGas, err = sb.UnBoundHandler(txCtx, gas)
 			s.SyncCandidateList()
 			s.SyncStakerholderList()

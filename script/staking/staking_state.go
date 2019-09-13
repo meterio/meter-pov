@@ -2,11 +2,12 @@ package staking
 
 import (
 	"errors"
+	"math/big"
+
 	"github.com/dfinlab/meter/meter"
 	"github.com/dfinlab/meter/state"
 	"github.com/dfinlab/meter/types"
 	"github.com/ethereum/go-ethereum/rlp"
-	"math/big"
 )
 
 // the global variables in staking
@@ -160,8 +161,54 @@ func (s *Staking) SyncBucketList() {
 }
 
 //==================== bound/unbound account ===========================
-func (s *Staking) BoundAccountMeter(addr meter.Address, amount *big.Int)   {}
-func (s *Staking) UnboundAccountMeter(addr meter.Address, amount *big.Int) {}
+func (s *Staking) BoundAccountMeter(addr meter.Address, amount *big.Int) error {
+	if amount.Sign() == 0 {
+		return nil
+	}
+
+	state, err := s.GetStakingState()
+	if err != nil {
+		s.logger.Error("get state failed", "error", err)
+		return err
+	}
+	meterBalance := state.GetEnergy(addr)
+	meterBoundedBalance := state.GetBoundedEnergy(addr)
+
+	// meterBalance should >= amount
+	if meterBalance.Cmp(amount) == -1 {
+		s.logger.Error("not enough balance", "account", addr, "bound amount", amount)
+		return errors.New("not enough balance")
+	}
+
+	state.SetBalance(addr, new(big.Int).Sub(meterBalance, amount))
+	state.SetBoundedBalance(addr, new(big.Int).Add(meterBoundedBalance, amount))
+	return nil
+}
+
+func (s *Staking) UnboundAccountMeter(addr meter.Address, amount *big.Int) error {
+	if amount.Sign() == 0 {
+		return nil
+	}
+
+	state, err := s.GetStakingState()
+	if err != nil {
+		s.logger.Error("get state failed", "error", err)
+		return err
+	}
+	meterBalance := state.GetEnergy(addr)
+	meterBoundedBalance := state.GetBoundedEnergy(addr)
+
+	// meterBoundedBalance should >= amount
+	if meterBoundedBalance.Cmp(amount) >= 0 {
+		s.logger.Error("not enough bounded balance", "account", addr, "unbound amount", amount)
+		return errors.New("not enough bounded balance")
+	}
+
+	state.SetBalance(addr, new(big.Int).Add(meterBalance, amount))
+	state.SetBoundedBalance(addr, new(big.Int).Sub(meterBoundedBalance, amount))
+	return nil
+
+}
 
 // bound a meter gov in an account -- move amount from balance to bounded balance
 func (s *Staking) BoundAccountMeterGov(addr meter.Address, amount *big.Int) error {

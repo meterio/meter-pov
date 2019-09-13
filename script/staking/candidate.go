@@ -48,12 +48,12 @@ func CandidateMapToList() ([]Candidate, error) {
 	return candidateList, nil
 }
 
-// TODO: what's the difference between Add and Update ?
 func (c *Candidate) Add() {
 	CandidateMap[c.Addr] = c
 }
 
 func (c *Candidate) Update() {
+	// TODO: what's the difference between Add and Update ?
 	CandidateMap[c.Addr] = c
 }
 

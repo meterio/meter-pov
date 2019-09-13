@@ -52,6 +52,15 @@ func BucketMapToList() ([]Bucket, error) {
 	return bucketList, nil
 }
 
-func (b *Bucket) Add()    {}
-func (b *Bucket) Update() {}
-func (b *Bucket) Remove() {}
+func (b *Bucket) Add() {
+	BucketMap[b.BucketID] = b
+}
+func (b *Bucket) Update() {
+	// TODO: how do we update?
+}
+
+func (b *Bucket) Remove() {
+	if _, ok := BucketMap[b.BucketID]; ok {
+		delete(BucketMap, b.BucketID)
+	}
+}

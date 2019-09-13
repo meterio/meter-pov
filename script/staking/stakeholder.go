@@ -48,8 +48,6 @@ func (s *Stakeholder) AddBucket(bucket *Bucket) {
 	s.TotalStake.Add(s.TotalStake, bucket.Value)
 }
 
-// func (s *Stakeholder) Update() {}
-
 func (s *Stakeholder) RemoveBucket(bucket *Bucket) {
 	bucketID := bucket.BucketID
 	for i, id := range s.Buckets {
@@ -64,6 +62,10 @@ func (s *Stakeholder) RemoveBucket(bucket *Bucket) {
 
 func (s *Stakeholder) Add() {
 	StakeholderMap[s.Holder] = s
+}
+
+func (s *Stakeholder) Update() {
+	//TODO: how do we update without bucketID?
 }
 
 func (s *Stakeholder) Remove() {

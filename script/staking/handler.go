@@ -1,6 +1,8 @@
 package staking
 
 import (
+	"encoding/json"
+	"errors"
 	"math/big"
 
 	"github.com/dfinlab/meter/meter"
@@ -13,6 +15,12 @@ const (
 	op_unbound   = uint32(2)
 	op_candidate = uint32(3)
 	op_query     = uint32(4)
+)
+
+const (
+	OPTION_CANDIDATES   = uint32(1)
+	OPTION_STAKEHOLDERS = uint32(2)
+	OPTION_BUCKETS      = uint32(3)
 )
 
 // Candidate indicates the structure of a candidate
@@ -42,8 +50,7 @@ func StakingDecodeFromBytes(bytes []byte) (*StakingBody, error) {
 }
 
 func (sb *StakingBody) BoundHandler(txCtx *xenv.TransactionContext, gas uint64) (ret []byte, leftOverGas uint64, err error) {
-	// FIXME: token/ duration ?
-	bucket := NewBucket(sb.HolderAddr, &sb.Amount, uint8(0), uint64(0))
+	bucket := NewBucket(sb.HolderAddr, &sb.Amount, uint8(sb.Token), uint64(0))
 	bucket.Add()
 	if stakeholder, ok := StakeholderMap[sb.HolderAddr]; ok {
 		stakeholder.AddBucket(bucket)
@@ -76,7 +83,32 @@ func (sb *StakingBody) CandidateHandler(txCtx *xenv.TransactionContext, gas uint
 	return
 }
 func (sb *StakingBody) QueryHandler(txCtx *xenv.TransactionContext, gas uint64) (ret []byte, leftOverGas uint64, err error) {
-	// XXX: what should we return here?
+	switch sb.option {
+	case OPTION_CANDIDATES:
+		// TODO:
+		cs := make([]*Candidate, 0)
+		for _, c := range CandidateMap {
+			cs = append(cs, c)
+		}
+		ret, err = json.Marshal(cs)
+	case OPTION_STAKEHOLDERS:
+		ss := make([]*Stakeholder, 0)
+		for _, s := range StakeholderMap {
+			ss = append(ss, s)
+		}
+		ret, err = json.Marshal(ss)
+
+	case OPTION_BUCKETS:
+		// TODO:
+		bs := make([]*Bucket, 0)
+		for _, b := range BucketMap {
+			bs = append(bs, b)
+		}
+		ret, err = json.Marshal(bs)
+
+	default:
+		return nil, gas, errors.New("Invalid option parameter")
+	}
 
 	if gas < meter.ClauseGas {
 		leftOverGas = 0
