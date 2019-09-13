@@ -11,10 +11,10 @@ import (
 )
 
 const (
-	op_bound     = uint32(1)
-	op_unbound   = uint32(2)
-	op_candidate = uint32(3)
-	op_query     = uint32(4)
+	OP_BOUND     = uint32(1)
+	OP_UNBOUND   = uint32(2)
+	OP_CANDIDATE = uint32(3)
+	OP_QUERY     = uint32(4)
 )
 
 const (

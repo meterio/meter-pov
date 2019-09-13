@@ -2,6 +2,7 @@ package staking_test
 
 import (
 	"bytes"
+	"encoding/hex"
 	"fmt"
 	"math/big"
 	"math/rand"
@@ -11,6 +12,7 @@ import (
 	"testing"
 
 	"github.com/dfinlab/meter/meter"
+	"github.com/dfinlab/meter/script"
 	"github.com/dfinlab/meter/script/staking"
 	"github.com/google/uuid"
 )
@@ -71,13 +73,12 @@ func TestRlpForCandidate(t *testing.T) {
 
 	tgt := staking.Candidate{}
 	rlp.DecodeBytes(data, &tgt)
-	if src.RewardAddr != tgt.RewardAddr ||
+	if src.Addr != tgt.Addr ||
 		!bytes.Equal(src.PubKey, tgt.PubKey) ||
 		!bytes.Equal(src.IPAddr, tgt.IPAddr) ||
 		src.Port != tgt.Port ||
 		src.Votes.Cmp(tgt.Votes) != 0 ||
 		len(src.Buckets) != len(tgt.Buckets) {
-		fmt.Println("FAAA")
 		t.Fail()
 	}
 
@@ -113,4 +114,47 @@ func TestRlpForBucket(t *testing.T) {
 		t.Fail()
 	}
 
+}
+
+func TestRlpForScript(t *testing.T) {
+	version := uint32(0)
+	holderAddr, _ := meter.ParseAddress("0x9999999999999999999999999999999999999999")
+	candAddr, _ := meter.ParseAddress("0x1111111111111111111111111111111111111111")
+	candName := []byte("tester")
+	candPubKey := []byte("")
+	candIP := []byte("")
+	candPort := uint16(8669)
+	amount := big.NewInt(int64(1e17))
+	body := staking.StakingBody{
+		Opcode:     staking.OP_BOUND,
+		Version:    version,
+		HolderAddr: holderAddr,
+		CandAddr:   candAddr,
+		CandName:   candName,
+		CandPubKey: candPubKey,
+		CandIP:     candIP,
+		CandPort:   candPort,
+		Amount:     *amount,
+		Token:      staking.TOKEN_METER,
+	}
+	payload, err := rlp.EncodeToBytes(body)
+	if err != nil {
+		t.Fail()
+	}
+	// fmt.Println("Payload Bytes: ", payload)
+	fmt.Println("Payload Hex: ", hex.EncodeToString(payload))
+	s := &script.Script{
+		Header: script.ScriptHeader{
+			Version: version,
+			ModID:   script.STAKING_MODULE_ID,
+		},
+		Payload: payload,
+	}
+	data, err := rlp.EncodeToBytes(s)
+	if err != nil {
+		t.Fail()
+	}
+	data = append(script.ScriptPattern[:], data...)
+	// fmt.Println("Script Data Bytes: ", data)
+	fmt.Println("Script Data Hex: ", hex.EncodeToString(data))
 }
