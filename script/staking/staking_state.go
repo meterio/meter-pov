@@ -19,33 +19,8 @@ var (
 	BucketListKey      = meter.Blake2b([]byte("global-bucket-list-key"))
 )
 
-//
-func (s *Staking) GetStakingState() (st *state.State, err error) {
-	cachedHeight := s.cache.bestHeight.Load()
-	bestHeight := s.chain.BestBlock().Header().Number()
-	if cachedHeight != nil && cachedHeight.(uint32) == bestHeight {
-		cachedState := s.cache.stakingState.Load()
-		return cachedState.(*state.State), nil
-	}
-	defer func() {
-		s.cache.bestHeight.Store(bestHeight)
-		s.cache.stakingState.Store(st)
-	}()
-
-	st, err = s.stateCreator.NewState(s.chain.BestBlock().Header().StateRoot())
-	if err != nil {
-		s.logger.Error("GetStakingState: create state failed", "error", err)
-		return nil, err
-	}
-	return st, nil
-}
-
 // Candidate List
-func (s *Staking) GetCandidateList() (candList []Candidate) {
-	state, err := s.GetStakingState()
-	if err != nil {
-		s.logger.Error("get state failed", "error", err)
-	}
+func (s *Staking) GetCandidateList(state *state.State) (candList []Candidate) {
 	state.DecodeStorage(StakingModuleAddr, CandidateListKey, func(raw []byte) error {
 		if len(raw) == 0 {
 			candList = []Candidate{}
@@ -56,22 +31,14 @@ func (s *Staking) GetCandidateList() (candList []Candidate) {
 	return
 }
 
-func (s *Staking) SetCandidateList(candList []Candidate) {
-	state, err := s.GetStakingState()
-	if err != nil {
-		s.logger.Error("get state failed", "error", err)
-	}
+func (s *Staking) SetCandidateList(candList []Candidate, state *state.State) {
 	state.EncodeStorage(StakingModuleAddr, CandidateListKey, func() ([]byte, error) {
 		return rlp.EncodeToBytes(&candList)
 	})
 }
 
 // StakeHolder List
-func (s *Staking) GetStakeHolderList() (holderList []Stakeholder) {
-	state, err := s.GetStakingState()
-	if err != nil {
-		s.logger.Error("get state failed", "error", err)
-	}
+func (s *Staking) GetStakeHolderList(state *state.State) (holderList []Stakeholder) {
 	state.DecodeStorage(StakingModuleAddr, StakeHolderListKey, func(raw []byte) error {
 		if len(raw) == 0 {
 			holderList = []Stakeholder{}
@@ -82,22 +49,14 @@ func (s *Staking) GetStakeHolderList() (holderList []Stakeholder) {
 	return
 }
 
-func (s *Staking) SetStakeHolderList(holderList []Stakeholder) {
-	state, err := s.GetStakingState()
-	if err != nil {
-		s.logger.Error("get state failed", "error", err)
-	}
+func (s *Staking) SetStakeHolderList(holderList []Stakeholder, state *state.State) {
 	state.EncodeStorage(StakingModuleAddr, StakeHolderListKey, func() ([]byte, error) {
 		return rlp.EncodeToBytes(&holderList)
 	})
 }
 
 // Bucket List
-func (s *Staking) GetBucketList() (bucketList []Bucket) {
-	state, err := s.GetStakingState()
-	if err != nil {
-		s.logger.Error("get state failed", "error", err)
-	}
+func (s *Staking) GetBucketList(state *state.State) (bucketList []Bucket) {
 	state.DecodeStorage(StakingModuleAddr, BucketListKey, func(raw []byte) error {
 		if len(raw) == 0 {
 			bucketList = []Bucket{}
@@ -108,22 +67,14 @@ func (s *Staking) GetBucketList() (bucketList []Bucket) {
 	return
 }
 
-func (s *Staking) SetBucketList(candList []Bucket) {
-	state, err := s.GetStakingState()
-	if err != nil {
-		s.logger.Error("get state failed", "error", err)
-	}
+func (s *Staking) SetBucketList(candList []Bucket, state *state.State) {
 	state.EncodeStorage(StakingModuleAddr, BucketListKey, func() ([]byte, error) {
 		return rlp.EncodeToBytes(&candList)
 	})
 }
 
 // Delegates List
-func (s *Staking) GetDelegateList() (delegateList []types.Delegate) {
-	state, err := s.GetStakingState()
-	if err != nil {
-		s.logger.Error("get state failed", "error", err)
-	}
+func (s *Staking) GetDelegateList(state *state.State) (delegateList []types.Delegate) {
 	state.DecodeStorage(StakingModuleAddr, DelegateListKey, func(raw []byte) error {
 		if len(raw) == 0 {
 			delegateList = []types.Delegate{}
@@ -134,43 +85,34 @@ func (s *Staking) GetDelegateList() (delegateList []types.Delegate) {
 	return
 }
 
-func (s *Staking) SetDelegateList(delegateList []types.Delegate) {
-	state, err := s.GetStakingState()
-	if err != nil {
-		s.logger.Error("get state failed", "error", err)
-	}
+func (s *Staking) SetDelegateList(delegateList []types.Delegate, state *state.State) {
 	state.EncodeStorage(StakingModuleAddr, DelegateListKey, func() ([]byte, error) {
 		return rlp.EncodeToBytes(&delegateList)
 	})
 }
 
 //=======================
-func (s *Staking) SyncCandidateList() {
+func (s *Staking) SyncCandidateList(state *state.State) {
 	list, _ := CandidateMapToList()
-	s.SetCandidateList(list)
+	s.SetCandidateList(list, state)
 }
 
-func (s *Staking) SyncStakerholderList() {
+func (s *Staking) SyncStakerholderList(state *state.State) {
 	list, _ := StakeholderMapToList()
-	s.SetStakeHolderList(list)
+	s.SetStakeHolderList(list, state)
 }
 
-func (s *Staking) SyncBucketList() {
+func (s *Staking) SyncBucketList(state *state.State) {
 	list, _ := BucketMapToList()
-	s.SetBucketList(list)
+	s.SetBucketList(list, state)
 }
 
 //==================== bound/unbound account ===========================
-func (s *Staking) BoundAccountMeter(addr meter.Address, amount *big.Int) error {
+func (s *Staking) BoundAccountMeter(addr meter.Address, amount *big.Int, state *state.State) error {
 	if amount.Sign() == 0 {
 		return nil
 	}
 
-	state, err := s.GetStakingState()
-	if err != nil {
-		s.logger.Error("get state failed", "error", err)
-		return err
-	}
 	meterBalance := state.GetEnergy(addr)
 	meterBoundedBalance := state.GetBoundedEnergy(addr)
 
@@ -185,16 +127,11 @@ func (s *Staking) BoundAccountMeter(addr meter.Address, amount *big.Int) error {
 	return nil
 }
 
-func (s *Staking) UnboundAccountMeter(addr meter.Address, amount *big.Int) error {
+func (s *Staking) UnboundAccountMeter(addr meter.Address, amount *big.Int, state *state.State) error {
 	if amount.Sign() == 0 {
 		return nil
 	}
 
-	state, err := s.GetStakingState()
-	if err != nil {
-		s.logger.Error("get state failed", "error", err)
-		return err
-	}
 	meterBalance := state.GetEnergy(addr)
 	meterBoundedBalance := state.GetBoundedEnergy(addr)
 
@@ -211,16 +148,11 @@ func (s *Staking) UnboundAccountMeter(addr meter.Address, amount *big.Int) error
 }
 
 // bound a meter gov in an account -- move amount from balance to bounded balance
-func (s *Staking) BoundAccountMeterGov(addr meter.Address, amount *big.Int) error {
+func (s *Staking) BoundAccountMeterGov(addr meter.Address, amount *big.Int, state *state.State) error {
 	if amount.Sign() == 0 {
 		return nil
 	}
 
-	state, err := s.GetStakingState()
-	if err != nil {
-		s.logger.Error("get state failed", "error", err)
-		return err
-	}
 	meterGov := state.GetBalance(addr)
 	meterGovBounded := state.GetBoundedBalance(addr)
 
@@ -236,16 +168,11 @@ func (s *Staking) BoundAccountMeterGov(addr meter.Address, amount *big.Int) erro
 }
 
 // unbound a meter gov in an account -- move amount from bounded balance to balance
-func (s *Staking) UnboundAccountMeterGov(addr meter.Address, amount *big.Int) error {
+func (s *Staking) UnboundAccountMeterGov(addr meter.Address, amount *big.Int, state *state.State) error {
 	if amount.Sign() == 0 {
 		return nil
 	}
 
-	state, err := s.GetStakingState()
-	if err != nil {
-		s.logger.Error("get state failed", "error", err)
-		return err
-	}
 	meterGov := state.GetBalance(addr)
 	meterGovBounded := state.GetBoundedBalance(addr)
 

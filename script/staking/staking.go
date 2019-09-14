@@ -2,7 +2,6 @@ package staking
 
 import (
 	"errors"
-	"sync/atomic"
 
 	"github.com/dfinlab/meter/chain"
 	"github.com/dfinlab/meter/state"
@@ -20,11 +19,6 @@ type Staking struct {
 	chain        *chain.Chain
 	stateCreator *state.Creator
 	logger       log15.Logger
-
-	cache struct {
-		bestHeight   atomic.Value
-		stakingState atomic.Value
-	}
 }
 
 func NewStaking(ch *chain.Chain, sc *state.Creator) *Staking {
@@ -41,9 +35,9 @@ func (s *Staking) Start() error {
 	return nil
 }
 
-func (s *Staking) PrepareStakingHandler() (StakingHandler func(data []byte, txCtx *xenv.TransactionContext, gas uint64) (ret []byte, leftOverGas uint64, err error)) {
+func (s *Staking) PrepareStakingHandler() (StakingHandler func(data []byte, txCtx *xenv.TransactionContext, gas uint64, state *state.State) (ret []byte, leftOverGas uint64, err error)) {
 
-	StakingHandler = func(data []byte, txCtx *xenv.TransactionContext, gas uint64) (ret []byte, leftOverGas uint64, err error) {
+	StakingHandler = func(data []byte, txCtx *xenv.TransactionContext, gas uint64, state *state.State) (ret []byte, leftOverGas uint64, err error) {
 		s.logger.Info("received staking data", "txCtx", txCtx, "gas", gas)
 		sb, err := StakingDecodeFromBytes(data)
 		if err != nil {
@@ -51,52 +45,25 @@ func (s *Staking) PrepareStakingHandler() (StakingHandler func(data []byte, txCt
 			return nil, gas, err
 		}
 
+		senv := NewStakingEnviroment(s, state, txCtx)
+		if senv == nil {
+			panic("create staking enviroment failed")
+		}
+
 		s.logger.Info("decode stakingbody", "Stakingbody", sb.ToString())
 		switch sb.Opcode {
 		case OP_BOUND:
-			var err error
-			switch sb.Token {
-			case TOKEN_METER:
-				err = s.BoundAccountMeter(sb.HolderAddr, &sb.Amount)
-			case TOKEN_METER_GOV:
-				err = s.BoundAccountMeterGov(sb.HolderAddr, &sb.Amount)
-			default:
-				err = errors.New("Invalid token parameter")
-			}
-			if err != nil {
-				return nil, gas, err
-			}
-
-			ret, leftOverGas, err = sb.BoundHandler(txCtx, gas)
-			s.SyncCandidateList()
-			s.SyncStakerholderList()
-			s.SyncBucketList()
+			ret, leftOverGas, err = sb.BoundHandler(senv, gas)
 
 		case OP_UNBOUND:
-			var err error
-			switch sb.Token {
-			case TOKEN_METER:
-				err = s.UnboundAccountMeter(sb.HolderAddr, &sb.Amount)
-			case TOKEN_METER_GOV:
-				err = s.UnboundAccountMeterGov(sb.HolderAddr, &sb.Amount)
-			default:
-				err = errors.New("Invalid token parameter")
-			}
-			if err != nil {
-				return nil, gas, err
-			}
-			ret, leftOverGas, err = sb.UnBoundHandler(txCtx, gas)
-			s.SyncCandidateList()
-			s.SyncStakerholderList()
-			s.SyncBucketList()
+			ret, leftOverGas, err = sb.UnBoundHandler(senv, gas)
 
 		case OP_CANDIDATE:
-			ret, leftOverGas, err = sb.CandidateHandler(txCtx, gas)
-			s.SyncCandidateList()
-			s.SyncStakerholderList()
+			ret, leftOverGas, err = sb.CandidateHandler(senv, gas)
 
 		case OP_QUERY:
-			ret, leftOverGas, err = sb.QueryHandler(txCtx, gas)
+			ret, leftOverGas, err = sb.QueryHandler(senv, gas)
+
 		default:
 			s.logger.Error("unknown Opcode", "Opcode", sb.Opcode)
 			return nil, gas, errors.New("unknow staking opcode")

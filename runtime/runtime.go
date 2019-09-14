@@ -333,7 +333,7 @@ func (rt *Runtime) PrepareClause(
 				return nil, true
 			}
 			// exclude 4 bytes of clause data
-			data, leftOverGas, vmErr = se.HandleScriptData(clause.Data()[4:], txCtx, gas)
+			data, leftOverGas, vmErr = se.HandleScriptData(clause.Data()[4:], txCtx, gas, rt.state)
 			//fmt.Println("scriptEngine handling return", data, leftOverGas, vmErr)
 
 			interrupted := false

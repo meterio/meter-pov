@@ -8,7 +8,6 @@ import (
 	"math/big"
 
 	"github.com/dfinlab/meter/meter"
-	"github.com/dfinlab/meter/xenv"
 	"github.com/ethereum/go-ethereum/rlp"
 )
 
@@ -57,7 +56,10 @@ func (sb *StakingBody) ToString() string {
 		sb.Opcode, sb.Version, sb.Option, sb.HolderAddr, sb.CandAddr, sb.CandName, sb.CandPubKey, sb.CandIP, sb.CandPort, sb.StakingID, sb.Amount, sb.Token)
 }
 
-func (sb *StakingBody) BoundHandler(txCtx *xenv.TransactionContext, gas uint64) (ret []byte, leftOverGas uint64, err error) {
+func (sb *StakingBody) BoundHandler(senv *StakingEnviroment, gas uint64) (ret []byte, leftOverGas uint64, err error) {
+	staking := senv.GetStaking()
+	state := senv.GetState()
+
 	bucket := NewBucket(sb.HolderAddr, sb.CandAddr, &sb.Amount, uint8(sb.Token), uint64(0))
 	bucket.Add()
 	if stakeholder, ok := StakeholderMap[sb.HolderAddr]; ok {
@@ -67,9 +69,32 @@ func (sb *StakingBody) BoundHandler(txCtx *xenv.TransactionContext, gas uint64) 
 		stakeholder.AddBucket(bucket)
 		stakeholder.Add()
 	}
+
+	switch sb.Token {
+	case TOKEN_METER:
+		err = staking.BoundAccountMeter(sb.HolderAddr, &sb.Amount, state)
+	case TOKEN_METER_GOV:
+		err = staking.BoundAccountMeterGov(sb.HolderAddr, &sb.Amount, state)
+	default:
+		err = errors.New("Invalid token parameter")
+	}
+
+	staking.SyncCandidateList(state)
+	staking.SyncStakerholderList(state)
+	staking.SyncBucketList(state)
+
+	if gas < meter.ClauseGas {
+		leftOverGas = 0
+	} else {
+		leftOverGas = gas - meter.ClauseGas
+	}
 	return
 }
-func (sb *StakingBody) UnBoundHandler(txCtx *xenv.TransactionContext, gas uint64) (ret []byte, leftOverGas uint64, err error) {
+
+func (sb *StakingBody) UnBoundHandler(senv *StakingEnviroment, gas uint64) (ret []byte, leftOverGas uint64, err error) {
+	staking := senv.GetStaking()
+	state := senv.GetState()
+
 	if gas < meter.ClauseGas {
 		leftOverGas = 0
 	} else {
@@ -115,12 +140,27 @@ func (sb *StakingBody) UnBoundHandler(txCtx *xenv.TransactionContext, gas uint64
 			}
 		}
 	}
-
 	delete(BucketMap, sb.StakingID)
+
+	switch sb.Token {
+	case TOKEN_METER:
+		err = staking.UnboundAccountMeter(sb.HolderAddr, &sb.Amount, state)
+	case TOKEN_METER_GOV:
+		err = staking.UnboundAccountMeterGov(sb.HolderAddr, &sb.Amount, state)
+	default:
+		err = errors.New("Invalid token parameter")
+	}
+
+	staking.SyncCandidateList(state)
+	staking.SyncStakerholderList(state)
+	staking.SyncBucketList(state)
 	return
 }
 
-func (sb *StakingBody) CandidateHandler(txCtx *xenv.TransactionContext, gas uint64) (ret []byte, leftOverGas uint64, err error) {
+func (sb *StakingBody) CandidateHandler(senv *StakingEnviroment, gas uint64) (ret []byte, leftOverGas uint64, err error) {
+	staking := senv.GetStaking()
+	state := senv.GetState()
+
 	candidate := NewCandidate(sb.CandAddr, sb.CandPubKey, sb.CandIP, sb.CandPort)
 	candidate.Add()
 
@@ -129,9 +169,13 @@ func (sb *StakingBody) CandidateHandler(txCtx *xenv.TransactionContext, gas uint
 	} else {
 		leftOverGas = gas - meter.ClauseGas
 	}
+
+	staking.SyncCandidateList(state)
+	staking.SyncStakerholderList(state)
 	return
 }
-func (sb *StakingBody) QueryHandler(txCtx *xenv.TransactionContext, gas uint64) (ret []byte, leftOverGas uint64, err error) {
+
+func (sb *StakingBody) QueryHandler(senv *StakingEnviroment, gas uint64) (ret []byte, leftOverGas uint64, err error) {
 	switch sb.Option {
 	case OPTION_CANDIDATES:
 		// TODO:

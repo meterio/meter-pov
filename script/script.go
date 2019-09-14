@@ -51,7 +51,7 @@ func (se *ScriptEngine) StartAllModules() {
 	ModuleStakingInit(se)
 }
 
-func (se *ScriptEngine) HandleScriptData(data []byte, txCtx *xenv.TransactionContext, gas uint64) (ret []byte, leftOverGas uint64, err error) {
+func (se *ScriptEngine) HandleScriptData(data []byte, txCtx *xenv.TransactionContext, gas uint64, state *state.State) (ret []byte, leftOverGas uint64, err error) {
 	se.logger.Info("received script data", "txCtx", txCtx, "gas", gas)
 
 	if bytes.Compare(data[:len(ScriptPattern)], ScriptPattern[:]) != 0 {
@@ -77,7 +77,7 @@ func (se *ScriptEngine) HandleScriptData(data []byte, txCtx *xenv.TransactionCon
 
 	fmt.Println(mod.ToString())
 	//module handler
-	ret, leftOverGas, err = mod.modHandler(script.Payload, txCtx, gas)
+	ret, leftOverGas, err = mod.modHandler(script.Payload, txCtx, gas, state)
 	return
 }
 
