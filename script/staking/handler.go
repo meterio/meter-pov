@@ -3,6 +3,7 @@ package staking
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"github.com/google/uuid"
 	"math/big"
 
@@ -28,7 +29,7 @@ const (
 type StakingBody struct {
 	Opcode     uint32
 	Version    uint32
-	option     uint32
+	Option     uint32
 	HolderAddr meter.Address
 	CandAddr   meter.Address
 	CandName   []byte
@@ -49,6 +50,11 @@ func StakingDecodeFromBytes(bytes []byte) (*StakingBody, error) {
 	sb := StakingBody{}
 	err := rlp.DecodeBytes(bytes, &sb)
 	return &sb, err
+}
+
+func (sb *StakingBody) ToString() string {
+	return fmt.Sprintf("StakingBody: Opcode=%v, Version=%v, Option=%v, HolderAddr=%v, CandAddr=%v, CandName=%v, CandPubKey=%v, CandIP=%v, CandPort=%v, StakingID=%v, Amount=%v, Token=%v",
+		sb.Opcode, sb.Version, sb.Option, sb.HolderAddr, sb.CandAddr, sb.CandName, sb.CandPubKey, sb.CandIP, sb.CandPort, sb.StakingID, sb.Amount, sb.Token)
 }
 
 func (sb *StakingBody) BoundHandler(txCtx *xenv.TransactionContext, gas uint64) (ret []byte, leftOverGas uint64, err error) {
@@ -126,7 +132,7 @@ func (sb *StakingBody) CandidateHandler(txCtx *xenv.TransactionContext, gas uint
 	return
 }
 func (sb *StakingBody) QueryHandler(txCtx *xenv.TransactionContext, gas uint64) (ret []byte, leftOverGas uint64, err error) {
-	switch sb.option {
+	switch sb.Option {
 	case OPTION_CANDIDATES:
 		// TODO:
 		cs := make([]*Candidate, 0)

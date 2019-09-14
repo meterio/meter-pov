@@ -77,7 +77,7 @@ func TestRlpForCandidate(t *testing.T) {
 		!bytes.Equal(src.PubKey, tgt.PubKey) ||
 		!bytes.Equal(src.IPAddr, tgt.IPAddr) ||
 		src.Port != tgt.Port ||
-		src.Votes.Cmp(tgt.Votes) != 0 ||
+		src.TotalVotes.Cmp(tgt.TotalVotes) != 0 ||
 		len(src.Buckets) != len(tgt.Buckets) {
 		t.Fail()
 	}
@@ -94,9 +94,14 @@ func TestRlpForBucket(t *testing.T) {
 	if err != nil {
 		fmt.Println("Can not parse address")
 	}
+
+	cand, err1 := meter.ParseAddress("0x86865c55b96889369f714143f213403464a28686")
+	if err1 != nil {
+		fmt.Println("Can not parse address")
+	}
 	token := uint8(rand.Int())
 	duration := rand.Uint64()
-	src := staking.NewBucket(addr, big.NewInt(int64(rand.Int())), token, duration)
+	src := staking.NewBucket(addr, cand, big.NewInt(int64(rand.Int())), token, duration)
 
 	data, err := rlp.EncodeToBytes(src)
 	if err != nil {
@@ -118,13 +123,13 @@ func TestRlpForBucket(t *testing.T) {
 
 func TestRlpForScript(t *testing.T) {
 	version := uint32(0)
-	holderAddr, _ := meter.ParseAddress("0x9999999999999999999999999999999999999999")
-	candAddr, _ := meter.ParseAddress("0x1111111111111111111111111111111111111111")
+	holderAddr, _ := meter.ParseAddress("0x0205c2D862cA051010698b69b54278cbAf945C0b")
+	candAddr, _ := meter.ParseAddress("0x1111111111111111111111111111111111111112")
 	candName := []byte("tester")
 	candPubKey := []byte("")
-	candIP := []byte("")
+	candIP := []byte("1.2.3.4")
 	candPort := uint16(8669)
-	amount := big.NewInt(int64(1e17))
+	amount := big.NewInt(int64(9e18))
 	body := staking.StakingBody{
 		Opcode:     staking.OP_BOUND,
 		Version:    version,
@@ -135,7 +140,7 @@ func TestRlpForScript(t *testing.T) {
 		CandIP:     candIP,
 		CandPort:   candPort,
 		Amount:     *amount,
-		Token:      staking.TOKEN_METER,
+		Token:      staking.TOKEN_METER_GOV,
 	}
 	payload, err := rlp.EncodeToBytes(body)
 	if err != nil {
@@ -155,6 +160,11 @@ func TestRlpForScript(t *testing.T) {
 		t.Fail()
 	}
 	data = append(script.ScriptPattern[:], data...)
+	// fmt.Println("Script Data Bytes: ", data)
+	fmt.Println("Script Data Hex: ", hex.EncodeToString(data))
+
+	prefix := []byte{0xff, 0xff, 0xff, 0xff}
+	data = append(prefix, data...)
 	// fmt.Println("Script Data Bytes: ", data)
 	fmt.Println("Script Data Hex: ", hex.EncodeToString(data))
 }

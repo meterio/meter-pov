@@ -9,7 +9,7 @@ import (
 )
 
 var (
-	BucketMap map[uuid.UUID]*Bucket
+	BucketMap = make(map[uuid.UUID]*Bucket)
 )
 
 // Candidate indicates the structure of a candidate

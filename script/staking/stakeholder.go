@@ -9,7 +9,7 @@ import (
 )
 
 var (
-	StakeholderMap map[meter.Address]*Stakeholder
+	StakeholderMap = make(map[meter.Address]*Stakeholder)
 )
 
 // Stakeholder indicates the structure of a Stakeholder

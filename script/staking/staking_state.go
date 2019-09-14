@@ -176,8 +176,8 @@ func (s *Staking) BoundAccountMeter(addr meter.Address, amount *big.Int) error {
 
 	// meterBalance should >= amount
 	if meterBalance.Cmp(amount) == -1 {
-		s.logger.Error("not enough balance", "account", addr, "bound amount", amount)
-		return errors.New("not enough balance")
+		s.logger.Error("not enough meter balance", "account", addr, "bound amount", amount)
+		return errors.New("not enough meter balance")
 	}
 
 	state.SetEnergy(addr, new(big.Int).Sub(meterBalance, amount))
@@ -200,8 +200,8 @@ func (s *Staking) UnboundAccountMeter(addr meter.Address, amount *big.Int) error
 
 	// meterBoundedBalance should >= amount
 	if meterBoundedBalance.Cmp(amount) >= 0 {
-		s.logger.Error("not enough bounded balance", "account", addr, "unbound amount", amount)
-		return errors.New("not enough bounded balance")
+		s.logger.Error("not enough bounded meter balance", "account", addr, "unbound amount", amount)
+		return errors.New("not enough bounded meter balance")
 	}
 
 	state.SetEnergy(addr, new(big.Int).Add(meterBalance, amount))
@@ -226,8 +226,8 @@ func (s *Staking) BoundAccountMeterGov(addr meter.Address, amount *big.Int) erro
 
 	// meterGov should >= amount
 	if meterGov.Cmp(amount) == -1 {
-		s.logger.Error("not enough balance", "account", addr, "bound amount", amount)
-		return errors.New("not enough balance")
+		s.logger.Error("not enough meter-gov balance", "account", addr, "bound amount", amount)
+		return errors.New("not enough meter-gov balance")
 	}
 
 	state.SetBalance(addr, new(big.Int).Sub(meterGov, amount))
@@ -251,8 +251,8 @@ func (s *Staking) UnboundAccountMeterGov(addr meter.Address, amount *big.Int) er
 
 	// meterGovBounded should >= amount
 	if meterGovBounded.Cmp(amount) >= 0 {
-		s.logger.Error("not enough bounded balance", "account", addr, "unbound amount", amount)
-		return errors.New("not enough bounded balance")
+		s.logger.Error("not enough bounded meter-gov balance", "account", addr, "unbound amount", amount)
+		return errors.New("not enough bounded meter-gov balance")
 	}
 
 	state.SetBalance(addr, new(big.Int).Add(meterGov, amount))

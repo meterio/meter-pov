@@ -9,7 +9,7 @@ import (
 )
 
 var (
-	CandidateMap map[meter.Address]*Candidate
+	CandidateMap = make(map[meter.Address]*Candidate)
 )
 
 // Candidate indicates the structure of a candidate

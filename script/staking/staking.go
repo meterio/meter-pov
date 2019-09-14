@@ -50,6 +50,8 @@ func (s *Staking) PrepareStakingHandler() (StakingHandler func(data []byte, txCt
 			s.logger.Error("Decode script message failed", "error", err)
 			return nil, gas, err
 		}
+
+		s.logger.Info("decode stakingbody", "Stakingbody", sb.ToString())
 		switch sb.Opcode {
 		case OP_BOUND:
 			var err error
