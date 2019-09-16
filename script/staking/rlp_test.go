@@ -121,17 +121,23 @@ func TestRlpForBucket(t *testing.T) {
 
 }
 
-func TestRlpForScript(t *testing.T) {
+const (
+	HOLDER_ADDRESS    = "0x8E69E4357d886b8dd3131aF7d7627a4381D3Ddd4"
+	CANDIDATE_ADDRESS = "0x8E69E4357d886b8dd3131aF7d7627a4381D3Ddd4"
+)
+
+func generateScriptData(opCode uint32, holderAddrStr, candAddrStr string, amountInt64 uint64) (string, error) {
+	holderAddr, _ := meter.ParseAddress(holderAddrStr)
+	candAddr, _ := meter.ParseAddress(candAddrStr)
 	version := uint32(0)
-	holderAddr, _ := meter.ParseAddress("0x0205c2D862cA051010698b69b54278cbAf945C0b")
-	candAddr, _ := meter.ParseAddress("0x1111111111111111111111111111111111111112")
 	candName := []byte("tester")
 	candPubKey := []byte("")
 	candIP := []byte("1.2.3.4")
 	candPort := uint16(8669)
-	amount := big.NewInt(int64(9e18))
+	amount := big.NewInt(int64(amountInt64))
+
 	body := staking.StakingBody{
-		Opcode:     staking.OP_BOUND,
+		Opcode:     opCode,
 		Version:    version,
 		HolderAddr: holderAddr,
 		CandAddr:   candAddr,
@@ -144,7 +150,7 @@ func TestRlpForScript(t *testing.T) {
 	}
 	payload, err := rlp.EncodeToBytes(body)
 	if err != nil {
-		t.Fail()
+		return "", err
 	}
 	// fmt.Println("Payload Bytes: ", payload)
 	fmt.Println("Payload Hex: ", hex.EncodeToString(payload))
@@ -157,14 +163,34 @@ func TestRlpForScript(t *testing.T) {
 	}
 	data, err := rlp.EncodeToBytes(s)
 	if err != nil {
-		t.Fail()
+		return "", err
 	}
 	data = append(script.ScriptPattern[:], data...)
 	// fmt.Println("Script Data Bytes: ", data)
-	fmt.Println("Script Data Hex: ", hex.EncodeToString(data))
-
 	prefix := []byte{0xff, 0xff, 0xff, 0xff}
 	data = append(prefix, data...)
-	// fmt.Println("Script Data Bytes: ", data)
-	fmt.Println("Script Data Hex: ", hex.EncodeToString(data))
+	return hex.EncodeToString(data), nil
+}
+func TestScriptDataForBound(t *testing.T) {
+	hexData, err := generateScriptData(staking.OP_BOUND, HOLDER_ADDRESS, CANDIDATE_ADDRESS, 9e18)
+	if err != nil {
+		t.Fail()
+	}
+	fmt.Println("Script Data Hex for Bound: ", hexData)
+}
+
+func TestScriptDataForUnbound(t *testing.T) {
+	hexData, err := generateScriptData(staking.OP_UNBOUND, HOLDER_ADDRESS, CANDIDATE_ADDRESS, 0)
+	if err != nil {
+		t.Fail()
+	}
+	fmt.Println("Script Data Hex for Unbound: ", hexData)
+}
+
+func TestScriptDataForCandidate(t *testing.T) {
+	hexData, err := generateScriptData(staking.OP_CANDIDATE, HOLDER_ADDRESS, CANDIDATE_ADDRESS, 1e18)
+	if err != nil {
+		t.Fail()
+	}
+	fmt.Println("Script Data Hex for Candidate: ", hexData)
 }
