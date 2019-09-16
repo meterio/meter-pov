@@ -9,9 +9,6 @@ import (
 	"net/http"
 	"strings"
 
-	assetfs "github.com/elazarl/go-bindata-assetfs"
-	"github.com/gorilla/handlers"
-	"github.com/gorilla/mux"
 	"github.com/dfinlab/meter/api/accounts"
 	"github.com/dfinlab/meter/api/blocks"
 	"github.com/dfinlab/meter/api/debug"
@@ -19,6 +16,7 @@ import (
 	"github.com/dfinlab/meter/api/events"
 	"github.com/dfinlab/meter/api/eventslegacy"
 	"github.com/dfinlab/meter/api/node"
+	"github.com/dfinlab/meter/api/staking"
 	"github.com/dfinlab/meter/api/subscriptions"
 	"github.com/dfinlab/meter/api/transactions"
 	"github.com/dfinlab/meter/api/transfers"
@@ -27,6 +25,9 @@ import (
 	"github.com/dfinlab/meter/logdb"
 	"github.com/dfinlab/meter/state"
 	"github.com/dfinlab/meter/txpool"
+	assetfs "github.com/elazarl/go-bindata-assetfs"
+	"github.com/gorilla/handlers"
+	"github.com/gorilla/mux"
 )
 
 //New return api router
@@ -76,6 +77,8 @@ func New(chain *chain.Chain, stateCreator *state.Creator, txPool *txpool.TxPool,
 		Mount(router, "/node")
 	subs := subscriptions.New(chain, origins, backtraceLimit)
 	subs.Mount(router, "/subscriptions")
+	staking.New().
+		Mount(router, "/staking")
 
 	return handlers.CORS(
 			handlers.AllowedOrigins(origins),
