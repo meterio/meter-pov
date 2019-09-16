@@ -2,6 +2,7 @@ package script
 
 import (
 	"bytes"
+	"encoding/hex"
 	"errors"
 	"fmt"
 
@@ -52,10 +53,9 @@ func (se *ScriptEngine) StartAllModules() {
 }
 
 func (se *ScriptEngine) HandleScriptData(data []byte, txCtx *xenv.TransactionContext, gas uint64, state *state.State) (ret []byte, leftOverGas uint64, err error) {
-	se.logger.Info("received script data", "txCtx", txCtx, "gas", gas)
-
+	se.logger.Info("received script data", "txCtx", txCtx, "gas", gas, "data", hex.EncodeToString(data))
 	if bytes.Compare(data[:len(ScriptPattern)], ScriptPattern[:]) != 0 {
-		err := errors.New(fmt.Sprintf("Pattern mismatch, pattern = %v", data[:len(ScriptPattern)]))
+		err := errors.New(fmt.Sprintf("Pattern mismatch, pattern = %v", hex.EncodeToString(data[:len(ScriptPattern)])))
 		fmt.Println(err)
 		return nil, gas, err
 	}

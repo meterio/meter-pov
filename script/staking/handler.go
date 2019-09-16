@@ -1,11 +1,13 @@
 package staking
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/google/uuid"
 	"math/big"
+
+	"github.com/google/uuid"
 
 	"github.com/dfinlab/meter/meter"
 	"github.com/ethereum/go-ethereum/rlp"
@@ -59,6 +61,12 @@ func (sb *StakingBody) ToString() string {
 func (sb *StakingBody) BoundHandler(senv *StakingEnviroment, gas uint64) (ret []byte, leftOverGas uint64, err error) {
 	staking := senv.GetStaking()
 	state := senv.GetState()
+
+	// check if candidate exists or not
+	if _, ok := CandidateMap[sb.CandAddr]; !ok {
+		err = errors.New("candidate is not listed")
+		return
+	}
 
 	bucket := NewBucket(sb.HolderAddr, sb.CandAddr, &sb.Amount, uint8(sb.Token), uint64(0))
 	bucket.Add()
@@ -161,6 +169,17 @@ func (sb *StakingBody) CandidateHandler(senv *StakingEnviroment, gas uint64) (re
 	staking := senv.GetStaking()
 	state := senv.GetState()
 
+	// if the candidate already exists return error without paying gas
+	if record, tracked := CandidateMap[sb.CandAddr]; tracked {
+		if bytes.Equal(record.PubKey, sb.CandPubKey) && bytes.Equal(record.IPAddr, sb.CandIP) && record.Port == sb.CandPort {
+			// exact same candidate
+			err = errors.New("candidate already listed")
+		} else {
+			err = errors.New("candidate listed with different information")
+		}
+		leftOverGas = gas
+		return
+	}
 	candidate := NewCandidate(sb.CandAddr, sb.CandPubKey, sb.CandIP, sb.CandPort)
 	candidate.Add()
 
