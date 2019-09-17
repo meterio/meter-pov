@@ -53,12 +53,22 @@ func (s *Staking) PrepareStakingHandler() (StakingHandler func(data []byte, txCt
 		s.logger.Info("decode stakingbody", "Stakingbody", sb.ToString())
 		switch sb.Opcode {
 		case OP_BOUND:
+			if senv.GetTxCtx().Origin != sb.HolderAddr {
+				return nil, gas, errors.New("holder address is not the same from transaction")
+			}
+
 			ret, leftOverGas, err = sb.BoundHandler(senv, gas)
 
 		case OP_UNBOUND:
+			if senv.GetTxCtx().Origin != sb.HolderAddr {
+				return nil, gas, errors.New("holder address is not the same from transaction")
+			}
 			ret, leftOverGas, err = sb.UnBoundHandler(senv, gas)
 
 		case OP_CANDIDATE:
+			if senv.GetTxCtx().Origin != sb.CandAddr {
+				return nil, gas, errors.New("candidate address is not the same from transaction")
+			}
 			ret, leftOverGas, err = sb.CandidateHandler(senv, gas)
 
 		case OP_QUERY:

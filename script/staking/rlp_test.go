@@ -90,7 +90,7 @@ func TestRlpForCandidate(t *testing.T) {
 }
 
 func TestRlpForBucket(t *testing.T) {
-	addr, err := meter.ParseAddress("0xf3dd5c55b96889369f714143f213403464a268a6")
+	addr, err := meter.ParseAddress("0x0205c2D862cA051010698b69b54278cbAf945C0b")
 	if err != nil {
 		fmt.Println("Can not parse address")
 	}
@@ -122,11 +122,14 @@ func TestRlpForBucket(t *testing.T) {
 }
 
 const (
-	HOLDER_ADDRESS    = "0x8E69E4357d886b8dd3131aF7d7627a4381D3Ddd4"
-	CANDIDATE_ADDRESS = "0x8E69E4357d886b8dd3131aF7d7627a4381D3Ddd4"
+	HOLDER_ADDRESS    = "0x0205c2D862cA051010698b69b54278cbAf945C0b"
+	CANDIDATE_ADDRESS = "0x0205c2D862cA051010698b69b54278cbAf945C0b"
+
+	BUCKET_ID        = "e08afe16-d8db-11e9-9d0e-005056381958"
+	CANDIDATE_AMOUNT = "2000000000000000000000" //(2e20) 200MTRG
 )
 
-func generateScriptData(opCode uint32, holderAddrStr, candAddrStr string, amountInt64 uint64) (string, error) {
+func generateScriptData(opCode uint32, holderAddrStr, candAddrStr string, amountInt64 int64) (string, error) {
 	holderAddr, _ := meter.ParseAddress(holderAddrStr)
 	candAddr, _ := meter.ParseAddress(candAddrStr)
 	version := uint32(0)
@@ -134,6 +137,18 @@ func generateScriptData(opCode uint32, holderAddrStr, candAddrStr string, amount
 	candPubKey := []byte("")
 	candIP := []byte("1.2.3.4")
 	candPort := uint16(8669)
+	stakingID := uuid.MustParse(BUCKET_ID)
+
+	/******
+	var amount *big.Int
+	var ok bool
+	if opCode == staking.OP_CANDIDATE {
+		amount, ok = new(big.Int).SetString(CANDIDATE_AMOUNT, 10)
+		fmt.Println("OK?", ok)
+	} else {
+		amount = big.NewInt(int64(amountInt64))
+	}
+	*******/
 	amount := big.NewInt(int64(amountInt64))
 
 	body := staking.StakingBody{
@@ -145,6 +160,7 @@ func generateScriptData(opCode uint32, holderAddrStr, candAddrStr string, amount
 		CandPubKey: candPubKey,
 		CandIP:     candIP,
 		CandPort:   candPort,
+		StakingID:  stakingID,
 		Amount:     *amount,
 		Token:      staking.TOKEN_METER_GOV,
 	}
@@ -180,7 +196,7 @@ func TestScriptDataForBound(t *testing.T) {
 }
 
 func TestScriptDataForUnbound(t *testing.T) {
-	hexData, err := generateScriptData(staking.OP_UNBOUND, HOLDER_ADDRESS, CANDIDATE_ADDRESS, 0)
+	hexData, err := generateScriptData(staking.OP_UNBOUND, HOLDER_ADDRESS, CANDIDATE_ADDRESS, 1e18)
 	if err != nil {
 		t.Fail()
 	}

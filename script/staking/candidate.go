@@ -54,6 +54,13 @@ func (c *Candidate) ToString() string {
 		c.Addr, c.PubKey, c.IPAddr, c.Port, c.TotalVotes)
 }
 
+func (c *Candidate) AddBucket(bucket *Bucket) {
+	// TODO: deal with duplicates?
+	bucketID := bucket.BucketID
+	c.Buckets = append(c.Buckets, bucketID)
+	c.TotalVotes.Add(c.TotalVotes, bucket.TotalVotes)
+}
+
 func (c *Candidate) Add() {
 	CandidateMap[c.Addr] = c
 }

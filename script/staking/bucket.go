@@ -14,14 +14,16 @@ var (
 
 // Candidate indicates the structure of a candidate
 type Bucket struct {
-	BucketID    uuid.UUID
-	Owner       meter.Address //stake holder
-	Candidate   meter.Address // candidate
-	Value       *big.Int      // staking unit Wei
-	Token       uint8         // token type MTR / MTRG
-	Duration    uint64        // time durations, seconds
-	BounusVotes uint64        // extra votes from staking
-	TotalVotes  *big.Int      // Value votes + extra votes
+	BucketID      uuid.UUID
+	Owner         meter.Address //stake holder
+	Candidate     meter.Address // candidate
+	Value         *big.Int      // staking unit Wei
+	Token         uint8         // token type MTR / MTRG
+	Rate          uint8         // bounus rate
+	CreateTime    uint64        // bucket create time
+	LastTouchTime uint64        // time durations, seconds
+	BounusVotes   uint64        // extra votes from staking
+	TotalVotes    *big.Int      // Value votes + extra votes
 }
 
 func NewBucket(owner meter.Address, cand meter.Address, value *big.Int, token uint8, duration uint64) *Bucket {
@@ -31,14 +33,14 @@ func NewBucket(owner meter.Address, cand meter.Address, value *big.Int, token ui
 	}
 
 	return &Bucket{
-		BucketID:    uuid,
-		Owner:       owner,
-		Candidate:   cand,
-		Value:       value,
-		Token:       token,
-		Duration:    duration,
-		BounusVotes: 0,
-		TotalVotes:  value.Add(big.NewInt(0), value),
+		BucketID:      uuid,
+		Owner:         owner,
+		Candidate:     cand,
+		Value:         value,
+		Token:         token,
+		LastTouchTime: duration,
+		BounusVotes:   0,
+		TotalVotes:    value.Add(big.NewInt(0), value),
 	}
 }
 
@@ -59,7 +61,7 @@ func BucketMapToList() ([]Bucket, error) {
 
 func (b *Bucket) ToString() string {
 	return fmt.Sprintf("Bucket: Uuid=%v, Owner=%v, Value=%v, Token=%v, Duration=%v, BounusVotes=%v, TotoalVotes=%v",
-		b.BucketID, b.Owner, b.Value, b.Token, b.Duration, b.BounusVotes, b.TotalVotes)
+		b.BucketID, b.Owner, b.Value, b.Token, b.LastTouchTime, b.BounusVotes, b.TotalVotes)
 }
 
 func (b *Bucket) Add() {

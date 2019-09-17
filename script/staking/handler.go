@@ -24,6 +24,9 @@ const (
 	OPTION_CANDIDATES   = uint32(1)
 	OPTION_STAKEHOLDERS = uint32(2)
 	OPTION_BUCKETS      = uint32(3)
+
+	//TBD: candidate myself minial balance, Now is 100 (1e20) MTRG
+	MIN_CANDIDATE_BALANCE = string("100000000000000000000")
 )
 
 // Candidate indicates the structure of a candidate
@@ -62,20 +65,52 @@ func (sb *StakingBody) BoundHandler(senv *StakingEnviroment, gas uint64) (ret []
 	staking := senv.GetStaking()
 	state := senv.GetState()
 
+	if gas < meter.ClauseGas {
+		leftOverGas = 0
+	} else {
+		leftOverGas = gas - meter.ClauseGas
+	}
+
 	// check if candidate exists or not
 	if _, ok := CandidateMap[sb.CandAddr]; !ok {
 		err = errors.New("candidate is not listed")
 		return
 	}
 
+	// check the account have enough balance
+	switch sb.Token {
+	case TOKEN_METER:
+		if state.GetEnergy(sb.HolderAddr).Cmp(&sb.Amount) < 0 {
+			err = errors.New("not enough meter balance")
+		}
+	case TOKEN_METER_GOV:
+		if state.GetBalance(sb.HolderAddr).Cmp(&sb.Amount) < 0 {
+			err = errors.New("not enough meter-gov balance")
+		}
+	default:
+		err = errors.New("Invalid token parameter")
+	}
+	if err != nil {
+		return
+	}
+
 	bucket := NewBucket(sb.HolderAddr, sb.CandAddr, &sb.Amount, uint8(sb.Token), uint64(0))
 	bucket.Add()
+
 	if stakeholder, ok := StakeholderMap[sb.HolderAddr]; ok {
 		stakeholder.AddBucket(bucket)
 	} else {
 		stakeholder = NewStakeholder(sb.HolderAddr)
 		stakeholder.AddBucket(bucket)
 		stakeholder.Add()
+	}
+
+	if cand, ok := CandidateMap[sb.CandAddr]; ok {
+		cand.AddBucket(bucket)
+	} else {
+		staking.logger.Error("candidate is not in list")
+		err = errors.New("candidate is not in list")
+		return
 	}
 
 	switch sb.Token {
@@ -90,12 +125,6 @@ func (sb *StakingBody) BoundHandler(senv *StakingEnviroment, gas uint64) (ret []
 	staking.SyncCandidateList(state)
 	staking.SyncStakerholderList(state)
 	staking.SyncBucketList(state)
-
-	if gas < meter.ClauseGas {
-		leftOverGas = 0
-	} else {
-		leftOverGas = gas - meter.ClauseGas
-	}
 	return
 }
 
@@ -169,6 +198,37 @@ func (sb *StakingBody) CandidateHandler(senv *StakingEnviroment, gas uint64) (re
 	staking := senv.GetStaking()
 	state := senv.GetState()
 
+	if gas < meter.ClauseGas {
+		leftOverGas = 0
+	} else {
+		leftOverGas = gas - meter.ClauseGas
+	}
+
+	// candidate should meet the stake minmial requirement
+	//minCandBalance, _ := new(big.Int).SetString(MIN_CANDIDATE_BALANCE, 10)
+	minCandBalance := big.NewInt(int64(1e18))
+	if sb.Amount.Cmp(minCandBalance) < 0 {
+		err = errors.New("can not meet minimial balance")
+		return
+	}
+
+	// check the account have enough balance
+	switch sb.Token {
+	case TOKEN_METER:
+		if state.GetEnergy(sb.CandAddr).Cmp(&sb.Amount) < 0 {
+			err = errors.New("not enough meter balance")
+		}
+	case TOKEN_METER_GOV:
+		if state.GetBalance(sb.CandAddr).Cmp(&sb.Amount) < 0 {
+			err = errors.New("not enough meter-gov balance")
+		}
+	default:
+		err = errors.New("Invalid token parameter")
+	}
+	if err != nil {
+		return
+	}
+
 	// if the candidate already exists return error without paying gas
 	if record, tracked := CandidateMap[sb.CandAddr]; tracked {
 		if bytes.Equal(record.PubKey, sb.CandPubKey) && bytes.Equal(record.IPAddr, sb.CandIP) && record.Port == sb.CandPort {
@@ -177,20 +237,44 @@ func (sb *StakingBody) CandidateHandler(senv *StakingEnviroment, gas uint64) (re
 		} else {
 			err = errors.New("candidate listed with different information")
 		}
-		leftOverGas = gas
 		return
 	}
+
 	candidate := NewCandidate(sb.CandAddr, sb.CandPubKey, sb.CandIP, sb.CandPort)
 	candidate.Add()
 
-	if gas < meter.ClauseGas {
-		leftOverGas = 0
+	// now staking the amount
+	bucket := NewBucket(sb.HolderAddr, sb.CandAddr, &sb.Amount, uint8(sb.Token), uint64(0))
+	bucket.Add()
+
+	if stakeholder, ok := StakeholderMap[sb.CandAddr]; ok {
+		stakeholder.AddBucket(bucket)
 	} else {
-		leftOverGas = gas - meter.ClauseGas
+		stakeholder = NewStakeholder(sb.CandAddr)
+		stakeholder.AddBucket(bucket)
+		stakeholder.Add()
+	}
+
+	if cand, ok := CandidateMap[sb.CandAddr]; ok {
+		cand.AddBucket(bucket)
+	} else {
+		staking.logger.Error("candidate is not in list")
+		err = errors.New("candidate is not in list")
+		return
+	}
+
+	switch sb.Token {
+	case TOKEN_METER:
+		err = staking.BoundAccountMeter(sb.CandAddr, &sb.Amount, state)
+	case TOKEN_METER_GOV:
+		err = staking.BoundAccountMeterGov(sb.CandAddr, &sb.Amount, state)
+	default:
+		err = errors.New("Invalid token parameter")
 	}
 
 	staking.SyncCandidateList(state)
 	staking.SyncStakerholderList(state)
+	staking.SyncBucketList(state)
 	return
 }
 
