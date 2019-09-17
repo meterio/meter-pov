@@ -58,7 +58,7 @@ func StakingDecodeFromBytes(bytes []byte) (*StakingBody, error) {
 
 func (sb *StakingBody) ToString() string {
 	return fmt.Sprintf("StakingBody: Opcode=%v, Version=%v, Option=%v, HolderAddr=%v, CandAddr=%v, CandName=%v, CandPubKey=%v, CandIP=%v, CandPort=%v, StakingID=%v, Amount=%v, Token=%v",
-		sb.Opcode, sb.Version, sb.Option, sb.HolderAddr, sb.CandAddr, sb.CandName, sb.CandPubKey, sb.CandIP, sb.CandPort, sb.StakingID, sb.Amount, sb.Token)
+		sb.Opcode, sb.Version, sb.Option, sb.HolderAddr, sb.CandAddr, sb.CandName, sb.CandPubKey, string(sb.CandIP), sb.CandPort, sb.StakingID, sb.Amount, sb.Token)
 }
 
 func (sb *StakingBody) BoundHandler(senv *StakingEnviroment, gas uint64) (ret []byte, leftOverGas uint64, err error) {
@@ -197,6 +197,11 @@ func (sb *StakingBody) UnBoundHandler(senv *StakingEnviroment, gas uint64) (ret 
 func (sb *StakingBody) CandidateHandler(senv *StakingEnviroment, gas uint64) (ret []byte, leftOverGas uint64, err error) {
 	staking := senv.GetStaking()
 	state := senv.GetState()
+	fmt.Println("!!!!!!Entered Candidate Handler!!!!!!")
+	fmt.Println("CandidateMap =")
+	for k, v := range CandidateMap {
+		fmt.Println("key:", k, ", val:", v.ToString())
+	}
 
 	if gas < meter.ClauseGas {
 		leftOverGas = 0
@@ -209,6 +214,7 @@ func (sb *StakingBody) CandidateHandler(senv *StakingEnviroment, gas uint64) (re
 	minCandBalance := big.NewInt(int64(1e18))
 	if sb.Amount.Cmp(minCandBalance) < 0 {
 		err = errors.New("can not meet minimial balance")
+		leftOverGas = gas
 		return
 	}
 
@@ -226,17 +232,25 @@ func (sb *StakingBody) CandidateHandler(senv *StakingEnviroment, gas uint64) (re
 		err = errors.New("Invalid token parameter")
 	}
 	if err != nil {
+		leftOverGas = gas
 		return
 	}
 
+	fmt.Println("before checking existence, CandidateMap:", len(CandidateMap))
+	for k, v := range CandidateMap {
+		fmt.Println("key:", k, ", val:", v.ToString())
+	}
 	// if the candidate already exists return error without paying gas
 	if record, tracked := CandidateMap[sb.CandAddr]; tracked {
 		if bytes.Equal(record.PubKey, sb.CandPubKey) && bytes.Equal(record.IPAddr, sb.CandIP) && record.Port == sb.CandPort {
 			// exact same candidate
+			fmt.Println("Record: ", record.ToString())
+			fmt.Println("sb:", sb.ToString())
 			err = errors.New("candidate already listed")
 		} else {
 			err = errors.New("candidate listed with different information")
 		}
+		leftOverGas = gas
 		return
 	}
 
@@ -260,6 +274,7 @@ func (sb *StakingBody) CandidateHandler(senv *StakingEnviroment, gas uint64) (re
 	} else {
 		staking.logger.Error("candidate is not in list")
 		err = errors.New("candidate is not in list")
+		leftOverGas = gas
 		return
 	}
 
@@ -269,6 +284,7 @@ func (sb *StakingBody) CandidateHandler(senv *StakingEnviroment, gas uint64) (re
 	case TOKEN_METER_GOV:
 		err = staking.BoundAccountMeterGov(sb.CandAddr, &sb.Amount, state)
 	default:
+		leftOverGas = gas
 		err = errors.New("Invalid token parameter")
 	}
 
