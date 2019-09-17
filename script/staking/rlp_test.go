@@ -114,7 +114,9 @@ func TestRlpForBucket(t *testing.T) {
 	if src.Owner != tgt.Owner ||
 		src.Value.Cmp(tgt.Value) != 0 ||
 		src.Token != tgt.Token ||
-		src.Duration != tgt.Duration ||
+		src.Rate != tgt.Rate ||
+		src.CreateTime != tgt.CreateTime ||
+		src.LastTouchTime != tgt.LastTouchTime ||
 		src.BounusVotes != tgt.BounusVotes {
 		t.Fail()
 	}
