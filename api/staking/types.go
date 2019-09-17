@@ -48,14 +48,14 @@ func convertCandidate(c *staking.Candidate) *Candidate {
 }
 
 type Bucket struct {
-	ID            string        `json:"id"`
-	Owner         meter.Address `json:"owner"`
-	Candidate     meter.Address `json:"candidate"`
-	Value         string        `json:"value"`
-	Token         uint8         `json:"token"`
-	LastTouchTime uint64        `json:"duration"`
-	BounusVotes   uint64        `json:"bonusVotes"`
-	TotalVotes    string        `json:"totalVotes"`
+	ID          string        `json:"id"`
+	Owner       meter.Address `json:"owner"`
+	Candidate   meter.Address `json:"candidate"`
+	Value       string        `json:"value"`
+	Token       uint8         `json:"token"`
+	Rate        uint8         `json:"rate"`
+	BounusVotes uint64        `json:"bonusVotes"`
+	TotalVotes  string        `json:"totalVotes"`
 }
 
 func convertBucketList(list []staking.Bucket) []*Bucket {
@@ -68,6 +68,7 @@ func convertBucketList(list []staking.Bucket) []*Bucket {
 			Candidate:   b.Candidate,
 			Value:       b.Value.String(),
 			Token:       b.Token,
+			Rate:        b.Rate,
 			BounusVotes: b.BounusVotes,
 			TotalVotes:  b.TotalVotes.String(),
 		}
