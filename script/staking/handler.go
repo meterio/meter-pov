@@ -197,7 +197,7 @@ func (sb *StakingBody) CandidateHandler(senv *StakingEnviroment, gas uint64) (re
 	stakeholderList := staking.GetStakeHolderList(state)
 
 	fmt.Println("!!!!!!Entered Candidate Handler!!!!!!")
-	fmt.Println(candidateList.ToString())
+	// fmt.Println(candidateList.ToString())
 	fmt.Println(bucketList.ToString())
 
 	if gas < meter.ClauseGas {
@@ -257,9 +257,13 @@ func (sb *StakingBody) CandidateHandler(senv *StakingEnviroment, gas uint64) (re
 
 	candidate := NewCandidate(sb.CandAddr, sb.CandPubKey, sb.CandIP, sb.CandPort)
 	candidate.AddBucket(bucket)
+	// candidateList = append(candidateList, *candidate)
 	candidateList.Add(candidate)
 
 	fmt.Println(candidateList.ToString())
+	// for i, v := range candidateList {
+	// fmt.Println(i+1, ": ", v.ToString())
+	// }
 
 	stakeholder := stakeholderList.Get(sb.CandAddr)
 	if stakeholder == nil {
@@ -285,7 +289,7 @@ func (sb *StakingBody) CandidateHandler(senv *StakingEnviroment, gas uint64) (re
 	staking.SetStakeHolderList(stakeholderList, state)
 
 	fmt.Println("XXXXX: After checking existence")
-	fmt.Println(candidateList.ToString())
+	// fmt.Println(candidateList.ToString())
 	fmt.Println(bucketList.ToString())
 
 	return

@@ -28,7 +28,7 @@ func (s *Staking) GetCandidateList(state *state.State) (result *CandidateList) {
 	state.DecodeStorage(StakingModuleAddr, CandidateListKey, func(raw []byte) error {
 		fmt.Println("Loaded Raw Hex: ", hex.EncodeToString(raw))
 		err := rlp.DecodeBytes(raw, &candList)
-		result = newCandidateList(candList)
+		result = NewCandidateList(candList)
 		fmt.Println("Loaded Candidate List:", result.ToString(), "Error: ", err, " OriginalLen:", len(candList))
 		fmt.Println(result.ToString())
 		return nil
@@ -39,7 +39,7 @@ func (s *Staking) GetCandidateList(state *state.State) (result *CandidateList) {
 func (s *Staking) SetCandidateList(candList *CandidateList, state *state.State) {
 	state.EncodeStorage(StakingModuleAddr, CandidateListKey, func() ([]byte, error) {
 		fmt.Println("Setting with Candidate List: ", candList.ToString())
-		b, e := rlp.EncodeToBytes(candList.candidates)
+		b, e := rlp.EncodeToBytes(&(candList.candidates))
 		fmt.Println("Encoded Raw Hex:", hex.EncodeToString(b), ", ERROR:", e)
 		return b, e
 	})
@@ -180,4 +180,21 @@ func (s *Staking) UnboundAccountMeterGov(addr meter.Address, amount *big.Int, st
 	state.SetBalance(addr, new(big.Int).Add(meterGov, amount))
 	state.SetBoundedBalance(addr, new(big.Int).Sub(meterGovBounded, amount))
 	return nil
+}
+
+func (s *Staking) GetCandidateList111(state *state.State) (candList []Candidate) {
+	state.DecodeStorage(StakingModuleAddr, CandidateListKey, func(raw []byte) error {
+		if len(raw) == 0 {
+			candList = []Candidate{}
+			return nil
+		}
+		return rlp.DecodeBytes(raw, &candList)
+	})
+	return
+}
+
+func (s *Staking) SetCandidateList111(candList *[]Candidate, state *state.State) {
+	state.EncodeStorage(StakingModuleAddr, CandidateListKey, func() ([]byte, error) {
+		return rlp.EncodeToBytes(candList)
+	})
 }

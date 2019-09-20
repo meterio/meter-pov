@@ -7,6 +7,7 @@ package consensus
 
 import (
 	//"crypto/ecdsa"
+	"encoding/hex"
 	"fmt"
 	"time"
 
@@ -406,7 +407,12 @@ func (c *ConsensusReactor) verifyBlock(blk *block.Block, state *state.State) (*s
 		}
 		return true, meta.Reverted, nil
 	}
-
+	fmt.Println("TXS------------------------------------------")
+	fmt.Println("len TXS:", len(txs))
+	for i, tx := range txs {
+		fmt.Println("TX ", i+1, tx.ID(), hex.EncodeToString(tx.Clauses()[0].Data()))
+	}
+	fmt.Println("---------------------------------------------")
 	for i, tx := range txs {
 		// Mint transaction critiers:
 		// 1. no signature (no signer)
@@ -444,6 +450,11 @@ func (c *ConsensusReactor) verifyBlock(blk *block.Block, state *state.State) (*s
 			}
 		}
 
+		fmt.Println("verifyBlock ---------")
+		fmt.Println("len(Clause):", len(tx.Clauses()))
+		for _, c := range tx.Clauses() {
+			fmt.Println(hex.EncodeToString(c.Data()))
+		}
 		receipt, err := rt.ExecuteTransaction(tx)
 		if err != nil {
 			return nil, nil, err

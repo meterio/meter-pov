@@ -1,6 +1,7 @@
 package staking
 
 import (
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"math/big"
@@ -38,14 +39,14 @@ func GetLatestCandidateList() (*CandidateList, error) {
 	if staking == nil {
 		fmt.Println("staking is not initilized...")
 		err := errors.New("staking is not initilized...")
-		return newCandidateList(nil), err
+		return NewCandidateList(nil), err
 	}
 
 	best := staking.chain.BestBlock()
 	state, err := staking.stateCreator.NewState(best.Header().StateRoot())
 	if err != nil {
 
-		return newCandidateList(nil), err
+		return NewCandidateList(nil), err
 	}
 
 	CandList := staking.GetCandidateList(state)
@@ -53,8 +54,8 @@ func GetLatestCandidateList() (*CandidateList, error) {
 }
 
 func (c *Candidate) ToString() string {
-	return fmt.Sprintf("Candidate: Addr=%v, PubKey=%v, IPAddr=%v, Port=%v, TotoalVotes=%v",
-		c.Addr, c.PubKey, c.IPAddr, c.Port, c.TotalVotes)
+	return fmt.Sprintf("Candidate(Addr=%v, PubKey=%v, IP:Port=%v:%v, TotoalVotes=%.2e)",
+		c.Addr, hex.EncodeToString(c.PubKey), string(c.IPAddr), c.Port, float64(c.TotalVotes.Int64()))
 }
 
 func (c *Candidate) AddBucket(bucket *Bucket) {
@@ -77,7 +78,7 @@ type CandidateList struct {
 	candidates []*Candidate
 }
 
-func newCandidateList(candidates []*Candidate) *CandidateList {
+func NewCandidateList(candidates []*Candidate) *CandidateList {
 	if candidates == nil {
 		candidates = make([]*Candidate, 0)
 	}
@@ -107,7 +108,6 @@ func (l *CandidateList) Exist(addr meter.Address) bool {
 
 func (l *CandidateList) Add(c *Candidate) error {
 	found := false
-	fmt.Println("Start add:", c.ToString())
 	for _, v := range l.candidates {
 		if v.Addr == c.Addr {
 			// exists
@@ -115,8 +115,6 @@ func (l *CandidateList) Add(c *Candidate) error {
 		}
 	}
 	if !found {
-		fmt.Println("Appending ", c.ToString())
-		fmt.Println("LEN:", len(l.candidates))
 		l.candidates = append(l.candidates, c)
 	}
 	return nil
@@ -134,7 +132,7 @@ func (l *CandidateList) Remove(addr meter.Address) error {
 func (l *CandidateList) ToString() string {
 	s := []string{fmt.Sprintf("CandiateList (size:%v):", len(l.candidates))}
 	for i, v := range l.candidates {
-		s = append(s, fmt.Sprintf("%d. %v", i, v.ToString()))
+		s = append(s, fmt.Sprintf("%d. %v", i+1, v.ToString()))
 	}
 	s = append(s, "")
 	return strings.Join(s, "\n")
@@ -146,4 +144,8 @@ func (l *CandidateList) ToList() []Candidate {
 		result = append(result, *v)
 	}
 	return result
+}
+
+func (l *CandidateList) Candidates() []*Candidate {
+	return l.candidates
 }

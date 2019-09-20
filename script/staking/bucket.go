@@ -61,8 +61,8 @@ func GetLatestBucketList() (*BucketList, error) {
 }
 
 func (b *Bucket) ToString() string {
-	return fmt.Sprintf("Bucket: Uuid=%v, Owner=%v, Value=%v, Token=%v, Duration=%v, BounusVotes=%v, TotoalVotes=%v",
-		b.BucketID, b.Owner, b.Value, b.Token, b.LastTouchTime, b.BounusVotes, b.TotalVotes)
+	return fmt.Sprintf("Bucket(ID=%v, Owner=%v, Value=%.2e, Token=%v, Duration=%v, BounusVotes=%v, TotoalVotes=%.2e)",
+		b.BucketID, b.Owner, float64(b.Value.Int64()), b.Token, b.LastTouchTime, b.BounusVotes, float64(b.TotalVotes.Int64()))
 }
 
 type BucketList struct {
@@ -123,7 +123,7 @@ func (l *BucketList) Remove(id uuid.UUID) error {
 func (l *BucketList) ToString() string {
 	s := []string{fmt.Sprintf("BucketList (size:%v):", len(l.buckets))}
 	for i, v := range l.buckets {
-		s = append(s, fmt.Sprintf("%d. %v", i, v.ToString()))
+		s = append(s, fmt.Sprintf("%d. %v", i+1, v.ToString()))
 	}
 	s = append(s, "")
 	return strings.Join(s, "\n")
