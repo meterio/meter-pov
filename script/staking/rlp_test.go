@@ -212,3 +212,64 @@ func TestScriptDataForCandidate(t *testing.T) {
 	}
 	fmt.Println("Script Data Hex for Candidate: ", hexData)
 }
+
+func TestCandidateList(t *testing.T) {
+	l1 := make([]staking.Candidate, 0)
+	l2 := staking.NewCandidateList(nil)
+	l3 := staking.NewCandidateList(nil)
+	l4 := make([]staking.Candidate, 0)
+
+	addr1 := meter.BytesToAddress([]byte("something"))
+	addr2 := meter.BytesToAddress([]byte("another thing"))
+
+	pubkey := []byte("")
+	ip := []byte("1.2.3.4")
+	port := uint16(8669)
+	c1 := staking.NewCandidate(addr1, pubkey, ip, port)
+	c2 := staking.NewCandidate(addr2, pubkey, ip, port)
+	c3 := staking.NewCandidate(addr1, pubkey, ip, port)
+
+	l1 = append(l1, *c1)
+	l2.Add(c1)
+	l3.Add(c3)
+	l4 = append(l4, *c3)
+
+	b1, e := rlp.EncodeToBytes(&l1)
+	b2, e := rlp.EncodeToBytes(l2.ToList())
+	b3, e := rlp.EncodeToBytes(l2.Candidates())
+	b4, e := rlp.EncodeToBytes(l3.Candidates())
+	b5, e := rlp.EncodeToBytes(&l4)
+	fmt.Println("HEX &l1:", hex.EncodeToString(b1), ", E:", e)
+	fmt.Println("HEX l2.ToList():", hex.EncodeToString(b2), ", E:", e)
+	fmt.Println("HEX l2.Candidates()", hex.EncodeToString(b3), ", E:", e)
+	fmt.Println("HEX l3.Candidates():", hex.EncodeToString(b4), ", E:", e)
+	fmt.Println("HEX &l4:", hex.EncodeToString(b5), ", E:", e)
+
+	l1 = append(l1, *c2)
+	l2.Add(c2)
+	b1, e = rlp.EncodeToBytes(&l1)
+	b2, e = rlp.EncodeToBytes(l2.ToList())
+	b3, e = rlp.EncodeToBytes(l2.Candidates())
+	fmt.Println("HEX &l1:", hex.EncodeToString(b1), ", E:", e)
+	fmt.Println("HEX l2.ToList():", hex.EncodeToString(b2), ", E:", e)
+	fmt.Println("HEX l2.Candidates():", hex.EncodeToString(b3), ", E:", e)
+
+	r1 := make([]staking.Candidate, 0)
+	r2 := make([]*staking.Candidate, 0)
+
+	err := rlp.DecodeBytes(b2, &r1)
+	fmt.Println("E1:", err)
+	for i, v := range r1 {
+		fmt.Println("Candidate ", i, v.ToString())
+	}
+	err = rlp.DecodeBytes(b2, &r2)
+	fmt.Println("E2:", err)
+	for i, v := range r2 {
+		fmt.Println("Candidate ", i, v.ToString())
+	}
+
+	b1, e = rlp.EncodeToBytes(&r1)
+	b2, e = rlp.EncodeToBytes(r2)
+	fmt.Println("HEX decoded &l1:", hex.EncodeToString(b1), ", E:", e)
+	fmt.Println("HEX decoded l2:", hex.EncodeToString(b2), ", E:", e)
+}
