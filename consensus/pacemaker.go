@@ -45,7 +45,7 @@ type Pacemaker struct {
 	// Current round is basically max(highest_qc_round, highest_received_tc, highest_local_tc) + 1
 	// update_current_round take care of updating current_round and sending new round event if
 	// it changes
-	currentRound int
+	currentRound uint64
 
 	proposalMap    map[uint64]*pmBlock
 	sigCounter     map[uint64]int
@@ -299,8 +299,8 @@ func (p *Pacemaker) OnReceiveProposal(proposalMsg *PMProposalMessage) error {
 		p.stopRoundTimer()
 		p.startRoundTimer(bnew.Height, bnew.Round, 0)
 
-		if int(bnew.Round) > p.currentRound {
-			p.currentRound = int(bnew.Round)
+		if bnew.Round > p.currentRound {
+			p.currentRound = bnew.Round
 		}
 
 		// parent got QC, pre-commit
@@ -466,8 +466,7 @@ func (p *Pacemaker) OnReceiveNewView(newViewMsg *PMNewViewMessage) error {
 		return nil
 	}
 	pmQC := newPMQuorumCert(&qc, qcNode)
-	changed := p.UpdateQCHigh(pmQC)
-	timedOut := false
+
 	if newViewMsg.Reason == RoundTimeout && p.csReactor.amIRoundProproser(uint64(newViewMsg.CSMsgCommonHeader.Round)) {
 		p.timeoutCertManager.collectSignature(newViewMsg)
 		timeoutCount := p.timeoutCertManager.count(newViewMsg.TimeoutHeight, newViewMsg.TimeoutRound)
@@ -475,23 +474,30 @@ func (p *Pacemaker) OnReceiveNewView(newViewMsg *PMNewViewMessage) error {
 			// if timeoutCount < p.csReactor.committeeSize {
 			p.logger.Info("not reaching majority on timeout", "timeoutCount", timeoutCount, "timeoutHeight", newViewMsg.TimeoutHeight, "round", newViewMsg.TimeoutRound, "counter", newViewMsg.TimeoutCounter)
 		} else {
+			header := newViewMsg.CSMsgCommonHeader
+			if uint64(header.Round) < p.currentRound {
+				p.logger.Info("reaching majority on timeout, but ignored becuase timeoutRound+1 < p.currentRound")
+				return nil
+			}
 			p.logger.Info("reaching majority on timeout", "timeoutCount", timeoutCount, "timeoutHeight", newViewMsg.TimeoutHeight, "round", newViewMsg.TimeoutRound, "counter", newViewMsg.TimeoutCounter)
-			timedOut = true
 			p.timeoutCert = p.timeoutCertManager.getTimeoutCert(newViewMsg.TimeoutHeight, newViewMsg.TimeoutRound)
 			p.timeoutCertManager.cleanup(newViewMsg.TimeoutHeight, newViewMsg.TimeoutRound)
+
+			// Schedule OnBeat due to timeout
+			p.logger.Info("Received a newview with timeoutCert, scheduleOnBeat now", "height", header.Height, "round", header.Round)
+			p.ScheduleOnBeat(uint64(header.Height), uint64(header.Round), RoundInterval)
+			return nil
 		}
 	}
 
-	// TODO: what if the qchigh is not changed, but I'm the proposer for the next round?
+	changed := p.UpdateQCHigh(pmQC)
 	if changed {
 		if qc.QCHeight > p.blockLocked.Height {
+			// Schedule OnBeat due to New QC
 			p.logger.Info("Received a newview with higher QC, scheduleOnBeat now", "height", qc.QCHeight+1, "round", qc.QCRound+1)
 			p.ScheduleOnBeat(uint64(qc.QCHeight+1), uint64(qc.QCRound+1), RoundInterval)
 		}
-	} else if timedOut {
-		header := newViewMsg.CSMsgCommonHeader
-		p.logger.Info("Received a newview with timeoutCert, scheduleOnBeat now", "height", header.Height, "round", header.Round)
-		p.ScheduleOnBeat(uint64(header.Height), uint64(header.Round), RoundInterval)
+		return nil
 	}
 
 	return nil
@@ -556,6 +562,9 @@ func (p *Pacemaker) Start(blockQC *block.QuorumCert, newCommittee bool) {
 }
 
 func (p *Pacemaker) ScheduleOnBeat(height uint64, round uint64, d time.Duration) bool {
+	if round > p.currentRound {
+		p.currentRound = round
+	}
 	time.AfterFunc(d, func() {
 		p.beatCh <- &PMBeatInfo{height, round}
 	})
@@ -649,7 +658,7 @@ func (p *Pacemaker) Stop() {
 
 func (p *Pacemaker) OnRoundTimeout(ti PMRoundTimeoutInfo) error {
 	p.logger.Warn("Round Time Out", "round", ti.round, "counter", ti.counter)
-	p.currentRound = int(ti.round + 1)
+	p.currentRound = ti.round + 1
 
 	p.stopRoundTimer()
 	p.OnNextSyncView(ti.height, ti.round+1, RoundTimeout, &ti)
