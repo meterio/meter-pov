@@ -14,11 +14,23 @@ const (
 	TOKEN_METER_GOV = byte(1)
 )
 
+var (
+	StakingGlobInst *Staking
+)
+
 // Candidate indicates the structure of a candidate
 type Staking struct {
 	chain        *chain.Chain
 	stateCreator *state.Creator
 	logger       log15.Logger
+}
+
+func GetStakingGlobInst() *Staking {
+	return StakingGlobInst
+}
+
+func SetStakingGlobInst(inst *Staking) {
+	StakingGlobInst = inst
 }
 
 func NewStaking(ch *chain.Chain, sc *state.Creator) *Staking {
@@ -27,6 +39,7 @@ func NewStaking(ch *chain.Chain, sc *state.Creator) *Staking {
 		stateCreator: sc,
 		logger:       log15.New("pkg", "staking"),
 	}
+	SetStakingGlobInst(staking)
 	return staking
 }
 
@@ -71,8 +84,11 @@ func (s *Staking) PrepareStakingHandler() (StakingHandler func(data []byte, txCt
 			}
 			ret, leftOverGas, err = sb.CandidateHandler(senv, gas)
 
-		case OP_QUERY:
-			ret, leftOverGas, err = sb.QueryHandler(senv, gas)
+		case OP_UNCANDIDATE:
+			if senv.GetTxCtx().Origin != sb.CandAddr {
+				return nil, gas, errors.New("candidate address is not the same from transaction")
+			}
+			ret, leftOverGas, err = sb.UnCandidateHandler(senv, gas)
 
 		default:
 			s.logger.Error("unknown Opcode", "Opcode", sb.Opcode)

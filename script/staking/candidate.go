@@ -1,15 +1,13 @@
 package staking
 
 import (
+	"errors"
 	"fmt"
 	"math/big"
+	"strings"
 
 	"github.com/dfinlab/meter/meter"
 	"github.com/google/uuid"
-)
-
-var (
-	CandidateMap = make(map[meter.Address]*Candidate)
 )
 
 // Candidate indicates the structure of a candidate
@@ -34,19 +32,24 @@ func NewCandidate(addr meter.Address, pubKey []byte, ip []byte, port uint16) *Ca
 	}
 }
 
-func CandidateListToMap(candidateList []Candidate) error {
-	for _, c := range candidateList {
-		CandidateMap[c.Addr] = &c
+//  api routine interface
+func GetLatestCandidateList() (*CandidateList, error) {
+	staking := GetStakingGlobInst()
+	if staking == nil {
+		fmt.Println("staking is not initilized...")
+		err := errors.New("staking is not initilized...")
+		return newCandidateList(nil), err
 	}
-	return nil
-}
 
-func CandidateMapToList() ([]Candidate, error) {
-	candidateList := []Candidate{}
-	for _, c := range CandidateMap {
-		candidateList = append(candidateList, *c)
+	best := staking.chain.BestBlock()
+	state, err := staking.stateCreator.NewState(best.Header().StateRoot())
+	if err != nil {
+
+		return newCandidateList(nil), err
 	}
-	return candidateList, nil
+
+	CandList := staking.GetCandidateList(state)
+	return CandList, nil
 }
 
 func (c *Candidate) ToString() string {
@@ -61,17 +64,86 @@ func (c *Candidate) AddBucket(bucket *Bucket) {
 	c.TotalVotes.Add(c.TotalVotes, bucket.TotalVotes)
 }
 
-func (c *Candidate) Add() {
-	CandidateMap[c.Addr] = c
-}
-
-func (c *Candidate) Update() {
-	// TODO: what's the difference between Add and Update ?
-	CandidateMap[c.Addr] = c
-}
-
-func (c *Candidate) Remove() {
-	if _, ok := CandidateMap[c.Addr]; ok {
-		delete(CandidateMap, c.Addr)
+func (c *Candidate) RemoveBucket(id uuid.UUID) {
+	for i, bucketID := range c.Buckets {
+		if bucketID == id {
+			c.Buckets = append(c.Buckets[:i], c.Buckets[i+1:]...)
+			return
+		}
 	}
+}
+
+type CandidateList struct {
+	candidates []*Candidate
+}
+
+func newCandidateList(candidates []*Candidate) *CandidateList {
+	if candidates == nil {
+		candidates = make([]*Candidate, 0)
+	}
+	return &CandidateList{candidates: candidates}
+}
+
+func (l *CandidateList) Get(addr meter.Address) *Candidate {
+	i := l.indexOf(addr)
+	if i < 0 {
+		return nil
+	}
+	return l.candidates[i]
+}
+
+func (l *CandidateList) indexOf(addr meter.Address) int {
+	for i, v := range l.candidates {
+		if v.Addr == addr {
+			return i
+		}
+	}
+	return -1
+}
+
+func (l *CandidateList) Exist(addr meter.Address) bool {
+	return l.indexOf(addr) >= 0
+}
+
+func (l *CandidateList) Add(c *Candidate) error {
+	found := false
+	fmt.Println("Start add:", c.ToString())
+	for _, v := range l.candidates {
+		if v.Addr == c.Addr {
+			// exists
+			found = true
+		}
+	}
+	if !found {
+		fmt.Println("Appending ", c.ToString())
+		fmt.Println("LEN:", len(l.candidates))
+		l.candidates = append(l.candidates, c)
+	}
+	return nil
+}
+
+func (l *CandidateList) Remove(addr meter.Address) error {
+	i := l.indexOf(addr)
+	if i < 0 {
+		return nil
+	}
+	l.candidates = append(l.candidates[:i], l.candidates[i+1:]...)
+	return nil
+}
+
+func (l *CandidateList) ToString() string {
+	s := []string{fmt.Sprintf("CandiateList (size:%v):", len(l.candidates))}
+	for i, v := range l.candidates {
+		s = append(s, fmt.Sprintf("%d. %v", i, v.ToString()))
+	}
+	s = append(s, "")
+	return strings.Join(s, "\n")
+}
+
+func (l *CandidateList) ToList() []Candidate {
+	result := make([]Candidate, 0)
+	for _, v := range l.candidates {
+		result = append(result, *v)
+	}
+	return result
 }

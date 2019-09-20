@@ -206,7 +206,7 @@ func TestScriptDataForUnbound(t *testing.T) {
 }
 
 func TestScriptDataForCandidate(t *testing.T) {
-	hexData, err := generateScriptData(staking.OP_CANDIDATE, HOLDER_ADDRESS, CANDIDATE_ADDRESS, 1e18)
+	hexData, err := generateScriptData(staking.OP_CANDIDATE, HOLDER_ADDRESS, CANDIDATE_ADDRESS, 2e18)
 	if err != nil {
 		t.Fail()
 	}

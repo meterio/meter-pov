@@ -19,19 +19,16 @@ type Candidate struct {
 	Buckets    []string      `json:"buckets"`    // all buckets voted for this candidate
 }
 
-func convertCandidateList(list []staking.Candidate) []*Candidate {
+func convertCandidateList(list *staking.CandidateList) []*Candidate {
 	candidateList := make([]*Candidate, 0)
 
-	for _, c := range list {
-		candidateList = append(candidateList, convertCandidate(&c))
+	for _, c := range list.ToList() {
+		candidateList = append(candidateList, convertCandidate(c))
 	}
 	return candidateList
 }
 
-func convertCandidate(c *staking.Candidate) *Candidate {
-	if c == nil {
-		return nil
-	}
+func convertCandidate(c staking.Candidate) *Candidate {
 	buckets := make([]string, 0)
 	for _, b := range c.Buckets {
 		buckets = append(buckets, b.String())
@@ -58,11 +55,11 @@ type Bucket struct {
 	TotalVotes  string        `json:"totalVotes"`
 }
 
-func convertBucketList(list []staking.Bucket) []*Bucket {
-	bucketList := make([]*Bucket, len(list))
+func convertBucketList(list *staking.BucketList) []*Bucket {
+	bucketList := make([]*Bucket, 0)
 
-	for i, b := range list {
-		bucketList[i] = &Bucket{
+	for _, b := range list.ToList() {
+		bucketList = append(bucketList, &Bucket{
 			ID:          b.BucketID.String(),
 			Owner:       b.Owner,
 			Candidate:   b.Candidate,
@@ -71,7 +68,7 @@ func convertBucketList(list []staking.Bucket) []*Bucket {
 			Rate:        b.Rate,
 			BounusVotes: b.BounusVotes,
 			TotalVotes:  b.TotalVotes.String(),
-		}
+		})
 	}
 
 	return bucketList
@@ -83,18 +80,15 @@ type Stakeholder struct {
 	Buckets    []string      `json:"buckets"`
 }
 
-func convertStakeholderList(list []staking.Stakeholder) []*Stakeholder {
+func convertStakeholderList(list *staking.StakeholderList) []*Stakeholder {
 	stakeholderList := make([]*Stakeholder, 0)
-	for _, s := range list {
-		stakeholderList = append(stakeholderList, convertStakeholder(&s))
+	for _, s := range list.ToList() {
+		stakeholderList = append(stakeholderList, convertStakeholder(s))
 	}
 	return stakeholderList
 }
 
-func convertStakeholder(s *staking.Stakeholder) *Stakeholder {
-	if s == nil {
-		return nil
-	}
+func convertStakeholder(s staking.Stakeholder) *Stakeholder {
 	buckets := make([]string, 0)
 	for _, b := range s.Buckets {
 		buckets = append(buckets, b.String())

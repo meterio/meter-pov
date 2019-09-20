@@ -1,15 +1,13 @@
 package staking
 
 import (
+	"errors"
 	"fmt"
 	"math/big"
+	"strings"
 
 	"github.com/dfinlab/meter/meter"
 	"github.com/google/uuid"
-)
-
-var (
-	BucketMap = make(map[uuid.UUID]*Bucket)
 )
 
 // Candidate indicates the structure of a candidate
@@ -44,18 +42,21 @@ func NewBucket(owner meter.Address, cand meter.Address, value *big.Int, token ui
 	}
 }
 
-func BucketListToMap(bucketList []Bucket) error {
-	for _, b := range bucketList {
-		BucketMap[b.BucketID] = &b
+func GetLatestBucketList() (*BucketList, error) {
+	staking := GetStakingGlobInst()
+	if staking == nil {
+		fmt.Println("staking is not initilized...")
+		err := errors.New("staking is not initilized...")
+		return newBucketList(nil), err
 	}
-	return nil
-}
 
-func BucketMapToList() ([]Bucket, error) {
-	bucketList := []Bucket{}
-	for _, b := range BucketMap {
-		bucketList = append(bucketList, *b)
+	best := staking.chain.BestBlock()
+	state, err := staking.stateCreator.NewState(best.Header().StateRoot())
+	if err != nil {
+		return newBucketList(nil), err
 	}
+	bucketList := staking.GetBucketList(state)
+
 	return bucketList, nil
 }
 
@@ -64,15 +65,74 @@ func (b *Bucket) ToString() string {
 		b.BucketID, b.Owner, b.Value, b.Token, b.LastTouchTime, b.BounusVotes, b.TotalVotes)
 }
 
-func (b *Bucket) Add() {
-	BucketMap[b.BucketID] = b
-}
-func (b *Bucket) Update() {
-	// TODO: how do we update?
+type BucketList struct {
+	buckets []*Bucket
 }
 
-func (b *Bucket) Remove() {
-	if _, ok := BucketMap[b.BucketID]; ok {
-		delete(BucketMap, b.BucketID)
+func newBucketList(buckets []*Bucket) *BucketList {
+	if buckets == nil {
+		buckets = make([]*Bucket, 0)
 	}
+	return &BucketList{buckets: buckets}
+}
+
+func (l *BucketList) Get(id uuid.UUID) *Bucket {
+	i := l.indexOf(id)
+	if i < 0 {
+		return nil
+	}
+	return l.buckets[i]
+}
+
+func (l *BucketList) indexOf(id uuid.UUID) int {
+	for i, v := range l.buckets {
+		if v.BucketID == id {
+			return i
+		}
+	}
+	return -1
+}
+
+func (l *BucketList) Exist(id uuid.UUID) bool {
+	return l.indexOf(id) >= 0
+}
+
+func (l *BucketList) Add(b *Bucket) error {
+	found := false
+	for _, v := range l.buckets {
+		if v.BucketID == b.BucketID {
+			// exists
+			found = true
+		}
+	}
+	if !found {
+		l.buckets = append(l.buckets, b)
+	}
+	return nil
+}
+
+func (l *BucketList) Remove(id uuid.UUID) error {
+	i := l.indexOf(id)
+	if i < 0 {
+		return nil
+	}
+	l.buckets = append(l.buckets[:i], l.buckets[i+1:]...)
+	return nil
+}
+
+func (l *BucketList) ToString() string {
+	s := []string{fmt.Sprintf("BucketList (size:%v):", len(l.buckets))}
+	for i, v := range l.buckets {
+		s = append(s, fmt.Sprintf("%d. %v", i, v.ToString()))
+	}
+	s = append(s, "")
+	return strings.Join(s, "\n")
+}
+
+func (l *BucketList) ToList() []Bucket {
+	result := make([]Bucket, 0)
+	for _, v := range l.buckets {
+		result = append(result, *v)
+	}
+	return result
 }

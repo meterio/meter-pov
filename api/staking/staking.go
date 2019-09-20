@@ -20,7 +20,7 @@ func New() *Staking {
 }
 
 func (st *Staking) handleGetCandidateList(w http.ResponseWriter, req *http.Request) error {
-	list, err := staking.CandidateMapToList()
+	list, err := staking.GetLatestCandidateList()
 	if err != nil {
 		return err
 	}
@@ -29,19 +29,23 @@ func (st *Staking) handleGetCandidateList(w http.ResponseWriter, req *http.Reque
 }
 
 func (st *Staking) handleGetCandidateByAddress(w http.ResponseWriter, req *http.Request) error {
+	list, err := staking.GetLatestCandidateList()
+	if err != nil {
+		return err
+	}
 	addr := mux.Vars(req)["address"]
 	bytes, err := hex.DecodeString(addr)
 	if err != nil {
 		return err
 	}
 	meterAddr := meter.BytesToAddress(bytes)
-	c := staking.CandidateMap[meterAddr]
-	candidate := convertCandidate(c)
+	c := list.Get(meterAddr)
+	candidate := convertCandidate(*c)
 	return utils.WriteJSON(w, candidate)
 }
 
 func (st *Staking) handleGetBucketList(w http.ResponseWriter, req *http.Request) error {
-	list, err := staking.BucketMapToList()
+	list, err := staking.GetLatestBucketList()
 	if err != nil {
 		return err
 	}
@@ -51,17 +55,18 @@ func (st *Staking) handleGetBucketList(w http.ResponseWriter, req *http.Request)
 }
 
 func (st *Staking) handleGetBucketByID(w http.ResponseWriter, req *http.Request) error {
+	list, err := staking.GetLatestBucketList()
 	id := mux.Vars(req)["id"]
 	bucketID, err := uuid.Parse(id)
 	if err != nil {
 		return err
 	}
-	bucket := staking.BucketMap[bucketID]
+	bucket := list.Get(bucketID)
 	return utils.WriteJSON(w, bucket)
 }
 
 func (st *Staking) handleGetStakeholderList(w http.ResponseWriter, req *http.Request) error {
-	list, err := staking.StakeholderMapToList()
+	list, err := staking.GetLatestStakeholderList()
 	if err != nil {
 		return err
 	}
@@ -78,7 +83,7 @@ func (st *Staking) handleGetStakeholderByAddress(w http.ResponseWriter, req *htt
 	}
 	meterAddr := meter.BytesToAddress(bytes)
 	s := staking.StakeholderMap[meterAddr]
-	stakeholder := convertStakeholder(s)
+	stakeholder := convertStakeholder(*s)
 	return utils.WriteJSON(w, stakeholder)
 }
 

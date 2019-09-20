@@ -1,8 +1,10 @@
 package staking
 
 import (
+	"errors"
 	"fmt"
 	"math/big"
+	"strings"
 
 	"github.com/dfinlab/meter/meter"
 	"github.com/google/uuid"
@@ -27,18 +29,21 @@ func NewStakeholder(holder meter.Address) *Stakeholder {
 	}
 }
 
-func StakeholderListToMap(StakeholderList []Stakeholder) error {
-	for _, c := range StakeholderList {
-		StakeholderMap[c.Holder] = &c
+func GetLatestStakeholderList() (*StakeholderList, error) {
+	staking := GetStakingGlobInst()
+	if staking == nil {
+		fmt.Println("staking is not initilized...")
+		err := errors.New("staking is not initilized...")
+		return newStakeholderList(nil), err
 	}
-	return nil
-}
 
-func StakeholderMapToList() ([]Stakeholder, error) {
-	StakeholderList := []Stakeholder{}
-	for _, c := range StakeholderMap {
-		StakeholderList = append(StakeholderList, *c)
+	best := staking.chain.BestBlock()
+	state, err := staking.stateCreator.NewState(best.Header().StateRoot())
+	if err != nil {
+		return newStakeholderList(nil), err
 	}
+	StakeholderList := staking.GetStakeHolderList(state)
+
 	return StakeholderList, nil
 }
 
@@ -66,16 +71,74 @@ func (s *Stakeholder) RemoveBucket(bucket *Bucket) {
 	}
 }
 
-func (s *Stakeholder) Add() {
-	StakeholderMap[s.Holder] = s
+type StakeholderList struct {
+	holders []*Stakeholder
 }
 
-func (s *Stakeholder) Update() {
-	//TODO: how do we update without bucketID?
-}
-
-func (s *Stakeholder) Remove() {
-	if _, ok := StakeholderMap[s.Holder]; ok {
-		delete(StakeholderMap, s.Holder)
+func newStakeholderList(holders []*Stakeholder) *StakeholderList {
+	if holders == nil {
+		holders = make([]*Stakeholder, 0)
 	}
+	return &StakeholderList{holders: holders}
+}
+
+func (l *StakeholderList) Get(addr meter.Address) *Stakeholder {
+	i := l.indexOf(addr)
+	if i < 0 {
+		return nil
+	}
+	return l.holders[i]
+}
+
+func (l *StakeholderList) indexOf(addr meter.Address) int {
+	for i, v := range l.holders {
+		if v.Holder == addr {
+			return i
+		}
+	}
+	return -1
+}
+
+func (l *StakeholderList) Exist(addr meter.Address) bool {
+	return l.indexOf(addr) >= 0
+}
+
+func (l *StakeholderList) Add(s *Stakeholder) error {
+	found := false
+	for _, v := range l.holders {
+		if v.Holder == s.Holder {
+			// exists
+			found = true
+		}
+	}
+	if !found {
+		l.holders = append(l.holders, s)
+	}
+	return nil
+}
+
+func (l *StakeholderList) Remove(addr meter.Address) error {
+	i := l.indexOf(addr)
+	if i < 0 {
+		return nil
+	}
+	l.holders = append(l.holders[:i], l.holders[i+1:]...)
+	return nil
+}
+
+func (l *StakeholderList) ToString() string {
+	s := []string{fmt.Sprintf("StakeholderList (size:%v):", len(l.holders))}
+	for i, v := range l.holders {
+		s = append(s, fmt.Sprintf("%d. %v", i, v.ToString()))
+	}
+	s = append(s, "")
+	return strings.Join(s, "\n")
+}
+
+func (l *StakeholderList) ToList() []Stakeholder {
+	result := make([]Stakeholder, 0)
+	for _, v := range l.holders {
+		result = append(result, *v)
+	}
+	return result
 }

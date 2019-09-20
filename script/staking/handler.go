@@ -1,8 +1,6 @@
 package staking
 
 import (
-	"bytes"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"math/big"
@@ -14,10 +12,10 @@ import (
 )
 
 const (
-	OP_BOUND     = uint32(1)
-	OP_UNBOUND   = uint32(2)
-	OP_CANDIDATE = uint32(3)
-	OP_QUERY     = uint32(4)
+	OP_BOUND       = uint32(1)
+	OP_UNBOUND     = uint32(2)
+	OP_CANDIDATE   = uint32(3)
+	OP_UNCANDIDATE = uint32(4)
 )
 
 const (
@@ -64,6 +62,9 @@ func (sb *StakingBody) ToString() string {
 func (sb *StakingBody) BoundHandler(senv *StakingEnviroment, gas uint64) (ret []byte, leftOverGas uint64, err error) {
 	staking := senv.GetStaking()
 	state := senv.GetState()
+	candidateList := staking.GetCandidateList(state)
+	bucketList := staking.GetBucketList(state)
+	stakeholderList := staking.GetStakeHolderList(state)
 
 	if gas < meter.ClauseGas {
 		leftOverGas = 0
@@ -72,7 +73,7 @@ func (sb *StakingBody) BoundHandler(senv *StakingEnviroment, gas uint64) (ret []
 	}
 
 	// check if candidate exists or not
-	if _, ok := CandidateMap[sb.CandAddr]; !ok {
+	if c := candidateList.Get(sb.CandAddr); c == nil {
 		err = errors.New("candidate is not listed")
 		return
 	}
@@ -95,23 +96,24 @@ func (sb *StakingBody) BoundHandler(senv *StakingEnviroment, gas uint64) (ret []
 	}
 
 	bucket := NewBucket(sb.HolderAddr, sb.CandAddr, &sb.Amount, uint8(sb.Token), uint64(0))
-	bucket.Add()
+	bucketList.Add(bucket)
 
-	if stakeholder, ok := StakeholderMap[sb.HolderAddr]; ok {
-		stakeholder.AddBucket(bucket)
-	} else {
+	stakeholder := stakeholderList.Get(sb.HolderAddr)
+	if stakeholder == nil {
 		stakeholder = NewStakeholder(sb.HolderAddr)
 		stakeholder.AddBucket(bucket)
-		stakeholder.Add()
+		stakeholderList.Add(stakeholder)
+	} else {
+		stakeholder.AddBucket(bucket)
 	}
 
-	if cand, ok := CandidateMap[sb.CandAddr]; ok {
-		cand.AddBucket(bucket)
-	} else {
+	cand := candidateList.Get(sb.CandAddr)
+	if cand == nil {
 		staking.logger.Error("candidate is not in list")
 		err = errors.New("candidate is not in list")
 		return
 	}
+	cand.AddBucket(bucket)
 
 	switch sb.Token {
 	case TOKEN_METER:
@@ -122,15 +124,18 @@ func (sb *StakingBody) BoundHandler(senv *StakingEnviroment, gas uint64) (ret []
 		err = errors.New("Invalid token parameter")
 	}
 
-	staking.SyncCandidateList(state)
-	staking.SyncStakerholderList(state)
-	staking.SyncBucketList(state)
+	staking.SetCandidateList(candidateList, state)
+	staking.SetBucketList(bucketList, state)
+	staking.SetStakeHolderList(stakeholderList, state)
 	return
 }
 
 func (sb *StakingBody) UnBoundHandler(senv *StakingEnviroment, gas uint64) (ret []byte, leftOverGas uint64, err error) {
 	staking := senv.GetStaking()
 	state := senv.GetState()
+	candidateList := staking.GetCandidateList(state)
+	bucketList := staking.GetBucketList(state)
+	stakeholderList := staking.GetStakeHolderList(state)
 
 	if gas < meter.ClauseGas {
 		leftOverGas = 0
@@ -138,7 +143,7 @@ func (sb *StakingBody) UnBoundHandler(senv *StakingEnviroment, gas uint64) (ret 
 		leftOverGas = gas - meter.ClauseGas
 	}
 
-	b := BucketMap[sb.StakingID]
+	b := bucketList.Get(sb.StakingID)
 	if b == nil {
 		return nil, leftOverGas, errors.New("staking not found")
 	}
@@ -161,23 +166,13 @@ func (sb *StakingBody) UnBoundHandler(senv *StakingEnviroment, gas uint64) (ret 
 	}
 
 	// update candidate list
-	if cand, ok := CandidateMap[b.Candidate]; ok {
-		buckets := RemoveUuIDFromSlice(cand.Buckets, b.BucketID)
-		if len(buckets) == 0 {
-			delete(CandidateMap, b.Candidate)
-		} else {
-			CandidateMap[b.Candidate] = &Candidate{
-				Addr:       cand.Addr,
-				Name:       cand.Name,
-				PubKey:     cand.PubKey,
-				IPAddr:     cand.IPAddr,
-				Port:       cand.Port,
-				TotalVotes: b.TotalVotes.Sub(cand.TotalVotes, b.TotalVotes),
-				Buckets:    buckets,
-			}
-		}
+	cand := candidateList.Get(b.Candidate)
+	if cand != nil {
+		cand.RemoveBucket(b.BucketID)
 	}
-	delete(BucketMap, sb.StakingID)
+
+	// remove bucket from bucketList
+	bucketList.Remove(b.BucketID)
 
 	switch sb.Token {
 	case TOKEN_METER:
@@ -188,20 +183,22 @@ func (sb *StakingBody) UnBoundHandler(senv *StakingEnviroment, gas uint64) (ret 
 		err = errors.New("Invalid token parameter")
 	}
 
-	staking.SyncCandidateList(state)
-	staking.SyncStakerholderList(state)
-	staking.SyncBucketList(state)
+	staking.SetCandidateList(candidateList, state)
+	staking.SetBucketList(bucketList, state)
+	staking.SetStakeHolderList(stakeholderList, state)
 	return
 }
 
 func (sb *StakingBody) CandidateHandler(senv *StakingEnviroment, gas uint64) (ret []byte, leftOverGas uint64, err error) {
 	staking := senv.GetStaking()
 	state := senv.GetState()
+	candidateList := staking.GetCandidateList(state)
+	bucketList := staking.GetBucketList(state)
+	stakeholderList := staking.GetStakeHolderList(state)
+
 	fmt.Println("!!!!!!Entered Candidate Handler!!!!!!")
-	fmt.Println("CandidateMap =")
-	for k, v := range CandidateMap {
-		fmt.Println("key:", k, ", val:", v.ToString())
-	}
+	fmt.Println(candidateList.ToString())
+	fmt.Println(bucketList.ToString())
 
 	if gas < meter.ClauseGas {
 		leftOverGas = 0
@@ -213,8 +210,9 @@ func (sb *StakingBody) CandidateHandler(senv *StakingEnviroment, gas uint64) (re
 	//minCandBalance, _ := new(big.Int).SetString(MIN_CANDIDATE_BALANCE, 10)
 	minCandBalance := big.NewInt(int64(1e18))
 	if sb.Amount.Cmp(minCandBalance) < 0 {
-		err = errors.New("can not meet minimial balance")
-		leftOverGas = gas
+		err = errors.New("does not meet minimial balance")
+		staking.logger.Error("does not meet minimial balance")
+		//leftOverGas = gas
 		return
 	}
 
@@ -232,50 +230,44 @@ func (sb *StakingBody) CandidateHandler(senv *StakingEnviroment, gas uint64) (re
 		err = errors.New("Invalid token parameter")
 	}
 	if err != nil {
-		leftOverGas = gas
+		//leftOverGas = gas
+		staking.logger.Error("Errors:", "error", err)
 		return
 	}
 
-	fmt.Println("before checking existence, CandidateMap:", len(CandidateMap))
-	for k, v := range CandidateMap {
-		fmt.Println("key:", k, ", val:", v.ToString())
-	}
-	// if the candidate already exists return error without paying gas
-	if record, tracked := CandidateMap[sb.CandAddr]; tracked {
-		if bytes.Equal(record.PubKey, sb.CandPubKey) && bytes.Equal(record.IPAddr, sb.CandIP) && record.Port == sb.CandPort {
-			// exact same candidate
-			fmt.Println("Record: ", record.ToString())
-			fmt.Println("sb:", sb.ToString())
-			err = errors.New("candidate already listed")
-		} else {
-			err = errors.New("candidate listed with different information")
+	/*
+		// if the candidate already exists return error without paying gas
+		if record := candidateList.Get(sb.CandAddr); record != nil {
+			if bytes.Equal(record.PubKey, sb.CandPubKey) && bytes.Equal(record.IPAddr, sb.CandIP) && record.Port == sb.CandPort {
+				// exact same candidate
+				fmt.Println("Record: ", record.ToString())
+				fmt.Println("sb:", sb.ToString())
+				err = errors.New("candidate already listed")
+			} else {
+				err = errors.New("candidate listed with different information")
+			}
+			//leftOverGas = gas
+			return
 		}
-		leftOverGas = gas
-		return
-	}
-
-	candidate := NewCandidate(sb.CandAddr, sb.CandPubKey, sb.CandIP, sb.CandPort)
-	candidate.Add()
+	*/
 
 	// now staking the amount
 	bucket := NewBucket(sb.HolderAddr, sb.CandAddr, &sb.Amount, uint8(sb.Token), uint64(0))
-	bucket.Add()
+	bucketList.Add(bucket)
 
-	if stakeholder, ok := StakeholderMap[sb.CandAddr]; ok {
-		stakeholder.AddBucket(bucket)
-	} else {
+	candidate := NewCandidate(sb.CandAddr, sb.CandPubKey, sb.CandIP, sb.CandPort)
+	candidate.AddBucket(bucket)
+	candidateList.Add(candidate)
+
+	fmt.Println(candidateList.ToString())
+
+	stakeholder := stakeholderList.Get(sb.CandAddr)
+	if stakeholder == nil {
 		stakeholder = NewStakeholder(sb.CandAddr)
 		stakeholder.AddBucket(bucket)
-		stakeholder.Add()
-	}
-
-	if cand, ok := CandidateMap[sb.CandAddr]; ok {
-		cand.AddBucket(bucket)
+		stakeholderList.Add(stakeholder)
 	} else {
-		staking.logger.Error("candidate is not in list")
-		err = errors.New("candidate is not in list")
-		leftOverGas = gas
-		return
+		stakeholder.AddBucket(bucket)
 	}
 
 	switch sb.Token {
@@ -284,42 +276,29 @@ func (sb *StakingBody) CandidateHandler(senv *StakingEnviroment, gas uint64) (re
 	case TOKEN_METER_GOV:
 		err = staking.BoundAccountMeterGov(sb.CandAddr, &sb.Amount, state)
 	default:
-		leftOverGas = gas
+		//leftOverGas = gas
 		err = errors.New("Invalid token parameter")
 	}
 
-	staking.SyncCandidateList(state)
-	staking.SyncStakerholderList(state)
-	staking.SyncBucketList(state)
+	staking.SetCandidateList(candidateList, state)
+	staking.SetBucketList(bucketList, state)
+	staking.SetStakeHolderList(stakeholderList, state)
+
+	fmt.Println("XXXXX: After checking existence")
+	fmt.Println(candidateList.ToString())
+	fmt.Println(bucketList.ToString())
+
 	return
 }
 
-func (sb *StakingBody) QueryHandler(senv *StakingEnviroment, gas uint64) (ret []byte, leftOverGas uint64, err error) {
-	switch sb.Option {
-	case OPTION_CANDIDATES:
-		// TODO:
-		cs := make([]*Candidate, 0)
-		for _, c := range CandidateMap {
-			cs = append(cs, c)
-		}
-		ret, err = json.Marshal(cs)
-	case OPTION_STAKEHOLDERS:
-		ss := make([]*Stakeholder, 0)
-		for _, s := range StakeholderMap {
-			ss = append(ss, s)
-		}
-		ret, err = json.Marshal(ss)
-
-	case OPTION_BUCKETS:
-		// TODO:
-		bs := make([]*Bucket, 0)
-		for _, b := range BucketMap {
-			bs = append(bs, b)
-		}
-		ret, err = json.Marshal(bs)
-
-	default:
-		return nil, gas, errors.New("Invalid option parameter")
+func (sb *StakingBody) UnCandidateHandler(senv *StakingEnviroment, gas uint64) (ret []byte, leftOverGas uint64, err error) {
+	/*****
+	staking := senv.GetStaking()
+	state := senv.GetState()
+	fmt.Println("!!!!!!Entered UnCandidate Handler!!!!!!")
+	fmt.Println("CandidateMap =")
+	//for k, v := range CandidateMap {
+		fmt.Println("key:", k, ", val:", v.ToString())
 	}
 
 	if gas < meter.ClauseGas {
@@ -327,5 +306,17 @@ func (sb *StakingBody) QueryHandler(senv *StakingEnviroment, gas uint64) (ret []
 	} else {
 		leftOverGas = gas - meter.ClauseGas
 	}
+
+	candidate, tracked := CandidateMap[sb.CandAddr]
+	if tracked == false {
+		err = errors.New("candidate is not in map")
+		leftOverGas = gas
+		return
+	}
+
+	// XXX: How to handle?
+	// 1. unbound all reference to this candidate
+	// 2. remove candidate from candidate list
+	***/
 	return
 }

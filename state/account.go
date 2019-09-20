@@ -41,7 +41,7 @@ func (a *Account) CalcEnergy() *big.Int {
 }
 
 func emptyAccount() *Account {
-	return &Account{Balance: &big.Int{}, Energy: &big.Int{}}
+	return &Account{Balance: &big.Int{}, Energy: &big.Int{}, BoundBalance: &big.Int{}, BoundEnergy: &big.Int{}}
 }
 
 // loadAccount load an account object by address in trie.

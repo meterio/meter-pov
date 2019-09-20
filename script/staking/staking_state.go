@@ -1,7 +1,9 @@
 package staking
 
 import (
+	"encoding/hex"
 	"errors"
+	"fmt"
 	"math/big"
 
 	"github.com/dfinlab/meter/meter"
@@ -12,7 +14,7 @@ import (
 
 // the global variables in staking
 var (
-	StakingModuleAddr  = meter.BytesToAddress([]byte("staking-module-address"))
+	StakingModuleAddr  = meter.BytesToAddress([]byte("staking-module-address")) // 0x616B696e672D6D6F64756c652d61646472657373
 	DelegateListKey    = meter.Blake2b([]byte("delegate-list-key"))
 	CandidateListKey   = meter.Blake2b([]byte("candidate-list-key"))
 	StakeHolderListKey = meter.Blake2b([]byte("stake-holder-list-key"))
@@ -20,56 +22,65 @@ var (
 )
 
 // Candidate List
-func (s *Staking) GetCandidateList(state *state.State) (candList []Candidate) {
+func (s *Staking) GetCandidateList(state *state.State) (result *CandidateList) {
+	var candList []*Candidate
+	fmt.Println("Entered: GetCandidateList")
 	state.DecodeStorage(StakingModuleAddr, CandidateListKey, func(raw []byte) error {
-		if len(raw) == 0 {
-			candList = []Candidate{}
-			return nil
-		}
-		return rlp.DecodeBytes(raw, &candList)
+		fmt.Println("Loaded Raw Hex: ", hex.EncodeToString(raw))
+		err := rlp.DecodeBytes(raw, &candList)
+		result = newCandidateList(candList)
+		fmt.Println("Loaded Candidate List:", result.ToString(), "Error: ", err, " OriginalLen:", len(candList))
+		fmt.Println(result.ToString())
+		return nil
 	})
 	return
 }
 
-func (s *Staking) SetCandidateList(candList []Candidate, state *state.State) {
+func (s *Staking) SetCandidateList(candList *CandidateList, state *state.State) {
 	state.EncodeStorage(StakingModuleAddr, CandidateListKey, func() ([]byte, error) {
-		return rlp.EncodeToBytes(&candList)
+		fmt.Println("Setting with Candidate List: ", candList.ToString())
+		b, e := rlp.EncodeToBytes(candList.candidates)
+		fmt.Println("Encoded Raw Hex:", hex.EncodeToString(b), ", ERROR:", e)
+		return b, e
 	})
 }
 
 // StakeHolder List
-func (s *Staking) GetStakeHolderList(state *state.State) (holderList []Stakeholder) {
+func (s *Staking) GetStakeHolderList(state *state.State) (result *StakeholderList) {
+	var holderList []*Stakeholder
 	state.DecodeStorage(StakingModuleAddr, StakeHolderListKey, func(raw []byte) error {
-		if len(raw) == 0 {
-			holderList = []Stakeholder{}
-			return nil
-		}
-		return rlp.DecodeBytes(raw, &holderList)
+		rlp.DecodeBytes(raw, &holderList)
+		result = newStakeholderList(holderList)
+		return nil
 	})
 	return
 }
 
-func (s *Staking) SetStakeHolderList(holderList []Stakeholder, state *state.State) {
+func (s *Staking) SetStakeHolderList(holderList *StakeholderList, state *state.State) {
 	state.EncodeStorage(StakingModuleAddr, StakeHolderListKey, func() ([]byte, error) {
-		return rlp.EncodeToBytes(&holderList)
+		return rlp.EncodeToBytes(holderList.holders)
 	})
 }
 
 // Bucket List
-func (s *Staking) GetBucketList(state *state.State) (bucketList []Bucket) {
+func (s *Staking) GetBucketList(state *state.State) (result *BucketList) {
+	var bucketList []*Bucket
 	state.DecodeStorage(StakingModuleAddr, BucketListKey, func(raw []byte) error {
 		if len(raw) == 0 {
-			bucketList = []Bucket{}
+			result = newBucketList(nil)
 			return nil
 		}
-		return rlp.DecodeBytes(raw, &bucketList)
+		rlp.DecodeBytes(raw, &bucketList)
+
+		result = newBucketList(bucketList)
+		return nil
 	})
 	return
 }
 
-func (s *Staking) SetBucketList(candList []Bucket, state *state.State) {
+func (s *Staking) SetBucketList(bucketList *BucketList, state *state.State) {
 	state.EncodeStorage(StakingModuleAddr, BucketListKey, func() ([]byte, error) {
-		return rlp.EncodeToBytes(&candList)
+		return rlp.EncodeToBytes(bucketList.buckets)
 	})
 }
 
@@ -89,22 +100,6 @@ func (s *Staking) SetDelegateList(delegateList []types.Delegate, state *state.St
 	state.EncodeStorage(StakingModuleAddr, DelegateListKey, func() ([]byte, error) {
 		return rlp.EncodeToBytes(&delegateList)
 	})
-}
-
-//=======================
-func (s *Staking) SyncCandidateList(state *state.State) {
-	list, _ := CandidateMapToList()
-	s.SetCandidateList(list, state)
-}
-
-func (s *Staking) SyncStakerholderList(state *state.State) {
-	list, _ := StakeholderMapToList()
-	s.SetStakeHolderList(list, state)
-}
-
-func (s *Staking) SyncBucketList(state *state.State) {
-	list, _ := BucketMapToList()
-	s.SetBucketList(list, state)
 }
 
 //==================== bound/unbound account ===========================
