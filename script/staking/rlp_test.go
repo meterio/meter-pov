@@ -14,7 +14,6 @@ import (
 	"github.com/dfinlab/meter/meter"
 	"github.com/dfinlab/meter/script"
 	"github.com/dfinlab/meter/script/staking"
-	"github.com/google/uuid"
 )
 
 /*
@@ -22,6 +21,7 @@ Execute this test with
 cd /tmp/meter-build-xxxxx/src/github.com/dfinlab/meter/script/staking
 GOPATH=/tmp/meter-build-xxxx/:$GOPATH go test
 */
+var bucketIDString = string("0x000000000b2bce3c70bc649a02749e8687721b09ed2e15997f466536b20bb127")
 
 func TestRlpForStakeholder(t *testing.T) {
 	addr, err := meter.ParseAddress("0xf3dd5c55b96889369f714143f213403464a268a6")
@@ -30,7 +30,7 @@ func TestRlpForStakeholder(t *testing.T) {
 	}
 	src := staking.NewStakeholder(addr)
 	src.TotalStake = big.NewInt(10)
-	src.Buckets = append(src.Buckets, uuid.Must(uuid.NewUUID()))
+	src.Buckets = append(src.Buckets, meter.MustParseBytes32(bucketIDString))
 
 	data, err := rlp.EncodeToBytes(src)
 	if err != nil {
@@ -63,7 +63,7 @@ func TestRlpForCandidate(t *testing.T) {
 	// fmt.Println("pubkey: ", pubKey)
 	rand.Read(ip)
 	src := staking.NewCandidate(addr, pubKey, ip, port)
-	src.Buckets = append(src.Buckets, uuid.Must(uuid.NewUUID()))
+	src.Buckets = append(src.Buckets, meter.MustParseBytes32(bucketIDString))
 
 	data, err := rlp.EncodeToBytes(src)
 	if err != nil {
@@ -100,8 +100,9 @@ func TestRlpForBucket(t *testing.T) {
 		fmt.Println("Can not parse address")
 	}
 	token := uint8(rand.Int())
-	duration := rand.Uint64()
-	src := staking.NewBucket(addr, cand, big.NewInt(int64(rand.Int())), token, duration)
+	rate := uint8(rand.Int())
+	mature := rand.Uint64()
+	src := staking.NewBucket(addr, cand, big.NewInt(int64(rand.Int())), token, rate, mature, rand.Uint64())
 
 	data, err := rlp.EncodeToBytes(src)
 	if err != nil {
@@ -116,7 +117,7 @@ func TestRlpForBucket(t *testing.T) {
 		src.Token != tgt.Token ||
 		src.Rate != tgt.Rate ||
 		src.CreateTime != tgt.CreateTime ||
-		src.LastTouchTime != tgt.LastTouchTime ||
+		src.MatureTime != tgt.MatureTime ||
 		src.BounusVotes != tgt.BounusVotes {
 		t.Fail()
 	}
@@ -125,10 +126,8 @@ func TestRlpForBucket(t *testing.T) {
 
 const (
 	HOLDER_ADDRESS    = "0x0205c2D862cA051010698b69b54278cbAf945C0b"
-	CANDIDATE_ADDRESS = "0x0205c2D862cA051010698b69b54278cbAf945C0b"
-
-	BUCKET_ID        = "e08afe16-d8db-11e9-9d0e-005056381958"
-	CANDIDATE_AMOUNT = "2000000000000000000000" //(2e20) 200MTRG
+	CANDIDATE_ADDRESS = "0x8a88c59bf15451f9deb1d62f7734fece2002668e"
+	CANDIDATE_AMOUNT  = "2000000000000000000000" //(2e20) 200MTRG
 )
 
 func generateScriptData(opCode uint32, holderAddrStr, candAddrStr string, amountInt64 int64) (string, error) {
@@ -139,7 +138,7 @@ func generateScriptData(opCode uint32, holderAddrStr, candAddrStr string, amount
 	candPubKey := []byte("")
 	candIP := []byte("1.2.3.4")
 	candPort := uint16(8669)
-	stakingID := uuid.MustParse(BUCKET_ID)
+	stakingID := meter.MustParseBytes32(bucketIDString)
 
 	/******
 	var amount *big.Int
@@ -165,6 +164,7 @@ func generateScriptData(opCode uint32, holderAddrStr, candAddrStr string, amount
 		StakingID:  stakingID,
 		Amount:     *amount,
 		Token:      staking.TOKEN_METER_GOV,
+		Nonce:      rand.Uint64(),
 	}
 	payload, err := rlp.EncodeToBytes(body)
 	if err != nil {

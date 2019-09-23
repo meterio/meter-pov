@@ -1,12 +1,12 @@
 package staking
 
 import (
-	"github.com/google/uuid"
+	"github.com/dfinlab/meter/meter"
 )
 
 //
-func RemoveUuIDFromSlice(ids []uuid.UUID, id uuid.UUID) (ret []uuid.UUID) {
-	ret = []uuid.UUID{}
+func RemoveBucketIDFromSlice(ids []meter.Bytes32, id meter.Bytes32) (ret []meter.Bytes32) {
+	ret = []meter.Bytes32{}
 	for _, e := range ids {
 		if e == id {
 			continue

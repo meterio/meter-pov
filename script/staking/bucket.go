@@ -7,39 +7,53 @@ import (
 	"strings"
 
 	"github.com/dfinlab/meter/meter"
-	"github.com/google/uuid"
+	"github.com/ethereum/go-ethereum/rlp"
 )
 
 // Candidate indicates the structure of a candidate
 type Bucket struct {
-	BucketID      uuid.UUID
-	Owner         meter.Address //stake holder
-	Candidate     meter.Address // candidate
-	Value         *big.Int      // staking unit Wei
-	Token         uint8         // token type MTR / MTRG
-	Rate          uint8         // bounus rate
-	CreateTime    uint64        // bucket create time
-	LastTouchTime uint64        // time durations, seconds
-	BounusVotes   uint64        // extra votes from staking
-	TotalVotes    *big.Int      // Value votes + extra votes
+	BucketID    meter.Bytes32
+	Owner       meter.Address //stake holder
+	Candidate   meter.Address // candidate
+	Value       *big.Int      // staking unit Wei
+	Token       uint8         // token type MTR / MTRG
+	Rate        uint8         // bounus rate
+	MatureTime  uint64        // time durations, seconds
+	Nonce       uint64        // nonce
+	BounusVotes uint64        // extra votes from staking
+	TotalVotes  *big.Int      // Value votes + extra votes
+	CreateTime  uint64        // bucket create time
 }
 
-func NewBucket(owner meter.Address, cand meter.Address, value *big.Int, token uint8, duration uint64) *Bucket {
-	uuid, err := uuid.NewUUID()
-	if err != nil {
-		panic(err)
-	}
+//bucketID BounusVote createTime .. are excluded
+func (b *Bucket) ID() (hash meter.Bytes32) {
+	hw := meter.NewBlake2b()
+	rlp.Encode(hw, []interface{}{
+		b.Owner,
+		b.Candidate,
+		b.Value,
+		b.Token,
+		b.Rate,
+		b.MatureTime,
+		b.Nonce,
+	})
+	hw.Sum(hash[:0])
+	return
+}
 
-	return &Bucket{
-		BucketID:      uuid,
-		Owner:         owner,
-		Candidate:     cand,
-		Value:         value,
-		Token:         token,
-		LastTouchTime: duration,
-		BounusVotes:   0,
-		TotalVotes:    value.Add(big.NewInt(0), value),
+func NewBucket(owner meter.Address, cand meter.Address, value *big.Int, token uint8, rate uint8, mature uint64, nonce uint64) *Bucket {
+	b := &Bucket{
+		Owner:       owner,
+		Candidate:   cand,
+		Value:       value,
+		Token:       token,
+		MatureTime:  mature,
+		Nonce:       nonce,
+		BounusVotes: 0,
+		TotalVotes:  value.Add(big.NewInt(0), value),
 	}
+	b.BucketID = b.ID()
+	return b
 }
 
 func GetLatestBucketList() (*BucketList, error) {
@@ -62,7 +76,7 @@ func GetLatestBucketList() (*BucketList, error) {
 
 func (b *Bucket) ToString() string {
 	return fmt.Sprintf("Bucket(ID=%v, Owner=%v, Value=%.2e, Token=%v, Duration=%v, BounusVotes=%v, TotoalVotes=%.2e)",
-		b.BucketID, b.Owner, float64(b.Value.Int64()), b.Token, b.LastTouchTime, b.BounusVotes, float64(b.TotalVotes.Int64()))
+		b.BucketID, b.Owner, float64(b.Value.Int64()), b.Token, b.MatureTime, b.BounusVotes, float64(b.TotalVotes.Int64()))
 }
 
 type BucketList struct {
@@ -76,7 +90,7 @@ func newBucketList(buckets []*Bucket) *BucketList {
 	return &BucketList{buckets: buckets}
 }
 
-func (l *BucketList) Get(id uuid.UUID) *Bucket {
+func (l *BucketList) Get(id meter.Bytes32) *Bucket {
 	i := l.indexOf(id)
 	if i < 0 {
 		return nil
@@ -84,7 +98,7 @@ func (l *BucketList) Get(id uuid.UUID) *Bucket {
 	return l.buckets[i]
 }
 
-func (l *BucketList) indexOf(id uuid.UUID) int {
+func (l *BucketList) indexOf(id meter.Bytes32) int {
 	for i, v := range l.buckets {
 		if v.BucketID == id {
 			return i
@@ -93,7 +107,7 @@ func (l *BucketList) indexOf(id uuid.UUID) int {
 	return -1
 }
 
-func (l *BucketList) Exist(id uuid.UUID) bool {
+func (l *BucketList) Exist(id meter.Bytes32) bool {
 	return l.indexOf(id) >= 0
 }
 
@@ -111,7 +125,7 @@ func (l *BucketList) Add(b *Bucket) error {
 	return nil
 }
 
-func (l *BucketList) Remove(id uuid.UUID) error {
+func (l *BucketList) Remove(id meter.Bytes32) error {
 	i := l.indexOf(id)
 	if i < 0 {
 		return nil

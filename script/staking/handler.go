@@ -1,11 +1,10 @@
 package staking
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"math/big"
-
-	"github.com/google/uuid"
 
 	"github.com/dfinlab/meter/meter"
 	"github.com/ethereum/go-ethereum/rlp"
@@ -38,9 +37,10 @@ type StakingBody struct {
 	CandPubKey []byte //ecdsa.PublicKey
 	CandIP     []byte
 	CandPort   uint16
-	StakingID  uuid.UUID // only for unbound, uuid is [16]byte
+	StakingID  meter.Bytes32 // only for unbound, uuid is [16]byte
 	Amount     big.Int
-	Token      byte // meter or meter gov
+	Token      byte   // meter or meter gov
+	Nonce      uint64 //staking nonce
 }
 
 func StakingEncodeBytes(sb *StakingBody) []byte {
@@ -95,7 +95,7 @@ func (sb *StakingBody) BoundHandler(senv *StakingEnviroment, gas uint64) (ret []
 		return
 	}
 
-	bucket := NewBucket(sb.HolderAddr, sb.CandAddr, &sb.Amount, uint8(sb.Token), uint64(0))
+	bucket := NewBucket(sb.HolderAddr, sb.CandAddr, &sb.Amount, uint8(sb.Token), uint8(0), uint64(0), sb.Nonce) //rate, mature not implemented yet
 	bucketList.Add(bucket)
 
 	stakeholder := stakeholderList.Get(sb.HolderAddr)
@@ -153,7 +153,7 @@ func (sb *StakingBody) UnBoundHandler(senv *StakingEnviroment, gas uint64) (ret 
 
 	// update stake holder
 	if holder, ok := StakeholderMap[sb.HolderAddr]; ok {
-		buckets := RemoveUuIDFromSlice(holder.Buckets, sb.StakingID)
+		buckets := RemoveBucketIDFromSlice(holder.Buckets, sb.StakingID)
 		if len(buckets) == 0 {
 			delete(StakeholderMap, sb.HolderAddr)
 		} else {
@@ -194,13 +194,13 @@ func (sb *StakingBody) CandidateHandler(senv *StakingEnviroment, gas uint64) (re
 	fmt.Println("Candiate Handler: StateRoot:", h, ", err:", e)
 	staking := senv.GetStaking()
 	state := senv.GetState()
-	candidateList := staking.GetCandidateList111(state)
-	// bucketList := staking.GetBucketList(state)
-	// stakeholderList := staking.GetStakeHolderList(state)
+	candidateList := staking.GetCandidateList(state)
+	bucketList := staking.GetBucketList(state)
+	stakeholderList := staking.GetStakeHolderList(state)
 
 	fmt.Println("!!!!!!Entered Candidate Handler!!!!!!")
-	// fmt.Println(candidateList.ToString())
-	// fmt.Println(bucketList.ToString())
+	fmt.Println(candidateList.ToString())
+	fmt.Println(bucketList.ToString())
 
 	if gas < meter.ClauseGas {
 		leftOverGas = 0
@@ -237,49 +237,37 @@ func (sb *StakingBody) CandidateHandler(senv *StakingEnviroment, gas uint64) (re
 		return
 	}
 
-	/*
-		// if the candidate already exists return error without paying gas
-		if record := candidateList.Get(sb.CandAddr); record != nil {
-			if bytes.Equal(record.PubKey, sb.CandPubKey) && bytes.Equal(record.IPAddr, sb.CandIP) && record.Port == sb.CandPort {
-				// exact same candidate
-				fmt.Println("Record: ", record.ToString())
-				fmt.Println("sb:", sb.ToString())
-				err = errors.New("candidate already listed")
-			} else {
-				err = errors.New("candidate listed with different information")
-			}
-			//leftOverGas = gas
-			return
+	// if the candidate already exists return error without paying gas
+	if record := candidateList.Get(sb.CandAddr); record != nil {
+		if bytes.Equal(record.PubKey, sb.CandPubKey) && bytes.Equal(record.IPAddr, sb.CandIP) && record.Port == sb.CandPort {
+			// exact same candidate
+			fmt.Println("Record: ", record.ToString())
+			fmt.Println("sb:", sb.ToString())
+			err = errors.New("candidate already listed")
+		} else {
+			err = errors.New("candidate listed with different information")
 		}
-	*/
-
-	// now staking the amount
-	bucket := NewBucket(sb.HolderAddr, sb.CandAddr, &sb.Amount, uint8(sb.Token), uint64(0))
-	/*
-		bucketList.Add(bucket)
-
-	*/
-	candidate := NewCandidate(sb.CandAddr, sb.CandPubKey, sb.CandIP, sb.CandPort)
-	candidate.AddBucket(bucket)
-	// candidateList = append(candidateList, *candidate)
-	candidateList = append(candidateList, *candidate)
-
-	// fmt.Println(candidateList.ToString())
-	for i, v := range candidateList {
-		fmt.Println(i+1, ": ", v.ToString())
+		//leftOverGas = gas
+		return
 	}
 
-	/*
-		stakeholder := stakeholderList.Get(sb.CandAddr)
-		if stakeholder == nil {
-			stakeholder = NewStakeholder(sb.CandAddr)
-			stakeholder.AddBucket(bucket)
-			stakeholderList.Add(stakeholder)
-		} else {
-			stakeholder.AddBucket(bucket)
-		}
+	// now staking the amount
+	bucket := NewBucket(sb.HolderAddr, sb.CandAddr, &sb.Amount, uint8(sb.Token), uint8(0), uint64(0), sb.Nonce)
+	bucketList.Add(bucket)
 
-	*/
+	candidate := NewCandidate(sb.CandAddr, sb.CandPubKey, sb.CandIP, sb.CandPort)
+	candidate.AddBucket(bucket)
+	candidateList.Add(candidate)
+
+	stakeholder := stakeholderList.Get(sb.CandAddr)
+	if stakeholder == nil {
+		stakeholder = NewStakeholder(sb.CandAddr)
+		stakeholder.AddBucket(bucket)
+		stakeholderList.Add(stakeholder)
+	} else {
+		stakeholder.AddBucket(bucket)
+	}
+
 	switch sb.Token {
 	case TOKEN_METER:
 		err = staking.BoundAccountMeter(sb.CandAddr, &sb.Amount, state)
@@ -289,26 +277,25 @@ func (sb *StakingBody) CandidateHandler(senv *StakingEnviroment, gas uint64) (re
 		//leftOverGas = gas
 		err = errors.New("Invalid token parameter")
 	}
-	h, e = state.Stage().Hash()
-	fmt.Println("Before set candidate list: StateRoot:", h, ", err:", e)
 
-	staking.SetCandidateList111(candidateList, state)
-	h, e = state.Stage().Hash()
-	fmt.Println("After set candidate list: StateRoot:", h, ", err:", e)
+	//h, e = state.Stage().Hash()
+	//fmt.Println("Before set candidate list: StateRoot:", h, ", err:", e)
+	staking.SetCandidateList(candidateList, state)
+	//h, e = state.Stage().Hash()
+	//fmt.Println("After set candidate list: StateRoot:", h, ", err:", e)
 
-	/*
-		staking.SetBucketList(bucketList, state)
-		h, e = state.Stage().Hash()
-		fmt.Println("After set bucket list: StateRoot:", h, ", err:", e)
+	staking.SetBucketList(bucketList, state)
+	//h, e = state.Stage().Hash()
+	//fmt.Println("After set bucket list: StateRoot:", h, ", err:", e)
 
-		staking.SetStakeHolderList(stakeholderList, state)
-		h, e = state.Stage().Hash()
-		fmt.Println("After set stakeholder list: StateRoot:", h, ", err:", e)
-	*/
+	staking.SetStakeHolderList(stakeholderList, state)
+	//h, e = state.Stage().Hash()
+	//fmt.Println("After set stakeholder list: StateRoot:", h, ", err:", e)
 
 	fmt.Println("XXXXX: After checking existence")
-	// fmt.Println(candidateList.ToString())
-	// fmt.Println(bucketList.ToString())
+	fmt.Println(candidateList.ToString())
+	fmt.Println(stakeholderList.ToString())
+	fmt.Println(bucketList.ToString())
 
 	return
 }

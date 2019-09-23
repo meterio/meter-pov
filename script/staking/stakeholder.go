@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	"github.com/dfinlab/meter/meter"
-	"github.com/google/uuid"
 )
 
 var (
@@ -16,16 +15,16 @@ var (
 
 // Stakeholder indicates the structure of a Stakeholder
 type Stakeholder struct {
-	Holder     meter.Address // the address for staking / reward
-	TotalStake *big.Int      // total voting from all buckets
-	Buckets    []uuid.UUID   // all buckets voted for this Stakeholder
+	Holder     meter.Address   // the address for staking / reward
+	TotalStake *big.Int        // total voting from all buckets
+	Buckets    []meter.Bytes32 // all buckets voted for this Stakeholder
 }
 
 func NewStakeholder(holder meter.Address) *Stakeholder {
 	return &Stakeholder{
 		Holder:     holder,
 		TotalStake: big.NewInt(0),
-		Buckets:    []uuid.UUID{},
+		Buckets:    []meter.Bytes32{},
 	}
 }
 

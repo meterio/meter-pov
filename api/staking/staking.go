@@ -4,8 +4,6 @@ import (
 	"encoding/hex"
 	"net/http"
 
-	"github.com/google/uuid"
-
 	"github.com/dfinlab/meter/api/utils"
 	"github.com/dfinlab/meter/meter"
 	"github.com/dfinlab/meter/script/staking"
@@ -57,7 +55,7 @@ func (st *Staking) handleGetBucketList(w http.ResponseWriter, req *http.Request)
 func (st *Staking) handleGetBucketByID(w http.ResponseWriter, req *http.Request) error {
 	list, err := staking.GetLatestBucketList()
 	id := mux.Vars(req)["id"]
-	bucketID, err := uuid.Parse(id)
+	bucketID, err := meter.ParseBytes32(id)
 	if err != nil {
 		return err
 	}
