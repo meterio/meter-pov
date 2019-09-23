@@ -190,15 +190,17 @@ func (sb *StakingBody) UnBoundHandler(senv *StakingEnviroment, gas uint64) (ret 
 }
 
 func (sb *StakingBody) CandidateHandler(senv *StakingEnviroment, gas uint64) (ret []byte, leftOverGas uint64, err error) {
+	h, e := senv.GetState().Stage().Hash()
+	fmt.Println("Candiate Handler: StateRoot:", h, ", err:", e)
 	staking := senv.GetStaking()
 	state := senv.GetState()
-	candidateList := staking.GetCandidateList(state)
-	bucketList := staking.GetBucketList(state)
-	stakeholderList := staking.GetStakeHolderList(state)
+	candidateList := staking.GetCandidateList111(state)
+	// bucketList := staking.GetBucketList(state)
+	// stakeholderList := staking.GetStakeHolderList(state)
 
 	fmt.Println("!!!!!!Entered Candidate Handler!!!!!!")
 	// fmt.Println(candidateList.ToString())
-	fmt.Println(bucketList.ToString())
+	// fmt.Println(bucketList.ToString())
 
 	if gas < meter.ClauseGas {
 		leftOverGas = 0
@@ -253,27 +255,31 @@ func (sb *StakingBody) CandidateHandler(senv *StakingEnviroment, gas uint64) (re
 
 	// now staking the amount
 	bucket := NewBucket(sb.HolderAddr, sb.CandAddr, &sb.Amount, uint8(sb.Token), uint64(0))
-	bucketList.Add(bucket)
+	/*
+		bucketList.Add(bucket)
 
+	*/
 	candidate := NewCandidate(sb.CandAddr, sb.CandPubKey, sb.CandIP, sb.CandPort)
 	candidate.AddBucket(bucket)
 	// candidateList = append(candidateList, *candidate)
-	candidateList.Add(candidate)
+	candidateList = append(candidateList, *candidate)
 
-	fmt.Println(candidateList.ToString())
-	// for i, v := range candidateList {
-	// fmt.Println(i+1, ": ", v.ToString())
-	// }
-
-	stakeholder := stakeholderList.Get(sb.CandAddr)
-	if stakeholder == nil {
-		stakeholder = NewStakeholder(sb.CandAddr)
-		stakeholder.AddBucket(bucket)
-		stakeholderList.Add(stakeholder)
-	} else {
-		stakeholder.AddBucket(bucket)
+	// fmt.Println(candidateList.ToString())
+	for i, v := range candidateList {
+		fmt.Println(i+1, ": ", v.ToString())
 	}
 
+	/*
+		stakeholder := stakeholderList.Get(sb.CandAddr)
+		if stakeholder == nil {
+			stakeholder = NewStakeholder(sb.CandAddr)
+			stakeholder.AddBucket(bucket)
+			stakeholderList.Add(stakeholder)
+		} else {
+			stakeholder.AddBucket(bucket)
+		}
+
+	*/
 	switch sb.Token {
 	case TOKEN_METER:
 		err = staking.BoundAccountMeter(sb.CandAddr, &sb.Amount, state)
@@ -283,14 +289,26 @@ func (sb *StakingBody) CandidateHandler(senv *StakingEnviroment, gas uint64) (re
 		//leftOverGas = gas
 		err = errors.New("Invalid token parameter")
 	}
+	h, e = state.Stage().Hash()
+	fmt.Println("Before set candidate list: StateRoot:", h, ", err:", e)
 
-	staking.SetCandidateList(candidateList, state)
-	staking.SetBucketList(bucketList, state)
-	staking.SetStakeHolderList(stakeholderList, state)
+	staking.SetCandidateList111(candidateList, state)
+	h, e = state.Stage().Hash()
+	fmt.Println("After set candidate list: StateRoot:", h, ", err:", e)
+
+	/*
+		staking.SetBucketList(bucketList, state)
+		h, e = state.Stage().Hash()
+		fmt.Println("After set bucket list: StateRoot:", h, ", err:", e)
+
+		staking.SetStakeHolderList(stakeholderList, state)
+		h, e = state.Stage().Hash()
+		fmt.Println("After set stakeholder list: StateRoot:", h, ", err:", e)
+	*/
 
 	fmt.Println("XXXXX: After checking existence")
 	// fmt.Println(candidateList.ToString())
-	fmt.Println(bucketList.ToString())
+	// fmt.Println(bucketList.ToString())
 
 	return
 }

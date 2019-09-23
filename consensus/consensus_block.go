@@ -408,10 +408,13 @@ func (c *ConsensusReactor) verifyBlock(blk *block.Block, state *state.State) (*s
 		return true, meta.Reverted, nil
 	}
 	fmt.Println("TXS------------------------------------------")
+	fmt.Println("Verify Block: ", blk.String())
 	fmt.Println("len TXS:", len(txs))
 	for i, tx := range txs {
 		fmt.Println("TX ", i+1, tx.ID(), hex.EncodeToString(tx.Clauses()[0].Data()))
 	}
+	root, e := state.Stage().Hash()
+	fmt.Println("StateRoot:", root, ", err:", e)
 	fmt.Println("---------------------------------------------")
 	for i, tx := range txs {
 		// Mint transaction critiers:

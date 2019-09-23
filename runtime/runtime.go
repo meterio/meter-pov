@@ -6,6 +6,7 @@
 package runtime
 
 import (
+	"encoding/hex"
 	"fmt"
 	"math/big"
 	"sync/atomic"
@@ -333,8 +334,9 @@ func (rt *Runtime) PrepareClause(
 				return nil, true
 			}
 			// exclude 4 bytes of clause data
+			fmt.Println("Exec Clause: ", hex.EncodeToString(clause.Data()))
 			data, leftOverGas, vmErr = se.HandleScriptData(clause.Data()[4:], txCtx, gas, rt.state)
-			//fmt.Println("scriptEngine handling return", data, leftOverGas, vmErr)
+			fmt.Println("scriptEngine handling return", data, leftOverGas, vmErr)
 
 			interrupted := false
 			output := &Output{
@@ -425,6 +427,7 @@ func (rt *Runtime) PrepareTransaction(tx *tx.Transaction) (*TransactionExecutor,
 				return 0, nil, errors.New("no more clause")
 			}
 			nextClauseIndex := uint32(len(txOutputs))
+			fmt.Println("before execute clause: ", hex.EncodeToString(resolvedTx.Clauses[nextClauseIndex].Data()))
 			output = rt.ExecuteClause(resolvedTx.Clauses[nextClauseIndex], nextClauseIndex, leftOverGas, txCtx)
 			gasUsed = leftOverGas - output.LeftOverGas
 			leftOverGas = output.LeftOverGas

@@ -193,7 +193,7 @@ func (s *Staking) GetCandidateList111(state *state.State) (candList []Candidate)
 	return
 }
 
-func (s *Staking) SetCandidateList111(candList *[]Candidate, state *state.State) {
+func (s *Staking) SetCandidateList111(candList []Candidate, state *state.State) {
 	state.EncodeStorage(StakingModuleAddr, CandidateListKey, func() ([]byte, error) {
 		return rlp.EncodeToBytes(candList)
 	})
