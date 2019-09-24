@@ -139,6 +139,7 @@ func generateScriptData(opCode uint32, holderAddrStr, candAddrStr string, amount
 	candIP := []byte("1.2.3.4")
 	candPort := uint16(8669)
 	stakingID := meter.MustParseBytes32(bucketIDString)
+	option := uint32(2)
 
 	/******
 	var amount *big.Int
@@ -154,6 +155,7 @@ func generateScriptData(opCode uint32, holderAddrStr, candAddrStr string, amount
 
 	body := staking.StakingBody{
 		Opcode:     opCode,
+		Option:     option,
 		Version:    version,
 		HolderAddr: holderAddr,
 		CandAddr:   candAddr,

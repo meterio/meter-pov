@@ -51,7 +51,7 @@ func (s *Staking) Start() error {
 func (s *Staking) PrepareStakingHandler() (StakingHandler func(data []byte, txCtx *xenv.TransactionContext, gas uint64, state *state.State) (ret []byte, leftOverGas uint64, err error)) {
 
 	StakingHandler = func(data []byte, txCtx *xenv.TransactionContext, gas uint64, state *state.State) (ret []byte, leftOverGas uint64, err error) {
-		s.logger.Info("received staking data", "txCtx", txCtx, "gas", gas)
+
 		sb, err := StakingDecodeFromBytes(data)
 		if err != nil {
 			s.logger.Error("Decode script message failed", "error", err)
@@ -63,7 +63,7 @@ func (s *Staking) PrepareStakingHandler() (StakingHandler func(data []byte, txCt
 			panic("create staking enviroment failed")
 		}
 
-		s.logger.Info("decode stakingbody", "Stakingbody", sb.ToString())
+		s.logger.Info("received staking data", "stakingbody", sb.ToString())
 		switch sb.Opcode {
 		case OP_BOUND:
 			if senv.GetTxCtx().Origin != sb.HolderAddr {
@@ -89,6 +89,18 @@ func (s *Staking) PrepareStakingHandler() (StakingHandler func(data []byte, txCt
 				return nil, gas, errors.New("candidate address is not the same from transaction")
 			}
 			ret, leftOverGas, err = sb.UnCandidateHandler(senv, gas)
+
+		case OP_DELEGATE:
+			if senv.GetTxCtx().Origin != sb.HolderAddr {
+				return nil, gas, errors.New("holder address is not the same from transaction")
+			}
+			ret, leftOverGas, err = sb.DelegateHandler(senv, gas)
+
+		case OP_UNDELEGATE:
+			if senv.GetTxCtx().Origin != sb.HolderAddr {
+				return nil, gas, errors.New("holder address is not the same from transaction")
+			}
+			ret, leftOverGas, err = sb.UnDelegateHandler(senv, gas)
 
 		default:
 			s.logger.Error("unknown Opcode", "Opcode", sb.Opcode)

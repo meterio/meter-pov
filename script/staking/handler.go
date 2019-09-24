@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"time"
 
 	"github.com/dfinlab/meter/meter"
 	"github.com/ethereum/go-ethereum/rlp"
@@ -15,6 +16,8 @@ const (
 	OP_UNBOUND     = uint32(2)
 	OP_CANDIDATE   = uint32(3)
 	OP_UNCANDIDATE = uint32(4)
+	OP_DELEGATE    = uint32(5)
+	OP_UNDELEGATE  = uint32(6)
 )
 
 const (
@@ -55,8 +58,8 @@ func StakingDecodeFromBytes(bytes []byte) (*StakingBody, error) {
 }
 
 func (sb *StakingBody) ToString() string {
-	return fmt.Sprintf("StakingBody: Opcode=%v, Version=%v, Option=%v, HolderAddr=%v, CandAddr=%v, CandName=%v, CandPubKey=%v, CandIP=%v, CandPort=%v, StakingID=%v, Amount=%v, Token=%v",
-		sb.Opcode, sb.Version, sb.Option, sb.HolderAddr, sb.CandAddr, sb.CandName, sb.CandPubKey, string(sb.CandIP), sb.CandPort, sb.StakingID, sb.Amount, sb.Token)
+	return fmt.Sprintf("StakingBody: Opcode=%v, Version=%v, Option=%v, HolderAddr=%v, CandAddr=%v, CandName=%v, CandPubKey=%v, CandIP=%v, CandPort=%v, StakingID=%v, Amount=%v, Token=%v, Nonce=%v",
+		sb.Opcode, sb.Version, sb.Option, sb.HolderAddr, sb.CandAddr, sb.CandName, sb.CandPubKey, string(sb.CandIP), sb.CandPort, sb.StakingID, sb.Amount, sb.Token, sb.Nonce)
 }
 
 func (sb *StakingBody) BoundHandler(senv *StakingEnviroment, gas uint64) (ret []byte, leftOverGas uint64, err error) {
@@ -73,9 +76,12 @@ func (sb *StakingBody) BoundHandler(senv *StakingEnviroment, gas uint64) (ret []
 	}
 
 	// check if candidate exists or not
-	if c := candidateList.Get(sb.CandAddr); c == nil {
-		err = errors.New("candidate is not listed")
-		return
+	setCand := !sb.CandAddr.IsZero()
+	if setCand {
+		if c := candidateList.Get(sb.CandAddr); c == nil {
+			staking.logger.Warn("candidate is not listed", "address", sb.CandAddr)
+			setCand = false
+		}
 	}
 
 	// check the account have enough balance
@@ -92,10 +98,21 @@ func (sb *StakingBody) BoundHandler(senv *StakingEnviroment, gas uint64) (ret []
 		err = errors.New("Invalid token parameter")
 	}
 	if err != nil {
+		staking.logger.Error("errors", "error", err)
 		return
 	}
 
-	bucket := NewBucket(sb.HolderAddr, sb.CandAddr, &sb.Amount, uint8(sb.Token), uint8(0), uint64(0), sb.Nonce) //rate, mature not implemented yet
+	// sanity checked, now do the action
+	opt, rate, mature := GetBoundLockOption(sb.Option)
+	staking.logger.Info("get bound option", "option", opt, "rate", rate, "mature", mature)
+
+	var candAddr meter.Address
+	if setCand {
+		candAddr = sb.CandAddr
+	} else {
+		candAddr = meter.Address{}
+	}
+	bucket := NewBucket(sb.HolderAddr, candAddr, &sb.Amount, uint8(sb.Token), rate, mature, sb.Nonce)
 	bucketList.Add(bucket)
 
 	stakeholder := stakeholderList.Get(sb.HolderAddr)
@@ -107,13 +124,15 @@ func (sb *StakingBody) BoundHandler(senv *StakingEnviroment, gas uint64) (ret []
 		stakeholder.AddBucket(bucket)
 	}
 
-	cand := candidateList.Get(sb.CandAddr)
-	if cand == nil {
-		staking.logger.Error("candidate is not in list")
-		err = errors.New("candidate is not in list")
-		return
+	if setCand {
+		cand := candidateList.Get(sb.CandAddr)
+		if cand == nil {
+			err = errors.New("candidate is not in list")
+			staking.logger.Error("Errors", "error", err)
+			return
+		}
+		cand.AddBucket(bucket)
 	}
-	cand.AddBucket(bucket)
 
 	switch sb.Token {
 	case TOKEN_METER:
@@ -147,21 +166,21 @@ func (sb *StakingBody) UnBoundHandler(senv *StakingEnviroment, gas uint64) (ret 
 	if b == nil {
 		return nil, leftOverGas, errors.New("staking not found")
 	}
+	if b.MatureTime > uint64(time.Now().Unix()) {
+		staking.logger.Error("Bucket is not mature", "mature time", b.MatureTime)
+		return nil, leftOverGas, errors.New("bucket not mature")
+	}
+
 	if (b.Owner != sb.HolderAddr) || (b.Value.Cmp(&sb.Amount) != 0) || (b.Token != sb.Token) {
 		return nil, leftOverGas, errors.New("staking info mismatch")
 	}
 
-	// update stake holder
-	if holder, ok := StakeholderMap[sb.HolderAddr]; ok {
-		buckets := RemoveBucketIDFromSlice(holder.Buckets, sb.StakingID)
-		if len(buckets) == 0 {
-			delete(StakeholderMap, sb.HolderAddr)
-		} else {
-			StakeholderMap[sb.HolderAddr] = &Stakeholder{
-				Holder:     sb.HolderAddr,
-				TotalStake: b.Value.Sub(holder.TotalStake, b.Value),
-				Buckets:    buckets,
-			}
+	// sanity check done, take actions
+	stakeholder := stakeholderList.Get(sb.HolderAddr)
+	if stakeholder != nil {
+		stakeholder.RemoveBucket(b)
+		if len(stakeholder.Buckets) == 0 {
+			stakeholderList.Remove(stakeholder.Holder)
 		}
 	}
 
@@ -190,8 +209,7 @@ func (sb *StakingBody) UnBoundHandler(senv *StakingEnviroment, gas uint64) (ret 
 }
 
 func (sb *StakingBody) CandidateHandler(senv *StakingEnviroment, gas uint64) (ret []byte, leftOverGas uint64, err error) {
-	h, e := senv.GetState().Stage().Hash()
-	fmt.Println("Candiate Handler: StateRoot:", h, ", err:", e)
+
 	staking := senv.GetStaking()
 	state := senv.GetState()
 	candidateList := staking.GetCandidateList(state)
@@ -214,7 +232,6 @@ func (sb *StakingBody) CandidateHandler(senv *StakingEnviroment, gas uint64) (re
 	if sb.Amount.Cmp(minCandBalance) < 0 {
 		err = errors.New("does not meet minimial balance")
 		staking.logger.Error("does not meet minimial balance")
-		//leftOverGas = gas
 		return
 	}
 
@@ -232,7 +249,6 @@ func (sb *StakingBody) CandidateHandler(senv *StakingEnviroment, gas uint64) (re
 		err = errors.New("Invalid token parameter")
 	}
 	if err != nil {
-		//leftOverGas = gas
 		staking.logger.Error("Errors:", "error", err)
 		return
 	}
@@ -247,12 +263,14 @@ func (sb *StakingBody) CandidateHandler(senv *StakingEnviroment, gas uint64) (re
 		} else {
 			err = errors.New("candidate listed with different information")
 		}
-		//leftOverGas = gas
 		return
 	}
 
 	// now staking the amount
-	bucket := NewBucket(sb.HolderAddr, sb.CandAddr, &sb.Amount, uint8(sb.Token), uint8(0), uint64(0), sb.Nonce)
+	opt, rate, mature := GetBoundLockOption(sb.Option)
+	staking.logger.Info("get bound option", "option", opt, "rate", rate, "mature", mature)
+
+	bucket := NewBucket(sb.HolderAddr, sb.CandAddr, &sb.Amount, uint8(sb.Token), rate, mature, sb.Nonce)
 	bucketList.Add(bucket)
 
 	candidate := NewCandidate(sb.CandAddr, sb.CandPubKey, sb.CandIP, sb.CandPort)
@@ -278,19 +296,9 @@ func (sb *StakingBody) CandidateHandler(senv *StakingEnviroment, gas uint64) (re
 		err = errors.New("Invalid token parameter")
 	}
 
-	//h, e = state.Stage().Hash()
-	//fmt.Println("Before set candidate list: StateRoot:", h, ", err:", e)
 	staking.SetCandidateList(candidateList, state)
-	//h, e = state.Stage().Hash()
-	//fmt.Println("After set candidate list: StateRoot:", h, ", err:", e)
-
 	staking.SetBucketList(bucketList, state)
-	//h, e = state.Stage().Hash()
-	//fmt.Println("After set bucket list: StateRoot:", h, ", err:", e)
-
 	staking.SetStakeHolderList(stakeholderList, state)
-	//h, e = state.Stage().Hash()
-	//fmt.Println("After set stakeholder list: StateRoot:", h, ", err:", e)
 
 	fmt.Println("XXXXX: After checking existence")
 	fmt.Println(candidateList.ToString())
@@ -301,14 +309,16 @@ func (sb *StakingBody) CandidateHandler(senv *StakingEnviroment, gas uint64) (re
 }
 
 func (sb *StakingBody) UnCandidateHandler(senv *StakingEnviroment, gas uint64) (ret []byte, leftOverGas uint64, err error) {
-	/*****
+
 	staking := senv.GetStaking()
 	state := senv.GetState()
+	candidateList := staking.GetCandidateList(state)
+	bucketList := staking.GetBucketList(state)
+	stakeholderList := staking.GetStakeHolderList(state)
+
 	fmt.Println("!!!!!!Entered UnCandidate Handler!!!!!!")
-	fmt.Println("CandidateMap =")
-	//for k, v := range CandidateMap {
-		fmt.Println("key:", k, ", val:", v.ToString())
-	}
+	fmt.Println(candidateList.ToString())
+	fmt.Println(bucketList.ToString())
 
 	if gas < meter.ClauseGas {
 		leftOverGas = 0
@@ -316,16 +326,122 @@ func (sb *StakingBody) UnCandidateHandler(senv *StakingEnviroment, gas uint64) (
 		leftOverGas = gas - meter.ClauseGas
 	}
 
-	candidate, tracked := CandidateMap[sb.CandAddr]
-	if tracked == false {
-		err = errors.New("candidate is not in map")
-		leftOverGas = gas
+	// if the candidate already exists return error without paying gas
+	record := candidateList.Get(sb.CandAddr)
+	if record == nil {
+		err = errors.New("candidate is not listed")
 		return
 	}
 
-	// XXX: How to handle?
-	// 1. unbound all reference to this candidate
-	// 2. remove candidate from candidate list
-	***/
+	// sanity is done. take actions
+	for _, id := range record.Buckets {
+		b := bucketList.Get(id)
+		if b == nil {
+			staking.logger.Error("bucket not found", "bucket id", id)
+			continue
+		}
+		if bytes.Compare(b.Candidate.Bytes(), record.Addr.Bytes()) != 0 {
+			staking.logger.Error("bucket info mismatch", "candidate address", record.Addr)
+			continue
+		}
+		b.Candidate = meter.Address{}
+	}
+	candidateList.Remove(record.Addr)
+
+	staking.SetCandidateList(candidateList, state)
+	staking.SetBucketList(bucketList, state)
+	staking.SetStakeHolderList(stakeholderList, state)
 	return
+
+}
+
+func (sb *StakingBody) DelegateHandler(senv *StakingEnviroment, gas uint64) (ret []byte, leftOverGas uint64, err error) {
+
+	staking := senv.GetStaking()
+	state := senv.GetState()
+	candidateList := staking.GetCandidateList(state)
+	bucketList := staking.GetBucketList(state)
+	stakeholderList := staking.GetStakeHolderList(state)
+
+	fmt.Println("!!!!!!Entered Delegate Handler!!!!!!")
+	fmt.Println(candidateList.ToString())
+	fmt.Println(bucketList.ToString())
+
+	if gas < meter.ClauseGas {
+		leftOverGas = 0
+	} else {
+		leftOverGas = gas - meter.ClauseGas
+	}
+
+	b := bucketList.Get(sb.StakingID)
+	if b == nil {
+		return nil, leftOverGas, errors.New("staking not found")
+	}
+	if (b.Owner != sb.HolderAddr) || (b.Value.Cmp(&sb.Amount) != 0) || (b.Token != sb.Token) {
+		return nil, leftOverGas, errors.New("staking info mismatch")
+	}
+	if b.Candidate.IsZero() != true {
+		staking.logger.Error("bucket is in use", "candidate", b.Candidate)
+		return nil, leftOverGas, errors.New("bucket in use")
+	}
+
+	cand := candidateList.Get(sb.CandAddr)
+	if cand == nil {
+		return nil, leftOverGas, errors.New("staking not found")
+	}
+
+	// sanity check done, take actions
+	b.Candidate = sb.CandAddr
+	cand.AddBucket(b)
+
+	staking.SetCandidateList(candidateList, state)
+	staking.SetBucketList(bucketList, state)
+	staking.SetStakeHolderList(stakeholderList, state)
+	return
+}
+
+func (sb *StakingBody) UnDelegateHandler(senv *StakingEnviroment, gas uint64) (ret []byte, leftOverGas uint64, err error) {
+
+	staking := senv.GetStaking()
+	state := senv.GetState()
+	candidateList := staking.GetCandidateList(state)
+	bucketList := staking.GetBucketList(state)
+	stakeholderList := staking.GetStakeHolderList(state)
+
+	fmt.Println("!!!!!!Entered UnDelegate Handler!!!!!!")
+	fmt.Println(candidateList.ToString())
+	fmt.Println(bucketList.ToString())
+
+	if gas < meter.ClauseGas {
+		leftOverGas = 0
+	} else {
+		leftOverGas = gas - meter.ClauseGas
+	}
+
+	b := bucketList.Get(sb.StakingID)
+	if b == nil {
+		return nil, leftOverGas, errors.New("staking not found")
+	}
+	if (b.Owner != sb.HolderAddr) || (b.Value.Cmp(&sb.Amount) != 0) || (b.Token != sb.Token) {
+		return nil, leftOverGas, errors.New("staking info mismatch")
+	}
+	if b.Candidate.IsZero() {
+		staking.logger.Error("bucket is not in use")
+		return nil, leftOverGas, errors.New("bucket in not use")
+	}
+
+	cand := candidateList.Get(b.Candidate)
+	if cand == nil {
+		return nil, leftOverGas, errors.New("candidate not found")
+	}
+
+	// sanity check done, take actions
+	b.Candidate = meter.Address{}
+	cand.RemoveBucket(b.BucketID)
+
+	staking.SetCandidateList(candidateList, state)
+	staking.SetBucketList(bucketList, state)
+	staking.SetStakeHolderList(stakeholderList, state)
+	return
+
 }

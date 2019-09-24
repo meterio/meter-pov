@@ -9,10 +9,6 @@ import (
 	"github.com/dfinlab/meter/meter"
 )
 
-var (
-	StakeholderMap = make(map[meter.Address]*Stakeholder)
-)
-
 // Stakeholder indicates the structure of a Stakeholder
 type Stakeholder struct {
 	Holder     meter.Address   // the address for staking / reward

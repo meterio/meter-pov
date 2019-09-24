@@ -74,13 +74,15 @@ func (st *Staking) handleGetStakeholderList(w http.ResponseWriter, req *http.Req
 }
 
 func (st *Staking) handleGetStakeholderByAddress(w http.ResponseWriter, req *http.Request) error {
+	list, err := staking.GetLatestStakeholderList()
 	addr := mux.Vars(req)["address"]
 	bytes, err := hex.DecodeString(addr)
 	if err != nil {
 		return err
 	}
 	meterAddr := meter.BytesToAddress(bytes)
-	s := staking.StakeholderMap[meterAddr]
+
+	s := list.Get(meterAddr)
 	stakeholder := convertStakeholder(*s)
 	return utils.WriteJSON(w, stakeholder)
 }
