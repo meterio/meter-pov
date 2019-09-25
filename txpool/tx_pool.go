@@ -111,6 +111,7 @@ func (p *TxPool) housekeeping() {
 				continue
 			}
 			poolLen := p.all.Len()
+			log.Debug("wash start", "poolLen", poolLen)
 			// do wash on
 			// 1. head block changed
 			// 2. pool size exceeds limit
@@ -195,7 +196,7 @@ func (p *TxPool) add(newTx *tx.Transaction, rejectNonexecutable bool) error {
 		if err := p.all.Add(txObj, p.options.LimitPerAccount); err != nil {
 			return txRejectedError{err.Error()}
 		}
-
+		log.Debug("tx added, chain is synced", "id", newTx.ID(), "pool size", p.all.Len())
 		txObj.executable = executable
 		p.goes.Go(func() {
 			p.txFeed.Send(&TxEvent{newTx, &executable})
@@ -211,8 +212,9 @@ func (p *TxPool) add(newTx *tx.Transaction, rejectNonexecutable bool) error {
 		if err := p.all.Add(txObj, p.options.LimitPerAccount); err != nil {
 			return txRejectedError{err.Error()}
 		}
-		log.Debug("tx added", "id", newTx.ID())
+		log.Debug("tx added, chain is not synced", "id", newTx.ID(), "pool size", p.all.Len())
 		p.txFeed.Send(&TxEvent{newTx, nil})
+		log.Debug("tx added", "id", newTx.ID())
 	}
 	atomic.AddUint32(&p.addedAfterWash, 1)
 	return nil
@@ -372,6 +374,7 @@ func (p *TxPool) wash(headBlock *block.Header) (executables tx.Transactions, rem
 			p.txFeed.Send(&TxEvent{tx, &executable})
 		}
 	})
+	log.Debug("in wash", "executables size", len(executables), "non-executables size", len(nonExecutableObjs))
 	return executables, 0, nil
 }
 

@@ -42,3 +42,23 @@ func GetBoundLockOption(chose uint32) (opt uint32, rate uint8, mature uint64) {
 		return ONE_WEEK_LOCK, ONE_WEEK_LOCK_RATE, (uint64(time.Now().Unix()) + ONE_WEEK_LOCK_TIME)
 	}
 }
+
+func GetBoundLocktime(opt uint32) (lock uint64) {
+	switch opt {
+	case ONE_WEEK_LOCK:
+		return ONE_WEEK_LOCK_TIME
+
+	case TWO_WEEK_LOCK:
+		return TWO_WEEK_LOCK_TIME
+
+	case THREE_WEEK_LOCK:
+		return THREE_WEEK_LOCK_TIME
+
+	case FOUR_WEEK_LOCK:
+		return FOUR_WEEK_LOCK_TIME
+
+	// at least lock 1 week
+	default:
+		return ONE_WEEK_LOCK_TIME
+	}
+}

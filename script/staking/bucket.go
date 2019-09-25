@@ -41,16 +41,18 @@ func (b *Bucket) ID() (hash meter.Bytes32) {
 	return
 }
 
-func NewBucket(owner meter.Address, cand meter.Address, value *big.Int, token uint8, rate uint8, mature uint64, nonce uint64) *Bucket {
+func NewBucket(owner meter.Address, cand meter.Address, value *big.Int, token uint8, opt uint32, rate uint8, mature uint64, nonce uint64) *Bucket {
 	b := &Bucket{
 		Owner:       owner,
 		Candidate:   cand,
 		Value:       value,
 		Token:       token,
+		Rate:        rate,
 		MatureTime:  mature,
 		Nonce:       nonce,
 		BounusVotes: 0,
 		TotalVotes:  value.Add(big.NewInt(0), value),
+		CreateTime:  mature - GetBoundLocktime(opt),
 	}
 	b.BucketID = b.ID()
 	return b

@@ -3,6 +3,8 @@ package staking
 import (
 	"bytes"
 	"encoding/hex"
+	"fmt"
+	"time"
 
 	"github.com/dfinlab/meter/meter"
 
@@ -51,8 +53,11 @@ type Bucket struct {
 	Value       string        `json:"value"`
 	Token       uint8         `json:"token"`
 	Rate        uint8         `json:"rate"`
+	MatureTime  string        `json:"mature"`
+	Nonce       uint64        `json:"nonce"`
 	BounusVotes uint64        `json:"bonusVotes"`
 	TotalVotes  string        `json:"totalVotes"`
+	CreateTime  string        `json:"create"`
 }
 
 func convertBucketList(list *staking.BucketList) []*Bucket {
@@ -66,8 +71,11 @@ func convertBucketList(list *staking.BucketList) []*Bucket {
 			Value:       b.Value.String(),
 			Token:       b.Token,
 			Rate:        b.Rate,
+			MatureTime:  fmt.Sprintln(time.Unix(int64(b.MatureTime), 0)),
+			Nonce:       b.Nonce,
 			BounusVotes: b.BounusVotes,
 			TotalVotes:  b.TotalVotes.String(),
+			CreateTime:  fmt.Sprintln(time.Unix(int64(b.CreateTime), 0)),
 		})
 	}
 

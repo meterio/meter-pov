@@ -112,7 +112,8 @@ func (sb *StakingBody) BoundHandler(senv *StakingEnviroment, gas uint64) (ret []
 	} else {
 		candAddr = meter.Address{}
 	}
-	bucket := NewBucket(sb.HolderAddr, candAddr, &sb.Amount, uint8(sb.Token), rate, mature, sb.Nonce)
+
+	bucket := NewBucket(sb.HolderAddr, candAddr, &sb.Amount, uint8(sb.Token), opt, rate, mature, sb.Nonce)
 	bucketList.Add(bucket)
 
 	stakeholder := stakeholderList.Get(sb.HolderAddr)
@@ -270,7 +271,7 @@ func (sb *StakingBody) CandidateHandler(senv *StakingEnviroment, gas uint64) (re
 	opt, rate, mature := GetBoundLockOption(sb.Option)
 	staking.logger.Info("get bound option", "option", opt, "rate", rate, "mature", mature)
 
-	bucket := NewBucket(sb.HolderAddr, sb.CandAddr, &sb.Amount, uint8(sb.Token), rate, mature, sb.Nonce)
+	bucket := NewBucket(sb.HolderAddr, sb.CandAddr, &sb.Amount, uint8(sb.Token), opt, rate, mature, sb.Nonce)
 	bucketList.Add(bucket)
 
 	candidate := NewCandidate(sb.CandAddr, sb.CandPubKey, sb.CandIP, sb.CandPort)

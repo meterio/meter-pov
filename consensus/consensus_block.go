@@ -759,6 +759,7 @@ func (conR *ConsensusReactor) BuildMBlock(parentBlock *block.Block) *ProposedBlo
 	}
 
 	txs := pool.Executables()
+	conR.logger.Debug("get the executables from txpool", "size", len(txs))
 	var txsToRemove []meter.Bytes32
 	txsToRemoved := func() bool {
 		for _, id := range txsToRemove {

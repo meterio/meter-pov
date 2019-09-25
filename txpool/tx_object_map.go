@@ -48,6 +48,7 @@ func (m *txObjectMap) Add(txObj *txObject, limitPerAccount int) error {
 
 	m.quota[txObj.Origin()]++
 	m.txObjMap[txObj.ID()] = txObj
+	log.Info("objectMap-Add", "size", len(m.txObjMap), "ID", txObj.ID())
 	return nil
 }
 
@@ -64,6 +65,7 @@ func (m *txObjectMap) Remove(txID meter.Bytes32) bool {
 		delete(m.txObjMap, txID)
 		return true
 	}
+	log.Info("After objectMap-Remove", "size", len(m.txObjMap))
 	return false
 }
 
@@ -106,6 +108,5 @@ func (m *txObjectMap) Fill(txObjs []*txObject) {
 func (m *txObjectMap) Len() int {
 	m.lock.RLock()
 	defer m.lock.RUnlock()
-
 	return len(m.txObjMap)
 }

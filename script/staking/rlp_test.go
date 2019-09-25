@@ -100,9 +100,10 @@ func TestRlpForBucket(t *testing.T) {
 		fmt.Println("Can not parse address")
 	}
 	token := uint8(rand.Int())
+	opt := uint32(3)
 	rate := uint8(rand.Int())
 	mature := rand.Uint64()
-	src := staking.NewBucket(addr, cand, big.NewInt(int64(rand.Int())), token, rate, mature, rand.Uint64())
+	src := staking.NewBucket(addr, cand, big.NewInt(int64(rand.Int())), token, opt, rate, mature, rand.Uint64())
 
 	data, err := rlp.EncodeToBytes(src)
 	if err != nil {
@@ -125,8 +126,9 @@ func TestRlpForBucket(t *testing.T) {
 }
 
 const (
-	HOLDER_ADDRESS    = "0x0205c2D862cA051010698b69b54278cbAf945C0b"
-	CANDIDATE_ADDRESS = "0x8a88c59bf15451f9deb1d62f7734fece2002668e"
+	//HOLDER_ADDRESS    = "0x0205c2D862cA051010698b69b54278cbAf945C0b"
+	HOLDER_ADDRESS    = "0x8A88c59bF15451F9Deb1d62f7734FeCe2002668E"
+	CANDIDATE_ADDRESS = "0x8A88c59bF15451F9Deb1d62f7734FeCe2002668E"
 	CANDIDATE_AMOUNT  = "2000000000000000000000" //(2e20) 200MTRG
 )
 
@@ -192,7 +194,7 @@ func generateScriptData(opCode uint32, holderAddrStr, candAddrStr string, amount
 	return hex.EncodeToString(data), nil
 }
 func TestScriptDataForBound(t *testing.T) {
-	hexData, err := generateScriptData(staking.OP_BOUND, HOLDER_ADDRESS, CANDIDATE_ADDRESS, 9e18)
+	hexData, err := generateScriptData(staking.OP_BOUND, HOLDER_ADDRESS, CANDIDATE_ADDRESS, 4e18)
 	if err != nil {
 		t.Fail()
 	}
