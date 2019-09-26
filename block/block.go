@@ -193,11 +193,11 @@ func (b *Block) CompactString() string {
 		ci = "YES"
 	}
 	return fmt.Sprintf(`Block(%v) %v 
-	Parent: %v,
-	QC: %v,
-	LastKBHeight: %v, #Txs: %v, CommitteeInfo: %v,
-	StateRoot: %v,
-	ReceiptsRoot: %v`, header.Number(), header.ID().String(),
+  Parent: %v,
+  QC: %v,
+  LastKBHeight: %v, #Txs: %v, CommitteeInfo: %v,
+  StateRoot: %v,
+  ReceiptsRoot: %v`, header.Number(), header.ID().String(),
 		header.ParentID().String(),
 		b.QC.CompactString(),
 		header.LastKBlockHeight(), len(b.Txs), ci,

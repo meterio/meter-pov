@@ -120,7 +120,7 @@ func (m *powObjectMap) Add(powObj *powObject) error {
 		return fmt.Errorf("HashPrevBlock")
 	}
 	******/
-	fmt.Println("Added to powpool: ", powObj.blockInfo.ToString(), "poolSize: ", m.Size())
+	// fmt.Println("Added to powpool: ", powObj.blockInfo.ToString(), "poolSize: ", m.Size())
 	err := m._add(powObj)
 	return err
 }
