@@ -193,7 +193,7 @@ func (p *PowPool) Add(newPowBlockInfo *PowBlockInfo) error {
 		log.Info("PowPool Add, hash already in PowPool", "hash", newPowBlockInfo.HeaderHash)
 		return nil
 	}
-	log.Info("PowPool Add: ", "hash", newPowBlockInfo.HeaderHash, "height", newPowBlockInfo.PowHeight, "powpoolSize", p.all.Size())
+	log.Debug("PowPool Add: ", "hash", newPowBlockInfo.HeaderHash, "height", newPowBlockInfo.PowHeight, "powpoolSize", p.all.Size())
 	p.powFeed.Send(&PowBlockEvent{BlockInfo: newPowBlockInfo})
 	powObj := NewPowObject(newPowBlockInfo)
 	err := p.all.Add(powObj)
