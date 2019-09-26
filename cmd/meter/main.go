@@ -6,6 +6,7 @@
 package main
 
 import (
+	b64 "encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -30,6 +31,7 @@ import (
 	"github.com/dfinlab/meter/txpool"
 	"github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/p2p/discover"
 	"github.com/inconshreveable/log15"
 	"github.com/mattn/go-isatty"
 	"github.com/pborman/uuid"
@@ -128,6 +130,23 @@ func main() {
 				},
 				Action: masterKeyAction,
 			},
+			{
+				Name:  "enode-id",
+				Usage: "display enode-id",
+				Flags: []cli.Flag{
+					configDirFlag,
+					p2pPortFlag,
+				},
+				Action: showEnodeIDAction,
+			},
+			{
+				Name:  "public-key",
+				Usage: "export public key",
+				Flags: []cli.Flag{
+					configDirFlag,
+				},
+				Action: publicKeyAction,
+			},
 		},
 	}
 
@@ -135,6 +154,32 @@ func main() {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
+}
+func showEnodeIDAction(ctx *cli.Context) error {
+	configDir := makeConfigDir(ctx)
+	key, err := loadOrGeneratePrivateKey(filepath.Join(configDir, "p2p.key"))
+	if err != nil {
+		fatal("load or generate P2P key:", err)
+	}
+	id := discover.PubkeyID(&key.PublicKey)
+	port := ctx.Int(p2pPortFlag.Name)
+	fmt.Println(fmt.Sprintf("enode://%v@[]:%d", id, port))
+	return nil
+}
+
+func publicKeyAction(ctx *cli.Context) error {
+	key, err := loadOrGeneratePrivateKey(masterKeyPath(ctx))
+	if err != nil {
+		fatal("load or generate master key:", err)
+	}
+
+	pubKey, err := loadOrUpdatePublicKey(publicKeyPath(ctx), key, &key.PublicKey)
+	if err != nil {
+		fatal("update public key:", err)
+	}
+	b := b64.StdEncoding.EncodeToString(crypto.FromECDSAPub(pubKey))
+	fmt.Println(b)
+	return nil
 }
 
 func defaultAction(ctx *cli.Context) error {
