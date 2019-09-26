@@ -148,6 +148,6 @@ func (info *PowBlockInfo) HashID() meter.Bytes32 {
 }
 
 func (info *PowBlockInfo) ToString() string {
-	return fmt.Sprintf("&PowBlockInfo{\n\tVersion: 0x%x\n\tHashPrevBlock: %v\n\tHashMerkleRoot: %v\n\tNBits: 0x%x\n\tNonce: 0x%x \n\tHeaderHash: %v\n\tPowHeight: %v\n\tBeneficiary: %v\n}",
-		info.Version, info.HashPrevBlock, info.HashMerkleRoot, info.NBits, info.Nonce, info.HeaderHash, info.PowHeight, info.Beneficiary)
+	return fmt.Sprintf("PowBlockInfo{\n  PowHeight: %v, Version: 0x%x, NBits: 0x%x, Nonce: 0x%x\n  HeaderHash: %v\n  HashPrevBlock: %v\n  HashMerkleRoot: %v\n  Beneficiary: %v\n}",
+		info.PowHeight, info.Version, info.NBits, info.Nonce, info.HeaderHash, info.HashPrevBlock, info.HashMerkleRoot, info.Beneficiary)
 }
