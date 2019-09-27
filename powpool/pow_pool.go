@@ -190,7 +190,7 @@ func (p *PowPool) submitPosKblock(powHex, posHex string) (string, string) {
 func (p *PowPool) Add(newPowBlockInfo *PowBlockInfo) error {
 	if p.all.Contains(newPowBlockInfo.HeaderHash) {
 		// pow already in the pool
-		log.Info("PowPool Add, hash already in PowPool", "hash", newPowBlockInfo.HeaderHash)
+		log.Debug("PowPool Add, hash already in PowPool", "hash", newPowBlockInfo.HeaderHash)
 		return nil
 	}
 	log.Debug("PowPool Add: ", "hash", newPowBlockInfo.HeaderHash, "height", newPowBlockInfo.PowHeight, "powpoolSize", p.all.Size())

@@ -13,9 +13,9 @@ import (
 	"net/http"
 
 	"github.com/btcsuite/btcd/wire"
-	"github.com/gorilla/mux"
 	"github.com/dfinlab/meter/api/utils"
 	"github.com/dfinlab/meter/powpool"
+	"github.com/gorilla/mux"
 	// "github.com/pkg/errors"
 	// "github.com/btcsuite/btcd/chaincfg/chainhash"
 )
@@ -48,7 +48,7 @@ func (h *ApiHandler) handleRecvPowMessage(w http.ResponseWriter, req *http.Reque
 		return err
 	}
 
-	log.Info("Recved Pow Block", "hex", string(hexBytes))
+	log.Debug("Recved Pow Block", "hex", string(hexBytes))
 
 	info := powpool.NewPowBlockInfoFromPowBlock(&newPowBlock)
 	h.powPool.Add(info)
