@@ -472,14 +472,14 @@ func (p *Pacemaker) OnReceiveNewView(newViewMsg *PMNewViewMessage) error {
 		timeoutCount := p.timeoutCertManager.count(newViewMsg.TimeoutHeight, newViewMsg.TimeoutRound)
 		if MajorityTwoThird(timeoutCount, p.csReactor.committeeSize) == false {
 			// if timeoutCount < p.csReactor.committeeSize {
-			p.logger.Info("not reaching majority on timeout", "timeoutCount", timeoutCount, "timeoutHeight", newViewMsg.TimeoutHeight, "round", newViewMsg.TimeoutRound, "counter", newViewMsg.TimeoutCounter)
+			p.logger.Info("not reaching majority on timeout", "timeoutCount", timeoutCount, "timeoutHeight", newViewMsg.TimeoutHeight, "timeoutRound", newViewMsg.TimeoutRound, "timeoutCounter", newViewMsg.TimeoutCounter)
 		} else {
 			header := newViewMsg.CSMsgCommonHeader
 			if uint64(header.Round) < p.currentRound {
 				p.logger.Info("reaching majority on timeout, but ignored becuase timeoutRound+1 < p.currentRound")
 				return nil
 			}
-			p.logger.Info("reaching majority on timeout", "timeoutCount", timeoutCount, "timeoutHeight", newViewMsg.TimeoutHeight, "round", newViewMsg.TimeoutRound, "counter", newViewMsg.TimeoutCounter)
+			p.logger.Info("reaching majority on timeout", "timeoutCount", timeoutCount, "timeoutHeight", newViewMsg.TimeoutHeight, "timeoutRound", newViewMsg.TimeoutRound, "timeoutCounter", newViewMsg.TimeoutCounter)
 			p.timeoutCert = p.timeoutCertManager.getTimeoutCert(newViewMsg.TimeoutHeight, newViewMsg.TimeoutRound)
 			p.timeoutCertManager.cleanup(newViewMsg.TimeoutHeight, newViewMsg.TimeoutRound)
 
@@ -494,8 +494,17 @@ func (p *Pacemaker) OnReceiveNewView(newViewMsg *PMNewViewMessage) error {
 	if changed {
 		if qc.QCHeight > p.blockLocked.Height {
 			// Schedule OnBeat due to New QC
-			p.logger.Info("Received a newview with higher QC, scheduleOnBeat now", "height", qc.QCHeight+1, "round", qc.QCRound+1)
-			p.ScheduleOnBeat(uint64(qc.QCHeight+1), uint64(qc.QCRound+1), RoundInterval)
+			p.logger.Info("Received a newview with higher QC, scheduleOnBeat now", "qcHeight", qc.QCHeight, "qcRound", qc.QCRound, "onBeatHeight", qc.QCHeight+1, "onBeatRound", qc.QCRound+1)
+			nxtHeight := qc.QCHeight + 1
+			nxtRound := qc.QCRound + 1
+			header := newViewMsg.CSMsgCommonHeader
+			if uint64(header.Height) > nxtHeight {
+				nxtHeight = uint64(header.Height)
+			}
+			if uint64(header.Round) > nxtRound {
+				nxtRound = uint64(header.Round)
+			}
+			p.ScheduleOnBeat(nxtHeight, nxtRound, RoundInterval)
 		}
 		return nil
 	}

@@ -809,7 +809,7 @@ func (conR *ConsensusReactor) BuildMBlock(parentBlock *block.Block) *ProposedBlo
 	}
 
 	execElapsed := mclock.Now() - startTime
-	conR.logger.Info("MBlock built", "height", conR.curHeight, "elapseTime", execElapsed)
+	conR.logger.Info("MBlock built", "height", newBlock.Header().Number(), "elapseTime", execElapsed)
 	return &ProposedBlockInfo{newBlock, stage, &receipts, txsToRemoved, checkPoint, MBlockType}
 }
 
