@@ -179,6 +179,7 @@ func (p *Pacemaker) SendConsensusMessage(round uint64, msg ConsensusMessage, cop
 	}
 
 	// broadcast consensus message to peers
+	var g co.Goes
 	for _, peer := range peers {
 		hint := "Sending pacemaker msg to peer"
 		if peer.netAddr.IP.String() == myNetAddr.IP.String() {
@@ -186,7 +187,6 @@ func (p *Pacemaker) SendConsensusMessage(round uint64, msg ConsensusMessage, cop
 		}
 		p.logger.Debug(hint, "type", typeName, "to", peer.netAddr.IP.String())
 
-		var g co.Goes
 		g.Go(func() {
 			peer.sendData(myNetAddr, typeName, rawMsg)
 		})
@@ -204,8 +204,8 @@ func (p *Pacemaker) SendMessageToPeers(msg ConsensusMessage, peers []*ConsensusP
 	}
 
 	// broadcast consensus message to peers
+	var g co.Goes
 	for _, peer := range peers {
-		var g co.Goes
 		g.Go(func() {
 			peer.sendData(peer.netAddr, typeName, rawMsg)
 		})
