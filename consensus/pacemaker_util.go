@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/dfinlab/meter/block"
+	"github.com/dfinlab/meter/co"
 	bls "github.com/dfinlab/meter/crypto/multi_sig"
 	crypto "github.com/ethereum/go-ethereum/crypto"
 )
@@ -24,7 +25,9 @@ func (p *Pacemaker) IsExtendedFromBLocked(b *pmBlock) bool {
 		if tmp == p.blockLocked {
 			return true
 		}
-		tmp = tmp.Parent
+		if tmp = tmp.Parent; tmp == nil {
+			break
+		}
 		i++
 	}
 	return false
@@ -84,17 +87,12 @@ func (p *Pacemaker) ValidateProposal(b *pmBlock) error {
 		parent := p.proposalMap[b.Height-1]
 		if parent.ProposedBlockType == KBlockType {
 			p.logger.Info("the first stop committee block")
-			//return nil
 		} else if parent.ProposedBlockType == StopCommitteeType {
 			grandParent := p.proposalMap[b.Height-2]
 			if grandParent.ProposedBlockType == KBlockType {
 				p.logger.Info("The second stop committee block")
-				//return nil
-			} else {
-				//return errParentMissing
+
 			}
-		} else {
-			//return errParentMissing
 		}
 	}
 
@@ -188,8 +186,29 @@ func (p *Pacemaker) SendConsensusMessage(round uint64, msg ConsensusMessage, cop
 		}
 		p.logger.Debug(hint, "type", typeName, "to", peer.netAddr.IP.String())
 
-		// TODO: make this asynchornous
-		peer.sendData(myNetAddr, typeName, rawMsg)
+		var g co.Goes
+		g.Go(func() {
+			peer.sendData(myNetAddr, typeName, rawMsg)
+		})
+
+	}
+	return true
+}
+
+func (p *Pacemaker) SendMessageToPeers(msg ConsensusMessage, peers []*ConsensusPeer) bool {
+	typeName := getConcreteName(msg)
+	rawMsg := cdc.MustMarshalBinaryBare(msg)
+	if len(rawMsg) > maxMsgSize {
+		p.logger.Error("Msg exceeds max size", "rawMsg=", len(rawMsg), "maxMsgSize=", maxMsgSize)
+		return false
+	}
+
+	// broadcast consensus message to peers
+	for _, peer := range peers {
+		var g co.Goes
+		g.Go(func() {
+			peer.sendData(peer.netAddr, typeName, rawMsg)
+		})
 	}
 	return true
 }

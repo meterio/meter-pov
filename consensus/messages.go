@@ -9,6 +9,7 @@ import (
 	"github.com/dfinlab/meter/block"
 	cmn "github.com/dfinlab/meter/libs/common"
 	"github.com/dfinlab/meter/meter"
+	"github.com/dfinlab/meter/types"
 	"github.com/ethereum/go-ethereum/rlp"
 )
 
@@ -31,6 +32,7 @@ func RegisterConsensusMessages(cdc *amino.Codec) {
 	cdc.RegisterConcrete(&PMProposalMessage{}, "dfinlab/PMProposal", nil)
 	cdc.RegisterConcrete(&PMVoteForProposalMessage{}, "dfinlab/PMVoteForProposal", nil)
 	cdc.RegisterConcrete(&PMNewViewMessage{}, "dfinlab/PMNewView", nil)
+	cdc.RegisterConcrete(&PMQueryProposalMessage{}, "dfinlab/PMQueryProposal", nil)
 }
 
 func decodeMsg(bz []byte) (msg ConsensusMessage, err error) {
@@ -459,4 +461,39 @@ func (m *PMNewViewMessage) String() string {
 	return fmt.Sprintf("[PMNewViewMessage Height:%v Round:%v Reason:%s Type:%v QCHeight:%d QCRound:%d Sender:%v]",
 		m.CSMsgCommonHeader.Height, m.CSMsgCommonHeader.Round, m.Reason.String(),
 		m.CSMsgCommonHeader.MsgType, m.QCHeight, m.QCRound, hex.EncodeToString(m.CSMsgCommonHeader.Sender))
+}
+
+// PMQueryProposalMessage is sent to current leader to get the parent proposal
+type PMQueryProposalMessage struct {
+	CSMsgCommonHeader ConsensusMsgCommonHeader
+	Height            uint64
+	Round             uint64
+	ReturnAddr        types.NetAddress
+}
+
+// SigningHash computes hash of all header fields excluding signature.
+func (m *PMQueryProposalMessage) SigningHash() (hash meter.Bytes32) {
+	hw := meter.NewBlake2b()
+	rlp.Encode(hw, []interface{}{
+		m.CSMsgCommonHeader.Height,
+		m.CSMsgCommonHeader.Round,
+		m.CSMsgCommonHeader.Sender,
+		m.CSMsgCommonHeader.Timestamp,
+		m.CSMsgCommonHeader.MsgType,
+		m.CSMsgCommonHeader.MsgSubType,
+		m.CSMsgCommonHeader.Signature,
+
+		m.Height,
+		m.Round,
+		m.ReturnAddr,
+	})
+	hw.Sum(hash[:0])
+	return
+}
+
+// String returns a string representation.
+func (m *PMQueryProposalMessage) String() string {
+	return fmt.Sprintf("[PMNewViewMessage Height:%v Round:%v Sender:%v]",
+		m.CSMsgCommonHeader.Height, m.CSMsgCommonHeader.Round,
+		m.CSMsgCommonHeader.MsgType, hex.EncodeToString(m.CSMsgCommonHeader.Sender))
 }

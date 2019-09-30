@@ -186,7 +186,8 @@ func (p *Pacemaker) Update(bnew *pmBlock) error {
 
 	commitReady := []*pmBlock{}
 	for b := block; b.Height > p.blockExecuted.Height; b = b.Parent {
-		commitReady = append(commitReady, b)
+		// XXX: b must be prepended the slice, so we can commit blocks in order
+		commitReady = append([]*pmBlock{b}, commitReady...)
 	}
 	p.OnCommit(commitReady)
 
@@ -256,12 +257,14 @@ func (p *Pacemaker) OnReceiveProposal(proposalMsg *PMProposalMessage) error {
 	// address parent
 	parent := p.AddressBlock(proposalMsg.ParentHeight, proposalMsg.ParentRound)
 	if parent == nil {
+		p.logger.Error("OnReceiveProposal: can not address parent")
 		return errors.New("can not address parent")
 	}
 
 	// address qcNode
 	qcNode := p.AddressBlock(qc.QCHeight, qc.QCRound)
 	if qcNode == nil {
+		p.logger.Error("OnReceiveProposal: can not address qcNode")
 		return errors.New("can not address qcNode")
 	}
 
@@ -305,7 +308,7 @@ func (p *Pacemaker) OnReceiveProposal(proposalMsg *PMProposalMessage) error {
 
 		// parent got QC, pre-commit
 		justify := p.proposalMap[bnew.Justify.QC.QCHeight] //Justify.QCNode
-		if justify.Height > p.startHeight {
+		if (justify != nil) && (justify.Height > p.startHeight) {
 			p.csReactor.PreCommitBlock(justify.ProposedBlockInfo)
 		}
 
@@ -588,6 +591,8 @@ func (p *Pacemaker) mainLoop() {
 				err = p.OnReceiveVote(m.(*PMVoteForProposalMessage))
 			case *PMNewViewMessage:
 				err = p.OnReceiveNewView(m.(*PMNewViewMessage))
+			case *PMQueryProposalMessage:
+				err = p.OnReceiveQueryProposal(m.(*PMQueryProposalMessage))
 			default:
 				p.logger.Warn("Received an message in unknown type")
 			}
@@ -695,4 +700,35 @@ func (p *Pacemaker) revertTo(height uint64) {
 		// FIXME: remove precommited block and release tx
 	}
 	p.logger.Info("Reverted !!!", "current block-leaf", p.blockLeaf.ToString())
+}
+
+func (p *Pacemaker) OnReceiveQueryProposal(queryMsg *PMQueryProposalMessage) error {
+	queryHeight := queryMsg.Height
+	queryRound := queryMsg.Round
+	returnAddr := queryMsg.ReturnAddr
+	p.logger.Info("receives query", "height", queryHeight, "round", queryRound, "returnAddr", returnAddr)
+
+	bestHeight := uint64(p.csReactor.chain.BestBlock().Header().Number())
+	if queryHeight <= bestHeight {
+		p.logger.Error("query too old", "height", queryHeight, "round", queryRound)
+		return errors.New("query too old")
+	}
+
+	result := p.proposalMap[queryHeight]
+	if result == nil {
+		// Oooop!, I do not have it
+		p.logger.Error("query too old", "height", queryHeight, "round", queryRound)
+		return errors.New("query too old")
+	}
+
+	// XXX need to build ??
+	msg, err := p.BuildProposalMessage(queryHeight, queryRound, result, nil)
+	if err != nil {
+		p.logger.Error("could not build proposal message", "err", err)
+	}
+
+	//send
+	peers := []*ConsensusPeer{newConsensusPeer(returnAddr.IP, returnAddr.Port)}
+	p.SendMessageToPeers(msg, peers)
+	return nil
 }

@@ -8,7 +8,6 @@ import (
 
 	"github.com/dfinlab/meter/meter"
 	"github.com/dfinlab/meter/state"
-	"github.com/dfinlab/meter/types"
 	"github.com/ethereum/go-ethereum/rlp"
 )
 
@@ -82,10 +81,10 @@ func (s *Staking) SetBucketList(bucketList *BucketList, state *state.State) {
 }
 
 // Delegates List
-func (s *Staking) GetDelegateList(state *state.State) (delegateList []types.Delegate) {
+func (s *Staking) GetDelegateList(state *state.State) (delegateList []SDelegate) {
 	state.DecodeStorage(StakingModuleAddr, DelegateListKey, func(raw []byte) error {
 		if len(raw) == 0 {
-			delegateList = []types.Delegate{}
+			delegateList = []SDelegate{}
 			return nil
 		}
 		return rlp.DecodeBytes(raw, &delegateList)
@@ -93,7 +92,7 @@ func (s *Staking) GetDelegateList(state *state.State) (delegateList []types.Dele
 	return
 }
 
-func (s *Staking) SetDelegateList(delegateList []types.Delegate, state *state.State) {
+func (s *Staking) SetDelegateList(delegateList []SDelegate, state *state.State) {
 	state.EncodeStorage(StakingModuleAddr, DelegateListKey, func() ([]byte, error) {
 		return rlp.EncodeToBytes(&delegateList)
 	})
