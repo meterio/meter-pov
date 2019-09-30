@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/dfinlab/meter/block"
-	"github.com/dfinlab/meter/co"
 	bls "github.com/dfinlab/meter/crypto/multi_sig"
 	crypto "github.com/ethereum/go-ethereum/crypto"
 )
@@ -179,17 +178,14 @@ func (p *Pacemaker) SendConsensusMessage(round uint64, msg ConsensusMessage, cop
 	}
 
 	// broadcast consensus message to peers
-	var g co.Goes
+
 	for _, peer := range peers {
 		hint := "Sending pacemaker msg to peer"
 		if peer.netAddr.IP.String() == myNetAddr.IP.String() {
 			hint = "Sending pacemaker msg to myself"
 		}
 		p.logger.Debug(hint, "type", typeName, "to", peer.netAddr.IP.String())
-
-		g.Go(func() {
-			peer.sendData(myNetAddr, typeName, rawMsg)
-		})
+		go peer.sendData(myNetAddr, typeName, rawMsg)
 
 	}
 	return true
@@ -204,11 +200,8 @@ func (p *Pacemaker) SendMessageToPeers(msg ConsensusMessage, peers []*ConsensusP
 	}
 
 	// broadcast consensus message to peers
-	var g co.Goes
 	for _, peer := range peers {
-		g.Go(func() {
-			peer.sendData(peer.netAddr, typeName, rawMsg)
-		})
+		go peer.sendData(peer.netAddr, typeName, rawMsg)
 	}
 	return true
 }
