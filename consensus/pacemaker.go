@@ -11,6 +11,7 @@ import (
 	"github.com/dfinlab/meter/block"
 	bls "github.com/dfinlab/meter/crypto/multi_sig"
 	cmn "github.com/dfinlab/meter/libs/common"
+	types "github.com/dfinlab/meter/types"
 	"github.com/inconshreveable/log15"
 )
 
@@ -66,7 +67,7 @@ type Pacemaker struct {
 
 	logger log15.Logger
 
-	pacemakerMsgCh chan ConsensusMessage
+	pacemakerMsgCh chan receivedConsensusMessage
 	roundTimeoutCh chan PMRoundTimeoutInfo
 	stopCh         chan *PMStopInfo
 	beatCh         chan *PMBeatInfo
@@ -76,6 +77,8 @@ type Pacemaker struct {
 
 	timeoutCertManager *PMTimeoutCertManager
 	timeoutCert        *PMTimeoutCert
+
+	pendingList *PendingList
 }
 
 func NewPaceMaker(conR *ConsensusReactor) *Pacemaker {
@@ -83,7 +86,7 @@ func NewPaceMaker(conR *ConsensusReactor) *Pacemaker {
 		csReactor: conR,
 		logger:    log15.New("pkg", "consensus"),
 
-		pacemakerMsgCh: make(chan ConsensusMessage, 128),
+		pacemakerMsgCh: make(chan receivedConsensusMessage, 128),
 		stopCh:         make(chan *PMStopInfo, 1),
 		beatCh:         make(chan *PMBeatInfo, 1),
 		roundTimeoutCh: make(chan PMRoundTimeoutInfo, 1),
@@ -91,6 +94,7 @@ func NewPaceMaker(conR *ConsensusReactor) *Pacemaker {
 		proposalMap:    make(map[uint64]*pmBlock, 1000), // TODO:better way?
 		sigCounter:     make(map[uint64]int, 1024),
 		timeoutCounter: make(map[uint64]int, 1024),
+		pendingList:    NewPendingList(),
 	}
 	p.timeoutCertManager = newPMTimeoutCertManager(p)
 
@@ -239,7 +243,7 @@ func (p *Pacemaker) OnCommit(commitReady []*pmBlock) error {
 	return nil
 }
 
-func (p *Pacemaker) OnReceiveProposal(proposalMsg *PMProposalMessage) error {
+func (p *Pacemaker) OnReceiveProposal(proposalMsg *PMProposalMessage, from types.NetAddress) error {
 	msgHeader := proposalMsg.CSMsgCommonHeader
 	height := uint64(msgHeader.Height)
 	round := uint64(msgHeader.Round)
@@ -258,6 +262,17 @@ func (p *Pacemaker) OnReceiveProposal(proposalMsg *PMProposalMessage) error {
 	parent := p.AddressBlock(proposalMsg.ParentHeight, proposalMsg.ParentRound)
 	if parent == nil {
 		p.logger.Error("OnReceiveProposal: can not address parent")
+
+		// put this proposal to pending list, and sent out query
+		peers := []*ConsensusPeer{newConsensusPeer(from.IP, from.Port)}
+		queryMsg, err := p.BuildQueryProposalMessage(round, msgHeader.EpochID)
+		if err != nil {
+			p.logger.Warn("Error during generate PMQueryProposal message", "err", err)
+			return errors.New("can not address parent")
+		}
+		p.SendMessageToPeers(queryMsg, peers)
+		p.pendingList.Add(proposalMsg)
+
 		return errors.New("can not address parent")
 	}
 
@@ -265,6 +280,17 @@ func (p *Pacemaker) OnReceiveProposal(proposalMsg *PMProposalMessage) error {
 	qcNode := p.AddressBlock(qc.QCHeight, qc.QCRound)
 	if qcNode == nil {
 		p.logger.Error("OnReceiveProposal: can not address qcNode")
+
+		// put this proposal to pending list, and sent out query
+		peers := []*ConsensusPeer{newConsensusPeer(from.IP, from.Port)}
+		queryMsg, err := p.BuildQueryProposalMessage(round, msgHeader.EpochID)
+		if err != nil {
+			p.logger.Warn("Error during generate PMQueryProposal message", "err", err)
+			return errors.New("can not address parent")
+		}
+		p.SendMessageToPeers(queryMsg, peers)
+		p.pendingList.Add(proposalMsg)
+
 		return errors.New("can not address qcNode")
 	}
 
@@ -585,15 +611,15 @@ func (p *Pacemaker) mainLoop() {
 		case b := <-p.beatCh:
 			err = p.OnBeat(b.height, b.round)
 		case m := <-p.pacemakerMsgCh:
-			switch m.(type) {
+			switch m.msg.(type) {
 			case *PMProposalMessage:
-				err = p.OnReceiveProposal(m.(*PMProposalMessage))
+				err = p.OnReceiveProposal(m.msg.(*PMProposalMessage), m.from)
 			case *PMVoteForProposalMessage:
-				err = p.OnReceiveVote(m.(*PMVoteForProposalMessage))
+				err = p.OnReceiveVote(m.msg.(*PMVoteForProposalMessage))
 			case *PMNewViewMessage:
-				err = p.OnReceiveNewView(m.(*PMNewViewMessage))
+				err = p.OnReceiveNewView(m.msg.(*PMNewViewMessage))
 			case *PMQueryProposalMessage:
-				err = p.OnReceiveQueryProposal(m.(*PMQueryProposalMessage))
+				err = p.OnReceiveQueryProposal(m.msg.(*PMQueryProposalMessage))
 			default:
 				p.logger.Warn("Received an message in unknown type")
 			}

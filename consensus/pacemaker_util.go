@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/hex"
 	"encoding/json"
+	"strconv"
 
 	//"github.com/dfinlab/meter/types"
 	"net"
@@ -12,8 +13,14 @@ import (
 
 	"github.com/dfinlab/meter/block"
 	bls "github.com/dfinlab/meter/crypto/multi_sig"
+	"github.com/dfinlab/meter/types"
 	crypto "github.com/ethereum/go-ethereum/crypto"
 )
+
+type receivedConsensusMessage struct {
+	msg  ConsensusMessage
+	from types.NetAddress
+}
 
 // check a pmBlock is the extension of b_locked, max 10 hops
 func (p *Pacemaker) IsExtendedFromBLocked(b *pmBlock) bool {
@@ -53,6 +60,10 @@ func (p *Pacemaker) receivePacemakerMsg(w http.ResponseWriter, r *http.Request) 
 	}
 	peerIP := net.ParseIP(params["peer_ip"])
 	respondWithJson(w, http.StatusOK, map[string]string{"result": "success"})
+	peerPort, err := strconv.ParseInt(params["peer_port"], 10, 16)
+	if err != nil {
+		peerPort = 0
+	}
 
 	msgByteSlice, _ := hex.DecodeString(params["message"])
 	msg, err := decodeMsg(msgByteSlice)
@@ -66,7 +77,8 @@ func (p *Pacemaker) receivePacemakerMsg(w http.ResponseWriter, r *http.Request) 
 		} else {
 			p.logger.Info("Received pacemaker msg from peer", "msg", msg.String(), "from", peerIP.String())
 		}
-		p.pacemakerMsgCh <- msg
+		from := types.NetAddress{IP: peerIP, Port: uint16(peerPort)}
+		p.pacemakerMsgCh <- receivedConsensusMessage{msg, from}
 	}
 }
 

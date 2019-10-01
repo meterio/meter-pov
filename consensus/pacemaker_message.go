@@ -241,3 +241,33 @@ func (p *Pacemaker) BuildNewViewSignMsg(pubKey ecdsa.PublicKey, reason NewViewRe
 	return fmt.Sprintf("New View Message: Peer:%s Height:%v Round:%v Reason:%v QC:(%d,%d,%v,%v)",
 		hex.EncodeToString(crypto.FromECDSAPub(&pubKey)), height, round, reason, qc.QCHeight, qc.QCRound, qc.EpochID, hex.EncodeToString(qc.VoterAggSig))
 }
+
+func (p *Pacemaker) BuildQueryProposalMessage(round, epochID uint64) (*PMQueryProposalMessage, error) {
+	cmnHdr := ConsensusMsgCommonHeader{
+		Height:    0,
+		Round:     0,
+		Sender:    crypto.FromECDSAPub(&p.csReactor.myPubKey),
+		Timestamp: time.Now(),
+		MsgType:   CONSENSUS_MSG_PACEMAKER_QUERY_PROPOSAL,
+
+		// MsgSubType: msgSubType,
+		EpochID: epochID,
+	}
+
+	msg := &PMQueryProposalMessage{
+		CSMsgCommonHeader: cmnHdr,
+
+		Round: round,
+	}
+
+	// sign message
+	msgSig, err := p.csReactor.SignConsensusMsg(msg.SigningHash().Bytes())
+	if err != nil {
+		p.logger.Error("Sign message failed", "error", err)
+		return nil, err
+	}
+	msg.CSMsgCommonHeader.SetMsgSignature(msgSig)
+	p.logger.Debug("Built Query Proposal Message", "round", msg.Round, "msg", msg.String(), "timestamp", msg.CSMsgCommonHeader.Timestamp)
+
+	return msg, nil
+}

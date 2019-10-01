@@ -401,6 +401,7 @@ const (
 	CONSENSUS_MSG_PACEMAKER_VOTE_FOR_PROPOSAL = byte(0x10)
 	CONSENSUS_MSG_PACEMAKER_NEW_VIEW          = byte(0x11)
 	CONSENSUS_MSG_NEW_COMMITTEE               = byte(0x12)
+	CONSENSUS_MSG_PACEMAKER_QUERY_PROPOSAL    = byte(0x13)
 )
 
 // CommitteeMember is validator structure + consensus fields
