@@ -284,6 +284,7 @@ func (p *Pacemaker) OnReceiveProposal(proposalMsg *PMProposalMessage) error {
 	// update the proposalMap only in these this scenario: not tracked and not proposed by me
 	if _, tracked := p.proposalMap[height]; !proposedByMe && !tracked {
 		p.proposalMap[height] = &pmBlock{
+			ProposalMessage:   proposalMsg,
 			Height:            height,
 			Round:             round,
 			Parent:            parent,
@@ -721,14 +722,13 @@ func (p *Pacemaker) OnReceiveQueryProposal(queryMsg *PMQueryProposalMessage) err
 		return errors.New("query too old")
 	}
 
-	// XXX need to build ??
-	msg, err := p.BuildProposalMessage(queryHeight, queryRound, result, nil)
-	if err != nil {
-		p.logger.Error("could not build proposal message", "err", err)
+	if result.ProposalMessage == nil {
+		p.logger.Error("could not find raw proposal message")
+		return errors.New("could not find raw proposal message")
 	}
 
 	//send
 	peers := []*ConsensusPeer{newConsensusPeer(returnAddr.IP, returnAddr.Port)}
-	p.SendMessageToPeers(msg, peers)
+	p.SendMessageToPeers(result.ProposalMessage, peers)
 	return nil
 }

@@ -133,6 +133,8 @@ type pmBlock struct {
 	Height uint64
 	Round  uint64
 
+	ProposalMessage *PMProposalMessage
+
 	Parent  *pmBlock
 	Justify *pmQuorumCert
 
