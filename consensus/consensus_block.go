@@ -407,15 +407,9 @@ func (c *ConsensusReactor) verifyBlock(blk *block.Block, state *state.State) (*s
 		}
 		return true, meta.Reverted, nil
 	}
-	fmt.Println("TXS------------------------------------------")
-	fmt.Println("Verify Block: ", blk.String())
-	fmt.Println("len TXS:", len(txs))
 	for i, tx := range txs {
 		fmt.Println("TX ", i+1, tx.ID(), hex.EncodeToString(tx.Clauses()[0].Data()))
 	}
-	root, e := state.Stage().Hash()
-	fmt.Println("StateRoot:", root, ", err:", e)
-	fmt.Println("---------------------------------------------")
 	for i, tx := range txs {
 		// Mint transaction critiers:
 		// 1. no signature (no signer)
@@ -824,7 +818,7 @@ func (conR *ConsensusReactor) BuildKBlock(parentBlock *block.Block, data *block.
 		}
 	*/
 
-	conR.logger.Info("build kblock ...", "nonce", data.Nonce)
+	conR.logger.Info("KBlock built", "nonce", data.Nonce)
 	startTime := mclock.Now()
 	//XXX: Build kblock coinbase Tranactions
 	//txs := tx.Transactions{}
