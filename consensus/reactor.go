@@ -57,7 +57,7 @@ import (
 
 const (
 	//maxMsgSize = 1048576 // 1MB; NOTE/TODO: keep in sync with types.PartSet sizes.
-	maxMsgSize = 1536000 // 1.5MB;
+	maxMsgSize = 15360000 // 15MB;
 
 	//normally when a block is committed, wait for a while to let whole network to sync and move to next round
 	// WHOLE_NETWORK_BLOCK_SYNC_TIME = 6 * time.Second
