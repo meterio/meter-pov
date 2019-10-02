@@ -14,16 +14,16 @@ import (
 	"math/big"
 	"sync/atomic"
 
+	"github.com/dfinlab/meter/meter"
+	"github.com/dfinlab/meter/metric"
 	"github.com/ethereum/go-ethereum/common/math"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/rlp"
-	"github.com/dfinlab/meter/metric"
-	"github.com/dfinlab/meter/meter"
 )
 
 const (
-	TOKEN_METER = byte(0)
+	TOKEN_METER     = byte(0)
 	TOKEN_METER_GOV = byte(1)
 )
 
@@ -362,18 +362,18 @@ func (t *Transaction) String() string {
 	}
 
 	return fmt.Sprintf(`
-	Tx(%v, %v)
-	From:           %v
-	Clauses:        %v
-	GasPriceCoef:   %v
-	Gas:            %v
-	ChainTag:       %v
-	BlockRef:       %v-%x
-	Expiration:     %v
-	DependsOn:      %v
-	Nonce:          %v
-	UnprovedWork:   %v	
-	Signature:      0x%x
+  Tx(%v, %v)
+  From:           %v
+  Clauses:        %v
+  GasPriceCoef:   %v
+  Gas:            %v
+  ChainTag:       %v
+  BlockRef:       %v-%x
+  Expiration:     %v
+  DependsOn:      %v
+  Nonce:          %v
+  UnprovedWork:   %v	
+  Signature:      0x%x
 `, t.ID(), t.Size(), from, t.body.Clauses, t.body.GasPriceCoef, t.body.Gas,
 		t.body.ChainTag, br.Number(), br[4:], t.body.Expiration, dependsOn, t.body.Nonce, t.UnprovedWork(), t.body.Signature)
 }

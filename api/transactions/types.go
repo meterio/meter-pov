@@ -10,18 +10,18 @@ import (
 	"math/big"
 	"strings"
 
+	"github.com/dfinlab/meter/block"
+	"github.com/dfinlab/meter/meter"
+	"github.com/dfinlab/meter/tx"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/common/math"
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/pkg/errors"
-	"github.com/dfinlab/meter/block"
-	"github.com/dfinlab/meter/meter"
-	"github.com/dfinlab/meter/tx"
 )
 
 // Clause for json marshal
 type Clause struct {
-	To    *meter.Address        `json:"to"`
+	To    *meter.Address       `json:"to"`
 	Value math.HexOrDecimal256 `json:"value"`
 	Token byte                 `json:"token"`
 	Data  string               `json:"data"`
@@ -42,11 +42,11 @@ func convertClause(c *tx.Clause) Clause {
 
 func (c *Clause) String() string {
 	return fmt.Sprintf(`Clause(
-		To    %v
-		Value %v
-		Token %v
-		Data  %v
-		)`, c.To,
+    To    %v
+    Value %v
+    Token %v
+    Data  %v
+)`, c.To,
 		c.Value,
 		c.Token,
 		c.Data)
@@ -63,16 +63,16 @@ func hasKey(m map[string]interface{}, key string) bool {
 
 //Transaction transaction
 type Transaction struct {
-	ID           meter.Bytes32        `json:"id"`
+	ID           meter.Bytes32       `json:"id"`
 	ChainTag     byte                `json:"chainTag"`
 	BlockRef     string              `json:"blockRef"`
 	Expiration   uint32              `json:"expiration"`
 	Clauses      Clauses             `json:"clauses"`
 	GasPriceCoef uint8               `json:"gasPriceCoef"`
 	Gas          uint64              `json:"gas"`
-	Origin       meter.Address        `json:"origin"`
+	Origin       meter.Address       `json:"origin"`
 	Nonce        math.HexOrDecimal64 `json:"nonce"`
-	DependsOn    *meter.Bytes32       `json:"dependsOn"`
+	DependsOn    *meter.Bytes32      `json:"dependsOn"`
 	Size         uint32              `json:"size"`
 	Meta         TxMeta              `json:"meta"`
 }
@@ -83,7 +83,7 @@ type UnSignedTx struct {
 	Clauses      Clauses             `json:"clauses"`
 	GasPriceCoef uint8               `json:"gasPriceCoef"`
 	Gas          uint64              `json:"gas"`
-	DependsOn    *meter.Bytes32       `json:"dependsOn"`
+	DependsOn    *meter.Bytes32      `json:"dependsOn"`
 	Nonce        math.HexOrDecimal64 `json:"nonce"`
 }
 
@@ -187,14 +187,14 @@ func convertTransaction(tx *tx.Transaction, header *block.Header, txIndex uint64
 
 type TxMeta struct {
 	BlockID        meter.Bytes32 `json:"blockID"`
-	BlockNumber    uint32       `json:"blockNumber"`
-	BlockTimestamp uint64       `json:"blockTimestamp"`
+	BlockNumber    uint32        `json:"blockNumber"`
+	BlockTimestamp uint64        `json:"blockTimestamp"`
 }
 
 type LogMeta struct {
 	BlockID        meter.Bytes32 `json:"blockID"`
-	BlockNumber    uint32       `json:"blockNumber"`
-	BlockTimestamp uint64       `json:"blockTimestamp"`
+	BlockNumber    uint32        `json:"blockNumber"`
+	BlockTimestamp uint64        `json:"blockTimestamp"`
 	TxID           meter.Bytes32 `json:"txID"`
 	TxOrigin       meter.Address `json:"txOrigin"`
 }
@@ -202,7 +202,7 @@ type LogMeta struct {
 //Receipt for json marshal
 type Receipt struct {
 	GasUsed  uint64                `json:"gasUsed"`
-	GasPayer meter.Address          `json:"gasPayer"`
+	GasPayer meter.Address         `json:"gasPayer"`
 	Paid     *math.HexOrDecimal256 `json:"paid"`
 	Reward   *math.HexOrDecimal256 `json:"reward"`
 	Reverted bool                  `json:"reverted"`
@@ -213,21 +213,21 @@ type Receipt struct {
 // Output output of clause execution.
 type Output struct {
 	ContractAddress *meter.Address `json:"contractAddress"`
-	Events          []*Event      `json:"events"`
-	Transfers       []*Transfer   `json:"transfers"`
+	Events          []*Event       `json:"events"`
+	Transfers       []*Transfer    `json:"transfers"`
 }
 
 // Event event.
 type Event struct {
 	Address meter.Address   `json:"address"`
 	Topics  []meter.Bytes32 `json:"topics"`
-	Data    string         `json:"data"`
+	Data    string          `json:"data"`
 }
 
 // Transfer transfer log.
 type Transfer struct {
-	Sender    meter.Address          `json:"sender"`
-	Recipient meter.Address          `json:"recipient"`
+	Sender    meter.Address         `json:"sender"`
+	Recipient meter.Address         `json:"recipient"`
 	Amount    *math.HexOrDecimal256 `json:"amount"`
 	Token     uint32                `json:"token"`
 }

@@ -478,6 +478,7 @@ func (p *Pacemaker) OnNextSyncView(nextHeight, nextRound uint64, reason NewViewR
 	}
 
 	p.SendConsensusMessage(nextRound, msg, false)
+	p.logger.Info("Sent out pacemaker msg", "height", nextHeight, "round", nextRound, "qcHeight", p.QCHigh.QC.QCHeight, "qcRound", p.QCHigh.QC.QCRound, "tc", ti)
 
 	return nil
 }
@@ -700,7 +701,7 @@ func (p *Pacemaker) OnRoundTimeout(ti PMRoundTimeoutInfo) error {
 
 func (p *Pacemaker) startRoundTimer(height, round, counter uint64) {
 	if p.roundTimer == nil {
-		p.logger.Debug("Start round timer", "round", round, "counter", counter)
+		p.logger.Info("Start round timer", "round", round, "counter", counter)
 		timeoutInterval := RoundTimeoutInterval * (1 << counter)
 		p.roundTimer = time.AfterFunc(timeoutInterval, func() {
 			p.roundTimeoutCh <- PMRoundTimeoutInfo{height, round, counter}
@@ -710,7 +711,7 @@ func (p *Pacemaker) startRoundTimer(height, round, counter uint64) {
 
 func (p *Pacemaker) stopRoundTimer() {
 	if p.roundTimer != nil {
-		p.logger.Debug("Stop round timer")
+		p.logger.Info("Stop round timer")
 		p.roundTimer.Stop()
 		p.roundTimer = nil
 	}
