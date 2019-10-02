@@ -181,6 +181,11 @@ func (m *powObjectMap) FillLatestObjChain(obj *powObject) (*PowResult, error) {
 	prev := m.Get(obj.blockInfo.HashPrevBlock)
 	interval := obj.Height() - m.lastKframePowObj.Height()
 
+	//XXX: sometime data is too big to fit into block, truncated it !!!
+	if interval > (5 * POW_MINIMUM_HEIGHT_INTV) {
+		interval = 5 * POW_MINIMUM_HEIGHT_INTV
+	}
+
 	for prev != nil && prev != m.lastKframePowObj && interval >= 0 {
 
 		nTarget := blockchain.CompactToBig(prev.blockInfo.NBits)

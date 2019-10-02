@@ -592,7 +592,7 @@ func (cl *ConsensusLeader) ProcessNewCommitteeMessage(newCommitteeMsg *NewCommit
 	// 3. if the totoal vote > 2/3, move to Commit state
 	if LeaderMajorityTwoThird(cl.newCommitteeVoterNum, cl.csReactor.committeeSize) {
 		cl.csReactor.logger.Debug("NewCommitteeMessage, 2/3 Majority reached", "Recvd", cl.newCommitteeVoterNum, "committeeSize", cl.csReactor.committeeSize)
-		cl.csReactor.ScheduleLeader(epochID, 1*time.Second)
+		cl.csReactor.ScheduleLeader(epochID, 10*time.Second) // Wait for block sync since there is no time out yet
 		// to avoid duplicate trigger
 		// TODO: better way to do this?
 		cl.newCommitteeVoterNum = 0
