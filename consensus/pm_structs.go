@@ -133,16 +133,15 @@ type pmBlock struct {
 	Height uint64
 	Round  uint64
 
-	ProposalMessage *PMProposalMessage
-
 	Parent  *pmBlock
 	Justify *pmQuorumCert
 
-	// derived
-	Decided bool
-
 	ProposedBlock     []byte // byte slice block
 	ProposedBlockType BlockType
+
+	// derived
+	Decided         bool
+	ProposalMessage *PMProposalMessage
 
 	// local derived data structure, re-exec all txs and get
 	// states. If states are match proposer, then vote, otherwise decline.

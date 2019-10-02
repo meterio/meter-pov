@@ -649,7 +649,6 @@ func (conR *ConsensusReactor) GetCommitteeMemberIndex(pubKey ecdsa.PublicKey) in
 			return i
 		}
 	}
-
 	conR.logger.Error("I'm not in committee, please check public key settings", "pubKey", pubKey)
 	return -1
 }
@@ -660,9 +659,19 @@ func (conR *ConsensusReactor) GetActualCommitteeMemberIndex(pubKey *ecdsa.Public
 			return i
 		}
 	}
-
 	conR.logger.Error("public key not found in actual committee", "pubKey", pubKey)
 	return -1
+}
+
+// input is serialized ecdsa.PublicKey
+func (conR *ConsensusReactor) GetCommitteeMember(pubKey []byte) *CommitteeMember {
+	for _, v := range conR.curActualCommittee {
+		if bytes.Equal(crypto.FromECDSAPub(&v.PubKey), pubKey) == true {
+			return &v
+		}
+	}
+	conR.logger.Error("not found", "pubKey", pubKey)
+	return nil
 }
 
 // Handle received Message

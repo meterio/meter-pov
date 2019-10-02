@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"strconv"
 
 	//"github.com/dfinlab/meter/types"
@@ -156,6 +157,14 @@ func (p *Pacemaker) getProposerByRound(round int) *ConsensusPeer {
 	return newConsensusPeer(proposer.NetAddr.IP, 8080)
 }
 
+func (p *Pacemaker) getConsensusPeerByPubkey(pubKey []byte) *ConsensusPeer {
+	if cm := p.csReactor.GetCommitteeMember(pubKey); cm != nil {
+		return newConsensusPeer(cm.NetAddr.IP, cm.NetAddr.Port)
+	} else {
+		return nil
+	}
+}
+
 // ------------------------------------------------------
 // Message Delivery Utilities
 // ------------------------------------------------------
@@ -277,4 +286,49 @@ func (p *Pacemaker) verifyTimeoutCert(tc *PMTimeoutCert, height, round uint64) b
 		return tc.TimeoutHeight == height && tc.TimeoutRound < round
 	}
 	return false
+}
+
+// for proposals which can not be addressed parent and QC node should
+// put it to pending list and query the parent node
+func (p *Pacemaker) pendingProposal(proposalMsg *PMProposalMessage, addr types.NetAddress) error {
+	msgHeader := proposalMsg.CSMsgCommonHeader
+	height := uint64(msgHeader.Height)
+	round := uint64(msgHeader.Round)
+
+	// put this proposal to pending list, and sent out query
+	peers := []*ConsensusPeer{newConsensusPeer(addr.IP, addr.Port)}
+	myNetAddr := p.csReactor.curCommittee.Validators[p.csReactor.curCommitteeIndex].NetAddr
+	queryMsg, err := p.BuildQueryProposalMessage(height, round, msgHeader.EpochID, myNetAddr)
+	if err != nil {
+		p.logger.Warn("Error during generate PMQueryProposal message", "err", err)
+		return errors.New("can not address parent")
+	}
+	p.SendMessageToPeers(queryMsg, peers)
+	p.pendingList.Add(proposalMsg)
+	return nil
+}
+
+func (p *Pacemaker) checkPendingProposals(curProposal *PMProposalMessage) error {
+	curHeight := curProposal.ParentHeight + 1
+	height := curHeight
+	for height >= curHeight {
+		pm := p.pendingList.proposals[height]
+		if pm == nil {
+			break
+		}
+		proposer := p.getConsensusPeerByPubkey(pm.ProposerID)
+		if proposer == nil {
+			p.logger.Error("can not get proposer", "height", height)
+			break
+		}
+		p.logger.Info("processing pending list", "height", height)
+		if err := p.OnReceiveProposal(pm, proposer.netAddr); err != nil {
+			p.logger.Error("error happens", "height", height, "error", err)
+			break
+		}
+		height++ //move higher
+	}
+
+	p.pendingList.CleanUpTo(height)
+	return nil
 }
