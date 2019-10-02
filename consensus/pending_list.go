@@ -1,38 +1,38 @@
 package consensus
 
 type PendingList struct {
-	proposals map[int64]*PMProposalMessage
-	lowest    int64
+	proposals map[uint64]*PMProposalMessage
+	lowest    uint64
 }
 
 func NewPendingList() *PendingList {
 	return &PendingList{
-		proposals: make(map[int64]*PMProposalMessage),
+		proposals: make(map[uint64]*PMProposalMessage),
 		lowest:    0,
 	}
 }
 
 func (p *PendingList) Add(pm *PMProposalMessage) {
-	height := pm.CSMsgCommonHeader.Height
+	height := pm.ParentHeight + 1
 	if height < p.lowest {
 		p.lowest = height
 	}
-	p.proposals[pm.CSMsgCommonHeader.Height] = pm
+	p.proposals[height] = pm
 }
 
-func (p *PendingList) Get(height int64) *PMProposalMessage {
+func (p *PendingList) Get(height uint64) *PMProposalMessage {
 	return p.proposals[height]
 }
 
-func (p *PendingList) CleanUpTo(height int64) error {
+func (p *PendingList) CleanUpTo(height uint64) error {
 	for i := p.lowest; i < height; i++ {
 		if _, ok := p.proposals[i]; ok {
 			delete(p.proposals, i)
 		}
 	}
-	lowest := int64(-1)
+	lowest := uint64(0)
 	for k, _ := range p.proposals {
-		if lowest == -1 {
+		if lowest == 0 {
 			lowest = k
 		} else if k < lowest {
 			lowest = k

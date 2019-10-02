@@ -17,7 +17,7 @@ import (
 
 const (
 	RoundInterval        = 2 * time.Second
-	RoundTimeoutInterval = 8 * time.Second
+	RoundTimeoutInterval = 10 * time.Second
 )
 
 var (
@@ -264,15 +264,9 @@ func (p *Pacemaker) OnReceiveProposal(proposalMsg *PMProposalMessage, from types
 		p.logger.Error("OnReceiveProposal: can not address parent")
 
 		// put this proposal to pending list, and sent out query
-		peers := []*ConsensusPeer{newConsensusPeer(from.IP, from.Port)}
-		queryMsg, err := p.BuildQueryProposalMessage(round, msgHeader.EpochID)
-		if err != nil {
-			p.logger.Warn("Error during generate PMQueryProposal message", "err", err)
-			return errors.New("can not address parent")
+		if err := p.pendingProposal(proposalMsg, from); err != nil {
+			p.logger.Error("handle pending proposoal failed", "error", err)
 		}
-		p.SendMessageToPeers(queryMsg, peers)
-		p.pendingList.Add(proposalMsg)
-
 		return errors.New("can not address parent")
 	}
 
@@ -282,15 +276,9 @@ func (p *Pacemaker) OnReceiveProposal(proposalMsg *PMProposalMessage, from types
 		p.logger.Error("OnReceiveProposal: can not address qcNode")
 
 		// put this proposal to pending list, and sent out query
-		peers := []*ConsensusPeer{newConsensusPeer(from.IP, from.Port)}
-		queryMsg, err := p.BuildQueryProposalMessage(round, msgHeader.EpochID)
-		if err != nil {
-			p.logger.Warn("Error during generate PMQueryProposal message", "err", err)
-			return errors.New("can not address parent")
+		if err := p.pendingProposal(proposalMsg, from); err != nil {
+			p.logger.Error("handle pending proposoal failed", "error", err)
 		}
-		p.SendMessageToPeers(queryMsg, peers)
-		p.pendingList.Add(proposalMsg)
-
 		return errors.New("can not address qcNode")
 	}
 
@@ -613,7 +601,10 @@ func (p *Pacemaker) mainLoop() {
 		case m := <-p.pacemakerMsgCh:
 			switch m.msg.(type) {
 			case *PMProposalMessage:
-				err = p.OnReceiveProposal(m.msg.(*PMProposalMessage), m.from)
+				if err = p.OnReceiveProposal(m.msg.(*PMProposalMessage), m.from); err != nil {
+					p.logger.Error("processes proposal fails.", "errors", err)
+				}
+				err = p.checkPendingProposals(m.msg.(*PMProposalMessage))
 			case *PMVoteForProposalMessage:
 				err = p.OnReceiveVote(m.msg.(*PMVoteForProposalMessage))
 			case *PMNewViewMessage:

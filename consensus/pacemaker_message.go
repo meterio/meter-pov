@@ -10,6 +10,7 @@ import (
 
 	"github.com/dfinlab/meter/block"
 	"github.com/dfinlab/meter/powpool"
+	"github.com/dfinlab/meter/types"
 	crypto "github.com/ethereum/go-ethereum/crypto"
 )
 
@@ -242,7 +243,7 @@ func (p *Pacemaker) BuildNewViewSignMsg(pubKey ecdsa.PublicKey, reason NewViewRe
 		hex.EncodeToString(crypto.FromECDSAPub(&pubKey)), height, round, reason, qc.QCHeight, qc.QCRound, qc.EpochID, hex.EncodeToString(qc.VoterAggSig))
 }
 
-func (p *Pacemaker) BuildQueryProposalMessage(round, epochID uint64) (*PMQueryProposalMessage, error) {
+func (p *Pacemaker) BuildQueryProposalMessage(height, round, epochID uint64, retAddr types.NetAddress) (*PMQueryProposalMessage, error) {
 	cmnHdr := ConsensusMsgCommonHeader{
 		Height:    0,
 		Round:     0,
@@ -256,8 +257,9 @@ func (p *Pacemaker) BuildQueryProposalMessage(round, epochID uint64) (*PMQueryPr
 
 	msg := &PMQueryProposalMessage{
 		CSMsgCommonHeader: cmnHdr,
-
-		Round: round,
+		Height:            height,
+		Round:             round,
+		ReturnAddr:        retAddr,
 	}
 
 	// sign message
