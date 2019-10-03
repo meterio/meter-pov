@@ -42,6 +42,7 @@ import (
 	"github.com/dfinlab/meter/genesis"
 	"github.com/dfinlab/meter/meter"
 	"github.com/dfinlab/meter/powpool"
+	"github.com/dfinlab/meter/script/staking"
 	"github.com/inconshreveable/log15"
 
 	//"github.com/dfinlab/meter/runtime"
@@ -243,9 +244,9 @@ func NewConsensusReactor(ctx *cli.Context, chain *chain.Chain, state *state.Crea
 	lastKBlockHeightGauge.Set(float64(conR.lastKBlockHeight))
 
 	//initialize Delegates
-	ds := configDelegates()
-	conR.curDelegates = types.NewDelegateSet(ds)
-	conR.delegateSize = ctx.Int("delegate-size")   // 10 //DELEGATES_SIZE
+	conR.delegateSize = ctx.Int("delegate-size") // 10 //DELEGATES_SIZE
+	conR.curDelegates = types.NewDelegateSet(GetConsensusDelegates(conR.delegateSize))
+
 	conR.committeeSize = ctx.Int("committee-size") // 4 //COMMITTEE_SIZE
 
 	conR.myPrivKey = *privKey
@@ -1388,6 +1389,12 @@ func (conR *ConsensusReactor) HandleSchedule(fn func()) bool {
 }
 
 //////////////////////////////////////////////////////
+// update current delegates with new delegates from staking
+// keep this standalone method intentionly
+func (conR *ConsensusReactor) ConsensusUpdateCurDelegates() {
+	conR.curDelegates = types.NewDelegateSet(GetConsensusDelegates(conR.delegateSize))
+}
+
 // Consensus module handle received nonce from kblock
 func (conR *ConsensusReactor) ConsensusHandleReceivedNonce(kBlockHeight int64, nonce uint64, replay bool) {
 	conR.logger.Info("Received a nonce ...", "nonce", nonce, "kBlockHeight", kBlockHeight, "replay", replay)
@@ -1615,4 +1622,17 @@ func (conR *ConsensusReactor) LoadBlockBytes(num uint32) []byte {
 		return []byte{}
 	}
 	return raw[:]
+}
+
+// entry point for each committee
+func GetConsensusDelegates(size int) []*types.Delegate {
+	delegates, err := staking.GetLatestDelegateList()
+	if err == nil && len(delegates) == size {
+		fmt.Println("delegatesList from staking", "delegate size", size)
+		return delegates
+	}
+
+	delegates = configDelegates()
+	fmt.Println("delegatesList from configuration file", "delegate size", size)
+	return delegates
 }
