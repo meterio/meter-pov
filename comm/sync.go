@@ -57,7 +57,7 @@ func (c *Communicator) download(peer *Peer, fromNum uint32, handler HandleBlockS
 				errCh <- err
 				return
 			}
-			fmt.Println("GOT QC: ", qc.String())
+			//fmt.Println("GOT QC: ", qc.String())
 			err = qcHandler(ctx, qc)
 			if err != nil {
 				errCh <- err

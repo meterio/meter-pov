@@ -46,7 +46,9 @@ func newStage(root meter.Bytes32, kv kv.GetPutter, changes map[meter.Address]*ch
 		}
 
 		// skip storage changes if account is empty
-		if !dataCpy.IsEmpty() {
+		// XXX: remove this condition because of staking. The empty accout accepts storage at this time
+		//if !dataCpy.IsEmpty() {
+		if true {
 			if len(obj.storage) > 0 {
 				strie, err := trCache.Get(meter.BytesToBytes32(dataCpy.StorageRoot), kv, true)
 				if err != nil {
