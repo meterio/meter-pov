@@ -21,7 +21,7 @@ Execute this test with
 cd /tmp/meter-build-xxxxx/src/github.com/dfinlab/meter/script/staking
 GOPATH=/tmp/meter-build-xxxx/:$GOPATH go test
 */
-var bucketIDString = string("0x000000000b2bce3c70bc649a02749e8687721b09ed2e15997f466536b20bb127")
+var bucketIDString = string("0x9232d9ed715342bbc2c8bb0bf142a69deb3cd87434b86dc993513f9fd48b888e")
 
 func TestRlpForStakeholder(t *testing.T) {
 	addr, err := meter.ParseAddress("0xf3dd5c55b96889369f714143f213403464a268a6")
@@ -128,7 +128,7 @@ func TestRlpForBucket(t *testing.T) {
 const (
 	//HOLDER_ADDRESS    = "0x0205c2D862cA051010698b69b54278cbAf945C0b"
 	HOLDER_ADDRESS    = "0x8A88c59bF15451F9Deb1d62f7734FeCe2002668E"
-	CANDIDATE_ADDRESS = "0x8A88c59bF15451F9Deb1d62f7734FeCe2002668E"
+	CANDIDATE_ADDRESS = "0x0205c2D862cA051010698b69b54278cbAf945C0b"
 	CANDIDATE_AMOUNT  = "2000000000000000000000" //(2e20) 200MTRG
 )
 
@@ -215,6 +215,30 @@ func TestScriptDataForCandidate(t *testing.T) {
 		t.Fail()
 	}
 	fmt.Println("Script Data Hex for Candidate: ", hexData)
+}
+
+func TestScriptDataForUnCandidate(t *testing.T) {
+	hexData, err := generateScriptData(staking.OP_UNCANDIDATE, HOLDER_ADDRESS, CANDIDATE_ADDRESS, 2e18)
+	if err != nil {
+		t.Fail()
+	}
+	fmt.Println("Script Data Hex for UnCandidate: ", hexData)
+}
+
+func TestScriptDataForDelegate(t *testing.T) {
+	hexData, err := generateScriptData(staking.OP_DELEGATE, HOLDER_ADDRESS, CANDIDATE_ADDRESS, 4e18)
+	if err != nil {
+		t.Fail()
+	}
+	fmt.Println("Script Data Hex for Delegate: ", hexData)
+}
+
+func TestScriptDataForUnDelegate(t *testing.T) {
+	hexData, err := generateScriptData(staking.OP_UNDELEGATE, HOLDER_ADDRESS, CANDIDATE_ADDRESS, 4e18)
+	if err != nil {
+		t.Fail()
+	}
+	fmt.Println("Script Data Hex for UnDelegate: ", hexData)
 }
 
 func TestCandidateList(t *testing.T) {
