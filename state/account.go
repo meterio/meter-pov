@@ -29,6 +29,8 @@ type Account struct {
 func (a *Account) IsEmpty() bool {
 	return a.Balance.Sign() == 0 &&
 		a.Energy.Sign() == 0 &&
+		a.BoundBalance.Sign() == 0 &&
+		a.BoundEnergy.Sign() == 0 &&
 		len(a.Master) == 0 &&
 		len(a.CodeHash) == 0 &&
 		len(a.StorageRoot) == 0

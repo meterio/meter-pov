@@ -67,64 +67,43 @@ func (s *Stakeholder) RemoveBucket(bucket *Bucket) {
 }
 
 type StakeholderList struct {
-	holders []*Stakeholder
+	holders map[meter.Address]*Stakeholder
 }
 
-func newStakeholderList(holders []*Stakeholder) *StakeholderList {
+func newStakeholderList(holders map[meter.Address]*Stakeholder) *StakeholderList {
 	if holders == nil {
-		holders = make([]*Stakeholder, 0)
+		holders = make(map[meter.Address]*Stakeholder)
 	}
 	return &StakeholderList{holders: holders}
 }
 
 func (l *StakeholderList) Get(addr meter.Address) *Stakeholder {
-	i := l.indexOf(addr)
-	if i < 0 {
-		return nil
-	}
-	return l.holders[i]
-}
-
-func (l *StakeholderList) indexOf(addr meter.Address) int {
-	for i, v := range l.holders {
-		if v.Holder == addr {
-			return i
-		}
-	}
-	return -1
+	return l.holders[addr]
 }
 
 func (l *StakeholderList) Exist(addr meter.Address) bool {
-	return l.indexOf(addr) >= 0
+	_, ok := l.holders[addr]
+	return ok
 }
 
 func (l *StakeholderList) Add(s *Stakeholder) error {
-	found := false
-	for _, v := range l.holders {
-		if v.Holder == s.Holder {
-			// exists
-			found = true
-		}
-	}
-	if !found {
-		l.holders = append(l.holders, s)
+	if s != nil {
+		l.holders[s.Holder] = s
 	}
 	return nil
 }
 
 func (l *StakeholderList) Remove(addr meter.Address) error {
-	i := l.indexOf(addr)
-	if i < 0 {
-		return nil
+	if _, ok := l.holders[addr]; ok {
+		delete(l.holders, addr)
 	}
-	l.holders = append(l.holders[:i], l.holders[i+1:]...)
 	return nil
 }
 
 func (l *StakeholderList) ToString() string {
 	s := []string{fmt.Sprintf("StakeholderList (size:%v):", len(l.holders))}
-	for i, v := range l.holders {
-		s = append(s, fmt.Sprintf("%d. %v", i, v.ToString()))
+	for k, v := range l.holders {
+		s = append(s, fmt.Sprintf("%v. %v", k, v.ToString()))
 	}
 	s = append(s, "")
 	return strings.Join(s, "\n")

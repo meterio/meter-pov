@@ -82,64 +82,41 @@ func (b *Bucket) ToString() string {
 }
 
 type BucketList struct {
-	buckets []*Bucket
+	buckets map[meter.Bytes32]*Bucket
 }
 
-func newBucketList(buckets []*Bucket) *BucketList {
+func newBucketList(buckets map[meter.Bytes32]*Bucket) *BucketList {
 	if buckets == nil {
-		buckets = make([]*Bucket, 0)
+		buckets = make(map[meter.Bytes32]*Bucket)
 	}
 	return &BucketList{buckets: buckets}
 }
 
 func (l *BucketList) Get(id meter.Bytes32) *Bucket {
-	i := l.indexOf(id)
-	if i < 0 {
-		return nil
-	}
-	return l.buckets[i]
-}
-
-func (l *BucketList) indexOf(id meter.Bytes32) int {
-	for i, v := range l.buckets {
-		if v.BucketID == id {
-			return i
-		}
-	}
-	return -1
+	return l.buckets[id]
 }
 
 func (l *BucketList) Exist(id meter.Bytes32) bool {
-	return l.indexOf(id) >= 0
+	_, ok := l.buckets[id]
+	return ok
 }
 
 func (l *BucketList) Add(b *Bucket) error {
-	found := false
-	for _, v := range l.buckets {
-		if v.BucketID == b.BucketID {
-			// exists
-			found = true
-		}
-	}
-	if !found {
-		l.buckets = append(l.buckets, b)
-	}
+	l.buckets[b.BucketID] = b
 	return nil
 }
 
 func (l *BucketList) Remove(id meter.Bytes32) error {
-	i := l.indexOf(id)
-	if i < 0 {
-		return nil
+	if _, ok := l.buckets[id]; ok {
+		delete(l.buckets, id)
 	}
-	l.buckets = append(l.buckets[:i], l.buckets[i+1:]...)
 	return nil
 }
 
 func (l *BucketList) ToString() string {
 	s := []string{fmt.Sprintf("BucketList (size:%v):", len(l.buckets))}
-	for i, v := range l.buckets {
-		s = append(s, fmt.Sprintf("%d. %v", i+1, v.ToString()))
+	for k, v := range l.buckets {
+		s = append(s, fmt.Sprintf("%d. %v", k, v.ToString()))
 	}
 	s = append(s, "")
 	return strings.Join(s, "\n")

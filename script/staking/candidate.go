@@ -74,64 +74,44 @@ func (c *Candidate) RemoveBucket(id meter.Bytes32) {
 }
 
 type CandidateList struct {
-	candidates []*Candidate
+	candidates map[meter.Address]*Candidate
 }
 
-func NewCandidateList(candidates []*Candidate) *CandidateList {
+func NewCandidateList(candidates map[meter.Address]*Candidate) *CandidateList {
 	if candidates == nil {
-		candidates = make([]*Candidate, 0)
+		candidates = make(map[meter.Address]*Candidate)
 	}
 	return &CandidateList{candidates: candidates}
 }
 
 func (l *CandidateList) Get(addr meter.Address) *Candidate {
-	i := l.indexOf(addr)
-	if i < 0 {
-		return nil
-	}
-	return l.candidates[i]
-}
-
-func (l *CandidateList) indexOf(addr meter.Address) int {
-	for i, v := range l.candidates {
-		if v.Addr == addr {
-			return i
-		}
-	}
-	return -1
-}
-
-func (l *CandidateList) Exist(addr meter.Address) bool {
-	return l.indexOf(addr) >= 0
-}
-
-func (l *CandidateList) Add(c *Candidate) error {
-	found := false
-	for _, v := range l.candidates {
-		if v.Addr == c.Addr {
-			// exists
-			found = true
-		}
-	}
-	if !found {
-		l.candidates = append(l.candidates, c)
+	if l.candidates != nil {
+		return l.candidates[addr]
 	}
 	return nil
 }
 
+func (l *CandidateList) Exist(addr meter.Address) bool {
+	_, ok := l.candidates[addr]
+	return ok
+}
+
+func (l *CandidateList) Add(c *Candidate) error {
+	l.candidates[c.Addr] = c
+	return nil
+}
+
 func (l *CandidateList) Remove(addr meter.Address) error {
-	i := l.indexOf(addr)
-	if i < 0 {
-		return nil
+	if _, ok := l.candidates[addr]; ok {
+		delete(l.candidates, addr)
 	}
-	l.candidates = append(l.candidates[:i], l.candidates[i+1:]...)
 	return nil
 }
 
 func (l *CandidateList) ToString() string {
 	s := []string{fmt.Sprintf("CandiateList (size:%v):", len(l.candidates))}
-	for i, v := range l.candidates {
-		s = append(s, fmt.Sprintf("%d. %v", i+1, v.ToString()))
+	for k, v := range l.candidates {
+		s = append(s, fmt.Sprintf("%v. %v", k.String(), v.ToString()))
 	}
 	s = append(s, "")
 	return strings.Join(s, "\n")
@@ -145,6 +125,6 @@ func (l *CandidateList) ToList() []Candidate {
 	return result
 }
 
-func (l *CandidateList) Candidates() []*Candidate {
+func (l *CandidateList) Candidates() map[meter.Address]*Candidate {
 	return l.candidates
 }

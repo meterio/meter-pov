@@ -127,8 +127,8 @@ func TestRlpForBucket(t *testing.T) {
 
 const (
 	//HOLDER_ADDRESS    = "0x0205c2D862cA051010698b69b54278cbAf945C0b"
-	HOLDER_ADDRESS    = "0x8A88c59bF15451F9Deb1d62f7734FeCe2002668E"
-	CANDIDATE_ADDRESS = "0x0205c2D862cA051010698b69b54278cbAf945C0b"
+	HOLDER_ADDRESS    = "0x8e69e4357d886b8dd3131af7d7627a4381d3ddd4"
+	CANDIDATE_ADDRESS = "0x8e69e4357d886b8dd3131af7d7627a4381d3ddd4"
 	CANDIDATE_AMOUNT  = "2000000000000000000000" //(2e20) 200MTRG
 )
 
@@ -168,7 +168,7 @@ func generateScriptData(opCode uint32, holderAddrStr, candAddrStr string, amount
 		StakingID:  stakingID,
 		Amount:     *amount,
 		Token:      staking.TOKEN_METER_GOV,
-		Nonce:      rand.Uint64(),
+		Nonce:      uint64(1), //rand.Uint64(),
 	}
 	payload, err := rlp.EncodeToBytes(body)
 	if err != nil {

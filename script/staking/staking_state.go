@@ -1,6 +1,8 @@
 package staking
 
 import (
+	"bytes"
+	"encoding/gob"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -22,13 +24,14 @@ var (
 
 // Candidate List
 func (s *Staking) GetCandidateList(state *state.State) (result *CandidateList) {
-	var candList []*Candidate
 	fmt.Println("Entered: GetCandidateList")
 	state.DecodeStorage(StakingModuleAddr, CandidateListKey, func(raw []byte) error {
 		fmt.Println("Loaded Raw Hex: ", hex.EncodeToString(raw))
-		err := rlp.DecodeBytes(raw, &candList)
-		result = NewCandidateList(candList)
-		fmt.Println("Loaded Candidate List:", result.ToString(), "Error: ", err, " OriginalLen:", len(candList))
+		decoder := gob.NewDecoder(bytes.NewBuffer(raw))
+		var candidates map[meter.Address]*Candidate
+		decoder.Decode(&candidates)
+		result = NewCandidateList(candidates)
+		fmt.Println("Loaded Candidate List:", result.ToString(), " OriginalLen:", len(candidates))
 		fmt.Println(result.ToString())
 		return nil
 	})
@@ -37,16 +40,20 @@ func (s *Staking) GetCandidateList(state *state.State) (result *CandidateList) {
 
 func (s *Staking) SetCandidateList(candList *CandidateList, state *state.State) {
 	state.EncodeStorage(StakingModuleAddr, CandidateListKey, func() ([]byte, error) {
-		return rlp.EncodeToBytes(candList.candidates)
+		buf := bytes.NewBuffer([]byte{})
+		encoder := gob.NewEncoder(buf)
+		err := encoder.Encode(candList.candidates)
+		return buf.Bytes(), err
 	})
 }
 
 // StakeHolder List
 func (s *Staking) GetStakeHolderList(state *state.State) (result *StakeholderList) {
-	var holderList []*Stakeholder
 	state.DecodeStorage(StakingModuleAddr, StakeHolderListKey, func(raw []byte) error {
-		rlp.DecodeBytes(raw, &holderList)
-		result = newStakeholderList(holderList)
+		decoder := gob.NewDecoder(bytes.NewBuffer(raw))
+		var holders map[meter.Address]*Stakeholder
+		decoder.Decode(&holders)
+		result = newStakeholderList(holders)
 		return nil
 	})
 	return
@@ -54,21 +61,23 @@ func (s *Staking) GetStakeHolderList(state *state.State) (result *StakeholderLis
 
 func (s *Staking) SetStakeHolderList(holderList *StakeholderList, state *state.State) {
 	state.EncodeStorage(StakingModuleAddr, StakeHolderListKey, func() ([]byte, error) {
-		return rlp.EncodeToBytes(holderList.holders)
+		buf := bytes.NewBuffer([]byte{})
+		encoder := gob.NewEncoder(buf)
+		err := encoder.Encode(holderList.holders)
+		return buf.Bytes(), err
 	})
 }
 
 // Bucket List
 func (s *Staking) GetBucketList(state *state.State) (result *BucketList) {
-	var bucketList []*Bucket
 	state.DecodeStorage(StakingModuleAddr, BucketListKey, func(raw []byte) error {
-		if len(raw) == 0 {
-			result = newBucketList(nil)
-			return nil
-		}
-		rlp.DecodeBytes(raw, &bucketList)
+		buf := bytes.NewBuffer(raw)
+		decoder := gob.NewDecoder(buf)
+		var buckets map[meter.Bytes32]*Bucket
+		// rlp.DecodeBytes(raw, &buckets)
+		decoder.Decode(&buckets)
 
-		result = newBucketList(bucketList)
+		result = newBucketList(buckets)
 		return nil
 	})
 	return
@@ -76,7 +85,12 @@ func (s *Staking) GetBucketList(state *state.State) (result *BucketList) {
 
 func (s *Staking) SetBucketList(bucketList *BucketList, state *state.State) {
 	state.EncodeStorage(StakingModuleAddr, BucketListKey, func() ([]byte, error) {
-		return rlp.EncodeToBytes(bucketList.buckets)
+		// return rlp.EncodeToBytes(bucketList.buckets)
+		buf := bytes.NewBuffer([]byte{})
+		encoder := gob.NewEncoder(buf)
+		err := encoder.Encode(bucketList.buckets)
+		return buf.Bytes(), err
+
 	})
 }
 
