@@ -188,7 +188,10 @@ func (sb *StakingBody) UnBoundHandler(senv *StakingEnviroment, gas uint64) (ret 
 	// update candidate list
 	cand := candidateList.Get(b.Candidate)
 	if cand != nil {
-		cand.RemoveBucket(b.BucketID)
+		cand.RemoveBucket(b)
+		if len(candidateList.candidates) == 0 {
+			candidateList.Remove(cand.Addr)
+		}
 	}
 
 	// remove bucket from bucketList
@@ -267,8 +270,8 @@ func (sb *StakingBody) CandidateHandler(senv *StakingEnviroment, gas uint64) (re
 		return
 	}
 
-	// now staking the amount
-	opt, rate, mature := GetBoundLockOption(sb.Option)
+	// now staking the amount, forced to the longest lock
+	opt, rate, mature := GetBoundLockOption(FOUR_WEEK_LOCK)
 	staking.logger.Info("get bound option", "option", opt, "rate", rate, "mature", mature)
 
 	// bucket owner is candidate
@@ -439,7 +442,7 @@ func (sb *StakingBody) UnDelegateHandler(senv *StakingEnviroment, gas uint64) (r
 
 	// sanity check done, take actions
 	b.Candidate = meter.Address{}
-	cand.RemoveBucket(b.BucketID)
+	cand.RemoveBucket(b)
 
 	staking.SetCandidateList(candidateList, state)
 	staking.SetBucketList(bucketList, state)

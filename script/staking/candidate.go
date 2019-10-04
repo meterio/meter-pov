@@ -64,10 +64,12 @@ func (c *Candidate) AddBucket(bucket *Bucket) {
 	c.TotalVotes.Add(c.TotalVotes, bucket.TotalVotes)
 }
 
-func (c *Candidate) RemoveBucket(id meter.Bytes32) {
-	for i, bucketID := range c.Buckets {
-		if bucketID == id {
+func (c *Candidate) RemoveBucket(bucket *Bucket) {
+	bucketID := bucket.BucketID
+	for i, id := range c.Buckets {
+		if id.String() == bucketID.String() {
 			c.Buckets = append(c.Buckets[:i], c.Buckets[i+1:]...)
+			c.TotalVotes.Sub(c.TotalVotes, bucket.TotalVotes)
 			return
 		}
 	}
