@@ -8,18 +8,20 @@ package accounts
 import (
 	"math/big"
 
+	"github.com/dfinlab/meter/api/transactions"
+	"github.com/dfinlab/meter/meter"
+	"github.com/dfinlab/meter/runtime"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/common/math"
-	"github.com/dfinlab/meter/api/transactions"
-	"github.com/dfinlab/meter/runtime"
-	"github.com/dfinlab/meter/meter"
 )
 
 //Account for marshal account
 type Account struct {
-	Balance math.HexOrDecimal256 `json:"balance"`
-	Energy  math.HexOrDecimal256 `json:"energy"`
-	HasCode bool                 `json:"hasCode"`
+	Balance      math.HexOrDecimal256 `json:"balance"`
+	Energy       math.HexOrDecimal256 `json:"energy"`
+	BoundBalance math.HexOrDecimal256 `json:"boundbalance"`
+	BoundEnergy  math.HexOrDecimal256 `json:"boundenergy"`
+	HasCode      bool                 `json:"hasCode"`
 }
 
 //CallData represents contract-call body
@@ -29,13 +31,13 @@ type CallData struct {
 	Token    byte                  `json:"token"`
 	Gas      uint64                `json:"gas"`
 	GasPrice *math.HexOrDecimal256 `json:"gasPrice"`
-	Caller   *meter.Address         `json:"caller"`
+	Caller   *meter.Address        `json:"caller"`
 }
 
 type CallPow struct {
 	Miner      *meter.Address `json:"miner"`
-	Nonce      uint64        `json:"nonce"`
-	Difficulty big.Int       `json:"difficulty"`
+	Nonce      uint64         `json:"nonce"`
+	Difficulty big.Int        `json:"difficulty"`
 }
 
 type CallResult struct {
@@ -93,7 +95,7 @@ func convertCallResultWithInputGas(vo *runtime.Output, inputGas uint64) *CallRes
 }
 
 type Clause struct {
-	To    *meter.Address         `json:"to"`
+	To    *meter.Address        `json:"to"`
 	Value *math.HexOrDecimal256 `json:"value"`
 	Data  string                `json:"data"`
 	Token byte                  `json:"token"`
@@ -107,7 +109,7 @@ type BatchCallData struct {
 	Clauses  Clauses               `json:"clauses"`
 	Gas      uint64                `json:"gas"`
 	GasPrice *math.HexOrDecimal256 `json:"gasPrice"`
-	Caller   *meter.Address         `json:"caller"`
+	Caller   *meter.Address        `json:"caller"`
 }
 
 type BatchCallResults []*CallResult

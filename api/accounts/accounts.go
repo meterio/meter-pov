@@ -78,13 +78,17 @@ func (a *Accounts) getAccount(addr meter.Address, header *block.Header) (*Accoun
 	b := state.GetBalance(addr)
 	code := state.GetCode(addr)
 	energy := state.GetEnergy(addr)
+	bb := state.GetBoundedBalance(addr)
+	be := state.GetBoundedEnergy(addr)
 	if err := state.Err(); err != nil {
 		return nil, err
 	}
 	return &Account{
-		Balance: math.HexOrDecimal256(*b),
-		Energy:  math.HexOrDecimal256(*energy),
-		HasCode: len(code) != 0,
+		Balance:      math.HexOrDecimal256(*b),
+		Energy:       math.HexOrDecimal256(*energy),
+		BoundBalance: math.HexOrDecimal256(*bb),
+		BoundEnergy:  math.HexOrDecimal256(*be),
+		HasCode:      len(code) != 0,
 	}, nil
 }
 
