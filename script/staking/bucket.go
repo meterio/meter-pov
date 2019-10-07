@@ -25,17 +25,17 @@ type Bucket struct {
 	CreateTime  uint64        // bucket create time
 }
 
-//bucketID BounusVote createTime .. are excluded
+//bucketID Candidate .. are excluded
 func (b *Bucket) ID() (hash meter.Bytes32) {
 	hw := meter.NewBlake2b()
 	rlp.Encode(hw, []interface{}{
 		b.Owner,
-		b.Candidate,
 		b.Value,
 		b.Token,
 		b.Rate,
 		b.MatureTime,
 		b.Nonce,
+		b.CreateTime,
 	})
 	hw.Sum(hash[:0])
 	return

@@ -2,6 +2,7 @@ package staking
 
 import (
 	"errors"
+	"time"
 
 	"github.com/dfinlab/meter/chain"
 	"github.com/dfinlab/meter/state"
@@ -12,6 +13,8 @@ import (
 const (
 	TOKEN_METER     = byte(0)
 	TOKEN_METER_GOV = byte(1)
+
+	STAKING_TIMESPAN = uint64(720)
 )
 
 var (
@@ -31,6 +34,14 @@ func GetStakingGlobInst() *Staking {
 
 func SetStakingGlobInst(inst *Staking) {
 	StakingGlobInst = inst
+}
+
+func InTimeSpan(ts, now, span uint64) bool {
+	if ts >= now {
+		return (span >= (ts - now))
+	} else {
+		return (span >= (now - ts))
+	}
 }
 
 func NewStaking(ch *chain.Chain, sc *state.Creator) *Staking {
@@ -63,7 +74,14 @@ func (s *Staking) PrepareStakingHandler() (StakingHandler func(data []byte, txCt
 			panic("create staking enviroment failed")
 		}
 
-		s.logger.Info("received staking data", "stakingbody", sb.ToString())
+		s.logger.Info("receives staking data", "stakingbody", sb.ToString())
+		now := uint64(time.Now().Unix())
+		if InTimeSpan(sb.Timestamp, now, STAKING_TIMESPAN) == false {
+			s.logger.Error("timestamp span too far", "timestamp", sb.Timestamp, "now", now)
+			err = errors.New("timestamp span too far")
+			return
+		}
+
 		switch sb.Opcode {
 		case OP_BOUND:
 			if senv.GetTxCtx().Origin != sb.HolderAddr {

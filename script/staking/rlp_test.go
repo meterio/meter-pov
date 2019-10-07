@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math/big"
 	"math/rand"
+	"time"
 
 	"github.com/ethereum/go-ethereum/rlp"
 
@@ -21,7 +22,7 @@ Execute this test with
 cd /tmp/meter-build-xxxxx/src/github.com/dfinlab/meter/script/staking
 GOPATH=/tmp/meter-build-xxxx/:$GOPATH go test
 */
-var bucketIDString = string("0x9232d9ed715342bbc2c8bb0bf142a69deb3cd87434b86dc993513f9fd48b888e")
+var bucketIDString = string("0xd75eb6c42a73533f961c38fe2b87bb3615db7ff8e19c0d808c046e7a25d9a413")
 
 func TestRlpForStakeholder(t *testing.T) {
 	addr, err := meter.ParseAddress("0xf3dd5c55b96889369f714143f213403464a268a6")
@@ -127,8 +128,8 @@ func TestRlpForBucket(t *testing.T) {
 
 const (
 	//HOLDER_ADDRESS    = "0x0205c2D862cA051010698b69b54278cbAf945C0b"
-	HOLDER_ADDRESS    = "0x8e69e4357d886b8dd3131af7d7627a4381d3ddd4"
-	CANDIDATE_ADDRESS = "0x8e69e4357d886b8dd3131af7d7627a4381d3ddd4"
+	HOLDER_ADDRESS    = "0x0205c2D862cA051010698b69b54278cbAf945C0b"
+	CANDIDATE_ADDRESS = "0x8a88c59bf15451f9deb1d62f7734fece2002668e"
 	CANDIDATE_AMOUNT  = "2000000000000000000000" //(2e20) 200MTRG
 )
 
@@ -168,6 +169,7 @@ func generateScriptData(opCode uint32, holderAddrStr, candAddrStr string, amount
 		StakingID:  stakingID,
 		Amount:     *amount,
 		Token:      staking.TOKEN_METER_GOV,
+		Timestamp:  uint64(time.Now().Unix()),
 		Nonce:      uint64(1), //rand.Uint64(),
 	}
 	payload, err := rlp.EncodeToBytes(body)

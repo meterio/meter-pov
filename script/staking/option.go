@@ -1,8 +1,6 @@
 package staking
 
-import (
-	"time"
-)
+import ()
 
 // staking options
 const (
@@ -23,23 +21,23 @@ const (
 	FOUR_WEEK_LOCK_TIME = uint64(60 * 60 * 24 * 28)
 )
 
-func GetBoundLockOption(chose uint32) (opt uint32, rate uint8, mature uint64) {
+func GetBoundLockOption(chose uint32) (opt uint32, rate uint8, locktime uint64) {
 	switch chose {
 	case ONE_WEEK_LOCK:
-		return ONE_WEEK_LOCK, ONE_WEEK_LOCK_RATE, (uint64(time.Now().Unix()) + ONE_WEEK_LOCK_TIME)
+		return ONE_WEEK_LOCK, ONE_WEEK_LOCK_RATE, ONE_WEEK_LOCK_TIME
 
 	case TWO_WEEK_LOCK:
-		return TWO_WEEK_LOCK, TWO_WEEK_LOCK_RATE, (uint64(time.Now().Unix()) + TWO_WEEK_LOCK_TIME)
+		return TWO_WEEK_LOCK, TWO_WEEK_LOCK_RATE, TWO_WEEK_LOCK_TIME
 
 	case THREE_WEEK_LOCK:
-		return THREE_WEEK_LOCK, THREE_WEEK_LOCK_RATE, (uint64(time.Now().Unix()) + THREE_WEEK_LOCK_TIME)
+		return THREE_WEEK_LOCK, THREE_WEEK_LOCK_RATE, THREE_WEEK_LOCK_TIME
 
 	case FOUR_WEEK_LOCK:
-		return FOUR_WEEK_LOCK, FOUR_WEEK_LOCK_RATE, (uint64(time.Now().Unix()) + FOUR_WEEK_LOCK_TIME)
+		return FOUR_WEEK_LOCK, FOUR_WEEK_LOCK_RATE, FOUR_WEEK_LOCK_TIME
 
 	// at least lock 1 week
 	default:
-		return ONE_WEEK_LOCK, ONE_WEEK_LOCK_RATE, (uint64(time.Now().Unix()) + ONE_WEEK_LOCK_TIME)
+		return ONE_WEEK_LOCK, ONE_WEEK_LOCK_RATE, ONE_WEEK_LOCK_TIME
 	}
 }
 

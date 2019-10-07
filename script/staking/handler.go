@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
-	"time"
 
 	"github.com/dfinlab/meter/meter"
 	"github.com/ethereum/go-ethereum/rlp"
@@ -43,6 +42,7 @@ type StakingBody struct {
 	StakingID  meter.Bytes32 // only for unbound, uuid is [16]byte
 	Amount     big.Int
 	Token      byte   // meter or meter gov
+	Timestamp  uint64 // staking timestamp
 	Nonce      uint64 //staking nonce
 }
 
@@ -58,8 +58,8 @@ func StakingDecodeFromBytes(bytes []byte) (*StakingBody, error) {
 }
 
 func (sb *StakingBody) ToString() string {
-	return fmt.Sprintf("StakingBody: Opcode=%v, Version=%v, Option=%v, HolderAddr=%v, CandAddr=%v, CandName=%v, CandPubKey=%v, CandIP=%v, CandPort=%v, StakingID=%v, Amount=%v, Token=%v, Nonce=%v",
-		sb.Opcode, sb.Version, sb.Option, sb.HolderAddr, sb.CandAddr, sb.CandName, sb.CandPubKey, string(sb.CandIP), sb.CandPort, sb.StakingID, sb.Amount, sb.Token, sb.Nonce)
+	return fmt.Sprintf("StakingBody: Opcode=%v, Version=%v, Option=%v, HolderAddr=%v, CandAddr=%v, CandName=%v, CandPubKey=%v, CandIP=%v, CandPort=%v, StakingID=%v, Amount=%v, Token=%v, Nonce=%v, Timestamo=%v",
+		sb.Opcode, sb.Version, sb.Option, sb.HolderAddr, sb.CandAddr, sb.CandName, sb.CandPubKey, string(sb.CandIP), sb.CandPort, sb.StakingID, sb.Amount, sb.Token, sb.Nonce, sb.Timestamp)
 }
 
 func (sb *StakingBody) BoundHandler(senv *StakingEnviroment, gas uint64) (ret []byte, leftOverGas uint64, err error) {
@@ -103,8 +103,8 @@ func (sb *StakingBody) BoundHandler(senv *StakingEnviroment, gas uint64) (ret []
 	}
 
 	// sanity checked, now do the action
-	opt, rate, mature := GetBoundLockOption(sb.Option)
-	staking.logger.Info("get bound option", "option", opt, "rate", rate, "mature", mature)
+	opt, rate, locktime := GetBoundLockOption(sb.Option)
+	staking.logger.Info("get bound option", "option", opt, "rate", rate, "locktime", locktime)
 
 	var candAddr meter.Address
 	if setCand {
@@ -113,7 +113,7 @@ func (sb *StakingBody) BoundHandler(senv *StakingEnviroment, gas uint64) (ret []
 		candAddr = meter.Address{}
 	}
 
-	bucket := NewBucket(sb.HolderAddr, candAddr, &sb.Amount, uint8(sb.Token), opt, rate, mature, sb.Nonce)
+	bucket := NewBucket(sb.HolderAddr, candAddr, &sb.Amount, uint8(sb.Token), opt, rate, sb.Timestamp+locktime, sb.Nonce)
 	bucketList.Add(bucket)
 
 	stakeholder := stakeholderList.Get(sb.HolderAddr)
@@ -167,7 +167,7 @@ func (sb *StakingBody) UnBoundHandler(senv *StakingEnviroment, gas uint64) (ret 
 	if b == nil {
 		return nil, leftOverGas, errors.New("staking not found")
 	}
-	if b.MatureTime > uint64(time.Now().Unix()) {
+	if b.MatureTime > sb.Timestamp {
 		staking.logger.Error("Bucket is not mature", "mature time", b.MatureTime)
 		return nil, leftOverGas, errors.New("bucket not mature")
 	}
@@ -271,11 +271,11 @@ func (sb *StakingBody) CandidateHandler(senv *StakingEnviroment, gas uint64) (re
 	}
 
 	// now staking the amount, forced to the longest lock
-	opt, rate, mature := GetBoundLockOption(FOUR_WEEK_LOCK)
-	staking.logger.Info("get bound option", "option", opt, "rate", rate, "mature", mature)
+	opt, rate, locktime := GetBoundLockOption(FOUR_WEEK_LOCK)
+	staking.logger.Info("get bound option", "option", opt, "rate", rate, "locktime", locktime)
 
 	// bucket owner is candidate
-	bucket := NewBucket(sb.CandAddr, sb.CandAddr, &sb.Amount, uint8(sb.Token), opt, rate, mature, sb.Nonce)
+	bucket := NewBucket(sb.CandAddr, sb.CandAddr, &sb.Amount, uint8(sb.Token), opt, rate, sb.Timestamp+locktime, sb.Nonce)
 	bucketList.Add(bucket)
 
 	candidate := NewCandidate(sb.CandAddr, sb.CandPubKey, sb.CandIP, sb.CandPort)
