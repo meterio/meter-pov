@@ -63,6 +63,12 @@ func (sb *StakingBody) ToString() string {
 }
 
 func (sb *StakingBody) BoundHandler(senv *StakingEnviroment, gas uint64) (ret []byte, leftOverGas uint64, err error) {
+	defer func() {
+		if err != nil {
+			leftOverGas = 0
+			ret = []byte(err.Error())
+		}
+	}()
 	staking := senv.GetStaking()
 	state := senv.GetState()
 	candidateList := staking.GetCandidateList(state)
@@ -151,6 +157,12 @@ func (sb *StakingBody) BoundHandler(senv *StakingEnviroment, gas uint64) (ret []
 }
 
 func (sb *StakingBody) UnBoundHandler(senv *StakingEnviroment, gas uint64) (ret []byte, leftOverGas uint64, err error) {
+	defer func() {
+		if err != nil {
+			leftOverGas = 0
+			ret = []byte(err.Error())
+		}
+	}()
 	staking := senv.GetStaking()
 	state := senv.GetState()
 	candidateList := staking.GetCandidateList(state)
@@ -213,6 +225,13 @@ func (sb *StakingBody) UnBoundHandler(senv *StakingEnviroment, gas uint64) (ret 
 }
 
 func (sb *StakingBody) CandidateHandler(senv *StakingEnviroment, gas uint64) (ret []byte, leftOverGas uint64, err error) {
+
+	defer func() {
+		if err != nil {
+			leftOverGas = 0
+			ret = []byte(err.Error())
+		}
+	}()
 
 	staking := senv.GetStaking()
 	state := senv.GetState()
@@ -314,7 +333,12 @@ func (sb *StakingBody) CandidateHandler(senv *StakingEnviroment, gas uint64) (re
 }
 
 func (sb *StakingBody) UnCandidateHandler(senv *StakingEnviroment, gas uint64) (ret []byte, leftOverGas uint64, err error) {
-
+	defer func() {
+		if err != nil {
+			leftOverGas = 0
+			ret = []byte(err.Error())
+		}
+	}()
 	staking := senv.GetStaking()
 	state := senv.GetState()
 	candidateList := staking.GetCandidateList(state)
@@ -361,7 +385,12 @@ func (sb *StakingBody) UnCandidateHandler(senv *StakingEnviroment, gas uint64) (
 }
 
 func (sb *StakingBody) DelegateHandler(senv *StakingEnviroment, gas uint64) (ret []byte, leftOverGas uint64, err error) {
-
+	defer func() {
+		if err != nil {
+			leftOverGas = 0
+			ret = []byte(err.Error())
+		}
+	}()
 	staking := senv.GetStaking()
 	state := senv.GetState()
 	candidateList := staking.GetCandidateList(state)
@@ -406,7 +435,12 @@ func (sb *StakingBody) DelegateHandler(senv *StakingEnviroment, gas uint64) (ret
 }
 
 func (sb *StakingBody) UnDelegateHandler(senv *StakingEnviroment, gas uint64) (ret []byte, leftOverGas uint64, err error) {
-
+	defer func() {
+		if err != nil {
+			leftOverGas = 0
+			ret = []byte(err.Error())
+		}
+	}()
 	staking := senv.GetStaking()
 	state := senv.GetState()
 	candidateList := staking.GetCandidateList(state)

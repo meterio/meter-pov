@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"math/big"
 	"math/rand"
-	"time"
 
 	"github.com/ethereum/go-ethereum/rlp"
 
@@ -128,8 +127,8 @@ func TestRlpForBucket(t *testing.T) {
 
 const (
 	//HOLDER_ADDRESS    = "0x0205c2D862cA051010698b69b54278cbAf945C0b"
-	HOLDER_ADDRESS    = "0x0205c2D862cA051010698b69b54278cbAf945C0b"
-	CANDIDATE_ADDRESS = "0x8a88c59bf15451f9deb1d62f7734fece2002668e"
+	HOLDER_ADDRESS    = "0x8E69E4357d886b8dd3131aF7d7627a4381D3Ddd4"
+	CANDIDATE_ADDRESS = "0x8E69E4357d886b8dd3131aF7d7627a4381D3Ddd4"
 	CANDIDATE_AMOUNT  = "2000000000000000000000" //(2e20) 200MTRG
 )
 
@@ -168,9 +167,9 @@ func generateScriptData(opCode uint32, holderAddrStr, candAddrStr string, amount
 		CandPort:   candPort,
 		StakingID:  stakingID,
 		Amount:     *amount,
-		Token:      staking.TOKEN_METER_GOV,
-		Timestamp:  uint64(time.Now().Unix()),
-		Nonce:      uint64(1), //rand.Uint64(),
+		Token:      staking.TOKEN_METER,
+		Timestamp:  uint64(3),
+		Nonce:      uint64(4), //rand.Uint64(),
 	}
 	payload, err := rlp.EncodeToBytes(body)
 	if err != nil {
@@ -302,4 +301,12 @@ func TestCandidateList(t *testing.T) {
 	b2, e = rlp.EncodeToBytes(r2)
 	fmt.Println("HEX decoded &l1:", hex.EncodeToString(b1), ", E:", e)
 	fmt.Println("HEX decoded l2:", hex.EncodeToString(b2), ", E:", e)
+}
+
+func TestDecode(t *testing.T) {
+	body := staking.StakingBody{}
+	bs, err := hex.DecodeString("f86d038002948e69e4357d886b8dd3131af7d7627a4381d3ddd4948e69e4357d886b8dd3131af7d7627a4381d3ddd4867465737465728087312e322e332e348221dda0d75eb6c42a73533f961c38fe2b87bb3615db7ff8e19c0d808c046e7a25d9a413881bc16d674ec80000010301")
+	fmt.Println("ERROR:", err)
+	err = rlp.DecodeBytes(bs, &body)
+	fmt.Println("ERROR:", err, ", BODY:", body.ToString())
 }
