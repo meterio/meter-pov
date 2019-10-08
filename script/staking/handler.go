@@ -482,5 +482,4 @@ func (sb *StakingBody) UnDelegateHandler(senv *StakingEnviroment, gas uint64) (r
 	staking.SetBucketList(bucketList, state)
 	staking.SetStakeHolderList(stakeholderList, state)
 	return
-
 }

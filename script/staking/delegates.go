@@ -37,8 +37,12 @@ func CandidatesToDelegates(size int) error {
 	}
 
 	candList := staking.GetCandidateList(state)
-	delegateList := []SDelegate{}
+	bucketList := staking.GetBucketList(state)
 
+	//update bonus votes
+	staking.CalcBonusVotes(best.Header().Timestamp(), candList, bucketList)
+
+	delegateList := []SDelegate{}
 	for _, c := range candList.candidates {
 		d := SDelegate{
 			Address:     c.Addr,
@@ -56,6 +60,15 @@ func CandidatesToDelegates(size int) error {
 	})
 
 	staking.SetDelegateList(delegateList[:size], state)
+	staking.SetCandidateList(candList, state)
+	staking.SetBucketList(bucketList, state)
+	/****
+		stage := state.Stage()
+		if _, err := stage.Commit(); err != nil {
+			staking.logger.Error("failed to commit state", "err", err)
+			return err
+		}
+	*****/
 	return nil
 }
 

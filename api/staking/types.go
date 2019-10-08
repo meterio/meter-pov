@@ -47,17 +47,18 @@ func convertCandidate(c staking.Candidate) *Candidate {
 }
 
 type Bucket struct {
-	ID          string        `json:"id"`
-	Owner       meter.Address `json:"owner"`
-	Candidate   meter.Address `json:"candidate"`
-	Value       string        `json:"value"`
-	Token       uint8         `json:"token"`
-	Rate        uint8         `json:"rate"`
-	MatureTime  string        `json:"mature"`
-	Nonce       uint64        `json:"nonce"`
-	BounusVotes uint64        `json:"bonusVotes"`
-	TotalVotes  string        `json:"totalVotes"`
-	CreateTime  string        `json:"create"`
+	ID           string        `json:"id"`
+	Owner        meter.Address `json:"owner"`
+	Candidate    meter.Address `json:"candidate"`
+	Value        string        `json:"value"`
+	Token        uint8         `json:"token"`
+	Rate         uint8         `json:"rate"`
+	MatureTime   string        `json:"mature"`
+	Nonce        uint64        `json:"nonce"`
+	BonusVotes   uint64        `json:"bonusvotes"`
+	TotalVotes   string        `json:"totalvotes"`
+	CreateTime   string        `json:"create`
+	CalcLastTime string        `json:"calclasttime"`
 }
 
 func convertBucketList(list *staking.BucketList) []*Bucket {
@@ -65,17 +66,18 @@ func convertBucketList(list *staking.BucketList) []*Bucket {
 
 	for _, b := range list.ToList() {
 		bucketList = append(bucketList, &Bucket{
-			ID:          b.BucketID.String(),
-			Owner:       b.Owner,
-			Candidate:   b.Candidate,
-			Value:       b.Value.String(),
-			Token:       b.Token,
-			Rate:        b.Rate,
-			MatureTime:  fmt.Sprintln(time.Unix(int64(b.MatureTime), 0)),
-			Nonce:       b.Nonce,
-			BounusVotes: b.BounusVotes,
-			TotalVotes:  b.TotalVotes.String(),
-			CreateTime:  fmt.Sprintln(time.Unix(int64(b.CreateTime), 0)),
+			ID:           b.BucketID.String(),
+			Owner:        b.Owner,
+			Candidate:    b.Candidate,
+			Value:        b.Value.String(),
+			Token:        b.Token,
+			Rate:         b.Rate,
+			MatureTime:   fmt.Sprintln(time.Unix(int64(b.MatureTime), 0)),
+			Nonce:        b.Nonce,
+			BonusVotes:   b.BonusVotes,
+			TotalVotes:   b.TotalVotes.String(),
+			CreateTime:   fmt.Sprintln(time.Unix(int64(b.CreateTime), 0)),
+			CalcLastTime: fmt.Sprintln(time.Unix(int64(b.CalcLastTime), 0)),
 		})
 	}
 
