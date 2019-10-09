@@ -575,6 +575,19 @@ func (p *Pacemaker) Start(blockQC *block.QuorumCert, newCommittee bool) {
 	p.proposalMap[height] = &bInit
 	p.QCHigh = &qcInit
 
+	// drain the channels
+	for len(p.pacemakerMsgCh) > 0 {
+		<-p.pacemakerMsgCh
+	}
+	for len(p.roundTimeoutCh) > 0 {
+		<-p.roundTimeoutCh
+	}
+	for len(p.beatCh) > 0 {
+		<-p.beatCh
+	}
+	for len(p.stopCh) > 0 {
+		<-p.stopCh
+	}
 	go p.mainLoop()
 
 	p.ScheduleOnBeat(height+1, round, 1*time.Second) //delay 1s
@@ -649,11 +662,7 @@ func (p *Pacemaker) SendKblockInfo(b *pmBlock) error {
 
 func (p *Pacemaker) stopCleanup() {
 	// clean up propose map
-	l := []*pmBlock{}
 	for _, b := range p.proposalMap {
-		l = append(l, b)
-	}
-	for _, b := range l {
 		delete(p.proposalMap, b.Height)
 	}
 

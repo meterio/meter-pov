@@ -447,11 +447,6 @@ func (c *ConsensusReactor) verifyBlock(blk *block.Block, state *state.State) (*s
 			}
 		}
 
-		fmt.Println("verifyBlock ---------")
-		fmt.Println("len(Clause):", len(tx.Clauses()))
-		for _, c := range tx.Clauses() {
-			fmt.Println(hex.EncodeToString(c.Data()))
-		}
 		receipt, err := rt.ExecuteTransaction(tx)
 		if err != nil {
 			return nil, nil, err
