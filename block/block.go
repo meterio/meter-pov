@@ -6,8 +6,10 @@
 package block
 
 import (
+	"encoding/hex"
 	"fmt"
 	"io"
+	"strings"
 	"sync/atomic"
 
 	cmn "github.com/dfinlab/meter/libs/common"
@@ -35,6 +37,14 @@ type PowRawBlock []byte
 type KBlockData struct {
 	Nonce uint64 // the last of the pow block
 	Data  []PowRawBlock
+}
+
+func (d KBlockData) ToString() string {
+	hexs := make([]string, 0)
+	for _, r := range d.Data {
+		hexs = append(hexs, hex.EncodeToString(r))
+	}
+	return fmt.Sprintf("KBlockData(Nonce:%v, Data:%v)", d.Nonce, strings.Join(hexs, ","))
 }
 
 type CommitteeInfo struct {
