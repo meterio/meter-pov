@@ -186,7 +186,7 @@ func (m *powObjectMap) FillLatestObjChain(obj *powObject) (*PowResult, error) {
 		interval = 5 * POW_MINIMUM_HEIGHT_INTV
 	}
 
-	for prev != nil && prev != m.lastKframePowObj && interval >= 0 {
+	for prev != nil && prev != m.lastKframePowObj && interval > 0 {
 
 		nTarget := blockchain.CompactToBig(prev.blockInfo.NBits)
 		nDifficaulty := nTarget.Div(genesisTarget, nTarget)
