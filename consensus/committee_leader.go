@@ -481,8 +481,8 @@ Myself is Leader, Let's start the pacemaker.
 		cl.csReactor.enterConsensusValidator()
 		cl.csReactor.csValidator.state = COMMITTEE_VALIDATOR_COMMITSENT
 
-		//committee is waiting for this first block, so move forward immediatly
-		//cl.csReactor.ScheduleProposer(0)
+		// clean up
+		cl.csReactor.NewCommitteeCleanup()
 
 		// Now start the pacemaker
 		newCommittee := !cl.replay

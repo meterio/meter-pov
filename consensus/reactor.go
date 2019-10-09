@@ -875,7 +875,7 @@ func (conR *ConsensusReactor) receivePacemakerMsgRoutine() {
 func (conR *ConsensusReactor) NewConsensusStart() int {
 	conR.logger.Debug("Starting New Consensus ...")
 
-	/***** Yang: Common init is based on role: leader and normal validator.
+	/***** XXX: Common init is based on roles
 	 ***** Leader generate bls type/params/system and send out those params
 	 ***** by announce message. Validators receives announce and do common init
 
@@ -961,11 +961,6 @@ func (conR *ConsensusReactor) exitConsensusLeader(epochID uint64) {
 
 // Cleanup all roles before the comittee relay
 func (conR *ConsensusReactor) exitCurCommittee() error {
-	// stop packermaker
-	// need the state pacemaker is running
-	if conR.csPacemaker != nil {
-		//conR.csPacemaker.Stop()
-	}
 
 	conR.exitConsensusLeader(conR.curEpoch)
 	conR.exitConsensusValidator()
@@ -1383,8 +1378,6 @@ func (conR *ConsensusReactor) ConsensusHandleReceivedNonce(kBlockHeight int64, n
 	//conR.lastKBlockHeight = kBlockHeight
 	conR.curNonce = nonce
 
-	//buf := make([]byte, binary.MaxVarintLen64)
-	//binary.PutUvarint(buf, nonce)
 	role, inCommittee := conR.NewValidatorSetByNonce(nonce)
 
 	if inCommittee {
@@ -1467,13 +1460,14 @@ func (conR *ConsensusReactor) ConsensusHandleReceivedNonce(kBlockHeight int64, n
 	return
 }
 
-// Easier adjust the logic of major 2/3
+// since votes of pacemaker include propser, but committee votes
+// do not have leader itself, we seperate the majority func
+// Easier adjust the logic of major 2/3, for pacemaker
 func MajorityTwoThird(voterNum, committeeSize int) bool {
 	if (voterNum < 0) || (committeeSize < 1) {
 		fmt.Println("MajorityTwoThird, inputs out of range")
 		return false
 	}
-
 	// Examples
 	// committeeSize= 1 twoThirds= 1
 	// committeeSize= 2 twoThirds= 2
@@ -1485,20 +1479,18 @@ func MajorityTwoThird(voterNum, committeeSize int) bool {
 	if float64(voterNum) >= twoThirds {
 		return true
 	}
-
 	return false
 }
 
-// Easier adjust the logic of major 2/3
+// for committee
 func LeaderMajorityTwoThird(voterNum, committeeSize int) bool {
 	if (voterNum < 0) || (committeeSize < 1) {
 		fmt.Println("MajorityTwoThird, inputs out of range")
 		return false
 	}
-
 	// Examples
 	// committeeSize= 1 twoThirds= 1
-	// committeeSize= 2 twoThirds= 2   <====== 1
+	// committeeSize= 2 twoThirds= 1
 	// committeeSize= 3 twoThirds= 2
 	// committeeSize= 4 twoThirds= 3
 	// committeeSize= 5 twoThirds= 4
@@ -1512,7 +1504,6 @@ func LeaderMajorityTwoThird(voterNum, committeeSize int) bool {
 	if float64(voterNum) >= twoThirds {
 		return true
 	}
-
 	return false
 }
 

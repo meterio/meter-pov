@@ -85,6 +85,17 @@ func (conR *ConsensusReactor) NewCommitteeInit(height, nonce uint64, replay bool
 	return nil
 }
 
+func (conR *ConsensusReactor) NewCommitteeCleanup() {
+	// clean up received map
+	for _, nc := range conR.rcvdNewCommittee {
+		delete(conR.rcvdNewCommittee, NewCommitteeKey{nc.KblockHeight, nc.Round})
+	}
+
+	// clean up local
+	conR.NewCommitteeTimerStop()
+	conR.newCommittee = nil
+}
+
 func (conR *ConsensusReactor) NewCommitteeTimerStart() {
 	if conR.newCommittee.TimeoutTimer == nil {
 		timeoutInterval := NEW_COMMITTEE_INIT_INTV * (2 << conR.newCommittee.Round)

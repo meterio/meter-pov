@@ -303,7 +303,7 @@ func (cv *ConsensusValidator) ProcessNotaryAnnounceMessage(notaryMsg *NotaryAnno
 	cv.SendMsgToPeer(&m, leaderNetAddr)
 
 	// stop new committee timer cos it is established
-	cv.csReactor.NewCommitteeTimerStop()
+	cv.csReactor.NewCommitteeCleanup()
 
 	//Committee is established. Myself is Leader, server as 1st proposer.
 	cv.csReactor.logger.Info(`
