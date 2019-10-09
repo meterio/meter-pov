@@ -133,17 +133,6 @@ func (cv *ConsensusValidator) ProcessAnnounceCommittee(announceMsg *AnnounceComm
 		return true
 	}
 
-	//Decode Nonce form message, create validator set
-
-	// valid the common header first
-	/*** keep it for a while
-	announceMsg, ok := interface{}(announce).(AnnounceCommitteeMessage)
-	if ok != false {
-		cv.csReactor.logger.Error("Message type is not AnnounceCommitteeMessage")
-		return false
-	}
-	***/
-
 	ch := announceMsg.CSMsgCommonHeader
 	if !cv.checkHeightAndRound(ch) {
 		return false
@@ -180,8 +169,9 @@ func (cv *ConsensusValidator) ProcessAnnounceCommittee(announceMsg *AnnounceComm
 		return false
 	}
 
-	// Verify Leader is announce sender?
-	lv := cv.csReactor.curCommittee.Validators[0]
+	// Verify Leader is announce sender?  should match my round
+	round := cv.csReactor.newCommittee.Round
+	lv := cv.csReactor.curCommittee.Validators[round]
 	if bytes.Equal(crypto.FromECDSAPub(&lv.PubKey), ch.Sender) == false {
 		cv.csReactor.logger.Error("Sender is not leader in my committee ...")
 		return false

@@ -41,13 +41,6 @@ type ConsensusLeader struct {
 	replay    bool
 
 	//signature data
-	newCommitteeVoterBitArray *cmn.BitArray
-	newCommitteeVoterSig      []bls.Signature
-	newCommitteeVoterPubKey   []bls.PublicKey
-	newCommitteeVoterMsgHash  [][32]byte
-	newCommitteeVoterAggSig   bls.Signature
-	newCommitteeVoterNum      int
-
 	announceVoterBitArray *cmn.BitArray
 	announceVoterIndexs   []int
 	announceVoterSig      []bls.Signature
@@ -91,17 +84,14 @@ func (cl *ConsensusLeader) MoveInitState(curState byte) bool {
 
 //New CommitteeLeader
 func NewCommitteeLeader(conR *ConsensusReactor) *ConsensusLeader {
-	var cl ConsensusLeader
-
-	// initialize the ConsenusLeader
-	//cl.consensus_id = conR.consensus_id
-	cl.Nonce = conR.curNonce
-	cl.state = COMMITTEE_LEADER_INIT
-	cl.csReactor = conR
-	cl.EpochID = conR.curEpoch
-
-	cl.announceVoterBitArray = cmn.NewBitArray(conR.committeeSize)
-	cl.notaryVoterBitArray = cmn.NewBitArray(conR.committeeSize)
+	cl := &ConsensusLeader{
+		Nonce:                 conR.curNonce,
+		state:                 COMMITTEE_LEADER_INIT,
+		csReactor:             conR,
+		EpochID:               conR.curEpoch,
+		announceVoterBitArray: cmn.NewBitArray(conR.committeeSize),
+		notaryVoterBitArray:   cmn.NewBitArray(conR.committeeSize),
+	}
 
 	// form topology, we know the 0 is Leader itself
 	fmt.Println(conR.curCommittee)
@@ -110,7 +100,7 @@ func NewCommitteeLeader(conR *ConsensusReactor) *ConsensusLeader {
 		p := newConsensusPeer(v.NetAddr.IP, v.NetAddr.Port)
 		cl.csPeers = append(cl.csPeers, p)
 	}
-	return &cl
+	return cl
 }
 
 // Committee leader create AnnounceCommittee to all peers
@@ -517,90 +507,4 @@ func (cl *ConsensusLeader) checkHeightAndRound(ch ConsensusMsgCommonHeader) bool
 		return false
 	}
 	return true
-}
-
-// once reach 2/3 send aout annouce message
-func (cl *ConsensusLeader) ProcessNewCommitteeMessage(newCommitteeMsg *NewCommitteeMessage, src *ConsensusPeer) bool {
-
-	ch := newCommitteeMsg.CSMsgCommonHeader
-
-	if cl.csReactor.ValidateCMheaderSig(&ch, newCommitteeMsg.SigningHash().Bytes()) == false {
-		cl.csReactor.logger.Error("Signature validate failed")
-		return false
-	}
-
-	if ch.MsgType != CONSENSUS_MSG_NEW_COMMITTEE {
-		cl.csReactor.logger.Error("MsgType is not CONSENSUS_MSG_NEW_COMMITTEE")
-		return false
-	}
-
-	/*** round is not implement yet ***
-	if cl.csReactor.curRound != newCommitteeMsg.CurRound {
-		cl.csReactor.logger.Error("curRound mismatch!", "curRound", cl.csReactor.curRound, "newCommitteeMsg.CurRound", newRoundMsg.CurRound)
-		return false
-	}
-	******/
-
-	// Now validate I am the committee leader of the nonce and sender is in committee
-
-	//so far so good
-
-	/************does not have BLS signature yet ********************
-	// 1. validate signature
-	myPubKey := cl.csReactor.myPubKey
-	signMsg := cl.csReactor.BuildNewRoundSignMsg(myPubKey, cl.EpochID, uint64(ch.Height), uint32(0))
-	cl.csReactor.logger.Debug("Sign message", "msg", signMsg)
-
-	// validate the message hash
-	msgHash := cl.csReactor.csCommon.Hash256Msg([]byte(signMsg), uint32(MSG_SIGN_OFFSET_DEFAULT), uint32(MSG_SIGN_LENGTH_DEFAULT))
-	if msgHash != newRoundMsg.SignedMessageHash {
-		cl.csReactor.logger.Error("msgHash mismatch ...")
-		return false
-	}
-
-	sig, err := cl.csReactor.csCommon.system.SigFromBytes(newRoundMsg.ValidatorSignature)
-	if err != nil {
-		cl.csReactor.logger.Error("get signature failed ...")
-		return false
-	}
-
-	pubKey, err := cl.csReactor.csCommon.system.PubKeyFromBytes(newRoundMsg.ValidatorPubkey)
-	if err != nil {
-		cl.csReactor.logger.Error("get PubKey failed ...")
-		return false
-	}
-
-	valid := bls.Verify(sig, msgHash, pubKey)
-	if valid == false {
-		cl.csReactor.logger.Error("validate voter signature failed")
-		if cl.csReactor.config.SkipSignatureCheck == true {
-			cl.csReactor.logger.Error("but SkipSignatureCheck is true, continue ...")
-		} else {
-			return false
-		}
-	}
-
-	// 2. add src to bitArray.
-	cl.newRoundVoterNum++
-	cl.newRoundVoterIndexs = append(cl.newRoundVoterIndexs, newRoundMsg.ValidatorIndex)
-	cl.newRoundVoterSig = append(cl.newRoundVoterSig, sig)
-	cl.newRoundVoterPubKey = append(cl.newRoundVoterPubKey, pubKey)
-	cl.newRoundVoterMsgHash = append(cl.newRoundVoterMsgHash, msgHash)
-	********************/
-	epochID := newCommitteeMsg.NewEpochID
-	cl.newCommitteeVoterNum++
-	// 3. if the totoal vote > 2/3, move to Commit state
-	if LeaderMajorityTwoThird(cl.newCommitteeVoterNum, cl.csReactor.committeeSize) {
-		cl.csReactor.logger.Debug("NewCommitteeMessage, 2/3 Majority reached", "Recvd", cl.newCommitteeVoterNum, "committeeSize", cl.csReactor.committeeSize)
-		cl.csReactor.ScheduleLeader(epochID, 10*time.Second) // Wait for block sync since there is no time out yet
-		// to avoid duplicate trigger
-		// TODO: better way to do this?
-		cl.newCommitteeVoterNum = 0
-		return true
-	} else {
-		// not reach 2/3 yet, wait for more
-		cl.csReactor.logger.Debug("received NewCommitteeMessage (2/3 not reached yet, wait for more)", "Recvd", cl.newCommitteeVoterNum, "committeeSize", cl.csReactor.committeeSize)
-		return true
-	}
-
 }

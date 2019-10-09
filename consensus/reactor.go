@@ -10,55 +10,42 @@ import (
 	"sync"
 
 	//"errors"
+	b64 "encoding/base64"
 	"fmt"
 	"io/ioutil"
 	"net"
 	"net/http"
-	"reflect"
-	"sort"
-	"strconv"
-	"time"
-
 	"os"
 	"path"
+	"reflect"
 	"runtime"
-
-	b64 "encoding/base64"
+	"sort"
+	"strconv"
 	"strings"
+	"time"
 
 	"github.com/gorilla/mux"
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/rs/cors"
+	cli "gopkg.in/urfave/cli.v1"
 
-	//amino "github.com/dfinlab/go-amino"
-	crypto "github.com/ethereum/go-ethereum/crypto"
-
-	//"github.com/ethereum/go-ethereum/rlp"
-	//"github.com/dfinlab/meter/block"
-	//"github.com/ethereum/go-ethereum/p2p"
 	"github.com/dfinlab/meter/block"
 	"github.com/dfinlab/meter/chain"
 	"github.com/dfinlab/meter/comm"
 	bls "github.com/dfinlab/meter/crypto/multi_sig"
 	"github.com/dfinlab/meter/genesis"
+	cmn "github.com/dfinlab/meter/libs/common"
 	"github.com/dfinlab/meter/meter"
 	"github.com/dfinlab/meter/powpool"
 	"github.com/dfinlab/meter/script/staking"
-	"github.com/inconshreveable/log15"
-
-	//"github.com/dfinlab/meter/runtime"
 	"github.com/dfinlab/meter/state"
-	//"github.com/dfinlab/meter/tx"
 	"github.com/dfinlab/meter/types"
-	//"github.com/dfinlab/meter/xenv"
-	cmn "github.com/dfinlab/meter/libs/common"
-	"github.com/prometheus/client_golang/prometheus"
-
-	cli "gopkg.in/urfave/cli.v1"
+	crypto "github.com/ethereum/go-ethereum/crypto"
+	"github.com/inconshreveable/log15"
 )
 
 const (
 	maxMsgSize = 1048576 // 1MB; NOTE/TODO: keep in sync with types.PartSet sizes.
-	//maxMsgSize = 1536000 // 1.5MB;
 
 	//normally when a block is committed, wait for a while to let whole network to sync and move to next round
 	// WHOLE_NETWORK_BLOCK_SYNC_TIME = 6 * time.Second
@@ -119,7 +106,6 @@ type ConsensusConfig struct {
 }
 
 //-----------------------------------------------------------------------------
-
 // ConsensusReactor defines a reactor for the consensus service.
 type ConsensusReactor struct {
 	chain        *chain.Chain
@@ -174,7 +160,8 @@ type ConsensusReactor struct {
 	KBlockDataQueue    chan block.KBlockData // from POW simulation
 	RcvKBlockInfoQueue chan RecvKBlockInfo   // this channel for kblock notify from node module.
 
-	newCommittee NewCommittee
+	newCommittee     *NewCommittee                     //New committee for myself
+	rcvdNewCommittee map[NewCommitteeKey]*NewCommittee // store received new committee info
 }
 
 // Glob Instance
@@ -249,6 +236,8 @@ func NewConsensusReactor(ctx *cli.Context, chain *chain.Chain, state *state.Crea
 
 	conR.committeeSize = ctx.Int("committee-size") // 4 //COMMITTEE_SIZE
 
+	conR.rcvdNewCommittee = make(map[NewCommitteeKey]*NewCommittee, 10)
+
 	conR.myPrivKey = *privKey
 	conR.myPubKey = *pubKey
 
@@ -272,10 +261,8 @@ func (conR *ConsensusReactor) OnStart() error {
 // OnStop implements BaseService by unsubscribing from events and stopping
 // state.
 func (conR *ConsensusReactor) OnStop() {
-
 	// New consensus
 	conR.NewConsensusStop()
-
 }
 
 func (conR *ConsensusReactor) GetLastKBlockHeight() uint32 {
@@ -296,7 +283,6 @@ func (conR *ConsensusReactor) SwitchToConsensus() {
 	if best.Header().Number() == 0 {
 		nonce = genesis.GenesisNonce
 		replay = false
-
 		conR.ConsensusHandleReceivedNonce(int64(best.Header().Number()), nonce, replay)
 		return
 	}
@@ -314,7 +300,6 @@ func (conR *ConsensusReactor) SwitchToConsensus() {
 		}
 		nonce = kBlockData.Nonce
 		replay = false
-
 		conR.ConsensusHandleReceivedNonce(int64(best.Header().Number()), nonce, replay)
 	} else {
 		// mblock
@@ -339,7 +324,6 @@ func (conR *ConsensusReactor) SwitchToConsensus() {
 
 		//mark the flag of replay. should initialize by existed the BLS system
 		replay = true
-
 		conR.ConsensusHandleReceivedNonce(int64(lastKBlockHeight), nonce, replay)
 	}
 
@@ -760,14 +744,7 @@ func (conR *ConsensusReactor) handleMsg(mi consensusMsgInfo) {
 		}
 
 	case *NewCommitteeMessage:
-		if (conR.csRoleInitialized&CONSENSUS_COMMIT_ROLE_LEADER) == 0 ||
-			(conR.csLeader == nil) {
-			conR.logger.Warn("not in leader role yet, enter leader first ...", "EpochID", msg.NewEpochID)
-			// if find out we are not in committee, then exit validator
-			conR.enterConsensusLeader(msg.NewEpochID)
-		}
-
-		success := conR.csLeader.ProcessNewCommitteeMessage(msg, peer)
+		success := conR.ProcessNewCommitteeMessage(msg, peer)
 		if success == false {
 			conR.logger.Error("process NewcommitteeMessage failed")
 		}
@@ -924,7 +901,6 @@ func (conR *ConsensusReactor) NewConsensusStop() int {
 
 	// Deinitialize consensus common
 	conR.csCommon.ConsensusCommonDeinit()
-
 	return 0
 }
 
@@ -1272,9 +1248,9 @@ func (conR *ConsensusReactor) BuildTimeoutSignMsg(pubKey ecdsa.PublicKey, round 
 //type Scheduler func(conR *ConsensusReactor) bool
 
 //TBD: implemente timed schedule, Duration is not used right now
-func (conR *ConsensusReactor) ScheduleLeader(epochID uint64, d time.Duration) bool {
+func (conR *ConsensusReactor) ScheduleLeader(epochID uint64, height uint64, d time.Duration) bool {
 	time.AfterFunc(d, func() {
-		conR.schedulerQueue <- func() { HandleScheduleLeader(conR, epochID) }
+		conR.schedulerQueue <- func() { HandleScheduleLeader(conR, epochID, height) }
 	})
 	return true
 }
@@ -1359,10 +1335,15 @@ func HandleScheduleReplayValidator(conR *ConsensusReactor) bool {
 	return true
 }
 
-func HandleScheduleLeader(conR *ConsensusReactor, epochID uint64) bool {
-	//conR.exitConsensusLeader(conR.curEpoch)
-	conR.enterConsensusLeader(epochID)
+func HandleScheduleLeader(conR *ConsensusReactor, epochID, height uint64) bool {
+	curHeight := uint64(conR.chain.BestBlock().Header().Number())
+	if curHeight != height {
+		conR.logger.Error("curHeight is not the same with kblock height", "curHeight", curHeight, "kblock height", height)
+		conR.ScheduleLeader(epochID, height, 10*time.Second)
+		return false
+	}
 
+	conR.enterConsensusLeader(epochID)
 	conR.csLeader.GenerateAnnounceMsg()
 	return true
 }
@@ -1438,6 +1419,15 @@ func (conR *ConsensusReactor) ConsensusHandleReceivedNonce(kBlockHeight int64, n
 		epochID := conR.curEpoch
 		conR.exitConsensusLeader(epochID)
 		conR.enterConsensusLeader(epochID + 1)
+
+		// no replay case, the last block must be kblock!
+		if replay == false && conR.curHeight != kBlockHeight {
+			conR.logger.Error("the best block is not kblock", "curHeight", conR.curHeight, "kblock Height", kBlockHeight)
+			return
+		}
+
+		conR.NewCommitteeInit(uint64(kBlockHeight), nonce, replay)
+
 		//TBD:
 		// wait 30 seconds for synchronization
 		// time.Sleep(5 * WHOLE_NETWORK_BLOCK_SYNC_TIME)
@@ -1459,9 +1449,13 @@ func (conR *ConsensusReactor) ConsensusHandleReceivedNonce(kBlockHeight int64, n
 			conR.ScheduleValidator(0)
 		}
 		*****/
+		// no replay case, the last block must be kblock!
+		if replay == false && conR.curHeight != kBlockHeight {
+			conR.logger.Error("the best block is not kblock", "curHeight", conR.curHeight, "kblock Height", kBlockHeight)
+			return
+		}
 
-		conR.NewCommitteeInit(uint64(kBlockHeight), nonce)
-
+		conR.NewCommitteeInit(uint64(kBlockHeight), nonce, replay)
 		newCommittee := conR.newCommittee
 		nl := newCommittee.Committee.Validators[newCommittee.Round]
 		leader := newConsensusPeer(nl.NetAddr.IP, nl.NetAddr.Port)
@@ -1520,42 +1514,6 @@ func LeaderMajorityTwoThird(voterNum, committeeSize int) bool {
 	}
 
 	return false
-}
-
-// send new round message to future committee leader
-func (conR *ConsensusReactor) sendNewCommitteeMessage(peer *ConsensusPeer, pubKey ecdsa.PublicKey, kblockHeight uint64, nonce uint64, round uint64) error {
-
-	msg := &NewCommitteeMessage{
-		CSMsgCommonHeader: ConsensusMsgCommonHeader{
-			Height:    conR.curHeight,
-			Round:     int(round),
-			Sender:    crypto.FromECDSAPub(&conR.myPubKey),
-			Timestamp: time.Now(),
-			MsgType:   CONSENSUS_MSG_NEW_COMMITTEE,
-		},
-
-		NewEpochID:      conR.curEpoch + 1,
-		NewLeaderPubKey: crypto.FromECDSAPub(&pubKey),
-		ValidatorPubkey: crypto.FromECDSAPub(&conR.myPubKey),
-		Nonce:           nonce,
-		KBlockHeight:    kblockHeight,
-
-		// Signature part.
-	}
-
-	// sign message
-	msgSig, err := conR.SignConsensusMsg(msg.SigningHash().Bytes())
-	if err != nil {
-		conR.logger.Error("Sign message failed", "error", err)
-		return err
-	}
-	msg.CSMsgCommonHeader.SetMsgSignature(msgSig)
-
-	// state to init & send move to next round
-	// fmt.Println("msg: %v", msg.String())
-	var m ConsensusMessage = msg
-	conR.sendConsensusMsg(&m, peer)
-	return nil
 }
 
 //============================================================================

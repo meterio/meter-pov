@@ -665,6 +665,10 @@ func (p *Pacemaker) stopCleanup() {
 	p.blockLocked = nil
 }
 
+func (p *Pacemaker) IsStopped() bool {
+	return p.QCHigh == nil && p.blockExecuted == nil && p.blockLocked == nil
+}
+
 //actions of commites/receives kblock, stop pacemake to next committee
 // all proposal txs need to be reclaimed before stop
 func (p *Pacemaker) Stop() {
