@@ -672,6 +672,7 @@ func (p *Pacemaker) IsStopped() bool {
 //actions of commites/receives kblock, stop pacemake to next committee
 // all proposal txs need to be reclaimed before stop
 func (p *Pacemaker) Stop() {
+	p.stopRoundTimer()
 	chain := p.csReactor.chain
 	p.logger.Info(fmt.Sprintf("*** Pacemaker stopped. Current best %v, leaf %v\n",
 		chain.BestBlock().Oneliner(), chain.LeafBlock().Oneliner()))
