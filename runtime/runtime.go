@@ -427,7 +427,6 @@ func (rt *Runtime) PrepareTransaction(tx *tx.Transaction) (*TransactionExecutor,
 				return 0, nil, errors.New("no more clause")
 			}
 			nextClauseIndex := uint32(len(txOutputs))
-			fmt.Println("before execute clause: ", hex.EncodeToString(resolvedTx.Clauses[nextClauseIndex].Data()))
 			output = rt.ExecuteClause(resolvedTx.Clauses[nextClauseIndex], nextClauseIndex, leftOverGas, txCtx)
 			gasUsed = leftOverGas - output.LeftOverGas
 			leftOverGas = output.LeftOverGas

@@ -10,8 +10,8 @@ import (
 	"io"
 	"math/big"
 
-	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/dfinlab/meter/meter"
+	"github.com/ethereum/go-ethereum/rlp"
 )
 
 type clauseBody struct {
@@ -116,8 +116,8 @@ func (c *Clause) String() string {
 		to = c.body.To.String()
 	}
 	return fmt.Sprintf(`
-		(To:	%v
-		 Value:	%v
-		 Token: %v
-		 Data:	0x%x)`, to, c.body.Value, c.body.Token, c.body.Data)
+    (To:   %v
+    Value: %v
+    Token: %v
+    Data:  0x%x)`, to, c.body.Value, c.body.Token, c.body.Data)
 }
