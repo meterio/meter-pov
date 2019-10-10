@@ -93,7 +93,7 @@ func (conR *ConsensusReactor) NewCommitteeCleanup() {
 
 	// clean up local
 	conR.NewCommitteeTimerStop()
-	conR.newCommittee = nil
+	//conR.newCommittee = nil
 }
 
 func (conR *ConsensusReactor) NewCommitteeTimerStart() {
