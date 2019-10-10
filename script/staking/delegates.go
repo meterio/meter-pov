@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
-	"sort"
 
 	crypto "github.com/ethereum/go-ethereum/crypto"
 
@@ -19,57 +18,6 @@ type SDelegate struct {
 	VotingPower *big.Int
 	IPAddr      []byte
 	Port        uint16
-}
-
-// periodically change candidates to delegates
-func CandidatesToDelegates(size int) error {
-	staking := GetStakingGlobInst()
-	if staking == nil {
-		fmt.Println("staking is not initilized...")
-		err := errors.New("staking is not initilized...")
-		return err
-	}
-
-	best := staking.chain.BestBlock()
-	state, err := staking.stateCreator.NewState(best.Header().StateRoot())
-	if err != nil {
-		return err
-	}
-
-	candList := staking.GetCandidateList(state)
-	bucketList := staking.GetBucketList(state)
-
-	//update bonus votes
-	staking.CalcBonusVotes(best.Header().Timestamp(), candList, bucketList)
-
-	delegateList := []SDelegate{}
-	for _, c := range candList.candidates {
-		d := SDelegate{
-			Address:     c.Addr,
-			PubKey:      c.PubKey,
-			Name:        c.Name,
-			VotingPower: c.TotalVotes,
-			IPAddr:      c.IPAddr,
-			Port:        c.Port,
-		}
-		delegateList = append(delegateList, d)
-	}
-
-	sort.SliceStable(delegateList, func(i, j int) bool {
-		return (delegateList[i].VotingPower.Cmp(delegateList[j].VotingPower) <= 0)
-	})
-
-	staking.SetDelegateList(delegateList[:size], state)
-	staking.SetCandidateList(candList, state)
-	staking.SetBucketList(bucketList, state)
-	/****
-		stage := state.Stage()
-		if _, err := stage.Commit(); err != nil {
-			staking.logger.Error("failed to commit state", "err", err)
-			return err
-		}
-	*****/
-	return nil
 }
 
 //  api routine interface

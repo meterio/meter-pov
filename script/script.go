@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	"github.com/dfinlab/meter/chain"
+	"github.com/dfinlab/meter/meter"
 	"github.com/dfinlab/meter/state"
 	"github.com/dfinlab/meter/xenv"
 	"github.com/ethereum/go-ethereum/rlp"
@@ -52,8 +53,8 @@ func (se *ScriptEngine) StartAllModules() {
 	ModuleStakingInit(se)
 }
 
-func (se *ScriptEngine) HandleScriptData(data []byte, txCtx *xenv.TransactionContext, gas uint64, state *state.State) (ret []byte, leftOverGas uint64, err error) {
-	se.logger.Info("received script data", "txCtx", txCtx, "gas", gas, "data", hex.EncodeToString(data))
+func (se *ScriptEngine) HandleScriptData(data []byte, to *meter.Address, txCtx *xenv.TransactionContext, gas uint64, state *state.State) (ret []byte, leftOverGas uint64, err error) {
+	se.logger.Info("received script data", "to", to, "txCtx", txCtx, "gas", gas, "data", hex.EncodeToString(data))
 	if bytes.Compare(data[:len(ScriptPattern)], ScriptPattern[:]) != 0 {
 		err := errors.New(fmt.Sprintf("Pattern mismatch, pattern = %v", hex.EncodeToString(data[:len(ScriptPattern)])))
 		fmt.Println(err)
@@ -77,7 +78,7 @@ func (se *ScriptEngine) HandleScriptData(data []byte, txCtx *xenv.TransactionCon
 
 	fmt.Println(mod.ToString())
 	//module handler
-	ret, leftOverGas, err = mod.modHandler(script.Payload, txCtx, gas, state)
+	ret, leftOverGas, err = mod.modHandler(script.Payload, to, txCtx, gas, state)
 	return
 }
 

@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/dfinlab/meter/chain"
+	"github.com/dfinlab/meter/meter"
 	"github.com/dfinlab/meter/state"
 	"github.com/dfinlab/meter/xenv"
 	"github.com/inconshreveable/log15"
@@ -59,9 +60,9 @@ func (s *Staking) Start() error {
 	return nil
 }
 
-func (s *Staking) PrepareStakingHandler() (StakingHandler func(data []byte, txCtx *xenv.TransactionContext, gas uint64, state *state.State) (ret []byte, leftOverGas uint64, err error)) {
+func (s *Staking) PrepareStakingHandler() (StakingHandler func(data []byte, to *meter.Address, txCtx *xenv.TransactionContext, gas uint64, state *state.State) (ret []byte, leftOverGas uint64, err error)) {
 
-	StakingHandler = func(data []byte, txCtx *xenv.TransactionContext, gas uint64, state *state.State) (ret []byte, leftOverGas uint64, err error) {
+	StakingHandler = func(data []byte, to *meter.Address, txCtx *xenv.TransactionContext, gas uint64, state *state.State) (ret []byte, leftOverGas uint64, err error) {
 
 		sb, err := StakingDecodeFromBytes(data)
 		if err != nil {
@@ -69,7 +70,7 @@ func (s *Staking) PrepareStakingHandler() (StakingHandler func(data []byte, txCt
 			return nil, gas, err
 		}
 
-		senv := NewStakingEnviroment(s, state, txCtx)
+		senv := NewStakingEnviroment(s, state, txCtx, to)
 		if senv == nil {
 			panic("create staking enviroment failed")
 		}
@@ -119,6 +120,12 @@ func (s *Staking) PrepareStakingHandler() (StakingHandler func(data []byte, txCt
 				return nil, gas, errors.New("holder address is not the same from transaction")
 			}
 			ret, leftOverGas, err = sb.UnDelegateHandler(senv, gas)
+
+		case OP_GOVERNING:
+			if senv.GetToAddr().String() != StakingModuleAddr.String() {
+				return nil, gas, errors.New("to address is not the same from module address")
+			}
+			ret, leftOverGas, err = sb.GoverningHandler(senv, gas)
 
 		default:
 			s.logger.Error("unknown Opcode", "Opcode", sb.Opcode)

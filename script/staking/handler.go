@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"sort"
 
 	"github.com/dfinlab/meter/meter"
 	"github.com/ethereum/go-ethereum/rlp"
@@ -17,6 +18,7 @@ const (
 	OP_UNCANDIDATE = uint32(4)
 	OP_DELEGATE    = uint32(5)
 	OP_UNDELEGATE  = uint32(6)
+	OP_GOVERNING   = uint32(10001)
 )
 
 const (
@@ -481,5 +483,57 @@ func (sb *StakingBody) UnDelegateHandler(senv *StakingEnviroment, gas uint64) (r
 	staking.SetCandidateList(candidateList, state)
 	staking.SetBucketList(bucketList, state)
 	staking.SetStakeHolderList(stakeholderList, state)
+	return
+}
+
+func (sb *StakingBody) GoverningHandler(senv *StakingEnviroment, gas uint64) (ret []byte, leftOverGas uint64, err error) {
+	defer func() {
+		if err != nil {
+			ret = []byte(err.Error())
+		}
+	}()
+	staking := senv.GetStaking()
+	state := senv.GetState()
+	candList := staking.GetCandidateList(state)
+	bucketList := staking.GetBucketList(state)
+
+	fmt.Println("!!!!!!Entered Governing Handler!!!!!!")
+
+	if gas < meter.ClauseGas {
+		leftOverGas = 0
+	} else {
+		leftOverGas = gas - meter.ClauseGas
+	}
+
+	ts := sb.Timestamp
+	delegateSize := int(sb.Option)
+
+	//update bonus votes
+	staking.CalcBonusVotes(ts, candList, bucketList)
+
+	dList := []SDelegate{}
+	for _, c := range candList.candidates {
+		d := SDelegate{
+			Address:     c.Addr,
+			PubKey:      c.PubKey,
+			Name:        c.Name,
+			VotingPower: c.TotalVotes,
+			IPAddr:      c.IPAddr,
+			Port:        c.Port,
+		}
+		dList = append(dList, d)
+	}
+
+	sort.SliceStable(dList, func(i, j int) bool {
+		return (dList[i].VotingPower.Cmp(dList[j].VotingPower) <= 0)
+	})
+
+	if len(dList) > delegateSize {
+		dList = dList[:delegateSize]
+	}
+
+	staking.SetDelegateList(dList, state)
+	staking.SetCandidateList(candList, state)
+	staking.SetBucketList(bucketList, state)
 	return
 }

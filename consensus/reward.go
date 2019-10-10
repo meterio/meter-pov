@@ -6,16 +6,17 @@
 package consensus
 
 import (
-	//"crypto/ecdsa"
+	"encoding/hex"
 	"fmt"
 	"math/big"
+	"math/rand"
+	"time"
 
-	//"github.com/dfinlab/meter/runtime"
-	//"github.com/dfinlab/meter/state"
-	//"github.com/dfinlab/meter/meter"
 	"github.com/dfinlab/meter/powpool"
+	"github.com/dfinlab/meter/script"
+	"github.com/dfinlab/meter/script/staking"
 	"github.com/dfinlab/meter/tx"
-	//"github.com/dfinlab/meter/txpool"
+	"github.com/ethereum/go-ethereum/rlp"
 )
 
 func (conR *ConsensusReactor) GetKBlockRewardTxs(rewards []powpool.PowReward) tx.Transactions {
@@ -61,14 +62,41 @@ func (conR *ConsensusReactor) MinerRewards(rewards []powpool.PowReward) *tx.Tran
 	}
 	conR.logger.Info("Reward", "Kblock Height", conR.chain.BestBlock().Header().Number()+1, "Total", sum)
 
-	//TBD: issue 1 METER_GOV to each committee member
-	/*
-		amount, _ := new(big.Int).SetString("10000000000000000000", 10)
-		for _, cm := range conR.curActualCommittee {
-			builder.Clause(tx.NewClause(&cm.Address).WithValue(amount).WithToken(tx.TOKEN_METER_GOV))
-		}
-	*/
+	// last clause for staking governing
+	builder.Clause(tx.NewClause(&staking.StakingModuleAddr).WithValue(big.NewInt(0)).WithToken(tx.TOKEN_METER_GOV).WithData(BuildGoverningData(uint32(conR.delegateSize))))
 
 	builder.Build().IntrinsicGas()
 	return builder.Build()
+}
+
+func BuildGoverningData(delegateSize uint32) (ret []byte) {
+	ret = []byte{}
+	body := &staking.StakingBody{
+		Opcode:    staking.OP_GOVERNING,
+		Option:    delegateSize,
+		Timestamp: uint64(time.Now().Unix()),
+		Nonce:     rand.Uint64(),
+	}
+	payload, err := rlp.EncodeToBytes(body)
+	if err != nil {
+		return
+	}
+
+	fmt.Println("Payload Hex: ", hex.EncodeToString(payload))
+	s := &script.Script{
+		Header: script.ScriptHeader{
+			Version: uint32(0),
+			ModID:   script.STAKING_MODULE_ID,
+		},
+		Payload: payload,
+	}
+	data, err := rlp.EncodeToBytes(s)
+	if err != nil {
+		return
+	}
+	data = append(script.ScriptPattern[:], data...)
+	prefix := []byte{0xff, 0xff, 0xff, 0xff}
+	ret = append(prefix, data...)
+	fmt.Println("script Hex:", hex.EncodeToString(ret))
+	return
 }
