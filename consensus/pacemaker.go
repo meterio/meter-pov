@@ -692,7 +692,7 @@ func (p *Pacemaker) Stop() {
 
 	// suicide
 	//p.stopCh <- &PMStopInfo{p.QCHigh.QCHeight, p.QCHigh.QCRound}
-	p.stopCh <- &PMStopInfo{0, 0}
+	// p.stopCh <- &PMStopInfo{0, 0}
 }
 
 func (p *Pacemaker) OnRoundTimeout(ti PMRoundTimeoutInfo) error {
