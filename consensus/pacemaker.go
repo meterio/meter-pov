@@ -471,7 +471,7 @@ func (p *Pacemaker) OnNextSyncView(nextHeight, nextRound uint64, reason NewViewR
 	return nil
 }
 
-func (p *Pacemaker) OnReceiveNewView(newViewMsg *PMNewViewMessage) error {
+func (p *Pacemaker) OnReceiveNewView(newViewMsg *PMNewViewMessage, from types.NetAddress) error {
 	qc := block.QuorumCert{}
 	err := rlp.DecodeBytes(newViewMsg.QCHigh, &qc)
 	if err != nil {
@@ -482,6 +482,7 @@ func (p *Pacemaker) OnReceiveNewView(newViewMsg *PMNewViewMessage) error {
 	qcNode := p.AddressBlock(qc.QCHeight, qc.QCRound)
 	if qcNode == nil {
 		p.logger.Error("can not address qcNode", "err", err)
+		p.pendingList.Add(newViewMsg, from)
 		return nil
 	}
 	pmQC := newPMQuorumCert(&qc, qcNode)
@@ -619,11 +620,11 @@ func (p *Pacemaker) mainLoop() {
 				if err = p.OnReceiveProposal(m.msg.(*PMProposalMessage), m.from); err != nil {
 					p.logger.Error("processes proposal fails.", "errors", err)
 				}
-				err = p.checkPendingProposals(m.msg.(*PMProposalMessage))
+				err = p.checkPendingMessages(uint64(m.msg.(*PMProposalMessage).CSMsgCommonHeader.Height))
 			case *PMVoteForProposalMessage:
 				err = p.OnReceiveVote(m.msg.(*PMVoteForProposalMessage))
 			case *PMNewViewMessage:
-				err = p.OnReceiveNewView(m.msg.(*PMNewViewMessage))
+				err = p.OnReceiveNewView(m.msg.(*PMNewViewMessage), m.from)
 			case *PMQueryProposalMessage:
 				err = p.OnReceiveQueryProposal(m.msg.(*PMQueryProposalMessage))
 			default:

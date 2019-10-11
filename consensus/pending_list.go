@@ -1,37 +1,45 @@
 package consensus
 
+import (
+	"github.com/dfinlab/meter/types"
+)
+
 type PendingList struct {
-	proposals map[uint64]*PMProposalMessage
-	lowest    uint64
+	messages map[uint64]receivedConsensusMessage
+	lowest   uint64
 }
 
 func NewPendingList() *PendingList {
 	return &PendingList{
-		proposals: make(map[uint64]*PMProposalMessage),
-		lowest:    0,
+		messages: make(map[uint64]receivedConsensusMessage),
+		lowest:   0,
 	}
 }
 
-func (p *PendingList) Add(pm *PMProposalMessage) {
-	height := pm.ParentHeight + 1
+func (p *PendingList) Add(m ConsensusMessage, addr types.NetAddress) {
+	var height uint64
+	switch m.(type) {
+	case *PMProposalMessage:
+		height = uint64(m.(*PMProposalMessage).CSMsgCommonHeader.Height)
+	case *PMNewViewMessage:
+		height = uint64(m.(*PMNewViewMessage).QCHeight)
+	default:
+		return
+	}
 	if height < p.lowest {
 		p.lowest = height
 	}
-	p.proposals[height] = pm
-}
-
-func (p *PendingList) Get(height uint64) *PMProposalMessage {
-	return p.proposals[height]
+	p.messages[height] = receivedConsensusMessage{m, addr}
 }
 
 func (p *PendingList) CleanUpTo(height uint64) error {
 	for i := p.lowest; i < height; i++ {
-		if _, ok := p.proposals[i]; ok {
-			delete(p.proposals, i)
+		if _, ok := p.messages[i]; ok {
+			delete(p.messages, i)
 		}
 	}
 	lowest := uint64(0)
-	for k, _ := range p.proposals {
+	for k, _ := range p.messages {
 		if lowest == 0 {
 			lowest = k
 		} else if k < lowest {

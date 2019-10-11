@@ -304,28 +304,30 @@ func (p *Pacemaker) pendingProposal(proposalMsg *PMProposalMessage, addr types.N
 		return errors.New("can not address parent")
 	}
 	p.SendMessageToPeers(queryMsg, peers)
-	p.pendingList.Add(proposalMsg)
+	p.pendingList.Add(proposalMsg, addr)
 	return nil
 }
 
-func (p *Pacemaker) checkPendingProposals(curProposal *PMProposalMessage) error {
-	curHeight := curProposal.ParentHeight + 1
-	height := curHeight
-	for height >= curHeight {
-		pm := p.pendingList.proposals[height]
-		if pm == nil {
+func (p *Pacemaker) checkPendingMessages(curHeight uint64) error {
+	height := curHeight + 1
+	for {
+		pendingMsg, ok := p.pendingList.messages[height]
+		if !ok {
 			break
 		}
-		proposer := p.getConsensusPeerByPubkey(pm.ProposerID)
-		if proposer == nil {
-			p.logger.Error("can not get proposer", "height", height)
-			break
-		}
-		p.logger.Info("processing pending list", "height", height)
-		if err := p.OnReceiveProposal(pm, proposer.netAddr); err != nil {
-			p.logger.Error("error happens", "height", height, "error", err)
-			break
-		}
+		p.pacemakerMsgCh <- pendingMsg
+		/*
+			proposer := p.getConsensusPeerByPubkey(pm.ProposerID)
+			if proposer == nil {
+				p.logger.Error("can not get proposer", "height", height)
+				break
+			}
+			p.logger.Info("processing pending list", "height", height)
+			if err := p.OnReceiveProposal(pm, proposer.netAddr); err != nil {
+				p.logger.Error("error happens", "height", height, "error", err)
+				break
+			}
+		*/
 		height++ //move higher
 	}
 
