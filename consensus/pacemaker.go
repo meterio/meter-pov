@@ -575,6 +575,20 @@ func (p *Pacemaker) Start(blockQC *block.QuorumCert, newCommittee bool) {
 	p.proposalMap[height] = &bInit
 	p.QCHigh = &qcInit
 
+	// channels are always up before the start, drain them first
+	for len(p.pacemakerMsgCh) > 0 {
+		<-p.pacemakerMsgCh
+	}
+	for len(p.roundTimeoutCh) > 0 {
+		<-p.roundTimeoutCh
+	}
+	for len(p.beatCh) > 0 {
+		<-p.beatCh
+	}
+	for len(p.stopCh) > 0 {
+		<-p.stopCh
+	}
+
 	go p.mainLoop()
 
 	p.ScheduleOnBeat(height+1, round, 1*time.Second) //delay 1s
@@ -619,6 +633,8 @@ func (p *Pacemaker) mainLoop() {
 			err = p.OnRoundTimeout(ti)
 		case si := <-p.stopCh:
 			p.logger.Warn("Scheduled stop, exit pacemaker now", "QCHeight", si.height, "QCRound", si.round)
+			// clean off chain for next committee.
+			p.stopCleanup()
 			return
 		case <-interruptCh:
 			p.logger.Warn("Interrupt by user, exit now")
@@ -648,23 +664,12 @@ func (p *Pacemaker) SendKblockInfo(b *pmBlock) error {
 }
 
 func (p *Pacemaker) stopCleanup() {
+
+	p.stopRoundTimer()
+
 	// clean up propose map
 	for _, b := range p.proposalMap {
 		delete(p.proposalMap, b.Height)
-	}
-
-	// drain the channels
-	for len(p.pacemakerMsgCh) > 0 {
-		<-p.pacemakerMsgCh
-	}
-	for len(p.roundTimeoutCh) > 0 {
-		<-p.roundTimeoutCh
-	}
-	for len(p.beatCh) > 0 {
-		<-p.beatCh
-	}
-	for len(p.stopCh) > 0 {
-		<-p.stopCh
 	}
 
 	p.currentRound = 0
@@ -682,17 +687,12 @@ func (p *Pacemaker) IsStopped() bool {
 //actions of commites/receives kblock, stop pacemake to next committee
 // all proposal txs need to be reclaimed before stop
 func (p *Pacemaker) Stop() {
-	p.stopRoundTimer()
 	chain := p.csReactor.chain
 	p.logger.Info(fmt.Sprintf("*** Pacemaker stopped. Current best %v, leaf %v\n",
 		chain.BestBlock().Oneliner(), chain.LeafBlock().Oneliner()))
 
-	// clean off chain for next committee.
-	p.stopCleanup()
-
 	// suicide
-	//p.stopCh <- &PMStopInfo{p.QCHigh.QCHeight, p.QCHigh.QCRound}
-	// p.stopCh <- &PMStopInfo{0, 0}
+	p.stopCh <- &PMStopInfo{p.QCHigh.QC.QCHeight, p.QCHigh.QC.QCRound}
 }
 
 func (p *Pacemaker) OnRoundTimeout(ti PMRoundTimeoutInfo) error {

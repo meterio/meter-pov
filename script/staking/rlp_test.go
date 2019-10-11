@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math/big"
 	"math/rand"
+	"time"
 
 	"github.com/ethereum/go-ethereum/rlp"
 
@@ -119,7 +120,7 @@ func TestRlpForBucket(t *testing.T) {
 		src.Rate != tgt.Rate ||
 		src.CreateTime != tgt.CreateTime ||
 		src.MatureTime != tgt.MatureTime ||
-		src.BounusVotes != tgt.BounusVotes {
+		src.BonusVotes != tgt.BonusVotes {
 		t.Fail()
 	}
 
@@ -127,8 +128,8 @@ func TestRlpForBucket(t *testing.T) {
 
 const (
 	//HOLDER_ADDRESS    = "0x0205c2D862cA051010698b69b54278cbAf945C0b"
-	HOLDER_ADDRESS    = "0x8E69E4357d886b8dd3131aF7d7627a4381D3Ddd4"
-	CANDIDATE_ADDRESS = "0x8E69E4357d886b8dd3131aF7d7627a4381D3Ddd4"
+	HOLDER_ADDRESS    = "0x0205c2D862cA051010698b69b54278cbAf945C0b"
+	CANDIDATE_ADDRESS = "0x8a88c59bf15451f9deb1d62f7734fece2002668e"
 	CANDIDATE_AMOUNT  = "2000000000000000000000" //(2e20) 200MTRG
 )
 
@@ -168,7 +169,7 @@ func generateScriptData(opCode uint32, holderAddrStr, candAddrStr string, amount
 		StakingID:  stakingID,
 		Amount:     *amount,
 		Token:      staking.TOKEN_METER,
-		Timestamp:  uint64(3),
+		Timestamp:  uint64(time.Now().Unix()),
 		Nonce:      uint64(4), //rand.Uint64(),
 	}
 	payload, err := rlp.EncodeToBytes(body)

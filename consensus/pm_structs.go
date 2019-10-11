@@ -174,8 +174,7 @@ type pmQuorumCert struct {
 func newPMQuorumCert(qc *block.QuorumCert, qcNode *pmBlock) *pmQuorumCert {
 	return &pmQuorumCert{
 		QCNode: qcNode,
-
-		QC: qc,
+		QC:     qc,
 	}
 }
 

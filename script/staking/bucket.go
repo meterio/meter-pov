@@ -12,17 +12,19 @@ import (
 
 // Candidate indicates the structure of a candidate
 type Bucket struct {
-	BucketID     meter.Bytes32
-	Owner        meter.Address //stake holder
+	BucketID   meter.Bytes32
+	Owner      meter.Address //stake holder
+	Value      *big.Int      // staking unit Wei
+	Token      uint8         // token type MTR / MTRG
+	Nonce      uint64        // nonce
+	CreateTime uint64        // bucket create time
+
+	//non-key fields
 	Candidate    meter.Address // candidate
-	Value        *big.Int      // staking unit Wei
-	Token        uint8         // token type MTR / MTRG
 	Rate         uint8         // bounus rate
-	MatureTime   uint64        // time durations, seconds
-	Nonce        uint64        // nonce
 	BonusVotes   uint64        // extra votes from staking
 	TotalVotes   *big.Int      // Value votes + extra votes
-	CreateTime   uint64        // bucket create time
+	MatureTime   uint64        // time durations, seconds
 	CalcLastTime uint64        // last calculate bounus votes timestamp
 }
 
@@ -33,8 +35,6 @@ func (b *Bucket) ID() (hash meter.Bytes32) {
 		b.Owner,
 		b.Value,
 		b.Token,
-		b.Rate,
-		b.MatureTime,
 		b.Nonce,
 		b.CreateTime,
 	})
