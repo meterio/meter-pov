@@ -13,15 +13,17 @@ import (
 // Candidate indicates the structure of a candidate
 type Bucket struct {
 	BucketID   meter.Bytes32
-	Owner      meter.Address //stake holder
+	Owner      meter.Address // stake holder
 	Value      *big.Int      // staking unit Wei
 	Token      uint8         // token type MTR / MTRG
 	Nonce      uint64        // nonce
 	CreateTime uint64        // bucket create time
 
 	//non-key fields
+	Unbounded    bool          // this bucket is unbounded, get rid of it after mature
 	Candidate    meter.Address // candidate
 	Rate         uint8         // bounus rate
+	Option       uint32        // option, link with rate
 	BonusVotes   uint64        // extra votes from staking
 	TotalVotes   *big.Int      // Value votes + extra votes
 	MatureTime   uint64        // time durations, seconds
@@ -42,19 +44,22 @@ func (b *Bucket) ID() (hash meter.Bytes32) {
 	return
 }
 
-func NewBucket(owner meter.Address, cand meter.Address, value *big.Int, token uint8, opt uint32, rate uint8, mature uint64, nonce uint64) *Bucket {
+func NewBucket(owner meter.Address, cand meter.Address, value *big.Int, token uint8, opt uint32, rate uint8, create uint64, nonce uint64) *Bucket {
 	b := &Bucket{
-		Owner:        owner,
+		Owner:      owner,
+		Value:      value,
+		Token:      token,
+		Nonce:      nonce,
+		CreateTime: create,
+
+		Unbounded:    false,
 		Candidate:    cand,
-		Value:        value,
-		Token:        token,
 		Rate:         rate,
-		MatureTime:   mature,
-		Nonce:        nonce,
+		Option:       opt,
 		BonusVotes:   0,
 		TotalVotes:   value.Add(big.NewInt(0), value),
-		CreateTime:   mature - GetBoundLocktime(opt),
-		CalcLastTime: mature - GetBoundLocktime(opt),
+		MatureTime:   0,
+		CalcLastTime: create,
 	}
 	b.BucketID = b.ID()
 	return b
@@ -79,8 +84,9 @@ func GetLatestBucketList() (*BucketList, error) {
 }
 
 func (b *Bucket) ToString() string {
-	return fmt.Sprintf("Bucket(ID=%v, Owner=%v, Value=%.2e, Token=%v, Duration=%v, BounusVotes=%v, TotoalVotes=%.2e)",
-		b.BucketID, b.Owner, float64(b.Value.Int64()), b.Token, b.MatureTime, b.BonusVotes, float64(b.TotalVotes.Int64()))
+	return fmt.Sprintf("Bucket(ID=%v, Owner=%v, Value=%.2e, Token=%v, Nonce=%v, CreateTime=%v, Unbounded=%v, Candidate=%v, Rate=%v, Option=%v, BounusVotes=%v, TotoalVotes=%.2e, MatureTime=%v, CalcLastTime=%v)",
+		b.BucketID, b.Owner, float64(b.Value.Int64()), b.Token, b.Nonce, b.CreateTime, b.Unbounded,
+		b.Candidate, b.Rate, b.Option, b.BonusVotes, float64(b.TotalVotes.Int64()), b.MatureTime, b.CalcLastTime)
 }
 
 type BucketList struct {
