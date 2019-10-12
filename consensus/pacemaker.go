@@ -724,17 +724,70 @@ func (p *Pacemaker) stopRoundTimer() {
 	}
 }
 
-func (p *Pacemaker) revertTo(height uint64) {
-	p.logger.Info("Start revert", "height", height, "current block-leaf", p.blockLeaf.ToString())
-	for p.blockLeaf.Height > p.blockLocked.Height && p.blockLeaf.Height >= height {
-		p.logger.Info("Revert loop", "block-leaf", p.blockLeaf.ToString(), "parent", p.blockLeaf.Parent.ToString())
-		blockHeight := p.blockLeaf.Height
-		p.blockLeaf = p.blockLeaf.Parent
-		p.logger.Warn("Deleted from proposalMap:", "blockHeight", blockHeight, "block", p.proposalMap[blockHeight].ToString())
-		delete(p.proposalMap, blockHeight)
-		// FIXME: remove precommited block and release tx
+func (p *Pacemaker) revertTo(revertHeight uint64) {
+	p.logger.Info("Start revert", "revertHeight", revertHeight, "current block-leaf", p.blockLeaf.ToString(), "current QCHigh", p.QCHigh.ToString())
+	pivot, pivotExist := p.proposalMap[revertHeight]
+	height := revertHeight
+	for {
+		proposal, exist := p.proposalMap[height]
+		if !exist {
+			break
+		}
+		p.logger.Warn("Deleted from proposalMap:", "blockHeight", height, "block", proposal.ToString())
+		delete(p.proposalMap, height)
+		// FIXME: remove precommited blocks and release txs
+		height++
 	}
-	p.logger.Info("Reverted !!!", "current block-leaf", p.blockLeaf.ToString())
+
+	if pivotExist {
+		if p.blockLeaf.Height >= pivot.Height {
+			p.blockLeaf = pivot.Parent
+		}
+		if p.QCHigh.QCNode.Height >= pivot.Height {
+			p.QCHigh = pivot.Justify
+		}
+	}
+	// First senario : pivot height < b-leaf height
+	//           pivot b-leaf                           b-leaf
+	//             v     v                                v
+	// A --- B --- C --- D     == revert result =>  A --- B
+	//  \   / \   / \   /                            \   / \
+	//   qcA   qcB   qcC                              qcA  qcB
+	//                ^                                     ^
+	//              QCHigh                                QCHigh
+
+	// Second senario : pivot height > b-leaf height, and new QC is not ready
+	//         b-leaf  pivot                                 b-leaf
+	//             v     v                                      v
+	// A --- B --- C --- D     == revert result =>  A --- B --- C
+	//  \   / \   / \   /                            \   / \   / \
+	//   qcA   qcB   qcC                              qcA   qcB   qcC
+	//                ^                                            ^
+	//              QCHigh                                        QCHigh
+
+	// Third senario : pivot height > b-leaf height, and new QC already established
+	// TODO: should we keep the latest QC?
+	//         b-leaf  pivot                                 b-leaf
+	//             v     v                                      v
+	// A --- B --- C --- D     == revert result =>  A --- B --- C
+	//  \   / \   / \   / \       QCHigh reset       \   / \   /  \
+	//   qcA   qcB   qcC  qcD                         qcA   qcB  qcC
+	//                     ^                                      ^
+	//                   QCHigh                                 QCHigh
+	/*
+		for h > p.blockLocked.Height {
+			p.logger.Info("Revert loop", "block-leaf", p.blockLeaf.ToString(), "parent", p.blockLeaf.Parent.ToString())
+			blockHeight := p.blockLeaf.Height
+			if h < p.blockLeaf.Height {
+				p.blockLeaf
+			}
+			p.blockLeaf = p.blockLeaf.Parent
+			p.logger.Warn("Deleted from proposalMap:", "blockHeight", blockHeight, "block", p.proposalMap[blockHeight].ToString())
+			delete(p.proposalMap, blockHeight)
+			// FIXME: remove precommited block and release tx
+		}
+	*/
+	p.logger.Info("Reverted !!!", "current block-leaf", p.blockLeaf.ToString(), "current QCHigh", p.QCHigh.ToString())
 }
 
 func (p *Pacemaker) OnReceiveQueryProposal(queryMsg *PMQueryProposalMessage) error {
