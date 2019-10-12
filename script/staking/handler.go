@@ -121,7 +121,7 @@ func (sb *StakingBody) BoundHandler(senv *StakingEnviroment, gas uint64) (ret []
 		candAddr = meter.Address{}
 	}
 
-	bucket := NewBucket(sb.HolderAddr, candAddr, &sb.Amount, uint8(sb.Token), opt, rate, sb.Timestamp+locktime, sb.Nonce)
+	bucket := NewBucket(sb.HolderAddr, candAddr, &sb.Amount, uint8(sb.Token), opt, rate, sb.Timestamp, sb.Nonce)
 	bucketList.Add(bucket)
 
 	stakeholder := stakeholderList.Get(sb.HolderAddr)
@@ -181,44 +181,14 @@ func (sb *StakingBody) UnBoundHandler(senv *StakingEnviroment, gas uint64) (ret 
 	if b == nil {
 		return nil, leftOverGas, errors.New("staking not found")
 	}
-	if b.MatureTime > sb.Timestamp {
-		staking.logger.Error("Bucket is not mature", "mature time", b.MatureTime)
-		return nil, leftOverGas, errors.New("bucket not mature")
-	}
 
 	if (b.Owner != sb.HolderAddr) || (b.Value.Cmp(&sb.Amount) != 0) || (b.Token != sb.Token) {
 		return nil, leftOverGas, errors.New("staking info mismatch")
 	}
 
 	// sanity check done, take actions
-	stakeholder := stakeholderList.Get(sb.HolderAddr)
-	if stakeholder != nil {
-		stakeholder.RemoveBucket(b)
-		if len(stakeholder.Buckets) == 0 {
-			stakeholderList.Remove(stakeholder.Holder)
-		}
-	}
-
-	// update candidate list
-	cand := candidateList.Get(b.Candidate)
-	if cand != nil {
-		cand.RemoveBucket(b)
-		if len(candidateList.candidates) == 0 {
-			candidateList.Remove(cand.Addr)
-		}
-	}
-
-	// remove bucket from bucketList
-	bucketList.Remove(b.BucketID)
-
-	switch sb.Token {
-	case TOKEN_METER:
-		err = staking.UnboundAccountMeter(sb.HolderAddr, &sb.Amount, state)
-	case TOKEN_METER_GOV:
-		err = staking.UnboundAccountMeterGov(sb.HolderAddr, &sb.Amount, state)
-	default:
-		err = errors.New("Invalid token parameter")
-	}
+	b.Unbounded = true
+	b.MatureTime = sb.Timestamp + GetBoundLocktime(b.Option) // lock time
 
 	staking.SetCandidateList(candidateList, state)
 	staking.SetBucketList(bucketList, state)
@@ -296,7 +266,7 @@ func (sb *StakingBody) CandidateHandler(senv *StakingEnviroment, gas uint64) (re
 	staking.logger.Info("get bound option", "option", opt, "rate", rate, "locktime", locktime)
 
 	// bucket owner is candidate
-	bucket := NewBucket(sb.CandAddr, sb.CandAddr, &sb.Amount, uint8(sb.Token), opt, rate, sb.Timestamp+locktime, sb.Nonce)
+	bucket := NewBucket(sb.CandAddr, sb.CandAddr, &sb.Amount, uint8(sb.Token), opt, rate, sb.Timestamp, sb.Nonce)
 	bucketList.Add(bucket)
 
 	candidate := NewCandidate(sb.CandAddr, sb.CandPubKey, sb.CandIP, sb.CandPort)
@@ -494,8 +464,10 @@ func (sb *StakingBody) GoverningHandler(senv *StakingEnviroment, gas uint64) (re
 	}()
 	staking := senv.GetStaking()
 	state := senv.GetState()
-	candList := staking.GetCandidateList(state)
+	candidateList := staking.GetCandidateList(state)
 	bucketList := staking.GetBucketList(state)
+	stakeholderList := staking.GetStakeHolderList(state)
+	delegateList := staking.GetDelegateList(state)
 
 	fmt.Println("!!!!!!Entered Governing Handler!!!!!!")
 
@@ -506,14 +478,67 @@ func (sb *StakingBody) GoverningHandler(senv *StakingEnviroment, gas uint64) (re
 	}
 
 	ts := sb.Timestamp
-	delegateSize := int(sb.Option)
+	for _, bkt := range bucketList.buckets {
+		// handle unbound first
+		if bkt.Unbounded == true {
+			// matured
+			if ts >= bkt.MatureTime {
+				stakeholder := stakeholderList.Get(bkt.Owner)
+				if stakeholder != nil {
+					stakeholder.RemoveBucket(bkt)
+					if len(stakeholder.Buckets) == 0 {
+						stakeholderList.Remove(stakeholder.Holder)
+					}
+				}
 
-	//update bonus votes
-	staking.CalcBonusVotes(ts, candList, bucketList)
+				// update candidate list
+				cand := candidateList.Get(bkt.Candidate)
+				if cand != nil {
+					cand.RemoveBucket(bkt)
+					if len(candidateList.candidates) == 0 {
+						candidateList.Remove(cand.Addr)
+					}
+				}
 
-	dList := []SDelegate{}
-	for _, c := range candList.candidates {
-		d := SDelegate{
+				switch bkt.Token {
+				case TOKEN_METER:
+					err = staking.UnboundAccountMeter(bkt.Owner, bkt.Value, state)
+				case TOKEN_METER_GOV:
+					err = staking.UnboundAccountMeterGov(bkt.Owner, bkt.Value, state)
+				default:
+					err = errors.New("Invalid token parameter")
+				}
+
+				// finally, remove bucket from bucketList
+				bucketList.Remove(bkt.BucketID)
+			}
+			// Done: for unbounded
+			continue
+		}
+
+		// now calc the bonus votes
+		if ts >= bkt.CalcLastTime {
+			bonus := big.NewInt(int64((ts - bkt.CalcLastTime) / (3600 * 24 * 365) / 100 * uint64(bkt.Rate)))
+			bonus = bonus.Mul(bonus, bkt.Value)
+
+			// update bucket
+			bkt.BonusVotes += bonus.Uint64()
+			bkt.TotalVotes.Add(bkt.TotalVotes, bonus)
+			bkt.CalcLastTime = ts // touch timestamp
+
+			// update candidate
+			if bkt.Candidate.IsZero() != true {
+				if cand, track := candidateList.candidates[bkt.Candidate]; track == true {
+					cand.TotalVotes.Add(cand.TotalVotes, bonus)
+				}
+			}
+		}
+	}
+
+	// handle delegateList
+	delegates := []*Delegate{}
+	for _, c := range candidateList.candidates {
+		d := &Delegate{
 			Address:     c.Addr,
 			PubKey:      c.PubKey,
 			Name:        c.Name,
@@ -521,19 +546,25 @@ func (sb *StakingBody) GoverningHandler(senv *StakingEnviroment, gas uint64) (re
 			IPAddr:      c.IPAddr,
 			Port:        c.Port,
 		}
-		dList = append(dList, d)
+		delegates = append(delegates, d)
 	}
 
-	sort.SliceStable(dList, func(i, j int) bool {
-		return (dList[i].VotingPower.Cmp(dList[j].VotingPower) <= 0)
+	sort.SliceStable(delegates, func(i, j int) bool {
+		return (delegates[i].VotingPower.Cmp(delegates[j].VotingPower) <= 0)
 	})
 
-	if len(dList) > delegateSize {
-		dList = dList[:delegateSize]
+	delegateSize := int(sb.Option)
+	if len(delegates) > delegateSize {
+		delegateList.SetDelegates(delegates[:delegateSize])
+	} else {
+		delegateList.SetDelegates(delegates)
 	}
 
-	staking.SetDelegateList(dList, state)
-	staking.SetCandidateList(candList, state)
+	staking.SetCandidateList(candidateList, state)
 	staking.SetBucketList(bucketList, state)
+	staking.SetStakeHolderList(stakeholderList, state)
+	staking.SetDelegateList(delegateList, state)
+
+	staking.logger.Debug("stakingGoverningHanler, done")
 	return
 }

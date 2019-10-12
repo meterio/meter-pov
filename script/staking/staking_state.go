@@ -10,7 +10,6 @@ import (
 
 	"github.com/dfinlab/meter/meter"
 	"github.com/dfinlab/meter/state"
-	"github.com/ethereum/go-ethereum/rlp"
 )
 
 // the global variables in staking
@@ -95,20 +94,25 @@ func (s *Staking) SetBucketList(bucketList *BucketList, state *state.State) {
 }
 
 // Delegates List
-func (s *Staking) GetDelegateList(state *state.State) (delegateList []SDelegate) {
+func (s *Staking) GetDelegateList(state *state.State) (result *DelegateList) {
 	state.DecodeStorage(StakingModuleAddr, DelegateListKey, func(raw []byte) error {
-		if len(raw) == 0 {
-			delegateList = []SDelegate{}
-			return nil
-		}
-		return rlp.DecodeBytes(raw, &delegateList)
+		buf := bytes.NewBuffer(raw)
+		decoder := gob.NewDecoder(buf)
+		var delegates []*Delegate
+		decoder.Decode(&delegates)
+
+		result = newDelegateList(delegates)
+		return nil
 	})
 	return
 }
 
-func (s *Staking) SetDelegateList(delegateList []SDelegate, state *state.State) {
-	state.EncodeStorage(StakingModuleAddr, DelegateListKey, func() ([]byte, error) {
-		return rlp.EncodeToBytes(&delegateList)
+func (s *Staking) SetDelegateList(delegateList *DelegateList, state *state.State) {
+	state.EncodeStorage(StakingModuleAddr, BucketListKey, func() ([]byte, error) {
+		buf := bytes.NewBuffer([]byte{})
+		encoder := gob.NewEncoder(buf)
+		err := encoder.Encode(delegateList.delegates)
+		return buf.Bytes(), err
 	})
 }
 
