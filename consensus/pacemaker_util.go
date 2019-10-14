@@ -290,15 +290,13 @@ func (p *Pacemaker) verifyTimeoutCert(tc *PMTimeoutCert, height, round uint64) b
 
 // for proposals which can not be addressed parent and QC node should
 // put it to pending list and query the parent node
-func (p *Pacemaker) pendingProposal(proposalMsg *PMProposalMessage, addr types.NetAddress) error {
+func (p *Pacemaker) pendingProposal(queryHeight, queryRound uint64, proposalMsg *PMProposalMessage, addr types.NetAddress) error {
 	msgHeader := proposalMsg.CSMsgCommonHeader
-	height := uint64(msgHeader.Height)
-	round := uint64(msgHeader.Round)
 
 	// put this proposal to pending list, and sent out query
 	peers := []*ConsensusPeer{newConsensusPeer(addr.IP, addr.Port)}
 	myNetAddr := p.csReactor.curCommittee.Validators[p.csReactor.curCommitteeIndex].NetAddr
-	queryMsg, err := p.BuildQueryProposalMessage(height, round, msgHeader.EpochID, myNetAddr)
+	queryMsg, err := p.BuildQueryProposalMessage(queryHeight, queryRound, msgHeader.EpochID, myNetAddr)
 	if err != nil {
 		p.logger.Warn("Error during generate PMQueryProposal message", "err", err)
 		return errors.New("can not address parent")

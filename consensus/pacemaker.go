@@ -264,7 +264,7 @@ func (p *Pacemaker) OnReceiveProposal(proposalMsg *PMProposalMessage, from types
 		p.logger.Error("OnReceiveProposal: can not address parent")
 
 		// put this proposal to pending list, and sent out query
-		if err := p.pendingProposal(proposalMsg, from); err != nil {
+		if err := p.pendingProposal(proposalMsg.ParentHeight, proposalMsg.ParentRound, proposalMsg, from); err != nil {
 			p.logger.Error("handle pending proposoal failed", "error", err)
 		}
 		return errors.New("can not address parent")
@@ -276,7 +276,7 @@ func (p *Pacemaker) OnReceiveProposal(proposalMsg *PMProposalMessage, from types
 		p.logger.Error("OnReceiveProposal: can not address qcNode")
 
 		// put this proposal to pending list, and sent out query
-		if err := p.pendingProposal(proposalMsg, from); err != nil {
+		if err := p.pendingProposal(qc.QCHeight, qc.QCRound, proposalMsg, from); err != nil {
 			p.logger.Error("handle pending proposoal failed", "error", err)
 		}
 		return errors.New("can not address qcNode")
