@@ -47,17 +47,20 @@ func convertCandidate(c staking.Candidate) *Candidate {
 }
 
 type Bucket struct {
-	ID           string        `json:"id"`
-	Owner        meter.Address `json:"owner"`
+	ID         string        `json:"id"`
+	Owner      meter.Address `json:"owner"`
+	Value      string        `json:"value"`
+	Token      uint8         `json:"token"`
+	Nonce      uint64        `json:"nonce"`
+	CreateTime string        `json:"create`
+
+	Unbounded    bool          `json:"unbounded"`
 	Candidate    meter.Address `json:"candidate"`
-	Value        string        `json:"value"`
-	Token        uint8         `json:"token"`
 	Rate         uint8         `json:"rate"`
-	MatureTime   string        `json:"mature"`
-	Nonce        uint64        `json:"nonce"`
+	Option       uint32        `json:"option"`
 	BonusVotes   uint64        `json:"bonusvotes"`
 	TotalVotes   string        `json:"totalvotes"`
-	CreateTime   string        `json:"create`
+	MatureTime   string        `json:"maturetime"`
 	CalcLastTime string        `json:"calclasttime"`
 }
 
@@ -68,19 +71,20 @@ func convertBucketList(list *staking.BucketList) []*Bucket {
 		bucketList = append(bucketList, &Bucket{
 			ID:           b.BucketID.String(),
 			Owner:        b.Owner,
-			Candidate:    b.Candidate,
 			Value:        b.Value.String(),
 			Token:        b.Token,
-			Rate:         b.Rate,
-			MatureTime:   fmt.Sprintln(time.Unix(int64(b.MatureTime), 0)),
 			Nonce:        b.Nonce,
+			CreateTime:   fmt.Sprintln(time.Unix(int64(b.CreateTime), 0)),
+			Unbounded:    b.Unbounded,
+			Candidate:    b.Candidate,
+			Rate:         b.Rate,
+			Option:       b.Option,
 			BonusVotes:   b.BonusVotes,
 			TotalVotes:   b.TotalVotes.String(),
-			CreateTime:   fmt.Sprintln(time.Unix(int64(b.CreateTime), 0)),
+			MatureTime:   fmt.Sprintln(time.Unix(int64(b.MatureTime), 0)),
 			CalcLastTime: fmt.Sprintln(time.Unix(int64(b.CalcLastTime), 0)),
 		})
 	}
-
 	return bucketList
 }
 

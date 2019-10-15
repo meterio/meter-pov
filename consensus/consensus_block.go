@@ -798,7 +798,7 @@ func (conR *ConsensusReactor) BuildMBlock(parentBlock *block.Block) *ProposedBlo
 	}
 
 	execElapsed := mclock.Now() - startTime
-	conR.logger.Info("MBlock built", "height", newBlock.Header().Number(), "elapseTime", execElapsed)
+	conR.logger.Info("MBlock built", "height", newBlock.Header().Number(), "Txs", len(newBlock.Txs), "txsToRemove", len(txsToRemove), "elapseTime", execElapsed)
 	return &ProposedBlockInfo{newBlock, stage, &receipts, txsToRemoved, checkPoint, MBlockType}
 }
 
@@ -934,6 +934,15 @@ func (conR *ConsensusReactor) HandleRecvKBlockInfo(ki RecvKBlockInfo) error {
 
 	if best.Header().BlockType() != block.BLOCK_TYPE_K_BLOCK {
 		conR.logger.Info("best block is not kblock")
+		return nil
+	}
+
+	// can only handle kblock info when pacemaker stopped
+	if conR.csPacemaker.IsStopped() == false {
+		time.AfterFunc(1*time.Second, func() {
+			conR.schedulerQueue <- func() { conR.RcvKBlockInfoQueue <- ki }
+		})
+		conR.logger.Info("pacemaker is not fully stopped, wait for another sec ...")
 		return nil
 	}
 

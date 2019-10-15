@@ -478,7 +478,9 @@ func (sb *StakingBody) GoverningHandler(senv *StakingEnviroment, gas uint64) (re
 	}
 
 	ts := sb.Timestamp
-	for _, bkt := range bucketList.buckets {
+	for key, bkt := range bucketList.buckets {
+
+		staking.logger.Info("before handling", "buckets", bkt.ToString())
 		// handle unbound first
 		if bkt.Unbounded == true {
 			// matured
@@ -518,12 +520,15 @@ func (sb *StakingBody) GoverningHandler(senv *StakingEnviroment, gas uint64) (re
 
 		// now calc the bonus votes
 		if ts >= bkt.CalcLastTime {
-			bonus := big.NewInt(int64((ts - bkt.CalcLastTime) / (3600 * 24 * 365) / 100 * uint64(bkt.Rate)))
+			denominator := big.NewInt(int64((3600 * 24 * 365) * 100))
+			bonus := big.NewInt(int64((ts - bkt.CalcLastTime) * uint64(bkt.Rate)))
 			bonus = bonus.Mul(bonus, bkt.Value)
+			bonus = bonus.Div(bonus, denominator)
+			staking.logger.Info("in calclating", "bonus votes", bonus.Uint64(), "ts", ts, "last time", bkt.CalcLastTime)
 
 			// update bucket
 			bkt.BonusVotes += bonus.Uint64()
-			bkt.TotalVotes.Add(bkt.TotalVotes, bonus)
+			bkt.TotalVotes = bkt.TotalVotes.Add(bkt.TotalVotes, bonus)
 			bkt.CalcLastTime = ts // touch timestamp
 
 			// update candidate
@@ -533,6 +538,8 @@ func (sb *StakingBody) GoverningHandler(senv *StakingEnviroment, gas uint64) (re
 				}
 			}
 		}
+		bucketList.buckets[key] = bkt
+		staking.logger.Info("after handling", "buckets", bkt.ToString())
 	}
 
 	// handle delegateList
@@ -566,5 +573,9 @@ func (sb *StakingBody) GoverningHandler(senv *StakingEnviroment, gas uint64) (re
 	staking.SetDelegateList(delegateList, state)
 
 	staking.logger.Debug("stakingGoverningHanler, done")
+	fmt.Println("XXXXX: After checking existence")
+	fmt.Println(candidateList.ToString())
+	fmt.Println(stakeholderList.ToString())
+	fmt.Println(bucketList.ToString())
 	return
 }

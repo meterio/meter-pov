@@ -45,7 +45,9 @@ import (
 )
 
 const (
-	maxMsgSize = 1048576 // 1MB; NOTE/TODO: keep in sync with types.PartSet sizes.
+	//maxMsgSize = 1048576 // 1MB;
+	// set as 1184 * 1024
+	maxMsgSize = 121246 // gasLimit 20000000 generate, 1024+1024 (1048576) + sizeof(QC) + sizeof(committee)...
 
 	//normally when a block is committed, wait for a while to let whole network to sync and move to next round
 	// WHOLE_NETWORK_BLOCK_SYNC_TIME = 6 * time.Second
@@ -911,6 +913,7 @@ func (conR *ConsensusReactor) enterConsensusValidator() int {
 
 	conR.csValidator = NewConsensusValidator(conR)
 	conR.csRoleInitialized |= CONSENSUS_COMMIT_ROLE_VALIDATOR
+	conR.csValidator.replay = conR.newCommittee.Replay //replay flag carried by newcommittee
 
 	return 0
 }
@@ -1235,14 +1238,8 @@ func (conR *ConsensusReactor) BuildTimeoutSignMsg(pubKey ecdsa.PublicKey, round 
 
 //======end of New consensus =========================================
 //-----------------------------------------------------------------------------
-
-//-----------------------------------------------------------------------------
-
-// -------------------------------------------------------------------------
 // New consensus timed schedule util
 //type Scheduler func(conR *ConsensusReactor) bool
-
-//TBD: implemente timed schedule, Duration is not used right now
 func (conR *ConsensusReactor) ScheduleLeader(epochID uint64, height uint64, d time.Duration) bool {
 	time.AfterFunc(d, func() {
 		conR.schedulerQueue <- func() { HandleScheduleLeader(conR, epochID, height) }

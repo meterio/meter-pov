@@ -88,8 +88,8 @@ func (s *Staking) SetBucketList(bucketList *BucketList, state *state.State) {
 		buf := bytes.NewBuffer([]byte{})
 		encoder := gob.NewEncoder(buf)
 		err := encoder.Encode(bucketList.buckets)
+		fmt.Println(hex.EncodeToString(buf.Bytes()))
 		return buf.Bytes(), err
-
 	})
 }
 
