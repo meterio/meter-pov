@@ -756,19 +756,20 @@ func (p *Pacemaker) revertTo(revertHeight uint64) {
 	//                ^                                     ^
 	//              QCHigh                                QCHigh
 
-	// Second senario : pivot height > b-leaf height, and new QC is not ready
-	//         b-leaf  pivot                                 b-leaf
-	//             v     v                                      v
+	// Second senario : pivot height >= b-leaf height, and new QC is not ready
+	//                 pivot
+	//                 b-leaf                                 b-leaf
+	//                   v                                      v
 	// A --- B --- C --- D     == revert result =>  A --- B --- C
 	//  \   / \   / \   /                            \   / \   / \
 	//   qcA   qcB   qcC                              qcA   qcB   qcC
 	//                ^                                            ^
 	//              QCHigh                                        QCHigh
 
-	// Third senario : pivot height > b-leaf height, and new QC already established
-	// TODO: should we keep the latest QC?
-	//         b-leaf  pivot                                 b-leaf
-	//             v     v                                      v
+	// Third senario : pivot height >= b-leaf height, and new QC already established
+	//                 pivot
+	//                 b-leaf                                 b-leaf
+	//                   v                                      v
 	// A --- B --- C --- D     == revert result =>  A --- B --- C
 	//  \   / \   / \   / \       QCHigh reset       \   / \   /  \
 	//   qcA   qcB   qcC  qcD                         qcA   qcB  qcC
