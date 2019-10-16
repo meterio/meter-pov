@@ -87,9 +87,9 @@ func NewPaceMaker(conR *ConsensusReactor) *Pacemaker {
 		logger:    log15.New("pkg", "consensus"),
 
 		pacemakerMsgCh: make(chan receivedConsensusMessage, 128),
-		stopCh:         make(chan *PMStopInfo, 1),
-		beatCh:         make(chan *PMBeatInfo, 1),
-		roundTimeoutCh: make(chan PMRoundTimeoutInfo, 1),
+		stopCh:         make(chan *PMStopInfo, 2),
+		beatCh:         make(chan *PMBeatInfo, 2),
+		roundTimeoutCh: make(chan PMRoundTimeoutInfo, 2),
 		roundTimer:     nil,
 		proposalMap:    make(map[uint64]*pmBlock, 1000), // TODO:better way?
 		sigCounter:     make(map[uint64]int, 1024),
@@ -612,6 +612,13 @@ func (p *Pacemaker) mainLoop() {
 	for {
 		var err error
 		select {
+		case si := <-p.stopCh:
+			p.logger.Warn("Scheduled stop, exit pacemaker now", "QCHeight", si.height, "QCRound", si.round)
+			// clean off chain for next committee.
+			p.stopCleanup()
+			return
+		case ti := <-p.roundTimeoutCh:
+			err = p.OnRoundTimeout(ti)
 		case b := <-p.beatCh:
 			err = p.OnBeat(b.height, b.round)
 		case m := <-p.pacemakerMsgCh:
@@ -630,13 +637,6 @@ func (p *Pacemaker) mainLoop() {
 			default:
 				p.logger.Warn("Received an message in unknown type")
 			}
-		case ti := <-p.roundTimeoutCh:
-			err = p.OnRoundTimeout(ti)
-		case si := <-p.stopCh:
-			p.logger.Warn("Scheduled stop, exit pacemaker now", "QCHeight", si.height, "QCRound", si.round)
-			// clean off chain for next committee.
-			p.stopCleanup()
-			return
 		case <-interruptCh:
 			p.logger.Warn("Interrupt by user, exit now")
 			return

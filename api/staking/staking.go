@@ -87,6 +87,14 @@ func (st *Staking) handleGetStakeholderByAddress(w http.ResponseWriter, req *htt
 	return utils.WriteJSON(w, stakeholder)
 }
 
+func (st *Staking) handleGetDelegateList(w http.ResponseWriter, req *http.Request) error {
+	list, err := staking.GetLatestDelegateList()
+	if err != nil {
+		return err
+	}
+	return utils.WriteJSON(w, list)
+}
+
 func (st *Staking) Mount(root *mux.Router, pathPrefix string) {
 	sub := root.PathPrefix(pathPrefix).Subrouter()
 	sub.Path("/candidates").Methods("Get").HandlerFunc(utils.WrapHandlerFunc(st.handleGetCandidateList))
@@ -95,4 +103,5 @@ func (st *Staking) Mount(root *mux.Router, pathPrefix string) {
 	sub.Path("/candidates/{address}").Methods("Get").HandlerFunc(utils.WrapHandlerFunc(st.handleGetCandidateByAddress))
 	sub.Path("/stakeholders").Methods("Get").HandlerFunc(utils.WrapHandlerFunc(st.handleGetStakeholderList))
 	sub.Path("/stakeholders/{address}").Methods("Get").HandlerFunc(utils.WrapHandlerFunc(st.handleGetStakeholderByAddress))
+	sub.Path("/delegates").Methods("Get").HandlerFunc(utils.WrapHandlerFunc(st.handleGetDelegateList))
 }

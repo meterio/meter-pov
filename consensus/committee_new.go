@@ -93,7 +93,9 @@ func (conR *ConsensusReactor) NewCommitteeCleanup() {
 
 	// clean up local
 	conR.NewCommitteeTimerStop()
-	//conR.newCommittee = nil
+	conR.newCommittee.Replay = false
+	conR.newCommittee.InCommittee = false
+	conR.newCommittee.Role = CONSENSUS_COMMIT_ROLE_NONE
 }
 
 func (conR *ConsensusReactor) NewCommitteeTimerStart() {

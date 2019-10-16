@@ -478,7 +478,7 @@ func (sb *StakingBody) GoverningHandler(senv *StakingEnviroment, gas uint64) (re
 	}
 
 	ts := sb.Timestamp
-	for key, bkt := range bucketList.buckets {
+	for _, bkt := range bucketList.buckets {
 
 		staking.logger.Info("before handling", "buckets", bkt.ToString())
 		// handle unbound first
@@ -532,13 +532,12 @@ func (sb *StakingBody) GoverningHandler(senv *StakingEnviroment, gas uint64) (re
 			bkt.CalcLastTime = ts // touch timestamp
 
 			// update candidate
-			if bkt.Candidate.IsZero() != true {
+			if bkt.Candidate.IsZero() == false {
 				if cand, track := candidateList.candidates[bkt.Candidate]; track == true {
-					cand.TotalVotes.Add(cand.TotalVotes, bonus)
+					cand.TotalVotes = cand.TotalVotes.Add(cand.TotalVotes, bonus)
 				}
 			}
 		}
-		bucketList.buckets[key] = bkt
 		staking.logger.Info("after handling", "buckets", bkt.ToString())
 	}
 
