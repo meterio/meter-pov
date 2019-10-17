@@ -1,10 +1,12 @@
 package staking
 
 import (
+	b64 "encoding/base64"
 	"encoding/hex"
 	"errors"
 	"fmt"
 	"math/big"
+	"net"
 	"strings"
 
 	crypto "github.com/ethereum/go-ethereum/crypto"
@@ -45,6 +47,10 @@ func (l *DelegateList) SetDelegates(delegates []*Delegate) error {
 	return nil
 }
 
+func (l *DelegateList) GetDelegates() []*Delegate {
+	return l.delegates
+}
+
 func (l *DelegateList) Add(c *Delegate) error {
 	l.delegates = append(l.delegates, c)
 	return nil
@@ -60,7 +66,29 @@ func (l *DelegateList) ToString() string {
 }
 
 //  api routine interface
-func GetLatestDelegateList() ([]*types.Delegate, error) {
+func GetLatestDelegateList() (*DelegateList, error) {
+	fmt.Println("get into GetLatestDelegateList")
+	staking := GetStakingGlobInst()
+	if staking == nil {
+		fmt.Println("staking is not initilized...")
+		err := errors.New("staking is not initilized...")
+		return nil, err
+	}
+
+	best := staking.chain.BestBlock()
+	state, err := staking.stateCreator.NewState(best.Header().StateRoot())
+	if err != nil {
+		return nil, err
+	}
+
+	list := staking.GetDelegateList(state)
+	fmt.Println("delegateList from state", list.ToString())
+
+	return list, nil
+}
+
+//  api routine interface
+func GetInternalDelegateList() ([]*types.Delegate, error) {
 	fmt.Println("get into GetLatestDelegateList")
 	delegateList := []*types.Delegate{}
 	staking := GetStakingGlobInst()
@@ -79,7 +107,8 @@ func GetLatestDelegateList() ([]*types.Delegate, error) {
 	list := staking.GetDelegateList(state)
 	fmt.Println("delegateList from state", list.ToString())
 	for _, s := range list.delegates {
-		pubKey, err := crypto.UnmarshalPubkey(s.PubKey)
+		pubKeyBytes, err := b64.StdEncoding.DecodeString(string(s.PubKey))
+		pubKey, err := crypto.UnmarshalPubkey(pubKeyBytes)
 		if err != nil {
 			fmt.Println("Unmarshal publicKey failed ...")
 			continue
@@ -90,7 +119,7 @@ func GetLatestDelegateList() ([]*types.Delegate, error) {
 			PubKey:      *pubKey,
 			VotingPower: s.VotingPower.Int64(),
 			NetAddr: types.NetAddress{
-				IP:   s.IPAddr,
+				IP:   net.ParseIP(string(s.IPAddr)),
 				Port: s.Port},
 		}
 		delegateList = append(delegateList, d)

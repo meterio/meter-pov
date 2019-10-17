@@ -1544,18 +1544,15 @@ func configDelegates( /*myPubKey ecdsa.PublicKey*/ ) []*types.Delegate {
 	}
 
 	delegates := make([]*types.Delegate, 0)
-	for i, d := range delegates1 {
+	for _, d := range delegates1 {
 		pubKeyBytes, err := b64.StdEncoding.DecodeString(d.PubKey)
 		pubKey, err := crypto.UnmarshalPubkey(pubKeyBytes)
 		if err != nil {
-			panic("can't read public key for delegate")
+			panic("read public key for delegate failed")
 		}
 
 		dd := types.NewDelegate(*pubKey, d.VotingPower)
 		dd.NetAddr = d.NetAddr
-		fmt.Printf("Delegate %d:\n Address:%s\n Public Key: %v\n Voting Power:%d\n Network Address:%v\n",
-			i+1, dd.Address, dd.PubKey, dd.VotingPower, dd.NetAddr)
-
 		delegates = append(delegates, dd)
 	}
 	return delegates
@@ -1570,15 +1567,26 @@ func (conR *ConsensusReactor) LoadBlockBytes(num uint32) []byte {
 	return raw[:]
 }
 
+func PrintDelegates(delegates []*types.Delegate) {
+	fmt.Println("============================================")
+	for i, dd := range delegates {
+		fmt.Printf("Delegate %d:\n Address:%s\n Public Key: %v\n Voting Power:%d\n Network Address:%v\n",
+			i+1, dd.Address, dd.PubKey, dd.VotingPower, dd.NetAddr)
+	}
+	fmt.Println("============================================")
+}
+
 // entry point for each committee
 func GetConsensusDelegates(size int) []*types.Delegate {
-	delegates, err := staking.GetLatestDelegateList()
+	delegates, err := staking.GetInternalDelegateList()
 	if err == nil && len(delegates) == size {
 		fmt.Println("delegatesList from staking", "delegate size", size)
+		PrintDelegates(delegates)
 		return delegates
 	}
 
 	delegates = configDelegates()
 	fmt.Println("delegatesList from configuration file", "delegate size", size)
+	PrintDelegates(delegates)
 	return delegates
 }

@@ -2,12 +2,11 @@ package staking
 
 import (
 	"bytes"
-	"encoding/hex"
+	//"encoding/hex"
 	"fmt"
 	"time"
 
 	"github.com/dfinlab/meter/meter"
-
 	"github.com/dfinlab/meter/script/staking"
 )
 
@@ -36,9 +35,10 @@ func convertCandidate(c staking.Candidate) *Candidate {
 		buckets = append(buckets, b.String())
 	}
 	return &Candidate{
-		Name:       string(bytes.Trim(c.Name[:], "\x00")),
-		Addr:       c.Addr,
-		PubKey:     hex.EncodeToString(c.PubKey),
+		Name: string(bytes.Trim(c.Name[:], "\x00")),
+		Addr: c.Addr,
+		//PubKey:     hex.EncodeToString(c.PubKey),
+		PubKey:     string(c.PubKey),
 		IPAddr:     string(c.IPAddr),
 		Port:       c.Port,
 		TotalVotes: c.TotalVotes.String(),
@@ -111,5 +111,33 @@ func convertStakeholder(s staking.Stakeholder) *Stakeholder {
 		Holder:     s.Holder,
 		TotalStake: s.TotalStake.String(),
 		Buckets:    buckets,
+	}
+}
+
+type Delegate struct {
+	Name        string        `json:"name"`
+	Address     meter.Address `json:"address"`
+	PubKey      string        `json:"pubkey"`
+	VotingPower string        `json:"votingpower"`
+	IPAddr      string        `json:"ipAddr"` // network addr
+	Port        uint16        `json:"port"`
+}
+
+func convertDelegateList(list *staking.DelegateList) []*Delegate {
+	delegateList := make([]*Delegate, 0)
+	for _, d := range list.GetDelegates() {
+		delegateList = append(delegateList, convertDelegate(*d))
+	}
+	return delegateList
+}
+
+func convertDelegate(d staking.Delegate) *Delegate {
+	return &Delegate{
+		Name:        string(bytes.Trim(d.Name[:], "\x00")),
+		Address:     d.Address,
+		PubKey:      string(d.PubKey),
+		IPAddr:      string(d.IPAddr),
+		Port:        d.Port,
+		VotingPower: d.VotingPower.String(),
 	}
 }

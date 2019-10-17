@@ -92,7 +92,8 @@ func (st *Staking) handleGetDelegateList(w http.ResponseWriter, req *http.Reques
 	if err != nil {
 		return err
 	}
-	return utils.WriteJSON(w, list)
+	delegateList := convertDelegateList(list)
+	return utils.WriteJSON(w, delegateList)
 }
 
 func (st *Staking) Mount(root *mux.Router, pathPrefix string) {
