@@ -228,15 +228,15 @@ func (p *PowPool) GetPowDecision() (bool, *PowResult) {
 
 	// cases can not be decided
 	if !p.all.isKframeInitialAdded() {
-		fmt.Println("GetPowDecision false: kframe is not initially added")
+		log.Info("GetPowDecision false: kframe is not initially added")
 		return false, nil
 	}
-
 	latestHeight := p.all.GetLatestHeight()
 	lastKframeHeight := p.all.lastKframePowObj.Height()
+	log.Info("POW INFO", "latestHeight", latestHeight, "lastKframeHeight", lastKframeHeight)
 	if (latestHeight < lastKframeHeight) ||
 		((latestHeight - lastKframeHeight) < POW_MINIMUM_HEIGHT_INTV) {
-		log.Debug("GetPowDecision false", "latestHeight", latestHeight, "lastKframeHeight", lastKframeHeight)
+		log.Info("GetPowDecision false", "latestHeight", latestHeight, "lastKframeHeight", lastKframeHeight)
 		return false, nil
 	}
 
@@ -258,10 +258,10 @@ func (p *PowPool) GetPowDecision() (bool, *PowResult) {
 	}
 
 	if mostDifficaultResult == nil {
-		fmt.Println("GetPowDecision false: not result")
+		log.Info("GetPowDecision false: not result")
 		return false, nil
 	} else {
-		fmt.Println("GetPowDecision true")
+		log.Info("GetPowDecision true")
 		return true, mostDifficaultResult
 	}
 }
