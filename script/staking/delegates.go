@@ -1,9 +1,11 @@
 package staking
 
 import (
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"math/big"
+	"strings"
 
 	crypto "github.com/ethereum/go-ethereum/crypto"
 
@@ -28,6 +30,11 @@ func newDelegateList(delegates []*Delegate) *DelegateList {
 	return &DelegateList{delegates: delegates}
 }
 
+func (d *Delegate) ToString() string {
+	return fmt.Sprintf("Delegate(Addr=%v, PubKey=%v, IP:Port=%v:%v, VotingPower=%.2e)",
+		d.Address, hex.EncodeToString(d.PubKey), string(d.IPAddr), d.Port, float64(d.VotingPower.Int64()))
+}
+
 func (l *DelegateList) CleanAll() error {
 	l.delegates = []*Delegate{}
 	return nil
@@ -43,8 +50,18 @@ func (l *DelegateList) Add(c *Delegate) error {
 	return nil
 }
 
+func (l *DelegateList) ToString() string {
+	s := []string{fmt.Sprintf("DelegateList (size:%v):", len(l.delegates))}
+	for k, v := range l.delegates {
+		s = append(s, fmt.Sprintf("%v. %v", k, v.ToString()))
+	}
+	s = append(s, "")
+	return strings.Join(s, "\n")
+}
+
 //  api routine interface
 func GetLatestDelegateList() ([]*types.Delegate, error) {
+	fmt.Println("get into GetLatestDelegateList")
 	delegateList := []*types.Delegate{}
 	staking := GetStakingGlobInst()
 	if staking == nil {
@@ -60,10 +77,11 @@ func GetLatestDelegateList() ([]*types.Delegate, error) {
 	}
 
 	list := staking.GetDelegateList(state)
+	fmt.Println("delegateList from state", list.ToString())
 	for _, s := range list.delegates {
 		pubKey, err := crypto.UnmarshalPubkey(s.PubKey)
 		if err != nil {
-			fmt.Println("Unmarshal publicKey failed")
+			fmt.Println("Unmarshal publicKey failed ...")
 			continue
 		}
 

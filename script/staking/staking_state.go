@@ -88,7 +88,6 @@ func (s *Staking) SetBucketList(bucketList *BucketList, state *state.State) {
 		buf := bytes.NewBuffer([]byte{})
 		encoder := gob.NewEncoder(buf)
 		err := encoder.Encode(bucketList.buckets)
-		fmt.Println(hex.EncodeToString(buf.Bytes()))
 		return buf.Bytes(), err
 	})
 }
@@ -108,7 +107,7 @@ func (s *Staking) GetDelegateList(state *state.State) (result *DelegateList) {
 }
 
 func (s *Staking) SetDelegateList(delegateList *DelegateList, state *state.State) {
-	state.EncodeStorage(StakingModuleAddr, BucketListKey, func() ([]byte, error) {
+	state.EncodeStorage(StakingModuleAddr, DelegateListKey, func() ([]byte, error) {
 		buf := bytes.NewBuffer([]byte{})
 		encoder := gob.NewEncoder(buf)
 		err := encoder.Encode(delegateList.delegates)

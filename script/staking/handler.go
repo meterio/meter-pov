@@ -468,7 +468,7 @@ func (sb *StakingBody) GoverningHandler(senv *StakingEnviroment, gas uint64) (re
 	bucketList := staking.GetBucketList(state)
 	stakeholderList := staking.GetStakeHolderList(state)
 	delegateList := staking.GetDelegateList(state)
-
+	fmt.Println(delegateList.ToString())
 	fmt.Println("!!!!!!Entered Governing Handler!!!!!!")
 
 	if gas < meter.ClauseGas {
@@ -484,7 +484,7 @@ func (sb *StakingBody) GoverningHandler(senv *StakingEnviroment, gas uint64) (re
 		// handle unbound first
 		if bkt.Unbounded == true {
 			// matured
-			if ts >= bkt.MatureTime {
+			if ts >= bkt.MatureTime+720 {
 				stakeholder := stakeholderList.Get(bkt.Owner)
 				if stakeholder != nil {
 					stakeholder.RemoveBucket(bkt)
@@ -565,6 +565,7 @@ func (sb *StakingBody) GoverningHandler(senv *StakingEnviroment, gas uint64) (re
 	} else {
 		delegateList.SetDelegates(delegates)
 	}
+	fmt.Println("before set", delegateList.ToString())
 
 	staking.SetCandidateList(candidateList, state)
 	staking.SetBucketList(bucketList, state)
@@ -576,5 +577,6 @@ func (sb *StakingBody) GoverningHandler(senv *StakingEnviroment, gas uint64) (re
 	fmt.Println(candidateList.ToString())
 	fmt.Println(stakeholderList.ToString())
 	fmt.Println(bucketList.ToString())
+	fmt.Println(delegateList.ToString())
 	return
 }
