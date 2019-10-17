@@ -231,9 +231,9 @@ func (p *PowPool) GetPowDecision() (bool, *PowResult) {
 		log.Info("GetPowDecision false: kframe is not initially added")
 		return false, nil
 	}
-
 	latestHeight := p.all.GetLatestHeight()
 	lastKframeHeight := p.all.lastKframePowObj.Height()
+	log.Info("POW INFO", "latestHeight", latestHeight, "lastKframeHeight", lastKframeHeight)
 	if (latestHeight < lastKframeHeight) ||
 		((latestHeight - lastKframeHeight) < POW_MINIMUM_HEIGHT_INTV) {
 		log.Info("GetPowDecision false", "latestHeight", latestHeight, "lastKframeHeight", lastKframeHeight)
