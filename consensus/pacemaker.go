@@ -406,6 +406,7 @@ func (p *Pacemaker) OnPropose(b *pmBlock, qc *pmQuorumCert, height uint64, round
 
 	// create slot in proposalMap directly, instead of sendmsg to self.
 	// p.sigCounter[bnew.Round]++
+	bnew.ProposalMessage = msg
 	p.proposalMap[height] = bnew
 
 	//send proposal to all include myself

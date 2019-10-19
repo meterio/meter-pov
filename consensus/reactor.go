@@ -78,6 +78,8 @@ const (
 	CHAN_DEFAULT_BUF_SIZE = 100
 
 	MAX_PEERS = 8
+
+	DEFAULT_EPOCHS_PERDAY = 24
 )
 
 var (

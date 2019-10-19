@@ -294,8 +294,20 @@ func (p *Pacemaker) pendingProposal(queryHeight, queryRound uint64, proposalMsg 
 	msgHeader := proposalMsg.CSMsgCommonHeader
 
 	// put this proposal to pending list, and sent out query
-	peers := []*ConsensusPeer{newConsensusPeer(addr.IP, addr.Port)}
 	myNetAddr := p.csReactor.curCommittee.Validators[p.csReactor.curCommitteeIndex].NetAddr
+
+	// sometimes we find out addr is my self, protection is added here
+	if (myNetAddr.IP.Equal(addr.IP) == true) && (addr.Port == myNetAddr.Port) {
+		for _, cm := range p.csReactor.curActualCommittee {
+			if myNetAddr.IP.Equal(cm.NetAddr.IP) == false {
+				p.logger.Warn("Query PMProposal with new node", "NetAddr", cm.NetAddr)
+				addr = cm.NetAddr
+				break
+			}
+		}
+	}
+	peers := []*ConsensusPeer{newConsensusPeer(addr.IP, addr.Port)}
+
 	queryMsg, err := p.BuildQueryProposalMessage(queryHeight, queryRound, msgHeader.EpochID, myNetAddr)
 	if err != nil {
 		p.logger.Warn("Error during generate PMQueryProposal message", "err", err)
@@ -308,6 +320,7 @@ func (p *Pacemaker) pendingProposal(queryHeight, queryRound uint64, proposalMsg 
 
 func (p *Pacemaker) checkPendingMessages(curHeight uint64) error {
 	height := curHeight + 1
+	p.logger.Info("checkPendingMessage", "start height", height)
 	for {
 		pendingMsg, ok := p.pendingList.messages[height]
 		if !ok {
