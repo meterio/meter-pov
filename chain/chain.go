@@ -311,7 +311,7 @@ func (c *Chain) AddBlock(newBlock *block.Block, receipts tx.Receipts, finalize b
 				return nil, err
 			}
 			c.bestBlock = newBlock
-			err := c.updateBestQC()
+			err := c.UpdateBestQC()
 			if err != nil {
 				fmt.Println("Error during update QC: ", err)
 			}
@@ -728,7 +728,14 @@ func (c *Chain) LeafBlock() *block.Block {
 	return c.leafBlock
 }
 
-func (c *Chain) updateBestQC() error {
+func (c *Chain) UpdateLeafBlock() error {
+	if c.leafBlock.Header().Number() < c.bestBlock.Header().Number() {
+		c.leafBlock = c.bestBlock
+		fmt.Println("!!! Move Leaf Block to: ", c.leafBlock.String())
+	}
+	return nil
+}
+func (c *Chain) UpdateBestQC() error {
 	if c.leafBlock.Header().ID().String() == c.bestBlock.Header().ID().String() {
 		return saveBestQC(c.kv, c.bestQC)
 	}
@@ -754,6 +761,7 @@ func (c *Chain) updateBestQC() error {
 		return errors.New("parent mismatch ")
 	}
 	c.bestQC = blk.QC
+	fmt.Println("!!! Move BestQC to: ", c.bestQC.String())
 	return saveBestQC(c.kv, c.bestQC)
 }
 
