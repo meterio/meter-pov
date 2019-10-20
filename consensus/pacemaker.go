@@ -544,9 +544,10 @@ func (p *Pacemaker) StartFromGenesis() {
 */
 
 //Committee Leader triggers
-func (p *Pacemaker) Start(blockQC *block.QuorumCert, newCommittee bool) {
+func (p *Pacemaker) Start(newCommittee bool) {
 	p.csReactor.chain.UpdateBestQC()
 	p.csReactor.chain.UpdateLeafBlock()
+	blockQC := p.csReactor.chain.BestQC()
 	p.logger.Info(fmt.Sprintf("*** Pacemaker start at height %v, QC:%v, newCommittee:%v",
 		blockQC.QCHeight, blockQC.String(), newCommittee))
 
