@@ -43,6 +43,18 @@ func (c *Communicator) download(peer *Peer, fromNum uint32, handler HandleBlockS
 		defer close(blockCh)
 		var blocks []*block.Block
 		for {
+			qc, err := proto.GetBestQC(ctx, peer)
+			// fmt.Println("HANDLE QC:", qc.String(), ", ERROR=", err)
+			if err != nil {
+				errCh <- err
+				return
+			}
+			fmt.Println("GOT QC: ", qc.String())
+			err = qcHandler(ctx, qc)
+			if err != nil {
+				errCh <- err
+			}
+
 			result, err := proto.GetBlocksFromNumber(ctx, peer, fromNum)
 			if err != nil {
 				errCh <- err
@@ -50,17 +62,6 @@ func (c *Communicator) download(peer *Peer, fromNum uint32, handler HandleBlockS
 			}
 			if len(result) == 0 {
 				return
-			}
-
-			qc, err := proto.GetBestQC(ctx, peer)
-			if err != nil {
-				errCh <- err
-				return
-			}
-			//fmt.Println("GOT QC: ", qc.String())
-			err = qcHandler(ctx, qc)
-			if err != nil {
-				errCh <- err
 			}
 
 			blocks = blocks[:0]
