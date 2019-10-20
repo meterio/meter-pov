@@ -739,11 +739,12 @@ func (c *Chain) UpdateBestQC() error {
 	if c.leafBlock.Header().ID().String() == c.bestBlock.Header().ID().String() {
 		return saveBestQC(c.kv, c.bestQC)
 	}
+	fmt.Println("UpdateBestQC, bestQCCandidate=", c.bestQCCandidate.String(), ", bestBlock.Height=", c.bestBlock.Header().Number())
 	if c.bestQCCandidate != nil && c.bestQCCandidate.QCHeight == uint64(c.bestBlock.Header().Number()) {
 		c.bestQC = c.bestQCCandidate
 		c.bestQCCandidate = nil
+		fmt.Println("!!! Move BestQC to: ", c.bestQC.String())
 		return saveBestQC(c.kv, c.bestQC)
-
 	}
 	id, err := c.ancestorTrie.GetAncestor(c.leafBlock.Header().ID(), c.bestBlock.Header().Number()+1)
 	if err != nil {
