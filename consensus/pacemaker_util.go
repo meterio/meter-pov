@@ -220,9 +220,10 @@ func (p *Pacemaker) SendMessageToPeers(msg ConsensusMessage, peers []*ConsensusP
 		return false
 	}
 
+	myNetAddr := p.csReactor.curCommittee.Validators[p.csReactor.curCommitteeIndex].NetAddr
 	// broadcast consensus message to peers
 	for _, peer := range peers {
-		go peer.sendData(peer.netAddr, typeName, rawMsg)
+		go peer.sendData(myNetAddr, typeName, rawMsg)
 	}
 	return true
 }
