@@ -486,7 +486,7 @@ Myself is Leader, Let's start the pacemaker.
 
 		// Now start the pacemaker
 		newCommittee := !cl.replay
-		cl.csReactor.csPacemaker.Start(cl.csReactor.chain.BestQC(), newCommittee)
+		cl.csReactor.csPacemaker.Start(newCommittee)
 		return true
 
 	} else {

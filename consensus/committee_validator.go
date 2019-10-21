@@ -314,7 +314,7 @@ Let's start the pacemaker...
 
 	// XXX: Start pacemaker here at this time.
 	newCommittee := !cv.replay
-	cv.csReactor.csPacemaker.Start(cv.csReactor.chain.BestQC(), newCommittee)
+	cv.csReactor.csPacemaker.Start(newCommittee)
 	return true
 }
 
