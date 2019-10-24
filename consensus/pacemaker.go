@@ -483,7 +483,10 @@ func (p *Pacemaker) OnReceiveNewView(newViewMsg *PMNewViewMessage, from types.Ne
 	qcNode := p.AddressBlock(qc.QCHeight, qc.QCRound)
 	if qcNode == nil {
 		p.logger.Error("can not address qcNode", "err", err)
-		p.pendingList.Add(newViewMsg, from)
+		// put this newView to pending list, and sent out query
+		if err := p.pendingNewView(qc.QCHeight, qc.QCRound, newViewMsg, from); err != nil {
+			p.logger.Error("handle pending newViewMsg failed", "error", err)
+		}
 		return nil
 	}
 	pmQC := newPMQuorumCert(&qc, qcNode)

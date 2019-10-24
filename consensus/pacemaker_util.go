@@ -199,7 +199,6 @@ func (p *Pacemaker) SendConsensusMessage(round uint64, msg ConsensusMessage, cop
 	}
 
 	// broadcast consensus message to peers
-
 	for _, peer := range peers {
 		hint := "Sending pacemaker msg to peer"
 		if peer.netAddr.IP.String() == myNetAddr.IP.String() {
@@ -291,9 +290,7 @@ func (p *Pacemaker) verifyTimeoutCert(tc *PMTimeoutCert, height, round uint64) b
 
 // for proposals which can not be addressed parent and QC node should
 // put it to pending list and query the parent node
-func (p *Pacemaker) pendingProposal(queryHeight, queryRound uint64, proposalMsg *PMProposalMessage, addr types.NetAddress) error {
-	msgHeader := proposalMsg.CSMsgCommonHeader
-
+func (p *Pacemaker) sendQueryProposalMsg(queryHeight, queryRound, EpochID uint64, addr types.NetAddress) error {
 	// put this proposal to pending list, and sent out query
 	myNetAddr := p.csReactor.curCommittee.Validators[p.csReactor.curCommitteeIndex].NetAddr
 
@@ -309,13 +306,33 @@ func (p *Pacemaker) pendingProposal(queryHeight, queryRound uint64, proposalMsg 
 	}
 	peers := []*ConsensusPeer{newConsensusPeer(addr.IP, addr.Port)}
 
-	queryMsg, err := p.BuildQueryProposalMessage(queryHeight, queryRound, msgHeader.EpochID, myNetAddr)
+	queryMsg, err := p.BuildQueryProposalMessage(queryHeight, queryRound, EpochID, myNetAddr)
 	if err != nil {
 		p.logger.Warn("Error during generate PMQueryProposal message", "err", err)
 		return errors.New("can not address parent")
 	}
 	p.SendMessageToPeers(queryMsg, peers)
+	return nil
+}
+
+func (p *Pacemaker) pendingProposal(queryHeight, queryRound uint64, proposalMsg *PMProposalMessage, addr types.NetAddress) error {
+	epochID := proposalMsg.CSMsgCommonHeader.EpochID
+	if err := p.sendQueryProposalMsg(queryHeight, queryRound, epochID, addr); err != nil {
+		p.logger.Warn("Error during generate PMQueryProposal message", "err", err)
+	}
+
 	p.pendingList.Add(proposalMsg, addr)
+	return nil
+}
+
+// put it to pending list and query the parent node
+func (p *Pacemaker) pendingNewView(queryHeight, queryRound uint64, newViewMsg *PMNewViewMessage, addr types.NetAddress) error {
+	epochID := newViewMsg.CSMsgCommonHeader.EpochID
+	if err := p.sendQueryProposalMsg(queryHeight, queryRound, epochID, addr); err != nil {
+		p.logger.Warn("Error during generate PMQueryProposal message", "err", err)
+	}
+
+	p.pendingList.Add(newViewMsg, addr)
 	return nil
 }
 

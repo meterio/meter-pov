@@ -20,13 +20,6 @@ import (
 )
 
 func (conR *ConsensusReactor) GetKBlockRewardTxs(rewards []powpool.PowReward) tx.Transactions {
-	/****
-	executor, _ := meter.ParseAddress("0xd1e56316b6472cbe9897a577a0f3826932e95863")
-	account0, _ := meter.ParseAddress("0x1de8ca2f973d026300af89041b0ecb1c0803a7e6")
-
-	rewarders := append([]meter.Address{}, executor)
-	rewarders = append(rewarders, account0)
-	****/
 	trx := conR.MinerRewards(rewards)
 	fmt.Println("Built rewards tx:", trx)
 	return append(tx.Transactions{}, trx)

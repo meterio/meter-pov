@@ -11,46 +11,24 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/dfinlab/meter/block"
+	"github.com/ethereum/go-ethereum/common/mclock"
+	crypto "github.com/ethereum/go-ethereum/crypto"
 	"github.com/pkg/errors"
 
-	//"github.com/dfinlab/meter/builtin"
-
-	//"github.com/dfinlab/meter/chain"
-	//"github.com/dfinlab/meter/poa"
+	"github.com/dfinlab/meter/block"
 	"github.com/dfinlab/meter/comm"
+	bls "github.com/dfinlab/meter/crypto/multi_sig"
+	cmn "github.com/dfinlab/meter/libs/common"
+	"github.com/dfinlab/meter/logdb"
 	"github.com/dfinlab/meter/meter"
+	"github.com/dfinlab/meter/packer"
 	"github.com/dfinlab/meter/powpool"
 	"github.com/dfinlab/meter/runtime"
 	"github.com/dfinlab/meter/state"
 	"github.com/dfinlab/meter/tx"
 	"github.com/dfinlab/meter/txpool"
-
-	//"github.com/dfinlab/meter/types"
-	bls "github.com/dfinlab/meter/crypto/multi_sig"
-	cmn "github.com/dfinlab/meter/libs/common"
-	"github.com/dfinlab/meter/logdb"
-	"github.com/dfinlab/meter/packer"
 	"github.com/dfinlab/meter/xenv"
-	"github.com/ethereum/go-ethereum/common/mclock"
-	crypto "github.com/ethereum/go-ethereum/crypto"
 )
-
-// Consensus check whether the block is verified,
-// and predicate which trunk it belong to.
-/**********************
-type Consensus struct {
-	chain        *chain.Chain
-	stateCreator *state.Creator
-}
-
-// New create a Consensus instance.
-func New(chain *chain.Chain, stateCreator *state.Creator) *Consensus {
-	return &Consensus{
-		chain:        chain,
-		stateCreator: stateCreator}
-}
-******************/
 
 // Process process a block.
 func (c *ConsensusReactor) Process(blk *block.Block, nowTimestamp uint64) (*state.Stage, tx.Receipts, error) {
@@ -196,13 +174,6 @@ func (c *ConsensusReactor) validateBlockHeader(header *block.Header, parent *blo
 	if header.Timestamp() <= parent.Timestamp() {
 		return consensusError(fmt.Sprintf("block timestamp behind parents: parent %v, current %v", parent.Timestamp(), header.Timestamp()))
 	}
-
-	// XXX: unlike vechain, our block generation is not periodically. It is on varied speed, basically 5s < t  < 15s
-	/*****
-	if (header.Timestamp()-parent.Timestamp())%meter.BlockInterval != 0 {
-		return consensusError(fmt.Sprintf("block interval not rounded: parent %v, current %v", parent.Timestamp(), header.Timestamp()))
-	}
-	******/
 
 	if header.Timestamp() > nowTimestamp+meter.BlockInterval {
 		return errFutureBlock
@@ -816,7 +787,6 @@ func (conR *ConsensusReactor) BuildKBlock(parentBlock *block.Block, data *block.
 	conR.logger.Info("KBlock built", "nonce", data.Nonce)
 	startTime := mclock.Now()
 	//XXX: Build kblock coinbase Tranactions
-	//txs := tx.Transactions{}
 	txs := conR.GetKBlockRewardTxs(rewards)
 
 	p := packer.GetGlobPackerInst()

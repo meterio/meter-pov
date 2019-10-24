@@ -125,8 +125,8 @@ func main() {
 	app := cli.App{
 		Version:   fmt.Sprintf("%s-%s-%s", version, gitCommit, versionMeta),
 		Name:      "Disco",
-		Usage:     "VeChain Thor bootstrap node",
-		Copyright: "2018 VeChain Foundation <https://vechain.org/>",
+		Usage:     "Meter.io bootstrap node",
+		Copyright: "2018 Meter Foundation <https://meter.io/>",
 		Flags:     flags,
 		Action:    run,
 	}
