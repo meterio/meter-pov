@@ -455,6 +455,8 @@ func (p *Pacemaker) OnBeat(height uint64, round uint64) error {
 		p.blockLeaf = bleaf
 	} else {
 		p.csReactor.logger.Info("OnBeat: I am NOT round proposer", "round", round)
+		p.stopRoundTimer()
+		p.startRoundTimer(height, round, 0)
 	}
 	return nil
 }

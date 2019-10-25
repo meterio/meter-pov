@@ -409,6 +409,12 @@ func NewCommitteeMember() *CommitteeMember {
 	return &CommitteeMember{}
 }
 
+func (cm *CommitteeMember) ToString() string {
+	return fmt.Sprintf("[CommitteeMember: Address:%s PubKey:%s VotingPower:%v CSPubKey:%s, CSIndex:%v]",
+		cm.Address.String(), hex.EncodeToString(crypto.FromECDSAPub(&cm.PubKey)),
+		cm.VotingPower, cm.CSPubKey.ToString(), cm.CSIndex)
+}
+
 type consensusMsgInfo struct {
 	//Msg    ConsensusMessage
 	Msg    []byte
@@ -493,8 +499,9 @@ func (conR *ConsensusReactor) UpdateActualCommittee(indexes []int, pubKeys []bls
 		return false
 	}
 
-	// Add leader (myself) to the AcutalCommittee
-	l := conR.curCommittee.Validators[0]
+	// Add leader (myself) to the AcutalCommittee,
+	// if there is time out, myself is not the first one in curCommittee
+	l := conR.curCommittee.Validators[conR.curCommitteeIndex]
 	cm := CommitteeMember{
 		Address:     l.Address,
 		PubKey:      l.PubKey,
@@ -508,8 +515,7 @@ func (conR *ConsensusReactor) UpdateActualCommittee(indexes []int, pubKeys []bls
 
 	for i, index := range indexes {
 		//sanity check
-		if index == -1 ||
-			index > conR.committeeSize {
+		if (index == -1) || (index > conR.committeeSize) {
 			// fmt.Println(i, "index", index)
 			continue
 		}
@@ -526,7 +532,6 @@ func (conR *ConsensusReactor) UpdateActualCommittee(indexes []int, pubKeys []bls
 			CSPubKey:    pubKeys[i], //bls PublicKey
 			CSIndex:     index,
 		}
-
 		conR.curActualCommittee = append(conR.curActualCommittee, cm)
 	}
 
@@ -541,7 +546,7 @@ func (conR *ConsensusReactor) UpdateActualCommittee(indexes []int, pubKeys []bls
 
 	// I am Leader, first one should be myself.
 	if bytes.Equal(crypto.FromECDSAPub(&conR.curActualCommittee[0].PubKey), crypto.FromECDSAPub(&conR.myPubKey)) == false {
-		conR.logger.Error("I am leader and not in first place of curActualCommittee, must correct ...")
+		conR.logger.Error("I am leader and not in first place of curActualCommittee, must correct !!!")
 		return false
 	}
 
