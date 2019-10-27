@@ -93,9 +93,12 @@ func NewCommitteeLeader(conR *ConsensusReactor) *ConsensusLeader {
 		notaryVoterBitArray:   cmn.NewBitArray(conR.committeeSize),
 	}
 
-	// form topology, we know the 0 is Leader itself
+	// to others except myself
 	fmt.Println(conR.curCommittee)
-	for _, v := range conR.curCommittee.Validators[1:] {
+	for i, v := range conR.curCommittee.Validators {
+		if i == conR.curCommitteeIndex {
+			continue
+		}
 		// initialize PeerConn
 		p := newConsensusPeer(v.NetAddr.IP, v.NetAddr.Port)
 		cl.csPeers = append(cl.csPeers, p)
