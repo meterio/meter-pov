@@ -156,8 +156,7 @@ func main() {
 	}
 }
 func showEnodeIDAction(ctx *cli.Context) error {
-	configDir := makeConfigDir(ctx)
-	key, err := loadOrGeneratePrivateKey(filepath.Join(configDir, "p2p.key"))
+	key, err := loadOrGeneratePrivateKey(filepath.Join(ctx.String("data-dir"), "p2p.key"))
 	if err != nil {
 		fatal("load or generate P2P key:", err)
 	}

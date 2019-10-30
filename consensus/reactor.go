@@ -166,6 +166,8 @@ type ConsensusReactor struct {
 
 	newCommittee     *NewCommittee                     //New committee for myself
 	rcvdNewCommittee map[NewCommitteeKey]*NewCommittee // store received new committee info
+
+	dataDir string
 }
 
 // Glob Instance
@@ -236,7 +238,9 @@ func NewConsensusReactor(ctx *cli.Context, chain *chain.Chain, state *state.Crea
 
 	//initialize Delegates
 	conR.delegateSize = ctx.Int("delegate-size") // 10 //DELEGATES_SIZE
-	conR.curDelegates = types.NewDelegateSet(GetConsensusDelegates(conR.delegateSize))
+	dataDir := ctx.String("data-dir")
+	conR.dataDir = dataDir
+	conR.curDelegates = types.NewDelegateSet(GetConsensusDelegates(dataDir, conR.delegateSize))
 
 	conR.committeeSize = ctx.Int("committee-size") // 4 //COMMITTEE_SIZE
 
@@ -1372,7 +1376,7 @@ func (conR *ConsensusReactor) HandleSchedule(fn func()) bool {
 // update current delegates with new delegates from staking
 // keep this standalone method intentionly
 func (conR *ConsensusReactor) ConsensusUpdateCurDelegates() {
-	conR.curDelegates = types.NewDelegateSet(GetConsensusDelegates(conR.delegateSize))
+	conR.curDelegates = types.NewDelegateSet(GetConsensusDelegates(conR.dataDir, conR.delegateSize))
 }
 
 // Consensus module handle received nonce from kblock
@@ -1533,12 +1537,12 @@ func UserHomeDir() string {
 	return os.Getenv("HOME")
 }
 
-func configDelegates( /*myPubKey ecdsa.PublicKey*/ ) []*types.Delegate {
+func configDelegates(dataDir string /*myPubKey ecdsa.PublicKey*/) []*types.Delegate {
 	delegates1 := make([]*Delegate1, 0)
 
 	// Hack for compile
 	// TODO: move these hard-coded filepath to config
-	filePath := path.Join(UserHomeDir(), ".org.dfinlab.meter", "delegates.json")
+	filePath := path.Join(dataDir, "delegates.json")
 	file, err := ioutil.ReadFile(filePath)
 	if err != nil {
 		fmt.Println("unable load delegate file", "error", err)
@@ -1584,7 +1588,7 @@ func PrintDelegates(delegates []*types.Delegate) {
 }
 
 // entry point for each committee
-func GetConsensusDelegates(size int) []*types.Delegate {
+func GetConsensusDelegates(dataDir string, size int) []*types.Delegate {
 	delegates, err := staking.GetInternalDelegateList()
 	if err == nil && len(delegates) == size {
 		fmt.Println("delegatesList from staking", "delegate size", size)
@@ -1592,7 +1596,7 @@ func GetConsensusDelegates(size int) []*types.Delegate {
 		return delegates
 	}
 
-	delegates = configDelegates()
+	delegates = configDelegates(dataDir)
 	fmt.Println("delegatesList from configuration file", "delegate size", size)
 	PrintDelegates(delegates)
 	return delegates

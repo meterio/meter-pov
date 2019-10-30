@@ -68,6 +68,7 @@ func selectGenesis(ctx *cli.Context) *genesis.Genesis {
 	}
 }
 
+/*
 func makeConfigDir(ctx *cli.Context) string {
 	configDir := ctx.String(configDirFlag.Name)
 	if configDir == "" {
@@ -78,6 +79,7 @@ func makeConfigDir(ctx *cli.Context) string {
 	}
 	return configDir
 }
+*/
 
 func makeDataDir(ctx *cli.Context) string {
 	dataDir := ctx.String(dataDirFlag.Name)
@@ -160,13 +162,11 @@ func initChain(gene *genesis.Genesis, mainDB *lvldb.LevelDB, logDB *logdb.LogDB)
 }
 
 func masterKeyPath(ctx *cli.Context) string {
-	configDir := makeConfigDir(ctx)
-	return filepath.Join(configDir, "master.key")
+	return filepath.Join(ctx.String("data-dir"), "master.key")
 }
 
 func publicKeyPath(ctx *cli.Context) string {
-	configDir := makeConfigDir(ctx)
-	return filepath.Join(configDir, "public.key")
+	return filepath.Join(ctx.String("data-dir"), "public.key")
 }
 
 func beneficiary(ctx *cli.Context) *meter.Address {
@@ -231,8 +231,7 @@ type p2pComm struct {
 }
 
 func newP2PComm(ctx *cli.Context, chain *chain.Chain, txPool *txpool.TxPool, instanceDir string, powPool *powpool.PowPool) *p2pComm {
-	configDir := makeConfigDir(ctx)
-	key, err := loadOrGeneratePrivateKey(filepath.Join(configDir, "p2p.key"))
+	key, err := loadOrGeneratePrivateKey(filepath.Join(ctx.String("data-dir"), "p2p.key"))
 	if err != nil {
 		fatal("load or generate P2P key:", err)
 	}

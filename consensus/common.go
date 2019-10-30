@@ -296,12 +296,12 @@ func writeOutKeyPairs(conR *ConsensusReactor, system bls.System, pubKey bls.Publ
 		content = append(content, ([]byte("\n"))...)
 		content = append(content, system.PrivKeyToBytes(PrivKey)...)
 	*/
-	ioutil.WriteFile(filepath.Join(conR.config.ConfigPath, "consensus.key"), []byte(hex.EncodeToString(content)), 0644)
+	ioutil.WriteFile(filepath.Join(conR.dataDir, "consensus.key"), []byte(hex.EncodeToString(content)), 0644)
 	return nil
 }
 
 func readBackKeyPairs(conR *ConsensusReactor, system bls.System) (*bls.PublicKey, *bls.PrivateKey, error) {
-	readBytes, err := ioutil.ReadFile(filepath.Join(conR.config.ConfigPath, "consensus.key"))
+	readBytes, err := ioutil.ReadFile(filepath.Join(conR.dataDir, "consensus.key"))
 	if err != nil {
 		conR.logger.Error("read consesus.key file error ...")
 		return nil, nil, err
