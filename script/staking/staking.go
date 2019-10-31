@@ -2,7 +2,6 @@ package staking
 
 import (
 	"errors"
-	"time"
 
 	"github.com/dfinlab/meter/chain"
 	"github.com/dfinlab/meter/meter"
@@ -76,12 +75,13 @@ func (s *Staking) PrepareStakingHandler() (StakingHandler func(data []byte, to *
 		}
 
 		s.logger.Info("receives staking data", "stakingbody", sb.ToString())
-		now := uint64(time.Now().Unix())
+		/*  now := uint64(time.Now().Unix())
 		if InTimeSpan(sb.Timestamp, now, STAKING_TIMESPAN) == false {
 			s.logger.Error("timestamp span too far", "timestamp", sb.Timestamp, "now", now)
 			err = errors.New("timestamp span too far")
 			return
 		}
+		*/
 
 		switch sb.Opcode {
 		case OP_BOUND:
