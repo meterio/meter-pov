@@ -78,7 +78,10 @@ type Pacemaker struct {
 	timeoutCertManager *PMTimeoutCertManager
 	timeoutCert        *PMTimeoutCert
 
-	pendingList *PendingList
+	pendingList  *PendingList
+	msgRelayInfo *PMProposalInfo
+
+	myActualCommitteeIndex int //record my index in actualcommittee
 }
 
 func NewPaceMaker(conR *ConsensusReactor) *Pacemaker {
@@ -95,6 +98,7 @@ func NewPaceMaker(conR *ConsensusReactor) *Pacemaker {
 		sigCounter:     make(map[uint64]int, 1024),
 		timeoutCounter: make(map[uint64]int, 1024),
 		pendingList:    NewPendingList(),
+		msgRelayInfo:   NewPMProposalInfo(),
 	}
 	p.timeoutCertManager = newPMTimeoutCertManager(p)
 
@@ -563,6 +567,9 @@ func (p *Pacemaker) Start(newCommittee bool) {
 	} else {
 		round = 0
 	}
+
+	// acutalcommittee is different in each epoch, save my index here
+	p.myActualCommitteeIndex = p.csReactor.GetMyActualCommitteeIndex()
 
 	p.startHeight = height
 	qcNode := p.AddressBlock(height, round)

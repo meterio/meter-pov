@@ -5,17 +5,16 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
-	"strconv"
-
-	//"github.com/dfinlab/meter/types"
 	"net"
 	"net/http"
+	"strconv"
 	"time"
+
+	crypto "github.com/ethereum/go-ethereum/crypto"
 
 	"github.com/dfinlab/meter/block"
 	bls "github.com/dfinlab/meter/crypto/multi_sig"
 	"github.com/dfinlab/meter/types"
-	crypto "github.com/ethereum/go-ethereum/crypto"
 )
 
 type receivedConsensusMessage struct {
@@ -73,14 +72,76 @@ func (p *Pacemaker) receivePacemakerMsg(w http.ResponseWriter, r *http.Request) 
 		panic("message decode error")
 	} else {
 		typeName := getConcreteName(msg)
+		var fromMyself bool
 		if peerIP.String() == p.csReactor.GetMyNetAddr().IP.String() {
 			p.logger.Info("Received pacemaker msg from myself", "type", typeName, "from", peerIP.String())
+			fromMyself = true
 		} else {
 			p.logger.Info("Received pacemaker msg from peer", "msg", msg.String(), "from", peerIP.String())
+			fromMyself = false
 		}
+
+		// check replay first, also include the proposal myself
+		var height uint64
+		var round int
+		if typeName == "PMProposalMessage" {
+			proposal := msg.(*PMProposalMessage)
+			height = uint64(proposal.CSMsgCommonHeader.Height)
+			round = proposal.CSMsgCommonHeader.Round
+			if p.msgRelayInfo.InMap(&msgByteSlice, height, round) == true {
+				p.logger.Info("received PMProposal, duplicaetd, dropped", "height", height, "round", round)
+				return
+			} else {
+				p.logger.Info("received PMProposal, added", "height", height, "round", round)
+				p.msgRelayInfo.Add(&msgByteSlice, height, round)
+			}
+		}
+
 		from := types.NetAddress{IP: peerIP, Port: uint16(peerPort)}
 		p.pacemakerMsgCh <- receivedConsensusMessage{msg, from}
+
+		// take the action in the end
+		// now relay this message if proposal
+		if fromMyself == false && typeName == "PMProposalMessage" {
+			peers, _ := p.GetRelayPeers(round)
+			for _, peer := range peers {
+				p.logger.Info("now, relay this proposal...", "peer", peer.String(), "height", height, "round", round)
+				if peer.netAddr.IP.String() == p.csReactor.GetMyNetAddr().IP.String() {
+					p.logger.Info("relay to myself, ignore ...")
+					continue
+				}
+				go peer.sendData(from, typeName, msgByteSlice)
+			}
+
+			lowest := p.msgRelayInfo.GetLowestHeight()
+			if (height > lowest) && (height-lowest) >= 3*RELAY_MSG_KEEP_HEIGHT {
+				go p.msgRelayInfo.CleanUpTo(height - RELAY_MSG_KEEP_HEIGHT)
+			}
+		}
 	}
+}
+
+func (p *Pacemaker) GetRelayPeers(round int) ([]*ConsensusPeer, error) {
+	peers := []*ConsensusPeer{}
+	size := len(p.csReactor.curActualCommittee)
+	myIndex := p.myActualCommitteeIndex
+	rr := round % size
+	if myIndex >= rr {
+		myIndex = myIndex - rr
+	} else {
+		myIndex = myIndex + size - rr
+	}
+
+	indexes := getRelayPeers(myIndex, size-1)
+	for _, i := range indexes {
+		index := i + rr
+		if index >= size {
+			index = index % size
+		}
+		member := p.csReactor.curActualCommittee[index]
+		peers = append(peers, newConsensusPeer(member.NetAddr.IP, member.NetAddr.Port))
+	}
+	return peers, nil
 }
 
 func (p *Pacemaker) ValidateProposal(b *pmBlock) error {
@@ -182,7 +243,7 @@ func (p *Pacemaker) SendConsensusMessage(round uint64, msg ConsensusMessage, cop
 	var peers []*ConsensusPeer
 	switch msg.(type) {
 	case *PMProposalMessage:
-		peers, _ = p.csReactor.GetMyPeers()
+		peers, _ = p.GetRelayPeers(int(round))
 	case *PMVoteForProposalMessage:
 		proposer := p.getProposerByRound(int(round))
 		peers = []*ConsensusPeer{proposer}

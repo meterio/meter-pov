@@ -1050,6 +1050,16 @@ func (conR *ConsensusReactor) GetMyPeers() ([]*ConsensusPeer, error) {
 	return peers, nil
 }
 
+func (conR *ConsensusReactor) GetMyActualCommitteeIndex() int {
+	myNetAddr := conR.GetMyNetAddr()
+	for index, member := range conR.curActualCommittee {
+		if member.NetAddr.IP.String() == myNetAddr.IP.String() {
+			return index
+		}
+	}
+	return -1
+}
+
 // XXX. For test only
 func (conR *ConsensusReactor) sendConsensusMsg(msg *ConsensusMessage, csPeer *ConsensusPeer) bool {
 	typeName := getConcreteName(*msg)
