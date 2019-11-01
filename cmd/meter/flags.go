@@ -15,12 +15,6 @@ var (
 		Name:  "network",
 		Usage: "the network to join (main|test)",
 	}
-	configDirFlag = cli.StringFlag{
-		Name:   "config-dir",
-		Value:  defaultConfigDir(),
-		Hidden: true,
-		Usage:  "directory for user global configurations",
-	}
 	dataDirFlag = cli.StringFlag{
 		Name:  "data-dir",
 		Value: defaultDataDir(),

@@ -22,6 +22,7 @@ import (
 
 	b64 "encoding/base64"
 	"strings"
+
 	// "encoding/hex"
 
 	"github.com/dfinlab/meter/api/doc"
@@ -112,13 +113,6 @@ func loadOrUpdatePublicKey(path string, privKey *ecdsa.PrivateKey, newPubKey *ec
 
 	// k := hex.EncodeToString(crypto.FromECDSAPub(pubKey))
 	return key, err
-}
-
-func defaultConfigDir() string {
-	if home := homeDir(); home != "" {
-		return filepath.Join(home, ".org.dfinlab.meter")
-	}
-	return ""
 }
 
 // copy from go-ethereum
