@@ -105,7 +105,6 @@ var (
 
 type ConsensusConfig struct {
 	ForceLastKFrame    bool
-	ConfigPath         string
 	SkipSignatureCheck bool
 }
 
@@ -192,7 +191,6 @@ func NewConsensusReactor(ctx *cli.Context, chain *chain.Chain, state *state.Crea
 	if ctx != nil {
 		conR.config = ConsensusConfig{
 			ForceLastKFrame:    ctx.Bool("force-last-kframe"),
-			ConfigPath:         ctx.String("config-dir"),
 			SkipSignatureCheck: ctx.Bool("skip-signature-check"),
 		}
 	}

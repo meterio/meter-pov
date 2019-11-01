@@ -12,6 +12,7 @@ import (
 	"io/ioutil"
 	"math/rand"
 	"os"
+	"path"
 	"path/filepath"
 	"time"
 
@@ -32,6 +33,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/p2p/discover"
+	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/inconshreveable/log15"
 	"github.com/mattn/go-isatty"
 	"github.com/pborman/uuid"
@@ -76,7 +78,6 @@ func main() {
 		Copyright: "2018 Meter Foundation <https://meter.io/>",
 		Flags: []cli.Flag{
 			networkFlag,
-			configDirFlag,
 			dataDirFlag,
 			beneficiaryFlag,
 			apiAddrFlag,
@@ -124,7 +125,7 @@ func main() {
 				Name:  "master-key",
 				Usage: "import and export master key",
 				Flags: []cli.Flag{
-					configDirFlag,
+					dataDirFlag,
 					importMasterKeyFlag,
 					exportMasterKeyFlag,
 				},
@@ -134,7 +135,7 @@ func main() {
 				Name:  "enode-id",
 				Usage: "display enode-id",
 				Flags: []cli.Flag{
-					configDirFlag,
+					dataDirFlag,
 					p2pPortFlag,
 				},
 				Action: showEnodeIDAction,
@@ -143,9 +144,18 @@ func main() {
 				Name:  "public-key",
 				Usage: "export public key",
 				Flags: []cli.Flag{
-					configDirFlag,
+					dataDirFlag,
 				},
 				Action: publicKeyAction,
+			},
+			{
+				Name:  "peers",
+				Usage: "export peers",
+				Flags: []cli.Flag{
+					networkFlag,
+					dataDirFlag,
+				},
+				Action: peersAction,
 			},
 		},
 	}
@@ -178,6 +188,27 @@ func publicKeyAction(ctx *cli.Context) error {
 	}
 	b := b64.StdEncoding.EncodeToString(crypto.FromECDSAPub(pubKey))
 	fmt.Println(b)
+	return nil
+}
+
+func peersAction(ctx *cli.Context) error {
+	fmt.Println("Peers from peers.cache")
+	gene := selectGenesis(ctx)
+	instanceDir := makeInstanceDir(ctx, gene)
+	peersCachePath := path.Join(instanceDir, "peers.cache")
+	nodes := make([]*discover.Node, 0)
+	if data, err := ioutil.ReadFile(peersCachePath); err != nil {
+		if !os.IsNotExist(err) {
+			fmt.Println("failed to load peers cache", "err", err)
+			return err
+		}
+	} else if err := rlp.DecodeBytes(data, &nodes); err != nil {
+		fmt.Println("failed to load peers cache", "err", err)
+	}
+	for i, n := range nodes {
+		fmt.Println(fmt.Sprintf("Node #%d: enode://%s@%s", i, n.ID, n.IP.String()))
+	}
+	fmt.Println("End.")
 	return nil
 }
 

@@ -68,19 +68,6 @@ func selectGenesis(ctx *cli.Context) *genesis.Genesis {
 	}
 }
 
-/*
-func makeConfigDir(ctx *cli.Context) string {
-	configDir := ctx.String(configDirFlag.Name)
-	if configDir == "" {
-		fatal(fmt.Sprintf("unable to infer default config dir, use -%s to specify", configDirFlag.Name))
-	}
-	if err := os.MkdirAll(configDir, 0700); err != nil {
-		fatal(fmt.Sprintf("create config dir [%v]: %v", configDir, err))
-	}
-	return configDir
-}
-*/
-
 func makeDataDir(ctx *cli.Context) string {
 	dataDir := ctx.String(dataDirFlag.Name)
 	if dataDir == "" {
