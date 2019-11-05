@@ -269,7 +269,7 @@ func (sb *StakingBody) CandidateHandler(senv *StakingEnviroment, gas uint64) (re
 	bucket := NewBucket(sb.CandAddr, sb.CandAddr, &sb.Amount, uint8(sb.Token), opt, rate, sb.Timestamp, sb.Nonce)
 	bucketList.Add(bucket)
 
-	candidate := NewCandidate(sb.CandAddr, sb.CandPubKey, sb.CandIP, sb.CandPort)
+	candidate := NewCandidate(sb.CandAddr, sb.CandName, sb.CandPubKey, sb.CandIP, sb.CandPort)
 	candidate.AddBucket(bucket)
 	candidateList.Add(candidate)
 

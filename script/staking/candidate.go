@@ -21,9 +21,10 @@ type Candidate struct {
 	Buckets    []meter.Bytes32 // all buckets voted for this candidate
 }
 
-func NewCandidate(addr meter.Address, pubKey []byte, ip []byte, port uint16) *Candidate {
+func NewCandidate(addr meter.Address, name []byte, pubKey []byte, ip []byte, port uint16) *Candidate {
 	return &Candidate{
 		Addr:       addr,
+		Name:       name,
 		PubKey:     pubKey,
 		IPAddr:     ip,
 		Port:       port,
