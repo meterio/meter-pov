@@ -247,6 +247,19 @@ func (p *Pacemaker) OnCommit(commitReady []*pmBlock) error {
 	return nil
 }
 
+func (p *Pacemaker) OnPreCommitBlock(b *pmBlock) error {
+	p.csReactor.logger.Info("PreCommit block", "height", b.Height, "round", b.Round)
+	// TBD: how to handle this case???
+	if b.SuccessProcessed == false {
+		p.csReactor.logger.Error("Process this propsoal failed, possible my states are wrong", "height", b.Height, "round", b.Round)
+		return errors.New("Process this propsoal failed, precommit skipped")
+	}
+	if ok := p.csReactor.PreCommitBlock(b.ProposedBlockInfo); ok != true {
+		return errors.New("precommit failed")
+	}
+	return nil
+}
+
 func (p *Pacemaker) OnReceiveProposal(proposalMsg *PMProposalMessage, from types.NetAddress) error {
 	msgHeader := proposalMsg.CSMsgCommonHeader
 	height := uint64(msgHeader.Height)
@@ -328,7 +341,7 @@ func (p *Pacemaker) OnReceiveProposal(proposalMsg *PMProposalMessage, from types
 		// parent got QC, pre-commit
 		justify := p.proposalMap[bnew.Justify.QC.QCHeight] //Justify.QCNode
 		if (justify != nil) && (justify.Height > p.startHeight) {
-			p.csReactor.PreCommitBlock(justify.ProposedBlockInfo)
+			p.OnPreCommitBlock(justify)
 		}
 
 		if err := p.ValidateProposal(bnew); err != nil {
@@ -442,7 +455,7 @@ func (p *Pacemaker) OnBeat(height uint64, round uint64) error {
 	b := p.proposalMap[p.QCHigh.QC.QCHeight]
 
 	if b.Height > p.startHeight {
-		p.csReactor.PreCommitBlock(b.ProposedBlockInfo)
+		p.OnPreCommitBlock(b)
 	}
 
 	if p.csReactor.amIRoundProproser(round) {
