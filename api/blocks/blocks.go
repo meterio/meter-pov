@@ -9,13 +9,13 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/ethereum/go-ethereum/common/math"
-	"github.com/gorilla/mux"
-	"github.com/pkg/errors"
 	"github.com/dfinlab/meter/api/utils"
 	"github.com/dfinlab/meter/block"
 	"github.com/dfinlab/meter/chain"
 	"github.com/dfinlab/meter/meter"
+	"github.com/ethereum/go-ethereum/common/math"
+	"github.com/gorilla/mux"
+	"github.com/pkg/errors"
 )
 
 type Blocks struct {
@@ -26,6 +26,15 @@ func New(chain *chain.Chain) *Blocks {
 	return &Blocks{
 		chain,
 	}
+}
+
+func (b *Blocks) handleGetBestQC(w http.ResponseWriter, req *http.Request) error {
+	quorumCert := b.chain.BestQC()
+	qc, err := convertQC(quorumCert)
+	if err != nil {
+		return err
+	}
+	return utils.WriteJSON(w, qc)
 }
 
 func (b *Blocks) handleGetBlock(w http.ResponseWriter, req *http.Request) error {
@@ -55,6 +64,9 @@ func (b *Blocks) parseRevision(revision string) (interface{}, error) {
 	if revision == "" || revision == "best" {
 		return nil, nil
 	}
+	if revision == "leaf" {
+		return "", nil
+	}
 	if len(revision) == 66 || len(revision) == 64 {
 		blockID, err := meter.ParseBytes32(revision)
 		if err != nil {
@@ -78,6 +90,8 @@ func (b *Blocks) getBlock(revision interface{}) (*block.Block, error) {
 		return b.chain.GetBlock(revision.(meter.Bytes32))
 	case uint32:
 		return b.chain.GetTrunkBlock(revision.(uint32))
+	case string:
+		return b.chain.LeafBlock(), nil
 	default:
 		return b.chain.BestBlock(), nil
 	}
@@ -94,6 +108,7 @@ func (b *Blocks) isTrunk(blkID meter.Bytes32, blkNum uint32) (bool, error) {
 
 func (b *Blocks) Mount(root *mux.Router, pathPrefix string) {
 	sub := root.PathPrefix(pathPrefix).Subrouter()
+	sub.Path("/qc").Methods("Get").HandlerFunc(utils.WrapHandlerFunc(b.handleGetBestQC))
 	sub.Path("/{revision}").Methods("GET").HandlerFunc(utils.WrapHandlerFunc(b.handleGetBlock))
 
 }
