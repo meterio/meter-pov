@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"sort"
 
 	"github.com/dfinlab/meter/meter"
 	"github.com/dfinlab/meter/state"
@@ -27,11 +28,26 @@ func (s *Staking) GetCandidateList(state *state.State) (result *CandidateList) {
 	state.DecodeStorage(StakingModuleAddr, CandidateListKey, func(raw []byte) error {
 		fmt.Println("Loaded Raw Hex: ", hex.EncodeToString(raw))
 		decoder := gob.NewDecoder(bytes.NewBuffer(raw))
-		var candidates []*Candidate
-		decoder.Decode(&candidates)
+		var candidateMap map[meter.Address]*Candidate
+		err := decoder.Decode(&candidateMap)
+		if err != nil {
+			var candidates []*Candidate
+			err = decoder.Decode(&candidates)
+			result = NewCandidateList(candidates)
+			fmt.Println("Loaded Candidate List:", result.ToString(), " OriginalLen:", len(candidates))
+			fmt.Println(result.ToString())
+			return err
+		}
+
+		// convert map to a sorted list
+		candidates := make([]*Candidate, 0)
+		for _, v := range candidateMap {
+			candidates = append(candidates, v)
+		}
+		sort.SliceStable(candidates, func(i, j int) bool {
+			return bytes.Compare(candidates[i].Addr.Bytes(), candidates[j].Addr.Bytes()) <= 0
+		})
 		result = NewCandidateList(candidates)
-		fmt.Println("Loaded Candidate List:", result.ToString(), " OriginalLen:", len(candidates))
-		fmt.Println(result.ToString())
 		return nil
 	})
 	return
@@ -50,8 +66,27 @@ func (s *Staking) SetCandidateList(candList *CandidateList, state *state.State) 
 func (s *Staking) GetStakeHolderList(state *state.State) (result *StakeholderList) {
 	state.DecodeStorage(StakingModuleAddr, StakeHolderListKey, func(raw []byte) error {
 		decoder := gob.NewDecoder(bytes.NewBuffer(raw))
-		var holders []*Stakeholder
-		decoder.Decode(&holders)
+		var holderMap map[meter.Address]*Stakeholder
+		// read map first
+		err := decoder.Decode(&holderMap)
+
+		if err != nil {
+			// if can't read map
+			// read list instead
+			var holders []*Stakeholder
+			err = decoder.Decode(&holders)
+			result = newStakeholderList(holders)
+			return err
+		}
+
+		// sort the list from map
+		holders := make([]*Stakeholder, 0)
+		for _, v := range holderMap {
+			holders = append(holders, v)
+		}
+		sort.SliceStable(holders, func(i, j int) bool {
+			return bytes.Compare(holders[i].Holder.Bytes(), holders[j].Holder.Bytes()) <= 0
+		})
 		result = newStakeholderList(holders)
 		return nil
 	})
@@ -72,12 +107,24 @@ func (s *Staking) GetBucketList(state *state.State) (result *BucketList) {
 	state.DecodeStorage(StakingModuleAddr, BucketListKey, func(raw []byte) error {
 		buf := bytes.NewBuffer(raw)
 		decoder := gob.NewDecoder(buf)
-		var buckets []*Bucket
-		// rlp.DecodeBytes(raw, &buckets)
-		decoder.Decode(&buckets)
-
+		var bucketMap map[meter.Bytes32]*Bucket
+		err := decoder.Decode(&bucketMap)
+		if err != nil {
+			var buckets []*Bucket
+			decoder.Decode(&buckets)
+			result = newBucketList(buckets)
+			return nil
+		}
+		buckets := make([]*Bucket, 0)
+		for _, v := range bucketMap {
+			buckets = append(buckets, v)
+		}
+		sort.SliceStable(buckets, func(i, j int) bool {
+			return bytes.Compare(buckets[i].BucketID.Bytes(), buckets[j].BucketID.Bytes()) <= 0
+		})
 		result = newBucketList(buckets)
 		return nil
+
 	})
 	return
 }
