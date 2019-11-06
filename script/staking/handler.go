@@ -533,7 +533,7 @@ func (sb *StakingBody) GoverningHandler(senv *StakingEnviroment, gas uint64) (re
 
 			// update candidate
 			if bkt.Candidate.IsZero() == false {
-				if cand, track := candidateList.candidates[bkt.Candidate]; track == true {
+				if cand := candidateList.Get(bkt.Candidate); cand != nil {
 					cand.TotalVotes = cand.TotalVotes.Add(cand.TotalVotes, bonus)
 				}
 			}

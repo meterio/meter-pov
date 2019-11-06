@@ -27,7 +27,7 @@ func (s *Staking) GetCandidateList(state *state.State) (result *CandidateList) {
 	state.DecodeStorage(StakingModuleAddr, CandidateListKey, func(raw []byte) error {
 		fmt.Println("Loaded Raw Hex: ", hex.EncodeToString(raw))
 		decoder := gob.NewDecoder(bytes.NewBuffer(raw))
-		var candidates map[meter.Address]*Candidate
+		var candidates []*Candidate
 		decoder.Decode(&candidates)
 		result = NewCandidateList(candidates)
 		fmt.Println("Loaded Candidate List:", result.ToString(), " OriginalLen:", len(candidates))

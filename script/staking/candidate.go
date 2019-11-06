@@ -1,10 +1,12 @@
 package staking
 
 import (
+	"bytes"
 	"encoding/hex"
 	"errors"
 	"fmt"
 	"math/big"
+	"sort"
 	"strings"
 
 	"github.com/dfinlab/meter/meter"
@@ -77,44 +79,90 @@ func (c *Candidate) RemoveBucket(bucket *Bucket) {
 }
 
 type CandidateList struct {
-	candidates map[meter.Address]*Candidate
+	candidates []*Candidate
 }
 
-func NewCandidateList(candidates map[meter.Address]*Candidate) *CandidateList {
+func NewCandidateList(candidates []*Candidate) *CandidateList {
 	if candidates == nil {
-		candidates = make(map[meter.Address]*Candidate)
+		candidates = make([]*Candidate, 0)
 	}
+	sort.SliceStable(candidates, func(i, j int) bool {
+		return bytes.Compare(candidates[i].Addr.Bytes(), candidates[j].Addr.Bytes()) <= 0
+	})
 	return &CandidateList{candidates: candidates}
 }
 
-func (l *CandidateList) Get(addr meter.Address) *Candidate {
-	if l.candidates != nil {
-		return l.candidates[addr]
+func (cl *CandidateList) indexOf(addr meter.Address) (int, int) {
+	// return values:
+	//     first parameter: if found, the index of the item
+	//     second parameter: if not found, the correct insert index of the item
+	if len(cl.candidates) <= 0 {
+		return -1, 0
+	}
+	l := 0
+	r := len(cl.candidates)
+	for l < r {
+		m := (l + r) / 2
+		cmp := bytes.Compare(addr.Bytes(), cl.candidates[m].Addr.Bytes())
+		if cmp < 0 {
+			r = m
+		} else if cmp > 0 {
+			l = m + 1
+		} else {
+			return m, -1
+		}
+	}
+	return -1, r
+}
+
+func (cl *CandidateList) Get(addr meter.Address) *Candidate {
+	index, _ := cl.indexOf(addr)
+	if index < 0 {
+		return nil
+	}
+	return cl.candidates[index]
+}
+
+func (cl *CandidateList) Exist(addr meter.Address) bool {
+	index, _ := cl.indexOf(addr)
+	return index >= 0
+}
+
+func (cl *CandidateList) Add(c *Candidate) error {
+	index, insertIndex := cl.indexOf(c.Addr)
+	if index < 0 {
+		if len(cl.candidates) == 0 {
+			cl.candidates = append(cl.candidates, c)
+			return nil
+		}
+		newList := make([]*Candidate, insertIndex)
+		copy(newList, cl.candidates[:insertIndex])
+		newList = append(newList, c)
+		newList = append(newList, cl.candidates[insertIndex:]...)
+		cl.candidates = newList
+	} else {
+		cl.candidates[index] = c
+	}
+
+	return nil
+}
+
+func (cl *CandidateList) Remove(addr meter.Address) error {
+	index, _ := cl.indexOf(addr)
+	if index >= 0 {
+		cl.candidates = append(cl.candidates[:index], cl.candidates[index+1:]...)
 	}
 	return nil
 }
 
-func (l *CandidateList) Exist(addr meter.Address) bool {
-	_, ok := l.candidates[addr]
-	return ok
+func (cl *CandidateList) Count() int {
+	return len(cl.candidates)
 }
 
-func (l *CandidateList) Add(c *Candidate) error {
-	l.candidates[c.Addr] = c
-	return nil
-}
-
-func (l *CandidateList) Remove(addr meter.Address) error {
-	if _, ok := l.candidates[addr]; ok {
-		delete(l.candidates, addr)
-	}
-	return nil
-}
-
-func (l *CandidateList) ToString() string {
-	s := []string{fmt.Sprintf("CandiateList (size:%v):", len(l.candidates))}
-	for k, v := range l.candidates {
-		s = append(s, fmt.Sprintf("%v. %v", k.String(), v.ToString()))
+func (cl *CandidateList) ToString() string {
+	s := []string{fmt.Sprintf("CandiateList (size:%v):", len(cl.candidates))}
+	for _, c := range cl.candidates {
+		s = append(s, fmt.Sprintf("%v", c.ToString()))
 	}
 	s = append(s, "")
 	return strings.Join(s, "\n")
@@ -126,8 +174,4 @@ func (l *CandidateList) ToList() []Candidate {
 		result = append(result, *v)
 	}
 	return result
-}
-
-func (l *CandidateList) Candidates() map[meter.Address]*Candidate {
-	return l.candidates
 }
