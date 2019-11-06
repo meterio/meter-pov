@@ -1,6 +1,7 @@
 package staking
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"math/big"
@@ -67,35 +68,75 @@ func (s *Stakeholder) RemoveBucket(bucket *Bucket) {
 }
 
 type StakeholderList struct {
-	holders map[meter.Address]*Stakeholder
+	holders []*Stakeholder
 }
 
-func newStakeholderList(holders map[meter.Address]*Stakeholder) *StakeholderList {
+func newStakeholderList(holders []*Stakeholder) *StakeholderList {
 	if holders == nil {
-		holders = make(map[meter.Address]*Stakeholder)
+		holders = make([]*Stakeholder, 0)
 	}
 	return &StakeholderList{holders: holders}
 }
 
+func (sl *StakeholderList) indexOf(addr meter.Address) (int, int) {
+	// return values:
+	//     first parameter: if found, the index of the item
+	//     second parameter: if not found, the correct insert index of the item
+	if len(sl.holders) <= 0 {
+		return -1, 0
+	}
+	l := 0
+	r := len(sl.holders)
+	for l < r {
+		m := (l + r) / 2
+		cmp := bytes.Compare(addr.Bytes(), sl.holders[m].Holder.Bytes())
+		if cmp < 0 {
+			r = m
+		} else if cmp > 0 {
+			l = m + 1
+		} else {
+			return m, -1
+		}
+	}
+	return -1, r
+}
+
 func (l *StakeholderList) Get(addr meter.Address) *Stakeholder {
-	return l.holders[addr]
-}
-
-func (l *StakeholderList) Exist(addr meter.Address) bool {
-	_, ok := l.holders[addr]
-	return ok
-}
-
-func (l *StakeholderList) Add(s *Stakeholder) error {
-	if s != nil {
-		l.holders[s.Holder] = s
+	index, _ := l.indexOf(addr)
+	if index >= 0 {
+		return l.holders[index]
 	}
 	return nil
 }
 
+func (l *StakeholderList) Exist(addr meter.Address) bool {
+	index, _ := l.indexOf(addr)
+	return index >= 0
+}
+
+func (l *StakeholderList) Add(s *Stakeholder) error {
+	index, insertIndex := l.indexOf(s.Holder)
+	if index < 0 {
+		if len(l.holders) == 0 {
+			l.holders = append(l.holders, s)
+			return nil
+		}
+		newList := make([]*Stakeholder, insertIndex)
+		copy(newList, l.holders[:insertIndex])
+		newList = append(newList, s)
+		newList = append(newList, l.holders[insertIndex:]...)
+		l.holders = newList
+	} else {
+		l.holders[index] = s
+	}
+
+	return nil
+}
+
 func (l *StakeholderList) Remove(addr meter.Address) error {
-	if _, ok := l.holders[addr]; ok {
-		delete(l.holders, addr)
+	index, _ := l.indexOf(addr)
+	if index >= 0 {
+		l.holders = append(l.holders[:index], l.holders[index+1:]...)
 	}
 	return nil
 }

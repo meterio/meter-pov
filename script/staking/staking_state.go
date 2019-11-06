@@ -50,7 +50,7 @@ func (s *Staking) SetCandidateList(candList *CandidateList, state *state.State) 
 func (s *Staking) GetStakeHolderList(state *state.State) (result *StakeholderList) {
 	state.DecodeStorage(StakingModuleAddr, StakeHolderListKey, func(raw []byte) error {
 		decoder := gob.NewDecoder(bytes.NewBuffer(raw))
-		var holders map[meter.Address]*Stakeholder
+		var holders []*Stakeholder
 		decoder.Decode(&holders)
 		result = newStakeholderList(holders)
 		return nil
