@@ -72,7 +72,7 @@ func (s *Staking) GetBucketList(state *state.State) (result *BucketList) {
 	state.DecodeStorage(StakingModuleAddr, BucketListKey, func(raw []byte) error {
 		buf := bytes.NewBuffer(raw)
 		decoder := gob.NewDecoder(buf)
-		var buckets map[meter.Bytes32]*Bucket
+		var buckets []*Bucket
 		// rlp.DecodeBytes(raw, &buckets)
 		decoder.Decode(&buckets)
 

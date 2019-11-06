@@ -1,6 +1,7 @@
 package staking
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"math/big"
@@ -90,33 +91,74 @@ func (b *Bucket) ToString() string {
 }
 
 type BucketList struct {
-	buckets map[meter.Bytes32]*Bucket
+	buckets []*Bucket
 }
 
-func newBucketList(buckets map[meter.Bytes32]*Bucket) *BucketList {
+func newBucketList(buckets []*Bucket) *BucketList {
 	if buckets == nil {
-		buckets = make(map[meter.Bytes32]*Bucket)
+		buckets = make([]*Bucket, 0)
 	}
 	return &BucketList{buckets: buckets}
 }
 
+func (bl *BucketList) indexOf(bucketID meter.Bytes32) (int, int) {
+	// return values:
+	//     first parameter: if found, the index of the item
+	//     second parameter: if not found, the correct insert index of the item
+	if len(bl.buckets) <= 0 {
+		return -1, 0
+	}
+	l := 0
+	r := len(bl.buckets)
+	for l < r {
+		m := (l + r) / 2
+		cmp := bytes.Compare(bucketID.Bytes(), bl.buckets[m].BucketID.Bytes())
+		if cmp < 0 {
+			r = m
+		} else if cmp > 0 {
+			l = m + 1
+		} else {
+			return m, -1
+		}
+	}
+	return -1, r
+}
+
 func (l *BucketList) Get(id meter.Bytes32) *Bucket {
-	return l.buckets[id]
+	index, _ := l.indexOf(id)
+	if index >= 0 {
+		return l.buckets[index]
+	}
+	return nil
 }
 
 func (l *BucketList) Exist(id meter.Bytes32) bool {
-	_, ok := l.buckets[id]
-	return ok
+	index, _ := l.indexOf(id)
+	return index >= 0
 }
 
 func (l *BucketList) Add(b *Bucket) error {
-	l.buckets[b.BucketID] = b
+	index, insertIndex := l.indexOf(b.BucketID)
+	if index < 0 {
+		if len(l.buckets) == 0 {
+			l.buckets = append(l.buckets, b)
+			return nil
+		}
+		newList := make([]*Bucket, insertIndex)
+		copy(newList, l.buckets[:insertIndex])
+		newList = append(newList, b)
+		newList = append(newList, l.buckets[insertIndex:]...)
+		l.buckets = newList
+	} else {
+		l.buckets[index] = b
+	}
 	return nil
 }
 
 func (l *BucketList) Remove(id meter.Bytes32) error {
-	if _, ok := l.buckets[id]; ok {
-		delete(l.buckets, id)
+	index, _ := l.indexOf(id)
+	if index >= 0 {
+		l.buckets = append(l.buckets[:index], l.buckets[index+1:]...)
 	}
 	return nil
 }
