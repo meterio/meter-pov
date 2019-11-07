@@ -40,7 +40,7 @@ func (p *PMProposalInfo) InMap(rawMsg *[]byte, height uint64, round int) bool {
 	if len(*m) != len(*rawMsg) {
 		return false
 	}
-	if bytes.Compare(*m, *rawMsg) == 0 {
+	if bytes.Compare(*m, *rawMsg) != 0 {
 		return false
 	}
 
