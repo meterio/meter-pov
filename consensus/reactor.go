@@ -125,7 +125,8 @@ type ConsensusReactor struct {
 	// still references above consensuStae, reactor if this node is
 	// involved the consensus
 	csMode             byte // delegates, committee, other
-	delegateSize       int  // global constant
+	configDelegateSize int  // configured delegate size.
+	delegateSize       int  // global constant, current available delegate size. delegateSize <= configDelegateSize
 	committeeSize      int
 	myDelegatesIndex   int                 // this index will be changed by DelegateSet every time
 	curDelegates       *types.DelegateSet  // current delegates list
@@ -235,12 +236,12 @@ func NewConsensusReactor(ctx *cli.Context, chain *chain.Chain, state *state.Crea
 	lastKBlockHeightGauge.Set(float64(conR.lastKBlockHeight))
 
 	//initialize Delegates
-	conR.delegateSize = ctx.Int("delegate-size") // 10 //DELEGATES_SIZE
+	conR.committeeSize = ctx.Int("committee-size")     // 4 //COMMITTEE_SIZE
+	conR.configDelegateSize = ctx.Int("delegate-size") // 10 //DELEGATES_SIZE
 	dataDir := ctx.String("data-dir")
 	conR.dataDir = dataDir
-	conR.curDelegates = types.NewDelegateSet(GetConsensusDelegates(dataDir, conR.delegateSize))
-
-	conR.committeeSize = ctx.Int("committee-size") // 4 //COMMITTEE_SIZE
+	conR.curDelegates = types.NewDelegateSet(GetConsensusDelegates(dataDir, conR.configDelegateSize, conR.committeeSize))
+	conR.delegateSize = len(conR.curDelegates.Delegates)
 
 	conR.rcvdNewCommittee = make(map[NewCommitteeKey]*NewCommittee, 10)
 
@@ -1384,7 +1385,8 @@ func (conR *ConsensusReactor) HandleSchedule(fn func()) bool {
 // update current delegates with new delegates from staking
 // keep this standalone method intentionly
 func (conR *ConsensusReactor) ConsensusUpdateCurDelegates() {
-	conR.curDelegates = types.NewDelegateSet(GetConsensusDelegates(conR.dataDir, conR.delegateSize))
+	conR.curDelegates = types.NewDelegateSet(GetConsensusDelegates(conR.dataDir, conR.configDelegateSize, conR.committeeSize))
+	conR.delegateSize = len(conR.curDelegates.Delegates)
 }
 
 // Consensus module handle received nonce from kblock
@@ -1596,16 +1598,22 @@ func PrintDelegates(delegates []*types.Delegate) {
 }
 
 // entry point for each committee
-func GetConsensusDelegates(dataDir string, size int) []*types.Delegate {
+// configSize is configured(expected) and normally minimumSize is committee size
+func GetConsensusDelegates(dataDir string, configSize int, minimumSize int) []*types.Delegate {
 	delegates, err := staking.GetInternalDelegateList()
-	if err == nil && len(delegates) == size {
-		fmt.Println("delegatesList from staking", "delegate size", size)
+	if err == nil && len(delegates) >= minimumSize {
+		fmt.Println("delegatesList from staking", "delegates size", len(delegates))
 		PrintDelegates(delegates)
-		return delegates
+	} else {
+		delegates = configDelegates(dataDir)
+		fmt.Println("delegatesList from configuration file e.g. delegates.json", "delegates size", len(delegates))
+		PrintDelegates(delegates)
 	}
 
-	delegates = configDelegates(dataDir)
-	fmt.Println("delegatesList from configuration file", "delegate size", size)
-	PrintDelegates(delegates)
-	return delegates
+	fmt.Println("Configured Delegates size", configSize, "Committee size", minimumSize)
+	if len(delegates) >= configSize {
+		return delegates[:configSize]
+	} else {
+		return delegates
+	}
 }

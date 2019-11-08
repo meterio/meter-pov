@@ -133,6 +133,7 @@ func getRelayPeers(myIndex, maxIndex int) (peers []int) {
 		}
 	} else {
 		// I am in group, so begin << myIndex << end
+		// if wrap happens, redundant the 2nd layer
 		group := (maxIndex - 8) / 32
 		begin := 9 + (group * groupSize)
 		end := begin + groupSize - 1
@@ -141,20 +142,32 @@ func getRelayPeers(myIndex, maxIndex int) (peers []int) {
 		}
 
 		var peerIndex int
+		var wrap bool = false
 		if myIndex == end && end != begin {
 			peers = append(peers, begin)
 		}
 		if peerIndex = myIndex + 1; peerIndex <= maxIndex {
 			peers = append(peers, peerIndex)
+		} else {
+			wrap = true
 		}
 		if peerIndex = myIndex + 2; peerIndex <= maxIndex {
 			peers = append(peers, peerIndex)
+		} else {
+			wrap = true
 		}
 		if peerIndex = myIndex + 4; peerIndex <= maxIndex {
 			peers = append(peers, peerIndex)
+		} else {
+			wrap = true
 		}
 		if peerIndex = myIndex + 8; peerIndex <= maxIndex {
 			peers = append(peers, peerIndex)
+		} else {
+			wrap = true
+		}
+		if wrap == true {
+			peers = append(peers, (myIndex%8)+1)
 		}
 	}
 	return

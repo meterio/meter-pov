@@ -57,7 +57,7 @@ func (conR *ConsensusReactor) MinerRewards(rewards []powpool.PowReward) *tx.Tran
 
 	// last clause for staking governing
 	//if (conR.curEpoch % DEFAULT_EPOCHS_PERDAY) == 0 {
-	builder.Clause(tx.NewClause(&staking.StakingModuleAddr).WithValue(big.NewInt(0)).WithToken(tx.TOKEN_METER_GOV).WithData(BuildGoverningData(uint32(conR.delegateSize))))
+	builder.Clause(tx.NewClause(&staking.StakingModuleAddr).WithValue(big.NewInt(0)).WithToken(tx.TOKEN_METER_GOV).WithData(BuildGoverningData(uint32(conR.configDelegateSize))))
 	//}
 
 	builder.Build().IntrinsicGas()
