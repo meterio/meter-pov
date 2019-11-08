@@ -31,6 +31,7 @@ func (s *Staking) GetCandidateList(state *state.State) (result *CandidateList) {
 		var candidateMap map[meter.Address]*Candidate
 		err := decoder.Decode(&candidateMap)
 		if err != nil {
+			decoder = gob.NewDecoder(bytes.NewBuffer(raw))
 			var candidates []*Candidate
 			err = decoder.Decode(&candidates)
 			result = NewCandidateList(candidates)
@@ -73,6 +74,7 @@ func (s *Staking) GetStakeHolderList(state *state.State) (result *StakeholderLis
 		if err != nil {
 			// if can't read map
 			// read list instead
+			decoder := gob.NewDecoder(bytes.NewBuffer(raw))
 			var holders []*Stakeholder
 			err = decoder.Decode(&holders)
 			result = newStakeholderList(holders)
@@ -105,11 +107,11 @@ func (s *Staking) SetStakeHolderList(holderList *StakeholderList, state *state.S
 // Bucket List
 func (s *Staking) GetBucketList(state *state.State) (result *BucketList) {
 	state.DecodeStorage(StakingModuleAddr, BucketListKey, func(raw []byte) error {
-		buf := bytes.NewBuffer(raw)
-		decoder := gob.NewDecoder(buf)
+		decoder := gob.NewDecoder(bytes.NewBuffer(raw))
 		var bucketMap map[meter.Bytes32]*Bucket
 		err := decoder.Decode(&bucketMap)
 		if err != nil {
+			decoder = gob.NewDecoder(bytes.NewBuffer(raw))
 			var buckets []*Bucket
 			decoder.Decode(&buckets)
 			result = newBucketList(buckets)
