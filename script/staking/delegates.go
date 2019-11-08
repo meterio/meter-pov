@@ -57,11 +57,14 @@ func (l *DelegateList) Add(c *Delegate) error {
 }
 
 func (l *DelegateList) ToString() string {
-	s := []string{fmt.Sprintf("DelegateList (size:%v):", len(l.delegates))}
+	if l == nil || len(l.delegates) == 0 {
+		return "DelegateList (size:0)"
+	}
+	s := []string{fmt.Sprintf("DelegateList (size:%v) {", len(l.delegates))}
 	for k, v := range l.delegates {
 		s = append(s, fmt.Sprintf("%v. %v", k, v.ToString()))
 	}
-	s = append(s, "")
+	s = append(s, "}")
 	return strings.Join(s, "\n")
 }
 

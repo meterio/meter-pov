@@ -40,7 +40,7 @@ func (s *Staking) GetCandidateList(state *state.State) (result *CandidateList) {
 					s.logger.Warn("Error during decoding candidate list, set it as an empty list", "err", err)
 				}
 			}
-			fmt.Println("Loaded: ", result.ToString())
+			fmt.Println("Loaded:", result.ToString())
 			return nil
 		}
 
@@ -170,6 +170,7 @@ func (s *Staking) GetDelegateList(state *state.State) (result *DelegateList) {
 		decoder.Decode(&delegates)
 
 		result = newDelegateList(delegates)
+		fmt.Println("Loaded:", result.ToString())
 		return nil
 	})
 	return

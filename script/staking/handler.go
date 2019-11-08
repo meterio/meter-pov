@@ -559,7 +559,7 @@ func (sb *StakingBody) GoverningHandler(senv *StakingEnviroment, gas uint64) (re
 	} else {
 		delegateList.SetDelegates(delegates)
 	}
-	fmt.Println("before set", delegateList.ToString())
+	// fmt.Println("before set", delegateList.ToString())
 
 	staking.SetCandidateList(candidateList, state)
 	staking.SetBucketList(bucketList, state)
