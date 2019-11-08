@@ -164,11 +164,14 @@ func (l *BucketList) Remove(id meter.Bytes32) error {
 }
 
 func (l *BucketList) ToString() string {
-	s := []string{fmt.Sprintf("BucketList (size:%v):", len(l.buckets))}
-	for k, v := range l.buckets {
-		s = append(s, fmt.Sprintf("%d. %v", k, v.ToString()))
+	if l == nil || len(l.buckets) == 0 {
+		return "BucketList (size:0)"
 	}
-	s = append(s, "")
+	s := []string{fmt.Sprintf("BucketList (size:%v) {", len(l.buckets))}
+	for i, v := range l.buckets {
+		s = append(s, fmt.Sprintf("  %d. %v", i, v.ToString()))
+	}
+	s = append(s, "}")
 	return strings.Join(s, "\n")
 }
 

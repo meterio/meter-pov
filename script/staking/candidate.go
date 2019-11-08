@@ -160,11 +160,14 @@ func (cl *CandidateList) Count() int {
 }
 
 func (cl *CandidateList) ToString() string {
-	s := []string{fmt.Sprintf("CandiateList (size:%v):", len(cl.candidates))}
-	for _, c := range cl.candidates {
-		s = append(s, fmt.Sprintf("%v", c.ToString()))
+	if cl == nil || len(cl.candidates) == 0 {
+		return "CandidateList (size:0)"
 	}
-	s = append(s, "")
+	s := []string{fmt.Sprintf("CandiateList (size:%v) {", len(cl.candidates))}
+	for i, c := range cl.candidates {
+		s = append(s, fmt.Sprintf("  %d.%v", i, c.ToString()))
+	}
+	s = append(s, "}")
 	return strings.Join(s, "\n")
 }
 

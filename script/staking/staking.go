@@ -74,7 +74,7 @@ func (s *Staking) PrepareStakingHandler() (StakingHandler func(data []byte, to *
 			panic("create staking enviroment failed")
 		}
 
-		s.logger.Info("receives staking data", "stakingbody", sb.ToString())
+		s.logger.Info("received staking data", "body", sb.ToString())
 		/*  now := uint64(time.Now().Unix())
 		if InTimeSpan(sb.Timestamp, now, STAKING_TIMESPAN) == false {
 			s.logger.Error("timestamp span too far", "timestamp", sb.Timestamp, "now", now)

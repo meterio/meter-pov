@@ -142,11 +142,14 @@ func (l *StakeholderList) Remove(addr meter.Address) error {
 }
 
 func (l *StakeholderList) ToString() string {
-	s := []string{fmt.Sprintf("StakeholderList (size:%v):", len(l.holders))}
-	for k, v := range l.holders {
-		s = append(s, fmt.Sprintf("%v. %v", k, v.ToString()))
+	if l == nil || len(l.holders) == 0 {
+		return "StakeholderList (size:0)"
 	}
-	s = append(s, "")
+	s := []string{fmt.Sprintf("StakeholderList (size:%v) {", len(l.holders))}
+	for i, v := range l.holders {
+		s = append(s, fmt.Sprintf("  %d. %v", i, v.ToString()))
+	}
+	s = append(s, "}")
 	return strings.Join(s, "\n")
 }
 
