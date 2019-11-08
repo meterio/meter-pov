@@ -67,7 +67,6 @@ func (sb *StakingBody) ToString() string {
 func (sb *StakingBody) BoundHandler(senv *StakingEnviroment, gas uint64) (ret []byte, leftOverGas uint64, err error) {
 	defer func() {
 		if err != nil {
-			leftOverGas = 0
 			ret = []byte(err.Error())
 		}
 	}()
@@ -161,7 +160,6 @@ func (sb *StakingBody) BoundHandler(senv *StakingEnviroment, gas uint64) (ret []
 func (sb *StakingBody) UnBoundHandler(senv *StakingEnviroment, gas uint64) (ret []byte, leftOverGas uint64, err error) {
 	defer func() {
 		if err != nil {
-			leftOverGas = 0
 			ret = []byte(err.Error())
 		}
 	}()
@@ -200,7 +198,6 @@ func (sb *StakingBody) CandidateHandler(senv *StakingEnviroment, gas uint64) (re
 
 	defer func() {
 		if err != nil {
-			leftOverGas = 0
 			ret = []byte(err.Error())
 		}
 	}()
@@ -261,7 +258,7 @@ func (sb *StakingBody) CandidateHandler(senv *StakingEnviroment, gas uint64) (re
 		return
 	}
 
-	// now staking the amount, forced to the longest lock
+	// now staking the amount, force to the longest lock
 	opt, rate, locktime := GetBoundLockOption(FOUR_WEEK_LOCK)
 	staking.logger.Info("get bound option", "option", opt, "rate", rate, "locktime", locktime)
 
@@ -307,7 +304,6 @@ func (sb *StakingBody) CandidateHandler(senv *StakingEnviroment, gas uint64) (re
 func (sb *StakingBody) UnCandidateHandler(senv *StakingEnviroment, gas uint64) (ret []byte, leftOverGas uint64, err error) {
 	defer func() {
 		if err != nil {
-			leftOverGas = 0
 			ret = []byte(err.Error())
 		}
 	}()
@@ -359,7 +355,6 @@ func (sb *StakingBody) UnCandidateHandler(senv *StakingEnviroment, gas uint64) (
 func (sb *StakingBody) DelegateHandler(senv *StakingEnviroment, gas uint64) (ret []byte, leftOverGas uint64, err error) {
 	defer func() {
 		if err != nil {
-			leftOverGas = 0
 			ret = []byte(err.Error())
 		}
 	}()
@@ -409,7 +404,6 @@ func (sb *StakingBody) DelegateHandler(senv *StakingEnviroment, gas uint64) (ret
 func (sb *StakingBody) UnDelegateHandler(senv *StakingEnviroment, gas uint64) (ret []byte, leftOverGas uint64, err error) {
 	defer func() {
 		if err != nil {
-			leftOverGas = 0
 			ret = []byte(err.Error())
 		}
 	}()

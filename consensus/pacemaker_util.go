@@ -89,7 +89,7 @@ func (p *Pacemaker) receivePacemakerMsg(w http.ResponseWriter, r *http.Request) 
 			height = uint64(proposal.CSMsgCommonHeader.Height)
 			round = proposal.CSMsgCommonHeader.Round
 			if p.msgRelayInfo.InMap(&msgByteSlice, height, round) == true {
-				p.logger.Info("received PMProposal, duplicaetd, dropped", "height", height, "round", round)
+				p.logger.Info("received PMProposal, duplicated, dropped", "height", height, "round", round)
 				return
 			} else {
 				p.logger.Info("received PMProposal, added", "height", height, "round", round)

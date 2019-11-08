@@ -40,7 +40,7 @@ func (p *PMProposalInfo) InMap(rawMsg *[]byte, height uint64, round int) bool {
 	if len(*m) != len(*rawMsg) {
 		return false
 	}
-	if bytes.Compare(*m, *rawMsg) == 0 {
+	if bytes.Compare(*m, *rawMsg) != 0 {
 		return false
 	}
 
@@ -88,6 +88,7 @@ func getRelayPeers(myIndex, maxIndex int) (peers []int) {
 		fmt.Println("Input wrong!!! myIndex > myIndex")
 		return
 	}
+
 	if myIndex == 0 {
 		var k int
 		if maxIndex >= 8 {
@@ -106,21 +107,23 @@ func getRelayPeers(myIndex, maxIndex int) (peers []int) {
 
 	var groupSize, groupCount int
 	groupSize = ((maxIndex - 8) / 32) + 1
-	groupCount = ((maxIndex - 8) / groupSize) + 1
+	groupCount = (maxIndex - 8) / groupSize
+	fmt.Println("groupSize", groupSize, "groupCount", groupCount)
 
 	if myIndex <= 8 {
-		mySet := myIndex / 2
-		myRole := myIndex % 2
+		mySet := (myIndex - 1) / 2
+		myRole := (myIndex - 1) % 2
 		for i := 0; i < 8; i++ {
 			group := (mySet * 8) + i
 			if group >= groupCount {
 				return
 			}
-			begin := 8 + (group * groupSize)
-			if myRole == 1 {
+
+			begin := 9 + (group * groupSize)
+			if myRole == 0 {
 				peers = append(peers, begin)
 			} else {
-				end := begin + groupSize
+				end := begin + groupSize - 1
 				if end > maxIndex {
 					end = maxIndex
 				}
@@ -130,28 +133,41 @@ func getRelayPeers(myIndex, maxIndex int) (peers []int) {
 		}
 	} else {
 		// I am in group, so begin << myIndex << end
+		// if wrap happens, redundant the 2nd layer
 		group := (maxIndex - 8) / 32
-		begin := 8 + (group * groupSize)
-		end := begin + groupSize
+		begin := 9 + (group * groupSize)
+		end := begin + groupSize - 1
 		if end > maxIndex {
 			end = maxIndex
 		}
 
 		var peerIndex int
-		if myIndex == end {
+		var wrap bool = false
+		if myIndex == end && end != begin {
 			peers = append(peers, begin)
 		}
 		if peerIndex = myIndex + 1; peerIndex <= maxIndex {
 			peers = append(peers, peerIndex)
+		} else {
+			wrap = true
 		}
 		if peerIndex = myIndex + 2; peerIndex <= maxIndex {
 			peers = append(peers, peerIndex)
+		} else {
+			wrap = true
 		}
 		if peerIndex = myIndex + 4; peerIndex <= maxIndex {
 			peers = append(peers, peerIndex)
+		} else {
+			wrap = true
 		}
 		if peerIndex = myIndex + 8; peerIndex <= maxIndex {
 			peers = append(peers, peerIndex)
+		} else {
+			wrap = true
+		}
+		if wrap == true {
+			peers = append(peers, (myIndex%8)+1)
 		}
 	}
 	return
