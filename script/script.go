@@ -67,7 +67,7 @@ func (se *ScriptEngine) HandleScriptData(data []byte, to *meter.Address, txCtx *
 	}
 
 	header := script.Header
-	fmt.Println(header.ToString())
+	se.logger.Info("script header", "header", header.ToString())
 
 	mod, find := se.modReg.Find(header.GetModID())
 	if find == false {
@@ -76,7 +76,7 @@ func (se *ScriptEngine) HandleScriptData(data []byte, to *meter.Address, txCtx *
 		return nil, gas, err
 	}
 
-	fmt.Println(mod.ToString())
+	fmt.Println("script module", "module", mod.ToString())
 	//module handler
 	ret, leftOverGas, err = mod.modHandler(script.Payload, to, txCtx, gas, state)
 	return

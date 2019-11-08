@@ -6,7 +6,6 @@
 package runtime
 
 import (
-	"encoding/hex"
 	"fmt"
 	"math/big"
 	"sync/atomic"
@@ -334,7 +333,7 @@ func (rt *Runtime) PrepareClause(
 				return nil, true
 			}
 			// exclude 4 bytes of clause data
-			fmt.Println("Exec Clause: ", hex.EncodeToString(clause.Data()))
+			// fmt.Println("Exec Clause: ", hex.EncodeToString(clause.Data()))
 			data, leftOverGas, vmErr = se.HandleScriptData(clause.Data()[4:], clause.To(), txCtx, gas, rt.state)
 			fmt.Println("scriptEngine handling return", data, leftOverGas, vmErr)
 

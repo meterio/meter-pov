@@ -7,7 +7,7 @@ package consensus
 
 import (
 	//"crypto/ecdsa"
-	"encoding/hex"
+
 	"fmt"
 	"time"
 
@@ -377,9 +377,6 @@ func (c *ConsensusReactor) verifyBlock(blk *block.Block, state *state.State) (*s
 			return false, false, err
 		}
 		return true, meta.Reverted, nil
-	}
-	for i, tx := range txs {
-		fmt.Println("TX ", i+1, tx.ID(), hex.EncodeToString(tx.Clauses()[0].Data()))
 	}
 	for i, tx := range txs {
 		// Mint transaction critiers:
