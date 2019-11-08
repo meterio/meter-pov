@@ -3,7 +3,6 @@ package staking
 import (
 	"bytes"
 	"encoding/gob"
-	"encoding/hex"
 	"errors"
 	"fmt"
 	"math/big"
@@ -24,9 +23,8 @@ var (
 
 // Candidate List
 func (s *Staking) GetCandidateList(state *state.State) (result *CandidateList) {
-	fmt.Println("Entered: GetCandidateList")
 	state.DecodeStorage(StakingModuleAddr, CandidateListKey, func(raw []byte) error {
-		fmt.Println("Loaded Raw Hex: ", hex.EncodeToString(raw))
+		// fmt.Println("Loaded Raw Hex: ", hex.EncodeToString(raw))
 		decoder := gob.NewDecoder(bytes.NewBuffer(raw))
 		var candidateMap map[meter.Address]*Candidate
 		err := decoder.Decode(&candidateMap)
@@ -35,9 +33,15 @@ func (s *Staking) GetCandidateList(state *state.State) (result *CandidateList) {
 			var candidates []*Candidate
 			err = decoder.Decode(&candidates)
 			result = NewCandidateList(candidates)
-			fmt.Println("Loaded Candidate List:", result.ToString(), " OriginalLen:", len(candidates))
-			fmt.Println(result.ToString())
-			return err
+			if err != nil {
+				if err.Error() == "EOF" && len(raw) == 0 {
+					// empty raw, do nothing
+				} else {
+					s.logger.Warn("Error during decoding candidate list, set it as an empty list", "err", err)
+				}
+			}
+			fmt.Println("Loaded: ", result.ToString())
+			return nil
 		}
 
 		// convert map to a sorted list
@@ -78,7 +82,15 @@ func (s *Staking) GetStakeHolderList(state *state.State) (result *StakeholderLis
 			var holders []*Stakeholder
 			err = decoder.Decode(&holders)
 			result = newStakeholderList(holders)
-			return err
+			if err != nil {
+				if err.Error() == "EOF" && len(raw) == 0 {
+					// empty raw, do nothing
+				} else {
+					s.logger.Warn("Error during decoding Staking Holder list, set it with an empty list", "err", err)
+				}
+			}
+			fmt.Println("Loaded:", result.ToString())
+			return nil
 		}
 
 		// sort the list from map
@@ -113,8 +125,16 @@ func (s *Staking) GetBucketList(state *state.State) (result *BucketList) {
 		if err != nil {
 			decoder = gob.NewDecoder(bytes.NewBuffer(raw))
 			var buckets []*Bucket
-			decoder.Decode(&buckets)
+			err = decoder.Decode(&buckets)
 			result = newBucketList(buckets)
+			if err != nil {
+				if err.Error() == "EOF" && len(raw) == 0 {
+					// empty raw, do nothing
+				} else {
+					s.logger.Warn("Error during decoding bucket list, set it as an empty list. ", "err", err)
+				}
+			}
+			fmt.Println("Loaded:", result.ToString())
 			return nil
 		}
 		buckets := make([]*Bucket, 0)
