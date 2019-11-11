@@ -653,10 +653,16 @@ func (p *Pacemaker) mainLoop() {
 		case m := <-p.pacemakerMsgCh:
 			switch m.msg.(type) {
 			case *PMProposalMessage:
-				if err = p.OnReceiveProposal(m.msg.(*PMProposalMessage), m.from); err != nil {
+				err = p.OnReceiveProposal(m.msg.(*PMProposalMessage), m.from)
+				if err != nil {
 					p.logger.Error("processes proposal fails.", "errors", err)
+					// 2 errors indicate linking message to pending list for the first time, does not need to check pending
+					if (err.Error() != "can not address parent") && (err.Error() != "can not address parent") {
+						err = p.checkPendingMessages(uint64(m.msg.(*PMProposalMessage).CSMsgCommonHeader.Height))
+					}
+				} else {
+					err = p.checkPendingMessages(uint64(m.msg.(*PMProposalMessage).CSMsgCommonHeader.Height))
 				}
-				err = p.checkPendingMessages(uint64(m.msg.(*PMProposalMessage).CSMsgCommonHeader.Height))
 			case *PMVoteForProposalMessage:
 				err = p.OnReceiveVote(m.msg.(*PMVoteForProposalMessage))
 			case *PMNewViewMessage:

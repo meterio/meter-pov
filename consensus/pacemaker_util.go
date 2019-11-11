@@ -369,8 +369,8 @@ func (p *Pacemaker) sendQueryProposalMsg(queryHeight, queryRound, EpochID uint64
 
 	queryMsg, err := p.BuildQueryProposalMessage(queryHeight, queryRound, EpochID, myNetAddr)
 	if err != nil {
-		p.logger.Warn("Error during generate PMQueryProposal message", "err", err)
-		return errors.New("can not address parent")
+		p.logger.Warn("failed to generate PMQueryProposal message", "err", err)
+		return errors.New("failed to generate PMQueryProposal message")
 	}
 	p.SendMessageToPeers(queryMsg, peers)
 	return nil
@@ -379,7 +379,7 @@ func (p *Pacemaker) sendQueryProposalMsg(queryHeight, queryRound, EpochID uint64
 func (p *Pacemaker) pendingProposal(queryHeight, queryRound uint64, proposalMsg *PMProposalMessage, addr types.NetAddress) error {
 	epochID := proposalMsg.CSMsgCommonHeader.EpochID
 	if err := p.sendQueryProposalMsg(queryHeight, queryRound, epochID, addr); err != nil {
-		p.logger.Warn("Error during generate PMQueryProposal message", "err", err)
+		p.logger.Warn("send PMQueryProposal message failed", "err", err)
 	}
 
 	p.pendingList.Add(proposalMsg, addr)
@@ -390,7 +390,7 @@ func (p *Pacemaker) pendingProposal(queryHeight, queryRound uint64, proposalMsg 
 func (p *Pacemaker) pendingNewView(queryHeight, queryRound uint64, newViewMsg *PMNewViewMessage, addr types.NetAddress) error {
 	epochID := newViewMsg.CSMsgCommonHeader.EpochID
 	if err := p.sendQueryProposalMsg(queryHeight, queryRound, epochID, addr); err != nil {
-		p.logger.Warn("Error during generate PMQueryProposal message", "err", err)
+		p.logger.Warn("send PMQueryProposal message failed", "err", err)
 	}
 
 	p.pendingList.Add(newViewMsg, addr)
