@@ -54,7 +54,7 @@ func (p *Pacemaker) receivePacemakerMsg(w http.ResponseWriter, r *http.Request) 
 	defer r.Body.Close()
 	var params map[string]string
 	if err := json.NewDecoder(r.Body).Decode(&params); err != nil {
-		p.csReactor.logger.Error("%v\n", err)
+		p.csReactor.logger.Error("decode received messsage failed", "error", err)
 		respondWithJson(w, http.StatusBadRequest, "Invalid request payload")
 		return
 	}
@@ -260,15 +260,16 @@ func (p *Pacemaker) SendConsensusMessage(round uint64, msg ConsensusMessage, cop
 	}
 
 	// broadcast consensus message to peers
-	for _, peer := range peers {
-		hint := "Sending pacemaker msg to peer"
-		if peer.netAddr.IP.String() == myNetAddr.IP.String() {
-			hint = "Sending pacemaker msg to myself"
+	p.goes.Go(func() {
+		for _, peer := range peers {
+			hint := "Sending pacemaker msg to peer"
+			if peer.netAddr.IP.String() == myNetAddr.IP.String() {
+				hint = "Sending pacemaker msg to myself"
+			}
+			p.logger.Debug(hint, "type", typeName, "to", peer.netAddr.IP.String())
+			peer.sendData(myNetAddr, typeName, rawMsg)
 		}
-		p.logger.Debug(hint, "type", typeName, "to", peer.netAddr.IP.String())
-		go peer.sendData(myNetAddr, typeName, rawMsg)
-
-	}
+	})
 	return true
 }
 
@@ -282,9 +283,16 @@ func (p *Pacemaker) SendMessageToPeers(msg ConsensusMessage, peers []*ConsensusP
 
 	myNetAddr := p.csReactor.curCommittee.Validators[p.csReactor.curCommitteeIndex].NetAddr
 	// broadcast consensus message to peers
-	for _, peer := range peers {
-		go peer.sendData(myNetAddr, typeName, rawMsg)
-	}
+	p.goes.Go(func() {
+		for _, peer := range peers {
+			hint := "Sending pacemaker msg to peer"
+			if peer.netAddr.IP.String() == myNetAddr.IP.String() {
+				hint = "Sending pacemaker msg to myself"
+			}
+			p.logger.Debug(hint, "type", typeName, "to", peer.netAddr.IP.String())
+			peer.sendData(myNetAddr, typeName, rawMsg)
+		}
+	})
 	return true
 }
 

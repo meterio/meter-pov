@@ -9,6 +9,7 @@ import (
 	"github.com/ethereum/go-ethereum/rlp"
 
 	"github.com/dfinlab/meter/block"
+	"github.com/dfinlab/meter/co"
 	bls "github.com/dfinlab/meter/crypto/multi_sig"
 	cmn "github.com/dfinlab/meter/libs/common"
 	types "github.com/dfinlab/meter/types"
@@ -82,6 +83,7 @@ type Pacemaker struct {
 	msgRelayInfo *PMProposalInfo
 
 	myActualCommitteeIndex int //record my index in actualcommittee
+	goes                   co.Goes
 }
 
 func NewPaceMaker(conR *ConsensusReactor) *Pacemaker {
@@ -657,7 +659,7 @@ func (p *Pacemaker) mainLoop() {
 				if err != nil {
 					p.logger.Error("processes proposal fails.", "errors", err)
 					// 2 errors indicate linking message to pending list for the first time, does not need to check pending
-					if (err.Error() != "can not address parent") && (err.Error() != "can not address parent") {
+					if (err.Error() != "can not address parent") && (err.Error() != "can not address qcNode") {
 						err = p.checkPendingMessages(uint64(m.msg.(*PMProposalMessage).CSMsgCommonHeader.Height))
 					}
 				} else {
