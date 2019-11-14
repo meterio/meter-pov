@@ -17,6 +17,10 @@ import (
 	"github.com/dfinlab/meter/types"
 )
 
+const (
+	MSG_KEEP_HEIGHT = 20
+)
+
 type receivedConsensusMessage struct {
 	msg  ConsensusMessage
 	from types.NetAddress
@@ -114,8 +118,8 @@ func (p *Pacemaker) receivePacemakerMsg(w http.ResponseWriter, r *http.Request) 
 			}
 
 			lowest := p.msgRelayInfo.GetLowestHeight()
-			if (height > lowest) && (height-lowest) >= 3*RELAY_MSG_KEEP_HEIGHT {
-				go p.msgRelayInfo.CleanUpTo(height - RELAY_MSG_KEEP_HEIGHT)
+			if (height > lowest) && (height-lowest) >= 3*MSG_KEEP_HEIGHT {
+				go p.msgRelayInfo.CleanUpTo(height - MSG_KEEP_HEIGHT)
 			}
 		}
 	}
@@ -414,21 +418,12 @@ func (p *Pacemaker) checkPendingMessages(curHeight uint64) error {
 			break
 		}
 		p.pacemakerMsgCh <- pendingMsg
-		/*
-			proposer := p.getConsensusPeerByPubkey(pm.ProposerID)
-			if proposer == nil {
-				p.logger.Error("can not get proposer", "height", height)
-				break
-			}
-			p.logger.Info("processing pending list", "height", height)
-			if err := p.OnReceiveProposal(pm, proposer.netAddr); err != nil {
-				p.logger.Error("error happens", "height", height, "error", err)
-				break
-			}
-		*/
 		height++ //move higher
 	}
 
-	p.pendingList.CleanUpTo(height)
+	lowest := p.pendingList.GetLowestHeight()
+	if (height > lowest) && (height-lowest) >= 3*MSG_KEEP_HEIGHT {
+		p.pendingList.CleanUpTo(height - MSG_KEEP_HEIGHT)
+	}
 	return nil
 }

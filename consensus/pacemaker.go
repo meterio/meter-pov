@@ -501,6 +501,12 @@ func (p *Pacemaker) OnReceiveNewView(newViewMsg *PMNewViewMessage, from types.Ne
 		return nil
 	}
 
+	// drop newview if it is old
+	if qc.QCHeight < uint64(p.csReactor.curHeight) {
+		p.logger.Error("old newview message, dropped ...", "QCheight", qc.QCHeight)
+		return nil
+	}
+
 	qcNode := p.AddressBlock(qc.QCHeight, qc.QCRound)
 	if qcNode == nil {
 		p.logger.Error("can not address qcNode", "err", err)
@@ -710,6 +716,7 @@ func (p *Pacemaker) stopCleanup() {
 		delete(p.proposalMap, b.Height)
 	}
 
+	//p.goes.Wait()
 	p.currentRound = 0
 	p.lastVotingHeight = 0
 	p.QCHigh = nil

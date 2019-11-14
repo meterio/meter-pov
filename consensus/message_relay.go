@@ -6,10 +6,6 @@ import (
 	"sync"
 )
 
-const (
-	RELAY_MSG_KEEP_HEIGHT = 50
-)
-
 type PMProposalKey struct {
 	Height uint64
 	Round  int
