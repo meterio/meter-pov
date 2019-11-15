@@ -269,7 +269,7 @@ func (p *Pacemaker) BuildQueryProposalMessage(height, round, epochID uint64, ret
 		return nil, err
 	}
 	msg.CSMsgCommonHeader.SetMsgSignature(msgSig)
-	p.logger.Debug("Built Query Proposal Message", "round", msg.Round, "msg", msg.String(), "timestamp", msg.CSMsgCommonHeader.Timestamp)
+	p.logger.Debug("Built Query Proposal Message", "height", height, "round", round, "msg", msg.String(), "timestamp", msg.CSMsgCommonHeader.Timestamp)
 
 	return msg, nil
 }

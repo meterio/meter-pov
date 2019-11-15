@@ -17,10 +17,10 @@ func NewPendingList() *PendingList {
 }
 
 func (p *PendingList) Add(m ConsensusMessage, addr types.NetAddress) {
-	var height uint64
+	var height uint64 // Query height
 	switch m.(type) {
 	case *PMProposalMessage:
-		height = uint64(m.(*PMProposalMessage).CSMsgCommonHeader.Height)
+		height = uint64(m.(*PMProposalMessage).ParentHeight)
 	case *PMNewViewMessage:
 		height = uint64(m.(*PMNewViewMessage).QCHeight)
 	default:
@@ -30,6 +30,10 @@ func (p *PendingList) Add(m ConsensusMessage, addr types.NetAddress) {
 		p.lowest = height
 	}
 	p.messages[height] = receivedConsensusMessage{m, addr}
+}
+
+func (p *PendingList) GetLowestHeight() uint64 {
+	return p.lowest
 }
 
 func (p *PendingList) CleanUpTo(height uint64) error {

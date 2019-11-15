@@ -17,6 +17,10 @@ import (
 	"github.com/dfinlab/meter/types"
 )
 
+const (
+	MSG_KEEP_HEIGHT = 20
+)
+
 type receivedConsensusMessage struct {
 	msg  ConsensusMessage
 	from types.NetAddress
@@ -54,7 +58,7 @@ func (p *Pacemaker) receivePacemakerMsg(w http.ResponseWriter, r *http.Request) 
 	defer r.Body.Close()
 	var params map[string]string
 	if err := json.NewDecoder(r.Body).Decode(&params); err != nil {
-		p.csReactor.logger.Error("%v\n", err)
+		p.csReactor.logger.Error("decode received messsage failed", "error", err)
 		respondWithJson(w, http.StatusBadRequest, "Invalid request payload")
 		return
 	}
@@ -114,8 +118,8 @@ func (p *Pacemaker) receivePacemakerMsg(w http.ResponseWriter, r *http.Request) 
 			}
 
 			lowest := p.msgRelayInfo.GetLowestHeight()
-			if (height > lowest) && (height-lowest) >= 3*RELAY_MSG_KEEP_HEIGHT {
-				go p.msgRelayInfo.CleanUpTo(height - RELAY_MSG_KEEP_HEIGHT)
+			if (height > lowest) && (height-lowest) >= 3*MSG_KEEP_HEIGHT {
+				go p.msgRelayInfo.CleanUpTo(height - MSG_KEEP_HEIGHT)
 			}
 		}
 	}
@@ -260,15 +264,16 @@ func (p *Pacemaker) SendConsensusMessage(round uint64, msg ConsensusMessage, cop
 	}
 
 	// broadcast consensus message to peers
-	for _, peer := range peers {
-		hint := "Sending pacemaker msg to peer"
-		if peer.netAddr.IP.String() == myNetAddr.IP.String() {
-			hint = "Sending pacemaker msg to myself"
+	p.goes.Go(func() {
+		for _, peer := range peers {
+			hint := "Sending pacemaker msg to peer"
+			if peer.netAddr.IP.String() == myNetAddr.IP.String() {
+				hint = "Sending pacemaker msg to myself"
+			}
+			p.logger.Debug(hint, "type", typeName, "to", peer.netAddr.IP.String())
+			peer.sendData(myNetAddr, typeName, rawMsg)
 		}
-		p.logger.Debug(hint, "type", typeName, "to", peer.netAddr.IP.String())
-		go peer.sendData(myNetAddr, typeName, rawMsg)
-
-	}
+	})
 	return true
 }
 
@@ -282,9 +287,16 @@ func (p *Pacemaker) SendMessageToPeers(msg ConsensusMessage, peers []*ConsensusP
 
 	myNetAddr := p.csReactor.curCommittee.Validators[p.csReactor.curCommitteeIndex].NetAddr
 	// broadcast consensus message to peers
-	for _, peer := range peers {
-		go peer.sendData(myNetAddr, typeName, rawMsg)
-	}
+	p.goes.Go(func() {
+		for _, peer := range peers {
+			hint := "Sending pacemaker msg to peer"
+			if peer.netAddr.IP.String() == myNetAddr.IP.String() {
+				hint = "Sending pacemaker msg to myself"
+			}
+			p.logger.Debug(hint, "type", typeName, "to", peer.netAddr.IP.String())
+			peer.sendData(myNetAddr, typeName, rawMsg)
+		}
+	})
 	return true
 }
 
@@ -369,8 +381,8 @@ func (p *Pacemaker) sendQueryProposalMsg(queryHeight, queryRound, EpochID uint64
 
 	queryMsg, err := p.BuildQueryProposalMessage(queryHeight, queryRound, EpochID, myNetAddr)
 	if err != nil {
-		p.logger.Warn("Error during generate PMQueryProposal message", "err", err)
-		return errors.New("can not address parent")
+		p.logger.Warn("failed to generate PMQueryProposal message", "err", err)
+		return errors.New("failed to generate PMQueryProposal message")
 	}
 	p.SendMessageToPeers(queryMsg, peers)
 	return nil
@@ -379,7 +391,7 @@ func (p *Pacemaker) sendQueryProposalMsg(queryHeight, queryRound, EpochID uint64
 func (p *Pacemaker) pendingProposal(queryHeight, queryRound uint64, proposalMsg *PMProposalMessage, addr types.NetAddress) error {
 	epochID := proposalMsg.CSMsgCommonHeader.EpochID
 	if err := p.sendQueryProposalMsg(queryHeight, queryRound, epochID, addr); err != nil {
-		p.logger.Warn("Error during generate PMQueryProposal message", "err", err)
+		p.logger.Warn("send PMQueryProposal message failed", "err", err)
 	}
 
 	p.pendingList.Add(proposalMsg, addr)
@@ -390,7 +402,7 @@ func (p *Pacemaker) pendingProposal(queryHeight, queryRound uint64, proposalMsg 
 func (p *Pacemaker) pendingNewView(queryHeight, queryRound uint64, newViewMsg *PMNewViewMessage, addr types.NetAddress) error {
 	epochID := newViewMsg.CSMsgCommonHeader.EpochID
 	if err := p.sendQueryProposalMsg(queryHeight, queryRound, epochID, addr); err != nil {
-		p.logger.Warn("Error during generate PMQueryProposal message", "err", err)
+		p.logger.Warn("send PMQueryProposal message failed", "err", err)
 	}
 
 	p.pendingList.Add(newViewMsg, addr)
@@ -398,7 +410,7 @@ func (p *Pacemaker) pendingNewView(queryHeight, queryRound uint64, newViewMsg *P
 }
 
 func (p *Pacemaker) checkPendingMessages(curHeight uint64) error {
-	height := curHeight + 1
+	height := curHeight
 	p.logger.Info("checkPendingMessage", "start height", height)
 	for {
 		pendingMsg, ok := p.pendingList.messages[height]
@@ -406,21 +418,12 @@ func (p *Pacemaker) checkPendingMessages(curHeight uint64) error {
 			break
 		}
 		p.pacemakerMsgCh <- pendingMsg
-		/*
-			proposer := p.getConsensusPeerByPubkey(pm.ProposerID)
-			if proposer == nil {
-				p.logger.Error("can not get proposer", "height", height)
-				break
-			}
-			p.logger.Info("processing pending list", "height", height)
-			if err := p.OnReceiveProposal(pm, proposer.netAddr); err != nil {
-				p.logger.Error("error happens", "height", height, "error", err)
-				break
-			}
-		*/
 		height++ //move higher
 	}
 
-	p.pendingList.CleanUpTo(height)
+	lowest := p.pendingList.GetLowestHeight()
+	if (height > lowest) && (height-lowest) >= 3*MSG_KEEP_HEIGHT {
+		p.pendingList.CleanUpTo(height - MSG_KEEP_HEIGHT)
+	}
 	return nil
 }

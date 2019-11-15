@@ -493,7 +493,8 @@ func (m *PMQueryProposalMessage) SigningHash() (hash meter.Bytes32) {
 
 // String returns a string representation.
 func (m *PMQueryProposalMessage) String() string {
-	return fmt.Sprintf("[PMNewViewMessage Height:%v Round:%v Sender:%v]",
+	return fmt.Sprintf("[PMQueryProposalMessage Height:%v Round:%v Type %v Sender:%v QueryHeight:%v QueryRound:%v]",
 		m.CSMsgCommonHeader.Height, m.CSMsgCommonHeader.Round,
-		m.CSMsgCommonHeader.MsgType, hex.EncodeToString(m.CSMsgCommonHeader.Sender))
+		m.CSMsgCommonHeader.MsgType, hex.EncodeToString(m.CSMsgCommonHeader.Sender),
+		m.Height, m.Round)
 }
