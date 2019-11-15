@@ -18,7 +18,7 @@ import (
 
 const (
 	RoundInterval        = 2 * time.Second
-	RoundTimeoutInterval = 10 * time.Second
+	RoundTimeoutInterval = 30 * time.Second // move the timeout from 10 to 30 secs.
 )
 
 var (
