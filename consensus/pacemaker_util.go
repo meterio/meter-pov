@@ -108,14 +108,16 @@ func (p *Pacemaker) receivePacemakerMsg(w http.ResponseWriter, r *http.Request) 
 		// now relay this message if proposal
 		if fromMyself == false && typeName == "PMProposalMessage" {
 			peers, _ := p.GetRelayPeers(round)
-			for _, peer := range peers {
-				p.logger.Info("now, relay this proposal...", "peer", peer.String(), "height", height, "round", round)
-				if peer.netAddr.IP.String() == p.csReactor.GetMyNetAddr().IP.String() {
-					p.logger.Info("relay to myself, ignore ...")
-					continue
+			p.goes.Go(func() {
+				for _, peer := range peers {
+					p.logger.Info("now, relay this proposal...", "peer", peer.String(), "height", height, "round", round)
+					if peer.netAddr.IP.String() == p.csReactor.GetMyNetAddr().IP.String() {
+						p.logger.Info("relay to myself, ignore ...")
+						continue
+					}
+					peer.sendData(from, typeName, msgByteSlice)
 				}
-				go peer.sendData(from, typeName, msgByteSlice)
-			}
+			})
 
 			lowest := p.msgRelayInfo.GetLowestHeight()
 			if (height > lowest) && (height-lowest) >= 3*MSG_KEEP_HEIGHT {
