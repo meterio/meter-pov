@@ -177,6 +177,7 @@ func showEnodeIDAction(ctx *cli.Context) error {
 }
 
 func publicKeyAction(ctx *cli.Context) error {
+	makeDataDir(ctx)
 	key, err := loadOrGeneratePrivateKey(masterKeyPath(ctx))
 	if err != nil {
 		fatal("load or generate master key:", err)
