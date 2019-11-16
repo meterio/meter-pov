@@ -44,8 +44,9 @@ func (peer *ConsensusPeer) sendData(srcNetAddr types.NetAddress, typeName string
 		return err
 	}
 
+	// full size message may taker longer time (> 2s) to complete the tranport.
 	var netClient = &http.Client{
-		Timeout: time.Second * 2,
+		Timeout: time.Second * 4, // 2
 	}
 	url := "http://" + peer.netAddr.IP.String() + ":8670/peer"
 	// peer.logger.Debug("Send", "data", string(jsonStr), "to", url)
