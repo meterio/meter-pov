@@ -550,7 +550,15 @@ func (sb *StakingBody) GoverningHandler(senv *StakingEnviroment, gas uint64) (re
 	}
 
 	sort.SliceStable(delegates, func(i, j int) bool {
-		return (delegates[i].VotingPower.Cmp(delegates[j].VotingPower) >= 0)
+		vpCmp := delegates[i].VotingPower.Cmp(delegates[j].VotingPower)
+		if vpCmp > 0 {
+			return true
+		}
+		if vpCmp < 0 {
+			return false
+		}
+
+		return bytes.Compare(delegates[i].PubKey, delegates[j].PubKey) >= 0
 	})
 
 	delegateSize := int(sb.Option)
