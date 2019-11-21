@@ -32,6 +32,7 @@ type Block struct {
 	QCHeight         uint64          `json:"qcHeight"`
 	QCRound          uint64          `json:"qcRound"`
 	EpochID          uint64          `json:"epochID"`
+	CommitteeInfo    string          `json:"committeeInfo"`
 }
 type QC struct {
 	QCHeight         uint64 `json:"qcHeight"`
@@ -86,6 +87,9 @@ func convertBlock(b *block.Block, isTrunk bool) (*Block, error) {
 		result.QCHeight = b.QC.QCHeight
 		result.QCRound = b.QC.QCRound
 		result.EpochID = b.QC.EpochID
+	}
+	if len(b.CommitteeInfos.CommitteeInfo) > 0 {
+		result.CommitteeInfo = b.CommitteeInfos.String()
 	}
 	return result, nil
 }

@@ -55,11 +55,23 @@ type CommitteeInfo struct {
 	PubKey      []byte // ecdsa pubkey
 }
 
+func (ci CommitteeInfo) String() string {
+	return fmt.Sprintf("CI(vp:%d,ip:%s)", ci.VotingPower, ci.NetAddr.String())
+}
+
 type CommitteeInfos struct {
 	Epoch         uint64
 	SystemBytes   []byte //bls.System //global parameters for that committee
 	ParamsBytes   []byte //bls.Params
 	CommitteeInfo []CommitteeInfo
+}
+
+func (cis CommitteeInfos) String() string {
+	s := make([]string, 0)
+	for _, ci := range cis.CommitteeInfo {
+		s = append(s, ci.String())
+	}
+	return "CommitteeInfos(" + strings.Join(s, ",") + ")"
 }
 
 // Block is an immutable block type.
