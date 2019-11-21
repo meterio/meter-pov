@@ -311,6 +311,13 @@ func (c *Chain) AddBlock(newBlock *block.Block, receipts tx.Receipts, finalize b
 				return nil, err
 			}
 			c.bestBlock = newBlock
+			if newBlock.Header().TotalScore() > c.leafBlock.Header().TotalScore() {
+				if err := saveLeafBlockID(batch, newBlockID); err != nil {
+					return nil, err
+				}
+
+				c.leafBlock = newBlock
+			}
 			err := c.UpdateBestQC()
 			if err != nil {
 				fmt.Println("Error during update QC: ", err)
