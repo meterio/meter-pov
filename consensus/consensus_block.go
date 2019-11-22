@@ -458,7 +458,7 @@ func (c *ConsensusReactor) verifyBlock(blk *block.Block, state *state.State) (*s
 func (conR *ConsensusReactor) finalizeMBlock(blk *block.Block, ev *block.Evidence) bool {
 
 	var committeeInfo []block.CommitteeInfo
-	if conR.curRound != 0 {
+	if conR.curRound != 0 && blk.BlockHeader.Number() != blk.BlockHeader.LastKBlockHeight()+1 {
 		committeeInfo = []block.CommitteeInfo{}
 	} else {
 		// only round 0 Mblock contains the following info
