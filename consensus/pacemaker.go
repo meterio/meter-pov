@@ -290,6 +290,8 @@ func (p *Pacemaker) OnReceiveProposal(proposalMsg *PMProposalMessage, from types
 	}
 
 	// address qcNode
+	// TODO: qc should be verified before it is used
+
 	qcNode := p.AddressBlock(qc.QCHeight, qc.QCRound)
 	if qcNode == nil {
 		p.logger.Error("OnReceiveProposal: can not address qcNode")
@@ -299,6 +301,27 @@ func (p *Pacemaker) OnReceiveProposal(proposalMsg *PMProposalMessage, from types
 			p.logger.Error("handle pending proposoal failed", "error", err)
 		}
 		return errors.New("can not address qcNode")
+	} else {
+		// we have qcNode, need to check qcNode and blk.QC is referenced the same
+		if match, _ := p.BlockMatchQC(qcNode, qc, blk); match == true {
+			p.logger.Info("addresses QC node")
+		} else {
+			// possible fork !!! TODO: handle?
+			p.logger.Error("qcNode doesn not match qc from proposal, possible fork ...", "qcHeight", qc.QCHeight, "qcRound", qc.QCRound)
+
+			// since there is possible fork, if we does not get QC, clean it up early, otherwise, fork happens!
+			if p.QCHigh.QCNode.Height <= (qc.QCHeight - 1) {
+				p.revertTo(qc.QCHeight - 1)
+			} else {
+				p.logger.Warn("Potential fork happens ...", "Height", qc.QCHeight)
+			}
+
+			// put this proposal to pending list, and sent out query
+			if err := p.pendingProposal(qc.QCHeight, qc.QCRound, proposalMsg, from); err != nil {
+				p.logger.Error("handle pending proposoal failed", "error", err)
+			}
+			return errors.New("can not address qcNode")
+		}
 	}
 
 	// create justify node
@@ -351,8 +374,7 @@ func (p *Pacemaker) OnReceiveProposal(proposalMsg *PMProposalMessage, from types
 			return err
 		}
 
-		msg, _ := p.BuildVoteForProposalMessage(proposalMsg)
-
+		msg, _ := p.BuildVoteForProposalMessage(proposalMsg, blk.Header().TxsRoot(), blk.Header().StateRoot())
 		// TODO: added for test
 		// if round < 5 || round > 6 {
 		// send vote message to leader

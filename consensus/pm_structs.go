@@ -161,7 +161,7 @@ func (pb *pmBlock) ToString() string {
 
 // Definition for pmQuorumCert
 type pmQuorumCert struct {
-	//QCHieght/QCround must be the same with QCNode.Height/QCnode.Round
+	//QCHeight/QCround must be the same with QCNode.Height/QCnode.Round
 	QCNode *pmBlock
 	QC     *block.QuorumCert
 

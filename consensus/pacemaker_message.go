@@ -1,14 +1,17 @@
 package consensus
 
 import (
+	"bytes"
 	"crypto/ecdsa"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"time"
 
 	"github.com/ethereum/go-ethereum/rlp"
 
 	"github.com/dfinlab/meter/block"
+	"github.com/dfinlab/meter/meter"
 	"github.com/dfinlab/meter/powpool"
 	"github.com/dfinlab/meter/types"
 	crypto "github.com/ethereum/go-ethereum/crypto"
@@ -139,18 +142,15 @@ func (p *Pacemaker) BuildProposalMessage(height, round uint64, bnew *pmBlock, tc
 }
 
 // BuildVoteForProposalMsg build VFP message for proposal
-func (p *Pacemaker) BuildVoteForProposalMessage(proposalMsg *PMProposalMessage) (*PMVoteForProposalMessage, error) {
-	proposerPubKey, err := crypto.UnmarshalPubkey(proposalMsg.ProposerID)
-	if err != nil {
-		p.logger.Error("ummarshal proposer public key of sender failed ")
-		return nil, err
-	}
-	ch := proposalMsg.CSMsgCommonHeader
+// txRoot, stateRoot is decoded from proposalMsg.ProposedBlock, carry in cos already decoded outside
+func (p *Pacemaker) BuildVoteForProposalMessage(proposalMsg *PMProposalMessage, txsRoot, stateRoot meter.Bytes32) (*PMVoteForProposalMessage, error) {
 
+	ch := proposalMsg.CSMsgCommonHeader
 	offset := proposalMsg.SignOffset
 	length := proposalMsg.SignLength
-	signMsg := p.csReactor.BuildProposalBlockSignMsg(*proposerPubKey, uint32(ch.MsgSubType), uint64(ch.Height), uint32(ch.Round))
 
+	signMsg := p.csReactor.BuildProposalBlockSignMsg(uint32(proposalMsg.ProposedBlockType), uint64(ch.Height), uint32(ch.Round), &txsRoot, &stateRoot)
+	p.logger.Info("BuildVoteForProposalMessage", "signMsg", signMsg)
 	sign := p.csReactor.csCommon.SignMessage([]byte(signMsg), uint32(offset), uint32(length))
 	msgHash := p.csReactor.csCommon.Hash256Msg([]byte(signMsg), uint32(offset), uint32(length))
 
@@ -272,4 +272,34 @@ func (p *Pacemaker) BuildQueryProposalMessage(height, round, epochID uint64, ret
 	p.logger.Debug("Built Query Proposal Message", "height", height, "round", round, "msg", msg.String(), "timestamp", msg.CSMsgCommonHeader.Timestamp)
 
 	return msg, nil
+}
+
+// qc is for that block?
+// blk is derived from pmBlock message. pass it in if already decoded
+func (p *Pacemaker) BlockMatchQC(b *pmBlock, qc *block.QuorumCert, blk *block.Block) (bool, error) {
+	var txsRoot, stateRoot, msgHash meter.Bytes32
+	// genesis does not have qc
+	if b.Height == 0 && qc.QCHeight == 0 {
+		return true, nil
+	}
+	if blk == nil {
+		// decode block to get qc
+		proposalMsg := b.ProposalMessage
+		var err error
+		if blk, err = block.BlockDecodeFromBytes(proposalMsg.ProposedBlock); err != nil {
+			return false, errors.New("can not decode proposed block")
+		}
+	}
+
+	txsRoot = blk.Header().TxsRoot()
+	stateRoot = blk.Header().StateRoot()
+	signMsg := p.csReactor.BuildProposalBlockSignMsg(uint32(blk.Header().BlockType()), uint64(b.Height), uint32(b.Round), &txsRoot, &stateRoot)
+	msgHash = p.csReactor.csCommon.Hash256Msg([]byte(signMsg), uint32(MSG_SIGN_OFFSET_DEFAULT), uint32(MSG_SIGN_LENGTH_DEFAULT))
+	//qc at least has 1 vote signature and they are the same, so compare [0] is good enough
+	if bytes.Compare(msgHash.Bytes(), meter.Bytes32(qc.VoterMsgHash[0]).Bytes()) == 0 {
+		p.logger.Debug("QC matches block", "msgHash", msgHash.String(), "qc voting Msg hash", meter.Bytes32(qc.VoterMsgHash[0]).String())
+		return true, nil
+	} else {
+		return false, nil
+	}
 }

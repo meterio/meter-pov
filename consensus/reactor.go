@@ -1100,7 +1100,7 @@ func (conR *ConsensusReactor) sendConsensusMsg(msg *ConsensusMessage, csPeer *Co
 		}
 
 		var netClient = &http.Client{
-			Timeout: time.Second * 2,
+			Timeout: time.Second * 4,
 		}
 		resp, err := netClient.Post("http://"+csPeer.netAddr.IP.String()+":8080/peer", "application/json", bytes.NewBuffer(jsonStr))
 		if err != nil {
@@ -1175,8 +1175,8 @@ func (conR *ConsensusReactor) BuildAnnounceSignMsg(pubKey ecdsa.PublicKey, epoch
 }
 
 // Sign Propopal Message
-// "Proposal Block Message: Proposer <pubkey 64(32x2)> BlockType <8 bytes> Height <16 (8x2) bytes> Round <8 (4x2) bytes>
-func (conR *ConsensusReactor) BuildProposalBlockSignMsg(pubKey ecdsa.PublicKey, blockType uint32, height uint64, round uint32) string {
+// "Proposal Block Message: BlockType <8 bytes> Height <16 (8x2) bytes> Round <8 (4x2) bytes>
+func (conR *ConsensusReactor) BuildProposalBlockSignMsg(blockType uint32, height uint64, round uint32, txsRoot, stateRoot *meter.Bytes32) string {
 	c := make([]byte, binary.MaxVarintLen32)
 	binary.BigEndian.PutUint32(c, blockType)
 
@@ -1185,9 +1185,12 @@ func (conR *ConsensusReactor) BuildProposalBlockSignMsg(pubKey ecdsa.PublicKey, 
 
 	r := make([]byte, binary.MaxVarintLen32)
 	binary.BigEndian.PutUint32(r, round)
-	return fmt.Sprintf("%s %s %s %s %s %s %s %s", "Proposal Block Message: Proposer", hex.EncodeToString(crypto.FromECDSAPub(&pubKey)),
-		"BlockType", hex.EncodeToString(c), "Height", hex.EncodeToString(h),
-		"Round", hex.EncodeToString(r))
+	return fmt.Sprintf("%s %s %s %s %s %s %s %s %s %s ",
+		"BlockType", hex.EncodeToString(c),
+		"Height", hex.EncodeToString(h),
+		"Round", hex.EncodeToString(r),
+		"TxRoot", txsRoot.String(),
+		"StateRoot", stateRoot.String())
 }
 
 // Sign Notary Announce Message
