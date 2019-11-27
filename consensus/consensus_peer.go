@@ -48,7 +48,7 @@ func (peer *ConsensusPeer) sendData(srcNetAddr types.NetAddress, typeName string
 	var netClient = &http.Client{
 		Timeout: time.Second * 4, // 2
 	}
-	url := "http://" + peer.netAddr.IP.String() + ":8670/peer"
+	url := "http://" + peer.netAddr.IP.String() + ":8670/pacemaker"
 	// peer.logger.Debug("Send", "data", string(jsonStr), "to", url)
 	_, err = netClient.Post(url, "application/json", bytes.NewBuffer(jsonStr))
 	if err != nil {

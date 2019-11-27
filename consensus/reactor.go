@@ -857,27 +857,15 @@ func respondWithJson(w http.ResponseWriter, code int, payload interface{}) {
 	w.Write(response)
 }
 
-func (conR *ConsensusReactor) receivePeerMsgRoutine() {
+func (conR *ConsensusReactor) receiveConsensusMsgRoutine() {
 
 	c := cors.New(cors.Options{
 		AllowedOrigins: []string{"*"},    // All origins
 		AllowedMethods: []string{"POST"}, // Only allows POST requests
 	})
 	r := mux.NewRouter()
-	r.HandleFunc("/peer", conR.receivePeerMsg).Methods("POST")
-	if err := http.ListenAndServe(":8080", c.Handler(r)); err != nil {
-		fmt.Errorf("HTTP receiver error!")
-	}
-}
-
-func (conR *ConsensusReactor) receivePacemakerMsgRoutine() {
-
-	c := cors.New(cors.Options{
-		AllowedOrigins: []string{"*"},    // All origins
-		AllowedMethods: []string{"POST"}, // Only allows POST requests
-	})
-	r := mux.NewRouter()
-	r.HandleFunc("/peer", conR.csPacemaker.receivePacemakerMsg).Methods("POST")
+	r.HandleFunc("/consensus", conR.receivePeerMsg).Methods("POST")
+	r.HandleFunc("/pacemaker", conR.csPacemaker.receivePacemakerMsg).Methods("POST")
 	if err := http.ListenAndServe(":8670", c.Handler(r)); err != nil {
 		fmt.Errorf("HTTP receiver error!")
 	}
@@ -897,10 +885,10 @@ func (conR *ConsensusReactor) NewConsensusStart() int {
 	******/
 
 	// Uncomment following to enable peer messages between nodes
-	go conR.receivePeerMsgRoutine()
+	go conR.receiveConsensusMsgRoutine()
 
 	// pacemaker
-	go conR.receivePacemakerMsgRoutine()
+	// go conR.receivePacemakerMsgRoutine()
 
 	// Start receive routine
 	go conR.receiveRoutine() //only handles from channel
@@ -1102,7 +1090,7 @@ func (conR *ConsensusReactor) sendConsensusMsg(msg *ConsensusMessage, csPeer *Co
 		var netClient = &http.Client{
 			Timeout: time.Second * 4,
 		}
-		resp, err := netClient.Post("http://"+csPeer.netAddr.IP.String()+":8080/peer", "application/json", bytes.NewBuffer(jsonStr))
+		resp, err := netClient.Post("http://"+csPeer.netAddr.IP.String()+":8670/consensus", "application/json", bytes.NewBuffer(jsonStr))
 		if err != nil {
 			conR.logger.Error("Failed to send message to peer", "peer", csPeer.String(), "err", err)
 			return false

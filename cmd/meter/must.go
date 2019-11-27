@@ -310,7 +310,7 @@ func (p *p2pComm) Stop() {
 }
 
 func startObserveServer(ctx *cli.Context) (string, func()) {
-	addr := "0.0.0.0:8667"
+	addr := ":8671"
 	listener, err := net.Listen("tcp", addr)
 	if err != nil {
 		fatal(fmt.Sprintf("listen API addr [%v]: %v", addr, err))
