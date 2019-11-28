@@ -265,6 +265,7 @@ func newP2PComm(ctx *cli.Context, chain *chain.Chain, txPool *txpool.TxPool, ins
 		log.Warn("failed to load peers cache", "err", err)
 	}
 
+	topic := ctx.String("disco-topic")
 	peers := ctx.StringSlice("peers")
 	validNodes := make([]*discover.Node, 0)
 	for _, p := range peers {
@@ -276,7 +277,7 @@ func newP2PComm(ctx *cli.Context, chain *chain.Chain, txPool *txpool.TxPool, ins
 	opts.KnownNodes = append(opts.KnownNodes, validNodes...)
 
 	return &p2pComm{
-		comm:           comm.New(chain, txPool, powPool),
+		comm:           comm.New(chain, txPool, powPool, topic),
 		p2pSrv:         p2psrv.New(opts),
 		peersCachePath: peersCachePath,
 	}

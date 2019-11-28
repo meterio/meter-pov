@@ -46,7 +46,8 @@ type Communicator struct {
 	goes           co.Goes
 	onceSynced     sync.Once
 
-	powPool *powpool.PowPool
+	powPool     *powpool.PowPool
+	configTopic string
 }
 
 func SetGlobCommInst(c *Communicator) error {
@@ -59,7 +60,7 @@ func GetGlobCommInst() *Communicator {
 }
 
 // New create a new Communicator instance.
-func New(chain *chain.Chain, txPool *txpool.TxPool, powPool *powpool.PowPool) *Communicator {
+func New(chain *chain.Chain, txPool *txpool.TxPool, powPool *powpool.PowPool, configTopic string) *Communicator {
 	ctx, cancel := context.WithCancel(context.Background())
 	c := &Communicator{
 		chain:          chain,
@@ -70,6 +71,7 @@ func New(chain *chain.Chain, txPool *txpool.TxPool, powPool *powpool.PowPool) *C
 		peerSet:        newPeerSet(),
 		syncedCh:       make(chan struct{}),
 		announcementCh: make(chan *announcement),
+		configTopic:    configTopic,
 	}
 
 	SetGlobCommInst(c)
@@ -160,7 +162,7 @@ func (c *Communicator) Protocols() []*p2psrv.Protocol {
 				Length:  proto.Length,
 				Run:     c.servePeer,
 			},
-			DiscTopic: fmt.Sprintf("%v%v@%x", proto.Name, proto.Version, genesisID[24:]),
+			DiscTopic: fmt.Sprintf("%v%v%v@%x", proto.Name, proto.Version, c.configTopic, genesisID[24:]),
 		}}
 }
 

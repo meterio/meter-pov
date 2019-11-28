@@ -144,4 +144,8 @@ var (
 		Name:  "disco-server",
 		Usage: "override the default discover servers setting",
 	}
+	discoTopicFlag = cli.StringFlag{
+		Name:  "disco-topic",
+		Usage: "set the custom discover topics",
+	}
 )

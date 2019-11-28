@@ -101,6 +101,7 @@ func main() {
 			committeeSizeFlag,
 			delegateSizeFlag,
 			discoServerFlag,
+			discoTopicFlag,
 		},
 		Action: defaultAction,
 		Commands: []cli.Command{
