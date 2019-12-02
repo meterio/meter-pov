@@ -26,7 +26,7 @@ import (
 
 const (
 	// minimum height for committee relay
-	POW_MINIMUM_HEIGHT_INTV = uint32(60)
+	POW_MINIMUM_HEIGHT_INTV = uint32(4)
 	//This ceof is based s9 ant miner, 1.323Kw 13.5T hashrate coef 11691855416.9
 	//python -c "print 2**32 * 1.323 /120/13.5/1000/1000/1000/1000/10/30"
 	POW_DEFAULT_REWARD_COEF = int64(11691855417)
@@ -127,7 +127,10 @@ func (p *PowPool) SubscribePowBlockEvent(ch chan *PowBlockEvent) event.Subscript
 func (p *PowPool) InitialAddKframe(newPowBlockInfo *PowBlockInfo) error {
 	p.Wash()
 	powObj := NewPowObject(newPowBlockInfo)
-	p.powFeed.Send(&PowBlockEvent{BlockInfo: newPowBlockInfo})
+	p.goes.Go(func() {
+		p.powFeed.Send(&PowBlockEvent{BlockInfo: newPowBlockInfo})
+	})
+
 	// XXX: send block to POW
 	// raw := newPowBlockInfo.Raw
 	// blks := bytes.Split(raw, []byte{0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff})
@@ -194,7 +197,9 @@ func (p *PowPool) Add(newPowBlockInfo *PowBlockInfo) error {
 		return nil
 	}
 	log.Debug("PowPool Add: ", "hash", newPowBlockInfo.HeaderHash, "height", newPowBlockInfo.PowHeight, "powpoolSize", p.all.Size())
-	p.powFeed.Send(&PowBlockEvent{BlockInfo: newPowBlockInfo})
+	p.goes.Go(func() {
+		p.powFeed.Send(&PowBlockEvent{BlockInfo: newPowBlockInfo})
+	})
 	powObj := NewPowObject(newPowBlockInfo)
 	err := p.all.Add(powObj)
 	return err

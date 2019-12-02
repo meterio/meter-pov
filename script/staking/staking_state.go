@@ -214,7 +214,7 @@ func (s *Staking) UnboundAccountMeter(addr meter.Address, amount *big.Int, state
 	meterBoundedBalance := state.GetBoundedEnergy(addr)
 
 	// meterBoundedBalance should >= amount
-	if meterBoundedBalance.Cmp(amount) >= 0 {
+	if meterBoundedBalance.Cmp(amount) < 0 {
 		s.logger.Error("not enough bounded meter balance", "account", addr, "unbound amount", amount)
 		return errors.New("not enough bounded meter balance")
 	}
@@ -255,7 +255,7 @@ func (s *Staking) UnboundAccountMeterGov(addr meter.Address, amount *big.Int, st
 	meterGovBounded := state.GetBoundedBalance(addr)
 
 	// meterGovBounded should >= amount
-	if meterGovBounded.Cmp(amount) >= 0 {
+	if meterGovBounded.Cmp(amount) < 0 {
 		s.logger.Error("not enough bounded meter-gov balance", "account", addr, "unbound amount", amount)
 		return errors.New("not enough bounded meter-gov balance")
 	}
