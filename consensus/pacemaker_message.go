@@ -149,7 +149,7 @@ func (p *Pacemaker) BuildVoteForProposalMessage(proposalMsg *PMProposalMessage, 
 	offset := proposalMsg.SignOffset
 	length := proposalMsg.SignLength
 
-	signMsg := p.csReactor.BuildProposalBlockSignMsg(uint32(proposalMsg.ProposedBlockType), uint64(ch.Height), uint32(ch.Round), &txsRoot, &stateRoot)
+	signMsg := p.csReactor.BuildProposalBlockSignMsg(uint32(proposalMsg.ProposedBlockType), uint64(ch.Height), &txsRoot, &stateRoot)
 	p.logger.Info("BuildVoteForProposalMessage", "signMsg", signMsg)
 	sign := p.csReactor.csCommon.SignMessage([]byte(signMsg), uint32(offset), uint32(length))
 	msgHash := p.csReactor.csCommon.Hash256Msg([]byte(signMsg), uint32(offset), uint32(length))
@@ -276,24 +276,26 @@ func (p *Pacemaker) BuildQueryProposalMessage(height, round, epochID uint64, ret
 
 // qc is for that block?
 // blk is derived from pmBlock message. pass it in if already decoded
-func (p *Pacemaker) BlockMatchQC(b *pmBlock, qc *block.QuorumCert, blk *block.Block) (bool, error) {
+func (p *Pacemaker) BlockMatchQC(b *pmBlock, qc *block.QuorumCert) (bool, error) {
 	var txsRoot, stateRoot, msgHash meter.Bytes32
+	var blk *block.Block
+	var err error
 	// genesis does not have qc
 	if b.Height == 0 && qc.QCHeight == 0 {
 		return true, nil
 	}
-	if blk == nil {
+	if b.ProposedBlockInfo == nil {
 		// decode block to get qc
-		proposalMsg := b.ProposalMessage
-		var err error
-		if blk, err = block.BlockDecodeFromBytes(proposalMsg.ProposedBlock); err != nil {
+		if blk, err = block.BlockDecodeFromBytes(b.ProposedBlock); err != nil {
 			return false, errors.New("can not decode proposed block")
 		}
+	} else {
+		blk = b.ProposedBlockInfo.ProposedBlock
 	}
 
 	txsRoot = blk.Header().TxsRoot()
 	stateRoot = blk.Header().StateRoot()
-	signMsg := p.csReactor.BuildProposalBlockSignMsg(uint32(blk.Header().BlockType()), uint64(b.Height), uint32(b.Round), &txsRoot, &stateRoot)
+	signMsg := p.csReactor.BuildProposalBlockSignMsg(uint32(b.ProposedBlockType), uint64(b.Height), &txsRoot, &stateRoot)
 	msgHash = p.csReactor.csCommon.Hash256Msg([]byte(signMsg), uint32(MSG_SIGN_OFFSET_DEFAULT), uint32(MSG_SIGN_LENGTH_DEFAULT))
 	//qc at least has 1 vote signature and they are the same, so compare [0] is good enough
 	if bytes.Compare(msgHash.Bytes(), meter.Bytes32(qc.VoterMsgHash[0]).Bytes()) == 0 {

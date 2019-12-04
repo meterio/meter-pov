@@ -315,7 +315,6 @@ func (conR *ConsensusReactor) SwitchToConsensus() {
 
 		if lastKBlockHeight == 0 {
 			nonce = genesis.GenesisNonce
-
 		} else {
 			kblock, err := conR.chain.GetTrunkBlock(lastKBlockHeight)
 			if err != nil {
@@ -1164,19 +1163,16 @@ func (conR *ConsensusReactor) BuildAnnounceSignMsg(pubKey ecdsa.PublicKey, epoch
 
 // Sign Propopal Message
 // "Proposal Block Message: BlockType <8 bytes> Height <16 (8x2) bytes> Round <8 (4x2) bytes>
-func (conR *ConsensusReactor) BuildProposalBlockSignMsg(blockType uint32, height uint64, round uint32, txsRoot, stateRoot *meter.Bytes32) string {
+func (conR *ConsensusReactor) BuildProposalBlockSignMsg(blockType uint32, height uint64, txsRoot, stateRoot *meter.Bytes32) string {
 	c := make([]byte, binary.MaxVarintLen32)
 	binary.BigEndian.PutUint32(c, blockType)
 
 	h := make([]byte, binary.MaxVarintLen64)
 	binary.BigEndian.PutUint64(h, height)
 
-	r := make([]byte, binary.MaxVarintLen32)
-	binary.BigEndian.PutUint32(r, round)
-	return fmt.Sprintf("%s %s %s %s %s %s %s %s %s %s ",
+	return fmt.Sprintf("%s %s %s %s %s %s %s %s ",
 		"BlockType", hex.EncodeToString(c),
 		"Height", hex.EncodeToString(h),
-		"Round", hex.EncodeToString(r),
 		"TxRoot", txsRoot.String(),
 		"StateRoot", stateRoot.String())
 }
@@ -1465,6 +1461,9 @@ func (conR *ConsensusReactor) ConsensusHandleReceivedNonce(kBlockHeight int64, n
 		conR.sendNewCommitteeMessage(leader, leaderPubKey, newCommittee.KblockHeight,
 			newCommittee.Nonce, newCommittee.Round)
 		conR.NewCommitteeTimerStart()
+	} else if role == CONSENSUS_COMMIT_ROLE_NONE {
+		// even though it is not committee, still initialize NewCommittee for next
+		conR.NewCommitteeInit(uint64(kBlockHeight), nonce, replay)
 	}
 	return
 }

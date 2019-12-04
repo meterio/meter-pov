@@ -302,8 +302,10 @@ func (p *Pacemaker) OnReceiveProposal(proposalMsg *PMProposalMessage, from types
 		}
 		return errors.New("can not address qcNode")
 	} else {
+		p.logger.Info("addresses QC node")
+
 		// we have qcNode, need to check qcNode and blk.QC is referenced the same
-		if match, _ := p.BlockMatchQC(qcNode, qc, blk); match == true {
+		if match, _ := p.BlockMatchQC(qcNode, qc); match == true {
 			p.logger.Info("addresses QC node")
 		} else {
 			// possible fork !!! TODO: handle?
