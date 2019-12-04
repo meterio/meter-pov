@@ -80,6 +80,10 @@ func loadBlockRaw(r kv.Getter, id meter.Bytes32) (block.Raw, error) {
 	return r.Get(append(blockPrefix, id[:]...))
 }
 
+func removeBlockRaw(w kv.Putter, id meter.Bytes32) error {
+	return w.Delete(append(blockPrefix, id[:]...))
+}
+
 // saveBlockRaw save rlp encoded block raw data.
 func saveBlockRaw(w kv.Putter, id meter.Bytes32, raw block.Raw) error {
 	return w.Put(append(blockPrefix, id[:]...), raw)

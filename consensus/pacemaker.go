@@ -6,6 +6,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/rlp"
 
 	"github.com/dfinlab/meter/block"
@@ -801,9 +802,26 @@ func (p *Pacemaker) revertTo(revertHeight uint64) {
 		if !exist {
 			break
 		}
-		p.logger.Warn("Deleted from proposalMap:", "blockHeight", height, "block", proposal.ToString())
+		p.logger.Warn("Start to delete from proposalMap:", "blockHeight", height, "block", proposal.ToString())
+		if proposal.ProposedBlockInfo != nil {
+			info := proposal.ProposedBlockInfo
+			// remove precommited blocks
+			blockID := info.ProposedBlock.Header().ID()
+			err := p.csReactor.chain.RemoveBlock(blockID)
+			if err != nil {
+				log.Warn("error happened during removing block: ", blockID.String())
+			}
+
+			// release txs
+			if info.txsToRemoved != nil {
+				info.txsToRemoved()
+			}
+
+			// FIXME: rollback states
+		}
+
 		delete(p.proposalMap, height)
-		// FIXME: remove precommited blocks and release txs
+		p.logger.Warn("Deleted from proposalMap:", "blockHeight", height)
 		height++
 	}
 

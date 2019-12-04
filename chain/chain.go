@@ -220,6 +220,22 @@ func (c *Chain) BestQC() *block.QuorumCert {
 	return c.bestQC
 }
 
+func (c *Chain) RemoveBlock(blockID meter.Bytes32) error {
+	c.rw.Lock()
+	defer c.rw.Unlock()
+	_, err := c.getBlockHeader(blockID)
+	if err != nil {
+		if c.IsNotFound(err) {
+			return err
+		}
+		if block.Number(blockID) <= c.bestBlock.Header().Number() {
+			return errors.New("could not remove finalized block")
+		}
+		return removeBlockRaw(c.kv, blockID)
+	}
+	return err
+}
+
 // AddBlock add a new block into block chain.
 // Once reorg happened (len(Trunk) > 0 && len(Branch) >0), Fork.Branch will be the chain transitted from trunk to branch.
 // Reorg happens when isTrunk is true.
