@@ -513,7 +513,7 @@ func (p *Pacemaker) OnNextSyncView(nextHeight, nextRound uint64, reason NewViewR
 	}
 
 	p.SendConsensusMessage(nextRound, msg, false)
-	p.logger.Info("Sent out pacemaker msg", "height", nextHeight, "round", nextRound, "qcHeight", p.QCHigh.QC.QCHeight, "qcRound", p.QCHigh.QC.QCRound, "tc", ti)
+	p.logger.Info("Sent out newView msg", "height", nextHeight, "round", nextRound, "qcHeight", p.QCHigh.QC.QCHeight, "qcRound", p.QCHigh.QC.QCRound, "tc", ti)
 
 	return nil
 }

@@ -272,7 +272,7 @@ func (p *Pacemaker) SendConsensusMessage(round uint64, msg ConsensusMessage, cop
 			if peer.netAddr.IP.String() == myNetAddr.IP.String() {
 				hint = "Sending pacemaker msg to myself"
 			}
-			p.logger.Debug(hint, "type", typeName, "to", peer.netAddr.IP.String())
+			p.logger.Info(hint, "type", typeName, "to", peer.netAddr.IP.String())
 			peer.sendData(myNetAddr, typeName, rawMsg)
 		}
 	})
