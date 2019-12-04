@@ -6,7 +6,6 @@ import (
 	"os"
 	"time"
 
-	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/rlp"
 
 	"github.com/dfinlab/meter/block"
@@ -303,22 +302,17 @@ func (p *Pacemaker) OnReceiveProposal(proposalMsg *PMProposalMessage, from types
 		}
 		return errors.New("can not address qcNode")
 	} else {
-		p.logger.Info("addresses QC node")
-
 		// we have qcNode, need to check qcNode and blk.QC is referenced the same
 		if match, _ := p.BlockMatchQC(qcNode, qc); match == true {
 			p.logger.Info("addresses QC node")
 		} else {
 			// possible fork !!! TODO: handle?
-			p.logger.Error("qcNode doesn not match qc from proposal, possible fork ...", "qcHeight", qc.QCHeight, "qcRound", qc.QCRound)
+			p.logger.Error("qcNode doesn not match qc from proposal, potential fork happens...", "qcHeight", qc.QCHeight, "qcRound", qc.QCRound)
 
-			// since there is possible fork, if we does not get QC, clean it up early, otherwise, fork happens!
-			if p.QCHigh.QCNode.Height <= (qc.QCHeight - 1) {
-				p.revertTo(qc.QCHeight - 1)
-			} else {
-				p.logger.Warn("Potential fork happens ...", "Height", qc.QCHeight)
-			}
-
+			// TBD: handle this case??
+			// if this block does not have Qc yet, revertTo previous
+			// if this block has QC, The real one need to TO to revert
+			// anyway, get the new one.
 			// put this proposal to pending list, and sent out query
 			if err := p.pendingProposal(qc.QCHeight, qc.QCRound, proposalMsg, from); err != nil {
 				p.logger.Error("handle pending proposoal failed", "error", err)
@@ -513,7 +507,7 @@ func (p *Pacemaker) OnNextSyncView(nextHeight, nextRound uint64, reason NewViewR
 	}
 
 	p.SendConsensusMessage(nextRound, msg, false)
-	p.logger.Info("Sent out newView msg", "height", nextHeight, "round", nextRound, "qcHeight", p.QCHigh.QC.QCHeight, "qcRound", p.QCHigh.QC.QCRound, "tc", ti)
+	p.logger.Info("Sent out pacemaker msg", "height", nextHeight, "round", nextRound, "qcHeight", p.QCHigh.QC.QCHeight, "qcRound", p.QCHigh.QC.QCRound, "tc", ti)
 
 	return nil
 }
@@ -802,26 +796,9 @@ func (p *Pacemaker) revertTo(revertHeight uint64) {
 		if !exist {
 			break
 		}
-		p.logger.Warn("Start to delete from proposalMap:", "blockHeight", height, "block", proposal.ToString())
-		if proposal.ProposedBlockInfo != nil {
-			info := proposal.ProposedBlockInfo
-			// remove precommited blocks
-			blockID := info.ProposedBlock.Header().ID()
-			err := p.csReactor.chain.RemoveBlock(blockID)
-			if err != nil {
-				log.Warn("error happened during removing block: ", blockID.String())
-			}
-
-			// release txs
-			if info.txsToRemoved != nil {
-				info.txsToRemoved()
-			}
-
-			// FIXME: rollback states
-		}
-
+		p.logger.Warn("Deleted from proposalMap:", "blockHeight", height, "block", proposal.ToString())
 		delete(p.proposalMap, height)
-		p.logger.Warn("Deleted from proposalMap:", "blockHeight", height)
+		// FIXME: remove precommited blocks and release txs
 		height++
 	}
 
