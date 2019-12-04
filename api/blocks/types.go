@@ -6,6 +6,8 @@
 package blocks
 
 import (
+	"encoding/hex"
+
 	"github.com/dfinlab/meter/block"
 	"github.com/dfinlab/meter/meter"
 )
@@ -33,20 +35,24 @@ type Block struct {
 	QCRound          uint64          `json:"qcRound"`
 	EpochID          uint64          `json:"epochID"`
 	CommitteeInfo    string          `json:"committeeInfo"`
+	QCHex            string          `json:"qcHex"`
 }
 type QC struct {
 	QCHeight         uint64 `json:"qcHeight"`
 	QCRound          uint64 `json:"qcRound"`
 	VoterBitArrayStr string `json:"voterBitArrayStr"`
 	EpochID          uint64 `json:"epochID"`
+	Raw              string `json:"raw"`
 }
 
 func convertQC(qc *block.QuorumCert) (*QC, error) {
+	raw := hex.EncodeToString(qc.ToBytes())
 	return &QC{
 		QCHeight:         qc.QCHeight,
 		QCRound:          qc.QCRound,
 		VoterBitArrayStr: qc.VoterBitArrayStr,
 		EpochID:          qc.EpochID,
+		Raw:              raw,
 	}, nil
 }
 func convertBlock(b *block.Block, isTrunk bool) (*Block, error) {
@@ -64,6 +70,7 @@ func convertBlock(b *block.Block, isTrunk bool) (*Block, error) {
 	}
 
 	header := b.Header()
+	qcHex := hex.EncodeToString(b.QC.ToBytes())
 	result := &Block{
 		Number:           header.Number(),
 		ID:               header.ID(),
@@ -82,6 +89,7 @@ func convertBlock(b *block.Block, isTrunk bool) (*Block, error) {
 		Transactions:     txIds,
 		IsKBlock:         header.BlockType() == block.BLOCK_TYPE_K_BLOCK,
 		LastKBlockHeight: header.LastKBlockHeight(),
+		QCHex:            qcHex,
 	}
 	if b.QC != nil {
 		result.QCHeight = b.QC.QCHeight

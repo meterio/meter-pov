@@ -106,9 +106,31 @@ func (b *Blocks) isTrunk(blkID meter.Bytes32, blkNum uint32) (bool, error) {
 	return ancestorID == blkID, nil
 }
 
+func (b *Blocks) handleGetQC(w http.ResponseWriter, req *http.Request) error {
+	revision, err := b.parseRevision(mux.Vars(req)["revision"])
+	if err != nil {
+		return utils.BadRequest(errors.WithMessage(err, "revision"))
+	}
+	block, err := b.getBlock(revision)
+	if err != nil {
+		if b.chain.IsNotFound(err) {
+			return utils.WriteJSON(w, nil)
+		}
+		return err
+	}
+	_, err = b.isTrunk(block.Header().ID(), block.Header().Number())
+	if err != nil {
+		return err
+	}
+	qc, err := convertQC(block.QC)
+	if err != nil {
+		return err
+	}
+	return utils.WriteJSON(w, qc)
+}
 func (b *Blocks) Mount(root *mux.Router, pathPrefix string) {
 	sub := root.PathPrefix(pathPrefix).Subrouter()
-	sub.Path("/qc").Methods("Get").HandlerFunc(utils.WrapHandlerFunc(b.handleGetBestQC))
+	sub.Path("/qc/{revision}").Methods("Get").HandlerFunc(utils.WrapHandlerFunc(b.handleGetQC))
 	sub.Path("/{revision}").Methods("GET").HandlerFunc(utils.WrapHandlerFunc(b.handleGetBlock))
 
 }
