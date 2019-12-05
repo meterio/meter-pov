@@ -287,6 +287,7 @@ func (p *Pacemaker) BlockMatchQC(b *pmBlock, qc *block.QuorumCert) (bool, error)
 	if b.ProposedBlockInfo == nil {
 		// decode block to get qc
 		if blk, err = block.BlockDecodeFromBytes(b.ProposedBlock); err != nil {
+			fmt.Println("can not decode block", err)
 			return false, errors.New("can not decode proposed block")
 		}
 	} else {
@@ -295,6 +296,7 @@ func (p *Pacemaker) BlockMatchQC(b *pmBlock, qc *block.QuorumCert) (bool, error)
 
 	txsRoot = blk.Header().TxsRoot()
 	stateRoot = blk.Header().StateRoot()
+	fmt.Println(fmt.Sprintf("proposed block type: %d, height: %d, txsRoot: %s, stateRoot: %s, actual BlockType: %d", b.ProposedBlockType, b.Height, txsRoot.String(), stateRoot.String(), blk.Header().BlockType()))
 	signMsg := p.csReactor.BuildProposalBlockSignMsg(uint32(b.ProposedBlockType), uint64(b.Height), &txsRoot, &stateRoot)
 	msgHash = p.csReactor.csCommon.Hash256Msg([]byte(signMsg), uint32(MSG_SIGN_OFFSET_DEFAULT), uint32(MSG_SIGN_LENGTH_DEFAULT))
 	//qc at least has 1 vote signature and they are the same, so compare [0] is good enough
@@ -302,6 +304,10 @@ func (p *Pacemaker) BlockMatchQC(b *pmBlock, qc *block.QuorumCert) (bool, error)
 		p.logger.Debug("QC matches block", "msgHash", msgHash.String(), "qc voting Msg hash", meter.Bytes32(qc.VoterMsgHash[0]).String())
 		return true, nil
 	} else {
+		p.logger.Warn("QC doesn't matches block", "msgHash", msgHash.String(), "qc voting Msg hash", meter.Bytes32(qc.VoterMsgHash[0]).String())
+		for _, v := range qc.VoterMsgHash {
+			fmt.Println(meter.Bytes32(v).String())
+		}
 		return false, nil
 	}
 }
