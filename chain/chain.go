@@ -759,7 +759,13 @@ func (c *Chain) UpdateLeafBlock() error {
 	return nil
 }
 func (c *Chain) UpdateBestQC() error {
+	fmt.Println("in UpdateBestQC, bestQCCandidate=", c.bestQCCandidate.String(), "bestQC", c.bestQC.String(), "bestBlock.Height=", c.bestBlock.Header().Number())
 	if c.leafBlock.Header().ID().String() == c.bestBlock.Header().ID().String() {
+		if c.bestQCCandidate != nil && c.bestQCCandidate.QCHeight > c.bestQC.QCHeight && c.bestQCCandidate.QCHeight <= uint64(c.bestBlock.Header().Number()) {
+			c.bestQC = c.bestQCCandidate
+			c.bestQCCandidate = nil
+			fmt.Println("!!! Move BestQC to: ", c.bestQC.String())
+		}
 		return saveBestQC(c.kv, c.bestQC)
 	}
 	fmt.Println("UpdateBestQC, bestQCCandidate=", c.bestQCCandidate.String(), ", bestBlock.Height=", c.bestBlock.Header().Number())

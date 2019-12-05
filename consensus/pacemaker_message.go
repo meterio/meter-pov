@@ -279,6 +279,7 @@ func (p *Pacemaker) BuildQueryProposalMessage(height, round, epochID uint64, ret
 func (p *Pacemaker) BlockMatchQC(b *pmBlock, qc *block.QuorumCert) (bool, error) {
 	var txsRoot, stateRoot, msgHash meter.Bytes32
 	var blk *block.Block
+	var blkType uint32
 	var err error
 	// genesis does not have qc
 	if b.Height == 0 && qc.QCHeight == 0 {
@@ -290,15 +291,19 @@ func (p *Pacemaker) BlockMatchQC(b *pmBlock, qc *block.QuorumCert) (bool, error)
 			fmt.Println("can not decode block", err)
 			return false, errors.New("can not decode proposed block")
 		}
+		blkType = blk.Header().BlockType()
 	} else {
 		blk = b.ProposedBlockInfo.ProposedBlock
+		blkType = uint32(b.ProposedBlockType)
 	}
 
 	txsRoot = blk.Header().TxsRoot()
 	stateRoot = blk.Header().StateRoot()
 	fmt.Println(fmt.Sprintf("proposed block type: %d, height: %d, txsRoot: %s, stateRoot: %s, actual BlockType: %d", b.ProposedBlockType, b.Height, txsRoot.String(), stateRoot.String(), blk.Header().BlockType()))
-	signMsg := p.csReactor.BuildProposalBlockSignMsg(uint32(b.ProposedBlockType), uint64(b.Height), &txsRoot, &stateRoot)
+	signMsg := p.csReactor.BuildProposalBlockSignMsg(blkType, uint64(b.Height), &txsRoot, &stateRoot)
+	//p.logger.Info("in BlockMatchQC", "signMsg", signMsg)
 	msgHash = p.csReactor.csCommon.Hash256Msg([]byte(signMsg), uint32(MSG_SIGN_OFFSET_DEFAULT), uint32(MSG_SIGN_LENGTH_DEFAULT))
+	//p.logger.Info("in BlockMatchQC Compare", "msgHash", msgHash, "qc voting Msg hash", qc.VoterMsgHash[0])
 	//qc at least has 1 vote signature and they are the same, so compare [0] is good enough
 	if bytes.Compare(msgHash.Bytes(), meter.Bytes32(qc.VoterMsgHash[0]).Bytes()) == 0 {
 		p.logger.Debug("QC matches block", "msgHash", msgHash.String(), "qc voting Msg hash", meter.Bytes32(qc.VoterMsgHash[0]).String())
