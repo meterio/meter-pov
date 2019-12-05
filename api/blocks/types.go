@@ -35,7 +35,6 @@ type Block struct {
 	QCRound          uint64          `json:"qcRound"`
 	EpochID          uint64          `json:"epochID"`
 	CommitteeInfo    string          `json:"committeeInfo"`
-	QCHex            string          `json:"qcHex"`
 }
 type QC struct {
 	QCHeight         uint64 `json:"qcHeight"`
@@ -70,7 +69,6 @@ func convertBlock(b *block.Block, isTrunk bool) (*Block, error) {
 	}
 
 	header := b.Header()
-	qcHex := hex.EncodeToString(b.QC.ToBytes())
 	result := &Block{
 		Number:           header.Number(),
 		ID:               header.ID(),
@@ -89,7 +87,6 @@ func convertBlock(b *block.Block, isTrunk bool) (*Block, error) {
 		Transactions:     txIds,
 		IsKBlock:         header.BlockType() == block.BLOCK_TYPE_K_BLOCK,
 		LastKBlockHeight: header.LastKBlockHeight(),
-		QCHex:            qcHex,
 	}
 	if b.QC != nil {
 		result.QCHeight = b.QC.QCHeight
