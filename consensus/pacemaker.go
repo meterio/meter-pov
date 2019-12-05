@@ -103,7 +103,7 @@ func NewPaceMaker(conR *ConsensusReactor) *Pacemaker {
 		msgRelayInfo:   NewPMProposalInfo(),
 	}
 	p.timeoutCertManager = newPMTimeoutCertManager(p)
-
+	p.stopCleanup()
 	return p
 }
 
