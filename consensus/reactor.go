@@ -231,7 +231,7 @@ func NewConsensusReactor(ctx *cli.Context, chain *chain.Chain, state *state.Crea
 	prometheus.MustRegister(lastKBlockHeightGauge)
 	prometheus.MustRegister(blocksCommitedCounter)
 
-	curRoundGauge.Set(float64(conR.curRound))
+	curRoundGauge.Set(float64(conR.csPacemaker.currentRound))
 	curHeightGauge.Set(float64(conR.curHeight))
 	lastKBlockHeightGauge.Set(float64(conR.lastKBlockHeight))
 
