@@ -560,7 +560,8 @@ func (conR *ConsensusReactor) finalizeCommitBlock(blkInfo *ProposedBlockInfo) bo
 		//return false
 		// process fork????
 		if len(fork.Branch) > 0 {
-			conR.logger.Error("Fork Happened ...", "fork.Branch", len(fork.Branch))
+			out := fmt.Sprintf("Fork Happened ... fork(Ancestor=%s, Branch=%s), bestBlock=%s", fork.Ancestor.ID().String(), fork.Branch[0].ID().String(), conR.chain.BestBlock().Header().ID().String())
+			conR.logger.Error(out)
 			// XXX: comment out for a while
 			// panic("Fork happened!")
 		}
@@ -985,8 +986,9 @@ func (conR *ConsensusReactor) PreCommitBlock(blkInfo *ProposedBlockInfo) bool {
 		//return false
 		// process fork????
 		if len(fork.Branch) > 0 {
-			conR.logger.Warn("Fork Happened ...", "fork.Branch", len(fork.Branch))
-			panic("Fork happened!")
+			out := fmt.Sprintf("Fork Happened ... fork(Ancestor=%s, Branch=%s), bestBlock=%s", fork.Ancestor.ID().String(), fork.Branch[0].ID().String(), conR.chain.BestBlock().Header().ID().String())
+			conR.logger.Warn(out)
+			panic(out)
 		}
 	}
 
@@ -1063,8 +1065,9 @@ func (conR *ConsensusReactor) FinalizeCommitBlock(blkInfo *ProposedBlockInfo) bo
 		//return false
 		// process fork????
 		if len(fork.Branch) > 0 {
-			conR.logger.Warn("Fork Happened ...", "fork.Branch", len(fork.Branch))
-			panic("Fork happened!")
+			out := fmt.Sprintf("Fork Happened ... fork(Ancestor=%s, Branch=%s), bestBlock=%s", fork.Ancestor.ID().String(), fork.Branch[0].ID().String(), conR.chain.BestBlock().Header().ID().String())
+			conR.logger.Warn(out)
+			panic(out)
 		}
 	}
 	/*****

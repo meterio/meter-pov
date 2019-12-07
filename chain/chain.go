@@ -517,6 +517,7 @@ func (c *Chain) NewSeeker(headBlockID meter.Bytes32) *Seeker {
 
 func (c *Chain) isTrunk(header *block.Header) bool {
 	bestHeader := c.bestBlock.Header()
+	fmt.Println(fmt.Sprintf("IsTrunk: header: %s, bestHeader: %s", header.ID().String(), bestHeader.ID().String()))
 
 	if header.TotalScore() < bestHeader.TotalScore() {
 		return false
