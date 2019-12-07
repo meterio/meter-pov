@@ -285,6 +285,11 @@ func (p *Pacemaker) BlockMatchQC(b *pmBlock, qc *block.QuorumCert) (bool, error)
 	if b.Height == 0 && qc.QCHeight == 0 {
 		return true, nil
 	}
+	// SkipSignatureCheck flag: skip check match block
+	if p.csReactor.config.SkipSignatureCheck {
+		return true, nil
+	}
+
 	if b.ProposedBlockInfo == nil {
 		// decode block to get qc
 		if blk, err = block.BlockDecodeFromBytes(b.ProposedBlock); err != nil {
