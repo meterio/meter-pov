@@ -231,7 +231,6 @@ func NewConsensusReactor(ctx *cli.Context, chain *chain.Chain, state *state.Crea
 	prometheus.MustRegister(lastKBlockHeightGauge)
 	prometheus.MustRegister(blocksCommitedCounter)
 
-	curRoundGauge.Set(float64(conR.csPacemaker.currentRound))
 	curHeightGauge.Set(float64(conR.curHeight))
 	lastKBlockHeightGauge.Set(float64(conR.lastKBlockHeight))
 
@@ -451,7 +450,7 @@ func (conR *ConsensusReactor) UpdateHeight(height int64) bool {
 func (conR *ConsensusReactor) UpdateRound(round int) bool {
 	conR.logger.Info(fmt.Sprintf("Update conR.curRound from %d to %d", conR.curRound, round))
 	conR.curRound = round
-	curRoundGauge.Set(float64(round))
+
 	return true
 }
 
@@ -463,7 +462,6 @@ func (conR *ConsensusReactor) UpdateHeightRound(height int64, round int) bool {
 	}
 
 	conR.curRound = round
-	curRoundGauge.Set(float64(round))
 	return true
 }
 
