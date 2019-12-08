@@ -168,6 +168,7 @@ type ConsensusReactor struct {
 	rcvdNewCommittee map[NewCommitteeKey]*NewCommittee // store received new committee info
 
 	dataDir string
+	myAddr  types.NetAddress
 }
 
 // Glob Instance
@@ -585,10 +586,13 @@ func (conR *ConsensusReactor) NewValidatorSetByNonce(nonce uint64) (uint, bool) 
 	if inCommittee == true {
 		conR.csMode = CONSENSUS_MODE_COMMITTEE
 		conR.curCommitteeIndex = index
+		conR.myAddr = conR.curCommittee.Validators[index].NetAddr
 		conR.logger.Info("New curCommittee", "inCommittee", committee, "index", index, "role", role)
 	} else {
 		conR.csMode = CONSENSUS_MODE_DELEGATE
 		conR.curCommitteeIndex = 0
+		// FIXME: find a better way
+		conR.myAddr = types.NetAddress{IP: net.IP{}, Port: 8670}
 		conR.logger.Info("New curCommittee", "inCommittee", committee)
 	}
 
@@ -1020,7 +1024,8 @@ func (conR *ConsensusReactor) SendMsgToPeers(csPeers []*ConsensusPeer, msg *Cons
 }
 
 func (conR *ConsensusReactor) GetMyNetAddr() types.NetAddress {
-	return conR.curCommittee.Validators[conR.curCommitteeIndex].NetAddr
+	return conR.myAddr
+	// return conR.curCommittee.Validators[conR.curCommitteeIndex].NetAddr
 }
 
 func (conR *ConsensusReactor) GetMyPeers() ([]*ConsensusPeer, error) {
@@ -1070,12 +1075,12 @@ func (conR *ConsensusReactor) sendConsensusMsg(msg *ConsensusMessage, csPeer *Co
 			"peer_port": string(csPeer.netAddr.Port),
 		}
 		**************/
-		myNetAddr := conR.curCommittee.Validators[conR.curCommitteeIndex].NetAddr
+		// myNetAddr := conR.curCommittee.Validators[conR.curCommitteeIndex].NetAddr
 		payload := map[string]interface{}{
 			"message": hex.EncodeToString(rawMsg),
-			"peer_ip": myNetAddr.IP.String(),
+			"peer_ip": conR.myAddr.IP.String(),
 			//"peer_id":   string(myNetAddr.ID),
-			"peer_port": string(myNetAddr.Port),
+			"peer_port": string(conR.myAddr.Port),
 		}
 
 		jsonStr, err := json.Marshal(payload)
