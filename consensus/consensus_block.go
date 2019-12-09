@@ -547,7 +547,7 @@ func (conR *ConsensusReactor) finalizeCommitBlock(blkInfo *ProposedBlockInfo) bo
 		conR.logger.Error("commit logs failed ...", "err", err)
 		return false
 	}
-
+	fmt.Println("Calling AddBlock from consensus_block.finalizeCommitBlock, newBlock=", blk.Header().ID())
 	fork, err := conR.chain.AddBlock(blk, *receipts, true)
 	if err != nil {
 		conR.logger.Error("add block failed ...", "err", err)
@@ -970,6 +970,7 @@ func (conR *ConsensusReactor) PreCommitBlock(blkInfo *ProposedBlockInfo) bool {
 			return false
 		}
 	******/
+	fmt.Println("Calling AddBlock from consensus_block.PrecommitBlock, newblock=", blk.Header().ID())
 	fork, err := conR.chain.AddBlock(blk, *receipts, false)
 	if err != nil {
 		if err == errKnownBlock {
@@ -1052,7 +1053,7 @@ func (conR *ConsensusReactor) FinalizeCommitBlock(blkInfo *ProposedBlockInfo) bo
 		conR.logger.Error("commit logs failed ...", "err", err)
 		return false
 	}
-
+	fmt.Println("Calling AddBlock from consensus_block.FinalizeCommitBlock, newBlock=", blk.Header().ID())
 	fork, err := conR.chain.AddBlock(blk, *receipts, true)
 	if err != nil {
 		conR.logger.Error("add block failed ...", "err", err)
