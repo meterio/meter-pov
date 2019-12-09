@@ -263,6 +263,11 @@ func (c *Chain) AddBlock(newBlock *block.Block, receipts tx.Receipts, finalize b
 			finalize == true {
 			// if the current block is the finalized version of saved block, update it accordingly
 			// do nothing
+			selfFinalized := c.IsBlockFinalized(newHeader.ID())
+			if selfFinalized == true {
+				// if the new block has already been finalized, return directly
+				return nil, nil
+			}
 		} else {
 			return nil, errBlockExist
 		}
@@ -278,12 +283,6 @@ func (c *Chain) AddBlock(newBlock *block.Block, receipts tx.Receipts, finalize b
 	}
 
 	// finalized block need to have a finalized parent block
-	/** FIXME: comment temporarily
-	if finalize == true && parent.Finalized == false {
-		return nil, errParentNotFinalized
-	}
-	**/
-
 	raw := block.BlockEncodeBytes(newBlock)
 
 	batch := c.kv.NewBatch()
@@ -327,6 +326,7 @@ func (c *Chain) AddBlock(newBlock *block.Block, receipts tx.Receipts, finalize b
 				return nil, err
 			}
 			c.bestBlock = newBlock
+			fmt.Println("Set Best Block to ", newBlock.Header().ID())
 			if newBlock.Header().TotalScore() > c.leafBlock.Header().TotalScore() {
 				if err := saveLeafBlockID(batch, newBlockID); err != nil {
 					return nil, err
@@ -517,6 +517,7 @@ func (c *Chain) NewSeeker(headBlockID meter.Bytes32) *Seeker {
 
 func (c *Chain) isTrunk(header *block.Header) bool {
 	bestHeader := c.bestBlock.Header()
+	fmt.Println(fmt.Sprintf("IsTrunk: header: %s, bestHeader: %s", header.ID().String(), bestHeader.ID().String()))
 
 	if header.TotalScore() < bestHeader.TotalScore() {
 		return false

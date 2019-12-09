@@ -358,6 +358,7 @@ func (p *Pacemaker) OnReceiveProposal(proposalMsg *PMProposalMessage, from types
 
 		if bnew.Round > p.currentRound {
 			p.currentRound = bnew.Round
+			curRoundGauge.Set(float64(p.currentRound))
 		}
 
 		// parent got QC, pre-commit
@@ -654,6 +655,7 @@ func (p *Pacemaker) Start(newCommittee bool) {
 func (p *Pacemaker) ScheduleOnBeat(height uint64, round uint64, d time.Duration) bool {
 	if round > p.currentRound {
 		p.currentRound = round
+		curRoundGauge.Set(float64(p.currentRound))
 	}
 	time.AfterFunc(d, func() {
 		p.beatCh <- &PMBeatInfo{height, round}
@@ -737,6 +739,7 @@ func (p *Pacemaker) stopCleanup() {
 
 	//p.goes.Wait()
 	p.currentRound = 0
+	curRoundGauge.Set(float64(p.currentRound))
 	p.lastVotingHeight = 0
 	p.QCHigh = nil
 	p.blockLeaf = nil
@@ -762,6 +765,7 @@ func (p *Pacemaker) Stop() {
 func (p *Pacemaker) OnRoundTimeout(ti PMRoundTimeoutInfo) error {
 	p.logger.Warn("Round Time Out", "round", ti.round, "counter", ti.counter)
 	p.currentRound = ti.round + 1
+	curRoundGauge.Set(float64(p.currentRound))
 
 	p.stopRoundTimer()
 	p.OnNextSyncView(ti.height, ti.round+1, RoundTimeout, &ti)

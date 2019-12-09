@@ -339,6 +339,7 @@ func (n *Node) commitBlock(newBlock *block.Block, receipts tx.Receipts) (*chain.
 	n.commitLock.Lock()
 	defer n.commitLock.Unlock()
 
+	fmt.Println("Calling AddBlock from node.commitBlock, newBlock=", newBlock.Header().ID())
 	fork, err := n.chain.AddBlock(newBlock, receipts, true)
 	if err != nil {
 		return nil, err
