@@ -54,6 +54,25 @@ func (p *PMProposalInfo) Add(m *[]byte, height uint64, round int) error {
 	return nil
 }
 
+// InMap & Add in one function(lock) for race condition
+func (p *PMProposalInfo) CheckandAdd(rawMsg *[]byte, height uint64, round int) (bool, error) {
+	p.lock.Lock()
+	defer p.lock.Unlock()
+
+	if m, ok := p.messages[PMProposalKey{Height: height, Round: round}]; ok == true {
+		if (len(*m) == len(*rawMsg)) && (bytes.Compare(*m, *rawMsg) == 0) {
+			return true, nil
+		}
+	}
+
+	// add rawMsg in to map
+	p.messages[PMProposalKey{height, round}] = rawMsg
+	if height < p.lowest {
+		p.lowest = height
+	}
+	return false, nil
+}
+
 func (p *PMProposalInfo) GetLowestHeight() uint64 {
 	return p.lowest
 }
