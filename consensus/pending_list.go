@@ -37,19 +37,15 @@ func (p *PendingList) GetLowestHeight() uint64 {
 }
 
 func (p *PendingList) CleanUpTo(height uint64) error {
-	for i := p.lowest; i < height; i++ {
-		if _, ok := p.messages[i]; ok {
-			delete(p.messages, i)
+	if height < p.lowest {
+		return nil
+	}
+
+	for key, _ := range p.messages {
+		if key <= height {
+			delete(p.messages, key)
 		}
 	}
-	lowest := uint64(0)
-	for k, _ := range p.messages {
-		if lowest == 0 {
-			lowest = k
-		} else if k < lowest {
-			lowest = k
-		}
-	}
-	p.lowest = lowest
+	p.lowest = height
 	return nil
 }

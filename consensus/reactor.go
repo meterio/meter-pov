@@ -6,6 +6,7 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"math"
 	"sync"
 
@@ -1469,6 +1470,32 @@ func (conR *ConsensusReactor) ConsensusHandleReceivedNonce(kBlockHeight int64, n
 		conR.NewCommitteeInit(uint64(kBlockHeight), nonce, replay)
 	}
 	return
+}
+
+// newCommittee: start with new committee or not
+// true --- with new committee, round = 0, best block is kblock.
+// false ---replay mode, round continues with BestQC.QCRound. best block is mblock
+// XXX: we assume the peers have the bestQC, if they don't ...
+func (conR *ConsensusReactor) startPacemaker(newCommittee bool) error {
+	// 1. bestQC height == best block height
+	// 2. newCommittee is true, best block is kblock
+	bestQC := conR.chain.BestQC()
+	bestBlock := conR.chain.BestBlock()
+	conR.logger.Info("Checking the QCHeight and Block height...", "QCHeight", bestQC.QCHeight, "BlockHeight", bestBlock.Header().Number())
+	if bestQC.QCHeight != uint64(bestBlock.Header().Number()) {
+		com := comm.GetGlobCommInst()
+		if com == nil {
+			conR.logger.Error("get global comm inst failed")
+			return errors.New("pacemaker does not started")
+		}
+		com.TriggerSync()
+		conR.logger.Warn("Peer sync triggered")
+		time.Sleep(1 * time.Second)
+	}
+
+	conR.logger.Info("startConsensusPacemaker", "QCHeight", bestQC.QCHeight, "BlockHeight", bestBlock.Header().Number())
+	conR.csPacemaker.Start(newCommittee)
+	return nil
 }
 
 // since votes of pacemaker include propser, but committee votes
