@@ -673,8 +673,8 @@ func (p *Pacemaker) mainLoop() {
 	for {
 		var err error
 		select {
-		case si := <-p.stopCh:
-			p.logger.Warn("Scheduled stop, exit pacemaker now", "QCHeight", si.height, "QCRound", si.round)
+		case <-p.stopCh:
+			p.logger.Warn("Scheduled stop, exit pacemaker now")
 			// clean off chain for next committee.
 			p.stopCleanup()
 			return
@@ -761,11 +761,11 @@ func (p *Pacemaker) IsStopped() bool {
 // all proposal txs need to be reclaimed before stop
 func (p *Pacemaker) Stop() {
 	chain := p.csReactor.chain
-	p.logger.Info(fmt.Sprintf("Pacemaker stop requested. Current best %v, leaf %v\n", chain.BestBlock().Oneliner(), chain.LeafBlock().Oneliner()))
+	p.logger.Info(fmt.Sprintf("Pacemaker stop requested. \n  Current BestBlock: %v \n  LeafBlock: %v\n  BestQC: \n", chain.BestBlock().Oneliner(), chain.LeafBlock().Oneliner(), chain.BestQC().String()))
 
 	// suicide
 	if len(p.stopCh) < cap(p.stopCh) {
-		p.stopCh <- &PMStopInfo{p.QCHigh.QC.QCHeight, p.QCHigh.QC.QCRound}
+		p.stopCh <- &PMStopInfo{}
 	}
 }
 
