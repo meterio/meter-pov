@@ -481,6 +481,7 @@ func (p *Pacemaker) OnBeat(height uint64, round uint64) error {
 	}
 
 	if p.csReactor.amIRoundProproser(round) {
+		pmRoleGauge.Set(2)
 		p.csReactor.logger.Info("OnBeat: I am round proposer", "round", round)
 
 		// if I'm round proposer, start the timer
@@ -493,6 +494,7 @@ func (p *Pacemaker) OnBeat(height uint64, round uint64) error {
 		}
 		p.blockLeaf = bleaf
 	} else {
+		pmRoleGauge.Set(1)
 		p.csReactor.logger.Info("OnBeat: I am NOT round proposer", "round", round)
 		p.stopRoundTimer()
 		p.startRoundTimer(height, round, 0)
@@ -595,6 +597,7 @@ func (p *Pacemaker) StartFromGenesis() {
 
 //Committee Leader triggers
 func (p *Pacemaker) Start(newCommittee bool) {
+	pmRoleGauge.Set(0)
 	p.csReactor.chain.UpdateBestQC()
 	p.csReactor.chain.UpdateLeafBlock()
 	blockQC := p.csReactor.chain.BestQC()
@@ -731,6 +734,7 @@ func (p *Pacemaker) SendKblockInfo(b *pmBlock) error {
 func (p *Pacemaker) stopCleanup() {
 
 	p.stopRoundTimer()
+	pmRoleGauge.Set(0)
 
 	// clean up propose map
 	for _, b := range p.proposalMap {

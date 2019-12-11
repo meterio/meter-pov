@@ -90,6 +90,14 @@ var (
 		Name: "current_round",
 		Help: "Current round of consensus",
 	})
+	inCommitteeGauge = prometheus.NewGauge(prometheus.GaugeOpts{
+		Name: "in_committee",
+		Help: "is this node in committee",
+	})
+	pmRoleGauge = prometheus.NewGauge(prometheus.GaugeOpts{
+		Name: "pacemaker_role",
+		Help: "Role in pacemaker",
+	})
 	lastKBlockHeightGauge = prometheus.NewGauge(prometheus.GaugeOpts{
 		Name: "last_kblock_height",
 		Help: "Height of last k-block",
@@ -228,6 +236,8 @@ func NewConsensusReactor(ctx *cli.Context, chain *chain.Chain, state *state.Crea
 
 	prometheus.MustRegister(lastKBlockHeightGauge)
 	prometheus.MustRegister(blocksCommitedCounter)
+	prometheus.MustRegister(inCommitteeGauge)
+	prometheus.MustRegister(pmRoleGauge)
 
 	lastKBlockHeightGauge.Set(float64(conR.lastKBlockHeight))
 
@@ -1402,7 +1412,9 @@ func (conR *ConsensusReactor) ConsensusHandleReceivedNonce(kBlockHeight int64, n
 			conR.logger.Info("Replay", "replay from powHeight", startHeight)
 			pool.ReplayFrom(int32(startHeight))
 		}
+		inCommitteeGauge.Set(1)
 	} else {
+		inCommitteeGauge.Set(0)
 		conR.logger.Info("I am NOT in committee!!!", "nonce", nonce)
 	}
 
