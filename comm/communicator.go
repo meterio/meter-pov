@@ -130,18 +130,9 @@ func (c *Communicator) Sync(handler HandleBlockStream, qcHandler HandleQC) {
 					_, totalScore := peer.Head()
 					return totalScore >= best.TotalScore()
 				})
-				if peer == nil {
-					// XXX: original setting was 3, changed to 1 for cold start
-					if c.peerSet.Len() < 1 {
-						log.Debug("no suitable peer to sync")
-						break
-					}
-					// if more than 3 peers connected, we are assumed to be the best
-					log.Debug("synchronization done, best assumed")
-				} else {
+				if peer != nil {
 					if err := c.sync(peer, best.Number(), handler, qcHandler); err != nil {
-						peer.logger.Debug("synchronization failed", "err", err)
-						break
+						peer.logger.Info("synchronization failed", "err", err)
 					}
 					peer.logger.Debug("triggered synchronization done")
 				}

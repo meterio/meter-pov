@@ -211,10 +211,10 @@ func (conR *ConsensusReactor) ProcessNewCommitteeMessage(newCommitteeMsg *NewCom
 
 		fmt.Println("replay", conR.newCommittee.Replay)
 		if conR.newCommittee.Replay == true {
-			conR.ScheduleReplayLeader(epochID, 10*time.Second)
+			conR.ScheduleReplayLeader(epochID, WHOLE_NETWORK_BLOCK_SYNC_TIME)
 		} else {
 			// Wait for block sync since there is no time out yet
-			conR.ScheduleLeader(epochID, height, 10*time.Second)
+			conR.ScheduleLeader(epochID, height, WHOLE_NETWORK_BLOCK_SYNC_TIME)
 		}
 
 		// avoid the re-trigger

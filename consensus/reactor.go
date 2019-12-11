@@ -51,8 +51,7 @@ const (
 	maxMsgSize = 1300000 // gasLimit 20000000 generate, 1024+1024 (1048576) + sizeof(QC) + sizeof(committee)...
 
 	//normally when a block is committed, wait for a while to let whole network to sync and move to next round
-	// WHOLE_NETWORK_BLOCK_SYNC_TIME = 6 * time.Second
-	WHOLE_NETWORK_BLOCK_SYNC_TIME = 2 * time.Second
+	WHOLE_NETWORK_BLOCK_SYNC_TIME = 5 * time.Second
 
 	blocksToContributeToBecomeGoodPeer = 10000
 	votesToContributeToBecomeGoodPeer  = 10000
@@ -1341,8 +1340,20 @@ func HandleScheduleReplayValidator(conR *ConsensusReactor) bool {
 func HandleScheduleLeader(conR *ConsensusReactor, epochID, height uint64) bool {
 	curHeight := uint64(conR.chain.BestBlock().Header().Number())
 	if curHeight != height {
-		conR.logger.Error("curHeight is not the same with kblock height", "curHeight", curHeight, "kblock height", height)
-		conR.ScheduleLeader(epochID, height, 10*time.Second)
+		conR.logger.Error("ScheduleLeader: best height is different with kblock height", "curHeight", curHeight, "kblock height", height)
+		if curHeight > height {
+			// mine is ahead of kblock, stop
+			return false
+		}
+		com := comm.GetGlobCommInst()
+		if com == nil {
+			conR.logger.Error("get global comm inst failed")
+			return false
+		}
+		com.TriggerSync()
+		conR.logger.Warn("Peer sync triggered")
+
+		conR.ScheduleLeader(epochID, height, WHOLE_NETWORK_BLOCK_SYNC_TIME)
 		return false
 	}
 
