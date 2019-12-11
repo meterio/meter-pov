@@ -122,7 +122,7 @@ func (c *Communicator) Sync(handler HandleBlockStream, qcHandler HandleQC) {
 			case <-c.ctx.Done():
 				return
 			case <-c.syncTrigCh:
-				log.Debug("Triggered synchronization start")
+				log.Info("Triggered synchronization start")
 
 				best := c.chain.BestBlock().Header()
 				// choose peer which has the head block with higher total score
@@ -133,17 +133,17 @@ func (c *Communicator) Sync(handler HandleBlockStream, qcHandler HandleQC) {
 				if peer == nil {
 					// XXX: original setting was 3, changed to 1 for cold start
 					if c.peerSet.Len() < 1 {
-						log.Debug("no suitable peer to sync")
+						log.Warn("no suitable peer to sync")
 						break
 					}
 					// if more than 3 peers connected, we are assumed to be the best
-					log.Debug("synchronization done, best assumed")
+					log.Info("synchronization done, best assumed", "bestQC", c.chain.BestQC().QCHeight, "bestBlock", c.chain.BestBlock().Header().Number())
 				} else {
 					if err := c.sync(peer, best.Number(), handler, qcHandler); err != nil {
 						peer.logger.Debug("synchronization failed", "err", err)
 						break
 					}
-					peer.logger.Debug("triggered synchronization done")
+					peer.logger.Debug("triggered synchronization done", "bestQC", c.chain.BestQC().QCHeight, "bestBlock", c.chain.BestBlock().Header().Number())
 				}
 				syncCount++
 			case <-timer.C:
