@@ -281,6 +281,18 @@ func (cv *ConsensusValidator) ProcessNotaryAnnounceMessage(notaryMsg *NotaryAnno
 	// Update the curActualCommittee by receving Notary message
 	cv.csReactor.curActualCommittee = cv.csReactor.BuildCommitteeMemberFromInfo(cv.csReactor.csCommon.system, notaryMsg.CommitteeActualMembers)
 
+	found := false
+	for _, c := range cv.csReactor.curActualCommittee {
+		if bytes.Equal(crypto.FromECDSAPub(&c.PubKey), crypto.FromECDSAPub(&cv.csReactor.myPubKey)) == true {
+			found = true
+			break
+		}
+	}
+	if !found {
+		cv.csReactor.logger.Error("I'm not in ActualCommittee, ignore this notary msg ...")
+		return false
+	}
+
 	// TBD: validate announce bitarray & signature
 
 	// Block is OK, send back voting

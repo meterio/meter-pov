@@ -5,9 +5,11 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"regexp"
 	"sort"
 
 	"github.com/dfinlab/meter/meter"
+	crypto "github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/rlp"
 )
 
@@ -245,12 +247,29 @@ func (sb *StakingBody) CandidateHandler(senv *StakingEnviroment, gas uint64) (re
 		return
 	}
 
+	pubKey, err := crypto.UnmarshalPubkey(sb.CandPubKey)
+	if err != nil || pubKey == nil {
+		staking.logger.Error("could not unmarshal public key")
+		return
+	}
+
+	if sb.CandPort < 1 || sb.CandPort > 65535 {
+		staking.logger.Error(fmt.Sprintf("invalid parameter: port %d (should be in [1,65535])", sb.CandPort))
+		return
+	}
+
+	ipPattern, err := regexp.Compile("^\\d+[.]\\d+[.]\\d+[.]\\d+$")
+	if !ipPattern.MatchString(string(sb.CandIP)) {
+		staking.logger.Error(fmt.Sprintf("invalid parameter: ip %s (should be a valid ipv4 address)", sb.CandIP))
+		return
+	}
+	// domainPattern, err := regexp.Compile("^([0-9a-zA-Z-_]+[.]*)+$")
 	// if the candidate already exists return error without paying gas
 	if record := candidateList.Get(sb.CandAddr); record != nil {
 		if bytes.Equal(record.PubKey, sb.CandPubKey) && bytes.Equal(record.IPAddr, sb.CandIP) && record.Port == sb.CandPort {
 			// exact same candidate
-			fmt.Println("Record: ", record.ToString())
-			fmt.Println("sb:", sb.ToString())
+			// fmt.Println("Record: ", record.ToString())
+			// fmt.Println("sb:", sb.ToString())
 			err = errors.New("candidate already listed")
 		} else {
 			err = errors.New("candidate listed with different information")
@@ -293,7 +312,7 @@ func (sb *StakingBody) CandidateHandler(senv *StakingEnviroment, gas uint64) (re
 	staking.SetBucketList(bucketList, state)
 	staking.SetStakeHolderList(stakeholderList, state)
 
-	fmt.Println("XXXXX: After checking existence")
+	fmt.Println("XXXXX: After candidate action")
 	fmt.Println(candidateList.ToString())
 	fmt.Println(stakeholderList.ToString())
 	fmt.Println(bucketList.ToString())
@@ -474,7 +493,7 @@ func (sb *StakingBody) GoverningHandler(senv *StakingEnviroment, gas uint64) (re
 	ts := sb.Timestamp
 	for _, bkt := range bucketList.buckets {
 
-		staking.logger.Info("before handling", "buckets", bkt.ToString())
+		staking.logger.Info("before handling", "bucket", bkt.ToString())
 		// handle unbound first
 		if bkt.Unbounded == true {
 			// matured
@@ -532,7 +551,7 @@ func (sb *StakingBody) GoverningHandler(senv *StakingEnviroment, gas uint64) (re
 				}
 			}
 		}
-		staking.logger.Info("after handling", "buckets", bkt.ToString())
+		staking.logger.Info("after handling", "bucket", bkt.ToString())
 	}
 
 	// handle delegateList

@@ -6,7 +6,6 @@
 package consensus
 
 import (
-	"encoding/hex"
 	"fmt"
 	"math/big"
 	"math/rand"
@@ -77,7 +76,7 @@ func BuildGoverningData(delegateSize uint32) (ret []byte) {
 		return
 	}
 
-	fmt.Println("Payload Hex: ", hex.EncodeToString(payload))
+	// fmt.Println("Payload Hex: ", hex.EncodeToString(payload))
 	s := &script.Script{
 		Header: script.ScriptHeader{
 			Version: uint32(0),
@@ -92,6 +91,6 @@ func BuildGoverningData(delegateSize uint32) (ret []byte) {
 	data = append(script.ScriptPattern[:], data...)
 	prefix := []byte{0xff, 0xff, 0xff, 0xff}
 	ret = append(prefix, data...)
-	fmt.Println("script Hex:", hex.EncodeToString(ret))
+	// fmt.Println("script Hex:", hex.EncodeToString(ret))
 	return
 }

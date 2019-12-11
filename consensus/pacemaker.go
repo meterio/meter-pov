@@ -423,6 +423,7 @@ func (p *Pacemaker) OnReceiveVote(voteMsg *PMVoteForProposalMessage) error {
 		p.stopRoundTimer()
 		p.startRoundTimer(qc.QC.QCHeight+1, qc.QC.QCRound+1, 0)
 
+		pmRoleGauge.Set(1)
 		// if QC is updated, relay it to the next proposer
 		p.OnNextSyncView(qc.QC.QCHeight+1, qc.QC.QCRound+1, HigherQCSeen, nil)
 
@@ -481,6 +482,7 @@ func (p *Pacemaker) OnBeat(height uint64, round uint64) error {
 	}
 
 	if p.csReactor.amIRoundProproser(round) {
+		pmRoleGauge.Set(2)
 		p.csReactor.logger.Info("OnBeat: I am round proposer", "round", round)
 
 		// if I'm round proposer, start the timer
@@ -493,6 +495,7 @@ func (p *Pacemaker) OnBeat(height uint64, round uint64) error {
 		}
 		p.blockLeaf = bleaf
 	} else {
+		pmRoleGauge.Set(1)
 		p.csReactor.logger.Info("OnBeat: I am NOT round proposer", "round", round)
 		p.stopRoundTimer()
 		p.startRoundTimer(height, round, 0)
@@ -595,6 +598,7 @@ func (p *Pacemaker) StartFromGenesis() {
 
 //Committee Leader triggers
 func (p *Pacemaker) Start(newCommittee bool) {
+	pmRoleGauge.Set(0)
 	p.csReactor.chain.UpdateBestQC()
 	p.csReactor.chain.UpdateLeafBlock()
 	blockQC := p.csReactor.chain.BestQC()
@@ -670,8 +674,8 @@ func (p *Pacemaker) mainLoop() {
 	for {
 		var err error
 		select {
-		case si := <-p.stopCh:
-			p.logger.Warn("Scheduled stop, exit pacemaker now", "QCHeight", si.height, "QCRound", si.round)
+		case <-p.stopCh:
+			p.logger.Warn("Scheduled stop, exit pacemaker now")
 			// clean off chain for next committee.
 			p.stopCleanup()
 			return
@@ -731,6 +735,7 @@ func (p *Pacemaker) SendKblockInfo(b *pmBlock) error {
 func (p *Pacemaker) stopCleanup() {
 
 	p.stopRoundTimer()
+	pmRoleGauge.Set(0)
 
 	// clean up propose map
 	for _, b := range p.proposalMap {
@@ -745,6 +750,8 @@ func (p *Pacemaker) stopCleanup() {
 	p.blockLeaf = nil
 	p.blockExecuted = nil
 	p.blockLocked = nil
+
+	p.logger.Warn("--- Pacemaker stopped successfully")
 }
 
 func (p *Pacemaker) IsStopped() bool {
@@ -755,11 +762,12 @@ func (p *Pacemaker) IsStopped() bool {
 // all proposal txs need to be reclaimed before stop
 func (p *Pacemaker) Stop() {
 	chain := p.csReactor.chain
-	p.logger.Info(fmt.Sprintf("*** Pacemaker stopped. Current best %v, leaf %v\n",
-		chain.BestBlock().Oneliner(), chain.LeafBlock().Oneliner()))
+	p.logger.Info(fmt.Sprintf("Pacemaker stop requested. \n  Current BestBlock: %v \n  LeafBlock: %v\n  BestQC: \n", chain.BestBlock().Oneliner(), chain.LeafBlock().Oneliner(), chain.BestQC().String()))
 
 	// suicide
-	p.stopCh <- &PMStopInfo{p.QCHigh.QC.QCHeight, p.QCHigh.QC.QCRound}
+	if len(p.stopCh) < cap(p.stopCh) {
+		p.stopCh <- &PMStopInfo{}
+	}
 }
 
 func (p *Pacemaker) OnRoundTimeout(ti PMRoundTimeoutInfo) error {
