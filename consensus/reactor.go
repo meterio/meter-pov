@@ -90,10 +90,6 @@ var (
 		Name: "current_round",
 		Help: "Current round of consensus",
 	})
-	curHeightGauge = prometheus.NewGauge(prometheus.GaugeOpts{
-		Name: "current_height",
-		Help: "Current height of block",
-	})
 	lastKBlockHeightGauge = prometheus.NewGauge(prometheus.GaugeOpts{
 		Name: "last_kblock_height",
 		Help: "Height of last k-block",
@@ -229,11 +225,10 @@ func NewConsensusReactor(ctx *cli.Context, chain *chain.Chain, state *state.Crea
 	}
 
 	prometheus.MustRegister(curRoundGauge)
-	prometheus.MustRegister(curHeightGauge)
+
 	prometheus.MustRegister(lastKBlockHeightGauge)
 	prometheus.MustRegister(blocksCommitedCounter)
 
-	curHeightGauge.Set(float64(conR.curHeight))
 	lastKBlockHeightGauge.Set(float64(conR.lastKBlockHeight))
 
 	//initialize Delegates
@@ -445,7 +440,6 @@ func (conR *ConsensusReactor) isCSDelegates() bool {
 func (conR *ConsensusReactor) UpdateHeight(height int64) bool {
 	conR.logger.Info(fmt.Sprintf("Update conR.curHeight from %d to %d", conR.curHeight, height))
 	conR.curHeight = height
-	curHeightGauge.Set(float64(height))
 	return true
 }
 
@@ -460,7 +454,6 @@ func (conR *ConsensusReactor) UpdateRound(round int) bool {
 func (conR *ConsensusReactor) UpdateHeightRound(height int64, round int) bool {
 	if height != 0 {
 		conR.curHeight = height
-		curHeightGauge.Set(float64(height))
 	}
 
 	conR.curRound = round
@@ -483,7 +476,6 @@ func (conR *ConsensusReactor) RefreshCurHeight() error {
 	conR.curHeight = int64(bestHeader.Number())
 	conR.lastKBlockHeight = bestHeader.LastKBlockHeight()
 
-	curHeightGauge.Set(float64(conR.curHeight))
 	lastKBlockHeightGauge.Set(float64(conR.lastKBlockHeight))
 
 	conR.logger.Info("Refresh curHeight", "previous", prev, "now", conR.curHeight, "lastKBlockHeight", conR.lastKBlockHeight)

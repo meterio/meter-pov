@@ -17,6 +17,7 @@ import (
 	"github.com/dfinlab/meter/tx"
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/pkg/errors"
+	"github.com/prometheus/client_golang/prometheus"
 )
 
 const (
@@ -27,6 +28,16 @@ const (
 var errNotFound = errors.New("not found")
 var errBlockExist = errors.New("block already exists")
 var errParentNotFinalized = errors.New("parent is not finalized")
+var (
+	bestHeightGauge = prometheus.NewGauge(prometheus.GaugeOpts{
+		Name: "best_height",
+		Help: "BestBlock height",
+	})
+	bestQCHeightGauge = prometheus.NewGauge(prometheus.GaugeOpts{
+		Name: "best_qc_height",
+		Help: "BestQC height",
+	})
+)
 
 // Chain describes a persistent block chain.
 // It's thread-safe.
@@ -52,6 +63,9 @@ type caches struct {
 
 // New create an instance of Chain.
 func New(kv kv.GetPutter, genesisBlock *block.Block) (*Chain, error) {
+	prometheus.MustRegister(bestQCHeightGauge)
+	prometheus.MustRegister(bestHeightGauge)
+
 	if genesisBlock.Header().Number() != 0 {
 		return nil, errors.New("genesis number != 0")
 	}
@@ -90,6 +104,7 @@ func New(kv kv.GetPutter, genesisBlock *block.Block) (*Chain, error) {
 		}
 
 		bestBlock = genesisBlock
+		bestHeightGauge.Set(float64(bestBlock.Header().Number()))
 	} else {
 		existGenesisID, err := ancestorTrie.GetAncestor(bestBlockID, 0)
 		if err != nil {
@@ -169,6 +184,7 @@ func New(kv kv.GetPutter, genesisBlock *block.Block) (*Chain, error) {
 	if err != nil {
 		fmt.Println("Best QC is not in database, set it to use genesis QC, error: ", err)
 		bestQC = block.GenesisQC()
+		bestQCHeightGauge.Set(float64(bestQC.QCHeight))
 	}
 	fmt.Println("--------------------------------------------------")
 	fmt.Println("                 CHAIN INITIALIZED                ")
@@ -326,6 +342,7 @@ func (c *Chain) AddBlock(newBlock *block.Block, receipts tx.Receipts, finalize b
 				return nil, err
 			}
 			c.bestBlock = newBlock
+			bestHeightGauge.Set(float64(c.bestBlock.Header().Number()))
 			fmt.Println("Set Best Block to ", newBlock.Header().ID())
 			if newBlock.Header().TotalScore() > c.leafBlock.Header().TotalScore() {
 				if err := saveLeafBlockID(batch, newBlockID); err != nil {
@@ -764,6 +781,7 @@ func (c *Chain) UpdateBestQC() error {
 	if c.leafBlock.Header().ID().String() == c.bestBlock.Header().ID().String() {
 		if c.bestQCCandidate != nil && c.bestQCCandidate.QCHeight > c.bestQC.QCHeight && c.bestQCCandidate.QCHeight <= uint64(c.bestBlock.Header().Number()) {
 			c.bestQC = c.bestQCCandidate
+			bestQCHeightGauge.Set(float64(c.bestQC.QCHeight))
 			c.bestQCCandidate = nil
 			fmt.Println("!!! Move BestQC to: ", c.bestQC.String())
 		}
@@ -772,6 +790,7 @@ func (c *Chain) UpdateBestQC() error {
 	fmt.Println("UpdateBestQC, bestQCCandidate=", c.bestQCCandidate.String(), ", bestBlock.Height=", c.bestBlock.Header().Number())
 	if c.bestQCCandidate != nil && c.bestQCCandidate.QCHeight == uint64(c.bestBlock.Header().Number()) {
 		c.bestQC = c.bestQCCandidate
+		bestQCHeightGauge.Set(float64(c.bestQC.QCHeight))
 		c.bestQCCandidate = nil
 		fmt.Println("!!! Move BestQC to: ", c.bestQC.String())
 		return saveBestQC(c.kv, c.bestQC)
@@ -792,6 +811,7 @@ func (c *Chain) UpdateBestQC() error {
 		return errors.New("parent mismatch ")
 	}
 	c.bestQC = blk.QC
+	bestQCHeightGauge.Set(float64(c.bestQC.QCHeight))
 	fmt.Println("!!! Move BestQC to: ", c.bestQC.String())
 	return saveBestQC(c.kv, c.bestQC)
 }
