@@ -423,6 +423,7 @@ func (p *Pacemaker) OnReceiveVote(voteMsg *PMVoteForProposalMessage) error {
 		p.stopRoundTimer()
 		p.startRoundTimer(qc.QC.QCHeight+1, qc.QC.QCRound+1, 0)
 
+		pmRoleGauge.Set(1)
 		// if QC is updated, relay it to the next proposer
 		p.OnNextSyncView(qc.QC.QCHeight+1, qc.QC.QCRound+1, HigherQCSeen, nil)
 
