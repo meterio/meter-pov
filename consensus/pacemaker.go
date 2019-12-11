@@ -749,6 +749,8 @@ func (p *Pacemaker) stopCleanup() {
 	p.blockLeaf = nil
 	p.blockExecuted = nil
 	p.blockLocked = nil
+
+	p.logger.Warn("--- Pacemaker stopped successfully")
 }
 
 func (p *Pacemaker) IsStopped() bool {
@@ -759,11 +761,12 @@ func (p *Pacemaker) IsStopped() bool {
 // all proposal txs need to be reclaimed before stop
 func (p *Pacemaker) Stop() {
 	chain := p.csReactor.chain
-	p.logger.Info(fmt.Sprintf("*** Pacemaker stopped. Current best %v, leaf %v\n",
-		chain.BestBlock().Oneliner(), chain.LeafBlock().Oneliner()))
+	p.logger.Info(fmt.Sprintf("Pacemaker stop requested. Current best %v, leaf %v\n", chain.BestBlock().Oneliner(), chain.LeafBlock().Oneliner()))
 
 	// suicide
-	p.stopCh <- &PMStopInfo{p.QCHigh.QC.QCHeight, p.QCHigh.QC.QCRound}
+	if len(p.stopCh) < cap(p.stopCh) {
+		p.stopCh <- &PMStopInfo{p.QCHigh.QC.QCHeight, p.QCHigh.QC.QCRound}
+	}
 }
 
 func (p *Pacemaker) OnRoundTimeout(ti PMRoundTimeoutInfo) error {

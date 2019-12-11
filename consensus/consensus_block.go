@@ -910,6 +910,7 @@ func (conR *ConsensusReactor) HandleRecvKBlockInfo(ki RecvKBlockInfo) error {
 		time.AfterFunc(1*time.Second, func() {
 			conR.schedulerQueue <- func() { conR.RcvKBlockInfoQueue <- ki }
 		})
+		conR.csPacemaker.Stop()
 		conR.logger.Info("pacemaker is not fully stopped, wait for another sec ...")
 		return nil
 	}
