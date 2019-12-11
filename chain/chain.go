@@ -783,7 +783,13 @@ func (c *Chain) UpdateBestQC() error {
 			c.bestQC = c.bestQCCandidate
 			bestQCHeightGauge.Set(float64(c.bestQC.QCHeight))
 			c.bestQCCandidate = nil
-			fmt.Println("!!! Move BestQC to: ", c.bestQC.String())
+			fmt.Println("!!! Move BestQC to (by QCCandidate): ", c.bestQC.String())
+		} else {
+			if c.bestQC.QCHeight < c.bestBlock.QC.QCHeight {
+				c.bestQC = c.bestBlock.QC
+				bestQCHeightGauge.Set(float64(c.bestQC.QCHeight))
+				fmt.Println("!!! Move BestQC to (by BestBlock): ", c.bestQC)
+			}
 		}
 		return saveBestQC(c.kv, c.bestQC)
 	}
@@ -792,7 +798,7 @@ func (c *Chain) UpdateBestQC() error {
 		c.bestQC = c.bestQCCandidate
 		bestQCHeightGauge.Set(float64(c.bestQC.QCHeight))
 		c.bestQCCandidate = nil
-		fmt.Println("!!! Move BestQC to: ", c.bestQC.String())
+		fmt.Println("!!! Move BestQC to (by QCCandidate): ", c.bestQC.String())
 		return saveBestQC(c.kv, c.bestQC)
 	}
 	id, err := c.ancestorTrie.GetAncestor(c.leafBlock.Header().ID(), c.bestBlock.Header().Number()+1)
