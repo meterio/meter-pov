@@ -193,8 +193,6 @@ type PMRoundTimeoutInfo struct {
 }
 
 type PMStopInfo struct {
-	height uint64
-	round  uint64
 }
 
 type PMBeatInfo struct {

@@ -489,7 +489,8 @@ Myself is Leader, Let's start the pacemaker.
 
 		// Now start the pacemaker
 		newCommittee := !cl.replay
-		cl.csReactor.csPacemaker.Start(newCommittee)
+		//cl.csReactor.csPacemaker.Start(newCommittee)
+		cl.csReactor.startPacemaker(newCommittee)
 		return true
 
 	} else {

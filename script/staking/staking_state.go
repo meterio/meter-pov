@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/gob"
 	"errors"
-	"fmt"
 	"math/big"
 	"sort"
 
@@ -40,7 +39,7 @@ func (s *Staking) GetCandidateList(state *state.State) (result *CandidateList) {
 					s.logger.Warn("Error during decoding candidate list, set it as an empty list", "err", err)
 				}
 			}
-			fmt.Println("Loaded:", result.ToString())
+			// fmt.Println("Loaded:", result.ToString())
 			return nil
 		}
 
@@ -89,7 +88,7 @@ func (s *Staking) GetStakeHolderList(state *state.State) (result *StakeholderLis
 					s.logger.Warn("Error during decoding Staking Holder list, set it with an empty list", "err", err)
 				}
 			}
-			fmt.Println("Loaded:", result.ToString())
+			// fmt.Println("Loaded:", result.ToString())
 			return nil
 		}
 
@@ -134,7 +133,7 @@ func (s *Staking) GetBucketList(state *state.State) (result *BucketList) {
 					s.logger.Warn("Error during decoding bucket list, set it as an empty list. ", "err", err)
 				}
 			}
-			fmt.Println("Loaded:", result.ToString())
+			// fmt.Println("Loaded:", result.ToString())
 			return nil
 		}
 		buckets := make([]*Bucket, 0)
@@ -170,7 +169,7 @@ func (s *Staking) GetDelegateList(state *state.State) (result *DelegateList) {
 		decoder.Decode(&delegates)
 
 		result = newDelegateList(delegates)
-		fmt.Println("Loaded:", result.ToString())
+		// fmt.Println("Loaded:", result.ToString())
 		return nil
 	})
 	return

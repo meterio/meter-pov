@@ -6,6 +6,7 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"math"
 	"sync"
 
@@ -50,8 +51,7 @@ const (
 	maxMsgSize = 1300000 // gasLimit 20000000 generate, 1024+1024 (1048576) + sizeof(QC) + sizeof(committee)...
 
 	//normally when a block is committed, wait for a while to let whole network to sync and move to next round
-	// WHOLE_NETWORK_BLOCK_SYNC_TIME = 6 * time.Second
-	WHOLE_NETWORK_BLOCK_SYNC_TIME = 2 * time.Second
+	WHOLE_NETWORK_BLOCK_SYNC_TIME = 5 * time.Second
 
 	blocksToContributeToBecomeGoodPeer = 10000
 	votesToContributeToBecomeGoodPeer  = 10000
@@ -89,9 +89,13 @@ var (
 		Name: "current_round",
 		Help: "Current round of consensus",
 	})
-	curHeightGauge = prometheus.NewGauge(prometheus.GaugeOpts{
-		Name: "current_height",
-		Help: "Current height of block",
+	inCommitteeGauge = prometheus.NewGauge(prometheus.GaugeOpts{
+		Name: "in_committee",
+		Help: "is this node in committee",
+	})
+	pmRoleGauge = prometheus.NewGauge(prometheus.GaugeOpts{
+		Name: "pacemaker_role",
+		Help: "Role in pacemaker",
 	})
 	lastKBlockHeightGauge = prometheus.NewGauge(prometheus.GaugeOpts{
 		Name: "last_kblock_height",
@@ -168,6 +172,7 @@ type ConsensusReactor struct {
 	rcvdNewCommittee map[NewCommitteeKey]*NewCommittee // store received new committee info
 
 	dataDir string
+	myAddr  types.NetAddress
 }
 
 // Glob Instance
@@ -227,12 +232,12 @@ func NewConsensusReactor(ctx *cli.Context, chain *chain.Chain, state *state.Crea
 	}
 
 	prometheus.MustRegister(curRoundGauge)
-	prometheus.MustRegister(curHeightGauge)
+
 	prometheus.MustRegister(lastKBlockHeightGauge)
 	prometheus.MustRegister(blocksCommitedCounter)
+	prometheus.MustRegister(inCommitteeGauge)
+	prometheus.MustRegister(pmRoleGauge)
 
-	curRoundGauge.Set(float64(conR.curRound))
-	curHeightGauge.Set(float64(conR.curHeight))
 	lastKBlockHeightGauge.Set(float64(conR.lastKBlockHeight))
 
 	//initialize Delegates
@@ -444,14 +449,13 @@ func (conR *ConsensusReactor) isCSDelegates() bool {
 func (conR *ConsensusReactor) UpdateHeight(height int64) bool {
 	conR.logger.Info(fmt.Sprintf("Update conR.curHeight from %d to %d", conR.curHeight, height))
 	conR.curHeight = height
-	curHeightGauge.Set(float64(height))
 	return true
 }
 
 func (conR *ConsensusReactor) UpdateRound(round int) bool {
 	conR.logger.Info(fmt.Sprintf("Update conR.curRound from %d to %d", conR.curRound, round))
 	conR.curRound = round
-	curRoundGauge.Set(float64(round))
+
 	return true
 }
 
@@ -459,11 +463,9 @@ func (conR *ConsensusReactor) UpdateRound(round int) bool {
 func (conR *ConsensusReactor) UpdateHeightRound(height int64, round int) bool {
 	if height != 0 {
 		conR.curHeight = height
-		curHeightGauge.Set(float64(height))
 	}
 
 	conR.curRound = round
-	curRoundGauge.Set(float64(round))
 	return true
 }
 
@@ -483,7 +485,6 @@ func (conR *ConsensusReactor) RefreshCurHeight() error {
 	conR.curHeight = int64(bestHeader.Number())
 	conR.lastKBlockHeight = bestHeader.LastKBlockHeight()
 
-	curHeightGauge.Set(float64(conR.curHeight))
 	lastKBlockHeightGauge.Set(float64(conR.lastKBlockHeight))
 
 	conR.logger.Info("Refresh curHeight", "previous", prev, "now", conR.curHeight, "lastKBlockHeight", conR.lastKBlockHeight)
@@ -587,10 +588,13 @@ func (conR *ConsensusReactor) NewValidatorSetByNonce(nonce uint64) (uint, bool) 
 	if inCommittee == true {
 		conR.csMode = CONSENSUS_MODE_COMMITTEE
 		conR.curCommitteeIndex = index
+		conR.myAddr = conR.curCommittee.Validators[index].NetAddr
 		conR.logger.Info("New curCommittee", "inCommittee", committee, "index", index, "role", role)
 	} else {
 		conR.csMode = CONSENSUS_MODE_DELEGATE
 		conR.curCommitteeIndex = 0
+		// FIXME: find a better way
+		conR.myAddr = types.NetAddress{IP: net.IP{}, Port: 8670}
 		conR.logger.Info("New curCommittee", "inCommittee", committee)
 	}
 
@@ -1022,7 +1026,8 @@ func (conR *ConsensusReactor) SendMsgToPeers(csPeers []*ConsensusPeer, msg *Cons
 }
 
 func (conR *ConsensusReactor) GetMyNetAddr() types.NetAddress {
-	return conR.curCommittee.Validators[conR.curCommitteeIndex].NetAddr
+	return conR.myAddr
+	// return conR.curCommittee.Validators[conR.curCommitteeIndex].NetAddr
 }
 
 func (conR *ConsensusReactor) GetMyPeers() ([]*ConsensusPeer, error) {
@@ -1109,12 +1114,12 @@ func (conR *ConsensusReactor) sendConsensusMsg(msg *ConsensusMessage, csPeer *Co
 			"peer_port": string(csPeer.netAddr.Port),
 		}
 		**************/
-		myNetAddr := conR.curCommittee.Validators[conR.curCommitteeIndex].NetAddr
+		// myNetAddr := conR.curCommittee.Validators[conR.curCommitteeIndex].NetAddr
 		payload := map[string]interface{}{
 			"message": hex.EncodeToString(rawMsg),
-			"peer_ip": myNetAddr.IP.String(),
+			"peer_ip": conR.myAddr.IP.String(),
 			//"peer_id":   string(myNetAddr.ID),
-			"peer_port": string(myNetAddr.Port),
+			"peer_port": string(conR.myAddr.Port),
 		}
 
 		jsonStr, err := json.Marshal(payload)
@@ -1374,8 +1379,20 @@ func HandleScheduleReplayValidator(conR *ConsensusReactor) bool {
 func HandleScheduleLeader(conR *ConsensusReactor, epochID, height uint64) bool {
 	curHeight := uint64(conR.chain.BestBlock().Header().Number())
 	if curHeight != height {
-		conR.logger.Error("curHeight is not the same with kblock height", "curHeight", curHeight, "kblock height", height)
-		conR.ScheduleLeader(epochID, height, 10*time.Second)
+		conR.logger.Error("ScheduleLeader: best height is different with kblock height", "curHeight", curHeight, "kblock height", height)
+		if curHeight > height {
+			// mine is ahead of kblock, stop
+			return false
+		}
+		com := comm.GetGlobCommInst()
+		if com == nil {
+			conR.logger.Error("get global comm inst failed")
+			return false
+		}
+		com.TriggerSync()
+		conR.logger.Warn("Peer sync triggered")
+
+		conR.ScheduleLeader(epochID, height, WHOLE_NETWORK_BLOCK_SYNC_TIME)
 		return false
 	}
 
@@ -1443,7 +1460,9 @@ func (conR *ConsensusReactor) ConsensusHandleReceivedNonce(kBlockHeight int64, n
 			conR.logger.Info("Replay", "replay from powHeight", startHeight)
 			pool.ReplayFrom(int32(startHeight))
 		}
+		inCommitteeGauge.Set(1)
 	} else {
+		inCommitteeGauge.Set(0)
 		conR.logger.Info("I am NOT in committee!!!", "nonce", nonce)
 	}
 
@@ -1503,6 +1522,32 @@ func (conR *ConsensusReactor) ConsensusHandleReceivedNonce(kBlockHeight int64, n
 		conR.NewCommitteeInit(uint64(kBlockHeight), nonce, replay)
 	}
 	return
+}
+
+// newCommittee: start with new committee or not
+// true --- with new committee, round = 0, best block is kblock.
+// false ---replay mode, round continues with BestQC.QCRound. best block is mblock
+// XXX: we assume the peers have the bestQC, if they don't ...
+func (conR *ConsensusReactor) startPacemaker(newCommittee bool) error {
+	// 1. bestQC height == best block height
+	// 2. newCommittee is true, best block is kblock
+	bestQC := conR.chain.BestQC()
+	bestBlock := conR.chain.BestBlock()
+	conR.logger.Info("Checking the QCHeight and Block height...", "QCHeight", bestQC.QCHeight, "BlockHeight", bestBlock.Header().Number())
+	if bestQC.QCHeight != uint64(bestBlock.Header().Number()) {
+		com := comm.GetGlobCommInst()
+		if com == nil {
+			conR.logger.Error("get global comm inst failed")
+			return errors.New("pacemaker does not started")
+		}
+		com.TriggerSync()
+		conR.logger.Warn("Peer sync triggered")
+		time.Sleep(1 * time.Second)
+	}
+
+	conR.logger.Info("startConsensusPacemaker", "QCHeight", bestQC.QCHeight, "BlockHeight", bestBlock.Header().Number())
+	conR.csPacemaker.Start(newCommittee)
+	return nil
 }
 
 // since votes of pacemaker include propser, but committee votes

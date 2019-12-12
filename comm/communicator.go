@@ -48,6 +48,7 @@ type Communicator struct {
 
 	powPool     *powpool.PowPool
 	configTopic string
+	syncTrigCh  chan bool
 }
 
 func SetGlobCommInst(c *Communicator) error {
@@ -72,6 +73,7 @@ func New(chain *chain.Chain, txPool *txpool.TxPool, powPool *powpool.PowPool, co
 		syncedCh:       make(chan struct{}),
 		announcementCh: make(chan *announcement),
 		configTopic:    configTopic,
+		syncTrigCh:     make(chan bool),
 	}
 
 	SetGlobCommInst(c)
@@ -81,6 +83,11 @@ func New(chain *chain.Chain, txPool *txpool.TxPool, powPool *powpool.PowPool, co
 // Synced returns a channel indicates if synchronization process passed.
 func (c *Communicator) Synced() <-chan struct{} {
 	return c.syncedCh
+}
+
+// trigger a manual sync
+func (c *Communicator) TriggerSync() {
+	c.syncTrigCh <- true
 }
 
 // Sync start synchronization process.
@@ -114,6 +121,22 @@ func (c *Communicator) Sync(handler HandleBlockStream, qcHandler HandleQC) {
 			select {
 			case <-c.ctx.Done():
 				return
+			case <-c.syncTrigCh:
+				log.Info("Triggered synchronization start")
+
+				best := c.chain.BestBlock().Header()
+				// choose peer which has the head block with higher total score
+				peer := c.peerSet.Slice().Find(func(peer *Peer) bool {
+					_, totalScore := peer.Head()
+					return totalScore >= best.TotalScore()
+				})
+				if peer != nil {
+					if err := c.sync(peer, best.Number(), handler, qcHandler); err != nil {
+						peer.logger.Info("synchronization failed", "err", err)
+					}
+					peer.logger.Debug("triggered synchronization done", "bestQC", c.chain.BestQC().QCHeight, "bestBlock", c.chain.BestBlock().Header().Number())
+				}
+				syncCount++
 			case <-timer.C:
 				log.Debug("synchronization start")
 

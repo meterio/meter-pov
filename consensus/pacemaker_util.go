@@ -92,13 +92,18 @@ func (p *Pacemaker) receivePacemakerMsg(w http.ResponseWriter, r *http.Request) 
 			proposal := msg.(*PMProposalMessage)
 			height = uint64(proposal.CSMsgCommonHeader.Height)
 			round = proposal.CSMsgCommonHeader.Round
-			if p.msgRelayInfo.InMap(&msgByteSlice, height, round) == true {
+			p.logger.Info("received PMProposal", "height", height, "round", round)
+
+			in, err := p.msgRelayInfo.CheckandAdd(&msgByteSlice, height, round)
+			if err != nil {
+				p.logger.Info("received PMProposal, failed to added, dropped")
+				return
+			}
+			if in == true {
 				p.logger.Info("received PMProposal, duplicated, dropped", "height", height, "round", round)
 				return
-			} else {
-				p.logger.Info("received PMProposal, added", "height", height, "round", round)
-				p.msgRelayInfo.Add(&msgByteSlice, height, round)
 			}
+			p.logger.Info("received PMProposal, added to info map", "height", height, "round", round)
 		}
 
 		from := types.NetAddress{IP: peerIP, Port: uint16(peerPort)}
