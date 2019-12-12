@@ -282,7 +282,7 @@ func (c *Chain) AddBlock(newBlock *block.Block, receipts tx.Receipts, finalize b
 			selfFinalized := c.IsBlockFinalized(newHeader.ID())
 			if selfFinalized == true {
 				// if the new block has already been finalized, return directly
-				return nil, nil
+				return nil, errBlockExist
 			}
 		} else {
 			return nil, errBlockExist
