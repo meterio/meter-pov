@@ -131,10 +131,11 @@ func (c *Communicator) Sync(handler HandleBlockStream, qcHandler HandleQC) {
 					return totalScore >= best.TotalScore()
 				})
 				if peer != nil {
+					log.Info("trigger sync with peer", "peer", peer)
 					if err := c.sync(peer, best.Number(), handler, qcHandler); err != nil {
 						peer.logger.Info("synchronization failed", "err", err)
 					}
-					peer.logger.Debug("triggered synchronization done", "bestQC", c.chain.BestQC().QCHeight, "bestBlock", c.chain.BestBlock().Header().Number())
+					log.Info("triggered synchronization done", "bestQC", c.chain.BestQC().QCHeight, "bestBlock", c.chain.BestBlock().Header().Number())
 				}
 				syncCount++
 			case <-timer.C:
@@ -281,8 +282,17 @@ func (c *Communicator) BroadcastBlock(blk *block.Block) {
 	log.Info("Broadcast block",
 		"id", h.ID(),
 		"parentID", h.ParentID(),
-		"height", h.LastKBlockHeight(),
+		"Height", h.Number(),
+		"lastKblockHeight", h.LastKBlockHeight(),
 		"timestamp", h.Timestamp())
+
+	var sendQC bool = false
+	bestQC := c.chain.BestQC()
+	if bestQC.QCHeight == uint64(h.Number()) {
+		log.Info("bestQC send together with block")
+		sendQC = true
+	}
+
 	peers := c.peerSet.Slice().Filter(func(p *Peer) bool {
 		return !p.IsBlockKnown(blk.Header().ID())
 	})
@@ -295,6 +305,12 @@ func (c *Communicator) BroadcastBlock(blk *block.Block) {
 		peer := peer
 		peer.MarkBlock(blk.Header().ID())
 		c.goes.Go(func() {
+			if sendQC == true {
+				log.Info("together with block", "bestQC", bestQC.String())
+				if err := proto.NotifyNewBestQC(c.ctx, peer, bestQC); err != nil {
+					peer.logger.Debug("failed to broadcast new bestQC", "err", err)
+				}
+			}
 			if err := proto.NotifyNewBlock(c.ctx, peer, blk); err != nil {
 				peer.logger.Debug("failed to broadcast new block", "err", err)
 			}
@@ -305,7 +321,12 @@ func (c *Communicator) BroadcastBlock(blk *block.Block) {
 		peer := peer
 		peer.MarkBlock(blk.Header().ID())
 		c.goes.Go(func() {
-
+			if sendQC == true {
+				log.Info("together with block", "bestQC", bestQC.String())
+				if err := proto.NotifyNewBestQC(c.ctx, peer, bestQC); err != nil {
+					peer.logger.Debug("failed to broadcast new bestQC", "err", err)
+				}
+			}
 			if err := proto.NotifyNewBlockID(c.ctx, peer, blk.Header().ID()); err != nil {
 				peer.logger.Debug("failed to broadcast new block id", "err", err)
 			}

@@ -1494,18 +1494,27 @@ func (conR *ConsensusReactor) ConsensusHandleReceivedNonce(kBlockHeight int64, n
 func (conR *ConsensusReactor) startPacemaker(newCommittee bool) error {
 	// 1. bestQC height == best block height
 	// 2. newCommittee is true, best block is kblock
+	conR.chain.UpdateBestQC()
 	bestQC := conR.chain.BestQC()
 	bestBlock := conR.chain.BestBlock()
 	conR.logger.Info("Checking the QCHeight and Block height...", "QCHeight", bestQC.QCHeight, "BlockHeight", bestBlock.Header().Number())
+	count := 0
+WAIT:
 	if bestQC.QCHeight != uint64(bestBlock.Header().Number()) {
 		com := comm.GetGlobCommInst()
 		if com == nil {
 			conR.logger.Error("get global comm inst failed")
 			return errors.New("pacemaker does not started")
 		}
-		com.TriggerSync()
-		conR.logger.Warn("Peer sync triggered")
+		count++
+		if count > 3 {
+			conR.logger.Error("bestQC and bestBlock still not match, Action (start pacemaker) cancelled ...")
+			return nil
+		}
+		//com.TriggerSync()
+		conR.logger.Warn("bestQC and bestBlock Height are not match ...")
 		time.Sleep(1 * time.Second)
+		goto WAIT
 	}
 
 	conR.logger.Info("startConsensusPacemaker", "QCHeight", bestQC.QCHeight, "BlockHeight", bestBlock.Header().Number())

@@ -13,7 +13,7 @@ import (
 const (
 	Name              = "meter"
 	Version    uint   = 1
-	Length     uint64 = 10
+	Length     uint64 = 11
 	MaxMsgSize        = 10 * 1024 * 1024
 )
 
@@ -29,6 +29,7 @@ const (
 	MsgGetTxs
 	MsgNewPowBlock
 	MsgGetBestQC
+	MsgNewBestQC
 )
 
 // MsgName convert msg code to string.
@@ -54,6 +55,8 @@ func MsgName(msgCode uint64) string {
 		return "MsgNewPowBlock"
 	case MsgGetBestQC:
 		return "MsgGetBestQC"
+	case MsgNewBestQC:
+		return "MsgNewBestQC"
 	default:
 		return fmt.Sprintf("unknown msg code(%v)", msgCode)
 	}

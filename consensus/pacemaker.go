@@ -222,7 +222,8 @@ func (p *Pacemaker) OnCommit(commitReady []*pmBlock) error {
 			continue
 		}
 		// commit the approved block
-		if p.csReactor.FinalizeCommitBlock(b.ProposedBlockInfo) == false {
+		bestQC := p.proposalMap[b.Height+1].Justify.QC
+		if p.csReactor.FinalizeCommitBlock(b.ProposedBlockInfo, bestQC) == false {
 			p.csReactor.logger.Error("Commit block failed ...")
 
 			//revert to checkpoint

@@ -61,6 +61,10 @@ func NotifyNewPowBlock(ctx context.Context, rpc RPC, powBlockInfo *powpool.PowBl
 	return rpc.Notify(ctx, MsgNewPowBlock, powBlockInfo)
 }
 
+func NotifyNewBestQC(ctx context.Context, rpc RPC, qc *block.QuorumCert) error {
+	return rpc.Notify(ctx, MsgNewBestQC, qc)
+}
+
 // GetBlockByID query block from remote peer by given block ID.
 // It may return nil block even no error.
 func GetBlockByID(ctx context.Context, rpc RPC, id meter.Bytes32) (rlp.RawValue, error) {

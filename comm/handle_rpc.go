@@ -177,8 +177,15 @@ func (c *Communicator) handleRPC(peer *Peer, msg *p2p.Msg, write func(interface{
 		write(&struct{}{})
 	case proto.MsgGetBestQC:
 		qc := c.chain.BestQC()
-		// fmt.Println("WRITE QC: ", qc.String())
 		write(qc)
+	case proto.MsgNewBestQC:
+		var newQC *block.QuorumCert
+		if err := msg.Decode(&newQC); err != nil {
+			return errors.WithMessage(err, "decode msg")
+		}
+		fmt.Println("WRITE QC: ", newQC.String())
+		c.chain.SetBestQCCandidate(newQC)
+		write(&struct{}{})
 	default:
 		return fmt.Errorf("unknown message (%v)", msg.Code)
 	}

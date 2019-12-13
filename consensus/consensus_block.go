@@ -1017,7 +1017,8 @@ func (conR *ConsensusReactor) PreCommitBlock(blkInfo *ProposedBlockInfo) bool {
 	return true
 }
 
-func (conR *ConsensusReactor) FinalizeCommitBlock(blkInfo *ProposedBlockInfo) bool {
+// finalize the block with its own QC
+func (conR *ConsensusReactor) FinalizeCommitBlock(blkInfo *ProposedBlockInfo, bestQC *block.QuorumCert) bool {
 	blk := blkInfo.ProposedBlock
 	//stage := blkInfo.Stage
 	receipts := blkInfo.Receipts
@@ -1081,6 +1082,10 @@ func (conR *ConsensusReactor) FinalizeCommitBlock(blkInfo *ProposedBlockInfo) bo
 
 		blocksCommitedCounter.Inc()
 	******/
+	// Save bestQC
+	conR.chain.SetBestQCCandidate(bestQC)
+	conR.chain.UpdateBestQC()
+
 	// XXX: broadcast the new block to all peers
 	comm.GetGlobCommInst().BroadcastBlock(blk)
 	// successfully added the block, update the current hight of consensus
