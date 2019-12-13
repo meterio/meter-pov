@@ -829,3 +829,7 @@ func (c *Chain) SetBestQCCandidate(qc *block.QuorumCert) error {
 	c.bestQCCandidate = qc
 	return nil
 }
+
+func (c *Chain) GetBestQCCandidate() *block.QuorumCert {
+	return c.bestQCCandidate
+}

@@ -1055,7 +1055,7 @@ type CommitteeList struct {
 	committeeMembers []*CommitteeMember
 }
 
-func (conR *ConsensusReactor) GetLatestCommitteeList () (*CommitteeList, error) {
+func (conR *ConsensusReactor) GetLatestCommitteeList() (*CommitteeList, error) {
 	committeeMembers := make([]*CommitteeMember, 0)
 	for i, _ := range conR.curActualCommittee {
 		committeeMembers = append(committeeMembers, &conR.curActualCommittee[i])
@@ -1531,12 +1531,12 @@ func (conR *ConsensusReactor) ConsensusHandleReceivedNonce(kBlockHeight int64, n
 func (conR *ConsensusReactor) startPacemaker(newCommittee bool) error {
 	// 1. bestQC height == best block height
 	// 2. newCommittee is true, best block is kblock
+	count := 0
+WAIT:
 	conR.chain.UpdateBestQC()
 	bestQC := conR.chain.BestQC()
 	bestBlock := conR.chain.BestBlock()
 	conR.logger.Info("Checking the QCHeight and Block height...", "QCHeight", bestQC.QCHeight, "BlockHeight", bestBlock.Header().Number())
-	count := 0
-WAIT:
 	if bestQC.QCHeight != uint64(bestBlock.Header().Number()) {
 		com := comm.GetGlobCommInst()
 		if com == nil {

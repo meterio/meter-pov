@@ -288,9 +288,14 @@ func (c *Communicator) BroadcastBlock(blk *block.Block) {
 
 	var sendQC bool = false
 	bestQC := c.chain.BestQC()
+	bestQCCandidate := c.chain.GetBestQCCandidate()
 	if bestQC.QCHeight == uint64(h.Number()) {
-		log.Info("bestQC send together with block")
+		log.Info("bestQC sent together with block")
 		sendQC = true
+	} else if bestQCCandidate != nil && bestQCCandidate.QCHeight == uint64(h.Number()) {
+		bestQC = bestQCCandidate
+		sendQC = true
+		log.Info("bestQCCandidate sent together with block")
 	}
 
 	peers := c.peerSet.Slice().Filter(func(p *Peer) bool {
