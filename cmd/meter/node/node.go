@@ -121,7 +121,7 @@ func (n *Node) handleBlockStream(ctx context.Context, stream <-chan *block.Block
 	startTime := mclock.Now()
 
 	report := func(block *block.Block) {
-		log.Info(fmt.Sprintf("imported blocks (%v)", stats.processed), stats.LogContext(block.Header())...)
+		log.Info(fmt.Sprintf("imported blocks (%v) ", stats.processed), stats.LogContext(block.Header())...)
 		stats = blockStats{}
 		startTime = mclock.Now()
 	}

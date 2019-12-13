@@ -1532,27 +1532,30 @@ func (conR *ConsensusReactor) ConsensusHandleReceivedNonce(kBlockHeight int64, n
 func (conR *ConsensusReactor) startPacemaker(newCommittee bool) error {
 	// 1. bestQC height == best block height
 	// 2. newCommittee is true, best block is kblock
-	count := 0
-WAIT:
+	for i := 0; i < 3; i++ {
+		conR.chain.UpdateBestQC()
+		bestQC := conR.chain.BestQC()
+		bestBlock := conR.chain.BestBlock()
+		conR.logger.Info("Checking the QCHeight and Block height...", "QCHeight", bestQC.QCHeight, "BlockHeight", bestBlock.Header().Number())
+		if bestQC.QCHeight != uint64(bestBlock.Header().Number()) {
+			com := comm.GetGlobCommInst()
+			if com == nil {
+				conR.logger.Error("get global comm inst failed")
+				return errors.New("pacemaker does not started")
+			}
+			com.TriggerSync()
+			conR.logger.Warn("bestQC and bestBlock Height are not match ...")
+			<-time.NewTimer(1 * time.Second).C
+		} else {
+			break
+		}
+	}
 	conR.chain.UpdateBestQC()
 	bestQC := conR.chain.BestQC()
 	bestBlock := conR.chain.BestBlock()
-	conR.logger.Info("Checking the QCHeight and Block height...", "QCHeight", bestQC.QCHeight, "BlockHeight", bestBlock.Header().Number())
 	if bestQC.QCHeight != uint64(bestBlock.Header().Number()) {
-		com := comm.GetGlobCommInst()
-		if com == nil {
-			conR.logger.Error("get global comm inst failed")
-			return errors.New("pacemaker does not started")
-		}
-		count++
-		if count > 3 {
-			conR.logger.Error("bestQC and bestBlock still not match, Action (start pacemaker) cancelled ...")
-			return nil
-		}
-		com.TriggerSync()
-		conR.logger.Warn("bestQC and bestBlock Height are not match ...")
-		time.Sleep(1 * time.Second)
-		goto WAIT
+		conR.logger.Error("bestQC and bestBlock still not match, Action (start pacemaker) cancelled ...")
+		return nil
 	}
 
 	conR.logger.Info("startConsensusPacemaker", "QCHeight", bestQC.QCHeight, "BlockHeight", bestBlock.Header().Number())

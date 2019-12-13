@@ -8,10 +8,10 @@ package node
 import (
 	"fmt"
 
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/mclock"
 	"github.com/dfinlab/meter/block"
 	"github.com/dfinlab/meter/meter"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/mclock"
 )
 
 type blockStats struct {
@@ -44,6 +44,7 @@ func (s *blockStats) LogContext(last *block.Header) []interface{} {
 		"et", fmt.Sprintf("%v|%v", common.PrettyDuration(s.exec), common.PrettyDuration(s.commit)),
 		"mgas/s", float64(s.usedGas) * 1000 / float64(s.exec+s.commit),
 		"id", shortID(last.ID()),
+		"number", last.Number(),
 	}
 }
 
