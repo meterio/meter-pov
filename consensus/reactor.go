@@ -1051,6 +1051,43 @@ func (conR *ConsensusReactor) GetMyActualCommitteeIndex() int {
 	return -1
 }
 
+type CommitteeList struct {
+	committeeMembers []*CommitteeMember
+}
+
+func (conR *ConsensusReactor) GetLatestCommitteeList () (*CommitteeList, error) {
+	committeeMembers := make([]*CommitteeMember, 0)
+	for i, _ := range conR.curActualCommittee {
+		committeeMembers = append(committeeMembers, &conR.curActualCommittee[i])
+	}
+	return &CommitteeList{committeeMembers: committeeMembers}, nil
+}
+
+/****
+// api routine interface
+func GetLatestCommitteeList () (*CommitteeList, error) {
+	consensusInst := GetConsensusGlobInst()
+	if consensusInst == nil {
+		fmt.Println("consensus is not initilized...")
+		err := errors.New("consensus is not initilized...")
+		return nil, err
+	}
+	committeeMembers := make([]*CommitteeMember, 0)
+	for i, _ := range consensusInst.curActualCommittee {
+		committeeMembers = append(committeeMembers, &consensusInst.curActualCommittee[i])
+	}
+	return &CommitteeList{committeeMembers: committeeMembers}, nil
+}
+*/
+
+func (l *CommitteeList) ToList() []CommitteeMember {
+	result := make([]CommitteeMember, 0)
+	for _, v := range l.committeeMembers {
+		result = append(result, *v)
+	}
+	return result
+}
+
 // XXX. For test only
 func (conR *ConsensusReactor) sendConsensusMsg(msg *ConsensusMessage, csPeer *ConsensusPeer) bool {
 	typeName := getConcreteName(*msg)

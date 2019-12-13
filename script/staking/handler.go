@@ -2,6 +2,7 @@ package staking
 
 import (
 	"bytes"
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"math/big"
@@ -247,7 +248,11 @@ func (sb *StakingBody) CandidateHandler(senv *StakingEnviroment, gas uint64) (re
 		return
 	}
 
-	pubKey, err := crypto.UnmarshalPubkey(sb.CandPubKey)
+	decoded, err := base64.StdEncoding.DecodeString(string(sb.CandPubKey))
+	if err != nil {
+		staking.logger.Error("could not decode public key")
+	}
+	pubKey, err := crypto.UnmarshalPubkey(decoded)
 	if err != nil || pubKey == nil {
 		staking.logger.Error("could not unmarshal public key")
 		return
