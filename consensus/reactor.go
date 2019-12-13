@@ -1055,7 +1055,7 @@ type CommitteeList struct {
 	committeeMembers []*CommitteeMember
 }
 
-func (conR *ConsensusReactor) GetLatestCommitteeList () (*CommitteeList, error) {
+func (conR *ConsensusReactor) GetLatestCommitteeList() (*CommitteeList, error) {
 	committeeMembers := make([]*CommitteeMember, 0)
 	for i, _ := range conR.curActualCommittee {
 		committeeMembers = append(committeeMembers, &conR.curActualCommittee[i])
@@ -1548,7 +1548,7 @@ WAIT:
 			conR.logger.Error("bestQC and bestBlock still not match, Action (start pacemaker) cancelled ...")
 			return nil
 		}
-		//com.TriggerSync()
+		com.TriggerSync()
 		conR.logger.Warn("bestQC and bestBlock Height are not match ...")
 		time.Sleep(1 * time.Second)
 		goto WAIT
