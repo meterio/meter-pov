@@ -16,6 +16,7 @@ import (
 	"github.com/dfinlab/meter/meter"
 	"github.com/dfinlab/meter/tx"
 	"github.com/ethereum/go-ethereum/rlp"
+	"github.com/inconshreveable/log15"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 )
@@ -23,6 +24,10 @@ import (
 const (
 	blockCacheLimit    = 512
 	receiptsCacheLimit = 512
+)
+
+var (
+	log = log15.New("pkg", "chain")
 )
 
 var errNotFound = errors.New("not found")
@@ -156,9 +161,9 @@ func New(kv kv.GetPutter, genesisBlock *block.Block) (*Chain, error) {
 		leafBlock = bestBlock
 	} else {
 		fmt.Println("Leaf Block", leafBlock.CompactString())
-		fmt.Println("*** Start pruning")
 		// remove all leaf blocks that are not finalized
 		for leafBlock.Header().TotalScore() > bestBlock.Header().TotalScore() {
+			fmt.Println("*** Start pruning")
 			parentID, err := ancestorTrie.GetAncestor(leafBlock.Header().ID(), leafBlock.Header().Number()-1)
 			if err != nil {
 				break
@@ -191,7 +196,6 @@ func New(kv kv.GetPutter, genesisBlock *block.Block) (*Chain, error) {
 	fmt.Println("--------------------------------------------------")
 	fmt.Println("                 CHAIN INITIALIZED                ")
 	fmt.Println("--------------------------------------------------")
-	fmt.Println("Leaf Block Header: ", leafBlock.Header())
 	fmt.Println("Leaf Block: ", leafBlock.CompactString())
 	fmt.Println("Best Block: ", bestBlock.CompactString())
 	fmt.Println("Best QC: ", bestQC.String())
@@ -778,28 +782,30 @@ func (c *Chain) UpdateLeafBlock() error {
 	return nil
 }
 func (c *Chain) UpdateBestQC() error {
-	fmt.Println("in UpdateBestQC, bestQCCandidate=", c.bestQCCandidate.String(), "bestQC", c.bestQC.String(), "bestBlock.Height=", c.bestBlock.Header().Number())
+	log.Info("update BestQC", "bestQCCandidate", c.bestQCCandidate.CompactString(), "bestQC", c.bestQC.CompactString(), "bestHeight", c.bestBlock.Header().Number())
 	if c.leafBlock.Header().ID().String() == c.bestBlock.Header().ID().String() {
+		// when leaf is the same with best
+		// usually this is during initialization (before pacemaker)
+		// or after pacemaker
 		if c.bestQCCandidate != nil && c.bestQCCandidate.QCHeight > c.bestQC.QCHeight && c.bestQCCandidate.QCHeight <= uint64(c.bestBlock.Header().Number()) {
 			c.bestQC = c.bestQCCandidate
 			bestQCHeightGauge.Set(float64(c.bestQC.QCHeight))
 			c.bestQCCandidate = nil
-			fmt.Println("!!! Move BestQC to (by QCCandidate): ", c.bestQC.String())
+			log.Info("Move BestQC to (by QCCandidate when leaf=best) ", "bestQC", c.bestQC.CompactString())
 		} else {
-			if c.bestQC.QCHeight < c.bestBlock.QC.QCHeight {
+			if c.bestQC.QCHeight <= c.bestBlock.QC.QCHeight {
 				c.bestQC = c.bestBlock.QC
 				bestQCHeightGauge.Set(float64(c.bestQC.QCHeight))
-				fmt.Println("!!! Move BestQC to (by BestBlock): ", c.bestQC)
+				log.Info("Move BestQC to (by BestBlock when leaf=best) ", "bestQC", c.bestQC.CompactString())
 			}
 		}
 		return saveBestQC(c.kv, c.bestQC)
 	}
-	fmt.Println("UpdateBestQC, bestQCCandidate=", c.bestQCCandidate.String(), ", bestBlock.Height=", c.bestBlock.Header().Number())
 	if c.bestQCCandidate != nil && c.bestQCCandidate.QCHeight == uint64(c.bestBlock.Header().Number()) {
 		c.bestQC = c.bestQCCandidate
 		bestQCHeightGauge.Set(float64(c.bestQC.QCHeight))
 		c.bestQCCandidate = nil
-		fmt.Println("!!! Move BestQC to (by QCCandidate): ", c.bestQC.String())
+		log.Info("Move BestQC to (by QCCandidate): ", "bestQC", c.bestQC.CompactString())
 		return saveBestQC(c.kv, c.bestQC)
 	}
 	id, err := c.ancestorTrie.GetAncestor(c.leafBlock.Header().ID(), c.bestBlock.Header().Number()+1)
@@ -819,15 +825,17 @@ func (c *Chain) UpdateBestQC() error {
 	}
 	c.bestQC = blk.QC
 	bestQCHeightGauge.Set(float64(c.bestQC.QCHeight))
-	fmt.Println("!!! Move BestQC to: ", c.bestQC.String())
+	log.Info("Move BestQC to: ", "bestQC", c.bestQC.CompactString())
 	return saveBestQC(c.kv, c.bestQC)
 }
 
 func (c *Chain) SetBestQCCandidate(qc *block.QuorumCert) error {
 	if qc.QCHeight < uint64(c.bestBlock.Header().Number()) {
-		return errors.New("invalid best qc")
+		log.Debug(fmt.Sprintf("qc height (%d) is lower than best block height (%d), ignored", qc.QCHeight, c.bestBlock.Header().Number()))
+		return nil
 	}
 	c.bestQCCandidate = qc
+	fmt.Println("QC Candidate updated to ", c.bestQCCandidate.CompactString())
 	return nil
 }
 

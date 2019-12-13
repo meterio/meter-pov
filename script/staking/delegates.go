@@ -70,7 +70,6 @@ func (l *DelegateList) ToString() string {
 
 //  api routine interface
 func GetLatestDelegateList() (*DelegateList, error) {
-	fmt.Println("get into GetLatestDelegateList")
 	staking := GetStakingGlobInst()
 	if staking == nil {
 		fmt.Println("staking is not initilized...")
@@ -92,7 +91,6 @@ func GetLatestDelegateList() (*DelegateList, error) {
 
 //  api routine interface
 func GetInternalDelegateList() ([]*types.Delegate, error) {
-	fmt.Println("get into GetLatestDelegateList")
 	delegateList := []*types.Delegate{}
 	staking := GetStakingGlobInst()
 	if staking == nil {

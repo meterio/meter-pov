@@ -2,6 +2,9 @@ package types
 
 import (
 	"bytes"
+	"fmt"
+	"strings"
+
 	//"fmt"
 	"math"
 	"sort"
@@ -23,6 +26,14 @@ type ValidatorSet struct {
 
 	// cached (unexported)
 	totalVotingPower int64
+}
+
+func (v *ValidatorSet) String() string {
+	s := make([]string, 0)
+	for _, val := range v.Validators {
+		s = append(s, val.String())
+	}
+	return fmt.Sprintf("Validators: %s", strings.Join(s, ", "))
 }
 
 func NewValidatorSet(valz []*Validator) *ValidatorSet {

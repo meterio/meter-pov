@@ -3,6 +3,7 @@ package consensus
 import (
 	"bytes"
 	"crypto/ecdsa"
+	"encoding/base64"
 	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
@@ -1672,8 +1673,11 @@ func (conR *ConsensusReactor) LoadBlockBytes(num uint32) []byte {
 func PrintDelegates(delegates []*types.Delegate) {
 	fmt.Println("============================================")
 	for i, dd := range delegates {
-		fmt.Printf("Delegate %d:\n Address:%s\n Public Key: %v\n Voting Power:%d\n Network Address:%v\n",
-			i+1, dd.Address, dd.PubKey, dd.VotingPower, dd.NetAddr)
+		keyBytes := crypto.FromECDSAPub(&dd.PubKey)
+		pubKeyStr := base64.StdEncoding.EncodeToString(keyBytes)
+
+		fmt.Printf("Delegate %d:\n Address:%s\n Public Key: %v\n Voting Power:%d, Network Address: %s:%d\n",
+			i+1, dd.Address, pubKeyStr, dd.VotingPower, dd.NetAddr.IP.String(), dd.NetAddr.Port)
 	}
 	fmt.Println("============================================")
 }

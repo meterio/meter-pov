@@ -2,6 +2,7 @@ package types
 
 import (
 	"crypto/ecdsa"
+	"encoding/base64"
 	"fmt"
 
 	//cmn "github.com/dfinlab/meter/libs/common"
@@ -39,9 +40,9 @@ func (v *Validator) String() string {
 	if v == nil {
 		return "nil-Validator"
 	}
-	return fmt.Sprintf("Validator{%v %v VP:%v}",
-		v.Address,
-		v.PubKey,
+	pubkey := base64.StdEncoding.EncodeToString(crypto.FromECDSAPub(&v.PubKey))
+	return fmt.Sprintf("V(pk:%v vp:%v)",
+		pubkey,
 		v.VotingPower,
 	)
 }

@@ -30,12 +30,8 @@ func (qc *QuorumCert) String() string {
 
 func (qc *QuorumCert) CompactString() string {
 	if qc != nil {
-		hasAggSig := "no"
-		if len(qc.VoterAggSig) > 0 {
-			hasAggSig = "YES"
-		}
-		return fmt.Sprintf("QC(H:%v, R:%v, EpochID:%v, VoterBitArray:%v, VoterAggSig:%v)",
-			qc.QCHeight, qc.QCRound, qc.EpochID, qc.VoterBitArrayStr, hasAggSig)
+		return fmt.Sprintf("QC(Height:%v, Round:%v, EpochID:%v)",
+			qc.QCHeight, qc.QCRound, qc.EpochID)
 	}
 	return "EMPTY QC"
 }

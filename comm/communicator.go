@@ -131,7 +131,7 @@ func (c *Communicator) Sync(handler HandleBlockStream, qcHandler HandleQC) {
 					return totalScore >= best.TotalScore()
 				})
 				if peer != nil {
-					log.Info("trigger sync with peer", "peer", peer)
+					log.Info("trigger sync with peer", "peer", peer.RemoteAddr().String())
 					if err := c.sync(peer, best.Number(), handler, qcHandler); err != nil {
 						peer.logger.Info("synchronization failed", "err", err)
 					}
