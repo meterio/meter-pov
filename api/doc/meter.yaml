@@ -2,7 +2,7 @@ openapi: 3.0.1
 info:
   title: Meter
   description: |
-    RESTful API to access Definlab Meter Network
+    RESTful API to access Meter Network
 
     [Project Home](https://github.com/dfinlab/meter-pov-consensus)
   license:
@@ -280,7 +280,7 @@ paths:
         - Logs
       summary: Filter transfer logs
       description: |
-        Transfer logs are recorded on VET transferring.
+        Transfer logs are recorded on MTRG transferring.
       requestBody:
         required: true
         content:
@@ -342,7 +342,7 @@ paths:
         - Logs
       summary: Filter transfer logs
       description: |
-        Transfer logs are recorded on VET transferring.
+        Transfer logs are recorded on MTR transferring.
       parameters:
         - $ref: "#/components/parameters/FilterOrderInQuery"
       requestBody:
