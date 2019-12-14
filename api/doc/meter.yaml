@@ -1,17 +1,17 @@
 openapi: 3.0.1
 info:
-  title: Meter
+  title: Meterest
   description: |
-    RESTful API to access Meter Network
+    RESTful API to access Meter.io
 
-    [Project Home](https://github.com/dfinlab/meter-pov-consensus)
+    [Project Home](https://github.com/meterio)
   license:
     name: LGPL 3.0
     url: "https://www.gnu.org/licenses/lgpl-3.0.en.html"
   version: 1.1.0
 
 servers:
-  - url: "/"
+  - url: '/'
     description: local meter node
 
 tags:
@@ -29,6 +29,8 @@ tags:
     description: Subscribe interested subjects
   - name: Debug
     description: Debug utilities
+  - name: Staking
+    description: Access to staking data
 
 paths:
   /accounts/{address}:
@@ -442,6 +444,76 @@ paths:
                 items:
                   $ref: "#/components/schemas/PeerStats"
 
+  /node/consensus/committee:
+    get:
+      tags:
+        - Node
+      summary: Retrieve current committee members
+      reponses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref:
+
+  /staking/buckets:
+    get:
+      tags:
+        - Staking
+      summary: Retrieve staking buckets
+      reponses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref:
+
+  /staking/candidates:
+    get:
+      tags:
+        - Staking
+      summary: Retrieve staking candidates
+      reponses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref:
+
+  /staking/stakeholders:
+    get:
+      tags:
+        - Staking
+      summary: Retrieve staking stakeholder
+      reponses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref:
+
+  /staking/delegates:
+    get:
+      tags:
+        - Staking
+      summary: Retrieve staking delegates for consensus
+      reponses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref:
+
   /subscriptions/block:
     get:
       tags:
@@ -449,7 +521,6 @@ paths:
       summary: (Websocket) Subscribe new blocks
       parameters:
         - $ref: "#/components/parameters/PositionInQuery"
-
       responses:
         "200":
           description: OK
@@ -1211,7 +1282,7 @@ components:
       properties:
         name:
           type: string
-          example: "meter/v1.0.0-6680b98-dev/linux/go1.10.3"
+          example: 'meter/v1.0.0-6680b98-dev/linux/go1.10.3'
         bestBlockID:
           type: string
           example: "0x000087b3a4d4cdf1cc52d56b9704f4c18f020e1b48dbbf4a23d1ee4f1fa5ff94"
