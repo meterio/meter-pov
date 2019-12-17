@@ -16,6 +16,7 @@ import (
 	"github.com/dfinlab/meter/api/events"
 	"github.com/dfinlab/meter/api/eventslegacy"
 	"github.com/dfinlab/meter/api/node"
+	"github.com/dfinlab/meter/api/peers"
 	"github.com/dfinlab/meter/api/staking"
 	"github.com/dfinlab/meter/api/subscriptions"
 	"github.com/dfinlab/meter/api/transactions"
@@ -23,6 +24,7 @@ import (
 	"github.com/dfinlab/meter/api/transferslegacy"
 	"github.com/dfinlab/meter/chain"
 	"github.com/dfinlab/meter/logdb"
+	"github.com/dfinlab/meter/p2psrv"
 	"github.com/dfinlab/meter/state"
 	"github.com/dfinlab/meter/txpool"
 	assetfs "github.com/elazarl/go-bindata-assetfs"
@@ -31,7 +33,7 @@ import (
 )
 
 //New return api router
-func New(chain *chain.Chain, stateCreator *state.Creator, txPool *txpool.TxPool, logDB *logdb.LogDB, nw node.Network, allowedOrigins string, backtraceLimit uint32, callGasLimit uint64) (http.HandlerFunc, func()) {
+func New(chain *chain.Chain, stateCreator *state.Creator, txPool *txpool.TxPool, logDB *logdb.LogDB, nw node.Network, allowedOrigins string, backtraceLimit uint32, callGasLimit uint64, p2pServer *p2psrv.Server) (http.HandlerFunc, func()) {
 	origins := strings.Split(strings.TrimSpace(allowedOrigins), ",")
 	for i, o := range origins {
 		origins[i] = strings.ToLower(strings.TrimSpace(o))
@@ -75,6 +77,7 @@ func New(chain *chain.Chain, stateCreator *state.Creator, txPool *txpool.TxPool,
 		Mount(router, "/debug")
 	node.New(nw).
 		Mount(router, "/node")
+	peers.New(p2pServer).Mount(router, "/peers")
 	subs := subscriptions.New(chain, origins, backtraceLimit)
 	subs.Mount(router, "/subscriptions")
 	staking.New().

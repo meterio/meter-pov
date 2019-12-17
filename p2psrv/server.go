@@ -11,14 +11,14 @@ import (
 	"net"
 	"time"
 
+	"github.com/dfinlab/meter/cache"
+	"github.com/dfinlab/meter/co"
 	"github.com/ethereum/go-ethereum/common/mclock"
 	"github.com/ethereum/go-ethereum/p2p"
 	"github.com/ethereum/go-ethereum/p2p/discover"
 	"github.com/ethereum/go-ethereum/p2p/discv5"
 	"github.com/ethereum/go-ethereum/p2p/nat"
 	"github.com/inconshreveable/log15"
-	"github.com/dfinlab/meter/cache"
-	"github.com/dfinlab/meter/co"
 )
 
 var log = log15.New("pkg", "p2psrv")
@@ -324,4 +324,13 @@ func (s *Server) tryDial(node *discover.Node) error {
 		return err
 	}
 	return s.srv.SetupConn(conn, 1, node)
+}
+
+func (s *Server) GetDiscoveredNodes() []*discover.Node {
+	nodes := make([]*discover.Node, 0)
+	s.discoveredNodes.ForEach(func(e *cache.Entry) bool {
+		nodes = append(nodes, e.Value.(*discover.Node))
+		return true
+	})
+	return nodes
 }
