@@ -6,12 +6,9 @@
 package node
 
 import (
-	"encoding/hex"
-
 	"github.com/dfinlab/meter/comm"
 	"github.com/dfinlab/meter/meter"
 	"github.com/dfinlab/meter/consensus"
-	crypto "github.com/ethereum/go-ethereum/crypto"
 )
 
 type Network interface {
@@ -48,38 +45,32 @@ func ConvertPeersStats(ss []*comm.PeerStats) []*PeerStats {
 }
 
 type Consensus interface {
-	Committee() []*consensus.CommitteeMember
+	Committee() []*consensus.ApiCommitteeMember
 }
 
-type CommitteeMember struct {
+type ApiCommitteeMember struct {
 	Address     meter.Address `json:"addr"`
 	PubKey      string        `json:"pubKey"`
 	VotingPower int64         `json:"votingPower"`
-	CommitKey   string        `json:"commitKey"`
 	NetAddr     string        `json:"netAddr"`
 	CsPubKey    string        `json:"csPubKey"`
 	CsIndex     int           `json:"csIndex"`
 }
 
-func convertCommitteeList(list *consensus.CommitteeList) []*CommitteeMember {
-        committeeList := make([]*CommitteeMember, 0)
+func convertCommitteeList(cml []*consensus.ApiCommitteeMember) []*ApiCommitteeMember {
+        committeeList := make([]*ApiCommitteeMember, len(cml))
 
-        for _, c := range list.ToList() {
-		committeeList = append(committeeList, convertCommitteeMember(c))
+        for i, cm := range cml {
+		committeeList[i] = &ApiCommitteeMember {
+				    Address:     cm.Address,
+				    PubKey:      cm.PubKey,
+				    VotingPower: cm.VotingPower,
+				    NetAddr:     cm.NetAddr,
+				    CsPubKey:    cm.CsPubKey,
+				    CsIndex:     cm.CsIndex,
+		}
 	}
 	return committeeList
-}
-
-func convertCommitteeMember(cm consensus.CommitteeMember) *CommitteeMember {
-	return &CommitteeMember{
-		Address:     cm.Address,
-		PubKey:      hex.EncodeToString(crypto.FromECDSAPub(&cm.PubKey)),
-		VotingPower: cm.VotingPower,
-		CommitKey:   string(cm.CommitKey),
-		NetAddr:     cm.NetAddr.String(),
-		CsPubKey:    cm.CSPubKey.ToString(),
-		CsIndex:     cm.CSIndex,
-	}
 }
 
 

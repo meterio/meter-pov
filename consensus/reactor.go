@@ -1052,41 +1052,29 @@ func (conR *ConsensusReactor) GetMyActualCommitteeIndex() int {
 	return -1
 }
 
-type CommitteeList struct {
-	committeeMembers []*CommitteeMember
+type ApiCommitteeMember struct {
+        Address     meter.Address
+        PubKey      string
+        VotingPower int64
+        NetAddr     string
+        CsPubKey    string
+        CsIndex     int
 }
 
-func (conR *ConsensusReactor) GetLatestCommitteeList() (*CommitteeList, error) {
-	committeeMembers := make([]*CommitteeMember, 0)
-	for i, _ := range conR.curActualCommittee {
-		committeeMembers = append(committeeMembers, &conR.curActualCommittee[i])
+func (conR *ConsensusReactor) GetLatestCommitteeList() ([]*ApiCommitteeMember, error) {
+	var committeeMembers []*ApiCommitteeMember
+	for _, cm := range conR.curActualCommittee {
+		apiCm := &ApiCommitteeMember{
+			Address:      cm.Address,
+			PubKey:	      b64.StdEncoding.EncodeToString(crypto.FromECDSAPub(&cm.PubKey)),
+			VotingPower:  cm.VotingPower,
+			NetAddr:      cm.NetAddr.String(),
+			CsPubKey:     hex.EncodeToString(conR.csCommon.system.PubKeyToBytes(cm.CSPubKey)),
+			CsIndex:      cm.CSIndex,
+		}
+		committeeMembers = append(committeeMembers, apiCm)
 	}
-	return &CommitteeList{committeeMembers: committeeMembers}, nil
-}
-
-/****
-// api routine interface
-func GetLatestCommitteeList () (*CommitteeList, error) {
-	consensusInst := GetConsensusGlobInst()
-	if consensusInst == nil {
-		fmt.Println("consensus is not initilized...")
-		err := errors.New("consensus is not initilized...")
-		return nil, err
-	}
-	committeeMembers := make([]*CommitteeMember, 0)
-	for i, _ := range consensusInst.curActualCommittee {
-		committeeMembers = append(committeeMembers, &consensusInst.curActualCommittee[i])
-	}
-	return &CommitteeList{committeeMembers: committeeMembers}, nil
-}
-*/
-
-func (l *CommitteeList) ToList() []CommitteeMember {
-	result := make([]CommitteeMember, 0)
-	for _, v := range l.committeeMembers {
-		result = append(result, *v)
-	}
-	return result
+	return committeeMembers, nil
 }
 
 // XXX. For test only
