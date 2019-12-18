@@ -11,26 +11,25 @@ This is the first implementation written in golang.
 
 ## Table of contents
 
-* [Installation](#installation)
-    * [Requirements](#requirements)
-    * [Getting the source](#getting-the-source)
-    * [Dependency management](#dependency-management)
-    * [Building](#building)
-* [Running Thor](#running-thor)
-    * [Sub-commands](#sub-commands)
-* [Docker](#docker)
-* [Explorers](#explorers)
-* [Faucet](#testnet-faucet)
-* [RESTful API](#api)
-* [Acknowledgement](#acknowledgement)
-* [Contributing](#contributing)
+- [Installation](#installation)
+  - [Requirements](#requirements)
+  - [Getting the source](#getting-the-source)
+  - [Dependency management](#dependency-management)
+  - [Building](#building)
+- [Running Thor](#running-thor)
+  - [Sub-commands](#sub-commands)
+- [Docker](#docker)
+- [Explorers](#explorers)
+- [Faucet](#testnet-faucet)
+- [RESTful API](#api)
+- [Acknowledgement](#acknowledgement)
+- [Contributing](#contributing)
 
 ## Installation
 
 ### Requirements
 
-Thor requires `Go` 1.10+ and `C` compiler to build. To install `Go`, follow this [link](https://golang.org/doc/install). 
-
+Thor requires `Go` 1.10+ and `C` compiler to build. To install `Go`, follow this [link](https://golang.org/doc/install).
 
 ### Getting the source
 
@@ -41,28 +40,29 @@ git clone https://github.com/vechain/thor.git
 cd thor
 ```
 
-
 ### Dependency management
 
 Simply run:
+
 ```
 make dep
 ```
 
 To manually install dependencies, choices are
 
-- [dep](https://github.com/golang/dep), Golang's official dependency management tool 
+- [dep](https://github.com/golang/dep), Golang's official dependency management tool
 
-    ```
-    dep ensure -vendor-only
-    ```
-    (*Note that to make `dep` work, you should put the source code at `$GOPATH/src/github.com/vechain/thor`*)
+  ```
+  dep ensure -vendor-only
+  ```
+
+  (_Note that to make `dep` work, you should put the source code at `$GOPATH/src/github.com/vechain/thor`_)
 
 - git submodule
 
-    ```
-    git submodule update --init
-    ```
+  ```
+  git submodule update --init
+  ```
 
 ### Building
 
@@ -83,7 +83,8 @@ vendor/github.com/ethereum/go-ethereum/crypto/secp256k1/curve.go:43:44: fatal er
 compilation terminated.
 ```
 
-Then solution will be like this: 
+Then solution will be like this:
+
 ```
 go get github.com/ethereum/go-ethereum
 cp -r \
@@ -92,14 +93,13 @@ cp -r \
 
 ```
 
-
 or build the full suite:
 
 ```
 make all
 ```
 
-If no error reported, all built executable binaries will appear in folder *bin*.
+If no error reported, all built executable binaries will appear in folder _bin_.
 
 ## Running Thor
 
@@ -109,13 +109,11 @@ Connect to VeChain's mainnet:
 bin/thor --network main
 ```
 
-
 Connect to VeChain's testnet:
 
 ```
 bin/thor --network test
 ```
-
 
 To find out usages of all command line options:
 
@@ -123,24 +121,24 @@ To find out usages of all command line options:
 bin/thor -h
 ```
 
-- `--network value`        the network to join (main|test)
-- `--data-dir value`       directory for block-chain databases
-- `--beneficiary value`    address for block rewards
-- `--api-addr value`       API service listening address (default: "localhost:8669")
-- `--api-cors value`       comma separated list of domains from which to accept cross origin requests to API
-- `--verbosity value`      log verbosity (0-9) (default: 3)
-- `--max-peers value`      maximum number of P2P network peers (P2P network disabled if set to 0) (default: 25)
-- `--p2p-port value`       P2P network listening port (default: 11235)
-- `--nat value`            port mapping mechanism (any|none|upnp|pmp|extip:<IP>) (default: "none")
-- `--help, -h`             show help
-- `--version, -v`          print the version
-- `--force-last-kframe`    force the node to take nonce from last k-block, you don't need this when you start the node with genesis block
-- `--gen-kframe`           periodically generate k-block data
+- `--network value` the network to join (main|test)
+- `--data-dir value` directory for block-chain databases
+- `--beneficiary value` address for block rewards
+- `--api-addr value` API service listening address (default: "localhost:8669")
+- `--api-cors value` comma separated list of domains from which to accept cross origin requests to API
+- `--verbosity value` log verbosity (0-9) (default: 3)
+- `--max-peers value` maximum number of P2P network peers (P2P network disabled if set to 0) (default: 25)
+- `--p2p-port value` P2P network listening port (default: 11235)
+- `--nat value` port mapping mechanism (any|none|upnp|pmp|extip:<IP>) (default: "none")
+- `--help, -h` show help
+- `--version, -v` print the version
+- `--force-last-kframe` force the node to take nonce from last k-block, you don't need this when you start the node with genesis block
+- `--gen-kframe` periodically generate k-block data
 - `--skip-signature-check` skip the signature check (ONLY for debug)
 
 ### Sub-commands
 
-- `solo`                client runs in solo mode for test & dev
+- `solo` client runs in solo mode for test & dev
 
 ```
 bin/thor solo --on-demand               # create new block when there is pending transaction
@@ -148,7 +146,7 @@ bin/thor solo --persist                 # save blockchain data to disk(default t
 bin/thor solo --persist --on-demand     # two options can work together
 ```
 
-- `master-key`          import and export master key
+- `master-key` import and export master key
 
 ```
 # export master key to keystore
@@ -179,20 +177,20 @@ The [Dockerfile](Dockerfile) is designed to build the last release of the source
 Awesome explorers built by the community:
 
 - [VeScan](https://www.vescan.io/)
-- [VeForge](https://explore.veforge.com/) by *Totient Labs*
+- [VeForge](https://explore.veforge.com/) by _Totient Labs_
 - [TheVechain](https://thevechain.com/)
 
 ## Testnet faucet
 
-``` 
+```
 curl -X POST -d '{"to":"Your_Address"}' -H "Content-Type: application/json" https://faucet.outofgas.io/requests
 ```
 
 ## API
 
-Once `thor` started, online *OpenAPI* doc can be accessed in your browser. e.g. http://localhost:8669/ by default.
+Once `thor` started, online _OpenAPI_ doc can be accessed in your browser. e.g. http://localhost:8669/ by default.
 
-[![Thorest](thorest.png)](http://localhost:8669/)
+[![Meter](meter.png)](http://localhost:8669/)
 
 ## Acknowledgement
 
@@ -209,21 +207,23 @@ Thanks you so much for considering to help out with the source code! We welcome 
 Please fork, fix, commit and send a pull request for the maintainers to review and merge into the main code base.
 
 ### Forking Thor
+
 When you "Fork" the project, GitHub will make a copy of the project that is entirely yours; it lives in your namespace, and you can push to it.
 
 ### Getting ready for a pull request
+
 Please check the following:
 
 - Code must be adhere to the official Go Formatting guidelines.
 - Get the branch up to date, by merging in any recent changes from the master branch.
 
 ### Making the pull request
+
 - On the GitHub site, go to "Code". Then click the green "Compare and Review" button. Your branch is probably in the "Example Comparisons" list, so click on it. If not, select it for the "compare" branch.
 - Make sure you are comparing your new branch to master. It probably won't be, since the front page is the latest release branch, rather than master now. So click the base branch and change it to master.
 - Press Create Pull Request button.
 - Give a brief title.
 - Explain the major changes you are asking to be code reviewed. Often it is useful to open a second tab in your browser where you can look through the diff yourself to remind yourself of all the changes you have made.
-
 
 ## Deployment Steps
 
@@ -323,5 +323,4 @@ That's it. The next time, you won't need the `--peers` flag for `node2` any more
 
 VeChain Thor is licensed under the
 [GNU Lesser General Public License v3.0](https://www.gnu.org/licenses/lgpl-3.0.html), also included
-in *LICENSE* file in repository.
-
+in _LICENSE_ file in repository.
