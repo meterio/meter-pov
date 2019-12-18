@@ -819,7 +819,7 @@ func (p *Pacemaker) revertTo(revertHeight uint64) {
 		if p.blockLeaf.Height >= pivot.Height {
 			p.blockLeaf = pivot.Parent
 		}
-		if p.QCHigh.QCNode.Height >= pivot.Height {
+		if p.QCHigh != nil && p.QCHigh.QCNode != nil && p.QCHigh.QCNode.Height >= pivot.Height {
 			p.QCHigh = pivot.Justify
 		}
 	}
