@@ -2,6 +2,9 @@ package staking
 
 import (
 	"bytes"
+	"math/big"
+	"sort"
+
 	//"encoding/hex"
 	"fmt"
 	"time"
@@ -22,10 +25,17 @@ type Candidate struct {
 
 func convertCandidateList(list *staking.CandidateList) []*Candidate {
 	candidateList := make([]*Candidate, 0)
-
 	for _, c := range list.ToList() {
 		candidateList = append(candidateList, convertCandidate(c))
 	}
+	sort.SliceStable(candidateList, func(i, j int) bool {
+		voteI := new(big.Int)
+		voteJ := new(big.Int)
+		voteI.SetString(candidateList[i].TotalVotes, 10)
+		voteJ.SetString(candidateList[j].TotalVotes, 10)
+
+		return voteI.Cmp(voteJ) >= 0
+	})
 	return candidateList
 }
 
