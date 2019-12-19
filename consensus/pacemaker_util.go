@@ -120,7 +120,7 @@ func (p *Pacemaker) receivePacemakerMsg(w http.ResponseWriter, r *http.Request) 
 						p.logger.Info("relay to myself, ignore ...")
 						continue
 					}
-					peer.sendData(from, typeName, msgByteSlice)
+					go peer.sendData(from, typeName, msgByteSlice)
 				}
 			})
 
@@ -278,7 +278,7 @@ func (p *Pacemaker) SendConsensusMessage(round uint64, msg ConsensusMessage, cop
 				hint = "Sending pacemaker msg to myself"
 			}
 			p.logger.Info(hint, "type", typeName, "to", peer.netAddr.IP.String())
-			peer.sendData(myNetAddr, typeName, rawMsg)
+			go peer.sendData(myNetAddr, typeName, rawMsg)
 		}
 	})
 	return true
@@ -301,7 +301,7 @@ func (p *Pacemaker) SendMessageToPeers(msg ConsensusMessage, peers []*ConsensusP
 				hint = "Sending pacemaker msg to myself"
 			}
 			p.logger.Debug(hint, "type", typeName, "to", peer.netAddr.IP.String())
-			peer.sendData(myNetAddr, typeName, rawMsg)
+			go peer.sendData(myNetAddr, typeName, rawMsg)
 		}
 	})
 	return true
