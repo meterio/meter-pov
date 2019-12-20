@@ -404,7 +404,7 @@ func (m *PMVoteForProposalMessage) SigningHash() (hash meter.Bytes32) {
 func (m *PMVoteForProposalMessage) String() string {
 	return fmt.Sprintf("[PMVoteForProposalMessage Height:%v Round:%v Type:%v MsgHash:%v]",
 		m.CSMsgCommonHeader.Height, m.CSMsgCommonHeader.Round,
-		m.CSMsgCommonHeader.MsgType, hex.EncodeToString(m.SignedMessageHash...))
+		m.CSMsgCommonHeader.MsgType, hex.EncodeToString(m.SignedMessageHash[:]))
 }
 
 // PMNewViewMessage is sent to the next leader in these two senarios
