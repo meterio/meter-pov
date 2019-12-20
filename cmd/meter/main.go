@@ -258,9 +258,8 @@ func defaultAction(ctx *cli.Context) error {
 	defer func() { log.Info("stopping Pow API server..."); powSrvCloser() }()
 
 	stateCreator := state.NewCreator(mainDB)
-	cons := consensus.NewConsensusReactor(ctx, chain, stateCreator, master.PrivateKey, master.PublicKey)
-
 	sc := script.NewScriptEngine(chain, stateCreator)
+	cons := consensus.NewConsensusReactor(ctx, chain, stateCreator, master.PrivateKey, master.PublicKey)
 
 	observeURL, observeSrvCloser := startObserveServer(ctx)
 	defer func() { log.Info("closing Observe Server ..."); observeSrvCloser() }()
