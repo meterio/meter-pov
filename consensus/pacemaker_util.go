@@ -113,16 +113,16 @@ func (p *Pacemaker) receivePacemakerMsg(w http.ResponseWriter, r *http.Request) 
 		// now relay this message if proposal
 		if fromMyself == false && typeName == "PMProposalMessage" {
 			peers, _ := p.GetRelayPeers(round)
-			p.goes.Go(func() {
-				for _, peer := range peers {
-					p.logger.Info("now, relay this proposal...", "peer", peer.String(), "height", height, "round", round)
-					if peer.netAddr.IP.String() == p.csReactor.GetMyNetAddr().IP.String() {
-						p.logger.Info("relay to myself, ignore ...")
-						continue
-					}
-					go peer.sendData(from, typeName, msgByteSlice)
+			for _, peer := range peers {
+				p.logger.Info("now, relay this proposal...", "peer", peer.String(), "height", height, "round", round)
+				if peer.netAddr.IP.String() == p.csReactor.GetMyNetAddr().IP.String() {
+					p.logger.Info("relay to myself, ignore ...")
+					continue
 				}
-			})
+				go func(cpeer *ConsensusPeer, from types.NetAddress, msgType string, raw []byte) {
+					cpeer.sendData(from, typeName, raw)
+				}(peer, from, typeName, msgByteSlice)
+			}
 
 			lowest := p.msgRelayInfo.GetLowestHeight()
 			if (height > lowest) && (height-lowest) >= 3*MSG_KEEP_HEIGHT {
@@ -271,16 +271,16 @@ func (p *Pacemaker) SendConsensusMessage(round uint64, msg ConsensusMessage, cop
 	}
 
 	// broadcast consensus message to peers
-	p.goes.Go(func() {
-		for _, peer := range peers {
-			hint := "Sending pacemaker msg to peer"
-			if peer.netAddr.IP.String() == myNetAddr.IP.String() {
-				hint = "Sending pacemaker msg to myself"
-			}
-			p.logger.Info(hint, "type", typeName, "to", peer.netAddr.IP.String())
-			go peer.sendData(myNetAddr, typeName, rawMsg)
+	for _, peer := range peers {
+		hint := "Sending pacemaker msg to peer"
+		if peer.netAddr.IP.String() == myNetAddr.IP.String() {
+			hint = "Sending pacemaker msg to myself"
 		}
-	})
+		p.logger.Info(hint, "type", typeName, "to", peer.netAddr.IP.String())
+		go func(cpeer *ConsensusPeer, from types.NetAddress, msgType string, raw []byte) {
+			cpeer.sendData(from, msgType, raw)
+		}(peer, myNetAddr, typeName, rawMsg)
+	}
 	return true
 }
 
@@ -294,16 +294,16 @@ func (p *Pacemaker) SendMessageToPeers(msg ConsensusMessage, peers []*ConsensusP
 
 	myNetAddr := p.csReactor.curCommittee.Validators[p.csReactor.curCommitteeIndex].NetAddr
 	// broadcast consensus message to peers
-	p.goes.Go(func() {
-		for _, peer := range peers {
-			hint := "Sending pacemaker msg to peer"
-			if peer.netAddr.IP.String() == myNetAddr.IP.String() {
-				hint = "Sending pacemaker msg to myself"
-			}
-			p.logger.Debug(hint, "type", typeName, "to", peer.netAddr.IP.String())
-			go peer.sendData(myNetAddr, typeName, rawMsg)
+	for _, peer := range peers {
+		hint := "Sending pacemaker msg to peer"
+		if peer.netAddr.IP.String() == myNetAddr.IP.String() {
+			hint = "Sending pacemaker msg to myself"
 		}
-	})
+		p.logger.Debug(hint, "type", typeName, "to", peer.netAddr.IP.String())
+		go func(cpeer *ConsensusPeer, from types.NetAddress, msgType string, raw []byte) {
+			cpeer.sendData(from, msgType, raw)
+		}(peer, myNetAddr, typeName, rawMsg)
+	}
 	return true
 }
 
