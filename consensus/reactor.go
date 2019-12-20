@@ -1053,24 +1053,24 @@ func (conR *ConsensusReactor) GetMyActualCommitteeIndex() int {
 }
 
 type ApiCommitteeMember struct {
-        Address     meter.Address
-        PubKey      string
-        VotingPower int64
-        NetAddr     string
-        CsPubKey    string
-        CsIndex     int
+	Address     meter.Address
+	PubKey      string
+	VotingPower int64
+	NetAddr     string
+	CsPubKey    string
+	CsIndex     int
 }
 
 func (conR *ConsensusReactor) GetLatestCommitteeList() ([]*ApiCommitteeMember, error) {
 	var committeeMembers []*ApiCommitteeMember
 	for _, cm := range conR.curActualCommittee {
 		apiCm := &ApiCommitteeMember{
-			Address:      cm.Address,
-			PubKey:	      b64.StdEncoding.EncodeToString(crypto.FromECDSAPub(&cm.PubKey)),
-			VotingPower:  cm.VotingPower,
-			NetAddr:      cm.NetAddr.String(),
-			CsPubKey:     hex.EncodeToString(conR.csCommon.system.PubKeyToBytes(cm.CSPubKey)),
-			CsIndex:      cm.CSIndex,
+			Address:     cm.Address,
+			PubKey:      b64.StdEncoding.EncodeToString(crypto.FromECDSAPub(&cm.PubKey)),
+			VotingPower: cm.VotingPower,
+			NetAddr:     cm.NetAddr.String(),
+			CsPubKey:    hex.EncodeToString(conR.csCommon.system.PubKeyToBytes(cm.CSPubKey)),
+			CsIndex:     cm.CSIndex,
 		}
 		committeeMembers = append(committeeMembers, apiCm)
 	}
@@ -1381,7 +1381,7 @@ func HandleScheduleLeader(conR *ConsensusReactor, epochID, height uint64) bool {
 		com.TriggerSync()
 		conR.logger.Warn("Peer sync triggered")
 
-		conR.ScheduleLeader(epochID, height, WHOLE_NETWORK_BLOCK_SYNC_TIME)
+		conR.ScheduleLeader(epochID, height, 1*time.Second)
 		return false
 	}
 

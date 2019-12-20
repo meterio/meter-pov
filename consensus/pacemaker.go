@@ -172,6 +172,8 @@ func (p *Pacemaker) Update(bnew *pmBlock) error {
 	}
 	block = blockPrime.Justify.QCNode
 	if block == nil {
+		//bnew Justify is already higher than current QCHigh
+		p.UpdateQCHigh(bnew.Justify)
 		p.logger.Warn("block is empty, early termination of Update")
 		return nil
 	}
@@ -636,6 +638,9 @@ func (p *Pacemaker) Start(newCommittee bool) {
 	p.blockExecuted = &bInit
 	p.blockLeaf = &bInit
 	p.proposalMap[height] = &bInit
+	if qcInit.QCNode == nil {
+		qcInit.QCNode = &bInit
+	}
 	p.QCHigh = &qcInit
 
 	// channels are always up before the start, drain them first

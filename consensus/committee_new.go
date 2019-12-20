@@ -99,12 +99,11 @@ func (conR *ConsensusReactor) NewCommitteeCleanup() {
 }
 
 func (conR *ConsensusReactor) NewCommitteeTimerStart() {
-	if conR.newCommittee.TimeoutTimer == nil {
-		timeoutInterval := NEW_COMMITTEE_INIT_INTV * (2 << conR.newCommittee.Round)
-		conR.newCommittee.TimeoutTimer = time.AfterFunc(timeoutInterval, func() {
-			conR.schedulerQueue <- func() { conR.NewCommitteeTimeout() }
-		})
-	}
+	conR.NewCommitteeTimerStop()
+	timeoutInterval := NEW_COMMITTEE_INIT_INTV * (2 << conR.newCommittee.Round)
+	conR.newCommittee.TimeoutTimer = time.AfterFunc(timeoutInterval, func() {
+		conR.schedulerQueue <- func() { conR.NewCommitteeTimeout() }
+	})
 }
 
 func (conR *ConsensusReactor) NewCommitteeTimerStop() {
