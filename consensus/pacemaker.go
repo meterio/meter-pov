@@ -357,6 +357,9 @@ func (p *Pacemaker) OnReceiveProposal(proposalMsg *PMProposalMessage, from types
 		// new proposal received, reset the timer
 		p.stopRoundTimer()
 		p.startRoundTimer(bnew.Height, bnew.Round, 0)
+		p.logger.Info("--------------------------------------------------")
+		p.logger.Info(fmt.Sprintf("                      Round: %d               ", bnew.Round))
+		p.logger.Info("--------------------------------------------------")
 
 		if bnew.Round > p.currentRound {
 			p.currentRound = bnew.Round

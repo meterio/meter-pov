@@ -361,10 +361,10 @@ func (m *PMProposalMessage) SigningHash() (hash meter.Bytes32) {
 
 // String returns a string representation.
 func (m *PMProposalMessage) String() string {
-	return fmt.Sprintf("[PMProposalBlockMessage Height:%v, Round:%v, ParentHeight: %v, ParentRound: %v, Type:%v, Sender:%v, TimeoutCert:%v]",
+	return fmt.Sprintf("[PMProposalBlockMessage Height:%v, Round:%v, ParentHeight: %v, ParentRound: %v, Type:%v, TimeoutCert:%v]",
 		m.CSMsgCommonHeader.Height, m.CSMsgCommonHeader.Round,
 		m.ParentHeight, m.ParentRound,
-		m.CSMsgCommonHeader.MsgType, hex.EncodeToString(m.CSMsgCommonHeader.Sender), m.TimeoutCert.String())
+		m.CSMsgCommonHeader.MsgType, m.TimeoutCert.String())
 }
 
 // PMVoteResponseMessage is sent when voting for a proposal (or lack thereof).
