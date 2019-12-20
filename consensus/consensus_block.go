@@ -300,7 +300,7 @@ func (c *ConsensusReactor) validateEvidence(ev *block.Evidence, blk *block.Block
 }
 
 func (c *ConsensusReactor) validateProposer(header *block.Header, parent *block.Header, st *state.State) error {
-	signer, err := header.Signer()
+	_, err := header.Signer()
 	if err != nil {
 		return consensusError(fmt.Sprintf("block signer unavailable: %v", err))
 	}
