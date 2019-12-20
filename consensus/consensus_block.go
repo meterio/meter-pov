@@ -304,7 +304,7 @@ func (c *ConsensusReactor) validateProposer(header *block.Header, parent *block.
 	if err != nil {
 		return consensusError(fmt.Sprintf("block signer unavailable: %v", err))
 	}
-	fmt.Println("signer", signer)
+	// fmt.Println("signer", signer)
 
 	return nil
 }

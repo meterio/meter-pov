@@ -209,7 +209,7 @@ func (p *Pacemaker) Update(bnew *pmBlock) error {
 
 // TBD: how to emboy b.cmd
 func (p *Pacemaker) Execute(b *pmBlock) error {
-	p.csReactor.logger.Info("Exec cmd:", "height", b.Height, "round", b.Round)
+	// p.csReactor.logger.Info("Exec cmd:", "height", b.Height, "round", b.Round)
 
 	return nil
 }
@@ -261,7 +261,7 @@ func (p *Pacemaker) OnPreCommitBlock(b *pmBlock) error {
 	if ok := p.csReactor.PreCommitBlock(b.ProposedBlockInfo); ok != true {
 		return errors.New("precommit failed")
 	}
-	p.csReactor.logger.Info("PreCommitted block", "height", b.Height, "round", b.Round)
+	// p.csReactor.logger.Info("PreCommitted block", "height", b.Height, "round", b.Round)
 	return nil
 }
 
@@ -276,7 +276,7 @@ func (p *Pacemaker) OnReceiveProposal(proposalMsg *PMProposalMessage, from types
 		return errors.New("can not decode proposed block")
 	}
 	qc := blk.QC
-	p.logger.Info("Received Proposal ", "height", msgHeader.Height, "round", msgHeader.Round,
+	p.logger.Info("Received Proposal ", "type", msgHeader.MsgSubType, "height", msgHeader.Height, "round", msgHeader.Round,
 		"parentHeight", proposalMsg.ParentHeight, "parentRound", proposalMsg.ParentRound,
 		"qcHeight", qc.QCHeight, "qcRound", qc.QCRound)
 

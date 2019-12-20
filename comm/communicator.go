@@ -283,8 +283,7 @@ func (c *Communicator) BroadcastBlock(blk *block.Block) {
 		"id", h.ID(),
 		"parentID", h.ParentID(),
 		"Height", h.Number(),
-		"lastKblockHeight", h.LastKBlockHeight(),
-		"timestamp", h.Timestamp())
+		"lastKblockHeight", h.LastKBlockHeight())
 
 	var sendQC bool = false
 	bestQC := c.chain.BestQC()

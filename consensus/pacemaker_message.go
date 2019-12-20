@@ -304,7 +304,7 @@ func (p *Pacemaker) BlockMatchQC(b *pmBlock, qc *block.QuorumCert) (bool, error)
 
 	txsRoot = blk.Header().TxsRoot()
 	stateRoot = blk.Header().StateRoot()
-	fmt.Println(fmt.Sprintf("proposed block type: %d, height: %d, txsRoot: %s, stateRoot: %s, actual BlockType: %d", b.ProposedBlockType, b.Height, txsRoot.String(), stateRoot.String(), blk.Header().BlockType()))
+	// fmt.Println(fmt.Sprintf("proposed block type: %d, height: %d, txsRoot: %s, stateRoot: %s, actual BlockType: %d", b.ProposedBlockType, b.Height, txsRoot.String(), stateRoot.String(), blk.Header().BlockType()))
 	signMsg := p.csReactor.BuildProposalBlockSignMsg(blkType, uint64(b.Height), &txsRoot, &stateRoot)
 	//p.logger.Info("in BlockMatchQC", "signMsg", signMsg)
 	msgHash = p.csReactor.csCommon.Hash256Msg([]byte(signMsg), uint32(MSG_SIGN_OFFSET_DEFAULT), uint32(MSG_SIGN_LENGTH_DEFAULT))
