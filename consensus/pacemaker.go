@@ -405,10 +405,10 @@ func (p *Pacemaker) OnReceiveVote(voteMsg *PMVoteForProposalMessage) error {
 	if MajorityTwoThird(voteCount, p.csReactor.committeeSize) == false {
 		// if voteCount < p.csReactor.committeeSize {
 		// not reach 2/3
-		p.csReactor.logger.Info("not reach majority", "count", voteCount, "committeeSize", p.csReactor.committeeSize)
+		p.csReactor.logger.Info("not reach majority", "committeeSize", p.csReactor.committeeSize, "count", voteCount)
 		return nil
 	} else {
-		p.csReactor.logger.Info("reach majority", "count", voteCount, "committeeSize", p.csReactor.committeeSize)
+		p.csReactor.logger.Info("reach majority", "committeeSize", p.csReactor.committeeSize, "count", voteCount)
 	}
 
 	//reach 2/3 majority, trigger the pipeline cmd
@@ -512,7 +512,7 @@ func (p *Pacemaker) OnNextSyncView(nextHeight, nextRound uint64, reason NewViewR
 	}
 
 	p.SendConsensusMessage(nextRound, msg, false)
-	p.logger.Info("Sent out pacemaker msg", "height", nextHeight, "round", nextRound, "qcHeight", p.QCHigh.QC.QCHeight, "qcRound", p.QCHigh.QC.QCRound, "tc", ti)
+	p.logger.Info("Sent out PMNewView msg", "height", nextHeight, "round", nextRound, "qcHeight", p.QCHigh.QC.QCHeight, "qcRound", p.QCHigh.QC.QCRound, "tc", ti)
 
 	return nil
 }
