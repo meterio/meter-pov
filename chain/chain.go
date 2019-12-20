@@ -127,7 +127,7 @@ func New(kv kv.GetPutter, genesisBlock *block.Block) (*Chain, error) {
 			return nil, err
 		}
 		if bestBlock.Header().Number() == 0 && bestBlock.QC == nil {
-			fmt.Println("QC of best block is empty, set it to genesis QC")
+			log.Info("QC of best block is empty, set it to genesis QC")
 			bestBlock.QC = block.GenesisQC()
 		}
 
@@ -348,7 +348,7 @@ func (c *Chain) AddBlock(newBlock *block.Block, receipts tx.Receipts, finalize b
 			}
 			c.bestBlock = newBlock
 			bestHeightGauge.Set(float64(c.bestBlock.Header().Number()))
-			fmt.Println("Set Best Block to ", newBlock.Header().ID())
+			log.Info("Update Best Block to ", "blockID", newBlock.Header().ID())
 			if newBlock.Header().TotalScore() > c.leafBlock.Header().TotalScore() {
 				if err := saveLeafBlockID(batch, newBlockID); err != nil {
 					return nil, err
@@ -539,7 +539,7 @@ func (c *Chain) NewSeeker(headBlockID meter.Bytes32) *Seeker {
 
 func (c *Chain) isTrunk(header *block.Header) bool {
 	bestHeader := c.bestBlock.Header()
-	fmt.Println(fmt.Sprintf("IsTrunk: header: %s, bestHeader: %s", header.ID().String(), bestHeader.ID().String()))
+	// fmt.Println(fmt.Sprintf("IsTrunk: header: %s, bestHeader: %s", header.ID().String(), bestHeader.ID().String()))
 
 	if header.TotalScore() < bestHeader.TotalScore() {
 		return false
@@ -830,12 +830,25 @@ func (c *Chain) UpdateBestQC() error {
 }
 
 func (c *Chain) SetBestQCCandidate(qc *block.QuorumCert) error {
+	if qc == nil {
+		return nil
+	}
 	if qc.QCHeight < uint64(c.bestBlock.Header().Number()) {
+		// if qc is lower than best block, ignore
 		log.Debug(fmt.Sprintf("qc height (%d) is lower than best block height (%d), ignored", qc.QCHeight, c.bestBlock.Header().Number()))
 		return nil
 	}
+	if c.bestQCCandidate != nil && qc.QCHeight < c.bestQCCandidate.QCHeight {
+		// if qc is lower than best qc candidate, ignore
+		log.Debug(fmt.Sprintf("qc height (%d) is lower than best qc candidate height (%d), ignored", qc.QCHeight, c.bestQCCandidate.QCHeight))
+		return nil
+	}
+	if c.bestQCCandidate != nil && qc.QCHeight == c.bestQCCandidate.QCHeight && qc.QCRound == c.bestQCCandidate.QCRound && qc.EpochID == c.bestQCCandidate.EpochID {
+		// if qc is the same as candidate, ignore
+		return nil
+	}
 	c.bestQCCandidate = qc
-	fmt.Println("QC Candidate updated to ", c.bestQCCandidate.CompactString())
+	log.Info("QC Candidate updated", "qc", c.bestQCCandidate.CompactString())
 	return nil
 }
 

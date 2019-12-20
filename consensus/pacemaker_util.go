@@ -92,7 +92,6 @@ func (p *Pacemaker) receivePacemakerMsg(w http.ResponseWriter, r *http.Request) 
 			proposal := msg.(*PMProposalMessage)
 			height = uint64(proposal.CSMsgCommonHeader.Height)
 			round = proposal.CSMsgCommonHeader.Round
-			p.logger.Info("received PMProposal", "height", height, "round", round)
 
 			in, err := p.msgRelayInfo.CheckandAdd(&msgByteSlice, height, round)
 			if err != nil {
@@ -162,7 +161,6 @@ func (p *Pacemaker) ValidateProposal(b *pmBlock) error {
 		p.logger.Error("Decode block failed", "err", err)
 		return err
 	}
-	p.logger.Info("Validate proposal", "type", b.ProposedBlockType, "block", blk.Oneliner())
 
 	// special valiadte StopCommitteeType
 	// possible 2 rounds of stop messagB
@@ -215,7 +213,7 @@ func (p *Pacemaker) ValidateProposal(b *pmBlock) error {
 
 	b.SuccessProcessed = true
 
-	p.logger.Info("Validated block")
+	p.logger.Info("Validated proposal", "type", b.ProposedBlockType, "block", blk.Oneliner())
 	return nil
 }
 

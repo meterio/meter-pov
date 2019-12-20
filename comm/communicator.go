@@ -290,12 +290,12 @@ func (c *Communicator) BroadcastBlock(blk *block.Block) {
 	bestQC := c.chain.BestQC()
 	bestQCCandidate := c.chain.GetBestQCCandidate()
 	if bestQC.QCHeight == uint64(h.Number()) {
-		log.Info("bestQC sent together with block")
+		// log.Info("bestQC sent together with block")
 		sendQC = true
 	} else if bestQCCandidate != nil && bestQCCandidate.QCHeight == uint64(h.Number()) {
 		bestQC = bestQCCandidate
 		sendQC = true
-		log.Info("bestQCCandidate sent together with block")
+		// log.Info("bestQCCandidate sent together with block")
 	}
 
 	peers := c.peerSet.Slice().Filter(func(p *Peer) bool {
@@ -311,7 +311,7 @@ func (c *Communicator) BroadcastBlock(blk *block.Block) {
 		peer.MarkBlock(blk.Header().ID())
 		c.goes.Go(func() {
 			if sendQC == true {
-				log.Info("together with block", "bestQC", bestQC.String())
+				log.Info("Broadcast BestQC to peer", "bestQC", bestQC.String())
 				if err := proto.NotifyNewBestQC(c.ctx, peer, bestQC); err != nil {
 					peer.logger.Debug("failed to broadcast new bestQC", "err", err)
 				}
@@ -327,7 +327,7 @@ func (c *Communicator) BroadcastBlock(blk *block.Block) {
 		peer.MarkBlock(blk.Header().ID())
 		c.goes.Go(func() {
 			if sendQC == true {
-				log.Info("together with block", "bestQC", bestQC.String())
+				log.Info("Broadcast BestQC to peer", "bestQC", bestQC.String())
 				if err := proto.NotifyNewBestQC(c.ctx, peer, bestQC); err != nil {
 					peer.logger.Debug("failed to broadcast new bestQC", "err", err)
 				}
