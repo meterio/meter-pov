@@ -63,6 +63,7 @@ func (conR *ConsensusReactor) NewCommitteeTimeout() error {
 			conR.newCommittee.Nonce, conR.newCommittee.Round)
 		conR.NewCommitteeTimerStart()
 		conR.logger.Warn("Committee Timeout, sent newcommittee msg", "peer", leader.String(), "round", conR.newCommittee.Round)
+		conR.csValidator.state = COMMITTEE_VALIDATOR_INIT
 	} else {
 		conR.logger.Warn("Committee Timeout, not in newcommtteesent newcommittee:")
 	}

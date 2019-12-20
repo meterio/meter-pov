@@ -33,7 +33,7 @@ func (v *ValidatorSet) String() string {
 	for _, val := range v.Validators {
 		s = append(s, val.String())
 	}
-	return fmt.Sprintf("Validators: %s", strings.Join(s, ", "))
+	return fmt.Sprintf("Validators: \n  %s", strings.Join(s, "\n  "))
 }
 
 func NewValidatorSet(valz []*Validator) *ValidatorSet {
