@@ -49,3 +49,12 @@ func (p *PendingList) CleanUpTo(height uint64) error {
 	p.lowest = height
 	return nil
 }
+
+// cleanup every committee change
+func (p *PendingList) CleanUp() error {
+	for key, _ := range p.messages {
+		delete(p.messages, key)
+	}
+	p.lowest = 0
+	return nil
+}

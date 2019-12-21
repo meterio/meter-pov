@@ -656,6 +656,7 @@ func (p *Pacemaker) Start(newCommittee bool) {
 	for len(p.stopCh) > 0 {
 		<-p.stopCh
 	}
+	p.pendingList.CleanUp()
 
 	go p.mainLoop()
 
