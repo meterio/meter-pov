@@ -209,14 +209,14 @@ func (p *Pacemaker) Update(bnew *pmBlock) error {
 
 // TBD: how to emboy b.cmd
 func (p *Pacemaker) Execute(b *pmBlock) error {
-	p.csReactor.logger.Info("Exec cmd:", "height", b.Height, "round", b.Round)
+	// p.csReactor.logger.Info("Exec cmd:", "height", b.Height, "round", b.Round)
 
 	return nil
 }
 
 func (p *Pacemaker) OnCommit(commitReady []*pmBlock) error {
 	for _, b := range commitReady {
-		p.csReactor.logger.Info("Commit block", "height", b.Height, "round", b.Round)
+		p.csReactor.logger.Info("OnCommit", "height", b.Height, "round", b.Round)
 
 		// TBD: how to handle this case???
 		if b.SuccessProcessed == false {
@@ -253,7 +253,6 @@ func (p *Pacemaker) OnCommit(commitReady []*pmBlock) error {
 }
 
 func (p *Pacemaker) OnPreCommitBlock(b *pmBlock) error {
-	p.csReactor.logger.Info("PreCommit block", "height", b.Height, "round", b.Round)
 	// TBD: how to handle this case???
 	if b.SuccessProcessed == false {
 		p.csReactor.logger.Error("Process this propsoal failed, possible my states are wrong", "height", b.Height, "round", b.Round)
@@ -262,6 +261,7 @@ func (p *Pacemaker) OnPreCommitBlock(b *pmBlock) error {
 	if ok := p.csReactor.PreCommitBlock(b.ProposedBlockInfo); ok != true {
 		return errors.New("precommit failed")
 	}
+	// p.csReactor.logger.Info("PreCommitted block", "height", b.Height, "round", b.Round)
 	return nil
 }
 
@@ -276,7 +276,7 @@ func (p *Pacemaker) OnReceiveProposal(proposalMsg *PMProposalMessage, from types
 		return errors.New("can not decode proposed block")
 	}
 	qc := blk.QC
-	p.logger.Info("Received Proposal ", "height", msgHeader.Height, "round", msgHeader.Round,
+	p.logger.Info("Received Proposal ", "type", msgHeader.MsgSubType, "height", msgHeader.Height, "round", msgHeader.Round,
 		"parentHeight", proposalMsg.ParentHeight, "parentRound", proposalMsg.ParentRound,
 		"qcHeight", qc.QCHeight, "qcRound", qc.QCRound)
 
@@ -307,7 +307,6 @@ func (p *Pacemaker) OnReceiveProposal(proposalMsg *PMProposalMessage, from types
 	} else {
 		// we have qcNode, need to check qcNode and blk.QC is referenced the same
 		if match, _ := p.BlockMatchQC(qcNode, qc); match == true {
-			p.logger.Info("addresses QC node")
 		} else {
 			// possible fork !!! TODO: handle?
 			p.logger.Error("qcNode doesn not match qc from proposal, potential fork happens...", "qcHeight", qc.QCHeight, "qcRound", qc.QCRound)
@@ -358,6 +357,9 @@ func (p *Pacemaker) OnReceiveProposal(proposalMsg *PMProposalMessage, from types
 		// new proposal received, reset the timer
 		p.stopRoundTimer()
 		p.startRoundTimer(bnew.Height, bnew.Round, 0)
+		p.logger.Info("--------------------------------------------------")
+		p.logger.Info(fmt.Sprintf("                      Round: %d               ", bnew.Round))
+		p.logger.Info("--------------------------------------------------")
 
 		if bnew.Round > p.currentRound {
 			p.currentRound = bnew.Round
@@ -407,10 +409,10 @@ func (p *Pacemaker) OnReceiveVote(voteMsg *PMVoteForProposalMessage) error {
 	if MajorityTwoThird(voteCount, p.csReactor.committeeSize) == false {
 		// if voteCount < p.csReactor.committeeSize {
 		// not reach 2/3
-		p.csReactor.logger.Info("not reach majority", "count", voteCount, "committeeSize", p.csReactor.committeeSize)
+		p.csReactor.logger.Info("not reach majority", "committeeSize", p.csReactor.committeeSize, "count", voteCount)
 		return nil
 	} else {
-		p.csReactor.logger.Info("reach majority", "count", voteCount, "committeeSize", p.csReactor.committeeSize)
+		p.csReactor.logger.Info("reach majority", "committeeSize", p.csReactor.committeeSize, "count", voteCount)
 	}
 
 	//reach 2/3 majority, trigger the pipeline cmd
@@ -514,7 +516,7 @@ func (p *Pacemaker) OnNextSyncView(nextHeight, nextRound uint64, reason NewViewR
 	}
 
 	p.SendConsensusMessage(nextRound, msg, false)
-	p.logger.Info("Sent out pacemaker msg", "height", nextHeight, "round", nextRound, "qcHeight", p.QCHigh.QC.QCHeight, "qcRound", p.QCHigh.QC.QCRound, "tc", ti)
+	p.logger.Info("Sent out PMNewView msg", "height", nextHeight, "round", nextRound, "qcHeight", p.QCHigh.QC.QCHeight, "qcRound", p.QCHigh.QC.QCRound, "tc", ti)
 
 	return nil
 }

@@ -233,8 +233,8 @@ func (b *Block) Oneliner() string {
 	if hasCommittee {
 		ci = "YES"
 	}
-	return fmt.Sprintf("Block(%v) %v - #Txs:%v, CI:%v, QC:%v, Parent:%v, StateRoot:%v",
-		header.Number(), header.ID().String(), len(b.Transactions()), ci, b.QC.CompactString(), header.ParentID(), header.StateRoot())
+	return fmt.Sprintf("Block(%v) %v - #Txs:%v, CI:%v, QC:%v, Parent:%v ",
+		header.Number(), header.ID().String(), len(b.Transactions()), ci, b.QC.CompactString(), header.ParentID())
 }
 
 //-----------------

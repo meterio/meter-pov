@@ -123,7 +123,7 @@ func getRelayPeers(myIndex, maxIndex int) (peers []int) {
 	var groupSize, groupCount int
 	groupSize = ((maxIndex - 8) / 32) + 1
 	groupCount = (maxIndex - 8) / groupSize
-	fmt.Println("groupSize", groupSize, "groupCount", groupCount)
+	// fmt.Println("groupSize", groupSize, "groupCount", groupCount)
 
 	if myIndex <= 8 {
 		mySet := (myIndex - 1) / 2

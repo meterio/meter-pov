@@ -92,7 +92,6 @@ func (p *Pacemaker) receivePacemakerMsg(w http.ResponseWriter, r *http.Request) 
 			proposal := msg.(*PMProposalMessage)
 			height = uint64(proposal.CSMsgCommonHeader.Height)
 			round = proposal.CSMsgCommonHeader.Round
-			p.logger.Info("received PMProposal", "height", height, "round", round)
 
 			in, err := p.msgRelayInfo.CheckandAdd(&msgByteSlice, height, round)
 			if err != nil {
@@ -113,16 +112,16 @@ func (p *Pacemaker) receivePacemakerMsg(w http.ResponseWriter, r *http.Request) 
 		// now relay this message if proposal
 		if fromMyself == false && typeName == "PMProposalMessage" {
 			peers, _ := p.GetRelayPeers(round)
-			p.goes.Go(func() {
-				for _, peer := range peers {
-					p.logger.Info("now, relay this proposal...", "peer", peer.String(), "height", height, "round", round)
-					if peer.netAddr.IP.String() == p.csReactor.GetMyNetAddr().IP.String() {
-						p.logger.Info("relay to myself, ignore ...")
-						continue
-					}
-					go peer.sendData(from, typeName, msgByteSlice)
+			for _, peer := range peers {
+				p.logger.Info("now, relay this proposal...", "peer", peer.String(), "height", height, "round", round)
+				if peer.netAddr.IP.String() == p.csReactor.GetMyNetAddr().IP.String() {
+					p.logger.Info("relay to myself, ignore ...")
+					continue
 				}
-			})
+				go func(cpeer *ConsensusPeer, from types.NetAddress, msgType string, raw []byte) {
+					cpeer.sendData(from, typeName, raw)
+				}(peer, from, typeName, msgByteSlice)
+			}
 
 			lowest := p.msgRelayInfo.GetLowestHeight()
 			if (height > lowest) && (height-lowest) >= 3*MSG_KEEP_HEIGHT {
@@ -162,7 +161,6 @@ func (p *Pacemaker) ValidateProposal(b *pmBlock) error {
 		p.logger.Error("Decode block failed", "err", err)
 		return err
 	}
-	p.logger.Info("Validate proposal", "type", b.ProposedBlockType, "block", blk.Oneliner())
 
 	// special valiadte StopCommitteeType
 	// possible 2 rounds of stop messagB
@@ -215,7 +213,7 @@ func (p *Pacemaker) ValidateProposal(b *pmBlock) error {
 
 	b.SuccessProcessed = true
 
-	p.logger.Info("Validated block")
+	p.logger.Info("Validated proposal", "type", b.ProposedBlockType, "block", blk.Oneliner())
 	return nil
 }
 
@@ -271,16 +269,16 @@ func (p *Pacemaker) SendConsensusMessage(round uint64, msg ConsensusMessage, cop
 	}
 
 	// broadcast consensus message to peers
-	p.goes.Go(func() {
-		for _, peer := range peers {
-			hint := "Sending pacemaker msg to peer"
-			if peer.netAddr.IP.String() == myNetAddr.IP.String() {
-				hint = "Sending pacemaker msg to myself"
-			}
-			p.logger.Info(hint, "type", typeName, "to", peer.netAddr.IP.String())
-			go peer.sendData(myNetAddr, typeName, rawMsg)
+	for _, peer := range peers {
+		hint := "Sending pacemaker msg to peer"
+		if peer.netAddr.IP.String() == myNetAddr.IP.String() {
+			hint = "Sending pacemaker msg to myself"
 		}
-	})
+		p.logger.Info(hint, "type", typeName, "to", peer.netAddr.IP.String())
+		go func(cpeer *ConsensusPeer, from types.NetAddress, msgType string, raw []byte) {
+			cpeer.sendData(from, msgType, raw)
+		}(peer, myNetAddr, typeName, rawMsg)
+	}
 	return true
 }
 
@@ -294,16 +292,16 @@ func (p *Pacemaker) SendMessageToPeers(msg ConsensusMessage, peers []*ConsensusP
 
 	myNetAddr := p.csReactor.curCommittee.Validators[p.csReactor.curCommitteeIndex].NetAddr
 	// broadcast consensus message to peers
-	p.goes.Go(func() {
-		for _, peer := range peers {
-			hint := "Sending pacemaker msg to peer"
-			if peer.netAddr.IP.String() == myNetAddr.IP.String() {
-				hint = "Sending pacemaker msg to myself"
-			}
-			p.logger.Debug(hint, "type", typeName, "to", peer.netAddr.IP.String())
-			go peer.sendData(myNetAddr, typeName, rawMsg)
+	for _, peer := range peers {
+		hint := "Sending pacemaker msg to peer"
+		if peer.netAddr.IP.String() == myNetAddr.IP.String() {
+			hint = "Sending pacemaker msg to myself"
 		}
-	})
+		p.logger.Debug(hint, "type", typeName, "to", peer.netAddr.IP.String())
+		go func(cpeer *ConsensusPeer, from types.NetAddress, msgType string, raw []byte) {
+			cpeer.sendData(from, msgType, raw)
+		}(peer, myNetAddr, typeName, rawMsg)
+	}
 	return true
 }
 
@@ -418,7 +416,7 @@ func (p *Pacemaker) pendingNewView(queryHeight, queryRound uint64, newViewMsg *P
 
 func (p *Pacemaker) checkPendingMessages(curHeight uint64) error {
 	height := curHeight
-	p.logger.Info("checkPendingMessage", "start height", height)
+	p.logger.Info("Check pending messages", "from", height)
 	for {
 		pendingMsg, ok := p.pendingList.messages[height]
 		if !ok {

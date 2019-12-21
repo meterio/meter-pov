@@ -3,6 +3,7 @@ package block
 import (
 	"fmt"
 	"io"
+	"strings"
 
 	cmn "github.com/dfinlab/meter/libs/common"
 	"github.com/ethereum/go-ethereum/rlp"
@@ -22,8 +23,9 @@ type QuorumCert struct {
 
 func (qc *QuorumCert) String() string {
 	if qc != nil {
-		return fmt.Sprintf("QuorumCert(Height:%v, Round:%v, EpochID:%v, VoterBitArray:%v, len(VoterMsgHash):%v, len(VoterAggSig):%v)",
-			qc.QCHeight, qc.QCRound, qc.EpochID, qc.VoterBitArrayStr, len(qc.VoterMsgHash), len(qc.VoterAggSig))
+		bitArray := strings.ReplaceAll(qc.VoterBitArrayStr, "\"", "")
+		return fmt.Sprintf("QuorumCert(Height:%v, Round:%v, EpochID:%v, BitArray:%v, MsgHash:len(%v), AggSig:len(%v))",
+			qc.QCHeight, qc.QCRound, qc.EpochID, bitArray, len(qc.VoterMsgHash), len(qc.VoterAggSig))
 	}
 	return "EMPTY QC"
 }

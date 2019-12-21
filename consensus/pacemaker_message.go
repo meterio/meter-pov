@@ -150,9 +150,9 @@ func (p *Pacemaker) BuildVoteForProposalMessage(proposalMsg *PMProposalMessage, 
 	length := proposalMsg.SignLength
 
 	signMsg := p.csReactor.BuildProposalBlockSignMsg(uint32(proposalMsg.ProposedBlockType), uint64(ch.Height), &txsRoot, &stateRoot)
-	p.logger.Info("BuildVoteForProposalMessage", "signMsg", signMsg)
 	sign := p.csReactor.csCommon.SignMessage([]byte(signMsg), uint32(offset), uint32(length))
 	msgHash := p.csReactor.csCommon.Hash256Msg([]byte(signMsg), uint32(offset), uint32(length))
+	p.logger.Debug("Built PMVoteForProposalMessage", "signMsg", signMsg)
 
 	cmnHdr := ConsensusMsgCommonHeader{
 		Height:    ch.Height,
@@ -304,6 +304,7 @@ func (p *Pacemaker) BlockMatchQC(b *pmBlock, qc *block.QuorumCert) (bool, error)
 
 	txsRoot = blk.Header().TxsRoot()
 	stateRoot = blk.Header().StateRoot()
+
 	signMsg := p.csReactor.BuildProposalBlockSignMsg(blkType, uint64(b.Height), &txsRoot, &stateRoot)
 	p.logger.Info("BlockMatchQC", "signMsg", signMsg)
 	msgHash = p.csReactor.csCommon.Hash256Msg([]byte(signMsg), uint32(MSG_SIGN_OFFSET_DEFAULT), uint32(MSG_SIGN_LENGTH_DEFAULT))

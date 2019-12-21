@@ -1,7 +1,6 @@
 package consensus
 
 import (
-	"fmt"
 	"sync"
 
 	bls "github.com/dfinlab/meter/crypto/multi_sig"
@@ -66,7 +65,6 @@ func (tm *PMTimeoutCertManager) collectSignature(newViewMsg *PMNewViewMessage) e
 			if !ok {
 				vals = make([]*timeoutVal, 0)
 			}
-			fmt.Println("APPEND: ", len(tm.cache[id]))
 			tm.cache[id] = append(vals, &timeoutVal{
 				// TODO: set counter
 				Counter:   newViewMsg.TimeoutCounter,
@@ -75,7 +73,6 @@ func (tm *PMTimeoutCertManager) collectSignature(newViewMsg *PMNewViewMessage) e
 				MsgHash:   newViewMsg.SignedMessageHash,
 				Signature: sig,
 			})
-			fmt.Println("AFTER APPEND", len(tm.cache[id]))
 		}
 	}
 	return nil

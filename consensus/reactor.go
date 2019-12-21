@@ -590,13 +590,15 @@ func (conR *ConsensusReactor) NewValidatorSetByNonce(nonce uint64) (uint, bool) 
 		conR.csMode = CONSENSUS_MODE_COMMITTEE
 		conR.curCommitteeIndex = index
 		conR.myAddr = conR.curCommittee.Validators[index].NetAddr
-		conR.logger.Info("New curCommittee", "inCommittee", committee, "index", index, "role", role)
+		conR.logger.Info("New committee calculated", "index", index, "role", role)
+		fmt.Println(committee)
 	} else {
 		conR.csMode = CONSENSUS_MODE_DELEGATE
 		conR.curCommitteeIndex = 0
 		// FIXME: find a better way
 		conR.myAddr = types.NetAddress{IP: net.IP{}, Port: 8670}
-		conR.logger.Info("New curCommittee", "inCommittee", committee)
+		conR.logger.Info("New committee calculated")
+		fmt.Println(committee)
 	}
 
 	return role, inCommittee

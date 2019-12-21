@@ -41,7 +41,9 @@ func (v *Validator) String() string {
 		return "nil-Validator"
 	}
 	pubkey := base64.StdEncoding.EncodeToString(crypto.FromECDSAPub(&v.PubKey))
-	return fmt.Sprintf("V(pk:%v vp:%v)",
+	pubkey = pubkey[:4] + "..." + pubkey[len(pubkey)-4:]
+	return fmt.Sprintf("Validator(ip: %v, pubkey: %v, vp: %d)",
+		v.NetAddr.IP.String(),
 		pubkey,
 		v.VotingPower,
 	)
