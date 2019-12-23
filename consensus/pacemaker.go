@@ -565,18 +565,17 @@ func (p *Pacemaker) OnReceiveNewView(newViewMsg *PMNewViewMessage, from types.Ne
 			// Schedule OnBeat due to timeout
 			p.logger.Info("Received a newview with timeoutCert, scheduleOnBeat now", "height", header.Height, "round", header.Round)
 			p.ScheduleOnBeat(p.QCHigh.QC.QCHeight+1, uint64(header.Round), RoundInterval)
-			return nil
 		}
-	}
-
-	changed := p.UpdateQCHigh(pmQC)
-	if changed {
-		if qc.QCHeight > p.blockLocked.Height {
-			// Schedule OnBeat due to New QC
-			p.logger.Info("Received a newview with higher QC, scheduleOnBeat now", "qcHeight", qc.QCHeight, "qcRound", qc.QCRound, "onBeatHeight", qc.QCHeight+1, "onBeatRound", qc.QCRound+1)
-			p.ScheduleOnBeat(p.QCHigh.QC.QCHeight+1, qc.QCRound+1, RoundInterval)
+	} else if newViewMsg.Reason != RoundTimeout {
+		// consider qc only when it's not round timeout
+		changed := p.UpdateQCHigh(pmQC)
+		if changed {
+			if qc.QCHeight > p.blockLocked.Height {
+				// Schedule OnBeat due to New QC
+				p.logger.Info("Received a newview with higher QC, scheduleOnBeat now", "qcHeight", qc.QCHeight, "qcRound", qc.QCRound, "onBeatHeight", qc.QCHeight+1, "onBeatRound", qc.QCRound+1)
+				p.ScheduleOnBeat(p.QCHigh.QC.QCHeight+1, qc.QCRound+1, RoundInterval)
+			}
 		}
-		return nil
 	}
 
 	return nil
