@@ -7,6 +7,7 @@ package main
 
 import (
 	b64 "encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -244,7 +245,10 @@ func defaultAction(ctx *cli.Context) error {
 	powPool := powpool.New(defaultPowPoolOptions)
 	defer func() { log.Info("closing pow pool..."); powPool.Close() }()
 
-	p2pcom := newP2PComm(ctx, chain, txPool, instanceDir, powPool, MAGIC)
+	topic := ctx.String("disco-topic")
+	copy(magic[:], []byte(topic)[:4])
+	fmt.Println("** MAGIC HEX = ", hex.EncodeToString(magic[:]))
+	p2pcom := newP2PComm(ctx, chain, txPool, instanceDir, powPool, magic)
 	apiHandler, apiCloser := api.New(chain, state.NewCreator(mainDB), txPool, logDB, p2pcom.comm, ctx.String(apiCorsFlag.Name), uint32(ctx.Int(apiBacktraceLimitFlag.Name)), uint64(ctx.Int(apiCallGasLimitFlag.Name)), p2pcom.p2pSrv)
 	defer func() { log.Info("closing API..."); apiCloser() }()
 
@@ -259,7 +263,7 @@ func defaultAction(ctx *cli.Context) error {
 
 	stateCreator := state.NewCreator(mainDB)
 	sc := script.NewScriptEngine(chain, stateCreator)
-	cons := consensus.NewConsensusReactor(ctx, chain, stateCreator, master.PrivateKey, master.PublicKey, MAGIC)
+	cons := consensus.NewConsensusReactor(ctx, chain, stateCreator, master.PrivateKey, master.PublicKey, magic)
 
 	observeURL, observeSrvCloser := startObserveServer(ctx)
 	defer func() { log.Info("closing Observe Server ..."); observeSrvCloser() }()

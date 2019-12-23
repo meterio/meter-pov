@@ -147,5 +147,6 @@ var (
 	discoTopicFlag = cli.StringFlag{
 		Name:  "disco-topic",
 		Usage: "set the custom discover topics",
+		Value: "default-topic",
 	}
 )
