@@ -49,6 +49,8 @@ type Communicator struct {
 	powPool     *powpool.PowPool
 	configTopic string
 	syncTrigCh  chan bool
+
+	magic [4]byte
 }
 
 func SetGlobCommInst(c *Communicator) error {
@@ -61,7 +63,7 @@ func GetGlobCommInst() *Communicator {
 }
 
 // New create a new Communicator instance.
-func New(chain *chain.Chain, txPool *txpool.TxPool, powPool *powpool.PowPool, configTopic string) *Communicator {
+func New(chain *chain.Chain, txPool *txpool.TxPool, powPool *powpool.PowPool, configTopic string, magic [4]byte) *Communicator {
 	ctx, cancel := context.WithCancel(context.Background())
 	c := &Communicator{
 		chain:          chain,
@@ -74,6 +76,7 @@ func New(chain *chain.Chain, txPool *txpool.TxPool, powPool *powpool.PowPool, co
 		announcementCh: make(chan *announcement),
 		configTopic:    configTopic,
 		syncTrigCh:     make(chan bool),
+		magic:          magic,
 	}
 
 	SetGlobCommInst(c)
@@ -210,7 +213,7 @@ type txsToSync struct {
 }
 
 func (c *Communicator) servePeer(p *p2p.Peer, rw p2p.MsgReadWriter) error {
-	peer := newPeer(p, rw)
+	peer := newPeer(p, rw, c.magic)
 	c.goes.Go(func() {
 		c.runPeer(peer)
 	})

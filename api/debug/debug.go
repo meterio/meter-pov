@@ -14,25 +14,29 @@ import (
 
 	"github.com/ethereum/go-ethereum/crypto"
 
+	"github.com/dfinlab/meter/api/utils"
+	"github.com/dfinlab/meter/chain"
+	"github.com/dfinlab/meter/consensus"
+	"github.com/dfinlab/meter/meter"
+	"github.com/dfinlab/meter/runtime"
+	"github.com/dfinlab/meter/state"
+	"github.com/dfinlab/meter/tracers"
+	"github.com/dfinlab/meter/trie"
+	"github.com/dfinlab/meter/vm"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/gorilla/mux"
 	"github.com/pkg/errors"
-	"github.com/dfinlab/meter/api/utils"
-	"github.com/dfinlab/meter/chain"
-	"github.com/dfinlab/meter/consensus"
-	"github.com/dfinlab/meter/runtime"
-	"github.com/dfinlab/meter/state"
-	"github.com/dfinlab/meter/meter"
-	"github.com/dfinlab/meter/tracers"
-	"github.com/dfinlab/meter/trie"
-	"github.com/dfinlab/meter/vm"
 )
 
 type Debug struct {
 	chain  *chain.Chain
 	stateC *state.Creator
 }
+
+var (
+	Magic = [4]byte{0x00, 0x00, 0x00, 0x00}
+)
 
 func New(chain *chain.Chain, stateC *state.Creator) *Debug {
 	return &Debug{
@@ -64,7 +68,7 @@ func (d *Debug) handleTxEnv(ctx context.Context, blockID meter.Bytes32, txIndex 
 		return nil, nil, utils.Forbidden(errors.New("can not generate private/public key"))
 	}
 
-	rt, err := consensus.NewConsensusReactor(nil, d.chain, d.stateC, privKey, &privKey.PublicKey).NewRuntimeForReplay(block.Header())
+	rt, err := consensus.NewConsensusReactor(nil, d.chain, d.stateC, privKey, &privKey.PublicKey, Magic).NewRuntimeForReplay(block.Header())
 	if err != nil {
 		return nil, nil, err
 	}

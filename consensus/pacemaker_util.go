@@ -8,6 +8,7 @@ import (
 	"net"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	crypto "github.com/ethereum/go-ethereum/crypto"
@@ -84,7 +85,14 @@ func (p *Pacemaker) receivePacemakerMsg(w http.ResponseWriter, r *http.Request) 
 			p.logger.Info("Received pacemaker msg from peer", "msg", msg.String(), "from", peerIP.String())
 			fromMyself = false
 		}
-
+		if _, ok := params["magic"]; !ok {
+			p.logger.Warn("ignore message due to missing magic", "expect", hex.EncodeToString(p.csReactor.magic[:]))
+			return
+		}
+		if strings.Compare(params["magic"], hex.EncodeToString(p.csReactor.magic[:])) != 0 {
+			p.logger.Warn("ignored message due to magic mismatch", "expect", hex.EncodeToString(p.csReactor.magic[:]), "actual", params["magic"])
+			return
+		}
 		// check replay first, also include the proposal myself
 		var height uint64
 		var round int
@@ -149,7 +157,7 @@ func (p *Pacemaker) GetRelayPeers(round int) ([]*ConsensusPeer, error) {
 			index = index % size
 		}
 		member := p.csReactor.curActualCommittee[index]
-		peers = append(peers, newConsensusPeer(member.NetAddr.IP, member.NetAddr.Port))
+		peers = append(peers, newConsensusPeer(member.NetAddr.IP, member.NetAddr.Port, p.csReactor.magic))
 	}
 	return peers, nil
 }
@@ -224,12 +232,12 @@ func (p *Pacemaker) isMine(key []byte) bool {
 
 func (p *Pacemaker) getProposerByRound(round int) *ConsensusPeer {
 	proposer := p.csReactor.getRoundProposer(round)
-	return newConsensusPeer(proposer.NetAddr.IP, 8080)
+	return newConsensusPeer(proposer.NetAddr.IP, 8080, p.csReactor.magic)
 }
 
 func (p *Pacemaker) getConsensusPeerByPubkey(pubKey []byte) *ConsensusPeer {
 	if cm := p.csReactor.GetCommitteeMember(pubKey); cm != nil {
-		return newConsensusPeer(cm.NetAddr.IP, cm.NetAddr.Port)
+		return newConsensusPeer(cm.NetAddr.IP, cm.NetAddr.Port, p.csReactor.magic)
 	} else {
 		return nil
 	}
@@ -247,7 +255,7 @@ func (p *Pacemaker) SendConsensusMessage(round uint64, msg ConsensusMessage, cop
 	}
 
 	myNetAddr := p.csReactor.curCommittee.Validators[p.csReactor.curCommitteeIndex].NetAddr
-	myself := newConsensusPeer(myNetAddr.IP, myNetAddr.Port)
+	myself := newConsensusPeer(myNetAddr.IP, myNetAddr.Port, p.csReactor.magic)
 
 	var peers []*ConsensusPeer
 	switch msg.(type) {
@@ -382,7 +390,7 @@ func (p *Pacemaker) sendQueryProposalMsg(queryHeight, queryRound, EpochID uint64
 			}
 		}
 	}
-	peers := []*ConsensusPeer{newConsensusPeer(addr.IP, addr.Port)}
+	peers := []*ConsensusPeer{newConsensusPeer(addr.IP, addr.Port, p.csReactor.magic)}
 
 	queryMsg, err := p.BuildQueryProposalMessage(queryHeight, queryRound, EpochID, myNetAddr)
 	if err != nil {

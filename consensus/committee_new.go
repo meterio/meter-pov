@@ -57,7 +57,7 @@ func (conR *ConsensusReactor) NewCommitteeTimeout() error {
 	if conR.newCommittee.InCommittee {
 		nl := conR.newCommittee.Committee.Validators[conR.newCommittee.Round]
 
-		leader := newConsensusPeer(nl.NetAddr.IP, nl.NetAddr.Port)
+		leader := newConsensusPeer(nl.NetAddr.IP, nl.NetAddr.Port, conR.magic)
 		leaderPubKey := nl.PubKey
 		conR.sendNewCommitteeMessage(leader, leaderPubKey, conR.newCommittee.KblockHeight,
 			conR.newCommittee.Nonce, conR.newCommittee.Round)

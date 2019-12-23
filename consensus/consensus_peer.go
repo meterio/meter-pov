@@ -17,25 +17,29 @@ import (
 type ConsensusPeer struct {
 	netAddr types.NetAddress
 	logger  log15.Logger
+	magic   [4]byte
 }
 
-func newConsensusPeer(ip net.IP, port uint16) *ConsensusPeer {
+func newConsensusPeer(ip net.IP, port uint16, magic [4]byte) *ConsensusPeer {
 	return &ConsensusPeer{
 		netAddr: types.NetAddress{
 			IP:   ip,
 			Port: port,
 		},
 		logger: log15.New("pkg", "peer-"+ip.String()),
+		magic:  magic,
 	}
 }
 
 // TODO: remove srcNetAddr from input parameter
 func (peer *ConsensusPeer) sendData(srcNetAddr types.NetAddress, typeName string, rawMsg []byte) error {
+	magicHex := hex.EncodeToString(peer.magic[:])
 	payload := map[string]interface{}{
 		"message": hex.EncodeToString(rawMsg),
 		"peer_ip": srcNetAddr.IP.String(),
 		//"peer_id":   string(myNetAddr.ID),
 		"peer_port": string(srcNetAddr.Port),
+		"magic":     magicHex,
 	}
 
 	jsonStr, err := json.Marshal(payload)

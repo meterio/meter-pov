@@ -6,7 +6,9 @@
 package rpc
 
 import (
+	"bytes"
 	"context"
+	"encoding/hex"
 	"math/rand"
 	"sync"
 	"time"
@@ -43,10 +45,11 @@ type RPC struct {
 	pendings map[uint32]*resultListener
 	lock     sync.Mutex
 	logger   log15.Logger
+	magic    [4]byte
 }
 
 // New create a new RPC instance.
-func New(peer *p2p.Peer, rw p2p.MsgReadWriter) *RPC {
+func New(peer *p2p.Peer, rw p2p.MsgReadWriter, magic [4]byte) *RPC {
 	dir := "outbound"
 	if peer.Inbound() {
 		dir = "inbound"
@@ -61,6 +64,7 @@ func New(peer *p2p.Peer, rw p2p.MsgReadWriter) *RPC {
 		doneCh:   make(chan struct{}),
 		pendings: make(map[uint32]*resultListener),
 		logger:   log.New(ctx...),
+		magic:    magic,
 	}
 }
 
@@ -95,6 +99,7 @@ func (r *RPC) Serve(handleFunc HandleFunc, maxMsgSize uint32) error {
 		var (
 			callID   uint32
 			isResult bool
+			magic    [4]byte
 		)
 		if err := stream.Decode(&callID); err != nil {
 			r.logger.Debug("failed to decode msg call id", "err", err)
@@ -103,6 +108,13 @@ func (r *RPC) Serve(handleFunc HandleFunc, maxMsgSize uint32) error {
 		if err := stream.Decode(&isResult); err != nil {
 			r.logger.Debug("failed to decode msg dir flag", "err", err)
 			return err
+		}
+		if err := stream.Decode(&magic); err != nil {
+			r.logger.Debug("failed to decode msg magic flag", "err", err)
+			return err
+		}
+		if bytes.Compare(magic[:], r.magic[:]) != 0 {
+			r.logger.Warn("ignore message due to magic mismatch", "expected", hex.EncodeToString(r.magic[:]), "actual", hex.EncodeToString(magic[:]))
 		}
 
 		if isResult {
@@ -113,7 +125,7 @@ func (r *RPC) Serve(handleFunc HandleFunc, maxMsgSize uint32) error {
 		} else {
 			if err := handleFunc(&msg, func(result interface{}) {
 				if callID != 0 {
-					p2p.Send(r.rw, msg.Code, &msgData{callID, true, result})
+					p2p.Send(r.rw, msg.Code, &msgData{callID, true, r.magic, result})
 				}
 				// here we skip result for Notify (callID == 0)
 			}); err != nil {
@@ -180,7 +192,7 @@ func (r *RPC) finalizeCall(id uint32) {
 
 // Notify notifies a message to the peer.
 func (r *RPC) Notify(ctx context.Context, msgCode uint64, arg interface{}) error {
-	return p2p.Send(r.rw, msgCode, &msgData{0, false, arg})
+	return p2p.Send(r.rw, msgCode, &msgData{0, false, r.magic, arg})
 }
 
 // Call send a call to the peer and wait for result.
@@ -200,7 +212,7 @@ func (r *RPC) Call(ctx context.Context, msgCode uint64, arg interface{}, result 
 	})
 	defer r.finalizeCall(id)
 
-	if err := p2p.Send(r.rw, msgCode, &msgData{id, false, arg}); err != nil {
+	if err := p2p.Send(r.rw, msgCode, &msgData{id, false, r.magic, arg}); err != nil {
 		return err
 	}
 

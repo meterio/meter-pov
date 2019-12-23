@@ -244,7 +244,7 @@ func defaultAction(ctx *cli.Context) error {
 	powPool := powpool.New(defaultPowPoolOptions)
 	defer func() { log.Info("closing pow pool..."); powPool.Close() }()
 
-	p2pcom := newP2PComm(ctx, chain, txPool, instanceDir, powPool)
+	p2pcom := newP2PComm(ctx, chain, txPool, instanceDir, powPool, MAGIC)
 	apiHandler, apiCloser := api.New(chain, state.NewCreator(mainDB), txPool, logDB, p2pcom.comm, ctx.String(apiCorsFlag.Name), uint32(ctx.Int(apiBacktraceLimitFlag.Name)), uint64(ctx.Int(apiCallGasLimitFlag.Name)), p2pcom.p2pSrv)
 	defer func() { log.Info("closing API..."); apiCloser() }()
 
@@ -259,7 +259,7 @@ func defaultAction(ctx *cli.Context) error {
 
 	stateCreator := state.NewCreator(mainDB)
 	sc := script.NewScriptEngine(chain, stateCreator)
-	cons := consensus.NewConsensusReactor(ctx, chain, stateCreator, master.PrivateKey, master.PublicKey)
+	cons := consensus.NewConsensusReactor(ctx, chain, stateCreator, master.PrivateKey, master.PublicKey, MAGIC)
 
 	observeURL, observeSrvCloser := startObserveServer(ctx)
 	defer func() { log.Info("closing Observe Server ..."); observeSrvCloser() }()

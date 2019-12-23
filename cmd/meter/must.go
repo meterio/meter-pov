@@ -40,6 +40,10 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
+var (
+	MAGIC = [4]byte{0x20, 0x08, 0x10, 0x31}
+)
+
 func initLogger(ctx *cli.Context) {
 	logLevel := ctx.Int(verbosityFlag.Name)
 	log15.Root().SetHandler(log15.LvlFilterHandler(log15.Lvl(logLevel), log15.StderrHandler))
@@ -217,7 +221,7 @@ type p2pComm struct {
 	peersCachePath string
 }
 
-func newP2PComm(ctx *cli.Context, chain *chain.Chain, txPool *txpool.TxPool, instanceDir string, powPool *powpool.PowPool) *p2pComm {
+func newP2PComm(ctx *cli.Context, chain *chain.Chain, txPool *txpool.TxPool, instanceDir string, powPool *powpool.PowPool, magic [4]byte) *p2pComm {
 	key, err := loadOrGeneratePrivateKey(filepath.Join(ctx.String("data-dir"), "p2p.key"))
 	if err != nil {
 		fatal("load or generate P2P key:", err)
@@ -277,7 +281,7 @@ func newP2PComm(ctx *cli.Context, chain *chain.Chain, txPool *txpool.TxPool, ins
 	opts.KnownNodes = append(opts.KnownNodes, validNodes...)
 
 	return &p2pComm{
-		comm:           comm.New(chain, txPool, powPool, topic),
+		comm:           comm.New(chain, txPool, powPool, topic, magic),
 		p2pSrv:         p2psrv.New(opts),
 		peersCachePath: peersCachePath,
 	}

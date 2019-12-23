@@ -10,6 +10,7 @@ import "github.com/ethereum/go-ethereum/p2p"
 type msgData struct {
 	ID       uint32
 	IsResult bool
+	Magic    [4]byte
 	Payload  interface{}
 }
 

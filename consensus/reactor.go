@@ -174,6 +174,8 @@ type ConsensusReactor struct {
 
 	dataDir string
 	myAddr  types.NetAddress
+
+	magic [4]byte
 }
 
 // Glob Instance
@@ -187,12 +189,13 @@ func SetConsensusGlobInst(inst *ConsensusReactor) {
 
 // NewConsensusReactor returns a new ConsensusReactor with the given
 // consensusState.
-func NewConsensusReactor(ctx *cli.Context, chain *chain.Chain, state *state.Creator, privKey *ecdsa.PrivateKey, pubKey *ecdsa.PublicKey) *ConsensusReactor {
+func NewConsensusReactor(ctx *cli.Context, chain *chain.Chain, state *state.Creator, privKey *ecdsa.PrivateKey, pubKey *ecdsa.PublicKey, magic [4]byte) *ConsensusReactor {
 	conR := &ConsensusReactor{
 		chain:        chain,
 		stateCreator: state,
 		logger:       log15.New("pkg", "consensus"),
 		SyncDone:     false,
+		magic:        magic,
 	}
 
 	if ctx != nil {
@@ -834,23 +837,26 @@ func (conR *ConsensusReactor) receivePeerMsg(w http.ResponseWriter, r *http.Requ
 		respondWithJson(w, http.StatusBadRequest, "Invalid request payload")
 		return
 	}
+	if _, ok := params["magic"]; !ok {
+		conR.logger.Warn("ignore message due to missing magic", "expect", hex.EncodeToString(conR.magic[:]))
+		return
+	}
+	if strings.Compare(params["magic"], hex.EncodeToString(conR.magic[:])) != 0 {
+		conR.logger.Warn("ignored message due to magic mismatch", "expect", hex.EncodeToString(conR.magic[:]), "actual", params["magic"])
+		return
+	}
 	peerIP := net.ParseIP(params["peer_ip"])
-	//peerID := p2p.ID(params["peer_id"])
 	peerPort, convErr := strconv.ParseUint(params["port"], base, size)
 	if convErr != nil {
 		fmt.Errorf("Failed to convert to uint.")
 	}
 	peerPortUint16 := uint16(peerPort)
-	peerAddr := types.NetAddress{
-		//ID:   peerID,
-		IP:   peerIP,
-		Port: peerPortUint16,
-	}
-	p := ConsensusPeer{netAddr: peerAddr}
+	p := newConsensusPeer(peerIP, peerPortUint16, conR.magic)
+	// p := ConsensusPeer{netAddr: peerAddr}
 	msgByteSlice, _ := hex.DecodeString(params["message"])
 	mi := consensusMsgInfo{
 		Msg:    msgByteSlice,
-		csPeer: &p,
+		csPeer: p,
 	}
 	conR.peerMsgQueue <- mi
 	respondWithJson(w, http.StatusOK, map[string]string{"result": "success"})
@@ -1038,7 +1044,7 @@ func (conR *ConsensusReactor) GetMyPeers() ([]*ConsensusPeer, error) {
 	myNetAddr := conR.GetMyNetAddr()
 	for _, member := range conR.curActualCommittee {
 		if member.NetAddr.IP.String() != myNetAddr.IP.String() {
-			peers = append(peers, newConsensusPeer(member.NetAddr.IP, member.NetAddr.Port))
+			peers = append(peers, newConsensusPeer(member.NetAddr.IP, member.NetAddr.Port, conR.magic))
 		}
 	}
 	return peers, nil
@@ -1106,11 +1112,13 @@ func (conR *ConsensusReactor) sendConsensusMsg(msg *ConsensusMessage, csPeer *Co
 		}
 		**************/
 		// myNetAddr := conR.curCommittee.Validators[conR.curCommitteeIndex].NetAddr
+		magicHex := hex.EncodeToString(conR.magic[:])
 		payload := map[string]interface{}{
 			"message": hex.EncodeToString(rawMsg),
 			"peer_ip": conR.myAddr.IP.String(),
 			//"peer_id":   string(myNetAddr.ID),
 			"peer_port": string(conR.myAddr.Port),
+			"magic":     magicHex,
 		}
 
 		jsonStr, err := json.Marshal(payload)
@@ -1503,7 +1511,7 @@ func (conR *ConsensusReactor) ConsensusHandleReceivedNonce(kBlockHeight int64, n
 		conR.NewCommitteeInit(uint64(kBlockHeight), nonce, replay)
 		newCommittee := conR.newCommittee
 		nl := newCommittee.Committee.Validators[newCommittee.Round]
-		leader := newConsensusPeer(nl.NetAddr.IP, nl.NetAddr.Port)
+		leader := newConsensusPeer(nl.NetAddr.IP, nl.NetAddr.Port, conR.magic)
 		leaderPubKey := nl.PubKey
 		conR.sendNewCommitteeMessage(leader, leaderPubKey, newCommittee.KblockHeight,
 			newCommittee.Nonce, newCommittee.Round)

@@ -899,7 +899,7 @@ func (p *Pacemaker) OnReceiveQueryProposal(queryMsg *PMQueryProposalMessage) err
 	}
 
 	//send
-	peers := []*ConsensusPeer{newConsensusPeer(returnAddr.IP, returnAddr.Port)}
+	peers := []*ConsensusPeer{newConsensusPeer(returnAddr.IP, returnAddr.Port, p.csReactor.magic)}
 	p.SendMessageToPeers(result.ProposalMessage, peers)
 	return nil
 }

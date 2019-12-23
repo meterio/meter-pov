@@ -11,13 +11,13 @@ import (
 	"sync"
 	"time"
 
+	"github.com/dfinlab/meter/meter"
+	"github.com/dfinlab/meter/p2psrv/rpc"
 	"github.com/ethereum/go-ethereum/common/mclock"
 	"github.com/ethereum/go-ethereum/p2p"
 	"github.com/ethereum/go-ethereum/p2p/discover"
 	lru "github.com/hashicorp/golang-lru"
 	"github.com/inconshreveable/log15"
-	"github.com/dfinlab/meter/p2psrv/rpc"
-	"github.com/dfinlab/meter/meter"
 )
 
 const (
@@ -47,7 +47,7 @@ type Peer struct {
 	}
 }
 
-func newPeer(peer *p2p.Peer, rw p2p.MsgReadWriter) *Peer {
+func newPeer(peer *p2p.Peer, rw p2p.MsgReadWriter, magic [4]byte) *Peer {
 	dir := "outbound"
 	if peer.Inbound() {
 		dir = "inbound"
@@ -61,7 +61,7 @@ func newPeer(peer *p2p.Peer, rw p2p.MsgReadWriter) *Peer {
 	knownPowBlocks, _ := lru.New(maxKnownPowBlocks)
 	return &Peer{
 		Peer:           peer,
-		RPC:            rpc.New(peer, rw),
+		RPC:            rpc.New(peer, rw, magic),
 		logger:         log.New(ctx...),
 		createdTime:    mclock.Now(),
 		knownTxs:       knownTxs,
