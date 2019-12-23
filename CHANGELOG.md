@@ -1,5 +1,14 @@
 # Versions
 
+## 1.3.0
+
+_BREAKING CHANGE_
+
+Added:
+
+1. automatically set `magic` with `--disco-topic` flag
+2. enforce `magic` with all rpc/consensus/pacemaker traffic, ignore all the messages with different `magic` param
+
 ## 1.2.1
 
 Added:
