@@ -6,6 +6,7 @@
 package main
 
 import (
+	"encoding/hex"
 	"fmt"
 	"io/ioutil"
 	"math/rand"
@@ -383,6 +384,7 @@ func startPowAPIServer(ctx *cli.Context, handler http.Handler) (string, func()) 
 }
 
 func printStartupMessage(
+	topic string,
 	gene *genesis.Genesis,
 	chain *chain.Chain,
 	master *node.Master,
@@ -394,6 +396,8 @@ func printStartupMessage(
 	bestBlock := chain.BestBlock()
 
 	fmt.Printf(`Starting %v
+    Discover Topic  [ %v ]
+    Magic           [ %v ]
     Network         [ %v %v ]    
     Best block      [ %v #%v @%v ]
     Forks           [ %v ]
@@ -405,6 +409,8 @@ func printStartupMessage(
     Observe service [ %v ]
 `,
 		common.MakeName("Meter", fullVersion()),
+		topic,
+		hex.EncodeToString(magic[:]),
 		gene.ID(), gene.Name(),
 		bestBlock.Header().ID(), bestBlock.Header().Number(), time.Unix(int64(bestBlock.Header().Timestamp()), 0),
 		meter.GetForkConfig(gene.ID()),

@@ -8,10 +8,10 @@ info:
   license:
     name: LGPL 3.0
     url: "https://www.gnu.org/licenses/lgpl-3.0.en.html"
-  version: 1.1.0
+  version: 1.3.1-beta1
 
 servers:
-  - url: '/'
+  - url: "/"
     description: local meter node
 
 tags:
@@ -450,7 +450,7 @@ paths:
         - Node
       summary: Retrieve current committee members
       reponses:
-        '200':
+        "200":
           description: OK
           content:
             application/json:
@@ -464,7 +464,7 @@ paths:
         - Staking
       summary: Retrieve staking buckets
       reponses:
-        '200':
+        "200":
           description: OK
           content:
             application/json:
@@ -478,7 +478,7 @@ paths:
         - Staking
       summary: Retrieve staking candidates
       reponses:
-        '200':
+        "200":
           description: OK
           content:
             application/json:
@@ -492,7 +492,7 @@ paths:
         - Staking
       summary: Retrieve staking stakeholder
       reponses:
-        '200':
+        "200":
           description: OK
           content:
             application/json:
@@ -506,7 +506,7 @@ paths:
         - Staking
       summary: Retrieve staking delegates for consensus
       reponses:
-        '200':
+        "200":
           description: OK
           content:
             application/json:
@@ -1282,7 +1282,7 @@ components:
       properties:
         name:
           type: string
-          example: 'meter/v1.0.0-6680b98-dev/linux/go1.10.3'
+          example: "meter/v1.0.0-6680b98-dev/linux/go1.10.3"
         bestBlockID:
           type: string
           example: "0x000087b3a4d4cdf1cc52d56b9704f4c18f020e1b48dbbf4a23d1ee4f1fa5ff94"

@@ -1,5 +1,12 @@
 # Versions
 
+## 1.3.1-beta1
+
+Added:
+
+1. ignore expired NewView messages if its round is less than pacemaker current round
+2. ignore expired VoteForProposal messages if its round is less than pacemaker current round
+
 ## 1.3.0
 
 _BREAKING CHANGE_
