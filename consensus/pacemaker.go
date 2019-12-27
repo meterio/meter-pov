@@ -561,10 +561,6 @@ func (p *Pacemaker) OnNextSyncView(nextHeight, nextRound uint64, reason NewViewR
 
 func (p *Pacemaker) OnReceiveNewView(newViewMsg *PMNewViewMessage, from types.NetAddress) error {
 	header := newViewMsg.CSMsgCommonHeader
-	if uint64(header.Round) <= p.currentRound {
-		p.logger.Info("expired newview message, dropped ... ", "currentRound", p.currentRound, "newViewNxtRound", header.Round)
-		return nil
-	}
 
 	qc := block.QuorumCert{}
 	err := rlp.DecodeBytes(newViewMsg.QCHigh, &qc)
@@ -592,7 +588,11 @@ func (p *Pacemaker) OnReceiveNewView(newViewMsg *PMNewViewMessage, from types.Ne
 
 	switch newViewMsg.Reason {
 	case RoundTimeout:
-		if p.csReactor.amIRoundProproser(uint64(newViewMsg.CSMsgCommonHeader.Round)) {
+		if p.csReactor.amIRoundProproser(uint64(header.Round)) {
+			if uint64(header.Round) < p.currentRound {
+				p.logger.Info("expired newview message, dropped ... ", "currentRound", p.currentRound, "newViewNxtRound", header.Round)
+				return nil
+			}
 
 			p.timeoutCertManager.collectSignature(newViewMsg)
 			timeoutCount := p.timeoutCertManager.count(newViewMsg.TimeoutHeight, newViewMsg.TimeoutRound)
@@ -610,6 +610,10 @@ func (p *Pacemaker) OnReceiveNewView(newViewMsg *PMNewViewMessage, from types.Ne
 			}
 		}
 	case HigherQCSeen:
+		if uint64(header.Round) <= p.currentRound {
+			p.logger.Info("expired newview message, dropped ... ", "currentRound", p.currentRound, "newViewNxtRound", header.Round)
+			return nil
+		}
 		// consider qc only when it's not round timeout
 		changed := p.UpdateQCHigh(pmQC)
 		if changed {
