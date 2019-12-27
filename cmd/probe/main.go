@@ -6,7 +6,6 @@
 package main
 
 import (
-	"encoding/hex"
 	"fmt"
 	"os"
 	"time"
@@ -114,10 +113,6 @@ func defaultAction(ctx *cli.Context) error {
 
 	chain := initChain(gene, mainDB)
 	fmt.Println(chain.GetTrunkBlock(277868))
-
-	topic := ctx.String("disco-topic")
-	copy(magic[:], []byte(topic)[:4])
-	fmt.Println("** MAGIC HEX = ", hex.EncodeToString(magic[:]))
 
 	return nil
 }
