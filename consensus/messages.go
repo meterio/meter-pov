@@ -127,9 +127,8 @@ func (m *AnnounceCommitteeMessage) SigningHash() (hash meter.Bytes32) {
 
 // String returns a string representation.
 func (m *AnnounceCommitteeMessage) String() string {
-	return fmt.Sprintf("[AnnounceCommittee H:%v R:%v S:%v Type:%v]",
-		m.CSMsgCommonHeader.Height, m.CSMsgCommonHeader.Round,
-		m.CSMsgCommonHeader.Sender, m.CSMsgCommonHeader.MsgType)
+	return fmt.Sprintf("[AnnounceCommittee Height:%v Round:%v Type:%v]",
+		m.CSMsgCommonHeader.Height, m.CSMsgCommonHeader.Round, m.CSMsgCommonHeader.MsgType)
 }
 
 // CommitCommitteMessage is sent after announce committee is received. Told the Leader
@@ -170,9 +169,8 @@ func (m *CommitCommitteeMessage) SigningHash() (hash meter.Bytes32) {
 
 // String returns a string representation.
 func (m *CommitCommitteeMessage) String() string {
-	return fmt.Sprintf("[CommitCommittee H:%v R:%v S:%v Type:%v]",
-		m.CSMsgCommonHeader.Height, m.CSMsgCommonHeader.Round,
-		m.CSMsgCommonHeader.Sender, m.CSMsgCommonHeader.MsgType)
+	return fmt.Sprintf("[CommitCommittee Height:%v Round:%v Type:%v]",
+		m.CSMsgCommonHeader.Height, m.CSMsgCommonHeader.Round, m.CSMsgCommonHeader.MsgType)
 }
 
 //-------------------------------------
@@ -219,9 +217,8 @@ func (m *NotaryAnnounceMessage) SigningHash() (hash meter.Bytes32) {
 
 // String returns a string representation.
 func (m *NotaryAnnounceMessage) String() string {
-	return fmt.Sprintf("[NotaryAnnounceMessage H:%v R:%v S:%v Type:%v]",
-		m.CSMsgCommonHeader.Height, m.CSMsgCommonHeader.Round,
-		m.CSMsgCommonHeader.Sender, m.CSMsgCommonHeader.MsgType)
+	return fmt.Sprintf("[NotaryAnnounceMessage Height:%v Round:%v Type:%v]",
+		m.CSMsgCommonHeader.Height, m.CSMsgCommonHeader.Round, m.CSMsgCommonHeader.MsgType)
 }
 
 //------------------------------------
@@ -258,9 +255,8 @@ func (m *VoteForNotaryMessage) SigningHash() (hash meter.Bytes32) {
 
 // String returns a string representation.
 func (m *VoteForNotaryMessage) String() string {
-	return fmt.Sprintf("[VoteForNotaryMessage H:%v R:%v S:%v Type:%v]",
-		m.CSMsgCommonHeader.Height, m.CSMsgCommonHeader.Round,
-		m.CSMsgCommonHeader.Sender, m.CSMsgCommonHeader.MsgType)
+	return fmt.Sprintf("[VoteForNotaryMessage Height:%v Round:%v Type:%v]",
+		m.CSMsgCommonHeader.Height, m.CSMsgCommonHeader.Round, m.CSMsgCommonHeader.MsgType)
 }
 
 //------------------------------------
@@ -305,9 +301,9 @@ func (m *NewCommitteeMessage) SigningHash() (hash meter.Bytes32) {
 
 // String returns a string representation.
 func (m *NewCommitteeMessage) String() string {
-	return fmt.Sprintf("[NewCommitteeMessage Height:%v Round:%v Type:%v Sender:%v]",
+	return fmt.Sprintf("[NewCommitteeMessage Height:%v Round:%v Type:%v]",
 		m.CSMsgCommonHeader.Height, m.CSMsgCommonHeader.Round,
-		m.CSMsgCommonHeader.MsgType, hex.EncodeToString(m.CSMsgCommonHeader.Sender))
+		m.CSMsgCommonHeader.MsgType)
 }
 
 // PMProposalMessage is sent when a new block leaf is proposed
@@ -361,7 +357,7 @@ func (m *PMProposalMessage) SigningHash() (hash meter.Bytes32) {
 
 // String returns a string representation.
 func (m *PMProposalMessage) String() string {
-	return fmt.Sprintf("[PMProposalBlockMessage Height:%v, Round:%v, ParentHeight: %v, ParentRound: %v, Type:%v, TimeoutCert:%v]",
+	return fmt.Sprintf("[PMProposalMessage Height:%v, Round:%v, ParentHeight: %v, ParentRound: %v, Type:%v, TimeoutCert:%v]",
 		m.CSMsgCommonHeader.Height, m.CSMsgCommonHeader.Round,
 		m.ParentHeight, m.ParentRound,
 		m.CSMsgCommonHeader.MsgType, m.TimeoutCert.String())
@@ -458,9 +454,9 @@ func (m *PMNewViewMessage) SigningHash() (hash meter.Bytes32) {
 
 // String returns a string representation.
 func (m *PMNewViewMessage) String() string {
-	return fmt.Sprintf("[PMNewViewMessage Height:%v Round:%v Reason:%s Type:%v QCHeight:%d QCRound:%d Sender:%v]",
+	return fmt.Sprintf("[PMNewViewMessage NextHeight:%v NextRound:%v Reason:%s Type:%v QCHeight:%d QCRound:%d]",
 		m.CSMsgCommonHeader.Height, m.CSMsgCommonHeader.Round, m.Reason.String(),
-		m.CSMsgCommonHeader.MsgType, m.QCHeight, m.QCRound, hex.EncodeToString(m.CSMsgCommonHeader.Sender))
+		m.CSMsgCommonHeader.MsgType, m.QCHeight, m.QCRound)
 }
 
 // PMQueryProposalMessage is sent to current leader to get the parent proposal
@@ -493,8 +489,6 @@ func (m *PMQueryProposalMessage) SigningHash() (hash meter.Bytes32) {
 
 // String returns a string representation.
 func (m *PMQueryProposalMessage) String() string {
-	return fmt.Sprintf("[PMQueryProposalMessage Height:%v Round:%v Type %v Sender:%v QueryHeight:%v QueryRound:%v]",
-		m.CSMsgCommonHeader.Height, m.CSMsgCommonHeader.Round,
-		m.CSMsgCommonHeader.MsgType, hex.EncodeToString(m.CSMsgCommonHeader.Sender),
-		m.Height, m.Round)
+	return fmt.Sprintf("[PMQueryProposalMessage Type %v QueryHeight:%v QueryRound:%v]",
+		m.CSMsgCommonHeader.MsgType, m.Height, m.Round)
 }

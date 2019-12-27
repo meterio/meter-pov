@@ -218,12 +218,11 @@ func (b *Block) CompactString() string {
   Parent: %v,
   QC: %v,
   LastKBHeight: %v, #Txs: %v, CommitteeInfo: %v,
-  StateRoot: %v,
-  ReceiptsRoot: %v`, header.Number(), header.ID().String(),
+  StateRoot: %v`, header.Number(), header.ID().String(),
 		header.ParentID().String(),
 		b.QC.CompactString(),
 		header.LastKBlockHeight(), len(b.Txs), ci,
-		header.StateRoot().String(), header.ReceiptsRoot().String())
+		header.StateRoot().String())
 }
 
 func (b *Block) Oneliner() string {

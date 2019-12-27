@@ -283,9 +283,8 @@ func (c *Communicator) SubscribeBlock(ch chan *NewBlockEvent) event.Subscription
 func (c *Communicator) BroadcastBlock(blk *block.Block) {
 	h := blk.Header()
 	log.Info("Broadcast block",
+		"height", h.Number(),
 		"id", h.ID(),
-		"parentID", h.ParentID(),
-		"Height", h.Number(),
 		"lastKblockHeight", h.LastKBlockHeight())
 
 	var sendQC bool = false
@@ -313,7 +312,7 @@ func (c *Communicator) BroadcastBlock(blk *block.Block) {
 		peer.MarkBlock(blk.Header().ID())
 		c.goes.Go(func() {
 			if sendQC == true {
-				log.Info("Broadcast BestQC to peer", "bestQC", bestQC.String())
+				log.Info("Broadcast BestQC to peer", "bestQC", bestQC.String(), "peer", peer.Peer.RemoteAddr().String())
 				if err := proto.NotifyNewBestQC(c.ctx, peer, bestQC); err != nil {
 					peer.logger.Debug("failed to broadcast new bestQC", "err", err)
 				}
@@ -329,7 +328,7 @@ func (c *Communicator) BroadcastBlock(blk *block.Block) {
 		peer.MarkBlock(blk.Header().ID())
 		c.goes.Go(func() {
 			if sendQC == true {
-				log.Info("Broadcast BestQC to peer", "bestQC", bestQC.String())
+				log.Info("Broadcast BestQC to peer", "bestQC", bestQC.String(), "peer", peer.Peer.RemoteAddr().String())
 				if err := proto.NotifyNewBestQC(c.ctx, peer, bestQC); err != nil {
 					peer.logger.Debug("failed to broadcast new bestQC", "err", err)
 				}

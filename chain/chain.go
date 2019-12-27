@@ -67,7 +67,7 @@ type caches struct {
 }
 
 // New create an instance of Chain.
-func New(kv kv.GetPutter, genesisBlock *block.Block) (*Chain, error) {
+func New(kv kv.GetPutter, genesisBlock *block.Block, verbose bool) (*Chain, error) {
 	prometheus.MustRegister(bestQCHeightGauge)
 	prometheus.MustRegister(bestHeightGauge)
 
@@ -193,13 +193,15 @@ func New(kv kv.GetPutter, genesisBlock *block.Block) (*Chain, error) {
 	}
 	bestHeightGauge.Set(float64(bestBlock.Header().Number()))
 	bestQCHeightGauge.Set(float64(bestQC.QCHeight))
-	fmt.Println("--------------------------------------------------")
-	fmt.Println("                 CHAIN INITIALIZED                ")
-	fmt.Println("--------------------------------------------------")
-	fmt.Println("Leaf Block: ", leafBlock.CompactString())
-	fmt.Println("Best Block: ", bestBlock.CompactString())
-	fmt.Println("Best QC: ", bestQC.String())
-	fmt.Println("--------------------------------------------------")
+	if verbose {
+		fmt.Println("--------------------------------------------------")
+		fmt.Println("                 CHAIN INITIALIZED                ")
+		fmt.Println("--------------------------------------------------")
+		fmt.Println("Leaf Block: ", leafBlock.CompactString())
+		fmt.Println("Best Block: ", bestBlock.CompactString())
+		fmt.Println("Best QC: ", bestQC.String())
+		fmt.Println("--------------------------------------------------")
+	}
 	c := &Chain{
 		kv:           kv,
 		ancestorTrie: ancestorTrie,
@@ -782,7 +784,7 @@ func (c *Chain) UpdateLeafBlock() error {
 	return nil
 }
 func (c *Chain) UpdateBestQC() error {
-	log.Info("update BestQC", "bestQC", c.bestQC.CompactString(), "bestBlock", c.bestBlock.Header().Number())
+	// log.Info("update BestQC", "bestQC", c.bestQC.CompactString(), "bestBlock", c.bestBlock.Header().Number())
 	if c.leafBlock.Header().ID().String() == c.bestBlock.Header().ID().String() {
 		// when leaf is the same with best
 		// usually this is during initialization (before pacemaker)
@@ -802,11 +804,13 @@ func (c *Chain) UpdateBestQC() error {
 		return saveBestQC(c.kv, c.bestQC)
 	}
 	if c.bestQCCandidate != nil && c.bestQCCandidate.QCHeight == uint64(c.bestBlock.Header().Number()) {
-		c.bestQC = c.bestQCCandidate
-		bestQCHeightGauge.Set(float64(c.bestQC.QCHeight))
-		c.bestQCCandidate = nil
-		log.Info("Move BestQC by QCCandidate", "bestQC", c.bestQC.CompactString())
-		return saveBestQC(c.kv, c.bestQC)
+		if c.bestQCCandidate.QCHeight > c.bestQC.QCHeight {
+			c.bestQC = c.bestQCCandidate
+			bestQCHeightGauge.Set(float64(c.bestQC.QCHeight))
+			c.bestQCCandidate = nil
+			log.Info("Move BestQC by QCCandidate", "bestQC", c.bestQC.CompactString())
+			return saveBestQC(c.kv, c.bestQC)
+		}
 	}
 	id, err := c.ancestorTrie.GetAncestor(c.leafBlock.Header().ID(), c.bestBlock.Header().Number()+1)
 	if err != nil {

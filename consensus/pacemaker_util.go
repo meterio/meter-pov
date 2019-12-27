@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net"
 	"net/http"
 	"strconv"
@@ -78,19 +79,13 @@ func (p *Pacemaker) receivePacemakerMsg(w http.ResponseWriter, r *http.Request) 
 	} else {
 		typeName := getConcreteName(msg)
 		var fromMyself bool
-		if peerIP.String() == p.csReactor.GetMyNetAddr().IP.String() {
-			p.logger.Info("Received pacemaker msg from myself", "type", typeName, "from", peerIP.String())
-			fromMyself = true
-		} else {
-			p.logger.Info("Received pacemaker msg from peer", "msg", msg.String(), "from", peerIP.String())
-			fromMyself = false
-		}
+
 		if _, ok := params["magic"]; !ok {
-			p.logger.Warn("ignore message due to missing magic", "expect", hex.EncodeToString(p.csReactor.magic[:]))
+			p.logger.Warn("ignore message due to missing magic", "expect", hex.EncodeToString(p.csReactor.magic[:]), "msg", typeName, "from", peerIP.String())
 			return
 		}
 		if strings.Compare(params["magic"], hex.EncodeToString(p.csReactor.magic[:])) != 0 {
-			p.logger.Warn("ignored message due to magic mismatch", "expect", hex.EncodeToString(p.csReactor.magic[:]), "actual", params["magic"])
+			p.logger.Warn("ignored message due to magic mismatch", "expect", hex.EncodeToString(p.csReactor.magic[:]), "actual", params["magic"], "msg", typeName, "from", peerIP.String())
 			return
 		}
 		// check replay first, also include the proposal myself
@@ -103,14 +98,22 @@ func (p *Pacemaker) receivePacemakerMsg(w http.ResponseWriter, r *http.Request) 
 
 			in, err := p.msgRelayInfo.CheckandAdd(&msgByteSlice, height, round)
 			if err != nil {
-				p.logger.Info("received PMProposal, failed to added, dropped")
+				p.logger.Info("fail to add PMProposal, dropped ...", "from", peerIP.String())
 				return
 			}
 			if in == true {
-				p.logger.Info("received PMProposal, duplicated, dropped", "height", height, "round", round)
+				p.logger.Info("duplicate PMProposal, dropped ...", "height", height, "round", round, "from", peerIP.String())
 				return
 			}
-			p.logger.Info("received PMProposal, added to info map", "height", height, "round", round)
+			// p.logger.Info("precheck PMProposal, added to info map", "height", height, "round", round, "from", peerIP.String())
+		}
+
+		if peerIP.String() == p.csReactor.GetMyNetAddr().IP.String() {
+			p.logger.Info(fmt.Sprintf("Received %s from myself", typeName), "msg", msg.String(), "from", peerIP.String())
+			fromMyself = true
+		} else {
+			p.logger.Info(fmt.Sprintf("Received %s from peer", typeName), "msg", msg.String(), "from", peerIP.String())
+			fromMyself = false
 		}
 
 		from := types.NetAddress{IP: peerIP, Port: uint16(peerPort)}
