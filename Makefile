@@ -8,22 +8,28 @@ SRC_BASE = $(FAKE_GOPATH)/src/$(PACKAGE)
 
 GIT_COMMIT = $(shell git --no-pager log --pretty="%h" -n 1)
 GIT_TAG = $(shell git tag -l --points-at HEAD)
-THOR_VERSION = $(shell cat cmd/meter/VERSION)
+METER_VERSION = $(shell cat cmd/meter/VERSION)
 DISCO_VERSION = $(shell cat cmd/disco/VERSION)
+PROBE_VERSION = $(shell cat cmd/probe/VERSION)
 
 PACKAGES = `cd $(SRC_BASE) && go list ./... | grep -v '/vendor/'`
 
-.PHONY: meter disco all clean test
+.PHONY: meter disco probe all clean test
 
 meter: |$(SRC_BASE)
 	@echo "building $@..."
-	@cd $(SRC_BASE) && go build -v -i -o $(CURDIR)/bin/$@ -ldflags "-X main.version=$(THOR_VERSION) -X main.gitCommit=$(GIT_COMMIT) -X main.gitTag=$(GIT_TAG)" ./cmd/meter
+	@cd $(SRC_BASE) && go build -v -i -o $(CURDIR)/bin/$@ -ldflags "-X main.version=$(METER_VERSION) -X main.gitCommit=$(GIT_COMMIT) -X main.gitTag=$(GIT_TAG)" ./cmd/meter
 	@echo "done. executable created at 'bin/$@'"
 
 disco: |$(SRC_BASE)
 	@echo "building $@..."
 	@cd $(SRC_BASE) && go build -v -i -o $(CURDIR)/bin/$@ -ldflags "-X main.version=$(DISCO_VERSION) -X main.gitCommit=$(GIT_COMMIT) -X main.gitTag=$(GIT_TAG)" ./cmd/disco
 	@echo "done. executable created at 'bin/$@'"
+probe: |$(SRC_BASE)
+	@echo "building $@..."
+	@cd $(SRC_BASE) && go build -v -i -o $(CURDIR)/bin/$@ -ldflags "-X main.version=$(PROBE_VERSION) -X main.gitCommit=$(GIT_COMMIT) -X main.gitTag=$(GIT_TAG)" ./cmd/probe
+	@echo "done. executable created at 'bin/$@'"
+
 
 dep: |$(SRC_BASE)
 ifeq ($(shell command -v dep 2> /dev/null),)
