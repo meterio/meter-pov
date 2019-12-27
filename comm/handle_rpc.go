@@ -6,6 +6,7 @@
 package comm
 
 import (
+	"bytes"
 	"fmt"
 	"time"
 
@@ -30,6 +31,10 @@ func (c *Communicator) handleRPC(peer *Peer, msg *p2p.Msg, write func(interface{
 			log.Debug("failed to handle RPC call", "err", err)
 		}
 	}()
+
+	if bytes.Compare(msg.Magic[:], c.magic[:]) != 0 {
+		return errors.WithMessage(err, "magic mismatch")
+	}
 
 	switch msg.Code {
 	case proto.MsgGetStatus:
