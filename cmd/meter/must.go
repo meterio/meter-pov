@@ -138,7 +138,7 @@ func initChain(gene *genesis.Genesis, mainDB *lvldb.LevelDB, logDB *logdb.LogDB)
 		fatal("build genesis block: ", err)
 	}
 
-	chain, err := chain.New(mainDB, genesisBlock)
+	chain, err := chain.New(mainDB, genesisBlock, true)
 	if err != nil {
 		fatal("initialize block chain:", err)
 	}
