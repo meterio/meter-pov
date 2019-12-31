@@ -130,7 +130,7 @@ type Pacemaker struct {
 func NewPaceMaker(conR *ConsensusReactor) *Pacemaker {
 	p := &Pacemaker{
 		csReactor: conR,
-		logger:    log15.New("pkg", "consensus"),
+		logger:    log15.New("pkg", "pacemaker"),
 
 		pacemakerMsgCh: make(chan receivedConsensusMessage, 128),
 		stopCh:         make(chan *PMStopInfo, 2),

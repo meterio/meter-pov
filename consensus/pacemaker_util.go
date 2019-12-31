@@ -123,8 +123,9 @@ func (p *Pacemaker) receivePacemakerMsg(w http.ResponseWriter, r *http.Request) 
 		// now relay this message if proposal
 		if fromMyself == false && typeName == "PMProposalMessage" {
 			peers, _ := p.GetRelayPeers(round)
+			p.logger.Info("Now, relay this proposal...", "height", height, "round", round)
 			for _, peer := range peers {
-				p.logger.Info("now, relay this proposal...", "peer", peer.String(), "height", height, "round", round)
+				p.logger.Debug("Now, relay this proposal...", "peer", peer.String(), "height", height, "round", round)
 				if peer.netAddr.IP.String() == p.csReactor.GetMyNetAddr().IP.String() {
 					p.logger.Info("relay to myself, ignore ...")
 					continue
@@ -275,17 +276,17 @@ func (p *Pacemaker) SendConsensusMessage(round uint64, msg ConsensusMessage, cop
 
 	// send consensus message to myself first (except for PMNewViewMessage)
 	if copyMyself && myself != nil {
-		p.logger.Debug("Sending pacemaker msg to myself", "type", typeName, "to", myNetAddr.IP.String())
+		p.logger.Debug(fmt.Sprintf("Sending %v to myself", typeName), "to", myNetAddr.IP.String())
 		myself.sendData(myNetAddr, typeName, rawMsg)
 	}
 
 	// broadcast consensus message to peers
 	for _, peer := range peers {
-		hint := "Sending pacemaker msg to peer"
+		hint := fmt.Sprintf("Sending %v to peer", typeName)
 		if peer.netAddr.IP.String() == myNetAddr.IP.String() {
-			hint = "Sending pacemaker msg to myself"
+			hint = fmt.Sprintf("Sending %v to myself", typeName)
 		}
-		p.logger.Info(hint, "type", typeName, "to", peer.netAddr.IP.String())
+		p.logger.Info(hint, "to", peer.netAddr.IP.String())
 		go func(cpeer *ConsensusPeer, from types.NetAddress, msgType string, raw []byte) {
 			cpeer.sendData(from, msgType, raw)
 		}(peer, myNetAddr, typeName, rawMsg)
@@ -304,11 +305,11 @@ func (p *Pacemaker) SendMessageToPeers(msg ConsensusMessage, peers []*ConsensusP
 	myNetAddr := p.csReactor.curCommittee.Validators[p.csReactor.curCommitteeIndex].NetAddr
 	// broadcast consensus message to peers
 	for _, peer := range peers {
-		hint := "Sending pacemaker msg to peer"
+		hint := fmt.Sprintf("Sending %v to peer", typeName)
 		if peer.netAddr.IP.String() == myNetAddr.IP.String() {
-			hint = "Sending pacemaker msg to myself"
+			hint = fmt.Sprintf("Sending %v to myself", typeName)
 		}
-		p.logger.Debug(hint, "type", typeName, "to", peer.netAddr.IP.String())
+		p.logger.Debug(hint, "to", peer.netAddr.IP.String())
 		go func(cpeer *ConsensusPeer, from types.NetAddress, msgType string, raw []byte) {
 			cpeer.sendData(from, msgType, raw)
 		}(peer, myNetAddr, typeName, rawMsg)

@@ -925,7 +925,7 @@ func (conR *ConsensusReactor) PreCommitBlock(blkInfo *ProposedBlockInfo) bool {
 
 	blocksCommitedCounter.Inc()
 	conR.logger.Info(fmt.Sprintf(`Block precommited at height %d
-%v`, height, blk.CompactString()), "elapsedTime", commitElapsed, "bestBlockHeight", conR.chain.BestBlock().Header().Number())
+%v`, height, blk.Oneliner()), "elapsedTime", commitElapsed)
 	return true
 }
 

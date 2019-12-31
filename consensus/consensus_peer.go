@@ -60,7 +60,7 @@ func (peer *ConsensusPeer) sendData(srcNetAddr types.NetAddress, typeName string
 		return err
 	}
 	// TODO: check response to verify this action
-	// peer.logger.Info("Sent consensus message to peer", "type", typeName, "size", len(rawMsg))
+	// peer.logger.Info("Sent consensus message to peer",  "size", len(rawMsg))
 	return nil
 
 }

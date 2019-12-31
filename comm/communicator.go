@@ -310,9 +310,10 @@ func (c *Communicator) BroadcastBlock(blk *block.Block) {
 	for _, peer := range toPropagate {
 		peer := peer
 		peer.MarkBlock(blk.Header().ID())
+		log.Info("Broadcasting BestQC to peers ...", "bestQC", bestQC.String())
 		c.goes.Go(func() {
 			if sendQC == true {
-				log.Info("Broadcast BestQC to peer", "bestQC", bestQC.String(), "peer", peer.Peer.RemoteAddr().String())
+				log.Debug("Broadcast BestQC to peer", "peer", peer.Peer.RemoteAddr().String())
 				if err := proto.NotifyNewBestQC(c.ctx, peer, bestQC); err != nil {
 					peer.logger.Debug("failed to broadcast new bestQC", "err", err)
 				}
