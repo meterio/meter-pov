@@ -311,6 +311,9 @@ func (p *Pacemaker) OnReceiveProposal(proposalMsg *PMProposalMessage, from types
 	height := uint64(msgHeader.Height)
 	round := uint64(msgHeader.Round)
 
+	if uint64(proposalMsg.CSMsgCommonHeader.Round) < p.currentRound {
+		return errors.New(fmt.Sprintf("proposal with expired round, ignored ... (proposal round: %d, my current round: %d)", proposalMsg.CSMsgCommonHeader.Round, p.currentRound))
+	}
 	// decode block to get qc
 	blk, err := block.BlockDecodeFromBytes(proposalMsg.ProposedBlock)
 	if err != nil {
