@@ -217,13 +217,10 @@ func (b *Block) CompactString() string {
 	return fmt.Sprintf(`Block(%v) %v 
   Parent: %v,
   QC: %v,
-  LastKBHeight: %v, #Txs: %v, CommitteeInfo: %v,
-  StateRoot: %v,
-  ReceiptsRoot: %v`, header.Number(), header.ID().String(),
+  LastKBHeight: %v, #Txs: %v, CommitteeInfo: %v`, header.Number(), header.ID().String(),
 		header.ParentID().String(),
 		b.QC.CompactString(),
-		header.LastKBlockHeight(), len(b.Txs), ci,
-		header.StateRoot().String(), header.ReceiptsRoot().String())
+		header.LastKBlockHeight(), len(b.Txs), ci)
 }
 
 func (b *Block) Oneliner() string {

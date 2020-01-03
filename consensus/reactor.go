@@ -696,8 +696,7 @@ func (conR *ConsensusReactor) handleMsg(mi consensusMsgInfo) {
 	if strings.Contains(typeName, ".") {
 		typeName = strings.Split(typeName, ".")[1]
 	}
-	conR.logger.Info("Received message from peer",
-		"type", typeName,
+	conR.logger.Info(fmt.Sprintf("Received %v from peer", typeName),
 		"length", len(rawMsg),
 		"ip", peer.netAddr.IP.String())
 
@@ -837,11 +836,11 @@ func (conR *ConsensusReactor) receivePeerMsg(w http.ResponseWriter, r *http.Requ
 		return
 	}
 	if _, ok := params["magic"]; !ok {
-		conR.logger.Warn("ignore message due to missing magic", "expect", hex.EncodeToString(conR.magic[:]))
+		conR.logger.Debug("ignored message due to missing magic", "expect", hex.EncodeToString(conR.magic[:]))
 		return
 	}
 	if strings.Compare(params["magic"], hex.EncodeToString(conR.magic[:])) != 0 {
-		conR.logger.Warn("ignored message due to magic mismatch", "expect", hex.EncodeToString(conR.magic[:]), "actual", params["magic"])
+		conR.logger.Debug("ignored message due to magic mismatch", "expect", hex.EncodeToString(conR.magic[:]), "actual", params["magic"])
 		return
 	}
 	peerIP := net.ParseIP(params["peer_ip"])
@@ -1098,7 +1097,7 @@ func (conR *ConsensusReactor) sendConsensusMsg(msg *ConsensusMessage, csPeer *Co
 		return false
 	}
 
-	conR.logger.Debug("Try send consensus msg out", "type", typeName, "size", len(rawMsg))
+	conR.logger.Debug(fmt.Sprintf("Try send %v out", typeName), "size", len(rawMsg))
 	// fmt.Println(hex.Dump(rawMsg))
 
 	if csPeer == nil {
@@ -1137,7 +1136,7 @@ func (conR *ConsensusReactor) sendConsensusMsg(msg *ConsensusMessage, csPeer *Co
 			conR.logger.Error("Failed to send message to peer", "peer", csPeer.String(), "err", err)
 			return false
 		}
-		conR.logger.Info("Sent consensus message to peer", "type", typeName, "peer", csPeer.String(), "size", len(rawMsg))
+		conR.logger.Info(fmt.Sprintf("Sent %v to peer", typeName), "peer", csPeer.String(), "size", len(rawMsg))
 		var result map[string]interface{}
 		json.NewDecoder(resp.Body).Decode(&result)
 	}

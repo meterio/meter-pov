@@ -125,9 +125,11 @@ func (tc *PMTimeoutCert) DecodeRLP(s *rlp.Stream) error {
 
 func (tc *PMTimeoutCert) String() string {
 	if tc != nil {
-		return fmt.Sprintf("PMTimeoutCert (H:%v, R:%v, C:%v, BitArray:%v, AggSig:%v)", tc.TimeoutHeight, tc.TimeoutRound, tc.TimeoutCounter, tc.TimeoutBitArray.String(), hex.EncodeToString(tc.TimeoutAggSig))
+		hexAggSig := hex.EncodeToString(tc.TimeoutAggSig)
+		abbrAggSig := hexAggSig[:4] + "..." + hexAggSig[len(hexAggSig)-4:]
+		return fmt.Sprintf("PMTimeoutCert (H:%v, R:%v, C:%v, BitArray:%v, AggSig:%v)", tc.TimeoutHeight, tc.TimeoutRound, tc.TimeoutCounter, tc.TimeoutBitArray.String(), abbrAggSig)
 	}
-	return "PMTimeoutCert(nil)"
+	return "nil"
 }
 
 type pmBlock struct {
@@ -199,4 +201,5 @@ type PMStopInfo struct {
 type PMBeatInfo struct {
 	height uint64
 	round  uint64
+	reason beatReason
 }

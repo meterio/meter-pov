@@ -2,7 +2,6 @@ package staking
 
 import (
 	b64 "encoding/base64"
-	"encoding/hex"
 	"errors"
 	"fmt"
 	"math/big"
@@ -33,8 +32,9 @@ func newDelegateList(delegates []*Delegate) *DelegateList {
 }
 
 func (d *Delegate) ToString() string {
-	return fmt.Sprintf("Delegate(Addr=%v, PubKey=%v, IP:Port=%v:%v, VotingPower=%.2e)",
-		d.Address, hex.EncodeToString(d.PubKey), string(d.IPAddr), d.Port, float64(d.VotingPower.Int64()))
+	pubKeyEncoded := b64.StdEncoding.EncodeToString(d.PubKey)
+	return fmt.Sprintf("Delegate(Addr=%v, PubKey=%v, Node=%v:%v, VotingPower=%.2e)",
+		d.Address, pubKeyEncoded, string(d.IPAddr), d.Port, float64(d.VotingPower.Int64()))
 }
 
 func (l *DelegateList) CleanAll() error {

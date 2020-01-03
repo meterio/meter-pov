@@ -6,8 +6,8 @@
 package main
 
 import (
+	"crypto/sha256"
 	b64 "encoding/base64"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"github.com/dfinlab/meter/api"
+	"github.com/dfinlab/meter/api/doc"
 	"github.com/dfinlab/meter/block"
 	"github.com/dfinlab/meter/cmd/meter/node"
 	"github.com/dfinlab/meter/cmd/meter/solo"
@@ -221,6 +222,12 @@ func defaultAction(ctx *cli.Context) error {
 	defer func() { log.Info("exited") }()
 
 	initLogger(ctx)
+
+	topic := ctx.String("disco-topic")
+	version := doc.Version()
+	sum := sha256.Sum256([]byte(fmt.Sprintf("%v %v", version, topic)))
+	copy(magic[:], sum[:4])
+
 	gene := selectGenesis(ctx)
 	instanceDir := makeInstanceDir(ctx, gene)
 
@@ -245,9 +252,6 @@ func defaultAction(ctx *cli.Context) error {
 	powPool := powpool.New(defaultPowPoolOptions)
 	defer func() { log.Info("closing pow pool..."); powPool.Close() }()
 
-	topic := ctx.String("disco-topic")
-	copy(magic[:], []byte(topic)[:4])
-	fmt.Println("** MAGIC HEX = ", hex.EncodeToString(magic[:]))
 	p2pcom := newP2PComm(ctx, chain, txPool, instanceDir, powPool, magic)
 	apiHandler, apiCloser := api.New(chain, state.NewCreator(mainDB), txPool, logDB, p2pcom.comm, ctx.String(apiCorsFlag.Name), uint32(ctx.Int(apiBacktraceLimitFlag.Name)), uint64(ctx.Int(apiCallGasLimitFlag.Name)), p2pcom.p2pSrv)
 	defer func() { log.Info("closing API..."); apiCloser() }()
@@ -275,7 +279,7 @@ func defaultAction(ctx *cli.Context) error {
 	genCloser := newKFrameGenerator(ctx, cons)
 	defer func() { log.Info("stopping kframe generator service ..."); genCloser() }()
 
-	printStartupMessage(gene, chain, master, instanceDir, apiURL, powApiURL, observeURL)
+	printStartupMessage(topic, gene, chain, master, instanceDir, apiURL, powApiURL, observeURL)
 
 	p2pcom.Start()
 	defer p2pcom.Stop()

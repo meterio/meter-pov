@@ -238,7 +238,6 @@ func (p *PowPool) GetPowDecision() (bool, *PowResult) {
 	}
 	latestHeight := p.all.GetLatestHeight()
 	lastKframeHeight := p.all.lastKframePowObj.Height()
-	log.Info("POW INFO", "latestHeight", latestHeight, "lastKframeHeight", lastKframeHeight)
 	if (latestHeight < lastKframeHeight) ||
 		((latestHeight - lastKframeHeight) < POW_MINIMUM_HEIGHT_INTV) {
 		log.Info("GetPowDecision false", "latestHeight", latestHeight, "lastKframeHeight", lastKframeHeight)
@@ -266,7 +265,7 @@ func (p *PowPool) GetPowDecision() (bool, *PowResult) {
 		log.Info("GetPowDecision false: not result")
 		return false, nil
 	} else {
-		log.Info("GetPowDecision true")
+		log.Info("GetPowDecision true", "latestHeight", latestHeight, "lastKframeHeight", lastKframeHeight)
 		return true, mostDifficaultResult
 	}
 }

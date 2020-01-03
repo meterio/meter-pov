@@ -344,6 +344,8 @@ func (cv *ConsensusValidator) GenerateVoteForNotaryMessage(sig bls.Signature, ms
 		Timestamp:  time.Now(),
 		MsgType:    CONSENSUS_MSG_VOTE_FOR_NOTARY,
 		MsgSubType: MsgSubType,
+
+		EpochID: cv.EpochID,
 	}
 
 	index := cv.csReactor.GetCommitteeMemberIndex(cv.csReactor.myPubKey)

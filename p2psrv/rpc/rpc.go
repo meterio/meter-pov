@@ -114,7 +114,8 @@ func (r *RPC) Serve(handleFunc HandleFunc, maxMsgSize uint32) error {
 			return err
 		}
 		if bytes.Compare(magic[:], r.magic[:]) != 0 {
-			r.logger.Warn("ignore message due to magic mismatch", "expected", hex.EncodeToString(r.magic[:]), "actual", hex.EncodeToString(magic[:]))
+			r.logger.Debug("ignored message due to magic mismatch", "expected", hex.EncodeToString(r.magic[:]), "actual", hex.EncodeToString(magic[:]))
+			return errors.New("mismatch magic, different network")
 		}
 
 		if isResult {

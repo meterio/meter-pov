@@ -706,7 +706,7 @@ func (conR *ConsensusReactor) BuildKBlock(parentBlock *block.Block, data *block.
 		}
 	*/
 
-	conR.logger.Info("KBlock built", "nonce", data.Nonce)
+	conR.logger.Info("Start to build KBlock", "nonce", data.Nonce)
 	startTime := mclock.Now()
 	//XXX: Build kblock coinbase Tranactions
 	txs := conR.GetKBlockRewardTxs(rewards)
@@ -925,7 +925,7 @@ func (conR *ConsensusReactor) PreCommitBlock(blkInfo *ProposedBlockInfo) bool {
 
 	blocksCommitedCounter.Inc()
 	conR.logger.Info(fmt.Sprintf(`Block precommited at height %d
-%v`, height, blk.CompactString()), "elapsedTime", commitElapsed, "bestBlockHeight", conR.chain.BestBlock().Header().Number())
+%v`, height, blk.Oneliner()), "elapsedTime", commitElapsed)
 	return true
 }
 
@@ -1001,9 +1001,7 @@ func (conR *ConsensusReactor) FinalizeCommitBlock(blkInfo *ProposedBlockInfo, be
 	// XXX: broadcast the new block to all peers
 	comm.GetGlobCommInst().BroadcastBlock(blk)
 	// successfully added the block, update the current hight of consensus
-	conR.logger.Info("-----------------------------------------------------------", "leafBlock", conR.chain.LeafBlock().Header().Number())
-	conR.logger.Info(fmt.Sprintf("Block committed at height %d", height))
-	conR.logger.Info("-----------------------------------------------------------", "bestBlock", conR.chain.BestBlock().Header().Number())
+	conR.logger.Info(fmt.Sprintf("Block committed at height %d", height), "leafBlock", conR.chain.LeafBlock().Header().Number(), "bestBlock", conR.chain.BestBlock().Header().Number())
 	fmt.Println(blk.String())
 	conR.UpdateHeight(int64(conR.chain.BestBlock().Header().Number()))
 

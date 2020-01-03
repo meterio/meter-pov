@@ -2,7 +2,7 @@ package staking
 
 import (
 	"bytes"
-	"encoding/hex"
+	b64 "encoding/base64"
 	"errors"
 	"fmt"
 	"math/big"
@@ -56,8 +56,9 @@ func GetLatestCandidateList() (*CandidateList, error) {
 }
 
 func (c *Candidate) ToString() string {
-	return fmt.Sprintf("Candidate(Addr=%v, PubKey=%v, IP:Port=%v:%v, TotoalVotes=%.2e)",
-		c.Addr, hex.EncodeToString(c.PubKey), string(c.IPAddr), c.Port, float64(c.TotalVotes.Int64()))
+	pubKeyEncoded := b64.StdEncoding.EncodeToString(c.PubKey)
+	return fmt.Sprintf("Candidate(Addr=%v, PubKey=%v, Node=%v:%v, TotalVotes=%.2e)",
+		c.Addr, pubKeyEncoded, string(c.IPAddr), c.Port, float64(c.TotalVotes.Int64()))
 }
 
 func (c *Candidate) AddBucket(bucket *Bucket) {

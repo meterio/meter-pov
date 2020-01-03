@@ -32,6 +32,47 @@ type PMSignature struct {
 	signature bls.Signature
 }
 
+type roundUpdateReason int32
+
+func (reason roundUpdateReason) String() string {
+	switch reason {
+	case ResetRoundOnStop:
+		return "ResetOnStop"
+	case IncRoundOnBeat:
+		return "OnBeat"
+	case IncRoundOnProposal:
+		return "Proposal"
+	case IncRoundOnTimeout:
+		return "Timeout"
+	}
+	return "Unknown"
+}
+
+type beatReason int32
+
+func (reason beatReason) String() string {
+	switch reason {
+	case BeatOnInit:
+		return "Init"
+	case BeatOnHigherQC:
+		return "HigherQC"
+	case BeatOnTimeout:
+		return "Timeout"
+	}
+	return "Unkown"
+}
+
+const (
+	ResetRoundOnStop   = roundUpdateReason(0)
+	IncRoundOnBeat     = roundUpdateReason(1)
+	IncRoundOnProposal = roundUpdateReason(2)
+	IncRoundOnTimeout  = roundUpdateReason(3)
+
+	BeatOnInit     = beatReason(0)
+	BeatOnHigherQC = beatReason(1)
+	BeatOnTimeout  = beatReason(2)
+)
+
 type Pacemaker struct {
 	csReactor *ConsensusReactor //global reactor info
 
@@ -89,7 +130,7 @@ type Pacemaker struct {
 func NewPaceMaker(conR *ConsensusReactor) *Pacemaker {
 	p := &Pacemaker{
 		csReactor: conR,
-		logger:    log15.New("pkg", "consensus"),
+		logger:    log15.New("pkg", "pacemaker"),
 
 		pacemakerMsgCh: make(chan receivedConsensusMessage, 128),
 		stopCh:         make(chan *PMStopInfo, 2),
@@ -270,15 +311,18 @@ func (p *Pacemaker) OnReceiveProposal(proposalMsg *PMProposalMessage, from types
 	height := uint64(msgHeader.Height)
 	round := uint64(msgHeader.Round)
 
+	if uint64(proposalMsg.CSMsgCommonHeader.Round) < p.currentRound {
+		return errors.New(fmt.Sprintf("proposal with expired round, ignored ... (proposal round: %d, my current round: %d)", proposalMsg.CSMsgCommonHeader.Round, p.currentRound))
+	}
 	// decode block to get qc
 	blk, err := block.BlockDecodeFromBytes(proposalMsg.ProposedBlock)
 	if err != nil {
 		return errors.New("can not decode proposed block")
 	}
 	qc := blk.QC
-	p.logger.Info("Received Proposal ", "type", msgHeader.MsgSubType, "height", msgHeader.Height, "round", msgHeader.Round,
+	p.logger.Info("start to handle received proposal ", "height", msgHeader.Height, "round", msgHeader.Round,
 		"parentHeight", proposalMsg.ParentHeight, "parentRound", proposalMsg.ParentRound,
-		"qcHeight", qc.QCHeight, "qcRound", qc.QCRound)
+		"qc", qc.String(), "ID", blk.Header().ID())
 
 	// address parent
 	parent := p.AddressBlock(proposalMsg.ParentHeight, proposalMsg.ParentRound)
@@ -297,7 +341,7 @@ func (p *Pacemaker) OnReceiveProposal(proposalMsg *PMProposalMessage, from types
 
 	qcNode := p.AddressBlock(qc.QCHeight, qc.QCRound)
 	if qcNode == nil {
-		p.logger.Error("OnReceiveProposal: can not address qcNode")
+		p.logger.Warn("OnReceiveProposal: can not address qcNode")
 
 		// put this proposal to pending list, and sent out query
 		if err := p.pendingProposal(qc.QCHeight, qc.QCRound, proposalMsg, from); err != nil {
@@ -357,14 +401,8 @@ func (p *Pacemaker) OnReceiveProposal(proposalMsg *PMProposalMessage, from types
 		// new proposal received, reset the timer
 		p.stopRoundTimer()
 		p.startRoundTimer(bnew.Height, bnew.Round, 0)
-		p.logger.Info("--------------------------------------------------")
-		p.logger.Info(fmt.Sprintf("                      Round: %d               ", bnew.Round))
-		p.logger.Info("--------------------------------------------------")
 
-		if bnew.Round > p.currentRound {
-			p.currentRound = bnew.Round
-			curRoundGauge.Set(float64(p.currentRound))
-		}
+		p.updateCurrentRound(bnew.Round, IncRoundOnProposal)
 
 		// parent got QC, pre-commit
 		justify := p.proposalMap[bnew.Justify.QC.QCHeight] //Justify.QCNode
@@ -373,7 +411,7 @@ func (p *Pacemaker) OnReceiveProposal(proposalMsg *PMProposalMessage, from types
 		}
 
 		if err := p.ValidateProposal(bnew); err != nil {
-			p.logger.Error("Validate Proposal failed", "error", err)
+			p.logger.Error("HELP: Validate Proposal failed", "error", err)
 			return err
 		}
 
@@ -395,6 +433,9 @@ func (p *Pacemaker) OnReceiveVote(voteMsg *PMVoteForProposalMessage) error {
 
 	height := uint64(msgHeader.Height)
 	round := uint64(msgHeader.Round)
+	if round < p.currentRound {
+		p.logger.Info("expired voteForProposal message, dropped ...", "currentRound", p.currentRound, "voteRound", round)
+	}
 
 	b := p.AddressBlock(height, round)
 	if b == nil {
@@ -409,10 +450,10 @@ func (p *Pacemaker) OnReceiveVote(voteMsg *PMVoteForProposalMessage) error {
 	if MajorityTwoThird(voteCount, p.csReactor.committeeSize) == false {
 		// if voteCount < p.csReactor.committeeSize {
 		// not reach 2/3
-		p.csReactor.logger.Info("not reach majority", "committeeSize", p.csReactor.committeeSize, "count", voteCount)
+		p.csReactor.logger.Debug("not reach majority", "committeeSize", p.csReactor.committeeSize, "count", voteCount)
 		return nil
 	} else {
-		p.csReactor.logger.Info("reach majority", "committeeSize", p.csReactor.committeeSize, "count", voteCount)
+		p.csReactor.logger.Info("reached majority", "committeeSize", p.csReactor.committeeSize, "count", voteCount)
 	}
 
 	//reach 2/3 majority, trigger the pipeline cmd
@@ -473,9 +514,9 @@ func (p *Pacemaker) UpdateQCHigh(qc *pmQuorumCert) bool {
 	return updated
 }
 
-func (p *Pacemaker) OnBeat(height uint64, round uint64) error {
+func (p *Pacemaker) OnBeat(height uint64, round uint64, reason beatReason) error {
 	p.logger.Info("--------------------------------------------------")
-	p.logger.Info(fmt.Sprintf("                OnBeat Round: %v                  ", round))
+	p.logger.Info(fmt.Sprintf("      OnBeat Round:%v, Height:%v, Reason:%v        ", round, height, reason.String()))
 	p.logger.Info("--------------------------------------------------")
 
 	// parent already got QC, pre-commit it
@@ -522,6 +563,8 @@ func (p *Pacemaker) OnNextSyncView(nextHeight, nextRound uint64, reason NewViewR
 }
 
 func (p *Pacemaker) OnReceiveNewView(newViewMsg *PMNewViewMessage, from types.NetAddress) error {
+	header := newViewMsg.CSMsgCommonHeader
+
 	qc := block.QuorumCert{}
 	err := rlp.DecodeBytes(newViewMsg.QCHigh, &qc)
 	if err != nil {
@@ -546,38 +589,44 @@ func (p *Pacemaker) OnReceiveNewView(newViewMsg *PMNewViewMessage, from types.Ne
 	}
 	pmQC := newPMQuorumCert(&qc, qcNode)
 
-	if newViewMsg.Reason == RoundTimeout && p.csReactor.amIRoundProproser(uint64(newViewMsg.CSMsgCommonHeader.Round)) {
-		p.timeoutCertManager.collectSignature(newViewMsg)
-		timeoutCount := p.timeoutCertManager.count(newViewMsg.TimeoutHeight, newViewMsg.TimeoutRound)
-		if MajorityTwoThird(timeoutCount, p.csReactor.committeeSize) == false {
-			// if timeoutCount < p.csReactor.committeeSize {
-			p.logger.Info("not reaching majority on timeout", "timeoutCount", timeoutCount, "timeoutHeight", newViewMsg.TimeoutHeight, "timeoutRound", newViewMsg.TimeoutRound, "timeoutCounter", newViewMsg.TimeoutCounter)
-		} else {
-			header := newViewMsg.CSMsgCommonHeader
+	switch newViewMsg.Reason {
+	case RoundTimeout:
+		if p.csReactor.amIRoundProproser(uint64(header.Round)) {
 			if uint64(header.Round) < p.currentRound {
-				p.logger.Info("reaching majority on timeout, but ignored becuase timeoutRound+1 < p.currentRound")
+				p.logger.Info("expired newview message, dropped ... ", "currentRound", p.currentRound, "newViewNxtRound", header.Round)
 				return nil
 			}
-			p.logger.Info("reaching majority on timeout", "timeoutCount", timeoutCount, "timeoutHeight", newViewMsg.TimeoutHeight, "timeoutRound", newViewMsg.TimeoutRound, "timeoutCounter", newViewMsg.TimeoutCounter)
-			p.timeoutCert = p.timeoutCertManager.getTimeoutCert(newViewMsg.TimeoutHeight, newViewMsg.TimeoutRound)
-			p.timeoutCertManager.cleanup(newViewMsg.TimeoutHeight, newViewMsg.TimeoutRound)
 
-			// Schedule OnBeat due to timeout
-			p.logger.Info("Received a newview with timeoutCert, scheduleOnBeat now", "height", header.Height, "round", header.Round)
-			p.ScheduleOnBeat(p.QCHigh.QC.QCHeight+1, uint64(header.Round), RoundInterval)
+			p.timeoutCertManager.collectSignature(newViewMsg)
+			timeoutCount := p.timeoutCertManager.count(newViewMsg.TimeoutHeight, newViewMsg.TimeoutRound)
+			if MajorityTwoThird(timeoutCount, p.csReactor.committeeSize) == false {
+				// if timeoutCount < p.csReactor.committeeSize {
+				p.logger.Debug("not reach majority on timeout", "count", timeoutCount, "timeoutHeight", newViewMsg.TimeoutHeight, "timeoutRound", newViewMsg.TimeoutRound, "timeoutCounter", newViewMsg.TimeoutCounter)
+			} else {
+				p.logger.Info("reached majority on timeout", "count", timeoutCount, "timeoutHeight", newViewMsg.TimeoutHeight, "timeoutRound", newViewMsg.TimeoutRound, "timeoutCounter", newViewMsg.TimeoutCounter)
+				p.timeoutCert = p.timeoutCertManager.getTimeoutCert(newViewMsg.TimeoutHeight, newViewMsg.TimeoutRound)
+				p.timeoutCertManager.cleanup(newViewMsg.TimeoutHeight, newViewMsg.TimeoutRound)
+
+				// Schedule OnBeat due to timeout
+				p.logger.Info("Received a newview with timeoutCert, scheduleOnBeat now", "height", header.Height, "round", header.Round)
+				p.ScheduleOnBeat(p.QCHigh.QC.QCHeight+1, uint64(header.Round), BeatOnTimeout, RoundInterval)
+			}
 		}
-	} else if newViewMsg.Reason != RoundTimeout {
+	case HigherQCSeen:
+		if uint64(header.Round) <= p.currentRound {
+			p.logger.Info("expired newview message, dropped ... ", "currentRound", p.currentRound, "newViewNxtRound", header.Round)
+			return nil
+		}
 		// consider qc only when it's not round timeout
 		changed := p.UpdateQCHigh(pmQC)
 		if changed {
 			if qc.QCHeight > p.blockLocked.Height {
 				// Schedule OnBeat due to New QC
 				p.logger.Info("Received a newview with higher QC, scheduleOnBeat now", "qcHeight", qc.QCHeight, "qcRound", qc.QCRound, "onBeatHeight", qc.QCHeight+1, "onBeatRound", qc.QCRound+1)
-				p.ScheduleOnBeat(p.QCHigh.QC.QCHeight+1, qc.QCRound+1, RoundInterval)
+				p.ScheduleOnBeat(p.QCHigh.QC.QCHeight+1, qc.QCRound+1, BeatOnHigherQC, RoundInterval)
 			}
 		}
 	}
-
 	return nil
 }
 
@@ -661,16 +710,13 @@ func (p *Pacemaker) Start(newCommittee bool) {
 
 	go p.mainLoop()
 
-	p.ScheduleOnBeat(height+1, round, 1*time.Second) //delay 1s
+	p.ScheduleOnBeat(height+1, round, BeatOnInit, 1*time.Second) //delay 1s
 }
 
-func (p *Pacemaker) ScheduleOnBeat(height uint64, round uint64, d time.Duration) bool {
-	if round > p.currentRound {
-		p.currentRound = round
-		curRoundGauge.Set(float64(p.currentRound))
-	}
+func (p *Pacemaker) ScheduleOnBeat(height uint64, round uint64, reason beatReason, d time.Duration) bool {
+	p.updateCurrentRound(round, IncRoundOnBeat)
 	time.AfterFunc(d, func() {
-		p.beatCh <- &PMBeatInfo{height, round}
+		p.beatCh <- &PMBeatInfo{height, round, reason}
 	})
 	return true
 }
@@ -690,7 +736,7 @@ func (p *Pacemaker) mainLoop() {
 		case ti := <-p.roundTimeoutCh:
 			err = p.OnRoundTimeout(ti)
 		case b := <-p.beatCh:
-			err = p.OnBeat(b.height, b.round)
+			err = p.OnBeat(b.height, b.round, b.reason)
 		case m := <-p.pacemakerMsgCh:
 			switch m.msg.(type) {
 			case *PMProposalMessage:
@@ -780,13 +826,28 @@ func (p *Pacemaker) Stop() {
 
 func (p *Pacemaker) OnRoundTimeout(ti PMRoundTimeoutInfo) error {
 	p.logger.Warn("Round Time Out", "round", ti.round, "counter", ti.counter)
-	p.currentRound = ti.round + 1
-	curRoundGauge.Set(float64(p.currentRound))
 
 	p.stopRoundTimer()
+	p.updateCurrentRound(ti.round+1, IncRoundOnTimeout)
 	p.OnNextSyncView(ti.height, ti.round+1, RoundTimeout, &ti)
 	p.startRoundTimer(ti.height, ti.round+1, ti.counter+1)
 	return nil
+}
+
+func (p *Pacemaker) updateCurrentRound(round uint64, reason roundUpdateReason) bool {
+	if round > p.currentRound {
+		p.currentRound = round
+		curRoundGauge.Set(float64(p.currentRound))
+		p.logger.Info("* current round updated", "to", p.currentRound, "reason", reason.String())
+		return true
+	} else if reason == ResetRoundOnStop {
+		p.currentRound = round
+		curRoundGauge.Set(float64(p.currentRound))
+		p.logger.Info("* current round updated", "to", p.currentRound, "reason", reason.String())
+		return true
+	} else {
+		return false
+	}
 }
 
 func (p *Pacemaker) startRoundTimer(height, round, counter uint64) {
