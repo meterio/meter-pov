@@ -338,7 +338,6 @@ func (p *Pacemaker) OnReceiveProposal(proposalMsg *PMProposalMessage, from types
 
 	// address qcNode
 	// TODO: qc should be verified before it is used
-
 	qcNode := p.AddressBlock(qc.QCHeight, qc.QCRound)
 	if qcNode == nil {
 		p.logger.Warn("OnReceiveProposal: can not address qcNode")
@@ -351,13 +350,14 @@ func (p *Pacemaker) OnReceiveProposal(proposalMsg *PMProposalMessage, from types
 	} else {
 		// we have qcNode, need to check qcNode and blk.QC is referenced the same
 		if match, _ := p.BlockMatchQC(qcNode, qc); match == true {
+			p.logger.Debug("addressed qcNode ...", "qcHeight", qc.QCHeight, "qcRound", qc.QCRound)
 		} else {
 			// possible fork !!! TODO: handle?
 			p.logger.Error("qcNode doesn not match qc from proposal, potential fork happens...", "qcHeight", qc.QCHeight, "qcRound", qc.QCRound)
 
-			// TBD: handle this case??
+			// TBD: How to handle this??
 			// if this block does not have Qc yet, revertTo previous
-			// if this block has QC, The real one need to TO to revert
+			// if this block has QC, The real one need to be replaced
 			// anyway, get the new one.
 			// put this proposal to pending list, and sent out query
 			if err := p.pendingProposal(qc.QCHeight, qc.QCRound, proposalMsg, from); err != nil {
@@ -586,7 +586,26 @@ func (p *Pacemaker) OnReceiveNewView(newViewMsg *PMNewViewMessage, from types.Ne
 			p.logger.Error("handle pending newViewMsg failed", "error", err)
 		}
 		return nil
+	} else {
+		// now have qcNode, check qcNode and blk.QC is referenced the same
+		if match, _ := p.BlockMatchQC(qcNode, &qc); match == true {
+			p.logger.Debug("addressed qcNode ...", "qcHeight", qc.QCHeight, "qcRound", qc.QCRound)
+		} else {
+			// possible fork !!! TODO: handle?
+			p.logger.Error("qcNode does not match qc from proposal, potential fork happens...", "qcHeight", qc.QCHeight, "qcRound", qc.QCRound)
+
+			// TBD: How to handle this case??
+			// if this block does not have Qc yet, revertTo previous
+			// if this block has QC, the real one need to be replaced
+			// anyway, get the new one.
+			// put this newView to pending list, and sent out query
+			if err := p.pendingNewView(qc.QCHeight, qc.QCRound, newViewMsg, from); err != nil {
+				p.logger.Error("handle pending newViewMsg failed", "error", err)
+			}
+			return nil
+		}
 	}
+
 	pmQC := newPMQuorumCert(&qc, qcNode)
 
 	switch newViewMsg.Reason {
