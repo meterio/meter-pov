@@ -1658,10 +1658,17 @@ func configDelegates(dataDir string /*myPubKey ecdsa.PublicKey*/) []*types.Deleg
 			panic(fmt.Sprintf("read public key of delegate failed, %v", err))
 		}
 
-		addr, err := meter.ParseAddress(d.Address)
-		if err != nil {
-			panic(fmt.Sprintf("read address of delegate failed, %v", err))
+		var addr meter.Address
+		if len(d.Address) != 0 {
+			addr, err = meter.ParseAddress(d.Address)
+			if err != nil {
+				panic(fmt.Sprintf("read address of delegate failed, %v", err))
+			}
+		} else {
+			// derive from public key
+			addr = meter.Address(crypto.PubkeyToAddress(*pubKey))
 		}
+
 		dd := types.NewDelegate([]byte(d.Name), addr, *pubKey, d.VotingPower)
 		dd.NetAddr = d.NetAddr
 		delegates = append(delegates, dd)
@@ -1684,8 +1691,8 @@ func PrintDelegates(delegates []*types.Delegate) {
 		keyBytes := crypto.FromECDSAPub(&dd.PubKey)
 		pubKeyStr := base64.StdEncoding.EncodeToString(keyBytes)
 
-		fmt.Printf("Delegate %d:\n Address:%s\n Public Key: %v\n Voting Power:%d, Network Address: %s:%d\n",
-			i+1, dd.Address, pubKeyStr, dd.VotingPower, dd.NetAddr.IP.String(), dd.NetAddr.Port)
+		fmt.Printf("Delegate %d:\n Name:%s\n Address:%s\n Public Key: %v\n Voting Power:%d, Network Address: %s:%d\n",
+			i+1, dd.Name, dd.Address, pubKeyStr, dd.VotingPower, dd.NetAddr.IP.String(), dd.NetAddr.Port)
 	}
 	fmt.Println("============================================")
 }
