@@ -17,7 +17,10 @@ import (
 // Messages
 
 // ConsensusMessage is a message that can be sent and received on the ConsensusReactor
-type ConsensusMessage interface{ String() string }
+type ConsensusMessage interface {
+	String() string
+	EpochID() uint64
+}
 
 func RegisterConsensusMessages(cdc *amino.Codec) {
 	cdc.RegisterInterface((*ConsensusMessage)(nil), nil)
@@ -131,6 +134,10 @@ func (m *AnnounceCommitteeMessage) String() string {
 		m.CSMsgCommonHeader.Height, m.CSMsgCommonHeader.Round, m.CSMsgCommonHeader.MsgType)
 }
 
+func (m *AnnounceCommitteeMessage) EpochID() uint64 {
+	return m.CSMsgCommonHeader.EpochID
+}
+
 // CommitCommitteMessage is sent after announce committee is received. Told the Leader
 // there is enough member to setup the committee.
 type CommitCommitteeMessage struct {
@@ -171,6 +178,10 @@ func (m *CommitCommitteeMessage) SigningHash() (hash meter.Bytes32) {
 func (m *CommitCommitteeMessage) String() string {
 	return fmt.Sprintf("[CommitCommittee Height:%v Round:%v Type:%v]",
 		m.CSMsgCommonHeader.Height, m.CSMsgCommonHeader.Round, m.CSMsgCommonHeader.MsgType)
+}
+
+func (m *CommitCommitteeMessage) EpochID() uint64 {
+	return m.CSMsgCommonHeader.EpochID
 }
 
 //-------------------------------------
@@ -220,6 +231,9 @@ func (m *NotaryAnnounceMessage) String() string {
 	return fmt.Sprintf("[NotaryAnnounceMessage Height:%v Round:%v Type:%v]",
 		m.CSMsgCommonHeader.Height, m.CSMsgCommonHeader.Round, m.CSMsgCommonHeader.MsgType)
 }
+func (m *NotaryAnnounceMessage) EpochID() uint64 {
+	return m.CSMsgCommonHeader.EpochID
+}
 
 //------------------------------------
 // VoteResponseMessage is sent when voting for a proposal (or lack thereof).
@@ -257,6 +271,10 @@ func (m *VoteForNotaryMessage) SigningHash() (hash meter.Bytes32) {
 func (m *VoteForNotaryMessage) String() string {
 	return fmt.Sprintf("[VoteForNotaryMessage Height:%v Round:%v Type:%v]",
 		m.CSMsgCommonHeader.Height, m.CSMsgCommonHeader.Round, m.CSMsgCommonHeader.MsgType)
+}
+
+func (m *VoteForNotaryMessage) EpochID() uint64 {
+	return m.CSMsgCommonHeader.EpochID
 }
 
 //------------------------------------
@@ -304,6 +322,10 @@ func (m *NewCommitteeMessage) String() string {
 	return fmt.Sprintf("[NewCommitteeMessage Height:%v Round:%v Type:%v]",
 		m.CSMsgCommonHeader.Height, m.CSMsgCommonHeader.Round,
 		m.CSMsgCommonHeader.MsgType)
+}
+
+func (m *NewCommitteeMessage) EpochID() uint64 {
+	return m.CSMsgCommonHeader.EpochID
 }
 
 // PMProposalMessage is sent when a new block leaf is proposed
@@ -363,6 +385,10 @@ func (m *PMProposalMessage) String() string {
 		m.CSMsgCommonHeader.MsgType, m.TimeoutCert.String())
 }
 
+func (m *PMProposalMessage) EpochID() uint64 {
+	return m.CSMsgCommonHeader.EpochID
+}
+
 // PMVoteResponseMessage is sent when voting for a proposal (or lack thereof).
 type PMVoteForProposalMessage struct {
 	CSMsgCommonHeader ConsensusMsgCommonHeader
@@ -401,6 +427,10 @@ func (m *PMVoteForProposalMessage) String() string {
 	return fmt.Sprintf("[PMVoteForProposalMessage Height:%v Round:%v Type:%v MsgHash:%v]",
 		m.CSMsgCommonHeader.Height, m.CSMsgCommonHeader.Round,
 		m.CSMsgCommonHeader.MsgType, hex.EncodeToString(m.SignedMessageHash[:]))
+}
+
+func (m *PMVoteForProposalMessage) EpochID() uint64 {
+	return m.CSMsgCommonHeader.EpochID
 }
 
 // PMNewViewMessage is sent to the next leader in these two senarios
@@ -459,6 +489,10 @@ func (m *PMNewViewMessage) String() string {
 		m.CSMsgCommonHeader.MsgType, m.QCHeight, m.QCRound)
 }
 
+func (m *PMNewViewMessage) EpochID() uint64 {
+	return m.CSMsgCommonHeader.EpochID
+}
+
 // PMQueryProposalMessage is sent to current leader to get the parent proposal
 type PMQueryProposalMessage struct {
 	CSMsgCommonHeader ConsensusMsgCommonHeader
@@ -491,4 +525,8 @@ func (m *PMQueryProposalMessage) SigningHash() (hash meter.Bytes32) {
 func (m *PMQueryProposalMessage) String() string {
 	return fmt.Sprintf("[PMQueryProposalMessage Type %v QueryHeight:%v QueryRound:%v]",
 		m.CSMsgCommonHeader.MsgType, m.Height, m.Round)
+}
+
+func (m *PMQueryProposalMessage) EpochID() uint64 {
+	return m.CSMsgCommonHeader.EpochID
 }

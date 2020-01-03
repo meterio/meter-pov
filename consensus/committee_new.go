@@ -126,6 +126,7 @@ func (conR *ConsensusReactor) sendNewCommitteeMessage(peer *ConsensusPeer, pubKe
 			Sender:    crypto.FromECDSAPub(&conR.myPubKey),
 			Timestamp: time.Now(),
 			MsgType:   CONSENSUS_MSG_NEW_COMMITTEE,
+			EpochID:   conR.curEpoch,
 		},
 
 		NewEpochID:      conR.curEpoch + 1,

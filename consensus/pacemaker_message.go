@@ -160,6 +160,8 @@ func (p *Pacemaker) BuildVoteForProposalMessage(proposalMsg *PMProposalMessage, 
 		Sender:    crypto.FromECDSAPub(&p.csReactor.myPubKey),
 		Timestamp: time.Now(),
 		MsgType:   CONSENSUS_MSG_VOTE_FOR_PROPOSAL,
+
+		EpochID: p.csReactor.curEpoch,
 	}
 
 	index := p.csReactor.GetCommitteeMemberIndex(p.csReactor.myPubKey)
@@ -193,6 +195,8 @@ func (p *Pacemaker) BuildNewViewMessage(nextHeight, nextRound uint64, qcHigh *pm
 		Sender:    crypto.FromECDSAPub(&p.csReactor.myPubKey),
 		Timestamp: time.Now(),
 		MsgType:   CONSENSUS_MSG_VOTE_FOR_PROPOSAL,
+
+		EpochID: p.csReactor.curEpoch,
 	}
 
 	index := p.csReactor.GetCommitteeMemberIndex(p.csReactor.myPubKey)

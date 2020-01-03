@@ -81,11 +81,16 @@ func (p *Pacemaker) receivePacemakerMsg(w http.ResponseWriter, r *http.Request) 
 		var fromMyself bool
 
 		if _, ok := params["magic"]; !ok {
-			p.logger.Warn("ignore message due to missing magic", "expect", hex.EncodeToString(p.csReactor.magic[:]), "msg", typeName, "from", peerIP.String())
+			p.logger.Debug("ignored message due to missing magic", "expect", hex.EncodeToString(p.csReactor.magic[:]), "msg", typeName, "from", peerIP.String())
 			return
 		}
 		if strings.Compare(params["magic"], hex.EncodeToString(p.csReactor.magic[:])) != 0 {
-			p.logger.Warn("ignored message due to magic mismatch", "expect", hex.EncodeToString(p.csReactor.magic[:]), "actual", params["magic"], "msg", typeName, "from", peerIP.String())
+			p.logger.Debug("ignored message due to magic mismatch", "expect", hex.EncodeToString(p.csReactor.magic[:]), "actual", params["magic"], "msg", typeName, "from", peerIP.String())
+			return
+		}
+
+		if msg.EpochID() < p.csReactor.curEpoch {
+			p.logger.Info("EPOCH mismatch", "msg epoch", msg.EpochID(), "my epoch", p.csReactor.curEpoch)
 			return
 		}
 		// check replay first, also include the proposal myself

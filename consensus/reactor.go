@@ -837,11 +837,11 @@ func (conR *ConsensusReactor) receivePeerMsg(w http.ResponseWriter, r *http.Requ
 		return
 	}
 	if _, ok := params["magic"]; !ok {
-		conR.logger.Warn("ignore message due to missing magic", "expect", hex.EncodeToString(conR.magic[:]))
+		conR.logger.Debug("ignored message due to missing magic", "expect", hex.EncodeToString(conR.magic[:]))
 		return
 	}
 	if strings.Compare(params["magic"], hex.EncodeToString(conR.magic[:])) != 0 {
-		conR.logger.Warn("ignored message due to magic mismatch", "expect", hex.EncodeToString(conR.magic[:]), "actual", params["magic"])
+		conR.logger.Debug("ignored message due to magic mismatch", "expect", hex.EncodeToString(conR.magic[:]), "actual", params["magic"])
 		return
 	}
 	peerIP := net.ParseIP(params["peer_ip"])
