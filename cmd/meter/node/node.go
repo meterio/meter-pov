@@ -107,10 +107,7 @@ func (n *Node) Run(ctx context.Context) error {
 func (n *Node) handleQC(ctx context.Context, qc *block.QuorumCert) (err error) {
 	log.Debug("start to handle received qc")
 	defer log.Debug("handle qc done", "err", err)
-	e := n.chain.SetBestQCCandidate(qc)
-	if e != nil {
-		fmt.Println("Error while update best qc: ", e)
-	}
+	n.chain.SetBestQCCandidate(qc)
 	return nil
 }
 

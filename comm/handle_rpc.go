@@ -183,7 +183,7 @@ func (c *Communicator) handleRPC(peer *Peer, msg *p2p.Msg, write func(interface{
 		if err := msg.Decode(&newQC); err != nil {
 			return errors.WithMessage(err, "decode msg")
 		}
-		fmt.Println("WRITE QC: ", newQC.String())
+		// fmt.Println("WRITE QC: ", newQC.String())
 		c.chain.SetBestQCCandidate(newQC)
 		write(&struct{}{})
 	default:

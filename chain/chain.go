@@ -834,27 +834,27 @@ func (c *Chain) UpdateBestQC() error {
 	return saveBestQC(c.kv, c.bestQC)
 }
 
-func (c *Chain) SetBestQCCandidate(qc *block.QuorumCert) error {
+func (c *Chain) SetBestQCCandidate(qc *block.QuorumCert) bool {
 	if qc == nil {
-		return nil
+		return false
 	}
 	if qc.QCHeight < uint64(c.bestBlock.Header().Number()) {
 		// if qc is lower than best block, ignore
 		log.Debug(fmt.Sprintf("qc height (%d) is lower than best block height (%d), ignored", qc.QCHeight, c.bestBlock.Header().Number()))
-		return nil
+		return false
 	}
 	if c.bestQCCandidate != nil && qc.QCHeight < c.bestQCCandidate.QCHeight {
 		// if qc is lower than best qc candidate, ignore
 		log.Debug(fmt.Sprintf("qc height (%d) is lower than best qc candidate height (%d), ignored", qc.QCHeight, c.bestQCCandidate.QCHeight))
-		return nil
+		return false
 	}
 	if c.bestQCCandidate != nil && qc.QCHeight == c.bestQCCandidate.QCHeight && qc.QCRound == c.bestQCCandidate.QCRound && qc.EpochID == c.bestQCCandidate.EpochID {
 		// if qc is the same as candidate, ignore
-		return nil
+		return false
 	}
 	c.bestQCCandidate = qc
-	log.Debug("Update QC Candidate", "qc", c.bestQCCandidate.CompactString())
-	return nil
+	log.Info("Update QC Candidate", "qc", c.bestQCCandidate.CompactString())
+	return true
 }
 
 func (c *Chain) GetBestQCCandidate() *block.QuorumCert {
