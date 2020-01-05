@@ -6,32 +6,27 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/ethereum/go-ethereum/crypto"
-	//"github.com/ethereum/go-ethereum/rlp"
-	//"github.com/dfinlab/meter/block"
-	//"github.com/dfinlab/meter/chain"
-	cmn "github.com/dfinlab/meter/libs/common"
 	"github.com/dfinlab/meter/meter"
+	//	"github.com/ethereum/go-ethereum/crypto"
 )
 
 // Volatile state for each Delegate
 // NOTE: The Accum is not included in Delegate.Hash();
 // make sure to update that method if changes are made here
 type Delegate struct {
+	Name        []byte          `json:"name"`
 	Address     meter.Address   `json:"address"`
 	PubKey      ecdsa.PublicKey `json:"pub_key"`
 	VotingPower int64           `json:"voting_power"`
 	NetAddr     NetAddress      `json:"network_addr"`
-
-	Accum int64 `json:"accum"`
 }
 
-func NewDelegate(pubKey ecdsa.PublicKey, votingPower int64) *Delegate {
+func NewDelegate(name []byte, addr meter.Address, pubKey ecdsa.PublicKey, votingPower int64) *Delegate {
 	return &Delegate{
-		Address:     meter.Address(crypto.PubkeyToAddress(pubKey)),
+		Name:        name,
+		Address:     addr,
 		PubKey:      pubKey,
 		VotingPower: votingPower,
-		Accum:       0,
 	}
 }
 
@@ -42,37 +37,15 @@ func (v *Delegate) Copy() *Delegate {
 	return &vCopy
 }
 
-// Returns the one with higher Accum.
-func (v *Delegate) CompareAccum(other *Delegate) *Delegate {
-	if v == nil {
-		return other
-	}
-	if v.Accum > other.Accum {
-		return v
-	} else if v.Accum < other.Accum {
-		return other
-	} else {
-		result := bytes.Compare(v.Address.Bytes(), other.Address.Bytes())
-		if result < 0 {
-			return v
-		} else if result > 0 {
-			return other
-		} else {
-			cmn.PanicSanity("Cannot compare identical Delegates")
-			return nil
-		}
-	}
-}
-
 func (v *Delegate) String() string {
 	if v == nil {
 		return "nil-Delegate"
 	}
-	return fmt.Sprintf("Delegate{%v %v VP:%v A:%v}",
+	return fmt.Sprintf("Delegate{%v %v %v VP:%v}",
+		string(v.Name),
 		v.Address,
 		v.PubKey,
-		v.VotingPower,
-		v.Accum)
+		v.VotingPower)
 }
 
 // DelegateSet represent a set of *Delegate at a given height.

@@ -7,8 +7,8 @@ package node
 
 import (
 	"github.com/dfinlab/meter/comm"
-	"github.com/dfinlab/meter/meter"
 	"github.com/dfinlab/meter/consensus"
+	"github.com/dfinlab/meter/meter"
 )
 
 type Network interface {
@@ -16,13 +16,13 @@ type Network interface {
 }
 
 type PeerStats struct {
-	Name        string       `json:"name"`
+	Name        string        `json:"name"`
 	BestBlockID meter.Bytes32 `json:"bestBlockID"`
-	TotalScore  uint64       `json:"totalScore"`
-	PeerID      string       `json:"peerID"`
-	NetAddr     string       `json:"netAddr"`
-	Inbound     bool         `json:"inbound"`
-	Duration    uint64       `json:"duration"`
+	TotalScore  uint64        `json:"totalScore"`
+	PeerID      string        `json:"peerID"`
+	NetAddr     string        `json:"netAddr"`
+	Inbound     bool          `json:"inbound"`
+	Duration    uint64        `json:"duration"`
 }
 
 func ConvertPeersStats(ss []*comm.PeerStats) []*PeerStats {
@@ -49,6 +49,7 @@ type Consensus interface {
 }
 
 type ApiCommitteeMember struct {
+	Name        string        `json:"name"`
 	Address     meter.Address `json:"addr"`
 	PubKey      string        `json:"pubKey"`
 	VotingPower int64         `json:"votingPower"`
@@ -58,19 +59,18 @@ type ApiCommitteeMember struct {
 }
 
 func convertCommitteeList(cml []*consensus.ApiCommitteeMember) []*ApiCommitteeMember {
-        committeeList := make([]*ApiCommitteeMember, len(cml))
+	committeeList := make([]*ApiCommitteeMember, len(cml))
 
-        for i, cm := range cml {
-		committeeList[i] = &ApiCommitteeMember {
-				    Address:     cm.Address,
-				    PubKey:      cm.PubKey,
-				    VotingPower: cm.VotingPower,
-				    NetAddr:     cm.NetAddr,
-				    CsPubKey:    cm.CsPubKey,
-				    CsIndex:     cm.CsIndex,
+	for i, cm := range cml {
+		committeeList[i] = &ApiCommitteeMember{
+			Name:        cm.Name,
+			Address:     cm.Address,
+			PubKey:      cm.PubKey,
+			VotingPower: cm.VotingPower,
+			NetAddr:     cm.NetAddr,
+			CsPubKey:    cm.CsPubKey,
+			CsIndex:     cm.CsIndex,
 		}
 	}
 	return committeeList
 }
-
-

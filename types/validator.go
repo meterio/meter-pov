@@ -14,16 +14,18 @@ import (
 // NOTE: The Accum is not included in Validator.Hash();
 // make sure to update that method if changes are made here
 type Validator struct {
-	Address     meter.Address   `json:"address"`
-	PubKey      ecdsa.PublicKey `json:"pub_key"`
-	VotingPower int64           `json:"voting_power"`
+	Name        string
+	Address     meter.Address
+	PubKey      ecdsa.PublicKey
+	VotingPower int64
 	NetAddr     NetAddress
 	CommitKey   []byte
 }
 
-func NewValidator(pubKey ecdsa.PublicKey, votingPower int64) *Validator {
+func NewValidator(name string, address meter.Address, pubKey ecdsa.PublicKey, votingPower int64) *Validator {
 	return &Validator{
-		Address:     meter.Address(crypto.PubkeyToAddress(pubKey)),
+		Name:        name,
+		Address:     address,
 		PubKey:      pubKey,
 		VotingPower: votingPower,
 	}
@@ -42,7 +44,9 @@ func (v *Validator) String() string {
 	}
 	pubkey := base64.StdEncoding.EncodeToString(crypto.FromECDSAPub(&v.PubKey))
 	pubkey = pubkey[:4] + "..." + pubkey[len(pubkey)-4:]
-	return fmt.Sprintf("Validator(ip: %v, pubkey: %v, vp: %d)",
+	return fmt.Sprintf("Validator(name: %v address: %v ip: %v, pubkey: %v, vp: %d)",
+        v.Name,
+        v.Address.String(),
 		v.NetAddr.IP.String(),
 		pubkey,
 		v.VotingPower,

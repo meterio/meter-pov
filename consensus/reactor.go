@@ -614,16 +614,17 @@ func (conR *ConsensusReactor) CalcCommitteeByNonce(nonce uint64) (*types.Validat
 	buf := make([]byte, binary.MaxVarintLen64)
 	binary.PutUvarint(buf, nonce)
 
-	vals := make([]*types.Validator, conR.delegateSize)
-	for i := 0; i < conR.delegateSize; i++ {
-		pubKey := conR.curDelegates.Delegates[i].PubKey
-		votePower := int64(1000)
-		vals[i] = types.NewValidator(pubKey, votePower)
-		vals[i].NetAddr = conR.curDelegates.Delegates[i].NetAddr
-		// sorted key is pubkey + nonce ...
-		ck := crypto.Keccak256(append(crypto.FromECDSAPub(&pubKey), buf...))
-		vals[i].CommitKey = append(vals[i].CommitKey, ck...)
-		// fmt.Println(vals[i].CommitKey)
+	vals := make([]*types.Validator, 0)
+	for _, d := range conR.curDelegates.Delegates {
+		v := &types.Validator{
+			Name:        string(d.Name),
+			Address:     d.Address,
+			PubKey:      d.PubKey,
+			VotingPower: d.VotingPower,
+			NetAddr:     d.NetAddr,
+			CommitKey:   crypto.Keccak256(append(crypto.FromECDSAPub(&d.PubKey), buf...)),
+		}
+		vals = append(vals, v)
 	}
 
 	sort.SliceStable(vals, func(i, j int) bool {
@@ -633,8 +634,6 @@ func (conR *ConsensusReactor) CalcCommitteeByNonce(nonce uint64) (*types.Validat
 	// the full list is stored in currCommittee, sorted.
 	// To become a validator (real member in committee), must repond the leader's
 	// announce. Validators are stored in conR.conS.Vlidators
-
-	//conR.curCommittee = types.NewValidatorSet2(vals[:conR.committeeSize])
 	Committee := types.NewValidatorSet2(vals[:conR.committeeSize])
 	if bytes.Equal(crypto.FromECDSAPub(&vals[0].PubKey), crypto.FromECDSAPub(&conR.myPubKey)) == true {
 		return Committee, CONSENSUS_COMMIT_ROLE_LEADER, 0, true
@@ -1060,6 +1059,7 @@ func (conR *ConsensusReactor) GetMyActualCommitteeIndex() int {
 }
 
 type ApiCommitteeMember struct {
+	Name        string
 	Address     meter.Address
 	PubKey      string
 	VotingPower int64
@@ -1071,7 +1071,9 @@ type ApiCommitteeMember struct {
 func (conR *ConsensusReactor) GetLatestCommitteeList() ([]*ApiCommitteeMember, error) {
 	var committeeMembers []*ApiCommitteeMember
 	for _, cm := range conR.curActualCommittee {
+		delegate := conR.curCommittee.Validators[cm.CSIndex]
 		apiCm := &ApiCommitteeMember{
+			Name:        delegate.Name,
 			Address:     cm.Address,
 			PubKey:      b64.StdEncoding.EncodeToString(crypto.FromECDSAPub(&cm.PubKey)),
 			VotingPower: cm.VotingPower,
@@ -1613,6 +1615,8 @@ func LeaderMajorityTwoThird(voterNum, committeeSize int) bool {
 //============================================================================
 //============================================================================
 type Delegate1 struct {
+	Name        string           `json:"name"`
+	Address     string           `json:"address"`
 	PubKey      string           `json:"pub_key"`
 	VotingPower int64            `json:"voting_power"`
 	NetAddr     types.NetAddress `json:"network_addr"`
@@ -1651,10 +1655,21 @@ func configDelegates(dataDir string /*myPubKey ecdsa.PublicKey*/) []*types.Deleg
 		pubKeyBytes, err := b64.StdEncoding.DecodeString(d.PubKey)
 		pubKey, err := crypto.UnmarshalPubkey(pubKeyBytes)
 		if err != nil {
-			panic("read public key for delegate failed")
+			panic(fmt.Sprintf("read public key of delegate failed, %v", err))
 		}
 
-		dd := types.NewDelegate(*pubKey, d.VotingPower)
+		var addr meter.Address
+		if len(d.Address) != 0 {
+			addr, err = meter.ParseAddress(d.Address)
+			if err != nil {
+				panic(fmt.Sprintf("read address of delegate failed, %v", err))
+			}
+		} else {
+			// derive from public key
+			addr = meter.Address(crypto.PubkeyToAddress(*pubKey))
+		}
+
+		dd := types.NewDelegate([]byte(d.Name), addr, *pubKey, d.VotingPower)
 		dd.NetAddr = d.NetAddr
 		delegates = append(delegates, dd)
 	}
@@ -1676,8 +1691,8 @@ func PrintDelegates(delegates []*types.Delegate) {
 		keyBytes := crypto.FromECDSAPub(&dd.PubKey)
 		pubKeyStr := base64.StdEncoding.EncodeToString(keyBytes)
 
-		fmt.Printf("Delegate %d:\n Address:%s\n Public Key: %v\n Voting Power:%d, Network Address: %s:%d\n",
-			i+1, dd.Address, pubKeyStr, dd.VotingPower, dd.NetAddr.IP.String(), dd.NetAddr.Port)
+		fmt.Printf("Delegate %d:\n Name:%s\n Address:%s\n Public Key: %v\n Voting Power:%d, Network Address: %s:%d\n",
+			i+1, dd.Name, dd.Address, pubKeyStr, dd.VotingPower, dd.NetAddr.IP.String(), dd.NetAddr.Port)
 	}
 	fmt.Println("============================================")
 }

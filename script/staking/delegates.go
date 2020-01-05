@@ -116,6 +116,7 @@ func GetInternalDelegateList() ([]*types.Delegate, error) {
 		}
 
 		d := &types.Delegate{
+			Name:        s.Name,
 			Address:     s.Address,
 			PubKey:      *pubKey,
 			VotingPower: s.VotingPower.Int64(),
