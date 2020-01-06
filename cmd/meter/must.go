@@ -315,6 +315,11 @@ func (p *p2pComm) Stop() {
 	}
 }
 
+func versionHandler(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte(fmt.Sprintf("version = %s", fullVersion())))
+}
+
 func startObserveServer(ctx *cli.Context) (string, func()) {
 	addr := ":8671"
 	listener, err := net.Listen("tcp", addr)
@@ -323,6 +328,7 @@ func startObserveServer(ctx *cli.Context) (string, func()) {
 	}
 	mux := http.NewServeMux()
 	mux.Handle("/metrics", promhttp.Handler())
+	mux.HandleFunc("/version", versionHandler)
 
 	srv := &http.Server{Handler: mux}
 	var goes co.Goes

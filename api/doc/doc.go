@@ -8,7 +8,6 @@ package doc
 //go:generate go-bindata -nometadata -ignore=.DS_Store -pkg doc -o bindata.go swagger-ui/... meter.yaml
 
 import (
-	"github.com/prometheus/client_golang/prometheus"
 	yaml "gopkg.in/yaml.v2"
 )
 
@@ -24,13 +23,6 @@ type openAPIInfo struct {
 		Version string
 	}
 }
-
-var (
-	versionGauge = prometheus.NewGauge(prometheus.GaugeOpts{
-		Name: "meter_version",
-		Help: "version of meter binary",
-	})
-)
 
 func init() {
 	var oai openAPIInfo
