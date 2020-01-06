@@ -90,6 +90,10 @@ var (
 		Name: "current_round",
 		Help: "Current round of consensus",
 	})
+	curEpochGauge = prometheus.NewGauge(prometheus.GaugeOpts{
+		Name: "current_epoch",
+		Help: "Current epoch of consensus",
+	})
 	inCommitteeGauge = prometheus.NewGauge(prometheus.GaugeOpts{
 		Name: "in_committee",
 		Help: "is this node in committee",
@@ -231,12 +235,14 @@ func NewConsensusReactor(ctx *cli.Context, chain *chain.Chain, state *state.Crea
 		}
 		conR.logger.Info("get committeeinfo from block", "height", b.Header().Number())
 		conR.curEpoch = b.GetCommitteeEpoch()
+		curEpochGauge.Set(float64(conR.curEpoch))
 	} else {
 		conR.curEpoch = 0
+		curEpochGauge.Set(float64(0))
 	}
 
 	prometheus.MustRegister(curRoundGauge)
-
+	prometheus.MustRegister(curEpochGauge)
 	prometheus.MustRegister(lastKBlockHeightGauge)
 	prometheus.MustRegister(blocksCommitedCounter)
 	prometheus.MustRegister(inCommitteeGauge)
@@ -954,6 +960,7 @@ func (conR *ConsensusReactor) enterConsensusLeader(epochID uint64) {
 	conR.csRoleInitialized |= CONSENSUS_COMMIT_ROLE_LEADER
 
 	conR.curEpoch = epochID
+	curEpochGauge.Set(float64(epochID))
 	conR.csLeader.EpochID = epochID
 	return
 }
@@ -1357,6 +1364,7 @@ func HandleScheduleReplayLeader(conR *ConsensusReactor, epochID uint64) bool {
 	conR.csRoleInitialized |= CONSENSUS_COMMIT_ROLE_LEADER
 	conR.csLeader.replay = true
 	conR.curEpoch = epochID
+	curEpochGauge.Set(float64(epochID))
 	conR.csLeader.EpochID = epochID
 
 	conR.csLeader.GenerateAnnounceMsg()
