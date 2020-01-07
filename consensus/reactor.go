@@ -1219,7 +1219,7 @@ func (conR *ConsensusReactor) BuildProposalBlockSignMsg(blockType uint32, height
 	h := make([]byte, binary.MaxVarintLen64)
 	binary.BigEndian.PutUint64(h, height)
 
-	return fmt.Sprintf("%s %s %s %s %s %s %s %s ",
+	return fmt.Sprintf("%s %s %s %s %s %s %s %s %s %s",
 		"BlockType", hex.EncodeToString(c),
 		"Height", hex.EncodeToString(h),
 		"BlockID", id.String(),
