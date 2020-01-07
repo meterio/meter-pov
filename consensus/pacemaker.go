@@ -311,9 +311,11 @@ func (p *Pacemaker) OnReceiveProposal(proposalMsg *PMProposalMessage, from types
 	height := uint64(msgHeader.Height)
 	round := uint64(msgHeader.Round)
 
-	if uint64(proposalMsg.CSMsgCommonHeader.Round) < p.currentRound {
-		return errors.New(fmt.Sprintf("proposal with expired round, ignored ... (proposal round: %d, my current round: %d)", proposalMsg.CSMsgCommonHeader.Round, p.currentRound))
-	}
+	/*
+		if uint64(proposalMsg.CSMsgCommonHeader.Round) < p.currentRound {
+			return errors.New(fmt.Sprintf("proposal with expired round, ignored ... (proposal round: %d, my current round: %d)", proposalMsg.CSMsgCommonHeader.Round, p.currentRound))
+		}
+	*/
 	// decode block to get qc
 	blk, err := block.BlockDecodeFromBytes(proposalMsg.ProposedBlock)
 	if err != nil {
@@ -322,7 +324,7 @@ func (p *Pacemaker) OnReceiveProposal(proposalMsg *PMProposalMessage, from types
 	qc := blk.QC
 	p.logger.Info("start to handle received proposal ", "height", msgHeader.Height, "round", msgHeader.Round,
 		"parentHeight", proposalMsg.ParentHeight, "parentRound", proposalMsg.ParentRound,
-		"qc", qc.String(), "ID", blk.Header().ID())
+		"qc", qc.CompactString(), "ID", blk.Header().ID())
 
 	// address parent
 	parent := p.AddressBlock(proposalMsg.ParentHeight, proposalMsg.ParentRound)

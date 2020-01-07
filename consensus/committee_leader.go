@@ -479,6 +479,7 @@ Myself is Leader, Let's start the pacemaker.
 
 		//Now we are in new epoch
 		cl.csReactor.curEpoch = cl.EpochID
+		curEpochGauge.Set(float64(cl.EpochID))
 
 		//Now move to propose the 1st block in round 0
 		cl.csReactor.enterConsensusValidator()

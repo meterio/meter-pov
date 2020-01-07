@@ -8,9 +8,11 @@ package main
 import (
 	"crypto/sha256"
 	b64 "encoding/base64"
+	"encoding/binary"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"math"
 	"math/rand"
 	"os"
 	"path"
@@ -70,6 +72,12 @@ func fullVersion() string {
 		versionMeta = "dev"
 	}
 	return fmt.Sprintf("%s-%s-%s", version, gitCommit, versionMeta)
+}
+
+func float64frombytes(bytes []byte) float64 {
+	bits := binary.LittleEndian.Uint64(bytes)
+	float := math.Float64frombits(bits)
+	return float
 }
 
 func main() {
