@@ -1184,7 +1184,7 @@ func (conR *ConsensusReactor) ValidateCMheaderSig(cmh *ConsensusMsgCommonHeader,
 
 const (
 	MSG_SIGN_OFFSET_DEFAULT = uint(0)
-	MSG_SIGN_LENGTH_DEFAULT = uint(110)
+	MSG_SIGN_LENGTH_DEFAULT = uint(130)
 )
 
 // Sign Announce Committee
@@ -1205,7 +1205,7 @@ func (conR *ConsensusReactor) BuildAnnounceSignMsg(pubKey ecdsa.PublicKey, epoch
 
 // Sign Propopal Message
 // "Proposal Block Message: BlockType <8 bytes> Height <16 (8x2) bytes> Round <8 (4x2) bytes>
-func (conR *ConsensusReactor) BuildProposalBlockSignMsg(blockType uint32, height uint64, txsRoot, stateRoot *meter.Bytes32) string {
+func (conR *ConsensusReactor) BuildProposalBlockSignMsg(blockType uint32, height uint64, id, txsRoot, stateRoot *meter.Bytes32) string {
 	c := make([]byte, binary.MaxVarintLen32)
 	binary.BigEndian.PutUint32(c, blockType)
 
@@ -1215,6 +1215,7 @@ func (conR *ConsensusReactor) BuildProposalBlockSignMsg(blockType uint32, height
 	return fmt.Sprintf("%s %s %s %s %s %s %s %s ",
 		"BlockType", hex.EncodeToString(c),
 		"Height", hex.EncodeToString(h),
+		"BlockID", id.String(),
 		"TxRoot", txsRoot.String(),
 		"StateRoot", stateRoot.String())
 }

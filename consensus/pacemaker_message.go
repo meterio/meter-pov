@@ -143,13 +143,13 @@ func (p *Pacemaker) BuildProposalMessage(height, round uint64, bnew *pmBlock, tc
 
 // BuildVoteForProposalMsg build VFP message for proposal
 // txRoot, stateRoot is decoded from proposalMsg.ProposedBlock, carry in cos already decoded outside
-func (p *Pacemaker) BuildVoteForProposalMessage(proposalMsg *PMProposalMessage, txsRoot, stateRoot meter.Bytes32) (*PMVoteForProposalMessage, error) {
+func (p *Pacemaker) BuildVoteForProposalMessage(proposalMsg *PMProposalMessage, blockID, txsRoot, stateRoot meter.Bytes32) (*PMVoteForProposalMessage, error) {
 
 	ch := proposalMsg.CSMsgCommonHeader
 	offset := proposalMsg.SignOffset
 	length := proposalMsg.SignLength
 
-	signMsg := p.csReactor.BuildProposalBlockSignMsg(uint32(proposalMsg.ProposedBlockType), uint64(ch.Height), &txsRoot, &stateRoot)
+	signMsg := p.csReactor.BuildProposalBlockSignMsg(uint32(proposalMsg.ProposedBlockType), uint64(ch.Height), &blockID, &txsRoot, &stateRoot)
 	sign := p.csReactor.csCommon.SignMessage([]byte(signMsg), uint32(offset), uint32(length))
 	msgHash := p.csReactor.csCommon.Hash256Msg([]byte(signMsg), uint32(offset), uint32(length))
 	p.logger.Debug("Built PMVoteForProposalMessage", "signMsg", signMsg)
@@ -281,7 +281,7 @@ func (p *Pacemaker) BuildQueryProposalMessage(height, round, epochID uint64, ret
 // qc is for that block?
 // blk is derived from pmBlock message. pass it in if already decoded
 func (p *Pacemaker) BlockMatchQC(b *pmBlock, qc *block.QuorumCert) (bool, error) {
-	var txsRoot, stateRoot, msgHash meter.Bytes32
+	var blkID, txsRoot, stateRoot, msgHash meter.Bytes32
 	var blk *block.Block
 	var blkType uint32
 	var err error
@@ -308,8 +308,9 @@ func (p *Pacemaker) BlockMatchQC(b *pmBlock, qc *block.QuorumCert) (bool, error)
 
 	txsRoot = blk.Header().TxsRoot()
 	stateRoot = blk.Header().StateRoot()
+	blkID = blk.Header().ID()
 
-	signMsg := p.csReactor.BuildProposalBlockSignMsg(blkType, uint64(b.Height), &txsRoot, &stateRoot)
+	signMsg := p.csReactor.BuildProposalBlockSignMsg(blkType, uint64(b.Height), &blkID, &txsRoot, &stateRoot)
 	p.logger.Info("BlockMatchQC", "signMsg", signMsg)
 	msgHash = p.csReactor.csCommon.Hash256Msg([]byte(signMsg), uint32(MSG_SIGN_OFFSET_DEFAULT), uint32(MSG_SIGN_LENGTH_DEFAULT))
 	//p.logger.Info("in BlockMatchQC Compare", "msgHash", msgHash, "qc voting Msg hash", qc.VoterMsgHash[0])

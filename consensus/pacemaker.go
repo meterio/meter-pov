@@ -415,7 +415,7 @@ func (p *Pacemaker) OnReceiveProposal(proposalMsg *PMProposalMessage, from types
 			return err
 		}
 
-		msg, _ := p.BuildVoteForProposalMessage(proposalMsg, blk.Header().TxsRoot(), blk.Header().StateRoot())
+		msg, _ := p.BuildVoteForProposalMessage(proposalMsg, blk.Header().ID(), blk.Header().TxsRoot(), blk.Header().StateRoot())
 		// TODO: added for test
 		// if round < 5 || round > 6 {
 		// send vote message to leader
