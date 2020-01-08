@@ -537,7 +537,6 @@ func (conR *ConsensusReactor) BuildCommitteeMemberFromInfo(system bls.System, ci
 		cm.PubKey = *pubKey
 		cm.VotingPower = int64(ci.VotingPower)
 		cm.NetAddr = ci.NetAddr
-		cm.Address = meter.Address(crypto.PubkeyToAddress(*pubKey))
 
 		CSPubKey, err := system.PubKeyFromBytes(ci.CSPubKey)
 		if err != nil {

@@ -412,7 +412,6 @@ const (
 
 // CommitteeMember is validator structure + consensus fields
 type CommitteeMember struct {
-	Address     meter.Address
 	PubKey      ecdsa.PublicKey
 	VotingPower int64
 	CommitKey   []byte
@@ -427,8 +426,8 @@ func NewCommitteeMember() *CommitteeMember {
 }
 
 func (cm *CommitteeMember) ToString() string {
-	return fmt.Sprintf("[CommitteeMember: Address:%s PubKey:%s VotingPower:%v CSPubKey:%s, CSIndex:%v]",
-		cm.Address.String(), hex.EncodeToString(crypto.FromECDSAPub(&cm.PubKey)),
+	return fmt.Sprintf("[CommitteeMember: PubKey:%s VotingPower:%v CSPubKey:%s, CSIndex:%v]",
+		hex.EncodeToString(crypto.FromECDSAPub(&cm.PubKey)),
 		cm.VotingPower, cm.CSPubKey.ToString(), cm.CSIndex)
 }
 
@@ -516,7 +515,6 @@ func (conR *ConsensusReactor) UpdateActualCommittee(indexes []int, pubKeys []bls
 	// if there is time out, myself is not the first one in curCommittee
 	l := conR.curCommittee.Validators[conR.curCommitteeIndex]
 	cm := CommitteeMember{
-		Address:     l.Address,
 		PubKey:      l.PubKey,
 		VotingPower: l.VotingPower,
 		CommitKey:   l.CommitKey,
@@ -537,7 +535,6 @@ func (conR *ConsensusReactor) UpdateActualCommittee(indexes []int, pubKeys []bls
 		v := conR.curCommittee.Validators[index]
 
 		cm := CommitteeMember{
-			Address:     v.Address,
 			PubKey:      v.PubKey,
 			VotingPower: v.VotingPower,
 			CommitKey:   v.CommitKey,
@@ -1078,10 +1075,10 @@ type ApiCommitteeMember struct {
 func (conR *ConsensusReactor) GetLatestCommitteeList() ([]*ApiCommitteeMember, error) {
 	var committeeMembers []*ApiCommitteeMember
 	for _, cm := range conR.curActualCommittee {
-		delegate := conR.curCommittee.Validators[cm.CSIndex]
+		v := conR.curCommittee.Validators[cm.CSIndex]
 		apiCm := &ApiCommitteeMember{
-			Name:        delegate.Name,
-			Address:     cm.Address,
+			Name:        v.Name,
+			Address:     v.Address,
 			PubKey:      b64.StdEncoding.EncodeToString(crypto.FromECDSAPub(&cm.PubKey)),
 			VotingPower: cm.VotingPower,
 			NetAddr:     cm.NetAddr.String(),
