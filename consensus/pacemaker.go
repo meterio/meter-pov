@@ -630,7 +630,12 @@ func (p *Pacemaker) OnReceiveNewView(newViewMsg *PMNewViewMessage, from types.Ne
 
 				// Schedule OnBeat due to timeout
 				p.logger.Info("Received a newview with timeoutCert, scheduleOnBeat now", "height", header.Height, "round", header.Round)
-				p.ScheduleOnBeat(p.QCHigh.QC.QCHeight+1, uint64(header.Round), BeatOnTimeout, RoundInterval)
+				// Now reach timeout consensus on height/round, check myself states
+				if (p.QCHigh.QC.QCHeight + 1) < uint64(header.Height) {
+					p.logger.Info("Can not OnBeat due to states lagging", "my QCHeight", p.QCHigh.QC.QCHeight, "timeoutCert Height", header.Height)
+					return nil
+				}
+				p.ScheduleOnBeat(uint64(header.Height), uint64(header.Round), BeatOnTimeout, RoundInterval)
 			}
 		}
 	case HigherQCSeen:
