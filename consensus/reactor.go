@@ -1739,7 +1739,7 @@ func GetConsensusDelegates(dataDir string, configSize int, minimumSize int) []*t
 func (conR *ConsensusReactor) GetCommitteeMemberNameByIP(ip net.IP) string {
 	if conR.curCommittee != nil {
 		for _, v := range conR.curCommittee.Validators {
-			if v.NetAddr.String() == ip.String() {
+			if v.NetAddr.IP.String() == ip.String() {
 				return v.Name
 			}
 		}
