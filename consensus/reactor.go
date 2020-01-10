@@ -412,7 +412,6 @@ const (
 
 // CommitteeMember is validator structure + consensus fields
 type CommitteeMember struct {
-	Address     meter.Address
 	PubKey      ecdsa.PublicKey
 	VotingPower int64
 	CommitKey   []byte
@@ -427,8 +426,8 @@ func NewCommitteeMember() *CommitteeMember {
 }
 
 func (cm *CommitteeMember) ToString() string {
-	return fmt.Sprintf("[CommitteeMember: Address:%s PubKey:%s VotingPower:%v CSPubKey:%s, CSIndex:%v]",
-		cm.Address.String(), hex.EncodeToString(crypto.FromECDSAPub(&cm.PubKey)),
+	return fmt.Sprintf("[CommitteeMember: PubKey:%s VotingPower:%v CSPubKey:%s, CSIndex:%v]",
+		hex.EncodeToString(crypto.FromECDSAPub(&cm.PubKey)),
 		cm.VotingPower, cm.CSPubKey.ToString(), cm.CSIndex)
 }
 
@@ -516,7 +515,6 @@ func (conR *ConsensusReactor) UpdateActualCommittee(indexes []int, pubKeys []bls
 	// if there is time out, myself is not the first one in curCommittee
 	l := conR.curCommittee.Validators[conR.curCommitteeIndex]
 	cm := CommitteeMember{
-		Address:     l.Address,
 		PubKey:      l.PubKey,
 		VotingPower: l.VotingPower,
 		CommitKey:   l.CommitKey,
@@ -537,7 +535,6 @@ func (conR *ConsensusReactor) UpdateActualCommittee(indexes []int, pubKeys []bls
 		v := conR.curCommittee.Validators[index]
 
 		cm := CommitteeMember{
-			Address:     v.Address,
 			PubKey:      v.PubKey,
 			VotingPower: v.VotingPower,
 			CommitKey:   v.CommitKey,
@@ -1078,10 +1075,10 @@ type ApiCommitteeMember struct {
 func (conR *ConsensusReactor) GetLatestCommitteeList() ([]*ApiCommitteeMember, error) {
 	var committeeMembers []*ApiCommitteeMember
 	for _, cm := range conR.curActualCommittee {
-		delegate := conR.curCommittee.Validators[cm.CSIndex]
+		v := conR.curCommittee.Validators[cm.CSIndex]
 		apiCm := &ApiCommitteeMember{
-			Name:        delegate.Name,
-			Address:     cm.Address,
+			Name:        v.Name,
+			Address:     v.Address,
 			PubKey:      b64.StdEncoding.EncodeToString(crypto.FromECDSAPub(&cm.PubKey)),
 			VotingPower: cm.VotingPower,
 			NetAddr:     cm.NetAddr.String(),
@@ -1191,7 +1188,7 @@ func (conR *ConsensusReactor) ValidateCMheaderSig(cmh *ConsensusMsgCommonHeader,
 
 const (
 	MSG_SIGN_OFFSET_DEFAULT = uint(0)
-	MSG_SIGN_LENGTH_DEFAULT = uint(110)
+	MSG_SIGN_LENGTH_DEFAULT = uint(130)
 )
 
 // Sign Announce Committee
@@ -1212,16 +1209,17 @@ func (conR *ConsensusReactor) BuildAnnounceSignMsg(pubKey ecdsa.PublicKey, epoch
 
 // Sign Propopal Message
 // "Proposal Block Message: BlockType <8 bytes> Height <16 (8x2) bytes> Round <8 (4x2) bytes>
-func (conR *ConsensusReactor) BuildProposalBlockSignMsg(blockType uint32, height uint64, txsRoot, stateRoot *meter.Bytes32) string {
+func (conR *ConsensusReactor) BuildProposalBlockSignMsg(blockType uint32, height uint64, id, txsRoot, stateRoot *meter.Bytes32) string {
 	c := make([]byte, binary.MaxVarintLen32)
 	binary.BigEndian.PutUint32(c, blockType)
 
 	h := make([]byte, binary.MaxVarintLen64)
 	binary.BigEndian.PutUint64(h, height)
 
-	return fmt.Sprintf("%s %s %s %s %s %s %s %s ",
+	return fmt.Sprintf("%s %s %s %s %s %s %s %s %s %s",
 		"BlockType", hex.EncodeToString(c),
 		"Height", hex.EncodeToString(h),
+		"BlockID", id.String(),
 		"TxRoot", txsRoot.String(),
 		"StateRoot", stateRoot.String())
 }
