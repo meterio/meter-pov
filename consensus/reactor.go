@@ -602,7 +602,7 @@ func (conR *ConsensusReactor) NewValidatorSetByNonce(nonce uint64) (uint, bool) 
 		conR.myAddr = conR.curCommittee.Validators[index].NetAddr
 		conR.myName = conR.curCommittee.Validators[index].Name
 		conR.logger.Info("New committee calculated", "index", index, "role", role)
-		conR.logger.Info("My information updated", "name", conR.myName, "addr", conR.myAddr)
+		conR.logger.Info("My information updated", "name", conR.myName, "addr", conR.myAddr.IP.String())
 		fmt.Println(committee)
 	} else {
 		conR.csMode = CONSENSUS_MODE_DELEGATE
@@ -706,8 +706,10 @@ func (conR *ConsensusReactor) handleMsg(mi consensusMsgInfo) {
 	if strings.Contains(typeName, ".") {
 		typeName = strings.Split(typeName, ".")[1]
 	}
+	peerName := conR.GetCommitteeMemberNameByIP(peer.netAddr.IP)
 	conR.logger.Info(fmt.Sprintf("Received %v from peer", typeName),
 		"length", len(rawMsg),
+		"peer", peerName,
 		"ip", peer.netAddr.IP.String())
 
 	switch msg := msg.(type) {
@@ -1152,7 +1154,8 @@ func (conR *ConsensusReactor) sendConsensusMsg(msg *ConsensusMessage, csPeer *Co
 			conR.logger.Error("Failed to send message to peer", "peer", csPeer.String(), "err", err)
 			return false
 		}
-		conR.logger.Info(fmt.Sprintf("Sent %v to peer", typeName), "peer", csPeer.String(), "size", len(rawMsg))
+		peerName := conR.GetCommitteeMemberNameByIP(csPeer.netAddr.IP)
+		conR.logger.Info(fmt.Sprintf("Sent %v to peer", typeName), "peer", peerName, "ip", csPeer.netAddr.IP.String(), "size", len(rawMsg))
 		var result map[string]interface{}
 		json.NewDecoder(resp.Body).Decode(&result)
 	}
