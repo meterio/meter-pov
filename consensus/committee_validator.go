@@ -56,7 +56,7 @@ func (cv *ConsensusValidator) SendMsg(msg *ConsensusMessage) bool {
 }
 
 func (cv *ConsensusValidator) SendMsgToPeer(msg *ConsensusMessage, netAddr types.NetAddress) bool {
-	name := cv.csReactor.GetPeerNameByIP(netAddr.IP)
+	name := cv.csReactor.GetCommitteeMemberNameByIP(netAddr.IP)
 	csPeer := newConsensusPeer(name, netAddr.IP, netAddr.Port, cv.csReactor.magic)
 	return cv.csReactor.SendMsgToPeers([]*ConsensusPeer{csPeer}, msg)
 }

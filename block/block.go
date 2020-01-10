@@ -48,7 +48,6 @@ func (d KBlockData) ToString() string {
 }
 
 type CommitteeInfo struct {
-	Name        string
 	VotingPower uint64
 	CSIndex     uint32 // Index, corresponding to the bitarray
 	NetAddr     types.NetAddress
@@ -57,7 +56,7 @@ type CommitteeInfo struct {
 }
 
 func (ci CommitteeInfo) String() string {
-	return fmt.Sprintf("Member(%v): IP=%v, index=%d, vp=%d", ci.Name, ci.NetAddr.String(), ci.CSIndex, ci.VotingPower)
+	return fmt.Sprintf("Member(%v): IP=%v, index=%d, vp=%d", ci.NetAddr.String(), ci.CSIndex, ci.VotingPower)
 }
 
 type CommitteeInfos struct {
@@ -107,9 +106,8 @@ func NewEvidence(votingSig []byte, votingMsgHash [][32]byte, votingBA cmn.BitArr
 }
 
 // Create new committee Info
-func NewCommitteeInfo(name string, pubKey []byte, power uint64, netAddr types.NetAddress, csPubKey []byte, csIndex uint32) *CommitteeInfo {
+func NewCommitteeInfo(pubKey []byte, power uint64, netAddr types.NetAddress, csPubKey []byte, csIndex uint32) *CommitteeInfo {
 	return &CommitteeInfo{
-		Name:        name,
 		PubKey:      pubKey,
 		VotingPower: power,
 		NetAddr:     netAddr,

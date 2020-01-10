@@ -517,7 +517,7 @@ func (conR *ConsensusReactor) BuildCommitteeInfoFromMember(system bls.System, cm
 	cis := []block.CommitteeInfo{}
 
 	for _, cm := range cms {
-		ci := block.NewCommitteeInfo(cm.Name, crypto.FromECDSAPub(&cm.PubKey), uint64(cm.VotingPower), cm.NetAddr,
+		ci := block.NewCommitteeInfo(crypto.FromECDSAPub(&cm.PubKey), uint64(cm.VotingPower), cm.NetAddr,
 			system.PubKeyToBytes(cm.CSPubKey), uint32(cm.CSIndex))
 		cis = append(cis, *ci)
 	}
@@ -534,7 +534,6 @@ func (conR *ConsensusReactor) BuildCommitteeMemberFromInfo(system bls.System, ci
 		if err != nil {
 			panic(err)
 		}
-		cm.Name = ci.Name
 		cm.PubKey = *pubKey
 		cm.VotingPower = int64(ci.VotingPower)
 		cm.NetAddr = ci.NetAddr
@@ -556,7 +555,7 @@ func (conR *ConsensusReactor) MakeBlockCommitteeInfo(system bls.System, cms []Co
 	cis := []block.CommitteeInfo{}
 
 	for _, cm := range cms {
-		ci := block.NewCommitteeInfo(cm.Name, crypto.FromECDSAPub(&cm.PubKey), uint64(cm.VotingPower), cm.NetAddr,
+		ci := block.NewCommitteeInfo(crypto.FromECDSAPub(&cm.PubKey), uint64(cm.VotingPower), cm.NetAddr,
 			system.PubKeyToBytes(cm.CSPubKey), uint32(cm.CSIndex))
 		cis = append(cis, *ci)
 	}

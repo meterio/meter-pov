@@ -859,7 +859,7 @@ func (conR *ConsensusReactor) receivePeerMsg(w http.ResponseWriter, r *http.Requ
 		fmt.Errorf("Failed to convert to uint.")
 	}
 	peerPortUint16 := uint16(peerPort)
-	name := conR.GetPeerNameByIP(peerIP)
+	name := conR.GetCommitteeMemberNameByIP(peerIP)
 	p := newConsensusPeer(name, peerIP, peerPortUint16, conR.magic)
 	// p := ConsensusPeer{netAddr: peerAddr}
 	msgByteSlice, _ := hex.DecodeString(params["message"])
@@ -1736,10 +1736,10 @@ func GetConsensusDelegates(dataDir string, configSize int, minimumSize int) []*t
 	}
 }
 
-func (conR *ConsensusReactor) GetPeerNameByIP(ip net.IP) string {
+func (conR *ConsensusReactor) GetCommitteeMemberNameByIP(ip net.IP) string {
 	if conR.curCommittee != nil {
 		for _, v := range conR.curCommittee.Validators {
-			if v.NetAddr.IP.String() == ip.String() {
+			if v.NetAddr.String() == ip.String() {
 				return v.Name
 			}
 		}

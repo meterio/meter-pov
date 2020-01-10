@@ -117,7 +117,7 @@ func (p *Pacemaker) receivePacemakerMsg(w http.ResponseWriter, r *http.Request) 
 			p.logger.Info(fmt.Sprintf("Received %s from myself", typeName), "msg", msg.String(), "from", p.csReactor.GetMyName(), "ip", peerIP.String())
 			fromMyself = true
 		} else {
-			name := p.csReactor.GetPeerNameByIP(peerIP)
+			name := p.csReactor.GetCommitteeMemberNameByIP(peerIP)
 			p.logger.Info(fmt.Sprintf("Received %s from peer", typeName), "msg", msg.String(), "from", name, "ip", peerIP.String())
 			fromMyself = false
 		}
@@ -401,7 +401,7 @@ func (p *Pacemaker) sendQueryProposalMsg(queryHeight, queryRound, EpochID uint64
 			}
 		}
 	}
-	name := p.csReactor.GetPeerNameByIP(addr.IP)
+	name := p.csReactor.GetCommitteeMemberNameByIP(addr.IP)
 	peers := []*ConsensusPeer{newConsensusPeer(name, addr.IP, addr.Port, p.csReactor.magic)}
 
 	queryMsg, err := p.BuildQueryProposalMessage(queryHeight, queryRound, EpochID, myNetAddr)
