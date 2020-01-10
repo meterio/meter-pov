@@ -151,6 +151,13 @@ func main() {
 				},
 				Action: showEnodeIDAction,
 			},
+			{Name: "address",
+				Usage: "export address",
+				Flags: []cli.Flag{
+					dataDirFlag,
+				},
+				Action: addressAction,
+			},
 			{
 				Name:  "public-key",
 				Usage: "export public key",
@@ -184,6 +191,22 @@ func showEnodeIDAction(ctx *cli.Context) error {
 	id := discover.PubkeyID(&key.PublicKey)
 	port := ctx.Int(p2pPortFlag.Name)
 	fmt.Println(fmt.Sprintf("enode://%v@[]:%d", id, port))
+	return nil
+}
+
+func addressAction(ctx *cli.Context) error {
+	makeDataDir(ctx)
+	key, err := loadOrGeneratePrivateKey(masterKeyPath(ctx))
+	if err != nil {
+		fatal("load or generate master key:", err)
+	}
+
+	pubKey, err := loadOrUpdatePublicKey(publicKeyPath(ctx), key, &key.PublicKey)
+	if err != nil {
+		fatal("update public key:", err)
+	}
+	addr := meter.Address(crypto.PubkeyToAddress(*pubKey))
+	fmt.Println(addr.String())
 	return nil
 }
 
