@@ -100,7 +100,7 @@ func NewCommitteeLeader(conR *ConsensusReactor) *ConsensusLeader {
 			continue
 		}
 		// initialize PeerConn
-		p := newConsensusPeer(v.NetAddr.IP, v.NetAddr.Port, conR.magic)
+		p := newConsensusPeer(v.Name, v.NetAddr.IP, v.NetAddr.Port, conR.magic)
 		cl.csPeers = append(cl.csPeers, p)
 	}
 	return cl

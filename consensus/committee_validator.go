@@ -56,7 +56,8 @@ func (cv *ConsensusValidator) SendMsg(msg *ConsensusMessage) bool {
 }
 
 func (cv *ConsensusValidator) SendMsgToPeer(msg *ConsensusMessage, netAddr types.NetAddress) bool {
-	csPeer := newConsensusPeer(netAddr.IP, netAddr.Port, cv.csReactor.magic)
+	name := cv.csReactor.GetPeerNameByIP(netAddr.IP)
+	csPeer := newConsensusPeer(name, netAddr.IP, netAddr.Port, cv.csReactor.magic)
 	return cv.csReactor.SendMsgToPeers([]*ConsensusPeer{csPeer}, msg)
 }
 
@@ -77,11 +78,13 @@ func (cv *ConsensusValidator) RemoveAllcsPeers() bool {
 	return true
 }
 
+/* deprecated
 func (cv *ConsensusValidator) AddcsPeer(netAddr types.NetAddress) bool {
 	csPeer := newConsensusPeer(netAddr.IP, netAddr.Port, cv.csReactor.magic)
 	cv.csPeers = append(cv.csPeers, csPeer)
 	return true
 }
+*/
 
 // Generate commitCommittee Message
 func (cv *ConsensusValidator) GenerateCommitMessage(sig bls.Signature, msgHash [32]byte) *CommitCommitteeMessage {

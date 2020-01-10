@@ -15,12 +15,13 @@ import (
 
 // Consensus Topology Peer
 type ConsensusPeer struct {
+	name    string
 	netAddr types.NetAddress
 	logger  log15.Logger
 	magic   [4]byte
 }
 
-func newConsensusPeer(ip net.IP, port uint16, magic [4]byte) *ConsensusPeer {
+func newConsensusPeer(name string, ip net.IP, port uint16, magic [4]byte) *ConsensusPeer {
 	return &ConsensusPeer{
 		netAddr: types.NetAddress{
 			IP:   ip,
