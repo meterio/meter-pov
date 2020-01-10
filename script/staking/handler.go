@@ -24,6 +24,27 @@ const (
 	OP_GOVERNING   = uint32(10001)
 )
 
+func GetOpName(op uint32) string {
+	switch op {
+	case OP_BOUND:
+		return "Bound"
+	case OP_UNBOUND:
+		return "Unbound"
+	case OP_CANDIDATE:
+		return "Candidate"
+	case OP_UNCANDIDATE:
+		return "Uncandidate"
+	case OP_DELEGATE:
+		return "Delegate"
+	case OP_UNDELEGATE:
+		return "Undelegate"
+	case OP_GOVERNING:
+		return "Governing"
+	default:
+		return "Unknown"
+	}
+}
+
 const (
 	OPTION_CANDIDATES   = uint32(1)
 	OPTION_STAKEHOLDERS = uint32(2)
@@ -89,7 +110,7 @@ func (sb *StakingBody) BoundHandler(senv *StakingEnviroment, gas uint64) (ret []
 	setCand := !sb.CandAddr.IsZero()
 	if setCand {
 		if c := candidateList.Get(sb.CandAddr); c == nil {
-			staking.logger.Warn("candidate is not listed", "address", sb.CandAddr)
+			log.Warn("candidate is not listed", "address", sb.CandAddr)
 			setCand = false
 		}
 	}
@@ -108,13 +129,13 @@ func (sb *StakingBody) BoundHandler(senv *StakingEnviroment, gas uint64) (ret []
 		err = errors.New("Invalid token parameter")
 	}
 	if err != nil {
-		staking.logger.Error("errors", "error", err)
+		log.Error("errors", "error", err)
 		return
 	}
 
 	// sanity checked, now do the action
 	opt, rate, locktime := GetBoundLockOption(sb.Option)
-	staking.logger.Info("get bound option", "option", opt, "rate", rate, "locktime", locktime)
+	log.Info("get bound option", "option", opt, "rate", rate, "locktime", locktime)
 
 	var candAddr meter.Address
 	if setCand {
@@ -139,7 +160,7 @@ func (sb *StakingBody) BoundHandler(senv *StakingEnviroment, gas uint64) (ret []
 		cand := candidateList.Get(sb.CandAddr)
 		if cand == nil {
 			err = errors.New("candidate is not in list")
-			staking.logger.Error("Errors", "error", err)
+			log.Error("Errors", "error", err)
 			return
 		}
 		cand.AddBucket(bucket)
@@ -211,10 +232,6 @@ func (sb *StakingBody) CandidateHandler(senv *StakingEnviroment, gas uint64) (re
 	bucketList := staking.GetBucketList(state)
 	stakeholderList := staking.GetStakeHolderList(state)
 
-	fmt.Println("!!!!!!Entered Candidate Handler!!!!!!")
-	fmt.Println(candidateList.ToString())
-	fmt.Println(bucketList.ToString())
-
 	if gas < meter.ClauseGas {
 		leftOverGas = 0
 	} else {
@@ -226,7 +243,7 @@ func (sb *StakingBody) CandidateHandler(senv *StakingEnviroment, gas uint64) (re
 	minCandBalance := big.NewInt(int64(1e18))
 	if sb.Amount.Cmp(minCandBalance) < 0 {
 		err = errors.New("does not meet minimial balance")
-		staking.logger.Error("does not meet minimial balance")
+		log.Error("does not meet minimial balance")
 		return
 	}
 
@@ -244,28 +261,28 @@ func (sb *StakingBody) CandidateHandler(senv *StakingEnviroment, gas uint64) (re
 		err = errors.New("Invalid token parameter")
 	}
 	if err != nil {
-		staking.logger.Error("Errors:", "error", err)
+		log.Error("Errors:", "error", err)
 		return
 	}
 
 	decoded, err := base64.StdEncoding.DecodeString(string(sb.CandPubKey))
 	if err != nil {
-		staking.logger.Error("could not decode public key")
+		log.Error("could not decode public key")
 	}
 	pubKey, err := crypto.UnmarshalPubkey(decoded)
 	if err != nil || pubKey == nil {
-		staking.logger.Error("could not unmarshal public key")
+		log.Error("could not unmarshal public key")
 		return
 	}
 
 	if sb.CandPort < 1 || sb.CandPort > 65535 {
-		staking.logger.Error(fmt.Sprintf("invalid parameter: port %d (should be in [1,65535])", sb.CandPort))
+		log.Error(fmt.Sprintf("invalid parameter: port %d (should be in [1,65535])", sb.CandPort))
 		return
 	}
 
 	ipPattern, err := regexp.Compile("^\\d+[.]\\d+[.]\\d+[.]\\d+$")
 	if !ipPattern.MatchString(string(sb.CandIP)) {
-		staking.logger.Error(fmt.Sprintf("invalid parameter: ip %s (should be a valid ipv4 address)", sb.CandIP))
+		log.Error(fmt.Sprintf("invalid parameter: ip %s (should be a valid ipv4 address)", sb.CandIP))
 		return
 	}
 	// domainPattern, err := regexp.Compile("^([0-9a-zA-Z-_]+[.]*)+$")
@@ -273,8 +290,8 @@ func (sb *StakingBody) CandidateHandler(senv *StakingEnviroment, gas uint64) (re
 	if record := candidateList.Get(sb.CandAddr); record != nil {
 		if bytes.Equal(record.PubKey, sb.CandPubKey) && bytes.Equal(record.IPAddr, sb.CandIP) && record.Port == sb.CandPort {
 			// exact same candidate
-			// fmt.Println("Record: ", record.ToString())
-			// fmt.Println("sb:", sb.ToString())
+			// log.Info("Record: ", record.ToString())
+			// log.Info("sb:", sb.ToString())
 			err = errors.New("candidate already listed")
 		} else {
 			err = errors.New("candidate listed with different information")
@@ -284,7 +301,7 @@ func (sb *StakingBody) CandidateHandler(senv *StakingEnviroment, gas uint64) (re
 
 	// now staking the amount, force to the longest lock
 	opt, rate, locktime := GetBoundLockOption(FOUR_WEEK_LOCK)
-	staking.logger.Info("get bound option", "option", opt, "rate", rate, "locktime", locktime)
+	log.Info("get bound option", "option", opt, "rate", rate, "locktime", locktime)
 
 	// bucket owner is candidate
 	bucket := NewBucket(sb.CandAddr, sb.CandAddr, &sb.Amount, uint8(sb.Token), opt, rate, sb.Timestamp, sb.Nonce)
@@ -317,11 +334,6 @@ func (sb *StakingBody) CandidateHandler(senv *StakingEnviroment, gas uint64) (re
 	staking.SetBucketList(bucketList, state)
 	staking.SetStakeHolderList(stakeholderList, state)
 
-	fmt.Println("XXXXX: After candidate action")
-	fmt.Println(candidateList.ToString())
-	fmt.Println(stakeholderList.ToString())
-	fmt.Println(bucketList.ToString())
-
 	return
 }
 
@@ -336,10 +348,6 @@ func (sb *StakingBody) UnCandidateHandler(senv *StakingEnviroment, gas uint64) (
 	candidateList := staking.GetCandidateList(state)
 	bucketList := staking.GetBucketList(state)
 	stakeholderList := staking.GetStakeHolderList(state)
-
-	fmt.Println("!!!!!!Entered UnCandidate Handler!!!!!!")
-	fmt.Println(candidateList.ToString())
-	fmt.Println(bucketList.ToString())
 
 	if gas < meter.ClauseGas {
 		leftOverGas = 0
@@ -358,11 +366,11 @@ func (sb *StakingBody) UnCandidateHandler(senv *StakingEnviroment, gas uint64) (
 	for _, id := range record.Buckets {
 		b := bucketList.Get(id)
 		if b == nil {
-			staking.logger.Error("bucket not found", "bucket id", id)
+			log.Error("bucket not found", "bucket id", id)
 			continue
 		}
 		if bytes.Compare(b.Candidate.Bytes(), record.Addr.Bytes()) != 0 {
-			staking.logger.Error("bucket info mismatch", "candidate address", record.Addr)
+			log.Error("bucket info mismatch", "candidate address", record.Addr)
 			continue
 		}
 		b.Candidate = meter.Address{}
@@ -388,10 +396,6 @@ func (sb *StakingBody) DelegateHandler(senv *StakingEnviroment, gas uint64) (ret
 	bucketList := staking.GetBucketList(state)
 	stakeholderList := staking.GetStakeHolderList(state)
 
-	fmt.Println("!!!!!!Entered Delegate Handler!!!!!!")
-	fmt.Println(candidateList.ToString())
-	fmt.Println(bucketList.ToString())
-
 	if gas < meter.ClauseGas {
 		leftOverGas = 0
 	} else {
@@ -406,7 +410,7 @@ func (sb *StakingBody) DelegateHandler(senv *StakingEnviroment, gas uint64) (ret
 		return nil, leftOverGas, errors.New("staking info mismatch")
 	}
 	if b.Candidate.IsZero() != true {
-		staking.logger.Error("bucket is in use", "candidate", b.Candidate)
+		log.Error("bucket is in use", "candidate", b.Candidate)
 		return nil, leftOverGas, errors.New("bucket in use")
 	}
 
@@ -437,10 +441,6 @@ func (sb *StakingBody) UnDelegateHandler(senv *StakingEnviroment, gas uint64) (r
 	bucketList := staking.GetBucketList(state)
 	stakeholderList := staking.GetStakeHolderList(state)
 
-	fmt.Println("!!!!!!Entered UnDelegate Handler!!!!!!")
-	fmt.Println(candidateList.ToString())
-	fmt.Println(bucketList.ToString())
-
 	if gas < meter.ClauseGas {
 		leftOverGas = 0
 	} else {
@@ -455,7 +455,7 @@ func (sb *StakingBody) UnDelegateHandler(senv *StakingEnviroment, gas uint64) (r
 		return nil, leftOverGas, errors.New("staking info mismatch")
 	}
 	if b.Candidate.IsZero() {
-		staking.logger.Error("bucket is not in use")
+		log.Error("bucket is not in use")
 		return nil, leftOverGas, errors.New("bucket in not use")
 	}
 
@@ -486,8 +486,6 @@ func (sb *StakingBody) GoverningHandler(senv *StakingEnviroment, gas uint64) (re
 	bucketList := staking.GetBucketList(state)
 	stakeholderList := staking.GetStakeHolderList(state)
 	delegateList := staking.GetDelegateList(state)
-	fmt.Println(delegateList.ToString())
-	fmt.Println("!!!!!!Entered Governing Handler!!!!!!")
 
 	if gas < meter.ClauseGas {
 		leftOverGas = 0
@@ -498,7 +496,7 @@ func (sb *StakingBody) GoverningHandler(senv *StakingEnviroment, gas uint64) (re
 	ts := sb.Timestamp
 	for _, bkt := range bucketList.buckets {
 
-		staking.logger.Info("before handling", "bucket", bkt.ToString())
+		log.Debug("before handling", "bucket", bkt.ToString())
 		// handle unbound first
 		if bkt.Unbounded == true {
 			// matured
@@ -542,7 +540,7 @@ func (sb *StakingBody) GoverningHandler(senv *StakingEnviroment, gas uint64) (re
 			bonus := big.NewInt(int64((ts - bkt.CalcLastTime) * uint64(bkt.Rate)))
 			bonus = bonus.Mul(bonus, bkt.Value)
 			bonus = bonus.Div(bonus, denominator)
-			staking.logger.Info("in calclating", "bonus votes", bonus.Uint64(), "ts", ts, "last time", bkt.CalcLastTime)
+			log.Debug("in calclating", "bonus votes", bonus.Uint64(), "ts", ts, "last time", bkt.CalcLastTime)
 
 			// update bucket
 			bkt.BonusVotes += bonus.Uint64()
@@ -556,7 +554,7 @@ func (sb *StakingBody) GoverningHandler(senv *StakingEnviroment, gas uint64) (re
 				}
 			}
 		}
-		staking.logger.Info("after handling", "bucket", bkt.ToString())
+		log.Debug("after handling", "bucket", bkt.ToString())
 	}
 
 	// handle delegateList
@@ -591,18 +589,13 @@ func (sb *StakingBody) GoverningHandler(senv *StakingEnviroment, gas uint64) (re
 	} else {
 		delegateList.SetDelegates(delegates)
 	}
-	// fmt.Println("before set", delegateList.ToString())
 
 	staking.SetCandidateList(candidateList, state)
 	staking.SetBucketList(bucketList, state)
 	staking.SetStakeHolderList(stakeholderList, state)
 	staking.SetDelegateList(delegateList, state)
 
-	staking.logger.Debug("stakingGoverningHanler, done")
-	fmt.Println("XXXXX: After checking existence")
-	fmt.Println(candidateList.ToString())
-	fmt.Println(stakeholderList.ToString())
-	fmt.Println(bucketList.ToString())
+	log.Info("After Governing")
 	fmt.Println(delegateList.ToString())
 	return
 }

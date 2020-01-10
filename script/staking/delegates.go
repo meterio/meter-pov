@@ -33,8 +33,8 @@ func newDelegateList(delegates []*Delegate) *DelegateList {
 
 func (d *Delegate) ToString() string {
 	pubKeyEncoded := b64.StdEncoding.EncodeToString(d.PubKey)
-	return fmt.Sprintf("Delegate(Addr=%v, PubKey=%v, Node=%v:%v, VotingPower=%.2e)",
-		d.Address, pubKeyEncoded, string(d.IPAddr), d.Port, float64(d.VotingPower.Int64()))
+	return fmt.Sprintf("Delegate(Name=%v, Addr=%v, PubKey=%v, IP=%v:%v, VotingPower=%d)",
+		d.Name, d.Address, pubKeyEncoded, string(d.IPAddr), d.Port, d.VotingPower.Uint64())
 }
 
 func (l *DelegateList) CleanAll() error {
@@ -72,7 +72,7 @@ func (l *DelegateList) ToString() string {
 func GetLatestDelegateList() (*DelegateList, error) {
 	staking := GetStakingGlobInst()
 	if staking == nil {
-		fmt.Println("staking is not initilized...")
+		log.Warn("staking is not initilized...")
 		err := errors.New("staking is not initilized...")
 		return nil, err
 	}

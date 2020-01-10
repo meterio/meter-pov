@@ -20,12 +20,14 @@ const (
 var (
 	StakingGlobInst *Staking
 )
+var (
+	log = log15.New("pkg", "staking")
+)
 
 // Candidate indicates the structure of a candidate
 type Staking struct {
 	chain        *chain.Chain
 	stateCreator *state.Creator
-	logger       log15.Logger
 }
 
 func GetStakingGlobInst() *Staking {
@@ -48,14 +50,13 @@ func NewStaking(ch *chain.Chain, sc *state.Creator) *Staking {
 	staking := &Staking{
 		chain:        ch,
 		stateCreator: sc,
-		logger:       log15.New("pkg", "staking"),
 	}
 	SetStakingGlobInst(staking)
 	return staking
 }
 
 func (s *Staking) Start() error {
-	s.logger.Info("staking module started")
+	log.Info("staking module started")
 	return nil
 }
 
@@ -65,7 +66,7 @@ func (s *Staking) PrepareStakingHandler() (StakingHandler func(data []byte, to *
 
 		sb, err := StakingDecodeFromBytes(data)
 		if err != nil {
-			s.logger.Error("Decode script message failed", "error", err)
+			log.Error("Decode script message failed", "error", err)
 			return nil, gas, err
 		}
 
@@ -74,15 +75,16 @@ func (s *Staking) PrepareStakingHandler() (StakingHandler func(data []byte, to *
 			panic("create staking enviroment failed")
 		}
 
-		s.logger.Info("received staking data", "body", sb.ToString())
+		log.Debug("received staking data", "body", sb.ToString())
 		/*  now := uint64(time.Now().Unix())
 		if InTimeSpan(sb.Timestamp, now, STAKING_TIMESPAN) == false {
-			s.logger.Error("timestamp span too far", "timestamp", sb.Timestamp, "now", now)
+			log.Error("timestamp span too far", "timestamp", sb.Timestamp, "now", now)
 			err = errors.New("timestamp span too far")
 			return
 		}
 		*/
 
+		log.Info("Entering script handler for operation", "op", GetOpName(sb.Opcode))
 		switch sb.Opcode {
 		case OP_BOUND:
 			if senv.GetTxCtx().Origin != sb.HolderAddr {
@@ -128,9 +130,10 @@ func (s *Staking) PrepareStakingHandler() (StakingHandler func(data []byte, to *
 			ret, leftOverGas, err = sb.GoverningHandler(senv, gas)
 
 		default:
-			s.logger.Error("unknown Opcode", "Opcode", sb.Opcode)
+			log.Error("unknown Opcode", "Opcode", sb.Opcode)
 			return nil, gas, errors.New("unknow staking opcode")
 		}
+		log.Info("Leaving script handler for operation", "op", GetOpName(sb.Opcode))
 		return
 	}
 	return

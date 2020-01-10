@@ -36,7 +36,7 @@ func (s *Staking) GetCandidateList(state *state.State) (result *CandidateList) {
 				if err.Error() == "EOF" && len(raw) == 0 {
 					// empty raw, do nothing
 				} else {
-					s.logger.Warn("Error during decoding candidate list, set it as an empty list", "err", err)
+					log.Warn("Error during decoding candidate list, set it as an empty list", "err", err)
 				}
 			}
 			// fmt.Println("Loaded:", result.ToString())
@@ -85,7 +85,7 @@ func (s *Staking) GetStakeHolderList(state *state.State) (result *StakeholderLis
 				if err.Error() == "EOF" && len(raw) == 0 {
 					// empty raw, do nothing
 				} else {
-					s.logger.Warn("Error during decoding Staking Holder list, set it with an empty list", "err", err)
+					log.Warn("Error during decoding Staking Holder list, set it with an empty list", "err", err)
 				}
 			}
 			// fmt.Println("Loaded:", result.ToString())
@@ -130,7 +130,7 @@ func (s *Staking) GetBucketList(state *state.State) (result *BucketList) {
 				if err.Error() == "EOF" && len(raw) == 0 {
 					// empty raw, do nothing
 				} else {
-					s.logger.Warn("Error during decoding bucket list, set it as an empty list. ", "err", err)
+					log.Warn("Error during decoding bucket list, set it as an empty list. ", "err", err)
 				}
 			}
 			// fmt.Println("Loaded:", result.ToString())
@@ -195,7 +195,7 @@ func (s *Staking) BoundAccountMeter(addr meter.Address, amount *big.Int, state *
 
 	// meterBalance should >= amount
 	if meterBalance.Cmp(amount) == -1 {
-		s.logger.Error("not enough meter balance", "account", addr, "bound amount", amount)
+		log.Error("not enough meter balance", "account", addr, "bound amount", amount)
 		return errors.New("not enough meter balance")
 	}
 
@@ -214,7 +214,7 @@ func (s *Staking) UnboundAccountMeter(addr meter.Address, amount *big.Int, state
 
 	// meterBoundedBalance should >= amount
 	if meterBoundedBalance.Cmp(amount) < 0 {
-		s.logger.Error("not enough bounded meter balance", "account", addr, "unbound amount", amount)
+		log.Error("not enough bounded meter balance", "account", addr, "unbound amount", amount)
 		return errors.New("not enough bounded meter balance")
 	}
 
@@ -235,7 +235,7 @@ func (s *Staking) BoundAccountMeterGov(addr meter.Address, amount *big.Int, stat
 
 	// meterGov should >= amount
 	if meterGov.Cmp(amount) == -1 {
-		s.logger.Error("not enough meter-gov balance", "account", addr, "bound amount", amount)
+		log.Error("not enough meter-gov balance", "account", addr, "bound amount", amount)
 		return errors.New("not enough meter-gov balance")
 	}
 
@@ -255,7 +255,7 @@ func (s *Staking) UnboundAccountMeterGov(addr meter.Address, amount *big.Int, st
 
 	// meterGovBounded should >= amount
 	if meterGovBounded.Cmp(amount) < 0 {
-		s.logger.Error("not enough bounded meter-gov balance", "account", addr, "unbound amount", amount)
+		log.Error("not enough bounded meter-gov balance", "account", addr, "unbound amount", amount)
 		return errors.New("not enough bounded meter-gov balance")
 	}
 
