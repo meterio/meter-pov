@@ -1,5 +1,11 @@
 # Versions
 
+## 1.3.1-beta6
+
+Updated:
+
+1. further updated log output
+
 ## 1.3.1-beta5
 
 Added:
