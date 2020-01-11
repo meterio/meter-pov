@@ -56,7 +56,7 @@ type CommitteeInfo struct {
 }
 
 func (ci CommitteeInfo) String() string {
-	return fmt.Sprintf("Member(%v): IP=%v, index=%d, vp=%d", ci.NetAddr.String(), ci.CSIndex, ci.VotingPower)
+	return fmt.Sprintf("Member: IP=%v, index=%d, vp=%d", ci.NetAddr.IP.String(), ci.CSIndex, ci.VotingPower)
 }
 
 type CommitteeInfos struct {
@@ -71,7 +71,7 @@ func (cis CommitteeInfos) String() string {
 	for _, ci := range cis.CommitteeInfo {
 		s = append(s, ci.String())
 	}
-	return "CommitteeInfos(" + strings.Join(s, ",") + ")"
+	return "CommitteeInfos(\n  " + strings.Join(s, ",\n  ") + "\n)"
 }
 
 // Block is an immutable block type.

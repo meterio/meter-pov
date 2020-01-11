@@ -57,7 +57,7 @@ func (peer *ConsensusPeer) sendData(srcNetAddr types.NetAddress, typeName string
 	// peer.logger.Debug("Send", "data", string(jsonStr), "to", url)
 	_, err = netClient.Post(url, "application/json", bytes.NewBuffer(jsonStr))
 	if err != nil {
-		peer.logger.Error("Failed to send message to peer", "peer", peer.String(), "err", err)
+		peer.logger.Error("Failed to send message to peer", "peer", peer.name, "ip", peer.String(), "err", err)
 		return err
 	}
 	// TODO: check response to verify this action

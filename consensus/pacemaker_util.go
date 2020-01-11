@@ -131,7 +131,7 @@ func (p *Pacemaker) receivePacemakerMsg(w http.ResponseWriter, r *http.Request) 
 			peers, _ := p.GetRelayPeers(round)
 			p.logger.Info("Now, relay this proposal...", "height", height, "round", round)
 			for _, peer := range peers {
-				p.logger.Debug("Now, relay this proposal...", "peer", peer.String(), "height", height, "round", round)
+				p.logger.Debug("Now, relay this proposal...", "peer", peer.name, "ip", peer.String(), "height", height, "round", round)
 				if peer.netAddr.IP.String() == p.csReactor.GetMyNetAddr().IP.String() {
 					p.logger.Info("relay to myself, ignore ...")
 					continue

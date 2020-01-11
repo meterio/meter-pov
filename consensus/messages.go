@@ -422,8 +422,10 @@ func (m *PMVoteForProposalMessage) SigningHash() (hash meter.Bytes32) {
 
 // String returns a string representation.
 func (m *PMVoteForProposalMessage) String() string {
+	msgHash := hex.EncodeToString(m.SignedMessageHash[:])
+	abbrMsgHash := msgHash[:4] + "..." + msgHash[len(msgHash)-4:]
 	return fmt.Sprintf("[PMVoteForProposal Height:%v Round:%v MsgHash:%v]",
-		m.CSMsgCommonHeader.Height, m.CSMsgCommonHeader.Round, hex.EncodeToString(m.SignedMessageHash[:]))
+		m.CSMsgCommonHeader.Height, m.CSMsgCommonHeader.Round, abbrMsgHash)
 }
 
 func (m *PMVoteForProposalMessage) EpochID() uint64 {

@@ -1151,7 +1151,7 @@ func (conR *ConsensusReactor) sendConsensusMsg(msg *ConsensusMessage, csPeer *Co
 		}
 		resp, err := netClient.Post("http://"+csPeer.netAddr.IP.String()+":8670/consensus", "application/json", bytes.NewBuffer(jsonStr))
 		if err != nil {
-			conR.logger.Error("Failed to send message to peer", "peer", csPeer.String(), "err", err)
+			conR.logger.Error("Failed to send message to peer", "peer", csPeer.name, "ip", csPeer.String(), "err", err)
 			return false
 		}
 		peerName := conR.GetCommitteeMemberNameByIP(csPeer.netAddr.IP)
@@ -1712,7 +1712,7 @@ func PrintDelegates(delegates []*types.Delegate) {
 		keyBytes := crypto.FromECDSAPub(&dd.PubKey)
 		pubKeyStr := base64.StdEncoding.EncodeToString(keyBytes)
 
-		fmt.Printf("Delegate %d:\n Name:%s\n Address:%s\n Public Key: %v\n Voting Power:%d, Network Address: %s:%d\n",
+		fmt.Printf("Delegate %d: %s\n Address:%s\n Public Key: %v\n Voting Power:%d, Network Address: %s:%d\n",
 			i+1, dd.Name, dd.Address, pubKeyStr, dd.VotingPower, dd.NetAddr.IP.String(), dd.NetAddr.Port)
 	}
 	fmt.Println("============================================")
@@ -1723,11 +1723,11 @@ func PrintDelegates(delegates []*types.Delegate) {
 func GetConsensusDelegates(dataDir string, configSize int, minimumSize int) []*types.Delegate {
 	delegates, err := staking.GetInternalDelegateList()
 	if err == nil && len(delegates) >= minimumSize {
-		fmt.Println("delegatesList from staking", "delegates size", len(delegates))
+		fmt.Println("delegatesList from staking", "(size=", len(delegates), ")")
 		PrintDelegates(delegates)
 	} else {
 		delegates = configDelegates(dataDir)
-		fmt.Println("delegatesList from configuration file e.g. delegates.json", "delegates size", len(delegates))
+		fmt.Println("delegatesList from configuration file e.g. delegates.json", "(size=", len(delegates), ")")
 		PrintDelegates(delegates)
 	}
 
