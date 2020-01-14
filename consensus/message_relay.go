@@ -121,13 +121,13 @@ func getRelayPeers(myIndex, maxIndex int) (peers []int) {
 	}
 
 	var groupSize, groupCount int
-	groupSize = ((maxIndex - 8) / 32) + 1
+	groupSize = ((maxIndex - 8) / 16) + 1
 	groupCount = (maxIndex - 8) / groupSize
 	// fmt.Println("groupSize", groupSize, "groupCount", groupCount)
 
 	if myIndex <= 8 {
-		mySet := (myIndex - 1) / 2
-		myRole := (myIndex - 1) % 2
+		mySet := (myIndex - 1) / 4
+		myRole := (myIndex - 1) % 4
 		for i := 0; i < 8; i++ {
 			group := (mySet * 8) + i
 			if group >= groupCount {
@@ -149,7 +149,7 @@ func getRelayPeers(myIndex, maxIndex int) (peers []int) {
 	} else {
 		// I am in group, so begin << myIndex << end
 		// if wrap happens, redundant the 2nd layer
-		group := (maxIndex - 8) / 32
+		group := (maxIndex - 8) / 16
 		begin := 9 + (group * groupSize)
 		end := begin + groupSize - 1
 		if end > maxIndex {
@@ -183,6 +183,7 @@ func getRelayPeers(myIndex, maxIndex int) (peers []int) {
 		}
 		if wrap == true {
 			peers = append(peers, (myIndex%8)+1)
+			peers = append(peers, (myIndex%8)+1+8)
 		}
 	}
 	return
