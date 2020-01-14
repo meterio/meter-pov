@@ -1,5 +1,11 @@
 # Versions
 
+## 1.3.1-beta7
+
+Added:
+
+1. Send redundancy proposals to protect from network partition
+
 ## 1.3.1-beta6
 
 Updated:
