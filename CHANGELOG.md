@@ -1,11 +1,61 @@
 # Versions
 
+## 1.3.1-beta6
+
+Updated:
+
+1. further updated log output
+
+## 1.3.1-beta5
+
+Added:
+
+1. `blockID` check in `BlockMatchQC`
+2. `peerName` in the log together with send and receive message
+3. check the height before timeout onbeat to protect from the potential fork
+
+Updated:
+
+1. fix for the address mismatch for delegates and validators
+2. simplified the log for better readability
+
+## 1.3.1-beta4
+
+Added:
+
+1. `name` field for delegates and validators
+2. `BlockMatchQC` for PMNewView in order to protect from unexpected out-of-sequence arrival of PMNewView and PMProposal
+
+Removed:
+
+1. enforced round number for proposal
+
+## 1.3.1-beta3
+
+Added:
+
+1. enforce `epochID`, anything without different `epochID` will be discarded
+2. shorten the log for bestQC broadcast
+3. update docker build script
+4. ignore PMProposal with expired round
+
+## 1.3.1-beta2
+
+Added:
+
+1. communication `magic` based on version and discover topic
+2. reject communication with mismatch `magic`
+
+Removed:
+
+1. set `magic` purely with discover topic
+
 ## 1.3.1-beta1
 
 Added:
 
-1. ignore expired NewView messages if its round is less than pacemaker current round
-2. ignore expired VoteForProposal messages if its round is less than pacemaker current round
+1. ignore PMNewView with expired round
+2. ignore PMVoteForProposal with expired round
 
 ## 1.3.0
 

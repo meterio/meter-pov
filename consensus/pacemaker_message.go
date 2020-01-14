@@ -311,7 +311,7 @@ func (p *Pacemaker) BlockMatchQC(b *pmBlock, qc *block.QuorumCert) (bool, error)
 	blkID = blk.Header().ID()
 
 	signMsg := p.csReactor.BuildProposalBlockSignMsg(blkType, uint64(b.Height), &blkID, &txsRoot, &stateRoot)
-	p.logger.Info("BlockMatchQC", "signMsg", signMsg)
+	p.logger.Debug("BlockMatchQC", "signMsg", signMsg)
 	msgHash = p.csReactor.csCommon.Hash256Msg([]byte(signMsg), uint32(MSG_SIGN_OFFSET_DEFAULT), uint32(MSG_SIGN_LENGTH_DEFAULT))
 	//p.logger.Info("in BlockMatchQC Compare", "msgHash", msgHash, "qc voting Msg hash", qc.VoterMsgHash[0])
 	//qc at least has 1 vote signature and they are the same, so compare [0] is good enough

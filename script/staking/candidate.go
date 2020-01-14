@@ -39,7 +39,7 @@ func NewCandidate(addr meter.Address, name []byte, pubKey []byte, ip []byte, por
 func GetLatestCandidateList() (*CandidateList, error) {
 	staking := GetStakingGlobInst()
 	if staking == nil {
-		fmt.Println("staking is not initilized...")
+		log.Warn("staking is not initilized...")
 		err := errors.New("staking is not initilized...")
 		return NewCandidateList(nil), err
 	}
@@ -57,8 +57,8 @@ func GetLatestCandidateList() (*CandidateList, error) {
 
 func (c *Candidate) ToString() string {
 	pubKeyEncoded := b64.StdEncoding.EncodeToString(c.PubKey)
-	return fmt.Sprintf("Candidate(Addr=%v, PubKey=%v, Node=%v:%v, TotalVotes=%.2e)",
-		c.Addr, pubKeyEncoded, string(c.IPAddr), c.Port, float64(c.TotalVotes.Int64()))
+	return fmt.Sprintf("Candidate(%v) Node=%v:%v, Addr=%v, TotalVotes=%d, PubKey=%v",
+		string(c.Name), string(c.IPAddr), c.Port, c.Addr, c.TotalVotes.Uint64(), pubKeyEncoded)
 }
 
 func (c *Candidate) AddBucket(bucket *Bucket) {

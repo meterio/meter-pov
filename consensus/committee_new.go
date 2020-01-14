@@ -57,12 +57,12 @@ func (conR *ConsensusReactor) NewCommitteeTimeout() error {
 	if conR.newCommittee.InCommittee {
 		nl := conR.newCommittee.Committee.Validators[conR.newCommittee.Round]
 
-		leader := newConsensusPeer(nl.NetAddr.IP, nl.NetAddr.Port, conR.magic)
+		leader := newConsensusPeer(nl.Name, nl.NetAddr.IP, nl.NetAddr.Port, conR.magic)
 		leaderPubKey := nl.PubKey
 		conR.sendNewCommitteeMessage(leader, leaderPubKey, conR.newCommittee.KblockHeight,
 			conR.newCommittee.Nonce, conR.newCommittee.Round)
 		conR.NewCommitteeTimerStart()
-		conR.logger.Warn("Committee Timeout, sent newcommittee msg", "peer", leader.String(), "round", conR.newCommittee.Round)
+		conR.logger.Warn("Committee Timeout, sent newcommittee msg", "peer", leader.name, "ip", leader.String(), "round", conR.newCommittee.Round)
 		if conR.csValidator != nil {
 			conR.csValidator.state = COMMITTEE_VALIDATOR_INIT
 		}

@@ -313,7 +313,7 @@ func (c *Communicator) BroadcastBlock(blk *block.Block) {
 		peer.MarkBlock(blk.Header().ID())
 		c.goes.Go(func() {
 			if sendQC == true {
-				log.Info("Broadcast BestQC to peer", "peer", peer.Peer.RemoteAddr().String())
+				log.Info("Sent BestQC to peer", "peer", peer.Peer.RemoteAddr().String())
 				if err := proto.NotifyNewBestQC(c.ctx, peer, bestQC); err != nil {
 					peer.logger.Debug("failed to broadcast new bestQC", "err", err)
 				}

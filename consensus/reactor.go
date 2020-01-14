@@ -178,6 +178,7 @@ type ConsensusReactor struct {
 
 	dataDir string
 	myAddr  types.NetAddress
+	myName  string
 
 	magic [4]byte
 }
@@ -412,6 +413,7 @@ const (
 
 // CommitteeMember is validator structure + consensus fields
 type CommitteeMember struct {
+	Name        string
 	PubKey      ecdsa.PublicKey
 	VotingPower int64
 	CommitKey   []byte
@@ -426,8 +428,8 @@ func NewCommitteeMember() *CommitteeMember {
 }
 
 func (cm *CommitteeMember) ToString() string {
-	return fmt.Sprintf("[CommitteeMember: PubKey:%s VotingPower:%v CSPubKey:%s, CSIndex:%v]",
-		hex.EncodeToString(crypto.FromECDSAPub(&cm.PubKey)),
+	return fmt.Sprintf("[CommitteeMember(%s): PubKey:%s VotingPower:%v CSPubKey:%s, CSIndex:%v]",
+		cm.Name, hex.EncodeToString(crypto.FromECDSAPub(&cm.PubKey)),
 		cm.VotingPower, cm.CSPubKey.ToString(), cm.CSIndex)
 }
 
@@ -512,9 +514,10 @@ func (conR *ConsensusReactor) UpdateActualCommittee(indexes []int, pubKeys []bls
 	}
 
 	// Add leader (myself) to the AcutalCommittee,
-	// if there is time out, myself is not the first one in curCommittee
+	// if there is time out, myself is not the first one in curCommitteeittee
 	l := conR.curCommittee.Validators[conR.curCommitteeIndex]
 	cm := CommitteeMember{
+		Name:        l.Name,
 		PubKey:      l.PubKey,
 		VotingPower: l.VotingPower,
 		CommitKey:   l.CommitKey,
@@ -535,6 +538,7 @@ func (conR *ConsensusReactor) UpdateActualCommittee(indexes []int, pubKeys []bls
 		v := conR.curCommittee.Validators[index]
 
 		cm := CommitteeMember{
+			Name:        v.Name,
 			PubKey:      v.PubKey,
 			VotingPower: v.VotingPower,
 			CommitKey:   v.CommitKey,
@@ -596,13 +600,16 @@ func (conR *ConsensusReactor) NewValidatorSetByNonce(nonce uint64) (uint, bool) 
 		conR.csMode = CONSENSUS_MODE_COMMITTEE
 		conR.curCommitteeIndex = index
 		conR.myAddr = conR.curCommittee.Validators[index].NetAddr
+		conR.myName = conR.curCommittee.Validators[index].Name
 		conR.logger.Info("New committee calculated", "index", index, "role", role)
+		conR.logger.Info("My information updated", "name", conR.myName, "addr", conR.myAddr.IP.String())
 		fmt.Println(committee)
 	} else {
 		conR.csMode = CONSENSUS_MODE_DELEGATE
 		conR.curCommitteeIndex = 0
 		// FIXME: find a better way
 		conR.myAddr = types.NetAddress{IP: net.IP{}, Port: 8670}
+		conR.myName = ""
 		conR.logger.Info("New committee calculated")
 		fmt.Println(committee)
 	}
@@ -699,8 +706,10 @@ func (conR *ConsensusReactor) handleMsg(mi consensusMsgInfo) {
 	if strings.Contains(typeName, ".") {
 		typeName = strings.Split(typeName, ".")[1]
 	}
+	peerName := conR.GetCommitteeMemberNameByIP(peer.netAddr.IP)
 	conR.logger.Info(fmt.Sprintf("Received %v from peer", typeName),
 		"length", len(rawMsg),
+		"peer", peerName,
 		"ip", peer.netAddr.IP.String())
 
 	switch msg := msg.(type) {
@@ -852,7 +861,8 @@ func (conR *ConsensusReactor) receivePeerMsg(w http.ResponseWriter, r *http.Requ
 		fmt.Errorf("Failed to convert to uint.")
 	}
 	peerPortUint16 := uint16(peerPort)
-	p := newConsensusPeer(peerIP, peerPortUint16, conR.magic)
+	name := conR.GetCommitteeMemberNameByIP(peerIP)
+	p := newConsensusPeer(name, peerIP, peerPortUint16, conR.magic)
 	// p := ConsensusPeer{netAddr: peerAddr}
 	msgByteSlice, _ := hex.DecodeString(params["message"])
 	mi := consensusMsgInfo{
@@ -1041,12 +1051,16 @@ func (conR *ConsensusReactor) GetMyNetAddr() types.NetAddress {
 	// return conR.curCommittee.Validators[conR.curCommitteeIndex].NetAddr
 }
 
+func (conR *ConsensusReactor) GetMyName() string {
+	return conR.myName
+}
+
 func (conR *ConsensusReactor) GetMyPeers() ([]*ConsensusPeer, error) {
 	peers := make([]*ConsensusPeer, 0)
 	myNetAddr := conR.GetMyNetAddr()
 	for _, member := range conR.curActualCommittee {
 		if member.NetAddr.IP.String() != myNetAddr.IP.String() {
-			peers = append(peers, newConsensusPeer(member.NetAddr.IP, member.NetAddr.Port, conR.magic))
+			peers = append(peers, newConsensusPeer(member.Name, member.NetAddr.IP, member.NetAddr.Port, conR.magic))
 		}
 	}
 	return peers, nil
@@ -1137,10 +1151,11 @@ func (conR *ConsensusReactor) sendConsensusMsg(msg *ConsensusMessage, csPeer *Co
 		}
 		resp, err := netClient.Post("http://"+csPeer.netAddr.IP.String()+":8670/consensus", "application/json", bytes.NewBuffer(jsonStr))
 		if err != nil {
-			conR.logger.Error("Failed to send message to peer", "peer", csPeer.String(), "err", err)
+			conR.logger.Error("Failed to send message to peer", "peer", csPeer.name, "ip", csPeer.String(), "err", err)
 			return false
 		}
-		conR.logger.Info(fmt.Sprintf("Sent %v to peer", typeName), "peer", csPeer.String(), "size", len(rawMsg))
+		peerName := conR.GetCommitteeMemberNameByIP(csPeer.netAddr.IP)
+		conR.logger.Info(fmt.Sprintf("Sent %v to peer", typeName), "peer", peerName, "ip", csPeer.netAddr.IP.String(), "size", len(rawMsg))
 		var result map[string]interface{}
 		json.NewDecoder(resp.Body).Decode(&result)
 	}
@@ -1518,7 +1533,7 @@ func (conR *ConsensusReactor) ConsensusHandleReceivedNonce(kBlockHeight int64, n
 		conR.NewCommitteeInit(uint64(kBlockHeight), nonce, replay)
 		newCommittee := conR.newCommittee
 		nl := newCommittee.Committee.Validators[newCommittee.Round]
-		leader := newConsensusPeer(nl.NetAddr.IP, nl.NetAddr.Port, conR.magic)
+		leader := newConsensusPeer(nl.Name, nl.NetAddr.IP, nl.NetAddr.Port, conR.magic)
 		leaderPubKey := nl.PubKey
 		conR.sendNewCommitteeMessage(leader, leaderPubKey, newCommittee.KblockHeight,
 			newCommittee.Nonce, newCommittee.Round)
@@ -1697,7 +1712,7 @@ func PrintDelegates(delegates []*types.Delegate) {
 		keyBytes := crypto.FromECDSAPub(&dd.PubKey)
 		pubKeyStr := base64.StdEncoding.EncodeToString(keyBytes)
 
-		fmt.Printf("Delegate %d:\n Name:%s\n Address:%s\n Public Key: %v\n Voting Power:%d, Network Address: %s:%d\n",
+		fmt.Printf("Delegate %d: %s\n Address:%s\n Public Key: %v\n Voting Power:%d, Network Address: %s:%d\n",
 			i+1, dd.Name, dd.Address, pubKeyStr, dd.VotingPower, dd.NetAddr.IP.String(), dd.NetAddr.Port)
 	}
 	fmt.Println("============================================")
@@ -1708,11 +1723,11 @@ func PrintDelegates(delegates []*types.Delegate) {
 func GetConsensusDelegates(dataDir string, configSize int, minimumSize int) []*types.Delegate {
 	delegates, err := staking.GetInternalDelegateList()
 	if err == nil && len(delegates) >= minimumSize {
-		fmt.Println("delegatesList from staking", "delegates size", len(delegates))
+		fmt.Println("delegatesList from staking", "(size=", len(delegates), ")")
 		PrintDelegates(delegates)
 	} else {
 		delegates = configDelegates(dataDir)
-		fmt.Println("delegatesList from configuration file e.g. delegates.json", "delegates size", len(delegates))
+		fmt.Println("delegatesList from configuration file e.g. delegates.json", "(size=", len(delegates), ")")
 		PrintDelegates(delegates)
 	}
 
@@ -1722,4 +1737,15 @@ func GetConsensusDelegates(dataDir string, configSize int, minimumSize int) []*t
 	} else {
 		return delegates
 	}
+}
+
+func (conR *ConsensusReactor) GetCommitteeMemberNameByIP(ip net.IP) string {
+	if conR.curCommittee != nil {
+		for _, v := range conR.curCommittee.Validators {
+			if v.NetAddr.IP.String() == ip.String() {
+				return v.Name
+			}
+		}
+	}
+	return ""
 }

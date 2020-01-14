@@ -379,10 +379,8 @@ func (m *PMProposalMessage) SigningHash() (hash meter.Bytes32) {
 
 // String returns a string representation.
 func (m *PMProposalMessage) String() string {
-	return fmt.Sprintf("[PMProposalMessage Height:%v, Round:%v, ParentHeight: %v, ParentRound: %v, Type:%v, TimeoutCert:%v]",
-		m.CSMsgCommonHeader.Height, m.CSMsgCommonHeader.Round,
-		m.ParentHeight, m.ParentRound,
-		m.CSMsgCommonHeader.MsgType, m.TimeoutCert.String())
+	return fmt.Sprintf("[PMProposal Height:%v, Round:%v, Parent:(Height:%v,Round:%v), TimeoutCert:%v]",
+		m.CSMsgCommonHeader.Height, m.CSMsgCommonHeader.Round, m.ParentHeight, m.ParentRound, m.TimeoutCert.String())
 }
 
 func (m *PMProposalMessage) EpochID() uint64 {
@@ -424,9 +422,10 @@ func (m *PMVoteForProposalMessage) SigningHash() (hash meter.Bytes32) {
 
 // String returns a string representation.
 func (m *PMVoteForProposalMessage) String() string {
-	return fmt.Sprintf("[PMVoteForProposalMessage Height:%v Round:%v Type:%v MsgHash:%v]",
-		m.CSMsgCommonHeader.Height, m.CSMsgCommonHeader.Round,
-		m.CSMsgCommonHeader.MsgType, hex.EncodeToString(m.SignedMessageHash[:]))
+	msgHash := hex.EncodeToString(m.SignedMessageHash[:])
+	abbrMsgHash := msgHash[:4] + "..." + msgHash[len(msgHash)-4:]
+	return fmt.Sprintf("[PMVoteForProposal Height:%v Round:%v MsgHash:%v]",
+		m.CSMsgCommonHeader.Height, m.CSMsgCommonHeader.Round, abbrMsgHash)
 }
 
 func (m *PMVoteForProposalMessage) EpochID() uint64 {
@@ -484,9 +483,8 @@ func (m *PMNewViewMessage) SigningHash() (hash meter.Bytes32) {
 
 // String returns a string representation.
 func (m *PMNewViewMessage) String() string {
-	return fmt.Sprintf("[PMNewViewMessage NextHeight:%v NextRound:%v Reason:%s Type:%v QCHeight:%d QCRound:%d]",
-		m.CSMsgCommonHeader.Height, m.CSMsgCommonHeader.Round, m.Reason.String(),
-		m.CSMsgCommonHeader.MsgType, m.QCHeight, m.QCRound)
+	return fmt.Sprintf("[PMNewView Reason:%s NextHeight:%v NextRound:%v QC(Height:%d,Round:%d)]",
+		m.Reason.String(), m.CSMsgCommonHeader.Height, m.CSMsgCommonHeader.Round, m.QCHeight, m.QCRound)
 }
 
 func (m *PMNewViewMessage) EpochID() uint64 {
@@ -523,8 +521,7 @@ func (m *PMQueryProposalMessage) SigningHash() (hash meter.Bytes32) {
 
 // String returns a string representation.
 func (m *PMQueryProposalMessage) String() string {
-	return fmt.Sprintf("[PMQueryProposalMessage Type %v QueryHeight:%v QueryRound:%v]",
-		m.CSMsgCommonHeader.MsgType, m.Height, m.Round)
+	return fmt.Sprintf("[PMQueryProposal QueryHeight:%v QueryRound:%v]", m.Height, m.Round)
 }
 
 func (m *PMQueryProposalMessage) EpochID() uint64 {

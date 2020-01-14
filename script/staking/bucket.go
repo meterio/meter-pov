@@ -69,7 +69,7 @@ func NewBucket(owner meter.Address, cand meter.Address, value *big.Int, token ui
 func GetLatestBucketList() (*BucketList, error) {
 	staking := GetStakingGlobInst()
 	if staking == nil {
-		fmt.Println("staking is not initilized...")
+		log.Warn("staking is not initilized...")
 		err := errors.New("staking is not initilized...")
 		return newBucketList(nil), err
 	}
@@ -85,9 +85,9 @@ func GetLatestBucketList() (*BucketList, error) {
 }
 
 func (b *Bucket) ToString() string {
-	return fmt.Sprintf("Bucket(ID=%v, Owner=%v, Value=%.2e, Token=%v, Nonce=%v, CreateTime=%v, Unbounded=%v, Candidate=%v, Rate=%v, Option=%v, BounusVotes=%v, TotoalVotes=%.2e, MatureTime=%v, CalcLastTime=%v)",
-		b.BucketID, b.Owner, float64(b.Value.Int64()), b.Token, b.Nonce, b.CreateTime, b.Unbounded,
-		b.Candidate, b.Rate, b.Option, b.BonusVotes, float64(b.TotalVotes.Int64()), b.MatureTime, b.CalcLastTime)
+	return fmt.Sprintf("Bucket(%v) Owner=%v, Candidate=%v, Value=%d, BonusVotes=%d, TotalVotes=%v, Nonce=%v, Token%v, CreateTime=%v, Option=%v, MatureTime=%v, CalcLastTIme=%v, Unbounded=%v, Rate=%v",
+		b.BucketID, b.Owner, b.Candidate, b.Value.Uint64(), b.BonusVotes, b.TotalVotes.Uint64(),
+		b.Nonce, b.Token, b.CreateTime, b.Option, b.MatureTime, b.CalcLastTime, b.Unbounded, b.Rate)
 }
 
 type BucketList struct {

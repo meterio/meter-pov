@@ -81,11 +81,11 @@ func (p *Pacemaker) receivePacemakerMsg(w http.ResponseWriter, r *http.Request) 
 		var fromMyself bool
 
 		if _, ok := params["magic"]; !ok {
-			p.logger.Debug("ignored message due to missing magic", "expect", hex.EncodeToString(p.csReactor.magic[:]), "msg", typeName, "from", peerIP.String())
+			p.logger.Debug("ignored message due to missing magic", "expect", hex.EncodeToString(p.csReactor.magic[:]), "msg", typeName, "ip", peerIP.String())
 			return
 		}
 		if strings.Compare(params["magic"], hex.EncodeToString(p.csReactor.magic[:])) != 0 {
-			p.logger.Debug("ignored message due to magic mismatch", "expect", hex.EncodeToString(p.csReactor.magic[:]), "actual", params["magic"], "msg", typeName, "from", peerIP.String())
+			p.logger.Debug("ignored message due to magic mismatch", "expect", hex.EncodeToString(p.csReactor.magic[:]), "actual", params["magic"], "msg", typeName, "ip", peerIP.String())
 			return
 		}
 
@@ -103,21 +103,22 @@ func (p *Pacemaker) receivePacemakerMsg(w http.ResponseWriter, r *http.Request) 
 
 			in, err := p.msgRelayInfo.CheckandAdd(&msgByteSlice, height, round)
 			if err != nil {
-				p.logger.Info("fail to add PMProposal, dropped ...", "from", peerIP.String())
+				p.logger.Info("fail to add PMProposal, dropped ...", "ip", peerIP.String())
 				return
 			}
 			if in == true {
-				p.logger.Info("duplicate PMProposal, dropped ...", "height", height, "round", round, "from", peerIP.String())
+				p.logger.Info("duplicate PMProposal, dropped ...", "height", height, "round", round, "ip", peerIP.String())
 				return
 			}
 			// p.logger.Info("precheck PMProposal, added to info map", "height", height, "round", round, "from", peerIP.String())
 		}
 
 		if peerIP.String() == p.csReactor.GetMyNetAddr().IP.String() {
-			p.logger.Info(fmt.Sprintf("Received %s from myself", typeName), "msg", msg.String(), "from", peerIP.String())
+			p.logger.Info(fmt.Sprintf("Received from myself: %s", msg.String()), "peer", p.csReactor.GetMyName(), "ip", peerIP.String())
 			fromMyself = true
 		} else {
-			p.logger.Info(fmt.Sprintf("Received %s from peer", typeName), "msg", msg.String(), "from", peerIP.String())
+			name := p.csReactor.GetCommitteeMemberNameByIP(peerIP)
+			p.logger.Info(fmt.Sprintf("Received from peer: %s", msg.String()), "peer", name, "ip", peerIP.String())
 			fromMyself = false
 		}
 
@@ -130,7 +131,7 @@ func (p *Pacemaker) receivePacemakerMsg(w http.ResponseWriter, r *http.Request) 
 			peers, _ := p.GetRelayPeers(round)
 			p.logger.Info("Now, relay this proposal...", "height", height, "round", round)
 			for _, peer := range peers {
-				p.logger.Debug("Now, relay this proposal...", "peer", peer.String(), "height", height, "round", round)
+				p.logger.Debug("Now, relay this proposal...", "peer", peer.name, "ip", peer.String(), "height", height, "round", round)
 				if peer.netAddr.IP.String() == p.csReactor.GetMyNetAddr().IP.String() {
 					p.logger.Info("relay to myself, ignore ...")
 					continue
@@ -166,7 +167,7 @@ func (p *Pacemaker) GetRelayPeers(round int) ([]*ConsensusPeer, error) {
 			index = index % size
 		}
 		member := p.csReactor.curActualCommittee[index]
-		peers = append(peers, newConsensusPeer(member.NetAddr.IP, member.NetAddr.Port, p.csReactor.magic))
+		peers = append(peers, newConsensusPeer(member.Name, member.NetAddr.IP, member.NetAddr.Port, p.csReactor.magic))
 	}
 	return peers, nil
 }
@@ -241,12 +242,12 @@ func (p *Pacemaker) isMine(key []byte) bool {
 
 func (p *Pacemaker) getProposerByRound(round int) *ConsensusPeer {
 	proposer := p.csReactor.getRoundProposer(round)
-	return newConsensusPeer(proposer.NetAddr.IP, 8080, p.csReactor.magic)
+	return newConsensusPeer(proposer.Name, proposer.NetAddr.IP, 8080, p.csReactor.magic)
 }
 
 func (p *Pacemaker) getConsensusPeerByPubkey(pubKey []byte) *ConsensusPeer {
 	if cm := p.csReactor.GetCommitteeMember(pubKey); cm != nil {
-		return newConsensusPeer(cm.NetAddr.IP, cm.NetAddr.Port, p.csReactor.magic)
+		return newConsensusPeer(cm.Name, cm.NetAddr.IP, cm.NetAddr.Port, p.csReactor.magic)
 	} else {
 		return nil
 	}
@@ -263,8 +264,9 @@ func (p *Pacemaker) SendConsensusMessage(round uint64, msg ConsensusMessage, cop
 		return false
 	}
 
-	myNetAddr := p.csReactor.curCommittee.Validators[p.csReactor.curCommitteeIndex].NetAddr
-	myself := newConsensusPeer(myNetAddr.IP, myNetAddr.Port, p.csReactor.magic)
+	myNetAddr := p.csReactor.GetMyNetAddr()
+	myName := p.csReactor.GetMyName()
+	myself := newConsensusPeer(myName, myNetAddr.IP, myNetAddr.Port, p.csReactor.magic)
 
 	var peers []*ConsensusPeer
 	switch msg.(type) {
@@ -281,17 +283,18 @@ func (p *Pacemaker) SendConsensusMessage(round uint64, msg ConsensusMessage, cop
 
 	// send consensus message to myself first (except for PMNewViewMessage)
 	if copyMyself && myself != nil {
-		p.logger.Debug(fmt.Sprintf("Sending %v to myself", typeName), "to", myNetAddr.IP.String())
+		p.logger.Debug(fmt.Sprintf("Sending to myself: %v", msg.String()), "to", myName, "ip", myNetAddr.IP.String())
 		myself.sendData(myNetAddr, typeName, rawMsg)
 	}
 
 	// broadcast consensus message to peers
 	for _, peer := range peers {
-		hint := fmt.Sprintf("Sending %v to peer", typeName)
+		hint := fmt.Sprintf("Sending to peer: %s", msg.String())
 		if peer.netAddr.IP.String() == myNetAddr.IP.String() {
-			hint = fmt.Sprintf("Sending %v to myself", typeName)
+			hint = fmt.Sprintf("Sending to myself: %s", msg.String())
 		}
-		p.logger.Info(hint, "to", peer.netAddr.IP.String())
+		peerName := p.csReactor.GetCommitteeMemberNameByIP(peer.netAddr.IP)
+		p.logger.Info(hint, "peer", peerName, "ip", peer.netAddr.IP.String())
 		go func(cpeer *ConsensusPeer, from types.NetAddress, msgType string, raw []byte) {
 			cpeer.sendData(from, msgType, raw)
 		}(peer, myNetAddr, typeName, rawMsg)
@@ -314,7 +317,8 @@ func (p *Pacemaker) SendMessageToPeers(msg ConsensusMessage, peers []*ConsensusP
 		if peer.netAddr.IP.String() == myNetAddr.IP.String() {
 			hint = fmt.Sprintf("Sending %v to myself", typeName)
 		}
-		p.logger.Debug(hint, "to", peer.netAddr.IP.String())
+		peerName := p.csReactor.GetCommitteeMemberNameByIP(peer.netAddr.IP)
+		p.logger.Debug(hint, "peer", peerName, "ip", peer.netAddr.IP.String())
 		go func(cpeer *ConsensusPeer, from types.NetAddress, msgType string, raw []byte) {
 			cpeer.sendData(from, msgType, raw)
 		}(peer, myNetAddr, typeName, rawMsg)
@@ -399,7 +403,8 @@ func (p *Pacemaker) sendQueryProposalMsg(queryHeight, queryRound, EpochID uint64
 			}
 		}
 	}
-	peers := []*ConsensusPeer{newConsensusPeer(addr.IP, addr.Port, p.csReactor.magic)}
+	name := p.csReactor.GetCommitteeMemberNameByIP(addr.IP)
+	peers := []*ConsensusPeer{newConsensusPeer(name, addr.IP, addr.Port, p.csReactor.magic)}
 
 	queryMsg, err := p.BuildQueryProposalMessage(queryHeight, queryRound, EpochID, myNetAddr)
 	if err != nil {

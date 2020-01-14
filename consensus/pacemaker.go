@@ -559,7 +559,6 @@ func (p *Pacemaker) OnNextSyncView(nextHeight, nextRound uint64, reason NewViewR
 	}
 
 	p.SendConsensusMessage(nextRound, msg, false)
-	p.logger.Info("Sent out PMNewView msg", "height", nextHeight, "round", nextRound, "qcHeight", p.QCHigh.QC.QCHeight, "qcRound", p.QCHigh.QC.QCRound, "tc", ti)
 
 	return nil
 }
@@ -864,12 +863,12 @@ func (p *Pacemaker) updateCurrentRound(round uint64, reason roundUpdateReason) b
 	if round > p.currentRound {
 		p.currentRound = round
 		curRoundGauge.Set(float64(p.currentRound))
-		p.logger.Info("* current round updated", "to", p.currentRound, "reason", reason.String())
+		p.logger.Info("* Current round updated", "to", p.currentRound, "reason", reason.String())
 		return true
 	} else if reason == ResetRoundOnStop {
 		p.currentRound = round
 		curRoundGauge.Set(float64(p.currentRound))
-		p.logger.Info("* current round updated", "to", p.currentRound, "reason", reason.String())
+		p.logger.Info("* Current round updated", "to", p.currentRound, "reason", reason.String())
 		return true
 	} else {
 		return false
@@ -986,7 +985,8 @@ func (p *Pacemaker) OnReceiveQueryProposal(queryMsg *PMQueryProposalMessage) err
 	}
 
 	//send
-	peers := []*ConsensusPeer{newConsensusPeer(returnAddr.IP, returnAddr.Port, p.csReactor.magic)}
+	name := p.csReactor.GetCommitteeMemberNameByIP(returnAddr.IP)
+	peers := []*ConsensusPeer{newConsensusPeer(name, returnAddr.IP, returnAddr.Port, p.csReactor.magic)}
 	p.SendMessageToPeers(result.ProposalMessage, peers)
 	return nil
 }
