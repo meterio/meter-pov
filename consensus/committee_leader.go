@@ -9,8 +9,6 @@
 package consensus
 
 import (
-	//    "errors"
-
 	"fmt"
 	"time"
 
@@ -181,7 +179,10 @@ func (cl *ConsensusLeader) GenerateAnnounceMsg() bool {
 			//timeout function
 			notaryExpire := func() {
 				cl.csReactor.logger.Warn("reach 2/3 votes of notary expired ...", "comitteeSize", cl.csReactor.committeeSize, "totalComitter", cl.announceVoterNum)
-				cl.MoveInitState(cl.state)
+
+				//XXX: In most cases, if leaders receives enough commitCommittee message, it should receive enough votes for notary.
+				// so this case should rarely happen. We warn it and still start committee
+				cl.committeeEstablished()
 			}
 			cl.notaryThresholdTimer = time.AfterFunc(THRESHOLD_TIMER_TIMEOUT, func() {
 				cl.csReactor.schedulerQueue <- notaryExpire
@@ -259,15 +260,6 @@ func (cl *ConsensusLeader) ProcessCommitMsg(commitMsg *CommitCommitteeMessage, s
 		cl.csReactor.logger.Error("state machine incorrect", "expected", "ANNOUNCED", "actual", cl.state)
 		return false
 	}
-
-	// valid the common header first
-	/***
-	commitMsg, ok := interface{}(commit).(CommitCommitteeMessage)
-	if ok != false {
-		cl.csReactor.logger.Error("Message type is not CommitCommitteeMessage")
-		return false
-	}
-	***/
 
 	ch := commitMsg.CSMsgCommonHeader
 	if !cl.checkHeightAndRound(ch) {
@@ -376,15 +368,6 @@ func (cl *ConsensusLeader) ProcessVoteNotaryAnnounce(vote4NotaryMsg *VoteForNota
 		return false
 	}
 
-	// valid the common header first
-	/****
-	vote4NotaryMsg, ok := interface{}(vote).(VoteForNotaryMessage)
-	if ok != false {
-		cl.csReactor.logger.Error("Message type is not VoteForNotaryMessage")
-		return false
-	}
-	****/
-
 	ch := vote4NotaryMsg.CSMsgCommonHeader
 	if !cl.checkHeightAndRound(ch) {
 		return false
@@ -459,39 +442,8 @@ func (cl *ConsensusLeader) ProcessVoteNotaryAnnounce(vote4NotaryMsg *VoteForNota
 	// 3. if the totoal vote > 2/3, move to Commit state
 	if LeaderMajorityTwoThird(cl.notaryVoterNum, cl.csReactor.committeeSize) &&
 		cl.state == COMMITTEE_LEADER_NOTARYSENT {
-		//save all group info as meta data
-		cl.state = COMMITTEE_LEADER_COMMITED
-		cl.notaryThresholdTimer.Stop()
-
-		//aggregate signature
-		// Aggregate signature here
-		cl.notaryVoterAggSig = cl.csReactor.csCommon.AggregateSign(cl.notaryVoterSig)
-
-		//Finally, go to init
-		cl.MoveInitState(cl.state)
-
-		//Committee is established. Myself is Leader, server as 1st proposer.
-		cl.csReactor.logger.Info(`
-===========================================================
-Committee is established!!! ...
-Myself is Leader, Let's start the pacemaker.
-===========================================================`, "Committee Epoch", cl.EpochID)
-
-		//Now we are in new epoch
-		cl.csReactor.curEpoch = cl.EpochID
-		curEpochGauge.Set(float64(cl.EpochID))
-
-		//Now move to propose the 1st block in round 0
-		cl.csReactor.enterConsensusValidator()
-		cl.csReactor.csValidator.state = COMMITTEE_VALIDATOR_COMMITSENT
-
-		// clean up
-		cl.csReactor.NewCommitteeCleanup()
-
-		// Now start the pacemaker
-		newCommittee := !cl.replay
-		//cl.csReactor.csPacemaker.Start(newCommittee)
-		cl.csReactor.startPacemaker(newCommittee)
+		// create committee
+		cl.committeeEstablished()
 		return true
 
 	} else {
@@ -512,4 +464,40 @@ func (cl *ConsensusLeader) checkHeightAndRound(ch ConsensusMsgCommonHeader) bool
 		return false
 	}
 	return true
+}
+
+func (cl *ConsensusLeader) committeeEstablished() error {
+	cl.state = COMMITTEE_LEADER_COMMITED
+	cl.notaryThresholdTimer.Stop()
+
+	//aggregate signature
+	// Aggregate signature here
+	cl.notaryVoterAggSig = cl.csReactor.csCommon.AggregateSign(cl.notaryVoterSig)
+
+	//Finally, go to init
+	cl.MoveInitState(cl.state)
+
+	//Committee is established. Myself is Leader, server as 1st proposer.
+	cl.csReactor.logger.Info(`
+===========================================================
+Committee is established!!! ...
+Myself is Leader, Let's start the pacemaker.
+===========================================================`, "Committee Epoch", cl.EpochID)
+
+	//Now we are in new epoch
+	cl.csReactor.curEpoch = cl.EpochID
+	curEpochGauge.Set(float64(cl.EpochID))
+
+	//Now move to propose the 1st block in round 0
+	cl.csReactor.enterConsensusValidator()
+	cl.csReactor.csValidator.state = COMMITTEE_VALIDATOR_COMMITSENT
+
+	// clean up
+	cl.csReactor.NewCommitteeCleanup()
+
+	// Now start the pacemaker
+	newCommittee := !cl.replay
+	//cl.csReactor.csPacemaker.Start(newCommittee)
+	cl.csReactor.startPacemaker(newCommittee)
+	return nil
 }
