@@ -40,7 +40,9 @@ func (p *Pacemaker) proposeBlock(parentBlock *block.Block, height, round uint64,
 		blkInfo = p.csReactor.BuildKBlock(parentBlock, data, rewards)
 	} else {
 		blkInfo = p.csReactor.BuildMBlock(parentBlock)
-		if round == 0 {
+		lastKBlockHeight := blkInfo.ProposedBlock.Header().LastKBlockHeight()
+		blockNumber := blkInfo.ProposedBlock.Header().Number()
+		if round == 0 || blockNumber == lastKBlockHeight+1 {
 			// set committee info
 			p.packCommitteeInfo(blkInfo.ProposedBlock)
 		}
