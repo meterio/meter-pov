@@ -229,9 +229,7 @@ func (cv *ConsensusValidator) ProcessAnnounceCommittee(announceMsg *AnnounceComm
 
 	//update conR
 	cv.csReactor.curRound = 0
-	cv.csReactor.curEpoch = cv.EpochID
-	curEpochGauge.Set(float64(cv.EpochID))
-	cv.csReactor.logger.Info("curEpoch is updated", "curEpoch=", cv.EpochID)
+	cv.csReactor.updateCurEpoch(cv.EpochID)
 	return true
 }
 

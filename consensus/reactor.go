@@ -235,8 +235,7 @@ func NewConsensusReactor(ctx *cli.Context, chain *chain.Chain, state *state.Crea
 			return nil
 		}
 		conR.logger.Info("get committeeinfo from block", "height", b.Header().Number())
-		conR.curEpoch = b.GetCommitteeEpoch()
-		curEpochGauge.Set(float64(conR.curEpoch))
+		conR.updateCurEpoch(b.GetCommitteeEpoch())
 	} else {
 		conR.curEpoch = 0
 		curEpochGauge.Set(float64(0))
@@ -965,8 +964,7 @@ func (conR *ConsensusReactor) enterConsensusLeader(epochID uint64) {
 	conR.csLeader = NewCommitteeLeader(conR)
 	conR.csRoleInitialized |= CONSENSUS_COMMIT_ROLE_LEADER
 
-	conR.curEpoch = epochID
-	curEpochGauge.Set(float64(epochID))
+	conR.updateCurEpoch(epochID)
 	conR.csLeader.EpochID = epochID
 	return
 }
@@ -1375,8 +1373,7 @@ func HandleScheduleReplayLeader(conR *ConsensusReactor, epochID uint64) bool {
 	conR.csLeader = NewCommitteeLeader(conR)
 	conR.csRoleInitialized |= CONSENSUS_COMMIT_ROLE_LEADER
 	conR.csLeader.replay = true
-	conR.curEpoch = epochID
-	curEpochGauge.Set(float64(epochID))
+	conR.updateCurEpoch(epochID)
 	conR.csLeader.EpochID = epochID
 
 	conR.csLeader.GenerateAnnounceMsg()
@@ -1490,12 +1487,10 @@ func (conR *ConsensusReactor) ConsensusHandleReceivedNonce(kBlockHeight int64, n
 	// 1) send moveNewRound (with signature) to new leader. if new leader receives majority signature, then send out announce.
 	if role == CONSENSUS_COMMIT_ROLE_LEADER {
 		conR.logger.Info("I am committee leader for nonce!", "nonce", nonce)
-		if epoch > conR.curEpoch {
-			conR.curEpoch = epoch
-		}
-		epochID := conR.curEpoch
-		conR.exitConsensusLeader(epochID)
-		conR.enterConsensusLeader(epochID + 1)
+		conR.updateCurEpoch(epoch)
+
+		conR.exitConsensusLeader(conR.curEpoch)
+		conR.enterConsensusLeader(conR.curEpoch + 1)
 
 		// no replay case, the last block must be kblock!
 		if replay == false && conR.curHeight != kBlockHeight {

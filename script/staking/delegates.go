@@ -33,7 +33,7 @@ func newDelegateList(delegates []*Delegate) *DelegateList {
 
 func (d *Delegate) ToString() string {
 	pubKeyEncoded := b64.StdEncoding.EncodeToString(d.PubKey)
-	return fmt.Sprintf("Delegate(Name=%v, Addr=%v, PubKey=%v, IP=%v:%v, VotingPower=%d)",
+	return fmt.Sprintf("Delegate(%v) Addr=%v PubKey=%v IP=%v:%v VotingPower=%d",
 		string(d.Name), d.Address, pubKeyEncoded, string(d.IPAddr), d.Port, d.VotingPower.Uint64())
 }
 
@@ -106,7 +106,7 @@ func GetInternalDelegateList() ([]*types.Delegate, error) {
 	}
 
 	list := staking.GetDelegateList(state)
-	fmt.Println("delegateList from state\n", list.ToString())
+	// fmt.Println("delegateList from state\n", list.ToString())
 	for _, s := range list.delegates {
 		pubKeyBytes, err := b64.StdEncoding.DecodeString(string(s.PubKey))
 		pubKey, err := crypto.UnmarshalPubkey(pubKeyBytes)

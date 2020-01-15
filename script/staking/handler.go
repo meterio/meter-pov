@@ -596,6 +596,6 @@ func (sb *StakingBody) GoverningHandler(senv *StakingEnviroment, gas uint64) (re
 	staking.SetDelegateList(delegateList, state)
 
 	log.Info("After Governing")
-	fmt.Println(delegateList.ToString())
+	// fmt.Println(delegateList.ToString())
 	return
 }

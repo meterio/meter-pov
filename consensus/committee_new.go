@@ -116,9 +116,19 @@ func (conR *ConsensusReactor) NewCommitteeTimerStop() {
 	}
 }
 
+func (conR *ConsensusReactor) updateCurEpoch(epoch uint64) {
+	if epoch > conR.curEpoch {
+		oldVal := conR.curEpoch
+		conR.curEpoch = epoch
+		curEpochGauge.Set(float64(conR.curEpoch))
+		conR.logger.Info("Epoch updated", "to", conR.curEpoch, "from", oldVal)
+	}
+}
+
 // NewcommitteeMessage routines
 // send new round message to future committee leader
 func (conR *ConsensusReactor) sendNewCommitteeMessage(peer *ConsensusPeer, pubKey ecdsa.PublicKey, kblockHeight uint64, nonce uint64, round uint64) error {
+	conR.updateCurEpoch(conR.chain.BestBlock().QC.EpochID)
 	msg := &NewCommitteeMessage{
 		CSMsgCommonHeader: ConsensusMsgCommonHeader{
 			Height:    conR.curHeight,
