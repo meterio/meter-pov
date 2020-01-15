@@ -229,13 +229,7 @@ func NewConsensusReactor(ctx *cli.Context, chain *chain.Chain, state *state.Crea
 
 	// committee info is stored in the first of Mblock after Kblock
 	if conR.curHeight != 0 {
-		b, err := conR.chain.GetTrunkBlock(conR.lastKBlockHeight + 1)
-		if err != nil {
-			conR.logger.Error("get committee info block error")
-			return nil
-		}
-		conR.logger.Info("get committeeinfo from block", "height", b.Header().Number())
-		conR.updateCurEpoch(b.GetCommitteeEpoch())
+		conR.updateCurEpoch(chain.BestBlock().GetBlockEpoch())
 	} else {
 		conR.curEpoch = 0
 		curEpochGauge.Set(float64(0))
@@ -491,13 +485,13 @@ func (conR *ConsensusReactor) UpdateLastKBlockHeight(height uint32) bool {
 func (conR *ConsensusReactor) RefreshCurHeight() error {
 	prev := conR.curHeight
 
-	bestHeader := conR.chain.BestBlock().Header()
-	conR.curHeight = int64(bestHeader.Number())
-	conR.lastKBlockHeight = bestHeader.LastKBlockHeight()
+	best := conR.chain.BestBlock()
+	conR.curHeight = int64(best.Header().Number())
+	conR.lastKBlockHeight = best.Header().LastKBlockHeight()
+	conR.updateCurEpoch(best.GetBlockEpoch())
 
 	lastKBlockHeightGauge.Set(float64(conR.lastKBlockHeight))
-
-	conR.logger.Info("Refresh curHeight", "previous", prev, "now", conR.curHeight, "lastKBlockHeight", conR.lastKBlockHeight)
+	conR.logger.Info("Refresh curHeight", "previous", prev, "now", conR.curHeight, "lastKBlockHeight", conR.lastKBlockHeight, "epochID", conR.curEpoch)
 	return nil
 }
 

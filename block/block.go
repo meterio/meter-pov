@@ -277,6 +277,21 @@ func (b *Block) GetCommitteeInfo() ([]CommitteeInfo, error) {
 	return b.CommitteeInfos.CommitteeInfo, nil
 }
 
+// if the block is the first mblock, get epochID from committee
+// otherwise get epochID from QC
+func (b *Block) GetBlockEpoch() (epoch uint64) {
+	height := b.Header().Number()
+	lastKBlockHeight := b.Header().LastKBlockHeight()
+	if height > lastKBlockHeight+1 {
+		epoch = b.QC.EpochID
+	} else if height == lastKBlockHeight {
+		epoch = b.GetCommitteeEpoch()
+	} else {
+		panic("Block error: lastKBlockHeight great than height")
+	}
+	return
+}
+
 func (b *Block) SetCommitteeInfo(info []CommitteeInfo) error {
 	b.CommitteeInfos.CommitteeInfo = info
 	return nil

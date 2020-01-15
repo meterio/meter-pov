@@ -55,7 +55,8 @@ func (conR *ConsensusReactor) NewCommitteeTimeout() error {
 	// increase round
 	conR.newCommittee.Round++
 	if conR.newCommittee.InCommittee {
-		nl := conR.newCommittee.Committee.Validators[conR.newCommittee.Round]
+		size := len(conR.newCommittee.Committee.Validators)
+		nl := conR.newCommittee.Committee.Validators[conR.newCommittee.Round%uint64(size)]
 
 		leader := newConsensusPeer(nl.Name, nl.NetAddr.IP, nl.NetAddr.Port, conR.magic)
 		leaderPubKey := nl.PubKey
