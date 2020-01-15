@@ -314,6 +314,7 @@ func (n *Node) processBlock(blk *block.Block, stats *blockStats) (bool, error) {
 			Height:           int64(blk.Header().Number()),
 			LastKBlockHeight: n.cons.GetLastKBlockHeight(),
 			Nonce:            data.Nonce,
+			Epoch:            blk.QC.EpochID,
 		}
 		log.Info("received kblock...", "nonce", info.Nonce, "height", info.Height)
 		// this chan is initialized as 100, we should clean up if it is almost full.

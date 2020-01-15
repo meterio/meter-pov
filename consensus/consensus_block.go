@@ -830,6 +830,7 @@ type RecvKBlockInfo struct {
 	Height           int64
 	LastKBlockHeight uint32
 	Nonce            uint64
+	Epoch            uint64
 }
 
 func (conR *ConsensusReactor) HandleRecvKBlockInfo(ki RecvKBlockInfo) error {
@@ -855,7 +856,7 @@ func (conR *ConsensusReactor) HandleRecvKBlockInfo(ki RecvKBlockInfo) error {
 		return nil
 	}
 
-	conR.logger.Info("received KBlock ...", "height", ki.Height, "lastKBlockHeight", ki.LastKBlockHeight, "nonce", ki.Nonce)
+	conR.logger.Info("received KBlock ...", "height", ki.Height, "lastKBlockHeight", ki.LastKBlockHeight, "nonce", ki.Nonce, "epoch", ki.Epoch)
 
 	// Now handle this nonce. Exit the committee if it is still in.
 	conR.exitCurCommittee()
@@ -865,7 +866,7 @@ func (conR *ConsensusReactor) HandleRecvKBlockInfo(ki RecvKBlockInfo) error {
 
 	// run new one.
 	conR.ConsensusUpdateCurDelegates()
-	conR.ConsensusHandleReceivedNonce(ki.Height, ki.Nonce, false)
+	conR.ConsensusHandleReceivedNonce(ki.Height, ki.Nonce, ki.Epoch, false)
 	return nil
 }
 

@@ -306,7 +306,7 @@ func (conR *ConsensusReactor) SwitchToConsensus() {
 	if best.Header().Number() == 0 {
 		nonce = genesis.GenesisNonce
 		replay = false
-		conR.ConsensusHandleReceivedNonce(int64(best.Header().Number()), nonce, replay)
+		conR.ConsensusHandleReceivedNonce(int64(best.Header().Number()), nonce, 0, replay)
 		return
 	}
 
@@ -323,7 +323,7 @@ func (conR *ConsensusReactor) SwitchToConsensus() {
 		}
 		nonce = kBlockData.Nonce
 		replay = false
-		conR.ConsensusHandleReceivedNonce(int64(best.Header().Number()), nonce, replay)
+		conR.ConsensusHandleReceivedNonce(int64(best.Header().Number()), nonce, best.QC.EpochID, replay)
 	} else {
 		// mblock
 		lastKBlockHeight := best.Header().LastKBlockHeight()
@@ -346,7 +346,7 @@ func (conR *ConsensusReactor) SwitchToConsensus() {
 
 		//mark the flag of replay. should initialize by existed the BLS system
 		replay = true
-		conR.ConsensusHandleReceivedNonce(int64(lastKBlockHeight), nonce, replay)
+		conR.ConsensusHandleReceivedNonce(int64(lastKBlockHeight), nonce, best.QC.EpochID, replay)
 	}
 
 	return
@@ -1452,8 +1452,8 @@ func (conR *ConsensusReactor) ConsensusUpdateCurDelegates() {
 }
 
 // Consensus module handle received nonce from kblock
-func (conR *ConsensusReactor) ConsensusHandleReceivedNonce(kBlockHeight int64, nonce uint64, replay bool) {
-	conR.logger.Info("Received a nonce ...", "nonce", nonce, "kBlockHeight", kBlockHeight, "replay", replay)
+func (conR *ConsensusReactor) ConsensusHandleReceivedNonce(kBlockHeight int64, nonce, epoch uint64, replay bool) {
+	conR.logger.Info("Received a nonce ...", "nonce", nonce, "kBlockHeight", kBlockHeight, "replay", replay, "epoch", epoch)
 
 	//conR.lastKBlockHeight = kBlockHeight
 	conR.curNonce = nonce
@@ -1491,6 +1491,9 @@ func (conR *ConsensusReactor) ConsensusHandleReceivedNonce(kBlockHeight int64, n
 	// 1) send moveNewRound (with signature) to new leader. if new leader receives majority signature, then send out announce.
 	if role == CONSENSUS_COMMIT_ROLE_LEADER {
 		conR.logger.Info("I am committee leader for nonce!", "nonce", nonce)
+		if epoch > conR.curEpoch {
+			conR.curEpoch = epoch
+		}
 		epochID := conR.curEpoch
 		conR.exitConsensusLeader(epochID)
 		conR.enterConsensusLeader(epochID + 1)

@@ -803,6 +803,7 @@ func (p *Pacemaker) SendKblockInfo(b *pmBlock) error {
 			Height:           int64(blk.Header().Number()),
 			LastKBlockHeight: blk.Header().LastKBlockHeight(),
 			Nonce:            data.Nonce,
+			Epoch:            blk.QC.EpochID,
 		}
 		p.csReactor.RcvKBlockInfoQueue <- info
 
