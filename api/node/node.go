@@ -6,21 +6,26 @@
 package node
 
 import (
-	"net/http"
+	"crypto/ecdsa"
+	b64 "encoding/base64"
 	"errors"
+	"net/http"
 
-	"github.com/gorilla/mux"
 	"github.com/dfinlab/meter/api/utils"
 	"github.com/dfinlab/meter/consensus"
+	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/gorilla/mux"
 )
 
 type Node struct {
-	nw Network
+	nw     Network
+	pubKey *ecdsa.PublicKey
 }
 
-func New(nw Network) *Node {
+func New(nw Network, pubKey *ecdsa.PublicKey) *Node {
 	return &Node{
 		nw,
+		pubKey,
 	}
 }
 
@@ -45,10 +50,19 @@ func (n *Node) handleCommittee(w http.ResponseWriter, req *http.Request) error {
 	committeeList := convertCommitteeList(list)
 	return utils.WriteJSON(w, committeeList)
 }
+func (n *Node) handlePubKey(w http.ResponseWriter, req *http.Request) error {
+	w.WriteHeader(http.StatusOK)
+	b := b64.StdEncoding.EncodeToString(crypto.FromECDSAPub(n.pubKey))
+
+	w.Write([]byte(b))
+	return nil
+}
 
 func (n *Node) Mount(root *mux.Router, pathPrefix string) {
 	sub := root.PathPrefix(pathPrefix).Subrouter()
 
 	sub.Path("/network/peers").Methods("Get").HandlerFunc(utils.WrapHandlerFunc(n.handleNetwork))
 	sub.Path("/consensus/committee").Methods("Get").HandlerFunc(utils.WrapHandlerFunc(n.handleCommittee))
+	sub.Path("/pubkey").Methods("Get").HandlerFunc(utils.WrapHandlerFunc(n.handlePubKey))
+
 }

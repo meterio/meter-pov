@@ -707,8 +707,7 @@ func (conR *ConsensusReactor) handleMsg(mi consensusMsgInfo) {
 		typeName = strings.Split(typeName, ".")[1]
 	}
 	peerName := conR.GetCommitteeMemberNameByIP(peer.netAddr.IP)
-	conR.logger.Info(fmt.Sprintf("Received %v from peer", typeName),
-		"length", len(rawMsg),
+	conR.logger.Info(fmt.Sprintf("Received from peer: %v", msg.String()),
 		"peer", peerName,
 		"ip", peer.netAddr.IP.String())
 

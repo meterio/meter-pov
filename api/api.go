@@ -6,6 +6,7 @@
 package api
 
 import (
+	"crypto/ecdsa"
 	"net/http"
 	"strings"
 
@@ -33,7 +34,7 @@ import (
 )
 
 //New return api router
-func New(chain *chain.Chain, stateCreator *state.Creator, txPool *txpool.TxPool, logDB *logdb.LogDB, nw node.Network, allowedOrigins string, backtraceLimit uint32, callGasLimit uint64, p2pServer *p2psrv.Server) (http.HandlerFunc, func()) {
+func New(chain *chain.Chain, stateCreator *state.Creator, txPool *txpool.TxPool, logDB *logdb.LogDB, nw node.Network, allowedOrigins string, backtraceLimit uint32, callGasLimit uint64, p2pServer *p2psrv.Server, pubKey *ecdsa.PublicKey) (http.HandlerFunc, func()) {
 	origins := strings.Split(strings.TrimSpace(allowedOrigins), ",")
 	for i, o := range origins {
 		origins[i] = strings.ToLower(strings.TrimSpace(o))
@@ -75,7 +76,7 @@ func New(chain *chain.Chain, stateCreator *state.Creator, txPool *txpool.TxPool,
 		Mount(router, "/transactions")
 	debug.New(chain, stateCreator).
 		Mount(router, "/debug")
-	node.New(nw).
+	node.New(nw, pubKey).
 		Mount(router, "/node")
 	peers.New(p2pServer).Mount(router, "/peers")
 	subs := subscriptions.New(chain, origins, backtraceLimit)
