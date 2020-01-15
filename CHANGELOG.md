@@ -1,5 +1,12 @@
 # Versions
 
+## 1.3.1-beta9
+
+Added:
+
+1. Update curEpoch with bestQC before send out NewCommittee message
+2. Update curEpoch when receive NewCommittee message
+
 ## 1.3.1-beta8
 
 Added:
