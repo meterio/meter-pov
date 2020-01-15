@@ -34,7 +34,7 @@ func newDelegateList(delegates []*Delegate) *DelegateList {
 func (d *Delegate) ToString() string {
 	pubKeyEncoded := b64.StdEncoding.EncodeToString(d.PubKey)
 	return fmt.Sprintf("Delegate(Name=%v, Addr=%v, PubKey=%v, IP=%v:%v, VotingPower=%d)",
-		string(d.Name), d.Address, pubKeyEncoded, string(d.IPAddr), d.Port, d.VotingPower.String())
+		string(d.Name), d.Address, pubKeyEncoded, string(d.IPAddr), d.Port, d.VotingPower.Uint64())
 }
 
 func (l *DelegateList) CleanAll() error {

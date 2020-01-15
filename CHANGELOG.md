@@ -1,5 +1,16 @@
 # Versions
 
+## 1.3.1-beta8
+
+Added:
+
+1. start pacemaker even if there are not enough vote for notary
+
+Updated:
+
+1. fixed the missing committee info bug
+2. added committee message log
+
 ## 1.3.1-beta7
 
 Added:

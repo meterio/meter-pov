@@ -3,6 +3,8 @@ package consensus
 import (
 	"encoding/hex"
 	"fmt"
+	"strconv"
+	"strings"
 	"time"
 
 	amino "github.com/dfinlab/go-amino"
@@ -130,8 +132,9 @@ func (m *AnnounceCommitteeMessage) SigningHash() (hash meter.Bytes32) {
 
 // String returns a string representation.
 func (m *AnnounceCommitteeMessage) String() string {
-	return fmt.Sprintf("[AnnounceCommittee Height:%v Round:%v Type:%v]",
-		m.CSMsgCommonHeader.Height, m.CSMsgCommonHeader.Round, m.CSMsgCommonHeader.MsgType)
+	header := m.CSMsgCommonHeader
+	return fmt.Sprintf("[AnnounceCommittee Height:%v Round:%v Epoch:%v Nonce:%v Size:%d KBlockHeight:%v PowBlockHeight:%v]",
+		header.Height, header.Round, header.EpochID, m.Nonce, m.CommitteeSize, m.KBlockHeight, m.POWBlockHeight)
 }
 
 func (m *AnnounceCommitteeMessage) EpochID() uint64 {
@@ -176,8 +179,9 @@ func (m *CommitCommitteeMessage) SigningHash() (hash meter.Bytes32) {
 
 // String returns a string representation.
 func (m *CommitCommitteeMessage) String() string {
-	return fmt.Sprintf("[CommitCommittee Height:%v Round:%v Type:%v]",
-		m.CSMsgCommonHeader.Height, m.CSMsgCommonHeader.Round, m.CSMsgCommonHeader.MsgType)
+	header := m.CSMsgCommonHeader
+	return fmt.Sprintf("[CommitCommittee Height:%v Round:%v Epoch:%v Index:%d]",
+		header.Height, header.Round, header.EpochID, m.CommitterIndex)
 }
 
 func (m *CommitCommitteeMessage) EpochID() uint64 {
@@ -228,8 +232,13 @@ func (m *NotaryAnnounceMessage) SigningHash() (hash meter.Bytes32) {
 
 // String returns a string representation.
 func (m *NotaryAnnounceMessage) String() string {
-	return fmt.Sprintf("[NotaryAnnounceMessage Height:%v Round:%v Type:%v]",
-		m.CSMsgCommonHeader.Height, m.CSMsgCommonHeader.Round, m.CSMsgCommonHeader.MsgType)
+	header := m.CSMsgCommonHeader
+	s := make([]string, 0)
+	for _, m := range m.CommitteeActualMembers {
+		s = append(s, strconv.Itoa(int(m.CSIndex)))
+	}
+	return fmt.Sprintf("[NotaryAnnounce Height:%v Round:%v Epoch:%v ActualSize:%d ActualIndex:%s]",
+		header.Height, header.Round, header.EpochID, m.CommitteeActualSize, strings.Join(s, ","))
 }
 func (m *NotaryAnnounceMessage) EpochID() uint64 {
 	return m.CSMsgCommonHeader.EpochID
@@ -269,8 +278,9 @@ func (m *VoteForNotaryMessage) SigningHash() (hash meter.Bytes32) {
 
 // String returns a string representation.
 func (m *VoteForNotaryMessage) String() string {
-	return fmt.Sprintf("[VoteForNotaryMessage Height:%v Round:%v Type:%v]",
-		m.CSMsgCommonHeader.Height, m.CSMsgCommonHeader.Round, m.CSMsgCommonHeader.MsgType)
+	header := m.CSMsgCommonHeader
+	return fmt.Sprintf("[VoteForNotary Height:%v Round:%v Epoch:%v]",
+		header.Height, header.Round, header.EpochID)
 }
 
 func (m *VoteForNotaryMessage) EpochID() uint64 {

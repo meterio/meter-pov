@@ -1155,7 +1155,7 @@ func (conR *ConsensusReactor) sendConsensusMsg(msg *ConsensusMessage, csPeer *Co
 			return false
 		}
 		peerName := conR.GetCommitteeMemberNameByIP(csPeer.netAddr.IP)
-		conR.logger.Info(fmt.Sprintf("Sent %v to peer", typeName), "peer", peerName, "ip", csPeer.netAddr.IP.String(), "size", len(rawMsg))
+		conR.logger.Info(fmt.Sprintf("Sent to peer: %s", (*msg).String()), "peer", peerName, "ip", csPeer.netAddr.IP.String(), "size", len(rawMsg))
 		var result map[string]interface{}
 		json.NewDecoder(resp.Body).Decode(&result)
 	}
