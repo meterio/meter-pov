@@ -284,7 +284,7 @@ func (b *Block) GetBlockEpoch() (epoch uint64) {
 	lastKBlockHeight := b.Header().LastKBlockHeight()
 	if height > lastKBlockHeight+1 {
 		epoch = b.QC.EpochID
-	} else if height == lastKBlockHeight {
+	} else if height == lastKBlockHeight+1 {
 		epoch = b.GetCommitteeEpoch()
 	} else {
 		panic("Block error: lastKBlockHeight great than height")
