@@ -62,16 +62,16 @@ type Bucket struct {
 	Value      string        `json:"value"`
 	Token      uint8         `json:"token"`
 	Nonce      uint64        `json:"nonce"`
-	CreateTime string        `json:"create`
+	CreateTime string        `json:"createTime"`
 
 	Unbounded    bool          `json:"unbounded"`
 	Candidate    meter.Address `json:"candidate"`
 	Rate         uint8         `json:"rate"`
 	Option       uint32        `json:"option"`
-	BonusVotes   uint64        `json:"bonusvotes"`
-	TotalVotes   string        `json:"totalvotes"`
-	MatureTime   string        `json:"maturetime"`
-	CalcLastTime string        `json:"calclasttime"`
+	BonusVotes   uint64        `json:"bonusVotes"`
+	TotalVotes   string        `json:"totalVotes"`
+	MatureTime   string        `json:"matureTime"`
+	CalcLastTime string        `json:"calcLastTime"`
 }
 
 func convertBucketList(list *staking.BucketList) []*Bucket {
@@ -127,8 +127,8 @@ func convertStakeholder(s staking.Stakeholder) *Stakeholder {
 type Delegate struct {
 	Name        string        `json:"name"`
 	Address     meter.Address `json:"address"`
-	PubKey      string        `json:"pubkey"`
-	VotingPower string        `json:"votingpower"`
+	PubKey      string        `json:"pubKey"`
+	VotingPower string        `json:"votingPower"`
 	IPAddr      string        `json:"ipAddr"` // network addr
 	Port        uint16        `json:"port"`
 }
