@@ -611,6 +611,21 @@ func (p *Pacemaker) OnReceiveNewView(newViewMsg *PMNewViewMessage, from types.Ne
 
 	switch newViewMsg.Reason {
 	case RoundTimeout:
+
+		// forward missing proposals to peers who just sent new view message with lower expected height
+		height := newViewMsg.CSMsgCommonHeader.Height
+		name := p.csReactor.GetCommitteeMemberNameByIP(from.IP)
+		peers := []*ConsensusPeer{newConsensusPeer(name, from.IP, 8670, p.csReactor.magic)}
+		for {
+			if proposal, ok := p.proposalMap[uint64(height)]; ok {
+				p.logger.Info("peer missed one proposal, forward to it ... ", "height", height, "name", name, "ip", from.IP.String())
+				p.SendMessageToPeers(proposal.ProposalMessage, peers)
+				height++
+			} else {
+				break
+			}
+		}
+
 		if p.csReactor.amIRoundProproser(uint64(header.Round)) {
 			if uint64(header.Round) < p.currentRound {
 				p.logger.Info("expired newview message, dropped ... ", "currentRound", p.currentRound, "newViewNxtRound", header.Round)
