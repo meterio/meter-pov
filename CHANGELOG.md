@@ -1,5 +1,17 @@
 # Versions
 
+## 1.3.1-beta10
+
+Added:
+
+1. forward missing proposals to peers when receive new view message with a lower expected height
+
+## 1.3.1-beta10
+
+Added:
+
+1. update curEpoch after processing blocks, so curEpoch will be up to date
+
 ## 1.3.1-beta9
 
 Added:
