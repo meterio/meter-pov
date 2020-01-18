@@ -1,5 +1,19 @@
 # Versions
 
+## 1.3.2
+
+Added:
+
+1. add state sync at receiving new view timeout
+2. more readable log for committee establishment
+
+Updated:
+
+1. Typos for wallet API
+2. display members who chould not join the committee in /node/consensus/committee API
+
+## 1.3.1-beta11
+
 ## 1.3.1-beta10
 
 Added:
