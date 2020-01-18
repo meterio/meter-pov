@@ -942,8 +942,8 @@ func (conR *ConsensusReactor) exitConsensusValidator() int {
 // Enter leader
 func (conR *ConsensusReactor) enterConsensusLeader(epochID uint64) {
 	conR.logger.Debug("Enter consensus leader", "epochID", epochID)
-	if epochID <= conR.curEpoch {
-		conR.logger.Warn("enterConsensusLeader: epochID less than current Epoch, do not update leader", "curEpochID", conR.curEpoch, "epochID", epochID)
+	if epochID <= conR.curEpoch && conR.csLeader != nil {
+		conR.logger.Warn("Epoch is less than current epoch, do not update leader", "curEpochID", conR.curEpoch, "epochID", epochID)
 		return
 	}
 
