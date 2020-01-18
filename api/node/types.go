@@ -56,6 +56,7 @@ type ApiCommitteeMember struct {
 	NetAddr     string        `json:"netAddr"`
 	CsPubKey    string        `json:"csPubKey"`
 	CsIndex     int           `json:"csIndex"`
+	InCommittee bool          `json:"inCommittee"`
 }
 
 func convertCommitteeList(cml []*consensus.ApiCommitteeMember) []*ApiCommitteeMember {

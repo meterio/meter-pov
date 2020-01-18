@@ -329,9 +329,8 @@ func (m *NewCommitteeMessage) SigningHash() (hash meter.Bytes32) {
 
 // String returns a string representation.
 func (m *NewCommitteeMessage) String() string {
-	return fmt.Sprintf("[NewCommitteeMessage Height:%v Round:%v Type:%v]",
-		m.CSMsgCommonHeader.Height, m.CSMsgCommonHeader.Round,
-		m.CSMsgCommonHeader.MsgType)
+	return fmt.Sprintf("[NewCommitteeMessage Height:%v Round:%v NewEpochID:%v]",
+		m.CSMsgCommonHeader.Height, m.CSMsgCommonHeader.Round, m.NewEpochID)
 }
 
 func (m *NewCommitteeMessage) EpochID() uint64 {

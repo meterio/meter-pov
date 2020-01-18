@@ -1075,10 +1075,16 @@ type ApiCommitteeMember struct {
 	NetAddr     string
 	CsPubKey    string
 	CsIndex     int
+	InCommittee bool
 }
 
 func (conR *ConsensusReactor) GetLatestCommitteeList() ([]*ApiCommitteeMember, error) {
 	var committeeMembers []*ApiCommitteeMember
+	inCommittee := make([]bool, len(conR.curCommittee.Validators))
+	for i := range inCommittee {
+		inCommittee[i] = false
+	}
+
 	for _, cm := range conR.curActualCommittee {
 		v := conR.curCommittee.Validators[cm.CSIndex]
 		apiCm := &ApiCommitteeMember{
@@ -1089,8 +1095,23 @@ func (conR *ConsensusReactor) GetLatestCommitteeList() ([]*ApiCommitteeMember, e
 			NetAddr:     cm.NetAddr.String(),
 			CsPubKey:    hex.EncodeToString(conR.csCommon.system.PubKeyToBytes(cm.CSPubKey)),
 			CsIndex:     cm.CSIndex,
+			InCommittee: true,
 		}
 		committeeMembers = append(committeeMembers, apiCm)
+		inCommittee[cm.CSIndex] = true
+	}
+	for i, val := range inCommittee {
+		if val == false {
+			v := conR.curCommittee.Validators[i]
+			apiCm := &ApiCommitteeMember{
+				Name:        v.Name,
+				Address:     v.Address,
+				PubKey:      b64.StdEncoding.EncodeToString(crypto.FromECDSAPub(&v.PubKey)),
+				CsIndex:     i,
+				InCommittee: false,
+			}
+			committeeMembers = append(committeeMembers, apiCm)
+		}
 	}
 	return committeeMembers, nil
 }
