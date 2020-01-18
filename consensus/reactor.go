@@ -426,6 +426,11 @@ func (cm *CommitteeMember) ToString() string {
 		cm.VotingPower, cm.CSPubKey.ToString(), cm.CSIndex)
 }
 
+func (cm *CommitteeMember) String() string {
+	return fmt.Sprintf("%15s: ip:%s pubkey:%v votingPower:%v index:%d",
+		cm.Name, cm.NetAddr.IP.String(), hex.EncodeToString(crypto.FromECDSAPub(&cm.PubKey)), cm.VotingPower, cm.CSIndex)
+}
+
 type consensusMsgInfo struct {
 	//Msg    ConsensusMessage
 	Msg    []byte
@@ -545,6 +550,27 @@ func (conR *ConsensusReactor) UpdateActualCommittee(indexes []int, pubKeys []bls
 	if len(conR.curActualCommittee) == 0 {
 		return false
 	}
+
+	fmt.Println("Actual Committee Updated")
+	for _, member := range conR.curActualCommittee {
+		fmt.Println(member.String())
+	}
+	fmt.Println(conR.curActualCommittee)
+	inCommittee := make([]bool, len(conR.curCommittee.Validators))
+	for i := range inCommittee {
+		inCommittee[i] = false
+	}
+	for _, am := range conR.curActualCommittee {
+		inCommittee[am.CSIndex] = true
+	}
+	leftoverNames := make([]string, 0)
+	for i := range inCommittee {
+		if inCommittee[i] == false {
+			leftoverNames = append(leftoverNames, conR.curCommittee.Validators[i].Name)
+		}
+	}
+
+	fmt.Println(fmt.Sprint("Members can NOT join the committee: ", strings.Join(leftoverNames, ", ")))
 
 	// Sort them.
 	sort.SliceStable(conR.curActualCommittee, func(i, j int) bool {
@@ -1085,7 +1111,7 @@ func (conR *ConsensusReactor) GetLatestCommitteeList() ([]*ApiCommitteeMember, e
 		inCommittee[i] = false
 	}
 
-	for _, cm := range conR.curActualCommittee {
+	for i, cm := range conR.curActualCommittee {
 		v := conR.curCommittee.Validators[cm.CSIndex]
 		apiCm := &ApiCommitteeMember{
 			Name:        v.Name,
@@ -1097,11 +1123,13 @@ func (conR *ConsensusReactor) GetLatestCommitteeList() ([]*ApiCommitteeMember, e
 			CsIndex:     cm.CSIndex,
 			InCommittee: true,
 		}
+		fmt.Println(fmt.Sprintf("set %d to true, with index = %d ", i, cm.CSIndex))
 		committeeMembers = append(committeeMembers, apiCm)
 		inCommittee[cm.CSIndex] = true
 	}
 	for i, val := range inCommittee {
 		if val == false {
+			fmt.Println(fmt.Sprintf("index %d is false"))
 			v := conR.curCommittee.Validators[i]
 			apiCm := &ApiCommitteeMember{
 				Name:        v.Name,

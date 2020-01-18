@@ -71,6 +71,7 @@ func convertCommitteeList(cml []*consensus.ApiCommitteeMember) []*ApiCommitteeMe
 			NetAddr:     cm.NetAddr,
 			CsPubKey:    cm.CsPubKey,
 			CsIndex:     cm.CsIndex,
+			InCommittee: cm.InCommittee,
 		}
 	}
 	return committeeList
