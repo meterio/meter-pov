@@ -9,7 +9,6 @@
 package consensus
 
 import (
-	"fmt"
 	"time"
 
 	bls "github.com/dfinlab/meter/crypto/multi_sig"
@@ -92,7 +91,6 @@ func NewCommitteeLeader(conR *ConsensusReactor) *ConsensusLeader {
 	}
 
 	// to others except myself
-	fmt.Println(conR.curCommittee)
 	for i, v := range conR.curCommittee.Validators {
 		if i == conR.curCommitteeIndex {
 			continue

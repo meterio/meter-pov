@@ -49,7 +49,7 @@ func (c *Communicator) download(peer *Peer, fromNum uint32, handler HandleBlockS
 				errCh <- err
 				return
 			}
-			fmt.Println("GOT QC: ", qc.String(), ", from:", peer.RemoteAddr().String())
+			// fmt.Println("GOT QC: ", qc.String(), ", from:", peer.RemoteAddr().String())
 			err = qcHandler(ctx, qc)
 			if err != nil {
 				errCh <- err
@@ -60,7 +60,7 @@ func (c *Communicator) download(peer *Peer, fromNum uint32, handler HandleBlockS
 				errCh <- err
 				return
 			}
-			fmt.Println("GOT Block", len(result), ", from height:", fromNum)
+			// fmt.Println("GOT Block", len(result), ", from height:", fromNum)
 			if len(result) == 0 {
 				return
 			}

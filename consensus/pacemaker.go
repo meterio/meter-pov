@@ -329,7 +329,7 @@ func (p *Pacemaker) OnReceiveProposal(proposalMsg *PMProposalMessage, from types
 	// address parent
 	parent := p.AddressBlock(proposalMsg.ParentHeight, proposalMsg.ParentRound)
 	if parent == nil {
-		p.logger.Error("OnReceiveProposal: can not address parent")
+		// p.logger.Error("OnReceiveProposal: can not address parent")
 
 		// put this proposal to pending list, and sent out query
 		if err := p.pendingProposal(proposalMsg.ParentHeight, proposalMsg.ParentRound, proposalMsg, from); err != nil {

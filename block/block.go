@@ -71,6 +71,9 @@ func (cis CommitteeInfos) String() string {
 	for _, ci := range cis.CommitteeInfo {
 		s = append(s, ci.String())
 	}
+	if len(s) == 0 {
+		return "CommitteeInfos(nil)"
+	}
 	return "CommitteeInfos(\n  " + strings.Join(s, ",\n  ") + "\n)"
 }
 

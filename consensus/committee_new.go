@@ -2,7 +2,6 @@ package consensus
 
 import (
 	"crypto/ecdsa"
-	"fmt"
 	"time"
 
 	bls "github.com/dfinlab/meter/crypto/multi_sig"
@@ -216,14 +215,14 @@ func (conR *ConsensusReactor) ProcessNewCommitteeMessage(newCommitteeMsg *NewCom
 
 	// 3. if the totoal vote > 2/3, move to Commit state
 	if LeaderMajorityTwoThird(nc.newCommitteeVoterNum, conR.committeeSize) {
-		conR.logger.Debug("NewCommitteeMessage, 2/3 Majority reached", "Recvd", nc.newCommitteeVoterNum, "committeeSize", conR.committeeSize)
+		conR.logger.Debug("NewCommitteeMessage, 2/3 Majority reached", "Recvd", nc.newCommitteeVoterNum, "committeeSize", conR.committeeSize, "replay", conR.newCommittee.Replay)
 
 		// Now it's time schedule leader
 		if conR.csPacemaker.IsStopped() == false {
 			conR.csPacemaker.Stop()
 		}
 
-		fmt.Println("replay", conR.newCommittee.Replay)
+		// fmt.Println("replay", conR.newCommittee.Replay)
 		if conR.newCommittee.Replay == true {
 			conR.ScheduleReplayLeader(epochID, WHOLE_NETWORK_BLOCK_SYNC_TIME)
 		} else {

@@ -555,7 +555,6 @@ func (conR *ConsensusReactor) UpdateActualCommittee(indexes []int, pubKeys []bls
 	for _, member := range conR.curActualCommittee {
 		fmt.Println(member.String())
 	}
-	fmt.Println(conR.curActualCommittee)
 	inCommittee := make([]bool, len(conR.curCommittee.Validators))
 	for i := range inCommittee {
 		inCommittee[i] = false
@@ -1752,8 +1751,8 @@ func PrintDelegates(delegates []*types.Delegate) {
 		keyBytes := crypto.FromECDSAPub(&dd.PubKey)
 		pubKeyStr := base64.StdEncoding.EncodeToString(keyBytes)
 
-		fmt.Printf("Delegate %d: %s\n Address:%s\n Public Key: %v\n Voting Power:%d, Network Address: %s:%d\n",
-			i+1, dd.Name, dd.Address, pubKeyStr, dd.VotingPower, dd.NetAddr.IP.String(), dd.NetAddr.Port)
+		fmt.Printf("#%d: %s (%s) :%d\n      Address:%s\n   Public Key: %v\n",
+			i+1, dd.Name, dd.NetAddr.IP.String(), dd.NetAddr.Port, dd.Address, pubKeyStr, dd.VotingPower, dd.NetAddr.IP.String(), dd.NetAddr.Port)
 	}
 	fmt.Println("============================================")
 }
