@@ -1752,7 +1752,7 @@ func PrintDelegates(delegates []*types.Delegate) {
 		pubKeyStr := base64.StdEncoding.EncodeToString(keyBytes)
 
 		fmt.Printf("#%d: %s (%s) :%d\n      Address:%s\n   Public Key: %v\n",
-			i+1, dd.Name, dd.NetAddr.IP.String(), dd.NetAddr.Port, dd.Address, pubKeyStr, dd.VotingPower, dd.NetAddr.IP.String(), dd.NetAddr.Port)
+			i+1, dd.Name, dd.NetAddr.IP.String(), dd.NetAddr.Port, dd.Address, pubKeyStr)
 	}
 	fmt.Println("============================================")
 }

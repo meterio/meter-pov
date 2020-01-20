@@ -1,5 +1,15 @@
 # Versions
 
+## 1.3.3-beta1
+
+Added:
+
+1. range query for missing proposals
+
+Updated:
+
+2. before the new qc is populated by proposals, dont start the timer for next round
+
 ## 1.3.2
 
 Added:
