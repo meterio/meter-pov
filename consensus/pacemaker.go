@@ -468,8 +468,8 @@ func (p *Pacemaker) OnReceiveVote(voteMsg *PMVoteForProposalMessage) error {
 
 	if changed == true {
 		// the proposal is approved, start the timer before new view is sent
-		p.stopRoundTimer()
-		p.startRoundTimer(qc.QC.QCHeight+1, qc.QC.QCRound+1, 0)
+		// p.stopRoundTimer()
+		// p.startRoundTimer(qc.QC.QCHeight+1, qc.QC.QCRound+1, 0)
 
 		pmRoleGauge.Set(1)
 		// if QC is updated, relay it to the next proposer
