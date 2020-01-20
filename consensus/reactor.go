@@ -1645,23 +1645,23 @@ func MajorityTwoThird(voterNum, committeeSize int) bool {
 }
 
 // for committee
+// The voteNum does not include leader himself
 func LeaderMajorityTwoThird(voterNum, committeeSize int) bool {
-	if (voterNum < 0) || (committeeSize < 1) {
+	if (voterNum < 0) || (committeeSize <= 1) {
 		fmt.Println("MajorityTwoThird, inputs out of range")
 		return false
 	}
 	// Examples
-	// committeeSize= 1 twoThirds= 1
 	// committeeSize= 2 twoThirds= 1
-	// committeeSize= 3 twoThirds= 2
-	// committeeSize= 4 twoThirds= 3
-	// committeeSize= 5 twoThirds= 4
-	// committeeSize= 6 twoThirds= 4
+	// committeeSize= 3 twoThirds= 1
+	// committeeSize= 4 twoThirds= 2
+	// committeeSize= 5 twoThirds= 3
+	// committeeSize= 6 twoThirds= 3
 	var twoThirds float64
 	if committeeSize == 2 {
 		twoThirds = 1
 	} else {
-		twoThirds = math.Ceil(float64(committeeSize) * 2 / 3)
+		twoThirds = math.Ceil(float64(committeeSize)*2/3) - 1
 	}
 	if float64(voterNum) >= twoThirds {
 		return true
@@ -1751,7 +1751,7 @@ func PrintDelegates(delegates []*types.Delegate) {
 		keyBytes := crypto.FromECDSAPub(&dd.PubKey)
 		pubKeyStr := base64.StdEncoding.EncodeToString(keyBytes)
 
-		fmt.Printf("#%d: %s (%s) :%d\n      Address:%s\n   Public Key: %v\n",
+		fmt.Printf("#%d: %s (%s) :%d\n     Address:%s\n     Public Key: %s\n",
 			i+1, dd.Name, dd.NetAddr.IP.String(), dd.NetAddr.Port, dd.Address, pubKeyStr)
 	}
 	fmt.Println("============================================")
