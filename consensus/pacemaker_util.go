@@ -90,7 +90,7 @@ func (p *Pacemaker) receivePacemakerMsg(w http.ResponseWriter, r *http.Request) 
 		}
 
 		if msg.EpochID() < p.csReactor.curEpoch {
-			p.logger.Info("EPOCH mismatch", "msg epoch", msg.EpochID(), "my epoch", p.csReactor.curEpoch)
+			p.logger.Info("ignored message due to epoch mismatch", "msg epoch", msg.EpochID(), "my epoch", p.csReactor.curEpoch, "msg", msg.String())
 			return
 		}
 		// check replay first, also include the proposal myself
