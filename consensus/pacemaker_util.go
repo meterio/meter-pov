@@ -153,6 +153,9 @@ func (p *Pacemaker) GetRelayPeers(round int) ([]*ConsensusPeer, error) {
 	peers := []*ConsensusPeer{}
 	size := len(p.csReactor.curActualCommittee)
 	myIndex := p.myActualCommitteeIndex
+	if size == 0 {
+		return make([]*ConsensusPeer, 0), errors.New("current actual committee is empty")
+	}
 	rr := round % size
 	if myIndex >= rr {
 		myIndex = myIndex - rr
