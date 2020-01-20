@@ -503,7 +503,8 @@ func (m *PMNewViewMessage) EpochID() uint64 {
 // PMQueryProposalMessage is sent to current leader to get the parent proposal
 type PMQueryProposalMessage struct {
 	CSMsgCommonHeader ConsensusMsgCommonHeader
-	Height            uint64
+	FromHeight        uint64
+	ToHeight          uint64
 	Round             uint64
 	ReturnAddr        types.NetAddress
 }
@@ -520,7 +521,8 @@ func (m *PMQueryProposalMessage) SigningHash() (hash meter.Bytes32) {
 		m.CSMsgCommonHeader.MsgSubType,
 		m.CSMsgCommonHeader.Signature,
 
-		m.Height,
+		m.FromHeight,
+		m.ToHeight,
 		m.Round,
 		m.ReturnAddr,
 	})
@@ -530,7 +532,7 @@ func (m *PMQueryProposalMessage) SigningHash() (hash meter.Bytes32) {
 
 // String returns a string representation.
 func (m *PMQueryProposalMessage) String() string {
-	return fmt.Sprintf("[PMQueryProposal QueryHeight:%v QueryRound:%v]", m.Height, m.Round)
+	return fmt.Sprintf("[PMQueryProposal FromHeight:%v ToHeight:%v QueryRound:%v]", m.FromHeight, m.ToHeight, m.Round)
 }
 
 func (m *PMQueryProposalMessage) EpochID() uint64 {

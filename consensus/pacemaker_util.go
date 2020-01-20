@@ -313,9 +313,9 @@ func (p *Pacemaker) SendMessageToPeers(msg ConsensusMessage, peers []*ConsensusP
 	myNetAddr := p.csReactor.curCommittee.Validators[p.csReactor.curCommitteeIndex].NetAddr
 	// broadcast consensus message to peers
 	for _, peer := range peers {
-		hint := fmt.Sprintf("Sending %v to peer", typeName)
+		hint := fmt.Sprintf("Sending to peer: %v", msg.String())
 		if peer.netAddr.IP.String() == myNetAddr.IP.String() {
-			hint = fmt.Sprintf("Sending %v to myself", typeName)
+			hint = fmt.Sprintf("Sending to myself: %v", msg.String())
 		}
 		peerName := p.csReactor.GetCommitteeMemberNameByIP(peer.netAddr.IP)
 		p.logger.Debug(hint, "peer", peerName, "ip", peer.netAddr.IP.String())

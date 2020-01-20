@@ -991,32 +991,42 @@ func (p *Pacemaker) revertTo(revertHeight uint64) {
 }
 
 func (p *Pacemaker) OnReceiveQueryProposal(queryMsg *PMQueryProposalMessage) error {
-	queryHeight := queryMsg.Height
+	fromHeight := queryMsg.FromHeight
+	toHeight := queryMsg.ToHeight
 	queryRound := queryMsg.Round
 	returnAddr := queryMsg.ReturnAddr
-	p.logger.Info("receives query", "height", queryHeight, "round", queryRound, "returnAddr", returnAddr)
+	p.logger.Info("receives query", "fromHeight", fromHeight, "toHeight", toHeight, "round", queryRound, "returnAddr", returnAddr)
 
 	bestHeight := uint64(p.csReactor.chain.BestBlock().Header().Number())
-	if queryHeight <= bestHeight {
-		p.logger.Error("query too old", "height", queryHeight, "round", queryRound)
+	if toHeight <= bestHeight {
+		p.logger.Error("query too old", "fromHeight", fromHeight, "toHeight", toHeight, "round", queryRound)
 		return errors.New("query too old")
 	}
-
-	result := p.proposalMap[queryHeight]
-	if result == nil {
-		// Oooop!, I do not have it
-		p.logger.Error("query too old", "height", queryHeight, "round", queryRound)
-		return errors.New("query too old")
+	if fromHeight < bestHeight {
+		fromHeight = bestHeight
+	}
+	if fromHeight >= toHeight {
+		p.logger.Error("invalid query", "fromHeight", fromHeight, "toHeight", toHeight)
 	}
 
-	if result.ProposalMessage == nil {
-		p.logger.Error("could not find raw proposal message")
-		return errors.New("could not find raw proposal message")
-	}
-
-	//send
+	queryHeight := fromHeight + 1
 	name := p.csReactor.GetCommitteeMemberNameByIP(returnAddr.IP)
 	peers := []*ConsensusPeer{newConsensusPeer(name, returnAddr.IP, returnAddr.Port, p.csReactor.magic)}
-	p.SendMessageToPeers(result.ProposalMessage, peers)
+	for queryHeight <= toHeight {
+		result := p.proposalMap[queryHeight]
+		if result == nil {
+			// Oooop!, I do not have it
+			p.logger.Error("I dont have the specific proposal", "height", queryHeight, "round", queryRound)
+			return errors.New(fmt.Sprintf("I dont have the specific proposal on height %s", queryHeight))
+		}
+
+		if result.ProposalMessage == nil {
+			p.logger.Error("could not find raw proposal message", "height", queryHeight, "round", queryRound)
+			return errors.New("could not find raw proposal message")
+		}
+
+		//send
+		p.SendMessageToPeers(result.ProposalMessage, peers)
+	}
 	return nil
 }

@@ -260,10 +260,16 @@ func (p *Pacemaker) BuildQueryProposalMessage(height, round, epochID uint64, ret
 		// MsgSubType: msgSubType,
 		EpochID: epochID,
 	}
+	lastKBlockHeight := p.csReactor.chain.BestBlock().Header().LastKBlockHeight()
+	fromHeight := p.lastVotingHeight
+	if fromHeight < uint64(lastKBlockHeight) {
+		fromHeight = uint64(lastKBlockHeight)
+	}
 
 	msg := &PMQueryProposalMessage{
 		CSMsgCommonHeader: cmnHdr,
-		Height:            height,
+		FromHeight:        fromHeight,
+		ToHeight:          height,
 		Round:             round,
 		ReturnAddr:        retAddr,
 	}
