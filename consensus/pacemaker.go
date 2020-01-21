@@ -1027,6 +1027,8 @@ func (p *Pacemaker) OnReceiveQueryProposal(queryMsg *PMQueryProposalMessage) err
 
 		//send
 		p.SendMessageToPeers(result.ProposalMessage, peers)
+
+		queryHeight++
 	}
 	return nil
 }

@@ -57,13 +57,23 @@ type ConsensusLeader struct {
 
 	announceThresholdTimer *time.Timer // 2/3 voting timer
 	notaryThresholdTimer   *time.Timer // notary 2/3 vote timer
-
-	csPeers []*ConsensusPeer // consensus message peers
 }
 
 // send consensus message to all connected peers
-func (cl *ConsensusLeader) SendMsg(msg *ConsensusMessage) bool {
-	return cl.csReactor.SendMsgToPeers(cl.csPeers, msg)
+func (cl *ConsensusLeader) SendMsg(msg ConsensusMessage) bool {
+	var peers []*ConsensusPeer
+	switch msg.(type) {
+	case *AnnounceCommitteeMessage:
+		peers = cl.CreateAnnounceMsgPeers()
+
+	case *NotaryAnnounceMessage:
+		peers = cl.CreateNotaryMsgPeers() // TBD: makes smaller set for notary
+
+	default:
+		cl.csReactor.logger.Info("Wrong type of leader messages")
+		peers = []*ConsensusPeer{}
+	}
+	return cl.csReactor.SendMsgToPeers(peers, &msg)
 }
 
 // Move to the init State
@@ -89,17 +99,35 @@ func NewCommitteeLeader(conR *ConsensusReactor) *ConsensusLeader {
 		announceVoterBitArray: cmn.NewBitArray(conR.committeeSize),
 		notaryVoterBitArray:   cmn.NewBitArray(conR.committeeSize),
 	}
+	return cl
+}
 
-	// to others except myself
-	for i, v := range conR.curCommittee.Validators {
-		if i == conR.curCommitteeIndex {
+// curCommittee others except myself
+func (cl *ConsensusLeader) CreateAnnounceMsgPeers() []*ConsensusPeer {
+	csPeers := make([]*ConsensusPeer, 0)
+	for i, v := range cl.csReactor.curCommittee.Validators {
+		if i == cl.csReactor.curCommitteeIndex {
 			continue
 		}
 		// initialize PeerConn
-		p := newConsensusPeer(v.Name, v.NetAddr.IP, v.NetAddr.Port, conR.magic)
-		cl.csPeers = append(cl.csPeers, p)
+		p := newConsensusPeer(v.Name, v.NetAddr.IP, v.NetAddr.Port, cl.csReactor.magic)
+		csPeers = append(csPeers, p)
 	}
-	return cl
+	return csPeers
+}
+
+// ActulCommittee except myself
+func (cl *ConsensusLeader) CreateNotaryMsgPeers() []*ConsensusPeer {
+	csPeers := make([]*ConsensusPeer, 0)
+	for _, cm := range cl.csReactor.curActualCommittee {
+		if cm.CSIndex == cl.csReactor.curCommitteeIndex {
+			continue
+		}
+		// initialize PeerConn
+		p := newConsensusPeer(cm.Name, cm.NetAddr.IP, cm.NetAddr.Port, cl.csReactor.magic)
+		csPeers = append(csPeers, p)
+	}
+	return csPeers
 }
 
 // Committee leader create AnnounceCommittee to all peers
@@ -153,7 +181,7 @@ func (cl *ConsensusLeader) GenerateAnnounceMsg() bool {
 
 	var m ConsensusMessage = msg
 	cl.state = COMMITTEE_LEADER_ANNOUNCED
-	cl.SendMsg(&m)
+	cl.SendMsg(m)
 
 	//timeout function
 	announceExpire := func() {
@@ -244,7 +272,7 @@ func (cl *ConsensusLeader) GenerateNotaryAnnounceMsg() bool {
 	cl.csReactor.logger.Debug("Generate Notary Announce Message", "msg", msg.String())
 
 	var m ConsensusMessage = msg
-	cl.SendMsg(&m)
+	cl.SendMsg(m)
 	// cl.state = COMMITTEE_LEADER_NOTARYSENT
 
 	return true
