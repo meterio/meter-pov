@@ -1,5 +1,12 @@
 # Versions
 
+## 1.3.3-beta2
+
+Updated:
+
+1. fix the bug of proposal query
+2. fix the bug of peers of committee leader messages
+
 ## 1.3.3-beta1
 
 Added:
