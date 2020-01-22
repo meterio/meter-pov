@@ -83,7 +83,7 @@ func verifyPublicKey(privKey *ecdsa.PrivateKey, pubKey *ecdsa.PublicKey) bool {
 
 func updatePublicKey(path string, pubKey *ecdsa.PublicKey) error {
 	b := b64.StdEncoding.EncodeToString(crypto.FromECDSAPub(pubKey))
-	return ioutil.WriteFile(path, []byte(b), 0600)
+	return ioutil.WriteFile(path, []byte(b+"\n"), 0600)
 }
 
 func fromBase64Pub(pub string) (*ecdsa.PublicKey, error) {
@@ -102,7 +102,8 @@ func loadOrUpdatePublicKey(path string, privKey *ecdsa.PrivateKey, newPubKey *ec
 		return newPubKey, updatePublicKey(path, newPubKey)
 	}
 
-	key, err := fromBase64Pub(string(b))
+	s := strings.TrimSuffix(string(b), "\n")
+	key, err := fromBase64Pub(s)
 	if err != nil {
 		return newPubKey, updatePublicKey(path, newPubKey)
 	}
