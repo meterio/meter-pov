@@ -125,6 +125,7 @@ func (n *Node) handleBlockStream(ctx context.Context, stream <-chan *block.Block
 
 	var blk *block.Block
 	for blk = range stream {
+		log.Debug("handle block", "block", blk)
 		if isTrunk, err := n.processBlock(blk, &stats); err != nil {
 			return err
 		} else if isTrunk {

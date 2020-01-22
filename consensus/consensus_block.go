@@ -40,7 +40,12 @@ func (c *ConsensusReactor) Process(blk *block.Block, nowTimestamp uint64) (*stat
 			return nil, nil, err
 		}
 	} else {
-		return nil, nil, errKnownBlock
+		// we may already have this blockID. If it is after the best, still accept it
+		if header.Number() <= c.chain.BestBlock().Header().Number() {
+			return nil, nil, errKnownBlock
+		} else {
+			c.logger.Info("continue to process blk ...", "height", header.Number())
+		}
 	}
 
 	parentHeader, err := c.chain.GetBlockHeader(header.ParentID())
