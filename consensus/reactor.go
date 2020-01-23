@@ -134,8 +134,10 @@ type ConsensusReactor struct {
 	// still references above consensuStae, reactor if this node is
 	// involved the consensus
 	csMode             byte // delegates, committee, other
-	configDelegateSize int  // configured delegate size.
-	delegateSize       int  // global constant, current available delegate size. delegateSize <= configDelegateSize
+	maxCommitteeSize   int  // configured maxCommitteeSize size.
+	minCommitteeSize   int  // configured minCommitteeSize size.
+	maxDelegateSize    int  // configured maxDelegateSize
+	delegateSize       int  // global constant, current available delegate size.
 	committeeSize      int
 	myDelegatesIndex   int                 // this index will be changed by DelegateSet every time
 	curDelegates       *types.DelegateSet  // current delegates list
@@ -245,12 +247,17 @@ func NewConsensusReactor(ctx *cli.Context, chain *chain.Chain, state *state.Crea
 	lastKBlockHeightGauge.Set(float64(conR.lastKBlockHeight))
 
 	//initialize Delegates
-	conR.committeeSize = ctx.Int("committee-size")     // 4 //COMMITTEE_SIZE
-	conR.configDelegateSize = ctx.Int("delegate-size") // 10 //DELEGATES_SIZE
+	conR.minCommitteeSize = ctx.Int("committee-min-size") // 4 //COMMITTEE_SIZE
+	conR.maxCommitteeSize = ctx.Int("committee-max-size") // 10 //DELEGATES_SIZE
+	conR.maxDelegateSize = ctx.Int("delegate-max-size")   // 200
 	dataDir := ctx.String("data-dir")
 	conR.dataDir = dataDir
-	conR.curDelegates = types.NewDelegateSet(GetConsensusDelegates(dataDir, conR.configDelegateSize, conR.committeeSize))
-	conR.delegateSize = len(conR.curDelegates.Delegates)
+
+	delegates, delegateSize, committeeSize := GetConsensusDelegates(dataDir, conR.maxCommitteeSize, conR.minCommitteeSize, conR.maxDelegateSize)
+	fmt.Println("NewConsensusReactor:", "delegateSize", delegateSize, "committeeSize", committeeSize)
+	conR.curDelegates = types.NewDelegateSet(delegates)
+	conR.delegateSize = delegateSize
+	conR.committeeSize = committeeSize
 
 	conR.rcvdNewCommittee = make(map[NewCommitteeKey]*NewCommittee, 10)
 
@@ -1485,8 +1492,11 @@ func (conR *ConsensusReactor) HandleSchedule(fn func()) bool {
 // update current delegates with new delegates from staking
 // keep this standalone method intentionly
 func (conR *ConsensusReactor) ConsensusUpdateCurDelegates() {
-	conR.curDelegates = types.NewDelegateSet(GetConsensusDelegates(conR.dataDir, conR.configDelegateSize, conR.committeeSize))
-	conR.delegateSize = len(conR.curDelegates.Delegates)
+	delegates, delegateSize, committeeSize := GetConsensusDelegates(conR.dataDir, conR.maxCommitteeSize, conR.minCommitteeSize, conR.maxDelegateSize)
+	conR.logger.Info("in ConsensusUpdateCurDelegates", "delegateSize", conR.delegateSize, "committeeSize", conR.committeeSize)
+	conR.curDelegates = types.NewDelegateSet(delegates)
+	conR.delegateSize = delegateSize
+	conR.committeeSize = committeeSize
 }
 
 // Consensus module handle received nonce from kblock
@@ -1758,24 +1768,48 @@ func PrintDelegates(delegates []*types.Delegate) {
 }
 
 // entry point for each committee
-// configSize is configured(expected) and normally minimumSize is committee size
-func GetConsensusDelegates(dataDir string, configSize int, minimumSize int) []*types.Delegate {
+// return with delegates list, delegateSize, committeeSize
+// maxDelegateSize >= maxCommiteeSize >= minCommitteeSize
+func GetConsensusDelegates(dataDir string, maxCommitteeSize, minCommitteeSize, maxDelegateSize int) ([]*types.Delegate, int, int) {
+	var delegateSize, committeeSize int
+
 	delegates, err := staking.GetInternalDelegateList()
-	if err == nil && len(delegates) >= minimumSize {
-		fmt.Println("delegatesList from staking", "(size=", len(delegates), ")")
+
+	if err == nil && len(delegates) >= minCommitteeSize {
+		if len(delegates) >= maxDelegateSize {
+			delegateSize = maxDelegateSize
+			delegates = delegates[:maxDelegateSize]
+		} else {
+			delegateSize = len(delegates)
+		}
+
+		if delegateSize > maxCommitteeSize {
+			committeeSize = maxCommitteeSize
+		} else {
+			committeeSize = delegateSize
+		}
+
+		fmt.Println("delegatesList from staking", "delegateSize", delegateSize, "committeeSize", committeeSize)
 		PrintDelegates(delegates)
 	} else {
 		delegates = configDelegates(dataDir)
-		fmt.Println("delegatesList from configuration file e.g. delegates.json", "(size=", len(delegates), ")")
+		if len(delegates) >= maxDelegateSize {
+			delegateSize = maxDelegateSize
+			delegates = delegates[:maxDelegateSize]
+		} else {
+			delegateSize = len(delegates)
+		}
+
+		delegateSize = len(delegates)
+		if delegateSize > maxCommitteeSize {
+			committeeSize = maxCommitteeSize
+		} else {
+			committeeSize = delegateSize
+		}
+		fmt.Println("delegatesList from configuration file e.g. delegates.json", "delegateSize", delegateSize, "committeeSize", committeeSize)
 		PrintDelegates(delegates)
 	}
-
-	fmt.Println("Configured Delegates size", configSize, "Committee size", minimumSize)
-	if len(delegates) >= configSize {
-		return delegates[:configSize]
-	} else {
-		return delegates
-	}
+	return delegates, delegateSize, committeeSize
 }
 
 func (conR *ConsensusReactor) GetCommitteeMemberNameByIP(ip net.IP) string {

@@ -130,15 +130,20 @@ var (
 		Name:  "no-discover",
 		Usage: "disable auto discovery mode",
 	}
-	committeeSizeFlag = cli.IntFlag{
-		Name:  "committee-size",
-		Usage: "committee size",
-		Value: 2,
+	minCommitteeSizeFlag = cli.IntFlag{
+		Name:  "committee-min-size",
+		Usage: "committee minimum size",
+		Value: 15,
 	}
-	delegateSizeFlag = cli.IntFlag{
-		Name:  "delegate-size",
-		Usage: "delegate size",
-		Value: 2,
+	maxCommitteeSizeFlag = cli.IntFlag{
+		Name:  "committee-max-size",
+		Usage: "committee maximum size",
+		Value: 50,
+	}
+	maxDelegateSizeFlag = cli.IntFlag{
+		Name:  "delegate-max-size",
+		Usage: "delegate maximum size",
+		Value: 100,
 	}
 	discoServerFlag = cli.StringSliceFlag{
 		Name:  "disco-server",
