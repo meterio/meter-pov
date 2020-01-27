@@ -620,8 +620,8 @@ func (conR *ConsensusReactor) NewValidatorSetByNonce(nonce uint64) (uint, bool) 
 	//vals []*types.Validator
 
 	committee, role, index, inCommittee := conR.CalcCommitteeByNonce(nonce)
-	fmt.Println("CALCULATED COMMITEE", "role=", role, "index=", index)
-	fmt.Println(committee)
+	// fmt.Println("CALCULATED COMMITEE", "role=", role, "index=", index)
+	// fmt.Println(committee)
 	conR.curCommittee = committee
 	if inCommittee == true {
 		conR.csMode = CONSENSUS_MODE_COMMITTEE
@@ -651,7 +651,6 @@ func (conR *ConsensusReactor) CalcCommitteeByNonce(nonce uint64) (*types.Validat
 	buf := make([]byte, binary.MaxVarintLen64)
 	binary.PutUvarint(buf, nonce)
 
-	fmt.Println(conR.curDelegates)
 	vals := make([]*types.Validator, 0)
 	for _, d := range conR.curDelegates.Delegates {
 		v := &types.Validator{
@@ -667,6 +666,14 @@ func (conR *ConsensusReactor) CalcCommitteeByNonce(nonce uint64) (*types.Validat
 	vals = vals[:conR.committeeSize]
 
 	sort.SliceStable(vals, func(i, j int) bool {
+		vpCmp := vals[i].VotingPower - vals[j].VotingPower
+		if vpCmp > 0 {
+			return true
+		}
+		if vpCmp < 0 {
+			return false
+		}
+
 		return (bytes.Compare(vals[i].CommitKey, vals[j].CommitKey) <= 0)
 	})
 
@@ -1133,7 +1140,7 @@ func (conR *ConsensusReactor) GetLatestCommitteeList() ([]*ApiCommitteeMember, e
 			CsIndex:     cm.CSIndex,
 			InCommittee: true,
 		}
-		fmt.Println(fmt.Sprintf("set %d to true, with index = %d ", i, cm.CSIndex))
+		// fmt.Println(fmt.Sprintf("set %d to true, with index = %d ", i, cm.CSIndex))
 		committeeMembers = append(committeeMembers, apiCm)
 		inCommittee[cm.CSIndex] = true
 	}
