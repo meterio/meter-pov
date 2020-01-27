@@ -1,5 +1,12 @@
 # Versions
 
+## 1.3.3-beta5
+
+Added:
+
+1. sort the delegate list with descending voting power
+2. select the first n delegates to be committee members (n being committee size)
+
 ## 1.3.3-beta3
 
 Added:

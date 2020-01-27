@@ -1128,7 +1128,7 @@ func (conR *ConsensusReactor) GetLatestCommitteeList() ([]*ApiCommitteeMember, e
 		inCommittee[i] = false
 	}
 
-	for i, cm := range conR.curActualCommittee {
+	for _, cm := range conR.curActualCommittee {
 		v := conR.curCommittee.Validators[cm.CSIndex]
 		apiCm := &ApiCommitteeMember{
 			Name:        v.Name,
