@@ -266,16 +266,19 @@ func (p *Pacemaker) OnCommit(commitReady []*pmBlock) error {
 		}
 		// commit the approved block
 		bestQC := p.proposalMap[b.Height+1].Justify.QC
-		if p.csReactor.FinalizeCommitBlock(b.ProposedBlockInfo, bestQC) == false {
-			p.csReactor.logger.Error("Commit block failed ...")
+		if err := p.csReactor.FinalizeCommitBlock(b.ProposedBlockInfo, bestQC); err != nil {
+			p.csReactor.logger.Warn("Commit block failed ...", "error", err)
 
-			//revert to checkpoint
-			best := p.csReactor.chain.BestBlock()
-			state, err := p.csReactor.stateCreator.NewState(best.Header().StateRoot())
-			if err != nil {
-				panic(fmt.Sprintf("revert the state faild ... %v", err))
+			// same block can be imported fromm P2P, we consider it as success
+			if err.Error() != "block already exists" {
+				//revert to checkpoint
+				best := p.csReactor.chain.BestBlock()
+				state, err := p.csReactor.stateCreator.NewState(best.Header().StateRoot())
+				if err != nil {
+					panic(fmt.Sprintf("revert the state faild ... %v", err))
+				}
+				state.RevertTo(b.ProposedBlockInfo.CheckPoint)
 			}
-			state.RevertTo(b.ProposedBlockInfo.CheckPoint)
 		}
 
 		p.Execute(b) //b.cmd

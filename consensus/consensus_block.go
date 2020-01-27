@@ -952,7 +952,7 @@ func (conR *ConsensusReactor) PreCommitBlock(blkInfo *ProposedBlockInfo) bool {
 }
 
 // finalize the block with its own QC
-func (conR *ConsensusReactor) FinalizeCommitBlock(blkInfo *ProposedBlockInfo, bestQC *block.QuorumCert) bool {
+func (conR *ConsensusReactor) FinalizeCommitBlock(blkInfo *ProposedBlockInfo, bestQC *block.QuorumCert) error {
 	blk := blkInfo.ProposedBlock
 	//stage := blkInfo.Stage
 	receipts := blkInfo.Receipts
@@ -987,13 +987,13 @@ func (conR *ConsensusReactor) FinalizeCommitBlock(blkInfo *ProposedBlockInfo, be
 
 	if err := batch.Commit(); err != nil {
 		conR.logger.Error("commit logs failed ...", "err", err)
-		return false
+		return err
 	}
 	// fmt.Println("Calling AddBlock from consensus_block.FinalizeCommitBlock, newBlock=", blk.Header().ID())
 	fork, err := conR.chain.AddBlock(blk, *receipts, true)
 	if err != nil {
-		conR.logger.Error("add block failed ...", "err", err)
-		return false
+		conR.logger.Warn("add block failed ...", "err", err)
+		return err
 	}
 
 	// unlike processBlock, we do not need to handle fork
@@ -1027,5 +1027,5 @@ func (conR *ConsensusReactor) FinalizeCommitBlock(blkInfo *ProposedBlockInfo, be
 	fmt.Println(blk.String())
 	conR.UpdateHeight(int64(conR.chain.BestBlock().Header().Number()))
 
-	return true
+	return nil
 }
