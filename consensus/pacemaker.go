@@ -520,7 +520,10 @@ func (p *Pacemaker) OnBeat(height uint64, round uint64, reason beatReason) error
 	p.logger.Info("--------------------------------------------------")
 	p.logger.Info(fmt.Sprintf("      OnBeat Round:%v, Height:%v, Reason:%v        ", round, height, reason.String()))
 	p.logger.Info("--------------------------------------------------")
-
+	if p.QCHigh != nil && p.QCHigh.QC != nil && height <= p.QCHigh.QC.QCHeight {
+		p.logger.Warn("OnBeat height is less than or equal to qcHigh, skip this OnBeat ...", "qcHigh", p.QCHigh.ToString())
+		return nil
+	}
 	// parent already got QC, pre-commit it
 	//b := p.QCHigh.QCNode
 	b := p.proposalMap[p.QCHigh.QC.QCHeight]
