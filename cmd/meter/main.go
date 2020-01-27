@@ -113,6 +113,7 @@ func main() {
 			maxDelegateSizeFlag,
 			discoServerFlag,
 			discoTopicFlag,
+			initCfgdDelegatesFlag,
 		},
 		Action: defaultAction,
 		Commands: []cli.Command{

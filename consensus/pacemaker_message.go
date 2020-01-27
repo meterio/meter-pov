@@ -25,8 +25,9 @@ func (p *Pacemaker) proposeBlock(parentBlock *block.Block, height, round uint64,
 	//check POW pool and TX pool, propose kblock/mblock accordingly
 	// The first MBlock must be generated because committee info is in this block
 	proposalKBlock := false
+
 	var powResults *powpool.PowResult
-	if round >= 5 {
+	if round >= p.minMBlocks {
 		proposalKBlock, powResults = powpool.GetGlobPowPoolInst().GetPowDecision()
 	}
 

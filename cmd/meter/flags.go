@@ -154,4 +154,8 @@ var (
 		Usage: "set the custom discover topics",
 		Value: "default-topic",
 	}
+	initCfgdDelegatesFlag = cli.BoolFlag{
+		Name:  "init-configured-delegates",
+		Usage: "initial run with configured delegates",
+	}
 )

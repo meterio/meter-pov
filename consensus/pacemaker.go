@@ -19,6 +19,9 @@ import (
 const (
 	RoundInterval        = 2 * time.Second
 	RoundTimeoutInterval = 30 * time.Second // move the timeout from 10 to 30 secs.
+
+	MIN_MBLOCKS_AN_EPOCH   = uint64(6)
+	FORCED_MBLOCK_AN_EPOCH = uint64(1200) // about 1 hour
 )
 
 var (
@@ -124,6 +127,7 @@ type Pacemaker struct {
 	msgRelayInfo *PMProposalInfo
 
 	myActualCommitteeIndex int //record my index in actualcommittee
+	minMBlocks             uint64
 	goes                   co.Goes
 }
 
@@ -728,6 +732,15 @@ func (p *Pacemaker) Start(newCommittee bool) {
 
 	// acutalcommittee is different in each epoch, save my index here
 	p.myActualCommitteeIndex = p.csReactor.GetMyActualCommitteeIndex()
+
+	// Hack here. We do not know it is the first pacemaker from beginning
+	// But it is not harmful, the worst case only misses one opportunity to propose kblock.
+	if p.csReactor.config.InitCfgdDelegates == false {
+		p.minMBlocks = MIN_MBLOCKS_AN_EPOCH
+	} else {
+		p.minMBlocks = FORCED_MBLOCK_AN_EPOCH
+		p.csReactor.config.InitCfgdDelegates = false // clean off InitCfgdDelegates
+	}
 
 	p.startHeight = height
 	qcNode := p.AddressBlock(height, round)

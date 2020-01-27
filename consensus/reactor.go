@@ -115,6 +115,7 @@ var (
 type ConsensusConfig struct {
 	ForceLastKFrame    bool
 	SkipSignatureCheck bool
+	InitCfgdDelegates  bool
 }
 
 //-----------------------------------------------------------------------------
@@ -209,6 +210,7 @@ func NewConsensusReactor(ctx *cli.Context, chain *chain.Chain, state *state.Crea
 		conR.config = ConsensusConfig{
 			ForceLastKFrame:    ctx.Bool("force-last-kframe"),
 			SkipSignatureCheck: ctx.Bool("skip-signature-check"),
+			InitCfgdDelegates:  ctx.Bool("init-configured-delegates"),
 		}
 	}
 
@@ -253,7 +255,7 @@ func NewConsensusReactor(ctx *cli.Context, chain *chain.Chain, state *state.Crea
 	dataDir := ctx.String("data-dir")
 	conR.dataDir = dataDir
 
-	delegates, delegateSize, committeeSize := GetConsensusDelegates(dataDir, conR.maxCommitteeSize, conR.minCommitteeSize, conR.maxDelegateSize)
+	delegates, delegateSize, committeeSize := GetConsensusDelegates(conR.config.InitCfgdDelegates, dataDir, conR.maxCommitteeSize, conR.minCommitteeSize, conR.maxDelegateSize)
 	fmt.Println("NewConsensusReactor:", "delegateSize", delegateSize, "committeeSize", committeeSize)
 	conR.curDelegates = types.NewDelegateSet(delegates)
 	conR.delegateSize = delegateSize
@@ -1503,7 +1505,7 @@ func (conR *ConsensusReactor) HandleSchedule(fn func()) bool {
 // update current delegates with new delegates from staking
 // keep this standalone method intentionly
 func (conR *ConsensusReactor) ConsensusUpdateCurDelegates() {
-	delegates, delegateSize, committeeSize := GetConsensusDelegates(conR.dataDir, conR.maxCommitteeSize, conR.minCommitteeSize, conR.maxDelegateSize)
+	delegates, delegateSize, committeeSize := GetConsensusDelegates(false, conR.dataDir, conR.maxCommitteeSize, conR.minCommitteeSize, conR.maxDelegateSize)
 	conR.curDelegates = types.NewDelegateSet(delegates)
 	conR.delegateSize = delegateSize
 	conR.committeeSize = committeeSize
@@ -1781,11 +1783,30 @@ func PrintDelegates(delegates []*types.Delegate) {
 // entry point for each committee
 // return with delegates list, delegateSize, committeeSize
 // maxDelegateSize >= maxCommiteeSize >= minCommitteeSize
-func GetConsensusDelegates(dataDir string, maxCommitteeSize, minCommitteeSize, maxDelegateSize int) ([]*types.Delegate, int, int) {
+func GetConsensusDelegates(forceDelegates bool, dataDir string, maxCommitteeSize, minCommitteeSize, maxDelegateSize int) ([]*types.Delegate, int, int) {
 	var delegateSize, committeeSize int
 
-	delegates, err := staking.GetInternalDelegateList()
+	// special handle for flag --init-configured-delegates
+	if forceDelegates == true {
+		delegates := configDelegates(dataDir)
+		if len(delegates) >= maxDelegateSize {
+			delegateSize = maxDelegateSize
+			delegates = delegates[:maxDelegateSize]
+		} else {
+			delegateSize = len(delegates)
+		}
 
+		if delegateSize > maxCommitteeSize {
+			committeeSize = maxCommitteeSize
+		} else {
+			committeeSize = delegateSize
+		}
+		fmt.Println("delegatesList from configuration file e.g. delegates.json", "delegateSize", delegateSize, "committeeSize", committeeSize)
+		PrintDelegates(delegates)
+		return delegates, delegateSize, committeeSize
+	}
+
+	delegates, err := staking.GetInternalDelegateList()
 	if err == nil && len(delegates) >= minCommitteeSize {
 		if len(delegates) >= maxDelegateSize {
 			delegateSize = maxDelegateSize
@@ -1811,7 +1832,6 @@ func GetConsensusDelegates(dataDir string, maxCommitteeSize, minCommitteeSize, m
 			delegateSize = len(delegates)
 		}
 
-		delegateSize = len(delegates)
 		if delegateSize > maxCommitteeSize {
 			committeeSize = maxCommitteeSize
 		} else {
