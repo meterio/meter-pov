@@ -1,5 +1,14 @@
 # Versions
 
+## 1.3.3-beta3
+
+Added:
+
+1. sync mechanism for blocks with height larger than current best block
+2. tailing newline in public.key file
+3. bootstrap options for dynamic committee size
+4. add protection in OnBeat to prevent beat on invalid height
+
 ## 1.3.3-beta2
 
 Updated:
