@@ -620,6 +620,8 @@ func (conR *ConsensusReactor) NewValidatorSetByNonce(nonce uint64) (uint, bool) 
 	//vals []*types.Validator
 
 	committee, role, index, inCommittee := conR.CalcCommitteeByNonce(nonce)
+	fmt.Println("CALCULATED COMMITEE", "role=", role, "index=", index)
+	fmt.Println(committee)
 	conR.curCommittee = committee
 	if inCommittee == true {
 		conR.csMode = CONSENSUS_MODE_COMMITTEE
@@ -649,6 +651,7 @@ func (conR *ConsensusReactor) CalcCommitteeByNonce(nonce uint64) (*types.Validat
 	buf := make([]byte, binary.MaxVarintLen64)
 	binary.PutUvarint(buf, nonce)
 
+	fmt.Println(conR.curDelegates)
 	vals := make([]*types.Validator, 0)
 	for _, d := range conR.curDelegates.Delegates {
 		v := &types.Validator{
@@ -661,6 +664,7 @@ func (conR *ConsensusReactor) CalcCommitteeByNonce(nonce uint64) (*types.Validat
 		}
 		vals = append(vals, v)
 	}
+	vals = vals[:conR.committeeSize]
 
 	sort.SliceStable(vals, func(i, j int) bool {
 		return (bytes.Compare(vals[i].CommitKey, vals[j].CommitKey) <= 0)
@@ -669,7 +673,7 @@ func (conR *ConsensusReactor) CalcCommitteeByNonce(nonce uint64) (*types.Validat
 	// the full list is stored in currCommittee, sorted.
 	// To become a validator (real member in committee), must repond the leader's
 	// announce. Validators are stored in conR.conS.Vlidators
-	Committee := types.NewValidatorSet2(vals[:conR.committeeSize])
+	Committee := types.NewValidatorSet2(vals)
 	if bytes.Equal(crypto.FromECDSAPub(&vals[0].PubKey), crypto.FromECDSAPub(&conR.myPubKey)) == true {
 		return Committee, CONSENSUS_COMMIT_ROLE_LEADER, 0, true
 	}
@@ -1493,10 +1497,10 @@ func (conR *ConsensusReactor) HandleSchedule(fn func()) bool {
 // keep this standalone method intentionly
 func (conR *ConsensusReactor) ConsensusUpdateCurDelegates() {
 	delegates, delegateSize, committeeSize := GetConsensusDelegates(conR.dataDir, conR.maxCommitteeSize, conR.minCommitteeSize, conR.maxDelegateSize)
-	conR.logger.Info("in ConsensusUpdateCurDelegates", "delegateSize", conR.delegateSize, "committeeSize", conR.committeeSize)
 	conR.curDelegates = types.NewDelegateSet(delegates)
 	conR.delegateSize = delegateSize
 	conR.committeeSize = committeeSize
+	conR.logger.Info("in ConsensusUpdateCurDelegates", "delegateSize", conR.delegateSize, "committeeSize", conR.committeeSize)
 }
 
 // Consensus module handle received nonce from kblock
