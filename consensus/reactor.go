@@ -632,9 +632,7 @@ func (conR *ConsensusReactor) NewValidatorSetByNonce(nonce uint64) (uint, bool) 
 		conR.curCommitteeIndex = index
 		conR.myAddr = conR.curCommittee.Validators[index].NetAddr
 		conR.myName = conR.curCommittee.Validators[index].Name
-		conR.logger.Info("New committee calculated", "index", index, "role", role)
-		conR.logger.Info("My information updated", "name", conR.myName, "addr", conR.myAddr.IP.String())
-		fmt.Println(committee)
+		conR.logger.Info("New committee calculated", "index", index, "role", role, "myName", conR.myName, "myIP", conR.myAddr.IP.String())
 	} else {
 		conR.csMode = CONSENSUS_MODE_DELEGATE
 		conR.curCommitteeIndex = 0
@@ -642,8 +640,8 @@ func (conR *ConsensusReactor) NewValidatorSetByNonce(nonce uint64) (uint, bool) 
 		conR.myAddr = types.NetAddress{IP: net.IP{}, Port: 8670}
 		conR.myName = ""
 		conR.logger.Info("New committee calculated")
-		fmt.Println(committee)
 	}
+	fmt.Println(committee)
 
 	return role, inCommittee
 }
@@ -657,6 +655,9 @@ func (conR *ConsensusReactor) CalcCommitteeByNonce(nonce uint64) (*types.Validat
 
 	vals := make([]*types.Validator, 0)
 	for _, d := range conR.curDelegates.Delegates {
+		if d.VotingPower < 300e6 {
+			continue
+		}
 		v := &types.Validator{
 			Name:        string(d.Name),
 			Address:     d.Address,
@@ -667,19 +668,12 @@ func (conR *ConsensusReactor) CalcCommitteeByNonce(nonce uint64) (*types.Validat
 		}
 		vals = append(vals, v)
 	}
-	vals = vals[:conR.committeeSize]
 
 	sort.SliceStable(vals, func(i, j int) bool {
-		vpCmp := vals[i].VotingPower - vals[j].VotingPower
-		if vpCmp > 0 {
-			return true
-		}
-		if vpCmp < 0 {
-			return false
-		}
-
 		return (bytes.Compare(vals[i].CommitKey, vals[j].CommitKey) <= 0)
 	})
+
+	vals = vals[:conR.committeeSize]
 
 	// the full list is stored in currCommittee, sorted.
 	// To become a validator (real member in committee), must repond the leader's
