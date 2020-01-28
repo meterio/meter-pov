@@ -114,6 +114,7 @@ func main() {
 			discoServerFlag,
 			discoTopicFlag,
 			initCfgdDelegatesFlag,
+			epochBlockCountFlag,
 		},
 		Action: defaultAction,
 		Commands: []cli.Command{

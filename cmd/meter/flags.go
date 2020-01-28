@@ -158,4 +158,9 @@ var (
 		Name:  "init-configured-delegates",
 		Usage: "initial run with configured delegates",
 	}
+	epochBlockCountFlag = cli.Int64Flag{
+		Name:  "epoch-mblock-count",
+		Usage: "mblock count between epochs",
+		Value: 1200,
+	}
 )

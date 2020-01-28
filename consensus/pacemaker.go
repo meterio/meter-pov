@@ -738,7 +738,8 @@ func (p *Pacemaker) Start(newCommittee bool) {
 	if p.csReactor.config.InitCfgdDelegates == false {
 		p.minMBlocks = MIN_MBLOCKS_AN_EPOCH
 	} else {
-		p.minMBlocks = FORCED_MBLOCK_AN_EPOCH
+		p.minMBlocks = p.csReactor.config.EpochMBlockCount
+		// p.minMBlocks = FORCED_MBLOCK_AN_EPOCH
 		p.csReactor.config.InitCfgdDelegates = false // clean off InitCfgdDelegates
 	}
 

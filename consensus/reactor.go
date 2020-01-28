@@ -116,6 +116,7 @@ type ConsensusConfig struct {
 	ForceLastKFrame    bool
 	SkipSignatureCheck bool
 	InitCfgdDelegates  bool
+	EpochMBlockCount   uint64
 }
 
 //-----------------------------------------------------------------------------
@@ -211,6 +212,7 @@ func NewConsensusReactor(ctx *cli.Context, chain *chain.Chain, state *state.Crea
 			ForceLastKFrame:    ctx.Bool("force-last-kframe"),
 			SkipSignatureCheck: ctx.Bool("skip-signature-check"),
 			InitCfgdDelegates:  ctx.Bool("init-configured-delegates"),
+			EpochMBlockCount:   uint64(ctx.Int64("epoch-mblock-count")),
 		}
 	}
 
