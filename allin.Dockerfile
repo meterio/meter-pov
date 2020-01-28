@@ -31,9 +31,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends supervisor rsys
 # RUN apt-get update && apt-get install -y python-pip python-setuptools python-wheel && apt clean
 # RUN pip install supervisor-stdout
 
-ENV COMMITTEE_MIN_SIZE=2
-ENV COMMITTEE_MAX_SIZE=2
-ENV DELEGATE_MAX_SIZE=2
+ENV COMMITTEE_MIN_SIZE=21
+ENV COMMITTEE_MAX_SIZE=50
+ENV DELEGATE_MAX_SIZE=100
 
 RUN mkdir /pow
 RUN mkdir /pos
