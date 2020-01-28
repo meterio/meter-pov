@@ -14,6 +14,11 @@ import (
 	"github.com/dfinlab/meter/types"
 )
 
+var (
+	// delegate minimum requirement 300 MTRG
+	MIN_REQUIRED_BY_DELEGATE *big.Int = big.NewInt(0).Mul(big.NewInt(int64(300)), big.NewInt(int64(1e18)))
+)
+
 type Delegate struct {
 	Address     meter.Address
 	PubKey      []byte //ecdsa.PublicKey
@@ -35,6 +40,15 @@ func (d *Delegate) ToString() string {
 	pubKeyEncoded := b64.StdEncoding.EncodeToString(d.PubKey)
 	return fmt.Sprintf("Delegate(%v) Addr=%v PubKey=%v IP=%v:%v VotingPower=%d",
 		string(d.Name), d.Address, pubKeyEncoded, string(d.IPAddr), d.Port, d.VotingPower.Uint64())
+}
+
+// match minimum requirements?
+// 1. > 300 MTRG
+func (d *Delegate) MinimumRequirements() bool {
+	if d.VotingPower.Cmp(MIN_REQUIRED_BY_DELEGATE) < 0 {
+		return false
+	}
+	return true
 }
 
 func (l *DelegateList) CleanAll() error {

@@ -655,9 +655,6 @@ func (conR *ConsensusReactor) CalcCommitteeByNonce(nonce uint64) (*types.Validat
 
 	vals := make([]*types.Validator, 0)
 	for _, d := range conR.curDelegates.Delegates {
-		if d.VotingPower < 300e6 {
-			continue
-		}
 		v := &types.Validator{
 			Name:        string(d.Name),
 			Address:     d.Address,
