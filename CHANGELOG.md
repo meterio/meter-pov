@@ -1,5 +1,11 @@
 # Versions
 
+## 1.3.3-beta9
+
+Updated:
+
+1. apply the best qc immediately when updating qc candidate
+
 ## 1.3.3-beta8
 
 Updated:
