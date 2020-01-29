@@ -1,5 +1,11 @@
 # Versions
 
+## 1.3.3-beta8
+
+Updated:
+
+1. filter delegates
+
 ## 1.3.3-beta7
 
 Updated:
