@@ -1,5 +1,11 @@
 # Versions
 
+## 1.3.3-beta7
+
+Updated:
+
+1. Calculate delegate with 300 MTRG threshold in staking module
+
 ## 1.3.3-beta6
 
 Added:
