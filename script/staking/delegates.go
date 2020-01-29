@@ -103,7 +103,7 @@ func GetLatestDelegateList() (*DelegateList, error) {
 	return list, nil
 }
 
-//  api routine interface
+//  consensus routine interface
 func GetInternalDelegateList() ([]*types.Delegate, error) {
 	delegateList := []*types.Delegate{}
 	staking := GetStakingGlobInst()
@@ -126,6 +126,10 @@ func GetInternalDelegateList() ([]*types.Delegate, error) {
 		pubKey, err := crypto.UnmarshalPubkey(pubKeyBytes)
 		if err != nil {
 			fmt.Println("Unmarshal publicKey failed ...")
+			continue
+		}
+		// delegates must satisfy the minimum requirements
+		if ok := s.MinimumRequirements(); ok == false {
 			continue
 		}
 

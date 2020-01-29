@@ -570,9 +570,11 @@ func (sb *StakingBody) GoverningHandler(senv *StakingEnviroment, gas uint64) (re
 		}
 
 		// delegates must satisfy the minimum requirements
+		/***
 		if ok := d.MinimumRequirements(); ok == false {
 			continue
 		}
+		***/
 		delegates = append(delegates, d)
 	}
 
