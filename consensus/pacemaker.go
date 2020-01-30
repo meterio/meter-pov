@@ -408,9 +408,7 @@ func (p *Pacemaker) OnReceiveProposal(proposalMsg *PMProposalMessage, from types
 		//TODO: compare with my expected round
 
 		// new proposal received, reset the timer
-		p.stopRoundTimer()
-		p.startRoundTimer(bnew.Height, bnew.Round, 0)
-
+		p.resetRoundTimer(round, bnew.Round, bnew.Height, 0)
 		p.updateCurrentRound(bnew.Round, IncRoundOnProposal)
 
 		// parent got QC, pre-commit
@@ -539,13 +537,13 @@ func (p *Pacemaker) OnBeat(height uint64, round uint64, reason beatReason) error
 		p.OnPreCommitBlock(b)
 	}
 
+	if reason == BeatOnInit {
+		// only reset the round timer at initialization
+		p.resetRoundTimer(p.currentRound, round, height, 0)
+	}
 	if p.csReactor.amIRoundProproser(round) {
 		pmRoleGauge.Set(2)
 		p.csReactor.logger.Info("OnBeat: I am round proposer", "round", round)
-
-		// if I'm round proposer, start the timer
-		p.stopRoundTimer()
-		p.startRoundTimer(height, round, 0)
 
 		bleaf := p.OnPropose(p.blockLeaf, p.QCHigh, height, round)
 		if bleaf == nil {
@@ -555,8 +553,6 @@ func (p *Pacemaker) OnBeat(height uint64, round uint64, reason beatReason) error
 	} else {
 		pmRoleGauge.Set(1)
 		p.csReactor.logger.Info("OnBeat: I am NOT round proposer", "round", round)
-		p.stopRoundTimer()
-		p.startRoundTimer(height, round, 0)
 	}
 	return nil
 }
@@ -863,7 +859,7 @@ func (p *Pacemaker) SendKblockInfo(b *pmBlock) error {
 
 func (p *Pacemaker) stopCleanup() {
 
-	p.stopRoundTimer()
+	p.stopRoundTimer(p.currentRound)
 	pmRoleGauge.Set(0)
 
 	// clean up propose map
@@ -902,10 +898,11 @@ func (p *Pacemaker) Stop() {
 func (p *Pacemaker) OnRoundTimeout(ti PMRoundTimeoutInfo) error {
 	p.logger.Warn("Round Time Out", "round", ti.round, "counter", ti.counter)
 
-	p.stopRoundTimer()
+	// p.stopRoundTimer(ti.round)
+	p.resetRoundTimer(ti.round, ti.round+1, ti.height, ti.counter+1)
 	p.updateCurrentRound(ti.round+1, IncRoundOnTimeout)
 	p.OnNextSyncView(ti.height, ti.round+1, RoundTimeout, &ti)
-	p.startRoundTimer(ti.height, ti.round+1, ti.counter+1)
+	// p.startRoundTimer(ti.height, ti.round+1, ti.counter+1)
 	return nil
 }
 
@@ -935,11 +932,22 @@ func (p *Pacemaker) startRoundTimer(height, round, counter uint64) {
 	}
 }
 
-func (p *Pacemaker) stopRoundTimer() {
+func (p *Pacemaker) stopRoundTimer(round uint64) bool {
 	if p.roundTimer != nil {
-		p.logger.Info("Stop round timer")
+		if p.currentRound != round {
+			p.logger.Info("Round mismatch, stop round timer ignored", "round", round, "currentRound", p.currentRound)
+			return false
+		}
+		p.logger.Info("Stop round timer", "round", round)
 		p.roundTimer.Stop()
 		p.roundTimer = nil
+	}
+	return true
+}
+
+func (p *Pacemaker) resetRoundTimer(stopRound, startRound, startHeight, counter uint64) {
+	if p.stopRoundTimer(stopRound) {
+		p.startRoundTimer(startHeight, startRound, counter)
 	}
 }
 
