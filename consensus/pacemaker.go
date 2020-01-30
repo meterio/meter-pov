@@ -484,16 +484,21 @@ func (p *Pacemaker) OnReceiveVote(voteMsg *PMVoteForProposalMessage) error {
 	return nil
 }
 
-func (p *Pacemaker) OnPropose(b *pmBlock, qc *pmQuorumCert, height uint64, round uint64) *pmBlock {
+func (p *Pacemaker) OnPropose(b *pmBlock, qc *pmQuorumCert, height uint64, round uint64) (*pmBlock, error) {
 	// clean signature cache
 	p.voterBitArray = cmn.NewBitArray(p.csReactor.committeeSize)
 	p.voteSigs = make([]*PMSignature, 0)
 
 	bnew := p.CreateLeaf(b, qc, height, round)
+	if bnew.Height != height {
+		p.logger.Error("proposed height mismatch", "expectedHeight", height, "proposedHeight", bnew.Height)
+		return nil, errors.New("proposed height mismatch")
+	}
 
 	msg, err := p.BuildProposalMessage(height, round, bnew, p.timeoutCert)
 	if err != nil {
 		p.logger.Error("could not build proposal message", "err", err)
+		return nil, err
 	}
 	p.timeoutCert = nil
 
@@ -505,7 +510,7 @@ func (p *Pacemaker) OnPropose(b *pmBlock, qc *pmQuorumCert, height uint64, round
 	//send proposal to all include myself
 	p.SendConsensusMessage(round, msg, true)
 
-	return bnew
+	return bnew, nil
 }
 
 func (p *Pacemaker) UpdateQCHigh(qc *pmQuorumCert) bool {
@@ -522,13 +527,13 @@ func (p *Pacemaker) UpdateQCHigh(qc *pmQuorumCert) bool {
 }
 
 func (p *Pacemaker) OnBeat(height uint64, round uint64, reason beatReason) error {
+	if p.QCHigh != nil && p.QCHigh.QC != nil && height <= p.QCHigh.QC.QCHeight && reason == BeatOnTimeout {
+		return p.OnTimeoutBeat(height, round, reason)
+	}
 	p.logger.Info("--------------------------------------------------")
 	p.logger.Info(fmt.Sprintf("      OnBeat Round:%v, Height:%v, Reason:%v        ", round, height, reason.String()))
 	p.logger.Info("--------------------------------------------------")
-	if p.QCHigh != nil && p.QCHigh.QC != nil && height <= p.QCHigh.QC.QCHeight {
-		p.logger.Warn("OnBeat height is less than or equal to qcHigh, skip this OnBeat ...", "qcHigh", p.QCHigh.ToString())
-		return nil
-	}
+
 	// parent already got QC, pre-commit it
 	//b := p.QCHigh.QCNode
 	b := p.proposalMap[p.QCHigh.QC.QCHeight]
@@ -545,15 +550,54 @@ func (p *Pacemaker) OnBeat(height uint64, round uint64, reason beatReason) error
 		pmRoleGauge.Set(2)
 		p.csReactor.logger.Info("OnBeat: I am round proposer", "round", round)
 
-		bleaf := p.OnPropose(p.blockLeaf, p.QCHigh, height, round)
+		bleaf, err := p.OnPropose(p.blockLeaf, p.QCHigh, height, round)
+		if err != nil {
+			return err
+		}
 		if bleaf == nil {
 			return errors.New("propose failed")
 		}
-		if bleaf.Height != height {
-			p.logger.Error("proposed block height mismatch", "proposedHeight", bleaf.Height, "expectedHeight", height)
-			return errors.New("proposed block height mismatch")
-		}
+
 		p.blockLeaf = bleaf
+	} else {
+		pmRoleGauge.Set(1)
+		p.csReactor.logger.Info("OnBeat: I am NOT round proposer", "round", round)
+	}
+	return nil
+}
+
+func (p *Pacemaker) OnTimeoutBeat(height uint64, round uint64, reason beatReason) error {
+	p.logger.Info("--------------------------------------------------")
+	p.logger.Info(fmt.Sprintf("      OnTimeoutBeat Round:%v, Height:%v, Reason:%v        ", round, height, reason.String()))
+	p.logger.Info("--------------------------------------------------")
+	// parent already got QC, pre-commit it
+	//b := p.QCHigh.QCNode
+	parent := p.proposalMap[height-1]
+	replaced := p.proposalMap[height]
+	if parent == nil {
+		p.logger.Error("missing parent proposal", "parentHeight", height-1, "height", height, "round", round)
+		return errors.New("missing parent proposal")
+	}
+	if replaced == nil {
+		p.logger.Error("missing qc for proposal", "parentHeight", height-1, "height", height, "round", round)
+		return errors.New("missing qc for proposal")
+	}
+
+	if reason == BeatOnInit {
+		// only reset the round timer at initialization
+		p.resetRoundTimer(p.currentRound, round, height, 0)
+	}
+	if p.csReactor.amIRoundProproser(round) {
+		pmRoleGauge.Set(2)
+		p.csReactor.logger.Info("OnBeat: I am round proposer", "round", round)
+
+		bleaf, err := p.OnPropose(parent, replaced.Justify, height, round)
+		if err != nil {
+			return err
+		}
+		if bleaf == nil {
+			return errors.New("propose failed")
+		}
 	} else {
 		pmRoleGauge.Set(1)
 		p.csReactor.logger.Info("OnBeat: I am NOT round proposer", "round", round)
