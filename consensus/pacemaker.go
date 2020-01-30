@@ -549,6 +549,10 @@ func (p *Pacemaker) OnBeat(height uint64, round uint64, reason beatReason) error
 		if bleaf == nil {
 			return errors.New("propose failed")
 		}
+		if bleaf.Height != height {
+			p.logger.Error("proposed block height mismatch", "proposedHeight", bleaf.Height, "expectedHeight", height)
+			return errors.New("proposed block height mismatch")
+		}
 		p.blockLeaf = bleaf
 	} else {
 		pmRoleGauge.Set(1)
