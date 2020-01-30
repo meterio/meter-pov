@@ -678,6 +678,7 @@ func (p *Pacemaker) OnReceiveNewView(newViewMsg *PMNewViewMessage, from types.Ne
 			return nil
 		}
 
+		/*********** XXX: tmp remove out, Basically timeout reaches consensus either before or after my current height (QCHigh).
 		// now it is chance to sync states
 		if uint64(height) != p.lastVotingHeight {
 			if _, ok := p.proposalMap[uint64(height)]; ok != true {
@@ -699,6 +700,7 @@ func (p *Pacemaker) OnReceiveNewView(newViewMsg *PMNewViewMessage, from types.Ne
 				}
 			}
 		}
+		******/
 
 		// now count the timeout
 		p.timeoutCertManager.collectSignature(newViewMsg)
@@ -982,10 +984,12 @@ func (p *Pacemaker) startRoundTimer(height, round, counter uint64) {
 
 func (p *Pacemaker) stopRoundTimer(round uint64) bool {
 	if p.roundTimer != nil {
+		/***** XXX: tmp remove out
 		if p.currentRound != round {
 			p.logger.Info("Round mismatch, stop round timer ignored", "round", round, "currentRound", p.currentRound)
 			return false
 		}
+		****/
 		p.logger.Info("Stop round timer", "round", round)
 		p.roundTimer.Stop()
 		p.roundTimer = nil
