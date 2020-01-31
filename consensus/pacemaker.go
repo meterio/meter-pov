@@ -35,47 +35,6 @@ type PMSignature struct {
 	signature bls.Signature
 }
 
-type roundUpdateReason int32
-
-func (reason roundUpdateReason) String() string {
-	switch reason {
-	case ResetRoundOnStop:
-		return "ResetOnStop"
-	case IncRoundOnBeat:
-		return "OnBeat"
-	case IncRoundOnProposal:
-		return "Proposal"
-	case IncRoundOnTimeout:
-		return "Timeout"
-	}
-	return "Unknown"
-}
-
-type beatReason int32
-
-func (reason beatReason) String() string {
-	switch reason {
-	case BeatOnInit:
-		return "Init"
-	case BeatOnHigherQC:
-		return "HigherQC"
-	case BeatOnTimeout:
-		return "Timeout"
-	}
-	return "Unkown"
-}
-
-const (
-	ResetRoundOnStop   = roundUpdateReason(0)
-	IncRoundOnBeat     = roundUpdateReason(1)
-	IncRoundOnProposal = roundUpdateReason(2)
-	IncRoundOnTimeout  = roundUpdateReason(3)
-
-	BeatOnInit     = beatReason(0)
-	BeatOnHigherQC = beatReason(1)
-	BeatOnTimeout  = beatReason(2)
-)
-
 type Pacemaker struct {
 	csReactor *ConsensusReactor //global reactor info
 
@@ -93,9 +52,7 @@ type Pacemaker struct {
 	// it changes
 	currentRound uint64
 
-	proposalMap    map[uint64]*pmBlock
-	sigCounter     map[uint64]int
-	timeoutCounter map[uint64]int
+	proposalMap map[uint64]*pmBlock
 
 	lastVotingHeight uint64
 	QCHigh           *pmQuorumCert
@@ -122,6 +79,7 @@ type Pacemaker struct {
 
 	timeoutCertManager *PMTimeoutCertManager
 	timeoutCert        *PMTimeoutCert
+	timeoutCounter     uint64
 
 	pendingList  *PendingList
 	msgRelayInfo *PMProposalInfo
@@ -142,10 +100,9 @@ func NewPaceMaker(conR *ConsensusReactor) *Pacemaker {
 		roundTimeoutCh: make(chan PMRoundTimeoutInfo, 2),
 		roundTimer:     nil,
 		proposalMap:    make(map[uint64]*pmBlock, 1000), // TODO:better way?
-		sigCounter:     make(map[uint64]int, 1024),
-		timeoutCounter: make(map[uint64]int, 1024),
 		pendingList:    NewPendingList(),
 		msgRelayInfo:   NewPMProposalInfo(),
+		timeoutCounter: 0,
 	}
 	p.timeoutCertManager = newPMTimeoutCertManager(p)
 	p.stopCleanup()
@@ -328,6 +285,13 @@ func (p *Pacemaker) OnReceiveProposal(proposalMsg *PMProposalMessage, from types
 	if err != nil {
 		return errors.New("can not decode proposed block")
 	}
+
+	// skip invalid proposal
+	if blk.Header().Number() != uint32(height) {
+		p.logger.Error("invalid proposal: height mismatch", "proposalHeight", height, "proposedBlockHeight", blk.Header().Number())
+		return errors.New("invalid proposal: height mismatch")
+	}
+
 	qc := blk.QC
 	p.logger.Info("start to handle received proposal ", "height", msgHeader.Height, "round", msgHeader.Round,
 		"parentHeight", proposalMsg.ParentHeight, "parentRound", proposalMsg.ParentRound,
@@ -336,8 +300,6 @@ func (p *Pacemaker) OnReceiveProposal(proposalMsg *PMProposalMessage, from types
 	// address parent
 	parent := p.AddressBlock(proposalMsg.ParentHeight, proposalMsg.ParentRound)
 	if parent == nil {
-		// p.logger.Error("OnReceiveProposal: can not address parent")
-
 		// put this proposal to pending list, and sent out query
 		if err := p.pendingProposal(proposalMsg.ParentHeight, proposalMsg.ParentRound, proposalMsg, from); err != nil {
 			p.logger.Error("handle pending proposoal failed", "error", err)
@@ -356,36 +318,33 @@ func (p *Pacemaker) OnReceiveProposal(proposalMsg *PMProposalMessage, from types
 			p.logger.Error("handle pending proposoal failed", "error", err)
 		}
 		return errors.New("can not address qcNode")
-	} else {
-		// we have qcNode, need to check qcNode and blk.QC is referenced the same
-		if match, _ := p.BlockMatchQC(qcNode, qc); match == true {
-			p.logger.Debug("addressed qcNode ...", "qcHeight", qc.QCHeight, "qcRound", qc.QCRound)
-		} else {
-			// possible fork !!! TODO: handle?
-			p.logger.Error("qcNode doesn not match qc from proposal, potential fork happens...", "qcHeight", qc.QCHeight, "qcRound", qc.QCRound)
+	}
 
-			// TBD: How to handle this??
-			// if this block does not have Qc yet, revertTo previous
-			// if this block has QC, The real one need to be replaced
-			// anyway, get the new one.
-			// put this proposal to pending list, and sent out query
-			if err := p.pendingProposal(qc.QCHeight, qc.QCRound, proposalMsg, from); err != nil {
-				p.logger.Error("handle pending proposoal failed", "error", err)
-			}
-			return errors.New("can not address qcNode")
+	// we have qcNode, need to check qcNode and blk.QC is referenced the same
+	if match, _ := p.BlockMatchQC(qcNode, qc); match == true {
+		p.logger.Debug("addressed qcNode ...", "qcHeight", qc.QCHeight, "qcRound", qc.QCRound)
+	} else {
+		// possible fork !!! TODO: handle?
+		p.logger.Error("qcNode doesn't match qc from proposal, potential fork happens...", "qcHeight", qc.QCHeight, "qcRound", qc.QCRound)
+
+		// TBD: How to handle this??
+		// if this block does not have Qc yet, revertTo previous
+		// if this block has QC, The real one need to be replaced
+		// anyway, get the new one.
+		// put this proposal to pending list, and sent out query
+		if err := p.pendingProposal(qc.QCHeight, qc.QCRound, proposalMsg, from); err != nil {
+			p.logger.Error("handle pending proposoal failed", "error", err)
 		}
+		return errors.New("qcNode doesn't match qc from proposal, potential fork ")
 	}
 
 	// create justify node
 	justify := newPMQuorumCert(qc, qcNode)
 
+	// revert the proposals if I'm not the round proposer and I received a proposal with a valid TC
 	proposedByMe := p.isMine(proposalMsg.ProposerID)
-
-	// timeout
-	tc := proposalMsg.TimeoutCert
-	validTimeout := p.verifyTimeoutCert(tc, height, round)
+	validTimeout := p.verifyTimeoutCert(proposalMsg.TimeoutCert, height, round)
 	if !proposedByMe && validTimeout {
-		// revert the proposals if I'm not the round proposer and I received a proposal with a valid TC
 		p.revertTo(height)
 	}
 
@@ -404,12 +363,13 @@ func (p *Pacemaker) OnReceiveProposal(proposalMsg *PMProposalMessage, from types
 
 	bnew := p.proposalMap[height]
 	if ((bnew.Height > p.lastVotingHeight) &&
-		(p.IsExtendedFromBLocked(bnew) || bnew.Justify.QC.QCHeight > p.blockLocked.Height)) || (validTimeout) {
-		//TODO: compare with my expected round
+		(p.IsExtendedFromBLocked(bnew) || /** WHAT's THIS FOR ?**/ bnew.Justify.QC.QCHeight > p.blockLocked.Height)) || validTimeout {
 
-		// new proposal received, reset the timer
-		p.resetRoundTimer(round, bnew.Round, bnew.Height, 0)
-		p.updateCurrentRound(bnew.Round, IncRoundOnProposal)
+		if validTimeout {
+			p.updateCurrentRound(bnew.Round, UpdateOnTimeoutCertProposal)
+		} else {
+			p.updateCurrentRound(bnew.Round, UpdateOnRegularProposal)
+		}
 
 		// parent got QC, pre-commit
 		justify := p.proposalMap[bnew.Justify.QC.QCHeight] //Justify.QCNode
@@ -503,7 +463,6 @@ func (p *Pacemaker) OnPropose(b *pmBlock, qc *pmQuorumCert, height uint64, round
 	p.timeoutCert = nil
 
 	// create slot in proposalMap directly, instead of sendmsg to self.
-	// p.sigCounter[bnew.Round]++
 	bnew.ProposalMessage = msg
 	p.proposalMap[height] = bnew
 
@@ -544,8 +503,9 @@ func (p *Pacemaker) OnBeat(height uint64, round uint64, reason beatReason) error
 
 	if reason == BeatOnInit {
 		// only reset the round timer at initialization
-		p.resetRoundTimer(p.currentRound, round, height, 0)
+		p.resetRoundTimer(round, TimerInit)
 	}
+	p.updateCurrentRound(round, UpdateOnBeat)
 	if p.csReactor.amIRoundProproser(round) {
 		pmRoleGauge.Set(2)
 		p.csReactor.logger.Info("OnBeat: I am round proposer", "round", round)
@@ -585,7 +545,7 @@ func (p *Pacemaker) OnTimeoutBeat(height uint64, round uint64, reason beatReason
 
 	if reason == BeatOnInit {
 		// only reset the round timer at initialization
-		p.resetRoundTimer(p.currentRound, round, height, 0)
+		p.resetRoundTimer(round, TimerInit)
 	}
 	if p.csReactor.amIRoundProproser(round) {
 		pmRoleGauge.Set(2)
@@ -641,24 +601,24 @@ func (p *Pacemaker) OnReceiveNewView(newViewMsg *PMNewViewMessage, from types.Ne
 			p.logger.Error("handle pending newViewMsg failed", "error", err)
 		}
 		return nil
-	} else {
-		// now have qcNode, check qcNode and blk.QC is referenced the same
-		if match, _ := p.BlockMatchQC(qcNode, &qc); match == true {
-			p.logger.Debug("addressed qcNode ...", "qcHeight", qc.QCHeight, "qcRound", qc.QCRound)
-		} else {
-			// possible fork !!! TODO: handle?
-			p.logger.Error("qcNode does not match qc from proposal, potential fork happens...", "qcHeight", qc.QCHeight, "qcRound", qc.QCRound)
+	}
 
-			// TBD: How to handle this case??
-			// if this block does not have Qc yet, revertTo previous
-			// if this block has QC, the real one need to be replaced
-			// anyway, get the new one.
-			// put this newView to pending list, and sent out query
-			if err := p.pendingNewView(qc.QCHeight, qc.QCRound, newViewMsg, from); err != nil {
-				p.logger.Error("handle pending newViewMsg failed", "error", err)
-			}
-			return nil
+	// now have qcNode, check qcNode and blk.QC is referenced the same
+	if match, _ := p.BlockMatchQC(qcNode, &qc); match == true {
+		p.logger.Debug("addressed qcNode ...", "qcHeight", qc.QCHeight, "qcRound", qc.QCRound)
+	} else {
+		// possible fork !!! TODO: handle?
+		p.logger.Error("qcNode does not match qc from proposal, potential fork happens...", "qcHeight", qc.QCHeight, "qcRound", qc.QCRound)
+
+		// TBD: How to handle this case??
+		// if this block does not have Qc yet, revertTo previous
+		// if this block has QC, the real one need to be replaced
+		// anyway, get the new one.
+		// put this newView to pending list, and sent out query
+		if err := p.pendingNewView(qc.QCHeight, qc.QCRound, newViewMsg, from); err != nil {
+			p.logger.Error("handle pending newViewMsg failed", "error", err)
 		}
+		return nil
 	}
 
 	pmQC := newPMQuorumCert(&qc, qcNode)
@@ -673,10 +633,12 @@ func (p *Pacemaker) OnReceiveNewView(newViewMsg *PMNewViewMessage, from types.Ne
 			return nil
 		}
 
-		if uint64(round) < p.currentRound {
-			p.logger.Info("expired newview message, dropped ... ", "currentRound", p.currentRound, "newViewNxtRound", header.Round)
-			return nil
-		}
+		/*
+			if uint64(round) < p.currentRound {
+				p.logger.Info("expired newview message, dropped ... ", "currentRound", p.currentRound, "newViewNxtRound", header.Round)
+				return nil
+			}
+		*/
 
 		/*********** XXX: tmp remove out, Basically timeout reaches consensus either before or after my current height (QCHigh).
 		// now it is chance to sync states
@@ -727,7 +689,6 @@ func (p *Pacemaker) OnReceiveNewView(newViewMsg *PMNewViewMessage, from types.Ne
 			p.logger.Info("expired newview message, dropped ... ", "currentRound", p.currentRound, "newViewNxtRound", header.Round)
 			return nil
 		}
-		// consider qc only when it's not round timeout
 		changed := p.UpdateQCHigh(pmQC)
 		if changed {
 			if qc.QCHeight > p.blockLocked.Height {
@@ -834,7 +795,7 @@ func (p *Pacemaker) Start(newCommittee bool) {
 }
 
 func (p *Pacemaker) ScheduleOnBeat(height uint64, round uint64, reason beatReason, d time.Duration) bool {
-	p.updateCurrentRound(round, IncRoundOnBeat)
+	// p.updateCurrentRound(round, IncRoundOnBeat)
 	time.AfterFunc(d, func() {
 		p.beatCh <- &PMBeatInfo{height, round, reason}
 	})
@@ -909,7 +870,7 @@ func (p *Pacemaker) SendKblockInfo(b *pmBlock) error {
 
 func (p *Pacemaker) stopCleanup() {
 
-	p.stopRoundTimer(p.currentRound)
+	p.stopRoundTimer()
 	pmRoleGauge.Set(0)
 
 	// clean up propose map
@@ -946,61 +907,70 @@ func (p *Pacemaker) Stop() {
 }
 
 func (p *Pacemaker) OnRoundTimeout(ti PMRoundTimeoutInfo) error {
-	p.logger.Warn("Round Time Out", "round", ti.round, "counter", ti.counter)
+	p.logger.Warn("Round Time Out", "round", ti.round, "counter", p.timeoutCounter)
 
-	// p.stopRoundTimer(ti.round)
-	p.resetRoundTimer(ti.round, ti.round+1, ti.height, ti.counter+1)
-	p.updateCurrentRound(ti.round+1, IncRoundOnTimeout)
-	p.OnNextSyncView(ti.height, ti.round+1, RoundTimeout, &ti)
+	p.updateCurrentRound(p.currentRound+1, UpdateOnTimeout)
+	newTi := &PMRoundTimeoutInfo{
+		height:  p.blockLeaf.Height + 1,
+		round:   p.currentRound,
+		counter: p.timeoutCounter + 1,
+	}
+	p.OnNextSyncView(p.blockLeaf.Height+1, p.currentRound, RoundTimeout, newTi)
 	// p.startRoundTimer(ti.height, ti.round+1, ti.counter+1)
 	return nil
 }
 
 func (p *Pacemaker) updateCurrentRound(round uint64, reason roundUpdateReason) bool {
-	if round > p.currentRound {
-		p.currentRound = round
-		curRoundGauge.Set(float64(p.currentRound))
-		p.logger.Info("* Current round updated", "to", p.currentRound, "reason", reason.String())
-		return true
-	} else if reason == ResetRoundOnStop {
-		p.currentRound = round
-		curRoundGauge.Set(float64(p.currentRound))
-		p.logger.Info("* Current round updated", "to", p.currentRound, "reason", reason.String())
-		return true
-	} else {
-		return false
+	updated := (p.currentRound != round)
+	switch reason {
+	case UpdateOnRegularProposal:
+		if round > p.currentRound {
+			updated = true
+			p.resetRoundTimer(round, TimerInit)
+		}
+	case UpdateOnTimeoutCertProposal:
+		p.resetRoundTimer(round, TimerInit)
+	case UpdateOnTimeout:
+		p.resetRoundTimer(round, TimerInc)
 	}
+
+	if updated {
+		p.currentRound = round
+		p.logger.Info("* Current round updated", "to", p.currentRound, "reason", reason.String())
+		curRoundGauge.Set(float64(p.currentRound))
+		return true
+	}
+	return false
 }
 
-func (p *Pacemaker) startRoundTimer(height, round, counter uint64) {
+func (p *Pacemaker) startRoundTimer(round uint64, reason roundTimerUpdateReason) {
 	if p.roundTimer == nil {
-		p.logger.Info("Start round timer", "round", round, "counter", counter)
-		timeoutInterval := RoundTimeoutInterval * (1 << counter)
+		switch reason {
+		case TimerInit:
+			p.timeoutCounter = 0
+		case TimerInc:
+			p.timeoutCounter++
+		}
+		p.logger.Info("Start round timer", "round", round, "counter", p.timeoutCounter)
+		timeoutInterval := RoundTimeoutInterval * (1 << p.timeoutCounter)
 		p.roundTimer = time.AfterFunc(timeoutInterval, func() {
-			p.roundTimeoutCh <- PMRoundTimeoutInfo{height, round, counter}
+			p.roundTimeoutCh <- PMRoundTimeoutInfo{round: round, counter: p.timeoutCounter}
 		})
 	}
 }
 
-func (p *Pacemaker) stopRoundTimer(round uint64) bool {
+func (p *Pacemaker) stopRoundTimer() bool {
 	if p.roundTimer != nil {
-		/***** XXX: tmp remove out
-		if p.currentRound != round {
-			p.logger.Info("Round mismatch, stop round timer ignored", "round", round, "currentRound", p.currentRound)
-			return false
-		}
-		****/
-		p.logger.Info("Stop round timer", "round", round)
+		p.logger.Info("Stop round timer", "round", p.currentRound)
 		p.roundTimer.Stop()
 		p.roundTimer = nil
 	}
 	return true
 }
 
-func (p *Pacemaker) resetRoundTimer(stopRound, startRound, startHeight, counter uint64) {
-	if p.stopRoundTimer(stopRound) {
-		p.startRoundTimer(startHeight, startRound, counter)
-	}
+func (p *Pacemaker) resetRoundTimer(round uint64, reason roundTimerUpdateReason) {
+	p.stopRoundTimer()
+	p.startRoundTimer(round, reason)
 }
 
 func (p *Pacemaker) revertTo(revertHeight uint64) {

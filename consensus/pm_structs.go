@@ -203,3 +203,59 @@ type PMBeatInfo struct {
 	round  uint64
 	reason beatReason
 }
+
+type roundUpdateReason int32
+
+func (reason roundUpdateReason) String() string {
+	switch reason {
+	case UpdateOnBeat:
+		return "Beat"
+	case UpdateOnRegularProposal:
+		return "RegularProposal"
+	case UpdateOnTimeout:
+		return "Timeout"
+	case UpdateOnTimeoutCertProposal:
+		return "TimeoutCertProposal"
+	}
+	return "Unknown"
+}
+
+type roundTimerUpdateReason int32
+
+func (reason roundTimerUpdateReason) String() string {
+	switch reason {
+	case TimerInc:
+		return "TimerInc"
+	case TimerInit:
+		return "TimerInit"
+	}
+	return ""
+}
+
+type beatReason int32
+
+func (reason beatReason) String() string {
+	switch reason {
+	case BeatOnInit:
+		return "Init"
+	case BeatOnHigherQC:
+		return "HigherQC"
+	case BeatOnTimeout:
+		return "Timeout"
+	}
+	return "Unkown"
+}
+
+const (
+	UpdateOnBeat                = roundUpdateReason(1)
+	UpdateOnRegularProposal     = roundUpdateReason(2)
+	UpdateOnTimeout             = roundUpdateReason(3)
+	UpdateOnTimeoutCertProposal = roundUpdateReason(4)
+
+	BeatOnInit     = beatReason(0)
+	BeatOnHigherQC = beatReason(1)
+	BeatOnTimeout  = beatReason(2)
+
+	TimerInit = roundTimerUpdateReason(0)
+	TimerInc  = roundTimerUpdateReason(1)
+)
