@@ -599,37 +599,38 @@ func (p *Pacemaker) OnReceiveNewView(newViewMsg *PMNewViewMessage, from types.Ne
 
 	switch newViewMsg.Reason {
 	case RoundTimeout:
-		height := header.Height
-		round := header.Round
+		height := uint64(header.Height)
+		round := uint64(header.Round)
 		epoch := header.EpochID
-		if !p.csReactor.amIRoundProproser(uint64(round)) {
+		if !p.csReactor.amIRoundProproser(round) {
 			p.logger.Info("Not round proposer, drops the newView timeout ...", "Height", height, "Round", round, "Epoch", epoch)
 			return nil
 		}
 
-		/*********** XXX: tmp remove out, Basically timeout reaches consensus either before or after my current height (QCHigh).
-		// now it is chance to sync states
-		if uint64(height) != p.lastVotingHeight {
-			if _, ok := p.proposalMap[uint64(height)]; ok != true {
-				if err := p.sendQueryProposalMsg(uint64(height), uint64(round), epoch, from); err != nil {
-					p.logger.Warn("send PMQueryProposal message failed", "err", err)
-				}
-			} else {
-				// forward missing proposals to peers who just sent new view message with lower expected height
-				name := p.csReactor.GetCommitteeMemberNameByIP(from.IP)
-				peers := []*ConsensusPeer{newConsensusPeer(name, from.IP, 8670, p.csReactor.magic)}
-				for {
-					height++
-					if proposal, ok := p.proposalMap[uint64(height)]; ok {
-						p.logger.Info("peer missed one proposal, forward to it ... ", "height", height, "name", name, "ip", from.IP.String())
-						p.SendMessageToPeers(proposal.ProposalMessage, peers)
-					} else {
-						break
-					}
-				}
+		// if I don't have the proposal at specified height, query my peer
+		if _, ok := p.proposalMap[height]; ok != true {
+			if err := p.sendQueryProposalMsg(height, round, epoch, from); err != nil {
+				p.logger.Warn("send PMQueryProposal message failed", "err", err)
 			}
 		}
-		******/
+
+		// if peer's height is lower than me, forward all available proposals to fill the gap
+		if height < p.lastVotingHeight {
+			// forward missing proposals to peers who just sent new view message with lower expected height
+			name := p.csReactor.GetCommitteeMemberNameByIP(from.IP)
+			peers := []*ConsensusPeer{newConsensusPeer(name, from.IP, 8670, p.csReactor.magic)}
+			tmpHeight := height
+			var proposal *pmBlock
+			var ok bool
+			for {
+				if proposal, ok = p.proposalMap[tmpHeight]; ok != true {
+					break
+				}
+				p.logger.Info("peer missed one proposal, forward to it ... ", "height", tmpHeight, "name", name, "ip", from.IP.String())
+				p.SendMessageToPeers(proposal.ProposalMessage, peers)
+				tmpHeight++
+			}
+		}
 
 		// now count the timeout
 		p.timeoutCertManager.collectSignature(newViewMsg)
