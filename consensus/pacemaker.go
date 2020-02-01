@@ -36,24 +36,15 @@ type PMSignature struct {
 }
 
 type Pacemaker struct {
-	csReactor *ConsensusReactor //global reactor info
-
-	// Highest round that a block was committed
-	// TODO: update this
-	highestCommittedRound int
-
-	// Highest round known certified by QC.
-	// TODO: update this
-	highestQCRound int
+	csReactor   *ConsensusReactor //global reactor info
+	proposalMap map[uint64]*pmBlock
+	logger      log15.Logger
 
 	// Current round (current_round - highest_qc_round determines the timeout).
 	// Current round is basically max(highest_qc_round, highest_received_tc, highest_local_tc) + 1
 	// update_current_round take care of updating current_round and sending new round event if
 	// it changes
-	currentRound uint64
-
-	proposalMap map[uint64]*pmBlock
-
+	currentRound     uint64
 	lastVotingHeight uint64
 	QCHigh           *pmQuorumCert
 
@@ -63,12 +54,6 @@ type Pacemaker struct {
 
 	startHeight uint64
 
-	// roundTimeOutCounter uint32
-	//roundTimerStop      chan bool
-	roundTimer *time.Timer
-
-	logger log15.Logger
-
 	pacemakerMsgCh chan receivedConsensusMessage
 	roundTimeoutCh chan PMRoundTimeoutInfo
 	stopCh         chan *PMStopInfo
@@ -77,6 +62,7 @@ type Pacemaker struct {
 	voterBitArray *cmn.BitArray
 	voteSigs      []*PMSignature
 
+	roundTimer         *time.Timer
 	timeoutCertManager *PMTimeoutCertManager
 	timeoutCert        *PMTimeoutCert
 	timeoutCounter     uint64
@@ -275,11 +261,6 @@ func (p *Pacemaker) OnReceiveProposal(proposalMsg *PMProposalMessage, from types
 	height := uint64(msgHeader.Height)
 	round := uint64(msgHeader.Round)
 
-	/*
-		if uint64(proposalMsg.CSMsgCommonHeader.Round) < p.currentRound {
-			return errors.New(fmt.Sprintf("proposal with expired round, ignored ... (proposal round: %d, my current round: %d)", proposalMsg.CSMsgCommonHeader.Round, p.currentRound))
-		}
-	*/
 	// decode block to get qc
 	blk, err := block.BlockDecodeFromBytes(proposalMsg.ProposedBlock)
 	if err != nil {
@@ -383,12 +364,9 @@ func (p *Pacemaker) OnReceiveProposal(proposalMsg *PMProposalMessage, from types
 		}
 
 		msg, _ := p.BuildVoteForProposalMessage(proposalMsg, blk.Header().ID(), blk.Header().TxsRoot(), blk.Header().StateRoot())
-		// TODO: added for test
-		// if round < 5 || round > 6 {
 		// send vote message to leader
 		p.SendConsensusMessage(uint64(proposalMsg.CSMsgCommonHeader.Round), msg, false)
 		p.lastVotingHeight = bnew.Height
-		// }
 	}
 
 	p.Update(bnew)
@@ -432,10 +410,6 @@ func (p *Pacemaker) OnReceiveVote(voteMsg *PMVoteForProposalMessage) error {
 	changed := p.UpdateQCHigh(qc)
 
 	if changed == true {
-		// the proposal is approved, start the timer before new view is sent
-		// p.stopRoundTimer()
-		// p.startRoundTimer(qc.QC.QCHeight+1, qc.QC.QCRound+1, 0)
-
 		pmRoleGauge.Set(1)
 		// if QC is updated, relay it to the next proposer
 		p.OnNextSyncView(qc.QC.QCHeight+1, qc.QC.QCRound+1, HigherQCSeen, nil)
@@ -633,13 +607,6 @@ func (p *Pacemaker) OnReceiveNewView(newViewMsg *PMNewViewMessage, from types.Ne
 			return nil
 		}
 
-		/*
-			if uint64(round) < p.currentRound {
-				p.logger.Info("expired newview message, dropped ... ", "currentRound", p.currentRound, "newViewNxtRound", header.Round)
-				return nil
-			}
-		*/
-
 		/*********** XXX: tmp remove out, Basically timeout reaches consensus either before or after my current height (QCHigh).
 		// now it is chance to sync states
 		if uint64(height) != p.lastVotingHeight {
@@ -700,25 +667,6 @@ func (p *Pacemaker) OnReceiveNewView(newViewMsg *PMNewViewMessage, from types.Ne
 	}
 	return nil
 }
-
-//=========== Routines ==================================
-/*
-func (p *Pacemaker) StartFromGenesis() {
-	// now assign b_lock b_exec, b_leaf qc_high
-	b0.ProposedBlock = p.csReactor.LoadBlockBytes(0)
-	p.block = &b0
-	p.blockLocked = &b0
-	p.blockExecuted = &b0
-	p.blockLeaf = &b0
-	p.proposalMap[0] = &b0
-	p.QCHigh = &qc0
-
-	p.blockPrime = nil
-	p.blockPrimePrime = nil
-
-	p.OnBeat(1, 0)
-}
-*/
 
 //Committee Leader triggers
 func (p *Pacemaker) Start(newCommittee bool) {
