@@ -1,7 +1,7 @@
 package script
 
 import (
-	//"github.com/dfinlab/meter/script/auction"
+	"github.com/dfinlab/meter/script/auction"
 	"github.com/dfinlab/meter/script/staking"
 )
 
@@ -33,7 +33,6 @@ func ModuleStakingInit(se *ScriptEngine) *staking.Staking {
 	return stk
 }
 
-/***
 func ModuleAuctionInit(se *ScriptEngine) *auction.Auction {
 	a := auction.NewAuction(se.chain, se.stateCreator)
 	if a == nil {
@@ -53,4 +52,3 @@ func ModuleAuctionInit(se *ScriptEngine) *auction.Auction {
 	se.logger.Info("ScriptEngine", "started moudle", mod.modName)
 	return a
 }
-***/
