@@ -626,6 +626,7 @@ type ProposedBlockInfo struct {
 	Stage         *state.Stage
 	Receipts      *tx.Receipts
 	txsToRemoved  func() bool
+	txsToReturned func() bool
 	CheckPoint    int
 	BlockType     BlockType
 }
@@ -663,10 +664,16 @@ func (conR *ConsensusReactor) BuildMBlock(parentBlock *block.Block) *ProposedBlo
 
 	txs := pool.Executables()
 	conR.logger.Debug("get the executables from txpool", "size", len(txs))
-	var txsToRemove []meter.Bytes32
+	var txsInBlk []*tx.Transaction
 	txsToRemoved := func() bool {
-		for _, id := range txsToRemove {
-			pool.Remove(id)
+		for _, tx := range txsInBlk {
+			pool.Remove(tx.ID())
+		}
+		return true
+	}
+	txsToReturned := func() bool {
+		for _, tx := range txsInBlk {
+			pool.Add(tx)
 		}
 		return true
 	}
@@ -701,7 +708,7 @@ func (conR *ConsensusReactor) BuildMBlock(parentBlock *block.Block) *ProposedBlo
 			if packer.IsTxNotAdoptableNow(err) {
 				continue
 			}
-			txsToRemove = append(txsToRemove, tx.ID())
+			txsInBlk = append(txsInBlk, tx)
 		}
 	}
 
@@ -712,8 +719,8 @@ func (conR *ConsensusReactor) BuildMBlock(parentBlock *block.Block) *ProposedBlo
 	}
 
 	execElapsed := mclock.Now() - startTime
-	conR.logger.Info("MBlock built", "height", newBlock.Header().Number(), "Txs", len(newBlock.Txs), "txsToRemove", len(txsToRemove), "elapseTime", execElapsed)
-	return &ProposedBlockInfo{newBlock, stage, &receipts, txsToRemoved, checkPoint, MBlockType}
+	conR.logger.Info("MBlock built", "height", newBlock.Header().Number(), "Txs", len(newBlock.Txs), "txsInBlk", len(txsInBlk), "elapseTime", execElapsed)
+	return &ProposedBlockInfo{newBlock, stage, &receipts, txsToRemoved, txsToReturned, checkPoint, MBlockType}
 }
 
 func (conR *ConsensusReactor) BuildKBlock(parentBlock *block.Block, data *block.KBlockData, rewards []powpool.PowReward) *ProposedBlockInfo {
@@ -732,17 +739,31 @@ func (conR *ConsensusReactor) BuildKBlock(parentBlock *block.Block, data *block.
 	//XXX: Build kblock coinbase Tranactions
 	txs := conR.GetKBlockRewardTxs(rewards)
 
+	pool := txpool.GetGlobTxPoolInst()
+	if pool == nil {
+		conR.logger.Error("get tx pool failed ...")
+		panic("get tx pool failed ...")
+		return nil
+	}
+	var txsInBlk []*tx.Transaction
+	txsToRemoved := func() bool {
+		for _, tx := range txsInBlk {
+			pool.Remove(tx.ID())
+		}
+		return true
+	}
+	txsToReturned := func() bool {
+		for _, tx := range txsInBlk {
+			pool.Add(tx)
+		}
+		return true
+	}
+
 	p := packer.GetGlobPackerInst()
 	if p == nil {
 		conR.logger.Warn("get packer failed ...")
 		panic("get packer failed")
 		return nil
-	}
-
-	//var txsToRemove []meter.Bytes32
-	txsToRemoved := func() bool {
-		// Kblock does not need to clean up txs now
-		return true
 	}
 
 	gasLimit := p.GasLimit(best.Header().GasLimit())
@@ -768,7 +789,7 @@ func (conR *ConsensusReactor) BuildKBlock(parentBlock *block.Block, data *block.
 			if packer.IsTxNotAdoptableNow(err) {
 				continue
 			}
-			//txsToRemove = append(txsToRemove, tx.ID())
+			txsInBlk = append(txsInBlk, tx)
 		}
 	}
 
@@ -783,7 +804,7 @@ func (conR *ConsensusReactor) BuildKBlock(parentBlock *block.Block, data *block.
 
 	execElapsed := mclock.Now() - startTime
 	conR.logger.Info("KBlock built", "height", conR.curHeight, "elapseTime", execElapsed)
-	return &ProposedBlockInfo{newBlock, stage, &receipts, txsToRemoved, checkPoint, KBlockType}
+	return &ProposedBlockInfo{newBlock, stage, &receipts, txsToRemoved, txsToReturned, checkPoint, KBlockType}
 }
 
 func (conR *ConsensusReactor) BuildStopCommitteeBlock(parentBlock *block.Block) *ProposedBlockInfo {
@@ -809,6 +830,9 @@ func (conR *ConsensusReactor) BuildStopCommitteeBlock(parentBlock *block.Block) 
 		// Kblock does not need to clean up txs now
 		return true
 	}
+	txsToReturned := func() bool {
+		return true
+	}
 
 	gasLimit := p.GasLimit(best.Header().GasLimit())
 	flow, err := p.Mock(best.Header(), now, gasLimit)
@@ -825,7 +849,7 @@ func (conR *ConsensusReactor) BuildStopCommitteeBlock(parentBlock *block.Block) 
 
 	execElapsed := mclock.Now() - startTime
 	conR.logger.Info("Stop Committee Block built", "height", conR.curHeight, "elapseTime", execElapsed)
-	return &ProposedBlockInfo{newBlock, stage, &receipts, txsToRemoved, 0, StopCommitteeType}
+	return &ProposedBlockInfo{newBlock, stage, &receipts, txsToRemoved, txsToReturned, 0, StopCommitteeType}
 }
 
 //=================================================
