@@ -79,14 +79,14 @@ func (ab *AuctionBody) StartAuctionCB(env *AuctionEnviroment, gas uint64) (ret [
 	}
 	release, _, _ := calcRewardRange(ab.StartHeight, ab.EndHeight)
 
-	auctionCB.startHeight = ab.StartHeight
-	auctionCB.endHeight = ab.EndHeight
-	auctionCB.rlsdMTRG = FloatToBigInt(release)
-	auctionCB.rsvdPrice = AuctionReservedPrice
-	auctionCB.createTime = ab.Timestamp
-	auctionCB.rcvdMTR = big.NewInt(0)
-	auctionCB.auctionTxs = make([]*AuctionTx, 0)
-	auctionCB.auctionID = auctionCB.ID()
+	auctionCB.StartHeight = ab.StartHeight
+	auctionCB.EndHeight = ab.EndHeight
+	auctionCB.RlsdMTRG = FloatToBigInt(release)
+	auctionCB.RsvdPrice = AuctionReservedPrice
+	auctionCB.CreateTime = ab.Timestamp
+	auctionCB.RcvdMTR = big.NewInt(0)
+	auctionCB.AuctionTxs = make([]*AuctionTx, 0)
+	auctionCB.AuctionID = auctionCB.ID()
 
 	Auction.SetAuctionCB(auctionCB, state)
 	return
@@ -114,16 +114,16 @@ func (ab *AuctionBody) CloseAuctionCB(senv *AuctionEnviroment, gas uint64) (ret 
 		return
 	}
 	summary := &AuctionSummary{
-		auctionID:   auctionCB.auctionID,
-		startHeight: auctionCB.startHeight,
-		endHeight:   auctionCB.endHeight,
-		rlsdMTRG:    auctionCB.rlsdMTRG,
-		rsvdPrice:   auctionCB.rsvdPrice,
-		createTime:  auctionCB.createTime,
-		rcvdMTR:     auctionCB.rcvdMTR,
-		actualPrice: actualPrice,
+		AuctionID:   auctionCB.AuctionID,
+		StartHeight: auctionCB.StartHeight,
+		EndHeight:   auctionCB.EndHeight,
+		RlsdMTRG:    auctionCB.RlsdMTRG,
+		RsvdPrice:   auctionCB.RsvdPrice,
+		CreateTime:  auctionCB.CreateTime,
+		RcvdMTR:     auctionCB.RcvdMTR,
+		ActualPrice: actualPrice,
 	}
-	summaries := append(summaryList.summaries, summary)
+	summaries := append(summaryList.Summaries, summary)
 
 	summaryList = NewAuctionSummaryList(summaries)
 	auctionCB = &AuctionCB{}
@@ -149,27 +149,27 @@ func (ab *AuctionBody) HandleAuctionTx(senv *AuctionEnviroment, gas uint64) (ret
 	tx := auctionCB.Get(ab.Bidder)
 	if tx == nil {
 		tx = &AuctionTx{
-			addr:     ab.Bidder,
-			amount:   ab.Amount,
-			count:    1,
-			nonce:    ab.Nonce,
-			lastTime: ab.Timestamp,
+			Addr:     ab.Bidder,
+			Amount:   ab.Amount,
+			Count:    1,
+			Nonce:    ab.Nonce,
+			LastTime: ab.Timestamp,
 		}
 		err = auctionCB.Add(tx)
 		if err != nil {
 			fmt.Println("add auctionTx failed")
 			return
 		}
-		auctionCB.rcvdMTR = auctionCB.rcvdMTR.Add(auctionCB.rcvdMTR, tx.amount)
+		auctionCB.RcvdMTR = auctionCB.RcvdMTR.Add(auctionCB.RcvdMTR, tx.Amount)
 	} else {
-		if ab.Nonce <= tx.nonce {
+		if ab.Nonce == tx.Nonce {
 			err = errors.New("Nonce error")
 			return
 		}
-		tx.nonce = ab.Nonce
-		tx.amount = tx.amount.Add(tx.amount, ab.Amount)
-		tx.lastTime = ab.Timestamp
-		tx.count++
+		tx.Nonce = ab.Nonce
+		tx.Amount = tx.Amount.Add(tx.Amount, ab.Amount)
+		tx.LastTime = ab.Timestamp
+		tx.Count++
 	}
 
 	// transfer bidder's MTR to auction accout

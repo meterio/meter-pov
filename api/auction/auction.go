@@ -1,7 +1,6 @@
 package auction
 
 import (
-	"encoding/hex"
 	"net/http"
 
 	"github.com/dfinlab/meter/api/utils"
@@ -13,8 +12,8 @@ import (
 type Auction struct {
 }
 
-func New() *auction {
-	return &auction{}
+func New() *Auction {
+	return &Auction{}
 }
 
 func (at *Auction) handleGetAuctionSummary(w http.ResponseWriter, req *http.Request) error {
@@ -23,7 +22,7 @@ func (at *Auction) handleGetAuctionSummary(w http.ResponseWriter, req *http.Requ
 		return err
 	}
 	summaryList := convertSummaryList(list)
-	return utils.WriteJSON(w, candidateList)
+	return utils.WriteJSON(w, summaryList)
 }
 
 func (at *Auction) handleGetSummaryByID(w http.ResponseWriter, req *http.Request) error {
@@ -37,24 +36,24 @@ func (at *Auction) handleGetSummaryByID(w http.ResponseWriter, req *http.Request
 		return err
 	}
 	s := list.Get(bytes)
-	summary := convertSummary(*s)
+	summary := convertSummary(s)
 	return utils.WriteJSON(w, summary)
 }
 
-func (at *auction) handleGetAuctionCB(w http.ResponseWriter, req *http.Request) error {
+func (at *Auction) handleGetAuctionCB(w http.ResponseWriter, req *http.Request) error {
 	cb, err := auction.GetAuctionCB()
 	if err != nil {
 		return err
 	}
-	bucketList := convertAuctionCB(list)
+	acb := convertAuctionCB(cb)
 
-	return utils.WriteJSON(w, bucketList)
+	return utils.WriteJSON(w, acb)
 }
 
-func (at *auction) Mount(root *mux.Router, pathPrefix string) {
+func (at *Auction) Mount(root *mux.Router, pathPrefix string) {
 	sub := root.PathPrefix(pathPrefix).Subrouter()
-	sub.Path("/summaries").Methods("Get").HandlerFunc(utils.WrapHandlerFunc(st.handleGetAuctionSummary))
-	sub.Path("/summaries/{id}").Methods("Get").HandlerFunc(utils.WrapHandlerFunc(st.handleGetSummaryByID))
-	sub.Path("/auctioncb").Methods("Get").HandlerFunc(utils.WrapHandlerFunc(st.handleGetAuctionCB))
+	sub.Path("/summaries").Methods("Get").HandlerFunc(utils.WrapHandlerFunc(at.handleGetAuctionSummary))
+	sub.Path("/summaries/{id}").Methods("Get").HandlerFunc(utils.WrapHandlerFunc(at.handleGetSummaryByID))
+	sub.Path("/auctioncb").Methods("Get").HandlerFunc(utils.WrapHandlerFunc(at.handleGetAuctionCB))
 	//sub.Path("/auctioncb/{address}").Methods("Get").HandlerFunc(utils.WrapHandlerFunc(st.handleGetAuctionTxByAddress))
 }

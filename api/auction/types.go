@@ -1,93 +1,88 @@
 package auction
 
 import (
-	"bytes"
-	"math/big"
-	"sort"
-
 	//"encoding/hex"
 	"fmt"
 	"time"
 
-	"github.com/dfinlab/meter/meter"
-	"github.com/dfinlab/meter/script/Auction"
+	"github.com/dfinlab/meter/script/auction"
 )
 
 type AuctionSummary struct {
-	auctionID   string `json:"auctionID"`
-	startHeight uint64 `json:"startHeight"`
-	endHeight   uint64 `json:"endHeight"`
-	rlsdMTRG    string `json:"releasedMtrGov"`
-	rsvdPrice   string `json:"reservedPrice"`
-	createTime  string `json:"createTime"`
-	rcvdMTR     string `json:"receivedMtr"`
-	actualPrice string `json:"actualPrice"`
+	AuctionID   string `json:"auctionID"`
+	StartHeight uint64 `json:"startHeight"`
+	EndHeight   uint64 `json:"endHeight"`
+	RlsdMTRG    string `json:"releasedMtrGov"`
+	RsvdPrice   string `json:"reservedPrice"`
+	CreateTime  string `json:"createTime"`
+	RcvdMTR     string `json:"receivedMtr"`
+	ActualPrice string `json:"actualPrice"`
 }
 
 type AuctionCB struct {
-	auctionID   string `json:"auctionID"`
-	startHeight uint64 `json:"startHeight"`
-	endHeight   uint64 `json:"endHeight"`
-	rlsdMTRG    string `json:"releasedMtrGov"`
-	rsvdPrice   string `json:"reservedPrice"`
-	createTime  string `json:"createTime"`
-	rcvdMTR     string `json:"receivedMtr`
-	auctionTxs  []*AuctionTx
+	AuctionID   string `json:"auctionID"`
+	StartHeight uint64 `json:"startHeight"`
+	EndHeight   uint64 `json:"endHeight"`
+	RlsdMTRG    string `json:"releasedMtrGov"`
+	RsvdPrice   string `json:"reservedPrice"`
+	CreateTime  string `json:"createTime"`
+	RcvdMTR     string `json:"receivedMtr`
+	AuctionTxs  []*AuctionTx
 }
 
-type AuctionTxs struct {
-	addr     string `json:"addr"`
-	amount   string `json:"amount"`
-	count    int    `json:"count"`
-	nonce    uint64 `json:"nonce"`
-	lastTime string `json:"lastTime"`
+type AuctionTx struct {
+	Addr     string `json:"addr"`
+	Amount   string `json:"amount"`
+	Count    int    `json:"count"`
+	Nonce    uint64 `json:"nonce"`
+	LastTime string `json:"lastTime"`
 }
 
-func converSummaryList(list *Auction.SummaryList) []*AuctionSummary {
+func convertSummaryList(list *auction.AuctionSummaryList) []*AuctionSummary {
 	summaryList := make([]*AuctionSummary, 0)
 	for _, s := range list.ToList() {
-		summaryList = append(summaryList, convertSummary(s))
+		summaryList = append(summaryList, convertSummary(&s))
 	}
 	return summaryList
 }
 
-func convertSummary(s *Auction.AuctionSummary) *Auctionsummary {
+func convertSummary(s *auction.AuctionSummary) *AuctionSummary {
 	return &AuctionSummary{
-		auctionID:   s.auctionID.AbbrevString(),
-		startHeight: s.startHeight,
-		endHeight:   s.endHeight,
-		rlsdMTRG:    s.rlsMTRG.String(),
-		rsvdPrice:   s.rsvdPrice.String(),
-		createTime:  fmt.Sprintln(time.Unix(int64(s.createTime), 0)),
-		rcvdMTR:     s.rcvdMTR.String(),
-		actualPrice: s.actualPrice.String(),
+		AuctionID:   s.AuctionID.AbbrevString(),
+		StartHeight: s.StartHeight,
+		EndHeight:   s.EndHeight,
+		RlsdMTRG:    s.RlsdMTRG.String(),
+		RsvdPrice:   s.RsvdPrice.String(),
+		CreateTime:  fmt.Sprintln(time.Unix(int64(s.CreateTime), 0)),
+		RcvdMTR:     s.RcvdMTR.String(),
+		ActualPrice: s.ActualPrice.String(),
 	}
 }
 
-func convertAuctionTx(t *Auction.AuctionTx) *AuctionTx {
+func convertAuctionTx(t *auction.AuctionTx) *AuctionTx {
 	return &AuctionTx{
-		addr:     t.addr.String(),
-		amount:   t.amount.String(),
-		count:    t.count,
-		nonce:    t.nonce,
-		lastTime: fmt.Sprintln(time.Unix(int64(s.createTime), 0)),
+		Addr:     t.Addr.String(),
+		Amount:   t.Amount.String(),
+		Count:    t.Count,
+		Nonce:    t.Nonce,
+		LastTime: fmt.Sprintln(time.Unix(int64(t.LastTime), 0)),
 	}
 }
 
-func converAuctionCB(cb *Auction.AuctionCB) *AuctionCB {
+func convertAuctionCB(cb *auction.AuctionCB) *AuctionCB {
 	txs := make([]*AuctionTx, 0)
-	for _, t := range cb.auctionTxs {
-		txs = append(txs, convetAuctionTx(t))
+	for _, t := range cb.AuctionTxs {
+		txs = append(txs, convertAuctionTx(t))
 	}
 
 	return &AuctionCB{
-		auctionID:   cb.auctionID.AbbrevString(),
-		startHeight: cb.startHeight,
-		endHeight:   cb.endHeight,
-		rlsdMTRG:    cb.rlsdMTRG.String(),
-		rsvdPrice:   cb.rsvdPrice.String(),
-		createTime:  fmt.Sprintln(time.Unix(int64(cb.createTime), 0)),
-		rcvdMTR:     cb.rcvdNTR.String(),
-		auctionTxs:  txs,
+		AuctionID:   cb.AuctionID.AbbrevString(),
+		StartHeight: cb.StartHeight,
+		EndHeight:   cb.EndHeight,
+		RlsdMTRG:    cb.RlsdMTRG.String(),
+		RsvdPrice:   cb.RsvdPrice.String(),
+		CreateTime:  fmt.Sprintln(time.Unix(int64(cb.CreateTime), 0)),
+		RcvdMTR:     cb.RcvdMTR.String(),
+		AuctionTxs:  txs,
 	}
 }

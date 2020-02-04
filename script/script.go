@@ -51,6 +51,9 @@ func NewScriptEngine(chain *chain.Chain, state *state.Creator) *ScriptEngine {
 func (se *ScriptEngine) StartAllModules() {
 	// start module staking
 	ModuleStakingInit(se)
+
+	// auction
+	ModuleAuctionInit(se)
 }
 
 func (se *ScriptEngine) HandleScriptData(data []byte, to *meter.Address, txCtx *xenv.TransactionContext, gas uint64, state *state.State) (ret []byte, leftOverGas uint64, err error) {

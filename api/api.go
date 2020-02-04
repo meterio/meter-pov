@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/dfinlab/meter/api/accounts"
+	"github.com/dfinlab/meter/api/auction"
 	"github.com/dfinlab/meter/api/blocks"
 	"github.com/dfinlab/meter/api/debug"
 	"github.com/dfinlab/meter/api/doc"
@@ -83,7 +84,7 @@ func New(chain *chain.Chain, stateCreator *state.Creator, txPool *txpool.TxPool,
 	subs.Mount(router, "/subscriptions")
 	staking.New().
 		Mount(router, "/staking")
-	staking.New().
+	auction.New().
 		Mount(router, "/auction")
 
 	return handlers.CORS(

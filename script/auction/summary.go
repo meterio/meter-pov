@@ -12,27 +12,27 @@ import (
 )
 
 type AuctionSummary struct {
-	auctionID   meter.Bytes32
-	startHeight uint64
-	endHeight   uint64
-	rlsdMTRG    *big.Int
-	rsvdPrice   *big.Int
-	createTime  uint64
-	rcvdMTR     *big.Int
-	actualPrice *big.Int
+	AuctionID   meter.Bytes32
+	StartHeight uint64
+	EndHeight   uint64
+	RlsdMTRG    *big.Int
+	RsvdPrice   *big.Int
+	CreateTime  uint64
+	RcvdMTR     *big.Int
+	ActualPrice *big.Int
 }
 
 func (a *AuctionSummary) ToString() string {
-	return fmt.Sprintf("AuctionSummary(%v) startHeight%v, endHieght=%v, releasedMTRG=%v, reserveredPrice=%v, createTime=%v, receivedMTR=%v, actualPrice=%v",
-		a.auctionID.String(), a.startHeight, a.endHeight, a.rlsdMTRG.Uint64(), a.rsvdPrice.Uint64(),
-		a.createTime, a.rcvdMTR.Uint64(), a.actualPrice.Uint64())
+	return fmt.Sprintf("AuctionSummary(%v) StartHeight%v, EndHieght=%v, ReleasedMTRG=%v, ReserveredPrice=%v, CreateTime=%v, ReceivedMTR=%v, ActualPrice=%v",
+		a.AuctionID.String(), a.StartHeight, a.EndHeight, a.RlsdMTRG.Uint64(), a.RsvdPrice.Uint64(),
+		a.CreateTime, a.RcvdMTR.Uint64(), a.ActualPrice.Uint64())
 }
 
 // api routine interface
 func GetAuctionSummaryList() (*AuctionSummaryList, error) {
 	auction := GetAuctionGlobInst()
 	if auction == nil {
-		fmt.Println("auction is not initilized...")
+		log.Error("auction is not initilized...")
 		err := errors.New("aution is not initilized...")
 		return NewAuctionSummaryList(nil), err
 	}
@@ -40,28 +40,31 @@ func GetAuctionSummaryList() (*AuctionSummaryList, error) {
 	best := auction.chain.BestBlock()
 	state, err := auction.stateCreator.NewState(best.Header().StateRoot())
 	if err != nil {
-
 		return NewAuctionSummaryList(nil), err
 	}
 
 	summaryList := auction.GetSummaryList(state)
+	if summaryList == nil {
+		log.Error("no summaryList stored ...")
+		return NewAuctionSummaryList(nil), errors.New("no summaryList stored")
+	}
 	return summaryList, nil
 }
 
 type AuctionSummaryList struct {
-	summaries []*AuctionSummary
+	Summaries []*AuctionSummary
 }
 
 func NewAuctionSummaryList(summaries []*AuctionSummary) *AuctionSummaryList {
 	if summaries == nil {
 		summaries = make([]*AuctionSummary, 0)
 	}
-	return &AuctionSummaryList{summaries: summaries}
+	return &AuctionSummaryList{Summaries: summaries}
 }
 
 func (a *AuctionSummaryList) Get(id meter.Bytes32) *AuctionSummary {
-	for _, summary := range a.summaries {
-		if bytes.Compare(id.Bytes(), summary.auctionID.Bytes()) == 0 {
+	for _, summary := range a.Summaries {
+		if bytes.Compare(id.Bytes(), summary.AuctionID.Bytes()) == 0 {
 			return summary
 		}
 	}
@@ -69,7 +72,7 @@ func (a *AuctionSummaryList) Get(id meter.Bytes32) *AuctionSummary {
 }
 
 func (a *AuctionSummaryList) Add(summary *AuctionSummary) error {
-	a.summaries = append(a.summaries, summary)
+	a.Summaries = append(a.Summaries, summary)
 	return nil
 }
 
@@ -80,15 +83,15 @@ func (a *AuctionSummaryList) Remove(id meter.Bytes32) error {
 }
 
 func (a *AuctionSummaryList) Count() int {
-	return len(a.summaries)
+	return len(a.Summaries)
 }
 
 func (a *AuctionSummaryList) ToString() string {
-	if a == nil || len(a.summaries) == 0 {
+	if a == nil || len(a.Summaries) == 0 {
 		return "AuctionSummaryList (size:0)"
 	}
-	s := []string{fmt.Sprintf("AuctionSummaryList (size:%v) {", len(a.summaries))}
-	for i, c := range a.summaries {
+	s := []string{fmt.Sprintf("AuctionSummaryList (size:%v) {", len(a.Summaries))}
+	for i, c := range a.Summaries {
 		s = append(s, fmt.Sprintf("  %d.%v", i, c.ToString()))
 	}
 	s = append(s, "}")
@@ -97,7 +100,7 @@ func (a *AuctionSummaryList) ToString() string {
 
 func (a *AuctionSummaryList) ToList() []AuctionSummary {
 	result := make([]AuctionSummary, 0)
-	for _, v := range a.summaries {
+	for _, v := range a.Summaries {
 		result = append(result, *v)
 	}
 	return result
