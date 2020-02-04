@@ -83,6 +83,8 @@ func New(chain *chain.Chain, stateCreator *state.Creator, txPool *txpool.TxPool,
 	subs.Mount(router, "/subscriptions")
 	staking.New().
 		Mount(router, "/staking")
+	staking.New().
+		Mount(router, "/auction")
 
 	return handlers.CORS(
 			handlers.AllowedOrigins(origins),

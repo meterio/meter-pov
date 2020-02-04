@@ -11,8 +11,10 @@ import (
 	"math/rand"
 	"time"
 
+	"github.com/dfinlab/meter/meter"
 	"github.com/dfinlab/meter/powpool"
 	"github.com/dfinlab/meter/script"
+	"github.com/dfinlab/meter/script/auction"
 	"github.com/dfinlab/meter/script/staking"
 	"github.com/dfinlab/meter/tx"
 	"github.com/ethereum/go-ethereum/rlp"
@@ -81,6 +83,77 @@ func BuildGoverningData(delegateSize uint32) (ret []byte) {
 		Header: script.ScriptHeader{
 			Version: uint32(0),
 			ModID:   script.STAKING_MODULE_ID,
+		},
+		Payload: payload,
+	}
+	data, err := rlp.EncodeToBytes(s)
+	if err != nil {
+		return
+	}
+	data = append(script.ScriptPattern[:], data...)
+	prefix := []byte{0xff, 0xff, 0xff, 0xff}
+	ret = append(prefix, data...)
+	// fmt.Println("script Hex:", hex.EncodeToString(ret))
+	return
+}
+
+func BuildAuctionStart(start, end uint64) (ret []byte) {
+	ret = []byte{}
+
+	body := &auction.AuctionBody{
+		Opcode:      auction.OP_START,
+		Version:     uint32(0),
+		StartHeight: start,
+		EndHeight:   end,
+		Timestamp:   uint64(time.Now().Unix()),
+		Nonce:       rand.Uint64(),
+	}
+	payload, err := rlp.EncodeToBytes(body)
+	if err != nil {
+		return
+	}
+
+	// fmt.Println("Payload Hex: ", hex.EncodeToString(payload))
+	s := &script.Script{
+		Header: script.ScriptHeader{
+			Version: uint32(0),
+			ModID:   script.AUCTION_MODULE_ID,
+		},
+		Payload: payload,
+	}
+	data, err := rlp.EncodeToBytes(s)
+	if err != nil {
+		return
+	}
+	data = append(script.ScriptPattern[:], data...)
+	prefix := []byte{0xff, 0xff, 0xff, 0xff}
+	ret = append(prefix, data...)
+	// fmt.Println("script Hex:", hex.EncodeToString(ret))
+	return
+}
+
+func BuildAuctionStop(start, end uint64, id *meter.Bytes32) (ret []byte) {
+	ret = []byte{}
+
+	body := &auction.AuctionBody{
+		Opcode:      auction.OP_STOP,
+		Version:     uint32(0),
+		StartHeight: start,
+		EndHeight:   end,
+		AuctionID:   *id,
+		Timestamp:   uint64(time.Now().Unix()),
+		Nonce:       rand.Uint64(),
+	}
+	payload, err := rlp.EncodeToBytes(body)
+	if err != nil {
+		return
+	}
+
+	// fmt.Println("Payload Hex: ", hex.EncodeToString(payload))
+	s := &script.Script{
+		Header: script.ScriptHeader{
+			Version: uint32(0),
+			ModID:   script.AUCTION_MODULE_ID,
 		},
 		Payload: payload,
 	}
