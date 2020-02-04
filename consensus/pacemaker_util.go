@@ -1,7 +1,6 @@
 package consensus
 
 import (
-	"bytes"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -12,10 +11,10 @@ import (
 	"strings"
 	"time"
 
-	crypto "github.com/ethereum/go-ethereum/crypto"
-
 	"github.com/dfinlab/meter/block"
 	bls "github.com/dfinlab/meter/crypto/multi_sig"
+	"github.com/dfinlab/meter/tx"
+	"github.com/dfinlab/meter/txpool"
 	"github.com/dfinlab/meter/types"
 )
 
@@ -199,12 +198,14 @@ func (p *Pacemaker) ValidateProposal(b *pmBlock) error {
 		}
 	}
 
-	if b.ProposedBlockInfo != nil {
-		// if this proposal is proposed by myself, don't execute it again
-		p.logger.Debug("this proposal is created by myself, skip the validation...")
-		b.SuccessProcessed = true
-		return nil
-	}
+	/*
+		if b.ProposedBlockInfo != nil {
+			// if this proposal is proposed by myself, don't execute it again
+			p.logger.Debug("this proposal is created by myself, skip the validation...")
+			b.SuccessProcessed = true
+			return nil
+		}
+	*/
 
 	parentPMBlock := b.Parent
 	if parentPMBlock == nil || parentPMBlock.ProposedBlock == nil {
@@ -215,6 +216,38 @@ func (p *Pacemaker) ValidateProposal(b *pmBlock) error {
 		return errDecodeParentFailed
 	}
 	parentHeader := parentBlock.Header()
+
+	pool := txpool.GetGlobTxPoolInst()
+	if pool == nil {
+		p.logger.Error("get tx pool failed ...")
+		panic("get tx pool failed ...")
+		return nil
+	}
+
+	var txsInBlk []*tx.Transaction
+	for _, tx := range blk.Transactions() {
+		txsInBlk = append(txsInBlk, tx)
+	}
+	txsToRemoved := func() bool {
+		for _, tx := range txsInBlk {
+			pool.Remove(tx.ID())
+		}
+		return true
+	}
+	txsToReturned := func() bool {
+		for _, tx := range txsInBlk {
+			pool.Add(tx)
+		}
+		return true
+	}
+
+	//create checkPoint before validate block
+	state, err := p.csReactor.stateCreator.NewState(p.csReactor.chain.BestBlock().Header().StateRoot())
+	if err != nil {
+		p.logger.Error("revert state failed ...", "error", err)
+		return nil
+	}
+	checkPoint := state.NewCheckpoint()
 
 	now := uint64(time.Now().Unix())
 	stage, receipts, err := p.csReactor.ProcessProposedBlock(parentHeader, blk, now)
@@ -229,18 +262,15 @@ func (p *Pacemaker) ValidateProposal(b *pmBlock) error {
 		ProposedBlock: blk,
 		Stage:         stage,
 		Receipts:      &receipts,
-		txsToRemoved:  func() bool { return true },
+		CheckPoint:    checkPoint,
+		txsToRemoved:  txsToRemoved,
+		txsToReturned: txsToReturned,
 	}
 
 	b.SuccessProcessed = true
 
 	p.logger.Info("Validated proposal", "type", b.ProposedBlockType, "block", blk.Oneliner())
 	return nil
-}
-
-func (p *Pacemaker) isMine(key []byte) bool {
-	myKey := crypto.FromECDSAPub(&p.csReactor.myPubKey)
-	return bytes.Equal(key, myKey)
 }
 
 func (p *Pacemaker) getProposerByRound(round int) *ConsensusPeer {
@@ -385,7 +415,7 @@ func (p *Pacemaker) collectVoteSignature(voteMsg *PMVoteForProposalMessage) erro
 func (p *Pacemaker) verifyTimeoutCert(tc *PMTimeoutCert, height, round uint64) bool {
 	if tc != nil {
 		//FIXME: check timeout cert
-		return tc.TimeoutHeight == height && tc.TimeoutRound < round
+		return tc.TimeoutHeight == height && tc.TimeoutRound <= round
 	}
 	return false
 }

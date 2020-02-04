@@ -323,14 +323,13 @@ func (p *Pacemaker) OnReceiveProposal(proposalMsg *PMProposalMessage, from types
 	justify := newPMQuorumCert(qc, qcNode)
 
 	// revert the proposals if I'm not the round proposer and I received a proposal with a valid TC
-	proposedByMe := p.isMine(proposalMsg.ProposerID)
 	validTimeout := p.verifyTimeoutCert(proposalMsg.TimeoutCert, height, round)
-	if !proposedByMe && validTimeout {
+	if validTimeout {
 		p.revertTo(height)
 	}
 
-	// update the proposalMap only in these this scenario: not tracked and not proposed by me
-	if _, tracked := p.proposalMap[height]; !proposedByMe && !tracked {
+	// update the proposalMap only in these this scenario: not tracked
+	if _, tracked := p.proposalMap[height]; !tracked {
 		p.proposalMap[height] = &pmBlock{
 			ProposalMessage:   proposalMsg,
 			Height:            height,
@@ -860,11 +859,11 @@ func (p *Pacemaker) OnRoundTimeout(ti PMRoundTimeoutInfo) error {
 
 	p.updateCurrentRound(p.currentRound+1, UpdateOnTimeout)
 	newTi := &PMRoundTimeoutInfo{
-		height:  p.blockLeaf.Height + 1,
+		height:  p.QCHigh.QC.QCHeight + 1,
 		round:   p.currentRound,
 		counter: p.timeoutCounter + 1,
 	}
-	p.OnNextSyncView(p.blockLeaf.Height+1, p.currentRound, RoundTimeout, newTi)
+	p.OnNextSyncView(p.QCHigh.QC.QCHeight+1, p.currentRound, RoundTimeout, newTi)
 	// p.startRoundTimer(ti.height, ti.round+1, ti.counter+1)
 	return nil
 }
@@ -931,9 +930,21 @@ func (p *Pacemaker) revertTo(revertHeight uint64) {
 		if !exist {
 			break
 		}
+		info := proposal.ProposedBlockInfo
+		if info == nil {
+			p.logger.Warn("Empty block info", "height", height)
+		} else {
+			// return the txs in precommitted blocks
+			info.txsToReturned()
+			best := p.csReactor.chain.BestBlock()
+			state, err := p.csReactor.stateCreator.NewState(best.Header().StateRoot())
+			if err != nil {
+				p.logger.Error("revert the state faild ...", "err", err)
+			}
+			state.RevertTo(info.CheckPoint)
+		}
 		p.logger.Warn("Deleted from proposalMap:", "blockHeight", height, "block", proposal.ToString())
 		delete(p.proposalMap, height)
-		// FIXME: remove precommited blocks and release txs
 		height++
 	}
 
