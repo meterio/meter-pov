@@ -228,17 +228,23 @@ func (p *Pacemaker) ValidateProposal(b *pmBlock) error {
 	for _, tx := range blk.Transactions() {
 		txsInBlk = append(txsInBlk, tx)
 	}
-	txsToRemoved := func() bool {
-		for _, tx := range txsInBlk {
-			pool.Remove(tx.ID())
+	var txsToRemoved, txsToReturned func() bool
+	if b.ProposedBlockType == KBlockType {
+		txsToRemoved = func() bool { return true }
+		txsToReturned = func() bool { return true }
+	} else {
+		txsToRemoved = func() bool {
+			for _, tx := range txsInBlk {
+				pool.Remove(tx.ID())
+			}
+			return true
 		}
-		return true
-	}
-	txsToReturned := func() bool {
-		for _, tx := range txsInBlk {
-			pool.Add(tx)
+		txsToReturned = func() bool {
+			for _, tx := range txsInBlk {
+				pool.Add(tx)
+			}
+			return true
 		}
-		return true
 	}
 
 	//create checkPoint before validate block

@@ -745,17 +745,10 @@ func (conR *ConsensusReactor) BuildKBlock(parentBlock *block.Block, data *block.
 		panic("get tx pool failed ...")
 		return nil
 	}
-	var txsInBlk []*tx.Transaction
 	txsToRemoved := func() bool {
-		for _, tx := range txsInBlk {
-			pool.Remove(tx.ID())
-		}
 		return true
 	}
 	txsToReturned := func() bool {
-		for _, tx := range txsInBlk {
-			pool.Add(tx)
-		}
 		return true
 	}
 
@@ -789,7 +782,6 @@ func (conR *ConsensusReactor) BuildKBlock(parentBlock *block.Block, data *block.
 			if packer.IsTxNotAdoptableNow(err) {
 				continue
 			}
-			txsInBlk = append(txsInBlk, tx)
 		}
 	}
 
