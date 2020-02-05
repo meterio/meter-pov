@@ -1587,7 +1587,7 @@ func (conR *ConsensusReactor) ConsensusHandleReceivedNonce(kBlockHeight int64, n
 
 		conR.NewCommitteeInit(uint64(kBlockHeight), nonce, replay)
 		newCommittee := conR.newCommittee
-		nl := newCommittee.Committee.Validators[newCommittee.Round]
+		nl := newCommittee.Committee.Validators[newCommittee.Round%uint64(len(newCommittee.Committee.Validators))]
 		leader := newConsensusPeer(nl.Name, nl.NetAddr.IP, nl.NetAddr.Port, conR.magic)
 		leaderPubKey := nl.PubKey
 		conR.sendNewCommitteeMessage(leader, leaderPubKey, newCommittee.KblockHeight,

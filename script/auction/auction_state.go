@@ -64,7 +64,7 @@ func (a *Auction) SetSummaryList(summaryList *AuctionSummaryList, state *state.S
 	state.EncodeStorage(AuctionAccountAddr, SummaryListKey, func() ([]byte, error) {
 		buf := bytes.NewBuffer([]byte{})
 		encoder := gob.NewEncoder(buf)
-		err := encoder.Encode(summaryList.summaries)
+		err := encoder.Encode(summaryList.Summaries)
 		return buf.Bytes(), err
 	})
 }
@@ -97,19 +97,19 @@ func (a *Auction) SendMTRGToBidder(addr meter.Address, amount *big.Int, state *s
 //==============================================
 // when auction is over
 func (a *Auction) ClearAuction(cb *AuctionCB, state *state.State) (*big.Int, error) {
-	actualPrice := cb.rlsdMTRG.Div(cb.rcvdMTR, cb.rlsdMTRG)
-	if actualPrice.Cmp(cb.rsvdPrice) < 0 {
-		actualPrice = cb.rsvdPrice
+	actualPrice := cb.RlsdMTRG.Div(cb.RcvdMTR, cb.RlsdMTRG)
+	if actualPrice.Cmp(cb.RsvdPrice) < 0 {
+		actualPrice = cb.RsvdPrice
 	}
 
 	var total *big.Int
-	for _, tx := range cb.auctionTxs {
-		mtrg := tx.amount.Div(tx.amount, actualPrice)
-		a.SendMTRGToBidder(tx.addr, mtrg, state)
+	for _, tx := range cb.AuctionTxs {
+		mtrg := tx.Amount.Div(tx.Amount, actualPrice)
+		a.SendMTRGToBidder(tx.Addr, mtrg, state)
 		total = total.Add(total, mtrg)
 	}
 
-	leftOver := cb.rlsdMTRG.Sub(cb.rlsdMTRG, total)
+	leftOver := cb.RlsdMTRG.Sub(cb.RlsdMTRG, total)
 	a.SendMTRGToBidder(AuctionAccountAddr, leftOver, state)
 	a.logger.Info("finished auctionCB clear...", "actualPrice", actualPrice.Int64(), "leftOver", leftOver.Int64())
 	return actualPrice, nil

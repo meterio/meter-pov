@@ -173,7 +173,7 @@ func (cv *ConsensusValidator) ProcessAnnounceCommittee(announceMsg *AnnounceComm
 	}
 
 	// Verify Leader is announce sender?  should match my round
-	round := cv.csReactor.newCommittee.Round
+	round := cv.csReactor.newCommittee.Round % uint64(len(cv.csReactor.newCommittee.Committee.Validators))
 	lv := cv.csReactor.curCommittee.Validators[round]
 	if bytes.Equal(crypto.FromECDSAPub(&lv.PubKey), ch.Sender) == false {
 		cv.csReactor.logger.Error("Sender is not leader in my committee ...")
