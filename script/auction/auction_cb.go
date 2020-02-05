@@ -169,7 +169,7 @@ func GetAuctionCB() (*AuctionCB, error) {
 	cb := auction.GetAuctionCB(state)
 	if cb == nil {
 		log.Error("no active acutionCB")
-		return nil, errors.New("no active acutionCB")
+		return &AuctionCB{}, nil
 	}
 	return cb, nil
 }

@@ -343,7 +343,7 @@ func (p *Pacemaker) OnReceiveProposal(proposalMsg *PMProposalMessage, from types
 
 	bnew := p.proposalMap[height]
 	if ((bnew.Height > p.lastVotingHeight) &&
-		(p.IsExtendedFromBLocked(bnew) || /** WHAT's THIS FOR ?**/ bnew.Justify.QC.QCHeight > p.blockLocked.Height)) || validTimeout {
+		(p.IsExtendedFromBLocked(bnew) || bnew.Justify.QC.QCHeight > p.blockLocked.Height)) || validTimeout {
 
 		if validTimeout {
 			p.updateCurrentRound(bnew.Round, UpdateOnTimeoutCertProposal)
@@ -1027,7 +1027,7 @@ func (p *Pacemaker) OnReceiveQueryProposal(queryMsg *PMQueryProposalMessage) err
 		if result == nil {
 			// Oooop!, I do not have it
 			p.logger.Error("I dont have the specific proposal", "height", queryHeight, "round", queryRound)
-			return errors.New(fmt.Sprintf("I dont have the specific proposal on height %s", queryHeight))
+			return errors.New(fmt.Sprintf("I dont have the specific proposal on height %v", queryHeight))
 		}
 
 		if result.ProposalMessage == nil {

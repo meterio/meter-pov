@@ -21,6 +21,8 @@ import (
 	"fmt"
 	"math/big"
 
+	"github.com/dfinlab/meter/tx"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/math"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -390,7 +392,7 @@ func opAddress(pc *uint64, evm *EVM, contract *Contract, memory *Memory, stack *
 
 func opBalance(pc *uint64, evm *EVM, contract *Contract, memory *Memory, stack *Stack) ([]byte, error) {
 	slot := stack.peek()
-	slot.Set(evm.StateDB.GetBalance(common.BigToAddress(slot)))
+	slot.Set(evm.StateDB.GetEnergy(common.BigToAddress(slot)))
 	return nil, nil
 }
 
@@ -678,7 +680,7 @@ func opCall(pc *uint64, evm *EVM, contract *Contract, memory *Memory, stack *Sta
 	if value.Sign() != 0 {
 		gas += params.CallStipend
 	}
-	ret, returnGas, err := evm.Call(contract, toAddr, args, gas, value, 0 /*tx.TOKEN_METER*/)
+	ret, returnGas, err := evm.Call(contract, toAddr, args, gas, value, tx.TOKEN_METER)
 	if err != nil {
 		stack.push(evm.interpreter.intPool.getZero())
 	} else {
@@ -707,7 +709,7 @@ func opCallCode(pc *uint64, evm *EVM, contract *Contract, memory *Memory, stack 
 	if value.Sign() != 0 {
 		gas += params.CallStipend
 	}
-	ret, returnGas, err := evm.CallCode(contract, toAddr, args, gas, value, 0 /*tx.TOKEN_METER*/)
+	ret, returnGas, err := evm.CallCode(contract, toAddr, args, gas, value, tx.TOKEN_METER)
 	if err != nil {
 		stack.push(evm.interpreter.intPool.getZero())
 	} else {

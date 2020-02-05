@@ -46,7 +46,7 @@ func GetAuctionSummaryList() (*AuctionSummaryList, error) {
 	summaryList := auction.GetSummaryList(state)
 	if summaryList == nil {
 		log.Error("no summaryList stored ...")
-		return NewAuctionSummaryList(nil), errors.New("no summaryList stored")
+		return NewAuctionSummaryList(nil), nil
 	}
 	return summaryList, nil
 }
