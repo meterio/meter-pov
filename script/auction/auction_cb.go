@@ -21,7 +21,7 @@ type AuctionTx struct {
 }
 
 func (a *AuctionTx) ToString() string {
-	return fmt.Sprintf("AuctionTx(addr=%v, amount=%v%.2e, count=%v, nonce=%v, lastTime=%v)",
+	return fmt.Sprintf("AuctionTx(addr=%v, amount=%v, count=%v, nonce=%v, lastTime=%v)",
 		a.Addr, a.Amount.Uint64(), a.Count, a.Nonce, fmt.Sprintln(time.Unix(int64(a.LastTime), 0)))
 }
 
