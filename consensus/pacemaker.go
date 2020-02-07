@@ -737,6 +737,9 @@ func (p *Pacemaker) Start(newCommittee bool) {
 	}
 	p.pendingList.CleanUp()
 
+	// make sure the above cleared proposal can receive again.
+	p.msgRelayInfo.CleanUpFrom(height)
+
 	go p.mainLoop()
 
 	p.ScheduleOnBeat(height+1, round, BeatOnInit, 1*time.Second) //delay 1s

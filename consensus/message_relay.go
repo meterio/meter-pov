@@ -93,6 +93,22 @@ func (p *PMProposalInfo) CleanUpTo(height uint64) error {
 	return nil
 }
 
+// this method is used when pacemaker start. Cleanup all
+func (p *PMProposalInfo) CleanUpFrom(height uint64) error {
+	if height < p.lowest {
+		return nil
+	}
+
+	p.lock.Lock()
+	defer p.lock.Unlock()
+	for key, _ := range p.messages {
+		if key.Height > height {
+			delete(p.messages, key)
+		}
+	}
+	return nil
+}
+
 // indexes starts from 0
 // 1st layer: 				0  (proposer)
 // 2nd layer: 				[1, 2], [3, 4], [5, 6], [7, 8]

@@ -187,13 +187,13 @@ func ShouldAuctionAction(height, lastKBlock uint64) bool {
 
 func (conR *ConsensusReactor) TryBuildAuctionTxs(height, lastKBlock uint64) *tx.Transaction {
 	if ShouldAuctionAction(height, lastKBlock) == false {
-		conR.logger.Debug("no auction Tx in the kblock ...")
+		conR.logger.Debug("no auction Tx in the kblock ...", "height", height)
 		return nil
 	}
 
 	builder := new(tx.Builder)
 	builder.ChainTag(conR.chain.Tag()).
-		BlockRef(tx.NewBlockRef(conR.chain.BestBlock().Header().Number() + 1)).
+		BlockRef(tx.NewBlockRef(uint32(height))).
 		Expiration(720).
 		GasPriceCoef(0).
 		Gas(2100000). //builder.Build().IntrinsicGas()
@@ -231,6 +231,6 @@ func (conR *ConsensusReactor) TryBuildAuctionTxs(height, lastKBlock uint64) *tx.
 	}
 	builder.Clause(tx.NewClause(&auction.AuctionAccountAddr).WithValue(big.NewInt(0)).WithToken(tx.TOKEN_METER_GOV).WithData(BuildAuctionStart(lastEnd+1, height)))
 
-	conR.logger.Info("Auction Tx Built", "Height", conR.chain.BestBlock().Header().Number()+1)
+	conR.logger.Info("Auction Tx Built", "Height", height)
 	return builder.Build()
 }
