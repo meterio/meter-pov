@@ -20,6 +20,10 @@ import (
 	"github.com/ethereum/go-ethereum/rlp"
 )
 
+const (
+	AuctionInterval = uint64(30000)
+)
+
 func (conR *ConsensusReactor) GetKBlockRewardTxs(rewards []powpool.PowReward) tx.Transactions {
 	trx := conR.MinerRewards(rewards)
 	fmt.Println("Built rewards tx:", trx)
@@ -97,6 +101,7 @@ func BuildGoverningData(delegateSize uint32) (ret []byte) {
 	return
 }
 
+// ****** Auction ********************
 func BuildAuctionStart(start, end uint64) (ret []byte) {
 	ret = []byte{}
 
@@ -166,4 +171,66 @@ func BuildAuctionStop(start, end uint64, id *meter.Bytes32) (ret []byte) {
 	ret = append(prefix, data...)
 	// fmt.Println("script Hex:", hex.EncodeToString(ret))
 	return
+}
+
+// height is current kblock, lastKBlock is last one
+// so if current > boundary && last < boundary, take actions
+func ShouldAuctionAction(height, lastKBlock uint64) bool {
+	var boundary uint64
+	boundary = uint64(uint64(height/AuctionInterval) * AuctionInterval)
+	if lastKBlock < boundary {
+		fmt.Println("take auction action ...", "height", height, "boundrary", boundary)
+		return true
+	}
+	return false
+}
+
+func (conR *ConsensusReactor) TryBuildAuctionTxs(height, lastKBlock uint64) *tx.Transaction {
+	if ShouldAuctionAction(height, lastKBlock) == false {
+		conR.logger.Debug("no auction Tx in the kblock ...")
+		return nil
+	}
+
+	builder := new(tx.Builder)
+	builder.ChainTag(conR.chain.Tag()).
+		BlockRef(tx.NewBlockRef(conR.chain.BestBlock().Header().Number() + 1)).
+		Expiration(720).
+		GasPriceCoef(0).
+		Gas(2100000). //builder.Build().IntrinsicGas()
+		DependsOn(nil).
+		Nonce(12345678)
+
+	// stop current active auction first
+	var stopActive bool
+	cb, err := auction.GetAuctionCB()
+	if err != nil {
+		conR.logger.Error("get auctionCB failed ...", "error", err)
+		return nil
+	}
+	if cb.IsActive() == true {
+		builder.Clause(tx.NewClause(&auction.AuctionAccountAddr).WithValue(big.NewInt(0)).WithToken(tx.TOKEN_METER_GOV).WithData(BuildAuctionStop(cb.StartHeight, cb.EndHeight, &cb.AuctionID)))
+		stopActive = true
+	}
+
+	// now start a new auction
+	var lastEnd uint64
+	if stopActive == true {
+		lastEnd = cb.EndHeight
+	} else {
+		summaryList, err := auction.GetAuctionSummaryList()
+		if err != nil {
+			conR.logger.Error("get summary list failed", "error", err)
+			return nil //TBD: still create Tx?
+		}
+		size := len(summaryList.Summaries)
+		if size != 0 {
+			lastEnd = summaryList.Summaries[size-1].EndHeight
+		} else {
+			lastEnd = 0
+		}
+	}
+	builder.Clause(tx.NewClause(&auction.AuctionAccountAddr).WithValue(big.NewInt(0)).WithToken(tx.TOKEN_METER_GOV).WithData(BuildAuctionStart(lastEnd+1, height)))
+
+	conR.logger.Info("Auction Tx Built", "Height", conR.chain.BestBlock().Header().Number()+1)
+	return builder.Build()
 }

@@ -384,7 +384,7 @@ func (c *ConsensusReactor) verifyBlock(blk *block.Block, state *state.State) (*s
 		}
 		return true, meta.Reverted, nil
 	}
-	for i, tx := range txs {
+	for _, tx := range txs {
 		// Mint transaction critiers:
 		// 1. no signature (no signer)
 		// 2. only located in 1st transaction in kblock.
@@ -394,7 +394,8 @@ func (c *ConsensusReactor) verifyBlock(blk *block.Block, state *state.State) (*s
 		}
 
 		if signer.IsZero() {
-			if (i != 0) || (blk.Header().BlockType() != block.BLOCK_TYPE_K_BLOCK) {
+			//TBD: check to addresses in clauses
+			if blk.Header().BlockType() != block.BLOCK_TYPE_K_BLOCK {
 				return nil, nil, consensusError(fmt.Sprintf("tx signer unavailable"))
 			}
 		}
@@ -736,8 +737,14 @@ func (conR *ConsensusReactor) BuildKBlock(parentBlock *block.Block, data *block.
 
 	conR.logger.Info("Start to build KBlock", "nonce", data.Nonce)
 	startTime := mclock.Now()
-	//XXX: Build kblock coinbase Tranactions
+
+	// build miner meter reward
 	txs := conR.GetKBlockRewardTxs(rewards)
+
+	// auction tx
+	if tx := conR.TryBuildAuctionTxs(uint64(best.Header().Number()+1), uint64(best.Header().LastKBlockHeight())); tx != nil {
+		txs = append(txs, tx)
+	}
 
 	pool := txpool.GetGlobTxPoolInst()
 	if pool == nil {
