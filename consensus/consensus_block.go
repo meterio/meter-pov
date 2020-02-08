@@ -742,9 +742,11 @@ func (conR *ConsensusReactor) BuildKBlock(parentBlock *block.Block, data *block.
 	txs := conR.GetKBlockRewardTxs(rewards)
 
 	// auction tx
+	/*******
 	if tx := conR.TryBuildAuctionTxs(uint64(best.Header().Number()+1), uint64(best.Header().LastKBlockHeight())); tx != nil {
 		txs = append(txs, tx)
 	}
+	*******/
 
 	pool := txpool.GetGlobTxPoolInst()
 	if pool == nil {
