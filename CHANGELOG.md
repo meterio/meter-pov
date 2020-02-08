@@ -1,5 +1,14 @@
 # Versions
 
+## 1.3.3-beta10
+
+Added:
+
+1. clean up relay info during pacemaker start
+2. unified the proposal handling for both proposers and validators
+3. return txs back to txpool if proposal is invalidated
+4. merge round udate with timer reset, new implementation of timeout mechanism
+
 ## 1.3.3-beta9
 
 Updated:
