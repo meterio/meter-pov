@@ -671,7 +671,9 @@ func (conR *ConsensusReactor) CalcCommitteeByNonce(nonce uint64) (*types.Validat
 	})
 
 	vals = vals[:conR.committeeSize]
-
+	if len(vals) < 1 {
+		conR.logger.Warn("VALIDATOR SET is empty, potential error config with delegates.json", "delegates", len(conR.curDelegates.Delegates))
+	}
 	// the full list is stored in currCommittee, sorted.
 	// To become a validator (real member in committee), must repond the leader's
 	// announce. Validators are stored in conR.conS.Vlidators

@@ -122,7 +122,12 @@ func NewReplayLeaderConsensusCommon(conR *ConsensusReactor, paramBytes []byte, s
 	// read from backup file
 	PubKey, PrivKey, err := readBackKeyPairs(conR, system)
 	if err != nil {
-		panic(err)
+		pubKey, privKey, err := bls.GenKeys(system)
+		if err != nil {
+			panic(err)
+		}
+		PubKey = &pubKey
+		PrivKey = &privKey
 	}
 
 	return &ConsensusCommon{
@@ -155,7 +160,12 @@ func NewValidatorReplayConsensusCommon(conR *ConsensusReactor, paramBytes []byte
 	// read from file
 	PubKey, PrivKey, err := readBackKeyPairs(conR, system)
 	if err != nil {
-		panic(err)
+		pubKey, privKey, err := bls.GenKeys(system)
+		if err != nil {
+			panic(err)
+		}
+		PubKey = &pubKey
+		PrivKey = &privKey
 	}
 
 	return &ConsensusCommon{
