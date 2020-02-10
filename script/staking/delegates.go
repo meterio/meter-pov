@@ -56,6 +56,14 @@ func (l *DelegateList) CleanAll() error {
 	return nil
 }
 
+func (l *DelegateList) Members() string {
+	members := make([]string, 0)
+	for _, d := range l.delegates {
+		members = append(members, string(d.Name))
+	}
+	return strings.Join(members, ", ")
+}
+
 func (l *DelegateList) SetDelegates(delegates []*Delegate) error {
 	l.delegates = delegates
 	return nil

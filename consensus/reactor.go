@@ -671,13 +671,16 @@ func (conR *ConsensusReactor) CalcCommitteeByNonce(nonce uint64) (*types.Validat
 	})
 
 	vals = vals[:conR.committeeSize]
-	if len(vals) < 1 {
-		conR.logger.Warn("VALIDATOR SET is empty, potential error config with delegates.json", "delegates", len(conR.curDelegates.Delegates))
-	}
 	// the full list is stored in currCommittee, sorted.
 	// To become a validator (real member in committee), must repond the leader's
 	// announce. Validators are stored in conR.conS.Vlidators
 	Committee := types.NewValidatorSet2(vals)
+	if len(vals) < 1 {
+		conR.logger.Error("VALIDATOR SET is empty, potential error config with delegates.json", "delegates", len(conR.curDelegates.Delegates))
+
+		return Committee, CONSENSUS_COMMIT_ROLE_NONE, 0, false
+	}
+
 	if bytes.Equal(crypto.FromECDSAPub(&vals[0].PubKey), crypto.FromECDSAPub(&conR.myPubKey)) == true {
 		return Committee, CONSENSUS_COMMIT_ROLE_LEADER, 0, true
 	}

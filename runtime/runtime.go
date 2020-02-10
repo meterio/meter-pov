@@ -335,7 +335,7 @@ func (rt *Runtime) PrepareClause(
 			// exclude 4 bytes of clause data
 			// fmt.Println("Exec Clause: ", hex.EncodeToString(clause.Data()))
 			data, leftOverGas, vmErr = se.HandleScriptData(clause.Data()[4:], clause.To(), txCtx, gas, rt.state)
-			fmt.Println("scriptEngine handling return", data, leftOverGas, vmErr)
+			// fmt.Println("scriptEngine handling return", data, leftOverGas, vmErr)
 
 			interrupted := false
 			output := &Output{
