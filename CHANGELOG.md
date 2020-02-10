@@ -1,5 +1,11 @@
 # Versions
 
+## 1.3.3-beta11
+
+Added:
+
+1. auto regenerate consensus.key if read file fails
+
 ## 1.3.3-beta10
 
 Added:
