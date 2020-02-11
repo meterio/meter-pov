@@ -6,7 +6,10 @@ import (
 	"math/big"
 
 	"github.com/dfinlab/meter/meter"
+	"github.com/dfinlab/meter/runtime/statedb"
 	"github.com/dfinlab/meter/state"
+
+	"github.com/ethereum/go-ethereum/common"
 )
 
 // the global variables in auction
@@ -84,19 +87,21 @@ func (a *Auction) TransferMTRToAuction(addr meter.Address, amount *big.Int, stat
 	return nil
 }
 
-func (a *Auction) SendMTRGToBidder(addr meter.Address, amount *big.Int, state *state.State) error {
+func (a *Auction) SendMTRGToBidder(addr meter.Address, amount *big.Int, stateDB *statedb.StateDB) error {
 	if amount.Sign() == 0 {
 		return nil
 	}
 
-	balance := state.GetBalance(addr)
-	state.SetBalance(addr, new(big.Int).Add(balance, amount))
+	// in auction, MeterGov is mint action.
+	stateDB.MintBalance(common.Address(addr), amount)
 	return nil
 }
 
 //==============================================
 // when auction is over
 func (a *Auction) ClearAuction(cb *AuctionCB, state *state.State) (*big.Int, error) {
+	stateDB := statedb.New(state)
+
 	actualPrice := cb.RlsdMTRG.Div(cb.RcvdMTR, cb.RlsdMTRG)
 	if actualPrice.Cmp(cb.RsvdPrice) < 0 {
 		actualPrice = cb.RsvdPrice
@@ -105,12 +110,12 @@ func (a *Auction) ClearAuction(cb *AuctionCB, state *state.State) (*big.Int, err
 	var total *big.Int
 	for _, tx := range cb.AuctionTxs {
 		mtrg := tx.Amount.Div(tx.Amount, actualPrice)
-		a.SendMTRGToBidder(tx.Addr, mtrg, state)
+		a.SendMTRGToBidder(tx.Addr, mtrg, stateDB)
 		total = total.Add(total, mtrg)
 	}
 
 	leftOver := cb.RlsdMTRG.Sub(cb.RlsdMTRG, total)
-	a.SendMTRGToBidder(AuctionAccountAddr, leftOver, state)
+	a.SendMTRGToBidder(AuctionAccountAddr, leftOver, stateDB)
 	a.logger.Info("finished auctionCB clear...", "actualPrice", actualPrice.Int64(), "leftOver", leftOver.Int64())
 	return actualPrice, nil
 }
