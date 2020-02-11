@@ -8,13 +8,13 @@ package runtime
 import (
 	"math/big"
 
-	"github.com/ethereum/go-ethereum/common/math"
-	"github.com/pkg/errors"
 	"github.com/dfinlab/meter/builtin"
-	"github.com/dfinlab/meter/state"
 	"github.com/dfinlab/meter/meter"
+	"github.com/dfinlab/meter/state"
 	"github.com/dfinlab/meter/tx"
 	"github.com/dfinlab/meter/xenv"
+	"github.com/ethereum/go-ethereum/common/math"
+	"github.com/pkg/errors"
 )
 
 // ResolvedTransaction resolve the transaction according to given state.
@@ -95,7 +95,7 @@ func (r *ResolvedTransaction) BuyGas(state *state.State, blockTime uint64) (
 	baseGasPrice = builtin.Params.Native(state).Get(meter.KeyBaseGasPrice)
 	gasPrice = r.tx.GasPrice(baseGasPrice)
 
-	energy := builtin.Energy.Native(state, blockTime)
+	energy := builtin.Energy.Native(state)
 	doReturnGas := func(rgas uint64) *big.Int {
 		returnedEnergy := new(big.Int).Mul(new(big.Int).SetUint64(rgas), gasPrice)
 		energy.Add(payer, returnedEnergy)
@@ -128,7 +128,7 @@ func (r *ResolvedTransaction) BuyGas(state *state.State, blockTime uint64) (
 	}
 
 	// fallback to deduct from tx origin
-	// XXX reward transaction (Origin is nil) should not to deduct 
+	// XXX reward transaction (Origin is nil) should not to deduct
 	if !r.Origin.IsZero() {
 		if energy.Sub(r.Origin, prepaid) {
 			return baseGasPrice, gasPrice, r.Origin, func(rgas uint64) { doReturnGas(rgas) }, nil

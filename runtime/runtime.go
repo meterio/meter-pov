@@ -488,7 +488,7 @@ func (rt *Runtime) PrepareTransaction(tx *tx.Transaction) (*TransactionExecutor,
 
 			// mint transaction gas is not prepaid, so no reward.
 			if !origin.IsZero() {
-				builtin.Energy.Native(rt.state, rt.ctx.Time).Add(rt.ctx.Beneficiary, reward)
+				builtin.Energy.Native(rt.state).Add(rt.ctx.Beneficiary, reward)
 			}
 
 			receipt.Reward = reward

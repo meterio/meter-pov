@@ -8,9 +8,9 @@ package builtin
 import (
 	"math/big"
 
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/dfinlab/meter/meter"
 	"github.com/dfinlab/meter/xenv"
+	"github.com/ethereum/go-ethereum/common"
 )
 
 func init() {
@@ -20,12 +20,12 @@ func init() {
 	}{
 		{"native_totalSupply", func(env *xenv.Environment) []interface{} {
 			env.UseGas(meter.SloadGas)
-			supply := Energy.Native(env.State(), env.BlockContext().Time).TotalSupply()
+			supply := Energy.Native(env.State()).TotalSupply()
 			return []interface{}{supply}
 		}},
 		{"native_totalBurned", func(env *xenv.Environment) []interface{} {
 			env.UseGas(meter.SloadGas)
-			burned := Energy.Native(env.State(), env.BlockContext().Time).TotalBurned()
+			burned := Energy.Native(env.State()).TotalBurned()
 			return []interface{}{burned}
 		}},
 		{"native_get", func(env *xenv.Environment) []interface{} {
@@ -33,7 +33,7 @@ func init() {
 			env.ParseArgs(&addr)
 
 			env.UseGas(meter.GetBalanceGas)
-			bal := Energy.Native(env.State(), env.BlockContext().Time).Get(meter.Address(addr))
+			bal := Energy.Native(env.State()).Get(meter.Address(addr))
 			return []interface{}{bal}
 		}},
 		{"native_add", func(env *xenv.Environment) []interface{} {
@@ -52,7 +52,7 @@ func init() {
 			} else {
 				env.UseGas(meter.SstoreSetGas)
 			}
-			Energy.Native(env.State(), env.BlockContext().Time).Add(meter.Address(args.Addr), args.Amount)
+			Energy.Native(env.State()).Add(meter.Address(args.Addr), args.Amount)
 			return nil
 		}},
 		{"native_sub", func(env *xenv.Environment) []interface{} {
@@ -66,7 +66,7 @@ func init() {
 			}
 
 			env.UseGas(meter.GetBalanceGas)
-			ok := Energy.Native(env.State(), env.BlockContext().Time).Sub(meter.Address(args.Addr), args.Amount)
+			ok := Energy.Native(env.State()).Sub(meter.Address(args.Addr), args.Amount)
 			if ok {
 				env.UseGas(meter.SstoreResetGas)
 			}

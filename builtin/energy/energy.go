@@ -26,7 +26,7 @@ type Energy struct {
 }
 
 // New creates a new energy instance.
-func New(addr meter.Address, state *state.State, blockTime uint64) *Energy {
+func New(addr meter.Address, state *state.State) *Energy {
 	return &Energy{addr, state}
 }
 

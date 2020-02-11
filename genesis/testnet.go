@@ -60,7 +60,7 @@ func NewTestnet() *Genesis {
 			tokenSupply.Add(tokenSupply, amount)
 			energySupply.Add(energySupply, amount)
 
-			builtin.Energy.Native(state, launchTime).SetInitialSupply(tokenSupply, energySupply)
+			builtin.Energy.Native(state).SetInitialSupply(tokenSupply, energySupply)
 			return nil
 		}).
 		// set initial params

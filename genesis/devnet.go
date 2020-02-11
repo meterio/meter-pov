@@ -89,7 +89,7 @@ func NewDevnet() *Genesis {
 				tokenSupply.Add(tokenSupply, bal)
 				energySupply.Add(energySupply, bal)
 			}
-			builtin.Energy.Native(state, launchTime).SetInitialSupply(tokenSupply, energySupply)
+			builtin.Energy.Native(state).SetInitialSupply(tokenSupply, energySupply)
 			return nil
 		}).
 		Call(

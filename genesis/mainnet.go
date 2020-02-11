@@ -67,7 +67,7 @@ func NewMainnet() *Genesis {
 			state.SetBalance(meter.MustParseAddress("0x0bd7b06debd1522e75e4b91ff598f107fd826c8a"), amount)
 			state.SetEnergy(meter.MustParseAddress("0x0bd7b06debd1522e75e4b91ff598f107fd826c8a"), &big.Int{})
 
-			builtin.Energy.Native(state, launchTime).SetInitialSupply(tokenSupply, energySupply)
+			builtin.Energy.Native(state).SetInitialSupply(tokenSupply, energySupply)
 			return nil
 		})
 
