@@ -19,7 +19,7 @@ import (
 )
 
 const (
-	MSG_KEEP_HEIGHT = 20
+	MSG_KEEP_HEIGHT = 40
 )
 
 type receivedConsensusMessage struct {
@@ -478,13 +478,9 @@ func (p *Pacemaker) pendingNewView(queryHeight, queryRound uint64, newViewMsg *P
 func (p *Pacemaker) checkPendingMessages(curHeight uint64) error {
 	height := curHeight
 	p.logger.Info("Check pending messages", "from", height)
-	for {
-		pendingMsg, ok := p.pendingList.messages[height]
-		if !ok {
-			break
-		}
+	if pendingMsg, ok := p.pendingList.messages[height]; ok {
 		p.pacemakerMsgCh <- pendingMsg
-		height++ //move higher
+		// height++ //move higher
 	}
 
 	lowest := p.pendingList.GetLowestHeight()

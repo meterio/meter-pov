@@ -261,6 +261,11 @@ func (p *Pacemaker) OnReceiveProposal(proposalMsg *PMProposalMessage, from types
 	height := uint64(msgHeader.Height)
 	round := uint64(msgHeader.Round)
 
+	if height < p.blockLocked.Height {
+		p.logger.Info("recved proposal with height < bLocked.height, ignore ...", "height", height, "bLocked.height", p.blockLocked.Height)
+		return nil
+	}
+
 	// decode block to get qc
 	blk, err := block.BlockDecodeFromBytes(proposalMsg.ProposedBlock)
 	if err != nil {
