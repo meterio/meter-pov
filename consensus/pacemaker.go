@@ -260,6 +260,11 @@ func (p *Pacemaker) OnReceiveProposal(proposalMsg *PMProposalMessage, from types
 	height := uint64(msgHeader.Height)
 	round := uint64(msgHeader.Round)
 
+	if height < p.blockLocked.Height {
+		p.logger.Info("recved proposal with height < bLocked.height, ignore ...", "height", height, "bLocked.height", p.blockLocked.Height)
+		return nil
+	}
+
 	// decode block to get qc
 	blk, err := block.BlockDecodeFromBytes(proposalMsg.ProposedBlock)
 	if err != nil {
@@ -605,19 +610,24 @@ func (p *Pacemaker) OnReceiveNewView(newViewMsg *PMNewViewMessage, from types.Ne
 			return nil
 		}
 
+		qcHeight := qc.QCHeight
+		qcRound := qc.QCRound
+		qcEpoch := qc.EpochID
+
 		// if I don't have the proposal at specified height, query my peer
-		if _, ok := p.proposalMap[height]; ok != true {
-			if err := p.sendQueryProposalMsg(height, round, epoch, from); err != nil {
+		if _, ok := p.proposalMap[qcHeight]; ok != true {
+			p.logger.Info("Send PMQueryProposal", "height", qcHeight, "round", qcRound, "epoch", qcEpoch)
+			if err := p.sendQueryProposalMsg(qcHeight, qcRound, qcEpoch, from); err != nil {
 				p.logger.Warn("send PMQueryProposal message failed", "err", err)
 			}
 		}
 
 		// if peer's height is lower than me, forward all available proposals to fill the gap
-		if height < p.lastVotingHeight {
+		if qcHeight < p.lastVotingHeight {
 			// forward missing proposals to peers who just sent new view message with lower expected height
 			name := p.csReactor.GetCommitteeMemberNameByIP(from.IP)
 			peers := []*ConsensusPeer{newConsensusPeer(name, from.IP, 8670, p.csReactor.magic)}
-			tmpHeight := height
+			tmpHeight := qcHeight
 			var proposal *pmBlock
 			var ok bool
 			for {
