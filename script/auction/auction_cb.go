@@ -152,7 +152,7 @@ func (cb *AuctionCB) IsActive() bool {
 }
 
 //  api routine interface
-func GetAuctionCB() (*AuctionCB, error) {
+func GetActiveAuctionCB() (*AuctionCB, error) {
 	auction := GetAuctionGlobInst()
 	if auction == nil {
 		log.Warn("auction is not initilized...")
@@ -167,9 +167,5 @@ func GetAuctionCB() (*AuctionCB, error) {
 	}
 
 	cb := auction.GetAuctionCB(state)
-	if cb == nil {
-		log.Error("no active acutionCB")
-		return &AuctionCB{}, nil
-	}
 	return cb, nil
 }

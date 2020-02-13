@@ -560,7 +560,7 @@ func (sb *StakingBody) GoverningHandler(senv *StakingEnviroment, gas uint64) (re
 	// handle delegateList
 	delegates := []*Delegate{}
 	for _, c := range candidateList.candidates {
-		d := &Delegate{
+		delegate := &Delegate{
 			Address:     c.Addr,
 			PubKey:      c.PubKey,
 			Name:        c.Name,
@@ -575,7 +575,19 @@ func (sb *StakingBody) GoverningHandler(senv *StakingEnviroment, gas uint64) (re
 			continue
 		}
 		***/
-		delegates = append(delegates, d)
+		for _, bucketID := range c.Buckets {
+			b := bucketList.Get(bucketID)
+			if b == nil {
+				log.Info("get bucket from ID failed", "bucketID", bucketID)
+				continue
+			}
+			// amplify 1e12,  votes of bucket / votes of candidate * 1e12
+			shares := big.NewInt(1e12)
+			shares = shares.Mul(b.TotalVotes, shares)
+			shares = shares.Div(shares, c.TotalVotes)
+			delegate.Add(NewDistributor(b.Owner, shares.Uint64()))
+		}
+		delegates = append(delegates, delegate)
 	}
 
 	sort.SliceStable(delegates, func(i, j int) bool {

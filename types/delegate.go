@@ -10,8 +10,11 @@ import (
 	//	"github.com/ethereum/go-ethereum/crypto"
 )
 
-// Volatile state for each Delegate
-// NOTE: The Accum is not included in Delegate.Hash();
+type Distributor struct {
+	Address meter.Address
+	Shares  uint64 // unit is shannon, 1E09
+}
+
 // make sure to update that method if changes are made here
 type Delegate struct {
 	Name        []byte          `json:"name"`
@@ -19,6 +22,7 @@ type Delegate struct {
 	PubKey      ecdsa.PublicKey `json:"pub_key"`
 	VotingPower int64           `json:"voting_power"`
 	NetAddr     NetAddress      `json:"network_addr"`
+	DistList    []*Distributor
 }
 
 func NewDelegate(name []byte, addr meter.Address, pubKey ecdsa.PublicKey, votingPower int64) *Delegate {

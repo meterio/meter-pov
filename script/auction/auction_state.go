@@ -14,6 +14,7 @@ import (
 
 // the global variables in auction
 var (
+	// 0x74696f6e2d6163636f756e742d61646472657373
 	AuctionAccountAddr = meter.BytesToAddress([]byte("auction-account-address"))
 	SummaryListKey     = meter.Blake2b([]byte("summary-list-key"))
 	AuctionCBKey       = meter.Blake2b([]byte("auction-active-cb-key"))
@@ -27,8 +28,14 @@ func (a *Auction) GetAuctionCB(state *state.State) (result *AuctionCB) {
 		var auctionCB AuctionCB
 		err := decoder.Decode(&auctionCB)
 		if err != nil {
-			a.logger.Warn("Error during decoding AuctionCB", "err", err)
-			return err
+			if err.Error() == "EOF" && len(raw) == 0 {
+				// empty raw, do nothing
+			} else {
+				log.Warn("Error during decoding auctionCB, set it as an empty list", "err", err)
+			}
+			result = &AuctionCB{}
+			return nil
+
 		}
 		result = &auctionCB
 		return nil
@@ -52,12 +59,15 @@ func (a *Auction) GetSummaryList(state *state.State) (result *AuctionSummaryList
 
 		var summaries []*AuctionSummary
 		err := decoder.Decode(&summaries)
+		result = NewAuctionSummaryList(summaries)
 		if err != nil {
-			a.logger.Warn("Error during decoding auctionSummary list", "err", err)
+			if err.Error() == "EOF" && len(raw) == 0 {
+				// empty raw, do nothing
+			} else {
+				log.Warn("Error during decoding auctionSummary list", "err", err)
+			}
 			return nil
 		}
-
-		result = NewAuctionSummaryList(summaries)
 		return nil
 	})
 	return
@@ -102,19 +112,21 @@ func (a *Auction) SendMTRGToBidder(addr meter.Address, amount *big.Int, stateDB 
 func (a *Auction) ClearAuction(cb *AuctionCB, state *state.State) (*big.Int, error) {
 	stateDB := statedb.New(state)
 
-	actualPrice := cb.RlsdMTRG.Div(cb.RcvdMTR, cb.RlsdMTRG)
+	actualPrice := big.NewInt(0)
+	actualPrice = actualPrice.Div(cb.RcvdMTR, cb.RlsdMTRG)
 	if actualPrice.Cmp(cb.RsvdPrice) < 0 {
 		actualPrice = cb.RsvdPrice
 	}
 
-	var total *big.Int
+	total := big.NewInt(0)
 	for _, tx := range cb.AuctionTxs {
 		mtrg := tx.Amount.Div(tx.Amount, actualPrice)
 		a.SendMTRGToBidder(tx.Addr, mtrg, stateDB)
 		total = total.Add(total, mtrg)
 	}
 
-	leftOver := cb.RlsdMTRG.Sub(cb.RlsdMTRG, total)
+	leftOver := big.NewInt(0)
+	leftOver = leftOver.Sub(cb.RlsdMTRG, total)
 	a.SendMTRGToBidder(AuctionAccountAddr, leftOver, stateDB)
 	a.logger.Info("finished auctionCB clear...", "actualPrice", actualPrice.Int64(), "leftOver", leftOver.Int64())
 	return actualPrice, nil

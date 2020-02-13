@@ -322,17 +322,17 @@ func (c *ConsensusReactor) validateBlockBody(blk *block.Block) error {
 		return consensusError(fmt.Sprintf("block txs root mismatch: want %v, have %v", header.TxsRoot(), txs.RootHash()))
 	}
 
-	for i, tx := range txs {
+	for _, tx := range txs {
 		signer, err := tx.Signer()
 		if err != nil {
 			return consensusError(fmt.Sprintf("tx signer unavailable: %v", err))
 		}
 
-		// Mint transaction critiers:
+		// transaction critiers:
 		// 1. no signature (no signer)
-		// 2. only located in 1st transaction in kblock.
+		// 2. only located in kblock.
 		if signer.IsZero() {
-			if (i != 0) || (blk.Header().BlockType() != block.BLOCK_TYPE_K_BLOCK) {
+			if blk.Header().BlockType() != block.BLOCK_TYPE_K_BLOCK {
 				return consensusError(fmt.Sprintf("tx signer unavailable"))
 			}
 		}
@@ -741,12 +741,9 @@ func (conR *ConsensusReactor) BuildKBlock(parentBlock *block.Block, data *block.
 	// build miner meter reward
 	txs := conR.GetKBlockRewardTxs(rewards)
 
-	// auction tx
-	/*******
 	if tx := conR.TryBuildAuctionTxs(uint64(best.Header().Number()+1), uint64(best.Header().LastKBlockHeight())); tx != nil {
 		txs = append(txs, tx)
 	}
-	*******/
 
 	pool := txpool.GetGlobTxPoolInst()
 	if pool == nil {

@@ -20,8 +20,7 @@ const (
 	RoundInterval        = 2 * time.Second
 	RoundTimeoutInterval = 30 * time.Second // move the timeout from 10 to 30 secs.
 
-	MIN_MBLOCKS_AN_EPOCH   = uint64(6)
-	FORCED_MBLOCK_AN_EPOCH = uint64(1200) // about 1 hour
+	MIN_MBLOCKS_AN_EPOCH = uint64(6)
 )
 
 var (
@@ -694,7 +693,6 @@ func (p *Pacemaker) Start(newCommittee bool) {
 		p.minMBlocks = MIN_MBLOCKS_AN_EPOCH
 	} else {
 		p.minMBlocks = p.csReactor.config.EpochMBlockCount
-		// p.minMBlocks = FORCED_MBLOCK_AN_EPOCH
 		p.csReactor.config.InitCfgdDelegates = false // clean off InitCfgdDelegates
 	}
 

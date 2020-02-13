@@ -124,13 +124,19 @@ func convertStakeholder(s staking.Stakeholder) *Stakeholder {
 	}
 }
 
+type Distributor struct {
+	Address meter.Address `json:"address"`
+	Shares  uint64        `json:"shares"`
+}
+
 type Delegate struct {
-	Name        string        `json:"name"`
-	Address     meter.Address `json:"address"`
-	PubKey      string        `json:"pubKey"`
-	VotingPower string        `json:"votingPower"`
-	IPAddr      string        `json:"ipAddr"` // network addr
-	Port        uint16        `json:"port"`
+	Name        string         `json:"name"`
+	Address     meter.Address  `json:"address"`
+	PubKey      string         `json:"pubKey"`
+	VotingPower string         `json:"votingPower"`
+	IPAddr      string         `json:"ipAddr"` // network addr
+	Port        uint16         `json:"port"`
+	DistList    []*Distributor `json:"distributors"`
 }
 
 func convertDelegateList(list *staking.DelegateList) []*Delegate {
@@ -142,6 +148,14 @@ func convertDelegateList(list *staking.DelegateList) []*Delegate {
 }
 
 func convertDelegate(d staking.Delegate) *Delegate {
+	dists := []*Distributor{}
+	for _, dist := range d.DistList {
+		dists = append(dists, &Distributor{
+			Address: dist.Address,
+			Shares:  dist.Shares,
+		})
+	}
+
 	return &Delegate{
 		Name:        string(bytes.Trim(d.Name[:], "\x00")),
 		Address:     d.Address,
@@ -149,5 +163,6 @@ func convertDelegate(d staking.Delegate) *Delegate {
 		IPAddr:      string(d.IPAddr),
 		Port:        d.Port,
 		VotingPower: d.VotingPower.String(),
+		DistList:    dists,
 	}
 }

@@ -47,6 +47,7 @@ func calcRewardRange(start, end uint64) (reward float64, dReward []float64, err 
         reward = reward + heightReward
         dReward = append(dReward, heightReward)
     }
+    log.Info("meter gov released", "amount", reward, "start", start, "end", end)
     return
 }
 
@@ -59,8 +60,7 @@ func FloatToBigInt(val float64) *big.Int {
     bigval.Mul(bigval, coin)
 
     result := new(big.Int)
-    f, _ := bigval.Uint64()
-    result.SetUint64(f)
-
+    result, accuracy := bigval.Int(result)
+    log.Debug("big int", "value", result, "accuracy", accuracy)
     return result
 }

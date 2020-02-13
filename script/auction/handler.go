@@ -72,6 +72,7 @@ func (ab *AuctionBody) StartAuctionCB(env *AuctionEnviroment, gas uint64) (ret [
 	Auction := env.GetAuction()
 	state := env.GetState()
 	auctionCB := Auction.GetAuctionCB(state)
+
 	if gas < meter.ClauseGas {
 		leftOverGas = 0
 	} else {
@@ -102,6 +103,7 @@ func (ab *AuctionBody) CloseAuctionCB(senv *AuctionEnviroment, gas uint64) (ret 
 	state := senv.GetState()
 	summaryList := Auction.GetSummaryList(state)
 	auctionCB := Auction.GetAuctionCB(state)
+
 	if gas < meter.ClauseGas {
 		leftOverGas = 0
 	} else {

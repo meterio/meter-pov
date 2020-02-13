@@ -21,7 +21,8 @@ import (
 )
 
 const (
-	AuctionInterval = uint64(30000)
+	//AuctionInterval = uint64(30000)
+	AuctionInterval = uint64(300) // change 30000 to 300 to accelerate the action
 )
 
 func (conR *ConsensusReactor) GetKBlockRewardTxs(rewards []powpool.PowReward) tx.Transactions {
@@ -202,7 +203,7 @@ func (conR *ConsensusReactor) TryBuildAuctionTxs(height, lastKBlock uint64) *tx.
 
 	// stop current active auction first
 	var stopActive bool
-	cb, err := auction.GetAuctionCB()
+	cb, err := auction.GetActiveAuctionCB()
 	if err != nil {
 		conR.logger.Error("get auctionCB failed ...", "error", err)
 		return nil

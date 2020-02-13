@@ -41,7 +41,7 @@ func (at *Auction) handleGetSummaryByID(w http.ResponseWriter, req *http.Request
 }
 
 func (at *Auction) handleGetAuctionCB(w http.ResponseWriter, req *http.Request) error {
-	cb, err := auction.GetAuctionCB()
+	cb, err := auction.GetActiveAuctionCB()
 	if err != nil {
 		return err
 	}
