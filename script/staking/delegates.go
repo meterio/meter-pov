@@ -1,7 +1,6 @@
 package staking
 
 import (
-	"bytes"
 	b64 "encoding/base64"
 	"errors"
 	"fmt"
@@ -44,72 +43,10 @@ type Delegate struct {
 	VotingPower *big.Int
 	IPAddr      []byte
 	Port        uint16
+	Commission  uint64 // commission rate. unit shannon, aka, 1e09
 	DistList    []*Distributor
 }
 
-func (d *Delegate) indexOf(addr meter.Address) (int, int) {
-	// return values:
-	//     first parameter: if found, the index of the item
-	//     second parameter: if not found, the correct insert index of the item
-	if len(d.DistList) <= 0 {
-		return -1, 0
-	}
-	l := 0
-	r := len(d.DistList)
-	for l < r {
-		m := (l + r) / 2
-		cmp := bytes.Compare(addr.Bytes(), d.DistList[m].Address.Bytes())
-		if cmp < 0 {
-			r = m
-		} else if cmp > 0 {
-			l = m + 1
-		} else {
-			return m, -1
-		}
-	}
-	return -1, r
-}
-
-func (d *Delegate) Get(addr meter.Address) *Distributor {
-	index, _ := d.indexOf(addr)
-	if index >= 0 {
-		return d.DistList[index]
-	}
-	return nil
-}
-
-func (d *Delegate) Exist(addr meter.Address) bool {
-	index, _ := d.indexOf(addr)
-	return index >= 0
-}
-
-func (d *Delegate) Add(b *Distributor) error {
-	index, insertIndex := d.indexOf(b.Address)
-	if index < 0 {
-		if len(d.DistList) == 0 {
-			d.DistList = append(d.DistList, b)
-			return nil
-		}
-		newList := make([]*Distributor, insertIndex)
-		copy(newList, d.DistList[:insertIndex])
-		newList = append(newList, b)
-		newList = append(newList, d.DistList[insertIndex:]...)
-		d.DistList = newList
-	} else {
-		d.DistList[index] = b
-	}
-	return nil
-}
-
-func (d *Delegate) Remove(addr meter.Address) error {
-	index, _ := d.indexOf(addr)
-	if index >= 0 {
-		d.DistList = append(d.DistList[:index], d.DistList[index+1:]...)
-	}
-	return nil
-}
-
-// ====
 type DelegateList struct {
 	delegates []*Delegate
 }
@@ -231,15 +168,18 @@ func GetInternalDelegateList() ([]*types.Delegate, error) {
 			continue
 		}
 		// delegates must satisfy the minimum requirements
+		/****
 		if ok := s.MinimumRequirements(); ok == false {
 			continue
 		}
+		****/
 
 		d := &types.Delegate{
 			Name:        s.Name,
 			Address:     s.Address,
 			PubKey:      *pubKey,
 			VotingPower: s.VotingPower.Div(s.VotingPower, big.NewInt(1e12)).Int64(),
+			Commission:  s.Commission,
 			NetAddr: types.NetAddress{
 				IP:   net.ParseIP(string(s.IPAddr)),
 				Port: s.Port},

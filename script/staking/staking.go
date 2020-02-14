@@ -129,6 +129,12 @@ func (s *Staking) PrepareStakingHandler() (StakingHandler func(data []byte, to *
 			}
 			ret, leftOverGas, err = sb.GoverningHandler(senv, gas)
 
+		case OP_CANDIDATE_UPDT:
+			if senv.GetTxCtx().Origin != sb.CandAddr {
+				return nil, gas, errors.New("candidate address is not the same from transaction")
+			}
+			ret, leftOverGas, err = sb.CandidateUpdateHandler(senv, gas)
+
 		default:
 			log.Error("unknown Opcode", "Opcode", sb.Opcode)
 			return nil, gas, errors.New("unknow staking opcode")

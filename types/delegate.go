@@ -22,7 +22,8 @@ type Delegate struct {
 	PubKey      ecdsa.PublicKey `json:"pub_key"`
 	VotingPower int64           `json:"voting_power"`
 	NetAddr     NetAddress      `json:"network_addr"`
-	DistList    []*Distributor
+	Commission  uint64          `json:"commission"`
+	DistList    []*Distributor  `json:"distibutor_list"`
 }
 
 func NewDelegate(name []byte, addr meter.Address, pubKey ecdsa.PublicKey, votingPower int64) *Delegate {
@@ -45,11 +46,12 @@ func (v *Delegate) String() string {
 	if v == nil {
 		return "nil-Delegate"
 	}
-	return fmt.Sprintf("Delegate{%v %v %v VP:%v}",
+	return fmt.Sprintf("Delegate{%v %v %v VP:%v commission:%V}",
 		string(v.Name),
 		v.Address,
 		v.PubKey,
-		v.VotingPower)
+		v.VotingPower,
+		v.Commission)
 }
 
 // DelegateSet represent a set of *Delegate at a given height.

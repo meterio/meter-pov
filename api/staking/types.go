@@ -20,6 +20,7 @@ type Candidate struct {
 	IPAddr     string        `json:"ipAddr"` // network addr
 	Port       uint16        `json:"port"`
 	TotalVotes string        `json:"totalVotes"` // total voting from all buckets
+	Commission uint64        `json:"commission"` // commission rate unit "1e09"
 	Buckets    []string      `json:"buckets"`    // all buckets voted for this candidate
 }
 
@@ -52,6 +53,7 @@ func convertCandidate(c staking.Candidate) *Candidate {
 		IPAddr:     string(c.IPAddr),
 		Port:       c.Port,
 		TotalVotes: c.TotalVotes.String(),
+		Commission: c.Commission,
 		Buckets:    buckets,
 	}
 }
@@ -136,6 +138,7 @@ type Delegate struct {
 	VotingPower string         `json:"votingPower"`
 	IPAddr      string         `json:"ipAddr"` // network addr
 	Port        uint16         `json:"port"`
+	Commission  uint64         `json""commissin"`
 	DistList    []*Distributor `json:"distributors"`
 }
 
@@ -163,6 +166,7 @@ func convertDelegate(d staking.Delegate) *Delegate {
 		IPAddr:      string(d.IPAddr),
 		Port:        d.Port,
 		VotingPower: d.VotingPower.String(),
+		Commission:  d.Commission,
 		DistList:    dists,
 	}
 }

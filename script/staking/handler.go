@@ -15,13 +15,14 @@ import (
 )
 
 const (
-	OP_BOUND       = uint32(1)
-	OP_UNBOUND     = uint32(2)
-	OP_CANDIDATE   = uint32(3)
-	OP_UNCANDIDATE = uint32(4)
-	OP_DELEGATE    = uint32(5)
-	OP_UNDELEGATE  = uint32(6)
-	OP_GOVERNING   = uint32(10001)
+	OP_BOUND          = uint32(1)
+	OP_UNBOUND        = uint32(2)
+	OP_CANDIDATE      = uint32(3)
+	OP_UNCANDIDATE    = uint32(4)
+	OP_DELEGATE       = uint32(5)
+	OP_UNDELEGATE     = uint32(6)
+	OP_CANDIDATE_UPDT = uint32(7)
+	OP_GOVERNING      = uint32(10001)
 )
 
 func GetOpName(op uint32) string {
@@ -38,6 +39,8 @@ func GetOpName(op uint32) string {
 		return "Delegate"
 	case OP_UNDELEGATE:
 		return "Undelegate"
+	case OP_CANDIDATE_UPDT:
+		return "CandidateUpdate"
 	case OP_GOVERNING:
 		return "Governing"
 	default:
@@ -46,10 +49,6 @@ func GetOpName(op uint32) string {
 }
 
 const (
-	OPTION_CANDIDATES   = uint32(1)
-	OPTION_STAKEHOLDERS = uint32(2)
-	OPTION_BUCKETS      = uint32(3)
-
 	//TBD: candidate myself minial balance, Now is 100 (1e20) MTRG
 	MIN_CANDIDATE_BALANCE = string("100000000000000000000")
 )
@@ -301,13 +300,14 @@ func (sb *StakingBody) CandidateHandler(senv *StakingEnviroment, gas uint64) (re
 
 	// now staking the amount, force to the longest lock
 	opt, rate, locktime := GetBoundLockOption(FOUR_WEEK_LOCK)
-	log.Info("get bound option", "option", opt, "rate", rate, "locktime", locktime)
+	commission := GetCommissionRate(sb.Option)
+	log.Info("get bound option", "option", opt, "rate", rate, "locktime", locktime, "commission", commission)
 
 	// bucket owner is candidate
 	bucket := NewBucket(sb.CandAddr, sb.CandAddr, &sb.Amount, uint8(sb.Token), opt, rate, sb.Timestamp, sb.Nonce)
 	bucketList.Add(bucket)
 
-	candidate := NewCandidate(sb.CandAddr, sb.CandName, sb.CandPubKey, sb.CandIP, sb.CandPort)
+	candidate := NewCandidate(sb.CandAddr, sb.CandName, sb.CandPubKey, sb.CandIP, sb.CandPort, commission)
 	candidate.AddBucket(bucket)
 	candidateList.Add(candidate)
 
@@ -567,14 +567,14 @@ func (sb *StakingBody) GoverningHandler(senv *StakingEnviroment, gas uint64) (re
 			VotingPower: c.TotalVotes,
 			IPAddr:      c.IPAddr,
 			Port:        c.Port,
+			Commission:  c.Commission,
 		}
 
 		// delegates must satisfy the minimum requirements
-		/***
-		if ok := d.MinimumRequirements(); ok == false {
+		if ok := delegate.MinimumRequirements(); ok == false {
 			continue
 		}
-		***/
+
 		for _, bucketID := range c.Buckets {
 			b := bucketList.Get(bucketID)
 			if b == nil {
@@ -585,7 +585,7 @@ func (sb *StakingBody) GoverningHandler(senv *StakingEnviroment, gas uint64) (re
 			shares := big.NewInt(1e12)
 			shares = shares.Mul(b.TotalVotes, shares)
 			shares = shares.Div(shares, c.TotalVotes)
-			delegate.Add(NewDistributor(b.Owner, shares.Uint64()))
+			delegate.DistList = append(delegate.DistList, NewDistributor(b.Owner, shares.Uint64()))
 		}
 		delegates = append(delegates, delegate)
 	}
@@ -616,5 +616,80 @@ func (sb *StakingBody) GoverningHandler(senv *StakingEnviroment, gas uint64) (re
 
 	log.Info("After Governing, new delegate list calculated", "members", delegateList.Members())
 	// fmt.Println(delegateList.ToString())
+	return
+}
+
+// This method only update the attached infomation of candidate. Stricted to: name, public key, IP/port, commission
+func (sb *StakingBody) CandidateUpdateHandler(senv *StakingEnviroment, gas uint64) (ret []byte, leftOverGas uint64, err error) {
+
+	defer func() {
+		if err != nil {
+			ret = []byte(err.Error())
+		}
+	}()
+
+	staking := senv.GetStaking()
+	state := senv.GetState()
+	candidateList := staking.GetCandidateList(state)
+
+	if gas < meter.ClauseGas {
+		leftOverGas = 0
+	} else {
+		leftOverGas = gas - meter.ClauseGas
+	}
+
+	decoded, err := base64.StdEncoding.DecodeString(string(sb.CandPubKey))
+	if err != nil {
+		log.Error("could not decode public key")
+	}
+	pubKey, err := crypto.UnmarshalPubkey(decoded)
+	if err != nil || pubKey == nil {
+		log.Error("could not unmarshal public key")
+		return
+	}
+
+	if sb.CandPort < 1 || sb.CandPort > 65535 {
+		log.Error(fmt.Sprintf("invalid parameter: port %d (should be in [1,65535])", sb.CandPort))
+		return
+	}
+
+	ipPattern, err := regexp.Compile("^\\d+[.]\\d+[.]\\d+[.]\\d+$")
+	if !ipPattern.MatchString(string(sb.CandIP)) {
+		log.Error(fmt.Sprintf("invalid parameter: ip %s (should be a valid ipv4 address)", sb.CandIP))
+		return
+	}
+	// domainPattern, err := regexp.Compile("^([0-9a-zA-Z-_]+[.]*)+$")
+	// if the candidate already exists return error without paying gas
+	record := candidateList.Get(sb.CandAddr)
+	if record == nil {
+		log.Error(fmt.Sprintf("does not find out the candiate record", sb.CandAddr))
+		return
+	}
+
+	var changed bool
+	if bytes.Equal(record.PubKey, sb.CandPubKey) == false {
+		record.PubKey = sb.CandPubKey
+		changed = true
+	}
+	if bytes.Equal(record.IPAddr, sb.CandIP) == false {
+		record.IPAddr = sb.CandIP
+		changed = true
+	}
+	if record.Port != sb.CandPort {
+		record.Port = sb.CandPort
+		changed = true
+	}
+	commission := GetCommissionRate(sb.Option)
+	if record.Commission != commission {
+		record.Commission = commission
+		changed = true
+	}
+
+	if changed == false {
+		log.Warn("no candidate info changed")
+		return
+	}
+
+	staking.SetCandidateList(candidateList, state)
 	return
 }
