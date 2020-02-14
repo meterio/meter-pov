@@ -12,20 +12,21 @@ import (
 )
 
 type AuctionSummary struct {
-	AuctionID   meter.Bytes32
-	StartHeight uint64
-	EndHeight   uint64
-	RlsdMTRG    *big.Int
-	RsvdPrice   *big.Int
-	CreateTime  uint64
-	RcvdMTR     *big.Int
-	ActualPrice *big.Int
+	AuctionID    meter.Bytes32
+	StartHeight  uint64
+	EndHeight    uint64
+	RlsdMTRG     *big.Int
+	RsvdPrice    *big.Int
+	CreateTime   uint64
+	RcvdMTR      *big.Int
+	ActualPrice  *big.Int
+	LeftoverMTRG *big.Int
 }
 
 func (a *AuctionSummary) ToString() string {
-	return fmt.Sprintf("AuctionSummary(%v) StartHeight%v, EndHieght=%v, ReleasedMTRG=%v, ReserveredPrice=%v, CreateTime=%v, ReceivedMTR=%v, ActualPrice=%v",
+	return fmt.Sprintf("AuctionSummary(%v) StartHeight%v, EndHieght=%v, ReleasedMTRG=%v, ReserveredPrice=%v, CreateTime=%v, ReceivedMTR=%v, ActualPrice=%v, LeftoverMTRG=%v",
 		a.AuctionID.String(), a.StartHeight, a.EndHeight, a.RlsdMTRG.Uint64(), a.RsvdPrice.Uint64(),
-		a.CreateTime, a.RcvdMTR.Uint64(), a.ActualPrice.Uint64())
+		a.CreateTime, a.RcvdMTR.Uint64(), a.ActualPrice.Uint64(), a.LeftoverMTRG.Uint64())
 }
 
 // api routine interface

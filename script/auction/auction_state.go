@@ -109,7 +109,7 @@ func (a *Auction) SendMTRGToBidder(addr meter.Address, amount *big.Int, stateDB 
 
 //==============================================
 // when auction is over
-func (a *Auction) ClearAuction(cb *AuctionCB, state *state.State) (*big.Int, error) {
+func (a *Auction) ClearAuction(cb *AuctionCB, state *state.State) (*big.Int, *big.Int, error) {
 	stateDB := statedb.New(state)
 
 	actualPrice := big.NewInt(0)
@@ -129,5 +129,5 @@ func (a *Auction) ClearAuction(cb *AuctionCB, state *state.State) (*big.Int, err
 	leftOver = leftOver.Sub(cb.RlsdMTRG, total)
 	a.SendMTRGToBidder(AuctionAccountAddr, leftOver, stateDB)
 	a.logger.Info("finished auctionCB clear...", "actualPrice", actualPrice.Uint64(), "leftOver", leftOver.Uint64())
-	return actualPrice, nil
+	return actualPrice, leftOver, nil
 }

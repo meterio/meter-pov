@@ -111,19 +111,20 @@ func (ab *AuctionBody) CloseAuctionCB(senv *AuctionEnviroment, gas uint64) (ret 
 	}
 
 	// clear the auction
-	actualPrice, err := Auction.ClearAuction(auctionCB, state)
+	actualPrice, leftover, err := Auction.ClearAuction(auctionCB, state)
 	if err != nil {
 		return
 	}
 	summary := &AuctionSummary{
-		AuctionID:   auctionCB.AuctionID,
-		StartHeight: auctionCB.StartHeight,
-		EndHeight:   auctionCB.EndHeight,
-		RlsdMTRG:    auctionCB.RlsdMTRG,
-		RsvdPrice:   auctionCB.RsvdPrice,
-		CreateTime:  auctionCB.CreateTime,
-		RcvdMTR:     auctionCB.RcvdMTR,
-		ActualPrice: actualPrice,
+		AuctionID:    auctionCB.AuctionID,
+		StartHeight:  auctionCB.StartHeight,
+		EndHeight:    auctionCB.EndHeight,
+		RlsdMTRG:     auctionCB.RlsdMTRG,
+		RsvdPrice:    auctionCB.RsvdPrice,
+		CreateTime:   auctionCB.CreateTime,
+		RcvdMTR:      auctionCB.RcvdMTR,
+		ActualPrice:  actualPrice,
+		LeftoverMTRG: leftover,
 	}
 	summaries := append(summaryList.Summaries, summary)
 

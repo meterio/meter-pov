@@ -54,6 +54,6 @@ func (at *Auction) Mount(root *mux.Router, pathPrefix string) {
 	sub := root.PathPrefix(pathPrefix).Subrouter()
 	sub.Path("/summaries").Methods("Get").HandlerFunc(utils.WrapHandlerFunc(at.handleGetAuctionSummary))
 	sub.Path("/summaries/{id}").Methods("Get").HandlerFunc(utils.WrapHandlerFunc(at.handleGetSummaryByID))
-	sub.Path("/auctioncb").Methods("Get").HandlerFunc(utils.WrapHandlerFunc(at.handleGetAuctionCB))
+	sub.Path("/present").Methods("Get").HandlerFunc(utils.WrapHandlerFunc(at.handleGetAuctionCB))
 	//sub.Path("/auctioncb/{address}").Methods("Get").HandlerFunc(utils.WrapHandlerFunc(st.handleGetAuctionTxByAddress))
 }

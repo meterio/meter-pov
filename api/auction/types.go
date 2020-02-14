@@ -9,25 +9,26 @@ import (
 )
 
 type AuctionSummary struct {
-	AuctionID   string `json:"auctionID"`
-	StartHeight uint64 `json:"startHeight"`
-	EndHeight   uint64 `json:"endHeight"`
-	RlsdMTRG    string `json:"releasedMtrGov"`
-	RsvdPrice   string `json:"reservedPrice"`
-	CreateTime  string `json:"createTime"`
-	RcvdMTR     string `json:"receivedMtr"`
-	ActualPrice string `json:"actualPrice"`
+	AuctionID    string `json:"auctionID"`
+	StartHeight  uint64 `json:"startHeight"`
+	EndHeight    uint64 `json:"endHeight"`
+	RlsdMTRG     string `json:"releasedMtrGov"`
+	RsvdPrice    string `json:"reservedPrice"`
+	CreateTime   string `json:"createTime"`
+	RcvdMTR      string `json:"receivedMtr"`
+	ActualPrice  string `json:"actualPrice"`
+	LeftoverMTRG string `json:"leftoverMTRG"`
 }
 
 type AuctionCB struct {
-	AuctionID   string `json:"auctionID"`
-	StartHeight uint64 `json:"startHeight"`
-	EndHeight   uint64 `json:"endHeight"`
-	RlsdMTRG    string `json:"releasedMtrGov"`
-	RsvdPrice   string `json:"reservedPrice"`
-	CreateTime  string `json:"createTime"`
-	RcvdMTR     string `json:"receivedMtr`
-	AuctionTxs  []*AuctionTx
+	AuctionID   string       `json:"auctionID"`
+	StartHeight uint64       `json:"startHeight"`
+	EndHeight   uint64       `json:"endHeight"`
+	RlsdMTRG    string       `json:"releasedMtrGov"`
+	RsvdPrice   string       `json:"reservedPrice"`
+	CreateTime  string       `json:"createTime"`
+	RcvdMTR     string       `json:"receivedMtr`
+	AuctionTxs  []*AuctionTx `json:"auctiontxs"`
 }
 
 type AuctionTx struct {
@@ -48,14 +49,15 @@ func convertSummaryList(list *auction.AuctionSummaryList) []*AuctionSummary {
 
 func convertSummary(s *auction.AuctionSummary) *AuctionSummary {
 	return &AuctionSummary{
-		AuctionID:   s.AuctionID.AbbrevString(),
-		StartHeight: s.StartHeight,
-		EndHeight:   s.EndHeight,
-		RlsdMTRG:    s.RlsdMTRG.String(),
-		RsvdPrice:   s.RsvdPrice.String(),
-		CreateTime:  fmt.Sprintln(time.Unix(int64(s.CreateTime), 0)),
-		RcvdMTR:     s.RcvdMTR.String(),
-		ActualPrice: s.ActualPrice.String(),
+		AuctionID:    s.AuctionID.AbbrevString(),
+		StartHeight:  s.StartHeight,
+		EndHeight:    s.EndHeight,
+		RlsdMTRG:     s.RlsdMTRG.String(),
+		RsvdPrice:    s.RsvdPrice.String(),
+		CreateTime:   fmt.Sprintln(time.Unix(int64(s.CreateTime), 0)),
+		RcvdMTR:      s.RcvdMTR.String(),
+		ActualPrice:  s.ActualPrice.String(),
+		LeftoverMTRG: s.LeftoverMTRG.String(),
 	}
 }
 
