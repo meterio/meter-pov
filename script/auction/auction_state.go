@@ -128,6 +128,6 @@ func (a *Auction) ClearAuction(cb *AuctionCB, state *state.State) (*big.Int, err
 	leftOver := big.NewInt(0)
 	leftOver = leftOver.Sub(cb.RlsdMTRG, total)
 	a.SendMTRGToBidder(AuctionAccountAddr, leftOver, stateDB)
-	a.logger.Info("finished auctionCB clear...", "actualPrice", actualPrice.Int64(), "leftOver", leftOver.Int64())
+	a.logger.Info("finished auctionCB clear...", "actualPrice", actualPrice.Uint64(), "leftOver", leftOver.Uint64())
 	return actualPrice, nil
 }

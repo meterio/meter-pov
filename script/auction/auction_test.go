@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"math/big"
 	"math/rand"
-	"meter-pov-consensus/script/auction"
 	"time"
 
 	"github.com/ethereum/go-ethereum/rlp"
@@ -14,6 +13,7 @@ import (
 
 	"github.com/dfinlab/meter/meter"
 	"github.com/dfinlab/meter/script"
+	"github.com/dfinlab/meter/script/auction"
 	"github.com/dfinlab/meter/script/staking"
 )
 
@@ -26,7 +26,8 @@ GOPATH=/tmp/meter-build-xxxx/:$GOPATH go test
 var auctionIDString = string("0x0000000000000000000000000000000000000000000000000000000000000000")
 
 const (
-	HOLDER_ADDRESS = "0x0205c2D862cA051010698b69b54278cbAf945C0b"
+	HOLDER_ADDRESS = "0x8a88c59bf15451f9deb1d62f7734fece2002668e"
+	//HOLDER_ADDRESS = "0x0205c2D862cA051010698b69b54278cbAf945C0b"
 )
 
 func generateScriptData(opCode uint32, holderAddrStr string, amountInt64 int64, startHeight, endHeight uint64) (string, error) {
@@ -39,6 +40,8 @@ func generateScriptData(opCode uint32, holderAddrStr string, amountInt64 int64, 
 	case auction.OP_BID:
 		op = "Auction Bid"
 	}
+	rand.Seed(int64(time.Now().Nanosecond()))
+
 	fmt.Println("\nGenerate data for :", op)
 	holderAddr, _ := meter.ParseAddress(holderAddrStr)
 	version := uint32(0)
@@ -67,7 +70,7 @@ func generateScriptData(opCode uint32, holderAddrStr string, amountInt64 int64, 
 	s := &script.Script{
 		Header: script.ScriptHeader{
 			Version: version,
-			ModID:   script.STAKING_MODULE_ID,
+			ModID:   script.AUCTION_MODULE_ID,
 		},
 		Payload: payload,
 	}
@@ -82,7 +85,7 @@ func generateScriptData(opCode uint32, holderAddrStr string, amountInt64 int64, 
 	return hex.EncodeToString(data), nil
 }
 func TestScriptDataForBid(t *testing.T) {
-	hexData, err := generateScriptData(auction.OP_BID, HOLDER_ADDRESS, 5e18, 0, 0)
+	hexData, err := generateScriptData(auction.OP_BID, HOLDER_ADDRESS, 8e18, 0, 0)
 	if err != nil {
 		t.Fail()
 	}

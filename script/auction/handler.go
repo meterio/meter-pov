@@ -145,6 +145,7 @@ func (ab *AuctionBody) HandleAuctionTx(senv *AuctionEnviroment, gas uint64) (ret
 	auctionCB := Auction.GetAuctionCB(state)
 
 	if state.GetEnergy(ab.Bidder).Cmp(ab.Amount) < 0 {
+		log.Info("not enough meter balance", "bidder", ab.Bidder, "amount", ab.Amount)
 		err = errors.New("not enough meter balance")
 	}
 
@@ -159,12 +160,12 @@ func (ab *AuctionBody) HandleAuctionTx(senv *AuctionEnviroment, gas uint64) (ret
 		}
 		err = auctionCB.Add(tx)
 		if err != nil {
-			fmt.Println("add auctionTx failed")
+			log.Info("add auctionTx failed")
 			return
 		}
-		auctionCB.RcvdMTR = auctionCB.RcvdMTR.Add(auctionCB.RcvdMTR, tx.Amount)
 	} else {
 		if ab.Nonce == tx.Nonce {
+			log.Info("Nonce error", "input nonce", ab.Nonce, "nonce in tx", tx.Nonce)
 			err = errors.New("Nonce error")
 			return
 		}
@@ -173,6 +174,9 @@ func (ab *AuctionBody) HandleAuctionTx(senv *AuctionEnviroment, gas uint64) (ret
 		tx.LastTime = ab.Timestamp
 		tx.Count++
 	}
+
+	// Now update the total amount
+	auctionCB.RcvdMTR = auctionCB.RcvdMTR.Add(auctionCB.RcvdMTR, ab.Amount)
 
 	// transfer bidder's MTR to auction accout
 	Auction.TransferMTRToAuction(ab.Bidder, ab.Amount, state)
