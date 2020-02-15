@@ -1750,7 +1750,7 @@ func configDelegates(dataDir string /*myPubKey ecdsa.PublicKey*/) []*types.Deleg
 			addr = meter.Address(crypto.PubkeyToAddress(*pubKey))
 		}
 
-		dd := types.NewDelegate([]byte(d.Name), addr, *pubKey, d.VotingPower)
+		dd := types.NewDelegate([]byte(d.Name), addr, *pubKey, d.VotingPower, staking.COMMISSION_RATE_DEFAULT)
 		dd.NetAddr = d.NetAddr
 		delegates = append(delegates, dd)
 	}
@@ -1772,8 +1772,8 @@ func PrintDelegates(delegates []*types.Delegate) {
 		keyBytes := crypto.FromECDSAPub(&dd.PubKey)
 		pubKeyStr := base64.StdEncoding.EncodeToString(keyBytes)
 
-		fmt.Printf("#%d: %s (%s) :%d\n     Address:%s\n     Public Key: %s\n",
-			i+1, dd.Name, dd.NetAddr.IP.String(), dd.NetAddr.Port, dd.Address, pubKeyStr)
+		fmt.Printf("#%d: %s (%s) :%d\n     Address:%s\n     Public Key: %s Commission: %v Num of Dists: %v\n",
+			i+1, dd.Name, dd.NetAddr.IP.String(), dd.NetAddr.Port, dd.Address, pubKeyStr, dd.Commission, len(dd.DistList))
 	}
 	fmt.Println("============================================")
 }

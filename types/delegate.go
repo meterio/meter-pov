@@ -26,12 +26,13 @@ type Delegate struct {
 	DistList    []*Distributor  `json:"distibutor_list"`
 }
 
-func NewDelegate(name []byte, addr meter.Address, pubKey ecdsa.PublicKey, votingPower int64) *Delegate {
+func NewDelegate(name []byte, addr meter.Address, pubKey ecdsa.PublicKey, votingPower int64, commission uint64) *Delegate {
 	return &Delegate{
 		Name:        name,
 		Address:     addr,
 		PubKey:      pubKey,
 		VotingPower: votingPower,
+		Commission:  commission,
 	}
 }
 
@@ -46,12 +47,13 @@ func (v *Delegate) String() string {
 	if v == nil {
 		return "nil-Delegate"
 	}
-	return fmt.Sprintf("Delegate{%v %v %v VP:%v commission:%V}",
+	return fmt.Sprintf("Delegate{%v %v %v VP:%v commission:%v Num of Dists: %v}",
 		string(v.Name),
 		v.Address,
 		v.PubKey,
 		v.VotingPower,
-		v.Commission)
+		v.Commission,
+		len(v.DistList))
 }
 
 // DelegateSet represent a set of *Delegate at a given height.
