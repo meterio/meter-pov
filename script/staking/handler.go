@@ -50,7 +50,8 @@ func GetOpName(op uint32) string {
 
 const (
 	//TBD: candidate myself minial balance, Now is 100 (1e20) MTRG
-	MIN_CANDIDATE_BALANCE = string("100000000000000000000")
+	MIN_CANDIDATE_BALANCE     = string("100000000000000000000")
+	MIN_CANDIDATE_UPDATE_INTV = uint64(3600 * 24 * 7) // 1 week
 )
 
 // Candidate indicates the structure of a candidate
@@ -307,7 +308,7 @@ func (sb *StakingBody) CandidateHandler(senv *StakingEnviroment, gas uint64) (re
 	bucket := NewBucket(sb.CandAddr, sb.CandAddr, &sb.Amount, uint8(sb.Token), opt, rate, sb.Timestamp, sb.Nonce)
 	bucketList.Add(bucket)
 
-	candidate := NewCandidate(sb.CandAddr, sb.CandName, sb.CandPubKey, sb.CandIP, sb.CandPort, commission)
+	candidate := NewCandidate(sb.CandAddr, sb.CandName, sb.CandPubKey, sb.CandIP, sb.CandPort, commission, sb.Timestamp)
 	candidate.AddBucket(bucket)
 	candidateList.Add(candidate)
 
@@ -667,21 +668,47 @@ func (sb *StakingBody) CandidateUpdateHandler(senv *StakingEnviroment, gas uint6
 	}
 
 	var changed bool
+
+	var pubUpdated, commissionUpdated, nameUpdated bool
+
 	if bytes.Equal(record.PubKey, sb.CandPubKey) == false {
+		pubUpdated = true
+	}
+	if bytes.Equal(record.Name, sb.CandName) == false {
+		nameUpdated = true
+	}
+	commission := GetCommissionRate(sb.Option)
+	if record.Commission != commission {
+		commissionUpdated = true
+	}
+
+	// the above changes are restricted by time
+	if ((sb.Timestamp - record.Timestamp) < MIN_CANDIDATE_UPDATE_INTV) &&
+		(pubUpdated || nameUpdated || commissionUpdated) {
+		log.Error("update too frequently")
+		return
+	}
+
+	if pubUpdated {
 		record.PubKey = sb.CandPubKey
 		changed = true
 	}
+	if commissionUpdated {
+		record.Commission = commission
+		changed = true
+	}
+	if nameUpdated {
+		record.Name = sb.CandName
+		changed = true
+	}
+
+	// IP/Port are un-stricted
 	if bytes.Equal(record.IPAddr, sb.CandIP) == false {
 		record.IPAddr = sb.CandIP
 		changed = true
 	}
 	if record.Port != sb.CandPort {
 		record.Port = sb.CandPort
-		changed = true
-	}
-	commission := GetCommissionRate(sb.Option)
-	if record.Commission != commission {
-		record.Commission = commission
 		changed = true
 	}
 

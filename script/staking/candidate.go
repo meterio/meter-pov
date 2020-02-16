@@ -20,11 +20,13 @@ type Candidate struct {
 	IPAddr     []byte // network addr
 	Port       uint16
 	Commission uint64          // unit shanon, aka 1e09
+	Timestamp  uint64          // last update time
 	TotalVotes *big.Int        // total voting from all buckets
 	Buckets    []meter.Bytes32 // all buckets voted for this candidate
 }
 
-func NewCandidate(addr meter.Address, name []byte, pubKey []byte, ip []byte, port uint16, commission uint64) *Candidate {
+func NewCandidate(addr meter.Address, name []byte, pubKey []byte, ip []byte, port uint16, commission uint64,
+	timeStamp uint64) *Candidate {
 	return &Candidate{
 		Addr:       addr,
 		Name:       name,
@@ -32,6 +34,7 @@ func NewCandidate(addr meter.Address, name []byte, pubKey []byte, ip []byte, por
 		IPAddr:     ip,
 		Port:       port,
 		Commission: commission,
+		Timestamp:  timeStamp,
 		TotalVotes: big.NewInt(0), //total received votes
 		Buckets:    []meter.Bytes32{},
 	}
