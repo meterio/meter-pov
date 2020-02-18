@@ -12,10 +12,11 @@ type AuctionSummary struct {
 	AuctionID    string `json:"auctionID"`
 	StartHeight  uint64 `json:"startHeight"`
 	EndHeight    uint64 `json:"endHeight"`
-	RlsdMTRG     string `json:"releasedMtrGov"`
+	RlsdMTRG     string `json:"releasedMTRG"`
 	RsvdPrice    string `json:"reservedPrice"`
-	CreateTime   string `json:"createTime"`
-	RcvdMTR      string `json:"receivedMtr"`
+	CreateTime   uint64 `json:"createTime"`
+	Timestamp    string `json:"timestamp"`
+	RcvdMTR      string `json:"receivedMTR"`
 	ActualPrice  string `json:"actualPrice"`
 	LeftoverMTRG string `json:"leftoverMTRG"`
 }
@@ -24,19 +25,21 @@ type AuctionCB struct {
 	AuctionID   string       `json:"auctionID"`
 	StartHeight uint64       `json:"startHeight"`
 	EndHeight   uint64       `json:"endHeight"`
-	RlsdMTRG    string       `json:"releasedMtrGov"`
+	RlsdMTRG    string       `json:"releasedMTRG"`
 	RsvdPrice   string       `json:"reservedPrice"`
-	CreateTime  string       `json:"createTime"`
-	RcvdMTR     string       `json:"receivedMtr`
-	AuctionTxs  []*AuctionTx `json:"auctiontxs"`
+	CreateTime  uint64       `json:"createTime"`
+	Timestamp   string       `json:"timestamp"`
+	RcvdMTR     string       `json:"receivedMTR"`
+	AuctionTxs  []*AuctionTx `json:"auctionTxs"`
 }
 
 type AuctionTx struct {
-	Addr     string `json:"addr"`
-	Amount   string `json:"amount"`
-	Count    int    `json:"count"`
-	Nonce    uint64 `json:"nonce"`
-	LastTime string `json:"lastTime"`
+	Addr      string `json:"addr"`
+	Amount    string `json:"amount"`
+	Count     int    `json:"count"`
+	Nonce     uint64 `json:"nonce"`
+	LastTime  uint64 `json:"lastTime"`
+	Timestamp string `json:"timestamp"`
 }
 
 func convertSummaryList(list *auction.AuctionSummaryList) []*AuctionSummary {
@@ -54,7 +57,8 @@ func convertSummary(s *auction.AuctionSummary) *AuctionSummary {
 		EndHeight:    s.EndHeight,
 		RlsdMTRG:     s.RlsdMTRG.String(),
 		RsvdPrice:    s.RsvdPrice.String(),
-		CreateTime:   fmt.Sprintln(time.Unix(int64(s.CreateTime), 0)),
+		Timestamp:    fmt.Sprintln(time.Unix(int64(s.CreateTime), 0)),
+		CreateTime:   s.CreateTime,
 		RcvdMTR:      s.RcvdMTR.String(),
 		ActualPrice:  s.ActualPrice.String(),
 		LeftoverMTRG: s.LeftoverMTRG.String(),
@@ -63,11 +67,12 @@ func convertSummary(s *auction.AuctionSummary) *AuctionSummary {
 
 func convertAuctionTx(t *auction.AuctionTx) *AuctionTx {
 	return &AuctionTx{
-		Addr:     t.Addr.String(),
-		Amount:   t.Amount.String(),
-		Count:    t.Count,
-		Nonce:    t.Nonce,
-		LastTime: fmt.Sprintln(time.Unix(int64(t.LastTime), 0)),
+		Addr:      t.Addr.String(),
+		Amount:    t.Amount.String(),
+		Count:     t.Count,
+		Nonce:     t.Nonce,
+		Timestamp: fmt.Sprintln(time.Unix(int64(t.LastTime), 0)),
+		LastTime:  t.LastTime,
 	}
 }
 
@@ -83,7 +88,8 @@ func convertAuctionCB(cb *auction.AuctionCB) *AuctionCB {
 		EndHeight:   cb.EndHeight,
 		RlsdMTRG:    cb.RlsdMTRG.String(),
 		RsvdPrice:   cb.RsvdPrice.String(),
-		CreateTime:  fmt.Sprintln(time.Unix(int64(cb.CreateTime), 0)),
+		CreateTime:  cb.CreateTime,
+		Timestamp:   fmt.Sprintln(time.Unix(int64(cb.CreateTime), 0)),
 		RcvdMTR:     cb.RcvdMTR.String(),
 		AuctionTxs:  txs,
 	}
