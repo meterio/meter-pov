@@ -16,7 +16,7 @@ const (
 )
 
 var (
-	AuctionReservedPrice = big.NewInt(100) // at least  1 MTRG settle down 100 MTR
+	AuctionReservedPrice = big.NewInt(5e17) // at least  1 MTRG settle down 0.5 MTR
 )
 
 // Candidate indicates the structure of a candidate

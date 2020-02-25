@@ -114,6 +114,7 @@ func (a *Auction) ClearAuction(cb *AuctionCB, state *state.State) (*big.Int, *bi
 
 	actualPrice := big.NewInt(0)
 	actualPrice = actualPrice.Div(cb.RcvdMTR, cb.RlsdMTRG)
+	actualPrice = actualPrice.Mul(actualPrice, big.NewInt(1e18))
 	if actualPrice.Cmp(cb.RsvdPrice) < 0 {
 		actualPrice = cb.RsvdPrice
 	}
