@@ -96,24 +96,6 @@ func (st *Staking) handleGetDelegateList(w http.ResponseWriter, req *http.Reques
 	return utils.WriteJSON(w, delegateList)
 }
 
-func (st *Staking) handleGetDelegateJailedList(w http.ResponseWriter, req *http.Request) error {
-	list, err := staking.GetLatestInJailList()
-	if err != nil {
-		return err
-	}
-	jailedList := convertJailedList(list)
-	return utils.WriteJSON(w, jailedList)
-}
-
-func (st *Staking) handleGetDelegateStatsList(w http.ResponseWriter, req *http.Request) error {
-	list, err := staking.GetLatestStatisticsList()
-	if err != nil {
-		return err
-	}
-	statsList := convertStatisticsList(list)
-	return utils.WriteJSON(w, statsList)
-}
-
 func (st *Staking) Mount(root *mux.Router, pathPrefix string) {
 	sub := root.PathPrefix(pathPrefix).Subrouter()
 	sub.Path("/candidates").Methods("Get").HandlerFunc(utils.WrapHandlerFunc(st.handleGetCandidateList))
@@ -122,7 +104,5 @@ func (st *Staking) Mount(root *mux.Router, pathPrefix string) {
 	sub.Path("/candidates/{address}").Methods("Get").HandlerFunc(utils.WrapHandlerFunc(st.handleGetCandidateByAddress))
 	sub.Path("/stakeholders").Methods("Get").HandlerFunc(utils.WrapHandlerFunc(st.handleGetStakeholderList))
 	sub.Path("/stakeholders/{address}").Methods("Get").HandlerFunc(utils.WrapHandlerFunc(st.handleGetStakeholderByAddress))
-	sub.Path("/delegates/jailed").Methods("Get").HandlerFunc(utils.WrapHandlerFunc(st.handleGetDelegateJailedList))
-	sub.Path("/delegates/stats").Methods("Get").HandlerFunc(utils.WrapHandlerFunc(st.handleGetDelegateStatsList))
 	sub.Path("/delegates").Methods("Get").HandlerFunc(utils.WrapHandlerFunc(st.handleGetDelegateList))
 }

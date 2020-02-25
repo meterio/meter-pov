@@ -19,6 +19,7 @@ import (
 	"github.com/dfinlab/meter/api/eventslegacy"
 	"github.com/dfinlab/meter/api/node"
 	"github.com/dfinlab/meter/api/peers"
+	"github.com/dfinlab/meter/api/slashing"
 	"github.com/dfinlab/meter/api/staking"
 	"github.com/dfinlab/meter/api/subscriptions"
 	"github.com/dfinlab/meter/api/transactions"
@@ -84,6 +85,8 @@ func New(chain *chain.Chain, stateCreator *state.Creator, txPool *txpool.TxPool,
 	subs.Mount(router, "/subscriptions")
 	staking.New().
 		Mount(router, "/staking")
+	slashing.New().
+		Mount(router, "/slashing")
 	auction.New().
 		Mount(router, "/auction")
 

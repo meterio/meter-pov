@@ -191,6 +191,7 @@ func (s *Staking) SetDelegateList(delegateList *DelegateList, state *state.State
 func (s *Staking) GetStatisticsList(state *state.State) (result *StatisticsList) {
 	state.DecodeStorage(StakingModuleAddr, StatisticsListKey, func(raw []byte) error {
 		// fmt.Println("Loaded Raw Hex: ", hex.EncodeToString(raw))
+		delegates := make([]*DelegateStatistics, 0)
 		decoder := gob.NewDecoder(bytes.NewBuffer(raw))
 		var statisticsMap map[meter.Address]*DelegateStatistics
 		err := decoder.Decode(&statisticsMap)
@@ -200,11 +201,11 @@ func (s *Staking) GetStatisticsList(state *state.State) (result *StatisticsList)
 			} else {
 				log.Warn("Error during decoding statistics list, set it as an empty list", "err", err)
 			}
+			result = NewStatisticsList(delegates)
 			return nil
 		}
 
 		// convert map to a sorted list
-		delegates := make([]*DelegateStatistics, 0)
 		for _, v := range statisticsMap {
 			delegates = append(delegates, v)
 		}
@@ -230,6 +231,7 @@ func (s *Staking) SetStasticsList(list *StatisticsList, state *state.State) {
 func (s *Staking) GetInJailList(state *state.State) (result *DelegateInJailList) {
 	state.DecodeStorage(StakingModuleAddr, InJailListKey, func(raw []byte) error {
 		// fmt.Println("Loaded Raw Hex: ", hex.EncodeToString(raw))
+		inJails := make([]*DelegateJailed, 0)
 		decoder := gob.NewDecoder(bytes.NewBuffer(raw))
 		var inJailMap map[meter.Address]*DelegateJailed
 		err := decoder.Decode(&inJailMap)
@@ -241,12 +243,12 @@ func (s *Staking) GetInJailList(state *state.State) (result *DelegateInJailList)
 					log.Warn("Error during decoding inJail list, set it as an empty list", "err", err)
 				}
 			}
+			result = NewDelegateInJailList(inJails)
 			// fmt.Println("Loaded:", result.ToString())
 			return nil
 		}
 
 		// convert map to a sorted list
-		inJails := make([]*DelegateJailed, 0)
 		for _, v := range inJailMap {
 			inJails = append(inJails, v)
 		}
