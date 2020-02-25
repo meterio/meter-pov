@@ -88,7 +88,7 @@ func (a *Auction) PrepareAuctionHandler() (AuctionHandler func(data []byte, to *
 
 		default:
 			log.Error("unknown Opcode", "Opcode", ab.Opcode)
-			return nil, gas, errors.New("unknow staking opcode")
+			return nil, gas, errors.New("unknow auction opcode")
 		}
 		log.Info("Leaving script handler for operation", "op", ab.GetOpName(ab.Opcode))
 		return

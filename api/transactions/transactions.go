@@ -11,15 +11,19 @@ import (
 	"io/ioutil"
 	"net/http"
 
-	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/ethereum/go-ethereum/rlp"
-	"github.com/gorilla/mux"
-	"github.com/pkg/errors"
 	"github.com/dfinlab/meter/api/utils"
 	"github.com/dfinlab/meter/chain"
 	"github.com/dfinlab/meter/meter"
 	"github.com/dfinlab/meter/tx"
 	"github.com/dfinlab/meter/txpool"
+	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/ethereum/go-ethereum/rlp"
+	"github.com/gorilla/mux"
+	"github.com/pkg/errors"
+)
+
+const (
+	RecentTxLimit = 10
 )
 
 type Transactions struct {
@@ -239,10 +243,48 @@ func (t *Transactions) parseHead(head string) (meter.Bytes32, error) {
 	return h, nil
 }
 
+func (t *Transactions) handleGetRecentTransactions(w http.ResponseWriter, req *http.Request) error {
+	recentTxs := make([]*Transaction, 0)
+	best := t.chain.BestBlock()
+	var err error
+	for best.Header().Number() > 0 {
+		blockHeader := best.Header()
+		for _, tx := range best.Txs {
+			txMeta, err := t.chain.GetTransactionMeta(tx.ID(), blockHeader.ID())
+			if err != nil {
+				if t.chain.IsNotFound(err) {
+					continue
+				}
+				continue
+			}
+			converted, err := convertTransaction(tx, blockHeader, txMeta.Index)
+			if err != nil {
+				continue
+			}
+			recentTxs = append(recentTxs, converted)
+			if len(recentTxs) == RecentTxLimit {
+				break
+			}
+		}
+
+		if len(recentTxs) == RecentTxLimit {
+			break
+		}
+		parentID := blockHeader.ParentID()
+		best, err = t.chain.GetBlock(parentID)
+		if err != nil {
+			break
+		}
+	}
+
+	return utils.WriteJSON(w, recentTxs)
+}
+
 func (t *Transactions) Mount(root *mux.Router, pathPrefix string) {
 	sub := root.PathPrefix(pathPrefix).Subrouter()
 
 	sub.Path("").Methods("POST").HandlerFunc(utils.WrapHandlerFunc(t.handleSendTransaction))
+	sub.Path("/recent").Methods("GET").HandlerFunc(utils.WrapHandlerFunc(t.handleGetRecentTransactions))
 	sub.Path("/{id}").Methods("GET").HandlerFunc(utils.WrapHandlerFunc(t.handleGetTransactionByID))
 	sub.Path("/{id}/receipt").Methods("GET").HandlerFunc(utils.WrapHandlerFunc(t.handleGetTransactionReceiptByID))
 }
