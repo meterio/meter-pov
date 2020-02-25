@@ -14,27 +14,27 @@ import (
 
 //Block block
 type Block struct {
-	Number           uint32          `json:"number"`
-	ID               meter.Bytes32   `json:"id"`
-	Size             uint32          `json:"size"`
-	ParentID         meter.Bytes32   `json:"parentID"`
-	Timestamp        uint64          `json:"timestamp"`
-	GasLimit         uint64          `json:"gasLimit"`
-	Beneficiary      meter.Address   `json:"beneficiary"`
-	GasUsed          uint64          `json:"gasUsed"`
-	TotalScore       uint64          `json:"totalScore"`
-	TxsRoot          meter.Bytes32   `json:"txsRoot"`
-	StateRoot        meter.Bytes32   `json:"stateRoot"`
-	ReceiptsRoot     meter.Bytes32   `json:"receiptsRoot"`
-	Signer           meter.Address   `json:"signer"`
-	IsTrunk          bool            `json:"isTrunk"`
-	Transactions     []meter.Bytes32 `json:"transactions"`
-	IsKBlock         bool            `json:"isKBlock"`
-	LastKBlockHeight uint32          `json:"lastKBlockHeight"`
-	QCHeight         uint64          `json:"qcHeight"`
-	QCRound          uint64          `json:"qcRound"`
-	EpochID          uint64          `json:"epochID"`
-	CommitteeInfo    string          `json:"committeeInfo"`
+	Number           uint32             `json:"number"`
+	ID               meter.Bytes32      `json:"id"`
+	Size             uint32             `json:"size"`
+	ParentID         meter.Bytes32      `json:"parentID"`
+	Timestamp        uint64             `json:"timestamp"`
+	GasLimit         uint64             `json:"gasLimit"`
+	Beneficiary      meter.Address      `json:"beneficiary"`
+	GasUsed          uint64             `json:"gasUsed"`
+	TotalScore       uint64             `json:"totalScore"`
+	TxsRoot          meter.Bytes32      `json:"txsRoot"`
+	StateRoot        meter.Bytes32      `json:"stateRoot"`
+	ReceiptsRoot     meter.Bytes32      `json:"receiptsRoot"`
+	Signer           meter.Address      `json:"signer"`
+	IsTrunk          bool               `json:"isTrunk"`
+	Transactions     []meter.Bytes32    `json:"transactions"`
+	IsKBlock         bool               `json:"isKBlock"`
+	LastKBlockHeight uint32             `json:"lastKBlockHeight"`
+	QCHeight         uint64             `json:"qcHeight"`
+	QCRound          uint64             `json:"qcRound"`
+	EpochID          uint64             `json:"epochID"`
+	CommitteeInfo    []*CommitteeMember `json:"committeeMembers"`
 }
 type QC struct {
 	QCHeight         uint64 `json:"qcHeight"`
@@ -42,6 +42,12 @@ type QC struct {
 	VoterBitArrayStr string `json:"voterBitArrayStr"`
 	EpochID          uint64 `json:"epochID"`
 	Raw              string `json:"raw"`
+}
+
+type CommitteeMember struct {
+	Index   uint32 `json:"index"`
+	Name    string `json:"name"`
+	NetAddr string `json:"netAddr"`
 }
 
 func convertQC(qc *block.QuorumCert) (*QC, error) {
@@ -54,6 +60,20 @@ func convertQC(qc *block.QuorumCert) (*QC, error) {
 		Raw:              raw,
 	}, nil
 }
+
+func convertCommitteeList(cml block.CommitteeInfos) []*CommitteeMember {
+	committeeList := make([]*CommitteeMember, len(cml.CommitteeInfo))
+
+	for i, cm := range cml.CommitteeInfo {
+		committeeList[i] = &CommitteeMember{
+			Index:   cm.CSIndex,
+			Name:    "",
+			NetAddr: cm.NetAddr.IP.String(),
+		}
+	}
+	return committeeList
+}
+
 func convertBlock(b *block.Block, isTrunk bool) (*Block, error) {
 	if b == nil {
 		return nil, nil
@@ -93,8 +113,11 @@ func convertBlock(b *block.Block, isTrunk bool) (*Block, error) {
 		result.QCRound = b.QC.QCRound
 		result.EpochID = b.QC.EpochID
 	}
+
 	if len(b.CommitteeInfos.CommitteeInfo) > 0 {
-		result.CommitteeInfo = b.CommitteeInfos.String()
+		result.CommitteeInfo = convertCommitteeList(b.CommitteeInfos)
+	} else {
+		result.CommitteeInfo = make([]*CommitteeMember, 0)
 	}
 	return result, nil
 }
