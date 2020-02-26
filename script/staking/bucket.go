@@ -90,6 +90,19 @@ func (b *Bucket) ToString() string {
 		b.Nonce, b.Token, b.CreateTime, b.Option, b.MatureTime, b.CalcLastTime, b.Unbounded, b.Rate)
 }
 
+func (b *Bucket) IsForeverLock() bool {
+	if b.Option == FOREVER_LOCK {
+		return true
+	}
+	return false
+}
+
+func (b *Bucket) UpdateLockOption(opt uint32, rate uint8) error {
+	b.Option = opt
+	b.Rate = rate
+	return nil
+}
+
 type BucketList struct {
 	buckets []*Bucket
 }

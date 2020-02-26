@@ -20,26 +20,26 @@ type DelegateJailed struct {
 	PubKey      []byte // node public key
 	TotalPts    uint64 // total points of infraction
 	Infractions Infraction
-	FinedAmount *big.Int //fine
+	BailAmount  *big.Int //fine
 	JailedTime  uint64
 }
 
-func NewDelegateJailed(addr meter.Address, name []byte, pubKey []byte, pts uint64, inf *Infraction, fine *big.Int, timeStamp uint64) *DelegateJailed {
+func NewDelegateJailed(addr meter.Address, name []byte, pubKey []byte, pts uint64, inf *Infraction, bail *big.Int, timeStamp uint64) *DelegateJailed {
 	return &DelegateJailed{
 		Addr:        addr,
 		Name:        name,
 		PubKey:      pubKey,
 		TotalPts:    pts,
 		Infractions: *inf,
-		FinedAmount: fine,
+		BailAmount:  bail,
 		JailedTime:  timeStamp,
 	}
 }
 
 func (d *DelegateJailed) ToString() string {
 	pubKeyEncoded := b64.StdEncoding.EncodeToString(d.PubKey)
-	return fmt.Sprintf("DelegateJailed(%v) Addr=%v, PubKey=%v, TotalPts=%v, FinedAmount=%v, JailedTime=%v",
-		string(d.Name), d.Addr, pubKeyEncoded, d.TotalPts, d.FinedAmount.Uint64(), fmt.Sprintln(time.Unix(int64(d.JailedTime), 0)))
+	return fmt.Sprintf("DelegateJailed(%v) Addr=%v, PubKey=%v, TotalPts=%v, BailAmount=%v, JailedTime=%v",
+		string(d.Name), d.Addr, pubKeyEncoded, d.TotalPts, d.BailAmount.Uint64(), fmt.Sprintln(time.Unix(int64(d.JailedTime), 0)))
 }
 
 type DelegateInJailList struct {

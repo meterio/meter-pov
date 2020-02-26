@@ -349,3 +349,20 @@ func (s *Staking) UnboundAccountMeterGov(addr meter.Address, amount *big.Int, st
 	state.SetBoundedBalance(addr, new(big.Int).Sub(meterGovBounded, amount))
 	return nil
 }
+
+// collect bail to StakingModuleAddr
+func (s *Staking) CollectBailMeterGov(addr meter.Address, amount *big.Int, state *state.State) error {
+	if amount.Sign() == 0 {
+		return nil
+	}
+
+	meterGov := state.GetBalance(addr)
+	if meterGov.Cmp(amount) < 0 {
+		log.Error("not enough bounded meter-gov balance", "account", addr)
+		return errors.New("not enough meter-gov balance")
+	}
+
+	state.SetBalance(StakingModuleAddr, new(big.Int).Add(state.GetBalance(StakingModuleAddr), amount))
+	state.SetBalance(addr, new(big.Int).Sub(meterGov, amount))
+	return nil
+}

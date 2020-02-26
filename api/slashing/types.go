@@ -13,7 +13,7 @@ type DelegateJailed struct {
 	Name        string        `json:"name"`
 	PubKey      string        `json:"pubKey"`
 	TotalPoints uint64        `json:"totalPoints"`
-	FinedAmount string        `json:"finedAmount"`
+	BailAmount  string        `json:"bailAmount"`
 	JailedTime  uint64        `json:"jailedTime"`
 	Timestamp   string        `json:"timestamp"`
 }
@@ -46,7 +46,7 @@ func convertDelegateJailed(d *staking.DelegateJailed) *DelegateJailed {
 		Address:     d.Addr,
 		PubKey:      string(d.PubKey),
 		TotalPoints: d.TotalPts,
-		FinedAmount: d.FinedAmount.String(),
+		BailAmount:  d.BailAmount.String(),
 		JailedTime:  d.JailedTime,
 		Timestamp:   fmt.Sprintln(time.Unix(int64(d.JailedTime), 0)),
 	}

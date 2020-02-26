@@ -19,6 +19,10 @@ const (
 	FOUR_WEEK_LOCK      = uint32(4)
 	FOUR_WEEK_LOCK_RATE = uint8(8)
 	FOUR_WEEK_LOCK_TIME = uint64(60 * 60 * 24 * 28)
+
+	FOREVER_LOCK      = uint32(1000)
+	FOREVER_LOCK_RATE = FOUR_WEEK_LOCK_RATE
+	FOREVER_LOCK_TIME = uint64(0)
 )
 
 func GetBoundLockOption(chose uint32) (opt uint32, rate uint8, locktime uint64) {
@@ -34,6 +38,9 @@ func GetBoundLockOption(chose uint32) (opt uint32, rate uint8, locktime uint64) 
 
 	case FOUR_WEEK_LOCK:
 		return FOUR_WEEK_LOCK, FOUR_WEEK_LOCK_RATE, FOUR_WEEK_LOCK_TIME
+
+	case FOREVER_LOCK:
+		return FOREVER_LOCK, FOREVER_LOCK_RATE, FOREVER_LOCK_TIME
 
 	// at least lock 1 week
 	default:
@@ -54,6 +61,9 @@ func GetBoundLocktime(opt uint32) (lock uint64) {
 
 	case FOUR_WEEK_LOCK:
 		return FOUR_WEEK_LOCK_TIME
+
+	case FOREVER_LOCK:
+		return FOREVER_LOCK_TIME
 
 	// at least lock 1 week
 	default:

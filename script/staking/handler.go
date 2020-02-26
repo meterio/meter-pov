@@ -211,9 +211,11 @@ func (sb *StakingBody) UnBoundHandler(senv *StakingEnviroment, gas uint64) (ret 
 	if b == nil {
 		return nil, leftOverGas, errors.New("staking not found")
 	}
-
 	if (b.Owner != sb.HolderAddr) || (b.Value.Cmp(&sb.Amount) != 0) || (b.Token != sb.Token) {
 		return nil, leftOverGas, errors.New("staking info mismatch")
+	}
+	if b.IsForeverLock() == true {
+		return nil, leftOverGas, errors.New("bucket is locked forever, can not unbond")
 	}
 
 	// sanity check done, take actions
@@ -247,9 +249,8 @@ func (sb *StakingBody) CandidateHandler(senv *StakingEnviroment, gas uint64) (re
 	}
 
 	// candidate should meet the stake minmial requirement
-	//minCandBalance, _ := new(big.Int).SetString(MIN_CANDIDATE_BALANCE, 10)
-	minCandBalance := big.NewInt(int64(1e18))
-	if sb.Amount.Cmp(minCandBalance) < 0 {
+	// current it is 300 MTRGov
+	if sb.Amount.Cmp(MIN_REQUIRED_BY_DELEGATE) < 0 {
 		err = errors.New("does not meet minimial balance")
 		log.Error("does not meet minimial balance")
 		return
@@ -307,8 +308,8 @@ func (sb *StakingBody) CandidateHandler(senv *StakingEnviroment, gas uint64) (re
 		return
 	}
 
-	// now staking the amount, force to the longest lock
-	opt, rate, locktime := GetBoundLockOption(FOUR_WEEK_LOCK)
+	// now staking the amount, force to forever lock
+	opt, rate, locktime := GetBoundLockOption(FOREVER_LOCK)
 	commission := GetCommissionRate(sb.Option)
 	log.Info("get bound option", "option", opt, "rate", rate, "locktime", locktime, "commission", commission)
 
@@ -357,6 +358,7 @@ func (sb *StakingBody) UnCandidateHandler(senv *StakingEnviroment, gas uint64) (
 	candidateList := staking.GetCandidateList(state)
 	bucketList := staking.GetBucketList(state)
 	stakeholderList := staking.GetStakeHolderList(state)
+	inJailList := staking.GetInJailList(state)
 
 	if gas < meter.ClauseGas {
 		leftOverGas = 0
@@ -368,6 +370,12 @@ func (sb *StakingBody) UnCandidateHandler(senv *StakingEnviroment, gas uint64) (
 	record := candidateList.Get(sb.CandAddr)
 	if record == nil {
 		err = errors.New("candidate is not listed")
+		return
+	}
+
+	if in := inJailList.Exist(sb.CandAddr); in == true {
+		log.Info("in jail list, exit first ...", "address", sb.CandAddr, "name", sb.CandName)
+		err = errors.New("candidate is on jail list, exit first")
 		return
 	}
 
@@ -383,6 +391,11 @@ func (sb *StakingBody) UnCandidateHandler(senv *StakingEnviroment, gas uint64) (
 			continue
 		}
 		b.Candidate = meter.Address{}
+		// candidate locked bucket back to normal(longest lock)
+		if b.IsForeverLock() == true {
+			opt, rate, _ := GetBoundLockOption(FOUR_WEEK_LOCK)
+			b.UpdateLockOption(opt, rate)
+		}
 	}
 	candidateList.Remove(record.Addr)
 
@@ -417,6 +430,9 @@ func (sb *StakingBody) DelegateHandler(senv *StakingEnviroment, gas uint64) (ret
 	}
 	if (b.Owner != sb.HolderAddr) || (b.Value.Cmp(&sb.Amount) != 0) || (b.Token != sb.Token) {
 		return nil, leftOverGas, errors.New("staking info mismatch")
+	}
+	if b.IsForeverLock() == true {
+		return nil, leftOverGas, errors.New("bucket is locked forever, can not delegate")
 	}
 	if b.Candidate.IsZero() != true {
 		log.Error("bucket is in use", "candidate", b.Candidate)
@@ -462,6 +478,9 @@ func (sb *StakingBody) UnDelegateHandler(senv *StakingEnviroment, gas uint64) (r
 	}
 	if (b.Owner != sb.HolderAddr) || (b.Value.Cmp(&sb.Amount) != 0) || (b.Token != sb.Token) {
 		return nil, leftOverGas, errors.New("staking info mismatch")
+	}
+	if b.IsForeverLock() == true {
+		return nil, leftOverGas, errors.New("bucket is locked forever, can not undelegate")
 	}
 	if b.Candidate.IsZero() {
 		log.Error("bucket is not in use")
@@ -647,6 +666,7 @@ func (sb *StakingBody) CandidateUpdateHandler(senv *StakingEnviroment, gas uint6
 	staking := senv.GetStaking()
 	state := senv.GetState()
 	candidateList := staking.GetCandidateList(state)
+	inJailList := staking.GetInJailList(state)
 
 	if gas < meter.ClauseGas {
 		leftOverGas = 0
@@ -682,8 +702,12 @@ func (sb *StakingBody) CandidateUpdateHandler(senv *StakingEnviroment, gas uint6
 		return
 	}
 
-	var changed bool
+	if in := inJailList.Exist(sb.CandAddr); in == true {
+		log.Info("in jail list, exit first ...", "address", sb.CandAddr, "name", sb.CandName)
+		return
+	}
 
+	var changed bool
 	var pubUpdated, commissionUpdated, nameUpdated bool
 
 	if bytes.Equal(record.PubKey, sb.CandPubKey) == false {
@@ -770,9 +794,8 @@ func (sb *StakingBody) DelegateStatisticsHandler(senv *StakingEnviroment, gas ui
 		log.Warn("delegate jailed ...", "address", stats.Addr, "name", stats.Name, "totalPts", stats.TotalPts)
 		statisticsList.Remove(stats.Addr)
 		// TBD: how to fine
-		fine := big.NewInt(1e18)
-
-		inJailList.Add(NewDelegateJailed(stats.Addr, stats.Name, stats.PubKey, stats.TotalPts, &stats.Infractions, fine, sb.Timestamp))
+		bail := BAIL_FOR_EXIT_JAIL
+		inJailList.Add(NewDelegateJailed(stats.Addr, stats.Name, stats.PubKey, stats.TotalPts, &stats.Infractions, bail, sb.Timestamp))
 	}
 
 	staking.SetStatisticsList(statisticsList, state)
@@ -797,6 +820,17 @@ func (sb *StakingBody) DelegateExitJailHandler(senv *StakingEnviroment, gas uint
 		return
 	}
 
+	if state.GetBalance(jailed.Addr).Cmp(jailed.BailAmount) < 0 {
+		log.Error("not enough balance for bail")
+		err = errors.New("not enough balance for bail")
+		return
+	}
+
+	// take actions
+	if err = staking.CollectBailMeterGov(jailed.Addr, jailed.BailAmount, state); err != nil {
+		log.Error(err.Error())
+		return
+	}
 	inJailList.Remove(jailed.Addr)
 
 	log.Info("removed from jail list ...", "address", jailed.Addr, "name", jailed.Name)
