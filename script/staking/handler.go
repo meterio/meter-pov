@@ -22,7 +22,11 @@ const (
 	OP_DELEGATE       = uint32(5)
 	OP_UNDELEGATE     = uint32(6)
 	OP_CANDIDATE_UPDT = uint32(7)
-	OP_GOVERNING      = uint32(10001)
+
+	OP_DELEGATE_STATISTICS = uint32(101)
+	OP_DELEGATE_EXITJAIL   = uint32(102)
+
+	OP_GOVERNING = uint32(10001)
 )
 
 func GetOpName(op uint32) string {
@@ -41,6 +45,10 @@ func GetOpName(op uint32) string {
 		return "Undelegate"
 	case OP_CANDIDATE_UPDT:
 		return "CandidateUpdate"
+	case OP_DELEGATE_STATISTICS:
+		return "DelegateStatistics"
+	case OP_DELEGATE_EXITJAIL:
+		return "DelegateExitJail"
 	case OP_GOVERNING:
 		return "Governing"
 	default:
@@ -65,7 +73,7 @@ type StakingBody struct {
 	CandPubKey []byte //ecdsa.PublicKey
 	CandIP     []byte
 	CandPort   uint16
-	StakingID  meter.Bytes32 // only for unbound, uuid is [16]byte
+	StakingID  meter.Bytes32 // only for unbond
 	Amount     big.Int
 	Token      byte   // meter or meter gov
 	Timestamp  uint64 // staking timestamp
@@ -487,6 +495,7 @@ func (sb *StakingBody) GoverningHandler(senv *StakingEnviroment, gas uint64) (re
 	bucketList := staking.GetBucketList(state)
 	stakeholderList := staking.GetStakeHolderList(state)
 	delegateList := staking.GetDelegateList(state)
+	inJailList := staking.GetInJailList(state)
 
 	if gas < meter.ClauseGas {
 		leftOverGas = 0
@@ -571,8 +580,14 @@ func (sb *StakingBody) GoverningHandler(senv *StakingEnviroment, gas uint64) (re
 			Commission:  c.Commission,
 		}
 
+		// delegate must not in jail
+		if jailed := inJailList.Exist(delegate.Address); jailed == true {
+			log.Info("delegate in jail list, ignored ...", "name", delegate.Name, "addr", delegate.Address)
+			continue
+		}
 		// delegates must satisfy the minimum requirements
 		if ok := delegate.MinimumRequirements(); ok == false {
+			log.Info("delegate does not meet minimum requrirements, ignored ...", "name", delegate.Name, "addr", delegate.Address)
 			continue
 		}
 
@@ -718,5 +733,73 @@ func (sb *StakingBody) CandidateUpdateHandler(senv *StakingEnviroment, gas uint6
 	}
 
 	staking.SetCandidateList(candidateList, state)
+	return
+}
+
+func (sb *StakingBody) DelegateStatisticsHandler(senv *StakingEnviroment, gas uint64) (ret []byte, leftOverGas uint64, err error) {
+	defer func() {
+		if err != nil {
+			ret = []byte(err.Error())
+		}
+	}()
+
+	staking := senv.GetStaking()
+	state := senv.GetState()
+	statisticsList := staking.GetStatisticsList(state)
+	inJailList := staking.GetInJailList(state)
+
+	// while delegate in jail list, it is still received some statistics.
+	// ignore thos updates. it already paid for it
+	if in := inJailList.Exist(sb.CandAddr); in == true {
+		log.Info("in jail list ...", "address", sb.CandAddr, "name", sb.CandName)
+		return
+	}
+
+	stats := statisticsList.Get(sb.CandAddr)
+	if stats == nil {
+		stats = NewDelegateStatistics(sb.CandAddr, sb.CandName, sb.CandPubKey)
+	}
+	IncrInfraction := UnpackBytesToCounters(&sb.StakingID)
+	log.Info("Receives statistics", "incremental infraction", IncrInfraction)
+
+	jail := stats.Update(IncrInfraction)
+	// 1. remove from statistic list
+	// 2. add to jail list
+	// 3. fine
+	if jail == true {
+		log.Warn("delegate jailed ...", "address", stats.Addr, "name", stats.Name, "totalPts", stats.TotalPts)
+		statisticsList.Remove(stats.Addr)
+		// TBD: how to fine
+		fine := big.NewInt(1e18)
+
+		inJailList.Add(NewDelegateJailed(stats.Addr, stats.Name, stats.PubKey, stats.TotalPts, &stats.Infractions, fine, sb.Timestamp))
+	}
+
+	staking.SetStatisticsList(statisticsList, state)
+	staking.SetInJailList(inJailList, state)
+	return
+}
+
+func (sb *StakingBody) DelegateExitJailHandler(senv *StakingEnviroment, gas uint64) (ret []byte, leftOverGas uint64, err error) {
+	defer func() {
+		if err != nil {
+			ret = []byte(err.Error())
+		}
+	}()
+
+	staking := senv.GetStaking()
+	state := senv.GetState()
+	inJailList := staking.GetInJailList(state)
+
+	jailed := inJailList.Get(sb.CandAddr)
+	if jailed == nil {
+		log.Info("not in jail list ...", "address", sb.CandAddr, "name", sb.CandName)
+		return
+	}
+
+	inJailList.Remove(jailed.Addr)
+
+	log.Info("removed from jail list ...", "address", jailed.Addr, "name", jailed.Name)
+	staking.SetInJailList(inJailList, state)
 	return
 }

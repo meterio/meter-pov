@@ -17,18 +17,20 @@ import (
 type DelegateJailed struct {
 	Addr        meter.Address // the address for staking / reward
 	Name        []byte
-	PubKey      []byte   // node public key
-	TotalPts    uint64   // total points of infraction
+	PubKey      []byte // node public key
+	TotalPts    uint64 // total points of infraction
+	Infractions Infraction
 	FinedAmount *big.Int //fine
 	JailedTime  uint64
 }
 
-func NewDelegateJailed(addr meter.Address, name []byte, pubKey []byte, pts uint64, fine *big.Int, timeStamp uint64) *DelegateJailed {
+func NewDelegateJailed(addr meter.Address, name []byte, pubKey []byte, pts uint64, inf *Infraction, fine *big.Int, timeStamp uint64) *DelegateJailed {
 	return &DelegateJailed{
 		Addr:        addr,
 		Name:        name,
 		PubKey:      pubKey,
 		TotalPts:    pts,
+		Infractions: *inf,
 		FinedAmount: fine,
 		JailedTime:  timeStamp,
 	}

@@ -3,6 +3,7 @@ package staking
 import (
 	"bytes"
 	b64 "encoding/base64"
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"sort"
@@ -12,7 +13,7 @@ import (
 )
 
 const (
-	JailCriteria        = 40
+	JailCriteria        = 50
 	MissingLeaderPts    = 20
 	MissingCommitteePts = 10
 	MissingProposerPts  = 5
@@ -31,25 +32,35 @@ type DelegateStatistics struct {
 	Addr        meter.Address // the address for staking / reward
 	Name        []byte
 	PubKey      []byte // node public key
-	StartHeight uint64
-	InJail      bool
 	TotalPts    uint64 // total points of infraction
 	Infractions Infraction
 }
 
-func NewDelegateStatistics(addr meter.Address, name []byte, pubKey []byte, start uint64) *DelegateStatistics {
+func NewDelegateStatistics(addr meter.Address, name []byte, pubKey []byte) *DelegateStatistics {
 	return &DelegateStatistics{
-		Addr:        addr,
-		Name:        name,
-		PubKey:      pubKey,
-		StartHeight: start,
+		Addr:   addr,
+		Name:   name,
+		PubKey: pubKey,
 	}
+}
+
+func (ds *DelegateStatistics) Update(incr *Infraction) bool {
+	ds.Infractions.MissingLeader = ds.Infractions.MissingLeader + incr.MissingLeader
+	ds.Infractions.MissingCommittee = ds.Infractions.MissingCommittee + incr.MissingCommittee
+	ds.Infractions.MissingProposer = ds.Infractions.MissingProposer + incr.MissingProposer
+	ds.Infractions.MissingVoter = ds.Infractions.MissingVoter + incr.MissingVoter
+	ds.TotalPts = uint64((ds.Infractions.MissingLeader * MissingLeaderPts) + (ds.Infractions.MissingCommittee * MissingCommitteePts) +
+		(ds.Infractions.MissingProposer * MissingProposerPts) + (ds.Infractions.MissingVoter * MissingVoterPts))
+	if ds.TotalPts >= JailCriteria {
+		return true
+	}
+	return false
 }
 
 func (ds *DelegateStatistics) ToString() string {
 	pubKeyEncoded := b64.StdEncoding.EncodeToString(ds.PubKey)
-	return fmt.Sprintf("DelegateStatistics(%v) Addr=%v, PubKey=%v, StartHeight=%v, InJail=%v, TotoalPts=%v, Infractions (Missing Leader=%V, Committee=%v, Proposer=%v, Voter=%v)",
-		string(ds.Name), ds.Addr, pubKeyEncoded, ds.StartHeight, ds.InJail, ds.TotalPts, ds.Infractions.MissingLeader, ds.Infractions.MissingCommittee, ds.Infractions.MissingProposer, ds.Infractions.MissingVoter)
+	return fmt.Sprintf("DelegateStatistics(%v) Addr=%v, PubKey=%v, TotoalPts=%v, Infractions (Missing Leader=%V, Committee=%v, Proposer=%v, Voter=%v)",
+		string(ds.Name), ds.Addr, pubKeyEncoded, ds.TotalPts, ds.Infractions.MissingLeader, ds.Infractions.MissingCommittee, ds.Infractions.MissingProposer, ds.Infractions.MissingVoter)
 }
 
 type StatisticsList struct {
@@ -153,7 +164,6 @@ func (sl *StatisticsList) ToList() []DelegateStatistics {
 	return result
 }
 
-//  api routine interface
 func GetLatestStatisticsList() (*StatisticsList, error) {
 	staking := GetStakingGlobInst()
 	if staking == nil {
@@ -171,4 +181,22 @@ func GetLatestStatisticsList() (*StatisticsList, error) {
 
 	list := staking.GetStatisticsList(state)
 	return list, nil
+}
+
+func PackCountersToBytes(v *Infraction) *meter.Bytes32 {
+	b := &meter.Bytes32{}
+	binary.LittleEndian.PutUint32(b[0:4], v.MissingLeader)
+	binary.LittleEndian.PutUint32(b[4:8], v.MissingCommittee)
+	binary.LittleEndian.PutUint32(b[8:12], v.MissingProposer)
+	binary.LittleEndian.PutUint32(b[12:16], v.MissingVoter)
+	return b
+}
+
+func UnpackBytesToCounters(b *meter.Bytes32) *Infraction {
+	inf := &Infraction{}
+	inf.MissingLeader = binary.LittleEndian.Uint32(b[0:4])
+	inf.MissingCommittee = binary.LittleEndian.Uint32(b[4:8])
+	inf.MissingProposer = binary.LittleEndian.Uint32(b[8:12])
+	inf.MissingVoter = binary.LittleEndian.Uint32(b[12:16])
+	return inf
 }

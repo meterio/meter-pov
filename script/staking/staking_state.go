@@ -218,7 +218,7 @@ func (s *Staking) GetStatisticsList(state *state.State) (result *StatisticsList)
 	return
 }
 
-func (s *Staking) SetStasticsList(list *StatisticsList, state *state.State) {
+func (s *Staking) SetStatisticsList(list *StatisticsList, state *state.State) {
 	state.EncodeStorage(StakingModuleAddr, StatisticsListKey, func() ([]byte, error) {
 		buf := bytes.NewBuffer([]byte{})
 		encoder := gob.NewEncoder(buf)
