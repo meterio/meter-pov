@@ -27,6 +27,13 @@ type Infraction struct {
 	MissingVoter     uint32
 }
 
+func (inf *Infraction) String() string {
+	if inf == nil {
+		return "infraction(nil)"
+	}
+	return fmt.Sprintf("infraction(leader:%d, committee:%d, proposer:%d, voter:%d)", inf.MissingLeader, inf.MissingCommittee, inf.MissingProposer, inf.MissingVoter)
+}
+
 // Candidate indicates the structure of a candidate
 type DelegateStatistics struct {
 	Addr        meter.Address // the address for staking / reward
