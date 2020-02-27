@@ -16,6 +16,7 @@ const (
 )
 
 var (
+	MinimumBidAmount     = big.NewInt(1).Mul(big.NewInt(10), big.NewInt(1e18))
 	AuctionReservedPrice = big.NewInt(5e17) // at least  1 MTRG settle down 0.5 MTR
 )
 
@@ -148,6 +149,13 @@ func (ab *AuctionBody) HandleAuctionTx(senv *AuctionEnviroment, gas uint64) (ret
 	if state.GetEnergy(ab.Bidder).Cmp(ab.Amount) < 0 {
 		log.Info("not enough meter balance", "bidder", ab.Bidder, "amount", ab.Amount)
 		err = errors.New("not enough meter balance")
+		return
+	}
+
+	if ab.Amount.Cmp(MinimumBidAmount) < 0 {
+		log.Info("amount lower than minimum bid threshold", "amount", ab.Amount, "minBid", MinimumBidAmount)
+		err = errors.New("amount lower than minimum bid threshold")
+		return
 	}
 
 	tx := auctionCB.Get(ab.Bidder)
