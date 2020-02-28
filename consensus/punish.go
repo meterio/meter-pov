@@ -7,6 +7,7 @@ package consensus
 
 import (
 	"bytes"
+	"crypto/ecdsa"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -38,40 +39,23 @@ func (e StatEntry) String() string {
 func calcMissingCommittee(validators []*types.Validator, actualMembers []CommitteeMember) ([]meter.Address, error) {
 	result := make([]meter.Address, 0)
 
-	ins := make(map[meter.Address]bool)
+	ins := make(map[ecdsa.PublicKey]bool)
 	for _, m := range actualMembers {
-		signer := meter.Address(crypto.PubkeyToAddress(m.PubKey))
-		ins[signer] = true
+		ins[m.PubKey] = true
 	}
 
 	for _, v := range validators {
-		signer := meter.Address(crypto.PubkeyToAddress(v.PubKey))
-		if _, joined := ins[signer]; !joined {
-			result = append(result, signer)
+		if _, joined := ins[v.PubKey]; !joined {
+			result = append(result, v.Address)
 		}
 	}
 	return result, nil
 }
 
-func calcMissingProposer(actualMembers []CommitteeMember, blocks []*block.Block) ([]meter.Address, error) {
+func calcMissingProposer(validators []*types.Validator, actualMembers []CommitteeMember, blocks []*block.Block) ([]meter.Address, error) {
 	result := make([]meter.Address, 0)
-	members := make([]meter.Address, 0)
-	index := -1
-	actualLeader, err := blocks[0].Header().Signer()
-	if err != nil {
-		return result, err
-	}
-	for i, member := range actualMembers {
-		signer := meter.Address(crypto.PubkeyToAddress(member.PubKey))
-		members = append(members, signer)
-		if bytes.Compare(signer.Bytes(), actualLeader.Bytes()) == 0 {
-			index = i
-		}
-	}
-
-	if index < 0 {
-		return result, errors.New("leader is not in actual committee")
-	}
+	index := 0
+	origIndex := 0
 	for _, blk := range blocks {
 		actualSigner, err := blk.Header().Signer()
 		if err != nil {
@@ -79,17 +63,17 @@ func calcMissingProposer(actualMembers []CommitteeMember, blocks []*block.Block)
 		}
 		// FIXME: handle cases when proposal was sent but not enough vote to form QC
 		// in this case, we should punish the voter instead of the proposer
-		originalIndex := index
+		origIndex = index
 		for true {
-			expectedSigner := members[index%len(members)]
+			expectedSigner := meter.Address(crypto.PubkeyToAddress(actualMembers[index%len(actualMembers)].PubKey))
 			if bytes.Compare(actualSigner.Bytes(), expectedSigner.Bytes()) == 0 {
 				break
 			}
-			result = append(result, expectedSigner)
+			result = append(result, validators[actualMembers[index%len(actualMembers)].CSIndex].Address)
+
 			index++
 			// prevent the deadlock if actual proposer does not exist in actual committee
-			// this case could happen when we use --init-configured-delegates to bootstrap the network
-			if index-originalIndex >= len(members) {
+			if index-origIndex >= len(actualMembers) {
 				break
 			}
 		}
@@ -97,37 +81,25 @@ func calcMissingProposer(actualMembers []CommitteeMember, blocks []*block.Block)
 	return result, nil
 }
 
-func calcMissingLeader(actualMembers []CommitteeMember, blocks []*block.Block) ([]meter.Address, error) {
+func calcMissingLeader(validators []*types.Validator, actualMembers []CommitteeMember) ([]meter.Address, error) {
 	result := make([]meter.Address, 0)
-	members := make([]meter.Address, 0)
-	for _, member := range actualMembers {
-		signer := meter.Address(crypto.PubkeyToAddress(member.PubKey))
-		members = append(members, signer)
-	}
 
-	actualLeader, err := blocks[0].Header().Signer()
-	if err != nil {
-		return result, err
-	}
+	actualLeader := actualMembers[0]
 	index := 0
-	for bytes.Compare(actualLeader.Bytes(), members[index].Bytes()) != 0 {
-		result = append(result, members[index])
+	for index < actualLeader.CSIndex {
+		result = append(result, validators[index].Address)
 		index++
-		if index == len(members) {
-			break
-		}
 	}
 	return result, nil
 }
 
-func calcMissingVoter(actualMembers []CommitteeMember, blocks []*block.Block) ([]meter.Address, error) {
+func calcMissingVoter(validators []*types.Validator, actualMembers []CommitteeMember, blocks []*block.Block) ([]meter.Address, error) {
 	result := make([]meter.Address, 0)
 	for _, blk := range blocks {
 		voterBitArray := blk.QC.VoterBitArray()
 		for _, member := range actualMembers {
 			if voterBitArray.GetIndex(member.CSIndex) == false {
-				signer := meter.Address(crypto.PubkeyToAddress(member.PubKey))
-				result = append(result, signer)
+				result = append(result, validators[member.CSIndex].Address)
 			}
 		}
 	}
@@ -147,11 +119,9 @@ func (conR *ConsensusReactor) calcStatistics(lastKBlockHeight, height uint32) ([
 	// data structure to save infractions
 	stats := make(map[meter.Address]*StatEntry)
 	for _, v := range conR.curCommittee.Validators {
-		signer := meter.Address(crypto.PubkeyToAddress(v.PubKey))
-		pubKey := hex.EncodeToString(crypto.FromECDSAPub(&v.PubKey))
-		stats[signer] = &StatEntry{
-			Address:    signer,
-			PubKey:     pubKey,
+		stats[v.Address] = &StatEntry{
+			Address:    v.Address,
+			PubKey:     hex.EncodeToString(crypto.FromECDSAPub(&v.PubKey)),
 			Name:       v.Name,
 			Infraction: &staking.Infraction{0, 0, 0, 0},
 		}
@@ -167,6 +137,16 @@ func (conR *ConsensusReactor) calcStatistics(lastKBlockHeight, height uint32) ([
 		inf.MissingCommittee++
 	}
 
+	// calculate missing leader
+	missedLeader, err := calcMissingLeader(conR.curCommittee.Validators, conR.curActualCommittee)
+	if err != nil {
+		conR.logger.Warn("Error during missing leader calculation:", "err", err)
+	}
+	for _, addr := range missedLeader {
+		inf := stats[addr].Infraction
+		inf.MissingLeader++
+	}
+
 	// fetch all the blocks
 	blocks := make([]*block.Block, 0)
 	h := lastKBlockHeight + 1
@@ -178,18 +158,8 @@ func (conR *ConsensusReactor) calcStatistics(lastKBlockHeight, height uint32) ([
 		blocks = append(blocks, blk)
 		h++
 	}
-	// calculate missing leader
-	missedLeader, err := calcMissingLeader(conR.curActualCommittee, blocks)
-	if err != nil {
-		conR.logger.Warn("Error during missing leader calculation:", "err", err)
-	}
-	for _, addr := range missedLeader {
-		inf := stats[addr].Infraction
-		inf.MissingLeader++
-	}
-
 	// calculate missing proposer
-	missedProposer, err := calcMissingProposer(conR.curActualCommittee, blocks)
+	missedProposer, err := calcMissingProposer(conR.curCommittee.Validators, conR.curActualCommittee, blocks)
 	if err != nil {
 		conR.logger.Warn("Error during missing proposer calculation:", "err", err)
 	}
@@ -199,7 +169,7 @@ func (conR *ConsensusReactor) calcStatistics(lastKBlockHeight, height uint32) ([
 	}
 
 	// calculate missing voter
-	missedVoter, err := calcMissingVoter(conR.curActualCommittee, blocks)
+	missedVoter, err := calcMissingVoter(conR.curCommittee.Validators, conR.curActualCommittee, blocks)
 	if err != nil {
 		conR.logger.Warn("Error during missing voter calculation", "err", err)
 	} else {
@@ -254,6 +224,7 @@ func buildStatisticsData(entry *StatEntry) (ret []byte) {
 // create statistics transaction
 func (conR *ConsensusReactor) BuildStatisticsTx(entries []*StatEntry) *tx.Transaction {
 
+	fmt.Println("BuildStatisticsTx, entries=%v", entries)
 	// statistics transaction:
 	// 1. signer is nil
 	// 1. located second transaction in kblock.

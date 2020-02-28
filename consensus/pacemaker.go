@@ -235,8 +235,11 @@ func (p *Pacemaker) OnCommit(commitReady []*pmBlock) error {
 			p.Stop()
 		}
 
+		// BUG FIX: normally proposal message are cleaned once it is committed. It is ok because this proposal
+		// is not needed any more. Only in one case, if somebody queries the more old message, we can not give.
+		// so proposals are kept in this committee and clean all of them at the stopping of pacemaker.
 		// remove this pmBlock from map.
-		delete(p.proposalMap, b.Height)
+		//delete(p.proposalMap, b.Height)
 	}
 
 	return nil
@@ -1019,12 +1022,13 @@ func (p *Pacemaker) OnReceiveQueryProposal(queryMsg *PMQueryProposalMessage) err
 	p.logger.Info("receives query", "fromHeight", fromHeight, "toHeight", toHeight, "round", queryRound, "returnAddr", returnAddr)
 
 	bestHeight := uint64(p.csReactor.chain.BestBlock().Header().Number())
+	lastKBlockHeight := uint64(p.csReactor.chain.BestBlock().Header().LastKBlockHeight() + 1)
 	if toHeight <= bestHeight {
 		p.logger.Error("query too old", "fromHeight", fromHeight, "toHeight", toHeight, "round", queryRound)
 		return errors.New("query too old")
 	}
-	if fromHeight < bestHeight {
-		fromHeight = bestHeight
+	if fromHeight < lastKBlockHeight {
+		fromHeight = lastKBlockHeight
 	}
 	if fromHeight >= toHeight {
 		p.logger.Error("invalid query", "fromHeight", fromHeight, "toHeight", toHeight)
