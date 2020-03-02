@@ -160,7 +160,18 @@ func (cv *ConsensusValidator) ProcessAnnounceCommittee(announceMsg *AnnounceComm
 	// Now the announce message is OK
 
 	//get the nonce
-	nonce := announceMsg.Nonce
+	height := announceMsg.KBlockHeight
+	if height != int64(cv.csReactor.chain.BestBlock().Header().LastKBlockHeight()) {
+		cv.csReactor.logger.Error("Last KBlock height mismatch")
+		return false
+	}
+	kblock, err := cv.csReactor.chain.GetTrunkBlock(uint32(height))
+	if err != nil {
+		cv.csReactor.logger.Error("Could not get KBlock", "err", err)
+		return false
+	}
+
+	nonce := kblock.KBlockData.Nonce
 	role, inCommittee := cv.csReactor.NewValidatorSetByNonce(nonce)
 	if !inCommittee {
 		cv.csReactor.logger.Error("I am not in committee, do nothing ...")
