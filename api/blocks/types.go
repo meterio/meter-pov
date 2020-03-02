@@ -31,10 +31,9 @@ type Block struct {
 	Transactions     []meter.Bytes32    `json:"transactions"`
 	IsKBlock         bool               `json:"isKBlock"`
 	LastKBlockHeight uint32             `json:"lastKBlockHeight"`
-	QCHeight         uint64             `json:"qcHeight"`
-	QCRound          uint64             `json:"qcRound"`
-	EpochID          uint64             `json:"epochID"`
-	CommitteeInfo    []*CommitteeMember `json:"committeeMembers"`
+	CommitteeInfo    []*CommitteeMember `json:"committee"`
+	QC               *QC                `json:"qc"`
+	Nonce            uint64             `json:"nonce"`
 }
 type QC struct {
 	QCHeight         uint64 `json:"qcHeight"`
@@ -45,9 +44,10 @@ type QC struct {
 }
 
 type CommitteeMember struct {
-	Index   uint32 `json:"index"`
-	Name    string `json:"name"`
+	Index uint32 `json:"index"`
+	// Name    string `json:"name"`
 	NetAddr string `json:"netAddr"`
+	PubKey  string `json:"pubKey"`
 }
 
 func convertQC(qc *block.QuorumCert) (*QC, error) {
@@ -66,9 +66,10 @@ func convertCommitteeList(cml block.CommitteeInfos) []*CommitteeMember {
 
 	for i, cm := range cml.CommitteeInfo {
 		committeeList[i] = &CommitteeMember{
-			Index:   cm.CSIndex,
-			Name:    "",
+			Index: cm.CSIndex,
+			// Name:    "",
 			NetAddr: cm.NetAddr.IP.String(),
+			PubKey:  hex.EncodeToString(cm.PubKey),
 		}
 	}
 	return committeeList
@@ -109,15 +110,17 @@ func convertBlock(b *block.Block, isTrunk bool) (*Block, error) {
 		LastKBlockHeight: header.LastKBlockHeight(),
 	}
 	if b.QC != nil {
-		result.QCHeight = b.QC.QCHeight
-		result.QCRound = b.QC.QCRound
-		result.EpochID = b.QC.EpochID
+		result.QC, _ = convertQC(b.QC)
+		result.QC.Raw = ""
 	}
 
 	if len(b.CommitteeInfos.CommitteeInfo) > 0 {
 		result.CommitteeInfo = convertCommitteeList(b.CommitteeInfos)
 	} else {
 		result.CommitteeInfo = make([]*CommitteeMember, 0)
+	}
+	if b.KBlockData.Nonce > 0 {
+		result.Nonce = b.KBlockData.Nonce
 	}
 	return result, nil
 }
