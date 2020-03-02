@@ -72,6 +72,7 @@ type Pacemaker struct {
 	myActualCommitteeIndex int //record my index in actualcommittee
 	minMBlocks             uint64
 	goes                   co.Goes
+	stopped                bool
 }
 
 func NewPaceMaker(conR *ConsensusReactor) *Pacemaker {
@@ -88,6 +89,7 @@ func NewPaceMaker(conR *ConsensusReactor) *Pacemaker {
 		pendingList:    NewPendingList(),
 		msgRelayInfo:   NewPMProposalInfo(),
 		timeoutCounter: 0,
+		stopped:        false,
 	}
 	p.timeoutCertManager = newPMTimeoutCertManager(p)
 	p.stopCleanup()
@@ -770,6 +772,9 @@ func (p *Pacemaker) mainLoop() {
 
 	for {
 		var err error
+		if p.stopped {
+			return
+		}
 		select {
 		case <-p.stopCh:
 			p.logger.Warn("Scheduled stop, exit pacemaker now")
@@ -832,6 +837,9 @@ func (p *Pacemaker) SendKblockInfo(b *pmBlock) error {
 
 func (p *Pacemaker) stopCleanup() {
 
+	defer func() {
+		p.stopped = true
+	}()
 	p.stopRoundTimer()
 	pmRoleGauge.Set(0)
 
@@ -853,7 +861,8 @@ func (p *Pacemaker) stopCleanup() {
 }
 
 func (p *Pacemaker) IsStopped() bool {
-	return p.QCHigh == nil && p.blockExecuted == nil && p.blockLocked == nil
+	return p.stopped
+	// return p.QCHigh == nil && p.blockExecuted == nil && p.blockLocked == nil
 }
 
 //actions of commites/receives kblock, stop pacemake to next committee
