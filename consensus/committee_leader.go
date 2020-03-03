@@ -11,6 +11,7 @@ package consensus
 import (
 	"time"
 
+	"github.com/dfinlab/meter/block"
 	bls "github.com/dfinlab/meter/crypto/multi_sig"
 	cmn "github.com/dfinlab/meter/libs/common"
 	crypto "github.com/ethereum/go-ethereum/crypto"
@@ -152,7 +153,14 @@ func (cl *ConsensusLeader) GenerateAnnounceMsg() bool {
 	}
 
 	paramBytes, _ := cl.csReactor.csCommon.params.ToBytes()
-
+	best := cl.csReactor.chain.BestBlock()
+	var kblockHeight int64
+	if best.Header().BlockType() == block.BLOCK_TYPE_K_BLOCK {
+		kblockHeight = int64(best.Header().Number())
+	} else {
+		// mblock
+		kblockHeight = int64(best.Header().LastKBlockHeight())
+	}
 	msg := &AnnounceCommitteeMessage{
 		CSMsgCommonHeader: cmnHdr,
 
@@ -163,8 +171,8 @@ func (cl *ConsensusLeader) GenerateAnnounceMsg() bool {
 		CSParams:       paramBytes,
 		CSSystem:       cl.csReactor.csCommon.system.ToBytes(),
 		CSLeaderPubKey: cl.csReactor.csCommon.system.PubKeyToBytes(cl.csReactor.csCommon.PubKey),
-		KBlockHeight:   0, //TBD, last Kblock Height
-		POWBlockHeight: 0, //TBD
+		KBlockHeight:   kblockHeight,
+		POWBlockHeight: 0, //TODO: TBD
 
 		SignOffset: MSG_SIGN_OFFSET_DEFAULT,
 		SignLength: MSG_SIGN_LENGTH_DEFAULT,
