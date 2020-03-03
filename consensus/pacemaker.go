@@ -752,6 +752,7 @@ func (p *Pacemaker) Start(newCommittee bool) {
 
 	// make sure the above cleared proposal can receive again.
 	p.msgRelayInfo.CleanUpFrom(height)
+	p.stopped = false
 
 	go p.mainLoop()
 
@@ -773,6 +774,7 @@ func (p *Pacemaker) mainLoop() {
 	for {
 		var err error
 		if p.stopped {
+			p.logger.Warn("Pacemaker fully stopped.")
 			return
 		}
 		select {
