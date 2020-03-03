@@ -92,7 +92,7 @@ func NewPaceMaker(conR *ConsensusReactor) *Pacemaker {
 		stopped:        false,
 	}
 	p.timeoutCertManager = newPMTimeoutCertManager(p)
-	p.stopCleanup()
+	// p.stopCleanup()
 	return p
 }
 
