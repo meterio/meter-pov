@@ -224,7 +224,7 @@ func buildStatisticsData(entry *StatEntry) (ret []byte) {
 // create statistics transaction
 func (conR *ConsensusReactor) BuildStatisticsTx(entries []*StatEntry) *tx.Transaction {
 
-	fmt.Println("BuildStatisticsTx, entries=%v", entries)
+	// fmt.Println(fmt.Sprintf("BuildStatisticsTx, entries=%v", entries))
 	// statistics transaction:
 	// 1. signer is nil
 	// 1. located second transaction in kblock.

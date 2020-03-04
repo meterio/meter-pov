@@ -113,7 +113,7 @@ func (p *PMProposalInfo) CleanUpFrom(height uint64) error {
 // 1st layer: 				0  (proposer)
 // 2nd layer: 				[1, 2], [3, 4], [5, 6], [7, 8]
 // 3rd layer (32 groups):   [9..] ...
-func getRelayPeers(myIndex, maxIndex int) (peers []int) {
+func GetRelayPeers(myIndex, maxIndex int) (peers []int) {
 	peers = []int{}
 	if myIndex > maxIndex {
 		fmt.Println("Input wrong!!! myIndex > myIndex")

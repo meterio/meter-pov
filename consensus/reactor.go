@@ -184,6 +184,8 @@ type ConsensusReactor struct {
 	myAddr  types.NetAddress
 	myName  string
 
+	msgCache *CommitteeMsgCache
+
 	magic [4]byte
 }
 
@@ -205,6 +207,7 @@ func NewConsensusReactor(ctx *cli.Context, chain *chain.Chain, state *state.Crea
 		logger:       log15.New("pkg", "consensus"),
 		SyncDone:     false,
 		magic:        magic,
+		msgCache:     NewCommitteeMsgCache(),
 	}
 
 	if ctx != nil {
@@ -743,9 +746,23 @@ func (conR *ConsensusReactor) handleMsg(mi consensusMsgInfo) {
 		typeName = strings.Split(typeName, ".")[1]
 	}
 	peerName := conR.GetCommitteeMemberNameByIP(peer.netAddr.IP)
+	peerIP := peer.netAddr.IP.String()
 	conR.logger.Info(fmt.Sprintf("Received from peer: %v", msg.String()),
 		"peer", peerName,
-		"ip", peer.netAddr.IP.String())
+		"ip", peerIP)
+
+	// cache the message
+	if typeName == "AnnounceCommitteeMessage" || typeName == "NotaryAnnounceMessage" {
+		existed, err := conR.msgCache.CheckandAdd(&rawMsg, msg.EpochID(), msg.MsgType())
+		if err != nil {
+			conR.logger.Info("fail to add "+typeName+", dropped ...", "peer", peerName, "ip", peerIP)
+			return
+		}
+		if existed == true {
+			conR.logger.Info("duplicate "+typeName+", dropped ...", "epoch", msg.EpochID(), "msgType", msg.MsgType(), "peer", peerName, "ip", peerIP)
+			return
+		}
+	}
 
 	switch msg := msg.(type) {
 
@@ -816,6 +833,54 @@ func (conR *ConsensusReactor) handleMsg(mi consensusMsgInfo) {
 		}
 	default:
 		conR.logger.Error("Unknown msg type", "value", reflect.TypeOf(msg))
+	}
+
+	// relay the message
+	fromMyself := false
+	if peerIP == conR.myAddr.IP.String() {
+		fromMyself = true
+	}
+	if fromMyself == false && (typeName == "AnnounceCommitteeMessage" || typeName == "NotaryAnnounceMessage") {
+		conR.relayMsg(&msg, "AnnounceCommittee", conR.curRound)
+	}
+}
+
+func (conR *ConsensusReactor) GetRelayPeers(round int) ([]*ConsensusPeer, error) {
+	peers := []*ConsensusPeer{}
+	size := len(conR.curCommittee.Validators)
+	myIndex := conR.curCommitteeIndex
+	if size == 0 {
+		return make([]*ConsensusPeer, 0), errors.New("current actual committee is empty")
+	}
+	rr := round % size
+	if myIndex >= rr {
+		myIndex = myIndex - rr
+	} else {
+		myIndex = myIndex + size - rr
+	}
+
+	indexes := GetRelayPeers(myIndex, size-1)
+	for _, i := range indexes {
+		index := i + rr
+		if index >= size {
+			index = index % size
+		}
+		member := conR.curCommittee.Validators[index]
+		peers = append(peers, newConsensusPeer(member.Name, member.NetAddr.IP, member.NetAddr.Port, conR.magic))
+	}
+	return peers, nil
+}
+
+func (conR *ConsensusReactor) relayMsg(msg *ConsensusMessage, msgTypeStr string, round int) {
+	peers, _ := conR.GetRelayPeers(round)
+	conR.logger.Info("Now, relay this consensus msg...", "type", msgTypeStr, "round", round)
+	for _, peer := range peers {
+		conR.logger.Info("Now, relay this "+msgTypeStr+"...", "peer", peer.name, "ip", peer.String(), "round", round)
+		if peer.netAddr.IP.String() == conR.myAddr.IP.String() {
+			conR.logger.Info("relay to myself, ignore ...")
+			continue
+		}
+		go func(m *ConsensusMessage, p *ConsensusPeer) { conR.sendConsensusMsg(m, p) }(msg, peer)
 	}
 }
 
@@ -978,6 +1043,7 @@ func (conR *ConsensusReactor) exitConsensusValidator() int {
 
 	conR.csValidator = nil
 	conR.csRoleInitialized &= ^CONSENSUS_COMMIT_ROLE_VALIDATOR
+	conR.msgCache.CleanUpTo(conR.curEpoch)
 	conR.logger.Debug("Exit consensus validator")
 	return 0
 }
@@ -1015,6 +1081,7 @@ func (conR *ConsensusReactor) exitConsensusLeader(epochID uint64) {
 	conR.csLeader = nil
 	conR.csRoleInitialized &= ^CONSENSUS_COMMIT_ROLE_LEADER
 
+	conR.msgCache.CleanUpTo(conR.curEpoch)
 	return
 }
 
@@ -1146,7 +1213,6 @@ func (conR *ConsensusReactor) GetLatestCommitteeList() ([]*ApiCommitteeMember, e
 	}
 	for i, val := range inCommittee {
 		if val == false {
-			fmt.Println(fmt.Sprintf("index %d is false"))
 			v := conR.curCommittee.Validators[i]
 			apiCm := &ApiCommitteeMember{
 				Name:        v.Name,

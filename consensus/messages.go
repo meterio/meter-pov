@@ -22,6 +22,7 @@ import (
 type ConsensusMessage interface {
 	String() string
 	EpochID() uint64
+	MsgType() byte
 }
 
 func RegisterConsensusMessages(cdc *amino.Codec) {
@@ -141,6 +142,10 @@ func (m *AnnounceCommitteeMessage) EpochID() uint64 {
 	return m.CSMsgCommonHeader.EpochID
 }
 
+func (m *AnnounceCommitteeMessage) MsgType() byte {
+	return m.CSMsgCommonHeader.MsgType
+}
+
 // CommitCommitteMessage is sent after announce committee is received. Told the Leader
 // there is enough member to setup the committee.
 type CommitCommitteeMessage struct {
@@ -186,6 +191,10 @@ func (m *CommitCommitteeMessage) String() string {
 
 func (m *CommitCommitteeMessage) EpochID() uint64 {
 	return m.CSMsgCommonHeader.EpochID
+}
+
+func (m *CommitCommitteeMessage) MsgType() byte {
+	return m.CSMsgCommonHeader.MsgType
 }
 
 //-------------------------------------
@@ -243,6 +252,9 @@ func (m *NotaryAnnounceMessage) String() string {
 func (m *NotaryAnnounceMessage) EpochID() uint64 {
 	return m.CSMsgCommonHeader.EpochID
 }
+func (m *NotaryAnnounceMessage) MsgType() byte {
+	return m.CSMsgCommonHeader.MsgType
+}
 
 //------------------------------------
 // VoteResponseMessage is sent when voting for a proposal (or lack thereof).
@@ -285,6 +297,9 @@ func (m *VoteForNotaryMessage) String() string {
 
 func (m *VoteForNotaryMessage) EpochID() uint64 {
 	return m.CSMsgCommonHeader.EpochID
+}
+func (m *VoteForNotaryMessage) MsgType() byte {
+	return m.CSMsgCommonHeader.MsgType
 }
 
 //------------------------------------
@@ -335,6 +350,9 @@ func (m *NewCommitteeMessage) String() string {
 
 func (m *NewCommitteeMessage) EpochID() uint64 {
 	return m.CSMsgCommonHeader.EpochID
+}
+func (m *NewCommitteeMessage) MsgType() byte {
+	return m.CSMsgCommonHeader.MsgType
 }
 
 // PMProposalMessage is sent when a new block leaf is proposed
@@ -395,6 +413,9 @@ func (m *PMProposalMessage) String() string {
 func (m *PMProposalMessage) EpochID() uint64 {
 	return m.CSMsgCommonHeader.EpochID
 }
+func (m *PMProposalMessage) MsgType() byte {
+	return m.CSMsgCommonHeader.MsgType
+}
 
 // PMVoteResponseMessage is sent when voting for a proposal (or lack thereof).
 type PMVoteForProposalMessage struct {
@@ -439,6 +460,9 @@ func (m *PMVoteForProposalMessage) String() string {
 
 func (m *PMVoteForProposalMessage) EpochID() uint64 {
 	return m.CSMsgCommonHeader.EpochID
+}
+func (m *PMVoteForProposalMessage) MsgType() byte {
+	return m.CSMsgCommonHeader.MsgType
 }
 
 // PMNewViewMessage is sent to the next leader in these two senarios
@@ -499,6 +523,9 @@ func (m *PMNewViewMessage) String() string {
 func (m *PMNewViewMessage) EpochID() uint64 {
 	return m.CSMsgCommonHeader.EpochID
 }
+func (m *PMNewViewMessage) MsgType() byte {
+	return m.CSMsgCommonHeader.MsgType
+}
 
 // PMQueryProposalMessage is sent to current leader to get the parent proposal
 type PMQueryProposalMessage struct {
@@ -537,4 +564,7 @@ func (m *PMQueryProposalMessage) String() string {
 
 func (m *PMQueryProposalMessage) EpochID() uint64 {
 	return m.CSMsgCommonHeader.EpochID
+}
+func (m *PMQueryProposalMessage) MsgType() byte {
+	return m.CSMsgCommonHeader.MsgType
 }
