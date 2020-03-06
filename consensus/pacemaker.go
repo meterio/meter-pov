@@ -685,6 +685,7 @@ func (p *Pacemaker) OnReceiveNewView(newViewMsg *PMNewViewMessage, from types.Ne
 //Committee Leader triggers
 func (p *Pacemaker) Start(newCommittee bool) {
 	pmRoleGauge.Set(0)
+	pmRunningGauge.Set(1)
 	p.csReactor.chain.UpdateBestQC()
 	p.csReactor.chain.UpdateLeafBlock()
 	blockQC := p.csReactor.chain.BestQC()
@@ -852,7 +853,7 @@ func (p *Pacemaker) stopCleanup() {
 
 	//p.goes.Wait()
 	p.currentRound = 0
-	curRoundGauge.Set(float64(p.currentRound))
+	pmRoundGauge.Set(float64(p.currentRound))
 	p.lastVotingHeight = 0
 	p.QCHigh = nil
 	p.blockLeaf = nil
@@ -860,6 +861,7 @@ func (p *Pacemaker) stopCleanup() {
 	p.blockLocked = nil
 
 	p.logger.Warn("--- Pacemaker stopped successfully")
+	pmRunningGauge.Set(0)
 }
 
 func (p *Pacemaker) IsStopped() bool {
@@ -910,7 +912,7 @@ func (p *Pacemaker) updateCurrentRound(round uint64, reason roundUpdateReason) b
 	if updated {
 		p.currentRound = round
 		p.logger.Info("* Current round updated", "to", p.currentRound, "reason", reason.String())
-		curRoundGauge.Set(float64(p.currentRound))
+		pmRoundGauge.Set(float64(p.currentRound))
 		return true
 	}
 	return false

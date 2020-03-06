@@ -82,7 +82,7 @@ func (cl *ConsensusLeader) MoveInitState(curState byte) bool {
 	// should not send move to next round message for leader state machine
 	r := cl.csReactor
 	cl.csReactor.logger.Info("Move to init state of leader",
-		"curHeight", r.curHeight, "curRound", r.curRound,
+		"curHeight", r.curHeight,
 		"curState", curState,
 		"actualComitteeSize", len(r.curActualCommittee),
 		"comitteeSize", len(r.curCommittee.Validators))
@@ -135,17 +135,10 @@ func (cl *ConsensusLeader) CreateNotaryMsgPeers() []*ConsensusPeer {
 func (cl *ConsensusLeader) GenerateAnnounceMsg() bool {
 
 	curHeight := cl.csReactor.curHeight
-	curRound := cl.csReactor.curRound
-
-	// curRound must be zero while sending announce
-	if curRound != 0 {
-		cl.csReactor.logger.Error("curRound must be zero while sending announce", "expected", 0, "actual", curRound)
-		curRound = 0
-	}
 
 	cmnHdr := ConsensusMsgCommonHeader{
 		Height:    curHeight,
-		Round:     curRound,
+		Round:     0,
 		Sender:    crypto.FromECDSAPub(&cl.csReactor.myPubKey),
 		Timestamp: time.Now(),
 		MsgType:   CONSENSUS_MSG_ANNOUNCE_COMMITTEE,
@@ -239,17 +232,10 @@ func (cl *ConsensusLeader) GenerateAnnounceMsg() bool {
 func (cl *ConsensusLeader) GenerateNotaryAnnounceMsg() bool {
 
 	curHeight := cl.csReactor.curHeight
-	curRound := cl.csReactor.curRound
-
-	// curRound must be zero while sending announce
-	if curRound != 0 {
-		cl.csReactor.logger.Error("curRound must be zero while sending announce", "expected", 0, "actual", curRound)
-		curRound = 0
-	}
 
 	cmnHdr := ConsensusMsgCommonHeader{
 		Height:    curHeight,
-		Round:     curRound,
+		Round:     0,
 		Sender:    crypto.FromECDSAPub(&cl.csReactor.myPubKey),
 		Timestamp: time.Now(),
 		MsgType:   CONSENSUS_MSG_NOTARY_ANNOUNCE,
@@ -296,7 +282,7 @@ func (cl *ConsensusLeader) ProcessCommitMsg(commitMsg *CommitCommitteeMessage, s
 	}
 
 	ch := commitMsg.CSMsgCommonHeader
-	if !cl.checkHeightAndRound(ch) {
+	if !cl.csReactor.checkHeight(ch) {
 		return false
 	}
 
@@ -403,7 +389,7 @@ func (cl *ConsensusLeader) ProcessVoteNotaryAnnounce(vote4NotaryMsg *VoteForNota
 	}
 
 	ch := vote4NotaryMsg.CSMsgCommonHeader
-	if !cl.checkHeightAndRound(ch) {
+	if !cl.csReactor.checkHeight(ch) {
 		return false
 	}
 
@@ -485,19 +471,6 @@ func (cl *ConsensusLeader) ProcessVoteNotaryAnnounce(vote4NotaryMsg *VoteForNota
 		cl.csReactor.logger.Debug("Vote for NotaryAnnounce processed (2/3 not reached yet, wait for more)")
 		return true
 	}
-}
-
-func (cl *ConsensusLeader) checkHeightAndRound(ch ConsensusMsgCommonHeader) bool {
-	if ch.Height != cl.csReactor.curHeight {
-		cl.csReactor.logger.Error("Height mismatch!", "curHeight", cl.csReactor.curHeight, "incomingHeight", ch.Height)
-		return false
-	}
-
-	if ch.Round != cl.csReactor.curRound {
-		cl.csReactor.logger.Error("Round mismatch!", "curRound", cl.csReactor.curRound, "incomingRound", ch.Round)
-		return false
-	}
-	return true
 }
 
 func (cl *ConsensusLeader) committeeEstablished() error {

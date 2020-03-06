@@ -90,11 +90,10 @@ func (cv *ConsensusValidator) AddcsPeer(netAddr types.NetAddress) bool {
 func (cv *ConsensusValidator) GenerateCommitMessage(sig bls.Signature, msgHash [32]byte) *CommitCommitteeMessage {
 
 	curHeight := cv.csReactor.curHeight
-	curRound := cv.csReactor.curRound
 
 	cmnHdr := ConsensusMsgCommonHeader{
 		Height:    curHeight,
-		Round:     curRound,
+		Round:     0,
 		Sender:    crypto.FromECDSAPub(&cv.csReactor.myPubKey),
 		Timestamp: time.Now(),
 		MsgType:   CONSENSUS_MSG_COMMIT_COMMITTEE,
@@ -137,7 +136,7 @@ func (cv *ConsensusValidator) ProcessAnnounceCommittee(announceMsg *AnnounceComm
 	}
 
 	ch := announceMsg.CSMsgCommonHeader
-	if !cv.checkHeightAndRound(ch) {
+	if !cv.csReactor.checkHeight(ch) {
 		return false
 	}
 
@@ -239,7 +238,6 @@ func (cv *ConsensusValidator) ProcessAnnounceCommittee(announceMsg *AnnounceComm
 	cv.state = COMMITTEE_VALIDATOR_COMMITSENT
 
 	//update conR
-	cv.csReactor.curRound = 0
 	cv.csReactor.updateCurEpoch(cv.EpochID)
 	return true
 }
@@ -263,7 +261,7 @@ func (cv *ConsensusValidator) ProcessNotaryAnnounceMessage(notaryMsg *NotaryAnno
 	***/
 
 	ch := notaryMsg.CSMsgCommonHeader
-	if !cv.checkHeightAndRound(ch) {
+	if !cv.csReactor.checkHeight(ch) {
 		return false
 	}
 
@@ -365,11 +363,10 @@ Let's start the pacemaker...
 func (cv *ConsensusValidator) GenerateVoteForNotaryMessage(sig bls.Signature, msgHash [32]byte, MsgSubType byte) *VoteForNotaryMessage {
 
 	curHeight := cv.csReactor.curHeight
-	curRound := cv.csReactor.curRound
 
 	cmnHdr := ConsensusMsgCommonHeader{
 		Height:     curHeight,
-		Round:      curRound,
+		Round:      0,
 		Sender:     crypto.FromECDSAPub(&cv.csReactor.myPubKey),
 		Timestamp:  time.Now(),
 		MsgType:    CONSENSUS_MSG_VOTE_FOR_NOTARY,
@@ -398,17 +395,4 @@ func (cv *ConsensusValidator) GenerateVoteForNotaryMessage(sig bls.Signature, ms
 	msg.CSMsgCommonHeader.SetMsgSignature(msgSig)
 	cv.csReactor.logger.Debug("Generate Voter For Notary Message", "msg", msg.String())
 	return msg
-}
-
-func (cv *ConsensusValidator) checkHeightAndRound(ch ConsensusMsgCommonHeader) bool {
-	if ch.Height != cv.csReactor.curHeight {
-		cv.csReactor.logger.Error("Height mismatch!", "curHeight", cv.csReactor.curHeight, "incomingHeight", ch.Height)
-		return false
-	}
-
-	if ch.Round != 0 && ch.Round != cv.csReactor.curRound {
-		cv.csReactor.logger.Error("Round mismatch!", "curRound", cv.csReactor.curRound, "incomingRound", ch.Round)
-		return false
-	}
-	return true
 }

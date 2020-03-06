@@ -86,9 +86,13 @@ const (
 var (
 	ConsensusGlobInst *ConsensusReactor
 
-	curRoundGauge = prometheus.NewGauge(prometheus.GaugeOpts{
-		Name: "current_round",
-		Help: "Current round of consensus",
+	pmRoundGauge = prometheus.NewGauge(prometheus.GaugeOpts{
+		Name: "pacemaker_round",
+		Help: "Current round of pacemaker",
+	})
+	pmRunningGauge = prometheus.NewGauge(prometheus.GaugeOpts{
+		Name: "pacemaker_running",
+		Help: "status of pacemaker (0-false, 1-true)",
 	})
 	curEpochGauge = prometheus.NewGauge(prometheus.GaugeOpts{
 		Name: "current_epoch",
@@ -160,7 +164,6 @@ type ConsensusReactor struct {
 	curNonce         uint64
 	curEpoch         uint64
 	curHeight        int64 // come from parentBlockID first 4 bytes uint32
-	curRound         int
 	mtx              sync.RWMutex
 
 	// TODO: remove this, not used anymore
@@ -186,7 +189,8 @@ type ConsensusReactor struct {
 
 	msgCache *CommitteeMsgCache
 
-	magic [4]byte
+	magic       [4]byte
+	inCommittee bool
 }
 
 // Glob Instance
@@ -208,6 +212,7 @@ func NewConsensusReactor(ctx *cli.Context, chain *chain.Chain, state *state.Crea
 		SyncDone:     false,
 		magic:        magic,
 		msgCache:     NewCommitteeMsgCache(),
+		inCommittee:  false,
 	}
 
 	if ctx != nil {
@@ -231,7 +236,6 @@ func NewConsensusReactor(ctx *cli.Context, chain *chain.Chain, state *state.Crea
 	//initialize height/round
 	conR.lastKBlockHeight = chain.BestBlock().Header().LastKBlockHeight()
 	conR.curHeight = int64(chain.BestBlock().Header().Number())
-	conR.curRound = 0
 
 	// initialize pacemaker
 	conR.csPacemaker = NewPaceMaker(conR)
@@ -244,7 +248,7 @@ func NewConsensusReactor(ctx *cli.Context, chain *chain.Chain, state *state.Crea
 		curEpochGauge.Set(float64(0))
 	}
 
-	prometheus.MustRegister(curRoundGauge)
+	prometheus.MustRegister(pmRoundGauge)
 	prometheus.MustRegister(curEpochGauge)
 	prometheus.MustRegister(lastKBlockHeightGauge)
 	prometheus.MustRegister(blocksCommitedCounter)
@@ -284,7 +288,7 @@ func (conR *ConsensusReactor) OnStart() error {
 	// force to receive nonce
 	//conR.ConsensusHandleReceivedNonce(0, 1001)
 
-	conR.logger.Info("Consensus started ... ", "curHeight", conR.curHeight, "curRound", conR.curRound)
+	conR.logger.Info("Consensus started ... ", "curHeight", conR.curHeight)
 	return nil
 }
 
@@ -475,23 +479,6 @@ func (conR *ConsensusReactor) UpdateHeight(height int64) bool {
 	return true
 }
 
-func (conR *ConsensusReactor) UpdateRound(round int) bool {
-	conR.logger.Info(fmt.Sprintf("Update conR.curRound from %d to %d", conR.curRound, round))
-	conR.curRound = round
-
-	return true
-}
-
-// update the Height
-func (conR *ConsensusReactor) UpdateHeightRound(height int64, round int) bool {
-	if height != 0 {
-		conR.curHeight = height
-	}
-
-	conR.curRound = round
-	return true
-}
-
 // update the LastKBlockHeight
 func (conR *ConsensusReactor) UpdateLastKBlockHeight(height uint32) bool {
 	conR.lastKBlockHeight = height
@@ -597,15 +584,6 @@ func (conR *ConsensusReactor) UpdateActualCommittee(indexes []int, pubKeys []bls
 	}
 
 	return true
-}
-
-// get current round proposer
-func (conR *ConsensusReactor) getCurrentProposer() CommitteeMember {
-	size := len(conR.curActualCommittee)
-	if size == 0 {
-		return CommitteeMember{}
-	}
-	return conR.curActualCommittee[conR.curRound%len(conR.curActualCommittee)]
 }
 
 // get the specific round proposer
@@ -841,7 +819,9 @@ func (conR *ConsensusReactor) handleMsg(mi consensusMsgInfo) {
 		fromMyself = true
 	}
 	if fromMyself == false && (typeName == "AnnounceCommitteeMessage" || typeName == "NotaryAnnounceMessage") {
-		conR.relayMsg(&msg, "AnnounceCommittee", conR.curRound)
+		if conR.inCommittee {
+			conR.relayMsg(&msg, "AnnounceCommittee", int(conR.newCommittee.Round))
+		}
 	}
 }
 
@@ -1105,7 +1085,6 @@ func (conR *ConsensusReactor) exitCurCommittee() error {
 	conR.kBlockData = nil
 
 	conR.curNonce = 0
-	conR.curRound = 0
 
 	return nil
 }
@@ -1585,6 +1564,8 @@ func (conR *ConsensusReactor) ConsensusHandleReceivedNonce(kBlockHeight int64, n
 
 	role, inCommittee := conR.NewValidatorSetByNonce(nonce)
 
+	conR.inCommittee = inCommittee
+
 	if inCommittee {
 		conR.logger.Info("I am in committee!!!")
 
@@ -1606,8 +1587,10 @@ func (conR *ConsensusReactor) ConsensusHandleReceivedNonce(kBlockHeight int64, n
 			conR.logger.Info("Replay", "replay from powHeight", startHeight)
 			pool.ReplayFrom(int32(startHeight))
 		}
+		conR.inCommittee = true
 		inCommitteeGauge.Set(1)
 	} else {
+		conR.inCommittee = false
 		inCommitteeGauge.Set(0)
 		conR.logger.Info("I am NOT in committee!!!", "nonce", nonce)
 	}
@@ -1916,4 +1899,12 @@ func (conR *ConsensusReactor) GetCommitteeMemberNameByIP(ip net.IP) string {
 		}
 	}
 	return ""
+}
+
+func (conR *ConsensusReactor) checkHeight(ch ConsensusMsgCommonHeader) bool {
+	if ch.Height != conR.curHeight {
+		conR.logger.Error("Height mismatch!", "curHeight", conR.curHeight, "incomingHeight", ch.Height)
+		return false
+	}
+	return true
 }
