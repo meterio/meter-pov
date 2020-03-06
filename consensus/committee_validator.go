@@ -234,8 +234,7 @@ func (cv *ConsensusValidator) ProcessAnnounceCommittee(announceMsg *AnnounceComm
 	msg := cv.GenerateCommitMessage(sign, msgHash)
 
 	var m ConsensusMessage = msg
-	leaderNetAddr := src.netAddr
-	cv.SendMsgToPeer(&m, leaderNetAddr)
+	cv.SendMsgToPeer(&m, lv.NetAddr)
 	cv.state = COMMITTEE_VALIDATOR_COMMITSENT
 
 	//update conR
@@ -323,9 +322,20 @@ func (cv *ConsensusValidator) ProcessNotaryAnnounceMessage(notaryMsg *NotaryAnno
 	msgHash := cv.csReactor.csCommon.Hash256Msg([]byte(signMsg), uint32(offset), uint32(length))
 	msg := cv.GenerateVoteForNotaryMessage(sign, msgHash, VOTE_FOR_NOTARY_ANNOUNCE)
 
-	var m ConsensusMessage = msg
-	leaderNetAddr := src.netAddr
-	cv.SendMsgToPeer(&m, leaderNetAddr)
+	var lv *types.Validator
+	for _, v := range cv.csReactor.curCommittee.Validators {
+		keyBytes := crypto.FromECDSAPub(&v.PubKey)
+		if bytes.Compare(keyBytes, notaryMsg.AnnouncerID) == 0 {
+			lv = v
+			break
+		}
+	}
+	// lv := cv.csReactor.curCommittee.Validators[round]
+
+	if lv != nil {
+		var m ConsensusMessage = msg
+		cv.SendMsgToPeer(&m, lv.NetAddr)
+	}
 
 	// stop new committee timer cos it is established
 	cv.csReactor.NewCommitteeCleanup()
