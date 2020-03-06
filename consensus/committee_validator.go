@@ -190,6 +190,7 @@ func (cv *ConsensusValidator) ProcessAnnounceCommittee(announceMsg *AnnounceComm
 		cv.csReactor.logger.Error("Sender is not leader in my committee ...")
 		return false
 	}
+	cv.csReactor.logger.Info("Committee announced by", "peer", lv.Name, "ip", lv.NetAddr.IP.String())
 
 	// update cspeers, build consensus peer topology
 	// Right now is HUB topology, simply point back to proposer or leader
@@ -305,6 +306,20 @@ func (cv *ConsensusValidator) ProcessNotaryAnnounceMessage(notaryMsg *NotaryAnno
 		return false
 	}
 
+	var lv *types.Validator
+	for _, v := range cv.csReactor.curCommittee.Validators {
+		keyBytes := crypto.FromECDSAPub(&v.PubKey)
+		if bytes.Compare(keyBytes, notaryMsg.AnnouncerID) == 0 {
+			lv = v
+			break
+		}
+	}
+	if lv == nil {
+		cv.csReactor.logger.Error("announcer is not in my committee")
+		return false
+	}
+	cv.csReactor.logger.Info("Notary announced by", "peer", lv.Name, "ip", lv.NetAddr.IP.String())
+
 	// TBD: validate announce bitarray & signature
 
 	// Block is OK, send back voting
@@ -322,14 +337,6 @@ func (cv *ConsensusValidator) ProcessNotaryAnnounceMessage(notaryMsg *NotaryAnno
 	msgHash := cv.csReactor.csCommon.Hash256Msg([]byte(signMsg), uint32(offset), uint32(length))
 	msg := cv.GenerateVoteForNotaryMessage(sign, msgHash, VOTE_FOR_NOTARY_ANNOUNCE)
 
-	var lv *types.Validator
-	for _, v := range cv.csReactor.curCommittee.Validators {
-		keyBytes := crypto.FromECDSAPub(&v.PubKey)
-		if bytes.Compare(keyBytes, notaryMsg.AnnouncerID) == 0 {
-			lv = v
-			break
-		}
-	}
 	// lv := cv.csReactor.curCommittee.Validators[round]
 
 	if lv != nil {
