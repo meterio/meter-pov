@@ -23,6 +23,7 @@ type ConsensusPeer struct {
 
 func newConsensusPeer(name string, ip net.IP, port uint16, magic [4]byte) *ConsensusPeer {
 	return &ConsensusPeer{
+		name: name,
 		netAddr: types.NetAddress{
 			IP:   ip,
 			Port: port,
