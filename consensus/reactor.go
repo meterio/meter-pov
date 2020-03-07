@@ -730,8 +730,18 @@ func (conR *ConsensusReactor) handleMsg(mi consensusMsgInfo) {
 		"ip", peerIP)
 
 	// cache the message
-	if typeName == "AnnounceCommitteeMessage" || typeName == "NotaryAnnounceMessage" {
-		existed, err := conR.msgCache.CheckandAdd(&rawMsg, msg.EpochID(), msg.MsgType())
+	relayMsgTypes := map[string]bool{"AnnounceCommitteeMessage": true, "NotaryAnnounceMessage": true}
+	if _, needCache := relayMsgTypes[typeName]; needCache {
+		var announcerHex string
+		switch msg := msg.(type) {
+		case *AnnounceCommitteeMessage:
+			announcerHex = hex.EncodeToString(msg.AnnouncerID)
+		case *NotaryAnnounceMessage:
+			announcerHex = hex.EncodeToString(msg.AnnouncerID)
+		default:
+			announcerHex = ""
+		}
+		existed, err := conR.msgCache.CheckandAdd(&rawMsg, msg.EpochID(), msg.MsgType(), announcerHex)
 		if err != nil {
 			conR.logger.Info("fail to add "+typeName+", dropped ...", "peer", peerName, "ip", peerIP)
 			return
@@ -742,6 +752,7 @@ func (conR *ConsensusReactor) handleMsg(mi consensusMsgInfo) {
 		}
 	}
 
+	var success bool
 	switch msg := msg.(type) {
 
 	// New consensus Messages
@@ -753,7 +764,7 @@ func (conR *ConsensusReactor) handleMsg(mi consensusMsgInfo) {
 			conR.enterConsensusValidator()
 		}
 
-		success := conR.csValidator.ProcessAnnounceCommittee(msg, peer)
+		success = conR.csValidator.ProcessAnnounceCommittee(msg, peer)
 		// For ProcessAnnounceCommittee, it is not validator if return is false
 		if success == false {
 			conR.logger.Error("process announce failed")
@@ -767,7 +778,7 @@ func (conR *ConsensusReactor) handleMsg(mi consensusMsgInfo) {
 			break
 		}
 
-		success := conR.csLeader.ProcessCommitMsg(msg, peer)
+		success = conR.csLeader.ProcessCommitMsg(msg, peer)
 		if success == false {
 			conR.logger.Error("process CommitCommitteeMessage failed")
 		}
@@ -779,7 +790,7 @@ func (conR *ConsensusReactor) handleMsg(mi consensusMsgInfo) {
 			break
 		}
 
-		success := conR.csValidator.ProcessNotaryAnnounceMessage(msg, peer)
+		success = conR.csValidator.ProcessNotaryAnnounceMessage(msg, peer)
 		if success == false {
 			conR.logger.Error("process NotaryAnnounceMessage failed")
 		}
@@ -795,7 +806,7 @@ func (conR *ConsensusReactor) handleMsg(mi consensusMsgInfo) {
 				break
 			}
 
-			success := conR.csLeader.ProcessVoteNotaryAnnounce(msg, peer)
+			success = conR.csLeader.ProcessVoteNotaryAnnounce(msg, peer)
 			if success == false {
 				conR.logger.Error("process VoteForNotary(Announce) failed")
 			}
@@ -805,7 +816,7 @@ func (conR *ConsensusReactor) handleMsg(mi consensusMsgInfo) {
 		}
 
 	case *NewCommitteeMessage:
-		success := conR.ProcessNewCommitteeMessage(msg, peer)
+		success = conR.ProcessNewCommitteeMessage(msg, peer)
 		if success == false {
 			conR.logger.Error("process NewcommitteeMessage failed")
 		}
@@ -818,8 +829,12 @@ func (conR *ConsensusReactor) handleMsg(mi consensusMsgInfo) {
 	if peerIP == conR.myAddr.IP.String() {
 		fromMyself = true
 	}
-	if fromMyself == false && (typeName == "AnnounceCommitteeMessage" || typeName == "NotaryAnnounceMessage") {
-		if conR.inCommittee {
+	if _, needRelay := relayMsgTypes[typeName]; needRelay {
+		// relay only if these three conditions meet:
+		// 1. I'm in committee
+		// 2. the message is not from myself
+		// 3. message is proved to be valid
+		if conR.inCommittee && fromMyself == false && success == true {
 			conR.relayMsg(&msg, "AnnounceCommittee", int(conR.newCommittee.Round))
 		}
 	}

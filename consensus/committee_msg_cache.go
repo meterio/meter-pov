@@ -6,8 +6,9 @@ import (
 )
 
 type CommitteeMsgKey struct {
-	EpochID uint64
-	MsgType byte
+	EpochID   uint64
+	MsgType   byte
+	Announcer string
 }
 
 type CommitteeMsgCache struct {
@@ -22,11 +23,11 @@ func NewCommitteeMsgCache() *CommitteeMsgCache {
 }
 
 // test the proposal message in proposalInfo map
-func (c *CommitteeMsgCache) InMap(rawMsg *[]byte, epochID uint64, msgType byte) bool {
+func (c *CommitteeMsgCache) InMap(rawMsg *[]byte, epochID uint64, msgType byte, announcer string) bool {
 	c.lock.RLock()
 	defer c.lock.RUnlock()
 
-	key := CommitteeMsgKey{epochID, msgType}
+	key := CommitteeMsgKey{epochID, msgType, announcer}
 	m, ok := c.messages[key]
 	if ok == false {
 		return false
@@ -42,19 +43,19 @@ func (c *CommitteeMsgCache) InMap(rawMsg *[]byte, epochID uint64, msgType byte) 
 }
 
 // add consensus message in info map, must test it first!
-func (c *CommitteeMsgCache) Add(m *[]byte, epochID uint64, msgType byte) error {
+func (c *CommitteeMsgCache) Add(m *[]byte, epochID uint64, msgType byte, announcer string) error {
 	c.lock.Lock()
 	defer c.lock.Unlock()
-	c.messages[CommitteeMsgKey{epochID, msgType}] = m
+	c.messages[CommitteeMsgKey{epochID, msgType, announcer}] = m
 	return nil
 }
 
 // InMap & Add in one function(lock) for race condition
-func (c *CommitteeMsgCache) CheckandAdd(rawMsg *[]byte, epochID uint64, msgType byte) (bool, error) {
+func (c *CommitteeMsgCache) CheckandAdd(rawMsg *[]byte, epochID uint64, msgType byte, announcer string) (bool, error) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 
-	key := CommitteeMsgKey{epochID, msgType}
+	key := CommitteeMsgKey{epochID, msgType, announcer}
 	if m, ok := c.messages[key]; ok == true {
 		if (len(*m) == len(*rawMsg)) && (bytes.Compare(*m, *rawMsg) == 0) {
 			return true, nil
