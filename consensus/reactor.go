@@ -424,13 +424,11 @@ const (
 
 // CommitteeMember is validator structure + consensus fields
 type CommitteeMember struct {
-	Name        string
-	PubKey      ecdsa.PublicKey
-	VotingPower int64
-	CommitKey   []byte
-	NetAddr     types.NetAddress
-	CSPubKey    bls.PublicKey
-	CSIndex     int
+	Name     string
+	PubKey   ecdsa.PublicKey
+	NetAddr  types.NetAddress
+	CSPubKey bls.PublicKey
+	CSIndex  int
 }
 
 // create new committee member
@@ -439,14 +437,14 @@ func NewCommitteeMember() *CommitteeMember {
 }
 
 func (cm *CommitteeMember) ToString() string {
-	return fmt.Sprintf("[CommitteeMember(%s): PubKey:%s VotingPower:%v CSPubKey:%s, CSIndex:%v]",
+	return fmt.Sprintf("[CommitteeMember(%s): PubKey:%s CSPubKey:%s, CSIndex:%v]",
 		cm.Name, hex.EncodeToString(crypto.FromECDSAPub(&cm.PubKey)),
-		cm.VotingPower, cm.CSPubKey.ToString(), cm.CSIndex)
+		cm.CSPubKey.ToString(), cm.CSIndex)
 }
 
 func (cm *CommitteeMember) String() string {
-	return fmt.Sprintf("%15s: ip:%s pubkey:%v votingPower:%v index:%d",
-		cm.Name, cm.NetAddr.IP.String(), hex.EncodeToString(crypto.FromECDSAPub(&cm.PubKey)), cm.VotingPower, cm.CSIndex)
+	return fmt.Sprintf("%15s: ip:%s pubkey:%v index:%d", cm.Name, cm.NetAddr.IP.String(),
+		hex.EncodeToString(crypto.FromECDSAPub(&cm.PubKey)), cm.CSIndex)
 }
 
 type consensusMsgInfo struct {
@@ -516,13 +514,11 @@ func (conR *ConsensusReactor) UpdateActualCommittee(indexes []int, pubKeys []bls
 	// if there is time out, myself is not the first one in curCommitteeittee
 	l := conR.curCommittee.Validators[conR.curCommitteeIndex]
 	cm := CommitteeMember{
-		Name:        l.Name,
-		PubKey:      l.PubKey,
-		VotingPower: l.VotingPower,
-		CommitKey:   l.CommitKey,
-		NetAddr:     l.NetAddr,
-		CSPubKey:    conR.csCommon.PubKey, //bls PublicKey
-		CSIndex:     conR.curCommitteeIndex,
+		Name:     l.Name,
+		PubKey:   l.PubKey,
+		NetAddr:  l.NetAddr,
+		CSPubKey: conR.csCommon.PubKey, //bls PublicKey
+		CSIndex:  conR.curCommitteeIndex,
 	}
 	conR.curActualCommittee = append(conR.curActualCommittee, cm)
 
@@ -537,13 +533,11 @@ func (conR *ConsensusReactor) UpdateActualCommittee(indexes []int, pubKeys []bls
 		v := conR.curCommittee.Validators[index]
 
 		cm := CommitteeMember{
-			Name:        v.Name,
-			PubKey:      v.PubKey,
-			VotingPower: v.VotingPower,
-			CommitKey:   v.CommitKey,
-			NetAddr:     v.NetAddr,
-			CSPubKey:    pubKeys[i], //bls PublicKey
-			CSIndex:     index,
+			Name:     v.Name,
+			PubKey:   v.PubKey,
+			NetAddr:  v.NetAddr,
+			CSPubKey: pubKeys[i], //bls PublicKey
+			CSIndex:  index,
 		}
 		conR.curActualCommittee = append(conR.curActualCommittee, cm)
 	}
@@ -571,11 +565,6 @@ func (conR *ConsensusReactor) UpdateActualCommittee(indexes []int, pubKeys []bls
 	}
 
 	fmt.Println(fmt.Sprint("Members can NOT join the committee: ", strings.Join(leftoverNames, ", ")))
-
-	// Sort them.
-	sort.SliceStable(conR.curActualCommittee, func(i, j int) bool {
-		return (bytes.Compare(conR.curActualCommittee[i].CommitKey, conR.curActualCommittee[j].CommitKey) <= 0)
-	})
 
 	// I am Leader, first one should be myself.
 	if bytes.Equal(crypto.FromECDSAPub(&conR.curActualCommittee[0].PubKey), crypto.FromECDSAPub(&conR.myPubKey)) == false {
@@ -1195,7 +1184,7 @@ func (conR *ConsensusReactor) GetLatestCommitteeList() ([]*ApiCommitteeMember, e
 			Name:        v.Name,
 			Address:     v.Address,
 			PubKey:      b64.StdEncoding.EncodeToString(crypto.FromECDSAPub(&cm.PubKey)),
-			VotingPower: cm.VotingPower,
+			VotingPower: v.VotingPower,
 			NetAddr:     cm.NetAddr.String(),
 			CsPubKey:    hex.EncodeToString(conR.csCommon.system.PubKeyToBytes(cm.CSPubKey)),
 			CsIndex:     cm.CSIndex,
@@ -1480,15 +1469,12 @@ func HandleScheduleReplayLeader(conR *ConsensusReactor, epochID uint64) bool {
 	}
 	fmt.Println("cis", cis)
 
-	systemBytes, _ := b.GetSystemBytes()
-	paramsBytes, _ := b.GetParamsBytes()
-
 	// to avoid memory leak
 	if conR.csCommon != nil {
 		conR.csCommon.ConsensusCommonDeinit()
 		conR.csCommon = nil
 	}
-	conR.csCommon = NewReplayLeaderConsensusCommon(conR, paramsBytes, systemBytes)
+	conR.csCommon = NewReplayLeaderConsensusCommon(conR)
 
 	conR.csLeader = NewCommitteeLeader(conR)
 	conR.csRoleInitialized |= CONSENSUS_COMMIT_ROLE_LEADER

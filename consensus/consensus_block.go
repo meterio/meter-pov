@@ -224,27 +224,20 @@ func (c *ConsensusReactor) validateEvidence(ev *block.Evidence, blk *block.Block
 	}
 	c.logger.Info("get committeeinfo from block", "height", b.Header().Number())
 
-	// re-init the BLS systerm
-	systemBytes, _ := b.GetSystemBytes()
-	paramsBytes, _ := b.GetParamsBytes()
-	system, params, pairing, err := c.CreateCSSystem(systemBytes, paramsBytes)
-	if err != nil {
-		c.logger.Error("BLS system init error")
-		return consensusError(fmt.Sprintf("BLS system init failed: %v", err))
-	}
+	system := c.csCommon.GetSystem()
+	//params := c.csCommon.GetParams()
+	//pairing := c.csCommon.GetPairing()
 
 	// committee members
 	cis, err := b.GetCommitteeInfo()
 	if err != nil {
 		c.logger.Error("decode committee info block error")
-		c.FreeCSSystem(system, params, pairing)
 		return consensusError(fmt.Sprintf("decode committee info block failed: %v", err))
 	}
 
 	cms := c.BuildCommitteeMemberFromInfo(system, cis)
 	if len(cms) == 0 {
 		c.logger.Error("get committee members error")
-		c.FreeCSSystem(system, params, pairing)
 		return consensusError(fmt.Sprintf("get committee members failed: %v", err))
 	}
 
@@ -252,7 +245,6 @@ func (c *ConsensusReactor) validateEvidence(ev *block.Evidence, blk *block.Block
 	voteSig, err := system.SigFromBytes(ev.VotingSig)
 	if err != nil {
 		c.logger.Error("Sig from bytes error")
-		c.FreeCSSystem(system, params, pairing)
 		return consensusError(fmt.Sprintf("voting signature from bytes failed: %v", err))
 	}
 
@@ -275,7 +267,6 @@ func (c *ConsensusReactor) validateEvidence(ev *block.Evidence, blk *block.Block
 	voteValid, err := bls.AggregateVerify(voteSig, cmn.ByteSliceToByte32(ev.VotingMsgHash), voteCSPubKeys)
 	if (err != nil) || (voteValid != true) {
 		c.logger.Error("voting signature validate error")
-		c.FreeCSSystem(system, params, pairing)
 		return consensusError(fmt.Sprintf("voting signature validate error"))
 	}
 
@@ -283,7 +274,6 @@ func (c *ConsensusReactor) validateEvidence(ev *block.Evidence, blk *block.Block
 	notarizeSig, err := system.SigFromBytes(ev.NotarizeSig)
 	if err != nil {
 		c.logger.Error("Notarize Sig from bytes error")
-		c.FreeCSSystem(system, params, pairing)
 		return consensusError(fmt.Sprintf("notarize signature from bytes failed: %v", err))
 	}
 	notarizeBA := ev.NotarizeBitArray
@@ -297,11 +287,8 @@ func (c *ConsensusReactor) validateEvidence(ev *block.Evidence, blk *block.Block
 	noterizeValid, err := bls.AggregateVerify(notarizeSig, cmn.ByteSliceToByte32(ev.NotarizeMsgHash), notarizeCSPubKeys)
 	if (err != nil) || (noterizeValid != true) {
 		c.logger.Error("notarize signature validate error")
-		c.FreeCSSystem(system, params, pairing)
 		return consensusError(fmt.Sprintf("notarize signature validate error"))
 	}
-
-	c.FreeCSSystem(system, params, pairing)
 	return nil
 }
 
@@ -311,7 +298,6 @@ func (c *ConsensusReactor) validateProposer(header *block.Header, parent *block.
 		return consensusError(fmt.Sprintf("block signer unavailable: %v", err))
 	}
 	// fmt.Println("signer", signer)
-
 	return nil
 }
 
@@ -469,12 +455,7 @@ func (conR *ConsensusReactor) finalizeKBlock(blk *block.Block, ev *block.Evidenc
 	// XXX:update the cache size
 
 	// only round 0 Mblock contains the following info
-	committeeInfo := conR.MakeBlockCommitteeInfo(conR.csCommon.system, conR.curActualCommittee)
-	systemBytes := conR.csCommon.system.ToBytes()
-	blk.SetSystemBytes(systemBytes)
-
-	paramsBytes, _ := conR.csCommon.params.ToBytes()
-	blk.SetParamsBytes(paramsBytes)
+	committeeInfo := conR.MakeBlockCommitteeInfo(conR.csCommon.GetSystem(), conR.curActualCommittee)
 	blk.SetCommitteeInfo(committeeInfo)
 	blk.SetCommitteeEpoch(conR.curEpoch)
 
@@ -490,11 +471,10 @@ func (conR *ConsensusReactor) finalizeKBlock(blk *block.Block, ev *block.Evidenc
 }
 
 //build block committee info part
-func (conR *ConsensusReactor) BuildCommitteeInfoFromMember(system bls.System, cms []CommitteeMember) []block.CommitteeInfo {
+func (conR *ConsensusReactor) BuildCommitteeInfoFromMember(system *bls.System, cms []CommitteeMember) []block.CommitteeInfo {
 	cis := []block.CommitteeInfo{}
-
 	for _, cm := range cms {
-		ci := block.NewCommitteeInfo(crypto.FromECDSAPub(&cm.PubKey), uint64(cm.VotingPower), cm.NetAddr,
+		ci := block.NewCommitteeInfo(cm.Name, crypto.FromECDSAPub(&cm.PubKey), cm.NetAddr,
 			system.PubKeyToBytes(cm.CSPubKey), uint32(cm.CSIndex))
 		cis = append(cis, *ci)
 	}
@@ -502,7 +482,7 @@ func (conR *ConsensusReactor) BuildCommitteeInfoFromMember(system bls.System, cm
 }
 
 //de-serialize the block committee info part
-func (conR *ConsensusReactor) BuildCommitteeMemberFromInfo(system bls.System, cis []block.CommitteeInfo) []CommitteeMember {
+func (conR *ConsensusReactor) BuildCommitteeMemberFromInfo(system *bls.System, cis []block.CommitteeInfo) []CommitteeMember {
 	cms := []CommitteeMember{}
 	delegates, err := staking.GetInternalDelegateList()
 	nameMap := make(map[string]string)
@@ -528,7 +508,6 @@ func (conR *ConsensusReactor) BuildCommitteeMemberFromInfo(system bls.System, ci
 		}
 
 		cm.PubKey = *pubKey
-		cm.VotingPower = int64(ci.VotingPower)
 		cm.NetAddr = ci.NetAddr
 
 		CSPubKey, err := system.PubKeyFromBytes(ci.CSPubKey)
@@ -544,40 +523,15 @@ func (conR *ConsensusReactor) BuildCommitteeMemberFromInfo(system bls.System, ci
 }
 
 //build block committee info part
-func (conR *ConsensusReactor) MakeBlockCommitteeInfo(system bls.System, cms []CommitteeMember) []block.CommitteeInfo {
+func (conR *ConsensusReactor) MakeBlockCommitteeInfo(system *bls.System, cms []CommitteeMember) []block.CommitteeInfo {
 	cis := []block.CommitteeInfo{}
 
 	for _, cm := range cms {
-		ci := block.NewCommitteeInfo(crypto.FromECDSAPub(&cm.PubKey), uint64(cm.VotingPower), cm.NetAddr,
+		ci := block.NewCommitteeInfo(cm.Name, crypto.FromECDSAPub(&cm.PubKey), cm.NetAddr,
 			system.PubKeyToBytes(cm.CSPubKey), uint32(cm.CSIndex))
 		cis = append(cis, *ci)
 	}
 	return (cis)
-}
-
-// A committee system are stored in evidence, need to re-init that system and free it after it is done.
-// similar to the validator common init/deinit.
-func (conR *ConsensusReactor) CreateCSSystem(systemBytes, paramBytes []byte) (bls.System, bls.Params, bls.Pairing, error) {
-	params, err := bls.ParamsFromBytes(paramBytes)
-	if err != nil {
-		conR.logger.Error("initialize param failed...")
-		panic(err)
-	}
-
-	pairing := bls.GenPairing(params)
-	system, err := bls.SystemFromBytes(pairing, systemBytes)
-	if err != nil {
-		conR.logger.Error("initialize system failed...")
-		panic(err)
-	}
-
-	return system, params, pairing, nil
-}
-
-func (conR *ConsensusReactor) FreeCSSystem(system bls.System, params bls.Params, pairing bls.Pairing) {
-	system.Free()
-	pairing.Free()
-	params.Free()
 }
 
 // MBlock Routine

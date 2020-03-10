@@ -105,7 +105,8 @@ func NewValidatorConsensusCommon(conR *ConsensusReactor, paramBytes []byte, syst
 }
 
 // Leader in replay mode should use existed paramBytes, systemBytes  and generate key pair
-func NewReplayLeaderConsensusCommon(conR *ConsensusReactor, paramBytes []byte, systemBytes []byte) *ConsensusCommon {
+func NewReplayLeaderConsensusCommon(conR *ConsensusReactor) *ConsensusCommon {
+	/******
 	params, err := bls.ParamsFromBytes(paramBytes)
 	if err != nil {
 		fmt.Println("initialize param failed...")
@@ -140,6 +141,8 @@ func NewReplayLeaderConsensusCommon(conR *ConsensusReactor, paramBytes []byte, s
 		initialized: true,
 		initialRole: INITIALIZE_AS_REPLAY_LEADER,
 	}
+	****/
+	return (NewConsensusCommon(conR))
 }
 
 // Validator receives paramBytes, systemBytes from Leader and generate key pair
@@ -212,6 +215,18 @@ func (cc *ConsensusCommon) checkConsensusCommonInit() {
 	if !cc.initialized {
 		fmt.Println("BLS is not initialized!")
 	}
+}
+
+func (cc *ConsensusCommon) GetSystem() *bls.System {
+	return &cc.system
+}
+
+func (cc *ConsensusCommon) GetParams() *bls.Params {
+	return &cc.params
+}
+
+func (cc *ConsensusCommon) GetPairing() *bls.Pairing {
+	return &cc.pairing
 }
 
 // sign the part of msg

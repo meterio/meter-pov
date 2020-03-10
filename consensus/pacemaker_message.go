@@ -68,18 +68,9 @@ func (p *Pacemaker) proposeStopCommitteeBlock(parentBlock *block.Block, height, 
 
 func (p *Pacemaker) packCommitteeInfo(blk *block.Block) error {
 	committeeInfo := []block.CommitteeInfo{}
-	// only round 0 Mblock contains the following info
-	system := p.csReactor.csCommon.system
-	blk.SetSystemBytes(system.ToBytes())
-	// fmt.Println("system: ", system)
-
-	params := p.csReactor.csCommon.params
-	paramsBytes, _ := params.ToBytes()
-	blk.SetParamsBytes(paramsBytes)
-	// fmt.Println("params: ", params)
 
 	// blk.SetBlockEvidence(ev)
-	committeeInfo = p.csReactor.MakeBlockCommitteeInfo(system, p.csReactor.curActualCommittee)
+	committeeInfo = p.csReactor.MakeBlockCommitteeInfo(p.csReactor.csCommon.GetSystem(), p.csReactor.curActualCommittee)
 	// fmt.Println("committee info: ", committeeInfo)
 	blk.SetCommitteeInfo(committeeInfo)
 	blk.SetCommitteeEpoch(p.csReactor.curEpoch)

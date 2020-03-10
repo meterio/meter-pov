@@ -48,21 +48,19 @@ func (d KBlockData) ToString() string {
 }
 
 type CommitteeInfo struct {
-	VotingPower uint64
-	CSIndex     uint32 // Index, corresponding to the bitarray
-	NetAddr     types.NetAddress
-	CSPubKey    []byte // Bls pubkey
-	PubKey      []byte // ecdsa pubkey
+	Name     string
+	CSIndex  uint32 // Index, corresponding to the bitarray
+	NetAddr  types.NetAddress
+	CSPubKey []byte // Bls pubkey
+	PubKey   []byte // ecdsa pubkey
 }
 
 func (ci CommitteeInfo) String() string {
-	return fmt.Sprintf("Member: IP=%v, index=%d, vp=%d", ci.NetAddr.IP.String(), ci.CSIndex, ci.VotingPower)
+	return fmt.Sprintf("Member: Name=%v, IP=%v, index=%d, vp=%d", ci.Name, ci.NetAddr.IP.String(), ci.CSIndex)
 }
 
 type CommitteeInfos struct {
 	Epoch         uint64
-	SystemBytes   []byte //bls.System //global parameters for that committee
-	ParamsBytes   []byte //bls.Params
 	CommitteeInfo []CommitteeInfo
 }
 
@@ -109,13 +107,13 @@ func NewEvidence(votingSig []byte, votingMsgHash [][32]byte, votingBA cmn.BitArr
 }
 
 // Create new committee Info
-func NewCommitteeInfo(pubKey []byte, power uint64, netAddr types.NetAddress, csPubKey []byte, csIndex uint32) *CommitteeInfo {
+func NewCommitteeInfo(name string, pubKey []byte, netAddr types.NetAddress, csPubKey []byte, csIndex uint32) *CommitteeInfo {
 	return &CommitteeInfo{
-		PubKey:      pubKey,
-		VotingPower: power,
-		NetAddr:     netAddr,
-		CSPubKey:    csPubKey,
-		CSIndex:     csIndex,
+		Name:     name,
+		PubKey:   pubKey,
+		NetAddr:  netAddr,
+		CSPubKey: csPubKey,
+		CSIndex:  csIndex,
 	}
 }
 
@@ -297,24 +295,6 @@ func (b *Block) GetBlockEpoch() (epoch uint64) {
 
 func (b *Block) SetCommitteeInfo(info []CommitteeInfo) error {
 	b.CommitteeInfos.CommitteeInfo = info
-	return nil
-}
-
-func (b *Block) GetSystemBytes() ([]byte, error) {
-	return b.CommitteeInfos.SystemBytes, nil
-}
-
-func (b *Block) SetSystemBytes(system []byte) error {
-	b.CommitteeInfos.SystemBytes = system
-	return nil
-}
-
-func (b *Block) GetParamsBytes() ([]byte, error) {
-	return b.CommitteeInfos.ParamsBytes, nil
-}
-
-func (b *Block) SetParamsBytes(params []byte) error {
-	b.CommitteeInfos.ParamsBytes = params
 	return nil
 }
 

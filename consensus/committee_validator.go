@@ -290,7 +290,7 @@ func (cv *ConsensusValidator) ProcessNotaryAnnounceMessage(notaryMsg *NotaryAnno
 	}
 
 	// Update the curActualCommittee by receving Notary message
-	cv.csReactor.curActualCommittee = cv.csReactor.BuildCommitteeMemberFromInfo(cv.csReactor.csCommon.system, notaryMsg.CommitteeActualMembers)
+	cv.csReactor.curActualCommittee = cv.csReactor.BuildCommitteeMemberFromInfo(cv.csReactor.csCommon.GetSystem(), notaryMsg.CommitteeActualMembers)
 
 	found := false
 	for _, c := range cv.csReactor.curActualCommittee {

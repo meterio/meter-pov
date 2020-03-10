@@ -251,9 +251,9 @@ func (cl *ConsensusLeader) GenerateNotaryAnnounceMsg() bool {
 		SignOffset:             MSG_SIGN_OFFSET_DEFAULT,
 		SignLength:             MSG_SIGN_LENGTH_DEFAULT, //uint(unsafe.Sizeof(cmnHdr))
 		VoterBitArray:          *cl.announceVoterBitArray,
-		VoterAggSignature:      cl.csReactor.csCommon.system.SigToBytes(cl.announceVoterAggSig),
+		VoterAggSignature:      cl.csReactor.csCommon.GetSystem().SigToBytes(cl.announceVoterAggSig),
 		CommitteeActualSize:    len(cl.csReactor.curActualCommittee),
-		CommitteeActualMembers: cl.csReactor.BuildCommitteeInfoFromMember(cl.csReactor.csCommon.system, cl.csReactor.curActualCommittee),
+		CommitteeActualMembers: cl.csReactor.BuildCommitteeInfoFromMember(cl.csReactor.csCommon.GetSystem(), cl.csReactor.curActualCommittee),
 	}
 
 	// sign message
