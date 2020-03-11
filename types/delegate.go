@@ -6,9 +6,20 @@ import (
 	"fmt"
 	"strings"
 
+	bls "github.com/dfinlab/meter/crypto/multi_sig"
 	"github.com/dfinlab/meter/meter"
-	//	"github.com/ethereum/go-ethereum/crypto"
 )
+
+// make sure to update that method if changes are made here
+type DelegateIntern struct {
+	Name        []byte
+	Address     meter.Address
+	PubKey      []byte //actually the comb of ecdsa & bls publickeys
+	VotingPower int64
+	NetAddr     NetAddress
+	Commission  uint64
+	DistList    []*Distributor
+}
 
 type Distributor struct {
 	Address meter.Address
@@ -20,17 +31,19 @@ type Delegate struct {
 	Name        []byte          `json:"name"`
 	Address     meter.Address   `json:"address"`
 	PubKey      ecdsa.PublicKey `json:"pub_key"`
+	BlsPubKey   bls.PublicKey   `json:"bsl_pubkey"`
 	VotingPower int64           `json:"voting_power"`
 	NetAddr     NetAddress      `json:"network_addr"`
 	Commission  uint64          `json:"commission"`
 	DistList    []*Distributor  `json:"distibutor_list"`
 }
 
-func NewDelegate(name []byte, addr meter.Address, pubKey ecdsa.PublicKey, votingPower int64, commission uint64) *Delegate {
+func NewDelegate(name []byte, addr meter.Address, pubKey ecdsa.PublicKey, blsPub bls.PublicKey, votingPower int64, commission uint64) *Delegate {
 	return &Delegate{
 		Name:        name,
 		Address:     addr,
 		PubKey:      pubKey,
+		BlsPubKey:   blsPub,
 		VotingPower: votingPower,
 		Commission:  commission,
 	}

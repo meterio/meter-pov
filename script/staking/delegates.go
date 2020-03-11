@@ -8,8 +8,6 @@ import (
 	"net"
 	"strings"
 
-	crypto "github.com/ethereum/go-ethereum/crypto"
-
 	"github.com/dfinlab/meter/meter"
 	"github.com/dfinlab/meter/types"
 )
@@ -149,8 +147,8 @@ func convertDistList(dist []*Distributor) []*types.Distributor {
 }
 
 //  consensus routine interface
-func GetInternalDelegateList() ([]*types.Delegate, error) {
-	delegateList := []*types.Delegate{}
+func GetInternalDelegateList() ([]*types.DelegateIntern, error) {
+	delegateList := []*types.DelegateIntern{}
 	staking := GetStakingGlobInst()
 	if staking == nil {
 		fmt.Println("staking is not initilized...")
@@ -167,23 +165,10 @@ func GetInternalDelegateList() ([]*types.Delegate, error) {
 	list := staking.GetDelegateList(state)
 	// fmt.Println("delegateList from state\n", list.ToString())
 	for _, s := range list.delegates {
-		pubKeyBytes, err := b64.StdEncoding.DecodeString(string(s.PubKey))
-		pubKey, err := crypto.UnmarshalPubkey(pubKeyBytes)
-		if err != nil {
-			fmt.Println("Unmarshal publicKey failed ...")
-			continue
-		}
-		// delegates must satisfy the minimum requirements
-		/****
-		if ok := s.MinimumRequirements(); ok == false {
-			continue
-		}
-		****/
-
-		d := &types.Delegate{
+		d := &types.DelegateIntern{
 			Name:        s.Name,
 			Address:     s.Address,
-			PubKey:      *pubKey,
+			PubKey:      s.PubKey,
 			VotingPower: s.VotingPower.Div(s.VotingPower, big.NewInt(1e12)).Int64(),
 			Commission:  s.Commission,
 			NetAddr: types.NetAddress{

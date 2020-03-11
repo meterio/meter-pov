@@ -264,7 +264,7 @@ func NewConsensusReactor(ctx *cli.Context, chain *chain.Chain, state *state.Crea
 	dataDir := ctx.String("data-dir")
 	conR.dataDir = dataDir
 
-	delegates, delegateSize, committeeSize := GetConsensusDelegates(conR.config.InitCfgdDelegates, dataDir, conR.maxCommitteeSize, conR.minCommitteeSize, conR.maxDelegateSize)
+	delegates, delegateSize, committeeSize := conR.GetConsensusDelegates(conR.config.InitCfgdDelegates, dataDir, conR.maxCommitteeSize, conR.minCommitteeSize, conR.maxDelegateSize)
 	fmt.Println("NewConsensusReactor:", "delegateSize", delegateSize, "committeeSize", committeeSize)
 	conR.curDelegates = types.NewDelegateSet(delegates)
 	conR.delegateSize = delegateSize
@@ -1549,7 +1549,7 @@ func (conR *ConsensusReactor) HandleSchedule(fn func()) bool {
 // update current delegates with new delegates from staking
 // keep this standalone method intentionly
 func (conR *ConsensusReactor) ConsensusUpdateCurDelegates() {
-	delegates, delegateSize, committeeSize := GetConsensusDelegates(false, conR.dataDir, conR.maxCommitteeSize, conR.minCommitteeSize, conR.maxDelegateSize)
+	delegates, delegateSize, committeeSize := conR.GetConsensusDelegates(false, conR.dataDir, conR.maxCommitteeSize, conR.minCommitteeSize, conR.maxDelegateSize)
 	conR.curDelegates = types.NewDelegateSet(delegates)
 	conR.delegateSize = delegateSize
 	conR.committeeSize = committeeSize
@@ -1764,7 +1764,30 @@ func UserHomeDir() string {
 	return os.Getenv("HOME")
 }
 
-func configDelegates(dataDir string /*myPubKey ecdsa.PublicKey*/) []*types.Delegate {
+func (conR *ConsensusReactor) SplitPubKey(comboPub string) (*ecdsa.PublicKey, *bls.PublicKey) {
+	// first part is ecdsa public, 2nd part is bls public key
+	split := strings.Split(comboPub, ":::")
+	pubKeyBytes, err := b64.StdEncoding.DecodeString(split[0])
+	if err != nil {
+		panic(fmt.Sprintf("read public key of delegate failed, %v", err))
+	}
+	pubKey, err := crypto.UnmarshalPubkey(pubKeyBytes)
+	if err != nil {
+		panic(fmt.Sprintf("read public key of delegate failed, %v", err))
+	}
+
+	blsPubBytes, err := b64.StdEncoding.DecodeString(split[1])
+	if err != nil {
+		panic(fmt.Sprintf("read Bls public key of delegate failed, %v", err))
+	}
+	blsPub, err := conR.csCommon.GetSystem().PubKeyFromBytes(blsPubBytes)
+	if err != nil {
+		panic(fmt.Sprintf("read Bls public key of delegate failed, %v", err))
+	}
+	return pubKey, &blsPub
+}
+
+func (conR *ConsensusReactor) configDelegates(dataDir string) []*types.Delegate {
 	delegates1 := make([]*Delegate1, 0)
 
 	// Hack for compile
@@ -1783,11 +1806,8 @@ func configDelegates(dataDir string /*myPubKey ecdsa.PublicKey*/) []*types.Deleg
 
 	delegates := make([]*types.Delegate, 0)
 	for _, d := range delegates1 {
-		pubKeyBytes, err := b64.StdEncoding.DecodeString(d.PubKey)
-		pubKey, err := crypto.UnmarshalPubkey(pubKeyBytes)
-		if err != nil {
-			panic(fmt.Sprintf("read public key of delegate failed, %v", err))
-		}
+		// first part is ecdsa public, 2nd part is bls public key
+		pubKey, blsPub := conR.SplitPubKey(string(d.PubKey))
 
 		var addr meter.Address
 		if len(d.Address) != 0 {
@@ -1800,11 +1820,31 @@ func configDelegates(dataDir string /*myPubKey ecdsa.PublicKey*/) []*types.Deleg
 			addr = meter.Address(crypto.PubkeyToAddress(*pubKey))
 		}
 
-		dd := types.NewDelegate([]byte(d.Name), addr, *pubKey, d.VotingPower, staking.COMMISSION_RATE_DEFAULT)
+		dd := types.NewDelegate([]byte(d.Name), addr, *pubKey, *blsPub, d.VotingPower, staking.COMMISSION_RATE_DEFAULT)
 		dd.NetAddr = d.NetAddr
 		delegates = append(delegates, dd)
 	}
 	return delegates
+}
+
+func (conR *ConsensusReactor) convertFromIntern(interns []*types.DelegateIntern) []*types.Delegate {
+	ret := []*types.Delegate{}
+	for _, in := range interns {
+		pubKey, blsPub := conR.SplitPubKey(string(in.PubKey))
+		d := &types.Delegate{
+			Name:        in.Name,
+			Address:     in.Address,
+			PubKey:      *pubKey,
+			BlsPubKey:   *blsPub,
+			VotingPower: in.VotingPower,
+			NetAddr:     in.NetAddr,
+			Commission:  in.Commission,
+			DistList:    in.DistList,
+		}
+		ret = append(ret, d)
+	}
+
+	return ret
 }
 
 func (conR *ConsensusReactor) LoadBlockBytes(num uint32) []byte {
@@ -1831,12 +1871,12 @@ func PrintDelegates(delegates []*types.Delegate) {
 // entry point for each committee
 // return with delegates list, delegateSize, committeeSize
 // maxDelegateSize >= maxCommiteeSize >= minCommitteeSize
-func GetConsensusDelegates(forceDelegates bool, dataDir string, maxCommitteeSize, minCommitteeSize, maxDelegateSize int) ([]*types.Delegate, int, int) {
+func (conR *ConsensusReactor) GetConsensusDelegates(forceDelegates bool, dataDir string, maxCommitteeSize, minCommitteeSize, maxDelegateSize int) ([]*types.Delegate, int, int) {
 	var delegateSize, committeeSize int
 
 	// special handle for flag --init-configured-delegates
 	if forceDelegates == true {
-		delegates := configDelegates(dataDir)
+		delegates := conR.configDelegates(dataDir)
 		if len(delegates) >= maxDelegateSize {
 			delegateSize = maxDelegateSize
 			delegates = delegates[:maxDelegateSize]
@@ -1854,7 +1894,8 @@ func GetConsensusDelegates(forceDelegates bool, dataDir string, maxCommitteeSize
 		return delegates, delegateSize, committeeSize
 	}
 
-	delegates, err := staking.GetInternalDelegateList()
+	delegatesIntern, err := staking.GetInternalDelegateList()
+	delegates := conR.convertFromIntern(delegatesIntern)
 	if err == nil && len(delegates) >= minCommitteeSize {
 		if len(delegates) >= maxDelegateSize {
 			delegateSize = maxDelegateSize
@@ -1872,7 +1913,7 @@ func GetConsensusDelegates(forceDelegates bool, dataDir string, maxCommitteeSize
 		fmt.Println("delegatesList from staking", "delegateSize", delegateSize, "committeeSize", committeeSize)
 		PrintDelegates(delegates)
 	} else {
-		delegates = configDelegates(dataDir)
+		delegates = conR.configDelegates(dataDir)
 		if len(delegates) >= maxDelegateSize {
 			delegateSize = maxDelegateSize
 			delegates = delegates[:maxDelegateSize]
