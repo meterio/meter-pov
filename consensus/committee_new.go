@@ -148,13 +148,17 @@ func (conR *ConsensusReactor) sendNewCommitteeMessage(peer *ConsensusPeer, pubKe
 		// Signature part.
 	}
 
-	// sign message
+	// sign message with ecdsa key
 	msgSig, err := conR.SignConsensusMsg(msg.SigningHash().Bytes())
 	if err != nil {
 		conR.logger.Error("Sign message failed", "error", err)
 		return err
 	}
 	msg.CSMsgCommonHeader.SetMsgSignature(msgSig)
+
+	// sign message with bls key
+	blsSig := conR.csCommon.SignMessage2(msgSig, uint32(MSG_SIGN_OFFSET_DEFAULT), uint32(MSG_SIGN_LENGTH_DEFAULT))
+	msg.Signature = blsSig
 
 	// state to init & send move to next round
 	// fmt.Println("msg: %v", msg.String())
@@ -172,6 +176,8 @@ func (conR *ConsensusReactor) ProcessNewCommitteeMessage(newCommitteeMsg *NewCom
 		conR.logger.Error("Signature validate failed")
 		return false
 	}
+
+	// FIXME: verify bls signature
 
 	if ch.MsgType != CONSENSUS_MSG_NEW_COMMITTEE {
 		conR.logger.Error("MsgType is not CONSENSUS_MSG_NEW_COMMITTEE")

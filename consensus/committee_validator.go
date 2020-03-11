@@ -150,6 +150,15 @@ func (cv *ConsensusValidator) ProcessAnnounceCommittee(announceMsg *AnnounceComm
 		return false
 	}
 
+	// verify bls signature
+	sig := announceMsg.Signature
+	blsPK := announceMsg.CSLeaderPubKey
+	hash := announceMsg.SigningHash().Bytes()
+	if cv.csReactor.csCommon.VerifySignature(sig, hash, blsPK) == false {
+		cv.csReactor.logger.Error("bls signature validate failed")
+		return false
+	}
+
 	// valid the senderindex is leader from the publicKey
 	if bytes.Equal(ch.Sender, announceMsg.AnnouncerID) == false {
 		cv.csReactor.logger.Error("Announce sender and AnnouncerID mismatch")
@@ -280,6 +289,8 @@ func (cv *ConsensusValidator) ProcessNotaryAnnounceMessage(notaryMsg *NotaryAnno
 		cv.csReactor.logger.Error("Signature validate failed")
 		return false
 	}
+
+	// FIXME: verify bls signature
 
 	// Now the notary Announce message is OK
 

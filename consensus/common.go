@@ -272,6 +272,23 @@ func (cc *ConsensusCommon) VerifyMessage(msg []byte, offset uint32, length uint3
 	return verify
 }
 
+func (cc *ConsensusCommon) VerifySignature(signature, msgHash, blsPK []byte) bool {
+	var fixedMsgHash [32]byte
+	copy(fixedMsgHash[:], msgHash[32:])
+	pubkey, err := cc.system.PubKeyFromBytes(blsPK)
+	if err != nil {
+		fmt.Println("pubkey unmarshal failed")
+		return false
+	}
+
+	sig, err := cc.system.SigFromBytes(signature)
+	if err != nil {
+		fmt.Println("signature unmarshal failed")
+		return false
+	}
+	return bls.Verify(sig, fixedMsgHash, pubkey)
+}
+
 func (cc *ConsensusCommon) AggregateSign(sigs []bls.Signature) bls.Signature {
 	cc.checkConsensusCommonInit()
 	sig, err := bls.Aggregate(sigs, cc.system)
