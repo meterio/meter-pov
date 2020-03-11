@@ -123,6 +123,47 @@ type ConsensusConfig struct {
 	EpochMBlockCount   uint64
 }
 
+type BlsCommon struct {
+	PrivKey     bls.PrivateKey    //my private key
+	PubKey      bls.PublicKey     //my public key
+
+	//global params of BLS
+	system      bls.System
+	params      bls.Params
+	pairing     bls.Pairing
+}
+
+func NewBlsCommonFromParams(pubKey bls.PublicKey, privKey bls.PrivateKey, system bls.System, params bls.Params, pairing bls.Pairing) *BlsCommon {
+	return &BlsCommon{
+		PrivKey:     privKey,
+		PubKey:      pubKey,
+		system:      system,
+		params:      params,
+		pairing:     pairing,
+	}
+}
+
+func NewBlsCommon() *BlsCommon {
+	params := bls.GenParamsTypeA(160, 512)
+	pairing := bls.GenPairing(params)
+	system, err := bls.GenSystem(pairing)
+	if err != nil {
+		return nil
+	}
+
+	PubKey, PrivKey, err := bls.GenKeys(system)
+	if err != nil {
+		return nil
+	}
+	return &BlsCommon{
+		PrivKey:     PrivKey,
+		PubKey:      PubKey,
+		system:      system,
+		params:      params,
+		pairing:     pairing,
+	}
+}
+
 //-----------------------------------------------------------------------------
 // ConsensusReactor defines a reactor for the consensus service.
 type ConsensusReactor struct {
@@ -204,7 +245,7 @@ func SetConsensusGlobInst(inst *ConsensusReactor) {
 
 // NewConsensusReactor returns a new ConsensusReactor with the given
 // consensusState.
-func NewConsensusReactor(ctx *cli.Context, chain *chain.Chain, state *state.Creator, privKey *ecdsa.PrivateKey, pubKey *ecdsa.PublicKey, magic [4]byte) *ConsensusReactor {
+func NewConsensusReactor(ctx *cli.Context, chain *chain.Chain, state *state.Creator, privKey *ecdsa.PrivateKey, pubKey *ecdsa.PublicKey, magic [4]byte, blsCommon *BlsCommon) *ConsensusReactor {
 	conR := &ConsensusReactor{
 		chain:        chain,
 		stateCreator: state,
@@ -236,6 +277,9 @@ func NewConsensusReactor(ctx *cli.Context, chain *chain.Chain, state *state.Crea
 	//initialize height/round
 	conR.lastKBlockHeight = chain.BestBlock().Header().LastKBlockHeight()
 	conR.curHeight = int64(chain.BestBlock().Header().Number())
+
+	// initialize consensus common
+	conR.csCommon = NewConsensusCommonFromBlsCommon(conR, blsCommon)
 
 	// initialize pacemaker
 	conR.csPacemaker = NewPaceMaker(conR)
