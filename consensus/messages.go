@@ -96,7 +96,7 @@ type AnnounceCommitteeMessage struct {
 	VoterMsgHash  [][32]byte
 	VoterAggSig   []byte
 	//...
-	SignedMessageHash [32]byte
+	Signature []byte // bls.Signature
 }
 
 // SigningHash computes hash of all header fields excluding signature.
@@ -208,10 +208,11 @@ type NotaryAnnounceMessage struct {
 	SignOffset             uint
 	SignLength             uint
 	VoterBitArray          cmn.BitArray
-	VoterAggSignature      []byte //bls.Signature
+	VoterAggSignature      []byte // aggregated bls.Signature
 	CommitteeActualSize    int
 	CommitteeActualMembers []block.CommitteeInfo
-	SignedMessageHash      [32]byte
+
+	Signature []byte // bls.Signature
 }
 
 // SigningHash computes hash of all header fields excluding signature.
@@ -311,13 +312,12 @@ func (m *VoteForNotaryMessage) MsgType() byte {
 type NewCommitteeMessage struct {
 	CSMsgCommonHeader ConsensusMsgCommonHeader
 
-	NewEpochID        uint64
-	NewLeaderPubKey   []byte //ecdsa.PublicKey
-	ValidatorPubkey   []byte //ecdsa.PublicKey
-	Nonce             uint64 // 8 bytes
-	KBlockHeight      uint64
-	Signature         []byte
-	SignedMessageHash [32]byte
+	NewEpochID      uint64
+	NewLeaderPubKey []byte //ecdsa.PublicKey
+	ValidatorPubkey []byte //ecdsa.PublicKey
+	Nonce           uint64 // 8 bytes
+	KBlockHeight    uint64
+	Signature       []byte
 }
 
 // SigningHash computes hash of all header fields excluding signature.
@@ -336,7 +336,6 @@ func (m *NewCommitteeMessage) SigningHash() (hash meter.Bytes32) {
 		m.ValidatorPubkey,
 		m.Nonce,
 		m.KBlockHeight,
-		m.Signature,
 	})
 	hw.Sum(hash[:0])
 	return

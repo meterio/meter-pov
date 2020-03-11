@@ -171,7 +171,7 @@ func (cl *ConsensusLeader) GenerateAnnounceMsg() bool {
 		SignLength: MSG_SIGN_LENGTH_DEFAULT,
 	}
 
-	// sign message
+	// sign message with ecdsa key
 	msgSig, err := cl.csReactor.SignConsensusMsg(msg.SigningHash().Bytes())
 	if err != nil {
 		cl.csReactor.logger.Error("Sign message failed", "error", err)
@@ -179,6 +179,10 @@ func (cl *ConsensusLeader) GenerateAnnounceMsg() bool {
 	}
 	msg.CSMsgCommonHeader.SetMsgSignature(msgSig)
 	cl.csReactor.logger.Debug("Generate Announce Comittee Message", "msg", msg.String())
+
+	// sign message with bls key
+	blsSig := cl.csReactor.csCommon.SignMessage2(msgSig, uint32(MSG_SIGN_OFFSET_DEFAULT), uint32(MSG_SIGN_LENGTH_DEFAULT))
+	msg.Signature = blsSig
 
 	var m ConsensusMessage = msg
 	cl.state = COMMITTEE_LEADER_ANNOUNCED
@@ -256,7 +260,7 @@ func (cl *ConsensusLeader) GenerateNotaryAnnounceMsg() bool {
 		CommitteeActualMembers: cl.csReactor.BuildCommitteeInfoFromMember(cl.csReactor.csCommon.GetSystem(), cl.csReactor.curActualCommittee),
 	}
 
-	// sign message
+	// sign message with ecdsa key
 	msgSig, err := cl.csReactor.SignConsensusMsg(msg.SigningHash().Bytes())
 	if err != nil {
 		cl.csReactor.logger.Error("Sign message failed", "error", err)
@@ -264,6 +268,10 @@ func (cl *ConsensusLeader) GenerateNotaryAnnounceMsg() bool {
 	}
 	msg.CSMsgCommonHeader.SetMsgSignature(msgSig)
 	cl.csReactor.logger.Debug("Generate Notary Announce Message", "msg", msg.String())
+
+	// sign message with bls key
+	blsSig := cl.csReactor.csCommon.SignMessage2(msgSig, uint32(MSG_SIGN_OFFSET_DEFAULT), uint32(MSG_SIGN_LENGTH_DEFAULT))
+	msg.Signature = blsSig
 
 	var m ConsensusMessage = msg
 	cl.SendMsg(m)
