@@ -1277,6 +1277,20 @@ func (conR *ConsensusReactor) ValidateCMheaderSig(cmh *ConsensusMsgCommonHeader,
 }
 
 //----------------------------------------------------------------------------
+// Sign New Committee
+// "New Committee Message: Leader <pubkey 64(hexdump 32x2) bytes> EpochID <16 (8x2)bytes> Height <16 (8x2) bytes>
+func (conR *ConsensusReactor) BuildNewCommitteeSignMsg(pubKey ecdsa.PublicKey, epochID uint64, height uint64) string {
+	c := make([]byte, binary.MaxVarintLen64)
+	binary.BigEndian.PutUint64(c, epochID)
+
+	h := make([]byte, binary.MaxVarintLen64)
+	binary.BigEndian.PutUint64(h, height)
+
+	return fmt.Sprintf("%s %s %s %s %s %s", "New Committee Message: Leader", hex.EncodeToString(crypto.FromECDSAPub(&pubKey)),
+		"EpochID", hex.EncodeToString(c), "Height", hex.EncodeToString(h))
+}
+
+//----------------------------------------------------------------------------
 // Sign Announce Committee
 // "Announce Committee Message: Leader <pubkey 64(hexdump 32x2) bytes> EpochID <16 (8x2)bytes> Height <16 (8x2) bytes> Round <8(4x2)bytes>
 func (conR *ConsensusReactor) BuildAnnounceSignMsg(pubKey ecdsa.PublicKey, epochID uint64, height uint64, round uint32) string {

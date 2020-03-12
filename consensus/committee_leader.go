@@ -153,9 +153,9 @@ func (cl *ConsensusLeader) GenerateAnnounceMsg() bool {
 		POWBlockHeight: 0, //TODO: TBD
 
 		// signature from newcommittee
-		VotingBitArray: cl.csReactor.newCommittee.newCommitteeVoterBitArray,
-		VotingMsgHash:  cl.csReactor.newCommittee.newCommitteeVoterMsgHash[0],
-		VotingAggSig:   cl.csReactor.csCommon.system.SigToBytes(cl.csReactor.newCommittee.newCommitteeVoterAggSig),
+		VotingBitArray: cl.csReactor.newCommittee.voterBitArray,
+		VotingMsgHash:  cl.csReactor.newCommittee.voterMsgHash[0],
+		VotingAggSig:   cl.csReactor.csCommon.system.SigToBytes(cl.csReactor.newCommittee.voterAggSig),
 	}
 
 	// sign message with ecdsa key
@@ -236,9 +236,9 @@ func (cl *ConsensusLeader) GenerateNotaryAnnounceMsg() bool {
 		AnnouncerID:   crypto.FromECDSAPub(&cl.csReactor.myPubKey),
 		CommitteeSize: cl.csReactor.committeeSize,
 
-		VotingBitArray: newCommitteeInfo.newCommitteeVoterBitArray,
-		VotingMsgHash:  newCommitteeInfo.newCommitteeVoterMsgHash[0],
-		VotingAggSig:   cl.csReactor.csCommon.GetSystem().SigToBytes(newCommitteeInfo.newCommitteeVoterAggSig),
+		VotingBitArray: newCommitteeInfo.voterBitArray,
+		VotingMsgHash:  newCommitteeInfo.voterMsgHash[0],
+		VotingAggSig:   cl.csReactor.csCommon.GetSystem().SigToBytes(newCommitteeInfo.voterAggSig),
 
 		NotarizeBitArray: cl.announceVoterBitArray,
 		NotarizeMsgHash:  cl.announceVoterMsgHash[0],

@@ -252,9 +252,9 @@ func (m *NotaryAnnounceMessage) MsgType() byte {
 type NewCommitteeMessage struct {
 	CSMsgCommonHeader ConsensusMsgCommonHeader
 
-	NewLeaderID     []byte //ecdsa.PublicKey
-	NewLeaderBlsPK  []byte //bls.PublicKey
-	ValidatorPubkey []byte //ecdsa.PublicKey
+	NewLeaderID    []byte //ecdsa.PublicKey
+	NewLeaderBlsPK []byte //bls.PublicKey
+	ValidatorID    []byte //ecdsa.PublicKey
 
 	NextEpochID   uint64
 	Nonce         uint64 // 8 bytes  Kblock info
@@ -276,7 +276,7 @@ func (m *NewCommitteeMessage) SigningHash() (hash meter.Bytes32) {
 
 		m.NewLeaderID,
 		m.NewLeaderBlsPK,
-		m.ValidatorPubkey,
+		m.ValidatorID,
 
 		m.NextEpochID,
 		m.Nonce,
