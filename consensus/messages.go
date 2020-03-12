@@ -3,7 +3,6 @@ package consensus
 import (
 	"encoding/hex"
 	"fmt"
-	"strconv"
 	"strings"
 	"time"
 
@@ -77,7 +76,7 @@ type AnnounceCommitteeMessage struct {
 	CSMsgCommonHeader ConsensusMsgCommonHeader
 
 	AnnouncerID    []byte //ecdsa.PublicKey
-	CSLeaderPubKey []byte //bls.PublicKey
+	AnnouncerBlsPK []byte //bls.PublicKey
 
 	CommitteeSize  int
 	Nonce          uint64 //nonce is 8 bytes
@@ -103,20 +102,16 @@ func (m *AnnounceCommitteeMessage) SigningHash() (hash meter.Bytes32) {
 		m.CSMsgCommonHeader.EpochID,
 
 		m.AnnouncerID,
+		m.AnnouncerBlsPK,
+
 		m.CommitteeSize,
 		m.Nonce,
-		m.CSParams,
-		m.CSSystem,
-		m.CSLeaderPubKey,
 		m.KBlockHeight,
 		m.POWBlockHeight,
-		m.SignOffset,
-		m.SignLength,
-		m.VoterBitArray,
-		m.VoterSig,
-		m.VoterPubKey,
-		m.VoterMsgHash,
-		m.VoterAggSig,
+
+		m.VotingBitArray,
+		m.VotingMsgHash,
+		m.VotingAggSig,
 	})
 	hw.Sum(hash[:0])
 	return
@@ -142,12 +137,12 @@ func (m *AnnounceCommitteeMessage) MsgType() byte {
 type CommitCommitteeMessage struct {
 	CSMsgCommonHeader ConsensusMsgCommonHeader
 
-	CommitterID       []byte //ecdsa.PublicKey
-	CSCommitterPubKey []byte //bls.PublicKey
-
-	BlsSignature   []byte   //bls.Signature
-	SignedMsgHash  [32]byte //bls signed message hash
+	CommitterID    []byte //ecdsa.PublicKey
+	CommitterBlsPK []byte //bls.PublicKey
 	CommitterIndex int
+
+	BlsSignature  []byte   //bls.Signature
+	SignedMsgHash [32]byte //bls signed message hash
 }
 
 // SigningHash computes hash of all header fields excluding signature.
@@ -162,10 +157,8 @@ func (m *CommitCommitteeMessage) SigningHash() (hash meter.Bytes32) {
 		m.CSMsgCommonHeader.MsgSubType,
 		m.CSMsgCommonHeader.EpochID,
 
-		m.CommitteeSize,
 		m.CommitterID,
-		m.CSCommitterPubKey,
-		m.CommitterSignature,
+		m.CommitterBlsPK,
 		m.CommitterIndex,
 	})
 	hw.Sum(hash[:0])
@@ -192,7 +185,7 @@ type NotaryAnnounceMessage struct {
 	CSMsgCommonHeader ConsensusMsgCommonHeader
 
 	AnnouncerID    []byte //ecdsa.PublicKey
-	CSLeaderPubKey []byte //bls.PublicKey
+	AnnouncerBlsPK []byte //bls.PublicKey
 
 	//collected NewCommittee messages
 	VotingBitArray *cmn.BitArray
@@ -221,13 +214,18 @@ func (m *NotaryAnnounceMessage) SigningHash() (hash meter.Bytes32) {
 		m.CSMsgCommonHeader.EpochID,
 
 		m.AnnouncerID,
+		m.AnnouncerBlsPK,
+
+		m.VotingBitArray,
+		m.VotingMsgHash,
+		m.VotingAggSig,
+
+		m.NotarizeBitArray,
+		m.NotarizeMsgHash,
+		m.NotarizeAggSig,
+
 		m.CommitteeSize,
-		m.SignOffset,
-		m.SignLength,
-		m.VoterBitArray,
-		m.VoterAggSignature,
-		m.CommitteeActualSize,
-		m.CommitteeActualMembers,
+		m.CommitteeMembers,
 	})
 	hw.Sum(hash[:0])
 	return
@@ -237,11 +235,11 @@ func (m *NotaryAnnounceMessage) SigningHash() (hash meter.Bytes32) {
 func (m *NotaryAnnounceMessage) String() string {
 	header := m.CSMsgCommonHeader
 	s := make([]string, 0)
-	for _, m := range m.CommitteeActualMembers {
-		s = append(s, strconv.Itoa(int(m.CSIndex)))
+	for _, m := range m.CommitteeMembers {
+		s = append(s, m.Name)
 	}
-	return fmt.Sprintf("[NotaryAnnounce Height:%v Round:%v Epoch:%v ActualSize:%d ActualIndex:%s]",
-		header.Height, header.Round, header.EpochID, m.CommitteeActualSize, strings.Join(s, ","))
+	return fmt.Sprintf("[NotaryAnnounce Height:%v Round:%v Epoch:%v CommitteeSize:%d Members:%s]",
+		header.Height, header.Round, header.EpochID, m.CommitteeSize, strings.Join(s, ","))
 }
 func (m *NotaryAnnounceMessage) EpochID() uint64 {
 	return m.CSMsgCommonHeader.EpochID
@@ -254,11 +252,11 @@ func (m *NotaryAnnounceMessage) MsgType() byte {
 type NewCommitteeMessage struct {
 	CSMsgCommonHeader ConsensusMsgCommonHeader
 
-	NewLeaderPubKey []byte //ecdsa.PublicKey
+	NewLeaderID     []byte //ecdsa.PublicKey
+	NewLeaderBlsPK  []byte //bls.PublicKey
 	ValidatorPubkey []byte //ecdsa.PublicKey
-	CSLeaderPubKey  []byte //bls.PublicKey
 
-	EpochID       uint64
+	NextEpochID   uint64
 	Nonce         uint64 // 8 bytes  Kblock info
 	KBlockHeight  uint64
 	SignedMsgHash [32]byte // BLS signed message hash
@@ -276,9 +274,11 @@ func (m *NewCommitteeMessage) SigningHash() (hash meter.Bytes32) {
 		m.CSMsgCommonHeader.MsgType,
 		m.CSMsgCommonHeader.MsgSubType,
 
-		m.NewEpochID,
-		m.NewLeaderPubKey,
+		m.NewLeaderID,
+		m.NewLeaderBlsPK,
 		m.ValidatorPubkey,
+
+		m.NextEpochID,
 		m.Nonce,
 		m.KBlockHeight,
 	})
@@ -288,8 +288,8 @@ func (m *NewCommitteeMessage) SigningHash() (hash meter.Bytes32) {
 
 // String returns a string representation.
 func (m *NewCommitteeMessage) String() string {
-	return fmt.Sprintf("[NewCommitteeMessage Height:%v Round:%v NewEpochID:%v]",
-		m.CSMsgCommonHeader.Height, m.CSMsgCommonHeader.Round, m.NewEpochID)
+	return fmt.Sprintf("[NewCommitteeMessage Height:%v Round:%v NextEpochID:%v]",
+		m.CSMsgCommonHeader.Height, m.CSMsgCommonHeader.Round, m.NextEpochID)
 }
 
 func (m *NewCommitteeMessage) EpochID() uint64 {
@@ -306,11 +306,11 @@ type PMProposalMessage struct {
 	ParentHeight uint64
 	ParentRound  uint64
 
-	ProposerID        []byte //ecdsa.PublicKey
-	CSProposerPubKey  []byte //bls.PublicKey
-	KBlockHeight      int64
-	SignOffset        uint
-	SignLength        uint
+	ProposerID    []byte //ecdsa.PublicKey
+	ProposerBlsPK []byte //bls.PublicKey
+	KBlockHeight  int64
+	// SignOffset        uint
+	// SignLength        uint
 	ProposedSize      int
 	ProposedBlock     []byte
 	ProposedBlockType BlockType
@@ -334,10 +334,10 @@ func (m *PMProposalMessage) SigningHash() (hash meter.Bytes32) {
 		m.ParentRound,
 
 		m.ProposerID,
-		m.CSProposerPubKey,
+		m.ProposerBlsPK,
 		m.KBlockHeight,
-		m.SignOffset,
-		m.SignLength,
+		// m.SignOffset,
+		// m.SignLength,
 		m.ProposedSize,
 		m.ProposedBlock,
 		m.ProposedBlockType,
@@ -366,8 +366,8 @@ type PMVoteForProposalMessage struct {
 	CSMsgCommonHeader ConsensusMsgCommonHeader
 
 	VoterID           []byte //ecdsa.PublicKey
-	CSVoterPubKey     []byte //bls.PublicKey
-	VoterSignature    []byte //bls.Signature
+	VoterBlsPK        []byte //bls.PublicKey
+	BlsSignature      []byte //bls.Signature
 	VoterIndex        int64
 	SignedMessageHash [32]byte
 }
@@ -385,8 +385,8 @@ func (m *PMVoteForProposalMessage) SigningHash() (hash meter.Bytes32) {
 		m.CSMsgCommonHeader.Signature,
 
 		m.VoterID,
-		m.CSVoterPubKey,
-		m.VoterSignature,
+		m.VoterBlsPK,
+		m.BlsSignature,
 		m.VoterIndex,
 		m.SignedMessageHash,
 	})

@@ -124,22 +124,22 @@ type ConsensusConfig struct {
 }
 
 type BlsCommon struct {
-	PrivKey     bls.PrivateKey    //my private key
-	PubKey      bls.PublicKey     //my public key
+	PrivKey bls.PrivateKey //my private key
+	PubKey  bls.PublicKey  //my public key
 
 	//global params of BLS
-	system      bls.System
-	params      bls.Params
-	pairing     bls.Pairing
+	system  bls.System
+	params  bls.Params
+	pairing bls.Pairing
 }
 
 func NewBlsCommonFromParams(pubKey bls.PublicKey, privKey bls.PrivateKey, system bls.System, params bls.Params, pairing bls.Pairing) *BlsCommon {
 	return &BlsCommon{
-		PrivKey:     privKey,
-		PubKey:      pubKey,
-		system:      system,
-		params:      params,
-		pairing:     pairing,
+		PrivKey: privKey,
+		PubKey:  pubKey,
+		system:  system,
+		params:  params,
+		pairing: pairing,
 	}
 }
 
@@ -156,11 +156,11 @@ func NewBlsCommon() *BlsCommon {
 		return nil
 	}
 	return &BlsCommon{
-		PrivKey:     PrivKey,
-		PubKey:      PubKey,
-		system:      system,
-		params:      params,
-		pairing:     pairing,
+		PrivKey: PrivKey,
+		PubKey:  PubKey,
+		system:  system,
+		params:  params,
+		pairing: pairing,
 	}
 }
 
@@ -828,26 +828,6 @@ func (conR *ConsensusReactor) handleMsg(mi consensusMsgInfo) {
 			conR.logger.Error("process NotaryAnnounceMessage failed")
 		}
 
-	case *VoteForNotaryMessage:
-		ch := msg.CSMsgCommonHeader
-
-		if ch.MsgSubType == VOTE_FOR_NOTARY_ANNOUNCE {
-			// vote for notary announce
-			if (conR.csRoleInitialized&CONSENSUS_COMMIT_ROLE_LEADER) == 0 ||
-				(conR.csLeader == nil) {
-				conR.logger.Warn("not in leader role, ignore VoteForNotaryMessage")
-				break
-			}
-
-			success = conR.csLeader.ProcessVoteNotaryAnnounce(msg, peer)
-			if success == false {
-				conR.logger.Error("process VoteForNotary(Announce) failed")
-			}
-
-		} else {
-			conR.logger.Error("Unknown MsgSubType", "value", ch.MsgSubType)
-		}
-
 	case *NewCommitteeMessage:
 		success = conR.ProcessNewCommitteeMessage(msg, peer)
 		if success == false {
@@ -1139,23 +1119,23 @@ func (conR *ConsensusReactor) exitCurCommittee() error {
 
 func getConcreteName(msg ConsensusMessage) string {
 	switch msg.(type) {
+	// committee messages
 	case *AnnounceCommitteeMessage:
 		return "AnnounceCommitteeMessage"
 	case *CommitCommitteeMessage:
 		return "CommitCommitteeMessage"
 	case *NotaryAnnounceMessage:
 		return "NotaryAnnounceMessage"
-	case *VoteForNotaryMessage:
-		return "VoteForNotaryMessage"
+	case *NewCommitteeMessage:
+		return "NewCommitteeMessage"
 
+	// pacemaker messages
 	case *PMProposalMessage:
 		return "PMProposalMessage"
 	case *PMVoteForProposalMessage:
 		return "PMVoteForProposalMessage"
 	case *PMNewViewMessage:
 		return "PMNewViewMessage"
-	case *NewCommitteeMessage:
-		return "NewCommitteeMessage"
 	}
 	return ""
 }
@@ -1348,14 +1328,6 @@ func (conR *ConsensusReactor) ValidateCMheaderSig(cmh *ConsensusMsgCommonHeader,
 }
 
 //----------------------------------------------------------------------------
-// each node create signing message based on current information and sign part
-// of them.
-
-const (
-	MSG_SIGN_OFFSET_DEFAULT = uint(0)
-	MSG_SIGN_LENGTH_DEFAULT = uint(130)
-)
-
 // Sign Announce Committee
 // "Announce Committee Message: Leader <pubkey 64(hexdump 32x2) bytes> EpochID <16 (8x2)bytes> Height <16 (8x2) bytes> Round <8(4x2)bytes>
 func (conR *ConsensusReactor) BuildAnnounceSignMsg(pubKey ecdsa.PublicKey, epochID uint64, height uint64, round uint32) string {

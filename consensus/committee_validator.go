@@ -104,12 +104,11 @@ func (cv *ConsensusValidator) GenerateCommitMessage(sig bls.Signature, msgHash [
 	msg := &CommitCommitteeMessage{
 		CSMsgCommonHeader: cmnHdr,
 
-		CommitteeSize:      cv.csReactor.committeeSize,
-		CommitterID:        crypto.FromECDSAPub(&cv.csReactor.myPubKey),
-		CSCommitterPubKey:  cv.csReactor.csCommon.system.PubKeyToBytes(cv.csReactor.csCommon.PubKey), //bls pubkey
-		CommitterSignature: cv.csReactor.csCommon.system.SigToBytes(sig),                             //TBD
-		CommitterIndex:     index,
-		SignedMessageHash:  msgHash,
+		CommitterID:    crypto.FromECDSAPub(&cv.csReactor.myPubKey),
+		CommitterBlsPK: cv.csReactor.csCommon.system.PubKeyToBytes(cv.csReactor.csCommon.PubKey), //bls pubkey
+		BlsSignature:   cv.csReactor.csCommon.system.SigToBytes(sig),                             //TBD
+		CommitterIndex: index,
+		SignedMsgHash:  msgHash,
 	}
 
 	// sign message
@@ -147,15 +146,6 @@ func (cv *ConsensusValidator) ProcessAnnounceCommittee(announceMsg *AnnounceComm
 
 	if cv.csReactor.ValidateCMheaderSig(&ch, announceMsg.SigningHash().Bytes()) == false {
 		cv.csReactor.logger.Error("Signature validate failed")
-		return false
-	}
-
-	// verify bls signature
-	sig := announceMsg.Signature
-	blsPK := announceMsg.CSLeaderPubKey
-	hash := announceMsg.SigningHash().Bytes()
-	if cv.csReactor.csCommon.VerifySignature(sig, hash, blsPK) == false {
-		cv.csReactor.logger.Error("bls signature validate failed")
 		return false
 	}
 
@@ -213,15 +203,17 @@ func (cv *ConsensusValidator) ProcessAnnounceCommittee(announceMsg *AnnounceComm
 		cv.csReactor.csCommon = nil
 	}
 
-	if cv.replay {
-		cv.csReactor.csCommon = NewValidatorReplayConsensusCommon(cv.csReactor, announceMsg.CSParams, announceMsg.CSSystem)
-		//cv.replay = false
-	} else {
-		cv.csReactor.csCommon = NewValidatorConsensusCommon(cv.csReactor, announceMsg.CSParams, announceMsg.CSSystem)
-	}
+	/*
+		if cv.replay {
+			cv.csReactor.csCommon = NewValidatorReplayConsensusCommon(cv.csReactor, announceMsg.CSParams, announceMsg.CSSystem)
+			//cv.replay = false
+		} else {
+			cv.csReactor.csCommon = NewValidatorConsensusCommon(cv.csReactor, announceMsg.CSParams, announceMsg.CSSystem)
+		}
+	*/
 
-	offset := announceMsg.SignOffset
-	length := announceMsg.SignLength
+	// offset := announceMsg.SignOffset
+	// length := announceMsg.SignLength
 
 	announcerPubKey, err := crypto.UnmarshalPubkey(announceMsg.AnnouncerID)
 	if err != nil {
@@ -231,15 +223,16 @@ func (cv *ConsensusValidator) ProcessAnnounceCommittee(announceMsg *AnnounceComm
 	signMsg := cv.csReactor.BuildAnnounceSignMsg(*announcerPubKey, announceMsg.CSMsgCommonHeader.EpochID, uint64(ch.Height), uint32(ch.Round))
 	// fmt.Println("offset & length: ", offset, length, "sign msg:", signMsg)
 
-	if int(offset+length) > len(signMsg) {
-		cv.csReactor.logger.Error("out of boundary ...")
-		return false
-	}
+	/*
+		if int(offset+length) > len(signMsg) {
+			cv.csReactor.logger.Error("out of boundary ...")
+			return false
+		}
+	*/
 
 	cv.EpochID = announceMsg.CSMsgCommonHeader.EpochID
 
-	sign := cv.csReactor.csCommon.SignMessage([]byte(signMsg), uint32(offset), uint32(length))
-	msgHash := cv.csReactor.csCommon.Hash256Msg([]byte(signMsg), uint32(offset), uint32(length))
+	sign, msgHash := cv.csReactor.csCommon.SignMessage([]byte(signMsg))
 	msg := cv.GenerateCommitMessage(sign, msgHash)
 
 	var m ConsensusMessage = msg
@@ -295,13 +288,15 @@ func (cv *ConsensusValidator) ProcessNotaryAnnounceMessage(notaryMsg *NotaryAnno
 	// Now the notary Announce message is OK
 
 	// Validate Actual Committee
-	if notaryMsg.CommitteeActualSize != len(notaryMsg.CommitteeActualMembers) {
-		cv.csReactor.logger.Error("ActualCommittee length mismatch ...")
-		return false
-	}
+	/*
+		if notaryMsg.CommitteeActualSize != len(notaryMsg.CommitteeActualMembers) {
+			cv.csReactor.logger.Error("ActualCommittee length mismatch ...")
+			return false
+		}
+	*/
 
 	// Update the curActualCommittee by receving Notary message
-	cv.csReactor.curActualCommittee = cv.csReactor.BuildCommitteeMemberFromInfo(cv.csReactor.csCommon.GetSystem(), notaryMsg.CommitteeActualMembers)
+	cv.csReactor.curActualCommittee = cv.csReactor.BuildCommitteeMemberFromInfo(cv.csReactor.csCommon.GetSystem(), notaryMsg.CommitteeMembers)
 
 	found := false
 	for _, c := range cv.csReactor.curActualCommittee {
@@ -331,27 +326,22 @@ func (cv *ConsensusValidator) ProcessNotaryAnnounceMessage(notaryMsg *NotaryAnno
 
 	// TBD: validate announce bitarray & signature
 
-	// Block is OK, send back voting
-	announcerPubKey, err := crypto.UnmarshalPubkey(notaryMsg.AnnouncerID)
+	// Block is OK
+	_, err := crypto.UnmarshalPubkey(notaryMsg.AnnouncerID)
 	if err != nil {
 		cv.csReactor.logger.Error("ummarshal announcer public key of sender failed ")
 		return false
 	}
-	offset := notaryMsg.SignOffset
-	length := notaryMsg.SignLength
 
-	signMsg := cv.csReactor.BuildNotaryAnnounceSignMsg(*announcerPubKey, notaryMsg.CSMsgCommonHeader.EpochID, uint64(ch.Height), uint32(ch.Round))
+	// signMsg := cv.csReactor.BuildNotaryAnnounceSignMsg(*announcerPubKey, notaryMsg.CSMsgCommonHeader.EpochID, uint64(ch.Height), uint32(ch.Round))
 
-	sign := cv.csReactor.csCommon.SignMessage([]byte(signMsg), uint32(offset), uint32(length))
-	msgHash := cv.csReactor.csCommon.Hash256Msg([]byte(signMsg), uint32(offset), uint32(length))
-	msg := cv.GenerateVoteForNotaryMessage(sign, msgHash, VOTE_FOR_NOTARY_ANNOUNCE)
+	// sign, msgHash := cv.csReactor.csCommon.SignMessage([]byte(signMsg))
+	// msg := cv.GenerateVoteForNotaryMessage(sign, msgHash, VOTE_FOR_NOTARY_ANNOUNCE)
 
-	// lv := cv.csReactor.curCommittee.Validators[round]
-
-	if lv != nil {
-		var m ConsensusMessage = msg
-		cv.SendMsgToPeer(&m, lv.NetAddr)
-	}
+	// if lv != nil {
+	// 	var m ConsensusMessage = msg
+	// 	cv.SendMsgToPeer(&m, lv.NetAddr)
+	// }
 
 	// stop new committee timer cos it is established
 	cv.csReactor.NewCommitteeCleanup()
@@ -368,42 +358,4 @@ Let's start the pacemaker...
 	//cv.csReactor.csPacemaker.Start(newCommittee)
 	cv.csReactor.startPacemaker(newCommittee)
 	return true
-}
-
-// Generate VoteForProposal Message
-func (cv *ConsensusValidator) GenerateVoteForNotaryMessage(sig bls.Signature, msgHash [32]byte, MsgSubType byte) *VoteForNotaryMessage {
-
-	curHeight := cv.csReactor.curHeight
-
-	cmnHdr := ConsensusMsgCommonHeader{
-		Height:     curHeight,
-		Round:      0,
-		Sender:     crypto.FromECDSAPub(&cv.csReactor.myPubKey),
-		Timestamp:  time.Now(),
-		MsgType:    CONSENSUS_MSG_VOTE_FOR_NOTARY,
-		MsgSubType: MsgSubType,
-
-		EpochID: cv.EpochID,
-	}
-
-	index := cv.csReactor.GetCommitteeMemberIndex(cv.csReactor.myPubKey)
-	msg := &VoteForNotaryMessage{
-		CSMsgCommonHeader: cmnHdr,
-
-		VoterID:           crypto.FromECDSAPub(&cv.csReactor.myPubKey),
-		CSVoterPubKey:     cv.csReactor.csCommon.system.PubKeyToBytes(cv.csReactor.csCommon.PubKey),
-		VoterSignature:    cv.csReactor.csCommon.system.SigToBytes(sig), //TBD
-		VoterIndex:        index,
-		SignedMessageHash: msgHash,
-	}
-
-	// sign message
-	msgSig, err := cv.csReactor.SignConsensusMsg(msg.SigningHash().Bytes())
-	if err != nil {
-		cv.csReactor.logger.Error("Sign message failed", "error", err)
-		return nil
-	}
-	msg.CSMsgCommonHeader.SetMsgSignature(msgSig)
-	cv.csReactor.logger.Debug("Generate Voter For Notary Message", "msg", msg.String())
-	return msg
 }

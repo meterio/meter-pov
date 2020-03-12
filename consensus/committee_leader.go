@@ -157,7 +157,7 @@ func (cl *ConsensusLeader) GenerateAnnounceMsg() bool {
 		CSMsgCommonHeader: cmnHdr,
 
 		AnnouncerID:    crypto.FromECDSAPub(&cl.csReactor.myPubKey),
-		CSLeaderPubKey: cl.csReactor.csCommon.system.PubKeyToBytes(cl.csReactor.csCommon.PubKey),
+		AnnouncerBlsPK: cl.csReactor.csCommon.system.PubKeyToBytes(cl.csReactor.csCommon.PubKey),
 
 		CommitteeSize:  cl.csReactor.committeeSize,
 		Nonce:          cl.Nonce,
@@ -250,10 +250,15 @@ func (cl *ConsensusLeader) GenerateNotaryAnnounceMsg() bool {
 		AnnouncerID:   crypto.FromECDSAPub(&cl.csReactor.myPubKey),
 		CommitteeSize: cl.csReactor.committeeSize,
 
-		VoterBitArray:          *cl.announceVoterBitArray,
-		VoterAggSignature:      cl.csReactor.csCommon.GetSystem().SigToBytes(cl.announceVoterAggSig),
-		CommitteeActualSize:    len(cl.csReactor.curActualCommittee),
-		CommitteeActualMembers: cl.csReactor.BuildCommitteeInfoFromMember(cl.csReactor.csCommon.GetSystem(), cl.csReactor.curActualCommittee),
+		VotingBitArray: cl.announceVoterBitArray,
+		VotingMsgHash:  cl.announceVoterMsgHash[0],
+		VotingAggSig:   cl.csReactor.csCommon.GetSystem().SigToBytes(cl.announceVoterAggSig),
+
+		NotarizeBitArray: cl.notaryVoterBitArray,
+		NotarizeMsgHash:  cl.notaryVoterMsgHash[0],
+		NotarizeAggSig:   cl.csReactor.csCommon.system.SigToBytes(cl.notaryVoterAggSig),
+
+		CommitteeMembers: make([]block.CommitteeInfo, 0),
 	}
 
 	// sign message with ecdsa key
@@ -264,10 +269,6 @@ func (cl *ConsensusLeader) GenerateNotaryAnnounceMsg() bool {
 	}
 	msg.CSMsgCommonHeader.SetMsgSignature(msgSig)
 	cl.csReactor.logger.Debug("Generate Notary Announce Message", "msg", msg.String())
-
-	// sign message with bls key
-	blsSig := cl.csReactor.csCommon.SignMessage2(msgSig, uint32(MSG_SIGN_OFFSET_DEFAULT), uint32(MSG_SIGN_LENGTH_DEFAULT))
-	msg.Signature = blsSig
 
 	var m ConsensusMessage = msg
 	cl.SendMsg(m)
@@ -320,20 +321,20 @@ func (cl *ConsensusLeader) ProcessCommitMsg(commitMsg *CommitCommitteeMessage, s
 	cl.csReactor.logger.Debug("Sign message", "msg", signMsg)
 
 	// validate the message hash
-	msgHash := cl.csReactor.csCommon.Hash256Msg([]byte(signMsg), uint32(MSG_SIGN_OFFSET_DEFAULT), uint32(MSG_SIGN_LENGTH_DEFAULT))
-	if msgHash != commitMsg.SignedMessageHash {
+	msgHash := cl.csReactor.csCommon.Hash256Msg([]byte(signMsg))
+	if msgHash != commitMsg.SignedMsgHash {
 		cl.csReactor.logger.Error("msgHash mismatch ...")
 		return false
 	}
 
 	// validate the signature
-	sig, err := cl.csReactor.csCommon.system.SigFromBytes(commitMsg.CommitterSignature)
+	sig, err := cl.csReactor.csCommon.system.SigFromBytes(commitMsg.BlsSignature)
 	if err != nil {
 		cl.csReactor.logger.Error("get signature failed ...")
 		return false
 	}
 
-	pubKey, err := cl.csReactor.csCommon.system.PubKeyFromBytes(commitMsg.CSCommitterPubKey)
+	pubKey, err := cl.csReactor.csCommon.system.PubKeyFromBytes(commitMsg.CommitterBlsPK)
 	if err != nil {
 		cl.csReactor.logger.Error("get PubKey failed ...")
 		return false
@@ -360,7 +361,7 @@ func (cl *ConsensusLeader) ProcessCommitMsg(commitMsg *CommitCommitteeMessage, s
 	cl.announceVoterSig = append(cl.announceVoterSig, sig)
 	//cl.announceVoterPubKey = append(cl.announceVoterPubKey, commitMsg.CSCommitterPubKey)
 	cl.announceVoterPubKey = append(cl.announceVoterPubKey, pubKey)
-	cl.announceVoterMsgHash = append(cl.announceVoterMsgHash, commitMsg.SignedMessageHash)
+	cl.announceVoterMsgHash = append(cl.announceVoterMsgHash, commitMsg.SignedMsgHash)
 
 	/**** Announce/Commit is special because we want receive the commit as many as possible. Move the 2/3 action to timer expire func
 		// 3. if the totoal vote > 2/3, move to NotarySend state
@@ -381,100 +382,6 @@ func (cl *ConsensusLeader) ProcessCommitMsg(commitMsg *CommitCommitteeMessage, s
 		}
 	****/
 	return true
-}
-
-// VoteForNotaryMessage MsgSubType is for announce is checked in validator
-func (cl *ConsensusLeader) ProcessVoteNotaryAnnounce(vote4NotaryMsg *VoteForNotaryMessage, src *ConsensusPeer) bool {
-
-	// only process Vote Notary in state NotarySent
-	if cl.state != COMMITTEE_LEADER_NOTARYSENT {
-		cl.csReactor.logger.Error("state machine incorrect", "expected", "COMMITTEE_LEADER_NOTARYSENT", "actual", cl.state)
-		return false
-	}
-
-	ch := vote4NotaryMsg.CSMsgCommonHeader
-	if !cl.csReactor.checkHeight(ch) {
-		return false
-	}
-
-	if ch.MsgType != CONSENSUS_MSG_VOTE_FOR_NOTARY {
-		cl.csReactor.logger.Error("MsgType is not CONSENSUS_MSG_VOTE_FOR_NOTARY")
-		return false
-	}
-
-	if cl.csReactor.ValidateCMheaderSig(&ch, vote4NotaryMsg.SigningHash().Bytes()) == false {
-		cl.csReactor.logger.Error("Signature validate failed")
-		return false
-	}
-
-	// valid the voter index. we can get the index from the publicKey
-	senderPubKey, err := crypto.UnmarshalPubkey(ch.Sender)
-	if err != nil {
-		cl.csReactor.logger.Error("ummarshal public key of sender failed ")
-		return false
-	}
-	index := cl.csReactor.GetCommitteeMemberIndex(*senderPubKey)
-	if index != vote4NotaryMsg.VoterIndex {
-		cl.csReactor.logger.Error("Voter index mismatch", "expected", index, "actual", vote4NotaryMsg.VoterIndex)
-		return false
-	}
-
-	//so far so good
-	// 1. validate voter signature
-	myPubKey := cl.csReactor.myPubKey
-	signMsg := cl.csReactor.BuildNotaryAnnounceSignMsg(myPubKey, cl.EpochID, uint64(ch.Height), uint32(ch.Round))
-	cl.csReactor.logger.Debug("Sign message", "msg", signMsg)
-
-	// validate the message hash
-	msgHash := cl.csReactor.csCommon.Hash256Msg([]byte(signMsg), uint32(MSG_SIGN_OFFSET_DEFAULT), uint32(MSG_SIGN_LENGTH_DEFAULT))
-	if msgHash != vote4NotaryMsg.SignedMessageHash {
-		cl.csReactor.logger.Error("msgHash mismatch ...")
-		return false
-	}
-
-	sig, err := cl.csReactor.csCommon.system.SigFromBytes(vote4NotaryMsg.VoterSignature)
-	if err != nil {
-		cl.csReactor.logger.Error("get signature failed ...")
-		return false
-	}
-
-	pubKey, err := cl.csReactor.csCommon.system.PubKeyFromBytes(vote4NotaryMsg.CSVoterPubKey)
-	if err != nil {
-		cl.csReactor.logger.Error("get PubKey failed ...")
-		return false
-	}
-
-	valid := bls.Verify(sig, msgHash, pubKey)
-	if valid == false {
-		cl.csReactor.logger.Error("validate voter signature failed")
-		if cl.csReactor.config.SkipSignatureCheck == true {
-			cl.csReactor.logger.Error("but SkipSignatureCheck is true, continue ...")
-		} else {
-			return false
-		}
-	}
-
-	// 2. add src to bitArray.
-	cl.notaryVoterNum++
-	cl.notaryVoterBitArray.SetIndex(index, true)
-
-	cl.notaryVoterIndexes = append(cl.notaryVoterIndexes, vote4NotaryMsg.VoterIndex)
-	cl.notaryVoterSig = append(cl.notaryVoterSig, sig)
-	cl.notaryVoterPubKey = append(cl.notaryVoterPubKey, pubKey)
-	cl.notaryVoterMsgHash = append(cl.notaryVoterMsgHash, msgHash)
-
-	// 3. if the totoal vote > 2/3, move to Commit state
-	if LeaderMajorityTwoThird(cl.notaryVoterNum, cl.csReactor.committeeSize) &&
-		cl.state == COMMITTEE_LEADER_NOTARYSENT {
-		// create committee
-		cl.committeeEstablished()
-		return true
-
-	} else {
-		// not reach 2/3 yet, wait for more
-		cl.csReactor.logger.Debug("Vote for NotaryAnnounce processed (2/3 not reached yet, wait for more)")
-		return true
-	}
 }
 
 func (cl *ConsensusLeader) committeeEstablished() error {

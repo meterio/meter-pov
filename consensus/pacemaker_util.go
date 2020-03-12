@@ -399,7 +399,7 @@ func (p *Pacemaker) collectVoteSignature(voteMsg *PMVoteForProposalMessage) erro
 	round := uint64(voteMsg.CSMsgCommonHeader.Round)
 	if round == uint64(p.currentRound) && p.csReactor.amIRoundProproser(round) {
 		// if round matches and I am proposer, collect signature and store in cache
-		sigBytes, err := p.csReactor.csCommon.system.SigFromBytes(voteMsg.VoterSignature)
+		sigBytes, err := p.csReactor.csCommon.system.SigFromBytes(voteMsg.BlsSignature)
 		if err != nil {
 			return err
 		}
@@ -410,7 +410,7 @@ func (p *Pacemaker) collectVoteSignature(voteMsg *PMVoteForProposalMessage) erro
 		}
 		p.voterBitArray.SetIndex(int(voteMsg.VoterIndex), true)
 		p.voteSigs = append(p.voteSigs, sig)
-		p.logger.Debug("Collected signature ", "index", voteMsg.VoterIndex, "signature", hex.EncodeToString(voteMsg.VoterSignature))
+		p.logger.Debug("Collected signature ", "index", voteMsg.VoterIndex, "signature", hex.EncodeToString(voteMsg.BlsSignature))
 	} else {
 		p.logger.Debug("Signature ignored because of round mismatch", "round", round, "currRound", p.currentRound)
 	}

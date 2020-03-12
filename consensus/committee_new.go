@@ -139,8 +139,8 @@ func (conR *ConsensusReactor) sendNewCommitteeMessage(peer *ConsensusPeer, pubKe
 			EpochID:   conR.curEpoch,
 		},
 
-		NewEpochID:      conR.curEpoch + 1,
-		NewLeaderPubKey: crypto.FromECDSAPub(&pubKey),
+		NextEpochID:     conR.curEpoch + 1,
+		NewLeaderID:     crypto.FromECDSAPub(&pubKey),
 		ValidatorPubkey: crypto.FromECDSAPub(&conR.myPubKey),
 		Nonce:           nonce,
 		KBlockHeight:    kblockHeight,
@@ -157,8 +157,10 @@ func (conR *ConsensusReactor) sendNewCommitteeMessage(peer *ConsensusPeer, pubKe
 	msg.CSMsgCommonHeader.SetMsgSignature(msgSig)
 
 	// sign message with bls key
-	blsSig := conR.csCommon.SignMessage2(msgSig, uint32(MSG_SIGN_OFFSET_DEFAULT), uint32(MSG_SIGN_LENGTH_DEFAULT))
-	msg.Signature = blsSig
+	signMsg := msg.SigningHash().Bytes()
+	blsSig, msgHash := conR.csCommon.SignMessage2(signMsg)
+	msg.BlsSignature = blsSig
+	msg.SignedMsgHash = msgHash
 
 	// state to init & send move to next round
 	// fmt.Println("msg: %v", msg.String())
@@ -193,7 +195,7 @@ func (conR *ConsensusReactor) ProcessNewCommitteeMessage(newCommitteeMsg *NewCom
 	// XXX: 1) Validator == sender 2) NewLeader == myself
 
 	// sanity check done
-	epochID := newCommitteeMsg.NewEpochID
+	epochID := newCommitteeMsg.NextEpochID
 	height := newCommitteeMsg.KBlockHeight
 	round := uint64(ch.Round)
 	nonce := newCommitteeMsg.Nonce
