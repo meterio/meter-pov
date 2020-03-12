@@ -287,7 +287,8 @@ func (cl *ConsensusLeader) ProcessCommitMsg(commitMsg *CommitCommitteeMessage, s
 	}
 
 	ch := commitMsg.CSMsgCommonHeader
-	if !cl.csReactor.checkHeight(ch) {
+	if ch.Height != cl.csReactor.curHeight {
+		cl.csReactor.logger.Error("Height mismatch!", "curHeight", cl.csReactor.curHeight, "incomingHeight", ch.Height)
 		return false
 	}
 

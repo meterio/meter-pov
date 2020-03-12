@@ -26,18 +26,6 @@ const (
 	// FSM of VALIDATOR
 	COMMITTEE_VALIDATOR_INIT       = byte(0x01)
 	COMMITTEE_VALIDATOR_COMMITSENT = byte(0x02)
-
-	//MsgSubType of VoteForNotary is the responses
-	VOTE_FOR_NOTARY_ANNOUNCE = byte(0x01)
-	VOTE_FOR_NOTARY_BLOCK    = byte(0x02)
-
-	NEW_ROUND_EXPECT_TIMEOUT = 150 * time.Second // 150s timeout between notary and NRM
-)
-
-var (
-	expectedTimer *time.Timer
-	expectedState bool
-	expectedRound int
 )
 
 type ConsensusValidator struct {
@@ -48,11 +36,6 @@ type ConsensusValidator struct {
 	state        byte
 	csPeers      []*ConsensusPeer // consensus message peers
 	newCommittee NewCommittee
-}
-
-// send consensus message to all connected peers
-func (cv *ConsensusValidator) SendMsg(msg *ConsensusMessage) bool {
-	return cv.csReactor.SendMsgToPeers(cv.csPeers, msg)
 }
 
 func (cv *ConsensusValidator) SendMsgToPeer(msg *ConsensusMessage, netAddr types.NetAddress) bool {
@@ -123,9 +106,7 @@ func (cv *ConsensusValidator) GenerateCommitMessage(sig bls.Signature, msgHash [
 }
 
 // process Announcement from committee leader, join the committee
-// if I am included
 func (cv *ConsensusValidator) ProcessAnnounceCommittee(announceMsg *AnnounceCommitteeMessage, src *ConsensusPeer) bool {
-	//logger := cv.csReactor.Logger
 
 	// only process this message at the state of init
 	if cv.state != COMMITTEE_VALIDATOR_INIT {
@@ -135,7 +116,8 @@ func (cv *ConsensusValidator) ProcessAnnounceCommittee(announceMsg *AnnounceComm
 	}
 
 	ch := announceMsg.CSMsgCommonHeader
-	if !cv.csReactor.checkHeight(ch) {
+	if ch.Height != cv.csReactor.curHeight {
+		cv.csReactor.logger.Error("Height mismatch!", "curHeight", cv.csReactor.curHeight, "incomingHeight", ch.Height)
 		return false
 	}
 
@@ -196,39 +178,12 @@ func (cv *ConsensusValidator) ProcessAnnounceCommittee(announceMsg *AnnounceComm
 	// cv.AddcsPeer(src.netAddr)
 
 	// I am in committee, sends the commit message to join the CommitCommitteeMessage
-	//build signature
-	// initiate csCommon based on received params and system
-	if cv.csReactor.csCommon != nil {
-		cv.csReactor.csCommon.ConsensusCommonDeinit()
-		cv.csReactor.csCommon = nil
-	}
-
-	/*
-		if cv.replay {
-			cv.csReactor.csCommon = NewValidatorReplayConsensusCommon(cv.csReactor, announceMsg.CSParams, announceMsg.CSSystem)
-			//cv.replay = false
-		} else {
-			cv.csReactor.csCommon = NewValidatorConsensusCommon(cv.csReactor, announceMsg.CSParams, announceMsg.CSSystem)
-		}
-	*/
-
-	// offset := announceMsg.SignOffset
-	// length := announceMsg.SignLength
-
 	announcerPubKey, err := crypto.UnmarshalPubkey(announceMsg.AnnouncerID)
 	if err != nil {
 		cv.csReactor.logger.Error("ummarshal announcer public key of sender failed ")
 		return false
 	}
 	signMsg := cv.csReactor.BuildAnnounceSignMsg(*announcerPubKey, announceMsg.CSMsgCommonHeader.EpochID, uint64(ch.Height), uint32(ch.Round))
-	// fmt.Println("offset & length: ", offset, length, "sign msg:", signMsg)
-
-	/*
-		if int(offset+length) > len(signMsg) {
-			cv.csReactor.logger.Error("out of boundary ...")
-			return false
-		}
-	*/
 
 	cv.EpochID = announceMsg.CSMsgCommonHeader.EpochID
 
@@ -253,17 +208,9 @@ func (cv *ConsensusValidator) ProcessNotaryAnnounceMessage(notaryMsg *NotaryAnno
 		return false
 	}
 
-	// valid the common header first
-	/***
-	notaryMsg, ok := interface{}(notary).(NotaryAnnounceMessage)
-	if ok != false {
-		cv.csReactor.logger.Error("Message type is not NotaryBlockMessage")
-		return false
-	}
-	***/
-
 	ch := notaryMsg.CSMsgCommonHeader
-	if !cv.csReactor.checkHeight(ch) {
+	if ch.Height != cv.csReactor.curHeight {
+		cv.csReactor.logger.Error("Height mismatch!", "curHeight", cv.csReactor.curHeight, "incomingHeight", ch.Height)
 		return false
 	}
 

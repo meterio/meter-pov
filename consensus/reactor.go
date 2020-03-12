@@ -54,31 +54,23 @@ const (
 	//normally when a block is committed, wait for a while to let whole network to sync and move to next round
 	WHOLE_NETWORK_BLOCK_SYNC_TIME = 5 * time.Second
 
-	blocksToContributeToBecomeGoodPeer = 10000
-	votesToContributeToBecomeGoodPeer  = 10000
-
-	COMMITTEE_SIZE = 400  // by default
-	DELEGATES_SIZE = 2000 // by default
-
 	// Sign Announce Mesage
 	// "Announce Committee Message: Leader <pubkey 64(hexdump 32x2) bytes> EpochID <8 (4x2)bytes> Height <16 (8x2) bytes> Round <8(4x2)bytes>
-	ANNOUNCE_SIGN_MSG_SIZE = int(110)
+	// ANNOUNCE_SIGN_MSG_SIZE = int(110)
 
 	// Sign Propopal Message
 	// "Proposal Block Message: Proposer <pubkey 64(32x3)> BlockType <2 bytes> Height <16 (8x2) bytes> Round <8 (4x2) bytes>
-	PROPOSAL_SIGN_MSG_SIZE = int(100)
+	// PROPOSAL_SIGN_MSG_SIZE = int(100)
 
 	// Sign Notary Announce Message
 	// "Announce Notarization Message: Leader <pubkey 64(32x3)> EpochID <8 bytes> Height <16 (8x2) bytes> Round <8 (4x2) bytes>
-	NOTARY_ANNOUNCE_SIGN_MSG_SIZE = int(120)
+	// NOTARY_ANNOUNCE_SIGN_MSG_SIZE = int(120)
 
 	// Sign Notary Block Message
 	// "Block Notarization Message: Proposer <pubkey 64(32x3)> BlockType <8 bytes> Height <16 (8x2) bytes> Round <8 (4x2) bytes>
-	NOTARY_BLOCK_SIGN_MSG_SIZE = int(130)
+	// NOTARY_BLOCK_SIGN_MSG_SIZE = int(130)
 
 	CHAN_DEFAULT_BUF_SIZE = 100
-
-	MAX_PEERS = 8
 
 	DEFAULT_EPOCHS_PERDAY = 24
 )
@@ -225,8 +217,6 @@ type ConsensusReactor struct {
 	rcvdNewCommittee map[NewCommitteeKey]*NewCommittee // store received new committee info
 
 	dataDir string
-	myAddr  types.NetAddress
-	myName  string
 
 	msgCache *CommitteeMsgCache
 
@@ -635,8 +625,6 @@ func (conR *ConsensusReactor) amIRoundProproser(round uint64) bool {
 
 //create validatorSet by a given nonce. return by my self role
 func (conR *ConsensusReactor) NewValidatorSetByNonce(nonce uint64) (uint, bool) {
-	//vals []*types.Validator
-
 	committee, role, index, inCommittee := conR.CalcCommitteeByNonce(nonce)
 	// fmt.Println("CALCULATED COMMITEE", "role=", role, "index=", index)
 	// fmt.Println(committee)
@@ -644,15 +632,13 @@ func (conR *ConsensusReactor) NewValidatorSetByNonce(nonce uint64) (uint, bool) 
 	if inCommittee == true {
 		conR.csMode = CONSENSUS_MODE_COMMITTEE
 		conR.curCommitteeIndex = index
-		conR.myAddr = conR.curCommittee.Validators[index].NetAddr
-		conR.myName = conR.curCommittee.Validators[index].Name
-		conR.logger.Info("New committee calculated", "index", index, "role", role, "myName", conR.myName, "myIP", conR.myAddr.IP.String())
+		myAddr := conR.curCommittee.Validators[index].NetAddr
+		myName := conR.curCommittee.Validators[index].Name
+		conR.logger.Info("New committee calculated", "index", index, "role", role, "myName", myName, "myIP", myAddr.IP.String())
 	} else {
 		conR.csMode = CONSENSUS_MODE_DELEGATE
 		conR.curCommitteeIndex = 0
 		// FIXME: find a better way
-		conR.myAddr = types.NetAddress{IP: net.IP{}, Port: 8670}
-		conR.myName = ""
 		conR.logger.Info("New committee calculated")
 	}
 	fmt.Println(committee)
@@ -839,7 +825,7 @@ func (conR *ConsensusReactor) handleMsg(mi consensusMsgInfo) {
 
 	// relay the message
 	fromMyself := false
-	if peerIP == conR.myAddr.IP.String() {
+	if peerIP == conR.GetMyNetAddr().IP.String() {
 		fromMyself = true
 	}
 	if _, needRelay := relayMsgTypes[typeName]; needRelay {
@@ -884,7 +870,7 @@ func (conR *ConsensusReactor) relayMsg(msg *ConsensusMessage, msgTypeStr string,
 	conR.logger.Info("Now, relay this consensus msg...", "type", msgTypeStr, "round", round)
 	for _, peer := range peers {
 		conR.logger.Info("Now, relay this "+msgTypeStr+"...", "peer", peer.name, "ip", peer.String(), "round", round)
-		if peer.netAddr.IP.String() == conR.myAddr.IP.String() {
+		if peer.netAddr.IP.String() == conR.GetMyNetAddr().IP.String() {
 			conR.logger.Info("relay to myself, ignore ...")
 			continue
 		}
@@ -1155,12 +1141,11 @@ func (conR *ConsensusReactor) SendMsgToPeers(csPeers []*ConsensusPeer, msg *Cons
 }
 
 func (conR *ConsensusReactor) GetMyNetAddr() types.NetAddress {
-	return conR.myAddr
-	// return conR.curCommittee.Validators[conR.curCommitteeIndex].NetAddr
+	return conR.curCommittee.Validators[conR.curCommitteeIndex].NetAddr
 }
 
 func (conR *ConsensusReactor) GetMyName() string {
-	return conR.myName
+	return conR.curCommittee.Validators[conR.curCommitteeIndex].Name
 }
 
 func (conR *ConsensusReactor) GetMyPeers() ([]*ConsensusPeer, error) {
@@ -1251,22 +1236,11 @@ func (conR *ConsensusReactor) sendConsensusMsg(msg *ConsensusMessage, csPeer *Co
 	if csPeer == nil {
 		conR.internalMsgQueue <- consensusMsgInfo{rawMsg, nil}
 	} else {
-		//conR.peerMsgQueue <- consensusMsgInfo{rawMsg, csPeer}
-		/*************
-		payload := map[string]interface{}{
-			"message":   hex.EncodeToString(rawMsg),
-			"peer_ip":   csPeer.netAddr.IP.String(),
-			"peer_id":   string(csPeer.netAddr.ID),
-			"peer_port": string(csPeer.netAddr.Port),
-		}
-		**************/
-		// myNetAddr := conR.curCommittee.Validators[conR.curCommitteeIndex].NetAddr
 		magicHex := hex.EncodeToString(conR.magic[:])
 		payload := map[string]interface{}{
-			"message": hex.EncodeToString(rawMsg),
-			"peer_ip": conR.myAddr.IP.String(),
-			//"peer_id":   string(myNetAddr.ID),
-			"peer_port": string(conR.myAddr.Port),
+			"message":   hex.EncodeToString(rawMsg),
+			"peer_ip":   conR.GetMyNetAddr().IP.String(),
+			"peer_port": string(conR.GetMyNetAddr().Port),
 			"magic":     magicHex,
 		}
 
@@ -1957,12 +1931,4 @@ func (conR *ConsensusReactor) GetCommitteeMemberNameByIP(ip net.IP) string {
 		}
 	}
 	return ""
-}
-
-func (conR *ConsensusReactor) checkHeight(ch ConsensusMsgCommonHeader) bool {
-	if ch.Height != conR.curHeight {
-		conR.logger.Error("Height mismatch!", "curHeight", conR.curHeight, "incomingHeight", ch.Height)
-		return false
-	}
-	return true
 }
