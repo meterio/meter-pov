@@ -487,24 +487,6 @@ type consensusMsgInfo struct {
 	csPeer *ConsensusPeer
 }
 
-// set CS mode
-func (conR *ConsensusReactor) setCSMode(nMode byte) bool {
-	conR.csMode = nMode
-	return true
-}
-
-func (conR *ConsensusReactor) getCSMode() byte {
-	return conR.csMode
-}
-
-func (conR *ConsensusReactor) isCSCommittee() bool {
-	return (conR.csMode == CONSENSUS_MODE_COMMITTEE)
-}
-
-func (conR *ConsensusReactor) isCSDelegates() bool {
-	return (conR.csMode == CONSENSUS_MODE_DELEGATE)
-}
-
 func (conR *ConsensusReactor) UpdateHeight(height int64) bool {
 	conR.logger.Info(fmt.Sprintf("Update conR.curHeight from %d to %d", conR.curHeight, height))
 	conR.curHeight = height
@@ -992,20 +974,13 @@ func (conR *ConsensusReactor) receiveConsensusMsgRoutine() {
 func (conR *ConsensusReactor) NewConsensusStart() int {
 	conR.logger.Debug("Starting New Consensus ...")
 
-	/***** XXX: Common init is based on roles
-	 ***** Leader generate bls type/params/system and send out those params
-	 ***** by announce message. Validators receives announce and do common init
-
-	// initialize consensus common, Common is calling the C libary,
-	// need to deinit to avoid the memory leak
-	conR.csCommon = NewConsensusCommon(conR)
-	******/
+	/***** Common init is based on roles
+	 ***** Leader generate announce message.
+	 ***** Validators receives announce and do committee init
+	 */
 
 	// Uncomment following to enable peer messages between nodes
 	go conR.receiveConsensusMsgRoutine()
-
-	// pacemaker
-	// go conR.receivePacemakerMsgRoutine()
 
 	// Start receive routine
 	go conR.receiveRoutine() //only handles from channel
