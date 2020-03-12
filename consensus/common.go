@@ -242,6 +242,14 @@ func (cc *ConsensusCommon) GetPairing() *bls.Pairing {
 	return &cc.pairing
 }
 
+func (cc *ConsensusCommon) GetPublicKey() *bls.PublicKey {
+	return &cc.PubKey
+}
+
+func (cc *ConsensusCommon) GetPrivateKey() *bls.PrivateKey {
+	return &cc.PrivKey
+}
+
 // sign the part of msg
 func (cc *ConsensusCommon) Hash256Msg(msg []byte) [32]byte {
 

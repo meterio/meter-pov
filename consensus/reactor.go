@@ -36,7 +36,6 @@ import (
 	"github.com/dfinlab/meter/comm"
 	bls "github.com/dfinlab/meter/crypto/multi_sig"
 	"github.com/dfinlab/meter/genesis"
-	cmn "github.com/dfinlab/meter/libs/common"
 	"github.com/dfinlab/meter/meter"
 	"github.com/dfinlab/meter/powpool"
 	"github.com/dfinlab/meter/script/staking"
@@ -518,69 +517,20 @@ func (conR *ConsensusReactor) RefreshCurHeight() error {
 // after announce/commit, Leader got the actual committee, which is the subset of curCommittee if some committee member offline.
 // indexs and pubKeys are not sorted slice, AcutalCommittee must be sorted.
 // Only Leader can call this method. indexes do not include the leader itself.
-func (conR *ConsensusReactor) UpdateActualCommittee(indexes []int, pubKeys []bls.PublicKey, bitArray *cmn.BitArray) bool {
-
-	if len(indexes) != len(pubKeys) ||
-		len(indexes) > conR.committeeSize {
-		conR.logger.Error("failed to update reactor actual committee ...")
-		return false
-	}
-
-	// Add leader (myself) to the AcutalCommittee,
-	// if there is time out, myself is not the first one in curCommitteeittee
-	l := conR.curCommittee.Validators[conR.curCommitteeIndex]
-	cm := CommitteeMember{
-		Name:     l.Name,
-		PubKey:   l.PubKey,
-		NetAddr:  l.NetAddr,
-		CSPubKey: conR.csCommon.PubKey, //bls PublicKey
-		CSIndex:  conR.curCommitteeIndex,
-	}
-	conR.curActualCommittee = append(conR.curActualCommittee, cm)
-
-	for i, index := range indexes {
-		//sanity check
-		if (index == -1) || (index > conR.committeeSize) {
-			// fmt.Println(i, "index", index)
-			continue
-		}
-
-		//get validator info
-		v := conR.curCommittee.Validators[index]
-
+func (conR *ConsensusReactor) UpdateActualCommittee() bool {
+	size := len(conR.curCommittee.Validators)
+	validators := conR.curCommittee.Validators[conR.curCommitteeIndex:]
+	validators = append(validators, conR.curCommittee.Validators[:conR.curCommitteeIndex]...)
+	for i, v := range validators {
 		cm := CommitteeMember{
 			Name:     v.Name,
 			PubKey:   v.PubKey,
 			NetAddr:  v.NetAddr,
-			CSPubKey: pubKeys[i], //bls PublicKey
-			CSIndex:  index,
+			CSPubKey: v.BlsPubKey,
+			CSIndex:  (i + conR.curCommitteeIndex) % size,
 		}
 		conR.curActualCommittee = append(conR.curActualCommittee, cm)
 	}
-
-	if len(conR.curActualCommittee) == 0 {
-		return false
-	}
-
-	fmt.Println("Actual Committee Updated")
-	for _, member := range conR.curActualCommittee {
-		fmt.Println(member.String())
-	}
-	inCommittee := make([]bool, len(conR.curCommittee.Validators))
-	for i := range inCommittee {
-		inCommittee[i] = false
-	}
-	for _, am := range conR.curActualCommittee {
-		inCommittee[am.CSIndex] = true
-	}
-	leftoverNames := make([]string, 0)
-	for i := range inCommittee {
-		if inCommittee[i] == false {
-			leftoverNames = append(leftoverNames, conR.curCommittee.Validators[i].Name)
-		}
-	}
-
-	fmt.Println(fmt.Sprint("Members can NOT join the committee: ", strings.Join(leftoverNames, ", ")))
 
 	// I am Leader, first one should be myself.
 	if bytes.Equal(crypto.FromECDSAPub(&conR.curActualCommittee[0].PubKey), crypto.FromECDSAPub(&conR.myPubKey)) == false {

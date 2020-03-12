@@ -160,6 +160,8 @@ func (m *CommitCommitteeMessage) SigningHash() (hash meter.Bytes32) {
 		m.CommitterID,
 		m.CommitterBlsPK,
 		m.CommitterIndex,
+		m.BlsSignature,
+		m.SignedMsgHash,
 	})
 	hw.Sum(hash[:0])
 	return
@@ -281,6 +283,8 @@ func (m *NewCommitteeMessage) SigningHash() (hash meter.Bytes32) {
 		m.NextEpochID,
 		m.Nonce,
 		m.KBlockHeight,
+		m.SignedMsgHash,
+		m.BlsSignature,
 	})
 	hw.Sum(hash[:0])
 	return

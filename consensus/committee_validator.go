@@ -12,7 +12,6 @@ package consensus
 
 import (
 	"bytes"
-	//	"crypto/ecdsa"
 	"time"
 
 	bls "github.com/dfinlab/meter/crypto/multi_sig"
@@ -61,14 +60,6 @@ func (cv *ConsensusValidator) RemoveAllcsPeers() bool {
 	return true
 }
 
-/* deprecated
-func (cv *ConsensusValidator) AddcsPeer(netAddr types.NetAddress) bool {
-	csPeer := newConsensusPeer(netAddr.IP, netAddr.Port, cv.csReactor.magic)
-	cv.csPeers = append(cv.csPeers, csPeer)
-	return true
-}
-*/
-
 // Generate commitCommittee Message
 func (cv *ConsensusValidator) GenerateCommitMessage(sig bls.Signature, msgHash [32]byte) *CommitCommitteeMessage {
 
@@ -86,12 +77,11 @@ func (cv *ConsensusValidator) GenerateCommitMessage(sig bls.Signature, msgHash [
 	index := cv.csReactor.GetCommitteeMemberIndex(cv.csReactor.myPubKey)
 	msg := &CommitCommitteeMessage{
 		CSMsgCommonHeader: cmnHdr,
-
-		CommitterID:    crypto.FromECDSAPub(&cv.csReactor.myPubKey),
-		CommitterBlsPK: cv.csReactor.csCommon.system.PubKeyToBytes(cv.csReactor.csCommon.PubKey), //bls pubkey
-		BlsSignature:   cv.csReactor.csCommon.system.SigToBytes(sig),                             //TBD
-		CommitterIndex: index,
-		SignedMsgHash:  msgHash,
+		CommitterID:       crypto.FromECDSAPub(&cv.csReactor.myPubKey),
+		CommitterBlsPK:    cv.csReactor.csCommon.GetSystem().PubKeyToBytes(cv.csReactor.csCommon.PubKey), //bls pubkey
+		BlsSignature:      cv.csReactor.csCommon.GetSystem().SigToBytes(sig),
+		CommitterIndex:    index,
+		SignedMsgHash:     msgHash,
 	}
 
 	// sign message
@@ -101,6 +91,7 @@ func (cv *ConsensusValidator) GenerateCommitMessage(sig bls.Signature, msgHash [
 		return nil
 	}
 	msg.CSMsgCommonHeader.SetMsgSignature(msgSig)
+
 	cv.csReactor.logger.Debug("Generate Commit Committee Message", "msg", msg.String())
 	return msg
 }
@@ -150,8 +141,8 @@ func (cv *ConsensusValidator) ProcessAnnounceCommittee(announceMsg *AnnounceComm
 			return false
 		}
 	}
-	// Now the announce message is OK
 
+	// Now the announce message is OK
 	role, inCommittee := cv.csReactor.NewValidatorSetByNonce(kblockNonce)
 	if !inCommittee {
 		cv.csReactor.logger.Error("I am not in committee, do nothing ...")
@@ -166,8 +157,12 @@ func (cv *ConsensusValidator) ProcessAnnounceCommittee(announceMsg *AnnounceComm
 	// Verify Leader is announce sender?  should match my round
 	round := cv.csReactor.newCommittee.Round % uint64(len(cv.csReactor.newCommittee.Committee.Validators))
 	lv := cv.csReactor.curCommittee.Validators[round]
-	if bytes.Equal(crypto.FromECDSAPub(&lv.PubKey), ch.Sender) == false {
+	if bytes.Equal(crypto.FromECDSAPub(&lv.PubKey), announceMsg.AnnouncerID) == false {
 		cv.csReactor.logger.Error("Sender is not leader in my committee ...")
+		return false
+	}
+	if bytes.Equal(cv.csReactor.csCommon.GetSystem().PubKeyToBytes(lv.BlsPubKey), announceMsg.AnnouncerBlsPK) == false {
+		cv.csReactor.logger.Error("bls public key mismatch", "round", round)
 		return false
 	}
 	cv.csReactor.logger.Info("Committee announced by", "peer", lv.Name, "ip", lv.NetAddr.IP.String())
@@ -175,18 +170,11 @@ func (cv *ConsensusValidator) ProcessAnnounceCommittee(announceMsg *AnnounceComm
 	// update cspeers, build consensus peer topology
 	// Right now is HUB topology, simply point back to proposer or leader
 	cv.RemoveAllcsPeers()
-	// cv.AddcsPeer(src.netAddr)
+
+	cv.EpochID = announceMsg.EpochID()
 
 	// I am in committee, sends the commit message to join the CommitCommitteeMessage
-	announcerPubKey, err := crypto.UnmarshalPubkey(announceMsg.AnnouncerID)
-	if err != nil {
-		cv.csReactor.logger.Error("ummarshal announcer public key of sender failed ")
-		return false
-	}
-	signMsg := cv.csReactor.BuildAnnounceSignMsg(*announcerPubKey, announceMsg.CSMsgCommonHeader.EpochID, uint64(ch.Height), uint32(ch.Round))
-
-	cv.EpochID = announceMsg.CSMsgCommonHeader.EpochID
-
+	signMsg := cv.csReactor.BuildAnnounceSignMsg(lv.PubKey, announceMsg.EpochID(), uint64(ch.Height), uint32(ch.Round))
 	sign, msgHash := cv.csReactor.csCommon.SignMessage([]byte(signMsg))
 	msg := cv.GenerateCommitMessage(sign, msgHash)
 
@@ -230,65 +218,18 @@ func (cv *ConsensusValidator) ProcessNotaryAnnounceMessage(notaryMsg *NotaryAnno
 		return false
 	}
 
-	// FIXME: verify bls signature
-
-	// Now the notary Announce message is OK
-
-	// Validate Actual Committee
-	/*
-		if notaryMsg.CommitteeActualSize != len(notaryMsg.CommitteeActualMembers) {
-			cv.csReactor.logger.Error("ActualCommittee length mismatch ...")
-			return false
-		}
-	*/
-
-	// Update the curActualCommittee by receving Notary message
-	cv.csReactor.curActualCommittee = cv.csReactor.BuildCommitteeMemberFromInfo(cv.csReactor.csCommon.GetSystem(), notaryMsg.CommitteeMembers)
-
-	found := false
-	for _, c := range cv.csReactor.curActualCommittee {
-		if bytes.Equal(crypto.FromECDSAPub(&c.PubKey), crypto.FromECDSAPub(&cv.csReactor.myPubKey)) == true {
-			found = true
-			break
-		}
-	}
-	if !found {
-		cv.csReactor.logger.Error("I'm not in ActualCommittee, ignore this notary msg ...")
-		return false
-	}
-
-	var lv *types.Validator
-	for _, v := range cv.csReactor.curCommittee.Validators {
-		keyBytes := crypto.FromECDSAPub(&v.PubKey)
-		if bytes.Compare(keyBytes, notaryMsg.AnnouncerID) == 0 {
-			lv = v
-			break
-		}
-	}
-	if lv == nil {
-		cv.csReactor.logger.Error("announcer is not in my committee")
-		return false
-	}
-	cv.csReactor.logger.Info("Notary announced by", "peer", lv.Name, "ip", lv.NetAddr.IP.String())
-
 	// TBD: validate announce bitarray & signature
+	// validateEvidence()
 
-	// Block is OK
-	_, err := crypto.UnmarshalPubkey(notaryMsg.AnnouncerID)
-	if err != nil {
-		cv.csReactor.logger.Error("ummarshal announcer public key of sender failed ")
+	cv.csReactor.UpdateActualCommittee()
+	myCommitteInfo := cv.csReactor.BuildCommitteeInfoFromMember(cv.csReactor.csCommon.GetSystem(), cv.csReactor.curActualCommittee)
+
+	// my committee info notaryMsg.CommitteeMembers must be the same !!!
+
+	if cv.csReactor.CommitteeInfoCompare(myCommitteInfo, notaryMsg.CommitteeMembers) == false {
+		cv.csReactor.logger.Error("CommitteeInfo mismatch")
 		return false
 	}
-
-	// signMsg := cv.csReactor.BuildNotaryAnnounceSignMsg(*announcerPubKey, notaryMsg.CSMsgCommonHeader.EpochID, uint64(ch.Height), uint32(ch.Round))
-
-	// sign, msgHash := cv.csReactor.csCommon.SignMessage([]byte(signMsg))
-	// msg := cv.GenerateVoteForNotaryMessage(sign, msgHash, VOTE_FOR_NOTARY_ANNOUNCE)
-
-	// if lv != nil {
-	// 	var m ConsensusMessage = msg
-	// 	cv.SendMsgToPeer(&m, lv.NetAddr)
-	// }
 
 	// stop new committee timer cos it is established
 	cv.csReactor.NewCommitteeCleanup()
