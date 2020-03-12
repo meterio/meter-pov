@@ -145,7 +145,6 @@ func (cl *ConsensusLeader) GenerateAnnounceMsg() bool {
 		EpochID:   cl.EpochID,
 	}
 
-	paramBytes, _ := cl.csReactor.csCommon.params.ToBytes()
 	best := cl.csReactor.chain.BestBlock()
 	var kblockHeight int64
 	if best.Header().BlockType() == block.BLOCK_TYPE_K_BLOCK {
@@ -157,18 +156,15 @@ func (cl *ConsensusLeader) GenerateAnnounceMsg() bool {
 	msg := &AnnounceCommitteeMessage{
 		CSMsgCommonHeader: cmnHdr,
 
-		AnnouncerID:   crypto.FromECDSAPub(&cl.csReactor.myPubKey),
-		CommitteeSize: cl.csReactor.committeeSize,
-		Nonce:         cl.Nonce,
-
-		CSParams:       paramBytes,
-		CSSystem:       cl.csReactor.csCommon.system.ToBytes(),
+		AnnouncerID:    crypto.FromECDSAPub(&cl.csReactor.myPubKey),
 		CSLeaderPubKey: cl.csReactor.csCommon.system.PubKeyToBytes(cl.csReactor.csCommon.PubKey),
+
+		CommitteeSize:  cl.csReactor.committeeSize,
+		Nonce:          cl.Nonce,
 		KBlockHeight:   kblockHeight,
 		POWBlockHeight: 0, //TODO: TBD
 
-		SignOffset: MSG_SIGN_OFFSET_DEFAULT,
-		SignLength: MSG_SIGN_LENGTH_DEFAULT,
+		// TBA: signature from newcommittee
 	}
 
 	// sign message with ecdsa key
@@ -180,9 +176,11 @@ func (cl *ConsensusLeader) GenerateAnnounceMsg() bool {
 	msg.CSMsgCommonHeader.SetMsgSignature(msgSig)
 	cl.csReactor.logger.Debug("Generate Announce Comittee Message", "msg", msg.String())
 
+	/****
 	// sign message with bls key
 	blsSig := cl.csReactor.csCommon.SignMessage2(msgSig, uint32(MSG_SIGN_OFFSET_DEFAULT), uint32(MSG_SIGN_LENGTH_DEFAULT))
 	msg.Signature = blsSig
+	****/
 
 	var m ConsensusMessage = msg
 	cl.state = COMMITTEE_LEADER_ANNOUNCED
@@ -252,8 +250,6 @@ func (cl *ConsensusLeader) GenerateNotaryAnnounceMsg() bool {
 		AnnouncerID:   crypto.FromECDSAPub(&cl.csReactor.myPubKey),
 		CommitteeSize: cl.csReactor.committeeSize,
 
-		SignOffset:             MSG_SIGN_OFFSET_DEFAULT,
-		SignLength:             MSG_SIGN_LENGTH_DEFAULT, //uint(unsafe.Sizeof(cmnHdr))
 		VoterBitArray:          *cl.announceVoterBitArray,
 		VoterAggSignature:      cl.csReactor.csCommon.GetSystem().SigToBytes(cl.announceVoterAggSig),
 		CommitteeActualSize:    len(cl.csReactor.curActualCommittee),

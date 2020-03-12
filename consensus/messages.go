@@ -32,7 +32,6 @@ func RegisterConsensusMessages(cdc *amino.Codec) {
 	cdc.RegisterConcrete(&AnnounceCommitteeMessage{}, "dfinlab/AnnounceCommittee", nil)
 	cdc.RegisterConcrete(&CommitCommitteeMessage{}, "dfinlab/CommitCommittee", nil)
 	cdc.RegisterConcrete(&NotaryAnnounceMessage{}, "dfinlab/NotaryAnnounce", nil)
-	cdc.RegisterConcrete(&VoteForNotaryMessage{}, "dfinlab/VoteForNotary", nil)
 	cdc.RegisterConcrete(&NewCommitteeMessage{}, "dfinlab/NewCommittee", nil)
 
 	cdc.RegisterConcrete(&PMProposalMessage{}, "dfinlab/PMProposal", nil)
@@ -59,7 +58,7 @@ type ConsensusMsgCommonHeader struct {
 	MsgSubType byte
 	EpochID    uint64
 
-	Signature []byte //signature of whole consensus message
+	Signature []byte // ecdsa signature of whole consensus message
 }
 
 func (cmh *ConsensusMsgCommonHeader) SetMsgSignature(sig []byte) error {
@@ -77,26 +76,18 @@ func (cmh *ConsensusMsgCommonHeader) SetMsgSignature(sig []byte) error {
 type AnnounceCommitteeMessage struct {
 	CSMsgCommonHeader ConsensusMsgCommonHeader
 
-	AnnouncerID   []byte //ecdsa.PublicKey
-	CommitteeSize int
-	Nonce         uint64 //nonce is 8 bytes
-
-	CSParams       []byte
-	CSSystem       []byte
+	AnnouncerID    []byte //ecdsa.PublicKey
 	CSLeaderPubKey []byte //bls.PublicKey
-	KBlockHeight   int64
+
+	CommitteeSize  int
+	Nonce          uint64 //nonce is 8 bytes
+	KBlockHeight   int64  // kblockdata
 	POWBlockHeight int64
 
-	SignOffset uint
-	SignLength uint
-	//possible POW info
-	VoterBitArray *cmn.BitArray
-	VoterSig      [][]byte
-	VoterPubKey   [][]byte //slice of bls.PublicKey
-	VoterMsgHash  [][32]byte
-	VoterAggSig   []byte
-	//...
-	Signature []byte // bls.Signature
+	//collected NewCommittee signature
+	VotingBitArray *cmn.BitArray
+	VotingMsgHash  [32]byte // all message hash from Newcommittee msgs
+	VotingAggSig   []byte   // aggregate signature of voterSig above
 }
 
 // SigningHash computes hash of all header fields excluding signature.
@@ -151,13 +142,12 @@ func (m *AnnounceCommitteeMessage) MsgType() byte {
 type CommitCommitteeMessage struct {
 	CSMsgCommonHeader ConsensusMsgCommonHeader
 
-	CommitteeSize int
-	CommitterID   []byte //ecdsa.PublicKey
+	CommitterID       []byte //ecdsa.PublicKey
+	CSCommitterPubKey []byte //bls.PublicKey
 
-	CSCommitterPubKey  []byte //bls.PublicKey
-	CommitterSignature []byte //bls.Signature
-	CommitterIndex     int
-	SignedMessageHash  [32]byte
+	BlsSignature   []byte   //bls.Signature
+	SignedMsgHash  [32]byte //bls signed message hash
+	CommitterIndex int
 }
 
 // SigningHash computes hash of all header fields excluding signature.
@@ -198,21 +188,24 @@ func (m *CommitCommitteeMessage) MsgType() byte {
 }
 
 //-------------------------------------
-// NotaryBlockMessage is sent when a prevois proposal reaches 2/3
 type NotaryAnnounceMessage struct {
 	CSMsgCommonHeader ConsensusMsgCommonHeader
 
-	AnnouncerID   []byte //ecdsa.PublicKey
-	CommitteeSize int
+	AnnouncerID    []byte //ecdsa.PublicKey
+	CSLeaderPubKey []byte //bls.PublicKey
 
-	SignOffset             uint
-	SignLength             uint
-	VoterBitArray          cmn.BitArray
-	VoterAggSignature      []byte // aggregated bls.Signature
-	CommitteeActualSize    int
-	CommitteeActualMembers []block.CommitteeInfo
+	//collected NewCommittee messages
+	VotingBitArray *cmn.BitArray
+	VotingMsgHash  [32]byte // all message hash from Newcommittee msgs
+	VotingAggSig   []byte   // aggregate signature of voterSig above
 
-	Signature []byte // bls.Signature
+	// collected from commitcommittee messages
+	NotarizeBitArray *cmn.BitArray
+	NotarizeMsgHash  [32]byte // all message hash from Newcommittee msgs
+	NotarizeAggSig   []byte   // aggregate signature of voterSig above
+
+	CommitteeSize    int // summarized committee info
+	CommitteeMembers []block.CommitteeInfo
 }
 
 // SigningHash computes hash of all header fields excluding signature.
@@ -258,66 +251,18 @@ func (m *NotaryAnnounceMessage) MsgType() byte {
 }
 
 //------------------------------------
-// VoteResponseMessage is sent when voting for a proposal (or lack thereof).
-type VoteForNotaryMessage struct {
-	CSMsgCommonHeader ConsensusMsgCommonHeader //subtype: 1 - vote for Announce 2 - vote for proposal
-
-	VoterID           []byte //ecdsa.PublicKey
-	CSVoterPubKey     []byte //bls.PublicKey
-	VoterSignature    []byte //bls.Signature
-	VoterIndex        int
-	SignedMessageHash [32]byte
-}
-
-// SigningHash computes hash of all header fields excluding signature.
-func (m *VoteForNotaryMessage) SigningHash() (hash meter.Bytes32) {
-	hw := meter.NewBlake2b()
-	rlp.Encode(hw, []interface{}{
-		m.CSMsgCommonHeader.Height,
-		m.CSMsgCommonHeader.Round,
-		m.CSMsgCommonHeader.Sender,
-		m.CSMsgCommonHeader.Timestamp,
-		m.CSMsgCommonHeader.MsgType,
-		m.CSMsgCommonHeader.MsgSubType,
-
-		m.VoterID,
-		m.CSVoterPubKey,
-		m.VoterSignature,
-		m.VoterIndex,
-	})
-	hw.Sum(hash[:0])
-	return
-}
-
-// String returns a string representation.
-func (m *VoteForNotaryMessage) String() string {
-	header := m.CSMsgCommonHeader
-	return fmt.Sprintf("[VoteForNotary Height:%v Round:%v Epoch:%v]",
-		header.Height, header.Round, header.EpochID)
-}
-
-func (m *VoteForNotaryMessage) EpochID() uint64 {
-	return m.CSMsgCommonHeader.EpochID
-}
-func (m *VoteForNotaryMessage) MsgType() byte {
-	return m.CSMsgCommonHeader.MsgType
-}
-
-//------------------------------------
-// NewCommitteeRound message:
-// 1. when a proposer can not get the consensus, so it sends out
-// this message to give up.
-// 2. Proposer disfunctional, the next proposer send out it after a certain time.
-//
 type NewCommitteeMessage struct {
 	CSMsgCommonHeader ConsensusMsgCommonHeader
 
-	NewEpochID      uint64
 	NewLeaderPubKey []byte //ecdsa.PublicKey
 	ValidatorPubkey []byte //ecdsa.PublicKey
-	Nonce           uint64 // 8 bytes
-	KBlockHeight    uint64
-	Signature       []byte
+	CSLeaderPubKey  []byte //bls.PublicKey
+
+	EpochID       uint64
+	Nonce         uint64 // 8 bytes  Kblock info
+	KBlockHeight  uint64
+	SignedMsgHash [32]byte // BLS signed message hash
+	BlsSignature  []byte   // BLS signed signature
 }
 
 // SigningHash computes hash of all header fields excluding signature.
