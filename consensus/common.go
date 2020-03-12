@@ -70,6 +70,19 @@ func NewConsensusCommon(conR *ConsensusReactor) *ConsensusCommon {
 	}
 }
 
+func NewConsensusCommonFromBlsCommon(conR *ConsensusReactor, blsCommon *BlsCommon) *ConsensusCommon {
+	return &ConsensusCommon{
+		PrivKey:     blsCommon.PrivKey,
+		PubKey:      blsCommon.PubKey,
+		csReactor:   conR,
+		system:      blsCommon.system,
+		params:      blsCommon.params,
+		pairing:     blsCommon.pairing,
+		initialized: true,
+		initialRole: INITIALIZE_AS_LEADER,
+	}
+}
+
 // Validator receives paramBytes, systemBytes from Leader and generate key pair
 func NewValidatorConsensusCommon(conR *ConsensusReactor, paramBytes []byte, systemBytes []byte) *ConsensusCommon {
 	params, err := bls.ParamsFromBytes(paramBytes)
