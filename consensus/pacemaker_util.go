@@ -47,11 +47,11 @@ func (p *Pacemaker) IsExtendedFromBLocked(b *pmBlock) bool {
 // find out b b' b"
 func (p *Pacemaker) AddressBlock(height uint64, round uint64) *pmBlock {
 	if (p.proposalMap[height] != nil) && (p.proposalMap[height].Height == height) {
-		//p.csReactor.logger.Debug("Addressed block", "height", height, "round", round)
+		//p.logger.Debug("Addressed block", "height", height, "round", round)
 		return p.proposalMap[height]
 	}
 
-	p.csReactor.logger.Info("Could not find out block", "height", height, "round", round)
+	p.logger.Info("Could not find out block", "height", height, "round", round)
 	return nil
 }
 
@@ -59,7 +59,7 @@ func (p *Pacemaker) receivePacemakerMsg(w http.ResponseWriter, r *http.Request) 
 	defer r.Body.Close()
 	var params map[string]string
 	if err := json.NewDecoder(r.Body).Decode(&params); err != nil {
-		p.csReactor.logger.Error("decode received messsage failed", "error", err)
+		p.logger.Error("decode received messsage failed", "error", err)
 		respondWithJson(w, http.StatusBadRequest, "Invalid request payload")
 		return
 	}
@@ -73,7 +73,7 @@ func (p *Pacemaker) receivePacemakerMsg(w http.ResponseWriter, r *http.Request) 
 	msgByteSlice, _ := hex.DecodeString(params["message"])
 	msg, err := decodeMsg(msgByteSlice)
 	if err != nil {
-		p.csReactor.logger.Error("message decode error", "err", err)
+		p.logger.Error("message decode error", "err", err)
 		panic("message decode error")
 	} else {
 		typeName := getConcreteName(msg)
@@ -399,7 +399,7 @@ func (p *Pacemaker) collectVoteSignature(voteMsg *PMVoteForProposalMessage) erro
 	round := uint64(voteMsg.CSMsgCommonHeader.Round)
 	if round == uint64(p.currentRound) && p.csReactor.amIRoundProproser(round) {
 		// if round matches and I am proposer, collect signature and store in cache
-		sigBytes, err := p.csReactor.csCommon.system.SigFromBytes(voteMsg.VoterSignature)
+		sigBytes, err := p.csReactor.csCommon.system.SigFromBytes(voteMsg.BlsSignature)
 		if err != nil {
 			return err
 		}
@@ -410,7 +410,7 @@ func (p *Pacemaker) collectVoteSignature(voteMsg *PMVoteForProposalMessage) erro
 		}
 		p.voterBitArray.SetIndex(int(voteMsg.VoterIndex), true)
 		p.voteSigs = append(p.voteSigs, sig)
-		p.logger.Debug("Collected signature ", "index", voteMsg.VoterIndex, "signature", hex.EncodeToString(voteMsg.VoterSignature))
+		p.logger.Debug("Collected signature ", "index", voteMsg.VoterIndex, "signature", hex.EncodeToString(voteMsg.BlsSignature))
 	} else {
 		p.logger.Debug("Signature ignored because of round mismatch", "round", round, "currRound", p.currentRound)
 	}

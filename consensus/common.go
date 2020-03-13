@@ -242,47 +242,39 @@ func (cc *ConsensusCommon) GetPairing() *bls.Pairing {
 	return &cc.pairing
 }
 
-// sign the part of msg
-func (cc *ConsensusCommon) Hash256Msg(msg []byte, offset uint32, length uint32) [32]byte {
+func (cc *ConsensusCommon) GetPublicKey() *bls.PublicKey {
+	return &cc.PubKey
+}
 
-	cc.checkConsensusCommonInit()
-
-	return sha256.Sum256(msg[offset : offset+length])
+func (cc *ConsensusCommon) GetPrivateKey() *bls.PrivateKey {
+	return &cc.PrivKey
 }
 
 // sign the part of msg
-func (cc *ConsensusCommon) SignMessage(msg []byte, offset uint32, length uint32) bls.Signature {
+func (cc *ConsensusCommon) Hash256Msg(msg []byte) [32]byte {
+
+	cc.checkConsensusCommonInit()
+
+	return sha256.Sum256(msg)
+}
+
+// sign the part of msg
+func (cc *ConsensusCommon) SignMessage(msg []byte) (bls.Signature, [32]byte) {
 
 	cc.checkConsensusCommonInit()
 	//hash := crypto.Sha256(msg[offset : offset+length])
-	hash := sha256.Sum256(msg[offset : offset+length])
+	hash := sha256.Sum256(msg)
 	sig := bls.Sign(hash, cc.PrivKey)
-	return sig
+	return sig, hash
 }
 
 // the return with slice byte
-func (cc *ConsensusCommon) SignMessage2(msg []byte, offset uint32, length uint32) []byte {
+func (cc *ConsensusCommon) SignMessage2(msg []byte) ([]byte, [32]byte) {
 	cc.checkConsensusCommonInit()
 	//hash := crypto.Sha256(msg[offset : offset+length])
-	hash := sha256.Sum256(msg[offset : offset+length])
+	hash := sha256.Sum256(msg)
 	sig := bls.Sign(hash, cc.PrivKey)
-	return cc.system.SigToBytes(sig)
-}
-
-//verify the signature in message
-func (cc *ConsensusCommon) VerifyMessage(msg []byte, offset uint32, length uint32) bool {
-	cc.checkConsensusCommonInit()
-	//hash := crypto.Sha256(msg[offset : offset+length])
-	hash := sha256.Sum256(msg[offset : offset+length])
-	sig, err := cc.system.SigFromBytes(msg[offset : offset+length])
-	if err != nil {
-		panic(err)
-	}
-	verify := bls.Verify(sig, hash, cc.PubKey)
-	if verify != true {
-		fmt.Println("verify signature failed")
-	}
-	return verify
+	return cc.system.SigToBytes(sig), hash
 }
 
 func (cc *ConsensusCommon) VerifySignature(signature, msgHash, blsPK []byte) bool {

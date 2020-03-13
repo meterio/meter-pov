@@ -6,8 +6,7 @@
 package consensus
 
 import (
-	//"crypto/ecdsa"
-
+	"bytes"
 	"fmt"
 	"time"
 
@@ -466,6 +465,19 @@ func (conR *ConsensusReactor) finalizeKBlock(blk *block.Block, ev *block.Evidenc
 	}
 
 	blk.SetBlockSignature(sig)
+	return true
+}
+func (conR *ConsensusReactor) CommitteeInfoCompare(cm1, cm2 []block.CommitteeInfo) bool {
+	if len(cm1) != len(cm2) {
+		return false
+	}
+	var i int
+	for i = 0; i < len(cm1); i++ {
+		if (cm1[i].Name != cm2[i].Name) || (bytes.Equal(cm1[i].PubKey, cm2[i].PubKey) == false) ||
+			(bytes.Equal(cm1[i].CSPubKey, cm2[i].CSPubKey) == false) {
+			return false
+		}
+	}
 	return true
 }
 

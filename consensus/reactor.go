@@ -36,7 +36,6 @@ import (
 	"github.com/dfinlab/meter/comm"
 	bls "github.com/dfinlab/meter/crypto/multi_sig"
 	"github.com/dfinlab/meter/genesis"
-	cmn "github.com/dfinlab/meter/libs/common"
 	"github.com/dfinlab/meter/meter"
 	"github.com/dfinlab/meter/powpool"
 	"github.com/dfinlab/meter/script/staking"
@@ -54,31 +53,23 @@ const (
 	//normally when a block is committed, wait for a while to let whole network to sync and move to next round
 	WHOLE_NETWORK_BLOCK_SYNC_TIME = 5 * time.Second
 
-	blocksToContributeToBecomeGoodPeer = 10000
-	votesToContributeToBecomeGoodPeer  = 10000
-
-	COMMITTEE_SIZE = 400  // by default
-	DELEGATES_SIZE = 2000 // by default
-
 	// Sign Announce Mesage
 	// "Announce Committee Message: Leader <pubkey 64(hexdump 32x2) bytes> EpochID <8 (4x2)bytes> Height <16 (8x2) bytes> Round <8(4x2)bytes>
-	ANNOUNCE_SIGN_MSG_SIZE = int(110)
+	// ANNOUNCE_SIGN_MSG_SIZE = int(110)
 
 	// Sign Propopal Message
 	// "Proposal Block Message: Proposer <pubkey 64(32x3)> BlockType <2 bytes> Height <16 (8x2) bytes> Round <8 (4x2) bytes>
-	PROPOSAL_SIGN_MSG_SIZE = int(100)
+	// PROPOSAL_SIGN_MSG_SIZE = int(100)
 
 	// Sign Notary Announce Message
 	// "Announce Notarization Message: Leader <pubkey 64(32x3)> EpochID <8 bytes> Height <16 (8x2) bytes> Round <8 (4x2) bytes>
-	NOTARY_ANNOUNCE_SIGN_MSG_SIZE = int(120)
+	// NOTARY_ANNOUNCE_SIGN_MSG_SIZE = int(120)
 
 	// Sign Notary Block Message
 	// "Block Notarization Message: Proposer <pubkey 64(32x3)> BlockType <8 bytes> Height <16 (8x2) bytes> Round <8 (4x2) bytes>
-	NOTARY_BLOCK_SIGN_MSG_SIZE = int(130)
+	// NOTARY_BLOCK_SIGN_MSG_SIZE = int(130)
 
 	CHAN_DEFAULT_BUF_SIZE = 100
-
-	MAX_PEERS = 8
 
 	DEFAULT_EPOCHS_PERDAY = 24
 )
@@ -124,22 +115,22 @@ type ConsensusConfig struct {
 }
 
 type BlsCommon struct {
-	PrivKey     bls.PrivateKey    //my private key
-	PubKey      bls.PublicKey     //my public key
+	PrivKey bls.PrivateKey //my private key
+	PubKey  bls.PublicKey  //my public key
 
 	//global params of BLS
-	system      bls.System
-	params      bls.Params
-	pairing     bls.Pairing
+	system  bls.System
+	params  bls.Params
+	pairing bls.Pairing
 }
 
 func NewBlsCommonFromParams(pubKey bls.PublicKey, privKey bls.PrivateKey, system bls.System, params bls.Params, pairing bls.Pairing) *BlsCommon {
 	return &BlsCommon{
-		PrivKey:     privKey,
-		PubKey:      pubKey,
-		system:      system,
-		params:      params,
-		pairing:     pairing,
+		PrivKey: privKey,
+		PubKey:  pubKey,
+		system:  system,
+		params:  params,
+		pairing: pairing,
 	}
 }
 
@@ -156,11 +147,11 @@ func NewBlsCommon() *BlsCommon {
 		return nil
 	}
 	return &BlsCommon{
-		PrivKey:     PrivKey,
-		PubKey:      PubKey,
-		system:      system,
-		params:      params,
-		pairing:     pairing,
+		PrivKey: PrivKey,
+		PubKey:  PubKey,
+		system:  system,
+		params:  params,
+		pairing: pairing,
 	}
 }
 
@@ -229,8 +220,6 @@ type ConsensusReactor struct {
 	rcvdNewCommittee map[NewCommitteeKey]*NewCommittee // store received new committee info
 
 	dataDir string
-	myAddr  types.NetAddress
-	myName  string
 
 	msgCache *CommitteeMsgCache
 
@@ -501,24 +490,6 @@ type consensusMsgInfo struct {
 	csPeer *ConsensusPeer
 }
 
-// set CS mode
-func (conR *ConsensusReactor) setCSMode(nMode byte) bool {
-	conR.csMode = nMode
-	return true
-}
-
-func (conR *ConsensusReactor) getCSMode() byte {
-	return conR.csMode
-}
-
-func (conR *ConsensusReactor) isCSCommittee() bool {
-	return (conR.csMode == CONSENSUS_MODE_COMMITTEE)
-}
-
-func (conR *ConsensusReactor) isCSDelegates() bool {
-	return (conR.csMode == CONSENSUS_MODE_DELEGATE)
-}
-
 func (conR *ConsensusReactor) UpdateHeight(height int64) bool {
 	conR.logger.Info(fmt.Sprintf("Update conR.curHeight from %d to %d", conR.curHeight, height))
 	conR.curHeight = height
@@ -550,69 +521,20 @@ func (conR *ConsensusReactor) RefreshCurHeight() error {
 // after announce/commit, Leader got the actual committee, which is the subset of curCommittee if some committee member offline.
 // indexs and pubKeys are not sorted slice, AcutalCommittee must be sorted.
 // Only Leader can call this method. indexes do not include the leader itself.
-func (conR *ConsensusReactor) UpdateActualCommittee(indexes []int, pubKeys []bls.PublicKey, bitArray *cmn.BitArray) bool {
-
-	if len(indexes) != len(pubKeys) ||
-		len(indexes) > conR.committeeSize {
-		conR.logger.Error("failed to update reactor actual committee ...")
-		return false
-	}
-
-	// Add leader (myself) to the AcutalCommittee,
-	// if there is time out, myself is not the first one in curCommitteeittee
-	l := conR.curCommittee.Validators[conR.curCommitteeIndex]
-	cm := CommitteeMember{
-		Name:     l.Name,
-		PubKey:   l.PubKey,
-		NetAddr:  l.NetAddr,
-		CSPubKey: conR.csCommon.PubKey, //bls PublicKey
-		CSIndex:  conR.curCommitteeIndex,
-	}
-	conR.curActualCommittee = append(conR.curActualCommittee, cm)
-
-	for i, index := range indexes {
-		//sanity check
-		if (index == -1) || (index > conR.committeeSize) {
-			// fmt.Println(i, "index", index)
-			continue
-		}
-
-		//get validator info
-		v := conR.curCommittee.Validators[index]
-
+func (conR *ConsensusReactor) UpdateActualCommittee() bool {
+	size := len(conR.curCommittee.Validators)
+	validators := conR.curCommittee.Validators[conR.curCommitteeIndex:]
+	validators = append(validators, conR.curCommittee.Validators[:conR.curCommitteeIndex]...)
+	for i, v := range validators {
 		cm := CommitteeMember{
 			Name:     v.Name,
 			PubKey:   v.PubKey,
 			NetAddr:  v.NetAddr,
-			CSPubKey: pubKeys[i], //bls PublicKey
-			CSIndex:  index,
+			CSPubKey: v.BlsPubKey,
+			CSIndex:  (i + conR.curCommitteeIndex) % size,
 		}
 		conR.curActualCommittee = append(conR.curActualCommittee, cm)
 	}
-
-	if len(conR.curActualCommittee) == 0 {
-		return false
-	}
-
-	fmt.Println("Actual Committee Updated")
-	for _, member := range conR.curActualCommittee {
-		fmt.Println(member.String())
-	}
-	inCommittee := make([]bool, len(conR.curCommittee.Validators))
-	for i := range inCommittee {
-		inCommittee[i] = false
-	}
-	for _, am := range conR.curActualCommittee {
-		inCommittee[am.CSIndex] = true
-	}
-	leftoverNames := make([]string, 0)
-	for i := range inCommittee {
-		if inCommittee[i] == false {
-			leftoverNames = append(leftoverNames, conR.curCommittee.Validators[i].Name)
-		}
-	}
-
-	fmt.Println(fmt.Sprint("Members can NOT join the committee: ", strings.Join(leftoverNames, ", ")))
 
 	// I am Leader, first one should be myself.
 	if bytes.Equal(crypto.FromECDSAPub(&conR.curActualCommittee[0].PubKey), crypto.FromECDSAPub(&conR.myPubKey)) == false {
@@ -639,8 +561,6 @@ func (conR *ConsensusReactor) amIRoundProproser(round uint64) bool {
 
 //create validatorSet by a given nonce. return by my self role
 func (conR *ConsensusReactor) NewValidatorSetByNonce(nonce uint64) (uint, bool) {
-	//vals []*types.Validator
-
 	committee, role, index, inCommittee := conR.CalcCommitteeByNonce(nonce)
 	// fmt.Println("CALCULATED COMMITEE", "role=", role, "index=", index)
 	// fmt.Println(committee)
@@ -648,15 +568,13 @@ func (conR *ConsensusReactor) NewValidatorSetByNonce(nonce uint64) (uint, bool) 
 	if inCommittee == true {
 		conR.csMode = CONSENSUS_MODE_COMMITTEE
 		conR.curCommitteeIndex = index
-		conR.myAddr = conR.curCommittee.Validators[index].NetAddr
-		conR.myName = conR.curCommittee.Validators[index].Name
-		conR.logger.Info("New committee calculated", "index", index, "role", role, "myName", conR.myName, "myIP", conR.myAddr.IP.String())
+		myAddr := conR.curCommittee.Validators[index].NetAddr
+		myName := conR.curCommittee.Validators[index].Name
+		conR.logger.Info("New committee calculated", "index", index, "role", role, "myName", myName, "myIP", myAddr.IP.String())
 	} else {
 		conR.csMode = CONSENSUS_MODE_DELEGATE
 		conR.curCommitteeIndex = 0
 		// FIXME: find a better way
-		conR.myAddr = types.NetAddress{IP: net.IP{}, Port: 8670}
-		conR.myName = ""
 		conR.logger.Info("New committee calculated")
 	}
 	fmt.Println(committee)
@@ -832,26 +750,6 @@ func (conR *ConsensusReactor) handleMsg(mi consensusMsgInfo) {
 			conR.logger.Error("process NotaryAnnounceMessage failed")
 		}
 
-	case *VoteForNotaryMessage:
-		ch := msg.CSMsgCommonHeader
-
-		if ch.MsgSubType == VOTE_FOR_NOTARY_ANNOUNCE {
-			// vote for notary announce
-			if (conR.csRoleInitialized&CONSENSUS_COMMIT_ROLE_LEADER) == 0 ||
-				(conR.csLeader == nil) {
-				conR.logger.Warn("not in leader role, ignore VoteForNotaryMessage")
-				break
-			}
-
-			success = conR.csLeader.ProcessVoteNotaryAnnounce(msg, peer)
-			if success == false {
-				conR.logger.Error("process VoteForNotary(Announce) failed")
-			}
-
-		} else {
-			conR.logger.Error("Unknown MsgSubType", "value", ch.MsgSubType)
-		}
-
 	case *NewCommitteeMessage:
 		success = conR.ProcessNewCommitteeMessage(msg, peer)
 		if success == false {
@@ -863,7 +761,7 @@ func (conR *ConsensusReactor) handleMsg(mi consensusMsgInfo) {
 
 	// relay the message
 	fromMyself := false
-	if peerIP == conR.myAddr.IP.String() {
+	if peerIP == conR.GetMyNetAddr().IP.String() {
 		fromMyself = true
 	}
 	if _, needRelay := relayMsgTypes[typeName]; needRelay {
@@ -908,7 +806,7 @@ func (conR *ConsensusReactor) relayMsg(msg *ConsensusMessage, msgTypeStr string,
 	conR.logger.Info("Now, relay this consensus msg...", "type", msgTypeStr, "round", round)
 	for _, peer := range peers {
 		conR.logger.Info("Now, relay this "+msgTypeStr+"...", "peer", peer.name, "ip", peer.String(), "round", round)
-		if peer.netAddr.IP.String() == conR.myAddr.IP.String() {
+		if peer.netAddr.IP.String() == conR.GetMyNetAddr().IP.String() {
 			conR.logger.Info("relay to myself, ignore ...")
 			continue
 		}
@@ -1030,20 +928,13 @@ func (conR *ConsensusReactor) receiveConsensusMsgRoutine() {
 func (conR *ConsensusReactor) NewConsensusStart() int {
 	conR.logger.Debug("Starting New Consensus ...")
 
-	/***** XXX: Common init is based on roles
-	 ***** Leader generate bls type/params/system and send out those params
-	 ***** by announce message. Validators receives announce and do common init
-
-	// initialize consensus common, Common is calling the C libary,
-	// need to deinit to avoid the memory leak
-	conR.csCommon = NewConsensusCommon(conR)
-	******/
+	/***** Common init is based on roles
+	 ***** Leader generate announce message.
+	 ***** Validators receives announce and do committee init
+	 */
 
 	// Uncomment following to enable peer messages between nodes
 	go conR.receiveConsensusMsgRoutine()
-
-	// pacemaker
-	// go conR.receivePacemakerMsgRoutine()
 
 	// Start receive routine
 	go conR.receiveRoutine() //only handles from channel
@@ -1143,23 +1034,23 @@ func (conR *ConsensusReactor) exitCurCommittee() error {
 
 func getConcreteName(msg ConsensusMessage) string {
 	switch msg.(type) {
+	// committee messages
 	case *AnnounceCommitteeMessage:
 		return "AnnounceCommitteeMessage"
 	case *CommitCommitteeMessage:
 		return "CommitCommitteeMessage"
 	case *NotaryAnnounceMessage:
 		return "NotaryAnnounceMessage"
-	case *VoteForNotaryMessage:
-		return "VoteForNotaryMessage"
+	case *NewCommitteeMessage:
+		return "NewCommitteeMessage"
 
+	// pacemaker messages
 	case *PMProposalMessage:
 		return "PMProposalMessage"
 	case *PMVoteForProposalMessage:
 		return "PMVoteForProposalMessage"
 	case *PMNewViewMessage:
 		return "PMNewViewMessage"
-	case *NewCommitteeMessage:
-		return "NewCommitteeMessage"
 	}
 	return ""
 }
@@ -1179,12 +1070,11 @@ func (conR *ConsensusReactor) SendMsgToPeers(csPeers []*ConsensusPeer, msg *Cons
 }
 
 func (conR *ConsensusReactor) GetMyNetAddr() types.NetAddress {
-	return conR.myAddr
-	// return conR.curCommittee.Validators[conR.curCommitteeIndex].NetAddr
+	return conR.curCommittee.Validators[conR.curCommitteeIndex].NetAddr
 }
 
 func (conR *ConsensusReactor) GetMyName() string {
-	return conR.myName
+	return conR.curCommittee.Validators[conR.curCommitteeIndex].Name
 }
 
 func (conR *ConsensusReactor) GetMyPeers() ([]*ConsensusPeer, error) {
@@ -1275,22 +1165,11 @@ func (conR *ConsensusReactor) sendConsensusMsg(msg *ConsensusMessage, csPeer *Co
 	if csPeer == nil {
 		conR.internalMsgQueue <- consensusMsgInfo{rawMsg, nil}
 	} else {
-		//conR.peerMsgQueue <- consensusMsgInfo{rawMsg, csPeer}
-		/*************
-		payload := map[string]interface{}{
-			"message":   hex.EncodeToString(rawMsg),
-			"peer_ip":   csPeer.netAddr.IP.String(),
-			"peer_id":   string(csPeer.netAddr.ID),
-			"peer_port": string(csPeer.netAddr.Port),
-		}
-		**************/
-		// myNetAddr := conR.curCommittee.Validators[conR.curCommitteeIndex].NetAddr
 		magicHex := hex.EncodeToString(conR.magic[:])
 		payload := map[string]interface{}{
-			"message": hex.EncodeToString(rawMsg),
-			"peer_ip": conR.myAddr.IP.String(),
-			//"peer_id":   string(myNetAddr.ID),
-			"peer_port": string(conR.myAddr.Port),
+			"message":   hex.EncodeToString(rawMsg),
+			"peer_ip":   conR.GetMyNetAddr().IP.String(),
+			"peer_port": string(conR.GetMyNetAddr().Port),
 			"magic":     magicHex,
 		}
 
@@ -1352,14 +1231,20 @@ func (conR *ConsensusReactor) ValidateCMheaderSig(cmh *ConsensusMsgCommonHeader,
 }
 
 //----------------------------------------------------------------------------
-// each node create signing message based on current information and sign part
-// of them.
+// Sign New Committee
+// "New Committee Message: Leader <pubkey 64(hexdump 32x2) bytes> EpochID <16 (8x2)bytes> Height <16 (8x2) bytes>
+func (conR *ConsensusReactor) BuildNewCommitteeSignMsg(pubKey ecdsa.PublicKey, epochID uint64, height uint64) string {
+	c := make([]byte, binary.MaxVarintLen64)
+	binary.BigEndian.PutUint64(c, epochID)
 
-const (
-	MSG_SIGN_OFFSET_DEFAULT = uint(0)
-	MSG_SIGN_LENGTH_DEFAULT = uint(130)
-)
+	h := make([]byte, binary.MaxVarintLen64)
+	binary.BigEndian.PutUint64(h, height)
 
+	return fmt.Sprintf("%s %s %s %s %s %s", "New Committee Message: Leader", hex.EncodeToString(crypto.FromECDSAPub(&pubKey)),
+		"EpochID", hex.EncodeToString(c), "Height", hex.EncodeToString(h))
+}
+
+//----------------------------------------------------------------------------
 // Sign Announce Committee
 // "Announce Committee Message: Leader <pubkey 64(hexdump 32x2) bytes> EpochID <16 (8x2)bytes> Height <16 (8x2) bytes> Round <8(4x2)bytes>
 func (conR *ConsensusReactor) BuildAnnounceSignMsg(pubKey ecdsa.PublicKey, epochID uint64, height uint64, round uint32) string {
@@ -1989,12 +1874,4 @@ func (conR *ConsensusReactor) GetCommitteeMemberNameByIP(ip net.IP) string {
 		}
 	}
 	return ""
-}
-
-func (conR *ConsensusReactor) checkHeight(ch ConsensusMsgCommonHeader) bool {
-	if ch.Height != conR.curHeight {
-		conR.logger.Error("Height mismatch!", "curHeight", conR.curHeight, "incomingHeight", ch.Height)
-		return false
-	}
-	return true
 }
