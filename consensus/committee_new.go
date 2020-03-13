@@ -151,7 +151,8 @@ func (conR *ConsensusReactor) sendNewCommitteeMessage(peer *ConsensusPeer, pubKe
 
 	// sign message with ecdsa key
 	signMsg := conR.BuildNewCommitteeSignMsg(conR.myPubKey, conR.curEpoch+1, uint64(conR.curHeight))
-	ecdsaSigBytes, err := conR.SignConsensusMsg([]byte(signMsg))
+	msgHash := conR.csCommon.Hash256Msg([]byte(signMsg))
+	ecdsaSigBytes, err := conR.SignConsensusMsg(msgHash[:])
 	if err != nil {
 		conR.logger.Error("Sign message failed", "error", err)
 		return err
