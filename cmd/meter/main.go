@@ -50,6 +50,7 @@ var (
 	gitCommit string
 	gitTag    string
 	log       = log15.New()
+	keyStr    string
 
 	defaultTxPoolOptions = txpool.Options{
 		Limit:           200000,
@@ -204,7 +205,7 @@ func addressAction(ctx *cli.Context) error {
 		fatal("load or generate master key:", err)
 	}
 
-	pubKey, err := loadOrUpdatePublicKey(publicKeyPath(ctx), key, &key.PublicKey)
+	pubKey, err := loadOrUpdatePublicKey(publicKeyPath(ctx), key, &key.PublicKey, keyStr)
 	if err != nil {
 		fatal("update public key:", err)
 	}
@@ -220,7 +221,7 @@ func publicKeyAction(ctx *cli.Context) error {
 		fatal("load or generate master key:", err)
 	}
 
-	pubKey, err := loadOrUpdatePublicKey(publicKeyPath(ctx), key, &key.PublicKey)
+	pubKey, err := loadOrUpdatePublicKey(publicKeyPath(ctx), key, &key.PublicKey, keyStr)
 	if err != nil {
 		fatal("update public key:", err)
 	}

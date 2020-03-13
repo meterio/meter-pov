@@ -15,6 +15,7 @@ import (
 	"os"
 	"path/filepath"
 	"time"
+	b64 "encoding/base64"
 
 	"github.com/dfinlab/meter/chain"
 	"github.com/dfinlab/meter/cmd/meter/node"
@@ -213,13 +214,15 @@ func loadNodeMaster(ctx *cli.Context) (*node.Master, *consensus.BlsCommon) {
         if blsCommon == nil {
                 fatal("load or generate blskey err")
         }
+	pubBytes := blsCommon.GetSystem().PubKeyToBytes(blsCommon.PubKey)
+	keyStr = b64.StdEncoding.EncodeToString(pubBytes)
 
 	key, err := loadOrGeneratePrivateKey(masterKeyPath(ctx))
 	if err != nil {
 		fatal("load or generate master key:", err)
 	}
 
-	pubKey, err := loadOrUpdatePublicKey(publicKeyPath(ctx), key, &key.PublicKey)
+	pubKey, err := loadOrUpdatePublicKey(publicKeyPath(ctx), key, &key.PublicKey, keyStr)
 	if err != nil {
 		fatal("update public key:", err)
 	}

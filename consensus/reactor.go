@@ -164,6 +164,10 @@ func NewBlsCommon() *BlsCommon {
 	}
 }
 
+func (cc *BlsCommon) GetSystem() *bls.System {
+        return &cc.system
+}
+
 //-----------------------------------------------------------------------------
 // ConsensusReactor defines a reactor for the consensus service.
 type ConsensusReactor struct {

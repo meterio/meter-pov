@@ -88,8 +88,9 @@ func verifyPublicKey(privKey *ecdsa.PrivateKey, pubKey *ecdsa.PublicKey) bool {
 	return ecdsa.Verify(pubKey, hash, r, s)
 }
 
-func updatePublicKey(path string, pubKey *ecdsa.PublicKey) error {
+func updatePublicKey(path string, pubKey *ecdsa.PublicKey, blsKeyStr string) error {
 	b := b64.StdEncoding.EncodeToString(crypto.FromECDSAPub(pubKey))
+	b = b + ":::" + blsKeyStr
 	return ioutil.WriteFile(path, []byte(b+"\n"), 0600)
 }
 
@@ -103,20 +104,27 @@ func fromBase64Pub(pub string) (*ecdsa.PublicKey, error) {
 }
 
 // Save public key with BASE64 encoding
-func loadOrUpdatePublicKey(path string, privKey *ecdsa.PrivateKey, newPubKey *ecdsa.PublicKey) (*ecdsa.PublicKey, error) {
+func loadOrUpdatePublicKey(path string, privKey *ecdsa.PrivateKey, newPubKey *ecdsa.PublicKey, blsKeyStr string) (*ecdsa.PublicKey, error) {
 	b, err := ioutil.ReadFile(path)
 	if err != nil {
-		return newPubKey, updatePublicKey(path, newPubKey)
+		return newPubKey, updatePublicKey(path, newPubKey, blsKeyStr)
 	}
 
 	s := strings.TrimSuffix(string(b), "\n")
-	key, err := fromBase64Pub(s)
+	split := strings.Split(s, ":::")
+
+	key, err := fromBase64Pub(split[0])
 	if err != nil {
-		return newPubKey, updatePublicKey(path, newPubKey)
+		return newPubKey, updatePublicKey(path, newPubKey, blsKeyStr)
 	}
 
 	if !verifyPublicKey(privKey, key) {
-		return newPubKey, updatePublicKey(path, newPubKey)
+		return newPubKey, updatePublicKey(path, newPubKey, blsKeyStr)
+	}
+
+	if  len(split) <= 1 || split[1] != blsKeyStr {
+		fmt.Println("not the same bls key")
+		return key, updatePublicKey(path, key, blsKeyStr)
 	}
 
 	// k := hex.EncodeToString(crypto.FromECDSAPub(pubKey))
