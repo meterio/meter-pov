@@ -243,7 +243,6 @@ Let's start the pacemaker...
 
 	// XXX: Start pacemaker here at this time.
 	newCommittee := !cv.replay
-	//cv.csReactor.csPacemaker.Start(newCommittee)
 	cv.csReactor.startPacemaker(newCommittee)
 	return true
 }

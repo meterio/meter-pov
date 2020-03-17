@@ -157,30 +157,7 @@ func (conR *ConsensusReactor) sendNewCommitteeMessage(peer *ConsensusPeer, pubKe
 	blsSig, msgHash := conR.csCommon.SignMessage2([]byte(signMsg))
 	msg.BlsSignature = blsSig
 	msg.SignedMsgHash = msgHash
-	/*******
-		sig, err := conR.csCommon.GetSystem().SigFromBytes(blsSig)
-		if err != nil {
-			conR.logger.Error("get signature failed ...")
-		}
-		valid := bls.Verify(sig, msgHash, *conR.csCommon.GetPublicKey())
-		if valid == false {
-			conR.logger.Error("validate voter signature failed ...")
-		}
-		conR.logger.Error("RRRRRRRRRRR")
-	****/
-	/****
-		signMsgkkk := string("this is test message")
-		msgHashkkk := sha256.Sum256([]byte(signMsgkkk))
-		sig1kkk := bls.Sign(msgHashkkk, *conR.csCommon.GetPrivateKey())
-		blsSigkkk := conR.csCommon.GetSystem().SigToBytes(sig1kkk)
-		sigkkk, _ := conR.csCommon.GetSystem().SigFromBytes(blsSigkkk)
-		validkkk := bls.Verify(sigkkk, msgHashkkk, *conR.csCommon.GetPublicKey())
-		if validkkk == false {
-			conR.logger.Error("VVVVVVVerify failed")
-		} else {
-			conR.logger.Error("VVVVVVVVerify ok")
-		}
-	****/
+
 	// sign message with ecdsa key
 	ecdsaSigBytes, err := conR.SignConsensusMsg(msg.SigningHash().Bytes())
 	if err != nil {
@@ -292,17 +269,12 @@ func (conR *ConsensusReactor) ProcessNewCommitteeMessage(newCommitteeMsg *NewCom
 		conR.logger.Error("not find the validator in committee", "validator", validatorID, "nonce", nonce)
 		return false
 	}
-	//	conR.logger.Error("VVVVVVVVV", "validator", validator)
-	//	blsdd := conR.csCommon.GetSystem().PubKeyToBytes(validator.BlsPubKey)
-	//	conR.logger.Error("UUUUUUUUU", "blsdd", blsdd, "validatorBlsPk", newCommitteeMsg.ValidatorBlsPK)
 
 	if bytes.Equal(conR.csCommon.GetSystem().PubKeyToBytes(validator.BlsPubKey), newCommitteeMsg.ValidatorBlsPK) == false {
 		conR.logger.Error("BlsPubKey mismatch", "validator", validatorID)
 		return false
 	}
 
-	//	conR.logger.Error("WWWWWWWWWW", "signature", newCommitteeMsg.BlsSignature, "MsgHash", msgHash)
-	//	conR.logger.Error("XXXXXXXXXXX", "signature", conR.csCommon.GetSystem().SigToBytes(sig))
 	// validate bls signature
 	valid := bls.Verify(sig, msgHash, validator.BlsPubKey)
 	if valid == false {
