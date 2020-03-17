@@ -371,11 +371,11 @@ func (p *Pacemaker) generateNewQCNode(b *pmBlock) (*pmQuorumCert, error) {
 	sigBytes := make([][]byte, 0)
 	for _, s := range p.voteSigs {
 		sigs = append(sigs, s.signature)
-		sigBytes = append(sigBytes, p.csReactor.csCommon.system.SigToBytes(s.signature))
+		sigBytes = append(sigBytes, p.csReactor.csCommon.GetSystem().SigToBytes(s.signature))
 		msgHashes = append(msgHashes, s.msgHash)
 	}
 	aggSig := p.csReactor.csCommon.AggregateSign(sigs)
-	aggSigBytes := p.csReactor.csCommon.system.SigToBytes(aggSig)
+	aggSigBytes := p.csReactor.csCommon.GetSystem().SigToBytes(aggSig)
 
 	voterBitArrayStr, _ := p.voterBitArray.MarshalJSON()
 	return &pmQuorumCert{
@@ -399,7 +399,7 @@ func (p *Pacemaker) collectVoteSignature(voteMsg *PMVoteForProposalMessage) erro
 	round := uint64(voteMsg.CSMsgCommonHeader.Round)
 	if round == uint64(p.currentRound) && p.csReactor.amIRoundProproser(round) {
 		// if round matches and I am proposer, collect signature and store in cache
-		sigBytes, err := p.csReactor.csCommon.system.SigFromBytes(voteMsg.BlsSignature)
+		sigBytes, err := p.csReactor.csCommon.GetSystem().SigFromBytes(voteMsg.BlsSignature)
 		if err != nil {
 			return err
 		}

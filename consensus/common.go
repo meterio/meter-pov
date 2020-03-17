@@ -2,11 +2,9 @@ package consensus
 
 import (
 	"bytes"
-	//    "errors"
-	"fmt"
-	//"time"
 	sha256 "crypto/sha256"
 	"encoding/hex"
+	"fmt"
 	"io/ioutil"
 	"path/filepath"
 
@@ -35,41 +33,6 @@ type ConsensusCommon struct {
 	initialRole int
 }
 
-// XXX: currently Type A is being used
-// Committee Leader calls NewConsensusCommon and distributes system and params out
-// by AnnounceCommittee. Validators receive AnnounceCommittee call
-// NewValidatorConsensusCommon to initialize by receiving system and params
-
-func NewConsensusCommon(conR *ConsensusReactor) *ConsensusCommon {
-	//var cc *ConsensusCommon
-
-	params := bls.GenParamsTypeA(160, 512)
-	pairing := bls.GenPairing(params)
-	system, err := bls.GenSystem(pairing)
-	if err != nil {
-		panic(err)
-	}
-
-	PubKey, PrivKey, err := bls.GenKeys(system)
-	if err != nil {
-		panic(err)
-	}
-
-	// write to file for replay
-	writeOutKeyPairs(conR, system, PubKey, PrivKey)
-
-	return &ConsensusCommon{
-		PrivKey:     PrivKey,
-		PubKey:      PubKey,
-		csReactor:   conR,
-		system:      system,
-		params:      params,
-		pairing:     pairing,
-		initialized: true,
-		initialRole: INITIALIZE_AS_LEADER,
-	}
-}
-
 func NewConsensusCommonFromBlsCommon(conR *ConsensusReactor, blsCommon *BlsCommon) *ConsensusCommon {
 	return &ConsensusCommon{
 		PrivKey:     blsCommon.PrivKey,
@@ -80,119 +43,6 @@ func NewConsensusCommonFromBlsCommon(conR *ConsensusReactor, blsCommon *BlsCommo
 		pairing:     blsCommon.pairing,
 		initialized: true,
 		initialRole: INITIALIZE_AS_LEADER,
-	}
-}
-
-// Validator receives paramBytes, systemBytes from Leader and generate key pair
-func NewValidatorConsensusCommon(conR *ConsensusReactor, paramBytes []byte, systemBytes []byte) *ConsensusCommon {
-	params, err := bls.ParamsFromBytes(paramBytes)
-	if err != nil {
-		fmt.Println("initialize param failed...")
-		panic(err)
-	}
-
-	pairing := bls.GenPairing(params)
-	system, err := bls.SystemFromBytes(pairing, systemBytes)
-	if err != nil {
-		fmt.Println("initialize system failed...")
-		panic(err)
-	}
-
-	PubKey, PrivKey, err := bls.GenKeys(system)
-	if err != nil {
-		panic(err)
-	}
-	//backup to file
-	writeOutKeyPairs(conR, system, PubKey, PrivKey)
-
-	return &ConsensusCommon{
-		PrivKey:     PrivKey,
-		PubKey:      PubKey,
-		csReactor:   conR,
-		system:      system,
-		params:      params,
-		pairing:     pairing,
-		initialized: true,
-		initialRole: INITIALIZE_AS_VALIDATOR,
-	}
-}
-
-// Leader in replay mode should use existed paramBytes, systemBytes  and generate key pair
-func NewReplayLeaderConsensusCommon(conR *ConsensusReactor) *ConsensusCommon {
-	/******
-	params, err := bls.ParamsFromBytes(paramBytes)
-	if err != nil {
-		fmt.Println("initialize param failed...")
-		panic(err)
-	}
-
-	pairing := bls.GenPairing(params)
-	system, err := bls.SystemFromBytes(pairing, systemBytes)
-	if err != nil {
-		fmt.Println("initialize system failed...")
-		panic(err)
-	}
-
-	// read from backup file
-	PubKey, PrivKey, err := readBackKeyPairs(conR, system)
-	if err != nil {
-		pubKey, privKey, err := bls.GenKeys(system)
-		if err != nil {
-			panic(err)
-		}
-		PubKey = &pubKey
-		PrivKey = &privKey
-	}
-
-	return &ConsensusCommon{
-		PrivKey:     *PrivKey,
-		PubKey:      *PubKey,
-		csReactor:   conR,
-		system:      system,
-		params:      params,
-		pairing:     pairing,
-		initialized: true,
-		initialRole: INITIALIZE_AS_REPLAY_LEADER,
-	}
-	****/
-	return (NewConsensusCommon(conR))
-}
-
-// Validator receives paramBytes, systemBytes from Leader and generate key pair
-func NewValidatorReplayConsensusCommon(conR *ConsensusReactor, paramBytes []byte, systemBytes []byte) *ConsensusCommon {
-	params, err := bls.ParamsFromBytes(paramBytes)
-	if err != nil {
-		fmt.Println("initialize param failed...")
-		panic(err)
-	}
-
-	pairing := bls.GenPairing(params)
-	system, err := bls.SystemFromBytes(pairing, systemBytes)
-	if err != nil {
-		fmt.Println("initialize system failed...")
-		panic(err)
-	}
-
-	// read from file
-	PubKey, PrivKey, err := readBackKeyPairs(conR, system)
-	if err != nil {
-		pubKey, privKey, err := bls.GenKeys(system)
-		if err != nil {
-			panic(err)
-		}
-		PubKey = &pubKey
-		PrivKey = &privKey
-	}
-
-	return &ConsensusCommon{
-		PrivKey:     *PrivKey,
-		PubKey:      *PubKey,
-		csReactor:   conR,
-		system:      system,
-		params:      params,
-		pairing:     pairing,
-		initialized: true,
-		initialRole: INITIALIZE_AS_REPLAY_VALIDATOR,
 	}
 }
 
@@ -262,7 +112,6 @@ func (cc *ConsensusCommon) Hash256Msg(msg []byte) [32]byte {
 func (cc *ConsensusCommon) SignMessage(msg []byte) (bls.Signature, [32]byte) {
 
 	cc.checkConsensusCommonInit()
-	//hash := crypto.Sha256(msg[offset : offset+length])
 	hash := sha256.Sum256(msg)
 	sig := bls.Sign(hash, cc.PrivKey)
 	return sig, hash
@@ -271,7 +120,6 @@ func (cc *ConsensusCommon) SignMessage(msg []byte) (bls.Signature, [32]byte) {
 // the return with slice byte
 func (cc *ConsensusCommon) SignMessage2(msg []byte) ([]byte, [32]byte) {
 	cc.checkConsensusCommonInit()
-	//hash := crypto.Sha256(msg[offset : offset+length])
 	hash := sha256.Sum256(msg)
 	sig := bls.Sign(hash, cc.PrivKey)
 	return cc.system.SigToBytes(sig), hash

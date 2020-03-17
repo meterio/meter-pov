@@ -78,7 +78,7 @@ func (cv *ConsensusValidator) GenerateCommitMessage(sig bls.Signature, msgHash [
 	msg := &CommitCommitteeMessage{
 		CSMsgCommonHeader: cmnHdr,
 		CommitterID:       crypto.FromECDSAPub(&cv.csReactor.myPubKey),
-		CommitterBlsPK:    cv.csReactor.csCommon.GetSystem().PubKeyToBytes(cv.csReactor.csCommon.PubKey), //bls pubkey
+		CommitterBlsPK:    cv.csReactor.csCommon.GetSystem().PubKeyToBytes(*cv.csReactor.csCommon.GetPublicKey()), //bls pubkey
 		BlsSignature:      cv.csReactor.csCommon.GetSystem().SigToBytes(sig),
 		CommitterIndex:    index,
 		SignedMsgHash:     msgHash,
