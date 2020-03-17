@@ -255,8 +255,8 @@ type NewCommitteeMessage struct {
 	CSMsgCommonHeader ConsensusMsgCommonHeader
 
 	NewLeaderID    []byte //ecdsa.PublicKey
-	NewLeaderBlsPK []byte //bls.PublicKey
 	ValidatorID    []byte //ecdsa.PublicKey
+	ValidatorBlsPK []byte //bls publickey
 
 	NextEpochID   uint64
 	Nonce         uint64 // 8 bytes  Kblock info
@@ -277,8 +277,8 @@ func (m *NewCommitteeMessage) SigningHash() (hash meter.Bytes32) {
 		m.CSMsgCommonHeader.MsgSubType,
 
 		m.NewLeaderID,
-		m.NewLeaderBlsPK,
 		m.ValidatorID,
+		m.ValidatorBlsPK,
 
 		m.NextEpochID,
 		m.Nonce,

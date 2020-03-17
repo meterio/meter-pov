@@ -146,7 +146,7 @@ func (cl *ConsensusLeader) GenerateAnnounceMsg() bool {
 		CSMsgCommonHeader: cmnHdr,
 
 		AnnouncerID:    crypto.FromECDSAPub(&cl.csReactor.myPubKey),
-		AnnouncerBlsPK: cl.csReactor.csCommon.system.PubKeyToBytes(cl.csReactor.csCommon.PubKey),
+		AnnouncerBlsPK: cl.csReactor.csCommon.GetSystem().PubKeyToBytes(*cl.csReactor.csCommon.GetPublicKey()),
 
 		CommitteeSize:  cl.csReactor.committeeSize,
 		Nonce:          cl.Nonce,
@@ -156,7 +156,7 @@ func (cl *ConsensusLeader) GenerateAnnounceMsg() bool {
 		// signature from newcommittee
 		VotingBitArray: cl.csReactor.newCommittee.voterBitArray,
 		VotingMsgHash:  cl.csReactor.newCommittee.voterMsgHash[0],
-		VotingAggSig:   cl.csReactor.csCommon.system.SigToBytes(cl.csReactor.newCommittee.voterAggSig),
+		VotingAggSig:   cl.csReactor.csCommon.GetSystem().SigToBytes(cl.csReactor.newCommittee.voterAggSig),
 	}
 
 	// sign message with ecdsa key
@@ -385,7 +385,6 @@ Myself is Leader, Let's start the pacemaker.
 
 	// Now start the pacemaker
 	newCommittee := !cl.replay
-	//cl.csReactor.csPacemaker.Start(newCommittee)
 	cl.csReactor.startPacemaker(newCommittee)
 	return nil
 }

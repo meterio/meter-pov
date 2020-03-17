@@ -4,17 +4,14 @@ import (
 	"bytes"
 	"crypto/ecdsa"
 	"encoding/base64"
+	b64 "encoding/base64"
 	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
-	"math"
-	"sync"
-
-	//"errors"
-	b64 "encoding/base64"
 	"fmt"
 	"io/ioutil"
+	"math"
 	"net"
 	"net/http"
 	"os"
@@ -24,6 +21,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/gorilla/mux"
@@ -156,7 +154,7 @@ func NewBlsCommon() *BlsCommon {
 }
 
 func (cc *BlsCommon) GetSystem() *bls.System {
-        return &cc.system
+	return &cc.system
 }
 
 func (cc *BlsCommon) GetPrivKey() bls.PrivateKey {
@@ -418,20 +416,6 @@ func (conR *ConsensusReactor) String() string {
 	return "ConsensusReactor" // conR.StringIndented("")
 }
 
-/**********************
-// StringIndented returns an indented string representation of the ConsensusReactor
-func (conR *ConsensusReactor) StringIndented(indent string) string {
-	s := "ConsensusReactor{\n"
-	s += indent + "  " + conR.conS.StringIndented(indent+"  ") + "\n"
-	for _, peer := range conR.Switch.Peers().List() {
-		ps := peer.Get(types.PeerStateKey).(*PeerState)
-		s += indent + "  " + ps.StringIndented(indent+"  ") + "\n"
-	}
-	s += indent + "}"
-	return s
-}
-************************/
-
 //-----------------------------------------------------------------------------
 //----new consensus-------------------------------------------------------------
 //-----------------------------------------------------------------------------
@@ -605,6 +589,7 @@ func (conR *ConsensusReactor) CalcCommitteeByNonce(nonce uint64) (*types.Validat
 			Name:        string(d.Name),
 			Address:     d.Address,
 			PubKey:      d.PubKey,
+			BlsPubKey:   d.BlsPubKey,
 			VotingPower: d.VotingPower,
 			NetAddr:     d.NetAddr,
 			CommitKey:   crypto.Keccak256(append(crypto.FromECDSAPub(&d.PubKey), buf...)),
@@ -989,14 +974,6 @@ func (conR *ConsensusReactor) enterConsensusLeader(epochID uint64) {
 		return
 	}
 
-	// init consensus common as leader
-	// need to deinit to avoid the memory leak
-	if conR.csCommon != nil {
-		conR.csCommon.ConsensusCommonDeinit()
-	}
-
-	conR.csCommon = NewConsensusCommon(conR)
-
 	conR.csLeader = NewCommitteeLeader(conR)
 	conR.csRoleInitialized |= CONSENSUS_COMMIT_ROLE_LEADER
 
@@ -1023,11 +1000,6 @@ func (conR *ConsensusReactor) exitCurCommittee() error {
 
 	conR.exitConsensusLeader(conR.curEpoch)
 	conR.exitConsensusValidator()
-	// Only node in committee did initilize common
-	if conR.csCommon != nil {
-		conR.csCommon.ConsensusCommonDeinit()
-		conR.csCommon = nil
-	}
 
 	// clean up current parameters
 	if conR.curCommittee != nil {
@@ -1134,7 +1106,7 @@ func (conR *ConsensusReactor) GetLatestCommitteeList() ([]*ApiCommitteeMember, e
 			PubKey:      b64.StdEncoding.EncodeToString(crypto.FromECDSAPub(&cm.PubKey)),
 			VotingPower: v.VotingPower,
 			NetAddr:     cm.NetAddr.String(),
-			CsPubKey:    hex.EncodeToString(conR.csCommon.system.PubKeyToBytes(cm.CSPubKey)),
+			CsPubKey:    hex.EncodeToString(conR.csCommon.GetSystem().PubKeyToBytes(cm.CSPubKey)),
 			CsIndex:     cm.CSIndex,
 			InCommittee: true,
 		}
@@ -1411,13 +1383,6 @@ func HandleScheduleReplayLeader(conR *ConsensusReactor, epochID uint64) bool {
 		return false
 	}
 	fmt.Println("cis", cis)
-
-	// to avoid memory leak
-	if conR.csCommon != nil {
-		conR.csCommon.ConsensusCommonDeinit()
-		conR.csCommon = nil
-	}
-	conR.csCommon = NewReplayLeaderConsensusCommon(conR)
 
 	conR.csLeader = NewCommitteeLeader(conR)
 	conR.csRoleInitialized |= CONSENSUS_COMMIT_ROLE_LEADER
@@ -1710,6 +1675,7 @@ func UserHomeDir() string {
 func (conR *ConsensusReactor) SplitPubKey(comboPub string) (*ecdsa.PublicKey, *bls.PublicKey) {
 	// first part is ecdsa public, 2nd part is bls public key
 	split := strings.Split(comboPub, ":::")
+	fmt.Println("ecdsa PubKey", split[0], "Bls PubKey", split[1])
 	pubKeyBytes, err := b64.StdEncoding.DecodeString(split[0])
 	if err != nil {
 		panic(fmt.Sprintf("read public key of delegate failed, %v", err))
@@ -1727,6 +1693,7 @@ func (conR *ConsensusReactor) SplitPubKey(comboPub string) (*ecdsa.PublicKey, *b
 	if err != nil {
 		panic(fmt.Sprintf("read Bls public key of delegate failed, %v", err))
 	}
+
 	return pubKey, &blsPub
 }
 

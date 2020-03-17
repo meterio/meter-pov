@@ -3,6 +3,7 @@ package consensus
 import (
 	"bytes"
 	"crypto/ecdsa"
+	//sha256 "crypto/sha256"
 	"time"
 
 	bls "github.com/dfinlab/meter/crypto/multi_sig"
@@ -77,6 +78,7 @@ func (conR *ConsensusReactor) NewCommitteeTimeout() error {
 }
 
 func (conR *ConsensusReactor) NewCommitteeInit(height, nonce uint64, replay bool) error {
+	conR.logger.Info("NewCommitteeInit ...", "height", height, "nonce", nonce, "replay", replay)
 	nc := newNewCommittee(height, 0, nonce)
 	nc.Replay = replay
 	//pre-calc the committee
@@ -142,27 +144,27 @@ func (conR *ConsensusReactor) sendNewCommitteeMessage(peer *ConsensusPeer, pubKe
 			EpochID:   conR.curEpoch,
 		},
 
-		NextEpochID:  conR.curEpoch + 1,
-		NewLeaderID:  crypto.FromECDSAPub(&pubKey),
-		ValidatorID:  crypto.FromECDSAPub(&conR.myPubKey),
-		Nonce:        nonce,
-		KBlockHeight: kblockHeight,
+		NextEpochID:    conR.curEpoch + 1,
+		NewLeaderID:    crypto.FromECDSAPub(&pubKey),
+		ValidatorID:    crypto.FromECDSAPub(&conR.myPubKey),
+		ValidatorBlsPK: conR.csCommon.GetSystem().PubKeyToBytes(*conR.csCommon.GetPublicKey()),
+		Nonce:          nonce,
+		KBlockHeight:   kblockHeight,
 	}
 
-	// sign message with ecdsa key
+	// sign message with bls key
 	signMsg := conR.BuildNewCommitteeSignMsg(conR.myPubKey, conR.curEpoch+1, uint64(conR.curHeight))
-	msgHash := conR.csCommon.Hash256Msg([]byte(signMsg))
-	ecdsaSigBytes, err := conR.SignConsensusMsg(msgHash[:])
+	blsSig, msgHash := conR.csCommon.SignMessage2([]byte(signMsg))
+	msg.BlsSignature = blsSig
+	msg.SignedMsgHash = msgHash
+
+	// sign message with ecdsa key
+	ecdsaSigBytes, err := conR.SignConsensusMsg(msg.SigningHash().Bytes())
 	if err != nil {
 		conR.logger.Error("Sign message failed", "error", err)
 		return err
 	}
 	msg.CSMsgCommonHeader.SetMsgSignature(ecdsaSigBytes)
-
-	// sign message with bls key
-	blsSig, msgHash := conR.csCommon.SignMessage2([]byte(signMsg))
-	msg.BlsSignature = blsSig
-	msg.SignedMsgHash = msgHash
 
 	// state to init & send move to next round
 	// fmt.Println("msg: %v", msg.String())
@@ -173,7 +175,7 @@ func (conR *ConsensusReactor) sendNewCommitteeMessage(peer *ConsensusPeer, pubKe
 
 // once reach 2/3 send aout annouce message
 func (conR *ConsensusReactor) ProcessNewCommitteeMessage(newCommitteeMsg *NewCommitteeMessage, src *ConsensusPeer) bool {
-
+	conR.logger.Info("received newCommittee Message", "source", src.name, "IP", src.netAddr.IP)
 	ch := newCommitteeMsg.CSMsgCommonHeader
 
 	if conR.ValidateCMheaderSig(&ch, newCommitteeMsg.SigningHash().Bytes()) == false {
@@ -192,6 +194,11 @@ func (conR *ConsensusReactor) ProcessNewCommitteeMessage(newCommitteeMsg *NewCom
 		return false
 	}
 
+	if bytes.Equal(ch.Sender, newCommitteeMsg.ValidatorID) == false {
+		conR.logger.Error("sender / validatorID mismatch")
+		return false
+	}
+
 	// check the leader
 	if bytes.Compare(newCommitteeMsg.NewLeaderID, crypto.FromECDSAPub(&conR.myPubKey)) != 0 {
 		conR.logger.Error("Expected leader is not myself")
@@ -204,6 +211,7 @@ func (conR *ConsensusReactor) ProcessNewCommitteeMessage(newCommitteeMsg *NewCom
 		conR.logger.Error("validator key unmarshal error")
 		return false
 	}
+
 	signMsg := conR.BuildNewCommitteeSignMsg(*validatorID, newCommitteeMsg.NextEpochID, uint64(ch.Height))
 	conR.logger.Debug("Sign message", "msg", signMsg)
 
@@ -215,7 +223,7 @@ func (conR *ConsensusReactor) ProcessNewCommitteeMessage(newCommitteeMsg *NewCom
 	}
 
 	// validate the signature
-	sig, err := conR.csCommon.system.SigFromBytes(newCommitteeMsg.BlsSignature)
+	sig, err := conR.csCommon.GetSystem().SigFromBytes(newCommitteeMsg.BlsSignature)
 	if err != nil {
 		conR.logger.Error("get signature failed ...")
 		return false
@@ -245,25 +253,30 @@ func (conR *ConsensusReactor) ProcessNewCommitteeMessage(newCommitteeMsg *NewCom
 		}
 	}
 
-	// find this validator in new committee, and if found, record it's index and blsPK
-	var validatorBlsPK *bls.PublicKey
+	// check BLS key
 	var index int
+	var validator *types.Validator
 	for i := range nc.Committee.Validators {
-		validator := nc.Committee.Validators[i]
-		pubkey := crypto.FromECDSAPub(&validator.PubKey)
-		if bytes.Compare(pubkey, newCommitteeMsg.ValidatorID) == 0 {
-			validatorBlsPK = &validator.BlsPubKey
+		v := nc.Committee.Validators[i]
+		pubkey := crypto.FromECDSAPub(&v.PubKey)
+		if bytes.Equal(pubkey, newCommitteeMsg.ValidatorID) == true {
+			validator = v
 			index = i
 			break
 		}
 	}
-	if validatorBlsPK == nil {
-		conR.logger.Error("could not find this validator's bls key")
+	if validator == nil {
+		conR.logger.Error("not find the validator in committee", "validator", validatorID, "nonce", nonce)
+		return false
+	}
+
+	if bytes.Equal(conR.csCommon.GetSystem().PubKeyToBytes(validator.BlsPubKey), newCommitteeMsg.ValidatorBlsPK) == false {
+		conR.logger.Error("BlsPubKey mismatch", "validator", validatorID)
 		return false
 	}
 
 	// validate bls signature
-	valid := bls.Verify(sig, msgHash, *validatorBlsPK)
+	valid := bls.Verify(sig, msgHash, validator.BlsPubKey)
 	if valid == false {
 		conR.logger.Error("validate voter signature failed")
 		if conR.config.SkipSignatureCheck == true {
@@ -276,9 +289,8 @@ func (conR *ConsensusReactor) ProcessNewCommitteeMessage(newCommitteeMsg *NewCom
 	// collect the votes
 	nc.voterNum++
 	nc.voterBitArray.SetIndex(index, true)
-
 	nc.voterSig = append(nc.voterSig, sig)
-	nc.voterPubKey = append(nc.voterPubKey, *validatorBlsPK)
+	nc.voterPubKey = append(nc.voterPubKey, validator.BlsPubKey)
 	nc.voterMsgHash = append(nc.voterMsgHash, msgHash)
 
 	// 3. if the totoal vote > 2/3, move to Commit state

@@ -112,7 +112,7 @@ func (p *Pacemaker) BuildProposalMessage(height, round uint64, bnew *pmBlock, tc
 		ParentRound:  parentRound,
 
 		ProposerID:        crypto.FromECDSAPub(&p.csReactor.myPubKey),
-		ProposerBlsPK:     p.csReactor.csCommon.system.PubKeyToBytes(p.csReactor.csCommon.PubKey),
+		ProposerBlsPK:     p.csReactor.csCommon.GetSystem().PubKeyToBytes(*p.csReactor.csCommon.GetPublicKey()),
 		KBlockHeight:      int64(p.csReactor.lastKBlockHeight),
 		ProposedSize:      len(blockBytes),
 		ProposedBlock:     blockBytes,
@@ -158,8 +158,8 @@ func (p *Pacemaker) BuildVoteForProposalMessage(proposalMsg *PMProposalMessage, 
 		CSMsgCommonHeader: cmnHdr,
 
 		VoterID:           crypto.FromECDSAPub(&p.csReactor.myPubKey),
-		VoterBlsPK:        p.csReactor.csCommon.system.PubKeyToBytes(p.csReactor.csCommon.PubKey),
-		BlsSignature:      p.csReactor.csCommon.system.SigToBytes(sign),
+		VoterBlsPK:        p.csReactor.csCommon.GetSystem().PubKeyToBytes(*p.csReactor.csCommon.GetPublicKey()),
+		BlsSignature:      p.csReactor.csCommon.GetSystem().SigToBytes(sign),
 		VoterIndex:        int64(index),
 		SignedMessageHash: msgHash,
 	}
@@ -209,7 +209,7 @@ func (p *Pacemaker) BuildNewViewMessage(nextHeight, nextRound uint64, qcHigh *pm
 		PeerID:            crypto.FromECDSAPub(&p.csReactor.myPubKey),
 		PeerIndex:         index,
 		SignedMessageHash: msgHash,
-		PeerSignature:     p.csReactor.csCommon.system.SigToBytes(sign),
+		PeerSignature:     p.csReactor.csCommon.GetSystem().SigToBytes(sign),
 	}
 
 	if ti != nil {
