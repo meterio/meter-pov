@@ -36,9 +36,15 @@ type ConsensusLeader struct {
 	csReactor *ConsensusReactor //global reactor info
 	replay    bool
 
+	announceVoterIndexs []int
+
+	// newCommittee voting evidence
+	voterBitArray *cmn.BitArray
+	voterMsgHash  [32]byte
+	voterAggSig   bls.Signature
+
 	//signature data
 	announceVoterBitArray *cmn.BitArray
-	announceVoterIndexs   []int
 	announceVoterSig      []bls.Signature
 	announceVoterPubKey   []bls.PublicKey
 	announceVoterMsgHash  [][32]byte
@@ -142,6 +148,7 @@ func (cl *ConsensusLeader) GenerateAnnounceMsg() bool {
 		// mblock
 		kblockHeight = int64(best.Header().LastKBlockHeight())
 	}
+
 	msg := &AnnounceCommitteeMessage{
 		CSMsgCommonHeader: cmnHdr,
 
@@ -154,9 +161,9 @@ func (cl *ConsensusLeader) GenerateAnnounceMsg() bool {
 		POWBlockHeight: 0, //TODO: TBD
 
 		// signature from newcommittee
-		VotingBitArray: cl.csReactor.newCommittee.voterBitArray,
-		VotingMsgHash:  cl.csReactor.newCommittee.voterMsgHash[0],
-		VotingAggSig:   cl.csReactor.csCommon.GetSystem().SigToBytes(cl.csReactor.newCommittee.voterAggSig),
+		VotingBitArray: cl.voterBitArray,
+		VotingMsgHash:  cl.voterMsgHash,
+		VotingAggSig:   cl.csReactor.csCommon.GetSystem().SigToBytes(cl.voterAggSig),
 	}
 
 	// sign message with ecdsa key

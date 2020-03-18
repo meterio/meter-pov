@@ -16,6 +16,20 @@ const (
 	NEW_COMMITTEE_INIT_INTV = 15 * time.Second //15s
 )
 
+type NCEvidence struct {
+	voterBitArray *cmn.BitArray
+	voterMsgHash  [32]byte
+	voterAggSig   bls.Signature
+}
+
+func NewNCEvidence(bitArray *cmn.BitArray, msgHash [32]byte, aggSig bls.Signature) *NCEvidence {
+	return &NCEvidence{
+		voterBitArray: bitArray,
+		voterMsgHash:  msgHash,
+		voterAggSig:   aggSig,
+	}
+}
+
 type NewCommitteeKey struct {
 	height uint64
 	round  uint64
@@ -302,19 +316,22 @@ func (conR *ConsensusReactor) ProcessNewCommitteeMessage(newCommitteeMsg *NewCom
 			conR.csPacemaker.Stop()
 		}
 
-		// fmt.Println("replay", conR.newCommittee.Replay)
-		if conR.newCommittee.Replay == true {
-			conR.ScheduleReplayLeader(epochID, WHOLE_NETWORK_BLOCK_SYNC_TIME)
-		} else {
-			// Wait for block sync since there is no time out yet
-			conR.ScheduleLeader(epochID, height, WHOLE_NETWORK_BLOCK_SYNC_TIME)
-		}
-
 		// avoid the re-trigger
 		nc.voterNum = 0
 
 		// aggregate the signatures
 		nc.voterAggSig = conR.csCommon.AggregateSign(nc.voterSig)
+
+		if conR.newCommittee.Replay == true {
+			conR.ScheduleReplayLeader(epochID, WHOLE_NETWORK_BLOCK_SYNC_TIME)
+		} else {
+			// Wait for block sync since there is no time out yet
+			conR.ScheduleLeader(epochID, height,
+				NewNCEvidence(nc.voterBitArray, nc.voterMsgHash[0], nc.voterAggSig),
+				WHOLE_NETWORK_BLOCK_SYNC_TIME)
+		}
+
+		conR.logger.Info("Leader scheduled ...")
 		return true
 	} else {
 		// not reach 2/3 yet, wait for more

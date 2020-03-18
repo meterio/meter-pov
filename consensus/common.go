@@ -74,12 +74,6 @@ func (cc *ConsensusCommon) ConsensusCommonDeinit() bool {
 	return true
 }
 
-func (cc *ConsensusCommon) checkConsensusCommonInit() {
-	if !cc.initialized {
-		fmt.Println("BLS is not initialized!")
-	}
-}
-
 func (cc *ConsensusCommon) GetSystem() *bls.System {
 	return &cc.system
 }
@@ -102,16 +96,11 @@ func (cc *ConsensusCommon) GetPrivateKey() *bls.PrivateKey {
 
 // sign the part of msg
 func (cc *ConsensusCommon) Hash256Msg(msg []byte) [32]byte {
-
-	cc.checkConsensusCommonInit()
-
 	return sha256.Sum256(msg)
 }
 
 // sign the part of msg
 func (cc *ConsensusCommon) SignMessage(msg []byte) (bls.Signature, [32]byte) {
-
-	cc.checkConsensusCommonInit()
 	hash := sha256.Sum256(msg)
 	sig := bls.Sign(hash, cc.PrivKey)
 	return sig, hash
@@ -119,7 +108,6 @@ func (cc *ConsensusCommon) SignMessage(msg []byte) (bls.Signature, [32]byte) {
 
 // the return with slice byte
 func (cc *ConsensusCommon) SignMessage2(msg []byte) ([]byte, [32]byte) {
-	cc.checkConsensusCommonInit()
 	hash := sha256.Sum256(msg)
 	sig := bls.Sign(hash, cc.PrivKey)
 	return cc.system.SigToBytes(sig), hash
@@ -143,7 +131,6 @@ func (cc *ConsensusCommon) VerifySignature(signature, msgHash, blsPK []byte) boo
 }
 
 func (cc *ConsensusCommon) AggregateSign(sigs []bls.Signature) bls.Signature {
-	cc.checkConsensusCommonInit()
 	sig, err := bls.Aggregate(sigs, cc.system)
 	if err != nil {
 		fmt.Println("aggreate signature failed")
@@ -152,7 +139,6 @@ func (cc *ConsensusCommon) AggregateSign(sigs []bls.Signature) bls.Signature {
 }
 
 func (cc *ConsensusCommon) AggregateSign2(sigs []bls.Signature) []byte {
-	cc.checkConsensusCommonInit()
 	sig, err := bls.Aggregate(sigs, cc.system)
 	if err != nil {
 		fmt.Println("aggreate signature failed")
@@ -162,7 +148,6 @@ func (cc *ConsensusCommon) AggregateSign2(sigs []bls.Signature) []byte {
 
 // all voter sign the same msg.
 func (cc *ConsensusCommon) AggregateVerify(sig bls.Signature, hashes [][32]byte, pubKeys []bls.PublicKey) (bool, error) {
-	cc.checkConsensusCommonInit()
 	return bls.AggregateVerify(sig, hashes, pubKeys)
 }
 

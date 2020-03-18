@@ -960,7 +960,7 @@ func (conR *ConsensusReactor) exitConsensusValidator() int {
 func (conR *ConsensusReactor) enterConsensusLeader(epochID uint64) {
 	conR.logger.Debug("Enter consensus leader", "epochID", epochID)
 	if epochID <= conR.curEpoch && conR.csLeader != nil {
-		conR.logger.Warn("Epoch is less than current epoch, do not update leader", "curEpochID", conR.curEpoch, "epochID", epochID)
+		conR.logger.Warn("not update leader", "curEpochID", conR.curEpoch, "epochID", epochID)
 		return
 	}
 
@@ -1320,9 +1320,9 @@ func (conR *ConsensusReactor) BuildTimeoutSignMsg(pubKey ecdsa.PublicKey, round 
 //-----------------------------------------------------------------------------
 // New consensus timed schedule util
 //type Scheduler func(conR *ConsensusReactor) bool
-func (conR *ConsensusReactor) ScheduleLeader(epochID uint64, height uint64, d time.Duration) bool {
+func (conR *ConsensusReactor) ScheduleLeader(epochID uint64, height uint64, ev *NCEvidence, d time.Duration) bool {
 	time.AfterFunc(d, func() {
-		conR.schedulerQueue <- func() { HandleScheduleLeader(conR, epochID, height) }
+		conR.schedulerQueue <- func() { HandleScheduleLeader(conR, epochID, height, ev) }
 	})
 	return true
 }
@@ -1397,7 +1397,7 @@ func HandleScheduleReplayValidator(conR *ConsensusReactor) bool {
 	return true
 }
 
-func HandleScheduleLeader(conR *ConsensusReactor, epochID, height uint64) bool {
+func HandleScheduleLeader(conR *ConsensusReactor, epochID, height uint64, ev *NCEvidence) bool {
 	curHeight := uint64(conR.chain.BestBlock().Header().Number())
 	if curHeight != height {
 		conR.logger.Error("ScheduleLeader: best height is different with kblock height", "curHeight", curHeight, "kblock height", height)
@@ -1413,11 +1413,15 @@ func HandleScheduleLeader(conR *ConsensusReactor, epochID, height uint64) bool {
 		com.TriggerSync()
 		conR.logger.Warn("Peer sync triggered")
 
-		conR.ScheduleLeader(epochID, height, 1*time.Second)
+		conR.ScheduleLeader(epochID, height, ev, 1*time.Second)
 		return false
 	}
 
 	conR.enterConsensusLeader(epochID)
+
+	conR.csLeader.voterBitArray = ev.voterBitArray
+	conR.csLeader.voterMsgHash = ev.voterMsgHash
+	conR.csLeader.voterAggSig = ev.voterAggSig
 	conR.csLeader.GenerateAnnounceMsg()
 	return true
 }
