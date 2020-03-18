@@ -223,10 +223,28 @@ func (cv *ConsensusValidator) ProcessNotaryAnnounceMessage(notaryMsg *NotaryAnno
 		return false
 	}
 
+	// valid the voter index. we can get the index from the publicKey
+	senderPubKey, err := crypto.UnmarshalPubkey(ch.Sender)
+	if err != nil {
+		cv.csReactor.logger.Error("ummarshal public key of sender failed ")
+		return false
+	}
+
+	leaderIndex := cv.csReactor.GetCommitteeMemberIndex(*senderPubKey)
+	leader := cv.csReactor.curCommittee.Validators[leaderIndex]
+	if bytes.Equal(crypto.FromECDSAPub(&leader.PubKey), notaryMsg.AnnouncerID) == false {
+		cv.csReactor.logger.Error("ecdsa public key mismatch", "index", leaderIndex)
+		return false
+	}
+	if bytes.Equal(cv.csReactor.csCommon.GetSystem().PubKeyToBytes(leader.BlsPubKey), notaryMsg.AnnouncerBlsPK) == false {
+		cv.csReactor.logger.Error("bls public key mismatch", "index", leaderIndex)
+		return false
+	}
+
 	// TBD: validate announce bitarray & signature
 	// validateEvidence()
 
-	cv.csReactor.UpdateActualCommittee()
+	cv.csReactor.UpdateActualCommittee(leaderIndex)
 	myCommitteInfo := cv.csReactor.BuildCommitteeInfoFromMember(cv.csReactor.csCommon.GetSystem(), cv.csReactor.curActualCommittee)
 
 	// my committee info notaryMsg.CommitteeMembers must be the same !!!

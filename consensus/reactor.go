@@ -513,23 +513,24 @@ func (conR *ConsensusReactor) RefreshCurHeight() error {
 // after announce/commit, Leader got the actual committee, which is the subset of curCommittee if some committee member offline.
 // indexs and pubKeys are not sorted slice, AcutalCommittee must be sorted.
 // Only Leader can call this method. indexes do not include the leader itself.
-func (conR *ConsensusReactor) UpdateActualCommittee() bool {
+func (conR *ConsensusReactor) UpdateActualCommittee(leaderIndex int) bool {
+	fmt.Println("-----------------------")
 	fmt.Println("CUR COMMITTEE:")
 	for _, v := range conR.curCommittee.Validators {
 		fmt.Println("V: ", v)
 	}
 	fmt.Println("-----------------------")
 	size := len(conR.curCommittee.Validators)
-	validators := conR.curCommittee.Validators
-	// conR.curCommittee.Validators[conR.curCommitteeIndex:]
-	// validators = append(validators, conR.curCommittee.Validators[:conR.curCommitteeIndex]...)
+	//validators := conR.curCommittee.Validators
+	validators := conR.curCommittee.Validators[leaderIndex:]
+	validators = append(validators, conR.curCommittee.Validators[:leaderIndex]...)
 	for i, v := range validators {
 		cm := CommitteeMember{
 			Name:     v.Name,
 			PubKey:   v.PubKey,
 			NetAddr:  v.NetAddr,
 			CSPubKey: v.BlsPubKey,
-			CSIndex:  (i + conR.curCommitteeIndex) % size,
+			CSIndex:  (i + leaderIndex) % size,
 		}
 		conR.curActualCommittee = append(conR.curActualCommittee, cm)
 	}
@@ -539,10 +540,10 @@ func (conR *ConsensusReactor) UpdateActualCommittee() bool {
 	// conR.logger.Error("I am leader and not in first place of curActualCommittee, must correct !!!")
 	// return false
 	// }
-
+	fmt.Println("--------------------")
 	fmt.Println("CUR ACTUAL COMMITTEE")
 	for _, cm := range conR.curActualCommittee {
-		fmt.Println(cm)
+		fmt.Println(cm.Name, cm.NetAddr, cm.CSIndex)
 	}
 	fmt.Println("--------------------")
 

@@ -26,8 +26,7 @@ const (
 	// COMMITTEE_LEADER_NOTARYSENT = byte(0x03)
 	COMMITTEE_LEADER_COMMITED = byte(0x04)
 
-	THRESHOLD_TIMER_TIMEOUT = 3 * time.Second //wait for reach 2/3 consensus timeout
-	// 1s by default
+	THRESHOLD_TIMER_TIMEOUT = 4 * time.Second //wait for reach 2/3 consensus timeout
 )
 
 type ConsensusLeader struct {
@@ -193,21 +192,18 @@ func (cl *ConsensusLeader) GenerateAnnounceMsg() bool {
 
 			// Aggregate signature here
 			cl.announceVoterAggSig = cl.csReactor.csCommon.AggregateSign(cl.announceVoterSig)
-			cl.csReactor.UpdateActualCommittee()
+			cl.csReactor.UpdateActualCommittee(cl.csReactor.curCommitteeIndex)
 
 			//send out announce notary
 			// cl.state = COMMITTEE_LEADER_NOTARYSENT
 			cl.GenerateNotaryAnnounceMsg()
 
-			//timeout function
+			//Now Committee is already announced establishment. Wait a little bit while of message transimit
 			notaryExpire := func() {
-				cl.csReactor.logger.Warn("reach 2/3 votes of notary expired ...", "comitteeSize", cl.csReactor.committeeSize, "totalComitter", cl.announceVoterNum)
-
-				//XXX: In most cases, if leaders receives enough commitCommittee message, it should receive enough votes for notary.
-				// so this case should rarely happen. We warn it and still start committee
+				cl.csReactor.logger.Info("NotaryAnnounce sent", "comitteeSize", cl.csReactor.committeeSize)
 				cl.committeeEstablished()
 			}
-			cl.notaryThresholdTimer = time.AfterFunc(THRESHOLD_TIMER_TIMEOUT, func() {
+			cl.notaryThresholdTimer = time.AfterFunc(1*time.Second, func() {
 				cl.csReactor.schedulerQueue <- notaryExpire
 			})
 
