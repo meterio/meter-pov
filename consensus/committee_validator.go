@@ -12,10 +12,10 @@ package consensus
 
 import (
 	"bytes"
-	"time"
-
 	bls "github.com/dfinlab/meter/crypto/multi_sig"
+	"github.com/dfinlab/meter/genesis"
 	crypto "github.com/ethereum/go-ethereum/crypto"
+	"time"
 
 	types "github.com/dfinlab/meter/types"
 )
@@ -135,7 +135,11 @@ func (cv *ConsensusValidator) ProcessAnnounceCommittee(announceMsg *AnnounceComm
 		cv.csReactor.logger.Warn("Could not get KBlock, use nonce from announce message", "nonce", announceMsg.Nonce)
 		kblockNonce = announceMsg.Nonce
 	} else {
-		kblockNonce = kblock.KBlockData.Nonce
+		if kblock.Header().Number() == 0 {
+			kblockNonce = genesis.GenesisNonce
+		} else {
+			kblockNonce = kblock.KBlockData.Nonce
+		}
 		if announceMsg.Nonce != kblockNonce {
 			cv.csReactor.logger.Error("Nonce mismatch, potential malicious behaviour...", "kblockNonce", kblockNonce, "recvedNonce", announceMsg.Nonce)
 			return false
