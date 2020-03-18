@@ -157,6 +157,16 @@ func (cc *BlsCommon) GetSystem() *bls.System {
 	return &cc.system
 }
 
+func (cc *BlsCommon) GetPrivKey() bls.PrivateKey {
+        return cc.PrivKey
+}
+
+func (cc *BlsCommon) GetPubKey() *bls.PublicKey {
+        return &cc.PubKey
+}
+
+
+
 //-----------------------------------------------------------------------------
 // ConsensusReactor defines a reactor for the consensus service.
 type ConsensusReactor struct {

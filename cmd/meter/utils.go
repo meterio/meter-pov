@@ -22,6 +22,8 @@ import (
 	"time"
 
 	b64 "encoding/base64"
+	sha256 "crypto/sha256"
+
 	"strings"
 
 	"encoding/hex"
@@ -276,39 +278,45 @@ func loadOrGenerateBlsCommon(path string) (*consensus.BlsCommon) {
 	}
 
 	readBytes, err := ioutil.ReadFile(path);
-	if err != nil {
-		fmt.Println("failed to read bls key:", err)
-		pubKey, privKey, err := writeOutKeys(system, path)
-		if err != nil {
-			fmt.Println("failed to write keys ", err)
-			return nil
-		}
-		return consensus.NewBlsCommonFromParams(pubKey, privKey, system, params, pairing)
-	}
-	keyBytes, err := hex.DecodeString(string(readBytes))
-	if err != nil {
-		fmt.Println("failed to decode key bytes")
-		pubKey, privKey, err := writeOutKeys(system, path)
-		if err != nil {
-			fmt.Println("failed to write keys ", err)
-			return nil
-		}
-		return consensus.NewBlsCommonFromParams(pubKey, privKey, system, params, pairing)
-	}
-	isolator := []byte{0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff}
-	split := bytes.Split(keyBytes, isolator)
-	pubKeyBytes := split[0]
-	privKeyBytes := split[1]
+	if err == nil {
+		keyBytes, err := hex.DecodeString(string(readBytes))
+		if err == nil {
+			isolator := []byte{0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff}
+			split := bytes.Split(keyBytes, isolator)
+			pubKeyBytes := split[0]
+			privKeyBytes := split[1]
 
-	pubKey, err := system.PubKeyFromBytes(pubKeyBytes)
-	if err != nil {
-		fmt.Println("read pubKey error ", err)
-		return nil
-	}
+			pubKey, err := system.PubKeyFromBytes(pubKeyBytes)
 
-	privKey, err := system.PrivKeyFromBytes(privKeyBytes)
+			if err == nil {
+				privKey, err := system.PrivKeyFromBytes(privKeyBytes)
+				if err == nil {
+					/* verify loaded keys */
+					signMsg := string("This is a test")
+					msgHash := sha256.Sum256([]byte(signMsg))
+					sig := bls.Sign(msgHash, privKey)
+					valid := bls.Verify(sig, msgHash, pubKey)
+					if valid == true {
+						fmt.Println("loaded keys verify ok")
+						return consensus.NewBlsCommonFromParams(pubKey, privKey, system, params, pairing)
+					} else {
+						fmt.Println("loaded key verify err")
+					}
+				} else {
+					fmt.Println("priv key from bytes err")
+				}
+			} else {
+				fmt.Println("pub key from bytes err")
+			}
+		} else {
+			fmt.Println("decode keys str error ", err)
+		}
+        } else {
+		fmt.Println("failed to read consensus key file ", err)
+	}
+	pubKey, privKey, err := writeOutKeys(system, path)
 	if err != nil {
-		fmt.Println("read privKey error ", err)
+		fmt.Println("failed to write keys ", err)
 		return nil
 	}
 	return consensus.NewBlsCommonFromParams(pubKey, privKey, system, params, pairing)
