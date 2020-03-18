@@ -3,6 +3,7 @@ package consensus
 import (
 	"bytes"
 	"crypto/ecdsa"
+
 	//sha256 "crypto/sha256"
 	"time"
 
@@ -323,7 +324,7 @@ func (conR *ConsensusReactor) ProcessNewCommitteeMessage(newCommitteeMsg *NewCom
 		nc.voterAggSig = conR.csCommon.AggregateSign(nc.voterSig)
 
 		if conR.newCommittee.Replay == true {
-			conR.ScheduleReplayLeader(epochID, WHOLE_NETWORK_BLOCK_SYNC_TIME)
+			conR.ScheduleReplayLeader(epochID, NewNCEvidence(nc.voterBitArray, nc.voterMsgHash[0], nc.voterAggSig), WHOLE_NETWORK_BLOCK_SYNC_TIME)
 		} else {
 			// Wait for block sync since there is no time out yet
 			conR.ScheduleLeader(epochID, height,

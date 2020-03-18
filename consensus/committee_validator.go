@@ -12,10 +12,11 @@ package consensus
 
 import (
 	"bytes"
+	"time"
+
 	bls "github.com/dfinlab/meter/crypto/multi_sig"
 	"github.com/dfinlab/meter/genesis"
 	crypto "github.com/ethereum/go-ethereum/crypto"
-	"time"
 
 	types "github.com/dfinlab/meter/types"
 )
@@ -229,7 +230,6 @@ func (cv *ConsensusValidator) ProcessNotaryAnnounceMessage(notaryMsg *NotaryAnno
 	myCommitteInfo := cv.csReactor.BuildCommitteeInfoFromMember(cv.csReactor.csCommon.GetSystem(), cv.csReactor.curActualCommittee)
 
 	// my committee info notaryMsg.CommitteeMembers must be the same !!!
-
 	if cv.csReactor.CommitteeInfoCompare(myCommitteInfo, notaryMsg.CommitteeMembers) == false {
 		cv.csReactor.logger.Error("CommitteeInfo mismatch")
 		return false

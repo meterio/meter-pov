@@ -469,12 +469,22 @@ func (conR *ConsensusReactor) finalizeKBlock(blk *block.Block, ev *block.Evidenc
 }
 func (conR *ConsensusReactor) CommitteeInfoCompare(cm1, cm2 []block.CommitteeInfo) bool {
 	if len(cm1) != len(cm2) {
+		conR.logger.Error("committee size mismatch", "len(cm1)", len(cm1), "len(cm2)", len(cm2))
 		return false
 	}
 	var i int
+	for _, cm := range cm1 {
+		fmt.Println("MY CM: ", cm)
+	}
+	for _, cm := range cm2 {
+		fmt.Println("GOT CM: ", cm)
+	}
 	for i = 0; i < len(cm1); i++ {
 		if (cm1[i].Name != cm2[i].Name) || (bytes.Equal(cm1[i].PubKey, cm2[i].PubKey) == false) ||
 			(bytes.Equal(cm1[i].CSPubKey, cm2[i].CSPubKey) == false) {
+			conR.logger.Error("committee member mismatch", "i", i)
+			fmt.Println(cm1[i])
+			fmt.Println(cm2[i])
 			return false
 		}
 	}

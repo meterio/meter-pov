@@ -10,6 +10,7 @@ package consensus
 
 import (
 	"bytes"
+	"fmt"
 	"time"
 
 	"github.com/dfinlab/meter/block"
@@ -237,16 +238,18 @@ func (cl *ConsensusLeader) GenerateNotaryAnnounceMsg() bool {
 		EpochID:   cl.EpochID,
 	}
 
-	newCommitteeInfo := cl.csReactor.newCommittee
+	for _, cm := range cl.csReactor.curActualCommittee {
+		fmt.Println("CUR CM: ", cm)
+	}
 	msg := &NotaryAnnounceMessage{
 		CSMsgCommonHeader: cmnHdr,
 
 		AnnouncerID:    crypto.FromECDSAPub(&cl.csReactor.myPubKey),
 		AnnouncerBlsPK: cl.csReactor.csCommon.GetSystem().PubKeyToBytes(*cl.csReactor.csCommon.GetPublicKey()),
 
-		VotingBitArray: newCommitteeInfo.voterBitArray,
-		VotingMsgHash:  newCommitteeInfo.voterMsgHash[0],
-		VotingAggSig:   cl.csReactor.csCommon.GetSystem().SigToBytes(newCommitteeInfo.voterAggSig),
+		VotingBitArray: cl.voterBitArray,
+		VotingMsgHash:  cl.voterMsgHash,
+		VotingAggSig:   cl.csReactor.csCommon.GetSystem().SigToBytes(cl.voterAggSig),
 
 		NotarizeBitArray: cl.announceVoterBitArray,
 		NotarizeMsgHash:  cl.announceVoterMsgHash[0],

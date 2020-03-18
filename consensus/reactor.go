@@ -158,14 +158,12 @@ func (cc *BlsCommon) GetSystem() *bls.System {
 }
 
 func (cc *BlsCommon) GetPrivKey() bls.PrivateKey {
-        return cc.PrivKey
+	return cc.PrivKey
 }
 
 func (cc *BlsCommon) GetPubKey() *bls.PublicKey {
-        return &cc.PubKey
+	return &cc.PubKey
 }
-
-
 
 //-----------------------------------------------------------------------------
 // ConsensusReactor defines a reactor for the consensus service.
@@ -516,9 +514,15 @@ func (conR *ConsensusReactor) RefreshCurHeight() error {
 // indexs and pubKeys are not sorted slice, AcutalCommittee must be sorted.
 // Only Leader can call this method. indexes do not include the leader itself.
 func (conR *ConsensusReactor) UpdateActualCommittee() bool {
+	fmt.Println("CUR COMMITTEE:")
+	for _, v := range conR.curCommittee.Validators {
+		fmt.Println("V: ", v)
+	}
+	fmt.Println("-----------------------")
 	size := len(conR.curCommittee.Validators)
-	validators := conR.curCommittee.Validators[conR.curCommitteeIndex:]
-	validators = append(validators, conR.curCommittee.Validators[:conR.curCommitteeIndex]...)
+	validators := conR.curCommittee.Validators
+	// conR.curCommittee.Validators[conR.curCommitteeIndex:]
+	// validators = append(validators, conR.curCommittee.Validators[:conR.curCommitteeIndex]...)
 	for i, v := range validators {
 		cm := CommitteeMember{
 			Name:     v.Name,
@@ -531,10 +535,16 @@ func (conR *ConsensusReactor) UpdateActualCommittee() bool {
 	}
 
 	// I am Leader, first one should be myself.
-	if bytes.Equal(crypto.FromECDSAPub(&conR.curActualCommittee[0].PubKey), crypto.FromECDSAPub(&conR.myPubKey)) == false {
-		conR.logger.Error("I am leader and not in first place of curActualCommittee, must correct !!!")
-		return false
+	// if bytes.Equal(crypto.FromECDSAPub(&conR.curActualCommittee[0].PubKey), crypto.FromECDSAPub(&conR.myPubKey)) == false {
+	// conR.logger.Error("I am leader and not in first place of curActualCommittee, must correct !!!")
+	// return false
+	// }
+
+	fmt.Println("CUR ACTUAL COMMITTEE")
+	for _, cm := range conR.curActualCommittee {
+		fmt.Println(cm)
 	}
+	fmt.Println("--------------------")
 
 	return true
 }
@@ -1337,9 +1347,9 @@ func (conR *ConsensusReactor) ScheduleLeader(epochID uint64, height uint64, ev *
 	return true
 }
 
-func (conR *ConsensusReactor) ScheduleReplayLeader(epochID uint64, d time.Duration) bool {
+func (conR *ConsensusReactor) ScheduleReplayLeader(epochID uint64, ev *NCEvidence, d time.Duration) bool {
 	time.AfterFunc(d, func() {
-		conR.schedulerQueue <- func() { HandleScheduleReplayLeader(conR, epochID) }
+		conR.schedulerQueue <- func() { HandleScheduleReplayLeader(conR, epochID, ev) }
 	})
 	return true
 }
@@ -1359,7 +1369,7 @@ func (conR *ConsensusReactor) ScheduleReplayValidator(d time.Duration) bool {
 }
 
 // -------------------------------
-func HandleScheduleReplayLeader(conR *ConsensusReactor, epochID uint64) bool {
+func HandleScheduleReplayLeader(conR *ConsensusReactor, epochID uint64, ev *NCEvidence) bool {
 	conR.exitConsensusLeader(conR.curEpoch)
 
 	conR.logger.Debug("Enter consensus replay leader", "curEpochID", conR.curEpoch, "epochID", epochID)
@@ -1389,6 +1399,9 @@ func HandleScheduleReplayLeader(conR *ConsensusReactor, epochID uint64) bool {
 	conR.csLeader.replay = true
 	conR.updateCurEpoch(epochID)
 	conR.csLeader.EpochID = epochID
+	conR.csLeader.voterMsgHash = ev.voterMsgHash
+	conR.csLeader.voterBitArray = ev.voterBitArray
+	conR.csLeader.voterAggSig = ev.voterAggSig
 
 	conR.csLeader.GenerateAnnounceMsg()
 	return true

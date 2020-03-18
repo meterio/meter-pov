@@ -56,7 +56,7 @@ type CommitteeInfo struct {
 }
 
 func (ci CommitteeInfo) String() string {
-	return fmt.Sprintf("Member: Name=%v, IP=%v, index=%d, vp=%d", ci.Name, ci.NetAddr.IP.String(), ci.CSIndex)
+	return fmt.Sprintf("Member: Name=%v, IP=%v, index=%d", ci.Name, ci.NetAddr.IP.String(), ci.CSIndex)
 }
 
 type CommitteeInfos struct {
