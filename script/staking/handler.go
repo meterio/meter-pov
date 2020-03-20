@@ -8,6 +8,7 @@ import (
 	"math/big"
 	"regexp"
 	"sort"
+	"strings"
 
 	"github.com/dfinlab/meter/meter"
 	crypto "github.com/ethereum/go-ethereum/crypto"
@@ -274,7 +275,14 @@ func (sb *StakingBody) CandidateHandler(senv *StakingEnviroment, gas uint64) (re
 		return
 	}
 
-	decoded, err := base64.StdEncoding.DecodeString(string(sb.CandPubKey))
+	// check pubkey format
+	split := strings.Split(string(sb.CandPubKey), ":::")
+	if len(split) != 2 {
+		log.Error("invalid public keys for split")
+		return
+	}
+
+	decoded, err := base64.StdEncoding.DecodeString(split[0])
 	if err != nil {
 		log.Error("could not decode public key")
 	}
@@ -674,7 +682,13 @@ func (sb *StakingBody) CandidateUpdateHandler(senv *StakingEnviroment, gas uint6
 		leftOverGas = gas - meter.ClauseGas
 	}
 
-	decoded, err := base64.StdEncoding.DecodeString(string(sb.CandPubKey))
+	split := strings.Split(string(sb.CandPubKey), ":::")
+	if len(split) != 2 {
+		log.Error("invalid public keys for split")
+		return
+	}
+
+	decoded, err := base64.StdEncoding.DecodeString(split[0])
 	if err != nil {
 		log.Error("could not decode public key")
 	}
