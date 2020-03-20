@@ -1355,20 +1355,6 @@ func (conR *ConsensusReactor) ScheduleReplayLeader(epochID uint64, ev *NCEvidenc
 	return true
 }
 
-func (conR *ConsensusReactor) ScheduleValidator(d time.Duration) bool {
-	time.AfterFunc(d, func() {
-		conR.schedulerQueue <- func() { HandleScheduleValidator(conR) }
-	})
-	return true
-}
-
-func (conR *ConsensusReactor) ScheduleReplayValidator(d time.Duration) bool {
-	time.AfterFunc(d, func() {
-		conR.schedulerQueue <- func() { HandleScheduleReplayValidator(conR) }
-	})
-	return true
-}
-
 // -------------------------------
 func HandleScheduleReplayLeader(conR *ConsensusReactor, epochID uint64, ev *NCEvidence) bool {
 	conR.exitConsensusLeader(conR.curEpoch)
@@ -1408,19 +1394,6 @@ func HandleScheduleReplayLeader(conR *ConsensusReactor, epochID uint64, ev *NCEv
 	return true
 }
 
-func HandleScheduleReplayValidator(conR *ConsensusReactor) bool {
-	conR.exitConsensusValidator()
-
-	conR.logger.Debug("Enter consensus replay validator")
-
-	conR.csValidator = NewConsensusValidator(conR)
-	conR.csRoleInitialized |= CONSENSUS_COMMIT_ROLE_VALIDATOR
-	conR.csValidator.replay = true
-
-	// Validator only responses the incoming message
-	return true
-}
-
 func HandleScheduleLeader(conR *ConsensusReactor, epochID, height uint64, ev *NCEvidence) bool {
 	curHeight := uint64(conR.chain.BestBlock().Header().Number())
 	if curHeight != height {
@@ -1447,14 +1420,6 @@ func HandleScheduleLeader(conR *ConsensusReactor, epochID, height uint64, ev *NC
 	conR.csLeader.voterMsgHash = ev.voterMsgHash
 	conR.csLeader.voterAggSig = ev.voterAggSig
 	conR.csLeader.GenerateAnnounceMsg()
-	return true
-}
-
-func HandleScheduleValidator(conR *ConsensusReactor) bool {
-	conR.exitConsensusValidator()
-	conR.enterConsensusValidator()
-
-	// Validator only responses the incoming message
 	return true
 }
 
@@ -1539,27 +1504,10 @@ func (conR *ConsensusReactor) ConsensusHandleReceivedNonce(kBlockHeight int64, n
 
 		conR.NewCommitteeInit(uint64(kBlockHeight), nonce, replay)
 
-		//TBD:
-		// wait 30 seconds for synchronization
-		// time.Sleep(5 * WHOLE_NETWORK_BLOCK_SYNC_TIME)
-		/***********
-		time.Sleep(1 * WHOLE_NETWORK_BLOCK_SYNC_TIME)
-		if replay {
-			conR.ScheduleReplayLeader(0)
-		} else {
-			conR.ScheduleLeader(0)
-		}
-		***********/
 		//wait for majority
 	} else if role == CONSENSUS_COMMIT_ROLE_VALIDATOR {
 		conR.logger.Info("I am committee validator for nonce!", "nonce", nonce)
-		/*****
-		if replay {
-			conR.ScheduleReplayValidator(0)
-		} else {
-			conR.ScheduleValidator(0)
-		}
-		*****/
+
 		// no replay case, the last block must be kblock!
 		if replay == false && conR.curHeight != kBlockHeight {
 			conR.logger.Error("the best block is not kblock", "curHeight", conR.curHeight, "kblock Height", kBlockHeight)
