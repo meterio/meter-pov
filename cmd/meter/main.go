@@ -7,7 +7,6 @@ package main
 
 import (
 	"crypto/sha256"
-	b64 "encoding/base64"
 	"encoding/binary"
 	"encoding/json"
 	"fmt"
@@ -155,13 +154,6 @@ func main() {
 				},
 				Action: showEnodeIDAction,
 			},
-			{Name: "address",
-				Usage: "export address",
-				Flags: []cli.Flag{
-					dataDirFlag,
-				},
-				Action: addressAction,
-			},
 			{
 				Name:  "public-key",
 				Usage: "export public key",
@@ -198,35 +190,15 @@ func showEnodeIDAction(ctx *cli.Context) error {
 	return nil
 }
 
-func addressAction(ctx *cli.Context) error {
-	makeDataDir(ctx)
-	key, err := loadOrGeneratePrivateKey(masterKeyPath(ctx))
-	if err != nil {
-		fatal("load or generate master key:", err)
-	}
-
-	pubKey, err := loadOrUpdatePublicKey(publicKeyPath(ctx), key, &key.PublicKey, keyStr)
-	if err != nil {
-		fatal("update public key:", err)
-	}
-	addr := meter.Address(crypto.PubkeyToAddress(*pubKey))
-	fmt.Println(addr.String())
-	return nil
-}
-
 func publicKeyAction(ctx *cli.Context) error {
 	makeDataDir(ctx)
-	key, err := loadOrGeneratePrivateKey(masterKeyPath(ctx))
+	keyLoader := NewKeyLoader(ctx)
+	_, _, _, err := keyLoader.Load()
 	if err != nil {
-		fatal("load or generate master key:", err)
+		fatal("error load keys", err)
 	}
 
-	pubKey, err := loadOrUpdatePublicKey(publicKeyPath(ctx), key, &key.PublicKey, keyStr)
-	if err != nil {
-		fatal("update public key:", err)
-	}
-	b := b64.StdEncoding.EncodeToString(crypto.FromECDSAPub(pubKey))
-	fmt.Println(b)
+	fmt.Println(string(keyLoader.publicBytes))
 	return nil
 }
 

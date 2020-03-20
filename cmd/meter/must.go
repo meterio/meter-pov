@@ -15,7 +15,6 @@ import (
 	"os"
 	"path/filepath"
 	"time"
-	b64 "encoding/base64"
 
 	"github.com/dfinlab/meter/chain"
 	"github.com/dfinlab/meter/cmd/meter/node"
@@ -167,7 +166,6 @@ func blsKeyPath(ctx *cli.Context) string {
 	return filepath.Join(ctx.String("data-dir"), "consensus.key")
 }
 
-
 func beneficiary(ctx *cli.Context) *meter.Address {
 	value := ctx.String(beneficiaryFlag.Name)
 	if value == "" {
@@ -210,23 +208,12 @@ func loadNodeMaster(ctx *cli.Context) (*node.Master, *consensus.BlsCommon) {
 		}, nil
 	}
 
-	blsCommon := loadOrGenerateBlsCommon(blsKeyPath(ctx))
-        if blsCommon == nil {
-                fatal("load or generate blskey err")
-        }
-	pubBytes := blsCommon.GetSystem().PubKeyToBytes(blsCommon.PubKey)
-	keyStr = b64.StdEncoding.EncodeToString(pubBytes)
-
-	key, err := loadOrGeneratePrivateKey(masterKeyPath(ctx))
+	keyLoader := NewKeyLoader(ctx)
+	ePrivKey, ePubKey, blsCommon, err := keyLoader.Load()
 	if err != nil {
-		fatal("load or generate master key:", err)
+		fatal("load key error: ", err)
 	}
-
-	pubKey, err := loadOrUpdatePublicKey(publicKeyPath(ctx), key, &key.PublicKey, keyStr)
-	if err != nil {
-		fatal("update public key:", err)
-	}
-	master := &node.Master{PrivateKey: key, PublicKey: pubKey}
+	master := &node.Master{PrivateKey: ePrivKey, PublicKey: ePubKey}
 	master.Beneficiary = beneficiary(ctx)
 	return master, blsCommon
 }

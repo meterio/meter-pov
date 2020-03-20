@@ -6,7 +6,6 @@
 package main
 
 import (
-	"bytes"
 	"context"
 	"crypto/ecdsa"
 	"fmt"
@@ -22,18 +21,14 @@ import (
 	"time"
 
 	b64 "encoding/base64"
-	sha256 "crypto/sha256"
-
-	"strings"
 
 	"encoding/hex"
 
 	"github.com/dfinlab/meter/api/doc"
+	bls "github.com/dfinlab/meter/crypto/multi_sig"
 	"github.com/dfinlab/meter/meter"
 	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/dfinlab/meter/consensus"
 	tty "github.com/mattn/go-tty"
-	bls "github.com/dfinlab/meter/crypto/multi_sig"
 )
 
 const paraString = "7479706520610a7120393838353834383131343738353339323431393933323931313633343633383233393237323539333630313734353437303331303937363333343133333530303632303839383839373036333235323836313831303431393231303532353631343638393937373833313833373239383735313336373034373032383734373731313033383234383836323436333937353435373032373639310a682031333532383333373038363039373437363036393233353830313130323833353636323231393236323833343938313336333130333037363536313036373633383333353631353531343531363531393734363630363036363434333134333539303831373330323933320a72203733303735313136373131343539353138363134323832393030323835333733393531393935383631343830323433310a65787032203135390a65787031203133380a7369676e3120310a7369676e30202d310a"
@@ -80,22 +75,6 @@ func loadOrGeneratePrivateKey(path string) (*ecdsa.PrivateKey, error) {
 	return key, nil
 }
 
-func verifyPublicKey(privKey *ecdsa.PrivateKey, pubKey *ecdsa.PublicKey) bool {
-	hash := []byte("testing")
-	r, s, err := ecdsa.Sign(strings.NewReader("test-plain-text-some-thing"), privKey, hash)
-	if err != nil {
-		fmt.Println("Error during sign: ", err)
-		return false
-	}
-	return ecdsa.Verify(pubKey, hash, r, s)
-}
-
-func updatePublicKey(path string, pubKey *ecdsa.PublicKey, blsKeyStr string) error {
-	b := b64.StdEncoding.EncodeToString(crypto.FromECDSAPub(pubKey))
-	b = b + ":::" + blsKeyStr
-	return ioutil.WriteFile(path, []byte(b+"\n"), 0600)
-}
-
 func fromBase64Pub(pub string) (*ecdsa.PublicKey, error) {
 	b, err := b64.StdEncoding.DecodeString(pub)
 	if err != nil {
@@ -103,34 +82,6 @@ func fromBase64Pub(pub string) (*ecdsa.PublicKey, error) {
 	}
 
 	return crypto.UnmarshalPubkey(b)
-}
-
-// Save public key with BASE64 encoding
-func loadOrUpdatePublicKey(path string, privKey *ecdsa.PrivateKey, newPubKey *ecdsa.PublicKey, blsKeyStr string) (*ecdsa.PublicKey, error) {
-	b, err := ioutil.ReadFile(path)
-	if err != nil {
-		return newPubKey, updatePublicKey(path, newPubKey, blsKeyStr)
-	}
-
-	s := strings.TrimSuffix(string(b), "\n")
-	split := strings.Split(s, ":::")
-
-	key, err := fromBase64Pub(split[0])
-	if err != nil {
-		return newPubKey, updatePublicKey(path, newPubKey, blsKeyStr)
-	}
-
-	if !verifyPublicKey(privKey, key) {
-		return newPubKey, updatePublicKey(path, newPubKey, blsKeyStr)
-	}
-
-	if  len(split) <= 1 || split[1] != blsKeyStr {
-		fmt.Println("not the same bls key")
-		return key, updatePublicKey(path, key, blsKeyStr)
-	}
-
-	// k := hex.EncodeToString(crypto.FromECDSAPub(pubKey))
-	return key, err
 }
 
 // copy from go-ethereum
@@ -232,7 +183,7 @@ func readPasswordFromNewTTY(prompt string) (string, error) {
 	return pass, err
 }
 
-func writeOutKeys(system bls.System, path string) (bls.PublicKey, bls.PrivateKey, error){
+func writeOutKeys(system bls.System, path string) (bls.PublicKey, bls.PrivateKey, error) {
 	pubKey, privKey, err := bls.GenKeys(system)
 	if err != nil {
 		fmt.Println("GenKeys failed")
@@ -252,72 +203,11 @@ func writeOutKeys(system bls.System, path string) (bls.PublicKey, bls.PrivateKey
 	return pubKey, privKey, nil
 }
 
-func loadOrGenerateBlsCommon(path string) (*consensus.BlsCommon) {
-	paraBytes, err := hex.DecodeString(paraString)
-	if err != nil {
-		fmt.Println("decode paraString error:", err)
-		return nil
-	}
-	params, err :=  bls.ParamsFromBytes(paraBytes)
-	if err != nil {
-		fmt.Println("params from bytes error:", err)
-		return nil
-	}
+func getBlsSystem() bls.System {
+	paraBytes, _ := hex.DecodeString(paraString)
+	params, _ := bls.ParamsFromBytes(paraBytes)
 	pairing := bls.GenPairing(params)
-
-	systemBytes, err := hex.DecodeString(systemString)
-	if err != nil {
-		fmt.Println("decode system string error:", err)
-		return nil
-	}
-
-	system, err := bls.SystemFromBytes(pairing, systemBytes)
-	if err != nil {
-		fmt.Println("system from bytes error:", err)
-		return nil
-	}
-
-	readBytes, err := ioutil.ReadFile(path);
-	if err == nil {
-		keyBytes, err := hex.DecodeString(string(readBytes))
-		if err == nil {
-			isolator := []byte{0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff}
-			split := bytes.Split(keyBytes, isolator)
-			pubKeyBytes := split[0]
-			privKeyBytes := split[1]
-
-			pubKey, err := system.PubKeyFromBytes(pubKeyBytes)
-
-			if err == nil {
-				privKey, err := system.PrivKeyFromBytes(privKeyBytes)
-				if err == nil {
-					/* verify loaded keys */
-					signMsg := string("This is a test")
-					msgHash := sha256.Sum256([]byte(signMsg))
-					sig := bls.Sign(msgHash, privKey)
-					valid := bls.Verify(sig, msgHash, pubKey)
-					if valid == true {
-						fmt.Println("loaded keys verify ok")
-						return consensus.NewBlsCommonFromParams(pubKey, privKey, system, params, pairing)
-					} else {
-						fmt.Println("loaded key verify err")
-					}
-				} else {
-					fmt.Println("priv key from bytes err")
-				}
-			} else {
-				fmt.Println("pub key from bytes err")
-			}
-		} else {
-			fmt.Println("decode keys str error ", err)
-		}
-        } else {
-		fmt.Println("failed to read consensus key file ", err)
-	}
-	pubKey, privKey, err := writeOutKeys(system, path)
-	if err != nil {
-		fmt.Println("failed to write keys ", err)
-		return nil
-	}
-	return consensus.NewBlsCommonFromParams(pubKey, privKey, system, params, pairing)
+	systemBytes, _ := hex.DecodeString(systemString)
+	system, _ := bls.SystemFromBytes(pairing, systemBytes)
+	return system
 }
