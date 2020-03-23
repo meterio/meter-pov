@@ -44,12 +44,14 @@ type ConsensusLeader struct {
 	voterAggSig   bls.Signature
 
 	//signature data
-	announceVoterBitArray *cmn.BitArray
-	announceVoterSig      []bls.Signature
-	announceVoterPubKey   []bls.PublicKey
-	announceVoterMsgHash  [][32]byte
-	announceVoterAggSig   bls.Signature
-	announceVoterNum      int
+	// announceVoterBitArray *cmn.BitArray
+	// announceVoterSig      []bls.Signature
+	// announceVoterPubKey   []bls.PublicKey
+	// announceVoterMsgHash  [][32]byte
+	// announceVoterAggSig   bls.Signature
+	// announceVoterNum      int
+
+	announceSigAggregator *SignatureAggregator
 
 	announceThresholdTimer *time.Timer // 2/3 voting timer
 	notaryThresholdTimer   *time.Timer // notary 2/3 vote timer
@@ -88,11 +90,11 @@ func (cl *ConsensusLeader) MoveInitState(curState byte) bool {
 //New CommitteeLeader
 func NewCommitteeLeader(conR *ConsensusReactor) *ConsensusLeader {
 	cl := &ConsensusLeader{
-		Nonce:                 conR.curNonce,
-		state:                 COMMITTEE_LEADER_INIT,
-		csReactor:             conR,
-		EpochID:               conR.curEpoch,
-		announceVoterBitArray: cmn.NewBitArray(conR.committeeSize),
+		Nonce:     conR.curNonce,
+		state:     COMMITTEE_LEADER_INIT,
+		csReactor: conR,
+		EpochID:   conR.curEpoch,
+		// announceVoterBitArray: cmn.NewBitArray(conR.committeeSize),
 		// notaryVoterBitArray:   cmn.NewBitArray(conR.committeeSize),
 	}
 	return cl
@@ -179,11 +181,14 @@ func (cl *ConsensusLeader) GenerateAnnounceMsg() bool {
 	cl.state = COMMITTEE_LEADER_ANNOUNCED
 	cl.SendMsg(m)
 
+	signMsg := cl.csReactor.BuildAnnounceSignMsg(cl.csReactor.myPubKey, cmnHdr.EpochID, uint64(cmnHdr.Height), uint32(cmnHdr.Round))
+	msgHash := cl.csReactor.csCommon.Hash256Msg([]byte(signMsg))
+	cl.announceSigAggregator = newSignatureAggregator(cl.csReactor.committeeSize, cl.csReactor.csCommon.system, msgHash)
 	//timeout function
 	announceExpire := func() {
-		cl.csReactor.logger.Warn("reach 2/3 votes of announce expired ...", "comitteeSize", cl.csReactor.committeeSize, "totalComitter", cl.announceVoterNum)
+		cl.csReactor.logger.Warn("reach 2/3 votes of announce expired ...", "comitteeSize", cl.csReactor.committeeSize, "totalComitter", cl.announceSigAggregator.Count())
 
-		if LeaderMajorityTwoThird(cl.announceVoterNum, cl.csReactor.committeeSize) && cl.state == COMMITTEE_LEADER_ANNOUNCED {
+		if LeaderMajorityTwoThird(int(cl.announceSigAggregator.Count()), cl.csReactor.committeeSize) && cl.state == COMMITTEE_LEADER_ANNOUNCED {
 
 			cl.csReactor.logger.Info("Committers reach 2/3 of Committee")
 
@@ -191,7 +196,8 @@ func (cl *ConsensusLeader) GenerateAnnounceMsg() bool {
 			//cl.announceThresholdTimer.Stop()
 
 			// Aggregate signature here
-			cl.announceVoterAggSig = cl.csReactor.csCommon.AggregateSign(cl.announceVoterSig)
+			cl.announceSigAggregator.Aggregate()
+			// cl.announceVoterAggSig = cl.csReactor.csCommon.AggregateSign(cl.announceVoterSig)
 			cl.csReactor.UpdateActualCommittee(cl.csReactor.curCommitteeIndex)
 
 			//send out announce notary
@@ -208,7 +214,7 @@ func (cl *ConsensusLeader) GenerateAnnounceMsg() bool {
 			})
 
 		} else {
-			cl.csReactor.logger.Warn("did not reach 2/3 committer of announce ...", "comitteeSize", cl.csReactor.committeeSize, "totalComitter", cl.announceVoterNum)
+			cl.csReactor.logger.Warn("did not reach 2/3 committer of announce ...", "comitteeSize", cl.csReactor.committeeSize, "totalComitter", cl.announceSigAggregator.Count())
 			cl.MoveInitState(cl.state)
 		}
 	}
@@ -247,9 +253,9 @@ func (cl *ConsensusLeader) GenerateNotaryAnnounceMsg() bool {
 		VotingMsgHash:  cl.voterMsgHash,
 		VotingAggSig:   cl.csReactor.csCommon.GetSystem().SigToBytes(cl.voterAggSig),
 
-		NotarizeBitArray: cl.announceVoterBitArray,
-		NotarizeMsgHash:  cl.announceVoterMsgHash[0],
-		NotarizeAggSig:   cl.csReactor.csCommon.GetSystem().SigToBytes(cl.announceVoterAggSig),
+		NotarizeBitArray: cl.announceSigAggregator.bitArray,
+		NotarizeMsgHash:  cl.announceSigAggregator.msgHash,
+		NotarizeAggSig:   cl.announceSigAggregator.Aggregate(),
 
 		CommitteeSize:    cl.csReactor.committeeSize,
 		CommitteeMembers: cl.csReactor.BuildCommitteeInfoFromMember(cl.csReactor.csCommon.GetSystem(), cl.csReactor.curActualCommittee),
@@ -350,14 +356,7 @@ func (cl *ConsensusLeader) ProcessCommitMsg(commitMsg *CommitCommitteeMessage, s
 	}
 
 	// 2. add src to bitArray.
-	cl.announceVoterNum++
-	cl.announceVoterBitArray.SetIndex(index, true)
-
-	// Basic we get the actual committee here, but publish in notary
-	cl.announceVoterIndexs = append(cl.announceVoterIndexs, commitMsg.CommitterIndex)
-	cl.announceVoterSig = append(cl.announceVoterSig, sig)
-	cl.announceVoterPubKey = append(cl.announceVoterPubKey, validator.BlsPubKey)
-	cl.announceVoterMsgHash = append(cl.announceVoterMsgHash, commitMsg.SignedMsgHash)
+	cl.announceSigAggregator.Add(index, msgHash, commitMsg.BlsSignature, validator.BlsPubKey)
 	return true
 }
 

@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"github.com/dfinlab/meter/block"
-	bls "github.com/dfinlab/meter/crypto/multi_sig"
 	"github.com/dfinlab/meter/tx"
 	"github.com/dfinlab/meter/txpool"
 	"github.com/dfinlab/meter/types"
@@ -366,18 +365,8 @@ func (p *Pacemaker) SendMessageToPeers(msg ConsensusMessage, peers []*ConsensusP
 }
 
 func (p *Pacemaker) generateNewQCNode(b *pmBlock) (*pmQuorumCert, error) {
-	sigs := make([]bls.Signature, 0)
-	msgHashes := make([][32]byte, 0)
-	sigBytes := make([][]byte, 0)
-	for _, s := range p.voteSigs {
-		sigs = append(sigs, s.signature)
-		sigBytes = append(sigBytes, p.csReactor.csCommon.GetSystem().SigToBytes(s.signature))
-		msgHashes = append(msgHashes, s.msgHash)
-	}
-	aggSig := p.csReactor.csCommon.AggregateSign(sigs)
-	aggSigBytes := p.csReactor.csCommon.GetSystem().SigToBytes(aggSig)
+	aggSigBytes := p.sigAggregator.Aggregate()
 
-	voterBitArrayStr, _ := p.voterBitArray.MarshalJSON()
 	return &pmQuorumCert{
 		QCNode: b,
 
@@ -385,13 +374,13 @@ func (p *Pacemaker) generateNewQCNode(b *pmBlock) (*pmQuorumCert, error) {
 			QCHeight:         b.Height,
 			QCRound:          b.Round,
 			EpochID:          p.csReactor.curEpoch,
-			VoterBitArrayStr: string(voterBitArrayStr),
-			VoterMsgHash:     msgHashes,
+			VoterBitArrayStr: p.sigAggregator.BitArrayString(),
+			VoterMsgHash:     p.sigAggregator.msgHash,
 			VoterAggSig:      aggSigBytes,
 		},
 
-		VoterSig: sigBytes,
-		VoterNum: uint32(len(p.voteSigs)),
+		VoterSig: p.sigAggregator.sigBytes,
+		VoterNum: p.sigAggregator.Count(),
 	}, nil
 }
 
@@ -399,18 +388,18 @@ func (p *Pacemaker) collectVoteSignature(voteMsg *PMVoteForProposalMessage) erro
 	round := uint64(voteMsg.CSMsgCommonHeader.Round)
 	if round == uint64(p.currentRound) && p.csReactor.amIRoundProproser(round) {
 		// if round matches and I am proposer, collect signature and store in cache
-		sigBytes, err := p.csReactor.csCommon.GetSystem().SigFromBytes(voteMsg.BlsSignature)
+
+		_, err := p.csReactor.csCommon.GetSystem().SigFromBytes(voteMsg.BlsSignature)
 		if err != nil {
 			return err
 		}
-		sig := &PMSignature{
-			index:     voteMsg.VoterIndex,
-			msgHash:   voteMsg.SignedMessageHash,
-			signature: sigBytes,
+		if voteMsg.VoterIndex < int64(p.csReactor.committeeSize) {
+			blsPubkey := p.csReactor.curCommittee.Validators[voteMsg.VoterIndex].BlsPubKey
+			p.sigAggregator.Add(int(voteMsg.VoterIndex), voteMsg.SignedMessageHash, voteMsg.BlsSignature, blsPubkey)
+			p.logger.Debug("Collected signature ", "index", voteMsg.VoterIndex, "signature", hex.EncodeToString(voteMsg.BlsSignature))
+		} else {
+			p.logger.Debug("Signature ignored because of msg hash mismatch")
 		}
-		p.voterBitArray.SetIndex(int(voteMsg.VoterIndex), true)
-		p.voteSigs = append(p.voteSigs, sig)
-		p.logger.Debug("Collected signature ", "index", voteMsg.VoterIndex, "signature", hex.EncodeToString(voteMsg.BlsSignature))
 	} else {
 		p.logger.Debug("Signature ignored because of round mismatch", "round", round, "currRound", p.currentRound)
 	}

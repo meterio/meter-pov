@@ -15,7 +15,7 @@ type QuorumCert struct {
 	EpochID  uint64
 
 	VoterBitArrayStr string
-	VoterMsgHash     [][32]byte // [][32]byte
+	VoterMsgHash     [32]byte // [][32]byte
 	VoterAggSig      []byte
 
 	voterBitArray *cmn.BitArray
@@ -61,7 +61,7 @@ func (qc *QuorumCert) DecodeRLP(s *rlp.Stream) error {
 		QCHeight         uint64
 		QCRound          uint64
 		EpochID          uint64
-		VoterMsgHash     [][32]byte
+		VoterMsgHash     [32]byte
 		VoterAggSig      []byte
 		VoterBitArrayStr string
 	}{}

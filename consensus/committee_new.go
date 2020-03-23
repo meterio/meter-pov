@@ -43,15 +43,17 @@ type NewCommittee struct {
 	Replay       bool
 	TimeoutTimer *time.Timer
 
-	// evidence
-	voterBitArray *cmn.BitArray
-	voterPubKey   []bls.PublicKey
-	voterAggSig   bls.Signature
+	// // evidence
+	// voterBitArray *cmn.BitArray
+	// voterPubKey   []bls.PublicKey
+	// voterAggSig   bls.Signature
 
-	// intermediate results
-	voterSig     []bls.Signature
-	voterMsgHash [][32]byte
-	voterNum     int
+	// // intermediate results
+	// voterSig     []bls.Signature
+	// voterMsgHash [][32]byte
+	// voterNum     int
+
+	sigAggregator *SignatureAggregator
 
 	//precalc committee for given nonce
 	Committee   *types.ValidatorSet
@@ -258,6 +260,7 @@ func (conR *ConsensusReactor) ProcessNewCommitteeMessage(newCommitteeMsg *NewCom
 		nc.Role = role
 		nc.Index = index
 		nc.InCommittee = inCommittee
+		nc.sigAggregator = newSignatureAggregator(conR.committeeSize, conR.csCommon.system, msgHash)
 
 		conR.rcvdNewCommittee[NewCommitteeKey{height, round}] = nc
 	} else {
@@ -302,15 +305,16 @@ func (conR *ConsensusReactor) ProcessNewCommitteeMessage(newCommitteeMsg *NewCom
 	}
 
 	// collect the votes
-	nc.voterNum++
-	nc.voterBitArray.SetIndex(index, true)
-	nc.voterSig = append(nc.voterSig, sig)
-	nc.voterPubKey = append(nc.voterPubKey, validator.BlsPubKey)
-	nc.voterMsgHash = append(nc.voterMsgHash, msgHash)
+	nc.sigAggregator.Add(index, msgHash, newCommitteeMsg.BlsSignature, validator.BlsPubKey)
+	// nc.voterNum++
+	// nc.voterBitArray.SetIndex(index, true)
+	// nc.voterSig = append(nc.voterSig, sig)
+	// nc.voterPubKey = append(nc.voterPubKey, validator.BlsPubKey)
+	// nc.voterMsgHash = append(nc.voterMsgHash, msgHash)
 
 	// 3. if the totoal vote > 2/3, move to Commit state
-	if LeaderMajorityTwoThird(nc.voterNum, conR.committeeSize) {
-		conR.logger.Debug("NewCommitteeMessage, 2/3 Majority reached", "Recvd", nc.voterNum, "committeeSize", conR.committeeSize, "replay", conR.newCommittee.Replay)
+	if LeaderMajorityTwoThird(int(nc.sigAggregator.Count()), conR.committeeSize) {
+		conR.logger.Debug("NewCommitteeMessage, 2/3 Majority reached", "Recvd", nc.sigAggregator.Count(), "committeeSize", conR.committeeSize, "replay", conR.newCommittee.Replay)
 
 		// Now it's time schedule leader
 		if conR.csPacemaker.IsStopped() == false {
@@ -318,17 +322,19 @@ func (conR *ConsensusReactor) ProcessNewCommitteeMessage(newCommitteeMsg *NewCom
 		}
 
 		// avoid the re-trigger
-		nc.voterNum = 0
+		// nc.voterNum = 0
+		aggSigBytes := nc.sigAggregator.Aggregate()
+		aggSig, _ := conR.csCommon.system.SigFromBytes(aggSigBytes)
 
 		// aggregate the signatures
-		nc.voterAggSig = conR.csCommon.AggregateSign(nc.voterSig)
+		// nc.voterAggSig = conR.csCommon.AggregateSign(nc.voterSig)
 
 		if conR.newCommittee.Replay == true {
-			conR.ScheduleReplayLeader(epochID, NewNCEvidence(nc.voterBitArray, nc.voterMsgHash[0], nc.voterAggSig), WHOLE_NETWORK_BLOCK_SYNC_TIME)
+			conR.ScheduleReplayLeader(epochID, NewNCEvidence(nc.sigAggregator.bitArray, nc.sigAggregator.msgHash, aggSig), WHOLE_NETWORK_BLOCK_SYNC_TIME)
 		} else {
 			// Wait for block sync since there is no time out yet
 			conR.ScheduleLeader(epochID, height,
-				NewNCEvidence(nc.voterBitArray, nc.voterMsgHash[0], nc.voterAggSig),
+				NewNCEvidence(nc.sigAggregator.bitArray, nc.sigAggregator.msgHash, aggSig),
 				WHOLE_NETWORK_BLOCK_SYNC_TIME)
 		}
 
@@ -336,7 +342,7 @@ func (conR *ConsensusReactor) ProcessNewCommitteeMessage(newCommitteeMsg *NewCom
 		return true
 	} else {
 		// not reach 2/3 yet, wait for more
-		conR.logger.Debug("received NewCommitteeMessage (2/3 not reached yet, wait for more)", "Recvd", nc.voterNum, "committeeSize", conR.committeeSize)
+		conR.logger.Debug("received NewCommitteeMessage (2/3 not reached yet, wait for more)", "Recvd", nc.sigAggregator.Count(), "committeeSize", conR.committeeSize)
 		return true
 	}
 

@@ -447,26 +447,6 @@ func (c *ConsensusReactor) verifyBlock(blk *block.Block, state *state.State) (*s
 
 //
 
-func (conR *ConsensusReactor) finalizeKBlock(blk *block.Block, ev *block.Evidence) bool {
-	blk.SetBlockEvidence(ev)
-
-	// XXX:update the cache size
-
-	// only round 0 Mblock contains the following info
-	committeeInfo := conR.MakeBlockCommitteeInfo(conR.csCommon.GetSystem(), conR.curActualCommittee)
-	blk.SetCommitteeInfo(committeeInfo)
-	blk.SetCommitteeEpoch(conR.curEpoch)
-
-	//Fill new info into block, re-calc hash/signature
-	blk.SetEvidenceDataHash(blk.EvidenceDataHash())
-	sig, err := crypto.Sign(blk.Header().SigningHash().Bytes(), &conR.myPrivKey)
-	if err != nil {
-		return false
-	}
-
-	blk.SetBlockSignature(sig)
-	return true
-}
 func (conR *ConsensusReactor) CommitteeInfoCompare(cm1, cm2 []block.CommitteeInfo) bool {
 	if len(cm1) != len(cm2) {
 		conR.logger.Error("committee size mismatch", "len(cm1)", len(cm1), "len(cm2)", len(cm2))

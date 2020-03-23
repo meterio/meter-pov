@@ -244,18 +244,6 @@ func (b *Block) GetQC() *QuorumCert {
 	return b.QC
 }
 
-func (b *Block) SetBlockEvidence(ev *Evidence) *Block {
-	// FIXME: set QCHeight and QCRound, set voting msg hash, and votingSig
-	// b.QC = QuorumCert{VotingBitArray: ev.VotingBitArray, VotingMsgHash: make([][32]byte, 0)}
-	return b
-}
-
-func (b *Block) GetBlockEvidence() *Evidence {
-	// FIXME: fill real evidence
-	// return &Evidence{VotingBitArray: b.QC.VotingBitArray, VotingMsgHash: make([]byte, 0)}
-	return nil
-}
-
 // Serialization for KBlockData and ComitteeInfo
 func (b *Block) GetKBlockData() (*KBlockData, error) {
 	return &b.KBlockData, nil

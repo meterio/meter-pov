@@ -307,14 +307,11 @@ func (p *Pacemaker) BlockMatchQC(b *pmBlock, qc *block.QuorumCert) (bool, error)
 	msgHash = p.csReactor.csCommon.Hash256Msg([]byte(signMsg))
 	//p.logger.Info("in BlockMatchQC Compare", "msgHash", msgHash, "qc voting Msg hash", qc.VoterMsgHash[0])
 	//qc at least has 1 vote signature and they are the same, so compare [0] is good enough
-	if bytes.Compare(msgHash.Bytes(), meter.Bytes32(qc.VoterMsgHash[0]).Bytes()) == 0 {
-		p.logger.Debug("QC matches block", "msgHash", msgHash.String(), "qc voter Msghash", meter.Bytes32(qc.VoterMsgHash[0]).String())
+	if bytes.Compare(msgHash.Bytes(), meter.Bytes32(qc.VoterMsgHash).Bytes()) == 0 {
+		p.logger.Debug("QC matches block", "msgHash", msgHash.String(), "qc voter Msghash", meter.Bytes32(qc.VoterMsgHash).String())
 		return true, nil
 	} else {
-		p.logger.Warn("QC doesn't matches block", "msgHash", msgHash.String(), "qc voter Msghash", meter.Bytes32(qc.VoterMsgHash[0]).String())
-		for _, v := range qc.VoterMsgHash {
-			fmt.Println(meter.Bytes32(v).String())
-		}
+		p.logger.Warn("QC doesn't matches block", "msgHash", msgHash.String(), "qc voter Msghash", meter.Bytes32(qc.VoterMsgHash).String())
 		return false, nil
 	}
 }

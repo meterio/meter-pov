@@ -6,7 +6,6 @@ import (
 	"io"
 
 	"github.com/dfinlab/meter/block"
-	bls "github.com/dfinlab/meter/crypto/multi_sig"
 	cmn "github.com/dfinlab/meter/libs/common"
 	"github.com/dfinlab/meter/meter"
 	"github.com/ethereum/go-ethereum/rlp"
@@ -169,9 +168,9 @@ type pmQuorumCert struct {
 	QC     *block.QuorumCert
 
 	// temporary data
-	VoterPubKey []bls.PublicKey
-	VoterSig    [][]byte
-	VoterNum    uint32
+	// VoterPubKey []bls.PublicKey
+	VoterSig [][]byte
+	VoterNum uint32
 }
 
 func newPMQuorumCert(qc *block.QuorumCert, qcNode *pmBlock) *pmQuorumCert {

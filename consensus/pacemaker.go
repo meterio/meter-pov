@@ -10,8 +10,6 @@ import (
 
 	"github.com/dfinlab/meter/block"
 	"github.com/dfinlab/meter/co"
-	bls "github.com/dfinlab/meter/crypto/multi_sig"
-	cmn "github.com/dfinlab/meter/libs/common"
 	types "github.com/dfinlab/meter/types"
 	"github.com/inconshreveable/log15"
 )
@@ -27,12 +25,6 @@ var (
 	qcInit pmQuorumCert
 	bInit  pmBlock
 )
-
-type PMSignature struct {
-	index     int64
-	msgHash   [32]byte
-	signature bls.Signature
-}
 
 type Pacemaker struct {
 	csReactor   *ConsensusReactor //global reactor info
@@ -58,8 +50,7 @@ type Pacemaker struct {
 	stopCh         chan *PMStopInfo
 	beatCh         chan *PMBeatInfo
 
-	voterBitArray *cmn.BitArray
-	voteSigs      []*PMSignature
+	sigAggregator *SignatureAggregator
 
 	roundTimer         *time.Timer
 	timeoutCertManager *PMTimeoutCertManager
@@ -399,8 +390,8 @@ func (p *Pacemaker) OnReceiveVote(voteMsg *PMVoteForProposalMessage) error {
 	if err != nil {
 		return err
 	}
-	voteCount := len(p.voteSigs)
-	if MajorityTwoThird(voteCount, p.csReactor.committeeSize) == false {
+	voteCount := p.sigAggregator.Count()
+	if MajorityTwoThird(int(voteCount), p.csReactor.committeeSize) == false {
 		// if voteCount < p.csReactor.committeeSize {
 		// not reach 2/3
 		p.csReactor.logger.Debug("not reach majority", "committeeSize", p.csReactor.committeeSize, "count", voteCount)
@@ -428,9 +419,8 @@ func (p *Pacemaker) OnReceiveVote(voteMsg *PMVoteForProposalMessage) error {
 
 func (p *Pacemaker) OnPropose(b *pmBlock, qc *pmQuorumCert, height uint64, round uint64) (*pmBlock, error) {
 	// clean signature cache
-	p.voterBitArray = cmn.NewBitArray(p.csReactor.committeeSize)
-	p.voteSigs = make([]*PMSignature, 0)
-
+	// p.voterBitArray = cmn.NewBitArray(p.csReactor.committeeSize)
+	// p.voteSigs = make([]*PMSignature, 0)
 	bnew := p.CreateLeaf(b, qc, height, round)
 	if bnew.Height != height {
 		p.logger.Error("proposed height mismatch", "expectedHeight", height, "proposedHeight", bnew.Height)
@@ -443,6 +433,16 @@ func (p *Pacemaker) OnPropose(b *pmBlock, qc *pmQuorumCert, height uint64, round
 		return nil, err
 	}
 	p.timeoutCert = nil
+
+	// pre-compute msgHash and store it in signature aggregator
+	info := bnew.ProposedBlockInfo
+	blk := info.ProposedBlock
+	id := blk.Header().ID()
+	txsRoot := blk.Header().TxsRoot()
+	stateRoot := blk.Header().StateRoot()
+	signMsg := p.csReactor.BuildProposalBlockSignMsg(uint32(info.BlockType), uint64(blk.Header().Number()), &id, &txsRoot, &stateRoot)
+	msgHash := p.csReactor.csCommon.Hash256Msg([]byte(signMsg))
+	p.sigAggregator = newSignatureAggregator(p.csReactor.committeeSize, p.csReactor.csCommon.system, msgHash)
 
 	// create slot in proposalMap directly, instead of sendmsg to self.
 	bnew.ProposalMessage = msg
