@@ -227,7 +227,7 @@ func (h *Header) String() string {
   Signer: %v
   Beneficiary: %v
   BlockType: %v
-  LastKBlockHieght: %v
+  LastKBlockHeight: %v
   GasLimit: %v
   GasUsed: %v
   TotalScore: %v

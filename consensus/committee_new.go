@@ -3,6 +3,7 @@ package consensus
 import (
 	"bytes"
 	"crypto/ecdsa"
+	"encoding/base64"
 
 	//sha256 "crypto/sha256"
 	"time"
@@ -149,7 +150,7 @@ func (conR *ConsensusReactor) updateCurEpoch(epoch uint64) {
 
 // NewcommitteeMessage routines
 // send new round message to future committee leader
-func (conR *ConsensusReactor) sendNewCommitteeMessage(peer *ConsensusPeer, pubKey ecdsa.PublicKey, kblockHeight uint64, nonce uint64, round uint64) error {
+func (conR *ConsensusReactor) sendNewCommitteeMessage(peer *ConsensusPeer, leaderPubKey ecdsa.PublicKey, kblockHeight uint64, nonce uint64, round uint64) error {
 	conR.updateCurEpoch(conR.chain.BestBlock().QC.EpochID)
 	msg := &NewCommitteeMessage{
 		CSMsgCommonHeader: ConsensusMsgCommonHeader{
@@ -162,7 +163,7 @@ func (conR *ConsensusReactor) sendNewCommitteeMessage(peer *ConsensusPeer, pubKe
 		},
 
 		NextEpochID:    conR.curEpoch + 1,
-		NewLeaderID:    crypto.FromECDSAPub(&pubKey),
+		NewLeaderID:    crypto.FromECDSAPub(&leaderPubKey),
 		ValidatorID:    crypto.FromECDSAPub(&conR.myPubKey),
 		ValidatorBlsPK: conR.csCommon.GetSystem().PubKeyToBytes(*conR.csCommon.GetPublicKey()),
 		Nonce:          nonce,
@@ -170,7 +171,7 @@ func (conR *ConsensusReactor) sendNewCommitteeMessage(peer *ConsensusPeer, pubKe
 	}
 
 	// sign message with bls key
-	signMsg := conR.BuildNewCommitteeSignMsg(conR.myPubKey, conR.curEpoch+1, uint64(conR.curHeight))
+	signMsg := conR.BuildNewCommitteeSignMsg(leaderPubKey, conR.curEpoch+1, uint64(conR.curHeight))
 	blsSig, msgHash := conR.csCommon.SignMessage2([]byte(signMsg))
 	msg.BlsSignature = blsSig
 	msg.SignedMsgHash = msgHash
@@ -228,8 +229,13 @@ func (conR *ConsensusReactor) ProcessNewCommitteeMessage(newCommitteeMsg *NewCom
 		conR.logger.Error("validator key unmarshal error")
 		return false
 	}
+	leaderID, err := crypto.UnmarshalPubkey(newCommitteeMsg.NewLeaderID)
+	if err != nil {
+		conR.logger.Error("leader key unmarshal error")
+		return false
+	}
 
-	signMsg := conR.BuildNewCommitteeSignMsg(*validatorID, newCommitteeMsg.NextEpochID, uint64(ch.Height))
+	signMsg := conR.BuildNewCommitteeSignMsg(*leaderID, newCommitteeMsg.NextEpochID, uint64(ch.Height))
 	conR.logger.Debug("Sign message", "msg", signMsg)
 
 	// validate the message hash
@@ -289,7 +295,9 @@ func (conR *ConsensusReactor) ProcessNewCommitteeMessage(newCommitteeMsg *NewCom
 	}
 
 	if bytes.Equal(conR.csCommon.GetSystem().PubKeyToBytes(validator.BlsPubKey), newCommitteeMsg.ValidatorBlsPK) == false {
-		conR.logger.Error("BlsPubKey mismatch", "validator", validatorID)
+		blsPK := base64.StdEncoding.EncodeToString(conR.csCommon.system.PubKeyToBytes(validator.BlsPubKey))
+		actualBlsPK := base64.StdEncoding.EncodeToString(newCommitteeMsg.ValidatorBlsPK)
+		conR.logger.Error("BlsPubKey mismatch", "validator blsPK", blsPK, "actual blsPK", actualBlsPK)
 		return false
 	}
 
@@ -316,12 +324,14 @@ func (conR *ConsensusReactor) ProcessNewCommitteeMessage(newCommitteeMsg *NewCom
 	if LeaderMajorityTwoThird(int(nc.sigAggregator.Count()), conR.committeeSize) {
 		conR.logger.Debug("NewCommitteeMessage, 2/3 Majority reached", "Recvd", nc.sigAggregator.Count(), "committeeSize", conR.committeeSize, "replay", conR.newCommittee.Replay)
 
+		// seal the signature, avoid re-trigger
+		nc.sigAggregator.Seal()
+
 		// Now it's time schedule leader
 		if conR.csPacemaker.IsStopped() == false {
 			conR.csPacemaker.Stop()
 		}
 
-		// avoid the re-trigger
 		// nc.voterNum = 0
 		aggSigBytes := nc.sigAggregator.Aggregate()
 		aggSig, _ := conR.csCommon.system.SigFromBytes(aggSigBytes)

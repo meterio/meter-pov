@@ -5,9 +5,11 @@ import (
 
 	bls "github.com/dfinlab/meter/crypto/multi_sig"
 	cmn "github.com/dfinlab/meter/libs/common"
+	"github.com/inconshreveable/log15"
 )
 
 type SignatureAggregator struct {
+	logger   log15.Logger
 	msgHash  [32]byte
 	sigs     []bls.Signature
 	sigBytes [][]byte
@@ -23,6 +25,7 @@ type SignatureAggregator struct {
 
 func newSignatureAggregator(size int, system bls.System, msgHash [32]byte) *SignatureAggregator {
 	return &SignatureAggregator{
+		logger:   log15.New("pkg", "aggregator"),
 		sigs:     make([]bls.Signature, 0),
 		sigBytes: make([][]byte, 0),
 		pubkeys:  make([]bls.PublicKey, 0),
@@ -50,9 +53,11 @@ func (sa *SignatureAggregator) Add(index int, msgHash [32]byte, signature []byte
 		if err != nil {
 			return false
 		}
+		sa.bitArray.SetIndex(index, true)
 		sa.sigBytes = append(sa.sigBytes, signature)
 		sa.sigs = append(sa.sigs, sig)
 		sa.pubkeys = append(sa.pubkeys, pubkey)
+		sa.logger.Info("Collected Signature", "count", sa.bitArray.Count(), "voting", sa.BitArrayString())
 		return true
 	}
 	return false
@@ -64,6 +69,11 @@ func (sa *SignatureAggregator) Count() uint32 {
 	} else {
 		return uint32(sa.bitArray.Count())
 	}
+}
+
+// seal the signature, no future modification could be done anymore
+func (sa *SignatureAggregator) Seal() {
+	sa.sealed = true
 }
 
 func (sa *SignatureAggregator) Aggregate() []byte {

@@ -248,7 +248,7 @@ func NewConsensusReactor(ctx *cli.Context, chain *chain.Chain, state *state.Crea
 	conR := &ConsensusReactor{
 		chain:        chain,
 		stateCreator: state,
-		logger:       log15.New("pkg", "consensus"),
+		logger:       log15.New("pkg", "reactor"),
 		SyncDone:     false,
 		magic:        magic,
 		msgCache:     NewCommitteeMsgCache(),

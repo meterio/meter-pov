@@ -189,11 +189,13 @@ func (cl *ConsensusLeader) GenerateAnnounceMsg() bool {
 		cl.csReactor.logger.Warn("reach 2/3 votes of announce expired ...", "comitteeSize", cl.csReactor.committeeSize, "totalComitter", cl.announceSigAggregator.Count())
 
 		if LeaderMajorityTwoThird(int(cl.announceSigAggregator.Count()), cl.csReactor.committeeSize) && cl.state == COMMITTEE_LEADER_ANNOUNCED {
-
 			cl.csReactor.logger.Info("Committers reach 2/3 of Committee")
 
 			//stop announce Timer
 			//cl.announceThresholdTimer.Stop()
+
+			// seal the signature
+			cl.announceSigAggregator.Seal()
 
 			// Aggregate signature here
 			cl.announceSigAggregator.Aggregate()

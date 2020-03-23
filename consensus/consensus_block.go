@@ -42,7 +42,7 @@ func (c *ConsensusReactor) Process(blk *block.Block, nowTimestamp uint64) (*stat
 		if header.Number() <= c.chain.BestBlock().Header().Number() {
 			return nil, nil, errKnownBlock
 		} else {
-			c.logger.Info("continue to process blk ...", "height", header.Number())
+			c.logger.Debug("continue to process blk ...", "height", header.Number())
 		}
 	}
 
