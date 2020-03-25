@@ -5,7 +5,7 @@ import (
 	"encoding/base64"
 	"fmt"
 
-	//cmn "github.com/dfinlab/meter/libs/common"
+	bls "github.com/dfinlab/meter/crypto/multi_sig"
 	"github.com/dfinlab/meter/meter"
 	"github.com/ethereum/go-ethereum/crypto"
 )
@@ -17,16 +17,18 @@ type Validator struct {
 	Name        string
 	Address     meter.Address
 	PubKey      ecdsa.PublicKey
+	BlsPubKey   bls.PublicKey
 	VotingPower int64
 	NetAddr     NetAddress
 	CommitKey   []byte
 }
 
-func NewValidator(name string, address meter.Address, pubKey ecdsa.PublicKey, votingPower int64) *Validator {
+func NewValidator(name string, address meter.Address, pubKey ecdsa.PublicKey, blsPub bls.PublicKey, votingPower int64) *Validator {
 	return &Validator{
 		Name:        name,
 		Address:     address,
 		PubKey:      pubKey,
+		BlsPubKey:   blsPub,
 		VotingPower: votingPower,
 	}
 }

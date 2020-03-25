@@ -1,7 +1,11 @@
 package consensus
 
 import (
+	"bytes"
 	"crypto/ecdsa"
+	"encoding/base64"
+
+	//sha256 "crypto/sha256"
 	"time"
 
 	bls "github.com/dfinlab/meter/crypto/multi_sig"
@@ -13,6 +17,20 @@ import (
 const (
 	NEW_COMMITTEE_INIT_INTV = 15 * time.Second //15s
 )
+
+type NCEvidence struct {
+	voterBitArray *cmn.BitArray
+	voterMsgHash  [32]byte
+	voterAggSig   bls.Signature
+}
+
+func NewNCEvidence(bitArray *cmn.BitArray, msgHash [32]byte, aggSig bls.Signature) *NCEvidence {
+	return &NCEvidence{
+		voterBitArray: bitArray,
+		voterMsgHash:  msgHash,
+		voterAggSig:   aggSig,
+	}
+}
 
 type NewCommitteeKey struct {
 	height uint64
@@ -26,13 +44,17 @@ type NewCommittee struct {
 	Replay       bool
 	TimeoutTimer *time.Timer
 
-	// signature
-	newCommitteeVoterBitArray *cmn.BitArray
-	newCommitteeVoterSig      []bls.Signature
-	newCommitteeVoterPubKey   []bls.PublicKey
-	newCommitteeVoterMsgHash  [][32]byte
-	newCommitteeVoterAggSig   bls.Signature
-	newCommitteeVoterNum      int
+	// // evidence
+	// voterBitArray *cmn.BitArray
+	// voterPubKey   []bls.PublicKey
+	// voterAggSig   bls.Signature
+
+	// // intermediate results
+	// voterSig     []bls.Signature
+	// voterMsgHash [][32]byte
+	// voterNum     int
+
+	sigAggregator *SignatureAggregator
 
 	//precalc committee for given nonce
 	Committee   *types.ValidatorSet
@@ -74,6 +96,7 @@ func (conR *ConsensusReactor) NewCommitteeTimeout() error {
 }
 
 func (conR *ConsensusReactor) NewCommitteeInit(height, nonce uint64, replay bool) error {
+	conR.logger.Info("NewCommitteeInit ...", "height", height, "nonce", nonce, "replay", replay)
 	nc := newNewCommittee(height, 0, nonce)
 	nc.Replay = replay
 	//pre-calc the committee
@@ -127,7 +150,7 @@ func (conR *ConsensusReactor) updateCurEpoch(epoch uint64) {
 
 // NewcommitteeMessage routines
 // send new round message to future committee leader
-func (conR *ConsensusReactor) sendNewCommitteeMessage(peer *ConsensusPeer, pubKey ecdsa.PublicKey, kblockHeight uint64, nonce uint64, round uint64) error {
+func (conR *ConsensusReactor) sendNewCommitteeMessage(peer *ConsensusPeer, leaderPubKey ecdsa.PublicKey, kblockHeight uint64, nonce uint64, round uint64) error {
 	conR.updateCurEpoch(conR.chain.BestBlock().QC.EpochID)
 	msg := &NewCommitteeMessage{
 		CSMsgCommonHeader: ConsensusMsgCommonHeader{
@@ -139,22 +162,27 @@ func (conR *ConsensusReactor) sendNewCommitteeMessage(peer *ConsensusPeer, pubKe
 			EpochID:   conR.curEpoch,
 		},
 
-		NewEpochID:      conR.curEpoch + 1,
-		NewLeaderPubKey: crypto.FromECDSAPub(&pubKey),
-		ValidatorPubkey: crypto.FromECDSAPub(&conR.myPubKey),
-		Nonce:           nonce,
-		KBlockHeight:    kblockHeight,
-
-		// Signature part.
+		NextEpochID:    conR.curEpoch + 1,
+		NewLeaderID:    crypto.FromECDSAPub(&leaderPubKey),
+		ValidatorID:    crypto.FromECDSAPub(&conR.myPubKey),
+		ValidatorBlsPK: conR.csCommon.GetSystem().PubKeyToBytes(*conR.csCommon.GetPublicKey()),
+		Nonce:          nonce,
+		KBlockHeight:   kblockHeight,
 	}
 
-	// sign message
-	msgSig, err := conR.SignConsensusMsg(msg.SigningHash().Bytes())
+	// sign message with bls key
+	signMsg := conR.BuildNewCommitteeSignMsg(leaderPubKey, conR.curEpoch+1, uint64(conR.curHeight))
+	blsSig, msgHash := conR.csCommon.SignMessage2([]byte(signMsg))
+	msg.BlsSignature = blsSig
+	msg.SignedMsgHash = msgHash
+
+	// sign message with ecdsa key
+	ecdsaSigBytes, err := conR.SignConsensusMsg(msg.SigningHash().Bytes())
 	if err != nil {
 		conR.logger.Error("Sign message failed", "error", err)
 		return err
 	}
-	msg.CSMsgCommonHeader.SetMsgSignature(msgSig)
+	msg.CSMsgCommonHeader.SetMsgSignature(ecdsaSigBytes)
 
 	// state to init & send move to next round
 	// fmt.Println("msg: %v", msg.String())
@@ -165,7 +193,7 @@ func (conR *ConsensusReactor) sendNewCommitteeMessage(peer *ConsensusPeer, pubKe
 
 // once reach 2/3 send aout annouce message
 func (conR *ConsensusReactor) ProcessNewCommitteeMessage(newCommitteeMsg *NewCommitteeMessage, src *ConsensusPeer) bool {
-
+	conR.logger.Info("received newCommittee Message", "source", src.name, "IP", src.netAddr.IP)
 	ch := newCommitteeMsg.CSMsgCommonHeader
 
 	if conR.ValidateCMheaderSig(&ch, newCommitteeMsg.SigningHash().Bytes()) == false {
@@ -184,10 +212,48 @@ func (conR *ConsensusReactor) ProcessNewCommitteeMessage(newCommitteeMsg *NewCom
 		return false
 	}
 
-	// XXX: 1) Validator == sender 2) NewLeader == myself
+	if bytes.Equal(ch.Sender, newCommitteeMsg.ValidatorID) == false {
+		conR.logger.Error("sender / validatorID mismatch")
+		return false
+	}
+
+	// check the leader
+	if bytes.Compare(newCommitteeMsg.NewLeaderID, crypto.FromECDSAPub(&conR.myPubKey)) != 0 {
+		conR.logger.Error("Expected leader is not myself")
+		return false
+	}
+
+	// TODO: check & collect the vote
+	validatorID, err := crypto.UnmarshalPubkey(newCommitteeMsg.ValidatorID)
+	if err != nil {
+		conR.logger.Error("validator key unmarshal error")
+		return false
+	}
+	leaderID, err := crypto.UnmarshalPubkey(newCommitteeMsg.NewLeaderID)
+	if err != nil {
+		conR.logger.Error("leader key unmarshal error")
+		return false
+	}
+
+	signMsg := conR.BuildNewCommitteeSignMsg(*leaderID, newCommitteeMsg.NextEpochID, uint64(ch.Height))
+	conR.logger.Debug("Sign message", "msg", signMsg)
+
+	// validate the message hash
+	msgHash := conR.csCommon.Hash256Msg([]byte(signMsg))
+	if msgHash != newCommitteeMsg.SignedMsgHash {
+		conR.logger.Error("msgHash mismatch ...")
+		return false
+	}
+
+	// validate the signature
+	sig, err := conR.csCommon.GetSystem().SigFromBytes(newCommitteeMsg.BlsSignature)
+	if err != nil {
+		conR.logger.Error("get signature failed ...")
+		return false
+	}
 
 	// sanity check done
-	epochID := newCommitteeMsg.NewEpochID
+	epochID := newCommitteeMsg.NextEpochID
 	height := newCommitteeMsg.KBlockHeight
 	round := uint64(ch.Round)
 	nonce := newCommitteeMsg.Nonce
@@ -200,6 +266,7 @@ func (conR *ConsensusReactor) ProcessNewCommitteeMessage(newCommitteeMsg *NewCom
 		nc.Role = role
 		nc.Index = index
 		nc.InCommittee = inCommittee
+		nc.sigAggregator = newSignatureAggregator(conR.committeeSize, conR.csCommon.system, msgHash)
 
 		conR.rcvdNewCommittee[NewCommitteeKey{height, round}] = nc
 	} else {
@@ -210,32 +277,82 @@ func (conR *ConsensusReactor) ProcessNewCommitteeMessage(newCommitteeMsg *NewCom
 		}
 	}
 
-	//save bls signature
-	nc.newCommitteeVoterNum++
+	// check BLS key
+	var index int
+	var validator *types.Validator
+	for i := range nc.Committee.Validators {
+		v := nc.Committee.Validators[i]
+		pubkey := crypto.FromECDSAPub(&v.PubKey)
+		if bytes.Equal(pubkey, newCommitteeMsg.ValidatorID) == true {
+			validator = v
+			index = i
+			break
+		}
+	}
+	if validator == nil {
+		conR.logger.Error("not find the validator in committee", "validator", validatorID, "nonce", nonce)
+		return false
+	}
+
+	if bytes.Equal(conR.csCommon.GetSystem().PubKeyToBytes(validator.BlsPubKey), newCommitteeMsg.ValidatorBlsPK) == false {
+		blsPK := base64.StdEncoding.EncodeToString(conR.csCommon.system.PubKeyToBytes(validator.BlsPubKey))
+		actualBlsPK := base64.StdEncoding.EncodeToString(newCommitteeMsg.ValidatorBlsPK)
+		conR.logger.Error("BlsPubKey mismatch", "validator blsPK", blsPK, "actual blsPK", actualBlsPK)
+		return false
+	}
+
+	// validate bls signature
+	valid := bls.Verify(sig, msgHash, validator.BlsPubKey)
+	if valid == false {
+		conR.logger.Error("validate voter signature failed")
+		if conR.config.SkipSignatureCheck == true {
+			conR.logger.Error("but SkipSignatureCheck is true, continue ...")
+		} else {
+			return false
+		}
+	}
+
+	// collect the votes
+	nc.sigAggregator.Add(index, msgHash, newCommitteeMsg.BlsSignature, validator.BlsPubKey)
+	// nc.voterNum++
+	// nc.voterBitArray.SetIndex(index, true)
+	// nc.voterSig = append(nc.voterSig, sig)
+	// nc.voterPubKey = append(nc.voterPubKey, validator.BlsPubKey)
+	// nc.voterMsgHash = append(nc.voterMsgHash, msgHash)
 
 	// 3. if the totoal vote > 2/3, move to Commit state
-	if LeaderMajorityTwoThird(nc.newCommitteeVoterNum, conR.committeeSize) {
-		conR.logger.Debug("NewCommitteeMessage, 2/3 Majority reached", "Recvd", nc.newCommitteeVoterNum, "committeeSize", conR.committeeSize, "replay", conR.newCommittee.Replay)
+	if LeaderMajorityTwoThird(int(nc.sigAggregator.Count()), conR.committeeSize) {
+		conR.logger.Debug("NewCommitteeMessage, 2/3 Majority reached", "Recvd", nc.sigAggregator.Count(), "committeeSize", conR.committeeSize, "replay", conR.newCommittee.Replay)
+
+		// seal the signature, avoid re-trigger
+		nc.sigAggregator.Seal()
 
 		// Now it's time schedule leader
 		if conR.csPacemaker.IsStopped() == false {
 			conR.csPacemaker.Stop()
 		}
 
-		// fmt.Println("replay", conR.newCommittee.Replay)
+		// nc.voterNum = 0
+		aggSigBytes := nc.sigAggregator.Aggregate()
+		aggSig, _ := conR.csCommon.system.SigFromBytes(aggSigBytes)
+
+		// aggregate the signatures
+		// nc.voterAggSig = conR.csCommon.AggregateSign(nc.voterSig)
+
 		if conR.newCommittee.Replay == true {
-			conR.ScheduleReplayLeader(epochID, WHOLE_NETWORK_BLOCK_SYNC_TIME)
+			conR.ScheduleReplayLeader(epochID, NewNCEvidence(nc.sigAggregator.bitArray, nc.sigAggregator.msgHash, aggSig), WHOLE_NETWORK_BLOCK_SYNC_TIME)
 		} else {
 			// Wait for block sync since there is no time out yet
-			conR.ScheduleLeader(epochID, height, WHOLE_NETWORK_BLOCK_SYNC_TIME)
+			conR.ScheduleLeader(epochID, height,
+				NewNCEvidence(nc.sigAggregator.bitArray, nc.sigAggregator.msgHash, aggSig),
+				WHOLE_NETWORK_BLOCK_SYNC_TIME)
 		}
 
-		// avoid the re-trigger
-		nc.newCommitteeVoterNum = 0
+		conR.logger.Info("Leader scheduled ...")
 		return true
 	} else {
 		// not reach 2/3 yet, wait for more
-		conR.logger.Debug("received NewCommitteeMessage (2/3 not reached yet, wait for more)", "Recvd", nc.newCommitteeVoterNum, "committeeSize", conR.committeeSize)
+		conR.logger.Debug("received NewCommitteeMessage (2/3 not reached yet, wait for more)", "Recvd", nc.sigAggregator.Count(), "committeeSize", conR.committeeSize)
 		return true
 	}
 

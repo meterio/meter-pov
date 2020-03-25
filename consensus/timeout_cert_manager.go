@@ -56,7 +56,7 @@ func (tm *PMTimeoutCertManager) collectSignature(newViewMsg *PMNewViewMessage) e
 
 		if bitArray.GetIndex(index) == false {
 			bitArray.SetIndex(index, true)
-			sig, err := tm.pacemaker.csReactor.csCommon.system.SigFromBytes(newViewMsg.PeerSignature)
+			sig, err := tm.pacemaker.csReactor.csCommon.GetSystem().SigFromBytes(newViewMsg.PeerSignature)
 			if err != nil {
 				tm.pacemaker.logger.Error("error convert signature", "err", err)
 			}
@@ -103,7 +103,7 @@ func (tm *PMTimeoutCertManager) getTimeoutCert(height, round uint64) *PMTimeoutC
 		sigs = append(sigs, v.Signature)
 	}
 	aggSig := tm.pacemaker.csReactor.csCommon.AggregateSign(sigs)
-	aggSigBytes := tm.pacemaker.csReactor.csCommon.system.SigToBytes(aggSig)
+	aggSigBytes := tm.pacemaker.csReactor.csCommon.GetSystem().SigToBytes(aggSig)
 	return &PMTimeoutCert{
 		TimeoutHeight: height,
 		TimeoutRound:  round,

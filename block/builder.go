@@ -15,7 +15,6 @@ import (
 type Builder struct {
 	headerBody HeaderBody
 	txs        tx.Transactions
-	//	ev            Evidence
 	//	committeeInfo CommitteeInfo
 	//	kBlockData    kBlockData
 }

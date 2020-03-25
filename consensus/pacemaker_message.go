@@ -68,18 +68,9 @@ func (p *Pacemaker) proposeStopCommitteeBlock(parentBlock *block.Block, height, 
 
 func (p *Pacemaker) packCommitteeInfo(blk *block.Block) error {
 	committeeInfo := []block.CommitteeInfo{}
-	// only round 0 Mblock contains the following info
-	system := p.csReactor.csCommon.system
-	blk.SetSystemBytes(system.ToBytes())
-	// fmt.Println("system: ", system)
-
-	params := p.csReactor.csCommon.params
-	paramsBytes, _ := params.ToBytes()
-	blk.SetParamsBytes(paramsBytes)
-	// fmt.Println("params: ", params)
 
 	// blk.SetBlockEvidence(ev)
-	committeeInfo = p.csReactor.MakeBlockCommitteeInfo(system, p.csReactor.curActualCommittee)
+	committeeInfo = p.csReactor.MakeBlockCommitteeInfo(p.csReactor.csCommon.GetSystem(), p.csReactor.curActualCommittee)
 	// fmt.Println("committee info: ", committeeInfo)
 	blk.SetCommitteeInfo(committeeInfo)
 	blk.SetCommitteeEpoch(p.csReactor.curEpoch)
@@ -121,10 +112,8 @@ func (p *Pacemaker) BuildProposalMessage(height, round uint64, bnew *pmBlock, tc
 		ParentRound:  parentRound,
 
 		ProposerID:        crypto.FromECDSAPub(&p.csReactor.myPubKey),
-		CSProposerPubKey:  p.csReactor.csCommon.system.PubKeyToBytes(p.csReactor.csCommon.PubKey),
+		ProposerBlsPK:     p.csReactor.csCommon.GetSystem().PubKeyToBytes(*p.csReactor.csCommon.GetPublicKey()),
 		KBlockHeight:      int64(p.csReactor.lastKBlockHeight),
-		SignOffset:        MSG_SIGN_OFFSET_DEFAULT,
-		SignLength:        MSG_SIGN_LENGTH_DEFAULT,
 		ProposedSize:      len(blockBytes),
 		ProposedBlock:     blockBytes,
 		ProposedBlockType: bnew.ProposedBlockType,
@@ -149,12 +138,9 @@ func (p *Pacemaker) BuildProposalMessage(height, round uint64, bnew *pmBlock, tc
 func (p *Pacemaker) BuildVoteForProposalMessage(proposalMsg *PMProposalMessage, blockID, txsRoot, stateRoot meter.Bytes32) (*PMVoteForProposalMessage, error) {
 
 	ch := proposalMsg.CSMsgCommonHeader
-	offset := proposalMsg.SignOffset
-	length := proposalMsg.SignLength
 
 	signMsg := p.csReactor.BuildProposalBlockSignMsg(uint32(proposalMsg.ProposedBlockType), uint64(ch.Height), &blockID, &txsRoot, &stateRoot)
-	sign := p.csReactor.csCommon.SignMessage([]byte(signMsg), uint32(offset), uint32(length))
-	msgHash := p.csReactor.csCommon.Hash256Msg([]byte(signMsg), uint32(offset), uint32(length))
+	sign, msgHash := p.csReactor.csCommon.SignMessage([]byte(signMsg))
 	p.logger.Debug("Built PMVoteForProposalMessage", "signMsg", signMsg)
 
 	cmnHdr := ConsensusMsgCommonHeader{
@@ -172,8 +158,8 @@ func (p *Pacemaker) BuildVoteForProposalMessage(proposalMsg *PMProposalMessage, 
 		CSMsgCommonHeader: cmnHdr,
 
 		VoterID:           crypto.FromECDSAPub(&p.csReactor.myPubKey),
-		CSVoterPubKey:     p.csReactor.csCommon.system.PubKeyToBytes(p.csReactor.csCommon.PubKey),
-		VoterSignature:    p.csReactor.csCommon.system.SigToBytes(sign), //TBD
+		VoterBlsPK:        p.csReactor.csCommon.GetSystem().PubKeyToBytes(*p.csReactor.csCommon.GetPublicKey()),
+		BlsSignature:      p.csReactor.csCommon.GetSystem().SigToBytes(sign),
 		VoterIndex:        int64(index),
 		SignedMessageHash: msgHash,
 	}
@@ -206,10 +192,7 @@ func (p *Pacemaker) BuildNewViewMessage(nextHeight, nextRound uint64, qcHigh *pm
 
 	signMsg := p.BuildNewViewSignMsg(p.csReactor.myPubKey, reason, nextHeight, nextRound, qcHigh.QC)
 
-	offset := uint32(0)
-	length := uint32(len(signMsg))
-	sign := p.csReactor.csCommon.SignMessage([]byte(signMsg), offset, length)
-	msgHash := p.csReactor.csCommon.Hash256Msg([]byte(signMsg), offset, length)
+	sign, msgHash := p.csReactor.csCommon.SignMessage([]byte(signMsg))
 
 	qcBytes, err := rlp.EncodeToBytes(qcHigh.QC)
 	if err != nil {
@@ -226,7 +209,7 @@ func (p *Pacemaker) BuildNewViewMessage(nextHeight, nextRound uint64, qcHigh *pm
 		PeerID:            crypto.FromECDSAPub(&p.csReactor.myPubKey),
 		PeerIndex:         index,
 		SignedMessageHash: msgHash,
-		PeerSignature:     p.csReactor.csCommon.system.SigToBytes(sign),
+		PeerSignature:     p.csReactor.csCommon.GetSystem().SigToBytes(sign),
 	}
 
 	if ti != nil {
@@ -321,17 +304,14 @@ func (p *Pacemaker) BlockMatchQC(b *pmBlock, qc *block.QuorumCert) (bool, error)
 
 	signMsg := p.csReactor.BuildProposalBlockSignMsg(blkType, uint64(b.Height), &blkID, &txsRoot, &stateRoot)
 	p.logger.Debug("BlockMatchQC", "signMsg", signMsg)
-	msgHash = p.csReactor.csCommon.Hash256Msg([]byte(signMsg), uint32(MSG_SIGN_OFFSET_DEFAULT), uint32(MSG_SIGN_LENGTH_DEFAULT))
+	msgHash = p.csReactor.csCommon.Hash256Msg([]byte(signMsg))
 	//p.logger.Info("in BlockMatchQC Compare", "msgHash", msgHash, "qc voting Msg hash", qc.VoterMsgHash[0])
 	//qc at least has 1 vote signature and they are the same, so compare [0] is good enough
-	if bytes.Compare(msgHash.Bytes(), meter.Bytes32(qc.VoterMsgHash[0]).Bytes()) == 0 {
-		p.logger.Debug("QC matches block", "msgHash", msgHash.String(), "qc voter Msghash", meter.Bytes32(qc.VoterMsgHash[0]).String())
+	if bytes.Compare(msgHash.Bytes(), meter.Bytes32(qc.VoterMsgHash).Bytes()) == 0 {
+		p.logger.Debug("QC matches block", "msgHash", msgHash.String(), "qc voter Msghash", meter.Bytes32(qc.VoterMsgHash).String())
 		return true, nil
 	} else {
-		p.logger.Warn("QC doesn't matches block", "msgHash", msgHash.String(), "qc voter Msghash", meter.Bytes32(qc.VoterMsgHash[0]).String())
-		for _, v := range qc.VoterMsgHash {
-			fmt.Println(meter.Bytes32(v).String())
-		}
+		p.logger.Warn("QC doesn't matches block", "msgHash", msgHash.String(), "qc voter Msghash", meter.Bytes32(qc.VoterMsgHash).String())
 		return false, nil
 	}
 }

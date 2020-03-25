@@ -20,6 +20,7 @@ import (
 	"github.com/dfinlab/meter/cmd/meter/node"
 	"github.com/dfinlab/meter/co"
 	"github.com/dfinlab/meter/comm"
+	"github.com/dfinlab/meter/consensus"
 	"github.com/dfinlab/meter/genesis"
 	"github.com/dfinlab/meter/logdb"
 	"github.com/dfinlab/meter/lvldb"
@@ -161,6 +162,10 @@ func publicKeyPath(ctx *cli.Context) string {
 	return filepath.Join(ctx.String("data-dir"), "public.key")
 }
 
+func blsKeyPath(ctx *cli.Context) string {
+	return filepath.Join(ctx.String("data-dir"), "consensus.key")
+}
+
 func beneficiary(ctx *cli.Context) *meter.Address {
 	value := ctx.String(beneficiaryFlag.Name)
 	if value == "" {
@@ -193,27 +198,24 @@ func discoServerParse(ctx *cli.Context) ([]*discover.Node, bool, error) {
 	return nodes, true, nil
 }
 
-func loadNodeMaster(ctx *cli.Context) *node.Master {
+func loadNodeMaster(ctx *cli.Context) (*node.Master, *consensus.BlsCommon) {
 	if ctx.String(networkFlag.Name) == "dev" {
 		i := rand.Intn(len(genesis.DevAccounts()))
 		acc := genesis.DevAccounts()[i]
 		return &node.Master{
 			PrivateKey:  acc.PrivateKey,
 			Beneficiary: beneficiary(ctx),
-		}
-	}
-	key, err := loadOrGeneratePrivateKey(masterKeyPath(ctx))
-	if err != nil {
-		fatal("load or generate master key:", err)
+		}, nil
 	}
 
-	pubKey, err := loadOrUpdatePublicKey(publicKeyPath(ctx), key, &key.PublicKey)
+	keyLoader := NewKeyLoader(ctx)
+	ePrivKey, ePubKey, blsCommon, err := keyLoader.Load()
 	if err != nil {
-		fatal("update public key:", err)
+		fatal("load key error: ", err)
 	}
-	master := &node.Master{PrivateKey: key, PublicKey: pubKey}
+	master := &node.Master{PrivateKey: ePrivKey, PublicKey: ePubKey}
 	master.Beneficiary = beneficiary(ctx)
-	return master
+	return master, blsCommon
 }
 
 type p2pComm struct {

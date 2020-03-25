@@ -21,15 +21,19 @@ import (
 	"time"
 
 	b64 "encoding/base64"
-	"strings"
 
-	// "encoding/hex"
+	"encoding/hex"
 
 	"github.com/dfinlab/meter/api/doc"
+	bls "github.com/dfinlab/meter/crypto/multi_sig"
 	"github.com/dfinlab/meter/meter"
 	"github.com/ethereum/go-ethereum/crypto"
 	tty "github.com/mattn/go-tty"
 )
+
+const paraString = "7479706520610a7120393838353834383131343738353339323431393933323931313633343633383233393237323539333630313734353437303331303937363333343133333530303632303839383839373036333235323836313831303431393231303532353631343638393937373833313833373239383735313336373034373032383734373731313033383234383836323436333937353435373032373639310a682031333532383333373038363039373437363036393233353830313130323833353636323231393236323833343938313336333130333037363536313036373633383333353631353531343531363531393734363630363036363434333134333539303831373330323933320a72203733303735313136373131343539353138363134323832393030323835333733393531393935383631343830323433310a65787032203135390a65787031203133380a7369676e3120310a7369676e30202d310a"
+
+const systemString = "2db8cb49c44a1c7ba19fdaf6947425a7c0191c710b64fd89cdc8b573881d98d814e377bb5a158c90a93e077b6ec1c3c92ae51f53fb22ef42d117b95f84c2dfec00"
 
 func fatal(args ...interface{}) {
 	var w io.Writer
@@ -71,21 +75,6 @@ func loadOrGeneratePrivateKey(path string) (*ecdsa.PrivateKey, error) {
 	return key, nil
 }
 
-func verifyPublicKey(privKey *ecdsa.PrivateKey, pubKey *ecdsa.PublicKey) bool {
-	hash := []byte("testing")
-	r, s, err := ecdsa.Sign(strings.NewReader("test-plain-text-some-thing"), privKey, hash)
-	if err != nil {
-		fmt.Println("Error during sign: ", err)
-		return false
-	}
-	return ecdsa.Verify(pubKey, hash, r, s)
-}
-
-func updatePublicKey(path string, pubKey *ecdsa.PublicKey) error {
-	b := b64.StdEncoding.EncodeToString(crypto.FromECDSAPub(pubKey))
-	return ioutil.WriteFile(path, []byte(b+"\n"), 0600)
-}
-
 func fromBase64Pub(pub string) (*ecdsa.PublicKey, error) {
 	b, err := b64.StdEncoding.DecodeString(pub)
 	if err != nil {
@@ -93,27 +82,6 @@ func fromBase64Pub(pub string) (*ecdsa.PublicKey, error) {
 	}
 
 	return crypto.UnmarshalPubkey(b)
-}
-
-// Save public key with BASE64 encoding
-func loadOrUpdatePublicKey(path string, privKey *ecdsa.PrivateKey, newPubKey *ecdsa.PublicKey) (*ecdsa.PublicKey, error) {
-	b, err := ioutil.ReadFile(path)
-	if err != nil {
-		return newPubKey, updatePublicKey(path, newPubKey)
-	}
-
-	s := strings.TrimSuffix(string(b), "\n")
-	key, err := fromBase64Pub(s)
-	if err != nil {
-		return newPubKey, updatePublicKey(path, newPubKey)
-	}
-
-	if !verifyPublicKey(privKey, key) {
-		return newPubKey, updatePublicKey(path, newPubKey)
-	}
-
-	// k := hex.EncodeToString(crypto.FromECDSAPub(pubKey))
-	return key, err
 }
 
 // copy from go-ethereum
@@ -213,4 +181,33 @@ func readPasswordFromNewTTY(prompt string) (string, error) {
 		return "", err
 	}
 	return pass, err
+}
+
+func writeOutKeys(system bls.System, path string) (bls.PublicKey, bls.PrivateKey, error) {
+	pubKey, privKey, err := bls.GenKeys(system)
+	if err != nil {
+		fmt.Println("GenKeys failed")
+		return pubKey, privKey, err
+	}
+
+	pubBytes := system.PubKeyToBytes(pubKey)
+	privBytes := system.PrivKeyToBytes(privKey)
+
+	isolator := []byte{0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff}
+	content := make([]byte, 0)
+	content = append(content, pubBytes...)
+	content = append(content, isolator...)
+	content = append(content, privBytes...)
+
+	ioutil.WriteFile(path, []byte(hex.EncodeToString(content)), 0644)
+	return pubKey, privKey, nil
+}
+
+func getBlsSystem() bls.System {
+	paraBytes, _ := hex.DecodeString(paraString)
+	params, _ := bls.ParamsFromBytes(paraBytes)
+	pairing := bls.GenPairing(params)
+	systemBytes, _ := hex.DecodeString(systemString)
+	system, _ := bls.SystemFromBytes(pairing, systemBytes)
+	return system
 }
