@@ -20,16 +20,30 @@ import (
 	"github.com/ethereum/go-ethereum/rlp"
 )
 
+const (
+	DoubleSign = int(1)
+)
+
+type Violation struct {
+	Type       int
+	Address    meter.Address
+	Signature1 []byte
+	Signature2 []byte
+}
+
 // NewEvidence records the voting/notarization aggregated signatures and bitmap
 // of validators.
 // Validators info can get from 1st proposaed block meta data
 type Evidence struct {
-	VotingSig        []byte //serialized bls signature
-	VotingMsgHash    []byte //[][32]byte
-	VotingBitArray   cmn.BitArray
-	NotarizeSig      []byte
-	NotarizeMsgHash  []byte //[][32]byte
-	NotarizeBitArray cmn.BitArray
+	VotingSig       []byte //serialized bls signature
+	VotingMsgHash   []byte //[][32]byte
+	VotingBitArray  cmn.BitArray
+	VotingViolation []*Violation
+
+	NotarizeSig       []byte
+	NotarizeMsgHash   []byte //[][32]byte
+	NotarizeBitArray  cmn.BitArray
+	NotarizeViolation []*Violation
 }
 
 type PowRawBlock []byte

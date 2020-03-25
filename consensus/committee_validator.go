@@ -16,10 +16,8 @@ import (
 
 	bls "github.com/dfinlab/meter/crypto/multi_sig"
 	"github.com/dfinlab/meter/genesis"
-	crypto "github.com/ethereum/go-ethereum/crypto"
-
-	"github.com/dfinlab/meter/genesis"
 	types "github.com/dfinlab/meter/types"
+	crypto "github.com/ethereum/go-ethereum/crypto"
 )
 
 // for all committee mermbers

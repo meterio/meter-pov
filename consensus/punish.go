@@ -107,6 +107,19 @@ func calcMissingVoter(validators []*types.Validator, actualMembers []CommitteeMe
 	return result, nil
 }
 
+func calcDoubleSigner(blocks []*block.Block) ([]meter.Address, error) {
+	result := make([]meter.Address, 0)
+	for _, blk := range blocks {
+		// TBD: also get from evidence from 1st mblock, check the viloation
+		violations := blk.QC.GetViolation()
+		for _, v := range violations {
+			result = append(result, v.Address)
+		}
+	}
+
+	return result, nil
+}
+
 func (conR *ConsensusReactor) calcStatistics(lastKBlockHeight, height uint32) ([]*StatEntry, error) {
 	if len(conR.curCommittee.Validators) == 0 {
 		return nil, errors.New("committee is empty")
@@ -123,7 +136,7 @@ func (conR *ConsensusReactor) calcStatistics(lastKBlockHeight, height uint32) ([
 			Address:    v.Address,
 			PubKey:     hex.EncodeToString(crypto.FromECDSAPub(&v.PubKey)),
 			Name:       v.Name,
-			Infraction: &staking.Infraction{0, 0, 0, 0},
+			Infraction: &staking.Infraction{0, 0, 0, 0, 0},
 		}
 	}
 
@@ -176,6 +189,16 @@ func (conR *ConsensusReactor) calcStatistics(lastKBlockHeight, height uint32) ([
 		for _, addr := range missedVoter {
 			inf := stats[addr].Infraction
 			inf.MissingVoter++
+		}
+	}
+
+	doubleSigner, err := calcDoubleSigner(blocks)
+	if err != nil {
+		conR.logger.Warn("Error during missing voter calculation", "err", err)
+	} else {
+		for _, addr := range doubleSigner {
+			inf := stats[addr].Infraction
+			inf.DoubleSigner++
 		}
 	}
 

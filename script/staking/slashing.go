@@ -14,6 +14,7 @@ import (
 
 const (
 	JailCriteria        = 50
+	DoubleSignPts       = 30
 	MissingLeaderPts    = 20
 	MissingCommitteePts = 10
 	MissingProposerPts  = 5
@@ -25,13 +26,14 @@ type Infraction struct {
 	MissingCommittee uint32
 	MissingProposer  uint32
 	MissingVoter     uint32
+	DoubleSigner     uint32
 }
 
 func (inf *Infraction) String() string {
 	if inf == nil {
 		return "infraction(nil)"
 	}
-	return fmt.Sprintf("infraction(leader:%d, committee:%d, proposer:%d, voter:%d)", inf.MissingLeader, inf.MissingCommittee, inf.MissingProposer, inf.MissingVoter)
+	return fmt.Sprintf("infraction(leader:%d, committee:%d, proposer:%d, voter:%d, doubleSign)", inf.MissingLeader, inf.MissingCommittee, inf.MissingProposer, inf.MissingVoter, inf.DoubleSigner)
 }
 
 // Candidate indicates the structure of a candidate
@@ -56,8 +58,9 @@ func (ds *DelegateStatistics) Update(incr *Infraction) bool {
 	ds.Infractions.MissingCommittee = ds.Infractions.MissingCommittee + incr.MissingCommittee
 	ds.Infractions.MissingProposer = ds.Infractions.MissingProposer + incr.MissingProposer
 	ds.Infractions.MissingVoter = ds.Infractions.MissingVoter + incr.MissingVoter
+	ds.Infractions.DoubleSigner = ds.Infractions.DoubleSigner + incr.DoubleSigner
 	ds.TotalPts = uint64((ds.Infractions.MissingLeader * MissingLeaderPts) + (ds.Infractions.MissingCommittee * MissingCommitteePts) +
-		(ds.Infractions.MissingProposer * MissingProposerPts) + (ds.Infractions.MissingVoter * MissingVoterPts))
+		(ds.Infractions.MissingProposer * MissingProposerPts) + (ds.Infractions.MissingVoter * MissingVoterPts) + (ds.Infractions.DoubleSigner * DoubleSignPts))
 	if ds.TotalPts >= JailCriteria {
 		return true
 	}
@@ -196,6 +199,7 @@ func PackCountersToBytes(v *Infraction) *meter.Bytes32 {
 	binary.LittleEndian.PutUint32(b[4:8], v.MissingCommittee)
 	binary.LittleEndian.PutUint32(b[8:12], v.MissingProposer)
 	binary.LittleEndian.PutUint32(b[12:16], v.MissingVoter)
+	binary.LittleEndian.PutUint32(b[16:20], v.DoubleSigner)
 	return b
 }
 
@@ -205,5 +209,6 @@ func UnpackBytesToCounters(b *meter.Bytes32) *Infraction {
 	inf.MissingCommittee = binary.LittleEndian.Uint32(b[4:8])
 	inf.MissingProposer = binary.LittleEndian.Uint32(b[8:12])
 	inf.MissingVoter = binary.LittleEndian.Uint32(b[12:16])
+	inf.DoubleSigner = binary.LittleEndian.Uint32(b[16:20])
 	return inf
 }

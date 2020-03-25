@@ -17,8 +17,8 @@ type QuorumCert struct {
 	VoterBitArrayStr string
 	VoterMsgHash     [32]byte // [][32]byte
 	VoterAggSig      []byte
-
-	voterBitArray *cmn.BitArray
+	voterBitArray    *cmn.BitArray
+	voterViolation   []*Violation
 }
 
 func (qc *QuorumCert) String() string {
@@ -88,6 +88,10 @@ func (qc *QuorumCert) VoterBitArray() *cmn.BitArray {
 		return nil
 	}
 	return bitArray
+}
+
+func (qc *QuorumCert) GetViolation() []*Violation {
+	return qc.voterViolation
 }
 
 func GenesisQC() *QuorumCert {
