@@ -862,13 +862,13 @@ func (c *Chain) GetBestQCCandidate() *block.QuorumCert {
 }
 
 func (c *Chain) UpdateBestQCWithChainLock() error {
-	c.rw.RLock()
-	defer c.rw.RUnlock()
+	c.rw.Lock()
+	defer c.rw.Unlock()
 	return c.UpdateBestQC()
 }
 
 func (c *Chain) SetBestQCCandidateWithChainLock(qc *block.QuorumCert) bool {
-	c.rw.RLock()
-	defer c.rw.RUnlock()
+	c.rw.Lock()
+	defer c.rw.Unlock()
 	return c.SetBestQCCandidate(qc)
 }
