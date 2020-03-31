@@ -28,6 +28,7 @@ type Violation struct {
 	Type       int
 	Index      int
 	Address    meter.Address
+	MsgHash    [32]byte
 	Signature1 []byte
 	Signature2 []byte
 }

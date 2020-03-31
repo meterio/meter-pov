@@ -74,35 +74,6 @@ const (
 
 var (
 	ConsensusGlobInst *ConsensusReactor
-
-	pmRoundGauge = prometheus.NewGauge(prometheus.GaugeOpts{
-		Name: "pacemaker_round",
-		Help: "Current round of pacemaker",
-	})
-	pmRunningGauge = prometheus.NewGauge(prometheus.GaugeOpts{
-		Name: "pacemaker_running",
-		Help: "status of pacemaker (0-false, 1-true)",
-	})
-	curEpochGauge = prometheus.NewGauge(prometheus.GaugeOpts{
-		Name: "current_epoch",
-		Help: "Current epoch of consensus",
-	})
-	inCommitteeGauge = prometheus.NewGauge(prometheus.GaugeOpts{
-		Name: "in_committee",
-		Help: "is this node in committee",
-	})
-	pmRoleGauge = prometheus.NewGauge(prometheus.GaugeOpts{
-		Name: "pacemaker_role",
-		Help: "Role in pacemaker",
-	})
-	lastKBlockHeightGauge = prometheus.NewGauge(prometheus.GaugeOpts{
-		Name: "last_kblock_height",
-		Help: "Height of last k-block",
-	})
-	blocksCommitedCounter = prometheus.NewCounter(prometheus.CounterOpts{
-		Name: "blocks_commited_total",
-		Help: "Counter of commited blocks locally",
-	})
 )
 
 type ConsensusConfig struct {
@@ -110,59 +81,6 @@ type ConsensusConfig struct {
 	SkipSignatureCheck bool
 	InitCfgdDelegates  bool
 	EpochMBlockCount   uint64
-}
-
-type BlsCommon struct {
-	PrivKey bls.PrivateKey //my private key
-	PubKey  bls.PublicKey  //my public key
-
-	//global params of BLS
-	system  bls.System
-	params  bls.Params
-	pairing bls.Pairing
-}
-
-func NewBlsCommonFromParams(pubKey bls.PublicKey, privKey bls.PrivateKey, system bls.System, params bls.Params, pairing bls.Pairing) *BlsCommon {
-	return &BlsCommon{
-		PrivKey: privKey,
-		PubKey:  pubKey,
-		system:  system,
-		params:  params,
-		pairing: pairing,
-	}
-}
-
-func NewBlsCommon() *BlsCommon {
-	params := bls.GenParamsTypeA(160, 512)
-	pairing := bls.GenPairing(params)
-	system, err := bls.GenSystem(pairing)
-	if err != nil {
-		return nil
-	}
-
-	PubKey, PrivKey, err := bls.GenKeys(system)
-	if err != nil {
-		return nil
-	}
-	return &BlsCommon{
-		PrivKey: PrivKey,
-		PubKey:  PubKey,
-		system:  system,
-		params:  params,
-		pairing: pairing,
-	}
-}
-
-func (cc *BlsCommon) GetSystem() *bls.System {
-	return &cc.system
-}
-
-func (cc *BlsCommon) GetPrivKey() bls.PrivateKey {
-	return cc.PrivKey
-}
-
-func (cc *BlsCommon) GetPubKey() *bls.PublicKey {
-	return &cc.PubKey
 }
 
 //-----------------------------------------------------------------------------

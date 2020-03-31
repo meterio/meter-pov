@@ -59,6 +59,7 @@ func (sa *SignatureAggregator) Add(index int, msgHash [32]byte, signature []byte
 					Type:       1,
 					Index:      index,
 					Address:    sa.committee[index].Address,
+					MsgHash:    msgHash,
 					Signature1: sa.sigBytes[index],
 					Signature2: signature,
 				})
