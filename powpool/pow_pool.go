@@ -17,6 +17,7 @@ import (
 
 	"github.com/btcsuite/btcd/rpcclient"
 	"github.com/dfinlab/meter/block"
+	"github.com/dfinlab/meter/chain"
 	"github.com/dfinlab/meter/co"
 	"github.com/dfinlab/meter/meter"
 	"github.com/ethereum/go-ethereum/event"
@@ -27,16 +28,11 @@ import (
 const (
 	// minimum height for committee relay
 	POW_MINIMUM_HEIGHT_INTV = uint32(4)
-	//This ceof is based s9 ant miner, 1.323Kw 13.5T hashrate coef 11691855416.9
-	//python -c "print 2**32 * 1.323 /120/13.5/1000/1000/1000/1000/10/30"
-	POW_DEFAULT_REWARD_COEF = int64(11691855417)
 )
 
 var (
 	log             = log15.New("pkg", "powpool")
 	GlobPowPoolInst *PowPool
-
-	RewardCoef int64 = POW_DEFAULT_REWARD_COEF
 
 	powBlockRecvedGauge = prometheus.NewGauge(prometheus.GaugeOpts{
 		Name: "pow_block_recved",
@@ -75,6 +71,7 @@ type PowBlockEvent struct {
 
 // PowPool maintains unprocessed transactions.
 type PowPool struct {
+	chain   *chain.Chain
 	options Options
 	all     *powObjectMap
 
@@ -95,8 +92,9 @@ func GetGlobPowPoolInst() *PowPool {
 
 // New create a new PowPool instance.
 // Shutdown is required to be called at end.
-func New(options Options) *PowPool {
+func New(options Options, chain *chain.Chain) *PowPool {
 	pool := &PowPool{
+		chain:   chain,
 		options: options,
 		all:     newPowObjectMap(),
 		done:    make(chan struct{}),
@@ -317,4 +315,13 @@ func (p *PowPool) ReplayFrom(startHeight int32) error {
 		height++
 	}
 	return nil
+}
+
+func GetPosCurHeight() uint64 {
+	pool := GetGlobPowPoolInst()
+	if pool == nil {
+		panic("get globalPowPool failed")
+	}
+	height := uint64(pool.chain.BestBlock().Header().Number())
+	return height
 }

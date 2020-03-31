@@ -167,10 +167,13 @@ func (m *powObjectMap) GetLatestHeight() uint32 {
 func (m *powObjectMap) FillLatestObjChain(obj *powObject) (*PowResult, error) {
 	result := NewPowResult(obj.Nonce())
 
+	posCurHeight := GetPosCurHeight()
+	curCoef := calcPowCoef(0, posCurHeight, RewardCoef)
+
 	target := blockchain.CompactToBig(obj.blockInfo.NBits)
 	genesisTarget := blockchain.CompactToBig(GetPowGenesisBlockInfo().NBits)
 	difficaulty := target.Div(genesisTarget, target)
-	coef := big.NewInt(RewardCoef)
+	coef := big.NewInt(curCoef)
 	coef = coef.Mul(coef, difficaulty)
 	reward := &PowReward{obj.blockInfo.Beneficiary, *coef}
 
@@ -190,7 +193,7 @@ func (m *powObjectMap) FillLatestObjChain(obj *powObject) (*PowResult, error) {
 
 		nTarget := blockchain.CompactToBig(prev.blockInfo.NBits)
 		nDifficaulty := nTarget.Div(genesisTarget, nTarget)
-		coef := big.NewInt(RewardCoef)
+		coef := big.NewInt(curCoef)
 		coef = coef.Mul(coef, nDifficaulty)
 		reward := &PowReward{prev.blockInfo.Beneficiary, *coef}
 
