@@ -278,7 +278,7 @@ func NewConsensusReactor(ctx *cli.Context, chain *chain.Chain, state *state.Crea
 	conR.curHeight = int64(chain.BestBlock().Header().Number())
 
 	// initialize consensus common
-	conR.csCommon = NewConsensusCommonFromBlsCommon(conR, blsCommon)
+	conR.csCommon = NewConsensusCommonFromBlsCommon(blsCommon)
 
 	// initialize pacemaker
 	conR.csPacemaker = NewPaceMaker(conR)
@@ -952,7 +952,7 @@ func (conR *ConsensusReactor) NewConsensusStop() int {
 	conR.logger.Warn("Stop New Consensus ...")
 
 	// Deinitialize consensus common
-	conR.csCommon.ConsensusCommonDeinit()
+	conR.csCommon.Destroy()
 	return 0
 }
 
