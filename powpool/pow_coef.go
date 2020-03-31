@@ -15,23 +15,22 @@ const (
     POW_DEFAULT_REWARD_COEF_M10 = int64(7754802062)
     POW_M10_EFFECIENCY          = 0.065
 
-    fadeDays      = 549  // halve every 549 days
-    fadeRate      = 0.53 // fade rate 0.53
-    blockInterval = 3    // block interval 3s
+    fadeDays = 549  // halve every 549 days
+    fadeRate = 0.53 // fade rate 0.53
 )
 
 var (
     RewardCoef int64 = POW_DEFAULT_REWARD_COEF_M10
 )
 
-// released MTRG for a speciefic range
-func calcPowCoef(startHeight, curHeight uint64, startCoef int64) (retCoef int64) {
+// calc the coef under specific fade rate
+func calcPowCoef(startEpoch, curEpoch uint64, startCoef int64) (retCoef int64) {
     var coef float64
-    Halving := fadeDays * 3600 * 24 / blockInterval
+    Halving := fadeDays
 
-    coef = math.Pow(fadeRate, (float64(curHeight-startHeight) / float64(Halving)))
+    coef = math.Pow(fadeRate, (float64(curEpoch-startEpoch) / 24 / float64(Halving)))
     retCoef = int64(float64(startCoef) * coef)
 
-    log.Debug("calculated pow-coef", "coef", retCoef)
+    log.Debug("calculated pow-coef", "coef", retCoef, "curEpoch", curEpoch)
     return
 }

@@ -317,11 +317,11 @@ func (p *PowPool) ReplayFrom(startHeight int32) error {
 	return nil
 }
 
-func GetPosCurHeight() uint64 {
+func GetPosCurEpoch() uint64 {
 	pool := GetGlobPowPoolInst()
 	if pool == nil {
 		panic("get globalPowPool failed")
 	}
-	height := uint64(pool.chain.BestBlock().Header().Number())
+	height := uint64(pool.chain.BestBlock().GetQC().EpochID)
 	return height
 }
