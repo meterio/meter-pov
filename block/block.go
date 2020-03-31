@@ -26,6 +26,7 @@ const (
 
 type Violation struct {
 	Type       int
+	Index      int
 	Address    meter.Address
 	Signature1 []byte
 	Signature2 []byte
