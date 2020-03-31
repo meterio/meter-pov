@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/dfinlab/meter/block"
+	bls "github.com/dfinlab/meter/crypto/multi_sig"
 	"github.com/dfinlab/meter/meter"
 	"github.com/dfinlab/meter/script"
 	"github.com/dfinlab/meter/script/staking"
@@ -107,13 +108,38 @@ func calcMissingVoter(validators []*types.Validator, actualMembers []CommitteeMe
 	return result, nil
 }
 
-func calcDoubleSigner(blocks []*block.Block) ([]meter.Address, error) {
+func calcDoubleSigner(common *ConsensusCommon, blocks []*block.Block) ([]meter.Address, error) {
 	result := make([]meter.Address, 0)
+	if len(blocks) < 1 {
+		return make([]meter.Address, 0), errors.New("could not find committee info")
+	}
+	committeeInfo := blocks[0].CommitteeInfos.CommitteeInfo
+	if len(committeeInfo) <= 0 {
+		return make([]meter.Address, 0), errors.New("could not find committee info")
+	}
 	for _, blk := range blocks {
-		// TBD: also get from evidence from 1st mblock, check the viloation
 		violations := blk.QC.GetViolation()
+		// TBD: also get from evidence from 1st mblock, check the viloation
 		for _, v := range violations {
-			result = append(result, v.Address)
+			if v.Index < len(committeeInfo) {
+				blsPKBytes := committeeInfo[v.Index].CSPubKey
+				blsPK, err := common.system.PubKeyFromBytes(blsPKBytes)
+				if err != nil {
+					break
+				}
+				sig1, err := common.system.SigFromBytes(v.Signature1)
+				if err != nil {
+					break
+				}
+				sig2, err := common.system.SigFromBytes(v.Signature2)
+				if err != nil {
+					break
+				}
+				bls.Verify(sig1, v.MsgHash, blsPK)
+				bls.Verify(sig2, v.MsgHash, blsPK)
+
+				result = append(result, v.Address)
+			}
 		}
 	}
 
@@ -192,7 +218,7 @@ func (conR *ConsensusReactor) calcStatistics(lastKBlockHeight, height uint32) ([
 		}
 	}
 
-	doubleSigner, err := calcDoubleSigner(blocks)
+	doubleSigner, err := calcDoubleSigner(conR.csCommon, blocks)
 	if err != nil {
 		conR.logger.Warn("Error during missing voter calculation", "err", err)
 	} else {

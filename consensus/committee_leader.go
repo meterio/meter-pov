@@ -183,7 +183,7 @@ func (cl *ConsensusLeader) GenerateAnnounceMsg() bool {
 
 	signMsg := cl.csReactor.BuildAnnounceSignMsg(cl.csReactor.myPubKey, cmnHdr.EpochID, uint64(cmnHdr.Height), uint32(cmnHdr.Round))
 	msgHash := cl.csReactor.csCommon.Hash256Msg([]byte(signMsg))
-	cl.announceSigAggregator = newSignatureAggregator(cl.csReactor.committeeSize, cl.csReactor.csCommon.system, msgHash)
+	cl.announceSigAggregator = newSignatureAggregator(cl.csReactor.committeeSize, cl.csReactor.csCommon.system, msgHash, cl.csReactor.curCommittee.Validators)
 	//timeout function
 	announceExpire := func() {
 		cl.csReactor.logger.Warn("reach 2/3 votes of announce expired ...", "comitteeSize", cl.csReactor.committeeSize, "totalComitter", cl.announceSigAggregator.Count())

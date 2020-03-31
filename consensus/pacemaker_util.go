@@ -377,6 +377,7 @@ func (p *Pacemaker) generateNewQCNode(b *pmBlock) (*pmQuorumCert, error) {
 			VoterBitArrayStr: p.sigAggregator.BitArrayString(),
 			VoterMsgHash:     p.sigAggregator.msgHash,
 			VoterAggSig:      aggSigBytes,
+			VoterViolation:   p.sigAggregator.violations,
 		},
 
 		VoterSig: p.sigAggregator.sigBytes,

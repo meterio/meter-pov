@@ -7,64 +7,41 @@ import (
 	bls "github.com/dfinlab/meter/crypto/multi_sig"
 )
 
-const (
-	TYPE_A_SIGNATRUE_SIZE = int(65)
-
-	INITIALIZE_AS_LEADER           = int(1)
-	INITIALIZE_AS_VALIDATOR        = int(2)
-	INITIALIZE_AS_REPLAY_LEADER    = int(3)
-	INITIALIZE_AS_REPLAY_VALIDATOR = int(4)
-)
-
 type ConsensusCommon struct {
-	PrivKey   bls.PrivateKey    //my private key
-	PubKey    bls.PublicKey     //my public key
-	csReactor *ConsensusReactor //global reactor info
+	PrivKey bls.PrivateKey //my private key
+	PubKey  bls.PublicKey  //my public key
 
 	//global params of BLS
 	system      bls.System
 	params      bls.Params
 	pairing     bls.Pairing
 	initialized bool
-	initialRole int
 }
 
-func NewConsensusCommonFromBlsCommon(conR *ConsensusReactor, blsCommon *BlsCommon) *ConsensusCommon {
+func NewConsensusCommonFromBlsCommon(blsCommon *BlsCommon) *ConsensusCommon {
 	return &ConsensusCommon{
 		PrivKey:     blsCommon.PrivKey,
 		PubKey:      blsCommon.PubKey,
-		csReactor:   conR,
 		system:      blsCommon.system,
 		params:      blsCommon.params,
 		pairing:     blsCommon.pairing,
 		initialized: true,
-		initialRole: INITIALIZE_AS_LEADER,
 	}
 }
 
 // BLS is implemented by C, memeory need to be freed.
 // Signatures also need to be freed but Not here!!!
-func (cc *ConsensusCommon) ConsensusCommonDeinit() bool {
+func (cc *ConsensusCommon) Destroy() bool {
 	if !cc.initialized {
 		fmt.Println("BLS is not initialized!")
 		return false
 	}
 
-	if cc.initialRole == INITIALIZE_AS_LEADER {
-		cc.PubKey.Free()
-		cc.PrivKey.Free()
-		cc.system.Free()
-		cc.pairing.Free()
-		cc.params.Free()
-	} else if cc.initialRole == INITIALIZE_AS_VALIDATOR {
-		cc.PubKey.Free()
-		cc.PrivKey.Free()
-		cc.pairing.Free()
-	} else if cc.initialRole == INITIALIZE_AS_REPLAY_LEADER {
-		cc.pairing.Free()
-	} else if cc.initialRole == INITIALIZE_AS_REPLAY_VALIDATOR {
-		cc.pairing.Free()
-	}
+	cc.PubKey.Free()
+	cc.PrivKey.Free()
+	cc.system.Free()
+	cc.pairing.Free()
+	cc.params.Free()
 
 	cc.initialized = false
 	return true
@@ -86,9 +63,9 @@ func (cc *ConsensusCommon) GetPublicKey() *bls.PublicKey {
 	return &cc.PubKey
 }
 
-func (cc *ConsensusCommon) GetPrivateKey() *bls.PrivateKey {
-	return &cc.PrivKey
-}
+// func (cc *ConsensusCommon) GetPrivateKey() *bls.PrivateKey {
+// 	return &cc.PrivKey
+// }
 
 // sign the part of msg
 func (cc *ConsensusCommon) Hash256Msg(msg []byte) [32]byte {
