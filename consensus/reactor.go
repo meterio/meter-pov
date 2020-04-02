@@ -3,6 +3,7 @@ package consensus
 import (
 	"bytes"
 	"crypto/ecdsa"
+	"crypto/sha256"
 	"encoding/base64"
 	b64 "encoding/base64"
 	"encoding/binary"
@@ -46,7 +47,8 @@ import (
 const (
 	//maxMsgSize = 1048576 // 1MB;
 	// set as 1184 * 1024
-	maxMsgSize = 1300000 // gasLimit 20000000 generate, 1024+1024 (1048576) + sizeof(QC) + sizeof(committee)...
+	maxMsgSize  = 1300000 // gasLimit 20000000 generate, 1024+1024 (1048576) + sizeof(QC) + sizeof(committee)...
+	MsgHashSize = 8
 
 	//normally when a block is committed, wait for a while to let whole network to sync and move to next round
 	WHOLE_NETWORK_BLOCK_SYNC_TIME = 5 * time.Second
@@ -74,6 +76,14 @@ const (
 
 var (
 	ConsensusGlobInst *ConsensusReactor
+)
+
+var (
+	ErrUnrecognizedPayload = errors.New("unrecognized payload")
+	ErrMagicMismatch       = errors.New("magic mismatch")
+	ErrMalformattedMsg     = errors.New("Malformatted msg")
+	ErrInvalidSignature    = errors.New("invalid signature")
+	ErrInvalidMsgType      = errors.New("invalid msg type")
 )
 
 type ConsensusConfig struct {
@@ -145,7 +155,7 @@ type ConsensusReactor struct {
 
 	dataDir string
 
-	msgCache *CommitteeMsgCache
+	msgCache *MsgCache
 
 	magic       [4]byte
 	inCommittee bool
@@ -169,7 +179,7 @@ func NewConsensusReactor(ctx *cli.Context, chain *chain.Chain, state *state.Crea
 		logger:       log15.New("pkg", "reactor"),
 		SyncDone:     false,
 		magic:        magic,
-		msgCache:     NewCommitteeMsgCache(),
+		msgCache:     NewMsgCache(256),
 		inCommittee:  false,
 	}
 
@@ -352,21 +362,6 @@ const (
 	CONSENSUS_COMMIT_ROLE_LEADER    = uint(0x01)
 	CONSENSUS_COMMIT_ROLE_PROPOSER  = uint(0x02)
 	CONSENSUS_COMMIT_ROLE_VALIDATOR = uint(0x04)
-
-	//Consensus Message Type
-	CONSENSUS_MSG_ANNOUNCE_COMMITTEE          = byte(0x01)
-	CONSENSUS_MSG_COMMIT_COMMITTEE            = byte(0x02)
-	CONSENSUS_MSG_PROPOSAL_BLOCK              = byte(0x03)
-	CONSENSUS_MSG_NOTARY_ANNOUNCE             = byte(0x04)
-	CONSENSUS_MSG_NOTARY_BLOCK                = byte(0x05)
-	CONSENSUS_MSG_VOTE_FOR_PROPOSAL           = byte(0x06)
-	CONSENSUS_MSG_VOTE_FOR_NOTARY             = byte(0x07)
-	CONSENSUS_MSG_MOVE_NEW_ROUND              = byte(0x08)
-	CONSENSUS_MSG_PACEMAKER_PROPOSAL          = byte(0x09)
-	CONSENSUS_MSG_PACEMAKER_VOTE_FOR_PROPOSAL = byte(0x10)
-	CONSENSUS_MSG_PACEMAKER_NEW_VIEW          = byte(0x11)
-	CONSENSUS_MSG_NEW_COMMITTEE               = byte(0x12)
-	CONSENSUS_MSG_PACEMAKER_QUERY_PROPOSAL    = byte(0x13)
 )
 
 // CommitteeMember is validator structure + consensus fields
@@ -396,8 +391,12 @@ func (cm *CommitteeMember) String() string {
 
 type consensusMsgInfo struct {
 	//Msg    ConsensusMessage
-	Msg    []byte
-	csPeer *ConsensusPeer
+	Msg     ConsensusMessage
+	MsgHash [32]byte
+	Peer    *ConsensusPeer
+	RawData []byte
+
+	// receivedFrom net.IP
 }
 
 func (conR *ConsensusReactor) UpdateHeight(height int64) bool {
@@ -590,46 +589,13 @@ func (conR *ConsensusReactor) handleMsg(mi consensusMsgInfo) {
 	conR.mtx.Lock()
 	defer conR.mtx.Unlock()
 
-	rawMsg, peer := mi.Msg, mi.csPeer
+	msg, peer := mi.Msg, mi.Peer
 
-	msg, err := decodeMsg(rawMsg)
-	if err != nil {
-		conR.logger.Error("Error decoding message", "src", peer, "msg", msg, "err", err, "bytes", rawMsg)
-		return
-	}
-
-	typeName := reflect.TypeOf(msg).String()
-	if strings.Contains(typeName, ".") {
-		typeName = strings.Split(typeName, ".")[1]
-	}
-	peerName := conR.GetCommitteeMemberNameByIP(peer.netAddr.IP)
+	typeName := getConcreteName(msg)
 	peerIP := peer.netAddr.IP.String()
 	conR.logger.Info(fmt.Sprintf("Received from peer: %v", msg.String()),
-		"peer", peerName,
+		"peer", peer.name,
 		"ip", peerIP)
-
-	// cache the message
-	relayMsgTypes := map[string]bool{"AnnounceCommitteeMessage": true, "NotaryAnnounceMessage": true}
-	if _, needCache := relayMsgTypes[typeName]; needCache {
-		var announcerHex string
-		switch msg := msg.(type) {
-		case *AnnounceCommitteeMessage:
-			announcerHex = hex.EncodeToString(msg.AnnouncerID)
-		case *NotaryAnnounceMessage:
-			announcerHex = hex.EncodeToString(msg.AnnouncerID)
-		default:
-			announcerHex = ""
-		}
-		existed, err := conR.msgCache.CheckandAdd(&rawMsg, msg.EpochID(), msg.MsgType(), announcerHex)
-		if err != nil {
-			conR.logger.Info("fail to add "+typeName+", dropped ...", "peer", peerName, "ip", peerIP)
-			return
-		}
-		if existed == true {
-			conR.logger.Info("duplicate "+typeName+", dropped ...", "epoch", msg.EpochID(), "msgType", msg.MsgType(), "peer", peerName, "ip", peerIP)
-			return
-		}
-	}
 
 	var success bool
 	switch msg := msg.(type) {
@@ -684,17 +650,17 @@ func (conR *ConsensusReactor) handleMsg(mi consensusMsgInfo) {
 	}
 
 	// relay the message
-	fromMyself := false
-	if peerIP == conR.GetMyNetAddr().IP.String() {
-		fromMyself = true
-	}
-	if _, needRelay := relayMsgTypes[typeName]; needRelay {
+	fromMyself := peerIP == conR.GetMyNetAddr().IP.String()
+	if conR.inCommittee && fromMyself == false && success == true {
 		// relay only if these three conditions meet:
 		// 1. I'm in committee
 		// 2. the message is not from myself
 		// 3. message is proved to be valid
-		if conR.inCommittee && fromMyself == false && success == true {
-			conR.relayMsg(&msg, "AnnounceCommittee", int(conR.newCommittee.Round))
+		if typeName == "AnnounceCommittee" {
+			conR.relayMsg(&msg, int(conR.newCommittee.Round))
+		} else if typeName == "NotaryAnnounce" {
+
+			conR.relayMsg(&msg, int(msg.Header().Round))
 		}
 	}
 }
@@ -725,17 +691,11 @@ func (conR *ConsensusReactor) GetRelayPeers(round int) ([]*ConsensusPeer, error)
 	return peers, nil
 }
 
-func (conR *ConsensusReactor) relayMsg(msg *ConsensusMessage, msgTypeStr string, round int) {
+func (conR *ConsensusReactor) relayMsg(msg *ConsensusMessage, round int) {
 	peers, _ := conR.GetRelayPeers(round)
-	conR.logger.Info("Now, relay this consensus msg...", "type", msgTypeStr, "round", round)
-	for _, peer := range peers {
-		conR.logger.Info("Now, relay this "+msgTypeStr+"...", "peer", peer.name, "ip", peer.String(), "round", round)
-		if peer.netAddr.IP.String() == conR.GetMyNetAddr().IP.String() {
-			conR.logger.Info("relay to myself, ignore ...")
-			continue
-		}
-		go func(m *ConsensusMessage, p *ConsensusPeer) { conR.sendConsensusMsg(m, p) }(msg, peer)
-	}
+	typeName := getConcreteName(*msg)
+	conR.logger.Info("Now, relay committee msg", "type", typeName, "round", round)
+	conR.asyncSendCommitteeMsg(msg, peers...)
 }
 
 // receiveRoutine handles messages which may cause state transitions.
@@ -791,48 +751,100 @@ func (conR *ConsensusReactor) receiveRoutine() {
 	}
 }
 
-func (conR *ConsensusReactor) receivePeerMsg(w http.ResponseWriter, r *http.Request) {
-	var base = 10
-	var size = 16
-	defer r.Body.Close()
-	var params map[string]string
-	if err := json.NewDecoder(r.Body).Decode(&params); err != nil {
-		fmt.Errorf("%v\n", err)
-		respondWithJson(w, http.StatusBadRequest, "Invalid request payload")
-		return
+func (conR *ConsensusReactor) MarshalMsg(msg *ConsensusMessage) ([]byte, error) {
+	rawMsg := cdc.MustMarshalBinaryBare(msg)
+	if len(rawMsg) > maxMsgSize {
+		fmt.Errorf("Msg exceeds max size (%d > %d)", len(rawMsg), maxMsgSize)
+		conR.logger.Error("Msg exceeds max size", "rawMsg=", len(rawMsg), "maxMsgSize=", maxMsgSize)
+		return make([]byte, 0), errors.New("Msg exceeds max size")
 	}
-	if _, ok := params["magic"]; !ok {
-		conR.logger.Debug("ignored message due to missing magic", "expect", hex.EncodeToString(conR.magic[:]))
-		return
+
+	magicHex := hex.EncodeToString(conR.magic[:])
+	myNetAddr := conR.GetMyNetAddr()
+	payload := map[string]interface{}{
+		"message":   hex.EncodeToString(rawMsg),
+		"peer_ip":   myNetAddr.IP.String(),
+		"peer_port": strconv.Itoa(int(myNetAddr.Port)),
+		"magic":     magicHex,
 	}
-	if strings.Compare(params["magic"], hex.EncodeToString(conR.magic[:])) != 0 {
-		conR.logger.Debug("ignored message due to magic mismatch", "expect", hex.EncodeToString(conR.magic[:]), "actual", params["magic"])
-		return
-	}
-	peerIP := net.ParseIP(params["peer_ip"])
-	peerPort, convErr := strconv.ParseUint(params["port"], base, size)
-	if convErr != nil {
-		fmt.Errorf("Failed to convert to uint.")
-	}
-	peerPortUint16 := uint16(peerPort)
-	name := conR.GetCommitteeMemberNameByIP(peerIP)
-	p := newConsensusPeer(name, peerIP, peerPortUint16, conR.magic)
-	// p := ConsensusPeer{netAddr: peerAddr}
-	msgByteSlice, _ := hex.DecodeString(params["message"])
-	mi := consensusMsgInfo{
-		Msg:    msgByteSlice,
-		csPeer: p,
-	}
-	conR.peerMsgQueue <- mi
-	respondWithJson(w, http.StatusOK, map[string]string{"result": "success"})
+
+	return json.Marshal(payload)
 }
 
+func (conR *ConsensusReactor) UnmarshalMsg(data []byte) (*consensusMsgInfo, error) {
+	var params map[string]string
+	err := json.NewDecoder(bytes.NewReader(data)).Decode(&params)
+	if err != nil {
+		fmt.Println(err)
+		return nil, ErrUnrecognizedPayload
+	}
+	if strings.Compare(params["magic"], hex.EncodeToString(conR.magic[:])) != 0 {
+		return nil, ErrMagicMismatch
+	}
+	peerIP := net.ParseIP(params["peer_ip"])
+	peerPort, err := strconv.ParseUint(params["peer_port"], 10, 16)
+	if err != nil {
+		fmt.Println(err)
+		return nil, ErrUnrecognizedPayload
+	}
+	peerName := conR.GetCommitteeMemberNameByIP(peerIP)
+	peer := newConsensusPeer(peerName, peerIP, uint16(peerPort), conR.magic)
+	// p := ConsensusPeer{netAddr: peerAddr}
+	rawMsg, _ := hex.DecodeString(params["message"])
+	msg, err := decodeMsg(rawMsg)
+	if err != nil {
+		return nil, ErrMalformattedMsg
+		// conR.logger.Error("Malformated message, error decoding", "peer", peerName, "ip", peerIP, "msg", msg, "err", err)
+	}
+
+	if VerifyMsgType(msg) == false {
+		return nil, ErrInvalidMsgType
+		// conR.logger.Error("MsgType validate failed")
+	}
+
+	if VerifySignature(msg) == false {
+		// conR.logger.Error("Signature validate failed")
+		return nil, ErrInvalidSignature
+	}
+	msgHash := sha256.Sum256(rawMsg)
+	return &consensusMsgInfo{Msg: msg, MsgHash: msgHash, Peer: peer, RawData: data}, nil
+}
+
+func (conR *ConsensusReactor) receiveCommitteeMsg(w http.ResponseWriter, r *http.Request) {
+	defer r.Body.Close()
+	data, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	mi, err := conR.UnmarshalMsg(data)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+
+	// cache the message to avoid duplicate handling
+	msg, msgHash, peer := mi.Msg, mi.MsgHash, mi.Peer
+	existed := conR.msgCache.Contains(msg.EpochID(), msgHash)
+	if existed {
+		typeName := getConcreteName(msg)
+		conR.logger.Info("duplicate "+typeName+", dropped ...", "epoch", msg.EpochID(), "msgType", msg.MsgType(), "peer", peer.name, "ip", peer.netAddr.IP.String())
+		return
+	}
+	conR.msgCache.Add(msg.EpochID(), msgHash)
+
+	conR.peerMsgQueue <- *mi
+	// respondWithJson(w, http.StatusOK, map[string]string{"result": "success"})
+}
+
+/*
 func respondWithJson(w http.ResponseWriter, code int, payload interface{}) {
 	response, _ := json.Marshal(payload)
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(code)
 	w.Write(response)
 }
+*/
 
 func (conR *ConsensusReactor) receiveConsensusMsgRoutine() {
 
@@ -841,7 +853,7 @@ func (conR *ConsensusReactor) receiveConsensusMsgRoutine() {
 		AllowedMethods: []string{"POST"}, // Only allows POST requests
 	})
 	r := mux.NewRouter()
-	r.HandleFunc("/consensus", conR.receivePeerMsg).Methods("POST")
+	r.HandleFunc("/committee", conR.receiveCommitteeMsg).Methods("POST")
 	r.HandleFunc("/pacemaker", conR.csPacemaker.receivePacemakerMsg).Methods("POST")
 	if err := http.ListenAndServe(":8670", c.Handler(r)); err != nil {
 		fmt.Errorf("HTTP receiver error!")
@@ -890,7 +902,7 @@ func (conR *ConsensusReactor) exitConsensusValidator() int {
 
 	conR.csValidator = nil
 	conR.csRoleInitialized &= ^CONSENSUS_COMMIT_ROLE_VALIDATOR
-	conR.msgCache.CleanUpTo(conR.curEpoch)
+	conR.msgCache.CleanTo(conR.curEpoch)
 	conR.logger.Debug("Exit consensus validator")
 	return 0
 }
@@ -920,7 +932,7 @@ func (conR *ConsensusReactor) exitConsensusLeader(epochID uint64) {
 	conR.csLeader = nil
 	conR.csRoleInitialized &= ^CONSENSUS_COMMIT_ROLE_LEADER
 
-	conR.msgCache.CleanUpTo(conR.curEpoch)
+	conR.msgCache.CleanTo(conR.curEpoch)
 	return
 }
 
@@ -943,37 +955,15 @@ func (conR *ConsensusReactor) exitCurCommittee() error {
 	return nil
 }
 
-func getConcreteName(msg ConsensusMessage) string {
-	switch msg.(type) {
-	// committee messages
-	case *AnnounceCommitteeMessage:
-		return "AnnounceCommitteeMessage"
-	case *CommitCommitteeMessage:
-		return "CommitCommitteeMessage"
-	case *NotaryAnnounceMessage:
-		return "NotaryAnnounceMessage"
-	case *NewCommitteeMessage:
-		return "NewCommitteeMessage"
-
-	// pacemaker messages
-	case *PMProposalMessage:
-		return "PMProposalMessage"
-	case *PMVoteForProposalMessage:
-		return "PMVoteForProposalMessage"
-	case *PMNewViewMessage:
-		return "PMNewViewMessage"
+func (conR *ConsensusReactor) asyncSendCommitteeMsg(msg *ConsensusMessage, peers ...*ConsensusPeer) bool {
+	data, err := conR.MarshalMsg(msg)
+	if err != nil {
+		fmt.Println("Could not marshal message")
+		return false
 	}
-	return ""
-}
-
-func (conR *ConsensusReactor) SendMsgToPeers(csPeers []*ConsensusPeer, msg *ConsensusMessage) bool {
-	//var wg sync.WaitGroup
-	for _, p := range csPeers {
-		//wg.Add(1)
-		go func(msg *ConsensusMessage, p *ConsensusPeer) {
-			//defer wg.Done()
-			conR.sendConsensusMsg(msg, p)
-		}(msg, p)
+	msgSummary := (*msg).String()
+	for _, peer := range peers {
+		go peer.sendCommitteeMsg(data, msgSummary)
 	}
 
 	//wg.Wait()
@@ -1059,65 +1049,7 @@ func (conR *ConsensusReactor) GetLatestCommitteeList() ([]*ApiCommitteeMember, e
 	return committeeMembers, nil
 }
 
-// XXX. For test only
-func (conR *ConsensusReactor) sendConsensusMsg(msg *ConsensusMessage, csPeer *ConsensusPeer) bool {
-	typeName := getConcreteName(*msg)
-
-	rawMsg := cdc.MustMarshalBinaryBare(msg)
-	if len(rawMsg) > maxMsgSize {
-		fmt.Errorf("Msg exceeds max size (%d > %d)", len(rawMsg), maxMsgSize)
-		conR.logger.Error("Msg exceeds max size", "rawMsg=", len(rawMsg), "maxMsgSize=", maxMsgSize)
-		return false
-	}
-
-	conR.logger.Debug(fmt.Sprintf("Try send %v out", typeName), "size", len(rawMsg))
-	// fmt.Println(hex.Dump(rawMsg))
-
-	if csPeer == nil {
-		conR.internalMsgQueue <- consensusMsgInfo{rawMsg, nil}
-	} else {
-		magicHex := hex.EncodeToString(conR.magic[:])
-		payload := map[string]interface{}{
-			"message":   hex.EncodeToString(rawMsg),
-			"peer_ip":   conR.GetMyNetAddr().IP.String(),
-			"peer_port": string(conR.GetMyNetAddr().Port),
-			"magic":     magicHex,
-		}
-
-		jsonStr, err := json.Marshal(payload)
-		if err != nil {
-			fmt.Errorf("Failed to marshal message dict to json string")
-			return false
-		}
-
-		var netClient = &http.Client{
-			Timeout: time.Second * 4,
-		}
-		resp, err := netClient.Post("http://"+csPeer.netAddr.IP.String()+":8670/consensus", "application/json", bytes.NewBuffer(jsonStr))
-		if err != nil {
-			conR.logger.Error("Failed to send message to peer", "peer", csPeer.name, "ip", csPeer.String(), "err", err)
-			return false
-		}
-		peerName := conR.GetCommitteeMemberNameByIP(csPeer.netAddr.IP)
-		conR.logger.Info(fmt.Sprintf("Sent to peer: %s", (*msg).String()), "peer", peerName, "ip", csPeer.netAddr.IP.String(), "size", len(rawMsg))
-		var result map[string]interface{}
-		json.NewDecoder(resp.Body).Decode(&result)
-	}
-	return true
-}
-
 //============================================
-// Signer extract signer of the block from signature.
-func (conR *ConsensusReactor) ConsensusMsgSigner(msgHash, sig []byte) (ecdsa.PublicKey, error) {
-	pub, err := crypto.SigToPub(msgHash, sig)
-	if err != nil {
-		return ecdsa.PublicKey{}, err
-	}
-
-	//signer = meter.Address(crypto.PubkeyToAddress(*pub))
-	return *pub, nil
-}
-
 func (conR *ConsensusReactor) SignConsensusMsg(msgHash []byte) (sig []byte, err error) {
 	sig, err = crypto.Sign(msgHash, &conR.myPrivKey)
 	if err != nil {
@@ -1125,20 +1057,6 @@ func (conR *ConsensusReactor) SignConsensusMsg(msgHash []byte) (sig []byte, err 
 	}
 
 	return sig, nil
-}
-
-func (conR *ConsensusReactor) ValidateCMheaderSig(cmh *ConsensusMsgCommonHeader, msgHash []byte) bool {
-	sender := cmh.Sender // send is byte slice format
-	signer, err := conR.ConsensusMsgSigner(msgHash, cmh.Signature)
-	if err != nil {
-		conR.logger.Error("signature validate failed!", err)
-	}
-
-	if bytes.Equal(crypto.FromECDSAPub(&signer), sender) == false {
-		conR.logger.Error("signature validate mismacth!")
-		return false
-	}
-	return true
 }
 
 //----------------------------------------------------------------------------
@@ -1203,56 +1121,6 @@ func (conR *ConsensusReactor) BuildNotaryAnnounceSignMsg(pubKey ecdsa.PublicKey,
 	return fmt.Sprintf("%s %s %s %s %s %s %s %s", "Announce Notarization Message: Leader", hex.EncodeToString(crypto.FromECDSAPub(&pubKey)),
 		"EpochID", hex.EncodeToString(c), "Height", hex.EncodeToString(h),
 		"Round", hex.EncodeToString(r))
-}
-
-// Sign Notary Block Message
-// "Block Notarization Message: Proposer <pubkey 64(32x2)> BlockType <8 bytes> Height <16 (8x2) bytes> Round <8 (4x2) bytes>
-func (conR *ConsensusReactor) BuildNotaryBlockSignMsg(pubKey ecdsa.PublicKey, blockType uint32, height uint64, round uint32) string {
-	c := make([]byte, binary.MaxVarintLen32)
-	binary.BigEndian.PutUint32(c, blockType)
-
-	h := make([]byte, binary.MaxVarintLen64)
-	binary.BigEndian.PutUint64(h, height)
-
-	r := make([]byte, binary.MaxVarintLen32)
-	binary.BigEndian.PutUint32(r, round)
-	return fmt.Sprintf("%s %s %s %s %s %s %s %s", "Proposal Block Message: Proposer", hex.EncodeToString(crypto.FromECDSAPub(&pubKey)),
-		"BlockType", hex.EncodeToString(c), "Height", hex.EncodeToString(h),
-		"Round", hex.EncodeToString(r))
-}
-
-// Sign newRound
-// "NewRound Message: Validator <pubkey 64(32x2)> EpochID <16(8x2) bytes> Height <16 (8x2) bytes> Counter <8 (4x2) bytes>
-func (conR *ConsensusReactor) BuildNewRoundSignMsg(pubKey ecdsa.PublicKey, epochID uint64, height uint64, counter uint32) string {
-	e := make([]byte, binary.MaxVarintLen64)
-	binary.BigEndian.PutUint64(e, epochID)
-
-	h := make([]byte, binary.MaxVarintLen64)
-	binary.BigEndian.PutUint64(h, height)
-
-	c := make([]byte, binary.MaxVarintLen32)
-	binary.BigEndian.PutUint32(c, counter)
-
-	return fmt.Sprintf("%s %s %s %s %s %s %s %s", "NewRound Message: Validator", hex.EncodeToString(crypto.FromECDSAPub(&pubKey)),
-		"EpochID", hex.EncodeToString(e), "Height", hex.EncodeToString(h),
-		"Counter", hex.EncodeToString(c))
-}
-
-// Sign Timeout
-// "Timeout Message: Proposer <pubkey 64(32x2)> TimeoutRound <16(8x2) bytes> TimeoutHeight <16 (8x2) bytes> TimeoutCounter <8 (4x2) bytes>
-func (conR *ConsensusReactor) BuildTimeoutSignMsg(pubKey ecdsa.PublicKey, round uint64, height uint64, counter uint32) string {
-	r := make([]byte, binary.MaxVarintLen64)
-	binary.BigEndian.PutUint64(r, round)
-
-	h := make([]byte, binary.MaxVarintLen64)
-	binary.BigEndian.PutUint64(h, height)
-
-	c := make([]byte, binary.MaxVarintLen32)
-	binary.BigEndian.PutUint32(c, counter)
-
-	return fmt.Sprintf("%s %s %s %s %s %s %s %s", "Timeout Message: Proposer", hex.EncodeToString(crypto.FromECDSAPub(&pubKey)),
-		"TimeoutRound", hex.EncodeToString(r), "Height", hex.EncodeToString(h),
-		"TimeoutCounter", hex.EncodeToString(c))
 }
 
 //======end of New consensus =========================================

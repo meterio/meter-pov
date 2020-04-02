@@ -172,6 +172,7 @@ func deleteBlock(rw kv.GetPutter, blockID meter.Bytes32) (*block.Block, error) {
 
 // saveBestQC save the best qc
 func saveBestQC(w kv.Putter, qc *block.QuorumCert) error {
+	bestQCHeightGauge.Set(float64(qc.QCHeight))
 	return saveRLP(w, bestQCKey, qc)
 }
 

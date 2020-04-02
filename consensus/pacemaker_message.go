@@ -93,7 +93,7 @@ func (p *Pacemaker) BuildProposalMessage(height, round uint64, bnew *pmBlock, tc
 		Round:     int(round),
 		Sender:    crypto.FromECDSAPub(&p.csReactor.myPubKey),
 		Timestamp: time.Now(),
-		MsgType:   CONSENSUS_MSG_PROPOSAL_BLOCK,
+		MsgType:   PACEMAKER_MSG_PROPOSAL,
 
 		// MsgSubType: msgSubType,
 		EpochID: p.csReactor.curEpoch,
@@ -148,7 +148,7 @@ func (p *Pacemaker) BuildVoteForProposalMessage(proposalMsg *PMProposalMessage, 
 		Round:     ch.Round,
 		Sender:    crypto.FromECDSAPub(&p.csReactor.myPubKey),
 		Timestamp: time.Now(),
-		MsgType:   CONSENSUS_MSG_VOTE_FOR_PROPOSAL,
+		MsgType:   PACEMAKER_MSG_VOTE_FOR_PROPOSAL,
 
 		EpochID: p.csReactor.curEpoch,
 	}
@@ -183,7 +183,7 @@ func (p *Pacemaker) BuildNewViewMessage(nextHeight, nextRound uint64, qcHigh *pm
 		Round:     int(nextRound),
 		Sender:    crypto.FromECDSAPub(&p.csReactor.myPubKey),
 		Timestamp: time.Now(),
-		MsgType:   CONSENSUS_MSG_VOTE_FOR_PROPOSAL,
+		MsgType:   PACEMAKER_MSG_NEW_VIEW,
 
 		EpochID: p.csReactor.curEpoch,
 	}
@@ -239,7 +239,7 @@ func (p *Pacemaker) BuildQueryProposalMessage(height, round, epochID uint64, ret
 		Round:     0,
 		Sender:    crypto.FromECDSAPub(&p.csReactor.myPubKey),
 		Timestamp: time.Now(),
-		MsgType:   CONSENSUS_MSG_PACEMAKER_QUERY_PROPOSAL,
+		MsgType:   PACEMAKER_MSG_QUERY_PROPOSAL,
 
 		// MsgSubType: msgSubType,
 		EpochID: epochID,

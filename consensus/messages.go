@@ -1,6 +1,7 @@
 package consensus
 
 import (
+	"bytes"
 	"encoding/hex"
 	"fmt"
 	"strings"
@@ -11,17 +12,47 @@ import (
 	cmn "github.com/dfinlab/meter/libs/common"
 	"github.com/dfinlab/meter/meter"
 	"github.com/dfinlab/meter/types"
+	crypto "github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/rlp"
 )
 
-// new consensus
-// Messages
+// new consensus Messages
+
+const (
+	//Consensus Message Type
+	CONSENSUS_MSG_NEW_COMMITTEE      = byte(0x01)
+	CONSENSUS_MSG_ANNOUNCE_COMMITTEE = byte(0x02)
+	CONSENSUS_MSG_COMMIT_COMMITTEE   = byte(0x03)
+	CONSENSUS_MSG_NOTARY_ANNOUNCE    = byte(0x04)
+	// CONSENSUS_MSG_PROPOSAL_BLOCK              = byte(0x03)
+	// CONSENSUS_MSG_NOTARY_BLOCK                = byte(0x05)
+	// CONSENSUS_MSG_VOTE_FOR_PROPOSAL           = byte(0x06)
+	// CONSENSUS_MSG_VOTE_FOR_NOTARY             = byte(0x07)
+	// CONSENSUS_MSG_MOVE_NEW_ROUND              = byte(0x08)
+	PACEMAKER_MSG_PROPOSAL          = byte(0x10)
+	PACEMAKER_MSG_VOTE_FOR_PROPOSAL = byte(0x11)
+	PACEMAKER_MSG_NEW_VIEW          = byte(0x12)
+	PACEMAKER_MSG_QUERY_PROPOSAL    = byte(0x13)
+)
+
+var typeMap = map[string]byte{
+	"AnnounceCommittee": CONSENSUS_MSG_ANNOUNCE_COMMITTEE,
+	"CommitCommittee":   CONSENSUS_MSG_COMMIT_COMMITTEE,
+	"NotaryAnnounce":    CONSENSUS_MSG_NOTARY_ANNOUNCE,
+	"NewCommittee":      CONSENSUS_MSG_NEW_COMMITTEE,
+	"PMNewView":         PACEMAKER_MSG_NEW_VIEW,
+	"PMProposal":        PACEMAKER_MSG_PROPOSAL,
+	"PMVoteForProposal": PACEMAKER_MSG_VOTE_FOR_PROPOSAL,
+	"PMQueryProposal":   PACEMAKER_MSG_QUERY_PROPOSAL,
+}
 
 // ConsensusMessage is a message that can be sent and received on the ConsensusReactor
 type ConsensusMessage interface {
 	String() string
 	EpochID() uint64
 	MsgType() byte
+	Header() *ConsensusMsgCommonHeader
+	SigningHash() meter.Bytes32
 }
 
 func RegisterConsensusMessages(cdc *amino.Codec) {
@@ -64,6 +95,15 @@ func (cmh *ConsensusMsgCommonHeader) SetMsgSignature(sig []byte) error {
 	cpy := append([]byte(nil), sig...)
 	cmh.Signature = cpy
 	return nil
+}
+
+func (cmh *ConsensusMsgCommonHeader) verifySignature(msgHash meter.Bytes32) bool {
+	pub, err := crypto.SigToPub(msgHash[:], cmh.Signature)
+	if err != nil {
+		return false
+	}
+
+	return bytes.Equal(crypto.FromECDSAPub(pub), cmh.Sender)
 }
 
 // New Consensus
@@ -123,11 +163,12 @@ func (m *AnnounceCommitteeMessage) String() string {
 	return fmt.Sprintf("[AnnounceCommittee Height:%v Round:%v Epoch:%v Nonce:%v Size:%d KBlockHeight:%v PowBlockHeight:%v]",
 		header.Height, header.Round, header.EpochID, m.Nonce, m.CommitteeSize, m.KBlockHeight, m.POWBlockHeight)
 }
-
+func (m *AnnounceCommitteeMessage) Header() *ConsensusMsgCommonHeader {
+	return &m.CSMsgCommonHeader
+}
 func (m *AnnounceCommitteeMessage) EpochID() uint64 {
 	return m.CSMsgCommonHeader.EpochID
 }
-
 func (m *AnnounceCommitteeMessage) MsgType() byte {
 	return m.CSMsgCommonHeader.MsgType
 }
@@ -172,6 +213,9 @@ func (m *CommitCommitteeMessage) String() string {
 	header := m.CSMsgCommonHeader
 	return fmt.Sprintf("[CommitCommittee Height:%v Round:%v Epoch:%v Index:%d]",
 		header.Height, header.Round, header.EpochID, m.CommitterIndex)
+}
+func (m *CommitCommitteeMessage) Header() *ConsensusMsgCommonHeader {
+	return &m.CSMsgCommonHeader
 }
 
 func (m *CommitCommitteeMessage) EpochID() uint64 {
@@ -243,6 +287,9 @@ func (m *NotaryAnnounceMessage) String() string {
 	return fmt.Sprintf("[NotaryAnnounce Height:%v Round:%v Epoch:%v CommitteeSize:%d Members:%s]",
 		header.Height, header.Round, header.EpochID, m.CommitteeSize, strings.Join(s, ","))
 }
+func (m *NotaryAnnounceMessage) Header() *ConsensusMsgCommonHeader {
+	return &m.CSMsgCommonHeader
+}
 func (m *NotaryAnnounceMessage) EpochID() uint64 {
 	return m.CSMsgCommonHeader.EpochID
 }
@@ -295,7 +342,9 @@ func (m *NewCommitteeMessage) String() string {
 	return fmt.Sprintf("[NewCommitteeMessage Height:%v Round:%v NextEpochID:%v]",
 		m.CSMsgCommonHeader.Height, m.CSMsgCommonHeader.Round, m.NextEpochID)
 }
-
+func (m *NewCommitteeMessage) Header() *ConsensusMsgCommonHeader {
+	return &m.CSMsgCommonHeader
+}
 func (m *NewCommitteeMessage) EpochID() uint64 {
 	return m.CSMsgCommonHeader.EpochID
 }
@@ -357,7 +406,9 @@ func (m *PMProposalMessage) String() string {
 	return fmt.Sprintf("[PMProposal Height:%v, Round:%v, Parent:(Height:%v,Round:%v), TimeoutCert:%v]",
 		m.CSMsgCommonHeader.Height, m.CSMsgCommonHeader.Round, m.ParentHeight, m.ParentRound, m.TimeoutCert.String())
 }
-
+func (m *PMProposalMessage) Header() *ConsensusMsgCommonHeader {
+	return &m.CSMsgCommonHeader
+}
 func (m *PMProposalMessage) EpochID() uint64 {
 	return m.CSMsgCommonHeader.EpochID
 }
@@ -405,7 +456,9 @@ func (m *PMVoteForProposalMessage) String() string {
 	return fmt.Sprintf("[PMVoteForProposal Height:%v Round:%v MsgHash:%v]",
 		m.CSMsgCommonHeader.Height, m.CSMsgCommonHeader.Round, abbrMsgHash)
 }
-
+func (m *PMVoteForProposalMessage) Header() *ConsensusMsgCommonHeader {
+	return &m.CSMsgCommonHeader
+}
 func (m *PMVoteForProposalMessage) EpochID() uint64 {
 	return m.CSMsgCommonHeader.EpochID
 }
@@ -467,7 +520,9 @@ func (m *PMNewViewMessage) String() string {
 	return fmt.Sprintf("[PMNewView Reason:%s NextHeight:%v NextRound:%v QC(Height:%d,Round:%d)]",
 		m.Reason.String(), m.CSMsgCommonHeader.Height, m.CSMsgCommonHeader.Round, m.QCHeight, m.QCRound)
 }
-
+func (m *PMNewViewMessage) Header() *ConsensusMsgCommonHeader {
+	return &m.CSMsgCommonHeader
+}
 func (m *PMNewViewMessage) EpochID() uint64 {
 	return m.CSMsgCommonHeader.EpochID
 }
@@ -509,10 +564,46 @@ func (m *PMQueryProposalMessage) SigningHash() (hash meter.Bytes32) {
 func (m *PMQueryProposalMessage) String() string {
 	return fmt.Sprintf("[PMQueryProposal FromHeight:%v ToHeight:%v QueryRound:%v]", m.FromHeight, m.ToHeight, m.Round)
 }
-
+func (m *PMQueryProposalMessage) Header() *ConsensusMsgCommonHeader {
+	return &m.CSMsgCommonHeader
+}
 func (m *PMQueryProposalMessage) EpochID() uint64 {
 	return m.CSMsgCommonHeader.EpochID
 }
 func (m *PMQueryProposalMessage) MsgType() byte {
 	return m.CSMsgCommonHeader.MsgType
+}
+
+func getConcreteName(msg ConsensusMessage) string {
+	switch msg.(type) {
+	// committee messages
+	case *AnnounceCommitteeMessage:
+		return "AnnounceCommittee"
+	case *CommitCommitteeMessage:
+		return "CommitCommittee"
+	case *NotaryAnnounceMessage:
+		return "NotaryAnnounce"
+	case *NewCommitteeMessage:
+		return "NewCommittee"
+
+	// pacemaker messages
+	case *PMProposalMessage:
+		return "PMProposal"
+	case *PMVoteForProposalMessage:
+		return "PMVoteForProposal"
+	case *PMNewViewMessage:
+		return "PMNewView"
+	}
+	return ""
+}
+
+func VerifyMsgType(m ConsensusMessage) bool {
+	typeName := getConcreteName(m)
+	expectMsgType := typeMap[typeName]
+	return expectMsgType == m.Header().MsgType
+}
+
+func VerifySignature(m ConsensusMessage) bool {
+	msgHash := m.SigningHash()
+	return m.Header().verifySignature(msgHash)
 }

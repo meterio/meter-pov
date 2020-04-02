@@ -2,29 +2,20 @@ package consensus
 
 import (
 	"encoding/hex"
-	"encoding/json"
 	"errors"
 	"fmt"
-	"net"
+	"io/ioutil"
 	"net/http"
-	"strconv"
-	"strings"
 	"time"
 
 	"github.com/dfinlab/meter/block"
 	"github.com/dfinlab/meter/tx"
 	"github.com/dfinlab/meter/txpool"
-	"github.com/dfinlab/meter/types"
 )
 
 const (
-	MSG_KEEP_HEIGHT = 40
+	MSG_KEEP_HEIGHT = 80
 )
-
-type receivedConsensusMessage struct {
-	msg  ConsensusMessage
-	from types.NetAddress
-}
 
 // check a pmBlock is the extension of b_locked, max 10 hops
 func (p *Pacemaker) IsExtendedFromBLocked(b *pmBlock) bool {
@@ -56,94 +47,51 @@ func (p *Pacemaker) AddressBlock(height uint64, round uint64) *pmBlock {
 
 func (p *Pacemaker) receivePacemakerMsg(w http.ResponseWriter, r *http.Request) {
 	defer r.Body.Close()
-	var params map[string]string
-	if err := json.NewDecoder(r.Body).Decode(&params); err != nil {
-		p.logger.Error("decode received messsage failed", "error", err)
-		respondWithJson(w, http.StatusBadRequest, "Invalid request payload")
+
+	data, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		p.logger.Error("Unrecognized payload", "err", err)
 		return
 	}
-	peerIP := net.ParseIP(params["peer_ip"])
-	respondWithJson(w, http.StatusOK, map[string]string{"result": "success"})
-	peerPort, err := strconv.ParseInt(params["peer_port"], 10, 16)
+	mi, err := p.csReactor.UnmarshalMsg(data)
 	if err != nil {
-		peerPort = 0
+		p.logger.Error("Unmarshal error", "err", err)
+		return
 	}
 
-	msgByteSlice, _ := hex.DecodeString(params["message"])
-	msg, err := decodeMsg(msgByteSlice)
-	if err != nil {
-		p.logger.Error("message decode error", "err", err)
-		panic("message decode error")
+	msg, msgHash, peer := mi.Msg, mi.MsgHash, mi.Peer
+	typeName := getConcreteName(msg)
+	msgHashHex := hex.EncodeToString(msgHash[:])[:MsgHashSize]
+
+	// update msg cache to avoid duplicate
+	existed := p.msgCache.Contains(uint64(msg.Header().Height), msgHash)
+	if existed {
+		p.logger.Info("duplicate "+typeName+" , dropped ...", "msgHash", msgHashHex)
+		return
+	}
+	p.msgCache.Add(uint64(msg.Header().Height), msgHash)
+
+	fromMyself := peer.netAddr.IP.String() == p.csReactor.GetMyNetAddr().IP.String()
+	if fromMyself {
+		p.logger.Info(fmt.Sprintf("Received from myself: %s", msg.String()), "from", p.csReactor.GetMyName(), "ip", peer.netAddr.IP.String(), "msgHash", msgHashHex)
+		fromMyself = true
 	} else {
-		typeName := getConcreteName(msg)
-		var fromMyself bool
+		p.logger.Info(fmt.Sprintf("Received from peer: %s", msg.String()), "peer", peer.name, "ip", peer.netAddr.IP.String(), "msgHash", msgHashHex)
+	}
 
-		if _, ok := params["magic"]; !ok {
-			p.logger.Debug("ignored message due to missing magic", "expect", hex.EncodeToString(p.csReactor.magic[:]), "msg", typeName, "ip", peerIP.String())
-			return
-		}
-		if strings.Compare(params["magic"], hex.EncodeToString(p.csReactor.magic[:])) != 0 {
-			p.logger.Debug("ignored message due to magic mismatch", "expect", hex.EncodeToString(p.csReactor.magic[:]), "actual", params["magic"], "msg", typeName, "ip", peerIP.String())
-			return
-		}
+	p.pacemakerMsgCh <- *mi
 
-		if msg.EpochID() < p.csReactor.curEpoch {
-			p.logger.Info("ignored message due to epoch mismatch", "msg epoch", msg.EpochID(), "my epoch", p.csReactor.curEpoch, "msg", msg.String())
-			return
-		}
-		// check replay first, also include the proposal myself
-		var height uint64
-		var round int
-		if typeName == "PMProposalMessage" {
-			proposal := msg.(*PMProposalMessage)
-			height = uint64(proposal.CSMsgCommonHeader.Height)
-			round = proposal.CSMsgCommonHeader.Round
-
-			in, err := p.msgRelayInfo.CheckandAdd(&msgByteSlice, height, round)
-			if err != nil {
-				p.logger.Info("fail to add PMProposal, dropped ...", "ip", peerIP.String())
-				return
-			}
-			if in == true {
-				p.logger.Info("duplicate PMProposal, dropped ...", "height", height, "round", round, "ip", peerIP.String())
-				return
-			}
-			// p.logger.Info("precheck PMProposal, added to info map", "height", height, "round", round, "from", peerIP.String())
-		}
-
-		if peerIP.String() == p.csReactor.GetMyNetAddr().IP.String() {
-			p.logger.Info(fmt.Sprintf("Received from myself: %s", msg.String()), "peer", p.csReactor.GetMyName(), "ip", peerIP.String())
-			fromMyself = true
-		} else {
-			name := p.csReactor.GetCommitteeMemberNameByIP(peerIP)
-			p.logger.Info(fmt.Sprintf("Received from peer: %s", msg.String()), "peer", name, "ip", peerIP.String())
-			fromMyself = false
-		}
-
-		from := types.NetAddress{IP: peerIP, Port: uint16(peerPort)}
-		p.pacemakerMsgCh <- receivedConsensusMessage{msg, from}
-
-		// take the action in the end
-		// now relay this message if proposal
-		if fromMyself == false && typeName == "PMProposalMessage" {
-			peers, _ := p.GetRelayPeers(round)
-			p.logger.Info("Now, relay this proposal...", "height", height, "round", round)
-			for _, peer := range peers {
-				p.logger.Debug("Now, relay this proposal...", "peer", peer.name, "ip", peer.String(), "height", height, "round", round)
-				if peer.netAddr.IP.String() == p.csReactor.GetMyNetAddr().IP.String() {
-					p.logger.Info("relay to myself, ignore ...")
-					continue
-				}
-				go func(cpeer *ConsensusPeer, from types.NetAddress, msgType string, raw []byte) {
-					cpeer.sendData(from, typeName, raw)
-				}(peer, from, typeName, msgByteSlice)
-			}
-
-			lowest := p.msgRelayInfo.GetLowestHeight()
-			if (height > lowest) && (height-lowest) >= 3*MSG_KEEP_HEIGHT {
-				go p.msgRelayInfo.CleanUpTo(height - MSG_KEEP_HEIGHT)
-			}
-		}
+	// relay the message if these two conditions are met:
+	// 1. the original message is not sent by myself
+	// 2. it's a proposal message
+	if fromMyself == false && typeName == "PMProposalMessage" {
+		height := msg.Header().Height
+		round := msg.Header().Round
+		peers, _ := p.GetRelayPeers(round)
+		typeName := getConcreteName(mi.Msg)
+		p.logger.Info("Now, relay this "+typeName+"...", "height", height, "round", round, "msgHash", msgHashHex)
+		p.asyncSendPacemakerMsg(mi.Msg, peers...)
+		p.msgCache.CleanTo(uint64(height - MSG_KEEP_HEIGHT))
 	}
 }
 
@@ -295,13 +243,6 @@ func (p *Pacemaker) getConsensusPeerByPubkey(pubKey []byte) *ConsensusPeer {
 // Message Delivery Utilities
 // ------------------------------------------------------
 func (p *Pacemaker) SendConsensusMessage(round uint64, msg ConsensusMessage, copyMyself bool) bool {
-	typeName := getConcreteName(msg)
-	rawMsg := cdc.MustMarshalBinaryBare(msg)
-	if len(rawMsg) > maxMsgSize {
-		p.logger.Error("Msg exceeds max size", "rawMsg=", len(rawMsg), "maxMsgSize=", maxMsgSize)
-		return false
-	}
-
 	myNetAddr := p.csReactor.GetMyNetAddr()
 	myName := p.csReactor.GetMyName()
 	myself := newConsensusPeer(myName, myNetAddr.IP, myNetAddr.Port, p.csReactor.magic)
@@ -322,44 +263,26 @@ func (p *Pacemaker) SendConsensusMessage(round uint64, msg ConsensusMessage, cop
 	// send consensus message to myself first (except for PMNewViewMessage)
 	if copyMyself && myself != nil {
 		p.logger.Debug(fmt.Sprintf("Sending to myself: %v", msg.String()), "to", myName, "ip", myNetAddr.IP.String())
-		myself.sendData(myNetAddr, typeName, rawMsg)
+		p.asyncSendPacemakerMsg(msg, myself)
 	}
 
-	// broadcast consensus message to peers
-	for _, peer := range peers {
-		hint := fmt.Sprintf("Sending to peer: %s", msg.String())
-		if peer.netAddr.IP.String() == myNetAddr.IP.String() {
-			hint = fmt.Sprintf("Sending to myself: %s", msg.String())
-		}
-		peerName := p.csReactor.GetCommitteeMemberNameByIP(peer.netAddr.IP)
-		p.logger.Info(hint, "peer", peerName, "ip", peer.netAddr.IP.String())
-		go func(cpeer *ConsensusPeer, from types.NetAddress, msgType string, raw []byte) {
-			cpeer.sendData(from, msgType, raw)
-		}(peer, myNetAddr, typeName, rawMsg)
-	}
+	p.asyncSendPacemakerMsg(msg, peers...)
 	return true
 }
 
-func (p *Pacemaker) SendMessageToPeers(msg ConsensusMessage, peers []*ConsensusPeer) bool {
-	typeName := getConcreteName(msg)
-	rawMsg := cdc.MustMarshalBinaryBare(msg)
-	if len(rawMsg) > maxMsgSize {
-		p.logger.Error("Msg exceeds max size", "rawMsg=", len(rawMsg), "maxMsgSize=", maxMsgSize)
+func (p *Pacemaker) asyncSendPacemakerMsg(msg ConsensusMessage, peers ...*ConsensusPeer) bool {
+	data, err := p.csReactor.MarshalMsg(&msg)
+	if err != nil {
+		fmt.Println("error marshaling message", err)
 		return false
 	}
+	msgSummary := msg.String()
 
-	myNetAddr := p.csReactor.curCommittee.Validators[p.csReactor.curCommitteeIndex].NetAddr
 	// broadcast consensus message to peers
 	for _, peer := range peers {
-		hint := fmt.Sprintf("Sending to peer: %v", msg.String())
-		if peer.netAddr.IP.String() == myNetAddr.IP.String() {
-			hint = fmt.Sprintf("Sending to myself: %v", msg.String())
-		}
-		peerName := p.csReactor.GetCommitteeMemberNameByIP(peer.netAddr.IP)
-		p.logger.Debug(hint, "peer", peerName, "ip", peer.netAddr.IP.String())
-		go func(cpeer *ConsensusPeer, from types.NetAddress, msgType string, raw []byte) {
-			cpeer.sendData(from, msgType, raw)
-		}(peer, myNetAddr, typeName, rawMsg)
+		go func(peer *ConsensusPeer, data []byte, msgSummary string) {
+			peer.sendPacemakerMsg(data, msgSummary)
+		}(peer, data, msgSummary)
 	}
 	return true
 }
@@ -418,50 +341,47 @@ func (p *Pacemaker) verifyTimeoutCert(tc *PMTimeoutCert, height, round uint64) b
 
 // for proposals which can not be addressed parent and QC node should
 // put it to pending list and query the parent node
-func (p *Pacemaker) sendQueryProposalMsg(queryHeight, queryRound, EpochID uint64, addr types.NetAddress) error {
+func (p *Pacemaker) sendQueryProposalMsg(queryHeight, queryRound, EpochID uint64, peer *ConsensusPeer) error {
 	// put this proposal to pending list, and sent out query
 	myNetAddr := p.csReactor.curCommittee.Validators[p.csReactor.curCommitteeIndex].NetAddr
 
 	// sometimes we find out addr is my self, protection is added here
-	if (myNetAddr.IP.Equal(addr.IP) == true) && (addr.Port == myNetAddr.Port) {
+	if myNetAddr.IP.Equal(peer.netAddr.IP) == true {
 		for _, cm := range p.csReactor.curActualCommittee {
 			if myNetAddr.IP.Equal(cm.NetAddr.IP) == false {
 				p.logger.Warn("Query PMProposal with new node", "NetAddr", cm.NetAddr)
-				addr = cm.NetAddr
+				peer = newConsensusPeer(cm.Name, cm.NetAddr.IP, cm.NetAddr.Port, p.csReactor.magic)
 				break
 			}
 		}
 	}
-	name := p.csReactor.GetCommitteeMemberNameByIP(addr.IP)
-	peers := []*ConsensusPeer{newConsensusPeer(name, addr.IP, addr.Port, p.csReactor.magic)}
+	peers := []*ConsensusPeer{peer}
 
 	queryMsg, err := p.BuildQueryProposalMessage(queryHeight, queryRound, EpochID, myNetAddr)
 	if err != nil {
 		p.logger.Warn("failed to generate PMQueryProposal message", "err", err)
 		return errors.New("failed to generate PMQueryProposal message")
 	}
-	p.SendMessageToPeers(queryMsg, peers)
+	p.asyncSendPacemakerMsg(queryMsg, peers...)
 	return nil
 }
 
-func (p *Pacemaker) pendingProposal(queryHeight, queryRound uint64, proposalMsg *PMProposalMessage, addr types.NetAddress) error {
-	epochID := proposalMsg.CSMsgCommonHeader.EpochID
-	if err := p.sendQueryProposalMsg(queryHeight, queryRound, epochID, addr); err != nil {
+func (p *Pacemaker) pendingProposal(queryHeight, queryRound, epochID uint64, mi *consensusMsgInfo) error {
+	if err := p.sendQueryProposalMsg(queryHeight, queryRound, epochID, mi.Peer); err != nil {
 		p.logger.Warn("send PMQueryProposal message failed", "err", err)
 	}
 
-	p.pendingList.Add(proposalMsg, addr)
+	p.pendingList.Add(mi)
 	return nil
 }
 
 // put it to pending list and query the parent node
-func (p *Pacemaker) pendingNewView(queryHeight, queryRound uint64, newViewMsg *PMNewViewMessage, addr types.NetAddress) error {
-	epochID := newViewMsg.CSMsgCommonHeader.EpochID
-	if err := p.sendQueryProposalMsg(queryHeight, queryRound, epochID, addr); err != nil {
+func (p *Pacemaker) pendingNewView(queryHeight, queryRound, epochID uint64, mi *consensusMsgInfo) error {
+	if err := p.sendQueryProposalMsg(queryHeight, queryRound, epochID, mi.Peer); err != nil {
 		p.logger.Warn("send PMQueryProposal message failed", "err", err)
 	}
 
-	p.pendingList.Add(newViewMsg, addr)
+	p.pendingList.Add(mi)
 	return nil
 }
 

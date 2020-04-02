@@ -40,7 +40,7 @@ type ConsensusValidator struct {
 func (cv *ConsensusValidator) SendMsgToPeer(msg *ConsensusMessage, netAddr types.NetAddress) bool {
 	name := cv.csReactor.GetCommitteeMemberNameByIP(netAddr.IP)
 	csPeer := newConsensusPeer(name, netAddr.IP, netAddr.Port, cv.csReactor.magic)
-	return cv.csReactor.SendMsgToPeers([]*ConsensusPeer{csPeer}, msg)
+	return cv.csReactor.asyncSendCommitteeMsg(msg, csPeer)
 }
 
 //validator receives the initiated messages
@@ -108,16 +108,6 @@ func (cv *ConsensusValidator) ProcessAnnounceCommittee(announceMsg *AnnounceComm
 	ch := announceMsg.CSMsgCommonHeader
 	if ch.Height != cv.csReactor.curHeight {
 		cv.csReactor.logger.Error("Height mismatch!", "curHeight", cv.csReactor.curHeight, "incomingHeight", ch.Height)
-		return false
-	}
-
-	if ch.MsgType != CONSENSUS_MSG_ANNOUNCE_COMMITTEE {
-		cv.csReactor.logger.Error("MsgType is not CONSENSUS_MSG_ANNOUNCE_COMMITTEE")
-		return false
-	}
-
-	if cv.csReactor.ValidateCMheaderSig(&ch, announceMsg.SigningHash().Bytes()) == false {
-		cv.csReactor.logger.Error("Signature validate failed")
 		return false
 	}
 
@@ -205,19 +195,9 @@ func (cv *ConsensusValidator) ProcessNotaryAnnounceMessage(notaryMsg *NotaryAnno
 		return false
 	}
 
-	if ch.MsgType != CONSENSUS_MSG_NOTARY_ANNOUNCE {
-		cv.csReactor.logger.Error("MsgType is not CONSENSUS_MSG_NOTARY_ANNOUNCE")
-		return false
-	}
-
 	// valid the senderindex is leader from the publicKey
 	if bytes.Equal(ch.Sender, notaryMsg.AnnouncerID) == false {
 		cv.csReactor.logger.Error("Proposal sender and proposalID mismatch")
-		return false
-	}
-
-	if cv.csReactor.ValidateCMheaderSig(&ch, notaryMsg.SigningHash().Bytes()) == false {
-		cv.csReactor.logger.Error("Signature validate failed")
 		return false
 	}
 

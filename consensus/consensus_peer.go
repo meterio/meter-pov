@@ -2,8 +2,8 @@ package consensus
 
 import (
 	"bytes"
+	sha256 "crypto/sha256"
 	"encoding/hex"
-	"encoding/json"
 	"fmt"
 	"net"
 	"net/http"
@@ -28,43 +28,42 @@ func newConsensusPeer(name string, ip net.IP, port uint16, magic [4]byte) *Conse
 			IP:   ip,
 			Port: port,
 		},
-		logger: log15.New("pkg", "peer-"+ip.String()),
+		logger: log15.New("pkg", "peer", "peer", name, "ip", ip.String()),
 		magic:  magic,
 	}
 }
 
-// TODO: remove srcNetAddr from input parameter
-func (peer *ConsensusPeer) sendData(srcNetAddr types.NetAddress, typeName string, rawMsg []byte) error {
-	magicHex := hex.EncodeToString(peer.magic[:])
-	payload := map[string]interface{}{
-		"message": hex.EncodeToString(rawMsg),
-		"peer_ip": srcNetAddr.IP.String(),
-		//"peer_id":   string(myNetAddr.ID),
-		"peer_port": string(srcNetAddr.Port),
-		"magic":     magicHex,
-	}
-
-	jsonStr, err := json.Marshal(payload)
-	if err != nil {
-		fmt.Errorf("Failed to marshal message dict to json string")
-		return err
-	}
-
+func (peer *ConsensusPeer) sendPacemakerMsg(rawData []byte, msgSummary string) error {
 	// full size message may taker longer time (> 2s) to complete the tranport.
 	var netClient = &http.Client{
 		Timeout: time.Second * 4, // 2
 	}
 	url := "http://" + peer.netAddr.IP.String() + ":8670/pacemaker"
-	// peer.logger.Debug("Send", "data", string(jsonStr), "to", url)
-	_, err = netClient.Post(url, "application/json", bytes.NewBuffer(jsonStr))
+	_, err := netClient.Post(url, "application/json", bytes.NewBuffer(rawData))
 	if err != nil {
-		peer.logger.Error("Failed to send message to peer", "peer", peer.name, "ip", peer.String(), "err", err)
+		peer.logger.Error("Failed to send message to peer", "err", err)
 		return err
 	}
-	// TODO: check response to verify this action
-	// peer.logger.Info("Sent consensus message to peer",  "size", len(rawMsg))
+	msgHash := sha256.Sum256(rawData)
+	msgHashHex := hex.EncodeToString(msgHash[:])[:MsgHashSize]
+	peer.logger.Info(fmt.Sprintf("Sent to peer: %s", msgSummary), "size", len(rawData), "msgHash", msgHashHex)
 	return nil
+}
 
+func (peer *ConsensusPeer) sendCommitteeMsg(rawData []byte, msgSummary string) error {
+	var netClient = &http.Client{
+		Timeout: time.Second * 4,
+	}
+	url := "http://" + peer.netAddr.IP.String() + ":8670/committee"
+	_, err := netClient.Post(url, "application/json", bytes.NewBuffer(rawData))
+	if err != nil {
+		peer.logger.Error("Failed to send message to peer", "err", err)
+		return err
+	}
+	msgHash := sha256.Sum256(rawData)
+	msgHashHex := hex.EncodeToString(msgHash[:])[:MsgHashSize]
+	peer.logger.Info(fmt.Sprintf("Sent to peer: %s", msgSummary), "size", len(rawData), "msgHash", msgHashHex)
+	return nil
 }
 
 func (cp *ConsensusPeer) FullString() string {

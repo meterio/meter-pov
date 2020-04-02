@@ -358,7 +358,7 @@ func (c *Chain) AddBlock(newBlock *block.Block, receipts tx.Receipts, finalize b
 
 				c.leafBlock = newBlock
 			}
-			err := c.UpdateBestQC()
+			_, err := c.UpdateBestQC()
 			if err != nil {
 				fmt.Println("Error during update QC: ", err)
 			}
@@ -783,55 +783,53 @@ func (c *Chain) UpdateLeafBlock() error {
 	}
 	return nil
 }
-func (c *Chain) UpdateBestQC() error {
-	// log.Info("update BestQC", "bestQC", c.bestQC.CompactString(), "bestBlock", c.bestBlock.Header().Number())
+func (c *Chain) UpdateBestQC() (bool, error) {
 	if c.leafBlock.Header().ID().String() == c.bestBlock.Header().ID().String() {
-		// when leaf is the same with best
-		// usually this is during initialization (before pacemaker)
-		// or after pacemaker
+		// when leaf is the same with best, usually this is during initialization (before pacemaker) or after pacemaker
 		if c.bestQCCandidate != nil && c.bestQCCandidate.QCHeight > c.bestQC.QCHeight && c.bestQCCandidate.QCHeight <= uint64(c.bestBlock.Header().Number()) {
+			// bestQC < QCCandidate <= bestBlock, update bestQC with QCCandidate
 			c.bestQC = c.bestQCCandidate
-			bestQCHeightGauge.Set(float64(c.bestQC.QCHeight))
 			c.bestQCCandidate = nil
 			log.Info("Move BestQC by QCCandidate when leaf=best", "bestQC", c.bestQC.CompactString())
+		} else if c.bestQC.QCHeight <= c.bestBlock.QC.QCHeight {
+			// bestQC < bestBlock
+			// bestBlock synced via gossip, update bestQC with it
+			c.bestQC = c.bestBlock.QC
+			log.Info("Move BestQC by BestBlock when leaf=best ", "bestQC", c.bestQC.CompactString())
 		} else {
-			if c.bestQC.QCHeight <= c.bestBlock.QC.QCHeight {
-				c.bestQC = c.bestBlock.QC
-				bestQCHeightGauge.Set(float64(c.bestQC.QCHeight))
-				log.Info("Move BestQC by BestBlock when leaf=best ", "bestQC", c.bestQC.CompactString())
-			}
+			return false, nil
 		}
-		return saveBestQC(c.kv, c.bestQC)
+		return true, saveBestQC(c.kv, c.bestQC)
 	}
-	if c.bestQCCandidate != nil && c.bestQCCandidate.QCHeight == uint64(c.bestBlock.Header().Number()) {
-		if c.bestQCCandidate.QCHeight > c.bestQC.QCHeight {
-			c.bestQC = c.bestQCCandidate
-			bestQCHeightGauge.Set(float64(c.bestQC.QCHeight))
-			c.bestQCCandidate = nil
-			log.Info("Move BestQC by QCCandidate", "bestQC", c.bestQC.CompactString())
-			return saveBestQC(c.kv, c.bestQC)
-		}
+	if c.bestQCCandidate != nil && c.bestQCCandidate.QCHeight == uint64(c.bestBlock.Header().Number()) &&
+		c.bestQCCandidate.QCHeight > c.bestQC.QCHeight {
+		// bestQC < QCCandidate == bestBlock
+		c.bestQC = c.bestQCCandidate
+		c.bestQCCandidate = nil
+		log.Info("Move BestQC by QCCandidate", "bestQC", c.bestQC.CompactString())
+		return true, saveBestQC(c.kv, c.bestQC)
 	}
 	id, err := c.ancestorTrie.GetAncestor(c.leafBlock.Header().ID(), c.bestBlock.Header().Number()+1)
 	if err != nil {
-		return err
+		return false, err
 	}
 	raw, err := loadBlockRaw(c.kv, id)
 	if err != nil {
-		return err
+		return false, err
 	}
 	blk, err := raw.DecodeBlockBody()
 	if err != nil {
-		return err
+		return false, err
 	}
 	if blk.Header().ParentID().String() != c.bestBlock.Header().ID().String() {
-		return errors.New("parent mismatch ")
+		return false, errors.New("parent mismatch ")
 	}
-	c.bestQC = blk.QC
-	bestQCHeightGauge.Set(float64(c.bestQC.QCHeight))
-	log.Info("Move BestQC", "bestQC", c.bestQC.CompactString())
-
-	return saveBestQC(c.kv, c.bestQC)
+	if c.bestQC.QCHeight != blk.QC.QCHeight && c.bestQC.QCRound != blk.QC.QCRound {
+		c.bestQC = blk.QC
+		log.Info("Move BestQC", "bestQC", c.bestQC.CompactString())
+		return true, saveBestQC(c.kv, c.bestQC)
+	}
+	return false, nil
 }
 
 func (c *Chain) SetBestQCCandidate(qc *block.QuorumCert) bool {
@@ -861,7 +859,7 @@ func (c *Chain) GetBestQCCandidate() *block.QuorumCert {
 	return c.bestQCCandidate
 }
 
-func (c *Chain) UpdateBestQCWithChainLock() error {
+func (c *Chain) UpdateBestQCWithChainLock() (bool, error) {
 	c.rw.Lock()
 	defer c.rw.Unlock()
 	return c.UpdateBestQC()

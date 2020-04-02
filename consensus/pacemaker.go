@@ -10,7 +10,6 @@ import (
 
 	"github.com/dfinlab/meter/block"
 	"github.com/dfinlab/meter/co"
-	types "github.com/dfinlab/meter/types"
 	"github.com/inconshreveable/log15"
 )
 
@@ -45,7 +44,7 @@ type Pacemaker struct {
 
 	startHeight uint64
 
-	pacemakerMsgCh chan receivedConsensusMessage
+	pacemakerMsgCh chan consensusMsgInfo
 	roundTimeoutCh chan PMRoundTimeoutInfo
 	stopCh         chan *PMStopInfo
 	beatCh         chan *PMBeatInfo
@@ -57,13 +56,14 @@ type Pacemaker struct {
 	timeoutCert        *PMTimeoutCert
 	timeoutCounter     uint64
 
-	pendingList  *PendingList
-	msgRelayInfo *PMProposalInfo
+	pendingList *PendingList
 
 	myActualCommitteeIndex int //record my index in actualcommittee
 	minMBlocks             uint64
 	goes                   co.Goes
 	stopped                bool
+
+	msgCache *MsgCache
 }
 
 func NewPaceMaker(conR *ConsensusReactor) *Pacemaker {
@@ -71,16 +71,17 @@ func NewPaceMaker(conR *ConsensusReactor) *Pacemaker {
 		csReactor: conR,
 		logger:    log15.New("pkg", "pacemaker"),
 
-		pacemakerMsgCh: make(chan receivedConsensusMessage, 128),
+		pacemakerMsgCh: make(chan consensusMsgInfo, 128),
 		stopCh:         make(chan *PMStopInfo, 2),
 		beatCh:         make(chan *PMBeatInfo, 2),
 		roundTimeoutCh: make(chan PMRoundTimeoutInfo, 2),
 		roundTimer:     nil,
 		proposalMap:    make(map[uint64]*pmBlock, 1000), // TODO:better way?
 		pendingList:    NewPendingList(),
-		msgRelayInfo:   NewPMProposalInfo(),
 		timeoutCounter: 0,
 		stopped:        false,
+
+		msgCache: NewMsgCache(256),
 	}
 	p.timeoutCertManager = newPMTimeoutCertManager(p)
 	// p.stopCleanup()
@@ -251,7 +252,8 @@ func (p *Pacemaker) OnPreCommitBlock(b *pmBlock) error {
 	return nil
 }
 
-func (p *Pacemaker) OnReceiveProposal(proposalMsg *PMProposalMessage, from types.NetAddress) error {
+func (p *Pacemaker) OnReceiveProposal(mi *consensusMsgInfo) error {
+	proposalMsg, _ := mi.Msg.(*PMProposalMessage), mi.Peer
 	msgHeader := proposalMsg.CSMsgCommonHeader
 	height := uint64(msgHeader.Height)
 	round := uint64(msgHeader.Round)
@@ -282,7 +284,7 @@ func (p *Pacemaker) OnReceiveProposal(proposalMsg *PMProposalMessage, from types
 	parent := p.AddressBlock(proposalMsg.ParentHeight, proposalMsg.ParentRound)
 	if parent == nil {
 		// put this proposal to pending list, and sent out query
-		if err := p.pendingProposal(proposalMsg.ParentHeight, proposalMsg.ParentRound, proposalMsg, from); err != nil {
+		if err := p.pendingProposal(proposalMsg.ParentHeight, proposalMsg.ParentRound, proposalMsg.CSMsgCommonHeader.EpochID, mi); err != nil {
 			p.logger.Error("handle pending proposoal failed", "error", err)
 		}
 		return errors.New("can not address parent")
@@ -295,7 +297,7 @@ func (p *Pacemaker) OnReceiveProposal(proposalMsg *PMProposalMessage, from types
 		p.logger.Warn("OnReceiveProposal: can not address qcNode")
 
 		// put this proposal to pending list, and sent out query
-		if err := p.pendingProposal(qc.QCHeight, qc.QCRound, proposalMsg, from); err != nil {
+		if err := p.pendingProposal(qc.QCHeight, qc.QCRound, proposalMsg.CSMsgCommonHeader.EpochID, mi); err != nil {
 			p.logger.Error("handle pending proposoal failed", "error", err)
 		}
 		return errors.New("can not address qcNode")
@@ -313,7 +315,7 @@ func (p *Pacemaker) OnReceiveProposal(proposalMsg *PMProposalMessage, from types
 		// if this block has QC, The real one need to be replaced
 		// anyway, get the new one.
 		// put this proposal to pending list, and sent out query
-		if err := p.pendingProposal(qc.QCHeight, qc.QCRound, proposalMsg, from); err != nil {
+		if err := p.pendingProposal(qc.QCHeight, qc.QCRound, proposalMsg.CSMsgCommonHeader.EpochID, mi); err != nil {
 			p.logger.Error("handle pending proposoal failed", "error", err)
 		}
 		return errors.New("qcNode doesn't match qc from proposal, potential fork ")
@@ -372,7 +374,8 @@ func (p *Pacemaker) OnReceiveProposal(proposalMsg *PMProposalMessage, from types
 	return nil
 }
 
-func (p *Pacemaker) OnReceiveVote(voteMsg *PMVoteForProposalMessage) error {
+func (p *Pacemaker) OnReceiveVote(mi *consensusMsgInfo) error {
+	voteMsg := mi.Msg.(*PMVoteForProposalMessage)
 	msgHeader := voteMsg.CSMsgCommonHeader
 
 	height := uint64(msgHeader.Height)
@@ -562,7 +565,8 @@ func (p *Pacemaker) OnNextSyncView(nextHeight, nextRound uint64, reason NewViewR
 	return nil
 }
 
-func (p *Pacemaker) OnReceiveNewView(newViewMsg *PMNewViewMessage, from types.NetAddress) error {
+func (p *Pacemaker) OnReceiveNewView(mi *consensusMsgInfo) error {
+	newViewMsg, peer := mi.Msg.(*PMNewViewMessage), mi.Peer
 	header := newViewMsg.CSMsgCommonHeader
 
 	qc := block.QuorumCert{}
@@ -582,7 +586,7 @@ func (p *Pacemaker) OnReceiveNewView(newViewMsg *PMNewViewMessage, from types.Ne
 	if qcNode == nil {
 		p.logger.Error("can not address qcNode", "err", err)
 		// put this newView to pending list, and sent out query
-		if err := p.pendingNewView(qc.QCHeight, qc.QCRound, newViewMsg, from); err != nil {
+		if err := p.pendingNewView(qc.QCHeight, qc.QCRound, newViewMsg.CSMsgCommonHeader.EpochID, mi); err != nil {
 			p.logger.Error("handle pending newViewMsg failed", "error", err)
 		}
 		return nil
@@ -600,7 +604,7 @@ func (p *Pacemaker) OnReceiveNewView(newViewMsg *PMNewViewMessage, from types.Ne
 		// if this block has QC, the real one need to be replaced
 		// anyway, get the new one.
 		// put this newView to pending list, and sent out query
-		if err := p.pendingNewView(qc.QCHeight, qc.QCRound, newViewMsg, from); err != nil {
+		if err := p.pendingNewView(qc.QCHeight, qc.QCRound, newViewMsg.CSMsgCommonHeader.EpochID, mi); err != nil {
 			p.logger.Error("handle pending newViewMsg failed", "error", err)
 		}
 		return nil
@@ -625,7 +629,7 @@ func (p *Pacemaker) OnReceiveNewView(newViewMsg *PMNewViewMessage, from types.Ne
 		// if I don't have the proposal at specified height, query my peer
 		if _, ok := p.proposalMap[qcHeight]; ok != true {
 			p.logger.Info("Send PMQueryProposal", "height", qcHeight, "round", qcRound, "epoch", qcEpoch)
-			if err := p.sendQueryProposalMsg(qcHeight, qcRound, qcEpoch, from); err != nil {
+			if err := p.sendQueryProposalMsg(qcHeight, qcRound, qcEpoch, peer); err != nil {
 				p.logger.Warn("send PMQueryProposal message failed", "err", err)
 			}
 		}
@@ -633,8 +637,7 @@ func (p *Pacemaker) OnReceiveNewView(newViewMsg *PMNewViewMessage, from types.Ne
 		// if peer's height is lower than me, forward all available proposals to fill the gap
 		if qcHeight < p.lastVotingHeight {
 			// forward missing proposals to peers who just sent new view message with lower expected height
-			name := p.csReactor.GetCommitteeMemberNameByIP(from.IP)
-			peers := []*ConsensusPeer{newConsensusPeer(name, from.IP, 8670, p.csReactor.magic)}
+			peers := []*ConsensusPeer{peer}
 			tmpHeight := qcHeight
 			var proposal *pmBlock
 			var ok bool
@@ -642,8 +645,8 @@ func (p *Pacemaker) OnReceiveNewView(newViewMsg *PMNewViewMessage, from types.Ne
 				if proposal, ok = p.proposalMap[tmpHeight]; ok != true {
 					break
 				}
-				p.logger.Info("peer missed one proposal, forward to it ... ", "height", tmpHeight, "name", name, "ip", from.IP.String())
-				p.SendMessageToPeers(proposal.ProposalMessage, peers)
+				p.logger.Info("peer missed one proposal, forward to it ... ", "height", tmpHeight, "name", peer.name, "ip", peer.netAddr.IP.String())
+				p.asyncSendPacemakerMsg(proposal.ProposalMessage, peers...)
 				tmpHeight++
 			}
 		}
@@ -755,7 +758,7 @@ func (p *Pacemaker) Start(newCommittee bool) {
 	p.pendingList.CleanUp()
 
 	// make sure the above cleared proposal can receive again.
-	p.msgRelayInfo.CleanUpFrom(height)
+	p.msgCache.CleanFrom(height)
 	p.stopped = false
 
 	go p.mainLoop()
@@ -792,24 +795,24 @@ func (p *Pacemaker) mainLoop() {
 		case b := <-p.beatCh:
 			err = p.OnBeat(b.height, b.round, b.reason)
 		case m := <-p.pacemakerMsgCh:
-			switch m.msg.(type) {
+			switch msg := m.Msg.(type) {
 			case *PMProposalMessage:
-				err = p.OnReceiveProposal(m.msg.(*PMProposalMessage), m.from)
+				err = p.OnReceiveProposal(&m)
 				if err != nil {
 					p.logger.Error("processes proposal fails.", "errors", err)
 					// 2 errors indicate linking message to pending list for the first time, does not need to check pending
 					if (err.Error() != "can not address parent") && (err.Error() != "can not address qcNode") {
-						err = p.checkPendingMessages(uint64(m.msg.(*PMProposalMessage).CSMsgCommonHeader.Height))
+						err = p.checkPendingMessages(uint64(msg.CSMsgCommonHeader.Height))
 					}
 				} else {
-					err = p.checkPendingMessages(uint64(m.msg.(*PMProposalMessage).CSMsgCommonHeader.Height))
+					err = p.checkPendingMessages(uint64(msg.CSMsgCommonHeader.Height))
 				}
 			case *PMVoteForProposalMessage:
-				err = p.OnReceiveVote(m.msg.(*PMVoteForProposalMessage))
+				err = p.OnReceiveVote(&m)
 			case *PMNewViewMessage:
-				err = p.OnReceiveNewView(m.msg.(*PMNewViewMessage), m.from)
+				err = p.OnReceiveNewView(&m)
 			case *PMQueryProposalMessage:
-				err = p.OnReceiveQueryProposal(m.msg.(*PMQueryProposalMessage))
+				err = p.OnReceiveQueryProposal(&m)
 			default:
 				p.logger.Warn("Received an message in unknown type")
 			}
@@ -1030,7 +1033,8 @@ func (p *Pacemaker) revertTo(revertHeight uint64) {
 	p.logger.Info("Reverted !!!", "current block-leaf", p.blockLeaf.ToString(), "current QCHigh", p.QCHigh.ToString())
 }
 
-func (p *Pacemaker) OnReceiveQueryProposal(queryMsg *PMQueryProposalMessage) error {
+func (p *Pacemaker) OnReceiveQueryProposal(mi *consensusMsgInfo) error {
+	queryMsg := mi.Msg.(*PMQueryProposalMessage)
 	fromHeight := queryMsg.FromHeight
 	toHeight := queryMsg.ToHeight
 	queryRound := queryMsg.Round
@@ -1051,8 +1055,6 @@ func (p *Pacemaker) OnReceiveQueryProposal(queryMsg *PMQueryProposalMessage) err
 	}
 
 	queryHeight := fromHeight + 1
-	name := p.csReactor.GetCommitteeMemberNameByIP(returnAddr.IP)
-	peers := []*ConsensusPeer{newConsensusPeer(name, returnAddr.IP, returnAddr.Port, p.csReactor.magic)}
 	for queryHeight <= toHeight {
 		result := p.proposalMap[queryHeight]
 		if result == nil {
@@ -1067,7 +1069,7 @@ func (p *Pacemaker) OnReceiveQueryProposal(queryMsg *PMQueryProposalMessage) err
 		}
 
 		//send
-		p.SendMessageToPeers(result.ProposalMessage, peers)
+		p.asyncSendPacemakerMsg(result.ProposalMessage, mi.Peer)
 
 		queryHeight++
 	}

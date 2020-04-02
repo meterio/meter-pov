@@ -49,10 +49,12 @@ func (c *Communicator) download(peer *Peer, fromNum uint32, handler HandleBlockS
 				errCh <- err
 				return
 			}
-			fmt.Println("GOT QC: ", qc.String(), ", from:", peer.RemoteAddr().String())
-			err = qcHandler(ctx, qc)
+			updated, err := qcHandler(ctx, qc)
 			if err != nil {
 				errCh <- err
+			}
+			if updated {
+				fmt.Println("GOT QC: ", qc.String(), ", from:", peer.RemoteAddr().String())
 			}
 
 			result, err := proto.GetBlocksFromNumber(ctx, peer, fromNum)
@@ -60,7 +62,9 @@ func (c *Communicator) download(peer *Peer, fromNum uint32, handler HandleBlockS
 				errCh <- err
 				return
 			}
-			fmt.Println("GOT Block, ", len(result), "blocks, from height:", fromNum, ", from:", peer.RemoteAddr().String())
+			if len(result) > 0 {
+				fmt.Println("GOT Block, ", len(result), "blocks, from height:", fromNum, ", from:", peer.RemoteAddr().String())
+			}
 			if len(result) == 0 {
 				return
 			}

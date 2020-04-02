@@ -71,7 +71,7 @@ func (cl *ConsensusLeader) SendMsg(msg ConsensusMessage) bool {
 		cl.csReactor.logger.Info("Wrong type of leader messages")
 		peers = []*ConsensusPeer{}
 	}
-	return cl.csReactor.SendMsgToPeers(peers, &msg)
+	return cl.csReactor.asyncSendCommitteeMsg(&msg, peers...)
 }
 
 // Move to the init State
@@ -291,17 +291,6 @@ func (cl *ConsensusLeader) ProcessCommitMsg(commitMsg *CommitCommitteeMessage, s
 	ch := commitMsg.CSMsgCommonHeader
 	if ch.Height != cl.csReactor.curHeight {
 		cl.csReactor.logger.Error("Height mismatch!", "curHeight", cl.csReactor.curHeight, "incomingHeight", ch.Height)
-		return false
-	}
-
-	if ch.MsgType != CONSENSUS_MSG_COMMIT_COMMITTEE {
-		cl.csReactor.logger.Error("MsgType mismatch", "expected", "CONSENSUS_MSG_COMMIT_COMMITTEE", "actual", ch.MsgType)
-		// cl.csReactor.logger.Error(ch)
-		return false
-	}
-
-	if cl.csReactor.ValidateCMheaderSig(&ch, commitMsg.SigningHash().Bytes()) == false {
-		cl.csReactor.logger.Error("Signature validate failed")
 		return false
 	}
 

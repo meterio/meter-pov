@@ -187,7 +187,7 @@ func (conR *ConsensusReactor) sendNewCommitteeMessage(peer *ConsensusPeer, leade
 	// state to init & send move to next round
 	// fmt.Println("msg: %v", msg.String())
 	var m ConsensusMessage = msg
-	conR.sendConsensusMsg(&m, peer)
+	conR.asyncSendCommitteeMsg(&m, peer)
 	return nil
 }
 
@@ -195,16 +195,6 @@ func (conR *ConsensusReactor) sendNewCommitteeMessage(peer *ConsensusPeer, leade
 func (conR *ConsensusReactor) ProcessNewCommitteeMessage(newCommitteeMsg *NewCommitteeMessage, src *ConsensusPeer) bool {
 	conR.logger.Info("received newCommittee Message", "source", src.name, "IP", src.netAddr.IP)
 	ch := newCommitteeMsg.CSMsgCommonHeader
-
-	if conR.ValidateCMheaderSig(&ch, newCommitteeMsg.SigningHash().Bytes()) == false {
-		conR.logger.Error("Signature validate failed")
-		return false
-	}
-
-	if ch.MsgType != CONSENSUS_MSG_NEW_COMMITTEE {
-		conR.logger.Error("MsgType is not CONSENSUS_MSG_NEW_COMMITTEE")
-		return false
-	}
 
 	// non replay case, last block must be kblock
 	if conR.newCommittee.Replay == false && ch.Height != int64(newCommitteeMsg.KBlockHeight) {
