@@ -294,6 +294,10 @@ func (conR *ConsensusReactor) SwitchToConsensus() {
 
 	// --force-last-kframe
 	if !conR.config.ForceLastKFrame {
+		// TBD:
+		// 1) Check last KFrame, am I in committee? also need to consult committee info in 1st mblock
+		// 2) If in committee, start pacemake in catchup state. Pacemaker in catchup state meeds to wait
+		//    until all pipe-lines are filled.
 		return
 	}
 
