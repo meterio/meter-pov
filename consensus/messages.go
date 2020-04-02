@@ -593,6 +593,8 @@ func getConcreteName(msg ConsensusMessage) string {
 		return "PMVoteForProposal"
 	case *PMNewViewMessage:
 		return "PMNewView"
+	case *PMQueryProposalMessage:
+		return "PMQueryProposal"
 	}
 	return ""
 }

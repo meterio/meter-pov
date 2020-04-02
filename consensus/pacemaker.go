@@ -646,7 +646,7 @@ func (p *Pacemaker) OnReceiveNewView(mi *consensusMsgInfo) error {
 					break
 				}
 				p.logger.Info("peer missed one proposal, forward to it ... ", "height", tmpHeight, "name", peer.name, "ip", peer.netAddr.IP.String())
-				p.asyncSendPacemakerMsg(proposal.ProposalMessage, peers...)
+				p.asyncSendPacemakerMsg(proposal.ProposalMessage, false, peers...)
 				tmpHeight++
 			}
 		}
@@ -1069,7 +1069,7 @@ func (p *Pacemaker) OnReceiveQueryProposal(mi *consensusMsgInfo) error {
 		}
 
 		//send
-		p.asyncSendPacemakerMsg(result.ProposalMessage, mi.Peer)
+		p.asyncSendPacemakerMsg(result.ProposalMessage, false, mi.Peer)
 
 		queryHeight++
 	}

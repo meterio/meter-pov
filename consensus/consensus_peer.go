@@ -33,7 +33,7 @@ func newConsensusPeer(name string, ip net.IP, port uint16, magic [4]byte) *Conse
 	}
 }
 
-func (peer *ConsensusPeer) sendPacemakerMsg(rawData []byte, msgSummary string) error {
+func (peer *ConsensusPeer) sendPacemakerMsg(rawData []byte, relay bool, msgSummary string) error {
 	// full size message may taker longer time (> 2s) to complete the tranport.
 	var netClient = &http.Client{
 		Timeout: time.Second * 4, // 2
@@ -46,11 +46,15 @@ func (peer *ConsensusPeer) sendPacemakerMsg(rawData []byte, msgSummary string) e
 	}
 	msgHash := sha256.Sum256(rawData)
 	msgHashHex := hex.EncodeToString(msgHash[:])[:MsgHashSize]
-	peer.logger.Info(fmt.Sprintf("Sent to peer: %s", msgSummary), "size", len(rawData), "msgHash", msgHashHex)
+	if relay {
+		peer.logger.Info(fmt.Sprintf("Relay to peer: %s", msgSummary), "size", len(rawData), "msgHash", msgHashHex)
+	} else {
+		peer.logger.Info(fmt.Sprintf("Sent to peer: %s", msgSummary), "size", len(rawData), "msgHash", msgHashHex)
+	}
 	return nil
 }
 
-func (peer *ConsensusPeer) sendCommitteeMsg(rawData []byte, msgSummary string) error {
+func (peer *ConsensusPeer) sendCommitteeMsg(rawData []byte, msgSummary string, relay bool) error {
 	var netClient = &http.Client{
 		Timeout: time.Second * 4,
 	}
@@ -62,7 +66,11 @@ func (peer *ConsensusPeer) sendCommitteeMsg(rawData []byte, msgSummary string) e
 	}
 	msgHash := sha256.Sum256(rawData)
 	msgHashHex := hex.EncodeToString(msgHash[:])[:MsgHashSize]
-	peer.logger.Info(fmt.Sprintf("Sent to peer: %s", msgSummary), "size", len(rawData), "msgHash", msgHashHex)
+	if relay {
+		peer.logger.Info(fmt.Sprintf("Relay to peer: %s", msgSummary), "size", len(rawData), "msgHash", msgHashHex)
+	} else {
+		peer.logger.Info(fmt.Sprintf("Sent to peer: %s", msgSummary), "size", len(rawData), "msgHash", msgHashHex)
+	}
 	return nil
 }
 

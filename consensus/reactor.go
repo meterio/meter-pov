@@ -699,7 +699,7 @@ func (conR *ConsensusReactor) relayMsg(msg *ConsensusMessage, round int) {
 	peers, _ := conR.GetRelayPeers(round)
 	typeName := getConcreteName(*msg)
 	conR.logger.Info("Now, relay committee msg", "type", typeName, "round", round)
-	conR.asyncSendCommitteeMsg(msg, peers...)
+	conR.asyncSendCommitteeMsg(msg, true, peers...)
 }
 
 // receiveRoutine handles messages which may cause state transitions.
@@ -802,6 +802,9 @@ func (conR *ConsensusReactor) UnmarshalMsg(data []byte) (*consensusMsgInfo, erro
 	}
 
 	if VerifyMsgType(msg) == false {
+
+		fmt.Println("invalid msg type!!!")
+		fmt.Println(msg)
 		return nil, ErrInvalidMsgType
 		// conR.logger.Error("MsgType validate failed")
 	}
@@ -959,7 +962,7 @@ func (conR *ConsensusReactor) exitCurCommittee() error {
 	return nil
 }
 
-func (conR *ConsensusReactor) asyncSendCommitteeMsg(msg *ConsensusMessage, peers ...*ConsensusPeer) bool {
+func (conR *ConsensusReactor) asyncSendCommitteeMsg(msg *ConsensusMessage, relay bool, peers ...*ConsensusPeer) bool {
 	data, err := conR.MarshalMsg(msg)
 	if err != nil {
 		fmt.Println("Could not marshal message")
@@ -967,7 +970,7 @@ func (conR *ConsensusReactor) asyncSendCommitteeMsg(msg *ConsensusMessage, peers
 	}
 	msgSummary := (*msg).String()
 	for _, peer := range peers {
-		go peer.sendCommitteeMsg(data, msgSummary)
+		go peer.sendCommitteeMsg(data, msgSummary, relay)
 	}
 
 	//wg.Wait()

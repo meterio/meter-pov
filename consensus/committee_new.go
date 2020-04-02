@@ -187,7 +187,7 @@ func (conR *ConsensusReactor) sendNewCommitteeMessage(peer *ConsensusPeer, leade
 	// state to init & send move to next round
 	// fmt.Println("msg: %v", msg.String())
 	var m ConsensusMessage = msg
-	conR.asyncSendCommitteeMsg(&m, peer)
+	conR.asyncSendCommitteeMsg(&m, false, peer)
 	return nil
 }
 

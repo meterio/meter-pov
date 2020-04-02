@@ -84,13 +84,13 @@ func (p *Pacemaker) receivePacemakerMsg(w http.ResponseWriter, r *http.Request) 
 	// relay the message if these two conditions are met:
 	// 1. the original message is not sent by myself
 	// 2. it's a proposal message
-	if fromMyself == false && typeName == "PMProposalMessage" {
+	if fromMyself == false && typeName == "PMProposal" {
 		height := msg.Header().Height
 		round := msg.Header().Round
 		peers, _ := p.GetRelayPeers(round)
 		typeName := getConcreteName(mi.Msg)
 		p.logger.Info("Now, relay this "+typeName+"...", "height", height, "round", round, "msgHash", msgHashHex)
-		p.asyncSendPacemakerMsg(mi.Msg, peers...)
+		p.asyncSendPacemakerMsg(mi.Msg, true, peers...)
 		p.msgCache.CleanTo(uint64(height - MSG_KEEP_HEIGHT))
 	}
 }
@@ -263,14 +263,14 @@ func (p *Pacemaker) SendConsensusMessage(round uint64, msg ConsensusMessage, cop
 	// send consensus message to myself first (except for PMNewViewMessage)
 	if copyMyself && myself != nil {
 		p.logger.Debug(fmt.Sprintf("Sending to myself: %v", msg.String()), "to", myName, "ip", myNetAddr.IP.String())
-		p.asyncSendPacemakerMsg(msg, myself)
+		p.asyncSendPacemakerMsg(msg, false, myself)
 	}
 
-	p.asyncSendPacemakerMsg(msg, peers...)
+	p.asyncSendPacemakerMsg(msg, false, peers...)
 	return true
 }
 
-func (p *Pacemaker) asyncSendPacemakerMsg(msg ConsensusMessage, peers ...*ConsensusPeer) bool {
+func (p *Pacemaker) asyncSendPacemakerMsg(msg ConsensusMessage, relay bool, peers ...*ConsensusPeer) bool {
 	data, err := p.csReactor.MarshalMsg(&msg)
 	if err != nil {
 		fmt.Println("error marshaling message", err)
@@ -281,7 +281,7 @@ func (p *Pacemaker) asyncSendPacemakerMsg(msg ConsensusMessage, peers ...*Consen
 	// broadcast consensus message to peers
 	for _, peer := range peers {
 		go func(peer *ConsensusPeer, data []byte, msgSummary string) {
-			peer.sendPacemakerMsg(data, msgSummary)
+			peer.sendPacemakerMsg(data, relay, msgSummary)
 		}(peer, data, msgSummary)
 	}
 	return true
@@ -362,7 +362,7 @@ func (p *Pacemaker) sendQueryProposalMsg(queryHeight, queryRound, EpochID uint64
 		p.logger.Warn("failed to generate PMQueryProposal message", "err", err)
 		return errors.New("failed to generate PMQueryProposal message")
 	}
-	p.asyncSendPacemakerMsg(queryMsg, peers...)
+	p.asyncSendPacemakerMsg(queryMsg, false, peers...)
 	return nil
 }
 
