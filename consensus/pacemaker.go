@@ -276,9 +276,7 @@ func (p *Pacemaker) OnReceiveProposal(mi *consensusMsgInfo) error {
 	}
 
 	qc := blk.QC
-	p.logger.Info("start to handle received proposal ", "height", msgHeader.Height, "round", msgHeader.Round,
-		"parentHeight", proposalMsg.ParentHeight, "parentRound", proposalMsg.ParentRound,
-		"qc", qc.CompactString(), "ID", blk.Header().ID())
+	p.logger.Info("start to handle received proposal ", "blockID", blk.Header().ID())
 
 	// address parent
 	parent := p.AddressBlock(proposalMsg.ParentHeight, proposalMsg.ParentRound)
@@ -637,7 +635,6 @@ func (p *Pacemaker) OnReceiveNewView(mi *consensusMsgInfo) error {
 		// if peer's height is lower than me, forward all available proposals to fill the gap
 		if qcHeight < p.lastVotingHeight {
 			// forward missing proposals to peers who just sent new view message with lower expected height
-			peers := []*ConsensusPeer{peer}
 			tmpHeight := qcHeight
 			var proposal *pmBlock
 			var ok bool
@@ -646,7 +643,7 @@ func (p *Pacemaker) OnReceiveNewView(mi *consensusMsgInfo) error {
 					break
 				}
 				p.logger.Info("peer missed one proposal, forward to it ... ", "height", tmpHeight, "name", peer.name, "ip", peer.netAddr.IP.String())
-				p.asyncSendPacemakerMsg(proposal.ProposalMessage, false, peers...)
+				p.asyncSendPacemakerMsg(proposal.ProposalMessage, false, peer)
 				tmpHeight++
 			}
 		}

@@ -69,7 +69,7 @@ func (cl *ConsensusLeader) SendMsg(msg ConsensusMessage) bool {
 
 	default:
 		cl.csReactor.logger.Info("Wrong type of leader messages")
-		peers = []*ConsensusPeer{}
+		return false
 	}
 	return cl.csReactor.asyncSendCommitteeMsg(&msg, false, peers...)
 }

@@ -2,7 +2,6 @@ package consensus
 
 import (
 	"bytes"
-	"encoding/hex"
 	"fmt"
 	"strings"
 	"time"
@@ -403,8 +402,13 @@ func (m *PMProposalMessage) SigningHash() (hash meter.Bytes32) {
 
 // String returns a string representation.
 func (m *PMProposalMessage) String() string {
-	return fmt.Sprintf("[PMProposal Height:%v, Round:%v, Parent:(Height:%v,Round:%v), TimeoutCert:%v]",
-		m.CSMsgCommonHeader.Height, m.CSMsgCommonHeader.Round, m.ParentHeight, m.ParentRound, m.TimeoutCert.String())
+	blk, err := block.BlockDecodeFromBytes(m.ProposedBlock)
+	blkStr := ""
+	if err == nil {
+		blkStr = fmt.Sprintf("Proposed:(%v)", blk.Oneliner())
+	}
+	return fmt.Sprintf("[PMProposal Height:%v Round:%v, Parent:(Height:%v, Round:%v), %v, TimeoutCert:%v]",
+		m.CSMsgCommonHeader.Height, m.CSMsgCommonHeader.Round, m.ParentHeight, m.ParentRound, blkStr, m.TimeoutCert.String())
 }
 func (m *PMProposalMessage) Header() *ConsensusMsgCommonHeader {
 	return &m.CSMsgCommonHeader
@@ -451,10 +455,8 @@ func (m *PMVoteForProposalMessage) SigningHash() (hash meter.Bytes32) {
 
 // String returns a string representation.
 func (m *PMVoteForProposalMessage) String() string {
-	msgHash := hex.EncodeToString(m.SignedMessageHash[:])
-	abbrMsgHash := msgHash[:4] + "..." + msgHash[len(msgHash)-4:]
-	return fmt.Sprintf("[PMVoteForProposal Height:%v Round:%v MsgHash:%v]",
-		m.CSMsgCommonHeader.Height, m.CSMsgCommonHeader.Round, abbrMsgHash)
+	return fmt.Sprintf("[PMVoteForProposal Height:%v Round:%v]",
+		m.CSMsgCommonHeader.Height, m.CSMsgCommonHeader.Round)
 }
 func (m *PMVoteForProposalMessage) Header() *ConsensusMsgCommonHeader {
 	return &m.CSMsgCommonHeader

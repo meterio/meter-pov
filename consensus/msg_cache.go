@@ -1,6 +1,8 @@
 package consensus
 
 import (
+	"sync"
+
 	lru "github.com/hashicorp/golang-lru"
 )
 
@@ -10,6 +12,7 @@ type MsgID struct {
 }
 
 type MsgCache struct {
+	sync.RWMutex
 	cache          *lru.ARCCache
 	lowestSequence uint64
 }
@@ -35,12 +38,18 @@ func (c *MsgCache) Contains(seq uint64, msgHash [32]byte) bool {
 	return c.cache.Contains(msgID)
 }
 
-func (c *MsgCache) Add(seq uint64, msgHash [32]byte) {
+func (c *MsgCache) Add(seq uint64, msgHash [32]byte) bool {
+	c.Lock()
+	defer c.Unlock()
 	msgID := MsgID{seq, msgHash}
+	if c.cache.Contains(msgID) {
+		return true
+	}
 	c.cache.Add(msgID, true)
 	if seq < c.lowestSequence {
 		c.lowestSequence = seq
 	}
+	return false
 }
 
 func (c *MsgCache) CleanTo(limitSeq uint64) {

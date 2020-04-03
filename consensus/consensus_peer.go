@@ -47,9 +47,9 @@ func (peer *ConsensusPeer) sendPacemakerMsg(rawData []byte, relay bool, msgSumma
 	msgHash := sha256.Sum256(rawData)
 	msgHashHex := hex.EncodeToString(msgHash[:])[:MsgHashSize]
 	if relay {
-		peer.logger.Info(fmt.Sprintf("Relay to peer: %s", msgSummary), "size", len(rawData), "msgHash", msgHashHex)
+		peer.logger.Info(fmt.Sprintf("Relay: %s", msgSummary), "size", len(rawData), "msgHash", msgHashHex)
 	} else {
-		peer.logger.Info(fmt.Sprintf("Sent to peer: %s", msgSummary), "size", len(rawData), "msgHash", msgHashHex)
+		peer.logger.Info(fmt.Sprintf("Sent: %s", msgSummary), "size", len(rawData), "msgHash", msgHashHex)
 	}
 	return nil
 }
@@ -67,9 +67,9 @@ func (peer *ConsensusPeer) sendCommitteeMsg(rawData []byte, msgSummary string, r
 	msgHash := sha256.Sum256(rawData)
 	msgHashHex := hex.EncodeToString(msgHash[:])[:MsgHashSize]
 	if relay {
-		peer.logger.Info(fmt.Sprintf("Relay to peer: %s", msgSummary), "size", len(rawData), "msgHash", msgHashHex)
+		peer.logger.Info(fmt.Sprintf("Relay: %s", msgSummary), "size", len(rawData), "msgHash", msgHashHex)
 	} else {
-		peer.logger.Info(fmt.Sprintf("Sent to peer: %s", msgSummary), "size", len(rawData), "msgHash", msgHashHex)
+		peer.logger.Info(fmt.Sprintf("Sent: %s", msgSummary), "size", len(rawData), "msgHash", msgHashHex)
 	}
 	return nil
 }
