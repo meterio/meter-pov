@@ -350,7 +350,7 @@ func (c *Chain) AddBlock(newBlock *block.Block, receipts tx.Receipts, finalize b
 			}
 			c.bestBlock = newBlock
 			bestHeightGauge.Set(float64(c.bestBlock.Header().Number()))
-			log.Info("Update Best Block", "bestBlock", newBlock.Header().ID())
+			log.Debug("Update Best Block", "bestBlock", newBlock.Header().ID())
 			if newBlock.Header().TotalScore() > c.leafBlock.Header().TotalScore() {
 				if err := saveLeafBlockID(batch, newBlockID); err != nil {
 					return nil, err
@@ -790,12 +790,12 @@ func (c *Chain) UpdateBestQC() (bool, error) {
 			// bestQC < QCCandidate <= bestBlock, update bestQC with QCCandidate
 			c.bestQC = c.bestQCCandidate
 			c.bestQCCandidate = nil
-			log.Info("Move BestQC by QCCandidate when leaf=best", "bestQC", c.bestQC.CompactString())
+			log.Info("Update bestQC by qcCandidate when leaf=best", "to", c.bestQC.CompactString())
 		} else if c.bestQC.QCHeight <= c.bestBlock.QC.QCHeight {
 			// bestQC < bestBlock
 			// bestBlock synced via gossip, update bestQC with it
 			c.bestQC = c.bestBlock.QC
-			log.Info("Move BestQC by BestBlock when leaf=best ", "bestQC", c.bestQC.CompactString())
+			log.Info("Update bestQC with bestBlock when leaf=best ", "to", c.bestQC.CompactString())
 		} else {
 			return false, nil
 		}
@@ -806,7 +806,7 @@ func (c *Chain) UpdateBestQC() (bool, error) {
 		// bestQC < QCCandidate == bestBlock
 		c.bestQC = c.bestQCCandidate
 		c.bestQCCandidate = nil
-		log.Info("Move BestQC by QCCandidate", "bestQC", c.bestQC.CompactString())
+		log.Info("Update bestQC with qcCandidate", "to", c.bestQC.CompactString())
 		return true, saveBestQC(c.kv, c.bestQC)
 	}
 	id, err := c.ancestorTrie.GetAncestor(c.leafBlock.Header().ID(), c.bestBlock.Header().Number()+1)
@@ -826,7 +826,7 @@ func (c *Chain) UpdateBestQC() (bool, error) {
 	}
 	if c.bestQC.QCHeight != blk.QC.QCHeight && c.bestQC.QCRound != blk.QC.QCRound {
 		c.bestQC = blk.QC
-		log.Info("Move BestQC", "bestQC", c.bestQC.CompactString())
+		log.Info("Update bestQC", "to", c.bestQC.CompactString())
 		return true, saveBestQC(c.kv, c.bestQC)
 	}
 	return false, nil
@@ -851,7 +851,7 @@ func (c *Chain) SetBestQCCandidate(qc *block.QuorumCert) bool {
 		return false
 	}
 	c.bestQCCandidate = qc
-	log.Info("Update QC Candidate", "qc", c.bestQCCandidate.CompactString())
+	log.Debug("Update QC Candidate", "qc", c.bestQCCandidate.CompactString())
 	return true
 }
 

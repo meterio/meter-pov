@@ -1336,7 +1336,7 @@ func (conR *ConsensusReactor) startPacemaker(newCommittee bool) error {
 		conR.chain.UpdateBestQC()
 		bestQC := conR.chain.BestQC()
 		bestBlock := conR.chain.BestBlock()
-		conR.logger.Info("Checking the QCHeight and Block height...", "QCHeight", bestQC.QCHeight, "BlockHeight", bestBlock.Header().Number())
+		conR.logger.Info("Checking the QCHeight and Block height...", "QCHeight", bestQC.QCHeight, "bestHeight", bestBlock.Header().Number())
 		if bestQC.QCHeight != uint64(bestBlock.Header().Number()) {
 			com := comm.GetGlobCommInst()
 			if com == nil {
@@ -1358,7 +1358,7 @@ func (conR *ConsensusReactor) startPacemaker(newCommittee bool) error {
 		return nil
 	}
 
-	conR.logger.Info("startConsensusPacemaker", "QCHeight", bestQC.QCHeight, "BlockHeight", bestBlock.Header().Number())
+	conR.logger.Info("startConsensusPacemaker", "QCHeight", bestQC.QCHeight, "bestHeight", bestBlock.Header().Number())
 	conR.csPacemaker.Start(newCommittee)
 	return nil
 }

@@ -24,10 +24,10 @@ type QuorumCert struct {
 func (qc *QuorumCert) String() string {
 	if qc != nil {
 		bitArray := strings.ReplaceAll(qc.VoterBitArrayStr, "\"", "")
-		return fmt.Sprintf("QuorumCert(Height:%v, Round:%v, EpochID:%v, BitArray:%v, MsgHash:len(%v), AggSig:len(%v))",
-			qc.QCHeight, qc.QCRound, qc.EpochID, bitArray, len(qc.VoterMsgHash), len(qc.VoterAggSig))
+		return fmt.Sprintf("QC(Height:%v, Round:%v, EpochID:%v, BitArray:%v, AggSig:len(%v))",
+			qc.QCHeight, qc.QCRound, qc.EpochID, bitArray, len(qc.VoterAggSig))
 	}
-	return "EMPTY QC"
+	return "QC(nil)"
 }
 
 func (qc *QuorumCert) CompactString() string {
@@ -35,7 +35,7 @@ func (qc *QuorumCert) CompactString() string {
 		return fmt.Sprintf("QC(Height:%v, Round:%v, EpochID:%v)",
 			qc.QCHeight, qc.QCRound, qc.EpochID)
 	}
-	return "EMPTY QC"
+	return "QC(nil)"
 }
 
 func (qc *QuorumCert) ToBytes() []byte {

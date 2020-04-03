@@ -135,26 +135,26 @@ func (p *Pacemaker) BuildProposalMessage(height, round uint64, bnew *pmBlock, tc
 
 // BuildVoteForProposalMsg build VFP message for proposal
 // txRoot, stateRoot is decoded from proposalMsg.ProposedBlock, carry in cos already decoded outside
-func (p *Pacemaker) BuildVoteForProposalMessage(proposalMsg *PMProposalMessage, blockID, txsRoot, stateRoot meter.Bytes32) (*PMVoteForProposalMessage, error) {
+func (p *Pacemaker) BuildVoteForProposalMessage(proposalMsg *PMProposalMessage, blockID, txsRoot, stateRoot meter.Bytes32) (*PMVoteMessage, error) {
 
 	ch := proposalMsg.CSMsgCommonHeader
 
 	signMsg := p.csReactor.BuildProposalBlockSignMsg(uint32(proposalMsg.ProposedBlockType), uint64(ch.Height), &blockID, &txsRoot, &stateRoot)
 	sign, msgHash := p.csReactor.csCommon.SignMessage([]byte(signMsg))
-	p.logger.Debug("Built PMVoteForProposalMessage", "signMsg", signMsg)
+	p.logger.Debug("Built PMVoteMessage", "signMsg", signMsg)
 
 	cmnHdr := ConsensusMsgCommonHeader{
 		Height:    ch.Height,
 		Round:     ch.Round,
 		Sender:    crypto.FromECDSAPub(&p.csReactor.myPubKey),
 		Timestamp: time.Now(),
-		MsgType:   PACEMAKER_MSG_VOTE_FOR_PROPOSAL,
+		MsgType:   PACEMAKER_MSG_VOTE,
 
 		EpochID: p.csReactor.curEpoch,
 	}
 
 	index := p.csReactor.GetCommitteeMemberIndex(p.csReactor.myPubKey)
-	msg := &PMVoteForProposalMessage{
+	msg := &PMVoteMessage{
 		CSMsgCommonHeader: cmnHdr,
 
 		VoterID:           crypto.FromECDSAPub(&p.csReactor.myPubKey),

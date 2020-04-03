@@ -215,13 +215,14 @@ func (b *Block) Size() metric.StorageSize {
 }
 
 func (b *Block) String() string {
-	return fmt.Sprintf(`Block(%v){
+	canonicalName := b.GetCanonicalName()
+	return fmt.Sprintf(`%v(%v){
 BlockHeader: %v,
 Transactions: %v,
 KBlockData: %v,
 CommitteeInfo: %v,
 QuorumCert: %v,
-}`, b.BlockHeader.Number(), b.BlockHeader, b.Txs, b.KBlockData.ToString(), b.CommitteeInfos, b.QC)
+}`, canonicalName, b.BlockHeader.Number(), b.BlockHeader, b.Txs, b.KBlockData.ToString(), b.CommitteeInfos, b.QC)
 }
 
 func (b *Block) CompactString() string {
@@ -231,15 +232,30 @@ func (b *Block) CompactString() string {
 	if hasCommittee {
 		ci = "YES"
 	}
-	return fmt.Sprintf(`Block(%v) %v 
+	return fmt.Sprintf(`(%v) %v 
   Parent: %v,
   QC: %v,
-  LastKBHeight: %v, #Txs: %v, CommitteeInfo: %v`, header.Number(), header.ID().String(),
+  LastKBHeight: %v, #Txs: %v, CommitteeInfo: %v`, b.GetCanonicalName(), header.Number(), header.ID().String(),
 		header.ParentID().String(),
 		b.QC.CompactString(),
 		header.LastKBlockHeight(), len(b.Txs), ci)
 }
 
+func (b *Block) GetCanonicalName() string {
+	if b == nil {
+		return ""
+	}
+	switch b.BlockHeader.BlockType() {
+	case BLOCK_TYPE_K_BLOCK:
+		return "kBlock"
+	case BLOCK_TYPE_M_BLOCK:
+		return "mBlock"
+	case BLOCK_TYPE_S_BLOCK:
+		return "sBlock"
+	default:
+		return "Block"
+	}
+}
 func (b *Block) Oneliner() string {
 	header := b.BlockHeader
 	hasCommittee := len(b.CommitteeInfos.CommitteeInfo) > 0
@@ -247,7 +263,8 @@ func (b *Block) Oneliner() string {
 	if hasCommittee {
 		ci = "YES"
 	}
-	return fmt.Sprintf("Block(%v) %v QC:%v, #Txs:%v, CI:%v, Parent:%v ",
+	canonicalName := b.GetCanonicalName()
+	return fmt.Sprintf("%v(%v) %v QC:%v, #Txs:%v, CI:%v, Parent:%v ", canonicalName,
 		header.Number(), header.ID().String(), b.QC.CompactString(), len(b.Transactions()), ci, header.ParentID())
 }
 

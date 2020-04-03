@@ -87,8 +87,10 @@ func (p *Pacemaker) receivePacemakerMsg(w http.ResponseWriter, r *http.Request) 
 		round := msg.Header().Round
 		peers, _ := p.GetRelayPeers(round)
 		typeName := getConcreteName(mi.Msg)
-		p.logger.Info("Now, relay this "+typeName+"...", "height", height, "round", round, "msgHash", msgHashHex)
-		p.asyncSendPacemakerMsg(mi.Msg, true, peers...)
+		if len(peers) > 0 {
+			p.logger.Info("Now, relay this "+typeName+"...", "height", height, "round", round, "msgHash", msgHashHex)
+			p.asyncSendPacemakerMsg(mi.Msg, true, peers...)
+		}
 		p.msgCache.CleanTo(uint64(height - MSG_KEEP_HEIGHT))
 	}
 }
@@ -198,7 +200,7 @@ func (p *Pacemaker) ValidateProposal(b *pmBlock) error {
 	blkHeight := blk.Header().Number()
 	state, err := p.csReactor.stateCreator.NewState(p.csReactor.chain.BestBlock().Header().StateRoot())
 	if err != nil {
-		p.logger.Error("revert state failed ...", "blockHeight", blkHeight, "blockID", blkID, "error", err)
+		p.logger.Error("revert state failed ...", "height", blkHeight, "id", blkID, "error", err)
 		return nil
 	}
 	checkPoint := state.NewCheckpoint()
@@ -206,7 +208,7 @@ func (p *Pacemaker) ValidateProposal(b *pmBlock) error {
 	now := uint64(time.Now().Unix())
 	stage, receipts, err := p.csReactor.ProcessProposedBlock(parentHeader, blk, now)
 	if err != nil {
-		p.logger.Error("process block failed", "blockHeight", blkHeight, "blockID", blkID, "error", err)
+		p.logger.Error("process block failed", "height", blkHeight, "id", blkID, "error", err)
 		b.SuccessProcessed = false
 		return err
 	}
@@ -223,7 +225,7 @@ func (p *Pacemaker) ValidateProposal(b *pmBlock) error {
 
 	b.SuccessProcessed = true
 
-	p.logger.Info("Validated proposal", "blockHeight", blkHeight, "blockID", blkID)
+	p.logger.Info("Validated block proposal", "height", blkHeight, "id", blkID)
 	return nil
 }
 
@@ -244,7 +246,7 @@ func (p *Pacemaker) SendConsensusMessage(round uint64, msg ConsensusMessage, cop
 	switch msg.(type) {
 	case *PMProposalMessage:
 		peers, _ = p.GetRelayPeers(int(round))
-	case *PMVoteForProposalMessage:
+	case *PMVoteMessage:
 		proposer := p.getProposerByRound(int(round))
 		peers = append(peers, proposer)
 	case *PMNewViewMessage:
@@ -301,7 +303,7 @@ func (p *Pacemaker) generateNewQCNode(b *pmBlock) (*pmQuorumCert, error) {
 	}, nil
 }
 
-func (p *Pacemaker) collectVoteSignature(voteMsg *PMVoteForProposalMessage) error {
+func (p *Pacemaker) collectVoteSignature(voteMsg *PMVoteMessage) error {
 	round := uint64(voteMsg.CSMsgCommonHeader.Round)
 	if round == uint64(p.currentRound) && p.csReactor.amIRoundProproser(round) {
 		// if round matches and I am proposer, collect signature and store in cache
@@ -379,10 +381,14 @@ func (p *Pacemaker) pendingNewView(queryHeight, queryRound, epochID uint64, mi *
 
 func (p *Pacemaker) checkPendingMessages(curHeight uint64) error {
 	height := curHeight
-	p.logger.Info("Check pending messages", "from", height)
+	count := 0
 	if pendingMsg, ok := p.pendingList.messages[height]; ok {
+		count++
 		p.pacemakerMsgCh <- pendingMsg
 		// height++ //move higher
+	}
+	if count > 0 {
+		p.logger.Info("Found pending messages", "from", height, "count", count)
 	}
 
 	lowest := p.pendingList.GetLowestHeight()

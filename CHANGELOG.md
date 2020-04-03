@@ -179,7 +179,7 @@ Removed:
 Added:
 
 1. ignore PMNewView with expired round
-2. ignore PMVoteForProposal with expired round
+2. ignore PMVote with expired round
 
 ## 1.3.0
 
