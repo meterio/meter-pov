@@ -322,6 +322,6 @@ func GetPosCurEpoch() uint64 {
 	if pool == nil {
 		panic("get globalPowPool failed")
 	}
-	height := uint64(pool.chain.BestBlock().GetQC().EpochID)
-	return height
+	epoch := uint64(pool.chain.BestBlock().GetBlockEpoch())
+	return epoch
 }

@@ -14,7 +14,9 @@ import (
 type AuctionSummary struct {
 	AuctionID    meter.Bytes32
 	StartHeight  uint64
+	StartEpoch   uint64
 	EndHeight    uint64
+	EndEpoch     uint64
 	RlsdMTRG     *big.Int
 	RsvdPrice    *big.Int
 	CreateTime   uint64
@@ -24,8 +26,8 @@ type AuctionSummary struct {
 }
 
 func (a *AuctionSummary) ToString() string {
-	return fmt.Sprintf("AuctionSummary(%v) StartHeight%v, EndHieght=%v, ReleasedMTRG=%v, ReserveredPrice=%v, CreateTime=%v, ReceivedMTR=%v, ActualPrice=%v, LeftoverMTRG=%v",
-		a.AuctionID.String(), a.StartHeight, a.EndHeight, a.RlsdMTRG.Uint64(), a.RsvdPrice.Uint64(),
+	return fmt.Sprintf("AuctionSummary(%v) StartHeight%v, StartEpoch=%v, EndHieght=%v, EndEpoch=%v, ReleasedMTRG=%v, ReserveredPrice=%v, CreateTime=%v, ReceivedMTR=%v, ActualPrice=%v, LeftoverMTRG=%v",
+		a.AuctionID.String(), a.StartHeight, a.StartEpoch, a.EndHeight, a.EndEpoch, a.RlsdMTRG.Uint64(), a.RsvdPrice.Uint64(),
 		a.CreateTime, a.RcvdMTR.Uint64(), a.ActualPrice.Uint64(), a.LeftoverMTRG.Uint64())
 }
 

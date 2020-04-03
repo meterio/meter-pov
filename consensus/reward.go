@@ -22,7 +22,7 @@ import (
 
 const (
 	//AuctionInterval = uint64(30000)
-	AuctionInterval = uint64(300) // change 30000 to 300 to accelerate the action
+	AuctionInterval = uint64(24) // every 24 Epoch move to next auction
 )
 
 func (conR *ConsensusReactor) GetKBlockRewardTxs(rewards []powpool.PowReward) tx.Transactions {
@@ -103,14 +103,16 @@ func BuildGoverningData(delegateSize uint32) (ret []byte) {
 }
 
 // ****** Auction ********************
-func BuildAuctionStart(start, end uint64) (ret []byte) {
+func BuildAuctionStart(start, startEpoch, end, endEpoch uint64) (ret []byte) {
 	ret = []byte{}
 
 	body := &auction.AuctionBody{
 		Opcode:      auction.OP_START,
 		Version:     uint32(0),
 		StartHeight: start,
+		StartEpoch:  startEpoch,
 		EndHeight:   end,
+		EndEpoch:    endEpoch,
 		Timestamp:   uint64(time.Now().Unix()),
 		Nonce:       rand.Uint64(),
 	}
@@ -138,14 +140,16 @@ func BuildAuctionStart(start, end uint64) (ret []byte) {
 	return
 }
 
-func BuildAuctionStop(start, end uint64, id *meter.Bytes32) (ret []byte) {
+func BuildAuctionStop(start, startEpoch, end, endEpoch uint64, id *meter.Bytes32) (ret []byte) {
 	ret = []byte{}
 
 	body := &auction.AuctionBody{
 		Opcode:      auction.OP_STOP,
 		Version:     uint32(0),
 		StartHeight: start,
+		StartEpoch:  startEpoch,
 		EndHeight:   end,
+		EndEpoch:    endEpoch,
 		AuctionID:   *id,
 		Timestamp:   uint64(time.Now().Unix()),
 		Nonce:       rand.Uint64(),
@@ -176,19 +180,48 @@ func BuildAuctionStop(start, end uint64, id *meter.Bytes32) (ret []byte) {
 
 // height is current kblock, lastKBlock is last one
 // so if current > boundary && last < boundary, take actions
-func ShouldAuctionAction(height, lastKBlock uint64) bool {
-	var boundary uint64
-	boundary = uint64(uint64(height/AuctionInterval) * AuctionInterval)
-	if lastKBlock < boundary {
-		fmt.Println("take auction action ...", "height", height, "boundrary", boundary)
+func (conR *ConsensusReactor) ShouldAuctionAction(curEpoch, lastEpoch uint64) bool {
+	if (curEpoch > lastEpoch) && (curEpoch-lastEpoch) >= AuctionInterval {
 		return true
 	}
 	return false
 }
 
-func (conR *ConsensusReactor) TryBuildAuctionTxs(height, lastKBlock uint64) *tx.Transaction {
-	if ShouldAuctionAction(height, lastKBlock) == false {
-		conR.logger.Debug("no auction Tx in the kblock ...", "height", height)
+func (conR *ConsensusReactor) TryBuildAuctionTxs(height, epoch uint64) *tx.Transaction {
+	// check current active auction first if there is one
+	var currentActive bool
+	cb, err := auction.GetActiveAuctionCB()
+	if err != nil {
+		conR.logger.Error("get auctionCB failed ...", "error", err)
+		return nil
+	}
+	if cb.IsActive() == true {
+		currentActive = true
+	}
+
+	// now start a new auction
+	var lastEndHeight, lastEndEpoch uint64
+	if currentActive == true {
+		lastEndHeight = cb.EndHeight
+		lastEndEpoch = cb.EndEpoch
+	} else {
+		summaryList, err := auction.GetAuctionSummaryList()
+		if err != nil {
+			conR.logger.Error("get summary list failed", "error", err)
+			return nil //TBD: still create Tx?
+		}
+		size := len(summaryList.Summaries)
+		if size != 0 {
+			lastEndHeight = summaryList.Summaries[size-1].EndHeight
+			lastEndEpoch = summaryList.Summaries[size-1].EndEpoch
+		} else {
+			lastEndHeight = 0
+			lastEndEpoch = 0
+		}
+	}
+
+	if conR.ShouldAuctionAction(epoch, lastEndEpoch) == false {
+		conR.logger.Debug("no auction Tx in the kblock ...", "height", height, "epoch", epoch)
 		return nil
 	}
 
@@ -201,37 +234,12 @@ func (conR *ConsensusReactor) TryBuildAuctionTxs(height, lastKBlock uint64) *tx.
 		DependsOn(nil).
 		Nonce(12345678)
 
-	// stop current active auction first
-	var stopActive bool
-	cb, err := auction.GetActiveAuctionCB()
-	if err != nil {
-		conR.logger.Error("get auctionCB failed ...", "error", err)
-		return nil
-	}
-	if cb.IsActive() == true {
-		builder.Clause(tx.NewClause(&auction.AuctionAccountAddr).WithValue(big.NewInt(0)).WithToken(tx.TOKEN_METER_GOV).WithData(BuildAuctionStop(cb.StartHeight, cb.EndHeight, &cb.AuctionID)))
-		stopActive = true
+	if currentActive == true {
+		builder.Clause(tx.NewClause(&auction.AuctionAccountAddr).WithValue(big.NewInt(0)).WithToken(tx.TOKEN_METER_GOV).WithData(BuildAuctionStop(cb.StartHeight, cb.StartEpoch, cb.EndHeight, cb.EndEpoch, &cb.AuctionID)))
 	}
 
-	// now start a new auction
-	var lastEnd uint64
-	if stopActive == true {
-		lastEnd = cb.EndHeight
-	} else {
-		summaryList, err := auction.GetAuctionSummaryList()
-		if err != nil {
-			conR.logger.Error("get summary list failed", "error", err)
-			return nil //TBD: still create Tx?
-		}
-		size := len(summaryList.Summaries)
-		if size != 0 {
-			lastEnd = summaryList.Summaries[size-1].EndHeight
-		} else {
-			lastEnd = 0
-		}
-	}
-	builder.Clause(tx.NewClause(&auction.AuctionAccountAddr).WithValue(big.NewInt(0)).WithToken(tx.TOKEN_METER_GOV).WithData(BuildAuctionStart(lastEnd+1, height)))
+	builder.Clause(tx.NewClause(&auction.AuctionAccountAddr).WithValue(big.NewInt(0)).WithToken(tx.TOKEN_METER_GOV).WithData(BuildAuctionStart(lastEndHeight+1, lastEndEpoch+1, height, epoch)))
 
-	conR.logger.Info("Auction Tx Built", "Height", height)
+	conR.logger.Info("Auction Tx Built", "Height", height, "epoch", epoch)
 	return builder.Build()
 }

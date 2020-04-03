@@ -26,7 +26,9 @@ type AuctionBody struct {
 	Version     uint32
 	Option      uint32
 	StartHeight uint64
+	StartEpoch  uint64
 	EndHeight   uint64
+	EndEpoch    uint64
 	AuctionID   meter.Bytes32
 	Bidder      meter.Address
 	Amount      *big.Int
@@ -36,8 +38,8 @@ type AuctionBody struct {
 }
 
 func (ab *AuctionBody) ToString() string {
-	return fmt.Sprintf("AuctionBody: Opcode=%v, Version=%v, Option=%v, StartHegiht=%v, EndHeight=%v, AuctionID=%v, Bidder=%v, Amount=%v, Token=%v, TimeStamp=%v, Nonce=%v",
-		ab.Opcode, ab.Version, ab.Option, ab.StartHeight, ab.EndHeight, ab.AuctionID.AbbrevString(), ab.Bidder.String(), ab.Amount.String(), ab.Token, ab.Timestamp, ab.Nonce)
+	return fmt.Sprintf("AuctionBody: Opcode=%v, Version=%v, Option=%v, StartHegiht=%v, StartEpoch=%v, EndHeight=%v, EndEpoch=%v, AuctionID=%v, Bidder=%v, Amount=%v, Token=%v, TimeStamp=%v, Nonce=%v",
+		ab.Opcode, ab.Version, ab.Option, ab.StartHeight, ab.StartEpoch, ab.EndHeight, ab.EndEpoch, ab.AuctionID.AbbrevString(), ab.Bidder.String(), ab.Amount.String(), ab.Token, ab.Timestamp, ab.Nonce)
 }
 
 func (ab *AuctionBody) GetOpName(op uint32) string {
@@ -79,10 +81,16 @@ func (ab *AuctionBody) StartAuctionCB(env *AuctionEnviroment, gas uint64) (ret [
 	} else {
 		leftOverGas = gas - meter.ClauseGas
 	}
-	release, _, _ := calcRewardRange(ab.StartHeight, ab.EndHeight)
+	release, _, err := calcRewardEpochRange(ab.StartEpoch, ab.EndEpoch)
+	if err != nil {
+		log.Info("calculate reward failed")
+		return
+	}
 
 	auctionCB.StartHeight = ab.StartHeight
+	auctionCB.StartEpoch = ab.StartEpoch
 	auctionCB.EndHeight = ab.EndHeight
+	auctionCB.EndEpoch = ab.EndEpoch
 	auctionCB.RlsdMTRG = FloatToBigInt(release)
 	auctionCB.RsvdPrice = AuctionReservedPrice
 	auctionCB.CreateTime = ab.Timestamp
@@ -114,12 +122,16 @@ func (ab *AuctionBody) CloseAuctionCB(senv *AuctionEnviroment, gas uint64) (ret 
 	// clear the auction
 	actualPrice, leftover, err := Auction.ClearAuction(auctionCB, state)
 	if err != nil {
+		log.Info("clear active auction failed failed")
 		return
 	}
+
 	summary := &AuctionSummary{
 		AuctionID:    auctionCB.AuctionID,
 		StartHeight:  auctionCB.StartHeight,
+		StartEpoch:   auctionCB.StartEpoch,
 		EndHeight:    auctionCB.EndHeight,
+		EndEpoch:     auctionCB.EndEpoch,
 		RlsdMTRG:     auctionCB.RlsdMTRG,
 		RsvdPrice:    auctionCB.RsvdPrice,
 		CreateTime:   auctionCB.CreateTime,

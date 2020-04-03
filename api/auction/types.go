@@ -11,7 +11,9 @@ import (
 type AuctionSummary struct {
 	AuctionID    string `json:"auctionID"`
 	StartHeight  uint64 `json:"startHeight"`
+	StartEpoch   uint64 `json:"startEpoch"`
 	EndHeight    uint64 `json:"endHeight"`
+	EndEpoch     uint64 `json:"endEpoch"`
 	RlsdMTRG     string `json:"releasedMTRG"`
 	RsvdPrice    string `json:"reservedPrice"`
 	CreateTime   uint64 `json:"createTime"`
@@ -24,7 +26,9 @@ type AuctionSummary struct {
 type AuctionCB struct {
 	AuctionID   string       `json:"auctionID"`
 	StartHeight uint64       `json:"startHeight"`
+	StartEpoch  uint64       `json:"startEpoch"`
 	EndHeight   uint64       `json:"endHeight"`
+	EndEpoch    uint64       `json:"endEpoch"`
 	RlsdMTRG    string       `json:"releasedMTRG"`
 	RsvdPrice   string       `json:"reservedPrice"`
 	CreateTime  uint64       `json:"createTime"`
@@ -54,7 +58,9 @@ func convertSummary(s *auction.AuctionSummary) *AuctionSummary {
 	return &AuctionSummary{
 		AuctionID:    s.AuctionID.AbbrevString(),
 		StartHeight:  s.StartHeight,
+		StartEpoch:   s.StartEpoch,
 		EndHeight:    s.EndHeight,
+		EndEpoch:     s.EndEpoch,
 		RlsdMTRG:     s.RlsdMTRG.String(),
 		RsvdPrice:    s.RsvdPrice.String(),
 		Timestamp:    fmt.Sprintln(time.Unix(int64(s.CreateTime), 0)),
@@ -85,7 +91,9 @@ func convertAuctionCB(cb *auction.AuctionCB) *AuctionCB {
 	return &AuctionCB{
 		AuctionID:   cb.AuctionID.AbbrevString(),
 		StartHeight: cb.StartHeight,
+		StartEpoch:  cb.StartEpoch,
 		EndHeight:   cb.EndHeight,
+		EndEpoch:    cb.EndEpoch,
 		RlsdMTRG:    cb.RlsdMTRG.String(),
 		RsvdPrice:   cb.RsvdPrice.String(),
 		CreateTime:  cb.CreateTime,
