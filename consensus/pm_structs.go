@@ -182,9 +182,9 @@ func newPMQuorumCert(qc *block.QuorumCert, qcNode *pmBlock) *pmQuorumCert {
 
 func (qc *pmQuorumCert) ToString() string {
 	if qc.QCNode != nil {
-		return fmt.Sprintf("QuorumCert(QCHeight: %v, QCRound: %v, qcNodeHeight: %v, qcNodeRound: %v)", qc.QC.QCHeight, qc.QC.QCRound, qc.QCNode.Height, qc.QCNode.Round)
+		return fmt.Sprintf("pmQC(QCHeight: %v, QCRound: %v, qcNodeHeight: %v, qcNodeRound: %v)", qc.QC.QCHeight, qc.QC.QCRound, qc.QCNode.Height, qc.QCNode.Round)
 	} else {
-		return fmt.Sprintf("QuorumCert(QCHeight: %v, QCRound: %v, qcNode: nil)", qc.QC.QCHeight, qc.QC.QCRound)
+		return fmt.Sprintf("pmQC(QCHeight: %v, QCRound: %v, qcNode: nil)", qc.QC.QCHeight, qc.QC.QCRound)
 	}
 }
 

@@ -93,7 +93,7 @@ func (p *Pacemaker) CreateLeaf(parent *pmBlock, qc *pmQuorumCert, height uint64,
 	if err != nil {
 		panic("Error decode the parent block")
 	}
-	p.logger.Info(fmt.Sprintf("CreateLeaf: height=%v, round=%v, QCHight=%v, QCRound=%v, ParentHeight=%v, ParentRound=%v", height, round, qc.QC.QCHeight, qc.QC.QCRound, parent.Height, parent.Round))
+	p.logger.Info(fmt.Sprintf("CreateLeaf: height=%v, round=%v, QC(Height:%v,Round:%v), Parent(Height:%v,Round:%v)", height, round, qc.QC.QCHeight, qc.QC.QCRound, parent.Height, parent.Round))
 	// after kblock is proposed, we should propose 2 rounds of stopcommitteetype block
 	// to finish the pipeline. This mechnism guranttee kblock get into block server.
 
@@ -118,7 +118,7 @@ func (p *Pacemaker) CreateLeaf(parent *pmBlock, qc *pmQuorumCert, height uint64,
 	}
 
 	info, blockBytes := p.proposeBlock(parentBlock, height, round, qc, true)
-	p.logger.Info(fmt.Sprintf("Proposed Block:\n%v", info.ProposedBlock.CompactString()))
+	p.logger.Info(fmt.Sprintf("Proposed Block: %v", info.ProposedBlock.Oneliner()))
 
 	b := &pmBlock{
 		Height:  height,
@@ -197,7 +197,7 @@ func (p *Pacemaker) Execute(b *pmBlock) error {
 
 func (p *Pacemaker) OnCommit(commitReady []*pmBlock) error {
 	for _, b := range commitReady {
-		p.csReactor.logger.Info("OnCommit", "height", b.Height, "round", b.Round)
+		p.csReactor.logger.Debug("OnCommit", "height", b.Height, "round", b.Round)
 
 		// TBD: how to handle this case???
 		if b.SuccessProcessed == false {
@@ -207,10 +207,9 @@ func (p *Pacemaker) OnCommit(commitReady []*pmBlock) error {
 		// commit the approved block
 		bestQC := p.proposalMap[b.Height+1].Justify.QC
 		if err := p.csReactor.FinalizeCommitBlock(b.ProposedBlockInfo, bestQC); err != nil {
-			p.csReactor.logger.Warn("Commit block failed ...", "error", err)
-
 			// same block can be imported fromm P2P, we consider it as success
-			if err.Error() != "block already exists" {
+			if err != errKnownBlock {
+				p.csReactor.logger.Warn("Commit block failed ...", "error", err)
 				//revert to checkpoint
 				best := p.csReactor.chain.BestBlock()
 				state, err := p.csReactor.stateCreator.NewState(best.Header().StateRoot())
@@ -276,9 +275,7 @@ func (p *Pacemaker) OnReceiveProposal(mi *consensusMsgInfo) error {
 	}
 
 	qc := blk.QC
-	p.logger.Info("start to handle received proposal ", "height", msgHeader.Height, "round", msgHeader.Round,
-		"parentHeight", proposalMsg.ParentHeight, "parentRound", proposalMsg.ParentRound,
-		"qc", qc.CompactString(), "ID", blk.Header().ID())
+	p.logger.Debug("start to handle received block proposal ", "block", blk.Oneliner())
 
 	// address parent
 	parent := p.AddressBlock(proposalMsg.ParentHeight, proposalMsg.ParentRound)
@@ -375,7 +372,7 @@ func (p *Pacemaker) OnReceiveProposal(mi *consensusMsgInfo) error {
 }
 
 func (p *Pacemaker) OnReceiveVote(mi *consensusMsgInfo) error {
-	voteMsg := mi.Msg.(*PMVoteForProposalMessage)
+	voteMsg := mi.Msg.(*PMVoteMessage)
 	msgHeader := voteMsg.CSMsgCommonHeader
 
 	height := uint64(msgHeader.Height)
@@ -637,7 +634,6 @@ func (p *Pacemaker) OnReceiveNewView(mi *consensusMsgInfo) error {
 		// if peer's height is lower than me, forward all available proposals to fill the gap
 		if qcHeight < p.lastVotingHeight {
 			// forward missing proposals to peers who just sent new view message with lower expected height
-			peers := []*ConsensusPeer{peer}
 			tmpHeight := qcHeight
 			var proposal *pmBlock
 			var ok bool
@@ -646,7 +642,7 @@ func (p *Pacemaker) OnReceiveNewView(mi *consensusMsgInfo) error {
 					break
 				}
 				p.logger.Info("peer missed one proposal, forward to it ... ", "height", tmpHeight, "name", peer.name, "ip", peer.netAddr.IP.String())
-				p.asyncSendPacemakerMsg(proposal.ProposalMessage, false, peers...)
+				p.asyncSendPacemakerMsg(proposal.ProposalMessage, false, peer)
 				tmpHeight++
 			}
 		}
@@ -807,7 +803,7 @@ func (p *Pacemaker) mainLoop() {
 				} else {
 					err = p.checkPendingMessages(uint64(msg.CSMsgCommonHeader.Height))
 				}
-			case *PMVoteForProposalMessage:
+			case *PMVoteMessage:
 				err = p.OnReceiveVote(&m)
 			case *PMNewViewMessage:
 				err = p.OnReceiveNewView(&m)
@@ -917,7 +913,7 @@ func (p *Pacemaker) updateCurrentRound(round uint64, reason roundUpdateReason) b
 
 	if updated {
 		p.currentRound = round
-		p.logger.Info("* Current round updated", "to", p.currentRound, "reason", reason.String())
+		p.logger.Info("update current round", "to", p.currentRound, "reason", reason.String())
 		pmRoundGauge.Set(float64(p.currentRound))
 		return true
 	}
@@ -976,7 +972,7 @@ func (p *Pacemaker) revertTo(revertHeight uint64) {
 			}
 			state.RevertTo(info.CheckPoint)
 		}
-		p.logger.Warn("Deleted from proposalMap:", "blockHeight", height, "block", proposal.ToString())
+		p.logger.Warn("Deleted from proposalMap:", "height", height, "block", proposal.ToString())
 		delete(p.proposalMap, height)
 		height++
 	}
@@ -1025,7 +1021,7 @@ func (p *Pacemaker) revertTo(revertHeight uint64) {
 				p.blockLeaf
 			}
 			p.blockLeaf = p.blockLeaf.Parent
-			p.logger.Warn("Deleted from proposalMap:", "blockHeight", blockHeight, "block", p.proposalMap[blockHeight].ToString())
+			p.logger.Warn("Deleted from proposalMap:", "height", blockHeight, "block", p.proposalMap[blockHeight].ToString())
 			delete(p.proposalMap, blockHeight)
 			// FIXME: remove precommited block and release tx
 		}

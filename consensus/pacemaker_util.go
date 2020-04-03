@@ -64,19 +64,17 @@ func (p *Pacemaker) receivePacemakerMsg(w http.ResponseWriter, r *http.Request) 
 	msgHashHex := hex.EncodeToString(msgHash[:])[:MsgHashSize]
 
 	// update msg cache to avoid duplicate
-	existed := p.msgCache.Contains(uint64(msg.Header().Height), msgHash)
+	existed := p.msgCache.Add(uint64(msg.Header().Height), msgHash)
 	if existed {
-		p.logger.Info("duplicate "+typeName+" , dropped ...", "msgHash", msgHashHex)
+		p.logger.Info("duplicate "+typeName+" , dropped ...", "peer", peer.name, "ip", peer.netAddr.IP.String(), "msgHash", msgHashHex)
 		return
 	}
-	p.msgCache.Add(uint64(msg.Header().Height), msgHash)
 
 	fromMyself := peer.netAddr.IP.String() == p.csReactor.GetMyNetAddr().IP.String()
 	if fromMyself {
-		p.logger.Info(fmt.Sprintf("Received from myself: %s", msg.String()), "from", p.csReactor.GetMyName(), "ip", peer.netAddr.IP.String(), "msgHash", msgHashHex)
-		fromMyself = true
+		p.logger.Info(fmt.Sprintf("Recv: %s", msg.String()), "peer", p.csReactor.GetMyName()+"(myself)", "ip", peer.netAddr.IP.String(), "msgHash", msgHashHex)
 	} else {
-		p.logger.Info(fmt.Sprintf("Received from peer: %s", msg.String()), "peer", peer.name, "ip", peer.netAddr.IP.String(), "msgHash", msgHashHex)
+		p.logger.Info(fmt.Sprintf("Recv: %s", msg.String()), "peer", peer.name, "ip", peer.netAddr.IP.String(), "msgHash", msgHashHex)
 	}
 
 	p.pacemakerMsgCh <- *mi
@@ -89,14 +87,16 @@ func (p *Pacemaker) receivePacemakerMsg(w http.ResponseWriter, r *http.Request) 
 		round := msg.Header().Round
 		peers, _ := p.GetRelayPeers(round)
 		typeName := getConcreteName(mi.Msg)
-		p.logger.Info("Now, relay this "+typeName+"...", "height", height, "round", round, "msgHash", msgHashHex)
-		p.asyncSendPacemakerMsg(mi.Msg, true, peers...)
+		if len(peers) > 0 {
+			p.logger.Info("Now, relay this "+typeName+"...", "height", height, "round", round, "msgHash", msgHashHex)
+			p.asyncSendPacemakerMsg(mi.Msg, true, peers...)
+		}
 		p.msgCache.CleanTo(uint64(height - MSG_KEEP_HEIGHT))
 	}
 }
 
 func (p *Pacemaker) GetRelayPeers(round int) ([]*ConsensusPeer, error) {
-	peers := []*ConsensusPeer{}
+	peers := make([]*ConsensusPeer, 0)
 	size := len(p.csReactor.curActualCommittee)
 	myIndex := p.myActualCommitteeIndex
 	if size == 0 {
@@ -116,7 +116,8 @@ func (p *Pacemaker) GetRelayPeers(round int) ([]*ConsensusPeer, error) {
 			index = index % size
 		}
 		member := p.csReactor.curActualCommittee[index]
-		peers = append(peers, newConsensusPeer(member.Name, member.NetAddr.IP, member.NetAddr.Port, p.csReactor.magic))
+		name := p.csReactor.GetCommitteeMemberNameByIP(member.NetAddr.IP)
+		peers = append(peers, newConsensusPeer(name, member.NetAddr.IP, member.NetAddr.Port, p.csReactor.magic))
 	}
 	return peers, nil
 }
@@ -195,9 +196,11 @@ func (p *Pacemaker) ValidateProposal(b *pmBlock) error {
 	}
 
 	//create checkPoint before validate block
+	blkID := blk.Header().ID()
+	blkHeight := blk.Header().Number()
 	state, err := p.csReactor.stateCreator.NewState(p.csReactor.chain.BestBlock().Header().StateRoot())
 	if err != nil {
-		p.logger.Error("revert state failed ...", "error", err)
+		p.logger.Error("revert state failed ...", "height", blkHeight, "id", blkID, "error", err)
 		return nil
 	}
 	checkPoint := state.NewCheckpoint()
@@ -205,7 +208,7 @@ func (p *Pacemaker) ValidateProposal(b *pmBlock) error {
 	now := uint64(time.Now().Unix())
 	stage, receipts, err := p.csReactor.ProcessProposedBlock(parentHeader, blk, now)
 	if err != nil {
-		p.logger.Error("process block failed", "error", err)
+		p.logger.Error("process block failed", "height", blkHeight, "id", blkID, "error", err)
 		b.SuccessProcessed = false
 		return err
 	}
@@ -222,21 +225,13 @@ func (p *Pacemaker) ValidateProposal(b *pmBlock) error {
 
 	b.SuccessProcessed = true
 
-	p.logger.Info("Validated proposal", "type", b.ProposedBlockType, "block", blk.Oneliner())
+	p.logger.Info("Validated block proposal", "height", blkHeight, "id", blkID)
 	return nil
 }
 
 func (p *Pacemaker) getProposerByRound(round int) *ConsensusPeer {
 	proposer := p.csReactor.getRoundProposer(round)
 	return newConsensusPeer(proposer.Name, proposer.NetAddr.IP, 8080, p.csReactor.magic)
-}
-
-func (p *Pacemaker) getConsensusPeerByPubkey(pubKey []byte) *ConsensusPeer {
-	if cm := p.csReactor.GetCommitteeMember(pubKey); cm != nil {
-		return newConsensusPeer(cm.Name, cm.NetAddr.IP, cm.NetAddr.Port, p.csReactor.magic)
-	} else {
-		return nil
-	}
 }
 
 // ------------------------------------------------------
@@ -247,16 +242,16 @@ func (p *Pacemaker) SendConsensusMessage(round uint64, msg ConsensusMessage, cop
 	myName := p.csReactor.GetMyName()
 	myself := newConsensusPeer(myName, myNetAddr.IP, myNetAddr.Port, p.csReactor.magic)
 
-	var peers []*ConsensusPeer
+	peers := make([]*ConsensusPeer, 0)
 	switch msg.(type) {
 	case *PMProposalMessage:
 		peers, _ = p.GetRelayPeers(int(round))
-	case *PMVoteForProposalMessage:
+	case *PMVoteMessage:
 		proposer := p.getProposerByRound(int(round))
-		peers = []*ConsensusPeer{proposer}
+		peers = append(peers, proposer)
 	case *PMNewViewMessage:
 		nxtProposer := p.getProposerByRound(int(round))
-		peers = []*ConsensusPeer{nxtProposer}
+		peers = append(peers, nxtProposer)
 		myself = nil // don't send new view to myself
 	}
 
@@ -308,7 +303,7 @@ func (p *Pacemaker) generateNewQCNode(b *pmBlock) (*pmQuorumCert, error) {
 	}, nil
 }
 
-func (p *Pacemaker) collectVoteSignature(voteMsg *PMVoteForProposalMessage) error {
+func (p *Pacemaker) collectVoteSignature(voteMsg *PMVoteMessage) error {
 	round := uint64(voteMsg.CSMsgCommonHeader.Round)
 	if round == uint64(p.currentRound) && p.csReactor.amIRoundProproser(round) {
 		// if round matches and I am proposer, collect signature and store in cache
@@ -355,14 +350,13 @@ func (p *Pacemaker) sendQueryProposalMsg(queryHeight, queryRound, EpochID uint64
 			}
 		}
 	}
-	peers := []*ConsensusPeer{peer}
 
 	queryMsg, err := p.BuildQueryProposalMessage(queryHeight, queryRound, EpochID, myNetAddr)
 	if err != nil {
 		p.logger.Warn("failed to generate PMQueryProposal message", "err", err)
 		return errors.New("failed to generate PMQueryProposal message")
 	}
-	p.asyncSendPacemakerMsg(queryMsg, false, peers...)
+	p.asyncSendPacemakerMsg(queryMsg, false, peer)
 	return nil
 }
 
@@ -387,10 +381,14 @@ func (p *Pacemaker) pendingNewView(queryHeight, queryRound, epochID uint64, mi *
 
 func (p *Pacemaker) checkPendingMessages(curHeight uint64) error {
 	height := curHeight
-	p.logger.Info("Check pending messages", "from", height)
+	count := 0
 	if pendingMsg, ok := p.pendingList.messages[height]; ok {
+		count++
 		p.pacemakerMsgCh <- pendingMsg
 		// height++ //move higher
+	}
+	if count > 0 {
+		p.logger.Info("Found pending messages", "from", height, "count", count)
 	}
 
 	lowest := p.pendingList.GetLowestHeight()

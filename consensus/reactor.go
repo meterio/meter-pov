@@ -596,10 +596,11 @@ func (conR *ConsensusReactor) handleMsg(mi consensusMsgInfo) {
 	msg, peer := mi.Msg, mi.Peer
 
 	typeName := getConcreteName(msg)
+	msgHashHex := hex.EncodeToString(mi.MsgHash[:])[:MsgHashSize]
 	peerIP := peer.netAddr.IP.String()
-	conR.logger.Info(fmt.Sprintf("Received from peer: %v", msg.String()),
+	conR.logger.Info(fmt.Sprintf("start to handle msg: %v", typeName),
 		"peer", peer.name,
-		"ip", peerIP)
+		"ip", peerIP, "msgHash", msgHashHex)
 
 	var success bool
 	switch msg := msg.(type) {
@@ -670,11 +671,11 @@ func (conR *ConsensusReactor) handleMsg(mi consensusMsgInfo) {
 }
 
 func (conR *ConsensusReactor) GetRelayPeers(round int) ([]*ConsensusPeer, error) {
-	peers := []*ConsensusPeer{}
+	peers := make([]*ConsensusPeer, 0)
 	size := len(conR.curCommittee.Validators)
 	myIndex := conR.curCommitteeIndex
 	if size == 0 {
-		return make([]*ConsensusPeer, 0), errors.New("current actual committee is empty")
+		return peers, errors.New("current actual committee is empty")
 	}
 	rr := round % size
 	if myIndex >= rr {
@@ -690,7 +691,8 @@ func (conR *ConsensusReactor) GetRelayPeers(round int) ([]*ConsensusPeer, error)
 			index = index % size
 		}
 		member := conR.curCommittee.Validators[index]
-		peers = append(peers, newConsensusPeer(member.Name, member.NetAddr.IP, member.NetAddr.Port, conR.magic))
+		name := conR.GetCommitteeMemberNameByIP(member.NetAddr.IP)
+		peers = append(peers, newConsensusPeer(name, member.NetAddr.IP, member.NetAddr.Port, conR.magic))
 	}
 	return peers, nil
 }
@@ -788,29 +790,28 @@ func (conR *ConsensusReactor) UnmarshalMsg(data []byte) (*consensusMsgInfo, erro
 	peerIP := net.ParseIP(params["peer_ip"])
 	peerPort, err := strconv.ParseUint(params["peer_port"], 10, 16)
 	if err != nil {
-		fmt.Println(err)
+		fmt.Println("Unrecognized Payload: ", err)
 		return nil, ErrUnrecognizedPayload
 	}
 	peerName := conR.GetCommitteeMemberNameByIP(peerIP)
 	peer := newConsensusPeer(peerName, peerIP, uint16(peerPort), conR.magic)
-	// p := ConsensusPeer{netAddr: peerAddr}
 	rawMsg, _ := hex.DecodeString(params["message"])
 	msg, err := decodeMsg(rawMsg)
 	if err != nil {
+		fmt.Println("Malformatted Msg: ", msg)
 		return nil, ErrMalformattedMsg
 		// conR.logger.Error("Malformated message, error decoding", "peer", peerName, "ip", peerIP, "msg", msg, "err", err)
 	}
 
 	if VerifyMsgType(msg) == false {
-
-		fmt.Println("invalid msg type!!!")
-		fmt.Println(msg)
+		fmt.Println("Invalid Msg Type:", msg)
 		return nil, ErrInvalidMsgType
 		// conR.logger.Error("MsgType validate failed")
 	}
 
 	if VerifySignature(msg) == false {
 		// conR.logger.Error("Signature validate failed")
+		fmt.Println("Invalide Signature: ", msg)
 		return nil, ErrInvalidSignature
 	}
 	msgHash := sha256.Sum256(rawMsg)
@@ -832,13 +833,15 @@ func (conR *ConsensusReactor) receiveCommitteeMsg(w http.ResponseWriter, r *http
 
 	// cache the message to avoid duplicate handling
 	msg, msgHash, peer := mi.Msg, mi.MsgHash, mi.Peer
-	existed := conR.msgCache.Contains(msg.EpochID(), msgHash)
+	msgHashHex := hex.EncodeToString(msgHash[:])[:MsgHashSize]
+	typeName := getConcreteName(msg)
+	existed := conR.msgCache.Add(msg.EpochID(), msgHash)
 	if existed {
-		typeName := getConcreteName(msg)
-		conR.logger.Info("duplicate "+typeName+", dropped ...", "epoch", msg.EpochID(), "msgType", msg.MsgType(), "peer", peer.name, "ip", peer.netAddr.IP.String())
+		conR.logger.Info("duplicate "+typeName+", dropped ...", "epoch", msg.EpochID(), "peer", peer.name, "ip", peer.netAddr.IP.String(), "msgHash", msgHashHex)
 		return
 	}
-	conR.msgCache.Add(msg.EpochID(), msgHash)
+
+	conR.logger.Info(fmt.Sprintf("Recv: %s", msg.String()), "peer", peer.name, "ip", peer.netAddr.IP.String(), "msgHash", msgHashHex)
 
 	conR.peerMsgQueue <- *mi
 	// respondWithJson(w, http.StatusOK, map[string]string{"result": "success"})
@@ -1333,7 +1336,7 @@ func (conR *ConsensusReactor) startPacemaker(newCommittee bool) error {
 		conR.chain.UpdateBestQC()
 		bestQC := conR.chain.BestQC()
 		bestBlock := conR.chain.BestBlock()
-		conR.logger.Info("Checking the QCHeight and Block height...", "QCHeight", bestQC.QCHeight, "BlockHeight", bestBlock.Header().Number())
+		conR.logger.Info("Checking the QCHeight and Block height...", "QCHeight", bestQC.QCHeight, "bestHeight", bestBlock.Header().Number())
 		if bestQC.QCHeight != uint64(bestBlock.Header().Number()) {
 			com := comm.GetGlobCommInst()
 			if com == nil {
@@ -1355,7 +1358,7 @@ func (conR *ConsensusReactor) startPacemaker(newCommittee bool) error {
 		return nil
 	}
 
-	conR.logger.Info("startConsensusPacemaker", "QCHeight", bestQC.QCHeight, "BlockHeight", bestBlock.Header().Number())
+	conR.logger.Info("startConsensusPacemaker", "QCHeight", bestQC.QCHeight, "bestHeight", bestBlock.Header().Number())
 	conR.csPacemaker.Start(newCommittee)
 	return nil
 }

@@ -135,26 +135,26 @@ func (p *Pacemaker) BuildProposalMessage(height, round uint64, bnew *pmBlock, tc
 
 // BuildVoteForProposalMsg build VFP message for proposal
 // txRoot, stateRoot is decoded from proposalMsg.ProposedBlock, carry in cos already decoded outside
-func (p *Pacemaker) BuildVoteForProposalMessage(proposalMsg *PMProposalMessage, blockID, txsRoot, stateRoot meter.Bytes32) (*PMVoteForProposalMessage, error) {
+func (p *Pacemaker) BuildVoteForProposalMessage(proposalMsg *PMProposalMessage, blockID, txsRoot, stateRoot meter.Bytes32) (*PMVoteMessage, error) {
 
 	ch := proposalMsg.CSMsgCommonHeader
 
 	signMsg := p.csReactor.BuildProposalBlockSignMsg(uint32(proposalMsg.ProposedBlockType), uint64(ch.Height), &blockID, &txsRoot, &stateRoot)
 	sign, msgHash := p.csReactor.csCommon.SignMessage([]byte(signMsg))
-	p.logger.Debug("Built PMVoteForProposalMessage", "signMsg", signMsg)
+	p.logger.Debug("Built PMVoteMessage", "signMsg", signMsg)
 
 	cmnHdr := ConsensusMsgCommonHeader{
 		Height:    ch.Height,
 		Round:     ch.Round,
 		Sender:    crypto.FromECDSAPub(&p.csReactor.myPubKey),
 		Timestamp: time.Now(),
-		MsgType:   PACEMAKER_MSG_VOTE_FOR_PROPOSAL,
+		MsgType:   PACEMAKER_MSG_VOTE,
 
 		EpochID: p.csReactor.curEpoch,
 	}
 
 	index := p.csReactor.GetCommitteeMemberIndex(p.csReactor.myPubKey)
-	msg := &PMVoteForProposalMessage{
+	msg := &PMVoteMessage{
 		CSMsgCommonHeader: cmnHdr,
 
 		VoterID:           crypto.FromECDSAPub(&p.csReactor.myPubKey),
@@ -305,7 +305,6 @@ func (p *Pacemaker) BlockMatchQC(b *pmBlock, qc *block.QuorumCert) (bool, error)
 	signMsg := p.csReactor.BuildProposalBlockSignMsg(blkType, uint64(b.Height), &blkID, &txsRoot, &stateRoot)
 	p.logger.Debug("BlockMatchQC", "signMsg", signMsg)
 	msgHash = p.csReactor.csCommon.Hash256Msg([]byte(signMsg))
-	//p.logger.Info("in BlockMatchQC Compare", "msgHash", msgHash, "qc voting Msg hash", qc.VoterMsgHash[0])
 	//qc at least has 1 vote signature and they are the same, so compare [0] is good enough
 	if bytes.Compare(msgHash.Bytes(), meter.Bytes32(qc.VoterMsgHash).Bytes()) == 0 {
 		p.logger.Debug("QC matches block", "msgHash", msgHash.String(), "qc voter Msghash", meter.Bytes32(qc.VoterMsgHash).String())

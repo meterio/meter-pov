@@ -836,7 +836,7 @@ func (conR *ConsensusReactor) PreCommitBlock(blkInfo *ProposedBlockInfo) bool {
 	conR.logger.Debug("Try to pre-commit block", "block", blk.Oneliner())
 
 	// similar to node.processBlock
-	startTime := mclock.Now()
+	// startTime := mclock.Now()
 
 	if _, err := stage.Commit(); err != nil {
 		conR.logger.Error("failed to commit state", "err", err)
@@ -861,11 +861,7 @@ func (conR *ConsensusReactor) PreCommitBlock(blkInfo *ProposedBlockInfo) bool {
 	// fmt.Println("Calling AddBlock from consensus_block.PrecommitBlock, newblock=", blk.Header().ID())
 	fork, err := conR.chain.AddBlock(blk, *receipts, false)
 	if err != nil {
-		if err == errKnownBlock {
-			conR.logger.Warn("known block", "err", err)
-		} else {
-			conR.logger.Warn("add block failed ...", "err", err)
-		}
+		conR.logger.Warn("add block failed ...", "err", err)
 		return false
 	}
 
@@ -884,11 +880,10 @@ func (conR *ConsensusReactor) PreCommitBlock(blkInfo *ProposedBlockInfo) bool {
 	// now only Mblock remove the txs from txpool
 	blkInfo.txsToRemoved()
 
-	commitElapsed := mclock.Now() - startTime
+	// commitElapsed := mclock.Now() - startTime
 
 	blocksCommitedCounter.Inc()
-	conR.logger.Info(fmt.Sprintf(`Block precommited at height %d
-%v`, height, blk.Oneliner()), "elapsedTime", commitElapsed)
+	conR.logger.Info("block precommited", "height", height, "id", blk.Header().ID())
 	return true
 }
 
@@ -897,8 +892,6 @@ func (conR *ConsensusReactor) FinalizeCommitBlock(blkInfo *ProposedBlockInfo, be
 	blk := blkInfo.ProposedBlock
 	//stage := blkInfo.Stage
 	receipts := blkInfo.Receipts
-
-	height := uint64(blk.Header().Number())
 
 	// TODO: temporary remove
 	// if conR.csPacemaker.blockLocked.Height != height+1 {
@@ -931,6 +924,9 @@ func (conR *ConsensusReactor) FinalizeCommitBlock(blkInfo *ProposedBlockInfo, be
 		return err
 	}
 	// fmt.Println("Calling AddBlock from consensus_block.FinalizeCommitBlock, newBlock=", blk.Header().ID())
+	if blk.Header().Number() <= conR.chain.BestBlock().Header().Number() {
+		return errKnownBlock
+	}
 	fork, err := conR.chain.AddBlock(blk, *receipts, true)
 	if err != nil {
 		conR.logger.Warn("add block failed ...", "err", err)
@@ -964,7 +960,7 @@ func (conR *ConsensusReactor) FinalizeCommitBlock(blkInfo *ProposedBlockInfo, be
 	// XXX: broadcast the new block to all peers
 	comm.GetGlobCommInst().BroadcastBlock(blk)
 	// successfully added the block, update the current hight of consensus
-	conR.logger.Info(fmt.Sprintf("Block committed at height %d", height), "leafBlock", conR.chain.LeafBlock().Header().Number(), "bestBlock", conR.chain.BestBlock().Header().Number())
+	conR.logger.Info("Block committed", "height", blk.Header().Number(), "id", blk.Header().ID())
 	fmt.Println(blk.String())
 	conR.UpdateHeight(int64(conR.chain.BestBlock().Header().Number()))
 

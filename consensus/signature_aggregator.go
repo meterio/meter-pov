@@ -30,7 +30,7 @@ type SignatureAggregator struct {
 
 func newSignatureAggregator(size int, system bls.System, msgHash [32]byte, validators []*types.Validator) *SignatureAggregator {
 	return &SignatureAggregator{
-		logger:     log15.New("pkg", "aggregator"),
+		logger:     log15.New("pkg", "sig"),
 		sigs:       make([]bls.Signature, 0),
 		sigBytes:   make([][]byte, 0),
 		pubkeys:    make([]bls.PublicKey, 0),
@@ -46,6 +46,7 @@ func newSignatureAggregator(size int, system bls.System, msgHash [32]byte, valid
 
 func (sa *SignatureAggregator) Add(index int, msgHash [32]byte, signature []byte, pubkey bls.PublicKey) bool {
 	if sa.sealed {
+		sa.logger.Debug("signature sealed, ignore this vote ...", "count", sa.bitArray.Count(), "voting", sa.BitArrayString())
 		return false
 	}
 	if index < sa.size {
@@ -76,7 +77,7 @@ func (sa *SignatureAggregator) Add(index int, msgHash [32]byte, signature []byte
 		sa.sigBytes = append(sa.sigBytes, signature)
 		sa.sigs = append(sa.sigs, sig)
 		sa.pubkeys = append(sa.pubkeys, pubkey)
-		sa.logger.Info("Collected Signature", "count", sa.bitArray.Count(), "voting", sa.BitArrayString())
+		sa.logger.Info("collected signature", "count", sa.bitArray.Count(), "voting", sa.BitArrayString())
 		return true
 	}
 	return false

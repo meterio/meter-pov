@@ -2,7 +2,6 @@ package consensus
 
 import (
 	"bytes"
-	"encoding/hex"
 	"fmt"
 	"strings"
 	"time"
@@ -30,7 +29,7 @@ const (
 	// CONSENSUS_MSG_VOTE_FOR_NOTARY             = byte(0x07)
 	// CONSENSUS_MSG_MOVE_NEW_ROUND              = byte(0x08)
 	PACEMAKER_MSG_PROPOSAL          = byte(0x10)
-	PACEMAKER_MSG_VOTE_FOR_PROPOSAL = byte(0x11)
+	PACEMAKER_MSG_VOTE = byte(0x11)
 	PACEMAKER_MSG_NEW_VIEW          = byte(0x12)
 	PACEMAKER_MSG_QUERY_PROPOSAL    = byte(0x13)
 )
@@ -42,7 +41,7 @@ var typeMap = map[string]byte{
 	"NewCommittee":      CONSENSUS_MSG_NEW_COMMITTEE,
 	"PMNewView":         PACEMAKER_MSG_NEW_VIEW,
 	"PMProposal":        PACEMAKER_MSG_PROPOSAL,
-	"PMVoteForProposal": PACEMAKER_MSG_VOTE_FOR_PROPOSAL,
+	"PMVote": PACEMAKER_MSG_VOTE,
 	"PMQueryProposal":   PACEMAKER_MSG_QUERY_PROPOSAL,
 }
 
@@ -65,7 +64,7 @@ func RegisterConsensusMessages(cdc *amino.Codec) {
 	cdc.RegisterConcrete(&NewCommitteeMessage{}, "dfinlab/NewCommittee", nil)
 
 	cdc.RegisterConcrete(&PMProposalMessage{}, "dfinlab/PMProposal", nil)
-	cdc.RegisterConcrete(&PMVoteForProposalMessage{}, "dfinlab/PMVoteForProposal", nil)
+	cdc.RegisterConcrete(&PMVoteMessage{}, "dfinlab/PMVote", nil)
 	cdc.RegisterConcrete(&PMNewViewMessage{}, "dfinlab/PMNewView", nil)
 	cdc.RegisterConcrete(&PMQueryProposalMessage{}, "dfinlab/PMQueryProposal", nil)
 }
@@ -403,8 +402,16 @@ func (m *PMProposalMessage) SigningHash() (hash meter.Bytes32) {
 
 // String returns a string representation.
 func (m *PMProposalMessage) String() string {
-	return fmt.Sprintf("[PMProposal Height:%v, Round:%v, Parent:(Height:%v,Round:%v), TimeoutCert:%v]",
-		m.CSMsgCommonHeader.Height, m.CSMsgCommonHeader.Round, m.ParentHeight, m.ParentRound, m.TimeoutCert.String())
+	blk, err := block.BlockDecodeFromBytes(m.ProposedBlock)
+	blkStr := ""
+	if err == nil {
+		canonicalName := blk.GetCanonicalName()
+		header := blk.Header()
+		blkStr = fmt.Sprintf("%v(%v) ID:%v QC:(H:%v,R:%v)", canonicalName, header.Number(), header.ID().AbbrevString(), blk.QC.QCHeight, blk.QC.QCRound)
+	}
+	ch := m.CSMsgCommonHeader
+	return fmt.Sprintf("[PMProposal Height:%v, Round:%v, Parent:(H:%v,R:%v), Proposed:%v, TimeoutCert:%v]",
+		ch.Height, ch.Round, m.ParentHeight, m.ParentRound, blkStr, m.TimeoutCert.String())
 }
 func (m *PMProposalMessage) Header() *ConsensusMsgCommonHeader {
 	return &m.CSMsgCommonHeader
@@ -417,7 +424,7 @@ func (m *PMProposalMessage) MsgType() byte {
 }
 
 // PMVoteResponseMessage is sent when voting for a proposal (or lack thereof).
-type PMVoteForProposalMessage struct {
+type PMVoteMessage struct {
 	CSMsgCommonHeader ConsensusMsgCommonHeader
 
 	VoterID           []byte //ecdsa.PublicKey
@@ -428,7 +435,7 @@ type PMVoteForProposalMessage struct {
 }
 
 // SigningHash computes hash of all header fields excluding signature.
-func (m *PMVoteForProposalMessage) SigningHash() (hash meter.Bytes32) {
+func (m *PMVoteMessage) SigningHash() (hash meter.Bytes32) {
 	hw := meter.NewBlake2b()
 	rlp.Encode(hw, []interface{}{
 		m.CSMsgCommonHeader.Height,
@@ -450,19 +457,17 @@ func (m *PMVoteForProposalMessage) SigningHash() (hash meter.Bytes32) {
 }
 
 // String returns a string representation.
-func (m *PMVoteForProposalMessage) String() string {
-	msgHash := hex.EncodeToString(m.SignedMessageHash[:])
-	abbrMsgHash := msgHash[:4] + "..." + msgHash[len(msgHash)-4:]
-	return fmt.Sprintf("[PMVoteForProposal Height:%v Round:%v MsgHash:%v]",
-		m.CSMsgCommonHeader.Height, m.CSMsgCommonHeader.Round, abbrMsgHash)
+func (m *PMVoteMessage) String() string {
+	return fmt.Sprintf("[PMVote Height:%v Round:%v]",
+		m.CSMsgCommonHeader.Height, m.CSMsgCommonHeader.Round)
 }
-func (m *PMVoteForProposalMessage) Header() *ConsensusMsgCommonHeader {
+func (m *PMVoteMessage) Header() *ConsensusMsgCommonHeader {
 	return &m.CSMsgCommonHeader
 }
-func (m *PMVoteForProposalMessage) EpochID() uint64 {
+func (m *PMVoteMessage) EpochID() uint64 {
 	return m.CSMsgCommonHeader.EpochID
 }
-func (m *PMVoteForProposalMessage) MsgType() byte {
+func (m *PMVoteMessage) MsgType() byte {
 	return m.CSMsgCommonHeader.MsgType
 }
 
@@ -589,8 +594,8 @@ func getConcreteName(msg ConsensusMessage) string {
 	// pacemaker messages
 	case *PMProposalMessage:
 		return "PMProposal"
-	case *PMVoteForProposalMessage:
-		return "PMVoteForProposal"
+	case *PMVoteMessage:
+		return "PMVote"
 	case *PMNewViewMessage:
 		return "PMNewView"
 	case *PMQueryProposalMessage:
