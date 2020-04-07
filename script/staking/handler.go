@@ -793,14 +793,19 @@ func (sb *StakingBody) DelegateStatisticsHandler(senv *StakingEnviroment, gas ui
 		return
 	}
 
-	stats := statisticsList.Get(sb.CandAddr)
-	if stats == nil {
-		stats = NewDelegateStatistics(sb.CandAddr, sb.CandName, sb.CandPubKey)
-	}
 	IncrInfraction := UnpackBytesToCounters(&sb.StakingID)
 	log.Info("Receives statistics", "incremental infraction", IncrInfraction)
 
-	jail := stats.Update(IncrInfraction)
+	var jail bool
+	stats := statisticsList.Get(sb.CandAddr)
+	if stats == nil {
+		stats = NewDelegateStatistics(sb.CandAddr, sb.CandName, sb.CandPubKey)
+		jail = stats.Update(IncrInfraction)
+		statisticsList.Add(stats)
+	} else {
+		jail = stats.Update(IncrInfraction)
+	}
+
 	// 1. remove from statistic list
 	// 2. add to jail list
 	// 3. fine

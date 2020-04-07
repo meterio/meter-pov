@@ -106,7 +106,7 @@ func calcMissingVoter(validators []*types.Validator, actualMembers []CommitteeMe
 		for _, member := range actualMembers {
 			if voterBitArray.GetIndex(member.CSIndex) == false {
 				result = append(result, validators[member.CSIndex].Address)
-				fmt.Println("missingVoter", "address", validators[member.CSIndex].Address, "height", blk.Header().Number())
+				fmt.Println("missingVoter", "height", blk.Header().Number(), "address", validators[member.CSIndex].Address)
 			}
 		}
 	}
@@ -241,6 +241,12 @@ func (conR *ConsensusReactor) calcStatistics(lastKBlockHeight, height uint32) ([
 	}
 
 	for signer := range stats {
+		inf := stats[signer].Infraction
+		// remove non-changed entries
+		if (inf.MissingCommittee == 0) && (inf.MissingLeader == 0) && (inf.MissingProposer == 0) &&
+			(inf.MissingVoter == 0) && (inf.DoubleSigner == 0) {
+			continue
+		}
 		result = append(result, stats[signer])
 	}
 	fmt.Println("Statistics Results", result)
