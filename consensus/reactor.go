@@ -91,6 +91,10 @@ type ConsensusConfig struct {
 	SkipSignatureCheck bool
 	InitCfgdDelegates  bool
 	EpochMBlockCount   uint64
+	MinCommitteeSize   int
+	MaxCommitteeSize   int
+	MaxDelegateSize    int
+	DataDir            string
 }
 
 //-----------------------------------------------------------------------------
@@ -110,9 +114,6 @@ type ConsensusReactor struct {
 	// still references above consensuStae, reactor if this node is
 	// involved the consensus
 	csMode             byte // delegates, committee, other
-	maxCommitteeSize   int  // configured maxCommitteeSize size.
-	minCommitteeSize   int  // configured minCommitteeSize size.
-	maxDelegateSize    int  // configured maxDelegateSize
 	delegateSize       int  // global constant, current available delegate size.
 	committeeSize      int
 	myDelegatesIndex   int                 // this index will be changed by DelegateSet every time
@@ -153,8 +154,6 @@ type ConsensusReactor struct {
 	newCommittee     *NewCommittee                     //New committee for myself
 	rcvdNewCommittee map[NewCommitteeKey]*NewCommittee // store received new committee info
 
-	dataDir string
-
 	msgCache *MsgCache
 
 	magic       [4]byte
@@ -189,6 +188,10 @@ func NewConsensusReactor(ctx *cli.Context, chain *chain.Chain, state *state.Crea
 			SkipSignatureCheck: ctx.Bool("skip-signature-check"),
 			InitCfgdDelegates:  ctx.Bool("init-configured-delegates"),
 			EpochMBlockCount:   uint64(ctx.Int64("epoch-mblock-count")),
+			MinCommitteeSize:   ctx.Int("committee-min-size"),
+			MaxCommitteeSize:   ctx.Int("committee-max-size"),
+			MaxDelegateSize:    ctx.Int("delegate-max-size"),
+			DataDir:            ctx.String("data-dir"),
 		}
 	}
 
@@ -229,17 +232,8 @@ func NewConsensusReactor(ctx *cli.Context, chain *chain.Chain, state *state.Crea
 	lastKBlockHeightGauge.Set(float64(conR.lastKBlockHeight))
 
 	//initialize Delegates
-	conR.minCommitteeSize = ctx.Int("committee-min-size") // 4 //COMMITTEE_SIZE
-	conR.maxCommitteeSize = ctx.Int("committee-max-size") // 10 //DELEGATES_SIZE
-	conR.maxDelegateSize = ctx.Int("delegate-max-size")   // 200
-	dataDir := ctx.String("data-dir")
-	conR.dataDir = dataDir
 
-	delegates, delegateSize, committeeSize := conR.GetConsensusDelegates(conR.config.InitCfgdDelegates, dataDir, conR.maxCommitteeSize, conR.minCommitteeSize, conR.maxDelegateSize)
-	fmt.Println("NewConsensusReactor:", "delegateSize", delegateSize, "committeeSize", committeeSize)
-	conR.curDelegates = types.NewDelegateSet(delegates)
-	conR.delegateSize = delegateSize
-	conR.committeeSize = committeeSize
+	conR.UpdateCurDelegates()
 
 	conR.rcvdNewCommittee = make(map[NewCommitteeKey]*NewCommittee, 10)
 
@@ -280,62 +274,25 @@ func (conR *ConsensusReactor) SwitchToConsensus() {
 	//conR.Logger.Info("SwitchToConsensus")
 	conR.logger.Info("Synchnization is done. SwitchToConsensus ...")
 
-	var replay bool
 	var nonce uint64
 	best := conR.chain.BestBlock()
-
-	// special handle genesis.
-	if best.Header().Number() == 0 {
-		nonce = genesis.GenesisNonce
-		replay = false
-		conR.ConsensusHandleReceivedNonce(int64(best.Header().Number()), nonce, 0, replay)
-		return
+	bestKBlock, err := conR.chain.BestKBlock()
+	if err != nil {
+		panic("could not get best KBlock")
 	}
+	if bestKBlock.Header().Number() == 0 {
+		nonce = genesis.GenesisNonce
+	} else {
+		nonce = bestKBlock.KBlockData.Nonce
+	}
+	replay := (best.Header().Number() != bestKBlock.Header().Number())
 
 	// --force-last-kframe
 	if !conR.config.ForceLastKFrame {
-		// TBD:
-		// 1) Check last KFrame, am I in committee? also need to consult committee info in 1st mblock
-		// 2) If in committee, start pacemake in catchup state. Pacemaker in catchup state meeds to wait
-		//    until all pipe-lines are filled.
-		return
-	}
-
-	// best is kblock, use this kblock
-	if best.Header().BlockType() == block.BLOCK_TYPE_K_BLOCK {
-		kBlockData, err := best.GetKBlockData()
-		if err != nil {
-			panic("can't get KBlockData")
-		}
-		nonce = kBlockData.Nonce
-		replay = false
-		conR.ConsensusHandleReceivedNonce(int64(best.Header().Number()), nonce, best.QC.EpochID, replay)
+		conR.XXX(bestKBlock, replay)
 	} else {
-		// mblock
-		lastKBlockHeight := best.Header().LastKBlockHeight()
-		lastKBlockHeightGauge.Set(float64(lastKBlockHeight))
-
-		if lastKBlockHeight == 0 {
-			nonce = genesis.GenesisNonce
-		} else {
-			kblock, err := conR.chain.GetTrunkBlock(lastKBlockHeight)
-			if err != nil {
-				panic(fmt.Sprintf("get last kblock %v failed", lastKBlockHeight))
-			}
-
-			kBlockData, err := kblock.GetKBlockData()
-			if err != nil {
-				panic("can't get KBlockData")
-			}
-			nonce = kBlockData.Nonce
-		}
-
-		//mark the flag of replay. should initialize by existed the BLS system
-		replay = true
-		conR.ConsensusHandleReceivedNonce(int64(lastKBlockHeight), nonce, best.QC.EpochID, replay)
+		conR.ConsensusHandleReceivedNonce(int64(bestKBlock.Header().Number()), nonce, best.QC.EpochID, replay)
 	}
-
-	return
 }
 
 // String returns a string representation of the ConsensusReactor.
@@ -427,7 +384,7 @@ func (conR *ConsensusReactor) RefreshCurHeight() error {
 	conR.updateCurEpoch(best.GetBlockEpoch())
 
 	lastKBlockHeightGauge.Set(float64(conR.lastKBlockHeight))
-	conR.logger.Info("Refresh curHeight", "previous", prev, "now", conR.curHeight, "lastKBlockHeight", conR.lastKBlockHeight, "epochID", conR.curEpoch)
+	conR.logger.Info("Refresh curHeight", "from", prev, "to", conR.curHeight, "lastKBlock", conR.lastKBlockHeight, "epoch", conR.curEpoch)
 	return nil
 }
 
@@ -596,11 +553,11 @@ func (conR *ConsensusReactor) handleMsg(mi consensusMsgInfo) {
 	msg, peer := mi.Msg, mi.Peer
 
 	typeName := getConcreteName(msg)
-	msgHashHex := hex.EncodeToString(mi.MsgHash[:])[:MsgHashSize]
+	// msgHashHex := hex.EncodeToString(mi.MsgHash[:])[:MsgHashSize]
 	peerIP := peer.netAddr.IP.String()
-	conR.logger.Info(fmt.Sprintf("start to handle msg: %v", typeName),
-		"peer", peer.name,
-		"ip", peerIP, "msgHash", msgHashHex)
+	// conR.logger.Info(fmt.Sprintf("start to handle msg: %v", typeName),
+	// 	"peer", peer.name,
+	// 	"ip", peerIP, "msgHash", msgHashHex)
 
 	var success bool
 	switch msg := msg.(type) {
@@ -981,11 +938,17 @@ func (conR *ConsensusReactor) asyncSendCommitteeMsg(msg *ConsensusMessage, relay
 }
 
 func (conR *ConsensusReactor) GetMyNetAddr() types.NetAddress {
-	return conR.curCommittee.Validators[conR.curCommitteeIndex].NetAddr
+	if conR.curCommittee != nil && len(conR.curCommittee.Validators) > 0 {
+		return conR.curCommittee.Validators[conR.curCommitteeIndex].NetAddr
+	}
+	return types.NetAddress{IP: net.IP{}, Port: 0}
 }
 
 func (conR *ConsensusReactor) GetMyName() string {
-	return conR.curCommittee.Validators[conR.curCommitteeIndex].Name
+	if conR.curCommittee != nil && len(conR.curCommittee.Validators) > 0 {
+		return conR.curCommittee.Validators[conR.curCommitteeIndex].Name
+	}
+	return "unknown"
 }
 
 func (conR *ConsensusReactor) GetMyPeers() ([]*ConsensusPeer, error) {
@@ -1233,14 +1196,71 @@ func (conR *ConsensusReactor) HandleSchedule(fn func()) bool {
 }
 
 //////////////////////////////////////////////////////
-// update current delegates with new delegates from staking
+// update current delegates with new delegates from staking or config file
 // keep this standalone method intentionly
-func (conR *ConsensusReactor) ConsensusUpdateCurDelegates() {
-	delegates, delegateSize, committeeSize := conR.GetConsensusDelegates(false, conR.dataDir, conR.maxCommitteeSize, conR.minCommitteeSize, conR.maxDelegateSize)
+func (conR *ConsensusReactor) UpdateCurDelegates() {
+	delegates, delegateSize, committeeSize := conR.GetConsensusDelegates()
 	conR.curDelegates = types.NewDelegateSet(delegates)
 	conR.delegateSize = delegateSize
 	conR.committeeSize = committeeSize
-	conR.logger.Info("in ConsensusUpdateCurDelegates", "delegateSize", conR.delegateSize, "committeeSize", conR.committeeSize)
+	names := make([]string, 0)
+	for _, d := range conR.curDelegates.Delegates {
+		names = append(names, string(d.Name))
+	}
+	conR.logger.Info("Update curDelegates", "delegateSize", conR.delegateSize, "committeeSize", conR.committeeSize, "names", strings.Join(names, ","))
+}
+
+func (conR *ConsensusReactor) XXX(kBlock *block.Block, replay bool) {
+	var nonce uint64
+	var info *powpool.PowBlockInfo
+	kBlockHeight := kBlock.Header().Number()
+	if kBlock.Header().Number() == 0 {
+		nonce = genesis.GenesisNonce
+		info = powpool.GetPowGenesisBlockInfo()
+	} else {
+		nonce = kBlock.KBlockData.Nonce
+		info = powpool.NewPowBlockInfoFromPosKBlock(kBlock)
+	}
+	epoch := conR.chain.BestBlock().GetBlockEpoch()
+	conR.logger.Info("Received a nonce ...", "nonce", nonce, "kBlockHeight", kBlockHeight, "replay", replay, "epoch", epoch)
+
+	conR.curNonce = nonce
+
+	role, inCommittee := conR.NewValidatorSetByNonce(nonce)
+
+	conR.inCommittee = inCommittee
+
+	if inCommittee {
+		conR.logger.Info("I am in committee!!!")
+		pool := powpool.GetGlobPowPoolInst()
+		pool.Wash()
+		pool.InitialAddKframe(info)
+		conR.logger.Info("PowPool initial added kblock", "kblock height", kBlock.Header().Number(), "powHeight", info.PowHeight)
+
+		if replay == true {
+			//kblock is already added to pool, should start with next one
+			startHeight := info.PowHeight + 1
+			conR.logger.Info("Replay", "replay from powHeight", startHeight)
+			pool.ReplayFrom(int32(startHeight))
+		}
+		conR.inCommittee = true
+		inCommitteeGauge.Set(1)
+	} else {
+		conR.inCommittee = false
+		inCommitteeGauge.Set(0)
+		conR.logger.Info("I am NOT in committee!!!", "nonce", nonce)
+	}
+
+	if role == CONSENSUS_COMMIT_ROLE_LEADER || role == CONSENSUS_COMMIT_ROLE_VALIDATOR {
+
+		conR.logger.Info("I am committee validator for nonce!", "nonce", nonce)
+
+		conR.updateCurEpoch(epoch)
+		// conR.NewCommitteeInit(uint64(kBlockHeight), nonce, replay)
+		conR.NewValidatorSetByNonce(nonce)
+		conR.UpdateActualCommittee(0)
+		conR.startPacemaker(!replay, PMModeCatchUp)
+	}
 }
 
 // Consensus module handle received nonce from kblock
@@ -1329,7 +1349,7 @@ func (conR *ConsensusReactor) ConsensusHandleReceivedNonce(kBlockHeight int64, n
 // true --- with new committee, round = 0, best block is kblock.
 // false ---replay mode, round continues with BestQC.QCRound. best block is mblock
 // XXX: we assume the peers have the bestQC, if they don't ...
-func (conR *ConsensusReactor) startPacemaker(newCommittee bool) error {
+func (conR *ConsensusReactor) startPacemaker(newCommittee bool, mode PMMode) error {
 	// 1. bestQC height == best block height
 	// 2. newCommittee is true, best block is kblock
 	for i := 0; i < 3; i++ {
@@ -1359,7 +1379,7 @@ func (conR *ConsensusReactor) startPacemaker(newCommittee bool) error {
 	}
 
 	conR.logger.Info("startConsensusPacemaker", "QCHeight", bestQC.QCHeight, "bestHeight", bestBlock.Header().Number())
-	conR.csPacemaker.Start(newCommittee)
+	conR.csPacemaker.Start(newCommittee, mode)
 	return nil
 }
 
@@ -1437,7 +1457,7 @@ func UserHomeDir() string {
 func (conR *ConsensusReactor) SplitPubKey(comboPub string) (*ecdsa.PublicKey, *bls.PublicKey) {
 	// first part is ecdsa public, 2nd part is bls public key
 	split := strings.Split(comboPub, ":::")
-	fmt.Println("ecdsa PubKey", split[0], "Bls PubKey", split[1])
+	// fmt.Println("ecdsa PubKey", split[0], "Bls PubKey", split[1])
 	pubKeyBytes, err := b64.StdEncoding.DecodeString(split[0])
 	if err != nil {
 		panic(fmt.Sprintf("read public key of delegate failed, %v", err))
@@ -1540,67 +1560,50 @@ func PrintDelegates(delegates []*types.Delegate) {
 	fmt.Println("============================================")
 }
 
+func calcCommitteeSize(delegateSize int, config ConsensusConfig) (int, int) {
+	if delegateSize >= config.MaxDelegateSize {
+		delegateSize = config.MaxDelegateSize
+	}
+
+	committeeSize := delegateSize
+	if delegateSize > config.MaxCommitteeSize {
+		committeeSize = config.MaxCommitteeSize
+	}
+	return delegateSize, committeeSize
+}
+
 // entry point for each committee
 // return with delegates list, delegateSize, committeeSize
 // maxDelegateSize >= maxCommiteeSize >= minCommitteeSize
-func (conR *ConsensusReactor) GetConsensusDelegates(forceDelegates bool, dataDir string, maxCommitteeSize, minCommitteeSize, maxDelegateSize int) ([]*types.Delegate, int, int) {
+func (conR *ConsensusReactor) GetConsensusDelegates() ([]*types.Delegate, int, int) {
+	forceDelegates := conR.config.InitCfgdDelegates
+	dataDir := conR.config.DataDir
 	var delegateSize, committeeSize int
 
 	// special handle for flag --init-configured-delegates
 	if forceDelegates == true {
 		delegates := conR.configDelegates(dataDir)
-		if len(delegates) >= maxDelegateSize {
-			delegateSize = maxDelegateSize
-			delegates = delegates[:maxDelegateSize]
-		} else {
-			delegateSize = len(delegates)
-		}
-
-		if delegateSize > maxCommitteeSize {
-			committeeSize = maxCommitteeSize
-		} else {
-			committeeSize = delegateSize
-		}
-		fmt.Println("delegatesList from configuration file e.g. delegates.json", "delegateSize", delegateSize, "committeeSize", committeeSize)
+		delegateSize, committeeSize = calcCommitteeSize(len(delegates), conR.config)
+		delegates = delegates[:delegateSize]
+		fmt.Println("Load delegates from delegates.json", "delegateSize", delegateSize, "committeeSize", committeeSize)
 		PrintDelegates(delegates)
 		return delegates, delegateSize, committeeSize
 	}
 
 	delegatesIntern, err := staking.GetInternalDelegateList()
 	delegates := conR.convertFromIntern(delegatesIntern)
-	if err == nil && len(delegates) >= minCommitteeSize {
-		if len(delegates) >= maxDelegateSize {
-			delegateSize = maxDelegateSize
-			delegates = delegates[:maxDelegateSize]
-		} else {
-			delegateSize = len(delegates)
-		}
-
-		if delegateSize > maxCommitteeSize {
-			committeeSize = maxCommitteeSize
-		} else {
-			committeeSize = delegateSize
-		}
-
-		fmt.Println("delegatesList from staking", "delegateSize", delegateSize, "committeeSize", committeeSize)
-		PrintDelegates(delegates)
+	if err == nil && len(delegates) >= conR.config.MinCommitteeSize {
+		delegateSize, committeeSize = calcCommitteeSize(len(delegates), conR.config)
+		delegates = delegates[:delegateSize]
+		fmt.Println("Load delegates from staking candidates", "delegateSize", delegateSize, "committeeSize", committeeSize)
 	} else {
 		delegates = conR.configDelegates(dataDir)
-		if len(delegates) >= maxDelegateSize {
-			delegateSize = maxDelegateSize
-			delegates = delegates[:maxDelegateSize]
-		} else {
-			delegateSize = len(delegates)
-		}
+		delegateSize, committeeSize = calcCommitteeSize(len(delegates), conR.config)
+		delegates = delegates[:delegateSize]
 
-		if delegateSize > maxCommitteeSize {
-			committeeSize = maxCommitteeSize
-		} else {
-			committeeSize = delegateSize
-		}
-		fmt.Println("delegatesList from configuration file e.g. delegates.json", "delegateSize", delegateSize, "committeeSize", committeeSize)
-		PrintDelegates(delegates)
+		fmt.Println("Load delegates from delegates.json as fallback, error loading staking candiates", "delegateSize", delegateSize, "committeeSize", committeeSize)
 	}
+	PrintDelegates(delegates)
 	return delegates, delegateSize, committeeSize
 }
 

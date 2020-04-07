@@ -805,7 +805,7 @@ func (sb *StakingBody) DelegateStatisticsHandler(senv *StakingEnviroment, gas ui
 	// 2. add to jail list
 	// 3. fine
 	if jail == true {
-		log.Warn("delegate jailed ...", "address", stats.Addr, "name", stats.Name, "totalPts", stats.TotalPts)
+		log.Warn("delegate jailed ...", "address", stats.Addr, "name", string(stats.Name), "totalPts", stats.TotalPts)
 		statisticsList.Remove(stats.Addr)
 		// TBD: how to fine
 		bail := BAIL_FOR_EXIT_JAIL

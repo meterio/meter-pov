@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/dfinlab/meter/block"
@@ -41,7 +42,7 @@ func (p *Pacemaker) AddressBlock(height uint64, round uint64) *pmBlock {
 		return p.proposalMap[height]
 	}
 
-	p.logger.Info("Could not find out block", "height", height, "round", round)
+	p.logger.Debug("can not address block", "height", height, "round", round)
 	return nil
 }
 
@@ -208,8 +209,9 @@ func (p *Pacemaker) ValidateProposal(b *pmBlock) error {
 	now := uint64(time.Now().Unix())
 	stage, receipts, err := p.csReactor.ProcessProposedBlock(parentHeader, blk, now)
 	if err != nil {
-		p.logger.Error("process block failed", "height", blkHeight, "id", blkID, "error", err)
+		// p.logger.Error("process block failed", "height", blkHeight, "id", blkID, "error", err)
 		b.SuccessProcessed = false
+		b.ProcessError = err
 		return err
 	}
 
@@ -255,12 +257,25 @@ func (p *Pacemaker) SendConsensusMessage(round uint64, msg ConsensusMessage, cop
 		myself = nil // don't send new view to myself
 	}
 
+	myselfInPeers := myself == nil
+	for _, p := range peers {
+		if p.netAddr.IP.String() == myNetAddr.IP.String() {
+			myselfInPeers = true
+			break
+		}
+	}
 	// send consensus message to myself first (except for PMNewViewMessage)
-	if copyMyself && myself != nil {
-		p.logger.Debug(fmt.Sprintf("Sending to myself: %v", msg.String()), "to", myName, "ip", myNetAddr.IP.String())
+	typeName := getConcreteName(msg)
+	if copyMyself && !myselfInPeers {
+		p.logger.Debug(fmt.Sprintf("Sending %v to myself", typeName))
 		p.asyncSendPacemakerMsg(msg, false, myself)
 	}
 
+	peerNames := make([]string, 0)
+	for _, p := range peers {
+		peerNames = append(peerNames, p.name)
+	}
+	p.logger.Debug(fmt.Sprintf("Sending %v to peers: %v", typeName, strings.Join(peerNames, ",")))
 	p.asyncSendPacemakerMsg(msg, false, peers...)
 	return true
 }
@@ -336,7 +351,7 @@ func (p *Pacemaker) verifyTimeoutCert(tc *PMTimeoutCert, height, round uint64) b
 
 // for proposals which can not be addressed parent and QC node should
 // put it to pending list and query the parent node
-func (p *Pacemaker) sendQueryProposalMsg(queryHeight, queryRound, EpochID uint64, peer *ConsensusPeer) error {
+func (p *Pacemaker) sendQueryProposalMsg(fromHeight, toHeight, queryRound, EpochID uint64, peer *ConsensusPeer) error {
 	// put this proposal to pending list, and sent out query
 	myNetAddr := p.csReactor.curCommittee.Validators[p.csReactor.curCommitteeIndex].NetAddr
 
@@ -351,7 +366,7 @@ func (p *Pacemaker) sendQueryProposalMsg(queryHeight, queryRound, EpochID uint64
 		}
 	}
 
-	queryMsg, err := p.BuildQueryProposalMessage(queryHeight, queryRound, EpochID, myNetAddr)
+	queryMsg, err := p.BuildQueryProposalMessage(fromHeight, toHeight, queryRound, EpochID, myNetAddr)
 	if err != nil {
 		p.logger.Warn("failed to generate PMQueryProposal message", "err", err)
 		return errors.New("failed to generate PMQueryProposal message")
@@ -361,7 +376,12 @@ func (p *Pacemaker) sendQueryProposalMsg(queryHeight, queryRound, EpochID uint64
 }
 
 func (p *Pacemaker) pendingProposal(queryHeight, queryRound, epochID uint64, mi *consensusMsgInfo) error {
-	if err := p.sendQueryProposalMsg(queryHeight, queryRound, epochID, mi.Peer); err != nil {
+	bestQC := p.csReactor.chain.BestQC()
+	fromHeight := p.lastVotingHeight
+	if fromHeight < bestQC.QCHeight {
+		fromHeight = bestQC.QCHeight
+	}
+	if err := p.sendQueryProposalMsg(fromHeight, queryHeight, queryRound, epochID, mi.Peer); err != nil {
 		p.logger.Warn("send PMQueryProposal message failed", "err", err)
 	}
 
@@ -371,7 +391,12 @@ func (p *Pacemaker) pendingProposal(queryHeight, queryRound, epochID uint64, mi 
 
 // put it to pending list and query the parent node
 func (p *Pacemaker) pendingNewView(queryHeight, queryRound, epochID uint64, mi *consensusMsgInfo) error {
-	if err := p.sendQueryProposalMsg(queryHeight, queryRound, epochID, mi.Peer); err != nil {
+	bestQC := p.csReactor.chain.BestQC()
+	fromHeight := p.lastVotingHeight
+	if fromHeight < bestQC.QCHeight {
+		fromHeight = bestQC.QCHeight
+	}
+	if err := p.sendQueryProposalMsg(fromHeight, queryHeight, queryRound, epochID, mi.Peer); err != nil {
 		p.logger.Warn("send PMQueryProposal message failed", "err", err)
 	}
 

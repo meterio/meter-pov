@@ -237,6 +237,17 @@ func (c *Chain) BestBlock() *block.Block {
 	return c.bestBlock
 }
 
+func (c *Chain) BestKBlock() (*block.Block, error) {
+	c.rw.RLock()
+	defer c.rw.RUnlock()
+	if c.bestBlock.Header().BlockType() == block.BLOCK_TYPE_K_BLOCK {
+		return c.bestBlock, nil
+	} else {
+		lastKblockHeight := c.bestBlock.Header().LastKBlockHeight()
+		return c.GetTrunkBlock(lastKblockHeight)
+	}
+}
+
 func (c *Chain) BestQC() *block.QuorumCert {
 	c.rw.RLock()
 	defer c.rw.RUnlock()
@@ -790,12 +801,12 @@ func (c *Chain) UpdateBestQC() (bool, error) {
 			// bestQC < QCCandidate <= bestBlock, update bestQC with QCCandidate
 			c.bestQC = c.bestQCCandidate
 			c.bestQCCandidate = nil
-			log.Info("Update bestQC by qcCandidate when leaf=best", "to", c.bestQC.CompactString())
+			log.Info("Update bestQC", "to", c.bestQC.CompactString(), "condition", "leaf_is_best")
 		} else if c.bestQC.QCHeight <= c.bestBlock.QC.QCHeight {
 			// bestQC < bestBlock
 			// bestBlock synced via gossip, update bestQC with it
 			c.bestQC = c.bestBlock.QC
-			log.Info("Update bestQC with bestBlock when leaf=best ", "to", c.bestQC.CompactString())
+			log.Info("Update bestQC", "to", c.bestQC.CompactString(), "condition", "leaf_is_best")
 		} else {
 			return false, nil
 		}
@@ -806,7 +817,7 @@ func (c *Chain) UpdateBestQC() (bool, error) {
 		// bestQC < QCCandidate == bestBlock
 		c.bestQC = c.bestQCCandidate
 		c.bestQCCandidate = nil
-		log.Info("Update bestQC with qcCandidate", "to", c.bestQC.CompactString())
+		log.Info("Update bestQC", "to", c.bestQC.CompactString())
 		return true, saveBestQC(c.kv, c.bestQC)
 	}
 	id, err := c.ancestorTrie.GetAncestor(c.leafBlock.Header().ID(), c.bestBlock.Header().Number()+1)

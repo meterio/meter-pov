@@ -69,7 +69,7 @@ func (ds *DelegateStatistics) Update(incr *Infraction) bool {
 
 func (ds *DelegateStatistics) ToString() string {
 	pubKeyEncoded := b64.StdEncoding.EncodeToString(ds.PubKey)
-	return fmt.Sprintf("DelegateStatistics(%v) Addr=%v, PubKey=%v, TotoalPts=%v, Infractions (Missing Leader=%V, Committee=%v, Proposer=%v, Voter=%v)",
+	return fmt.Sprintf("DelegateStatistics(%v) Addr=%v, PubKey=%v, TotoalPts=%v, Infractions (Missing Leader=%v, Committee=%v, Proposer=%v, Voter=%v)",
 		string(ds.Name), ds.Addr, pubKeyEncoded, ds.TotalPts, ds.Infractions.MissingLeader, ds.Infractions.MissingCommittee, ds.Infractions.MissingProposer, ds.Infractions.MissingVoter)
 }
 

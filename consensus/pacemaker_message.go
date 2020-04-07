@@ -233,7 +233,7 @@ func (p *Pacemaker) BuildNewViewSignMsg(pubKey ecdsa.PublicKey, reason NewViewRe
 		hex.EncodeToString(crypto.FromECDSAPub(&pubKey)), height, round, reason, qc.QCHeight, qc.QCRound, qc.EpochID, hex.EncodeToString(qc.VoterAggSig))
 }
 
-func (p *Pacemaker) BuildQueryProposalMessage(height, round, epochID uint64, retAddr types.NetAddress) (*PMQueryProposalMessage, error) {
+func (p *Pacemaker) BuildQueryProposalMessage(fromHeight, toHeight, round, epochID uint64, retAddr types.NetAddress) (*PMQueryProposalMessage, error) {
 	cmnHdr := ConsensusMsgCommonHeader{
 		Height:    0,
 		Round:     0,
@@ -244,16 +244,11 @@ func (p *Pacemaker) BuildQueryProposalMessage(height, round, epochID uint64, ret
 		// MsgSubType: msgSubType,
 		EpochID: epochID,
 	}
-	lastKBlockHeight := p.csReactor.chain.BestBlock().Header().LastKBlockHeight()
-	fromHeight := p.lastVotingHeight
-	if fromHeight < uint64(lastKBlockHeight) {
-		fromHeight = uint64(lastKBlockHeight)
-	}
 
 	msg := &PMQueryProposalMessage{
 		CSMsgCommonHeader: cmnHdr,
 		FromHeight:        fromHeight,
-		ToHeight:          height,
+		ToHeight:          toHeight,
 		Round:             round,
 		ReturnAddr:        retAddr,
 	}
@@ -265,7 +260,7 @@ func (p *Pacemaker) BuildQueryProposalMessage(height, round, epochID uint64, ret
 		return nil, err
 	}
 	msg.CSMsgCommonHeader.SetMsgSignature(msgSig)
-	p.logger.Debug("Built Query Proposal Message", "height", height, "round", round, "msg", msg.String(), "timestamp", msg.CSMsgCommonHeader.Timestamp)
+	// p.logger.Debug("Built Query Proposal Message", "height", height, "round", round, "msg", msg.String(), "timestamp", msg.CSMsgCommonHeader.Timestamp)
 
 	return msg, nil
 }
