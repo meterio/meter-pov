@@ -654,7 +654,7 @@ func (conR *ConsensusReactor) BuildKBlock(parentBlock *block.Block, data *block.
 	stats, err := conR.calcStatistics(lastKBlockHeight, parentBlock.Header().Number())
 	if err != nil {
 		// TODO: do something about this
-		conR.logger.Info("no slash statistics need to info")
+		conR.logger.Info("no slash statistics need to info", "error", err)
 	} else {
 		statsTx := conR.BuildStatisticsTx(stats)
 		txs = append(txs, statsTx)

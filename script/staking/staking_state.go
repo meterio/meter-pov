@@ -193,26 +193,15 @@ func (s *Staking) GetStatisticsList(state *state.State) (result *StatisticsList)
 		// fmt.Println("Loaded Raw Hex: ", hex.EncodeToString(raw))
 		delegates := make([]*DelegateStatistics, 0)
 		decoder := gob.NewDecoder(bytes.NewBuffer(raw))
-		var statisticsMap map[meter.Address]*DelegateStatistics
-		err := decoder.Decode(&statisticsMap)
+		err := decoder.Decode(&delegates)
+		result = NewStatisticsList(delegates)
 		if err != nil {
 			if err.Error() == "EOF" && len(raw) == 0 {
 				// empty raw, do nothing
 			} else {
 				log.Warn("Error during decoding statistics list, set it as an empty list", "err", err)
 			}
-			result = NewStatisticsList(delegates)
-			return nil
 		}
-
-		// convert map to a sorted list
-		for _, v := range statisticsMap {
-			delegates = append(delegates, v)
-		}
-		sort.SliceStable(delegates, func(i, j int) bool {
-			return bytes.Compare(delegates[i].Addr.Bytes(), delegates[j].Addr.Bytes()) <= 0
-		})
-		result = NewStatisticsList(delegates)
 		return nil
 	})
 	return
@@ -233,29 +222,15 @@ func (s *Staking) GetInJailList(state *state.State) (result *DelegateInJailList)
 		// fmt.Println("Loaded Raw Hex: ", hex.EncodeToString(raw))
 		inJails := make([]*DelegateJailed, 0)
 		decoder := gob.NewDecoder(bytes.NewBuffer(raw))
-		var inJailMap map[meter.Address]*DelegateJailed
-		err := decoder.Decode(&inJailMap)
-		if err != nil {
-			if err != nil {
-				if err.Error() == "EOF" && len(raw) == 0 {
-					// empty raw, do nothing
-				} else {
-					log.Warn("Error during decoding inJail list, set it as an empty list", "err", err)
-				}
-			}
-			result = NewDelegateInJailList(inJails)
-			// fmt.Println("Loaded:", result.ToString())
-			return nil
-		}
-
-		// convert map to a sorted list
-		for _, v := range inJailMap {
-			inJails = append(inJails, v)
-		}
-		sort.SliceStable(inJails, func(i, j int) bool {
-			return bytes.Compare(inJails[i].Addr.Bytes(), inJails[j].Addr.Bytes()) <= 0
-		})
+		err := decoder.Decode(&inJails)
 		result = NewDelegateInJailList(inJails)
+		if err != nil {
+			if err.Error() == "EOF" && len(raw) == 0 {
+				// empty raw, do nothing
+			} else {
+				log.Warn("Error during decoding inJail list, set it as an empty list", "err", err)
+			}
+		}
 		return nil
 	})
 	return

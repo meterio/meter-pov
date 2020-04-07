@@ -13,7 +13,7 @@ import (
 )
 
 const (
-	JailCriteria        = 50
+	JailCriteria        = 1000000 //50   //set criteria 1M instead of 50 for testnet
 	DoubleSignPts       = 30
 	MissingLeaderPts    = 20
 	MissingCommitteePts = 10
@@ -33,7 +33,7 @@ func (inf *Infraction) String() string {
 	if inf == nil {
 		return "infraction(nil)"
 	}
-	return fmt.Sprintf("infraction(leader:%d, committee:%d, proposer:%d, voter:%d, doubleSign)", inf.MissingLeader, inf.MissingCommittee, inf.MissingProposer, inf.MissingVoter, inf.DoubleSigner)
+	return fmt.Sprintf("infraction(leader:%d, committee:%d, proposer:%d, voter:%d, doubleSign:%d)", inf.MissingLeader, inf.MissingCommittee, inf.MissingProposer, inf.MissingVoter, inf.DoubleSigner)
 }
 
 // Candidate indicates the structure of a candidate

@@ -7,7 +7,6 @@ package consensus
 
 import (
 	"bytes"
-	"crypto/ecdsa"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -37,9 +36,11 @@ func (e StatEntry) String() string {
 	return fmt.Sprintf("%s %s %s %s", e.Address.String(), e.Name, e.PubKey, e.Infraction.String())
 }
 
+// deprecated: now it should be all zeros
 func calcMissingCommittee(validators []*types.Validator, actualMembers []CommitteeMember) ([]meter.Address, error) {
 	result := make([]meter.Address, 0)
 
+	/****
 	ins := make(map[ecdsa.PublicKey]bool)
 	for _, m := range actualMembers {
 		ins[m.PubKey] = true
@@ -50,6 +51,7 @@ func calcMissingCommittee(validators []*types.Validator, actualMembers []Committ
 			result = append(result, v.Address)
 		}
 	}
+	****/
 	return result, nil
 }
 
@@ -71,13 +73,15 @@ func calcMissingProposer(validators []*types.Validator, actualMembers []Committe
 				break
 			}
 			result = append(result, validators[actualMembers[index%len(actualMembers)].CSIndex].Address)
-
+			fmt.Println("missingPropopser", "height", blk.Header().Number(), "expectedSigner", expectedSigner, "actualSigner", actualSigner)
 			index++
 			// prevent the deadlock if actual proposer does not exist in actual committee
 			if index-origIndex >= len(actualMembers) {
 				break
 			}
 		}
+		// increase index for next
+		index++
 	}
 	return result, nil
 }
@@ -89,6 +93,7 @@ func calcMissingLeader(validators []*types.Validator, actualMembers []CommitteeM
 	index := 0
 	for index < actualLeader.CSIndex {
 		result = append(result, validators[index].Address)
+		fmt.Println("missingLeader", "address", validators[index].Address)
 		index++
 	}
 	return result, nil
@@ -101,6 +106,7 @@ func calcMissingVoter(validators []*types.Validator, actualMembers []CommitteeMe
 		for _, member := range actualMembers {
 			if voterBitArray.GetIndex(member.CSIndex) == false {
 				result = append(result, validators[member.CSIndex].Address)
+				fmt.Println("missingVoter", "address", validators[member.CSIndex].Address, "height", blk.Header().Number())
 			}
 		}
 	}
@@ -139,6 +145,7 @@ func calcDoubleSigner(common *ConsensusCommon, blocks []*block.Block) ([]meter.A
 				bls.Verify(sig2, v.MsgHash, blsPK)
 
 				result = append(result, v.Address)
+				fmt.Println("doubleSigner", "height", blk.Header().Number(), "signature1", sig1, "signature2", sig2)
 			}
 		}
 	}
@@ -147,6 +154,7 @@ func calcDoubleSigner(common *ConsensusCommon, blocks []*block.Block) ([]meter.A
 }
 
 func (conR *ConsensusReactor) calcStatistics(lastKBlockHeight, height uint32) ([]*StatEntry, error) {
+	conR.logger.Info("calcStatistics", "height", height, "lastKblockHeight", lastKBlockHeight)
 	if len(conR.curCommittee.Validators) == 0 {
 		return nil, errors.New("committee is empty")
 	}
@@ -187,9 +195,10 @@ func (conR *ConsensusReactor) calcStatistics(lastKBlockHeight, height uint32) ([
 	}
 
 	// fetch all the blocks
+	// currently we are building the kblock height. Only height - 3 are available in chain
 	blocks := make([]*block.Block, 0)
 	h := lastKBlockHeight + 1
-	for h <= height {
+	for h < (height - 2) {
 		blk, err := conR.chain.GetTrunkBlock(h)
 		if err != nil {
 			return result, err
@@ -197,6 +206,9 @@ func (conR *ConsensusReactor) calcStatistics(lastKBlockHeight, height uint32) ([
 		blocks = append(blocks, blk)
 		h++
 	}
+	// TBD: building the kblock impolicitly means committee meber, so can get
+	// the last 2 blocks from pacemaker's proposalMap
+
 	// calculate missing proposer
 	missedProposer, err := calcMissingProposer(conR.curCommittee.Validators, conR.curActualCommittee, blocks)
 	if err != nil {
@@ -229,9 +241,9 @@ func (conR *ConsensusReactor) calcStatistics(lastKBlockHeight, height uint32) ([
 	}
 
 	for signer := range stats {
-		entry := stats[signer]
-		result = append(result, entry)
+		result = append(result, stats[signer])
 	}
+	fmt.Println("Statistics Results", result)
 	return result, nil
 }
 
