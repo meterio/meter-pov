@@ -660,7 +660,7 @@ func (conR *ConsensusReactor) BuildKBlock(parentBlock *block.Block, data *block.
 		txs = append(txs, statsTx)
 	}
 
-	if tx := conR.TryBuildAuctionTxs(uint64(best.Header().Number()+1), uint64(best.Header().LastKBlockHeight())); tx != nil {
+	if tx := conR.TryBuildAuctionTxs(uint64(best.Header().Number()+1), uint64(best.GetBlockEpoch()+1)); tx != nil {
 		txs = append(txs, tx)
 	}
 

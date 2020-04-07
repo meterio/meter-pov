@@ -1,6 +1,7 @@
 package auction
 
 import (
+    "fmt"
     "math"
     "math/big"
 )
@@ -10,7 +11,7 @@ const (
     totalYears    = 500       // 500 years
     fadeYears     = 15        // halve every 15 years
     fadeRate      = 0.8       // fade rate 0.8
-    blockInterval = 3         // block interval 3 s
+    N             = 24        // history buffer size
 )
 
 /***************
@@ -32,22 +33,81 @@ plot(DailyReward);
 figure(2);
 plot(Annual);
 *****************/
+func getHistoryPrices() *[N]float64 {
+    var i int
+    history := [N]float64{}
+
+    list, err := GetAuctionSummaryList()
+    if err != nil {
+        panic("get auction summary failed")
+    }
+    size := len(list.Summaries)
+    fmt.Println("getHistoryPrices", "history size", size)
+
+    var price *big.Int
+    for i = 0; i < N; i++ {
+        if size >= N {
+            price = list.Summaries[size-1-i].RsvdPrice
+        } else {
+            // not enough history, fill partially
+            if i < N-size {
+                price = AuctionReservedPrice
+            } else {
+                price = list.Summaries[i-(N-size)].RsvdPrice
+            }
+        }
+        price = big.NewInt(0).Div(price, big.NewInt(1e6))
+        history[N-1-i] = float64(price.Int64()) / 1e12
+    }
+    fmt.Println("history price", history)
+    return &history
+}
+
+func calcWeightedAvgPrice(history *[N]float64) float64 {
+    var i int
+    var denominator float64 = float64((N + 1) * N / 2)
+    var WeightedAvgPrice float64
+
+    for i = 0; i < N; i++ {
+        price := history[i] * float64(i) / denominator
+        WeightedAvgPrice = WeightedAvgPrice + price
+    }
+    return WeightedAvgPrice
+}
+
 // released MTRG for a speciefic range
-func calcRewardRange(start, end uint64) (reward float64, dReward []float64, err error) {
-    var i uint64
-    var heightReward float64
-    dReward = make([]float64, 0)
-    Halving := fadeYears * 365 * 3600 * 24 / blockInterval
+func calcRewardEpochRange(startEpoch, endEpoch uint64) (totalReward float64, epochRewards []float64, err error) {
+    var epoch uint64
+    var epochReward float64
+    var InitialRelease float64 = float64(1500)
+    var ReservePrice float64
+
+    rp := big.NewInt(0).Div(AuctionReservedPrice, big.NewInt(1e6))
+    ReservePrice = float64(rp.Int64()) / 1e12
+
+    epochRewards = make([]float64, 0)
+    Halving := fadeYears * 365 * 24
     err = nil
 
-    for i = start; i < end; i++ {
-        heightReward = float64(totoalRelease) / float64(Halving)
-        heightReward = heightReward * math.Log(1/fadeRate) * math.Pow(fadeRate, (float64(i)/float64(Halving)))
+    history := getHistoryPrices()
+    weightedAvgPrice := calcWeightedAvgPrice(history)
 
-        reward = reward + heightReward
-        dReward = append(dReward, heightReward)
+    for epoch = startEpoch; epoch <= endEpoch; epoch++ {
+        ReleaseLimit := InitialRelease + InitialRelease*(weightedAvgPrice-ReservePrice)/ReservePrice
+
+        reward := float64(totoalRelease) / float64(Halving)
+        reward = reward * math.Log(1/fadeRate) * math.Pow(fadeRate, (float64(epoch)/float64(Halving)))
+        if reward > ReleaseLimit {
+            epochReward = ReleaseLimit
+        } else {
+            epochReward = reward
+        }
+
+        totalReward = totalReward + epochReward
+        epochRewards = append(epochRewards, epochReward)
     }
-    log.Info("meter gov released", "amount", reward, "start", start, "end", end)
+    log.Info("meter gov released", "amount", totalReward, "startEpoch", startEpoch, "endEpoch", endEpoch)
+    fmt.Println("each epoch reward", epochRewards)
     return
 }
 

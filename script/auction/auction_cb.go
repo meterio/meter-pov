@@ -29,7 +29,9 @@ func (a *AuctionTx) ToString() string {
 type AuctionCB struct {
 	AuctionID   meter.Bytes32
 	StartHeight uint64
+	StartEpoch  uint64
 	EndHeight   uint64
+	EndEpoch    uint64
 	RlsdMTRG    *big.Int
 	RsvdPrice   *big.Int
 	CreateTime  uint64
@@ -44,7 +46,9 @@ func (cb *AuctionCB) ID() (hash meter.Bytes32) {
 	hw := meter.NewBlake2b()
 	rlp.Encode(hw, []interface{}{
 		cb.StartHeight,
+		cb.StartEpoch,
 		cb.EndHeight,
+		cb.EndEpoch,
 		cb.RlsdMTRG,
 		cb.RsvdPrice,
 		cb.CreateTime,
@@ -129,8 +133,8 @@ func (cb *AuctionCB) ToString() string {
 	if cb == nil || len(cb.AuctionTxs) == 0 {
 		return "AuctionCB (size:0)"
 	}
-	s := []string{fmt.Sprintf("AuctionCB(ID=%v, StartHeight=%v, EndHeight=%v, RlsdMTRG:%.2e, RsvdPrice:%.2e, RcvdMTR:%.2e, CreateTime:%v)",
-		cb.AuctionID, cb.StartHeight, cb.EndHeight, float64(cb.RlsdMTRG.Int64()), cb.RsvdPrice,
+	s := []string{fmt.Sprintf("AuctionCB(ID=%v, StartHeight=%v, StartEpoch=%v, EndHeight=%v, EndEpoch=%v, RlsdMTRG:%.2e, RsvdPrice:%.2e, RcvdMTR:%.2e, CreateTime:%v)",
+		cb.AuctionID, cb.StartHeight, cb.StartEpoch, cb.EndHeight, cb.EndEpoch, float64(cb.RlsdMTRG.Int64()), cb.RsvdPrice,
 		float64(cb.RcvdMTR.Int64()), fmt.Sprintln(time.Unix(int64(cb.CreateTime), 0)))}
 	for i, c := range cb.AuctionTxs {
 		s = append(s, fmt.Sprintf("  %d.%v", i, c.ToString()))
