@@ -381,6 +381,6 @@ Myself is Leader, Let's start the pacemaker.
 
 	// Now start the pacemaker
 	newCommittee := !cl.replay
-	cl.csReactor.startPacemaker(newCommittee)
+	cl.csReactor.startPacemaker(newCommittee, PMModeNormal)
 	return nil
 }

@@ -149,6 +149,7 @@ type pmBlock struct {
 	// states. If states are match proposer, then vote, otherwise decline.
 	ProposedBlockInfo *ProposedBlockInfo
 	SuccessProcessed  bool
+	ProcessError      error
 }
 
 func (pb *pmBlock) ToString() string {

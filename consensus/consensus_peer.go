@@ -38,18 +38,19 @@ func (peer *ConsensusPeer) sendPacemakerMsg(rawData []byte, relay bool, msgSumma
 	var netClient = &http.Client{
 		Timeout: time.Second * 4, // 2
 	}
-	url := "http://" + peer.netAddr.IP.String() + ":8670/pacemaker"
-	_, err := netClient.Post(url, "application/json", bytes.NewBuffer(rawData))
-	if err != nil {
-		peer.logger.Error("Failed to send message to peer", "err", err)
-		return err
-	}
 	msgHash := sha256.Sum256(rawData)
 	msgHashHex := hex.EncodeToString(msgHash[:])[:MsgHashSize]
 	if relay {
 		peer.logger.Info(fmt.Sprintf("Relay: %s", msgSummary), "size", len(rawData), "msgHash", msgHashHex)
 	} else {
-		peer.logger.Info(fmt.Sprintf("Sent: %s", msgSummary), "size", len(rawData), "msgHash", msgHashHex)
+		peer.logger.Info(fmt.Sprintf("Send: %s", msgSummary), "size", len(rawData), "msgHash", msgHashHex)
+	}
+
+	url := "http://" + peer.netAddr.IP.String() + ":8670/pacemaker"
+	_, err := netClient.Post(url, "application/json", bytes.NewBuffer(rawData))
+	if err != nil {
+		peer.logger.Error("Failed to send message to peer", "err", err)
+		return err
 	}
 	return nil
 }
@@ -58,19 +59,20 @@ func (peer *ConsensusPeer) sendCommitteeMsg(rawData []byte, msgSummary string, r
 	var netClient = &http.Client{
 		Timeout: time.Second * 4,
 	}
+	msgHash := sha256.Sum256(rawData)
+	msgHashHex := hex.EncodeToString(msgHash[:])[:MsgHashSize]
+	if relay {
+		peer.logger.Info(fmt.Sprintf("Relay: %s", msgSummary), "size", len(rawData), "msgHash", msgHashHex)
+	} else {
+		peer.logger.Info(fmt.Sprintf("Send: %s", msgSummary), "size", len(rawData), "msgHash", msgHashHex)
+	}
 	url := "http://" + peer.netAddr.IP.String() + ":8670/committee"
 	_, err := netClient.Post(url, "application/json", bytes.NewBuffer(rawData))
 	if err != nil {
 		peer.logger.Error("Failed to send message to peer", "err", err)
 		return err
 	}
-	msgHash := sha256.Sum256(rawData)
-	msgHashHex := hex.EncodeToString(msgHash[:])[:MsgHashSize]
-	if relay {
-		peer.logger.Info(fmt.Sprintf("Relay: %s", msgSummary), "size", len(rawData), "msgHash", msgHashHex)
-	} else {
-		peer.logger.Info(fmt.Sprintf("Sent: %s", msgSummary), "size", len(rawData), "msgHash", msgHashHex)
-	}
+
 	return nil
 }
 

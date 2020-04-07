@@ -24,7 +24,7 @@ type QuorumCert struct {
 func (qc *QuorumCert) String() string {
 	if qc != nil {
 		bitArray := strings.ReplaceAll(qc.VoterBitArrayStr, "\"", "")
-		return fmt.Sprintf("QC(Height:%v, Round:%v, EpochID:%v, BitArray:%v, AggSig:len(%v))",
+		return fmt.Sprintf("QC(Height:%v, Round:%v, Epoch:%v, BitArray:%v, AggSig:len(%v))",
 			qc.QCHeight, qc.QCRound, qc.EpochID, bitArray, len(qc.VoterAggSig))
 	}
 	return "QC(nil)"
@@ -32,7 +32,7 @@ func (qc *QuorumCert) String() string {
 
 func (qc *QuorumCert) CompactString() string {
 	if qc != nil {
-		return fmt.Sprintf("QC(Height:%v, Round:%v, EpochID:%v)",
+		return fmt.Sprintf("QC(Height:%v, Round:%v, Epoch:%v)",
 			qc.QCHeight, qc.QCRound, qc.EpochID)
 	}
 	return "QC(nil)"

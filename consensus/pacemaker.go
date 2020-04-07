@@ -9,7 +9,6 @@ import (
 	"github.com/ethereum/go-ethereum/rlp"
 
 	"github.com/dfinlab/meter/block"
-	"github.com/dfinlab/meter/co"
 	"github.com/inconshreveable/log15"
 )
 
@@ -17,13 +16,31 @@ const (
 	RoundInterval        = 2 * time.Second
 	RoundTimeoutInterval = 30 * time.Second // move the timeout from 10 to 30 secs.
 
-	MIN_MBLOCKS_AN_EPOCH = uint64(6)
+	MIN_MBLOCKS_AN_EPOCH       = uint64(6)
+	MIN_PROPOSALS_FOR_CATCH_UP = 4
 )
 
 var (
 	qcInit pmQuorumCert
 	bInit  pmBlock
 )
+
+type PMMode uint32
+
+const (
+	PMModeNormal  PMMode = 1
+	PMModeCatchUp        = 2
+)
+
+func (m PMMode) String() string {
+	switch m {
+	case PMModeNormal:
+		return "Normal"
+	case PMModeCatchUp:
+		return "CatchUp"
+	}
+	return ""
+}
 
 type Pacemaker struct {
 	csReactor   *ConsensusReactor //global reactor info
@@ -34,43 +51,45 @@ type Pacemaker struct {
 	// Current round is basically max(highest_qc_round, highest_received_tc, highest_local_tc) + 1
 	// update_current_round take care of updating current_round and sending new round event if
 	// it changes
-	currentRound     uint64
+	startHeight            uint64
+	currentRound           uint64
+	stopped                bool
+	myActualCommitteeIndex int //record my index in actualcommittee
+	minMBlocks             uint64
+
+	// Utility data structures
+	mode          PMMode
+	msgCache      *MsgCache
+	sigAggregator *SignatureAggregator
+	pendingList   *PendingList
+
+	// HotStuff fields
 	lastVotingHeight uint64
 	QCHigh           *pmQuorumCert
+	blockLeaf        *pmBlock
+	blockExecuted    *pmBlock
+	blockLocked      *pmBlock
 
-	blockLeaf     *pmBlock
-	blockExecuted *pmBlock
-	blockLocked   *pmBlock
-
-	startHeight uint64
-
+	// Channels
 	pacemakerMsgCh chan consensusMsgInfo
 	roundTimeoutCh chan PMRoundTimeoutInfo
 	stopCh         chan *PMStopInfo
 	beatCh         chan *PMBeatInfo
 
-	sigAggregator *SignatureAggregator
-
+	// Timeout
 	roundTimer         *time.Timer
 	timeoutCertManager *PMTimeoutCertManager
 	timeoutCert        *PMTimeoutCert
 	timeoutCounter     uint64
-
-	pendingList *PendingList
-
-	myActualCommitteeIndex int //record my index in actualcommittee
-	minMBlocks             uint64
-	goes                   co.Goes
-	stopped                bool
-
-	msgCache *MsgCache
 }
 
 func NewPaceMaker(conR *ConsensusReactor) *Pacemaker {
 	p := &Pacemaker{
 		csReactor: conR,
 		logger:    log15.New("pkg", "pacemaker"),
+		mode:      PMModeNormal,
 
+		msgCache:       NewMsgCache(256),
 		pacemakerMsgCh: make(chan consensusMsgInfo, 128),
 		stopCh:         make(chan *PMStopInfo, 2),
 		beatCh:         make(chan *PMBeatInfo, 2),
@@ -80,8 +99,6 @@ func NewPaceMaker(conR *ConsensusReactor) *Pacemaker {
 		pendingList:    NewPendingList(),
 		timeoutCounter: 0,
 		stopped:        false,
-
-		msgCache: NewMsgCache(256),
 	}
 	p.timeoutCertManager = newPMTimeoutCertManager(p)
 	// p.stopCleanup()
@@ -201,7 +218,7 @@ func (p *Pacemaker) OnCommit(commitReady []*pmBlock) error {
 
 		// TBD: how to handle this case???
 		if b.SuccessProcessed == false {
-			p.csReactor.logger.Error("Process this propsoal failed, possible my states are wrong", "height", b.Height, "round", b.Round)
+			p.csReactor.logger.Error("Process this proposal failed, possible my states are wrong", "height", b.Height, "round", b.Round, "err", b.ProcessError)
 			continue
 		}
 		// commit the approved block
@@ -241,8 +258,8 @@ func (p *Pacemaker) OnCommit(commitReady []*pmBlock) error {
 func (p *Pacemaker) OnPreCommitBlock(b *pmBlock) error {
 	// TBD: how to handle this case???
 	if b.SuccessProcessed == false {
-		p.csReactor.logger.Error("Process this propsoal failed, possible my states are wrong", "height", b.Height, "round", b.Round)
-		return errors.New("Process this propsoal failed, precommit skipped")
+		p.csReactor.logger.Error("Process this proposal failed, possible my states are wrong", "height", b.Height, "round", b.Round, "err", b.ProcessError)
+		return errors.New("Process this proposal failed, precommit skipped")
 	}
 	if ok := p.csReactor.PreCommitBlock(b.ProposedBlockInfo); ok != true {
 		return errors.New("precommit failed")
@@ -256,6 +273,11 @@ func (p *Pacemaker) OnReceiveProposal(mi *consensusMsgInfo) error {
 	msgHeader := proposalMsg.CSMsgCommonHeader
 	height := uint64(msgHeader.Height)
 	round := uint64(msgHeader.Round)
+
+	if p.mode == PMModeCatchUp && height < p.startHeight {
+		p.logger.Info("recved proposal less than start height, ignored due to catch-up mode", "height", height, "startHeight", p.startHeight)
+		return nil
+	}
 
 	if height < p.blockLocked.Height {
 		p.logger.Info("recved proposal with height < bLocked.height, ignore ...", "height", height, "bLocked.height", p.blockLocked.Height)
@@ -284,7 +306,7 @@ func (p *Pacemaker) OnReceiveProposal(mi *consensusMsgInfo) error {
 		if err := p.pendingProposal(proposalMsg.ParentHeight, proposalMsg.ParentRound, proposalMsg.CSMsgCommonHeader.EpochID, mi); err != nil {
 			p.logger.Error("handle pending proposoal failed", "error", err)
 		}
-		return errors.New("can not address parent")
+		return errParentMissing
 	}
 
 	// address qcNode
@@ -297,7 +319,7 @@ func (p *Pacemaker) OnReceiveProposal(mi *consensusMsgInfo) error {
 		if err := p.pendingProposal(qc.QCHeight, qc.QCRound, proposalMsg.CSMsgCommonHeader.EpochID, mi); err != nil {
 			p.logger.Error("handle pending proposoal failed", "error", err)
 		}
-		return errors.New("can not address qcNode")
+		return errQCNodeMissing
 	}
 
 	// we have qcNode, need to check qcNode and blk.QC is referenced the same
@@ -361,10 +383,18 @@ func (p *Pacemaker) OnReceiveProposal(mi *consensusMsgInfo) error {
 			return err
 		}
 
-		msg, _ := p.BuildVoteForProposalMessage(proposalMsg, blk.Header().ID(), blk.Header().TxsRoot(), blk.Header().StateRoot())
-		// send vote message to leader
-		p.SendConsensusMessage(uint64(proposalMsg.CSMsgCommonHeader.Round), msg, false)
-		p.lastVotingHeight = bnew.Height
+		if p.mode == PMModeCatchUp && len(p.proposalMap) > MIN_PROPOSALS_FOR_CATCH_UP {
+			p.logger.Info("I'm ready to vote, switch back to normal mode")
+			p.mode = PMModeNormal
+		}
+
+		// vote back only if not in catch-up mode
+		if p.mode != PMModeCatchUp {
+			msg, _ := p.BuildVoteForProposalMessage(proposalMsg, blk.Header().ID(), blk.Header().TxsRoot(), blk.Header().StateRoot())
+			// send vote message to leader
+			p.SendConsensusMessage(uint64(proposalMsg.CSMsgCommonHeader.Round), msg, false)
+			p.lastVotingHeight = bnew.Height
+		}
 	}
 
 	p.Update(bnew)
@@ -372,6 +402,10 @@ func (p *Pacemaker) OnReceiveProposal(mi *consensusMsgInfo) error {
 }
 
 func (p *Pacemaker) OnReceiveVote(mi *consensusMsgInfo) error {
+	if p.mode == PMModeCatchUp {
+		p.logger.Info("ignored vote due to catch-up mode")
+		return nil
+	}
 	voteMsg := mi.Msg.(*PMVoteMessage)
 	msgHeader := voteMsg.CSMsgCommonHeader
 
@@ -397,7 +431,7 @@ func (p *Pacemaker) OnReceiveVote(mi *consensusMsgInfo) error {
 		p.csReactor.logger.Debug("not reach majority", "committeeSize", p.csReactor.committeeSize, "count", voteCount)
 		return nil
 	} else {
-		p.csReactor.logger.Info("reached majority", "committeeSize", p.csReactor.committeeSize, "count", voteCount)
+		p.csReactor.logger.Info("*** Reached majority, new QC formed", "committeeSize", p.csReactor.committeeSize, "count", voteCount)
 	}
 
 	// seal the signature, avoid re-trigger
@@ -474,9 +508,9 @@ func (p *Pacemaker) OnBeat(height uint64, round uint64, reason beatReason) error
 	if p.QCHigh != nil && p.QCHigh.QC != nil && height <= p.QCHigh.QC.QCHeight && reason == BeatOnTimeout {
 		return p.OnTimeoutBeat(height, round, reason)
 	}
-	p.logger.Info("--------------------------------------------------")
-	p.logger.Info(fmt.Sprintf("      OnBeat Round:%v, Height:%v, Reason:%v        ", round, height, reason.String()))
-	p.logger.Info("--------------------------------------------------")
+	p.logger.Info(" --------------------------------------------------")
+	p.logger.Info(fmt.Sprintf(" OnBeat Round:%v, Height:%v, Reason:%v", round, height, reason.String()))
+	p.logger.Info(" --------------------------------------------------")
 
 	// parent already got QC, pre-commit it
 	//b := p.QCHigh.QCNode
@@ -512,9 +546,9 @@ func (p *Pacemaker) OnBeat(height uint64, round uint64, reason beatReason) error
 }
 
 func (p *Pacemaker) OnTimeoutBeat(height uint64, round uint64, reason beatReason) error {
-	p.logger.Info("--------------------------------------------------")
-	p.logger.Info(fmt.Sprintf("      OnTimeoutBeat Round:%v, Height:%v, Reason:%v        ", round, height, reason.String()))
-	p.logger.Info("--------------------------------------------------")
+	p.logger.Info(" --------------------------------------------------")
+	p.logger.Info(fmt.Sprintf(" OnTimeoutBeat Round:%v, Height:%v, Reason:%v", round, height, reason.String()))
+	p.logger.Info(" --------------------------------------------------")
 	// parent already got QC, pre-commit it
 	//b := p.QCHigh.QCNode
 	parent := p.proposalMap[height-1]
@@ -563,6 +597,10 @@ func (p *Pacemaker) OnNextSyncView(nextHeight, nextRound uint64, reason NewViewR
 }
 
 func (p *Pacemaker) OnReceiveNewView(mi *consensusMsgInfo) error {
+	if p.mode == PMModeCatchUp {
+		p.logger.Info("ignored newView due to catch-up mode")
+		return nil
+	}
 	newViewMsg, peer := mi.Msg.(*PMNewViewMessage), mi.Peer
 	header := newViewMsg.CSMsgCommonHeader
 
@@ -581,7 +619,7 @@ func (p *Pacemaker) OnReceiveNewView(mi *consensusMsgInfo) error {
 
 	qcNode := p.AddressBlock(qc.QCHeight, qc.QCRound)
 	if qcNode == nil {
-		p.logger.Error("can not address qcNode", "err", err)
+		p.logger.Error("can not address qcNode", "height", qc.QCHeight, "round", qc.QCRound)
 		// put this newView to pending list, and sent out query
 		if err := p.pendingNewView(qc.QCHeight, qc.QCRound, newViewMsg.CSMsgCommonHeader.EpochID, mi); err != nil {
 			p.logger.Error("handle pending newViewMsg failed", "error", err)
@@ -626,24 +664,36 @@ func (p *Pacemaker) OnReceiveNewView(mi *consensusMsgInfo) error {
 		// if I don't have the proposal at specified height, query my peer
 		if _, ok := p.proposalMap[qcHeight]; ok != true {
 			p.logger.Info("Send PMQueryProposal", "height", qcHeight, "round", qcRound, "epoch", qcEpoch)
-			if err := p.sendQueryProposalMsg(qcHeight, qcRound, qcEpoch, peer); err != nil {
+			fromHeight := p.lastVotingHeight
+			bestQC := p.csReactor.chain.BestQC()
+			if fromHeight < bestQC.QCHeight {
+				fromHeight = bestQC.QCHeight
+			}
+			if err := p.sendQueryProposalMsg(fromHeight, qcHeight, qcRound, qcEpoch, peer); err != nil {
 				p.logger.Warn("send PMQueryProposal message failed", "err", err)
 			}
 		}
 
 		// if peer's height is lower than me, forward all available proposals to fill the gap
-		if qcHeight < p.lastVotingHeight {
+		if qcHeight < p.lastVotingHeight && peer.netAddr.IP.String() != p.csReactor.GetMyNetAddr().IP.String() {
 			// forward missing proposals to peers who just sent new view message with lower expected height
-			tmpHeight := qcHeight
+			tmpHeight := qcHeight + 1
 			var proposal *pmBlock
 			var ok bool
+			missed := make([]*pmBlock, 0)
 			for {
 				if proposal, ok = p.proposalMap[tmpHeight]; ok != true {
 					break
 				}
-				p.logger.Info("peer missed one proposal, forward to it ... ", "height", tmpHeight, "name", peer.name, "ip", peer.netAddr.IP.String())
-				p.asyncSendPacemakerMsg(proposal.ProposalMessage, false, peer)
 				tmpHeight++
+				missed = append(missed, proposal)
+			}
+			if len(missed) > 0 {
+				p.logger.Info(fmt.Sprintf("peer missed %v proposal, forward to it ... ", len(missed)), "fromHeight", qcHeight+1, "name", peer.name, "ip", peer.netAddr.IP.String())
+				for _, pmp := range missed {
+					p.logger.Info("forwarding proposal", "height", pmp.Height, "name", peer.name, "ip", peer.netAddr.IP.String())
+					p.asyncSendPacemakerMsg(pmp.ProposalMessage, false, peer)
+				}
 			}
 		}
 
@@ -653,7 +703,7 @@ func (p *Pacemaker) OnReceiveNewView(mi *consensusMsgInfo) error {
 		if MajorityTwoThird(timeoutCount, p.csReactor.committeeSize) == false {
 			p.logger.Info("not reach majority on timeout", "count", timeoutCount, "timeoutHeight", newViewMsg.TimeoutHeight, "timeoutRound", newViewMsg.TimeoutRound, "timeoutCounter", newViewMsg.TimeoutCounter)
 		} else {
-			p.logger.Info("reached majority on timeout", "count", timeoutCount, "timeoutHeight", newViewMsg.TimeoutHeight, "timeoutRound", newViewMsg.TimeoutRound, "timeoutCounter", newViewMsg.TimeoutCounter)
+			p.logger.Info("*** Reached majority on timeout", "count", timeoutCount, "timeoutHeight", newViewMsg.TimeoutHeight, "timeoutRound", newViewMsg.TimeoutRound, "timeoutCounter", newViewMsg.TimeoutCounter)
 			p.timeoutCert = p.timeoutCertManager.getTimeoutCert(newViewMsg.TimeoutHeight, newViewMsg.TimeoutRound)
 			p.timeoutCertManager.cleanup(newViewMsg.TimeoutHeight, newViewMsg.TimeoutRound)
 
@@ -685,14 +735,14 @@ func (p *Pacemaker) OnReceiveNewView(mi *consensusMsgInfo) error {
 }
 
 //Committee Leader triggers
-func (p *Pacemaker) Start(newCommittee bool) {
+func (p *Pacemaker) Start(newCommittee bool, mode PMMode) {
+	p.mode = mode
 	pmRoleGauge.Set(0)
 	pmRunningGauge.Set(1)
 	p.csReactor.chain.UpdateBestQC()
 	p.csReactor.chain.UpdateLeafBlock()
 	blockQC := p.csReactor.chain.BestQC()
-	p.logger.Info(fmt.Sprintf("*** Pacemaker start at height %v, QC:%v, newCommittee:%v",
-		blockQC.QCHeight, blockQC.String(), newCommittee))
+	p.logger.Info(fmt.Sprintf("*** Pacemaker start at height %v", blockQC.QCHeight), "qc", blockQC.CompactString(), "newCommittee", newCommittee, "mode", mode.String())
 
 	var round uint64
 	height := blockQC.QCHeight
@@ -759,7 +809,22 @@ func (p *Pacemaker) Start(newCommittee bool) {
 
 	go p.mainLoop()
 
-	p.ScheduleOnBeat(height+1, round, BeatOnInit, 1*time.Second) //delay 1s
+	if p.mode == PMModeNormal {
+		p.ScheduleOnBeat(height+1, round, BeatOnInit, 1*time.Second) //delay 1s
+	} else {
+		p.SendCatchUpQuery()
+	}
+}
+
+func (p *Pacemaker) SendCatchUpQuery() {
+	bestQC := p.csReactor.chain.BestQC()
+	curProposer := p.getProposerByRound(int(p.currentRound))
+	p.sendQueryProposalMsg(p.startHeight, 0, p.currentRound, bestQC.EpochID, curProposer)
+
+	leader := p.csReactor.curCommittee.Validators[0]
+	leaderPeer := newConsensusPeer(leader.Name, leader.NetAddr.IP, leader.NetAddr.Port, p.csReactor.magic)
+	p.sendQueryProposalMsg(p.startHeight, 0, p.currentRound, bestQC.EpochID, leaderPeer)
+
 }
 
 func (p *Pacemaker) ScheduleOnBeat(height uint64, round uint64, reason beatReason, d time.Duration) bool {
@@ -787,17 +852,16 @@ func (p *Pacemaker) mainLoop() {
 			p.stopCleanup()
 			return
 		case ti := <-p.roundTimeoutCh:
-			err = p.OnRoundTimeout(ti)
+			p.OnRoundTimeout(ti)
 		case b := <-p.beatCh:
-			err = p.OnBeat(b.height, b.round, b.reason)
+			p.OnBeat(b.height, b.round, b.reason)
 		case m := <-p.pacemakerMsgCh:
 			switch msg := m.Msg.(type) {
 			case *PMProposalMessage:
 				err = p.OnReceiveProposal(&m)
 				if err != nil {
-					p.logger.Error("processes proposal fails.", "errors", err)
 					// 2 errors indicate linking message to pending list for the first time, does not need to check pending
-					if (err.Error() != "can not address parent") && (err.Error() != "can not address qcNode") {
+					if err != errParentMissing && err != errQCNodeMissing {
 						err = p.checkPendingMessages(uint64(msg.CSMsgCommonHeader.Height))
 					}
 				} else {
@@ -812,12 +876,17 @@ func (p *Pacemaker) mainLoop() {
 			default:
 				p.logger.Warn("Received an message in unknown type")
 			}
+			if err != nil {
+				typeName := getConcreteName(m.Msg)
+				if err == errParentMissing || err == errQCNodeMissing || err == errKnownBlock {
+					p.logger.Warn(fmt.Sprintf("Process %v failed", typeName), "err", err)
+				} else {
+					p.logger.Error(fmt.Sprintf("Process %v failed", typeName), "err", err)
+				}
+			}
 		case <-interruptCh:
 			p.logger.Warn("Interrupt by user, exit now")
 			return
-		}
-		if err != nil {
-			p.logger.Error("Error during handling ", "err", err)
 		}
 	}
 }
@@ -1030,6 +1099,10 @@ func (p *Pacemaker) revertTo(revertHeight uint64) {
 }
 
 func (p *Pacemaker) OnReceiveQueryProposal(mi *consensusMsgInfo) error {
+	if p.mode == PMModeCatchUp {
+		p.logger.Info("ignored query due to catch-up mode")
+		return nil
+	}
 	queryMsg := mi.Msg.(*PMQueryProposalMessage)
 	fromHeight := queryMsg.FromHeight
 	toHeight := queryMsg.ToHeight
@@ -1039,19 +1112,17 @@ func (p *Pacemaker) OnReceiveQueryProposal(mi *consensusMsgInfo) error {
 
 	bestHeight := uint64(p.csReactor.chain.BestBlock().Header().Number())
 	lastKBlockHeight := uint64(p.csReactor.chain.BestBlock().Header().LastKBlockHeight() + 1)
-	if toHeight <= bestHeight {
+	if toHeight <= bestHeight && toHeight > 0 {
+		// toHeight == 0 is considered as infinity
 		p.logger.Error("query too old", "fromHeight", fromHeight, "toHeight", toHeight, "round", queryRound)
 		return errors.New("query too old")
 	}
 	if fromHeight < lastKBlockHeight {
 		fromHeight = lastKBlockHeight
 	}
-	if fromHeight >= toHeight {
-		p.logger.Error("invalid query", "fromHeight", fromHeight, "toHeight", toHeight)
-	}
 
 	queryHeight := fromHeight + 1
-	for queryHeight <= toHeight {
+	for queryHeight <= p.lastVotingHeight {
 		result := p.proposalMap[queryHeight]
 		if result == nil {
 			// Oooop!, I do not have it

@@ -6,6 +6,7 @@
 package block
 
 import (
+	"encoding/base64"
 	"encoding/hex"
 	"fmt"
 	"io"
@@ -72,7 +73,9 @@ type CommitteeInfo struct {
 }
 
 func (ci CommitteeInfo) String() string {
-	return fmt.Sprintf("Member: Name=%v, IP=%v, index=%d", ci.Name, ci.NetAddr.IP.String(), ci.CSIndex)
+	ecdsaPK := base64.StdEncoding.EncodeToString(ci.PubKey)
+	blsPK := base64.StdEncoding.EncodeToString(ci.CSPubKey)
+	return fmt.Sprintf("%v: { Name:%v, IP:%v, ECDSA_PK:%v, BLS_PK:%v }", ci.CSIndex, ci.Name, ci.NetAddr.IP.String(), ecdsaPK, blsPK)
 }
 
 type CommitteeInfos struct {
@@ -232,7 +235,7 @@ func (b *Block) CompactString() string {
 	if hasCommittee {
 		ci = "YES"
 	}
-	return fmt.Sprintf(`(%v) %v 
+	return fmt.Sprintf(`%v(%v) %v 
   Parent: %v,
   QC: %v,
   LastKBHeight: %v, #Txs: %v, CommitteeInfo: %v`, b.GetCanonicalName(), header.Number(), header.ID().String(),

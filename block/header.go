@@ -20,7 +20,7 @@ import (
 const (
 	BLOCK_TYPE_K_BLOCK = uint32(1)
 	BLOCK_TYPE_M_BLOCK = uint32(2)
-	BLOCK_TYPE_S_BLOCK = uint32(255)
+	BLOCK_TYPE_S_BLOCK = uint32(255) // stop committee block
 )
 
 // Header contains almost all information about a block, except block body.

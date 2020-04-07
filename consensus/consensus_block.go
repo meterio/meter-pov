@@ -811,7 +811,7 @@ func (conR *ConsensusReactor) HandleRecvKBlockInfo(ki RecvKBlockInfo) error {
 	conR.UpdateLastKBlockHeight(best.Header().Number())
 
 	// run new one.
-	conR.ConsensusUpdateCurDelegates()
+	conR.UpdateCurDelegates()
 	conR.ConsensusHandleReceivedNonce(ki.Height, ki.Nonce, ki.Epoch, false)
 	return nil
 }

@@ -238,6 +238,7 @@ func defaultAction(ctx *cli.Context) error {
 	gene := selectGenesis(ctx)
 	instanceDir := makeInstanceDir(ctx, gene)
 
+	log.Info("Meter Start ...")
 	mainDB := openMainDB(ctx, instanceDir)
 	defer func() { log.Info("closing main database..."); mainDB.Close() }()
 
