@@ -289,7 +289,7 @@ func (conR *ConsensusReactor) SwitchToConsensus() {
 
 	// --force-last-kframe
 	if !conR.config.ForceLastKFrame {
-		conR.XXX(bestKBlock, replay)
+		conR.JoinEstablishedCommittee(bestKBlock, replay)
 	} else {
 		conR.ConsensusHandleReceivedNonce(int64(bestKBlock.Header().Number()), nonce, best.QC.EpochID, replay)
 	}
@@ -1232,7 +1232,7 @@ func (conR *ConsensusReactor) UpdateCurDelegates() {
 	conR.logger.Info("Update curDelegates", "delegateSize", conR.delegateSize, "committeeSize", conR.committeeSize, "names", strings.Join(names, ","))
 }
 
-func (conR *ConsensusReactor) XXX(kBlock *block.Block, replay bool) {
+func (conR *ConsensusReactor) JoinEstablishedCommittee(kBlock *block.Block, replay bool) {
 	var nonce uint64
 	var info *powpool.PowBlockInfo
 	kBlockHeight := kBlock.Header().Number()
@@ -1280,7 +1280,31 @@ func (conR *ConsensusReactor) XXX(kBlock *block.Block, replay bool) {
 		conR.updateCurEpoch(epoch)
 		// conR.NewCommitteeInit(uint64(kBlockHeight), nonce, replay)
 		conR.NewValidatorSetByNonce(nonce)
-		conR.UpdateActualCommittee(0)
+		consentBlock, err := conR.chain.GetTrunkBlock(kBlockHeight + 1)
+		if err != nil {
+			fmt.Println("could not get committee info, stop right now")
+			return
+		}
+		// recover actual committee from consent block
+		committeeInfo := consentBlock.CommitteeInfos
+		leaderIndex := committeeInfo.CommitteeInfo[0].CSIndex
+		conR.UpdateActualCommittee(int(leaderIndex))
+
+		// verify in committee status with consent block
+		myself := conR.curCommittee.Validators[conR.curCommitteeIndex]
+		myEcdsaPKBytes := crypto.FromECDSAPub(&myself.PubKey)
+		inCommitteeVerified := false
+		for _, v := range committeeInfo.CommitteeInfo {
+			if bytes.Compare(v.PubKey, myEcdsaPKBytes) == 0 {
+				inCommitteeVerified = true
+				break
+			}
+		}
+		if inCommitteeVerified == false {
+			conR.logger.Error("committee info in consent block doesn't contain myself as a member, stop right now")
+			return
+		}
+
 		conR.startPacemaker(!replay, PMModeCatchUp)
 	}
 }
