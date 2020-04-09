@@ -2,7 +2,6 @@ package consensus
 
 import (
 	"bytes"
-	sha256 "crypto/sha256"
 	"encoding/hex"
 	"fmt"
 	"net"
@@ -38,8 +37,7 @@ func (peer *ConsensusPeer) sendPacemakerMsg(rawData []byte, relay bool, msgSumma
 	var netClient = &http.Client{
 		Timeout: time.Second * 4, // 2
 	}
-	msgHash := sha256.Sum256(rawData)
-	msgHashHex := hex.EncodeToString(msgHash[:])[:MsgHashSize]
+	msgHashHex := hex.EncodeToString(rawData)[:MsgHashSize]
 	if relay {
 		peer.logger.Info(fmt.Sprintf("Relay: %s", msgSummary), "size", len(rawData), "msgHash", msgHashHex)
 	} else {
@@ -59,8 +57,7 @@ func (peer *ConsensusPeer) sendCommitteeMsg(rawData []byte, msgSummary string, r
 	var netClient = &http.Client{
 		Timeout: time.Second * 4,
 	}
-	msgHash := sha256.Sum256(rawData)
-	msgHashHex := hex.EncodeToString(msgHash[:])[:MsgHashSize]
+	msgHashHex := hex.EncodeToString(rawData)[:MsgHashSize]
 	if relay {
 		peer.logger.Info(fmt.Sprintf("Relay: %s", msgSummary), "size", len(rawData), "msgHash", msgHashHex)
 	} else {

@@ -3,7 +3,7 @@ package consensus
 import (
 	"bytes"
 	"crypto/ecdsa"
-	"crypto/sha256"
+	sha256 "crypto/sha256"
 	"encoding/base64"
 	b64 "encoding/base64"
 	"encoding/binary"
@@ -178,7 +178,7 @@ func NewConsensusReactor(ctx *cli.Context, chain *chain.Chain, state *state.Crea
 		logger:       log15.New("pkg", "reactor"),
 		SyncDone:     false,
 		magic:        magic,
-		msgCache:     NewMsgCache(256),
+		msgCache:     NewMsgCache(1024),
 		inCommittee:  false,
 	}
 
@@ -352,12 +352,35 @@ func (cm *CommitteeMember) String() string {
 
 type consensusMsgInfo struct {
 	//Msg    ConsensusMessage
-	Msg     ConsensusMessage
-	MsgHash [32]byte
-	Peer    *ConsensusPeer
-	RawData []byte
+	Msg       ConsensusMessage
+	Peer      *ConsensusPeer
+	RawData   []byte
+	Signature []byte
 
-	// receivedFrom net.IP
+	cache struct {
+		msgHash    [32]byte
+		msgHashHex string
+	}
+}
+
+func newConsensusMsgInfo(msg ConsensusMessage, peer *ConsensusPeer, rawData []byte) *consensusMsgInfo {
+	return &consensusMsgInfo{
+		Msg:       msg,
+		Peer:      peer,
+		RawData:   rawData,
+		Signature: msg.Header().Signature,
+	}
+}
+
+func (mi *consensusMsgInfo) MsgHashHex() string {
+	if mi.cache.msgHashHex != "" {
+		msgHash := sha256.Sum256(mi.RawData)
+		msgHashHex := hex.EncodeToString(msgHash[:])[:8]
+		mi.cache.msgHash = msgHash
+		mi.cache.msgHashHex = msgHashHex
+	}
+	return mi.cache.msgHashHex
+
 }
 
 func (conR *ConsensusReactor) UpdateHeight(height int64) bool {
@@ -760,19 +783,7 @@ func (conR *ConsensusReactor) UnmarshalMsg(data []byte) (*consensusMsgInfo, erro
 		// conR.logger.Error("Malformated message, error decoding", "peer", peerName, "ip", peerIP, "msg", msg, "err", err)
 	}
 
-	if VerifyMsgType(msg) == false {
-		fmt.Println("Invalid Msg Type:", msg)
-		return nil, ErrInvalidMsgType
-		// conR.logger.Error("MsgType validate failed")
-	}
-
-	if VerifySignature(msg) == false {
-		// conR.logger.Error("Signature validate failed")
-		fmt.Println("Invalide Signature: ", msg)
-		return nil, ErrInvalidSignature
-	}
-	msgHash := sha256.Sum256(rawMsg)
-	return &consensusMsgInfo{Msg: msg, MsgHash: msgHash, Peer: peer, RawData: data}, nil
+	return newConsensusMsgInfo(msg, peer, data), nil
 }
 
 func (conR *ConsensusReactor) receiveCommitteeMsg(w http.ResponseWriter, r *http.Request) {
@@ -789,16 +800,27 @@ func (conR *ConsensusReactor) receiveCommitteeMsg(w http.ResponseWriter, r *http
 	}
 
 	// cache the message to avoid duplicate handling
-	msg, msgHash, peer := mi.Msg, mi.MsgHash, mi.Peer
-	msgHashHex := hex.EncodeToString(msgHash[:])[:MsgHashSize]
+	msg, sig, peer := mi.Msg, mi.Signature, mi.Peer
+	peerName := peer.name
+	peerIP := peer.netAddr.IP.String()
 	typeName := getConcreteName(msg)
-	existed := conR.msgCache.Add(msg.EpochID(), msgHash)
+	existed := conR.msgCache.Add(sig)
 	if existed {
-		conR.logger.Info("duplicate "+typeName+", dropped ...", "epoch", msg.EpochID(), "peer", peer.name, "ip", peer.netAddr.IP.String(), "msgHash", msgHashHex)
+		conR.logger.Info("duplicate "+typeName+", dropped ...", "epoch", msg.EpochID(), "peer", peerName, "ip", peerIP)
 		return
 	}
 
-	conR.logger.Info(fmt.Sprintf("Recv: %s", msg.String()), "peer", peer.name, "ip", peer.netAddr.IP.String(), "msgHash", msgHashHex)
+	if VerifyMsgType(msg) == false {
+		conR.logger.Error("invalid msg type, dropped ...", "peer", peerName, "ip", peerIP, "msg", msg.String())
+		return
+	}
+
+	if VerifySignature(msg) == false {
+		conR.logger.Error("invalid signature, dropped ...", "peer", peerName, "ip", peerIP, "msg", msg.String())
+		return
+	}
+
+	conR.logger.Info(fmt.Sprintf("Recv: %s", msg.String()), "peer", peerName, "ip", peerIP, "msgHash", mi.MsgHashHex())
 
 	conR.peerMsgQueue <- *mi
 	// respondWithJson(w, http.StatusOK, map[string]string{"result": "success"})
@@ -869,7 +891,7 @@ func (conR *ConsensusReactor) exitConsensusValidator() int {
 
 	conR.csValidator = nil
 	conR.csRoleInitialized &= ^CONSENSUS_COMMIT_ROLE_VALIDATOR
-	conR.msgCache.CleanTo(conR.curEpoch)
+	conR.msgCache.CleanAll()
 	conR.logger.Debug("Exit consensus validator")
 	return 0
 }
@@ -899,7 +921,7 @@ func (conR *ConsensusReactor) exitConsensusLeader(epochID uint64) {
 	conR.csLeader = nil
 	conR.csRoleInitialized &= ^CONSENSUS_COMMIT_ROLE_LEADER
 
-	conR.msgCache.CleanTo(conR.curEpoch)
+	conR.msgCache.CleanAll()
 	return
 }
 

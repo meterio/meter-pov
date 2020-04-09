@@ -195,7 +195,26 @@ type PMRoundTimeoutInfo struct {
 	counter uint64
 }
 
+type PMCmd uint32
+
+const (
+	PMCmdStop    PMCmd = 1
+	PMCmdRestart       = 2
+)
+
+func (cmd PMCmd) String() string {
+	switch cmd {
+	case PMCmdStop:
+		return "Stop"
+	case PMCmdRestart:
+		return "Restart"
+	}
+	return ""
+}
+
 type PMStopInfo struct {
+	cmd  PMCmd
+	mode PMMode
 }
 
 type PMBeatInfo struct {
