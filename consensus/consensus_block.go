@@ -453,12 +453,6 @@ func (conR *ConsensusReactor) CommitteeInfoCompare(cm1, cm2 []block.CommitteeInf
 		return false
 	}
 	var i int
-	for _, cm := range cm1 {
-		fmt.Println("MY CM: ", cm)
-	}
-	for _, cm := range cm2 {
-		fmt.Println("GOT CM: ", cm)
-	}
 	for i = 0; i < len(cm1); i++ {
 		if (cm1[i].Name != cm2[i].Name) || (bytes.Equal(cm1[i].PubKey, cm2[i].PubKey) == false) ||
 			(bytes.Equal(cm1[i].CSPubKey, cm2[i].CSPubKey) == false) {
@@ -523,7 +517,7 @@ func (conR *ConsensusReactor) MakeBlockCommitteeInfo(system *bls.System, cms []C
 // MBlock Routine
 //=================================================
 
-type BlockType int
+type BlockType uint32
 
 const (
 	KBlockType        BlockType = 1
@@ -773,7 +767,7 @@ func (conR *ConsensusReactor) BuildStopCommitteeBlock(parentBlock *block.Block) 
 // handle KBlock info info message from node
 
 type RecvKBlockInfo struct {
-	Height           int64
+	Height           uint32
 	LastKBlockHeight uint32
 	Nonce            uint64
 	Epoch            uint64
@@ -782,7 +776,7 @@ type RecvKBlockInfo struct {
 func (conR *ConsensusReactor) HandleRecvKBlockInfo(ki RecvKBlockInfo) error {
 	best := conR.chain.BestBlock()
 
-	if ki.Height != int64(best.Header().Number()) {
+	if ki.Height != best.Header().Number() {
 		conR.logger.Info("kblock info is ignored ...", "received hight", ki.Height, "my best", best.Header().Number())
 		return nil
 	}
@@ -962,7 +956,7 @@ func (conR *ConsensusReactor) FinalizeCommitBlock(blkInfo *ProposedBlockInfo, be
 	// successfully added the block, update the current hight of consensus
 	conR.logger.Info("Block committed", "height", blk.Header().Number(), "id", blk.Header().ID())
 	fmt.Println(blk.String())
-	conR.UpdateHeight(int64(conR.chain.BestBlock().Header().Number()))
+	conR.UpdateHeight(conR.chain.BestBlock().Header().Number())
 
 	return nil
 }

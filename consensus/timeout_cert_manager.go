@@ -8,14 +8,14 @@ import (
 )
 
 type timeoutID struct {
-	Height uint64
-	Round  uint64
+	Height uint32
+	Round  uint32
 }
 
 type timeoutVal struct {
 	Counter   uint64
 	PeerID    []byte
-	PeerIndex int
+	PeerIndex uint32
 	MsgHash   [32]byte
 	Signature bls.Signature
 }
@@ -41,7 +41,7 @@ func (tm *PMTimeoutCertManager) collectSignature(newViewMsg *PMNewViewMessage) e
 	defer tm.Unlock()
 
 	if newViewMsg.Reason == RoundTimeout {
-		index := newViewMsg.PeerIndex
+		index := int(newViewMsg.PeerIndex)
 		// append signature only if it doesn't exist
 		height := newViewMsg.TimeoutHeight
 		round := newViewMsg.TimeoutRound
@@ -50,7 +50,7 @@ func (tm *PMTimeoutCertManager) collectSignature(newViewMsg *PMNewViewMessage) e
 		id := timeoutID{Height: height, Round: round}
 		bitArray, ok := tm.bitArrays[id]
 		if !ok {
-			bitArray = cmn.NewBitArray(tm.pacemaker.csReactor.committeeSize)
+			bitArray = cmn.NewBitArray(int(tm.pacemaker.csReactor.committeeSize))
 			tm.bitArrays[id] = bitArray
 		}
 
@@ -78,7 +78,7 @@ func (tm *PMTimeoutCertManager) collectSignature(newViewMsg *PMNewViewMessage) e
 	return nil
 }
 
-func (tm *PMTimeoutCertManager) count(height, round uint64) int {
+func (tm *PMTimeoutCertManager) count(height, round uint32) int {
 	tm.RLock()
 	defer tm.RUnlock()
 	if bitArray, ok := tm.bitArrays[timeoutID{height, round}]; ok {
@@ -87,7 +87,7 @@ func (tm *PMTimeoutCertManager) count(height, round uint64) int {
 	return 0
 }
 
-func (tm *PMTimeoutCertManager) getTimeoutCert(height, round uint64) *PMTimeoutCert {
+func (tm *PMTimeoutCertManager) getTimeoutCert(height, round uint32) *PMTimeoutCert {
 	id := timeoutID{height, round}
 	vals, ok := tm.cache[id]
 	if !ok {
@@ -114,7 +114,7 @@ func (tm *PMTimeoutCertManager) getTimeoutCert(height, round uint64) *PMTimeoutC
 	}
 }
 
-func (tm *PMTimeoutCertManager) cleanup(height, round uint64) error {
+func (tm *PMTimeoutCertManager) cleanup(height, round uint32) error {
 	tm.Lock()
 	defer tm.Unlock()
 	for k, _ := range tm.cache {

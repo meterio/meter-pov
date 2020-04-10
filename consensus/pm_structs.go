@@ -45,15 +45,15 @@ const (
 
 // TimeoutCert
 type PMTimeoutCert struct {
-	TimeoutRound   uint64
-	TimeoutHeight  uint64
+	TimeoutRound   uint32
+	TimeoutHeight  uint32
 	TimeoutCounter uint32
 
 	TimeoutBitArray *cmn.BitArray
 	TimeoutAggSig   []byte
 }
 
-func newPMTimeoutCert(height, round uint64, counter uint32, committeeSize int) *PMTimeoutCert {
+func newPMTimeoutCert(height, round uint32, counter uint32, committeeSize int) *PMTimeoutCert {
 
 	return &PMTimeoutCert{
 		TimeoutRound:   round,
@@ -82,6 +82,10 @@ func (tc *PMTimeoutCert) SigningHash() (hash meter.Bytes32) {
 // EncodeRLP implements rlp.Encoder.
 func (tc *PMTimeoutCert) EncodeRLP(w io.Writer) error {
 	s := []byte("")
+	if tc == nil {
+		w.Write([]byte{})
+		return nil
+	}
 	if tc.TimeoutBitArray != nil {
 		s, _ = tc.TimeoutBitArray.MarshalJSON()
 	}
@@ -97,8 +101,8 @@ func (tc *PMTimeoutCert) EncodeRLP(w io.Writer) error {
 // DecodeRLP implements rlp.Decoder.
 func (tc *PMTimeoutCert) DecodeRLP(s *rlp.Stream) error {
 	payload := struct {
-		Height      uint64
-		Round       uint64
+		Height      uint32
+		Round       uint32
 		Counter     uint32
 		BitArrayStr string
 		AggSig      []byte
@@ -132,8 +136,8 @@ func (tc *PMTimeoutCert) String() string {
 }
 
 type pmBlock struct {
-	Height uint64
-	Round  uint64
+	Height uint32
+	Round  uint32
 
 	Parent  *pmBlock
 	Justify *pmQuorumCert
@@ -190,8 +194,8 @@ func (qc *pmQuorumCert) ToString() string {
 }
 
 type PMRoundTimeoutInfo struct {
-	height  uint64
-	round   uint64
+	height  uint32
+	round   uint32
 	counter uint64
 }
 
@@ -218,8 +222,8 @@ type PMStopInfo struct {
 }
 
 type PMBeatInfo struct {
-	height uint64
-	round  uint64
+	height uint32
+	round  uint32
 	reason beatReason
 }
 

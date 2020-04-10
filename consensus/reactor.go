@@ -90,7 +90,7 @@ type ConsensusConfig struct {
 	ForceLastKFrame    bool
 	SkipSignatureCheck bool
 	InitCfgdDelegates  bool
-	EpochMBlockCount   uint64
+	EpochMBlockCount   uint32
 	MinCommitteeSize   int
 	MaxCommitteeSize   int
 	MaxDelegateSize    int
@@ -115,12 +115,11 @@ type ConsensusReactor struct {
 	// involved the consensus
 	csMode             byte // delegates, committee, other
 	delegateSize       int  // global constant, current available delegate size.
-	committeeSize      int
-	myDelegatesIndex   int                 // this index will be changed by DelegateSet every time
+	committeeSize      uint32
 	curDelegates       *types.DelegateSet  // current delegates list
 	curCommittee       *types.ValidatorSet // This is top 400 of delegates by given nonce
 	curActualCommittee []CommitteeMember   // Real committee, should be subset of curCommittee if someone is offline.
-	curCommitteeIndex  int
+	curCommitteeIndex  uint32
 	logger             log15.Logger
 
 	csRoleInitialized uint
@@ -134,7 +133,7 @@ type ConsensusReactor struct {
 	lastKBlockHeight uint32
 	curNonce         uint64
 	curEpoch         uint64
-	curHeight        int64 // come from parentBlockID first 4 bytes uint32
+	curHeight        uint32 // come from parentBlockID first 4 bytes uint32
 	mtx              sync.RWMutex
 
 	// TODO: remove this, not used anymore
@@ -187,7 +186,7 @@ func NewConsensusReactor(ctx *cli.Context, chain *chain.Chain, state *state.Crea
 			ForceLastKFrame:    ctx.Bool("force-last-kframe"),
 			SkipSignatureCheck: ctx.Bool("skip-signature-check"),
 			InitCfgdDelegates:  ctx.Bool("init-configured-delegates"),
-			EpochMBlockCount:   uint64(ctx.Int64("epoch-mblock-count")),
+			EpochMBlockCount:   uint32(ctx.Uint("epoch-mblock-count")),
 			MinCommitteeSize:   ctx.Int("committee-min-size"),
 			MaxCommitteeSize:   ctx.Int("committee-max-size"),
 			MaxDelegateSize:    ctx.Int("delegate-max-size"),
@@ -206,7 +205,7 @@ func NewConsensusReactor(ctx *cli.Context, chain *chain.Chain, state *state.Crea
 
 	//initialize height/round
 	conR.lastKBlockHeight = chain.BestBlock().Header().LastKBlockHeight()
-	conR.curHeight = int64(chain.BestBlock().Header().Number())
+	conR.curHeight = chain.BestBlock().Header().Number()
 
 	// initialize consensus common
 	conR.csCommon = NewConsensusCommonFromBlsCommon(blsCommon)
@@ -291,7 +290,7 @@ func (conR *ConsensusReactor) SwitchToConsensus() {
 	if !conR.config.ForceLastKFrame {
 		conR.JoinEstablishedCommittee(bestKBlock, replay)
 	} else {
-		conR.ConsensusHandleReceivedNonce(int64(bestKBlock.Header().Number()), nonce, best.QC.EpochID, replay)
+		conR.ConsensusHandleReceivedNonce(bestKBlock.Header().Number(), nonce, best.QC.EpochID, replay)
 	}
 }
 
@@ -369,11 +368,15 @@ func newConsensusMsgInfo(msg ConsensusMessage, peer *ConsensusPeer, rawData []by
 		Peer:      peer,
 		RawData:   rawData,
 		Signature: msg.Header().Signature,
+		cache: struct {
+			msgHash    [32]byte
+			msgHashHex string
+		}{msgHashHex: ""},
 	}
 }
 
 func (mi *consensusMsgInfo) MsgHashHex() string {
-	if mi.cache.msgHashHex != "" {
+	if mi.cache.msgHashHex == "" {
 		msgHash := sha256.Sum256(mi.RawData)
 		msgHashHex := hex.EncodeToString(msgHash[:])[:8]
 		mi.cache.msgHash = msgHash
@@ -383,7 +386,7 @@ func (mi *consensusMsgInfo) MsgHashHex() string {
 
 }
 
-func (conR *ConsensusReactor) UpdateHeight(height int64) bool {
+func (conR *ConsensusReactor) UpdateHeight(height uint32) bool {
 	conR.logger.Info(fmt.Sprintf("Update conR.curHeight from %d to %d", conR.curHeight, height))
 	conR.curHeight = height
 	return true
@@ -402,7 +405,7 @@ func (conR *ConsensusReactor) RefreshCurHeight() error {
 	prev := conR.curHeight
 
 	best := conR.chain.BestBlock()
-	conR.curHeight = int64(best.Header().Number())
+	conR.curHeight = best.Header().Number()
 	conR.lastKBlockHeight = best.Header().LastKBlockHeight()
 	conR.updateCurEpoch(best.GetBlockEpoch())
 
@@ -414,13 +417,7 @@ func (conR *ConsensusReactor) RefreshCurHeight() error {
 // after announce/commit, Leader got the actual committee, which is the subset of curCommittee if some committee member offline.
 // indexs and pubKeys are not sorted slice, AcutalCommittee must be sorted.
 // Only Leader can call this method. indexes do not include the leader itself.
-func (conR *ConsensusReactor) UpdateActualCommittee(leaderIndex int) bool {
-	fmt.Println("-----------------------")
-	fmt.Println("CUR COMMITTEE:")
-	for _, v := range conR.curCommittee.Validators {
-		fmt.Println("V: ", v)
-	}
-	fmt.Println("-----------------------")
+func (conR *ConsensusReactor) UpdateActualCommittee(leaderIndex uint32) bool {
 	size := len(conR.curCommittee.Validators)
 	//validators := conR.curCommittee.Validators
 	validators := conR.curCommittee.Validators[leaderIndex:]
@@ -431,7 +428,7 @@ func (conR *ConsensusReactor) UpdateActualCommittee(leaderIndex int) bool {
 			PubKey:   v.PubKey,
 			NetAddr:  v.NetAddr,
 			CSPubKey: v.BlsPubKey,
-			CSIndex:  (i + leaderIndex) % size,
+			CSIndex:  (i + int(leaderIndex)) % size,
 		}
 		conR.curActualCommittee = append(conR.curActualCommittee, cm)
 	}
@@ -452,16 +449,16 @@ func (conR *ConsensusReactor) UpdateActualCommittee(leaderIndex int) bool {
 }
 
 // get the specific round proposer
-func (conR *ConsensusReactor) getRoundProposer(round int) CommitteeMember {
+func (conR *ConsensusReactor) getRoundProposer(round uint32) CommitteeMember {
 	size := len(conR.curActualCommittee)
 	if size == 0 {
 		return CommitteeMember{}
 	}
-	return conR.curActualCommittee[round%size]
+	return conR.curActualCommittee[int(round)%size]
 }
 
-func (conR *ConsensusReactor) amIRoundProproser(round uint64) bool {
-	p := conR.getRoundProposer(int(round))
+func (conR *ConsensusReactor) amIRoundProproser(round uint32) bool {
+	p := conR.getRoundProposer(round)
 	return bytes.Equal(crypto.FromECDSAPub(&p.PubKey), crypto.FromECDSAPub(&conR.myPubKey))
 }
 
@@ -473,7 +470,7 @@ func (conR *ConsensusReactor) NewValidatorSetByNonce(nonce uint64) (uint, bool) 
 	conR.curCommittee = committee
 	if inCommittee == true {
 		conR.csMode = CONSENSUS_MODE_COMMITTEE
-		conR.curCommitteeIndex = index
+		conR.curCommitteeIndex = uint32(index)
 		myAddr := conR.curCommittee.Validators[index].NetAddr
 		myName := conR.curCommittee.Validators[index].Name
 		conR.logger.Info("New committee calculated", "index", index, "role", role, "myName", myName, "myIP", myAddr.IP.String())
@@ -653,7 +650,7 @@ func (conR *ConsensusReactor) handleMsg(mi consensusMsgInfo) {
 func (conR *ConsensusReactor) GetRelayPeers(round int) ([]*ConsensusPeer, error) {
 	peers := make([]*ConsensusPeer, 0)
 	size := len(conR.curCommittee.Validators)
-	myIndex := conR.curCommitteeIndex
+	myIndex := int(conR.curCommitteeIndex)
 	if size == 0 {
 		return peers, errors.New("current actual committee is empty")
 	}
@@ -1122,7 +1119,7 @@ func (conR *ConsensusReactor) BuildNotaryAnnounceSignMsg(pubKey ecdsa.PublicKey,
 //-----------------------------------------------------------------------------
 // New consensus timed schedule util
 //type Scheduler func(conR *ConsensusReactor) bool
-func (conR *ConsensusReactor) ScheduleLeader(epochID uint64, height uint64, ev *NCEvidence, d time.Duration) bool {
+func (conR *ConsensusReactor) ScheduleLeader(epochID uint64, height uint32, ev *NCEvidence, d time.Duration) bool {
 	time.AfterFunc(d, func() {
 		conR.schedulerQueue <- func() { HandleScheduleLeader(conR, epochID, height, ev) }
 	})
@@ -1160,7 +1157,10 @@ func HandleScheduleReplayLeader(conR *ConsensusReactor, epochID uint64, ev *NCEv
 		conR.logger.Error("decode committee info block error")
 		return false
 	}
-	fmt.Println("cis", cis)
+	fmt.Println("Committee Info from consent block: ")
+	for _, ci := range cis {
+		fmt.Println(ci.String())
+	}
 
 	conR.csLeader = NewCommitteeLeader(conR)
 	conR.csRoleInitialized |= CONSENSUS_COMMIT_ROLE_LEADER
@@ -1175,8 +1175,8 @@ func HandleScheduleReplayLeader(conR *ConsensusReactor, epochID uint64, ev *NCEv
 	return true
 }
 
-func HandleScheduleLeader(conR *ConsensusReactor, epochID, height uint64, ev *NCEvidence) bool {
-	curHeight := uint64(conR.chain.BestBlock().Header().Number())
+func HandleScheduleLeader(conR *ConsensusReactor, epochID uint64, height uint32, ev *NCEvidence) bool {
+	curHeight := conR.chain.BestBlock().Header().Number()
 	if curHeight != height {
 		conR.logger.Error("ScheduleLeader: best height is different with kblock height", "curHeight", curHeight, "kblock height", height)
 		if curHeight > height {
@@ -1224,7 +1224,7 @@ func (conR *ConsensusReactor) UpdateCurDelegates() {
 	delegates, delegateSize, committeeSize := conR.GetConsensusDelegates()
 	conR.curDelegates = types.NewDelegateSet(delegates)
 	conR.delegateSize = delegateSize
-	conR.committeeSize = committeeSize
+	conR.committeeSize = uint32(committeeSize)
 	names := make([]string, 0)
 	for _, d := range conR.curDelegates.Delegates {
 		names = append(names, string(d.Name))
@@ -1288,7 +1288,7 @@ func (conR *ConsensusReactor) JoinEstablishedCommittee(kBlock *block.Block, repl
 		// recover actual committee from consent block
 		committeeInfo := consentBlock.CommitteeInfos
 		leaderIndex := committeeInfo.CommitteeInfo[0].CSIndex
-		conR.UpdateActualCommittee(int(leaderIndex))
+		conR.UpdateActualCommittee(leaderIndex)
 
 		// verify in committee status with consent block
 		myself := conR.curCommittee.Validators[conR.curCommitteeIndex]
@@ -1310,7 +1310,7 @@ func (conR *ConsensusReactor) JoinEstablishedCommittee(kBlock *block.Block, repl
 }
 
 // Consensus module handle received nonce from kblock
-func (conR *ConsensusReactor) ConsensusHandleReceivedNonce(kBlockHeight int64, nonce, epoch uint64, replay bool) {
+func (conR *ConsensusReactor) ConsensusHandleReceivedNonce(kBlockHeight uint32, nonce, epoch uint64, replay bool) {
 	conR.logger.Info("Received a nonce ...", "nonce", nonce, "kBlockHeight", kBlockHeight, "replay", replay, "epoch", epoch)
 
 	//conR.lastKBlockHeight = kBlockHeight
@@ -1364,7 +1364,7 @@ func (conR *ConsensusReactor) ConsensusHandleReceivedNonce(kBlockHeight int64, n
 			return
 		}
 
-		conR.NewCommitteeInit(uint64(kBlockHeight), nonce, replay)
+		conR.NewCommitteeInit(kBlockHeight, nonce, replay)
 
 		//wait for majority
 	} else if role == CONSENSUS_COMMIT_ROLE_VALIDATOR {
@@ -1376,9 +1376,9 @@ func (conR *ConsensusReactor) ConsensusHandleReceivedNonce(kBlockHeight int64, n
 			return
 		}
 
-		conR.NewCommitteeInit(uint64(kBlockHeight), nonce, replay)
+		conR.NewCommitteeInit(kBlockHeight, nonce, replay)
 		newCommittee := conR.newCommittee
-		nl := newCommittee.Committee.Validators[newCommittee.Round%uint64(len(newCommittee.Committee.Validators))]
+		nl := newCommittee.Committee.Validators[int(newCommittee.Round)%len(newCommittee.Committee.Validators)]
 		leader := newConsensusPeer(nl.Name, nl.NetAddr.IP, nl.NetAddr.Port, conR.magic)
 		leaderPubKey := nl.PubKey
 		conR.sendNewCommitteeMessage(leader, leaderPubKey, newCommittee.KblockHeight,
@@ -1386,7 +1386,7 @@ func (conR *ConsensusReactor) ConsensusHandleReceivedNonce(kBlockHeight int64, n
 		conR.NewCommitteeTimerStart()
 	} else if role == CONSENSUS_COMMIT_ROLE_NONE {
 		// even though it is not committee, still initialize NewCommittee for next
-		conR.NewCommitteeInit(uint64(kBlockHeight), nonce, replay)
+		conR.NewCommitteeInit(kBlockHeight, nonce, replay)
 	}
 	return
 }
@@ -1403,7 +1403,7 @@ func (conR *ConsensusReactor) startPacemaker(newCommittee bool, mode PMMode) err
 		bestQC := conR.chain.BestQC()
 		bestBlock := conR.chain.BestBlock()
 		conR.logger.Info("Checking the QCHeight and Block height...", "QCHeight", bestQC.QCHeight, "bestHeight", bestBlock.Header().Number())
-		if bestQC.QCHeight != uint64(bestBlock.Header().Number()) {
+		if bestQC.QCHeight != bestBlock.Header().Number() {
 			com := comm.GetGlobCommInst()
 			if com == nil {
 				conR.logger.Error("get global comm inst failed")
@@ -1419,7 +1419,7 @@ func (conR *ConsensusReactor) startPacemaker(newCommittee bool, mode PMMode) err
 	conR.chain.UpdateBestQC()
 	bestQC := conR.chain.BestQC()
 	bestBlock := conR.chain.BestBlock()
-	if bestQC.QCHeight != uint64(bestBlock.Header().Number()) {
+	if bestQC.QCHeight != bestBlock.Header().Number() {
 		conR.logger.Error("bestQC and bestBlock still not match, Action (start pacemaker) cancelled ...")
 		return nil
 	}
@@ -1432,7 +1432,7 @@ func (conR *ConsensusReactor) startPacemaker(newCommittee bool, mode PMMode) err
 // since votes of pacemaker include propser, but committee votes
 // do not have leader itself, we seperate the majority func
 // Easier adjust the logic of major 2/3, for pacemaker
-func MajorityTwoThird(voterNum, committeeSize int) bool {
+func MajorityTwoThird(voterNum, committeeSize uint32) bool {
 	if (voterNum < 0) || (committeeSize < 1) {
 		fmt.Println("MajorityTwoThird, inputs out of range")
 		return false
@@ -1453,7 +1453,7 @@ func MajorityTwoThird(voterNum, committeeSize int) bool {
 
 // for committee
 // The voteNum does not include leader himself
-func LeaderMajorityTwoThird(voterNum, committeeSize int) bool {
+func LeaderMajorityTwoThird(voterNum, committeeSize uint32) bool {
 	if (voterNum < 0) || (committeeSize <= 1) {
 		fmt.Println("MajorityTwoThird, inputs out of range")
 		return false

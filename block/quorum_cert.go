@@ -10,8 +10,8 @@ import (
 )
 
 type QuorumCert struct {
-	QCHeight uint64
-	QCRound  uint64
+	QCHeight uint32
+	QCRound  uint32
 	EpochID  uint64
 
 	VoterBitArrayStr string
@@ -45,6 +45,10 @@ func (qc *QuorumCert) ToBytes() []byte {
 
 // EncodeRLP implements rlp.Encoder.
 func (qc *QuorumCert) EncodeRLP(w io.Writer) error {
+	if qc == nil {
+		w.Write([]byte{})
+		return nil
+	}
 	return rlp.Encode(w, []interface{}{
 		qc.QCHeight,
 		qc.QCRound,
@@ -58,8 +62,8 @@ func (qc *QuorumCert) EncodeRLP(w io.Writer) error {
 // DecodeRLP implements rlp.Decoder.
 func (qc *QuorumCert) DecodeRLP(s *rlp.Stream) error {
 	payload := struct {
-		QCHeight         uint64
-		QCRound          uint64
+		QCHeight         uint32
+		QCRound          uint32
 		EpochID          uint64
 		VoterMsgHash     [32]byte
 		VoterAggSig      []byte

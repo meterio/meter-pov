@@ -109,7 +109,7 @@ func (c *Communicator) Sync(handler HandleBlockStream, qcHandler HandleQC) {
 			bestBlockHeight := c.chain.BestBlock().Header().Number()
 			bestBlockTime := c.chain.BestBlock().Header().Timestamp()
 			now := uint64(time.Now().Unix())
-			if bestBlockTime+meter.BlockInterval >= now && bestQCHeight == uint64(bestBlockHeight) {
+			if bestBlockTime+meter.BlockInterval >= now && bestQCHeight == bestBlockHeight {
 				return true
 			}
 			if syncCount > 2 {
@@ -290,10 +290,10 @@ func (c *Communicator) BroadcastBlock(blk *block.Block) {
 
 	var sendQC bool = false
 	bestQCCandidate := c.chain.GetBestQCCandidate()
-	if bestQC.QCHeight == uint64(h.Number()) {
+	if bestQC.QCHeight == h.Number() {
 		// log.Info("bestQC sent together with block")
 		sendQC = true
-	} else if bestQCCandidate != nil && bestQCCandidate.QCHeight == uint64(h.Number()) {
+	} else if bestQCCandidate != nil && bestQCCandidate.QCHeight == h.Number() {
 		bestQC = bestQCCandidate
 		sendQC = true
 		// log.Info("bestQCCandidate sent together with block")

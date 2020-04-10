@@ -36,8 +36,8 @@ type Block struct {
 	Nonce            uint64             `json:"nonce"`
 }
 type QC struct {
-	QCHeight         uint64 `json:"qcHeight"`
-	QCRound          uint64 `json:"qcRound"`
+	QCHeight         uint32 `json:"qcHeight"`
+	QCRound          uint32 `json:"qcRound"`
 	VoterBitArrayStr string `json:"voterBitArrayStr"`
 	EpochID          uint64 `json:"epochID"`
 	Raw              string `json:"raw"`

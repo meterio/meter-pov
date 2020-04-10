@@ -33,13 +33,13 @@ func NewNCEvidence(bitArray *cmn.BitArray, msgHash [32]byte, aggSig bls.Signatur
 }
 
 type NewCommitteeKey struct {
-	height uint64
-	round  uint64
+	height uint32
+	round  uint32
 }
 
 type NewCommittee struct {
-	KblockHeight uint64
-	Round        uint64
+	KblockHeight uint32
+	Round        uint32
 	Nonce        uint64
 	Replay       bool
 	TimeoutTimer *time.Timer
@@ -63,7 +63,7 @@ type NewCommittee struct {
 	InCommittee bool
 }
 
-func newNewCommittee(height, round, nonce uint64) *NewCommittee {
+func newNewCommittee(height, round uint32, nonce uint64) *NewCommittee {
 	return &NewCommittee{
 		KblockHeight: height,
 		Nonce:        nonce,
@@ -77,7 +77,7 @@ func (conR *ConsensusReactor) NewCommitteeTimeout() error {
 	conR.newCommittee.Round++
 	if conR.newCommittee.InCommittee {
 		size := len(conR.newCommittee.Committee.Validators)
-		nl := conR.newCommittee.Committee.Validators[conR.newCommittee.Round%uint64(size)]
+		nl := conR.newCommittee.Committee.Validators[conR.newCommittee.Round%uint32(size)]
 
 		leader := newConsensusPeer(nl.Name, nl.NetAddr.IP, nl.NetAddr.Port, conR.magic)
 		leaderPubKey := nl.PubKey
@@ -95,7 +95,7 @@ func (conR *ConsensusReactor) NewCommitteeTimeout() error {
 	return nil
 }
 
-func (conR *ConsensusReactor) NewCommitteeInit(height, nonce uint64, replay bool) error {
+func (conR *ConsensusReactor) NewCommitteeInit(height uint32, nonce uint64, replay bool) error {
 	conR.logger.Info("NewCommitteeInit ...", "height", height, "nonce", nonce, "replay", replay)
 	nc := newNewCommittee(height, 0, nonce)
 	nc.Replay = replay
@@ -150,12 +150,12 @@ func (conR *ConsensusReactor) updateCurEpoch(epoch uint64) {
 
 // NewcommitteeMessage routines
 // send new round message to future committee leader
-func (conR *ConsensusReactor) sendNewCommitteeMessage(peer *ConsensusPeer, leaderPubKey ecdsa.PublicKey, kblockHeight uint64, nonce uint64, round uint64) error {
+func (conR *ConsensusReactor) sendNewCommitteeMessage(peer *ConsensusPeer, leaderPubKey ecdsa.PublicKey, kblockHeight uint32, nonce uint64, round uint32) error {
 	conR.updateCurEpoch(conR.chain.BestBlock().QC.EpochID)
 	msg := &NewCommitteeMessage{
 		CSMsgCommonHeader: ConsensusMsgCommonHeader{
 			Height:    conR.curHeight,
-			Round:     int(round),
+			Round:     round,
 			Sender:    crypto.FromECDSAPub(&conR.myPubKey),
 			Timestamp: time.Now(),
 			MsgType:   CONSENSUS_MSG_NEW_COMMITTEE,
@@ -197,7 +197,7 @@ func (conR *ConsensusReactor) ProcessNewCommitteeMessage(newCommitteeMsg *NewCom
 	ch := newCommitteeMsg.CSMsgCommonHeader
 
 	// non replay case, last block must be kblock
-	if conR.newCommittee.Replay == false && ch.Height != int64(newCommitteeMsg.KBlockHeight) {
+	if conR.newCommittee.Replay == false && ch.Height != newCommitteeMsg.KBlockHeight {
 		conR.logger.Error("CurHeight is not the same with kblock height")
 		return false
 	}
@@ -245,7 +245,7 @@ func (conR *ConsensusReactor) ProcessNewCommitteeMessage(newCommitteeMsg *NewCom
 	// sanity check done
 	epochID := newCommitteeMsg.NextEpochID
 	height := newCommitteeMsg.KBlockHeight
-	round := uint64(ch.Round)
+	round := ch.Round
 	nonce := newCommitteeMsg.Nonce
 
 	nc, ok := conR.rcvdNewCommittee[NewCommitteeKey{height, round}]
@@ -311,7 +311,7 @@ func (conR *ConsensusReactor) ProcessNewCommitteeMessage(newCommitteeMsg *NewCom
 	// nc.voterMsgHash = append(nc.voterMsgHash, msgHash)
 
 	// 3. if the totoal vote > 2/3, move to Commit state
-	if LeaderMajorityTwoThird(int(nc.sigAggregator.Count()), conR.committeeSize) {
+	if LeaderMajorityTwoThird(nc.sigAggregator.Count(), conR.committeeSize) {
 		conR.logger.Debug("NewCommitteeMessage, 2/3 Majority reached", "Recvd", nc.sigAggregator.Count(), "committeeSize", conR.committeeSize, "replay", conR.newCommittee.Replay)
 
 		// seal the signature, avoid re-trigger

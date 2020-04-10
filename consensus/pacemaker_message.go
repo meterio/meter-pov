@@ -17,7 +17,7 @@ import (
 	crypto "github.com/ethereum/go-ethereum/crypto"
 )
 
-func (p *Pacemaker) proposeBlock(parentBlock *block.Block, height, round uint64, qc *pmQuorumCert, allowEmptyBlock bool) (*ProposedBlockInfo, []byte) {
+func (p *Pacemaker) proposeBlock(parentBlock *block.Block, height, round uint32, qc *pmQuorumCert, allowEmptyBlock bool) (*ProposedBlockInfo, []byte) {
 	// XXX: propose an empty block by default. Will add option --consensus.allow_empty_block = false
 	// force it to true at this time
 	allowEmptyBlock = true
@@ -54,7 +54,7 @@ func (p *Pacemaker) proposeBlock(parentBlock *block.Block, height, round uint64,
 	return blkInfo, blockBytes
 }
 
-func (p *Pacemaker) proposeStopCommitteeBlock(parentBlock *block.Block, height, round uint64, qc *pmQuorumCert) (*ProposedBlockInfo, []byte) {
+func (p *Pacemaker) proposeStopCommitteeBlock(parentBlock *block.Block, height, round uint32, qc *pmQuorumCert) (*ProposedBlockInfo, []byte) {
 
 	var blockBytes []byte
 	var blkInfo *ProposedBlockInfo
@@ -85,12 +85,12 @@ func (p *Pacemaker) packQuorumCert(blk *block.Block, qc *pmQuorumCert) error {
 	return nil
 }
 
-func (p *Pacemaker) BuildProposalMessage(height, round uint64, bnew *pmBlock, tc *PMTimeoutCert) (*PMProposalMessage, error) {
+func (p *Pacemaker) BuildProposalMessage(height, round uint32, bnew *pmBlock, tc *PMTimeoutCert) (*PMProposalMessage, error) {
 	blockBytes := bnew.ProposedBlock
 
 	cmnHdr := ConsensusMsgCommonHeader{
-		Height:    int64(height),
-		Round:     int(round),
+		Height:    height,
+		Round:     round,
 		Sender:    crypto.FromECDSAPub(&p.csReactor.myPubKey),
 		Timestamp: time.Now(),
 		MsgType:   PACEMAKER_MSG_PROPOSAL,
@@ -99,8 +99,8 @@ func (p *Pacemaker) BuildProposalMessage(height, round uint64, bnew *pmBlock, tc
 		EpochID: p.csReactor.curEpoch,
 	}
 
-	parentHeight := uint64(0)
-	parentRound := uint64(0)
+	parentHeight := uint32(0)
+	parentRound := uint32(0)
 	if bnew.Parent != nil {
 		parentHeight = bnew.Parent.Height
 		parentRound = bnew.Parent.Round
@@ -113,8 +113,8 @@ func (p *Pacemaker) BuildProposalMessage(height, round uint64, bnew *pmBlock, tc
 
 		ProposerID:        crypto.FromECDSAPub(&p.csReactor.myPubKey),
 		ProposerBlsPK:     p.csReactor.csCommon.GetSystem().PubKeyToBytes(*p.csReactor.csCommon.GetPublicKey()),
-		KBlockHeight:      int64(p.csReactor.lastKBlockHeight),
-		ProposedSize:      len(blockBytes),
+		KBlockHeight:      p.csReactor.lastKBlockHeight,
+		ProposedSize:      uint32(len(blockBytes)),
 		ProposedBlock:     blockBytes,
 		ProposedBlockType: bnew.ProposedBlockType,
 
@@ -160,7 +160,7 @@ func (p *Pacemaker) BuildVoteForProposalMessage(proposalMsg *PMProposalMessage, 
 		VoterID:           crypto.FromECDSAPub(&p.csReactor.myPubKey),
 		VoterBlsPK:        p.csReactor.csCommon.GetSystem().PubKeyToBytes(*p.csReactor.csCommon.GetPublicKey()),
 		BlsSignature:      p.csReactor.csCommon.GetSystem().SigToBytes(sign),
-		VoterIndex:        int64(index),
+		VoterIndex:        uint32(index),
 		SignedMessageHash: msgHash,
 	}
 
@@ -176,11 +176,11 @@ func (p *Pacemaker) BuildVoteForProposalMessage(proposalMsg *PMProposalMessage, 
 }
 
 // BuildVoteForProposalMsg build VFP message for proposal
-func (p *Pacemaker) BuildNewViewMessage(nextHeight, nextRound uint64, qcHigh *pmQuorumCert, reason NewViewReason, ti *PMRoundTimeoutInfo) (*PMNewViewMessage, error) {
+func (p *Pacemaker) BuildNewViewMessage(nextHeight, nextRound uint32, qcHigh *pmQuorumCert, reason NewViewReason, ti *PMRoundTimeoutInfo) (*PMNewViewMessage, error) {
 
 	cmnHdr := ConsensusMsgCommonHeader{
-		Height:    int64(nextHeight),
-		Round:     int(nextRound),
+		Height:    nextHeight,
+		Round:     nextRound,
 		Sender:    crypto.FromECDSAPub(&p.csReactor.myPubKey),
 		Timestamp: time.Now(),
 		MsgType:   PACEMAKER_MSG_NEW_VIEW,
@@ -207,7 +207,7 @@ func (p *Pacemaker) BuildNewViewMessage(nextHeight, nextRound uint64, qcHigh *pm
 		Reason:   reason,
 
 		PeerID:            crypto.FromECDSAPub(&p.csReactor.myPubKey),
-		PeerIndex:         index,
+		PeerIndex:         uint32(index),
 		SignedMessageHash: msgHash,
 		PeerSignature:     p.csReactor.csCommon.GetSystem().SigToBytes(sign),
 	}
@@ -228,12 +228,12 @@ func (p *Pacemaker) BuildNewViewMessage(nextHeight, nextRound uint64, qcHigh *pm
 	return msg, nil
 }
 
-func (p *Pacemaker) BuildNewViewSignMsg(pubKey ecdsa.PublicKey, reason NewViewReason, height, round uint64, qc *block.QuorumCert) string {
+func (p *Pacemaker) BuildNewViewSignMsg(pubKey ecdsa.PublicKey, reason NewViewReason, height, round uint32, qc *block.QuorumCert) string {
 	return fmt.Sprintf("New View Message: Peer:%s Height:%v Round:%v Reason:%v QC:(%d,%d,%v,%v)",
 		hex.EncodeToString(crypto.FromECDSAPub(&pubKey)), height, round, reason, qc.QCHeight, qc.QCRound, qc.EpochID, hex.EncodeToString(qc.VoterAggSig))
 }
 
-func (p *Pacemaker) BuildQueryProposalMessage(fromHeight, toHeight, round, epochID uint64, retAddr types.NetAddress) (*PMQueryProposalMessage, error) {
+func (p *Pacemaker) BuildQueryProposalMessage(fromHeight, toHeight, round uint32, epochID uint64, retAddr types.NetAddress) (*PMQueryProposalMessage, error) {
 	cmnHdr := ConsensusMsgCommonHeader{
 		Height:    0,
 		Round:     0,

@@ -312,7 +312,7 @@ func (n *Node) processBlock(blk *block.Block, stats *blockStats) (bool, error) {
 	if blk.Header().BlockType() == block.BLOCK_TYPE_K_BLOCK {
 		data, _ := blk.GetKBlockData()
 		info := consensus.RecvKBlockInfo{
-			Height:           int64(blk.Header().Number()),
+			Height:           blk.Header().Number(),
 			LastKBlockHeight: n.cons.GetLastKBlockHeight(),
 			Nonce:            data.Nonce,
 			Epoch:            blk.QC.EpochID,

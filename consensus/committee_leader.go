@@ -104,7 +104,7 @@ func NewCommitteeLeader(conR *ConsensusReactor) *ConsensusLeader {
 func (cl *ConsensusLeader) CreateAnnounceMsgPeers() []*ConsensusPeer {
 	csPeers := make([]*ConsensusPeer, 0)
 	for i, v := range cl.csReactor.curCommittee.Validators {
-		if i == cl.csReactor.curCommitteeIndex {
+		if uint32(i) == cl.csReactor.curCommitteeIndex {
 			continue
 		}
 		// initialize PeerConn
@@ -118,7 +118,7 @@ func (cl *ConsensusLeader) CreateAnnounceMsgPeers() []*ConsensusPeer {
 func (cl *ConsensusLeader) CreateNotaryMsgPeers() []*ConsensusPeer {
 	csPeers := make([]*ConsensusPeer, 0)
 	for _, cm := range cl.csReactor.curActualCommittee {
-		if cm.CSIndex == cl.csReactor.curCommitteeIndex {
+		if uint32(cm.CSIndex) == cl.csReactor.curCommitteeIndex {
 			continue
 		}
 		// initialize PeerConn
@@ -143,12 +143,12 @@ func (cl *ConsensusLeader) GenerateAnnounceMsg() bool {
 	}
 
 	best := cl.csReactor.chain.BestBlock()
-	var kblockHeight int64
+	var kblockHeight uint32
 	if best.Header().BlockType() == block.BLOCK_TYPE_K_BLOCK {
-		kblockHeight = int64(best.Header().Number())
+		kblockHeight = best.Header().Number()
 	} else {
 		// mblock
-		kblockHeight = int64(best.Header().LastKBlockHeight())
+		kblockHeight = best.Header().LastKBlockHeight()
 	}
 
 	msg := &AnnounceCommitteeMessage{
@@ -188,7 +188,7 @@ func (cl *ConsensusLeader) GenerateAnnounceMsg() bool {
 	announceExpire := func() {
 		cl.csReactor.logger.Warn("reach 2/3 votes of announce expired ...", "comitteeSize", cl.csReactor.committeeSize, "totalComitter", cl.announceSigAggregator.Count())
 
-		if LeaderMajorityTwoThird(int(cl.announceSigAggregator.Count()), cl.csReactor.committeeSize) && cl.state == COMMITTEE_LEADER_ANNOUNCED {
+		if LeaderMajorityTwoThird(cl.announceSigAggregator.Count(), cl.csReactor.committeeSize) && cl.state == COMMITTEE_LEADER_ANNOUNCED {
 			cl.csReactor.logger.Info("Committers reach 2/3 of Committee")
 
 			//stop announce Timer
@@ -301,7 +301,7 @@ func (cl *ConsensusLeader) ProcessCommitMsg(commitMsg *CommitCommitteeMessage, s
 		return false
 	}
 	index := cl.csReactor.GetCommitteeMemberIndex(*senderPubKey)
-	if index != commitMsg.CommitterIndex {
+	if uint32(index) != commitMsg.CommitterIndex {
 		cl.csReactor.logger.Error("Voter index mismatch", "expected", index, "actual", commitMsg.CommitterIndex)
 		return false
 	}
