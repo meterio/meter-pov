@@ -23,16 +23,20 @@ func NewMsgCache(size int) *MsgCache {
 }
 
 func (c *MsgCache) Contains(id []byte) bool {
-	return c.cache.Contains(id)
+	var idArray [64]byte
+	copy(idArray[:], id[:64])
+	return c.cache.Contains(idArray)
 }
 
 func (c *MsgCache) Add(id []byte) bool {
+	var idArray [64]byte
+	copy(idArray[:], id[:64])
 	c.Lock()
 	defer c.Unlock()
-	if c.cache.Contains(id) {
+	if c.cache.Contains(idArray) {
 		return true
 	}
-	c.cache.Add(id, true)
+	c.cache.Add(idArray, true)
 	return false
 }
 
