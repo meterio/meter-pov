@@ -148,7 +148,7 @@ func (cv *ConsensusValidator) ProcessAnnounceCommittee(announceMsg *AnnounceComm
 	}
 
 	// Verify Leader is announce sender?  should match my round
-	round := cv.csReactor.newCommittee.Round % uint64(len(cv.csReactor.newCommittee.Committee.Validators))
+	round := cv.csReactor.newCommittee.Round % uint32(len(cv.csReactor.newCommittee.Committee.Validators))
 	lv := cv.csReactor.curCommittee.Validators[round]
 	if bytes.Equal(crypto.FromECDSAPub(&lv.PubKey), announceMsg.AnnouncerID) == false {
 		cv.csReactor.logger.Error("Sender is not leader in my committee ...")
@@ -208,7 +208,7 @@ func (cv *ConsensusValidator) ProcessNotaryAnnounceMessage(notaryMsg *NotaryAnno
 		return false
 	}
 
-	leaderIndex := cv.csReactor.GetCommitteeMemberIndex(*senderPubKey)
+	leaderIndex := uint32(cv.csReactor.GetCommitteeMemberIndex(*senderPubKey))
 	leader := cv.csReactor.curCommittee.Validators[leaderIndex]
 	if bytes.Equal(crypto.FromECDSAPub(&leader.PubKey), notaryMsg.AnnouncerID) == false {
 		cv.csReactor.logger.Error("ecdsa public key mismatch", "index", leaderIndex)

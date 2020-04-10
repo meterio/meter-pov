@@ -171,6 +171,10 @@ func (b *Block) Body() *Body {
 
 // EncodeRLP implements rlp.Encoder.
 func (b *Block) EncodeRLP(w io.Writer) error {
+	if b == nil {
+		w.Write([]byte{})
+		return nil
+	}
 	return rlp.Encode(w, []interface{}{
 		b.BlockHeader,
 		b.Txs,

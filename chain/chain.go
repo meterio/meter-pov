@@ -797,7 +797,7 @@ func (c *Chain) UpdateLeafBlock() error {
 func (c *Chain) UpdateBestQC() (bool, error) {
 	if c.leafBlock.Header().ID().String() == c.bestBlock.Header().ID().String() {
 		// when leaf is the same with best, usually this is during initialization (before pacemaker) or after pacemaker
-		if c.bestQCCandidate != nil && c.bestQCCandidate.QCHeight > c.bestQC.QCHeight && c.bestQCCandidate.QCHeight <= uint64(c.bestBlock.Header().Number()) {
+		if c.bestQCCandidate != nil && c.bestQCCandidate.QCHeight > c.bestQC.QCHeight && c.bestQCCandidate.QCHeight <= c.bestBlock.Header().Number() {
 			// bestQC < QCCandidate <= bestBlock, update bestQC with QCCandidate
 			c.bestQC = c.bestQCCandidate
 			c.bestQCCandidate = nil
@@ -812,7 +812,7 @@ func (c *Chain) UpdateBestQC() (bool, error) {
 		}
 		return true, saveBestQC(c.kv, c.bestQC)
 	}
-	if c.bestQCCandidate != nil && c.bestQCCandidate.QCHeight == uint64(c.bestBlock.Header().Number()) &&
+	if c.bestQCCandidate != nil && c.bestQCCandidate.QCHeight == c.bestBlock.Header().Number() &&
 		c.bestQCCandidate.QCHeight > c.bestQC.QCHeight {
 		// bestQC < QCCandidate == bestBlock
 		c.bestQC = c.bestQCCandidate
@@ -847,7 +847,7 @@ func (c *Chain) SetBestQCCandidate(qc *block.QuorumCert) bool {
 	if qc == nil {
 		return false
 	}
-	if qc.QCHeight < uint64(c.bestBlock.Header().Number()) {
+	if qc.QCHeight < c.bestBlock.Header().Number() {
 		// if qc is lower than best block, ignore
 		log.Debug(fmt.Sprintf("qc height (%d) is lower than best block height (%d), ignored", qc.QCHeight, c.bestBlock.Header().Number()))
 		return false

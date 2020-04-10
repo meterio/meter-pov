@@ -36,7 +36,7 @@ func (p *Pacemaker) IsExtendedFromBLocked(b *pmBlock) bool {
 }
 
 // find out b b' b"
-func (p *Pacemaker) AddressBlock(height uint64) *pmBlock {
+func (p *Pacemaker) AddressBlock(height uint32) *pmBlock {
 	if (p.proposalMap[height] != nil) && (p.proposalMap[height].Height == height) {
 		//p.logger.Debug("Addressed block", "height", height, "round", round)
 		return p.proposalMap[height]
@@ -108,14 +108,14 @@ func (p *Pacemaker) receivePacemakerMsg(w http.ResponseWriter, r *http.Request) 
 	}
 }
 
-func (p *Pacemaker) GetRelayPeers(round int) ([]*ConsensusPeer, error) {
+func (p *Pacemaker) GetRelayPeers(round uint32) ([]*ConsensusPeer, error) {
 	peers := make([]*ConsensusPeer, 0)
 	size := len(p.csReactor.curActualCommittee)
 	myIndex := p.csReactor.GetMyActualCommitteeIndex()
 	if size == 0 {
 		return make([]*ConsensusPeer, 0), errors.New("current actual committee is empty")
 	}
-	rr := round % size
+	rr := int(round % uint32(size))
 	if myIndex >= rr {
 		myIndex = myIndex - rr
 	} else {
@@ -243,7 +243,7 @@ func (p *Pacemaker) ValidateProposal(b *pmBlock) error {
 	return nil
 }
 
-func (p *Pacemaker) getProposerByRound(round int) *ConsensusPeer {
+func (p *Pacemaker) getProposerByRound(round uint32) *ConsensusPeer {
 	proposer := p.csReactor.getRoundProposer(round)
 	return newConsensusPeer(proposer.Name, proposer.NetAddr.IP, 8080, p.csReactor.magic)
 }
@@ -251,7 +251,7 @@ func (p *Pacemaker) getProposerByRound(round int) *ConsensusPeer {
 // ------------------------------------------------------
 // Message Delivery Utilities
 // ------------------------------------------------------
-func (p *Pacemaker) SendConsensusMessage(round uint64, msg ConsensusMessage, copyMyself bool) bool {
+func (p *Pacemaker) SendConsensusMessage(round uint32, msg ConsensusMessage, copyMyself bool) bool {
 	myNetAddr := p.csReactor.GetMyNetAddr()
 	myName := p.csReactor.GetMyName()
 	myself := newConsensusPeer(myName, myNetAddr.IP, myNetAddr.Port, p.csReactor.magic)
@@ -259,12 +259,12 @@ func (p *Pacemaker) SendConsensusMessage(round uint64, msg ConsensusMessage, cop
 	peers := make([]*ConsensusPeer, 0)
 	switch msg.(type) {
 	case *PMProposalMessage:
-		peers, _ = p.GetRelayPeers(int(round))
+		peers, _ = p.GetRelayPeers(round)
 	case *PMVoteMessage:
-		proposer := p.getProposerByRound(int(round))
+		proposer := p.getProposerByRound(round)
 		peers = append(peers, proposer)
 	case *PMNewViewMessage:
-		nxtProposer := p.getProposerByRound(int(round))
+		nxtProposer := p.getProposerByRound(round)
 		peers = append(peers, nxtProposer)
 		myself = nil // don't send new view to myself
 	}
@@ -331,15 +331,15 @@ func (p *Pacemaker) generateNewQCNode(b *pmBlock) (*pmQuorumCert, error) {
 }
 
 func (p *Pacemaker) collectVoteSignature(voteMsg *PMVoteMessage) error {
-	round := uint64(voteMsg.CSMsgCommonHeader.Round)
-	if round == uint64(p.currentRound) && p.csReactor.amIRoundProproser(round) {
+	round := voteMsg.CSMsgCommonHeader.Round
+	if round == p.currentRound && p.csReactor.amIRoundProproser(round) {
 		// if round matches and I am proposer, collect signature and store in cache
 
 		_, err := p.csReactor.csCommon.GetSystem().SigFromBytes(voteMsg.BlsSignature)
 		if err != nil {
 			return err
 		}
-		if voteMsg.VoterIndex < int64(p.csReactor.committeeSize) {
+		if voteMsg.VoterIndex < p.csReactor.committeeSize {
 			blsPubkey := p.csReactor.curCommittee.Validators[voteMsg.VoterIndex].BlsPubKey
 			p.sigAggregator.Add(int(voteMsg.VoterIndex), voteMsg.SignedMessageHash, voteMsg.BlsSignature, blsPubkey)
 			p.logger.Debug("Collected signature ", "index", voteMsg.VoterIndex, "signature", hex.EncodeToString(voteMsg.BlsSignature))
@@ -353,7 +353,7 @@ func (p *Pacemaker) collectVoteSignature(voteMsg *PMVoteMessage) error {
 	return nil
 }
 
-func (p *Pacemaker) verifyTimeoutCert(tc *PMTimeoutCert, height, round uint64) bool {
+func (p *Pacemaker) verifyTimeoutCert(tc *PMTimeoutCert, height, round uint32) bool {
 	if tc != nil {
 		//FIXME: check timeout cert
 		return tc.TimeoutHeight == height && tc.TimeoutRound <= round
@@ -363,7 +363,7 @@ func (p *Pacemaker) verifyTimeoutCert(tc *PMTimeoutCert, height, round uint64) b
 
 // for proposals which can not be addressed parent and QC node should
 // put it to pending list and query the parent node
-func (p *Pacemaker) sendQueryProposalMsg(fromHeight, toHeight, queryRound, EpochID uint64, peer *ConsensusPeer) error {
+func (p *Pacemaker) sendQueryProposalMsg(fromHeight, toHeight, queryRound uint32, EpochID uint64, peer *ConsensusPeer) error {
 	// put this proposal to pending list, and sent out query
 	myNetAddr := p.csReactor.curCommittee.Validators[p.csReactor.curCommitteeIndex].NetAddr
 
@@ -394,7 +394,7 @@ func (p *Pacemaker) sendQueryProposalMsg(fromHeight, toHeight, queryRound, Epoch
 	return nil
 }
 
-func (p *Pacemaker) pendingProposal(queryHeight, queryRound, epochID uint64, mi *consensusMsgInfo) error {
+func (p *Pacemaker) pendingProposal(queryHeight, queryRound uint32, epochID uint64, mi *consensusMsgInfo) error {
 	fromHeight := p.lastVotingHeight
 	if p.QCHigh != nil && p.QCHigh.QCNode != nil && fromHeight < p.QCHigh.QCNode.Height {
 		fromHeight = p.QCHigh.QCNode.Height
@@ -408,7 +408,7 @@ func (p *Pacemaker) pendingProposal(queryHeight, queryRound, epochID uint64, mi 
 }
 
 // put it to pending list and query the parent node
-func (p *Pacemaker) pendingNewView(queryHeight, queryRound, epochID uint64, mi *consensusMsgInfo) error {
+func (p *Pacemaker) pendingNewView(queryHeight, queryRound uint32, epochID uint64, mi *consensusMsgInfo) error {
 	bestQC := p.csReactor.chain.BestQC()
 	fromHeight := p.lastVotingHeight
 	if p.QCHigh != nil && p.QCHigh.QCNode != nil && fromHeight < p.QCHigh.QCNode.Height {
@@ -422,7 +422,7 @@ func (p *Pacemaker) pendingNewView(queryHeight, queryRound, epochID uint64, mi *
 	return nil
 }
 
-func (p *Pacemaker) checkPendingMessages(curHeight uint64) error {
+func (p *Pacemaker) checkPendingMessages(curHeight uint32) error {
 	height := curHeight
 	count := 0
 	if pendingMsg, ok := p.pendingList.messages[height]; ok {

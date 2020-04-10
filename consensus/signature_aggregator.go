@@ -18,7 +18,7 @@ type SignatureAggregator struct {
 	pubkeys    []bls.PublicKey
 	bitArray   *cmn.BitArray
 	violations []*block.Violation
-	size       int
+	size       uint32
 	system     bls.System
 
 	committee []*types.Validator
@@ -28,13 +28,13 @@ type SignatureAggregator struct {
 	sigAgg []byte
 }
 
-func newSignatureAggregator(size int, system bls.System, msgHash [32]byte, validators []*types.Validator) *SignatureAggregator {
+func newSignatureAggregator(size uint32, system bls.System, msgHash [32]byte, validators []*types.Validator) *SignatureAggregator {
 	return &SignatureAggregator{
 		logger:     log15.New("pkg", "sig"),
 		sigs:       make([]bls.Signature, 0),
 		sigBytes:   make([][]byte, 0),
 		pubkeys:    make([]bls.PublicKey, 0),
-		bitArray:   cmn.NewBitArray(size),
+		bitArray:   cmn.NewBitArray(int(size)),
 		violations: make([]*block.Violation, 0),
 		size:       size,
 		system:     system,
@@ -49,7 +49,7 @@ func (sa *SignatureAggregator) Add(index int, msgHash [32]byte, signature []byte
 		sa.logger.Debug("signature sealed, ignore this vote ...", "count", sa.bitArray.Count(), "voting", sa.BitArrayString())
 		return false
 	}
-	if index < sa.size {
+	if uint32(index) < sa.size {
 		if bytes.Compare(sa.msgHash[:], msgHash[:]) != 0 {
 			return false
 		}
