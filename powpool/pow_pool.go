@@ -17,9 +17,11 @@ import (
 
 	"github.com/btcsuite/btcd/rpcclient"
 	"github.com/dfinlab/meter/block"
+	"github.com/dfinlab/meter/builtin"
 	"github.com/dfinlab/meter/chain"
 	"github.com/dfinlab/meter/co"
 	"github.com/dfinlab/meter/meter"
+	"github.com/dfinlab/meter/state"
 	"github.com/ethereum/go-ethereum/event"
 	"github.com/inconshreveable/log15"
 	"github.com/prometheus/client_golang/prometheus"
@@ -71,9 +73,10 @@ type PowBlockEvent struct {
 
 // PowPool maintains unprocessed transactions.
 type PowPool struct {
-	chain   *chain.Chain
-	options Options
-	all     *powObjectMap
+	chain        *chain.Chain
+	stateCreator *state.Creator
+	options      Options
+	all          *powObjectMap
 
 	done    chan struct{}
 	powFeed event.Feed
@@ -92,12 +95,13 @@ func GetGlobPowPoolInst() *PowPool {
 
 // New create a new PowPool instance.
 // Shutdown is required to be called at end.
-func New(options Options, chain *chain.Chain) *PowPool {
+func New(options Options, chain *chain.Chain, stateCreator *state.Creator) *PowPool {
 	pool := &PowPool{
-		chain:   chain,
-		options: options,
-		all:     newPowObjectMap(),
-		done:    make(chan struct{}),
+		chain:        chain,
+		stateCreator: stateCreator,
+		options:      options,
+		all:          newPowObjectMap(),
+		done:         make(chan struct{}),
 	}
 	pool.goes.Go(pool.housekeeping)
 	SetGlobPowPoolInst(pool)
@@ -317,11 +321,19 @@ func (p *PowPool) ReplayFrom(startHeight int32) error {
 	return nil
 }
 
-func GetPosCurEpoch() uint64 {
+func GetPosCurEpochAndCoef() (epoch uint64, coef int64) {
 	pool := GetGlobPowPoolInst()
 	if pool == nil {
 		panic("get globalPowPool failed")
 	}
-	epoch := uint64(pool.chain.BestBlock().GetBlockEpoch())
-	return epoch
+	bestBlock := pool.chain.BestBlock()
+	epoch = uint64(bestBlock.GetBlockEpoch())
+
+	state, err := pool.stateCreator.NewState(bestBlock.Header().StateRoot())
+	if err != nil {
+		panic("get state failed")
+	}
+	bigCoef := builtin.Params.Native(state).Get(meter.KeyPowPoolCoef)
+	coef = bigCoef.Int64()
+	return
 }
