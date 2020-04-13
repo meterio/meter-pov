@@ -1,5 +1,24 @@
 # Versions
 
+## 1.4.0-beta1
+
+Breaking change
+
+Added:
+
+1. relay message for announce and notary during committee establishment
+2. slashing feature: injail and statistics
+3. auction bid
+4. distributor list for delegates
+5. use LRU to avoid message duplication
+6. use signature aggregator to collect signatures in order to avoid duplication and detect double sign
+
+Updated:
+
+1. permanent BLS key, no key swapping during committee establishment
+2. protocol change: no voteForNotary any more
+3. tidy up log print outs
+
 ## 1.3.3-beta11
 
 Added:
