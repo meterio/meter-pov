@@ -163,4 +163,9 @@ var (
 		Usage: "mblock count between epochs",
 		Value: 1200,
 	}
+	presetFlag = cli.StringFlag{
+		Name:  "preset",
+		Usage: "preset config",
+		Value: "",
+	}
 )

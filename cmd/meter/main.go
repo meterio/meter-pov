@@ -16,6 +16,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"strconv"
 	"time"
 
 	"github.com/dfinlab/meter/api"
@@ -30,6 +31,7 @@ import (
 	"github.com/dfinlab/meter/meter"
 	"github.com/dfinlab/meter/powpool"
 	pow_api "github.com/dfinlab/meter/powpool/api"
+	"github.com/dfinlab/meter/preset"
 	"github.com/dfinlab/meter/script"
 	"github.com/dfinlab/meter/state"
 	"github.com/dfinlab/meter/txpool"
@@ -88,6 +90,7 @@ func main() {
 		Copyright: "2018 Meter Foundation <https://meter.io/>",
 		Flags: []cli.Flag{
 			networkFlag,
+			presetFlag,
 			dataDirFlag,
 			beneficiaryFlag,
 			apiAddrFlag,
@@ -230,11 +233,6 @@ func defaultAction(ctx *cli.Context) error {
 
 	initLogger(ctx)
 
-	topic := ctx.String("disco-topic")
-	version := doc.Version()
-	sum := sha256.Sum256([]byte(fmt.Sprintf("%v %v", version, topic)))
-	copy(magic[:], sum[:4])
-
 	gene := selectGenesis(ctx)
 	instanceDir := makeInstanceDir(ctx, gene)
 
@@ -247,6 +245,27 @@ func defaultAction(ctx *cli.Context) error {
 
 	chain := initChain(gene, mainDB, logDB)
 	master, blsCommon := loadNodeMaster(ctx)
+
+	fmt.Println(ctx.String("preset"))
+	// load preset config
+	if "shoal" == ctx.String("preset") {
+		config := preset.ShoalPresetConfig
+		ctx.Set("committee-min-size", strconv.Itoa(config.CommitteeMinSize))
+		ctx.Set("committee-max-size", strconv.Itoa(config.CommitteeMaxSize))
+		ctx.Set("delegate-max-size", strconv.Itoa(config.DelegateMaxSize))
+		ctx.Set("disco-topic", config.DiscoTopic)
+		ctx.Set("disco-server", config.DiscoServer)
+	}
+
+	// set magic
+	topic := ctx.String("disco-topic")
+	version := doc.Version()
+	sum := sha256.Sum256([]byte(fmt.Sprintf("%v %v", version, topic)))
+	copy(magic[:], sum[:4])
+
+	// load delegates (from binary or from file)
+	initDelegates := loadDelegates(ctx, blsCommon)
+	printDelegates(initDelegates)
 
 	txPool := txpool.New(chain, state.NewCreator(mainDB), defaultTxPoolOptions)
 	defer func() { log.Info("closing tx pool..."); txPool.Close() }()
@@ -275,7 +294,7 @@ func defaultAction(ctx *cli.Context) error {
 
 	stateCreator := state.NewCreator(mainDB)
 	sc := script.NewScriptEngine(chain, stateCreator)
-	cons := consensus.NewConsensusReactor(ctx, chain, stateCreator, master.PrivateKey, master.PublicKey, magic, blsCommon)
+	cons := consensus.NewConsensusReactor(ctx, chain, stateCreator, master.PrivateKey, master.PublicKey, magic, blsCommon, initDelegates)
 
 	observeURL, observeSrvCloser := startObserveServer(ctx)
 	defer func() { log.Info("closing Observe Server ..."); observeSrvCloser() }()

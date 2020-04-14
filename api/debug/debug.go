@@ -22,6 +22,7 @@ import (
 	"github.com/dfinlab/meter/state"
 	"github.com/dfinlab/meter/tracers"
 	"github.com/dfinlab/meter/trie"
+	"github.com/dfinlab/meter/types"
 	"github.com/dfinlab/meter/vm"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/rlp"
@@ -69,7 +70,8 @@ func (d *Debug) handleTxEnv(ctx context.Context, blockID meter.Bytes32, txIndex 
 	}
 
 	blsCommon := consensus.NewBlsCommon()
-	rt, err := consensus.NewConsensusReactor(nil, d.chain, d.stateC, privKey, &privKey.PublicKey, Magic, blsCommon).NewRuntimeForReplay(block.Header())
+
+	rt, err := consensus.NewConsensusReactor(nil, d.chain, d.stateC, privKey, &privKey.PublicKey, Magic, blsCommon, make([]*types.Delegate /* FIXME: this is an empty input */, 0)).NewRuntimeForReplay(block.Header())
 	if err != nil {
 		return nil, nil, err
 	}
