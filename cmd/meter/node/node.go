@@ -96,8 +96,6 @@ func (n *Node) Run(ctx context.Context) error {
 	n.goes.Go(func() { n.houseKeeping(ctx) })
 	n.goes.Go(func() { n.txStashLoop(ctx) })
 
-	//XXX: Yang: removed by new consensu. Integrated to consensus
-	//n.goes.Go(func() { n.packerLoop(ctx) })
 	n.goes.Go(func() { n.cons.OnStart() })
 
 	n.goes.Wait()

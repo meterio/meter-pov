@@ -23,11 +23,7 @@ import (
 	"github.com/dfinlab/meter/api/doc"
 	"github.com/dfinlab/meter/block"
 	"github.com/dfinlab/meter/cmd/meter/node"
-	"github.com/dfinlab/meter/cmd/meter/solo"
 	"github.com/dfinlab/meter/consensus"
-	"github.com/dfinlab/meter/genesis"
-	"github.com/dfinlab/meter/logdb"
-	"github.com/dfinlab/meter/lvldb"
 	"github.com/dfinlab/meter/meter"
 	"github.com/dfinlab/meter/powpool"
 	pow_api "github.com/dfinlab/meter/powpool/api"
@@ -121,23 +117,6 @@ func main() {
 		},
 		Action: defaultAction,
 		Commands: []cli.Command{
-			{
-				Name:  "solo",
-				Usage: "client runs in solo mode for test & dev",
-				Flags: []cli.Flag{
-					dataDirFlag,
-					apiAddrFlag,
-					apiCorsFlag,
-					apiTimeoutFlag,
-					apiCallGasLimitFlag,
-					apiBacktraceLimitFlag,
-					onDemandFlag,
-					persistFlag,
-					gasLimitFlag,
-					verbosityFlag,
-				},
-				Action: soloAction,
-			},
 			{
 				Name:  "master-key",
 				Usage: "import and export master key",
@@ -347,50 +326,6 @@ func newKFrameGenerator(ctx *cli.Context, cons *consensus.ConsensusReactor) func
 	return func() {
 		close(done)
 	}
-}
-
-func soloAction(ctx *cli.Context) error {
-	defer func() { log.Info("exited") }()
-
-	initLogger(ctx)
-	gene := genesis.NewDevnet()
-
-	var mainDB *lvldb.LevelDB
-	var logDB *logdb.LogDB
-	var instanceDir string
-
-	if ctx.Bool("persist") {
-		instanceDir = makeInstanceDir(ctx, gene)
-		mainDB = openMainDB(ctx, instanceDir)
-		logDB = openLogDB(ctx, instanceDir)
-	} else {
-		instanceDir = "Memory"
-		mainDB = openMemMainDB()
-		logDB = openMemLogDB()
-	}
-
-	defer func() { log.Info("closing main database..."); mainDB.Close() }()
-	defer func() { log.Info("closing log database..."); logDB.Close() }()
-
-	chain := initChain(gene, mainDB, logDB)
-
-	txPool := txpool.New(chain, state.NewCreator(mainDB), defaultTxPoolOptions)
-	defer func() { log.Info("closing tx pool..."); txPool.Close() }()
-
-	apiHandler, apiCloser := api.New(chain, state.NewCreator(mainDB), txPool, logDB, solo.Communicator{}, ctx.String(apiCorsFlag.Name), uint32(ctx.Int(apiBacktraceLimitFlag.Name)), uint64(ctx.Int(apiCallGasLimitFlag.Name)), solo.NewP2PServer(), nil)
-	defer func() { log.Info("closing API..."); apiCloser() }()
-
-	apiURL, srvCloser := startAPIServer(ctx, apiHandler, chain.GenesisBlock().Header().ID())
-	defer func() { log.Info("stopping API server..."); srvCloser() }()
-
-	printSoloStartupMessage(gene, chain, instanceDir, apiURL)
-
-	return solo.New(chain,
-		state.NewCreator(mainDB),
-		logDB,
-		txPool,
-		uint64(ctx.Int("gas-limit")),
-		ctx.Bool("on-demand")).Run(handleExitSignal())
 }
 
 func masterKeyAction(ctx *cli.Context) error {
