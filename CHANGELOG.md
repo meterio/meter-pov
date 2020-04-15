@@ -1,5 +1,22 @@
 # Versions
 
+## 1.4.0-beta3
+
+Updated:
+
+1. merged `--preset` with `--network`
+
+Deleted:
+
+1. poa source
+2. solo mode
+
+## 1.4.0-beta2
+
+Updated:
+
+1. added `--preset` flag
+
 ## 1.4.0-beta1
 
 Breaking change

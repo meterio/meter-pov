@@ -244,7 +244,6 @@ func defaultAction(ctx *cli.Context) error {
 	initDelegates := loadDelegates(ctx, blsCommon)
 	printDelegates(initDelegates)
 
-	return nil
 	txPool := txpool.New(chain, state.NewCreator(mainDB), defaultTxPoolOptions)
 	defer func() { log.Info("closing tx pool..."); txPool.Close() }()
 
