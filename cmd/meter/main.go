@@ -86,7 +86,6 @@ func main() {
 		Copyright: "2018 Meter Foundation <https://meter.io/>",
 		Flags: []cli.Flag{
 			networkFlag,
-			presetFlag,
 			dataDirFlag,
 			beneficiaryFlag,
 			apiAddrFlag,
@@ -225,9 +224,8 @@ func defaultAction(ctx *cli.Context) error {
 	chain := initChain(gene, mainDB, logDB)
 	master, blsCommon := loadNodeMaster(ctx)
 
-	fmt.Println(ctx.String("preset"))
 	// load preset config
-	if "shoal" == ctx.String("preset") {
+	if "warringstakes" == ctx.String(networkFlag.Name) {
 		config := preset.ShoalPresetConfig
 		ctx.Set("committee-min-size", strconv.Itoa(config.CommitteeMinSize))
 		ctx.Set("committee-max-size", strconv.Itoa(config.CommitteeMaxSize))
@@ -246,6 +244,7 @@ func defaultAction(ctx *cli.Context) error {
 	initDelegates := loadDelegates(ctx, blsCommon)
 	printDelegates(initDelegates)
 
+	return nil
 	txPool := txpool.New(chain, state.NewCreator(mainDB), defaultTxPoolOptions)
 	defer func() { log.Info("closing tx pool..."); txPool.Close() }()
 

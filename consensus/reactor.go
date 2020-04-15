@@ -437,12 +437,6 @@ func (conR *ConsensusReactor) UpdateActualCommittee(leaderIndex uint32) bool {
 	// conR.logger.Error("I am leader and not in first place of curActualCommittee, must correct !!!")
 	// return false
 	// }
-	fmt.Println("--------------------")
-	fmt.Println("CUR ACTUAL COMMITTEE")
-	for _, cm := range conR.curActualCommittee {
-		fmt.Println(cm.Name, cm.NetAddr, cm.CSIndex)
-	}
-	fmt.Println("--------------------")
 
 	return true
 }

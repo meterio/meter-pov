@@ -10,7 +10,6 @@ package consensus
 
 import (
 	"bytes"
-	"fmt"
 	"time"
 
 	"github.com/dfinlab/meter/block"
@@ -242,9 +241,6 @@ func (cl *ConsensusLeader) GenerateNotaryAnnounceMsg() bool {
 		EpochID:   cl.EpochID,
 	}
 
-	for _, cm := range cl.csReactor.curActualCommittee {
-		fmt.Println("CUR CM: ", cm)
-	}
 	msg := &NotaryAnnounceMessage{
 		CSMsgCommonHeader: cmnHdr,
 

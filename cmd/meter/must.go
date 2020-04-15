@@ -66,6 +66,8 @@ func initLogger(ctx *cli.Context) {
 func selectGenesis(ctx *cli.Context) *genesis.Genesis {
 	network := ctx.String(networkFlag.Name)
 	switch network {
+	case "warringstakes":
+		fallthrough
 	case "test":
 		return genesis.NewTestnet()
 	case "main":
@@ -100,7 +102,7 @@ func loadDelegates(ctx *cli.Context, blsCommon *consensus.BlsCommon) []*types.De
 	// Hack for compile
 	// TODO: move these hard-coded filepath to config
 	var content []byte
-	if ctx.String("preset") == "shoal" {
+	if ctx.String(networkFlag.Name) == "warringstakes" {
 		content = preset.MustAsset("shoal/delegates.json")
 	} else {
 		dataDir := ctx.String("data-dir")
