@@ -226,6 +226,25 @@ func (s *State) SetBalance(addr meter.Address, balance *big.Int) {
 	s.updateAccount(addr, &cpy)
 }
 
+// SubBalance stub.
+func (s *State) SubBalance(addr meter.Address, amount *big.Int) bool {
+	if amount.Sign() == 0 {
+		return false
+	}
+	balance := s.GetBalance(meter.Address(addr))
+	s.SetBalance(meter.Address(addr), new(big.Int).Sub(balance, amount))
+	return true
+}
+
+// AddBalance stub.
+func (s *State) AddBalance(addr meter.Address, amount *big.Int) {
+	if amount.Sign() == 0 {
+		return
+	}
+	balance := s.GetBalance(meter.Address(addr))
+	s.SetBalance(meter.Address(addr), new(big.Int).Add(balance, amount))
+}
+
 // GetEnergy get energy for the given address at block number specified.
 func (s *State) GetEnergy(addr meter.Address) *big.Int {
 	return s.getAccount(addr).CalcEnergy()
@@ -236,6 +255,25 @@ func (s *State) SetEnergy(addr meter.Address, energy *big.Int) {
 	cpy := s.getAccountCopy(addr)
 	cpy.Energy = energy
 	s.updateAccount(addr, &cpy)
+}
+
+// AddEnergy stub.
+func (s *State) AddEnergy(addr meter.Address, amount *big.Int) {
+	if amount.Sign() == 0 {
+		return
+	}
+	balance := s.GetEnergy(meter.Address(addr))
+	s.SetEnergy(meter.Address(addr), new(big.Int).Add(balance, amount))
+}
+
+// SubEnergy stub.
+func (s *State) SubEnergy(addr meter.Address, amount *big.Int) bool {
+	if amount.Sign() == 0 {
+		return false
+	}
+	balance := s.GetEnergy(meter.Address(addr))
+	s.SetEnergy(meter.Address(addr), new(big.Int).Sub(balance, amount))
+	return true
 }
 
 // GetBalance returns balance for the given address.

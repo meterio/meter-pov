@@ -9,7 +9,7 @@ import (
 	"fmt"
 	"math/big"
 
-	"github.com/dfinlab/meter/builtin/energy"
+	"github.com/dfinlab/meter/builtin/metertracker"
 	"github.com/dfinlab/meter/meter"
 	"github.com/dfinlab/meter/stackedmap"
 	"github.com/dfinlab/meter/state"
@@ -116,13 +116,13 @@ func (s *StateDB) AddBalance(addr common.Address, amount *big.Int) {
 // mintBalance stub
 func (s *StateDB) MintBalance(addr common.Address, amount *big.Int) {
 	a := meter.Address(addr)
-	e := energy.New(a, s.state)
+	e := metertracker.New(a, s.state)
 	e.MintMeterGov(a, amount)
 }
 
 func (s *StateDB) BurnBalance(addr common.Address, amount *big.Int) {
 	a := meter.Address(addr)
-	e := energy.New(a, s.state)
+	e := metertracker.New(a, s.state)
 	e.BurnMeterGov(a, amount)
 }
 
@@ -152,13 +152,13 @@ func (s *StateDB) AddEnergy(addr common.Address, amount *big.Int) {
 // minEnergy stub
 func (s *StateDB) MintEnergy(addr common.Address, amount *big.Int) {
 	a := meter.Address(addr)
-	e := energy.New(a, s.state)
+	e := metertracker.New(a, s.state)
 	e.MintMeter(a, amount)
 }
 
 func (s *StateDB) BurnEnergy(addr common.Address, amount *big.Int) {
 	a := meter.Address(addr)
-	e := energy.New(a, s.state)
+	e := metertracker.New(a, s.state)
 	e.BurnMeter(a, amount)
 }
 

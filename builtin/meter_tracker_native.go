@@ -20,12 +20,12 @@ func init() {
 	}{
 		{"native_totalSupply", func(env *xenv.Environment) []interface{} {
 			env.UseGas(meter.SloadGas)
-			supply := Energy.Native(env.State()).TotalSupply()
+			supply := MeterTracker.Native(env.State()).GetMeterTotalSupply()
 			return []interface{}{supply}
 		}},
 		{"native_totalBurned", func(env *xenv.Environment) []interface{} {
 			env.UseGas(meter.SloadGas)
-			burned := Energy.Native(env.State()).TotalBurned()
+			burned := MeterTracker.Native(env.State()).GetMeterTotalBurned()
 			return []interface{}{burned}
 		}},
 		{"native_get", func(env *xenv.Environment) []interface{} {
@@ -33,7 +33,7 @@ func init() {
 			env.ParseArgs(&addr)
 
 			env.UseGas(meter.GetBalanceGas)
-			bal := Energy.Native(env.State()).Get(meter.Address(addr))
+			bal := MeterTracker.Native(env.State()).GetMeter(meter.Address(addr))
 			return []interface{}{bal}
 		}},
 		{"native_add", func(env *xenv.Environment) []interface{} {
@@ -52,7 +52,7 @@ func init() {
 			} else {
 				env.UseGas(meter.SstoreSetGas)
 			}
-			Energy.Native(env.State()).Add(meter.Address(args.Addr), args.Amount)
+			MeterTracker.Native(env.State()).MintMeter(meter.Address(args.Addr), args.Amount)
 			return nil
 		}},
 		{"native_sub", func(env *xenv.Environment) []interface{} {
@@ -66,7 +66,7 @@ func init() {
 			}
 
 			env.UseGas(meter.GetBalanceGas)
-			ok := Energy.Native(env.State()).Sub(meter.Address(args.Addr), args.Amount)
+			ok := MeterTracker.Native(env.State()).BurnMeter(meter.Address(args.Addr), args.Amount)
 			if ok {
 				env.UseGas(meter.SstoreResetGas)
 			}
@@ -81,10 +81,10 @@ func init() {
 			return []interface{}{master}
 		}},
 	}
-	abi := Energy.NativeABI()
+	abi := MeterTracker.NativeABI()
 	for _, def := range defines {
 		if method, found := abi.MethodByName(def.name); found {
-			nativeMethods[methodKey{Energy.Address, method.ID()}] = &nativeMethod{
+			nativeMethods[methodKey{MeterTracker.Address, method.ID()}] = &nativeMethod{
 				abi: method,
 				run: def.run,
 			}
