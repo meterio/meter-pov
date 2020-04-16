@@ -311,6 +311,11 @@ func (b *Block) GetCommitteeInfo() ([]CommitteeInfo, error) {
 func (b *Block) GetBlockEpoch() (epoch uint64) {
 	height := b.Header().Number()
 	lastKBlockHeight := b.Header().LastKBlockHeight()
+	if height == 0 {
+		epoch = 0
+		return
+	}
+
 	if height > lastKBlockHeight+1 {
 		epoch = b.QC.EpochID
 	} else if height == lastKBlockHeight+1 {
