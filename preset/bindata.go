@@ -83,7 +83,7 @@ func shoalDelegatesJson() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "shoal/delegates.json", size: 8585, mode: os.FileMode(420), modTime: time.Unix(1586836278, 0)}
+	info := bindataFileInfo{name: "shoal/delegates.json", size: 8585, mode: os.FileMode(420), modTime: time.Unix(1587012192, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
