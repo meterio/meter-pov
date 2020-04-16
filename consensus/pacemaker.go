@@ -92,7 +92,7 @@ func NewPaceMaker(conR *ConsensusReactor) *Pacemaker {
 		proposalMap:    make(map[uint32]*pmBlock), // TODO:better way?
 		pendingList:    NewPendingList(),
 		timeoutCounter: 0,
-		stopped:        false,
+		stopped:        true,
 	}
 	p.timeoutCertManager = newPMTimeoutCertManager(p)
 	// p.stopCleanup()
