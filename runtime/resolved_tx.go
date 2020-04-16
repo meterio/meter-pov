@@ -95,10 +95,11 @@ func (r *ResolvedTransaction) BuyGas(state *state.State, blockTime uint64) (
 	baseGasPrice = builtin.Params.Native(state).Get(meter.KeyBaseGasPrice)
 	gasPrice = r.tx.GasPrice(baseGasPrice)
 
-	energy := builtin.Energy.Native(state)
+	//energy := builtin.MeterTracker.Native(state)
 	doReturnGas := func(rgas uint64) *big.Int {
 		returnedEnergy := new(big.Int).Mul(new(big.Int).SetUint64(rgas), gasPrice)
-		energy.Add(payer, returnedEnergy)
+		//energy.Add(payer, returnedEnergy)
+		state.AddEnergy(payer, returnedEnergy)
 		return returnedEnergy
 	}
 
@@ -116,12 +117,14 @@ func (r *ResolvedTransaction) BuyGas(state *state.State, blockTime uint64) (
 			// has enough credit
 			if sponsor := binding.CurrentSponsor(); binding.IsSponsor(sponsor) {
 				// deduct from sponsor, if any
-				if energy.Sub(sponsor, prepaid) {
+				/*if energy.Sub(sponsor, prepaid) {*/
+				if state.SubEnergy(sponsor, prepaid) {
 					return baseGasPrice, gasPrice, sponsor, doReturnGasAndSetCredit, nil
 				}
 			}
 			// deduct from To
-			if energy.Sub(*commonTo, prepaid) {
+			/*if energy.Sub(*commonTo, prepaid) {*/
+			if state.SubEnergy(*commonTo, prepaid) {
 				return baseGasPrice, gasPrice, *commonTo, doReturnGasAndSetCredit, nil
 			}
 		}
@@ -130,7 +133,8 @@ func (r *ResolvedTransaction) BuyGas(state *state.State, blockTime uint64) (
 	// fallback to deduct from tx origin
 	// XXX reward transaction (Origin is nil) should not to deduct
 	if !r.Origin.IsZero() {
-		if energy.Sub(r.Origin, prepaid) {
+		/*if energy.Sub(r.Origin, prepaid) {*/
+		if state.SubEnergy(r.Origin, prepaid) {
 			return baseGasPrice, gasPrice, r.Origin, func(rgas uint64) { doReturnGas(rgas) }, nil
 		} else {
 			return nil, nil, meter.Address{}, nil, errors.New("insufficient energy")

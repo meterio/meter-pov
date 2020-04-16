@@ -8,8 +8,8 @@ package builtin
 import (
 	"github.com/dfinlab/meter/abi"
 	"github.com/dfinlab/meter/builtin/authority"
-	"github.com/dfinlab/meter/builtin/energy"
 	"github.com/dfinlab/meter/builtin/gen"
+	"github.com/dfinlab/meter/builtin/metertracker"
 	"github.com/dfinlab/meter/builtin/params"
 	"github.com/dfinlab/meter/builtin/prototype"
 	"github.com/dfinlab/meter/meter"
@@ -20,13 +20,13 @@ import (
 
 // Builtin contracts binding.
 var (
-	Params    = &paramsContract{mustLoadContract("Params")}
-	Authority = &authorityContract{mustLoadContract("Authority")}
-	Energy    = &energyContract{mustLoadContract("Energy")}
-	Executor  = &executorContract{mustLoadContract("Executor")}
-	Prototype = &prototypeContract{mustLoadContract("Prototype")}
-	Extension = &extensionContract{mustLoadContract("Extension")}
-	Measure   = mustLoadContract("Measure")
+	Params       = &paramsContract{mustLoadContract("Params")}
+	Authority    = &authorityContract{mustLoadContract("Authority")}
+	MeterTracker = &energyContract{mustLoadContract("Energy")}
+	Executor     = &executorContract{mustLoadContract("Executor")}
+	Prototype    = &prototypeContract{mustLoadContract("Prototype")}
+	Extension    = &extensionContract{mustLoadContract("Extension")}
+	Measure      = mustLoadContract("Measure")
 )
 
 type (
@@ -46,8 +46,8 @@ func (a *authorityContract) Native(state *state.State) *authority.Authority {
 	return authority.New(a.Address, state)
 }
 
-func (e *energyContract) Native(state *state.State) *energy.Energy {
-	return energy.New(e.Address, state)
+func (e *energyContract) Native(state *state.State) *metertracker.MeterTracker {
+	return metertracker.New(e.Address, state)
 }
 
 func (p *prototypeContract) Native(state *state.State) *prototype.Prototype {
