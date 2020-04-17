@@ -1302,6 +1302,9 @@ func (conR *ConsensusReactor) JoinEstablishedCommittee(kBlock *block.Block, repl
 		}
 
 		conR.startPacemaker(!replay, PMModeCatchUp)
+	} else if role == CONSENSUS_COMMIT_ROLE_NONE {
+		// even though it is not committee, still initialize NewCommittee for next
+		conR.NewCommitteeInit(kBlockHeight, nonce, replay)
 	}
 }
 
