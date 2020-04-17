@@ -590,8 +590,9 @@ func (conR *ConsensusReactor) BuildMBlock(parentBlock *block.Block) *ProposedBlo
 		return nil
 	}
 
+	candAddr := conR.curCommittee.Validators[conR.curCommitteeIndex].Address
 	gasLimit := p.GasLimit(best.Header().GasLimit())
-	flow, err := p.Mock(best.Header(), now, gasLimit)
+	flow, err := p.Mock(best.Header(), now, gasLimit, &candAddr)
 	if err != nil {
 		conR.logger.Error("mock packer", "error", err)
 		return nil
@@ -678,8 +679,9 @@ func (conR *ConsensusReactor) BuildKBlock(parentBlock *block.Block, data *block.
 		return nil
 	}
 
+	candAddr := conR.curCommittee.Validators[conR.curCommitteeIndex].Address
 	gasLimit := p.GasLimit(best.Header().GasLimit())
-	flow, err := p.Mock(best.Header(), now, gasLimit)
+	flow, err := p.Mock(best.Header(), now, gasLimit, &candAddr)
 	if err != nil {
 		conR.logger.Warn("mock packer", "error", err)
 		return nil
@@ -745,8 +747,9 @@ func (conR *ConsensusReactor) BuildStopCommitteeBlock(parentBlock *block.Block) 
 		return true
 	}
 
+	candAddr := conR.curCommittee.Validators[conR.curCommitteeIndex].Address
 	gasLimit := p.GasLimit(best.Header().GasLimit())
-	flow, err := p.Mock(best.Header(), now, gasLimit)
+	flow, err := p.Mock(best.Header(), now, gasLimit, &candAddr)
 	if err != nil {
 		conR.logger.Error("mock packer", "error", err)
 		return nil

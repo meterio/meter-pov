@@ -32,7 +32,7 @@ func NewMainnet() *Genesis {
 
 			// alloc builtin contracts
 			state.SetCode(builtin.Authority.Address, builtin.Authority.RuntimeBytecodes())
-			state.SetCode(builtin.Energy.Address, builtin.Energy.RuntimeBytecodes())
+			state.SetCode(builtin.MeterTracker.Address, builtin.MeterTracker.RuntimeBytecodes())
 			state.SetCode(builtin.Executor.Address, builtin.Executor.RuntimeBytecodes())
 			state.SetCode(builtin.Extension.Address, builtin.Extension.RuntimeBytecodes())
 			state.SetCode(builtin.Params.Address, builtin.Params.RuntimeBytecodes())
@@ -67,7 +67,7 @@ func NewMainnet() *Genesis {
 			state.SetBalance(meter.MustParseAddress("0x0bd7b06debd1522e75e4b91ff598f107fd826c8a"), amount)
 			state.SetEnergy(meter.MustParseAddress("0x0bd7b06debd1522e75e4b91ff598f107fd826c8a"), &big.Int{})
 
-			builtin.Energy.Native(state).SetInitialSupply(tokenSupply, energySupply)
+			builtin.MeterTracker.Native(state).SetInitialSupply(tokenSupply, energySupply)
 			return nil
 		})
 

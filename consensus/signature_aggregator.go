@@ -108,11 +108,7 @@ func (sa *SignatureAggregator) Aggregate() []byte {
 
 func (sa *SignatureAggregator) BitArrayString() string {
 	if sa.bitArray != nil {
-		b, err := sa.bitArray.MarshalJSON()
-		if err != nil {
-			return ""
-		}
-		return string(b)
+		return sa.bitArray.String()
 	}
 	return ""
 }

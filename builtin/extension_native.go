@@ -93,7 +93,7 @@ func init() {
 		}},
 		{"native_totalSupply", func(env *xenv.Environment) []interface{} {
 			env.UseGas(meter.SloadGas)
-			output := Energy.Native(env.State()).TokenTotalSupply()
+			output := MeterTracker.Native(env.State()).GetMeterTotalSupply()
 			return []interface{}{output}
 		}},
 		{"native_txProvedWork", func(env *xenv.Environment) []interface{} {

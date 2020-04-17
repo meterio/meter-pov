@@ -3,11 +3,13 @@ package types
 import (
 	"bytes"
 	"crypto/ecdsa"
+	"encoding/base64"
 	"fmt"
 	"strings"
 
 	bls "github.com/dfinlab/meter/crypto/multi_sig"
 	"github.com/dfinlab/meter/meter"
+	"github.com/ethereum/go-ethereum/crypto"
 )
 
 // make sure to update that method if changes are made here
@@ -58,15 +60,13 @@ func (v *Delegate) Copy() *Delegate {
 
 func (v *Delegate) String() string {
 	if v == nil {
-		return "nil-Delegate"
+		return "Delegate{nil}"
 	}
-	return fmt.Sprintf("Delegate{%v %v %v VP:%v commission:%v Num of Dists: %v}",
-		string(v.Name),
-		v.Address,
-		v.PubKey,
-		v.VotingPower,
-		v.Commission,
-		len(v.DistList))
+	keyBytes := crypto.FromECDSAPub(&v.PubKey)
+	pubKeyStr := base64.StdEncoding.EncodeToString(keyBytes)
+
+	return fmt.Sprintf("%v ( Addr:%v VP:%v Commission:%v #Dists:%v, EcdsaPubKey:%v )",
+		string(v.Name), v.Address, v.VotingPower, v.Commission, len(v.DistList), pubKeyStr)
 }
 
 // DelegateSet represent a set of *Delegate at a given height.
@@ -85,6 +85,13 @@ type DelegateSet struct {
 	// cached (unexported)
 	totalVotingPower int64
 }
+
+//=================================
+// commission rate 1% presents 1e07, unit is shannon (1e09)
+const (
+	COMMISSION_RATE_DEFAULT = uint64(100 * 1e06) // 10%
+	COMMISSION_RATE_MIN     = uint64(10 * 1e06)  // 1%
+)
 
 func NewDelegateSet(vals []*Delegate) *DelegateSet {
 	Delegates := make([]*Delegate, len(vals))

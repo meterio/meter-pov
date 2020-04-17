@@ -16,7 +16,6 @@ import (
 	"net"
 	"net/http"
 	"os"
-	"path"
 	"reflect"
 	"runtime"
 	"sort"
@@ -94,7 +93,7 @@ type ConsensusConfig struct {
 	MinCommitteeSize   int
 	MaxCommitteeSize   int
 	MaxDelegateSize    int
-	DataDir            string
+	InitDelegates      []*types.Delegate
 }
 
 //-----------------------------------------------------------------------------
@@ -170,7 +169,7 @@ func SetConsensusGlobInst(inst *ConsensusReactor) {
 
 // NewConsensusReactor returns a new ConsensusReactor with the given
 // consensusState.
-func NewConsensusReactor(ctx *cli.Context, chain *chain.Chain, state *state.Creator, privKey *ecdsa.PrivateKey, pubKey *ecdsa.PublicKey, magic [4]byte, blsCommon *BlsCommon) *ConsensusReactor {
+func NewConsensusReactor(ctx *cli.Context, chain *chain.Chain, state *state.Creator, privKey *ecdsa.PrivateKey, pubKey *ecdsa.PublicKey, magic [4]byte, blsCommon *BlsCommon, initDelegates []*types.Delegate) *ConsensusReactor {
 	conR := &ConsensusReactor{
 		chain:        chain,
 		stateCreator: state,
@@ -190,7 +189,7 @@ func NewConsensusReactor(ctx *cli.Context, chain *chain.Chain, state *state.Crea
 			MinCommitteeSize:   ctx.Int("committee-min-size"),
 			MaxCommitteeSize:   ctx.Int("committee-max-size"),
 			MaxDelegateSize:    ctx.Int("delegate-max-size"),
-			DataDir:            ctx.String("data-dir"),
+			InitDelegates:      initDelegates,
 		}
 	}
 
@@ -438,12 +437,6 @@ func (conR *ConsensusReactor) UpdateActualCommittee(leaderIndex uint32) bool {
 	// conR.logger.Error("I am leader and not in first place of curActualCommittee, must correct !!!")
 	// return false
 	// }
-	fmt.Println("--------------------")
-	fmt.Println("CUR ACTUAL COMMITTEE")
-	for _, cm := range conR.curActualCommittee {
-		fmt.Println(cm.Name, cm.NetAddr, cm.CSIndex)
-	}
-	fmt.Println("--------------------")
 
 	return true
 }
@@ -1306,6 +1299,9 @@ func (conR *ConsensusReactor) JoinEstablishedCommittee(kBlock *block.Block, repl
 		}
 
 		conR.startPacemaker(!replay, PMModeCatchUp)
+	} else if role == CONSENSUS_COMMIT_ROLE_NONE {
+		// even though it is not committee, still initialize NewCommittee for next
+		conR.NewCommitteeInit(kBlockHeight, nonce, replay)
 	}
 }
 
@@ -1481,13 +1477,6 @@ func LeaderMajorityTwoThird(voterNum, committeeSize uint32) bool {
 // Testing support code
 //============================================================================
 //============================================================================
-type Delegate1 struct {
-	Name        string           `json:"name"`
-	Address     string           `json:"address"`
-	PubKey      string           `json:"pub_key"`
-	VotingPower int64            `json:"voting_power"`
-	NetAddr     types.NetAddress `json:"network_addr"`
-}
 
 func UserHomeDir() string {
 	if runtime.GOOS == "windows" {
@@ -1500,7 +1489,27 @@ func UserHomeDir() string {
 	return os.Getenv("HOME")
 }
 
-func (conR *ConsensusReactor) SplitPubKey(comboPub string) (*ecdsa.PublicKey, *bls.PublicKey) {
+func (conR *ConsensusReactor) convertFromIntern(interns []*types.DelegateIntern) []*types.Delegate {
+	ret := []*types.Delegate{}
+	for _, in := range interns {
+		pubKey, blsPub := conR.splitPubKey(string(in.PubKey))
+		d := &types.Delegate{
+			Name:        in.Name,
+			Address:     in.Address,
+			PubKey:      *pubKey,
+			BlsPubKey:   *blsPub,
+			VotingPower: in.VotingPower,
+			NetAddr:     in.NetAddr,
+			Commission:  in.Commission,
+			DistList:    in.DistList,
+		}
+		ret = append(ret, d)
+	}
+
+	return ret
+}
+
+func (conR *ConsensusReactor) splitPubKey(comboPub string) (*ecdsa.PublicKey, *bls.PublicKey) {
 	// first part is ecdsa public, 2nd part is bls public key
 	split := strings.Split(comboPub, ":::")
 	// fmt.Println("ecdsa PubKey", split[0], "Bls PubKey", split[1])
@@ -1523,66 +1532,6 @@ func (conR *ConsensusReactor) SplitPubKey(comboPub string) (*ecdsa.PublicKey, *b
 	}
 
 	return pubKey, &blsPub
-}
-
-func (conR *ConsensusReactor) configDelegates(dataDir string) []*types.Delegate {
-	delegates1 := make([]*Delegate1, 0)
-
-	// Hack for compile
-	// TODO: move these hard-coded filepath to config
-	filePath := path.Join(dataDir, "delegates.json")
-	file, err := ioutil.ReadFile(filePath)
-	if err != nil {
-		fmt.Println("unable load delegate file", "error", err)
-		fmt.Println("File is at", filePath /*config.DefaultDelegatePath*/)
-	}
-	err = cdc.UnmarshalJSON(file, &delegates1)
-	if err != nil {
-		fmt.Println("Unable unmarshal delegate file")
-		fmt.Println(err)
-	}
-
-	delegates := make([]*types.Delegate, 0)
-	for _, d := range delegates1 {
-		// first part is ecdsa public, 2nd part is bls public key
-		pubKey, blsPub := conR.SplitPubKey(string(d.PubKey))
-
-		var addr meter.Address
-		if len(d.Address) != 0 {
-			addr, err = meter.ParseAddress(d.Address)
-			if err != nil {
-				panic(fmt.Sprintf("read address of delegate failed, %v", err))
-			}
-		} else {
-			// derive from public key
-			addr = meter.Address(crypto.PubkeyToAddress(*pubKey))
-		}
-
-		dd := types.NewDelegate([]byte(d.Name), addr, *pubKey, *blsPub, d.VotingPower, staking.COMMISSION_RATE_DEFAULT)
-		dd.NetAddr = d.NetAddr
-		delegates = append(delegates, dd)
-	}
-	return delegates
-}
-
-func (conR *ConsensusReactor) convertFromIntern(interns []*types.DelegateIntern) []*types.Delegate {
-	ret := []*types.Delegate{}
-	for _, in := range interns {
-		pubKey, blsPub := conR.SplitPubKey(string(in.PubKey))
-		d := &types.Delegate{
-			Name:        in.Name,
-			Address:     in.Address,
-			PubKey:      *pubKey,
-			BlsPubKey:   *blsPub,
-			VotingPower: in.VotingPower,
-			NetAddr:     in.NetAddr,
-			Commission:  in.Commission,
-			DistList:    in.DistList,
-		}
-		ret = append(ret, d)
-	}
-
-	return ret
 }
 
 func (conR *ConsensusReactor) LoadBlockBytes(num uint32) []byte {
@@ -1623,12 +1572,11 @@ func calcCommitteeSize(delegateSize int, config ConsensusConfig) (int, int) {
 // maxDelegateSize >= maxCommiteeSize >= minCommitteeSize
 func (conR *ConsensusReactor) GetConsensusDelegates() ([]*types.Delegate, int, int) {
 	forceDelegates := conR.config.InitCfgdDelegates
-	dataDir := conR.config.DataDir
 	var delegateSize, committeeSize int
 
 	// special handle for flag --init-configured-delegates
 	if forceDelegates == true {
-		delegates := conR.configDelegates(dataDir)
+		delegates := conR.config.InitDelegates
 		delegateSize, committeeSize = calcCommitteeSize(len(delegates), conR.config)
 		delegates = delegates[:delegateSize]
 		fmt.Println("Load delegates from delegates.json", "delegateSize", delegateSize, "committeeSize", committeeSize)
@@ -1643,7 +1591,7 @@ func (conR *ConsensusReactor) GetConsensusDelegates() ([]*types.Delegate, int, i
 		delegates = delegates[:delegateSize]
 		fmt.Println("Load delegates from staking candidates", "delegateSize", delegateSize, "committeeSize", committeeSize)
 	} else {
-		delegates = conR.configDelegates(dataDir)
+		delegates = conR.config.InitDelegates
 		delegateSize, committeeSize = calcCommitteeSize(len(delegates), conR.config)
 		delegates = delegates[:delegateSize]
 

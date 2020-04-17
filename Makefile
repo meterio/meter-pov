@@ -10,7 +10,6 @@ GIT_COMMIT = $(shell git --no-pager log --pretty="%h" -n 1)
 GIT_TAG = $(shell git tag -l --points-at HEAD)
 METER_VERSION = $(shell cat cmd/meter/VERSION)
 DISCO_VERSION = $(shell cat cmd/disco/VERSION)
-PROBE_VERSION = $(shell cat cmd/probe/VERSION)
 
 PACKAGES = `cd $(SRC_BASE) && go list ./... | grep -v '/vendor/'`
 
@@ -24,10 +23,6 @@ meter: |$(SRC_BASE)
 disco: |$(SRC_BASE)
 	@echo "building $@..."
 	@cd $(SRC_BASE) && go build -v -i -o $(CURDIR)/bin/$@ -ldflags "-X main.version=$(DISCO_VERSION) -X main.gitCommit=$(GIT_COMMIT) -X main.gitTag=$(GIT_TAG)" ./cmd/disco
-	@echo "done. executable created at 'bin/$@'"
-probe: |$(SRC_BASE)
-	@echo "building $@..."
-	@cd $(SRC_BASE) && go build -v -i -o $(CURDIR)/bin/$@ -ldflags "-X main.version=$(PROBE_VERSION) -X main.gitCommit=$(GIT_COMMIT) -X main.gitTag=$(GIT_TAG)" ./cmd/probe
 	@echo "done. executable created at 'bin/$@'"
 
 

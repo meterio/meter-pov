@@ -6,15 +6,13 @@
 package packer
 
 import (
-	"github.com/pkg/errors"
 	"github.com/dfinlab/meter/block"
-	"github.com/dfinlab/meter/builtin"
 	"github.com/dfinlab/meter/chain"
-	"github.com/dfinlab/meter/poa"
+	"github.com/dfinlab/meter/meter"
 	"github.com/dfinlab/meter/runtime"
 	"github.com/dfinlab/meter/state"
-	"github.com/dfinlab/meter/meter"
 	"github.com/dfinlab/meter/xenv"
+	"github.com/pkg/errors"
 )
 
 var (
@@ -59,77 +57,26 @@ func New(
 	return p
 }
 
-// Schedule schedule a packing flow to pack new block upon given parent and clock time.
-func (p *Packer) Schedule(parent *block.Header, nowTimestamp uint64) (flow *Flow, err error) {
-	state, err := p.stateCreator.NewState(parent.StateRoot())
-	if err != nil {
-		return nil, errors.Wrap(err, "state")
-	}
-
-	var (
-		endorsement = builtin.Params.Native(state).Get(meter.KeyProposerEndorsement)
-		authority   = builtin.Authority.Native(state)
-		candidates  = authority.Candidates(endorsement, meter.MaxBlockProposers)
-		proposers   = make([]poa.Proposer, 0, len(candidates))
-		beneficiary meter.Address
-	)
-	if p.beneficiary != nil {
-		beneficiary = *p.beneficiary
-	}
-
-	for _, c := range candidates {
-		if p.beneficiary == nil && c.NodeMaster == p.nodeMaster {
-			// not beneficiary not set, set it to endorsor
-			beneficiary = c.Endorsor
-		}
-		proposers = append(proposers, poa.Proposer{
-			Address: c.NodeMaster,
-			Active:  c.Active,
-		})
-	}
-
-	// calc the time when it's turn to produce block
-	sched, err := poa.NewScheduler(p.nodeMaster, proposers, parent.Number(), parent.Timestamp())
-	if err != nil {
-		return nil, err
-	}
-
-	newBlockTime := sched.Schedule(nowTimestamp)
-	updates, score := sched.Updates(newBlockTime)
-
-	for _, u := range updates {
-		authority.Update(u.Address, u.Active)
-	}
-
-	rt := runtime.New(
-		p.chain.NewSeeker(parent.ID()),
-		state,
-		&xenv.BlockContext{
-			Beneficiary: beneficiary,
-			Signer:      p.nodeMaster,
-			Number:      parent.Number() + 1,
-			Time:        newBlockTime,
-			GasLimit:    p.GasLimit(parent.GasLimit()),
-			TotalScore:  parent.TotalScore() + score,
-		})
-
-	return newFlow(p, parent, rt), nil
-}
-
 // Mock create a packing flow upon given parent, but with a designated timestamp.
-// It will skip the PoA verification and scheduling, and the block produced by
-// the returned flow is not in consensus.
-func (p *Packer) Mock(parent *block.Header, targetTime uint64, gasLimit uint64) (*Flow, error) {
+func (p *Packer) Mock(parent *block.Header, targetTime uint64, gasLimit uint64, candAddr *meter.Address) (*Flow, error) {
 	state, err := p.stateCreator.NewState(parent.StateRoot())
 	if err != nil {
 		return nil, errors.Wrap(err, "state")
+	}
+
+	// if beneficiary is not set, set as candidate Address, so it is not confusing
+	var beneficiary *meter.Address
+	if p.beneficiary != nil {
+		beneficiary = p.beneficiary
+	} else {
+		beneficiary = candAddr
 	}
 
 	rt := runtime.New(
 		p.chain.NewSeeker(parent.ID()),
 		state,
 		&xenv.BlockContext{
-			Beneficiary: p.nodeMaster,
+			Beneficiary: *beneficiary,
 			Signer:      p.nodeMaster,
 			Number:      parent.Number() + 1,
 			Time:        targetTime,

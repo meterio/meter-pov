@@ -6,14 +6,19 @@
 package main
 
 import (
+	"crypto/ecdsa"
+	b64 "encoding/base64"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"math/rand"
 	"net"
 	"net/http"
 	"os"
+	"path"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/dfinlab/meter/chain"
@@ -21,14 +26,17 @@ import (
 	"github.com/dfinlab/meter/co"
 	"github.com/dfinlab/meter/comm"
 	"github.com/dfinlab/meter/consensus"
+	bls "github.com/dfinlab/meter/crypto/multi_sig"
 	"github.com/dfinlab/meter/genesis"
 	"github.com/dfinlab/meter/logdb"
 	"github.com/dfinlab/meter/lvldb"
 	"github.com/dfinlab/meter/meter"
 	"github.com/dfinlab/meter/p2psrv"
 	"github.com/dfinlab/meter/powpool"
+	"github.com/dfinlab/meter/preset"
 	"github.com/dfinlab/meter/state"
 	"github.com/dfinlab/meter/txpool"
+	"github.com/dfinlab/meter/types"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/fdlimit"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -58,6 +66,8 @@ func initLogger(ctx *cli.Context) {
 func selectGenesis(ctx *cli.Context) *genesis.Genesis {
 	network := ctx.String(networkFlag.Name)
 	switch network {
+	case "warringstakes":
+		fallthrough
 	case "test":
 		return genesis.NewTestnet()
 	case "main":
@@ -72,6 +82,106 @@ func selectGenesis(ctx *cli.Context) *genesis.Genesis {
 		os.Exit(1)
 		return nil
 	}
+}
+
+type Delegate1 struct {
+	Name        string           `json:"name"`
+	Address     string           `json:"address"`
+	PubKey      string           `json:"pub_key"`
+	VotingPower int64            `json:"voting_power"`
+	NetAddr     types.NetAddress `json:"network_addr"`
+}
+
+func (d Delegate1) String() string {
+	return fmt.Sprintf("Name:%v, Address:%v, PubKey:%v, VotingPower:%v, NetAddr:%v", d.Name, d.Address, d.PubKey, d.VotingPower, d.NetAddr.String())
+}
+
+func loadDelegates(ctx *cli.Context, blsCommon *consensus.BlsCommon) []*types.Delegate {
+	delegates1 := make([]*Delegate1, 0)
+
+	// Hack for compile
+	// TODO: move these hard-coded filepath to config
+	var content []byte
+	if ctx.String(networkFlag.Name) == "warringstakes" {
+		content = preset.MustAsset("shoal/delegates.json")
+	} else {
+		dataDir := ctx.String("data-dir")
+		filePath := path.Join(dataDir, "delegates.json")
+		file, err := ioutil.ReadFile(filePath)
+		content = file
+		if err != nil {
+			fmt.Println("Unable load delegate file at", filePath, "error", err)
+			os.Exit(1)
+			return nil
+		}
+	}
+	err := json.Unmarshal(content, &delegates1)
+	if err != nil {
+		fmt.Println("Unable unmarshal delegate file, please check your config", "error", err)
+		os.Exit(1)
+		return nil
+	}
+
+	delegates := make([]*types.Delegate, 0)
+	for _, d := range delegates1 {
+		// first part is ecdsa public, 2nd part is bls public key
+		pubKey, blsPub := splitPubKey(string(d.PubKey), blsCommon)
+
+		var addr meter.Address
+		if len(d.Address) != 0 {
+			addr, err = meter.ParseAddress(d.Address)
+			if err != nil {
+				fmt.Println("can't read address of delegates:", d.String(), "error", err)
+				os.Exit(1)
+				return nil
+			}
+		} else {
+			// derive from public key
+			fmt.Println("Warning: address for delegate is not set, so use address derived from public key as default")
+			addr = meter.Address(crypto.PubkeyToAddress(*pubKey))
+		}
+
+		dd := types.NewDelegate([]byte(d.Name), addr, *pubKey, *blsPub, d.VotingPower, types.COMMISSION_RATE_DEFAULT)
+		dd.NetAddr = d.NetAddr
+		delegates = append(delegates, dd)
+	}
+	return delegates
+}
+
+func splitPubKey(comboPub string, blsCommon *consensus.BlsCommon) (*ecdsa.PublicKey, *bls.PublicKey) {
+	// first part is ecdsa public, 2nd part is bls public key
+	split := strings.Split(comboPub, ":::")
+	// fmt.Println("ecdsa PubKey", split[0], "Bls PubKey", split[1])
+	pubKeyBytes, err := b64.StdEncoding.DecodeString(split[0])
+	if err != nil {
+		panic(fmt.Sprintf("read public key of delegate failed, %v", err))
+	}
+	pubKey, err := crypto.UnmarshalPubkey(pubKeyBytes)
+	if err != nil {
+		panic(fmt.Sprintf("read public key of delegate failed, %v", err))
+	}
+
+	blsPubBytes, err := b64.StdEncoding.DecodeString(split[1])
+	if err != nil {
+		panic(fmt.Sprintf("read Bls public key of delegate failed, %v", err))
+	}
+	blsPub, err := blsCommon.GetSystem().PubKeyFromBytes(blsPubBytes)
+	if err != nil {
+		panic(fmt.Sprintf("read Bls public key of delegate failed, %v", err))
+	}
+
+	return pubKey, &blsPub
+}
+
+func printDelegates(delegates []*types.Delegate) {
+	fmt.Println("--------------------------------------------------")
+	fmt.Println(fmt.Sprintf("         DELEGATES INITIALIZED (size:%d)        ", len(delegates)))
+	fmt.Println("--------------------------------------------------")
+
+	for i, d := range delegates {
+		fmt.Printf("#%d: %s\n", i+1, d.String())
+	}
+	fmt.Println("--------------------------------------------------")
 }
 
 func makeDataDir(ctx *cli.Context) string {
@@ -447,47 +557,4 @@ func openMemLogDB() *logdb.LogDB {
 		fatal(fmt.Sprintf("open log database: %v", err))
 	}
 	return db
-}
-
-func printSoloStartupMessage(
-	gene *genesis.Genesis,
-	chain *chain.Chain,
-	dataDir string,
-	apiURL string,
-) {
-	tableHead := `
-┌────────────────────────────────────────────┬────────────────────────────────────────────────────────────────────┐
-│                   Address                  │                             Private Key                            │`
-	tableContent := `
-├────────────────────────────────────────────┼────────────────────────────────────────────────────────────────────┤
-│ %v │ %v │`
-	tableEnd := `
-└────────────────────────────────────────────┴────────────────────────────────────────────────────────────────────┘`
-
-	bestBlock := chain.BestBlock()
-
-	info := fmt.Sprintf(`Starting %v
-    Network     [ %v %v ]    
-    Best block  [ %v #%v @%v ]
-    Forks       [ %v ]
-    Data dir    [ %v ]
-    API portal  [ %v ]`,
-		common.MakeName("Meter solo", fullVersion()),
-		gene.ID(), gene.Name(),
-		bestBlock.Header().ID(), bestBlock.Header().Number(), time.Unix(int64(bestBlock.Header().Timestamp()), 0),
-		meter.GetForkConfig(gene.ID()),
-		dataDir,
-		apiURL)
-
-	info += tableHead
-
-	for _, a := range genesis.DevAccounts() {
-		info += fmt.Sprintf(tableContent,
-			a.Address,
-			meter.BytesToBytes32(crypto.FromECDSA(a.PrivateKey)),
-		)
-	}
-	info += tableEnd + "\r\n"
-
-	fmt.Print(info)
 }

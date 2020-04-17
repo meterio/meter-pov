@@ -40,7 +40,7 @@ func NewTestnet() *Genesis {
 
 			// setup builtin contracts
 			state.SetCode(builtin.Authority.Address, builtin.Authority.RuntimeBytecodes())
-			state.SetCode(builtin.Energy.Address, builtin.Energy.RuntimeBytecodes())
+			state.SetCode(builtin.MeterTracker.Address, builtin.MeterTracker.RuntimeBytecodes())
 			state.SetCode(builtin.Params.Address, builtin.Params.RuntimeBytecodes())
 			state.SetCode(builtin.Prototype.Address, builtin.Prototype.RuntimeBytecodes())
 			state.SetCode(builtin.Extension.Address, builtin.Extension.RuntimeBytecodes())
@@ -60,7 +60,7 @@ func NewTestnet() *Genesis {
 			tokenSupply.Add(tokenSupply, amount)
 			energySupply.Add(energySupply, amount)
 
-			builtin.Energy.Native(state).SetInitialSupply(tokenSupply, energySupply)
+			builtin.MeterTracker.Native(state).SetInitialSupply(tokenSupply, energySupply)
 			return nil
 		}).
 		// set initial params

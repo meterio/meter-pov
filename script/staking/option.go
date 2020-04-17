@@ -1,6 +1,8 @@
 package staking
 
-import ()
+import (
+	"github.com/dfinlab/meter/types"
+)
 
 // staking options
 const (
@@ -71,17 +73,10 @@ func GetBoundLocktime(opt uint32) (lock uint64) {
 	}
 }
 
-//=================================
-// commission rate 1% presents 1e07, unit is shannon (1e09)
-const (
-	COMMISSION_RATE_DEFAULT = uint64(100 * 1e06) // 10%
-	COMMISSION_RATE_MIN     = uint64(10 * 1e06)  // 1%
-)
-
 func GetCommissionRate(opt uint32) uint64 {
 	commission := uint64(opt)
-	if commission > COMMISSION_RATE_DEFAULT || commission < COMMISSION_RATE_MIN {
-		return COMMISSION_RATE_DEFAULT
+	if commission > types.COMMISSION_RATE_DEFAULT || commission < types.COMMISSION_RATE_MIN {
+		return types.COMMISSION_RATE_DEFAULT
 	}
 	return commission
 }

@@ -31,9 +31,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends supervisor rsys
 # RUN apt-get update && apt-get install -y python-pip python-setuptools python-wheel && apt clean
 # RUN pip install supervisor-stdout
 
-ENV COMMITTEE_MIN_SIZE=21
-ENV COMMITTEE_MAX_SIZE=50
-ENV DELEGATE_MAX_SIZE=100
+ENV POS_EXTRA=
+ENV POW_EXTRA=
 
 RUN mkdir /pow
 RUN mkdir /pos
@@ -47,6 +46,11 @@ RUN chmod a+x /reset.sh
 
 RUN touch /var/log/supervisor/pos-stdout.log
 RUN touch /var/log/supervisor/pos-stderr.log
+
+RUN touch /root/.bashrc && cat 'alias posout="tail -f /var/log/supervisor/pos-stdout.log"' >> /root/.bashrc
+RUN touch /root/.bashrc && cat 'alias poserr="tail -f /var/log/supervisor/pos-stderr.log"' >> /root/.bashrc
+RUN touch /root/.bashrc && cat 'alias powout="tail -f /var/log/supervisor/pow-stdout.log"' >> /root/.bashrc
+RUN touch /root/.bashrc && cat 'alias powerr="tail -f /var/log/supervisor/pow-stderr.log"' >> /root/.bashrc
 
 LABEL com.centurylinklabs.watchtower.lifecycle.pre-update="/reset.sh"
 
