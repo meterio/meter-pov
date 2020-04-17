@@ -36,7 +36,7 @@ var (
 
 func init() {
 	var found bool
-	if energyTransferEvent, found = builtin.Energy.ABI.EventByName("Transfer"); !found {
+	if energyTransferEvent, found = builtin.MeterTracker.ABI.EventByName("Transfer"); !found {
 		panic("transfer event not found")
 	}
 	if prototypeSetMasterEvent, found = builtin.Prototype.Events().EventByName("$Master"); !found {
@@ -260,7 +260,7 @@ func (rt *Runtime) newEVM(stateDB *statedb.StateDB, clauseIndex uint32, txCtx *x
 				}
 
 				stateDB.AddLog(&types.Log{
-					Address: common.Address(builtin.Energy.Address),
+					Address: common.Address(builtin.MeterTracker.Address),
 					Topics:  topics,
 					Data:    data,
 				})
@@ -488,7 +488,7 @@ func (rt *Runtime) PrepareTransaction(tx *tx.Transaction) (*TransactionExecutor,
 
 			// mint transaction gas is not prepaid, so no reward.
 			if !origin.IsZero() {
-				builtin.Energy.Native(rt.state).Add(rt.ctx.Beneficiary, reward)
+				rt.state.AddEnergy(rt.ctx.Beneficiary, reward)
 			}
 
 			receipt.Reward = reward

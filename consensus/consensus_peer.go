@@ -33,7 +33,7 @@ func newConsensusPeer(name string, ip net.IP, port uint16, magic [4]byte) *Conse
 	}
 }
 
-func (peer *ConsensusPeer) sendPacemakerMsg(rawData []byte, relay bool, msgSummary string) error {
+func (peer *ConsensusPeer) sendPacemakerMsg(rawData []byte, msgSummary string, relay bool) error {
 	// full size message may taker longer time (> 2s) to complete the tranport.
 	var netClient = &http.Client{
 		Timeout: time.Second * 4, // 2
