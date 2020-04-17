@@ -632,10 +632,9 @@ func (conR *ConsensusReactor) handleMsg(mi consensusMsgInfo) {
 		// 2. the message is not from myself
 		// 3. message is proved to be valid
 		if typeName == "AnnounceCommittee" {
-			conR.relayMsg(&msg, int(conR.newCommittee.Round))
+			conR.relayMsg(mi, int(conR.newCommittee.Round))
 		} else if typeName == "NotaryAnnounce" {
-
-			conR.relayMsg(&msg, int(msg.Header().Round))
+			conR.relayMsg(mi, int(msg.Header().Round))
 		}
 	}
 }
@@ -667,11 +666,15 @@ func (conR *ConsensusReactor) GetRelayPeers(round int) ([]*ConsensusPeer, error)
 	return peers, nil
 }
 
-func (conR *ConsensusReactor) relayMsg(msg *ConsensusMessage, round int) {
+func (conR *ConsensusReactor) relayMsg(mi consensusMsgInfo, round int) {
 	peers, _ := conR.GetRelayPeers(round)
-	typeName := getConcreteName(*msg)
+	typeName := getConcreteName(mi.Msg)
 	conR.logger.Info("Now, relay committee msg", "type", typeName, "round", round)
-	conR.asyncSendCommitteeMsg(msg, true, peers...)
+	for _, peer := range peers {
+		msgSummary := (mi.Msg).String()
+		go peer.sendCommitteeMsg(mi.RawData, msgSummary, true)
+	}
+	// conR.asyncSendCommitteeMsg(msg, true, peers...)
 }
 
 // receiveRoutine handles messages which may cause state transitions.
