@@ -2,6 +2,7 @@ package consensus
 
 import (
 	"bytes"
+	"encoding/base64"
 
 	"github.com/dfinlab/meter/block"
 	bls "github.com/dfinlab/meter/crypto/multi_sig"
@@ -46,11 +47,12 @@ func newSignatureAggregator(size uint32, system bls.System, msgHash [32]byte, va
 
 func (sa *SignatureAggregator) Add(index int, msgHash [32]byte, signature []byte, pubkey bls.PublicKey) bool {
 	if sa.sealed {
-		sa.logger.Debug("signature sealed, ignore this vote ...", "count", sa.bitArray.Count(), "voting", sa.BitArrayString())
+		sa.logger.Info("signature sealed, ignore this vote ...", "count", sa.bitArray.Count(), "voting", sa.BitArrayString())
 		return false
 	}
 	if uint32(index) < sa.size {
 		if bytes.Compare(sa.msgHash[:], msgHash[:]) != 0 {
+			sa.logger.Info("dropped signature due to msg hash mismatch")
 			return false
 		}
 		if sa.bitArray.GetIndex(index) {
@@ -64,13 +66,16 @@ func (sa *SignatureAggregator) Add(index int, msgHash [32]byte, signature []byte
 					Signature1: sa.sigBytes[index],
 					Signature2: signature,
 				})
+				sa.logger.Warn("double sign", "voter", sa.committee[index].Name, "countedSig", base64.StdEncoding.EncodeToString(sa.sigBytes[index]), "curSig", base64.StdEncoding.EncodeToString(signature))
+			} else {
+				sa.logger.Info("duplicate signature, already counted", "voter", sa.committee[index].Name, "curSig", base64.StdEncoding.EncodeToString(signature))
 			}
 			return false
-
 		}
 
 		sig, err := sa.system.SigFromBytes(signature)
 		if err != nil {
+			sa.logger.Error("invalid signature", "err", err)
 			return false
 		}
 		sa.bitArray.SetIndex(index, true)
