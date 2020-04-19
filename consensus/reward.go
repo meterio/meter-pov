@@ -21,7 +21,6 @@ import (
 )
 
 const (
-	//AuctionInterval = uint64(30000)
 	AuctionInterval = uint64(24) // every 24 Epoch move to next auction
 )
 
@@ -106,6 +105,12 @@ func BuildGoverningData(delegateSize uint32) (ret []byte) {
 func BuildAuctionStart(start, startEpoch, end, endEpoch uint64) (ret []byte) {
 	ret = []byte{}
 
+	release, _, err := auction.CalcRewardEpochRange(startEpoch, endEpoch)
+	if err != nil {
+		panic("calculate reward failed" + err.Error())
+	}
+	releaseBigInt := auction.FloatToBigInt(release)
+
 	body := &auction.AuctionBody{
 		Opcode:      auction.OP_START,
 		Version:     uint32(0),
@@ -113,11 +118,13 @@ func BuildAuctionStart(start, startEpoch, end, endEpoch uint64) (ret []byte) {
 		StartEpoch:  startEpoch,
 		EndHeight:   end,
 		EndEpoch:    endEpoch,
+		Amount:      releaseBigInt,
 		Timestamp:   uint64(time.Now().Unix()),
 		Nonce:       rand.Uint64(),
 	}
 	payload, err := rlp.EncodeToBytes(body)
 	if err != nil {
+		fmt.Println("BuildAuctionStart auction error", err.Error())
 		return
 	}
 
@@ -131,12 +138,13 @@ func BuildAuctionStart(start, startEpoch, end, endEpoch uint64) (ret []byte) {
 	}
 	data, err := rlp.EncodeToBytes(s)
 	if err != nil {
+		fmt.Println("BuildAuctionStart script error", err.Error())
 		return
 	}
 	data = append(script.ScriptPattern[:], data...)
 	prefix := []byte{0xff, 0xff, 0xff, 0xff}
 	ret = append(prefix, data...)
-	// fmt.Println("script Hex:", hex.EncodeToString(ret))
+	//fmt.Println("auction start script Hex:", hex.EncodeToString(ret))
 	return
 }
 
@@ -156,6 +164,7 @@ func BuildAuctionStop(start, startEpoch, end, endEpoch uint64, id *meter.Bytes32
 	}
 	payload, err := rlp.EncodeToBytes(body)
 	if err != nil {
+		fmt.Println("BuildAuctionStop auction error", err.Error())
 		return
 	}
 
@@ -169,12 +178,13 @@ func BuildAuctionStop(start, startEpoch, end, endEpoch uint64, id *meter.Bytes32
 	}
 	data, err := rlp.EncodeToBytes(s)
 	if err != nil {
+		fmt.Println("BuildAuctionStop script error", err.Error())
 		return
 	}
 	data = append(script.ScriptPattern[:], data...)
 	prefix := []byte{0xff, 0xff, 0xff, 0xff}
 	ret = append(prefix, data...)
-	// fmt.Println("script Hex:", hex.EncodeToString(ret))
+	//fmt.Println("auction stop script Hex:", hex.EncodeToString(ret))
 	return
 }
 

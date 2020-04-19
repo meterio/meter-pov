@@ -81,17 +81,12 @@ func (ab *AuctionBody) StartAuctionCB(env *AuctionEnviroment, gas uint64) (ret [
 	} else {
 		leftOverGas = gas - meter.ClauseGas
 	}
-	release, _, err := calcRewardEpochRange(ab.StartEpoch, ab.EndEpoch)
-	if err != nil {
-		log.Info("calculate reward failed")
-		return
-	}
 
 	auctionCB.StartHeight = ab.StartHeight
 	auctionCB.StartEpoch = ab.StartEpoch
 	auctionCB.EndHeight = ab.EndHeight
 	auctionCB.EndEpoch = ab.EndEpoch
-	auctionCB.RlsdMTRG = FloatToBigInt(release)
+	auctionCB.RlsdMTRG = ab.Amount
 	auctionCB.RsvdPrice = AuctionReservedPrice
 	auctionCB.CreateTime = ab.Timestamp
 	auctionCB.RcvdMTR = big.NewInt(0)
