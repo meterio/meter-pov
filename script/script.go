@@ -73,7 +73,7 @@ func (se *ScriptEngine) HandleScriptData(data []byte, to *meter.Address, txCtx *
 
 	mod, find := se.modReg.Find(header.GetModID())
 	if find == false {
-		err := errors.New(fmt.Sprintf("could not address module", "modeID", header.GetModID()))
+		err := errors.New(fmt.Sprintf("could not address module %v", header.GetModID()))
 		fmt.Println(err)
 		return nil, gas, err
 	}

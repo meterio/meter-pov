@@ -2,6 +2,7 @@ package auction
 
 import (
 	"bytes"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"math/big"
@@ -26,9 +27,9 @@ type AuctionSummary struct {
 }
 
 func (a *AuctionSummary) ToString() string {
-	return fmt.Sprintf("AuctionSummary(%v) StartHeight%v, StartEpoch=%v, EndHieght=%v, EndEpoch=%v, ReleasedMTRG=%v, ReserveredPrice=%v, CreateTime=%v, ReceivedMTR=%v, ActualPrice=%v, LeftoverMTRG=%v",
-		a.AuctionID.String(), a.StartHeight, a.StartEpoch, a.EndHeight, a.EndEpoch, a.RlsdMTRG.Uint64(), a.RsvdPrice.Uint64(),
-		a.CreateTime, a.RcvdMTR.Uint64(), a.ActualPrice.Uint64(), a.LeftoverMTRG.Uint64())
+	return fmt.Sprintf("AuctionSummary(%v) StartHeight=%v, StartEpoch=%v, EndHeight=%v, EndEpoch=%v, ReleasedMTRG=%v, ReserveredPrice=%v, CreateTime=%v, ReceivedMTR=%v, ActualPrice=%v, LeftoverMTRG=%v",
+		a.AuctionID.String(), a.StartHeight, a.StartEpoch, a.EndHeight, a.EndEpoch, hex.EncodeToString(a.RlsdMTRG.Bytes()), hex.EncodeToString(a.RsvdPrice.Bytes()),
+		a.CreateTime, hex.EncodeToString(a.RcvdMTR.Bytes()), hex.EncodeToString(a.ActualPrice.Bytes()), hex.EncodeToString(a.LeftoverMTRG.Bytes()))
 }
 
 // api routine interface
@@ -56,6 +57,14 @@ func GetAuctionSummaryList() (*AuctionSummaryList, error) {
 
 type AuctionSummaryList struct {
 	Summaries []*AuctionSummary
+}
+
+func (a *AuctionSummaryList) String() string {
+	s := make([]string, 0)
+	for _, summary := range a.Summaries {
+		s = append(s, summary.ToString())
+	}
+	return strings.Join(s, ", ")
 }
 
 func NewAuctionSummaryList(summaries []*AuctionSummary) *AuctionSummaryList {
