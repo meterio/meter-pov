@@ -7,7 +7,6 @@ package builtin
 
 import (
 	"github.com/dfinlab/meter/abi"
-	"github.com/dfinlab/meter/builtin/authority"
 	"github.com/dfinlab/meter/builtin/gen"
 	"github.com/dfinlab/meter/builtin/metertracker"
 	"github.com/dfinlab/meter/builtin/params"
@@ -21,7 +20,6 @@ import (
 // Builtin contracts binding.
 var (
 	Params       = &paramsContract{mustLoadContract("Params")}
-	Authority    = &authorityContract{mustLoadContract("Authority")}
 	MeterTracker = &energyContract{mustLoadContract("Energy")}
 	Executor     = &executorContract{mustLoadContract("Executor")}
 	Prototype    = &prototypeContract{mustLoadContract("Prototype")}
@@ -31,7 +29,6 @@ var (
 
 type (
 	paramsContract    struct{ *contract }
-	authorityContract struct{ *contract }
 	energyContract    struct{ *contract }
 	executorContract  struct{ *contract }
 	prototypeContract struct{ *contract }
@@ -40,10 +37,6 @@ type (
 
 func (p *paramsContract) Native(state *state.State) *params.Params {
 	return params.New(p.Address, state)
-}
-
-func (a *authorityContract) Native(state *state.State) *authority.Authority {
-	return authority.New(a.Address, state)
 }
 
 func (e *energyContract) Native(state *state.State) *metertracker.MeterTracker {

@@ -31,7 +31,6 @@ func NewMainnet() *Genesis {
 			}
 
 			// alloc builtin contracts
-			state.SetCode(builtin.Authority.Address, builtin.Authority.RuntimeBytecodes())
 			state.SetCode(builtin.MeterTracker.Address, builtin.MeterTracker.RuntimeBytecodes())
 			state.SetCode(builtin.Executor.Address, builtin.Executor.RuntimeBytecodes())
 			state.SetCode(builtin.Extension.Address, builtin.Extension.RuntimeBytecodes())
@@ -90,18 +89,6 @@ func NewMainnet() *Genesis {
 
 	data = mustEncodeInput(builtin.Params.ABI, "set", meter.KeyPowPoolCoef, meter.InitialPowPoolCoef)
 	builder.Call(tx.NewClause(&builtin.Params.Address).WithData(data), builtin.Executor.Address)
-
-	// add initial authority nodes
-	for _, anode := range initialAuthorityNodes {
-		data := mustEncodeInput(builtin.Authority.ABI, "add", anode.masterAddress, anode.endorsorAddress, anode.identity)
-		builder.Call(tx.NewClause(&builtin.Authority.Address).WithData(data), builtin.Executor.Address)
-	}
-
-	// add initial approvers (steering committee)
-	for _, approver := range loadApprovers() {
-		data := mustEncodeInput(builtin.Executor.ABI, "addApprover", approver.address, meter.BytesToBytes32([]byte(approver.identity)))
-		builder.Call(tx.NewClause(&builtin.Executor.Address).WithData(data), builtin.Executor.Address)
-	}
 
 	var extra [28]byte
 	copy(extra[:], "Salute & Respect, Ethereum!")

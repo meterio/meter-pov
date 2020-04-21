@@ -23,7 +23,7 @@ func NewTestnet() *Genesis {
 	executor, _ := meter.ParseAddress("0xd1e56316b6472cbe9897a577a0f3826932e95863")
 	acccount0, _ := meter.ParseAddress("0x1de8ca2f973d026300af89041b0ecb1c0803a7e6")
 
-	master0, _ := meter.ParseAddress("0xbc675bf8f737faad6195d20917a57bb0f0ddb5f6")
+	//master0, _ := meter.ParseAddress("0xbc675bf8f737faad6195d20917a57bb0f0ddb5f6")
 	endorser0, _ := meter.ParseAddress("0x1a07d16b152e9a3f5c353bf05944ade8de1a37e9")
 
 	builder := new(Builder).
@@ -39,7 +39,6 @@ func NewTestnet() *Genesis {
 			}
 
 			// setup builtin contracts
-			state.SetCode(builtin.Authority.Address, builtin.Authority.RuntimeBytecodes())
 			state.SetCode(builtin.MeterTracker.Address, builtin.MeterTracker.RuntimeBytecodes())
 			state.SetCode(builtin.Params.Address, builtin.Params.RuntimeBytecodes())
 			state.SetCode(builtin.Prototype.Address, builtin.Prototype.RuntimeBytecodes())
@@ -68,11 +67,6 @@ func NewTestnet() *Genesis {
 		Call(
 			tx.NewClause(&builtin.Params.Address).WithData(mustEncodeInput(builtin.Params.ABI, "set", meter.KeyExecutorAddress, new(big.Int).SetBytes(executor[:]))),
 			meter.Address{}).
-		/***
-		Call(
-			tx.NewClause(&builtin.Params.Address).WithData(mustEncodeInput(builtin.Params.ABI, "set", meter.KeyRewardRatio, meter.InitialRewardRatio)),
-			executor).
-		***/
 		Call(
 			tx.NewClause(&builtin.Params.Address).WithData(mustEncodeInput(builtin.Params.ABI, "set", meter.KeyBaseGasPrice, meter.InitialBaseGasPrice)),
 			executor).
@@ -81,9 +75,6 @@ func NewTestnet() *Genesis {
 			executor).
 		Call(
 			tx.NewClause(&builtin.Params.Address).WithData(mustEncodeInput(builtin.Params.ABI, "set", meter.KeyPowPoolCoef, meter.InitialPowPoolCoef)),
-			executor).
-		// add master0 as the initial block proposer
-		Call(tx.NewClause(&builtin.Authority.Address).WithData(mustEncodeInput(builtin.Authority.ABI, "add", master0, endorser0, meter.BytesToBytes32([]byte("master0")))),
 			executor)
 
 	id, err := builder.ComputeID()

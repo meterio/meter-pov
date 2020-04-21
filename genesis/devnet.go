@@ -62,7 +62,6 @@ func NewDevnet() *Genesis {
 	launchTime := uint64(1526400000) // 'Wed May 16 2018 00:00:00 GMT+0800 (CST)'
 
 	executor := DevAccounts()[0].Address
-	soloBlockSigner := DevAccounts()[0]
 
 	builder := new(Builder).
 		GasLimit(meter.InitialGasLimit).
@@ -74,7 +73,6 @@ func NewDevnet() *Genesis {
 			}
 
 			// setup builtin contracts
-			state.SetCode(builtin.Authority.Address, builtin.Authority.RuntimeBytecodes())
 			state.SetCode(builtin.MeterTracker.Address, builtin.MeterTracker.RuntimeBytecodes())
 			state.SetCode(builtin.Params.Address, builtin.Params.RuntimeBytecodes())
 			state.SetCode(builtin.Prototype.Address, builtin.Prototype.RuntimeBytecodes())
@@ -105,9 +103,6 @@ func NewDevnet() *Genesis {
 			executor).
 		Call(
 			tx.NewClause(&builtin.Params.Address).WithData(mustEncodeInput(builtin.Params.ABI, "set", meter.KeyProposerEndorsement, meter.InitialProposerEndorsement)),
-			executor).
-		Call(
-			tx.NewClause(&builtin.Authority.Address).WithData(mustEncodeInput(builtin.Authority.ABI, "add", soloBlockSigner.Address, soloBlockSigner.Address, meter.BytesToBytes32([]byte("Solo Block Signer")))),
 			executor)
 
 	id, err := builder.ComputeID()
