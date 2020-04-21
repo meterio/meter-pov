@@ -86,6 +86,7 @@ func (a *Auction) SetSummaryList(summaryList *AuctionSummaryList, state *state.S
 	h, _ := state.Stage().Hash()
 	fmt.Println("Before set summary list:", h)
 	state.EncodeStorage(AuctionAccountAddr, SummaryListKey, func() ([]byte, error) {
+
 		buf := bytes.NewBuffer([]byte{})
 		encoder := gob.NewEncoder(buf)
 		err := encoder.Encode(summaryList.Summaries)
@@ -93,33 +94,37 @@ func (a *Auction) SetSummaryList(summaryList *AuctionSummaryList, state *state.S
 			fmt.Println("ERROR: ", err)
 		}
 		fmt.Println("summary list HEX: ", hex.EncodeToString(buf.Bytes()))
-		for i, s := range summaryList.Summaries {
-			b := bytes.NewBuffer([]byte{})
-			en := gob.NewEncoder(b)
-			err := en.Encode(s)
-			if err != nil {
-				fmt.Println("ERROR: ", err)
-			}
-			fmt.Println("AuctionID:", encode(s.AuctionID))
-			fmt.Println("StartHeight:", encode(s.StartHeight))
-			fmt.Println("StartEpoch:", encode(s.StartEpoch))
-			fmt.Println("EndHeight:", encode(s.EndHeight))
-			fmt.Println("EndEpoch:", encode(s.EndEpoch))
-			fmt.Println("RlsdMTRG:", encode(s.RlsdMTRG))
-			fmt.Println("RsvdPrice:", encode(s.RsvdPrice))
-			fmt.Println("CreateTime:", encode(s.CreateTime))
-			fmt.Println("RcvdMTR:", encode(s.RcvdMTR))
-			fmt.Println("ActualPrice:", encode(s.ActualPrice))
-			fmt.Println("LeftoverMTRG:", encode(s.LeftoverMTRG))
-			fmt.Println("Summary HEX #", i+1, encode(s))
-			decoder := gob.NewDecoder(bytes.NewReader(b.Bytes()))
-			ss := &AuctionSummary{}
-			decoder.Decode(ss)
-			fmt.Println("Summary decode/encode Hex:", encode(ss))
+		// for i, s := range summaryList.Summaries {
+		// b := bytes.NewBuffer([]byte{})
+		// en := gob.NewEncoder(b)
+		// err := en.Encode(s)
+		// if err != nil {
+		// 	fmt.Println("ERROR: ", err)
+		// }
+		// fmt.Println("AuctionID:", encode(s.AuctionID))
+		// fmt.Println("StartHeight:", encode(s.StartHeight))
+		// fmt.Println("StartEpoch:", encode(s.StartEpoch))
+		// fmt.Println("EndHeight:", encode(s.EndHeight))
+		// fmt.Println("EndEpoch:", encode(s.EndEpoch))
+		// fmt.Println("RlsdMTRG:", encode(s.RlsdMTRG))
+		// fmt.Println("RsvdPrice:", encode(s.RsvdPrice))
+		// fmt.Println("CreateTime:", encode(s.CreateTime))
+		// fmt.Println("RcvdMTR:", encode(s.RcvdMTR))
+		// fmt.Println("ActualPrice:", encode(s.ActualPrice))
+		// fmt.Println("LeftoverMTRG:", encode(s.LeftoverMTRG))
+		// uint64s := []uint64{s.StartHeight, s.StartEpoch, s.EndHeight, s.EndEpoch, s.CreateTime}
+		// bigInts := []*big.Int{s.RlsdMTRG, s.RsvdPrice, s.RcvdMTR, s.ActualPrice, s.LeftoverMTRG}
+		// fmt.Println("Uint64 HEX #", i+1, encode(uint64s))
+		// fmt.Println("Big Int HEX #", i+1, encode(bigInts))
+		// fmt.Println("Summary HEX #", i+1, encode(s))
+		// decoder := gob.NewDecoder(bytes.NewReader(b.Bytes()))
+		// ss := &AuctionSummary{}
+		// decoder.Decode(ss)
+		// fmt.Println("Summary decode/encode Hex:", encode(ss))
 
-			fmt.Println("Summary #", i+1, s.ToString())
-			fmt.Println("Summary Hex #", i+1, hex.EncodeToString(b.Bytes()))
-		}
+		// fmt.Println("Summary #", i+1, s.ToString())
+		// fmt.Println("Summary Hex #", i+1, hex.EncodeToString(b.Bytes()))
+		// }
 		return buf.Bytes(), err
 	})
 	rlsdMTRG := big.NewInt(0)

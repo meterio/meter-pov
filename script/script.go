@@ -2,12 +2,16 @@ package script
 
 import (
 	"bytes"
+	"encoding/gob"
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"math/big"
 
 	"github.com/dfinlab/meter/chain"
 	"github.com/dfinlab/meter/meter"
+	"github.com/dfinlab/meter/script/auction"
+	"github.com/dfinlab/meter/script/staking"
 	"github.com/dfinlab/meter/state"
 	"github.com/dfinlab/meter/xenv"
 	"github.com/ethereum/go-ethereum/rlp"
@@ -42,6 +46,46 @@ func NewScriptEngine(chain *chain.Chain, state *state.Creator) *ScriptEngine {
 		logger:       log15.New("pkg", "script"),
 	}
 	SetScriptGlobInst(se)
+
+	// Basics
+	gob.Register(big.NewInt(0))
+	gob.Register([]byte{})
+	gob.Register(meter.Address{})
+	gob.Register(meter.Bytes32{})
+	gob.Register([]meter.Bytes32{})
+
+	// Staking
+	gob.Register(staking.Infraction{})
+	gob.Register(staking.Distributor{})
+	gob.Register(&staking.Delegate{})
+	gob.Register(&staking.Candidate{})
+	gob.Register(&staking.Stakeholder{})
+	gob.Register(&staking.Bucket{})
+	gob.Register(&staking.DelegateStatistics{})
+	gob.Register(&staking.DelegateJailed{})
+	gob.Register([]*staking.Delegate{})
+	gob.Register([]*staking.Candidate{})
+	gob.Register([]*staking.Stakeholder{})
+	gob.Register([]*staking.Bucket{})
+	gob.Register([]*staking.DelegateStatistics{})
+	gob.Register([]*staking.DelegateJailed{})
+
+	// Auction
+	gob.Register(&auction.AuctionCB{})
+	gob.Register(&auction.AuctionSummary{})
+	gob.Register([]*auction.AuctionCB{})
+	gob.Register([]*auction.AuctionSummary{})
+
+	buf := bytes.NewBuffer([]byte{})
+	encoder := gob.NewEncoder(buf)
+	encoder.Encode([]*staking.Candidate{&staking.Candidate{}})
+	encoder.Encode([]*staking.Bucket{&staking.Bucket{}})
+	encoder.Encode([]*staking.Stakeholder{&staking.Stakeholder{}})
+	encoder.Encode([]*staking.Delegate{&staking.Delegate{}})
+	encoder.Encode([]*staking.DelegateStatistics{&staking.DelegateStatistics{}})
+	encoder.Encode([]*staking.DelegateJailed{&staking.DelegateJailed{}})
+	encoder.Encode(&auction.AuctionCB{})
+	encoder.Encode([]*auction.AuctionSummary{&auction.AuctionSummary{}})
 
 	// start all sub modules
 	se.StartAllModules()
