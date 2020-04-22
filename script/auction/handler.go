@@ -75,9 +75,6 @@ func (ab *AuctionBody) StartAuctionCB(env *AuctionEnviroment, gas uint64) (ret [
 	Auction := env.GetAuction()
 	state := env.GetState()
 	auctionCB := Auction.GetAuctionCB(state)
-	h, _ := state.Stage().Hash()
-	fmt.Println("StateRoot:", h)
-	fmt.Println("Before start Auction CB:", auctionCB.ToString())
 
 	if gas < meter.ClauseGas {
 		leftOverGas = 0
@@ -96,10 +93,7 @@ func (ab *AuctionBody) StartAuctionCB(env *AuctionEnviroment, gas uint64) (ret [
 	auctionCB.AuctionTxs = make([]*AuctionTx, 0)
 	auctionCB.AuctionID = auctionCB.ID()
 
-	fmt.Println("After start Auction CB:", auctionCB.ToString())
 	Auction.SetAuctionCB(auctionCB, state)
-	h, _ = state.Stage().Hash()
-	fmt.Println("After set Auction CB:", h)
 	return
 }
 
@@ -114,10 +108,6 @@ func (ab *AuctionBody) CloseAuctionCB(senv *AuctionEnviroment, gas uint64) (ret 
 	summaryList := Auction.GetSummaryList(state)
 	auctionCB := Auction.GetAuctionCB(state)
 
-	h, _ := state.Stage().Hash()
-	fmt.Println("StateRoot:", h)
-	fmt.Println("Before close Auction summaries:", summaryList.String())
-	fmt.Println("Before close Auction CB:", auctionCB.ToString())
 	if gas < meter.ClauseGas {
 		leftOverGas = 0
 	} else {
@@ -130,8 +120,6 @@ func (ab *AuctionBody) CloseAuctionCB(senv *AuctionEnviroment, gas uint64) (ret 
 		log.Info("clear active auction failed failed")
 		return
 	}
-	h, _ = state.Stage().Hash()
-	fmt.Println("After Clear auction:", h)
 
 	summary := &AuctionSummary{
 		AuctionID:    auctionCB.AuctionID,
@@ -150,16 +138,8 @@ func (ab *AuctionBody) CloseAuctionCB(senv *AuctionEnviroment, gas uint64) (ret 
 
 	summaryList = NewAuctionSummaryList(summaries)
 	auctionCB = &AuctionCB{}
-	fmt.Println("After close Auction CB:", auctionCB.ToString())
-	fmt.Println("After close Auction summaries:", summaryList.String())
-	h, _ = state.Stage().Hash()
-	fmt.Println("Before set Summary List:", h)
 	Auction.SetSummaryList(summaryList, state)
-	h, _ = state.Stage().Hash()
-	fmt.Println("Afer set Summary List:", h)
 	Auction.SetAuctionCB(auctionCB, state)
-	h, _ = state.Stage().Hash()
-	fmt.Println("After set Auction CB:", h)
 	return
 }
 
