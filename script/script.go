@@ -47,6 +47,14 @@ func NewScriptEngine(chain *chain.Chain, state *state.Creator) *ScriptEngine {
 	}
 	SetScriptGlobInst(se)
 
+	initGobEncode()
+
+	// start all sub modules
+	se.StartAllModules()
+	return se
+}
+
+func initGobEncode() {
 	// Basics
 	gob.Register(big.NewInt(0))
 	gob.Register([]byte{})
@@ -86,10 +94,6 @@ func NewScriptEngine(chain *chain.Chain, state *state.Creator) *ScriptEngine {
 	encoder.Encode([]*staking.DelegateJailed{&staking.DelegateJailed{}})
 	encoder.Encode(&auction.AuctionCB{})
 	encoder.Encode([]*auction.AuctionSummary{&auction.AuctionSummary{}})
-
-	// start all sub modules
-	se.StartAllModules()
-	return se
 }
 
 func (se *ScriptEngine) StartAllModules() {
