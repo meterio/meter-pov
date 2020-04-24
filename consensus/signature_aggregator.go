@@ -37,16 +37,12 @@ func setBit(n int, pos uint) int {
 func newSignatureAggregator(size uint32, system bls.System, msgHash [32]byte, validators []*types.Validator) *SignatureAggregator {
 	logger := log15.New("pkg", "sig")
 	logger.Info("Init signature aggregator", "size", size)
-	bits := 0
-	for i := 0; i < int(size); i++ {
-		bits = setBit(bits, uint(i))
-	}
 	return &SignatureAggregator{
 		logger:     logger,
-		sigs:       make([]bls.Signature, 0),
-		sigBytes:   make([][]byte, 0),
-		pubkeys:    make([]bls.PublicKey, 0),
-		bitArray:   cmn.NewBitArray(bits),
+		sigs:       make([]bls.Signature, size),
+		sigBytes:   make([][]byte, size),
+		pubkeys:    make([]bls.PublicKey, size),
+		bitArray:   cmn.NewBitArray(int(size)),
 		violations: make([]*block.Violation, 0),
 		size:       size,
 		system:     system,
@@ -90,9 +86,9 @@ func (sa *SignatureAggregator) Add(index int, msgHash [32]byte, signature []byte
 			return false
 		}
 		sa.bitArray.SetIndex(index, true)
-		sa.sigBytes = append(sa.sigBytes, signature)
-		sa.sigs = append(sa.sigs, sig)
-		sa.pubkeys = append(sa.pubkeys, pubkey)
+		sa.sigBytes[index] = signature
+		sa.sigs[index] = sig
+		sa.pubkeys[index] = pubkey
 		sa.logger.Info("collected signature", "count", sa.bitArray.Count(), "voting", sa.BitArrayString(), "index", index, "size", sa.size)
 		return true
 	}
@@ -113,7 +109,13 @@ func (sa *SignatureAggregator) Seal() {
 }
 
 func (sa *SignatureAggregator) Aggregate() []byte {
-	sigAgg, err := bls.Aggregate(sa.sigs, sa.system)
+	sigs := make([]bls.Signature, 0)
+	for i := 0; i < int(sa.size); i++ {
+		if sa.bitArray.GetIndex(i) {
+			sigs = append(sigs, sa.sigs[i])
+		}
+	}
+	sigAgg, err := bls.Aggregate(sigs, sa.system)
 	if err != nil {
 		return make([]byte, 0)
 	}
