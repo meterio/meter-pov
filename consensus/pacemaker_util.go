@@ -97,15 +97,24 @@ func (p *Pacemaker) receivePacemakerMsg(w http.ResponseWriter, r *http.Request) 
 	// 1. the original message is not sent by myself
 	// 2. it's a proposal message
 	if fromMyself == false && typeName == "PMProposal" {
-		height := msg.Header().Height
-		round := msg.Header().Round
-		peers, _ := p.GetRelayPeers(round)
-		typeName := getConcreteName(mi.Msg)
-		if len(peers) > 0 {
-			p.logger.Info("Now, relay this "+typeName+"...", "height", height, "round", round, "msgHash", mi.MsgHashHex())
-			p.asyncSendPacemakerMsg(mi.Msg, true, peers...)
-		}
+		p.relayMsg(*mi)
 	}
+}
+func (p *Pacemaker) relayMsg(mi consensusMsgInfo) {
+	msg := mi.Msg
+	height := msg.Header().Height
+	round := msg.Header().Round
+	peers, _ := p.GetRelayPeers(round)
+	typeName := getConcreteName(mi.Msg)
+	if len(peers) > 0 {
+		p.logger.Info("Now, relay this "+typeName+"...", "height", height, "round", round, "msgHash", mi.MsgHashHex())
+		for _, peer := range peers {
+			msgSummary := (mi.Msg).String()
+			go peer.sendPacemakerMsg(mi.RawData, msgSummary, true)
+		}
+		// p.asyncSendPacemakerMsg(mi.Msg, true, peers...)
+	}
+
 }
 
 func (p *Pacemaker) GetRelayPeers(round uint32) ([]*ConsensusPeer, error) {
@@ -302,9 +311,7 @@ func (p *Pacemaker) asyncSendPacemakerMsg(msg ConsensusMessage, relay bool, peer
 
 	// broadcast consensus message to peers
 	for _, peer := range peers {
-		go func(peer *ConsensusPeer, data []byte, msgSummary string) {
-			peer.sendPacemakerMsg(data, relay, msgSummary)
-		}(peer, data, msgSummary)
+		go peer.sendPacemakerMsg(data, msgSummary, relay)
 	}
 	return true
 }

@@ -305,6 +305,9 @@ func (c *ConsensusReactor) validateBlockBody(blk *block.Block) error {
 	if header.TxsRoot() != txs.RootHash() {
 		return consensusError(fmt.Sprintf("block txs root mismatch: want %v, have %v", header.TxsRoot(), txs.RootHash()))
 	}
+	if blk.GetMagic() != block.BlockMagicVersion1 {
+		return consensusError(fmt.Sprintf("block magic mismatch, has %v, expect %v", blk.GetMagic(), block.BlockMagicVersion1))
+	}
 
 	for _, tx := range txs {
 		signer, err := tx.Signer()
@@ -368,7 +371,11 @@ func (c *ConsensusReactor) verifyBlock(blk *block.Block, state *state.State) (*s
 		}
 		return true, meta.Reverted, nil
 	}
-	for _, tx := range txs {
+	print := false
+	if blk.Header().Number() == 10271 {
+		print = true
+	}
+	for i, tx := range txs {
 		// Mint transaction critiers:
 		// 1. no signature (no signer)
 		// 2. only located in 1st transaction in kblock.
@@ -409,6 +416,19 @@ func (c *ConsensusReactor) verifyBlock(blk *block.Block, state *state.State) (*s
 		receipt, err := rt.ExecuteTransaction(tx)
 		if err != nil {
 			return nil, nil, err
+		}
+
+		if print {
+			fmt.Println("XXXXXXXXXXXXXXXXXXXX")
+			fmt.Println(fmt.Sprintf("After %v tx", i+1))
+			fmt.Println("receiptRoot = ", receipts.RootHash())
+			h, e := state.Stage().Hash()
+			if e != nil {
+				fmt.Println("Error getting stateRoot")
+			} else {
+				fmt.Println("stateRoot = ", h)
+			}
+			fmt.Println("XXXXXXXXXXXXXXXXXXX")
 		}
 
 		totalGasUsed += receipt.GasUsed
@@ -623,6 +643,7 @@ func (conR *ConsensusReactor) BuildMBlock(parentBlock *block.Block) *ProposedBlo
 		conR.logger.Error("build block failed", "error", err)
 		return nil
 	}
+	newBlock.SetMagic(block.BlockMagicVersion1)
 
 	execElapsed := mclock.Now() - startTime
 	conR.logger.Info("MBlock built", "height", newBlock.Header().Number(), "Txs", len(newBlock.Txs), "txsInBlk", len(txsInBlk), "elapseTime", execElapsed)
@@ -714,6 +735,7 @@ func (conR *ConsensusReactor) BuildKBlock(parentBlock *block.Block, data *block.
 
 	//serialize KBlockData
 	newBlock.SetKBlockData(*data)
+	newBlock.SetMagic(block.BlockMagicVersion1)
 
 	execElapsed := mclock.Now() - startTime
 	conR.logger.Info("KBlock built", "height", conR.curHeight, "elapseTime", execElapsed)
@@ -760,6 +782,7 @@ func (conR *ConsensusReactor) BuildStopCommitteeBlock(parentBlock *block.Block) 
 		conR.logger.Error("build block failed", "error", err)
 		return nil
 	}
+	newBlock.SetMagic(block.BlockMagicVersion1)
 
 	execElapsed := mclock.Now() - startTime
 	conR.logger.Info("Stop Committee Block built", "height", conR.curHeight, "elapseTime", execElapsed)

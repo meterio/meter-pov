@@ -171,6 +171,13 @@ func (p *TxPool) add(newTx *tx.Transaction, rejectNonexecutable bool) error {
 	case newTx.Size() > maxTxSize:
 		return txRejectedError{"size too large"}
 	}
+	signer, err := newTx.Signer()
+	if err != nil {
+		return txRejectedError{err.Error()}
+	}
+	if signer.IsZero() {
+		return txRejectedError{"no signer specified"}
+	}
 
 	txObj, err := resolveTx(newTx)
 	if err != nil {

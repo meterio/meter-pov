@@ -12,6 +12,7 @@ package consensus
 
 import (
 	"bytes"
+	"encoding/base64"
 	"time"
 
 	bls "github.com/dfinlab/meter/crypto/multi_sig"
@@ -151,7 +152,7 @@ func (cv *ConsensusValidator) ProcessAnnounceCommittee(announceMsg *AnnounceComm
 	round := cv.csReactor.newCommittee.Round % uint32(len(cv.csReactor.newCommittee.Committee.Validators))
 	lv := cv.csReactor.curCommittee.Validators[round]
 	if bytes.Equal(crypto.FromECDSAPub(&lv.PubKey), announceMsg.AnnouncerID) == false {
-		cv.csReactor.logger.Error("Sender is not leader in my committee ...")
+		cv.csReactor.logger.Error("Sender is not leader in my committee ...", "sender", base64.StdEncoding.EncodeToString(announceMsg.AnnouncerID), "expectedLeader", base64.StdEncoding.EncodeToString(crypto.FromECDSAPub(&lv.PubKey)))
 		return false
 	}
 	if bytes.Equal(cv.csReactor.csCommon.GetSystem().PubKeyToBytes(lv.BlsPubKey), announceMsg.AnnouncerBlsPK) == false {

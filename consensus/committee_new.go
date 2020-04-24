@@ -35,6 +35,7 @@ func NewNCEvidence(bitArray *cmn.BitArray, msgHash [32]byte, aggSig bls.Signatur
 type NewCommitteeKey struct {
 	height uint32
 	round  uint32
+	epoch  uint64
 }
 
 type NewCommittee struct {
@@ -113,8 +114,8 @@ func (conR *ConsensusReactor) NewCommitteeInit(height uint32, nonce uint64, repl
 
 func (conR *ConsensusReactor) NewCommitteeCleanup() {
 	// clean up received map
-	for _, nc := range conR.rcvdNewCommittee {
-		delete(conR.rcvdNewCommittee, NewCommitteeKey{nc.KblockHeight, nc.Round})
+	for k, _ := range conR.rcvdNewCommittee {
+		delete(conR.rcvdNewCommittee, k)
 	}
 
 	// clean up local
@@ -246,9 +247,10 @@ func (conR *ConsensusReactor) ProcessNewCommitteeMessage(newCommitteeMsg *NewCom
 	epochID := newCommitteeMsg.NextEpochID
 	height := newCommitteeMsg.KBlockHeight
 	round := ch.Round
+	key := NewCommitteeKey{height, round, newCommitteeMsg.EpochID()}
 	nonce := newCommitteeMsg.Nonce
 
-	nc, ok := conR.rcvdNewCommittee[NewCommitteeKey{height, round}]
+	nc, ok := conR.rcvdNewCommittee[key]
 	if ok == false {
 		nc = newNewCommittee(height, round, nonce)
 		committee, role, index, inCommittee := conR.CalcCommitteeByNonce(conR.newCommittee.Nonce)
@@ -258,7 +260,7 @@ func (conR *ConsensusReactor) ProcessNewCommitteeMessage(newCommitteeMsg *NewCom
 		nc.InCommittee = inCommittee
 		nc.sigAggregator = newSignatureAggregator(conR.committeeSize, conR.csCommon.system, msgHash, nc.Committee.Validators)
 
-		conR.rcvdNewCommittee[NewCommitteeKey{height, round}] = nc
+		conR.rcvdNewCommittee[key] = nc
 	} else {
 		// same height round NewCommittee is there
 		if nc.Nonce != nonce {

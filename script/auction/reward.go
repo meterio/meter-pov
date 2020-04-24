@@ -76,7 +76,7 @@ func calcWeightedAvgPrice(history *[N]float64) float64 {
 }
 
 // released MTRG for a speciefic range
-func calcRewardEpochRange(startEpoch, endEpoch uint64) (totalReward float64, epochRewards []float64, err error) {
+func CalcRewardEpochRange(startEpoch, endEpoch uint64) (totalReward float64, epochRewards []float64, err error) {
     var epoch uint64
     var epochReward float64
     var InitialRelease float64 = float64(1500)

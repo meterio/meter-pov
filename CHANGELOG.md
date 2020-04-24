@@ -1,5 +1,20 @@
 # Versions
 
+## 1.4.1-beta1
+
+Added:
+
+1. add magic to block in order to prevent syncing across versions
+2. log output for members in/out of committee in notary msg
+3. init the gob encoder to predefine the type id
+4. group newCommittee msg by {height,round,epoch} to prevent msg hash mismatch
+
+Updated:
+
+1. drops the zero signer tx in txpool
+2. keep original sender during msg relay
+3. removed poa folder
+
 ## 1.4.0-beta3
 
 Updated:

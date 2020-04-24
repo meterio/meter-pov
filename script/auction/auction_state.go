@@ -3,6 +3,8 @@ package auction
 import (
 	"bytes"
 	"encoding/gob"
+	"encoding/hex"
+	"fmt"
 	"math/big"
 
 	"github.com/dfinlab/meter/meter"
@@ -73,11 +75,21 @@ func (a *Auction) GetSummaryList(state *state.State) (result *AuctionSummaryList
 	return
 }
 
+func encode(obj interface{}) string {
+	buf := bytes.NewBuffer([]byte{})
+	encoder := gob.NewEncoder(buf)
+	encoder.Encode(obj)
+	return hex.EncodeToString(buf.Bytes())
+}
+
 func (a *Auction) SetSummaryList(summaryList *AuctionSummaryList, state *state.State) {
 	state.EncodeStorage(AuctionAccountAddr, SummaryListKey, func() ([]byte, error) {
 		buf := bytes.NewBuffer([]byte{})
 		encoder := gob.NewEncoder(buf)
 		err := encoder.Encode(summaryList.Summaries)
+		if err != nil {
+			fmt.Println("ERROR: ", err)
+		}
 		return buf.Bytes(), err
 	})
 }
@@ -129,6 +141,7 @@ func (a *Auction) ClearAuction(cb *AuctionCB, state *state.State) (*big.Int, *bi
 	leftOver := big.NewInt(0)
 	leftOver = leftOver.Sub(cb.RlsdMTRG, total)
 	a.SendMTRGToBidder(AuctionAccountAddr, leftOver, stateDB)
+
 	a.logger.Info("finished auctionCB clear...", "actualPrice", actualPrice.Uint64(), "leftOver", leftOver.Uint64())
 	return actualPrice, leftOver, nil
 }

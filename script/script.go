@@ -2,12 +2,16 @@ package script
 
 import (
 	"bytes"
+	"encoding/gob"
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"math/big"
 
 	"github.com/dfinlab/meter/chain"
 	"github.com/dfinlab/meter/meter"
+	"github.com/dfinlab/meter/script/auction"
+	"github.com/dfinlab/meter/script/staking"
 	"github.com/dfinlab/meter/state"
 	"github.com/dfinlab/meter/xenv"
 	"github.com/ethereum/go-ethereum/rlp"
@@ -43,9 +47,53 @@ func NewScriptEngine(chain *chain.Chain, state *state.Creator) *ScriptEngine {
 	}
 	SetScriptGlobInst(se)
 
+	initGobEncode()
+
 	// start all sub modules
 	se.StartAllModules()
 	return se
+}
+
+func initGobEncode() {
+	// Basics
+	gob.Register(big.NewInt(0))
+	gob.Register([]byte{})
+	gob.Register(meter.Address{})
+	gob.Register(meter.Bytes32{})
+	gob.Register([]meter.Bytes32{})
+
+	// Staking
+	gob.Register(staking.Infraction{})
+	gob.Register(staking.Distributor{})
+	gob.Register(&staking.Delegate{})
+	gob.Register(&staking.Candidate{})
+	gob.Register(&staking.Stakeholder{})
+	gob.Register(&staking.Bucket{})
+	gob.Register(&staking.DelegateStatistics{})
+	gob.Register(&staking.DelegateJailed{})
+	gob.Register([]*staking.Delegate{})
+	gob.Register([]*staking.Candidate{})
+	gob.Register([]*staking.Stakeholder{})
+	gob.Register([]*staking.Bucket{})
+	gob.Register([]*staking.DelegateStatistics{})
+	gob.Register([]*staking.DelegateJailed{})
+
+	// Auction
+	gob.Register(&auction.AuctionCB{})
+	gob.Register(&auction.AuctionSummary{})
+	gob.Register([]*auction.AuctionCB{})
+	gob.Register([]*auction.AuctionSummary{})
+
+	buf := bytes.NewBuffer([]byte{})
+	encoder := gob.NewEncoder(buf)
+	encoder.Encode([]*staking.Candidate{&staking.Candidate{}})
+	encoder.Encode([]*staking.Bucket{&staking.Bucket{}})
+	encoder.Encode([]*staking.Stakeholder{&staking.Stakeholder{}})
+	encoder.Encode([]*staking.Delegate{&staking.Delegate{}})
+	encoder.Encode([]*staking.DelegateStatistics{&staking.DelegateStatistics{}})
+	encoder.Encode([]*staking.DelegateJailed{&staking.DelegateJailed{}})
+	encoder.Encode(&auction.AuctionCB{})
+	encoder.Encode([]*auction.AuctionSummary{&auction.AuctionSummary{}})
 }
 
 func (se *ScriptEngine) StartAllModules() {
@@ -73,7 +121,7 @@ func (se *ScriptEngine) HandleScriptData(data []byte, to *meter.Address, txCtx *
 
 	mod, find := se.modReg.Find(header.GetModID())
 	if find == false {
-		err := errors.New(fmt.Sprintf("could not address module", "modeID", header.GetModID()))
+		err := errors.New(fmt.Sprintf("could not address module %v", header.GetModID()))
 		fmt.Println(err)
 		return nil, gas, err
 	}

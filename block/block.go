@@ -25,6 +25,10 @@ const (
 	DoubleSign = int(1)
 )
 
+var (
+	BlockMagicVersion1 [4]byte = [4]byte{0x76, 0x01, 0x04, 0x01} // version v.1.4.1
+)
+
 type Violation struct {
 	Type       int
 	Index      int
@@ -101,8 +105,8 @@ type Block struct {
 	QC             *QuorumCert
 	CommitteeInfos CommitteeInfos
 	KBlockData     KBlockData
-
-	cache struct {
+	Magic          [4]byte
+	cache          struct {
 		size atomic.Value
 	}
 }
@@ -181,6 +185,7 @@ func (b *Block) EncodeRLP(w io.Writer) error {
 		b.KBlockData,
 		b.CommitteeInfos,
 		b.QC,
+		b.Magic,
 	})
 }
 
@@ -193,6 +198,7 @@ func (b *Block) DecodeRLP(s *rlp.Stream) error {
 		KBlockData     KBlockData
 		CommitteeInfos CommitteeInfos
 		QC             *QuorumCert
+		Magic          [4]byte
 	}{}
 
 	if err := s.Decode(&payload); err != nil {
@@ -205,6 +211,7 @@ func (b *Block) DecodeRLP(s *rlp.Stream) error {
 		KBlockData:     payload.KBlockData,
 		CommitteeInfos: payload.CommitteeInfos,
 		QC:             payload.QC,
+		Magic:          payload.Magic,
 	}
 	b.cache.size.Store(metric.StorageSize(rlp.ListSize(size)))
 	return nil
@@ -225,11 +232,12 @@ func (b *Block) String() string {
 	canonicalName := b.GetCanonicalName()
 	return fmt.Sprintf(`%v(%v){
 BlockHeader: %v,
+Magic: %v,
 Transactions: %v,
 KBlockData: %v,
 CommitteeInfo: %v,
 QuorumCert: %v,
-}`, canonicalName, b.BlockHeader.Number(), b.BlockHeader, b.Txs, b.KBlockData.ToString(), b.CommitteeInfos, b.QC)
+}`, canonicalName, b.BlockHeader.Number(), b.BlockHeader, b.Magic, b.Txs, b.KBlockData.ToString(), b.CommitteeInfos, b.QC)
 }
 
 func (b *Block) CompactString() string {
@@ -242,10 +250,10 @@ func (b *Block) CompactString() string {
 	return fmt.Sprintf(`%v(%v) %v 
   Parent: %v,
   QC: %v,
-  LastKBHeight: %v, #Txs: %v, CommitteeInfo: %v`, b.GetCanonicalName(), header.Number(), header.ID().String(),
+  LastKBHeight: %v, Magic: %v, #Txs: %v, CommitteeInfo: %v`, b.GetCanonicalName(), header.Number(), header.ID().String(),
 		header.ParentID().String(),
 		b.QC.CompactString(),
-		header.LastKBlockHeight(), len(b.Txs), ci)
+		header.LastKBlockHeight(), b.Magic, len(b.Txs), ci)
 }
 
 func (b *Block) GetCanonicalName() string {
@@ -271,11 +279,19 @@ func (b *Block) Oneliner() string {
 		ci = "YES"
 	}
 	canonicalName := b.GetCanonicalName()
-	return fmt.Sprintf("%v(%v) %v QC:%v, #Txs:%v, CI:%v, Parent:%v ", canonicalName,
-		header.Number(), header.ID().String(), b.QC.CompactString(), len(b.Transactions()), ci, header.ParentID())
+	return fmt.Sprintf("%v(%v) %v QC:%v, Maigc:%v, #Txs:%v, CI:%v, Parent:%v ", canonicalName,
+		header.Number(), header.ID().String(), b.QC.CompactString(), b.Magic, len(b.Transactions()), ci, header.ParentID())
 }
 
 //-----------------
+func (b *Block) SetMagic(m [4]byte) *Block {
+	b.Magic = m
+	return b
+}
+func (b *Block) GetMagic() [4]byte {
+	return b.Magic
+}
+
 func (b *Block) SetQC(qc *QuorumCert) *Block {
 	b.QC = qc
 	return b
