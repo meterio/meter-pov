@@ -680,6 +680,10 @@ func (conR *ConsensusReactor) BuildKBlock(parentBlock *block.Block, data *block.
 		txs = append(txs, tx)
 	}
 
+	if tx := conR.TryBuildStakingGoverningTx(); tx != nil {
+		txs = append(txs, tx)
+	}
+
 	pool := txpool.GetGlobTxPoolInst()
 	if pool == nil {
 		conR.logger.Error("get tx pool failed ...")

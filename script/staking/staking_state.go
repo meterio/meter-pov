@@ -325,7 +325,7 @@ func (s *Staking) UnboundAccountMeterGov(addr meter.Address, amount *big.Int, st
 	return nil
 }
 
-// collect bail to StakingModuleAddr
+// collect bail to StakingModuleAddr. addr ==> StakingModuleAddr
 func (s *Staking) CollectBailMeterGov(addr meter.Address, amount *big.Int, state *state.State) error {
 	if amount.Sign() == 0 {
 		return nil
@@ -337,7 +337,56 @@ func (s *Staking) CollectBailMeterGov(addr meter.Address, amount *big.Int, state
 		return errors.New("not enough meter-gov balance")
 	}
 
-	state.SetBalance(StakingModuleAddr, new(big.Int).Add(state.GetBalance(StakingModuleAddr), amount))
-	state.SetBalance(addr, new(big.Int).Sub(meterGov, amount))
+	state.AddBalance(StakingModuleAddr, amount)
+	state.SubBalance(addr, amount)
+	return nil
+}
+
+//from meter.ValidatorBenefitAddr ==> addr
+func (s *Staking) TransferValidatorReward(amount *big.Int, addr meter.Address, state *state.State) error {
+	if amount.Sign() == 0 {
+		return nil
+	}
+
+	meterBalance := state.GetEnergy(meter.ValidatorBenefitAddr)
+	if meterBalance.Cmp(amount) < 0 {
+		return errors.New("not enough meter")
+	}
+
+	state.AddEnergy(addr, amount)
+	state.SubEnergy(meter.ValidatorBenefitAddr, amount)
+	return nil
+}
+
+func (s *Staking) DistValidatorRewards(amount *big.Int, validators []meter.Address, list *DelegateList, state *state.State) error {
+	delegatesMap := make(map[meter.Address]*Delegate)
+	for _, d := range list.delegates {
+		delegatesMap[d.Address] = d
+	}
+
+	var i int
+	var distReward *big.Int
+	size := len(validators)
+	eachReward := amount.Div(amount, big.NewInt(int64(size)))
+	for i = 0; i < size; i++ {
+		delegate, ok := delegatesMap[validators[i]]
+		if ok == false {
+			// not delegate
+			log.Warn("not delegate", "address", validators[i])
+			continue
+		}
+		if len(delegate.DistList) == 0 {
+			// no distributor, 100% goes to benefiicary
+			s.TransferValidatorReward(eachReward, delegate.Address, state)
+		} else {
+			// as percentage to each distributor， the unit of Shares is shannon， ie， 1e09
+			for _, dist := range delegate.DistList {
+				distReward = new(big.Int).Div(eachReward, big.NewInt(int64(dist.Shares)))
+				distReward = distReward.Div(distReward, big.NewInt(1e09))
+				s.TransferValidatorReward(distReward, dist.Address, state)
+			}
+		}
+	}
+	log.Info("distriubted validators rewards", "each", eachReward.Uint64())
 	return nil
 }

@@ -100,11 +100,17 @@ func calcMissingLeader(validators []*types.Validator, actualMembers []CommitteeM
 }
 
 func calcMissingVoter(validators []*types.Validator, actualMembers []CommitteeMember, blocks []*block.Block) ([]meter.Address, error) {
+	var signer meter.Address
 	result := make([]meter.Address, 0)
 	for _, blk := range blocks {
+		signer, _ = blk.Header().Signer()
 		voterBitArray := blk.QC.VoterBitArray()
 		for _, member := range actualMembers {
 			if voterBitArray.GetIndex(member.CSIndex) == false {
+				// ignore the block proposer
+				if signer == meter.Address(crypto.PubkeyToAddress(member.PubKey)) {
+					continue
+				}
 				result = append(result, validators[member.CSIndex].Address)
 				fmt.Println("missingVoter", "height", blk.Header().Number(), "address", validators[member.CSIndex].Address)
 			}

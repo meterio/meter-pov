@@ -23,7 +23,7 @@ var (
 
 type Distributor struct {
 	Address meter.Address
-	Shares  uint64 // unit shannon, aka, 1E09
+	Shares  uint64 // unit shannon, aka, 1e09
 }
 
 func NewDistributor(addr meter.Address, shares uint64) *Distributor {

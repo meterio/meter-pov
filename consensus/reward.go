@@ -60,45 +60,8 @@ func (conR *ConsensusReactor) MinerRewards(rewards []powpool.PowReward) *tx.Tran
 	}
 	conR.logger.Info("Reward", "Kblock Height", conR.chain.BestBlock().Header().Number()+1, "Total", sum)
 
-	// last clause for staking governing
-	//if (conR.curEpoch % DEFAULT_EPOCHS_PERDAY) == 0 {
-	builder.Clause(tx.NewClause(&staking.StakingModuleAddr).WithValue(big.NewInt(0)).WithToken(tx.TOKEN_METER_GOV).WithData(BuildGoverningData(uint32(conR.config.MaxDelegateSize))))
-	//}
-
 	builder.Build().IntrinsicGas()
 	return builder.Build()
-}
-
-func BuildGoverningData(delegateSize uint32) (ret []byte) {
-	ret = []byte{}
-	body := &staking.StakingBody{
-		Opcode:    staking.OP_GOVERNING,
-		Option:    delegateSize,
-		Timestamp: uint64(time.Now().Unix()),
-		Nonce:     rand.Uint64(),
-	}
-	payload, err := rlp.EncodeToBytes(body)
-	if err != nil {
-		return
-	}
-
-	// fmt.Println("Payload Hex: ", hex.EncodeToString(payload))
-	s := &script.Script{
-		Header: script.ScriptHeader{
-			Version: uint32(0),
-			ModID:   script.STAKING_MODULE_ID,
-		},
-		Payload: payload,
-	}
-	data, err := rlp.EncodeToBytes(s)
-	if err != nil {
-		return
-	}
-	data = append(script.ScriptPattern[:], data...)
-	prefix := []byte{0xff, 0xff, 0xff, 0xff}
-	ret = append(prefix, data...)
-	// fmt.Println("script Hex:", hex.EncodeToString(ret))
-	return
 }
 
 // ****** Auction ********************
@@ -251,5 +214,106 @@ func (conR *ConsensusReactor) TryBuildAuctionTxs(height, epoch uint64) *tx.Trans
 	builder.Clause(tx.NewClause(&auction.AuctionAccountAddr).WithValue(big.NewInt(0)).WithToken(tx.TOKEN_METER_GOV).WithData(BuildAuctionStart(lastEndHeight+1, lastEndEpoch+1, height, epoch)))
 
 	conR.logger.Info("Auction Tx Built", "Height", height, "epoch", epoch)
+	return builder.Build()
+}
+
+//**********StakingGoverningTx***********
+const N = 10 // smooth with 10 days
+
+func (conR *ConsensusReactor) GetKBlockValidatorRewards() (*big.Int, error) {
+	summaryList, err := auction.GetAuctionSummaryList()
+	if err != nil {
+		conR.logger.Error("get summary list failed", "error", err)
+		return big.NewInt(0), err
+	}
+
+	size := len(summaryList.Summaries)
+	if size == 0 {
+		return big.NewInt(0), nil
+	}
+
+	var d, i int
+	var reward, rewards *big.Int
+	if size <= N {
+		d = size
+	} else {
+		d = N
+	}
+
+	for i = 0; i < d; i++ {
+		reward = summaryList.Summaries[size-1-i].RcvdMTR
+		rewards = rewards.Add(rewards, reward)
+	}
+
+	// last auction receved MTR * 40% / 240
+	rewards = rewards.Mul(rewards, big.NewInt(int64(meter.ValidatorBenefitRatio)))
+	rewards = rewards.Div(rewards, big.NewInt(int64(100)))
+	rewards = rewards.Div(rewards, big.NewInt(int64(240)))
+
+	conR.logger.Info("get Kblock validator rewards", "rewards", rewards)
+	return rewards, nil
+}
+
+func (conR *ConsensusReactor) BuildGoverningData(delegateSize uint32) (ret []byte) {
+	ret = []byte{}
+
+	validatorRewards, err := conR.GetKBlockValidatorRewards()
+	if err != nil {
+		conR.logger.Error("get validator rewards failed", err.Error())
+	}
+	validators := []meter.Address{}
+	for _, c := range conR.curCommittee.Validators {
+		validators = append(validators, c.Address)
+	}
+
+	body := &staking.StakingBody{
+		Opcode:     staking.OP_GOVERNING,
+		Option:     delegateSize,
+		Amount:     validatorRewards,
+		Timestamp:  uint64(time.Now().Unix()),
+		Nonce:      rand.Uint64(),
+		Validators: validators,
+	}
+	payload, err := rlp.EncodeToBytes(body)
+	if err != nil {
+		return
+	}
+
+	// fmt.Println("Payload Hex: ", hex.EncodeToString(payload))
+	s := &script.Script{
+		Header: script.ScriptHeader{
+			Version: uint32(0),
+			ModID:   script.STAKING_MODULE_ID,
+		},
+		Payload: payload,
+	}
+	data, err := rlp.EncodeToBytes(s)
+	if err != nil {
+		return
+	}
+	data = append(script.ScriptPattern[:], data...)
+	prefix := []byte{0xff, 0xff, 0xff, 0xff}
+	ret = append(prefix, data...)
+	// fmt.Println("script Hex:", hex.EncodeToString(ret))
+	return
+}
+
+// for distribute validator rewards, recalc the delegates list ...
+func (conR *ConsensusReactor) TryBuildStakingGoverningTx() *tx.Transaction {
+	// mint transaction:
+	// 1. signer is nil
+	// 1. located first transaction in kblock.
+	builder := new(tx.Builder)
+	builder.ChainTag(conR.chain.Tag()).
+		BlockRef(tx.NewBlockRef(conR.chain.BestBlock().Header().Number() + 1)).
+		Expiration(720).
+		GasPriceCoef(0).
+		Gas(2100000). //builder.Build().IntrinsicGas()
+		DependsOn(nil).
+		Nonce(12345678)
+
+	builder.Clause(tx.NewClause(&staking.StakingModuleAddr).WithValue(big.NewInt(0)).WithToken(tx.TOKEN_METER_GOV).WithData(conR.BuildGoverningData(uint32(conR.config.MaxDelegateSize))))
+
+	builder.Build().IntrinsicGas()
 	return builder.Build()
 }

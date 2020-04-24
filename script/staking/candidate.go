@@ -19,7 +19,7 @@ type Candidate struct {
 	PubKey     []byte // node public key
 	IPAddr     []byte // network addr
 	Port       uint16
-	Commission uint64          // unit shanon, aka 1e09
+	Commission uint64          // unit shannon, aka 1e09
 	Timestamp  uint64          // last update time
 	TotalVotes *big.Int        // total voting from all buckets
 	Buckets    []meter.Bytes32 // all buckets voted for this candidate

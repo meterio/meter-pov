@@ -50,5 +50,8 @@ var (
 	InitialBaseGasPrice        = big.NewInt(5e11) // each tx gas is about 0.01 meter
 	InitialProposerEndorsement = new(big.Int).Mul(big.NewInt(1e18), big.NewInt(25000000))
 
-	//EnergyGrowthRate = big.NewInt(5000000000) // WEI THOR per token(VET) per second. about 0.000432 THOR per token per day.
+	// This account takes 40% of auction gain to distribute to validators in consensus
+	ValidatorBenefitAddr  = BytesToAddress([]byte("validator-benefit-address"))
+	ValidatorBenefitRatio = 40 // 40 percent of total auciton gain
+
 )

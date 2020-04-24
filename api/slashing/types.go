@@ -23,6 +23,7 @@ type Infraction struct {
 	MissingCommittee uint32 `json:"missingCommittee"`
 	MissingProposer  uint32 `json:"missingProposer"`
 	MissingVoter     uint32 `json:"missingVoter"`
+	DoubleSigner     uint32 `json:"doubleSigner`
 }
 type DelegateStatistics struct {
 	Address     meter.Address `json:"address"`
@@ -66,6 +67,7 @@ func convertDelegateStatistics(d *staking.DelegateStatistics) *DelegateStatistic
 		MissingLeader:    d.Infractions.MissingLeader,
 		MissingProposer:  d.Infractions.MissingProposer,
 		MissingVoter:     d.Infractions.MissingVoter,
+		DoubleSigner:     d.Infractions.DoubleSigner,
 	}
 	return &DelegateStatistics{
 		Name:        string(d.Name),
