@@ -29,15 +29,24 @@ type SignatureAggregator struct {
 	sigAgg []byte
 }
 
+func setBit(n int, pos uint) int {
+	n |= (1 << pos)
+	return n
+}
+
 func newSignatureAggregator(size uint32, system bls.System, msgHash [32]byte, validators []*types.Validator) *SignatureAggregator {
 	logger := log15.New("pkg", "sig")
 	logger.Info("Init signature aggregator", "size", size)
+	bits := 0
+	for i := 0; i < int(size); i++ {
+		bits = setBit(bits, uint(i))
+	}
 	return &SignatureAggregator{
 		logger:     logger,
 		sigs:       make([]bls.Signature, 0),
 		sigBytes:   make([][]byte, 0),
 		pubkeys:    make([]bls.PublicKey, 0),
-		bitArray:   cmn.NewBitArray(int(size)),
+		bitArray:   cmn.NewBitArray(bits),
 		violations: make([]*block.Violation, 0),
 		size:       size,
 		system:     system,
@@ -55,11 +64,6 @@ func (sa *SignatureAggregator) Add(index int, msgHash [32]byte, signature []byte
 	if uint32(index) < sa.size {
 		if bytes.Compare(sa.msgHash[:], msgHash[:]) != 0 {
 			sa.logger.Info("dropped signature due to msg hash mismatch")
-			return false
-		}
-		if index >= sa.bitArray.Count() {
-			sa.logger.Warn("index out of bound", "index", index, "size", sa.size, "len(bitArray)", sa.bitArray.Count())
-			sa.logger.Warn("dropped signature, please check")
 			return false
 		}
 		if sa.bitArray.GetIndex(index) {
