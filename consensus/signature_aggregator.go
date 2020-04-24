@@ -30,8 +30,10 @@ type SignatureAggregator struct {
 }
 
 func newSignatureAggregator(size uint32, system bls.System, msgHash [32]byte, validators []*types.Validator) *SignatureAggregator {
+	logger := log15.New("pkg", "sig")
+	logger.Info("Init signature aggregator", "size", size)
 	return &SignatureAggregator{
-		logger:     log15.New("pkg", "sig"),
+		logger:     logger,
 		sigs:       make([]bls.Signature, 0),
 		sigBytes:   make([][]byte, 0),
 		pubkeys:    make([]bls.PublicKey, 0),
@@ -53,6 +55,11 @@ func (sa *SignatureAggregator) Add(index int, msgHash [32]byte, signature []byte
 	if uint32(index) < sa.size {
 		if bytes.Compare(sa.msgHash[:], msgHash[:]) != 0 {
 			sa.logger.Info("dropped signature due to msg hash mismatch")
+			return false
+		}
+		if index >= sa.bitArray.Count() {
+			sa.logger.Warn("index out of bound", "index", index, "size", sa.size, "len(bitArray)", sa.bitArray.Count())
+			sa.logger.Warn("dropped signature, please check")
 			return false
 		}
 		if sa.bitArray.GetIndex(index) {
@@ -82,7 +89,7 @@ func (sa *SignatureAggregator) Add(index int, msgHash [32]byte, signature []byte
 		sa.sigBytes = append(sa.sigBytes, signature)
 		sa.sigs = append(sa.sigs, sig)
 		sa.pubkeys = append(sa.pubkeys, pubkey)
-		sa.logger.Info("collected signature", "count", sa.bitArray.Count(), "voting", sa.BitArrayString())
+		sa.logger.Info("collected signature", "count", sa.bitArray.Count(), "voting", sa.BitArrayString(), "index", index, "size", sa.size)
 		return true
 	}
 	return false
