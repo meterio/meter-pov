@@ -258,7 +258,7 @@ func (conR *ConsensusReactor) ProcessNewCommitteeMessage(newCommitteeMsg *NewCom
 		nc.Role = role
 		nc.Index = index
 		nc.InCommittee = inCommittee
-		nc.sigAggregator = newSignatureAggregator(conR.committeeSize, conR.csCommon.system, msgHash, nc.Committee.Validators)
+		nc.sigAggregator = newSignatureAggregator(uint32(len(nc.Committee.Validators)), conR.csCommon.system, msgHash, nc.Committee.Validators)
 
 		conR.rcvdNewCommittee[key] = nc
 	} else {
