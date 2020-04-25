@@ -358,7 +358,7 @@ func (s *Staking) TransferValidatorReward(amount *big.Int, addr meter.Address, s
 	return nil
 }
 
-func (s *Staking) DistValidatorRewards(amount *big.Int, validators []meter.Address, list *DelegateList, state *state.State) error {
+func (s *Staking) DistValidatorRewards(amount *big.Int, validators []*meter.Address, list *DelegateList, state *state.State) error {
 	delegatesMap := make(map[meter.Address]*Delegate)
 	for _, d := range list.delegates {
 		delegatesMap[d.Address] = d
@@ -369,10 +369,10 @@ func (s *Staking) DistValidatorRewards(amount *big.Int, validators []meter.Addre
 	size := len(validators)
 	eachReward := amount.Div(amount, big.NewInt(int64(size)))
 	for i = 0; i < size; i++ {
-		delegate, ok := delegatesMap[validators[i]]
+		delegate, ok := delegatesMap[*validators[i]]
 		if ok == false {
 			// not delegate
-			log.Warn("not delegate", "address", validators[i])
+			log.Warn("not delegate", "address", *validators[i])
 			continue
 		}
 		if len(delegate.DistList) == 0 {

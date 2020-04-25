@@ -233,15 +233,15 @@ func (conR *ConsensusReactor) GetKBlockValidatorRewards() (*big.Int, error) {
 	}
 
 	var d, i int
-	var reward, rewards *big.Int
 	if size <= N {
 		d = size
 	} else {
 		d = N
 	}
 
+	rewards := big.NewInt(0)
 	for i = 0; i < d; i++ {
-		reward = summaryList.Summaries[size-1-i].RcvdMTR
+		reward := summaryList.Summaries[size-1-i].RcvdMTR
 		rewards = rewards.Add(rewards, reward)
 	}
 
@@ -261,21 +261,29 @@ func (conR *ConsensusReactor) BuildGoverningData(delegateSize uint32) (ret []byt
 	if err != nil {
 		conR.logger.Error("get validator rewards failed", err.Error())
 	}
-	validators := []meter.Address{}
+	validators := []*meter.Address{}
 	for _, c := range conR.curCommittee.Validators {
-		validators = append(validators, c.Address)
+		addr := &c.Address
+		validators = append(validators, addr)
+	}
+
+	extraBytes, err := rlp.EncodeToBytes(validators)
+	if err != nil {
+		conR.logger.Info("encode validators failed", "error", err.Error())
+		return
 	}
 
 	body := &staking.StakingBody{
-		Opcode:     staking.OP_GOVERNING,
-		Option:     delegateSize,
-		Amount:     validatorRewards,
-		Timestamp:  uint64(time.Now().Unix()),
-		Nonce:      rand.Uint64(),
-		Validators: validators,
+		Opcode:    staking.OP_GOVERNING,
+		Option:    delegateSize,
+		Amount:    validatorRewards,
+		Timestamp: uint64(time.Now().Unix()),
+		Nonce:     rand.Uint64(),
+		ExtraData: extraBytes,
 	}
 	payload, err := rlp.EncodeToBytes(body)
 	if err != nil {
+		conR.logger.Info("encode payload failed", "error", err.Error())
 		return
 	}
 

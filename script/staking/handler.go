@@ -79,7 +79,7 @@ type StakingBody struct {
 	Token      byte   // meter or meter gov
 	Timestamp  uint64 // staking timestamp
 	Nonce      uint64 //staking nonce
-	Validators []meter.Address
+	ExtraData  []byte
 }
 
 func StakingEncodeBytes(sb *StakingBody) []byte {
@@ -94,8 +94,8 @@ func StakingDecodeFromBytes(bytes []byte) (*StakingBody, error) {
 }
 
 func (sb *StakingBody) ToString() string {
-	return fmt.Sprintf("StakingBody: Opcode=%v, Version=%v, Option=%v, HolderAddr=%v, CandAddr=%v, CandName=%v, CandPubKey=%v, CandIP=%v, CandPort=%v, StakingID=%v, Amount=%v, Token=%v, Nonce=%v, Timestamp=%v, Validators=%v",
-		sb.Opcode, sb.Version, sb.Option, sb.HolderAddr, sb.CandAddr, sb.CandName, sb.CandPubKey, string(sb.CandIP), sb.CandPort, sb.StakingID, sb.Amount, sb.Token, sb.Nonce, sb.Timestamp, sb.Validators)
+	return fmt.Sprintf("StakingBody: Opcode=%v, Version=%v, Option=%v, HolderAddr=%v, CandAddr=%v, CandName=%v, CandPubKey=%v, CandIP=%v, CandPort=%v, StakingID=%v, Amount=%v, Token=%v, Nonce=%v, Timestamp=%v, ExtraData=%v",
+		sb.Opcode, sb.Version, sb.Option, sb.HolderAddr, sb.CandAddr, sb.CandName, sb.CandPubKey, string(sb.CandIP), sb.CandPort, sb.StakingID, sb.Amount, sb.Token, sb.Nonce, sb.Timestamp, sb.ExtraData)
 }
 
 func (sb *StakingBody) BoundHandler(senv *StakingEnviroment, gas uint64) (ret []byte, leftOverGas uint64, err error) {
@@ -531,9 +531,18 @@ func (sb *StakingBody) GoverningHandler(senv *StakingEnviroment, gas uint64) (re
 		leftOverGas = gas - meter.ClauseGas
 	}
 
-	// distribute rewarding before calculating new delegates
-	if err := staking.DistValidatorRewards(sb.Amount, sb.Validators, delegateList, state); err != nil {
+	validators := []*meter.Address{}
+	err = rlp.DecodeBytes(sb.ExtraData, &validators)
+	if err != nil {
 		log.Error("Distribute validator rewards failed")
+		return
+	}
+
+	// distribute rewarding before calculating new delegates
+	err = staking.DistValidatorRewards(sb.Amount, validators, delegateList, state)
+	if err != nil {
+		log.Error("Distribute validator rewards failed")
+		return
 	}
 
 	// start to calc next round delegates
@@ -800,7 +809,11 @@ func (sb *StakingBody) DelegateStatisticsHandler(senv *StakingEnviroment, gas ui
 		return
 	}
 
-	IncrInfraction := UnpackBytesToCounters(&sb.StakingID)
+	IncrInfraction, err := UnpackBytesToInfraction(sb.ExtraData)
+	if err != nil {
+		log.Info("decode infraction failed ...", "error", err.Error)
+		return
+	}
 	log.Info("Receives statistics", "incremental infraction", IncrInfraction)
 
 	var jail bool
