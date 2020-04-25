@@ -78,7 +78,7 @@ func (conR *ConsensusReactor) calcMissingProposer(validators []*types.Validator,
 				},
 			}
 			result = append(result, info)
-			fmt.Println("missingPropopser", "height", blk.Header().Number(), "expectedSigner", expectedSigner, "actualSigner", actualSigner)
+			conR.logger.Debug("missingPropopser", "height", info.Info.Height, "expectedSigner", expectedSigner, "actualSigner", actualSigner)
 			index++
 			// prevent the deadlock if actual proposer does not exist in actual committee
 			if index-origIndex >= len(actualMembers) {
@@ -105,7 +105,7 @@ func (conR *ConsensusReactor) calcMissingLeader(validators []*types.Validator, a
 			},
 		}
 		result = append(result, info)
-		fmt.Println("missingLeader", "address", validators[index].Address)
+		conR.logger.Debug("missingLeader", "address", info.Address, "epoch", info.Info.Epoch)
 		index++
 	}
 	return result, nil
@@ -131,11 +131,12 @@ func (conR *ConsensusReactor) calcMissingVoter(validators []*types.Validator, ac
 					},
 				}
 				result = append(result, info)
-				fmt.Println("missingVoter", "height", blk.Header().Number(), "address", validators[member.CSIndex].Address)
+				conR.logger.Debug("calc missingVoter", "height", info.Info.Height, "address", info.Address)
 			}
 		}
 	}
 
+	conR.logger.Debug("calcMissingVoter", "result", result)
 	return result, nil
 }
 
@@ -177,7 +178,7 @@ func (conR *ConsensusReactor) calcDoubleSigner(common *ConsensusCommon, blocks [
 					},
 				}
 				result = append(result, info)
-				fmt.Println("doubleSigner", "height", blk.Header().Number(), "signature1", sig1, "signature2", sig2)
+				conR.logger.Debug("doubleSigner", "height", info.Info.Height, "signature1", sig1, "signature2", sig2)
 			}
 		}
 	}
@@ -250,7 +251,7 @@ func (conR *ConsensusReactor) calcStatistics(lastKBlockHeight, height uint32) ([
 		conR.logger.Warn("Error during missing voter calculation", "err", err)
 	} else {
 		for _, m := range missedVoter {
-			inf := stats[m.Address].Infraction
+			inf := &stats[m.Address].Infraction
 			inf.MissingVoters.Counter++
 			minfo := &m.Info
 			inf.MissingVoters.Info = append(inf.MissingVoters.Info, minfo)
@@ -278,7 +279,7 @@ func (conR *ConsensusReactor) calcStatistics(lastKBlockHeight, height uint32) ([
 		}
 		result = append(result, stats[signer])
 	}
-	fmt.Println("Statistics Results", result)
+	conR.logger.Info("calc statistics results", "result", result)
 	return result, nil
 }
 

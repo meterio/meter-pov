@@ -162,8 +162,8 @@ func (a *Auction) ClearAuction(cb *AuctionCB, state *state.State) (*big.Int, *bi
 	a.SendMTRGToBidder(AuctionAccountAddr, leftOver, stateDB)
 
 	// 40% of received meter to AuctionValidatorBenefitAddr
-	amount := new(big.Int).Mul(cb.RcvdMTR, big.NewInt(int64(meter.ValidatorBenefitRatio)))
-	amount = amount.Div(amount, big.NewInt(int64(100)))
+	amount := new(big.Int).Mul(cb.RcvdMTR, ValidatorBenefitRatio)
+	amount = amount.Div(amount, big.NewInt(1e18))
 	a.TransferMTRToValidatorBenefit(amount, state)
 
 	a.logger.Info("finished auctionCB clear...", "actualPrice", actualPrice.Uint64(), "leftOver", leftOver.Uint64(), "validatorBenefit", amount.Uint64())

@@ -24,6 +24,10 @@ const (
 	AuctionInterval = uint64(24) // every 24 Epoch move to next auction
 )
 
+var (
+	ValidatorBenefitRatio = meter.InitialValidatorBenefitRatio
+)
+
 func (conR *ConsensusReactor) GetKBlockRewardTxs(rewards []powpool.PowReward) tx.Transactions {
 	trx := conR.MinerRewards(rewards)
 	fmt.Println("Built rewards tx:", trx)
@@ -245,9 +249,9 @@ func (conR *ConsensusReactor) GetKBlockValidatorRewards() (*big.Int, error) {
 		rewards = rewards.Add(rewards, reward)
 	}
 
-	// last auction receved MTR * 40% / 240
-	rewards = rewards.Mul(rewards, big.NewInt(int64(meter.ValidatorBenefitRatio)))
-	rewards = rewards.Div(rewards, big.NewInt(int64(100)))
+	// last 10 auctions receved MTR * 40% / 240
+	rewards = rewards.Mul(rewards, ValidatorBenefitRatio)
+	rewards = rewards.Div(rewards, big.NewInt(1e18))
 	rewards = rewards.Div(rewards, big.NewInt(int64(240)))
 
 	conR.logger.Info("get Kblock validator rewards", "rewards", rewards)
