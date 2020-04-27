@@ -54,4 +54,5 @@ var (
 
 	// This account takes 40% of auction gain to distribute to validators in consensus
 	ValidatorBenefitAddr = BytesToAddress([]byte("validator-benefit-address"))
+	ValidatorBaseReward  = big.NewInt(2e18) // base reward for each validator
 )

@@ -358,6 +358,10 @@ func (s *Staking) TransferValidatorReward(amount *big.Int, addr meter.Address, s
 	return nil
 }
 
+//1. distributes the base reward (meter.ValidatorBaseReward) for each validator. If there is remainning
+//2. get the propotion reward for each validator based on the votingpower
+//3. each validator takes commission first
+//4. finally, distributor takes their propotions of rest
 func (s *Staking) DistValidatorRewards(amount *big.Int, validators []*meter.Address, list *DelegateList, state *state.State) error {
 	delegatesMap := make(map[meter.Address]*Delegate)
 	for _, d := range list.delegates {
@@ -365,9 +369,18 @@ func (s *Staking) DistValidatorRewards(amount *big.Int, validators []*meter.Addr
 	}
 
 	var i int
-	var distReward, commission *big.Int
+	var votingPowerSum, distReward, commission *big.Int
+	var baseRewardsOnly bool
 	size := len(validators)
-	eachReward := amount.Div(amount, big.NewInt(int64(size)))
+
+	// distribute the base reward
+	baseRewards := new(big.Int).Mul(meter.ValidatorBaseReward, big.NewInt(int64(size)))
+	if baseRewards.Cmp(amount) >= 0 {
+		baseRewards = amount
+		baseRewardsOnly = true
+	}
+
+	baseReward := baseRewards.Div(baseRewards, big.NewInt(int64(size)))
 	for i = 0; i < size; i++ {
 		delegate, ok := delegatesMap[*validators[i]]
 		if ok == false {
@@ -375,6 +388,36 @@ func (s *Staking) DistValidatorRewards(amount *big.Int, validators []*meter.Addr
 			log.Warn("not delegate", "address", *validators[i])
 			continue
 		}
+		s.TransferValidatorReward(baseReward, delegate.Address, state)
+	}
+	if baseRewardsOnly == true {
+		// only cover validator base rewards
+		return nil
+	}
+
+	// distributes the remaining
+	rewards := new(big.Int).Sub(amount, baseRewards)
+	for i = 0; i < size; i++ {
+		delegate, ok := delegatesMap[*validators[i]]
+		if ok == false {
+			// not delegate
+			log.Warn("not delegate", "address", *validators[i])
+			continue
+		}
+		votingPowerSum = votingPowerSum.Add(votingPowerSum, delegate.VotingPower)
+	}
+
+	//
+	for i = 0; i < size; i++ {
+		delegate, ok := delegatesMap[*validators[i]]
+		if ok == false {
+			// not delegate
+			log.Warn("not delegate", "address", *validators[i])
+			continue
+		}
+		// calculate the propotion of each validator
+		eachReward := new(big.Int).Mul(rewards, delegate.VotingPower)
+		eachReward = eachReward.Div(eachReward, votingPowerSum)
 
 		// distribute commission to delegate, commission unit is shannon, aka, 1e09
 		commission = commission.Mul(eachReward, big.NewInt(int64(delegate.Commission)))
@@ -395,6 +438,6 @@ func (s *Staking) DistValidatorRewards(amount *big.Int, validators []*meter.Addr
 			}
 		}
 	}
-	log.Info("distriubted validators rewards", "each", eachReward.Uint64())
+	log.Info("distriubted validators rewards", "total", amount.Uint64())
 	return nil
 }
