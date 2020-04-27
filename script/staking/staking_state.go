@@ -365,7 +365,7 @@ func (s *Staking) DistValidatorRewards(amount *big.Int, validators []*meter.Addr
 	}
 
 	var i int
-	var distReward *big.Int
+	var distReward, commission *big.Int
 	size := len(validators)
 	eachReward := amount.Div(amount, big.NewInt(int64(size)))
 	for i = 0; i < size; i++ {
@@ -375,13 +375,21 @@ func (s *Staking) DistValidatorRewards(amount *big.Int, validators []*meter.Addr
 			log.Warn("not delegate", "address", *validators[i])
 			continue
 		}
+
+		// distribute commission to delegate, commission unit is shannon, aka, 1e09
+		commission = commission.Mul(eachReward, big.NewInt(int64(delegate.Commission)))
+		commission = commission.Div(commission, big.NewInt(1e09))
+		s.TransferValidatorReward(commission, delegate.Address, state)
+		actualReward := new(big.Int).Sub(eachReward, commission)
+
+		// now distributes actualReward to each distributor
 		if len(delegate.DistList) == 0 {
 			// no distributor, 100% goes to benefiicary
-			s.TransferValidatorReward(eachReward, delegate.Address, state)
+			s.TransferValidatorReward(actualReward, delegate.Address, state)
 		} else {
 			// as percentage to each distributor， the unit of Shares is shannon， ie， 1e09
 			for _, dist := range delegate.DistList {
-				distReward = new(big.Int).Div(eachReward, big.NewInt(int64(dist.Shares)))
+				distReward = new(big.Int).Mul(actualReward, big.NewInt(int64(dist.Shares)))
 				distReward = distReward.Div(distReward, big.NewInt(1e09))
 				s.TransferValidatorReward(distReward, dist.Address, state)
 			}

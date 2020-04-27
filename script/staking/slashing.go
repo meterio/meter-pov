@@ -13,10 +13,10 @@ import (
 )
 
 const (
-	JailCriteria       = 1000000 //50   //set criteria 1M instead of 50 for testnet
+	JailCriteria       = 300 //set criteria 1M instead of 50 for testnet
 	DoubleSignPts      = 30
 	MissingLeaderPts   = 20
-	MissingProposerPts = 5
+	MissingProposerPts = 10
 	MissingVoterPts    = 1
 )
 

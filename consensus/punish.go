@@ -113,19 +113,23 @@ func (conR *ConsensusReactor) calcMissingLeader(validators []*types.Validator, a
 
 func (conR *ConsensusReactor) calcMissingVoter(validators []*types.Validator, actualMembers []CommitteeMember, blocks []*block.Block) ([]*missingVoterInfo, error) {
 	result := make([]*missingVoterInfo, 0)
-	for _, blk := range blocks {
+
+	for i, blk := range blocks {
+		// the 1st block is first mblock, QC is for last kblock. ignore
+		if i == 0 {
+			continue
+		}
+
 		voterBitArray := blk.QC.VoterBitArray()
 		if voterBitArray == nil {
-			conR.logger.Debug("voterBitArray is nil")
-		} else {
-			conR.logger.Debug("voterBitArray", "voterBitArray", voterBitArray.String())
+			conR.logger.Warn("voterBitArray is nil")
 		}
 		for _, member := range actualMembers {
 			if voterBitArray.GetIndex(member.CSIndex) == false {
 				info := &missingVoterInfo{
 					Address: validators[member.CSIndex].Address,
 					Info: staking.MissingVoterInfo{
-						Epoch:  uint32(conR.curEpoch),
+						Epoch:  uint32(blk.QC.EpochID),
 						Height: blk.QC.QCHeight,
 					},
 				}
