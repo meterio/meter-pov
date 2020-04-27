@@ -117,17 +117,18 @@ func (conR *ConsensusReactor) calcMissingVoter(validators []*types.Validator, ac
 	for _, blk := range blocks {
 		signer, _ = blk.Header().Signer()
 		voterBitArray := blk.QC.VoterBitArray()
+		if voterBitArray == nil {
+			conR.logger.Debug("voterBitArray is nil")
+		} else {
+			conR.logger.Debug("voterBitArray", "voterBitArray", voterBitArray.String())
+		}
 		for _, member := range actualMembers {
 			if voterBitArray.GetIndex(member.CSIndex) == false {
-				// ignore the block proposer
-				if signer == meter.Address(crypto.PubkeyToAddress(member.PubKey)) {
-					continue
-				}
 				info := &missingVoterInfo{
 					Address: validators[member.CSIndex].Address,
 					Info: staking.MissingVoterInfo{
 						Epoch:  uint32(conR.curEpoch),
-						Height: blk.Header().Number(),
+						Height: blk.QC.QCHeight,
 					},
 				}
 				result = append(result, info)
