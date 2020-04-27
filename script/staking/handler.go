@@ -712,7 +712,7 @@ func (sb *StakingBody) CandidateUpdateHandler(senv *StakingEnviroment, gas uint6
 	// if the candidate already exists return error without paying gas
 	record := candidateList.Get(sb.CandAddr)
 	if record == nil {
-		log.Error(fmt.Sprintf("does not find out the candiate record", sb.CandAddr))
+		log.Error(fmt.Sprintf("does not find out the candiate record %v", sb.CandAddr))
 		return
 	}
 

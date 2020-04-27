@@ -6,14 +6,12 @@ import (
 	"fmt"
 	"math/big"
 	"math/rand"
-	"time"
 
 	"github.com/ethereum/go-ethereum/rlp"
 
 	"testing"
 
 	"github.com/dfinlab/meter/meter"
-	"github.com/dfinlab/meter/script"
 	"github.com/dfinlab/meter/script/staking"
 )
 
@@ -57,13 +55,14 @@ func TestRlpForCandidate(t *testing.T) {
 	if err != nil {
 		fmt.Println("Can not parse address")
 	}
-	pubKey := make([]byte, 256)
-	ip := make([]byte, 32)
-	port := uint16(rand.Int())
-	rand.Read(pubKey)
+	pubKey := []byte("BKjr6wO34Vif9oJHK1/AbMCLHVpvJui3Nx3hLwuOfzwx1Th4H4G0I4liGEC3qKsf8KOd078gYFTK+41n+KhDTzk=:::uH2sc+WgsrxPs91LBy8pIBEjM5I7wNPtSwRSNa83wo4V9iX3RmUmkEPq1QRv4wwRbosNO1RFJ/r64bwdSKK1VwA=")
+	ip := []byte("1.2.3.4")
+	port := uint16(8670)
+	name := []byte("testname")
 	// fmt.Println("pubkey: ", pubKey)
-	rand.Read(ip)
-	src := staking.NewCandidate(addr, []byte("name"), pubKey, ip, port)
+	commission := uint64(1000000)
+	timestamp := uint64(1587608317451)
+	src := staking.NewCandidate(addr, name, pubKey, ip, port, commission, timestamp)
 	src.Buckets = append(src.Buckets, meter.MustParseBytes32(bucketIDString))
 
 	data, err := rlp.EncodeToBytes(src)
@@ -126,123 +125,6 @@ func TestRlpForBucket(t *testing.T) {
 
 }
 
-const (
-	//HOLDER_ADDRESS    = "0x0205c2D862cA051010698b69b54278cbAf945C0b"
-	HOLDER_ADDRESS    = "0x0205c2D862cA051010698b69b54278cbAf945C0b"
-	CANDIDATE_ADDRESS = "0x8a88c59bf15451f9deb1d62f7734fece2002668e"
-	CANDIDATE_AMOUNT  = "2000000000000000000000" //(2e20) 200MTRG
-)
-
-func generateScriptData(opCode uint32, holderAddrStr, candAddrStr string, amountInt64 int64) (string, error) {
-	holderAddr, _ := meter.ParseAddress(holderAddrStr)
-	candAddr, _ := meter.ParseAddress(candAddrStr)
-	version := uint32(0)
-	candName := []byte("tester")
-	candPubKey := []byte("")
-	candIP := []byte("1.2.3.4")
-	candPort := uint16(8669)
-	stakingID := meter.MustParseBytes32(bucketIDString)
-	option := uint32(2)
-
-	/******
-	var amount *big.Int
-	var ok bool
-	if opCode == staking.OP_CANDIDATE {
-		amount, ok = new(big.Int).SetString(CANDIDATE_AMOUNT, 10)
-		fmt.Println("OK?", ok)
-	} else {
-		amount = big.NewInt(int64(amountInt64))
-	}
-	*******/
-	amount := big.NewInt(int64(amountInt64))
-
-	body := staking.StakingBody{
-		Opcode:     opCode,
-		Option:     option,
-		Version:    version,
-		HolderAddr: holderAddr,
-		CandAddr:   candAddr,
-		CandName:   candName,
-		CandPubKey: candPubKey,
-		CandIP:     candIP,
-		CandPort:   candPort,
-		StakingID:  stakingID,
-		Amount:     *amount,
-		Token:      staking.TOKEN_METER,
-		Timestamp:  uint64(time.Now().Unix()),
-		Nonce:      uint64(4), //rand.Uint64(),
-	}
-	payload, err := rlp.EncodeToBytes(body)
-	if err != nil {
-		return "", err
-	}
-	// fmt.Println("Payload Bytes: ", payload)
-	fmt.Println("Payload Hex: ", hex.EncodeToString(payload))
-	s := &script.Script{
-		Header: script.ScriptHeader{
-			Version: version,
-			ModID:   script.STAKING_MODULE_ID,
-		},
-		Payload: payload,
-	}
-	data, err := rlp.EncodeToBytes(s)
-	if err != nil {
-		return "", err
-	}
-	data = append(script.ScriptPattern[:], data...)
-	// fmt.Println("Script Data Bytes: ", data)
-	prefix := []byte{0xff, 0xff, 0xff, 0xff}
-	data = append(prefix, data...)
-	return hex.EncodeToString(data), nil
-}
-func TestScriptDataForBound(t *testing.T) {
-	hexData, err := generateScriptData(staking.OP_BOUND, HOLDER_ADDRESS, CANDIDATE_ADDRESS, 4e18)
-	if err != nil {
-		t.Fail()
-	}
-	fmt.Println("Script Data Hex for Bound: ", hexData)
-}
-
-func TestScriptDataForUnbound(t *testing.T) {
-	hexData, err := generateScriptData(staking.OP_UNBOUND, HOLDER_ADDRESS, CANDIDATE_ADDRESS, 1e18)
-	if err != nil {
-		t.Fail()
-	}
-	fmt.Println("Script Data Hex for Unbound: ", hexData)
-}
-
-func TestScriptDataForCandidate(t *testing.T) {
-	hexData, err := generateScriptData(staking.OP_CANDIDATE, HOLDER_ADDRESS, CANDIDATE_ADDRESS, 2e18)
-	if err != nil {
-		t.Fail()
-	}
-	fmt.Println("Script Data Hex for Candidate: ", hexData)
-}
-
-func TestScriptDataForUnCandidate(t *testing.T) {
-	hexData, err := generateScriptData(staking.OP_UNCANDIDATE, HOLDER_ADDRESS, CANDIDATE_ADDRESS, 2e18)
-	if err != nil {
-		t.Fail()
-	}
-	fmt.Println("Script Data Hex for UnCandidate: ", hexData)
-}
-
-func TestScriptDataForDelegate(t *testing.T) {
-	hexData, err := generateScriptData(staking.OP_DELEGATE, HOLDER_ADDRESS, CANDIDATE_ADDRESS, 4e18)
-	if err != nil {
-		t.Fail()
-	}
-	fmt.Println("Script Data Hex for Delegate: ", hexData)
-}
-
-func TestScriptDataForUnDelegate(t *testing.T) {
-	hexData, err := generateScriptData(staking.OP_UNDELEGATE, HOLDER_ADDRESS, CANDIDATE_ADDRESS, 4e18)
-	if err != nil {
-		t.Fail()
-	}
-	fmt.Println("Script Data Hex for UnDelegate: ", hexData)
-}
-
 func TestCandidateList(t *testing.T) {
 	l1 := make([]staking.Candidate, 0)
 	l2 := staking.NewCandidateList(nil)
@@ -255,9 +137,9 @@ func TestCandidateList(t *testing.T) {
 	pubkey := []byte("")
 	ip := []byte("1.2.3.4")
 	port := uint16(8669)
-	c1 := staking.NewCandidate(addr1, []byte("name"), pubkey, ip, port)
-	c2 := staking.NewCandidate(addr2, []byte("name"), pubkey, ip, port)
-	c3 := staking.NewCandidate(addr1, []byte("name"), pubkey, ip, port)
+	c1 := staking.NewCandidate(addr1, []byte("name"), pubkey, ip, port, 0, 0)
+	c2 := staking.NewCandidate(addr2, []byte("name"), pubkey, ip, port, 0, 0)
+	c3 := staking.NewCandidate(addr1, []byte("name"), pubkey, ip, port, 0, 0)
 
 	l1 = append(l1, *c1)
 	l2.Add(c1)
