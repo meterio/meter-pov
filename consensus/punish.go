@@ -112,10 +112,8 @@ func (conR *ConsensusReactor) calcMissingLeader(validators []*types.Validator, a
 }
 
 func (conR *ConsensusReactor) calcMissingVoter(validators []*types.Validator, actualMembers []CommitteeMember, blocks []*block.Block) ([]*missingVoterInfo, error) {
-	var signer meter.Address
 	result := make([]*missingVoterInfo, 0)
 	for _, blk := range blocks {
-		signer, _ = blk.Header().Signer()
 		voterBitArray := blk.QC.VoterBitArray()
 		if voterBitArray == nil {
 			conR.logger.Debug("voterBitArray is nil")
