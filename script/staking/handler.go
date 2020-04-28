@@ -524,6 +524,7 @@ func (sb *StakingBody) GoverningHandler(senv *StakingEnviroment, gas uint64) (re
 	stakeholderList := staking.GetStakeHolderList(state)
 	delegateList := staking.GetDelegateList(state)
 	inJailList := staking.GetInJailList(state)
+	rewardList := staking.GetValidatorRewardList(state)
 
 	if gas < meter.ClauseGas {
 		leftOverGas = 0
@@ -539,11 +540,21 @@ func (sb *StakingBody) GoverningHandler(senv *StakingEnviroment, gas uint64) (re
 	}
 
 	// distribute rewarding before calculating new delegates
-	err = staking.DistValidatorRewards(sb.Amount, validators, delegateList, state)
+	sum, info, err := staking.DistValidatorRewards(sb.Amount, validators, delegateList, state)
 	if err != nil {
 		log.Error("Distribute validator rewards failed")
 		return
 	}
+	epoch := sb.Version //epoch is stored in sb.Version tempraroly
+
+	reward := &ValidatorReward{
+		Epoch:            epoch,
+		BaseReward:       meter.InitialValidatorBaseReward,
+		ExpectDistribute: sb.Amount,
+		ActualDistribute: sum,
+		Info:             info,
+	}
+	rewardList.rewards = append(rewardList.rewards, reward)
 
 	// start to calc next round delegates
 	ts := sb.Timestamp
@@ -672,6 +683,7 @@ func (sb *StakingBody) GoverningHandler(senv *StakingEnviroment, gas uint64) (re
 	staking.SetBucketList(bucketList, state)
 	staking.SetStakeHolderList(stakeholderList, state)
 	staking.SetDelegateList(delegateList, state)
+	staking.SetValidatorRewardList(rewardList, state)
 
 	log.Info("After Governing, new delegate list calculated", "members", delegateList.Members())
 	// fmt.Println(delegateList.ToString())

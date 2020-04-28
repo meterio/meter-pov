@@ -46,13 +46,14 @@ var (
 	KeyProposerEndorsement   = BytesToBytes32([]byte("proposer-endorsement"))
 	KeyPowPoolCoef           = BytesToBytes32([]byte("powpool-coef"))
 	KeyValidatorBenefitRatio = BytesToBytes32([]byte("validator-benefit-ratio"))
+	KeyValidatorBaseReward   = BytesToBytes32([]byte("validator-base-reward"))
 
 	InitialRewardRatio           = big.NewInt(3e17) // 30%
 	InitialBaseGasPrice          = big.NewInt(5e11) // each tx gas is about 0.01 meter
 	InitialProposerEndorsement   = new(big.Int).Mul(big.NewInt(1e18), big.NewInt(25000000))
-	InitialValidatorBenefitRatio = big.NewInt(4e17) //40% percent of total auciton gain
+	InitialValidatorBenefitRatio = big.NewInt(4e17)                                   //40% percent of total auciton gain
+	InitialValidatorBaseReward   = new(big.Int).Mul(big.NewInt(1e16), big.NewInt(25)) // base reward for each validator 0.25
 
 	// This account takes 40% of auction gain to distribute to validators in consensus
 	ValidatorBenefitAddr = BytesToAddress([]byte("validator-benefit-address"))
-	ValidatorBaseReward  = big.NewInt(2e18) // base reward for each validator
 )

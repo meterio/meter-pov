@@ -279,6 +279,7 @@ func (conR *ConsensusReactor) BuildGoverningData(delegateSize uint32) (ret []byt
 
 	body := &staking.StakingBody{
 		Opcode:    staking.OP_GOVERNING,
+		Version:   uint32(conR.curEpoch),
 		Option:    delegateSize,
 		Amount:    validatorRewards,
 		Timestamp: uint64(time.Now().Unix()),

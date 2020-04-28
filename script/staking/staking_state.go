@@ -13,13 +13,14 @@ import (
 
 // the global variables in staking
 var (
-	StakingModuleAddr  = meter.BytesToAddress([]byte("staking-module-address")) // 0x616B696e672D6D6F64756c652d61646472657373
-	DelegateListKey    = meter.Blake2b([]byte("delegate-list-key"))
-	CandidateListKey   = meter.Blake2b([]byte("candidate-list-key"))
-	StakeHolderListKey = meter.Blake2b([]byte("stake-holder-list-key"))
-	BucketListKey      = meter.Blake2b([]byte("global-bucket-list-key"))
-	StatisticsListKey  = meter.Blake2b([]byte("delegate-statistics-list-ley"))
-	InJailListKey      = meter.Blake2b([]byte("delegate-injail-list-key"))
+	StakingModuleAddr      = meter.BytesToAddress([]byte("staking-module-address")) // 0x616B696e672D6D6F64756c652d61646472657373
+	DelegateListKey        = meter.Blake2b([]byte("delegate-list-key"))
+	CandidateListKey       = meter.Blake2b([]byte("candidate-list-key"))
+	StakeHolderListKey     = meter.Blake2b([]byte("stake-holder-list-key"))
+	BucketListKey          = meter.Blake2b([]byte("global-bucket-list-key"))
+	StatisticsListKey      = meter.Blake2b([]byte("delegate-statistics-list-key"))
+	InJailListKey          = meter.Blake2b([]byte("delegate-injail-list-key"))
+	ValidatorRewardListKey = meter.Blake2b([]byte("validator-reward-list-key"))
 )
 
 // Candidate List
@@ -245,6 +246,35 @@ func (s *Staking) SetInJailList(list *DelegateInJailList, state *state.State) {
 	})
 }
 
+// validator reward list
+func (s *Staking) GetValidatorRewardList(state *state.State) (result *ValidatorRewardList) {
+	state.DecodeStorage(StakingModuleAddr, ValidatorRewardListKey, func(raw []byte) error {
+		// fmt.Println("Loaded Raw Hex: ", hex.EncodeToString(raw))
+		rewards := make([]*ValidatorReward, 0)
+		decoder := gob.NewDecoder(bytes.NewBuffer(raw))
+		err := decoder.Decode(&rewards)
+		result = NewValidatorRewardList(rewards)
+		if err != nil {
+			if err.Error() == "EOF" && len(raw) == 0 {
+				// empty raw, do nothing
+			} else {
+				log.Warn("Error during decoding validator reward list, set it as an empty list", "err", err)
+			}
+		}
+		return nil
+	})
+	return
+}
+
+func (s *Staking) SetValidatorRewardList(list *ValidatorRewardList, state *state.State) {
+	state.EncodeStorage(StakingModuleAddr, ValidatorRewardListKey, func() ([]byte, error) {
+		buf := bytes.NewBuffer([]byte{})
+		encoder := gob.NewEncoder(buf)
+		err := encoder.Encode(list.rewards)
+		return buf.Bytes(), err
+	})
+}
+
 //==================== bound/unbound account ===========================
 func (s *Staking) BoundAccountMeter(addr meter.Address, amount *big.Int, state *state.State) error {
 	if amount.Sign() == 0 {
@@ -362,7 +392,8 @@ func (s *Staking) TransferValidatorReward(amount *big.Int, addr meter.Address, s
 //2. get the propotion reward for each validator based on the votingpower
 //3. each validator takes commission first
 //4. finally, distributor takes their propotions of rest
-func (s *Staking) DistValidatorRewards(amount *big.Int, validators []*meter.Address, list *DelegateList, state *state.State) error {
+func (s *Staking) DistValidatorRewards(amount *big.Int, validators []*meter.Address, list *DelegateList, state *state.State) (*big.Int, []*RewardInfo, error) {
+	rewardMap := RewardInfoMap{}
 	delegatesMap := make(map[meter.Address]*Delegate)
 	for _, d := range list.delegates {
 		delegatesMap[d.Address] = d
@@ -374,7 +405,8 @@ func (s *Staking) DistValidatorRewards(amount *big.Int, validators []*meter.Addr
 	size := len(validators)
 
 	// distribute the base reward
-	baseRewards := new(big.Int).Mul(meter.ValidatorBaseReward, big.NewInt(int64(size)))
+	validatorBaseReward := meter.InitialValidatorBaseReward
+	baseRewards := new(big.Int).Mul(validatorBaseReward, big.NewInt(int64(size)))
 	if baseRewards.Cmp(amount) >= 0 {
 		baseRewards = amount
 		baseRewardsOnly = true
@@ -389,10 +421,12 @@ func (s *Staking) DistValidatorRewards(amount *big.Int, validators []*meter.Addr
 			continue
 		}
 		s.TransferValidatorReward(baseReward, delegate.Address, state)
+		rewardMap.Add(baseReward, delegate.Address)
 	}
 	if baseRewardsOnly == true {
 		// only cover validator base rewards
-		return nil
+		sum, rinfo := rewardMap.ToList()
+		return sum, rinfo, nil
 	}
 
 	// distributes the remaining
@@ -423,6 +457,8 @@ func (s *Staking) DistValidatorRewards(amount *big.Int, validators []*meter.Addr
 		commission = commission.Mul(eachReward, big.NewInt(int64(delegate.Commission)))
 		commission = commission.Div(commission, big.NewInt(1e09))
 		s.TransferValidatorReward(commission, delegate.Address, state)
+		rewardMap.Add(commission, delegate.Address)
+
 		actualReward := new(big.Int).Sub(eachReward, commission)
 
 		// now distributes actualReward to each distributor
@@ -435,9 +471,11 @@ func (s *Staking) DistValidatorRewards(amount *big.Int, validators []*meter.Addr
 				distReward = new(big.Int).Mul(actualReward, big.NewInt(int64(dist.Shares)))
 				distReward = distReward.Div(distReward, big.NewInt(1e09))
 				s.TransferValidatorReward(distReward, dist.Address, state)
+				rewardMap.Add(distReward, dist.Address)
 			}
 		}
 	}
 	log.Info("distriubted validators rewards", "total", amount.Uint64())
-	return nil
+	sum, rinfo := rewardMap.ToList()
+	return sum, rinfo, nil
 }
