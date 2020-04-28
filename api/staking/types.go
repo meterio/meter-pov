@@ -2,11 +2,9 @@ package staking
 
 import (
 	"bytes"
+	"fmt"
 	"math/big"
 	"sort"
-
-	//"encoding/hex"
-	"fmt"
 	"time"
 
 	"github.com/dfinlab/meter/meter"
@@ -171,20 +169,6 @@ func convertDelegate(d staking.Delegate) *Delegate {
 	}
 }
 
-/********
-type RewardInfo struct {
-	Address meter.Address
-	Amount  *big.Int
-}
-
-type ValidatorReward struct {
-	Epoch            uint32
-	TotalBaseRewards *big.Int
-	ExpectDistribute *big.Int
-	ActualDistribute *big.Int
-	Info             []*RewardInfo
-}
-***/
 type RewardInfo struct {
 	Address meter.Address `json:"address"`
 	Amount  uint64        `json:"amount"`
