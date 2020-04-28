@@ -15,6 +15,19 @@ const (
 	OP_BID   = uint32(3)
 )
 
+func GetOpName(op uint32) string {
+	switch op {
+	case OP_START:
+		return "Start"
+	case OP_BID:
+		return "Bid"
+	case OP_STOP:
+		return "Stop"
+	default:
+		return "Unknown"
+	}
+}
+
 var (
 	MinimumBidAmount     = big.NewInt(1).Mul(big.NewInt(10), big.NewInt(1e18))
 	AuctionReservedPrice = big.NewInt(5e17) // at least  1 MTRG settle down 0.5 MTR

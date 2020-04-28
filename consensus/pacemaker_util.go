@@ -1,6 +1,7 @@
 package consensus
 
 import (
+	sha256 "crypto/sha256"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -89,7 +90,7 @@ func (p *Pacemaker) receivePacemakerMsg(w http.ResponseWriter, r *http.Request) 
 	if fromMyself {
 		peerName = peerName + "(myself)"
 	}
-	p.logger.Info(fmt.Sprintf("Recv: %s", msg.String()), "peer", peerName, "ip", peer.netAddr.IP.String(), "msgHash", mi.MsgHashHex())
+	p.logger.Info(fmt.Sprintf(">>Recv %s", msg.String()), "peer", peerName, "ip", peer.netAddr.IP.String(), "msgHash", mi.MsgHashHex())
 
 	p.pacemakerMsgCh <- *mi
 
@@ -308,10 +309,19 @@ func (p *Pacemaker) asyncSendPacemakerMsg(msg ConsensusMessage, relay bool, peer
 		return false
 	}
 	msgSummary := msg.String()
+	typeName := getConcreteName(msg)
 
+	msgHash := sha256.Sum256(data)
+	msgHashHex := hex.EncodeToString(msgHash[:])[:MsgHashSize]
 	// broadcast consensus message to peers
+	info := "Send>>"
+	if relay {
+		info = "Relay>>"
+	}
+
+	p.logger.Info(fmt.Sprintf("%s %s", info, msgSummary), "size", len(data), "msgHash", msgHashHex)
 	for _, peer := range peers {
-		go peer.sendPacemakerMsg(data, msgSummary, relay)
+		go peer.sendPacemakerMsg(data, fmt.Sprintf("%s [%s msgHash=%s]", info, typeName, msgHashHex), relay)
 	}
 	return true
 }

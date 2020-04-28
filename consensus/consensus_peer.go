@@ -2,8 +2,6 @@ package consensus
 
 import (
 	"bytes"
-	sha256 "crypto/sha256"
-	"encoding/hex"
 	"fmt"
 	"net"
 	"net/http"
@@ -38,13 +36,8 @@ func (peer *ConsensusPeer) sendPacemakerMsg(rawData []byte, msgSummary string, r
 	var netClient = &http.Client{
 		Timeout: time.Second * 4, // 2
 	}
-	msgHash := sha256.Sum256(rawData)
-	msgHashHex := hex.EncodeToString(msgHash[:])[:MsgHashSize]
-	if relay {
-		peer.logger.Info(fmt.Sprintf("Relay: %s", msgSummary), "size", len(rawData), "msgHash", msgHashHex)
-	} else {
-		peer.logger.Info(fmt.Sprintf("Send: %s", msgSummary), "size", len(rawData), "msgHash", msgHashHex)
-	}
+
+	peer.logger.Info(msgSummary, "size", len(rawData))
 
 	url := "http://" + peer.netAddr.IP.String() + ":8670/pacemaker"
 	_, err := netClient.Post(url, "application/json", bytes.NewBuffer(rawData))
@@ -59,13 +52,8 @@ func (peer *ConsensusPeer) sendCommitteeMsg(rawData []byte, msgSummary string, r
 	var netClient = &http.Client{
 		Timeout: time.Second * 4,
 	}
-	msgHash := sha256.Sum256(rawData)
-	msgHashHex := hex.EncodeToString(msgHash[:])[:MsgHashSize]
-	if relay {
-		peer.logger.Info(fmt.Sprintf("Relay: %s", msgSummary), "size", len(rawData), "msgHash", msgHashHex)
-	} else {
-		peer.logger.Info(fmt.Sprintf("Send: %s", msgSummary), "size", len(rawData), "msgHash", msgHashHex)
-	}
+
+	peer.logger.Info(msgSummary, "size", len(rawData))
 	url := "http://" + peer.netAddr.IP.String() + ":8670/committee"
 	_, err := netClient.Post(url, "application/json", bytes.NewBuffer(rawData))
 	if err != nil {

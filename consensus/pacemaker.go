@@ -447,9 +447,16 @@ func (p *Pacemaker) OnPropose(b *pmBlock, qc *pmQuorumCert, height, round uint32
 	// p.voterBitArray = cmn.NewBitArray(p.csReactor.committeeSize)
 	// p.voteSigs = make([]*PMSignature, 0)
 	bnew := p.CreateLeaf(b, qc, height, round)
-	if bnew.Height != height {
-		p.logger.Error("proposed height mismatch", "expectedHeight", height, "proposedHeight", bnew.Height)
+	proposedBlk := bnew.ProposedBlockInfo.ProposedBlock
+	proposedQC := bnew.ProposedBlockInfo.ProposedBlock.QC
+	if bnew.Height != height || height != proposedBlk.Header().Number() {
+		p.logger.Error("proposed height mismatch", "expectedHeight", height, "proposedHeight", bnew.Height, "proposedBlockHeight", proposedBlk.Header().Number())
 		return nil, errors.New("proposed height mismatch")
+	}
+
+	if bnew.Height <= proposedQC.QCHeight || proposedBlk.Header().Number() <= proposedQC.QCHeight {
+		p.logger.Error("proposed block refers to an invalid qc", "qcHeight", proposedQC.QCHeight, "proposedHeight", bnew.Height, "proposedBlockHeight", proposedBlk.Header().Number(), "expectedHeight", height)
+		return nil, errors.New("proposed block referes to an invalid qc")
 	}
 
 	msg, err := p.BuildProposalMessage(height, round, bnew, p.timeoutCert)

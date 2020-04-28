@@ -813,7 +813,7 @@ func (conR *ConsensusReactor) receiveCommitteeMsg(w http.ResponseWriter, r *http
 		return
 	}
 
-	conR.logger.Info(fmt.Sprintf("Recv: %s", msg.String()), "peer", peerName, "ip", peerIP, "msgHash", mi.MsgHashHex())
+	conR.logger.Info(fmt.Sprintf(">>Recv %s", msg.String()), "peer", peerName, "ip", peerIP, "msgHash", mi.MsgHashHex())
 
 	conR.peerMsgQueue <- *mi
 	// respondWithJson(w, http.StatusOK, map[string]string{"result": "success"})
@@ -944,8 +944,18 @@ func (conR *ConsensusReactor) asyncSendCommitteeMsg(msg *ConsensusMessage, relay
 		return false
 	}
 	msgSummary := (*msg).String()
+	typeName := getConcreteName(*msg)
+
+	msgHash := sha256.Sum256(data)
+	msgHashHex := hex.EncodeToString(msgHash[:])[:MsgHashSize]
+
+	info := "Send>>"
+	if relay {
+		info = "Relay>>"
+	}
+	conR.logger.Info(fmt.Sprintf("%s %s", info, msgSummary), "msgHash", msgHashHex)
 	for _, peer := range peers {
-		go peer.sendCommitteeMsg(data, msgSummary, relay)
+		go peer.sendCommitteeMsg(data, fmt.Sprintf("%s [%s msgHash=%s]", info, typeName, msgHashHex), relay)
 	}
 
 	//wg.Wait()
