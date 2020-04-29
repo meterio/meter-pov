@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/gob"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"math/big"
 
@@ -95,17 +96,19 @@ func (a *Auction) SetSummaryList(summaryList *AuctionSummaryList, state *state.S
 }
 
 //==================== account openation===========================
+// from addr == > AuctionAccountAddr
 func (a *Auction) TransferMTRToAuction(addr meter.Address, amount *big.Int, state *state.State) error {
 	if amount.Sign() == 0 {
 		return nil
 	}
-	var balance *big.Int
 
-	balance = state.GetEnergy(addr)
-	state.SetEnergy(meter.Address(addr), new(big.Int).Sub(balance, amount))
+	meterBalance := state.GetEnergy(addr)
+	if meterBalance.Cmp(amount) < 0 {
+		return errors.New("not enough meter")
+	}
 
-	balance = state.GetEnergy(AuctionAccountAddr)
-	state.SetEnergy(AuctionAccountAddr, new(big.Int).Add(balance, amount))
+	state.AddEnergy(AuctionAccountAddr, amount)
+	state.SubEnergy(addr, amount)
 	return nil
 }
 
@@ -116,6 +119,22 @@ func (a *Auction) SendMTRGToBidder(addr meter.Address, amount *big.Int, stateDB 
 
 	// in auction, MeterGov is mint action.
 	stateDB.MintBalance(common.Address(addr), amount)
+	return nil
+}
+
+// form AuctionAccountAddr ==> meter.ValidatorBenefitAddr
+func (a *Auction) TransferMTRToValidatorBenefit(amount *big.Int, state *state.State) error {
+	if amount.Sign() == 0 {
+		return nil
+	}
+
+	meterBalance := state.GetEnergy(AuctionAccountAddr)
+	if meterBalance.Cmp(amount) < 0 {
+		return errors.New("not enough meter")
+	}
+
+	state.AddEnergy(meter.ValidatorBenefitAddr, amount)
+	state.SubEnergy(AuctionAccountAddr, amount)
 	return nil
 }
 
@@ -142,6 +161,11 @@ func (a *Auction) ClearAuction(cb *AuctionCB, state *state.State) (*big.Int, *bi
 	leftOver = leftOver.Sub(cb.RlsdMTRG, total)
 	a.SendMTRGToBidder(AuctionAccountAddr, leftOver, stateDB)
 
-	a.logger.Info("finished auctionCB clear...", "actualPrice", actualPrice.Uint64(), "leftOver", leftOver.Uint64())
+	// 40% of received meter to AuctionValidatorBenefitAddr
+	amount := new(big.Int).Mul(cb.RcvdMTR, ValidatorBenefitRatio)
+	amount = amount.Div(amount, big.NewInt(1e18))
+	a.TransferMTRToValidatorBenefit(amount, state)
+
+	a.logger.Info("finished auctionCB clear...", "actualPrice", actualPrice.Uint64(), "leftOver", leftOver.Uint64(), "validatorBenefit", amount.Uint64())
 	return actualPrice, leftOver, nil
 }

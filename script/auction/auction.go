@@ -16,6 +16,8 @@ const (
 )
 
 var (
+	ValidatorBenefitRatio = meter.InitialValidatorBenefitRatio
+
 	AuctionGlobInst *Auction
 	log             = log15.New("pkg", "auction")
 )

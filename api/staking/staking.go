@@ -96,6 +96,15 @@ func (st *Staking) handleGetDelegateList(w http.ResponseWriter, req *http.Reques
 	return utils.WriteJSON(w, delegateList)
 }
 
+func (st *Staking) handleGetValidatorRewardList(w http.ResponseWriter, req *http.Request) error {
+	list, err := staking.GetLatestValidatorRewardList()
+	if err != nil {
+		return err
+	}
+	validatorRewardList := convertValidatorRewardList(list)
+	return utils.WriteJSON(w, validatorRewardList)
+}
+
 func (st *Staking) Mount(root *mux.Router, pathPrefix string) {
 	sub := root.PathPrefix(pathPrefix).Subrouter()
 	sub.Path("/candidates").Methods("Get").HandlerFunc(utils.WrapHandlerFunc(st.handleGetCandidateList))
@@ -105,4 +114,5 @@ func (st *Staking) Mount(root *mux.Router, pathPrefix string) {
 	sub.Path("/stakeholders").Methods("Get").HandlerFunc(utils.WrapHandlerFunc(st.handleGetStakeholderList))
 	sub.Path("/stakeholders/{address}").Methods("Get").HandlerFunc(utils.WrapHandlerFunc(st.handleGetStakeholderByAddress))
 	sub.Path("/delegates").Methods("Get").HandlerFunc(utils.WrapHandlerFunc(st.handleGetDelegateList))
+	sub.Path("/validator-rewards").Methods("Get").HandlerFunc(utils.WrapHandlerFunc(st.handleGetValidatorRewardList))
 }

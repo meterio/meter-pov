@@ -667,16 +667,22 @@ func (conR *ConsensusReactor) BuildKBlock(parentBlock *block.Block, data *block.
 	// build miner meter reward
 	txs := conR.GetKBlockRewardTxs(rewards)
 	lastKBlockHeight := parentBlock.Header().LastKBlockHeight()
+
 	stats, err := conR.calcStatistics(lastKBlockHeight, parentBlock.Header().Number())
 	if err != nil {
 		// TODO: do something about this
 		conR.logger.Info("no slash statistics need to info", "error", err)
-	} else {
+	}
+	if len(stats) != 0 {
 		statsTx := conR.BuildStatisticsTx(stats)
 		txs = append(txs, statsTx)
 	}
 
 	if tx := conR.TryBuildAuctionTxs(uint64(best.Header().Number()+1), uint64(best.GetBlockEpoch()+1)); tx != nil {
+		txs = append(txs, tx)
+	}
+
+	if tx := conR.TryBuildStakingGoverningTx(); tx != nil {
 		txs = append(txs, tx)
 	}
 

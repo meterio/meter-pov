@@ -40,15 +40,20 @@ const (
 
 // Keys of governance params.
 var (
-	KeyExecutorAddress     = BytesToBytes32([]byte("executor"))
-	KeyRewardRatio         = BytesToBytes32([]byte("reward-ratio"))
-	KeyBaseGasPrice        = BytesToBytes32([]byte("base-gas-price"))
-	KeyProposerEndorsement = BytesToBytes32([]byte("proposer-endorsement"))
-	KeyPowPoolCoef         = BytesToBytes32([]byte("powpool-coef"))
+	KeyExecutorAddress       = BytesToBytes32([]byte("executor"))
+	KeyRewardRatio           = BytesToBytes32([]byte("reward-ratio"))
+	KeyBaseGasPrice          = BytesToBytes32([]byte("base-gas-price"))
+	KeyProposerEndorsement   = BytesToBytes32([]byte("proposer-endorsement"))
+	KeyPowPoolCoef           = BytesToBytes32([]byte("powpool-coef"))
+	KeyValidatorBenefitRatio = BytesToBytes32([]byte("validator-benefit-ratio"))
+	KeyValidatorBaseReward   = BytesToBytes32([]byte("validator-base-reward"))
 
-	InitialRewardRatio         = big.NewInt(3e17) // 30%
-	InitialBaseGasPrice        = big.NewInt(5e11) // each tx gas is about 0.01 meter
-	InitialProposerEndorsement = new(big.Int).Mul(big.NewInt(1e18), big.NewInt(25000000))
+	InitialRewardRatio           = big.NewInt(3e17) // 30%
+	InitialBaseGasPrice          = big.NewInt(5e11) // each tx gas is about 0.01 meter
+	InitialProposerEndorsement   = new(big.Int).Mul(big.NewInt(1e18), big.NewInt(25000000))
+	InitialValidatorBenefitRatio = big.NewInt(4e17)                                   //40% percent of total auciton gain
+	InitialValidatorBaseReward   = new(big.Int).Mul(big.NewInt(1e16), big.NewInt(25)) // base reward for each validator 0.25
 
-	//EnergyGrowthRate = big.NewInt(5000000000) // WEI THOR per token(VET) per second. about 0.000432 THOR per token per day.
+	// This account takes 40% of auction gain to distribute to validators in consensus
+	ValidatorBenefitAddr = BytesToAddress([]byte("validator-benefit-address"))
 )

@@ -25,38 +25,36 @@ import (
 	"github.com/ethereum/go-ethereum/rlp"
 )
 
+type missingLeaderInfo struct {
+	Address meter.Address
+	Info    staking.MissingLeaderInfo
+}
+type missingProposerInfo struct {
+	Address meter.Address
+	Info    staking.MissingProposerInfo
+}
+type missingVoterInfo struct {
+	Address meter.Address
+	Info    staking.MissingVoterInfo
+}
+type doubleSignerInfo struct {
+	Address meter.Address
+	Info    staking.DoubleSignerInfo
+}
+
 type StatEntry struct {
 	Address    meter.Address
 	Name       string
 	PubKey     string
-	Infraction *staking.Infraction
+	Infraction staking.Infraction
 }
 
 func (e StatEntry) String() string {
 	return fmt.Sprintf("%s %s %s %s", e.Address.String(), e.Name, e.PubKey, e.Infraction.String())
 }
 
-// deprecated: now it should be all zeros
-func calcMissingCommittee(validators []*types.Validator, actualMembers []CommitteeMember) ([]meter.Address, error) {
-	result := make([]meter.Address, 0)
-
-	/****
-	ins := make(map[ecdsa.PublicKey]bool)
-	for _, m := range actualMembers {
-		ins[m.PubKey] = true
-	}
-
-	for _, v := range validators {
-		if _, joined := ins[v.PubKey]; !joined {
-			result = append(result, v.Address)
-		}
-	}
-	****/
-	return result, nil
-}
-
-func calcMissingProposer(validators []*types.Validator, actualMembers []CommitteeMember, blocks []*block.Block) ([]meter.Address, error) {
-	result := make([]meter.Address, 0)
+func (conR *ConsensusReactor) calcMissingProposer(validators []*types.Validator, actualMembers []CommitteeMember, blocks []*block.Block) ([]*missingProposerInfo, error) {
+	result := make([]*missingProposerInfo, 0)
 	index := 0
 	origIndex := 0
 	for _, blk := range blocks {
@@ -72,8 +70,15 @@ func calcMissingProposer(validators []*types.Validator, actualMembers []Committe
 			if bytes.Compare(actualSigner.Bytes(), expectedSigner.Bytes()) == 0 {
 				break
 			}
-			result = append(result, validators[actualMembers[index%len(actualMembers)].CSIndex].Address)
-			fmt.Println("missingPropopser", "height", blk.Header().Number(), "expectedSigner", expectedSigner, "actualSigner", actualSigner)
+			info := &missingProposerInfo{
+				Address: validators[actualMembers[index%len(actualMembers)].CSIndex].Address,
+				Info: staking.MissingProposerInfo{
+					Epoch:  uint32(conR.curEpoch),
+					Height: blk.Header().Number(),
+				},
+			}
+			result = append(result, info)
+			conR.logger.Debug("missingPropopser", "height", info.Info.Height, "expectedSigner", expectedSigner, "actualSigner", actualSigner)
 			index++
 			// prevent the deadlock if actual proposer does not exist in actual committee
 			if index-origIndex >= len(actualMembers) {
@@ -86,42 +91,66 @@ func calcMissingProposer(validators []*types.Validator, actualMembers []Committe
 	return result, nil
 }
 
-func calcMissingLeader(validators []*types.Validator, actualMembers []CommitteeMember) ([]meter.Address, error) {
-	result := make([]meter.Address, 0)
+func (conR *ConsensusReactor) calcMissingLeader(validators []*types.Validator, actualMembers []CommitteeMember) ([]*missingLeaderInfo, error) {
+	result := make([]*missingLeaderInfo, 0)
 
 	actualLeader := actualMembers[0]
 	index := 0
 	for index < actualLeader.CSIndex {
-		result = append(result, validators[index].Address)
-		fmt.Println("missingLeader", "address", validators[index].Address)
+		info := &missingLeaderInfo{
+			Address: validators[index].Address,
+			Info: staking.MissingLeaderInfo{
+				Epoch: uint32(conR.curEpoch),
+				Round: uint32(index),
+			},
+		}
+		result = append(result, info)
+		conR.logger.Debug("missingLeader", "address", info.Address, "epoch", info.Info.Epoch)
 		index++
 	}
 	return result, nil
 }
 
-func calcMissingVoter(validators []*types.Validator, actualMembers []CommitteeMember, blocks []*block.Block) ([]meter.Address, error) {
-	result := make([]meter.Address, 0)
-	for _, blk := range blocks {
+func (conR *ConsensusReactor) calcMissingVoter(validators []*types.Validator, actualMembers []CommitteeMember, blocks []*block.Block) ([]*missingVoterInfo, error) {
+	result := make([]*missingVoterInfo, 0)
+
+	for i, blk := range blocks {
+		// the 1st block is first mblock, QC is for last kblock. ignore
+		if i == 0 {
+			continue
+		}
+
 		voterBitArray := blk.QC.VoterBitArray()
+		if voterBitArray == nil {
+			conR.logger.Warn("voterBitArray is nil")
+		}
 		for _, member := range actualMembers {
 			if voterBitArray.GetIndex(member.CSIndex) == false {
-				result = append(result, validators[member.CSIndex].Address)
-				fmt.Println("missingVoter", "height", blk.Header().Number(), "address", validators[member.CSIndex].Address)
+				info := &missingVoterInfo{
+					Address: validators[member.CSIndex].Address,
+					Info: staking.MissingVoterInfo{
+						Epoch:  uint32(blk.QC.EpochID),
+						Height: blk.QC.QCHeight,
+					},
+				}
+				result = append(result, info)
+				conR.logger.Debug("calc missingVoter", "height", info.Info.Height, "address", info.Address)
 			}
 		}
 	}
 
+	conR.logger.Debug("calcMissingVoter", "result", result)
 	return result, nil
 }
 
-func calcDoubleSigner(common *ConsensusCommon, blocks []*block.Block) ([]meter.Address, error) {
-	result := make([]meter.Address, 0)
+func (conR *ConsensusReactor) calcDoubleSigner(common *ConsensusCommon, blocks []*block.Block) ([]*doubleSignerInfo, error) {
+	result := make([]*doubleSignerInfo, 0)
 	if len(blocks) < 1 {
-		return make([]meter.Address, 0), errors.New("could not find committee info")
+		return make([]*doubleSignerInfo, 0), errors.New("could not find committee info")
 	}
 	committeeInfo := blocks[0].CommitteeInfos.CommitteeInfo
 	if len(committeeInfo) <= 0 {
-		return make([]meter.Address, 0), errors.New("could not find committee info")
+		return make([]*doubleSignerInfo, 0), errors.New("could not find committee info")
 	}
 	for _, blk := range blocks {
 		violations := blk.QC.GetViolation()
@@ -144,8 +173,15 @@ func calcDoubleSigner(common *ConsensusCommon, blocks []*block.Block) ([]meter.A
 				bls.Verify(sig1, v.MsgHash, blsPK)
 				bls.Verify(sig2, v.MsgHash, blsPK)
 
-				result = append(result, v.Address)
-				fmt.Println("doubleSigner", "height", blk.Header().Number(), "signature1", sig1, "signature2", sig2)
+				info := &doubleSignerInfo{
+					Address: v.Address,
+					Info: staking.DoubleSignerInfo{
+						Epoch:  uint32(conR.curEpoch),
+						Height: blk.Header().Number(),
+					},
+				}
+				result = append(result, info)
+				conR.logger.Debug("doubleSigner", "height", info.Info.Height, "signature1", sig1, "signature2", sig2)
 			}
 		}
 	}
@@ -167,31 +203,22 @@ func (conR *ConsensusReactor) calcStatistics(lastKBlockHeight, height uint32) ([
 	stats := make(map[meter.Address]*StatEntry)
 	for _, v := range conR.curCommittee.Validators {
 		stats[v.Address] = &StatEntry{
-			Address:    v.Address,
-			PubKey:     hex.EncodeToString(crypto.FromECDSAPub(&v.PubKey)),
-			Name:       v.Name,
-			Infraction: &staking.Infraction{0, 0, 0, 0, 0},
+			Address: v.Address,
+			PubKey:  hex.EncodeToString(crypto.FromECDSAPub(&v.PubKey)),
+			Name:    v.Name,
 		}
 	}
 
-	// calculate missing committee infraction
-	missedCommittee, err := calcMissingCommittee(conR.curCommittee.Validators, conR.curActualCommittee)
-	if err != nil {
-		conR.logger.Warn("Error during missing committee calculation", "err", err)
-	}
-	for _, addr := range missedCommittee {
-		inf := stats[addr].Infraction
-		inf.MissingCommittee++
-	}
-
 	// calculate missing leader
-	missedLeader, err := calcMissingLeader(conR.curCommittee.Validators, conR.curActualCommittee)
+	missedLeader, err := conR.calcMissingLeader(conR.curCommittee.Validators, conR.curActualCommittee)
 	if err != nil {
 		conR.logger.Warn("Error during missing leader calculation:", "err", err)
 	}
-	for _, addr := range missedLeader {
-		inf := stats[addr].Infraction
-		inf.MissingLeader++
+	for _, m := range missedLeader {
+		inf := &stats[m.Address].Infraction
+		inf.MissingLeaders.Counter++
+		minfo := &m.Info
+		inf.MissingLeaders.Info = append(inf.MissingLeaders.Info, minfo)
 	}
 
 	// fetch all the blocks
@@ -210,51 +237,61 @@ func (conR *ConsensusReactor) calcStatistics(lastKBlockHeight, height uint32) ([
 	// the last 2 blocks from pacemaker's proposalMap
 
 	// calculate missing proposer
-	missedProposer, err := calcMissingProposer(conR.curCommittee.Validators, conR.curActualCommittee, blocks)
+	missedProposer, err := conR.calcMissingProposer(conR.curCommittee.Validators, conR.curActualCommittee, blocks)
 	if err != nil {
 		conR.logger.Warn("Error during missing proposer calculation:", "err", err)
 	}
-	for _, addr := range missedProposer {
-		inf := stats[addr].Infraction
-		inf.MissingProposer++
+	for _, m := range missedProposer {
+		inf := &stats[m.Address].Infraction
+		inf.MissingProposers.Counter++
+		minfo := &m.Info
+		inf.MissingProposers.Info = append(inf.MissingProposers.Info, minfo)
 	}
 
 	// calculate missing voter
-	missedVoter, err := calcMissingVoter(conR.curCommittee.Validators, conR.curActualCommittee, blocks)
+	missedVoter, err := conR.calcMissingVoter(conR.curCommittee.Validators, conR.curActualCommittee, blocks)
 	if err != nil {
 		conR.logger.Warn("Error during missing voter calculation", "err", err)
 	} else {
-		for _, addr := range missedVoter {
-			inf := stats[addr].Infraction
-			inf.MissingVoter++
+		for _, m := range missedVoter {
+			inf := &stats[m.Address].Infraction
+			inf.MissingVoters.Counter++
+			minfo := &m.Info
+			inf.MissingVoters.Info = append(inf.MissingVoters.Info, minfo)
 		}
 	}
 
-	doubleSigner, err := calcDoubleSigner(conR.csCommon, blocks)
+	doubleSigner, err := conR.calcDoubleSigner(conR.csCommon, blocks)
 	if err != nil {
 		conR.logger.Warn("Error during missing voter calculation", "err", err)
 	} else {
-		for _, addr := range doubleSigner {
-			inf := stats[addr].Infraction
-			inf.DoubleSigner++
+		for _, m := range doubleSigner {
+			inf := &stats[m.Address].Infraction
+			inf.DoubleSigners.Counter++
+			minfo := &m.Info
+			inf.DoubleSigners.Info = append(inf.DoubleSigners.Info, minfo)
 		}
 	}
 
 	for signer := range stats {
-		inf := stats[signer].Infraction
+		inf := &stats[signer].Infraction
 		// remove non-changed entries
-		if (inf.MissingCommittee == 0) && (inf.MissingLeader == 0) && (inf.MissingProposer == 0) &&
-			(inf.MissingVoter == 0) && (inf.DoubleSigner == 0) {
+		if (inf.MissingLeaders.Counter == 0) && (inf.MissingProposers.Counter == 0) &&
+			(inf.MissingVoters.Counter == 0) && (inf.DoubleSigners.Counter == 0) {
 			continue
 		}
 		result = append(result, stats[signer])
 	}
-	fmt.Println("Statistics Results", result)
+	conR.logger.Info("calc statistics results", "result", result)
 	return result, nil
 }
 
-func buildStatisticsData(entry *StatEntry) (ret []byte) {
-	stakingID := staking.PackCountersToBytes(entry.Infraction)
+func (conR *ConsensusReactor) buildStatisticsData(entry *StatEntry) (ret []byte) {
+	extra, err := staking.PackInfractionToBytes(&entry.Infraction)
+	if err != nil {
+		conR.logger.Error("packing infraction failed", "error", err.Error())
+		return
+	}
 	body := &staking.StakingBody{
 		Opcode:     staking.OP_DELEGATE_STATISTICS,
 		Option:     0,
@@ -263,10 +300,11 @@ func buildStatisticsData(entry *StatEntry) (ret []byte) {
 		CandAddr:   entry.Address,
 		CandName:   []byte(entry.Name),
 		CandPubKey: []byte(entry.PubKey),
-		StakingID:  *stakingID,
+		ExtraData:  extra,
 	}
 	payload, err := rlp.EncodeToBytes(body)
 	if err != nil {
+		conR.logger.Error("encode stakingBody failed", "error", err.Error())
 		return
 	}
 
@@ -306,7 +344,7 @@ func (conR *ConsensusReactor) BuildStatisticsTx(entries []*StatEntry) *tx.Transa
 
 	//now build Clauses
 	for _, entry := range entries {
-		data := buildStatisticsData(entry)
+		data := conR.buildStatisticsData(entry)
 		builder.Clause(
 			tx.NewClause(&staking.StakingModuleAddr).
 				WithValue(big.NewInt(0)).

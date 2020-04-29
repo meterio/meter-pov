@@ -1365,7 +1365,7 @@ func (conR *ConsensusReactor) ConsensusHandleReceivedNonce(kBlockHeight uint32, 
 		conR.updateCurEpoch(epoch)
 
 		conR.exitConsensusLeader(conR.curEpoch)
-		conR.enterConsensusLeader(conR.curEpoch + 1)
+		conR.enterConsensusLeader(conR.curEpoch)
 
 		// no replay case, the last block must be kblock!
 		if replay == false && conR.curHeight != kBlockHeight {
