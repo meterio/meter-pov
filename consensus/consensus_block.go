@@ -371,11 +371,8 @@ func (c *ConsensusReactor) verifyBlock(blk *block.Block, state *state.State) (*s
 		}
 		return true, meta.Reverted, nil
 	}
-	print := false
-	if blk.Header().Number() == 10271 {
-		print = true
-	}
-	for i, tx := range txs {
+
+	for _, tx := range txs {
 		// Mint transaction critiers:
 		// 1. no signature (no signer)
 		// 2. only located in 1st transaction in kblock.
@@ -416,19 +413,6 @@ func (c *ConsensusReactor) verifyBlock(blk *block.Block, state *state.State) (*s
 		receipt, err := rt.ExecuteTransaction(tx)
 		if err != nil {
 			return nil, nil, err
-		}
-
-		if print {
-			fmt.Println("XXXXXXXXXXXXXXXXXXXX")
-			fmt.Println(fmt.Sprintf("After %v tx", i+1))
-			fmt.Println("receiptRoot = ", receipts.RootHash())
-			h, e := state.Stage().Hash()
-			if e != nil {
-				fmt.Println("Error getting stateRoot")
-			} else {
-				fmt.Println("stateRoot = ", h)
-			}
-			fmt.Println("XXXXXXXXXXXXXXXXXXX")
 		}
 
 		totalGasUsed += receipt.GasUsed
