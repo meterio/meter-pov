@@ -91,7 +91,7 @@ func meterYaml() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "meter.yaml", size: 44049, mode: os.FileMode(420), modTime: time.Unix(1587523525, 0)}
+	info := bindataFileInfo{name: "meter.yaml", size: 44049, mode: os.FileMode(420), modTime: time.Unix(1587523595, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
