@@ -473,7 +473,7 @@ func (s *State) Stage() *Stage {
 		fmt.Println("XXXX in stage get changes failed", s.err.Error())
 		return &Stage{err: s.err}
 	}
-	fmt.Println("XXXX in stage newStage, changes", "len", len(changes), "contents", changes)
+
 	return newStage(s.root, s.kv, changes)
 }
 
