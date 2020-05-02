@@ -720,7 +720,7 @@ func (p *Pacemaker) OnReceiveNewView(mi *consensusMsgInfo) error {
 		}
 		changed := p.UpdateQCHigh(pmQC)
 		if changed {
-			if qc.QCHeight > p.blockLocked.Height {
+			if qc.QCHeight >= p.blockLocked.Height {
 				// Schedule OnBeat due to New QC
 				p.logger.Info("Received a newview with higher QC, scheduleOnBeat now", "qcHeight", qc.QCHeight, "qcRound", qc.QCRound, "onBeatHeight", qc.QCHeight+1, "onBeatRound", qc.QCRound+1)
 				p.ScheduleOnBeat(p.QCHigh.QC.QCHeight+1, qc.QCRound+1, BeatOnHigherQC, RoundInterval)
