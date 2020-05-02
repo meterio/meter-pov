@@ -105,7 +105,11 @@ func (se *ScriptEngine) StartAllModules() {
 }
 
 func (se *ScriptEngine) HandleScriptData(data []byte, to *meter.Address, txCtx *xenv.TransactionContext, gas uint64, state *state.State) (ret []byte, leftOverGas uint64, err error) {
+<<<<<<< HEAD
 	se.logger.Info("received script data", "to", to, "gas", gas, "data", hex.EncodeToString(data))
+=======
+	se.logger.Info("received script data", "to", to, "txCtx", txCtx.String(), "gas", gas, "data", hex.EncodeToString(data))
+>>>>>>> 8e17f55ab1b3f2c2ea835aa90380ba366eba6799
 	if bytes.Compare(data[:len(ScriptPattern)], ScriptPattern[:]) != 0 {
 		err := errors.New(fmt.Sprintf("Pattern mismatch, pattern = %v", hex.EncodeToString(data[:len(ScriptPattern)])))
 		fmt.Println(err)
