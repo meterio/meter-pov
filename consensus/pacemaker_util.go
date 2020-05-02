@@ -1,7 +1,6 @@
 package consensus
 
 import (
-	sha256 "crypto/sha256"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -72,7 +71,7 @@ func (p *Pacemaker) receivePacemakerMsg(w http.ResponseWriter, r *http.Request) 
 	peerIP := peer.netAddr.IP.String()
 	existed := p.msgCache.Add(sig)
 	if existed {
-		p.logger.Info("duplicate "+typeName+" , dropped ...", "peer", peerName, "ip", peerIP)
+		p.logger.Debug("duplicate "+typeName+" , dropped ...", "peer", peerName, "ip", peerIP)
 		return
 	}
 
@@ -309,19 +308,16 @@ func (p *Pacemaker) asyncSendPacemakerMsg(msg ConsensusMessage, relay bool, peer
 		return false
 	}
 	msgSummary := msg.String()
-	typeName := getConcreteName(msg)
 
-	msgHash := sha256.Sum256(data)
-	msgHashHex := hex.EncodeToString(msgHash[:])[:MsgHashSize]
 	// broadcast consensus message to peers
 	info := "Send>>"
 	if relay {
 		info = "Relay>>"
 	}
 
-	p.logger.Info(fmt.Sprintf("%s %s", info, msgSummary), "size", len(data), "msgHash", msgHashHex)
+	msgSummary = fmt.Sprintf("%s %s", info, msgSummary)
 	for _, peer := range peers {
-		go peer.sendPacemakerMsg(data, fmt.Sprintf("%s [%s msgHash=%s]", info, typeName, msgHashHex), relay)
+		go peer.sendPacemakerMsg(data, msgSummary, relay)
 	}
 	return true
 }

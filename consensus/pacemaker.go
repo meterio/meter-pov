@@ -687,7 +687,7 @@ func (p *Pacemaker) OnReceiveNewView(mi *consensusMsgInfo) error {
 			if len(missed) > 0 {
 				p.logger.Info(fmt.Sprintf("peer missed %v proposal, forward to it ... ", len(missed)), "fromHeight", qcHeight+1, "name", peer.name, "ip", peer.netAddr.IP.String())
 				for _, pmp := range missed {
-					p.logger.Info("forwarding proposal", "height", pmp.Height, "name", peer.name, "ip", peer.netAddr.IP.String())
+					p.logger.Debug("forwarding proposal", "height", pmp.Height, "name", peer.name, "ip", peer.netAddr.IP.String())
 					p.asyncSendPacemakerMsg(pmp.ProposalMessage, false, peer)
 				}
 			}
@@ -953,7 +953,7 @@ func (p *Pacemaker) IsStopped() bool {
 // all proposal txs need to be reclaimed before stop
 func (p *Pacemaker) Stop() {
 	chain := p.csReactor.chain
-	p.logger.Info(fmt.Sprintf("Pacemaker stop requested. \n  Current BestBlock: %v \n  LeafBlock: %v\n  BestQC: %v\n", chain.BestBlock().Oneliner(), chain.LeafBlock().Oneliner(), chain.BestQC().String()))
+	fmt.Println(fmt.Sprintf("Pacemaker stop requested. \n  Current BestBlock: %v \n  LeafBlock: %v\n  BestQC: %v\n", chain.BestBlock().Oneliner(), chain.LeafBlock().Oneliner(), chain.BestQC().String()))
 
 	// suicide
 	if len(p.stopCh) < cap(p.stopCh) {

@@ -64,9 +64,10 @@ func (v *Delegate) String() string {
 	}
 	keyBytes := crypto.FromECDSAPub(&v.PubKey)
 	pubKeyStr := base64.StdEncoding.EncodeToString(keyBytes)
+	pubKeyAbbr := pubKeyStr[:4] + "..." + pubKeyStr[len(pubKeyStr)-4:]
 
-	return fmt.Sprintf("%v ( Addr:%v VP:%v Commission:%v #Dists:%v, EcdsaPubKey:%v )",
-		string(v.Name), v.Address, v.VotingPower, v.Commission, len(v.DistList), pubKeyStr)
+	return fmt.Sprintf("%v ( Addr:%v VP:%v Commission:%v%% #Dists:%v, EcdsaPubKey:%v )",
+		string(v.Name), v.Address, v.VotingPower, v.Commission/1e7, len(v.DistList), pubKeyAbbr)
 }
 
 // DelegateSet represent a set of *Delegate at a given height.

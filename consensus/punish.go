@@ -7,6 +7,7 @@ package consensus
 
 import (
 	"bytes"
+	"encoding/base64"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -33,7 +34,7 @@ type StatEntry struct {
 }
 
 func (e StatEntry) String() string {
-	return fmt.Sprintf("%s %s %s %s", e.Address.String(), e.Name, e.PubKey, e.Infraction.String())
+	return fmt.Sprintf("%s %s %s %s", e.Address.String(), e.Name, base64.StdEncoding.EncodeToString([]byte(e.PubKey)), e.Infraction.String())
 }
 
 // deprecated: now it should be all zeros
@@ -73,7 +74,7 @@ func calcMissingProposer(validators []*types.Validator, actualMembers []Committe
 				break
 			}
 			result = append(result, validators[actualMembers[index%len(actualMembers)].CSIndex].Address)
-			fmt.Println("missingPropopser", "height", blk.Header().Number(), "expectedSigner", expectedSigner, "actualSigner", actualSigner)
+			// fmt.Println("missingPropopser", "height", blk.Header().Number(), "expectedSigner", expectedSigner, "actualSigner", actualSigner)
 			index++
 			// prevent the deadlock if actual proposer does not exist in actual committee
 			if index-origIndex >= len(actualMembers) {
@@ -93,7 +94,7 @@ func calcMissingLeader(validators []*types.Validator, actualMembers []CommitteeM
 	index := 0
 	for index < actualLeader.CSIndex {
 		result = append(result, validators[index].Address)
-		fmt.Println("missingLeader", "address", validators[index].Address)
+		// fmt.Println("missingLeader", "address", validators[index].Address)
 		index++
 	}
 	return result, nil
@@ -106,7 +107,7 @@ func calcMissingVoter(validators []*types.Validator, actualMembers []CommitteeMe
 		for _, member := range actualMembers {
 			if voterBitArray.GetIndex(member.CSIndex) == false {
 				result = append(result, validators[member.CSIndex].Address)
-				fmt.Println("missingVoter", "height", blk.Header().Number(), "address", validators[member.CSIndex].Address)
+				// fmt.Println("missingVoter", "height", blk.Header().Number(), "address", validators[member.CSIndex].Address)
 			}
 		}
 	}
@@ -145,7 +146,7 @@ func calcDoubleSigner(common *ConsensusCommon, blocks []*block.Block) ([]meter.A
 				bls.Verify(sig2, v.MsgHash, blsPK)
 
 				result = append(result, v.Address)
-				fmt.Println("doubleSigner", "height", blk.Header().Number(), "signature1", sig1, "signature2", sig2)
+				// fmt.Println("doubleSigner", "height", blk.Header().Number(), "signature1", sig1, "signature2", sig2)
 			}
 		}
 	}
@@ -249,7 +250,7 @@ func (conR *ConsensusReactor) calcStatistics(lastKBlockHeight, height uint32) ([
 		}
 		result = append(result, stats[signer])
 	}
-	fmt.Println("Statistics Results", result)
+
 	return result, nil
 }
 
@@ -305,6 +306,7 @@ func (conR *ConsensusReactor) BuildStatisticsTx(entries []*StatEntry) *tx.Transa
 		Nonce(12345678)
 
 	//now build Clauses
+	fmt.Println("Statistics Results")
 	for _, entry := range entries {
 		data := buildStatisticsData(entry)
 		builder.Clause(
@@ -312,7 +314,8 @@ func (conR *ConsensusReactor) BuildStatisticsTx(entries []*StatEntry) *tx.Transa
 				WithValue(big.NewInt(0)).
 				WithToken(tx.TOKEN_METER_GOV).
 				WithData(data))
-		conR.logger.Info("Statistic:", "entry", entry.String())
+		conR.logger.Debug("Statistic entry", "entry", entry.String())
+		fmt.Println(entry.Name, entry.Address, entry.Infraction.String())
 	}
 
 	builder.Build().IntrinsicGas()

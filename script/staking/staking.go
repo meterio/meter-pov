@@ -84,7 +84,7 @@ func (s *Staking) PrepareStakingHandler() (StakingHandler func(data []byte, to *
 		}
 		*/
 
-		log.Info("Entering script handler for operation", "op", GetOpName(sb.Opcode))
+		log.Info("Entering staking handler " + GetOpName(sb.Opcode))
 		switch sb.Opcode {
 		case OP_BOUND:
 			if senv.GetTxCtx().Origin != sb.HolderAddr {
@@ -151,7 +151,7 @@ func (s *Staking) PrepareStakingHandler() (StakingHandler func(data []byte, to *
 			log.Error("unknown Opcode", "Opcode", sb.Opcode)
 			return nil, gas, errors.New("unknow staking opcode")
 		}
-		log.Info("Leaving script handler for operation", "op", GetOpName(sb.Opcode))
+		log.Debug("Leaving script handler for operation", "op", GetOpName(sb.Opcode))
 		return
 	}
 	return
