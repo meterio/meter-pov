@@ -162,7 +162,7 @@ func New(kv kv.GetPutter, genesisBlock *block.Block, verbose bool) (*Chain, erro
 	} else {
 		fmt.Println("Leaf Block", leafBlock.CompactString())
 		// remove all leaf blocks that are not finalized
-		for leafBlock.Header().TotalScore() > bestBlock.Header().TotalScore() {
+		for leafBlock.Header().BlockType() == block.BLOCK_TYPE_S_BLOCK || leafBlock.Header().TotalScore() > bestBlock.Header().TotalScore() {
 			fmt.Println("*** Start pruning")
 			parentID, err := ancestorTrie.GetAncestor(leafBlock.Header().ID(), leafBlock.Header().Number()-1)
 			if err != nil {
@@ -182,6 +182,9 @@ func New(kv kv.GetPutter, genesisBlock *block.Block, verbose bool) (*Chain, erro
 			leafBlock = parentBlk
 		}
 
+		if leafBlock.Header().TotalScore() < bestBlock.Header().TotalScore() {
+			leafBlock = bestBlock
+		}
 		saveLeafBlockID(kv, leafBlock.Header().ID())
 	}
 
@@ -820,15 +823,19 @@ func (c *Chain) UpdateBestQC() (bool, error) {
 		log.Info("Update bestQC", "to", c.bestQC.CompactString())
 		return true, saveBestQC(c.kv, c.bestQC)
 	}
+	fmt.Println(c.leafBlock.Header().ID(), c.bestBlock.Header().Number()+1)
 	id, err := c.ancestorTrie.GetAncestor(c.leafBlock.Header().ID(), c.bestBlock.Header().Number()+1)
+	fmt.Println("ancestor trie ERROR: ", err)
 	if err != nil {
 		return false, err
 	}
 	raw, err := loadBlockRaw(c.kv, id)
+	fmt.Println("load block raw ERROR: ", err)
 	if err != nil {
 		return false, err
 	}
 	blk, err := raw.DecodeBlockBody()
+	fmt.Println("decode block raw ERROR: ", err)
 	if err != nil {
 		return false, err
 	}
