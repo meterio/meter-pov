@@ -3,6 +3,7 @@ package consensus
 import (
 	"bytes"
 	"encoding/base64"
+	"fmt"
 
 	"github.com/dfinlab/meter/block"
 	bls "github.com/dfinlab/meter/crypto/multi_sig"
@@ -54,7 +55,7 @@ func newSignatureAggregator(size uint32, system bls.System, msgHash [32]byte, va
 
 func (sa *SignatureAggregator) Add(index int, msgHash [32]byte, signature []byte, pubkey bls.PublicKey) bool {
 	if sa.sealed {
-		sa.logger.Info("signature sealed, ignore this vote ...", "count", sa.bitArray.Count(), "voting", sa.BitArrayString())
+		sa.logger.Info("voted ignored, voting is over ...", "result", fmt.Sprintf("%d out of %d voted", sa.bitArray.Count(), sa.size))
 		return false
 	}
 	if uint32(index) < sa.size {
@@ -89,7 +90,7 @@ func (sa *SignatureAggregator) Add(index int, msgHash [32]byte, signature []byte
 		sa.sigBytes[index] = signature
 		sa.sigs[index] = sig
 		sa.pubkeys[index] = pubkey
-		sa.logger.Info("collected signature", "count", sa.bitArray.Count(), "voting", sa.BitArrayString(), "index", index, "size", sa.size)
+		sa.logger.Info(fmt.Sprintf("vote counted, %d out of %d has voted", sa.bitArray.Count(), sa.size), "voterIndex", index)
 		return true
 	}
 	return false

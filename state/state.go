@@ -470,7 +470,7 @@ func (s *State) Stage() *Stage {
 	}
 	changes := s.changes()
 	if s.err != nil {
-		fmt.Println("XXXX in stage get changes failed", s.err.Error())
+		// fmt.Println("XXXX in stage get changes failed", s.err.Error())
 		return &Stage{err: s.err}
 	}
 

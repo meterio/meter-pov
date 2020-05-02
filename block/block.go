@@ -237,7 +237,7 @@ Transactions: %v,
 KBlockData: %v,
 CommitteeInfo: %v,
 QuorumCert: %v,
-}`, canonicalName, b.BlockHeader.Number(), b.BlockHeader, b.Magic, b.Txs, b.KBlockData.ToString(), b.CommitteeInfos, b.QC)
+}`, canonicalName, b.BlockHeader.Number(), b.BlockHeader, "0x"+hex.EncodeToString(b.Magic[:]), b.Txs, b.KBlockData.ToString(), b.CommitteeInfos, b.QC)
 }
 
 func (b *Block) CompactString() string {
