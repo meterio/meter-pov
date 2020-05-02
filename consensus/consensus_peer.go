@@ -37,7 +37,7 @@ func (peer *ConsensusPeer) sendPacemakerMsg(rawData []byte, msgSummary string, r
 		Timeout: time.Second * 4, // 2
 	}
 
-	peer.logger.Info(msgSummary, "size", len(rawData))
+	peer.logger.Info("Send>> "+msgSummary, "size", len(rawData))
 
 	url := "http://" + peer.netAddr.IP.String() + ":8670/pacemaker"
 	_, err := netClient.Post(url, "application/json", bytes.NewBuffer(rawData))
@@ -53,7 +53,7 @@ func (peer *ConsensusPeer) sendCommitteeMsg(rawData []byte, msgSummary string, r
 		Timeout: time.Second * 4,
 	}
 
-	peer.logger.Info(msgSummary, "size", len(rawData))
+	peer.logger.Info("Send>> "+msgSummary, "size", len(rawData))
 	url := "http://" + peer.netAddr.IP.String() + ":8670/committee"
 	_, err := netClient.Post(url, "application/json", bytes.NewBuffer(rawData))
 	if err != nil {
