@@ -1562,7 +1562,7 @@ func PrintDelegates(delegates []*types.Delegate) {
 		keyBytes := crypto.FromECDSAPub(&dd.PubKey)
 		pubKeyStr := base64.StdEncoding.EncodeToString(keyBytes)
 
-		fmt.Printf("#%d: %s (%s) :%d\n     Address:%s\n     Public Key: %s Commission: %v Num of Dists: %v\n",
+		fmt.Printf("#%d: %s (%s) :%d  Address:%s\n     Public Key: %s Commission: %v Num of Dists: %v\n",
 			i+1, dd.Name, dd.NetAddr.IP.String(), dd.NetAddr.Port, dd.Address, pubKeyStr, dd.Commission, len(dd.DistList))
 	}
 	fmt.Println("============================================")
