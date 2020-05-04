@@ -91,32 +91,29 @@ func (k *KeyLoader) genECDSA() error {
 	return nil
 }
 
-func (k *KeyLoader) validateECDSA() {
+func (k *KeyLoader) validateECDSA() error {
 	split := strings.Split(string(k.masterBytes), ":::")
 	if len(split) == 0 {
-		k.genECDSA()
-		return
+		return k.genECDSA()
 	}
 	privBytes, err := b64.StdEncoding.DecodeString(split[0])
 	if err != nil {
-		k.genECDSA()
-		return
+		return k.genECDSA()
 	}
 	privKey, err := crypto.ToECDSA(privBytes)
 	if err != nil {
-		k.genECDSA()
-		return
+		return k.genECDSA()
 	}
 	k.ecdsaPrivKey = privKey
 	psplit := strings.Split(string(k.publicBytes), ":::")
 	if len(split) == 0 {
 		k.ecdsaPubKey = &k.ecdsaPrivKey.PublicKey
-		return
+		return nil
 	}
 	pubBytes, err := b64.StdEncoding.DecodeString(psplit[0])
 	if err != nil {
 		k.ecdsaPubKey = &k.ecdsaPrivKey.PublicKey
-		return
+		return nil
 	}
 	pubKey, err := crypto.UnmarshalPubkey(pubBytes)
 	if err != nil || !verifyECDSA(privKey, pubKey) {
@@ -124,7 +121,7 @@ func (k *KeyLoader) validateECDSA() {
 	} else {
 		k.ecdsaPubKey = pubKey
 	}
-
+	return nil
 }
 
 func (k *KeyLoader) genBls() error {
@@ -139,36 +136,32 @@ func (k *KeyLoader) genBls() error {
 	return nil
 }
 
-func (k *KeyLoader) validateBls() {
+func (k *KeyLoader) validateBls() error {
 	split := strings.Split(string(k.masterBytes), ":::")
 	psplit := strings.Split(string(k.publicBytes), ":::")
 	if len(split) < 2 || len(psplit) < 2 {
-		k.genBls()
-		return
+		return k.genBls()
 	}
 	system := getBlsSystem()
 	privBytes, err := b64.StdEncoding.DecodeString(split[1])
 	if err != nil {
-		k.genBls()
-		return
+		return k.genBls()
 	}
 	pubBytes, err := b64.StdEncoding.DecodeString(psplit[1])
 	if err != nil {
-		k.genBls()
-		return
+		return k.genBls()
 	}
 	privKey, err := system.PrivKeyFromBytes(privBytes)
 	if err != nil {
-		k.genBls()
-		return
+		return k.genBls()
 	}
 	pubKey, err := system.PubKeyFromBytes(pubBytes)
 	if err != nil || !verifyBls(privKey, pubKey) {
-		k.genBls()
-		return
+		return k.genBls()
 	}
 	k.blsPrivKey = &privKey
 	k.blsPubKey = &pubKey
+	return nil
 }
 
 func (k *KeyLoader) saveKeys(system bls.System) error {
@@ -194,8 +187,17 @@ func (k *KeyLoader) saveKeys(system bls.System) error {
 }
 
 func (k *KeyLoader) Load() (*ecdsa.PrivateKey, *ecdsa.PublicKey, *consensus.BlsCommon, error) {
-	k.validateECDSA()
-	k.validateBls()
+	err := k.validateECDSA()
+	if err != nil {
+		fmt.Println("could not validate ecdsa keys, error:", err)
+		panic("could not validate ecdsa keys")
+	}
+
+	err = k.validateBls()
+	if err != nil {
+		fmt.Println("could not validate ecdsa keys, error:", err)
+		panic("could not validate ecdsa keys")
+	}
 
 	paraBytes, err := hex.DecodeString(paraString)
 	if err != nil {
@@ -222,7 +224,11 @@ func (k *KeyLoader) Load() (*ecdsa.PrivateKey, *ecdsa.PublicKey, *consensus.BlsC
 	}
 
 	if k.updated == true {
-		k.saveKeys(system)
+		err := k.saveKeys(system)
+		if err != nil {
+			fmt.Println("save keys error:", err)
+		}
+
 	}
 
 	blsCommon := consensus.NewBlsCommonFromParams(*k.blsPubKey, *k.blsPrivKey, system, params, pairing)

@@ -185,7 +185,10 @@ func New(kv kv.GetPutter, genesisBlock *block.Block, verbose bool) (*Chain, erro
 		if leafBlock.Header().TotalScore() < bestBlock.Header().TotalScore() {
 			leafBlock = bestBlock
 		}
-		saveLeafBlockID(kv, leafBlock.Header().ID())
+		err := saveLeafBlockID(kv, leafBlock.Header().ID())
+		if err != nil {
+			fmt.Println("could not save leaf block, error: ", err)
+		}
 	}
 
 	bestQC, err := loadBestQC(kv)

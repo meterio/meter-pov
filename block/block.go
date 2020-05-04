@@ -191,7 +191,11 @@ func (b *Block) EncodeRLP(w io.Writer) error {
 
 // DecodeRLP implements rlp.Decoder.
 func (b *Block) DecodeRLP(s *rlp.Stream) error {
-	_, size, _ := s.Kind()
+	_, size, err := s.Kind()
+	if err != nil {
+		fmt.Println("decode rlp error:", err)
+	}
+
 	payload := struct {
 		Header         Header
 		Txs            tx.Transactions
@@ -223,7 +227,11 @@ func (b *Block) Size() metric.StorageSize {
 		return cached.(metric.StorageSize)
 	}
 	var size metric.StorageSize
-	rlp.Encode(&size, b)
+	err := rlp.Encode(&size, b)
+	if err != nil {
+		fmt.Println("block size error:", err)
+	}
+
 	b.cache.size.Store(size)
 	return size
 }
@@ -348,13 +356,17 @@ func (b *Block) SetCommitteeInfo(info []CommitteeInfo) error {
 }
 
 func (b *Block) ToBytes() []byte {
-	bytes, _ := rlp.EncodeToBytes(b)
+	bytes, err := rlp.EncodeToBytes(b)
+	if err != nil {
+		fmt.Println("tobytes error:", err)
+	}
+
 	return bytes
 }
 
 func (b *Block) EvidenceDataHash() (hash meter.Bytes32) {
 	hw := meter.NewBlake2b()
-	rlp.Encode(hw, []interface{}{
+	err := rlp.Encode(hw, []interface{}{
 		b.QC.QCHeight,
 		b.QC.QCRound,
 		// b.QC.VotingBitArray,
@@ -363,6 +375,10 @@ func (b *Block) EvidenceDataHash() (hash meter.Bytes32) {
 		b.CommitteeInfos,
 		b.KBlockData,
 	})
+	if err != nil {
+		fmt.Println("error:", err)
+	}
+
 	hw.Sum(hash[:0])
 	return
 }
@@ -380,7 +396,11 @@ func (b *Block) SetBlockSignature(sig []byte) error {
 
 //--------------
 func BlockEncodeBytes(blk *Block) []byte {
-	blockBytes, _ := rlp.EncodeToBytes(blk)
+	blockBytes, err := rlp.EncodeToBytes(blk)
+	if err != nil {
+		fmt.Println("block encode error: ", err)
+		return make([]byte, 0)
+	}
 
 	return blockBytes
 }
