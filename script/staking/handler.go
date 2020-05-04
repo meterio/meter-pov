@@ -10,6 +10,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/dfinlab/meter/builtin"
 	"github.com/dfinlab/meter/meter"
 	crypto "github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/rlp"
@@ -549,7 +550,7 @@ func (sb *StakingBody) GoverningHandler(senv *StakingEnviroment, gas uint64) (re
 
 	reward := &ValidatorReward{
 		Epoch:            epoch,
-		BaseReward:       meter.InitialValidatorBaseReward,
+		BaseReward:       builtin.Params.Native(state).Get(meter.KeyValidatorBaseReward),
 		ExpectDistribute: sb.Amount,
 		ActualDistribute: sum,
 		Info:             info,

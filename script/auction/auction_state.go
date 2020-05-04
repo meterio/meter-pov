@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"math/big"
 
+	"github.com/dfinlab/meter/builtin"
 	"github.com/dfinlab/meter/meter"
 	"github.com/dfinlab/meter/runtime/statedb"
 	"github.com/dfinlab/meter/state"
@@ -142,6 +143,7 @@ func (a *Auction) TransferMTRToValidatorBenefit(amount *big.Int, state *state.St
 // when auction is over
 func (a *Auction) ClearAuction(cb *AuctionCB, state *state.State) (*big.Int, *big.Int, error) {
 	stateDB := statedb.New(state)
+	ValidatorBenefitRatio := builtin.Params.Native(state).Get(meter.KeyValidatorBenefitRatio)
 
 	actualPrice := big.NewInt(0)
 	actualPrice = actualPrice.Div(cb.RcvdMTR, cb.RlsdMTRG)

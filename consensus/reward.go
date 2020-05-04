@@ -11,6 +11,7 @@ import (
 	"math/rand"
 	"time"
 
+	"github.com/dfinlab/meter/builtin"
 	"github.com/dfinlab/meter/meter"
 	"github.com/dfinlab/meter/powpool"
 	"github.com/dfinlab/meter/script"
@@ -22,10 +23,6 @@ import (
 
 const (
 	AuctionInterval = uint64(24) // every 24 Epoch move to next auction
-)
-
-var (
-	ValidatorBenefitRatio = meter.InitialValidatorBenefitRatio
 )
 
 func (conR *ConsensusReactor) GetKBlockRewardTxs(rewards []powpool.PowReward) tx.Transactions {
@@ -225,6 +222,13 @@ func (conR *ConsensusReactor) TryBuildAuctionTxs(height, epoch uint64) *tx.Trans
 const N = 10 // smooth with 10 days
 
 func (conR *ConsensusReactor) GetKBlockValidatorRewards() (*big.Int, error) {
+	state, err := conR.stateCreator.NewState(conR.chain.BestBlock().Header().StateRoot())
+	if err != nil {
+		conR.logger.Error("new state failed ...", "error", err)
+		return big.NewInt(0), err
+	}
+	ValidatorBenefitRatio := builtin.Params.Native(state).Get(meter.KeyValidatorBenefitRatio)
+
 	summaryList, err := auction.GetAuctionSummaryList()
 	if err != nil {
 		conR.logger.Error("get summary list failed", "error", err)

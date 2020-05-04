@@ -7,6 +7,7 @@ import (
 	"math/big"
 	"sort"
 
+	"github.com/dfinlab/meter/builtin"
 	"github.com/dfinlab/meter/meter"
 	"github.com/dfinlab/meter/state"
 )
@@ -405,7 +406,7 @@ func (s *Staking) DistValidatorRewards(amount *big.Int, validators []*meter.Addr
 	size := len(validators)
 
 	// distribute the base reward
-	validatorBaseReward := meter.InitialValidatorBaseReward
+	validatorBaseReward := builtin.Params.Native(state).Get(meter.KeyValidatorBaseReward)
 	baseRewards := new(big.Int).Mul(validatorBaseReward, big.NewInt(int64(size)))
 	if baseRewards.Cmp(amount) >= 0 {
 		baseRewards = amount

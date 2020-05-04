@@ -77,6 +77,12 @@ func NewTestnet() *Genesis {
 		Call(
 			tx.NewClause(&builtin.Params.Address).WithData(mustEncodeInput(builtin.Params.ABI, "set", meter.KeyProposerEndorsement, meter.InitialProposerEndorsement)),
 			executor).
+		Call(
+			tx.NewClause(&builtin.Params.Address).WithData(mustEncodeInput(builtin.Params.ABI, "set", meter.KeyValidatorBenefitRatio, meter.InitialValidatorBenefitRatio)),
+			executor).
+		Call(
+			tx.NewClause(&builtin.Params.Address).WithData(mustEncodeInput(builtin.Params.ABI, "set", meter.KeyValidatorBaseReward, meter.InitialValidatorBaseReward)),
+			executor).
 		// add master0 as the initial block proposer
 		Call(tx.NewClause(&builtin.Authority.Address).WithData(mustEncodeInput(builtin.Authority.ABI, "add", master0, endorser0, meter.BytesToBytes32([]byte("master0")))),
 			executor)
@@ -86,4 +92,8 @@ func NewTestnet() *Genesis {
 		panic(err)
 	}
 	return &Genesis{builder, id, "testnet"}
+}
+
+type VestAddress struct {
+	amount *big.Int
 }
