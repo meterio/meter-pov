@@ -96,10 +96,9 @@ func (ch ConsensusMsgCommonHeader) fields() []interface{} {
 	}
 }
 
-func (cmh *ConsensusMsgCommonHeader) SetMsgSignature(sig []byte) error {
+func (cmh *ConsensusMsgCommonHeader) SetMsgSignature(sig []byte) {
 	cpy := append([]byte(nil), sig...)
 	cmh.Signature = cpy
-	return nil
 }
 
 func (cmh *ConsensusMsgCommonHeader) verifySignature(msgHash meter.Bytes32) bool {

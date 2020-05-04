@@ -53,9 +53,8 @@ type Communicator struct {
 	magic [4]byte
 }
 
-func SetGlobCommInst(c *Communicator) error {
+func SetGlobCommInst(c *Communicator) {
 	GlobCommInst = c
-	return nil
 }
 
 func GetGlobCommInst() *Communicator {
