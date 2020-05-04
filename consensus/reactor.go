@@ -944,18 +944,14 @@ func (conR *ConsensusReactor) asyncSendCommitteeMsg(msg *ConsensusMessage, relay
 		return false
 	}
 	msgSummary := (*msg).String()
-	typeName := getConcreteName(*msg)
-
-	msgHash := sha256.Sum256(data)
-	msgHashHex := hex.EncodeToString(msgHash[:])[:MsgHashSize]
 
 	info := "Send>>"
 	if relay {
 		info = "Relay>>"
 	}
-	conR.logger.Info(fmt.Sprintf("%s %s", info, msgSummary), "msgHash", msgHashHex)
+	msgSummary = fmt.Sprintf("%s %s", info, msgSummary)
 	for _, peer := range peers {
-		go peer.sendCommitteeMsg(data, fmt.Sprintf("%s [%s msgHash=%s]", info, typeName, msgHashHex), relay)
+		go peer.sendCommitteeMsg(data, msgSummary, relay)
 	}
 
 	//wg.Wait()
@@ -1561,9 +1557,9 @@ func PrintDelegates(delegates []*types.Delegate) {
 	for i, dd := range delegates {
 		keyBytes := crypto.FromECDSAPub(&dd.PubKey)
 		pubKeyStr := base64.StdEncoding.EncodeToString(keyBytes)
-
-		fmt.Printf("#%d: %s (%s) :%d\n     Address:%s\n     Public Key: %s Commission: %v Num of Dists: %v\n",
-			i+1, dd.Name, dd.NetAddr.IP.String(), dd.NetAddr.Port, dd.Address, pubKeyStr, dd.Commission, len(dd.DistList))
+		pubKeyAbbr := pubKeyStr[:4] + "..." + pubKeyStr[len(pubKeyStr)-4:]
+		fmt.Printf("#%d: %s (%s) :%d  Address:%s PubKey: %s Commission: %v%% #Dists: %v\n",
+			i+1, dd.Name, dd.NetAddr.IP.String(), dd.NetAddr.Port, dd.Address, pubKeyAbbr, dd.Commission/1e7, len(dd.DistList))
 	}
 	fmt.Println("============================================")
 }

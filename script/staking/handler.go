@@ -794,7 +794,7 @@ func (sb *StakingBody) DelegateStatisticsHandler(senv *StakingEnviroment, gas ui
 	}
 
 	IncrInfraction := UnpackBytesToCounters(&sb.StakingID)
-	log.Info("Receives statistics", "incremental infraction", IncrInfraction)
+	log.Debug("Receives statistics", "incremental infraction", IncrInfraction)
 
 	var jail bool
 	stats := statisticsList.Get(sb.CandAddr)
