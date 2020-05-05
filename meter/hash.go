@@ -6,6 +6,7 @@
 package meter
 
 import (
+	"fmt"
 	"hash"
 
 	"golang.org/x/crypto/blake2b"
@@ -13,7 +14,10 @@ import (
 
 // NewBlake2b return blake2b-256 hash.
 func NewBlake2b() hash.Hash {
-	hash, _ := blake2b.New256(nil)
+	hash, err := blake2b.New256(nil)
+	if err != nil {
+		fmt.Println("could not new blake2b 256, error:", err)
+	}
 	return hash
 }
 
@@ -21,7 +25,11 @@ func NewBlake2b() hash.Hash {
 func Blake2b(data ...[]byte) (b32 Bytes32) {
 	hash := NewBlake2b()
 	for _, b := range data {
-		hash.Write(b)
+		_, err := hash.Write(b)
+		if err != nil {
+			fmt.Println("could not write hash, error:", err)
+		}
+
 	}
 	hash.Sum(b32[:0])
 	return

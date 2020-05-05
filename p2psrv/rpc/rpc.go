@@ -9,6 +9,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/hex"
+	"fmt"
 	"math/rand"
 	"sync"
 	"time"
@@ -126,7 +127,11 @@ func (r *RPC) Serve(handleFunc HandleFunc, maxMsgSize uint32) error {
 		} else {
 			if err := handleFunc(&msg, func(result interface{}) {
 				if callID != 0 {
-					p2p.Send(r.rw, msg.Code, &msgData{callID, true, r.magic, result})
+					err := p2p.Send(r.rw, msg.Code, &msgData{callID, true, r.magic, result})
+					if err != nil {
+						fmt.Println("could not send via p2p, error:", err)
+					}
+
 				}
 				// here we skip result for Notify (callID == 0)
 			}); err != nil {

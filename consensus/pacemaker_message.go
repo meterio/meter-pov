@@ -66,7 +66,7 @@ func (p *Pacemaker) proposeStopCommitteeBlock(parentBlock *block.Block, height, 
 	return blkInfo, blockBytes
 }
 
-func (p *Pacemaker) packCommitteeInfo(blk *block.Block) error {
+func (p *Pacemaker) packCommitteeInfo(blk *block.Block) {
 	committeeInfo := []block.CommitteeInfo{}
 
 	// blk.SetBlockEvidence(ev)
@@ -77,12 +77,10 @@ func (p *Pacemaker) packCommitteeInfo(blk *block.Block) error {
 
 	//Fill new info into block, re-calc hash/signature
 	// blk.SetEvidenceDataHash(blk.EvidenceDataHash())
-	return nil
 }
 
-func (p *Pacemaker) packQuorumCert(blk *block.Block, qc *pmQuorumCert) error {
+func (p *Pacemaker) packQuorumCert(blk *block.Block, qc *pmQuorumCert) {
 	blk.SetQC(qc.QC)
-	return nil
 }
 
 func (p *Pacemaker) BuildProposalMessage(height, round uint32, bnew *pmBlock, tc *PMTimeoutCert) (*PMProposalMessage, error) {

@@ -350,9 +350,8 @@ func (b *Block) GetBlockEpoch() (epoch uint64) {
 	return
 }
 
-func (b *Block) SetCommitteeInfo(info []CommitteeInfo) error {
+func (b *Block) SetCommitteeInfo(info []CommitteeInfo) {
 	b.CommitteeInfos.CommitteeInfo = info
-	return nil
 }
 
 func (b *Block) ToBytes() []byte {
