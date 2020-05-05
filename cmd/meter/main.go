@@ -223,6 +223,7 @@ func defaultAction(ctx *cli.Context) error {
 
 	chain := initChain(gene, mainDB, logDB)
 	master, blsCommon := loadNodeMaster(ctx)
+	pubkey, _ := getNodeComplexPubKey(master, blsCommon)
 
 	// load preset config
 	if "warringstakes" == ctx.String(networkFlag.Name) {
@@ -257,7 +258,7 @@ func defaultAction(ctx *cli.Context) error {
 	defer func() { log.Info("closing pow pool..."); powPool.Close() }()
 
 	p2pcom := newP2PComm(ctx, chain, txPool, instanceDir, powPool, magic)
-	apiHandler, apiCloser := api.New(chain, state.NewCreator(mainDB), txPool, logDB, p2pcom.comm, ctx.String(apiCorsFlag.Name), uint32(ctx.Int(apiBacktraceLimitFlag.Name)), uint64(ctx.Int(apiCallGasLimitFlag.Name)), p2pcom.p2pSrv, master.PublicKey)
+	apiHandler, apiCloser := api.New(chain, state.NewCreator(mainDB), txPool, logDB, p2pcom.comm, ctx.String(apiCorsFlag.Name), uint32(ctx.Int(apiBacktraceLimitFlag.Name)), uint64(ctx.Int(apiCallGasLimitFlag.Name)), p2pcom.p2pSrv, pubkey)
 	defer func() { log.Info("closing API..."); apiCloser() }()
 
 	apiURL, srvCloser := startAPIServer(ctx, apiHandler, chain.GenesisBlock().Header().ID())

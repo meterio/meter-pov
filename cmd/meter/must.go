@@ -328,6 +328,17 @@ func loadNodeMaster(ctx *cli.Context) (*node.Master, *consensus.BlsCommon) {
 	return master, blsCommon
 }
 
+func getNodeComplexPubKey(master *node.Master, blsCommon *consensus.BlsCommon) (string, error) {
+	ecdsaPubBytes := crypto.FromECDSAPub(master.PublicKey)
+	ecdsaPubB64 := b64.StdEncoding.EncodeToString(ecdsaPubBytes)
+
+	blsPubBytes := blsCommon.GetSystem().PubKeyToBytes(*blsCommon.GetPubKey())
+	blsPubB64 := b64.StdEncoding.EncodeToString(blsPubBytes)
+
+	pub := strings.Join([]string{ecdsaPubB64, blsPubB64}, ":::")
+	return pub, nil
+}
+
 type p2pComm struct {
 	comm           *comm.Communicator
 	p2pSrv         *p2psrv.Server

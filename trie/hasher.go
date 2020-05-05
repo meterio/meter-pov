@@ -21,9 +21,9 @@ import (
 	"hash"
 	"sync"
 
+	"github.com/dfinlab/meter/meter"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/rlp"
-	"github.com/dfinlab/meter/meter"
 )
 
 type hasher struct {
@@ -163,7 +163,9 @@ func (h *hasher) store(n node, db DatabaseWriter, force bool) (node, error) {
 	hash, _ := n.cache()
 	if hash == nil {
 		h.sha.Reset()
-		h.sha.Write(h.tmp.Bytes())
+		if _, err := h.sha.Write(h.tmp.Bytes()); err != nil {
+			return nil, err
+		}
 		hash = hashNode(h.sha.Sum(nil))
 	}
 	if db != nil {
