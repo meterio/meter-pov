@@ -127,7 +127,7 @@ func (t *Transaction) UnprovedWork() (w *big.Int) {
 // EvaluateWork try to compute work when tx signer assumed.
 func (t *Transaction) EvaluateWork(signer meter.Address) func(nonce uint64) *big.Int {
 	hw := meter.NewBlake2b()
-	rlp.Encode(hw, []interface{}{
+	err := rlp.Encode(hw, []interface{}{
 		t.body.ChainTag,
 		t.body.BlockRef,
 		t.body.Expiration,
@@ -138,6 +138,9 @@ func (t *Transaction) EvaluateWork(signer meter.Address) func(nonce uint64) *big
 		t.body.Reserved,
 		signer,
 	})
+	if err != nil {
+		return nil
+	}
 
 	var hashWithoutNonce meter.Bytes32
 	hw.Sum(hashWithoutNonce[:0])
@@ -159,7 +162,7 @@ func (t *Transaction) SigningHash() (hash meter.Bytes32) {
 	defer func() { t.cache.signingHash.Store(hash) }()
 
 	hw := meter.NewBlake2b()
-	rlp.Encode(hw, []interface{}{
+	err := rlp.Encode(hw, []interface{}{
 		t.body.ChainTag,
 		t.body.BlockRef,
 		t.body.Expiration,
@@ -170,6 +173,10 @@ func (t *Transaction) SigningHash() (hash meter.Bytes32) {
 		t.body.Nonce,
 		t.body.Reserved,
 	})
+	if err != nil {
+		return
+	}
+
 	hw.Sum(hash[:0])
 	return
 }
@@ -251,7 +258,10 @@ func (t *Transaction) EncodeRLP(w io.Writer) error {
 
 // DecodeRLP implements rlp.Decoder
 func (t *Transaction) DecodeRLP(s *rlp.Stream) error {
-	_, size, _ := s.Kind()
+	_, size, err := s.Kind()
+	if err != nil {
+		return err
+	}
 	var body body
 	if err := s.Decode(&body); err != nil {
 		return err
@@ -268,7 +278,11 @@ func (t *Transaction) Size() metric.StorageSize {
 		return cached.(metric.StorageSize)
 	}
 	var size metric.StorageSize
-	rlp.Encode(&size, t)
+	err := rlp.Encode(&size, t)
+	if err != nil {
+		fmt.Printf("rlp failed: %s\n", err.Error())
+		return 0
+	}
 	t.cache.size.Store(size)
 	return size
 }

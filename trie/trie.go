@@ -21,10 +21,10 @@ import (
 	"bytes"
 	"fmt"
 
+	"github.com/dfinlab/meter/meter"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/rcrowley/go-metrics"
-	"github.com/dfinlab/meter/meter"
 )
 
 var (
@@ -458,7 +458,10 @@ func (t *Trie) Root() []byte { return t.Hash().Bytes() }
 // Hash returns the root hash of the trie. It does not write to the
 // database and can be used even if the trie doesn't have one.
 func (t *Trie) Hash() meter.Bytes32 {
-	hash, cached, _ := t.hashRoot(nil)
+	hash, cached, err := t.hashRoot(nil)
+	if err != nil {
+		panic("get hashRoot failed")
+	}
 	t.root = cached
 	return meter.BytesToBytes32(hash.(hashNode))
 }
