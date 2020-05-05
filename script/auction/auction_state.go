@@ -133,13 +133,13 @@ func (a *Auction) ClearAuction(cb *AuctionCB, state *state.State) (*big.Int, *bi
 
 	total := big.NewInt(0)
 	for _, tx := range cb.AuctionTxs {
-		mtrg := tx.Amount.Div(tx.Amount, actualPrice)
+		mtrg := tx.Amount.Mul(tx.Amount, big.NewInt(1e18))
+		mtrg = mtrg.Div(mtrg, actualPrice)
 		a.SendMTRGToBidder(tx.Addr, mtrg, stateDB)
 		total = total.Add(total, mtrg)
 	}
 
-	leftOver := big.NewInt(0)
-	leftOver = leftOver.Sub(cb.RlsdMTRG, total)
+	leftOver := new(big.Int).Sub(cb.RlsdMTRG, total)
 	a.SendMTRGToBidder(AuctionAccountAddr, leftOver, stateDB)
 
 	a.logger.Info("finished auctionCB clear...", "actualPrice", actualPrice.Uint64(), "leftOver", leftOver.Uint64())
