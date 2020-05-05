@@ -123,7 +123,11 @@ func (p *PowPool) SubscribePowBlockEvent(ch chan *PowBlockEvent) event.Subscript
 }
 
 func (p *PowPool) InitialAddKframe(newPowBlockInfo *PowBlockInfo) error {
-	p.Wash()
+	err := p.Wash()
+	if err != nil {
+		return err
+	}
+
 	powObj := NewPowObject(newPowBlockInfo)
 	p.goes.Go(func() {
 		p.powFeed.Send(&PowBlockEvent{BlockInfo: newPowBlockInfo})
@@ -159,10 +163,18 @@ func (p *PowPool) submitPosKblock(powHex, posHex string) (string, string) {
 		Method:  "submitposkblock",
 		Params:  []string{powHex, posHex},
 	}
-	b, _ := json.Marshal(data)
+	b, err := json.Marshal(data)
+	if err != nil {
+		fmt.Println("could not marshal json, error:", err)
+		return "", ""
+	}
 
 	url := fmt.Sprintf("http://%v:%v", p.options.Node, p.options.Port)
-	req, _ := http.NewRequest("POST", url, bytes.NewReader(b))
+	req, err := http.NewRequest("POST", url, bytes.NewReader(b))
+	if err != nil {
+		fmt.Println("could not create request, error:", err)
+		return "", ""
+	}
 
 	auth := fmt.Sprintf("%v:%v", p.options.User, p.options.Pass)
 	authToken := base64.StdEncoding.EncodeToString([]byte(auth))

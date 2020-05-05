@@ -16,9 +16,9 @@ type Peer struct {
 	Port    uint32 `json:"port"`
 }
 
-func convertNode(n *discover.Node) (*Peer, error) {
+func convertNode(n *discover.Node) *Peer {
 	return &Peer{
 		EnodeID: n.ID.String(),
 		IP:      n.IP.String(),
-	}, nil
+	}
 }

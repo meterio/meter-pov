@@ -125,9 +125,13 @@ func (k *KeyLoader) validateECDSA() error {
 }
 
 func (k *KeyLoader) genBls() error {
-	system := getBlsSystem()
+	system, err := getBlsSystem()
+	if err != nil {
+		return err
+	}
+
 	k.updated = true
-	pubKey, privKey, err := bls.GenKeys(system)
+	pubKey, privKey, err := bls.GenKeys(*system)
 	if err != nil {
 		return err
 	}
@@ -142,7 +146,10 @@ func (k *KeyLoader) validateBls() error {
 	if len(split) < 2 || len(psplit) < 2 {
 		return k.genBls()
 	}
-	system := getBlsSystem()
+	system, err := getBlsSystem()
+	if err != nil {
+		return err
+	}
 	privBytes, err := b64.StdEncoding.DecodeString(split[1])
 	if err != nil {
 		return k.genBls()

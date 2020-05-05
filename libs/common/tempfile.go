@@ -113,7 +113,10 @@ func WriteFileAtomic(filename string, data []byte, perm os.FileMode) (err error)
 
 	// Clean up in any case. Defer stacking order is last-in-first-out.
 	defer os.Remove(f.Name())
-	defer f.Close()
+	defer func() {
+		err := f.Close()
+		fmt.Println("could not close file, error:", err)
+	}()
 
 	if n, err := f.Write(data); err != nil {
 		return err
@@ -122,7 +125,10 @@ func WriteFileAtomic(filename string, data []byte, perm os.FileMode) (err error)
 	}
 	// Close the file before renaming it, otherwise it will cause "The process
 	// cannot access the file because it is being used by another process." on windows.
-	f.Close()
+	err = f.Close()
+	if err != nil {
+		fmt.Println("could not close file, error:", err)
+	}
 
 	return os.Rename(f.Name(), filename)
 }

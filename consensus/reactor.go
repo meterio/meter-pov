@@ -733,8 +733,7 @@ func (conR *ConsensusReactor) receiveRoutine() {
 func (conR *ConsensusReactor) MarshalMsg(msg *ConsensusMessage) ([]byte, error) {
 	rawMsg := cdc.MustMarshalBinaryBare(msg)
 	if len(rawMsg) > maxMsgSize {
-		fmt.Errorf("Msg exceeds max size (%d > %d)", len(rawMsg), maxMsgSize)
-		conR.logger.Error("Msg exceeds max size", "rawMsg=", len(rawMsg), "maxMsgSize=", maxMsgSize)
+		conR.logger.Error("Msg exceeds max size", "rawMsg", len(rawMsg), "maxMsgSize", maxMsgSize)
 		return make([]byte, 0), errors.New("Msg exceeds max size")
 	}
 
@@ -768,7 +767,11 @@ func (conR *ConsensusReactor) UnmarshalMsg(data []byte) (*consensusMsgInfo, erro
 	}
 	peerName := conR.GetCommitteeMemberNameByIP(peerIP)
 	peer := newConsensusPeer(peerName, peerIP, uint16(peerPort), conR.magic)
-	rawMsg, _ := hex.DecodeString(params["message"])
+	rawMsg, err := hex.DecodeString(params["message"])
+	if err != nil {
+		fmt.Println("could not decode string: ", params["message"])
+		return nil, ErrMalformattedMsg
+	}
 	msg, err := decodeMsg(rawMsg)
 	if err != nil {
 		fmt.Println("Malformatted Msg: ", msg)
@@ -838,7 +841,7 @@ func (conR *ConsensusReactor) receiveConsensusMsgRoutine() {
 	r.HandleFunc("/committee", conR.receiveCommitteeMsg).Methods("POST")
 	r.HandleFunc("/pacemaker", conR.csPacemaker.receivePacemakerMsg).Methods("POST")
 	if err := http.ListenAndServe(":8670", c.Handler(r)); err != nil {
-		fmt.Errorf("HTTP receiver error!")
+		conR.logger.Error("HTTP receiver error!", "err", err)
 	}
 }
 
@@ -919,7 +922,7 @@ func (conR *ConsensusReactor) exitConsensusLeader(epochID uint64) {
 }
 
 // Cleanup all roles before the comittee relay
-func (conR *ConsensusReactor) exitCurCommittee() error {
+func (conR *ConsensusReactor) exitCurCommittee() {
 
 	conR.exitConsensusLeader(conR.curEpoch)
 	conR.exitConsensusValidator()
@@ -934,7 +937,6 @@ func (conR *ConsensusReactor) exitCurCommittee() error {
 
 	conR.curNonce = 0
 
-	return nil
 }
 
 func (conR *ConsensusReactor) asyncSendCommitteeMsg(msg *ConsensusMessage, relay bool, peers ...*ConsensusPeer) bool {
@@ -1307,7 +1309,11 @@ func (conR *ConsensusReactor) JoinEstablishedCommittee(kBlock *block.Block, repl
 			return
 		}
 
-		conR.startPacemaker(!replay, PMModeCatchUp)
+		err = conR.startPacemaker(!replay, PMModeCatchUp)
+		if err != nil {
+			fmt.Println("could not start pacemaker, error:", err)
+		}
+
 	} else if role == CONSENSUS_COMMIT_ROLE_NONE {
 		// even though it is not committee, still initialize NewCommittee for next
 		conR.NewCommitteeInit(kBlockHeight, nonce, replay)
