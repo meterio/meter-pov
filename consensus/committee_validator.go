@@ -13,6 +13,7 @@ package consensus
 import (
 	"bytes"
 	"encoding/base64"
+	"fmt"
 	"time"
 
 	bls "github.com/dfinlab/meter/crypto/multi_sig"
@@ -244,6 +245,10 @@ Let's start the pacemaker...
 
 	// XXX: Start pacemaker here at this time.
 	newCommittee := !cv.replay
-	cv.csReactor.startPacemaker(newCommittee, PMModeNormal)
+	err = cv.csReactor.startPacemaker(newCommittee, PMModeNormal)
+	if err != nil {
+		fmt.Println("could not start pacemaker, error:", err)
+		return false
+	}
 	return true
 }

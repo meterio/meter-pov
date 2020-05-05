@@ -67,7 +67,7 @@ func newPMTimeoutCert(height, round uint32, counter uint32, committeeSize int) *
 
 func (tc *PMTimeoutCert) SigningHash() (hash meter.Bytes32) {
 	hw := meter.NewBlake2b()
-	rlp.Encode(hw, []interface{}{
+	err := rlp.Encode(hw, []interface{}{
 		tc.TimeoutRound,
 		tc.TimeoutHeight,
 		tc.TimeoutCounter,
@@ -75,6 +75,9 @@ func (tc *PMTimeoutCert) SigningHash() (hash meter.Bytes32) {
 		tc.TimeoutBitArray.String(),
 		tc.TimeoutAggSig,
 	})
+	if err != nil {
+		fmt.Println("could not get signing hash, error:", err)
+	}
 	hw.Sum(hash[:0])
 	return
 }

@@ -32,9 +32,9 @@ func (p *PendingList) GetLowestHeight() uint32 {
 	return p.lowest
 }
 
-func (p *PendingList) CleanUpTo(height uint32) error {
+func (p *PendingList) CleanUpTo(height uint32) {
 	if height < p.lowest {
-		return nil
+		return
 	}
 
 	for key, _ := range p.messages {
@@ -43,14 +43,12 @@ func (p *PendingList) CleanUpTo(height uint32) error {
 		}
 	}
 	p.lowest = height
-	return nil
 }
 
 // clean all the pending messages
-func (p *PendingList) CleanAll() error {
+func (p *PendingList) CleanAll() {
 	for key := range p.messages {
 		delete(p.messages, key)
 	}
 	p.lowest = 0
-	return nil
 }

@@ -37,7 +37,11 @@ func NewPowBlockInfoFromPosKBlock(posBlock *block.Block) *PowBlockInfo {
 	if len(posBlock.KBlockData.Data) > 0 {
 		data := posBlock.KBlockData.Data[0]
 		powBlock := wire.MsgBlock{}
-		powBlock.Deserialize(strings.NewReader(string(data)))
+		err := powBlock.Deserialize(strings.NewReader(string(data)))
+		if err != nil {
+			fmt.Println("could not deserialize msgBlock, error:", err)
+		}
+
 		info := NewPowBlockInfoFromPowBlock(&powBlock)
 
 		buf := bytes.NewBufferString("")
@@ -66,7 +70,10 @@ func NewPowBlockInfoFromPowBlock(powBlock *wire.MsgBlock) *PowBlockInfo {
 	merkleRootBytes := reverse(hdr.MerkleRoot.CloneBytes())
 
 	buf := bytes.NewBufferString("")
-	powBlock.Serialize(buf)
+	err := powBlock.Serialize(buf)
+	if err != nil {
+		fmt.Println("could not serialize msgBlock, error:", err)
+	}
 
 	var height uint32
 	beneficiaryAddr := "0x"
@@ -127,14 +134,22 @@ func DecodeSignatureScript(bs []byte) (uint32, string) {
 
 func NewPowBlockInfo(raw []byte) *PowBlockInfo {
 	blk := wire.MsgBlock{}
-	blk.Deserialize(strings.NewReader(string(raw)))
+	err := blk.Deserialize(strings.NewReader(string(raw)))
+	if err != nil {
+		fmt.Println("could not deserialize msgBlock, error:", err)
+	}
+
 	info := NewPowBlockInfoFromPowBlock(&blk)
 	return info
 }
 
 func (info *PowBlockInfo) HashID() meter.Bytes32 {
 	powBlk := wire.MsgBlock{}
-	powBlk.Deserialize(bytes.NewReader(info.PowRaw))
+	err := powBlk.Deserialize(bytes.NewReader(info.PowRaw))
+	if err != nil {
+		fmt.Println("could not deserialize msgBlock, error:", err)
+	}
+
 	var powBlkPtr *wire.MsgBlock
 	powBlkPtr = &powBlk
 	hash := powBlkPtr.BlockHash()

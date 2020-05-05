@@ -73,7 +73,7 @@ func newNewCommittee(height, round uint32, nonce uint64) *NewCommittee {
 	}
 }
 
-func (conR *ConsensusReactor) NewCommitteeTimeout() error {
+func (conR *ConsensusReactor) NewCommitteeTimeout() {
 	// increase round
 	conR.newCommittee.Round++
 	if conR.newCommittee.InCommittee {
@@ -84,6 +84,7 @@ func (conR *ConsensusReactor) NewCommitteeTimeout() error {
 		leaderPubKey := nl.PubKey
 		conR.sendNewCommitteeMessage(leader, leaderPubKey, conR.newCommittee.KblockHeight,
 			conR.newCommittee.Nonce, conR.newCommittee.Round)
+
 		conR.NewCommitteeTimerStart()
 		conR.logger.Warn("Committee Timeout, sent newcommittee msg", "peer", leader.name, "ip", leader.String(), "round", conR.newCommittee.Round)
 		if conR.csValidator != nil {
@@ -92,11 +93,9 @@ func (conR *ConsensusReactor) NewCommitteeTimeout() error {
 	} else {
 		conR.logger.Warn("Committee Timeout, not in newcommtteesent newcommittee:")
 	}
-
-	return nil
 }
 
-func (conR *ConsensusReactor) NewCommitteeInit(height uint32, nonce uint64, replay bool) error {
+func (conR *ConsensusReactor) NewCommitteeInit(height uint32, nonce uint64, replay bool) {
 	conR.logger.Info("NewCommitteeInit ...", "height", height, "nonce", nonce, "replay", replay)
 	nc := newNewCommittee(height, 0, nonce)
 	nc.Replay = replay
@@ -109,7 +108,6 @@ func (conR *ConsensusReactor) NewCommitteeInit(height uint32, nonce uint64, repl
 
 	//assign
 	conR.newCommittee = nc
-	return nil
 }
 
 func (conR *ConsensusReactor) NewCommitteeCleanup() {
@@ -151,7 +149,7 @@ func (conR *ConsensusReactor) updateCurEpoch(epoch uint64) {
 
 // NewcommitteeMessage routines
 // send new round message to future committee leader
-func (conR *ConsensusReactor) sendNewCommitteeMessage(peer *ConsensusPeer, leaderPubKey ecdsa.PublicKey, kblockHeight uint32, nonce uint64, round uint32) error {
+func (conR *ConsensusReactor) sendNewCommitteeMessage(peer *ConsensusPeer, leaderPubKey ecdsa.PublicKey, kblockHeight uint32, nonce uint64, round uint32) bool {
 	conR.updateCurEpoch(conR.chain.BestBlock().QC.EpochID)
 	msg := &NewCommitteeMessage{
 		CSMsgCommonHeader: ConsensusMsgCommonHeader{
@@ -181,15 +179,14 @@ func (conR *ConsensusReactor) sendNewCommitteeMessage(peer *ConsensusPeer, leade
 	ecdsaSigBytes, err := conR.SignConsensusMsg(msg.SigningHash().Bytes())
 	if err != nil {
 		conR.logger.Error("Sign message failed", "error", err)
-		return err
+		return false
 	}
 	msg.CSMsgCommonHeader.SetMsgSignature(ecdsaSigBytes)
 
 	// state to init & send move to next round
 	// fmt.Println("msg: %v", msg.String())
 	var m ConsensusMessage = msg
-	conR.asyncSendCommitteeMsg(&m, false, peer)
-	return nil
+	return conR.asyncSendCommitteeMsg(&m, false, peer)
 }
 
 // once reach 2/3 send aout annouce message

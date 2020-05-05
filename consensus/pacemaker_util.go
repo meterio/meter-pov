@@ -104,7 +104,7 @@ func (p *Pacemaker) relayMsg(mi consensusMsgInfo) {
 	msg := mi.Msg
 	height := msg.Header().Height
 	round := msg.Header().Round
-	peers, _ := p.GetRelayPeers(round)
+	peers := p.GetRelayPeers(round)
 	typeName := getConcreteName(mi.Msg)
 	if len(peers) > 0 {
 		p.logger.Info("Now, relay this "+typeName+"...", "height", height, "round", round, "msgHash", mi.MsgHashHex())
@@ -117,12 +117,12 @@ func (p *Pacemaker) relayMsg(mi consensusMsgInfo) {
 
 }
 
-func (p *Pacemaker) GetRelayPeers(round uint32) ([]*ConsensusPeer, error) {
+func (p *Pacemaker) GetRelayPeers(round uint32) []*ConsensusPeer {
 	peers := make([]*ConsensusPeer, 0)
 	size := len(p.csReactor.curActualCommittee)
 	myIndex := p.csReactor.GetMyActualCommitteeIndex()
 	if size == 0 {
-		return make([]*ConsensusPeer, 0), errors.New("current actual committee is empty")
+		return make([]*ConsensusPeer, 0)
 	}
 	rr := int(round % uint32(size))
 	if myIndex >= rr {
@@ -141,7 +141,7 @@ func (p *Pacemaker) GetRelayPeers(round uint32) ([]*ConsensusPeer, error) {
 		name := p.csReactor.GetCommitteeMemberNameByIP(member.NetAddr.IP)
 		peers = append(peers, newConsensusPeer(name, member.NetAddr.IP, member.NetAddr.Port, p.csReactor.magic))
 	}
-	return peers, nil
+	return peers
 }
 
 func (p *Pacemaker) ValidateProposal(b *pmBlock) error {
@@ -268,7 +268,7 @@ func (p *Pacemaker) SendConsensusMessage(round uint32, msg ConsensusMessage, cop
 	peers := make([]*ConsensusPeer, 0)
 	switch msg.(type) {
 	case *PMProposalMessage:
-		peers, _ = p.GetRelayPeers(round)
+		peers = p.GetRelayPeers(round)
 	case *PMVoteMessage:
 		proposer := p.getProposerByRound(round)
 		peers = append(peers, proposer)
