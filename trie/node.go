@@ -121,7 +121,12 @@ func decodeNode(hash, buf []byte, cachegen uint16) (node, error) {
 	if err != nil {
 		return nil, fmt.Errorf("decode error: %v", err)
 	}
-	switch c, _ := rlp.CountValues(elems); c {
+
+	c, err := rlp.CountValues(elems)
+	if err != nil {
+		return nil, fmt.Errorf("decode error: %v", err)
+	}
+	switch c {
 	case 2:
 		n, err := decodeShort(hash, buf, elems, cachegen)
 		return n, wrapError(err, "short")

@@ -19,10 +19,10 @@ package trie
 import (
 	"fmt"
 
+	"github.com/dfinlab/meter/meter"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/log"
 	lru "github.com/hashicorp/golang-lru"
-	"github.com/dfinlab/meter/meter"
 )
 
 var keyCache, _ = lru.New(32 * 1024)
@@ -132,7 +132,11 @@ func (t *SecureTrie) GetKey(shaKey []byte) []byte {
 	if key, ok := t.getSecKeyCache()[string(shaKey)]; ok {
 		return key
 	}
-	key, _ := t.trie.db.Get(shaKey)
+	key, err := t.trie.db.Get(shaKey)
+	if err != nil {
+		return []byte{}
+	}
+
 	return key
 }
 
@@ -174,7 +178,9 @@ func (t *SecureTrie) CommitTo(db DatabaseWriter) (root meter.Bytes32, err error)
 	// Write all the pre-images to the actual disk database
 	if len(t.getSecKeyCache()) > 0 {
 		for hk, key := range t.secKeyCache {
-			db.Put([]byte(hk), key)
+			if err := db.Put([]byte(hk), key); err != nil {
+				continue
+			}
 		}
 		t.secKeyCache = make(map[string][]byte)
 	}
@@ -192,7 +198,9 @@ func (t *SecureTrie) hashKey(key []byte) []byte {
 
 	h := newHasher(0, 0)
 	h.sha.Reset()
-	h.sha.Write(key)
+	if _, err := h.sha.Write(key); err != nil {
+		return []byte{}
+	}
 	var buf meter.Bytes32
 	h.sha.Sum(buf[:0])
 	returnHasherToPool(h)
