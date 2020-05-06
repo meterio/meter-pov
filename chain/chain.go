@@ -826,19 +826,15 @@ func (c *Chain) UpdateBestQC() (bool, error) {
 		log.Info("Update bestQC", "to", c.bestQC.CompactString())
 		return true, saveBestQC(c.kv, c.bestQC)
 	}
-	fmt.Println(c.leafBlock.Header().ID(), c.bestBlock.Header().Number()+1)
 	id, err := c.ancestorTrie.GetAncestor(c.leafBlock.Header().ID(), c.bestBlock.Header().Number()+1)
-	fmt.Println("ancestor trie ERROR: ", err)
 	if err != nil {
 		return false, err
 	}
 	raw, err := loadBlockRaw(c.kv, id)
-	fmt.Println("load block raw ERROR: ", err)
 	if err != nil {
 		return false, err
 	}
 	blk, err := raw.DecodeBlockBody()
-	fmt.Println("decode block raw ERROR: ", err)
 	if err != nil {
 		return false, err
 	}

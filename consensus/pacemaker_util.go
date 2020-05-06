@@ -138,7 +138,7 @@ func (p *Pacemaker) GetRelayPeers(round uint32) []*ConsensusPeer {
 			index = index % size
 		}
 		member := p.csReactor.curActualCommittee[index]
-		name := p.csReactor.GetCommitteeMemberNameByIP(member.NetAddr.IP)
+		name := p.csReactor.GetDelegateNameByIP(member.NetAddr.IP)
 		peers = append(peers, newConsensusPeer(name, member.NetAddr.IP, member.NetAddr.Port, p.csReactor.magic))
 	}
 	return peers
@@ -310,12 +310,6 @@ func (p *Pacemaker) asyncSendPacemakerMsg(msg ConsensusMessage, relay bool, peer
 	msgSummary := msg.String()
 
 	// broadcast consensus message to peers
-	info := "Send>>"
-	if relay {
-		info = "Relay>>"
-	}
-
-	msgSummary = fmt.Sprintf("%s %s", info, msgSummary)
 	for _, peer := range peers {
 		go peer.sendPacemakerMsg(data, msgSummary, relay)
 	}
