@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math/big"
 
+	"github.com/dfinlab/meter/builtin"
 	"github.com/dfinlab/meter/meter"
 	"github.com/ethereum/go-ethereum/rlp"
 )
@@ -29,8 +30,8 @@ func GetOpName(op uint32) string {
 }
 
 var (
-	MinimumBidAmount     = big.NewInt(1).Mul(big.NewInt(10), big.NewInt(1e18))
-	AuctionReservedPrice = big.NewInt(5e17) // at least  1 MTRG settle down 0.5 MTR
+	MinimumBidAmount = new(big.Int).Mul(big.NewInt(10), big.NewInt(1e18))
+	// AuctionReservedPrice = big.NewInt(5e17) // at least  1 MTRG settle down 0.5 MTR
 )
 
 // Candidate indicates the structure of a candidate
@@ -100,7 +101,7 @@ func (ab *AuctionBody) StartAuctionCB(env *AuctionEnviroment, gas uint64) (ret [
 	auctionCB.EndHeight = ab.EndHeight
 	auctionCB.EndEpoch = ab.EndEpoch
 	auctionCB.RlsdMTRG = ab.Amount
-	auctionCB.RsvdPrice = AuctionReservedPrice
+	auctionCB.RsvdPrice = builtin.Params.Native(state).Get(meter.KeyAuctionReservedPrice)
 	auctionCB.CreateTime = ab.Timestamp
 	auctionCB.RcvdMTR = big.NewInt(0)
 	auctionCB.AuctionTxs = make([]*AuctionTx, 0)

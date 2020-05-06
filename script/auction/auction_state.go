@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"math/big"
 
+	"github.com/dfinlab/meter/builtin"
 	"github.com/dfinlab/meter/meter"
 	"github.com/dfinlab/meter/runtime/statedb"
 	"github.com/dfinlab/meter/state"
@@ -142,6 +143,7 @@ func (a *Auction) TransferMTRToValidatorBenefit(amount *big.Int, state *state.St
 // when auction is over
 func (a *Auction) ClearAuction(cb *AuctionCB, state *state.State) (*big.Int, *big.Int, error) {
 	stateDB := statedb.New(state)
+	ValidatorBenefitRatio := builtin.Params.Native(state).Get(meter.KeyValidatorBenefitRatio)
 
 	actualPrice := big.NewInt(0)
 	actualPrice = actualPrice.Div(cb.RcvdMTR, cb.RlsdMTRG)
@@ -152,13 +154,13 @@ func (a *Auction) ClearAuction(cb *AuctionCB, state *state.State) (*big.Int, *bi
 
 	total := big.NewInt(0)
 	for _, tx := range cb.AuctionTxs {
-		mtrg := tx.Amount.Div(tx.Amount, actualPrice)
+		mtrg := tx.Amount.Mul(tx.Amount, big.NewInt(1e18))
+		mtrg = mtrg.Div(mtrg, actualPrice)
 		a.SendMTRGToBidder(tx.Addr, mtrg, stateDB)
 		total = total.Add(total, mtrg)
 	}
 
-	leftOver := big.NewInt(0)
-	leftOver = leftOver.Sub(cb.RlsdMTRG, total)
+	leftOver := new(big.Int).Sub(cb.RlsdMTRG, total)
 	a.SendMTRGToBidder(AuctionAccountAddr, leftOver, stateDB)
 
 	// 40% of received meter to AuctionValidatorBenefitAddr

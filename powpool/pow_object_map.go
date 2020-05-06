@@ -167,8 +167,8 @@ func (m *powObjectMap) GetLatestHeight() uint32 {
 func (m *powObjectMap) FillLatestObjChain(obj *powObject) (*PowResult, error) {
 	result := NewPowResult(obj.Nonce())
 
-	posCurEpoch := GetPosCurEpoch()
-	curCoef := calcPowCoef(0, posCurEpoch, RewardCoef)
+	posCurEpoch, startCoef, fadeDays, fadeRate := GetPosCurEpochAndCoef()
+	curCoef := calcPowCoef(0, posCurEpoch, startCoef, fadeDays, fadeRate)
 
 	target := blockchain.CompactToBig(obj.blockInfo.NBits)
 	genesisTarget := blockchain.CompactToBig(GetPowGenesisBlockInfo().NBits)
