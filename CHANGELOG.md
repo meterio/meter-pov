@@ -1,5 +1,14 @@
 # Versions
 
+## 1.4.1-beta7
+
+Updated:
+
+1. fixes for committee nonce
+
+## 1.4.1-beta6
+
+
 ## 1.4.1-beta2
 
 Added:
