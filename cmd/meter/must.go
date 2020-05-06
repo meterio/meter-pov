@@ -328,6 +328,17 @@ func loadNodeMaster(ctx *cli.Context) (*node.Master, *consensus.BlsCommon) {
 	return master, blsCommon
 }
 
+func getNodeComplexPubKey(master *node.Master, blsCommon *consensus.BlsCommon) (string, error) {
+	ecdsaPubBytes := crypto.FromECDSAPub(master.PublicKey)
+	ecdsaPubB64 := b64.StdEncoding.EncodeToString(ecdsaPubBytes)
+
+	blsPubBytes := blsCommon.GetSystem().PubKeyToBytes(*blsCommon.GetPubKey())
+	blsPubB64 := b64.StdEncoding.EncodeToString(blsPubBytes)
+
+	pub := strings.Join([]string{ecdsaPubB64, blsPubB64}, ":::")
+	return pub, nil
+}
+
 type p2pComm struct {
 	comm           *comm.Communicator
 	p2pSrv         *p2psrv.Server
@@ -432,23 +443,37 @@ func versionHandler(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte(fmt.Sprintf("version = %s", fullVersion())))
 }
 
+func pubkeyHandler(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte(fmt.Sprintf("version = %s", fullVersion())))
+}
+
 func startObserveServer(ctx *cli.Context) (string, func()) {
 	addr := ":8671"
 	listener, err := net.Listen("tcp", addr)
 	if err != nil {
-		fatal(fmt.Sprintf("listen API addr [%v]: %v", addr, err))
+		fatal(fmt.Sprintf("listen observe addr [%v]: %v", addr, err))
 	}
 	mux := http.NewServeMux()
 	mux.Handle("/metrics", promhttp.Handler())
 	mux.HandleFunc("/version", versionHandler)
+	mux.HandleFunc("/pubkey", pubkeyHandler)
 
 	srv := &http.Server{Handler: mux}
 	var goes co.Goes
 	goes.Go(func() {
-		srv.Serve(listener)
+		err := srv.Serve(listener)
+		if err != nil {
+			fmt.Println("could not start observe server, error:", err)
+			panic("could not start observe server")
+		}
+
 	})
 	return "http://" + listener.Addr().String() + "/", func() {
-		srv.Close()
+		err := srv.Close()
+		if err != nil {
+			fmt.Println("can't close observe service, error:", err)
+		}
 		goes.Wait()
 	}
 }
@@ -470,10 +495,19 @@ func startAPIServer(ctx *cli.Context, handler http.Handler, genesisID meter.Byte
 	srv := &http.Server{Handler: handler}
 	var goes co.Goes
 	goes.Go(func() {
-		srv.Serve(listener)
+		err := srv.Serve(listener)
+		if err != nil {
+			fmt.Println("could not start API service, error:", err)
+			panic("could not start API service")
+		}
+
 	})
 	return "http://" + listener.Addr().String() + "/", func() {
-		srv.Close()
+		err := srv.Close()
+		if err != nil {
+			fmt.Println("could not close API service, error:", err)
+		}
+
 		goes.Wait()
 	}
 }
@@ -493,10 +527,19 @@ func startPowAPIServer(ctx *cli.Context, handler http.Handler) (string, func()) 
 	srv := &http.Server{Handler: handler}
 	var goes co.Goes
 	goes.Go(func() {
-		srv.Serve(listener)
+		err := srv.Serve(listener)
+		if err != nil {
+			fmt.Println("could not start powpool service, error:", err)
+			panic("could not start powpool service")
+		}
+
 	})
 	return "http://" + listener.Addr().String() + "/", func() {
-		srv.Close()
+		err := srv.Close()
+		if err != nil {
+			fmt.Println("could not close powpool service, error:", err)
+		}
+
 		goes.Wait()
 	}
 }

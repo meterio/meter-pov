@@ -155,7 +155,7 @@ func (h *Header) SigningHash() (hash meter.Bytes32) {
 	defer func() { h.cache.signingHash.Store(hash) }()
 
 	hw := meter.NewBlake2b()
-	rlp.Encode(hw, []interface{}{
+	err := rlp.Encode(hw, []interface{}{
 		h.Body.ParentID,
 		h.Body.Timestamp,
 		h.Body.GasLimit,
@@ -171,6 +171,9 @@ func (h *Header) SigningHash() (hash meter.Bytes32) {
 		h.Body.ReceiptsRoot,
 		h.Body.EvidenceDataRoot,
 	})
+	if err != nil {
+		fmt.Println("could not calculate signing hash:", err)
+	}
 	hw.Sum(hash[:0])
 	return
 }

@@ -2,9 +2,10 @@ package trie
 
 import (
 	"bytes"
+	"fmt"
 
-	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/dfinlab/meter/meter"
+	"github.com/ethereum/go-ethereum/rlp"
 )
 
 // see "github.com/ethereum/go-ethereum/types/derive_sha.go"
@@ -19,7 +20,10 @@ func DeriveRoot(list DerivableList) meter.Bytes32 {
 	trie := new(Trie)
 	for i := 0; i < list.Len(); i++ {
 		keybuf.Reset()
-		rlp.Encode(keybuf, uint(i))
+		if err := rlp.Encode(keybuf, uint(i)); err != nil {
+			fmt.Printf("rlp Encode failed, error=%s\n", err.Error())
+			continue
+		}
 		trie.Update(keybuf.Bytes(), list.GetRlp(i))
 	}
 	return trie.Hash()

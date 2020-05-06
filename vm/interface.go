@@ -27,11 +27,11 @@ import (
 type StateDB interface {
 	CreateAccount(common.Address)
 
-	SubBalance(common.Address, *big.Int)
+	SubBalance(common.Address, *big.Int) bool
 	AddBalance(common.Address, *big.Int)
 	GetBalance(common.Address) *big.Int
 
-	SubEnergy(common.Address, *big.Int)
+	SubEnergy(common.Address, *big.Int) bool
 	AddEnergy(common.Address, *big.Int)
 	GetEnergy(common.Address) *big.Int
 

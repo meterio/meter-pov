@@ -96,10 +96,9 @@ func (ch ConsensusMsgCommonHeader) fields() []interface{} {
 	}
 }
 
-func (cmh *ConsensusMsgCommonHeader) SetMsgSignature(sig []byte) error {
+func (cmh *ConsensusMsgCommonHeader) SetMsgSignature(sig []byte) {
 	cpy := append([]byte(nil), sig...)
 	cmh.Signature = cpy
-	return nil
 }
 
 func (cmh *ConsensusMsgCommonHeader) verifySignature(msgHash meter.Bytes32) bool {
@@ -302,8 +301,8 @@ func (m *NewCommitteeMessage) SigningHash() (hash meter.Bytes32) {
 
 // String returns a string representation.
 func (m *NewCommitteeMessage) String() string {
-	return fmt.Sprintf("[NewCommitteeMessage Height:%v Round:%v NextEpochID:%v]",
-		m.CSMsgCommonHeader.Height, m.CSMsgCommonHeader.Round, m.NextEpochID)
+	return fmt.Sprintf("[NewCommittee Height:%v Round:%v NextEpochID:%v Nonce:%v]",
+		m.CSMsgCommonHeader.Height, m.CSMsgCommonHeader.Round, m.NextEpochID, m.Nonce)
 }
 func (m *NewCommitteeMessage) Header() *ConsensusMsgCommonHeader {
 	return &m.CSMsgCommonHeader
@@ -358,11 +357,15 @@ func (m *PMProposalMessage) String() string {
 	if err == nil {
 		canonicalName := blk.GetCanonicalName()
 		header := blk.Header()
-		blkStr = fmt.Sprintf("%v(%v) ID:%v QC:(H:%v,R:%v)", canonicalName, header.Number(), header.ID().AbbrevString(), blk.QC.QCHeight, blk.QC.QCRound)
+		blkStr = fmt.Sprintf("{%v(%v), ID:%v, QC:(H:%v,R:%v)}", canonicalName, header.Number(), header.ID().AbbrevString(), blk.QC.QCHeight, blk.QC.QCRound)
 	}
 	ch := m.CSMsgCommonHeader
-	return fmt.Sprintf("[PMProposal Height:%v, Round:%v, Parent:(H:%v,R:%v), Proposed:%v, TimeoutCert:%v]",
-		ch.Height, ch.Round, m.ParentHeight, m.ParentRound, blkStr, m.TimeoutCert.String())
+	tcStr := ""
+	if m.TimeoutCert != nil {
+		tcStr = "TimeoutCert:" + m.TimeoutCert.String()
+	}
+	return fmt.Sprintf("[PMProposal (H:%v,R:%v), Parent:(H:%v,R:%v), Proposed:%v, %v]",
+		ch.Height, ch.Round, m.ParentHeight, m.ParentRound, blkStr, tcStr)
 }
 func (m *PMProposalMessage) Header() *ConsensusMsgCommonHeader {
 	return &m.CSMsgCommonHeader

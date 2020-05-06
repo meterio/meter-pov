@@ -8,7 +8,10 @@ package rpc
 import (
 	"bytes"
 	"context"
+	crand "crypto/rand"
+	"encoding/binary"
 	"encoding/hex"
+	"fmt"
 	"math/rand"
 	"sync"
 	"time"
@@ -19,9 +22,21 @@ import (
 	"github.com/pkg/errors"
 )
 
+func randint64() (int64, error) {
+	var b [8]byte
+	if _, err := crand.Read(b[:]); err != nil {
+		return 0, err
+	}
+	return int64(binary.LittleEndian.Uint64(b[:])), nil
+}
+
 func init() {
 	// required when generate call id
-	rand.Seed(time.Now().UnixNano())
+	seed, err := randint64()
+	if err != nil {
+		panic("could not get random int")
+	}
+	rand.Seed(seed)
 }
 
 const (
@@ -126,7 +141,11 @@ func (r *RPC) Serve(handleFunc HandleFunc, maxMsgSize uint32) error {
 		} else {
 			if err := handleFunc(&msg, func(result interface{}) {
 				if callID != 0 {
-					p2p.Send(r.rw, msg.Code, &msgData{callID, true, r.magic, result})
+					err := p2p.Send(r.rw, msg.Code, &msgData{callID, true, r.magic, result})
+					if err != nil {
+						fmt.Println("could not send via p2p, error:", err)
+					}
+
 				}
 				// here we skip result for Notify (callID == 0)
 			}); err != nil {

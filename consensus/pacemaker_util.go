@@ -1,7 +1,6 @@
 package consensus
 
 import (
-	sha256 "crypto/sha256"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -72,7 +71,7 @@ func (p *Pacemaker) receivePacemakerMsg(w http.ResponseWriter, r *http.Request) 
 	peerIP := peer.netAddr.IP.String()
 	existed := p.msgCache.Add(sig)
 	if existed {
-		p.logger.Info("duplicate "+typeName+" , dropped ...", "peer", peerName, "ip", peerIP)
+		p.logger.Debug("duplicate "+typeName+" , dropped ...", "peer", peerName, "ip", peerIP)
 		return
 	}
 
@@ -105,7 +104,7 @@ func (p *Pacemaker) relayMsg(mi consensusMsgInfo) {
 	msg := mi.Msg
 	height := msg.Header().Height
 	round := msg.Header().Round
-	peers, _ := p.GetRelayPeers(round)
+	peers := p.GetRelayPeers(round)
 	typeName := getConcreteName(mi.Msg)
 	if len(peers) > 0 {
 		p.logger.Info("Now, relay this "+typeName+"...", "height", height, "round", round, "msgHash", mi.MsgHashHex())
@@ -118,12 +117,12 @@ func (p *Pacemaker) relayMsg(mi consensusMsgInfo) {
 
 }
 
-func (p *Pacemaker) GetRelayPeers(round uint32) ([]*ConsensusPeer, error) {
+func (p *Pacemaker) GetRelayPeers(round uint32) []*ConsensusPeer {
 	peers := make([]*ConsensusPeer, 0)
 	size := len(p.csReactor.curActualCommittee)
 	myIndex := p.csReactor.GetMyActualCommitteeIndex()
 	if size == 0 {
-		return make([]*ConsensusPeer, 0), errors.New("current actual committee is empty")
+		return make([]*ConsensusPeer, 0)
 	}
 	rr := int(round % uint32(size))
 	if myIndex >= rr {
@@ -139,10 +138,10 @@ func (p *Pacemaker) GetRelayPeers(round uint32) ([]*ConsensusPeer, error) {
 			index = index % size
 		}
 		member := p.csReactor.curActualCommittee[index]
-		name := p.csReactor.GetCommitteeMemberNameByIP(member.NetAddr.IP)
+		name := p.csReactor.GetDelegateNameByIP(member.NetAddr.IP)
 		peers = append(peers, newConsensusPeer(name, member.NetAddr.IP, member.NetAddr.Port, p.csReactor.magic))
 	}
-	return peers, nil
+	return peers
 }
 
 func (p *Pacemaker) ValidateProposal(b *pmBlock) error {
@@ -269,7 +268,7 @@ func (p *Pacemaker) SendConsensusMessage(round uint32, msg ConsensusMessage, cop
 	peers := make([]*ConsensusPeer, 0)
 	switch msg.(type) {
 	case *PMProposalMessage:
-		peers, _ = p.GetRelayPeers(round)
+		peers = p.GetRelayPeers(round)
 	case *PMVoteMessage:
 		proposer := p.getProposerByRound(round)
 		peers = append(peers, proposer)
@@ -309,19 +308,10 @@ func (p *Pacemaker) asyncSendPacemakerMsg(msg ConsensusMessage, relay bool, peer
 		return false
 	}
 	msgSummary := msg.String()
-	typeName := getConcreteName(msg)
 
-	msgHash := sha256.Sum256(data)
-	msgHashHex := hex.EncodeToString(msgHash[:])[:MsgHashSize]
 	// broadcast consensus message to peers
-	info := "Send>>"
-	if relay {
-		info = "Relay>>"
-	}
-
-	p.logger.Info(fmt.Sprintf("%s %s", info, msgSummary), "size", len(data), "msgHash", msgHashHex)
 	for _, peer := range peers {
-		go peer.sendPacemakerMsg(data, fmt.Sprintf("%s [%s msgHash=%s]", info, typeName, msgHashHex), relay)
+		go peer.sendPacemakerMsg(data, msgSummary, relay)
 	}
 	return true
 }

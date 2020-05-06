@@ -371,11 +371,8 @@ func (c *ConsensusReactor) verifyBlock(blk *block.Block, state *state.State) (*s
 		}
 		return true, meta.Reverted, nil
 	}
-	print := false
-	if blk.Header().Number() == 10271 {
-		print = true
-	}
-	for i, tx := range txs {
+
+	for _, tx := range txs {
 		// Mint transaction critiers:
 		// 1. no signature (no signer)
 		// 2. only located in 1st transaction in kblock.
@@ -416,19 +413,6 @@ func (c *ConsensusReactor) verifyBlock(blk *block.Block, state *state.State) (*s
 		receipt, err := rt.ExecuteTransaction(tx)
 		if err != nil {
 			return nil, nil, err
-		}
-
-		if print {
-			fmt.Println("XXXXXXXXXXXXXXXXXXXX")
-			fmt.Println(fmt.Sprintf("After %v tx", i+1))
-			fmt.Println("receiptRoot = ", receipts.RootHash())
-			h, e := state.Stage().Hash()
-			if e != nil {
-				fmt.Println("Error getting stateRoot")
-			} else {
-				fmt.Println("stateRoot = ", h)
-			}
-			fmt.Println("XXXXXXXXXXXXXXXXXXX")
 		}
 
 		totalGasUsed += receipt.GasUsed
@@ -805,17 +789,17 @@ type RecvKBlockInfo struct {
 	Epoch            uint64
 }
 
-func (conR *ConsensusReactor) HandleRecvKBlockInfo(ki RecvKBlockInfo) error {
+func (conR *ConsensusReactor) HandleRecvKBlockInfo(ki RecvKBlockInfo) {
 	best := conR.chain.BestBlock()
 
 	if ki.Height != best.Header().Number() {
 		conR.logger.Info("kblock info is ignored ...", "received hight", ki.Height, "my best", best.Header().Number())
-		return nil
+		return
 	}
 
 	if best.Header().BlockType() != block.BLOCK_TYPE_K_BLOCK {
 		conR.logger.Info("best block is not kblock")
-		return nil
+		return
 	}
 
 	// can only handle kblock info when pacemaker stopped
@@ -825,7 +809,7 @@ func (conR *ConsensusReactor) HandleRecvKBlockInfo(ki RecvKBlockInfo) error {
 		})
 		conR.csPacemaker.Stop()
 		conR.logger.Info("pacemaker is not fully stopped, wait for another sec ...")
-		return nil
+		return
 	}
 
 	conR.logger.Info("received KBlock ...", "height", ki.Height, "lastKBlockHeight", ki.LastKBlockHeight, "nonce", ki.Nonce, "epoch", ki.Epoch)
@@ -839,7 +823,6 @@ func (conR *ConsensusReactor) HandleRecvKBlockInfo(ki RecvKBlockInfo) error {
 	// run new one.
 	conR.UpdateCurDelegates()
 	conR.ConsensusHandleReceivedNonce(ki.Height, ki.Nonce, ki.Epoch, false)
-	return nil
 }
 
 func (conR *ConsensusReactor) HandleKBlockData(kd block.KBlockData) {

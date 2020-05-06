@@ -6,23 +6,20 @@
 package node
 
 import (
-	"crypto/ecdsa"
-	b64 "encoding/base64"
 	"errors"
 	"net/http"
 
 	"github.com/dfinlab/meter/api/utils"
 	"github.com/dfinlab/meter/consensus"
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/gorilla/mux"
 )
 
 type Node struct {
 	nw     Network
-	pubKey *ecdsa.PublicKey
+	pubKey string
 }
 
-func New(nw Network, pubKey *ecdsa.PublicKey) *Node {
+func New(nw Network, pubKey string) *Node {
 	return &Node{
 		nw,
 		pubKey,
@@ -52,9 +49,8 @@ func (n *Node) handleCommittee(w http.ResponseWriter, req *http.Request) error {
 }
 func (n *Node) handlePubKey(w http.ResponseWriter, req *http.Request) error {
 	w.WriteHeader(http.StatusOK)
-	b := b64.StdEncoding.EncodeToString(crypto.FromECDSAPub(n.pubKey))
-
-	w.Write([]byte(b))
+	utils.WriteJSON(w, n.pubKey)
+	//	w.Write([]byte(b))
 	return nil
 }
 

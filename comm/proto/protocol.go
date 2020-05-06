@@ -14,7 +14,7 @@ const (
 	Name              = "meter"
 	Version    uint   = 1
 	Length     uint64 = 11
-	MaxMsgSize        = 10 * 1024 * 1024
+	MaxMsgSize        = 2 * 1024 * 1024 // max size 2M bytes
 )
 
 // Protocol messages of meter

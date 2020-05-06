@@ -20,9 +20,9 @@ import (
 	"bytes"
 	"fmt"
 
+	"github.com/dfinlab/meter/meter"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/rlp"
-	"github.com/dfinlab/meter/meter"
 )
 
 // Prove constructs a merkle proof for key. The result contains all
@@ -69,19 +69,36 @@ func (t *Trie) Prove(key []byte, fromLevel uint, proofDb DatabaseWriter) error {
 	for i, n := range nodes {
 		// Don't bother checking for errors here since hasher panics
 		// if encoding doesn't work and we're not writing to any database.
-		n, _, _ = hasher.hashChildren(n, nil)
-		hn, _ := hasher.store(n, nil, false)
+		n, _, err := hasher.hashChildren(n, nil)
+		if err != nil {
+			log.Error("get node children failed", "error", err)
+			continue
+		}
+
+		hn, err := hasher.store(n, nil, false)
+		if err != nil {
+			log.Error("store failed", "error", err)
+			continue
+		}
 		if hash, ok := hn.(hashNode); ok || i == 0 {
 			// If the node's database encoding is a hash (or is the
 			// root node), it becomes a proof element.
 			if fromLevel > 0 {
 				fromLevel--
 			} else {
-				enc, _ := rlp.EncodeToBytes(n)
+				enc, err := rlp.EncodeToBytes(n)
+				if err != nil {
+					log.Error("rlp encode error", "error", err)
+					continue
+				}
+
 				if !ok {
 					hash = meter.Blake2b(enc).Bytes()
 				}
-				proofDb.Put(hash, enc)
+				if err := proofDb.Put(hash, enc); err != nil {
+					log.Error("DB put failed", "error", err)
+					continue
+				}
 			}
 		}
 	}
@@ -96,10 +113,14 @@ func VerifyProof(rootHash meter.Bytes32, key []byte, proofDb DatabaseReader) (va
 	key = keybytesToHex(key)
 	wantHash := rootHash[:]
 	for i := 0; ; i++ {
-		buf, _ := proofDb.Get(wantHash)
+		buf, err := proofDb.Get(wantHash)
 		if buf == nil {
 			return nil, fmt.Errorf("proof node %d (hash %064x) missing", i, wantHash[:]), i
 		}
+		if err != nil {
+			return nil, err, i
+		}
+
 		n, err := decodeNode(wantHash, buf, 0)
 		if err != nil {
 			return nil, fmt.Errorf("bad proof node %d: %v", i, err), i

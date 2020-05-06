@@ -39,7 +39,10 @@ func (qc *QuorumCert) CompactString() string {
 }
 
 func (qc *QuorumCert) ToBytes() []byte {
-	bytes, _ := rlp.EncodeToBytes(qc)
+	bytes, err := rlp.EncodeToBytes(qc)
+	if err != nil {
+		fmt.Println("qc to bytes error: ", err)
+	}
 	return bytes
 }
 

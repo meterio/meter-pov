@@ -46,10 +46,10 @@ func (v *Validator) String() string {
 	}
 	pubkey := base64.StdEncoding.EncodeToString(crypto.FromECDSAPub(&v.PubKey))
 	pubkey = pubkey[:4] + "..." + pubkey[len(pubkey)-4:]
-	return fmt.Sprintf("%15v (address:%v ip:%v pubkey:%v)",
+	return fmt.Sprintf("%15v (%15v %v %v)",
 		v.Name,
-		v.Address.String(),
 		v.NetAddr.IP.String(),
+		v.Address.String(),
 		pubkey,
 	)
 }

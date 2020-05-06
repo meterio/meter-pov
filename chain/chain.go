@@ -162,7 +162,7 @@ func New(kv kv.GetPutter, genesisBlock *block.Block, verbose bool) (*Chain, erro
 	} else {
 		fmt.Println("Leaf Block", leafBlock.CompactString())
 		// remove all leaf blocks that are not finalized
-		for leafBlock.Header().TotalScore() > bestBlock.Header().TotalScore() {
+		for leafBlock.Header().BlockType() == block.BLOCK_TYPE_S_BLOCK || leafBlock.Header().TotalScore() > bestBlock.Header().TotalScore() {
 			fmt.Println("*** Start pruning")
 			parentID, err := ancestorTrie.GetAncestor(leafBlock.Header().ID(), leafBlock.Header().Number()-1)
 			if err != nil {
@@ -182,7 +182,13 @@ func New(kv kv.GetPutter, genesisBlock *block.Block, verbose bool) (*Chain, erro
 			leafBlock = parentBlk
 		}
 
-		saveLeafBlockID(kv, leafBlock.Header().ID())
+		if leafBlock.Header().TotalScore() < bestBlock.Header().TotalScore() {
+			leafBlock = bestBlock
+		}
+		err := saveLeafBlockID(kv, leafBlock.Header().ID())
+		if err != nil {
+			fmt.Println("could not save leaf block, error: ", err)
+		}
 	}
 
 	bestQC, err := loadBestQC(kv)

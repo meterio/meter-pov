@@ -7,6 +7,7 @@ package consensus
 
 import (
 	"bytes"
+	"encoding/base64"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -50,7 +51,7 @@ type StatEntry struct {
 }
 
 func (e StatEntry) String() string {
-	return fmt.Sprintf("%s %s %s %s", e.Address.String(), e.Name, e.PubKey, e.Infraction.String())
+	return fmt.Sprintf("%s %s %s %s", e.Address.String(), e.Name, base64.StdEncoding.EncodeToString([]byte(e.PubKey)), e.Infraction.String())
 }
 
 func (conR *ConsensusReactor) calcMissingProposer(validators []*types.Validator, actualMembers []CommitteeMember, blocks []*block.Block) ([]*missingProposerInfo, error) {
@@ -282,6 +283,7 @@ func (conR *ConsensusReactor) calcStatistics(lastKBlockHeight, height uint32) ([
 		}
 		result = append(result, stats[signer])
 	}
+
 	conR.logger.Info("calc statistics results", "result", result)
 	return result, nil
 }
@@ -343,6 +345,7 @@ func (conR *ConsensusReactor) BuildStatisticsTx(entries []*StatEntry) *tx.Transa
 		Nonce(12345678)
 
 	//now build Clauses
+	fmt.Println("Statistics Results")
 	for _, entry := range entries {
 		data := conR.buildStatisticsData(entry)
 		builder.Clause(
@@ -350,7 +353,8 @@ func (conR *ConsensusReactor) BuildStatisticsTx(entries []*StatEntry) *tx.Transa
 				WithValue(big.NewInt(0)).
 				WithToken(tx.TOKEN_METER_GOV).
 				WithData(data))
-		conR.logger.Info("Statistic:", "entry", entry.String())
+		conR.logger.Debug("Statistic entry", "entry", entry.String())
+		fmt.Println(entry.Name, entry.Address, entry.Infraction.String())
 	}
 
 	builder.Build().IntrinsicGas()

@@ -36,7 +36,7 @@ func newPMTimeoutCertManager(pacemaker *Pacemaker) *PMTimeoutCertManager {
 	}
 }
 
-func (tm *PMTimeoutCertManager) collectSignature(newViewMsg *PMNewViewMessage) error {
+func (tm *PMTimeoutCertManager) collectSignature(newViewMsg *PMNewViewMessage) {
 	tm.Lock()
 	defer tm.Unlock()
 
@@ -75,7 +75,6 @@ func (tm *PMTimeoutCertManager) collectSignature(newViewMsg *PMNewViewMessage) e
 			})
 		}
 	}
-	return nil
 }
 
 func (tm *PMTimeoutCertManager) count(height, round uint32) int {
@@ -114,7 +113,7 @@ func (tm *PMTimeoutCertManager) getTimeoutCert(height, round uint32) *PMTimeoutC
 	}
 }
 
-func (tm *PMTimeoutCertManager) cleanup(height, round uint32) error {
+func (tm *PMTimeoutCertManager) cleanup(height, round uint32) {
 	tm.Lock()
 	defer tm.Unlock()
 	for k, _ := range tm.cache {
@@ -123,5 +122,4 @@ func (tm *PMTimeoutCertManager) cleanup(height, round uint32) error {
 			delete(tm.bitArrays, k)
 		}
 	}
-	return nil
 }

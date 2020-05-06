@@ -110,7 +110,10 @@ func convertBlock(b *block.Block, isTrunk bool) (*Block, error) {
 		LastKBlockHeight: header.LastKBlockHeight(),
 	}
 	if b.QC != nil {
-		result.QC, _ = convertQC(b.QC)
+		result.QC, err = convertQC(b.QC)
+		if err != nil {
+			return nil, err
+		}
 		result.QC.Raw = ""
 	}
 

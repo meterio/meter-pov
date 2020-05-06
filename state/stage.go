@@ -6,6 +6,8 @@
 package state
 
 import (
+	"fmt"
+
 	"github.com/dfinlab/meter/kv"
 	"github.com/dfinlab/meter/meter"
 	"github.com/dfinlab/meter/trie"
@@ -65,6 +67,7 @@ func newStage(root meter.Bytes32, kv kv.GetPutter, changes map[meter.Address]*ch
 		}
 
 		if err := saveAccount(accountTrie, addr, &dataCpy); err != nil {
+			fmt.Println("newStage, saveaccount failed", err.Error())
 			return &Stage{err: err}
 		}
 	}

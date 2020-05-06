@@ -42,8 +42,18 @@ func fatal(args ...interface{}) {
 		// stdout is unlikely to get redirected though, so just print there.
 		w = os.Stdout
 	} else {
-		outf, _ := os.Stdout.Stat()
-		errf, _ := os.Stderr.Stat()
+		outf, err := os.Stdout.Stat()
+		if err != nil {
+			fmt.Println("could not get os stdout, error:", err)
+			panic("could not get os stdout")
+		}
+
+		errf, err := os.Stderr.Stat()
+		if err != nil {
+			fmt.Println("could not get os stderr, error:", err)
+			panic("could not get os stderr")
+		}
+
 		if outf != nil && errf != nil && os.SameFile(outf, errf) {
 			w = os.Stderr
 		} else {
@@ -141,7 +151,11 @@ func handleXGenesisID(h http.Handler, genesisID meter.Bytes32) http.Handler {
 		actualID := r.Header.Get(headerKey)
 		w.Header().Set(headerKey, expectedID)
 		if actualID != "" && actualID != expectedID {
-			io.Copy(ioutil.Discard, r.Body)
+			_, err := io.Copy(ioutil.Discard, r.Body)
+			if err != nil {
+				fmt.Println("could not copy x-genesis-id, error:", err)
+			}
+
 			http.Error(w, "genesis id mismatch", http.StatusForbidden)
 			return
 		}
@@ -199,15 +213,35 @@ func writeOutKeys(system bls.System, path string) (bls.PublicKey, bls.PrivateKey
 	content = append(content, isolator...)
 	content = append(content, privBytes...)
 
-	ioutil.WriteFile(path, []byte(hex.EncodeToString(content)), 0644)
+	err = ioutil.WriteFile(path, []byte(hex.EncodeToString(content)), 0644)
+	if err != nil {
+		fmt.Println("could not write out keys, error:", err)
+	}
+
 	return pubKey, privKey, nil
 }
 
-func getBlsSystem() bls.System {
-	paraBytes, _ := hex.DecodeString(paraString)
-	params, _ := bls.ParamsFromBytes(paraBytes)
+func getBlsSystem() (*bls.System, error) {
+	paraBytes, err := hex.DecodeString(paraString)
+	if err != nil {
+		return nil, err
+	}
+
+	params, err := bls.ParamsFromBytes(paraBytes)
+	if err != nil {
+		return nil, err
+	}
+
 	pairing := bls.GenPairing(params)
-	systemBytes, _ := hex.DecodeString(systemString)
-	system, _ := bls.SystemFromBytes(pairing, systemBytes)
-	return system
+	systemBytes, err := hex.DecodeString(systemString)
+	if err != nil {
+		return nil, err
+	}
+
+	system, err := bls.SystemFromBytes(pairing, systemBytes)
+	if err != nil {
+		return nil, err
+	}
+
+	return &system, nil
 }

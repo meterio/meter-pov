@@ -229,9 +229,14 @@ func (s *State) SetBalance(addr meter.Address, balance *big.Int) {
 // SubBalance stub.
 func (s *State) SubBalance(addr meter.Address, amount *big.Int) bool {
 	if amount.Sign() == 0 {
+		return true
+	}
+
+	balance := s.GetBalance(meter.Address(addr))
+	if balance.Cmp(amount) < 0 {
 		return false
 	}
-	balance := s.GetBalance(meter.Address(addr))
+
 	s.SetBalance(meter.Address(addr), new(big.Int).Sub(balance, amount))
 	return true
 }
@@ -269,9 +274,13 @@ func (s *State) AddEnergy(addr meter.Address, amount *big.Int) {
 // SubEnergy stub.
 func (s *State) SubEnergy(addr meter.Address, amount *big.Int) bool {
 	if amount.Sign() == 0 {
-		return false
+		return true
 	}
 	balance := s.GetEnergy(meter.Address(addr))
+	if balance.Cmp(amount) < 0 {
+		return false
+	}
+
 	s.SetEnergy(meter.Address(addr), new(big.Int).Sub(balance, amount))
 	return true
 }
@@ -461,8 +470,10 @@ func (s *State) Stage() *Stage {
 	}
 	changes := s.changes()
 	if s.err != nil {
+		// fmt.Println("XXXX in stage get changes failed", s.err.Error())
 		return &Stage{err: s.err}
 	}
+
 	return newStage(s.root, s.kv, changes)
 }
 
