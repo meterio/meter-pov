@@ -47,11 +47,6 @@ RUN chmod a+x /reset.sh
 RUN touch /var/log/supervisor/pos-stdout.log
 RUN touch /var/log/supervisor/pos-stderr.log
 
-RUN touch /root/.bashrc && cat 'alias posout="tail -f /var/log/supervisor/pos-stdout.log"' >> /root/.bashrc
-RUN touch /root/.bashrc && cat 'alias poserr="tail -f /var/log/supervisor/pos-stderr.log"' >> /root/.bashrc
-RUN touch /root/.bashrc && cat 'alias powout="tail -f /var/log/supervisor/pow-stdout.log"' >> /root/.bashrc
-RUN touch /root/.bashrc && cat 'alias powerr="tail -f /var/log/supervisor/pow-stderr.log"' >> /root/.bashrc
-
 LABEL com.centurylinklabs.watchtower.lifecycle.pre-update="/reset.sh"
 
 EXPOSE 8668 8669 8670 8671 11235 11235/udp 55555/udp 8332 9209
