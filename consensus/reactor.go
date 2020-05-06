@@ -154,8 +154,9 @@ type ConsensusReactor struct {
 
 	msgCache *MsgCache
 
-	magic       [4]byte
-	inCommittee bool
+	magic        [4]byte
+	inCommittee  bool
+	allDelegates []*types.Delegate
 }
 
 // Glob Instance
@@ -660,7 +661,7 @@ func (conR *ConsensusReactor) GetRelayPeers(round int) ([]*ConsensusPeer, error)
 			index = index % size
 		}
 		member := conR.curCommittee.Validators[index]
-		name := conR.GetCommitteeMemberNameByIP(member.NetAddr.IP)
+		name := conR.GetDelegateNameByIP(member.NetAddr.IP)
 		peers = append(peers, newConsensusPeer(name, member.NetAddr.IP, member.NetAddr.Port, conR.magic))
 	}
 	return peers, nil
@@ -765,7 +766,7 @@ func (conR *ConsensusReactor) UnmarshalMsg(data []byte) (*consensusMsgInfo, erro
 		fmt.Println("Unrecognized Payload: ", err)
 		return nil, ErrUnrecognizedPayload
 	}
-	peerName := conR.GetCommitteeMemberNameByIP(peerIP)
+	peerName := conR.GetDelegateNameByIP(peerIP)
 	peer := newConsensusPeer(peerName, peerIP, uint16(peerPort), conR.magic)
 	rawMsg, err := hex.DecodeString(params["message"])
 	if err != nil {
@@ -802,7 +803,7 @@ func (conR *ConsensusReactor) receiveCommitteeMsg(w http.ResponseWriter, r *http
 	typeName := getConcreteName(msg)
 	existed := conR.msgCache.Add(sig)
 	if existed {
-		conR.logger.Info("duplicate "+typeName+", dropped ...", "epoch", msg.EpochID(), "peer", peerName, "ip", peerIP)
+		conR.logger.Debug("duplicate "+typeName+", dropped ...", "epoch", msg.EpochID(), "peer", peerName, "ip", peerIP)
 		return
 	}
 
@@ -947,11 +948,6 @@ func (conR *ConsensusReactor) asyncSendCommitteeMsg(msg *ConsensusMessage, relay
 	}
 	msgSummary := (*msg).String()
 
-	info := "Send>>"
-	if relay {
-		info = "Relay>>"
-	}
-	msgSummary = fmt.Sprintf("%s %s", info, msgSummary)
 	for _, peer := range peers {
 		go peer.sendCommitteeMsg(data, msgSummary, relay)
 	}
@@ -1226,7 +1222,8 @@ func (conR *ConsensusReactor) HandleSchedule(fn func()) bool {
 // keep this standalone method intentionly
 func (conR *ConsensusReactor) UpdateCurDelegates() {
 	delegates, delegateSize, committeeSize := conR.GetConsensusDelegates()
-	conR.curDelegates = types.NewDelegateSet(delegates)
+	conR.allDelegates = delegates
+	conR.curDelegates = types.NewDelegateSet(delegates[:delegateSize])
 	conR.delegateSize = delegateSize
 	conR.committeeSize = uint32(committeeSize)
 	names := make([]string, 0)
@@ -1593,42 +1590,35 @@ func calcCommitteeSize(delegateSize int, config ConsensusConfig) (int, int) {
 // maxDelegateSize >= maxCommiteeSize >= minCommitteeSize
 func (conR *ConsensusReactor) GetConsensusDelegates() ([]*types.Delegate, int, int) {
 	forceDelegates := conR.config.InitCfgdDelegates
-	var delegateSize, committeeSize int
 
 	// special handle for flag --init-configured-delegates
+	var delegates []*types.Delegate
 	if forceDelegates == true {
-		delegates := conR.config.InitDelegates
-		delegateSize, committeeSize = calcCommitteeSize(len(delegates), conR.config)
-		delegates = delegates[:delegateSize]
-		fmt.Println("Load delegates from delegates.json", "delegateSize", delegateSize, "committeeSize", committeeSize)
-		PrintDelegates(delegates)
-		return delegates, delegateSize, committeeSize
-	}
-
-	delegatesIntern, err := staking.GetInternalDelegateList()
-	delegates := conR.convertFromIntern(delegatesIntern)
-	if err == nil && len(delegates) >= conR.config.MinCommitteeSize {
-		delegateSize, committeeSize = calcCommitteeSize(len(delegates), conR.config)
-		delegates = delegates[:delegateSize]
-		fmt.Println("Load delegates from staking candidates", "delegateSize", delegateSize, "committeeSize", committeeSize)
-	} else {
 		delegates = conR.config.InitDelegates
-		delegateSize, committeeSize = calcCommitteeSize(len(delegates), conR.config)
-		delegates = delegates[:delegateSize]
-
-		fmt.Println("Load delegates from delegates.json as fallback, error loading staking candiates", "delegateSize", delegateSize, "committeeSize", committeeSize)
+		fmt.Println("Load delegates from delegates.json")
+	} else {
+		delegatesIntern, err := staking.GetInternalDelegateList()
+		delegates = conR.convertFromIntern(delegatesIntern)
+		fmt.Println("Load delegates from staking candidates")
+		if err != nil || len(delegates) < conR.config.MinCommitteeSize {
+			delegates = conR.config.InitDelegates
+			fmt.Println("Load delegates from delegates.json as fallback, error loading staking candiates")
+		}
 	}
-	PrintDelegates(delegates)
+
+	delegateSize, committeeSize := calcCommitteeSize(len(delegates), conR.config)
+	conR.allDelegates = delegates
+	conR.logger.Info("Loaded delegates", "delegateSize", delegateSize, "committeeSize", committeeSize)
+	PrintDelegates(delegates[:delegateSize])
 	return delegates, delegateSize, committeeSize
 }
 
-func (conR *ConsensusReactor) GetCommitteeMemberNameByIP(ip net.IP) string {
-	if conR.curCommittee != nil {
-		for _, v := range conR.curCommittee.Validators {
-			if v.NetAddr.IP.String() == ip.String() {
-				return v.Name
-			}
+func (conR *ConsensusReactor) GetDelegateNameByIP(ip net.IP) string {
+	for _, d := range conR.allDelegates {
+		if d.NetAddr.IP.String() == ip.String() {
+			return string(d.Name)
 		}
 	}
+
 	return ""
 }

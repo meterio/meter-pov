@@ -191,7 +191,7 @@ func (conR *ConsensusReactor) sendNewCommitteeMessage(peer *ConsensusPeer, leade
 
 // once reach 2/3 send aout annouce message
 func (conR *ConsensusReactor) ProcessNewCommitteeMessage(newCommitteeMsg *NewCommitteeMessage, src *ConsensusPeer) bool {
-	conR.logger.Info("received newCommittee Message", "source", src.name, "IP", src.netAddr.IP)
+	// conR.logger.Info("received newCommittee Message", "source", src.name, "IP", src.netAddr.IP)
 	ch := newCommitteeMsg.CSMsgCommonHeader
 
 	// non replay case, last block must be kblock

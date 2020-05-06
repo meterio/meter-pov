@@ -40,7 +40,7 @@ type ConsensusValidator struct {
 }
 
 func (cv *ConsensusValidator) SendMsgToPeer(msg *ConsensusMessage, netAddr types.NetAddress) bool {
-	name := cv.csReactor.GetCommitteeMemberNameByIP(netAddr.IP)
+	name := cv.csReactor.GetDelegateNameByIP(netAddr.IP)
 	csPeer := newConsensusPeer(name, netAddr.IP, netAddr.Port, cv.csReactor.magic)
 	return cv.csReactor.asyncSendCommitteeMsg(msg, false, csPeer)
 }
