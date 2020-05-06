@@ -8,6 +8,8 @@ package rpc
 import (
 	"bytes"
 	"context"
+	crand "crypto/rand"
+	"encoding/binary"
 	"encoding/hex"
 	"fmt"
 	"math/rand"
@@ -20,9 +22,21 @@ import (
 	"github.com/pkg/errors"
 )
 
+func randint64() (int64, error) {
+	var b [8]byte
+	if _, err := crand.Read(b[:]); err != nil {
+		return 0, err
+	}
+	return int64(binary.LittleEndian.Uint64(b[:])), nil
+}
+
 func init() {
 	// required when generate call id
-	rand.Seed(time.Now().UnixNano())
+	seed, err := randint64()
+	if err != nil {
+		panic("could not get random int")
+	}
+	rand.Seed(seed)
 }
 
 const (
