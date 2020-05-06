@@ -501,7 +501,7 @@ func (p *Pacemaker) UpdateQCHigh(qc *pmQuorumCert) bool {
 }
 
 func (p *Pacemaker) OnBeat(height, round uint32, reason beatReason) error {
-	if p.QCHigh != nil && p.QCHigh.QC != nil && height <= p.QCHigh.QC.QCHeight && reason == BeatOnTimeout {
+	if p.QCHigh != nil && p.QCHigh.QC != nil && height <= (p.QCHigh.QC.QCHeight+1) && reason == BeatOnTimeout {
 		return p.OnTimeoutBeat(height, round, reason)
 	}
 	p.logger.Info(" --------------------------------------------------")
