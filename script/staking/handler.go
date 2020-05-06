@@ -641,7 +641,7 @@ func (sb *StakingBody) GoverningHandler(senv *StakingEnviroment, gas uint64) (re
 			continue
 		}
 		// delegates must satisfy the minimum requirements
-		if ok := delegate.MinimumRequirements(); ok == false {
+		if ok := delegate.MinimumRequirements(state); ok == false {
 			log.Info("delegate does not meet minimum requrirements, ignored ...", "name", delegate.Name, "addr", delegate.Address)
 			continue
 		}

@@ -8,17 +8,19 @@ import (
 	"net"
 	"strings"
 
+	"github.com/dfinlab/meter/builtin"
 	"github.com/dfinlab/meter/meter"
+	"github.com/dfinlab/meter/state"
 	"github.com/dfinlab/meter/types"
 )
 
 // not const, open for future save into state by system contract
 var (
 	// delegate minimum requirement 300 MTRG
-	MIN_REQUIRED_BY_DELEGATE *big.Int = big.NewInt(0).Mul(big.NewInt(int64(300)), big.NewInt(int64(1e18)))
+	MIN_REQUIRED_BY_DELEGATE *big.Int = new(big.Int).Mul(big.NewInt(int64(300)), big.NewInt(int64(1e18)))
 
 	// amount to exit from jail 200 MTRGov
-	BAIL_FOR_EXIT_JAIL *big.Int = big.NewInt(0).Mul(big.NewInt(int64(200)), big.NewInt(int64(1e18)))
+	BAIL_FOR_EXIT_JAIL *big.Int = new(big.Int).Mul(big.NewInt(int64(200)), big.NewInt(int64(1e18)))
 )
 
 type Distributor struct {
@@ -66,9 +68,9 @@ func (d *Delegate) ToString() string {
 // match minimum requirements?
 // 1. not on injail list
 // 2. > 300 MTRG
-func (d *Delegate) MinimumRequirements() bool {
-
-	if d.VotingPower.Cmp(MIN_REQUIRED_BY_DELEGATE) < 0 {
+func (d *Delegate) MinimumRequirements(state *state.State) bool {
+	minRequire := builtin.Params.Native(state).Get(meter.KeyMinRequiredByDelegate)
+	if d.VotingPower.Cmp(minRequire) < 0 {
 		return false
 	}
 	return true
