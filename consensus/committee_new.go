@@ -250,7 +250,7 @@ func (conR *ConsensusReactor) ProcessNewCommitteeMessage(newCommitteeMsg *NewCom
 	nc, ok := conR.rcvdNewCommittee[key]
 	if ok == false {
 		nc = newNewCommittee(height, round, nonce)
-		committee, role, index, inCommittee := conR.CalcCommitteeByNonce(conR.newCommittee.Nonce)
+		committee, role, index, inCommittee := conR.CalcCommitteeByNonce(nonce)
 		nc.Committee = committee
 		nc.Role = role
 		nc.Index = index
