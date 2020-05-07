@@ -84,7 +84,11 @@ type StakingBody struct {
 }
 
 func StakingEncodeBytes(sb *StakingBody) []byte {
-	stakingBytes, _ := rlp.EncodeToBytes(sb)
+	stakingBytes, err := rlp.EncodeToBytes(sb)
+	if err != nil {
+		fmt.Printf("rlp encode failed, %s\n", err.Error())
+		return []byte{}
+	}
 	return stakingBytes
 }
 

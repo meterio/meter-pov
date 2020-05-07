@@ -70,7 +70,10 @@ func (s *State) Spawn(root meter.Bytes32) *State {
 	newState, err := New(root, s.kv)
 	if err != nil {
 		s.setError(err)
-		newState, _ = New(meter.Bytes32{}, s.kv)
+		newState, err = New(meter.Bytes32{}, s.kv)
+		if err != nil {
+			panic(fmt.Errorf("2nd time new failure, error %+v", err.Error()))
+		}
 	}
 	newState.setError = s.setError
 	return newState
@@ -351,7 +354,11 @@ func (s *State) SetStorage(addr meter.Address, key, value meter.Bytes32) {
 		s.SetRawStorage(addr, key, nil)
 		return
 	}
-	v, _ := rlp.EncodeToBytes(bytes.TrimLeft(value[:], "\x00"))
+
+	v, err := rlp.EncodeToBytes(bytes.TrimLeft(value[:], "\x00"))
+	if err != nil {
+		return
+	}
 	s.SetRawStorage(addr, key, v)
 }
 
@@ -451,7 +458,9 @@ func (s *State) BuildStorageTrie(addr meter.Address) (*trie.SecureTrie, error) {
 		switch key := k.(type) {
 		case storageKey:
 			if key.addr == addr {
-				saveStorage(trie, key.key, v.(rlp.RawValue))
+				if err := saveStorage(trie, key.key, v.(rlp.RawValue)); err != nil {
+					return false
+				}
 			}
 		}
 		// abort if error occurred

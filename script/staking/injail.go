@@ -92,12 +92,12 @@ func (dl *DelegateInJailList) Exist(addr meter.Address) bool {
 	return index >= 0
 }
 
-func (dl *DelegateInJailList) Add(c *DelegateJailed) error {
+func (dl *DelegateInJailList) Add(c *DelegateJailed) {
 	index, insertIndex := dl.indexOf(c.Addr)
 	if index < 0 {
 		if len(dl.inJails) == 0 {
 			dl.inJails = append(dl.inJails, c)
-			return nil
+			return
 		}
 		newList := make([]*DelegateJailed, insertIndex)
 		copy(newList, dl.inJails[:insertIndex])
@@ -108,7 +108,7 @@ func (dl *DelegateInJailList) Add(c *DelegateJailed) error {
 		dl.inJails[index] = c
 	}
 
-	return nil
+	return
 }
 
 func (dl *DelegateInJailList) Remove(addr meter.Address) error {

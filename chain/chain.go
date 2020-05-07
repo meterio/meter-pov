@@ -31,7 +31,7 @@ var (
 )
 
 var errNotFound = errors.New("not found")
-var errBlockExist = errors.New("block already exists")
+var ErrBlockExist = errors.New("block already exists")
 var errParentNotFinalized = errors.New("parent is not finalized")
 var (
 	bestHeightGauge = prometheus.NewGauge(prometheus.GaugeOpts{
@@ -306,10 +306,10 @@ func (c *Chain) AddBlock(newBlock *block.Block, receipts tx.Receipts, finalize b
 			selfFinalized := c.IsBlockFinalized(newHeader.ID())
 			if selfFinalized == true {
 				// if the new block has already been finalized, return directly
-				return nil, errBlockExist
+				return nil, ErrBlockExist
 			}
 		} else {
-			return nil, errBlockExist
+			return nil, ErrBlockExist
 		}
 	}
 
@@ -711,7 +711,7 @@ func (c *Chain) IsNotFound(err error) bool {
 
 // IsBlockExist returns if the error means block was already in the chain.
 func (c *Chain) IsBlockExist(err error) bool {
-	return err == errBlockExist
+	return err == ErrBlockExist
 }
 
 // NewTicker create a signal Waiter to receive event of head block change.

@@ -15,6 +15,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/dfinlab/meter/block"
+	"github.com/dfinlab/meter/chain"
 	"github.com/dfinlab/meter/comm"
 	bls "github.com/dfinlab/meter/crypto/multi_sig"
 	cmn "github.com/dfinlab/meter/libs/common"
@@ -830,7 +831,7 @@ func (conR *ConsensusReactor) HandleKBlockData(kd block.KBlockData) {
 }
 
 //========================================================
-func (conR *ConsensusReactor) PreCommitBlock(blkInfo *ProposedBlockInfo) bool {
+func (conR *ConsensusReactor) PreCommitBlock(blkInfo *ProposedBlockInfo) error {
 	blk := blkInfo.ProposedBlock
 	stage := blkInfo.Stage
 	receipts := blkInfo.Receipts
@@ -849,7 +850,7 @@ func (conR *ConsensusReactor) PreCommitBlock(blkInfo *ProposedBlockInfo) bool {
 
 	if _, err := stage.Commit(); err != nil {
 		conR.logger.Error("failed to commit state", "err", err)
-		return false
+		return err
 	}
 
 	/*****
@@ -870,8 +871,12 @@ func (conR *ConsensusReactor) PreCommitBlock(blkInfo *ProposedBlockInfo) bool {
 	// fmt.Println("Calling AddBlock from consensus_block.PrecommitBlock, newblock=", blk.Header().ID())
 	fork, err := conR.chain.AddBlock(blk, *receipts, false)
 	if err != nil {
-		conR.logger.Warn("add block failed ...", "err", err)
-		return false
+		if err != chain.ErrBlockExist {
+			conR.logger.Warn("add block failed ...", "err", err, "id", blk.Header().ID())
+		} else {
+			conR.logger.Info("block already exist", "id", blk.Header().ID())
+		}
+		return err
 	}
 
 	// unlike processBlock, we do not need to handle fork
@@ -893,7 +898,7 @@ func (conR *ConsensusReactor) PreCommitBlock(blkInfo *ProposedBlockInfo) bool {
 
 	blocksCommitedCounter.Inc()
 	conR.logger.Info("block precommited", "height", height, "id", blk.Header().ID())
-	return true
+	return nil
 }
 
 // finalize the block with its own QC
@@ -938,7 +943,11 @@ func (conR *ConsensusReactor) FinalizeCommitBlock(blkInfo *ProposedBlockInfo, be
 	}
 	fork, err := conR.chain.AddBlock(blk, *receipts, true)
 	if err != nil {
-		conR.logger.Warn("add block failed ...", "err", err)
+		if err != chain.ErrBlockExist {
+			conR.logger.Warn("add block failed ...", "err", err, "id", blk.Header().ID())
+		} else {
+			conR.logger.Info("block already exist", "id", blk.Header().ID())
+		}
 		return err
 	}
 

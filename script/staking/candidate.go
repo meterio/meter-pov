@@ -134,12 +134,12 @@ func (cl *CandidateList) Exist(addr meter.Address) bool {
 	return index >= 0
 }
 
-func (cl *CandidateList) Add(c *Candidate) error {
+func (cl *CandidateList) Add(c *Candidate) {
 	index, insertIndex := cl.indexOf(c.Addr)
 	if index < 0 {
 		if len(cl.candidates) == 0 {
 			cl.candidates = append(cl.candidates, c)
-			return nil
+			return
 		}
 		newList := make([]*Candidate, insertIndex)
 		copy(newList, cl.candidates[:insertIndex])
@@ -150,15 +150,15 @@ func (cl *CandidateList) Add(c *Candidate) error {
 		cl.candidates[index] = c
 	}
 
-	return nil
+	return
 }
 
-func (cl *CandidateList) Remove(addr meter.Address) error {
+func (cl *CandidateList) Remove(addr meter.Address) {
 	index, _ := cl.indexOf(addr)
 	if index >= 0 {
 		cl.candidates = append(cl.candidates[:index], cl.candidates[index+1:]...)
 	}
-	return nil
+	return
 }
 
 func (cl *CandidateList) Count() int {

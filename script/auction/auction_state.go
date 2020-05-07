@@ -113,14 +113,13 @@ func (a *Auction) TransferMTRToAuction(addr meter.Address, amount *big.Int, stat
 	return nil
 }
 
-func (a *Auction) SendMTRGToBidder(addr meter.Address, amount *big.Int, stateDB *statedb.StateDB) error {
+func (a *Auction) SendMTRGToBidder(addr meter.Address, amount *big.Int, stateDB *statedb.StateDB) {
 	if amount.Sign() == 0 {
-		return nil
+		return
 	}
-
 	// in auction, MeterGov is mint action.
 	stateDB.MintBalance(common.Address(addr), amount)
-	return nil
+	return
 }
 
 // form AuctionAccountAddr ==> meter.ValidatorBenefitAddr

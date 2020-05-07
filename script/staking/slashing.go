@@ -170,12 +170,12 @@ func (sl *StatisticsList) Exist(addr meter.Address) bool {
 	return index >= 0
 }
 
-func (sl *StatisticsList) Add(c *DelegateStatistics) error {
+func (sl *StatisticsList) Add(c *DelegateStatistics) {
 	index, insertIndex := sl.indexOf(c.Addr)
 	if index < 0 {
 		if len(sl.delegates) == 0 {
 			sl.delegates = append(sl.delegates, c)
-			return nil
+			return
 		}
 		newList := make([]*DelegateStatistics, insertIndex)
 		copy(newList, sl.delegates[:insertIndex])
@@ -186,15 +186,15 @@ func (sl *StatisticsList) Add(c *DelegateStatistics) error {
 		sl.delegates[index] = c
 	}
 
-	return nil
+	return
 }
 
-func (sl *StatisticsList) Remove(addr meter.Address) error {
+func (sl *StatisticsList) Remove(addr meter.Address) {
 	index, _ := sl.indexOf(addr)
 	if index >= 0 {
 		sl.delegates = append(sl.delegates[:index], sl.delegates[index+1:]...)
 	}
-	return nil
+	return
 }
 
 func (sl *StatisticsList) Count() int {

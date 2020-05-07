@@ -89,9 +89,9 @@ func (l *DelegateList) Members() string {
 	return strings.Join(members, ", ")
 }
 
-func (l *DelegateList) SetDelegates(delegates []*Delegate) error {
+func (l *DelegateList) SetDelegates(delegates []*Delegate) {
 	l.delegates = delegates
-	return nil
+	return
 }
 
 func (l *DelegateList) GetDelegates() []*Delegate {
