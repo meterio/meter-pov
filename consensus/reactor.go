@@ -1279,11 +1279,11 @@ func (conR *ConsensusReactor) JoinEstablishedCommittee(kBlock *block.Block, repl
 		conR.logger.Info("I am committee validator for nonce!", "nonce", nonce)
 
 		conR.updateCurEpoch(epoch)
-		// conR.NewCommitteeInit(uint64(kBlockHeight), nonce, replay)
 		conR.NewValidatorSetByNonce(nonce)
 		consentBlock, err := conR.chain.GetTrunkBlock(kBlockHeight + 1)
 		if err != nil {
 			fmt.Println("could not get committee info, stop right now")
+			conR.NewCommitteeInit(kBlockHeight, nonce, replay)
 			return
 		}
 		// recover actual committee from consent block
@@ -1303,6 +1303,7 @@ func (conR *ConsensusReactor) JoinEstablishedCommittee(kBlock *block.Block, repl
 		}
 		if inCommitteeVerified == false {
 			conR.logger.Error("committee info in consent block doesn't contain myself as a member, stop right now")
+			conR.NewCommitteeInit(kBlockHeight, nonce, replay)
 			return
 		}
 
