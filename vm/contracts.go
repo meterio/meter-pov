@@ -128,7 +128,9 @@ func (c *ripemd160hash) RequiredGas(input []byte) uint64 {
 }
 func (c *ripemd160hash) Run(input []byte) ([]byte, error) {
 	ripemd := ripemd160.New()
-	ripemd.Write(input)
+	if _, err := ripemd.Write(input); err != nil {
+		return []byte{}, err
+	}
 	return common.LeftPadBytes(ripemd.Sum(nil), 32), nil
 }
 

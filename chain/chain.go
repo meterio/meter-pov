@@ -31,7 +31,7 @@ var (
 )
 
 var errNotFound = errors.New("not found")
-var errBlockExist = errors.New("block already exists")
+var ErrBlockExist = errors.New("block already exists")
 var errParentNotFinalized = errors.New("parent is not finalized")
 var (
 	bestHeightGauge = prometheus.NewGauge(prometheus.GaugeOpts{
@@ -162,7 +162,7 @@ func New(kv kv.GetPutter, genesisBlock *block.Block, verbose bool) (*Chain, erro
 	} else {
 		fmt.Println("Leaf Block", leafBlock.CompactString())
 		// remove all leaf blocks that are not finalized
-		for leafBlock.Header().TotalScore() > bestBlock.Header().TotalScore() {
+		for leafBlock.Header().BlockType() == block.BLOCK_TYPE_S_BLOCK || leafBlock.Header().TotalScore() > bestBlock.Header().TotalScore() {
 			fmt.Println("*** Start pruning")
 			parentID, err := ancestorTrie.GetAncestor(leafBlock.Header().ID(), leafBlock.Header().Number()-1)
 			if err != nil {
@@ -182,7 +182,13 @@ func New(kv kv.GetPutter, genesisBlock *block.Block, verbose bool) (*Chain, erro
 			leafBlock = parentBlk
 		}
 
-		saveLeafBlockID(kv, leafBlock.Header().ID())
+		if leafBlock.Header().TotalScore() < bestBlock.Header().TotalScore() {
+			leafBlock = bestBlock
+		}
+		err := saveLeafBlockID(kv, leafBlock.Header().ID())
+		if err != nil {
+			fmt.Println("could not save leaf block, error: ", err)
+		}
 	}
 
 	bestQC, err := loadBestQC(kv)
@@ -300,10 +306,10 @@ func (c *Chain) AddBlock(newBlock *block.Block, receipts tx.Receipts, finalize b
 			selfFinalized := c.IsBlockFinalized(newHeader.ID())
 			if selfFinalized == true {
 				// if the new block has already been finalized, return directly
-				return nil, errBlockExist
+				return nil, ErrBlockExist
 			}
 		} else {
-			return nil, errBlockExist
+			return nil, ErrBlockExist
 		}
 	}
 
@@ -705,7 +711,7 @@ func (c *Chain) IsNotFound(err error) bool {
 
 // IsBlockExist returns if the error means block was already in the chain.
 func (c *Chain) IsBlockExist(err error) bool {
-	return err == errBlockExist
+	return err == ErrBlockExist
 }
 
 // NewTicker create a signal Waiter to receive event of head block change.

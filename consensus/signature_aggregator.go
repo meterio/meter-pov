@@ -3,6 +3,7 @@ package consensus
 import (
 	"bytes"
 	"encoding/base64"
+	"fmt"
 
 	"github.com/dfinlab/meter/block"
 	bls "github.com/dfinlab/meter/crypto/multi_sig"
@@ -29,14 +30,19 @@ type SignatureAggregator struct {
 	sigAgg []byte
 }
 
+func setBit(n int, pos uint) int {
+	n |= (1 << pos)
+	return n
+}
+
 func newSignatureAggregator(size uint32, system bls.System, msgHash [32]byte, validators []*types.Validator) *SignatureAggregator {
 	logger := log15.New("pkg", "sig")
 	logger.Info("Init signature aggregator", "size", size)
 	return &SignatureAggregator{
 		logger:     logger,
-		sigs:       make([]bls.Signature, 0),
-		sigBytes:   make([][]byte, 0),
-		pubkeys:    make([]bls.PublicKey, 0),
+		sigs:       make([]bls.Signature, size),
+		sigBytes:   make([][]byte, size),
+		pubkeys:    make([]bls.PublicKey, size),
 		bitArray:   cmn.NewBitArray(int(size)),
 		violations: make([]*block.Violation, 0),
 		size:       size,
@@ -49,17 +55,12 @@ func newSignatureAggregator(size uint32, system bls.System, msgHash [32]byte, va
 
 func (sa *SignatureAggregator) Add(index int, msgHash [32]byte, signature []byte, pubkey bls.PublicKey) bool {
 	if sa.sealed {
-		sa.logger.Info("signature sealed, ignore this vote ...", "count", sa.bitArray.Count(), "voting", sa.BitArrayString())
+		sa.logger.Info("voted ignored, voting is over ...", "result", fmt.Sprintf("%d out of %d voted", sa.bitArray.Count(), sa.size))
 		return false
 	}
 	if uint32(index) < sa.size {
 		if bytes.Compare(sa.msgHash[:], msgHash[:]) != 0 {
 			sa.logger.Info("dropped signature due to msg hash mismatch")
-			return false
-		}
-		if index >= sa.bitArray.Count() {
-			sa.logger.Warn("index out of bound", "index", index, "size", sa.size, "len(bitArray)", sa.bitArray.Count())
-			sa.logger.Warn("dropped signature, please check")
 			return false
 		}
 		if sa.bitArray.GetIndex(index) {
@@ -86,10 +87,10 @@ func (sa *SignatureAggregator) Add(index int, msgHash [32]byte, signature []byte
 			return false
 		}
 		sa.bitArray.SetIndex(index, true)
-		sa.sigBytes = append(sa.sigBytes, signature)
-		sa.sigs = append(sa.sigs, sig)
-		sa.pubkeys = append(sa.pubkeys, pubkey)
-		sa.logger.Info("collected signature", "count", sa.bitArray.Count(), "voting", sa.BitArrayString(), "index", index, "size", sa.size)
+		sa.sigBytes[index] = signature
+		sa.sigs[index] = sig
+		sa.pubkeys[index] = pubkey
+		sa.logger.Info(fmt.Sprintf("vote counted, %d out of %d has voted", sa.bitArray.Count(), sa.size), "voterIndex", index)
 		return true
 	}
 	return false
@@ -109,7 +110,13 @@ func (sa *SignatureAggregator) Seal() {
 }
 
 func (sa *SignatureAggregator) Aggregate() []byte {
-	sigAgg, err := bls.Aggregate(sa.sigs, sa.system)
+	sigs := make([]bls.Signature, 0)
+	for i := 0; i < int(sa.size); i++ {
+		if sa.bitArray.GetIndex(i) {
+			sigs = append(sigs, sa.sigs[i])
+		}
+	}
+	sigAgg, err := bls.Aggregate(sigs, sa.system)
 	if err != nil {
 		return make([]byte, 0)
 	}

@@ -82,7 +82,11 @@ type StakingBody struct {
 }
 
 func StakingEncodeBytes(sb *StakingBody) []byte {
-	stakingBytes, _ := rlp.EncodeToBytes(sb)
+	stakingBytes, err := rlp.EncodeToBytes(sb)
+	if err != nil {
+		fmt.Printf("rlp encode failed, %s\n", err.Error())
+		return []byte{}
+	}
 	return stakingBytes
 }
 
@@ -712,7 +716,7 @@ func (sb *StakingBody) CandidateUpdateHandler(senv *StakingEnviroment, gas uint6
 	// if the candidate already exists return error without paying gas
 	record := candidateList.Get(sb.CandAddr)
 	if record == nil {
-		log.Error(fmt.Sprintf("does not find out the candiate record", sb.CandAddr))
+		log.Error(fmt.Sprintf("does not find out the candiate record %v", sb.CandAddr))
 		return
 	}
 
@@ -794,7 +798,7 @@ func (sb *StakingBody) DelegateStatisticsHandler(senv *StakingEnviroment, gas ui
 	}
 
 	IncrInfraction := UnpackBytesToCounters(&sb.StakingID)
-	log.Info("Receives statistics", "incremental infraction", IncrInfraction)
+	log.Debug("Receives statistics", "incremental infraction", IncrInfraction)
 
 	var jail bool
 	stats := statisticsList.Get(sb.CandAddr)

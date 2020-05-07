@@ -1,5 +1,30 @@
 # Versions
 
+## 1.4.1-beta7
+
+Updated:
+
+1. fixes for committee nonce
+
+## 1.4.1-beta6
+
+
+## 1.4.1-beta2
+
+Added:
+
+1. prevent negative account balance (otherwise the node will panic)
+2. prevent proposing an invalid block(height <= qcHeight)
+3. prevent out-of-bound problem
+4. prevent state hash mismatch due to gob encode
+
+Updated:
+
+1. set block magic to 0x76010401
+3. add support for late joiner of committee
+
+
+
 ## 1.4.1-beta1
 
 Added:

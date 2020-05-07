@@ -66,7 +66,7 @@ func (a *Auction) PrepareAuctionHandler() (AuctionHandler func(data []byte, to *
 		}
 
 		log.Debug("received auction", "body", ab.ToString())
-		log.Info("Entering script handler for operation", "op", ab.GetOpName(ab.Opcode))
+		log.Info("Entering auction handler " + ab.GetOpName(ab.Opcode))
 		switch ab.Opcode {
 		case OP_START:
 			if env.GetTxCtx().Origin.IsZero() == false {
@@ -90,7 +90,7 @@ func (a *Auction) PrepareAuctionHandler() (AuctionHandler func(data []byte, to *
 			log.Error("unknown Opcode", "Opcode", ab.Opcode)
 			return nil, gas, errors.New("unknow auction opcode")
 		}
-		log.Info("Leaving script handler for operation", "op", ab.GetOpName(ab.Opcode))
+		log.Debug("Leaving script handler for operation", "op", ab.GetOpName(ab.Opcode))
 		return
 	}
 	return

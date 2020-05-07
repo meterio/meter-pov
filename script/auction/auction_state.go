@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/gob"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"math/big"
 
@@ -100,8 +101,10 @@ func (a *Auction) TransferMTRToAuction(addr meter.Address, amount *big.Int, stat
 		return nil
 	}
 	var balance *big.Int
-
 	balance = state.GetEnergy(addr)
+	if balance.Cmp(amount) < 0 {
+		return errors.New("not enough balance")
+	}
 	state.SetEnergy(meter.Address(addr), new(big.Int).Sub(balance, amount))
 
 	balance = state.GetEnergy(AuctionAccountAddr)
@@ -109,14 +112,13 @@ func (a *Auction) TransferMTRToAuction(addr meter.Address, amount *big.Int, stat
 	return nil
 }
 
-func (a *Auction) SendMTRGToBidder(addr meter.Address, amount *big.Int, stateDB *statedb.StateDB) error {
+func (a *Auction) SendMTRGToBidder(addr meter.Address, amount *big.Int, stateDB *statedb.StateDB) {
 	if amount.Sign() == 0 {
-		return nil
+		return
 	}
-
 	// in auction, MeterGov is mint action.
 	stateDB.MintBalance(common.Address(addr), amount)
-	return nil
+	return
 }
 
 //==============================================
@@ -133,13 +135,13 @@ func (a *Auction) ClearAuction(cb *AuctionCB, state *state.State) (*big.Int, *bi
 
 	total := big.NewInt(0)
 	for _, tx := range cb.AuctionTxs {
-		mtrg := tx.Amount.Div(tx.Amount, actualPrice)
+		mtrg := tx.Amount.Mul(tx.Amount, big.NewInt(1e18))
+		mtrg = mtrg.Div(mtrg, actualPrice)
 		a.SendMTRGToBidder(tx.Addr, mtrg, stateDB)
 		total = total.Add(total, mtrg)
 	}
 
-	leftOver := big.NewInt(0)
-	leftOver = leftOver.Sub(cb.RlsdMTRG, total)
+	leftOver := new(big.Int).Sub(cb.RlsdMTRG, total)
 	a.SendMTRGToBidder(AuctionAccountAddr, leftOver, stateDB)
 
 	a.logger.Info("finished auctionCB clear...", "actualPrice", actualPrice.Uint64(), "leftOver", leftOver.Uint64())

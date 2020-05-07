@@ -15,6 +15,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/dfinlab/meter/block"
+	"github.com/dfinlab/meter/chain"
 	"github.com/dfinlab/meter/comm"
 	bls "github.com/dfinlab/meter/crypto/multi_sig"
 	cmn "github.com/dfinlab/meter/libs/common"
@@ -371,11 +372,8 @@ func (c *ConsensusReactor) verifyBlock(blk *block.Block, state *state.State) (*s
 		}
 		return true, meta.Reverted, nil
 	}
-	print := false
-	if blk.Header().Number() == 10271 {
-		print = true
-	}
-	for i, tx := range txs {
+
+	for _, tx := range txs {
 		// Mint transaction critiers:
 		// 1. no signature (no signer)
 		// 2. only located in 1st transaction in kblock.
@@ -416,19 +414,6 @@ func (c *ConsensusReactor) verifyBlock(blk *block.Block, state *state.State) (*s
 		receipt, err := rt.ExecuteTransaction(tx)
 		if err != nil {
 			return nil, nil, err
-		}
-
-		if print {
-			fmt.Println("XXXXXXXXXXXXXXXXXXXX")
-			fmt.Println(fmt.Sprintf("After %v tx", i+1))
-			fmt.Println("receiptRoot = ", receipts.RootHash())
-			h, e := state.Stage().Hash()
-			if e != nil {
-				fmt.Println("Error getting stateRoot")
-			} else {
-				fmt.Println("stateRoot = ", h)
-			}
-			fmt.Println("XXXXXXXXXXXXXXXXXXX")
 		}
 
 		totalGasUsed += receipt.GasUsed
@@ -799,17 +784,17 @@ type RecvKBlockInfo struct {
 	Epoch            uint64
 }
 
-func (conR *ConsensusReactor) HandleRecvKBlockInfo(ki RecvKBlockInfo) error {
+func (conR *ConsensusReactor) HandleRecvKBlockInfo(ki RecvKBlockInfo) {
 	best := conR.chain.BestBlock()
 
 	if ki.Height != best.Header().Number() {
 		conR.logger.Info("kblock info is ignored ...", "received hight", ki.Height, "my best", best.Header().Number())
-		return nil
+		return
 	}
 
 	if best.Header().BlockType() != block.BLOCK_TYPE_K_BLOCK {
 		conR.logger.Info("best block is not kblock")
-		return nil
+		return
 	}
 
 	// can only handle kblock info when pacemaker stopped
@@ -819,7 +804,7 @@ func (conR *ConsensusReactor) HandleRecvKBlockInfo(ki RecvKBlockInfo) error {
 		})
 		conR.csPacemaker.Stop()
 		conR.logger.Info("pacemaker is not fully stopped, wait for another sec ...")
-		return nil
+		return
 	}
 
 	conR.logger.Info("received KBlock ...", "height", ki.Height, "lastKBlockHeight", ki.LastKBlockHeight, "nonce", ki.Nonce, "epoch", ki.Epoch)
@@ -833,7 +818,6 @@ func (conR *ConsensusReactor) HandleRecvKBlockInfo(ki RecvKBlockInfo) error {
 	// run new one.
 	conR.UpdateCurDelegates()
 	conR.ConsensusHandleReceivedNonce(ki.Height, ki.Nonce, ki.Epoch, false)
-	return nil
 }
 
 func (conR *ConsensusReactor) HandleKBlockData(kd block.KBlockData) {
@@ -841,7 +825,7 @@ func (conR *ConsensusReactor) HandleKBlockData(kd block.KBlockData) {
 }
 
 //========================================================
-func (conR *ConsensusReactor) PreCommitBlock(blkInfo *ProposedBlockInfo) bool {
+func (conR *ConsensusReactor) PreCommitBlock(blkInfo *ProposedBlockInfo) error {
 	blk := blkInfo.ProposedBlock
 	stage := blkInfo.Stage
 	receipts := blkInfo.Receipts
@@ -860,7 +844,7 @@ func (conR *ConsensusReactor) PreCommitBlock(blkInfo *ProposedBlockInfo) bool {
 
 	if _, err := stage.Commit(); err != nil {
 		conR.logger.Error("failed to commit state", "err", err)
-		return false
+		return err
 	}
 
 	/*****
@@ -881,8 +865,12 @@ func (conR *ConsensusReactor) PreCommitBlock(blkInfo *ProposedBlockInfo) bool {
 	// fmt.Println("Calling AddBlock from consensus_block.PrecommitBlock, newblock=", blk.Header().ID())
 	fork, err := conR.chain.AddBlock(blk, *receipts, false)
 	if err != nil {
-		conR.logger.Warn("add block failed ...", "err", err)
-		return false
+		if err != chain.ErrBlockExist {
+			conR.logger.Warn("add block failed ...", "err", err, "id", blk.Header().ID())
+		} else {
+			conR.logger.Info("block already exist", "id", blk.Header().ID())
+		}
+		return err
 	}
 
 	// unlike processBlock, we do not need to handle fork
@@ -904,7 +892,7 @@ func (conR *ConsensusReactor) PreCommitBlock(blkInfo *ProposedBlockInfo) bool {
 
 	blocksCommitedCounter.Inc()
 	conR.logger.Info("block precommited", "height", height, "id", blk.Header().ID())
-	return true
+	return nil
 }
 
 // finalize the block with its own QC
@@ -949,7 +937,11 @@ func (conR *ConsensusReactor) FinalizeCommitBlock(blkInfo *ProposedBlockInfo, be
 	}
 	fork, err := conR.chain.AddBlock(blk, *receipts, true)
 	if err != nil {
-		conR.logger.Warn("add block failed ...", "err", err)
+		if err != chain.ErrBlockExist {
+			conR.logger.Warn("add block failed ...", "err", err, "id", blk.Header().ID())
+		} else {
+			conR.logger.Info("block already exist", "id", blk.Header().ID())
+		}
 		return err
 	}
 

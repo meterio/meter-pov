@@ -6,10 +6,11 @@
 package comm
 
 import (
+	crand "crypto/rand"
+	"encoding/binary"
 	"fmt"
 	"math/rand"
 	"sync"
-	"time"
 
 	"github.com/dfinlab/meter/meter"
 	"github.com/dfinlab/meter/p2psrv/rpc"
@@ -26,8 +27,20 @@ const (
 	maxKnownPowBlocks = 1024
 )
 
+func randint64() (int64, error) {
+	var b [8]byte
+	if _, err := crand.Read(b[:]); err != nil {
+		return 0, err
+	}
+	return int64(binary.LittleEndian.Uint64(b[:])), nil
+}
+
 func init() {
-	rand.Seed(time.Now().UnixNano())
+	seed, err := randint64()
+	if err != nil {
+		panic("could not get random int")
+	}
+	rand.Seed(seed)
 }
 
 // Peer extends p2p.Peer with RPC integrated.
@@ -56,9 +69,21 @@ func newPeer(peer *p2p.Peer, rw p2p.MsgReadWriter, magic [4]byte) *Peer {
 		"peer", peer,
 		"dir", dir,
 	}
-	knownTxs, _ := lru.New(maxKnownTxs)
-	knownBlocks, _ := lru.New(maxKnownBlocks)
-	knownPowBlocks, _ := lru.New(maxKnownPowBlocks)
+	knownTxs, err := lru.New(maxKnownTxs)
+	if err != nil {
+		fmt.Println("known tx init error:", err)
+	}
+
+	knownBlocks, err := lru.New(maxKnownBlocks)
+	if err != nil {
+		fmt.Println("known blocks init error:", err)
+	}
+
+	knownPowBlocks, err := lru.New(maxKnownPowBlocks)
+	if err != nil {
+		fmt.Println("known pow blocks init error:", err)
+	}
+
 	return &Peer{
 		Peer:           peer,
 		RPC:            rpc.New(peer, rw, magic),

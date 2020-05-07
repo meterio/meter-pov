@@ -44,7 +44,7 @@ type AuctionCB struct {
 //bucketID auctionTx .. are excluded
 func (cb *AuctionCB) ID() (hash meter.Bytes32) {
 	hw := meter.NewBlake2b()
-	rlp.Encode(hw, []interface{}{
+	err := rlp.Encode(hw, []interface{}{
 		cb.StartHeight,
 		cb.StartEpoch,
 		cb.EndHeight,
@@ -53,6 +53,10 @@ func (cb *AuctionCB) ID() (hash meter.Bytes32) {
 		cb.RsvdPrice,
 		cb.CreateTime,
 	})
+	if err != nil {
+		fmt.Printf("rlp encode failed, %s.\n", err.Error())
+		return meter.Bytes32{}
+	}
 	hw.Sum(hash[:0])
 	return
 }

@@ -70,7 +70,10 @@ func (s *State) Spawn(root meter.Bytes32) *State {
 	newState, err := New(root, s.kv)
 	if err != nil {
 		s.setError(err)
-		newState, _ = New(meter.Bytes32{}, s.kv)
+		newState, err = New(meter.Bytes32{}, s.kv)
+		if err != nil {
+			panic(fmt.Errorf("2nd time new failure, error %+v", err.Error()))
+		}
 	}
 	newState.setError = s.setError
 	return newState
@@ -229,9 +232,14 @@ func (s *State) SetBalance(addr meter.Address, balance *big.Int) {
 // SubBalance stub.
 func (s *State) SubBalance(addr meter.Address, amount *big.Int) bool {
 	if amount.Sign() == 0 {
+		return true
+	}
+
+	balance := s.GetBalance(meter.Address(addr))
+	if balance.Cmp(amount) < 0 {
 		return false
 	}
-	balance := s.GetBalance(meter.Address(addr))
+
 	s.SetBalance(meter.Address(addr), new(big.Int).Sub(balance, amount))
 	return true
 }
@@ -269,9 +277,13 @@ func (s *State) AddEnergy(addr meter.Address, amount *big.Int) {
 // SubEnergy stub.
 func (s *State) SubEnergy(addr meter.Address, amount *big.Int) bool {
 	if amount.Sign() == 0 {
-		return false
+		return true
 	}
 	balance := s.GetEnergy(meter.Address(addr))
+	if balance.Cmp(amount) < 0 {
+		return false
+	}
+
 	s.SetEnergy(meter.Address(addr), new(big.Int).Sub(balance, amount))
 	return true
 }
@@ -342,7 +354,11 @@ func (s *State) SetStorage(addr meter.Address, key, value meter.Bytes32) {
 		s.SetRawStorage(addr, key, nil)
 		return
 	}
-	v, _ := rlp.EncodeToBytes(bytes.TrimLeft(value[:], "\x00"))
+
+	v, err := rlp.EncodeToBytes(bytes.TrimLeft(value[:], "\x00"))
+	if err != nil {
+		return
+	}
 	s.SetRawStorage(addr, key, v)
 }
 
@@ -442,7 +458,9 @@ func (s *State) BuildStorageTrie(addr meter.Address) (*trie.SecureTrie, error) {
 		switch key := k.(type) {
 		case storageKey:
 			if key.addr == addr {
-				saveStorage(trie, key.key, v.(rlp.RawValue))
+				if err := saveStorage(trie, key.key, v.(rlp.RawValue)); err != nil {
+					return false
+				}
 			}
 		}
 		// abort if error occurred
@@ -461,8 +479,10 @@ func (s *State) Stage() *Stage {
 	}
 	changes := s.changes()
 	if s.err != nil {
+		// fmt.Println("XXXX in stage get changes failed", s.err.Error())
 		return &Stage{err: s.err}
 	}
+
 	return newStage(s.root, s.kv, changes)
 }
 

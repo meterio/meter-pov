@@ -27,7 +27,7 @@ func (p *Peers) handleGetPeers(w http.ResponseWriter, req *http.Request) error {
 	nodes := p.p2pServer.GetDiscoveredNodes()
 	result := make([]*Peer, 0)
 	for _, n := range nodes {
-		peer, _ := convertNode(n)
+		peer := convertNode(n)
 		result = append(result, peer)
 	}
 	return utils.WriteJSON(w, result)

@@ -96,12 +96,17 @@ func (s *StateDB) GetBalance(addr common.Address) *big.Int {
 }
 
 // SubBalance stub.
-func (s *StateDB) SubBalance(addr common.Address, amount *big.Int) {
+func (s *StateDB) SubBalance(addr common.Address, amount *big.Int) bool {
 	if amount.Sign() == 0 {
-		return
+		return true
 	}
 	balance := s.state.GetBalance(meter.Address(addr))
+	if balance.Cmp(amount) < 0 {
+		return false
+	}
+
 	s.state.SetBalance(meter.Address(addr), new(big.Int).Sub(balance, amount))
+	return true
 }
 
 // AddBalance stub.
@@ -132,12 +137,17 @@ func (s *StateDB) GetEnergy(addr common.Address) *big.Int {
 }
 
 // SubEnergy stub.
-func (s *StateDB) SubEnergy(addr common.Address, amount *big.Int) {
+func (s *StateDB) SubEnergy(addr common.Address, amount *big.Int) bool {
 	if amount.Sign() == 0 {
-		return
+		return true
 	}
 	balance := s.state.GetEnergy(meter.Address(addr))
+	if balance.Cmp(amount) < 0 {
+		return false
+	}
+
 	s.state.SetEnergy(meter.Address(addr), new(big.Int).Sub(balance, amount))
+	return true
 }
 
 // AddEnergy stub.
@@ -168,12 +178,17 @@ func (s *StateDB) GetBoundedBalance(addr common.Address) *big.Int {
 }
 
 // SubBoundedBalance stub.
-func (s *StateDB) SubBoundedBalance(addr common.Address, amount *big.Int) {
+func (s *StateDB) SubBoundedBalance(addr common.Address, amount *big.Int) bool {
 	if amount.Sign() == 0 {
-		return
+		return true
 	}
 	balance := s.state.GetBoundedBalance(meter.Address(addr))
+	if balance.Cmp(amount) < 0 {
+		return false
+	}
+
 	s.state.SetBoundedBalance(meter.Address(addr), new(big.Int).Sub(balance, amount))
+	return true
 }
 
 // AddBoundedBalance stub.
@@ -191,12 +206,17 @@ func (s *StateDB) GetBoundedEnergy(addr common.Address) *big.Int {
 }
 
 // SubBoundedEnergy stub.
-func (s *StateDB) SubBoundedEnergy(addr common.Address, amount *big.Int) {
+func (s *StateDB) SubBoundedEnergy(addr common.Address, amount *big.Int) bool {
 	if amount.Sign() == 0 {
-		return
+		return true
 	}
 	balance := s.state.GetBoundedEnergy(meter.Address(addr))
+	if balance.Cmp(amount) < 0 {
+		return false
+	}
+
 	s.state.SetBoundedEnergy(meter.Address(addr), new(big.Int).Sub(balance, amount))
+	return true
 }
 
 // AddBoundedEnergy stub.

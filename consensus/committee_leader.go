@@ -199,7 +199,7 @@ func (cl *ConsensusLeader) GenerateAnnounceMsg() bool {
 			// Aggregate signature here
 			cl.announceSigAggregator.Aggregate()
 			// cl.announceVoterAggSig = cl.csReactor.csCommon.AggregateSign(cl.announceVoterSig)
-			cl.csReactor.UpdateActualCommittee(cl.csReactor.curCommitteeIndex)
+			cl.csReactor.UpdateActualCommittee(cl.csReactor.curCommitteeIndex, cl.csReactor.config)
 
 			//send out announce notary
 			// cl.state = COMMITTEE_LEADER_NOTARYSENT
@@ -347,7 +347,7 @@ func (cl *ConsensusLeader) ProcessCommitMsg(commitMsg *CommitCommitteeMessage, s
 	return true
 }
 
-func (cl *ConsensusLeader) committeeEstablished() error {
+func (cl *ConsensusLeader) committeeEstablished() {
 	cl.state = COMMITTEE_LEADER_COMMITED
 	cl.notaryThresholdTimer.Stop()
 
@@ -377,6 +377,9 @@ Myself is Leader, Let's start the pacemaker.
 
 	// Now start the pacemaker
 	newCommittee := !cl.replay
-	cl.csReactor.startPacemaker(newCommittee, PMModeNormal)
-	return nil
+	err := cl.csReactor.startPacemaker(newCommittee, PMModeNormal)
+	if err != nil {
+		cl.csReactor.logger.Error("error start pacemaker", "err", err)
+	}
+
 }

@@ -15,6 +15,19 @@ const (
 	OP_BID   = uint32(3)
 )
 
+func GetOpName(op uint32) string {
+	switch op {
+	case OP_START:
+		return "Start"
+	case OP_BID:
+		return "Bid"
+	case OP_STOP:
+		return "Stop"
+	default:
+		return "Unknown"
+	}
+}
+
 var (
 	MinimumBidAmount     = big.NewInt(1).Mul(big.NewInt(10), big.NewInt(1e18))
 	AuctionReservedPrice = big.NewInt(5e17) // at least  1 MTRG settle down 0.5 MTR
@@ -56,7 +69,11 @@ func (ab *AuctionBody) GetOpName(op uint32) string {
 }
 
 func AuctionEncodeBytes(sb *AuctionBody) []byte {
-	auctionBytes, _ := rlp.EncodeToBytes(sb)
+	auctionBytes, err := rlp.EncodeToBytes(sb)
+	if err != nil {
+		log.Error("rlp encode failed", "error", err)
+		return []byte{}
+	}
 	return auctionBytes
 }
 
@@ -195,7 +212,12 @@ func (ab *AuctionBody) HandleAuctionTx(senv *AuctionEnviroment, gas uint64) (ret
 	auctionCB.RcvdMTR = auctionCB.RcvdMTR.Add(auctionCB.RcvdMTR, ab.Amount)
 
 	// transfer bidder's MTR to auction accout
-	Auction.TransferMTRToAuction(ab.Bidder, ab.Amount, state)
+	err = Auction.TransferMTRToAuction(ab.Bidder, ab.Amount, state)
+	if err != nil {
+		log.Error("not enough balance", "address", ab.Bidder)
+		return
+	}
+
 	Auction.SetAuctionCB(auctionCB, state)
 	return
 }

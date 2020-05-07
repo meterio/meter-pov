@@ -35,8 +35,8 @@ var ErrAlreadyProcessed = errors.New("already processed")
 // request represents a scheduled or already in-flight state retrieval request.
 type request struct {
 	hash meter.Bytes32 // Hash of the node data content to retrieve
-	data []byte       // Data content of the node, cached until all subtrees complete
-	raw  bool         // Whether this is a raw entry (code) or a trie node
+	data []byte        // Data content of the node, cached until all subtrees complete
+	raw  bool          // Whether this is a raw entry (code) or a trie node
 
 	parents []*request // Parent state nodes referencing this entry (notify all upon completion)
 	depth   int        // Depth level within the trie the node is located to prioritise DFS
@@ -49,7 +49,7 @@ type request struct {
 // hashes.
 type SyncResult struct {
 	Hash meter.Bytes32 // Hash of the originally unknown trie node
-	Data []byte       // Data content of the retrieved node
+	Data []byte        // Data content of the retrieved node
 }
 
 // syncMemBatch is an in-memory buffer of successfully downloaded but not yet
@@ -76,10 +76,10 @@ type TrieSyncLeafCallback func(leaf []byte, parent meter.Bytes32) error
 // unknown trie hashes to retrieve, accepts node data associated with said hashes
 // and reconstructs the trie step by step until all is done.
 type TrieSync struct {
-	database DatabaseReader            // Persistent database to check for existing entries
-	membatch *syncMemBatch             // Memory buffer to avoid frequest database writes
+	database DatabaseReader             // Persistent database to check for existing entries
+	membatch *syncMemBatch              // Memory buffer to avoid frequest database writes
 	requests map[meter.Bytes32]*request // Pending requests pertaining to a key hash
-	queue    *prque.Prque              // Priority queue with the pending requests
+	queue    *prque.Prque               // Priority queue with the pending requests
 }
 
 // NewTrieSync creates a new trie data download scheduler.
@@ -104,7 +104,11 @@ func (s *TrieSync) AddSubTrie(root meter.Bytes32, depth int, parent meter.Bytes3
 		return
 	}
 	key := root.Bytes()
-	blob, _ := s.database.Get(key)
+	blob, err := s.database.Get(key)
+	if err != nil {
+		return
+	}
+
 	if local, err := decodeNode(key, blob, 0); local != nil && err == nil {
 		return
 	}
@@ -138,7 +142,7 @@ func (s *TrieSync) AddRawEntry(hash meter.Bytes32, depth int, parent meter.Bytes
 	if _, ok := s.membatch.batch[hash]; ok {
 		return
 	}
-	if ok, _ := s.database.Has(hash.Bytes()); ok {
+	if ok, err := s.database.Has(hash.Bytes()); ok || err != nil {
 		return
 	}
 	// Assemble the new sub-trie sync request
@@ -186,7 +190,10 @@ func (s *TrieSync) Process(results []SyncResult) (bool, int, error) {
 		// If the item is a raw entry request, commit directly
 		if request.raw {
 			request.data = item.Data
-			s.commit(request)
+			err := s.commit(request)
+			if err != nil {
+				return committed, i, err
+			}
 			committed = true
 			continue
 		}
@@ -203,7 +210,10 @@ func (s *TrieSync) Process(results []SyncResult) (bool, int, error) {
 			return committed, i, err
 		}
 		if len(requests) == 0 && request.deps == 0 {
-			s.commit(request)
+			err := s.commit(request)
+			if err != nil {
+				return committed, i, err
+			}
 			committed = true
 			continue
 		}

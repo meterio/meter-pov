@@ -54,10 +54,10 @@ func getCandidateList() (*staking.CandidateList, []*staking.Candidate) {
 	addr2, _ := meter.ParseAddress(TestAddress2)
 	addr3, _ := meter.ParseAddress(TestAddress3)
 	addr4, _ := meter.ParseAddress(TestAddress3)
-	c1 := staking.NewCandidate(addr1, []byte("candidate #1"), []byte("pubkey #1"), []byte("ip1"), 8080)
-	c2 := staking.NewCandidate(addr2, []byte("candidate #2"), []byte("pubkey #2"), []byte("ip2"), 8080)
-	c3 := staking.NewCandidate(addr3, []byte("candidate #3"), []byte("pubkey #3"), []byte("ip3"), 8080)
-	c4 := staking.NewCandidate(addr4, []byte("candidate #4"), []byte("pubkey #4"), []byte("ip4"), 8080)
+	c1 := staking.NewCandidate(addr1, []byte("candidate #1"), []byte("pubkey #1"), []byte("ip1"), 8080, 0, 0)
+	c2 := staking.NewCandidate(addr2, []byte("candidate #2"), []byte("pubkey #2"), []byte("ip2"), 8080, 0, 0)
+	c3 := staking.NewCandidate(addr3, []byte("candidate #3"), []byte("pubkey #3"), []byte("ip3"), 8080, 0, 0)
+	c4 := staking.NewCandidate(addr4, []byte("candidate #4"), []byte("pubkey #4"), []byte("ip4"), 8080, 0, 0)
 	cs := []*staking.Candidate{c1, c2, c3, c4}
 
 	cl.Add(c1)

@@ -13,6 +13,7 @@ package consensus
 import (
 	"bytes"
 	"encoding/base64"
+	"fmt"
 	"time"
 
 	bls "github.com/dfinlab/meter/crypto/multi_sig"
@@ -39,7 +40,7 @@ type ConsensusValidator struct {
 }
 
 func (cv *ConsensusValidator) SendMsgToPeer(msg *ConsensusMessage, netAddr types.NetAddress) bool {
-	name := cv.csReactor.GetCommitteeMemberNameByIP(netAddr.IP)
+	name := cv.csReactor.GetDelegateNameByIP(netAddr.IP)
 	csPeer := newConsensusPeer(name, netAddr.IP, netAddr.Port, cv.csReactor.magic)
 	return cv.csReactor.asyncSendCommitteeMsg(msg, false, csPeer)
 }
@@ -223,7 +224,7 @@ func (cv *ConsensusValidator) ProcessNotaryAnnounceMessage(notaryMsg *NotaryAnno
 	// TBD: validate announce bitarray & signature
 	// validateEvidence()
 
-	cv.csReactor.UpdateActualCommittee(leaderIndex)
+	cv.csReactor.UpdateActualCommittee(leaderIndex, cv.csReactor.config)
 	myCommitteInfo := cv.csReactor.BuildCommitteeInfoFromMember(cv.csReactor.csCommon.GetSystem(), cv.csReactor.curActualCommittee)
 
 	// my committee info notaryMsg.CommitteeMembers must be the same !!!
@@ -244,6 +245,10 @@ Let's start the pacemaker...
 
 	// XXX: Start pacemaker here at this time.
 	newCommittee := !cv.replay
-	cv.csReactor.startPacemaker(newCommittee, PMModeNormal)
+	err = cv.csReactor.startPacemaker(newCommittee, PMModeNormal)
+	if err != nil {
+		fmt.Println("could not start pacemaker, error:", err)
+		return false
+	}
 	return true
 }

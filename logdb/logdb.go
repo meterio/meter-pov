@@ -11,10 +11,10 @@ import (
 	"fmt"
 	"math/big"
 
-	sqlite3 "github.com/mattn/go-sqlite3"
 	"github.com/dfinlab/meter/block"
 	"github.com/dfinlab/meter/meter"
 	"github.com/dfinlab/meter/tx"
+	sqlite3 "github.com/mattn/go-sqlite3"
 )
 
 type LogDB struct {
@@ -43,7 +43,10 @@ func New(path string) (logDB *LogDB, err error) {
 	}
 	defer func() {
 		if logDB == nil {
-			db.Close()
+			err := db.Close()
+			if err != nil {
+				fmt.Println("could not close logdb error:", err)
+			}
 		}
 	}()
 	if _, err := db.Exec(eventTableSchema + transferTableSchema); err != nil {
@@ -67,7 +70,11 @@ func NewMem() (*LogDB, error) {
 
 // Close close the log db.
 func (db *LogDB) Close() {
-	db.db.Close()
+	err := db.db.Close()
+	if err != nil {
+		fmt.Println("could not close logdb error:", err)
+	}
+
 }
 
 func (db *LogDB) Path() string {
@@ -337,7 +344,11 @@ func (bb *BlockBatch) execInTx(proc func(*sql.Tx) error) (err error) {
 		return err
 	}
 	if err := proc(tx); err != nil {
-		tx.Rollback()
+		e := tx.Rollback()
+		if e != nil {
+			fmt.Println("could not rollback, error:", e)
+		}
+
 		return err
 	}
 	return tx.Commit()

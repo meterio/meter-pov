@@ -114,12 +114,12 @@ func (l *StakeholderList) Exist(addr meter.Address) bool {
 	return index >= 0
 }
 
-func (l *StakeholderList) Add(s *Stakeholder) error {
+func (l *StakeholderList) Add(s *Stakeholder) {
 	index, insertIndex := l.indexOf(s.Holder)
 	if index < 0 {
 		if len(l.holders) == 0 {
 			l.holders = append(l.holders, s)
-			return nil
+			return
 		}
 		newList := make([]*Stakeholder, insertIndex)
 		copy(newList, l.holders[:insertIndex])
@@ -130,15 +130,15 @@ func (l *StakeholderList) Add(s *Stakeholder) error {
 		l.holders[index] = s
 	}
 
-	return nil
+	return
 }
 
-func (l *StakeholderList) Remove(addr meter.Address) error {
+func (l *StakeholderList) Remove(addr meter.Address) {
 	index, _ := l.indexOf(addr)
 	if index >= 0 {
 		l.holders = append(l.holders[:index], l.holders[index+1:]...)
 	}
-	return nil
+	return
 }
 
 func (l *StakeholderList) ToString() string {
