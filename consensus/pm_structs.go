@@ -1,7 +1,6 @@
 package consensus
 
 import (
-	"encoding/hex"
 	"fmt"
 	"io"
 
@@ -131,9 +130,7 @@ func (tc *PMTimeoutCert) DecodeRLP(s *rlp.Stream) error {
 
 func (tc *PMTimeoutCert) String() string {
 	if tc != nil {
-		hexAggSig := hex.EncodeToString(tc.TimeoutAggSig)
-		abbrAggSig := hexAggSig[:4] + "..." + hexAggSig[len(hexAggSig)-4:]
-		return fmt.Sprintf("PMTimeoutCert (H:%v, R:%v, C:%v, BitArray:%v, AggSig:%v)", tc.TimeoutHeight, tc.TimeoutRound, tc.TimeoutCounter, tc.TimeoutBitArray.String(), abbrAggSig)
+		return fmt.Sprintf("TCert(H:%v, R:%v, C:%v, Voted:%v/%v)", tc.TimeoutHeight, tc.TimeoutRound, tc.TimeoutCounter, tc.TimeoutBitArray.Count(), tc.TimeoutBitArray.Size())
 	}
 	return "nil"
 }
@@ -161,10 +158,10 @@ type pmBlock struct {
 
 func (pb *pmBlock) ToString() string {
 	if pb.Parent != nil {
-		return fmt.Sprintf("PMBlock(Height: %v, Round: %v, QCHeight: %v, QCRound: %v, ParentHeight: %v, ParentRound: %v)",
+		return fmt.Sprintf("PMBlock{(H:%v,R:%v), QC:(H:%v, R:%v), Parent:(H:%v, H:%v)}",
 			pb.Height, pb.Round, pb.Justify.QC.QCHeight, pb.Justify.QC.QCRound, pb.Parent.Height, pb.Parent.Round)
 	} else {
-		return fmt.Sprintf("PMBlock(Height: %v, Round: %v, QCHeight: %v, QCRound: %v)",
+		return fmt.Sprintf("PMBlock{(H:%v,R:%v), QC:(H:%v, R:%v)}",
 			pb.Height, pb.Round, pb.Justify.QC.QCHeight, pb.Justify.QC.QCRound)
 	}
 }
@@ -190,9 +187,9 @@ func newPMQuorumCert(qc *block.QuorumCert, qcNode *pmBlock) *pmQuorumCert {
 
 func (qc *pmQuorumCert) ToString() string {
 	if qc.QCNode != nil {
-		return fmt.Sprintf("pmQC(QCHeight: %v, QCRound: %v, qcNodeHeight: %v, qcNodeRound: %v)", qc.QC.QCHeight, qc.QC.QCRound, qc.QCNode.Height, qc.QCNode.Round)
+		return fmt.Sprintf("pmQC{QC:(H:%v,R:%v), qcNode:(H:%v,R:%v)}", qc.QC.QCHeight, qc.QC.QCRound, qc.QCNode.Height, qc.QCNode.Round)
 	} else {
-		return fmt.Sprintf("pmQC(QCHeight: %v, QCRound: %v, qcNode: nil)", qc.QC.QCHeight, qc.QC.QCRound)
+		return fmt.Sprintf("pmQC{QC:(H:%v,R:%v), qcNode: nil}", qc.QC.QCHeight, qc.QC.QCRound)
 	}
 }
 

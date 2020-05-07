@@ -211,7 +211,7 @@ func (p *Pacemaker) OnCommit(commitReady []*pmBlock) {
 
 		// TBD: how to handle this case???
 		if b.SuccessProcessed == false {
-			p.csReactor.logger.Error("Process this proposal failed, possible my states are wrong", "height", b.Height, "round", b.Round, "err", b.ProcessError)
+			p.csReactor.logger.Error("Process this proposal failed, possible my states are wrong", "height", b.Height, "round", b.Round, "action", "commit", "err", b.ProcessError)
 			continue
 		}
 		// commit the approved block
@@ -247,7 +247,7 @@ func (p *Pacemaker) OnCommit(commitReady []*pmBlock) {
 func (p *Pacemaker) OnPreCommitBlock(b *pmBlock) error {
 	// TBD: how to handle this case???
 	if b.SuccessProcessed == false {
-		p.csReactor.logger.Error("Process this proposal failed, possible my states are wrong", "height", b.Height, "round", b.Round, "err", b.ProcessError)
+		p.csReactor.logger.Error("Process this proposal failed, possible my states are wrong", "height", b.Height, "round", b.Round, "action", "precommit", "err", b.ProcessError)
 		return errors.New("Process this proposal failed, precommit skipped")
 	}
 	err := p.csReactor.PreCommitBlock(b.ProposedBlockInfo)
@@ -1045,7 +1045,7 @@ func (p *Pacemaker) resetRoundTimer(round uint32, reason roundTimerUpdateReason)
 }
 
 func (p *Pacemaker) revertTo(revertHeight uint32) {
-	p.logger.Info("Start revert", "revertHeight", revertHeight, "current block-leaf", p.blockLeaf.ToString(), "current QCHigh", p.QCHigh.ToString())
+	p.logger.Info("Start revert", "revertHeight", revertHeight, "currentBLeaf", p.blockLeaf.ToString(), "currentQCHigh", p.QCHigh.ToString())
 	pivot, pivotExist := p.proposalMap[revertHeight]
 	height := revertHeight
 	for {
@@ -1066,7 +1066,7 @@ func (p *Pacemaker) revertTo(revertHeight uint32) {
 			}
 			state.RevertTo(info.CheckPoint)
 		}
-		p.logger.Warn("Deleted from proposalMap:", "height", height, "block", proposal.ToString())
+		p.logger.Warn("Deleted from proposalMap", "height", height, "block", proposal.ToString())
 		delete(p.proposalMap, height)
 		height++
 	}

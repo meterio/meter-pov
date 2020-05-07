@@ -89,7 +89,7 @@ func (p *Pacemaker) receivePacemakerMsg(w http.ResponseWriter, r *http.Request) 
 	if fromMyself {
 		peerName = peerName + "(myself)"
 	}
-	p.logger.Info(fmt.Sprintf(">>Recv %s", msg.String()), "peer", peerName, "ip", peer.netAddr.IP.String(), "msgHash", mi.MsgHashHex())
+	p.logger.Info(fmt.Sprintf("Recv %s", msg.String()), "peer", peerName, "ip", peer.netAddr.IP.String(), "msgHash", mi.MsgHashHex())
 
 	p.pacemakerMsgCh <- *mi
 
@@ -230,7 +230,7 @@ func (p *Pacemaker) ValidateProposal(b *pmBlock) error {
 	now := uint64(time.Now().Unix())
 	stage, receipts, err := p.csReactor.ProcessProposedBlock(parentHeader, blk, now)
 	if err != nil {
-		// p.logger.Error("process block failed", "height", blkHeight, "id", blkID, "error", err)
+		p.logger.Error("process block failed", "proposed", blk.Oneliner(), "err", err)
 		b.SuccessProcessed = false
 		b.ProcessError = err
 		return err
