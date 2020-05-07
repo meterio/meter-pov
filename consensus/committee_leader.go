@@ -199,7 +199,7 @@ func (cl *ConsensusLeader) GenerateAnnounceMsg() bool {
 			// Aggregate signature here
 			cl.announceSigAggregator.Aggregate()
 			// cl.announceVoterAggSig = cl.csReactor.csCommon.AggregateSign(cl.announceVoterSig)
-			cl.csReactor.UpdateActualCommittee(cl.csReactor.curCommitteeIndex)
+			cl.csReactor.UpdateActualCommittee(cl.csReactor.curCommitteeIndex, cl.csReactor.config)
 
 			//send out announce notary
 			// cl.state = COMMITTEE_LEADER_NOTARYSENT
