@@ -224,7 +224,7 @@ func (cv *ConsensusValidator) ProcessNotaryAnnounceMessage(notaryMsg *NotaryAnno
 	// TBD: validate announce bitarray & signature
 	// validateEvidence()
 
-	cv.csReactor.UpdateActualCommittee(leaderIndex)
+	cv.csReactor.UpdateActualCommittee(leaderIndex, cv.csReactor.config)
 	myCommitteInfo := cv.csReactor.BuildCommitteeInfoFromMember(cv.csReactor.csCommon.GetSystem(), cv.csReactor.curActualCommittee)
 
 	// my committee info notaryMsg.CommitteeMembers must be the same !!!
