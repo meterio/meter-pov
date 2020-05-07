@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/gob"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"math/big"
 
@@ -100,8 +101,10 @@ func (a *Auction) TransferMTRToAuction(addr meter.Address, amount *big.Int, stat
 		return nil
 	}
 	var balance *big.Int
-
 	balance = state.GetEnergy(addr)
+	if balance.Cmp(amount) < 0 {
+		return errors.New("not enough balance")
+	}
 	state.SetEnergy(meter.Address(addr), new(big.Int).Sub(balance, amount))
 
 	balance = state.GetEnergy(AuctionAccountAddr)
@@ -109,14 +112,13 @@ func (a *Auction) TransferMTRToAuction(addr meter.Address, amount *big.Int, stat
 	return nil
 }
 
-func (a *Auction) SendMTRGToBidder(addr meter.Address, amount *big.Int, stateDB *statedb.StateDB) error {
+func (a *Auction) SendMTRGToBidder(addr meter.Address, amount *big.Int, stateDB *statedb.StateDB) {
 	if amount.Sign() == 0 {
-		return nil
+		return
 	}
-
 	// in auction, MeterGov is mint action.
 	stateDB.MintBalance(common.Address(addr), amount)
-	return nil
+	return
 }
 
 //==============================================

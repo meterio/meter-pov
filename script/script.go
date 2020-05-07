@@ -157,7 +157,12 @@ type Script struct {
 }
 
 func ScriptEncodeBytes(script *Script) []byte {
-	scriptBytes, _ := rlp.EncodeToBytes(script)
+	scriptBytes, err := rlp.EncodeToBytes(script)
+	if err != nil {
+		fmt.Printf("rlp encode failed, %s\n", err.Error())
+		return []byte{}
+	}
+
 	return scriptBytes
 }
 
