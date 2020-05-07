@@ -517,6 +517,7 @@ func (p *Pacemaker) OnBeat(height, round uint32, reason beatReason) error {
 	if b.Height > p.blockLocked.Height {
 		err := p.OnPreCommitBlock(b)
 		if err != nil {
+			p.logger.Error("precommit block failed", "height", b.Height, "error", err)
 			return err
 		}
 	}

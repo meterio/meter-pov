@@ -34,13 +34,18 @@ type Bucket struct {
 //bucketID Candidate .. are excluded
 func (b *Bucket) ID() (hash meter.Bytes32) {
 	hw := meter.NewBlake2b()
-	rlp.Encode(hw, []interface{}{
+	err := rlp.Encode(hw, []interface{}{
 		b.Owner,
 		b.Value,
 		b.Token,
 		b.Nonce,
 		b.CreateTime,
 	})
+	if err != nil {
+		fmt.Printf("rlp encode failed., %s\n", err.Error())
+		return meter.Bytes32{}
+	}
+
 	hw.Sum(hash[:0])
 	return
 }
@@ -97,10 +102,10 @@ func (b *Bucket) IsForeverLock() bool {
 	return false
 }
 
-func (b *Bucket) UpdateLockOption(opt uint32, rate uint8) error {
+func (b *Bucket) UpdateLockOption(opt uint32, rate uint8) {
 	b.Option = opt
 	b.Rate = rate
-	return nil
+	return
 }
 
 type BucketList struct {
@@ -150,12 +155,12 @@ func (l *BucketList) Exist(id meter.Bytes32) bool {
 	return index >= 0
 }
 
-func (l *BucketList) Add(b *Bucket) error {
+func (l *BucketList) Add(b *Bucket) {
 	index, insertIndex := l.indexOf(b.BucketID)
 	if index < 0 {
 		if len(l.buckets) == 0 {
 			l.buckets = append(l.buckets, b)
-			return nil
+			return
 		}
 		newList := make([]*Bucket, insertIndex)
 		copy(newList, l.buckets[:insertIndex])
@@ -165,15 +170,15 @@ func (l *BucketList) Add(b *Bucket) error {
 	} else {
 		l.buckets[index] = b
 	}
-	return nil
+	return
 }
 
-func (l *BucketList) Remove(id meter.Bytes32) error {
+func (l *BucketList) Remove(id meter.Bytes32) {
 	index, _ := l.indexOf(id)
 	if index >= 0 {
 		l.buckets = append(l.buckets[:index], l.buckets[index+1:]...)
 	}
-	return nil
+	return
 }
 
 func (l *BucketList) ToString() string {

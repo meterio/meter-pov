@@ -69,7 +69,11 @@ func (ab *AuctionBody) GetOpName(op uint32) string {
 }
 
 func AuctionEncodeBytes(sb *AuctionBody) []byte {
-	auctionBytes, _ := rlp.EncodeToBytes(sb)
+	auctionBytes, err := rlp.EncodeToBytes(sb)
+	if err != nil {
+		log.Error("rlp encode failed", "error", err)
+		return []byte{}
+	}
 	return auctionBytes
 }
 
@@ -208,7 +212,12 @@ func (ab *AuctionBody) HandleAuctionTx(senv *AuctionEnviroment, gas uint64) (ret
 	auctionCB.RcvdMTR = auctionCB.RcvdMTR.Add(auctionCB.RcvdMTR, ab.Amount)
 
 	// transfer bidder's MTR to auction accout
-	Auction.TransferMTRToAuction(ab.Bidder, ab.Amount, state)
+	err = Auction.TransferMTRToAuction(ab.Bidder, ab.Amount, state)
+	if err != nil {
+		log.Error("not enough balance", "address", ab.Bidder)
+		return
+	}
+
 	Auction.SetAuctionCB(auctionCB, state)
 	return
 }

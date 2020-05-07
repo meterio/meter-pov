@@ -6,10 +6,10 @@
 package state
 
 import (
-	lru "github.com/hashicorp/golang-lru"
 	"github.com/dfinlab/meter/kv"
 	"github.com/dfinlab/meter/meter"
 	"github.com/dfinlab/meter/trie"
+	lru "github.com/hashicorp/golang-lru"
 )
 
 var trCache = newTrieCache()
@@ -24,7 +24,10 @@ type trieCacheEntry struct {
 }
 
 func newTrieCache() *trieCache {
-	cache, _ := lru.New(256)
+	cache, err := lru.New(256)
+	if err != nil {
+		return nil
+	}
 	return &trieCache{cache: cache}
 }
 

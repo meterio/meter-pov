@@ -168,9 +168,15 @@ func (s *Staking) GetDelegateList(state *state.State) (result *DelegateList) {
 		buf := bytes.NewBuffer(raw)
 		decoder := gob.NewDecoder(buf)
 		var delegates []*Delegate
-		decoder.Decode(&delegates)
-
+		err := decoder.Decode(&delegates)
 		result = newDelegateList(delegates)
+		if err != nil {
+			if err.Error() == "EOF" && len(raw) == 0 {
+				// empty raw, do nothing
+			} else {
+				log.Warn("Error during decoding delegates list, set it as an empty list", "err", err)
+			}
+		}
 		// fmt.Println("Loaded:", result.ToString())
 		return nil
 	})
