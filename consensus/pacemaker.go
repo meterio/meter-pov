@@ -9,6 +9,7 @@ import (
 	"github.com/ethereum/go-ethereum/rlp"
 
 	"github.com/dfinlab/meter/block"
+	"github.com/dfinlab/meter/chain"
 	"github.com/inconshreveable/log15"
 )
 
@@ -215,18 +216,16 @@ func (p *Pacemaker) OnCommit(commitReady []*pmBlock) {
 		}
 		// commit the approved block
 		bestQC := p.proposalMap[b.Height+1].Justify.QC
-		if err := p.csReactor.FinalizeCommitBlock(b.ProposedBlockInfo, bestQC); err != nil {
-			// same block can be imported fromm P2P, we consider it as success
-			if err != errKnownBlock {
-				p.csReactor.logger.Warn("Commit block failed ...", "error", err)
-				//revert to checkpoint
-				best := p.csReactor.chain.BestBlock()
-				state, err := p.csReactor.stateCreator.NewState(best.Header().StateRoot())
-				if err != nil {
-					panic(fmt.Sprintf("revert the state faild ... %v", err))
-				}
-				state.RevertTo(b.ProposedBlockInfo.CheckPoint)
+		err := p.csReactor.FinalizeCommitBlock(b.ProposedBlockInfo, bestQC)
+		if err != nil && err != chain.ErrBlockExist {
+			p.csReactor.logger.Warn("Commit block failed ...", "error", err)
+			//revert to checkpoint
+			best := p.csReactor.chain.BestBlock()
+			state, err := p.csReactor.stateCreator.NewState(best.Header().StateRoot())
+			if err != nil {
+				panic(fmt.Sprintf("revert the state faild ... %v", err))
 			}
+			state.RevertTo(b.ProposedBlockInfo.CheckPoint)
 		}
 
 		p.Execute(b) //b.cmd
@@ -251,8 +250,11 @@ func (p *Pacemaker) OnPreCommitBlock(b *pmBlock) error {
 		p.csReactor.logger.Error("Process this proposal failed, possible my states are wrong", "height", b.Height, "round", b.Round, "err", b.ProcessError)
 		return errors.New("Process this proposal failed, precommit skipped")
 	}
-	if ok := p.csReactor.PreCommitBlock(b.ProposedBlockInfo); ok != true {
-		return errors.New("precommit failed")
+	err := p.csReactor.PreCommitBlock(b.ProposedBlockInfo)
+
+	if err != nil && err != chain.ErrBlockExist {
+		p.logger.Warn("precommit failed", "err", err)
+		return err
 	}
 	// p.csReactor.logger.Info("PreCommitted block", "height", b.Height, "round", b.Round)
 	return nil
@@ -501,7 +503,7 @@ func (p *Pacemaker) UpdateQCHigh(qc *pmQuorumCert) bool {
 }
 
 func (p *Pacemaker) OnBeat(height, round uint32, reason beatReason) error {
-	if p.QCHigh != nil && p.QCHigh.QC != nil && height <= p.QCHigh.QC.QCHeight && reason == BeatOnTimeout {
+	if p.QCHigh != nil && p.QCHigh.QC != nil && height <= (p.QCHigh.QC.QCHeight+1) && reason == BeatOnTimeout {
 		return p.OnTimeoutBeat(height, round, reason)
 	}
 	p.logger.Info(" --------------------------------------------------")
