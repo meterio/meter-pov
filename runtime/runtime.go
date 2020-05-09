@@ -19,6 +19,7 @@ import (
 	"github.com/dfinlab/meter/state"
 	"github.com/dfinlab/meter/tx"
 	Tx "github.com/dfinlab/meter/tx"
+	"github.com/dfinlab/meter/vesting"
 	"github.com/dfinlab/meter/vm"
 	"github.com/dfinlab/meter/xenv"
 	"github.com/ethereum/go-ethereum/common"
@@ -110,6 +111,11 @@ func (rt *Runtime) State() *state.State         { return rt.state }
 func (rt *Runtime) Context() *xenv.BlockContext { return rt.ctx }
 func (rt *Runtime) ScriptEngineCheck(d []byte) bool {
 	return (d[0] == 0xff) && (d[1] == 0xff) && (d[2] == 0xff) && (d[3] == 0xff)
+}
+
+func (rt *Runtime) restrictTransfer(addr meter.Address) bool {
+	height := uint64(rt.ctx.Number)
+	return vesting.RestrictTransfer(addr, height)
 }
 
 // SetVMConfig config VM.
@@ -346,6 +352,18 @@ func (rt *Runtime) PrepareClause(
 				ContractAddress: contractAddr,
 			}
 			return output, interrupted
+		}
+
+		// check the restriction of transfer.
+		if rt.restrictTransfer(txCtx.Origin) == true {
+			output := &Output{
+				Data:            []byte{},
+				LeftOverGas:     gas - meter.ClauseGas,
+				RefundGas:       stateDB.GetRefund(),
+				VMErr:           errors.New("account is restricted to transfer"),
+				ContractAddress: contractAddr,
+			}
+			return output, false
 		}
 
 		if clause.To() == nil {
