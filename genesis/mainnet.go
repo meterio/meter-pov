@@ -12,6 +12,7 @@ import (
 	"github.com/dfinlab/meter/meter"
 	"github.com/dfinlab/meter/state"
 	"github.com/dfinlab/meter/tx"
+	"github.com/dfinlab/meter/vesting"
 	"github.com/dfinlab/meter/vm"
 )
 
@@ -20,6 +21,9 @@ func NewMainnet() *Genesis {
 	launchTime := uint64(1530316800) // '2018-06-30T00:00:00.000Z'
 
 	initialAuthorityNodes := loadAuthorityNodes()
+
+	// init vestPlan
+	vesting.VestPlanInit()
 
 	builder := new(Builder).
 		Timestamp(launchTime).
@@ -45,6 +49,15 @@ func NewMainnet() *Genesis {
 				tokenSupply.Add(tokenSupply, meter.InitialProposerEndorsement)
 				state.SetBalance(anode.endorsorAddress, meter.InitialProposerEndorsement)
 				state.SetEnergy(anode.endorsorAddress, &big.Int{})
+			}
+
+			vestPlans := vesting.LoadVestPlan()
+			for _, v := range vestPlans {
+				state.SetBalance(v.Address, v.MtrGov)
+				tokenSupply.Add(tokenSupply, v.MtrGov)
+
+				state.SetEnergy(v.Address, v.Mtr)
+				energySupply.Add(energySupply, v.Mtr)
 			}
 
 			// alloc all other tokens
