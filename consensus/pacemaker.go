@@ -849,6 +849,10 @@ func (p *Pacemaker) mainLoop() {
 		case b := <-p.beatCh:
 			err = p.OnBeat(b.height, b.round, b.reason)
 		case m := <-p.pacemakerMsgCh:
+			if m.Msg.EpochID() != p.csReactor.curEpoch {
+				p.logger.Info("receives message w/ mismatched epoch ID", "epoch", m.Msg.EpochID(), "myEpoch", p.csReactor.curEpoch, "type", getConcreteName(m.Msg))
+				break
+			}
 			switch msg := m.Msg.(type) {
 			case *PMProposalMessage:
 				err = p.OnReceiveProposal(&m)
