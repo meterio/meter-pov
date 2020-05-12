@@ -440,7 +440,7 @@ func (p *p2pComm) Stop() {
 
 func versionHandler(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
-	w.Write([]byte(fmt.Sprintf("version = %s", fullVersion())))
+	w.Write([]byte(fullVersion()))
 }
 
 func pubkeyHandler(w http.ResponseWriter, r *http.Request) {
@@ -448,8 +448,8 @@ func pubkeyHandler(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte(fmt.Sprintf("version = %s", fullVersion())))
 }
 
-func startObserveServer(ctx *cli.Context) (string, func()) {
-	addr := ":8671"
+func startObserveServer(ctx *cli.Context, cons *consensus.ConsensusReactor) (string, func()) {
+	addr := ":8670"
 	listener, err := net.Listen("tcp", addr)
 	if err != nil {
 		fatal(fmt.Sprintf("listen observe addr [%v]: %v", addr, err))
@@ -458,6 +458,8 @@ func startObserveServer(ctx *cli.Context) (string, func()) {
 	mux.Handle("/metrics", promhttp.Handler())
 	mux.HandleFunc("/version", versionHandler)
 	mux.HandleFunc("/pubkey", pubkeyHandler)
+	mux.HandleFunc("/committee", cons.ReceiveCommitteeMsg)
+	mux.HandleFunc("/pacemaker", cons.ReceivePacemakerMsg)
 
 	srv := &http.Server{Handler: mux}
 	var goes co.Goes
