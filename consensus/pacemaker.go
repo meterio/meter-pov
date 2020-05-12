@@ -245,10 +245,11 @@ func (p *Pacemaker) OnCommit(commitReady []*pmBlock) {
 }
 
 func (p *Pacemaker) OnPreCommitBlock(b *pmBlock) error {
-	// TBD: how to handle this case???
+	// This is the situation: 2/3 of committee agree the proposal while I disagree.
+	// posslible my state is deviated from the majority of committee, resatart pacemaker.
 	if b.SuccessProcessed == false {
-		p.csReactor.logger.Error("Process this proposal failed, possible my states are wrong", "height", b.Height, "round", b.Round, "action", "precommit", "err", b.ProcessError)
-		return errors.New("Process this proposal failed, precommit skipped")
+		p.csReactor.logger.Error("Process this proposal failed, possible my states are wrong, restart pacemaker", "height", b.Height, "round", b.Round, "action", "precommit", "err", b.ProcessError)
+		return errRestartPaceMakerRequired
 	}
 	err := p.csReactor.PreCommitBlock(b.ProposedBlockInfo)
 
@@ -858,7 +859,7 @@ func (p *Pacemaker) mainLoop() {
 				err = p.OnReceiveProposal(&m)
 				if err != nil {
 					// 2 errors indicate linking message to pending list for the first time, does not need to check pending
-					if err != errParentMissing && err != errQCNodeMissing {
+					if err != errParentMissing && err != errQCNodeMissing && err != errRestartPaceMakerRequired {
 						err = p.checkPendingMessages(msg.CSMsgCommonHeader.Height)
 					} else {
 						// qcHigh was supposed to be higher than bestQC at all times
@@ -866,7 +867,7 @@ func (p *Pacemaker) mainLoop() {
 						// Usually, we'll use pending proposal to recover, but if the gap is too big between qcHigh and bestQC
 						// we'll have to restart the pacemaker in catch-up mode to "jump" the pacemaker ahead in order to
 						// process future proposals in time.
-						if p.QCHigh != nil && p.QCHigh.QCNode != nil && p.QCHigh.QCNode.Height+5 < p.csReactor.chain.BestQC().QCHeight {
+						if (err == errRestartPaceMakerRequired) || (p.QCHigh != nil && p.QCHigh.QCNode != nil && p.QCHigh.QCNode.Height+5 < p.csReactor.chain.BestQC().QCHeight) {
 							p.Restart(PMModeCatchUp)
 						}
 					}
