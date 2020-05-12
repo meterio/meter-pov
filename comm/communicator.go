@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"math"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 
@@ -25,6 +26,7 @@ import (
 	"github.com/ethereum/go-ethereum/event"
 	"github.com/ethereum/go-ethereum/p2p"
 	"github.com/inconshreveable/log15"
+	"github.com/pkg/errors"
 )
 
 var (
@@ -212,9 +214,28 @@ type txsToSync struct {
 }
 
 func (c *Communicator) servePeer(p *p2p.Peer, rw p2p.MsgReadWriter) error {
-	peer := newPeer(p, rw, c.magic)
+	peer, dir := newPeer(p, rw, c.magic)
+	curIP := peer.RemoteAddr().String()
+	lastIndex := strings.LastIndex(curIP, ":")
+	if lastIndex >= 0 {
+		curIP = curIP[:lastIndex]
+	}
+	for _, knownPeer := range c.peerSet.Slice() {
+		knownIP := knownPeer.RemoteAddr().String()
+		lastIndex = strings.LastIndex(knownIP, ":")
+		if lastIndex >= 0 {
+			knownIP = knownIP[:lastIndex]
+		}
+		if knownIP == curIP {
+			return errors.New("duplicate IP address: " + curIP)
+		}
+	}
+	counter := c.peerSet.DirectionCount()
+	if counter.Outbound*4 < counter.Inbound && dir == "inbound" {
+		return errors.New("too much inbound from: " + curIP)
+	}
 	c.goes.Go(func() {
-		c.runPeer(peer)
+		c.runPeer(peer, dir)
 	})
 
 	var txsToSync txsToSync
@@ -224,7 +245,7 @@ func (c *Communicator) servePeer(p *p2p.Peer, rw p2p.MsgReadWriter) error {
 	}, proto.MaxMsgSize)
 }
 
-func (c *Communicator) runPeer(peer *Peer) {
+func (c *Communicator) runPeer(peer *Peer, dir string) {
 	defer peer.Disconnect(p2p.DiscRequested)
 
 	// 5sec timeout for handshake
@@ -253,7 +274,7 @@ func (c *Communicator) runPeer(peer *Peer) {
 	}
 
 	peer.UpdateHead(status.BestBlockID, status.TotalScore)
-	c.peerSet.Add(peer)
+	c.peerSet.Add(peer, dir)
 	peer.logger.Debug(fmt.Sprintf("peer added (%v)", c.peerSet.Len()))
 
 	defer func() {
