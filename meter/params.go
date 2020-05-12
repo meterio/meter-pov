@@ -45,10 +45,10 @@ const (
 	POW_DEFAULT_REWARD_COEF_S9 = int64(11691855417)
 	//efficiency w/hash  python -c "print 1.323/13.5" = 0.098
 	POW_S9_EFFECIENCY = 0.098
-	//M10 spec 2145W, 33TH
-	//python -c "print 2**32 * 2.145 /120/33/1000/1000/1000/1000/10/30 * 1e18"
-	POW_DEFAULT_REWARD_COEF_M10 = int64(7754802062)
-	POW_M10_EFFECIENCY          = 0.065
+	//M10 spec 1500W, 25TH
+	//python -c "print 2**32 * 1.5 /120/25/1000/1000/1000/1000/10/30 * 1e18"
+	POW_DEFAULT_REWARD_COEF_M10 = int64(7158278826)
+	POW_M10_EFFECIENCY          = 0.060
 )
 
 // Keys of governance params.
