@@ -10,12 +10,13 @@ import (
 )
 
 var (
-	errFutureBlock         = errors.New("block in the future")
-	errParentMissing       = errors.New("parent block is missing")
-	errQCNodeMissing       = errors.New("qcNode is missing")
-	errKnownBlock          = errors.New("block already in the chain")
-	errParentHeaderMissing = errors.New("parent header is missing")
-	errDecodeParentFailed  = errors.New("decode parent failed")
+	errFutureBlock              = errors.New("block in the future")
+	errParentMissing            = errors.New("parent block is missing")
+	errQCNodeMissing            = errors.New("qcNode is missing")
+	errKnownBlock               = errors.New("block already in the chain")
+	errParentHeaderMissing      = errors.New("parent header is missing")
+	errDecodeParentFailed       = errors.New("decode parent failed")
+	errRestartPaceMakerRequired = errors.New("restart pacemaker required")
 )
 
 type consensusError string
