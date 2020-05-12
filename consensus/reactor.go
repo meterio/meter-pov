@@ -24,9 +24,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/gorilla/mux"
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/rs/cors"
 	cli "gopkg.in/urfave/cli.v1"
 
 	"github.com/dfinlab/meter/block"
@@ -790,7 +788,15 @@ func (conR *ConsensusReactor) UnmarshalMsg(data []byte) (*consensusMsgInfo, erro
 	return newConsensusMsgInfo(msg, peer, data), nil
 }
 
-func (conR *ConsensusReactor) receiveCommitteeMsg(w http.ResponseWriter, r *http.Request) {
+func (conR *ConsensusReactor) ReceivePacemakerMsg(w http.ResponseWriter, r *http.Request) {
+	if conR.csPacemaker != nil {
+		conR.csPacemaker.receivePacemakerMsg(w, r)
+	} else {
+		conR.logger.Warn("pacemaker is not initialized, dropped message")
+	}
+}
+
+func (conR *ConsensusReactor) ReceiveCommitteeMsg(w http.ResponseWriter, r *http.Request) {
 	defer r.Body.Close()
 	data, err := ioutil.ReadAll(r.Body)
 	if err != nil {
@@ -839,20 +845,6 @@ func respondWithJson(w http.ResponseWriter, code int, payload interface{}) {
 }
 */
 
-func (conR *ConsensusReactor) receiveConsensusMsgRoutine() {
-
-	c := cors.New(cors.Options{
-		AllowedOrigins: []string{"*"},    // All origins
-		AllowedMethods: []string{"POST"}, // Only allows POST requests
-	})
-	r := mux.NewRouter()
-	r.HandleFunc("/committee", conR.receiveCommitteeMsg).Methods("POST")
-	r.HandleFunc("/pacemaker", conR.csPacemaker.receivePacemakerMsg).Methods("POST")
-	if err := http.ListenAndServe(":8670", c.Handler(r)); err != nil {
-		conR.logger.Error("HTTP receiver error!", "err", err)
-	}
-}
-
 //Entry point of new consensus
 func (conR *ConsensusReactor) NewConsensusStart() int {
 	conR.logger.Debug("Starting New Consensus ...")
@@ -863,7 +855,7 @@ func (conR *ConsensusReactor) NewConsensusStart() int {
 	 */
 
 	// Uncomment following to enable peer messages between nodes
-	go conR.receiveConsensusMsgRoutine()
+	// go conR.receiveConsensusMsgRoutine()
 
 	// Start receive routine
 	go conR.receiveRoutine() //only handles from channel
