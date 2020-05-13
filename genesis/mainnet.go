@@ -103,6 +103,42 @@ func NewMainnet() *Genesis {
 	data = mustEncodeInput(builtin.Params.ABI, "set", meter.KeyPowPoolCoef, meter.InitialPowPoolCoef)
 	builder.Call(tx.NewClause(&builtin.Params.Address).WithData(data), builtin.Executor.Address)
 
+	data = mustEncodeInput(builtin.Params.ABI, "set", meter.KeyPowPoolCoefFadeDays, meter.InitialPowPoolCoefFadeDays)
+	builder.Call(tx.NewClause(&builtin.Params.Address).WithData(data), builtin.Executor.Address)
+
+	data = mustEncodeInput(builtin.Params.ABI, "set", meter.KeyPowPoolCoefFadeRate, meter.InitialPowPoolCoefFadeRate)
+	builder.Call(tx.NewClause(&builtin.Params.Address).WithData(data), builtin.Executor.Address)
+
+	data = mustEncodeInput(builtin.Params.ABI, "set", meter.KeyValidatorBenefitRatio, meter.InitialValidatorBenefitRatio)
+	builder.Call(tx.NewClause(&builtin.Params.Address).WithData(data), builtin.Executor.Address)
+
+	data = mustEncodeInput(builtin.Params.ABI, "set", meter.KeyValidatorBaseReward, meter.InitialValidatorBaseReward)
+	builder.Call(tx.NewClause(&builtin.Params.Address).WithData(data), builtin.Executor.Address)
+
+	data = mustEncodeInput(builtin.Params.ABI, "set", meter.KeyAuctionReservedPrice, meter.InitialAuctionReservedPrice)
+	builder.Call(tx.NewClause(&builtin.Params.Address).WithData(data), builtin.Executor.Address)
+
+	data = mustEncodeInput(builtin.Params.ABI, "set", meter.KeyMinRequiredByDelegate, meter.InitialMinRequiredByDelegate)
+	builder.Call(tx.NewClause(&builtin.Params.Address).WithData(data), builtin.Executor.Address)
+
+	data = mustEncodeInput(builtin.Params.ABI, "set", meter.KeyAuctionInitRelease, meter.InitialAuctionInitRelease)
+	builder.Call(tx.NewClause(&builtin.Params.Address).WithData(data), builtin.Executor.Address)
+
+	data = mustEncodeInput(builtin.Params.ABI, "set", meter.KeyBorrowInterestRate, meter.InitialBorrowInterestRate)
+	builder.Call(tx.NewClause(&builtin.Params.Address).WithData(data), builtin.Executor.Address)
+
+	data = mustEncodeInput(builtin.Params.ABI, "set", meter.KeyConsensusCommitteeSize, meter.InitialConsensusCommitteeSize)
+	builder.Call(tx.NewClause(&builtin.Params.Address).WithData(data), builtin.Executor.Address)
+
+	data = mustEncodeInput(builtin.Params.ABI, "set", meter.KeyConsensusDelegateSize, meter.InitialConsensusDelegateSize)
+	builder.Call(tx.NewClause(&builtin.Params.Address).WithData(data), builtin.Executor.Address)
+
+	// add initial approvers (steering committee)
+	for _, approver := range loadApprovers() {
+		data := mustEncodeInput(builtin.Executor.ABI, "addApprover", approver.address, meter.BytesToBytes32([]byte(approver.identity)))
+		builder.Call(tx.NewClause(&builtin.Executor.Address).WithData(data), builtin.Executor.Address)
+	}
+
 	var extra [28]byte
 	copy(extra[:], "Salute & Respect, Ethereum!")
 	builder.ExtraData(extra)

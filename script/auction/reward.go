@@ -4,6 +4,9 @@ import (
     "fmt"
     "math"
     "math/big"
+
+    "github.com/dfinlab/meter/builtin"
+    "github.com/dfinlab/meter/meter"
 )
 
 const (
@@ -36,6 +39,7 @@ plot(Annual);
 func getHistoryPrices() *[N]float64 {
     var i int
     history := [N]float64{}
+    reservedPrice := GetAuctionReservedPrice()
 
     list, err := GetAuctionSummaryList()
     if err != nil {
@@ -51,7 +55,7 @@ func getHistoryPrices() *[N]float64 {
         } else {
             // not enough history, fill partially
             if i < N-size {
-                price = AuctionReservedPrice
+                price = reservedPrice
             } else {
                 price = list.Summaries[i-(N-size)].RsvdPrice
             }
@@ -79,11 +83,13 @@ func calcWeightedAvgPrice(history *[N]float64) float64 {
 func CalcRewardEpochRange(startEpoch, endEpoch uint64) (totalReward float64, epochRewards []float64, err error) {
     var epoch uint64
     var epochReward float64
-    var InitialRelease float64 = float64(1500)
+    var InitialRelease float64
     var ReservePrice float64
 
-    rp := big.NewInt(0).Div(AuctionReservedPrice, big.NewInt(1e6))
+    rp := new(big.Int).Div(GetAuctionReservedPrice(), big.NewInt(1e6))
     ReservePrice = float64(rp.Int64()) / 1e12
+
+    InitialRelease = GetAuctionInitialRelease() // initial is 1000 mtrg
 
     epochRewards = make([]float64, 0)
     Halving := fadeYears * 365 * 24
@@ -123,4 +129,41 @@ func FloatToBigInt(val float64) *big.Int {
     result, accuracy := bigval.Int(result)
     log.Debug("big int", "value", result, "accuracy", accuracy)
     return result
+}
+
+func GetAuctionReservedPrice() *big.Int {
+    auction := GetAuctionGlobInst()
+    if auction == nil {
+        panic("get global auction failed")
+    }
+
+    best := auction.chain.BestBlock()
+    state, err := auction.stateCreator.NewState(best.Header().StateRoot())
+    if err != nil {
+        panic("get state failed")
+    }
+
+    return builtin.Params.Native(state).Get(meter.KeyAuctionReservedPrice)
+}
+
+func GetAuctionInitialRelease() float64 {
+    auction := GetAuctionGlobInst()
+    if auction == nil {
+        panic("get global auction failed")
+    }
+
+    best := auction.chain.BestBlock()
+    state, err := auction.stateCreator.NewState(best.Header().StateRoot())
+    if err != nil {
+        panic("get state failed")
+    }
+
+    r := builtin.Params.Native(state).Get(meter.KeyAuctionInitRelease)
+    r = r.Div(r, big.NewInt(1e09))
+    fr := new(big.Float).SetInt(r)
+    initRelease, accuracy := fr.Float64()
+    initRelease = initRelease / (1e09)
+
+    log.Debug("get inital release", "value", initRelease, "accuracy", accuracy)
+    return initRelease
 }

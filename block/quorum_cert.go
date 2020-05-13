@@ -90,8 +90,16 @@ func (qc *QuorumCert) DecodeRLP(s *rlp.Stream) error {
 
 func (qc *QuorumCert) VoterBitArray() *cmn.BitArray {
 	bitArray := &cmn.BitArray{}
-	err := bitArray.UnmarshalJSON([]byte(qc.VoterBitArrayStr))
+	if len(qc.VoterBitArrayStr) == 0 {
+		return nil
+	}
+	// VoterBitArrayStr format: "BA{Bits:xxxx_x}", only need "xxxx_x"
+	str := qc.VoterBitArrayStr[3 : len(qc.VoterBitArrayStr)-1]
+	strs := strings.Split(str, ":")
+
+	err := bitArray.UnmarshalJSON([]byte("\"" + strs[1] + "\""))
 	if err != nil {
+		fmt.Println("unmarshal error", err.Error())
 		return nil
 	}
 	return bitArray

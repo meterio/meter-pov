@@ -2,11 +2,9 @@ package staking
 
 import (
 	"bytes"
+	"fmt"
 	"math/big"
 	"sort"
-
-	//"encoding/hex"
-	"fmt"
 	"time"
 
 	"github.com/dfinlab/meter/meter"
@@ -168,5 +166,43 @@ func convertDelegate(d staking.Delegate) *Delegate {
 		VotingPower: d.VotingPower.String(),
 		Commission:  d.Commission,
 		DistList:    dists,
+	}
+}
+
+type RewardInfo struct {
+	Address meter.Address `json:"address"`
+	Amount  uint64        `json:"amount"`
+}
+
+type ValidatorReward struct {
+	Epoch            uint32        `json:"epoch"`
+	BaseReward       uint64        `json:"baseReward"`
+	ExpectDistribute uint64        `json:"expecteDistribute"`
+	ActualDistribute uint64        `json:"actualDistribute`
+	Info             []*RewardInfo `json:"info"`
+}
+
+func convertValidatorRewardList(list *staking.ValidatorRewardList) []*ValidatorReward {
+	rewardList := make([]*ValidatorReward, 0)
+	for _, r := range list.GetList() {
+		rewardList = append(rewardList, convertValidatorReward(*r))
+	}
+	return rewardList
+}
+
+func convertValidatorReward(r staking.ValidatorReward) *ValidatorReward {
+	info := []*RewardInfo{}
+	for _, in := range r.Info {
+		info = append(info, &RewardInfo{
+			Address: in.Address,
+			Amount:  in.Amount.Uint64(),
+		})
+	}
+
+	return &ValidatorReward{
+		Epoch:            r.Epoch,
+		ExpectDistribute: r.ExpectDistribute.Uint64(),
+		ActualDistribute: r.ActualDistribute.Uint64(),
+		Info:             info,
 	}
 }

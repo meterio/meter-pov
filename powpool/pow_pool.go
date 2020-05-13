@@ -333,7 +333,7 @@ func (p *PowPool) ReplayFrom(startHeight int32) error {
 	return nil
 }
 
-func GetPosCurEpochAndCoef() (epoch uint64, coef int64) {
+func GetPosCurEpochAndCoef() (epoch uint64, coef int64, fadeDays float64, fadeRate float64) {
 	pool := GetGlobPowPoolInst()
 	if pool == nil {
 		panic("get globalPowPool failed")
@@ -347,5 +347,21 @@ func GetPosCurEpochAndCoef() (epoch uint64, coef int64) {
 	}
 	bigCoef := builtin.Params.Native(state).Get(meter.KeyPowPoolCoef)
 	coef = bigCoef.Int64()
+
+	// builtin parameter has uint of wei, aks, 1e18, so divide by 1e9 twice
+	d := builtin.Params.Native(state).Get(meter.KeyPowPoolCoefFadeDays)
+	d = d.Div(d, big.NewInt(1e09))
+	fd := new(big.Float).SetInt(d)
+	fadeDays, _ = fd.Float64()
+	fadeDays = fadeDays / (1e09)
+
+	// builtin fade rate
+	r := builtin.Params.Native(state).Get(meter.KeyPowPoolCoefFadeRate)
+	r = r.Div(r, big.NewInt(1e09))
+	fr := new(big.Float).SetInt(r)
+	fadeRate, _ = fr.Float64()
+	fadeRate = fadeRate / (1e09)
+
+	log.Debug("GetPosCurEpochAndCoef", "coef", coef, "epoch", epoch, "fadeDays", fadeDays, "fadeRate", fadeRate)
 	return
 }
