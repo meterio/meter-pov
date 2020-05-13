@@ -135,6 +135,24 @@ func (e *MeterTracker) GetMeter(addr meter.Address) *big.Int {
 	return e.state.GetEnergy(addr)
 }
 
+// Add add amount of energy to given address.
+func (e *MeterTracker) AddMeter(addr meter.Address, amount *big.Int) {
+	if amount.Sign() == 0 {
+		return
+	}
+	e.state.AddEnergy(addr, amount)
+	return
+}
+
+// Sub sub amount of energy from given address.
+// False is returned if no enough energy.
+func (e *MeterTracker) SubMeter(addr meter.Address, amount *big.Int) bool {
+	if amount.Sign() == 0 {
+		return true
+	}
+	return e.state.SubEnergy(addr, amount)
+}
+
 func (e *MeterTracker) MintMeter(addr meter.Address, amount *big.Int) {
 	if amount.Sign() == 0 {
 		return
@@ -173,6 +191,25 @@ func (e *MeterTracker) GetMeterGov(addr meter.Address) *big.Int {
 	return e.state.GetBalance(addr)
 }
 
+func (e *MeterTracker) AddMeterGov(addr meter.Address, amount *big.Int) {
+	if amount.Sign() == 0 {
+		return
+	}
+
+	e.state.AddBalance(addr, amount)
+	return
+}
+
+// Sub sub amount of energy from given address.
+// False is returned if no enough energy.
+func (e *MeterTracker) SubMeterGov(addr meter.Address, amount *big.Int) bool {
+	if amount.Sign() == 0 {
+		return true
+	}
+
+	return e.state.SubBalance(addr, amount)
+}
+
 func (e *MeterTracker) MintMeterGov(addr meter.Address, amount *big.Int) {
 	if amount.Sign() == 0 {
 		return
@@ -204,43 +241,3 @@ func (e *MeterTracker) BurnMeterGov(addr meter.Address, amount *big.Int) {
 	//update state
 	e.state.SetBalance(addr, new(big.Int).Sub(gov, amount))
 }
-
-////////////////////////////////////////////////////////
-/******
-// Get returns energy of an account
-func (e *MeterTracker) Get(addr meter.Address) *big.Int {
-	return e.state.GetEnergy(addr)
-}
-
-// Add add amount of energy to given address.
-func (e *MeterTracker) Add(addr meter.Address, amount *big.Int) {
-	if amount.Sign() == 0 {
-		return
-	}
-	eng := e.state.GetEnergy(addr)
-
-	total := e.GetTotalAddSub()
-	total.TotalAdd = new(big.Int).Add(total.TotalAdd, amount)
-	e.SetTotalAddSub(total)
-
-	e.state.SetEnergy(addr, new(big.Int).Add(eng, amount))
-}
-
-// Sub sub amount of energy from given address.
-// False is returned if no enough energy.
-func (e *MeterTracker) Sub(addr meter.Address, amount *big.Int) bool {
-	if amount.Sign() == 0 {
-		return true
-	}
-	eng := e.state.GetEnergy(addr)
-	if eng.Cmp(amount) < 0 {
-		return false
-	}
-	total := e.GetTotalAddSub()
-	total.TotalSub = new(big.Int).Add(total.TotalSub, amount)
-	e.SetTotalAddSub(total)
-
-	e.state.SetEnergy(addr, new(big.Int).Sub(eng, amount))
-	return true
-}
-***/

@@ -18,17 +18,17 @@ func init() {
 		name string
 		run  func(env *xenv.Environment) []interface{}
 	}{
-		{"native_totalSupply", func(env *xenv.Environment) []interface{} {
+		{"native_mtr_totalSupply", func(env *xenv.Environment) []interface{} {
 			env.UseGas(meter.SloadGas)
 			supply := MeterTracker.Native(env.State()).GetMeterTotalSupply()
 			return []interface{}{supply}
 		}},
-		{"native_totalBurned", func(env *xenv.Environment) []interface{} {
+		{"native_mtr_totalBurned", func(env *xenv.Environment) []interface{} {
 			env.UseGas(meter.SloadGas)
 			burned := MeterTracker.Native(env.State()).GetMeterTotalBurned()
 			return []interface{}{burned}
 		}},
-		{"native_get", func(env *xenv.Environment) []interface{} {
+		{"native_mtr_get", func(env *xenv.Environment) []interface{} {
 			var addr common.Address
 			env.ParseArgs(&addr)
 
@@ -36,7 +36,7 @@ func init() {
 			bal := MeterTracker.Native(env.State()).GetMeter(meter.Address(addr))
 			return []interface{}{bal}
 		}},
-		{"native_add", func(env *xenv.Environment) []interface{} {
+		{"native_mtr_add", func(env *xenv.Environment) []interface{} {
 			var args struct {
 				Addr   common.Address
 				Amount *big.Int
@@ -52,10 +52,10 @@ func init() {
 			} else {
 				env.UseGas(meter.SstoreSetGas)
 			}
-			MeterTracker.Native(env.State()).MintMeter(meter.Address(args.Addr), args.Amount)
+			MeterTracker.Native(env.State()).AddMeter(meter.Address(args.Addr), args.Amount)
 			return nil
 		}},
-		{"native_sub", func(env *xenv.Environment) []interface{} {
+		{"native_mtr_sub", func(env *xenv.Environment) []interface{} {
 			var args struct {
 				Addr   common.Address
 				Amount *big.Int
@@ -66,7 +66,61 @@ func init() {
 			}
 
 			env.UseGas(meter.GetBalanceGas)
-			ok := MeterTracker.Native(env.State()).BurnMeter(meter.Address(args.Addr), args.Amount)
+			ok := MeterTracker.Native(env.State()).SubMeter(meter.Address(args.Addr), args.Amount)
+			if ok {
+				env.UseGas(meter.SstoreResetGas)
+			}
+			return []interface{}{ok}
+		}},
+		{"native_mtrg_totalSupply", func(env *xenv.Environment) []interface{} {
+			env.UseGas(meter.SloadGas)
+			supply := MeterTracker.Native(env.State()).GetMeterGovTotalSupply()
+			return []interface{}{supply}
+		}},
+		{"native_mtrg_totalBurned", func(env *xenv.Environment) []interface{} {
+			env.UseGas(meter.SloadGas)
+			burned := MeterTracker.Native(env.State()).GetMeterGovTotalBurned()
+			return []interface{}{burned}
+		}},
+		{"native_mtrg_get", func(env *xenv.Environment) []interface{} {
+			var addr common.Address
+			env.ParseArgs(&addr)
+
+			env.UseGas(meter.GetBalanceGas)
+			bal := MeterTracker.Native(env.State()).GetMeterGov(meter.Address(addr))
+			return []interface{}{bal}
+		}},
+		{"native_mtrg_add", func(env *xenv.Environment) []interface{} {
+			var args struct {
+				Addr   common.Address
+				Amount *big.Int
+			}
+			env.ParseArgs(&args)
+			if args.Amount.Sign() == 0 {
+				return nil
+			}
+
+			env.UseGas(meter.GetBalanceGas)
+			if env.State().Exists(meter.Address(args.Addr)) {
+				env.UseGas(meter.SstoreResetGas)
+			} else {
+				env.UseGas(meter.SstoreSetGas)
+			}
+			MeterTracker.Native(env.State()).AddMeterGov(meter.Address(args.Addr), args.Amount)
+			return nil
+		}},
+		{"native_mtrg_sub", func(env *xenv.Environment) []interface{} {
+			var args struct {
+				Addr   common.Address
+				Amount *big.Int
+			}
+			env.ParseArgs(&args)
+			if args.Amount.Sign() == 0 {
+				return []interface{}{true}
+			}
+
+			env.UseGas(meter.GetBalanceGas)
+			ok := MeterTracker.Native(env.State()).SubMeterGov(meter.Address(args.Addr), args.Amount)
 			if ok {
 				env.UseGas(meter.SstoreResetGas)
 			}
