@@ -1,7 +1,6 @@
 package vesting
 
 import (
-	"fmt"
 	"math/big"
 	"strconv"
 
@@ -19,29 +18,30 @@ func LoadVestPlan() []*VestPlan {
 		address := meter.MustParseAddress(p[0])
 		mtr, err := strconv.ParseInt(p[1], 10, 64)
 		if err != nil {
-			fmt.Printf("parse meter value failed, error=%v", err.Error())
+			log.Error("parse meter value failed", "error", err)
 			continue
 		}
 		mtrg, err := strconv.ParseInt(p[2], 10, 64)
 		if err != nil {
-			fmt.Printf("parse meterGov value failed, error=%v", err.Error())
+			log.Error("parse meterGov value failed", "error", err)
 			continue
 		}
 		height, err := strconv.ParseUint(p[4], 10, 64)
 		if err != nil {
-			fmt.Printf("parse release block height failed, error=%v", err.Error())
+			log.Error("parse release block height failed", "error", err)
 			continue
 		}
 		desc := p[3]
 
 		pp := &VestPlan{
 			Address:     address,
-			Mtr:         big.NewInt(mtr),
-			MtrGov:      big.NewInt(mtrg),
+			Mtr:         new(big.Int).Mul(big.NewInt(mtr), big.NewInt(1e18)),
+			MtrGov:      new(big.Int).Mul(big.NewInt(mtrg), big.NewInt(1e18)),
 			Description: desc,
 			Release:     height,
 		}
 		plans = append(plans, pp)
+		log.Debug("vestPlan", "vestPlan", pp.ToString())
 	}
 	return plans
 }
@@ -57,6 +57,7 @@ func VestPlanInit() error {
 	plans := LoadVestPlan()
 	for _, p := range plans {
 		VestPlanMap.Add(p)
+		log.Debug("vestPlan added", "plan", p.ToString())
 	}
 	return nil
 }
@@ -74,5 +75,7 @@ func RestrictTransfer(addr meter.Address, curHeight uint64) bool {
 	if curHeight >= v.Release {
 		return false
 	}
+
+	log.Debug("the Address is not allowed to transfer", "address", addr)
 	return true
 }

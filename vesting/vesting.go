@@ -6,6 +6,7 @@ package vesting
 import (
 	"errors"
 	"fmt"
+	"github.com/inconshreveable/log15"
 	"math/big"
 
 	"github.com/dfinlab/meter/meter"
@@ -13,6 +14,7 @@ import (
 
 var (
 	VestPlanMap *planMap
+	log         = log15.New("pkg", "vesting")
 )
 
 type VestPlan struct {
