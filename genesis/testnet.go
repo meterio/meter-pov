@@ -126,7 +126,3 @@ func NewTestnet() *Genesis {
 	}
 	return &Genesis{builder, id, "testnet"}
 }
-
-type VestAddress struct {
-	amount *big.Int
-}
