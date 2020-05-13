@@ -60,7 +60,7 @@ type Peer struct {
 	}
 }
 
-func newPeer(peer *p2p.Peer, rw p2p.MsgReadWriter, magic [4]byte) *Peer {
+func newPeer(peer *p2p.Peer, rw p2p.MsgReadWriter, magic [4]byte) (*Peer, string) {
 	dir := "outbound"
 	if peer.Inbound() {
 		dir = "inbound"
@@ -92,7 +92,7 @@ func newPeer(peer *p2p.Peer, rw p2p.MsgReadWriter, magic [4]byte) *Peer {
 		knownTxs:       knownTxs,
 		knownBlocks:    knownBlocks,
 		knownPowBlocks: knownPowBlocks,
-	}
+	}, dir
 }
 
 // Head returns head block ID and total score.
@@ -172,24 +172,39 @@ func (ps Peers) Find(cond func(*Peer) bool) *Peer {
 	return nil
 }
 
+type DirectionCount struct {
+	Inbound  int
+	Outbound int
+}
+
 // PeerSet manages a set of peers, which mapped by NodeID.
 type PeerSet struct {
-	m    map[discover.NodeID]*Peer
-	lock sync.Mutex
+	m       map[discover.NodeID]*Peer
+	d       map[discover.NodeID]string
+	counter DirectionCount
+	lock    sync.Mutex
 }
 
 // NewSet create a peer set instance.
 func newPeerSet() *PeerSet {
 	return &PeerSet{
-		m: make(map[discover.NodeID]*Peer),
+		m:       make(map[discover.NodeID]*Peer),
+		d:       make(map[discover.NodeID]string),
+		counter: DirectionCount{0, 0},
 	}
 }
 
 // Add add a new peer.
-func (ps *PeerSet) Add(peer *Peer) {
+func (ps *PeerSet) Add(peer *Peer, dir string) {
 	ps.lock.Lock()
 	defer ps.lock.Unlock()
 	ps.m[peer.ID()] = peer
+	ps.d[peer.ID()] = dir
+	if dir == "inbound" {
+		ps.counter.Inbound++
+	} else {
+		ps.counter.Outbound++
+	}
 }
 
 // Find find peer for given nodeID.
@@ -203,6 +218,15 @@ func (ps *PeerSet) Find(nodeID discover.NodeID) *Peer {
 func (ps *PeerSet) Remove(nodeID discover.NodeID) *Peer {
 	ps.lock.Lock()
 	defer ps.lock.Unlock()
+	if dir, ok := ps.d[nodeID]; ok {
+		delete(ps.d, nodeID)
+		if dir == "inbound" {
+			ps.counter.Inbound--
+		} else {
+			ps.counter.Outbound--
+		}
+	}
+
 	if peer, ok := ps.m[nodeID]; ok {
 		delete(ps.m, nodeID)
 		return peer
@@ -233,4 +257,10 @@ func (ps *PeerSet) Len() int {
 	defer ps.lock.Unlock()
 
 	return len(ps.m)
+}
+
+func (ps *PeerSet) DirectionCount() DirectionCount {
+	ps.lock.Lock()
+	defer ps.lock.Unlock()
+	return ps.counter
 }
