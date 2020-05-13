@@ -21,8 +21,11 @@ import (
 	"strings"
 	"time"
 
+	api_node "github.com/dfinlab/meter/api/node"
+	api_utils "github.com/dfinlab/meter/api/utils"
 	"github.com/dfinlab/meter/chain"
 	"github.com/dfinlab/meter/cmd/meter/node"
+	"github.com/dfinlab/meter/cmd/meter/probe"
 	"github.com/dfinlab/meter/co"
 	"github.com/dfinlab/meter/comm"
 	"github.com/dfinlab/meter/consensus"
@@ -438,26 +441,42 @@ func (p *p2pComm) Stop() {
 	}
 }
 
-func versionHandler(w http.ResponseWriter, r *http.Request) {
-	w.WriteHeader(http.StatusOK)
-	w.Write([]byte(fullVersion()))
-}
-
 func pubkeyHandler(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte(fmt.Sprintf("version = %s", fullVersion())))
 }
 
-func startObserveServer(ctx *cli.Context, cons *consensus.ConsensusReactor) (string, func()) {
+type Dispatcher struct {
+	cons          *consensus.ConsensusReactor
+	complexPubkey string
+	nw            api_node.Network
+}
+
+func handleVersion(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte(fullVersion()))
+}
+
+func (d *Dispatcher) handlePeers(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusOK)
+	api_utils.WriteJSON(w, d.nw.PeersStats())
+}
+
+func startObserveServer(ctx *cli.Context, cons *consensus.ConsensusReactor, complexPubkey string, nw probe.Network, chain *chain.Chain) (string, func()) {
 	addr := ":8670"
 	listener, err := net.Listen("tcp", addr)
 	if err != nil {
 		fatal(fmt.Sprintf("listen observe addr [%v]: %v", addr, err))
 	}
+	probe := &probe.Probe{cons, complexPubkey, chain, fullVersion(), nw}
 	mux := http.NewServeMux()
 	mux.Handle("/metrics", promhttp.Handler())
-	mux.HandleFunc("/version", versionHandler)
-	mux.HandleFunc("/pubkey", pubkeyHandler)
+	mux.HandleFunc("/probe", probe.HandleProbe)
+	mux.HandleFunc("/probe/version", probe.HandleVersion)
+	mux.HandleFunc("/probe/pubkey", probe.HandlePubkey)
+	mux.HandleFunc("/probe/peers", probe.HandlePeers)
+
+	// dispatch the msg to reactor/pacemaker
 	mux.HandleFunc("/committee", cons.ReceiveCommitteeMsg)
 	mux.HandleFunc("/pacemaker", cons.ReceivePacemakerMsg)
 
