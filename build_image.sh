@@ -1,16 +1,14 @@
 #!/bin/bash
 
-PROJECT_NAME=meter-pos
+IMAGE_NAME=dfinlab/meter-pos
 VERSION=$(cat cmd/meter/VERSION)
 
-DOCKER_TAG=dfinlab/${PROJECT_NAME}:$VERSION
-LATEST_TAG=dfinlab/${PROJECT_NAME}:latest
 
-echo "Building ${DOCKER_TAG}"
-docker build -t $DOCKER_TAG .
-docker tag $DOCKER_TAG $LATEST_TAG
-docker push $LATEST_TAG
-docker push $DOCKER_TAG
+echo "Building ${IMAGE_NAME}"
+docker build -t $IMAGE_NAME:$VERSION .
+docker tag $IMAGE_NAME:$VERSION $IMAGE_NAME:latest
+docker push $IMAGE_NAME:$VERSION
+docker push $IMAGE_NAME:latest
 
 # GIT_TAG=v$VERSION
 # TEMP_CONTAINER_NAME=${PROJECT_NAME}-temp
