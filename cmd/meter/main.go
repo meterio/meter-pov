@@ -223,7 +223,10 @@ func defaultAction(ctx *cli.Context) error {
 
 	chain := initChain(gene, mainDB, logDB)
 	master, blsCommon := loadNodeMaster(ctx)
-	pubkey, _ := getNodeComplexPubKey(master, blsCommon)
+	pubkey, err := getNodeComplexPubKey(master, blsCommon)
+	if err != nil {
+		panic("could not load pubkey")
+	}
 
 	// load preset config
 	if "warringstakes" == ctx.String(networkFlag.Name) {
@@ -274,7 +277,7 @@ func defaultAction(ctx *cli.Context) error {
 	sc := script.NewScriptEngine(chain, stateCreator)
 	cons := consensus.NewConsensusReactor(ctx, chain, stateCreator, master.PrivateKey, master.PublicKey, magic, blsCommon, initDelegates)
 
-	observeURL, observeSrvCloser := startObserveServer(ctx, cons)
+	observeURL, observeSrvCloser := startObserveServer(ctx, cons, pubkey, p2pcom.comm, chain)
 	defer func() { log.Info("closing Observe Server ..."); observeSrvCloser() }()
 
 	//also create the POW components

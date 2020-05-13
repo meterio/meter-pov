@@ -1601,3 +1601,25 @@ func (conR *ConsensusReactor) GetDelegateNameByIP(ip net.IP) string {
 
 	return ""
 }
+
+// used for probe API
+func (conR *ConsensusReactor) IsPacemakerRunning() bool {
+	if conR.csPacemaker == nil {
+		return false
+	}
+	return !conR.csPacemaker.IsStopped()
+}
+
+func (conR *ConsensusReactor) IsCommitteeMember() bool {
+	return conR.inCommittee
+}
+
+func (conR *ConsensusReactor) GetQCHigh() *block.QuorumCert {
+	if conR.csPacemaker == nil {
+		return nil
+	}
+	if conR.csPacemaker.QCHigh == nil {
+		return nil
+	}
+	return conR.csPacemaker.QCHigh.QC
+}
