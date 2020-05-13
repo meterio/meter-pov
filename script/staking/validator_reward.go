@@ -24,7 +24,7 @@ type ValidatorReward struct {
 
 func (v *ValidatorReward) ToString() string {
 	return fmt.Sprintf("ValidatorReward(Epoch %v): Amount=%v BasedReward=%v ExpectDistribute=%v, ActualDistribute=%v, Info=%v",
-		v.Epoch, v.BaseReward.Uint64(), v.ExpectDistribute.Uint64(), v.ActualDistribute.Uint64(), len(v.Info))
+		v.Epoch, v.BaseReward.Uint64(), v.BaseReward.Uint64(), v.ExpectDistribute.Uint64(), v.ActualDistribute.Uint64(), len(v.Info))
 }
 
 type ValidatorRewardList struct {

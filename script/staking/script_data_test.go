@@ -45,7 +45,7 @@ func genScriptDataForStaking(body *staking.StakingBody) (string, error) {
 		return "", err
 	}
 	fmt.Println("")
-	fmt.Println(opName, "payload Hex:")
+	// fmt.Println(opName, "payload Hex:")
 	fmt.Println("0x" + hex.EncodeToString(payload))
 	s := &script.Script{
 		Header: script.ScriptHeader{
@@ -105,7 +105,7 @@ func TestCandidate(t *testing.T) {
 		CandIP:     CandidateIP,
 		CandPort:   CandidatePort,
 		StakingID:  EmptyByte32,
-		Amount:     *Amount,
+		Amount:     Amount,
 		Token:      staking.TOKEN_METER_GOV,
 		Timestamp:  Timestamp,
 		Nonce:      Nonce,
@@ -133,7 +133,7 @@ func TestDelegate(t *testing.T) {
 		HolderAddr: HolderAddress,
 		CandAddr:   CandidateAddress,
 		StakingID:  StakingID,
-		Amount:     *Amount,
+		Amount:     Amount,
 		Token:      staking.TOKEN_METER_GOV,
 		Timestamp:  Timestamp,
 		Nonce:      Nonce,
@@ -148,7 +148,7 @@ func TestUndelegate(t *testing.T) {
 		HolderAddr: HolderAddress,
 		CandAddr:   EmptyAddress,
 		StakingID:  StakingID,
-		Amount:     *Amount,
+		Amount:     Amount,
 		Token:      staking.TOKEN_METER_GOV,
 		Timestamp:  Timestamp,
 		Nonce:      Nonce,
@@ -164,7 +164,7 @@ func TestBound(t *testing.T) {
 		HolderAddr: HolderAddress,
 		CandAddr:   CandidateAddress,
 		StakingID:  EmptyByte32,
-		Amount:     *Amount,
+		Amount:     Amount,
 		Token:      staking.TOKEN_METER_GOV,
 		Timestamp:  Timestamp,
 		Nonce:      Nonce,
@@ -179,7 +179,7 @@ func TestUnbound(t *testing.T) {
 		HolderAddr: HolderAddress,
 		CandAddr:   EmptyAddress,
 		StakingID:  StakingID,
-		Amount:     *Amount,
+		Amount:     Amount,
 		Token:      staking.TOKEN_METER_GOV,
 		Timestamp:  Timestamp,
 		Nonce:      Nonce,
@@ -200,4 +200,39 @@ func TestBid(t *testing.T) {
 		Nonce:     Nonce,
 	}
 	genScriptDataForAuction(body)
+}
+
+func TestCandidateUpdate(t *testing.T) {
+	body := &staking.StakingBody{
+		Opcode:     staking.OP_CANDIDATE_UPDT,
+		Option:     staking.ONE_WEEK_LOCK,
+		Version:    StakingVersion,
+		HolderAddr: CandidateAddress,
+		CandAddr:   CandidateAddress,
+		CandName:   CandidateName,
+		CandPubKey: CandidatePubkey,
+		CandIP:     CandidateIP,
+		CandPort:   CandidatePort,
+		StakingID:  EmptyByte32,
+		Amount:     big.NewInt(0),
+		Token:      staking.TOKEN_METER_GOV,
+		Timestamp:  Timestamp,
+		Nonce:      Nonce,
+	}
+	genScriptDataForStaking(body)
+}
+
+func TestBailOut(t *testing.T) {
+	body := &staking.StakingBody{
+		Opcode:     staking.OP_DELEGATE_EXITJAIL,
+		Version:    StakingVersion,
+		HolderAddr: HolderAddress,
+		CandAddr:   HolderAddress,
+		StakingID:  EmptyByte32,
+		Amount:     big.NewInt(0),
+		Token:      staking.TOKEN_METER_GOV,
+		Timestamp:  Timestamp,
+		Nonce:      Nonce,
+	}
+	genScriptDataForStaking(body)
 }
