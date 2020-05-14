@@ -13,11 +13,19 @@ import (
 )
 
 const (
-	JailCriteria       = 300 //set criteria 1M instead of 50 for testnet
-	DoubleSignPts      = 30
-	MissingLeaderPts   = 20
-	MissingProposerPts = 10
-	MissingVoterPts    = 1
+	JailCriteria = 2000 //100 times of missing proposer
+
+	WipeOutEpochCount  = 360 // does not count if longer than 15 days (360 epoch)
+	DoubleSignPts      = 60
+	MissingLeaderPts   = 40
+	MissingProposerPts = 20
+	MissingVoterPts    = 2
+
+	PhaseOutEpochCount    = 180 // half points after 6 days (180 epoch)
+	PhaseOutDoubleSignPts = 30
+	PhaseOutLeaderPts     = 20
+	PhaseOutProposerPts   = 10
+	PhaseOutVoterPts      = 1
 )
 
 // MissingLeader
@@ -91,9 +99,87 @@ func NewDelegateStatistics(addr meter.Address, name []byte, pubKey []byte) *Dele
 	}
 }
 
-func (ds *DelegateStatistics) Update(incr *Infraction) bool {
-	infr := &ds.Infractions
+func (ds *DelegateStatistics) PhaseOut(curEpoch uint32) {
+	if curEpoch <= PhaseOutEpochCount {
+		return
+	}
+	phaseOneEpoch := curEpoch - PhaseOutEpochCount
+	var phaseTwoEpoch uint32
+	if curEpoch >= WipeOutEpochCount {
+		phaseTwoEpoch = curEpoch - WipeOutEpochCount
+	} else {
+		phaseTwoEpoch = 0
+	}
 
+	//missing leader
+	leaderInfo := []*MissingLeaderInfo{}
+	leaderPts := uint64(0)
+	for _, info := range ds.Infractions.MissingLeaders.Info {
+		if info.Epoch >= phaseOneEpoch {
+			leaderInfo = append(leaderInfo, info)
+			leaderPts = leaderPts + MissingLeaderPts
+		} else if info.Epoch >= phaseTwoEpoch {
+			leaderInfo = append(leaderInfo, info)
+			leaderPts = leaderPts + PhaseOutLeaderPts
+		}
+	}
+	ds.Infractions.MissingLeaders.Counter = uint32(len(leaderInfo))
+	ds.Infractions.MissingLeaders.Info = leaderInfo
+
+	// missing proposer
+	proposerInfo := []*MissingProposerInfo{}
+	proposerPts := uint64(0)
+	for _, info := range ds.Infractions.MissingProposers.Info {
+		if info.Epoch >= phaseOneEpoch {
+			proposerInfo = append(proposerInfo, info)
+			proposerPts = proposerPts + MissingProposerPts
+		} else if info.Epoch >= phaseTwoEpoch {
+			proposerInfo = append(proposerInfo, info)
+			proposerPts = proposerPts + PhaseOutProposerPts
+		}
+	}
+	ds.Infractions.MissingProposers.Counter = uint32(len(proposerInfo))
+	ds.Infractions.MissingProposers.Info = proposerInfo
+
+	// missing voter
+	voterInfo := []*MissingVoterInfo{}
+	voterPts := uint64(0)
+	for _, info := range ds.Infractions.MissingVoters.Info {
+		if info.Epoch >= phaseOneEpoch {
+			voterInfo = append(voterInfo, info)
+			voterPts = voterPts + MissingVoterPts
+		} else if info.Epoch >= phaseTwoEpoch {
+			voterInfo = append(voterInfo, info)
+			voterPts = voterPts + PhaseOutVoterPts
+		}
+	}
+	ds.Infractions.MissingVoters.Counter = uint32(len(voterInfo))
+	ds.Infractions.MissingVoters.Info = voterInfo
+
+	// double signer
+	dsignInfo := []*DoubleSignerInfo{}
+	dsignPts := uint64(0)
+	for _, info := range ds.Infractions.DoubleSigners.Info {
+		if info.Epoch >= phaseOneEpoch {
+			dsignInfo = append(dsignInfo, info)
+			dsignPts = dsignPts + DoubleSignPts
+		} else if info.Epoch >= phaseTwoEpoch {
+			dsignInfo = append(dsignInfo, info)
+			dsignPts = dsignPts + PhaseOutDoubleSignPts
+		}
+	}
+	ds.Infractions.DoubleSigners.Counter = uint32(len(dsignInfo))
+	ds.Infractions.DoubleSigners.Info = dsignInfo
+
+	ds.TotalPts = leaderPts + proposerPts + voterPts + dsignPts
+	return
+}
+
+func (ds *DelegateStatistics) Update(incr *Infraction, epoch uint32) bool {
+	// phase out older stats based on current epoch
+	ds.PhaseOut(epoch)
+
+	infr := &ds.Infractions
 	infr.MissingLeaders.Info = append(infr.MissingLeaders.Info, incr.MissingLeaders.Info...)
 	infr.MissingLeaders.Counter = infr.MissingLeaders.Counter + incr.MissingLeaders.Counter
 
@@ -106,8 +192,8 @@ func (ds *DelegateStatistics) Update(incr *Infraction) bool {
 	infr.DoubleSigners.Info = append(infr.DoubleSigners.Info, incr.DoubleSigners.Info...)
 	infr.DoubleSigners.Counter = infr.DoubleSigners.Counter + incr.DoubleSigners.Counter
 
-	ds.TotalPts = uint64((infr.MissingLeaders.Counter * MissingLeaderPts) +
-		(infr.MissingProposers.Counter * MissingProposerPts) + (infr.MissingVoters.Counter * MissingVoterPts) + (infr.DoubleSigners.Counter * DoubleSignPts))
+	ds.TotalPts = ds.TotalPts + uint64((incr.MissingLeaders.Counter*MissingLeaderPts)+
+		(incr.MissingProposers.Counter*MissingProposerPts)+(incr.MissingVoters.Counter*MissingVoterPts)+(incr.DoubleSigners.Counter*DoubleSignPts))
 	if ds.TotalPts >= JailCriteria {
 		return true
 	}

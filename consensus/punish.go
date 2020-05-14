@@ -294,7 +294,7 @@ func (conR *ConsensusReactor) buildStatisticsData(entry *StatEntry) (ret []byte)
 	}
 	body := &staking.StakingBody{
 		Opcode:     staking.OP_DELEGATE_STATISTICS,
-		Option:     0,
+		Option:     uint32(conR.curEpoch),
 		Timestamp:  uint64(time.Now().Unix()),
 		Nonce:      rand.Uint64(),
 		CandAddr:   entry.Address,
