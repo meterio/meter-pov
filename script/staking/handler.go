@@ -826,28 +826,29 @@ func (sb *StakingBody) DelegateStatisticsHandler(senv *StakingEnviroment, gas ui
 		return
 	}
 
+	epoch := sb.Option
 	IncrInfraction, err := UnpackBytesToInfraction(sb.ExtraData)
 	if err != nil {
 		log.Info("decode infraction failed ...", "error", err.Error)
 		return
 	}
-	log.Info("Receives statistics", "incremental infraction", IncrInfraction)
+	log.Info("Receives statistics", "epoch", epoch, "incremental infraction", IncrInfraction)
 
 	var jail bool
 	stats := statisticsList.Get(sb.CandAddr)
 	if stats == nil {
 		stats = NewDelegateStatistics(sb.CandAddr, sb.CandName, sb.CandPubKey)
-		jail = stats.Update(IncrInfraction)
+		jail = stats.Update(IncrInfraction, epoch)
 		statisticsList.Add(stats)
 	} else {
-		jail = stats.Update(IncrInfraction)
+		jail = stats.Update(IncrInfraction, epoch)
 	}
 
 	// 1. remove from statistic list
 	// 2. add to jail list
 	// 3. fine
 	if jail == true {
-		log.Warn("delegate jailed ...", "address", stats.Addr, "name", string(stats.Name), "totalPts", stats.TotalPts)
+		log.Warn("delegate jailed ...", "address", stats.Addr, "name", string(stats.Name), "epoch", epoch, "totalPts", stats.TotalPts)
 		statisticsList.Remove(stats.Addr)
 		// TBD: how to fine
 		bail := BAIL_FOR_EXIT_JAIL
