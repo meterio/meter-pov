@@ -107,6 +107,7 @@ func (conR *ConsensusReactor) NewCommitteeInit(height uint32, nonce uint64, repl
 	nc.InCommittee = inCommittee
 
 	//assign
+	conR.NewCommitteeTimerStop() // stop the previous timer before replace with current one
 	conR.newCommittee = nc
 }
 
@@ -132,6 +133,9 @@ func (conR *ConsensusReactor) NewCommitteeTimerStart() {
 }
 
 func (conR *ConsensusReactor) NewCommitteeTimerStop() {
+	if conR.newCommittee == nil {
+		return
+	}
 	if conR.newCommittee.TimeoutTimer != nil {
 		conR.newCommittee.TimeoutTimer.Stop()
 		conR.newCommittee.TimeoutTimer = nil
@@ -248,6 +252,36 @@ func (conR *ConsensusReactor) ProcessNewCommitteeMessage(newCommitteeMsg *NewCom
 	nonce := newCommitteeMsg.Nonce
 
 	nc, ok := conR.rcvdNewCommittee[key]
+	var newCommittee *types.ValidatorSet
+	var inCommittee bool
+	if ok == false {
+		newCommittee, _, _, inCommittee = conR.CalcCommitteeByNonce(nonce)
+		if !inCommittee {
+			conR.logger.Info("I'm not in this committee, drop this newcommittee msg")
+			return false
+		}
+	} else {
+		newCommittee = nc.Committee
+	}
+	// check ECDSA pubkey
+	var index int
+	var validator *types.Validator
+	for i := range newCommittee.Validators {
+		v := newCommittee.Validators[i]
+		pubkey := crypto.FromECDSAPub(&v.PubKey)
+		if bytes.Equal(pubkey, newCommitteeMsg.ValidatorID) == true {
+			validator = v
+			index = i
+			break
+		}
+	}
+	pubkeyB64 := base64.StdEncoding.EncodeToString(crypto.FromECDSAPub(validatorID))
+	if validator == nil {
+		conR.logger.Error("invalid newcommittee msg, this validator is not in committee", "validatorPubKey", pubkeyB64, "nonce", nonce)
+		return false
+	}
+
+	nc, ok = conR.rcvdNewCommittee[key]
 	if ok == false {
 		nc = newNewCommittee(height, round, nonce)
 		committee, role, index, inCommittee := conR.CalcCommitteeByNonce(nonce)
@@ -264,23 +298,6 @@ func (conR *ConsensusReactor) ProcessNewCommitteeMessage(newCommitteeMsg *NewCom
 			conR.logger.Error("nonce mismtach between message and reactor", "recevied", nonce, "have", nc.Nonce)
 			return false
 		}
-	}
-
-	// check BLS key
-	var index int
-	var validator *types.Validator
-	for i := range nc.Committee.Validators {
-		v := nc.Committee.Validators[i]
-		pubkey := crypto.FromECDSAPub(&v.PubKey)
-		if bytes.Equal(pubkey, newCommitteeMsg.ValidatorID) == true {
-			validator = v
-			index = i
-			break
-		}
-	}
-	if validator == nil {
-		conR.logger.Error("not find the validator in committee", "validator", validatorID, "nonce", nonce)
-		return false
 	}
 
 	if bytes.Equal(conR.csCommon.GetSystem().PubKeyToBytes(validator.BlsPubKey), newCommitteeMsg.ValidatorBlsPK) == false {
