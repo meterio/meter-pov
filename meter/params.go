@@ -38,17 +38,57 @@ const (
 	MaxBackTrackingBlockNumber = 65535
 )
 
+// powpool coef
+const (
+	//This ceof is based s9 ant miner, 1.323Kw 13.5T hashrate coef 11691855416.9 unit 1e18
+	//python -c "print 2**32 * 1.323 /120/13.5/1000/1000/1000/1000/10/30 * 1e18"
+	POW_DEFAULT_REWARD_COEF_S9 = int64(11691855417)
+	//efficiency w/hash  python -c "print 1.323/13.5" = 0.098
+	POW_S9_EFFECIENCY = 0.098
+	//M10 spec 1500W, 25TH
+	//python -c "print 2**32 * 1.5 /120/25/1000/1000/1000/1000/10/30 * 1e18"
+	POW_DEFAULT_REWARD_COEF_M10 = int64(7158278826)
+	POW_M10_EFFECIENCY          = 0.060
+)
+
 // Keys of governance params.
 var (
-	KeyExecutorAddress     = BytesToBytes32([]byte("executor"))
-	KeyRewardRatio         = BytesToBytes32([]byte("reward-ratio"))
-	KeyBaseGasPrice        = BytesToBytes32([]byte("base-gas-price"))
-	KeyProposerEndorsement = BytesToBytes32([]byte("proposer-endorsement"))
-	KeyPowPoolCoef         = BytesToBytes32([]byte("powpool-coef"))
+	// Keys
+	KeyExecutorAddress        = BytesToBytes32([]byte("executor"))
+	KeyRewardRatio            = BytesToBytes32([]byte("reward-ratio"))
+	KeyBaseGasPrice           = BytesToBytes32([]byte("base-gas-price"))
+	KeyProposerEndorsement    = BytesToBytes32([]byte("proposer-endorsement"))
+	KeyPowPoolCoef            = BytesToBytes32([]byte("powpool-coef"))
+	KeyPowPoolCoefFadeDays    = BytesToBytes32([]byte("powpool-coef-fade-days"))
+	KeyPowPoolCoefFadeRate    = BytesToBytes32([]byte("powpool-coef-fade-rate"))
+	KeyValidatorBenefitRatio  = BytesToBytes32([]byte("validator-benefit-ratio"))
+	KeyValidatorBaseReward    = BytesToBytes32([]byte("validator-base-reward"))
+	KeyAuctionReservedPrice   = BytesToBytes32([]byte("auction-reserved-price"))
+	KeyMinRequiredByDelegate  = BytesToBytes32([]byte("minimium-require-by-delegate"))
+	KeyAuctionInitRelease     = BytesToBytes32([]byte("auction-initial-release"))
+	KeyBorrowInterestRate     = BytesToBytes32([]byte("borrower-interest-rate"))
+	KeyConsensusCommitteeSize = BytesToBytes32([]byte("consensus-committee-size"))
+	KeyConsensusDelegateSize  = BytesToBytes32([]byte("consensus-delegate-size"))
 
+	// Initial values
 	InitialRewardRatio         = big.NewInt(3e17) // 30%
 	InitialBaseGasPrice        = big.NewInt(5e11) // each tx gas is about 0.01 meter
 	InitialProposerEndorsement = new(big.Int).Mul(big.NewInt(1e18), big.NewInt(25000000))
 
-	//EnergyGrowthRate = big.NewInt(5000000000) // WEI THOR per token(VET) per second. about 0.000432 THOR per token per day.
+	InitialPowPoolCoef           = big.NewInt(POW_DEFAULT_REWARD_COEF_M10)                            // coef start with M10
+	InitialPowPoolCoefFadeDays   = new(big.Int).Mul(big.NewInt(550), big.NewInt(1e18))                // fade day initial is 550 days
+	InitialPowPoolCoefFadeRate   = new(big.Int).Mul(big.NewInt(5), big.NewInt(1e17))                  // fade rate initial with 0.5
+	InitialValidatorBenefitRatio = big.NewInt(4e17)                                                   //40% percent of total auciton gain
+	InitialValidatorBaseReward   = new(big.Int).Mul(big.NewInt(25), big.NewInt(1e16))                 // base reward for each validator 0.25
+	InitialAuctionReservedPrice  = big.NewInt(5e17)                                                   // 1 MTRG settle with 0.5 MTR
+	InitialMinRequiredByDelegate = new(big.Int).Mul(big.NewInt(int64(300)), big.NewInt(int64(1e18)))  // minimium require for delegate is 300 mtrg
+	InitialAuctionInitRelease    = new(big.Int).Mul(big.NewInt(int64(1000)), big.NewInt(int64(1e18))) // auction reward initial release, is 1000
+
+	// TBA
+	InitialBorrowInterestRate     = big.NewInt(1e17)                                                  // bowrrower interest rate, initial set as 10%
+	InitialConsensusCommitteeSize = new(big.Int).Mul(big.NewInt(int64(50)), big.NewInt(int64(1e18)))  // consensus committee size, is set to 50
+	InitialConsensusDelegateSize  = new(big.Int).Mul(big.NewInt(int64(100)), big.NewInt(int64(1e18))) // consensus delegate size, is set to 100
+
+	// This account takes 40% of auction gain to distribute to validators in consensus
+	ValidatorBenefitAddr = BytesToAddress([]byte("validator-benefit-address"))
 )

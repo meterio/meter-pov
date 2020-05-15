@@ -3,37 +3,83 @@ package staking
 import (
 	"bytes"
 	b64 "encoding/base64"
-	"encoding/binary"
 	"errors"
 	"fmt"
 	"sort"
 	"strings"
 
 	"github.com/dfinlab/meter/meter"
+	"github.com/ethereum/go-ethereum/rlp"
 )
 
 const (
-	JailCriteria        = 1000000 //50   //set criteria 1M instead of 50 for testnet
-	DoubleSignPts       = 30
-	MissingLeaderPts    = 20
-	MissingCommitteePts = 10
-	MissingProposerPts  = 5
-	MissingVoterPts     = 1
+	JailCriteria = 2000 //100 times of missing proposer
+
+	WipeOutEpochCount  = 360 // does not count if longer than 15 days (360 epoch)
+	DoubleSignPts      = 60
+	MissingLeaderPts   = 40
+	MissingProposerPts = 20
+	MissingVoterPts    = 2
+
+	PhaseOutEpochCount    = 180 // half points after 6 days (180 epoch)
+	PhaseOutDoubleSignPts = 30
+	PhaseOutLeaderPts     = 20
+	PhaseOutProposerPts   = 10
+	PhaseOutVoterPts      = 1
 )
 
+// MissingLeader
+type MissingLeaderInfo struct {
+	Epoch uint32
+	Round uint32
+}
+type MissingLeader struct {
+	Counter uint32
+	Info    []*MissingLeaderInfo
+}
+
+// MissingProposer
+type MissingProposerInfo struct {
+	Epoch  uint32
+	Height uint32
+}
+type MissingProposer struct {
+	Counter uint32
+	Info    []*MissingProposerInfo
+}
+
+// MissingVoter
+type MissingVoterInfo struct {
+	Epoch  uint32
+	Height uint32
+}
+type MissingVoter struct {
+	Counter uint32
+	Info    []*MissingVoterInfo
+}
+
+// DoubleSigner
+type DoubleSignerInfo struct {
+	Epoch  uint32
+	Height uint32
+}
+type DoubleSigner struct {
+	Counter uint32
+	Info    []*DoubleSignerInfo
+}
+
 type Infraction struct {
-	MissingLeader    uint32
-	MissingCommittee uint32
-	MissingProposer  uint32
-	MissingVoter     uint32
-	DoubleSigner     uint32
+	MissingLeaders   MissingLeader
+	MissingProposers MissingProposer
+	MissingVoters    MissingVoter
+	DoubleSigners    DoubleSigner
 }
 
 func (inf *Infraction) String() string {
 	if inf == nil {
 		return "infraction(nil)"
 	}
-	return fmt.Sprintf("infraction(leader:%d, committee:%d, proposer:%d, voter:%d, doubleSign:%d)", inf.MissingLeader, inf.MissingCommittee, inf.MissingProposer, inf.MissingVoter, inf.DoubleSigner)
+	return fmt.Sprintf("infraction(leader:%v, proposer:%v, voter:%v, doubleSign:%v)", inf.MissingLeaders, inf.MissingProposers, inf.MissingVoters, inf.DoubleSigners)
 }
 
 // Candidate indicates the structure of a candidate
@@ -53,14 +99,101 @@ func NewDelegateStatistics(addr meter.Address, name []byte, pubKey []byte) *Dele
 	}
 }
 
-func (ds *DelegateStatistics) Update(incr *Infraction) bool {
-	ds.Infractions.MissingLeader = ds.Infractions.MissingLeader + incr.MissingLeader
-	ds.Infractions.MissingCommittee = ds.Infractions.MissingCommittee + incr.MissingCommittee
-	ds.Infractions.MissingProposer = ds.Infractions.MissingProposer + incr.MissingProposer
-	ds.Infractions.MissingVoter = ds.Infractions.MissingVoter + incr.MissingVoter
-	ds.Infractions.DoubleSigner = ds.Infractions.DoubleSigner + incr.DoubleSigner
-	ds.TotalPts = uint64((ds.Infractions.MissingLeader * MissingLeaderPts) + (ds.Infractions.MissingCommittee * MissingCommitteePts) +
-		(ds.Infractions.MissingProposer * MissingProposerPts) + (ds.Infractions.MissingVoter * MissingVoterPts) + (ds.Infractions.DoubleSigner * DoubleSignPts))
+func (ds *DelegateStatistics) PhaseOut(curEpoch uint32) {
+	if curEpoch <= PhaseOutEpochCount {
+		return
+	}
+	phaseOneEpoch := curEpoch - PhaseOutEpochCount
+	var phaseTwoEpoch uint32
+	if curEpoch >= WipeOutEpochCount {
+		phaseTwoEpoch = curEpoch - WipeOutEpochCount
+	} else {
+		phaseTwoEpoch = 0
+	}
+
+	//missing leader
+	leaderInfo := []*MissingLeaderInfo{}
+	leaderPts := uint64(0)
+	for _, info := range ds.Infractions.MissingLeaders.Info {
+		if info.Epoch >= phaseOneEpoch {
+			leaderInfo = append(leaderInfo, info)
+			leaderPts = leaderPts + MissingLeaderPts
+		} else if info.Epoch >= phaseTwoEpoch {
+			leaderInfo = append(leaderInfo, info)
+			leaderPts = leaderPts + PhaseOutLeaderPts
+		}
+	}
+	ds.Infractions.MissingLeaders.Counter = uint32(len(leaderInfo))
+	ds.Infractions.MissingLeaders.Info = leaderInfo
+
+	// missing proposer
+	proposerInfo := []*MissingProposerInfo{}
+	proposerPts := uint64(0)
+	for _, info := range ds.Infractions.MissingProposers.Info {
+		if info.Epoch >= phaseOneEpoch {
+			proposerInfo = append(proposerInfo, info)
+			proposerPts = proposerPts + MissingProposerPts
+		} else if info.Epoch >= phaseTwoEpoch {
+			proposerInfo = append(proposerInfo, info)
+			proposerPts = proposerPts + PhaseOutProposerPts
+		}
+	}
+	ds.Infractions.MissingProposers.Counter = uint32(len(proposerInfo))
+	ds.Infractions.MissingProposers.Info = proposerInfo
+
+	// missing voter
+	voterInfo := []*MissingVoterInfo{}
+	voterPts := uint64(0)
+	for _, info := range ds.Infractions.MissingVoters.Info {
+		if info.Epoch >= phaseOneEpoch {
+			voterInfo = append(voterInfo, info)
+			voterPts = voterPts + MissingVoterPts
+		} else if info.Epoch >= phaseTwoEpoch {
+			voterInfo = append(voterInfo, info)
+			voterPts = voterPts + PhaseOutVoterPts
+		}
+	}
+	ds.Infractions.MissingVoters.Counter = uint32(len(voterInfo))
+	ds.Infractions.MissingVoters.Info = voterInfo
+
+	// double signer
+	dsignInfo := []*DoubleSignerInfo{}
+	dsignPts := uint64(0)
+	for _, info := range ds.Infractions.DoubleSigners.Info {
+		if info.Epoch >= phaseOneEpoch {
+			dsignInfo = append(dsignInfo, info)
+			dsignPts = dsignPts + DoubleSignPts
+		} else if info.Epoch >= phaseTwoEpoch {
+			dsignInfo = append(dsignInfo, info)
+			dsignPts = dsignPts + PhaseOutDoubleSignPts
+		}
+	}
+	ds.Infractions.DoubleSigners.Counter = uint32(len(dsignInfo))
+	ds.Infractions.DoubleSigners.Info = dsignInfo
+
+	ds.TotalPts = leaderPts + proposerPts + voterPts + dsignPts
+	return
+}
+
+func (ds *DelegateStatistics) Update(incr *Infraction, epoch uint32) bool {
+	// phase out older stats based on current epoch
+	ds.PhaseOut(epoch)
+
+	infr := &ds.Infractions
+	infr.MissingLeaders.Info = append(infr.MissingLeaders.Info, incr.MissingLeaders.Info...)
+	infr.MissingLeaders.Counter = infr.MissingLeaders.Counter + incr.MissingLeaders.Counter
+
+	infr.MissingProposers.Info = append(infr.MissingProposers.Info, incr.MissingProposers.Info...)
+	infr.MissingProposers.Counter = infr.MissingProposers.Counter + incr.MissingProposers.Counter
+
+	infr.MissingVoters.Info = append(infr.MissingVoters.Info, incr.MissingVoters.Info...)
+	infr.MissingVoters.Counter = infr.MissingVoters.Counter + incr.MissingVoters.Counter
+
+	infr.DoubleSigners.Info = append(infr.DoubleSigners.Info, incr.DoubleSigners.Info...)
+	infr.DoubleSigners.Counter = infr.DoubleSigners.Counter + incr.DoubleSigners.Counter
+
+	ds.TotalPts = ds.TotalPts + uint64((incr.MissingLeaders.Counter*MissingLeaderPts)+
+		(incr.MissingProposers.Counter*MissingProposerPts)+(incr.MissingVoters.Counter*MissingVoterPts)+(incr.DoubleSigners.Counter*DoubleSignPts))
 	if ds.TotalPts >= JailCriteria {
 		return true
 	}
@@ -69,8 +202,8 @@ func (ds *DelegateStatistics) Update(incr *Infraction) bool {
 
 func (ds *DelegateStatistics) ToString() string {
 	pubKeyEncoded := b64.StdEncoding.EncodeToString(ds.PubKey)
-	return fmt.Sprintf("DelegateStatistics(%v) Addr=%v, PubKey=%v, TotoalPts=%v, Infractions (Missing Leader=%v, Committee=%v, Proposer=%v, Voter=%v)",
-		string(ds.Name), ds.Addr, pubKeyEncoded, ds.TotalPts, ds.Infractions.MissingLeader, ds.Infractions.MissingCommittee, ds.Infractions.MissingProposer, ds.Infractions.MissingVoter)
+	return fmt.Sprintf("DelegateStatistics(%v) Addr=%v, PubKey=%v, TotoalPts=%v, Infractions (Missing Leader=%v, Proposer=%v, Voter=%v, DoubleSigner=%v)",
+		string(ds.Name), ds.Addr, pubKeyEncoded, ds.TotalPts, ds.Infractions.MissingLeaders, ds.Infractions.MissingProposers, ds.Infractions.MissingVoters, ds.Infractions.DoubleSigners)
 }
 
 type StatisticsList struct {
@@ -193,22 +326,21 @@ func GetLatestStatisticsList() (*StatisticsList, error) {
 	return list, nil
 }
 
-func PackCountersToBytes(v *Infraction) *meter.Bytes32 {
-	b := &meter.Bytes32{}
-	binary.LittleEndian.PutUint32(b[0:4], v.MissingLeader)
-	binary.LittleEndian.PutUint32(b[4:8], v.MissingCommittee)
-	binary.LittleEndian.PutUint32(b[8:12], v.MissingProposer)
-	binary.LittleEndian.PutUint32(b[12:16], v.MissingVoter)
-	binary.LittleEndian.PutUint32(b[16:20], v.DoubleSigner)
-	return b
+func PackInfractionToBytes(v *Infraction) ([]byte, error) {
+
+	infBytes, err := rlp.EncodeToBytes(v)
+	if err != nil {
+		fmt.Println("encode infraction failed", err.Error())
+		return infBytes, err
+	}
+	return infBytes, nil
 }
 
-func UnpackBytesToCounters(b *meter.Bytes32) *Infraction {
+func UnpackBytesToInfraction(b []byte) (*Infraction, error) {
 	inf := &Infraction{}
-	inf.MissingLeader = binary.LittleEndian.Uint32(b[0:4])
-	inf.MissingCommittee = binary.LittleEndian.Uint32(b[4:8])
-	inf.MissingProposer = binary.LittleEndian.Uint32(b[8:12])
-	inf.MissingVoter = binary.LittleEndian.Uint32(b[12:16])
-	inf.DoubleSigner = binary.LittleEndian.Uint32(b[16:20])
-	return inf
+	if err := rlp.DecodeBytes(b, inf); err != nil {
+		fmt.Println("Deocde Infraction failed", "error =", err.Error())
+		return nil, err
+	}
+	return inf, nil
 }

@@ -37,9 +37,9 @@ func (peer *ConsensusPeer) sendPacemakerMsg(rawData []byte, msgSummary string, r
 		Timeout: time.Second * 4, // 2
 	}
 
-	prefix := "Send"
+	prefix := "Send>>"
 	if relay {
-		prefix = "Relay"
+		prefix = "Relay>>"
 	}
 	peer.logger.Info(prefix+" "+msgSummary, "size", len(rawData))
 
@@ -57,9 +57,9 @@ func (peer *ConsensusPeer) sendCommitteeMsg(rawData []byte, msgSummary string, r
 		Timeout: time.Second * 4,
 	}
 
-	prefix := "Send"
+	prefix := "Send>>"
 	if relay {
-		prefix = "Relay"
+		prefix = "Relay>>"
 	}
 	peer.logger.Info(prefix+" "+msgSummary, "size", len(rawData))
 	url := "http://" + peer.netAddr.IP.String() + ":8670/committee"

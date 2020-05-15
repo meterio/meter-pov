@@ -257,7 +257,7 @@ func defaultAction(ctx *cli.Context) error {
 	defaultPowPoolOptions.Pass = ctx.String("pow-pass")
 	fmt.Println(defaultPowPoolOptions)
 
-	powPool := powpool.New(defaultPowPoolOptions, chain)
+	powPool := powpool.New(defaultPowPoolOptions, chain, state.NewCreator(mainDB))
 	defer func() { log.Info("closing pow pool..."); powPool.Close() }()
 
 	p2pcom := newP2PComm(ctx, chain, txPool, instanceDir, powPool, magic)

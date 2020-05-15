@@ -10,6 +10,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/dfinlab/meter/builtin"
 	"github.com/dfinlab/meter/meter"
 	crypto "github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/rlp"
@@ -75,10 +76,11 @@ type StakingBody struct {
 	CandIP     []byte
 	CandPort   uint16
 	StakingID  meter.Bytes32 // only for unbond
-	Amount     big.Int
+	Amount     *big.Int
 	Token      byte   // meter or meter gov
 	Timestamp  uint64 // staking timestamp
 	Nonce      uint64 //staking nonce
+	ExtraData  []byte
 }
 
 func StakingEncodeBytes(sb *StakingBody) []byte {
@@ -97,8 +99,8 @@ func StakingDecodeFromBytes(bytes []byte) (*StakingBody, error) {
 }
 
 func (sb *StakingBody) ToString() string {
-	return fmt.Sprintf("StakingBody: Opcode=%v, Version=%v, Option=%v, HolderAddr=%v, CandAddr=%v, CandName=%v, CandPubKey=%v, CandIP=%v, CandPort=%v, StakingID=%v, Amount=%v, Token=%v, Nonce=%v, Timestamp=%v",
-		sb.Opcode, sb.Version, sb.Option, sb.HolderAddr, sb.CandAddr, sb.CandName, sb.CandPubKey, string(sb.CandIP), sb.CandPort, sb.StakingID, sb.Amount, sb.Token, sb.Nonce, sb.Timestamp)
+	return fmt.Sprintf("StakingBody: Opcode=%v, Version=%v, Option=%v, HolderAddr=%v, CandAddr=%v, CandName=%v, CandPubKey=%v, CandIP=%v, CandPort=%v, StakingID=%v, Amount=%v, Token=%v, Nonce=%v, Timestamp=%v, ExtraData=%v",
+		sb.Opcode, sb.Version, sb.Option, sb.HolderAddr, sb.CandAddr, sb.CandName, sb.CandPubKey, string(sb.CandIP), sb.CandPort, sb.StakingID, sb.Amount, sb.Token, sb.Nonce, sb.Timestamp, sb.ExtraData)
 }
 
 func (sb *StakingBody) BoundHandler(senv *StakingEnviroment, gas uint64) (ret []byte, leftOverGas uint64, err error) {
@@ -131,11 +133,11 @@ func (sb *StakingBody) BoundHandler(senv *StakingEnviroment, gas uint64) (ret []
 	// check the account have enough balance
 	switch sb.Token {
 	case TOKEN_METER:
-		if state.GetEnergy(sb.HolderAddr).Cmp(&sb.Amount) < 0 {
+		if state.GetEnergy(sb.HolderAddr).Cmp(sb.Amount) < 0 {
 			err = errors.New("not enough meter balance")
 		}
 	case TOKEN_METER_GOV:
-		if state.GetBalance(sb.HolderAddr).Cmp(&sb.Amount) < 0 {
+		if state.GetBalance(sb.HolderAddr).Cmp(sb.Amount) < 0 {
 			err = errors.New("not enough meter-gov balance")
 		}
 	default:
@@ -157,7 +159,7 @@ func (sb *StakingBody) BoundHandler(senv *StakingEnviroment, gas uint64) (ret []
 		candAddr = meter.Address{}
 	}
 
-	bucket := NewBucket(sb.HolderAddr, candAddr, &sb.Amount, uint8(sb.Token), opt, rate, sb.Timestamp, sb.Nonce)
+	bucket := NewBucket(sb.HolderAddr, candAddr, sb.Amount, uint8(sb.Token), opt, rate, sb.Timestamp, sb.Nonce)
 	bucketList.Add(bucket)
 
 	stakeholder := stakeholderList.Get(sb.HolderAddr)
@@ -181,9 +183,9 @@ func (sb *StakingBody) BoundHandler(senv *StakingEnviroment, gas uint64) (ret []
 
 	switch sb.Token {
 	case TOKEN_METER:
-		err = staking.BoundAccountMeter(sb.HolderAddr, &sb.Amount, state)
+		err = staking.BoundAccountMeter(sb.HolderAddr, sb.Amount, state)
 	case TOKEN_METER_GOV:
-		err = staking.BoundAccountMeterGov(sb.HolderAddr, &sb.Amount, state)
+		err = staking.BoundAccountMeterGov(sb.HolderAddr, sb.Amount, state)
 	default:
 		err = errors.New("Invalid token parameter")
 	}
@@ -216,7 +218,7 @@ func (sb *StakingBody) UnBoundHandler(senv *StakingEnviroment, gas uint64) (ret 
 	if b == nil {
 		return nil, leftOverGas, errors.New("staking not found")
 	}
-	if (b.Owner != sb.HolderAddr) || (b.Value.Cmp(&sb.Amount) != 0) || (b.Token != sb.Token) {
+	if (b.Owner != sb.HolderAddr) || (b.Value.Cmp(sb.Amount) != 0) || (b.Token != sb.Token) {
 		return nil, leftOverGas, errors.New("staking info mismatch")
 	}
 	if b.IsForeverLock() == true {
@@ -264,11 +266,11 @@ func (sb *StakingBody) CandidateHandler(senv *StakingEnviroment, gas uint64) (re
 	// check the account have enough balance
 	switch sb.Token {
 	case TOKEN_METER:
-		if state.GetEnergy(sb.CandAddr).Cmp(&sb.Amount) < 0 {
+		if state.GetEnergy(sb.CandAddr).Cmp(sb.Amount) < 0 {
 			err = errors.New("not enough meter balance")
 		}
 	case TOKEN_METER_GOV:
-		if state.GetBalance(sb.CandAddr).Cmp(&sb.Amount) < 0 {
+		if state.GetBalance(sb.CandAddr).Cmp(sb.Amount) < 0 {
 			err = errors.New("not enough meter-gov balance")
 		}
 	default:
@@ -326,7 +328,7 @@ func (sb *StakingBody) CandidateHandler(senv *StakingEnviroment, gas uint64) (re
 	log.Info("get bound option", "option", opt, "rate", rate, "locktime", locktime, "commission", commission)
 
 	// bucket owner is candidate
-	bucket := NewBucket(sb.CandAddr, sb.CandAddr, &sb.Amount, uint8(sb.Token), opt, rate, sb.Timestamp, sb.Nonce)
+	bucket := NewBucket(sb.CandAddr, sb.CandAddr, sb.Amount, uint8(sb.Token), opt, rate, sb.Timestamp, sb.Nonce)
 	bucketList.Add(bucket)
 
 	candidate := NewCandidate(sb.CandAddr, sb.CandName, sb.CandPubKey, sb.CandIP, sb.CandPort, commission, sb.Timestamp)
@@ -344,9 +346,9 @@ func (sb *StakingBody) CandidateHandler(senv *StakingEnviroment, gas uint64) (re
 
 	switch sb.Token {
 	case TOKEN_METER:
-		err = staking.BoundAccountMeter(sb.CandAddr, &sb.Amount, state)
+		err = staking.BoundAccountMeter(sb.CandAddr, sb.Amount, state)
 	case TOKEN_METER_GOV:
-		err = staking.BoundAccountMeterGov(sb.CandAddr, &sb.Amount, state)
+		err = staking.BoundAccountMeterGov(sb.CandAddr, sb.Amount, state)
 	default:
 		//leftOverGas = gas
 		err = errors.New("Invalid token parameter")
@@ -440,7 +442,7 @@ func (sb *StakingBody) DelegateHandler(senv *StakingEnviroment, gas uint64) (ret
 	if b == nil {
 		return nil, leftOverGas, errors.New("staking not found")
 	}
-	if (b.Owner != sb.HolderAddr) || (b.Value.Cmp(&sb.Amount) != 0) || (b.Token != sb.Token) {
+	if (b.Owner != sb.HolderAddr) || (b.Value.Cmp(sb.Amount) != 0) || (b.Token != sb.Token) {
 		return nil, leftOverGas, errors.New("staking info mismatch")
 	}
 	if b.IsForeverLock() == true {
@@ -488,7 +490,7 @@ func (sb *StakingBody) UnDelegateHandler(senv *StakingEnviroment, gas uint64) (r
 	if b == nil {
 		return nil, leftOverGas, errors.New("staking not found")
 	}
-	if (b.Owner != sb.HolderAddr) || (b.Value.Cmp(&sb.Amount) != 0) || (b.Token != sb.Token) {
+	if (b.Owner != sb.HolderAddr) || (b.Value.Cmp(sb.Amount) != 0) || (b.Token != sb.Token) {
 		return nil, leftOverGas, errors.New("staking info mismatch")
 	}
 	if b.IsForeverLock() == true {
@@ -527,6 +529,7 @@ func (sb *StakingBody) GoverningHandler(senv *StakingEnviroment, gas uint64) (re
 	stakeholderList := staking.GetStakeHolderList(state)
 	delegateList := staking.GetDelegateList(state)
 	inJailList := staking.GetInJailList(state)
+	rewardList := staking.GetValidatorRewardList(state)
 
 	if gas < meter.ClauseGas {
 		leftOverGas = 0
@@ -534,6 +537,31 @@ func (sb *StakingBody) GoverningHandler(senv *StakingEnviroment, gas uint64) (re
 		leftOverGas = gas - meter.ClauseGas
 	}
 
+	validators := []*meter.Address{}
+	err = rlp.DecodeBytes(sb.ExtraData, &validators)
+	if err != nil {
+		log.Error("Distribute validator rewards failed")
+		return
+	}
+
+	// distribute rewarding before calculating new delegates
+	sum, info, err := staking.DistValidatorRewards(sb.Amount, validators, delegateList, state)
+	if err != nil {
+		log.Error("Distribute validator rewards failed")
+		return
+	}
+	epoch := sb.Version //epoch is stored in sb.Version tempraroly
+
+	reward := &ValidatorReward{
+		Epoch:            epoch,
+		BaseReward:       builtin.Params.Native(state).Get(meter.KeyValidatorBaseReward),
+		ExpectDistribute: sb.Amount,
+		ActualDistribute: sum,
+		Info:             info,
+	}
+	rewardList.rewards = append(rewardList.rewards, reward)
+
+	// start to calc next round delegates
 	ts := sb.Timestamp
 	for _, bkt := range bucketList.buckets {
 
@@ -617,7 +645,7 @@ func (sb *StakingBody) GoverningHandler(senv *StakingEnviroment, gas uint64) (re
 			continue
 		}
 		// delegates must satisfy the minimum requirements
-		if ok := delegate.MinimumRequirements(); ok == false {
+		if ok := delegate.MinimumRequirements(state); ok == false {
 			log.Info("delegate does not meet minimum requrirements, ignored ...", "name", delegate.Name, "addr", delegate.Address)
 			continue
 		}
@@ -628,8 +656,8 @@ func (sb *StakingBody) GoverningHandler(senv *StakingEnviroment, gas uint64) (re
 				log.Info("get bucket from ID failed", "bucketID", bucketID)
 				continue
 			}
-			// amplify 1e12,  votes of bucket / votes of candidate * 1e12
-			shares := big.NewInt(1e12)
+			// amplify 1e09 because unit is shannon (1e09),  votes of bucket / votes of candidate * 1e09
+			shares := big.NewInt(1e09)
 			shares = shares.Mul(b.TotalVotes, shares)
 			shares = shares.Div(shares, c.TotalVotes)
 			delegate.DistList = append(delegate.DistList, NewDistributor(b.Owner, shares.Uint64()))
@@ -660,6 +688,7 @@ func (sb *StakingBody) GoverningHandler(senv *StakingEnviroment, gas uint64) (re
 	staking.SetBucketList(bucketList, state)
 	staking.SetStakeHolderList(stakeholderList, state)
 	staking.SetDelegateList(delegateList, state)
+	staking.SetValidatorRewardList(rewardList, state)
 
 	log.Info("After Governing, new delegate list calculated", "members", delegateList.Members())
 	// fmt.Println(delegateList.ToString())
@@ -797,24 +826,29 @@ func (sb *StakingBody) DelegateStatisticsHandler(senv *StakingEnviroment, gas ui
 		return
 	}
 
-	IncrInfraction := UnpackBytesToCounters(&sb.StakingID)
-	log.Debug("Receives statistics", "incremental infraction", IncrInfraction)
+	epoch := sb.Option
+	IncrInfraction, err := UnpackBytesToInfraction(sb.ExtraData)
+	if err != nil {
+		log.Info("decode infraction failed ...", "error", err.Error)
+		return
+	}
+	log.Info("Receives statistics", "epoch", epoch, "incremental infraction", IncrInfraction)
 
 	var jail bool
 	stats := statisticsList.Get(sb.CandAddr)
 	if stats == nil {
 		stats = NewDelegateStatistics(sb.CandAddr, sb.CandName, sb.CandPubKey)
-		jail = stats.Update(IncrInfraction)
+		jail = stats.Update(IncrInfraction, epoch)
 		statisticsList.Add(stats)
 	} else {
-		jail = stats.Update(IncrInfraction)
+		jail = stats.Update(IncrInfraction, epoch)
 	}
 
 	// 1. remove from statistic list
 	// 2. add to jail list
 	// 3. fine
 	if jail == true {
-		log.Warn("delegate jailed ...", "address", stats.Addr, "name", string(stats.Name), "totalPts", stats.TotalPts)
+		log.Warn("delegate jailed ...", "address", stats.Addr, "name", string(stats.Name), "epoch", epoch, "totalPts", stats.TotalPts)
 		statisticsList.Remove(stats.Addr)
 		// TBD: how to fine
 		bail := BAIL_FOR_EXIT_JAIL

@@ -357,7 +357,7 @@ func (m *PMProposalMessage) String() string {
 	if err == nil {
 		canonicalName := blk.GetCanonicalName()
 		header := blk.Header()
-		blkStr = fmt.Sprintf("%v(%v){ID:%v, QC:(H:%v,R:%v)}", canonicalName, header.Number(), header.ID().AbbrevString(), blk.QC.QCHeight, blk.QC.QCRound)
+		blkStr = fmt.Sprintf("{%v(%v), ID:%v, QC:(H:%v,R:%v)}", canonicalName, header.Number(), header.ID().AbbrevString(), blk.QC.QCHeight, blk.QC.QCRound)
 	}
 	ch := m.CSMsgCommonHeader
 	tcStr := ""

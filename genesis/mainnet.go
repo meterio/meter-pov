@@ -12,6 +12,7 @@ import (
 	"github.com/dfinlab/meter/meter"
 	"github.com/dfinlab/meter/state"
 	"github.com/dfinlab/meter/tx"
+	"github.com/dfinlab/meter/vesting"
 	"github.com/dfinlab/meter/vm"
 )
 
@@ -20,6 +21,9 @@ func NewMainnet() *Genesis {
 	launchTime := uint64(1530316800) // '2018-06-30T00:00:00.000Z'
 
 	initialAuthorityNodes := loadAuthorityNodes()
+
+	// init vestPlan
+	vesting.VestPlanInit()
 
 	builder := new(Builder).
 		Timestamp(launchTime).
@@ -46,6 +50,15 @@ func NewMainnet() *Genesis {
 				tokenSupply.Add(tokenSupply, meter.InitialProposerEndorsement)
 				state.SetBalance(anode.endorsorAddress, meter.InitialProposerEndorsement)
 				state.SetEnergy(anode.endorsorAddress, &big.Int{})
+			}
+
+			vestPlans := vesting.LoadVestPlan()
+			for _, v := range vestPlans {
+				state.SetBalance(v.Address, v.MtrGov)
+				tokenSupply.Add(tokenSupply, v.MtrGov)
+
+				state.SetEnergy(v.Address, v.Mtr)
+				energySupply.Add(energySupply, v.Mtr)
 			}
 
 			// alloc all other tokens
@@ -84,6 +97,39 @@ func NewMainnet() *Genesis {
 	builder.Call(tx.NewClause(&builtin.Params.Address).WithData(data), builtin.Executor.Address)
 
 	data = mustEncodeInput(builtin.Params.ABI, "set", meter.KeyProposerEndorsement, meter.InitialProposerEndorsement)
+	builder.Call(tx.NewClause(&builtin.Params.Address).WithData(data), builtin.Executor.Address)
+
+	data = mustEncodeInput(builtin.Params.ABI, "set", meter.KeyPowPoolCoef, meter.InitialPowPoolCoef)
+	builder.Call(tx.NewClause(&builtin.Params.Address).WithData(data), builtin.Executor.Address)
+
+	data = mustEncodeInput(builtin.Params.ABI, "set", meter.KeyPowPoolCoefFadeDays, meter.InitialPowPoolCoefFadeDays)
+	builder.Call(tx.NewClause(&builtin.Params.Address).WithData(data), builtin.Executor.Address)
+
+	data = mustEncodeInput(builtin.Params.ABI, "set", meter.KeyPowPoolCoefFadeRate, meter.InitialPowPoolCoefFadeRate)
+	builder.Call(tx.NewClause(&builtin.Params.Address).WithData(data), builtin.Executor.Address)
+
+	data = mustEncodeInput(builtin.Params.ABI, "set", meter.KeyValidatorBenefitRatio, meter.InitialValidatorBenefitRatio)
+	builder.Call(tx.NewClause(&builtin.Params.Address).WithData(data), builtin.Executor.Address)
+
+	data = mustEncodeInput(builtin.Params.ABI, "set", meter.KeyValidatorBaseReward, meter.InitialValidatorBaseReward)
+	builder.Call(tx.NewClause(&builtin.Params.Address).WithData(data), builtin.Executor.Address)
+
+	data = mustEncodeInput(builtin.Params.ABI, "set", meter.KeyAuctionReservedPrice, meter.InitialAuctionReservedPrice)
+	builder.Call(tx.NewClause(&builtin.Params.Address).WithData(data), builtin.Executor.Address)
+
+	data = mustEncodeInput(builtin.Params.ABI, "set", meter.KeyMinRequiredByDelegate, meter.InitialMinRequiredByDelegate)
+	builder.Call(tx.NewClause(&builtin.Params.Address).WithData(data), builtin.Executor.Address)
+
+	data = mustEncodeInput(builtin.Params.ABI, "set", meter.KeyAuctionInitRelease, meter.InitialAuctionInitRelease)
+	builder.Call(tx.NewClause(&builtin.Params.Address).WithData(data), builtin.Executor.Address)
+
+	data = mustEncodeInput(builtin.Params.ABI, "set", meter.KeyBorrowInterestRate, meter.InitialBorrowInterestRate)
+	builder.Call(tx.NewClause(&builtin.Params.Address).WithData(data), builtin.Executor.Address)
+
+	data = mustEncodeInput(builtin.Params.ABI, "set", meter.KeyConsensusCommitteeSize, meter.InitialConsensusCommitteeSize)
+	builder.Call(tx.NewClause(&builtin.Params.Address).WithData(data), builtin.Executor.Address)
+
+	data = mustEncodeInput(builtin.Params.ABI, "set", meter.KeyConsensusDelegateSize, meter.InitialConsensusDelegateSize)
 	builder.Call(tx.NewClause(&builtin.Params.Address).WithData(data), builtin.Executor.Address)
 
 	// add initial authority nodes
