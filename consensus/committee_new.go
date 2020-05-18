@@ -77,6 +77,24 @@ func (conR *ConsensusReactor) NewCommitteeTimeout() {
 	// increase round
 	conR.newCommittee.Round++
 	if conR.newCommittee.InCommittee {
+		// wait for long time, check if it is possible committee already established
+		if conR.newCommittee.Round >= 3 {
+			if conR.CheckEstablishedCommittee(conR.newCommittee.KblockHeight) == true {
+				conR.NewCommitteeTimerStop()
+				conR.logger.Info("found out committee established, join the committee.",
+					"round", conR.newCommittee.Round, "kblockHeight", conR.newCommittee.KblockHeight)
+
+				kblock, err := conR.chain.GetTrunkBlock(conR.newCommittee.KblockHeight)
+				if err != nil {
+					conR.logger.Error("get last kblock block error", "height", conR.newCommittee.KblockHeight, "error", err)
+					return
+				}
+
+				conR.JoinEstablishedCommittee(kblock, false)
+				return
+			}
+		}
+
 		size := len(conR.newCommittee.Committee.Validators)
 		nl := conR.newCommittee.Committee.Validators[conR.newCommittee.Round%uint32(size)]
 
@@ -91,6 +109,7 @@ func (conR *ConsensusReactor) NewCommitteeTimeout() {
 			conR.csValidator.state = COMMITTEE_VALIDATOR_INIT
 		}
 	} else {
+		conR.NewCommitteeTimerStop()
 		conR.logger.Warn("Committee Timeout, not in newcommtteesent newcommittee:")
 	}
 }

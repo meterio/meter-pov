@@ -1215,6 +1215,18 @@ func (conR *ConsensusReactor) UpdateCurDelegates() {
 	conR.logger.Info("Update curDelegates", "delegateSize", conR.delegateSize, "committeeSize", conR.committeeSize, "names", strings.Join(names, ","))
 }
 
+// if best block is moving ahead, and lastkblock is match, we consider there is
+// an established committee and proposing
+func (conR *ConsensusReactor) CheckEstablishedCommittee(kHeight uint32) bool {
+	best := conR.chain.BestBlock()
+	bestHeight := best.Header().Number()
+	lastKBlockHeight := best.Header().LastKBlockHeight()
+	if (bestHeight > kHeight) && ((bestHeight - bestHeight) >= 5) && (kHeight == lastKBlockHeight) {
+		return true
+	}
+	return false
+}
+
 func (conR *ConsensusReactor) JoinEstablishedCommittee(kBlock *block.Block, replay bool) {
 	var nonce uint64
 	var info *powpool.PowBlockInfo
@@ -1349,7 +1361,7 @@ func (conR *ConsensusReactor) ConsensusHandleReceivedNonce(kBlockHeight uint32, 
 		conR.updateCurEpoch(epoch)
 
 		conR.exitConsensusLeader(conR.curEpoch)
-		conR.enterConsensusLeader(conR.curEpoch + 1)
+		conR.enterConsensusLeader(conR.curEpoch)
 
 		// no replay case, the last block must be kblock!
 		if replay == false && conR.curHeight != kBlockHeight {
