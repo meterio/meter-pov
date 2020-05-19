@@ -1,5 +1,25 @@
 # Versions
 
+## 1.4.2-beta1
+
+Added:
+
+1. error handling for GetCommitteeMemberIndex to avoid crash
+2. discard the message with different epoch id
+3. error handling for exception during proposal validation that affects future proposals
+
+Updated:
+
+1. set max message size to 2M
+2. fixed audit issues 
+3. onbeat timeout with QCHigh+1
+4. print peer name with refer to candidate list
+5. clean up log for better readability
+6. merge 8670 port with 8671
+7. inbound/outbound ratio control
+8. avoid duplicate IP when accepting p2p peers
+
+
 ## 1.4.1-beta7
 
 Updated:
