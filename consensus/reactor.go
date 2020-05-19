@@ -1221,7 +1221,7 @@ func (conR *ConsensusReactor) CheckEstablishedCommittee(kHeight uint32) bool {
 	best := conR.chain.BestBlock()
 	bestHeight := best.Header().Number()
 	lastKBlockHeight := best.Header().LastKBlockHeight()
-	if (bestHeight > kHeight) && ((bestHeight - bestHeight) >= 5) && (kHeight == lastKBlockHeight) {
+	if (bestHeight > kHeight) && ((bestHeight - kHeight) >= 5) && (kHeight == lastKBlockHeight) {
 		return true
 	}
 	return false
