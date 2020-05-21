@@ -862,26 +862,32 @@ func (c *Chain) UpdateBestQC(qc *block.QuorumCert, source QCSource) (bool, error
 		}
 	}
 
-	// otherwise, update bestQC from local database
+	// otherwise, update bestQC from local database:
+	// 1. from bestBlock's descedant
+	// 2. or from bestBlock itself
 	// A -- B -- C         or          A -- B -- C -- D
 	//      ^    ^                               ^    ^
 	//     leaf                                      leaf
 	//         best                             best
+	var blk *block.Block
+	var err error
 	id, err := c.ancestorTrie.GetAncestor(c.leafBlock.Header().ID(), c.bestBlock.Header().Number()+1)
 	if err != nil {
-		return false, err
+		blk = c.bestBlock
+	} else {
+		raw, err := loadBlockRaw(c.kv, id)
+		if err != nil {
+			return false, err
+		}
+		blk, err = raw.DecodeBlockBody()
+		if err != nil {
+			return false, err
+		}
+		if blk.Header().ParentID().String() != c.bestBlock.Header().ID().String() {
+			return false, errors.New("parent mismatch ")
+		}
 	}
-	raw, err := loadBlockRaw(c.kv, id)
-	if err != nil {
-		return false, err
-	}
-	blk, err := raw.DecodeBlockBody()
-	if err != nil {
-		return false, err
-	}
-	if blk.Header().ParentID().String() != c.bestBlock.Header().ID().String() {
-		return false, errors.New("parent mismatch ")
-	}
+
 	if blk.QC.QCHeight > c.bestQC.QCHeight {
 		log.Info("Update bestQC from bestBlock descendant", "from", c.bestQC.CompactString(), "to", blk.QC.CompactString())
 		c.bestQC = blk.QC
