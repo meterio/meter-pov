@@ -1392,7 +1392,7 @@ func (conR *ConsensusReactor) startPacemaker(newCommittee bool, mode PMMode) err
 	// 1. bestQC height == best block height
 	// 2. newCommittee is true, best block is kblock
 	for i := 0; i < 3; i++ {
-		conR.chain.UpdateBestQC()
+		conR.chain.UpdateBestQC(nil, chain.None)
 		bestQC := conR.chain.BestQC()
 		bestBlock := conR.chain.BestBlock()
 		conR.logger.Info("Checking the QCHeight and Block height...", "QCHeight", bestQC.QCHeight, "bestHeight", bestBlock.Header().Number())
@@ -1409,7 +1409,7 @@ func (conR *ConsensusReactor) startPacemaker(newCommittee bool, mode PMMode) err
 			break
 		}
 	}
-	conR.chain.UpdateBestQC()
+	conR.chain.UpdateBestQC(nil, chain.None)
 	bestQC := conR.chain.BestQC()
 	bestBlock := conR.chain.BestBlock()
 	if bestQC.QCHeight != bestBlock.Header().Number() {

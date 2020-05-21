@@ -105,8 +105,7 @@ func (n *Node) Run(ctx context.Context) error {
 func (n *Node) handleQC(ctx context.Context, qc *block.QuorumCert) (updated bool, err error) {
 	log.Debug("start to handle received qc")
 	defer log.Debug("handle qc done", "err", err)
-	n.chain.SetBestQCCandidateWithChainLock(qc)
-	return n.chain.UpdateBestQCWithChainLock()
+	return n.chain.UpdateBestQCWithChainLock(qc, chain.RcvedQC)
 }
 
 func (n *Node) handleBlockStream(ctx context.Context, stream <-chan *block.Block) (err error) {

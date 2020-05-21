@@ -741,7 +741,7 @@ func (p *Pacemaker) OnReceiveNewView(mi *consensusMsgInfo) error {
 func (p *Pacemaker) Start(newCommittee bool, mode PMMode) {
 	p.mode = mode
 	p.reset()
-	p.csReactor.chain.UpdateBestQC()
+	p.csReactor.chain.UpdateBestQC(nil, chain.None)
 	p.csReactor.chain.UpdateLeafBlock()
 
 	bestQC := p.csReactor.chain.BestQC()
