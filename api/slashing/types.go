@@ -60,11 +60,10 @@ type DoubleSigner struct {
 }
 
 type Infraction struct {
-	MissingLeader    MissingLeader   `json:"missingLeader"`
-	MissingCommittee MissingProposer `json:"missingCommittee"`
-	MissingProposer  MissingProposer `json:"missingProposer"`
-	MissingVoter     MissingVoter    `json:"missingVoter"`
-	DoubleSigner     DoubleSigner    `json:"doubleSigner`
+	MissingLeader   MissingLeader   `json:"missingLeader"`
+	MissingProposer MissingProposer `json:"missingProposer"`
+	MissingVoter    MissingVoter    `json:"missingVoter"`
+	DoubleSigner    DoubleSigner    `json:"doubleSigner`
 }
 type DelegateStatistics struct {
 	Address     meter.Address `json:"address"`

@@ -504,9 +504,10 @@ func (p *Pacemaker) UpdateQCHigh(qc *pmQuorumCert) bool {
 }
 
 func (p *Pacemaker) OnBeat(height, round uint32, reason beatReason) error {
-	if p.QCHigh != nil && p.QCHigh.QC != nil && height <= (p.QCHigh.QC.QCHeight+1) && reason == BeatOnTimeout {
+	if reason == BeatOnTimeout && p.QCHigh != nil && p.QCHigh.QC != nil && height <= (p.QCHigh.QC.QCHeight+1) {
 		return p.OnTimeoutBeat(height, round, reason)
 	}
+
 	p.logger.Info(" --------------------------------------------------")
 	p.logger.Info(fmt.Sprintf(" OnBeat Round:%v, Height:%v, Reason:%v", round, height, reason.String()))
 	p.logger.Info(" --------------------------------------------------")
@@ -559,9 +560,19 @@ func (p *Pacemaker) OnTimeoutBeat(height, round uint32, reason beatReason) error
 		p.logger.Error("missing parent proposal", "parentHeight", height-1, "height", height, "round", round)
 		return errors.New("missing parent proposal")
 	}
+
+	var parentQC *pmQuorumCert
+	// in most of timeout case, proposal of height is alway there. only for the 1st round timeout, it is not there.
+	// in this case, p.QCHigh is for it.
 	if replaced == nil {
-		p.logger.Error("missing qc for proposal", "parentHeight", height-1, "height", height, "round", round)
-		return errors.New("missing qc for proposal")
+		if p.QCHigh.QC.QCHeight == (height - 1) {
+			parentQC = p.QCHigh
+		} else {
+			p.logger.Error("missing qc for proposal", "parentHeight", height-1, "height", height, "round", round)
+			return errors.New("missing qc for proposal")
+		}
+	} else {
+		parentQC = replaced.Justify
 	}
 
 	if reason == BeatOnInit {
@@ -572,7 +583,7 @@ func (p *Pacemaker) OnTimeoutBeat(height, round uint32, reason beatReason) error
 		pmRoleGauge.Set(2)
 		p.csReactor.logger.Info("OnBeat: I am round proposer", "round", round)
 
-		bleaf, err := p.OnPropose(parent, replaced.Justify, height, round)
+		bleaf, err := p.OnPropose(parent, parentQC, height, round)
 		if err != nil {
 			return err
 		}
