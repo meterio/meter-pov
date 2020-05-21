@@ -8,6 +8,7 @@ package chain
 import (
 	"bytes"
 	"fmt"
+	"sort"
 	"sync"
 
 	"github.com/dfinlab/meter/block"
@@ -57,8 +58,6 @@ type Chain struct {
 	caches       caches
 	rw           sync.RWMutex
 	tick         co.Signal
-
-	bestQCCandidate *block.QuorumCert
 }
 
 type caches struct {
@@ -220,7 +219,6 @@ func New(kv kv.GetPutter, genesisBlock *block.Block, verbose bool) (*Chain, erro
 			rawBlocks: rawBlocksCache,
 			receipts:  receiptsCache,
 		},
-		bestQCCandidate: nil,
 	}
 
 	return c, nil
@@ -375,7 +373,7 @@ func (c *Chain) AddBlock(newBlock *block.Block, receipts tx.Receipts, finalize b
 
 				c.leafBlock = newBlock
 			}
-			_, err := c.UpdateBestQC()
+			_, err := c.UpdateBestQC(nil, None)
 			if err != nil {
 				fmt.Println("Error during update QC: ", err)
 			}
@@ -800,6 +798,100 @@ func (c *Chain) UpdateLeafBlock() error {
 	}
 	return nil
 }
+
+type QCSource int
+
+const (
+	None           QCSource = 0
+	RcvedQC        QCSource = 1
+	LocalCommit    QCSource = 2
+	LocalBestQC    QCSource = 3
+	LocalBestBlock QCSource = 4
+)
+
+func (s QCSource) String() string {
+	switch s {
+	case RcvedQC:
+		return "RcvedQC"
+	case LocalCommit:
+		return "LocalCommit"
+	case LocalBestQC:
+		return "LocalBestQC"
+	case LocalBestBlock:
+		return "LocalBestBlock"
+	}
+	return ""
+}
+
+type QCWrap struct {
+	source QCSource
+	qc     *block.QuorumCert
+}
+
+func (c *Chain) UpdateBestQC(qc *block.QuorumCert, source QCSource) (bool, error) {
+	qcs := []*QCWrap{
+		&QCWrap{source: LocalBestQC, qc: c.bestQC},
+		&QCWrap{source: LocalBestBlock, qc: c.bestBlock.QC},
+	}
+
+	if qc != nil {
+		qcs = append(qcs, &QCWrap{source: source, qc: qc})
+	}
+
+	sort.SliceStable(qcs, func(i, j int) bool {
+		return qcs[i].qc.QCHeight > qcs[j].qc.QCHeight
+	})
+
+	bestQCAvailable := qcs[0].qc
+	bestQCSource := qcs[0].source
+
+	// under these two circumstance:
+	// A -- B -- C          or          A -- B -- C
+	//           ^                           ^    ^
+	//          leaf                       leaf
+	//          best                             best
+	// and bestQCAvailable justifies bestBlock, update it without check
+	if bestQCAvailable.QCHeight == c.bestBlock.Header().Number() && c.leafBlock.Header().Number() <= c.bestBlock.Header().Number() {
+		if bestQCAvailable.QCHeight > c.bestQC.QCHeight {
+			log.Info("Update bestQC when it justifies bestBlock", "from", c.bestQC.CompactString(), "to", bestQCAvailable.CompactString(), "source", bestQCSource.String(), "condition", "leaf<=best")
+			c.bestQC = bestQCAvailable
+			return true, saveBestQC(c.kv, c.bestQC)
+		} else {
+			log.Info("No change to bestQC, skip updating ...", "condition", "leaf<=best")
+			return false, nil
+		}
+	}
+
+	// otherwise, update bestQC from local database
+	// A -- B -- C         or          A -- B -- C -- D
+	//      ^    ^                               ^    ^
+	//     leaf                                      leaf
+	//         best                             best
+	id, err := c.ancestorTrie.GetAncestor(c.leafBlock.Header().ID(), c.bestBlock.Header().Number()+1)
+	if err != nil {
+		return false, err
+	}
+	raw, err := loadBlockRaw(c.kv, id)
+	if err != nil {
+		return false, err
+	}
+	blk, err := raw.DecodeBlockBody()
+	if err != nil {
+		return false, err
+	}
+	if blk.Header().ParentID().String() != c.bestBlock.Header().ID().String() {
+		return false, errors.New("parent mismatch ")
+	}
+	if blk.QC.QCHeight > c.bestQC.QCHeight {
+		log.Info("Update bestQC from bestBlock descendant", "from", c.bestQC.CompactString(), "to", blk.QC.CompactString())
+		c.bestQC = blk.QC
+		return true, saveBestQC(c.kv, c.bestQC)
+	}
+	log.Info("No changes to bestQC, skip updating ...")
+	return false, nil
+}
+
+/*
 func (c *Chain) UpdateBestQC() (bool, error) {
 	if c.leafBlock.Header().ID().String() == c.bestBlock.Header().ID().String() {
 		// when leaf is the same with best, usually this is during initialization (before pacemaker) or after pacemaker
@@ -875,15 +967,19 @@ func (c *Chain) SetBestQCCandidate(qc *block.QuorumCert) bool {
 func (c *Chain) GetBestQCCandidate() *block.QuorumCert {
 	return c.bestQCCandidate
 }
+*/
 
-func (c *Chain) UpdateBestQCWithChainLock() (bool, error) {
+func (c *Chain) UpdateBestQCWithChainLock(qc *block.QuorumCert, source QCSource) (bool, error) {
 	c.rw.Lock()
 	defer c.rw.Unlock()
-	return c.UpdateBestQC()
+	return c.UpdateBestQC(qc, source)
 }
 
+/*
 func (c *Chain) SetBestQCCandidateWithChainLock(qc *block.QuorumCert) bool {
 	c.rw.Lock()
 	defer c.rw.Unlock()
 	return c.SetBestQCCandidate(qc)
 }
+
+*/
