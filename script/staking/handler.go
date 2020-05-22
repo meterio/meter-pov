@@ -25,8 +25,9 @@ const (
 	OP_UNDELEGATE     = uint32(6)
 	OP_CANDIDATE_UPDT = uint32(7)
 
-	OP_DELEGATE_STATISTICS = uint32(101)
-	OP_DELEGATE_EXITJAIL   = uint32(102)
+	OP_DELEGATE_STATISTICS  = uint32(101)
+	OP_DELEGATE_EXITJAIL    = uint32(102)
+	OP_FLUSH_ALL_STATISTICS = uint32(103)
 
 	OP_GOVERNING = uint32(10001)
 )
@@ -51,6 +52,8 @@ func GetOpName(op uint32) string {
 		return "DelegateStatistics"
 	case OP_DELEGATE_EXITJAIL:
 		return "DelegateExitJail"
+	case OP_FLUSH_ALL_STATISTICS:
+		return "FlushAllStatistics"
 	case OP_GOVERNING:
 		return "Governing"
 	default:
@@ -822,7 +825,7 @@ func (sb *StakingBody) DelegateStatisticsHandler(senv *StakingEnviroment, gas ui
 	// while delegate in jail list, it is still received some statistics.
 	// ignore thos updates. it already paid for it
 	if in := inJailList.Exist(sb.CandAddr); in == true {
-		log.Info("in jail list ...", "address", sb.CandAddr, "name", sb.CandName)
+		log.Info("in jail list, updates ignored ...", "address", sb.CandAddr, "name", sb.CandName)
 		return
 	}
 
@@ -844,13 +847,8 @@ func (sb *StakingBody) DelegateStatisticsHandler(senv *StakingEnviroment, gas ui
 		jail = stats.Update(IncrInfraction, epoch)
 	}
 
-	// 1. remove from statistic list
-	// 2. add to jail list
-	// 3. fine
 	if jail == true {
 		log.Warn("delegate jailed ...", "address", stats.Addr, "name", string(stats.Name), "epoch", epoch, "totalPts", stats.TotalPts)
-		statisticsList.Remove(stats.Addr)
-		// TBD: how to fine
 		bail := BAIL_FOR_EXIT_JAIL
 		inJailList.Add(NewDelegateJailed(stats.Addr, stats.Name, stats.PubKey, stats.TotalPts, &stats.Infractions, bail, sb.Timestamp))
 	}
@@ -870,6 +868,7 @@ func (sb *StakingBody) DelegateExitJailHandler(senv *StakingEnviroment, gas uint
 	staking := senv.GetStaking()
 	state := senv.GetState()
 	inJailList := staking.GetInJailList(state)
+	statisticsList := staking.GetStatisticsList(state)
 
 	jailed := inJailList.Get(sb.CandAddr)
 	if jailed == nil {
@@ -889,8 +888,28 @@ func (sb *StakingBody) DelegateExitJailHandler(senv *StakingEnviroment, gas uint
 		return
 	}
 	inJailList.Remove(jailed.Addr)
+	statisticsList.Remove(jailed.Addr)
 
 	log.Info("removed from jail list ...", "address", jailed.Addr, "name", jailed.Name)
+	staking.SetInJailList(inJailList, state)
+	staking.SetStatisticsList(statisticsList, state)
+	return
+}
+
+// this is debug API, only executor has the right to call
+func (sb *StakingBody) DelegateStatisticsFlushHandler(senv *StakingEnviroment, gas uint64) (ret []byte, leftOverGas uint64, err error) {
+	defer func() {
+		if err != nil {
+			ret = []byte(err.Error())
+		}
+	}()
+
+	staking := senv.GetStaking()
+	state := senv.GetState()
+	statisticsList := &StatisticsList{}
+	inJailList := &DelegateInJailList{}
+
+	staking.SetStatisticsList(statisticsList, state)
 	staking.SetInJailList(inJailList, state)
 	return
 }

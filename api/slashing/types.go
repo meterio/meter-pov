@@ -2,6 +2,7 @@ package slashing
 
 import (
 	"fmt"
+	"sort"
 	"time"
 
 	"github.com/dfinlab/meter/meter"
@@ -97,6 +98,11 @@ func convertStatisticsList(list *staking.StatisticsList) []*DelegateStatistics {
 	for _, s := range list.ToList() {
 		statsList = append(statsList, convertDelegateStatistics(&s))
 	}
+
+	// sort with descendent total points
+	sort.SliceStable(statsList, func(i, j int) bool {
+		return (statsList[i].TotalPoints >= statsList[j].TotalPoints)
+	})
 	return statsList
 }
 
