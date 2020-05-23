@@ -37,12 +37,19 @@ func (conR *ConsensusReactor) MinerRewards(rewards []powpool.PowReward) *tx.Tran
 	// mint transaction:
 	// 1. signer is nil
 	// 1. located first transaction in kblock.
+	var maxRewarder int
+	if len(rewards) > int((powpool.POW_MINIMUM_HEIGHT_INTV*5)-1) {
+		maxRewarder = int((powpool.POW_MINIMUM_HEIGHT_INTV * 5) - 1)
+	} else {
+		maxRewarder = len(rewards)
+	}
+
 	builder := new(tx.Builder)
 	builder.ChainTag(conR.chain.Tag()).
 		BlockRef(tx.NewBlockRef(conR.chain.BestBlock().Header().Number() + 1)).
 		Expiration(720).
 		GasPriceCoef(0).
-		Gas(2100000). //builder.Build().IntrinsicGas()
+		Gas(meter.BaseTxGas * uint64(maxRewarder)). //buffer for builder.Build().IntrinsicGas()
 		DependsOn(nil).
 		Nonce(12345678)
 
@@ -204,7 +211,7 @@ func (conR *ConsensusReactor) TryBuildAuctionTxs(height, epoch uint64) *tx.Trans
 		BlockRef(tx.NewBlockRef(uint32(height))).
 		Expiration(720).
 		GasPriceCoef(0).
-		Gas(2100000). //builder.Build().IntrinsicGas()
+		Gas(meter.BaseTxGas * 10). // buffer for builder.Build().IntrinsicGas()
 		DependsOn(nil).
 		Nonce(12345678)
 
@@ -325,7 +332,7 @@ func (conR *ConsensusReactor) TryBuildStakingGoverningTx() *tx.Transaction {
 		BlockRef(tx.NewBlockRef(conR.chain.BestBlock().Header().Number() + 1)).
 		Expiration(720).
 		GasPriceCoef(0).
-		Gas(2100000). //builder.Build().IntrinsicGas()
+		Gas(meter.BaseTxGas * 10). //buffer for builder.Build().IntrinsicGas()
 		DependsOn(nil).
 		Nonce(12345678)
 

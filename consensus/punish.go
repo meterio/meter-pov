@@ -344,7 +344,7 @@ func (conR *ConsensusReactor) BuildStatisticsTx(entries []*StatEntry) *tx.Transa
 		BlockRef(tx.NewBlockRef(conR.chain.BestBlock().Header().Number() + 1)).
 		Expiration(720).
 		GasPriceCoef(0).
-		Gas(2100000).
+		Gas(meter.BaseTxGas * uint64(len(entries))).
 		DependsOn(nil).
 		Nonce(12345678)
 

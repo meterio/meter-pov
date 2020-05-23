@@ -14,8 +14,8 @@ import (
 
 // Constants of block chain.
 const (
-	BlockInterval uint64 = 10 // time interval between two consecutive blocks.
-
+	BlockInterval             uint64 = 10           // time interval between two consecutive blocks.
+	BaseTxGas                 uint64 = params.TxGas // 21000
 	TxGas                     uint64 = 5000
 	ClauseGas                 uint64 = params.TxGas - TxGas
 	ClauseGasContractCreation uint64 = params.TxGasContractCreation - TxGas

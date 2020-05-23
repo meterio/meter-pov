@@ -6,6 +6,10 @@ import (
 
 // staking options
 const (
+	ONE_DAY_LOCK      = uint32(0)
+	ONE_DAY_LOCK_RATE = uint8(0)
+	ONE_DAY_LOCK_TIME = uint64(60 * 60 * 24)
+
 	ONE_WEEK_LOCK      = uint32(1)
 	ONE_WEEK_LOCK_RATE = uint8(5) // 5 percent
 	ONE_WEEK_LOCK_TIME = uint64(60 * 60 * 24 * 7)
@@ -22,6 +26,7 @@ const (
 	FOUR_WEEK_LOCK_RATE = uint8(8)
 	FOUR_WEEK_LOCK_TIME = uint64(60 * 60 * 24 * 28)
 
+	// for candidate bucket ONLY
 	FOREVER_LOCK      = uint32(1000)
 	FOREVER_LOCK_RATE = FOUR_WEEK_LOCK_RATE
 	FOREVER_LOCK_TIME = uint64(0)
@@ -29,6 +34,9 @@ const (
 
 func GetBoundLockOption(chose uint32) (opt uint32, rate uint8, locktime uint64) {
 	switch chose {
+	case ONE_DAY_LOCK:
+		return ONE_DAY_LOCK, ONE_DAY_LOCK_RATE, ONE_DAY_LOCK_TIME
+
 	case ONE_WEEK_LOCK:
 		return ONE_WEEK_LOCK, ONE_WEEK_LOCK_RATE, ONE_WEEK_LOCK_TIME
 
@@ -44,14 +52,17 @@ func GetBoundLockOption(chose uint32) (opt uint32, rate uint8, locktime uint64) 
 	case FOREVER_LOCK:
 		return FOREVER_LOCK, FOREVER_LOCK_RATE, FOREVER_LOCK_TIME
 
-	// at least lock 1 week
+	// at least lock 1 day
 	default:
-		return ONE_WEEK_LOCK, ONE_WEEK_LOCK_RATE, ONE_WEEK_LOCK_TIME
+		return ONE_DAY_LOCK, ONE_DAY_LOCK_RATE, ONE_DAY_LOCK_TIME
 	}
 }
 
 func GetBoundLocktime(opt uint32) (lock uint64) {
 	switch opt {
+	case ONE_DAY_LOCK:
+		return ONE_DAY_LOCK_TIME
+
 	case ONE_WEEK_LOCK:
 		return ONE_WEEK_LOCK_TIME
 
@@ -69,7 +80,7 @@ func GetBoundLocktime(opt uint32) (lock uint64) {
 
 	// at least lock 1 week
 	default:
-		return ONE_WEEK_LOCK_TIME
+		return ONE_DAY_LOCK_TIME
 	}
 }
 

@@ -64,7 +64,7 @@ func GetOpName(op uint32) string {
 const (
 	//TBD: candidate myself minial balance, Now is 100 (1e20) MTRG
 	MIN_CANDIDATE_BALANCE     = string("100000000000000000000")
-	MIN_CANDIDATE_UPDATE_INTV = uint64(3600 * 24 * 7) // 1 week
+	MIN_CANDIDATE_UPDATE_INTV = uint64(3600 * 24) // 1 day
 )
 
 // Candidate indicates the structure of a candidate
@@ -774,7 +774,7 @@ func (sb *StakingBody) CandidateUpdateHandler(senv *StakingEnviroment, gas uint6
 	// the above changes are restricted by time
 	if ((sb.Timestamp - record.Timestamp) < MIN_CANDIDATE_UPDATE_INTV) &&
 		(pubUpdated || nameUpdated || commissionUpdated) {
-		log.Error("update too frequently")
+		log.Error("update too frequently", "curTime", sb.Timestamp, "recordedTime", record.Timestamp)
 		return
 	}
 
