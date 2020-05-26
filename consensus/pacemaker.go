@@ -129,7 +129,7 @@ func (p *Pacemaker) CreateLeaf(parent *pmBlock, qc *pmQuorumCert, height, round 
 		return b
 	}
 
-	info, blockBytes := p.proposeBlock(parentBlock, height, round, qc, true)
+	info, blockBytes := p.proposeBlock(parentBlock, height, round, qc, (p.timeoutCert != nil))
 	p.logger.Info(fmt.Sprintf("Proposed Block: %v", info.ProposedBlock.Oneliner()))
 
 	b := &pmBlock{
@@ -267,8 +267,8 @@ func (p *Pacemaker) OnReceiveProposal(mi *consensusMsgInfo) error {
 	height := msgHeader.Height
 	round := msgHeader.Round
 
-	if height < p.blockLocked.Height {
-		p.logger.Info("recved proposal with height < bLocked.height, ignore ...", "height", height, "bLocked.height", p.blockLocked.Height)
+	if height <= p.blockLocked.Height {
+		p.logger.Info("recved proposal with height <= bLocked.height, ignore ...", "height", height, "bLocked.height", p.blockLocked.Height)
 		return nil
 	}
 
@@ -728,6 +728,13 @@ func (p *Pacemaker) OnReceiveNewView(mi *consensusMsgInfo) error {
 				p.logger.Info("Can not OnBeat due to states lagging", "my QCHeight", p.QCHigh.QC.QCHeight, "timeoutCert Height", header.Height)
 				return nil
 			}
+
+			// should not schedule if timeout is too old. <= p.blocked
+			if header.Height <= p.blockLocked.Height {
+				p.logger.Info("Can not OnBeat due to old timeout", "my QCHeight", p.QCHigh.QC.QCHeight, "timeoutCert Height", header.Height, "my blockLocked", p.blockLocked.Height)
+				return nil
+			}
+
 			p.ScheduleOnBeat(header.Height, header.Round, BeatOnTimeout, RoundInterval)
 		}
 
