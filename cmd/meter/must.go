@@ -485,8 +485,9 @@ func startObserveServer(ctx *cli.Context, cons *consensus.ConsensusReactor, comp
 	goes.Go(func() {
 		err := srv.Serve(listener)
 		if err != nil {
-			fmt.Println("could not start observe server, error:", err)
-			panic("could not start observe server")
+			if err != http.ErrServerClosed {
+				fmt.Println("observe server stopped, error:", err)
+			}
 		}
 
 	})
