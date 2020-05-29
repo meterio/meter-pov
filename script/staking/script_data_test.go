@@ -236,3 +236,20 @@ func TestBailOut(t *testing.T) {
 	}
 	genScriptDataForStaking(body)
 }
+
+func TestStaticsFlushAll(t *testing.T) {
+
+	executor := meter.MustParseAddress("0xd1e56316b6472cbe9897a577a0f3826932e95863")
+	body := &staking.StakingBody{
+		Opcode:     staking.OP_FLUSH_ALL_STATISTICS,
+		Version:    StakingVersion,
+		HolderAddr: executor,
+		CandAddr:   executor,
+		StakingID:  EmptyByte32,
+		Amount:     big.NewInt(0),
+		Token:      staking.TOKEN_METER_GOV,
+		Timestamp:  Timestamp,
+		Nonce:      Nonce,
+	}
+	genScriptDataForStaking(body)
+}

@@ -250,6 +250,9 @@ func (conR *ConsensusReactor) calcStatistics(lastKBlockHeight, height uint32) ([
 	}
 
 	// calculate missing voter
+	// currently do not calc the missingVoter. Because signature aggreator skips the votes after the count reaches
+	// to 2/3. So missingVoter counting is unacurate and causes the false alarm.
+	/****
 	missedVoter, err := conR.calcMissingVoter(conR.curCommittee.Validators, conR.curActualCommittee, blocks)
 	if err != nil {
 		conR.logger.Warn("Error during missing voter calculation", "err", err)
@@ -261,6 +264,7 @@ func (conR *ConsensusReactor) calcStatistics(lastKBlockHeight, height uint32) ([
 			inf.MissingVoters.Info = append(inf.MissingVoters.Info, minfo)
 		}
 	}
+	***/
 
 	doubleSigner, err := conR.calcDoubleSigner(conR.csCommon, blocks)
 	if err != nil {
@@ -296,7 +300,7 @@ func (conR *ConsensusReactor) buildStatisticsData(entry *StatEntry) (ret []byte)
 	}
 	body := &staking.StakingBody{
 		Opcode:     staking.OP_DELEGATE_STATISTICS,
-		Option:     0,
+		Option:     uint32(conR.curEpoch),
 		Timestamp:  uint64(time.Now().Unix()),
 		Nonce:      rand.Uint64(),
 		CandAddr:   entry.Address,

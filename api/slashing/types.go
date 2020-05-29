@@ -2,6 +2,7 @@ package slashing
 
 import (
 	"fmt"
+	"sort"
 	"time"
 
 	"github.com/dfinlab/meter/meter"
@@ -60,11 +61,10 @@ type DoubleSigner struct {
 }
 
 type Infraction struct {
-	MissingLeader    MissingLeader   `json:"missingLeader"`
-	MissingCommittee MissingProposer `json:"missingCommittee"`
-	MissingProposer  MissingProposer `json:"missingProposer"`
-	MissingVoter     MissingVoter    `json:"missingVoter"`
-	DoubleSigner     DoubleSigner    `json:"doubleSigner`
+	MissingLeader   MissingLeader   `json:"missingLeader"`
+	MissingProposer MissingProposer `json:"missingProposer"`
+	MissingVoter    MissingVoter    `json:"missingVoter"`
+	DoubleSigner    DoubleSigner    `json:"doubleSigner`
 }
 type DelegateStatistics struct {
 	Address     meter.Address `json:"address"`
@@ -98,6 +98,11 @@ func convertStatisticsList(list *staking.StatisticsList) []*DelegateStatistics {
 	for _, s := range list.ToList() {
 		statsList = append(statsList, convertDelegateStatistics(&s))
 	}
+
+	// sort with descendent total points
+	sort.SliceStable(statsList, func(i, j int) bool {
+		return (statsList[i].TotalPoints >= statsList[j].TotalPoints)
+	})
 	return statsList
 }
 

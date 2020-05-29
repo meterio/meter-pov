@@ -17,17 +17,11 @@ import (
 	crypto "github.com/ethereum/go-ethereum/crypto"
 )
 
-func (p *Pacemaker) proposeBlock(parentBlock *block.Block, height, round uint32, qc *pmQuorumCert, allowEmptyBlock bool) (*ProposedBlockInfo, []byte) {
-	// XXX: propose an empty block by default. Will add option --consensus.allow_empty_block = false
-	// force it to true at this time
-	allowEmptyBlock = true
+func (p *Pacemaker) proposeBlock(parentBlock *block.Block, height, round uint32, qc *pmQuorumCert, timeout bool) (*ProposedBlockInfo, []byte) {
 
-	//check POW pool and TX pool, propose kblock/mblock accordingly
-	// The first MBlock must be generated because committee info is in this block
-	proposalKBlock := false
-
+	var proposalKBlock bool = false
 	var powResults *powpool.PowResult
-	if round >= p.minMBlocks {
+	if round >= p.minMBlocks && !timeout {
 		proposalKBlock, powResults = powpool.GetGlobPowPoolInst().GetPowDecision()
 	}
 

@@ -3,6 +3,7 @@ package staking
 import (
 	"errors"
 
+	"github.com/dfinlab/meter/builtin"
 	"github.com/dfinlab/meter/chain"
 	"github.com/dfinlab/meter/meter"
 	"github.com/dfinlab/meter/state"
@@ -146,6 +147,14 @@ func (s *Staking) PrepareStakingHandler() (StakingHandler func(data []byte, to *
 				return nil, gas, errors.New("candidate address is not the same from transaction")
 			}
 			ret, leftOverGas, err = sb.DelegateExitJailHandler(senv, gas)
+
+		// this API is only for executor
+		case OP_FLUSH_ALL_STATISTICS:
+			executor := meter.BytesToAddress(builtin.Params.Native(state).Get(meter.KeyExecutorAddress).Bytes())
+			if senv.GetTxCtx().Origin != executor || sb.HolderAddr != executor {
+				return nil, gas, errors.New("only executor can exec this API")
+			}
+			ret, leftOverGas, err = sb.DelegateStatisticsFlushHandler(senv, gas)
 
 		default:
 			log.Error("unknown Opcode", "Opcode", sb.Opcode)

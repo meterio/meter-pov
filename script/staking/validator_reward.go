@@ -1,9 +1,11 @@
 package staking
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"math/big"
+	"sort"
 	"strings"
 
 	"github.com/dfinlab/meter/meter"
@@ -111,6 +113,10 @@ func (rmap RewardInfoMap) ToList() (*big.Int, []*RewardInfo) {
 		sum = sum.Add(sum, info.Amount)
 		rewards = append(rewards, info)
 	}
+	sort.SliceStable(rewards, func(i, j int) bool {
+		return (bytes.Compare(rewards[i].Address.Bytes(), rewards[j].Address.Bytes()) <= 0)
+	})
+
 	return sum, rewards
 }
 

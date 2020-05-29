@@ -129,7 +129,7 @@ func (p *Pacemaker) CreateLeaf(parent *pmBlock, qc *pmQuorumCert, height, round 
 		return b
 	}
 
-	info, blockBytes := p.proposeBlock(parentBlock, height, round, qc, true)
+	info, blockBytes := p.proposeBlock(parentBlock, height, round, qc, (p.timeoutCert != nil))
 	p.logger.Info(fmt.Sprintf("Proposed Block: %v", info.ProposedBlock.Oneliner()))
 
 	b := &pmBlock{
@@ -211,7 +211,7 @@ func (p *Pacemaker) OnCommit(commitReady []*pmBlock) {
 
 		// TBD: how to handle this case???
 		if b.SuccessProcessed == false {
-			p.csReactor.logger.Error("Process this proposal failed, possible my states are wrong", "height", b.Height, "round", b.Round, "err", b.ProcessError)
+			p.csReactor.logger.Error("Process this proposal failed, possible my states are wrong", "height", b.Height, "round", b.Round, "action", "commit", "err", b.ProcessError)
 			continue
 		}
 		// commit the approved block
@@ -267,8 +267,8 @@ func (p *Pacemaker) OnReceiveProposal(mi *consensusMsgInfo) error {
 	height := msgHeader.Height
 	round := msgHeader.Round
 
-	if height < p.blockLocked.Height {
-		p.logger.Info("recved proposal with height < bLocked.height, ignore ...", "height", height, "bLocked.height", p.blockLocked.Height)
+	if height <= p.blockLocked.Height {
+		p.logger.Info("recved proposal with height <= bLocked.height, ignore ...", "height", height, "bLocked.height", p.blockLocked.Height)
 		return nil
 	}
 
@@ -504,9 +504,10 @@ func (p *Pacemaker) UpdateQCHigh(qc *pmQuorumCert) bool {
 }
 
 func (p *Pacemaker) OnBeat(height, round uint32, reason beatReason) error {
-	if p.QCHigh != nil && p.QCHigh.QC != nil && height <= (p.QCHigh.QC.QCHeight+1) && reason == BeatOnTimeout {
+	if reason == BeatOnTimeout && p.QCHigh != nil && p.QCHigh.QC != nil && height <= (p.QCHigh.QC.QCHeight+1) {
 		return p.OnTimeoutBeat(height, round, reason)
 	}
+
 	p.logger.Info(" --------------------------------------------------")
 	p.logger.Info(fmt.Sprintf(" OnBeat Round:%v, Height:%v, Reason:%v", round, height, reason.String()))
 	p.logger.Info(" --------------------------------------------------")
@@ -559,9 +560,19 @@ func (p *Pacemaker) OnTimeoutBeat(height, round uint32, reason beatReason) error
 		p.logger.Error("missing parent proposal", "parentHeight", height-1, "height", height, "round", round)
 		return errors.New("missing parent proposal")
 	}
+
+	var parentQC *pmQuorumCert
+	// in most of timeout case, proposal of height is alway there. only for the 1st round timeout, it is not there.
+	// in this case, p.QCHigh is for it.
 	if replaced == nil {
-		p.logger.Error("missing qc for proposal", "parentHeight", height-1, "height", height, "round", round)
-		return errors.New("missing qc for proposal")
+		if p.QCHigh.QC.QCHeight == (height - 1) {
+			parentQC = p.QCHigh
+		} else {
+			p.logger.Error("missing qc for proposal", "parentHeight", height-1, "height", height, "round", round)
+			return errors.New("missing qc for proposal")
+		}
+	} else {
+		parentQC = replaced.Justify
 	}
 
 	if reason == BeatOnInit {
@@ -572,7 +583,7 @@ func (p *Pacemaker) OnTimeoutBeat(height, round uint32, reason beatReason) error
 		pmRoleGauge.Set(2)
 		p.csReactor.logger.Info("OnBeat: I am round proposer", "round", round)
 
-		bleaf, err := p.OnPropose(parent, replaced.Justify, height, round)
+		bleaf, err := p.OnPropose(parent, parentQC, height, round)
 		if err != nil {
 			return err
 		}
@@ -717,6 +728,13 @@ func (p *Pacemaker) OnReceiveNewView(mi *consensusMsgInfo) error {
 				p.logger.Info("Can not OnBeat due to states lagging", "my QCHeight", p.QCHigh.QC.QCHeight, "timeoutCert Height", header.Height)
 				return nil
 			}
+
+			// should not schedule if timeout is too old. <= p.blocked
+			if header.Height <= p.blockLocked.Height {
+				p.logger.Info("Can not OnBeat due to old timeout", "my QCHeight", p.QCHigh.QC.QCHeight, "timeoutCert Height", header.Height, "my blockLocked", p.blockLocked.Height)
+				return nil
+			}
+
 			p.ScheduleOnBeat(header.Height, header.Round, BeatOnTimeout, RoundInterval)
 		}
 
@@ -1050,7 +1068,7 @@ func (p *Pacemaker) resetRoundTimer(round uint32, reason roundTimerUpdateReason)
 }
 
 func (p *Pacemaker) revertTo(revertHeight uint32) {
-	p.logger.Info("Start revert", "revertHeight", revertHeight, "current block-leaf", p.blockLeaf.ToString(), "current QCHigh", p.QCHigh.ToString())
+	p.logger.Info("Start revert", "revertHeight", revertHeight, "currentBLeaf", p.blockLeaf.ToString(), "currentQCHigh", p.QCHigh.ToString())
 	pivot, pivotExist := p.proposalMap[revertHeight]
 	height := revertHeight
 	for {
@@ -1071,7 +1089,7 @@ func (p *Pacemaker) revertTo(revertHeight uint32) {
 			}
 			state.RevertTo(info.CheckPoint)
 		}
-		p.logger.Warn("Deleted from proposalMap:", "height", height, "block", proposal.ToString())
+		p.logger.Warn("Deleted from proposalMap", "height", height, "block", proposal.ToString())
 		delete(p.proposalMap, height)
 		height++
 	}
