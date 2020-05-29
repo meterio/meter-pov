@@ -90,6 +90,7 @@ func CalcRewardEpochRange(startEpoch, endEpoch uint64) (totalReward float64, epo
     ReservePrice = float64(rp.Int64()) / 1e12
 
     InitialRelease = GetAuctionInitialRelease() // initial is 1000 mtrg
+    InitReleasePerEpoch := float64(InitialRelease / 24)
 
     epochRewards = make([]float64, 0)
     Halving := fadeYears * 365 * 24
@@ -99,7 +100,7 @@ func CalcRewardEpochRange(startEpoch, endEpoch uint64) (totalReward float64, epo
     weightedAvgPrice := calcWeightedAvgPrice(history)
 
     for epoch = startEpoch; epoch <= endEpoch; epoch++ {
-        ReleaseLimit := InitialRelease + InitialRelease*(weightedAvgPrice-ReservePrice)/ReservePrice
+        ReleaseLimit := InitReleasePerEpoch + InitReleasePerEpoch*(weightedAvgPrice-ReservePrice)/ReservePrice
 
         reward := float64(totoalRelease) / float64(Halving)
         reward = reward * math.Log(1/fadeRate) * math.Pow(fadeRate, (float64(epoch)/float64(Halving)))
