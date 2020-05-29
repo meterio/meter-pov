@@ -972,8 +972,7 @@ func (conR *ConsensusReactor) FinalizeCommitBlock(blkInfo *ProposedBlockInfo, be
 		blocksCommitedCounter.Inc()
 	******/
 	// Save bestQC
-	conR.chain.SetBestQCCandidate(bestQC)
-	conR.chain.UpdateBestQC()
+	conR.chain.UpdateBestQC(bestQC, chain.LocalCommit)
 
 	// XXX: broadcast the new block to all peers
 	comm.GetGlobCommInst().BroadcastBlock(blk)

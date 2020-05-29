@@ -1215,6 +1215,18 @@ func (conR *ConsensusReactor) UpdateCurDelegates() {
 	conR.logger.Info("Update curDelegates", "delegateSize", conR.delegateSize, "committeeSize", conR.committeeSize, "names", strings.Join(names, ","))
 }
 
+// if best block is moving ahead, and lastkblock is match, we consider there is
+// an established committee and proposing
+func (conR *ConsensusReactor) CheckEstablishedCommittee(kHeight uint32) bool {
+	best := conR.chain.BestBlock()
+	bestHeight := best.Header().Number()
+	lastKBlockHeight := best.Header().LastKBlockHeight()
+	if (bestHeight > kHeight) && ((bestHeight - kHeight) >= 5) && (kHeight == lastKBlockHeight) {
+		return true
+	}
+	return false
+}
+
 func (conR *ConsensusReactor) JoinEstablishedCommittee(kBlock *block.Block, replay bool) {
 	var nonce uint64
 	var info *powpool.PowBlockInfo
@@ -1392,7 +1404,7 @@ func (conR *ConsensusReactor) startPacemaker(newCommittee bool, mode PMMode) err
 	// 1. bestQC height == best block height
 	// 2. newCommittee is true, best block is kblock
 	for i := 0; i < 3; i++ {
-		conR.chain.UpdateBestQC()
+		conR.chain.UpdateBestQC(nil, chain.None)
 		bestQC := conR.chain.BestQC()
 		bestBlock := conR.chain.BestBlock()
 		conR.logger.Info("Checking the QCHeight and Block height...", "QCHeight", bestQC.QCHeight, "bestHeight", bestBlock.Header().Number())
@@ -1409,7 +1421,7 @@ func (conR *ConsensusReactor) startPacemaker(newCommittee bool, mode PMMode) err
 			break
 		}
 	}
-	conR.chain.UpdateBestQC()
+	conR.chain.UpdateBestQC(nil, chain.None)
 	bestQC := conR.chain.BestQC()
 	bestBlock := conR.chain.BestBlock()
 	if bestQC.QCHeight != bestBlock.Header().Number() {

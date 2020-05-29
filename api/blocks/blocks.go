@@ -42,6 +42,11 @@ func (b *Blocks) handleGetBlock(w http.ResponseWriter, req *http.Request) error 
 	if err != nil {
 		return utils.BadRequest(errors.WithMessage(err, "revision"))
 	}
+	expanded := req.URL.Query().Get("expanded")
+	if expanded != "" && expanded != "false" && expanded != "true" {
+		return utils.BadRequest(errors.WithMessage(errors.New("should be boolean"), "expanded"))
+	}
+
 	block, err := b.getBlock(revision)
 	if err != nil {
 		if b.chain.IsNotFound(err) {
@@ -53,11 +58,25 @@ func (b *Blocks) handleGetBlock(w http.ResponseWriter, req *http.Request) error 
 	if err != nil {
 		return err
 	}
-	blk, err := convertBlock(block, isTrunk)
-	if err != nil {
-		return err
+
+	jSummary := buildJSONBlockSummary(block, isTrunk)
+	if expanded == "true" {
+		txs := block.Txs
+		receipts, err := b.chain.GetBlockReceipts(block.Header().ID())
+		if err != nil {
+			return err
+		}
+
+		return utils.WriteJSON(w, &JSONExpandedBlock{
+			jSummary,
+			buildJSONEmbeddedTxs(txs, receipts),
+		})
 	}
-	return utils.WriteJSON(w, blk)
+	txIds := make([]meter.Bytes32, 0)
+	for _, tx := range block.Txs {
+		txIds = append(txIds, tx.ID())
+	}
+	return utils.WriteJSON(w, &JSONCollapsedBlock{jSummary, txIds})
 }
 
 func (b *Blocks) parseRevision(revision string) (interface{}, error) {

@@ -5,6 +5,9 @@ ABBR_IMAGE_NAME=dfinlab/meter-allin
 
 VERSION=$(cat cmd/meter/VERSION)
 
+docker pull dfinlab/meter-pos:latest
+docker pull dfinlab/meter-pow:latest
+
 echo "Building ${DOCKER_TAG}"
 docker build -f ./allin.Dockerfile -t $FULL_IMAGE_NAME:$VERSION .
 docker tag $FULL_IMAGE_NAME:$VERSION $FULL_IMAGE_NAME:latest
