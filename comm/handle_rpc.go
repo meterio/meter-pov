@@ -177,7 +177,7 @@ func (c *Communicator) handleRPC(peer *Peer, msg *p2p.Msg, write func(interface{
 		c.powPool.Add(newPowBlockInfo)
 		write(&struct{}{})
 	case proto.MsgGetBestQC:
-		qc := c.chain.BestQC()
+		qc := c.chain.BestQCOrCandidate()
 		write(qc)
 	case proto.MsgNewBestQC:
 		var newQC *block.QuorumCert
