@@ -37,9 +37,13 @@ var (
 
 func init() {
 	var found bool
-	if energyTransferEvent, found = builtin.MeterTracker.ABI.EventByName("Transfer"); !found {
+	if energyTransferEvent, found = builtin.Meter.ABI.EventByName("Transfer"); !found {
 		panic("transfer event not found")
 	}
+	if energyTransferEvent, found = builtin.MeterGov.ABI.EventByName("Transfer"); !found {
+		panic("transfer event not found")
+	}
+
 	if prototypeSetMasterEvent, found = builtin.Prototype.Events().EventByName("$Master"); !found {
 		panic("$Master event not found")
 	}
