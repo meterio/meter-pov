@@ -20,7 +20,9 @@ import (
 // Builtin contracts binding.
 var (
 	Params       = &paramsContract{mustLoadContract("Params")}
-	MeterTracker = &energyContract{mustLoadContract("Energy")}
+	Meter        = &erc20Contract{mustLoadContract("Meter")}             // ErC 20 contract
+	MeterGov     = &erc20Contract{mustLoadContract("MeterGov")}          //erc20 contract
+	MeterTracker = &meterTrackerContract{mustLoadContract("MeteNative")} // native call contract
 	Executor     = &executorContract{mustLoadContract("Executor")}
 	Prototype    = &prototypeContract{mustLoadContract("Prototype")}
 	Extension    = &extensionContract{mustLoadContract("Extension")}
@@ -28,18 +30,19 @@ var (
 )
 
 type (
-	paramsContract    struct{ *contract }
-	energyContract    struct{ *contract }
-	executorContract  struct{ *contract }
-	prototypeContract struct{ *contract }
-	extensionContract struct{ *contract }
+	paramsContract       struct{ *contract }
+	erc20Contract        struct{ *contract }
+	meterTrackerContract struct{ *contract }
+	executorContract     struct{ *contract }
+	prototypeContract    struct{ *contract }
+	extensionContract    struct{ *contract }
 )
 
 func (p *paramsContract) Native(state *state.State) *params.Params {
 	return params.New(p.Address, state)
 }
 
-func (e *energyContract) Native(state *state.State) *metertracker.MeterTracker {
+func (e *meterTrackerContract) Native(state *state.State) *metertracker.MeterTracker {
 	return metertracker.New(e.Address, state)
 }
 

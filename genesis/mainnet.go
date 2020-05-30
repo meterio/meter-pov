@@ -33,6 +33,8 @@ func NewMainnet() *Genesis {
 			}
 
 			// alloc builtin contracts
+			state.SetCode(builtin.Meter.Address, builtin.Meter.RuntimeBytecodes())
+			state.SetCode(builtin.MeterGov.Address, builtin.MeterGov.RuntimeBytecodes())
 			state.SetCode(builtin.MeterTracker.Address, builtin.MeterTracker.RuntimeBytecodes())
 			state.SetCode(builtin.Executor.Address, builtin.Executor.RuntimeBytecodes())
 			state.SetCode(builtin.Extension.Address, builtin.Extension.RuntimeBytecodes())

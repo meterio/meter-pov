@@ -55,3 +55,13 @@ func (c *contract) NativeABI() *abi.ABI {
 	}
 	return abi
 }
+
+func GetContractABI(name string) *abi.ABI {
+	asset := "compiled/" + name + ".abi"
+	data := gen.MustAsset(asset)
+	abi, err := abi.New(data)
+	if err != nil {
+		panic(errors.Wrap(err, "load ABI for '"+name+"'"))
+	}
+	return abi
+}

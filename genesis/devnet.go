@@ -73,6 +73,8 @@ func NewDevnet() *Genesis {
 			}
 
 			// setup builtin contracts
+			state.SetCode(builtin.Meter.Address, builtin.Meter.RuntimeBytecodes())
+			state.SetCode(builtin.MeterGov.Address, builtin.MeterGov.RuntimeBytecodes())
 			state.SetCode(builtin.MeterTracker.Address, builtin.MeterTracker.RuntimeBytecodes())
 			state.SetCode(builtin.Params.Address, builtin.Params.RuntimeBytecodes())
 			state.SetCode(builtin.Prototype.Address, builtin.Prototype.RuntimeBytecodes())
