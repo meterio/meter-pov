@@ -20,6 +20,7 @@ func (p *Probe) HandleProbe(w http.ResponseWriter, r *http.Request) {
 	name := p.Cons.GetMyName()
 	bestBlock, _ := convertBlock(p.Chain.BestBlock())
 	bestQC, _ := convertQC(p.Chain.BestQC())
+	bestQCCandidate, _ := convertQC(p.Chain.BestQCCandidate())
 	qcHigh, _ := convertQC(p.Cons.GetQCHigh())
 	result := ProbeResult{
 		Name:               name,
@@ -27,6 +28,7 @@ func (p *Probe) HandleProbe(w http.ResponseWriter, r *http.Request) {
 		Version:            p.Version,
 		BestBlock:          bestBlock,
 		BestQC:             bestQC,
+		BestQCCandidate:    bestQCCandidate,
 		QCHigh:             qcHigh,
 		IsCommitteeMember:  p.Cons.IsCommitteeMember(),
 		IsPacemakerRunning: p.Cons.IsPacemakerRunning(),

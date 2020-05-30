@@ -302,7 +302,7 @@ func (c *Communicator) SubscribeBlock(ch chan *NewBlockEvent) event.Subscription
 // BroadcastBlock broadcast a block to remote peers.
 func (c *Communicator) BroadcastBlock(blk *block.Block) {
 	h := blk.Header()
-	bestQC := c.chain.BestQC()
+	bestQC := c.chain.BestQCOrCandidate()
 	log.Debug("Broadcast block and qc",
 		"height", h.Number(),
 		"id", h.ID(),

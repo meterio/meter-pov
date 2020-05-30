@@ -260,6 +260,12 @@ func (c *Chain) BestQC() *block.QuorumCert {
 	return c.bestQC
 }
 
+func (c *Chain) BestQCCandidate() *block.QuorumCert {
+	c.rw.RLock()
+	defer c.rw.RUnlock()
+	return c.bestQCCandidate
+}
+
 func (c *Chain) BestQCOrCandidate() *block.QuorumCert {
 	c.rw.RLock()
 	defer c.rw.RUnlock()
@@ -827,6 +833,7 @@ const (
 	LocalCommit    QCSource = 2
 	LocalBestQC    QCSource = 3
 	LocalBestBlock QCSource = 4
+	LocalCandidate QCSource = 5
 )
 
 func (s QCSource) String() string {
@@ -839,6 +846,8 @@ func (s QCSource) String() string {
 		return "LocalBestQC"
 	case LocalBestBlock:
 		return "LocalBestBlock"
+	case LocalCandidate:
+		return "LocalCandidate"
 	}
 	return ""
 }
@@ -852,6 +861,7 @@ func (c *Chain) UpdateBestQC(qc *block.QuorumCert, source QCSource) (bool, error
 	qcs := []*QCWrap{
 		&QCWrap{source: LocalBestQC, qc: c.bestQC},
 		&QCWrap{source: LocalBestBlock, qc: c.bestBlock.QC},
+		&QCWrap{source: LocalCandidate, qc: c.bestQCCandidate},
 	}
 
 	if qc != nil {

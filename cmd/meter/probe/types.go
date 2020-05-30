@@ -78,12 +78,13 @@ func convertBlock(b *block.Block) (*Block, error) {
 }
 
 type ProbeResult struct {
-	Name      string `json:"name"`
-	PubKey    string `json:"pubkey"`
-	Version   string `json:"version"`
-	BestBlock *Block `json:"bestBlock"`
-	BestQC    *QC    `json:"bestQC"`
-	QCHigh    *QC    `json:"qcHigh"`
+	Name            string `json:"name"`
+	PubKey          string `json:"pubkey"`
+	Version         string `json:"version"`
+	BestBlock       *Block `json:"bestBlock"`
+	BestQC          *QC    `json:"bestQC"`
+	BestQCCandidate *QC    `json:"bestQCCandidate"`
+	QCHigh          *QC    `json:"qcHigh"`
 
 	IsCommitteeMember  bool `json:"isCommitteeMember"`
 	IsPacemakerRunning bool `json:"isPacemakerRunning"`
