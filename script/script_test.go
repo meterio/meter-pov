@@ -6,7 +6,16 @@ import (
 	"encoding/hex"
 	"fmt"
 	"testing"
+
+	"github.com/dfinlab/meter/script"
+	"github.com/dfinlab/meter/script/staking"
 )
+
+/*
+Execute this test with
+cd /tmp/meter-build-xxxxx/src/github.com/dfinlab/meter/script/staking
+GOPATH=/tmp/meter-build-xxxx/:$GOPATH go test
+*/
 
 /*
 func TestGob1(t *testing.T) {
@@ -395,4 +404,36 @@ func TestGob(t *testing.T) {
 	}
 	fmt.Println("t1known: ", t1.Addr, t1.Id)
 
+}
+
+func TestScriptDecode(t *testing.T) {
+	data, err := hex.DecodeString("deadbeeff9013fc4808203e8b90137f901340380019405771b188f4b5edcb94bbb5a9e3b5f9b312cc0189405771b188f4b5edcb94bbb5a9e3b5f9b312cc018866e75746b6161b8b34247726d66477833696a6944763342324a694949576263684e61436d5638576a5245337033504d487349774a472b694633417a61512b42574f795339517051684c34526b4d686447514b68325433377130736139514b383d3a3a3a516357385541536d714c6f4e677a7370676c4a5977514c7a644477307253306756386a452f7070776d355859663161516d79746f6a78767246444b347536425742477a6c704b754f32636c4c6e57616354496a694a77453d8d3131362e3230332e37312e36308221dea00000000000000000000000000000000000000000000000000000000000000000891043561a882930000001845ed1725b871c211be0f7eb7e80")
+
+	if err != nil {
+		fmt.Println("decode string failed", err)
+		t.Fail()
+		return
+	}
+
+	if bytes.Compare(data[:len(script.ScriptPattern)], script.ScriptPattern[:]) != 0 {
+		fmt.Printf("Pattern mismatch, pattern = %v", hex.EncodeToString(data[:len(script.ScriptPattern)]))
+		t.Fail()
+		return
+	}
+
+	s, err := script.ScriptDecodeFromBytes(data[len(script.ScriptPattern):])
+	if err != nil {
+		fmt.Println("Decode script message failed", err)
+		t.Fail()
+		return
+	}
+	fmt.Println("Script header", s.Header.ToString())
+
+	sb, err := staking.StakingDecodeFromBytes(s.Payload)
+	if err != nil {
+		fmt.Println("Decode script message failed", "error", err)
+		t.Fail()
+		return
+	}
+	fmt.Println("staking Body", sb.ToString())
 }
