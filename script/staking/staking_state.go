@@ -419,7 +419,7 @@ func (s *Staking) DistValidatorRewards(amount *big.Int, validators []*meter.Addr
 		baseRewardsOnly = true
 	}
 
-	baseReward := baseRewards.Div(baseRewards, big.NewInt(int64(size)))
+	baseReward := new(big.Int).Div(baseRewards, big.NewInt(int64(size)))
 	for i = 0; i < size; i++ {
 		delegate, ok := delegatesMap[*validators[i]]
 		if ok == false {

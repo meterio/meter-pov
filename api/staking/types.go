@@ -177,7 +177,7 @@ type RewardInfo struct {
 type ValidatorReward struct {
 	Epoch            uint32        `json:"epoch"`
 	BaseReward       uint64        `json:"baseReward"`
-	ExpectDistribute uint64        `json:"expecteDistribute"`
+	ExpectDistribute uint64        `json:"expectDistribute"`
 	ActualDistribute uint64        `json:"actualDistribute`
 	Info             []*RewardInfo `json:"info"`
 }
