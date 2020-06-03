@@ -1,11 +1,14 @@
 package probe
 
 import (
+	"bytes"
 	"net/http"
+	"strings"
 
 	"github.com/dfinlab/meter/api/utils"
 	"github.com/dfinlab/meter/chain"
 	"github.com/dfinlab/meter/consensus"
+	"github.com/dfinlab/meter/script/staking"
 )
 
 type Probe struct {
@@ -17,7 +20,18 @@ type Probe struct {
 }
 
 func (p *Probe) HandleProbe(w http.ResponseWriter, r *http.Request) {
-	name := p.Cons.GetMyName()
+	name := ""
+	pubkeyMatch := false
+	delegateList, _ := staking.GetInternalDelegateList()
+	for _, d := range delegateList {
+		registeredPK := string(d.PubKey)
+		trimedPK := strings.TrimSpace(registeredPK)
+		if strings.Compare(trimedPK, p.ComplexPubkey) == 0 {
+			name = string(d.Name)
+			pubkeyMatch = (bytes.Compare(d.PubKey, []byte(p.ComplexPubkey)) == 0)
+			break
+		}
+	}
 	bestBlock, _ := convertBlock(p.Chain.BestBlock())
 	bestQC, _ := convertQC(p.Chain.BestQC())
 	bestQCCandidate, _ := convertQC(p.Chain.BestQCCandidate())
@@ -25,6 +39,7 @@ func (p *Probe) HandleProbe(w http.ResponseWriter, r *http.Request) {
 	result := ProbeResult{
 		Name:               name,
 		PubKey:             p.ComplexPubkey,
+		PubKeyValid:        pubkeyMatch,
 		Version:            p.Version,
 		BestBlock:          bestBlock,
 		BestQC:             bestQC,
