@@ -3,6 +3,7 @@ package staking_test
 import (
 	"bytes"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"math/big"
 	"math/rand"
@@ -12,6 +13,7 @@ import (
 	"testing"
 
 	"github.com/dfinlab/meter/meter"
+	"github.com/dfinlab/meter/script"
 	"github.com/dfinlab/meter/script/staking"
 )
 
@@ -182,8 +184,24 @@ func TestCandidateList(t *testing.T) {
 
 func TestDecode(t *testing.T) {
 	body := staking.StakingBody{}
-	bs, err := hex.DecodeString("f86d038002948e69e4357d886b8dd3131af7d7627a4381d3ddd4948e69e4357d886b8dd3131af7d7627a4381d3ddd4867465737465728087312e322e332e348221dda0d75eb6c42a73533f961c38fe2b87bb3615db7ff8e19c0d808c046e7a25d9a413881bc16d674ec80000010301")
-	fmt.Println("ERROR:", err)
-	err = rlp.DecodeBytes(bs, &body)
+	data, err := hex.DecodeString("deadbeeff90141c4808203e8b90139f901360380019440df6f787bf8bd3fba3b2ef5a742ae0c993f14189440df6f787bf8bd3fba3b2ef5a742ae0c993f1418887869616f68616e32b8b4424d7845445839506d6e61505a61523935517463516f654c7959586444562b54753375334a7a3973374c52316370466c484f566830414a473874784d36374a5678634a67453848782f41422b444546364c426d7a424a4d3d3a3a3a0a48516b63646d4c30756f754f6d2f4c4f6e7a4c396e68362b4e6a6c486434334e38733168534c5a6e5346494854324e7472797979323138694b454e374f48785339494d4844395846586d794c384643414d542b697851453d8c2035322e37342e3131332e348221dea00000000000000000000000000000000000000000000000000000000000000000891043561a882930000001845ed5899d870926ebe848f0f680")
+	if bytes.Compare(data[:len(script.ScriptPattern)], script.ScriptPattern[:]) != 0 {
+		err := errors.New(fmt.Sprintf("Pattern mismatch, pattern = %v", hex.EncodeToString(data[:len(script.ScriptPattern)])))
+		fmt.Println(err)
+		t.Fail()
+	}
+
+	scriptData, err := script.ScriptDecodeFromBytes(data[len(script.ScriptPattern):])
+	if err != nil {
+		fmt.Println("decode script error: ", err)
+		t.Fail()
+	}
+
+	fmt.Println("Payload: ", "0x"+hex.EncodeToString(scriptData.Payload))
+	err = rlp.DecodeBytes(scriptData.Payload, &body)
+	if err != nil {
+		fmt.Println("decode staking body error:", err)
+		t.Fail()
+	}
 	fmt.Println("ERROR:", err, ", BODY:", body.ToString())
 }
