@@ -80,7 +80,7 @@ func convertBlock(b *block.Block) (*Block, error) {
 type ProbeResult struct {
 	Name            string `json:"name"`
 	PubKey          string `json:"pubkey"`
-	PubKeyValid     string `json:"pubkeyValid"`
+	PubKeyValid     bool   `json:"pubkeyValid"`
 	Version         string `json:"version"`
 	BestBlock       *Block `json:"bestBlock"`
 	BestQC          *QC    `json:"bestQC"`
