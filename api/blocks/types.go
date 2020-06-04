@@ -6,6 +6,7 @@
 package blocks
 
 import (
+	"encoding/binary"
 	"encoding/hex"
 
 	"github.com/dfinlab/meter/block"
@@ -46,6 +47,7 @@ type JSONCollapsedBlock struct {
 type JSONClause struct {
 	To    *meter.Address       `json:"to"`
 	Value math.HexOrDecimal256 `json:"value"`
+	Token uint32               `json:"token"`
 	Data  string               `json:"data"`
 }
 
@@ -179,6 +181,7 @@ func buildJSONEmbeddedTxs(txs tx.Transactions, receipts tx.Receipts) []*JSONEmbe
 			jcs = append(jcs, &JSONClause{
 				c.To(),
 				math.HexOrDecimal256(*c.Value()),
+				binary.LittleEndian.Uint32([]byte{c.Token()}),
 				hexutil.Encode(c.Data()),
 			})
 			if !receipt.Reverted {
