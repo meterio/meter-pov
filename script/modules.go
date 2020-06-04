@@ -1,6 +1,7 @@
 package script
 
 import (
+	"github.com/dfinlab/meter/script/accountlock"
 	"github.com/dfinlab/meter/script/auction"
 	"github.com/dfinlab/meter/script/staking"
 )
@@ -11,6 +12,9 @@ const (
 
 	AUCTION_MODULE_NAME = string("auction")
 	AUCTION_MODULE_ID   = uint32(1001)
+
+	ACCOUNTLOCK_MODULE_NAME = string("accountlock")
+	ACCOUNTLOCK_MODULE_ID   = uint32(1002)
 )
 
 func ModuleStakingInit(se *ScriptEngine) *staking.Staking {
@@ -46,6 +50,26 @@ func ModuleAuctionInit(se *ScriptEngine) *auction.Auction {
 	}
 	if err := se.modReg.Register(AUCTION_MODULE_ID, mod); err != nil {
 		panic("register auction module failed")
+	}
+
+	a.Start()
+	se.logger.Info("ScriptEngine", "started moudle", mod.modName)
+	return a
+}
+
+func ModuleAccountLockInit(se *ScriptEngine) *accountlock.AccountLock {
+	a := accountlock.NewAccountLock(se.chain, se.stateCreator)
+	if a == nil {
+		panic("init accountlock module failed")
+	}
+
+	mod := &Module{
+		modName:    ACCOUNTLOCK_MODULE_NAME,
+		modID:      ACCOUNTLOCK_MODULE_ID,
+		modHandler: a.PrepareAccountLockHandler(),
+	}
+	if err := se.modReg.Register(ACCOUNTLOCK_MODULE_ID, mod); err != nil {
+		panic("register accountlock module failed")
 	}
 
 	a.Start()

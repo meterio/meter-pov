@@ -10,11 +10,11 @@ import (
 
 	"github.com/dfinlab/meter/chain"
 	"github.com/dfinlab/meter/meter"
+	"github.com/dfinlab/meter/script/accountlock"
 	"github.com/dfinlab/meter/script/auction"
 	"github.com/dfinlab/meter/script/staking"
 	"github.com/dfinlab/meter/state"
 	"github.com/dfinlab/meter/xenv"
-	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/inconshreveable/log15"
 )
 
@@ -84,6 +84,10 @@ func initGobEncode() {
 	gob.Register([]*auction.AuctionCB{})
 	gob.Register([]*auction.AuctionSummary{})
 
+	// AccountLock
+	gob.Register(&accountlock.Profile{})
+	gob.Register([]*accountlock.Profile{})
+
 	buf := bytes.NewBuffer([]byte{})
 	encoder := gob.NewEncoder(buf)
 	encoder.Encode([]*staking.Candidate{&staking.Candidate{}})
@@ -94,6 +98,8 @@ func initGobEncode() {
 	encoder.Encode([]*staking.DelegateJailed{&staking.DelegateJailed{}})
 	encoder.Encode(&auction.AuctionCB{})
 	encoder.Encode([]*auction.AuctionSummary{&auction.AuctionSummary{}})
+	encoder.Encode(&accountlock.Profile{})
+	encoder.Encode([]*accountlock.Profile{&accountlock.Profile{}})
 }
 
 func (se *ScriptEngine) StartAllModules() {
@@ -102,6 +108,9 @@ func (se *ScriptEngine) StartAllModules() {
 
 	// auction
 	ModuleAuctionInit(se)
+
+	// accountlock
+	ModuleAccountLockInit(se)
 }
 
 func (se *ScriptEngine) HandleScriptData(data []byte, to *meter.Address, txCtx *xenv.TransactionContext, gas uint64, state *state.State) (ret []byte, leftOverGas uint64, err error) {
@@ -130,44 +139,4 @@ func (se *ScriptEngine) HandleScriptData(data []byte, to *meter.Address, txCtx *
 	//module handler
 	ret, leftOverGas, err = mod.modHandler(script.Payload, to, txCtx, gas, state)
 	return
-}
-
-//======================
-var (
-	ScriptPattern = [4]byte{0xde, 0xad, 0xbe, 0xef} //pattern: deadbeef
-)
-
-type ScriptHeader struct {
-	// Pattern [4]byte
-	Version uint32
-	ModID   uint32
-}
-
-// Version returns the version
-func (sh *ScriptHeader) GetVersion() uint32 { return sh.Version }
-func (sh *ScriptHeader) GetModID() uint32   { return sh.ModID }
-func (sh *ScriptHeader) ToString() string {
-	return fmt.Sprintf("ScriptHeader:::  Version: %v, ModID: %v", sh.Version, sh.ModID)
-}
-
-//==========================================
-type Script struct {
-	Header  ScriptHeader
-	Payload []byte
-}
-
-func ScriptEncodeBytes(script *Script) []byte {
-	scriptBytes, err := rlp.EncodeToBytes(script)
-	if err != nil {
-		fmt.Printf("rlp encode failed, %s\n", err.Error())
-		return []byte{}
-	}
-
-	return scriptBytes
-}
-
-func ScriptDecodeFromBytes(bytes []byte) (*Script, error) {
-	script := Script{}
-	err := rlp.DecodeBytes(bytes, &script)
-	return &script, err
 }
