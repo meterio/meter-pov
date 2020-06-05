@@ -153,8 +153,19 @@ func (cv *ConsensusValidator) ProcessAnnounceCommittee(announceMsg *AnnounceComm
 	round := cv.csReactor.newCommittee.Round % uint32(len(cv.csReactor.newCommittee.Committee.Validators))
 	lv := cv.csReactor.curCommittee.Validators[round]
 	if bytes.Equal(crypto.FromECDSAPub(&lv.PubKey), announceMsg.AnnouncerID) == false {
-		cv.csReactor.logger.Error("Sender is not leader in my committee ...", "sender", base64.StdEncoding.EncodeToString(announceMsg.AnnouncerID), "expectedLeader", base64.StdEncoding.EncodeToString(crypto.FromECDSAPub(&lv.PubKey)))
-		return false
+		cv.csReactor.logger.Warn("Sender is not leader ...",
+			"sender", base64.StdEncoding.EncodeToString(announceMsg.AnnouncerID), "round", ch.Round,
+			"expect leader", base64.StdEncoding.EncodeToString(crypto.FromECDSAPub(&lv.PubKey)), "expect round", round)
+
+		// we know that they reach majority in a round other than mine. if I am still out, join committee.
+		// 1. I did not join other committee
+		// 2. no pacemaker running
+		if cv.state != COMMITTEE_VALIDATOR_COMMITSENT && cv.csReactor.IsPacemakerRunning() == false {
+			cv.csReactor.NewCommitteeUpdateRound(ch.Round)
+			cv.csReactor.logger.Info("adjusted my round, continue to process Announce", "from", round, "to", ch.Round)
+		} else {
+			return false
+		}
 	}
 	if bytes.Equal(cv.csReactor.csCommon.GetSystem().PubKeyToBytes(lv.BlsPubKey), announceMsg.AnnouncerBlsPK) == false {
 		cv.csReactor.logger.Error("bls public key mismatch", "round", round)

@@ -142,6 +142,18 @@ func (conR *ConsensusReactor) NewCommitteeTimerStop() {
 	}
 }
 
+func (conR *ConsensusReactor) NewCommitteeUpdateRound(round uint32) {
+	if conR.newCommittee == nil {
+		return
+	}
+	conR.NewCommitteeTimerStop()
+	conR.newCommittee.Round = round
+	timeoutInterval := NEW_COMMITTEE_INIT_INTV * (2 << conR.newCommittee.Round)
+	conR.newCommittee.TimeoutTimer = time.AfterFunc(timeoutInterval, func() {
+		conR.schedulerQueue <- func() { conR.NewCommitteeTimeout() }
+	})
+}
+
 func (conR *ConsensusReactor) updateCurEpoch(epoch uint64) {
 	if epoch > conR.curEpoch {
 		oldVal := conR.curEpoch
@@ -346,15 +358,17 @@ func (conR *ConsensusReactor) ProcessNewCommitteeMessage(newCommitteeMsg *NewCom
 		// nc.voterAggSig = conR.csCommon.AggregateSign(nc.voterSig)
 
 		if conR.newCommittee.Replay == true {
-			conR.ScheduleReplayLeader(epochID, NewNCEvidence(nc.sigAggregator.bitArray, nc.sigAggregator.msgHash, aggSig), WHOLE_NETWORK_BLOCK_SYNC_TIME)
+			conR.ScheduleReplayLeader(epochID, height, round,
+				NewNCEvidence(nc.sigAggregator.bitArray, nc.sigAggregator.msgHash, aggSig),
+				WHOLE_NETWORK_BLOCK_SYNC_TIME)
 		} else {
 			// Wait for block sync since there is no time out yet
-			conR.ScheduleLeader(epochID, height,
+			conR.ScheduleLeader(epochID, height, round,
 				NewNCEvidence(nc.sigAggregator.bitArray, nc.sigAggregator.msgHash, aggSig),
 				WHOLE_NETWORK_BLOCK_SYNC_TIME)
 		}
 
-		conR.logger.Info("Leader scheduled ...")
+		conR.logger.Info("Leader scheduled ...", "height", height, "round", round, "epoch", epochID)
 		return true
 	} else {
 		// not reach 2/3 yet, wait for more

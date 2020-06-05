@@ -128,13 +128,18 @@ func (cl *ConsensusLeader) CreateNotaryMsgPeers() []*ConsensusPeer {
 }
 
 // Committee leader create AnnounceCommittee to all peers
-func (cl *ConsensusLeader) GenerateAnnounceMsg() bool {
+func (cl *ConsensusLeader) GenerateAnnounceMsg(height uint32, round uint32) bool {
 
+	// height check should be done before, still do it here cos safe.
 	curHeight := cl.csReactor.curHeight
+	if curHeight != height {
+		cl.csReactor.logger.Error("height is mismatch with curHeight", "curHeight", curHeight, "height", height)
+		return false
+	}
 
 	cmnHdr := ConsensusMsgCommonHeader{
 		Height:    curHeight,
-		Round:     0,
+		Round:     round,
 		Sender:    crypto.FromECDSAPub(&cl.csReactor.myPubKey),
 		Timestamp: time.Now(),
 		MsgType:   CONSENSUS_MSG_ANNOUNCE_COMMITTEE,

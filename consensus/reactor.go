@@ -1118,22 +1118,22 @@ func (conR *ConsensusReactor) BuildNotaryAnnounceSignMsg(pubKey ecdsa.PublicKey,
 //-----------------------------------------------------------------------------
 // New consensus timed schedule util
 //type Scheduler func(conR *ConsensusReactor) bool
-func (conR *ConsensusReactor) ScheduleLeader(epochID uint64, height uint32, ev *NCEvidence, d time.Duration) bool {
+func (conR *ConsensusReactor) ScheduleLeader(epochID uint64, height uint32, round uint32, ev *NCEvidence, d time.Duration) bool {
 	time.AfterFunc(d, func() {
-		conR.schedulerQueue <- func() { HandleScheduleLeader(conR, epochID, height, ev) }
+		conR.schedulerQueue <- func() { HandleScheduleLeader(conR, epochID, height, round, ev) }
 	})
 	return true
 }
 
-func (conR *ConsensusReactor) ScheduleReplayLeader(epochID uint64, ev *NCEvidence, d time.Duration) bool {
+func (conR *ConsensusReactor) ScheduleReplayLeader(epochID uint64, height uint32, round uint32, ev *NCEvidence, d time.Duration) bool {
 	time.AfterFunc(d, func() {
-		conR.schedulerQueue <- func() { HandleScheduleReplayLeader(conR, epochID, ev) }
+		conR.schedulerQueue <- func() { HandleScheduleReplayLeader(conR, epochID, height, round, ev) }
 	})
 	return true
 }
 
 // -------------------------------
-func HandleScheduleReplayLeader(conR *ConsensusReactor, epochID uint64, ev *NCEvidence) bool {
+func HandleScheduleReplayLeader(conR *ConsensusReactor, epochID uint64, height uint32, round uint32, ev *NCEvidence) bool {
 	conR.exitConsensusLeader(conR.curEpoch)
 
 	conR.logger.Debug("Enter consensus replay leader", "curEpochID", conR.curEpoch, "epochID", epochID)
@@ -1141,6 +1141,11 @@ func HandleScheduleReplayLeader(conR *ConsensusReactor, epochID uint64, ev *NCEv
 	// init consensus common as leader
 	// need to deinit to avoid the memory leak
 	best := conR.chain.BestBlock()
+	curHeight := best.Header().Number()
+	if height != curHeight {
+		conR.logger.Warn("height is not the same with curHeight")
+	}
+
 	lastKBlockHeight := best.Header().LastKBlockHeight()
 	lastKBlockHeightGauge.Set(float64(lastKBlockHeight))
 
@@ -1153,11 +1158,11 @@ func HandleScheduleReplayLeader(conR *ConsensusReactor, epochID uint64, ev *NCEv
 	conR.csLeader.voterBitArray = ev.voterBitArray
 	conR.csLeader.voterAggSig = ev.voterAggSig
 
-	conR.csLeader.GenerateAnnounceMsg()
+	conR.csLeader.GenerateAnnounceMsg(curHeight, round)
 	return true
 }
 
-func HandleScheduleLeader(conR *ConsensusReactor, epochID uint64, height uint32, ev *NCEvidence) bool {
+func HandleScheduleLeader(conR *ConsensusReactor, epochID uint64, height uint32, round uint32, ev *NCEvidence) bool {
 	curHeight := conR.chain.BestBlock().Header().Number()
 	if curHeight != height {
 		conR.logger.Error("ScheduleLeader: best height is different with kblock height", "curHeight", curHeight, "kblock height", height)
@@ -1173,7 +1178,7 @@ func HandleScheduleLeader(conR *ConsensusReactor, epochID uint64, height uint32,
 		com.TriggerSync()
 		conR.logger.Warn("Peer sync triggered")
 
-		conR.ScheduleLeader(epochID, height, ev, 1*time.Second)
+		conR.ScheduleLeader(epochID, height, round, ev, 1*time.Second)
 		return false
 	}
 
@@ -1182,7 +1187,7 @@ func HandleScheduleLeader(conR *ConsensusReactor, epochID uint64, height uint32,
 	conR.csLeader.voterBitArray = ev.voterBitArray
 	conR.csLeader.voterMsgHash = ev.voterMsgHash
 	conR.csLeader.voterAggSig = ev.voterAggSig
-	conR.csLeader.GenerateAnnounceMsg()
+	conR.csLeader.GenerateAnnounceMsg(height, round)
 	return true
 }
 
