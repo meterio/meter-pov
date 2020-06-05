@@ -16,10 +16,11 @@ import (
 	"github.com/dfinlab/meter/meter"
 	"github.com/dfinlab/meter/runtime/statedb"
 	"github.com/dfinlab/meter/script"
+	"github.com/dfinlab/meter/script/accountlock"
 	"github.com/dfinlab/meter/state"
 	"github.com/dfinlab/meter/tx"
 	Tx "github.com/dfinlab/meter/tx"
-	"github.com/dfinlab/meter/vesting"
+	//"github.com/dfinlab/meter/vesting"
 	"github.com/dfinlab/meter/vm"
 	"github.com/dfinlab/meter/xenv"
 	"github.com/ethereum/go-ethereum/common"
@@ -115,8 +116,8 @@ func (rt *Runtime) ScriptEngineCheck(d []byte) bool {
 }
 
 func (rt *Runtime) restrictTransfer(addr meter.Address) bool {
-	height := uint64(rt.ctx.Number)
-	return vesting.RestrictTransfer(addr, height)
+	return accountlock.RestrictByAccountLock(addr, rt.State()) /***||
+	vesting.RestrictTransfer(addr, uint64(rt.ctx.Number)) **/
 }
 
 // SetVMConfig config VM.

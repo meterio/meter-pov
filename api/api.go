@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/dfinlab/meter/api/accountlock"
 	"github.com/dfinlab/meter/api/accounts"
 	"github.com/dfinlab/meter/api/auction"
 	"github.com/dfinlab/meter/api/blocks"
@@ -88,6 +89,8 @@ func New(chain *chain.Chain, stateCreator *state.Creator, txPool *txpool.TxPool,
 		Mount(router, "/slashing")
 	auction.New().
 		Mount(router, "/auction")
+	accountlock.New().
+		Mount(router, "/accountlock")
 
 	return handlers.CORS(
 			handlers.AllowedOrigins(origins),

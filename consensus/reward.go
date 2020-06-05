@@ -15,6 +15,7 @@ import (
 	"github.com/dfinlab/meter/meter"
 	"github.com/dfinlab/meter/powpool"
 	"github.com/dfinlab/meter/script"
+	"github.com/dfinlab/meter/script/accountlock"
 	"github.com/dfinlab/meter/script/auction"
 	"github.com/dfinlab/meter/script/staking"
 	"github.com/dfinlab/meter/tx"
@@ -324,7 +325,6 @@ func (conR *ConsensusReactor) BuildGoverningData(delegateSize uint32) (ret []byt
 
 // for distribute validator rewards, recalc the delegates list ...
 func (conR *ConsensusReactor) TryBuildStakingGoverningTx() *tx.Transaction {
-	// mint transaction:
 	// 1. signer is nil
 	// 1. located first transaction in kblock.
 	builder := new(tx.Builder)
@@ -337,6 +337,58 @@ func (conR *ConsensusReactor) TryBuildStakingGoverningTx() *tx.Transaction {
 		Nonce(12345678)
 
 	builder.Clause(tx.NewClause(&staking.StakingModuleAddr).WithValue(big.NewInt(0)).WithToken(tx.TOKEN_METER_GOV).WithData(conR.BuildGoverningData(uint32(conR.config.MaxDelegateSize))))
+
+	builder.Build().IntrinsicGas()
+	return builder.Build()
+}
+
+/////// account lock governing
+func (conR *ConsensusReactor) BuildAccoutLockGovningData() (ret []byte) {
+	ret = []byte{}
+
+	body := &accountlock.AccountLockBody{
+		Opcode:  accountlock.OP_GOVERNING,
+		Version: uint32(conR.curEpoch),
+		Option:  uint32(0),
+	}
+	payload, err := rlp.EncodeToBytes(body)
+	if err != nil {
+		conR.logger.Info("encode payload failed", "error", err.Error())
+		return
+	}
+
+	// fmt.Println("Payload Hex: ", hex.EncodeToString(payload))
+	s := &script.Script{
+		Header: script.ScriptHeader{
+			Version: uint32(0),
+			ModID:   script.ACCOUNTLOCK_MODULE_ID,
+		},
+		Payload: payload,
+	}
+	data, err := rlp.EncodeToBytes(s)
+	if err != nil {
+		return
+	}
+	data = append(script.ScriptPattern[:], data...)
+	prefix := []byte{0xff, 0xff, 0xff, 0xff}
+	ret = append(prefix, data...)
+	// fmt.Println("script Hex:", hex.EncodeToString(ret))
+	return
+}
+
+func (conR *ConsensusReactor) TryBuildAccountLockGoverningTx() *tx.Transaction {
+	// 1. signer is nil
+	// 1. transaction in kblock.
+	builder := new(tx.Builder)
+	builder.ChainTag(conR.chain.Tag()).
+		BlockRef(tx.NewBlockRef(conR.chain.BestBlock().Header().Number() + 1)).
+		Expiration(720).
+		GasPriceCoef(0).
+		Gas(meter.BaseTxGas * 10). //buffer for builder.Build().IntrinsicGas()
+		DependsOn(nil).
+		Nonce(12345678)
+
+	builder.Clause(tx.NewClause(&staking.StakingModuleAddr).WithValue(big.NewInt(0)).WithToken(tx.TOKEN_METER_GOV).WithData(conR.BuildAccoutLockGovningData()))
 
 	builder.Build().IntrinsicGas()
 	return builder.Build()

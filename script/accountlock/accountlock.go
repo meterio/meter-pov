@@ -81,6 +81,12 @@ func (a *AccountLock) PrepareAccountLockHandler() (AccountLockHandler func(data 
 			}
 			ret, leftOverGas, err = ab.HandleAccountLockTransfer(env, gas)
 
+		case OP_GOVERNING:
+			if env.GetToAddr().String() != AccountLockAddr.String() {
+				return nil, gas, errors.New("to address is not the same from module address")
+			}
+			ret, leftOverGas, err = ab.GoverningHandler(env, gas)
+
 		default:
 			log.Error("unknown Opcode", "Opcode", ab.Opcode)
 			return nil, gas, errors.New("unknow AccountLock opcode")

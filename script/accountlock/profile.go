@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/dfinlab/meter/meter"
+	"github.com/dfinlab/meter/state"
 )
 
 // Profile indicates the structure of a Profile
@@ -142,7 +143,7 @@ func (l *ProfileList) ToList() []Profile {
 func GetLatestProfileList() (*ProfileList, error) {
 	accountlock := GetAccountLockGlobInst()
 	if accountlock == nil {
-		log.Warn("staking is not initilized...")
+		log.Warn("accountlock is not initilized...")
 		err := errors.New("accountlock is not initilized...")
 		return NewProfileList(nil), err
 	}
@@ -155,4 +156,30 @@ func GetLatestProfileList() (*ProfileList, error) {
 
 	list := accountlock.GetProfileList(state)
 	return list, nil
+}
+
+func RestrictByAccountLock(addr meter.Address, state *state.State) bool {
+	accountlock := GetAccountLockGlobInst()
+	if accountlock == nil {
+		log.Warn("accountlock is not initilized...")
+		return false
+	}
+
+	list := accountlock.GetProfileList(state)
+	if list == nil {
+		log.Warn("get the accountlock profile failed")
+		return false
+	}
+
+	p := list.Get(addr)
+	if p == nil {
+		return false
+	}
+
+	if accountlock.GetCurrentEpoch() >= p.ReleaseEpoch {
+		return false
+	}
+
+	log.Debug("the Address is not allowed to do transfer", "address", addr)
+	return true
 }
