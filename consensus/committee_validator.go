@@ -63,13 +63,13 @@ func (cv *ConsensusValidator) RemoveAllcsPeers() bool {
 }
 
 // Generate commitCommittee Message
-func (cv *ConsensusValidator) GenerateCommitMessage(sig bls.Signature, msgHash [32]byte) *CommitCommitteeMessage {
+func (cv *ConsensusValidator) GenerateCommitMessage(sig bls.Signature, msgHash [32]byte, round uint32) *CommitCommitteeMessage {
 
 	curHeight := cv.csReactor.curHeight
 
 	cmnHdr := ConsensusMsgCommonHeader{
 		Height:    curHeight,
-		Round:     0,
+		Round:     round,
 		Sender:    crypto.FromECDSAPub(&cv.csReactor.myPubKey),
 		Timestamp: time.Now(),
 		MsgType:   CONSENSUS_MSG_COMMIT_COMMITTEE,
@@ -182,7 +182,7 @@ func (cv *ConsensusValidator) ProcessAnnounceCommittee(announceMsg *AnnounceComm
 	// I am in committee, sends the commit message to join the CommitCommitteeMessage
 	signMsg := cv.csReactor.BuildAnnounceSignMsg(lv.PubKey, announceMsg.EpochID(), uint64(ch.Height), uint32(ch.Round))
 	sign, msgHash := cv.csReactor.csCommon.SignMessage([]byte(signMsg))
-	msg := cv.GenerateCommitMessage(sign, msgHash)
+	msg := cv.GenerateCommitMessage(sign, msgHash, cv.csReactor.newCommittee.Round)
 
 	var m ConsensusMessage = msg
 	cv.SendMsgToPeer(&m, lv.NetAddr)
