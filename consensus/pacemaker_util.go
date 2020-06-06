@@ -339,6 +339,9 @@ func (p *Pacemaker) generateNewQCNode(b *pmBlock) (*pmQuorumCert, error) {
 
 func (p *Pacemaker) collectVoteSignature(voteMsg *PMVoteMessage) error {
 	round := voteMsg.CSMsgCommonHeader.Round
+	if p.sigAggregator == nil {
+		return errors.New("signature aggregator is nil, this proposal is not proposed by me")
+	}
 	if round == p.currentRound && p.csReactor.amIRoundProproser(round) {
 		// if round matches and I am proposer, collect signature and store in cache
 
