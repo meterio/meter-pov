@@ -12,7 +12,6 @@ import (
 	"github.com/dfinlab/meter/meter"
 	"github.com/dfinlab/meter/state"
 	"github.com/dfinlab/meter/tx"
-	"github.com/dfinlab/meter/vesting"
 	"github.com/dfinlab/meter/vm"
 )
 
@@ -27,9 +26,6 @@ func NewTestnet() *Genesis {
 	//master0, _ := meter.ParseAddress("0xbc675bf8f737faad6195d20917a57bb0f0ddb5f6")
 	endorser0, _ := meter.ParseAddress("0x1a07d16b152e9a3f5c353bf05944ade8de1a37e9")
 
-	// init vestPlan
-	vesting.VestPlanInit()
-
 	builder := new(Builder).
 		Timestamp(launchTime).
 		GasLimit(meter.InitialGasLimit).
@@ -42,14 +38,16 @@ func NewTestnet() *Genesis {
 				state.SetCode(meter.Address(addr), emptyRuntimeBytecode)
 			}
 
-			vestPlans := vesting.LoadVestPlan()
-			for _, v := range vestPlans {
-				state.SetBalance(v.Address, v.MtrGov)
-				tokenSupply.Add(tokenSupply, v.MtrGov)
+			// accountlock states
+			profiles := LoadVestProfile()
+			for _, p := range profiles {
+				state.SetBalance(p.Addr, p.MeterGovAmount)
+				tokenSupply.Add(tokenSupply, p.MeterGovAmount)
 
-				state.SetEnergy(v.Address, v.Mtr)
-				energySupply.Add(energySupply, v.Mtr)
+				state.SetEnergy(p.Addr, p.MeterAmount)
+				energySupply.Add(energySupply, p.MeterAmount)
 			}
+			SetAccountLockProfileState(profiles, state)
 
 			// setup builtin contracts
 			state.SetCode(builtin.Meter.Address, builtin.Meter.RuntimeBytecodes())
