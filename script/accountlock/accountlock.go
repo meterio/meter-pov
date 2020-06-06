@@ -41,6 +41,7 @@ func NewAccountLock(ch *chain.Chain, sc *state.Creator) *AccountLock {
 }
 
 func (a *AccountLock) Start() error {
+
 	log.Info("AccountLock module started")
 	return nil
 }
@@ -95,9 +96,4 @@ func (a *AccountLock) PrepareAccountLockHandler() (AccountLockHandler func(data 
 		return
 	}
 	return
-}
-
-func (a *AccountLock) GetCurrentEpoch() uint32 {
-	bestBlock := a.chain.BestBlock()
-	return uint32(bestBlock.GetBlockEpoch())
 }

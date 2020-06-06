@@ -123,7 +123,7 @@ func (cl *ProfileList) ToString() string {
 	if cl == nil || len(cl.Profiles) == 0 {
 		return "ProfileList (size:0)"
 	}
-	s := []string{fmt.Sprintf("CandiateList (size:%v) {", len(cl.Profiles))}
+	s := []string{fmt.Sprintf("ProfileList (size:%v) {", len(cl.Profiles))}
 	for i, c := range cl.Profiles {
 		s = append(s, fmt.Sprintf("  %d.%v", i, c.ToString()))
 	}
@@ -161,7 +161,7 @@ func GetLatestProfileList() (*ProfileList, error) {
 func RestrictByAccountLock(addr meter.Address, state *state.State) bool {
 	accountlock := GetAccountLockGlobInst()
 	if accountlock == nil {
-		log.Warn("accountlock is not initilized...")
+		//log.Debug("accountlock is not initilized...")
 		return false
 	}
 

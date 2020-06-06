@@ -6,6 +6,7 @@ import (
 	"math/big"
 
 	"github.com/dfinlab/meter/meter"
+	"github.com/dfinlab/meter/vesting"
 	"github.com/ethereum/go-ethereum/rlp"
 )
 
@@ -164,6 +165,12 @@ func (ab *AccountLockBody) HandleAccountLockTransfer(env *AccountLockEnviroment,
 		}
 	}
 
+	if AccountLock.RestrictByVestingPlan(ab.FromAddr) == true {
+		err = errors.New("account is also locked by vestingPlan")
+		log.Error("account is also locked by vestingPlan", "address", ab.FromAddr)
+		return
+	}
+
 	// sanity done!
 	pFrom := pList.Get(ab.FromAddr)
 	if pFrom == nil {
@@ -216,6 +223,21 @@ func (ab *AccountLockBody) GoverningHandler(env *AccountLockEnviroment, gas uint
 		if p.ReleaseEpoch >= curEpoch {
 			pList.Remove(p.Addr)
 		}
+	}
+
+	// switch vestplan to accountlock
+	if vesting.VestPlanIsInit() == true {
+		vestPlans := vesting.LoadVestPlan()
+		for _, v := range vestPlans {
+			// if the plan already in, skip
+			if p := pList.Get(v.Address); p != nil {
+				continue
+			}
+			memo := []byte(v.Description)
+			p := NewProfile(v.Address, memo, curEpoch, v.ReleaseEpoch, v.Mtr, v.MtrGov)
+			pList.Add(p)
+		}
+		vesting.VestPlanDestroy()
 	}
 
 	log.Debug("account lock governing done...", "epoch", curEpoch)

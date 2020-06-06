@@ -18,16 +18,16 @@ var (
 )
 
 type VestPlan struct {
-	Address     meter.Address
-	Mtr         *big.Int
-	MtrGov      *big.Int
-	Description string
-	Release     uint64 //released block
+	Address      meter.Address
+	Mtr          *big.Int
+	MtrGov       *big.Int
+	Description  string
+	ReleaseEpoch uint32 //released Epoch
 }
 
 func (v *VestPlan) ToString() string {
-	return fmt.Sprintf("VestPlan(%v) address=%v, mtr=%v, mtrGov=%v, release height=%d",
-		string(v.Description), v.Address, v.Mtr.Uint64(), v.MtrGov.Uint64(), v.Release)
+	return fmt.Sprintf("VestPlan(%v) address=%v, mtr=%v, mtrGov=%v, release Epoch=%d",
+		string(v.Description), v.Address, v.Mtr.Uint64(), v.MtrGov.Uint64(), v.ReleaseEpoch)
 }
 
 type planMap struct {

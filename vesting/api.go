@@ -8,8 +8,8 @@ import (
 )
 
 var profiles [][5]string = [][5]string{
-	{"0x0205c2D862cA051010698b69b54278cbAf945C0b", "10000", "10001", "Bumblebee", "3333"},
-	{"0x8A88c59bF15451F9Deb1d62f7734FeCe2002668E", "20000", "20001", "Optimus Prime", "4444"},
+	{"0x0205c2D862cA051010698b69b54278cbAf945C0b", "10000", "10001", "test account1", "3333"},
+	{"0x8A88c59bF15451F9Deb1d62f7734FeCe2002668E", "20000", "20001", "test account2", "4444"},
 }
 
 func LoadVestPlan() []*VestPlan {
@@ -26,19 +26,19 @@ func LoadVestPlan() []*VestPlan {
 			log.Error("parse meterGov value failed", "error", err)
 			continue
 		}
-		height, err := strconv.ParseUint(p[4], 10, 64)
+		epoch, err := strconv.ParseUint(p[4], 10, 64)
 		if err != nil {
-			log.Error("parse release block height failed", "error", err)
+			log.Error("parse release block epoch failed", "error", err)
 			continue
 		}
 		desc := p[3]
 
 		pp := &VestPlan{
-			Address:     address,
-			Mtr:         new(big.Int).Mul(big.NewInt(mtr), big.NewInt(1e18)),
-			MtrGov:      new(big.Int).Mul(big.NewInt(mtrg), big.NewInt(1e18)),
-			Description: desc,
-			Release:     height,
+			Address:      address,
+			Mtr:          new(big.Int).Mul(big.NewInt(mtr), big.NewInt(1e18)),
+			MtrGov:       new(big.Int).Mul(big.NewInt(mtrg), big.NewInt(1e18)),
+			Description:  desc,
+			ReleaseEpoch: uint32(epoch),
 		}
 		plans = append(plans, pp)
 		log.Debug("vestPlan", "vestPlan", pp.ToString())
@@ -62,7 +62,21 @@ func VestPlanInit() error {
 	return nil
 }
 
-func RestrictTransfer(addr meter.Address, curHeight uint64) bool {
+func VestPlanIsInit() bool {
+	if VestPlanMap == nil {
+		return false
+	}
+	return true
+}
+
+func VestPlanDestroy() error {
+	if VestPlanMap != nil {
+		VestPlanMap = nil
+	}
+	return nil
+}
+
+func RestrictTransfer(addr meter.Address, epoch uint32) bool {
 	if VestPlanMap == nil {
 		return false
 	}
@@ -72,7 +86,7 @@ func RestrictTransfer(addr meter.Address, curHeight uint64) bool {
 		return false
 	}
 
-	if curHeight >= v.Release {
+	if epoch >= v.ReleaseEpoch {
 		return false
 	}
 

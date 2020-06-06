@@ -12,8 +12,7 @@ import (
 	"github.com/dfinlab/meter/meter"
 	"github.com/dfinlab/meter/state"
 	"github.com/dfinlab/meter/tx"
-	//"github.com/dfinlab/meter/vesting"
-	"github.com/dfinlab/meter/script/accountlock"
+	"github.com/dfinlab/meter/vesting"
 	"github.com/dfinlab/meter/vm"
 )
 
@@ -28,18 +27,8 @@ func NewTestnet() *Genesis {
 	//master0, _ := meter.ParseAddress("0xbc675bf8f737faad6195d20917a57bb0f0ddb5f6")
 	endorser0, _ := meter.ParseAddress("0x1a07d16b152e9a3f5c353bf05944ade8de1a37e9")
 
-	acctLock1 := meter.MustParseAddress("0x0205c2D862cA051010698b69b54278cbAf945C0b")
-	acctLockRelease1 := uint32(3333)
-	acctLockMtr1 := big.NewInt(10000)
-	acctLockMtrg1 := big.NewInt(20000)
-
-	acctLock2 := meter.MustParseAddress("0x8A88c59bF15451F9Deb1d62f7734FeCe2002668E")
-	acctLockRelease2 := uint32(4444)
-	acctLockMtr2 := big.NewInt(10001)
-	acctLockMtrg2 := big.NewInt(20001)
-
 	// init vestPlan
-	//vesting.VestPlanInit()
+	vesting.VestPlanInit()
 
 	builder := new(Builder).
 		Timestamp(launchTime).
@@ -53,14 +42,6 @@ func NewTestnet() *Genesis {
 				state.SetCode(meter.Address(addr), emptyRuntimeBytecode)
 			}
 
-			state.SetBalance(acctLock1, acctLockMtr1)
-			state.SetEnergy(acctLock1, acctLockMtrg1)
-			state.SetBalance(acctLock2, acctLockMtr2)
-			state.SetEnergy(acctLock2, acctLockMtrg2)
-
-			tokenSupply.Add(tokenSupply, new(big.Int).Add(acctLockMtrg1, acctLockMtrg2))
-			energySupply.Add(energySupply, new(big.Int).Add(acctLockMtr1, acctLockMtr2))
-			/******
 			vestPlans := vesting.LoadVestPlan()
 			for _, v := range vestPlans {
 				state.SetBalance(v.Address, v.MtrGov)
@@ -69,7 +50,6 @@ func NewTestnet() *Genesis {
 				state.SetEnergy(v.Address, v.Mtr)
 				energySupply.Add(energySupply, v.Mtr)
 			}
-			************/
 
 			// setup builtin contracts
 			state.SetCode(builtin.Meter.Address, builtin.Meter.RuntimeBytecodes())
@@ -99,12 +79,6 @@ func NewTestnet() *Genesis {
 		}).
 		// set initial params
 		// use an external account as executor to manage testnet easily
-		Call(
-			tx.NewClause(&accountlock.AccountLockAddr).WithData(AccountLockAddLock(acctLockRelease1, acctLock1, acctLockMtr1, acctLockMtrg1)),
-			meter.Address{}).
-		Call(
-			tx.NewClause(&accountlock.AccountLockAddr).WithData(AccountLockAddLock(acctLockRelease2, acctLock2, acctLockMtr2, acctLockMtrg2)),
-			meter.Address{}).
 		Call(
 			tx.NewClause(&builtin.Params.Address).WithData(mustEncodeInput(builtin.Params.ABI, "set", meter.KeyExecutorAddress, new(big.Int).SetBytes(executor[:]))),
 			meter.Address{}).
