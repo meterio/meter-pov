@@ -1,11 +1,15 @@
 package staking_test
 
 import (
-	"bytes"
+	"encoding/base64"
 	"encoding/hex"
 	"fmt"
 	"math/big"
 	"math/rand"
+	"reflect"
+	"strconv"
+	"strings"
+	"time"
 
 	"github.com/ethereum/go-ethereum/rlp"
 
@@ -15,175 +19,469 @@ import (
 	"github.com/dfinlab/meter/script/staking"
 )
 
+const (
+	PORT       = uint16(8670)
+	COMMISSION = 5e7
+)
+
 /*
 Execute this test with
 cd /tmp/meter-build-xxxxx/src/github.com/dfinlab/meter/script/staking
 GOPATH=/tmp/meter-build-xxxx/:$GOPATH go test
 */
-var bucketIDString = string("0xd75eb6c42a73533f961c38fe2b87bb3615db7ff8e19c0d808c046e7a25d9a413")
+
+// randomHex returns a random hexadecimal string of length n.
+func randomHex(n int) string {
+	var src = rand.New(rand.NewSource(time.Now().UnixNano()))
+
+	b := make([]byte, (n+1)/2) // can be simplified to n/2 if n is always even
+
+	if _, err := src.Read(b); err != nil {
+		panic(err)
+	}
+
+	return hex.EncodeToString(b)[:n]
+}
+
+// randomString returns a random string of length n.
+func randomString(n int) string {
+	const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
+	var src = rand.New(rand.NewSource(time.Now().UnixNano()))
+	b := make([]byte, n)
+	for i := range b {
+		b[i] = charset[src.Intn(len(charset))]
+	}
+	return string(b)
+}
+
+func randomBytes(n int) []byte {
+	return []byte(randomString(n))
+}
+
+func TestRandomString(t *testing.T) {
+	fmt.Println("RANDOM HEX:", randomHex(20))
+}
+
+func randomAddr(t *testing.T) meter.Address {
+	addr, err := meter.ParseAddress("0x" + randomHex(40))
+	if err != nil {
+		fmt.Println("Could not parse address")
+		t.Fail()
+	}
+	return addr
+}
+
+func randomID(t *testing.T) meter.Bytes32 {
+	bytes32, err := meter.ParseBytes32("0x" + randomHex(64))
+	if err != nil {
+		fmt.Println("Could not parse address")
+		t.Fail()
+	}
+	return bytes32
+}
+
+func randomPubkey(t *testing.T) []byte {
+	pk1Bytes, err := hex.DecodeString(randomHex(130))
+	if err != nil {
+		fmt.Println("Could not decode hex")
+		t.Fail()
+	}
+	pk1 := base64.StdEncoding.EncodeToString(pk1Bytes)
+	pk2Bytes, err := hex.DecodeString(randomHex(130))
+	if err != nil {
+		fmt.Println("Could not decode hex")
+		t.Fail()
+	}
+	pk2 := base64.StdEncoding.EncodeToString(pk2Bytes)
+	return []byte(pk1 + ":::" + pk2)
+}
+
+func randomIP(t *testing.T) []byte {
+	var src = rand.New(rand.NewSource(time.Now().UnixNano()))
+	ns := make([]string, 0)
+	for i := 0; i < 4; i++ {
+		ns = append(ns, strconv.Itoa(src.Intn(254)))
+	}
+	return []byte(strings.Join(ns, ","))
+}
+
+func TestCompareValue(t *testing.T) {
+	fmt.Println("a", "a", CompareValue(reflect.ValueOf("a"), reflect.ValueOf("a")))
+	fmt.Println("a", " a", CompareValue(reflect.ValueOf("a"), reflect.ValueOf(" a")))
+	fmt.Println("a", "abc", CompareValue(reflect.ValueOf("a"), reflect.ValueOf("abc")))
+	fmt.Println(1, 1, CompareValue(reflect.ValueOf(1), reflect.ValueOf(1)))
+
+	s := newStakeholder(t)
+	tg := newStakeholder(t)
+	fmt.Println(s, tg, CompareValue(reflect.ValueOf(s), reflect.ValueOf(tg)))
+}
+
+func CompareValue(src, tgt reflect.Value) (result bool) {
+	defer func() {
+		if result == false {
+			srcTypeName := src.Type().Name()
+			tgtTypeName := tgt.Type().Name()
+
+			fmt.Println(fmt.Sprintf("src.%v does not equal to tgt.%v", srcTypeName, tgtTypeName))
+		}
+	}()
+	switch src.Kind() {
+	case reflect.String:
+		return src.String() == tgt.String()
+	case reflect.Int, reflect.Int64:
+		return src.Int() == tgt.Int()
+	case reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+		return src.Uint() == tgt.Uint()
+
+	case reflect.Array:
+		for i := 0; i < src.Len(); i++ {
+			se := src.Index(i)
+			te := tgt.Index(i)
+			if !CompareValue(se, te) {
+				return false
+			}
+
+		}
+	case reflect.Ptr:
+		fmt.Println(src)
+		fmt.Println(tgt)
+		return CompareValue(src.Elem(), tgt.Elem())
+
+	case reflect.Struct:
+		for i := 0; i < src.NumField(); i++ {
+			// sf := src.Type().Field(i)
+			sv := src.Field(i)
+			// tf := tgt.Type().Field(i)
+			tv := tgt.Field(i)
+
+			// fmt.Println("Checking: ", sf.Name, sf.Type, sv)
+			// fmt.Println("Checking: ", tf.Name, tf.Type, tv)
+
+			if !CompareValue(sv, tv) {
+				return false
+			}
+		}
+	}
+	return true
+}
+
+func newStakeholder(t *testing.T) *staking.Stakeholder {
+	s := staking.NewStakeholder(randomAddr(t))
+	s.TotalStake = big.NewInt(10)
+	s.Buckets = append(s.Buckets, randomID(t), randomID(t), randomID(t))
+	return s
+}
 
 func TestRlpForStakeholder(t *testing.T) {
-	addr, err := meter.ParseAddress("0xf3dd5c55b96889369f714143f213403464a268a6")
-	if err != nil {
-		fmt.Println("Can not parse address")
-	}
-	src := staking.NewStakeholder(addr)
-	src.TotalStake = big.NewInt(10)
-	src.Buckets = append(src.Buckets, meter.MustParseBytes32(bucketIDString))
-
-	data, err := rlp.EncodeToBytes(src)
+	s := newStakeholder(t)
+	data, err := rlp.EncodeToBytes(s)
 	if err != nil {
 		fmt.Println("Encode error:", err)
-	}
-	// fmt.Println("DATA: ", data)
-
-	tgt := staking.Stakeholder{}
-	rlp.DecodeBytes(data, &tgt)
-	if src.Holder != tgt.Holder || src.TotalStake.Cmp(tgt.TotalStake) != 0 || len(src.Buckets) != len(tgt.Buckets) {
 		t.Fail()
 	}
 
-	for i, id := range src.Buckets {
-		if tgt.Buckets[i].String() != id.String() {
-			t.Fail()
-		}
+	tgt := &staking.Stakeholder{}
+	err = rlp.DecodeBytes(data, tgt)
+	if err != nil {
+		fmt.Println("Decode error:", err)
+		t.Fail()
 	}
+
+	if !CompareValue(reflect.ValueOf(s), reflect.ValueOf(tgt)) {
+		fmt.Println("stakeholder not equal")
+		t.Fail()
+	}
+}
+
+func newCandidate(t *testing.T) *staking.Candidate {
+	timestamp := uint64(1587608317451)
+	c := staking.NewCandidate(randomAddr(t), randomBytes(10), randomPubkey(t), randomIP(t), PORT, COMMISSION, timestamp)
+
+	c.Buckets = append(c.Buckets, randomID(t), randomID(t), randomID(t))
+	return c
 }
 
 func TestRlpForCandidate(t *testing.T) {
-	addr, err := meter.ParseAddress("0xf3dd5c55b96889369f714143f213403464a268a6")
-	if err != nil {
-		fmt.Println("Can not parse address")
-	}
-	pubKey := []byte("BKjr6wO34Vif9oJHK1/AbMCLHVpvJui3Nx3hLwuOfzwx1Th4H4G0I4liGEC3qKsf8KOd078gYFTK+41n+KhDTzk=:::uH2sc+WgsrxPs91LBy8pIBEjM5I7wNPtSwRSNa83wo4V9iX3RmUmkEPq1QRv4wwRbosNO1RFJ/r64bwdSKK1VwA=")
-	ip := []byte("1.2.3.4")
-	port := uint16(8670)
-	name := []byte("testname")
-	// fmt.Println("pubkey: ", pubKey)
-	commission := uint64(1000000)
-	timestamp := uint64(1587608317451)
-	src := staking.NewCandidate(addr, name, pubKey, ip, port, commission, timestamp)
-	src.Buckets = append(src.Buckets, meter.MustParseBytes32(bucketIDString))
+	src := newCandidate(t)
 
 	data, err := rlp.EncodeToBytes(src)
 	if err != nil {
 		fmt.Println("Encode error:", err)
+		t.Fail()
 	}
-	// fmt.Println("DATA: ", data)
-
-	tgt := staking.Candidate{}
-	rlp.DecodeBytes(data, &tgt)
-	if src.Addr != tgt.Addr ||
-		!bytes.Equal(src.PubKey, tgt.PubKey) ||
-		!bytes.Equal(src.IPAddr, tgt.IPAddr) ||
-		src.Port != tgt.Port ||
-		src.TotalVotes.Cmp(tgt.TotalVotes) != 0 ||
-		len(src.Buckets) != len(tgt.Buckets) {
+	tgt := &staking.Candidate{}
+	err = rlp.DecodeBytes(data, tgt)
+	if err != nil {
+		fmt.Println("Decode error:", err)
 		t.Fail()
 	}
 
-	for i, id := range src.Buckets {
-		if tgt.Buckets[i].String() != id.String() {
-			t.Fail()
-		}
+	if !CompareValue(reflect.ValueOf(src), reflect.ValueOf(tgt)) {
+		fmt.Println("candidate not equal")
+		t.Fail()
 	}
+}
+
+func newBucket(t *testing.T) *staking.Bucket {
+	return staking.NewBucket(randomAddr(t), randomAddr(t), big.NewInt(int64(rand.Int())), uint8(1), uint32(rand.Int()), uint8(rand.Int()), rand.Uint64(), rand.Uint64())
 }
 
 func TestRlpForBucket(t *testing.T) {
-	addr, err := meter.ParseAddress("0x0205c2D862cA051010698b69b54278cbAf945C0b")
-	if err != nil {
-		fmt.Println("Can not parse address")
-	}
-
-	cand, err1 := meter.ParseAddress("0x86865c55b96889369f714143f213403464a28686")
-	if err1 != nil {
-		fmt.Println("Can not parse address")
-	}
-	token := uint8(rand.Int())
-	opt := uint32(3)
-	rate := uint8(rand.Int())
-	mature := rand.Uint64()
-	src := staking.NewBucket(addr, cand, big.NewInt(int64(rand.Int())), token, opt, rate, mature, rand.Uint64())
-
+	src := newBucket(t)
+	fmt.Println("BUCKET:", src.ToString())
 	data, err := rlp.EncodeToBytes(src)
 	if err != nil {
 		fmt.Println("Encode error:", err)
+		t.Fail()
 	}
 	// fmt.Println("DATA: ", data)
 
-	tgt := staking.Bucket{}
-	rlp.DecodeBytes(data, &tgt)
-	if src.Owner != tgt.Owner ||
-		src.Value.Cmp(tgt.Value) != 0 ||
-		src.Token != tgt.Token ||
-		src.Rate != tgt.Rate ||
-		src.CreateTime != tgt.CreateTime ||
-		src.MatureTime != tgt.MatureTime ||
-		src.BonusVotes != tgt.BonusVotes {
+	tgt := &staking.Bucket{}
+	err = rlp.DecodeBytes(data, tgt)
+	if err != nil {
+		fmt.Println("Decode error:", err)
+		t.Fail()
+	}
+	fmt.Println("AFTER BUCKET: ", tgt.ToString())
+
+	if !CompareValue(reflect.ValueOf(src), reflect.ValueOf(tgt)) {
+		fmt.Println("bucket not equal")
+		t.Fail()
+	}
+}
+
+func newDelegate(t *testing.T) *staking.Delegate {
+	return &staking.Delegate{
+		Address:     randomAddr(t),
+		PubKey:      randomPubkey(t),
+		Name:        randomBytes(10),
+		VotingPower: big.NewInt(int64(rand.Uint64())),
+		IPAddr:      randomIP(t),
+		Port:        PORT,
+		Commission:  COMMISSION,
+		DistList: []*staking.Distributor{
+			&staking.Distributor{randomAddr(t), rand.Uint64()},
+			&staking.Distributor{randomAddr(t), rand.Uint64()},
+			&staking.Distributor{randomAddr(t), rand.Uint64()},
+		},
+	}
+}
+func TestRlpForDelegate(t *testing.T) {
+	src := newDelegate(t)
+	data, err := rlp.EncodeToBytes(src)
+	if err != nil {
+		fmt.Println("Encode error:", err)
+		t.Fail()
+	}
+	// fmt.Println("DATA: ", data)
+
+	tgt := &staking.Delegate{}
+	err = rlp.DecodeBytes(data, tgt)
+	if err != nil {
+		fmt.Println("Decode error:", err)
 		t.Fail()
 	}
 
+	if !CompareValue(reflect.ValueOf(src), reflect.ValueOf(tgt)) {
+		fmt.Println("bucket not equal")
+		t.Fail()
+	}
 }
+
+func newInfraction(t *testing.T) staking.Infraction {
+	return staking.Infraction{
+		MissingLeaders: staking.MissingLeader{
+			uint32(1), []*staking.MissingLeaderInfo{
+				&staking.MissingLeaderInfo{rand.Uint32(), rand.Uint32()}}},
+
+		MissingProposers: staking.MissingProposer{
+			uint32(1), []*staking.MissingProposerInfo{
+				&staking.MissingProposerInfo{rand.Uint32(), rand.Uint32()}}},
+
+		MissingVoters: staking.MissingVoter{
+			uint32(1), []*staking.MissingVoterInfo{
+				&staking.MissingVoterInfo{rand.Uint32(), rand.Uint32()}}},
+
+		DoubleSigners: staking.DoubleSigner{
+			uint32(1), []*staking.DoubleSignerInfo{
+				&staking.DoubleSignerInfo{rand.Uint32(), rand.Uint32()}}},
+	}
+}
+
+func newInJail(t *testing.T) *staking.DelegateJailed {
+	return &staking.DelegateJailed{
+		Addr:        randomAddr(t),
+		Name:        randomBytes(10),
+		PubKey:      randomPubkey(t),
+		TotalPts:    rand.Uint64(),
+		Infractions: newInfraction(t),
+
+		BailAmount: big.NewInt(int64(rand.Uint64())),
+		JailedTime: rand.Uint64(),
+	}
+}
+
+func TestRlpForInJail(t *testing.T) {
+	src := newInJail(t)
+	data, err := rlp.EncodeToBytes(src)
+	if err != nil {
+		fmt.Println("Encode error:", err)
+		t.Fail()
+	}
+	// fmt.Println("DATA: ", data)
+
+	tgt := &staking.DelegateJailed{}
+	err = rlp.DecodeBytes(data, tgt)
+	if err != nil {
+		fmt.Println("Decode error:", err)
+		t.Fail()
+	}
+
+	if !CompareValue(reflect.ValueOf(src), reflect.ValueOf(tgt)) {
+		fmt.Println("bucket not equal")
+		t.Fail()
+	}
+}
+
+func newValidatorReward(t *testing.T) *staking.ValidatorReward {
+	type RewardInfo struct {
+		Address meter.Address
+		Amount  *big.Int
+	}
+
+	return &staking.ValidatorReward{
+		Epoch:            rand.Uint32(),
+		BaseReward:       big.NewInt(int64(rand.Uint64())),
+		ExpectDistribute: big.NewInt(int64(rand.Uint64())),
+		ActualDistribute: big.NewInt(int64(rand.Uint64())),
+		Info: []*staking.RewardInfo{
+			&staking.RewardInfo{randomAddr(t), big.NewInt(int64(rand.Uint64()))},
+			&staking.RewardInfo{randomAddr(t), big.NewInt(int64(rand.Uint64()))},
+			&staking.RewardInfo{randomAddr(t), big.NewInt(int64(rand.Uint64()))},
+			&staking.RewardInfo{randomAddr(t), big.NewInt(int64(rand.Uint64()))},
+		},
+	}
+}
+
+func TestRlpForValidatorReward(t *testing.T) {
+	src := newValidatorReward(t)
+	data, err := rlp.EncodeToBytes(src)
+	if err != nil {
+		fmt.Println("Encode error:", err)
+		t.Fail()
+	}
+	// fmt.Println("DATA: ", data)
+
+	tgt := &staking.ValidatorReward{}
+	err = rlp.DecodeBytes(data, tgt)
+	if err != nil {
+		fmt.Println("Decode error:", err)
+		t.Fail()
+	}
+
+	if !CompareValue(reflect.ValueOf(src), reflect.ValueOf(tgt)) {
+		fmt.Println("bucket not equal")
+		t.Fail()
+	}
+}
+
+func newStats(t *testing.T) *staking.DelegateStatistics {
+	return &staking.DelegateStatistics{
+		Addr:        randomAddr(t),
+		Name:        randomBytes(10),
+		PubKey:      randomPubkey(t),
+		TotalPts:    rand.Uint64(),
+		Infractions: newInfraction(t),
+	}
+}
+
+func TestRlpForStats(t *testing.T) {
+	src := newStats(t)
+	data, err := rlp.EncodeToBytes(src)
+	if err != nil {
+		fmt.Println("Encode error:", err)
+		t.Fail()
+	}
+
+	tgt := &staking.DelegateStatistics{}
+	err = rlp.DecodeBytes(data, tgt)
+	if err != nil {
+		fmt.Println("Decode error:", err)
+		t.Fail()
+	}
+
+	if !CompareValue(reflect.ValueOf(src), reflect.ValueOf(tgt)) {
+		fmt.Println("bucket not equal")
+		t.Fail()
+	}
+}
+
+//////////////////////////////////////////////////////////////////////////////
+//                            Test for Lists
+//////////////////////////////////////////////////////////////////////////////
 
 func TestCandidateList(t *testing.T) {
-	l1 := make([]staking.Candidate, 0)
-	l2 := staking.NewCandidateList(nil)
-	l3 := staking.NewCandidateList(nil)
-	l4 := make([]staking.Candidate, 0)
-
-	addr1 := meter.BytesToAddress([]byte("something"))
-	addr2 := meter.BytesToAddress([]byte("another thing"))
-
-	pubkey := []byte("")
-	ip := []byte("1.2.3.4")
-	port := uint16(8669)
-	c1 := staking.NewCandidate(addr1, []byte("name"), pubkey, ip, port, 0, 0)
-	c2 := staking.NewCandidate(addr2, []byte("name"), pubkey, ip, port, 0, 0)
-	c3 := staking.NewCandidate(addr1, []byte("name"), pubkey, ip, port, 0, 0)
-
-	l1 = append(l1, *c1)
-	l2.Add(c1)
-	l3.Add(c3)
-	l4 = append(l4, *c3)
-
-	b1, e := rlp.EncodeToBytes(&l1)
-	b2, e := rlp.EncodeToBytes(l2.ToList())
-	b5, e := rlp.EncodeToBytes(&l4)
-	fmt.Println("HEX &l1:", hex.EncodeToString(b1), ", E:", e)
-	fmt.Println("HEX l2.ToList():", hex.EncodeToString(b2), ", E:", e)
-	fmt.Println("HEX &l4:", hex.EncodeToString(b5), ", E:", e)
-
-	l1 = append(l1, *c2)
-	l2.Add(c2)
-	b1, e = rlp.EncodeToBytes(&l1)
-	b2, e = rlp.EncodeToBytes(l2.ToList())
-	fmt.Println("HEX &l1:", hex.EncodeToString(b1), ", E:", e)
-	fmt.Println("HEX l2.ToList():", hex.EncodeToString(b2), ", E:", e)
-
-	r1 := make([]staking.Candidate, 0)
-	r2 := make([]*staking.Candidate, 0)
-
-	err := rlp.DecodeBytes(b2, &r1)
-	fmt.Println("E1:", err)
-	for i, v := range r1 {
-		fmt.Println("Candidate ", i, v.ToString())
+	src := []*staking.Candidate{newCandidate(t), newCandidate(t), newCandidate(t)}
+	data, err := rlp.EncodeToBytes(src)
+	if err != nil {
+		fmt.Println("Encode error:", err)
+		t.Fail()
 	}
-	err = rlp.DecodeBytes(b2, &r2)
-	fmt.Println("E2:", err)
-	for i, v := range r2 {
-		fmt.Println("Candidate ", i, v.ToString())
+	// fmt.Println("DATA: ", data)
+
+	tgt := make([]*staking.Candidate, 0)
+	err = rlp.DecodeBytes(data, &tgt)
+	if err != nil {
+		fmt.Println("Decode error:", err)
+		t.Fail()
 	}
 
-	b1, e = rlp.EncodeToBytes(&r1)
-	b2, e = rlp.EncodeToBytes(r2)
-	fmt.Println("HEX decoded &l1:", hex.EncodeToString(b1), ", E:", e)
-	fmt.Println("HEX decoded l2:", hex.EncodeToString(b2), ", E:", e)
+	if !CompareValue(reflect.ValueOf(src), reflect.ValueOf(tgt)) {
+		fmt.Println("candidate list not equal")
+		t.Fail()
+	}
 }
 
-func TestDecode(t *testing.T) {
-	body := staking.StakingBody{}
-	bs, err := hex.DecodeString("f86d038002948e69e4357d886b8dd3131af7d7627a4381d3ddd4948e69e4357d886b8dd3131af7d7627a4381d3ddd4867465737465728087312e322e332e348221dda0d75eb6c42a73533f961c38fe2b87bb3615db7ff8e19c0d808c046e7a25d9a413881bc16d674ec80000010301")
-	fmt.Println("ERROR:", err)
-	err = rlp.DecodeBytes(bs, &body)
-	fmt.Println("ERROR:", err, ", BODY:", body.ToString())
+func TestBucketList(t *testing.T) {
+	src := []*staking.Bucket{newBucket(t), newBucket(t), newBucket(t)}
+	data, err := rlp.EncodeToBytes(src)
+	if err != nil {
+		fmt.Println("Encode error:", err)
+		t.Fail()
+	}
+	// fmt.Println("DATA: ", data)
+
+	tgt := make([]*staking.Bucket, 0)
+	err = rlp.DecodeBytes(data, &tgt)
+	if err != nil {
+		fmt.Println("Decode error:", err)
+		t.Fail()
+	}
+
+	if !CompareValue(reflect.ValueOf(src), reflect.ValueOf(tgt)) {
+		fmt.Println("candidate list not equal")
+		t.Fail()
+	}
+}
+
+func TestStakeholderList(t *testing.T) {
+	src := []*staking.Stakeholder{newStakeholder(t), newStakeholder(t), newStakeholder(t)}
+	data, err := rlp.EncodeToBytes(src)
+	if err != nil {
+		fmt.Println("Encode error:", err)
+		t.Fail()
+	}
+	// fmt.Println("DATA: ", data)
+
+	tgt := make([]*staking.Stakeholder, 0)
+	err = rlp.DecodeBytes(data, &tgt)
+	if err != nil {
+		fmt.Println("Decode error:", err)
+		t.Fail()
+	}
+
+	if !CompareValue(reflect.ValueOf(src), reflect.ValueOf(tgt)) {
+		fmt.Println("candidate list not equal")
+		t.Fail()
+	}
 }

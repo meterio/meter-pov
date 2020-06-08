@@ -123,9 +123,9 @@ func TestPermute(t *testing.T) {
 
 	fmt.Println("_____________________PERMUTE______________________")
 	permutation := permute(make([][]int, 0), []int{0, 1, 2, 3})
-	for _, p := range permutation {
-		fmt.Println("permutation: ", p)
-	}
+	// for _, p := range permutation {
+	// fmt.Println("permutation: ", p)
+	// }
 	if len(permutation) != 24 {
 		t.Fail()
 	}
