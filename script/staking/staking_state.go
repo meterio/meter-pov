@@ -2,14 +2,15 @@ package staking
 
 import (
 	"bytes"
-	"encoding/gob"
 	"errors"
 	"math/big"
 	"sort"
+	"strings"
 
 	"github.com/dfinlab/meter/builtin"
 	"github.com/dfinlab/meter/meter"
 	"github.com/dfinlab/meter/state"
+	"github.com/ethereum/go-ethereum/rlp"
 )
 
 // the global variables in staking
@@ -27,34 +28,16 @@ var (
 // Candidate List
 func (s *Staking) GetCandidateList(state *state.State) (result *CandidateList) {
 	state.DecodeStorage(StakingModuleAddr, CandidateListKey, func(raw []byte) error {
-		// fmt.Println("Loaded Raw Hex: ", hex.EncodeToString(raw))
-		decoder := gob.NewDecoder(bytes.NewBuffer(raw))
-		var candidateMap map[meter.Address]*Candidate
-		err := decoder.Decode(&candidateMap)
-		if err != nil {
-			decoder = gob.NewDecoder(bytes.NewBuffer(raw))
-			var candidates []*Candidate
-			err = decoder.Decode(&candidates)
-			result = NewCandidateList(candidates)
+		candidates := make([]*Candidate, 0)
+
+		if len(strings.TrimSpace(string(raw))) >= 0 {
+			err := rlp.Decode(bytes.NewReader(raw), candidates)
 			if err != nil {
-				if err.Error() == "EOF" && len(raw) == 0 {
-					// empty raw, do nothing
-				} else {
-					log.Warn("Error during decoding candidate list, set it as an empty list", "err", err)
-				}
+				log.Warn("Error during decoding candidate list, set it as an empty list", "err", err)
+				return err
 			}
-			// fmt.Println("Loaded:", result.ToString())
-			return nil
 		}
 
-		// convert map to a sorted list
-		candidates := make([]*Candidate, 0)
-		for _, v := range candidateMap {
-			candidates = append(candidates, v)
-		}
-		sort.SliceStable(candidates, func(i, j int) bool {
-			return bytes.Compare(candidates[i].Addr.Bytes(), candidates[j].Addr.Bytes()) <= 0
-		})
 		result = NewCandidateList(candidates)
 		return nil
 	})
@@ -62,135 +45,99 @@ func (s *Staking) GetCandidateList(state *state.State) (result *CandidateList) {
 }
 
 func (s *Staking) SetCandidateList(candList *CandidateList, state *state.State) {
+	sort.SliceStable(candList.candidates, func(i, j int) bool {
+		return bytes.Compare(candList.candidates[i].Addr.Bytes(), candList.candidates[j].Addr.Bytes()) <= 0
+	})
+
 	state.EncodeStorage(StakingModuleAddr, CandidateListKey, func() ([]byte, error) {
-		buf := bytes.NewBuffer([]byte{})
-		encoder := gob.NewEncoder(buf)
-		err := encoder.Encode(candList.candidates)
-		return buf.Bytes(), err
+		return rlp.EncodeToBytes(candList.candidates)
 	})
 }
 
 // StakeHolder List
 func (s *Staking) GetStakeHolderList(state *state.State) (result *StakeholderList) {
 	state.DecodeStorage(StakingModuleAddr, StakeHolderListKey, func(raw []byte) error {
-		decoder := gob.NewDecoder(bytes.NewBuffer(raw))
-		var holderMap map[meter.Address]*Stakeholder
-		// read map first
-		err := decoder.Decode(&holderMap)
+		stakeholders := make([]*Stakeholder, 0)
 
-		if err != nil {
-			// if can't read map
-			// read list instead
-			decoder := gob.NewDecoder(bytes.NewBuffer(raw))
-			var holders []*Stakeholder
-			err = decoder.Decode(&holders)
-			result = newStakeholderList(holders)
+		if len(strings.TrimSpace(string(raw))) >= 0 {
+			err := rlp.Decode(bytes.NewReader(raw), &stakeholders)
 			if err != nil {
-				if err.Error() == "EOF" && len(raw) == 0 {
-					// empty raw, do nothing
-				} else {
-					log.Warn("Error during decoding Staking Holder list, set it with an empty list", "err", err)
-				}
+				log.Warn("Error during decoding bucket list, set it as an empty list. ", "err", err)
+				return err
 			}
-			// fmt.Println("Loaded:", result.ToString())
-			return nil
 		}
 
-		// sort the list from map
-		holders := make([]*Stakeholder, 0)
-		for _, v := range holderMap {
-			holders = append(holders, v)
-		}
-		sort.SliceStable(holders, func(i, j int) bool {
-			return bytes.Compare(holders[i].Holder.Bytes(), holders[j].Holder.Bytes()) <= 0
-		})
-		result = newStakeholderList(holders)
+		result = newStakeholderList(stakeholders)
 		return nil
 	})
 	return
 }
 
 func (s *Staking) SetStakeHolderList(holderList *StakeholderList, state *state.State) {
+	sort.SliceStable(holderList.holders, func(i, j int) bool {
+		return bytes.Compare(holderList.holders[i].Holder.Bytes(), holderList.holders[j].Holder.Bytes()) <= 0
+	})
+
 	state.EncodeStorage(StakingModuleAddr, StakeHolderListKey, func() ([]byte, error) {
-		buf := bytes.NewBuffer([]byte{})
-		encoder := gob.NewEncoder(buf)
-		err := encoder.Encode(holderList.holders)
-		return buf.Bytes(), err
+		return rlp.EncodeToBytes(holderList.holders)
 	})
 }
 
 // Bucket List
 func (s *Staking) GetBucketList(state *state.State) (result *BucketList) {
 	state.DecodeStorage(StakingModuleAddr, BucketListKey, func(raw []byte) error {
-		decoder := gob.NewDecoder(bytes.NewBuffer(raw))
-		var bucketMap map[meter.Bytes32]*Bucket
-		err := decoder.Decode(&bucketMap)
-		if err != nil {
-			decoder = gob.NewDecoder(bytes.NewBuffer(raw))
-			var buckets []*Bucket
-			err = decoder.Decode(&buckets)
-			result = newBucketList(buckets)
-			if err != nil {
-				if err.Error() == "EOF" && len(raw) == 0 {
-					// empty raw, do nothing
-				} else {
-					log.Warn("Error during decoding bucket list, set it as an empty list. ", "err", err)
-				}
-			}
-			// fmt.Println("Loaded:", result.ToString())
-			return nil
-		}
 		buckets := make([]*Bucket, 0)
-		for _, v := range bucketMap {
-			buckets = append(buckets, v)
+
+		if len(strings.TrimSpace(string(raw))) >= 0 {
+			err := rlp.Decode(bytes.NewReader(raw), &buckets)
+			if err != nil {
+				log.Warn("Error during decoding bucket list, set it as an empty list. ", "err", err)
+				return err
+			}
 		}
-		sort.SliceStable(buckets, func(i, j int) bool {
-			return bytes.Compare(buckets[i].BucketID.Bytes(), buckets[j].BucketID.Bytes()) <= 0
-		})
+
 		result = newBucketList(buckets)
 		return nil
-
 	})
 	return
 }
 
 func (s *Staking) SetBucketList(bucketList *BucketList, state *state.State) {
+	sort.SliceStable(bucketList.buckets, func(i, j int) bool {
+		return bytes.Compare(bucketList.buckets[i].BucketID.Bytes(), bucketList.buckets[j].BucketID.Bytes()) <= 0
+	})
+
 	state.EncodeStorage(StakingModuleAddr, BucketListKey, func() ([]byte, error) {
-		// return rlp.EncodeToBytes(bucketList.buckets)
-		buf := bytes.NewBuffer([]byte{})
-		encoder := gob.NewEncoder(buf)
-		err := encoder.Encode(bucketList.buckets)
-		return buf.Bytes(), err
+		return rlp.EncodeToBytes(bucketList.buckets)
 	})
 }
 
 // Delegates List
 func (s *Staking) GetDelegateList(state *state.State) (result *DelegateList) {
 	state.DecodeStorage(StakingModuleAddr, DelegateListKey, func(raw []byte) error {
-		buf := bytes.NewBuffer(raw)
-		decoder := gob.NewDecoder(buf)
-		var delegates []*Delegate
-		err := decoder.Decode(&delegates)
-		result = newDelegateList(delegates)
-		if err != nil {
-			if err.Error() == "EOF" && len(raw) == 0 {
-				// empty raw, do nothing
-			} else {
-				log.Warn("Error during decoding delegates list, set it as an empty list", "err", err)
+		delegates := make([]*Delegate, 0)
+
+		if len(strings.TrimSpace(string(raw))) >= 0 {
+			err := rlp.Decode(bytes.NewReader(raw), &delegates)
+			if err != nil {
+				log.Warn("Error during decoding delegate list, set it as an empty list. ", "err", err)
+				return err
 			}
 		}
-		// fmt.Println("Loaded:", result.ToString())
+
+		result = newDelegateList(delegates)
 		return nil
 	})
 	return
 }
 
 func (s *Staking) SetDelegateList(delegateList *DelegateList, state *state.State) {
+	sort.SliceStable(delegateList.delegates, func(i, j int) bool {
+		return bytes.Compare(delegateList.delegates[i].Address.Bytes(), delegateList.delegates[j].Address.Bytes()) <= 0
+	})
+
 	state.EncodeStorage(StakingModuleAddr, DelegateListKey, func() ([]byte, error) {
-		buf := bytes.NewBuffer([]byte{})
-		encoder := gob.NewEncoder(buf)
-		err := encoder.Encode(delegateList.delegates)
-		return buf.Bytes(), err
+		return rlp.EncodeToBytes(delegateList.delegates)
 	})
 }
 
@@ -198,87 +145,86 @@ func (s *Staking) SetDelegateList(delegateList *DelegateList, state *state.State
 // Statistics List
 func (s *Staking) GetStatisticsList(state *state.State) (result *StatisticsList) {
 	state.DecodeStorage(StakingModuleAddr, StatisticsListKey, func(raw []byte) error {
-		// fmt.Println("Loaded Raw Hex: ", hex.EncodeToString(raw))
-		delegates := make([]*DelegateStatistics, 0)
-		decoder := gob.NewDecoder(bytes.NewBuffer(raw))
-		err := decoder.Decode(&delegates)
-		result = NewStatisticsList(delegates)
-		if err != nil {
-			if err.Error() == "EOF" && len(raw) == 0 {
-				// empty raw, do nothing
-			} else {
-				log.Warn("Error during decoding statistics list, set it as an empty list", "err", err)
+		stats := make([]*DelegateStatistics, 0)
+
+		if len(strings.TrimSpace(string(raw))) >= 0 {
+			err := rlp.Decode(bytes.NewReader(raw), &stats)
+			if err != nil {
+				log.Warn("Error during decoding stat list, set it as an empty list. ", "err", err)
+				return err
 			}
 		}
+
+		result = NewStatisticsList(stats)
 		return nil
 	})
 	return
 }
 
 func (s *Staking) SetStatisticsList(list *StatisticsList, state *state.State) {
+	sort.SliceStable(list.delegates, func(i, j int) bool {
+		return bytes.Compare(list.delegates[i].Addr.Bytes(), list.delegates[j].Addr.Bytes()) <= 0
+	})
+
 	state.EncodeStorage(StakingModuleAddr, StatisticsListKey, func() ([]byte, error) {
-		buf := bytes.NewBuffer([]byte{})
-		encoder := gob.NewEncoder(buf)
-		err := encoder.Encode(list.delegates)
-		return buf.Bytes(), err
+		return rlp.EncodeToBytes(list)
 	})
 }
 
 // inJail List
 func (s *Staking) GetInJailList(state *state.State) (result *DelegateInJailList) {
 	state.DecodeStorage(StakingModuleAddr, InJailListKey, func(raw []byte) error {
-		// fmt.Println("Loaded Raw Hex: ", hex.EncodeToString(raw))
 		inJails := make([]*DelegateJailed, 0)
-		decoder := gob.NewDecoder(bytes.NewBuffer(raw))
-		err := decoder.Decode(&inJails)
-		result = NewDelegateInJailList(inJails)
-		if err != nil {
-			if err.Error() == "EOF" && len(raw) == 0 {
-				// empty raw, do nothing
-			} else {
-				log.Warn("Error during decoding inJail list, set it as an empty list", "err", err)
+
+		if len(strings.TrimSpace(string(raw))) >= 0 {
+			err := rlp.Decode(bytes.NewReader(raw), &inJails)
+			if err != nil {
+				log.Warn("Error during decoding inJail list, set it as an empty list. ", "err", err)
+				return err
 			}
 		}
+
+		result = NewDelegateInJailList(inJails)
 		return nil
 	})
 	return
 }
 
 func (s *Staking) SetInJailList(list *DelegateInJailList, state *state.State) {
+	sort.SliceStable(list.inJails, func(i, j int) bool {
+		return bytes.Compare(list.inJails[i].Addr.Bytes(), list.inJails[j].Addr.Bytes()) <= 0
+	})
 	state.EncodeStorage(StakingModuleAddr, InJailListKey, func() ([]byte, error) {
-		buf := bytes.NewBuffer([]byte{})
-		encoder := gob.NewEncoder(buf)
-		err := encoder.Encode(list.inJails)
-		return buf.Bytes(), err
+		return rlp.EncodeToBytes(list)
 	})
 }
 
 // validator reward list
 func (s *Staking) GetValidatorRewardList(state *state.State) (result *ValidatorRewardList) {
 	state.DecodeStorage(StakingModuleAddr, ValidatorRewardListKey, func(raw []byte) error {
-		// fmt.Println("Loaded Raw Hex: ", hex.EncodeToString(raw))
 		rewards := make([]*ValidatorReward, 0)
-		decoder := gob.NewDecoder(bytes.NewBuffer(raw))
-		err := decoder.Decode(&rewards)
-		result = NewValidatorRewardList(rewards)
-		if err != nil {
-			if err.Error() == "EOF" && len(raw) == 0 {
-				// empty raw, do nothing
-			} else {
-				log.Warn("Error during decoding validator reward list, set it as an empty list", "err", err)
+
+		if len(strings.TrimSpace(string(raw))) >= 0 {
+			err := rlp.Decode(bytes.NewReader(raw), &rewards)
+			if err != nil {
+				log.Warn("Error during decoding rewards list, set it as an empty list. ", "err", err)
+				return err
 			}
 		}
+
+		result = NewValidatorRewardList(rewards)
 		return nil
 	})
 	return
 }
 
 func (s *Staking) SetValidatorRewardList(list *ValidatorRewardList, state *state.State) {
+	sort.SliceStable(list.rewards, func(i, j int) bool {
+		return list.rewards[i].Epoch <= list.rewards[j].Epoch
+	})
+
 	state.EncodeStorage(StakingModuleAddr, ValidatorRewardListKey, func() ([]byte, error) {
-		buf := bytes.NewBuffer([]byte{})
-		encoder := gob.NewEncoder(buf)
-		err := encoder.Encode(list.rewards)
-		return buf.Bytes(), err
+		return rlp.EncodeToBytes(list)
 	})
 }
 

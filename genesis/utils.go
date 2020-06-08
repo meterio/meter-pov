@@ -5,10 +5,11 @@ package genesis
 
 import (
 	"bytes"
-	"encoding/gob"
 	"math/big"
 	"sort"
 	"strconv"
+
+	"github.com/ethereum/go-ethereum/rlp"
 
 	"github.com/inconshreveable/log15"
 
@@ -61,10 +62,11 @@ func LoadVestProfile() []*accountlock.Profile {
 
 func SetProfileList(lockList *accountlock.ProfileList, state *state.State) {
 	state.EncodeStorage(accountlock.AccountLockAddr, accountlock.AccountLockProfileKey, func() ([]byte, error) {
-		buf := bytes.NewBuffer([]byte{})
-		encoder := gob.NewEncoder(buf)
-		err := encoder.Encode(lockList)
-		return buf.Bytes(), err
+		// buf := bytes.NewBuffer([]byte{})
+		// encoder := gob.NewEncoder(buf)
+		// err := encoder.Encode(lockList)
+		// return buf.Bytes(), err
+		return rlp.EncodeToBytes(lockList)
 	})
 }
 

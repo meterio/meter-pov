@@ -2,10 +2,12 @@ package accountlock
 
 import (
 	"bytes"
-	"encoding/gob"
+	"sort"
+	"strings"
 
 	"github.com/dfinlab/meter/meter"
 	"github.com/dfinlab/meter/state"
+	"github.com/ethereum/go-ethereum/rlp"
 )
 
 // the global variables in AccountLock
@@ -17,31 +19,27 @@ var (
 // Candidate List
 func (a *AccountLock) GetProfileList(state *state.State) (result *ProfileList) {
 	state.DecodeStorage(AccountLockAddr, AccountLockProfileKey, func(raw []byte) error {
-		// fmt.Println("Loaded Raw Hex: ", hex.EncodeToString(raw))
-		decoder := gob.NewDecoder(bytes.NewBuffer(raw))
-		var lockList ProfileList
-		err := decoder.Decode(&lockList)
-		if err != nil {
-			if err.Error() == "EOF" && len(raw) == 0 {
-				// empty raw, do nothing
-			} else {
-				log.Warn("Error during decoding ProfileList, set it as an empty list", "err", err)
-			}
-			result = &ProfileList{}
-			return nil
+		profiles := make([]*Profile, 0)
 
+		if len(strings.TrimSpace(string(raw))) >= 0 {
+			err := rlp.Decode(bytes.NewReader(raw), profiles)
+			if err != nil {
+				log.Warn("Error during decoding profile list, set it as an empty list", "err", err)
+				return err
+			}
 		}
-		result = &lockList
+
+		result = NewProfileList(profiles)
 		return nil
 	})
 	return
 }
 
 func (a *AccountLock) SetProfileList(lockList *ProfileList, state *state.State) {
+	sort.SliceStable(lockList.Profiles, func(i, j int) bool {
+		return bytes.Compare(lockList.Profiles[i].Addr.Bytes(), lockList.Profiles[j].Addr.Bytes()) <= 0
+	})
 	state.EncodeStorage(AccountLockAddr, AccountLockProfileKey, func() ([]byte, error) {
-		buf := bytes.NewBuffer([]byte{})
-		encoder := gob.NewEncoder(buf)
-		err := encoder.Encode(lockList)
-		return buf.Bytes(), err
+		return rlp.EncodeToBytes(lockList)
 	})
 }

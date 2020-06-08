@@ -47,13 +47,14 @@ func NewScriptEngine(chain *chain.Chain, state *state.Creator) *ScriptEngine {
 	}
 	SetScriptGlobInst(se)
 
-	initGobEncode()
+	// initGobEncode()
 
 	// start all sub modules
 	se.StartAllModules()
 	return se
 }
 
+// deprecated
 func initGobEncode() {
 	// Basics
 	gob.Register(big.NewInt(0))

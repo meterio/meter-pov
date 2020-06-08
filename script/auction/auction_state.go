@@ -2,11 +2,10 @@ package auction
 
 import (
 	"bytes"
-	"encoding/gob"
-	"encoding/hex"
 	"errors"
-	"fmt"
 	"math/big"
+	"sort"
+	"strings"
 
 	"github.com/dfinlab/meter/builtin"
 	"github.com/dfinlab/meter/meter"
@@ -14,6 +13,7 @@ import (
 	"github.com/dfinlab/meter/state"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/rlp"
 )
 
 // the global variables in auction
@@ -27,21 +27,17 @@ var (
 // Candidate List
 func (a *Auction) GetAuctionCB(state *state.State) (result *AuctionCB) {
 	state.DecodeStorage(AuctionAccountAddr, AuctionCBKey, func(raw []byte) error {
-		// fmt.Println("Loaded Raw Hex: ", hex.EncodeToString(raw))
-		decoder := gob.NewDecoder(bytes.NewBuffer(raw))
-		var auctionCB AuctionCB
-		err := decoder.Decode(&auctionCB)
-		if err != nil {
-			if err.Error() == "EOF" && len(raw) == 0 {
-				// empty raw, do nothing
-			} else {
-				log.Warn("Error during decoding auctionCB, set it as an empty list", "err", err)
-			}
-			result = &AuctionCB{}
-			return nil
+		auctionCB := &AuctionCB{}
 
+		if len(strings.TrimSpace(string(raw))) >= 0 {
+			err := rlp.Decode(bytes.NewReader(raw), auctionCB)
+			if err != nil {
+				log.Warn("Error during decoding auction control block, set it as an empty ", "err", err)
+				return err
+			}
 		}
-		result = &auctionCB
+
+		result = auctionCB
 		return nil
 	})
 	return
@@ -49,50 +45,35 @@ func (a *Auction) GetAuctionCB(state *state.State) (result *AuctionCB) {
 
 func (a *Auction) SetAuctionCB(auctionCB *AuctionCB, state *state.State) {
 	state.EncodeStorage(AuctionAccountAddr, AuctionCBKey, func() ([]byte, error) {
-		buf := bytes.NewBuffer([]byte{})
-		encoder := gob.NewEncoder(buf)
-		err := encoder.Encode(auctionCB)
-		return buf.Bytes(), err
+		return rlp.EncodeToBytes(auctionCB)
 	})
 }
 
 // summary List
 func (a *Auction) GetSummaryList(state *state.State) (result *AuctionSummaryList) {
 	state.DecodeStorage(AuctionAccountAddr, SummaryListKey, func(raw []byte) error {
-		decoder := gob.NewDecoder(bytes.NewBuffer(raw))
+		summaries := make([]*AuctionSummary, 0)
 
-		var summaries []*AuctionSummary
-		err := decoder.Decode(&summaries)
-		result = NewAuctionSummaryList(summaries)
-		if err != nil {
-			if err.Error() == "EOF" && len(raw) == 0 {
-				// empty raw, do nothing
-			} else {
-				log.Warn("Error during decoding auctionSummary list", "err", err)
+		if len(strings.TrimSpace(string(raw))) >= 0 {
+			err := rlp.Decode(bytes.NewReader(raw), summaries)
+			if err != nil {
+				log.Warn("Error during decoding auction summary list, set it as an empty list", "err", err)
+				return err
 			}
-			return nil
 		}
+
+		result = NewAuctionSummaryList(summaries)
 		return nil
 	})
 	return
 }
 
-func encode(obj interface{}) string {
-	buf := bytes.NewBuffer([]byte{})
-	encoder := gob.NewEncoder(buf)
-	encoder.Encode(obj)
-	return hex.EncodeToString(buf.Bytes())
-}
-
 func (a *Auction) SetSummaryList(summaryList *AuctionSummaryList, state *state.State) {
+	sort.SliceStable(summaryList.Summaries, func(i, j int) bool {
+		return bytes.Compare(summaryList.Summaries[i].AuctionID.Bytes(), summaryList.Summaries[j].AuctionID.Bytes()) <= 0
+	})
 	state.EncodeStorage(AuctionAccountAddr, SummaryListKey, func() ([]byte, error) {
-		buf := bytes.NewBuffer([]byte{})
-		encoder := gob.NewEncoder(buf)
-		err := encoder.Encode(summaryList.Summaries)
-		if err != nil {
-			fmt.Println("ERROR: ", err)
-		}
-		return buf.Bytes(), err
+		return rlp.EncodeToBytes(summaryList)
 	})
 }
 
