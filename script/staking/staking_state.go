@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"errors"
 	"math/big"
-	"sort"
 	"strings"
 
 	"github.com/dfinlab/meter/builtin"
@@ -31,10 +30,14 @@ func (s *Staking) GetCandidateList(state *state.State) (result *CandidateList) {
 		candidates := make([]*Candidate, 0)
 
 		if len(strings.TrimSpace(string(raw))) >= 0 {
-			err := rlp.Decode(bytes.NewReader(raw), candidates)
+			err := rlp.Decode(bytes.NewReader(raw), &candidates)
 			if err != nil {
-				log.Warn("Error during decoding candidate list, set it as an empty list", "err", err)
-				return err
+				if err.Error() == "EOF" && len(raw) == 0 {
+					// EOF is caused by no value, is not error case, so returns with empty slice
+				} else {
+					log.Warn("Error during decoding candidate list.", "err", err)
+					return err
+				}
 			}
 		}
 
@@ -45,9 +48,11 @@ func (s *Staking) GetCandidateList(state *state.State) (result *CandidateList) {
 }
 
 func (s *Staking) SetCandidateList(candList *CandidateList, state *state.State) {
+	/*****
 	sort.SliceStable(candList.candidates, func(i, j int) bool {
 		return bytes.Compare(candList.candidates[i].Addr.Bytes(), candList.candidates[j].Addr.Bytes()) <= 0
 	})
+	*****/
 
 	state.EncodeStorage(StakingModuleAddr, CandidateListKey, func() ([]byte, error) {
 		return rlp.EncodeToBytes(candList.candidates)
@@ -62,8 +67,12 @@ func (s *Staking) GetStakeHolderList(state *state.State) (result *StakeholderLis
 		if len(strings.TrimSpace(string(raw))) >= 0 {
 			err := rlp.Decode(bytes.NewReader(raw), &stakeholders)
 			if err != nil {
-				log.Warn("Error during decoding bucket list, set it as an empty list. ", "err", err)
-				return err
+				if err.Error() == "EOF" && len(raw) == 0 {
+					// EOF is caused by no value, is not error case, so returns with empty slice
+				} else {
+					log.Warn("Error during decoding bucket list.", "err", err)
+					return err
+				}
 			}
 		}
 
@@ -74,9 +83,11 @@ func (s *Staking) GetStakeHolderList(state *state.State) (result *StakeholderLis
 }
 
 func (s *Staking) SetStakeHolderList(holderList *StakeholderList, state *state.State) {
+	/***
 	sort.SliceStable(holderList.holders, func(i, j int) bool {
 		return bytes.Compare(holderList.holders[i].Holder.Bytes(), holderList.holders[j].Holder.Bytes()) <= 0
 	})
+	***/
 
 	state.EncodeStorage(StakingModuleAddr, StakeHolderListKey, func() ([]byte, error) {
 		return rlp.EncodeToBytes(holderList.holders)
@@ -91,8 +102,12 @@ func (s *Staking) GetBucketList(state *state.State) (result *BucketList) {
 		if len(strings.TrimSpace(string(raw))) >= 0 {
 			err := rlp.Decode(bytes.NewReader(raw), &buckets)
 			if err != nil {
-				log.Warn("Error during decoding bucket list, set it as an empty list. ", "err", err)
-				return err
+				if err.Error() == "EOF" && len(raw) == 0 {
+					// EOF is caused by no value, is not error case, so returns with empty slice
+				} else {
+					log.Warn("Error during decoding bucket list.", "err", err)
+					return err
+				}
 			}
 		}
 
@@ -103,9 +118,11 @@ func (s *Staking) GetBucketList(state *state.State) (result *BucketList) {
 }
 
 func (s *Staking) SetBucketList(bucketList *BucketList, state *state.State) {
+	/***
 	sort.SliceStable(bucketList.buckets, func(i, j int) bool {
 		return bytes.Compare(bucketList.buckets[i].BucketID.Bytes(), bucketList.buckets[j].BucketID.Bytes()) <= 0
 	})
+	***/
 
 	state.EncodeStorage(StakingModuleAddr, BucketListKey, func() ([]byte, error) {
 		return rlp.EncodeToBytes(bucketList.buckets)
@@ -120,8 +137,12 @@ func (s *Staking) GetDelegateList(state *state.State) (result *DelegateList) {
 		if len(strings.TrimSpace(string(raw))) >= 0 {
 			err := rlp.Decode(bytes.NewReader(raw), &delegates)
 			if err != nil {
-				log.Warn("Error during decoding delegate list, set it as an empty list. ", "err", err)
-				return err
+				if err.Error() == "EOF" && len(raw) == 0 {
+					// EOF is caused by no value, is not error case, so returns with empty slice
+				} else {
+					log.Warn("Error during decoding delegate list.", "err", err)
+					return err
+				}
 			}
 		}
 
@@ -132,9 +153,11 @@ func (s *Staking) GetDelegateList(state *state.State) (result *DelegateList) {
 }
 
 func (s *Staking) SetDelegateList(delegateList *DelegateList, state *state.State) {
+	/***
 	sort.SliceStable(delegateList.delegates, func(i, j int) bool {
 		return bytes.Compare(delegateList.delegates[i].Address.Bytes(), delegateList.delegates[j].Address.Bytes()) <= 0
 	})
+	***/
 
 	state.EncodeStorage(StakingModuleAddr, DelegateListKey, func() ([]byte, error) {
 		return rlp.EncodeToBytes(delegateList.delegates)
@@ -150,8 +173,12 @@ func (s *Staking) GetStatisticsList(state *state.State) (result *StatisticsList)
 		if len(strings.TrimSpace(string(raw))) >= 0 {
 			err := rlp.Decode(bytes.NewReader(raw), &stats)
 			if err != nil {
-				log.Warn("Error during decoding stat list, set it as an empty list. ", "err", err)
-				return err
+				if err.Error() == "EOF" && len(raw) == 0 {
+					// EOF is caused by no value, is not error case, so returns with empty slice
+				} else {
+					log.Warn("Error during decoding stat list.", "err", err)
+					return err
+				}
 			}
 		}
 
@@ -162,12 +189,14 @@ func (s *Staking) GetStatisticsList(state *state.State) (result *StatisticsList)
 }
 
 func (s *Staking) SetStatisticsList(list *StatisticsList, state *state.State) {
+	/***
 	sort.SliceStable(list.delegates, func(i, j int) bool {
 		return bytes.Compare(list.delegates[i].Addr.Bytes(), list.delegates[j].Addr.Bytes()) <= 0
 	})
+	***/
 
 	state.EncodeStorage(StakingModuleAddr, StatisticsListKey, func() ([]byte, error) {
-		return rlp.EncodeToBytes(list)
+		return rlp.EncodeToBytes(list.delegates)
 	})
 }
 
@@ -179,8 +208,12 @@ func (s *Staking) GetInJailList(state *state.State) (result *DelegateInJailList)
 		if len(strings.TrimSpace(string(raw))) >= 0 {
 			err := rlp.Decode(bytes.NewReader(raw), &inJails)
 			if err != nil {
-				log.Warn("Error during decoding inJail list, set it as an empty list. ", "err", err)
-				return err
+				if err.Error() == "EOF" && len(raw) == 0 {
+					// EOF is caused by no value, is not error case, so returns with empty slice
+				} else {
+					log.Warn("Error during decoding inJail list.", "err", err)
+					return err
+				}
 			}
 		}
 
@@ -191,11 +224,13 @@ func (s *Staking) GetInJailList(state *state.State) (result *DelegateInJailList)
 }
 
 func (s *Staking) SetInJailList(list *DelegateInJailList, state *state.State) {
+	/****
 	sort.SliceStable(list.inJails, func(i, j int) bool {
 		return bytes.Compare(list.inJails[i].Addr.Bytes(), list.inJails[j].Addr.Bytes()) <= 0
 	})
+	***/
 	state.EncodeStorage(StakingModuleAddr, InJailListKey, func() ([]byte, error) {
-		return rlp.EncodeToBytes(list)
+		return rlp.EncodeToBytes(list.inJails)
 	})
 }
 
@@ -207,8 +242,12 @@ func (s *Staking) GetValidatorRewardList(state *state.State) (result *ValidatorR
 		if len(strings.TrimSpace(string(raw))) >= 0 {
 			err := rlp.Decode(bytes.NewReader(raw), &rewards)
 			if err != nil {
-				log.Warn("Error during decoding rewards list, set it as an empty list. ", "err", err)
-				return err
+				if err.Error() == "EOF" && len(raw) == 0 {
+					// EOF is caused by no value, is not error case, so returns with empty slice
+				} else {
+					log.Warn("Error during decoding rewards list.", "err", err)
+					return err
+				}
 			}
 		}
 
@@ -219,12 +258,14 @@ func (s *Staking) GetValidatorRewardList(state *state.State) (result *ValidatorR
 }
 
 func (s *Staking) SetValidatorRewardList(list *ValidatorRewardList, state *state.State) {
+	/***
 	sort.SliceStable(list.rewards, func(i, j int) bool {
 		return list.rewards[i].Epoch <= list.rewards[j].Epoch
 	})
+	***/
 
 	state.EncodeStorage(StakingModuleAddr, ValidatorRewardListKey, func() ([]byte, error) {
-		return rlp.EncodeToBytes(list)
+		return rlp.EncodeToBytes(list.rewards)
 	})
 }
 

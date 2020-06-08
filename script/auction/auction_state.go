@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"errors"
 	"math/big"
-	"sort"
 	"strings"
 
 	"github.com/dfinlab/meter/builtin"
@@ -32,8 +31,12 @@ func (a *Auction) GetAuctionCB(state *state.State) (result *AuctionCB) {
 		if len(strings.TrimSpace(string(raw))) >= 0 {
 			err := rlp.Decode(bytes.NewReader(raw), auctionCB)
 			if err != nil {
-				log.Warn("Error during decoding auction control block, set it as an empty ", "err", err)
-				return err
+				if err.Error() == "EOF" && len(raw) == 0 {
+					// EOF is caused by no value, is not error case, so returns with empty slice
+				} else {
+					log.Warn("Error during decoding auction control block", "err", err)
+					return err
+				}
 			}
 		}
 
@@ -55,10 +58,14 @@ func (a *Auction) GetSummaryList(state *state.State) (result *AuctionSummaryList
 		summaries := make([]*AuctionSummary, 0)
 
 		if len(strings.TrimSpace(string(raw))) >= 0 {
-			err := rlp.Decode(bytes.NewReader(raw), summaries)
+			err := rlp.Decode(bytes.NewReader(raw), &summaries)
 			if err != nil {
-				log.Warn("Error during decoding auction summary list, set it as an empty list", "err", err)
-				return err
+				if err.Error() == "EOF" && len(raw) == 0 {
+					// EOF is caused by no value, is not error case, so returns with empty slice
+				} else {
+					log.Warn("Error during decoding auction summary list", "err", err)
+					return err
+				}
 			}
 		}
 
@@ -69,11 +76,13 @@ func (a *Auction) GetSummaryList(state *state.State) (result *AuctionSummaryList
 }
 
 func (a *Auction) SetSummaryList(summaryList *AuctionSummaryList, state *state.State) {
+	/**** Do not need sort here, it is automatically sorted by Epoch
 	sort.SliceStable(summaryList.Summaries, func(i, j int) bool {
 		return bytes.Compare(summaryList.Summaries[i].AuctionID.Bytes(), summaryList.Summaries[j].AuctionID.Bytes()) <= 0
 	})
+	****/
 	state.EncodeStorage(AuctionAccountAddr, SummaryListKey, func() ([]byte, error) {
-		return rlp.EncodeToBytes(summaryList)
+		return rlp.EncodeToBytes(summaryList.Summaries)
 	})
 }
 

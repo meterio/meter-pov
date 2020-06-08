@@ -15,7 +15,7 @@ import (
 type AuctionTx struct {
 	Addr     meter.Address
 	Amount   *big.Int // total amont wei is unit
-	Count    int
+	Count    uint32
 	Nonce    uint64
 	LastTime uint64 //last auction time
 }

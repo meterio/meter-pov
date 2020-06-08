@@ -66,7 +66,7 @@ func SetProfileList(lockList *accountlock.ProfileList, state *state.State) {
 		// encoder := gob.NewEncoder(buf)
 		// err := encoder.Encode(lockList)
 		// return buf.Bytes(), err
-		return rlp.EncodeToBytes(lockList)
+		return rlp.EncodeToBytes(lockList.Profiles)
 	})
 }
 

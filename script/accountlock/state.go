@@ -2,7 +2,6 @@ package accountlock
 
 import (
 	"bytes"
-	"sort"
 	"strings"
 
 	"github.com/dfinlab/meter/meter"
@@ -22,10 +21,14 @@ func (a *AccountLock) GetProfileList(state *state.State) (result *ProfileList) {
 		profiles := make([]*Profile, 0)
 
 		if len(strings.TrimSpace(string(raw))) >= 0 {
-			err := rlp.Decode(bytes.NewReader(raw), profiles)
+			err := rlp.Decode(bytes.NewReader(raw), &profiles)
 			if err != nil {
-				log.Warn("Error during decoding profile list, set it as an empty list", "err", err)
-				return err
+				if err.Error() == "EOF" && len(raw) == 0 {
+					// EOF is caused by no value, is not error case, so returns with empty slice
+				} else {
+					log.Warn("Error during decoding profile list", "err", err)
+					return err
+				}
 			}
 		}
 
@@ -36,10 +39,12 @@ func (a *AccountLock) GetProfileList(state *state.State) (result *ProfileList) {
 }
 
 func (a *AccountLock) SetProfileList(lockList *ProfileList, state *state.State) {
+	/*****
 	sort.SliceStable(lockList.Profiles, func(i, j int) bool {
 		return bytes.Compare(lockList.Profiles[i].Addr.Bytes(), lockList.Profiles[j].Addr.Bytes()) <= 0
 	})
+	*****/
 	state.EncodeStorage(AccountLockAddr, AccountLockProfileKey, func() ([]byte, error) {
-		return rlp.EncodeToBytes(lockList)
+		return rlp.EncodeToBytes(lockList.Profiles)
 	})
 }

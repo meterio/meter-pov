@@ -40,7 +40,7 @@ type AuctionCB struct {
 type AuctionTx struct {
 	Addr      string `json:"addr"`
 	Amount    string `json:"amount"`
-	Count     int    `json:"count"`
+	Count     uint32 `json:"count"`
 	Nonce     uint64 `json:"nonce"`
 	LastTime  uint64 `json:"lastTime"`
 	Timestamp string `json:"timestamp"`
