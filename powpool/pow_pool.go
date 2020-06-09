@@ -30,6 +30,9 @@ import (
 const (
 	// minimum height for committee relay
 	POW_MINIMUM_HEIGHT_INTV = uint32(4)
+
+	// max miner rewards per epoch
+	POW_MAXIMUM_REWARD_NUM = 3000
 )
 
 var (

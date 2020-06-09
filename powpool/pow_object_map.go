@@ -184,9 +184,9 @@ func (m *powObjectMap) FillLatestObjChain(obj *powObject) (*PowResult, error) {
 	prev := m.Get(obj.blockInfo.HashPrevBlock)
 	interval := obj.Height() - m.lastKframePowObj.Height()
 
-	//XXX: sometime data is too big to fit into block, truncated it !!!
-	if interval > (5 * POW_MINIMUM_HEIGHT_INTV) {
-		interval = 5 * POW_MINIMUM_HEIGHT_INTV
+	// sometime data is too big to fit into block, truncated it! it is 3000 in normal
+	if interval > POW_MAXIMUM_REWARD_NUM {
+		interval = POW_MAXIMUM_REWARD_NUM
 	}
 
 	for prev != nil && prev != m.lastKframePowObj && interval > 0 {

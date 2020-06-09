@@ -24,25 +24,49 @@ import (
 
 const (
 	AuctionInterval = uint64(24) // every 24 Epoch move to next auction
+
+	MAX_REWARD_CLAUSES = 200
 )
 
 func (conR *ConsensusReactor) GetKBlockRewardTxs(rewards []powpool.PowReward) tx.Transactions {
-	trx := conR.MinerRewards(rewards)
-	fmt.Println("Built rewards tx:", trx)
-	return append(tx.Transactions{}, trx)
+	txs := conR.MinerRewards(rewards)
+	fmt.Println("Built rewards txs:", txs)
+	return append(tx.Transactions{}, txs...)
 }
 
 // create mint transaction
-func (conR *ConsensusReactor) MinerRewards(rewards []powpool.PowReward) *tx.Transaction {
+func (conR *ConsensusReactor) MinerRewards(rewards []powpool.PowReward) []*tx.Transaction {
+	count := len(rewards)
+	if count > powpool.POW_MAXIMUM_REWARD_NUM {
+		conR.logger.Error("too many reward clauses", "number", count)
+	}
 
-	// mint transaction:
-	// 1. signer is nil
-	// 1. located first transaction in kblock.
-	var maxRewarder int
-	if len(rewards) > int((powpool.POW_MINIMUM_HEIGHT_INTV*5)-1) {
-		maxRewarder = int((powpool.POW_MINIMUM_HEIGHT_INTV * 5) - 1)
-	} else {
-		maxRewarder = len(rewards)
+	rewardsTxs := []*tx.Transaction{}
+
+	position := int(0)
+	end := int(0)
+	for count > 0 {
+		if count > MAX_REWARD_CLAUSES {
+			end = MAX_REWARD_CLAUSES
+		} else {
+			end = count
+		}
+		tx := conR.TryBuildMinerRewardTx(rewards[position : position+end])
+		if tx != nil {
+			rewardsTxs = append(rewardsTxs, tx)
+		}
+
+		count = count - MAX_REWARD_CLAUSES
+		position = position + end
+	}
+
+	return rewardsTxs
+}
+
+func (conR *ConsensusReactor) TryBuildMinerRewardTx(rewards []powpool.PowReward) *tx.Transaction {
+	if len(rewards) > MAX_REWARD_CLAUSES {
+		conR.logger.Error("too many reward clauses", "number", len(rewards))
+		return nil
 	}
 
 	builder := new(tx.Builder)
@@ -50,22 +74,17 @@ func (conR *ConsensusReactor) MinerRewards(rewards []powpool.PowReward) *tx.Tran
 		BlockRef(tx.NewBlockRef(conR.chain.BestBlock().Header().Number() + 1)).
 		Expiration(720).
 		GasPriceCoef(0).
-		Gas(meter.BaseTxGas * uint64(maxRewarder)). //buffer for builder.Build().IntrinsicGas()
+		Gas(meter.BaseTxGas * uint64(MAX_REWARD_CLAUSES)).
 		DependsOn(nil).
 		Nonce(12345678)
 
 	//now build Clauses
 	// Only reward METER
 	sum := big.NewInt(0)
-	for i, reward := range rewards {
+	for _, reward := range rewards {
 		builder.Clause(tx.NewClause(&reward.Rewarder).WithValue(&reward.Value).WithToken(tx.TOKEN_METER))
-		conR.logger.Info("Reward:", "rewarder", reward.Rewarder, "value", reward.Value)
+		conR.logger.Debug("Reward:", "rewarder", reward.Rewarder, "value", reward.Value)
 		sum = sum.Add(sum, &reward.Value)
-		// it is possilbe that POW will give POS long list of reward under some cases, should not
-		// build long mint transaction.
-		if i >= int(2*powpool.POW_MINIMUM_HEIGHT_INTV-1) {
-			break
-		}
 	}
 	conR.logger.Info("Reward", "Kblock Height", conR.chain.BestBlock().Header().Number()+1, "Total", sum)
 
