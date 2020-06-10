@@ -6,7 +6,6 @@
 package blocks
 
 import (
-	"encoding/binary"
 	"encoding/hex"
 
 	"github.com/dfinlab/meter/block"
@@ -181,7 +180,7 @@ func buildJSONEmbeddedTxs(txs tx.Transactions, receipts tx.Receipts) []*JSONEmbe
 			jcs = append(jcs, &JSONClause{
 				c.To(),
 				math.HexOrDecimal256(*c.Value()),
-				binary.LittleEndian.Uint32([]byte{c.Token()}),
+				uint32(c.Token()),
 				hexutil.Encode(c.Data()),
 			})
 			if !receipt.Reverted {
