@@ -234,24 +234,28 @@ func (conR *ConsensusReactor) calcStatistics(lastKBlockHeight, height uint32) ([
 		blocks = append(blocks, blk)
 		h++
 	}
-	// TBD: building the kblock impolicitly means committee meber, so can get
+
+	// Do not do statistics if this committee is replayed.
+	// TBD: building the kblock means committee meber, so can get
 	// the last 2 blocks from pacemaker's proposalMap
 
 	// calculate missing proposer
-	missedProposer, err := conR.calcMissingProposer(conR.curCommittee.Validators, conR.curActualCommittee, blocks)
-	if err != nil {
-		conR.logger.Warn("Error during missing proposer calculation:", "err", err)
-	}
-	for _, m := range missedProposer {
-		inf := &stats[m.Address].Infraction
-		inf.MissingProposers.Counter++
-		minfo := &m.Info
-		inf.MissingProposers.Info = append(inf.MissingProposers.Info, minfo)
+	if conR.csPacemaker.newCommittee == false {
+		missedProposer, err := conR.calcMissingProposer(conR.curCommittee.Validators, conR.curActualCommittee, blocks)
+		if err != nil {
+			conR.logger.Warn("Error during missing proposer calculation:", "err", err)
+		}
+		for _, m := range missedProposer {
+			inf := &stats[m.Address].Infraction
+			inf.MissingProposers.Counter++
+			minfo := &m.Info
+			inf.MissingProposers.Info = append(inf.MissingProposers.Info, minfo)
+		}
 	}
 
 	// calculate missing voter
 	// currently do not calc the missingVoter. Because signature aggreator skips the votes after the count reaches
-	// to 2/3. So missingVoter counting is unacurate and causes the false alarm.
+	// to 2/3. So missingVoter counting is inacurate and causes the false alarm.
 	/****
 	missedVoter, err := conR.calcMissingVoter(conR.curCommittee.Validators, conR.curActualCommittee, blocks)
 	if err != nil {
