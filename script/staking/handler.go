@@ -548,21 +548,25 @@ func (sb *StakingBody) GoverningHandler(senv *StakingEnviroment, gas uint64) (re
 	}
 
 	// distribute rewarding before calculating new delegates
-	sum, info, err := staking.DistValidatorRewards(sb.Amount, validators, delegateList, state)
-	if err != nil {
-		log.Error("Distribute validator rewards failed")
-		return
-	}
-	epoch := sb.Version //epoch is stored in sb.Version tempraroly
+	// only need to take action when distribute amount is non-zero
+	if sb.Amount.Sign() != 0 {
+		sum, info, e := staking.DistValidatorRewards(sb.Amount, validators, delegateList, state)
+		if e != nil {
+			log.Error("Distribute validator rewards failed")
+			err = errors.New("Distribute validator rewards failed. " + e.Error())
+			return
+		}
 
-	reward := &ValidatorReward{
-		Epoch:            epoch,
-		BaseReward:       builtin.Params.Native(state).Get(meter.KeyValidatorBaseReward),
-		ExpectDistribute: sb.Amount,
-		ActualDistribute: sum,
-		Info:             info,
+		epoch := sb.Version //epoch is stored in sb.Version tempraroly
+		reward := &ValidatorReward{
+			Epoch:            epoch,
+			BaseReward:       builtin.Params.Native(state).Get(meter.KeyValidatorBaseReward),
+			ExpectDistribute: sb.Amount,
+			ActualDistribute: sum,
+			Info:             info,
+		}
+		rewardList.rewards = append(rewardList.rewards, reward)
 	}
-	rewardList.rewards = append(rewardList.rewards, reward)
 
 	// start to calc next round delegates
 	ts := sb.Timestamp

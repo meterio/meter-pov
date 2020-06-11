@@ -33,10 +33,6 @@ type ValidatorRewardList struct {
 	rewards []*ValidatorReward
 }
 
-func newValidatorRewardList(rewards []*ValidatorReward) *ValidatorRewardList {
-	return &ValidatorRewardList{rewards: rewards}
-}
-
 func (v *ValidatorRewardList) String() string {
 	s := make([]string, 0)
 	for _, reward := range v.rewards {
