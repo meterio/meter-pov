@@ -69,6 +69,12 @@ func (ab *AuctionBody) GetOpName(op uint32) string {
 	}
 }
 
+var (
+	errNotEnoughMTR         = errors.New("not enough MTR balance")
+	errLessThanBidThreshold = errors.New("amount less than bid threshold (" + big.NewInt(0).Div(MinimumBidAmount, big.NewInt(1e18)).String() + " MTR)")
+	errInvalidNonce         = errors.New("invalid nonce (nonce in auction body and clause are the same)")
+)
+
 func AuctionEncodeBytes(sb *AuctionBody) []byte {
 	auctionBytes, err := rlp.EncodeToBytes(sb)
 	if err != nil {
@@ -173,13 +179,13 @@ func (ab *AuctionBody) HandleAuctionTx(senv *AuctionEnviroment, gas uint64) (ret
 
 	if state.GetEnergy(ab.Bidder).Cmp(ab.Amount) < 0 {
 		log.Info("not enough meter balance", "bidder", ab.Bidder, "amount", ab.Amount)
-		err = errors.New("not enough meter balance")
+		err = errNotEnoughMTR
 		return
 	}
 
 	if ab.Amount.Cmp(MinimumBidAmount) < 0 {
 		log.Info("amount lower than minimum bid threshold", "amount", ab.Amount, "minBid", MinimumBidAmount)
-		err = errors.New("amount lower than minimum bid threshold")
+		err = errLessThanBidThreshold
 		return
 	}
 
@@ -200,7 +206,7 @@ func (ab *AuctionBody) HandleAuctionTx(senv *AuctionEnviroment, gas uint64) (ret
 	} else {
 		if ab.Nonce == tx.Nonce {
 			log.Info("Nonce error", "input nonce", ab.Nonce, "nonce in tx", tx.Nonce)
-			err = errors.New("Nonce error")
+			err = errInvalidNonce
 			return
 		}
 		tx.Nonce = ab.Nonce
@@ -216,6 +222,7 @@ func (ab *AuctionBody) HandleAuctionTx(senv *AuctionEnviroment, gas uint64) (ret
 	err = Auction.TransferMTRToAuction(ab.Bidder, ab.Amount, state)
 	if err != nil {
 		log.Error("not enough balance", "address", ab.Bidder)
+		err = errNotEnoughMTR
 		return
 	}
 

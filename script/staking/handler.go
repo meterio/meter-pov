@@ -32,6 +32,33 @@ const (
 	OP_GOVERNING = uint32(10001)
 )
 
+var (
+	// sanity check
+	errInvalidPubkey    = errors.New("invalid public key")
+	errInvalidIpAddress = errors.New("invalid ip address")
+	errInvalidPort      = errors.New("invalid port number")
+	errInvalidToken     = errors.New("invalid token")
+
+	// buckets
+	errBucketNotFound      = errors.New("bucket not found")
+	errBucketInfoMismatch  = errors.New("bucket info mismatch (holderAddr, amount, token)")
+	errBucketInUse         = errors.New("bucket in used (address is not zero)")
+	errUpdateForeverBucket = errors.New("can't update forever bucket")
+
+	// amount
+	errLessThanMinimalBalance = errors.New("amount less than minimal balance (" + big.NewInt(0).Div(MIN_REQUIRED_BY_DELEGATE, big.NewInt(1e18)).String() + " MTRG)")
+	errNotEnoughMTR           = errors.New("not enough MTR")
+	errNotEnoughMTRG          = errors.New("not enough MTRG")
+
+	// candidate
+	errCandidateNotListed          = errors.New("candidate address is not listed")
+	errCandidateInJail             = errors.New("candidate address is in jail")
+	errCandidateListed             = errors.New("candidate info already listed")
+	errUpdateTooFrequent           = errors.New("update too frequent")
+	errCandidateListedWithDiffInfo = errors.New("candidate address already listed with different infomation (pubkey, ip, port)")
+	errCandidateNotChanged         = errors.New("candidate not changed")
+)
+
 func GetOpName(op uint32) string {
 	switch op {
 	case OP_BOUND:
@@ -144,7 +171,7 @@ func (sb *StakingBody) BoundHandler(senv *StakingEnviroment, gas uint64) (ret []
 			err = errors.New("not enough meter-gov balance")
 		}
 	default:
-		err = errors.New("Invalid token parameter")
+		err = errInvalidToken
 	}
 	if err != nil {
 		log.Error("errors", "error", err)
@@ -177,7 +204,7 @@ func (sb *StakingBody) BoundHandler(senv *StakingEnviroment, gas uint64) (ret []
 	if setCand {
 		cand := candidateList.Get(sb.CandAddr)
 		if cand == nil {
-			err = errors.New("candidate is not in list")
+			err = errCandidateNotListed
 			log.Error("Errors", "error", err)
 			return
 		}
@@ -190,7 +217,7 @@ func (sb *StakingBody) BoundHandler(senv *StakingEnviroment, gas uint64) (ret []
 	case TOKEN_METER_GOV:
 		err = staking.BoundAccountMeterGov(sb.HolderAddr, sb.Amount, state)
 	default:
-		err = errors.New("Invalid token parameter")
+		err = errInvalidToken
 	}
 
 	staking.SetCandidateList(candidateList, state)
@@ -219,13 +246,13 @@ func (sb *StakingBody) UnBoundHandler(senv *StakingEnviroment, gas uint64) (ret 
 
 	b := bucketList.Get(sb.StakingID)
 	if b == nil {
-		return nil, leftOverGas, errors.New("staking not found")
+		return nil, leftOverGas, errBucketNotFound
 	}
 	if (b.Owner != sb.HolderAddr) || (b.Value.Cmp(sb.Amount) != 0) || (b.Token != sb.Token) {
-		return nil, leftOverGas, errors.New("staking info mismatch")
+		return nil, leftOverGas, errBucketInfoMismatch
 	}
 	if b.IsForeverLock() == true {
-		return nil, leftOverGas, errors.New("bucket is locked forever, can not unbond")
+		return nil, leftOverGas, errUpdateForeverBucket
 	}
 
 	// sanity check done, take actions
@@ -261,7 +288,7 @@ func (sb *StakingBody) CandidateHandler(senv *StakingEnviroment, gas uint64) (re
 	// candidate should meet the stake minmial requirement
 	// current it is 300 MTRGov
 	if sb.Amount.Cmp(MIN_REQUIRED_BY_DELEGATE) < 0 {
-		err = errors.New("does not meet minimial balance")
+		err = errLessThanMinimalBalance
 		log.Error("does not meet minimial balance")
 		return
 	}
@@ -270,14 +297,14 @@ func (sb *StakingBody) CandidateHandler(senv *StakingEnviroment, gas uint64) (re
 	switch sb.Token {
 	case TOKEN_METER:
 		if state.GetEnergy(sb.CandAddr).Cmp(sb.Amount) < 0 {
-			err = errors.New("not enough meter balance")
+			err = errNotEnoughMTR
 		}
 	case TOKEN_METER_GOV:
 		if state.GetBalance(sb.CandAddr).Cmp(sb.Amount) < 0 {
-			err = errors.New("not enough meter-gov balance")
+			err = errNotEnoughMTRG
 		}
 	default:
-		err = errors.New("Invalid token parameter")
+		err = errInvalidToken
 	}
 	if err != nil {
 		log.Error("Errors:", "error", err)
@@ -288,26 +315,32 @@ func (sb *StakingBody) CandidateHandler(senv *StakingEnviroment, gas uint64) (re
 	split := strings.Split(string(sb.CandPubKey), ":::")
 	if len(split) != 2 {
 		log.Error("invalid public keys for split")
+		err = errInvalidPubkey
 		return
 	}
 
 	decoded, err := base64.StdEncoding.DecodeString(split[0])
 	if err != nil {
+		err = errInvalidPubkey
 		log.Error("could not decode public key")
+		return
 	}
 	pubKey, err := crypto.UnmarshalPubkey(decoded)
 	if err != nil || pubKey == nil {
+		err = errInvalidPubkey
 		log.Error("could not unmarshal public key")
 		return
 	}
 
 	if sb.CandPort < 1 || sb.CandPort > 65535 {
+		err = errInvalidPort
 		log.Error(fmt.Sprintf("invalid parameter: port %d (should be in [1,65535])", sb.CandPort))
 		return
 	}
 
 	ipPattern, err := regexp.Compile("^\\d+[.]\\d+[.]\\d+[.]\\d+$")
 	if !ipPattern.MatchString(string(sb.CandIP)) {
+		err = errInvalidIpAddress
 		log.Error(fmt.Sprintf("invalid parameter: ip %s (should be a valid ipv4 address)", sb.CandIP))
 		return
 	}
@@ -318,9 +351,9 @@ func (sb *StakingBody) CandidateHandler(senv *StakingEnviroment, gas uint64) (re
 			// exact same candidate
 			// log.Info("Record: ", record.ToString())
 			// log.Info("sb:", sb.ToString())
-			err = errors.New("candidate already listed")
+			err = errCandidateListed
 		} else {
-			err = errors.New("candidate listed with different information")
+			err = errCandidateListedWithDiffInfo
 		}
 		return
 	}
@@ -354,7 +387,7 @@ func (sb *StakingBody) CandidateHandler(senv *StakingEnviroment, gas uint64) (re
 		err = staking.BoundAccountMeterGov(sb.CandAddr, sb.Amount, state)
 	default:
 		//leftOverGas = gas
-		err = errors.New("Invalid token parameter")
+		err = errInvalidToken
 	}
 
 	staking.SetCandidateList(candidateList, state)
@@ -386,13 +419,13 @@ func (sb *StakingBody) UnCandidateHandler(senv *StakingEnviroment, gas uint64) (
 	// if the candidate already exists return error without paying gas
 	record := candidateList.Get(sb.CandAddr)
 	if record == nil {
-		err = errors.New("candidate is not listed")
+		err = errCandidateNotListed
 		return
 	}
 
 	if in := inJailList.Exist(sb.CandAddr); in == true {
 		log.Info("in jail list, exit first ...", "address", sb.CandAddr, "name", sb.CandName)
-		err = errors.New("candidate is on jail list, exit first")
+		err = errCandidateInJail
 		return
 	}
 
@@ -443,22 +476,22 @@ func (sb *StakingBody) DelegateHandler(senv *StakingEnviroment, gas uint64) (ret
 
 	b := bucketList.Get(sb.StakingID)
 	if b == nil {
-		return nil, leftOverGas, errors.New("staking not found")
+		return nil, leftOverGas, errBucketNotFound
 	}
 	if (b.Owner != sb.HolderAddr) || (b.Value.Cmp(sb.Amount) != 0) || (b.Token != sb.Token) {
-		return nil, leftOverGas, errors.New("staking info mismatch")
+		return nil, leftOverGas, errBucketInfoMismatch
 	}
 	if b.IsForeverLock() == true {
-		return nil, leftOverGas, errors.New("bucket is locked forever, can not delegate")
+		return nil, leftOverGas, errUpdateForeverBucket
 	}
 	if b.Candidate.IsZero() != true {
 		log.Error("bucket is in use", "candidate", b.Candidate)
-		return nil, leftOverGas, errors.New("bucket in use")
+		return nil, leftOverGas, errBucketInUse
 	}
 
 	cand := candidateList.Get(sb.CandAddr)
 	if cand == nil {
-		return nil, leftOverGas, errors.New("staking not found")
+		return nil, leftOverGas, errBucketNotFound
 	}
 
 	// sanity check done, take actions
@@ -491,22 +524,22 @@ func (sb *StakingBody) UnDelegateHandler(senv *StakingEnviroment, gas uint64) (r
 
 	b := bucketList.Get(sb.StakingID)
 	if b == nil {
-		return nil, leftOverGas, errors.New("staking not found")
+		return nil, leftOverGas, errBucketNotFound
 	}
 	if (b.Owner != sb.HolderAddr) || (b.Value.Cmp(sb.Amount) != 0) || (b.Token != sb.Token) {
-		return nil, leftOverGas, errors.New("staking info mismatch")
+		return nil, leftOverGas, errBucketInfoMismatch
 	}
 	if b.IsForeverLock() == true {
-		return nil, leftOverGas, errors.New("bucket is locked forever, can not undelegate")
+		return nil, leftOverGas, errUpdateForeverBucket
 	}
 	if b.Candidate.IsZero() {
 		log.Error("bucket is not in use")
-		return nil, leftOverGas, errors.New("bucket in not use")
+		return nil, leftOverGas, errBucketInUse
 	}
 
 	cand := candidateList.Get(b.Candidate)
 	if cand == nil {
-		return nil, leftOverGas, errors.New("candidate not found")
+		return nil, leftOverGas, errCandidateNotListed
 	}
 
 	// sanity check done, take actions
@@ -721,27 +754,33 @@ func (sb *StakingBody) CandidateUpdateHandler(senv *StakingEnviroment, gas uint6
 	split := strings.Split(string(sb.CandPubKey), ":::")
 	if len(split) != 2 {
 		log.Error("invalid public keys for split")
+		err = errInvalidPubkey
 		return
 	}
 
 	decoded, err := base64.StdEncoding.DecodeString(split[0])
 	if err != nil {
 		log.Error("could not decode public key")
+		err = errInvalidPubkey
+		return
 	}
 	pubKey, err := crypto.UnmarshalPubkey(decoded)
 	if err != nil || pubKey == nil {
 		log.Error("could not unmarshal public key")
+		err = errInvalidPubkey
 		return
 	}
 
 	if sb.CandPort < 1 || sb.CandPort > 65535 {
 		log.Error(fmt.Sprintf("invalid parameter: port %d (should be in [1,65535])", sb.CandPort))
+		err = errInvalidPort
 		return
 	}
 
 	ipPattern, err := regexp.Compile("^\\d+[.]\\d+[.]\\d+[.]\\d+$")
 	if !ipPattern.MatchString(string(sb.CandIP)) {
 		log.Error(fmt.Sprintf("invalid parameter: ip %s (should be a valid ipv4 address)", sb.CandIP))
+		err = errInvalidIpAddress
 		return
 	}
 	// domainPattern, err := regexp.Compile("^([0-9a-zA-Z-_]+[.]*)+$")
@@ -749,11 +788,13 @@ func (sb *StakingBody) CandidateUpdateHandler(senv *StakingEnviroment, gas uint6
 	record := candidateList.Get(sb.CandAddr)
 	if record == nil {
 		log.Error(fmt.Sprintf("does not find out the candiate record %v", sb.CandAddr))
+		err = errCandidateNotListed
 		return
 	}
 
 	if in := inJailList.Exist(sb.CandAddr); in == true {
 		log.Info("in jail list, exit first ...", "address", sb.CandAddr, "name", sb.CandName)
+		err = errCandidateInJail
 		return
 	}
 
@@ -775,6 +816,7 @@ func (sb *StakingBody) CandidateUpdateHandler(senv *StakingEnviroment, gas uint6
 	if ((sb.Timestamp - record.Timestamp) < MIN_CANDIDATE_UPDATE_INTV) &&
 		(pubUpdated || nameUpdated || commissionUpdated) {
 		log.Error("update too frequently", "curTime", sb.Timestamp, "recordedTime", record.Timestamp)
+		err = errUpdateTooFrequent
 		return
 	}
 
@@ -803,6 +845,7 @@ func (sb *StakingBody) CandidateUpdateHandler(senv *StakingEnviroment, gas uint6
 
 	if changed == false {
 		log.Warn("no candidate info changed")
+		err = errCandidateNotChanged
 		return
 	}
 
