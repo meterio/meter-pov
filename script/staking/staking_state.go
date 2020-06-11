@@ -165,13 +165,14 @@ func (s *Staking) SetDelegateList(delegateList *DelegateList, state *state.State
 }
 
 //====
-// Statistics List
+// Statistics List, unlike others, save/get list
 func (s *Staking) GetStatisticsList(state *state.State) (result *StatisticsList) {
 	state.DecodeStorage(StakingModuleAddr, StatisticsListKey, func(raw []byte) error {
-		stats := make([]*DelegateStatistics, 0)
+		//stats := make([]*DelegateStatistics, 0)
+		list := NewStatisticsList([]*DelegateStatistics{})
 
 		if len(strings.TrimSpace(string(raw))) >= 0 {
-			err := rlp.Decode(bytes.NewReader(raw), &stats)
+			err := rlp.Decode(bytes.NewReader(raw), list)
 			if err != nil {
 				if err.Error() == "EOF" && len(raw) == 0 {
 					// EOF is caused by no value, is not error case, so returns with empty slice
@@ -181,8 +182,8 @@ func (s *Staking) GetStatisticsList(state *state.State) (result *StatisticsList)
 				}
 			}
 		}
-
-		result = NewStatisticsList(stats)
+		result = list
+		//result = NewStatisticsList(stats)
 		return nil
 	})
 	return
@@ -196,7 +197,7 @@ func (s *Staking) SetStatisticsList(list *StatisticsList, state *state.State) {
 	***/
 
 	state.EncodeStorage(StakingModuleAddr, StatisticsListKey, func() ([]byte, error) {
-		return rlp.EncodeToBytes(list.delegates)
+		return rlp.EncodeToBytes(list)
 	})
 }
 

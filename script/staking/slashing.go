@@ -175,9 +175,7 @@ func (ds *DelegateStatistics) PhaseOut(curEpoch uint32) {
 	return
 }
 
-func (ds *DelegateStatistics) Update(incr *Infraction, epoch uint32) bool {
-	// phase out older stats based on current epoch
-	ds.PhaseOut(epoch)
+func (ds *DelegateStatistics) Update(incr *Infraction) bool {
 
 	infr := &ds.Infractions
 	infr.MissingLeaders.Info = append(infr.MissingLeaders.Info, incr.MissingLeaders.Info...)
@@ -207,7 +205,8 @@ func (ds *DelegateStatistics) ToString() string {
 }
 
 type StatisticsList struct {
-	delegates []*DelegateStatistics
+	delegates     []*DelegateStatistics
+	phaseOutEpoch uint32
 }
 
 func NewStatisticsList(delegates []*DelegateStatistics) *StatisticsList {
@@ -217,7 +216,7 @@ func NewStatisticsList(delegates []*DelegateStatistics) *StatisticsList {
 	sort.SliceStable(delegates, func(i, j int) bool {
 		return bytes.Compare(delegates[i].Addr.Bytes(), delegates[j].Addr.Bytes()) <= 0
 	})
-	return &StatisticsList{delegates: delegates}
+	return &StatisticsList{delegates: delegates, phaseOutEpoch: 0}
 }
 
 func (sl *StatisticsList) indexOf(addr meter.Address) (int, int) {

@@ -822,17 +822,43 @@ func (sb *StakingBody) DelegateStatisticsHandler(senv *StakingEnviroment, gas ui
 	statisticsList := staking.GetStatisticsList(state)
 	inJailList := staking.GetInJailList(state)
 
+	// handle phase out from the start
+	removed := []meter.Address{}
+	epoch := sb.Option
+	if epoch > statisticsList.phaseOutEpoch {
+		for _, d := range statisticsList.delegates {
+			// do not phase out if it is in jail
+			if in := inJailList.Exist(d.Addr); in == true {
+				continue
+			}
+			d.PhaseOut(epoch)
+			if d.TotalPts == 0 {
+				removed = append(removed, d.Addr)
+			}
+		}
+
+		if len(removed) > 0 {
+			for _, r := range removed {
+				statisticsList.Remove(r)
+			}
+		}
+		statisticsList.phaseOutEpoch = epoch
+	}
+
 	// while delegate in jail list, it is still received some statistics.
 	// ignore thos updates. it already paid for it
 	if in := inJailList.Exist(sb.CandAddr); in == true {
 		log.Info("in jail list, updates ignored ...", "address", sb.CandAddr, "name", sb.CandName)
+		staking.SetStatisticsList(statisticsList, state)
+		staking.SetInJailList(inJailList, state)
 		return
 	}
 
-	epoch := sb.Option
 	IncrInfraction, err := UnpackBytesToInfraction(sb.ExtraData)
 	if err != nil {
 		log.Info("decode infraction failed ...", "error", err.Error)
+		staking.SetStatisticsList(statisticsList, state)
+		staking.SetInJailList(inJailList, state)
 		return
 	}
 	log.Info("Receives statistics", "epoch", epoch, "incremental infraction", IncrInfraction)
@@ -841,10 +867,10 @@ func (sb *StakingBody) DelegateStatisticsHandler(senv *StakingEnviroment, gas ui
 	stats := statisticsList.Get(sb.CandAddr)
 	if stats == nil {
 		stats = NewDelegateStatistics(sb.CandAddr, sb.CandName, sb.CandPubKey)
-		jail = stats.Update(IncrInfraction, epoch)
+		jail = stats.Update(IncrInfraction)
 		statisticsList.Add(stats)
 	} else {
-		jail = stats.Update(IncrInfraction, epoch)
+		jail = stats.Update(IncrInfraction)
 	}
 
 	if jail == true {

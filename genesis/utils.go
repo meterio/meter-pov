@@ -24,6 +24,7 @@ var (
 
 // "address", "meter amount", "mterGov amount", "memo", "release epoch"
 var profiles [][5]string = [][5]string{
+	{"0xd1e56316b6472cbe9897a577a0f3826932e95863", "25000000", "25000000", "executor account", "10000"},
 	{"0x0205c2D862cA051010698b69b54278cbAf945C0b", "10000", "10001", "test account one", "3333"},
 	{"0x8A88c59bF15451F9Deb1d62f7734FeCe2002668E", "20000", "20001", "test account two", "4444"},
 }
