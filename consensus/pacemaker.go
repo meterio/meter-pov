@@ -53,6 +53,7 @@ type Pacemaker struct {
 	minMBlocks             uint32
 
 	// Utility data structures
+	newCommittee  bool //pacemaker in replay mode?
 	mode          PMMode
 	msgCache      *MsgCache
 	sigAggregator *SignatureAggregator
@@ -758,6 +759,7 @@ func (p *Pacemaker) OnReceiveNewView(mi *consensusMsgInfo) error {
 //Committee Leader triggers
 func (p *Pacemaker) Start(newCommittee bool, mode PMMode) {
 	p.mode = mode
+	p.newCommittee = newCommittee
 	p.reset()
 	p.csReactor.chain.UpdateBestQC(nil, chain.None)
 	p.csReactor.chain.UpdateLeafBlock()

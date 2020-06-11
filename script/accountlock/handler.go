@@ -144,10 +144,22 @@ func (ab *AccountLockBody) HandleAccountLockTransfer(env *AccountLockEnviroment,
 		leftOverGas = gas - meter.ClauseGas
 	}
 
+	// can not transfer to address which already has account lock
 	if pTo := pList.Get(ab.ToAddr); pTo != nil {
 		err = errors.New("profile of ToAddr is already in state")
 		log.Error("profile is already in state", "addr", ab.ToAddr)
 		return
+	}
+
+	// from address should not have account lock, ONLY some exceptional addresses
+	pFrom := pList.Get(ab.FromAddr)
+	if pFrom != nil {
+		if AccountLock.IsExceptionalAccount(ab.FromAddr, state) == false {
+			err = errors.New("profile of FromAddr is already in state")
+			log.Error("profile is already in state", "addr", ab.FromAddr)
+			return
+		}
+		log.Info("profile is in state but is exceptional address, continue ...", "addr", ab.FromAddr)
 	}
 
 	// check have enough balance
@@ -165,7 +177,6 @@ func (ab *AccountLockBody) HandleAccountLockTransfer(env *AccountLockEnviroment,
 	}
 
 	// sanity done!
-	pFrom := pList.Get(ab.FromAddr)
 	if pFrom == nil {
 		p := NewProfile(ab.ToAddr, ab.Memo, ab.LockEpoch, ab.ReleaseEpoch, ab.MeterAmount, ab.MeterGovAmount)
 		pList.Add(p)

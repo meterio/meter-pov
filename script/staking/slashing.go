@@ -13,15 +13,15 @@ import (
 )
 
 const (
-	JailCriteria = 2000 //100 times of missing proposer
+	JailCriteria = 1200 //2000 //100 times of missing proposer
 
-	WipeOutEpochCount  = 360 // does not count if longer than 15 days (360 epoch)
+	WipeOutEpochCount  = 4400 // 360 // does not count if longer than 15 days (360 epoch)
 	DoubleSignPts      = 60
 	MissingLeaderPts   = 40
 	MissingProposerPts = 20
 	MissingVoterPts    = 2
 
-	PhaseOutEpochCount    = 180 // half points after 6 days (180 epoch)
+	PhaseOutEpochCount    = 2200 // 180 // half points after 6 days (180 epoch)
 	PhaseOutDoubleSignPts = 30
 	PhaseOutLeaderPts     = 20
 	PhaseOutProposerPts   = 10
