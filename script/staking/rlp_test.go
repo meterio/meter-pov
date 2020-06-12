@@ -3,6 +3,7 @@ package staking_test
 import (
 	"encoding/base64"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"math/big"
 	"math/rand"
@@ -16,6 +17,7 @@ import (
 	"testing"
 
 	"github.com/dfinlab/meter/meter"
+	"github.com/dfinlab/meter/script"
 	"github.com/dfinlab/meter/script/staking"
 )
 

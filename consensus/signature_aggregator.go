@@ -97,6 +97,9 @@ func (sa *SignatureAggregator) Add(index int, msgHash [32]byte, signature []byte
 }
 
 func (sa *SignatureAggregator) Count() uint32 {
+	if sa == nil {
+		return uint32(0)
+	}
 	if sa.sealed {
 		return uint32(0)
 	} else {
@@ -106,6 +109,9 @@ func (sa *SignatureAggregator) Count() uint32 {
 
 // seal the signature, no future modification could be done anymore
 func (sa *SignatureAggregator) Seal() {
+	if sa == nil {
+		return
+	}
 	sa.sealed = true
 }
 

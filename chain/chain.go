@@ -48,16 +48,17 @@ var (
 // Chain describes a persistent block chain.
 // It's thread-safe.
 type Chain struct {
-	kv           kv.GetPutter
-	ancestorTrie *ancestorTrie
-	genesisBlock *block.Block
-	bestBlock    *block.Block
-	leafBlock    *block.Block
-	bestQC       *block.QuorumCert
-	tag          byte
-	caches       caches
-	rw           sync.RWMutex
-	tick         co.Signal
+	kv              kv.GetPutter
+	ancestorTrie    *ancestorTrie
+	genesisBlock    *block.Block
+	bestBlock       *block.Block
+	leafBlock       *block.Block
+	bestQC          *block.QuorumCert
+	tag             byte
+	caches          caches
+	rw              sync.RWMutex
+	tick            co.Signal
+	bestQCCandidate *block.QuorumCert
 }
 
 type caches struct {
@@ -219,6 +220,7 @@ func New(kv kv.GetPutter, genesisBlock *block.Block, verbose bool) (*Chain, erro
 			rawBlocks: rawBlocksCache,
 			receipts:  receiptsCache,
 		},
+		bestQCCandidate: bestQC,
 	}
 
 	return c, nil
@@ -256,6 +258,30 @@ func (c *Chain) BestQC() *block.QuorumCert {
 	c.rw.RLock()
 	defer c.rw.RUnlock()
 	return c.bestQC
+}
+
+func (c *Chain) BestQCCandidate() *block.QuorumCert {
+	c.rw.RLock()
+	defer c.rw.RUnlock()
+	return c.bestQCCandidate
+}
+
+func (c *Chain) BestQCOrCandidate() *block.QuorumCert {
+	c.rw.RLock()
+	defer c.rw.RUnlock()
+	bestQCHeight := uint32(0)
+	if c.bestQC != nil {
+		bestQCHeight = c.bestQC.QCHeight
+	}
+	bestCandidateHeight := uint32(0)
+	if c.bestQCCandidate != nil {
+		bestCandidateHeight = c.bestQCCandidate.QCHeight
+	}
+
+	if bestQCHeight > bestCandidateHeight {
+		return c.bestQC
+	}
+	return c.bestQCCandidate
 }
 
 func (c *Chain) RemoveBlock(blockID meter.Bytes32) error {
@@ -807,6 +833,7 @@ const (
 	LocalCommit    QCSource = 2
 	LocalBestQC    QCSource = 3
 	LocalBestBlock QCSource = 4
+	LocalCandidate QCSource = 5
 )
 
 func (s QCSource) String() string {
@@ -819,6 +846,8 @@ func (s QCSource) String() string {
 		return "LocalBestQC"
 	case LocalBestBlock:
 		return "LocalBestBlock"
+	case LocalCandidate:
+		return "LocalCandidate"
 	}
 	return ""
 }
@@ -832,6 +861,7 @@ func (c *Chain) UpdateBestQC(qc *block.QuorumCert, source QCSource) (bool, error
 	qcs := []*QCWrap{
 		&QCWrap{source: LocalBestQC, qc: c.bestQC},
 		&QCWrap{source: LocalBestBlock, qc: c.bestBlock.QC},
+		&QCWrap{source: LocalCandidate, qc: c.bestQCCandidate},
 	}
 
 	if qc != nil {
@@ -844,6 +874,9 @@ func (c *Chain) UpdateBestQC(qc *block.QuorumCert, source QCSource) (bool, error
 
 	bestQCAvailable := qcs[0].qc
 	bestQCSource := qcs[0].source
+	if bestQCAvailable.QCHeight > c.bestQCCandidate.QCHeight {
+		c.bestQCCandidate = bestQCAvailable
+	}
 
 	// under these two circumstance:
 	// A -- B -- C          or          A -- B -- C

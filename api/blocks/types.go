@@ -46,6 +46,7 @@ type JSONCollapsedBlock struct {
 type JSONClause struct {
 	To    *meter.Address       `json:"to"`
 	Value math.HexOrDecimal256 `json:"value"`
+	Token uint32               `json:"token"`
 	Data  string               `json:"data"`
 }
 
@@ -179,6 +180,7 @@ func buildJSONEmbeddedTxs(txs tx.Transactions, receipts tx.Receipts) []*JSONEmbe
 			jcs = append(jcs, &JSONClause{
 				c.To(),
 				math.HexOrDecimal256(*c.Value()),
+				uint32(c.Token()),
 				hexutil.Encode(c.Data()),
 			})
 			if !receipt.Reverted {

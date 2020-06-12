@@ -29,7 +29,7 @@ func New(chain *chain.Chain) *Blocks {
 }
 
 func (b *Blocks) handleGetBestQC(w http.ResponseWriter, req *http.Request) error {
-	quorumCert := b.chain.BestQC()
+	quorumCert := b.chain.BestQCOrCandidate()
 	qc, err := convertQC(quorumCert)
 	if err != nil {
 		return err
