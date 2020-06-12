@@ -158,7 +158,15 @@ func (ab *AuctionBody) CloseAuctionCB(senv *AuctionEnviroment, gas uint64) (ret 
 		ActualPrice:  actualPrice,
 		LeftoverMTRG: leftover,
 	}
-	summaries := append(summaryList.Summaries, summary)
+
+	// limit the summary list to AUCTION_MAX_SUMMARIES
+	var summaries []*AuctionSummary
+	sumLen := len(summaryList.Summaries)
+	if sumLen >= AUCTION_MAX_SUMMARIES {
+		summaries = append(summaryList.Summaries[sumLen-AUCTION_MAX_SUMMARIES+1:], summary)
+	} else {
+		summaries = append(summaryList.Summaries, summary)
+	}
 
 	summaryList = NewAuctionSummaryList(summaries)
 	auctionCB = &AuctionCB{}

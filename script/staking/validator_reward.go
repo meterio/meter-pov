@@ -11,6 +11,10 @@ import (
 	"github.com/dfinlab/meter/meter"
 )
 
+const (
+	STAKING_MAX_VALIDATOR_REWARDS = 2000
+)
+
 type RewardInfo struct {
 	Address meter.Address
 	Amount  *big.Int
@@ -21,12 +25,11 @@ type ValidatorReward struct {
 	BaseReward       *big.Int
 	ExpectDistribute *big.Int
 	ActualDistribute *big.Int
-	Info             []*RewardInfo
 }
 
 func (v *ValidatorReward) ToString() string {
 	return fmt.Sprintf("ValidatorReward(Epoch %v): Amount=%v BasedReward=%v ExpectDistribute=%v, ActualDistribute=%v, Info=%v",
-		v.Epoch, v.BaseReward.Uint64(), v.BaseReward.Uint64(), v.ExpectDistribute.Uint64(), v.ActualDistribute.Uint64(), len(v.Info))
+		v.Epoch, v.BaseReward.Uint64(), v.BaseReward.Uint64(), v.ExpectDistribute.Uint64(), v.ActualDistribute.Uint64())
 }
 
 type ValidatorRewardList struct {

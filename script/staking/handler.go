@@ -593,10 +593,19 @@ func (sb *StakingBody) GoverningHandler(senv *StakingEnviroment, gas uint64) (re
 				BaseReward:       builtin.Params.Native(state).Get(meter.KeyValidatorBaseReward),
 				ExpectDistribute: sb.Amount,
 				ActualDistribute: sum,
-				Info:             info,
 			}
-			rewardList.rewards = append(rewardList.rewards, reward)
 			log.Info("validator rewards", "reward", reward.ToString())
+			log.Debug("validator rewards", "distribute", info)
+
+			var rewards []*ValidatorReward
+			rLen := len(rewardList.rewards)
+			if rLen >= STAKING_MAX_VALIDATOR_REWARDS {
+				rewards = append(rewardList.rewards[rLen-STAKING_MAX_VALIDATOR_REWARDS+1:], reward)
+			} else {
+				rewards = append(rewardList.rewards, reward)
+			}
+
+			rewardList = NewValidatorRewardList(rewards)
 		}
 	}
 

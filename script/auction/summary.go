@@ -12,6 +12,10 @@ import (
 	"github.com/dfinlab/meter/meter"
 )
 
+const (
+	AUCTION_MAX_SUMMARIES = 2000
+)
+
 type AuctionSummary struct {
 	AuctionID    meter.Bytes32
 	StartHeight  uint64
