@@ -228,7 +228,6 @@ func newBucket(t *testing.T) *staking.Bucket {
 
 func TestRlpForBucket(t *testing.T) {
 	src := newBucket(t)
-	fmt.Println("BUCKET:", src.ToString())
 	data, err := rlp.EncodeToBytes(src)
 	if err != nil {
 		fmt.Println("Encode error:", err)
@@ -242,7 +241,6 @@ func TestRlpForBucket(t *testing.T) {
 		fmt.Println("Decode error:", err)
 		t.Fail()
 	}
-	fmt.Println("AFTER BUCKET: ", tgt.ToString())
 
 	if !CompareValue(reflect.ValueOf(src), reflect.ValueOf(tgt)) {
 		fmt.Println("bucket not equal")
