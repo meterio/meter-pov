@@ -90,5 +90,6 @@ var (
 	InitialConsensusDelegateSize  = new(big.Int).Mul(big.NewInt(int64(100)), big.NewInt(int64(1e18))) // consensus delegate size, is set to 100
 
 	// This account takes 40% of auction gain to distribute to validators in consensus
+	// 0x61746f722d62656e656669742d61646472657373
 	ValidatorBenefitAddr = BytesToAddress([]byte("validator-benefit-address"))
 )
