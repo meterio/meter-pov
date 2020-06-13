@@ -158,28 +158,28 @@ func GetLatestProfileList() (*ProfileList, error) {
 	return list, nil
 }
 
-func RestrictByAccountLock(addr meter.Address, state *state.State) bool {
+func RestrictByAccountLock(addr meter.Address, state *state.State) (bool, *big.Int, *big.Int) {
 	accountlock := GetAccountLockGlobInst()
 	if accountlock == nil {
 		//log.Debug("accountlock is not initilized...")
-		return false
+		return false, nil, nil
 	}
 
 	list := accountlock.GetProfileList(state)
 	if list == nil {
 		log.Warn("get the accountlock profile failed")
-		return false
+		return false, nil, nil
 	}
 
 	p := list.Get(addr)
 	if p == nil {
-		return false
+		return false, nil, nil
 	}
 
 	if accountlock.GetCurrentEpoch() >= p.ReleaseEpoch {
-		return false
+		return false, nil, nil
 	}
 
 	log.Debug("the Address is not allowed to do transfer", "address", addr)
-	return true
+	return true, p.MeterAmount, p.MeterGovAmount
 }
