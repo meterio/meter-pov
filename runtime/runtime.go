@@ -114,8 +114,16 @@ func (rt *Runtime) ScriptEngineCheck(d []byte) bool {
 	return (d[0] == 0xff) && (d[1] == 0xff) && (d[2] == 0xff) && (d[3] == 0xff)
 }
 
-func (rt *Runtime) restrictTransfer(addr meter.Address) bool {
-	return accountlock.RestrictByAccountLock(addr, rt.State())
+// retrict enforcement ONLY applies to meterGov, not meter
+func (rt *Runtime) restrictTransfer(stateDB *statedb.StateDB, addr meter.Address, amount *big.Int, token byte) bool {
+	restrict, _, lockMtrg := accountlock.RestrictByAccountLock(addr, rt.State())
+	// lock is not there or token meter
+	if restrict == false || token == tx.TOKEN_METER {
+		return false
+	}
+
+	needed := new(big.Int).Add(lockMtrg, amount)
+	return stateDB.GetBalance(common.Address(addr)).Cmp(needed) >= 0
 }
 
 // SetVMConfig config VM.
@@ -355,7 +363,7 @@ func (rt *Runtime) PrepareClause(
 		}
 
 		// check the restriction of transfer.
-		if rt.restrictTransfer(txCtx.Origin) == true {
+		if rt.restrictTransfer(stateDB, txCtx.Origin, clause.Value(), clause.Token()) == true {
 			output := &Output{
 				Data:            []byte{},
 				LeftOverGas:     gas - meter.ClauseGas,
