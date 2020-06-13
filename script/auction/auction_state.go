@@ -134,22 +134,26 @@ func (a *Auction) ClearAuction(cb *AuctionCB, state *state.State) (*big.Int, *bi
 	stateDB := statedb.New(state)
 	ValidatorBenefitRatio := builtin.Params.Native(state).Get(meter.KeyValidatorBenefitRatio)
 
-	actualPrice := big.NewInt(0)
-	actualPrice = actualPrice.Div(cb.RcvdMTR, cb.RlsdMTRG)
-	actualPrice = actualPrice.Mul(actualPrice, big.NewInt(1e18))
+	actualPrice := new(big.Int).Mul(cb.RcvdMTR, big.NewInt(1e18))
+	actualPrice = actualPrice.Div(actualPrice, cb.RlsdMTRG)
 	if actualPrice.Cmp(cb.RsvdPrice) < 0 {
 		actualPrice = cb.RsvdPrice
 	}
 
 	total := big.NewInt(0)
 	for _, tx := range cb.AuctionTxs {
-		mtrg := tx.Amount.Mul(tx.Amount, big.NewInt(1e18))
-		mtrg = mtrg.Div(mtrg, actualPrice)
+		mtrg := tx.Amount.Div(tx.Amount, actualPrice)
+		mtrg = mtrg.Mul(mtrg, big.NewInt(1e18))
 		a.SendMTRGToBidder(tx.Addr, mtrg, stateDB)
 		total = total.Add(total, mtrg)
 	}
 
+	// sometimes accuracy cause negative value
 	leftOver := new(big.Int).Sub(cb.RlsdMTRG, total)
+	if leftOver.Sign() < 0 {
+		leftOver = big.NewInt(0)
+	}
+
 	a.SendMTRGToBidder(AuctionAccountAddr, leftOver, stateDB)
 
 	// 40% of received meter to AuctionValidatorBenefitAddr
