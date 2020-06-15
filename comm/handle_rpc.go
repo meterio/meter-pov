@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/dfinlab/meter/block"
-	"github.com/dfinlab/meter/chain"
 	"github.com/dfinlab/meter/comm/proto"
 	"github.com/dfinlab/meter/meter"
 	"github.com/dfinlab/meter/metric"
@@ -185,7 +184,7 @@ func (c *Communicator) handleRPC(peer *Peer, msg *p2p.Msg, write func(interface{
 			return errors.WithMessage(err, "decode msg")
 		}
 		// fmt.Println("WRITE QC: ", newQC.String())
-		c.chain.UpdateBestQC(newQC, chain.RcvedQC)
+		c.chain.SetBestQCCandidate(newQC)
 		write(&struct{}{})
 	default:
 		return fmt.Errorf("unknown message (%v)", msg.Code)

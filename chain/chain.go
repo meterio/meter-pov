@@ -979,6 +979,7 @@ func (c *Chain) UpdateBestQC() (bool, error) {
 	}
 	return false, nil
 }
+***/
 
 func (c *Chain) SetBestQCCandidate(qc *block.QuorumCert) bool {
 	if qc == nil {
@@ -1006,7 +1007,6 @@ func (c *Chain) SetBestQCCandidate(qc *block.QuorumCert) bool {
 func (c *Chain) GetBestQCCandidate() *block.QuorumCert {
 	return c.bestQCCandidate
 }
-*/
 
 func (c *Chain) UpdateBestQCWithChainLock(qc *block.QuorumCert, source QCSource) (bool, error) {
 	c.rw.Lock()
@@ -1014,11 +1014,8 @@ func (c *Chain) UpdateBestQCWithChainLock(qc *block.QuorumCert, source QCSource)
 	return c.UpdateBestQC(qc, source)
 }
 
-/*
 func (c *Chain) SetBestQCCandidateWithChainLock(qc *block.QuorumCert) bool {
 	c.rw.Lock()
 	defer c.rw.Unlock()
 	return c.SetBestQCCandidate(qc)
 }
-
-*/
