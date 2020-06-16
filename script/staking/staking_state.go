@@ -395,9 +395,11 @@ func (s *Staking) DistValidatorRewards(amount *big.Int, validators []*meter.Addr
 	}
 
 	var i int
-	var votingPowerSum, distReward, commission *big.Int
 	var baseRewardsOnly bool
 	size := len(validators)
+	votingPowerSum := big.NewInt(0)
+	distReward := big.NewInt(0)
+	commission := big.NewInt(0)
 
 	// distribute the base reward
 	validatorBaseReward := builtin.Params.Native(state).Get(meter.KeyValidatorBaseReward)
