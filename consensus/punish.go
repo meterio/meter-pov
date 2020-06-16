@@ -240,6 +240,7 @@ func (conR *ConsensusReactor) calcStatistics(lastKBlockHeight, height uint32) ([
 	// the last 2 blocks from pacemaker's proposalMap
 
 	// calculate missing proposer
+	conR.logger.Debug("missing proposer:", "epoch", conR.curEpoch, "newCommittee", conR.csPacemaker.newCommittee)
 	if conR.csPacemaker.newCommittee == true {
 		missedProposer, err := conR.calcMissingProposer(conR.curCommittee.Validators, conR.curActualCommittee, blocks)
 		if err != nil {
@@ -348,7 +349,7 @@ func (conR *ConsensusReactor) BuildStatisticsTx(entries []*StatEntry) *tx.Transa
 		BlockRef(tx.NewBlockRef(conR.chain.BestBlock().Header().Number() + 1)).
 		Expiration(720).
 		GasPriceCoef(0).
-		Gas(meter.BaseTxGas * uint64(len(entries))).
+		Gas(meter.BaseTxGas * uint64(len(entries)+20)).
 		DependsOn(nil).
 		Nonce(12345678)
 

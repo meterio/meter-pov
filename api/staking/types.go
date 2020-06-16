@@ -171,9 +171,9 @@ func convertDelegate(d staking.Delegate) *Delegate {
 
 type ValidatorReward struct {
 	Epoch            uint32 `json:"epoch"`
-	BaseReward       uint64 `json:"baseReward"`
-	ExpectDistribute uint64 `json:"expectDistribute"`
-	ActualDistribute uint64 `json:"actualDistribute`
+	BaseReward       string `json:"baseReward"`
+	ExpectDistribute string `json:"expectDistribute"`
+	ActualDistribute string `json:"actualDistribute`
 }
 
 func convertValidatorRewardList(list *staking.ValidatorRewardList) []*ValidatorReward {
@@ -187,7 +187,8 @@ func convertValidatorRewardList(list *staking.ValidatorRewardList) []*ValidatorR
 func convertValidatorReward(r staking.ValidatorReward) *ValidatorReward {
 	return &ValidatorReward{
 		Epoch:            r.Epoch,
-		ExpectDistribute: r.ExpectDistribute.Uint64(),
-		ActualDistribute: r.ActualDistribute.Uint64(),
+		BaseReward:       r.BaseReward.String(),
+		ExpectDistribute: r.ExpectDistribute.String(),
+		ActualDistribute: r.ActualDistribute.String(),
 	}
 }

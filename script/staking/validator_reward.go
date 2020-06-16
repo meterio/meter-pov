@@ -28,8 +28,8 @@ type ValidatorReward struct {
 }
 
 func (v *ValidatorReward) ToString() string {
-	return fmt.Sprintf("ValidatorReward(Epoch %v): Amount=%v BasedReward=%v ExpectDistribute=%v, ActualDistribute=%v, Info=%v",
-		v.Epoch, v.BaseReward.Uint64(), v.BaseReward.Uint64(), v.ExpectDistribute.Uint64(), v.ActualDistribute.Uint64())
+	return fmt.Sprintf("ValidatorReward(Epoch %v): BasedReward=%v ExpectDistribute=%v, ActualDistribute=%v",
+		v.Epoch, v.BaseReward.String(), v.ExpectDistribute.String(), v.ActualDistribute.String())
 }
 
 type ValidatorRewardList struct {
