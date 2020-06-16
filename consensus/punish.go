@@ -240,7 +240,7 @@ func (conR *ConsensusReactor) calcStatistics(lastKBlockHeight, height uint32) ([
 	// the last 2 blocks from pacemaker's proposalMap
 
 	// calculate missing proposer
-	if conR.csPacemaker.newCommittee == false {
+	if conR.csPacemaker.newCommittee == true {
 		missedProposer, err := conR.calcMissingProposer(conR.curCommittee.Validators, conR.curActualCommittee, blocks)
 		if err != nil {
 			conR.logger.Warn("Error during missing proposer calculation:", "err", err)
