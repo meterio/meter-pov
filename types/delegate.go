@@ -90,8 +90,9 @@ type DelegateSet struct {
 //=================================
 // commission rate 1% presents 1e07, unit is shannon (1e09)
 const (
-	COMMISSION_RATE_DEFAULT = uint64(100 * 1e06) // 10%
-	COMMISSION_RATE_MIN     = uint64(10 * 1e06)  // 1%
+	COMMISSION_RATE_MAX     = uint64(100 * 1e07) // 100%
+	COMMISSION_RATE_MIN     = uint64(1 * 1e07)   // 1%
+	COMMISSION_RATE_DEFAULT = uint64(10 * 1e07)  // 10%
 )
 
 func NewDelegateSet(vals []*Delegate) *DelegateSet {

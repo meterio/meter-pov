@@ -86,7 +86,7 @@ func GetBoundLocktime(opt uint32) (lock uint64) {
 
 func GetCommissionRate(opt uint32) uint64 {
 	commission := uint64(opt)
-	if commission > types.COMMISSION_RATE_DEFAULT || commission < types.COMMISSION_RATE_MIN {
+	if commission > types.COMMISSION_RATE_MAX || commission < types.COMMISSION_RATE_MIN {
 		return types.COMMISSION_RATE_DEFAULT
 	}
 	return commission
