@@ -70,6 +70,8 @@ func (ab *AuctionBody) GetOpName(op uint32) string {
 }
 
 var (
+	errNotStart             = errors.New("Auction not start")
+	errNotStop              = errors.New("An auction is active, stop first")
 	errNotEnoughMTR         = errors.New("not enough MTR balance")
 	errLessThanBidThreshold = errors.New("amount less than bid threshold (" + big.NewInt(0).Div(MinimumBidAmount, big.NewInt(1e18)).String() + " MTR)")
 	errInvalidNonce         = errors.New("invalid nonce (nonce in auction body and clause are the same)")
@@ -106,6 +108,12 @@ func (ab *AuctionBody) StartAuctionCB(env *AuctionEnviroment, gas uint64) (ret [
 		leftOverGas = gas - meter.ClauseGas
 	}
 
+	if auctionCB.IsActive() == true {
+		log.Info("an auction is still active, stop first", "acution id", auctionCB.AuctionID)
+		err = errNotStop
+		return
+	}
+
 	auctionCB.StartHeight = ab.StartHeight
 	auctionCB.StartEpoch = ab.StartEpoch
 	auctionCB.EndHeight = ab.EndHeight
@@ -136,6 +144,12 @@ func (ab *AuctionBody) CloseAuctionCB(senv *AuctionEnviroment, gas uint64) (ret 
 		leftOverGas = 0
 	} else {
 		leftOverGas = gas - meter.ClauseGas
+	}
+
+	if auctionCB.IsActive() == false {
+		log.Info("HandleAuctionTx: auction not start")
+		err = errNotStart
+		return
 	}
 
 	// clear the auction
@@ -184,6 +198,12 @@ func (ab *AuctionBody) HandleAuctionTx(senv *AuctionEnviroment, gas uint64) (ret
 	Auction := senv.GetAuction()
 	state := senv.GetState()
 	auctionCB := Auction.GetAuctionCB(state)
+
+	if auctionCB.IsActive() == false {
+		log.Info("HandleAuctionTx: auction not start")
+		err = errNotStart
+		return
+	}
 
 	if state.GetEnergy(ab.Bidder).Cmp(ab.Amount) < 0 {
 		log.Info("not enough meter balance", "bidder", ab.Bidder, "amount", ab.Amount)
