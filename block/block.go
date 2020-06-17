@@ -26,7 +26,7 @@ const (
 )
 
 var (
-	BlockMagicVersion1 [4]byte = [4]byte{0x75, 0x01, 0x04, 0x05} // version v.1.4.5
+	BlockMagicVersion1 [4]byte = [4]byte{0x01, 0x04, 0x05, 0x07} // version v.1.4.5-beta7
 )
 
 type Violation struct {
