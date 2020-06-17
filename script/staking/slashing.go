@@ -206,7 +206,6 @@ func (ds *DelegateStatistics) ToString() string {
 
 type StatisticsList struct {
 	delegates []*DelegateStatistics
-	//phaseOutEpoch uint32
 }
 
 func NewStatisticsList(delegates []*DelegateStatistics) *StatisticsList {
