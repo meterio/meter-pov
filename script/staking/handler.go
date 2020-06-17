@@ -892,11 +892,13 @@ func (sb *StakingBody) DelegateStatisticsHandler(senv *StakingEnviroment, gas ui
 	state := senv.GetState()
 	statisticsList := staking.GetStatisticsList(state)
 	inJailList := staking.GetInJailList(state)
+	phaseOutEpoch := staking.GetStatisticsEpoch(state)
 
+	log.Debug("in DelegateStatisticsHandler", "phaseOutEpoch", phaseOutEpoch)
 	// handle phase out from the start
 	removed := []meter.Address{}
 	epoch := sb.Option
-	if epoch > statisticsList.phaseOutEpoch {
+	if epoch > phaseOutEpoch {
 		for _, d := range statisticsList.delegates {
 			// do not phase out if it is in jail
 			if in := inJailList.Exist(d.Addr); in == true {
@@ -913,13 +915,14 @@ func (sb *StakingBody) DelegateStatisticsHandler(senv *StakingEnviroment, gas ui
 				statisticsList.Remove(r)
 			}
 		}
-		statisticsList.phaseOutEpoch = epoch
+		phaseOutEpoch = epoch
 	}
 
 	// while delegate in jail list, it is still received some statistics.
 	// ignore thos updates. it already paid for it
 	if in := inJailList.Exist(sb.CandAddr); in == true {
 		log.Info("in jail list, updates ignored ...", "address", sb.CandAddr, "name", sb.CandName)
+		staking.SetStatisticsEpoch(phaseOutEpoch, state)
 		staking.SetStatisticsList(statisticsList, state)
 		staking.SetInJailList(inJailList, state)
 		return
@@ -928,11 +931,12 @@ func (sb *StakingBody) DelegateStatisticsHandler(senv *StakingEnviroment, gas ui
 	IncrInfraction, err := UnpackBytesToInfraction(sb.ExtraData)
 	if err != nil {
 		log.Info("decode infraction failed ...", "error", err.Error)
+		staking.SetStatisticsEpoch(phaseOutEpoch, state)
 		staking.SetStatisticsList(statisticsList, state)
 		staking.SetInJailList(inJailList, state)
 		return
 	}
-	log.Info("Receives statistics", "epoch", epoch, "incremental infraction", IncrInfraction)
+	log.Info("Receives statistics", "address", sb.CandAddr, "epoch", epoch, "incremental infraction", IncrInfraction)
 
 	var jail bool
 	stats := statisticsList.Get(sb.CandAddr)
@@ -950,6 +954,7 @@ func (sb *StakingBody) DelegateStatisticsHandler(senv *StakingEnviroment, gas ui
 		inJailList.Add(NewDelegateJailed(stats.Addr, stats.Name, stats.PubKey, stats.TotalPts, &stats.Infractions, bail, sb.Timestamp))
 	}
 
+	staking.SetStatisticsEpoch(phaseOutEpoch, state)
 	staking.SetStatisticsList(statisticsList, state)
 	staking.SetInJailList(inJailList, state)
 	return

@@ -205,8 +205,8 @@ func (ds *DelegateStatistics) ToString() string {
 }
 
 type StatisticsList struct {
-	delegates     []*DelegateStatistics
-	phaseOutEpoch uint32
+	delegates []*DelegateStatistics
+	//phaseOutEpoch uint32
 }
 
 func NewStatisticsList(delegates []*DelegateStatistics) *StatisticsList {
@@ -216,7 +216,7 @@ func NewStatisticsList(delegates []*DelegateStatistics) *StatisticsList {
 	sort.SliceStable(delegates, func(i, j int) bool {
 		return bytes.Compare(delegates[i].Addr.Bytes(), delegates[j].Addr.Bytes()) <= 0
 	})
-	return &StatisticsList{delegates: delegates, phaseOutEpoch: 0}
+	return &StatisticsList{delegates: delegates /*, phaseOutEpoch: 0*/}
 }
 
 func (sl *StatisticsList) indexOf(addr meter.Address) (int, int) {

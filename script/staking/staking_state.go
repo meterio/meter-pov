@@ -20,6 +20,7 @@ var (
 	StakeHolderListKey     = meter.Blake2b([]byte("stake-holder-list-key"))
 	BucketListKey          = meter.Blake2b([]byte("global-bucket-list-key"))
 	StatisticsListKey      = meter.Blake2b([]byte("delegate-statistics-list-key"))
+	StatisticsEpochKey     = meter.Blake2b([]byte("delegate-statistics-epoch-key"))
 	InJailListKey          = meter.Blake2b([]byte("delegate-injail-list-key"))
 	ValidatorRewardListKey = meter.Blake2b([]byte("validator-reward-list-key"))
 )
@@ -168,11 +169,10 @@ func (s *Staking) SetDelegateList(delegateList *DelegateList, state *state.State
 // Statistics List, unlike others, save/get list
 func (s *Staking) GetStatisticsList(state *state.State) (result *StatisticsList) {
 	state.DecodeStorage(StakingModuleAddr, StatisticsListKey, func(raw []byte) error {
-		//stats := make([]*DelegateStatistics, 0)
-		list := NewStatisticsList([]*DelegateStatistics{})
+		stats := make([]*DelegateStatistics, 0)
 
 		if len(strings.TrimSpace(string(raw))) >= 0 {
-			err := rlp.Decode(bytes.NewReader(raw), list)
+			err := rlp.Decode(bytes.NewReader(raw), &stats)
 			if err != nil {
 				if err.Error() == "EOF" && len(raw) == 0 {
 					// EOF is caused by no value, is not error case, so returns with empty slice
@@ -182,8 +182,8 @@ func (s *Staking) GetStatisticsList(state *state.State) (result *StatisticsList)
 				}
 			}
 		}
-		result = list
-		//result = NewStatisticsList(stats)
+
+		result = NewStatisticsList(stats)
 		return nil
 	})
 	return
@@ -197,7 +197,40 @@ func (s *Staking) SetStatisticsList(list *StatisticsList, state *state.State) {
 	***/
 
 	state.EncodeStorage(StakingModuleAddr, StatisticsListKey, func() ([]byte, error) {
-		return rlp.EncodeToBytes(list)
+		return rlp.EncodeToBytes(list.delegates)
+	})
+}
+
+// Statistics List, unlike others, save/get list
+func (s *Staking) GetStatisticsEpoch(state *state.State) (result uint32) {
+	state.DecodeStorage(StakingModuleAddr, StatisticsEpochKey, func(raw []byte) error {
+		//stats := make([]*DelegateStatistics, 0)
+		epoch := uint32(0)
+		if len(strings.TrimSpace(string(raw))) >= 0 {
+			err := rlp.Decode(bytes.NewReader(raw), &epoch)
+			if err != nil {
+				if err.Error() == "EOF" && len(raw) == 0 {
+					// EOF is caused by no value, is not error case, so returns with empty slice
+				} else {
+					log.Warn("Error during decoding phaseout epoch.", "err", err)
+					return err
+				}
+			}
+		}
+		result = epoch
+		return nil
+	})
+	return
+}
+
+func (s *Staking) SetStatisticsEpoch(phaseOutEpoch uint32, state *state.State) {
+	/***
+	sort.SliceStable(list.delegates, func(i, j int) bool {
+		return bytes.Compare(list.delegates[i].Addr.Bytes(), list.delegates[j].Addr.Bytes()) <= 0
+	})
+	***/
+	state.EncodeStorage(StakingModuleAddr, StatisticsEpochKey, func() ([]byte, error) {
+		return rlp.EncodeToBytes(phaseOutEpoch)
 	})
 }
 
