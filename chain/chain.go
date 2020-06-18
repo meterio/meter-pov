@@ -864,6 +864,11 @@ func (c *Chain) UpdateBestQC(qc *block.QuorumCert, source QCSource) (bool, error
 		&QCWrap{source: LocalCandidate, qc: c.bestQCCandidate},
 	}
 
+	log.Info("LocalBestQC", "qc", c.bestQC.String())
+	log.Info("LocalBestBlock.QC", "qc", c.bestBlock.QC.String())
+	log.Info("CandidateQC", "qc", c.bestQCCandidate.String())
+	log.Info("InputQC", "qc", qc)
+
 	if qc != nil {
 		qcs = append(qcs, &QCWrap{source: source, qc: qc})
 	}
@@ -917,6 +922,7 @@ func (c *Chain) UpdateBestQC(qc *block.QuorumCert, source QCSource) (bool, error
 			return false, err
 		}
 		if blk.Header().ParentID().String() != c.bestBlock.Header().ID().String() {
+			log.Warn("parent mismatch", "descendantParentID", blk.Header().ParentID().String(), "bestBlockID", c.bestBlock.Header().ID().String(), "bestBlockHeight", c.bestBlock.Header().Number())
 			return false, errors.New("parent mismatch ")
 		}
 	}
