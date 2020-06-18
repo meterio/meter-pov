@@ -106,7 +106,7 @@ func (n *Node) handleQC(ctx context.Context, qc *block.QuorumCert) (updated bool
 	log.Debug("start to handle received qc")
 	defer log.Debug("handle qc done", "err", err)
 
-	log.Info("handle QC, SetBestQCCandidate", "QC", qc.String())
+	//log.Debug("handle QC, SetBestQCCandidate", "QC", qc.String())
 	return n.chain.SetBestQCCandidateWithChainLock(qc), nil
 }
 

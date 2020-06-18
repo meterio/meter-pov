@@ -7,12 +7,14 @@ package proto
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/dfinlab/meter/block"
 	"github.com/dfinlab/meter/meter"
 	"github.com/dfinlab/meter/powpool"
 	"github.com/dfinlab/meter/tx"
 	"github.com/ethereum/go-ethereum/rlp"
+	"github.com/pkg/errors"
 )
 
 type (
@@ -101,11 +103,16 @@ func GetBlocksFromNumber(ctx context.Context, rpc RPC, num uint32) ([]rlp.RawVal
 }
 
 func GetBestQC(ctx context.Context, rpc RPC) (*block.QuorumCert, error) {
-	var qc WireQC
-	if err := rpc.Call(ctx, MsgGetBestQC, nil, &qc); err != nil {
+	var wireQC WireQC
+	if err := rpc.Call(ctx, MsgGetBestQC, nil, &wireQC); err != nil {
 		return nil, err
 	}
-	return qc.QC, nil
+	if wireQC.Magic != block.BlockMagicVersion1 {
+		str := fmt.Sprintf("QC magic mismatch, has %v, expect %v", wireQC.Magic, block.BlockMagicVersion1)
+		fmt.Printf("%s, QC: %s", str, wireQC.QC.String())
+		return nil, errors.New(str)
+	}
+	return wireQC.QC, nil
 }
 
 // GetTxs get txs from remote peer.
