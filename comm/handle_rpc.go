@@ -191,6 +191,7 @@ func (c *Communicator) handleRPC(peer *Peer, msg *p2p.Msg, write func(interface{
 		}
 
 		//fmt.Println("WRITE QC: ", newQC.QC.String())
+		log.Info("SetBestQCCandidate", "QC", newQC.QC.String())
 		c.chain.SetBestQCCandidate(newQC.QC)
 		write(&struct{}{})
 	default:
