@@ -16,7 +16,6 @@ import (
 )
 
 type (
-
 	// Status result of MsgGetStatus.
 	Status struct {
 		GenesisBlockID meter.Bytes32
@@ -25,6 +24,11 @@ type (
 		TotalScore     uint64
 	}
 )
+
+type WireQC struct {
+	Magic [4]byte
+	QC    *block.QuorumCert
+}
 
 // RPC defines RPC interface.
 type RPC interface {
@@ -62,7 +66,7 @@ func NotifyNewPowBlock(ctx context.Context, rpc RPC, powBlockInfo *powpool.PowBl
 }
 
 func NotifyNewBestQC(ctx context.Context, rpc RPC, qc *block.QuorumCert) error {
-	return rpc.Notify(ctx, MsgNewBestQC, qc)
+	return rpc.Notify(ctx, MsgNewBestQC, &WireQC{block.BlockMagicVersion1, qc})
 }
 
 // GetBlockByID query block from remote peer by given block ID.
@@ -97,11 +101,11 @@ func GetBlocksFromNumber(ctx context.Context, rpc RPC, num uint32) ([]rlp.RawVal
 }
 
 func GetBestQC(ctx context.Context, rpc RPC) (*block.QuorumCert, error) {
-	var qc block.QuorumCert
+	var qc WireQC
 	if err := rpc.Call(ctx, MsgGetBestQC, nil, &qc); err != nil {
 		return nil, err
 	}
-	return &qc, nil
+	return qc.QC, nil
 }
 
 // GetTxs get txs from remote peer.

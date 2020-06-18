@@ -177,14 +177,21 @@ func (c *Communicator) handleRPC(peer *Peer, msg *p2p.Msg, write func(interface{
 		write(&struct{}{})
 	case proto.MsgGetBestQC:
 		qc := c.chain.BestQCOrCandidate()
-		write(qc)
+		write(&proto.WireQC{block.BlockMagicVersion1, qc})
 	case proto.MsgNewBestQC:
-		var newQC *block.QuorumCert
+		var newQC *proto.WireQC //*block.QuorumCert
 		if err := msg.Decode(&newQC); err != nil {
 			return errors.WithMessage(err, "decode msg")
 		}
-		// fmt.Println("WRITE QC: ", newQC.String())
-		c.chain.SetBestQCCandidate(newQC)
+
+		if newQC.Magic != block.BlockMagicVersion1 {
+			str := fmt.Sprintf("magic mismatch, has %v, expect %v", newQC.Magic, block.BlockMagicVersion1)
+			log.Error("receive bestQC", "error", str)
+			return errors.WithMessage(err, str)
+		}
+
+		//fmt.Println("WRITE QC: ", newQC.QC.String())
+		c.chain.SetBestQCCandidate(newQC.QC)
 		write(&struct{}{})
 	default:
 		return fmt.Errorf("unknown message (%v)", msg.Code)
