@@ -176,6 +176,14 @@ func (c *Communicator) handleRPC(peer *Peer, msg *p2p.Msg, write func(interface{
 		c.powPool.Add(newPowBlockInfo)
 		write(&struct{}{})
 	case proto.MsgGetBestQC:
+		// if block magic is different with code magic, do not send
+		if c.chain.BestBlock().GetMagic() != block.BlockMagicVersion1 {
+			str := fmt.Sprintf("do not send bestQC due to block magic mismatch, has %v, expect %v",
+				c.chain.BestBlock().GetMagic(), block.BlockMagicVersion1)
+			log.Error(str)
+			write(&struct{}{})
+			return errors.New(str)
+		}
 		qc := c.chain.BestQCOrCandidate()
 		write(&proto.WireQC{block.BlockMagicVersion1, qc})
 	case proto.MsgNewBestQC:
