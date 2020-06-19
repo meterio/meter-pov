@@ -7,8 +7,6 @@ package consensus
 
 import (
 	"bytes"
-	"encoding/base64"
-	"encoding/hex"
 	"errors"
 	"fmt"
 	"math/big"
@@ -51,7 +49,7 @@ type StatEntry struct {
 }
 
 func (e StatEntry) String() string {
-	return fmt.Sprintf("%s %s %s %s", e.Address.String(), e.Name, base64.StdEncoding.EncodeToString([]byte(e.PubKey)), e.Infraction.String())
+	return fmt.Sprintf("%s %s %s %s", e.Address.String(), e.Name, e.PubKey, e.Infraction.String())
 }
 
 func (conR *ConsensusReactor) calcMissingProposer(validators []*types.Validator, actualMembers []CommitteeMember, blocks []*block.Block) ([]*missingProposerInfo, error) {
@@ -205,7 +203,7 @@ func (conR *ConsensusReactor) calcStatistics(lastKBlockHeight, height uint32) ([
 	for _, v := range conR.curCommittee.Validators {
 		stats[v.Address] = &StatEntry{
 			Address: v.Address,
-			PubKey:  hex.EncodeToString(crypto.FromECDSAPub(&v.PubKey)),
+			PubKey:  conR.combinePubKey(&v.PubKey, &v.BlsPubKey),
 			Name:    v.Name,
 		}
 	}
