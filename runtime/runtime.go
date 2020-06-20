@@ -123,7 +123,7 @@ func (rt *Runtime) restrictTransfer(stateDB *statedb.StateDB, addr meter.Address
 	}
 
 	needed := new(big.Int).Add(lockMtrg, amount)
-	return stateDB.GetBalance(common.Address(addr)).Cmp(needed) >= 0
+	return stateDB.GetBalance(common.Address(addr)).Cmp(needed) < 0
 }
 
 // SetVMConfig config VM.
