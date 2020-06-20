@@ -180,6 +180,7 @@ func RestrictByAccountLock(addr meter.Address, state *state.State) (bool, *big.I
 		return false, nil, nil
 	}
 
-	log.Debug("the Address is not allowed to do transfer", "address", addr)
+	log.Debug("the Address is not allowed to do transfer", "address", addr,
+		"meter", p.MeterAmount.String(), "meterGov", p.MeterGovAmount.String())
 	return true, p.MeterAmount, p.MeterGovAmount
 }
