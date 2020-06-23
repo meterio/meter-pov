@@ -1548,6 +1548,16 @@ func (conR *ConsensusReactor) splitPubKey(comboPub string) (*ecdsa.PublicKey, *b
 	return pubKey, &blsPub
 }
 
+func (conR *ConsensusReactor) combinePubKey(ecdsaPub *ecdsa.PublicKey, blsPub *bls.PublicKey) string {
+	ecdsaPubBytes := crypto.FromECDSAPub(ecdsaPub)
+	ecdsaPubB64 := b64.StdEncoding.EncodeToString(ecdsaPubBytes)
+
+	blsPubBytes := conR.csCommon.GetSystem().PubKeyToBytes(*blsPub)
+	blsPubB64 := b64.StdEncoding.EncodeToString(blsPubBytes)
+
+	return strings.Join([]string{ecdsaPubB64, blsPubB64}, ":::")
+}
+
 func (conR *ConsensusReactor) LoadBlockBytes(num uint32) []byte {
 	raw, err := conR.chain.GetTrunkBlockRaw(num)
 	if err != nil {

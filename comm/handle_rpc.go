@@ -176,17 +176,21 @@ func (c *Communicator) handleRPC(peer *Peer, msg *p2p.Msg, write func(interface{
 		c.powPool.Add(newPowBlockInfo)
 		write(&struct{}{})
 	case proto.MsgGetBestQC:
-		// if block magic is different with code magic, do not send
-		if c.chain.BestBlock().Header().Number() != 0 &&
-			c.chain.BestBlock().GetMagic() != block.BlockMagicVersion1 {
-			str := fmt.Sprintf("do not send bestQC due to block magic mismatch, has %v, expect %v",
-				c.chain.BestBlock().GetMagic(), block.BlockMagicVersion1)
-			log.Error(str)
-			write(&struct{}{})
-			return errors.New(str)
+		var magic [4]byte
+
+		// genesis does not have magic. treat it specially.
+		if c.chain.BestBlock().Header().Number() == 0 {
+			magic = block.BlockMagicVersion1
+		} else {
+			magic = c.chain.BestBlock().GetMagic()
 		}
+
+		if magic != block.BlockMagicVersion1 {
+			log.Warn("block magic is not expected", "has", magic, "expect", block.BlockMagicVersion1)
+		}
+
 		qc := c.chain.BestQCOrCandidate()
-		write(&proto.WireQC{block.BlockMagicVersion1, qc})
+		write(&proto.WireQC{magic, qc})
 	case proto.MsgNewBestQC:
 		var newQC *proto.WireQC //*block.QuorumCert
 		if err := msg.Decode(&newQC); err != nil {

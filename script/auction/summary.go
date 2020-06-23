@@ -13,7 +13,7 @@ import (
 )
 
 const (
-	AUCTION_MAX_SUMMARIES = 2000
+	AUCTION_MAX_SUMMARIES = 1200
 )
 
 type AuctionSummary struct {

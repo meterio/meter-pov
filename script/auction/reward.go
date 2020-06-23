@@ -72,8 +72,8 @@ func calcWeightedAvgPrice(history *[N]float64) float64 {
     var denominator float64 = float64((N + 1) * N / 2)
     var WeightedAvgPrice float64
 
-    for i = 0; i < N; i++ {
-        price := history[i] * float64(i) / denominator
+    for i = 1; i <= N; i++ {
+        price := history[i-1] * float64(i) / denominator
         WeightedAvgPrice = WeightedAvgPrice + price
     }
     return WeightedAvgPrice
