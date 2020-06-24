@@ -67,8 +67,8 @@ func NewMainnet() *Genesis {
 	///// initialize builtin contracts
 
 	// initialize params
-	data := mustEncodeInput(builtin.Params.ABI, "set", meter.KeyExecutorAddress, new(big.Int).SetBytes(builtin.Executor.Address.Bytes()))
-	builder.Call(tx.NewClause(&builtin.Params.Address).WithData(data), builtin.Executor.Address)
+	data := mustEncodeInput(builtin.Params.ABI, "set", meter.KeyExecutorAddress, new(big.Int).SetBytes(builtin.Executor.Address[:]))
+	builder.Call(tx.NewClause(&builtin.Params.Address).WithData(data), meter.Address{})
 
 	data = mustEncodeInput(builtin.Params.ABI, "set", meter.KeyBaseGasPrice, meter.InitialBaseGasPrice)
 	builder.Call(tx.NewClause(&builtin.Params.Address).WithData(data), builtin.Executor.Address)
@@ -125,12 +125,6 @@ func NewMainnet() *Genesis {
 	return &Genesis{builder, id, "mainnet"}
 }
 
-type authorityNode struct {
-	masterAddress   meter.Address
-	endorsorAddress meter.Address
-	identity        meter.Bytes32
-}
-
 type approver struct {
 	address  meter.Address
 	identity string
@@ -138,12 +132,9 @@ type approver struct {
 
 func loadApprovers() []*approver {
 	return []*approver{
-		{meter.MustParseAddress("0xb0f6d9933c1c2f4d891ca479343921f2d32e0fad"), "CY Cheung"},
-		{meter.MustParseAddress("0xda48cc4d23b41158e1294e0e4bcce8e9953cee26"), "George Kang"},
-		{meter.MustParseAddress("0xca7b45abe0d421e5628d2224bfe8fa6a6cf7c51b"), "Jay Zhang"},
-		{meter.MustParseAddress("0xa03f185f2a0def1efdd687ef3b96e404869d93de"), "Margaret Rui Zhu"},
-		{meter.MustParseAddress("0x74bac19f78369637db63f7496ecb5f88cc183672"), "Peter Zhou"},
-		{meter.MustParseAddress("0x5fefc7836af047c949d1fea72839823d2f06f7e3"), "Renato Grottola"},
-		{meter.MustParseAddress("0x7519874d0f7d31b5f0fd6f0429a4e5ece6f3fd49"), "Sunny Lu"},
+		{meter.MustParseAddress("0xbb28e3212cf0df458cb3ba2cf2fd14888b2d7da7"), "Marketing"},
+		{meter.MustParseAddress("0xe9061c2517bba8a7e2d2c20053cd8323b577efe7"), "Foundation Ops"},
+		{meter.MustParseAddress("0x489d1aac58ab92a5edbe076e71d7f47d1578e20a"), "Public Sale"},
+		{meter.MustParseAddress("0x46b77531b74ff31882c4636a35547535818e0baa"), "Foundation Lock"},
 	}
 }

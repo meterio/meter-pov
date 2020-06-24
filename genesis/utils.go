@@ -84,7 +84,6 @@ func LoadVestProfile() []*accountlock.Profile {
 			continue
 		}
 		memo := []byte(p[3])
-		log.Debug("parsed entry", "meter amount", mtr, "meter gov amount", mtrg)
 
 		pp := accountlock.NewProfile(address, memo, 0, uint32(epoch), FloatToBigInt(mtr), FloatToBigInt(mtrg))
 		log.Debug("new profile created", "profile", pp.ToString())
@@ -118,17 +117,4 @@ func FloatToBigInt(val float64) *big.Int {
 	fval := float64(val * 1e09)
 	bigval := big.NewInt(int64(fval))
 	return bigval.Mul(bigval, big.NewInt(1e09))
-
-	/*
-		bigval := new(big.Float).SetFloat64(val)
-		//log.Debug("bigval", "bigval", bigval.String())
-		coin := new(big.Float).SetInt(big.NewInt(1000000000000000000))
-		bigval = bigval.Mul(bigval, coin)
-		//log.Debug("bigval 2", "bigval", bigval)
-
-		result := new(big.Int)
-		result, accuracy := bigval.Int(result)
-		log.Debug("big int", "value", result, "accuracy", accuracy)
-		return result
-	*/
 }
