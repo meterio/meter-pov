@@ -36,6 +36,22 @@ func mustLoadContract(name string) *contract {
 	}
 }
 
+func mustLoadContractAddress(name, addr string) *contract {
+	asset := "compiled/" + name + ".abi"
+	data := gen.MustAsset(asset)
+	abi, err := abi.New(data)
+
+	if err != nil {
+		panic(errors.Wrap(err, "load ABI for '"+name+"'"))
+	}
+
+	return &contract{
+		name,
+		meter.MustParseAddress(addr),
+		abi,
+	}
+}
+
 // RuntimeBytecodes load runtime byte codes.
 func (c *contract) RuntimeBytecodes() []byte {
 	asset := "compiled/" + c.name + ".bin-runtime"

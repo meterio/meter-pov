@@ -119,17 +119,9 @@ func CalcRewardEpochRange(startEpoch, endEpoch uint64) (totalReward float64, epo
 }
 
 func FloatToBigInt(val float64) *big.Int {
-    bigval := new(big.Float)
-    bigval.SetFloat64(val)
-
-    coin := new(big.Float)
-    coin.SetInt(big.NewInt(1000000000000000000))
-    bigval.Mul(bigval, coin)
-
-    result := new(big.Int)
-    result, accuracy := bigval.Int(result)
-    log.Debug("big int", "value", result, "accuracy", accuracy)
-    return result
+    fval := float64(val * 1e09)
+    bigval := big.NewInt(int64(fval))
+    return bigval.Mul(bigval, big.NewInt(1e09))
 }
 
 func GetAuctionReservedPrice() *big.Int {

@@ -23,10 +23,11 @@ var (
 	Meter        = &erc20Contract{mustLoadContract("Meter")}              // erc20 contract
 	MeterGov     = &erc20Contract{mustLoadContract("MeterGov")}           // erc20 contract
 	MeterTracker = &meterTrackerContract{mustLoadContract("MeterNative")} // native call contract
-	Executor     = &executorContract{mustLoadContract("Executor")}
-	Prototype    = &prototypeContract{mustLoadContract("Prototype")}
-	Extension    = &extensionContract{mustLoadContract("Extension")}
-	Measure      = mustLoadContract("Measure")
+	Executor     = &executorContract{mustLoadContractAddress("Executor",
+		meter.InitialExecutorAccount)} //set the excutor address
+	Prototype = &prototypeContract{mustLoadContract("Prototype")}
+	Extension = &extensionContract{mustLoadContract("Extension")}
+	Measure   = mustLoadContract("Measure")
 )
 
 type (

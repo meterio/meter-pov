@@ -12,16 +12,12 @@ import (
 	"github.com/dfinlab/meter/meter"
 	"github.com/dfinlab/meter/state"
 	"github.com/dfinlab/meter/tx"
-	"github.com/dfinlab/meter/vesting"
 	"github.com/dfinlab/meter/vm"
 )
 
 // NewMainnet create mainnet genesis.
 func NewMainnet() *Genesis {
 	launchTime := uint64(1530316800) // '2018-06-30T00:00:00.000Z'
-
-	// init vestPlan
-	vesting.VestPlanInit()
 
 	builder := new(Builder).
 		Timestamp(launchTime).
@@ -44,33 +40,25 @@ func NewMainnet() *Genesis {
 			tokenSupply := &big.Int{}
 			energySupply := &big.Int{}
 
-			vestPlans := vesting.LoadVestPlan()
-			for _, v := range vestPlans {
-				state.SetBalance(v.Address, v.MtrGov)
-				tokenSupply.Add(tokenSupply, v.MtrGov)
+			// accountlock states
+			profiles := LoadVestProfile()
+			for _, p := range profiles {
+				state.SetBalance(p.Addr, p.MeterGovAmount)
+				tokenSupply.Add(tokenSupply, p.MeterGovAmount)
 
-				state.SetEnergy(v.Address, v.Mtr)
-				energySupply.Add(energySupply, v.Mtr)
+				state.SetEnergy(p.Addr, p.MeterAmount)
+				energySupply.Add(energySupply, p.MeterAmount)
 			}
+			SetAccountLockProfileState(profiles, state)
 
-			// alloc all other tokens
-			// 21,046,908,616.5 x 4
+			// alloc all other tokens w/o account lock
+			// 21,046,908,616.5 x 1
+			/*****
 			amount := new(big.Int).Mul(big.NewInt(210469086165), big.NewInt(1e17))
 			tokenSupply.Add(tokenSupply, amount)
-			state.SetBalance(meter.MustParseAddress("0x137053dfbe6c0a43f915ad2efefefdcc2708e975"), amount)
-			state.SetEnergy(meter.MustParseAddress("0x137053dfbe6c0a43f915ad2efefefdcc2708e975"), &big.Int{})
-
-			tokenSupply.Add(tokenSupply, amount)
-			state.SetBalance(meter.MustParseAddress("0xaf111431c1284a5e16d2eecd2daed133ce96820e"), amount)
-			state.SetEnergy(meter.MustParseAddress("0xaf111431c1284a5e16d2eecd2daed133ce96820e"), &big.Int{})
-
-			tokenSupply.Add(tokenSupply, amount)
-			state.SetBalance(meter.MustParseAddress("0x997522a4274336f4b86af4a6ed9e45aedcc6d360"), amount)
-			state.SetEnergy(meter.MustParseAddress("0x997522a4274336f4b86af4a6ed9e45aedcc6d360"), &big.Int{})
-
-			tokenSupply.Add(tokenSupply, amount)
-			state.SetBalance(meter.MustParseAddress("0x0bd7b06debd1522e75e4b91ff598f107fd826c8a"), amount)
-			state.SetEnergy(meter.MustParseAddress("0x0bd7b06debd1522e75e4b91ff598f107fd826c8a"), &big.Int{})
+			state.SetBalance(meter.MustParseAddress(meter.AuctionMeterAccount), amount)
+			state.SetEnergy(meter.MustParseAddress(meter.AuctionMeterAccount), &big.Int{})
+			******/
 
 			builtin.MeterTracker.Native(state).SetInitialSupply(tokenSupply, energySupply)
 			return nil
@@ -79,13 +67,8 @@ func NewMainnet() *Genesis {
 	///// initialize builtin contracts
 
 	// initialize params
-	data := mustEncodeInput(builtin.Params.ABI, "set", meter.KeyExecutorAddress, new(big.Int).SetBytes(builtin.Executor.Address[:]))
-	builder.Call(tx.NewClause(&builtin.Params.Address).WithData(data), meter.Address{})
-
-	/***
-	data = mustEncodeInput(builtin.Params.ABI, "set", meter.KeyRewardRatio, meter.InitialRewardRatio)
+	data := mustEncodeInput(builtin.Params.ABI, "set", meter.KeyExecutorAddress, new(big.Int).SetBytes(builtin.Executor.Address.Bytes()))
 	builder.Call(tx.NewClause(&builtin.Params.Address).WithData(data), builtin.Executor.Address)
-	***/
 
 	data = mustEncodeInput(builtin.Params.ABI, "set", meter.KeyBaseGasPrice, meter.InitialBaseGasPrice)
 	builder.Call(tx.NewClause(&builtin.Params.Address).WithData(data), builtin.Executor.Address)

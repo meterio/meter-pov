@@ -35,7 +35,7 @@ func NewProfile(addr meter.Address, memo []byte, lock uint32, release uint32, mt
 
 func (c *Profile) ToString() string {
 	return fmt.Sprintf("Profile(%v) Memo=%v, LockEpoch=%v, ReleaseEpoch=%v, MeterAmount=%v, MeterGovAmount=%v",
-		c.Addr, string(c.Memo), c.LockEpoch, c.ReleaseEpoch, c.MeterAmount.Uint64(), c.MeterGovAmount.Uint64())
+		c.Addr, string(c.Memo), c.LockEpoch, c.ReleaseEpoch, c.MeterAmount.String(), c.MeterGovAmount.String())
 }
 
 type ProfileList struct {
