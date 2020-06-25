@@ -116,7 +116,7 @@ func NewMainnet() *Genesis {
 	}
 
 	var extra [28]byte
-	copy(extra[:], "Salute & Respect, Ethereum!")
+	copy(extra[:], "In Math We Trust!")
 	builder.ExtraData(extra)
 	id, err := builder.ComputeID()
 	if err != nil {

@@ -8,10 +8,10 @@ package genesis_test
 import (
 	"testing"
 
-	"github.com/stretchr/testify/assert"
 	"github.com/dfinlab/meter/genesis"
 	"github.com/dfinlab/meter/lvldb"
 	"github.com/dfinlab/meter/state"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestTestnetGenesis(t *testing.T) {
