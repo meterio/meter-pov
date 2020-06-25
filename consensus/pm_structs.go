@@ -216,7 +216,7 @@ func (cmd PMCmd) String() string {
 	return ""
 }
 
-type PMStopInfo struct {
+type PMCmdInfo struct {
 	cmd  PMCmd
 	mode PMMode
 }

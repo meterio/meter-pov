@@ -69,7 +69,7 @@ type Pacemaker struct {
 	// Channels
 	pacemakerMsgCh chan consensusMsgInfo
 	roundTimeoutCh chan PMRoundTimeoutInfo
-	stopCh         chan *PMStopInfo
+	cmdCh          chan *PMCmdInfo
 	beatCh         chan *PMBeatInfo
 
 	// Timeout
@@ -87,7 +87,7 @@ func NewPaceMaker(conR *ConsensusReactor) *Pacemaker {
 
 		msgCache:       NewMsgCache(2048),
 		pacemakerMsgCh: make(chan consensusMsgInfo, 128),
-		stopCh:         make(chan *PMStopInfo, 2),
+		cmdCh:          make(chan *PMCmdInfo, 2),
 		beatCh:         make(chan *PMBeatInfo, 2),
 		roundTimeoutCh: make(chan PMRoundTimeoutInfo, 2),
 		roundTimer:     nil,
@@ -852,7 +852,7 @@ func (p *Pacemaker) mainLoop() {
 			return
 		}
 		select {
-		case si := <-p.stopCh:
+		case si := <-p.cmdCh:
 			p.logger.Warn("Scheduled cmd", "cmd", si.cmd.String())
 			switch si.cmd {
 			case PMCmdStop:
@@ -958,8 +958,8 @@ func (p *Pacemaker) reset() {
 	for len(p.beatCh) > 0 {
 		<-p.beatCh
 	}
-	for len(p.stopCh) > 0 {
-		<-p.stopCh
+	for len(p.cmdCh) > 0 {
+		<-p.cmdCh
 	}
 
 	// clean msg cache and pending list
@@ -991,16 +991,21 @@ func (p *Pacemaker) Stop() {
 	fmt.Println(fmt.Sprintf("Pacemaker stop requested. \n  Current BestBlock: %v \n  LeafBlock: %v\n  BestQC: %v\n", chain.BestBlock().Oneliner(), chain.LeafBlock().Oneliner(), chain.BestQC().String()))
 
 	// suicide
-	if len(p.stopCh) < cap(p.stopCh) {
-		p.stopCh <- &PMStopInfo{cmd: PMCmdStop}
+	// make sure this stop cmd is the very next cmd
+	for len(p.cmdCh) > 0 {
+		<-p.cmdCh
 	}
+	p.cmdCh <- &PMCmdInfo{cmd: PMCmdStop}
 }
 
 func (p *Pacemaker) Restart(mode PMMode) {
 	// schedule the restart
-	if len(p.stopCh) < cap(p.stopCh) {
-		p.stopCh <- &PMStopInfo{cmd: PMCmdRestart, mode: mode}
+	// make sure this restart cmd is the very next cmd
+	for len(p.cmdCh) > 0 {
+		<-p.cmdCh
 	}
+
+	p.cmdCh <- &PMCmdInfo{cmd: PMCmdRestart, mode: mode}
 }
 
 func (p *Pacemaker) OnRoundTimeout(ti PMRoundTimeoutInfo) {
