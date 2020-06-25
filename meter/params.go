@@ -49,6 +49,11 @@ const (
 	//python -c "print 2**32 * 1.5 /120/25/1000/1000/1000/1000/10/30 * 1e18"
 	POW_DEFAULT_REWARD_COEF_M10 = int64(7158278826)
 	POW_M10_EFFECIENCY          = 0.060
+
+	// mainnet effeciency set as 0.053
+	//python -c "print 2**32 * 0.053 /120/1000/1000/1000/1000/10/30 * 1e18"
+	POW_DEFAULT_REWARD_COEF_MAIN = int64(6323146297)
+	POW_M10_EFFECIENCY_MAIN      = 0.053
 )
 
 // Keys of governance params.
@@ -75,7 +80,7 @@ var (
 	InitialBaseGasPrice        = big.NewInt(5e11) // each tx gas is about 0.01 meter
 	InitialProposerEndorsement = new(big.Int).Mul(big.NewInt(1e18), big.NewInt(25000000))
 
-	InitialPowPoolCoef           = big.NewInt(POW_DEFAULT_REWARD_COEF_M10)                            // coef start with M10
+	InitialPowPoolCoef           = big.NewInt(POW_DEFAULT_REWARD_COEF_MAIN)                           // coef start with Main
 	InitialPowPoolCoefFadeDays   = new(big.Int).Mul(big.NewInt(550), big.NewInt(1e18))                // fade day initial is 550 days
 	InitialPowPoolCoefFadeRate   = new(big.Int).Mul(big.NewInt(5), big.NewInt(1e17))                  // fade rate initial with 0.5
 	InitialValidatorBenefitRatio = big.NewInt(4e17)                                                   //40% percent of total auciton gain
