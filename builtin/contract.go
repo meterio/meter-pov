@@ -36,7 +36,7 @@ func mustLoadContract(name string) *contract {
 	}
 }
 
-func mustLoadContractAddress(name, addr string) *contract {
+func mustLoadContractAddress(name string, addr meter.Address) *contract {
 	asset := "compiled/" + name + ".abi"
 	data := gen.MustAsset(asset)
 	abi, err := abi.New(data)
@@ -47,7 +47,7 @@ func mustLoadContractAddress(name, addr string) *contract {
 
 	return &contract{
 		name,
-		meter.MustParseAddress(addr),
+		addr,
 		abi,
 	}
 }

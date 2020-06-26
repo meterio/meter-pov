@@ -2,11 +2,9 @@ package auction
 
 import (
 	"bytes"
-	"encoding/hex"
 	"errors"
 	"fmt"
 	"math/big"
-
 	"strings"
 
 	"github.com/dfinlab/meter/meter"
@@ -23,6 +21,7 @@ type AuctionSummary struct {
 	EndHeight    uint64
 	EndEpoch     uint64
 	RlsdMTRG     *big.Int
+	RsvdMTRG     *big.Int
 	RsvdPrice    *big.Int
 	CreateTime   uint64
 	RcvdMTR      *big.Int
@@ -31,9 +30,9 @@ type AuctionSummary struct {
 }
 
 func (a *AuctionSummary) ToString() string {
-	return fmt.Sprintf("AuctionSummary(%v) StartHeight=%v, StartEpoch=%v, EndHeight=%v, EndEpoch=%v, ReleasedMTRG=%v, ReserveredPrice=%v, CreateTime=%v, ReceivedMTR=%v, ActualPrice=%v, LeftoverMTRG=%v",
-		a.AuctionID.String(), a.StartHeight, a.StartEpoch, a.EndHeight, a.EndEpoch, hex.EncodeToString(a.RlsdMTRG.Bytes()), hex.EncodeToString(a.RsvdPrice.Bytes()),
-		a.CreateTime, hex.EncodeToString(a.RcvdMTR.Bytes()), hex.EncodeToString(a.ActualPrice.Bytes()), hex.EncodeToString(a.LeftoverMTRG.Bytes()))
+	return fmt.Sprintf("AuctionSummary(%v) StartHeight=%v, StartEpoch=%v, EndHeight=%v, EndEpoch=%v, ReleasedMTRG=%v, ReservedMTRG=%v, ReserveredPrice=%v, CreateTime=%v, ReceivedMTR=%v, ActualPrice=%v, LeftoverMTRG=%v",
+		a.AuctionID.String(), a.StartHeight, a.StartEpoch, a.EndHeight, a.EndEpoch, a.RlsdMTRG.String(), a.RsvdMTRG.String(), a.RsvdPrice.String(),
+		a.CreateTime, a.RcvdMTR.String(), a.ActualPrice.String(), a.LeftoverMTRG.String())
 }
 
 // api routine interface

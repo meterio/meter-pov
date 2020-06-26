@@ -15,6 +15,7 @@ type AuctionSummary struct {
 	EndHeight    uint64 `json:"endHeight"`
 	EndEpoch     uint64 `json:"endEpoch"`
 	RlsdMTRG     string `json:"releasedMTRG"`
+	RsvdMTRG     string `json:"reservedMTRG"`
 	RsvdPrice    string `json:"reservedPrice"`
 	CreateTime   uint64 `json:"createTime"`
 	Timestamp    string `json:"timestamp"`
@@ -30,6 +31,7 @@ type AuctionCB struct {
 	EndHeight   uint64       `json:"endHeight"`
 	EndEpoch    uint64       `json:"endEpoch"`
 	RlsdMTRG    string       `json:"releasedMTRG"`
+	RsvdMTRG    string       `json:"reservedMTRG"`
 	RsvdPrice   string       `json:"reservedPrice"`
 	CreateTime  uint64       `json:"createTime"`
 	Timestamp   string       `json:"timestamp"`
@@ -62,6 +64,7 @@ func convertSummary(s *auction.AuctionSummary) *AuctionSummary {
 		EndHeight:    s.EndHeight,
 		EndEpoch:     s.EndEpoch,
 		RlsdMTRG:     s.RlsdMTRG.String(),
+		RsvdMTRG:     s.RsvdMTRG.String(),
 		RsvdPrice:    s.RsvdPrice.String(),
 		Timestamp:    fmt.Sprintln(time.Unix(int64(s.CreateTime), 0)),
 		CreateTime:   s.CreateTime,
@@ -95,6 +98,7 @@ func convertAuctionCB(cb *auction.AuctionCB) *AuctionCB {
 		EndHeight:   cb.EndHeight,
 		EndEpoch:    cb.EndEpoch,
 		RlsdMTRG:    cb.RlsdMTRG.String(),
+		RsvdMTRG:    cb.RsvdMTRG.String(),
 		RsvdPrice:   cb.RsvdPrice.String(),
 		CreateTime:  cb.CreateTime,
 		Timestamp:   fmt.Sprintln(time.Unix(int64(cb.CreateTime), 0)),

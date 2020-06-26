@@ -98,7 +98,7 @@ func (a *Auction) TransferMTRToAuction(addr meter.Address, amount *big.Int, stat
 		return errors.New("not enough meter")
 	}
 
-	state.AddEnergy(AuctionAccountAddr, amount)
+	state.AddEnergy(meter.AuctionMeterAccount, amount)
 	state.SubEnergy(addr, amount)
 	return nil
 }
@@ -112,19 +112,19 @@ func (a *Auction) SendMTRGToBidder(addr meter.Address, amount *big.Int, stateDB 
 	return
 }
 
-// form AuctionAccountAddr ==> meter.ValidatorBenefitAddr
+// form meter.AuctionMeterAccount ==> meter.ValidatorBenefitAddr
 func (a *Auction) TransferMTRToValidatorBenefit(amount *big.Int, state *state.State) error {
 	if amount.Sign() == 0 {
 		return nil
 	}
 
-	meterBalance := state.GetEnergy(AuctionAccountAddr)
+	meterBalance := state.GetEnergy(meter.AuctionMeterAccount)
 	if meterBalance.Cmp(amount) < 0 {
 		return errors.New("not enough meter")
 	}
 
 	state.AddEnergy(meter.ValidatorBenefitAddr, amount)
-	state.SubEnergy(AuctionAccountAddr, amount)
+	state.SubEnergy(meter.AuctionMeterAccount, amount)
 	return nil
 }
 
@@ -154,7 +154,9 @@ func (a *Auction) ClearAuction(cb *AuctionCB, state *state.State) (*big.Int, *bi
 		leftOver = big.NewInt(0)
 	}
 
-	a.SendMTRGToBidder(AuctionAccountAddr, leftOver, stateDB)
+	// send the remainings to accumulate accounts
+	a.SendMTRGToBidder(meter.AuctionLeftOverAccount, cb.RsvdMTRG, stateDB)
+	a.SendMTRGToBidder(meter.AuctionLeftOverAccount, leftOver, stateDB)
 
 	// 40% of received meter to AuctionValidatorBenefitAddr
 	amount := new(big.Int).Mul(cb.RcvdMTR, ValidatorBenefitRatio)

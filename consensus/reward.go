@@ -96,22 +96,25 @@ func (conR *ConsensusReactor) TryBuildMinerRewardTx(rewards []powpool.PowReward)
 func BuildAuctionStart(start, startEpoch, end, endEpoch uint64) (ret []byte) {
 	ret = []byte{}
 
-	release, _, err := auction.CalcRewardEpochRange(startEpoch, endEpoch)
+	//
+	release, reserve, _, err := auction.CalcRewardEpochRange(startEpoch, endEpoch)
 	if err != nil {
 		panic("calculate reward failed" + err.Error())
 	}
 	releaseBigInt := auction.FloatToBigInt(release)
+	reserveBigInt := auction.FloatToBigInt(reserve)
 
 	body := &auction.AuctionBody{
-		Opcode:      auction.OP_START,
-		Version:     uint32(0),
-		StartHeight: start,
-		StartEpoch:  startEpoch,
-		EndHeight:   end,
-		EndEpoch:    endEpoch,
-		Amount:      releaseBigInt,
-		Timestamp:   uint64(time.Now().Unix()),
-		Nonce:       rand.Uint64(),
+		Opcode:        auction.OP_START,
+		Version:       uint32(0),
+		StartHeight:   start,
+		StartEpoch:    startEpoch,
+		EndHeight:     end,
+		EndEpoch:      endEpoch,
+		Amount:        releaseBigInt,
+		ReserveAmount: reserveBigInt,
+		Timestamp:     uint64(time.Now().Unix()),
+		Nonce:         rand.Uint64(),
 	}
 	payload, err := rlp.EncodeToBytes(body)
 	if err != nil {

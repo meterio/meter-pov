@@ -100,8 +100,8 @@ var (
 
 	//////////////////////////////
 	// The Following Accounts are defined for DFL Community
-	InitialExecutorAccount = "0xdbb11b66f1d62bdeb5f47018d85e2401d7e3dc2e"
+	InitialExecutorAccount = MustParseAddress("0xdbb11b66f1d62bdeb5f47018d85e2401d7e3dc2e")
 
-	AuctionLeftOverAccount = "0xe852f654dfaee0e2b60842657379a56e1cafa292"
-	AuctionMeterAccount    = "0xfa48b8c0e56f9560acb758324b174d32b9eb2e39"
+	AuctionLeftOverAccount = MustParseAddress("0xe852f654dfaee0e2b60842657379a56e1cafa292")
+	AuctionMeterAccount    = MustParseAddress("0xfa48b8c0e56f9560acb758324b174d32b9eb2e39")
 )

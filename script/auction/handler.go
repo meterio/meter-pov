@@ -36,24 +36,25 @@ var (
 
 // Candidate indicates the structure of a candidate
 type AuctionBody struct {
-	Opcode      uint32
-	Version     uint32
-	Option      uint32
-	StartHeight uint64
-	StartEpoch  uint64
-	EndHeight   uint64
-	EndEpoch    uint64
-	AuctionID   meter.Bytes32
-	Bidder      meter.Address
-	Amount      *big.Int
-	Token       byte   // meter or meter gov
-	Timestamp   uint64 // timestamp
-	Nonce       uint64 // nonce
+	Opcode        uint32
+	Version       uint32
+	Option        uint32
+	StartHeight   uint64
+	StartEpoch    uint64
+	EndHeight     uint64
+	EndEpoch      uint64
+	AuctionID     meter.Bytes32
+	Bidder        meter.Address
+	Amount        *big.Int
+	ReserveAmount *big.Int
+	Token         byte   // meter or meter gov
+	Timestamp     uint64 // timestamp
+	Nonce         uint64 // nonce
 }
 
 func (ab *AuctionBody) ToString() string {
-	return fmt.Sprintf("AuctionBody: Opcode=%v, Version=%v, Option=%v, StartHegiht=%v, StartEpoch=%v, EndHeight=%v, EndEpoch=%v, AuctionID=%v, Bidder=%v, Amount=%v, Token=%v, TimeStamp=%v, Nonce=%v",
-		ab.Opcode, ab.Version, ab.Option, ab.StartHeight, ab.StartEpoch, ab.EndHeight, ab.EndEpoch, ab.AuctionID.AbbrevString(), ab.Bidder.String(), ab.Amount.String(), ab.Token, ab.Timestamp, ab.Nonce)
+	return fmt.Sprintf("AuctionBody: Opcode=%v, Version=%v, Option=%v, StartHegiht=%v, StartEpoch=%v, EndHeight=%v, EndEpoch=%v, AuctionID=%v, Bidder=%v, Amount=%v, ReserveAmount=%v, Token=%v, TimeStamp=%v, Nonce=%v",
+		ab.Opcode, ab.Version, ab.Option, ab.StartHeight, ab.StartEpoch, ab.EndHeight, ab.EndEpoch, ab.AuctionID.AbbrevString(), ab.Bidder.String(), ab.Amount.String(), ab.ReserveAmount.String(), ab.Token, ab.Timestamp, ab.Nonce)
 }
 
 func (ab *AuctionBody) GetOpName(op uint32) string {
@@ -119,6 +120,7 @@ func (ab *AuctionBody) StartAuctionCB(env *AuctionEnviroment, gas uint64) (ret [
 	auctionCB.EndHeight = ab.EndHeight
 	auctionCB.EndEpoch = ab.EndEpoch
 	auctionCB.RlsdMTRG = ab.Amount
+	auctionCB.RsvdMTRG = ab.ReserveAmount
 	auctionCB.RsvdPrice = builtin.Params.Native(state).Get(meter.KeyAuctionReservedPrice)
 	auctionCB.CreateTime = ab.Timestamp
 	auctionCB.RcvdMTR = big.NewInt(0)
@@ -166,6 +168,7 @@ func (ab *AuctionBody) CloseAuctionCB(senv *AuctionEnviroment, gas uint64) (ret 
 		EndHeight:    auctionCB.EndHeight,
 		EndEpoch:     auctionCB.EndEpoch,
 		RlsdMTRG:     auctionCB.RlsdMTRG,
+		RsvdMTRG:     auctionCB.RsvdMTRG,
 		RsvdPrice:    auctionCB.RsvdPrice,
 		CreateTime:   auctionCB.CreateTime,
 		RcvdMTR:      auctionCB.RcvdMTR,

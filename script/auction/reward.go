@@ -10,9 +10,9 @@ import (
 )
 
 const (
-    totoalRelease = 400000000 //total released 400M MTRG
+    totoalRelease = 160000000 //total released 160M MTRG
     totalYears    = 500       // 500 years
-    fadeYears     = 15        // halve every 15 years
+    fadeYears     = 6         // halve every 6 years
     fadeRate      = 0.8       // fade rate 0.8
     N             = 24        // history buffer size
 )
@@ -80,7 +80,7 @@ func calcWeightedAvgPrice(history *[N]float64) float64 {
 }
 
 // released MTRG for a speciefic range
-func CalcRewardEpochRange(startEpoch, endEpoch uint64) (totalReward float64, epochRewards []float64, err error) {
+func CalcRewardEpochRange(startEpoch, endEpoch uint64) (totalReward float64, totalUnrelease float64, epochRewards []float64, err error) {
     var epoch uint64
     var epochReward float64
     var InitialRelease float64
@@ -99,22 +99,27 @@ func CalcRewardEpochRange(startEpoch, endEpoch uint64) (totalReward float64, epo
     history := getHistoryPrices()
     weightedAvgPrice := calcWeightedAvgPrice(history)
 
+    totalReserve := float64(0)
     for epoch = startEpoch; epoch <= endEpoch; epoch++ {
         ReleaseLimit := InitReleasePerEpoch + InitReleasePerEpoch*(weightedAvgPrice-ReservePrice)/ReservePrice
 
         reward := float64(totoalRelease) / float64(Halving)
         reward = reward * math.Log(1/fadeRate) * math.Pow(fadeRate, (float64(epoch)/float64(Halving)))
+        reserve := float64(0)
         if reward > ReleaseLimit {
             epochReward = ReleaseLimit
+            reserve = reward - ReleaseLimit
         } else {
             epochReward = reward
         }
 
         totalReward = totalReward + epochReward
         epochRewards = append(epochRewards, epochReward)
+        totalReserve = totalReserve + reserve
     }
-    log.Info("meter gov released", "amount", totalReward, "startEpoch", startEpoch, "endEpoch", endEpoch)
-    fmt.Println("each epoch reward", epochRewards)
+
+    log.Info("meter gov released", "amount", totalReward, "reserve", totalReserve, "startEpoch", startEpoch, "endEpoch", endEpoch)
+    //fmt.Println("each epoch reward", epochRewards)
     return
 }
 
