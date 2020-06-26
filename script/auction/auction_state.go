@@ -98,7 +98,7 @@ func (a *Auction) TransferMTRToAuction(addr meter.Address, amount *big.Int, stat
 		return errors.New("not enough meter")
 	}
 
-	state.AddEnergy(meter.AuctionMeterAccount, amount)
+	state.AddEnergy(AuctionAccountAddr, amount)
 	state.SubEnergy(addr, amount)
 	return nil
 }
@@ -112,19 +112,19 @@ func (a *Auction) SendMTRGToBidder(addr meter.Address, amount *big.Int, stateDB 
 	return
 }
 
-// form meter.AuctionMeterAccount ==> meter.ValidatorBenefitAddr
+// form AuctionAccountAddr ==> meter.ValidatorBenefitAddr
 func (a *Auction) TransferMTRToValidatorBenefit(amount *big.Int, state *state.State) error {
 	if amount.Sign() == 0 {
 		return nil
 	}
 
-	meterBalance := state.GetEnergy(meter.AuctionMeterAccount)
+	meterBalance := state.GetEnergy(AuctionAccountAddr)
 	if meterBalance.Cmp(amount) < 0 {
 		return errors.New("not enough meter")
 	}
 
 	state.AddEnergy(meter.ValidatorBenefitAddr, amount)
-	state.SubEnergy(meter.AuctionMeterAccount, amount)
+	state.SubEnergy(AuctionAccountAddr, amount)
 	return nil
 }
 
