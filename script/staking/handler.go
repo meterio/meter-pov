@@ -888,6 +888,12 @@ func (sb *StakingBody) DelegateStatisticsHandler(senv *StakingEnviroment, gas ui
 		}
 	}()
 
+	if gas < meter.ClauseGas {
+		leftOverGas = 0
+	} else {
+		leftOverGas = gas - meter.ClauseGas
+	}
+
 	staking := senv.GetStaking()
 	state := senv.GetState()
 	statisticsList := staking.GetStatisticsList(state)
@@ -967,6 +973,12 @@ func (sb *StakingBody) DelegateExitJailHandler(senv *StakingEnviroment, gas uint
 		}
 	}()
 
+	if gas < meter.ClauseGas {
+		leftOverGas = 0
+	} else {
+		leftOverGas = gas - meter.ClauseGas
+	}
+
 	staking := senv.GetStaking()
 	state := senv.GetState()
 	inJailList := staking.GetInJailList(state)
@@ -1005,6 +1017,12 @@ func (sb *StakingBody) DelegateStatisticsFlushHandler(senv *StakingEnviroment, g
 			ret = []byte(err.Error())
 		}
 	}()
+
+	if gas < meter.ClauseGas {
+		leftOverGas = 0
+	} else {
+		leftOverGas = gas - meter.ClauseGas
+	}
 
 	staking := senv.GetStaking()
 	state := senv.GetState()

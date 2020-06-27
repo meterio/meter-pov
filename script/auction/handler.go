@@ -202,6 +202,12 @@ func (ab *AuctionBody) HandleAuctionTx(senv *AuctionEnviroment, gas uint64) (ret
 	state := senv.GetState()
 	auctionCB := Auction.GetAuctionCB(state)
 
+	if gas < meter.ClauseGas {
+		leftOverGas = 0
+	} else {
+		leftOverGas = gas - meter.ClauseGas
+	}
+
 	if auctionCB.IsActive() == false {
 		log.Info("HandleAuctionTx: auction not start")
 		err = errNotStart
