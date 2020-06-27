@@ -364,9 +364,16 @@ func (rt *Runtime) PrepareClause(
 
 		// check the restriction of transfer.
 		if rt.restrictTransfer(stateDB, txCtx.Origin, clause.Value(), clause.Token()) == true {
+			var leftOverGas uint64
+			if gas > meter.ClauseGas {
+				leftOverGas = gas - meter.ClauseGas
+			} else {
+				leftOverGas = 0
+			}
+
 			output := &Output{
 				Data:            []byte{},
-				LeftOverGas:     gas - meter.ClauseGas,
+				LeftOverGas:     leftOverGas,
 				RefundGas:       stateDB.GetRefund(),
 				VMErr:           errors.New("account is restricted to transfer"),
 				ContractAddress: contractAddr,
