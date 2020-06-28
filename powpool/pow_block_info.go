@@ -109,6 +109,9 @@ func reverse(a []byte) []byte {
 	return a
 }
 
+// scriptSig contains 4 segments:
+// encoded Height (vaired length) + Seqence (4 bytes) + TimeStamp (8 bytes) + Beneficiary str(40 bytes) + Optional（pool tag）
+// only returns height， beneficairy as items[0],[3]
 func DecodeSignatureScript(bs []byte) (uint32, string) {
 	items := make([][]byte, 0)
 
@@ -125,7 +128,11 @@ func DecodeSignatureScript(bs []byte) (uint32, string) {
 	}
 
 	runes := make([]rune, 0)
-	for _, b := range items[len(items)-1] {
+	if len(items[3]) != 40 {
+		fmt.Printf("beneficiary len %v wrong\n", len(items[3]))
+	}
+
+	for _, b := range items[3] {
 		runes = append(runes, rune(b))
 	}
 	beneficiary := "0x" + string(runes)
