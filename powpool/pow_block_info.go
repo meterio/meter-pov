@@ -122,15 +122,18 @@ func DecodeSignatureScript(bs []byte) (uint32, string) {
 		bs = bs[end:]
 	}
 
+	//fmt.Println("The items", items)
+	if len(items) < 4 || len(items[1]) != 4 || len(items[2]) != 8 || len(items[3]) != 40 {
+		// unrecognized script, the pow genesis does not follow this rule.
+		return 0, "0x00000000000000000000"
+	}
+
 	var height uint32
 	for _, b := range reverse(items[0]) {
 		height = height*256 + uint32(b)
 	}
 
 	runes := make([]rune, 0)
-	if len(items[3]) != 40 {
-		fmt.Printf("beneficiary len %v wrong\n", len(items[3]))
-	}
 
 	for _, b := range items[3] {
 		runes = append(runes, rune(b))
