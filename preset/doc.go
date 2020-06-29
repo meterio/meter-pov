@@ -1,0 +1,3 @@
+package preset
+
+//go:generate go-bindata -nometadata -ignore=.DS_Store -pkg preset -o bindata.go mainnet/... shoal/...

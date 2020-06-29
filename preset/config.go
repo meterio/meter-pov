@@ -2,19 +2,10 @@ package preset
 
 import (
 	"fmt"
-
-	"github.com/dfinlab/meter/meter"
-)
-
-// Fork Release Version
-const (
-	Edison = iota + 1
 )
 
 // The initial version of main network is Edison.
 type PresetConfig struct {
-	ChainGenesisID   meter.Bytes32
-	EdisonEpoch      uint32
 	CommitteeMinSize int
 	CommitteeMaxSize int
 	DelegateMaxSize  int
@@ -24,8 +15,6 @@ type PresetConfig struct {
 
 var (
 	MainPresetConfig = &PresetConfig{
-		ChainGenesisID:   meter.MustParseBytes32("0x00000000642d16e1d39891a93281f92fa76fc527008d79b515e16e3dbc1874b9"), // information
-		EdisonEpoch:      0,
 		CommitteeMinSize: 21,
 		CommitteeMaxSize: 50,
 		DelegateMaxSize:  100,
@@ -34,8 +23,6 @@ var (
 	}
 
 	ShoalPresetConfig = &PresetConfig{
-		ChainGenesisID:   meter.MustParseBytes32("0x00000000642d16e1d39891a93281f92fa76fc527008d79b515e16e3dbc1874b9"), // information
-		EdisonEpoch:      0,
 		CommitteeMinSize: 21,
 		CommitteeMaxSize: 50,
 		DelegateMaxSize:  100,
@@ -45,15 +32,6 @@ var (
 )
 
 func (p *PresetConfig) ToString() string {
-	return fmt.Sprintf("EdisonEpoch: %v CommitteeMinSize: %v CommitteeMaxSize: %v DelegateMaxSize: %v DiscoServer: %v : DiscoTopic%v",
-		p.EdisonEpoch, p.CommitteeMinSize, p.CommitteeMaxSize, p.DelegateMaxSize,
-		p.DiscoServer, p.DiscoTopic)
-}
-
-func (p *PresetConfig) IsEdison(curEpoch uint32) bool {
-	if curEpoch >= p.EdisonEpoch {
-		return true
-	} else {
-		return false
-	}
+	return fmt.Sprintf("CommitteeMaxSize: %v DelegateMaxSize: %v DiscoServer: %v : DiscoTopic%v",
+		p.CommitteeMinSize, p.CommitteeMaxSize, p.DelegateMaxSize, p.DiscoServer, p.DiscoTopic)
 }
