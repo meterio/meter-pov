@@ -528,8 +528,9 @@ func startAPIServer(ctx *cli.Context, handler http.Handler, genesisID meter.Byte
 
 	returnStr := "http://" + listener.Addr().String() + "/"
 	var tlsSrv *http.Server
-	httpsCertFile := ctx.String(httpsCertFlag.Name)
-	httpsKeyFile := ctx.String(httpsKeyFlag.Name)
+	dataDir := ctx.String(dataDirFlag.Name)
+	httpsCertFile := filepath.Join(dataDir, ctx.String(httpsCertFlag.Name))
+	httpsKeyFile := filepath.Join(dataDir, ctx.String(httpsKeyFlag.Name))
 	if fileExists(httpsCertFile) && fileExists(httpsKeyFile) {
 		cer, err := tls.LoadX509KeyPair(httpsCertFile, httpsKeyFile)
 		if err != nil {
