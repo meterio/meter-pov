@@ -163,4 +163,14 @@ var (
 		Usage: "mblock count between epochs",
 		Value: 1200,
 	}
+	httpsCertFlag = cli.StringFlag{
+		Name:  "https-cert",
+		Usage: "path for https cert file (default is meterio.crt)",
+		Value: "meterio.crt",
+	}
+	httpsKeyFlag = cli.StringFlag{
+		Name:  "https-key",
+		Usage: "path for https key file (default is meterio.key)",
+		Value: "meterio.key",
+	}
 )

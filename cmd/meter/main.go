@@ -113,6 +113,8 @@ func main() {
 			discoTopicFlag,
 			initCfgdDelegatesFlag,
 			epochBlockCountFlag,
+			httpsCertFlag,
+			httpsKeyFlag,
 		},
 		Action: defaultAction,
 		Commands: []cli.Command{

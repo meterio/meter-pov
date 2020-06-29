@@ -526,34 +526,45 @@ func startAPIServer(ctx *cli.Context, handler http.Handler, genesisID meter.Byte
 
 	})
 
-	cer, err := tls.LoadX509KeyPair("meterio.crt", "meterio.key")
-	if err != nil {
-		panic(err)
-	}
-
-	tlsConfig := &tls.Config{Certificates: []tls.Certificate{cer}}
-	tlsSrv := &http.Server{Handler: handler, TLSConfig: tlsConfig}
-	tlsListener, err := tls.Listen("tcp", ":8667", tlsConfig)
-	if err != nil {
-		panic(err)
-	}
-	goes.Go(func() {
-		err := tlsSrv.Serve(tlsListener)
+	returnStr := "http://" + listener.Addr().String() + "/"
+	var tlsSrv *http.Server
+	httpsCertFile := ctx.String(httpsCertFlag.Name)
+	httpsKeyFile := ctx.String(httpsKeyFlag.Name)
+	if fileExists(httpsCertFile) && fileExists(httpsKeyFile) {
+		cer, err := tls.LoadX509KeyPair(httpsCertFile, httpsKeyFile)
 		if err != nil {
-			if err != http.ErrServerClosed {
-				fmt.Println("observe server stopped, error:", err)
-			}
+			panic(err)
 		}
 
-	})
-	return "http://" + listener.Addr().String() + "/" + " | https://" + tlsListener.Addr().String() + "/", func() {
+		tlsConfig := &tls.Config{Certificates: []tls.Certificate{cer}}
+		tlsSrv = &http.Server{Handler: handler, TLSConfig: tlsConfig}
+		tlsListener, err := tls.Listen("tcp", ":8667", tlsConfig)
+		if err != nil {
+			panic(err)
+		}
+		goes.Go(func() {
+			err := tlsSrv.Serve(tlsListener)
+			if err != nil {
+				if err != http.ErrServerClosed {
+					fmt.Println("observe server stopped, error:", err)
+				}
+			}
+
+		})
+		returnStr = returnStr + " | https://" + tlsListener.Addr().String() + "/"
+	} else {
+		returnStr = returnStr + " | https service is disabled due to missing cert/key file"
+	}
+	return returnStr, func() {
 		err := srv.Close()
 		if err != nil {
 			fmt.Println("could not close API service, error:", err)
 		}
-		err = tlsSrv.Close()
-		if err != nil {
-			fmt.Println("can't close API https service, error:", err)
+		if tlsSrv != nil {
+			err = tlsSrv.Close()
+			if err != nil {
+				fmt.Println("can't close API https service, error:", err)
+			}
 		}
 
 		goes.Wait()
