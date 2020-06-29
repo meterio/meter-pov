@@ -7,6 +7,7 @@ package main
 
 import (
 	"crypto/ecdsa"
+	"crypto/tls"
 	b64 "encoding/base64"
 	"encoding/hex"
 	"encoding/json"
@@ -494,7 +495,7 @@ func startObserveServer(ctx *cli.Context, cons *consensus.ConsensusReactor, comp
 	return "http://" + listener.Addr().String() + "/", func() {
 		err := srv.Close()
 		if err != nil {
-			fmt.Println("can't close observe service, error:", err)
+			fmt.Println("can't close observe http service, error:", err)
 		}
 		goes.Wait()
 	}
@@ -524,10 +525,35 @@ func startAPIServer(ctx *cli.Context, handler http.Handler, genesisID meter.Byte
 		}
 
 	})
-	return "http://" + listener.Addr().String() + "/", func() {
+
+	cer, err := tls.LoadX509KeyPair("meterio.crt", "meterio.key")
+	if err != nil {
+		panic(err)
+	}
+
+	tlsConfig := &tls.Config{Certificates: []tls.Certificate{cer}}
+	tlsSrv := &http.Server{Handler: handler, TLSConfig: tlsConfig}
+	tlsListener, err := tls.Listen("tcp", ":8667", tlsConfig)
+	if err != nil {
+		panic(err)
+	}
+	goes.Go(func() {
+		err := tlsSrv.Serve(tlsListener)
+		if err != nil {
+			if err != http.ErrServerClosed {
+				fmt.Println("observe server stopped, error:", err)
+			}
+		}
+
+	})
+	return "http://" + listener.Addr().String() + "/" + " | https://" + tlsListener.Addr().String() + "/", func() {
 		err := srv.Close()
 		if err != nil {
 			fmt.Println("could not close API service, error:", err)
+		}
+		err = tlsSrv.Close()
+		if err != nil {
+			fmt.Println("can't close API https service, error:", err)
 		}
 
 		goes.Wait()
