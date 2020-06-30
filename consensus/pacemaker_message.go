@@ -21,7 +21,7 @@ func (p *Pacemaker) proposeBlock(parentBlock *block.Block, height, round uint32,
 
 	var proposalKBlock bool = false
 	var powResults *powpool.PowResult
-	if round >= p.minMBlocks && !timeout {
+	if (height-p.startHeight) >= p.minMBlocks && !timeout {
 		proposalKBlock, powResults = powpool.GetGlobPowPoolInst().GetPowDecision()
 	}
 

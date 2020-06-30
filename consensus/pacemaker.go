@@ -51,6 +51,8 @@ type Pacemaker struct {
 	stopped                bool
 	myActualCommitteeIndex int //record my index in actualcommittee
 	minMBlocks             uint32
+	startHeight            uint32
+	startRound             uint32
 
 	// Utility data structures
 	newCommittee  bool //pacemaker in replay mode?
@@ -765,13 +767,16 @@ func (p *Pacemaker) Start(newCommittee bool, mode PMMode) {
 	p.csReactor.chain.UpdateLeafBlock()
 
 	bestQC := p.csReactor.chain.BestQC()
-	p.logger.Info(fmt.Sprintf("*** Pacemaker start at height %v", bestQC.QCHeight), "qc", bestQC.CompactString(), "newCommittee", newCommittee, "mode", mode.String())
 
 	height := bestQC.QCHeight
 	round := uint32(0)
 	if newCommittee == false {
 		round = bestQC.QCRound
 	}
+
+	p.logger.Info(fmt.Sprintf("*** Pacemaker start at height %v, round %v", height, round), "qc", bestQC.CompactString(), "newCommittee", newCommittee, "mode", mode.String())
+	p.startHeight = height
+	p.startRound = round
 
 	// Hack here. We do not know it is the first pacemaker from beginning
 	// But it is not harmful, the worst case only misses one opportunity to propose kblock.
