@@ -231,7 +231,7 @@ func defaultAction(ctx *cli.Context) error {
 	}
 
 	// load preset config
-	if "warringstakes" == ctx.String(networkFlag.Name) {
+	if "warringstakes" == ctx.String(networkFlag.Name) || "main" == ctx.String(networkFlag.Name) {
 		config := preset.ShoalPresetConfig
 		ctx.Set("committee-min-size", strconv.Itoa(config.CommitteeMinSize))
 		ctx.Set("committee-max-size", strconv.Itoa(config.CommitteeMaxSize))

@@ -108,6 +108,8 @@ func loadDelegates(ctx *cli.Context, blsCommon *consensus.BlsCommon) []*types.De
 	var content []byte
 	if ctx.String(networkFlag.Name) == "warringstakes" {
 		content = preset.MustAsset("shoal/delegates.json")
+	} else if ctx.String(networkFlag.Name) == "main" {
+		content = preset.MustAsset("mainnet/delegates.json")
 	} else {
 		dataDir := ctx.String("data-dir")
 		filePath := path.Join(dataDir, "delegates.json")
