@@ -17,7 +17,7 @@ import (
 
 // NewMainnet create mainnet genesis.
 func NewMainnet() *Genesis {
-	launchTime := uint64(1530316800) // '2018-06-30T00:00:00.000Z'
+	launchTime := uint64(1593907199) // 2020-07-04T23:59:59+00:00
 
 	builder := new(Builder).
 		Timestamp(launchTime).
@@ -50,15 +50,6 @@ func NewMainnet() *Genesis {
 				energySupply.Add(energySupply, p.MeterAmount)
 			}
 			SetAccountLockProfileState(profiles, state)
-
-			// alloc all other tokens w/o account lock
-			// 21,046,908,616.5 x 1
-			/*****
-			amount := new(big.Int).Mul(big.NewInt(210469086165), big.NewInt(1e17))
-			tokenSupply.Add(tokenSupply, amount)
-			state.SetBalance(meter.MustParseAddress(meter.AuctionMeterAccount), amount)
-			state.SetEnergy(meter.MustParseAddress(meter.AuctionMeterAccount), &big.Int{})
-			******/
 
 			builtin.MeterTracker.Native(state).SetInitialSupply(tokenSupply, energySupply)
 			return nil
@@ -109,32 +100,12 @@ func NewMainnet() *Genesis {
 	data = mustEncodeInput(builtin.Params.ABI, "set", meter.KeyConsensusDelegateSize, meter.InitialConsensusDelegateSize)
 	builder.Call(tx.NewClause(&builtin.Params.Address).WithData(data), builtin.Executor.Address)
 
-	// add initial approvers (steering committee)
-	for _, approver := range loadApprovers() {
-		data := mustEncodeInput(builtin.Executor.ABI, "addApprover", approver.address, meter.BytesToBytes32([]byte(approver.identity)))
-		builder.Call(tx.NewClause(&builtin.Executor.Address).WithData(data), builtin.Executor.Address)
-	}
-
 	var extra [28]byte
-	copy(extra[:], "In Math We Trust!")
+	copy(extra[:], "In Math We Trust !!!")
 	builder.ExtraData(extra)
 	id, err := builder.ComputeID()
 	if err != nil {
 		panic(err)
 	}
 	return &Genesis{builder, id, "mainnet"}
-}
-
-type approver struct {
-	address  meter.Address
-	identity string
-}
-
-func loadApprovers() []*approver {
-	return []*approver{
-		{meter.MustParseAddress("0xbb28e3212cf0df458cb3ba2cf2fd14888b2d7da7"), "Marketing"},
-		{meter.MustParseAddress("0xe9061c2517bba8a7e2d2c20053cd8323b577efe7"), "Foundation Ops"},
-		{meter.MustParseAddress("0x489d1aac58ab92a5edbe076e71d7f47d1578e20a"), "Public Sale"},
-		{meter.MustParseAddress("0x46b77531b74ff31882c4636a35547535818e0baa"), "Foundation Lock"},
-	}
 }
