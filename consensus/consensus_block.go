@@ -654,7 +654,7 @@ func (conR *ConsensusReactor) BuildKBlock(parentBlock *block.Block, data *block.
 	lastKBlockHeight := parentBlock.Header().LastKBlockHeight()
 
 	// edison not support the staking/auciton/slashing
-	if meter.IsMainChainEdison(conR.curEpoch) == true {
+	if meter.IsMainChainEdison(conR.curEpoch) != true {
 		stats, err := conR.calcStatistics(lastKBlockHeight, parentBlock.Header().Number())
 		if err != nil {
 			// TODO: do something about this

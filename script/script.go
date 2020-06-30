@@ -104,7 +104,7 @@ func initGobEncode() {
 }
 
 func (se *ScriptEngine) StartAllModules() {
-	if meter.IsMainChainEdison(se.chain.BestBlock().GetBlockEpoch()) == true {
+	if meter.IsMainChainEdison(se.chain.BestBlock().GetBlockEpoch()) != true {
 		// start module staking
 		ModuleStakingInit(se)
 
