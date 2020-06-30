@@ -115,6 +115,7 @@ func buildJSONBlockSummary(blk *block.Block, isTrunk bool) *JSONBlockSummary {
 		ReceiptsRoot:     header.ReceiptsRoot(),
 		TxsRoot:          header.TxsRoot(),
 		IsTrunk:          isTrunk,
+		IsKBlock:         header.BlockType() == block.BLOCK_TYPE_K_BLOCK,
 		LastKBlockHeight: header.LastKBlockHeight(),
 	}
 	var err error
