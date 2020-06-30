@@ -6,6 +6,7 @@
 package blocks
 
 import (
+	"fmt"
 	"net/http"
 	"strconv"
 
@@ -116,6 +117,51 @@ func (b *Blocks) getBlock(revision interface{}) (*block.Block, error) {
 	}
 }
 
+func (b *Blocks) getKBlockByEpoch(epoch uint64) (*block.Block, error) {
+	best := b.chain.BestBlock()
+	curEpoch := best.GetBlockEpoch()
+	if epoch > curEpoch {
+		fmt.Println("get the kblock failed", "epoch", epoch)
+		return nil, errors.New("requested epoch is too new")
+	}
+
+	delta := uint64(best.Header().Number()) / curEpoch
+
+	ht := delta * (epoch + 5)
+	blk, err := b.chain.GetTrunkBlock(uint32(ht))
+	if err != nil {
+		fmt.Println("get the kblock failed", "epoch", epoch)
+		return nil, err
+	}
+
+	ep := blk.GetBlockEpoch()
+	for ep < epoch {
+		blk, err = b.chain.GetTrunkBlock(uint32(ht) + uint32(5*delta))
+		if err != nil {
+			fmt.Println("get the kblock failed", "epoch", epoch)
+			return nil, err
+		}
+		ep = blk.GetBlockEpoch()
+	}
+
+	fmt.Println("start to search kblock", "height:", blk.Header().Number(), "epoch", ep, "target epoch", epoch)
+	for ep > epoch {
+		blk, err = b.chain.GetTrunkBlock(blk.Header().LastKBlockHeight())
+		if err != nil {
+			fmt.Println("get the kblock failed", "epoch", epoch)
+			return nil, err
+		}
+		ep = blk.GetBlockEpoch()
+	}
+
+	fmt.Println("get the kblock", "height:", blk.Header().Number(), "epoch", ep)
+	if ep != epoch {
+		return nil, errors.New("can not find out kblock")
+	} else {
+		return blk, nil
+	}
+}
+
 func (b *Blocks) isTrunk(blkID meter.Bytes32, blkNum uint32) (bool, error) {
 	best := b.chain.BestBlock()
 	ancestorID, err := b.chain.GetAncestorBlockID(best.Header().ID(), blkNum)
@@ -147,9 +193,37 @@ func (b *Blocks) handleGetQC(w http.ResponseWriter, req *http.Request) error {
 	}
 	return utils.WriteJSON(w, qc)
 }
+
+func (b *Blocks) handleGetEpochPowInfo(w http.ResponseWriter, req *http.Request) error {
+	revision, err := b.parseRevision(mux.Vars(req)["revision"])
+	if err != nil {
+		return utils.BadRequest(errors.WithMessage(err, "revision"))
+	}
+
+	block, err := b.getKBlockByEpoch(uint64(revision.(uint32)))
+	if err != nil {
+		if b.chain.IsNotFound(err) {
+			return utils.WriteJSON(w, nil)
+		}
+		return err
+	}
+	isTrunk, err := b.isTrunk(block.Header().ID(), block.Header().Number())
+	if err != nil {
+		return err
+	}
+
+	jSummary := buildJSONBlockSummary(block, isTrunk)
+
+	txIds := make([]meter.Bytes32, 0)
+	for _, tx := range block.Txs {
+		txIds = append(txIds, tx.ID())
+	}
+	return utils.WriteJSON(w, &JSONCollapsedBlock{jSummary, txIds})
+}
+
 func (b *Blocks) Mount(root *mux.Router, pathPrefix string) {
 	sub := root.PathPrefix(pathPrefix).Subrouter()
 	sub.Path("/qc/{revision}").Methods("Get").HandlerFunc(utils.WrapHandlerFunc(b.handleGetQC))
 	sub.Path("/{revision}").Methods("GET").HandlerFunc(utils.WrapHandlerFunc(b.handleGetBlock))
-
+	sub.Path("/pow/{revision}").Methods("Get").HandlerFunc(utils.WrapHandlerFunc(b.handleGetEpochPowInfo))
 }
