@@ -186,6 +186,14 @@ func (conR *ConsensusReactor) updateCurEpoch(epoch uint64) {
 // send new round message to future committee leader
 func (conR *ConsensusReactor) sendNewCommitteeMessage(peer *ConsensusPeer, leaderPubKey ecdsa.PublicKey, kblockHeight uint32, nonce uint64, round uint32) bool {
 	conR.updateCurEpoch(conR.chain.BestBlock().QC.EpochID)
+
+	// keep the epoch is the same if it is the replay
+	var nextEpochID uint64
+	nextEpochID = conR.curEpoch + 1
+	if conR.newCommittee.Replay == true {
+		nextEpochID = conR.curEpoch
+	}
+
 	msg := &NewCommitteeMessage{
 		CSMsgCommonHeader: ConsensusMsgCommonHeader{
 			Height:    conR.curHeight,
@@ -196,7 +204,7 @@ func (conR *ConsensusReactor) sendNewCommitteeMessage(peer *ConsensusPeer, leade
 			EpochID:   conR.curEpoch,
 		},
 
-		NextEpochID:    conR.curEpoch + 1,
+		NextEpochID:    nextEpochID,
 		NewLeaderID:    crypto.FromECDSAPub(&leaderPubKey),
 		ValidatorID:    crypto.FromECDSAPub(&conR.myPubKey),
 		ValidatorBlsPK: conR.csCommon.GetSystem().PubKeyToBytes(*conR.csCommon.GetPublicKey()),
@@ -205,7 +213,7 @@ func (conR *ConsensusReactor) sendNewCommitteeMessage(peer *ConsensusPeer, leade
 	}
 
 	// sign message with bls key
-	signMsg := conR.BuildNewCommitteeSignMsg(leaderPubKey, conR.curEpoch+1, uint64(conR.curHeight))
+	signMsg := conR.BuildNewCommitteeSignMsg(leaderPubKey, nextEpochID, uint64(conR.curHeight))
 	blsSig, msgHash := conR.csCommon.SignMessage2([]byte(signMsg))
 	msg.BlsSignature = blsSig
 	msg.SignedMsgHash = msgHash
