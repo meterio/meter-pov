@@ -224,11 +224,16 @@ func (ab *AccountLockBody) GoverningHandler(env *AccountLockEnviroment, gas uint
 		leftOverGas = gas - meter.ClauseGas
 	}
 
+	toRemove := []meter.Address{}
 	curEpoch := AccountLock.GetCurrentEpoch()
 	for _, p := range pList.Profiles {
 		if p.ReleaseEpoch <= curEpoch {
-			pList.Remove(p.Addr)
+			toRemove = append(toRemove, p.Addr)
 		}
+	}
+	// remove the released profiles
+	for _, r := range toRemove {
+		pList.Remove(r)
 	}
 
 	log.Debug("account lock governing done...", "epoch", curEpoch)

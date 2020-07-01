@@ -1,6 +1,8 @@
 package accountlock
 
 import (
+	"sort"
+
 	"github.com/dfinlab/meter/meter"
 	"github.com/dfinlab/meter/script/accountlock"
 )
@@ -19,6 +21,11 @@ func convertProfileList(list *accountlock.ProfileList) []*AccountLockProfile {
 	for _, s := range list.ToList() {
 		profileList = append(profileList, convertProfile(&s))
 	}
+
+	// sort with descendent total points
+	sort.SliceStable(profileList, func(i, j int) bool {
+		return (profileList[i].ReleaseEpoch <= profileList[j].ReleaseEpoch)
+	})
 	return profileList
 }
 
