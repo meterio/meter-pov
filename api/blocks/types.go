@@ -13,6 +13,7 @@ import (
 	"github.com/btcsuite/btcd/wire"
 	"github.com/dfinlab/meter/block"
 	"github.com/dfinlab/meter/meter"
+	"github.com/dfinlab/meter/powpool"
 	"github.com/dfinlab/meter/tx"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/common/math"
@@ -95,9 +96,11 @@ type JSONEmbeddedTx struct {
 }
 
 type JSONPowBlock struct {
-	Hash      string `json:"hash"`
-	PrevBlock string `json:"prevBlock"`
-	Reward    string `json:"reward"`
+	Hash        string `json:"hash"`
+	PrevBlock   string `json:"prevBlock"`
+	Beneficiary string `json:"beneficiary`
+	Height      uint32 `json:"height"`
+	Reward      string `json:"reward"`
 }
 
 type JSONEpoch struct {
@@ -128,17 +131,27 @@ func buildJSONEpoch(blk *block.Block) *JSONEpoch {
 		if err != nil {
 			fmt.Println("could not deserialize msgBlock, error:", err)
 		}
+
+		var height uint32
+		beneficiaryAddr := "0x"
+		if len(powBlock.Transactions) == 1 && len(powBlock.Transactions[0].TxIn) == 1 {
+			ss := powBlock.Transactions[0].TxIn[0].SignatureScript
+			height, beneficiaryAddr = powpool.DecodeSignatureScript(ss)
+		}
+
 		jPowBlk := &JSONPowBlock{
-			Hash:      powBlock.Header.BlockHash().String(),
-			PrevBlock: powBlock.Header.PrevBlock.String(),
-			Reward:    clause.Value().String(),
+			Hash:        powBlock.Header.BlockHash().String(),
+			PrevBlock:   powBlock.Header.PrevBlock.String(),
+			Beneficiary: beneficiaryAddr,
+			Height:      height,
+			Reward:      clause.Value().String(),
 		}
 		jPowBlks = append(jPowBlks, jPowBlk)
 	}
 
 	return &JSONEpoch{
 		Nonce:     blk.KBlockData.Nonce,
-		EpochID:   blk.CommitteeInfos.Epoch,
+		EpochID:   blk.GetBlockEpoch(),
 		PowBlocks: jPowBlks,
 	}
 }

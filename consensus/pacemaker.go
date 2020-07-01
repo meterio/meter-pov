@@ -948,6 +948,9 @@ func (p *Pacemaker) reset() {
 	p.blockExecuted = nil
 	p.blockLocked = nil
 
+	p.startHeight = 0
+	p.startRound = 0
+
 	// clean up proposal map
 	for k := range p.proposalMap {
 		delete(p.proposalMap, k)
