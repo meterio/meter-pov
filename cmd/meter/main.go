@@ -231,8 +231,15 @@ func defaultAction(ctx *cli.Context) error {
 	}
 
 	// load preset config
-	if "warringstakes" == ctx.String(networkFlag.Name) || "main" == ctx.String(networkFlag.Name) {
+	if "warringstakes" == ctx.String(networkFlag.Name) {
 		config := preset.ShoalPresetConfig
+		ctx.Set("committee-min-size", strconv.Itoa(config.CommitteeMinSize))
+		ctx.Set("committee-max-size", strconv.Itoa(config.CommitteeMaxSize))
+		ctx.Set("delegate-max-size", strconv.Itoa(config.DelegateMaxSize))
+		ctx.Set("disco-topic", config.DiscoTopic)
+		ctx.Set("disco-server", config.DiscoServer)
+	} else if "main" == ctx.String(networkFlag.Name) {
+		config := preset.MainPresetConfig
 		ctx.Set("committee-min-size", strconv.Itoa(config.CommitteeMinSize))
 		ctx.Set("committee-max-size", strconv.Itoa(config.CommitteeMaxSize))
 		ctx.Set("delegate-max-size", strconv.Itoa(config.DelegateMaxSize))

@@ -17,7 +17,8 @@ import (
 
 // NewMainnet create mainnet genesis.
 func NewMainnet() *Genesis {
-	launchTime := uint64(1593907199) // 2020-07-04T23:59:59+00:00
+	launchTime := uint64(1530316800) // '2018-06-30T00:00:00.000Z'
+	//launchTime := uint64(1593907199) // 2020-07-04T23:59:59+00:00
 
 	builder := new(Builder).
 		Timestamp(launchTime).
