@@ -147,8 +147,8 @@ func (dl *DelegateInJailList) ToList() []DelegateJailed {
 func GetLatestInJailList() (*DelegateInJailList, error) {
 	staking := GetStakingGlobInst()
 	if staking == nil {
-		log.Warn("staking is not initilized...")
-		err := errors.New("staking is not initilized...")
+		log.Warn("staking is not initialized...")
+		err := errors.New("staking is not initialized...")
 		return NewDelegateInJailList(nil), err
 	}
 

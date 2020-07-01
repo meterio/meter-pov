@@ -50,6 +50,8 @@ func (a *AccountLockBody) GetOpName(op uint32) string {
 		return "removelock"
 	case OP_TRANSFER:
 		return "transfer"
+	case OP_GOVERNING:
+		return "governing"
 	default:
 		return "Unknown"
 	}
@@ -224,7 +226,7 @@ func (ab *AccountLockBody) GoverningHandler(env *AccountLockEnviroment, gas uint
 
 	curEpoch := AccountLock.GetCurrentEpoch()
 	for _, p := range pList.Profiles {
-		if p.ReleaseEpoch >= curEpoch {
+		if p.ReleaseEpoch <= curEpoch {
 			pList.Remove(p.Addr)
 		}
 	}

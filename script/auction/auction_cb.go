@@ -165,8 +165,8 @@ func (cb *AuctionCB) IsActive() bool {
 func GetActiveAuctionCB() (*AuctionCB, error) {
 	auction := GetAuctionGlobInst()
 	if auction == nil {
-		log.Warn("auction is not initilized...")
-		err := errors.New("auction is not initilized...")
+		log.Warn("auction is not initialized...")
+		err := errors.New("auction is not initialized...")
 		return nil, err
 	}
 

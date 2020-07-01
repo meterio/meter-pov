@@ -119,8 +119,8 @@ func (l *DelegateList) ToString() string {
 func GetLatestDelegateList() (*DelegateList, error) {
 	staking := GetStakingGlobInst()
 	if staking == nil {
-		log.Warn("staking is not initilized...")
-		err := errors.New("staking is not initilized...")
+		log.Warn("staking is not initialized...")
+		err := errors.New("staking is not initialized...")
 		return nil, err
 	}
 
@@ -153,8 +153,8 @@ func GetInternalDelegateList() ([]*types.DelegateIntern, error) {
 	delegateList := []*types.DelegateIntern{}
 	staking := GetStakingGlobInst()
 	if staking == nil {
-		fmt.Println("staking is not initilized...")
-		err := errors.New("staking is not initilized...")
+		fmt.Println("staking is not initialized...")
+		err := errors.New("staking is not initialized...")
 		return delegateList, err
 	}
 

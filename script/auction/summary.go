@@ -39,8 +39,8 @@ func (a *AuctionSummary) ToString() string {
 func GetAuctionSummaryList() (*AuctionSummaryList, error) {
 	auction := GetAuctionGlobInst()
 	if auction == nil {
-		log.Error("auction is not initilized...")
-		err := errors.New("aution is not initilized...")
+		log.Error("auction is not initialized...")
+		err := errors.New("aution is not initialized...")
 		return NewAuctionSummaryList(nil), err
 	}
 

@@ -123,8 +123,8 @@ func (rmap RewardInfoMap) ToList() (*big.Int, []*RewardInfo) {
 func GetLatestValidatorRewardList() (*ValidatorRewardList, error) {
 	staking := GetStakingGlobInst()
 	if staking == nil {
-		log.Warn("staking is not initilized...")
-		err := errors.New("staking is not initilized...")
+		log.Warn("staking is not initialized...")
+		err := errors.New("staking is not initialized...")
 		return nil, err
 	}
 

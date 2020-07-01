@@ -37,7 +37,7 @@ func (n *Node) handleNetwork(w http.ResponseWriter, req *http.Request) error {
 func (n *Node) handleCommittee(w http.ResponseWriter, req *http.Request) error {
 	consensusInst := consensus.GetConsensusGlobInst()
 	if consensusInst == nil {
-		return errors.New("consensus is not initilized...")
+		return errors.New("consensus is not initialized...")
 	}
 
 	list, err := consensusInst.GetLatestCommitteeList()
@@ -47,6 +47,7 @@ func (n *Node) handleCommittee(w http.ResponseWriter, req *http.Request) error {
 	committeeList := convertCommitteeList(list)
 	return utils.WriteJSON(w, committeeList)
 }
+
 func (n *Node) handlePubKey(w http.ResponseWriter, req *http.Request) error {
 	w.WriteHeader(http.StatusOK)
 	utils.WriteJSON(w, n.pubKey)

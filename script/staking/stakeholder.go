@@ -28,8 +28,8 @@ func NewStakeholder(holder meter.Address) *Stakeholder {
 func GetLatestStakeholderList() (*StakeholderList, error) {
 	staking := GetStakingGlobInst()
 	if staking == nil {
-		log.Warn("staking is not initilized...")
-		err := errors.New("staking is not initilized...")
+		log.Warn("staking is not initialized...")
+		err := errors.New("staking is not initialized...")
 		return newStakeholderList(nil), err
 	}
 

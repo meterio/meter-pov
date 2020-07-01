@@ -11,6 +11,7 @@ import (
 
 // the global variables in AccountLock
 var (
+	//0x6163636f756e742d6c6f636b2d61646472657373
 	AccountLockAddr       = meter.BytesToAddress([]byte("account-lock-address"))
 	AccountLockProfileKey = meter.Blake2b([]byte("account-lock-profile-list-key"))
 )

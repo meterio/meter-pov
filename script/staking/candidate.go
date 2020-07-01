@@ -44,8 +44,8 @@ func NewCandidate(addr meter.Address, name []byte, pubKey []byte, ip []byte, por
 func GetLatestCandidateList() (*CandidateList, error) {
 	staking := GetStakingGlobInst()
 	if staking == nil {
-		log.Warn("staking is not initilized...")
-		err := errors.New("staking is not initilized...")
+		log.Warn("staking is not initialized...")
+		err := errors.New("staking is not initialized...")
 		return NewCandidateList(nil), err
 	}
 

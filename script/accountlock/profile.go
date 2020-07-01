@@ -143,8 +143,8 @@ func (l *ProfileList) ToList() []Profile {
 func GetLatestProfileList() (*ProfileList, error) {
 	accountlock := GetAccountLockGlobInst()
 	if accountlock == nil {
-		log.Warn("accountlock is not initilized...")
-		err := errors.New("accountlock is not initilized...")
+		log.Warn("accountlock is not initialized...")
+		err := errors.New("accountlock is not initialized...")
 		return NewProfileList(nil), err
 	}
 
@@ -161,7 +161,7 @@ func GetLatestProfileList() (*ProfileList, error) {
 func RestrictByAccountLock(addr meter.Address, state *state.State) (bool, *big.Int, *big.Int) {
 	accountlock := GetAccountLockGlobInst()
 	if accountlock == nil {
-		//log.Debug("accountlock is not initilized...")
+		//log.Debug("accountlock is not initialized...")
 		return false, nil, nil
 	}
 

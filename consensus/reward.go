@@ -409,8 +409,7 @@ func (conR *ConsensusReactor) TryBuildAccountLockGoverningTx() *tx.Transaction {
 		Gas(meter.BaseTxGas * 10). //buffer for builder.Build().IntrinsicGas()
 		DependsOn(nil).
 		Nonce(12345678)
-
-	builder.Clause(tx.NewClause(&staking.StakingModuleAddr).WithValue(big.NewInt(0)).WithToken(tx.TOKEN_METER_GOV).WithData(conR.BuildAccoutLockGovningData()))
+	builder.Clause(tx.NewClause(&accountlock.AccountLockAddr).WithValue(big.NewInt(0)).WithToken(tx.TOKEN_METER_GOV).WithData(conR.BuildAccoutLockGovningData()))
 
 	builder.Build().IntrinsicGas()
 	return builder.Build()
