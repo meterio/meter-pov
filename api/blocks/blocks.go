@@ -104,6 +104,17 @@ func (b *Blocks) parseRevision(revision string) (interface{}, error) {
 	return uint32(n), err
 }
 
+func (b *Blocks) parseEpoch(epoch string) (uint32, error) {
+	n, err := strconv.ParseUint(epoch, 0, 0)
+	if err != nil {
+		return 0, err
+	}
+	if n > math.MaxUint32 {
+		return 0, errors.New("block number out of max uint32")
+	}
+	return uint32(n), err
+}
+
 func (b *Blocks) getBlock(revision interface{}) (*block.Block, error) {
 	switch revision.(type) {
 	case meter.Bytes32:
@@ -144,7 +155,7 @@ func (b *Blocks) getKBlockByEpoch(epoch uint64) (*block.Block, error) {
 		}
 
 		ep = blk.GetBlockEpoch()
-		for ep < epoch {
+		for ep < epoch+1 {
 			ht = ht + (4 * delta)
 			if ht >= uint64(best.Header().Number()) {
 				ht = uint64(best.Header().Number())
@@ -239,35 +250,30 @@ func (b *Blocks) handleGetQC(w http.ResponseWriter, req *http.Request) error {
 }
 
 func (b *Blocks) handleGetEpochPowInfo(w http.ResponseWriter, req *http.Request) error {
-	revision, err := b.parseRevision(mux.Vars(req)["revision"])
+	epoch, err := b.parseEpoch(mux.Vars(req)["epoch"])
 	if err != nil {
-		return utils.BadRequest(errors.WithMessage(err, "revision"))
+		return utils.BadRequest(errors.WithMessage(err, "epoch"))
 	}
 
-	block, err := b.getKBlockByEpoch(uint64(revision.(uint32)))
+	block, err := b.getKBlockByEpoch(uint64(epoch))
 	if err != nil {
 		if b.chain.IsNotFound(err) {
 			return utils.WriteJSON(w, nil)
 		}
-		return err
-	}
-	isTrunk, err := b.isTrunk(block.Header().ID(), block.Header().Number())
-	if err != nil {
-		return err
+		return utils.BadRequest(errors.WithMessage(err, "can't locate kblock within epoch"))
 	}
 
-	jSummary := buildJSONBlockSummary(block, isTrunk)
-
-	txIds := make([]meter.Bytes32, 0)
-	for _, tx := range block.Txs {
-		txIds = append(txIds, tx.ID())
+	jEpoch := buildJSONEpoch(block)
+	if jEpoch == nil {
+		return utils.BadRequest(errors.WithMessage(errors.New("json marshal"), "can't marshal json object for epoch"))
 	}
-	return utils.WriteJSON(w, &JSONCollapsedBlock{jSummary, txIds})
+
+	return utils.WriteJSON(w, jEpoch)
 }
 
 func (b *Blocks) Mount(root *mux.Router, pathPrefix string) {
 	sub := root.PathPrefix(pathPrefix).Subrouter()
 	sub.Path("/qc/{revision}").Methods("Get").HandlerFunc(utils.WrapHandlerFunc(b.handleGetQC))
 	sub.Path("/{revision}").Methods("GET").HandlerFunc(utils.WrapHandlerFunc(b.handleGetBlock))
-	sub.Path("/pow/{revision}").Methods("Get").HandlerFunc(utils.WrapHandlerFunc(b.handleGetEpochPowInfo))
+	sub.Path("/epoch/{epoch}").Methods("Get").HandlerFunc(utils.WrapHandlerFunc(b.handleGetEpochPowInfo))
 }

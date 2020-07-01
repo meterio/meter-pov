@@ -6,8 +6,11 @@
 package blocks
 
 import (
+	"bytes"
 	"encoding/hex"
+	"fmt"
 
+	"github.com/btcsuite/btcd/wire"
 	"github.com/dfinlab/meter/block"
 	"github.com/dfinlab/meter/meter"
 	"github.com/dfinlab/meter/tx"
@@ -89,6 +92,55 @@ type JSONEmbeddedTx struct {
 	Reward   *math.HexOrDecimal256 `json:"reward"`
 	Reverted bool                  `json:"reverted"`
 	Outputs  []*JSONOutput         `json:"outputs"`
+}
+
+type JSONPowBlock struct {
+	Hash      string `json:"hash"`
+	PrevBlock string `json:"prevBlock"`
+	Reward    string `json:"reward"`
+}
+
+type JSONEpoch struct {
+	EpochID   uint64          `json:"epochID"`
+	PowBlocks []*JSONPowBlock `json:"powBlocks"`
+	Nonce     uint64          `json:"nonce"`
+}
+
+func buildJSONEpoch(blk *block.Block) *JSONEpoch {
+	txs := blk.Transactions()
+	powRaws := blk.KBlockData.Data
+	clauses := make([]*tx.Clause, 0)
+	for _, t := range txs {
+		for _, c := range t.Clauses() {
+			clauses = append(clauses, c)
+		}
+	}
+
+	if len(clauses) < len(powRaws) {
+		return nil
+	}
+
+	jPowBlks := make([]*JSONPowBlock, 0)
+	for i, powRaw := range powRaws {
+		clause := clauses[i]
+		powBlock := wire.MsgBlock{}
+		err := powBlock.Deserialize(bytes.NewReader(powRaw))
+		if err != nil {
+			fmt.Println("could not deserialize msgBlock, error:", err)
+		}
+		jPowBlk := &JSONPowBlock{
+			Hash:      powBlock.Header.BlockHash().String(),
+			PrevBlock: powBlock.Header.PrevBlock.String(),
+			Reward:    clause.Value().String(),
+		}
+		jPowBlks = append(jPowBlks, jPowBlk)
+	}
+
+	return &JSONEpoch{
+		Nonce:     blk.KBlockData.Nonce,
+		EpochID:   blk.CommitteeInfos.Epoch,
+		PowBlocks: jPowBlks,
+	}
 }
 
 type JSONExpandedBlock struct {
