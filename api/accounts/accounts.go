@@ -252,6 +252,7 @@ func (a *Accounts) batchCall(ctx context.Context, batchCallData *BatchCallData, 
 	results = make(BatchCallResults, 0)
 	vmout := make(chan *runtime.Output, 1)
 	for i, clause := range clauses {
+		// fmt.Println("Clause: ", clause.String())
 		exec, interrupt := rt.PrepareClause(clause, uint32(i), gas, &xenv.TransactionContext{
 			Origin:     *caller,
 			GasPrice:   gasPrice,
@@ -266,13 +267,16 @@ func (a *Accounts) batchCall(ctx context.Context, batchCallData *BatchCallData, 
 			return nil, ctx.Err()
 		case out := <-vmout:
 			if err := rt.Seeker().Err(); err != nil {
+				// fmt.Println("Seeker Error: ", err)
 				return nil, err
 			}
 			if err := state.Err(); err != nil {
+				// fmt.Println("State Error: ", err)
 				return nil, err
 			}
 			results = append(results, convertCallResultWithInputGas(out, gas))
 			if out.VMErr != nil {
+				// fmt.Println("VM Error: ", out.VMErr)
 				return results, nil
 			}
 			gas = out.LeftOverGas
@@ -315,7 +319,7 @@ func (a *Accounts) handleBatchCallData(batchCallData *BatchCallData) (gas uint64
 				return
 			}
 		}
-		clauses[i] = tx.NewClause(c.To).WithData(data).WithValue(value)
+		clauses[i] = tx.NewClause(c.To).WithData(data).WithValue(value).WithToken(c.Token)
 	}
 	return
 }
