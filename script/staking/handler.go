@@ -46,9 +46,10 @@ var (
 	errUpdateForeverBucket = errors.New("can't update forever bucket")
 
 	// amount
-	errLessThanMinimalBalance = errors.New("amount less than minimal balance (" + big.NewInt(0).Div(MIN_REQUIRED_BY_DELEGATE, big.NewInt(1e18)).String() + " MTRG)")
-	errNotEnoughMTR           = errors.New("not enough MTR")
-	errNotEnoughMTRG          = errors.New("not enough MTRG")
+	errLessThanMinimalBalance  = errors.New("amount less than minimal balance (" + new(big.Int).Div(MIN_REQUIRED_BY_DELEGATE, big.NewInt(1e18)).String() + " MTRG)")
+	errLessThanMinBoundBalance = errors.New("amount less than minimal balance (" + new(big.Int).Div(MIN_BOUND_BALANCE, big.NewInt(1e18)).String() + " MTRG)")
+	errNotEnoughMTR            = errors.New("not enough MTR")
+	errNotEnoughMTRG           = errors.New("not enough MTRG")
 
 	// candidate
 	errCandidateNotListed          = errors.New("candidate address is not listed")
@@ -89,9 +90,12 @@ func GetOpName(op uint32) string {
 }
 
 const (
-	//TBD: candidate myself minial balance, Now is 100 (1e20) MTRG
-	MIN_CANDIDATE_BALANCE     = string("100000000000000000000")
 	MIN_CANDIDATE_UPDATE_INTV = uint64(3600 * 24) // 1 day
+)
+
+var (
+	// bound minimium requirement 10 mtrgov
+	MIN_BOUND_BALANCE *big.Int = new(big.Int).Mul(big.NewInt(10), big.NewInt(1e18)) // 10 mtrGov minimum
 )
 
 // Candidate indicates the structure of a candidate
@@ -165,6 +169,14 @@ func (sb *StakingBody) BoundHandler(senv *StakingEnviroment, gas uint64) (ret []
 		leftOverGas = 0
 	} else {
 		leftOverGas = gas - meter.ClauseGas
+	}
+
+	// bound should meet the stake minmial requirement
+	// current it is 10 MTRGov
+	if sb.Amount.Cmp(MIN_BOUND_BALANCE) < 0 {
+		err = errLessThanMinBoundBalance
+		log.Error("does not meet minimium bound balance")
+		return
 	}
 
 	// check if candidate exists or not
