@@ -213,7 +213,7 @@ func (p *PowPool) Add(newPowBlockInfo *PowBlockInfo) error {
 		log.Debug("PowPool Add, hash already in PowPool", "hash", newPowBlockInfo.HeaderHash)
 		return nil
 	}
-	log.Debug("PowPool Add: ", "hash", newPowBlockInfo.HeaderHash, "height", newPowBlockInfo.PowHeight, "powpoolSize", p.all.Size())
+
 	p.goes.Go(func() {
 		p.powFeed.Send(&PowBlockEvent{BlockInfo: newPowBlockInfo})
 	})

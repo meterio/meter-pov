@@ -127,6 +127,8 @@ func (m *powObjectMap) Add(powObj *powObject) error {
 	******/
 	// fmt.Println("Added to powpool: ", powObj.blockInfo.ToString(), "poolSize: ", m.Size())
 	err := m._add(powObj)
+
+	log.Debug("Added to powpool: ", "hash", powObj.blockInfo.HeaderHash, "height", powObj.blockInfo.PowHeight, "powpoolSize", m.Size())
 	return err
 }
 
