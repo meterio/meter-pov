@@ -37,11 +37,11 @@ ENV POW_EXTRA=
 RUN mkdir /pow
 RUN mkdir /pos
 
-COPY _docker/allin/bitcoin.conf /pow/bitcoin.conf
-COPY _docker/allin/00-meter.conf /etc/rsyslog.d/
-COPY _docker/allin/rsyslog.conf /etc/rsyslog.conf
-COPY _docker/allin/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
-COPY _docker/allin/reset.sh /
+COPY _docker/main/bitcoin.conf /pow/bitcoin.conf
+COPY _docker/main/00-meter.conf /etc/rsyslog.d/
+COPY _docker/main/rsyslog.conf /etc/rsyslog.conf
+COPY _docker/main/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
+COPY _docker/main/reset.sh /
 RUN chmod a+x /reset.sh
 
 RUN touch /var/log/supervisor/pos-stdout.log
