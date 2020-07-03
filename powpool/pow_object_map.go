@@ -1,12 +1,17 @@
 package powpool
 
 import (
+	"errors"
 	"fmt"
 	"math/big"
 	"sync"
 
 	"github.com/btcsuite/btcd/blockchain"
 	"github.com/dfinlab/meter/meter"
+)
+
+var (
+	ErrIncompletePowBlocksInEpoch = errors.New("incomplete pow blocks in epoch")
 )
 
 // record the latest heights and powObjects
@@ -188,7 +193,7 @@ func (m *powObjectMap) FillLatestObjChain(obj *powObject) (*PowResult, error) {
 	if interval > POW_MAXIMUM_REWARD_NUM {
 		interval = POW_MAXIMUM_REWARD_NUM
 	}
-
+	cur := prev
 	for prev != nil && prev != m.lastKframePowObj && interval > 0 {
 
 		nTarget := blockchain.CompactToBig(prev.blockInfo.NBits)
@@ -201,11 +206,28 @@ func (m *powObjectMap) FillLatestObjChain(obj *powObject) (*PowResult, error) {
 		result.Difficaulties = result.Difficaulties.Add(result.Difficaulties, nDifficaulty)
 		result.Raw = append(result.Raw, prev.blockInfo.PowRaw)
 
+		cur = prev
 		prev = m.Get(prev.blockInfo.HashPrevBlock)
 		interval--
 	}
 
-	return result, nil
+	// return the result only if all pow blocks in this epoch are available
+	if prev == m.lastKframePowObj || interval == 0 {
+		return result, nil
+	}
+
+	// otherwise, return incomplete pow block in epoch error and
+	endHeight := obj.Height()
+	startHeight := m.lastKframePowObj.Height() + 1
+	breakHeight := endHeight
+	if cur != nil {
+		breakHeight = cur.Height()
+	}
+
+	log.Error("incomplete pow block in epoch",
+		"expected", fmt.Sprintf("[%d, %d]", startHeight, endHeight),
+		"actual", fmt.Sprintf("[%d, %d]", breakHeight, endHeight))
+	return result, ErrIncompletePowBlocksInEpoch
 }
 
 func (m *powObjectMap) Flush() {

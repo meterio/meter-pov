@@ -219,6 +219,13 @@ func (p *PowPool) Add(newPowBlockInfo *PowBlockInfo) error {
 	})
 	powObj := NewPowObject(newPowBlockInfo)
 	err := p.all.Add(powObj)
+
+	// if parent is not genesis and it's not contained in powpool
+	// fetch the block immediately in a coroutine
+	if powObj.Height() > 1 && !p.all.Contains(powObj.blockInfo.HashPrevBlock) {
+		go p.FetchPowBlock(powObj.Height() - uint32(1))
+	}
+
 	return err
 }
 
@@ -285,6 +292,40 @@ func (p *PowPool) GetPowDecision() (bool, *PowResult) {
 		log.Info("GetPowDecision true", "latestHeight", latestHeight, "lastKframeHeight", lastKframeHeight)
 		return true, mostDifficaultResult
 	}
+}
+
+func (p *PowPool) FetchPowBlock(heights ...uint32) error {
+	host := fmt.Sprintf("%v:%v", p.options.Node, p.options.Port)
+	client, err := rpcclient.New(&rpcclient.ConnConfig{
+		HTTPPostMode: true,
+		DisableTLS:   true,
+		Host:         host,
+		User:         p.options.User,
+		Pass:         p.options.Pass,
+	}, nil)
+	if err != nil {
+		log.Error("error creating new btc client", "err", err)
+		return err
+	}
+	for _, height := range heights {
+		hash, err := client.GetBlockHash(int64(height))
+		if err != nil {
+			log.Error("error getting block hash", "err", err)
+			continue
+		}
+		blk, err := client.GetBlock(hash)
+		if err != nil {
+			log.Error("error getting block", "err", err)
+			continue
+		}
+		info := NewPowBlockInfoFromPowBlock(blk)
+		Err := p.Add(info)
+		if Err != nil {
+			log.Error("add to pool failed", "err", Err)
+			return Err
+		}
+	}
+	return nil
 }
 
 func (p *PowPool) ReplayFrom(startHeight int32) error {
