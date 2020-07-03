@@ -43,6 +43,7 @@ var profiles [][5]string = [][5]string{
 
 	// testnet meter mapping
 	{"0xfa48b8c0e56f9560acb758324b174d32b9eb2e39", "89672.78", "0", "Account for DFL MTR", "24"}, // 1 day
+	{"0x0ebb64c6c202177ee727c1bc28b7b9c663e03d44", "88763.59", "0", "Account for DFL Airdrop", "24"},
 	{"0x867a4314d877f5be69048f65cf68ebc6f70fc639", "1798.83", "0", "MC", "24"},
 	{"0xcef65d58d09c9c5d39e0bb28f7a4c502322132a5", "156.88", "0", "PO", "24"},
 	{"0xe246b3d9caceaf36a42ffb1d66f9c1ad7f32b33e", "1867.88", "0", "lin zhong shu bai", "24"},
