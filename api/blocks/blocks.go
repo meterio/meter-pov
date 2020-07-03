@@ -14,6 +14,7 @@ import (
 	"github.com/dfinlab/meter/block"
 	"github.com/dfinlab/meter/chain"
 	"github.com/dfinlab/meter/meter"
+	"github.com/dfinlab/meter/tx"
 	"github.com/ethereum/go-ethereum/common/math"
 	"github.com/gorilla/mux"
 	"github.com/pkg/errors"
@@ -62,10 +63,18 @@ func (b *Blocks) handleGetBlock(w http.ResponseWriter, req *http.Request) error 
 
 	jSummary := buildJSONBlockSummary(block, isTrunk)
 	if expanded == "true" {
-		txs := block.Txs
-		receipts, err := b.chain.GetBlockReceipts(block.Header().ID())
-		if err != nil {
-			return err
+		var receipts tx.Receipts
+		var err error
+		var txs tx.Transactions
+		if block.Header().ID().String() == b.chain.GenesisBlock().Header().ID().String() {
+			// if is genesis
+
+		} else {
+			txs = block.Txs
+			receipts, err = b.chain.GetBlockReceipts(block.Header().ID())
+			if err != nil {
+				return err
+			}
 		}
 
 		return utils.WriteJSON(w, &JSONExpandedBlock{
