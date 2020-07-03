@@ -1270,11 +1270,6 @@ func (conR *ConsensusReactor) JoinEstablishedCommittee(kBlock *block.Block, repl
 	} else {
 		conR.inCommittee = false
 		inCommitteeGauge.Set(0)
-		pool := powpool.GetGlobPowPoolInst()
-		pool.Wash()
-		pool.InitialAddKframe(info)
-		conR.logger.Info("PowPool initial added kblock (not in committee)", "kblock height", kBlock.Header().Number(), "powHeight", info.PowHeight)
-
 		conR.logger.Info("I am NOT in committee!!!", "nonce", nonce)
 	}
 
