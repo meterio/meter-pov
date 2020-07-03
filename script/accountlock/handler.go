@@ -156,7 +156,7 @@ func (ab *AccountLockBody) HandleAccountLockTransfer(env *AccountLockEnviroment,
 	// from address should not have account lock, ONLY some exceptional addresses
 	pFrom := pList.Get(ab.FromAddr)
 	if pFrom != nil {
-		if AccountLock.IsExceptionalAccount(ab.FromAddr, state) == false {
+		if AccountLock.IsExclusiveAccount(ab.FromAddr, state) == false {
 			err = errors.New("profile of FromAddr is already in state")
 			log.Error("profile is already in state", "addr", ab.FromAddr)
 			return

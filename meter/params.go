@@ -98,9 +98,17 @@ var (
 	// 0x61746f722d62656e656669742d61646472657373
 	ValidatorBenefitAddr = BytesToAddress([]byte("validator-benefit-address"))
 
+	AuctionLeftOverAccount = MustParseAddress("0xe852f654dfaee0e2b60842657379a56e1cafa292")
+
 	//////////////////////////////
 	// The Following Accounts are defined for DFL Community
 	InitialExecutorAccount = MustParseAddress("0xdbb11b66f1d62bdeb5f47018d85e2401d7e3dc2e")
-
-	AuctionLeftOverAccount = MustParseAddress("0xe852f654dfaee0e2b60842657379a56e1cafa292")
+	InitialDFLTeamAccount1 = MustParseAddress("0x2fa2d56e312c47709537acb198446205736022aa")
+	InitialDFLTeamAccount2 = MustParseAddress("0x08ebea6584b3d9bf6fbcacf1a1507d00a61d95b7")
+	InitialDFLTeamAccount3 = MustParseAddress("0x045df1ef32d6db371f1857bb60551ef2e43abb1e")
+	InitialDFLTeamAccount4 = MustParseAddress("0xde4f71f45ae821614e9dd1256fef06780b775216")
+	InitialDFLTeamAccount5 = MustParseAddress("0xab22ab75f8c42b6969c5d226f39aeb7be35bf24b")
+	InitialDFLTeamAccount6 = MustParseAddress("0x63723217e860bc409e29b46eec70101cd03d8242")
+	InitialDFLTeamAccount7 = MustParseAddress("0x0374f5867ab2effd2277c895e7d1088b10ec9452")
+	InitialDFLTeamAccount8 = MustParseAddress("0x5308b6f26f21238963d0ea0b391eafa9be53c78e")
 )

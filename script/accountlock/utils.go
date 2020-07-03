@@ -13,10 +13,36 @@ func (a *AccountLock) GetCurrentEpoch() uint32 {
 	return uint32(bestBlock.GetBlockEpoch())
 }
 
-func (a *AccountLock) IsExceptionalAccount(addr meter.Address, state *state.State) bool {
-	// executor is exceptional
+func (a *AccountLock) IsExclusiveAccount(addr meter.Address, state *state.State) bool {
+	// executor account
 	executor := meter.BytesToAddress(builtin.Params.Native(state).Get(meter.KeyExecutorAddress).Bytes())
 	if bytes.Compare(addr.Bytes(), executor.Bytes()) == 0 {
+		return true
+	}
+
+	// DFL Accounts
+	if bytes.Compare(addr.Bytes(), meter.InitialDFLTeamAccount1.Bytes()) == 0 {
+		return true
+	}
+	if bytes.Compare(addr.Bytes(), meter.InitialDFLTeamAccount2.Bytes()) == 0 {
+		return true
+	}
+	if bytes.Compare(addr.Bytes(), meter.InitialDFLTeamAccount3.Bytes()) == 0 {
+		return true
+	}
+	if bytes.Compare(addr.Bytes(), meter.InitialDFLTeamAccount4.Bytes()) == 0 {
+		return true
+	}
+	if bytes.Compare(addr.Bytes(), meter.InitialDFLTeamAccount5.Bytes()) == 0 {
+		return true
+	}
+	if bytes.Compare(addr.Bytes(), meter.InitialDFLTeamAccount6.Bytes()) == 0 {
+		return true
+	}
+	if bytes.Compare(addr.Bytes(), meter.InitialDFLTeamAccount7.Bytes()) == 0 {
+		return true
+	}
+	if bytes.Compare(addr.Bytes(), meter.InitialDFLTeamAccount8.Bytes()) == 0 {
 		return true
 	}
 

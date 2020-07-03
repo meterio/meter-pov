@@ -20,9 +20,9 @@ import (
 // Builtin contracts binding.
 var (
 	Params       = &paramsContract{mustLoadContract("Params")}
-	Meter        = &erc20Contract{mustLoadContract("Meter")}              // erc20 contract
-	MeterGov     = &erc20Contract{mustLoadContract("MeterGov")}           // erc20 contract
-	MeterTracker = &meterTrackerContract{mustLoadContract("MeterNative")} // native call contract
+	Meter        = &erc20Contract{mustLoadContract("Meter")}              // erc20 contract 0x0000000000000000000000000000004d65746572
+	MeterGov     = &erc20Contract{mustLoadContract("MeterGov")}           // erc20 contract 0x0000000000000000000000004d65746572476f76
+	MeterTracker = &meterTrackerContract{mustLoadContract("MeterNative")} // native call contract 0x0000000000000000004d657465724e6174697665
 	Executor     = &executorContract{mustLoadContractAddress("Executor",
 		meter.InitialExecutorAccount)} //set the excutor address
 	Prototype = &prototypeContract{mustLoadContract("Prototype")}
