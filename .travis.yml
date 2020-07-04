@@ -1,5 +1,5 @@
 language: go
-go_import_path: github.com/vechain/thor
+go_import_path: github.com/dfinlab/meter
 sudo: false
 matrix:
   include:

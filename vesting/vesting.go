@@ -1,3 +1,5 @@
+// Copyright (c) 2020 The Meter.io developerslopers
+
 // Distributed under the GNU Lesser General Public License v3.0 software license, see the accompanying
 // file LICENSE or <https://www.gnu.org/licenses/lgpl-3.0.html>
 
@@ -6,8 +8,9 @@ package vesting
 import (
 	"errors"
 	"fmt"
-	"github.com/inconshreveable/log15"
 	"math/big"
+
+	"github.com/inconshreveable/log15"
 
 	"github.com/dfinlab/meter/meter"
 )

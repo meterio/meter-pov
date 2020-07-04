@@ -1,7 +1,12 @@
+// Copyright (c) 2020 The Meter.io developerslopers
+
+// Distributed under the GNU Lesser General Public License v3.0 software license, see the accompanying
+// file LICENSE or <https://www.gnu.org/licenses/lgpl-3.0.html>
+
 package powpool
 
 import (
-    "math"
+	"math"
 )
 
 /****
@@ -17,12 +22,12 @@ var (
 
 // calc the coef under specific fade rate
 func calcPowCoef(startEpoch, curEpoch uint64, startCoef int64, fadeDays float64, fadeRate float64) (retCoef int64) {
-    var coef float64
-    Halving := fadeDays
+	var coef float64
+	Halving := fadeDays
 
-    coef = math.Pow(fadeRate, (float64(curEpoch-startEpoch) / 24 / float64(Halving)))
-    retCoef = int64(float64(startCoef) * coef)
+	coef = math.Pow(fadeRate, (float64(curEpoch-startEpoch) / 24 / float64(Halving)))
+	retCoef = int64(float64(startCoef) * coef)
 
-    log.Debug("calculated pow-coef", "coef", retCoef, "curEpoch", curEpoch)
-    return
+	log.Debug("calculated pow-coef", "coef", retCoef, "curEpoch", curEpoch)
+	return
 }

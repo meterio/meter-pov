@@ -1,4 +1,4 @@
-// Copyright (c) 2018 The VeChainThor developers
+// Copyright (c) 2020 The Meter.io developerslopers
 
 // Distributed under the GNU Lesser General Public License v3.0 software license, see the accompanying
 // file LICENSE or <https://www.gnu.org/licenses/lgpl-3.0.html>
@@ -78,7 +78,7 @@ type TransactionExecutor struct {
 	Finalize      func() (*tx.Receipt, error)
 }
 
-// Runtime bases on EVM and VeChain Thor builtins.
+// Runtime bases on EVM and Meter builtins.
 type Runtime struct {
 	vmConfig   vm.Config
 	seeker     *chain.Seeker
