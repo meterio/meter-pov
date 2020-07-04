@@ -1,5 +1,5 @@
-FROM dfinlab/meter-pos:latest AS pos
-FROM dfinlab/meter-pow:latest AS pow
+FROM meterio/pos:latest AS pos
+FROM meterio/pow:latest AS pow
 
 FROM ubuntu:18.04
 
