@@ -225,7 +225,8 @@ func (p *PowPool) Add(newPowBlockInfo *PowBlockInfo) error {
 	// Here err is set ONLY kframe is not added (not in committee).
 	// XXX: a fat chance --- the powObj is already in chain, the parent block fetch is still sent.
 	if err == nil && p.all.lastKframePowObj != nil && powObj.Height() >= p.all.lastKframePowObj.Height() && !p.all.Contains(powObj.blockInfo.HashPrevBlock) {
-		go p.FetchPowBlock(powObj.Height() - uint32(1))
+		// go p.FetchPowBlock(powObj.Height() - uint32(1))
+		p.ReplayFrom(int32(p.all.lastKframePowObj.Height()) + 1)
 	}
 
 	return err
@@ -296,39 +297,39 @@ func (p *PowPool) GetPowDecision() (bool, *PowResult) {
 	}
 }
 
-func (p *PowPool) FetchPowBlock(heights ...uint32) error {
-	host := fmt.Sprintf("%v:%v", p.options.Node, p.options.Port)
-	client, err := rpcclient.New(&rpcclient.ConnConfig{
-		HTTPPostMode: true,
-		DisableTLS:   true,
-		Host:         host,
-		User:         p.options.User,
-		Pass:         p.options.Pass,
-	}, nil)
-	if err != nil {
-		log.Error("error creating new btc client", "err", err)
-		return err
-	}
-	for _, height := range heights {
-		hash, err := client.GetBlockHash(int64(height))
-		if err != nil {
-			log.Error("error getting block hash", "err", err)
-			continue
-		}
-		blk, err := client.GetBlock(hash)
-		if err != nil {
-			log.Error("error getting block", "err", err)
-			continue
-		}
-		info := NewPowBlockInfoFromPowBlock(blk)
-		Err := p.Add(info)
-		if Err != nil {
-			log.Error("add to pool failed", "err", Err)
-			return Err
-		}
-	}
-	return nil
-}
+// func (p *PowPool) FetchPowBlock(heights ...uint32) error {
+// 	host := fmt.Sprintf("%v:%v", p.options.Node, p.options.Port)
+// 	client, err := rpcclient.New(&rpcclient.ConnConfig{
+// 		HTTPPostMode: true,
+// 		DisableTLS:   true,
+// 		Host:         host,
+// 		User:         p.options.User,
+// 		Pass:         p.options.Pass,
+// 	}, nil)
+// 	if err != nil {
+// 		log.Error("error creating new btc client", "err", err)
+// 		return err
+// 	}
+// 	for _, height := range heights {
+// 		hash, err := client.GetBlockHash(int64(height))
+// 		if err != nil {
+// 			log.Error("error getting block hash", "err", err)
+// 			continue
+// 		}
+// 		blk, err := client.GetBlock(hash)
+// 		if err != nil {
+// 			log.Error("error getting block", "err", err)
+// 			continue
+// 		}
+// 		info := NewPowBlockInfoFromPowBlock(blk)
+// 		Err := p.Add(info)
+// 		if Err != nil {
+// 			log.Error("add to pool failed", "err", Err)
+// 			return Err
+// 		}
+// 	}
+// 	return nil
+// }
 
 func (p *PowPool) ReplayFrom(startHeight int32) error {
 
