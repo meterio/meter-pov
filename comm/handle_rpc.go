@@ -13,7 +13,7 @@ import (
 	"github.com/dfinlab/meter/comm/proto"
 	"github.com/dfinlab/meter/meter"
 	"github.com/dfinlab/meter/metric"
-	"github.com/dfinlab/meter/powpool"
+	//"github.com/dfinlab/meter/powpool"
 	"github.com/dfinlab/meter/tx"
 	"github.com/ethereum/go-ethereum/p2p"
 	"github.com/ethereum/go-ethereum/rlp"
@@ -166,15 +166,16 @@ func (c *Communicator) handleRPC(peer *Peer, msg *p2p.Msg, write func(interface{
 			write(toSend)
 		}
 	case proto.MsgNewPowBlock:
-		// XXX: filter out-dated pow-block
-		var newPowBlockInfo *powpool.PowBlockInfo
-		if err := msg.Decode(&newPowBlockInfo); err != nil {
-			return errors.WithMessage(err, "decode msg")
-		}
-		powID := newPowBlockInfo.HeaderHash
-		peer.MarkPowBlock(powID)
-		c.powPool.Add(newPowBlockInfo)
-		write(&struct{}{})
+		// XXX: Disable the powpool gossip.
+		// comment out here for safe
+		//var newPowBlockInfo *powpool.PowBlockInfo
+		//if err := msg.Decode(&newPowBlockInfo); err != nil {
+		//	return errors.WithMessage(err, "decode msg")
+		//}
+		//powID := newPowBlockInfo.HeaderHash
+		//peer.MarkPowBlock(powID)
+		//c.powPool.Add(newPowBlockInfo)
+		//write(&struct{}{})
 	case proto.MsgGetBestQC:
 		var magic [4]byte
 

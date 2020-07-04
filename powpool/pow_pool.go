@@ -136,9 +136,10 @@ func (p *PowPool) InitialAddKframe(newPowBlockInfo *PowBlockInfo) error {
 	}
 
 	powObj := NewPowObject(newPowBlockInfo)
-	p.goes.Go(func() {
-		p.powFeed.Send(&PowBlockEvent{BlockInfo: newPowBlockInfo})
-	})
+	// XXX: disable gossip
+	//p.goes.Go(func() {
+	//	p.powFeed.Send(&PowBlockEvent{BlockInfo: newPowBlockInfo})
+	//})
 
 	// XXX: send block to POW
 	// raw := newPowBlockInfo.Raw
@@ -214,9 +215,10 @@ func (p *PowPool) Add(newPowBlockInfo *PowBlockInfo) error {
 		return nil
 	}
 
-	p.goes.Go(func() {
-		p.powFeed.Send(&PowBlockEvent{BlockInfo: newPowBlockInfo})
-	})
+	// XXX: disable powpool gossip
+	//p.goes.Go(func() {
+	//	p.powFeed.Send(&PowBlockEvent{BlockInfo: newPowBlockInfo})
+	//})
 	powObj := NewPowObject(newPowBlockInfo)
 	err := p.all.Add(powObj)
 

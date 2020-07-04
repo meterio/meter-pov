@@ -29,7 +29,7 @@ var profiles [][5]string = [][5]string{
 	{"0x2fa2d56e312c47709537acb198446205736022aa", "10", "3750000", "Team 1", "4380"},  // 182.5 days
 	{"0x08ebea6584b3d9bf6fbcacf1a1507d00a61d95b7", "10", "3750000", "Team 2", "8760"},  // 365 days
 	{"0x045df1ef32d6db371f1857bb60551ef2e43abb1e", "10", "3750000", "Team 3", "13140"}, // 547.5 days
-	{"0xde4f71f45ae821614e9dd1256fef06780b775216", "10", "3750000", "Team 4", "17520"}, // 730 days
+	{"0xbb8fca96089572f08736062b9c7da651d00011d0", "10", "3750000", "Team 4", "17520"}, // 730 days
 	{"0xab22ab75f8c42b6969c5d226f39aeb7be35bf24b", "10", "3750000", "Team 5", "21900"}, // 912.5 days
 	{"0x63723217e860bc409e29b46eec70101cd03d8242", "10", "3750000", "Team 6", "26280"}, // 1095 days
 	{"0x0374f5867ab2effd2277c895e7d1088b10ec9452", "10", "3750000", "Team 7", "30660"}, // 1277.5 days
@@ -43,12 +43,12 @@ var profiles [][5]string = [][5]string{
 
 	// testnet meter mapping
 	{"0xfa48b8c0e56f9560acb758324b174d32b9eb2e39", "89672.78", "0", "Account for DFL MTR", "24"}, // 1 day
-	{"0x0ebb64c6c202177ee727c1bc28b7b9c663e03d44", "88763.59", "0", "Account for DFL Airdrop", "24"},
+	{"0x0434a7f71945451f446297688e468efa716443bf", "88763.59", "0", "Account for DFL Airdrop", "24"},
 	{"0x867a4314d877f5be69048f65cf68ebc6f70fc639", "1798.83", "0", "MC", "24"},
 	{"0xcef65d58d09c9c5d39e0bb28f7a4c502322132a5", "156.88", "0", "PO", "24"},
 	{"0xe246b3d9caceaf36a42ffb1d66f9c1ad7f32b33e", "1867.88", "0", "lin zhong shu bai", "24"},
 	{"0x150b4febe7b197c4b2b455dc2629f1366ea84bd7", "3157.35", "0", "Anothny", "24"},
-	{"0x0e5f991b5b11173e5a2682ec3f68fc6efff95590", "18.05", "0", "beng deng", "24"},
+	{"0x0e5f991b5b11173e5a2682ec3f68fc6efff95590", "118.05", "0", "beng deng", "24"},
 	{"0x16fB7dC58954Fc1Fa65318B752fC91f2824115B6", "4949.43", "0", "ni liu sha", "24"},
 	{"0x77867ff74462bf2754b228092523c11d605aa4f9", "6.24", "0", "da qi", "24"},
 	{"0x0d3434d537e85a6b48e5fc7d988e24f6a705e64f", "1236.20", "0", "Shuai", "24"},
