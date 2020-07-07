@@ -2,6 +2,7 @@ package meter
 
 import (
 	"fmt"
+	"github.com/inconshreveable/log15"
 )
 
 // Fork Release Version
@@ -12,13 +13,16 @@ const (
 
 // Genesis hashes to enforce below configs on.
 var (
-	MainnetGenesisHash = MustParseBytes32("0xd4e56740f876aef8c010b86a40d5f56745a118d0906a34e69aec8c0db1cb8fa3")
+	GenesisHash = MustParseBytes32("0x00000000733c970e6a7d68c7db54e3705eee865a97a07bf7e695c63b238f5e52")
+	log         = log15.New("pkg", "meter")
 )
 
 var (
-	// MainnetChainConfig is the chain parameters to run a node on the main network.
-	MainnetChainConfig = &ChainConfig{
-		ChainGenesisID: MainnetGenesisHash,
+	// BlocktChainConfig is the chain parameters to run a node on the main network.
+	BlockChainConfig = &ChainConfig{
+		ChainGenesisID: GenesisHash,
+		ChainFlag:      "",
+		Initialized:    false,
 		EdisonEpoch:    0,
 	}
 )
@@ -26,12 +30,41 @@ var (
 // ChainConfig is the core config which determines the blockchain settings.
 //
 type ChainConfig struct {
-	ChainGenesisID Bytes32
-	EdisonEpoch    uint64
+	ChainGenesisID Bytes32 // set while init
+	ChainFlag      string
+	Initialized    bool
+
+	// fork config
+	EdisonEpoch uint64
 }
 
 func (c *ChainConfig) ToString() string {
-	return fmt.Sprintf("ChainGenesisID: %v, EdisonEpoch: %v", c.ChainGenesisID, c.EdisonEpoch)
+	return fmt.Sprintf("BlockChain Configuration (ChainGenesisID: %v, ChainFlag: %v, Initialized: %v, EdisonEpoch: %v)",
+		c.ChainGenesisID, c.ChainFlag, c.Initialized, c.EdisonEpoch)
+}
+
+func (c *ChainConfig) IsInitialized() bool {
+	return c.Initialized
+}
+
+// chain flag right now ONLY 3: "main"/"test"/"warringstakes"
+func (c *ChainConfig) IsMainnet() bool {
+	if c.IsInitialized() == false {
+		log.Error("Chain is not initialized", c.ChainFlag)
+		return false
+	}
+
+	switch c.ChainFlag {
+	case "main":
+		return true
+	case "test":
+		return false
+	case "warringstakes":
+		return false
+	default:
+		log.Error("Unknow chain", c.ChainFlag)
+		return false
+	}
 }
 
 // TBD: There would be more rules when 2nd fork is there.
@@ -43,6 +76,15 @@ func (p *ChainConfig) IsEdison(curEpoch uint64) bool {
 	}
 }
 
+func InitBlockChainConfig(genesisID Bytes32, chainFlag string) {
+	BlockChainConfig.ChainGenesisID = genesisID
+	BlockChainConfig.ChainFlag = chainFlag
+	BlockChainConfig.Initialized = true
+
+	fmt.Println(BlockChainConfig.ToString())
+}
+
 func IsMainChainEdison(curEpoch uint64) bool {
-	return MainnetChainConfig.IsEdison(curEpoch)
+	return BlockChainConfig.IsInitialized() && BlockChainConfig.IsMainnet() &&
+		BlockChainConfig.IsEdison(curEpoch)
 }

@@ -247,6 +247,9 @@ func defaultAction(ctx *cli.Context) error {
 		ctx.Set("disco-server", config.DiscoServer)
 	}
 
+	// init blockchain config
+	meter.InitBlockChainConfig(gene.ID(), ctx.String(networkFlag.Name))
+
 	// set magic
 	topic := ctx.String("disco-topic")
 	version := doc.Version()
