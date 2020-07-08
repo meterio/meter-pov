@@ -62,7 +62,7 @@ func (c *ChainConfig) IsMainnet() bool {
 	case "warringstakes":
 		return false
 	default:
-		log.Error("Unknow chain", c.ChainFlag)
+		log.Error("Unknown chain", c.ChainFlag)
 		return false
 	}
 }

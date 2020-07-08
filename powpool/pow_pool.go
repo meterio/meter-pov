@@ -226,7 +226,7 @@ func (p *PowPool) Add(newPowBlockInfo *PowBlockInfo) error {
 	// fetch the block immediately in a coroutine
 	// Here err is set ONLY kframe is not added (not in committee).
 	// XXX: a fat chance --- the powObj is already in chain, the parent block fetch is still sent.
-	if err == nil && p.all.lastKframePowObj != nil && powObj.Height() >= p.all.lastKframePowObj.Height() && !p.all.Contains(powObj.blockInfo.HashPrevBlock) {
+	if err == nil && p.all.isKframeInitialAdded() && powObj.Height() >= p.all.lastKframePowObj.Height() && !p.all.Contains(powObj.blockInfo.HashPrevBlock) {
 		// go p.FetchPowBlock(powObj.Height() - uint32(1))
 		p.ReplayFrom(int32(p.all.lastKframePowObj.Height()) + 1)
 	}
