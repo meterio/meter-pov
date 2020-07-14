@@ -344,24 +344,8 @@ func (sb *StakingBody) CandidateHandler(senv *StakingEnviroment, gas uint64) (re
 		return
 	}
 
-	// check pubkey format
-	split := strings.Split(string(sb.CandPubKey), ":::")
-	if len(split) != 2 {
-		log.Error("invalid public keys for split")
-		err = errInvalidPubkey
-		return
-	}
-
-	decoded, err := base64.StdEncoding.DecodeString(split[0])
+	candidatePubKey, err := sb.validatePubKey(sb.CandPubKey)
 	if err != nil {
-		err = errInvalidPubkey
-		log.Error("could not decode public key")
-		return
-	}
-	pubKey, err := crypto.UnmarshalPubkey(decoded)
-	if err != nil || pubKey == nil {
-		err = errInvalidPubkey
-		log.Error("could not unmarshal public key")
 		return
 	}
 
@@ -380,7 +364,7 @@ func (sb *StakingBody) CandidateHandler(senv *StakingEnviroment, gas uint64) (re
 	// domainPattern, err := regexp.Compile("^([0-9a-zA-Z-_]+[.]*)+$")
 	// if the candidate already exists return error without paying gas
 	if record := candidateList.Get(sb.CandAddr); record != nil {
-		if bytes.Equal(record.PubKey, sb.CandPubKey) && bytes.Equal(record.IPAddr, sb.CandIP) && record.Port == sb.CandPort {
+		if bytes.Equal(record.PubKey, []byte(candidatePubKey)) && bytes.Equal(record.IPAddr, sb.CandIP) && record.Port == sb.CandPort {
 			// exact same candidate
 			// log.Info("Record: ", record.ToString())
 			// log.Info("sb:", sb.ToString())
@@ -400,7 +384,7 @@ func (sb *StakingBody) CandidateHandler(senv *StakingEnviroment, gas uint64) (re
 	bucket := NewBucket(sb.CandAddr, sb.CandAddr, sb.Amount, uint8(sb.Token), opt, rate, sb.Timestamp, sb.Nonce)
 	bucketList.Add(bucket)
 
-	candidate := NewCandidate(sb.CandAddr, sb.CandName, sb.CandPubKey, sb.CandIP, sb.CandPort, commission, sb.Timestamp)
+	candidate := NewCandidate(sb.CandAddr, sb.CandName, []byte(candidatePubKey), sb.CandIP, sb.CandPort, commission, sb.Timestamp)
 	candidate.AddBucket(bucket)
 	candidateList.Add(candidate)
 
@@ -776,6 +760,38 @@ func (sb *StakingBody) GoverningHandler(senv *StakingEnviroment, gas uint64) (re
 	return
 }
 
+func (sb *StakingBody) validatePubKey(comboPubKey []byte) ([]byte, error) {
+	pubKey := strings.TrimSuffix(string(comboPubKey), "\n")
+	pubKey = strings.TrimSuffix(pubKey, " ")
+	split := strings.Split(pubKey, ":::")
+	if len(split) != 2 {
+		log.Error("invalid public keys for split")
+		return nil, errInvalidPubkey
+	}
+
+	// validate ECDSA pubkey
+	decoded, err := base64.StdEncoding.DecodeString(split[0])
+	if err != nil {
+		log.Error("could not decode ECDSA public key")
+		return nil, errInvalidPubkey
+	}
+	_, err = crypto.UnmarshalPubkey(decoded)
+	if err != nil {
+		log.Error("could not unmarshal ECDSA public key")
+		return nil, errInvalidPubkey
+	}
+
+	// validate BLS key
+	_, err = base64.StdEncoding.DecodeString(split[1])
+	if err != nil {
+		log.Error("could not decode BLS public key")
+		return nil, errInvalidPubkey
+	}
+	// TODO: validate BLS key with bls common
+
+	return []byte(pubKey), nil
+}
+
 // This method only update the attached infomation of candidate. Stricted to: name, public key, IP/port, commission
 func (sb *StakingBody) CandidateUpdateHandler(senv *StakingEnviroment, gas uint64) (ret []byte, leftOverGas uint64, err error) {
 
@@ -796,23 +812,8 @@ func (sb *StakingBody) CandidateUpdateHandler(senv *StakingEnviroment, gas uint6
 		leftOverGas = gas - meter.ClauseGas
 	}
 
-	split := strings.Split(string(sb.CandPubKey), ":::")
-	if len(split) != 2 {
-		log.Error("invalid public keys for split")
-		err = errInvalidPubkey
-		return
-	}
-
-	decoded, err := base64.StdEncoding.DecodeString(split[0])
+	candidatePubKey, err := sb.validatePubKey(sb.CandPubKey)
 	if err != nil {
-		log.Error("could not decode public key")
-		err = errInvalidPubkey
-		return
-	}
-	pubKey, err := crypto.UnmarshalPubkey(decoded)
-	if err != nil || pubKey == nil {
-		log.Error("could not unmarshal public key")
-		err = errInvalidPubkey
 		return
 	}
 
@@ -846,7 +847,7 @@ func (sb *StakingBody) CandidateUpdateHandler(senv *StakingEnviroment, gas uint6
 	var changed bool
 	var pubUpdated, commissionUpdated, nameUpdated bool
 
-	if bytes.Equal(record.PubKey, sb.CandPubKey) == false {
+	if bytes.Equal(record.PubKey, candidatePubKey) == false {
 		pubUpdated = true
 	}
 	if bytes.Equal(record.Name, sb.CandName) == false {
@@ -866,7 +867,7 @@ func (sb *StakingBody) CandidateUpdateHandler(senv *StakingEnviroment, gas uint6
 	}
 
 	if pubUpdated {
-		record.PubKey = sb.CandPubKey
+		record.PubKey = candidatePubKey
 		changed = true
 	}
 	if commissionUpdated {
