@@ -1,9 +1,15 @@
 #!/bin/bash
 
+# this script build docker image for these repo:
+# pos-only image: meterio/pos
+# full image: meterio/mainnet
+# with two tags (latest & $version)
+
+VERSION=$(cat cmd/meter/VERSION)
 POS_IMAGE_NAME=meterio/pos
 POW_IMAGE_NAME=meterio/pow
 POS_DOCKERFILE=_docker/pos.Dockerfile
-VERSION=$(cat cmd/meter/VERSION)
+
 FULL_IMAGE_NAME=meterio/mainnet
 FULL_DOCKERFILE=_docker/mainnet.Dockerfile
 
