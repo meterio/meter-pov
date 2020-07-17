@@ -6,16 +6,17 @@
 package transferslegacy
 
 import (
-	"github.com/ethereum/go-ethereum/common/math"
 	"github.com/dfinlab/meter/api/transactions"
 	"github.com/dfinlab/meter/logdb"
 	"github.com/dfinlab/meter/meter"
+	"github.com/ethereum/go-ethereum/common/math"
 )
 
 type FilteredTransfer struct {
-	Sender    meter.Address          `json:"sender"`
-	Recipient meter.Address          `json:"recipient"`
+	Sender    meter.Address         `json:"sender"`
+	Recipient meter.Address         `json:"recipient"`
 	Amount    *math.HexOrDecimal256 `json:"amount"`
+	Token     uint32                `json:"token"`
 	Meta      transactions.LogMeta  `json:"meta"`
 }
 
@@ -25,6 +26,7 @@ func convertTransfer(transfer *logdb.Transfer) *FilteredTransfer {
 		Sender:    transfer.Sender,
 		Recipient: transfer.Recipient,
 		Amount:    &v,
+		Token:     transfer.Token,
 		Meta: transactions.LogMeta{
 			BlockID:        transfer.BlockID,
 			BlockNumber:    transfer.BlockNumber,

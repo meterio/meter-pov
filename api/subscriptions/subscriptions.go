@@ -9,14 +9,14 @@ import (
 	"net/http"
 	"sync"
 
-	"github.com/gorilla/mux"
-	"github.com/gorilla/websocket"
-	"github.com/inconshreveable/log15"
-	"github.com/pkg/errors"
 	"github.com/dfinlab/meter/api/utils"
 	"github.com/dfinlab/meter/block"
 	"github.com/dfinlab/meter/chain"
 	"github.com/dfinlab/meter/meter"
+	"github.com/gorilla/mux"
+	"github.com/gorilla/websocket"
+	"github.com/inconshreveable/log15"
+	"github.com/pkg/errors"
 )
 
 type Subscriptions struct {

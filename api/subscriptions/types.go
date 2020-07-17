@@ -6,31 +6,31 @@
 package subscriptions
 
 import (
-	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/ethereum/go-ethereum/common/math"
 	"github.com/dfinlab/meter/block"
 	"github.com/dfinlab/meter/chain"
 	"github.com/dfinlab/meter/meter"
 	"github.com/dfinlab/meter/tx"
+	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/ethereum/go-ethereum/common/math"
 )
 
 //BlockMessage block piped by websocket
 type BlockMessage struct {
-	Number       uint32         `json:"number"`
+	Number       uint32          `json:"number"`
 	ID           meter.Bytes32   `json:"id"`
-	Size         uint32         `json:"size"`
+	Size         uint32          `json:"size"`
 	ParentID     meter.Bytes32   `json:"parentID"`
-	Timestamp    uint64         `json:"timestamp"`
-	GasLimit     uint64         `json:"gasLimit"`
+	Timestamp    uint64          `json:"timestamp"`
+	GasLimit     uint64          `json:"gasLimit"`
 	Beneficiary  meter.Address   `json:"beneficiary"`
-	GasUsed      uint64         `json:"gasUsed"`
-	TotalScore   uint64         `json:"totalScore"`
+	GasUsed      uint64          `json:"gasUsed"`
+	TotalScore   uint64          `json:"totalScore"`
 	TxsRoot      meter.Bytes32   `json:"txsRoot"`
 	StateRoot    meter.Bytes32   `json:"stateRoot"`
 	ReceiptsRoot meter.Bytes32   `json:"receiptsRoot"`
 	Signer       meter.Address   `json:"signer"`
 	Transactions []meter.Bytes32 `json:"transactions"`
-	Obsolete     bool           `json:"obsolete"`
+	Obsolete     bool            `json:"obsolete"`
 }
 
 func convertBlock(b *chain.Block) (*BlockMessage, error) {
@@ -66,17 +66,18 @@ func convertBlock(b *chain.Block) (*BlockMessage, error) {
 
 type LogMeta struct {
 	BlockID        meter.Bytes32 `json:"blockID"`
-	BlockNumber    uint32       `json:"blockNumber"`
-	BlockTimestamp uint64       `json:"blockTimestamp"`
+	BlockNumber    uint32        `json:"blockNumber"`
+	BlockTimestamp uint64        `json:"blockTimestamp"`
 	TxID           meter.Bytes32 `json:"txID"`
 	TxOrigin       meter.Address `json:"txOrigin"`
 }
 
 //TransferMessage transfer piped by websocket
 type TransferMessage struct {
-	Sender    meter.Address          `json:"sender"`
-	Recipient meter.Address          `json:"recipient"`
+	Sender    meter.Address         `json:"sender"`
+	Recipient meter.Address         `json:"recipient"`
 	Amount    *math.HexOrDecimal256 `json:"amount"`
+	Token     byte                  `json:"token"`
 	Meta      LogMeta               `json:"meta"`
 	Obsolete  bool                  `json:"obsolete"`
 }
@@ -91,6 +92,7 @@ func convertTransfer(header *block.Header, tx *tx.Transaction, transfer *tx.Tran
 		Sender:    transfer.Sender,
 		Recipient: transfer.Recipient,
 		Amount:    (*math.HexOrDecimal256)(transfer.Amount),
+		Token:     transfer.Token,
 		Meta: LogMeta{
 			BlockID:        header.ID(),
 			BlockNumber:    header.Number(),
@@ -106,9 +108,9 @@ func convertTransfer(header *block.Header, tx *tx.Transaction, transfer *tx.Tran
 type EventMessage struct {
 	Address  meter.Address   `json:"address"`
 	Topics   []meter.Bytes32 `json:"topics"`
-	Data     string         `json:"data"`
-	Meta     LogMeta        `json:"meta"`
-	Obsolete bool           `json:"obsolete"`
+	Data     string          `json:"data"`
+	Meta     LogMeta         `json:"meta"`
+	Obsolete bool            `json:"obsolete"`
 }
 
 func convertEvent(header *block.Header, tx *tx.Transaction, event *tx.Event, obsolete bool) (*EventMessage, error) {
@@ -191,11 +193,11 @@ func (tf *TransferFilter) Match(transfer *tx.Transfer, origin meter.Address) boo
 }
 
 type BeatMessage struct {
-	Number    uint32       `json:"number"`
+	Number    uint32        `json:"number"`
 	ID        meter.Bytes32 `json:"id"`
 	ParentID  meter.Bytes32 `json:"parentID"`
-	Timestamp uint64       `json:"timestamp"`
-	Bloom     string       `json:"bloom"`
-	K         uint32       `json:"k"`
-	Obsolete  bool         `json:"obsolete"`
+	Timestamp uint64        `json:"timestamp"`
+	Bloom     string        `json:"bloom"`
+	K         uint32        `json:"k"`
+	Obsolete  bool          `json:"obsolete"`
 }
