@@ -9,19 +9,25 @@ import (
 )
 
 type AuctionSummary struct {
-	AuctionID    string `json:"auctionID"`
-	StartHeight  uint64 `json:"startHeight"`
-	StartEpoch   uint64 `json:"startEpoch"`
-	EndHeight    uint64 `json:"endHeight"`
-	EndEpoch     uint64 `json:"endEpoch"`
-	RlsdMTRG     string `json:"releasedMTRG"`
-	RsvdMTRG     string `json:"reservedMTRG"`
-	RsvdPrice    string `json:"reservedPrice"`
-	CreateTime   uint64 `json:"createTime"`
-	Timestamp    string `json:"timestamp"`
-	RcvdMTR      string `json:"receivedMTR"`
-	ActualPrice  string `json:"actualPrice"`
-	LeftoverMTRG string `json:"leftoverMTRG"`
+	AuctionID    string      `json:"auctionID"`
+	StartHeight  uint64      `json:"startHeight"`
+	StartEpoch   uint64      `json:"startEpoch"`
+	EndHeight    uint64      `json:"endHeight"`
+	EndEpoch     uint64      `json:"endEpoch"`
+	RlsdMTRG     string      `json:"releasedMTRG"`
+	RsvdMTRG     string      `json:"reservedMTRG"`
+	RsvdPrice    string      `json:"reservedPrice"`
+	CreateTime   uint64      `json:"createTime"`
+	Timestamp    string      `json:"timestamp"`
+	RcvdMTR      string      `json:"receivedMTR"`
+	ActualPrice  string      `json:"actualPrice"`
+	LeftoverMTRG string      `json:"leftoverMTRG"`
+	DistMTRG     []*DistMtrg `json:"distMTRG"`
+}
+
+type DistMtrg struct {
+	Addr   string `json:"addr"`
+	Amount string `json:"amount"`
 }
 
 type AuctionCB struct {
@@ -56,7 +62,18 @@ func convertSummaryList(list *auction.AuctionSummaryList) []*AuctionSummary {
 	return summaryList
 }
 
+func convertDistMtrg(d *auction.DistMtrg) *DistMtrg {
+	return &DistMtrg{
+		Addr:   d.Addr.String(),
+		Amount: d.Amount.String(),
+	}
+}
+
 func convertSummary(s *auction.AuctionSummary) *AuctionSummary {
+	dists := make([]*DistMtrg, 0)
+	for _, d := range s.DistMTRG {
+		dists = append(dists, convertDistMtrg(d))
+	}
 	return &AuctionSummary{
 		AuctionID:    s.AuctionID.AbbrevString(),
 		StartHeight:  s.StartHeight,
@@ -71,6 +88,7 @@ func convertSummary(s *auction.AuctionSummary) *AuctionSummary {
 		RcvdMTR:      s.RcvdMTR.String(),
 		ActualPrice:  s.ActualPrice.String(),
 		LeftoverMTRG: s.LeftoverMTRG.String(),
+		DistMTRG:     dists,
 	}
 }
 

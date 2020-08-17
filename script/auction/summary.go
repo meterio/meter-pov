@@ -16,8 +16,13 @@ import (
 )
 
 const (
-	AUCTION_MAX_SUMMARIES = 1200
+	AUCTION_MAX_SUMMARIES = 512
 )
+
+type DistMtrg struct {
+	Addr   meter.Address
+	Amount *big.Int
+}
 
 type AuctionSummary struct {
 	AuctionID    meter.Bytes32
@@ -32,6 +37,7 @@ type AuctionSummary struct {
 	RcvdMTR      *big.Int
 	ActualPrice  *big.Int
 	LeftoverMTRG *big.Int
+	DistMTRG     []*DistMtrg
 }
 
 func (a *AuctionSummary) ToString() string {

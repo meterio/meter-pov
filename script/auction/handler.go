@@ -160,7 +160,7 @@ func (ab *AuctionBody) CloseAuctionCB(senv *AuctionEnviroment, gas uint64) (ret 
 	}
 
 	// clear the auction
-	actualPrice, leftover, err := Auction.ClearAuction(auctionCB, state)
+	actualPrice, leftover, dist, err := Auction.ClearAuction(auctionCB, state)
 	if err != nil {
 		log.Info("clear active auction failed failed")
 		return
@@ -179,6 +179,7 @@ func (ab *AuctionBody) CloseAuctionCB(senv *AuctionEnviroment, gas uint64) (ret 
 		RcvdMTR:      auctionCB.RcvdMTR,
 		ActualPrice:  actualPrice,
 		LeftoverMTRG: leftover,
+		DistMTRG:     dist,
 	}
 
 	// limit the summary list to AUCTION_MAX_SUMMARIES

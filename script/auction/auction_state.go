@@ -135,7 +135,7 @@ func (a *Auction) TransferMTRToValidatorBenefit(amount *big.Int, state *state.St
 
 //==============================================
 // when auction is over
-func (a *Auction) ClearAuction(cb *AuctionCB, state *state.State) (*big.Int, *big.Int, error) {
+func (a *Auction) ClearAuction(cb *AuctionCB, state *state.State) (*big.Int, *big.Int, []*DistMtrg, error) {
 	stateDB := statedb.New(state)
 	ValidatorBenefitRatio := builtin.Params.Native(state).Get(meter.KeyValidatorBenefitRatio)
 
@@ -146,11 +146,13 @@ func (a *Auction) ClearAuction(cb *AuctionCB, state *state.State) (*big.Int, *bi
 	}
 
 	total := big.NewInt(0)
+	distMtrg := []*DistMtrg{}
 	for _, tx := range cb.AuctionTxs {
 		mtrg := tx.Amount.Div(tx.Amount, actualPrice)
 		mtrg = mtrg.Mul(mtrg, big.NewInt(1e18))
 		a.SendMTRGToBidder(tx.Addr, mtrg, stateDB)
 		total = total.Add(total, mtrg)
+		distMtrg = append(distMtrg, &DistMtrg{Addr: tx.Addr, Amount: mtrg})
 	}
 
 	// sometimes accuracy cause negative value
@@ -168,6 +170,6 @@ func (a *Auction) ClearAuction(cb *AuctionCB, state *state.State) (*big.Int, *bi
 	amount = amount.Div(amount, big.NewInt(1e18))
 	a.TransferMTRToValidatorBenefit(amount, state)
 
-	a.logger.Info("finished auctionCB clear...", "actualPrice", actualPrice.Uint64(), "leftOver", leftOver.Uint64(), "validatorBenefit", amount.Uint64())
-	return actualPrice, leftOver, nil
+	a.logger.Info("finished auctionCB clear...", "actualPrice", actualPrice.String(), "leftOver", leftOver.String(), "validatorBenefit", amount.String())
+	return actualPrice, leftOver, distMtrg, nil
 }
