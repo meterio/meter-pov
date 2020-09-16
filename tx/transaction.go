@@ -17,6 +17,7 @@ import (
 	"github.com/dfinlab/meter/meter"
 	"github.com/dfinlab/meter/metric"
 	"github.com/ethereum/go-ethereum/common/math"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/rlp"
@@ -57,6 +58,51 @@ type body struct {
 	Nonce        uint64
 	Reserved     []interface{}
 	Signature    []byte
+}
+
+func NewTransactionFromEthTx(ethTx *types.Transaction, chainTag byte, blockRef uint64) (*Transaction, error) {
+	msg, err := ethTx.AsMessage(types.NewEIP155Signer(ethTx.ChainId()))
+	fmt.Println(err)
+	if err != nil {
+		return nil, err
+	}
+	fmt.Println("from:", msg.From().Hex())
+	fmt.Println("to:", msg.To().Hex())
+	fmt.Println("value:", msg.Value())
+	fmt.Println("gas:", msg.Gas())
+	fmt.Println("nonce:", msg.Nonce())
+	from, err := meter.ParseAddress(msg.From().Hex())
+	if err != nil {
+		return nil, err
+	}
+	to, err := meter.ParseAddress(msg.To().Hex())
+	if err != nil {
+		return nil, err
+	}
+	value := msg.Value()
+	V, R, S := ethTx.RawSignatureValues()
+	var buff bytes.Buffer
+	err = ethTx.EncodeRLP(&buff)
+	if err != nil {
+		return nil, err
+	}
+	tx := &Transaction{
+		body: body{
+			ChainTag:     chainTag,
+			BlockRef:     blockRef,
+			Expiration:   18,
+			Clauses:      []*Clause{&Clause{body: clauseBody{To: &to, Value: value, Token: 0, Data: []byte("0x")}}},
+			GasPriceCoef: 128,
+			Gas:          msg.Gas(),
+			DependsOn:    nil,
+			Nonce:        msg.Nonce(),
+			Reserved:     []interface{}{[]byte("01"), V.Bytes(), R.Bytes(), S.Bytes(), buff.Bytes()},
+			Signature:    msg.From().Bytes(),
+		},
+	}
+	tx.cache.signer.Store(from)
+	fmt.Println(from)
+	return tx, nil
 }
 
 // ChainTag returns chain tag.
