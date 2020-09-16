@@ -69,7 +69,7 @@ func NewTransactionFromEthTx(ethTx *types.Transaction, chainTag byte, blockRef u
 	fmt.Println("from:", msg.From().Hex())
 	fmt.Println("to:", msg.To().Hex())
 	fmt.Println("value:", msg.Value())
-	fmt.Println("gas:", msg.Gas())
+	fmt.Println("gas:", msg.Gas()+2000)
 	fmt.Println("nonce:", msg.Nonce())
 	from, err := meter.ParseAddress(msg.From().Hex())
 	if err != nil {
@@ -93,7 +93,7 @@ func NewTransactionFromEthTx(ethTx *types.Transaction, chainTag byte, blockRef u
 			Expiration:   18,
 			Clauses:      []*Clause{&Clause{body: clauseBody{To: &to, Value: value, Token: 0, Data: []byte("0x")}}},
 			GasPriceCoef: 128,
-			Gas:          msg.Gas(),
+			Gas:          msg.Gas() + 2000,
 			DependsOn:    nil,
 			Nonce:        msg.Nonce(),
 			Reserved:     []interface{}{[]byte("01"), V.Bytes(), R.Bytes(), S.Bytes(), buff.Bytes()},

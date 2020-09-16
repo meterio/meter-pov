@@ -864,10 +864,12 @@ func (c *Chain) UpdateBestQC(qc *block.QuorumCert, source QCSource) (bool, error
 		&QCWrap{source: LocalCandidate, qc: c.bestQCCandidate},
 	}
 
-	log.Info("LocalBestQC", "qc", c.bestQC.String())
-	log.Info("LocalBestBlock.QC", "qc", c.bestBlock.QC.String())
-	log.Info("CandidateQC", "qc", c.bestQCCandidate.String())
-	log.Info("InputQC", "qc", qc)
+	/*
+		log.Info("LocalBestQC", "qc", c.bestQC.String())
+		log.Info("LocalBestBlock.QC", "qc", c.bestBlock.QC.String())
+		log.Info("CandidateQC", "qc", c.bestQCCandidate.String())
+		log.Info("InputQC", "qc", qc)
+	*/
 
 	if qc != nil {
 		qcs = append(qcs, &QCWrap{source: source, qc: qc})

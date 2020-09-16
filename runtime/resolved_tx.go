@@ -6,6 +6,7 @@
 package runtime
 
 import (
+	"fmt"
 	"math/big"
 
 	"github.com/dfinlab/meter/builtin"
@@ -36,7 +37,7 @@ func ResolveTransaction(tx *tx.Transaction) (*ResolvedTransaction, error) {
 		return nil, err
 	}
 	if tx.Gas() < intrinsicGas {
-		return nil, errors.New("intrinsic gas exceeds provided gas")
+		return nil, errors.New(fmt.Sprintf("intrinsic gas (%d) exceeds provided gas (%d)", intrinsicGas, tx.Gas()))
 	}
 
 	clauses := tx.Clauses()
