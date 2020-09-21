@@ -57,6 +57,7 @@ var chainConfig = params.ChainConfig{
 	EIP158Block:         big.NewInt(0),
 	ByzantiumBlock:      big.NewInt(0),
 	ConstantinopleBlock: big.NewInt(0),
+	IstanbulBlock:		 big.NewInt(0),
 	Ethash:              nil,
 	Clique:              nil,
 }

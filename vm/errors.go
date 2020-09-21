@@ -16,10 +16,10 @@
 
 package vm
 
-import {
+import (
 	"errors"
 	"fmt"
-}
+)
 
 // List evm execution errors
 var (
