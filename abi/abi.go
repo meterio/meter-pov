@@ -56,13 +56,13 @@ func New(data []byte) (*ABI, error) {
 		// empty defaults to function according to the abi spec
 		case "function", "":
 			ethMethod := ethabi.Method{
-				Name:    field.Name,
-				Const:   field.Constant,
-				Inputs:  field.Inputs,
-				Outputs: field.Outputs,
+				Name:     field.Name,
+				Constant: field.Constant,
+				Inputs:   field.Inputs,
+				Outputs:  field.Outputs,
 			}
 			var id MethodID
-			copy(id[:], ethMethod.Id())
+			copy(id[:], ethMethod.ID)
 			method := &Method{id, &ethMethod}
 			abi.methods = append(abi.methods, method)
 			abi.idToMethod[id] = method

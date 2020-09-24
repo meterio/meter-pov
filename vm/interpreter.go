@@ -132,6 +132,7 @@ func NewEVMInterpreter(evm *EVM, cfg Config) *EVMInterpreter {
 	}
 }
 
+/******
 func (in *Interpreter) enforceRestrictions(op OpCode, operation operation, stack *Stack) error {
 	if in.evm.chainRules.IsByzantium {
 		if in.readOnly {
@@ -147,6 +148,7 @@ func (in *Interpreter) enforceRestrictions(op OpCode, operation operation, stack
 	}
 	return nil
 }
+******/
 
 // Run loops and evaluates the contract's code with the given input data and returns
 // the return byte-slice and an error if one occurred.

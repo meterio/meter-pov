@@ -19,7 +19,7 @@ package vm
 import (
 	"github.com/holiman/uint256"
 
-	"github.com/ethereum/go-ethereum/params"
+	//"github.com/ethereum/go-ethereum/params"
 )
 
 const (

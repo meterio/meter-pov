@@ -25,7 +25,7 @@ func newEvent(event *ethabi.Event) *Event {
 		}
 	}
 	return &Event{
-		meter.Bytes32(event.Id()),
+		meter.Bytes32(event.ID),
 		event,
 		argsWithoutIndexed,
 	}

@@ -18,7 +18,7 @@ package vm
 
 import (
 	"fmt"
-	"math/big"
+	//"math/big"
 
 	"github.com/holiman/uint256"
 )

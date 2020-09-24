@@ -53,19 +53,17 @@ type (
 	OnSuicideContractFunc func(evm *EVM, contractAddr common.Address, tokenReceiver common.Address)
 )
 
-/**** this from  istanbul
+
 func (evm *EVM) precompile(addr common.Address) (PrecompiledContract, bool) {
 	var precompiles map[common.Address]PrecompiledContract
-	switch {
-	case evm.chainRules.IsYoloV1:
-		precompiles = PrecompiledContractsYoloV1
-	case evm.chainRules.IsIstanbul:
-		precompiles = PrecompiledContractsIstanbul
-	case evm.chainRules.IsByzantium:
+	if evm.IsIstanbul(evm.BlockNumber) {
+		precompiles = PrecompiledContractsIstanbul	
+	} else if evm.ChainConfig().IsByzantium(evm.BlockNumber) {
 		precompiles = PrecompiledContractsByzantium
-	default:
-		precompiles = PrecompiledContractsHomestead
+	} else {
+			precompiles = PrecompiledContractsHomestead
 	}
+
 	p, ok := precompiles[addr]
 	return p, ok
 }
@@ -87,17 +85,19 @@ func run(evm *EVM, contract *Contract, input []byte, readOnly bool) ([]byte, err
 	}
 	return nil, errors.New("no compatible interpreter")
 }
-*******/
 
+/****
 // run runs the given contract and takes care of running precompiles with a fallback to the byte code interpreter.
 func run(evm *EVM, contract *Contract, input []byte, readOnly bool) ([]byte, error) {
+	var precompiles map[common.Address]PrecompiledContract
+
 	if contract.CodeAddr != nil {
-		if evm.ChainConfig().IsIstanbul(evm.BlockNumber) {
+		if evm.IsIstanbul(evm.BlockNumber) {
 			precompiles = PrecompiledContractsIstanbul	
 		} else if evm.ChainConfig().IsByzantium(evm.BlockNumber) {
 			precompiles = PrecompiledContractsByzantium
 		} else {
-			precompiles := PrecompiledContractsHomestead
+			precompiles = PrecompiledContractsHomestead
 		}
 
 		if p := precompiles[*contract.CodeAddr]; p != nil {
@@ -106,6 +106,7 @@ func run(evm *EVM, contract *Contract, input []byte, readOnly bool) ([]byte, err
 	}
 	return evm.interpreter.Run(contract, input, readOnly)
 }
+****/
 
 // Context provides the EVM with auxiliary information. Once provided
 // it shouldn't be modified.
@@ -161,7 +162,8 @@ type EVM struct {
 	vmConfig Config
 	// global (to this context) ethereum virtual machine
 	// used throughout the execution of the tx.
-	interpreter *Interpreter
+	interpreters []Interpreter
+	interpreter Interpreter
 	// abort is used to abort the EVM calling operations
 	// NOTE: must be set atomically
 	abort int32
@@ -253,7 +255,7 @@ func (evm *EVM) Call(caller ContractRef, addr common.Address, input []byte, gas 
 
 	to := AccountRef(addr)
 	snapshot := evm.StateDB.Snapshot()
-	precomiles, isPrecompile := evm.precompile(addr)
+	p, isPrecompile := evm.precompile(addr)
 
 	if !evm.StateDB.Exist(addr) {
 		//precompiles := PrecompiledContractsHomestead
@@ -285,7 +287,7 @@ func (evm *EVM) Call(caller ContractRef, addr common.Address, input []byte, gas 
 		evm.vmConfig.Tracer.CaptureStart(caller.Address(), addr, false, input, gas, value)
 
 		defer func(startGas uint64, startTime time.Time) { // Lazy evaluation of the parameters
-			evm.vmConfig.Tracer.CaptureEnd(ret, gas-contract.Gas, time.Since(startTime), err)
+			evm.vmConfig.Tracer.CaptureEnd(ret, startGas-gas, time.Since(startTime), err)
 		}(gas, time.Now())
 	}
 
@@ -314,10 +316,13 @@ func (evm *EVM) Call(caller ContractRef, addr common.Address, input []byte, gas 
 	// when we're in homestead this also counts for code storage gas errors.
 	if err != nil {
 		evm.StateDB.RevertToSnapshot(snapshot)
-		if err != errExecutionReverted {
+		if err != ErrExecutionReverted {
 			gas = 0
 			//contract.UseGas(contract.Gas)
 		}
+		// TODO: consider clearing up unused snapshots:
+        //} else {
+        //  evm.StateDB.DiscardSnapshot(snapshot)
 	}
 	//return ret, contract.Gas, err
 	return ret, gas, err
@@ -398,7 +403,7 @@ func (evm *EVM) DelegateCall(caller ContractRef, addr common.Address, input []by
 	// This doesn't matter on Mainnet, where all empties are gone at the time of Byzantium,
 	// but is the correct thing to do and matters on other networks, in tests, and potential
 	// future scenarios
-	evm.StateDB.AddBalance(addr, big0)
+	evm.StateDB.AddBalance(addr, big.NewInt(0))
 
 	if p, isPrecompile := evm.precompile(addr); isPrecompile {
 		ret, gas, err = RunPrecompiledContract(p, input, gas)
@@ -451,7 +456,7 @@ func (evm *EVM) StaticCall(caller ContractRef, addr common.Address, input []byte
 	// This doesn't matter on Mainnet, where all empties are gone at the time of Byzantium,
 	// but is the correct thing to do and matters on other networks, in tests, and potential
 	// future scenarios
-	evm.StateDB.AddBalance(addr, big0)
+	evm.StateDB.AddBalance(addr, big.NewInt(0))
 
 	if p, isPrecompile := evm.precompile(addr); isPrecompile {
 		ret, gas, err = RunPrecompiledContract(p, input, gas)
@@ -539,11 +544,11 @@ func (evm *EVM) create(caller ContractRef, codeAndHash *codeAndHash, gas uint64,
 	}
 
 	if evm.vmConfig.Debug && evm.depth == 0 {
-		evm.vmConfig.Tracer.CaptureStart(caller.Address(), contractAddr, true, codeAndHash, gas, value)
+		evm.vmConfig.Tracer.CaptureStart(caller.Address(), contractAddr, true, codeAndHash.code, gas, value)
 	}
 	start := time.Now()
 
-	ret, err := run(evm, contract, nil， false)
+	ret, err := run(evm, contract, nil, false)
 
 	// check whether the max code size has been exceeded
 	maxCodeSizeExceeded := evm.ChainConfig().IsEIP158(evm.BlockNumber) && len(ret) > params.MaxCodeSize
@@ -571,7 +576,7 @@ func (evm *EVM) create(caller ContractRef, codeAndHash *codeAndHash, gas uint64,
 	}
 	// Assign err if contract code size exceeds the max while the err is still empty.
 	if maxCodeSizeExceeded && err == nil {
-		err = errMaxCodeSizeExceeded
+		err = ErrMaxCodeSizeExceeded
 	}
 	if evm.vmConfig.Debug && evm.depth == 0 {
 		evm.vmConfig.Tracer.CaptureEnd(ret, gas-contract.Gas, time.Since(start), err)
@@ -594,12 +599,14 @@ func (evm *EVM) Create2(caller ContractRef, code []byte, gas uint64, endowment *
 	// Cannot use crypto.CreateAddress2 function.
 	// v1.8.14 -> v1.8.27 dependency issue. See patch.go file.
 	codeAndHash := &codeAndHash{code: code}
-	contractAddr = CreateAddress2(caller.Address(), common.BigToHash(salt), crypto.Keccak256Hash(code).Bytes())
+	contractAddr = CreateAddress2(caller.Address(), common.Hash(salt.Bytes32()), crypto.Keccak256Hash(code).Bytes())
 	return evm.create(caller, codeAndHash, gas, endowment, token, contractAddr) // endowment is value.
 }
 
 // ChainConfig returns the environment's chain configuration
 func (evm *EVM) ChainConfig() *params.ChainConfig { return evm.chainConfig }
 
-// Interpreter returns the EVM interpreter
-func (evm *EVM) Interpreter() *Interpreter { return evm.interpreter }
+// IsIstanbul returns whether num is either equal to the Istanbul fork block or greater.
+func (evm *EVM) IsIstanbul(num *big.Int) bool {
+    return evm.chainConfig.IstanbulBlock.Cmp(num) <= 0
+}

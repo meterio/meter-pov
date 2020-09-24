@@ -101,7 +101,8 @@ func gasSStore(evm *EVM, contract *Contract, stack *Stack, mem *Memory, memorySi
 	// The legacy gas metering only takes into consideration the current state
 	// Legacy rules should be applied if we are in Petersburg (removal of EIP-1283)
 	// OR Constantinople is not active
-	if evm.chainRules.IsPetersburg || !evm.chainRules.IsConstantinople {
+	// It is difficault to implement EIP-1283 here, still goes to legacy way
+	if /* evm.chainRules.IsPetersburg || !evm.chainRules.IsConstantinople */ true {
 		// This checks for 3 scenario's and calculates gas accordingly:
 		//
 		// 1. From a zero-value address to a non-zero value         (NEW VALUE)
@@ -117,6 +118,7 @@ func gasSStore(evm *EVM, contract *Contract, stack *Stack, mem *Memory, memorySi
 			return params.SstoreResetGas, nil
 		}
 	}
+	/********
 	// The new gas metering is based on net gas costs (EIP-1283):
 	//
 	// 1. If current value equals new value (this is a no-op), 200 gas is deducted.
@@ -159,6 +161,7 @@ func gasSStore(evm *EVM, contract *Contract, stack *Stack, mem *Memory, memorySi
 			evm.StateDB.AddRefund(params.NetSstoreResetRefund)
 		}
 	}
+	*****/
 	return params.NetSstoreDirtyGas, nil
 }
 
@@ -190,6 +193,8 @@ func gasSStoreEIP2200(evm *EVM, contract *Contract, stack *Stack, mem *Memory, m
 	if current == value { // noop (1)
 		return params.SstoreNoopGasEIP2200, nil
 	}
+	// can not implement EIP2200 here
+	/*****
 	original := evm.StateDB.GetCommittedState(contract.Address(), common.Hash(x.Bytes32()))
 	if original == current {
 		if original == (common.Hash{}) { // create slot (2.1.1)
@@ -214,6 +219,7 @@ func gasSStoreEIP2200(evm *EVM, contract *Contract, stack *Stack, mem *Memory, m
 			evm.StateDB.AddRefund(params.SstoreCleanRefundEIP2200)
 		}
 	}
+	*****/
 	return params.SstoreDirtyGasEIP2200, nil // dirty update (2.2)
 }
 

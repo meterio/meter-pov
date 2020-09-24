@@ -30,7 +30,7 @@ func (m *Method) Name() string {
 
 // Const returns if the method is const.
 func (m *Method) Const() bool {
-	return m.method.Const
+	return m.method.Constant
 }
 
 // EncodeInput encode args to data, and the data is prefixed with method id.

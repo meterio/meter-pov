@@ -17,6 +17,10 @@
 package vm
 
 import (
+	"math/big"
+
+	"github.com/dfinlab/meter/tx"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/params"
@@ -609,12 +613,12 @@ func opCreate(pc *uint64, interpreter *EVMInterpreter, callContext *callCtx) ([]
 
 	callContext.contract.UseGas(gas)
 	//TODO: use uint256.Int instead of converting with toBig()
-	var bigVal = big0
+	var bigVal = big.NewInt(0)
 	if !value.IsZero() {
 		bigVal = value.ToBig()
 	}
 
-	res, addr, returnGas, suberr := interpreter.evm.Create(callContext.contract, input, gas, bigVal)
+	res, addr, returnGas, suberr := interpreter.evm.Create(callContext.contract, input, gas, bigVal, tx.TOKEN_METER)
 	// Push item on the stack based on the returned error. If the ruleset is
 	// homestead we must check for CodeStoreOutOfGasError (homestead only
 	// rule) and treat as an error, if the ruleset is frontier we must
@@ -650,12 +654,12 @@ func opCreate2(pc *uint64, interpreter *EVMInterpreter, callContext *callCtx) ([
 	// reuse size int for stackvalue
 	stackvalue := size
 	//TODO: use uint256.Int instead of converting with toBig()
-	bigEndowment := big0
+	bigEndowment := big.NewInt(0)
 	if !endowment.IsZero() {
 		bigEndowment = endowment.ToBig()
 	}
 	res, addr, returnGas, suberr := interpreter.evm.Create2(callContext.contract, input, gas,
-		bigEndowment, &salt)
+		bigEndowment, tx.TOKEN_METER, &salt)
 	// Push item on the stack based on the returned error.
 	if suberr != nil {
 		stackvalue.Clear()
@@ -683,7 +687,7 @@ func opCall(pc *uint64, interpreter *EVMInterpreter, callContext *callCtx) ([]by
 	// Get the arguments from the memory.
 	args := callContext.memory.GetPtr(int64(inOffset.Uint64()), int64(inSize.Uint64()))
 
-	var bigVal = big0
+	var bigVal = big.NewInt(0)
 	//TODO: use uint256.Int instead of converting with toBig()
 	// By using big0 here, we save an alloc for the most common case (non-ether-transferring contract calls),
 	// but it would make more sense to extend the usage of uint256.Int
@@ -692,7 +696,7 @@ func opCall(pc *uint64, interpreter *EVMInterpreter, callContext *callCtx) ([]by
 		bigVal = value.ToBig()
 	}
 
-	ret, returnGas, err := interpreter.evm.Call(callContext.contract, toAddr, args, gas, bigVal)
+	ret, returnGas, err := interpreter.evm.Call(callContext.contract, toAddr, args, gas, bigVal, tx.TOKEN_METER)
 
 	if err != nil {
 		temp.Clear()
@@ -721,13 +725,13 @@ func opCallCode(pc *uint64, interpreter *EVMInterpreter, callContext *callCtx) (
 	args := callContext.memory.GetPtr(int64(inOffset.Uint64()), int64(inSize.Uint64()))
 
 	//TODO: use uint256.Int instead of converting with toBig()
-	var bigVal = big0
+	var bigVal = big.NewInt(0)
 	if !value.IsZero() {
 		gas += params.CallStipend
 		bigVal = value.ToBig()
 	}
 
-	ret, returnGas, err := interpreter.evm.CallCode(callContext.contract, toAddr, args, gas, bigVal)
+	ret, returnGas, err := interpreter.evm.CallCode(callContext.contract, toAddr, args, gas, bigVal, tx.TOKEN_METER)
 	if err != nil {
 		temp.Clear()
 	} else {

@@ -18,7 +18,7 @@ package vm
 
 import (
 	"errors"
-	"math/big"
+	//"math/big"
 
 	"github.com/ethereum/go-ethereum/params"
 )

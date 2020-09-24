@@ -50,7 +50,8 @@ import (
 	"github.com/inconshreveable/log15"
 	cli "gopkg.in/urfave/cli.v1"
 
-	"github.com/ethereum/go-ethereum/p2p/discover"
+	"github.com/ethereum/go-ethereum/p2p/enode"
+	"github.com/ethereum/go-ethereum/p2p/discv5"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
@@ -213,20 +214,18 @@ func makeInstanceDir(ctx *cli.Context, gene *genesis.Genesis) string {
 }
 
 func openMainDB(ctx *cli.Context, dataDir string) *lvldb.LevelDB {
-	if err := fdlimit.Raise(5120 * 4); err != nil {
+	limit, err := fdlimit.Raise(5120 * 4);
+	if err != nil {
 		fatal("failed to increase fd limit", err)
 	}
-	limit, err := fdlimit.Current()
-	if err != nil {
-		fatal("failed to get fd limit:", err)
-	}
+
 	if limit <= 1024 {
 		log.Warn("low fd limit, increase it if possible", "limit", limit)
 	} else {
 		log.Info("fd limit", "limit", limit)
 	}
 
-	fileCache := limit / 2
+	fileCache := int(limit / 2)
 	if fileCache > 1024 {
 		fileCache = 1024
 	}
@@ -295,18 +294,18 @@ func beneficiary(ctx *cli.Context) *meter.Address {
 	return &addr
 }
 
-func discoServerParse(ctx *cli.Context) ([]*discover.Node, bool, error) {
+func discoServerParse(ctx *cli.Context) ([]*discv5.Node, bool, error) {
 
 	nd := ctx.StringSlice(discoServerFlag.Name)
 	if len(nd) == 0 {
-		return []*discover.Node{}, false, nil
+		return []*discv5.Node{}, false, nil
 	}
 
-	nodes := make([]*discover.Node, 0)
+	nodes := make([]*discv5.Node, 0)
 	for _, n := range nd {
-		node, err := discover.ParseNode(n)
+		node, err := discv5.ParseNode(n)
 		if err != nil {
-			return []*discover.Node{}, false, err
+			return []*discv5.Node{}, false, err
 		}
 
 		nodes = append(nodes, node)
@@ -373,9 +372,11 @@ func newP2PComm(ctx *cli.Context, chain *chain.Chain, txPool *txpool.TxPool, ins
 	}
 
 	// if the discoverServerFlag is not set, use default hardcoded nodes
-	var BootstrapNodes []*discover.Node
+	var BootstrapNodes []*enode.Node
 	if overrided == true {
-		BootstrapNodes = discoSvr
+		//XXX: Must fix, only for compilation
+		//BootstrapNodes = discoSvr
+		fmt.Println(discoSvr)
 	} else {
 		BootstrapNodes = bootstrapNodes
 	}
@@ -402,14 +403,15 @@ func newP2PComm(ctx *cli.Context, chain *chain.Chain, txPool *txpool.TxPool, ins
 
 	topic := ctx.String("disco-topic")
 	peers := ctx.StringSlice("peers")
-	validNodes := make([]*discover.Node, 0)
+	validNodes := make([]*discv5.Node, 0)
 	for _, p := range peers {
-		node, err := discover.ParseNode(p)
+		node, err := discv5.ParseNode(p)
 		if err == nil {
 			validNodes = append(validNodes, node)
 		}
 	}
-	opts.KnownNodes = append(opts.KnownNodes, validNodes...)
+	// XXX:::: must fix. only for compilation
+	//opts.KnownNodes = append(opts.KnownNodes, validNodes...)
 
 	return &p2pComm{
 		comm:           comm.New(chain, txPool, powPool, topic, magic),

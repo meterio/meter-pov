@@ -443,7 +443,7 @@ func dataGas(data []byte) (uint64, error) {
 	if overflow {
 		return 0, errIntrinsicGasOverflow
 	}
-	nzgas, overflow := math.SafeMul(params.TxDataNonZeroGas, nz)
+	nzgas, overflow := math.SafeMul(params.TxDataNonZeroGasFrontier, nz)
 	if overflow {
 		return 0, errIntrinsicGasOverflow
 	}

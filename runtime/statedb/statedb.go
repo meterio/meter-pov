@@ -310,6 +310,17 @@ func (s *StateDB) AddRefund(gas uint64) {
 	s.repo.Put(refundKey{}, total)
 }
 
+// SubRefund stub.
+func (s *StateDB) SubRefund(gas uint64) {
+	v, _ := s.repo.Get(refundKey{})
+	if gas > v.(uint64) {
+        panic(fmt.Sprintf("Refund counter below zero (gas: %d > refund: %d)", gas, v.(uint64)))
+    }
+
+	total := v.(uint64) - gas
+	s.repo.Put(refundKey{}, total)
+}
+
 // AddPreimage stub.
 func (s *StateDB) AddPreimage(hash common.Hash, preimage []byte) {
 	s.repo.Put(preimageKey(hash), preimage)
