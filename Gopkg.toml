@@ -43,7 +43,7 @@
 
 [[constraint]]
   name = "github.com/ethereum/go-ethereum"
-  version = "=1.8.14"
+  version = "=1.9.14"
 
 [[constraint]]
   name = "github.com/fortytw2/leaktest"
@@ -136,3 +136,7 @@
 [[constraint]]
   name = "github.com/prometheus/client_golang"
   version = "0.9.2"
+
+[[constraint]]
+  name = "github.com/holiman/uint256"
+  version = "1.1.1"

@@ -87,6 +87,13 @@
   version = "v1.1.1"
 
 [[projects]]
+  branch = "master"
+  name = "github.com/shirou/gopsutil"
+  packages = ["cpu", "internal/common"]
+  pruneopts = "UT"
+  revision = "c5b7357407cb04994eaded55dd3e0aa495124f30"
+
+[[projects]]
   digest = "1:1aeb4854a1c278e842712cd6684f48d595cbdd7839655d37a77248efa08c9fc0"
   name = "github.com/deckarep/golang-set"
   packages = ["."]
@@ -119,6 +126,7 @@
     "accounts/keystore",
     "common",
     "common/fdlimit",
+    "common/bitutil",
     "common/hexutil",
     "common/math",
     "common/mclock",
@@ -130,22 +138,27 @@
     "crypto/ecies",
     "crypto/secp256k1",
     "crypto/sha3",
+    "crypto/bls12381",
+    "crypto/blake2b",
     "ethdb",
     "event",
     "log",
     "metrics",
     "p2p",
     "p2p/discover",
+    "p2p/discover/v4wire",
     "p2p/discv5",
     "p2p/nat",
+    "p2p/enode",
+    "p2p/enr",
     "p2p/netutil",
     "params",
     "rlp",
     "trie",
   ]
   pruneopts = "UT"
-  revision = "316fc7ecfc10d06603f1358c1f4c1020ec36dd2a"
-  version = "v1.8.14"
+  revision = "979fc96899c77876e15807005eadd936da17b6c2"
+  version = "v1.9.14"
 
 [[projects]]
   digest = "1:547f5df5f708c880f0af507317c8d022b8d62053a5cb075e23c6eeed09eb2e4e"
@@ -429,6 +442,8 @@
     "pbkdf2",
     "ripemd160",
     "scrypt",
+    "hkdf",
+    "sha3",
   ]
   pruneopts = "UT"
   revision = "ff983b9c42bc9fbf91556e191cc8efb585c16908"
@@ -517,6 +532,13 @@
   pruneopts = "UT"
   revision = "51d6538a90f86fe93ac480b35f37b2be17fef232"
   version = "v2.2.2"
+
+[[projects]]
+  name = "github.com/holiman/uint256"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "99b79c80738390408ef1a47f0e26812ef5506c02"
+  version = "v1.1.1"
 
 [solve-meta]
   analyzer-name = "dep"
