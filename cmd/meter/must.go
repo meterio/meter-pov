@@ -51,7 +51,6 @@ import (
 	cli "gopkg.in/urfave/cli.v1"
 
 	"github.com/ethereum/go-ethereum/p2p/enode"
-	"github.com/ethereum/go-ethereum/p2p/discv5"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
@@ -294,18 +293,18 @@ func beneficiary(ctx *cli.Context) *meter.Address {
 	return &addr
 }
 
-func discoServerParse(ctx *cli.Context) ([]*discv5.Node, bool, error) {
+func discoServerParse(ctx *cli.Context) ([]*enode.Node, bool, error) {
 
 	nd := ctx.StringSlice(discoServerFlag.Name)
 	if len(nd) == 0 {
-		return []*discv5.Node{}, false, nil
+		return []*enode.Node{}, false, nil
 	}
 
-	nodes := make([]*discv5.Node, 0)
+	nodes := make([]*enode.Node, 0)
 	for _, n := range nd {
-		node, err := discv5.ParseNode(n)
+		node, err := enode.ParseV4(n)
 		if err != nil {
-			return []*discv5.Node{}, false, err
+			return []*enode.Node{}, false, err
 		}
 
 		nodes = append(nodes, node)
@@ -374,8 +373,7 @@ func newP2PComm(ctx *cli.Context, chain *chain.Chain, txPool *txpool.TxPool, ins
 	// if the discoverServerFlag is not set, use default hardcoded nodes
 	var BootstrapNodes []*enode.Node
 	if overrided == true {
-		//XXX: Must fix, only for compilation
-		//BootstrapNodes = discoSvr
+		BootstrapNodes = discoSvr
 		fmt.Println(discoSvr)
 	} else {
 		BootstrapNodes = bootstrapNodes
@@ -403,15 +401,15 @@ func newP2PComm(ctx *cli.Context, chain *chain.Chain, txPool *txpool.TxPool, ins
 
 	topic := ctx.String("disco-topic")
 	peers := ctx.StringSlice("peers")
-	validNodes := make([]*discv5.Node, 0)
+	validNodes := make([]*enode.Node, 0)
 	for _, p := range peers {
-		node, err := discv5.ParseNode(p)
+		node, err := enode.ParseV4(p)
 		if err == nil {
 			validNodes = append(validNodes, node)
 		}
 	}
-	// XXX:::: must fix. only for compilation
-	//opts.KnownNodes = append(opts.KnownNodes, validNodes...)
+
+	opts.KnownNodes = append(opts.KnownNodes, validNodes...)
 
 	return &p2pComm{
 		comm:           comm.New(chain, txPool, powPool, topic, magic),

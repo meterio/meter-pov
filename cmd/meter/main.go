@@ -34,7 +34,6 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/p2p/enode"
-	"github.com/ethereum/go-ethereum/p2p/discv5"
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/inconshreveable/log15"
 	"github.com/mattn/go-isatty"
@@ -168,7 +167,7 @@ func showEnodeIDAction(ctx *cli.Context) error {
 	if err != nil {
 		fatal("load or generate P2P key:", err)
 	}
-	id := discv5.PubkeyID(&key.PublicKey)
+	id := enode.PubkeyToIDV4(&key.PublicKey)
 	port := ctx.Int(p2pPortFlag.Name)
 	fmt.Println(fmt.Sprintf("enode://%v@[]:%d", id, port))
 	return nil
