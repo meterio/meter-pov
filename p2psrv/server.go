@@ -16,8 +16,8 @@ import (
 	"github.com/dfinlab/meter/co"
 	"github.com/ethereum/go-ethereum/common/mclock"
 	"github.com/ethereum/go-ethereum/p2p"
-	"github.com/ethereum/go-ethereum/p2p/enode"
 	"github.com/ethereum/go-ethereum/p2p/discv5"
+	"github.com/ethereum/go-ethereum/p2p/enode"
 	"github.com/ethereum/go-ethereum/p2p/nat"
 	"github.com/inconshreveable/log15"
 )
@@ -122,7 +122,7 @@ func (s *Server) Start(protocols []*Protocol) error {
 			s.goes.Go(func() { s.discoverLoop(topicToSearch) })
 		}
 	}
-	log.Info("start up", "self", s.Self())
+	log.Info("start up", "self", s.Self().String())
 
 	s.goes.Go(s.dialLoop)
 	return nil
@@ -199,16 +199,20 @@ func (s *Server) listenDiscV5() (err error) {
 
 	bootnodes := make([]*discv5.Node, 0, len(s.opts.BootstrapNodes)+len(s.opts.KnownNodes))
 	for _, node := range s.opts.BootstrapNodes {
-		var id discv5.NodeID
-		eid := node.ID()
-		copy(id[:], eid[:])
-		bootnodes = append(bootnodes, discv5.NewNode(id, node.IP(), uint16(node.UDP()), uint16(node.TCP())))
+		v5node, err := discv5.ParseNode(node.String())
+		if err != nil {
+			fmt.Println("could not convert enode to discv5, rawurl is", node.String())
+			continue
+		}
+		bootnodes = append(bootnodes, v5node)
 	}
 	for _, node := range s.opts.KnownNodes {
-		var id discv5.NodeID
-		eid := node.ID()
-		copy(id[:], eid[:])
-		bootnodes = append(bootnodes, discv5.NewNode(id, node.IP(), uint16(node.UDP()), uint16(node.TCP())))
+		v5node, err := discv5.ParseNode(node.String())
+		if err != nil {
+			fmt.Println("could not convert enode to discv5, rawurl is", node.String())
+			continue
+		}
+		bootnodes = append(bootnodes, v5node)
 	}
 
 	if err := network.SetFallbackNodes(bootnodes); err != nil {
