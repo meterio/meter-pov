@@ -17,10 +17,12 @@
 package vm
 
 import (
+	"fmt"
 	"errors"
 	"math/big"
 	"sync/atomic"
 	"time"
+	"github.com/dfinlab/meter/meter"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -56,12 +58,12 @@ type (
 
 func (evm *EVM) precompile(addr common.Address) (PrecompiledContract, bool) {
 	var precompiles map[common.Address]PrecompiledContract
-	if evm.IsIstanbul(evm.BlockNumber) {
+	if evm.ChainConfig().IsIstanbul(evm.BlockNumber) {
 		precompiles = PrecompiledContractsIstanbul	
 	} else if evm.ChainConfig().IsByzantium(evm.BlockNumber) {
 		precompiles = PrecompiledContractsByzantium
 	} else {
-			precompiles = PrecompiledContractsHomestead
+		precompiles = PrecompiledContractsHomestead
 	}
 
 	p, ok := precompiles[addr]
@@ -240,6 +242,7 @@ func (evm *EVM) Depth() int {
 // the necessary steps to create accounts and reverses the state in case of an
 // execution error or failed value transfer.
 func (evm *EVM) Call(caller ContractRef, addr common.Address, input []byte, gas uint64, value *big.Int, token byte) (ret []byte, leftOverGas uint64, err error) {
+	fmt.Println("call", meter.Address(caller.Address()).String(), meter.Address(addr).String(), input, token);
 	if evm.vmConfig.NoRecursion && evm.depth > 0 {
 		return nil, gas, nil
 	}
@@ -405,6 +408,7 @@ func (evm *EVM) DelegateCall(caller ContractRef, addr common.Address, input []by
 	// future scenarios
 	evm.StateDB.AddBalance(addr, big.NewInt(0))
 
+	// It is allowed to call precompiles, even via delegatecall
 	if p, isPrecompile := evm.precompile(addr); isPrecompile {
 		ret, gas, err = RunPrecompiledContract(p, input, gas)
 	} else {
@@ -450,7 +454,6 @@ func (evm *EVM) StaticCall(caller ContractRef, addr common.Address, input []byte
 	// then certain tests start failing; stRevertTest/RevertPrecompiledTouchExactOOG.json.
 	// We could change this, but for now it's left for legacy reasons
 	snapshot := evm.StateDB.Snapshot()
-	to := AccountRef(addr)
 
 	// We do an AddBalance of zero here, just in order to trigger a touch.
 	// This doesn't matter on Mainnet, where all empties are gone at the time of Byzantium,
@@ -467,7 +470,7 @@ func (evm *EVM) StaticCall(caller ContractRef, addr common.Address, input []byte
 		addrCopy := addr
 		// Initialise a new contract and set the code that is to be used by the EVM.
 		// The contract is a scoped environment for this execution context only.
-		contract := NewContract(caller, to, new(big.Int), gas)
+		contract := NewContract(caller, AccountRef(addrCopy), new(big.Int), gas)
 		contract.SetCallCode(&addrCopy, evm.StateDB.GetCodeHash(addrCopy), evm.StateDB.GetCode(addrCopy))
 		// When an error was returned by the EVM or when setting the creation code
 		// above we revert to the snapshot and consume any gas remaining. Additionally
@@ -599,14 +602,10 @@ func (evm *EVM) Create2(caller ContractRef, code []byte, gas uint64, endowment *
 	// Cannot use crypto.CreateAddress2 function.
 	// v1.8.14 -> v1.8.27 dependency issue. See patch.go file.
 	codeAndHash := &codeAndHash{code: code}
-	contractAddr = CreateAddress2(caller.Address(), common.Hash(salt.Bytes32()), crypto.Keccak256Hash(code).Bytes())
+	contractAddr = CreateAddress2(caller.Address(), common.Hash(salt.Bytes32()), codeAndHash.Hash().Bytes())
+	//contractAddr = CreateAddress2(caller.Address(), common.Hash(salt.Bytes32()), crypto.Keccak256Hash(code).Bytes())
 	return evm.create(caller, codeAndHash, gas, endowment, token, contractAddr) // endowment is value.
 }
 
 // ChainConfig returns the environment's chain configuration
 func (evm *EVM) ChainConfig() *params.ChainConfig { return evm.chainConfig }
-
-// IsIstanbul returns whether num is either equal to the Istanbul fork block or greater.
-func (evm *EVM) IsIstanbul(num *big.Int) bool {
-    return evm.chainConfig.IstanbulBlock.Cmp(num) <= 0
-}

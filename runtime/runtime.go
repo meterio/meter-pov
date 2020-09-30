@@ -58,6 +58,7 @@ var chainConfig = params.ChainConfig{
 	ByzantiumBlock:      big.NewInt(0),
 	ConstantinopleBlock: big.NewInt(0),
 	IstanbulBlock:		 big.NewInt(0),
+	YoloV1Block:         nil,
 	Ethash:              nil,
 	Clique:              nil,
 }
