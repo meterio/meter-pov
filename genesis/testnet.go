@@ -11,7 +11,7 @@ import (
 	"github.com/dfinlab/meter/builtin"
 	"github.com/dfinlab/meter/meter"
 	"github.com/dfinlab/meter/state"
-	"github.com/dfinlab/meter/tx"
+	//"github.com/dfinlab/meter/tx"
 	"github.com/dfinlab/meter/vm"
 )
 
@@ -34,7 +34,7 @@ func NewTestnet() *Genesis {
 			energySupply := new(big.Int)
 
 			// alloc precompiled contracts
-			for addr := range vm.PrecompiledContractsByzantium {
+			for addr := range vm.PrecompiledContractsIstanbul {
 				state.SetCode(meter.Address(addr), emptyRuntimeBytecode)
 			}
 
@@ -74,10 +74,29 @@ func NewTestnet() *Genesis {
 			energySupply.Add(energySupply, amount)
 
 			builtin.MeterTracker.Native(state).SetInitialSupply(tokenSupply, energySupply)
+
+			//XXX: to avoid the system contract for debugging
+			builtin.Params.Native(state).Set(meter.KeyExecutorAddress, new(big.Int).SetBytes(executor[:]))
+			builtin.Params.Native(state).Set(meter.KeyBaseGasPrice, meter.InitialBaseGasPrice)
+			builtin.Params.Native(state).Set(meter.KeyProposerEndorsement, meter.InitialProposerEndorsement)
+			builtin.Params.Native(state).Set(meter.KeyPowPoolCoef, meter.InitialPowPoolCoef)   
+			builtin.Params.Native(state).Set(meter.KeyPowPoolCoefFadeDays, meter.InitialPowPoolCoefFadeDays)
+			builtin.Params.Native(state).Set(meter.KeyPowPoolCoefFadeRate, meter.InitialPowPoolCoefFadeRate)
+			builtin.Params.Native(state).Set(meter.KeyValidatorBenefitRatio, meter.InitialValidatorBenefitRatio)
+			builtin.Params.Native(state).Set(meter.KeyValidatorBaseReward, meter.InitialValidatorBaseReward)
+			builtin.Params.Native(state).Set(meter.KeyAuctionReservedPrice, meter.InitialAuctionReservedPrice)
+			builtin.Params.Native(state).Set(meter.KeyMinRequiredByDelegate, meter.InitialMinRequiredByDelegate)
+			builtin.Params.Native(state).Set(meter.KeyAuctionInitRelease, meter.InitialBorrowInterestRate)
+			builtin.Params.Native(state).Set(meter.KeyBorrowInterestRate, meter.InitialBorrowInterestRate)
+			builtin.Params.Native(state).Set(meter.KeyConsensusCommitteeSize, meter.InitialConsensusCommitteeSize)
+			builtin.Params.Native(state).Set(meter.KeyConsensusDelegateSize, meter.InitialConsensusDelegateSize)
+
 			return nil
-		}).
+		})//.
 		// set initial params
 		// use an external account as executor to manage testnet easily
+
+		/***** avoid to call contract, use native call instead
 		Call(
 			tx.NewClause(&builtin.Params.Address).WithData(mustEncodeInput(builtin.Params.ABI, "set", meter.KeyExecutorAddress, new(big.Int).SetBytes(executor[:]))),
 			meter.Address{}).
@@ -120,7 +139,7 @@ func NewTestnet() *Genesis {
 		Call(
 			tx.NewClause(&builtin.Params.Address).WithData(mustEncodeInput(builtin.Params.ABI, "set", meter.KeyConsensusDelegateSize, meter.InitialConsensusDelegateSize)),
 			executor)
-
+		***/
 	id, err := builder.ComputeID()
 	if err != nil {
 		panic(err)
