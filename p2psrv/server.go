@@ -41,8 +41,8 @@ func New(opts *Options) *Server {
 	knownNodes := cache.NewPrioCache(5)
 	discoveredNodes := cache.NewRandCache(128)
 	for _, node := range opts.KnownNodes {
-		knownNodes.Set(node.ID, node, 0)
-		discoveredNodes.Set(node.ID, node)
+		knownNodes.Set(node.ID(), node, 0)
+		discoveredNodes.Set(node.ID(), node)
 	}
 
 	return &Server{
@@ -122,7 +122,7 @@ func (s *Server) Start(protocols []*Protocol) error {
 			s.goes.Go(func() { s.discoverLoop(topicToSearch) })
 		}
 	}
-	log.Info("start up", "self", s.Self().String())
+	log.Info("start up", "self", s.Self().URLv4())
 
 	s.goes.Go(s.dialLoop)
 	return nil
@@ -301,13 +301,16 @@ func (s *Server) dialLoop() {
 			log := log.New("node", node)
 			log.Debug("try to dial node")
 			s.dialingNodes.Add(node)
+			s.srv.AddPeer(node)
 			// don't use goes.Go, since the dial process can't be interrupted
-			go func() {
-				if err := s.tryDial(node); err != nil {
-					s.dialingNodes.Remove(node.ID())
-					log.Debug("failed to dial node", "err", err)
-				}
-			}()
+			/*
+				go func() {
+					if err := s.tryDial(node); err != nil {
+						s.dialingNodes.Remove(node.ID())
+						log.Debug("failed to dial node", "err", err)
+					}
+				}()
+			*/
 
 			dialCount++
 			if dialCount == 20 {
