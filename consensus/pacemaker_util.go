@@ -42,9 +42,10 @@ func (p *Pacemaker) IsExtendedFromBLocked(b *pmBlock) bool {
 
 // find out b b' b"
 func (p *Pacemaker) AddressBlock(height uint32) *pmBlock {
-	if (p.proposalMap[height] != nil) && (p.proposalMap[height].Height == height) {
+	blk := p.proposalMap.Get(height)
+	if blk != nil && blk.Height == height {
 		//p.logger.Debug("Addressed block", "height", height, "round", round)
-		return p.proposalMap[height]
+		return blk
 	}
 
 	p.logger.Debug("can not address block", "height", height)
@@ -161,11 +162,11 @@ func (p *Pacemaker) ValidateProposal(b *pmBlock) error {
 	// possible 2 rounds of stop messagB
 	if b.ProposedBlockType == StopCommitteeType {
 
-		parent := p.proposalMap[b.Height-1]
+		parent := p.proposalMap.Get(b.Height - 1)
 		if parent.ProposedBlockType == KBlockType {
 			p.logger.Info("the first stop committee block")
 		} else if parent.ProposedBlockType == StopCommitteeType {
-			grandParent := p.proposalMap[b.Height-2]
+			grandParent := p.proposalMap.Get(b.Height - 2)
 			if grandParent.ProposedBlockType == KBlockType {
 				p.logger.Info("The second stop committee block")
 

@@ -22,8 +22,9 @@ const (
 	RoundInterval        = 2 * time.Second
 	RoundTimeoutInterval = 30 * time.Second // move the timeout from 10 to 30 secs.
 
-	MIN_MBLOCKS_AN_EPOCH       = uint32(6)
-	MIN_PROPOSALS_FOR_CATCH_UP = 4
+	MIN_MBLOCKS_AN_EPOCH = uint32(4)
+
+	CATCH_UP_THRESHOLD = 5
 )
 
 type PMMode uint32
@@ -45,7 +46,7 @@ func (m PMMode) String() string {
 
 type Pacemaker struct {
 	csReactor   *ConsensusReactor //global reactor info
-	proposalMap map[uint32]*pmBlock
+	proposalMap *ProposalMap
 	logger      log15.Logger
 
 	// Current round (current_round - highest_qc_round determines the timeout).
@@ -98,7 +99,7 @@ func NewPaceMaker(conR *ConsensusReactor) *Pacemaker {
 		beatCh:         make(chan *PMBeatInfo, 2),
 		roundTimeoutCh: make(chan PMRoundTimeoutInfo, 2),
 		roundTimer:     nil,
-		proposalMap:    make(map[uint32]*pmBlock), // TODO:better way?
+		proposalMap:    NewProposalMap(),
 		pendingList:    NewPendingList(),
 		timeoutCounter: 0,
 		stopped:        true,
@@ -223,7 +224,7 @@ func (p *Pacemaker) OnCommit(commitReady []*pmBlock) {
 			continue
 		}
 		// commit the approved block
-		bestQC := p.proposalMap[b.Height+1].Justify.QC
+		bestQC := p.proposalMap.Get(b.Height + 1).Justify.QC
 		err := p.csReactor.FinalizeCommitBlock(b.ProposedBlockInfo, bestQC)
 		if err != nil && err != chain.ErrBlockExist {
 			p.csReactor.logger.Warn("Commit block failed ...", "error", err)
@@ -346,8 +347,8 @@ func (p *Pacemaker) OnReceiveProposal(mi *consensusMsgInfo) error {
 	}
 
 	// update the proposalMap if current proposal was not tracked before
-	if _, tracked := p.proposalMap[height]; !tracked {
-		p.proposalMap[height] = &pmBlock{
+	if p.proposalMap.Get(height) == nil {
+		p.proposalMap.Add(&pmBlock{
 			ProposalMessage:   proposalMsg,
 			Height:            height,
 			Round:             round,
@@ -355,10 +356,10 @@ func (p *Pacemaker) OnReceiveProposal(mi *consensusMsgInfo) error {
 			Justify:           justify,
 			ProposedBlock:     proposalMsg.ProposedBlock,
 			ProposedBlockType: proposalMsg.ProposedBlockType,
-		}
+		})
 	}
 
-	bnew := p.proposalMap[height]
+	bnew := p.proposalMap.Get(height)
 	if ((bnew.Height > p.lastVotingHeight) &&
 		(p.IsExtendedFromBLocked(bnew) || bnew.Justify.QC.QCHeight > p.blockLocked.Height)) || validTimeout {
 
@@ -369,7 +370,7 @@ func (p *Pacemaker) OnReceiveProposal(mi *consensusMsgInfo) error {
 		}
 
 		// parent got QC, pre-commit
-		justify := p.proposalMap[bnew.Justify.QC.QCHeight] //Justify.QCNode
+		justify := p.proposalMap.Get(bnew.Justify.QC.QCHeight) //Justify.QCNode
 		if (justify != nil) && (justify.Height > p.blockLocked.Height) {
 			err := p.OnPreCommitBlock(justify)
 			if err != nil {
@@ -382,7 +383,7 @@ func (p *Pacemaker) OnReceiveProposal(mi *consensusMsgInfo) error {
 			return err
 		}
 
-		if p.mode == PMModeCatchUp && len(p.proposalMap) > MIN_PROPOSALS_FOR_CATCH_UP {
+		if p.mode == PMModeCatchUp && p.proposalMap.Len() > CATCH_UP_THRESHOLD-1 {
 			p.logger.Info("I'm ready to vote, switch back to normal mode")
 			p.mode = PMModeNormal
 		}
@@ -490,7 +491,7 @@ func (p *Pacemaker) OnPropose(b *pmBlock, qc *pmQuorumCert, height, round uint32
 
 	// create slot in proposalMap directly, instead of sendmsg to self.
 	bnew.ProposalMessage = msg
-	p.proposalMap[height] = bnew
+	p.proposalMap.Add(bnew)
 
 	//send proposal to all include myself
 	p.SendConsensusMessage(round, msg, true)
@@ -522,7 +523,7 @@ func (p *Pacemaker) OnBeat(height, round uint32, reason beatReason) error {
 
 	// parent already got QC, pre-commit it
 	//b := p.QCHigh.QCNode
-	b := p.proposalMap[p.QCHigh.QC.QCHeight]
+	b := p.proposalMap.Get(p.QCHigh.QC.QCHeight)
 
 	if b.Height > p.blockLocked.Height {
 		err := p.OnPreCommitBlock(b)
@@ -562,8 +563,8 @@ func (p *Pacemaker) OnTimeoutBeat(height, round uint32, reason beatReason) error
 	p.logger.Info(" --------------------------------------------------")
 	// parent already got QC, pre-commit it
 	//b := p.QCHigh.QCNode
-	parent := p.proposalMap[height-1]
-	replaced := p.proposalMap[height]
+	parent := p.proposalMap.Get(height - 1)
+	replaced := p.proposalMap.Get(height)
 	if parent == nil {
 		p.logger.Error("missing parent proposal", "parentHeight", height-1, "height", height, "round", round)
 		return errors.New("missing parent proposal")
@@ -684,7 +685,7 @@ func (p *Pacemaker) OnReceiveNewView(mi *consensusMsgInfo) error {
 		qcEpoch := qc.EpochID
 
 		// if I don't have the proposal at specified height, query my peer
-		if _, ok := p.proposalMap[qcHeight]; ok != true {
+		if p.proposalMap.Get(qcHeight) == nil {
 			p.logger.Info("Send PMQueryProposal", "height", qcHeight, "round", qcRound, "epoch", qcEpoch)
 			fromHeight := p.lastVotingHeight
 			bestQC := p.csReactor.chain.BestQC()
@@ -701,10 +702,9 @@ func (p *Pacemaker) OnReceiveNewView(mi *consensusMsgInfo) error {
 			// forward missing proposals to peers who just sent new view message with lower expected height
 			tmpHeight := qcHeight + 1
 			var proposal *pmBlock
-			var ok bool
 			missed := make([]*pmBlock, 0)
 			for {
-				if proposal, ok = p.proposalMap[tmpHeight]; ok != true {
+				if p.proposalMap.Get(tmpHeight) == nil {
 					break
 				}
 				tmpHeight++
@@ -809,7 +809,7 @@ func (p *Pacemaker) Start(newCommittee bool, mode PMMode) {
 	p.blockLocked = bInit
 	p.blockExecuted = bInit
 	p.blockLeaf = bInit
-	p.proposalMap[height] = bInit
+	p.proposalMap.Add(bInit)
 	if qcInit.QCNode == nil {
 		qcInit.QCNode = bInit
 	}
@@ -897,7 +897,7 @@ func (p *Pacemaker) mainLoop() {
 						// Usually, we'll use pending proposal to recover, but if the gap is too big between qcHigh and bestQC
 						// we'll have to restart the pacemaker in catch-up mode to "jump" the pacemaker ahead in order to
 						// process future proposals in time.
-						if (err == errRestartPaceMakerRequired) || (p.QCHigh != nil && p.QCHigh.QCNode != nil && p.QCHigh.QCNode.Height+5 < p.csReactor.chain.BestQC().QCHeight) {
+						if (err == errRestartPaceMakerRequired) || (p.QCHigh != nil && p.QCHigh.QCNode != nil && p.QCHigh.QCNode.Height+CATCH_UP_THRESHOLD < p.csReactor.chain.BestQC().QCHeight) {
 							p.Restart(PMModeCatchUp)
 						}
 					}
@@ -957,9 +957,7 @@ func (p *Pacemaker) reset() {
 	p.startRound = 0
 
 	// clean up proposal map
-	for k := range p.proposalMap {
-		delete(p.proposalMap, k)
-	}
+	p.proposalMap.Reset()
 
 	// drain all messages in the channels
 	for len(p.pacemakerMsgCh) > 0 {
@@ -1099,11 +1097,11 @@ func (p *Pacemaker) resetRoundTimer(round uint32, reason roundTimerUpdateReason)
 
 func (p *Pacemaker) revertTo(revertHeight uint32) {
 	p.logger.Info("Start revert", "revertHeight", revertHeight, "currentBLeaf", p.blockLeaf.ToString(), "currentQCHigh", p.QCHigh.ToString())
-	pivot, pivotExist := p.proposalMap[revertHeight]
+	pivot := p.proposalMap.Get(revertHeight)
 	height := revertHeight
 	for {
-		proposal, exist := p.proposalMap[height]
-		if !exist {
+		proposal := p.proposalMap.Get(height)
+		if proposal == nil {
 			break
 		}
 		info := proposal.ProposedBlockInfo
@@ -1120,11 +1118,12 @@ func (p *Pacemaker) revertTo(revertHeight uint32) {
 			state.RevertTo(info.CheckPoint)
 		}
 		p.logger.Warn("Deleted from proposalMap", "height", height, "block", proposal.ToString())
-		delete(p.proposalMap, height)
 		height++
 	}
 
-	if pivotExist {
+	p.proposalMap.RevertTo(revertHeight)
+
+	if pivot != nil {
 		if p.blockLeaf.Height >= pivot.Height {
 			p.blockLeaf = pivot.Parent
 		}
@@ -1201,7 +1200,7 @@ func (p *Pacemaker) OnReceiveQueryProposal(mi *consensusMsgInfo) error {
 
 	queryHeight := fromHeight + 1
 	for queryHeight <= p.lastVotingHeight {
-		result := p.proposalMap[queryHeight]
+		result := p.proposalMap.Get(queryHeight)
 		if result == nil {
 			// Oooop!, I do not have it
 			p.logger.Error("I dont have the specific proposal", "height", queryHeight, "round", queryRound)
