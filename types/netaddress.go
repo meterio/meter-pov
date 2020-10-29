@@ -1,3 +1,8 @@
+// Copyright (c) 2020 The Meter.io developers
+// Distributed under the GNU Lesser General Public License v3.0 software license, see the accompanying
+
+// file LICENSE or <https://www.gnu.org/licenses/lgpl-3.0.html>
+
 // Modified for Tendermint
 // Originally Copyright (c) 2013-2014 Conformal Systems LLC.
 // https://github.com/conformal/btcd/blob/master/LICENSE
