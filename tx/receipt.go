@@ -1,4 +1,4 @@
-// Copyright (c) 2020 The Meter.io developerslopers
+// Copyright (c) 2020 The Meter.io developers
 
 // Distributed under the GNU Lesser General Public License v3.0 software license, see the accompanying
 // file LICENSE or <https://www.gnu.org/licenses/lgpl-3.0.html>
@@ -8,9 +8,9 @@ package tx
 import (
 	"math/big"
 
-	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/dfinlab/meter/meter"
 	"github.com/dfinlab/meter/trie"
+	"github.com/ethereum/go-ethereum/rlp"
 )
 
 // Receipt represents the results of a transaction.

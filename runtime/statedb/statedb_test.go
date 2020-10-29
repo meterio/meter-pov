@@ -1,4 +1,4 @@
-// Copyright (c) 2020 The Meter.io developerslopers
+// Copyright (c) 2020 The Meter.io developers
 
 // Distributed under the GNU Lesser General Public License v3.0 software license, see the accompanying
 // file LICENSE or <https://www.gnu.org/licenses/lgpl-3.0.html>
@@ -17,12 +17,12 @@ import (
 	"testing"
 	"testing/quick"
 
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/dfinlab/meter/lvldb"
+	"github.com/dfinlab/meter/meter"
 	"github.com/dfinlab/meter/runtime/statedb"
 	State "github.com/dfinlab/meter/state"
-	"github.com/dfinlab/meter/meter"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
 )
 
 func TestSnapshotRandom(t *testing.T) {
