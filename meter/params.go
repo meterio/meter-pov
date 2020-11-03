@@ -75,6 +75,11 @@ var (
 	KeyConsensusCommitteeSize = BytesToBytes32([]byte("consensus-committee-size"))
 	KeyConsensusDelegateSize  = BytesToBytes32([]byte("consensus-delegate-size"))
 
+	//  mtr-erc20, 0x00000000000000006e61746976652d6d74722d65726332302d61646472657373
+	KeyNativeMtrERC20Address = BytesToBytes32([]byte("native-mtr-erc20-address"))
+	// mtrg-erc20, 0x000000000000006e61746976652d6d7472672d65726332302d61646472657373
+	KeyNativeMtrgERC20Address = BytesToBytes32([]byte("native-mtrg-erc20-address"))
+
 	// Initial values
 	InitialRewardRatio         = big.NewInt(3e17) // 30%
 	InitialBaseGasPrice        = big.NewInt(5e11) // each tx gas is about 0.01 meter

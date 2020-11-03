@@ -8,9 +8,9 @@ package params
 import (
 	"math/big"
 
-	"github.com/ethereum/go-ethereum/rlp"
-	"github.com/dfinlab/meter/state"
 	"github.com/dfinlab/meter/meter"
+	"github.com/dfinlab/meter/state"
+	"github.com/ethereum/go-ethereum/rlp"
 )
 
 // Params binder of `Params` contract.
@@ -43,4 +43,16 @@ func (p *Params) Set(key meter.Bytes32, value *big.Int) {
 		}
 		return rlp.EncodeToBytes(value)
 	})
+}
+
+// Get native way to get param.
+func (p *Params) GetAddress(key meter.Bytes32) (addr meter.Address) {
+	addr = meter.BytesToAddress(p.Get(key).Bytes())
+	return
+}
+
+// Set native way to set param.
+func (p *Params) SetAddress(key meter.Bytes32, addr meter.Address) {
+	i := big.NewInt(0).SetBytes(addr.Bytes())
+	p.Set(key, i)
 }

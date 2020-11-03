@@ -11,6 +11,11 @@ const (
 	Edison = iota + 1
 )
 
+const (
+	// start block number support sys-contract
+	SysContractStartNum = 100000
+)
+
 // Genesis hashes to enforce below configs on.
 var (
 	GenesisHash = MustParseBytes32("0x00000000733c970e6a7d68c7db54e3705eee865a97a07bf7e695c63b238f5e52")
