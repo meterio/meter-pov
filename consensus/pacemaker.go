@@ -1005,8 +1005,13 @@ func (p *Pacemaker) Stop() {
 
 	// suicide
 	// make sure this stop cmd is the very next cmd
-	for len(p.cmdCh) > 0 {
-		<-p.cmdCh
+L:
+	for {
+		select {
+		case <-p.cmdCh:
+		default:
+			break L
+		}
 	}
 	p.cmdCh <- &PMCmdInfo{cmd: PMCmdStop}
 }
@@ -1014,8 +1019,13 @@ func (p *Pacemaker) Stop() {
 func (p *Pacemaker) Restart(mode PMMode) {
 	// schedule the restart
 	// make sure this restart cmd is the very next cmd
-	for len(p.cmdCh) > 0 {
-		<-p.cmdCh
+R:
+	for {
+		select {
+		case <-p.cmdCh:
+		default:
+			break R
+		}
 	}
 
 	p.cmdCh <- &PMCmdInfo{cmd: PMCmdRestart, mode: mode}
