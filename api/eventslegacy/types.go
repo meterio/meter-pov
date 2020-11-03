@@ -1,4 +1,4 @@
-// Copyright (c) 2020 The Meter.io developerslopers
+// Copyright (c) 2020 The Meter.io developers
 
 // Distributed under the GNU Lesser General Public License v3.0 software license, see the accompanying
 // file LICENSE or <https://www.gnu.org/licenses/lgpl-3.0.html>
@@ -8,10 +8,10 @@ package eventslegacy
 import (
 	"fmt"
 
-	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/dfinlab/meter/api/transactions"
 	"github.com/dfinlab/meter/logdb"
 	"github.com/dfinlab/meter/meter"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 )
 
 type TopicSet struct {
@@ -63,8 +63,8 @@ func convertFilter(filter *FilterLegacy) *logdb.EventFilter {
 
 // FilteredEvent only comes from one contract
 type FilteredEvent struct {
-	Address meter.Address         `json:"address"`
-	Topics  []*meter.Bytes32      `json:"topics"`
+	Address meter.Address        `json:"address"`
+	Topics  []*meter.Bytes32     `json:"topics"`
 	Data    string               `json:"data"`
 	Meta    transactions.LogMeta `json:"meta"`
 }

@@ -1,4 +1,4 @@
-// Copyright (c) 2020 The Meter.io developerslopers
+// Copyright (c) 2020 The Meter.io developers
 
 // Distributed under the GNU Lesser General Public License v3.0 software license, see the accompanying
 // file LICENSE or <https://www.gnu.org/licenses/lgpl-3.0.html>
@@ -8,8 +8,8 @@ package stackedmap_test
 import (
 	"testing"
 
-	"github.com/stretchr/testify/assert"
 	"github.com/dfinlab/meter/stackedmap"
+	"github.com/stretchr/testify/assert"
 )
 
 func M(a ...interface{}) []interface{} {

@@ -1,4 +1,4 @@
-// Copyright (c) 2020 The Meter.io developerslopers
+// Copyright (c) 2020 The Meter.io developers
 
 // Distributed under the GNU Lesser General Public License v3.0 software license, see the accompanying
 // file LICENSE or <https://www.gnu.org/licenses/lgpl-3.0.html>
@@ -9,10 +9,10 @@ import (
 	"context"
 	"net/http"
 
-	"github.com/gorilla/mux"
-	"github.com/pkg/errors"
 	"github.com/dfinlab/meter/api/utils"
 	"github.com/dfinlab/meter/logdb"
+	"github.com/gorilla/mux"
+	"github.com/pkg/errors"
 )
 
 type Events struct {

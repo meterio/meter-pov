@@ -1,4 +1,4 @@
-// Copyright (c) 2020 The Meter.io developerslopers
+// Copyright (c) 2020 The Meter.io developers
 
 // Distributed under the GNU Lesser General Public License v3.0 software license, see the accompanying
 // file LICENSE or <https://www.gnu.org/licenses/lgpl-3.0.html>
@@ -11,18 +11,18 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/stretchr/testify/assert"
 	"github.com/dfinlab/meter/abi"
 	"github.com/dfinlab/meter/builtin"
 	"github.com/dfinlab/meter/chain"
 	"github.com/dfinlab/meter/genesis"
 	"github.com/dfinlab/meter/lvldb"
+	"github.com/dfinlab/meter/meter"
 	"github.com/dfinlab/meter/runtime"
 	"github.com/dfinlab/meter/state"
-	"github.com/dfinlab/meter/meter"
 	"github.com/dfinlab/meter/tx"
 	"github.com/dfinlab/meter/xenv"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestContractSuicide(t *testing.T) {
