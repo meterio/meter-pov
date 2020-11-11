@@ -8,15 +8,17 @@ package tx
 import (
 	"bytes"
 	"encoding/binary"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
 	"math/big"
+	"strings"
 	"sync/atomic"
 
 	"github.com/dfinlab/meter/meter"
 	"github.com/dfinlab/meter/metric"
-	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/math"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -31,7 +33,63 @@ const (
 
 var (
 	errIntrinsicGasOverflow = errors.New("intrinsic gas overflow")
+	RESERVED_PREFIX         = []byte{0xee, 0xff}
 )
+
+// reference to github.com/ethereum/go-ethereum/
+func isProtectedV(V *big.Int) bool {
+	if V.BitLen() <= 8 {
+		v := V.Uint64()
+		return v != 27 && v != 28
+	}
+	// anything not 27 or 28 is considered protected
+	return true
+}
+
+// deriveChainId derives the chain id from the given v parameter
+func deriveChainId(v *big.Int) *big.Int {
+	if v.BitLen() <= 64 {
+		v := v.Uint64()
+		if v == 27 || v == 28 {
+			return new(big.Int)
+		}
+		return new(big.Int).SetUint64((v - 35) / 2)
+	}
+	v = new(big.Int).Sub(v, big.NewInt(35))
+	return v.Div(v, big.NewInt(2))
+}
+
+func recoverPlain(sighash common.Hash, R, S, V *big.Int, homestead bool) (common.Address, error) {
+	var y byte
+	if isProtectedV(V) {
+		chainID := deriveChainId(V).Uint64()
+		y = byte(V.Uint64() - 35 - 2*chainID)
+	} else {
+		y = byte(V.Uint64() - 27)
+	}
+
+	if !crypto.ValidateSignatureValues(y, R, S, homestead) {
+		return common.Address{}, types.ErrInvalidSig
+	}
+
+	// encode the snature in uncompressed format
+	r, s := R.Bytes(), S.Bytes()
+	sig := make([]byte, 65)
+	copy(sig[32-len(r):32], r)
+	copy(sig[64-len(s):64], s)
+	sig[64] = y
+	// recover the public key from the snature
+	pub, err := crypto.Ecrecover(sighash[:], sig)
+	if err != nil {
+		return common.Address{}, err
+	}
+	if len(pub) == 0 || pub[0] != 4 {
+		return common.Address{}, errors.New("invalid public key")
+	}
+	var addr common.Address
+	copy(addr[:], crypto.Keccak256(pub[1:])[12:])
+	return addr, nil
+}
 
 // Transaction is an immutable tx type.
 type Transaction struct {
@@ -67,13 +125,8 @@ func NewTransactionFromEthTx(ethTx *types.Transaction, chainTag byte, blockRef B
 	if err != nil {
 		return nil, err
 	}
-	fmt.Println("from:", msg.From().Hex())
-	fmt.Println("to:", msg.To().Hex())
-	fmt.Println("value:", msg.Value())
-	fmt.Println("gas:", msg.Gas()+2000)
-	fmt.Println("nonce:", msg.Nonce())
-	fmt.Println("blockRef: ", blockRef.Number())
-	fmt.Println("blockRef: ", hexutil.Encode(blockRef[:]))
+	fmt.Println("eth tx from:", msg.From().Hex(), ", to:", msg.To().Hex(), ", value:", msg.Value(), ", chainId:", fmt.Sprintf("0x%x", ethTx.ChainId()))
+
 	from, err := meter.ParseAddress(msg.From().Hex())
 	if err != nil {
 		return nil, err
@@ -82,28 +135,44 @@ func NewTransactionFromEthTx(ethTx *types.Transaction, chainTag byte, blockRef B
 	if err != nil {
 		return nil, err
 	}
+
+	signer := types.NewEIP155Signer(ethTx.ChainId())
 	value := msg.Value()
 	V, R, S := ethTx.RawSignatureValues()
-	var buff bytes.Buffer
-	err = ethTx.EncodeRLP(&buff)
+	msgHash := signer.Hash(ethTx)
+	fmt.Println("eth tx msgHash:", hex.EncodeToString(msgHash[:]))
+	var rawEthTx bytes.Buffer
+	err = ethTx.EncodeRLP(&rawEthTx)
 	if err != nil {
 		return nil, err
+	}
+
+	ethSignature := append(append(R.Bytes(), S.Bytes()...), V.Bytes()...)
+	fmt.Println("eth tx signature:", hex.EncodeToString(ethSignature))
+
+	origin, err := recoverPlain(msgHash, R, S, V, false)
+	if err != nil {
+		fmt.Println("invalid ethereum tx: incorrect signature")
+		return nil, err
+	}
+	if strings.ToLower(origin.Hex()) != strings.ToLower(from.String()) {
+		return nil, errors.New("invalid ethereum tx: origin is not the same as from")
 	}
 	tx := &Transaction{
 		body: body{
 			ChainTag:     chainTag,
-			BlockRef:     uint64(blockRef.Number()),
+			BlockRef:     blockRef.Uint64(),
 			Expiration:   320,
-			Clauses:      []*Clause{&Clause{body: clauseBody{To: &to, Value: value, Token: 0, Data: []byte("0x")}}},
+			Clauses:      []*Clause{&Clause{body: clauseBody{To: &to, Value: value, Token: TOKEN_METER_GOV, Data: ethTx.Data()}}},
 			GasPriceCoef: 128,
 			Gas:          msg.Gas() + 2000,
 			DependsOn:    nil,
 			Nonce:        msg.Nonce(),
-			Reserved:     []interface{}{[]byte("01"), V.Bytes(), R.Bytes(), S.Bytes(), buff.Bytes()},
-			Signature:    msg.From().Bytes(),
+			Reserved:     []interface{}{RESERVED_PREFIX, msg.From().Bytes(), rawEthTx.Bytes()},
+			Signature:    ethSignature,
 		},
 	}
-	tx.cache.signer.Store(from)
+	// tx.cache.signer.Store(from)
 	fmt.Println(from)
 	return tx, nil
 }
@@ -265,6 +334,13 @@ func (t *Transaction) Signer() (signer meter.Address, err error) {
 	// set the origin to nil if no signature
 	if len(t.body.Signature) == 0 {
 		return meter.Address{}, nil
+	}
+	if len(t.body.Reserved) == 3 && len(t.body.Reserved[0].([]byte)) == len(RESERVED_PREFIX) && t.body.Reserved[0].([]byte)[0] == RESERVED_PREFIX[0] && t.body.Reserved[0].([]byte)[1] == RESERVED_PREFIX[1] && len(t.body.Signature) >= 65 {
+		// ethereum translated tx
+		from := "0x" + hex.EncodeToString(t.body.Reserved[1].([]byte))
+		fmt.Println("Signer for ETH translated TX:", from)
+		addr, err := meter.ParseAddress(from)
+		return addr, err
 	}
 
 	if cached := t.cache.signer.Load(); cached != nil {

@@ -50,7 +50,7 @@ func (o *txObject) Executable(chain *chain.Chain, state *state.State, headBlock 
 	case o.Gas() > headBlock.GasLimit():
 		return false, errors.New("gas too large")
 	case o.IsExpired(headBlock.Number()):
-		return false, errors.New("expired")
+		return false, errors.New("head block expired")
 	case o.BlockRef().Number() > headBlock.Number()+uint32(3600*24/meter.BlockInterval):
 		return false, errors.New("block ref out of schedule")
 	}

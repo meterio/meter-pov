@@ -19,6 +19,10 @@ func (br BlockRef) Number() uint32 {
 	return binary.BigEndian.Uint32(br[:])
 }
 
+func (br BlockRef) Uint64() uint64 {
+	return binary.BigEndian.Uint64(br[:])
+}
+
 // NewBlockRef create block reference with block number.
 func NewBlockRef(blockNum uint32) (br BlockRef) {
 	binary.BigEndian.PutUint32(br[:], blockNum)
