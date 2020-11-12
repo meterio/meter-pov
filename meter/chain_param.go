@@ -17,8 +17,13 @@ const (
 )
 
 const (
-	// start block number support sys-contract
-	SysContractStartNum = 100000
+	EdisonSysContractStartNum  = 5700000 //about 1 month later, 12/10/2020
+	TestnetSysContractStartNum = 100000
+)
+
+// start block number support sys-contract
+var (
+	SysContractStartNum uint32
 )
 
 // Genesis hashes to enforce below configs on.
@@ -92,9 +97,19 @@ func InitBlockChainConfig(genesisID Bytes32, chainFlag string) {
 	BlockChainConfig.Initialized = true
 
 	fmt.Println(BlockChainConfig.ToString())
+
+	SetSysContractStartNum()
 }
 
 func IsMainChainEdison(curEpoch uint64) bool {
 	return BlockChainConfig.IsInitialized() && BlockChainConfig.IsMainnet() &&
 		BlockChainConfig.IsEdison(curEpoch)
+}
+
+func SetSysContractStartNum() {
+	if BlockChainConfig.IsMainnet() == true {
+		SysContractStartNum = EdisonSysContractStartNum
+	} else {
+		SysContractStartNum = TestnetSysContractStartNum
+	}
 }
