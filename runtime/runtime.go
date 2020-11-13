@@ -119,8 +119,10 @@ var _compiled2NewmeternativeBinRuntime = []byte("\x1f\x8b\x08\x00\x00\x00\x00\x0
 func (rt *Runtime) LoadERC20NativeCotract() {
 	blockNumber := rt.Context().Number
 	addr := builtin.MeterTracker.Address
+	execAddr := builtin.Executor.Address
 	if blockNumber >= meter.SysContractStartNum && len(rt.State().GetCode(addr)) == 0 {
 		rt.State().SetCode(addr, _compiled2NewmeternativeBinRuntime)
+		rt.State().SetCode(execAddr, []byte{})
 	}
 }
 
