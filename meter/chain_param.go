@@ -23,7 +23,7 @@ const (
 
 // start block number support sys-contract
 var (
-	SysContractStartNum uint32
+	SysContractStartNum uint32 = EdisonSysContractStartNum
 )
 
 // Genesis hashes to enforce below configs on.
