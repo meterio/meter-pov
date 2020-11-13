@@ -17,7 +17,7 @@ const (
 )
 
 const (
-	EdisonSysContractStartNum  = 5000000 //about 1 month later, 12/10/2020
+	EdisonSysContractStartNum  = 4900000 //around 11/18/2020
 	TestnetSysContractStartNum = 100000
 )
 
