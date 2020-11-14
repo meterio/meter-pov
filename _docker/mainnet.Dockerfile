@@ -1,7 +1,12 @@
 FROM meterio/pos:latest AS pos
 FROM meterio/pow:latest AS pow
+FROM meterio/bitcoind-exporter:latest as be
 
 FROM ubuntu:18.04
+
+# necessary packages
+RUN apt-get update && apt-get install -y --no-install-recommends supervisor rsyslog rsyslog-relp vim-tiny && apt-get clean 
+RUN apt-get install -y --no-install-recommends build-essential gcc python3-minimal python3-dev python3-pip python3-setuptools python3-wheel && pip3 install --no-cache-dir meter-gear && apt-get remove -y gcc python3-dev build-essential && apt-get clean
 
 # POS settings 
 COPY --from=pos /usr/bin/meter /usr/bin/
@@ -26,10 +31,8 @@ COPY --from=pow /usr/lib/libpgm*.so* /usr/lib/
 COPY --from=pow /usr/lib/libnorm*.so* /usr/lib/
 COPY --from=pow /usr/lib/libdb*.so* /usr/lib/
 
-# necessary packages
-RUN apt-get update && apt-get install -y --no-install-recommends supervisor rsyslog rsyslog-relp vim-tiny && apt clean
-# RUN apt-get update && apt-get install -y python-pip python-setuptools python-wheel && apt clean
-# RUN pip install supervisor-stdout
+COPY --from=be /usr/bin/bitcoind_exporter /usr/bin/
+
 
 ENV POS_EXTRA=
 ENV POW_EXTRA=
@@ -49,5 +52,6 @@ RUN touch /var/log/supervisor/pos-stderr.log
 
 LABEL com.centurylinklabs.watchtower.lifecycle.pre-update="/reset.sh"
 
-EXPOSE 8668 8669 8670 11235 11235/udp 55555/udp 8332 9209
+EXPOSE 8668 8669 8670 11235 11235/udp 55555/udp 8332 9209 8545 8333
 ENTRYPOINT [ "/usr/bin/supervisord" ]
+
