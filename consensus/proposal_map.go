@@ -23,6 +23,9 @@ func (p *ProposalMap) Add(blk *pmBlock) {
 	for len(p.keys) > PROPOSAL_MAP_MAX_SIZE {
 		delKey := p.keys[0]
 		p.keys = p.keys[1:]
+		b := p.pmap[delKey]
+		b.Parent = nil
+		b.Justify = nil
 		delete(p.pmap, delKey)
 	}
 }
@@ -41,6 +44,8 @@ func (p *ProposalMap) Len() int {
 
 func (p *ProposalMap) Reset() {
 	for k := range p.pmap {
+		p.pmap[k].Parent = nil
+		p.pmap[k].Justify = nil
 		delete(p.pmap, k)
 	}
 	p.keys = make([]uint32, 0)
@@ -50,6 +55,9 @@ func (p *ProposalMap) RevertTo(height uint32) {
 	keys := make([]uint32, 0)
 	for k := range p.pmap {
 		if k >= height {
+			b := p.pmap[k]
+			b.Parent = nil
+			b.Justify = nil
 			delete(p.pmap, k)
 		} else {
 			keys = append(keys, k)
