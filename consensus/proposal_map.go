@@ -7,7 +7,7 @@ type ProposalMap struct {
 	keys []uint32
 }
 
-const PROPOSAL_MAP_MAX_SIZE = 20
+const PROPOSAL_MAP_MAX_SIZE = 40
 
 func NewProposalMap() *ProposalMap {
 	return &ProposalMap{
