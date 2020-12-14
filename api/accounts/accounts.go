@@ -183,17 +183,28 @@ func (a *Accounts) handleCallContract(w http.ResponseWriter, req *http.Request) 
 	if err := utils.ParseJSON(req.Body, &callData); err != nil {
 		return utils.BadRequest(errors.WithMessage(err, "body"))
 	}
+	// fmt.Println("CALL WITH DATA:")
+	// fmt.Println("Caller: ", callData.Caller)
+	// fmt.Println("Value: ", callData.Value)
+	// fmt.Println("Data: ", callData.Data)
+	// fmt.Println("Token:", callData.Token)
+	// fmt.Println("Gas:", callData.Gas)
+	// fmt.Println("GasPrice:", callData.GasPrice)
+	// fmt.Println("TO:", mux.Vars(req)["address"])
 	h, err := a.handleRevision(req.URL.Query().Get("revision"))
 	if err != nil {
 		return err
 	}
+	// fmt.Println("mux.Vars(req)[address]=", mux.Vars(req)["address"])
 	var addr *meter.Address
-	if mux.Vars(req)["address"] != "" {
+	if mux.Vars(req)["address"] != "" && mux.Vars(req)["address"] != "0x" {
 		address, err := meter.ParseAddress(mux.Vars(req)["address"])
 		if err != nil {
 			return utils.BadRequest(errors.WithMessage(err, "address"))
 		}
 		addr = &address
+	} else {
+		addr = nil
 	}
 	var batchCallData = &BatchCallData{
 		Clauses: Clauses{

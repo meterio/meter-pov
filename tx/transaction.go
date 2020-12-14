@@ -125,16 +125,26 @@ func NewTransactionFromEthTx(ethTx *types.Transaction, chainTag byte, blockRef B
 	if err != nil {
 		return nil, err
 	}
-	fmt.Println("eth tx from:", msg.From().Hex(), ", to:", msg.To().Hex(), ", value:", msg.Value(), ", chainId:", fmt.Sprintf("0x%x", ethTx.ChainId()))
+	fmt.Println("eth tx from:", msg.From().Hex())
+	if msg.To() != nil {
 
+	}
 	from, err := meter.ParseAddress(msg.From().Hex())
 	if err != nil {
 		return nil, err
 	}
-	to, err := meter.ParseAddress(msg.To().Hex())
-	if err != nil {
-		return nil, err
+	to := meter.Address{}
+	if msg.To() != nil {
+		to, err = meter.ParseAddress(msg.To().Hex())
+		if err != nil {
+			return nil, err
+		}
+		fmt.Println("to:", msg.To().Hex())
+	} else {
+		fmt.Println("to:", to.String())
 	}
+	fmt.Println("value:", msg.Value())
+	fmt.Println("chainId:", fmt.Sprintf("0x%x", ethTx.ChainId()))
 
 	signer := types.NewEIP155Signer(ethTx.ChainId())
 	value := msg.Value()
@@ -158,12 +168,18 @@ func NewTransactionFromEthTx(ethTx *types.Transaction, chainTag byte, blockRef B
 	if strings.ToLower(origin.Hex()) != strings.ToLower(from.String()) {
 		return nil, errors.New("invalid ethereum tx: origin is not the same as from")
 	}
+	var toto  *meter.Address
+	if  to.String() == "0x0000000000000000000000000000000000000000" {
+		toto = nil
+	} else {
+		toto = &to
+	}
 	tx := &Transaction{
 		body: body{
 			ChainTag:     chainTag,
 			BlockRef:     blockRef.Uint64(),
 			Expiration:   320,
-			Clauses:      []*Clause{&Clause{body: clauseBody{To: &to, Value: value, Token: TOKEN_METER, Data: ethTx.Data()}}},
+			Clauses:      []*Clause{&Clause{body: clauseBody{To: toto, Value: value, Token: TOKEN_METER, Data: ethTx.Data()}}},
 			GasPriceCoef: 0,
 			Gas:          msg.Gas(),
 			DependsOn:    nil,
