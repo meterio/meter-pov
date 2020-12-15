@@ -40,6 +40,8 @@ type JSONBlockSummary struct {
 	CommitteeInfo    []*CommitteeMember `json:"committee"`
 	QC               *QC                `json:"qc"`
 	Nonce            uint64             `json:"nonce"`
+	Epoch            uint64             `json:"epoch"`
+	KblockData       []string           `json:"kblockData"`
 }
 
 type JSONCollapsedBlock struct {
@@ -182,6 +184,8 @@ func buildJSONBlockSummary(blk *block.Block, isTrunk bool) *JSONBlockSummary {
 		IsTrunk:          isTrunk,
 		IsKBlock:         header.BlockType() == block.BLOCK_TYPE_K_BLOCK,
 		LastKBlockHeight: header.LastKBlockHeight(),
+		Epoch:            blk.CommitteeInfos.Epoch,
+		KblockData:       make([]string, 0),
 	}
 	var err error
 	if blk.QC != nil {
@@ -196,6 +200,13 @@ func buildJSONBlockSummary(blk *block.Block, isTrunk bool) *JSONBlockSummary {
 		result.CommitteeInfo = convertCommitteeList(blk.CommitteeInfos)
 	} else {
 		result.CommitteeInfo = make([]*CommitteeMember, 0)
+	}
+	if len(blk.KBlockData.Data) > 0 {
+		powBlocks := make([]string, 0)
+		for _, powBlk := range blk.KBlockData.Data {
+			powBlocks = append(powBlocks, "0x"+hex.EncodeToString(powBlk))
+		}
+		result.KblockData = powBlocks
 	}
 	if blk.KBlockData.Nonce > 0 {
 		result.Nonce = blk.KBlockData.Nonce

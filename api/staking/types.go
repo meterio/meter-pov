@@ -7,10 +7,8 @@ package staking
 
 import (
 	"bytes"
-	"fmt"
 	"math/big"
 	"sort"
-	"time"
 
 	"github.com/dfinlab/meter/meter"
 	"github.com/dfinlab/meter/script/staking"
@@ -18,9 +16,9 @@ import (
 
 type Candidate struct {
 	Name       string        `json:"name"`
-	Addr       meter.Address `json:"addr"`   // the address for staking / reward
-	PubKey     string        `json:"pubKey"` // node public key
-	IPAddr     string        `json:"ipAddr"` // network addr
+	Address    meter.Address `json:"address"` // the address for staking / reward
+	PubKey     string        `json:"pubKey"`  // node public key
+	IPAddr     string        `json:"ipAddr"`  // network addr
 	Port       uint16        `json:"port"`
 	TotalVotes string        `json:"totalVotes"` // total voting from all buckets
 	Commission uint64        `json:"commission"` // commission rate unit "1e09"
@@ -49,8 +47,8 @@ func convertCandidate(c staking.Candidate) *Candidate {
 		buckets = append(buckets, b.String())
 	}
 	return &Candidate{
-		Name: string(bytes.Trim(c.Name[:], "\x00")),
-		Addr: c.Addr,
+		Name:    string(bytes.Trim(c.Name[:], "\x00")),
+		Address: c.Addr,
 		//PubKey:     hex.EncodeToString(c.PubKey),
 		PubKey:     string(c.PubKey),
 		IPAddr:     string(c.IPAddr),
@@ -67,7 +65,7 @@ type Bucket struct {
 	Value      string        `json:"value"`
 	Token      uint8         `json:"token"`
 	Nonce      uint64        `json:"nonce"`
-	CreateTime string        `json:"createTime"`
+	CreateTime uint64        `json:"createTime"`
 
 	Unbounded    bool          `json:"unbounded"`
 	Candidate    meter.Address `json:"candidate"`
@@ -75,8 +73,8 @@ type Bucket struct {
 	Option       uint32        `json:"option"`
 	BonusVotes   uint64        `json:"bonusVotes"`
 	TotalVotes   string        `json:"totalVotes"`
-	MatureTime   string        `json:"matureTime"`
-	CalcLastTime string        `json:"calcLastTime"`
+	MatureTime   uint64        `json:"matureTime"`
+	CalcLastTime uint64        `json:"calcLastTime"`
 }
 
 func convertBucketList(list *staking.BucketList) []*Bucket {
@@ -89,15 +87,15 @@ func convertBucketList(list *staking.BucketList) []*Bucket {
 			Value:        b.Value.String(),
 			Token:        b.Token,
 			Nonce:        b.Nonce,
-			CreateTime:   fmt.Sprintln(time.Unix(int64(b.CreateTime), 0)),
+			CreateTime:   b.CreateTime,
 			Unbounded:    b.Unbounded,
 			Candidate:    b.Candidate,
 			Rate:         b.Rate,
 			Option:       b.Option,
 			BonusVotes:   b.BonusVotes,
 			TotalVotes:   b.TotalVotes.String(),
-			MatureTime:   fmt.Sprintln(time.Unix(int64(b.MatureTime), 0)),
-			CalcLastTime: fmt.Sprintln(time.Unix(int64(b.CalcLastTime), 0)),
+			MatureTime:   b.MatureTime,
+			CalcLastTime: b.CalcLastTime,
 		})
 	}
 	return bucketList
@@ -141,7 +139,7 @@ type Delegate struct {
 	VotingPower string         `json:"votingPower"`
 	IPAddr      string         `json:"ipAddr"` // network addr
 	Port        uint16         `json:"port"`
-	Commission  uint64         `json""commissin"`
+	Commission  uint64         `json:"commission"`
 	DistList    []*Distributor `json:"distributors"`
 }
 
@@ -178,7 +176,7 @@ type ValidatorReward struct {
 	Epoch            uint32 `json:"epoch"`
 	BaseReward       string `json:"baseReward"`
 	ExpectDistribute string `json:"expectDistribute"`
-	ActualDistribute string `json:"actualDistribute`
+	ActualDistribute string `json:"actualDistribute"`
 }
 
 func convertValidatorRewardList(list *staking.ValidatorRewardList) []*ValidatorReward {
