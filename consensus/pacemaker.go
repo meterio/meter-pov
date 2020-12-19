@@ -704,7 +704,8 @@ func (p *Pacemaker) OnReceiveNewView(mi *consensusMsgInfo) error {
 			var proposal *pmBlock
 			missed := make([]*pmBlock, 0)
 			for {
-				if p.proposalMap.Get(tmpHeight) == nil {
+				proposal = p.proposalMap.Get(tmpHeight)
+				if proposal == nil {
 					break
 				}
 				tmpHeight++
