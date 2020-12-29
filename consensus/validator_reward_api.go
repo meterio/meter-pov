@@ -1,37 +1,25 @@
-// Copyright (c) 2020 The Meter.io developers
-
-// Distributed under the GNU Lesser General Public License v3.0 software license, see the accompanying
-// file LICENSE or <https://www.gnu.org/licenses/lgpl-3.0.html>
-
-package staking
+package consensus
 
 import (
-	"errors"
 	"fmt"
 	"math/big"
 	"strings"
-
-	"github.com/dfinlab/meter/meter"
 )
 
 const (
-	STAKING_MAX_VALIDATOR_REWARDS = 512
+	STAKING_MAX_VALIDATOR_REWARDS = 1200
 )
 
-type RewardInfo struct {
-	Address meter.Address
-	Amount  *big.Int
-}
-
 type ValidatorReward struct {
-	Epoch       uint32
-	BaseReward  *big.Int
-	TotalReward *big.Int
+	Epoch            uint32
+	BaseReward       *big.Int
+	ExpectDistribute *big.Int
+	ActualDistribute *big.Int
 }
 
 func (v *ValidatorReward) ToString() string {
-	return fmt.Sprintf("ValidatorReward(Epoch %v): BasedReward=%v TotalReard=%v",
-		v.Epoch, v.BaseReward.String(), v.TotalReward.String())
+	return fmt.Sprintf("ValidatorReward(Epoch %v): BasedReward=%v ExpectDistribute=%v, ActualDistribute=%v",
+		v.Epoch, v.BaseReward.String(), v.ExpectDistribute.String(), v.ActualDistribute.String())
 }
 
 type ValidatorRewardList struct {
@@ -88,24 +76,4 @@ func (v *ValidatorRewardList) ToList() []*ValidatorReward {
 		result = append(result, s)
 	}
 	return result
-}
-
-//  api routine interface
-func GetLatestValidatorRewardList() (*ValidatorRewardList, error) {
-	staking := GetStakingGlobInst()
-	if staking == nil {
-		log.Warn("staking is not initialized...")
-		err := errors.New("staking is not initialized...")
-		return nil, err
-	}
-
-	best := staking.chain.BestBlock()
-	state, err := staking.stateCreator.NewState(best.Header().StateRoot())
-	if err != nil {
-		return nil, err
-	}
-
-	list := staking.GetValidatorRewardList(state)
-	// fmt.Println("delegateList from state", list.ToString())
-	return list, nil
 }

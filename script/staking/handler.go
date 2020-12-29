@@ -117,6 +117,7 @@ type StakingBody struct {
 	StakingID  meter.Bytes32 // only for unbond
 	Amount     *big.Int
 	Token      byte   // meter or meter gov
+	Autobid    uint8  // autobid percentile
 	Timestamp  uint64 // staking timestamp
 	Nonce      uint64 //staking nonce
 	ExtraData  []byte
@@ -150,12 +151,13 @@ func (sb *StakingBody) ToString() string {
 	CandPort=%v, 
 	StakingID=%v, 
 	Amount=%v, 
-	Token=%v, 
+	Token=%v,
+	Autobid=%v, 
 	Nonce=%v, 
 	Timestamp=%v, 
 	ExtraData=%v
 }`,
-		sb.Opcode, sb.Version, sb.Option, sb.HolderAddr.String(), sb.CandAddr.String(), string(sb.CandName), string(sb.CandPubKey), string(sb.CandIP), sb.CandPort, sb.StakingID, sb.Amount, sb.Token, sb.Nonce, sb.Timestamp, sb.ExtraData)
+		sb.Opcode, sb.Version, sb.Option, sb.HolderAddr.String(), sb.CandAddr.String(), string(sb.CandName), string(sb.CandPubKey), string(sb.CandIP), sb.CandPort, sb.StakingID, sb.Amount, sb.Token, sb.Autobid, sb.Nonce, sb.Timestamp, sb.ExtraData)
 }
 
 func (sb *StakingBody) BoundHandler(senv *StakingEnviroment, gas uint64) (ret []byte, leftOverGas uint64, err error) {
@@ -384,7 +386,7 @@ func (sb *StakingBody) CandidateHandler(senv *StakingEnviroment, gas uint64) (re
 	bucket := NewBucket(sb.CandAddr, sb.CandAddr, sb.Amount, uint8(sb.Token), opt, rate, sb.Timestamp, sb.Nonce)
 	bucketList.Add(bucket)
 
-	candidate := NewCandidate(sb.CandAddr, sb.CandName, []byte(candidatePubKey), sb.CandIP, sb.CandPort, commission, sb.Timestamp)
+	candidate := NewCandidate(sb.CandAddr, sb.CandName, []byte(candidatePubKey), sb.CandIP, sb.CandPort, sb.Autobid, commission, sb.Timestamp)
 	candidate.AddBucket(bucket)
 	candidateList.Add(candidate)
 
@@ -590,29 +592,27 @@ func (sb *StakingBody) GoverningHandler(senv *StakingEnviroment, gas uint64) (re
 		leftOverGas = gas - meter.ClauseGas
 	}
 
-	validators := []*meter.Address{}
-	err = rlp.DecodeBytes(sb.ExtraData, &validators)
+	rinfo := []*RewardInfo{}
+	err = rlp.DecodeBytes(sb.ExtraData, &rinfo)
 	if err != nil {
-		log.Error("Distribute validator rewards failed")
+		log.Error("get rewards info failed")
 		return
 	}
 
 	// distribute rewarding before calculating new delegates
 	// only need to take action when distribute amount is non-zero
-	if sb.Amount.Sign() != 0 {
+	if len(rinfo) != 0 {
 		epoch := sb.Version //epoch is stored in sb.Version tempraroly
-		sum, info, err := staking.DistValidatorRewards(sb.Amount, validators, delegateList, state)
+		sum, err := staking.DistValidatorRewards(rinfo, state)
 		if err != nil {
 			log.Error("Distribute validator rewards failed" + err.Error())
 		} else {
 			reward := &ValidatorReward{
-				Epoch:            epoch,
-				BaseReward:       builtin.Params.Native(state).Get(meter.KeyValidatorBaseReward),
-				ExpectDistribute: sb.Amount,
-				ActualDistribute: sum,
+				Epoch:       epoch,
+				BaseReward:  builtin.Params.Native(state).Get(meter.KeyValidatorBaseReward),
+				TotalReward: sum,
 			}
 			log.Info("validator rewards", "reward", reward.ToString())
-			log.Debug("validator rewards", "distribute", info)
 
 			var rewards []*ValidatorReward
 			rLen := len(rewardList.rewards)
@@ -623,6 +623,7 @@ func (sb *StakingBody) GoverningHandler(senv *StakingEnviroment, gas uint64) (re
 			}
 
 			rewardList = NewValidatorRewardList(rewards)
+			log.Info("validator rewards", "reward", sum.String())
 		}
 	}
 

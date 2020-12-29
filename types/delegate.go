@@ -25,11 +25,13 @@ type DelegateIntern struct {
 	VotingPower int64
 	NetAddr     NetAddress
 	Commission  uint64
+	Autobid     uint8
 	DistList    []*Distributor
 }
 
 type Distributor struct {
 	Address meter.Address
+	Autobid uint8  // autobid percentile
 	Shares  uint64 // unit is shannon, 1E09
 }
 
@@ -42,6 +44,7 @@ type Delegate struct {
 	VotingPower int64           `json:"voting_power"`
 	NetAddr     NetAddress      `json:"network_addr"`
 	Commission  uint64          `json:"commission"`
+	Autobid     uint8           `json:"autobid"`
 	DistList    []*Distributor  `json:"distibutor_list"`
 }
 

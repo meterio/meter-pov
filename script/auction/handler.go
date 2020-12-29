@@ -19,6 +19,9 @@ const (
 	OP_START = uint32(1)
 	OP_STOP  = uint32(2)
 	OP_BID   = uint32(3)
+
+	USER_BID = uint32(0)
+	AUTO_BID = uint32(1)
 )
 
 func GetOpName(op uint32) string {
@@ -35,7 +38,9 @@ func GetOpName(op uint32) string {
 }
 
 var (
+	// normal min amount is 10 mtr, autobid is 0.1 mtr
 	MinimumBidAmount = new(big.Int).Mul(big.NewInt(10), big.NewInt(1e18))
+	AutobidMinAmount = big.NewInt(1e17)
 	// AuctionReservedPrice = big.NewInt(5e17) // at least  1 MTRG settle down 0.5 MTR
 )
 
@@ -226,10 +231,18 @@ func (ab *AuctionBody) HandleAuctionTx(senv *AuctionEnviroment, gas uint64) (ret
 		return
 	}
 
-	if ab.Amount.Cmp(MinimumBidAmount) < 0 {
-		log.Info("amount lower than minimum bid threshold", "amount", ab.Amount, "minBid", MinimumBidAmount)
-		err = errLessThanBidThreshold
-		return
+	if ab.Option == AUTO_BID {
+		if ab.Amount.Cmp(AutobidMinAmount) < 0 {
+			log.Info("amount lower than minimum bid threshold", "amount", ab.Amount, "minBid", AutobidMinAmount)
+			err = errLessThanBidThreshold
+			return
+		}
+	} else {
+		if ab.Amount.Cmp(MinimumBidAmount) < 0 {
+			log.Info("amount lower than minimum bid threshold", "amount", ab.Amount, "minBid", MinimumBidAmount)
+			err = errLessThanBidThreshold
+			return
+		}
 	}
 
 	tx := auctionCB.Get(ab.Bidder)

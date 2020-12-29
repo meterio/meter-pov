@@ -674,8 +674,8 @@ func (conR *ConsensusReactor) BuildKBlock(parentBlock *block.Block, data *block.
 			txs = append(txs, tx)
 		}
 
-		if tx := conR.TryBuildStakingGoverningTx(); tx != nil {
-			txs = append(txs, tx)
+		if ts := conR.TryBuildStakingGoverningTx(); ts != nil {
+			txs = append(txs, ts...)
 		}
 	}
 

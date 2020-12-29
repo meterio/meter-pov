@@ -52,6 +52,7 @@ type Delegate struct {
 	VotingPower *big.Int
 	IPAddr      []byte
 	Port        uint16
+	Autobid     uint8  // autobid percentile
 	Commission  uint64 // commission rate. unit shannon, aka, 1e09
 	DistList    []*Distributor
 }
@@ -177,6 +178,7 @@ func GetInternalDelegateList() ([]*types.DelegateIntern, error) {
 			Address:     s.Address,
 			PubKey:      s.PubKey,
 			VotingPower: s.VotingPower.Div(s.VotingPower, big.NewInt(1e12)).Int64(),
+			Autobid:     s.Autobid,
 			Commission:  s.Commission,
 			NetAddr: types.NetAddress{
 				IP:   net.ParseIP(string(s.IPAddr)),

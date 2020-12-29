@@ -76,6 +76,11 @@ const (
 	DEFAULT_EPOCHS_PERDAY = 24
 )
 
+const (
+	fromDelegatesFile = iota
+	fromStaking
+)
+
 var (
 	ConsensusGlobInst *ConsensusReactor
 )
@@ -157,9 +162,10 @@ type ConsensusReactor struct {
 
 	msgCache *MsgCache
 
-	magic        [4]byte
-	inCommittee  bool
-	allDelegates []*types.Delegate
+	magic           [4]byte
+	inCommittee     bool
+	allDelegates    []*types.Delegate
+	sourceDelegates int
 }
 
 // Glob Instance
@@ -1606,14 +1612,17 @@ func (conR *ConsensusReactor) GetConsensusDelegates() ([]*types.Delegate, int, i
 	var delegates []*types.Delegate
 	if forceDelegates == true {
 		delegates = conR.config.InitDelegates
+		conR.sourceDelegates = fromDelegatesFile
 		fmt.Println("Load delegates from delegates.json")
 	} else {
 		delegatesIntern, err := staking.GetInternalDelegateList()
 		delegates = conR.convertFromIntern(delegatesIntern)
 		fmt.Println("Load delegates from staking candidates")
+		conR.sourceDelegates = fromStaking
 		if err != nil || len(delegates) < conR.config.MinCommitteeSize {
 			delegates = conR.config.InitDelegates
 			fmt.Println("Load delegates from delegates.json as fallback, error loading staking candiates")
+			conR.sourceDelegates = fromStaking
 		}
 	}
 

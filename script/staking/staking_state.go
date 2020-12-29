@@ -11,7 +11,6 @@ import (
 	"math/big"
 	"strings"
 
-	"github.com/dfinlab/meter/builtin"
 	"github.com/dfinlab/meter/meter"
 	"github.com/dfinlab/meter/state"
 	"github.com/ethereum/go-ethereum/rlp"
@@ -421,96 +420,14 @@ func (s *Staking) TransferValidatorReward(amount *big.Int, addr meter.Address, s
 	return nil
 }
 
-//1. distributes the base reward (meter.ValidatorBaseReward) for each validator. If there is remainning
-//2. get the propotion reward for each validator based on the votingpower
-//3. each validator takes commission first
-//4. finally, distributor takes their propotions of rest
-func (s *Staking) DistValidatorRewards(amount *big.Int, validators []*meter.Address, list *DelegateList, state *state.State) (*big.Int, []*RewardInfo, error) {
-	rewardMap := RewardInfoMap{}
-	delegatesMap := make(map[meter.Address]*Delegate)
-	for _, d := range list.delegates {
-		delegatesMap[d.Address] = d
+func (s *Staking) DistValidatorRewards(rinfo []*RewardInfo, state *state.State) (*big.Int, error) {
+
+	sum := big.NewInt(0)
+	for _, r := range rinfo {
+		s.TransferValidatorReward(r.Amount, r.Address, state)
+		sum = sum.Add(sum, r.Amount)
 	}
 
-	var i int
-	var baseRewardsOnly bool
-	size := len(validators)
-	votingPowerSum := big.NewInt(0)
-	distReward := big.NewInt(0)
-	commission := big.NewInt(0)
-
-	// distribute the base reward
-	validatorBaseReward := builtin.Params.Native(state).Get(meter.KeyValidatorBaseReward)
-	baseRewards := new(big.Int).Mul(validatorBaseReward, big.NewInt(int64(size)))
-	if baseRewards.Cmp(amount) >= 0 {
-		baseRewards = amount
-		baseRewardsOnly = true
-	}
-
-	baseReward := new(big.Int).Div(baseRewards, big.NewInt(int64(size)))
-	for i = 0; i < size; i++ {
-		delegate, ok := delegatesMap[*validators[i]]
-		if ok == false {
-			// not delegate
-			log.Warn("not delegate", "address", *validators[i])
-			continue
-		}
-		s.TransferValidatorReward(baseReward, delegate.Address, state)
-		rewardMap.Add(baseReward, delegate.Address)
-	}
-	if baseRewardsOnly == true {
-		// only cover validator base rewards
-		sum, rinfo := rewardMap.ToList()
-		return sum, rinfo, nil
-	}
-
-	// distributes the remaining
-	rewards := new(big.Int).Sub(amount, baseRewards)
-	for i = 0; i < size; i++ {
-		delegate, ok := delegatesMap[*validators[i]]
-		if ok == false {
-			// not delegate
-			log.Warn("not delegate", "address", *validators[i])
-			continue
-		}
-		votingPowerSum = votingPowerSum.Add(votingPowerSum, delegate.VotingPower)
-	}
-
-	//
-	for i = 0; i < size; i++ {
-		delegate, ok := delegatesMap[*validators[i]]
-		if ok == false {
-			// not delegate
-			log.Warn("not delegate", "address", *validators[i])
-			continue
-		}
-		// calculate the propotion of each validator
-		eachReward := new(big.Int).Mul(rewards, delegate.VotingPower)
-		eachReward = eachReward.Div(eachReward, votingPowerSum)
-
-		// distribute commission to delegate, commission unit is shannon, aka, 1e09
-		commission = commission.Mul(eachReward, big.NewInt(int64(delegate.Commission)))
-		commission = commission.Div(commission, big.NewInt(1e09))
-		s.TransferValidatorReward(commission, delegate.Address, state)
-		rewardMap.Add(commission, delegate.Address)
-
-		actualReward := new(big.Int).Sub(eachReward, commission)
-
-		// now distributes actualReward to each distributor
-		if len(delegate.DistList) == 0 {
-			// no distributor, 100% goes to benefiicary
-			s.TransferValidatorReward(actualReward, delegate.Address, state)
-		} else {
-			// as percentage to each distributor， the unit of Shares is shannon， ie， 1e09
-			for _, dist := range delegate.DistList {
-				distReward = new(big.Int).Mul(actualReward, big.NewInt(int64(dist.Shares)))
-				distReward = distReward.Div(distReward, big.NewInt(1e09))
-				s.TransferValidatorReward(distReward, dist.Address, state)
-				rewardMap.Add(distReward, dist.Address)
-			}
-		}
-	}
-	log.Info("distriubted validators rewards", "total", amount.Uint64())
-	sum, rinfo := rewardMap.ToList()
-	return sum, rinfo, nil
+	log.Info("distriubted validators rewards", "total", sum.String())
+	return sum, nil
 }

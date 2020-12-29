@@ -11,7 +11,6 @@ import (
 	"math/rand"
 	"time"
 
-	"github.com/dfinlab/meter/builtin"
 	"github.com/dfinlab/meter/meter"
 	"github.com/dfinlab/meter/powpool"
 	"github.com/dfinlab/meter/script"
@@ -248,64 +247,16 @@ func (conR *ConsensusReactor) TryBuildAuctionTxs(height, epoch uint64) *tx.Trans
 	return builder.Build()
 }
 
-//**********StakingGoverningTx***********
-const N = 10 // smooth with 10 days
-
-func (conR *ConsensusReactor) GetKBlockValidatorRewards() (*big.Int, error) {
-	state, err := conR.stateCreator.NewState(conR.chain.BestBlock().Header().StateRoot())
-	if err != nil {
-		conR.logger.Error("new state failed ...", "error", err)
-		return big.NewInt(0), err
-	}
-	ValidatorBenefitRatio := builtin.Params.Native(state).Get(meter.KeyValidatorBenefitRatio)
-
-	summaryList, err := auction.GetAuctionSummaryList()
-	if err != nil {
-		conR.logger.Error("get summary list failed", "error", err)
-		return big.NewInt(0), err
-	}
-
-	size := len(summaryList.Summaries)
-	if size == 0 {
-		return big.NewInt(0), nil
-	}
-
-	var d, i int
-	if size <= N {
-		d = size
-	} else {
-		d = N
-	}
-
-	rewards := big.NewInt(0)
-	for i = 0; i < d; i++ {
-		reward := summaryList.Summaries[size-1-i].RcvdMTR
-		rewards = rewards.Add(rewards, reward)
-	}
-
-	// last 10 auctions receved MTR * 40% / 240
-	rewards = rewards.Mul(rewards, ValidatorBenefitRatio)
-	rewards = rewards.Div(rewards, big.NewInt(1e18))
-	rewards = rewards.Div(rewards, big.NewInt(int64(240)))
-
-	conR.logger.Info("get Kblock validator rewards", "rewards", rewards)
-	return rewards, nil
-}
-
-func (conR *ConsensusReactor) BuildGoverningData(delegateSize uint32) (ret []byte) {
+func (conR *ConsensusReactor) BuildGoverningData(distList []*RewardInfo) (ret []byte) {
 	ret = []byte{}
 
-	validatorRewards, err := conR.GetKBlockValidatorRewards()
-	if err != nil {
-		conR.logger.Error("get validator rewards failed", err.Error())
-	}
-	validators := []*meter.Address{}
-	for _, c := range conR.curCommittee.Validators {
-		addr := &c.Address
-		validators = append(validators, addr)
+	validatorRewards := big.NewInt(0)
+	for _, dist := range distList {
+		validatorRewards = validatorRewards.Add(validatorRewards, dist.Amount)
 	}
 
-	extraBytes, err := rlp.EncodeToBytes(validators)
+	// XXX: 52 bytes for each rewardInfo, Tx can accommodate about 1000 rewardinfo
+	extraBytes, err := rlp.EncodeToBytes(distList)
 	if err != nil {
 		conR.logger.Info("encode validators failed", "error", err.Error())
 		return
@@ -314,7 +265,7 @@ func (conR *ConsensusReactor) BuildGoverningData(delegateSize uint32) (ret []byt
 	body := &staking.StakingBody{
 		Opcode:    staking.OP_GOVERNING,
 		Version:   uint32(conR.curEpoch),
-		Option:    delegateSize,
+		Option:    uint32(0),
 		Amount:    validatorRewards,
 		Timestamp: uint64(time.Now().Unix()),
 		Nonce:     rand.Uint64(),
@@ -346,9 +297,9 @@ func (conR *ConsensusReactor) BuildGoverningData(delegateSize uint32) (ret []byt
 }
 
 // for distribute validator rewards, recalc the delegates list ...
-func (conR *ConsensusReactor) TryBuildStakingGoverningTx() *tx.Transaction {
+func (conR *ConsensusReactor) BuildStakingGoverningTx(distList []*RewardInfo) *tx.Transaction {
 	// 1. signer is nil
-	// 1. located first transaction in kblock.
+	// 2. in kblock.
 	builder := new(tx.Builder)
 	builder.ChainTag(conR.chain.Tag()).
 		BlockRef(tx.NewBlockRef(conR.chain.BestBlock().Header().Number() + 1)).
@@ -358,10 +309,39 @@ func (conR *ConsensusReactor) TryBuildStakingGoverningTx() *tx.Transaction {
 		DependsOn(nil).
 		Nonce(12345678)
 
-	builder.Clause(tx.NewClause(&staking.StakingModuleAddr).WithValue(big.NewInt(0)).WithToken(tx.TOKEN_METER_GOV).WithData(conR.BuildGoverningData(uint32(conR.config.MaxDelegateSize))))
+	builder.Clause(tx.NewClause(&staking.StakingModuleAddr).WithValue(big.NewInt(0)).WithToken(tx.TOKEN_METER_GOV).WithData(conR.BuildGoverningData(distList)))
 
 	builder.Build().IntrinsicGas()
 	return builder.Build()
+}
+
+// for distribute validator rewards, recalc the delegates list ...
+func (conR *ConsensusReactor) TryBuildStakingGoverningTx() []*tx.Transaction {
+	txs := []*tx.Transaction{}
+
+	totalReward, err := conR.calcKblockValidatorRewards()
+	if err != nil {
+		conR.logger.Error("calculate validator reward failed")
+		return txs
+	}
+
+	distList, autobidList, err := conR.GetValidatorRewards(totalReward, conR.allDelegates)
+	if err != nil {
+		conR.logger.Error("get reward list failed")
+		return txs
+	}
+
+	governingTx := conR.BuildStakingGoverningTx(distList)
+	if governingTx != nil {
+		txs = append(txs, governingTx)
+	}
+
+	autobidTx := conR.BuildValidatorAutobidTx(autobidList)
+	if autobidTx != nil {
+		txs = append(txs, autobidTx)
+	}
+
+	return txs
 }
 
 /////// account lock governing

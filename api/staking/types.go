@@ -129,6 +129,7 @@ func convertStakeholder(s staking.Stakeholder) *Stakeholder {
 
 type Distributor struct {
 	Address meter.Address `json:"address"`
+	AutoBid uint64        `json:"autobid`
 	Shares  uint64        `json:"shares"`
 }
 
@@ -139,6 +140,7 @@ type Delegate struct {
 	VotingPower string         `json:"votingPower"`
 	IPAddr      string         `json:"ipAddr"` // network addr
 	Port        uint16         `json:"port"`
+	Autobid     uint8          `json: "Autobid"`
 	Commission  uint64         `json:"commission"`
 	DistList    []*Distributor `json:"distributors"`
 }
@@ -167,16 +169,16 @@ func convertDelegate(d staking.Delegate) *Delegate {
 		IPAddr:      string(d.IPAddr),
 		Port:        d.Port,
 		VotingPower: d.VotingPower.String(),
+		Autobid:     d.Autobid,
 		Commission:  d.Commission,
 		DistList:    dists,
 	}
 }
 
 type ValidatorReward struct {
-	Epoch            uint32 `json:"epoch"`
-	BaseReward       string `json:"baseReward"`
-	ExpectDistribute string `json:"expectDistribute"`
-	ActualDistribute string `json:"actualDistribute"`
+	Epoch       uint32 `json:"epoch"`
+	BaseReward  string `json:"baseReward"`
+	TotalReward string `json:"totalReward"`
 }
 
 func convertValidatorRewardList(list *staking.ValidatorRewardList) []*ValidatorReward {
@@ -189,9 +191,8 @@ func convertValidatorRewardList(list *staking.ValidatorRewardList) []*ValidatorR
 
 func convertValidatorReward(r staking.ValidatorReward) *ValidatorReward {
 	return &ValidatorReward{
-		Epoch:            r.Epoch,
-		BaseReward:       r.BaseReward.String(),
-		ExpectDistribute: r.ExpectDistribute.String(),
-		ActualDistribute: r.ActualDistribute.String(),
+		Epoch:       r.Epoch,
+		BaseReward:  r.BaseReward.String(),
+		TotalReward: r.TotalReward.String(),
 	}
 }
