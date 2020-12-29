@@ -131,7 +131,7 @@ func convertStakeholder(s staking.Stakeholder) *Stakeholder {
 
 type Distributor struct {
 	Address meter.Address `json:"address"`
-	AutoBid uint64        `json:"autobid`
+	Autobid uint8         `json:"autobid`
 	Shares  uint64        `json:"shares"`
 }
 
