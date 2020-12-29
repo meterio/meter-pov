@@ -159,6 +159,7 @@ func convertDelegate(d staking.Delegate) *Delegate {
 	for _, dist := range d.DistList {
 		dists = append(dists, &Distributor{
 			Address: dist.Address,
+			Autobid: dist.Autobid,
 			Shares:  dist.Shares,
 		})
 	}
