@@ -71,6 +71,7 @@ type Bucket struct {
 	Candidate    meter.Address `json:"candidate"`
 	Rate         uint8         `json:"rate"`
 	Option       uint32        `json:"option"`
+	Autobid      uint8         `json: "Autoid"`
 	BonusVotes   uint64        `json:"bonusVotes"`
 	TotalVotes   string        `json:"totalVotes"`
 	MatureTime   uint64        `json:"matureTime"`
@@ -92,6 +93,7 @@ func convertBucketList(list *staking.BucketList) []*Bucket {
 			Candidate:    b.Candidate,
 			Rate:         b.Rate,
 			Option:       b.Option,
+			Autobid:      b.Autobid,
 			BonusVotes:   b.BonusVotes,
 			TotalVotes:   b.TotalVotes.String(),
 			MatureTime:   b.MatureTime,
@@ -140,7 +142,6 @@ type Delegate struct {
 	VotingPower string         `json:"votingPower"`
 	IPAddr      string         `json:"ipAddr"` // network addr
 	Port        uint16         `json:"port"`
-	Autobid     uint8          `json: "Autobid"`
 	Commission  uint64         `json:"commission"`
 	DistList    []*Distributor `json:"distributors"`
 }
@@ -169,7 +170,6 @@ func convertDelegate(d staking.Delegate) *Delegate {
 		IPAddr:      string(d.IPAddr),
 		Port:        d.Port,
 		VotingPower: d.VotingPower.String(),
-		Autobid:     d.Autobid,
 		Commission:  d.Commission,
 		DistList:    dists,
 	}

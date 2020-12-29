@@ -30,18 +30,21 @@ var (
 
 type Distributor struct {
 	Address meter.Address
+	Autobid uint8  // autobid percentile
 	Shares  uint64 // unit shannon, aka, 1e09
 }
 
-func NewDistributor(addr meter.Address, shares uint64) *Distributor {
+func NewDistributor(addr meter.Address, autobid uint8, shares uint64) *Distributor {
 	return &Distributor{
 		Address: addr,
+		Autobid: autobid,
 		Shares:  shares,
 	}
 }
 
 func (d *Distributor) ToString() string {
-	return fmt.Sprintf("Distributor: Addr=%v, Shares=%d,", d.Address, d.Shares)
+	return fmt.Sprintf("Distributor: Addr=%v, Autobid=%v, Shares=%d,",
+		d.Address, d.Autobid, d.Shares)
 }
 
 //====
@@ -52,7 +55,6 @@ type Delegate struct {
 	VotingPower *big.Int
 	IPAddr      []byte
 	Port        uint16
-	Autobid     uint8  // autobid percentile
 	Commission  uint64 // commission rate. unit shannon, aka, 1e09
 	DistList    []*Distributor
 }
@@ -147,6 +149,7 @@ func convertDistList(dist []*Distributor) []*types.Distributor {
 	for _, d := range dist {
 		l := &types.Distributor{
 			Address: d.Address,
+			Autobid: d.Autobid,
 			Shares:  d.Shares,
 		}
 		list = append(list, l)
@@ -178,7 +181,6 @@ func GetInternalDelegateList() ([]*types.DelegateIntern, error) {
 			Address:     s.Address,
 			PubKey:      s.PubKey,
 			VotingPower: s.VotingPower.Div(s.VotingPower, big.NewInt(1e12)).Int64(),
-			Autobid:     s.Autobid,
 			Commission:  s.Commission,
 			NetAddr: types.NetAddress{
 				IP:   net.ParseIP(string(s.IPAddr)),

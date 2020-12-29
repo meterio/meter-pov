@@ -25,7 +25,6 @@ type DelegateIntern struct {
 	VotingPower int64
 	NetAddr     NetAddress
 	Commission  uint64
-	Autobid     uint8
 	DistList    []*Distributor
 }
 
@@ -44,7 +43,6 @@ type Delegate struct {
 	VotingPower int64           `json:"voting_power"`
 	NetAddr     NetAddress      `json:"network_addr"`
 	Commission  uint64          `json:"commission"`
-	Autobid     uint8           `json:"autobid"`
 	DistList    []*Distributor  `json:"distibutor_list"`
 }
 

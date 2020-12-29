@@ -213,6 +213,11 @@ func (sb *StakingBody) BoundHandler(senv *StakingEnviroment, gas uint64) (ret []
 		return
 	}
 
+	if sb.Autobid > 100 {
+		log.Error("errors", "error", errors.New("Autobid > 100 %"))
+		return
+	}
+
 	// sanity checked, now do the action
 	opt, rate, locktime := GetBoundLockOption(sb.Option)
 	log.Info("get bound option", "option", opt, "rate", rate, "locktime", locktime)
@@ -224,7 +229,7 @@ func (sb *StakingBody) BoundHandler(senv *StakingEnviroment, gas uint64) (ret []
 		candAddr = meter.Address{}
 	}
 
-	bucket := NewBucket(sb.HolderAddr, candAddr, sb.Amount, uint8(sb.Token), opt, rate, sb.Timestamp, sb.Nonce)
+	bucket := NewBucket(sb.HolderAddr, candAddr, sb.Amount, uint8(sb.Token), opt, rate, sb.Autobid, sb.Timestamp, sb.Nonce)
 	bucketList.Add(bucket)
 
 	stakeholder := stakeholderList.Get(sb.HolderAddr)
@@ -383,10 +388,10 @@ func (sb *StakingBody) CandidateHandler(senv *StakingEnviroment, gas uint64) (re
 	log.Info("get bound option", "option", opt, "rate", rate, "locktime", locktime, "commission", commission)
 
 	// bucket owner is candidate
-	bucket := NewBucket(sb.CandAddr, sb.CandAddr, sb.Amount, uint8(sb.Token), opt, rate, sb.Timestamp, sb.Nonce)
+	bucket := NewBucket(sb.CandAddr, sb.CandAddr, sb.Amount, uint8(sb.Token), opt, rate, sb.Autobid, sb.Timestamp, sb.Nonce)
 	bucketList.Add(bucket)
 
-	candidate := NewCandidate(sb.CandAddr, sb.CandName, []byte(candidatePubKey), sb.CandIP, sb.CandPort, sb.Autobid, commission, sb.Timestamp)
+	candidate := NewCandidate(sb.CandAddr, sb.CandName, []byte(candidatePubKey), sb.CandIP, sb.CandPort, commission, sb.Timestamp)
 	candidate.AddBucket(bucket)
 	candidateList.Add(candidate)
 
@@ -726,7 +731,7 @@ func (sb *StakingBody) GoverningHandler(senv *StakingEnviroment, gas uint64) (re
 			shares := big.NewInt(1e09)
 			shares = shares.Mul(b.TotalVotes, shares)
 			shares = shares.Div(shares, c.TotalVotes)
-			delegate.DistList = append(delegate.DistList, NewDistributor(b.Owner, shares.Uint64()))
+			delegate.DistList = append(delegate.DistList, NewDistributor(b.Owner, b.Autobid, shares.Uint64()))
 		}
 		delegates = append(delegates, delegate)
 	}

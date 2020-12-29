@@ -29,6 +29,7 @@ type Bucket struct {
 	Unbounded    bool          // this bucket is unbounded, get rid of it after mature
 	Candidate    meter.Address // candidate
 	Rate         uint8         // bounus rate
+	Autobid      uint8         // autobid percentile
 	Option       uint32        // option, link with rate
 	BonusVotes   uint64        // extra votes from staking
 	TotalVotes   *big.Int      // Value votes + extra votes
@@ -55,7 +56,7 @@ func (b *Bucket) ID() (hash meter.Bytes32) {
 	return
 }
 
-func NewBucket(owner meter.Address, cand meter.Address, value *big.Int, token uint8, opt uint32, rate uint8, create uint64, nonce uint64) *Bucket {
+func NewBucket(owner meter.Address, cand meter.Address, value *big.Int, token uint8, opt uint32, rate uint8, autobid uint8, create uint64, nonce uint64) *Bucket {
 	b := &Bucket{
 		Owner:      owner,
 		Value:      value,
@@ -67,6 +68,7 @@ func NewBucket(owner meter.Address, cand meter.Address, value *big.Int, token ui
 		Candidate:    cand,
 		Rate:         rate,
 		Option:       opt,
+		Autobid:      autobid,
 		BonusVotes:   0,
 		TotalVotes:   value.Add(big.NewInt(0), value),
 		MatureTime:   0,
@@ -95,9 +97,9 @@ func GetLatestBucketList() (*BucketList, error) {
 }
 
 func (b *Bucket) ToString() string {
-	return fmt.Sprintf("Bucket(%v) Owner=%v, Candidate=%v, Value=%d, BonusVotes=%d, TotalVotes=%v, Nonce=%v, Token%v, CreateTime=%v, Option=%v, MatureTime=%v, CalcLastTIme=%v, Unbounded=%v, Rate=%v",
+	return fmt.Sprintf("Bucket(%v) Owner=%v, Candidate=%v, Value=%d, BonusVotes=%d, TotalVotes=%v, Nonce=%v, Token%v, CreateTime=%v, Option=%v, Autobid=%v, MatureTime=%v, CalcLastTIme=%v, Unbounded=%v, Rate=%v",
 		b.BucketID, b.Owner, b.Candidate, b.Value.Uint64(), b.BonusVotes, b.TotalVotes.Uint64(),
-		b.Nonce, b.Token, b.CreateTime, b.Option, b.MatureTime, b.CalcLastTime, b.Unbounded, b.Rate)
+		b.Nonce, b.Token, b.CreateTime, b.Option, b.Autobid, b.MatureTime, b.CalcLastTime, b.Unbounded, b.Rate)
 }
 
 func (b *Bucket) IsForeverLock() bool {

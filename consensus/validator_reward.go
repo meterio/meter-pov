@@ -6,9 +6,7 @@
 package consensus
 
 import (
-	"bytes"
 	"math/big"
-	"sort"
 
 	"github.com/dfinlab/meter/builtin"
 	"github.com/dfinlab/meter/meter"
@@ -26,34 +24,41 @@ type RewardInfo struct {
 }
 
 //// RewardInfoMap
-type RewardInfoMap map[meter.Address]*RewardInfo
+type RewardMapInfo struct {
+	Address       meter.Address
+	DistAmount    *big.Int
+	AutobidAmount *big.Int
+}
 
-func (rmap RewardInfoMap) Add(amount *big.Int, addr meter.Address) error {
+type RewardInfoMap map[meter.Address]*RewardMapInfo
+
+func (rmap RewardInfoMap) Add(dist, autobid *big.Int, addr meter.Address) error {
 	info, ok := rmap[addr]
 	if ok == true {
-		info.Amount = info.Amount.Add(info.Amount, amount)
+		info.DistAmount = info.DistAmount.Add(info.DistAmount, dist)
+		info.AutobidAmount = info.AutobidAmount.Add(info.AutobidAmount, autobid)
 	} else {
-		rmap[addr] = &RewardInfo{
-			Address: addr,
-			Amount:  amount,
+		rmap[addr] = &RewardMapInfo{
+			Address:       addr,
+			DistAmount:    dist,
+			AutobidAmount: autobid,
 		}
 	}
 	return nil
 }
 
-func (rmap RewardInfoMap) ToList() (*big.Int, []*RewardInfo) {
-	rewards := []*RewardInfo{}
-	sum := big.NewInt(0)
+func (rmap RewardInfoMap) ToList() (*big.Int, *big.Int, []*RewardMapInfo) {
+	rewards := []*RewardMapInfo{}
+	distSum := big.NewInt(0)
+	autobidSum := big.NewInt(0)
 
 	for _, info := range rmap {
-		sum = sum.Add(sum, info.Amount)
+		distSum = distSum.Add(distSum, info.DistAmount)
+		autobidSum = autobidSum.Add(autobidSum, info.AutobidAmount)
 		rewards = append(rewards, info)
 	}
-	sort.SliceStable(rewards, func(i, j int) bool {
-		return (bytes.Compare(rewards[i].Address.Bytes(), rewards[j].Address.Bytes()) <= 0)
-	})
 
-	return sum, rewards
+	return distSum, autobidSum, rewards
 }
 
 //***************************************
@@ -105,21 +110,16 @@ func (conR *ConsensusReactor) calcKblockValidatorRewards() (*big.Int, error) {
 //2. get the propotion reward for each validator based on the votingpower
 //3. each validator takes commission first
 //4. finally, distributor takes their propotions of rest
-func (conR *ConsensusReactor) CalcValidatorRewards(totalReward *big.Int, delegates []*types.Delegate) (*big.Int, []*RewardInfo, error) {
+func (conR *ConsensusReactor) CalcValidatorRewards(totalReward *big.Int, delegates []*types.Delegate) (*big.Int, *big.Int, []*RewardMapInfo, error) {
 
 	// no distribute
 	if conR.sourceDelegates == fromDelegatesFile {
-		return totalReward, []*RewardInfo{}, nil
+		return big.NewInt(0), big.NewInt(0), []*RewardMapInfo{}, nil
 	}
 
 	rewardMap := RewardInfoMap{}
-
-	var i int
 	var baseRewardsOnly bool
 	size := len(delegates)
-	votingPowerSum := big.NewInt(0)
-	distReward := big.NewInt(0)
-	commission := big.NewInt(0)
 
 	// distribute the base reward
 	state, err := conR.stateCreator.NewState(conR.chain.BestBlock().Header().StateRoot())
@@ -134,23 +134,29 @@ func (conR *ConsensusReactor) CalcValidatorRewards(totalReward *big.Int, delegat
 		baseRewardsOnly = true
 	}
 
+	// base reward do not autobid
+	var i int
 	baseReward := new(big.Int).Div(baseRewards, big.NewInt(int64(size)))
 	for i = 0; i < size; i++ {
-		rewardMap.Add(baseReward, delegates[i].Address)
+		rewardMap.Add(baseReward, big.NewInt(0), delegates[i].Address)
 	}
 
 	if baseRewardsOnly == true {
-		sum, rinfo := rewardMap.ToList()
-		conR.logger.Info("validator dist rewards", "rewards", sum)
-		return sum, rinfo, nil
+		distSum, autobidSum, mapInfo := rewardMap.ToList()
+		conR.logger.Info("validator dist rewards", "distributed", distSum, "autobid", autobidSum)
+		return distSum, autobidSum, mapInfo, nil
 	}
 
 	// distributes the remaining. The distributing is based on
 	// propotion of voting power
+	votingPowerSum := big.NewInt(0)
 	for i = 0; i < size; i++ {
 		votingPowerSum = votingPowerSum.Add(votingPowerSum, big.NewInt(delegates[i].VotingPower))
 	}
 
+	distReward := big.NewInt(0)
+	autobidReward := big.NewInt(0)
+	commission := big.NewInt(0)
 	rewards := new(big.Int).Sub(totalReward, baseRewards)
 	for i = 0; i < size; i++ {
 
@@ -161,56 +167,52 @@ func (conR *ConsensusReactor) CalcValidatorRewards(totalReward *big.Int, delegat
 		// distribute commission to delegate, commission unit is shannon, aka, 1e09
 		commission = commission.Mul(eachReward, big.NewInt(int64(delegates[i].Commission)))
 		commission = commission.Div(commission, big.NewInt(1e09))
-		rewardMap.Add(commission, delegates[i].Address)
+		rewardMap.Add(commission, big.NewInt(0), delegates[i].Address)
 
 		actualReward := new(big.Int).Sub(eachReward, commission)
 
 		// now distributes actualReward to each distributor
 		if len(delegates[i].DistList) == 0 {
 			// no distributor, 100% goes to benefiicary
-			rewardMap.Add(actualReward, delegates[i].Address)
+			rewardMap.Add(actualReward, big.NewInt(0), delegates[i].Address)
 		} else {
 			// as percentage to each distributor， the unit of Shares is shannon， ie， 1e09
 			for _, dist := range delegates[i].DistList {
-				distReward = new(big.Int).Mul(actualReward, big.NewInt(int64(dist.Shares)))
-				distReward = distReward.Div(distReward, big.NewInt(1e09))
-				rewardMap.Add(distReward, dist.Address)
+				r := new(big.Int).Mul(actualReward, big.NewInt(int64(dist.Shares)))
+				r = r.Div(r, big.NewInt(1e09))
+
+				autobidReward = r.Mul(r, big.NewInt(int64(dist.Autobid)))
+				autobidReward = autobidReward.Div(autobidReward, big.NewInt(100))
+				distReward = r.Sub(r, autobidReward)
+				rewardMap.Add(distReward, autobidReward, dist.Address)
 			}
 		}
 	}
-	conR.logger.Info("distriubted validators rewards", "total", totalReward.Uint64())
-	sum, rinfo := rewardMap.ToList()
-	return sum, rinfo, nil
+	conR.logger.Info("distriubted validators rewards", "total", totalReward.String())
+
+	distSum, autobidSum, mapInfo := rewardMap.ToList()
+	conR.logger.Info("validator dist rewards", "distributed", distSum, "autobid", autobidSum)
+	return distSum, autobidSum, mapInfo, nil
 }
 
 func (conR *ConsensusReactor) GetValidatorRewards(totalReward *big.Int, delegates []*types.Delegate) ([]*RewardInfo, []*RewardInfo, error) {
-	_, rlist, err := conR.CalcValidatorRewards(totalReward, delegates)
+	distSum, autobidSum, rMapList, err := conR.CalcValidatorRewards(totalReward, delegates)
 	if err != nil {
 		return []*RewardInfo{}, []*RewardInfo{}, err
 	}
 
-	delegatesMap := make(map[meter.Address]*types.Delegate)
-	for _, d := range delegates {
-		delegatesMap[d.Address] = d
-	}
+	conR.logger.Info("validator dist rewards", "distributed", distSum, "autobid", autobidSum)
 
-	var rinfo *RewardInfo
-	var i int
 	dist := []*RewardInfo{}
 	autobid := []*RewardInfo{}
-	for i = 0; i < len(rlist); i++ {
-		rinfo = rlist[i]
-		delegate, ok := delegatesMap[rinfo.Address]
-		if ok != true {
-			continue
+	for _, r := range rMapList {
+		if r.DistAmount.Sign() != 0 {
+			dist = append(dist, &RewardInfo{r.Address, r.DistAmount})
 		}
 
-		distAmount := new(big.Int).Mul(rinfo.Amount, big.NewInt(int64(delegate.Autobid)))
-		distAmount = distAmount.Div(distAmount, big.NewInt(100))
-		autobidAmount := new(big.Int).Sub(rinfo.Amount, distAmount)
-
-		dist = append(dist, &RewardInfo{rinfo.Address, distAmount})
-		autobid = append(autobid, &RewardInfo{rinfo.Address, autobidAmount})
+		if r.AutobidAmount.Sign() != 0 {
+			autobid = append(autobid, &RewardInfo{r.Address, r.AutobidAmount})
+		}
 	}
 
 	return dist, autobid, nil
