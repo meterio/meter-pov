@@ -162,6 +162,9 @@ type pmBlock struct {
 }
 
 func (pb *pmBlock) ToString() string {
+	if pb == nil {
+		return fmt.Sprintf("PMBlock(nil)")
+	}
 	if pb.Parent != nil {
 		return fmt.Sprintf("PMBlock{(H:%v,R:%v), QC:(H:%v, R:%v), Parent:(H:%v, H:%v)}",
 			pb.Height, pb.Round, pb.Justify.QC.QCHeight, pb.Justify.QC.QCRound, pb.Parent.Height, pb.Parent.Round)
