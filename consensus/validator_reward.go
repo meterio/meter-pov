@@ -6,6 +6,7 @@
 package consensus
 
 import (
+	"errors"
 	"math/big"
 
 	"github.com/dfinlab/meter/builtin"
@@ -106,12 +107,21 @@ func (conR *ConsensusReactor) calcKblockValidatorRewards() (*big.Int, error) {
 	return rewards, nil
 }
 
+func (conR *ConsensusReactor) GetDelegateSelfDistributor(delegate *types.Delegate) (*types.Distributor, error) {
+	for _, dist := range delegate.DistList {
+		if dist.Address == delegate.Address {
+			return dist, nil
+		}
+	}
+	return nil, errors.New("distributor not found")
+}
+
 //1. distributes the base reward (meter.ValidatorBaseReward) for each validator. If there is remainning
 //2. get the propotion reward for each validator based on the votingpower
 //3. each validator takes commission first
 //4. finally, distributor takes their propotions of rest
 func (conR *ConsensusReactor) CalcValidatorRewards(totalReward *big.Int, delegates []*types.Delegate) (*big.Int, *big.Int, []*RewardMapInfo, error) {
-
+	var i int
 	// no distribute
 	if conR.sourceDelegates == fromDelegatesFile {
 		return big.NewInt(0), big.NewInt(0), []*RewardMapInfo{}, nil
@@ -134,14 +144,24 @@ func (conR *ConsensusReactor) CalcValidatorRewards(totalReward *big.Int, delegat
 		baseRewardsOnly = true
 	}
 
-	// base reward do not autobid
-	var i int
 	baseReward := new(big.Int).Div(baseRewards, big.NewInt(int64(size)))
-	for i = 0; i < size; i++ {
-		rewardMap.Add(baseReward, big.NewInt(0), delegates[i].Address)
-	}
 
+	// only enough for base reward
 	if baseRewardsOnly == true {
+		for i = 0; i < size; i++ {
+			d, err := conR.GetDelegateSelfDistributor(delegates[i])
+			if err != nil {
+				conR.logger.Error("get the autobid param failed, treat as 0", "error", err)
+				rewardMap.Add(baseReward, big.NewInt(0), delegates[i].Address)
+			} else {
+				autobidAmount := new(big.Int).Mul(baseReward, big.NewInt(int64(d.Autobid)))
+				autobidAmount = autobidAmount.Div(autobidAmount, big.NewInt(100))
+				distAmount := new(big.Int).Sub(baseReward, autobidAmount)
+				rewardMap.Add(distAmount, autobidAmount, delegates[i].Address)
+			}
+
+		}
+
 		distSum, autobidSum, mapInfo := rewardMap.ToList()
 		conR.logger.Info("validator dist rewards", "distributed", distSum, "autobid", autobidSum)
 		return distSum, autobidSum, mapInfo, nil
@@ -154,9 +174,6 @@ func (conR *ConsensusReactor) CalcValidatorRewards(totalReward *big.Int, delegat
 		votingPowerSum = votingPowerSum.Add(votingPowerSum, big.NewInt(delegates[i].VotingPower))
 	}
 
-	distReward := big.NewInt(0)
-	autobidReward := big.NewInt(0)
-	commission := big.NewInt(0)
 	rewards := new(big.Int).Sub(totalReward, baseRewards)
 	for i = 0; i < size; i++ {
 
@@ -165,27 +182,47 @@ func (conR *ConsensusReactor) CalcValidatorRewards(totalReward *big.Int, delegat
 		eachReward = eachReward.Div(eachReward, votingPowerSum)
 
 		// distribute commission to delegate, commission unit is shannon, aka, 1e09
-		commission = commission.Mul(eachReward, big.NewInt(int64(delegates[i].Commission)))
+		commission := new(big.Int).Mul(eachReward, big.NewInt(int64(delegates[i].Commission)))
 		commission = commission.Div(commission, big.NewInt(1e09))
-		rewardMap.Add(commission, big.NewInt(0), delegates[i].Address)
 
 		actualReward := new(big.Int).Sub(eachReward, commission)
 
-		// now distributes actualReward to each distributor
-		if len(delegates[i].DistList) == 0 {
-			// no distributor, 100% goes to benefiicary
-			rewardMap.Add(actualReward, big.NewInt(0), delegates[i].Address)
-		} else {
-			// as percentage to each distributor， the unit of Shares is shannon， ie， 1e09
-			for _, dist := range delegates[i].DistList {
-				r := new(big.Int).Mul(actualReward, big.NewInt(int64(dist.Shares)))
-				r = r.Div(r, big.NewInt(1e09))
+		delegateSelf := new(big.Int).Add(baseReward, commission)
 
-				autobidReward = r.Mul(r, big.NewInt(int64(dist.Autobid)))
-				autobidReward = autobidReward.Div(autobidReward, big.NewInt(100))
-				distReward = r.Sub(r, autobidReward)
-				rewardMap.Add(distReward, autobidReward, dist.Address)
+		// plus base reward
+		selfPortion := big.NewInt(0)
+		d, err := conR.GetDelegateSelfDistributor(delegates[i])
+		if err != nil {
+			conR.logger.Error("get the autobid param failed, treat as 0", "error", err)
+		} else {
+			// delegate's proportion
+			selfPortion = selfPortion.Mul(actualReward, big.NewInt(int64(d.Shares)))
+			selfPortion = selfPortion.Div(selfPortion, big.NewInt(1e09))
+
+			delegateSelf = delegateSelf.Add(delegateSelf, selfPortion)
+		}
+
+		// distribute delegate itself
+		autobidAmount := new(big.Int).Mul(delegateSelf, big.NewInt(int64(d.Autobid)))
+		autobidAmount = autobidAmount.Div(autobidAmount, big.NewInt(100))
+		distAmount := new(big.Int).Sub(delegateSelf, autobidAmount)
+		rewardMap.Add(distAmount, autobidAmount, delegates[i].Address)
+
+		// now distributes actualReward (remaining part) to each distributor
+		// as percentage to each distributor， the unit of Shares is shannon， ie， 1e09
+		for _, dist := range delegates[i].DistList {
+			// delegate self already distributed, skip
+			if dist.Address == delegates[i].Address {
+				continue
 			}
+
+			r := new(big.Int).Mul(actualReward, big.NewInt(int64(dist.Shares)))
+			r = r.Div(r, big.NewInt(1e09))
+
+			autobidReward := new(big.Int).Mul(r, big.NewInt(int64(dist.Autobid)))
+			autobidReward = autobidReward.Div(autobidReward, big.NewInt(100))
+			distReward := new(big.Int).Sub(r, autobidReward)
+			rewardMap.Add(distReward, autobidReward, dist.Address)
 		}
 	}
 	conR.logger.Info("distriubted validators rewards", "total", totalReward.String())

@@ -21,11 +21,11 @@ import (
 
 // not const, open for future save into state by system contract
 var (
-	// delegate minimum requirement 300 MTRG
-	MIN_REQUIRED_BY_DELEGATE *big.Int = new(big.Int).Mul(big.NewInt(int64(300)), big.NewInt(int64(1e18)))
+	// delegate minimum requirement 2000 MTRG
+	MIN_REQUIRED_BY_DELEGATE *big.Int = new(big.Int).Mul(big.NewInt(int64(2000)), big.NewInt(int64(1e18)))
 
-	// amount to exit from jail 200 MTRGov
-	BAIL_FOR_EXIT_JAIL *big.Int = new(big.Int).Mul(big.NewInt(int64(200)), big.NewInt(int64(1e18)))
+	// amount to exit from jail 10 MTRGov
+	BAIL_FOR_EXIT_JAIL *big.Int = new(big.Int).Mul(big.NewInt(int64(10)), big.NewInt(int64(1e18)))
 )
 
 type Distributor struct {

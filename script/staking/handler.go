@@ -63,6 +63,7 @@ var (
 	errUpdateTooFrequent           = errors.New("update too frequent")
 	errCandidateListedWithDiffInfo = errors.New("candidate address already listed with different infomation (pubkey, ip, port)")
 	errCandidateNotChanged         = errors.New("candidate not changed")
+	errCandidateNotEnoughSelfVotes = errors.New("candidate not have enough self votes")
 )
 
 func GetOpName(op uint32) string {
@@ -95,7 +96,8 @@ func GetOpName(op uint32) string {
 }
 
 const (
-	MIN_CANDIDATE_UPDATE_INTV = uint64(3600 * 24) // 1 day
+	MIN_CANDIDATE_UPDATE_INTV           = uint64(3600 * 24) // 1 day
+	MAX_CANDIDATE_SELF_TOTAK_VOTE_RATIO = 10                // max candidate total votes / self votes ratio
 )
 
 var (
@@ -189,9 +191,16 @@ func (sb *StakingBody) BoundHandler(senv *StakingEnviroment, gas uint64) (ret []
 	// check if candidate exists or not
 	setCand := !sb.CandAddr.IsZero()
 	if setCand {
-		if c := candidateList.Get(sb.CandAddr); c == nil {
+		c := candidateList.Get(sb.CandAddr)
+		if c == nil {
 			log.Warn("candidate is not listed", "address", sb.CandAddr)
 			setCand = false
+		} else {
+			if CheckCandEnoughSelfVotes(sb.Amount, c, bucketList) == false {
+				log.Error("Candidate does not have enough self votes", "candidate",
+					c.Addr.String(), "error", errCandidateNotEnoughSelfVotes)
+				setCand = false
+			}
 		}
 	}
 
@@ -516,6 +525,11 @@ func (sb *StakingBody) DelegateHandler(senv *StakingEnviroment, gas uint64) (ret
 	cand := candidateList.Get(sb.CandAddr)
 	if cand == nil {
 		return nil, leftOverGas, errBucketNotFound
+	}
+
+	if CheckCandEnoughSelfVotes(b.TotalVotes, cand, bucketList) == false {
+		log.Error("Candidate does not have enough self votes", "candidate", cand.Addr.String())
+		return nil, leftOverGas, errCandidateNotEnoughSelfVotes
 	}
 
 	// sanity check done, take actions
