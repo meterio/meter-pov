@@ -10,29 +10,37 @@ import (
 	"math/big"
 )
 
-func GetCandidateSelfBucket(c *Candidate, bl *BucketList) (*Bucket, error) {
+func GetCandidateSelfBucket(c *Candidate, bl *BucketList) ([]*Bucket, error) {
+	self := []*Bucket{}
 	for _, id := range c.Buckets {
 		b := bl.Get(id)
-		if b.Candidate == c.Addr {
-			return b, nil
+		if b.Owner == c.Addr {
+			self = append(self, b)
 		}
 	}
-	return nil, errors.New("not found")
+	if len(self) == 0 {
+		return self, errors.New("not found")
+	} else {
+		return self, nil
+	}
 }
 
 func CheckCandEnoughSelfVotes(newVotes *big.Int, c *Candidate, bl *BucketList) bool {
-	b, err := GetCandidateSelfBucket(c, bl)
+	bkts, err := GetCandidateSelfBucket(c, bl)
 	if err != nil {
 		log.Error("Get candidate self bucket failed", "candidate", c.Addr.String(), "error", err)
 		return false
 	}
 
+	self := big.NewInt(0)
+	for _, b := range bkts {
+		self = self.Add(self, b.TotalVotes)
+	}
 	//should: candidate total votes/ self votes <= MAX_CANDIDATE_SELF_TOTAK_VOTE_RATIO
-	// b.TotalVotes is candidate self votes
 	// c.TotalVotes is candidate total votes
 	total := new(big.Int).Add(c.TotalVotes, newVotes)
 	total = total.Div(total, big.NewInt(int64(MAX_CANDIDATE_SELF_TOTAK_VOTE_RATIO)))
-	if total.Cmp(b.TotalVotes) > 0 {
+	if total.Cmp(self) > 0 {
 		return false
 	}
 
