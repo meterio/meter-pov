@@ -176,10 +176,16 @@ func convertDelegate(d staking.Delegate) *Delegate {
 	}
 }
 
+type RewardInfo struct {
+	Address meter.Address `json:"address"`
+	Amount  *big.Int      `json:"amount"`
+}
+
 type ValidatorReward struct {
-	Epoch       uint32 `json:"epoch"`
-	BaseReward  string `json:"baseReward"`
-	TotalReward string `json:"totalReward"`
+	Epoch       uint32        `json:"epoch"`
+	BaseReward  string        `json:"baseReward"`
+	TotalReward string        `json:"totalReward"`
+	Rewards     []*RewardInfo `json:"rewards"`
 }
 
 func convertValidatorRewardList(list *staking.ValidatorRewardList) []*ValidatorReward {
@@ -190,10 +196,19 @@ func convertValidatorRewardList(list *staking.ValidatorRewardList) []*ValidatorR
 	return rewardList
 }
 
+func convertRewardInfo(rinfo []*staking.RewardInfo) []*RewardInfo {
+	ri := []*RewardInfo{}
+	for _, r := range rinfo {
+		ri = append(ri, &RewardInfo{Address: r.Address, Amount: r.Amount})
+	}
+	return ri
+}
+
 func convertValidatorReward(r staking.ValidatorReward) *ValidatorReward {
 	return &ValidatorReward{
 		Epoch:       r.Epoch,
 		BaseReward:  r.BaseReward.String(),
 		TotalReward: r.TotalReward.String(),
+		Rewards:     convertRewardInfo(r.Rewards),
 	}
 }

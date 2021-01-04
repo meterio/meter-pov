@@ -43,6 +43,7 @@ var (
 	errInvalidIpAddress = errors.New("invalid ip address")
 	errInvalidPort      = errors.New("invalid port number")
 	errInvalidToken     = errors.New("invalid token")
+	errInvalidParams    = errors.New("invalid params")
 
 	// buckets
 	errBucketNotFound      = errors.New("bucket not found")
@@ -534,6 +535,7 @@ func (sb *StakingBody) DelegateHandler(senv *StakingEnviroment, gas uint64) (ret
 
 	// sanity check done, take actions
 	b.Candidate = sb.CandAddr
+	b.Autobid = sb.Autobid
 	cand.AddBucket(b)
 
 	staking.SetCandidateList(candidateList, state)
@@ -582,6 +584,7 @@ func (sb *StakingBody) UnDelegateHandler(senv *StakingEnviroment, gas uint64) (r
 
 	// sanity check done, take actions
 	b.Candidate = meter.Address{}
+	b.Autobid = 0
 	cand.RemoveBucket(b)
 
 	staking.SetCandidateList(candidateList, state)
@@ -630,6 +633,7 @@ func (sb *StakingBody) GoverningHandler(senv *StakingEnviroment, gas uint64) (re
 				Epoch:       epoch,
 				BaseReward:  builtin.Params.Native(state).Get(meter.KeyValidatorBaseReward),
 				TotalReward: sum,
+				Rewards:     rinfo,
 			}
 			log.Info("validator rewards", "reward", reward.ToString())
 
@@ -825,6 +829,7 @@ func (sb *StakingBody) CandidateUpdateHandler(senv *StakingEnviroment, gas uint6
 	state := senv.GetState()
 	candidateList := staking.GetCandidateList(state)
 	inJailList := staking.GetInJailList(state)
+	bucketList := staking.GetBucketList(state)
 
 	if gas < meter.ClauseGas {
 		leftOverGas = 0
@@ -849,6 +854,13 @@ func (sb *StakingBody) CandidateUpdateHandler(senv *StakingEnviroment, gas uint6
 		err = errInvalidIpAddress
 		return
 	}
+
+	if sb.Autobid > 100 {
+		log.Error(fmt.Sprintf("invalid parameter: autobid %d (should be in [0， 100])", sb.Autobid))
+		err = errInvalidParams
+		return
+	}
+
 	// domainPattern, err := regexp.Compile("^([0-9a-zA-Z-_]+[.]*)+$")
 	// if the candidate already exists return error without paying gas
 	record := candidateList.Get(sb.CandAddr)
@@ -865,7 +877,7 @@ func (sb *StakingBody) CandidateUpdateHandler(senv *StakingEnviroment, gas uint6
 	}
 
 	var changed bool
-	var pubUpdated, commissionUpdated, nameUpdated bool
+	var pubUpdated, commissionUpdated, nameUpdated, autobidUpdated bool = false, false, false, false
 
 	if bytes.Equal(record.PubKey, candidatePubKey) == false {
 		pubUpdated = true
@@ -876,6 +888,15 @@ func (sb *StakingBody) CandidateUpdateHandler(senv *StakingEnviroment, gas uint6
 	commission := GetCommissionRate(sb.Option)
 	if record.Commission != commission {
 		commissionUpdated = true
+	}
+
+	candBucket, err := GetCandidateBucket(record, bucketList)
+	if err != nil {
+		log.Error(fmt.Sprintf("does not find out the candiate initial bucket %v", record.Addr))
+	} else {
+		if sb.Autobid != candBucket.Autobid {
+			autobidUpdated = true
+		}
 	}
 
 	// the above changes are restricted by time
@@ -896,6 +917,10 @@ func (sb *StakingBody) CandidateUpdateHandler(senv *StakingEnviroment, gas uint6
 	}
 	if nameUpdated {
 		record.Name = sb.CandName
+		changed = true
+	}
+	if autobidUpdated {
+		candBucket.Autobid = sb.Autobid
 		changed = true
 	}
 

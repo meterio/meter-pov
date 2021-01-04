@@ -10,11 +10,24 @@ import (
 	"math/big"
 )
 
-func GetCandidateSelfBucket(c *Candidate, bl *BucketList) ([]*Bucket, error) {
+// get the bucket that candidate initialized
+func GetCandidateBucket(c *Candidate, bl *BucketList) (*Bucket, error) {
+	for _, id := range c.Buckets {
+		b := bl.Get(id)
+		if b.Owner == c.Addr && b.Candidate == c.Addr && b.Option == FOREVER_LOCK {
+			return b, nil
+		}
+	}
+
+	return nil, errors.New("not found")
+}
+
+// get the buckets which owner is candidate
+func GetCandidateSelfBuckets(c *Candidate, bl *BucketList) ([]*Bucket, error) {
 	self := []*Bucket{}
 	for _, id := range c.Buckets {
 		b := bl.Get(id)
-		if b.Owner == c.Addr {
+		if b.Owner == c.Addr && b.Candidate == c.Addr {
 			self = append(self, b)
 		}
 	}
@@ -26,7 +39,7 @@ func GetCandidateSelfBucket(c *Candidate, bl *BucketList) ([]*Bucket, error) {
 }
 
 func CheckCandEnoughSelfVotes(newVotes *big.Int, c *Candidate, bl *BucketList) bool {
-	bkts, err := GetCandidateSelfBucket(c, bl)
+	bkts, err := GetCandidateSelfBuckets(c, bl)
 	if err != nil {
 		log.Error("Get candidate self bucket failed", "candidate", c.Addr.String(), "error", err)
 		return false

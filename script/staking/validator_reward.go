@@ -15,7 +15,7 @@ import (
 )
 
 const (
-	STAKING_MAX_VALIDATOR_REWARDS = 512
+	STAKING_MAX_VALIDATOR_REWARDS = 64
 )
 
 type RewardInfo struct {
@@ -27,6 +27,7 @@ type ValidatorReward struct {
 	Epoch       uint32
 	BaseReward  *big.Int
 	TotalReward *big.Int
+	Rewards     []*RewardInfo
 }
 
 func (v *ValidatorReward) ToString() string {
