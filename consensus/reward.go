@@ -22,7 +22,7 @@ import (
 )
 
 const (
-	AuctionInterval = uint64(24) // every 24 Epoch move to next auction
+	AuctionInterval = uint64(4) // every 24 Epoch move to next auction
 
 	MAX_REWARD_CLAUSES = 200
 )
@@ -96,12 +96,12 @@ func BuildAuctionStart(start, startEpoch, end, endEpoch uint64) (ret []byte) {
 	ret = []byte{}
 
 	//
-	release, reserve, _, err := auction.CalcRewardEpochRange(startEpoch, endEpoch)
+	release, reserve, _, err := CalcRewardEpochRange(startEpoch, endEpoch)
 	if err != nil {
 		panic("calculate reward failed" + err.Error())
 	}
-	releaseBigInt := auction.FloatToBigInt(release)
-	reserveBigInt := auction.FloatToBigInt(reserve)
+	releaseBigInt := FloatToBigInt(release)
+	reserveBigInt := FloatToBigInt(reserve)
 
 	body := &auction.AuctionBody{
 		Opcode:        auction.OP_START,

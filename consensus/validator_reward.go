@@ -64,7 +64,7 @@ func (rmap RewardInfoMap) ToList() (*big.Int, *big.Int, []*RewardMapInfo) {
 
 //***************************************
 //**********validator Rewards ***********
-const N = 10 // smooth with 10 days
+const Ndays = 10 // smooth with 10 days
 
 func (conR *ConsensusReactor) calcKblockValidatorRewards() (*big.Int, error) {
 	state, err := conR.stateCreator.NewState(conR.chain.BestBlock().Header().StateRoot())
@@ -86,10 +86,10 @@ func (conR *ConsensusReactor) calcKblockValidatorRewards() (*big.Int, error) {
 	}
 
 	var d, i int
-	if size <= N {
+	if size <= Ndays {
 		d = size
 	} else {
-		d = N
+		d = Ndays
 	}
 
 	rewards := big.NewInt(0)

@@ -184,6 +184,7 @@ func (ab *AuctionBody) CloseAuctionCB(senv *AuctionEnviroment, gas uint64) (ret 
 		RcvdMTR:      auctionCB.RcvdMTR,
 		ActualPrice:  actualPrice,
 		LeftoverMTRG: leftover,
+		AuctionTxs:   auctionCB.AuctionTxs,
 		DistMTRG:     dist,
 	}
 
@@ -232,49 +233,35 @@ func (ab *AuctionBody) HandleAuctionTx(senv *AuctionEnviroment, gas uint64) (ret
 	}
 
 	if ab.Option == AUTO_BID {
-		if ab.Amount.Cmp(AutobidMinAmount) < 0 {
-			log.Info("amount lower than minimum bid threshold", "amount", ab.Amount, "minBid", AutobidMinAmount)
-			err = errLessThanBidThreshold
-			return
-		}
-	} else {
 		if ab.Amount.Cmp(MinimumBidAmount) < 0 {
 			log.Info("amount lower than minimum bid threshold", "amount", ab.Amount, "minBid", MinimumBidAmount)
 			err = errLessThanBidThreshold
 			return
 		}
-	}
 
-	tx := auctionCB.Get(ab.Bidder)
-	if tx == nil {
-		tx = &AuctionTx{
-			Addr:     ab.Bidder,
-			Amount:   ab.Amount,
-			Count:    1,
-			Nonce:    ab.Nonce,
-			LastTime: ab.Timestamp,
-		}
-		err = auctionCB.Add(tx)
-		if err != nil {
-			log.Info("add auctionTx failed")
+		// check bidder have enough meter balance?
+		if state.GetEnergy(ab.Bidder).Cmp(ab.Amount) < 0 {
+			log.Info("bidder does not have enough balance amount", "amount", ab.Amount, "bidder", ab.Bidder.String())
+			err = errNotEnoughMTR
 			return
 		}
 	} else {
-		if ab.Nonce == tx.Nonce {
-			log.Info("Nonce error", "input nonce", ab.Nonce, "nonce in tx", tx.Nonce)
-			err = errInvalidNonce
+		if ab.Amount.Cmp(AutobidMinAmount) < 0 {
+			log.Info("amount lower than minimum bid threshold", "amount", ab.Amount, "minBid", AutobidMinAmount)
+			err = errLessThanBidThreshold
 			return
 		}
-		tx.Nonce = ab.Nonce
-		tx.Amount = tx.Amount.Add(tx.Amount, ab.Amount)
-		tx.LastTime = ab.Timestamp
-		tx.Count++
+		// autobid assume the validator reward account have enough balance
 	}
 
-	// Now update the total amount
-	auctionCB.RcvdMTR = auctionCB.RcvdMTR.Add(auctionCB.RcvdMTR, ab.Amount)
+	tx := NewAuctionTx(ab.Bidder, ab.Amount, ab.Option, ab.Timestamp, ab.Nonce)
+	err = auctionCB.AddAuctionTx(tx)
+	if err != nil {
+		log.Error("add auctionTx failed", "error", err)
+		return
+	}
 
-	// transfer bidder's MTR to auction accout
+	// now transfer bidder's MTR to auction accout
 	err = Auction.TransferMTRToAuction(ab.Bidder, ab.Amount, state)
 	if err != nil {
 		log.Error("not enough balance", "address", ab.Bidder)

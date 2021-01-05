@@ -18,18 +18,49 @@ import (
 )
 
 type AuctionTx struct {
-	Addr     meter.Address
-	Amount   *big.Int // total amont wei is unit
-	Count    uint32
-	Nonce    uint64
-	LastTime uint64 //last auction time
+	TxID      meter.Bytes32
+	Address   meter.Address
+	Amount    *big.Int // total amont wei is unit
+	Type      uint32   // USER_BID or AUTO_BID
+	Timestamp uint64   //timestamp
+	Nonce     uint64   //randomness
 }
 
 func (a *AuctionTx) ToString() string {
-	return fmt.Sprintf("AuctionTx(addr=%v, amount=%v, count=%v, nonce=%v, lastTime=%v)",
-		a.Addr, a.Amount.Uint64(), a.Count, a.Nonce, fmt.Sprintln(time.Unix(int64(a.LastTime), 0)))
+	return fmt.Sprintf("AuctionTx(addr=%v, amount=%v, type=%v, nonce=%v, Time=%v)",
+		a.Address, a.Amount.String(), a.Type, a.Nonce, fmt.Sprintln(time.Unix(int64(a.Timestamp), 0)))
 }
 
+func (a *AuctionTx) ID() (hash meter.Bytes32) {
+	hw := meter.NewBlake2b()
+	err := rlp.Encode(hw, []interface{}{
+		a.Address,
+		a.Amount,
+		a.Type,
+		a.Timestamp,
+		a.Nonce,
+	})
+	if err != nil {
+		fmt.Printf("rlp encode failed, %s.\n", err.Error())
+		return meter.Bytes32{}
+	}
+	hw.Sum(hash[:0])
+	return
+}
+
+func NewAuctionTx(addr meter.Address, amount *big.Int, txtype uint32, time uint64, nonce uint64) *AuctionTx {
+	tx := &AuctionTx{
+		Address:   addr,
+		Amount:    amount,
+		Type:      txtype,
+		Timestamp: time,
+		Nonce:     nonce,
+	}
+	tx.TxID = tx.ID()
+	return tx
+}
+
+///////////////////////////////////////////////////
 // auctionTx indicates the structure of a auctionTx
 type AuctionCB struct {
 	AuctionID   meter.Bytes32
@@ -68,12 +99,28 @@ func (cb *AuctionCB) ID() (hash meter.Bytes32) {
 	return
 }
 
-func (cb *AuctionCB) AddAuctionTx(tx *AuctionTx) {
+func (cb *AuctionCB) AddAuctionTx(tx *AuctionTx) error {
+	if cb.Get(tx.TxID) != nil {
+		return errors.New("tx already exist")
+	}
+
 	cb.RcvdMTR = cb.RcvdMTR.Add(cb.RcvdMTR, tx.Amount)
-	cb.AuctionTxs = append(cb.AuctionTxs, tx)
+	cb.Add(tx)
+	return nil
 }
 
-func (cb *AuctionCB) indexOf(addr meter.Address) (int, int) {
+// Actually Auction do not allow to cancel, so this func should not be called
+func (cb *AuctionCB) RemoveAuctionTx(tx *AuctionTx) error {
+	if cb.Get(tx.TxID) == nil {
+		return errors.New("tx does not exist")
+	}
+
+	cb.RcvdMTR = cb.RcvdMTR.Sub(cb.RcvdMTR, tx.Amount)
+	cb.Remove(tx.TxID)
+	return nil
+}
+
+func (cb *AuctionCB) indexOf(id meter.Bytes32) (int, int) {
 	// return values:
 	//     first parameter: if found, the index of the item
 	//     second parameter: if not found, the correct insert index of the item
@@ -84,7 +131,7 @@ func (cb *AuctionCB) indexOf(addr meter.Address) (int, int) {
 	r := len(cb.AuctionTxs)
 	for l < r {
 		m := (l + r) / 2
-		cmp := bytes.Compare(addr.Bytes(), cb.AuctionTxs[m].Addr.Bytes())
+		cmp := bytes.Compare(id.Bytes(), cb.AuctionTxs[m].TxID.Bytes())
 		if cmp < 0 {
 			r = m
 		} else if cmp > 0 {
@@ -96,44 +143,44 @@ func (cb *AuctionCB) indexOf(addr meter.Address) (int, int) {
 	return -1, r
 }
 
-func (cb *AuctionCB) Get(addr meter.Address) *AuctionTx {
-	index, _ := cb.indexOf(addr)
+func (cb *AuctionCB) Get(id meter.Bytes32) *AuctionTx {
+	index, _ := cb.indexOf(id)
 	if index < 0 {
 		return nil
 	}
 	return cb.AuctionTxs[index]
 }
 
-func (cb *AuctionCB) Exist(addr meter.Address) bool {
-	index, _ := cb.indexOf(addr)
+func (cb *AuctionCB) Exist(id meter.Bytes32) bool {
+	index, _ := cb.indexOf(id)
 	return index >= 0
 }
 
-func (cb *AuctionCB) Add(c *AuctionTx) error {
-	index, insertIndex := cb.indexOf(c.Addr)
+func (cb *AuctionCB) Add(tx *AuctionTx) {
+	index, insertIndex := cb.indexOf(tx.TxID)
 	if index < 0 {
 		if len(cb.AuctionTxs) == 0 {
-			cb.AuctionTxs = append(cb.AuctionTxs, c)
-			return nil
+			cb.AuctionTxs = append(cb.AuctionTxs, tx)
+			return
 		}
 		newList := make([]*AuctionTx, insertIndex)
 		copy(newList, cb.AuctionTxs[:insertIndex])
-		newList = append(newList, c)
+		newList = append(newList, tx)
 		newList = append(newList, cb.AuctionTxs[insertIndex:]...)
 		cb.AuctionTxs = newList
 	} else {
-		cb.AuctionTxs[index] = c
+		cb.AuctionTxs[index] = tx
 	}
 
-	return nil
+	return
 }
 
-func (cb *AuctionCB) Remove(addr meter.Address) error {
-	index, _ := cb.indexOf(addr)
+func (cb *AuctionCB) Remove(id meter.Bytes32) {
+	index, _ := cb.indexOf(id)
 	if index >= 0 {
 		cb.AuctionTxs = append(cb.AuctionTxs[:index], cb.AuctionTxs[index+1:]...)
 	}
-	return nil
+	return
 }
 
 func (cb *AuctionCB) Count() int {
@@ -154,16 +201,16 @@ func (cb *AuctionCB) ToString() string {
 	return strings.Join(s, "\n")
 }
 
-func (cb *AuctionCB) ToList() []AuctionTx {
-	result := make([]AuctionTx, 0)
-	for _, v := range cb.AuctionTxs {
-		result = append(result, *v)
-	}
-	return result
-}
-
 func (cb *AuctionCB) IsActive() bool {
 	return !cb.AuctionID.IsZero()
+}
+
+func (cb *AuctionCB) ToTxList() []*AuctionTx {
+	result := make([]*AuctionTx, 0)
+	for _, v := range cb.AuctionTxs {
+		result = append(result, v)
+	}
+	return result
 }
 
 //  api routine interface

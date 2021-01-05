@@ -133,8 +133,8 @@ func (a *Auction) TransferMTRToValidatorBenefit(amount *big.Int, state *state.St
 	return nil
 }
 
-//==============================================
-// when auction is over
+////////////////////////
+// called when auction is over
 func (a *Auction) ClearAuction(cb *AuctionCB, state *state.State) (*big.Int, *big.Int, []*DistMtrg, error) {
 	stateDB := statedb.New(state)
 	ValidatorBenefitRatio := builtin.Params.Native(state).Get(meter.KeyValidatorBenefitRatio)
@@ -150,9 +150,9 @@ func (a *Auction) ClearAuction(cb *AuctionCB, state *state.State) (*big.Int, *bi
 	for _, tx := range cb.AuctionTxs {
 		mtrg := tx.Amount.Div(tx.Amount, actualPrice)
 		mtrg = mtrg.Mul(mtrg, big.NewInt(1e18))
-		a.SendMTRGToBidder(tx.Addr, mtrg, stateDB)
+		a.SendMTRGToBidder(tx.Address, mtrg, stateDB)
 		total = total.Add(total, mtrg)
-		distMtrg = append(distMtrg, &DistMtrg{Addr: tx.Addr, Amount: mtrg})
+		distMtrg = append(distMtrg, &DistMtrg{Addr: tx.Address, Amount: mtrg})
 	}
 
 	// sometimes accuracy cause negative value
