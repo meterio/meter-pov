@@ -7,19 +7,28 @@ package staking
 
 import (
 	"encoding/hex"
+	"math"
 	"net/http"
+	"strconv"
 
 	"github.com/dfinlab/meter/api/utils"
+	"github.com/dfinlab/meter/block"
+	"github.com/dfinlab/meter/chain"
 	"github.com/dfinlab/meter/meter"
 	"github.com/dfinlab/meter/script/staking"
+	"github.com/dfinlab/meter/state"
 	"github.com/gorilla/mux"
+	"github.com/pkg/errors"
 )
 
 type Staking struct {
+	chain        *chain.Chain
+	stateCreator *state.Creator
 }
 
-func New() *Staking {
-	return &Staking{}
+func New(chain *chain.Chain,
+	stateCreator *state.Creator) *Staking {
+	return &Staking{chain: chain, stateCreator: stateCreator}
 }
 
 func (st *Staking) handleGetCandidateList(w http.ResponseWriter, req *http.Request) error {
@@ -102,12 +111,51 @@ func (st *Staking) handleGetDelegateList(w http.ResponseWriter, req *http.Reques
 }
 
 func (st *Staking) handleGetValidatorRewardList(w http.ResponseWriter, req *http.Request) error {
-	list, err := staking.GetLatestValidatorRewardList()
+	h, err := st.handleRevision(req.URL.Query().Get("revision"))
+	if err != nil {
+		return err
+	}
+	list, err := staking.GetValidatorRewardListByHeader(h)
 	if err != nil {
 		return err
 	}
 	validatorRewardList := convertValidatorRewardList(list)
 	return utils.WriteJSON(w, validatorRewardList)
+}
+
+func (st *Staking) handleRevision(revision string) (*block.Header, error) {
+	if revision == "" || revision == "best" {
+		return st.chain.BestBlock().Header(), nil
+	}
+	if len(revision) == 66 || len(revision) == 64 {
+		blockID, err := meter.ParseBytes32(revision)
+		if err != nil {
+			return nil, utils.BadRequest(errors.WithMessage(err, "revision"))
+		}
+		h, err := st.chain.GetBlockHeader(blockID)
+		if err != nil {
+			if st.chain.IsNotFound(err) {
+				return nil, utils.BadRequest(errors.WithMessage(err, "revision"))
+			}
+			return nil, err
+		}
+		return h, nil
+	}
+	n, err := strconv.ParseUint(revision, 0, 0)
+	if err != nil {
+		return nil, utils.BadRequest(errors.WithMessage(err, "revision"))
+	}
+	if n > math.MaxUint32 {
+		return nil, utils.BadRequest(errors.WithMessage(errors.New("block number out of max uint32"), "revision"))
+	}
+	h, err := st.chain.GetTrunkBlockHeader(uint32(n))
+	if err != nil {
+		if st.chain.IsNotFound(err) {
+			return nil, utils.BadRequest(errors.WithMessage(err, "revision"))
+		}
+		return nil, err
+	}
+	return h, nil
 }
 
 func (st *Staking) Mount(root *mux.Router, pathPrefix string) {

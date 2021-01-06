@@ -83,11 +83,11 @@ func New(chain *chain.Chain, stateCreator *state.Creator, txPool *txpool.TxPool,
 	peers.New(p2pServer).Mount(router, "/peers")
 	subs := subscriptions.New(chain, origins, backtraceLimit)
 	subs.Mount(router, "/subscriptions")
-	staking.New().
+	staking.New(chain, stateCreator).
 		Mount(router, "/staking")
 	slashing.New().
 		Mount(router, "/slashing")
-	auction.New().
+	auction.New(chain, stateCreator).
 		Mount(router, "/auction")
 	accountlock.New().
 		Mount(router, "/accountlock")
