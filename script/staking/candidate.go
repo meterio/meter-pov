@@ -19,29 +19,31 @@ import (
 
 // Candidate indicates the structure of a candidate
 type Candidate struct {
-	Addr       meter.Address // the address for staking / reward
-	Name       []byte
-	PubKey     []byte // node public key
-	IPAddr     []byte // network addr
-	Port       uint16
-	Commission uint64          // unit shannon, aka 1e09
-	Timestamp  uint64          // last update time
-	TotalVotes *big.Int        // total voting from all buckets
-	Buckets    []meter.Bytes32 // all buckets voted for this candidate
+	Addr        meter.Address // the address for staking / reward
+	Name        []byte
+	Description []byte
+	PubKey      []byte // node public key
+	IPAddr      []byte // network addr
+	Port        uint16
+	Commission  uint64          // unit shannon, aka 1e09
+	Timestamp   uint64          // last update time
+	TotalVotes  *big.Int        // total voting from all buckets
+	Buckets     []meter.Bytes32 // all buckets voted for this candidate
 }
 
-func NewCandidate(addr meter.Address, name []byte, pubKey []byte, ip []byte, port uint16,
+func NewCandidate(addr meter.Address, name []byte, desc []byte, pubKey []byte, ip []byte, port uint16,
 	commission uint64, timeStamp uint64) *Candidate {
 	return &Candidate{
-		Addr:       addr,
-		Name:       name,
-		PubKey:     pubKey,
-		IPAddr:     ip,
-		Port:       port,
-		Commission: commission,
-		Timestamp:  timeStamp,
-		TotalVotes: big.NewInt(0), //total received votes
-		Buckets:    []meter.Bytes32{},
+		Addr:        addr,
+		Name:        name,
+		Description: desc,
+		PubKey:      pubKey,
+		IPAddr:      ip,
+		Port:        port,
+		Commission:  commission,
+		Timestamp:   timeStamp,
+		TotalVotes:  big.NewInt(0), //total received votes
+		Buckets:     []meter.Bytes32{},
 	}
 }
 

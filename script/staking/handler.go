@@ -108,22 +108,23 @@ var (
 
 // Candidate indicates the structure of a candidate
 type StakingBody struct {
-	Opcode     uint32
-	Version    uint32
-	Option     uint32
-	HolderAddr meter.Address
-	CandAddr   meter.Address
-	CandName   []byte
-	CandPubKey []byte //ecdsa.PublicKey
-	CandIP     []byte
-	CandPort   uint16
-	StakingID  meter.Bytes32 // only for unbond
-	Amount     *big.Int
-	Token      byte   // meter or meter gov
-	Autobid    uint8  // autobid percentile
-	Timestamp  uint64 // staking timestamp
-	Nonce      uint64 //staking nonce
-	ExtraData  []byte
+	Opcode          uint32
+	Version         uint32
+	Option          uint32
+	HolderAddr      meter.Address
+	CandAddr        meter.Address
+	CandName        []byte
+	CandDescription []byte
+	CandPubKey      []byte //ecdsa.PublicKey
+	CandIP          []byte
+	CandPort        uint16
+	StakingID       meter.Bytes32 // only for unbond
+	Amount          *big.Int
+	Token           byte   // meter or meter gov
+	Autobid         uint8  // autobid percentile
+	Timestamp       uint64 // staking timestamp
+	Nonce           uint64 //staking nonce
+	ExtraData       []byte
 }
 
 func StakingEncodeBytes(sb *StakingBody) []byte {
@@ -149,6 +150,7 @@ func (sb *StakingBody) ToString() string {
 	HolderAddr=%v, 
 	CandAddr=%v, 
 	CandName=%v, 
+	CandDescription=%v,
 	CandPubKey=%v, 
 	CandIP=%v, 
 	CandPort=%v, 
@@ -160,7 +162,7 @@ func (sb *StakingBody) ToString() string {
 	Timestamp=%v, 
 	ExtraData=%v
 }`,
-		sb.Opcode, sb.Version, sb.Option, sb.HolderAddr.String(), sb.CandAddr.String(), string(sb.CandName), string(sb.CandPubKey), string(sb.CandIP), sb.CandPort, sb.StakingID, sb.Amount, sb.Token, sb.Autobid, sb.Nonce, sb.Timestamp, sb.ExtraData)
+		sb.Opcode, sb.Version, sb.Option, sb.HolderAddr.String(), sb.CandAddr.String(), string(sb.CandName), string(sb.CandDescription), string(sb.CandPubKey), string(sb.CandIP), sb.CandPort, sb.StakingID, sb.Amount, sb.Token, sb.Autobid, sb.Nonce, sb.Timestamp, sb.ExtraData)
 }
 
 func (sb *StakingBody) BoundHandler(senv *StakingEnviroment, gas uint64) (ret []byte, leftOverGas uint64, err error) {
@@ -401,7 +403,7 @@ func (sb *StakingBody) CandidateHandler(senv *StakingEnviroment, gas uint64) (re
 	bucket := NewBucket(sb.CandAddr, sb.CandAddr, sb.Amount, uint8(sb.Token), opt, rate, sb.Autobid, sb.Timestamp, sb.Nonce)
 	bucketList.Add(bucket)
 
-	candidate := NewCandidate(sb.CandAddr, sb.CandName, []byte(candidatePubKey), sb.CandIP, sb.CandPort, commission, sb.Timestamp)
+	candidate := NewCandidate(sb.CandAddr, sb.CandName, sb.CandDescription, []byte(candidatePubKey), sb.CandIP, sb.CandPort, commission, sb.Timestamp)
 	candidate.AddBucket(bucket)
 	candidateList.Add(candidate)
 
@@ -877,13 +879,16 @@ func (sb *StakingBody) CandidateUpdateHandler(senv *StakingEnviroment, gas uint6
 	}
 
 	var changed bool
-	var pubUpdated, commissionUpdated, nameUpdated, autobidUpdated bool = false, false, false, false
+	var pubUpdated, commissionUpdated, nameUpdated, descUpdated, autobidUpdated bool = false, false, false, false, false
 
 	if bytes.Equal(record.PubKey, candidatePubKey) == false {
 		pubUpdated = true
 	}
 	if bytes.Equal(record.Name, sb.CandName) == false {
 		nameUpdated = true
+	}
+	if bytes.Equal(record.Description, sb.CandDescription) == false {
+		descUpdated = true
 	}
 	commission := GetCommissionRate(sb.Option)
 	if record.Commission != commission {
@@ -917,6 +922,10 @@ func (sb *StakingBody) CandidateUpdateHandler(senv *StakingEnviroment, gas uint6
 	}
 	if nameUpdated {
 		record.Name = sb.CandName
+		changed = true
+	}
+	if descUpdated {
+		record.Description = sb.CandDescription
 		changed = true
 	}
 	if autobidUpdated {
