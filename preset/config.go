@@ -28,10 +28,10 @@ var (
 	}
 
 	ShoalPresetConfig = &PresetConfig{
-		CommitteeMinSize: 21,
+		CommitteeMinSize: 11,
 		CommitteeMaxSize: 50,
 		DelegateMaxSize:  100,
-		DiscoServer:      "enode://3011a0740181881c7d4033a83a60f69b68f9aedb0faa784133da84394120ffe9a1686b2af212ffad16fbba88d0ff302f8edb05c99380bd904cbbb96ee4ca8cfb@54.184.14.94:55555",
+		DiscoServer:      "enode://edef07cf4108b1b8be09b34290cda09e490a23b1380cbb20cefc250ebaf2470dd470449eb080c18f48c7f1618d7b17f815729dd89ac51193a2f305cf2dee6182@13.228.91.172:55555",
 		DiscoTopic:       "shoal",
 	}
 )
