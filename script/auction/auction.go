@@ -86,8 +86,15 @@ func (a *Auction) PrepareAuctionHandler() (AuctionHandler func(data []byte, to *
 			ret, leftOverGas, err = ab.CloseAuctionCB(env, gas)
 
 		case OP_BID:
-			if env.GetTxCtx().Origin != ab.Bidder {
-				return nil, gas, errors.New("bidder address is not the same from transaction")
+			if ab.Option == AUTO_BID {
+				if env.GetTxCtx().Origin.IsZero() == false {
+					return nil, gas, errors.New("not from kblock")
+				}
+			} else {
+				// USER_BID
+				if env.GetTxCtx().Origin != ab.Bidder {
+					return nil, gas, errors.New("bidder address is not the same from transaction")
+				}
 			}
 			ret, leftOverGas, err = ab.HandleAuctionTx(env, gas)
 

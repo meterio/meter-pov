@@ -14,25 +14,35 @@ import (
 )
 
 type AuctionSummary struct {
-	AuctionID    string      `json:"auctionID"`
-	StartHeight  uint64      `json:"startHeight"`
-	StartEpoch   uint64      `json:"startEpoch"`
-	EndHeight    uint64      `json:"endHeight"`
-	EndEpoch     uint64      `json:"endEpoch"`
-	RlsdMTRG     string      `json:"releasedMTRG"`
-	RsvdMTRG     string      `json:"reservedMTRG"`
-	RsvdPrice    string      `json:"reservedPrice"`
-	CreateTime   uint64      `json:"createTime"`
-	Timestamp    string      `json:"timestamp"`
-	RcvdMTR      string      `json:"receivedMTR"`
-	ActualPrice  string      `json:"actualPrice"`
-	LeftoverMTRG string      `json:"leftoverMTRG"`
-	DistMTRG     []*DistMtrg `json:"distMTRG"`
+	AuctionID    string       `json:"auctionID"`
+	StartHeight  uint64       `json:"startHeight"`
+	StartEpoch   uint64       `json:"startEpoch"`
+	EndHeight    uint64       `json:"endHeight"`
+	EndEpoch     uint64       `json:"endEpoch"`
+	RlsdMTRG     string       `json:"releasedMTRG"`
+	RsvdMTRG     string       `json:"reservedMTRG"`
+	RsvdPrice    string       `json:"reservedPrice"`
+	CreateTime   uint64       `json:"createTime"`
+	Timestamp    string       `json:"timestamp"`
+	RcvdMTR      string       `json:"receivedMTR"`
+	ActualPrice  string       `json:"actualPrice"`
+	LeftoverMTRG string       `json:"leftoverMTRG"`
+	AuctionTxs   []*AuctionTx `json:"auctionTxs"`
+	DistMTRG     []*DistMtrg  `json:"distMTRG"`
 }
 
 type DistMtrg struct {
 	Addr   string `json:"addr"`
 	Amount string `json:"amount"`
+}
+
+type AuctionTx struct {
+	TxID      string `json:"txid`
+	Address   string `json:"address"`
+	Amount    string `json:"amount"`
+	Type      string `json:"type"`
+	Timestamp string `json:"timestamp"`
+	Nonce     uint64 `json:"nonce"`
 }
 
 type AuctionCB struct {
@@ -48,15 +58,6 @@ type AuctionCB struct {
 	Timestamp   string       `json:"timestamp"`
 	RcvdMTR     string       `json:"receivedMTR"`
 	AuctionTxs  []*AuctionTx `json:"auctionTxs"`
-}
-
-type AuctionTx struct {
-	Addr      string `json:"addr"`
-	Amount    string `json:"amount"`
-	Count     uint32 `json:"count"`
-	Nonce     uint64 `json:"nonce"`
-	LastTime  uint64 `json:"lastTime"`
-	Timestamp string `json:"timestamp"`
 }
 
 func convertSummaryList(list *auction.AuctionSummaryList) []*AuctionSummary {
@@ -79,6 +80,11 @@ func convertSummary(s *auction.AuctionSummary) *AuctionSummary {
 	for _, d := range s.DistMTRG {
 		dists = append(dists, convertDistMtrg(d))
 	}
+
+	txs := make([]*AuctionTx, 0)
+	for _, t := range s.AuctionTxs {
+		txs = append(txs, convertAuctionTx(t))
+	}
 	return &AuctionSummary{
 		AuctionID:    s.AuctionID.AbbrevString(),
 		StartHeight:  s.StartHeight,
@@ -93,18 +99,26 @@ func convertSummary(s *auction.AuctionSummary) *AuctionSummary {
 		RcvdMTR:      s.RcvdMTR.String(),
 		ActualPrice:  s.ActualPrice.String(),
 		LeftoverMTRG: s.LeftoverMTRG.String(),
+		AuctionTxs:   txs,
 		DistMTRG:     dists,
 	}
 }
 
 func convertAuctionTx(t *auction.AuctionTx) *AuctionTx {
+	var bidType string
+	if t.Type == auction.USER_BID {
+		bidType = "userbid"
+	} else {
+		bidType = "autobid"
+	}
+
 	return &AuctionTx{
-		Addr:      t.Addr.String(),
+		TxID:      t.TxID.String(),
+		Address:   t.Address.String(),
 		Amount:    t.Amount.String(),
-		Count:     t.Count,
+		Type:      bidType,
+		Timestamp: fmt.Sprintln(time.Unix(int64(t.Timestamp), 0)),
 		Nonce:     t.Nonce,
-		Timestamp: fmt.Sprintln(time.Unix(int64(t.LastTime), 0)),
-		LastTime:  t.LastTime,
 	}
 }
 

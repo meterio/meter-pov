@@ -3,7 +3,7 @@
 // Distributed under the GNU Lesser General Public License v3.0 software license, see the accompanying
 // file LICENSE or <https://www.gnu.org/licenses/lgpl-3.0.html>
 
-package auction
+package consensus
 
 import (
 	"fmt"
@@ -12,6 +12,7 @@ import (
 
 	"github.com/dfinlab/meter/builtin"
 	"github.com/dfinlab/meter/meter"
+	"github.com/dfinlab/meter/script/auction"
 )
 
 const (
@@ -46,7 +47,7 @@ func getHistoryPrices() *[N]float64 {
 	history := [N]float64{}
 	reservedPrice := GetAuctionReservedPrice()
 
-	list, err := GetAuctionSummaryList()
+	list, err := auction.GetAuctionSummaryList()
 	if err != nil {
 		panic("get auction summary failed")
 	}
@@ -123,7 +124,7 @@ func CalcRewardEpochRange(startEpoch, endEpoch uint64) (totalReward float64, tot
 		totalReserve = totalReserve + reserve
 	}
 
-	log.Info("meter gov released", "amount", totalReward, "reserve", totalReserve, "startEpoch", startEpoch, "endEpoch", endEpoch)
+	fmt.Println("meter gov released", "amount", totalReward, "reserve", totalReserve, "startEpoch", startEpoch, "endEpoch", endEpoch)
 	//fmt.Println("each epoch reward", epochRewards)
 	return
 }
@@ -135,13 +136,13 @@ func FloatToBigInt(val float64) *big.Int {
 }
 
 func GetAuctionReservedPrice() *big.Int {
-	auction := GetAuctionGlobInst()
-	if auction == nil {
-		panic("get global auction failed")
+	conR := GetConsensusGlobInst()
+	if conR == nil {
+		panic("get global consensus reactor failed")
 	}
 
-	best := auction.chain.BestBlock()
-	state, err := auction.stateCreator.NewState(best.Header().StateRoot())
+	best := conR.chain.BestBlock()
+	state, err := conR.stateCreator.NewState(best.Header().StateRoot())
 	if err != nil {
 		panic("get state failed")
 	}
@@ -150,13 +151,13 @@ func GetAuctionReservedPrice() *big.Int {
 }
 
 func GetAuctionInitialRelease() float64 {
-	auction := GetAuctionGlobInst()
-	if auction == nil {
-		panic("get global auction failed")
+	conR := GetConsensusGlobInst()
+	if conR == nil {
+		panic("get global consensus reactor failed")
 	}
 
-	best := auction.chain.BestBlock()
-	state, err := auction.stateCreator.NewState(best.Header().StateRoot())
+	best := conR.chain.BestBlock()
+	state, err := conR.stateCreator.NewState(best.Header().StateRoot())
 	if err != nil {
 		panic("get state failed")
 	}
@@ -167,6 +168,6 @@ func GetAuctionInitialRelease() float64 {
 	initRelease, accuracy := fr.Float64()
 	initRelease = initRelease / (1e09)
 
-	log.Debug("get inital release", "value", initRelease, "accuracy", accuracy)
+	conR.logger.Info("get inital release", "value", initRelease, "accuracy", accuracy)
 	return initRelease
 }

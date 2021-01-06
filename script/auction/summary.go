@@ -16,7 +16,7 @@ import (
 )
 
 const (
-	AUCTION_MAX_SUMMARIES = 512
+	AUCTION_MAX_SUMMARIES = 32
 )
 
 type DistMtrg struct {
@@ -37,6 +37,7 @@ type AuctionSummary struct {
 	RcvdMTR      *big.Int
 	ActualPrice  *big.Int
 	LeftoverMTRG *big.Int
+	AuctionTxs   []*AuctionTx
 	DistMTRG     []*DistMtrg
 }
 

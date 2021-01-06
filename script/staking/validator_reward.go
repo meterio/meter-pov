@@ -15,7 +15,7 @@ import (
 )
 
 const (
-	STAKING_MAX_VALIDATOR_REWARDS = 64
+	STAKING_MAX_VALIDATOR_REWARDS = 32
 )
 
 type RewardInfo struct {
