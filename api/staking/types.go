@@ -15,14 +15,15 @@ import (
 )
 
 type Candidate struct {
-	Name       string        `json:"name"`
-	Address    meter.Address `json:"address"` // the address for staking / reward
-	PubKey     string        `json:"pubKey"`  // node public key
-	IPAddr     string        `json:"ipAddr"`  // network addr
-	Port       uint16        `json:"port"`
-	TotalVotes string        `json:"totalVotes"` // total voting from all buckets
-	Commission uint64        `json:"commission"` // commission rate unit "1e09"
-	Buckets    []string      `json:"buckets"`    // all buckets voted for this candidate
+	Name        string        `json:"name"`
+	Description string        `json:"description"`
+	Address     meter.Address `json:"address"` // the address for staking / reward
+	PubKey      string        `json:"pubKey"`  // node public key
+	IPAddr      string        `json:"ipAddr"`  // network addr
+	Port        uint16        `json:"port"`
+	TotalVotes  string        `json:"totalVotes"` // total voting from all buckets
+	Commission  uint64        `json:"commission"` // commission rate unit "1e09"
+	Buckets     []string      `json:"buckets"`    // all buckets voted for this candidate
 }
 
 func convertCandidateList(list *staking.CandidateList) []*Candidate {
@@ -47,8 +48,9 @@ func convertCandidate(c staking.Candidate) *Candidate {
 		buckets = append(buckets, b.String())
 	}
 	return &Candidate{
-		Name:    string(bytes.Trim(c.Name[:], "\x00")),
-		Address: c.Addr,
+		Name:        string(bytes.Trim(c.Name[:], "\x00")),
+		Description: string(c.Description),
+		Address:     c.Addr,
 		//PubKey:     hex.EncodeToString(c.PubKey),
 		PubKey:     string(c.PubKey),
 		IPAddr:     string(c.IPAddr),
@@ -71,7 +73,7 @@ type Bucket struct {
 	Candidate    meter.Address `json:"candidate"`
 	Rate         uint8         `json:"rate"`
 	Option       uint32        `json:"option"`
-	Autobid      uint8         `json: "Autoid"`
+	Autobid      uint8         `json:"autobid"`
 	BonusVotes   uint64        `json:"bonusVotes"`
 	TotalVotes   string        `json:"totalVotes"`
 	MatureTime   uint64        `json:"matureTime"`
@@ -131,7 +133,7 @@ func convertStakeholder(s staking.Stakeholder) *Stakeholder {
 
 type Distributor struct {
 	Address meter.Address `json:"address"`
-	Autobid uint8         `json:"autobid`
+	Autobid uint8         `json:"autobid"`
 	Shares  uint64        `json:"shares"`
 }
 
