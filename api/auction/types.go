@@ -37,12 +37,13 @@ type DistMtrg struct {
 }
 
 type AuctionTx struct {
-	TxID      string `json:"txid`
-	Address   string `json:"address"`
-	Amount    string `json:"amount"`
-	Type      string `json:"type"`
-	Timestamp string `json:"timestamp"`
-	Nonce     uint64 `json:"nonce"`
+	TxID         string `json:"txid`
+	Address      string `json:"address"`
+	Amount       string `json:"amount"`
+	Type         string `json:"type"`
+	Timestamp    uint64 `json:"timestamp"`
+	TimestampStr string `json:"timestampStr"`
+	Nonce        uint64 `json:"nonce"`
 }
 
 type AuctionCB struct {
@@ -113,12 +114,13 @@ func convertAuctionTx(t *auction.AuctionTx) *AuctionTx {
 	}
 
 	return &AuctionTx{
-		TxID:      t.TxID.String(),
-		Address:   t.Address.String(),
-		Amount:    t.Amount.String(),
-		Type:      bidType,
-		Timestamp: fmt.Sprintln(time.Unix(int64(t.Timestamp), 0)),
-		Nonce:     t.Nonce,
+		TxID:         t.TxID.String(),
+		Address:      t.Address.String(),
+		Amount:       t.Amount.String(),
+		Type:         bidType,
+		TimestampStr: fmt.Sprintln(time.Unix(int64(t.Timestamp), 0)),
+		Timestamp:    t.Timestamp,
+		Nonce:        t.Nonce,
 	}
 }
 
