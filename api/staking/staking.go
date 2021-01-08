@@ -74,7 +74,8 @@ func (st *Staking) handleGetBucketByID(w http.ResponseWriter, req *http.Request)
 		return err
 	}
 	bucket := list.Get(bucketID)
-	return utils.WriteJSON(w, bucket)
+	converted := convertBucket(bucket)
+	return utils.WriteJSON(w, converted)
 }
 
 func (st *Staking) handleGetStakeholderList(w http.ResponseWriter, req *http.Request) error {

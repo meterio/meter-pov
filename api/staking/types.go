@@ -84,25 +84,29 @@ func convertBucketList(list *staking.BucketList) []*Bucket {
 	bucketList := make([]*Bucket, 0)
 
 	for _, b := range list.ToList() {
-		bucketList = append(bucketList, &Bucket{
-			ID:           b.BucketID.String(),
-			Owner:        b.Owner,
-			Value:        b.Value.String(),
-			Token:        b.Token,
-			Nonce:        b.Nonce,
-			CreateTime:   b.CreateTime,
-			Unbounded:    b.Unbounded,
-			Candidate:    b.Candidate,
-			Rate:         b.Rate,
-			Option:       b.Option,
-			Autobid:      b.Autobid,
-			BonusVotes:   b.BonusVotes,
-			TotalVotes:   b.TotalVotes.String(),
-			MatureTime:   b.MatureTime,
-			CalcLastTime: b.CalcLastTime,
-		})
+		bucketList = append(bucketList, convertBucket(&b))
 	}
 	return bucketList
+}
+
+func convertBucket(b *staking.Bucket) *Bucket {
+	return &Bucket{
+		ID:           b.BucketID.String(),
+		Owner:        b.Owner,
+		Value:        b.Value.String(),
+		Token:        b.Token,
+		Nonce:        b.Nonce,
+		CreateTime:   b.CreateTime,
+		Unbounded:    b.Unbounded,
+		Candidate:    b.Candidate,
+		Rate:         b.Rate,
+		Option:       b.Option,
+		Autobid:      b.Autobid,
+		BonusVotes:   b.BonusVotes,
+		TotalVotes:   b.TotalVotes.String(),
+		MatureTime:   b.MatureTime,
+		CalcLastTime: b.CalcLastTime,
+	}
 }
 
 type Stakeholder struct {
