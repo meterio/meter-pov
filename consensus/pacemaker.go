@@ -1099,6 +1099,9 @@ func (p *Pacemaker) resetRoundTimer(round uint32, reason roundTimerUpdateReason)
 func (p *Pacemaker) revertTo(revertHeight uint32) {
 	p.logger.Info("Start revert", "revertHeight", revertHeight, "currentBLeaf", p.blockLeaf.ToString(), "currentQCHigh", p.QCHigh.ToString())
 	pivot := p.proposalMap.Get(revertHeight)
+	if pivot == nil {
+		return
+	}
 	pivotParent := pivot.Parent
 	pivotJustify := pivot.Justify
 	height := revertHeight
