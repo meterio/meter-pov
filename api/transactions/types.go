@@ -75,6 +75,7 @@ type Transaction struct {
 	DependsOn    *meter.Bytes32      `json:"dependsOn"`
 	Size         uint32              `json:"size"`
 	Meta         TxMeta              `json:"meta"`
+	EthTxJSON    string              `json:"ethTxJSON"`
 }
 type UnSignedTx struct {
 	ChainTag     uint8               `json:"chainTag"`
@@ -163,7 +164,17 @@ func convertTransaction(tx *tx.Transaction, header *block.Header, txIndex uint64
 	for i, c := range tx.Clauses() {
 		cls[i] = convertClause(c)
 	}
+	ethTxJSON := make([]byte, 0)
 	br := tx.BlockRef()
+	if tx.IsEthTx() {
+		ethTx, err := tx.GetEthTx()
+		if err == nil {
+			ethTxJSON, err = ethTx.MarshalJSON()
+			if err != nil {
+				fmt.Println("could not marshal ethereum tx")
+			}
+		}
+	}
 	t := &Transaction{
 		ChainTag:     tx.ChainTag(),
 		ID:           tx.ID(),
@@ -181,6 +192,7 @@ func convertTransaction(tx *tx.Transaction, header *block.Header, txIndex uint64
 			BlockNumber:    header.Number(),
 			BlockTimestamp: header.Timestamp(),
 		},
+		EthTxJSON: string(ethTxJSON),
 	}
 	return t, nil
 }
