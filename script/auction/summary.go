@@ -12,6 +12,7 @@ import (
 	"math/big"
 	"strings"
 
+	"github.com/dfinlab/meter/block"
 	"github.com/dfinlab/meter/meter"
 )
 
@@ -47,7 +48,6 @@ func (a *AuctionSummary) ToString() string {
 		a.CreateTime, a.RcvdMTR.String(), a.ActualPrice.String(), a.LeftoverMTRG.String())
 }
 
-// api routine interface
 func GetAuctionSummaryList() (*AuctionSummaryList, error) {
 	auction := GetAuctionGlobInst()
 	if auction == nil {
@@ -58,6 +58,32 @@ func GetAuctionSummaryList() (*AuctionSummaryList, error) {
 
 	best := auction.chain.BestBlock()
 	state, err := auction.stateCreator.NewState(best.Header().StateRoot())
+	if err != nil {
+		return NewAuctionSummaryList(nil), err
+	}
+
+	summaryList := auction.GetSummaryList(state)
+	if summaryList == nil {
+		log.Error("no summaryList stored ...")
+		return NewAuctionSummaryList(nil), nil
+	}
+	return summaryList, nil
+}
+
+// api routine interface
+func GetAuctionSummaryListByHeader(header *block.Header) (*AuctionSummaryList, error) {
+	auction := GetAuctionGlobInst()
+	if auction == nil {
+		log.Error("auction is not initialized...")
+		err := errors.New("aution is not initialized...")
+		return NewAuctionSummaryList(nil), err
+	}
+
+	h := header
+	if header == nil {
+		h = auction.chain.BestBlock().Header()
+	}
+	state, err := auction.stateCreator.NewState(h.StateRoot())
 	if err != nil {
 		return NewAuctionSummaryList(nil), err
 	}

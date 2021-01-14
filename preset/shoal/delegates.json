@@ -1,212 +1,112 @@
 [
-    {
-      "name": "shoal-01",
-      "address": "0x9E3866A153f41Fdcbb8186fc2d95D9B1df17430D",
-      "pub_key": "BK54KEPdcxMtR0sAnLo0FllWCdTsDASGLlqLzMOsFtTFOU2510zTA44t4bJhkrsm87GFWkMqzHaqB3AKCdqOz3M=:::MVsxZDfCvTa8dFaIzUtFfc+1SDC4W/bZEp7VXAZHDSEm/8fAT6omkJDSVh5JjrcTtJFFCYBuYecvRvZ+ob6SBQA=",
-      "voting_power": 100,
-      "network_addr": {
-        "ip": "54.184.14.94",
-        "port": 8670
-      }
-    },
-    {
-      "name": "shoal-02",
-      "address": "0xaFf25cB35aB0915b4Cf3714E0dDa5F186E5c0f0c",
-      "pub_key": "BOicmTatFo7xJ0RONiFYbvC+AX4Pi9czaaX2lU+CFLJsFxbt5INIIHQLI2aKFzpE0ud0KkJxBLPKcYllye9UUEs=:::Tf/36Qd2qIHBKqIBF0MtQfekgUW6Mn0jB7CfhTaA2wvge0R1hkBc706BgH5YXqWhbAKymN53PyqHM77SQqIfbQE=",
-      "voting_power": 100,
-      "network_addr": {
-        "ip": "44.232.182.163",
-        "port": 8670
-      }
-    },
-    {
-      "name": "shoal-03",
-      "address": "0xd5D71A235f0f426d93d7feC7926Ba909643555EA",
-      "pub_key": "BN9NUwAih9NB5fydrNGyICJz0HAH2YgIF0DwbBDpDVNeM0Jn+JRCIp58ewKYR4a+X4IDpvAcztR2S6rFt9xnOE8=:::RENpcrJe/mTzw8XgXBRRERLAQVQ2IGm0l4IiWq0zRTWOlQHTW/MFG0TuxRBUEZXurU+CgMhpYdqPzhfEvozHnQE=",
-      "voting_power": 100,
-      "network_addr": {
-        "ip": "52.13.22.118",
-        "port": 8670
-      }
-    },
-    {
-      "name": "shoal-04",
-      "address": "0x60bb2fA9A9402f955Be08bC0A75EcAcE2C0A8887",
-      "pub_key": "BFyzq1lQPQ50dIRZK0a1sT4aOqK07q3qgWcTwaCyxklsz9mXiieUmorcXmBKbu/mjYwCnS0K/jbESvxniY3Mp74=:::fBY3Qaj4GbMCNw1hcx+rPcV5khFiL3HBiIB5Bg2y2RRmcnXI5wqpVKKk4sooG0GbvZCssp+/Erq3eLhbtbaOYAE=",
-      "voting_power": 100,
-      "network_addr": {
-        "ip": "54.189.51.240",
-        "port": 8670
-      }
-    },
-    {
-      "name": "shoal-05",
-      "address": "0xD1186074257f1a6f231c415cdAf7E1f4AE48d51F",
-      "pub_key": "BE/JuBLnW3qMh1WSfB2yEQOwU5oQJ3W2m+jpR8GMoNyIG2mGPvbOuOAv5UWI+Uf64tH+4fpo6YR3EYwJI1SsjEw=:::rZAwdzC+pM4Kd7I/roxYwToZnB0o6XOSWsW+dU1DGJWcY/XpykpgOYsAfVAyj99d5ZTowJDeqvrOzFdq3N4knAA=",
-      "voting_power": 100,
-      "network_addr": {
-        "ip": "52.12.246.130",
-        "port": 8670
-      }
-    },
-    {
-      "name": "shoal-06",
-      "address": "0xD9b25EC06d7E033b59E7431432EbD0137f5bC886",
-      "pub_key": "BE1qhXKTQTttJKZ6SujNx4SA4kRX1TJbUVHO2q9lJEGV8mPFY/SixhijGlgBioj1j7zW9qaEjwXXVGUrEV2dLS0=:::OMm1KlLeWj4s0ayGfYhC6uVwGZMGnY3HalRLDEw43XyoYrdAbz88eGKl1V4U193xqaCMA6nyfJRr78to541B+wA=",
-      "voting_power": 100,
-      "network_addr": {
-        "ip": "52.13.122.219",
-        "port": 8670
-      }
-    },
-    {
-      "name": "shoal-07",
-      "address": "0x5e4fF9A896807e2548B1500D8ff6deFBcD2B5493",
-      "pub_key": "BIfZR/qpKVN17GltttI6yXG5yja9j7exRfp2tanu30QQNwRqspZ4c5WnUdZShutM05Te7sFpew9Sgp1jKvSP71o=:::jeZIzpKGEAGlCl3AKg34un2aVZ2pudi4DIgAJxCOluSkZeBoG0mWLqmZniejZcn2ASorWIxH+hc8FlgJV9FdzQA=",
-      "voting_power": 100,
-      "network_addr": {
-        "ip": "52.12.251.75",
-        "port": 8670
-      }
-    },
-    {
-      "name": "shoal-08",
-      "address": "0x5e3Ab38eb40d4433d64a84f3C8EdC3d335B44781",
-      "pub_key": "BAVlIuJAzH58vKO5mgKKRxC5iJu1+qv+dwtSr7ikj6W0M8Ztc+wzg7bew6N5Tv51c3imuvs8P/RAis5hgnjyw9o=:::rLwBuDFxSy+dwY706W0k9Zi2BOOTTTVdG940mCQOKYxudwUoKGy80PfPqWW64qnLHn3o2l6TbQ2EJFUrMn+m5QE=",
-      "voting_power": 100,
-      "network_addr": {
-        "ip": "54.147.208.255",
-        "port": 8670
-      }
-    },
-    {
-      "name": "shoal-09",
-      "address": "0xeE9B9098BA8515efDA61cf541f445d4C4dc0D6aF",
-      "pub_key": "BKw09ePgm5LwNTXy8ga/RMjqT3mXBPAgp8DzpxJYJdgfky9ScdhZbxvbpUl/WAmRIfeQJTZwBo/+fml06kJaSGA=:::o6aiyueJ01tGgNFrUWbqb28pUKEg6bGBPJMeRYBpO/zkXM4EBIjOlWqKtSGk1wPfbPA9IGGqB5PjdVLvDU7+rQA=",
-      "voting_power": 100,
-      "network_addr": {
-        "ip": "54.156.158.197",
-        "port": 8670
-      }
-    },
-    {
-      "name": "shoal-10",
-      "address": "0xBD6370c606D113C64A162e5dB95D55eF1F83D92B",
-      "pub_key": "BCwqkudjWNEBF1BQR2AXmCjTgiLIp08wUDSLZ7hwPbpalZX2JmQJvPOUE2V4RmSQi1m9XKSODsYZTEmWnyYfUrM=:::ryM143QdQ8WfjM/x6H8bIc10huE6lU+YvO+OafApvogXRJcJkVhlfjUHi3ugLdjxIbkTaMCh7dGPa/Z3QTKtaQE=",
-      "voting_power": 100,
-      "network_addr": {
-        "ip": "3.226.183.61",
-        "port": 8670
-      }
-    },
-    {
-      "name": "shoal-11",
-      "address": "0x8C5a7Fb396D3640FaD9eAE193c0c06aaee7e1Bf6",
-      "pub_key": "BFhId412D76twNBd7U1IlNLSoB+f/WVbHnl2BJpoaoZWiXLlS356CoKYGdd6p6Tdb/DtPY8mf0Nbq0toZ4MmWPA=:::j0xwoPYzPWtMSndryYORl9dFgLJBouJUBkjRb9lBmqCZfFo17wBdUB6+IIjzor8POKm8pVPGyzZlu9qEDZFKlwA=",
-      "voting_power": 100,
-      "network_addr": {
-        "ip": "54.146.138.126",
-        "port": 8670
-      }
-    },
-    {
-      "name": "shoal-12",
-      "address": "0xC1Cf0eCb8C59ed0Fa0c6305A40D2AA0C57F749Ce",
-      "pub_key": "BF/ykOFXiITfbQJguM2pJBStaVslaloc9dHWRC93QWOBwm7JjxhtK6EQl667U3qAh3UUzV7c3rAV1Ym6RItktVk=:::TjJfomiL3FGBQOYF94T4zaq2Nz8wiQpq7fz122CecXBCwuudt3HE+cMOLE+R/oZjz3A5IAG8D/ttTD1OT4FHXAE=",
-      "voting_power": 100,
-      "network_addr": {
-        "ip": "54.211.191.17",
-        "port": 8670
-      }
-    },
-    {
-      "name": "shoal-13",
-      "address": "0x2Dd8653454847eAA1ad1111d5a630d69efBb9001",
-      "pub_key": "BKz7s7M9YIryRfmWcKsTn5AW0apHhc0u1E0AilUDI7jK360LYoI9fOmMUwR0dAugv1matUf3KpX7OjfDYV6Nyt0=:::R5YH9CxdVLXbmWUMckUp6RB1uLLkxq63/EnBrVEB8gm5bgvY9akoXx4+EZJTK/9RUKlWQfXOkPz4bZH4rozz+QA=",
-      "voting_power": 100,
-      "network_addr": {
-        "ip": "34.196.235.209",
-        "port": 8670
-      }
-    },
-    {
-      "name": "shoal-14",
-      "address": "0xCD98930C5F2B953f719c4E132B8BdbF7474Cbf54",
-      "pub_key": "BGm8mSu7jz0OvdC/dnp6lQCbS3dNWCU6tmBTOo0h7XWyJ8S6XpDnqzfCNTBEM//hpssAKEePOyuzGgfXi1WIxo0=:::qxh6IZwcB2Z/VLpW/v81JlIxM1YbpXCFhGl+cyrykB7czs4dFt22gDHg9CwC2B1lLURCfaY5X7ZMf1bhKC1ulAA=",
-      "voting_power": 100,
-      "network_addr": {
-        "ip": "34.206.154.12",
-        "port": 8670
-      }
-    },
-    {
-      "name": "shoal-15",
-      "address": "0x7EB363d6D70af32f4464B67ef66E823667bfD727",
-      "pub_key": "BFvqgYox+dBtCFjV1b3DDDbyf9PNTY4qonpzK2Ak+sRf4ZlbdmmyuVHjLcJQO4warPvBE38eHij2NWj9ONdTTs4=:::bwCuJtBIjzCVXkc5OAeHRJVkERmbtK6wcXrsux8BNZOy1Jeq9Aj7UEfaWyzmqfmEtnVJ8wEVKo/B5uSaLdRawQA=",
-      "voting_power": 100,
-      "network_addr": {
-        "ip": "18.163.158.97",
-        "port": 8670
-      }
-    },
-    {
-      "name": "shoal-16",
-      "address": "0xC6ae6aC0cdC7D66C6ED7e4105a7D61Ee2a292407",
-      "pub_key": "BLIWtGRgvF1/0JKlbxQxYRZF72wsjUut240WwRMe3PBxLkQrydm9dTmUw8LZENRCFXvPAY3OsiPEC1KwEw7QWr0=:::oIrzDlNwbxfQDq4/FYw/mgmkCJa4L7PF/ztyNog3Rjox32yt+7NmKBVyW+giiICmnSCVmiLtk0YMadoR11UQNAE=",
-      "voting_power": 100,
-      "network_addr": {
-        "ip": "18.163.216.224",
-        "port": 8670
-      }
-    },
-    {
-      "name": "shoal-17",
-      "address": "0xff3989a3D64B83f29B3799CaE2561a9E39eB39DE",
-      "pub_key": "BLXI3kPP5XoEAE0zoCdqe3s8sIrkL7BxefCF5s47flSDEiEG4ELsj7nXptKeSYffyBFUV0z3EqLHRU6g+SejDx8=:::kZ7BnYtwhyHRKR4gVBdp4PYXFCB6ZdEbDUHVNi3UEHvLNiTD1DUTp7ocTflrwejhdXhZ+36dC6FT0+z/2ix5wgE=",
-      "voting_power": 100,
-      "network_addr": {
-        "ip": "18.163.179.51",
-        "port": 8670
-      }
-    },
-    {
-      "name": "shoal-18",
-      "address": "0xa49E947FB4e40BF106158CdD93CCff86cD8D8849",
-      "pub_key": "BFlaL7mp1yrmDJKfJCN07M5dDxXSjuE9iMpqCDxkX4wmHy7/+pd6xAhpHJtHz4DG5FCnraG4vaDviEI2f3VSpQI=:::rzsc9qzWznX8j/hy3cRXQ0O1gdn5ylkkQGyA+O/yYhcm3lLoQ0X6xjEC/c+pxuwGfLx89qFY3ejvJc/aOXITsgE=",
-      "voting_power": 100,
-      "network_addr": {
-        "ip": "18.166.19.251",
-        "port": 8670
-      }
-    },
-    {
-      "name": "shoal-19",
-      "address": "0x92638F95B21F87ea427F4a887Fb0A5E9Ba2b0817",
-      "pub_key": "BAPT7x1XHAQe+TfrTTQgZqjyG9Ea/Xo3PKmPuZA6O3A9ozqr3lqBW+2pygqR8vntjH1QZUbiQ3XDydZp25zzCKI=:::bk1mtAJdpbN8+Q9lk1glxEf4AgJVgA+g6ULqC/AEgqdglm8oTavWRXI/ByLybjgJwaO8mfGOBRf1jOBmrQOv6gE=",
-      "voting_power": 100,
-      "network_addr": {
-        "ip": "18.163.252.218",
-        "port": 8670
-      }
-    },
-    {
-      "name": "shoal-20",
-      "address": "0x77B239a3AB9C560D3cbE29779Aef4021f94f4BfF",
-      "pub_key": "BN7BG/SDFJFk8BV72VPVjVdd0HBTU0eLtJXZTlaI40iX4e6fO/my/PKtk1Y3/CmhjUEXDw7ZUVzerfAz1Tx9x3s=:::OpjMHqFB606zAVq1m3IMmPeP+Z0uTmn3ThtsEgB/McFiQ+9zEEO1PGoOnVc3bvQCfoTMa1AOjrG+hOObU1hHUwA=",
-      "voting_power": 100,
-      "network_addr": {
-        "ip": "18.163.230.113",
-        "port": 8670
-      }
-    },
-    {
-      "name": "shoal-21",
-      "address": "0x7a0591Bea1bDdBF618FaD008bC6B70a2Ed823764",
-      "pub_key": "BEkE4DpbspUFA4Vg6PdzOfN1yGXv8dWUmZ+QPjt2KSQvA/h4NYwyYlU25WxgU6I5aiPlnbbExSP7gyaPvA3RVs8=:::ApN6PvgCv7nMw3UpM39/4e5NI8gP3SwfXpMURhabg/fobPR4eluvYeTev98ZD8m58dguFzLzEiWsuAJjFDw+3AA=",
-      "voting_power": 100,
-      "network_addr": {
-        "ip": "18.163.218.6",
-        "port": 8670
-      }
+  {
+    "name": "shoal-01",
+    "address": "0x658B6da6723979eC56fef1296F115477460A8797",
+    "pub_key": "BD8rZwjdir9hidtqxDK5rbbGrGSZ9BZ0R98jAtpxKdLJ0n3BbFeI05tbptWtvJ5Xmkm45cKwpGZqx39a0uMka90=:::f9uhSGcTXRBkOqpYuDkjw4kmcvmAELGau7MJVGgQwP+G63+vzwEU+WCu0e0NFBmJFpsT9ZQgIvapzpY1dviKFQA=",
+    "voting_power": 100,
+    "network_addr": {
+      "ip": "13.228.91.172",
+      "port": 8670
     }
-  ]
+  },
+  {
+    "name": "shoal-02",
+    "address": "0x34BD9720f4d83Db2c8d7de87eC38b7832301CA67",
+    "pub_key": "BHq/NmcbeOS/wEqZGGYOgm79/tLkZy004IFu4gjSt7jiD/fLrJsdKSHqe/oQqT5y78tt6H3zr016hvXte/Ntw70=:::bNpwfSjJbskU1czBj0p/2Y4s03jH8mx9nV+ahX55815HNRG03+nEjOLkh4WcNgUe2MQKVTw83mgNU8Ju79MF8gE=",
+    "voting_power": 100,
+    "network_addr": {
+      "ip": "18.136.189.43",
+      "port": 8670
+    }
+  },
+  {
+    "name": "shoal-03",
+    "address": "0xe6c7317A261E0453a6793F0cE2466c508d3f2c04",
+    "pub_key": "BAYuQ+dcpHZP7fiBuKf0ddt9qqEbxek/5DFDgo897cR4HoVDXlrHtJvPdC6YCBM4UcSBq9+DBG99IsTEQnfSZaE=:::PKWq4VQqvX6+B+3GrvOnSELoPt2AhKfNozaY4iIz3t2DvoetKdD70rP0QwT86WncK1sUA70MJjOJ/+69ZAQ+AgE=",
+    "voting_power": 100,
+    "network_addr": {
+      "ip": "52.220.150.53",
+      "port": 8670
+    }
+  },
+  {
+    "name": "shoal-04",
+    "address": "0x2b1003d406D30888BE8bC645e542Dec79607baD5",
+    "pub_key": "BBxoHjMZLC4akskv1uMr8lqpmfELemYB3P1piEoJukJlXXngMD4F/47jHTfsjPqAQeRfntIPW93FyBU7MZA2ouA=:::fwNuti4hN3GwdTPJaSSQGwU2OtWCx/8UdHeYtLEAn5WWiOjjhBKrjx2ccbVEQoniy2H/JL96kYPqpYwl712BiAA=",
+    "voting_power": 100,
+    "network_addr": {
+      "ip": "54.251.200.38",
+      "port": 8670
+    }
+  },
+  {
+    "name": "shoal-05",
+    "address": "0x06423A48178615CF42f97B8e9B6F5351E351F652",
+    "pub_key": "BCXOoOuardRwYAHjsQ2LPJ7vuNWObLD951Cm8WWGZlKFHs/o+G9IHVxt8vAW3N3B6IhfHR17jIJSlus4YTVTwiQ=:::rWBD4IYkQKG/zJUy4rks3MZAGqbHMVpyoXISu2ljQJTEPFVdnlQAifSm8vtGMlgFxif9ljHXtUjJKWC0XTVBQAE=",
+    "voting_power": 100,
+    "network_addr": {
+      "ip": "54.254.11.210",
+      "port": 8670
+    }
+  },
+  {
+    "name": "shoal-06",
+    "address": "0xe69Bd369509203be30F863Fd2F474E67fec8590c",
+    "pub_key": "BCyh9c6hHFb/ped4A2Y1XJTQja7fWrtvzyi6sBOZkoXNbd2UclKlI1U5lEw39iPZBpAwROI/9GSh2kQa6XttUT0=:::jPCfE+Ktn4JPMEcGGhskvIdN0j8bjSWMjbLPjZt7VWFbS21nWGdnQFEwhUKN83reMenfbXAgCYdqMW6Ly3azXwA=",
+    "voting_power": 100,
+    "network_addr": {
+      "ip": "54.254.108.229",
+      "port": 8670
+    }
+  },
+  {
+    "name": "shoal-07",
+    "address": "0xe4d638Fa7C53181510F241766Fa206206F058Eb5",
+    "pub_key": "BNKAoqtHFbCEypdKQlSavh/v0PPAv3FWgMZGv9+ZuN9LKkE4enW1zUUyhrpuJ3YE68hMUI+2RSny6Yw3A49EPCg=:::Ur7lJlp9bC+uMAihvx68AhTSWnUnha1S6PkLMt6xgS6HRTMb3Bj6iGNAYGs1ufWXeqz9Su2K+93X96UXeXWC+wE=",
+    "voting_power": 100,
+    "network_addr": {
+      "ip": "44.241.85.51",
+      "port": 8670
+    }
+  },
+  {
+    "name": "shoal-08",
+    "address": "0x9bd0A74C7C2c51cF30246c87B875C8f51706A089",
+    "pub_key": "BJewT3v2FpdtKxtIS9+Fc5QIbBXT8sNTtp7XjZIonvVRBcGl9VbTaJjmyQQ24ARYnAud3oUyW8qSu+Gkq1xFen8=:::I77bzNnL7Xh5Sw8zvV0jnXfoEidJpvn9LdDnZ9b8mS0JgXoRBg5XOuY8WioFlv0BD3+Cwb6w3peNq3SVaHyxmgA=",
+    "voting_power": 100,
+    "network_addr": {
+      "ip": "52.24.8.47",
+      "port": 8670
+    }
+  },
+  {
+    "name": "shoal-09",
+    "address": "0x4aFfBb2515f15798bB0cc2e8198EBD0007015D67",
+    "pub_key": "BAM1lNIR004ScqCsmN3Cws5XYCpfbwserSPsWKpHFTGZ/Cd2PH6S/t5hfbBTnIC4sK43VUgdKAAv/4DgIwfqTLM=:::txF4WwPlDMrUseVf1F3X0IAnbQfqQ9YGN2QCHpOmtrI7L00hdGgWlAg0qw7P0lQLayDsVj4PS4US2zBafRrW4QA=",
+    "voting_power": 100,
+    "network_addr": {
+      "ip": "44.240.83.76",
+      "port": 8670
+    }
+  },
+  {
+    "name": "shoal-10",
+    "address": "0x9eD1914F1A6759741A23c0Ac1371243414EA612B",
+    "pub_key": "BIQSm1Pn4nCvr9dt9lNwL3jCjGwz9LaHw1HM4ccBFnz2VkK0Osy/zfRia5+mRKCSzPKBVZFbKf5SQJKOJmXR+Fk=:::Sc+cDxl8codYh2MTUtevsZS6ZwWX+gA+2n2zwpr+/JT4nsUjnSEgs5WQ+hHAysW4leybIICgeYqZ2V1XYqKAeAA=",
+    "voting_power": 100,
+    "network_addr": {
+      "ip": "44.228.229.107",
+      "port": 8670
+    }
+  },
+  {
+    "name": "shoal-11",
+    "address": "0xAc4acda6d9e4471Da5b1F3815c7e6952Cd34CB1b",
+    "pub_key": "BL5Mlj7G3sprNERzdrVJnsf73W1vBlWXFam7ZL7fCJWFJHdRN+SAApRuMG9HDVGOV/9WNugsd2vQWlR1jYf8R3o=:::ZkhnePEX4ghmJFC0bRjJ38xDpznR1szI834AGXBoHpfpR4QhanLlgVztQ+Edig9ZuiN94EvIghZzdNW8NP01MgE=",
+    "voting_power": 100,
+    "network_addr": {
+      "ip": "44.236.203.192",
+      "port": 8670
+    }
+  }
+]

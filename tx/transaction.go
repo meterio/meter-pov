@@ -168,8 +168,8 @@ func NewTransactionFromEthTx(ethTx *types.Transaction, chainTag byte, blockRef B
 	if strings.ToLower(origin.Hex()) != strings.ToLower(from.String()) {
 		return nil, errors.New("invalid ethereum tx: origin is not the same as from")
 	}
-	var toto  *meter.Address
-	if  to.String() == "0x0000000000000000000000000000000000000000" {
+	var toto *meter.Address
+	if to.String() == "0x0000000000000000000000000000000000000000" {
 		toto = nil
 	} else {
 		toto = &to
@@ -190,6 +190,26 @@ func NewTransactionFromEthTx(ethTx *types.Transaction, chainTag byte, blockRef B
 	}
 	// tx.cache.signer.Store(from)
 	fmt.Println(from)
+	return tx, nil
+}
+
+func (t *Transaction) IsEthTx() bool {
+	return len(t.body.Reserved) == 3 &&
+		len(t.body.Reserved[0].([]byte)) == len(RESERVED_PREFIX) &&
+		hex.EncodeToString(t.body.Reserved[0].([]byte)) == hex.EncodeToString(RESERVED_PREFIX[:]) &&
+		len(t.body.Signature) >= 65
+}
+
+func (t *Transaction) GetEthTx() (*types.Transaction, error) {
+	if !t.IsEthTx() {
+		return nil, errors.New("not a tx from ethereum")
+	}
+	var tx *types.Transaction
+	rawTx := t.body.Reserved[2].([]byte)
+	err := rlp.DecodeBytes(rawTx, &tx)
+	if err != nil {
+		return nil, err
+	}
 	return tx, nil
 }
 
@@ -225,6 +245,18 @@ func (t *Transaction) IsExpired(blockNum uint32) bool {
 // ID = hash(signingHash, signer).
 // It returns zero Bytes32 if signer not available.
 func (t *Transaction) ID() (id meter.Bytes32) {
+	if t.IsEthTx() {
+		ethTx, err := t.GetEthTx()
+		if err != nil {
+			return meter.Bytes32{}
+		}
+		hash := ethTx.Hash()
+		id, err := meter.ParseBytes32(hash.String())
+		if err != nil {
+			return meter.Bytes32{}
+		}
+		return id
+	}
 	if cached := t.cache.id.Load(); cached != nil {
 		return cached.(meter.Bytes32)
 	}
@@ -351,7 +383,7 @@ func (t *Transaction) Signer() (signer meter.Address, err error) {
 	if len(t.body.Signature) == 0 {
 		return meter.Address{}, nil
 	}
-	if len(t.body.Reserved) == 3 && len(t.body.Reserved[0].([]byte)) == len(RESERVED_PREFIX) && t.body.Reserved[0].([]byte)[0] == RESERVED_PREFIX[0] && t.body.Reserved[0].([]byte)[1] == RESERVED_PREFIX[1] && len(t.body.Signature) >= 65 {
+	if t.IsEthTx() {
 		// ethereum translated tx
 		from := "0x" + hex.EncodeToString(t.body.Reserved[1].([]byte))
 		fmt.Println("Signer for ETH translated TX:", from)

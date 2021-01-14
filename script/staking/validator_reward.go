@@ -11,6 +11,7 @@ import (
 	"math/big"
 	"strings"
 
+	"github.com/dfinlab/meter/block"
 	"github.com/dfinlab/meter/meter"
 )
 
@@ -92,7 +93,7 @@ func (v *ValidatorRewardList) ToList() []*ValidatorReward {
 }
 
 //  api routine interface
-func GetLatestValidatorRewardList() (*ValidatorRewardList, error) {
+func GetValidatorRewardListByHeader(header *block.Header) (*ValidatorRewardList, error) {
 	staking := GetStakingGlobInst()
 	if staking == nil {
 		log.Warn("staking is not initialized...")
@@ -100,8 +101,11 @@ func GetLatestValidatorRewardList() (*ValidatorRewardList, error) {
 		return nil, err
 	}
 
-	best := staking.chain.BestBlock()
-	state, err := staking.stateCreator.NewState(best.Header().StateRoot())
+	h := header
+	if header == nil {
+		h = staking.chain.BestBlock().Header()
+	}
+	state, err := staking.stateCreator.NewState(h.StateRoot())
 	if err != nil {
 		return nil, err
 	}

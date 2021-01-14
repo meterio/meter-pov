@@ -6,6 +6,7 @@
 package transactions
 
 import (
+	"encoding/json"
 	"fmt"
 	"math/big"
 	"strings"
@@ -61,6 +62,19 @@ func hasKey(m map[string]interface{}, key string) bool {
 	return false
 }
 
+type EthTx struct {
+	Nonce    string `json:"nonce"`
+	GasPrice string `json:"gasPrice"`
+	Gas      string `json:"gas"`
+	To       string `json:"to"`
+	Value    string `json:"value"`
+	Input    string `json:"input"`
+	V        string `json:"v"`
+	R        string `json:"r"`
+	S        string `json:"s"`
+	Hash     string `json:"hash"`
+}
+
 //Transaction transaction
 type Transaction struct {
 	ID           meter.Bytes32       `json:"id"`
@@ -75,6 +89,7 @@ type Transaction struct {
 	DependsOn    *meter.Bytes32      `json:"dependsOn"`
 	Size         uint32              `json:"size"`
 	Meta         TxMeta              `json:"meta"`
+	EthTx        *EthTx              `json:"ethTx"`
 }
 type UnSignedTx struct {
 	ChainTag     uint8               `json:"chainTag"`
@@ -163,7 +178,24 @@ func convertTransaction(tx *tx.Transaction, header *block.Header, txIndex uint64
 	for i, c := range tx.Clauses() {
 		cls[i] = convertClause(c)
 	}
+	ethTxJSON := make([]byte, 0)
+	var convertedEthTx *EthTx
 	br := tx.BlockRef()
+	if tx.IsEthTx() {
+		ethTx, err := tx.GetEthTx()
+		if err == nil {
+			ethTxJSON, err = ethTx.MarshalJSON()
+			if err != nil {
+				fmt.Println("could not marshal ethereum tx")
+			}
+			etx := EthTx{}
+			err = json.Unmarshal(ethTxJSON, &etx)
+			if err != nil {
+				fmt.Println("could not unmarshal ethTx")
+			}
+			convertedEthTx = &etx
+		}
+	}
 	t := &Transaction{
 		ChainTag:     tx.ChainTag(),
 		ID:           tx.ID(),
@@ -181,6 +213,7 @@ func convertTransaction(tx *tx.Transaction, header *block.Header, txIndex uint64
 			BlockNumber:    header.Number(),
 			BlockTimestamp: header.Timestamp(),
 		},
+		EthTx: convertedEthTx,
 	}
 	return t, nil
 }

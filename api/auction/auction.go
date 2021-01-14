@@ -6,23 +6,36 @@
 package auction
 
 import (
+	"math"
 	"net/http"
+	"strconv"
 
 	"github.com/dfinlab/meter/api/utils"
+	"github.com/dfinlab/meter/block"
+	"github.com/dfinlab/meter/chain"
 	"github.com/dfinlab/meter/meter"
 	"github.com/dfinlab/meter/script/auction"
+	"github.com/dfinlab/meter/state"
 	"github.com/gorilla/mux"
+	"github.com/pkg/errors"
 )
 
 type Auction struct {
+	chain        *chain.Chain
+	stateCreator *state.Creator
 }
 
-func New() *Auction {
-	return &Auction{}
+func New(chain *chain.Chain,
+	stateCreator *state.Creator) *Auction {
+	return &Auction{chain: chain, stateCreator: stateCreator}
 }
 
 func (at *Auction) handleGetAuctionSummary(w http.ResponseWriter, req *http.Request) error {
-	list, err := auction.GetAuctionSummaryList()
+	h, err := at.handleRevision(req.URL.Query().Get("revision"))
+	if err != nil {
+		return err
+	}
+	list, err := auction.GetAuctionSummaryListByHeader(h)
 	if err != nil {
 		return err
 	}
@@ -53,6 +66,41 @@ func (at *Auction) handleGetAuctionCB(w http.ResponseWriter, req *http.Request) 
 	acb := convertAuctionCB(cb)
 
 	return utils.WriteJSON(w, acb)
+}
+
+func (at *Auction) handleRevision(revision string) (*block.Header, error) {
+	if revision == "" || revision == "best" {
+		return at.chain.BestBlock().Header(), nil
+	}
+	if len(revision) == 66 || len(revision) == 64 {
+		blockID, err := meter.ParseBytes32(revision)
+		if err != nil {
+			return nil, utils.BadRequest(errors.WithMessage(err, "revision"))
+		}
+		h, err := at.chain.GetBlockHeader(blockID)
+		if err != nil {
+			if at.chain.IsNotFound(err) {
+				return nil, utils.BadRequest(errors.WithMessage(err, "revision"))
+			}
+			return nil, err
+		}
+		return h, nil
+	}
+	n, err := strconv.ParseUint(revision, 0, 0)
+	if err != nil {
+		return nil, utils.BadRequest(errors.WithMessage(err, "revision"))
+	}
+	if n > math.MaxUint32 {
+		return nil, utils.BadRequest(errors.WithMessage(errors.New("block number out of max uint32"), "revision"))
+	}
+	h, err := at.chain.GetTrunkBlockHeader(uint32(n))
+	if err != nil {
+		if at.chain.IsNotFound(err) {
+			return nil, utils.BadRequest(errors.WithMessage(err, "revision"))
+		}
+		return nil, err
+	}
+	return h, nil
 }
 
 func (at *Auction) Mount(root *mux.Router, pathPrefix string) {
