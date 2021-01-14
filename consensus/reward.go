@@ -336,9 +336,11 @@ func (conR *ConsensusReactor) TryBuildStakingGoverningTx() []*tx.Transaction {
 		txs = append(txs, governingTx)
 	}
 
-	autobidTx := conR.BuildValidatorAutobidTx(autobidList)
-	if autobidTx != nil {
-		txs = append(txs, autobidTx)
+	if len(autobidList) > 0 {
+		autobidTx := conR.BuildValidatorAutobidTx(autobidList)
+		if autobidTx != nil {
+			txs = append(txs, autobidTx)
+		}
 	}
 
 	return txs
