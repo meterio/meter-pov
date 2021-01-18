@@ -729,7 +729,6 @@ func (sb *StakingBody) GoverningHandler(senv *StakingEnviroment, gas uint64) (re
 			Port:        c.Port,
 			Commission:  c.Commission,
 		}
-
 		// delegate must not in jail
 		if jailed := inJailList.Exist(delegate.Address); jailed == true {
 			log.Info("delegate in jail list, ignored ...", "name", string(delegate.Name), "addr", delegate.Address)
@@ -768,12 +767,8 @@ func (sb *StakingBody) GoverningHandler(senv *StakingEnviroment, gas uint64) (re
 		return bytes.Compare(delegates[i].PubKey, delegates[j].PubKey) >= 0
 	})
 
-	delegateSize := int(sb.Option)
-	if len(delegates) > delegateSize {
-		delegateList.SetDelegates(delegates[:delegateSize])
-	} else {
-		delegateList.SetDelegates(delegates)
-	}
+	// set the delegateList with sorted delegates
+	delegateList.SetDelegates(delegates)
 
 	staking.SetCandidateList(candidateList, state)
 	staking.SetBucketList(bucketList, state)
