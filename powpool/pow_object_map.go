@@ -13,9 +13,11 @@ import (
 
 	"github.com/btcsuite/btcd/blockchain"
 	"github.com/dfinlab/meter/meter"
+	"github.com/inconshreveable/log15"
 )
 
 var (
+	log                           = log15.New("pkg", "powpool")
 	ErrIncompletePowBlocksInEpoch = errors.New("incomplete pow blocks in epoch")
 )
 
@@ -177,10 +179,10 @@ func (m *powObjectMap) GetLatestHeight() uint32 {
 }
 
 func (m *powObjectMap) FillLatestObjChain(obj *powObject) (*PowResult, error) {
-	result := NewPowResult(obj.Nonce())
+	pool := GetGlobPowPoolInst()
+	curCoef := pool.GetCurCoef()
 
-	posCurEpoch, startCoef, fadeDays, fadeRate := GetPosCurEpochAndCoef()
-	curCoef := calcPowCoef(0, posCurEpoch, startCoef, fadeDays, fadeRate)
+	result := NewPowResult(obj.Nonce())
 
 	target := blockchain.CompactToBig(obj.blockInfo.NBits)
 	genesisTarget := blockchain.CompactToBig(GetPowGenesisBlockInfo().NBits)

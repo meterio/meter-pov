@@ -11,6 +11,7 @@ import (
 
 	"github.com/dfinlab/meter/api/utils"
 	"github.com/dfinlab/meter/consensus"
+	"github.com/dfinlab/meter/powpool"
 	"github.com/gorilla/mux"
 )
 
@@ -55,11 +56,19 @@ func (n *Node) handlePubKey(w http.ResponseWriter, req *http.Request) error {
 	return nil
 }
 
+func (n *Node) handleCoef(w http.ResponseWriter, req *http.Request) error {
+	w.WriteHeader(http.StatusOK)
+	pool := powpool.GetGlobPowPoolInst()
+	utils.WriteJSON(w, pool.GetCurCoef())
+	//	w.Write([]byte(b))
+	return nil
+}
+
 func (n *Node) Mount(root *mux.Router, pathPrefix string) {
 	sub := root.PathPrefix(pathPrefix).Subrouter()
 
 	sub.Path("/network/peers").Methods("Get").HandlerFunc(utils.WrapHandlerFunc(n.handleNetwork))
 	sub.Path("/consensus/committee").Methods("Get").HandlerFunc(utils.WrapHandlerFunc(n.handleCommittee))
 	sub.Path("/pubkey").Methods("Get").HandlerFunc(utils.WrapHandlerFunc(n.handlePubKey))
-
+	sub.Path("/coef").Methods("Get").HandlerFunc(utils.WrapHandlerFunc(n.handleCoef))
 }
