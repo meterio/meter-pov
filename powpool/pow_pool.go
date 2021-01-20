@@ -23,7 +23,6 @@ import (
 	"github.com/dfinlab/meter/meter"
 	"github.com/dfinlab/meter/state"
 	"github.com/ethereum/go-ethereum/event"
-	"github.com/inconshreveable/log15"
 	"github.com/prometheus/client_golang/prometheus"
 )
 
@@ -36,7 +35,6 @@ const (
 )
 
 var (
-	log             = log15.New("pkg", "powpool")
 	GlobPowPoolInst *PowPool
 
 	powBlockRecvedGauge = prometheus.NewGauge(prometheus.GaugeOpts{
@@ -382,35 +380,36 @@ func (p *PowPool) ReplayFrom(startHeight int32) error {
 	return nil
 }
 
-func GetPosCurEpochAndCoef() (epoch uint64, coef int64, fadeDays float64, fadeRate float64) {
-	pool := GetGlobPowPoolInst()
+func (pool *PowPool) GetCurCoef() (curCoef int64) {
 	if pool == nil {
 		panic("get globalPowPool failed")
 	}
 	bestBlock := pool.chain.BestBlock()
-	epoch = uint64(bestBlock.GetBlockEpoch())
+	epoch := uint64(bestBlock.GetBlockEpoch())
 
 	state, err := pool.stateCreator.NewState(bestBlock.Header().StateRoot())
 	if err != nil {
 		panic("get state failed")
 	}
 	bigCoef := builtin.Params.Native(state).Get(meter.KeyPowPoolCoef)
-	coef = bigCoef.Int64()
+	coef := bigCoef.Int64()
 
 	// builtin parameter has uint of wei, aks, 1e18, so divide by 1e9 twice
 	d := builtin.Params.Native(state).Get(meter.KeyPowPoolCoefFadeDays)
 	d = d.Div(d, big.NewInt(1e09))
 	fd := new(big.Float).SetInt(d)
-	fadeDays, _ = fd.Float64()
+	fadeDays, _ := fd.Float64()
 	fadeDays = fadeDays / (1e09)
 
 	// builtin fade rate
 	r := builtin.Params.Native(state).Get(meter.KeyPowPoolCoefFadeRate)
 	r = r.Div(r, big.NewInt(1e09))
 	fr := new(big.Float).SetInt(r)
-	fadeRate, _ = fr.Float64()
+	fadeRate, _ := fr.Float64()
 	fadeRate = fadeRate / (1e09)
 
-	log.Debug("GetPosCurEpochAndCoef", "coef", coef, "epoch", epoch, "fadeDays", fadeDays, "fadeRate", fadeRate)
-	return
+	log.Debug("GetCurCoef", "coef", coef, "epoch", epoch, "fadeDays", fadeDays, "fadeRate", fadeRate)
+	curCoef = calcPowCoef(0, epoch, coef, fadeDays, fadeRate)
+	log.Info("Current Coef:", curCoef)
+	return curCoef
 }
