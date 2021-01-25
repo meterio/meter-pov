@@ -200,13 +200,13 @@ func (conR *ConsensusReactor) CalcValidatorRewards(totalReward *big.Int, delegat
 			selfPortion = selfPortion.Div(selfPortion, big.NewInt(1e09))
 
 			delegateSelf = delegateSelf.Add(delegateSelf, selfPortion)
-		}
 
-		// distribute delegate itself
-		autobidAmount := new(big.Int).Mul(delegateSelf, big.NewInt(int64(d.Autobid)))
-		autobidAmount = autobidAmount.Div(autobidAmount, big.NewInt(100))
-		distAmount := new(big.Int).Sub(delegateSelf, autobidAmount)
-		rewardMap.Add(distAmount, autobidAmount, delegates[i].Address)
+			// distribute delegate itself
+			autobidAmount := new(big.Int).Mul(delegateSelf, big.NewInt(int64(d.Autobid)))
+			autobidAmount = autobidAmount.Div(autobidAmount, big.NewInt(100))
+			distAmount := new(big.Int).Sub(delegateSelf, autobidAmount)
+			rewardMap.Add(distAmount, autobidAmount, delegates[i].Address)
+		}
 
 		// now distributes actualReward (remaining part) to each distributor
 		// as percentage to each distributor， the unit of Shares is shannon， ie， 1e09
