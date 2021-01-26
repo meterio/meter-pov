@@ -87,7 +87,7 @@ func convertSummary(s *auction.AuctionSummary) *AuctionSummary {
 		txs = append(txs, convertAuctionTx(t))
 	}
 	return &AuctionSummary{
-		AuctionID:    s.AuctionID.AbbrevString(),
+		AuctionID:    s.AuctionID.String(),
 		StartHeight:  s.StartHeight,
 		StartEpoch:   s.StartEpoch,
 		EndHeight:    s.EndHeight,
@@ -131,7 +131,7 @@ func convertAuctionCB(cb *auction.AuctionCB) *AuctionCB {
 	}
 
 	return &AuctionCB{
-		AuctionID:   cb.AuctionID.AbbrevString(),
+		AuctionID:   cb.AuctionID.String(),
 		StartHeight: cb.StartHeight,
 		StartEpoch:  cb.StartEpoch,
 		EndHeight:   cb.EndHeight,
