@@ -16,6 +16,7 @@ func (conR *ConsensusReactor) BuildAutobidData(autobid *RewardInfo) (ret []byte)
 	ret = []byte{}
 
 	body := &auction.AuctionBody{
+		Bidder:    autobid.Address,
 		Opcode:    auction.OP_BID,
 		Version:   uint32(0),
 		Option:    auction.AUTO_BID,
