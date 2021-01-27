@@ -233,11 +233,11 @@ func (ab *AuctionBody) HandleAuctionTx(senv *AuctionEnviroment, gas uint64) (ret
 	}
 
 	if ab.Option == AUTO_BID {
-		if ab.Amount.Cmp(MinimumBidAmount) < 0 {
-			log.Info("amount lower than minimum bid threshold", "amount", ab.Amount, "minBid", MinimumBidAmount)
-			err = errLessThanBidThreshold
-			return
-		}
+		// if ab.Amount.Cmp(MinimumBidAmount) < 0 {
+		// 	log.Info("amount lower than minimum bid threshold", "amount", ab.Amount, "minBid", MinimumBidAmount)
+		// 	err = errLessThanBidThreshold
+		// 	return
+		// }
 
 		// check bidder have enough meter balance?
 		if state.GetEnergy(ab.Bidder).Cmp(ab.Amount) < 0 {
