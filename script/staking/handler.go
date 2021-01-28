@@ -924,19 +924,7 @@ func (sb *StakingBody) CandidateUpdateHandler(senv *StakingEnviroment, gas uint6
 		changed = true
 	}
 	if autobidUpdated {
-		candBucket.Autobid = sb.Autobid
-		found := false
-		for i, b := range bucketList.buckets {
-			if b.ID().String() == candBucket.ID().String() {
-				bucketList.buckets[i] = candBucket
-				found = true
-				break
-			}
-		}
-		if found {
-			staking.SetBucketList(bucketList, state)
-		}
-		changed = true
+		staking.SetBucketList(bucketList, state)
 	}
 
 	// IP/Port are un-stricted
