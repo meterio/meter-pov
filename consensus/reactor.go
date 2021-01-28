@@ -123,14 +123,14 @@ type ConsensusReactor struct {
 	csMode             byte // delegates, committee, other
 	delegateSize       int  // global constant, current available delegate size.
 	committeeSize      uint32
-	curDelegates       *types.DelegateSet  // current delegates list
-	curCommittee       *types.ValidatorSet // This is top 400 of delegates by given nonce
-	curActualCommittee []CommitteeMember   // Real committee, should be subset of curCommittee if someone is offline.
+	curDelegates       *types.DelegateSet      // current delegates list
+	curCommittee       *types.ValidatorSet     // This is top 400 of delegates by given nonce
+	curActualCommittee []types.CommitteeMember // Real committee, should be subset of curCommittee if someone is offline.
 	curCommitteeIndex  uint32
 	logger             log15.Logger
 
 	csRoleInitialized uint
-	csCommon          *ConsensusCommon //this must be allocated as validator
+	csCommon          *types.ConsensusCommon //this must be allocated as validator
 	csLeader          *ConsensusLeader
 	//	csProposer        *ConsensusProposer
 	csValidator *ConsensusValidator
@@ -333,31 +333,6 @@ const (
 	CONSENSUS_COMMIT_ROLE_VALIDATOR = uint(0x04)
 )
 
-// CommitteeMember is validator structure + consensus fields
-type CommitteeMember struct {
-	Name     string
-	PubKey   ecdsa.PublicKey
-	NetAddr  types.NetAddress
-	CSPubKey bls.PublicKey
-	CSIndex  int
-}
-
-// create new committee member
-func NewCommitteeMember() *CommitteeMember {
-	return &CommitteeMember{}
-}
-
-func (cm *CommitteeMember) ToString() string {
-	return fmt.Sprintf("[CommitteeMember(%s): PubKey:%s CSPubKey:%s, CSIndex:%v]",
-		cm.Name, hex.EncodeToString(crypto.FromECDSAPub(&cm.PubKey)),
-		cm.CSPubKey.ToString(), cm.CSIndex)
-}
-
-func (cm *CommitteeMember) String() string {
-	return fmt.Sprintf("%15s: ip:%s pubkey:%v index:%d", cm.Name, cm.NetAddr.IP.String(),
-		hex.EncodeToString(crypto.FromECDSAPub(&cm.PubKey)), cm.CSIndex)
-}
-
 type consensusMsgInfo struct {
 	//Msg    ConsensusMessage
 	Msg       ConsensusMessage
@@ -439,7 +414,7 @@ func (conR *ConsensusReactor) UpdateActualCommittee(leaderIndex uint32, config C
 		validators = append(validators, conR.curCommittee.Validators[:leaderIndex]...)
 	}
 	for i, v := range validators {
-		cm := CommitteeMember{
+		cm := types.CommitteeMember{
 			Name:     v.Name,
 			PubKey:   v.PubKey,
 			NetAddr:  v.NetAddr,
@@ -459,10 +434,10 @@ func (conR *ConsensusReactor) UpdateActualCommittee(leaderIndex uint32, config C
 }
 
 // get the specific round proposer
-func (conR *ConsensusReactor) getRoundProposer(round uint32) CommitteeMember {
+func (conR *ConsensusReactor) getRoundProposer(round uint32) types.CommitteeMember {
 	size := len(conR.curActualCommittee)
 	if size == 0 {
-		return CommitteeMember{}
+		return types.CommitteeMember{}
 	}
 	return conR.curActualCommittee[int(round)%size]
 }
@@ -565,7 +540,7 @@ func (conR *ConsensusReactor) GetActualCommitteeMemberIndex(pubKey *ecdsa.Public
 }
 
 // input is serialized ecdsa.PublicKey
-func (conR *ConsensusReactor) GetCommitteeMember(pubKey []byte) *CommitteeMember {
+func (conR *ConsensusReactor) GetCommitteeMember(pubKey []byte) *types.CommitteeMember {
 	for _, v := range conR.curActualCommittee {
 		if bytes.Equal(crypto.FromECDSAPub(&v.PubKey), pubKey) == true {
 			return &v
@@ -942,7 +917,7 @@ func (conR *ConsensusReactor) exitCurCommittee() {
 	if conR.curCommittee != nil {
 		conR.curCommittee.Validators = make([]*types.Validator, 0)
 	}
-	conR.curActualCommittee = make([]CommitteeMember, 0)
+	conR.curActualCommittee = make([]types.CommitteeMember, 0)
 	conR.curCommitteeIndex = 0
 	conR.kBlockData = nil
 

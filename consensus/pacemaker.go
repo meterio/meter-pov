@@ -487,7 +487,7 @@ func (p *Pacemaker) OnPropose(b *pmBlock, qc *pmQuorumCert, height, round uint32
 	stateRoot := blk.Header().StateRoot()
 	signMsg := p.csReactor.BuildProposalBlockSignMsg(uint32(info.BlockType), uint64(blk.Header().Number()), &id, &txsRoot, &stateRoot)
 	msgHash := p.csReactor.csCommon.Hash256Msg([]byte(signMsg))
-	p.sigAggregator = newSignatureAggregator(p.csReactor.committeeSize, p.csReactor.csCommon.system, msgHash, p.csReactor.curCommittee.Validators)
+	p.sigAggregator = newSignatureAggregator(p.csReactor.committeeSize, *p.csReactor.csCommon.GetSystem(), msgHash, p.csReactor.curCommittee.Validators)
 
 	// create slot in proposalMap directly, instead of sendmsg to self.
 	bnew.ProposalMessage = msg

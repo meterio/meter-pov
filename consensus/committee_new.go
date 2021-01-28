@@ -333,7 +333,7 @@ func (conR *ConsensusReactor) ProcessNewCommitteeMessage(newCommitteeMsg *NewCom
 		nc.Role = role
 		nc.Index = index
 		nc.InCommittee = inCommittee
-		nc.sigAggregator = newSignatureAggregator(uint32(len(nc.Committee.Validators)), conR.csCommon.system, msgHash, nc.Committee.Validators)
+		nc.sigAggregator = newSignatureAggregator(uint32(len(nc.Committee.Validators)), *conR.csCommon.GetSystem(), msgHash, nc.Committee.Validators)
 
 		conR.rcvdNewCommittee[key] = nc
 	} else {
@@ -345,7 +345,7 @@ func (conR *ConsensusReactor) ProcessNewCommitteeMessage(newCommitteeMsg *NewCom
 	}
 
 	if bytes.Equal(conR.csCommon.GetSystem().PubKeyToBytes(validator.BlsPubKey), newCommitteeMsg.ValidatorBlsPK) == false {
-		blsPK := base64.StdEncoding.EncodeToString(conR.csCommon.system.PubKeyToBytes(validator.BlsPubKey))
+		blsPK := base64.StdEncoding.EncodeToString(conR.csCommon.GetSystem().PubKeyToBytes(validator.BlsPubKey))
 		actualBlsPK := base64.StdEncoding.EncodeToString(newCommitteeMsg.ValidatorBlsPK)
 		conR.logger.Error("BlsPubKey mismatch", "validator blsPK", blsPK, "actual blsPK", actualBlsPK)
 		return false
@@ -384,7 +384,7 @@ func (conR *ConsensusReactor) ProcessNewCommitteeMessage(newCommitteeMsg *NewCom
 
 		// nc.voterNum = 0
 		aggSigBytes := nc.sigAggregator.Aggregate()
-		aggSig, _ := conR.csCommon.system.SigFromBytes(aggSigBytes)
+		aggSig, _ := conR.csCommon.GetSystem().SigFromBytes(aggSigBytes)
 
 		// aggregate the signatures
 		// nc.voterAggSig = conR.csCommon.AggregateSign(nc.voterSig)

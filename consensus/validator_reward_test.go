@@ -27,7 +27,7 @@ func TestRewardMapToList(t *testing.T) {
 		meter.MustParseAddress("0xd1186074257f1a6f231c415cdaf7e1f4ae48d51f"),
 		meter.MustParseAddress("0x5e4ff9a896807e2548b1500d8ff6defbcd2b5493")}
 
-	rewardMap := staking.RewardInfoMap{}
+	rewardMap := staking.RewardMap{}
 	sum := big.NewInt(0)
 
 	for i, addr := range addresses {
