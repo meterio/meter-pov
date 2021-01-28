@@ -924,7 +924,8 @@ func (sb *StakingBody) CandidateUpdateHandler(senv *StakingEnviroment, gas uint6
 		changed = true
 	}
 	if autobidUpdated {
-		staking.SetBucketList(bucketList, state)
+		candBucket.Autobid = sb.Autobid
+		changed = true
 	}
 
 	// IP/Port are un-stricted
@@ -943,6 +944,7 @@ func (sb *StakingBody) CandidateUpdateHandler(senv *StakingEnviroment, gas uint6
 		return
 	}
 
+	staking.SetBucketList(bucketList, state)
 	staking.SetCandidateList(candidateList, state)
 	return
 }
