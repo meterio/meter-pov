@@ -7,12 +7,12 @@ package reward
 
 import (
 	"errors"
+	"fmt"
 	"math/big"
 
+	"github.com/dfinlab/meter/script/auction"
 	"github.com/dfinlab/meter/state"
 	"github.com/dfinlab/meter/types"
-
-	"github.com/dfinlab/meter/script/auction"
 )
 
 //***************************************
@@ -27,8 +27,13 @@ func ComputeRewardMap(state *state.State, delegates []*types.Delegate, chainTag 
 
 	benefitRatio := GetValidatorBenefitRatio(state)
 	validatorBaseReward := GetValidatorBenefitRatio(state)
-
 	totalReward, err := ComputeTotalValidatorRewards(benefitRatio)
+
+	logger.Info("-----------------------------------------------------------------------")
+	logger.Info("Calculate Reward Map")
+	logger.Info("", "benefitRatio", benefitRatio, "baseRewards", validatorBaseReward, "totalRewards", totalReward)
+	logger.Info("-----------------------------------------------------------------------")
+
 	if err != nil {
 		logger.Error("calculate validator reward failed")
 		return rewardMap, err
@@ -43,6 +48,18 @@ func ComputeRewardMap(state *state.State, delegates []*types.Delegate, chainTag 
 	}
 
 	rewardMap, err = ComputeValidatorRewards(baseRewards, totalReward, delegates)
+	for k, v := range rewardMap {
+		logger.Info("Reward for ", "addr", k)
+		fmt.Println(v.String())
+	}
+	logger.Info("**** Dist List")
+	for _, d := range rewardMap.GetDistList() {
+		fmt.Println(d.String())
+	}
+	logger.Info("**** Autobid List")
+	for _, a := range rewardMap.GetAutobidList() {
+		fmt.Println(a.String())
+	}
 	return rewardMap, err
 }
 

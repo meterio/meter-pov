@@ -13,11 +13,19 @@ type RewardInfo struct {
 	Amount  *big.Int
 }
 
+func (r RewardInfo) String() string {
+	return fmt.Sprintf("RewardInfo: %v Amount:%v", r.Address.String(), r.Amount.Uint64())
+}
+
 //// RewardMap
 type RewardMapInfo struct {
 	Address       meter.Address
 	DistAmount    *big.Int
 	AutobidAmount *big.Int
+}
+
+func (r *RewardMapInfo) String() string {
+	return fmt.Sprintf("Reward: %v Dist: %v, Autobid: %v", r.Address.String(), r.DistAmount.Uint64(), r.AutobidAmount.Uint64())
 }
 
 type RewardMap map[meter.Address]*RewardMapInfo

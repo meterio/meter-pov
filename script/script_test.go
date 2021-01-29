@@ -12,9 +12,15 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/dfinlab/meter/reward"
 	"github.com/dfinlab/meter/script"
 	"github.com/dfinlab/meter/script/staking"
 )
+
+func TestReward(t *testing.T) {
+	r := reward.RewardInfo{}
+	fmt.Println("YYYYYYYYYYYYYY", r)
+}
 
 /*
 Execute this test with
