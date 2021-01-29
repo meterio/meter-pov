@@ -690,7 +690,16 @@ func (conR *ConsensusReactor) BuildKBlock(parentBlock *block.Block, data *block.
 
 		// build governing tx && autobid tx only when staking delegates is used
 		if conR.sourceDelegates != fromDelegatesFile {
-			rewardMap, err := reward.ComputeRewardMap(state, conR.curDelegates.Delegates, chainTag, bestNum)
+			benefitRatio := reward.GetValidatorBenefitRatio(state)
+			validatorBaseReward := reward.GetValidatorBenefitRatio(state)
+			rewardMap, err := reward.ComputeRewardMap(benefitRatio, validatorBaseReward, conR.curDelegates.Delegates)
+			fmt.Println("-------------------------")
+			fmt.Println("Reward Map:")
+			fmt.Println("-------------------------")
+			for _, r := range rewardMap {
+				fmt.Println(r.String())
+			}
+			fmt.Println("-------------------------")
 			if err == nil && len(rewardMap) > 0 {
 				distList := rewardMap.GetDistList()
 
