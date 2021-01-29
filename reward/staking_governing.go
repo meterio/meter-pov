@@ -1,18 +1,21 @@
-package compute
+package reward
 
 import (
 	"math/big"
+	"math/rand"
+	"time"
 
 	"github.com/dfinlab/meter/meter"
 	"github.com/dfinlab/meter/script"
-	"github.com/dfinlab/meter/script/accountlock"
+	"github.com/dfinlab/meter/script/staking"
 	"github.com/dfinlab/meter/tx"
 	"github.com/ethereum/go-ethereum/rlp"
 )
 
-func BuildAccountLockGoverningTx(chainTag byte, bestNum uint32, curEpoch uint32) *tx.Transaction {
+// for distribute validator rewards, recalc the delegates list ...
+func BuildStakingGoverningTx(distList []*RewardInfo, curEpoch uint32, chainTag byte, bestNum uint32) *tx.Transaction {
 	// 1. signer is nil
-	// 1. transaction in kblock.
+	// 2. in kblock.
 	builder := new(tx.Builder)
 	builder.ChainTag(chainTag).
 		BlockRef(tx.NewBlockRef(bestNum + 1)).
@@ -23,23 +26,38 @@ func BuildAccountLockGoverningTx(chainTag byte, bestNum uint32, curEpoch uint32)
 		Nonce(12345678)
 
 	builder.Clause(
-		tx.NewClause(&accountlock.AccountLockAddr).
+		tx.NewClause(&staking.StakingModuleAddr).
 			WithValue(big.NewInt(0)).
 			WithToken(tx.TOKEN_METER_GOV).
-			WithData(buildAccoutLockGoverningData(curEpoch)))
+			WithData(buildStakingGoverningData(distList, curEpoch)))
 
 	builder.Build().IntrinsicGas()
 	return builder.Build()
 }
 
-/////// account lock governing
-func buildAccoutLockGoverningData(curEpoch uint32) (ret []byte) {
+func buildStakingGoverningData(distList []*RewardInfo, curEpoch uint32) (ret []byte) {
 	ret = []byte{}
 
-	body := &accountlock.AccountLockBody{
-		Opcode:  accountlock.OP_GOVERNING,
-		Version: curEpoch,
-		Option:  uint32(0),
+	validatorRewards := big.NewInt(0)
+	for _, dist := range distList {
+		validatorRewards = validatorRewards.Add(validatorRewards, dist.Amount)
+	}
+
+	// XXX: 52 bytes for each rewardInfo, Tx can accommodate about 1000 rewardinfo
+	extraBytes, err := rlp.EncodeToBytes(distList)
+	if err != nil {
+		logger.Info("encode validators failed", "error", err.Error())
+		return
+	}
+
+	body := &staking.StakingBody{
+		Opcode:    staking.OP_GOVERNING,
+		Version:   curEpoch,
+		Option:    uint32(0),
+		Amount:    validatorRewards,
+		Timestamp: uint64(time.Now().Unix()),
+		Nonce:     rand.Uint64(),
+		ExtraData: extraBytes,
 	}
 	payload, err := rlp.EncodeToBytes(body)
 	if err != nil {
@@ -51,7 +69,7 @@ func buildAccoutLockGoverningData(curEpoch uint32) (ret []byte) {
 	s := &script.Script{
 		Header: script.ScriptHeader{
 			Version: uint32(0),
-			ModID:   script.ACCOUNTLOCK_MODULE_ID,
+			ModID:   script.STAKING_MODULE_ID,
 		},
 		Payload: payload,
 	}

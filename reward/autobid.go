@@ -1,4 +1,4 @@
-package compute
+package reward
 
 import (
 	"math/big"
@@ -12,7 +12,6 @@ import (
 	"github.com/ethereum/go-ethereum/rlp"
 )
 
-// for distribute validator rewards, recalc the delegates list ...
 func BuildAutobidTx(autobidList []*RewardInfo, chainTag byte, bestNum uint32) *tx.Transaction {
 	if len(autobidList) <= 0 {
 		return nil
@@ -32,8 +31,7 @@ func BuildAutobidTx(autobidList []*RewardInfo, chainTag byte, bestNum uint32) *t
 		autobidList = autobidList[:MAX_VALIDATOR_REWARDS-1]
 	}
 
-	var i int
-	for i = 0; i < len(autobidList); i++ {
+	for i := 0; i < len(autobidList); i++ {
 		builder.Clause(
 			tx.NewClause(&auction.AuctionAccountAddr).
 				WithValue(big.NewInt(0)).

@@ -3,7 +3,7 @@
 // Distributed under the GNU Lesser General Public License v3.0 software license, see the accompanying
 // file LICENSE or <https://www.gnu.org/licenses/lgpl-3.0.html>
 
-package compute
+package reward
 
 import (
 	"fmt"
@@ -19,18 +19,70 @@ import (
 	"github.com/ethereum/go-ethereum/rlp"
 )
 
-const (
-	AuctionInterval = uint64(4) // every 24 Epoch move to next auction
+func BuildAuctionControlTx(height, epoch uint64, chainTag byte, bestNum uint32, initialRelease float64, reservedPrice *big.Int) *tx.Transaction {
+	// check current active auction first if there is one
+	var currentActive bool
+	cb, err := auction.GetActiveAuctionCB()
+	if err != nil {
+		logger.Error("get auctionCB failed ...", "error", err)
+		return nil
+	}
+	if cb.IsActive() == true {
+		currentActive = true
+	}
 
-)
+	// now start a new auction
+	var lastEndHeight, lastEndEpoch uint64
+	if currentActive == true {
+		lastEndHeight = cb.EndHeight
+		lastEndEpoch = cb.EndEpoch
+	} else {
+		summaryList, err := auction.GetAuctionSummaryList()
+		if err != nil {
+			logger.Error("get summary list failed", "error", err)
+			return nil //TBD: still create Tx?
+		}
+		size := len(summaryList.Summaries)
+		if size != 0 {
+			lastEndHeight = summaryList.Summaries[size-1].EndHeight
+			lastEndEpoch = summaryList.Summaries[size-1].EndEpoch
+		} else {
+			lastEndHeight = 0
+			lastEndEpoch = 0
+		}
+	}
 
-const (
-	totoalRelease = 160000000 //total released 160M MTRG
-	totalYears    = 500       // 500 years
-	fadeYears     = 6         // halve every 6 years
-	fadeRate      = 0.8       // fade rate 0.8
-	N             = 24        // history buffer size
-)
+	if shouldAuctionStart(epoch, lastEndEpoch) == false {
+		logger.Debug("no auction Tx in the kblock ...", "height", height, "epoch", epoch)
+		return nil
+	}
+
+	builder := new(tx.Builder)
+	builder.ChainTag(chainTag).
+		BlockRef(tx.NewBlockRef(bestNum)).
+		Expiration(720).
+		GasPriceCoef(0).
+		Gas(meter.BaseTxGas * 10). // buffer for builder.Build().IntrinsicGas()
+		DependsOn(nil).
+		Nonce(12345678)
+
+	if currentActive == true {
+		builder.Clause(
+			tx.NewClause(&auction.AuctionAccountAddr).
+				WithValue(big.NewInt(0)).
+				WithToken(tx.TOKEN_METER_GOV).
+				WithData(buildAuctionStopData(cb.StartHeight, cb.StartEpoch, cb.EndHeight, cb.EndEpoch, &cb.AuctionID)))
+	}
+
+	builder.Clause(
+		tx.NewClause(&auction.AuctionAccountAddr).
+			WithValue(big.NewInt(0)).
+			WithToken(tx.TOKEN_METER_GOV).
+			WithData(buildAuctionStartData(lastEndHeight+1, lastEndEpoch+1, height, epoch, initialRelease, reservedPrice)))
+
+	logger.Info("Auction Tx Built", "Height", height, "epoch", epoch)
+	return builder.Build()
+}
 
 /***************
 clear;
@@ -134,7 +186,7 @@ func calcRewardEpochRange(startEpoch, endEpoch uint64, initialRelease float64, r
 	return
 }
 
-func computeAuctionStartData(start, startEpoch, end, endEpoch uint64, initialRelease float64, reservedPrice *big.Int) (ret []byte) {
+func buildAuctionStartData(start, startEpoch, end, endEpoch uint64, initialRelease float64, reservedPrice *big.Int) (ret []byte) {
 	ret = []byte{}
 
 	release, reserve, _, err := calcRewardEpochRange(startEpoch, endEpoch, initialRelease, reservedPrice)
@@ -182,7 +234,7 @@ func computeAuctionStartData(start, startEpoch, end, endEpoch uint64, initialRel
 	return
 }
 
-func computeAuctionStopData(start, startEpoch, end, endEpoch uint64, id *meter.Bytes32) (ret []byte) {
+func buildAuctionStopData(start, startEpoch, end, endEpoch uint64, id *meter.Bytes32) (ret []byte) {
 	ret = []byte{}
 
 	body := &auction.AuctionBody{
@@ -229,69 +281,4 @@ func shouldAuctionStart(curEpoch, lastEpoch uint64) bool {
 		return true
 	}
 	return false
-}
-
-func BuildAuctionControlTx(height, epoch uint64, chainTag byte, bestNum uint32, initialRelease float64, reservedPrice *big.Int) *tx.Transaction {
-	// check current active auction first if there is one
-	var currentActive bool
-	cb, err := auction.GetActiveAuctionCB()
-	if err != nil {
-		logger.Error("get auctionCB failed ...", "error", err)
-		return nil
-	}
-	if cb.IsActive() == true {
-		currentActive = true
-	}
-
-	// now start a new auction
-	var lastEndHeight, lastEndEpoch uint64
-	if currentActive == true {
-		lastEndHeight = cb.EndHeight
-		lastEndEpoch = cb.EndEpoch
-	} else {
-		summaryList, err := auction.GetAuctionSummaryList()
-		if err != nil {
-			logger.Error("get summary list failed", "error", err)
-			return nil //TBD: still create Tx?
-		}
-		size := len(summaryList.Summaries)
-		if size != 0 {
-			lastEndHeight = summaryList.Summaries[size-1].EndHeight
-			lastEndEpoch = summaryList.Summaries[size-1].EndEpoch
-		} else {
-			lastEndHeight = 0
-			lastEndEpoch = 0
-		}
-	}
-
-	if shouldAuctionStart(epoch, lastEndEpoch) == false {
-		logger.Debug("no auction Tx in the kblock ...", "height", height, "epoch", epoch)
-		return nil
-	}
-
-	builder := new(tx.Builder)
-	builder.ChainTag(chainTag).
-		BlockRef(tx.NewBlockRef(bestNum)).
-		Expiration(720).
-		GasPriceCoef(0).
-		Gas(meter.BaseTxGas * 10). // buffer for builder.Build().IntrinsicGas()
-		DependsOn(nil).
-		Nonce(12345678)
-
-	if currentActive == true {
-		builder.Clause(
-			tx.NewClause(&auction.AuctionAccountAddr).
-				WithValue(big.NewInt(0)).
-				WithToken(tx.TOKEN_METER_GOV).
-				WithData(computeAuctionStopData(cb.StartHeight, cb.StartEpoch, cb.EndHeight, cb.EndEpoch, &cb.AuctionID)))
-	}
-
-	builder.Clause(
-		tx.NewClause(&auction.AuctionAccountAddr).
-			WithValue(big.NewInt(0)).
-			WithToken(tx.TOKEN_METER_GOV).
-			WithData(computeAuctionStartData(lastEndHeight+1, lastEndEpoch+1, height, epoch, initialRelease, reservedPrice)))
-
-	logger.Info("Auction Tx Built", "Height", height, "epoch", epoch)
-	return builder.Build()
 }

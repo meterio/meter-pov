@@ -84,7 +84,7 @@ func (inf *Infraction) String() string {
 	if inf == nil {
 		return "infraction(nil)"
 	}
-	return fmt.Sprintf("infraction(leader:%v, proposer:%v, voter:%v, doubleSign:%v)", inf.MissingLeaders, inf.MissingProposers, inf.MissingVoters, inf.DoubleSigners)
+	return fmt.Sprintf("Infraction(leader:%v, proposer:%v, voter:%v, doubleSign:%v)", inf.MissingLeaders, inf.MissingProposers, inf.MissingVoters, inf.DoubleSigners)
 }
 
 // Candidate indicates the structure of a candidate

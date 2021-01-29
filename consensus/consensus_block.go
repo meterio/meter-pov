@@ -22,13 +22,13 @@ import (
 	"github.com/dfinlab/meter/block"
 	"github.com/dfinlab/meter/chain"
 	"github.com/dfinlab/meter/comm"
-	"github.com/dfinlab/meter/compute"
 	bls "github.com/dfinlab/meter/crypto/multi_sig"
 	cmn "github.com/dfinlab/meter/libs/common"
 	"github.com/dfinlab/meter/logdb"
 	"github.com/dfinlab/meter/meter"
 	"github.com/dfinlab/meter/packer"
 	"github.com/dfinlab/meter/powpool"
+	"github.com/dfinlab/meter/reward"
 	"github.com/dfinlab/meter/runtime"
 	"github.com/dfinlab/meter/state"
 	"github.com/dfinlab/meter/tx"
@@ -666,42 +666,42 @@ func (conR *ConsensusReactor) BuildKBlock(parentBlock *block.Block, data *block.
 	}
 
 	// build miner meter reward
-	txs := compute.BuildMinerRewardTxs(rewards, chainTag, bestNum)
+	txs := reward.BuildMinerRewardTxs(rewards, chainTag, bestNum)
 	lastKBlockHeight := parentBlock.Header().LastKBlockHeight()
 
 	// edison not support the staking/auciton/slashing
 	if meter.IsMainChainEdison(conR.curEpoch) != true {
-		stats, err := compute.ComputeStatistics(lastKBlockHeight, parentBlock.Header().Number(), conR.chain, conR.curCommittee, conR.curActualCommittee, conR.csCommon, conR.csPacemaker.newCommittee, uint32(conR.curEpoch))
+		stats, err := reward.ComputeStatistics(lastKBlockHeight, parentBlock.Header().Number(), conR.chain, conR.curCommittee, conR.curActualCommittee, conR.csCommon, conR.csPacemaker.newCommittee, uint32(conR.curEpoch))
 		if err != nil {
 			// TODO: do something about this
 			conR.logger.Info("no slash statistics need to info", "error", err)
 		}
 		if len(stats) != 0 {
-			statsTx := compute.BuildStatisticsTx(stats, chainTag, bestNum, curEpoch)
+			statsTx := reward.BuildStatisticsTx(stats, chainTag, bestNum, curEpoch)
 			txs = append(txs, statsTx)
 		}
 
 		reservedPrice := GetAuctionReservedPrice()
 		initialRelease := GetAuctionInitialRelease()
 
-		if tx := compute.BuildAuctionControlTx(uint64(best.Header().Number()+1), uint64(best.GetBlockEpoch()+1), chainTag, bestNum, initialRelease, reservedPrice); tx != nil {
+		if tx := reward.BuildAuctionControlTx(uint64(best.Header().Number()+1), uint64(best.GetBlockEpoch()+1), chainTag, bestNum, initialRelease, reservedPrice); tx != nil {
 			txs = append(txs, tx)
 		}
 
 		// build governing tx && autobid tx only when staking delegates is used
 		if conR.sourceDelegates != fromDelegatesFile {
-			rewardMap, err := compute.ComputeRewardMap(state, conR.curDelegates.Delegates, chainTag, bestNum)
+			rewardMap, err := reward.ComputeRewardMap(state, conR.curDelegates.Delegates, chainTag, bestNum)
 			if err == nil && len(rewardMap) > 0 {
 				distList := rewardMap.GetDistList()
 
-				governingTx := compute.BuildStakingGoverningTx(distList, uint32(conR.curEpoch), chainTag, bestNum)
+				governingTx := reward.BuildStakingGoverningTx(distList, uint32(conR.curEpoch), chainTag, bestNum)
 				if governingTx != nil {
 					txs = append(txs, governingTx)
 				}
 
 				autobidList := rewardMap.GetAutobidList()
 
-				autobidTx := compute.BuildAutobidTx(autobidList, chainTag, bestNum)
+				autobidTx := reward.BuildAutobidTx(autobidList, chainTag, bestNum)
 				if autobidTx != nil {
 					txs = append(txs, autobidTx)
 				}
@@ -709,7 +709,7 @@ func (conR *ConsensusReactor) BuildKBlock(parentBlock *block.Block, data *block.
 		}
 	}
 
-	if tx := compute.BuildAccountLockGoverningTx(chainTag, bestNum, curEpoch); tx != nil {
+	if tx := reward.BuildAccountLockGoverningTx(chainTag, bestNum, curEpoch); tx != nil {
 		txs = append(txs, tx)
 	}
 

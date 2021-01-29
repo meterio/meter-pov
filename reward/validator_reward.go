@@ -3,7 +3,7 @@
 // Distributed under the GNU Lesser General Public License v3.0 software license, see the accompanying
 // file LICENSE or <https://www.gnu.org/licenses/lgpl-3.0.html>
 
-package compute
+package reward
 
 import (
 	"errors"
@@ -17,7 +17,6 @@ import (
 
 //***************************************
 //**********validator Rewards ***********
-const Ndays = 10 // smooth with 10 days
 
 //1. distributes the base reward (meter.ValidatorBaseReward) for each validator. If there is remainning
 //2. get the propotion reward for each validator based on the votingpower

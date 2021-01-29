@@ -1,4 +1,4 @@
-package compute
+package reward
 
 import (
 	"fmt"
