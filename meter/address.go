@@ -14,6 +14,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/rlp"
 )
 
 const (
@@ -109,4 +110,17 @@ func CreateContractAddress(txID Bytes32, clauseIndex uint32, creationCount uint3
 	binary.BigEndian.PutUint32(b4_1[:], clauseIndex)
 	binary.BigEndian.PutUint32(b4_2[:], creationCount)
 	return BytesToAddress(crypto.Keccak256(txID[:], b4_1[:], b4_2[:]))
+}
+
+// to compatible with ethereum
+// contract creation count.
+func EthCreateContractAddress(b common.Address, nonce uint32) common.Address {
+	data, _ := rlp.EncodeToBytes([]interface{}{b, nonce})
+	return common.BytesToAddress(crypto.Keccak256(data)[12:])
+}
+
+// CreateAddress2 creates an ethereum address given the address bytes, initial
+// contract code hash and a salt.
+func EthCreateContractAddress2(b common.Address, salt [32]byte, inithash []byte) common.Address {
+	return common.BytesToAddress(crypto.Keccak256([]byte{0xff}, b.Bytes(), salt[:], inithash)[12:])
 }

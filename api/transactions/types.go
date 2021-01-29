@@ -8,16 +8,18 @@ package transactions
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/pkg/errors"
 	"math/big"
 	"strings"
 
 	"github.com/dfinlab/meter/block"
 	"github.com/dfinlab/meter/meter"
 	"github.com/dfinlab/meter/tx"
+
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/common/math"
 	"github.com/ethereum/go-ethereum/rlp"
-	"github.com/pkg/errors"
 )
 
 // Clause for json marshal
@@ -292,7 +294,7 @@ func convertReceipt(txReceipt *tx.Receipt, header *block.Header, tx *tx.Transact
 		clause := tx.Clauses()[i]
 		var contractAddr *meter.Address
 		if clause.To() == nil {
-			cAddr := meter.CreateContractAddress(tx.ID(), uint32(i), 0)
+			cAddr := meter.Address(meter.EthCreateContractAddress(common.Address(signer), uint32(i)))
 			contractAddr = &cAddr
 		}
 		otp := &Output{contractAddr,

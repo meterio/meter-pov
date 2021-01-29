@@ -154,5 +154,6 @@ func (r *ResolvedTransaction) ToContext(gasPrice *big.Int, blockNumber uint32, g
 		ProvedWork: r.tx.ProvedWork(blockNumber, getID),
 		BlockRef:   r.tx.BlockRef(),
 		Expiration: r.tx.Expiration(),
+		Nonce:      r.tx.Nonce(),
 	}
 }

@@ -15,6 +15,7 @@ import (
 	"github.com/dfinlab/meter/meter"
 	"github.com/dfinlab/meter/powpool"
 	"github.com/dfinlab/meter/tx"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/common/math"
 )
@@ -214,14 +215,14 @@ func buildJSONBlockSummary(blk *block.Block, isTrunk bool) *JSONBlockSummary {
 	return result
 }
 
-func buildJSONOutput(txID meter.Bytes32, index uint32, c *tx.Clause, o *tx.Output) *JSONOutput {
+func buildJSONOutput(origin meter.Address, index uint32, c *tx.Clause, o *tx.Output) *JSONOutput {
 	jo := &JSONOutput{
 		ContractAddress: nil,
 		Events:          make([]*JSONEvent, 0, len(o.Events)),
 		Transfers:       make([]*JSONTransfer, 0, len(o.Transfers)),
 	}
 	if c.To() == nil {
-		addr := meter.CreateContractAddress(txID, index, 0)
+		addr := meter.Address(meter.EthCreateContractAddress(common.Address(origin), index))
 		jo.ContractAddress = &addr
 	}
 	for _, e := range o.Events {
@@ -261,7 +262,7 @@ func buildJSONEmbeddedTxs(txs tx.Transactions, receipts tx.Receipts) []*JSONEmbe
 				hexutil.Encode(c.Data()),
 			})
 			if !receipt.Reverted {
-				jos = append(jos, buildJSONOutput(tx.ID(), uint32(i), c, receipt.Outputs[i]))
+				jos = append(jos, buildJSONOutput(origin, uint32(i), c, receipt.Outputs[i]))
 			}
 		}
 

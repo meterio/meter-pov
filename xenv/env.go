@@ -40,10 +40,11 @@ type TransactionContext struct {
 	ProvedWork *big.Int
 	BlockRef   tx.BlockRef
 	Expiration uint32
+	Nonce      uint64
 }
 
 func (ctx *TransactionContext) String() string {
-	return fmt.Sprintf("txCtx{ID:%s Origin:%s GasPrice:%s ProvedWork:%s BlockRef:%s Exp:%d}", ctx.ID.String(), ctx.Origin.String(), ctx.GasPrice.String(), ctx.ProvedWork.String(), "0x"+hex.EncodeToString(ctx.BlockRef[:]), ctx.Expiration)
+	return fmt.Sprintf("txCtx{ID:%s Origin:%s GasPrice:%s ProvedWork:%s BlockRef:%s Exp:%d Nonce:%d}", ctx.ID.String(), ctx.Origin.String(), ctx.GasPrice.String(), ctx.ProvedWork.String(), "0x"+hex.EncodeToString(ctx.BlockRef[:]), ctx.Expiration, ctx.Nonce)
 }
 
 // Environment an env to execute native method.
