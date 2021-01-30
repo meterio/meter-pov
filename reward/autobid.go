@@ -1,6 +1,7 @@
 package reward
 
 import (
+	"fmt"
 	"math/big"
 	"math/rand"
 	"time"
@@ -15,6 +16,10 @@ import (
 func BuildAutobidTx(autobidList []*RewardInfo, chainTag byte, bestNum uint32) *tx.Transaction {
 	if len(autobidList) <= 0 {
 		return nil
+	}
+	fmt.Println("Build Autobid Tx: ")
+	for i, r := range autobidList {
+		fmt.Println(fmt.Sprintf("%v: %v", i, r.String()))
 	}
 	// 1. signer is nil
 	builder := new(tx.Builder)
@@ -46,6 +51,7 @@ func BuildAutobidTx(autobidList []*RewardInfo, chainTag byte, bestNum uint32) *t
 func buildAutobidData(autobid *RewardInfo) (ret []byte) {
 	ret = []byte{}
 
+	fmt.Println("building autobid data with", autobid.String())
 	body := &auction.AuctionBody{
 		Bidder:    autobid.Address,
 		Opcode:    auction.OP_BID,
