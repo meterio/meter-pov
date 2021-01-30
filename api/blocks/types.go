@@ -215,14 +215,14 @@ func buildJSONBlockSummary(blk *block.Block, isTrunk bool) *JSONBlockSummary {
 	return result
 }
 
-func buildJSONOutput(origin meter.Address, index uint32, c *tx.Clause, o *tx.Output) *JSONOutput {
+func buildJSONOutput(origin meter.Address, nonce uint64, index uint32, c *tx.Clause, o *tx.Output) *JSONOutput {
 	jo := &JSONOutput{
 		ContractAddress: nil,
 		Events:          make([]*JSONEvent, 0, len(o.Events)),
 		Transfers:       make([]*JSONTransfer, 0, len(o.Transfers)),
 	}
 	if c.To() == nil {
-		addr := meter.Address(meter.EthCreateContractAddress(common.Address(origin), index))
+		addr := meter.Address(meter.EthCreateContractAddress(common.Address(origin), index+uint32(nonce)))
 		jo.ContractAddress = &addr
 	}
 	for _, e := range o.Events {
@@ -262,7 +262,7 @@ func buildJSONEmbeddedTxs(txs tx.Transactions, receipts tx.Receipts) []*JSONEmbe
 				hexutil.Encode(c.Data()),
 			})
 			if !receipt.Reverted {
-				jos = append(jos, buildJSONOutput(origin, uint32(i), c, receipt.Outputs[i]))
+				jos = append(jos, buildJSONOutput(origin, tx.Nonce(), uint32(i), c, receipt.Outputs[i]))
 			}
 		}
 

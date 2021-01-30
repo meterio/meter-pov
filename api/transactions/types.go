@@ -294,7 +294,7 @@ func convertReceipt(txReceipt *tx.Receipt, header *block.Header, tx *tx.Transact
 		clause := tx.Clauses()[i]
 		var contractAddr *meter.Address
 		if clause.To() == nil {
-			cAddr := meter.Address(meter.EthCreateContractAddress(common.Address(signer), uint32(i)))
+			cAddr := meter.Address(meter.EthCreateContractAddress(common.Address(signer), uint32(i)+uint32(tx.Nonce())))
 			contractAddr = &cAddr
 		}
 		otp := &Output{contractAddr,

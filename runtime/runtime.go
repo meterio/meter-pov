@@ -228,7 +228,7 @@ func (rt *Runtime) newEVM(stateDB *statedb.StateDB, clauseIndex uint32, txCtx *x
 			return common.Hash(rt.seeker.GetID(uint32(num)))
 		},
 		NewContractAddress: func(_ *vm.EVM, counter uint32) common.Address {
-			fmt.Println("clauseIndex", clauseIndex, "counter", counter)
+			//fmt.Println("clauseIndex", clauseIndex, "counter", counter)
 			return common.Address(meter.EthCreateContractAddress(common.Address(txCtx.Origin), uint32(txCtx.Nonce)+clauseIndex))
 			//return common.Address(meter.CreateContractAddress(txCtx.ID, clauseIndex, counter))
 		},
