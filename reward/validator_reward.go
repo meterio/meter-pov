@@ -36,15 +36,7 @@ func ComputeRewardMap(benefitRatio *big.Int, validatorBaseReward *big.Int, deleg
 		return rewardMap, err
 	}
 
-	size := len(delegates)
-
-	// distribute the base reward
-	baseRewards := new(big.Int).Mul(validatorBaseReward, big.NewInt(int64(size)))
-	if baseRewards.Cmp(totalReward) >= 0 {
-		baseRewards = totalReward
-	}
-
-	rewardMap, err = ComputeValidatorRewards(baseRewards, totalReward, delegates)
+	rewardMap, err = ComputeValidatorRewards(validatorBaseReward, totalReward, delegates)
 	for k, v := range rewardMap {
 		logger.Info("Reward for ", "addr", k)
 		fmt.Println(v.String())
@@ -85,9 +77,10 @@ func ComputeTotalValidatorRewards(benefitRatio *big.Int) (*big.Int, error) {
 		rewards = rewards.Add(rewards, reward)
 	}
 
-	var r big.Int
 	// last 10 auctions receved MTR * 40% / 240
-	rewards = r.Div(r.Div(r.Mul(rewards, benefitRatio), big.NewInt(1e18)), big.NewInt(int64(AuctionInterval)))
+	rewards = new(big.Int).Mul(rewards, benefitRatio)
+	rewards = new(big.Int).Div(rewards, big.NewInt(1e18))
+	rewards = new(big.Int).Div(rewards, big.NewInt(int64(AuctionInterval)))
 
 	logger.Info("get Kblock validator rewards", "rewards", rewards)
 	return rewards, nil
@@ -106,11 +99,18 @@ func getSelfDistributor(delegate *types.Delegate) (*types.Distributor, error) {
 //2. get the propotion reward for each validator based on the votingpower
 //3. each validator takes commission first
 //4. finally, distributor takes their propotions of rest
-func ComputeValidatorRewards(baseRewards *big.Int, totalRewards *big.Int, delegates []*types.Delegate) (RewardMap, error) {
+func ComputeValidatorRewards(validatorBaseReward *big.Int, totalRewards *big.Int, delegates []*types.Delegate) (RewardMap, error) {
 	var i int
 	rewardMap := RewardMap{}
-	baseRewardsOnly := totalRewards.Cmp(baseRewards) <= 0
+	baseRewardsOnly := false
 	size := len(delegates)
+
+	// distribute the base reward
+	baseRewards := new(big.Int).Mul(validatorBaseReward, big.NewInt(int64(size)))
+	if baseRewards.Cmp(totalRewards) >= 0 {
+		baseRewards = totalRewards
+		baseRewardsOnly = true
+	}
 	baseReward := new(big.Int).Div(baseRewards, big.NewInt(int64(size)))
 
 	// only enough for base reward
@@ -121,7 +121,9 @@ func ComputeValidatorRewards(baseRewards *big.Int, totalRewards *big.Int, delega
 				logger.Error("get self-distributor failed, treat as 0", "error", err)
 				rewardMap.Add(baseReward, big.NewInt(0), delegates[i].Address)
 			} else {
-				autobidAmount := new(big.Int).Div(new(big.Int).Mul(baseReward, big.NewInt(int64(d.Autobid))), big.NewInt(100))
+				autobidAmount := new(big.Int).Mul(baseReward, big.NewInt(int64(d.Autobid)))
+				autobidAmount = new(big.Int).Div(autobidAmount, big.NewInt(100))
+
 				distAmount := new(big.Int).Sub(baseReward, autobidAmount)
 				rewardMap.Add(distAmount, autobidAmount, delegates[i].Address)
 			}
@@ -143,27 +145,30 @@ func ComputeValidatorRewards(baseRewards *big.Int, totalRewards *big.Int, delega
 	for i = 0; i < size; i++ {
 
 		// calculate the propotion of each validator
-		eachReward := new(big.Int).Div(new(big.Int).Mul(rewards, big.NewInt(delegates[i].VotingPower)), votingPowerSum)
+		eachReward := new(big.Int).Mul(rewards, big.NewInt(delegates[i].VotingPower))
+		eachReward = new(big.Int).Div(eachReward, votingPowerSum)
 
 		// distribute commission to delegate, commission unit is shannon, aka, 1e09
-		commission := new(big.Int).Div(new(big.Int).Mul(eachReward, big.NewInt(int64(delegates[i].Commission))), big.NewInt(1e09))
+		commission := new(big.Int).Mul(eachReward, big.NewInt(int64(delegates[i].Commission)))
+		commission = new(big.Int).Div(commission, big.NewInt(1e09))
 
 		actualReward := new(big.Int).Sub(eachReward, commission)
 
 		delegateSelf := new(big.Int).Add(baseReward, commission)
 
 		// plus base reward
-		selfPortion := big.NewInt(0)
 		d, err := getSelfDistributor(delegates[i])
 		if err != nil {
 			logger.Error("get the autobid param failed, treat as 0", "error", err)
 		} else {
 			// delegate's proportion
-			selfPortion = new(big.Int).Div(new(big.Int).Mul(actualReward, big.NewInt(int64(d.Shares))), big.NewInt(1e09))
+			selfPortion := new(big.Int).Mul(actualReward, big.NewInt(int64(d.Shares)))
+			selfPortion = new(big.Int).Div(selfPortion, big.NewInt(1e09))
 			delegateSelf = new(big.Int).Add(delegateSelf, selfPortion)
 
 			// distribute delegate itself
-			autobidAmount := new(big.Int).Div(new(big.Int).Mul(delegateSelf, big.NewInt(int64(d.Autobid))), big.NewInt(100))
+			autobidAmount := new(big.Int).Mul(delegateSelf, big.NewInt(int64(d.Autobid)))
+			autobidAmount = new(big.Int).Div(autobidAmount, big.NewInt(100))
 			distAmount := new(big.Int).Sub(delegateSelf, autobidAmount)
 			rewardMap.Add(distAmount, autobidAmount, delegates[i].Address)
 		}
@@ -176,9 +181,11 @@ func ComputeValidatorRewards(baseRewards *big.Int, totalRewards *big.Int, delega
 				continue
 			}
 
-			voterReward := new(big.Int).Div(new(big.Int).Mul(actualReward, big.NewInt(int64(dist.Shares))), big.NewInt(1e09))
+			voterReward := new(big.Int).Mul(actualReward, big.NewInt(int64(dist.Shares)))
+			voterReward = new(big.Int).Div(voterReward, big.NewInt(1e09))
 
-			autobidReward := new(big.Int).Div(new(big.Int).Mul(voterReward, big.NewInt(int64(dist.Autobid))), big.NewInt(100))
+			autobidReward := new(big.Int).Mul(voterReward, big.NewInt(int64(dist.Autobid)))
+			autobidReward = new(big.Int).Div(autobidReward, big.NewInt(100))
 			distReward := new(big.Int).Sub(voterReward, autobidReward)
 			rewardMap.Add(distReward, autobidReward, dist.Address)
 		}

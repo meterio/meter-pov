@@ -1,6 +1,7 @@
 package reward
 
 import (
+	"encoding/hex"
 	"fmt"
 	"math/big"
 	"math/rand"
@@ -37,11 +38,14 @@ func BuildAutobidTx(autobidList []*RewardInfo, chainTag byte, bestNum uint32) *t
 	}
 
 	for i := 0; i < len(autobidList); i++ {
+		data := buildAutobidData(autobidList[i])
+		fmt.Println("Data for RewardInfo", autobidList[i], "is:", "0x"+hex.EncodeToString(data))
 		builder.Clause(
 			tx.NewClause(&auction.AuctionAccountAddr).
 				WithValue(big.NewInt(0)).
 				WithToken(tx.TOKEN_METER).
-				WithData(buildAutobidData(autobidList[i])))
+				WithData(data),
+		)
 	}
 
 	builder.Build().IntrinsicGas()
