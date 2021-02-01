@@ -186,7 +186,7 @@ func (m *powObjectMap) FillLatestObjChain(obj *powObject) (*PowResult, error) {
 
 	target := blockchain.CompactToBig(obj.blockInfo.NBits)
 	genesisTarget := blockchain.CompactToBig(GetPowGenesisBlockInfo().NBits)
-	difficaulty := target.Div(genesisTarget, target)
+	difficaulty := new(big.Int).Div(genesisTarget, target)
 	coef := big.NewInt(curCoef)
 	coef = coef.Mul(coef, difficaulty)
 	reward := &PowReward{obj.blockInfo.Beneficiary, *coef}
@@ -206,7 +206,7 @@ func (m *powObjectMap) FillLatestObjChain(obj *powObject) (*PowResult, error) {
 	for prev != nil && prev != m.lastKframePowObj && interval > 0 {
 
 		nTarget := blockchain.CompactToBig(prev.blockInfo.NBits)
-		nDifficaulty := nTarget.Div(genesisTarget, nTarget)
+		nDifficaulty := new(big.Int).Div(genesisTarget, nTarget)
 		coef := big.NewInt(curCoef)
 		coef = coef.Mul(coef, nDifficaulty)
 		reward := &PowReward{prev.blockInfo.Beneficiary, *coef}

@@ -126,7 +126,7 @@ func getHistoryPrices(reservedPrice *big.Int) *[N]float64 {
 				price = list.Summaries[i-(N-size)].RsvdPrice
 			}
 		}
-		price = big.NewInt(0).Div(price, big.NewInt(1e6))
+		price = new(big.Int).Div(price, big.NewInt(1e6))
 		history[N-1-i] = float64(price.Int64()) / 1e12
 	}
 	fmt.Println("history price", history)
@@ -149,9 +149,8 @@ func calcWeightedAvgPrice(history *[N]float64) float64 {
 func calcRewardEpochRange(startEpoch, endEpoch uint64, initialRelease float64, reservedPrice *big.Int) (totalReward float64, totalUnrelease float64, epochRewards []float64, err error) {
 	var epoch uint64
 	var epochReward float64
-	var r big.Int
 
-	rp := r.Div(reservedPrice, big.NewInt(1e6))
+	rp := new(big.Int).Div(reservedPrice, big.NewInt(1e6))
 	convertedRP := float64(rp.Int64()) / 1e12
 
 	initReleasePerEpoch := float64(initialRelease / 24)
