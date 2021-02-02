@@ -148,8 +148,9 @@ func (a *Auction) ClearAuction(cb *AuctionCB, state *state.State) (*big.Int, *bi
 	total := big.NewInt(0)
 	distMtrg := []*DistMtrg{}
 	for _, tx := range cb.AuctionTxs {
-		mtrg := new(big.Int).Div(tx.Amount, actualPrice)
-		mtrg = mtrg.Mul(mtrg, big.NewInt(1e18))
+		mtrg := new(big.Int).Mul(tx.Amount, big.NewInt(1e18))
+		mtrg = new(big.Int).Div(mtrg, actualPrice)
+
 		a.SendMTRGToBidder(tx.Address, mtrg, stateDB)
 		total = total.Add(total, mtrg)
 		distMtrg = append(distMtrg, &DistMtrg{Addr: tx.Address, Amount: mtrg})
