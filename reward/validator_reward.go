@@ -58,7 +58,7 @@ func ComputeTotalValidatorRewards(benefitRatio *big.Int) (*big.Int, error) {
 		logger.Error("get summary list failed", "error", err)
 		return big.NewInt(0), err
 	}
-
+	fmt.Println("benefitRatio: ", new(big.Int).Div(benefitRatio, big.NewInt(1e18)))
 	size := len(summaryList.Summaries)
 	if size == 0 {
 		return big.NewInt(0), nil
@@ -73,14 +73,19 @@ func ComputeTotalValidatorRewards(benefitRatio *big.Int) (*big.Int, error) {
 
 	rewards := big.NewInt(0)
 	for i = 0; i < d; i++ {
-		reward := summaryList.Summaries[size-1-i].RcvdMTR
+		s := summaryList.Summaries[size-1-i]
+		fmt.Println(fmt.Sprintf("adding summary (startEpoch:%v, endEpoch:%v), RcvdMTR:%v", s.StartEpoch, s.EndEpoch, s.RcvdMTR))
+		reward := s.RcvdMTR
 		rewards = rewards.Add(rewards, reward)
+		fmt.Println("reward subtotal: ", rewards)
 	}
 
+	fmt.Println("naive total reward: ", rewards)
 	// last 10 auctions receved MTR * 40% / 240
 	rewards = new(big.Int).Mul(rewards, benefitRatio)
 	rewards = new(big.Int).Div(rewards, big.NewInt(1e18))
 	rewards = new(big.Int).Div(rewards, big.NewInt(int64(AuctionInterval)))
+	fmt.Println("final total reward: ", rewards)
 
 	logger.Info("get Kblock validator rewards", "rewards", rewards)
 	return rewards, nil

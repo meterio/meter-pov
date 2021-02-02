@@ -8,6 +8,7 @@ package auction
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"math/big"
 	"strings"
 
@@ -92,6 +93,25 @@ func (a *Auction) SetSummaryList(summaryList *AuctionSummaryList, state *state.S
 }
 
 //==================== account openation===========================
+//from meter.ValidatorBenefitAddr ==> AuctionAccountAddr
+func (a *Auction) TransferAutobidMTRToAuction(amount *big.Int, state *state.State) error {
+	if amount.Sign() == 0 {
+		return nil
+	}
+
+	meterBalance := state.GetEnergy(meter.ValidatorBenefitAddr)
+	fmt.Println("validatorBenefit Account before transfer: ", meterBalance)
+	if meterBalance.Cmp(amount) < 0 {
+		return errors.New(fmt.Sprintf("not enough meter for validator benefit address balance:%v amount:%v", meterBalance, amount))
+	}
+
+	fmt.Println("transfering ", amount)
+	fmt.Println("validatorBenefit Account after transfer: ", state.GetEnergy(meter.ValidatorBenefitAddr))
+	state.AddEnergy(AuctionAccountAddr, amount)
+	state.SubEnergy(meter.ValidatorBenefitAddr, amount)
+	return nil
+}
+
 // from addr == > AuctionAccountAddr
 func (a *Auction) TransferMTRToAuction(addr meter.Address, amount *big.Int, state *state.State) error {
 	if amount.Sign() == 0 {
