@@ -6,6 +6,7 @@
 package reward
 
 import (
+	"errors"
 	"fmt"
 	"math"
 	"math/big"
@@ -143,6 +144,53 @@ func calcWeightedAvgPrice(history *[N]float64) float64 {
 		WeightedAvgPrice = WeightedAvgPrice + price
 	}
 	return WeightedAvgPrice
+}
+
+// calEpochReleaseWithInflation returns the release of MTRG for current epoch, it returns a 0 if curEpoch is less than startEpoch
+// epochRelease = lastEpochRelease + lastEpochRelease * deltaRate^N
+// whereas,
+// N = curEpoch - startEpoch + 1
+// deltaRate = inflationRate / 365 / nEpochPerDay
+func ComputeEpochReleaseWithInflation(startEpoch, curEpoch uint64, lastSummary *auction.AuctionSummary) (*big.Int, error) {
+	if curEpoch < startEpoch {
+		return big.NewInt(0), errors.New("cur epoch is less than start epoch")
+	}
+	n := curEpoch - startEpoch + 1
+
+	// deltaRate = inflationRate / 365 / nEpochPerDay
+	// nEpochPerDay = 24 / AuctionInterval
+	// ===> deltaRate = inflationRate * 24 / 365 / AuctionInterval
+	// notice: rate is in the unit of GWei
+	deltaRate := new(big.Int).Mul(big.NewInt(MTRGReleaseInflation), big.NewInt(24))
+	deltaRate.Div(deltaRate, big.NewInt(365))
+	deltaRate.Div(deltaRate, big.NewInt(int64(AuctionInterval)))
+
+	if n == 1 {
+		initEpochRelease := new(big.Int).Mul(big.NewInt(MTRGReleaseBase), UnitWei)
+		initEpochRelease.Mul(initEpochRelease, deltaRate)
+		initEpochRelease.Div(initEpochRelease, UnitWei)
+		fmt.Println("init release: ", initEpochRelease)
+		return initEpochRelease, nil
+	}
+
+	lastEpochRelease := big.NewInt(0)
+	// list, err := auction.GetAuctionSummaryList()
+	// if err != nil || len(list.Summaries) <= 0 {
+	// 	fmt.Println("get auction summary failed", "err", err)
+	// 	return big.NewInt(0), err
+	// }
+	// lastSummary := list.Summaries[len(list.Summaries)-1]
+	if lastSummary != nil {
+		lastEpochRelease.Add(lastEpochRelease, lastSummary.RlsdMTRG)
+		lastEpochRelease.Add(lastEpochRelease, lastSummary.RsvdMTRG)
+	}
+	fmt.Println("last epoch release: ", lastEpochRelease)
+
+	delta := new(big.Int).Mul(lastEpochRelease, deltaRate)
+	delta.Div(delta, UnitWei) // divided by Wei
+
+	curEpochRelease := new(big.Int).Add(lastEpochRelease, delta)
+	return curEpochRelease, nil
 }
 
 // released MTRG for a speciefic range

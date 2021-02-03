@@ -24,7 +24,7 @@ import (
 func ComputeRewardMap(benefitRatio *big.Int, validatorBaseReward *big.Int, delegates []*types.Delegate) (RewardMap, error) {
 	rewardMap := RewardMap{}
 
-	totalReward, err := ComputeEpochReward(benefitRatio)
+	totalReward, err := ComputeEpochTotalReward(benefitRatio)
 
 	fmt.Println("-----------------------------------------------------------------------")
 	fmt.Println(fmt.Sprintf("Calculate Reward Map, benefitRatio:%v%%, baseRewards:%v, totalRewards:%v", float64(new(big.Int).Div(benefitRatio, big.NewInt(1e16)).Int64())/100, validatorBaseReward, totalReward))
@@ -48,7 +48,7 @@ func ComputeRewardMap(benefitRatio *big.Int, validatorBaseReward *big.Int, deleg
 	return rewardMap, err
 }
 
-func ComputeEpochReward(benefitRatio *big.Int) (*big.Int, error) {
+func ComputeEpochTotalReward(benefitRatio *big.Int) (*big.Int, error) {
 	summaryList, err := auction.GetAuctionSummaryList()
 	if err != nil {
 		logger.Error("get summary list failed", "error", err)
