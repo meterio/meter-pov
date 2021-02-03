@@ -24,12 +24,11 @@ import (
 func ComputeRewardMap(benefitRatio *big.Int, validatorBaseReward *big.Int, delegates []*types.Delegate) (RewardMap, error) {
 	rewardMap := RewardMap{}
 
-	totalReward, err := ComputeTotalValidatorRewards(benefitRatio)
+	totalReward, err := ComputeEpochReward(benefitRatio)
 
-	logger.Info("-----------------------------------------------------------------------")
-	logger.Info("Calculate Reward Map")
-	logger.Info("", "benefitRatio", benefitRatio, "baseRewards", validatorBaseReward, "totalRewards", totalReward)
-	logger.Info("-----------------------------------------------------------------------")
+	fmt.Println("-----------------------------------------------------------------------")
+	fmt.Println(fmt.Sprintf("Calculate Reward Map, benefitRatio:%v%%, baseRewards:%v, totalRewards:%v", float64(new(big.Int).Div(benefitRatio, big.NewInt(1e16)).Int64())/100, validatorBaseReward, totalReward))
+	fmt.Println("-----------------------------------------------------------------------")
 
 	if err != nil {
 		logger.Error("calculate validator reward failed")
@@ -37,10 +36,7 @@ func ComputeRewardMap(benefitRatio *big.Int, validatorBaseReward *big.Int, deleg
 	}
 
 	rewardMap, err = ComputeValidatorRewards(validatorBaseReward, totalReward, delegates)
-	for k, v := range rewardMap {
-		logger.Info("Reward for ", "addr", k)
-		fmt.Println(v.String())
-	}
+
 	logger.Info("**** Dist List")
 	for _, d := range rewardMap.GetDistList() {
 		fmt.Println(d.String())
@@ -52,43 +48,45 @@ func ComputeRewardMap(benefitRatio *big.Int, validatorBaseReward *big.Int, deleg
 	return rewardMap, err
 }
 
-func ComputeTotalValidatorRewards(benefitRatio *big.Int) (*big.Int, error) {
+func ComputeEpochReward(benefitRatio *big.Int) (*big.Int, error) {
 	summaryList, err := auction.GetAuctionSummaryList()
 	if err != nil {
 		logger.Error("get summary list failed", "error", err)
 		return big.NewInt(0), err
 	}
-	fmt.Println("benefitRatio: ", new(big.Int).Div(benefitRatio, big.NewInt(1e18)))
 	size := len(summaryList.Summaries)
 	if size == 0 {
 		return big.NewInt(0), nil
 	}
 
 	var d, i int
-	if size <= Ndays {
+	if size <= NDays {
 		d = size
 	} else {
-		d = Ndays
+		d = NDays
 	}
 
-	rewards := big.NewInt(0)
+	nEpochPerDay := 1
+	if AuctionInterval < 24 {
+		nEpochPerDay = int(24) / int(AuctionInterval)
+	}
+	size = size * nEpochPerDay
+
+	dailyReward := big.NewInt(0)
 	for i = 0; i < d; i++ {
 		s := summaryList.Summaries[size-1-i]
-		fmt.Println(fmt.Sprintf("adding summary (startEpoch:%v, endEpoch:%v), RcvdMTR:%v", s.StartEpoch, s.EndEpoch, s.RcvdMTR))
-		reward := s.RcvdMTR
-		rewards = rewards.Add(rewards, reward)
-		fmt.Println("reward subtotal: ", rewards)
+		dailyReward.Add(dailyReward, s.RcvdMTR)
 	}
 
-	fmt.Println("naive total reward: ", rewards)
 	// last 10 auctions receved MTR * 40% / 240
-	rewards = new(big.Int).Mul(rewards, benefitRatio)
-	rewards = new(big.Int).Div(rewards, big.NewInt(1e18))
-	rewards = new(big.Int).Div(rewards, big.NewInt(int64(AuctionInterval)))
-	fmt.Println("final total reward: ", rewards)
+	dailyReward = new(big.Int).Mul(dailyReward, benefitRatio)
+	dailyReward.Div(dailyReward, big.NewInt(1e18))
 
-	logger.Info("get Kblock validator rewards", "rewards", rewards)
-	return rewards, nil
+	epochReward := new(big.Int).Div(dailyReward, big.NewInt(int64(nEpochPerDay)))
+	fmt.Println("final total reward: ", epochReward)
+
+	logger.Info("get Kblock validator rewards", "rewards", epochReward)
+	return epochReward, nil
 }
 
 func getSelfDistributor(delegate *types.Delegate) (*types.Distributor, error) {

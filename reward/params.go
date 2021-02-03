@@ -12,10 +12,11 @@ import (
 const (
 	AuctionInterval = uint64(1) // every 24 Epoch move to next auction
 
-	MAX_VALIDATOR_REWARDS = 1200
+	// autobid params
+	MaxNAutobidClause = 1200
 
 	// validator reward params
-	Ndays = 10 // smooth with 10 days
+	NDays = 10 // smooth with 10 days
 
 	// auction params
 	totoalRelease = 160000000 //total released 160M MTRG

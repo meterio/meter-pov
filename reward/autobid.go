@@ -33,8 +33,8 @@ func BuildAutobidTx(autobidList []*RewardInfo, chainTag byte, bestNum uint32) *t
 		Nonce(12345678)
 
 	// XXX: Tx size protection. TBD: will do multiple txs if it exceeds max size
-	if len(autobidList) > MAX_VALIDATOR_REWARDS {
-		autobidList = autobidList[:MAX_VALIDATOR_REWARDS-1]
+	if len(autobidList) > MaxNAutobidClause {
+		autobidList = autobidList[:MaxNAutobidClause-1]
 	}
 
 	for i := 0; i < len(autobidList); i++ {
