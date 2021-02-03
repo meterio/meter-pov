@@ -100,13 +100,10 @@ func (a *Auction) TransferAutobidMTRToAuction(amount *big.Int, state *state.Stat
 	}
 
 	meterBalance := state.GetEnergy(meter.ValidatorBenefitAddr)
-	fmt.Println("validatorBenefit Account before transfer: ", meterBalance)
 	if meterBalance.Cmp(amount) < 0 {
-		return errors.New(fmt.Sprintf("not enough meter for validator benefit address balance:%v amount:%v", meterBalance, amount))
+		return fmt.Errorf("not enough meter balance in validator benefit address, balance:%v amount:%v", meterBalance, amount)
 	}
 
-	fmt.Println("transfering ", amount)
-	fmt.Println("validatorBenefit Account after transfer: ", state.GetEnergy(meter.ValidatorBenefitAddr))
 	state.AddEnergy(AuctionAccountAddr, amount)
 	state.SubEnergy(meter.ValidatorBenefitAddr, amount)
 	return nil

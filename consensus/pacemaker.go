@@ -1210,7 +1210,7 @@ func (p *Pacemaker) OnReceiveQueryProposal(mi *consensusMsgInfo) error {
 		if result == nil {
 			// Oooop!, I do not have it
 			p.logger.Error("I dont have the specific proposal", "height", queryHeight, "round", queryRound)
-			return errors.New(fmt.Sprintf("I dont have the specific proposal on height %v", queryHeight))
+			return fmt.Errorf("I dont have the specific proposal on height %v", queryHeight)
 		}
 
 		if result.ProposalMessage == nil {
