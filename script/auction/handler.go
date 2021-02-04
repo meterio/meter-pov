@@ -227,12 +227,6 @@ func (ab *AuctionBody) HandleAuctionTx(senv *AuctionEnviroment, gas uint64) (ret
 	}
 
 	if ab.Option == AUTO_BID {
-		// if ab.Amount.Cmp(MinimumBidAmount) < 0 {
-		// 	log.Info("amount lower than minimum bid threshold", "amount", ab.Amount, "minBid", MinimumBidAmount)
-		// 	err = errLessThanBidThreshold
-		// 	return
-		// }
-
 		// check bidder have enough meter balance?
 		if state.GetEnergy(meter.ValidatorBenefitAddr).Cmp(ab.Amount) < 0 {
 			log.Info("not enough meter balance in validator benefit addr", "amount", ab.Amount, "bidder", ab.Bidder.String(), "vbalance", state.GetEnergy(meter.ValidatorBenefitAddr))
@@ -264,7 +258,7 @@ func (ab *AuctionBody) HandleAuctionTx(senv *AuctionEnviroment, gas uint64) (ret
 
 	if ab.Option == AUTO_BID {
 		// transfer bidder's autobid MTR directly from validator benefit address
-		err = Auction.TransferAutobidMTRToAuction(ab.Amount, state)
+		err = Auction.TransferAutobidMTRToAuction(ab.Bidder, ab.Amount, state)
 	} else {
 		// now transfer bidder's MTR to auction accout
 		err = Auction.TransferMTRToAuction(ab.Bidder, ab.Amount, state)

@@ -94,7 +94,7 @@ func (a *Auction) SetSummaryList(summaryList *AuctionSummaryList, state *state.S
 
 //==================== account openation===========================
 //from meter.ValidatorBenefitAddr ==> AuctionAccountAddr
-func (a *Auction) TransferAutobidMTRToAuction(amount *big.Int, state *state.State) error {
+func (a *Auction) TransferAutobidMTRToAuction(addr meter.Address, amount *big.Int, state *state.State) error {
 	if amount.Sign() == 0 {
 		return nil
 	}
@@ -104,6 +104,7 @@ func (a *Auction) TransferAutobidMTRToAuction(amount *big.Int, state *state.Stat
 		return fmt.Errorf("not enough meter balance in validator benefit address, balance:%v amount:%v", meterBalance, amount)
 	}
 
+	a.logger.Info("transfer autobid MTR", "bidder", addr, "amount", amount)
 	state.AddEnergy(AuctionAccountAddr, amount)
 	state.SubEnergy(meter.ValidatorBenefitAddr, amount)
 	return nil
@@ -120,6 +121,7 @@ func (a *Auction) TransferMTRToAuction(addr meter.Address, amount *big.Int, stat
 		return errors.New("not enough meter")
 	}
 
+	a.logger.Info("transfer userbid MTR", "bidder", addr, "amount", amount)
 	state.AddEnergy(AuctionAccountAddr, amount)
 	state.SubEnergy(addr, amount)
 	return nil

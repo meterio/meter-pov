@@ -14,7 +14,7 @@ type RewardInfo struct {
 }
 
 func (r RewardInfo) String() string {
-	return fmt.Sprintf("RewardInfo: %v Amount:%v", r.Address.String(), r.Amount.Uint64())
+	return fmt.Sprintf("RewardInfo: %v Amount:%v", r.Address.String(), r.Amount)
 }
 
 //// RewardMap

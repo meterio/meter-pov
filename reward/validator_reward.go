@@ -14,97 +14,32 @@ import (
 	"github.com/dfinlab/meter/types"
 )
 
-//***************************************
-//**********validator Rewards ***********
-
-//1. distributes the base reward (meter.ValidatorBaseReward) for each validator. If there is remainning
-//2. get the propotion reward for each validator based on the votingpower
-//3. each validator takes commission first
-//4. finally, distributor takes their propotions of rest
-func ComputeRewardMap(benefitRatio *big.Int, validatorBaseReward *big.Int, delegates []*types.Delegate) (RewardMap, error) {
+// Epoch Reward includes these parts:
+//                |------ extra_reward -----|
+//  |------|   |------------|   |---------------|
+//  | base | + | commission | + | actual_reward |  =  each_reward
+//  |------|   |------------|   |---------------|
+//
+// such that:
+// sum(extra_reward) = total_rewards - base * delegate_size
+// commission = sum(extra_reward) * voting_power_ratio * commission_rate
+// actual_reward = sum(extra_reward) * voting_power_ratio - commission
+// delgate_reward = base + commission + actual_reward * delgate_share_ratio
+// voter_reward = actual_reward * voter_share_ratio
+//
+// Steps:
+// 1. distributes the base reward (meter.ValidatorBaseReward) for each validator. If there is remainning
+// 2. get the propotion reward for each validator based on the votingpower
+// 3. each validator takes commission first
+// 4. finally, distributor takes their propotions of rest
+func ComputeRewardMap(validatorBaseReward, totalRewards *big.Int, delegates []*types.Delegate) (RewardMap, error) {
 	rewardMap := RewardMap{}
 
-	totalReward, err := ComputeEpochTotalReward(benefitRatio)
-
 	fmt.Println("-----------------------------------------------------------------------")
-	fmt.Println(fmt.Sprintf("Calculate Reward Map, benefitRatio:%v%%, baseRewards:%v, totalRewards:%v", float64(new(big.Int).Div(benefitRatio, big.NewInt(1e16)).Int64())/100, validatorBaseReward, totalReward))
+	fmt.Println(fmt.Sprintf("Calculate Reward Map, baseRewards:%v, totalRewards:%v", validatorBaseReward, totalRewards))
 	fmt.Println("-----------------------------------------------------------------------")
 
-	if err != nil {
-		logger.Error("calculate validator reward failed")
-		return rewardMap, err
-	}
-
-	rewardMap, err = ComputeValidatorRewards(validatorBaseReward, totalReward, delegates)
-
-	logger.Info("**** Dist List")
-	for _, d := range rewardMap.GetDistList() {
-		fmt.Println(d.String())
-	}
-	logger.Info("**** Autobid List")
-	for _, a := range rewardMap.GetAutobidList() {
-		fmt.Println(a.String())
-	}
-	return rewardMap, err
-}
-
-func ComputeEpochTotalReward(benefitRatio *big.Int) (*big.Int, error) {
-	summaryList, err := auction.GetAuctionSummaryList()
-	if err != nil {
-		logger.Error("get summary list failed", "error", err)
-		return big.NewInt(0), err
-	}
-	size := len(summaryList.Summaries)
-	if size == 0 {
-		return big.NewInt(0), nil
-	}
-
-	var d, i int
-	if size <= NDays {
-		d = size
-	} else {
-		d = NDays
-	}
-
-	nEpochPerDay := 1
-	if AuctionInterval < 24 {
-		nEpochPerDay = int(24) / int(AuctionInterval)
-	}
-	size = size * nEpochPerDay
-
-	dailyReward := big.NewInt(0)
-	for i = 0; i < d; i++ {
-		s := summaryList.Summaries[size-1-i]
-		dailyReward.Add(dailyReward, s.RcvdMTR)
-	}
-
-	// last 10 auctions receved MTR * 40% / 240
-	dailyReward = new(big.Int).Mul(dailyReward, benefitRatio)
-	dailyReward.Div(dailyReward, big.NewInt(1e18))
-
-	epochReward := new(big.Int).Div(dailyReward, big.NewInt(int64(nEpochPerDay)))
-	fmt.Println("final total reward: ", epochReward)
-
-	logger.Info("get Kblock validator rewards", "rewards", epochReward)
-	return epochReward, nil
-}
-
-func getSelfDistributor(delegate *types.Delegate) (*types.Distributor, error) {
-	for _, dist := range delegate.DistList {
-		if dist.Address == delegate.Address {
-			return dist, nil
-		}
-	}
-	return nil, errors.New("distributor not found")
-}
-
-//1. distributes the base reward (meter.ValidatorBaseReward) for each validator. If there is remainning
-//2. get the propotion reward for each validator based on the votingpower
-//3. each validator takes commission first
-//4. finally, distributor takes their propotions of rest
-func ComputeValidatorRewards(validatorBaseReward *big.Int, totalRewards *big.Int, delegates []*types.Delegate) (RewardMap, error) {
 	var i int
-	rewardMap := RewardMap{}
 	baseRewardsOnly := false
 	size := len(delegates)
 
@@ -124,15 +59,16 @@ func ComputeValidatorRewards(validatorBaseReward *big.Int, totalRewards *big.Int
 				logger.Error("get self-distributor failed, treat as 0", "error", err)
 				rewardMap.Add(baseReward, big.NewInt(0), delegates[i].Address)
 			} else {
+				// autobidAmount = baseReward * Autobid / 100
 				autobidAmount := new(big.Int).Mul(baseReward, big.NewInt(int64(d.Autobid)))
-				autobidAmount = new(big.Int).Div(autobidAmount, big.NewInt(100))
+				autobidAmount.Div(autobidAmount, big.NewInt(100))
 
+				// distAmount = baseReward - autobidAmount
 				distAmount := new(big.Int).Sub(baseReward, autobidAmount)
+
 				rewardMap.Add(distAmount, autobidAmount, delegates[i].Address)
 			}
-
 		}
-
 		return rewardMap, nil
 	}
 
@@ -140,23 +76,28 @@ func ComputeValidatorRewards(validatorBaseReward *big.Int, totalRewards *big.Int
 	// propotion of voting power
 	votingPowerSum := big.NewInt(0)
 	for i = 0; i < size; i++ {
-		votingPowerSum = new(big.Int).Add(votingPowerSum, big.NewInt(delegates[i].VotingPower))
+		votingPowerSum.Add(votingPowerSum, big.NewInt(delegates[i].VotingPower))
 	}
 
+	// rewards = totalRewards - baseRewards
 	rewards := new(big.Int).Sub(totalRewards, baseRewards)
-	fmt.Println(rewards)
 	for i = 0; i < size; i++ {
 
 		// calculate the propotion of each validator
+		// eachReward = rewards * VotingPower / votingPowerSum
 		eachReward := new(big.Int).Mul(rewards, big.NewInt(delegates[i].VotingPower))
-		eachReward = new(big.Int).Div(eachReward, votingPowerSum)
+		eachReward.Div(eachReward, votingPowerSum)
 
 		// distribute commission to delegate, commission unit is shannon, aka, 1e09
+		// commission = eachReward * Commission / 1e09
 		commission := new(big.Int).Mul(eachReward, big.NewInt(int64(delegates[i].Commission)))
-		commission = new(big.Int).Div(commission, big.NewInt(1e09))
+		commission.Div(commission, big.NewInt(1e09))
 
+		// actualReward will be distributed to voters based on their shares
+		// actualReward = eachReward - commission
 		actualReward := new(big.Int).Sub(eachReward, commission)
 
+		// delegateSelf = baseReward + commission
 		delegateSelf := new(big.Int).Add(baseReward, commission)
 
 		// plus base reward
@@ -165,13 +106,19 @@ func ComputeValidatorRewards(validatorBaseReward *big.Int, totalRewards *big.Int
 			logger.Error("get the autobid param failed, treat as 0", "error", err)
 		} else {
 			// delegate's proportion
+			// selfPortion = actualReward * Shares / 1e09
 			selfPortion := new(big.Int).Mul(actualReward, big.NewInt(int64(d.Shares)))
-			selfPortion = new(big.Int).Div(selfPortion, big.NewInt(1e09))
+			selfPortion.Div(selfPortion, big.NewInt(1e09))
+
+			// delegateSelf = delegateSelf + selfPortion
 			delegateSelf = new(big.Int).Add(delegateSelf, selfPortion)
 
 			// distribute delegate itself
+			// autobidAmount = delegateSelf * Autobid / 100
 			autobidAmount := new(big.Int).Mul(delegateSelf, big.NewInt(int64(d.Autobid)))
-			autobidAmount = new(big.Int).Div(autobidAmount, big.NewInt(100))
+			autobidAmount.Div(autobidAmount, big.NewInt(100))
+
+			// distAmount = delegateSelf - autobidAmount
 			distAmount := new(big.Int).Sub(delegateSelf, autobidAmount)
 			rewardMap.Add(distAmount, autobidAmount, delegates[i].Address)
 		}
@@ -184,11 +131,14 @@ func ComputeValidatorRewards(validatorBaseReward *big.Int, totalRewards *big.Int
 				continue
 			}
 
+			// voterReward = actualReward * Shares / 1e09
 			voterReward := new(big.Int).Mul(actualReward, big.NewInt(int64(dist.Shares)))
-			voterReward = new(big.Int).Div(voterReward, big.NewInt(1e09))
+			voterReward.Div(voterReward, big.NewInt(1e09))
 
+			// autobidReward = voterReward * Autobid / 100
 			autobidReward := new(big.Int).Mul(voterReward, big.NewInt(int64(dist.Autobid)))
-			autobidReward = new(big.Int).Div(autobidReward, big.NewInt(100))
+			autobidReward.Div(autobidReward, big.NewInt(100))
+
 			distReward := new(big.Int).Sub(voterReward, autobidReward)
 			rewardMap.Add(distReward, autobidReward, dist.Address)
 		}
@@ -196,4 +146,51 @@ func ComputeValidatorRewards(validatorBaseReward *big.Int, totalRewards *big.Int
 	logger.Info("distriubted validators rewards", "total", totalRewards.String())
 
 	return rewardMap, nil
+}
+
+func ComputeEpochTotalReward(benefitRatio *big.Int) (*big.Int, error) {
+	summaryList, err := auction.GetAuctionSummaryList()
+	if err != nil {
+		logger.Error("get summary list failed", "error", err)
+		return big.NewInt(0), err
+	}
+	size := len(summaryList.Summaries)
+	if size == 0 {
+		return big.NewInt(0), nil
+	}
+	nEpochPerDay := 1
+	if AuctionInterval < 24 {
+		nEpochPerDay = int(24) / int(AuctionInterval)
+	}
+
+	var d, i int
+	if size <= NDays*nEpochPerDay {
+		d = size
+	} else {
+		d = NDays * nEpochPerDay
+	}
+
+	dailyReward := big.NewInt(0)
+	for i = 0; i < d; i++ {
+		s := summaryList.Summaries[size-1-i]
+		dailyReward.Add(dailyReward, s.RcvdMTR)
+	}
+
+	// last NDay * nEpochPerDay auctions receved MTR * 40% / 240
+	dailyReward = new(big.Int).Mul(dailyReward, benefitRatio)
+	dailyReward.Div(dailyReward, big.NewInt(240))
+	dailyReward.Div(dailyReward, big.NewInt(1e18))
+
+	epochReward := new(big.Int).Div(dailyReward, big.NewInt(int64(nEpochPerDay)))
+	logger.Info("final Kblock epoch rewards", "rewards", epochReward)
+	return epochReward, nil
+}
+
+func getSelfDistributor(delegate *types.Delegate) (*types.Distributor, error) {
+	for _, dist := range delegate.DistList {
+		if dist.Address == delegate.Address {
+			return dist, nil
+		}
+	}
+	return nil, errors.New("distributor not found")
 }

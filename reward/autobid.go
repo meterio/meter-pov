@@ -1,7 +1,6 @@
 package reward
 
 import (
-	"encoding/hex"
 	"fmt"
 	"math/big"
 	"math/rand"
@@ -17,10 +16,6 @@ import (
 func BuildAutobidTx(autobidList []*RewardInfo, chainTag byte, bestNum uint32) *tx.Transaction {
 	if len(autobidList) <= 0 {
 		return nil
-	}
-	fmt.Println("Build Autobid Tx: ")
-	for i, r := range autobidList {
-		fmt.Println(fmt.Sprintf("%v: %v", i, r.String()))
 	}
 	// 1. signer is nil
 	builder := new(tx.Builder)
@@ -38,8 +33,7 @@ func BuildAutobidTx(autobidList []*RewardInfo, chainTag byte, bestNum uint32) *t
 	}
 
 	for i := 0; i < len(autobidList); i++ {
-		data := buildAutobidData(autobidList[i])
-		fmt.Println("Data for RewardInfo", autobidList[i], "is:", "0x"+hex.EncodeToString(data))
+		data := BuildAutobidData(autobidList[i])
 		builder.Clause(
 			tx.NewClause(&auction.AuctionAccountAddr).
 				WithValue(big.NewInt(0)).
@@ -52,7 +46,7 @@ func BuildAutobidTx(autobidList []*RewardInfo, chainTag byte, bestNum uint32) *t
 	return builder.Build()
 }
 
-func buildAutobidData(autobid *RewardInfo) (ret []byte) {
+func BuildAutobidData(autobid *RewardInfo) (ret []byte) {
 	ret = []byte{}
 
 	fmt.Println("building autobid data with", autobid.String())

@@ -147,10 +147,8 @@ func calcWeightedAvgPrice(history *[N]float64) float64 {
 }
 
 // calEpochReleaseWithInflation returns the release of MTRG for current epoch, it returns a 0 if curEpoch is less than startEpoch
-// epochRelease = lastEpochRelease + lastEpochRelease * deltaRate^N
-// whereas,
-// N = curEpoch - startEpoch + 1
-// deltaRate = inflationRate / 365 / nEpochPerDay
+// epochRelease = lastEpochRelease + lastEpochRelease * deltaRate
+// whereas, deltaRate = inflationRate / 365 / nEpochPerDay
 func ComputeEpochReleaseWithInflation(startEpoch, curEpoch uint64, lastSummary *auction.AuctionSummary) (*big.Int, error) {
 	if curEpoch < startEpoch {
 		return big.NewInt(0), errors.New("cur epoch is less than start epoch")
@@ -160,7 +158,7 @@ func ComputeEpochReleaseWithInflation(startEpoch, curEpoch uint64, lastSummary *
 	// deltaRate = inflationRate / 365 / nEpochPerDay
 	// nEpochPerDay = 24 / AuctionInterval
 	// ===> deltaRate = inflationRate * 24 / 365 / AuctionInterval
-	// notice: rate is in the unit of GWei
+	// notice: rate is in the unit of Wei
 	deltaRate := new(big.Int).Mul(big.NewInt(MTRGReleaseInflation), big.NewInt(24))
 	deltaRate.Div(deltaRate, big.NewInt(365))
 	deltaRate.Div(deltaRate, big.NewInt(int64(AuctionInterval)))

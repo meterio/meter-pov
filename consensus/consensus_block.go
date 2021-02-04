@@ -13,6 +13,7 @@ package consensus
 import (
 	"bytes"
 	"fmt"
+	"math/big"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common/mclock"
@@ -692,16 +693,25 @@ func (conR *ConsensusReactor) BuildKBlock(parentBlock *block.Block, data *block.
 		if conR.sourceDelegates != fromDelegatesFile {
 			benefitRatio := reward.GetValidatorBenefitRatio(state)
 			validatorBaseReward := reward.GetValidatorBenefitRatio(state)
-			rewardMap, err := reward.ComputeRewardMap(benefitRatio, validatorBaseReward, conR.curDelegates.Delegates)
-			fmt.Println("-------------------------")
-			fmt.Println("Reward Map:")
-			fmt.Println("-------------------------")
-			for _, r := range rewardMap {
-				fmt.Println(r.String())
+			totalReward, err := reward.ComputeEpochTotalReward(benefitRatio)
+			if err != nil {
+				totalReward = big.NewInt(0)
 			}
-			fmt.Println("-------------------------")
+			rewardMap, err := reward.ComputeRewardMap(validatorBaseReward, totalReward, conR.curDelegates.Delegates)
+
 			if err == nil && len(rewardMap) > 0 {
+				fmt.Println("-------------------------")
+				fmt.Println("Reward Map:")
+				for _, r := range rewardMap {
+					fmt.Println(r.String())
+				}
+				fmt.Println("-------------------------")
 				distList := rewardMap.GetDistList()
+				fmt.Println("**** Dist List")
+				for _, d := range distList {
+					fmt.Println(d.String())
+				}
+				fmt.Println("-------------------------")
 
 				governingTx := reward.BuildStakingGoverningTx(distList, uint32(conR.curEpoch), chainTag, bestNum)
 				if governingTx != nil {
@@ -709,11 +719,21 @@ func (conR *ConsensusReactor) BuildKBlock(parentBlock *block.Block, data *block.
 				}
 
 				autobidList := rewardMap.GetAutobidList()
+				fmt.Println("**** Autobid List")
+				for _, a := range autobidList {
+					fmt.Println(a.String())
+				}
+				fmt.Println("-------------------------")
 
 				autobidTx := reward.BuildAutobidTx(autobidList, chainTag, bestNum)
 				if autobidTx != nil {
 					txs = append(txs, autobidTx)
 				}
+			} else {
+				fmt.Println("-------------------------")
+				fmt.Println("Reward Map is empty")
+				fmt.Println("-------------------------")
+
 			}
 		}
 	}
