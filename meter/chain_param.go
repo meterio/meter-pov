@@ -7,23 +7,32 @@ package meter
 
 import (
 	"fmt"
+
 	"github.com/inconshreveable/log15"
 )
 
 // Fork Release Version
 // Edision: The initial Basic Release. Features include
 const (
-	Edison = iota + 1
+	Edison                     = iota + 1
+	EdisonMainnetStartEpoch    = uint64(2887) // TODO: estimated, might be incorrect
+	EdisonTestnetStartEpoch    = uint64(3)    // TODO: estimated, might be incorrect
+	EdisonSysContractStartNum  = 4900000      //around 11/18/2020
+	TestnetSysContractStartNum = 100000
 )
 
+// Tesla: The staking/auction release, Features includ:
 const (
-	EdisonSysContractStartNum  = 4900000 //around 11/18/2020
-	TestnetSysContractStartNum = 100000
+	Tesla                  = iota + 2
+	TeslaMainnetStartEpoch = uint64(5000) // FIXME: not realistic number
+	TeslaTestnetStartEpoch = uint64(2000) // FIXME: not realistic number
 )
 
 // start block number support sys-contract
 var (
 	SysContractStartNum uint32 = EdisonSysContractStartNum
+	EdisonStartEpoch    uint64 = EdisonMainnetStartEpoch
+	TeslaStartEpoch     uint64 = TeslaMainnetStartEpoch
 )
 
 // Genesis hashes to enforce below configs on.
@@ -38,7 +47,6 @@ var (
 		ChainGenesisID: GenesisHash,
 		ChainFlag:      "",
 		Initialized:    false,
-		EdisonEpoch:    0,
 	}
 )
 
@@ -48,14 +56,11 @@ type ChainConfig struct {
 	ChainGenesisID Bytes32 // set while init
 	ChainFlag      string
 	Initialized    bool
-
-	// fork config
-	EdisonEpoch uint64
 }
 
 func (c *ChainConfig) ToString() string {
 	return fmt.Sprintf("BlockChain Configuration (ChainGenesisID: %v, ChainFlag: %v, Initialized: %v, EdisonEpoch: %v)",
-		c.ChainGenesisID, c.ChainFlag, c.Initialized, c.EdisonEpoch)
+		c.ChainGenesisID, c.ChainFlag, c.Initialized)
 }
 
 func (c *ChainConfig) IsInitialized() bool {
@@ -84,7 +89,15 @@ func (c *ChainConfig) IsMainnet() bool {
 
 // TBD: There would be more rules when 2nd fork is there.
 func (p *ChainConfig) IsEdison(curEpoch uint64) bool {
-	if curEpoch >= p.EdisonEpoch {
+	if curEpoch >= EdisonStartEpoch && curEpoch < TeslaStartEpoch {
+		return true
+	} else {
+		return false
+	}
+}
+
+func (p *ChainConfig) IsTesla(curEpoch uint64) bool {
+	if curEpoch >= TeslaStartEpoch {
 		return true
 	} else {
 		return false
@@ -98,7 +111,15 @@ func InitBlockChainConfig(genesisID Bytes32, chainFlag string) {
 
 	fmt.Println(BlockChainConfig.ToString())
 
-	SetSysContractStartNum()
+	if BlockChainConfig.IsMainnet() == true {
+		SysContractStartNum = EdisonSysContractStartNum
+		EdisonStartEpoch = EdisonMainnetStartEpoch
+		TeslaStartEpoch = TeslaMainnetStartEpoch
+	} else {
+		SysContractStartNum = TestnetSysContractStartNum
+		EdisonStartEpoch = EdisonTestnetStartEpoch
+		TeslaStartEpoch = TeslaMainnetStartEpoch
+	}
 }
 
 func IsMainChainEdison(curEpoch uint64) bool {
@@ -106,10 +127,8 @@ func IsMainChainEdison(curEpoch uint64) bool {
 		BlockChainConfig.IsEdison(curEpoch)
 }
 
-func SetSysContractStartNum() {
-	if BlockChainConfig.IsMainnet() == true {
-		SysContractStartNum = EdisonSysContractStartNum
-	} else {
-		SysContractStartNum = TestnetSysContractStartNum
-	}
+func IsMainChainTesla(curEpoch uint64) bool {
+	return BlockChainConfig.IsInitialized() && BlockChainConfig.IsMainnet() &&
+		BlockChainConfig.IsTesla(curEpoch)
+
 }
