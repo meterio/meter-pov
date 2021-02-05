@@ -671,7 +671,7 @@ func (conR *ConsensusReactor) BuildKBlock(parentBlock *block.Block, data *block.
 	lastKBlockHeight := parentBlock.Header().LastKBlockHeight()
 
 	// edison not support the staking/auciton/slashing
-	if meter.IsMainChainEdison(conR.curEpoch) != true {
+	if meter.IsMainChainTesla(parentBlock.Header().Number()) == true {
 		stats, err := reward.ComputeStatistics(lastKBlockHeight, parentBlock.Header().Number(), conR.chain, conR.curCommittee, conR.curActualCommittee, conR.csCommon, conR.csPacemaker.newCommittee, uint32(conR.curEpoch))
 		if err != nil {
 			// TODO: do something about this
@@ -693,14 +693,14 @@ func (conR *ConsensusReactor) BuildKBlock(parentBlock *block.Block, data *block.
 		if conR.sourceDelegates != fromDelegatesFile {
 			benefitRatio := reward.GetValidatorBenefitRatio(state)
 			validatorBaseReward := reward.GetValidatorBenefitRatio(state)
-			totalReward, err := reward.ComputeEpochTotalReward(benefitRatio)
+			epochBaseReward := reward.ComputeEpochBaseReward(validatorBaseReward)
+			epochTotalReward, err := reward.ComputeEpochTotalReward(benefitRatio)
 			if err != nil {
-				totalReward = big.NewInt(0)
+				epochTotalReward = big.NewInt(0)
 			}
-			rewardMap, err := reward.ComputeRewardMap(validatorBaseReward, totalReward, conR.curDelegates.Delegates)
+			rewardMap, err := reward.ComputeRewardMap(epochBaseReward, epochTotalReward, conR.curDelegates.Delegates)
 
 			if err == nil && len(rewardMap) > 0 {
-				fmt.Println("-------------------------")
 				fmt.Println("Reward Map:")
 				for _, r := range rewardMap {
 					fmt.Println(r.String())

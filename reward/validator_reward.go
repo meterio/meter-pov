@@ -32,11 +32,11 @@ import (
 // 2. get the propotion reward for each validator based on the votingpower
 // 3. each validator takes commission first
 // 4. finally, distributor takes their propotions of rest
-func ComputeRewardMap(validatorBaseReward, totalRewards *big.Int, delegates []*types.Delegate) (RewardMap, error) {
+func ComputeRewardMap(epochBaseReward, epochTotalRewards *big.Int, delegates []*types.Delegate) (RewardMap, error) {
 	rewardMap := RewardMap{}
 
 	fmt.Println("-----------------------------------------------------------------------")
-	fmt.Println(fmt.Sprintf("Calculate Reward Map, baseRewards:%v, totalRewards:%v", validatorBaseReward, totalRewards))
+	fmt.Println(fmt.Sprintf("Calculate Reward Map, baseRewards:%v, totalRewards:%v (for this epoch)", epochBaseReward, epochTotalRewards))
 	fmt.Println("-----------------------------------------------------------------------")
 
 	var i int
@@ -44,7 +44,8 @@ func ComputeRewardMap(validatorBaseReward, totalRewards *big.Int, delegates []*t
 	size := len(delegates)
 
 	// distribute the base reward
-	baseRewards := new(big.Int).Mul(validatorBaseReward, big.NewInt(int64(size)))
+	totalRewards := new(big.Int).Add(big.NewInt(0), epochTotalRewards)
+	baseRewards := new(big.Int).Mul(epochBaseReward, big.NewInt(int64(size)))
 	if baseRewards.Cmp(totalRewards) >= 0 {
 		baseRewards = totalRewards
 		baseRewardsOnly = true
@@ -146,6 +147,17 @@ func ComputeRewardMap(validatorBaseReward, totalRewards *big.Int, delegates []*t
 	logger.Info("distriubted validators rewards", "total", totalRewards.String())
 
 	return rewardMap, nil
+}
+
+func ComputeEpochBaseReward(validatorBaseReward *big.Int) *big.Int {
+	nEpochPerDay := 1
+	if AuctionInterval < 24 {
+		nEpochPerDay = int(24) / int(AuctionInterval)
+	}
+	fmt.Println("N Epoch Per Day: ", nEpochPerDay)
+	epochBaseReward := new(big.Int).Div(validatorBaseReward, big.NewInt(int64(nEpochPerDay)))
+	fmt.Println("Epoch Base Reward: ", epochBaseReward)
+	return epochBaseReward
 }
 
 func ComputeEpochTotalReward(benefitRatio *big.Int) (*big.Int, error) {

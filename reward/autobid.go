@@ -1,7 +1,6 @@
 package reward
 
 import (
-	"fmt"
 	"math/big"
 	"math/rand"
 	"time"
@@ -49,7 +48,6 @@ func BuildAutobidTx(autobidList []*RewardInfo, chainTag byte, bestNum uint32) *t
 func BuildAutobidData(autobid *RewardInfo) (ret []byte) {
 	ret = []byte{}
 
-	fmt.Println("building autobid data with", autobid.String())
 	body := &auction.AuctionBody{
 		Bidder:    autobid.Address,
 		Opcode:    auction.OP_BID,

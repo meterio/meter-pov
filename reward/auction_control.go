@@ -234,13 +234,31 @@ func calcRewardEpochRange(startEpoch, endEpoch uint64, initialRelease float64, r
 func buildAuctionStartData(start, startEpoch, end, endEpoch uint64, initialRelease float64, reservedPrice *big.Int) (ret []byte) {
 	ret = []byte{}
 
-	release, reserve, _, err := calcRewardEpochRange(startEpoch, endEpoch, initialRelease, reservedPrice)
-	if err != nil {
-		panic("calculate reward failed" + err.Error())
-	}
-	releaseBigInt := FloatToBigInt(release)
-	reserveBigInt := FloatToBigInt(reserve)
+	var releaseBigInt *big.Int
+	reserveBigInt := big.NewInt(0)
+	if meter.IsMainChainTesla(uint32(start)) == true {
+		list, err := auction.GetAuctionSummaryList()
+		var lastSummary *auction.AuctionSummary
+		if err != nil || len(list.Summaries) <= 0 {
+			fmt.Println("get auction summary failed", "err", err)
+		} else {
+			lastSummary = list.Summaries[len(list.Summaries)-1]
+		}
+		release, err := ComputeEpochReleaseWithInflation(startEpoch, endEpoch, lastSummary)
+		releaseBigInt = release
+		if err != nil {
+			panic("calculate reward with inflation failed" + err.Error())
+		}
+	} else {
+		release, reserve, _, err := calcRewardEpochRange(startEpoch, endEpoch, initialRelease, reservedPrice)
+		if err != nil {
+			panic("calculate reward failed" + err.Error())
+		}
 
+		releaseBigInt = FloatToBigInt(release)
+		reserveBigInt = FloatToBigInt(reserve)
+
+	}
 	body := &auction.AuctionBody{
 		Opcode:        auction.OP_START,
 		Version:       uint32(0),
