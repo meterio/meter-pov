@@ -671,7 +671,7 @@ func (conR *ConsensusReactor) BuildKBlock(parentBlock *block.Block, data *block.
 	lastKBlockHeight := parentBlock.Header().LastKBlockHeight()
 
 	// edison not support the staking/auciton/slashing
-	if meter.IsMainChainTesla(parentBlock.Header().Number()) == true {
+	if meter.IsMainChainTesla(parentBlock.Header().Number()) == true || meter.IsTestNet() {
 		stats, err := reward.ComputeStatistics(lastKBlockHeight, parentBlock.Header().Number(), conR.chain, conR.curCommittee, conR.curActualCommittee, conR.csCommon, conR.csPacemaker.newCommittee, uint32(conR.curEpoch))
 		if err != nil {
 			// TODO: do something about this

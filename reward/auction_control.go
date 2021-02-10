@@ -236,7 +236,7 @@ func buildAuctionStartData(start, startEpoch, end, endEpoch uint64, initialRelea
 
 	var releaseBigInt *big.Int
 	reserveBigInt := big.NewInt(0)
-	if meter.IsMainChainTesla(uint32(start)) == true {
+	if meter.IsMainChainTesla(uint32(start)) == true || meter.IsTestChainTesla(uint32(start)) {
 		list, err := auction.GetAuctionSummaryList()
 		var lastSummary *auction.AuctionSummary
 		if err != nil || len(list.Summaries) <= 0 {

@@ -23,9 +23,10 @@ const (
 
 // Tesla: The staking/auction release, Features includ:
 const (
-	Tesla                = iota + 2
-	TeslaMainnetStartNum = 8000000 // FIXME: not realistic number
-	TeslaTestnetStartNum = 1000000 // FIXME: not realistic number
+	Tesla                    = iota + 2
+	TeslaMainnetStartNum     = 8000000 // FIXME: not realistic number
+	TeslaTestnetStartNum     = 1075000 // 2021-02-11 09:00 AM (Beijing Time)
+	TestnetEthTxHashStartNum = 40000
 )
 
 // start block number support sys-contract
@@ -85,6 +86,22 @@ func (c *ChainConfig) IsMainnet() bool {
 	}
 }
 
+func (c *ChainConfig) IsTestnet() bool {
+	if c.IsInitialized() == false {
+		return false
+	}
+	switch c.ChainFlag {
+	case "main":
+		return false
+	case "test":
+		return true
+	case "warringstakes":
+		return true
+	default:
+		return false
+	}
+}
+
 // TBD: There would be more rules when 2nd fork is there.
 func (p *ChainConfig) IsEdison(blockNum uint32) bool {
 	if blockNum >= EdisonStartNum && blockNum < TeslaStartNum {
@@ -116,16 +133,22 @@ func InitBlockChainConfig(genesisID Bytes32, chainFlag string) {
 	} else {
 		SysContractStartNum = TestnetSysContractStartNum
 		EdisonStartNum = EdisonTestnetStartNum
-		TeslaStartNum = TeslaMainnetStartNum
+		TeslaStartNum = TeslaTestnetStartNum
 	}
 }
 
 func IsMainChainEdison(blockNum uint32) bool {
-	return BlockChainConfig.IsInitialized() && BlockChainConfig.IsMainnet() &&
-		BlockChainConfig.IsEdison(blockNum)
+	return BlockChainConfig.IsMainnet() && BlockChainConfig.IsEdison(blockNum)
 }
 
 func IsMainChainTesla(blockNum uint32) bool {
-	return BlockChainConfig.IsInitialized() && BlockChainConfig.IsMainnet() &&
-		BlockChainConfig.IsTesla(blockNum)
+	return BlockChainConfig.IsMainnet() && BlockChainConfig.IsTesla(blockNum)
+}
+
+func IsTestNet() bool {
+	return BlockChainConfig.IsTestnet()
+}
+
+func IsTestChainTesla(blockNum uint32) bool {
+	return BlockChainConfig.IsTestnet() && BlockChainConfig.IsTesla(blockNum)
 }
