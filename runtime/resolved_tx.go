@@ -37,7 +37,7 @@ func ResolveTransaction(tx *tx.Transaction) (*ResolvedTransaction, error) {
 		return nil, err
 	}
 	if tx.Gas() < intrinsicGas {
-		return nil, errors.New(fmt.Sprintf("intrinsic gas (%d) exceeds provided gas (%d)", intrinsicGas, tx.Gas()))
+		return nil, fmt.Errorf("intrinsic gas (%d) exceeds provided gas (%d)", intrinsicGas, tx.Gas())
 	}
 
 	clauses := tx.Clauses()
@@ -154,5 +154,6 @@ func (r *ResolvedTransaction) ToContext(gasPrice *big.Int, blockNumber uint32, g
 		ProvedWork: r.tx.ProvedWork(blockNumber, getID),
 		BlockRef:   r.tx.BlockRef(),
 		Expiration: r.tx.Expiration(),
+		Nonce:      r.tx.Nonce(),
 	}
 }

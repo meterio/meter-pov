@@ -13,6 +13,7 @@ package consensus
 import (
 	"bytes"
 	"fmt"
+	"math/big"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common/mclock"
@@ -28,10 +29,12 @@ import (
 	"github.com/dfinlab/meter/meter"
 	"github.com/dfinlab/meter/packer"
 	"github.com/dfinlab/meter/powpool"
+	"github.com/dfinlab/meter/reward"
 	"github.com/dfinlab/meter/runtime"
 	"github.com/dfinlab/meter/state"
 	"github.com/dfinlab/meter/tx"
 	"github.com/dfinlab/meter/txpool"
+	"github.com/dfinlab/meter/types"
 	"github.com/dfinlab/meter/xenv"
 )
 
@@ -476,7 +479,7 @@ func (conR *ConsensusReactor) CommitteeInfoCompare(cm1, cm2 []block.CommitteeInf
 }
 
 //build block committee info part
-func (conR *ConsensusReactor) BuildCommitteeInfoFromMember(system *bls.System, cms []CommitteeMember) []block.CommitteeInfo {
+func (conR *ConsensusReactor) BuildCommitteeInfoFromMember(system *bls.System, cms []types.CommitteeMember) []block.CommitteeInfo {
 	cis := []block.CommitteeInfo{}
 	for _, cm := range cms {
 		ci := block.NewCommitteeInfo(cm.Name, crypto.FromECDSAPub(&cm.PubKey), cm.NetAddr,
@@ -487,10 +490,10 @@ func (conR *ConsensusReactor) BuildCommitteeInfoFromMember(system *bls.System, c
 }
 
 //de-serialize the block committee info part
-func (conR *ConsensusReactor) BuildCommitteeMemberFromInfo(system *bls.System, cis []block.CommitteeInfo) []CommitteeMember {
-	cms := []CommitteeMember{}
+func (conR *ConsensusReactor) BuildCommitteeMemberFromInfo(system *bls.System, cis []block.CommitteeInfo) []types.CommitteeMember {
+	cms := []types.CommitteeMember{}
 	for _, ci := range cis {
-		cm := NewCommitteeMember()
+		cm := types.NewCommitteeMember()
 
 		pubKey, err := crypto.UnmarshalPubkey(ci.PubKey)
 		if err != nil {
@@ -513,7 +516,7 @@ func (conR *ConsensusReactor) BuildCommitteeMemberFromInfo(system *bls.System, c
 }
 
 //build block committee info part
-func (conR *ConsensusReactor) MakeBlockCommitteeInfo(system *bls.System, cms []CommitteeMember) []block.CommitteeInfo {
+func (conR *ConsensusReactor) MakeBlockCommitteeInfo(system *bls.System, cms []types.CommitteeMember) []block.CommitteeInfo {
 	cis := []block.CommitteeInfo{}
 
 	for _, cm := range cms {
@@ -654,32 +657,88 @@ func (conR *ConsensusReactor) BuildKBlock(parentBlock *block.Block, data *block.
 	conR.logger.Info("Start to build KBlock", "nonce", data.Nonce)
 	startTime := mclock.Now()
 
+	chainTag := conR.chain.Tag()
+	bestNum := conR.chain.BestBlock().Header().Number()
+	curEpoch := uint32(conR.curEpoch)
+	// distribute the base reward
+	state, err := conR.stateCreator.NewState(conR.chain.BestBlock().Header().StateRoot())
+	if err != nil {
+		panic("get state failed")
+	}
+
 	// build miner meter reward
-	txs := conR.GetKBlockRewardTxs(rewards)
+	txs := reward.BuildMinerRewardTxs(rewards, chainTag, bestNum)
 	lastKBlockHeight := parentBlock.Header().LastKBlockHeight()
 
 	// edison not support the staking/auciton/slashing
-	if meter.IsMainChainEdison(conR.curEpoch) != true {
-		stats, err := conR.calcStatistics(lastKBlockHeight, parentBlock.Header().Number())
+	if meter.IsMainChainTesla(parentBlock.Header().Number()) == true || meter.IsTestNet() {
+		stats, err := reward.ComputeStatistics(lastKBlockHeight, parentBlock.Header().Number(), conR.chain, conR.curCommittee, conR.curActualCommittee, conR.csCommon, conR.csPacemaker.newCommittee, uint32(conR.curEpoch))
 		if err != nil {
 			// TODO: do something about this
 			conR.logger.Info("no slash statistics need to info", "error", err)
 		}
 		if len(stats) != 0 {
-			statsTx := conR.BuildStatisticsTx(stats)
+			statsTx := reward.BuildStatisticsTx(stats, chainTag, bestNum, curEpoch)
 			txs = append(txs, statsTx)
 		}
 
-		if tx := conR.TryBuildAuctionTxs(uint64(best.Header().Number()+1), uint64(best.GetBlockEpoch()+1)); tx != nil {
+		reservedPrice := GetAuctionReservedPrice()
+		initialRelease := GetAuctionInitialRelease()
+
+		if tx := reward.BuildAuctionControlTx(uint64(best.Header().Number()+1), uint64(best.GetBlockEpoch()+1), chainTag, bestNum, initialRelease, reservedPrice); tx != nil {
 			txs = append(txs, tx)
 		}
 
-		if ts := conR.TryBuildStakingGoverningTx(); ts != nil {
-			txs = append(txs, ts...)
+		// build governing tx && autobid tx only when staking delegates is used
+		if conR.sourceDelegates != fromDelegatesFile {
+			benefitRatio := reward.GetValidatorBenefitRatio(state)
+			validatorBaseReward := reward.GetValidatorBenefitRatio(state)
+			epochBaseReward := reward.ComputeEpochBaseReward(validatorBaseReward)
+			epochTotalReward, err := reward.ComputeEpochTotalReward(benefitRatio)
+			if err != nil {
+				epochTotalReward = big.NewInt(0)
+			}
+			rewardMap, err := reward.ComputeRewardMap(epochBaseReward, epochTotalReward, conR.curDelegates.Delegates)
+
+			if err == nil && len(rewardMap) > 0 {
+				fmt.Println("Reward Map:")
+				for _, r := range rewardMap {
+					fmt.Println(r.String())
+				}
+				fmt.Println("-------------------------")
+				distList := rewardMap.GetDistList()
+				fmt.Println("**** Dist List")
+				for _, d := range distList {
+					fmt.Println(d.String())
+				}
+				fmt.Println("-------------------------")
+
+				governingTx := reward.BuildStakingGoverningTx(distList, uint32(conR.curEpoch), chainTag, bestNum)
+				if governingTx != nil {
+					txs = append(txs, governingTx)
+				}
+
+				autobidList := rewardMap.GetAutobidList()
+				fmt.Println("**** Autobid List")
+				for _, a := range autobidList {
+					fmt.Println(a.String())
+				}
+				fmt.Println("-------------------------")
+
+				autobidTx := reward.BuildAutobidTx(autobidList, chainTag, bestNum)
+				if autobidTx != nil {
+					txs = append(txs, autobidTx)
+				}
+			} else {
+				fmt.Println("-------------------------")
+				fmt.Println("Reward Map is empty")
+				fmt.Println("-------------------------")
+
+			}
 		}
 	}
 
-	if tx := conR.TryBuildAccountLockGoverningTx(); tx != nil {
+	if tx := reward.BuildAccountLockGoverningTx(chainTag, bestNum, curEpoch); tx != nil {
 		txs = append(txs, tx)
 	}
 
@@ -712,11 +771,6 @@ func (conR *ConsensusReactor) BuildKBlock(parentBlock *block.Block, data *block.
 	}
 
 	//create checkPoint before build block
-	state, err := conR.stateCreator.NewState(best.Header().StateRoot())
-	if err != nil {
-		conR.logger.Error("revert state failed ...", "error", err)
-		return nil
-	}
 	checkPoint := state.NewCheckpoint()
 
 	for _, tx := range txs {

@@ -925,17 +925,6 @@ func (sb *StakingBody) CandidateUpdateHandler(senv *StakingEnviroment, gas uint6
 	}
 	if autobidUpdated {
 		candBucket.Autobid = sb.Autobid
-		found := false
-		for i, b := range bucketList.buckets {
-			if b.ID().String() == candBucket.ID().String() {
-				bucketList.buckets[i] = candBucket
-				found = true
-				break
-			}
-		}
-		if found {
-			staking.SetBucketList(bucketList, state)
-		}
 		changed = true
 	}
 
@@ -955,6 +944,7 @@ func (sb *StakingBody) CandidateUpdateHandler(senv *StakingEnviroment, gas uint6
 		return
 	}
 
+	staking.SetBucketList(bucketList, state)
 	staking.SetCandidateList(candidateList, state)
 	return
 }

@@ -8,6 +8,7 @@ package staking
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"math/big"
 	"strings"
 
@@ -412,9 +413,8 @@ func (s *Staking) TransferValidatorReward(amount *big.Int, addr meter.Address, s
 
 	meterBalance := state.GetEnergy(meter.ValidatorBenefitAddr)
 	if meterBalance.Cmp(amount) < 0 {
-		return errors.New("not enough meter")
+		return fmt.Errorf("not enough meter in validator benefit addr, amount:%v, balance:%v", amount, meterBalance)
 	}
-
 	state.AddEnergy(addr, amount)
 	state.SubEnergy(meter.ValidatorBenefitAddr, amount)
 	return nil

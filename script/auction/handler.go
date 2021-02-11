@@ -226,26 +226,21 @@ func (ab *AuctionBody) HandleAuctionTx(senv *AuctionEnviroment, gas uint64) (ret
 		return
 	}
 
-	if state.GetEnergy(ab.Bidder).Cmp(ab.Amount) < 0 {
-		log.Info("not enough meter balance", "bidder", ab.Bidder, "amount", ab.Amount)
-		err = errNotEnoughMTR
-		return
-	}
-
 	if ab.Option == AUTO_BID {
-		if ab.Amount.Cmp(MinimumBidAmount) < 0 {
-			log.Info("amount lower than minimum bid threshold", "amount", ab.Amount, "minBid", MinimumBidAmount)
-			err = errLessThanBidThreshold
-			return
-		}
-
 		// check bidder have enough meter balance?
-		if state.GetEnergy(ab.Bidder).Cmp(ab.Amount) < 0 {
-			log.Info("bidder does not have enough balance amount", "amount", ab.Amount, "bidder", ab.Bidder.String())
+		if state.GetEnergy(meter.ValidatorBenefitAddr).Cmp(ab.Amount) < 0 {
+			log.Info("not enough meter balance in validator benefit addr", "amount", ab.Amount, "bidder", ab.Bidder.String(), "vbalance", state.GetEnergy(meter.ValidatorBenefitAddr))
 			err = errNotEnoughMTR
 			return
 		}
 	} else {
+		mtrBalance := state.GetEnergy(ab.Bidder)
+		if mtrBalance.Cmp(ab.Amount) < 0 {
+			log.Info("not enough meter balance", "bidder", ab.Bidder, "amount", ab.Amount, "balance", mtrBalance)
+			err = errNotEnoughMTR
+			return
+		}
+
 		if ab.Amount.Cmp(AutobidMinAmount) < 0 {
 			log.Info("amount lower than minimum bid threshold", "amount", ab.Amount, "minBid", AutobidMinAmount)
 			err = errLessThanBidThreshold
@@ -261,10 +256,15 @@ func (ab *AuctionBody) HandleAuctionTx(senv *AuctionEnviroment, gas uint64) (ret
 		return
 	}
 
-	// now transfer bidder's MTR to auction accout
-	err = Auction.TransferMTRToAuction(ab.Bidder, ab.Amount, state)
+	if ab.Option == AUTO_BID {
+		// transfer bidder's autobid MTR directly from validator benefit address
+		err = Auction.TransferAutobidMTRToAuction(ab.Bidder, ab.Amount, state)
+	} else {
+		// now transfer bidder's MTR to auction accout
+		err = Auction.TransferMTRToAuction(ab.Bidder, ab.Amount, state)
+	}
 	if err != nil {
-		log.Error("not enough balance", "address", ab.Bidder)
+		log.Error("error happend during auction bid transfer", "address", ab.Bidder, "err", err)
 		err = errNotEnoughMTR
 		return
 	}

@@ -6,7 +6,6 @@
 package vesting
 
 import (
-	"errors"
 	"fmt"
 	"math/big"
 
@@ -46,7 +45,7 @@ func NewPlanMap() *planMap {
 func (p *planMap) Get(addr meter.Address) (*VestPlan, error) {
 	v, ok := p.plans[addr]
 	if ok != true {
-		return nil, errors.New(fmt.Sprintf("not in map, address=%v", addr))
+		return nil, fmt.Errorf("not in map, address=%v", addr)
 	}
 	return v, nil
 }
@@ -58,7 +57,7 @@ func (p *planMap) Add(v *VestPlan) {
 
 func (p *planMap) Remove(addr meter.Address) error {
 	if _, ok := p.plans[addr]; ok == false {
-		return errors.New(fmt.Sprintf("not in map, address=%v", addr))
+		return fmt.Errorf("not in map, address=%v", addr)
 	}
 
 	delete(p.plans, addr)

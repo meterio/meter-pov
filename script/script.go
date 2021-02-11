@@ -9,7 +9,6 @@ import (
 	"bytes"
 	"encoding/gob"
 	"encoding/hex"
-	"errors"
 	"fmt"
 	"math/big"
 
@@ -109,7 +108,7 @@ func initGobEncode() {
 }
 
 func (se *ScriptEngine) StartAllModules() {
-	if meter.IsMainChainEdison(se.chain.BestBlock().GetBlockEpoch()) != true {
+	if meter.IsMainChainTesla(se.chain.BestBlock().Header().Number()) == true || meter.IsTestNet() {
 		// start module staking
 		ModuleStakingInit(se)
 
@@ -124,7 +123,7 @@ func (se *ScriptEngine) StartAllModules() {
 func (se *ScriptEngine) HandleScriptData(data []byte, to *meter.Address, txCtx *xenv.TransactionContext, gas uint64, state *state.State) (ret []byte, leftOverGas uint64, err error) {
 	se.logger.Info("received script data", "to", to, "gas", gas, "data", hex.EncodeToString(data))
 	if bytes.Compare(data[:len(ScriptPattern)], ScriptPattern[:]) != 0 {
-		err := errors.New(fmt.Sprintf("Pattern mismatch, pattern = %v", hex.EncodeToString(data[:len(ScriptPattern)])))
+		err := fmt.Errorf("Pattern mismatch, pattern = %v", hex.EncodeToString(data[:len(ScriptPattern)]))
 		fmt.Println(err)
 		return nil, gas, err
 	}
@@ -138,7 +137,7 @@ func (se *ScriptEngine) HandleScriptData(data []byte, to *meter.Address, txCtx *
 
 	mod, find := se.modReg.Find(header.GetModID())
 	if find == false {
-		err := errors.New(fmt.Sprintf("could not address module %v", header.GetModID()))
+		err := fmt.Errorf("could not address module %v", header.GetModID())
 		fmt.Println(err)
 		return nil, gas, err
 	}

@@ -37,7 +37,7 @@ type DistMtrg struct {
 }
 
 type AuctionTx struct {
-	TxID         string `json:"txid`
+	TxID         string `json:"txid"`
 	Address      string `json:"address"`
 	Amount       string `json:"amount"`
 	Type         string `json:"type"`

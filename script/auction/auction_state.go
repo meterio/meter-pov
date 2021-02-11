@@ -8,6 +8,7 @@ package auction
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"math/big"
 	"strings"
 
@@ -92,6 +93,23 @@ func (a *Auction) SetSummaryList(summaryList *AuctionSummaryList, state *state.S
 }
 
 //==================== account openation===========================
+//from meter.ValidatorBenefitAddr ==> AuctionAccountAddr
+func (a *Auction) TransferAutobidMTRToAuction(addr meter.Address, amount *big.Int, state *state.State) error {
+	if amount.Sign() == 0 {
+		return nil
+	}
+
+	meterBalance := state.GetEnergy(meter.ValidatorBenefitAddr)
+	if meterBalance.Cmp(amount) < 0 {
+		return fmt.Errorf("not enough meter balance in validator benefit address, balance:%v amount:%v", meterBalance, amount)
+	}
+
+	a.logger.Info("transfer autobid MTR", "bidder", addr, "amount", amount)
+	state.AddEnergy(AuctionAccountAddr, amount)
+	state.SubEnergy(meter.ValidatorBenefitAddr, amount)
+	return nil
+}
+
 // from addr == > AuctionAccountAddr
 func (a *Auction) TransferMTRToAuction(addr meter.Address, amount *big.Int, state *state.State) error {
 	if amount.Sign() == 0 {
@@ -103,6 +121,7 @@ func (a *Auction) TransferMTRToAuction(addr meter.Address, amount *big.Int, stat
 		return errors.New("not enough meter")
 	}
 
+	a.logger.Info("transfer userbid MTR", "bidder", addr, "amount", amount)
 	state.AddEnergy(AuctionAccountAddr, amount)
 	state.SubEnergy(addr, amount)
 	return nil
@@ -148,8 +167,9 @@ func (a *Auction) ClearAuction(cb *AuctionCB, state *state.State) (*big.Int, *bi
 	total := big.NewInt(0)
 	distMtrg := []*DistMtrg{}
 	for _, tx := range cb.AuctionTxs {
-		mtrg := tx.Amount.Div(tx.Amount, actualPrice)
-		mtrg = mtrg.Mul(mtrg, big.NewInt(1e18))
+		mtrg := new(big.Int).Mul(tx.Amount, big.NewInt(1e18))
+		mtrg = new(big.Int).Div(mtrg, actualPrice)
+
 		a.SendMTRGToBidder(tx.Address, mtrg, stateDB)
 		total = total.Add(total, mtrg)
 		distMtrg = append(distMtrg, &DistMtrg{Addr: tx.Address, Amount: mtrg})

@@ -180,7 +180,7 @@ func GetInternalDelegateList() ([]*types.DelegateIntern, error) {
 			Name:        s.Name,
 			Address:     s.Address,
 			PubKey:      s.PubKey,
-			VotingPower: s.VotingPower.Div(s.VotingPower, big.NewInt(1e12)).Int64(),
+			VotingPower: new(big.Int).Div(s.VotingPower, big.NewInt(1e12)).Int64(),
 			Commission:  s.Commission,
 			NetAddr: types.NetAddress{
 				IP:   net.ParseIP(string(s.IPAddr)),

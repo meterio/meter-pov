@@ -6,7 +6,6 @@
 package script
 
 import (
-	"errors"
 	"fmt"
 	"sync"
 
@@ -33,7 +32,7 @@ type Registry struct {
 func (r *Registry) Register(modID uint32, p *Module) error {
 	_, loaded := r.Modules.LoadOrStore(modID, *p)
 	if loaded {
-		return errors.New(fmt.Sprintf("Module with ID %v is already registered", modID))
+		return fmt.Errorf("Module with ID %v is already registered", modID)
 	}
 	return nil
 }

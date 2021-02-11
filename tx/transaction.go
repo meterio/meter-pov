@@ -246,16 +246,18 @@ func (t *Transaction) IsExpired(blockNum uint32) bool {
 // It returns zero Bytes32 if signer not available.
 func (t *Transaction) ID() (id meter.Bytes32) {
 	if t.IsEthTx() {
-		ethTx, err := t.GetEthTx()
-		if err != nil {
-			return meter.Bytes32{}
+		if meter.IsMainChainTesla(t.BlockRef().Number()) || (meter.IsTestNet() && t.BlockRef().Number() > meter.TestnetEthTxHashStartNum) {
+			ethTx, err := t.GetEthTx()
+			if err != nil {
+				return meter.Bytes32{}
+			}
+			hash := ethTx.Hash()
+			id, err := meter.ParseBytes32(hash.String())
+			if err != nil {
+				return meter.Bytes32{}
+			}
+			return id
 		}
-		hash := ethTx.Hash()
-		id, err := meter.ParseBytes32(hash.String())
-		if err != nil {
-			return meter.Bytes32{}
-		}
-		return id
 	}
 	if cached := t.cache.id.Load(); cached != nil {
 		return cached.(meter.Bytes32)
@@ -384,11 +386,13 @@ func (t *Transaction) Signer() (signer meter.Address, err error) {
 		return meter.Address{}, nil
 	}
 	if t.IsEthTx() {
-		// ethereum translated tx
-		from := "0x" + hex.EncodeToString(t.body.Reserved[1].([]byte))
-		fmt.Println("Signer for ETH translated TX:", from)
-		addr, err := meter.ParseAddress(from)
-		return addr, err
+		if meter.IsMainChainTesla(t.BlockRef().Number()) || meter.IsTestNet() {
+			// ethereum translated tx
+			from := "0x" + hex.EncodeToString(t.body.Reserved[1].([]byte))
+			fmt.Println("Signer for ETH translated TX:", from)
+			addr, err := meter.ParseAddress(from)
+			return addr, err
+		}
 	}
 
 	if cached := t.cache.signer.Load(); cached != nil {
