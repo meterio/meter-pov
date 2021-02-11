@@ -246,7 +246,7 @@ func (t *Transaction) IsExpired(blockNum uint32) bool {
 // It returns zero Bytes32 if signer not available.
 func (t *Transaction) ID() (id meter.Bytes32) {
 	if t.IsEthTx() {
-		if meter.IsMainChainTesla(t.BlockRef().Number()) || (meter.IsTestNet() && t.BlockRef().Number() > meter.TestnetEthTxHashStartNum) {
+		if meter.IsMainChainTesla(t.BlockRef().Number()) || meter.IsTestNet() {
 			ethTx, err := t.GetEthTx()
 			if err != nil {
 				return meter.Bytes32{}

@@ -23,10 +23,9 @@ const (
 
 // Tesla: The staking/auction release, Features includ:
 const (
-	Tesla                    = iota + 2
-	TeslaMainnetStartNum     = 8000000 // FIXME: not realistic number
-	TeslaTestnetStartNum     = 1075000 // 2021-02-11 09:00 AM (Beijing Time)
-	TestnetEthTxHashStartNum = 40000
+	Tesla                = iota + 2
+	TeslaMainnetStartNum = 8000000 // FIXME: not realistic number
+	TeslaTestnetStartNum = 40050   // 2021-02-12 09:00 AM (Beijing Time)
 )
 
 // start block number support sys-contract
