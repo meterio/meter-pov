@@ -55,7 +55,7 @@ import (
 )
 
 var (
-	magic = [4]byte{0x20, 0x08, 0x10, 0x31}
+	magic = [4]byte{0x20, 0x21, 0x02, 0x11}
 )
 
 func initLogger(ctx *cli.Context) {
