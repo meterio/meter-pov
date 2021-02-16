@@ -874,10 +874,13 @@ func (sb *StakingBody) CandidateUpdateHandler(senv *StakingEnviroment, gas uint6
 	}
 
 	var changed bool
-	var pubUpdated, commissionUpdated, nameUpdated, descUpdated, autobidUpdated bool = false, false, false, false, false
+	var pubUpdated, ipUpdated, commissionUpdated, nameUpdated, descUpdated, autobidUpdated bool = false, false, false, false, false, false
 
 	if bytes.Equal(record.PubKey, candidatePubKey) == false {
 		pubUpdated = true
+	}
+	if bytes.Equal(record.IPAddr, sb.CandIP) == false {
+		ipUpdated = true
 	}
 	if bytes.Equal(record.Name, sb.CandName) == false {
 		nameUpdated = true
@@ -900,42 +903,44 @@ func (sb *StakingBody) CandidateUpdateHandler(senv *StakingEnviroment, gas uint6
 	}
 
 	// the above changes are restricted by time
-	if ((sb.Timestamp - record.Timestamp) < MIN_CANDIDATE_UPDATE_INTV) &&
-		(pubUpdated || nameUpdated || commissionUpdated) {
+	// except ip and pubkey, which can be updated at any time
+	if (sb.Timestamp-record.Timestamp) < MIN_CANDIDATE_UPDATE_INTV && !ipUpdated && !pubUpdated {
 		log.Error("update too frequently", "curTime", sb.Timestamp, "recordedTime", record.Timestamp)
 		err = errUpdateTooFrequent
 		return
 	}
 
+	// unrestricted changes for pubkey & ip
 	if pubUpdated {
 		record.PubKey = candidatePubKey
 		changed = true
 	}
-	if commissionUpdated {
-		record.Commission = commission
-		changed = true
-	}
-	if nameUpdated {
-		record.Name = sb.CandName
-		changed = true
-	}
-	if descUpdated {
-		record.Description = sb.CandDescription
-		changed = true
-	}
-	if autobidUpdated {
-		candBucket.Autobid = sb.Autobid
-		changed = true
-	}
-
-	// IP/Port are un-stricted
-	if bytes.Equal(record.IPAddr, sb.CandIP) == false {
+	if ipUpdated {
 		record.IPAddr = sb.CandIP
 		changed = true
 	}
-	if record.Port != sb.CandPort {
-		record.Port = sb.CandPort
-		changed = true
+
+	if (sb.Timestamp - record.Timestamp) >= MIN_CANDIDATE_UPDATE_INTV {
+		if commissionUpdated {
+			record.Commission = commission
+			changed = true
+		}
+		if nameUpdated {
+			record.Name = sb.CandName
+			changed = true
+		}
+		if descUpdated {
+			record.Description = sb.CandDescription
+			changed = true
+		}
+		if autobidUpdated {
+			candBucket.Autobid = sb.Autobid
+			changed = true
+		}
+		if record.Port != sb.CandPort {
+			record.Port = sb.CandPort
+			changed = true
+		}
 	}
 
 	if changed == false {
