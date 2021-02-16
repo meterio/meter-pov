@@ -157,14 +157,18 @@ func ComputeEpochReleaseWithInflation(startEpoch, curEpoch uint64, lastSummary *
 
 	// deltaRate = inflationRate / 365 / nEpochPerDay
 	// nEpochPerDay = 24 / AuctionInterval
-	// ===> deltaRate = inflationRate * 24 / 365 / AuctionInterval
+	// ===> deltaRate = inflationRate / 365 * AuctionInterval / 24
+	// = inflationRate * AuctionInterval / 24 / 365
 	// notice: rate is in the unit of Wei
-	deltaRate := new(big.Int).Mul(big.NewInt(MTRGReleaseInflation), big.NewInt(24))
+	deltaRate := new(big.Int).Mul(big.NewInt(MTRGReleaseInflation), big.NewInt(int64(AuctionInterval)))
 	deltaRate.Div(deltaRate, big.NewInt(365))
-	deltaRate.Div(deltaRate, big.NewInt(int64(AuctionInterval)))
+	deltaRate.Div(deltaRate, big.NewInt(24))
+
+	fmt.Println("delta rate: ", deltaRate)
 
 	if n == 1 {
-		initEpochRelease := new(big.Int).Mul(big.NewInt(MTRGReleaseBase), UnitWei)
+		// initEpochRelease = MTRReleaseBase * 1e18 / deltaRate / 1e18
+		initEpochRelease := new(big.Int).Mul(big.NewInt(MTRGReleaseBase), UnitWei) // multiply base with 1e18
 		initEpochRelease.Mul(initEpochRelease, deltaRate)
 		initEpochRelease.Div(initEpochRelease, UnitWei)
 		fmt.Println("init release: ", initEpochRelease)
@@ -188,6 +192,15 @@ func ComputeEpochReleaseWithInflation(startEpoch, curEpoch uint64, lastSummary *
 	delta.Div(delta, UnitWei) // divided by Wei
 
 	curEpochRelease := new(big.Int).Add(lastEpochRelease, delta)
+
+	release := big.NewInt(0)
+	for i := 0; uint64(i) < n; i++ {
+		release.Add(release, new(big.Int).Mul(big.NewInt(MTRGReleaseBase), UnitWei))
+		release.Mul(release, deltaRate)
+		release.Div(release, UnitWei)
+	}
+	fmt.Println("current release:", curEpochRelease)
+	fmt.Println("current release:", release, " (calibrate)")
 	return curEpochRelease, nil
 }
 
