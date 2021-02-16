@@ -7,6 +7,7 @@ package blocks
 
 import (
 	"bytes"
+	"encoding/base64"
 	"encoding/hex"
 	"fmt"
 
@@ -43,6 +44,7 @@ type JSONBlockSummary struct {
 	Nonce            uint64             `json:"nonce"`
 	Epoch            uint64             `json:"epoch"`
 	KblockData       []string           `json:"kblockData"`
+	PowBlocks        []*JSONPowBlock    `json:"powBlocks"`
 }
 
 type JSONCollapsedBlock struct {
@@ -101,60 +103,54 @@ type JSONEmbeddedTx struct {
 type JSONPowBlock struct {
 	Hash        string `json:"hash"`
 	PrevBlock   string `json:"prevBlock"`
-	Beneficiary string `json:"beneficiary`
+	Beneficiary string `json:"beneficiary"`
 	Height      uint32 `json:"height"`
-	Reward      string `json:"reward"`
 }
 
 type JSONEpoch struct {
 	EpochID   uint64          `json:"epochID"`
+	Number    uint32          `json:"number"`
 	PowBlocks []*JSONPowBlock `json:"powBlocks"`
 	Nonce     uint64          `json:"nonce"`
 }
 
-func buildJSONEpoch(blk *block.Block) *JSONEpoch {
-	txs := blk.Transactions()
-	powRaws := blk.KBlockData.Data
-	clauses := make([]*tx.Clause, 0)
-	for _, t := range txs {
-		for _, c := range t.Clauses() {
-			clauses = append(clauses, c)
-		}
-	}
-
-	if len(clauses) < len(powRaws) {
+func buildJSONPowBlock(powRaw []byte) *JSONPowBlock {
+	powBlock := wire.MsgBlock{}
+	err := powBlock.Deserialize(bytes.NewReader(powRaw))
+	if err != nil {
+		fmt.Println("could not deserialize msgBlock, error:", err)
 		return nil
 	}
 
+	var height uint32
+	beneficiaryAddr := "0x"
+	if len(powBlock.Transactions) == 1 && len(powBlock.Transactions[0].TxIn) == 1 {
+		ss := powBlock.Transactions[0].TxIn[0].SignatureScript
+		height, beneficiaryAddr = powpool.DecodeSignatureScript(ss)
+	}
+
+	jPowBlk := &JSONPowBlock{
+		Hash:        powBlock.Header.BlockHash().String(),
+		PrevBlock:   powBlock.Header.PrevBlock.String(),
+		Beneficiary: beneficiaryAddr,
+		Height:      height,
+	}
+	return jPowBlk
+}
+
+func buildJSONEpoch(blk *block.Block) *JSONEpoch {
 	jPowBlks := make([]*JSONPowBlock, 0)
-	for i, powRaw := range powRaws {
-		clause := clauses[i]
-		powBlock := wire.MsgBlock{}
-		err := powBlock.Deserialize(bytes.NewReader(powRaw))
-		if err != nil {
-			fmt.Println("could not deserialize msgBlock, error:", err)
+	for _, powRaw := range blk.KBlockData.Data {
+		jPowBlk := buildJSONPowBlock(powRaw)
+		if jPowBlk != nil {
+			jPowBlks = append(jPowBlks, jPowBlk)
 		}
-
-		var height uint32
-		beneficiaryAddr := "0x"
-		if len(powBlock.Transactions) == 1 && len(powBlock.Transactions[0].TxIn) == 1 {
-			ss := powBlock.Transactions[0].TxIn[0].SignatureScript
-			height, beneficiaryAddr = powpool.DecodeSignatureScript(ss)
-		}
-
-		jPowBlk := &JSONPowBlock{
-			Hash:        powBlock.Header.BlockHash().String(),
-			PrevBlock:   powBlock.Header.PrevBlock.String(),
-			Beneficiary: beneficiaryAddr,
-			Height:      height,
-			Reward:      clause.Value().String(),
-		}
-		jPowBlks = append(jPowBlks, jPowBlk)
 	}
 
 	return &JSONEpoch{
 		Nonce:     blk.KBlockData.Nonce,
 		EpochID:   blk.GetBlockEpoch(),
+		Number:    blk.Header().Number(),
 		PowBlocks: jPowBlks,
 	}
 }
@@ -168,6 +164,15 @@ func buildJSONBlockSummary(blk *block.Block, isTrunk bool) *JSONBlockSummary {
 	header := blk.Header()
 	signer, _ := header.Signer()
 
+	var epoch uint64
+	isKBlock := header.BlockType() == block.BLOCK_TYPE_K_BLOCK
+	if isTrunk && isKBlock {
+		epoch = blk.QC.EpochID
+	} else if len(blk.CommitteeInfos.CommitteeInfo) > 0 {
+		epoch = blk.CommitteeInfos.Epoch
+	} else {
+		epoch = blk.QC.EpochID
+	}
 	result := &JSONBlockSummary{
 		Number:           header.Number(),
 		ID:               header.ID(),
@@ -183,9 +188,9 @@ func buildJSONBlockSummary(blk *block.Block, isTrunk bool) *JSONBlockSummary {
 		ReceiptsRoot:     header.ReceiptsRoot(),
 		TxsRoot:          header.TxsRoot(),
 		IsTrunk:          isTrunk,
-		IsKBlock:         header.BlockType() == block.BLOCK_TYPE_K_BLOCK,
+		IsKBlock:         isKBlock,
 		LastKBlockHeight: header.LastKBlockHeight(),
-		Epoch:            blk.CommitteeInfos.Epoch,
+		Epoch:            epoch,
 		KblockData:       make([]string, 0),
 	}
 	var err error
@@ -194,7 +199,6 @@ func buildJSONBlockSummary(blk *block.Block, isTrunk bool) *JSONBlockSummary {
 		if err != nil {
 			return nil
 		}
-		result.QC.Raw = ""
 	}
 
 	if len(blk.CommitteeInfos.CommitteeInfo) > 0 {
@@ -203,11 +207,17 @@ func buildJSONBlockSummary(blk *block.Block, isTrunk bool) *JSONBlockSummary {
 		result.CommitteeInfo = make([]*CommitteeMember, 0)
 	}
 	if len(blk.KBlockData.Data) > 0 {
-		powBlocks := make([]string, 0)
-		for _, powBlk := range blk.KBlockData.Data {
-			powBlocks = append(powBlocks, "0x"+hex.EncodeToString(powBlk))
+		raws := make([]string, 0)
+		powBlks := make([]*JSONPowBlock, 0)
+		for _, powRaw := range blk.KBlockData.Data {
+			raws = append(raws, "0x"+hex.EncodeToString(powRaw))
+			powBlk := buildJSONPowBlock(powRaw)
+			if powBlk != nil {
+				powBlks = append(powBlks, powBlk)
+			}
 		}
-		result.KblockData = powBlocks
+		result.KblockData = raws
+		result.PowBlocks = powBlks
 	}
 	if blk.KBlockData.Nonce > 0 {
 		result.Nonce = blk.KBlockData.Nonce
@@ -295,7 +305,6 @@ type QC struct {
 	QCRound          uint32 `json:"qcRound"`
 	VoterBitArrayStr string `json:"voterBitArrayStr"`
 	EpochID          uint64 `json:"epochID"`
-	Raw              string `json:"raw"`
 }
 
 type CommitteeMember struct {
@@ -306,14 +315,24 @@ type CommitteeMember struct {
 }
 
 func convertQC(qc *block.QuorumCert) (*QC, error) {
-	raw := hex.EncodeToString(qc.ToBytes())
+	// raw := hex.EncodeToString(qc.ToBytes())
 	return &QC{
 		QCHeight:         qc.QCHeight,
 		QCRound:          qc.QCRound,
 		VoterBitArrayStr: qc.VoterBitArrayStr,
 		EpochID:          qc.EpochID,
-		Raw:              raw,
 	}, nil
+}
+
+func convertKBlockData(kdata *block.KBlockData) {
+	for _, raw := range kdata.Data {
+		blk := wire.MsgBlock{}
+		err := blk.BtcDecode(bytes.NewReader(raw), 0, wire.BaseEncoding)
+		if err != nil {
+			fmt.Println("error: ", err)
+		}
+
+	}
 }
 
 func convertCommitteeList(cml block.CommitteeInfos) []*CommitteeMember {
@@ -324,7 +343,7 @@ func convertCommitteeList(cml block.CommitteeInfos) []*CommitteeMember {
 			Index: cm.CSIndex,
 			// Name:    "",
 			NetAddr: cm.NetAddr.IP.String(),
-			PubKey:  hex.EncodeToString(cm.PubKey),
+			PubKey:  base64.StdEncoding.EncodeToString(cm.PubKey),
 		}
 	}
 	return committeeList
