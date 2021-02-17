@@ -159,7 +159,11 @@ func (a *Auction) ClearAuction(cb *AuctionCB, state *state.State) (*big.Int, *bi
 	ValidatorBenefitRatio := builtin.Params.Native(state).Get(meter.KeyValidatorBenefitRatio)
 
 	actualPrice := new(big.Int).Mul(cb.RcvdMTR, big.NewInt(1e18))
-	actualPrice = actualPrice.Div(actualPrice, cb.RlsdMTRG)
+	if cb.RlsdMTRG.Cmp(big.NewInt(0)) > 0 {
+		actualPrice = actualPrice.Div(actualPrice, cb.RlsdMTRG)
+	} else {
+		actualPrice = cb.RsvdPrice
+	}
 	if actualPrice.Cmp(cb.RsvdPrice) < 0 {
 		actualPrice = cb.RsvdPrice
 	}

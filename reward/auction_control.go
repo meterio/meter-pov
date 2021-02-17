@@ -149,11 +149,20 @@ func calcWeightedAvgPrice(history *[N]float64) float64 {
 // calEpochReleaseWithInflation returns the release of MTRG for current epoch, it returns a 0 if curEpoch is less than startEpoch
 // epochRelease = lastEpochRelease + lastEpochRelease * deltaRate
 // whereas, deltaRate = inflationRate / 365 / nEpochPerDay
-func ComputeEpochReleaseWithInflation(startEpoch, curEpoch uint64, lastSummary *auction.AuctionSummary) (*big.Int, error) {
+func ComputeEpochReleaseWithInflation(start, startEpoch, curEpoch uint64, lastSummary *auction.AuctionSummary) (*big.Int, error) {
+	fmt.Println("Compute MTRG release with inflation (new)")
 	if curEpoch < startEpoch {
 		return big.NewInt(0), errors.New("cur epoch is less than start epoch")
 	}
-	n := curEpoch - startEpoch + 1
+	first := false
+	if lastSummary != nil {
+		if (lastSummary.StartHeight <= uint64(meter.TeslaStartNum) && lastSummary.EndHeight >= uint64(meter.TeslaStartNum)) ||
+			(lastSummary.EndHeight <= uint64(meter.TeslaStartNum)) {
+			first = true
+		}
+	} else {
+		first = true
+	}
 
 	// deltaRate = inflationRate / 365 / nEpochPerDay
 	// nEpochPerDay = 24 / AuctionInterval
@@ -166,7 +175,7 @@ func ComputeEpochReleaseWithInflation(startEpoch, curEpoch uint64, lastSummary *
 
 	fmt.Println("delta rate: ", deltaRate)
 
-	if n == 1 {
+	if first {
 		// initEpochRelease = MTRReleaseBase * 1e18 / deltaRate / 1e18
 		initEpochRelease := new(big.Int).Mul(big.NewInt(MTRGReleaseBase), UnitWei) // multiply base with 1e18
 		initEpochRelease.Mul(initEpochRelease, deltaRate)
@@ -194,18 +203,26 @@ func ComputeEpochReleaseWithInflation(startEpoch, curEpoch uint64, lastSummary *
 	curEpochRelease := new(big.Int).Add(lastEpochRelease, delta)
 
 	release := big.NewInt(0)
-	for i := 0; uint64(i) < n; i++ {
+	n := 1
+	for ; release.Cmp(lastEpochRelease) < 0; n++ {
 		release.Add(release, new(big.Int).Mul(big.NewInt(MTRGReleaseBase), UnitWei))
 		release.Mul(release, deltaRate)
 		release.Div(release, UnitWei)
 	}
-	fmt.Println("current release:", curEpochRelease)
-	fmt.Println("current release:", release, " (calibrate)")
+	fmt.Println("N = ", n)
+	fmt.Println("last epoch release:", lastEpochRelease, " (calibrate):", release)
+
+	release.Add(release, new(big.Int).Mul(big.NewInt(MTRGReleaseBase), UnitWei))
+	release.Mul(release, deltaRate)
+	release.Div(release, UnitWei)
+	fmt.Println("current release:", curEpochRelease, " (calibrate):", release)
+
 	return curEpochRelease, nil
 }
 
 // released MTRG for a speciefic range
 func calcRewardEpochRange(startEpoch, endEpoch uint64, initialRelease float64, reservedPrice *big.Int) (totalReward float64, totalUnrelease float64, epochRewards []float64, err error) {
+	fmt.Println("Compute MTRG release (old)")
 	var epoch uint64
 	var epochReward float64
 
@@ -253,11 +270,16 @@ func buildAuctionStartData(start, startEpoch, end, endEpoch uint64, initialRelea
 		list, err := auction.GetAuctionSummaryList()
 		var lastSummary *auction.AuctionSummary
 		if err != nil || len(list.Summaries) <= 0 {
-			fmt.Println("get auction summary failed", "err", err)
+			fmt.Println(err)
+			panic("get auction summary failed")
 		} else {
-			lastSummary = list.Summaries[len(list.Summaries)-1]
+			if len(list.Summaries) < 1 {
+				fmt.Println("Warning: no summaries available")
+			} else {
+				lastSummary = list.Summaries[len(list.Summaries)-1]
+			}
 		}
-		release, err := ComputeEpochReleaseWithInflation(startEpoch, endEpoch, lastSummary)
+		release, err := ComputeEpochReleaseWithInflation(start, startEpoch, endEpoch, lastSummary)
 		releaseBigInt = release
 		if err != nil {
 			panic("calculate reward with inflation failed" + err.Error())
