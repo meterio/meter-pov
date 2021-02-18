@@ -166,7 +166,7 @@ func ComputeEpochReleaseWithInflation(sequence uint64, lastAuction *auction.Auct
 
 	fmt.Println("delta rate: ", deltaRate)
 
-	if lastAuction == nil {
+	if lastAuction == nil || (lastAuction.StartHeight == 0 && lastAuction.EndHeight == 0 && lastAuction.RlsdMTRG == nil && lastAuction.StartEpoch == 0 && lastAuction.EndEpoch == 0) {
 		fmt.Println("first: ", true, "sequence: ", sequence)
 		// initEpochRelease = MTRReleaseBase * 1e18 / deltaRate / 1e18
 		initEpochRelease := new(big.Int).Mul(big.NewInt(MTRGReleaseBase), UnitWei) // multiply base with 1e18
@@ -175,11 +175,16 @@ func ComputeEpochReleaseWithInflation(sequence uint64, lastAuction *auction.Auct
 		fmt.Println("init release: ", initEpochRelease)
 		return initEpochRelease, nil
 	}
+	fmt.Println("last auction: ", lastAuction)
 
 	lastEpochRelease := big.NewInt(0)
 
-	lastEpochRelease.Add(lastEpochRelease, lastAuction.RlsdMTRG)
-	lastEpochRelease.Add(lastEpochRelease, lastAuction.RsvdMTRG)
+	if lastAuction.RlsdMTRG != nil {
+		lastEpochRelease.Add(lastEpochRelease, lastAuction.RlsdMTRG)
+	}
+	if lastAuction.RsvdMTRG != nil {
+		lastEpochRelease.Add(lastEpochRelease, lastAuction.RsvdMTRG)
+	}
 	fmt.Println("last epoch release: ", lastEpochRelease)
 
 	delta := new(big.Int).Mul(lastEpochRelease, deltaRate)

@@ -410,6 +410,6 @@ func (pool *PowPool) GetCurCoef() (curCoef int64) {
 
 	log.Debug("GetCurCoef", "coef", coef, "epoch", epoch, "fadeDays", fadeDays, "fadeRate", fadeRate)
 	curCoef = calcPowCoef(0, epoch, coef, fadeDays, fadeRate)
-	log.Info("Current Coef:", curCoef)
+	log.Info("Current Coef:", "curCoef", curCoef)
 	return curCoef
 }
