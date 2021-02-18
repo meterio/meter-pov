@@ -25,7 +25,7 @@ const (
 const (
 	Tesla                = iota + 2
 	TeslaMainnetStartNum = 8000000 // FIXME: not realistic number
-	TeslaTestnetStartNum = 2000    // 2021-02-12 09:00 AM (Beijing Time)
+	TeslaTestnetStartNum = 0       //
 )
 
 // start block number support sys-contract

@@ -53,6 +53,7 @@ type AuctionBody struct {
 	StartEpoch    uint64
 	EndHeight     uint64
 	EndEpoch      uint64
+	Sequence      uint64
 	AuctionID     meter.Bytes32
 	Bidder        meter.Address
 	Amount        *big.Int
@@ -63,8 +64,8 @@ type AuctionBody struct {
 }
 
 func (ab *AuctionBody) ToString() string {
-	return fmt.Sprintf("AuctionBody: Opcode=%v, Version=%v, Option=%v, StartHegiht=%v, StartEpoch=%v, EndHeight=%v, EndEpoch=%v, AuctionID=%v, Bidder=%v, Amount=%v, ReserveAmount=%v, Token=%v, TimeStamp=%v, Nonce=%v",
-		ab.Opcode, ab.Version, ab.Option, ab.StartHeight, ab.StartEpoch, ab.EndHeight, ab.EndEpoch, ab.AuctionID.AbbrevString(), ab.Bidder.String(), ab.Amount.String(), ab.ReserveAmount.String(), ab.Token, ab.Timestamp, ab.Nonce)
+	return fmt.Sprintf("AuctionBody: Opcode=%v, Version=%v, Option=%v, StartHegiht=%v, StartEpoch=%v, EndHeight=%v, EndEpoch=%v, Sequence=%v, AuctionID=%v, Bidder=%v, Amount=%v, ReserveAmount=%v, Token=%v, TimeStamp=%v, Nonce=%v",
+		ab.Opcode, ab.Version, ab.Option, ab.StartHeight, ab.StartEpoch, ab.EndHeight, ab.EndEpoch, ab.Sequence, ab.AuctionID.AbbrevString(), ab.Bidder.String(), ab.Amount.String(), ab.ReserveAmount.String(), ab.Token, ab.Timestamp, ab.Nonce)
 }
 
 func (ab *AuctionBody) GetOpName(op uint32) string {
@@ -129,6 +130,7 @@ func (ab *AuctionBody) StartAuctionCB(env *AuctionEnviroment, gas uint64) (ret [
 	auctionCB.StartEpoch = ab.StartEpoch
 	auctionCB.EndHeight = ab.EndHeight
 	auctionCB.EndEpoch = ab.EndEpoch
+	auctionCB.Sequence = ab.Sequence
 	auctionCB.RlsdMTRG = ab.Amount
 	auctionCB.RsvdMTRG = ab.ReserveAmount
 	auctionCB.RsvdPrice = builtin.Params.Native(state).Get(meter.KeyAuctionReservedPrice)
@@ -177,6 +179,7 @@ func (ab *AuctionBody) CloseAuctionCB(senv *AuctionEnviroment, gas uint64) (ret 
 		StartEpoch:   auctionCB.StartEpoch,
 		EndHeight:    auctionCB.EndHeight,
 		EndEpoch:     auctionCB.EndEpoch,
+		Sequence:     auctionCB.Sequence,
 		RlsdMTRG:     auctionCB.RlsdMTRG,
 		RsvdMTRG:     auctionCB.RsvdMTRG,
 		RsvdPrice:    auctionCB.RsvdPrice,

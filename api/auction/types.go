@@ -19,6 +19,7 @@ type AuctionSummary struct {
 	StartEpoch   uint64       `json:"startEpoch"`
 	EndHeight    uint64       `json:"endHeight"`
 	EndEpoch     uint64       `json:"endEpoch"`
+	Sequence     uint64       `json:"sequence"`
 	RlsdMTRG     string       `json:"releasedMTRG"`
 	RsvdMTRG     string       `json:"reservedMTRG"`
 	RsvdPrice    string       `json:"reservedPrice"`
@@ -52,6 +53,7 @@ type AuctionCB struct {
 	StartEpoch  uint64       `json:"startEpoch"`
 	EndHeight   uint64       `json:"endHeight"`
 	EndEpoch    uint64       `json:"endEpoch"`
+	Sequence    uint64       `json:"sequence"`
 	RlsdMTRG    string       `json:"releasedMTRG"`
 	RsvdMTRG    string       `json:"reservedMTRG"`
 	RsvdPrice   string       `json:"reservedPrice"`
@@ -92,6 +94,7 @@ func convertSummary(s *auction.AuctionSummary) *AuctionSummary {
 		StartEpoch:   s.StartEpoch,
 		EndHeight:    s.EndHeight,
 		EndEpoch:     s.EndEpoch,
+		Sequence:     s.Sequence,
 		RlsdMTRG:     s.RlsdMTRG.String(),
 		RsvdMTRG:     s.RsvdMTRG.String(),
 		RsvdPrice:    s.RsvdPrice.String(),
@@ -136,6 +139,7 @@ func convertAuctionCB(cb *auction.AuctionCB) *AuctionCB {
 		StartEpoch:  cb.StartEpoch,
 		EndHeight:   cb.EndHeight,
 		EndEpoch:    cb.EndEpoch,
+		Sequence:    cb.Sequence,
 		RlsdMTRG:    cb.RlsdMTRG.String(),
 		RsvdMTRG:    cb.RsvdMTRG.String(),
 		RsvdPrice:   cb.RsvdPrice.String(),

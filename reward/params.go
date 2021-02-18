@@ -10,7 +10,7 @@ import (
 )
 
 const (
-	AuctionInterval = uint64(4) // every 24 Epoch move to next auction
+	AuctionInterval = uint64(2) // every 24 Epoch move to next auction
 
 	// autobid params
 	MaxNAutobidClause = 1200
