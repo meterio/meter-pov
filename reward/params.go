@@ -10,13 +10,6 @@ import (
 )
 
 const (
-	AuctionInterval = uint64(2) // every 24 Epoch move to next auction
-
-	// autobid params
-	MaxNAutobidClause = 1200
-
-	// validator reward params
-	NDays = 10 // smooth with 10 days
 
 	// auction params
 	totoalRelease = 160000000 //total released 160M MTRG
@@ -24,10 +17,6 @@ const (
 	fadeYears     = 6         // halve every 6 years
 	fadeRate      = 0.8       // fade rate 0.8
 	N             = 24        // history buffer size
-
-	// auction release mtrg (new version)
-	MTRGReleaseBase      = 40000000 // total base of 400M MTRG
-	MTRGReleaseInflation = 5e16     // 5%, in unit of wei (aka. 1e18)
 
 )
 

@@ -14,6 +14,28 @@ import (
 
 // Constants of block chain.
 const (
+	// --------------------- Epoch --------------------------
+	// minimum height for committee relay.
+	NPowBlockPerEpoch    = 4    // epoch time (normaly 1 pow block takes 1 minutes)
+	MaxNPowBlockPerEpoch = 3000 // if too many pow blocks need to be packed in kblock, truncate to the last 3000 pow blocks
+	NEpochPerDay         = 24 * 60 / NPowBlockPerEpoch
+
+	// ------------------- Miner Reward ---------------------
+	MaxNClausePerRewardTx = 200 // pack reward tx with maxinum 200 clauses
+
+	// --------------- Validator Reward ---------------------
+	NDays = 10 // smooth with n days, the (last n days's total received MTR) * 1/n will be used as the validator reward for current day
+
+	// ------------------ Auction ---------------------------
+	NEpochPerAuction       = 2 // every 24 Epoch move to next auction
+	NAuctionPerDay         = 24 * 60 / NPowBlockPerEpoch / NEpochPerAuction
+	MaxNClausePerAutobidTx = 1200
+
+	// auction release mtrg (new version)
+	AuctionReleaseBase      = 40000000 // total base of 400M MTRG
+	AuctionReleaseInflation = 5e16     // yoy 5%, in unit of wei (aka. 1e18)
+
+	//  ------------------ Basics ----------------------------
 	BlockInterval             uint64 = 10           // time interval between two consecutive blocks.
 	BaseTxGas                 uint64 = params.TxGas // 21000
 	TxGas                     uint64 = 5000

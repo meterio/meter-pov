@@ -26,14 +26,6 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 )
 
-const (
-	// minimum height for committee relay.
-	POW_MINIMUM_HEIGHT_INTV = uint32(4) // 4 minutes per epoch
-
-	// max miner rewards per epoch
-	POW_MAXIMUM_REWARD_NUM = 3000
-)
-
 var (
 	GlobPowPoolInst *PowPool
 
@@ -266,7 +258,7 @@ func (p *PowPool) GetPowDecision() (bool, *PowResult) {
 	latestHeight := p.all.GetLatestHeight()
 	lastKframeHeight := p.all.lastKframePowObj.Height()
 	if (latestHeight < lastKframeHeight) ||
-		((latestHeight - lastKframeHeight) < POW_MINIMUM_HEIGHT_INTV) {
+		((latestHeight - lastKframeHeight) < meter.NPowBlockPerEpoch) {
 		log.Info("GetPowDecision false", "latestHeight", latestHeight, "lastKframeHeight", lastKframeHeight)
 		return false, nil
 	}

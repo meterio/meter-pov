@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"math/big"
 
+	"github.com/dfinlab/meter/meter"
 	"github.com/dfinlab/meter/script/auction"
 	"github.com/dfinlab/meter/types"
 )
@@ -32,25 +33,24 @@ import (
 // 2. get the propotion reward for each validator based on the votingpower
 // 3. each validator takes commission first
 // 4. finally, distributor takes their propotions of rest
-func ComputeRewardMap(epochBaseReward, epochTotalRewards *big.Int, delegates []*types.Delegate) (RewardMap, error) {
+func ComputeRewardMap(baseReward, totalRewards *big.Int, delegates []*types.Delegate) (RewardMap, error) {
 	rewardMap := RewardMap{}
+	size := len(delegates)
+	baseRewards := new(big.Int).Mul(baseReward, big.NewInt(int64(size)))
 
 	fmt.Println("-----------------------------------------------------------------------")
-	fmt.Println(fmt.Sprintf("Calculate Reward Map, baseRewards:%v, totalRewards:%v (for this epoch)", epochBaseReward, epochTotalRewards))
+	fmt.Println(fmt.Sprintf("Calculate Reward Map, baseRewards:%v, totalRewards:%v (for this auction)", baseRewards, totalRewards))
+	fmt.Println(fmt.Sprintf("baseReward:%v, size:%v", baseReward, size))
 	fmt.Println("-----------------------------------------------------------------------")
 
 	var i int
 	baseRewardsOnly := false
-	size := len(delegates)
 
 	// distribute the base reward
-	totalRewards := new(big.Int).Add(big.NewInt(0), epochTotalRewards)
-	baseRewards := new(big.Int).Mul(epochBaseReward, big.NewInt(int64(size)))
 	if baseRewards.Cmp(totalRewards) >= 0 {
 		baseRewards = totalRewards
 		baseRewardsOnly = true
 	}
-	baseReward := new(big.Int).Div(baseRewards, big.NewInt(int64(size)))
 
 	// only enough for base reward
 	if baseRewardsOnly == true {
@@ -150,13 +150,9 @@ func ComputeRewardMap(epochBaseReward, epochTotalRewards *big.Int, delegates []*
 }
 
 func ComputeEpochBaseReward(validatorBaseReward *big.Int) *big.Int {
-	nEpochPerDay := 1
-	if AuctionInterval < 24 {
-		nEpochPerDay = int(24) / int(AuctionInterval)
-	}
-	fmt.Println("N Epoch Per Day: ", nEpochPerDay)
-	epochBaseReward := new(big.Int).Div(validatorBaseReward, big.NewInt(int64(nEpochPerDay)))
-	fmt.Println("Epoch Base Reward: ", epochBaseReward)
+	fmt.Println("NEpochPerDay: ", meter.NEpochPerDay)
+	epochBaseReward := new(big.Int).Div(validatorBaseReward, big.NewInt(int64(meter.NEpochPerDay)))
+	fmt.Println("Epoch base reward: ", epochBaseReward)
 	return epochBaseReward
 }
 
@@ -170,32 +166,28 @@ func ComputeEpochTotalReward(benefitRatio *big.Int) (*big.Int, error) {
 	if size == 0 {
 		return big.NewInt(0), nil
 	}
-	nEpochPerDay := 1
-	if AuctionInterval < 24 {
-		nEpochPerDay = int(24) / int(AuctionInterval)
-	}
-
 	var d, i int
-	if size <= NDays*nEpochPerDay {
+	if size <= meter.NDays*meter.NEpochPerDay {
 		d = size
 	} else {
-		d = NDays * nEpochPerDay
+		d = meter.NDays * meter.NEpochPerDay
 	}
 
-	dailyReward := big.NewInt(0)
+	// sumReward = sum(receivedMTR in last NDays)
+	sumReward := big.NewInt(0)
 	for i = 0; i < d; i++ {
 		s := summaryList.Summaries[size-1-i]
-		dailyReward.Add(dailyReward, s.RcvdMTR)
+		sumReward.Add(sumReward, s.RcvdMTR)
 	}
 
-	// last NDay * nEpochPerDay auctions receved MTR * 40% / 240
-	dailyReward = new(big.Int).Mul(dailyReward, benefitRatio)
-	dailyReward.Div(dailyReward, big.NewInt(240))
-	dailyReward.Div(dailyReward, big.NewInt(1e18))
+	// epochTotalRewards = sumReward * benefitRatio / NDays / NEpochPerDay
+	epochTotalRewards := new(big.Int).Mul(sumReward, benefitRatio)
+	epochTotalRewards.Div(epochTotalRewards, big.NewInt(int64(meter.NDays)))
+	epochTotalRewards.Div(epochTotalRewards, big.NewInt(int64(meter.NEpochPerDay)))
+	epochTotalRewards.Div(epochTotalRewards, big.NewInt(1e18))
 
-	epochReward := new(big.Int).Div(dailyReward, big.NewInt(int64(nEpochPerDay)))
-	logger.Info("final Kblock epoch rewards", "rewards", epochReward)
-	return epochReward, nil
+	fmt.Println("Epoch total rewards:", epochTotalRewards)
+	return epochTotalRewards, nil
 }
 
 func getSelfDistributor(delegate *types.Delegate) (*types.Distributor, error) {

@@ -692,7 +692,7 @@ func (conR *ConsensusReactor) BuildKBlock(parentBlock *block.Block, data *block.
 		// build governing tx && autobid tx only when staking delegates is used
 		if conR.sourceDelegates != fromDelegatesFile {
 			benefitRatio := reward.GetValidatorBenefitRatio(state)
-			validatorBaseReward := reward.GetValidatorBenefitRatio(state)
+			validatorBaseReward := reward.GetValidatorBaseRewards(state)
 			epochBaseReward := reward.ComputeEpochBaseReward(validatorBaseReward)
 			epochTotalReward, err := reward.ComputeEpochTotalReward(benefitRatio)
 			if err != nil {

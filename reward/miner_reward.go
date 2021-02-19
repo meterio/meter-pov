@@ -10,13 +10,9 @@ import (
 	"github.com/dfinlab/meter/meter"
 )
 
-const (
-	MAX_REWARD_CLAUSES = 200
-)
-
 func BuildMinerRewardTxs(rewards []powpool.PowReward, chainTag byte, bestNum uint32) tx.Transactions {
 	count := len(rewards)
-	if count > powpool.POW_MAXIMUM_REWARD_NUM {
+	if count > meter.MaxNPowBlockPerEpoch {
 		logger.Error("too many reward clauses", "number", count)
 	}
 
@@ -25,8 +21,8 @@ func BuildMinerRewardTxs(rewards []powpool.PowReward, chainTag byte, bestNum uin
 	position := int(0)
 	end := int(0)
 	for count > 0 {
-		if count > MAX_REWARD_CLAUSES {
-			end = MAX_REWARD_CLAUSES
+		if count > meter.MaxNClausePerRewardTx {
+			end = meter.MaxNClausePerRewardTx
 		} else {
 			end = count
 		}
@@ -35,7 +31,7 @@ func BuildMinerRewardTxs(rewards []powpool.PowReward, chainTag byte, bestNum uin
 			rewardsTxs = append(rewardsTxs, tx)
 		}
 
-		count = count - MAX_REWARD_CLAUSES
+		count = count - meter.MaxNClausePerRewardTx
 		position = position + end
 	}
 
@@ -44,7 +40,7 @@ func BuildMinerRewardTxs(rewards []powpool.PowReward, chainTag byte, bestNum uin
 }
 
 func buildMinerRewardTx(rewards []powpool.PowReward, chainTag byte, bestNum uint32) *tx.Transaction {
-	if len(rewards) > MAX_REWARD_CLAUSES {
+	if len(rewards) > meter.MaxNClausePerRewardTx {
 		logger.Error("too many reward clauses", "number", len(rewards))
 		return nil
 	}
@@ -54,7 +50,7 @@ func buildMinerRewardTx(rewards []powpool.PowReward, chainTag byte, bestNum uint
 		BlockRef(tx.NewBlockRef(bestNum + 1)).
 		Expiration(720).
 		GasPriceCoef(0).
-		Gas(meter.BaseTxGas * uint64(MAX_REWARD_CLAUSES)).
+		Gas(meter.BaseTxGas * uint64(meter.MaxNClausePerRewardTx)).
 		DependsOn(nil).
 		Nonce(12345678)
 

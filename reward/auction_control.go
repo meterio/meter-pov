@@ -150,26 +150,22 @@ func calcWeightedAvgPrice(history *[N]float64) float64 {
 
 // calEpochReleaseWithInflation returns the release of MTRG for current epoch, it returns a 0 if curEpoch is less than startEpoch
 // epochRelease = lastEpochRelease + lastEpochRelease * deltaRate
-// whereas, deltaRate = inflationRate / 365 / nEpochPerDay
+// whereas, deltaRate = inflationRate / 365 / nAuctionPerDay
 func ComputeEpochReleaseWithInflation(sequence uint64, lastAuction *auction.AuctionCB) (*big.Int, error) {
 	fmt.Println("Compute MTRG release with inflation (new)")
 	fmt.Println(fmt.Sprintf("auction Sequence:%d", sequence))
 
-	// deltaRate = inflationRate / 365 / nEpochPerDay
-	// nEpochPerDay = 24 / AuctionInterval
-	// ===> deltaRate = inflationRate / 365 * AuctionInterval / 24
-	// = inflationRate * AuctionInterval / 24 / 365
+	// deltaRate = inflationRate / 365 / nAuctionPerDay
 	// notice: rate is in the unit of Wei
-	deltaRate := new(big.Int).Mul(big.NewInt(MTRGReleaseInflation), big.NewInt(int64(AuctionInterval)))
+	deltaRate := new(big.Int).Div(big.NewInt(meter.AuctionReleaseInflation), big.NewInt(int64(meter.NAuctionPerDay)))
 	deltaRate.Div(deltaRate, big.NewInt(365))
-	deltaRate.Div(deltaRate, big.NewInt(24))
 
 	fmt.Println("delta rate: ", deltaRate)
 
 	if lastAuction == nil || (lastAuction.StartHeight == 0 && lastAuction.EndHeight == 0 && lastAuction.RlsdMTRG == nil && lastAuction.StartEpoch == 0 && lastAuction.EndEpoch == 0) {
 		fmt.Println("first: ", true, "sequence: ", sequence)
 		// initEpochRelease = MTRReleaseBase * 1e18 / deltaRate / 1e18
-		initEpochRelease := new(big.Int).Mul(big.NewInt(MTRGReleaseBase), UnitWei) // multiply base with 1e18
+		initEpochRelease := new(big.Int).Mul(big.NewInt(meter.AuctionReleaseBase), UnitWei) // multiply base with 1e18
 		initEpochRelease.Mul(initEpochRelease, deltaRate)
 		initEpochRelease.Div(initEpochRelease, UnitWei)
 		fmt.Println("init release: ", initEpochRelease)
@@ -177,36 +173,34 @@ func ComputeEpochReleaseWithInflation(sequence uint64, lastAuction *auction.Auct
 	}
 	fmt.Println("last auction: ", lastAuction)
 
-	lastEpochRelease := big.NewInt(0)
+	lastRelease := big.NewInt(0)
 
 	if lastAuction.RlsdMTRG != nil {
-		lastEpochRelease.Add(lastEpochRelease, lastAuction.RlsdMTRG)
+		lastRelease.Add(lastRelease, lastAuction.RlsdMTRG)
 	}
 	if lastAuction.RsvdMTRG != nil {
-		lastEpochRelease.Add(lastEpochRelease, lastAuction.RsvdMTRG)
+		lastRelease.Add(lastRelease, lastAuction.RsvdMTRG)
 	}
-	fmt.Println("last epoch release: ", lastEpochRelease)
-
-	delta := new(big.Int).Mul(lastEpochRelease, deltaRate)
+	delta := new(big.Int).Mul(lastRelease, deltaRate)
 	delta.Div(delta, UnitWei) // divided by Wei
 
-	curEpochRelease := new(big.Int).Add(lastEpochRelease, delta)
+	curRelease := new(big.Int).Add(lastRelease, delta)
 
 	release := big.NewInt(0)
 	for i := 0; uint64(i) < lastAuction.Sequence; i++ {
-		release.Add(release, new(big.Int).Mul(big.NewInt(MTRGReleaseBase), UnitWei))
+		release.Add(release, new(big.Int).Mul(big.NewInt(meter.AuctionReleaseBase), UnitWei))
 		release.Mul(release, deltaRate)
 		release.Div(release, UnitWei)
 	}
 	fmt.Println("Sequence = ", lastAuction.Sequence)
-	fmt.Println("last epoch release:", lastEpochRelease, " (calibrate):", release)
+	fmt.Println("last release:", lastRelease, " (calibrate):", release)
 
-	release.Add(release, new(big.Int).Mul(big.NewInt(MTRGReleaseBase), UnitWei))
+	release.Add(release, new(big.Int).Mul(big.NewInt(meter.AuctionReleaseBase), UnitWei))
 	release.Mul(release, deltaRate)
 	release.Div(release, UnitWei)
-	fmt.Println("current release:", curEpochRelease, " (calibrate):", release)
+	fmt.Println("current release:", curRelease, " (calibrate):", release)
 
-	return curEpochRelease, nil
+	return curRelease, nil
 }
 
 // released MTRG for a speciefic range
@@ -355,7 +349,7 @@ func buildAuctionStopData(start, startEpoch, end, endEpoch, sequence uint64, id 
 // height is current kblock, lastKBlock is last one
 // so if current > boundary && last < boundary, take actions
 func shouldAuctionStart(curEpoch, lastEpoch uint64) bool {
-	if (curEpoch > lastEpoch) && (curEpoch-lastEpoch) >= AuctionInterval {
+	if (curEpoch > lastEpoch) && (curEpoch-lastEpoch) >= meter.NEpochPerAuction {
 		return true
 	}
 	return false
