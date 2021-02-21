@@ -18,19 +18,19 @@ import (
 )
 
 const (
-	JailCriteria = 1200 //2000 //100 times of missing proposer
+	JailCriteria = 2000 // 100 times of missing proposer (roughly 2 epoch of misconducting, when 1 epoch = 1 hour)
 
-	WipeOutEpochCount  = 4400 // 360 // does not count if longer than 15 days (360 epoch)
-	DoubleSignPts      = 60
-	MissingLeaderPts   = 40
+	DoubleSignPts      = 500
+	MissingLeaderPts   = 400
 	MissingProposerPts = 20
 	MissingVoterPts    = 2
 
-	PhaseOutEpochCount    = 2200 // 180 // half points after 6 days (180 epoch)
-	PhaseOutDoubleSignPts = 30
-	PhaseOutLeaderPts     = 20
-	PhaseOutProposerPts   = 10
-	PhaseOutVoterPts      = 1
+	PhaseOutEpochCount    = 12 // half points after 12 epoch (half a day)
+	PhaseOutDoubleSignPts = DoubleSignPts / 2
+	PhaseOutLeaderPts     = MissingLeaderPts / 2
+	PhaseOutProposerPts   = MissingProposerPts / 2
+	PhaseOutVoterPts      = MissingVoterPts / 2
+	WipeOutEpochCount     = PhaseOutEpochCount * 2 // does not count if longer than 2*PhaseOutEpochOut
 )
 
 // MissingLeader

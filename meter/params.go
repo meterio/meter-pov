@@ -16,7 +16,7 @@ import (
 const (
 	// --------------------- Epoch --------------------------
 	// minimum height for committee relay.
-	NPowBlockPerEpoch    = 4    // epoch time (normaly 1 pow block takes 1 minutes)
+	NPowBlockPerEpoch    = 60   // epoch time (normaly 1 pow block takes 1 minutes)
 	MaxNPowBlockPerEpoch = 3000 // if too many pow blocks need to be packed in kblock, truncate to the last 3000 pow blocks
 	NEpochPerDay         = 24 * 60 / NPowBlockPerEpoch
 
@@ -27,7 +27,7 @@ const (
 	NDays = 10 // smooth with n days, the (last n days's total received MTR) * 1/n will be used as the validator reward for current day
 
 	// ------------------ Auction ---------------------------
-	NEpochPerAuction       = 2 // every 24 Epoch move to next auction
+	NEpochPerAuction       = 24 // every n Epoch move to next auction
 	NAuctionPerDay         = 24 * 60 / NPowBlockPerEpoch / NEpochPerAuction
 	MaxNClausePerAutobidTx = 1200
 
