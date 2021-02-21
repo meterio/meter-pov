@@ -20,12 +20,12 @@ import (
 const (
 	JailCriteria = 2000 // 100 times of missing proposer (roughly 2 epoch of misconducting, when 1 epoch = 1 hour)
 
-	DoubleSignPts      = 500
-	MissingLeaderPts   = 400
+	DoubleSignPts      = 2000
+	MissingLeaderPts   = 1000
 	MissingProposerPts = 20
 	MissingVoterPts    = 2
 
-	PhaseOutEpochCount    = 12 // half points after 12 epoch (half a day)
+	PhaseOutEpochCount    = 4 // half points after 12 epoch (half a day)
 	PhaseOutDoubleSignPts = DoubleSignPts / 2
 	PhaseOutLeaderPts     = MissingLeaderPts / 2
 	PhaseOutProposerPts   = MissingProposerPts / 2
@@ -104,7 +104,7 @@ func NewDelegateStatistics(addr meter.Address, name []byte, pubKey []byte) *Dele
 	}
 }
 
-func (ds *DelegateStatistics) PhaseOut(curEpoch uint32) {
+func (ds *DelegateStatistics) PhaseOut(curEpoch uint32, exemptProposerMap map[MissingProposerInfo]bool) {
 	if curEpoch <= PhaseOutEpochCount {
 		return
 	}
@@ -135,6 +135,10 @@ func (ds *DelegateStatistics) PhaseOut(curEpoch uint32) {
 	proposerInfo := []*MissingProposerInfo{}
 	proposerPts := uint64(0)
 	for _, info := range ds.Infractions.MissingProposers.Info {
+		if _, exempt := exemptProposerMap[*info]; exempt {
+			// exempt, no penalty points
+			continue
+		}
 		if info.Epoch >= phaseOneEpoch {
 			proposerInfo = append(proposerInfo, info)
 			proposerPts = proposerPts + MissingProposerPts

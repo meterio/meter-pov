@@ -954,6 +954,48 @@ func (sb *StakingBody) CandidateUpdateHandler(senv *StakingEnviroment, gas uint6
 	return
 }
 
+func (sb *StakingBody) calculateExemptProposerMap(stats *StatisticsList) map[MissingProposerInfo]bool {
+	missingProposers := make([]*MissingProposerInfo, 0)
+	exemptProposerMap := make(map[MissingProposerInfo]bool)
+
+	// collect all missingProposers
+	for _, d := range stats.delegates {
+		for _, m := range d.Infractions.MissingProposers.Info {
+			missingProposers = append(missingProposers, &MissingProposerInfo{Epoch: m.Epoch, Height: m.Height})
+		}
+	}
+
+	if len(missingProposers) > 0 {
+		// sort by (epoch, height) ascending
+		sort.SliceStable(missingProposers, func(i, j int) bool {
+			if missingProposers[i].Epoch < missingProposers[j].Epoch {
+				return true
+			} else {
+				return missingProposers[i].Height < missingProposers[j].Height
+			}
+		})
+
+		// calculate exempt missing proposers
+		var i, j int
+		for i = 0; i < len(missingProposers); {
+			for j = i + 1; j < len(missingProposers); j++ {
+				curr := missingProposers[j]
+				prev := missingProposers[j-1]
+				if curr.Epoch != prev.Epoch || curr.Height != prev.Height+1 {
+					break
+				}
+			}
+			length := j - i
+			if length > 1 {
+				exemptProposerMap[MissingProposerInfo{Epoch: missingProposers[i].Epoch, Height: missingProposers[i].Height}] = true
+			}
+			i = j
+		}
+	}
+	return exemptProposerMap
+
+}
+
 func (sb *StakingBody) DelegateStatisticsHandler(senv *StakingEnviroment, gas uint64) (ret []byte, leftOverGas uint64, err error) {
 	defer func() {
 		if err != nil {
@@ -978,12 +1020,14 @@ func (sb *StakingBody) DelegateStatisticsHandler(senv *StakingEnviroment, gas ui
 	removed := []meter.Address{}
 	epoch := sb.Option
 	if epoch > phaseOutEpoch {
+
+		exemptProposerMap := sb.calculateExemptProposerMap(statisticsList)
 		for _, d := range statisticsList.delegates {
 			// do not phase out if it is in jail
 			if in := inJailList.Exist(d.Addr); in == true {
 				continue
 			}
-			d.PhaseOut(epoch)
+			d.PhaseOut(epoch, exemptProposerMap)
 			if d.TotalPts == 0 {
 				removed = append(removed, d.Addr)
 			}
