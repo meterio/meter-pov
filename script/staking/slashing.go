@@ -53,6 +53,14 @@ type MissingProposer struct {
 	Info    []*MissingProposerInfo
 }
 
+func (m MissingProposer) String() string {
+	str := ""
+	for _, i := range m.Info {
+		str += fmt.Sprintf("(E:%d, H:%d)", i.Epoch, i.Height)
+	}
+	return fmt.Sprintf("[%d %s]", m.Counter, str)
+}
+
 // MissingVoter
 type MissingVoterInfo struct {
 	Epoch  uint32
@@ -104,7 +112,7 @@ func NewDelegateStatistics(addr meter.Address, name []byte, pubKey []byte) *Dele
 	}
 }
 
-func (ds *DelegateStatistics) PhaseOut(curEpoch uint32, exemptProposerMap map[MissingProposerInfo]bool) {
+func (ds *DelegateStatistics) PhaseOut(curEpoch uint32, exemptProposerMap map[MissingProposerInfo]meter.Address) {
 	if curEpoch <= PhaseOutEpochCount {
 		return
 	}
@@ -135,9 +143,11 @@ func (ds *DelegateStatistics) PhaseOut(curEpoch uint32, exemptProposerMap map[Mi
 	proposerInfo := []*MissingProposerInfo{}
 	proposerPts := uint64(0)
 	for _, info := range ds.Infractions.MissingProposers.Info {
-		if _, exempt := exemptProposerMap[*info]; exempt {
-			// exempt, no penalty points
-			continue
+		if addr, exist := exemptProposerMap[*info]; exist {
+			if addr.String() == ds.Addr.String() {
+				// exempt
+				continue
+			}
 		}
 		if info.Epoch >= phaseOneEpoch {
 			proposerInfo = append(proposerInfo, info)

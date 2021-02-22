@@ -954,45 +954,52 @@ func (sb *StakingBody) CandidateUpdateHandler(senv *StakingEnviroment, gas uint6
 	return
 }
 
-func (sb *StakingBody) calculateExemptProposerMap(stats *StatisticsList) map[MissingProposerInfo]bool {
-	missingProposers := make([]*MissingProposerInfo, 0)
-	exemptProposerMap := make(map[MissingProposerInfo]bool)
+func (sb *StakingBody) calculateExemptMap(stats *StatisticsList, delegateList *DelegateList) map[MissingProposerInfo]meter.Address {
+	exemptMap := make(map[MissingProposerInfo]meter.Address)
+	possibleExemptMap := make(map[MissingProposerInfo][]int)
+	delegateMap := make(map[meter.Address]int)
 
-	// collect all missingProposers
+	for i, d := range delegateList.delegates {
+		delegateMap[d.Address] = i
+	}
+
+	// collect all possible exempts
 	for _, d := range stats.delegates {
 		for _, m := range d.Infractions.MissingProposers.Info {
-			missingProposers = append(missingProposers, &MissingProposerInfo{Epoch: m.Epoch, Height: m.Height})
+			if _, exist := possibleExemptMap[*m]; !exist {
+				possibleExemptMap[*m] = make([]int, 0)
+			}
+			if index, isDelegate := delegateMap[d.Addr]; isDelegate {
+				possibleExemptMap[*m] = append(possibleExemptMap[*m], index)
+			}
 		}
 	}
 
-	if len(missingProposers) > 0 {
-		// sort by (epoch, height) ascending
-		sort.SliceStable(missingProposers, func(i, j int) bool {
-			if missingProposers[i].Epoch < missingProposers[j].Epoch {
-				return true
-			} else {
-				return missingProposers[i].Height < missingProposers[j].Height
+	if len(possibleExemptMap) > 0 {
+		for m, indices := range possibleExemptMap {
+			sort.SliceStable(indices, func(i, j int) bool {
+				return indices[i] < indices[j]
+			})
+			names := ""
+			for _, i := range indices {
+				names = names + ", " + string(delegateList.delegates[i].Name)
 			}
-		})
-
-		// calculate exempt missing proposers
-		var i, j int
-		for i = 0; i < len(missingProposers); {
-			for j = i + 1; j < len(missingProposers); j++ {
-				curr := missingProposers[j]
-				prev := missingProposers[j-1]
-				if curr.Epoch != prev.Epoch || curr.Height != prev.Height+1 {
-					break
+			fmt.Println(fmt.Sprintf("Possible Exempt (E:%d, H:%d): ", m.Epoch, m.Height, names))
+			if len(indices) == 1 {
+				continue
+			}
+			if indices[0] == 0 {
+				i := len(indices) - 1
+				for ; i > 0 && indices[i] == indices[i-1]+1; i-- {
 				}
+				exemptMap[m] = delegateList.delegates[i+1].Address
+			} else {
+				exemptMap[m] = delegateList.delegates[0].Address
 			}
-			length := j - i
-			if length > 1 {
-				exemptProposerMap[MissingProposerInfo{Epoch: missingProposers[i].Epoch, Height: missingProposers[i].Height}] = true
-			}
-			i = j
+
 		}
 	}
-	return exemptProposerMap
+	return exemptMap
 
 }
 
@@ -1014,6 +1021,7 @@ func (sb *StakingBody) DelegateStatisticsHandler(senv *StakingEnviroment, gas ui
 	statisticsList := staking.GetStatisticsList(state)
 	inJailList := staking.GetInJailList(state)
 	phaseOutEpoch := staking.GetStatisticsEpoch(state)
+	delegateList := staking.GetDelegateList(state)
 
 	log.Debug("in DelegateStatisticsHandler", "phaseOutEpoch", phaseOutEpoch)
 	// handle phase out from the start
@@ -1021,13 +1029,21 @@ func (sb *StakingBody) DelegateStatisticsHandler(senv *StakingEnviroment, gas ui
 	epoch := sb.Option
 	if epoch > phaseOutEpoch {
 
-		exemptProposerMap := sb.calculateExemptProposerMap(statisticsList)
+		var exemptMap map[MissingProposerInfo]meter.Address
+		// FIXME: HARD FORK ONLY FOR WARRINGSTAKES
+		// WILL NEED TO BE REMOVED BEFORE DEPLOY TO MAINNET
+		if epoch > 6 {
+			exemptMap := sb.calculateExemptMap(statisticsList, delegateList)
+			for k, v := range exemptMap {
+				fmt.Println(fmt.Sprintf("Exempt: (E:%d, H:%d): %v", k.Epoch, k.Height, v))
+			}
+		}
 		for _, d := range statisticsList.delegates {
 			// do not phase out if it is in jail
 			if in := inJailList.Exist(d.Addr); in == true {
 				continue
 			}
-			d.PhaseOut(epoch, exemptProposerMap)
+			d.PhaseOut(epoch, exemptMap)
 			if d.TotalPts == 0 {
 				removed = append(removed, d.Addr)
 			}
