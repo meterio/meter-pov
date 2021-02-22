@@ -51,6 +51,7 @@ func ComputeRewardMap(baseReward, totalRewards *big.Int, delegates []*types.Dele
 		baseRewards = totalRewards
 		baseRewardsOnly = true
 	}
+	baseReward = new(big.Int).Div(baseRewards, big.NewInt(int64(size)))
 
 	// only enough for base reward
 	if baseRewardsOnly == true {
