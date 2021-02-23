@@ -984,8 +984,8 @@ func (sb *StakingBody) calculateExemptMap(stats *StatisticsList, delegateList *D
 			for _, i := range indices {
 				names = names + ", " + string(delegateList.delegates[i].Name)
 			}
-			fmt.Println(fmt.Sprintf("Possible Exempt (E:%d, H:%d): ", m.Epoch, m.Height, names))
-			if len(indices) == 1 {
+			fmt.Println(fmt.Sprintf("Possible Exempt (E:%d, H:%d): %v", m.Epoch, m.Height, names))
+			if len(indices) <= 1 {
 				continue
 			}
 			if indices[0] == 0 {
