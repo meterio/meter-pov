@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"math/big"
 	"math/rand"
+	"sort"
 	"strings"
 	"time"
 
@@ -247,6 +248,16 @@ func combinePubKey(csCommon *types.ConsensusCommon, ecdsaPub *ecdsa.PublicKey, b
 	return strings.Join([]string{ecdsaPubB64, blsPubB64}, ":::")
 }
 
+func findInActualCommittee(actualCommittee []types.CommitteeMember, addr meter.Address) int {
+	for i, m := range actualCommittee {
+		memberAddr := meter.Address(crypto.PubkeyToAddress(m.PubKey))
+		if bytes.Compare(memberAddr.Bytes(), addr.Bytes()) == 0 {
+			return i
+		}
+	}
+	return -1
+}
+
 func ComputeStatistics(lastKBlockHeight, height uint32, chain *chain.Chain, curCommittee *types.ValidatorSet, curActualCommittee []types.CommitteeMember, csCommon *types.ConsensusCommon, newCommittee bool, curEpoch uint32) ([]*StatEntry, error) {
 	logger.Info("calcStatistics", "height", height, "lastKblockHeight", lastKBlockHeight)
 	if len(curCommittee.Validators) == 0 {
@@ -303,11 +314,68 @@ func ComputeStatistics(lastKBlockHeight, height uint32, chain *chain.Chain, curC
 		if err != nil {
 			logger.Warn("Error during missing proposer calculation:", "err", err)
 		}
-		for _, m := range missedProposer {
-			inf := &stats[m.Address].Infraction
-			inf.MissingProposers.Counter++
-			minfo := &m.Info
-			inf.MissingProposers.Info = append(inf.MissingProposers.Info, minfo)
+		if (curEpoch > meter.Testnet_InjailPolicyChange_HardForkEpoch && meter.IsTestNet()) || meter.IsMainNet() {
+			// sort all missed proposer infraction in this order
+			// epoch ascend, height ascend, actual committee index ascend
+			sort.SliceStable(missedProposer, func(i, j int) bool {
+				pi := missedProposer[i]
+				pj := missedProposer[j]
+
+				if pi.Info.Epoch < pj.Info.Epoch {
+					return true
+				}
+				if pi.Info.Height < pj.Info.Height {
+					return true
+				}
+				if pi.Info.Epoch == pj.Info.Epoch && pi.Info.Height == pj.Info.Height {
+					indexi := findInActualCommittee(curActualCommittee, pi.Address)
+					indexj := findInActualCommittee(curActualCommittee, pj.Address)
+					if indexi < indexj || (indexi == len(curActualCommittee)-1 && indexj == 0) {
+						return true
+					}
+				}
+				return false
+			})
+
+			i := 0
+			for i < len(missedProposer) {
+				m := missedProposer[i]
+
+				// calculate the count for same (epoch, height)
+				j := i + 1
+				for ; j < len(missedProposer) && missedProposer[j].Info.Epoch == m.Info.Epoch && missedProposer[j].Info.Height == m.Info.Height; j++ {
+				}
+				length := j - i
+
+				// if length > 1, append infractions except for the first missing proposer
+				if length > 1 {
+					fmt.Println("exempt missing proposer: ", m.Address, "epoch:", m.Info.Epoch, "height:", m.Info.Height)
+					for k := i + 1; k < j; k++ {
+						mk := missedProposer[k]
+						fmt.Println("followed by:", mk.Address, "epoch:", mk.Info.Epoch, "height:", mk.Info.Epoch)
+						inf := &stats[mk.Address].Infraction
+						inf.MissingProposers.Counter++
+						minfo := &m.Info
+						inf.MissingProposers.Info = append(inf.MissingProposers.Info, minfo)
+					}
+					i = j
+				} else {
+					// otherwise, append the current infraction
+					inf := &stats[m.Address].Infraction
+					inf.MissingProposers.Counter++
+					minfo := &m.Info
+					inf.MissingProposers.Info = append(inf.MissingProposers.Info, minfo)
+					i = i + 1
+				}
+
+			}
+		} else {
+			for _, m := range missedProposer {
+				inf := &stats[m.Address].Infraction
+				inf.MissingProposers.Counter++
+				minfo := &m.Info
+				inf.MissingProposers.Info = append(inf.MissingProposers.Info, minfo)
+			}
 		}
 	}
 

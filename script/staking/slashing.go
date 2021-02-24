@@ -31,6 +31,16 @@ const (
 	PhaseOutProposerPts   = MissingProposerPts / 2
 	PhaseOutVoterPts      = MissingVoterPts / 2
 	WipeOutEpochCount     = PhaseOutEpochCount * 2 // does not count if longer than 2*PhaseOutEpochOut
+
+	NObservationEpochs = 8 // Only the last 8 epochs are used to calculate violation count
+
+	MaxMissingProposerPerEpoch = 3 // if 3 missing proposers or more infractions in one epoch, violation is raised
+	MaxMissingLeaderPerEpoch   = 2
+	MaxDoubleSignPerEpoch      = 1
+
+	JailCriteria_MissingProposerViolation = 2 // only 2 times of missing-proposer-epoch violation is allowed,
+	JailCriteria_MissingLeaderViolation   = 2
+	JailCriteria_DoubleSignViolation      = 1
 )
 
 // MissingLeader
@@ -194,7 +204,7 @@ func (ds *DelegateStatistics) PhaseOut(curEpoch uint32, exemptProposerMap map[Mi
 	return
 }
 
-func (ds *DelegateStatistics) Update(incr *Infraction) bool {
+func (ds *DelegateStatistics) Update(incr *Infraction) {
 
 	infr := &ds.Infractions
 	infr.MissingLeaders.Info = append(infr.MissingLeaders.Info, incr.MissingLeaders.Info...)
@@ -211,10 +221,80 @@ func (ds *DelegateStatistics) Update(incr *Infraction) bool {
 
 	ds.TotalPts = ds.TotalPts + uint64((incr.MissingLeaders.Counter*MissingLeaderPts)+
 		(incr.MissingProposers.Counter*MissingProposerPts)+(incr.MissingVoters.Counter*MissingVoterPts)+(incr.DoubleSigners.Counter*DoubleSignPts))
-	if ds.TotalPts >= JailCriteria {
-		return true
+	// if ds.TotalPts >= JailCriteria {
+	// 	return true
+	// }
+	// return false
+}
+
+func (ds *DelegateStatistics) CountMissingProposerViolation(epoch uint32) int {
+	counter := make(map[uint32]int)
+	for _, inf := range ds.Infractions.MissingProposers.Info {
+		if inf.Epoch < epoch-NObservationEpochs {
+			continue
+		}
+
+		if _, exist := counter[inf.Epoch]; !exist {
+			counter[inf.Epoch] = 1
+		}
+		counter[inf.Epoch] = counter[inf.Epoch] + 1
 	}
-	return false
+	fmt.Println("delegate", string(ds.Name), " missing proposer:")
+
+	nViolations := 0
+	for epoch, count := range counter {
+		fmt.Println("epoch: ", epoch, "  count:", count)
+		if count >= MaxMissingProposerPerEpoch {
+			nViolations = nViolations + 1
+		}
+	}
+	return nViolations
+}
+
+func (ds *DelegateStatistics) CountMissingLeaderViolation(epoch uint32) int {
+	counter := make(map[uint32]int)
+	for _, inf := range ds.Infractions.MissingLeaders.Info {
+		if inf.Epoch < epoch-NObservationEpochs {
+			continue
+		}
+		if _, exist := counter[inf.Epoch]; !exist {
+			counter[inf.Epoch] = 1
+		}
+		counter[inf.Epoch] = counter[inf.Epoch] + 1
+	}
+
+	fmt.Println("delegate", string(ds.Name), " missing leader:")
+	nViolations := 0
+	for epoch, count := range counter {
+		fmt.Println("epoch: ", epoch, "  count:", count)
+		if count >= MaxMissingLeaderPerEpoch {
+			nViolations = nViolations + 1
+		}
+	}
+	return nViolations
+}
+
+func (ds *DelegateStatistics) CountDoubleSignViolation(epoch uint32) int {
+	counter := make(map[uint32]int)
+	for _, inf := range ds.Infractions.DoubleSigners.Info {
+		if inf.Epoch < epoch-NObservationEpochs {
+			continue
+		}
+		if _, exist := counter[inf.Epoch]; !exist {
+			counter[inf.Epoch] = 1
+		}
+		counter[inf.Epoch] = counter[inf.Epoch] + 1
+	}
+
+	fmt.Println("delegate", string(ds.Name), " double sign:")
+	nViolations := 0
+	for epoch, count := range counter {
+		fmt.Println("epoch: ", epoch, "  count:", count)
+		if count >= MaxDoubleSignPerEpoch {
+			nViolations = nViolations + 1
+		}
+	}
+	return nViolations
 }
 
 func (ds *DelegateStatistics) ToString() string {

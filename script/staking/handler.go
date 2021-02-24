@@ -1032,7 +1032,7 @@ func (sb *StakingBody) DelegateStatisticsHandler(senv *StakingEnviroment, gas ui
 		var exemptMap map[MissingProposerInfo]meter.Address
 		// FIXME: HARD FORK ONLY FOR WARRINGSTAKES
 		// WILL NEED TO BE REMOVED BEFORE DEPLOY TO MAINNET
-		if epoch > 6 {
+		if meter.IsTestNet() && epoch > meter.Testnet_ExemptFirstProposer_HardForkEpoch && epoch < meter.Testnet_InjailPolicyChange_HardForkEpoch {
 			exemptMap := sb.calculateExemptMap(statisticsList, delegateList)
 			for k, v := range exemptMap {
 				fmt.Println(fmt.Sprintf("Exempt: (E:%d, H:%d): %v", k.Epoch, k.Height, v))
@@ -1081,10 +1081,20 @@ func (sb *StakingBody) DelegateStatisticsHandler(senv *StakingEnviroment, gas ui
 	stats := statisticsList.Get(sb.CandAddr)
 	if stats == nil {
 		stats = NewDelegateStatistics(sb.CandAddr, sb.CandName, sb.CandPubKey)
-		jail = stats.Update(IncrInfraction)
+		stats.Update(IncrInfraction)
 		statisticsList.Add(stats)
 	} else {
-		jail = stats.Update(IncrInfraction)
+		stats.Update(IncrInfraction)
+	}
+
+	if (meter.IsTestNet() && epoch > meter.Testnet_InjailPolicyChange_HardForkEpoch) || meter.IsMainNet() {
+		proposerViolation := stats.CountMissingProposerViolation(epoch)
+		leaderViolation := stats.CountMissingLeaderViolation(epoch)
+		doubleSignViolation := stats.CountDoubleSignViolation(epoch)
+		jail = proposerViolation > JailCriteria_MissingProposerViolation || leaderViolation > JailCriteria_MissingLeaderViolation || doubleSignViolation > JailCriteria_DoubleSignViolation
+		log.Info("delegate violation: ", "missProposer", proposerViolation, "missLeader", leaderViolation, "doubleSign", doubleSignViolation, "jail", jail)
+	} else {
+		jail = stats.TotalPts > JailCriteria
 	}
 
 	if jail == true {

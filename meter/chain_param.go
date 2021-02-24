@@ -21,6 +21,11 @@ const (
 	EdisonTestnetStartNum      = 0
 )
 
+const (
+	Testnet_ExemptFirstProposer_HardForkEpoch = 6
+	Testnet_InjailPolicyChange_HardForkEpoch  = 42
+)
+
 // Tesla: The staking/auction release, Features includ:
 const (
 	Tesla                = iota + 2
@@ -146,6 +151,10 @@ func IsMainChainTesla(blockNum uint32) bool {
 
 func IsTestNet() bool {
 	return BlockChainConfig.IsTestnet()
+}
+
+func IsMainNet() bool {
+	return BlockChainConfig.IsMainnet()
 }
 
 func IsTestChainTesla(blockNum uint32) bool {
