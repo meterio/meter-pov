@@ -6,6 +6,7 @@
 package reward
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"math/big"
@@ -13,7 +14,28 @@ import (
 	"github.com/dfinlab/meter/meter"
 	"github.com/dfinlab/meter/script/auction"
 	"github.com/dfinlab/meter/types"
+	"github.com/ethereum/go-ethereum/crypto"
 )
+
+func ComputeRewardMapV2(baseReward, totalRewards *big.Int, delegates []*types.Delegate, committeeMembers []*types.Validator) (RewardMap, error) {
+	memberKeys := make([][]byte, 0)
+	for _, m := range committeeMembers {
+		keyBytes := crypto.FromECDSAPub(&m.PubKey)
+		memberKeys = append(memberKeys, keyBytes)
+	}
+
+	memberDelegates := make([]*types.Delegate, 0)
+	for _, d := range delegates {
+		keyBytes := crypto.FromECDSAPub(&d.PubKey)
+		for _, kb := range memberKeys {
+			if bytes.Compare(kb, keyBytes) == 0 {
+				memberDelegates = append(memberDelegates, d)
+				break
+			}
+		}
+	}
+	return ComputeRewardMap(baseReward, totalRewards, memberDelegates)
+}
 
 // Epoch Reward includes these parts:
 //                |------ extra_reward -----|
@@ -39,8 +61,8 @@ func ComputeRewardMap(baseReward, totalRewards *big.Int, delegates []*types.Dele
 	baseRewards := new(big.Int).Mul(baseReward, big.NewInt(int64(size)))
 
 	fmt.Println("-----------------------------------------------------------------------")
-	fmt.Println(fmt.Sprintf("Calculate Reward Map, baseRewards:%v, totalRewards:%v (for this auction)", baseRewards, totalRewards))
-	fmt.Println(fmt.Sprintf("baseReward:%v, size:%v", baseReward, size))
+	fmt.Println(fmt.Sprintf("Calculate Reward Map, baseRewards:%v, totalRewards:%v (for this epoch)", baseRewards, totalRewards))
+	fmt.Println(fmt.Sprintf("baseReward per member:%v, size:%v", baseReward, size))
 	fmt.Println("-----------------------------------------------------------------------")
 
 	var i int
@@ -157,7 +179,7 @@ func ComputeEpochBaseReward(validatorBaseReward *big.Int) *big.Int {
 	return epochBaseReward
 }
 
-func ComputeEpochTotalReward(benefitRatio *big.Int) (*big.Int, error) {
+func ComputeEpochTotalReward(benefitRatio *big.Int, nDays int) (*big.Int, error) {
 	summaryList, err := auction.GetAuctionSummaryList()
 	if err != nil {
 		logger.Error("get summary list failed", "error", err)
@@ -168,10 +190,10 @@ func ComputeEpochTotalReward(benefitRatio *big.Int) (*big.Int, error) {
 		return big.NewInt(0), nil
 	}
 	var d, i int
-	if size <= meter.NDays*meter.NEpochPerDay {
+	if size <= nDays*meter.NEpochPerDay {
 		d = size
 	} else {
-		d = meter.NDays * meter.NEpochPerDay
+		d = nDays * meter.NEpochPerDay
 	}
 
 	// sumReward = sum(receivedMTR in last NDays)
@@ -183,7 +205,7 @@ func ComputeEpochTotalReward(benefitRatio *big.Int) (*big.Int, error) {
 
 	// epochTotalRewards = sumReward * benefitRatio / NDays / NEpochPerDay
 	epochTotalRewards := new(big.Int).Mul(sumReward, benefitRatio)
-	epochTotalRewards.Div(epochTotalRewards, big.NewInt(int64(meter.NDays)))
+	epochTotalRewards.Div(epochTotalRewards, big.NewInt(int64(nDays)))
 	epochTotalRewards.Div(epochTotalRewards, big.NewInt(int64(meter.NEpochPerDay)))
 	epochTotalRewards.Div(epochTotalRewards, big.NewInt(1e18))
 

@@ -22,8 +22,9 @@ const (
 )
 
 const (
-	Testnet_ExemptFirstProposer_HardForkEpoch = 6
-	Testnet_InjailPolicyChange_HardForkEpoch  = 42
+	Testnet_ExemptFirstProposer_HardForkEpoch   = 6
+	Testnet_InjailPolicyChange_HardForkEpoch    = 42
+	Testnet_RewardOnlyToCommittee_HardForkEpoch = 58
 )
 
 // Tesla: The staking/auction release, Features includ:

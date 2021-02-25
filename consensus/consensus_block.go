@@ -669,6 +669,9 @@ func (conR *ConsensusReactor) BuildKBlock(parentBlock *block.Block, data *block.
 	// build miner meter reward
 	txs := reward.BuildMinerRewardTxs(rewards, chainTag, bestNum)
 	lastKBlockHeight := parentBlock.Header().LastKBlockHeight()
+	for _, tx := range txs {
+		conR.logger.Info("miner reward tx appended", "txid", tx.ID())
+	}
 
 	// edison not support the staking/auciton/slashing
 	if meter.IsMainChainTesla(parentBlock.Header().Number()) == true || meter.IsTestNet() {
@@ -680,6 +683,7 @@ func (conR *ConsensusReactor) BuildKBlock(parentBlock *block.Block, data *block.
 		if len(stats) != 0 {
 			statsTx := reward.BuildStatisticsTx(stats, chainTag, bestNum, curEpoch)
 			txs = append(txs, statsTx)
+			conR.logger.Info("auction control tx appended", "txid", statsTx.ID())
 		}
 
 		reservedPrice := GetAuctionReservedPrice()
@@ -687,6 +691,7 @@ func (conR *ConsensusReactor) BuildKBlock(parentBlock *block.Block, data *block.
 
 		if tx := reward.BuildAuctionControlTx(uint64(best.Header().Number()+1), uint64(best.GetBlockEpoch()+1), chainTag, bestNum, initialRelease, reservedPrice); tx != nil {
 			txs = append(txs, tx)
+			conR.logger.Info("auction control tx appended", "txid", tx.ID())
 		}
 
 		// build governing tx && autobid tx only when staking delegates is used
@@ -694,18 +699,24 @@ func (conR *ConsensusReactor) BuildKBlock(parentBlock *block.Block, data *block.
 			benefitRatio := reward.GetValidatorBenefitRatio(state)
 			validatorBaseReward := reward.GetValidatorBaseRewards(state)
 			epochBaseReward := reward.ComputeEpochBaseReward(validatorBaseReward)
-			epochTotalReward, err := reward.ComputeEpochTotalReward(benefitRatio)
+			nDays := meter.NDays
+			if (meter.IsTestNet() && curEpoch > meter.Testnet_RewardOnlyToCommittee_HardForkEpoch) || meter.IsMainNet() {
+				nDays = meter.NDaysV2
+			}
+			epochTotalReward, err := reward.ComputeEpochTotalReward(benefitRatio, nDays)
 			if err != nil {
 				epochTotalReward = big.NewInt(0)
 			}
-			rewardMap, err := reward.ComputeRewardMap(epochBaseReward, epochTotalReward, conR.curDelegates.Delegates)
+			var rewardMap reward.RewardMap
+			if (meter.IsTestNet() && curEpoch > meter.Testnet_RewardOnlyToCommittee_HardForkEpoch) || meter.IsMainNet() {
+				fmt.Println("Compute reward map v2")
+				rewardMap, err = reward.ComputeRewardMapV2(epochBaseReward, epochTotalReward, conR.curDelegates.Delegates, conR.curCommittee.Validators)
+			} else {
+				fmt.Println("Compute reward map")
+				rewardMap, err = reward.ComputeRewardMap(epochBaseReward, epochTotalReward, conR.curDelegates.Delegates)
+			}
 
 			if err == nil && len(rewardMap) > 0 {
-				fmt.Println("Reward Map:")
-				for _, r := range rewardMap {
-					fmt.Println(r.String())
-				}
-				fmt.Println("-------------------------")
 				distList := rewardMap.GetDistList()
 				fmt.Println("**** Dist List")
 				for _, d := range distList {
@@ -716,6 +727,7 @@ func (conR *ConsensusReactor) BuildKBlock(parentBlock *block.Block, data *block.
 				governingTx := reward.BuildStakingGoverningTx(distList, uint32(conR.curEpoch), chainTag, bestNum)
 				if governingTx != nil {
 					txs = append(txs, governingTx)
+					conR.logger.Info("*** governing tx appended", "txid", governingTx.ID())
 				}
 
 				autobidList := rewardMap.GetAutobidList()
@@ -728,6 +740,7 @@ func (conR *ConsensusReactor) BuildKBlock(parentBlock *block.Block, data *block.
 				autobidTx := reward.BuildAutobidTx(autobidList, chainTag, bestNum)
 				if autobidTx != nil {
 					txs = append(txs, autobidTx)
+					conR.logger.Info("autobid tx appended", "txid", autobidTx.ID())
 				}
 			} else {
 				fmt.Println("-------------------------")
@@ -740,6 +753,7 @@ func (conR *ConsensusReactor) BuildKBlock(parentBlock *block.Block, data *block.
 
 	if tx := reward.BuildAccountLockGoverningTx(chainTag, bestNum, curEpoch); tx != nil {
 		txs = append(txs, tx)
+		conR.logger.Info("account lock tx appended", "txid", tx.ID())
 	}
 
 	pool := txpool.GetGlobTxPoolInst()
@@ -776,9 +790,11 @@ func (conR *ConsensusReactor) BuildKBlock(parentBlock *block.Block, data *block.
 	for _, tx := range txs {
 		if err := flow.Adopt(tx); err != nil {
 			if packer.IsGasLimitReached(err) {
+				conR.logger.Warn("tx thrown away due to gas limit", "txid", tx.ID())
 				break
 			}
 			if packer.IsTxNotAdoptableNow(err) {
+				conR.logger.Warn("tx not adoptable", "txid", tx.ID())
 				continue
 			}
 		}

@@ -24,7 +24,8 @@ const (
 	MaxNClausePerRewardTx = 200 // pack reward tx with maxinum 200 clauses
 
 	// --------------- Validator Reward ---------------------
-	NDays = 10 // smooth with n days, the (last n days's total received MTR) * 1/n will be used as the validator reward for current day
+	NDays   = 10 // smooth with n days, the (last n days's total received MTR) * 1/n will be used as the validator reward for current day
+	NDaysV2 = 1  // hard fork from 10 to 1
 
 	// ------------------ Auction ---------------------------
 	NEpochPerAuction       = 24 // every n Epoch move to next auction

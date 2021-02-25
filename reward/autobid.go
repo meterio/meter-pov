@@ -1,6 +1,7 @@
 package reward
 
 import (
+	"fmt"
 	"math/big"
 	"math/rand"
 	"time"
@@ -9,6 +10,7 @@ import (
 	"github.com/dfinlab/meter/script"
 	"github.com/dfinlab/meter/script/auction"
 	"github.com/dfinlab/meter/tx"
+	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/rlp"
 )
 
@@ -16,23 +18,25 @@ func BuildAutobidTx(autobidList []*RewardInfo, chainTag byte, bestNum uint32) *t
 	if len(autobidList) <= 0 {
 		return nil
 	}
+	// XXX: Tx size protection. TBD: will do multiple txs if it exceeds max size
+	if len(autobidList) > meter.MaxNClausePerAutobidTx {
+		autobidList = autobidList[:meter.MaxNClausePerAutobidTx-1]
+	}
+	n := len(autobidList)
+
+	gas := meter.TxGas + meter.ClauseGas*uint64(n) + meter.BaseTxGas /* buffer */
 	// 1. signer is nil
 	builder := new(tx.Builder)
 	builder.ChainTag(chainTag).
 		BlockRef(tx.NewBlockRef(bestNum + 1)).
 		Expiration(720).
 		GasPriceCoef(0).
-		Gas(meter.BaseTxGas * 10). //buffer for builder.Build().IntrinsicGas()
 		DependsOn(nil).
 		Nonce(12345678)
 
-	// XXX: Tx size protection. TBD: will do multiple txs if it exceeds max size
-	if len(autobidList) > meter.MaxNClausePerAutobidTx {
-		autobidList = autobidList[:meter.MaxNClausePerAutobidTx-1]
-	}
-
 	for i := 0; i < len(autobidList); i++ {
 		data := BuildAutobidData(autobidList[i])
+		gas = gas + uint64(len(data))*params.TxDataNonZeroGas
 		builder.Clause(
 			tx.NewClause(&auction.AuctionAccountAddr).
 				WithValue(big.NewInt(0)).
@@ -40,8 +44,10 @@ func BuildAutobidTx(autobidList []*RewardInfo, chainTag byte, bestNum uint32) *t
 				WithData(data),
 		)
 	}
+	builder.Gas(gas)
 
-	builder.Build().IntrinsicGas()
+	inGas, _ := builder.Build().IntrinsicGas()
+	fmt.Println("build autobid tx, gas:", gas, ", intrinsicGas: ", inGas)
 	return builder.Build()
 }
 
