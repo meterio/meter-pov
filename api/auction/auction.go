@@ -59,10 +59,21 @@ func (at *Auction) handleGetSummaryByID(w http.ResponseWriter, req *http.Request
 }
 
 func (at *Auction) handleGetAuctionCB(w http.ResponseWriter, req *http.Request) error {
-	cb, err := auction.GetActiveAuctionCB()
+	header, err := at.handleRevision(req.URL.Query().Get("revision"))
 	if err != nil {
 		return err
 	}
+
+	state, err := at.stateCreator.NewState(header.StateRoot())
+	if err != nil {
+		return err
+	}
+	auctionInst := auction.GetAuctionGlobInst()
+	if auctionInst == nil {
+		err := errors.New("auction is not initialized...")
+		return err
+	}
+	cb := auctionInst.GetAuctionCB(state)
 	acb := convertAuctionCB(cb)
 
 	return utils.WriteJSON(w, acb)

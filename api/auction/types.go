@@ -128,6 +128,9 @@ func convertAuctionTx(t *auction.AuctionTx) *AuctionTx {
 }
 
 func convertAuctionCB(cb *auction.AuctionCB) *AuctionCB {
+	if cb == nil {
+		return nil
+	}
 	txs := make([]*AuctionTx, 0)
 	for _, t := range cb.AuctionTxs {
 		txs = append(txs, convertAuctionTx(t))

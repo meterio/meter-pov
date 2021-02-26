@@ -244,8 +244,8 @@ func (ab *AuctionBody) HandleAuctionTx(senv *AuctionEnviroment, gas uint64) (ret
 			return
 		}
 
-		if ab.Amount.Cmp(AutobidMinAmount) < 0 {
-			log.Info("amount lower than minimum bid threshold", "amount", ab.Amount, "minBid", AutobidMinAmount)
+		if ab.Amount.Cmp(MinimumBidAmount) < 0 {
+			log.Info("amount lower than minimum bid threshold", "amount", ab.Amount, "minBid", MinimumBidAmount)
 			err = errLessThanBidThreshold
 			return
 		}

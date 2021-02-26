@@ -1087,11 +1087,17 @@ func (sb *StakingBody) DelegateStatisticsHandler(senv *StakingEnviroment, gas ui
 		stats.Update(IncrInfraction)
 	}
 
-	if (meter.IsTestNet() && epoch > meter.Testnet_InjailPolicyChange_HardForkEpoch) || meter.IsMainNet() {
+	if meter.IsTestNet() && epoch > meter.Testnet_InjailPolicyChangeV2_HardForkEpoch || meter.IsMainNet() {
 		proposerViolation := stats.CountMissingProposerViolation(epoch)
 		leaderViolation := stats.CountMissingLeaderViolation(epoch)
 		doubleSignViolation := stats.CountDoubleSignViolation(epoch)
-		jail = proposerViolation > JailCriteria_MissingProposerViolation || leaderViolation > JailCriteria_MissingLeaderViolation || doubleSignViolation > JailCriteria_DoubleSignViolation
+		jail = proposerViolation >= JailCriteria_MissingProposerViolation || leaderViolation >= JailCriteria_MissingLeaderViolation || doubleSignViolation >= JailCriteria_DoubleSignViolation || (proposerViolation >= 1 && leaderViolation >= 1)
+		log.Info("delegate violation: ", "missProposer", proposerViolation, "missLeader", leaderViolation, "doubleSign", doubleSignViolation, "jail", jail)
+	} else if (meter.IsTestNet() && epoch > meter.Testnet_InjailPolicyChange_HardForkEpoch) || meter.IsMainNet() {
+		proposerViolation := stats.CountMissingProposerViolation(epoch)
+		leaderViolation := stats.CountMissingLeaderViolation(epoch)
+		doubleSignViolation := stats.CountDoubleSignViolation(epoch)
+		jail = proposerViolation > JailCriteria_MissingProposerViolation || leaderViolation > JailCriteria_MissingLeaderViolation || doubleSignViolation >= JailCriteria_DoubleSignViolation
 		log.Info("delegate violation: ", "missProposer", proposerViolation, "missLeader", leaderViolation, "doubleSign", doubleSignViolation, "jail", jail)
 	} else {
 		jail = stats.TotalPts > JailCriteria
