@@ -19,7 +19,6 @@ import (
 	"github.com/dfinlab/meter/meter"
 	"github.com/dfinlab/meter/script"
 	"github.com/dfinlab/meter/script/auction"
-	"github.com/dfinlab/meter/script/staking"
 )
 
 /*
@@ -63,7 +62,7 @@ func generateScriptData(opCode uint32, holderAddrStr string, amountInt64 int64, 
 		AuctionID:   auctionID,
 		Bidder:      holderAddr,
 		Amount:      amount,
-		Token:       staking.TOKEN_METER,
+		Token:       staking.meter.MTR,
 		Timestamp:   uint64(time.Now().Unix()),
 		Nonce:       rand.Uint64(),
 	}

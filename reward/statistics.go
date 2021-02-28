@@ -52,7 +52,7 @@ func BuildStatisticsTx(entries []*StatEntry, chainTag byte, bestNum uint32, curE
 		builder.Clause(
 			tx.NewClause(&staking.StakingModuleAddr).
 				WithValue(big.NewInt(0)).
-				WithToken(tx.TOKEN_METER_GOV).
+				WithToken(meter.MTRG).
 				WithData(data))
 		logger.Debug("Statistic entry", "entry", entry.String())
 		fmt.Println(entry.Name, entry.Address, entry.Infraction.String())

@@ -209,11 +209,11 @@ func (sb *StakingBody) BoundHandler(senv *StakingEnviroment, gas uint64) (ret []
 
 	// check the account have enough balance
 	switch sb.Token {
-	case TOKEN_METER:
+	case meter.MTR:
 		if state.GetEnergy(sb.HolderAddr).Cmp(sb.Amount) < 0 {
 			err = errors.New("not enough meter balance")
 		}
-	case TOKEN_METER_GOV:
+	case meter.MTRG:
 		if state.GetBalance(sb.HolderAddr).Cmp(sb.Amount) < 0 {
 			err = errors.New("not enough meter-gov balance")
 		}
@@ -264,9 +264,9 @@ func (sb *StakingBody) BoundHandler(senv *StakingEnviroment, gas uint64) (ret []
 	}
 
 	switch sb.Token {
-	case TOKEN_METER:
+	case meter.MTR:
 		err = staking.BoundAccountMeter(sb.HolderAddr, sb.Amount, state)
-	case TOKEN_METER_GOV:
+	case meter.MTRG:
 		err = staking.BoundAccountMeterGov(sb.HolderAddr, sb.Amount, state)
 	default:
 		err = errInvalidToken
@@ -347,11 +347,11 @@ func (sb *StakingBody) CandidateHandler(senv *StakingEnviroment, gas uint64) (re
 
 	// check the account have enough balance
 	switch sb.Token {
-	case TOKEN_METER:
+	case meter.MTR:
 		if state.GetEnergy(sb.CandAddr).Cmp(sb.Amount) < 0 {
 			err = errNotEnoughMTR
 		}
-	case TOKEN_METER_GOV:
+	case meter.MTRG:
 		if state.GetBalance(sb.CandAddr).Cmp(sb.Amount) < 0 {
 			err = errNotEnoughMTRG
 		}
@@ -417,9 +417,9 @@ func (sb *StakingBody) CandidateHandler(senv *StakingEnviroment, gas uint64) (re
 	}
 
 	switch sb.Token {
-	case TOKEN_METER:
+	case meter.MTR:
 		err = staking.BoundAccountMeter(sb.CandAddr, sb.Amount, state)
-	case TOKEN_METER_GOV:
+	case meter.MTRG:
 		err = staking.BoundAccountMeterGov(sb.CandAddr, sb.Amount, state)
 	default:
 		//leftOverGas = gas
@@ -679,9 +679,9 @@ func (sb *StakingBody) GoverningHandler(senv *StakingEnviroment, gas uint64) (re
 				}
 
 				switch bkt.Token {
-				case TOKEN_METER:
+				case meter.MTR:
 					err = staking.UnboundAccountMeter(bkt.Owner, bkt.Value, state)
-				case TOKEN_METER_GOV:
+				case meter.MTRG:
 					err = staking.UnboundAccountMeterGov(bkt.Owner, bkt.Value, state)
 				default:
 					err = errors.New("Invalid token parameter")

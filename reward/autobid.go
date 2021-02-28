@@ -40,7 +40,7 @@ func BuildAutobidTx(autobidList []*RewardInfo, chainTag byte, bestNum uint32) *t
 		builder.Clause(
 			tx.NewClause(&auction.AuctionAccountAddr).
 				WithValue(big.NewInt(0)).
-				WithToken(tx.TOKEN_METER).
+				WithToken(meter.MTR).
 				WithData(data),
 		)
 	}

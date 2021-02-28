@@ -17,9 +17,6 @@ import (
 )
 
 const (
-	TOKEN_METER     = byte(0)
-	TOKEN_METER_GOV = byte(1)
-
 	STAKING_TIMESPAN = uint64(720)
 )
 

@@ -21,8 +21,7 @@ import (
 	"fmt"
 	"math/big"
 
-	"github.com/dfinlab/meter/tx"
-
+	"github.com/dfinlab/meter/meter"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/math"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -685,7 +684,7 @@ func opCreate(pc *uint64, evm *EVM, contract *Contract, memory *Memory, stack *S
 	}
 
 	contract.UseGas(gas)
-	res, addr, returnGas, suberr := evm.Create(contract, input, gas, value, tx.TOKEN_METER)
+	res, addr, returnGas, suberr := evm.Create(contract, input, gas, value, meter.MTR)
 	// Push item on the stack based on the returned error. If the ruleset is
 	// homestead we must check for CodeStoreOutOfGasError (homestead only
 	// rule) and treat as an error, if the ruleset is frontier we must
@@ -718,7 +717,7 @@ func opCreate2(pc *uint64, evm *EVM, contract *Contract, memory *Memory, stack *
 	// Apply EIP150
 	gas -= gas / 64
 	contract.UseGas(gas)
-	res, addr, returnGas, suberr := evm.Create2(contract, input, gas, endowment, tx.TOKEN_METER, salt)
+	res, addr, returnGas, suberr := evm.Create2(contract, input, gas, endowment, meter.MTR, salt)
 	// Push item on the stack based on the returned error.
 	if suberr != nil {
 		stack.push(evm.interpreter.intPool.getZero())
@@ -748,7 +747,7 @@ func opCall(pc *uint64, evm *EVM, contract *Contract, memory *Memory, stack *Sta
 	if value.Sign() != 0 {
 		gas += params.CallStipend
 	}
-	ret, returnGas, err := evm.Call(contract, toAddr, args, gas, value, tx.TOKEN_METER)
+	ret, returnGas, err := evm.Call(contract, toAddr, args, gas, value, meter.MTR)
 	if err != nil {
 		stack.push(evm.interpreter.intPool.getZero())
 	} else {
@@ -777,7 +776,7 @@ func opCallCode(pc *uint64, evm *EVM, contract *Contract, memory *Memory, stack 
 	if value.Sign() != 0 {
 		gas += params.CallStipend
 	}
-	ret, returnGas, err := evm.CallCode(contract, toAddr, args, gas, value, tx.TOKEN_METER)
+	ret, returnGas, err := evm.CallCode(contract, toAddr, args, gas, value, meter.MTR)
 	if err != nil {
 		stack.push(evm.interpreter.intPool.getZero())
 	} else {

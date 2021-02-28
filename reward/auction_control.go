@@ -73,14 +73,14 @@ func BuildAuctionControlTx(height, epoch uint64, chainTag byte, bestNum uint32, 
 		builder.Clause(
 			tx.NewClause(&auction.AuctionAccountAddr).
 				WithValue(big.NewInt(0)).
-				WithToken(tx.TOKEN_METER_GOV).
+				WithToken(meter.MTRG).
 				WithData(buildAuctionStopData(cb.StartHeight, cb.StartEpoch, cb.EndHeight, cb.EndEpoch, cb.Sequence, &cb.AuctionID)))
 	}
 
 	builder.Clause(
 		tx.NewClause(&auction.AuctionAccountAddr).
 			WithValue(big.NewInt(0)).
-			WithToken(tx.TOKEN_METER_GOV).
+			WithToken(meter.MTRG).
 			WithData(buildAuctionStartData(lastEndHeight+1, lastEndEpoch+1, height, epoch, lastSequence+1, initialRelease, reservedPrice)))
 
 	logger.Info("Auction Tx Built", "Height", height, "epoch", epoch)

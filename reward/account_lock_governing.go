@@ -25,7 +25,7 @@ func BuildAccountLockGoverningTx(chainTag byte, bestNum uint32, curEpoch uint32)
 	builder.Clause(
 		tx.NewClause(&accountlock.AccountLockAddr).
 			WithValue(big.NewInt(0)).
-			WithToken(tx.TOKEN_METER_GOV).
+			WithToken(meter.MTRG).
 			WithData(buildAccoutLockGoverningData(curEpoch)))
 
 	builder.Build().IntrinsicGas()

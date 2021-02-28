@@ -15,11 +15,6 @@ import (
 	"github.com/inconshreveable/log15"
 )
 
-const (
-	TOKEN_METER     = byte(0)
-	TOKEN_METER_GOV = byte(1)
-)
-
 var (
 	AuctionGlobInst *Auction
 	log             = log15.New("pkg", "auction")
