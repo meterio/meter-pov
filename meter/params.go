@@ -32,7 +32,7 @@ const (
 	// ------------------ Auction ---------------------------
 	NEpochPerAuction       = 24 // every n Epoch move to next auction
 	NAuctionPerDay         = 24 * 60 / NPowBlockPerEpoch / NEpochPerAuction
-	MaxNClausePerAutobidTx = 1200
+	MaxNClausePerAutobidTx = 1000
 
 	// auction release mtrg (new version)
 	AuctionReleaseBase      = 40000000 // total base of 400M MTRG
