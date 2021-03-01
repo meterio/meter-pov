@@ -378,6 +378,8 @@ func (rt *Runtime) PrepareClause(
 		vmErr         error
 		contractAddr  *meter.Address
 		interruptFlag uint32
+		transfers = make([]*tx.Transfer, 0)
+		events = make([]*tx.Event, 0)
 	)
 
 	exec = func() (*Output, bool) {
@@ -390,7 +392,7 @@ func (rt *Runtime) PrepareClause(
 			}
 			// exclude 4 bytes of clause data
 			// fmt.Println("Exec Clause: ", hex.EncodeToString(clause.Data()))
-			data, leftOverGas, vmErr = se.HandleScriptData(clause.Data()[4:], clause.To(), txCtx, gas, rt.state)
+			data, leftOverGas, vmErr, transfers, events = se.HandleScriptData(clause.Data()[4:], clause.To(), txCtx, gas, rt.state)
 			// fmt.Println("scriptEngine handling return", data, leftOverGas, vmErr)
 
 			interrupted := false
@@ -401,6 +403,8 @@ func (rt *Runtime) PrepareClause(
 				VMErr:           vmErr,
 				ContractAddress: contractAddr,
 			}
+			output.Events= events
+			output.Transfers = transfers
 			return output, interrupted
 		}
 

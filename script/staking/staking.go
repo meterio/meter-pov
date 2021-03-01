@@ -12,13 +12,11 @@ import (
 	"github.com/dfinlab/meter/chain"
 	"github.com/dfinlab/meter/meter"
 	"github.com/dfinlab/meter/state"
+	"github.com/dfinlab/meter/tx"
 	"github.com/dfinlab/meter/xenv"
 	"github.com/inconshreveable/log15"
 )
 
-const (
-	STAKING_TIMESPAN = uint64(720)
-)
 
 var (
 	StakingGlobInst *Staking
@@ -63,17 +61,19 @@ func (s *Staking) Start() error {
 	return nil
 }
 
-func (s *Staking) PrepareStakingHandler() (StakingHandler func(data []byte, to *meter.Address, txCtx *xenv.TransactionContext, gas uint64, state *state.State) (ret []byte, leftOverGas uint64, err error)) {
+func (s *Staking) PrepareStakingHandler() (StakingHandler func(data []byte, to *meter.Address, txCtx *xenv.TransactionContext, gas uint64, state *state.State) (ret []byte, leftOverGas uint64, err error, transfers []*tx.Transfer, events []*tx.Event)) {
 
-	StakingHandler = func(data []byte, to *meter.Address, txCtx *xenv.TransactionContext, gas uint64, state *state.State) (ret []byte, leftOverGas uint64, err error) {
+	StakingHandler = func(data []byte, to *meter.Address, txCtx *xenv.TransactionContext, gas uint64, state *state.State) (ret []byte, leftOverGas uint64, err error, transfers []*tx.Transfer, events []*tx.Event) {
 
+		transfers = make([]*tx.Transfer, 0)
+		events = make([]*tx.Event, 0)
 		sb, err := StakingDecodeFromBytes(data)
 		if err != nil {
 			log.Error("Decode script message failed", "error", err)
-			return nil, gas, err
+			return nil, gas, err, transfers, events
 		}
 
-		senv := NewStakingEnviroment(s, state, txCtx, to)
+		senv := NewStakingEnv(s, state, txCtx, to)
 		if senv == nil {
 			panic("create staking enviroment failed")
 		}
@@ -91,62 +91,61 @@ func (s *Staking) PrepareStakingHandler() (StakingHandler func(data []byte, to *
 		switch sb.Opcode {
 		case OP_BOUND:
 			if senv.GetTxCtx().Origin != sb.HolderAddr {
-				return nil, gas, errors.New("holder address is not the same from transaction")
+				return nil, gas, errors.New("holder address is not the same from transaction"), transfers, events
 			}
 
 			ret, leftOverGas, err = sb.BoundHandler(senv, gas)
-
 		case OP_UNBOUND:
 			if senv.GetTxCtx().Origin != sb.HolderAddr {
-				return nil, gas, errors.New("holder address is not the same from transaction")
+				return nil, gas, errors.New("holder address is not the same from transaction"), transfers, events
 			}
 			ret, leftOverGas, err = sb.UnBoundHandler(senv, gas)
 
 		case OP_CANDIDATE:
 			if senv.GetTxCtx().Origin != sb.CandAddr {
-				return nil, gas, errors.New("candidate address is not the same from transaction")
+				return nil, gas, errors.New("candidate address is not the same from transaction"), transfers, events
 			}
 			ret, leftOverGas, err = sb.CandidateHandler(senv, gas)
 
 		case OP_UNCANDIDATE:
 			if senv.GetTxCtx().Origin != sb.CandAddr {
-				return nil, gas, errors.New("candidate address is not the same from transaction")
+				return nil, gas, errors.New("candidate address is not the same from transaction"), transfers, events
 			}
 			ret, leftOverGas, err = sb.UnCandidateHandler(senv, gas)
 
 		case OP_DELEGATE:
 			if senv.GetTxCtx().Origin != sb.HolderAddr {
-				return nil, gas, errors.New("holder address is not the same from transaction")
+				return nil, gas, errors.New("holder address is not the same from transaction"), transfers, events
 			}
 			ret, leftOverGas, err = sb.DelegateHandler(senv, gas)
 
 		case OP_UNDELEGATE:
 			if senv.GetTxCtx().Origin != sb.HolderAddr {
-				return nil, gas, errors.New("holder address is not the same from transaction")
+				return nil, gas, errors.New("holder address is not the same from transaction"), transfers, events
 			}
 			ret, leftOverGas, err = sb.UnDelegateHandler(senv, gas)
 
 		case OP_GOVERNING:
 			if senv.GetToAddr().String() != StakingModuleAddr.String() {
-				return nil, gas, errors.New("to address is not the same from module address")
+				return nil, gas, errors.New("to address is not the same from module address"), transfers, events
 			}
 			ret, leftOverGas, err = sb.GoverningHandler(senv, gas)
 
 		case OP_CANDIDATE_UPDT:
 			if senv.GetTxCtx().Origin != sb.CandAddr {
-				return nil, gas, errors.New("candidate address is not the same from transaction")
+				return nil, gas, errors.New("candidate address is not the same from transaction"), transfers, events
 			}
 			ret, leftOverGas, err = sb.CandidateUpdateHandler(senv, gas)
 
 		case OP_DELEGATE_STATISTICS:
 			if senv.GetToAddr().String() != StakingModuleAddr.String() {
-				return nil, gas, errors.New("to address is not the same from module address")
+				return nil, gas, errors.New("to address is not the same from module address"), transfers, events
 			}
 			ret, leftOverGas, err = sb.DelegateStatisticsHandler(senv, gas)
 
 		case OP_DELEGATE_EXITJAIL:
 			if senv.GetTxCtx().Origin != sb.CandAddr {
-				return nil, gas, errors.New("candidate address is not the same from transaction")
+				return nil, gas, errors.New("candidate address is not the same from transaction"), transfers, events
 			}
 			ret, leftOverGas, err = sb.DelegateExitJailHandler(senv, gas)
 
@@ -154,15 +153,19 @@ func (s *Staking) PrepareStakingHandler() (StakingHandler func(data []byte, to *
 		case OP_FLUSH_ALL_STATISTICS:
 			executor := meter.BytesToAddress(builtin.Params.Native(state).Get(meter.KeyExecutorAddress).Bytes())
 			if senv.GetTxCtx().Origin != executor || sb.HolderAddr != executor {
-				return nil, gas, errors.New("only executor can exec this API")
+				return nil, gas, errors.New("only executor can exec this API"), transfers, events
 			}
 			ret, leftOverGas, err = sb.DelegateStatisticsFlushHandler(senv, gas)
 
 		default:
 			log.Error("unknown Opcode", "Opcode", sb.Opcode)
-			return nil, gas, errors.New("unknow staking opcode")
+			return nil, gas, errors.New("unknow staking opcode"), transfers, events
 		}
 		log.Debug("Leaving script handler for operation", "op", GetOpName(sb.Opcode))
+
+		transfers = senv.GetTransfers()
+		events = senv.GetEvents()
+
 		return
 	}
 	return

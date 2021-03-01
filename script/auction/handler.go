@@ -15,28 +15,6 @@ import (
 	"github.com/ethereum/go-ethereum/rlp"
 )
 
-const (
-	OP_START = uint32(1)
-	OP_STOP  = uint32(2)
-	OP_BID   = uint32(3)
-
-	USER_BID = uint32(0)
-	AUTO_BID = uint32(1)
-)
-
-func GetOpName(op uint32) string {
-	switch op {
-	case OP_START:
-		return "Start"
-	case OP_BID:
-		return "Bid"
-	case OP_STOP:
-		return "Stop"
-	default:
-		return "Unknown"
-	}
-}
-
 var (
 	// normal min amount is 10 mtr, autobid is 0.1 mtr
 	MinimumBidAmount = new(big.Int).Mul(big.NewInt(10), big.NewInt(1e18))
@@ -104,7 +82,7 @@ func AuctionDecodeFromBytes(bytes []byte) (*AuctionBody, error) {
 	return &ab, err
 }
 
-func (ab *AuctionBody) StartAuctionCB(env *AuctionEnviroment, gas uint64) (ret []byte, leftOverGas uint64, err error) {
+func (ab *AuctionBody) StartAuctionCB(env *AuctionEnv, gas uint64) (ret []byte, leftOverGas uint64, err error) {
 	defer func() {
 		if err != nil {
 			ret = []byte(err.Error())
@@ -143,14 +121,14 @@ func (ab *AuctionBody) StartAuctionCB(env *AuctionEnviroment, gas uint64) (ret [
 	return
 }
 
-func (ab *AuctionBody) CloseAuctionCB(senv *AuctionEnviroment, gas uint64) (ret []byte, leftOverGas uint64, err error) {
+func (ab *AuctionBody) CloseAuctionCB(env *AuctionEnv, gas uint64) (ret []byte, leftOverGas uint64, err error) {
 	defer func() {
 		if err != nil {
 			ret = []byte(err.Error())
 		}
 	}()
-	Auction := senv.GetAuction()
-	state := senv.GetState()
+	Auction := env.GetAuction()
+	state := env.GetState()
 	summaryList := Auction.GetSummaryList(state)
 	auctionCB := Auction.GetAuctionCB(state)
 
@@ -167,7 +145,7 @@ func (ab *AuctionBody) CloseAuctionCB(senv *AuctionEnviroment, gas uint64) (ret 
 	}
 
 	// clear the auction
-	actualPrice, leftover, dist, err := Auction.ClearAuction(auctionCB, state)
+	actualPrice, leftover, dist, err := Auction.ClearAuction(auctionCB, state, env)
 	if err != nil {
 		log.Info("clear active auction failed failed")
 		return
@@ -207,14 +185,14 @@ func (ab *AuctionBody) CloseAuctionCB(senv *AuctionEnviroment, gas uint64) (ret 
 	return
 }
 
-func (ab *AuctionBody) HandleAuctionTx(senv *AuctionEnviroment, gas uint64) (ret []byte, leftOverGas uint64, err error) {
+func (ab *AuctionBody) HandleAuctionTx(env *AuctionEnv, gas uint64) (ret []byte, leftOverGas uint64, err error) {
 	defer func() {
 		if err != nil {
 			ret = []byte(err.Error())
 		}
 	}()
-	Auction := senv.GetAuction()
-	state := senv.GetState()
+	Auction := env.GetAuction()
+	state := env.GetState()
 	auctionCB := Auction.GetAuctionCB(state)
 
 	if gas < meter.ClauseGas {
@@ -261,10 +239,10 @@ func (ab *AuctionBody) HandleAuctionTx(senv *AuctionEnviroment, gas uint64) (ret
 
 	if ab.Option == AUTO_BID {
 		// transfer bidder's autobid MTR directly from validator benefit address
-		err = Auction.TransferAutobidMTRToAuction(ab.Bidder, ab.Amount, state)
+		err = Auction.TransferAutobidMTRToAuction(ab.Bidder, ab.Amount, state, env)
 	} else {
 		// now transfer bidder's MTR to auction accout
-		err = Auction.TransferMTRToAuction(ab.Bidder, ab.Amount, state)
+		err = Auction.TransferMTRToAuction(ab.Bidder, ab.Amount, state, env)
 	}
 	if err != nil {
 		log.Error("error happend during auction bid transfer", "address", ab.Bidder, "err", err)

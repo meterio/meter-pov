@@ -7,26 +7,16 @@ package staking
 
 import (
 	b64 "encoding/base64"
-	"errors"
 	"fmt"
 	"math/big"
-	"net"
 	"strings"
 
 	"github.com/dfinlab/meter/builtin"
 	"github.com/dfinlab/meter/meter"
 	"github.com/dfinlab/meter/state"
-	"github.com/dfinlab/meter/types"
 )
 
-// not const, open for future save into state by system contract
-var (
-	// delegate minimum requirement 2000 MTRG
-	MIN_REQUIRED_BY_DELEGATE *big.Int = new(big.Int).Mul(big.NewInt(int64(2000)), big.NewInt(int64(1e18)))
 
-	// amount to exit from jail 10 MTRGov
-	BAIL_FOR_EXIT_JAIL *big.Int = new(big.Int).Mul(big.NewInt(int64(10)), big.NewInt(int64(1e18)))
-)
 
 type Distributor struct {
 	Address meter.Address
@@ -121,73 +111,4 @@ func (l *DelegateList) ToString() string {
 	}
 	s = append(s, "}")
 	return strings.Join(s, "\n")
-}
-
-//  api routine interface
-func GetLatestDelegateList() (*DelegateList, error) {
-	staking := GetStakingGlobInst()
-	if staking == nil {
-		log.Warn("staking is not initialized...")
-		err := errors.New("staking is not initialized...")
-		return nil, err
-	}
-
-	best := staking.chain.BestBlock()
-	state, err := staking.stateCreator.NewState(best.Header().StateRoot())
-	if err != nil {
-		return nil, err
-	}
-
-	list := staking.GetDelegateList(state)
-	// fmt.Println("delegateList from state", list.ToString())
-
-	return list, nil
-}
-
-func convertDistList(dist []*Distributor) []*types.Distributor {
-	list := []*types.Distributor{}
-	for _, d := range dist {
-		l := &types.Distributor{
-			Address: d.Address,
-			Autobid: d.Autobid,
-			Shares:  d.Shares,
-		}
-		list = append(list, l)
-	}
-	return list
-}
-
-//  consensus routine interface
-func GetInternalDelegateList() ([]*types.DelegateIntern, error) {
-	delegateList := []*types.DelegateIntern{}
-	staking := GetStakingGlobInst()
-	if staking == nil {
-		fmt.Println("staking is not initialized...")
-		err := errors.New("staking is not initialized...")
-		return delegateList, err
-	}
-
-	best := staking.chain.BestBlock()
-	state, err := staking.stateCreator.NewState(best.Header().StateRoot())
-	if err != nil {
-		return delegateList, err
-	}
-
-	list := staking.GetDelegateList(state)
-	// fmt.Println("delegateList from state\n", list.ToString())
-	for _, s := range list.delegates {
-		d := &types.DelegateIntern{
-			Name:        s.Name,
-			Address:     s.Address,
-			PubKey:      s.PubKey,
-			VotingPower: new(big.Int).Div(s.VotingPower, big.NewInt(1e12)).Int64(),
-			Commission:  s.Commission,
-			NetAddr: types.NetAddress{
-				IP:   net.ParseIP(string(s.IPAddr)),
-				Port: s.Port},
-			DistList: convertDistList(s.DistList),
-		}
-		delegateList = append(delegateList, d)
-	}
-	return delegateList, nil
 }

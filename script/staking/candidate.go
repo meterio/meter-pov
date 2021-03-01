@@ -8,7 +8,6 @@ package staking
 import (
 	"bytes"
 	b64 "encoding/base64"
-	"errors"
 	"fmt"
 	"math/big"
 	"sort"
@@ -47,25 +46,6 @@ func NewCandidate(addr meter.Address, name []byte, desc []byte, pubKey []byte, i
 	}
 }
 
-//  api routine interface
-func GetLatestCandidateList() (*CandidateList, error) {
-	staking := GetStakingGlobInst()
-	if staking == nil {
-		log.Warn("staking is not initialized...")
-		err := errors.New("staking is not initialized...")
-		return NewCandidateList(nil), err
-	}
-
-	best := staking.chain.BestBlock()
-	state, err := staking.stateCreator.NewState(best.Header().StateRoot())
-	if err != nil {
-
-		return NewCandidateList(nil), err
-	}
-
-	CandList := staking.GetCandidateList(state)
-	return CandList, nil
-}
 
 func (c *Candidate) ToString() string {
 	pubKeyEncoded := b64.StdEncoding.EncodeToString(c.PubKey)

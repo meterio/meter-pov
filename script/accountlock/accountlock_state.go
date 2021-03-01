@@ -9,19 +9,11 @@ import (
 	"bytes"
 	"strings"
 
-	"github.com/dfinlab/meter/meter"
 	"github.com/dfinlab/meter/state"
 	"github.com/ethereum/go-ethereum/rlp"
 )
 
-// the global variables in AccountLock
-var (
-	//0x6163636f756e742d6c6f636b2d61646472657373
-	AccountLockAddr       = meter.BytesToAddress([]byte("account-lock-address"))
-	AccountLockProfileKey = meter.Blake2b([]byte("account-lock-profile-list-key"))
-)
-
-// Candidate List
+// Profile List
 func (a *AccountLock) GetProfileList(state *state.State) (result *ProfileList) {
 	state.DecodeStorage(AccountLockAddr, AccountLockProfileKey, func(raw []byte) error {
 		profiles := make([]*Profile, 0)

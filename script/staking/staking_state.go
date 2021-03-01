@@ -14,20 +14,8 @@ import (
 
 	"github.com/dfinlab/meter/meter"
 	"github.com/dfinlab/meter/state"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/rlp"
-)
-
-// the global variables in staking
-var (
-	StakingModuleAddr      = meter.BytesToAddress([]byte("staking-module-address")) // 0x616B696e672D6D6F64756c652d61646472657373
-	DelegateListKey        = meter.Blake2b([]byte("delegate-list-key"))
-	CandidateListKey       = meter.Blake2b([]byte("candidate-list-key"))
-	StakeHolderListKey     = meter.Blake2b([]byte("stake-holder-list-key"))
-	BucketListKey          = meter.Blake2b([]byte("global-bucket-list-key"))
-	StatisticsListKey      = meter.Blake2b([]byte("delegate-statistics-list-key"))
-	StatisticsEpochKey     = meter.Blake2b([]byte("delegate-statistics-epoch-key"))
-	InJailListKey          = meter.Blake2b([]byte("delegate-injail-list-key"))
-	ValidatorRewardListKey = meter.Blake2b([]byte("validator-reward-list-key"))
 )
 
 // Candidate List
@@ -309,7 +297,7 @@ func (s *Staking) SetValidatorRewardList(list *ValidatorRewardList, state *state
 }
 
 //==================== bound/unbound account ===========================
-func (s *Staking) BoundAccountMeter(addr meter.Address, amount *big.Int, state *state.State) error {
+func (s *Staking) BoundAccountMeter(addr meter.Address, amount *big.Int, state *state.State, env *StakingEnv) error {
 	if amount.Sign() == 0 {
 		return nil
 	}
@@ -325,10 +313,20 @@ func (s *Staking) BoundAccountMeter(addr meter.Address, amount *big.Int, state *
 
 	state.SetEnergy(addr, new(big.Int).Sub(meterBalance, amount))
 	state.SetBoundedEnergy(addr, new(big.Int).Add(meterBoundedBalance, amount))
+	eventSig := []byte("Bound(address,uint256,uint256)")
+	topics := []meter.Bytes32{
+		meter.BytesToBytes32(crypto.Keccak256(eventSig)),
+		meter.BytesToBytes32(addr.Bytes()),
+		meter.BytesToBytes32(amount.Bytes()),
+		meter.BytesToBytes32([]byte{meter.MTR}),
+	}
+	data := make([]byte, 0)
+
+	env.AddEvent(StakingModuleAddr, topics, data)
 	return nil
 }
 
-func (s *Staking) UnboundAccountMeter(addr meter.Address, amount *big.Int, state *state.State) error {
+func (s *Staking) UnboundAccountMeter(addr meter.Address, amount *big.Int, state *state.State, env *StakingEnv) error {
 	if amount.Sign() == 0 {
 		return nil
 	}
@@ -338,18 +336,28 @@ func (s *Staking) UnboundAccountMeter(addr meter.Address, amount *big.Int, state
 
 	// meterBoundedBalance should >= amount
 	if meterBoundedBalance.Cmp(amount) < 0 {
-		log.Error("not enough bounded meter balance", "account", addr, "unbound amount", amount)
+		log.Error("not enough bounded balance", "account", addr, "unbound amount", amount)
 		return errors.New("not enough bounded meter balance")
 	}
 
 	state.SetEnergy(addr, new(big.Int).Add(meterBalance, amount))
 	state.SetBoundedEnergy(addr, new(big.Int).Sub(meterBoundedBalance, amount))
+	eventSig := []byte("Unbound(address,uint256,uint256)")
+	topics := []meter.Bytes32{
+		meter.BytesToBytes32(crypto.Keccak256(eventSig)),
+		meter.BytesToBytes32(addr.Bytes()),
+		meter.BytesToBytes32(amount.Bytes()),
+		meter.BytesToBytes32([]byte{meter.MTR}),
+	}
+	data := make([]byte, 0)
+
+	env.AddEvent(StakingModuleAddr, topics, data)
 	return nil
 
 }
 
 // bound a meter gov in an account -- move amount from balance to bounded balance
-func (s *Staking) BoundAccountMeterGov(addr meter.Address, amount *big.Int, state *state.State) error {
+func (s *Staking) BoundAccountMeterGov(addr meter.Address, amount *big.Int, state *state.State, env *StakingEnv) error {
 	if amount.Sign() == 0 {
 		return nil
 	}
@@ -365,11 +373,21 @@ func (s *Staking) BoundAccountMeterGov(addr meter.Address, amount *big.Int, stat
 
 	state.SetBalance(addr, new(big.Int).Sub(meterGov, amount))
 	state.SetBoundedBalance(addr, new(big.Int).Add(meterGovBounded, amount))
+	eventSig := []byte("Bound(address,uint256,uint256)")
+	topics := []meter.Bytes32{
+		meter.BytesToBytes32(crypto.Keccak256(eventSig)),
+		meter.BytesToBytes32(addr.Bytes()),
+		meter.BytesToBytes32(amount.Bytes()),
+		meter.BytesToBytes32([]byte{meter.MTRG}),
+	}
+	data := make([]byte, 0)
+
+	env.AddEvent(StakingModuleAddr, topics, data)
 	return nil
 }
 
 // unbound a meter gov in an account -- move amount from bounded balance to balance
-func (s *Staking) UnboundAccountMeterGov(addr meter.Address, amount *big.Int, state *state.State) error {
+func (s *Staking) UnboundAccountMeterGov(addr meter.Address, amount *big.Int, state *state.State, env *StakingEnv) error {
 	if amount.Sign() == 0 {
 		return nil
 	}
@@ -385,11 +403,21 @@ func (s *Staking) UnboundAccountMeterGov(addr meter.Address, amount *big.Int, st
 
 	state.SetBalance(addr, new(big.Int).Add(meterGov, amount))
 	state.SetBoundedBalance(addr, new(big.Int).Sub(meterGovBounded, amount))
+	eventSig := []byte("Unbound(address,uint256,uint256)")
+	topics := []meter.Bytes32{
+		meter.BytesToBytes32(crypto.Keccak256(eventSig)),
+		meter.BytesToBytes32(addr.Bytes()),
+		meter.BytesToBytes32(amount.Bytes()),
+		meter.BytesToBytes32([]byte{meter.MTRG}),
+	}
+	data := make([]byte, 0)
+
+	env.AddEvent(StakingModuleAddr, topics, data)
 	return nil
 }
 
 // collect bail to StakingModuleAddr. addr ==> StakingModuleAddr
-func (s *Staking) CollectBailMeterGov(addr meter.Address, amount *big.Int, state *state.State) error {
+func (s *Staking) CollectBailMeterGov(addr meter.Address, amount *big.Int, state *state.State, env *StakingEnv) error {
 	if amount.Sign() == 0 {
 		return nil
 	}
@@ -402,11 +430,12 @@ func (s *Staking) CollectBailMeterGov(addr meter.Address, amount *big.Int, state
 
 	state.AddBalance(StakingModuleAddr, amount)
 	state.SubBalance(addr, amount)
+	env.AddTransfer(StakingModuleAddr, addr, amount, meter.MTRG)
 	return nil
 }
 
 //from meter.ValidatorBenefitAddr ==> addr
-func (s *Staking) TransferValidatorReward(amount *big.Int, addr meter.Address, state *state.State) error {
+func (s *Staking) TransferValidatorReward(amount *big.Int, addr meter.Address, state *state.State, env *StakingEnv) error {
 	if amount.Sign() == 0 {
 		return nil
 	}
@@ -417,14 +446,15 @@ func (s *Staking) TransferValidatorReward(amount *big.Int, addr meter.Address, s
 	}
 	state.AddEnergy(addr, amount)
 	state.SubEnergy(meter.ValidatorBenefitAddr, amount)
+	env.AddTransfer(addr, meter.ValidatorBenefitAddr, amount, meter.MTR)
 	return nil
 }
 
-func (s *Staking) DistValidatorRewards(rinfo []*RewardInfo, state *state.State) (*big.Int, error) {
+func (s *Staking) DistValidatorRewards(rinfo []*RewardInfo, state *state.State, env *StakingEnv) (*big.Int, error) {
 
 	sum := big.NewInt(0)
 	for _, r := range rinfo {
-		s.TransferValidatorReward(r.Amount, r.Address, state)
+		s.TransferValidatorReward(r.Amount, r.Address, state, env)
 		sum = sum.Add(sum, r.Amount)
 	}
 

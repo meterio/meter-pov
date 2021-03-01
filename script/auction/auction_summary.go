@@ -7,17 +7,11 @@ package auction
 
 import (
 	"bytes"
-	"errors"
 	"fmt"
 	"math/big"
 	"strings"
 
-	"github.com/dfinlab/meter/block"
 	"github.com/dfinlab/meter/meter"
-)
-
-const (
-	AUCTION_MAX_SUMMARIES = 32
 )
 
 type DistMtrg struct {
@@ -47,54 +41,6 @@ func (a *AuctionSummary) ToString() string {
 	return fmt.Sprintf("AuctionSummary(%v) StartHeight=%v, StartEpoch=%v, EndHeight=%v, EndEpoch=%v, Sequence=%v, ReleasedMTRG=%v, ReservedMTRG=%v, ReserveredPrice=%v, CreateTime=%v, ReceivedMTR=%v, ActualPrice=%v, LeftoverMTRG=%v",
 		a.AuctionID.String(), a.StartHeight, a.StartEpoch, a.EndHeight, a.EndEpoch, a.Sequence, a.RlsdMTRG.String(), a.RsvdMTRG.String(), a.RsvdPrice.String(),
 		a.CreateTime, a.RcvdMTR.String(), a.ActualPrice.String(), a.LeftoverMTRG.String())
-}
-
-func GetAuctionSummaryList() (*AuctionSummaryList, error) {
-	auction := GetAuctionGlobInst()
-	if auction == nil {
-		log.Error("auction is not initialized...")
-		err := errors.New("aution is not initialized...")
-		return NewAuctionSummaryList(nil), err
-	}
-
-	best := auction.chain.BestBlock()
-	state, err := auction.stateCreator.NewState(best.Header().StateRoot())
-	if err != nil {
-		return NewAuctionSummaryList(nil), err
-	}
-
-	summaryList := auction.GetSummaryList(state)
-	if summaryList == nil {
-		log.Error("no summaryList stored ...")
-		return NewAuctionSummaryList(nil), nil
-	}
-	return summaryList, nil
-}
-
-// api routine interface
-func GetAuctionSummaryListByHeader(header *block.Header) (*AuctionSummaryList, error) {
-	auction := GetAuctionGlobInst()
-	if auction == nil {
-		log.Error("auction is not initialized...")
-		err := errors.New("aution is not initialized...")
-		return NewAuctionSummaryList(nil), err
-	}
-
-	h := header
-	if header == nil {
-		h = auction.chain.BestBlock().Header()
-	}
-	state, err := auction.stateCreator.NewState(h.StateRoot())
-	if err != nil {
-		return NewAuctionSummaryList(nil), err
-	}
-
-	summaryList := auction.GetSummaryList(state)
-	if summaryList == nil {
-		log.Error("no summaryList stored ...")
-		return NewAuctionSummaryList(nil), nil
-	}
-	return summaryList, nil
 }
 
 type AuctionSummaryList struct {

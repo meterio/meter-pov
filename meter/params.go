@@ -130,6 +130,7 @@ var (
 
 	AuctionLeftOverAccount = MustParseAddress("0xe852f654dfaee0e2b60842657379a56e1cafa292")
 
+	ZeroAddress = MustParseAddress("0x0000000000000000000000000000000000000000")
 	//////////////////////////////
 	// The Following Accounts are defined for DFL Community
 	InitialExecutorAccount = MustParseAddress("0xdbb11b66f1d62bdeb5f47018d85e2401d7e3dc2e")

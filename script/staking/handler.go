@@ -21,24 +21,7 @@ import (
 	"github.com/ethereum/go-ethereum/rlp"
 )
 
-const (
-	OP_BOUND          = uint32(1)
-	OP_UNBOUND        = uint32(2)
-	OP_CANDIDATE      = uint32(3)
-	OP_UNCANDIDATE    = uint32(4)
-	OP_DELEGATE       = uint32(5)
-	OP_UNDELEGATE     = uint32(6)
-	OP_CANDIDATE_UPDT = uint32(7)
-
-	OP_DELEGATE_STATISTICS  = uint32(101)
-	OP_DELEGATE_EXITJAIL    = uint32(102)
-	OP_FLUSH_ALL_STATISTICS = uint32(103)
-
-	OP_GOVERNING = uint32(10001)
-)
-
-var (
-	// sanity check
+var(
 	errInvalidPubkey    = errors.New("invalid public key")
 	errInvalidIpAddress = errors.New("invalid ip address")
 	errInvalidPort      = errors.New("invalid port number")
@@ -65,45 +48,6 @@ var (
 	errCandidateListedWithDiffInfo = errors.New("candidate address already listed with different infomation (pubkey, ip, port)")
 	errCandidateNotChanged         = errors.New("candidate not changed")
 	errCandidateNotEnoughSelfVotes = errors.New("candidate not have enough self votes")
-)
-
-func GetOpName(op uint32) string {
-	switch op {
-	case OP_BOUND:
-		return "Bound"
-	case OP_UNBOUND:
-		return "Unbound"
-	case OP_CANDIDATE:
-		return "Candidate"
-	case OP_UNCANDIDATE:
-		return "Uncandidate"
-	case OP_DELEGATE:
-		return "Delegate"
-	case OP_UNDELEGATE:
-		return "Undelegate"
-	case OP_CANDIDATE_UPDT:
-		return "CandidateUpdate"
-	case OP_DELEGATE_STATISTICS:
-		return "DelegateStatistics"
-	case OP_DELEGATE_EXITJAIL:
-		return "DelegateExitJail"
-	case OP_FLUSH_ALL_STATISTICS:
-		return "FlushAllStatistics"
-	case OP_GOVERNING:
-		return "Governing"
-	default:
-		return "Unknown"
-	}
-}
-
-const (
-	MIN_CANDIDATE_UPDATE_INTV           = uint64(3600 * 24) // 1 day
-	MAX_CANDIDATE_SELF_TOTAK_VOTE_RATIO = 10                // max candidate total votes / self votes ratio
-)
-
-var (
-	// bound minimium requirement 10 mtrgov
-	MIN_BOUND_BALANCE *big.Int = new(big.Int).Mul(big.NewInt(10), big.NewInt(1e18)) // 10 mtrGov minimum
 )
 
 // Candidate indicates the structure of a candidate
@@ -165,14 +109,14 @@ func (sb *StakingBody) ToString() string {
 		sb.Opcode, sb.Version, sb.Option, sb.HolderAddr.String(), sb.CandAddr.String(), string(sb.CandName), string(sb.CandDescription), string(sb.CandPubKey), string(sb.CandIP), sb.CandPort, sb.StakingID, sb.Amount, sb.Token, sb.Autobid, sb.Nonce, sb.Timestamp, sb.ExtraData)
 }
 
-func (sb *StakingBody) BoundHandler(senv *StakingEnviroment, gas uint64) (ret []byte, leftOverGas uint64, err error) {
+func (sb *StakingBody) BoundHandler(env *StakingEnv, gas uint64) (ret []byte, leftOverGas uint64, err error) {
 	defer func() {
 		if err != nil {
 			ret = []byte(err.Error())
 		}
 	}()
-	staking := senv.GetStaking()
-	state := senv.GetState()
+	staking := env.GetStaking()
+	state := env.GetState()
 	candidateList := staking.GetCandidateList(state)
 	bucketList := staking.GetBucketList(state)
 	stakeholderList := staking.GetStakeHolderList(state)
@@ -265,9 +209,9 @@ func (sb *StakingBody) BoundHandler(senv *StakingEnviroment, gas uint64) (ret []
 
 	switch sb.Token {
 	case meter.MTR:
-		err = staking.BoundAccountMeter(sb.HolderAddr, sb.Amount, state)
+		err = staking.BoundAccountMeter(sb.HolderAddr, sb.Amount, state,env)
 	case meter.MTRG:
-		err = staking.BoundAccountMeterGov(sb.HolderAddr, sb.Amount, state)
+		err = staking.BoundAccountMeterGov(sb.HolderAddr, sb.Amount, state,env)
 	default:
 		err = errInvalidToken
 	}
@@ -278,14 +222,14 @@ func (sb *StakingBody) BoundHandler(senv *StakingEnviroment, gas uint64) (ret []
 	return
 }
 
-func (sb *StakingBody) UnBoundHandler(senv *StakingEnviroment, gas uint64) (ret []byte, leftOverGas uint64, err error) {
+func (sb *StakingBody) UnBoundHandler(env *StakingEnv, gas uint64) (ret []byte, leftOverGas uint64, err error) {
 	defer func() {
 		if err != nil {
 			ret = []byte(err.Error())
 		}
 	}()
-	staking := senv.GetStaking()
-	state := senv.GetState()
+	staking := env.GetStaking()
+	state := env.GetState()
 	candidateList := staking.GetCandidateList(state)
 	bucketList := staking.GetBucketList(state)
 	stakeholderList := staking.GetStakeHolderList(state)
@@ -317,7 +261,7 @@ func (sb *StakingBody) UnBoundHandler(senv *StakingEnviroment, gas uint64) (ret 
 	return
 }
 
-func (sb *StakingBody) CandidateHandler(senv *StakingEnviroment, gas uint64) (ret []byte, leftOverGas uint64, err error) {
+func (sb *StakingBody) CandidateHandler(env *StakingEnv, gas uint64) (ret []byte, leftOverGas uint64, err error) {
 
 	defer func() {
 		if err != nil {
@@ -325,8 +269,8 @@ func (sb *StakingBody) CandidateHandler(senv *StakingEnviroment, gas uint64) (re
 		}
 	}()
 
-	staking := senv.GetStaking()
-	state := senv.GetState()
+	staking := env.GetStaking()
+	state := env.GetState()
 	candidateList := staking.GetCandidateList(state)
 	bucketList := staking.GetBucketList(state)
 	stakeholderList := staking.GetStakeHolderList(state)
@@ -418,9 +362,9 @@ func (sb *StakingBody) CandidateHandler(senv *StakingEnviroment, gas uint64) (re
 
 	switch sb.Token {
 	case meter.MTR:
-		err = staking.BoundAccountMeter(sb.CandAddr, sb.Amount, state)
+		err = staking.BoundAccountMeter(sb.CandAddr, sb.Amount, state, env)
 	case meter.MTRG:
-		err = staking.BoundAccountMeterGov(sb.CandAddr, sb.Amount, state)
+		err = staking.BoundAccountMeterGov(sb.CandAddr, sb.Amount, state,env)
 	default:
 		//leftOverGas = gas
 		err = errInvalidToken
@@ -433,14 +377,14 @@ func (sb *StakingBody) CandidateHandler(senv *StakingEnviroment, gas uint64) (re
 	return
 }
 
-func (sb *StakingBody) UnCandidateHandler(senv *StakingEnviroment, gas uint64) (ret []byte, leftOverGas uint64, err error) {
+func (sb *StakingBody) UnCandidateHandler(env *StakingEnv, gas uint64) (ret []byte, leftOverGas uint64, err error) {
 	defer func() {
 		if err != nil {
 			ret = []byte(err.Error())
 		}
 	}()
-	staking := senv.GetStaking()
-	state := senv.GetState()
+	staking := env.GetStaking()
+	state := env.GetState()
 	candidateList := staking.GetCandidateList(state)
 	bucketList := staking.GetBucketList(state)
 	stakeholderList := staking.GetStakeHolderList(state)
@@ -492,14 +436,14 @@ func (sb *StakingBody) UnCandidateHandler(senv *StakingEnviroment, gas uint64) (
 
 }
 
-func (sb *StakingBody) DelegateHandler(senv *StakingEnviroment, gas uint64) (ret []byte, leftOverGas uint64, err error) {
+func (sb *StakingBody) DelegateHandler(env *StakingEnv, gas uint64) (ret []byte, leftOverGas uint64, err error) {
 	defer func() {
 		if err != nil {
 			ret = []byte(err.Error())
 		}
 	}()
-	staking := senv.GetStaking()
-	state := senv.GetState()
+	staking := env.GetStaking()
+	state := env.GetState()
 	candidateList := staking.GetCandidateList(state)
 	bucketList := staking.GetBucketList(state)
 	stakeholderList := staking.GetStakeHolderList(state)
@@ -546,14 +490,14 @@ func (sb *StakingBody) DelegateHandler(senv *StakingEnviroment, gas uint64) (ret
 	return
 }
 
-func (sb *StakingBody) UnDelegateHandler(senv *StakingEnviroment, gas uint64) (ret []byte, leftOverGas uint64, err error) {
+func (sb *StakingBody) UnDelegateHandler(env *StakingEnv, gas uint64) (ret []byte, leftOverGas uint64, err error) {
 	defer func() {
 		if err != nil {
 			ret = []byte(err.Error())
 		}
 	}()
-	staking := senv.GetStaking()
-	state := senv.GetState()
+	staking := env.GetStaking()
+	state := env.GetState()
 	candidateList := staking.GetCandidateList(state)
 	bucketList := staking.GetBucketList(state)
 	stakeholderList := staking.GetStakeHolderList(state)
@@ -595,14 +539,14 @@ func (sb *StakingBody) UnDelegateHandler(senv *StakingEnviroment, gas uint64) (r
 	return
 }
 
-func (sb *StakingBody) GoverningHandler(senv *StakingEnviroment, gas uint64) (ret []byte, leftOverGas uint64, err error) {
+func (sb *StakingBody) GoverningHandler(env *StakingEnv, gas uint64) (ret []byte, leftOverGas uint64, err error) {
 	defer func() {
 		if err != nil {
 			ret = []byte(err.Error())
 		}
 	}()
-	staking := senv.GetStaking()
-	state := senv.GetState()
+	staking := env.GetStaking()
+	state := env.GetState()
 	candidateList := staking.GetCandidateList(state)
 	bucketList := staking.GetBucketList(state)
 	stakeholderList := staking.GetStakeHolderList(state)
@@ -627,7 +571,7 @@ func (sb *StakingBody) GoverningHandler(senv *StakingEnviroment, gas uint64) (re
 	// only need to take action when distribute amount is non-zero
 	if len(rinfo) != 0 {
 		epoch := sb.Version //epoch is stored in sb.Version tempraroly
-		sum, err := staking.DistValidatorRewards(rinfo, state)
+		sum, err := staking.DistValidatorRewards(rinfo, state, env)
 		if err != nil {
 			log.Error("Distribute validator rewards failed" + err.Error())
 		} else {
@@ -680,9 +624,9 @@ func (sb *StakingBody) GoverningHandler(senv *StakingEnviroment, gas uint64) (re
 
 				switch bkt.Token {
 				case meter.MTR:
-					err = staking.UnboundAccountMeter(bkt.Owner, bkt.Value, state)
+					err = staking.UnboundAccountMeter(bkt.Owner, bkt.Value, state, env)
 				case meter.MTRG:
-					err = staking.UnboundAccountMeterGov(bkt.Owner, bkt.Value, state)
+					err = staking.UnboundAccountMeterGov(bkt.Owner, bkt.Value, state, env)
 				default:
 					err = errors.New("Invalid token parameter")
 				}
@@ -814,7 +758,7 @@ func (sb *StakingBody) validatePubKey(comboPubKey []byte) ([]byte, error) {
 }
 
 // This method only update the attached infomation of candidate. Stricted to: name, public key, IP/port, commission
-func (sb *StakingBody) CandidateUpdateHandler(senv *StakingEnviroment, gas uint64) (ret []byte, leftOverGas uint64, err error) {
+func (sb *StakingBody) CandidateUpdateHandler(env *StakingEnv, gas uint64) (ret []byte, leftOverGas uint64, err error) {
 
 	defer func() {
 		if err != nil {
@@ -822,8 +766,8 @@ func (sb *StakingBody) CandidateUpdateHandler(senv *StakingEnviroment, gas uint6
 		}
 	}()
 
-	staking := senv.GetStaking()
-	state := senv.GetState()
+	staking := env.GetStaking()
+	state := env.GetState()
 	candidateList := staking.GetCandidateList(state)
 	inJailList := staking.GetInJailList(state)
 	bucketList := staking.GetBucketList(state)
@@ -1003,7 +947,7 @@ func (sb *StakingBody) calculateExemptMap(stats *StatisticsList, delegateList *D
 
 }
 
-func (sb *StakingBody) DelegateStatisticsHandler(senv *StakingEnviroment, gas uint64) (ret []byte, leftOverGas uint64, err error) {
+func (sb *StakingBody) DelegateStatisticsHandler(env *StakingEnv, gas uint64) (ret []byte, leftOverGas uint64, err error) {
 	defer func() {
 		if err != nil {
 			ret = []byte(err.Error())
@@ -1016,8 +960,8 @@ func (sb *StakingBody) DelegateStatisticsHandler(senv *StakingEnviroment, gas ui
 		leftOverGas = gas - meter.ClauseGas
 	}
 
-	staking := senv.GetStaking()
-	state := senv.GetState()
+	staking := env.GetStaking()
+	state := env.GetState()
 	statisticsList := staking.GetStatisticsList(state)
 	inJailList := staking.GetInJailList(state)
 	phaseOutEpoch := staking.GetStatisticsEpoch(state)
@@ -1115,7 +1059,7 @@ func (sb *StakingBody) DelegateStatisticsHandler(senv *StakingEnviroment, gas ui
 	return
 }
 
-func (sb *StakingBody) DelegateExitJailHandler(senv *StakingEnviroment, gas uint64) (ret []byte, leftOverGas uint64, err error) {
+func (sb *StakingBody) DelegateExitJailHandler(env *StakingEnv, gas uint64) (ret []byte, leftOverGas uint64, err error) {
 	defer func() {
 		if err != nil {
 			ret = []byte(err.Error())
@@ -1128,8 +1072,8 @@ func (sb *StakingBody) DelegateExitJailHandler(senv *StakingEnviroment, gas uint
 		leftOverGas = gas - meter.ClauseGas
 	}
 
-	staking := senv.GetStaking()
-	state := senv.GetState()
+	staking := env.GetStaking()
+	state := env.GetState()
 	inJailList := staking.GetInJailList(state)
 	statisticsList := staking.GetStatisticsList(state)
 
@@ -1146,7 +1090,7 @@ func (sb *StakingBody) DelegateExitJailHandler(senv *StakingEnviroment, gas uint
 	}
 
 	// take actions
-	if err = staking.CollectBailMeterGov(jailed.Addr, jailed.BailAmount, state); err != nil {
+	if err = staking.CollectBailMeterGov(jailed.Addr, jailed.BailAmount, state, env); err != nil {
 		log.Error(err.Error())
 		return
 	}
@@ -1160,7 +1104,7 @@ func (sb *StakingBody) DelegateExitJailHandler(senv *StakingEnviroment, gas uint
 }
 
 // this is debug API, only executor has the right to call
-func (sb *StakingBody) DelegateStatisticsFlushHandler(senv *StakingEnviroment, gas uint64) (ret []byte, leftOverGas uint64, err error) {
+func (sb *StakingBody) DelegateStatisticsFlushHandler(env *StakingEnv, gas uint64) (ret []byte, leftOverGas uint64, err error) {
 	defer func() {
 		if err != nil {
 			ret = []byte(err.Error())
@@ -1173,8 +1117,8 @@ func (sb *StakingBody) DelegateStatisticsFlushHandler(senv *StakingEnviroment, g
 		leftOverGas = gas - meter.ClauseGas
 	}
 
-	staking := senv.GetStaking()
-	state := senv.GetState()
+	staking := env.GetStaking()
+	state := env.GetState()
 	statisticsList := &StatisticsList{}
 	inJailList := &DelegateInJailList{}
 

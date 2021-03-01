@@ -21,13 +21,6 @@ import (
 	"github.com/ethereum/go-ethereum/rlp"
 )
 
-// the global variables in auction
-var (
-	// 0x74696f6e2d6163636f756e742d61646472657373
-	AuctionAccountAddr = meter.BytesToAddress([]byte("auction-account-address"))
-	SummaryListKey     = meter.Blake2b([]byte("summary-list-key"))
-	AuctionCBKey       = meter.Blake2b([]byte("auction-active-cb-key"))
-)
 
 // Candidate List
 func (a *Auction) GetAuctionCB(state *state.State) (result *AuctionCB) {
@@ -94,7 +87,7 @@ func (a *Auction) SetSummaryList(summaryList *AuctionSummaryList, state *state.S
 
 //==================== account openation===========================
 //from meter.ValidatorBenefitAddr ==> AuctionAccountAddr
-func (a *Auction) TransferAutobidMTRToAuction(addr meter.Address, amount *big.Int, state *state.State) error {
+func (a *Auction) TransferAutobidMTRToAuction(addr meter.Address, amount *big.Int, state *state.State, env *AuctionEnv) error {
 	if amount.Sign() == 0 {
 		return nil
 	}
@@ -107,11 +100,12 @@ func (a *Auction) TransferAutobidMTRToAuction(addr meter.Address, amount *big.In
 	a.logger.Info("transfer autobid MTR", "bidder", addr, "amount", amount)
 	state.AddEnergy(AuctionAccountAddr, amount)
 	state.SubEnergy(meter.ValidatorBenefitAddr, amount)
+	env.AddTransfer(AuctionAccountAddr, meter.ValidatorBenefitAddr, amount, meter.MTR)
 	return nil
 }
 
 // from addr == > AuctionAccountAddr
-func (a *Auction) TransferMTRToAuction(addr meter.Address, amount *big.Int, state *state.State) error {
+func (a *Auction) TransferMTRToAuction(addr meter.Address, amount *big.Int, state *state.State, env *AuctionEnv) error {
 	if amount.Sign() == 0 {
 		return nil
 	}
@@ -124,20 +118,22 @@ func (a *Auction) TransferMTRToAuction(addr meter.Address, amount *big.Int, stat
 	a.logger.Info("transfer userbid MTR", "bidder", addr, "amount", amount)
 	state.AddEnergy(AuctionAccountAddr, amount)
 	state.SubEnergy(addr, amount)
+	env.AddTransfer(AuctionAccountAddr, addr, amount, meter.MTR)
 	return nil
 }
 
-func (a *Auction) SendMTRGToBidder(addr meter.Address, amount *big.Int, stateDB *statedb.StateDB) {
+func (a *Auction) SendMTRGToBidder(addr meter.Address, amount *big.Int, stateDB *statedb.StateDB, env *AuctionEnv) {
 	if amount.Sign() == 0 {
 		return
 	}
 	// in auction, MeterGov is mint action.
 	stateDB.MintBalance(common.Address(addr), amount)
+	env.AddTransfer(meter.ZeroAddress, addr, amount, meter.MTRG)
 	return
 }
 
 // form AuctionAccountAddr ==> meter.ValidatorBenefitAddr
-func (a *Auction) TransferMTRToValidatorBenefit(amount *big.Int, state *state.State) error {
+func (a *Auction) TransferMTRToValidatorBenefit(amount *big.Int, state *state.State, env *AuctionEnv) error {
 	if amount.Sign() == 0 {
 		return nil
 	}
@@ -149,12 +145,13 @@ func (a *Auction) TransferMTRToValidatorBenefit(amount *big.Int, state *state.St
 
 	state.AddEnergy(meter.ValidatorBenefitAddr, amount)
 	state.SubEnergy(AuctionAccountAddr, amount)
+	env.AddTransfer(meter.ValidatorBenefitAddr, AuctionAccountAddr, amount, meter.MTR)
 	return nil
 }
 
 ////////////////////////
 // called when auction is over
-func (a *Auction) ClearAuction(cb *AuctionCB, state *state.State) (*big.Int, *big.Int, []*DistMtrg, error) {
+func (a *Auction) ClearAuction(cb *AuctionCB, state *state.State, env *AuctionEnv) (*big.Int, *big.Int, []*DistMtrg, error) {
 	stateDB := statedb.New(state)
 	ValidatorBenefitRatio := builtin.Params.Native(state).Get(meter.KeyValidatorBenefitRatio)
 
@@ -174,7 +171,7 @@ func (a *Auction) ClearAuction(cb *AuctionCB, state *state.State) (*big.Int, *bi
 		mtrg := new(big.Int).Mul(tx.Amount, big.NewInt(1e18))
 		mtrg = new(big.Int).Div(mtrg, actualPrice)
 
-		a.SendMTRGToBidder(tx.Address, mtrg, stateDB)
+		a.SendMTRGToBidder(tx.Address, mtrg, stateDB, env)
 		total = total.Add(total, mtrg)
 		distMtrg = append(distMtrg, &DistMtrg{Addr: tx.Address, Amount: mtrg})
 	}
@@ -186,13 +183,13 @@ func (a *Auction) ClearAuction(cb *AuctionCB, state *state.State) (*big.Int, *bi
 	}
 
 	// send the remainings to accumulate accounts
-	a.SendMTRGToBidder(meter.AuctionLeftOverAccount, cb.RsvdMTRG, stateDB)
-	a.SendMTRGToBidder(meter.AuctionLeftOverAccount, leftOver, stateDB)
+	a.SendMTRGToBidder(meter.AuctionLeftOverAccount, cb.RsvdMTRG, stateDB, env)
+	a.SendMTRGToBidder(meter.AuctionLeftOverAccount, leftOver, stateDB, env)
 
 	// 40% of received meter to AuctionValidatorBenefitAddr
 	amount := new(big.Int).Mul(cb.RcvdMTR, ValidatorBenefitRatio)
 	amount = amount.Div(amount, big.NewInt(1e18))
-	a.TransferMTRToValidatorBenefit(amount, state)
+	a.TransferMTRToValidatorBenefit(amount, state, env)
 
 	a.logger.Info("finished auctionCB clear...", "actualPrice", actualPrice.String(), "leftOver", leftOver.String(), "validatorBenefit", amount.String())
 	return actualPrice, leftOver, distMtrg, nil

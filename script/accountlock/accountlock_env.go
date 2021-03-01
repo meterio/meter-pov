@@ -57,7 +57,7 @@ func (env *AccountLockEnviroment) AddEvent(address meter.Address, topics []meter
 	})
 }
 
-func (env *AccountLockEnviroment) GetTranfers() tx.Transfers {
+func (env *AccountLockEnviroment) GetTransfers() tx.Transfers {
 	return env.transfers
 }
 

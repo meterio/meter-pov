@@ -213,22 +213,3 @@ func (cb *AuctionCB) ToTxList() []*AuctionTx {
 	}
 	return result
 }
-
-//  api routine interface
-func GetActiveAuctionCB() (*AuctionCB, error) {
-	auction := GetAuctionGlobInst()
-	if auction == nil {
-		log.Warn("auction is not initialized...")
-		err := errors.New("auction is not initialized...")
-		return nil, err
-	}
-
-	best := auction.chain.BestBlock()
-	state, err := auction.stateCreator.NewState(best.Header().StateRoot())
-	if err != nil {
-		return nil, err
-	}
-
-	cb := auction.GetAuctionCB(state)
-	return cb, nil
-}

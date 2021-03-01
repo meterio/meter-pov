@@ -7,7 +7,6 @@ package staking
 
 import (
 	"bytes"
-	"errors"
 	"fmt"
 	"math/big"
 	"strings"
@@ -76,24 +75,6 @@ func NewBucket(owner meter.Address, cand meter.Address, value *big.Int, token ui
 	}
 	b.BucketID = b.ID()
 	return b
-}
-
-func GetLatestBucketList() (*BucketList, error) {
-	staking := GetStakingGlobInst()
-	if staking == nil {
-		log.Warn("staking is not initialized...")
-		err := errors.New("staking is not initialized...")
-		return newBucketList(nil), err
-	}
-
-	best := staking.chain.BestBlock()
-	state, err := staking.stateCreator.NewState(best.Header().StateRoot())
-	if err != nil {
-		return newBucketList(nil), err
-	}
-	bucketList := staking.GetBucketList(state)
-
-	return bucketList, nil
 }
 
 func (b *Bucket) ToString() string {
