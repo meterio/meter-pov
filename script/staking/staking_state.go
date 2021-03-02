@@ -14,7 +14,6 @@ import (
 
 	"github.com/dfinlab/meter/meter"
 	"github.com/dfinlab/meter/state"
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/rlp"
 )
 
@@ -313,16 +312,17 @@ func (s *Staking) BoundAccountMeter(addr meter.Address, amount *big.Int, state *
 
 	state.SetEnergy(addr, new(big.Int).Sub(meterBalance, amount))
 	state.SetBoundedEnergy(addr, new(big.Int).Add(meterBoundedBalance, amount))
-	eventSig := []byte("Bound(address,uint256,uint256)")
-	topics := []meter.Bytes32{
-		meter.BytesToBytes32(crypto.Keccak256(eventSig)),
-		meter.BytesToBytes32(addr.Bytes()),
-		meter.BytesToBytes32(amount.Bytes()),
-		meter.BytesToBytes32([]byte{meter.MTR}),
-	}
-	data := make([]byte, 0)
 
+	topics := []meter.Bytes32{
+		meter.Bytes32(boundEvent.ID()),
+		meter.BytesToBytes32(addr.Bytes()),
+	}
+	data, err := boundEvent.Encode(amount, big.NewInt(int64(meter.MTR)))
+	if err != nil {
+		fmt.Println("could not encode data for bound")
+	}
 	env.AddEvent(StakingModuleAddr, topics, data)
+
 	return nil
 }
 
@@ -342,14 +342,15 @@ func (s *Staking) UnboundAccountMeter(addr meter.Address, amount *big.Int, state
 
 	state.SetEnergy(addr, new(big.Int).Add(meterBalance, amount))
 	state.SetBoundedEnergy(addr, new(big.Int).Sub(meterBoundedBalance, amount))
-	eventSig := []byte("Unbound(address,uint256,uint256)")
+
 	topics := []meter.Bytes32{
-		meter.BytesToBytes32(crypto.Keccak256(eventSig)),
+		meter.Bytes32(boundEvent.ID()),
 		meter.BytesToBytes32(addr.Bytes()),
-		meter.BytesToBytes32(amount.Bytes()),
-		meter.BytesToBytes32([]byte{meter.MTR}),
 	}
-	data := make([]byte, 0)
+	data, err := boundEvent.Encode(amount, big.NewInt(int64(meter.MTR)))
+	if err != nil {
+		fmt.Println("could not encode data for unbound")
+	}
 
 	env.AddEvent(StakingModuleAddr, topics, data)
 	return nil
@@ -373,14 +374,15 @@ func (s *Staking) BoundAccountMeterGov(addr meter.Address, amount *big.Int, stat
 
 	state.SetBalance(addr, new(big.Int).Sub(meterGov, amount))
 	state.SetBoundedBalance(addr, new(big.Int).Add(meterGovBounded, amount))
-	eventSig := []byte("Bound(address,uint256,uint256)")
+
 	topics := []meter.Bytes32{
-		meter.BytesToBytes32(crypto.Keccak256(eventSig)),
+		meter.Bytes32(boundEvent.ID()),
 		meter.BytesToBytes32(addr.Bytes()),
-		meter.BytesToBytes32(amount.Bytes()),
-		meter.BytesToBytes32([]byte{meter.MTRG}),
 	}
-	data := make([]byte, 0)
+	data, err := boundEvent.Encode(amount, big.NewInt(int64(meter.MTRG)))
+	if err != nil {
+		fmt.Println("could not encode data for bound")
+	}
 
 	env.AddEvent(StakingModuleAddr, topics, data)
 	return nil
@@ -403,14 +405,15 @@ func (s *Staking) UnboundAccountMeterGov(addr meter.Address, amount *big.Int, st
 
 	state.SetBalance(addr, new(big.Int).Add(meterGov, amount))
 	state.SetBoundedBalance(addr, new(big.Int).Sub(meterGovBounded, amount))
-	eventSig := []byte("Unbound(address,uint256,uint256)")
+
 	topics := []meter.Bytes32{
-		meter.BytesToBytes32(crypto.Keccak256(eventSig)),
+		meter.Bytes32(unboundEvent.ID()),
 		meter.BytesToBytes32(addr.Bytes()),
-		meter.BytesToBytes32(amount.Bytes()),
-		meter.BytesToBytes32([]byte{meter.MTRG}),
 	}
-	data := make([]byte, 0)
+	data, err := unboundEvent.Encode(amount, big.NewInt(int64(meter.MTRG)))
+	if err != nil {
+		fmt.Println("could not encode data for unbound")
+	}
 
 	env.AddEvent(StakingModuleAddr, topics, data)
 	return nil

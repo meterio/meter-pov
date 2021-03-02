@@ -11,7 +11,7 @@ import (
 	"github.com/dfinlab/meter/chain"
 	"github.com/dfinlab/meter/meter"
 	"github.com/dfinlab/meter/state"
-	"github.com/dfinlab/meter/tx"
+	"github.com/dfinlab/meter/types"
 	"github.com/dfinlab/meter/xenv"
 	"github.com/inconshreveable/log15"
 )
@@ -51,16 +51,16 @@ func (a *Auction) Start() error {
 	return nil
 }
 
-func (a *Auction) PrepareAuctionHandler() (AuctionHandler func(data []byte, to *meter.Address, txCtx *xenv.TransactionContext, gas uint64, state *state.State) (ret []byte, leftOverGas uint64, err error, transfers []*tx.Transfer, events []*tx.Event)) {
+func (a *Auction) PrepareAuctionHandler() (AuctionHandler func([]byte, *meter.Address, *xenv.TransactionContext, uint64, *state.State) (*types.ScriptEngineOutput, uint64, error)) {
 
-	AuctionHandler = func(data []byte, to *meter.Address, txCtx *xenv.TransactionContext, gas uint64, state *state.State) (ret []byte, leftOverGas uint64, err error, transfers []*tx.Transfer, events []*tx.Event) {
+	AuctionHandler = func(data []byte, to *meter.Address, txCtx *xenv.TransactionContext, gas uint64, state *state.State) (seOutput *types.ScriptEngineOutput, leftOverGas uint64, err error) {
 
-		transfers = make([]*tx.Transfer, 0)
-		events = make([]*tx.Event, 0)
+		ret := make([]byte, 0)
+		seOutput = types.NewScriptEngineOutput([]byte{})
 		ab, err := AuctionDecodeFromBytes(data)
 		if err != nil {
 			log.Error("Decode script message failed", "error", err)
-			return nil, gas, err, transfers, events
+			return nil, gas, err
 		}
 
 		env := NewAuctionEnv(a, state, txCtx, to)
@@ -73,35 +73,36 @@ func (a *Auction) PrepareAuctionHandler() (AuctionHandler func(data []byte, to *
 		switch ab.Opcode {
 		case OP_START:
 			if env.GetTxCtx().Origin.IsZero() == false {
-				return nil, gas, errors.New("not from kblock"), transfers, events
+				return nil, gas, errors.New("not from kblock")
 			}
 			ret, leftOverGas, err = ab.StartAuctionCB(env, gas)
 
 		case OP_STOP:
 			if env.GetTxCtx().Origin.IsZero() == false {
-				return nil, gas, errors.New("not form kblock"), transfers, events
+				return nil, gas, errors.New("not form kblock")
 			}
 			ret, leftOverGas, err = ab.CloseAuctionCB(env, gas)
 
 		case OP_BID:
 			if ab.Option == AUTO_BID {
 				if env.GetTxCtx().Origin.IsZero() == false {
-					return nil, gas, errors.New("not from kblock"), transfers, events
+					return nil, gas, errors.New("not from kblock")
 				}
 			} else {
 				// USER_BID
 				if env.GetTxCtx().Origin != ab.Bidder {
-					return nil, gas, errors.New("bidder address is not the same from transaction"), transfers, events
+					return nil, gas, errors.New("bidder address is not the same from transaction")
 				}
 			}
 			ret, leftOverGas, err = ab.HandleAuctionTx(env, gas)
 
 		default:
 			log.Error("unknown Opcode", "Opcode", ab.Opcode)
-			return nil, gas, errors.New("unknow auction opcode"), transfers, events
+			return nil, gas, errors.New("unknow auction opcode")
 		}
-		transfers = env.GetTransfers()
-		events = env.GetEvents()
+		seOutput.SetData(ret)
+		seOutput.BatchAddTransfers(env.GetTransfers())
+		seOutput.BatchAddEvents(env.GetEvents())
 		log.Debug("Leaving script handler for operation", "op", ab.GetOpName(ab.Opcode))
 		return
 	}

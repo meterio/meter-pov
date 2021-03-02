@@ -9,9 +9,9 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/dfinlab/meter/tx"
 	"github.com/dfinlab/meter/meter"
 	"github.com/dfinlab/meter/state"
+	"github.com/dfinlab/meter/types"
 	"github.com/dfinlab/meter/xenv"
 )
 
@@ -19,7 +19,7 @@ import (
 type Module struct {
 	modName    string
 	modID      uint32
-	modHandler func(data []byte, to *meter.Address, txCtx *xenv.TransactionContext, gas uint64, state *state.State) (ret []byte, leftOverGas uint64, err error, transfers []*tx.Transfer, events []*tx.Event)
+	modHandler func(data []byte, to *meter.Address, txCtx *xenv.TransactionContext, gas uint64, state *state.State) (seOutput *types.ScriptEngineOutput, leftOverGas uint64, err error)
 }
 
 func (m *Module) ToString() string {

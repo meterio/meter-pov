@@ -188,10 +188,12 @@ func (ab *AccountLockBody) HandleAccountLockTransfer(env *AccountLockEnviroment,
 	if ab.MeterAmount.Sign() != 0 {
 		state.AddEnergy(ab.ToAddr, ab.MeterAmount)
 		state.SubEnergy(ab.FromAddr, ab.MeterAmount)
+		env.AddTransfer(ab.ToAddr, ab.FromAddr, ab.MeterAmount, meter.MTR)
 	}
 	if ab.MeterGovAmount.Sign() != 0 {
 		state.AddBalance(ab.ToAddr, ab.MeterGovAmount)
 		state.SubBalance(ab.FromAddr, ab.MeterGovAmount)
+		env.AddTransfer(ab.ToAddr, ab.FromAddr, ab.MeterAmount, meter.MTRG)
 	}
 
 	log.Debug("account lock transfer", "from", ab.FromAddr, "to", ab.ToAddr, "meter", ab.MeterAmount, "meterGov", ab.MeterGovAmount)

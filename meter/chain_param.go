@@ -26,6 +26,7 @@ const (
 	Testnet_InjailPolicyChange_HardForkEpoch    = 42
 	Testnet_RewardOnlyToCommittee_HardForkEpoch = 58
 	Testnet_InjailPolicyChangeV2_HardForkEpoch  = 81
+	Testnet_ScriptEngineOutput_HardForkNumber    = 25000 // FIXME: not a realistic number
 )
 
 // Tesla: The staking/auction release, Features includ:

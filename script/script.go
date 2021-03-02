@@ -13,8 +13,8 @@ import (
 	"math/big"
 
 	"github.com/dfinlab/meter/chain"
-	"github.com/dfinlab/meter/tx"
 	"github.com/dfinlab/meter/meter"
+	"github.com/dfinlab/meter/types"
 	"github.com/dfinlab/meter/script/accountlock"
 	"github.com/dfinlab/meter/script/auction"
 	"github.com/dfinlab/meter/script/staking"
@@ -121,19 +121,17 @@ func (se *ScriptEngine) StartAllModules() {
 	ModuleAccountLockInit(se)
 }
 
-func (se *ScriptEngine) HandleScriptData(data []byte, to *meter.Address, txCtx *xenv.TransactionContext, gas uint64, state *state.State) (ret []byte, leftOverGas uint64, err error, transfers []*tx.Transfer, events []*tx.Event) {
-	transfers = make([]*tx.Transfer, 0)
-	events = make([]*tx.Event, 0)
+func (se *ScriptEngine) HandleScriptData(data []byte, to *meter.Address, txCtx *xenv.TransactionContext, gas uint64, state *state.State) (seOutput *types.ScriptEngineOutput, leftOverGas uint64, err error) {
 	se.logger.Info("received script data", "to", to, "gas", gas, "data", hex.EncodeToString(data))
 	if bytes.Compare(data[:len(ScriptPattern)], ScriptPattern[:]) != 0 {
 		err := fmt.Errorf("Pattern mismatch, pattern = %v", hex.EncodeToString(data[:len(ScriptPattern)]))
 		fmt.Println(err)
-		return nil, gas, err, transfers, events
+		return nil, gas, err
 	}
 	script, err := ScriptDecodeFromBytes(data[len(ScriptPattern):])
 	if err != nil {
 		fmt.Println("Decode script message failed", err)
-		return nil, gas, err, transfers, events
+		return nil, gas, err
 	}
 
 	header := script.Header
@@ -142,11 +140,11 @@ func (se *ScriptEngine) HandleScriptData(data []byte, to *meter.Address, txCtx *
 	if find == false {
 		err := fmt.Errorf("could not address module %v", header.GetModID())
 		fmt.Println(err)
-		return nil, gas, err, transfers, events
+		return nil, gas, err
 	}
 	// se.logger.Info("script header", "header", header.ToString(), "module", mod.ToString())
 
 	//module handler
-	ret, leftOverGas, err, transfers, events = mod.modHandler(script.Payload, to, txCtx, gas, state)
+	seOutput, leftOverGas, err = mod.modHandler(script.Payload, to, txCtx, gas, state)
 	return
 }

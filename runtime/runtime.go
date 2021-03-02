@@ -20,6 +20,7 @@ import (
 	"github.com/dfinlab/meter/state"
 	"github.com/dfinlab/meter/tx"
 	Tx "github.com/dfinlab/meter/tx"
+	mtypes "github.com/dfinlab/meter/types"
 	"github.com/dfinlab/meter/vm"
 	"github.com/dfinlab/meter/xenv"
 	"github.com/ethereum/go-ethereum/common"
@@ -378,8 +379,7 @@ func (rt *Runtime) PrepareClause(
 		vmErr         error
 		contractAddr  *meter.Address
 		interruptFlag uint32
-		transfers = make([]*tx.Transfer, 0)
-		events = make([]*tx.Event, 0)
+		seOutput      *mtypes.ScriptEngineOutput
 	)
 
 	exec = func() (*Output, bool) {
@@ -392,9 +392,13 @@ func (rt *Runtime) PrepareClause(
 			}
 			// exclude 4 bytes of clause data
 			// fmt.Println("Exec Clause: ", hex.EncodeToString(clause.Data()))
-			data, leftOverGas, vmErr, transfers, events = se.HandleScriptData(clause.Data()[4:], clause.To(), txCtx, gas, rt.state)
+			seOutput, leftOverGas, vmErr = se.HandleScriptData(clause.Data()[4:], clause.To(), txCtx, gas, rt.state)
 			// fmt.Println("scriptEngine handling return", data, leftOverGas, vmErr)
 
+			var data []byte
+			if seOutput != nil {
+				data = seOutput.GetData()
+			}
 			interrupted := false
 			output := &Output{
 				Data:            data,
@@ -403,8 +407,13 @@ func (rt *Runtime) PrepareClause(
 				VMErr:           vmErr,
 				ContractAddress: contractAddr,
 			}
-			output.Events= events
-			output.Transfers = transfers
+			num:=txCtx.BlockRef.Number()
+			if (num > meter.Testnet_ScriptEngineOutput_HardForkNumber && meter.IsTestNet()) || meter.IsMainNet(){
+				if seOutput != nil {
+					output.Events = seOutput.GetEvents()
+					output.Transfers = seOutput.GetTransfers()
+				}
+			}
 			return output, interrupted
 		}
 

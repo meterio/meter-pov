@@ -11,7 +11,7 @@ import (
 	"github.com/dfinlab/meter/chain"
 	"github.com/dfinlab/meter/meter"
 	"github.com/dfinlab/meter/state"
-	"github.com/dfinlab/meter/tx"
+	"github.com/dfinlab/meter/types"
 	"github.com/dfinlab/meter/xenv"
 	"github.com/inconshreveable/log15"
 )
@@ -52,16 +52,16 @@ func (a *AccountLock) Start() error {
 	return nil
 }
 
-func (a *AccountLock) PrepareAccountLockHandler() (AccountLockHandler func(data []byte, to *meter.Address, txCtx *xenv.TransactionContext, gas uint64, state *state.State) (ret []byte, leftOverGas uint64, err error, transfers []*tx.Transfer, events []*tx.Event)) {
+func (a *AccountLock) PrepareAccountLockHandler() (AccountLockHandler func([]byte, *meter.Address, *xenv.TransactionContext, uint64, *state.State) (*types.ScriptEngineOutput, uint64, error)) {
 
-	AccountLockHandler = func(data []byte, to *meter.Address, txCtx *xenv.TransactionContext, gas uint64, state *state.State) (ret []byte, leftOverGas uint64, err error, transfers []*tx.Transfer, events []*tx.Event) {
+	AccountLockHandler = func(data []byte, to *meter.Address, txCtx *xenv.TransactionContext, gas uint64, state *state.State) (seOutput *types.ScriptEngineOutput, leftOverGas uint64, err error) {
 
-		transfers = make([]*tx.Transfer, 0)
-		events = make([]*tx.Event, 0)
+		ret := make([]byte, 0)
+		seOutput = types.NewScriptEngineOutput([]byte{})
 		ab, err := AccountLockDecodeFromBytes(data)
 		if err != nil {
 			log.Error("Decode script message failed", "error", err)
-			return nil, gas, err, transfers, events
+			return nil, gas, err
 		}
 
 		env := NewAccountLockEnviroment(a, state, txCtx, to)
@@ -74,35 +74,37 @@ func (a *AccountLock) PrepareAccountLockHandler() (AccountLockHandler func(data 
 		switch ab.Opcode {
 		case OP_ADDLOCK:
 			if env.GetTxCtx().Origin.IsZero() == false {
-				return nil, gas, errors.New("not from kblock"), transfers, events
+				return nil, gas, errors.New("not from kblock")
 			}
 			ret, leftOverGas, err = ab.HandleAccountLockAdd(env, gas)
 
 		case OP_REMOVELOCK:
 			if env.GetTxCtx().Origin.IsZero() == false {
-				return nil, gas, errors.New("not form kblock"), transfers, events
+				return nil, gas, errors.New("not form kblock")
 			}
 			ret, leftOverGas, err = ab.HandleAccountLockRemove(env, gas)
 
 		case OP_TRANSFER:
 			if env.GetTxCtx().Origin != ab.FromAddr {
-				return nil, gas, errors.New("from address is not the same from transaction"), transfers, events
+				return nil, gas, errors.New("from address is not the same from transaction")
 			}
 			ret, leftOverGas, err = ab.HandleAccountLockTransfer(env, gas)
 
 		case OP_GOVERNING:
 			if env.GetToAddr().String() != AccountLockAddr.String() {
-				return nil, gas, errors.New("to address is not the same from module address"), transfers, events
+				return nil, gas, errors.New("to address is not the same from module address")
 			}
 			ret, leftOverGas, err = ab.GoverningHandler(env, gas)
 
 		default:
 			log.Error("unknown Opcode", "Opcode", ab.Opcode)
-			return nil, gas, errors.New("unknow AccountLock opcode"), transfers, events
+			return nil, gas, errors.New("unknow AccountLock opcode")
 		}
 		log.Debug("Leaving script handler for operation", "op", ab.GetOpName(ab.Opcode))
-		transfers = env.GetTransfers()
-		events = env.GetEvents()
+
+		seOutput.SetData(ret)
+		seOutput.BatchAddTransfers(env.GetTransfers())
+		seOutput.BatchAddEvents(env.GetEvents())
 		return
 	}
 	return
