@@ -14,11 +14,34 @@ import (
 	"github.com/ethereum/go-ethereum/rlp"
 )
 
-func BuildAutobidTx(autobidList []*RewardInfo, chainTag byte, bestNum uint32) *tx.Transaction {
+func BuildAutobidTxs(autobidList []*RewardInfo, chainTag byte, bestNum uint32) tx.Transactions {
+	txs := tx.Transactions{}
+
 	if len(autobidList) <= 0 {
 		return nil
 	}
-	// XXX: Tx size protection. TBD: will do multiple txs if it exceeds max size
+
+	listRemainning := autobidList
+	for {
+		if len(listRemainning) == 0 {
+			break
+		}
+
+		if len(listRemainning) <= meter.MaxNClausePerAutobidTx {
+			tx := BuildAutobidTx(listRemainning, chainTag, bestNum)
+			txs = append(txs, tx)
+			break
+		} else {
+			tx := BuildAutobidTx(listRemainning[:meter.MaxNClausePerAutobidTx], chainTag, bestNum)
+			txs = append(txs, tx)
+			listRemainning = listRemainning[meter.MaxNClausePerAutobidTx:]
+		}
+	}
+
+	return txs
+}
+
+func BuildAutobidTx(autobidList []*RewardInfo, chainTag byte, bestNum uint32) *tx.Transaction {
 	if len(autobidList) > meter.MaxNClausePerAutobidTx {
 		autobidList = autobidList[:meter.MaxNClausePerAutobidTx-1]
 	}

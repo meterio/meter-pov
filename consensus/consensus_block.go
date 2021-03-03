@@ -737,10 +737,12 @@ func (conR *ConsensusReactor) BuildKBlock(parentBlock *block.Block, data *block.
 				}
 				fmt.Println("-------------------------")
 
-				autobidTx := reward.BuildAutobidTx(autobidList, chainTag, bestNum)
-				if autobidTx != nil {
-					txs = append(txs, autobidTx)
-					conR.logger.Info("autobid tx appended", "txid", autobidTx.ID())
+				autobidTxs := reward.BuildAutobidTxs(autobidList, chainTag, bestNum)
+				if len(autobidTxs) > 0 {
+					txs = append(txs, autobidTxs...)
+					for _, tx := range autobidTxs {
+						conR.logger.Info("autobid tx appended", "txid", tx.ID())
+					}
 				}
 			} else {
 				fmt.Println("-------------------------")
