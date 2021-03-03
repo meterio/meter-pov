@@ -6,6 +6,8 @@
 package tx
 
 import (
+	"fmt"
+	"strings"
 	"math/big"
 
 	"github.com/dfinlab/meter/meter"
@@ -21,3 +23,14 @@ type Transfer struct {
 
 // Transfers slisce of transfer logs.
 type Transfers []*Transfer
+
+func (ts Transfers) String() string{
+	if ts==nil{
+		return "nil"
+	}
+	lines := make([]string, 0)	
+	for _, t:=range ts {
+		lines = append(lines, fmt.Sprintf("Transfer(from:%v, to:%v, amount:%v, token:%v)", t.Sender.String(), t.Recipient.String(), t.Amount, t.Token))
+	}
+	return "["+strings.Join(lines, "\n")+"]"
+}

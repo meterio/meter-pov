@@ -6,6 +6,7 @@
 package runtime
 
 import (
+	"encoding/hex"
 	"fmt"
 	"math/big"
 	"sync/atomic"
@@ -71,6 +72,14 @@ type Output struct {
 	RefundGas       uint64
 	VMErr           error          // VMErr identify the execution result of the contract function, not evm function's err.
 	ContractAddress *meter.Address // if create a new contract, or is nil.
+}
+
+func (o *Output) String() string {
+	hexData := ""
+	if o.Data != nil {
+		hexData = hex.EncodeToString(o.Data)
+	}
+	return fmt.Sprintf("Output{RefundGas:%v, LeftoverGas:%v, VMErr:%v, ContractAddress:%v, Data:%v, Events:%v, Transfers:%v}", o.RefundGas, o.LeftOverGas, o.VMErr, o.ContractAddress, hexData, o.Events.String(), o.Transfers.String())
 }
 
 type TransactionExecutor struct {
@@ -407,8 +416,9 @@ func (rt *Runtime) PrepareClause(
 				VMErr:           vmErr,
 				ContractAddress: contractAddr,
 			}
-			num:=txCtx.BlockRef.Number()
-			if (num > meter.Testnet_ScriptEngineOutput_HardForkNumber && meter.IsTestNet()) || meter.IsMainNet(){
+			fmt.Println(output)
+			num := txCtx.BlockRef.Number()
+			if (num > meter.Testnet_ScriptEngineOutput_HardForkNumber && meter.IsTestNet()) || meter.IsMainNet() {
 				if seOutput != nil {
 					output.Events = seOutput.GetEvents()
 					output.Transfers = seOutput.GetTransfers()
