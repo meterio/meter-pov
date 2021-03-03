@@ -16,7 +16,7 @@ import (
 	"github.com/dfinlab/meter/chain"
 	"github.com/dfinlab/meter/meter"
 	"github.com/dfinlab/meter/state"
-	"github.com/dfinlab/meter/types"
+	setypes "github.com/dfinlab/meter/script/types"
 	"github.com/dfinlab/meter/xenv"
 	"github.com/inconshreveable/log15"
 )
@@ -53,11 +53,11 @@ func InTimeSpan(ts, now, span uint64) bool {
 
 func NewStaking(ch *chain.Chain, sc *state.Creator) *Staking {
 	var found bool
-	if boundEvent, found = types.ScriptEngine.ABI.EventByName("Bound"); !found {
+	if boundEvent, found = setypes.ScriptEngine.ABI.EventByName("Bound"); !found {
 		panic("bound event not found")
 	}
 
-	if unboundEvent, found = types.ScriptEngine.Events().EventByName("Unbound"); !found {
+	if unboundEvent, found = setypes.ScriptEngine.Events().EventByName("Unbound"); !found {
 		panic("unbound event not found")
 	}
 
@@ -79,12 +79,12 @@ func (s *Staking) Start() error {
 	return nil
 }
 
-func (s *Staking) PrepareStakingHandler() (StakingHandler func([]byte, *meter.Address, *xenv.TransactionContext, uint64, *state.State) (*types.ScriptEngineOutput, uint64, error)) {
+func (s *Staking) PrepareStakingHandler() (StakingHandler func([]byte, *meter.Address, *xenv.TransactionContext, uint64, *state.State) (*setypes.ScriptEngineOutput, uint64, error)) {
 
-	StakingHandler = func(data []byte, to *meter.Address, txCtx *xenv.TransactionContext, gas uint64, state *state.State) (seOutput *types.ScriptEngineOutput, leftOverGas uint64, err error) {
+	StakingHandler = func(data []byte, to *meter.Address, txCtx *xenv.TransactionContext, gas uint64, state *state.State) (seOutput *setypes.ScriptEngineOutput, leftOverGas uint64, err error) {
 
 		ret := make([]byte, 0)
-		seOutput = types.NewScriptEngineOutput([]byte{})
+		seOutput = setypes.NewScriptEngineOutput([]byte{})
 		sb, err := StakingDecodeFromBytes(data)
 		if err != nil {
 			log.Error("Decode script message failed", "error", err)

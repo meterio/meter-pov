@@ -18,10 +18,10 @@ import (
 	"github.com/dfinlab/meter/runtime/statedb"
 	"github.com/dfinlab/meter/script"
 	"github.com/dfinlab/meter/script/accountlock"
+	setypes "github.com/dfinlab/meter/script/types"
 	"github.com/dfinlab/meter/state"
 	"github.com/dfinlab/meter/tx"
 	Tx "github.com/dfinlab/meter/tx"
-	mtypes "github.com/dfinlab/meter/types"
 	"github.com/dfinlab/meter/vm"
 	"github.com/dfinlab/meter/xenv"
 	"github.com/ethereum/go-ethereum/common"
@@ -388,7 +388,7 @@ func (rt *Runtime) PrepareClause(
 		vmErr         error
 		contractAddr  *meter.Address
 		interruptFlag uint32
-		seOutput      *mtypes.ScriptEngineOutput
+		seOutput      *setypes.ScriptEngineOutput
 	)
 
 	exec = func() (*Output, bool) {

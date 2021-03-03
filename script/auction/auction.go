@@ -11,7 +11,7 @@ import (
 	"github.com/dfinlab/meter/chain"
 	"github.com/dfinlab/meter/meter"
 	"github.com/dfinlab/meter/state"
-	"github.com/dfinlab/meter/types"
+	setypes "github.com/dfinlab/meter/script/types"
 	"github.com/dfinlab/meter/xenv"
 	"github.com/inconshreveable/log15"
 )
@@ -51,12 +51,12 @@ func (a *Auction) Start() error {
 	return nil
 }
 
-func (a *Auction) PrepareAuctionHandler() (AuctionHandler func([]byte, *meter.Address, *xenv.TransactionContext, uint64, *state.State) (*types.ScriptEngineOutput, uint64, error)) {
+func (a *Auction) PrepareAuctionHandler() (AuctionHandler func([]byte, *meter.Address, *xenv.TransactionContext, uint64, *state.State) (*setypes.ScriptEngineOutput, uint64, error)) {
 
-	AuctionHandler = func(data []byte, to *meter.Address, txCtx *xenv.TransactionContext, gas uint64, state *state.State) (seOutput *types.ScriptEngineOutput, leftOverGas uint64, err error) {
+	AuctionHandler = func(data []byte, to *meter.Address, txCtx *xenv.TransactionContext, gas uint64, state *state.State) (seOutput *setypes.ScriptEngineOutput, leftOverGas uint64, err error) {
 
 		ret := make([]byte, 0)
-		seOutput = types.NewScriptEngineOutput([]byte{})
+		seOutput = setypes.NewScriptEngineOutput([]byte{})
 		ab, err := AuctionDecodeFromBytes(data)
 		if err != nil {
 			log.Error("Decode script message failed", "error", err)

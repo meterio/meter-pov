@@ -10,8 +10,8 @@ import (
 
 	"github.com/dfinlab/meter/chain"
 	"github.com/dfinlab/meter/meter"
+	setypes "github.com/dfinlab/meter/script/types"
 	"github.com/dfinlab/meter/state"
-	"github.com/dfinlab/meter/types"
 	"github.com/dfinlab/meter/xenv"
 	"github.com/inconshreveable/log15"
 )
@@ -52,12 +52,12 @@ func (a *AccountLock) Start() error {
 	return nil
 }
 
-func (a *AccountLock) PrepareAccountLockHandler() (AccountLockHandler func([]byte, *meter.Address, *xenv.TransactionContext, uint64, *state.State) (*types.ScriptEngineOutput, uint64, error)) {
+func (a *AccountLock) PrepareAccountLockHandler() (AccountLockHandler func([]byte, *meter.Address, *xenv.TransactionContext, uint64, *state.State) (*setypes.ScriptEngineOutput, uint64, error)) {
 
-	AccountLockHandler = func(data []byte, to *meter.Address, txCtx *xenv.TransactionContext, gas uint64, state *state.State) (seOutput *types.ScriptEngineOutput, leftOverGas uint64, err error) {
+	AccountLockHandler = func(data []byte, to *meter.Address, txCtx *xenv.TransactionContext, gas uint64, state *state.State) (seOutput *setypes.ScriptEngineOutput, leftOverGas uint64, err error) {
 
 		ret := make([]byte, 0)
-		seOutput = types.NewScriptEngineOutput([]byte{})
+		seOutput = setypes.NewScriptEngineOutput([]byte{})
 		ab, err := AccountLockDecodeFromBytes(data)
 		if err != nil {
 			log.Error("Decode script message failed", "error", err)

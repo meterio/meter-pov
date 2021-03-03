@@ -14,7 +14,7 @@ import (
 
 	"github.com/dfinlab/meter/chain"
 	"github.com/dfinlab/meter/meter"
-	"github.com/dfinlab/meter/types"
+	setypes "github.com/dfinlab/meter/script/types"
 	"github.com/dfinlab/meter/script/accountlock"
 	"github.com/dfinlab/meter/script/auction"
 	"github.com/dfinlab/meter/script/staking"
@@ -121,7 +121,7 @@ func (se *ScriptEngine) StartAllModules() {
 	ModuleAccountLockInit(se)
 }
 
-func (se *ScriptEngine) HandleScriptData(data []byte, to *meter.Address, txCtx *xenv.TransactionContext, gas uint64, state *state.State) (seOutput *types.ScriptEngineOutput, leftOverGas uint64, err error) {
+func (se *ScriptEngine) HandleScriptData(data []byte, to *meter.Address, txCtx *xenv.TransactionContext, gas uint64, state *state.State) (seOutput *setypes.ScriptEngineOutput, leftOverGas uint64, err error) {
 	se.logger.Info("received script data", "to", to, "gas", gas, "data", hex.EncodeToString(data))
 	if bytes.Compare(data[:len(ScriptPattern)], ScriptPattern[:]) != 0 {
 		err := fmt.Errorf("Pattern mismatch, pattern = %v", hex.EncodeToString(data[:len(ScriptPattern)]))
