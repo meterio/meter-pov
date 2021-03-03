@@ -56,8 +56,6 @@ func (a *AccountLock) PrepareAccountLockHandler() (AccountLockHandler func([]byt
 
 	AccountLockHandler = func(data []byte, to *meter.Address, txCtx *xenv.TransactionContext, gas uint64, state *state.State) (seOutput *setypes.ScriptEngineOutput, leftOverGas uint64, err error) {
 
-		ret := make([]byte, 0)
-		seOutput = setypes.NewScriptEngineOutput([]byte{})
 		ab, err := AccountLockDecodeFromBytes(data)
 		if err != nil {
 			log.Error("Decode script message failed", "error", err)
@@ -76,25 +74,25 @@ func (a *AccountLock) PrepareAccountLockHandler() (AccountLockHandler func([]byt
 			if env.GetTxCtx().Origin.IsZero() == false {
 				return nil, gas, errors.New("not from kblock")
 			}
-			ret, leftOverGas, err = ab.HandleAccountLockAdd(env, gas)
+			leftOverGas, err = ab.HandleAccountLockAdd(env, gas)
 
 		case OP_REMOVELOCK:
 			if env.GetTxCtx().Origin.IsZero() == false {
 				return nil, gas, errors.New("not form kblock")
 			}
-			ret, leftOverGas, err = ab.HandleAccountLockRemove(env, gas)
+			leftOverGas, err = ab.HandleAccountLockRemove(env, gas)
 
 		case OP_TRANSFER:
 			if env.GetTxCtx().Origin != ab.FromAddr {
 				return nil, gas, errors.New("from address is not the same from transaction")
 			}
-			ret, leftOverGas, err = ab.HandleAccountLockTransfer(env, gas)
+			leftOverGas, err = ab.HandleAccountLockTransfer(env, gas)
 
 		case OP_GOVERNING:
 			if env.GetToAddr().String() != AccountLockAddr.String() {
 				return nil, gas, errors.New("to address is not the same from module address")
 			}
-			ret, leftOverGas, err = ab.GoverningHandler(env, gas)
+			leftOverGas, err = ab.GoverningHandler(env, gas)
 
 		default:
 			log.Error("unknown Opcode", "Opcode", ab.Opcode)
@@ -102,9 +100,7 @@ func (a *AccountLock) PrepareAccountLockHandler() (AccountLockHandler func([]byt
 		}
 		log.Debug("Leaving script handler for operation", "op", ab.GetOpName(ab.Opcode))
 
-		seOutput.SetData(ret)
-		seOutput.BatchAddTransfers(env.GetTransfers())
-		seOutput.BatchAddEvents(env.GetEvents())
+		seOutput = env.GetOutput()
 		return
 	}
 	return

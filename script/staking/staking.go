@@ -83,8 +83,6 @@ func (s *Staking) PrepareStakingHandler() (StakingHandler func([]byte, *meter.Ad
 
 	StakingHandler = func(data []byte, to *meter.Address, txCtx *xenv.TransactionContext, gas uint64, state *state.State) (seOutput *setypes.ScriptEngineOutput, leftOverGas uint64, err error) {
 
-		ret := make([]byte, 0)
-		seOutput = setypes.NewScriptEngineOutput([]byte{})
 		sb, err := StakingDecodeFromBytes(data)
 		if err != nil {
 			log.Error("Decode script message failed", "error", err)
@@ -112,60 +110,60 @@ func (s *Staking) PrepareStakingHandler() (StakingHandler func([]byte, *meter.Ad
 				return nil, gas, errors.New("holder address is not the same from transaction")
 			}
 
-			ret, leftOverGas, err = sb.BoundHandler(senv, gas)
+			leftOverGas, err = sb.BoundHandler(senv, gas)
 		case OP_UNBOUND:
 			if senv.GetTxCtx().Origin != sb.HolderAddr {
 				return nil, gas, errors.New("holder address is not the same from transaction")
 			}
-			ret, leftOverGas, err = sb.UnBoundHandler(senv, gas)
+			leftOverGas, err = sb.UnBoundHandler(senv, gas)
 
 		case OP_CANDIDATE:
 			if senv.GetTxCtx().Origin != sb.CandAddr {
 				return nil, gas, errors.New("candidate address is not the same from transaction")
 			}
-			ret, leftOverGas, err = sb.CandidateHandler(senv, gas)
+			leftOverGas, err = sb.CandidateHandler(senv, gas)
 
 		case OP_UNCANDIDATE:
 			if senv.GetTxCtx().Origin != sb.CandAddr {
 				return nil, gas, errors.New("candidate address is not the same from transaction")
 			}
-			ret, leftOverGas, err = sb.UnCandidateHandler(senv, gas)
+			leftOverGas, err = sb.UnCandidateHandler(senv, gas)
 
 		case OP_DELEGATE:
 			if senv.GetTxCtx().Origin != sb.HolderAddr {
 				return nil, gas, errors.New("holder address is not the same from transaction")
 			}
-			ret, leftOverGas, err = sb.DelegateHandler(senv, gas)
+			leftOverGas, err = sb.DelegateHandler(senv, gas)
 
 		case OP_UNDELEGATE:
 			if senv.GetTxCtx().Origin != sb.HolderAddr {
 				return nil, gas, errors.New("holder address is not the same from transaction")
 			}
-			ret, leftOverGas, err = sb.UnDelegateHandler(senv, gas)
+			leftOverGas, err = sb.UnDelegateHandler(senv, gas)
 
 		case OP_GOVERNING:
 			if senv.GetToAddr().String() != StakingModuleAddr.String() {
 				return nil, gas, errors.New("to address is not the same from module address")
 			}
-			ret, leftOverGas, err = sb.GoverningHandler(senv, gas)
+			leftOverGas, err = sb.GoverningHandler(senv, gas)
 
 		case OP_CANDIDATE_UPDT:
 			if senv.GetTxCtx().Origin != sb.CandAddr {
 				return nil, gas, errors.New("candidate address is not the same from transaction")
 			}
-			ret, leftOverGas, err = sb.CandidateUpdateHandler(senv, gas)
+			leftOverGas, err = sb.CandidateUpdateHandler(senv, gas)
 
 		case OP_DELEGATE_STATISTICS:
 			if senv.GetToAddr().String() != StakingModuleAddr.String() {
 				return nil, gas, errors.New("to address is not the same from module address")
 			}
-			ret, leftOverGas, err = sb.DelegateStatisticsHandler(senv, gas)
+			leftOverGas, err = sb.DelegateStatisticsHandler(senv, gas)
 
 		case OP_DELEGATE_EXITJAIL:
 			if senv.GetTxCtx().Origin != sb.CandAddr {
 				return nil, gas, errors.New("candidate address is not the same from transaction")
 			}
-			ret, leftOverGas, err = sb.DelegateExitJailHandler(senv, gas)
+			leftOverGas, err = sb.DelegateExitJailHandler(senv, gas)
 
 		// this API is only for executor
 		case OP_FLUSH_ALL_STATISTICS:
@@ -173,7 +171,7 @@ func (s *Staking) PrepareStakingHandler() (StakingHandler func([]byte, *meter.Ad
 			if senv.GetTxCtx().Origin != executor || sb.HolderAddr != executor {
 				return nil, gas, errors.New("only executor can exec this API")
 			}
-			ret, leftOverGas, err = sb.DelegateStatisticsFlushHandler(senv, gas)
+			leftOverGas, err = sb.DelegateStatisticsFlushHandler(senv, gas)
 
 		default:
 			log.Error("unknown Opcode", "Opcode", sb.Opcode)
@@ -181,10 +179,7 @@ func (s *Staking) PrepareStakingHandler() (StakingHandler func([]byte, *meter.Ad
 		}
 		log.Debug("Leaving script handler for operation", "op", GetOpName(sb.Opcode))
 
-		seOutput.SetData(ret)
-		seOutput.BatchAddTransfers(senv.GetTransfers())
-		seOutput.BatchAddEvents(senv.GetEvents())
-
+		seOutput = senv.GetOutput()
 		return
 	}
 	return

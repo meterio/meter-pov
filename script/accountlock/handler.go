@@ -63,11 +63,13 @@ func AccountLockDecodeFromBytes(bytes []byte) (*AccountLockBody, error) {
 	return &ab, err
 }
 
-func (ab *AccountLockBody) HandleAccountLockAdd(env *AccountLockEnviroment, gas uint64) (ret []byte, leftOverGas uint64, err error) {
+func (ab *AccountLockBody) HandleAccountLockAdd(env *AccountLockEnviroment, gas uint64) (leftOverGas uint64, err error) {
+	var ret []byte
 	defer func() {
 		if err != nil {
 			ret = []byte(err.Error())
 		}
+		env.SetReturnData(ret)
 	}()
 	AccountLock := env.GetAccountLock()
 	state := env.GetState()
@@ -92,11 +94,13 @@ func (ab *AccountLockBody) HandleAccountLockAdd(env *AccountLockEnviroment, gas 
 	return
 }
 
-func (ab *AccountLockBody) HandleAccountLockRemove(env *AccountLockEnviroment, gas uint64) (ret []byte, leftOverGas uint64, err error) {
+func (ab *AccountLockBody) HandleAccountLockRemove(env *AccountLockEnviroment, gas uint64) (leftOverGas uint64, err error) {
+	var ret []byte
 	defer func() {
 		if err != nil {
 			ret = []byte(err.Error())
 		}
+		env.SetReturnData(ret)
 	}()
 	AccountLock := env.GetAccountLock()
 	state := env.GetState()
@@ -121,11 +125,13 @@ func (ab *AccountLockBody) HandleAccountLockRemove(env *AccountLockEnviroment, g
 	return
 }
 
-func (ab *AccountLockBody) HandleAccountLockTransfer(env *AccountLockEnviroment, gas uint64) (ret []byte, leftOverGas uint64, err error) {
+func (ab *AccountLockBody) HandleAccountLockTransfer(env *AccountLockEnviroment, gas uint64) (leftOverGas uint64, err error) {
+	var ret []byte
 	defer func() {
 		if err != nil {
 			ret = []byte(err.Error())
 		}
+		env.SetReturnData(ret)
 	}()
 	AccountLock := env.GetAccountLock()
 	state := env.GetState()
@@ -201,11 +207,13 @@ func (ab *AccountLockBody) HandleAccountLockTransfer(env *AccountLockEnviroment,
 	return
 }
 
-func (ab *AccountLockBody) GoverningHandler(env *AccountLockEnviroment, gas uint64) (ret []byte, leftOverGas uint64, err error) {
+func (ab *AccountLockBody) GoverningHandler(env *AccountLockEnviroment, gas uint64) (leftOverGas uint64, err error) {
+	var ret []byte
 	defer func() {
 		if err != nil {
 			ret = []byte(err.Error())
 		}
+		env.SetReturnData(ret)
 	}()
 	AccountLock := env.GetAccountLock()
 	state := env.GetState()

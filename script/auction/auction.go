@@ -55,8 +55,6 @@ func (a *Auction) PrepareAuctionHandler() (AuctionHandler func([]byte, *meter.Ad
 
 	AuctionHandler = func(data []byte, to *meter.Address, txCtx *xenv.TransactionContext, gas uint64, state *state.State) (seOutput *setypes.ScriptEngineOutput, leftOverGas uint64, err error) {
 
-		ret := make([]byte, 0)
-		seOutput = setypes.NewScriptEngineOutput([]byte{})
 		ab, err := AuctionDecodeFromBytes(data)
 		if err != nil {
 			log.Error("Decode script message failed", "error", err)
@@ -75,13 +73,13 @@ func (a *Auction) PrepareAuctionHandler() (AuctionHandler func([]byte, *meter.Ad
 			if env.GetTxCtx().Origin.IsZero() == false {
 				return nil, gas, errors.New("not from kblock")
 			}
-			ret, leftOverGas, err = ab.StartAuctionCB(env, gas)
+			leftOverGas, err = ab.StartAuctionCB(env, gas)
 
 		case OP_STOP:
 			if env.GetTxCtx().Origin.IsZero() == false {
 				return nil, gas, errors.New("not form kblock")
 			}
-			ret, leftOverGas, err = ab.CloseAuctionCB(env, gas)
+			leftOverGas, err = ab.CloseAuctionCB(env, gas)
 
 		case OP_BID:
 			if ab.Option == AUTO_BID {
@@ -94,15 +92,13 @@ func (a *Auction) PrepareAuctionHandler() (AuctionHandler func([]byte, *meter.Ad
 					return nil, gas, errors.New("bidder address is not the same from transaction")
 				}
 			}
-			ret, leftOverGas, err = ab.HandleAuctionTx(env, gas)
+			leftOverGas, err = ab.HandleAuctionTx(env, gas)
 
 		default:
 			log.Error("unknown Opcode", "Opcode", ab.Opcode)
 			return nil, gas, errors.New("unknow auction opcode")
 		}
-		seOutput.SetData(ret)
-		seOutput.BatchAddTransfers(env.GetTransfers())
-		seOutput.BatchAddEvents(env.GetEvents())
+		seOutput = env.GetOutput()
 		log.Debug("Leaving script handler for operation", "op", ab.GetOpName(ab.Opcode))
 		return
 	}

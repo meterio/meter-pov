@@ -3,7 +3,7 @@
 // Distributed under the GNU Lesser General Public License v3.0 software license, see the accompanying
 // file LICENSE or <https://www.gnu.org/licenses/lgpl-3.0.html>
 
-package staking
+package auction
 
 import (
 	"github.com/dfinlab/meter/meter"
@@ -13,16 +13,16 @@ import (
 )
 
 //
-type StakingEnv struct {
+type AuctionEnv struct {
 	*setypes.ScriptEnv
-	staking   *Staking
+	auction *Auction
 }
 
-func NewStakingEnv(staking *Staking, state *state.State, txCtx *xenv.TransactionContext, to *meter.Address) *StakingEnv {
-	return &StakingEnv{
-		staking:   staking,
+func NewAuctionEnv(auction *Auction, state *state.State, txCtx *xenv.TransactionContext, to *meter.Address) *AuctionEnv {
+	return &AuctionEnv{
+		auction:   auction,
 		ScriptEnv: setypes.NewScriptEnv(state, txCtx, to),
 	}
 }
 
-func (env *StakingEnv) GetStaking() *Staking               { return env.staking }
+func (env *AuctionEnv) GetAuction() *Auction { return env.auction }
