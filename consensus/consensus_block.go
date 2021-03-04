@@ -700,10 +700,14 @@ func (conR *ConsensusReactor) BuildKBlock(parentBlock *block.Block, data *block.
 			validatorBaseReward := reward.GetValidatorBaseRewards(state)
 			epochBaseReward := reward.ComputeEpochBaseReward(validatorBaseReward)
 			nDays := meter.NDays
+			nAuctionPerDay := meter.NEpochPerDay // wrong number before hardfork
 			if (meter.IsTestNet() && curEpoch > meter.Testnet_RewardOnlyToCommittee_HardForkEpoch) || meter.IsMainNet() {
 				nDays = meter.NDaysV2
 			}
-			epochTotalReward, err := reward.ComputeEpochTotalReward(benefitRatio, nDays)
+			if (meter.IsTestNet() && curEpoch > meter.Testnet_TotalRewardFix_HardForkEpoch) || meter.IsMainNet(){
+				nAuctionPerDay = meter.NAuctionPerDay
+			}
+			epochTotalReward, err := reward.ComputeEpochTotalReward(benefitRatio, nDays, nAuctionPerDay)
 			if err != nil {
 				epochTotalReward = big.NewInt(0)
 			}

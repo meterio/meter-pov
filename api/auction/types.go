@@ -8,6 +8,7 @@ package auction
 import (
 	//"encoding/hex"
 	"fmt"
+	"math/big"
 	"time"
 
 	"github.com/dfinlab/meter/script/auction"
@@ -30,6 +31,29 @@ type AuctionSummary struct {
 	LeftoverMTRG string       `json:"leftoverMTRG"`
 	AuctionTxs   []*AuctionTx `json:"auctionTxs"`
 	DistMTRG     []*DistMtrg  `json:"distMTRG"`
+}
+
+type AuctionDigest struct {
+	ID           string `json:"ID"`
+	StartHeight  uint64 `json:"startHeight"`
+	StartEpoch   uint64 `json:"startEpoch"`
+	EndHeight    uint64 `json:"endHeight"`
+	EndEpoch     uint64 `json:"endEpoch"`
+	Sequence     uint64 `json:"sequence"`
+	RlsdMTRG     string `json:"releasedMTRG"`
+	RsvdMTRG     string `json:"reservedMTRG"`
+	RsvdPrice    string `json:"reservedPrice"`
+	CreateTime   uint64 `json:"createTime"`
+	RcvdMTR      string `json:"receivedMTR"`
+	ActualPrice  string `json:"actualPrice"`
+	LeftoverMTRG string `json:"leftoverMTRG"`
+
+	UserbidCount uint64 `json:"userbidCount"`
+	UserbidTotal string `json:"userbidTotal"`
+	AutobidCount uint64 `json:"autobidCount"`
+	AutobidTotal string `json:"autobidTotal"`
+	DistCount    uint64 `json:"distCount"`
+	DistTotal    string `json:"distTotal"`
 }
 
 type DistMtrg struct {
@@ -61,6 +85,59 @@ type AuctionCB struct {
 	Timestamp   string       `json:"timestamp"`
 	RcvdMTR     string       `json:"receivedMTR"`
 	AuctionTxs  []*AuctionTx `json:"auctionTxs"`
+}
+
+func convertDigestList(list *auction.AuctionSummaryList) []*AuctionDigest {
+	digestList := make([]*AuctionDigest, 0)
+	for _, s := range list.ToList() {
+		digestList = append(digestList, convertDigest(&s))
+	}
+	return digestList
+}
+
+func convertDigest(s *auction.AuctionSummary) *AuctionDigest {
+	distCount := len(s.DistMTRG)
+	distTotal := big.NewInt(0)
+	for _, d := range s.DistMTRG {
+		distTotal.Add(distTotal, d.Amount)
+	}
+
+	autobidCount := 0
+	autobidTotal := big.NewInt(0)
+	userbidCount := 0
+	userbidTotal := big.NewInt(0)
+	for _, t := range s.AuctionTxs {
+		if t.Type == auction.USER_BID {
+			userbidCount++
+			userbidTotal.Add(userbidTotal, t.Amount)
+		}
+		if t.Type == auction.AUTO_BID {
+			autobidCount++
+			autobidTotal.Add(autobidTotal, t.Amount)
+		}
+	}
+	return &AuctionDigest{
+		ID:           s.AuctionID.String(),
+		StartHeight:  s.StartHeight,
+		StartEpoch:   s.StartEpoch,
+		EndHeight:    s.EndHeight,
+		EndEpoch:     s.EndEpoch,
+		Sequence:     s.Sequence,
+		RlsdMTRG:     s.RlsdMTRG.String(),
+		RsvdMTRG:     s.RsvdMTRG.String(),
+		RsvdPrice:    s.RsvdPrice.String(),
+		CreateTime:   s.CreateTime,
+		RcvdMTR:      s.RcvdMTR.String(),
+		ActualPrice:  s.ActualPrice.String(),
+		LeftoverMTRG: s.LeftoverMTRG.String(),
+
+		UserbidCount: uint64(userbidCount),
+		UserbidTotal: userbidTotal.String(),
+		AutobidCount: uint64(autobidCount),
+		AutobidTotal: autobidTotal.String(),
+		DistCount:    uint64(distCount),
+		DistTotal:    distTotal.String(),
+	}
 }
 
 func convertSummaryList(list *auction.AuctionSummaryList) []*AuctionSummary {

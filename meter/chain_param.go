@@ -27,6 +27,7 @@ const (
 	Testnet_RewardOnlyToCommittee_HardForkEpoch = 58
 	Testnet_InjailPolicyChangeV2_HardForkEpoch  = 81
 	Testnet_ScriptEngineOutput_HardForkNumber   = 250000
+	Testnet_TotalRewardFix_HardForkEpoch = 145
 )
 
 // Tesla: The staking/auction release, Features include:
@@ -55,8 +56,6 @@ var (
 		Initialized:    false,
 	}
 )
-
-//
 type ChainConfig struct {
 	ChainGenesisID Bytes32 // set while init
 	ChainFlag      string
