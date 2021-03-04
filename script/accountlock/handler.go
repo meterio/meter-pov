@@ -63,11 +63,13 @@ func AccountLockDecodeFromBytes(bytes []byte) (*AccountLockBody, error) {
 	return &ab, err
 }
 
-func (ab *AccountLockBody) HandleAccountLockAdd(env *AccountLockEnviroment, gas uint64) (ret []byte, leftOverGas uint64, err error) {
+func (ab *AccountLockBody) HandleAccountLockAdd(env *AccountLockEnviroment, gas uint64) (leftOverGas uint64, err error) {
+	var ret []byte
 	defer func() {
 		if err != nil {
 			ret = []byte(err.Error())
 		}
+		env.SetReturnData(ret)
 	}()
 	AccountLock := env.GetAccountLock()
 	state := env.GetState()
@@ -92,11 +94,13 @@ func (ab *AccountLockBody) HandleAccountLockAdd(env *AccountLockEnviroment, gas 
 	return
 }
 
-func (ab *AccountLockBody) HandleAccountLockRemove(env *AccountLockEnviroment, gas uint64) (ret []byte, leftOverGas uint64, err error) {
+func (ab *AccountLockBody) HandleAccountLockRemove(env *AccountLockEnviroment, gas uint64) (leftOverGas uint64, err error) {
+	var ret []byte
 	defer func() {
 		if err != nil {
 			ret = []byte(err.Error())
 		}
+		env.SetReturnData(ret)
 	}()
 	AccountLock := env.GetAccountLock()
 	state := env.GetState()
@@ -121,11 +125,13 @@ func (ab *AccountLockBody) HandleAccountLockRemove(env *AccountLockEnviroment, g
 	return
 }
 
-func (ab *AccountLockBody) HandleAccountLockTransfer(env *AccountLockEnviroment, gas uint64) (ret []byte, leftOverGas uint64, err error) {
+func (ab *AccountLockBody) HandleAccountLockTransfer(env *AccountLockEnviroment, gas uint64) (leftOverGas uint64, err error) {
+	var ret []byte
 	defer func() {
 		if err != nil {
 			ret = []byte(err.Error())
 		}
+		env.SetReturnData(ret)
 	}()
 	AccountLock := env.GetAccountLock()
 	state := env.GetState()
@@ -188,10 +194,12 @@ func (ab *AccountLockBody) HandleAccountLockTransfer(env *AccountLockEnviroment,
 	if ab.MeterAmount.Sign() != 0 {
 		state.AddEnergy(ab.ToAddr, ab.MeterAmount)
 		state.SubEnergy(ab.FromAddr, ab.MeterAmount)
+		env.AddTransfer(ab.ToAddr, ab.FromAddr, ab.MeterAmount, meter.MTR)
 	}
 	if ab.MeterGovAmount.Sign() != 0 {
 		state.AddBalance(ab.ToAddr, ab.MeterGovAmount)
 		state.SubBalance(ab.FromAddr, ab.MeterGovAmount)
+		env.AddTransfer(ab.ToAddr, ab.FromAddr, ab.MeterAmount, meter.MTRG)
 	}
 
 	log.Debug("account lock transfer", "from", ab.FromAddr, "to", ab.ToAddr, "meter", ab.MeterAmount, "meterGov", ab.MeterGovAmount)
@@ -199,11 +207,13 @@ func (ab *AccountLockBody) HandleAccountLockTransfer(env *AccountLockEnviroment,
 	return
 }
 
-func (ab *AccountLockBody) GoverningHandler(env *AccountLockEnviroment, gas uint64) (ret []byte, leftOverGas uint64, err error) {
+func (ab *AccountLockBody) GoverningHandler(env *AccountLockEnviroment, gas uint64) (leftOverGas uint64, err error) {
+	var ret []byte
 	defer func() {
 		if err != nil {
 			ret = []byte(err.Error())
 		}
+		env.SetReturnData(ret)
 	}()
 	AccountLock := env.GetAccountLock()
 	state := env.GetState()

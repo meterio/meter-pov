@@ -6,61 +6,23 @@
 package accountlock
 
 import (
-	"math/big"
-
 	"github.com/dfinlab/meter/meter"
 	"github.com/dfinlab/meter/state"
-	"github.com/dfinlab/meter/tx"
+	setypes "github.com/dfinlab/meter/script/types"
 	"github.com/dfinlab/meter/xenv"
 )
 
 //
 type AccountLockEnviroment struct {
-	AccountLock *AccountLock
-	state       *state.State
-	txCtx       *xenv.TransactionContext
-	toAddr      *meter.Address
-	transfers   []*tx.Transfer
-	events      []*tx.Event
+	*setypes.ScriptEnv
+	accountLock *AccountLock
 }
 
-func NewAccountLockEnviroment(AccountLock *AccountLock, state *state.State, txCtx *xenv.TransactionContext, to *meter.Address) *AccountLockEnviroment {
+func NewAccountLockEnviroment(accountLock *AccountLock, state *state.State, txCtx *xenv.TransactionContext, to *meter.Address) *AccountLockEnviroment {
 	return &AccountLockEnviroment{
-		AccountLock: AccountLock,
-		state:       state,
-		txCtx:       txCtx,
-		toAddr:      to,
-		transfers:   make([]*tx.Transfer, 0),
-		events:      make([]*tx.Event, 0),
+		accountLock: accountLock,
+		ScriptEnv: setypes.NewScriptEnv(state, txCtx, to),
 	}
 }
 
-func (env *AccountLockEnviroment) GetAccountLock() *AccountLock       { return env.AccountLock }
-func (env *AccountLockEnviroment) GetState() *state.State             { return env.state }
-func (env *AccountLockEnviroment) GetTxCtx() *xenv.TransactionContext { return env.txCtx }
-func (env *AccountLockEnviroment) GetToAddr() *meter.Address          { return env.toAddr }
-
-func (env *AccountLockEnviroment) AddTransfer(sender, recipient meter.Address, amount *big.Int, token byte) {
-	env.transfers = append(env.transfers, &tx.Transfer{
-		Sender:    sender,
-		Recipient: recipient,
-		Amount:    amount,
-		Token:     token,
-	})
-}
-
-func (env *AccountLockEnviroment) AddEvent(address meter.Address, topics []meter.Bytes32, data []byte) {
-	env.events = append(env.events, &tx.Event{
-		Address: address,
-		Topics:  topics,
-		Data:    data,
-	})
-}
-
-func (env *AccountLockEnviroment) GetTransfers() tx.Transfers {
-	return env.transfers
-}
-
-func (env *AccountLockEnviroment) GetEvents() tx.Events {
-	return env.events
-}
+func (env *AccountLockEnviroment) GetAccountLock() *AccountLock       { return env.accountLock }

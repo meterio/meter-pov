@@ -179,7 +179,7 @@ func ComputeEpochBaseReward(validatorBaseReward *big.Int) *big.Int {
 	return epochBaseReward
 }
 
-func ComputeEpochTotalReward(benefitRatio *big.Int, nDays int) (*big.Int, error) {
+func ComputeEpochTotalReward(benefitRatio *big.Int, nDays int, nAuctionPerDay int) (*big.Int, error) {
 	summaryList, err := auction.GetAuctionSummaryList()
 	if err != nil {
 		logger.Error("get summary list failed", "error", err)
@@ -190,18 +190,20 @@ func ComputeEpochTotalReward(benefitRatio *big.Int, nDays int) (*big.Int, error)
 		return big.NewInt(0), nil
 	}
 	var d, i int
-	if size <= nDays*meter.NEpochPerDay {
+	if size <= nDays*nAuctionPerDay {
 		d = size
 	} else {
-		d = nDays * meter.NEpochPerDay
+		d = nDays *nAuctionPerDay
 	}
 
 	// sumReward = sum(receivedMTR in last NDays)
 	sumReward := big.NewInt(0)
 	for i = 0; i < d; i++ {
 		s := summaryList.Summaries[size-1-i]
+		fmt.Println("Use auction summary: ", s.AuctionID)
 		sumReward.Add(sumReward, s.RcvdMTR)
 	}
+	fmt.Println("sumReward: ", sumReward.String(), "benefitRatio", benefitRatio)
 
 	// epochTotalRewards = sumReward * benefitRatio / NDays / NEpochPerDay
 	epochTotalRewards := new(big.Int).Mul(sumReward, benefitRatio)

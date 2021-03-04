@@ -26,9 +26,11 @@ const (
 	Testnet_InjailPolicyChange_HardForkEpoch    = 42
 	Testnet_RewardOnlyToCommittee_HardForkEpoch = 58
 	Testnet_InjailPolicyChangeV2_HardForkEpoch  = 81
+	Testnet_ScriptEngineOutput_HardForkNumber   = 250000
+	Testnet_TotalRewardFix_HardForkEpoch = 145
 )
 
-// Tesla: The staking/auction release, Features includ:
+// Tesla: The staking/auction release, Features include:
 const (
 	Tesla                = iota + 2
 	TeslaMainnetStartNum = 8000000 // FIXME: not realistic number
@@ -54,9 +56,6 @@ var (
 		Initialized:    false,
 	}
 )
-
-// ChainConfig is the core config which determines the blockchain settings.
-//
 type ChainConfig struct {
 	ChainGenesisID Bytes32 // set while init
 	ChainFlag      string

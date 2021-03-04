@@ -21,7 +21,7 @@ import (
 	"github.com/ethereum/go-ethereum/rlp"
 )
 
-var(
+var (
 	errInvalidPubkey    = errors.New("invalid public key")
 	errInvalidIpAddress = errors.New("invalid ip address")
 	errInvalidPort      = errors.New("invalid port number")
@@ -109,11 +109,13 @@ func (sb *StakingBody) ToString() string {
 		sb.Opcode, sb.Version, sb.Option, sb.HolderAddr.String(), sb.CandAddr.String(), string(sb.CandName), string(sb.CandDescription), string(sb.CandPubKey), string(sb.CandIP), sb.CandPort, sb.StakingID, sb.Amount, sb.Token, sb.Autobid, sb.Nonce, sb.Timestamp, sb.ExtraData)
 }
 
-func (sb *StakingBody) BoundHandler(env *StakingEnv, gas uint64) (ret []byte, leftOverGas uint64, err error) {
+func (sb *StakingBody) BoundHandler(env *StakingEnv, gas uint64) (leftOverGas uint64, err error) {
+	var ret []byte
 	defer func() {
 		if err != nil {
 			ret = []byte(err.Error())
 		}
+		env.SetReturnData(ret)
 	}()
 	staking := env.GetStaking()
 	state := env.GetState()
@@ -209,9 +211,9 @@ func (sb *StakingBody) BoundHandler(env *StakingEnv, gas uint64) (ret []byte, le
 
 	switch sb.Token {
 	case meter.MTR:
-		err = staking.BoundAccountMeter(sb.HolderAddr, sb.Amount, state,env)
+		err = staking.BoundAccountMeter(sb.HolderAddr, sb.Amount, state, env)
 	case meter.MTRG:
-		err = staking.BoundAccountMeterGov(sb.HolderAddr, sb.Amount, state,env)
+		err = staking.BoundAccountMeterGov(sb.HolderAddr, sb.Amount, state, env)
 	default:
 		err = errInvalidToken
 	}
@@ -222,11 +224,13 @@ func (sb *StakingBody) BoundHandler(env *StakingEnv, gas uint64) (ret []byte, le
 	return
 }
 
-func (sb *StakingBody) UnBoundHandler(env *StakingEnv, gas uint64) (ret []byte, leftOverGas uint64, err error) {
+func (sb *StakingBody) UnBoundHandler(env *StakingEnv, gas uint64) (leftOverGas uint64, err error) {
+	var ret []byte
 	defer func() {
 		if err != nil {
 			ret = []byte(err.Error())
 		}
+		env.SetReturnData(ret)
 	}()
 	staking := env.GetStaking()
 	state := env.GetState()
@@ -242,13 +246,13 @@ func (sb *StakingBody) UnBoundHandler(env *StakingEnv, gas uint64) (ret []byte, 
 
 	b := bucketList.Get(sb.StakingID)
 	if b == nil {
-		return nil, leftOverGas, errBucketNotFound
+		return leftOverGas, errBucketNotFound
 	}
 	if (b.Owner != sb.HolderAddr) || (b.Value.Cmp(sb.Amount) != 0) || (b.Token != sb.Token) {
-		return nil, leftOverGas, errBucketInfoMismatch
+		return leftOverGas, errBucketInfoMismatch
 	}
 	if b.IsForeverLock() == true {
-		return nil, leftOverGas, errUpdateForeverBucket
+		return leftOverGas, errUpdateForeverBucket
 	}
 
 	// sanity check done, take actions
@@ -261,12 +265,13 @@ func (sb *StakingBody) UnBoundHandler(env *StakingEnv, gas uint64) (ret []byte, 
 	return
 }
 
-func (sb *StakingBody) CandidateHandler(env *StakingEnv, gas uint64) (ret []byte, leftOverGas uint64, err error) {
-
+func (sb *StakingBody) CandidateHandler(env *StakingEnv, gas uint64) (leftOverGas uint64, err error) {
+	var ret []byte
 	defer func() {
 		if err != nil {
 			ret = []byte(err.Error())
 		}
+		env.SetReturnData(ret)
 	}()
 
 	staking := env.GetStaking()
@@ -364,7 +369,7 @@ func (sb *StakingBody) CandidateHandler(env *StakingEnv, gas uint64) (ret []byte
 	case meter.MTR:
 		err = staking.BoundAccountMeter(sb.CandAddr, sb.Amount, state, env)
 	case meter.MTRG:
-		err = staking.BoundAccountMeterGov(sb.CandAddr, sb.Amount, state,env)
+		err = staking.BoundAccountMeterGov(sb.CandAddr, sb.Amount, state, env)
 	default:
 		//leftOverGas = gas
 		err = errInvalidToken
@@ -377,11 +382,13 @@ func (sb *StakingBody) CandidateHandler(env *StakingEnv, gas uint64) (ret []byte
 	return
 }
 
-func (sb *StakingBody) UnCandidateHandler(env *StakingEnv, gas uint64) (ret []byte, leftOverGas uint64, err error) {
+func (sb *StakingBody) UnCandidateHandler(env *StakingEnv, gas uint64) (leftOverGas uint64, err error) {
+	var ret []byte
 	defer func() {
 		if err != nil {
 			ret = []byte(err.Error())
 		}
+		env.SetReturnData(ret)
 	}()
 	staking := env.GetStaking()
 	state := env.GetState()
@@ -436,11 +443,13 @@ func (sb *StakingBody) UnCandidateHandler(env *StakingEnv, gas uint64) (ret []by
 
 }
 
-func (sb *StakingBody) DelegateHandler(env *StakingEnv, gas uint64) (ret []byte, leftOverGas uint64, err error) {
+func (sb *StakingBody) DelegateHandler(env *StakingEnv, gas uint64) (leftOverGas uint64, err error) {
+	var ret []byte
 	defer func() {
 		if err != nil {
 			ret = []byte(err.Error())
 		}
+		env.SetReturnData(ret)
 	}()
 	staking := env.GetStaking()
 	state := env.GetState()
@@ -456,27 +465,27 @@ func (sb *StakingBody) DelegateHandler(env *StakingEnv, gas uint64) (ret []byte,
 
 	b := bucketList.Get(sb.StakingID)
 	if b == nil {
-		return nil, leftOverGas, errBucketNotFound
+		return leftOverGas, errBucketNotFound
 	}
 	if (b.Owner != sb.HolderAddr) || (b.Value.Cmp(sb.Amount) != 0) || (b.Token != sb.Token) {
-		return nil, leftOverGas, errBucketInfoMismatch
+		return leftOverGas, errBucketInfoMismatch
 	}
 	if b.IsForeverLock() == true {
-		return nil, leftOverGas, errUpdateForeverBucket
+		return leftOverGas, errUpdateForeverBucket
 	}
 	if b.Candidate.IsZero() != true {
 		log.Error("bucket is in use", "candidate", b.Candidate)
-		return nil, leftOverGas, errBucketInUse
+		return leftOverGas, errBucketInUse
 	}
 
 	cand := candidateList.Get(sb.CandAddr)
 	if cand == nil {
-		return nil, leftOverGas, errBucketNotFound
+		return leftOverGas, errBucketNotFound
 	}
 
 	if CheckCandEnoughSelfVotes(b.TotalVotes, cand, bucketList) == false {
 		log.Error("Candidate does not have enough self votes", "candidate", cand.Addr.String())
-		return nil, leftOverGas, errCandidateNotEnoughSelfVotes
+		return leftOverGas, errCandidateNotEnoughSelfVotes
 	}
 
 	// sanity check done, take actions
@@ -490,11 +499,13 @@ func (sb *StakingBody) DelegateHandler(env *StakingEnv, gas uint64) (ret []byte,
 	return
 }
 
-func (sb *StakingBody) UnDelegateHandler(env *StakingEnv, gas uint64) (ret []byte, leftOverGas uint64, err error) {
+func (sb *StakingBody) UnDelegateHandler(env *StakingEnv, gas uint64) (leftOverGas uint64, err error) {
+	var ret []byte
 	defer func() {
 		if err != nil {
 			ret = []byte(err.Error())
 		}
+		env.SetReturnData(ret)
 	}()
 	staking := env.GetStaking()
 	state := env.GetState()
@@ -510,22 +521,22 @@ func (sb *StakingBody) UnDelegateHandler(env *StakingEnv, gas uint64) (ret []byt
 
 	b := bucketList.Get(sb.StakingID)
 	if b == nil {
-		return nil, leftOverGas, errBucketNotFound
+		return  leftOverGas, errBucketNotFound
 	}
 	if (b.Owner != sb.HolderAddr) || (b.Value.Cmp(sb.Amount) != 0) || (b.Token != sb.Token) {
-		return nil, leftOverGas, errBucketInfoMismatch
+		return  leftOverGas, errBucketInfoMismatch
 	}
 	if b.IsForeverLock() == true {
-		return nil, leftOverGas, errUpdateForeverBucket
+		return leftOverGas, errUpdateForeverBucket
 	}
 	if b.Candidate.IsZero() {
 		log.Error("bucket is not in use")
-		return nil, leftOverGas, errBucketInUse
+		return leftOverGas, errBucketInUse
 	}
 
 	cand := candidateList.Get(b.Candidate)
 	if cand == nil {
-		return nil, leftOverGas, errCandidateNotListed
+		return leftOverGas, errCandidateNotListed
 	}
 
 	// sanity check done, take actions
@@ -539,11 +550,13 @@ func (sb *StakingBody) UnDelegateHandler(env *StakingEnv, gas uint64) (ret []byt
 	return
 }
 
-func (sb *StakingBody) GoverningHandler(env *StakingEnv, gas uint64) (ret []byte, leftOverGas uint64, err error) {
+func (sb *StakingBody) GoverningHandler(env *StakingEnv, gas uint64) (leftOverGas uint64, err error) {
+	var ret []byte
 	defer func() {
 		if err != nil {
 			ret = []byte(err.Error())
 		}
+		env.SetReturnData(ret)
 	}()
 	staking := env.GetStaking()
 	state := env.GetState()
@@ -758,12 +771,13 @@ func (sb *StakingBody) validatePubKey(comboPubKey []byte) ([]byte, error) {
 }
 
 // This method only update the attached infomation of candidate. Stricted to: name, public key, IP/port, commission
-func (sb *StakingBody) CandidateUpdateHandler(env *StakingEnv, gas uint64) (ret []byte, leftOverGas uint64, err error) {
-
+func (sb *StakingBody) CandidateUpdateHandler(env *StakingEnv, gas uint64) (leftOverGas uint64, err error) {
+	var ret []byte
 	defer func() {
 		if err != nil {
 			ret = []byte(err.Error())
 		}
+		env.SetReturnData(ret)
 	}()
 
 	staking := env.GetStaking()
@@ -947,11 +961,13 @@ func (sb *StakingBody) calculateExemptMap(stats *StatisticsList, delegateList *D
 
 }
 
-func (sb *StakingBody) DelegateStatisticsHandler(env *StakingEnv, gas uint64) (ret []byte, leftOverGas uint64, err error) {
+func (sb *StakingBody) DelegateStatisticsHandler(env *StakingEnv, gas uint64) (leftOverGas uint64, err error) {
+	var ret []byte
 	defer func() {
 		if err != nil {
 			ret = []byte(err.Error())
 		}
+		env.SetReturnData(ret)
 	}()
 
 	if gas < meter.ClauseGas {
@@ -1059,11 +1075,13 @@ func (sb *StakingBody) DelegateStatisticsHandler(env *StakingEnv, gas uint64) (r
 	return
 }
 
-func (sb *StakingBody) DelegateExitJailHandler(env *StakingEnv, gas uint64) (ret []byte, leftOverGas uint64, err error) {
+func (sb *StakingBody) DelegateExitJailHandler(env *StakingEnv, gas uint64) (leftOverGas uint64, err error) {
+	var ret []byte
 	defer func() {
 		if err != nil {
 			ret = []byte(err.Error())
 		}
+		env.SetReturnData(ret)
 	}()
 
 	if gas < meter.ClauseGas {
@@ -1104,11 +1122,13 @@ func (sb *StakingBody) DelegateExitJailHandler(env *StakingEnv, gas uint64) (ret
 }
 
 // this is debug API, only executor has the right to call
-func (sb *StakingBody) DelegateStatisticsFlushHandler(env *StakingEnv, gas uint64) (ret []byte, leftOverGas uint64, err error) {
+func (sb *StakingBody) DelegateStatisticsFlushHandler(env *StakingEnv, gas uint64) (leftOverGas uint64, err error) {
+	var ret []byte
 	defer func() {
 		if err != nil {
 			ret = []byte(err.Error())
 		}
+		env.SetReturnData(ret)
 	}()
 
 	if gas < meter.ClauseGas {

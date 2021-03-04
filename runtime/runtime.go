@@ -6,6 +6,7 @@
 package runtime
 
 import (
+	"encoding/hex"
 	"fmt"
 	"math/big"
 	"sync/atomic"
@@ -17,6 +18,7 @@ import (
 	"github.com/dfinlab/meter/runtime/statedb"
 	"github.com/dfinlab/meter/script"
 	"github.com/dfinlab/meter/script/accountlock"
+	setypes "github.com/dfinlab/meter/script/types"
 	"github.com/dfinlab/meter/state"
 	"github.com/dfinlab/meter/tx"
 	Tx "github.com/dfinlab/meter/tx"
@@ -70,6 +72,14 @@ type Output struct {
 	RefundGas       uint64
 	VMErr           error          // VMErr identify the execution result of the contract function, not evm function's err.
 	ContractAddress *meter.Address // if create a new contract, or is nil.
+}
+
+func (o *Output) String() string {
+	hexData := ""
+	if o.Data != nil {
+		hexData = hex.EncodeToString(o.Data)
+	}
+	return fmt.Sprintf("Output{RefundGas:%v, LeftoverGas:%v, VMErr:%v, ContractAddress:%v, Data:%v, Events:%v, Transfers:%v}", o.RefundGas, o.LeftOverGas, o.VMErr, o.ContractAddress, hexData, o.Events.String(), o.Transfers.String())
 }
 
 type TransactionExecutor struct {
@@ -378,8 +388,7 @@ func (rt *Runtime) PrepareClause(
 		vmErr         error
 		contractAddr  *meter.Address
 		interruptFlag uint32
-		transfers = make([]*tx.Transfer, 0)
-		events = make([]*tx.Event, 0)
+		seOutput      *setypes.ScriptEngineOutput
 	)
 
 	exec = func() (*Output, bool) {
@@ -392,9 +401,13 @@ func (rt *Runtime) PrepareClause(
 			}
 			// exclude 4 bytes of clause data
 			// fmt.Println("Exec Clause: ", hex.EncodeToString(clause.Data()))
-			data, leftOverGas, vmErr, transfers, events = se.HandleScriptData(clause.Data()[4:], clause.To(), txCtx, gas, rt.state)
+			seOutput, leftOverGas, vmErr = se.HandleScriptData(clause.Data()[4:], clause.To(), txCtx, gas, rt.state)
 			// fmt.Println("scriptEngine handling return", data, leftOverGas, vmErr)
 
+			var data []byte
+			if seOutput != nil {
+				data = seOutput.GetData()
+			}
 			interrupted := false
 			output := &Output{
 				Data:            data,
@@ -403,8 +416,14 @@ func (rt *Runtime) PrepareClause(
 				VMErr:           vmErr,
 				ContractAddress: contractAddr,
 			}
-			output.Events= events
-			output.Transfers = transfers
+			blockNum := rt.Context().Number
+			if (blockNum > meter.Testnet_ScriptEngineOutput_HardForkNumber && meter.IsTestNet()) || meter.IsMainNet() {
+				if seOutput != nil {
+					output.Events = seOutput.GetEvents()
+					output.Transfers = seOutput.GetTransfers()
+				}
+			}
+			fmt.Println("Output from script engine:", output)
 			return output, interrupted
 		}
 

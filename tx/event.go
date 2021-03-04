@@ -6,6 +6,9 @@
 package tx
 
 import (
+	"fmt"
+	"encoding/hex"
+	"strings"
 	"github.com/dfinlab/meter/meter"
 )
 
@@ -22,3 +25,22 @@ type Event struct {
 
 // Events slice of event logs.
 type Events []*Event
+
+func (es Events) String() string{
+	if es == nil{
+		return "nil"
+	}
+	lines := make([]string, 0)	
+	for _, e:=range es {
+		hexData := ""
+		if (e.Data!=nil){
+			hexData = hex.EncodeToString(e.Data)
+		}
+		topics := make([]string, 0)
+		for _, tps :=range e.Topics{
+			topics = append(topics, tps.String())
+		}
+		lines = append(lines, fmt.Sprintf("Event(addr:%v, topics:%v, data:%v)", e.Address.String(), strings.Join(topics, ","), hexData))
+	}
+	return "["+strings.Join(lines, "\n")+"]"
+}

@@ -63,6 +63,7 @@ type JSONTransfer struct {
 	Sender    meter.Address         `json:"sender"`
 	Recipient meter.Address         `json:"recipient"`
 	Amount    *math.HexOrDecimal256 `json:"amount"`
+	Token     uint32                `json:"token"`
 }
 
 type JSONEvent struct {
@@ -247,6 +248,7 @@ func buildJSONOutput(origin meter.Address, nonce uint64, index uint32, c *tx.Cla
 			Sender:    t.Sender,
 			Recipient: t.Recipient,
 			Amount:    (*math.HexOrDecimal256)(t.Amount),
+			Token:     uint32(t.Token),
 		})
 	}
 	return jo

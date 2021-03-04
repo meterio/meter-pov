@@ -82,11 +82,13 @@ func AuctionDecodeFromBytes(bytes []byte) (*AuctionBody, error) {
 	return &ab, err
 }
 
-func (ab *AuctionBody) StartAuctionCB(env *AuctionEnv, gas uint64) (ret []byte, leftOverGas uint64, err error) {
+func (ab *AuctionBody) StartAuctionCB(env *AuctionEnv, gas uint64) (leftOverGas uint64, err error) {
+	var ret []byte
 	defer func() {
 		if err != nil {
 			ret = []byte(err.Error())
 		}
+		env.SetReturnData(ret)
 	}()
 	Auction := env.GetAuction()
 	state := env.GetState()
@@ -121,11 +123,13 @@ func (ab *AuctionBody) StartAuctionCB(env *AuctionEnv, gas uint64) (ret []byte, 
 	return
 }
 
-func (ab *AuctionBody) CloseAuctionCB(env *AuctionEnv, gas uint64) (ret []byte, leftOverGas uint64, err error) {
+func (ab *AuctionBody) CloseAuctionCB(env *AuctionEnv, gas uint64) (leftOverGas uint64, err error) {
+	var ret []byte
 	defer func() {
 		if err != nil {
 			ret = []byte(err.Error())
 		}
+		env.SetReturnData(ret)
 	}()
 	Auction := env.GetAuction()
 	state := env.GetState()
@@ -185,11 +189,13 @@ func (ab *AuctionBody) CloseAuctionCB(env *AuctionEnv, gas uint64) (ret []byte, 
 	return
 }
 
-func (ab *AuctionBody) HandleAuctionTx(env *AuctionEnv, gas uint64) (ret []byte, leftOverGas uint64, err error) {
+func (ab *AuctionBody) HandleAuctionTx(env *AuctionEnv, gas uint64) (leftOverGas uint64, err error) {
+	var ret []byte
 	defer func() {
 		if err != nil {
 			ret = []byte(err.Error())
 		}
+		env.SetReturnData(ret)
 	}()
 	Auction := env.GetAuction()
 	state := env.GetState()

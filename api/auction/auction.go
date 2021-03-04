@@ -43,6 +43,19 @@ func (at *Auction) handleGetAuctionSummary(w http.ResponseWriter, req *http.Requ
 	return utils.WriteJSON(w, summaryList)
 }
 
+func (at *Auction) handleGetAuctionDigest(w http.ResponseWriter, req *http.Request) error {
+	h, err := at.handleRevision(req.URL.Query().Get("revision"))
+	if err != nil {
+		return err
+	}
+	list, err := auction.GetAuctionSummaryListByHeader(h)
+	if err != nil {
+		return err
+	}
+	digestList := convertDigestList(list)
+	return utils.WriteJSON(w, digestList)
+}
+
 func (at *Auction) handleGetSummaryByID(w http.ResponseWriter, req *http.Request) error {
 	list, err := auction.GetAuctionSummaryList()
 	if err != nil {
