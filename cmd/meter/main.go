@@ -254,7 +254,10 @@ func defaultAction(ctx *cli.Context) error {
 	topic := ctx.String("disco-topic")
 	version := doc.Version()
 	sum := sha256.Sum256([]byte(fmt.Sprintf("%v %v", version, topic)))
-	copy(magic[:], sum[:4])
+
+	// Split magic to p2p_magic and consensus_magic
+	copy(p2pMagic[:], sum[:4])
+	copy(consensusMagic[:], sum[:4])
 
 	// load delegates (from binary or from file)
 	initDelegates := loadDelegates(ctx, blsCommon)
@@ -272,7 +275,7 @@ func defaultAction(ctx *cli.Context) error {
 	powPool := powpool.New(defaultPowPoolOptions, chain, state.NewCreator(mainDB))
 	defer func() { log.Info("closing pow pool..."); powPool.Close() }()
 
-	p2pcom := newP2PComm(ctx, chain, txPool, instanceDir, powPool, magic)
+	p2pcom := newP2PComm(ctx, chain, txPool, instanceDir, powPool, p2pMagic)
 	apiHandler, apiCloser := api.New(chain, state.NewCreator(mainDB), txPool, logDB, p2pcom.comm, ctx.String(apiCorsFlag.Name), uint32(ctx.Int(apiBacktraceLimitFlag.Name)), uint64(ctx.Int(apiCallGasLimitFlag.Name)), p2pcom.p2pSrv, pubkey)
 	defer func() { log.Info("closing API..."); apiCloser() }()
 
@@ -287,7 +290,7 @@ func defaultAction(ctx *cli.Context) error {
 
 	stateCreator := state.NewCreator(mainDB)
 	sc := script.NewScriptEngine(chain, stateCreator)
-	cons := consensus.NewConsensusReactor(ctx, chain, stateCreator, master.PrivateKey, master.PublicKey, magic, blsCommon, initDelegates)
+	cons := consensus.NewConsensusReactor(ctx, chain, stateCreator, master.PrivateKey, master.PublicKey, consensusMagic, blsCommon, initDelegates)
 
 	observeURL, observeSrvCloser := startObserveServer(ctx, cons, pubkey, p2pcom.comm, chain)
 	defer func() { log.Info("closing Observe Server ..."); observeSrvCloser() }()

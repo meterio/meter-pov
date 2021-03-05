@@ -55,7 +55,8 @@ import (
 )
 
 var (
-	magic = [4]byte{0x20, 0x21, 0x02, 0x11}
+	p2pMagic       [4]byte
+	consensusMagic [4]byte
 )
 
 func initLogger(ctx *cli.Context) {
@@ -621,7 +622,8 @@ func printStartupMessage(
 
 	fmt.Printf(`Starting %v
     Discover Topic  [ %v ]
-    Magic           [ %v ]
+    P2PMagic        [ %v ]
+    ConsensusMagic  [ %v ]
     Network         [ %v %v ]    
     Best block      [ %v #%v @%v ]
     Forks           [ %v ]
@@ -634,7 +636,8 @@ func printStartupMessage(
 `,
 		common.MakeName("Meter", fullVersion()),
 		topic,
-		hex.EncodeToString(magic[:]),
+		hex.EncodeToString(p2pMagic[:]),
+		hex.EncodeToString(consensusMagic[:]),
 		gene.ID(), gene.Name(),
 		bestBlock.Header().ID(), bestBlock.Header().Number(), time.Unix(int64(bestBlock.Header().Timestamp()), 0),
 		meter.GetForkConfig(gene.ID()),
