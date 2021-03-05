@@ -77,6 +77,8 @@ func selectGenesis(ctx *cli.Context) *genesis.Genesis {
 		return genesis.NewTestnet()
 	case "main":
 		return genesis.NewMainnet()
+	case "main-private":
+		return genesis.NewMainnet()
 	default:
 		cli.ShowAppHelp(ctx)
 		if network == "" {
