@@ -34,8 +34,8 @@ const (
 // Tesla: The staking/auction release, Features include:
 const (
 	Tesla                = iota + 2
-	TeslaMainnetStartNum = 8000000 // FIXME: not realistic number
-	TeslaTestnetStartNum = 0       //
+	TeslaMainnetStartNum = 10000000 // FIXME: not realistic number
+	TeslaTestnetStartNum = 0        //
 )
 
 // start block number support sys-contract
@@ -87,8 +87,10 @@ func (c *ChainConfig) IsMainnet() bool {
 		return false
 	case "warringstakes":
 		return false
+	case "main-private":
+		return true
 	default:
-		log.Error("Unknown chain", c.ChainFlag)
+		log.Error("Unknown chain", "chain", c.ChainFlag)
 		return false
 	}
 }
@@ -104,6 +106,8 @@ func (c *ChainConfig) IsTestnet() bool {
 		return true
 	case "warringstakes":
 		return true
+	case "main-private":
+		return false
 	default:
 		return false
 	}
