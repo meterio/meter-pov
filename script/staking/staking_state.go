@@ -343,15 +343,25 @@ func (s *Staking) UnboundAccountMeter(addr meter.Address, amount *big.Int, state
 	state.SetEnergy(addr, new(big.Int).Add(meterBalance, amount))
 	state.SetBoundedEnergy(addr, new(big.Int).Sub(meterBoundedBalance, amount))
 
-	topics := []meter.Bytes32{
-		meter.Bytes32(boundEvent.ID()),
-		meter.BytesToBytes32(addr.Bytes()),
-	}
-	data, err := boundEvent.Encode(amount, big.NewInt(int64(meter.MTR)))
-	if err != nil {
-		fmt.Println("could not encode data for unbound")
-	}
+	topics := make([]meter.Bytes32, 0)
+	data := make([]byte, 0)
+	var err error
 
+	if (meter.IsTestNet() && env.GetTxCtx().BlockRef.Number() > meter.Testnet_TransferFix_HardForkNumber) || meter.IsMainNet() {
+		topics = append(topics, meter.Bytes32(unboundEvent.ID()))
+		topics = append(topics, meter.BytesToBytes32(addr.Bytes()))
+		data, err = unboundEvent.Encode(amount, big.NewInt(int64(meter.MTR)))
+		if err != nil {
+			fmt.Println("could not encode data for unbound")
+		}
+	} else  {
+		topics = append(topics, meter.Bytes32(boundEvent.ID()))
+		topics = append(topics, meter.BytesToBytes32(addr.Bytes()))
+		data, err = boundEvent.Encode(amount, big.NewInt(int64(meter.MTR)))
+		if err != nil {
+			fmt.Println("could not encode data for unbound")
+		}
+	}
 	env.AddEvent(StakingModuleAddr, topics, data)
 	return nil
 
@@ -431,9 +441,13 @@ func (s *Staking) CollectBailMeterGov(addr meter.Address, amount *big.Int, state
 		return errors.New("not enough meter-gov balance")
 	}
 
-	state.AddBalance(StakingModuleAddr, amount)
 	state.SubBalance(addr, amount)
-	env.AddTransfer(StakingModuleAddr, addr, amount, meter.MTRG)
+	state.AddBalance(StakingModuleAddr, amount)
+	if (meter.IsTestNet() && env.GetTxCtx().BlockRef.Number() > meter.Testnet_TransferFix_HardForkNumber) || meter.IsMainNet() {
+			env.AddTransfer(addr, StakingModuleAddr, amount, meter.MTRG)
+	}  else {
+			env.AddTransfer(StakingModuleAddr, addr, amount, meter.MTRG)
+	}
 	return nil
 }
 
@@ -447,9 +461,13 @@ func (s *Staking) TransferValidatorReward(amount *big.Int, addr meter.Address, s
 	if meterBalance.Cmp(amount) < 0 {
 		return fmt.Errorf("not enough meter in validator benefit addr, amount:%v, balance:%v", amount, meterBalance)
 	}
-	state.AddEnergy(addr, amount)
 	state.SubEnergy(meter.ValidatorBenefitAddr, amount)
-	env.AddTransfer(addr, meter.ValidatorBenefitAddr, amount, meter.MTR)
+	state.AddEnergy(addr, amount)
+	if (meter.IsTestNet() && env.GetTxCtx().BlockRef.Number() > meter.Testnet_TransferFix_HardForkNumber) || meter.IsMainNet() {
+		env.AddTransfer(meter.ValidatorBenefitAddr, addr, amount, meter.MTR)
+	}  else {
+		env.AddTransfer(addr, meter.ValidatorBenefitAddr, amount, meter.MTR)
+	}
 	return nil
 }
 

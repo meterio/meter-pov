@@ -21,7 +21,6 @@ import (
 	"github.com/ethereum/go-ethereum/rlp"
 )
 
-
 // Candidate List
 func (a *Auction) GetAuctionCB(state *state.State) (result *AuctionCB) {
 	state.DecodeStorage(AuctionAccountAddr, AuctionCBKey, func(raw []byte) error {
@@ -98,9 +97,14 @@ func (a *Auction) TransferAutobidMTRToAuction(addr meter.Address, amount *big.In
 	}
 
 	a.logger.Info("transfer autobid MTR", "bidder", addr, "amount", amount)
-	state.AddEnergy(AuctionAccountAddr, amount)
 	state.SubEnergy(meter.ValidatorBenefitAddr, amount)
-	env.AddTransfer(AuctionAccountAddr, meter.ValidatorBenefitAddr, amount, meter.MTR)
+	state.AddEnergy(AuctionAccountAddr, amount)
+
+	if (meter.IsTestNet() && env.GetTxCtx().BlockRef.Number() > meter.Testnet_TransferFix_HardForkNumber) || meter.IsMainNet() {
+		env.AddTransfer(meter.ValidatorBenefitAddr, AuctionAccountAddr, amount, meter.MTR)
+	} else {
+		env.AddTransfer(AuctionAccountAddr, meter.ValidatorBenefitAddr, amount, meter.MTR)
+	}
 	return nil
 }
 
@@ -116,9 +120,13 @@ func (a *Auction) TransferMTRToAuction(addr meter.Address, amount *big.Int, stat
 	}
 
 	a.logger.Info("transfer userbid MTR", "bidder", addr, "amount", amount)
-	state.AddEnergy(AuctionAccountAddr, amount)
 	state.SubEnergy(addr, amount)
-	env.AddTransfer(AuctionAccountAddr, addr, amount, meter.MTR)
+	state.AddEnergy(AuctionAccountAddr, amount)
+	if (meter.IsTestNet() && env.GetTxCtx().BlockRef.Number() > meter.Testnet_TransferFix_HardForkNumber) || meter.IsMainNet() {
+		env.AddTransfer(addr, AuctionAccountAddr, amount, meter.MTR)
+	} else {
+		env.AddTransfer(AuctionAccountAddr, addr, amount, meter.MTR)
+	}
 	return nil
 }
 
@@ -143,9 +151,13 @@ func (a *Auction) TransferMTRToValidatorBenefit(amount *big.Int, state *state.St
 		return errors.New("not enough meter")
 	}
 
-	state.AddEnergy(meter.ValidatorBenefitAddr, amount)
 	state.SubEnergy(AuctionAccountAddr, amount)
-	env.AddTransfer(meter.ValidatorBenefitAddr, AuctionAccountAddr, amount, meter.MTR)
+	state.AddEnergy(meter.ValidatorBenefitAddr, amount)
+	if (meter.IsTestNet() && env.GetTxCtx().BlockRef.Number() > meter.Testnet_TransferFix_HardForkNumber) || meter.IsMainNet() {
+		env.AddTransfer(AuctionAccountAddr, meter.ValidatorBenefitAddr, amount, meter.MTR)
+	} else {
+		env.AddTransfer(meter.ValidatorBenefitAddr, AuctionAccountAddr, amount, meter.MTR)
+	}
 	return nil
 }
 

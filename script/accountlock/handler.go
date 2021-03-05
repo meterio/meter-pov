@@ -192,14 +192,23 @@ func (ab *AccountLockBody) HandleAccountLockTransfer(env *AccountLockEnviroment,
 
 	// already checked, so no need to check here
 	if ab.MeterAmount.Sign() != 0 {
-		state.AddEnergy(ab.ToAddr, ab.MeterAmount)
 		state.SubEnergy(ab.FromAddr, ab.MeterAmount)
-		env.AddTransfer(ab.ToAddr, ab.FromAddr, ab.MeterAmount, meter.MTR)
+		state.AddEnergy(ab.ToAddr, ab.MeterAmount)
+		if (meter.IsTestNet() && env.GetTxCtx().BlockRef.Number() > meter.Testnet_TransferFix_HardForkNumber ) || meter.IsMainNet() {
+			env.AddTransfer(ab.FromAddr, ab.ToAddr, ab.MeterAmount, meter.MTR)
+		} else {
+			env.AddTransfer(ab.ToAddr, ab.FromAddr, ab.MeterAmount, meter.MTR)
+		}
 	}
 	if ab.MeterGovAmount.Sign() != 0 {
-		state.AddBalance(ab.ToAddr, ab.MeterGovAmount)
 		state.SubBalance(ab.FromAddr, ab.MeterGovAmount)
-		env.AddTransfer(ab.ToAddr, ab.FromAddr, ab.MeterAmount, meter.MTRG)
+		state.AddBalance(ab.ToAddr, ab.MeterGovAmount)
+		if (meter.IsTestNet() && env.GetTxCtx().BlockRef.Number() > meter.Testnet_TransferFix_HardForkNumber ) || meter.IsMainNet() {
+			env.AddTransfer(ab.FromAddr, ab.ToAddr, ab.MeterAmount, meter.MTRG)
+		} else {
+			env.AddTransfer(ab.ToAddr, ab.FromAddr, ab.MeterAmount, meter.MTRG)
+
+		}
 	}
 
 	log.Debug("account lock transfer", "from", ab.FromAddr, "to", ab.ToAddr, "meter", ab.MeterAmount, "meterGov", ab.MeterGovAmount)
