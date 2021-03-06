@@ -1,7 +1,7 @@
 // Copyright (c) 2020 The Meter.io developers
 // Distributed under the GNU Lesser General Public License v3.0 software license, see the accompanying
 
-// file LICENSE or <https://www.gnu.org/licenses/lgpl-3.0.html>
+// file LICENSE or <https://www.gnu.org/licenses/lgpl-3.0.htl>
 
 package staking
 
@@ -111,6 +111,23 @@ func (st *Staking) handleGetDelegateList(w http.ResponseWriter, req *http.Reques
 	return utils.WriteJSON(w, delegateList)
 }
 
+func (st *Staking) handleGetLastValidatorReward(w http.ResponseWriter, req *http.Request) error {
+	h, err := st.handleRevision(req.URL.Query().Get("revision"))
+	if err != nil {
+		return err
+	}
+	list, err := staking.GetValidatorRewardListByHeader(h)
+	if err != nil {
+		return err
+	}
+	last := list.Last()
+	if last == nil {
+		last = &staking.ValidatorReward{}
+	}
+	reward := convertValidatorReward(*last)
+	return utils.WriteJSON(w, reward)
+}
+
 func (st *Staking) handleGetValidatorRewardList(w http.ResponseWriter, req *http.Request) error {
 	h, err := st.handleRevision(req.URL.Query().Get("revision"))
 	if err != nil {
@@ -169,4 +186,5 @@ func (st *Staking) Mount(root *mux.Router, pathPrefix string) {
 	sub.Path("/stakeholders/{address}").Methods("Get").HandlerFunc(utils.WrapHandlerFunc(st.handleGetStakeholderByAddress))
 	sub.Path("/delegates").Methods("Get").HandlerFunc(utils.WrapHandlerFunc(st.handleGetDelegateList))
 	sub.Path("/validator-rewards").Methods("Get").HandlerFunc(utils.WrapHandlerFunc(st.handleGetValidatorRewardList))
+	sub.Path("/last/rewards").Methods("Get").HandlerFunc(utils.WrapHandlerFunc(st.handleGetLastValidatorReward))
 }
