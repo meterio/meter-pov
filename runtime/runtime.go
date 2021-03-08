@@ -239,8 +239,11 @@ func (rt *Runtime) newEVM(stateDB *statedb.StateDB, clauseIndex uint32, txCtx *x
 		},
 		NewContractAddress: func(_ *vm.EVM, counter uint32) common.Address {
 			//fmt.Println("clauseIndex", clauseIndex, "counter", counter)
-			return common.Address(meter.EthCreateContractAddress(common.Address(txCtx.Origin), uint32(txCtx.Nonce)+clauseIndex))
-			//return common.Address(meter.CreateContractAddress(txCtx.ID, clauseIndex, counter))
+			if meter.IsMainChainTesla(txCtx.BlockRef.Number()) || meter.IsTestNet() {
+				return common.Address(meter.EthCreateContractAddress(common.Address(txCtx.Origin), uint32(txCtx.Nonce)+clauseIndex))
+			} else {
+				return common.Address(meter.CreateContractAddress(txCtx.ID, clauseIndex, counter))
+			}
 		},
 		InterceptContractCall: func(evm *vm.EVM, contract *vm.Contract, readonly bool) ([]byte, error, bool) {
 			if evm.Depth() < 2 {

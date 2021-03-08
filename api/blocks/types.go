@@ -226,15 +226,14 @@ func buildJSONBlockSummary(blk *block.Block, isTrunk bool) *JSONBlockSummary {
 	return result
 }
 
-func buildJSONOutput(origin meter.Address, nonce uint64, index uint32, c *tx.Clause, o *tx.Output) *JSONOutput {
+func buildJSONOutput(c *tx.Clause, contractAddr *meter.Address, o *tx.Output) *JSONOutput {
 	jo := &JSONOutput{
 		ContractAddress: nil,
 		Events:          make([]*JSONEvent, 0, len(o.Events)),
 		Transfers:       make([]*JSONTransfer, 0, len(o.Transfers)),
 	}
 	if c.To() == nil {
-		addr := meter.Address(meter.EthCreateContractAddress(common.Address(origin), index+uint32(nonce)))
-		jo.ContractAddress = &addr
+		jo.ContractAddress = contractAddr
 	}
 	for _, e := range o.Events {
 		jo.Events = append(jo.Events, &JSONEvent{
@@ -262,6 +261,8 @@ func buildJSONEmbeddedTxs(txs tx.Transactions, receipts tx.Receipts) []*JSONEmbe
 		clauses := tx.Clauses()
 		blockRef := tx.BlockRef()
 		origin, _ := tx.Signer()
+		txID := tx.ID()
+		nonce := tx.Nonce()
 
 		jcs := make([]*JSONClause, 0, len(clauses))
 		jos := make([]*JSONOutput, 0, len(receipt.Outputs))
@@ -274,7 +275,14 @@ func buildJSONEmbeddedTxs(txs tx.Transactions, receipts tx.Receipts) []*JSONEmbe
 				hexutil.Encode(c.Data()),
 			})
 			if !receipt.Reverted {
-				jos = append(jos, buildJSONOutput(origin, tx.Nonce(), uint32(i), c, receipt.Outputs[i]))
+				contractAddr := meter.Address{}
+				if meter.IsMainChainTesla(blockRef.Number()) || meter.IsTestNet() {
+					contractAddr = meter.Address(meter.EthCreateContractAddress(common.Address(origin), uint32(i)+uint32(nonce)))
+				} else {
+					contractAddr = meter.CreateContractAddress(txID, uint32(i), 0)
+				}
+
+				jos = append(jos, buildJSONOutput(c, &contractAddr, receipt.Outputs[i]))
 			}
 		}
 
