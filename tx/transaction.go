@@ -381,13 +381,11 @@ func (t *Transaction) Signer() (signer meter.Address, err error) {
 		return meter.Address{}, nil
 	}
 	if t.IsEthTx() {
-		if meter.IsMainChainTesla(t.BlockRef().Number()) || meter.IsTestNet() {
-			// ethereum translated tx
-			from := "0x" + hex.EncodeToString(t.body.Reserved[1].([]byte))
-			fmt.Println("Signer for ETH translated TX:", from)
-			addr, err := meter.ParseAddress(from)
-			return addr, err
-		}
+		// ethereum translated tx
+		from := "0x" + hex.EncodeToString(t.body.Reserved[1].([]byte))
+		fmt.Println("Signer for ETH translated TX:", from)
+		addr, err := meter.ParseAddress(from)
+		return addr, err
 	}
 
 	if cached := t.cache.signer.Load(); cached != nil {

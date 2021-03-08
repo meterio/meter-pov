@@ -14,6 +14,11 @@ import (
 	"github.com/ethereum/go-ethereum/rlp"
 )
 
+const (
+	// protect kblock size
+	MaxNAutobidTx = meter.MaxNClausePerAutobidTx * 10
+)
+
 func BuildAutobidTxs(autobidList []*RewardInfo, chainTag byte, bestNum uint32) tx.Transactions {
 	txs := tx.Transactions{}
 
@@ -21,7 +26,13 @@ func BuildAutobidTxs(autobidList []*RewardInfo, chainTag byte, bestNum uint32) t
 		return nil
 	}
 
-	listRemainning := autobidList
+	listRemainning := []*RewardInfo{}
+	if len(autobidList) >= MaxNAutobidTx {
+		listRemainning = autobidList[:MaxNAutobidTx]
+	} else {
+		listRemainning = autobidList
+	}
+
 	for {
 		if len(listRemainning) == 0 {
 			break
