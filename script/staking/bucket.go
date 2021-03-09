@@ -19,12 +19,12 @@ import (
 type Bucket struct {
 	BucketID   meter.Bytes32
 	Owner      meter.Address // stake holder
-	Value      *big.Int      // staking unit Wei
-	Token      uint8         // token type MTR / MTRG
 	Nonce      uint64        // nonce
 	CreateTime uint64        // bucket create time
 
 	//non-key fields
+	Value        *big.Int      // staking unit Wei
+	Token        uint8         // token type MTR / MTRG
 	Unbounded    bool          // this bucket is unbounded, get rid of it after mature
 	Candidate    meter.Address // candidate
 	Rate         uint8         // bounus rate
@@ -37,12 +37,11 @@ type Bucket struct {
 }
 
 //bucketID Candidate .. are excluded
+// value and token are excluded since are allowed to change
 func (b *Bucket) ID() (hash meter.Bytes32) {
 	hw := meter.NewBlake2b()
 	err := rlp.Encode(hw, []interface{}{
 		b.Owner,
-		b.Value,
-		b.Token,
 		b.Nonce,
 		b.CreateTime,
 	})

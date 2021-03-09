@@ -171,3 +171,22 @@ func GetInternalDelegateList() ([]*types.DelegateIntern, error) {
 	}
 	return delegateList, nil
 }
+
+func TouchBucketBonus(ts uint64, bucket *Bucket) uint64 {
+	if ts < bucket.CalcLastTime {
+		return 0
+	}
+
+	denominator := big.NewInt(int64((3600 * 24 * 365) * 100))
+	bonus := big.NewInt(int64((ts - bucket.CalcLastTime) * uint64(bucket.Rate)))
+	bonus = bonus.Mul(bonus, bucket.Value)
+	bonus = bonus.Div(bonus, denominator)
+	log.Debug("calclate the bonus", "bonus votes", bonus.Uint64(), "ts", ts, "last time", bucket.CalcLastTime)
+
+	// update bucket
+	bucket.BonusVotes += bonus.Uint64()
+	bucket.TotalVotes = bucket.TotalVotes.Add(bucket.TotalVotes, bonus)
+	bucket.CalcLastTime = ts // touch timestamp
+
+	return bonus.Uint64()
+}

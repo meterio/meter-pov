@@ -521,10 +521,10 @@ func (sb *StakingBody) UnDelegateHandler(env *StakingEnv, gas uint64) (leftOverG
 
 	b := bucketList.Get(sb.StakingID)
 	if b == nil {
-		return  leftOverGas, errBucketNotFound
+		return leftOverGas, errBucketNotFound
 	}
 	if (b.Owner != sb.HolderAddr) || (b.Value.Cmp(sb.Amount) != 0) || (b.Token != sb.Token) {
-		return  leftOverGas, errBucketInfoMismatch
+		return leftOverGas, errBucketInfoMismatch
 	}
 	if b.IsForeverLock() == true {
 		return leftOverGas, errUpdateForeverBucket
@@ -1144,5 +1144,69 @@ func (sb *StakingBody) DelegateStatisticsFlushHandler(env *StakingEnv, gas uint6
 
 	staking.SetStatisticsList(statisticsList, state)
 	staking.SetInJailList(inJailList, state)
+	return
+}
+
+// update the bucket value. we can only increase the balance
+func (sb *StakingBody) BucketUpdateHandler(env *StakingEnv, gas uint64) (leftOverGas uint64, err error) {
+	var ret []byte
+	defer func() {
+		if err != nil {
+			ret = []byte(err.Error())
+		}
+		env.SetReturnData(ret)
+	}()
+
+	staking := env.GetStaking()
+	state := env.GetState()
+	candidateList := staking.GetCandidateList(state)
+	bucketList := staking.GetBucketList(state)
+
+	if gas < meter.ClauseGas {
+		leftOverGas = 0
+	} else {
+		leftOverGas = gas - meter.ClauseGas
+	}
+
+	// if the candidate already exists return error without paying gas
+	bucket := bucketList.Get(sb.StakingID)
+	if bucket == nil {
+		log.Error(fmt.Sprintf("does not find out the bucket, ID %v", sb.StakingID))
+		err = errBucketNotFound
+		return
+	}
+
+	if bucket.Owner != sb.HolderAddr {
+		err = errBucketInfoMismatch
+		return
+	}
+
+	if bucket.IsForeverLock() == true {
+		log.Error(fmt.Sprintf("can not update the bucket, ID %v", sb.StakingID))
+		err = errUpdateForeverBucket
+	}
+
+	// can not update unbouded bucket
+	if bucket.Unbounded == true {
+		log.Error(fmt.Sprintf("can not update the bucket, ID %v", sb.StakingID))
+	}
+
+	// Now so far so good, calc interest first
+	bonus := TouchBucketBonus(sb.Timestamp, bucket)
+
+	// update bucket values
+	bucket.Value.Add(bucket.Value, sb.Amount)
+	bucket.TotalVotes.Add(bucket.TotalVotes, sb.Amount)
+
+	// update candidate, for both bonus and increase amount
+	if bucket.Candidate.IsZero() == false {
+		if cand := candidateList.Get(bucket.Candidate); cand != nil {
+			cand.TotalVotes.Add(cand.TotalVotes, big.NewInt(int64(bonus)))
+			cand.TotalVotes.Add(cand.TotalVotes, sb.Amount)
+		}
+	}
+
+	staking.SetBucketList(bucketList, state)
+	staking.SetCandidateList(candidateList, state)
 	return
 }

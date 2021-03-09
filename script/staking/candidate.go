@@ -46,7 +46,6 @@ func NewCandidate(addr meter.Address, name []byte, desc []byte, pubKey []byte, i
 	}
 }
 
-
 func (c *Candidate) ToString() string {
 	pubKeyEncoded := b64.StdEncoding.EncodeToString(c.PubKey)
 	return fmt.Sprintf("Candidate(%v) Node=%v:%v, Addr=%v, TotalVotes=%d, PubKey=%v",

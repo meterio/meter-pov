@@ -13,8 +13,8 @@ const (
 )
 
 var (
-	// bound minimium requirement 10 mtrgov
-	MIN_BOUND_BALANCE *big.Int = new(big.Int).Mul(big.NewInt(10), big.NewInt(1e18))
+	// bound minimium requirement 100 mtrgov
+	MIN_BOUND_BALANCE *big.Int = new(big.Int).Mul(big.NewInt(100), big.NewInt(1e18))
 
 	// delegate minimum requirement 2000 MTRG
 	MIN_REQUIRED_BY_DELEGATE *big.Int = new(big.Int).Mul(big.NewInt(int64(2000)), big.NewInt(int64(1e18)))
@@ -43,6 +43,7 @@ const (
 	OP_DELEGATE       = uint32(5)
 	OP_UNDELEGATE     = uint32(6)
 	OP_CANDIDATE_UPDT = uint32(7)
+	OP_BUCKET_UPDT    = uint32(8)
 
 	OP_DELEGATE_STATISTICS  = uint32(101)
 	OP_DELEGATE_EXITJAIL    = uint32(102)
@@ -67,6 +68,8 @@ func GetOpName(op uint32) string {
 		return "Undelegate"
 	case OP_CANDIDATE_UPDT:
 		return "CandidateUpdate"
+	case OP_BUCKET_UPDT:
+		return "BucketUpdate"
 	case OP_DELEGATE_STATISTICS:
 		return "DelegateStatistics"
 	case OP_DELEGATE_EXITJAIL:

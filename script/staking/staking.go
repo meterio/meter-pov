@@ -15,8 +15,8 @@ import (
 	"github.com/dfinlab/meter/builtin"
 	"github.com/dfinlab/meter/chain"
 	"github.com/dfinlab/meter/meter"
-	"github.com/dfinlab/meter/state"
 	setypes "github.com/dfinlab/meter/script/types"
+	"github.com/dfinlab/meter/state"
 	"github.com/dfinlab/meter/xenv"
 	"github.com/inconshreveable/log15"
 )
@@ -152,6 +152,12 @@ func (s *Staking) PrepareStakingHandler() (StakingHandler func([]byte, *meter.Ad
 				return nil, gas, errors.New("candidate address is not the same from transaction")
 			}
 			leftOverGas, err = sb.CandidateUpdateHandler(senv, gas)
+
+		case OP_BUCKET_UPDT:
+			if senv.GetTxCtx().Origin != sb.HolderAddr {
+				return nil, gas, errors.New("holder address is not the same from transaction")
+			}
+			leftOverGas, err = sb.BucketUpdateHandler(senv, gas)
 
 		case OP_DELEGATE_STATISTICS:
 			if senv.GetToAddr().String() != StakingModuleAddr.String() {
