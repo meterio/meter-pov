@@ -64,6 +64,13 @@ func (v *ValidatorRewardList) Get(epoch uint32) *ValidatorReward {
 	return nil
 }
 
+func (v *ValidatorRewardList) Last() *ValidatorReward {
+	if len(v.rewards) > 0 {
+		return v.rewards[len(v.rewards)-1]
+	}
+	return nil
+}
+
 func (v *ValidatorRewardList) Count() int {
 	return len(v.rewards)
 }

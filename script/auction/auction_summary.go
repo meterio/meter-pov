@@ -105,3 +105,10 @@ func (a *AuctionSummaryList) ToList() []AuctionSummary {
 	}
 	return result
 }
+
+func (a *AuctionSummaryList) Last() *AuctionSummary {
+	if len(a.Summaries) > 0 {
+		return a.Summaries[len(a.Summaries)-1]
+	}
+	return nil
+}
