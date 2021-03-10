@@ -16,10 +16,11 @@ import (
 	"github.com/dfinlab/meter/script"
 	"github.com/dfinlab/meter/script/auction"
 	"github.com/dfinlab/meter/tx"
+	"github.com/dfinlab/meter/chain"
 	"github.com/ethereum/go-ethereum/rlp"
 )
 
-func BuildAuctionControlTx(height, epoch uint64, chainTag byte, bestNum uint32, initialRelease float64, reservedPrice *big.Int) *tx.Transaction {
+func BuildAuctionControlTx(height, epoch uint64, chainTag byte, bestNum uint32, initialRelease float64, reservedPrice *big.Int, chain *chain.Chain) *tx.Transaction {
 	// check current active auction first if there is one
 	var currentActive bool
 	cb, err := auction.GetActiveAuctionCB()
@@ -49,8 +50,21 @@ func BuildAuctionControlTx(height, epoch uint64, chainTag byte, bestNum uint32, 
 			lastEndEpoch = summaryList.Summaries[size-1].EndEpoch
 			lastSequence = summaryList.Summaries[size-1].Sequence
 		} else {
-			lastEndHeight = 0
-			lastEndEpoch = 0
+			if (!meter.IsMainChainTesla(height)){
+				logger.Error("auction should not start before tesla on mainnet")
+				return nil
+			}
+			lastEndEpoch = epoch - meter.NEpochPerAuction
+			if (lastEndEpoch<0){
+				logger.Error("not enough epochs to start the first auction")
+				return nil // 
+			}
+			lastEnd, err := chain.FindLastBlockInEpoch(lastEndEpoch)
+			if (err!=nil){
+				logger.Error(fmt.Sprintf("could not find last block in epoch: %v", lastEndEpoch))
+				return nil // 
+			}
+			lastEndHeight = uint64(lastEnd.Header().Number())
 			lastSequence = 0
 		}
 	}

@@ -689,7 +689,7 @@ func (conR *ConsensusReactor) BuildKBlock(parentBlock *block.Block, data *block.
 		reservedPrice := GetAuctionReservedPrice()
 		initialRelease := GetAuctionInitialRelease()
 
-		if tx := reward.BuildAuctionControlTx(uint64(best.Header().Number()+1), uint64(best.GetBlockEpoch()+1), chainTag, bestNum, initialRelease, reservedPrice); tx != nil {
+		if tx := reward.BuildAuctionControlTx(uint64(best.Header().Number()+1), uint64(best.GetBlockEpoch()+1), chainTag, bestNum, initialRelease, reservedPrice, conR.chain); tx != nil {
 			txs = append(txs, tx)
 			conR.logger.Info("auction control tx appended", "txid", tx.ID())
 		}
@@ -704,7 +704,7 @@ func (conR *ConsensusReactor) BuildKBlock(parentBlock *block.Block, data *block.
 			if (meter.IsTestNet() && curEpoch > meter.Testnet_RewardOnlyToCommittee_HardForkEpoch) || meter.IsMainNet() {
 				nDays = meter.NDaysV2
 			}
-			if (meter.IsTestNet() && curEpoch > meter.Testnet_TotalRewardFix_HardForkEpoch) || meter.IsMainNet(){
+			if (meter.IsTestNet() && curEpoch > meter.Testnet_TotalRewardFix_HardForkEpoch) || meter.IsMainNet() {
 				nAuctionPerDay = meter.NAuctionPerDay
 			}
 			epochTotalReward, err := reward.ComputeEpochTotalReward(benefitRatio, nDays, nAuctionPerDay)

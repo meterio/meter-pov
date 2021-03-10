@@ -1027,3 +1027,28 @@ func (c *Chain) SetBestQCCandidateWithChainLock(qc *block.QuorumCert) bool {
 	defer c.rw.Unlock()
 	return c.SetBestQCCandidate(qc)
 }
+
+func (c *Chain) FindLastBlockInEpoch(epoch uint64) (*block.Block, error){
+	bestBlock := c.BestBlock()
+	curEpoch := bestBlock.QC.EpochID
+	if curEpoch < epoch{
+		return nil, errors.New("can't get block from future epochs")
+	}
+	if curEpoch == epoch{
+		if (bestBlock.Header().BlockType() == block.BLOCK_TYPE_K_BLOCK){
+			return bestBlock, nil
+		}else{
+			return nil, errors.New(fmt.Sprintf("can't get kblock for epoch: %v", epoch))
+		}
+	}
+	curBlock := bestBlock
+	for curEpoch >epoch{
+		lastKBlock, err:=c.GetTrunkBlock(curBlock.Header().LastKBlockHeight())
+		if (err!=nil){
+			return nil, err
+		}
+		curEpoch = lastKBlock.QC.EpochID
+		curBlock = lastKBlock
+	}
+	return curBlock, nil
+}
