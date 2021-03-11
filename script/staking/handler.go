@@ -990,13 +990,10 @@ func (sb *StakingBody) DelegateStatisticsHandler(env *StakingEnv, gas uint64) (l
 	if epoch > phaseOutEpoch {
 
 		var exemptMap map[MissingProposerInfo]meter.Address
-		// FIXME: HARD FORK ONLY FOR WARRINGSTAKES
-		// WILL NEED TO BE REMOVED BEFORE DEPLOY TO MAINNET
-		if meter.IsTestNet() && epoch > meter.Testnet_ExemptFirstProposer_HardForkEpoch && epoch < meter.Testnet_InjailPolicyChange_HardForkEpoch {
-			exemptMap := sb.calculateExemptMap(statisticsList, delegateList)
-			for k, v := range exemptMap {
-				fmt.Println(fmt.Sprintf("Exempt: (E:%d, H:%d): %v", k.Epoch, k.Height, v))
-			}
+
+		exemptMap = sb.calculateExemptMap(statisticsList, delegateList)
+		for k, v := range exemptMap {
+			fmt.Println(fmt.Sprintf("Exempt: (E:%d, H:%d): %v", k.Epoch, k.Height, v))
 		}
 		for _, d := range statisticsList.delegates {
 			// do not phase out if it is in jail
@@ -1047,21 +1044,12 @@ func (sb *StakingBody) DelegateStatisticsHandler(env *StakingEnv, gas uint64) (l
 		stats.Update(IncrInfraction)
 	}
 
-	if meter.IsTestNet() && epoch > meter.Testnet_InjailPolicyChangeV2_HardForkEpoch || meter.IsMainNet() {
-		proposerViolation := stats.CountMissingProposerViolation(epoch)
-		leaderViolation := stats.CountMissingLeaderViolation(epoch)
-		doubleSignViolation := stats.CountDoubleSignViolation(epoch)
-		jail = proposerViolation >= JailCriteria_MissingProposerViolation || leaderViolation >= JailCriteria_MissingLeaderViolation || doubleSignViolation >= JailCriteria_DoubleSignViolation || (proposerViolation >= 1 && leaderViolation >= 1)
-		log.Info("delegate violation: ", "missProposer", proposerViolation, "missLeader", leaderViolation, "doubleSign", doubleSignViolation, "jail", jail)
-	} else if (meter.IsTestNet() && epoch > meter.Testnet_InjailPolicyChange_HardForkEpoch) || meter.IsMainNet() {
-		proposerViolation := stats.CountMissingProposerViolation(epoch)
-		leaderViolation := stats.CountMissingLeaderViolation(epoch)
-		doubleSignViolation := stats.CountDoubleSignViolation(epoch)
-		jail = proposerViolation > JailCriteria_MissingProposerViolation || leaderViolation > JailCriteria_MissingLeaderViolation || doubleSignViolation >= JailCriteria_DoubleSignViolation
-		log.Info("delegate violation: ", "missProposer", proposerViolation, "missLeader", leaderViolation, "doubleSign", doubleSignViolation, "jail", jail)
-	} else {
-		jail = stats.TotalPts > JailCriteria
-	}
+	proposerViolation := stats.CountMissingProposerViolation(epoch)
+	leaderViolation := stats.CountMissingLeaderViolation(epoch)
+	doubleSignViolation := stats.CountDoubleSignViolation(epoch)
+	jail = proposerViolation >= JailCriteria_MissingProposerViolation || leaderViolation >= JailCriteria_MissingLeaderViolation || doubleSignViolation >= JailCriteria_DoubleSignViolation || (proposerViolation >= 1 && leaderViolation >= 1)
+	log.Info("delegate violation: ", "missProposer", proposerViolation, "missLeader", leaderViolation, "doubleSign", doubleSignViolation, "jail", jail)
+	
 
 	if jail == true {
 		log.Warn("delegate jailed ...", "address", stats.Addr, "name", string(stats.Name), "epoch", epoch, "totalPts", stats.TotalPts)

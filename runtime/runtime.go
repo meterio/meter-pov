@@ -419,12 +419,9 @@ func (rt *Runtime) PrepareClause(
 				VMErr:           vmErr,
 				ContractAddress: contractAddr,
 			}
-			blockNum := rt.Context().Number
-			if (blockNum > meter.Testnet_ScriptEngineOutput_HardForkNumber && meter.IsTestNet()) || meter.IsMainNet() {
-				if seOutput != nil {
-					output.Events = seOutput.GetEvents()
-					output.Transfers = seOutput.GetTransfers()
-				}
+			if seOutput != nil {
+				output.Events = seOutput.GetEvents()
+				output.Transfers = seOutput.GetTransfers()
 			}
 			fmt.Println("Output from script engine:", output)
 			return output, interrupted

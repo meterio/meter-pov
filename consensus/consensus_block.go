@@ -701,24 +701,16 @@ func (conR *ConsensusReactor) BuildKBlock(parentBlock *block.Block, data *block.
 			epochBaseReward := reward.ComputeEpochBaseReward(validatorBaseReward)
 			nDays := meter.NDays
 			nAuctionPerDay := meter.NEpochPerDay // wrong number before hardfork
-			if (meter.IsTestNet() && curEpoch > meter.Testnet_RewardOnlyToCommittee_HardForkEpoch) || meter.IsMainNet() {
-				nDays = meter.NDaysV2
-			}
-			if (meter.IsTestNet() && curEpoch > meter.Testnet_TotalRewardFix_HardForkEpoch) || meter.IsMainNet() {
-				nAuctionPerDay = meter.NAuctionPerDay
-			}
+			nDays = meter.NDaysV2
+			nAuctionPerDay = meter.NAuctionPerDay
 			epochTotalReward, err := reward.ComputeEpochTotalReward(benefitRatio, nDays, nAuctionPerDay)
 			if err != nil {
 				epochTotalReward = big.NewInt(0)
 			}
 			var rewardMap reward.RewardMap
-			if (meter.IsTestNet() && curEpoch > meter.Testnet_RewardOnlyToCommittee_HardForkEpoch) || meter.IsMainNet() {
-				fmt.Println("Compute reward map v2")
-				rewardMap, err = reward.ComputeRewardMapV2(epochBaseReward, epochTotalReward, conR.curDelegates.Delegates, conR.curCommittee.Validators)
-			} else {
-				fmt.Println("Compute reward map")
-				rewardMap, err = reward.ComputeRewardMap(epochBaseReward, epochTotalReward, conR.curDelegates.Delegates)
-			}
+			fmt.Println("Compute reward map v2")
+			rewardMap, err = reward.ComputeRewardMapV2(epochBaseReward, epochTotalReward, conR.curDelegates.Delegates, conR.curCommittee.Validators)
+		
 
 			if err == nil && len(rewardMap) > 0 {
 				distList := rewardMap.GetDistList()

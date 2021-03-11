@@ -21,15 +21,6 @@ const (
 	EdisonTestnetStartNum      = 0
 )
 
-const (
-	Testnet_ExemptFirstProposer_HardForkEpoch   = 6
-	Testnet_InjailPolicyChange_HardForkEpoch    = 42
-	Testnet_RewardOnlyToCommittee_HardForkEpoch = 58
-	Testnet_InjailPolicyChangeV2_HardForkEpoch  = 81
-	Testnet_ScriptEngineOutput_HardForkNumber   = 250000
-	Testnet_TotalRewardFix_HardForkEpoch        = 145
-	Testnet_TransferFix_HardForkNumber          = 282000
-)
 
 // Tesla: The staking/auction release, Features include:
 const (

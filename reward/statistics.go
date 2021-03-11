@@ -314,7 +314,6 @@ func ComputeStatistics(lastKBlockHeight, height uint32, chain *chain.Chain, curC
 		if err != nil {
 			logger.Warn("Error during missing proposer calculation:", "err", err)
 		}
-		if (curEpoch > meter.Testnet_InjailPolicyChange_HardForkEpoch && meter.IsTestNet()) || meter.IsMainNet() {
 			// sort all missed proposer infraction in this order
 			// epoch ascend, height ascend, actual committee index ascend
 			sort.SliceStable(missedProposer, func(i, j int) bool {
@@ -369,14 +368,7 @@ func ComputeStatistics(lastKBlockHeight, height uint32, chain *chain.Chain, curC
 				}
 
 			}
-		} else {
-			for _, m := range missedProposer {
-				inf := &stats[m.Address].Infraction
-				inf.MissingProposers.Counter++
-				minfo := &m.Info
-				inf.MissingProposers.Info = append(inf.MissingProposers.Info, minfo)
-			}
-		}
+		
 	}
 
 	// calculate missing voter
