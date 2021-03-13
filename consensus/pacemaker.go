@@ -1175,7 +1175,6 @@ func (p *Pacemaker) revertTo(revertHeight uint32) {
 			p.blockLeaf = p.blockLeaf.Parent
 			p.logger.Warn("Deleted from proposalMap:", "height", blockHeight, "block", p.proposalMap[blockHeight].ToString())
 			delete(p.proposalMap, blockHeight)
-			// FIXME: remove precommited block and release tx
 		}
 	*/
 	p.logger.Info("Reverted !!!", "current block-leaf", p.blockLeaf.ToString(), "current QCHigh", p.QCHigh.ToString())

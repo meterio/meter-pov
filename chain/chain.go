@@ -879,11 +879,16 @@ func (c *Chain) UpdateBestQC(qc *block.QuorumCert, source QCSource) (bool, error
 		return qcs[i].qc.QCHeight > qcs[j].qc.QCHeight
 	})
 
+	// for _, w := range qcs {
+		// fmt.Println("QC: source: ", w.source, "qc: ", w.qc)
+	// }
+
 	bestQCAvailable := qcs[0].qc
 	bestQCSource := qcs[0].source
 	if bestQCAvailable.QCHeight > c.bestQCCandidate.QCHeight {
 		c.bestQCCandidate = bestQCAvailable
 	}
+	fmt.Println("best available qc:", bestQCAvailable, "c.bestQCCandidate", c.bestQCCandidate)
 
 	// under these two circumstance:
 	// A -- B -- C          or          A -- B -- C
@@ -991,6 +996,11 @@ func (c *Chain) UpdateBestQC() (bool, error) {
 
 func (c *Chain) SetBestQCCandidate(qc *block.QuorumCert) bool {
 	if qc == nil {
+		return false
+	}
+	if qc.QCHeight > (c.bestBlock.Header().Number() + 10000){
+		// FIXME: hacky solution for instances with history data from the same genesis
+		log.Info(fmt.Sprintf("qc height (%d) is way larger than best block height (%d), ignored", qc.QCHeight, c.bestBlock.Header().Number()))
 		return false
 	}
 	if qc.QCHeight < c.bestBlock.Header().Number() {

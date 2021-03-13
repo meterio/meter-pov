@@ -1398,7 +1398,8 @@ func (conR *ConsensusReactor) startPacemaker(newCommittee bool, mode PMMode) err
 		conR.chain.UpdateBestQC(nil, chain.None)
 		bestQC := conR.chain.BestQC()
 		bestBlock := conR.chain.BestBlock()
-		conR.logger.Info("Checking the QCHeight and Block height...", "QCHeight", bestQC.QCHeight, "bestHeight", bestBlock.Header().Number())
+		bestQCCandidate := conR.chain.GetBestQCCandidate()
+		conR.logger.Info("Checking the QCHeight and Block height...", "QCHeight", bestQC.QCHeight, "bestHeight", bestBlock.Header().Number(), "bestQCCandidate", bestQCCandidate)
 		if bestQC.QCHeight != bestBlock.Header().Number() {
 			com := comm.GetGlobCommInst()
 			if com == nil {
