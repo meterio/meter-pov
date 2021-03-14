@@ -14,10 +14,10 @@ import (
 
 	"github.com/dfinlab/meter/chain"
 	"github.com/dfinlab/meter/meter"
-	setypes "github.com/dfinlab/meter/script/types"
 	"github.com/dfinlab/meter/script/accountlock"
 	"github.com/dfinlab/meter/script/auction"
 	"github.com/dfinlab/meter/script/staking"
+	setypes "github.com/dfinlab/meter/script/types"
 	"github.com/dfinlab/meter/state"
 	"github.com/dfinlab/meter/xenv"
 	"github.com/inconshreveable/log15"
@@ -119,6 +119,15 @@ func (se *ScriptEngine) StartAllModules() {
 
 	// accountlock
 	ModuleAccountLockInit(se)
+}
+
+// Telsa Fork enables staking and auction
+func (se *ScriptEngine) StartTeslaForkModules() {
+	// start module staking
+	ModuleStakingInit(se)
+
+	// auction
+	ModuleAuctionInit(se)
 }
 
 func (se *ScriptEngine) HandleScriptData(data []byte, to *meter.Address, txCtx *xenv.TransactionContext, gas uint64, state *state.State) (seOutput *setypes.ScriptEngineOutput, leftOverGas uint64, err error) {

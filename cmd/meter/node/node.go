@@ -343,6 +343,12 @@ func (n *Node) commitBlock(newBlock *block.Block, receipts tx.Receipts) (*chain.
 		return nil, err
 	}
 
+	if meter.IsMainNet() {
+		if newBlock.Header().Number() == meter.TeslaMainnetStartNum {
+			script.EnterTeslaForkInit()
+		}
+	}
+
 	forkIDs := make([]meter.Bytes32, 0, len(fork.Branch))
 	for _, header := range fork.Branch {
 		forkIDs = append(forkIDs, header.ID())
