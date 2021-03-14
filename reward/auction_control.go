@@ -54,9 +54,10 @@ func BuildAuctionControlTx(height, epoch uint64, chainTag byte, bestNum uint32, 
 				lastEndHeight = meter.TeslaMainnetStartNum
 				ep, err := chain.FindEpochOnBlock(uint32(lastEndHeight))
 				if err != nil {
-					lastEndEpoch = ep
-				} else {
+					// something wrong to get this epoch
 					lastEndEpoch = 0
+				} else {
+					lastEndEpoch = ep
 				}
 				lastSequence = 0
 			} else {
