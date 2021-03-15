@@ -33,7 +33,7 @@ const (
 
 	// for candidate bucket ONLY
 	FOREVER_LOCK      = uint32(1000)
-	FOREVER_LOCK_RATE = FOUR_WEEK_LOCK_RATE
+	FOREVER_LOCK_RATE = ONE_WEEK_LOCK_RATE
 	FOREVER_LOCK_TIME = uint64(0)
 )
 
