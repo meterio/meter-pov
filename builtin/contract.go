@@ -81,3 +81,12 @@ func GetContractABI(name string) *abi.ABI {
 	}
 	return abi
 }
+
+func GetContractABIForNewMeterNative() *abi.ABI {
+	data := []byte(gen.NewMeterNative_abi)
+	abi, err := abi.New(data)
+	if err != nil {
+		panic(errors.Wrap(err, "load ABI for NewMeterNative"))
+	}
+	return abi
+}

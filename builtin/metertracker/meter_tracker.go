@@ -186,7 +186,29 @@ func (e *MeterTracker) BurnMeter(addr meter.Address, amount *big.Int) bool {
 	return true
 }
 
-//Meter Gov
+func (e *MeterTracker) GetMeterLocked(addr meter.Address) *big.Int {
+	return e.state.GetBoundedEnergy(addr)
+}
+
+// Add add amount of energy to given address.
+func (e *MeterTracker) AddMeterLocked(addr meter.Address, amount *big.Int) {
+	if amount.Sign() == 0 {
+		return
+	}
+	e.state.AddBoundedEnergy(addr, amount)
+	return
+}
+
+// Sub sub amount of energy from given address.
+// False is returned if no enough energy.
+func (e *MeterTracker) SubMeterLocked(addr meter.Address, amount *big.Int) bool {
+	if amount.Sign() == 0 {
+		return true
+	}
+	return e.state.SubBoundedEnergy(addr, amount)
+}
+
+/////// Meter Gov /////////////////
 func (e *MeterTracker) GetMeterGov(addr meter.Address) *big.Int {
 	return e.state.GetBalance(addr)
 }
@@ -240,4 +262,27 @@ func (e *MeterTracker) BurnMeterGov(addr meter.Address, amount *big.Int) {
 
 	//update state
 	e.state.SetBalance(addr, new(big.Int).Sub(gov, amount))
+}
+
+func (e *MeterTracker) GetMeterGovLocked(addr meter.Address) *big.Int {
+	return e.state.GetBoundedBalance(addr)
+}
+
+func (e *MeterTracker) AddMeterGovLocked(addr meter.Address, amount *big.Int) {
+	if amount.Sign() == 0 {
+		return
+	}
+
+	e.state.AddBoundedBalance(addr, amount)
+	return
+}
+
+// Sub sub amount of energy from given address.
+// False is returned if no enough energy.
+func (e *MeterTracker) SubMeterGovLocked(addr meter.Address, amount *big.Int) bool {
+	if amount.Sign() == 0 {
+		return true
+	}
+
+	return e.state.SubBoundedBalance(addr, amount)
 }

@@ -34,6 +34,21 @@ contract NewMeterNative is IMeterNative {
         return true;    
     }
 
+   function native_mtr_locked_get(address addr) public returns(uint256) {
+        emit MeterTrackerEvent(addr, uint256(0), "native_mtr_locked_get");
+        return uint256(0);    
+    }
+
+    function native_mtr_locked_add(address addr, uint256 amount) public {
+        emit MeterTrackerEvent(addr, amount, "native_mtr_locked_add");
+        return;
+    }
+
+    function native_mtr_locked_sub(address addr, uint256 amount) public returns(bool) {
+        emit MeterTrackerEvent(addr, amount, "native_mtr_locked_sub");
+        return true;    
+    }
+
     //@@@@@
     function native_mtrg_totalSupply() public returns(uint256) {
         emit MeterTrackerEvent(msg.sender, uint256(0), "native_mtrg_totalSupply");
@@ -57,6 +72,21 @@ contract NewMeterNative is IMeterNative {
 
     function native_mtrg_sub(address addr, uint256 amount) public returns(bool) {
         emit MeterTrackerEvent(addr, amount, "native_mtrg_sub");
+        return true;    
+    }
+
+    function native_mtrg_locked_get(address addr) public returns(uint256) {
+        emit MeterTrackerEvent(addr, uint256(0), "native_mtrg_locked_get");
+        return uint256(0);
+    }
+
+    function native_mtrg_locked_add(address addr, uint256 amount) public {
+        emit MeterTrackerEvent(addr, amount, "native_mtrg_locked_add");
+        return;
+    }
+
+    function native_mtrg_locked_sub(address addr, uint256 amount) public returns(bool) {
+        emit MeterTrackerEvent(addr, amount, "native_mtrg_locked_sub");
         return true;    
     }
 

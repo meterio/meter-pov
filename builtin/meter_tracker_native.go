@@ -72,6 +72,50 @@ func init() {
 			}
 			return []interface{}{ok}
 		}},
+		{"native_mtr_locked_get", func(env *xenv.Environment) []interface{} {
+			var addr common.Address
+			env.ParseArgs(&addr)
+
+			env.UseGas(meter.GetBalanceGas)
+			bal := MeterTracker.Native(env.State()).GetMeterLocked(meter.Address(addr))
+			return []interface{}{bal}
+		}},
+		{"native_mtr_locked_add", func(env *xenv.Environment) []interface{} {
+			var args struct {
+				Addr   common.Address
+				Amount *big.Int
+			}
+			env.ParseArgs(&args)
+			if args.Amount.Sign() == 0 {
+				return nil
+			}
+
+			env.UseGas(meter.GetBalanceGas)
+			if env.State().Exists(meter.Address(args.Addr)) {
+				env.UseGas(meter.SstoreResetGas)
+			} else {
+				env.UseGas(meter.SstoreSetGas)
+			}
+			MeterTracker.Native(env.State()).AddMeterLocked(meter.Address(args.Addr), args.Amount)
+			return nil
+		}},
+		{"native_mtr_locked_sub", func(env *xenv.Environment) []interface{} {
+			var args struct {
+				Addr   common.Address
+				Amount *big.Int
+			}
+			env.ParseArgs(&args)
+			if args.Amount.Sign() == 0 {
+				return []interface{}{true}
+			}
+
+			env.UseGas(meter.GetBalanceGas)
+			ok := MeterTracker.Native(env.State()).SubMeterLocked(meter.Address(args.Addr), args.Amount)
+			if ok {
+				env.UseGas(meter.SstoreResetGas)
+			}
+			return []interface{}{ok}
+		}},
 		{"native_mtrg_totalSupply", func(env *xenv.Environment) []interface{} {
 			env.UseGas(meter.SloadGas)
 			supply := MeterTracker.Native(env.State()).GetMeterGovTotalSupply()
@@ -126,6 +170,50 @@ func init() {
 			}
 			return []interface{}{ok}
 		}},
+		{"native_mtrg_locked_get", func(env *xenv.Environment) []interface{} {
+			var addr common.Address
+			env.ParseArgs(&addr)
+
+			env.UseGas(meter.GetBalanceGas)
+			bal := MeterTracker.Native(env.State()).GetMeterGovLocked(meter.Address(addr))
+			return []interface{}{bal}
+		}},
+		{"native_mtrg_locked_add", func(env *xenv.Environment) []interface{} {
+			var args struct {
+				Addr   common.Address
+				Amount *big.Int
+			}
+			env.ParseArgs(&args)
+			if args.Amount.Sign() == 0 {
+				return nil
+			}
+
+			env.UseGas(meter.GetBalanceGas)
+			if env.State().Exists(meter.Address(args.Addr)) {
+				env.UseGas(meter.SstoreResetGas)
+			} else {
+				env.UseGas(meter.SstoreSetGas)
+			}
+			MeterTracker.Native(env.State()).AddMeterGovLocked(meter.Address(args.Addr), args.Amount)
+			return nil
+		}},
+		{"native_mtrg_locked_sub", func(env *xenv.Environment) []interface{} {
+			var args struct {
+				Addr   common.Address
+				Amount *big.Int
+			}
+			env.ParseArgs(&args)
+			if args.Amount.Sign() == 0 {
+				return []interface{}{true}
+			}
+
+			env.UseGas(meter.GetBalanceGas)
+			ok := MeterTracker.Native(env.State()).SubMeterGovLocked(meter.Address(args.Addr), args.Amount)
+			if ok {
+				env.UseGas(meter.SstoreResetGas)
+			}
+			return []interface{}{ok}
+		}},
 		{"native_master", func(env *xenv.Environment) []interface{} {
 			var addr common.Address
 			env.ParseArgs(&addr)
@@ -135,7 +223,8 @@ func init() {
 			return []interface{}{master}
 		}},
 	}
-	abi := GetContractABI("MeterNative")
+	//abi := GetContractABI("NewMeterNative")
+	abi := GetContractABIForNewMeterNative()
 	for _, def := range defines {
 		if method, found := abi.MethodByName(def.name); found {
 			nativeMethods[methodKey{MeterTracker.Address, method.ID()}] = &nativeMethod{

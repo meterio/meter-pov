@@ -140,6 +140,10 @@ func (rt *Runtime) FromNativeContract(caller meter.Address) bool {
 
 	nativeMtrERC20 := builtin.Params.Native(rt.State()).GetAddress(meter.KeyNativeMtrERC20Address)
 	nativeMtrgERC20 := builtin.Params.Native(rt.State()).GetAddress(meter.KeyNativeMtrgERC20Address)
+	systemContract1 := builtin.Params.Native(rt.State()).GetAddress(meter.KeySystemContractAddress1)
+	systemContract2 := builtin.Params.Native(rt.State()).GetAddress(meter.KeySystemContractAddress2)
+	systemContract3 := builtin.Params.Native(rt.State()).GetAddress(meter.KeySystemContractAddress3)
+	systemContract4 := builtin.Params.Native(rt.State()).GetAddress(meter.KeySystemContractAddress4)
 
 	nativeParams := builtin.Params.Address
 	nativeExecutor := builtin.Executor.Address
@@ -147,12 +151,15 @@ func (rt *Runtime) FromNativeContract(caller meter.Address) bool {
 	nativeExtension := builtin.Extension.Address
 
 	// only allow those
-	if caller != nativeMtrERC20 && caller != nativeMtrgERC20 && caller != nativeParams && caller != nativeExecutor &&
-		caller != nativeProtype && caller != nativeExtension {
-		return false
+	if caller == nativeMtrERC20 || caller == nativeMtrgERC20 || caller == systemContract1 ||
+		caller == systemContract2 || caller == systemContract3 || caller == systemContract4 ||
+		caller == nativeParams || caller == nativeExecutor || caller == nativeProtype ||
+		caller == nativeExtension {
+		return true
 	}
 
-	return true
+	// non native contract call
+	return false
 }
 
 // retrict enforcement ONLY applies to meterGov, not meter

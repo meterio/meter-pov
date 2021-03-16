@@ -300,6 +300,30 @@ func (s *State) SetBoundedBalance(addr meter.Address, balance *big.Int) {
 	s.updateAccount(addr, &cpy)
 }
 
+// SubBoundedBalance stub.
+func (s *State) SubBoundedBalance(addr meter.Address, amount *big.Int) bool {
+	if amount.Sign() == 0 {
+		return true
+	}
+
+	balance := s.GetBoundedBalance(meter.Address(addr))
+	if balance.Cmp(amount) < 0 {
+		return false
+	}
+
+	s.SetBoundedBalance(meter.Address(addr), new(big.Int).Sub(balance, amount))
+	return true
+}
+
+// AddBoundedBalance stub.
+func (s *State) AddBoundedBalance(addr meter.Address, amount *big.Int) {
+	if amount.Sign() == 0 {
+		return
+	}
+	balance := s.GetBoundedBalance(meter.Address(addr))
+	s.SetBoundedBalance(meter.Address(addr), new(big.Int).Add(balance, amount))
+}
+
 // GetEnergy get energy for the given address at block number specified.
 func (s *State) GetBoundedEnergy(addr meter.Address) *big.Int {
 	return s.getAccount(addr).BoundEnergy
@@ -310,6 +334,28 @@ func (s *State) SetBoundedEnergy(addr meter.Address, energy *big.Int) {
 	cpy := s.getAccountCopy(addr)
 	cpy.BoundEnergy = energy
 	s.updateAccount(addr, &cpy)
+}
+
+func (s *State) AddBoundedEnergy(addr meter.Address, amount *big.Int) {
+	if amount.Sign() == 0 {
+		return
+	}
+	balance := s.GetBoundedEnergy(meter.Address(addr))
+	s.SetBoundedEnergy(meter.Address(addr), new(big.Int).Add(balance, amount))
+}
+
+// SubEnergy stub.
+func (s *State) SubBoundedEnergy(addr meter.Address, amount *big.Int) bool {
+	if amount.Sign() == 0 {
+		return true
+	}
+	balance := s.GetBoundedEnergy(meter.Address(addr))
+	if balance.Cmp(amount) < 0 {
+		return false
+	}
+
+	s.SetBoundedEnergy(meter.Address(addr), new(big.Int).Sub(balance, amount))
+	return true
 }
 
 // GetMaster get master for the given address.
