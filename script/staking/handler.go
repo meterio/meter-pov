@@ -991,9 +991,11 @@ func (sb *StakingBody) DelegateStatisticsHandler(env *StakingEnv, gas uint64) (l
 
 		var exemptMap map[MissingProposerInfo]meter.Address
 
-		exemptMap = sb.calculateExemptMap(statisticsList, delegateList)
-		for k, v := range exemptMap {
-			fmt.Println(fmt.Sprintf("Exempt: (E:%d, H:%d): %v", k.Epoch, k.Height, v))
+		if (epoch < meter.Testnet_ExemptInStatTx_HardForkEpoch && meter.IsTestNet()){
+			exemptMap = sb.calculateExemptMap(statisticsList, delegateList)
+			for k, v := range exemptMap {
+				fmt.Println(fmt.Sprintf("Exempt: (E:%d, H:%d): %v", k.Epoch, k.Height, v))
+			}
 		}
 		for _, d := range statisticsList.delegates {
 			// do not phase out if it is in jail
