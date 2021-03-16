@@ -430,7 +430,7 @@ func (sb *StakingBody) UnCandidateHandler(env *StakingEnv, gas uint64) (leftOver
 		b.Candidate = meter.Address{}
 		// candidate locked bucket back to normal(longest lock)
 		if b.IsForeverLock() == true {
-			opt, rate, _ := GetBoundLockOption(FOUR_WEEK_LOCK)
+			opt, rate, _ := GetBoundLockOption(ONE_WEEK_LOCK)
 			b.UpdateLockOption(opt, rate)
 		}
 	}
@@ -929,6 +929,7 @@ func (sb *StakingBody) DelegateStatisticsHandler(env *StakingEnv, gas uint64) (l
 
 	staking := env.GetStaking()
 	state := env.GetState()
+	candidateList := staking.GetCandidateList(state)
 	statisticsList := staking.GetStatisticsList(state)
 	inJailList := staking.GetInJailList(state)
 	phaseOutEpoch := staking.GetStatisticsEpoch(state)
@@ -995,8 +996,14 @@ func (sb *StakingBody) DelegateStatisticsHandler(env *StakingEnv, gas uint64) (l
 
 	if jail == true {
 		log.Warn("delegate jailed ...", "address", stats.Addr, "name", string(stats.Name), "epoch", epoch, "totalPts", stats.TotalPts)
-		bail := BAIL_FOR_EXIT_JAIL
-		inJailList.Add(NewDelegateJailed(stats.Addr, stats.Name, stats.PubKey, stats.TotalPts, &stats.Infractions, bail, sb.Timestamp))
+
+		// if this candidate already uncandidate, forgive it
+		if cand := candidateList.Get(stats.Addr); cand != nil {
+			bail := BAIL_FOR_EXIT_JAIL
+			inJailList.Add(NewDelegateJailed(stats.Addr, stats.Name, stats.PubKey, stats.TotalPts, &stats.Infractions, bail, sb.Timestamp))
+		} else {
+			log.Warn("delegate already uncandidated, skip ...", "address", stats.Addr, "name", string(stats.Name))
+		}
 	}
 
 	staking.SetStatisticsEpoch(phaseOutEpoch, state)
