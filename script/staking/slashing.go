@@ -122,7 +122,7 @@ func NewDelegateStatistics(addr meter.Address, name []byte, pubKey []byte) *Dele
 	}
 }
 
-func (ds *DelegateStatistics) PhaseOut(curEpoch uint32, exemptProposerMap map[MissingProposerInfo]meter.Address) {
+func (ds *DelegateStatistics) PhaseOut(curEpoch uint32) {
 	if curEpoch <= PhaseOutEpochCount {
 		return
 	}
@@ -153,12 +153,6 @@ func (ds *DelegateStatistics) PhaseOut(curEpoch uint32, exemptProposerMap map[Mi
 	proposerInfo := []*MissingProposerInfo{}
 	proposerPts := uint64(0)
 	for _, info := range ds.Infractions.MissingProposers.Info {
-		if addr, exist := exemptProposerMap[*info]; exist {
-			if addr.String() == ds.Addr.String() {
-				// exempt
-				continue
-			}
-		}
 		if info.Epoch >= phaseOneEpoch {
 			proposerInfo = append(proposerInfo, info)
 			proposerPts = proposerPts + MissingProposerPts
