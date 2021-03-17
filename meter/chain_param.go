@@ -21,12 +21,11 @@ const (
 	EdisonTestnetStartNum      = 0
 )
 
-
 // Tesla: The staking/auction release, Features include:
 const (
 	Tesla                = iota + 2
-	TeslaMainnetStartNum = 10000000 // FIXME: not realistic number
-	TeslaTestnetStartNum = 0        //
+	TeslaMainnetStartNum = 9486000 // Tesla hard fork around 03/22/2021 08:00-09:00 (Beijing Time)
+	TeslaTestnetStartNum = 0       //
 )
 
 // start block number support sys-contract
