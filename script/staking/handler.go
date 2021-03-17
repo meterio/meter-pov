@@ -43,6 +43,9 @@ var (
 	// candidate
 	errCandidateNotListed          = errors.New("candidate address is not listed")
 	errCandidateInJail             = errors.New("candidate address is in jail")
+	errPubKeyListed                = errors.New("candidate with the same pubkey already listed")
+	errIPListed                    = errors.New("candidate with the same ip already listed")
+	errNameListed                  = errors.New("candidate with the same name already listed")
 	errCandidateListed             = errors.New("candidate info already listed")
 	errUpdateTooFrequent           = errors.New("update too frequent")
 	errCandidateListedWithDiffInfo = errors.New("candidate address already listed with different infomation (pubkey, ip, port)")
@@ -329,6 +332,26 @@ func (sb *StakingBody) CandidateHandler(env *StakingEnv, gas uint64) (leftOverGa
 		log.Error(fmt.Sprintf("invalid parameter: ip %s (should be a valid ipv4 address)", sb.CandIP))
 		return
 	}
+	
+	for _, record:= range candidateList.candidates{
+		pkListed := bytes.Equal(record.PubKey, []byte(candidatePubKey))
+		ipListed := bytes.Equal(record.IPAddr, sb.CandIP) 
+		nameListed := bytes.Equal(record.Name, sb.CandName)
+
+		if pkListed{
+			err = errPubKeyListed
+			return
+		}
+		if ipListed{
+			err = errIPListed
+			return
+		}
+		if nameListed{
+			err = errNameListed
+			return
+		}
+	}
+
 	// domainPattern, err := regexp.Compile("^([0-9a-zA-Z-_]+[.]*)+$")
 	// if the candidate already exists return error without paying gas
 	if record := candidateList.Get(sb.CandAddr); record != nil {
