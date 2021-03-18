@@ -24,7 +24,7 @@ const (
 // Tesla: The staking/auction release, Features include:
 const (
 	Tesla                = iota + 2
-	TeslaMainnetStartNum = 9486000 // Tesla hard fork around 03/22/2021 08:00-09:00 (Beijing Time)
+	TeslaMainnetStartNum = 9470000 // Tesla hard fork around 03/22/2021 08:00-09:00 (Beijing Time)
 	TeslaTestnetStartNum = 0       //
 )
 
