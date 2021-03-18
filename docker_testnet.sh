@@ -1,32 +1,39 @@
 #!/bin/bash
 
 # this script build docker image for these repo:
-# pos-only image: dfinlab/meter-pos
-# full image: dfinlab/meter-allin
-# with two tags: $version & latest
+# pos-only image: meterio/pos
+# full image: meterio/mainnet
+# with two tags (latest & $version)
 
 VERSION=$(cat cmd/meter/VERSION)
+POS_DOCKER_REPO=dfinlab/meter-pos
+POW_DOCKER_RPEO=dfinlab/meter-pow
+POW_STATIC_TAG=$POW_DOCKER_RPEO:mainnet
 
-POS_IMAGE_NAME=dfinlab/meter-pos
-POW_IMAGE_NAME=dfinlab/meter-pow
 POS_DOCKERFILE=_docker/pos.Dockerfile
+POS_VERSION_TAG=$POS_DOCKER_REPO:$VERSION
+POS_STATIC_TAG=$POS_DOCKER_REPO:mainnet
 
-FULL_IMAGE_NAME=dfinlab/meter-allin
-FULL_DOCKERFILE=_docker/testnet.Dockerfile
+FULL_DOCKER_REPO=dfinlab/mainnet-allin
+FULL_DOCKERFILE=_docker/mainnet.Dockerfile
+FULL_VERSION_TAG=$FULL_DOCKER_REPO:$VERSION
+FULL_STATIC_TAG=$FULL_DOCKER_REPO:latest
 
-echo "Building ${POS_IMAGE_NAME} on version ${VERSION}"
-docker build -f $POS_DOCKERFILE -t $POS_IMAGE_NAME:$VERSION .
-docker tag $POS_IMAGE_NAME:$VERSION $POS_IMAGE_NAME:latest
+echo "Building docker image $POS_VERSION_TAG & $POS_STATIC_TAG"
+docker build -f $POS_DOCKERFILE -t $POS_VERSION_TAG .
+docker tag $POS_VERSION_TAG $POS_STATIC_TAG
 
-docker push $POS_IMAGE_NAME:$VERSION
-docker push $POS_IMAGE_NAME:latest
+echo "Push to DockerHub with tags: $POS_VERSION_TAG & $POS_STATIC_TAG"
+docker push $POS_VERSION_TAG
+docker push $POS_STATIC_TAG
 
-docker pull $POS_IMAGE_NAME:latest
-docker pull $POW_IMAGE_NAME:latest
+echo "Pull latest docker image with tags: $POS_STATIC_TAG & $POW_STATIC_TAG"
+docker pull $POS_STATIC_TAG
+docker pull $POW_STATIC_TAG
 
-echo "Building ${FULL_IMAGE_NAME}"
-docker build -f $FULL_DOCKERFILE -t $FULL_IMAGE_NAME:$VERSION .
-docker tag $FULL_IMAGE_NAME:$VERSION $FULL_IMAGE_NAME:latest
+echo "Building docker image: $FULL_VERSION_TAG $FULL_STATIC_TAG"
+docker build -f $FULL_DOCKERFILE -t $FULL_VERSION_TAG .
+docker tag $FULL_VERSION_TAG $FULL_STATIC_TAG
 
-docker push $FULL_IMAGE_NAME:latest
-docker push $FULL_IMAGE_NAME:$VERSION
+docker push $FULL_STATIC_TAG
+docker push $FULL_VERSION_TAG

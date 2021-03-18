@@ -1,5 +1,5 @@
-FROM meterio/pos:latest AS pos
-FROM meterio/pow:latest AS pow
+FROM meterio/pos:mainnet AS pos
+FROM meterio/pow:mainnet AS pow
 FROM meterio/bitcoind-exporter:latest as be
 
 FROM ubuntu:18.04

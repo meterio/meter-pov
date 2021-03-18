@@ -6,26 +6,34 @@
 # with two tags (latest & $version)
 
 VERSION=$(cat cmd/meter/VERSION)
-POS_IMAGE_NAME=meterio/pos
-POW_IMAGE_NAME=meterio/pow
+POS_DOCKER_REPO=meterio/pos
+POW_DOCKER_RPEO=meterio/pow
+POW_STATIC_TAG=$POW_DOCKER_RPEO:mainnet
+
 POS_DOCKERFILE=_docker/pos.Dockerfile
+POS_VERSION_TAG=$POS_DOCKER_REPO:$VERSION
+POS_STATIC_TAG=$POS_DOCKER_REPO:mainnet
 
-FULL_IMAGE_NAME=meterio/mainnet
+FULL_DOCKER_REPO=meterio/mainnet
 FULL_DOCKERFILE=_docker/mainnet.Dockerfile
+FULL_VERSION_TAG=$FULL_DOCKER_REPO:tesla
+FULL_STATIC_TAG=$FULL_DOCKER_REPO:latest
 
-echo "Building ${POS_IMAGE_NAME}"
-docker build -f $POS_DOCKERFILE -t $POS_IMAGE_NAME:$VERSION .
-docker tag $POS_IMAGE_NAME:$VERSION $POS_IMAGE_NAME:latest
+echo "Building docker image $POS_VERSION_TAG & $POS_STATIC_TAG"
+docker build -f $POS_DOCKERFILE -t $POS_VERSION_TAG .
+docker tag $POS_VERSION_TAG $POS_STATIC_TAG
 
-docker push $POS_IMAGE_NAME:$VERSION
-docker push $POS_IMAGE_NAME:latest
+echo "Push to DockerHub with tags: $POS_VERSION_TAG & $POS_STATIC_TAG"
+docker push $POS_VERSION_TAG
+docker push $POS_STATIC_TAG
 
-docker pull meterio/pos:latest
-docker pull meterio/pow:latest
+echo "Pull latest docker image with tags: $POS_STATIC_TAG & $POW_STATIC_TAG"
+docker pull $POS_STATIC_TAG
+docker pull $POW_STATIC_TAG
 
-echo "Building ${FULL_IMAGE_NAME}"
-docker build -f $FULL_DOCKERFILE -t $FULL_IMAGE_NAME:$VERSION .
-docker tag $FULL_IMAGE_NAME:$VERSION $FULL_IMAGE_NAME:latest
+echo "Building docker image: $FULL_VERSION_TAG $FULL_STATIC_TAG"
+docker build -f $FULL_DOCKERFILE -t $FULL_VERSION_TAG .
+docker tag $FULL_VERSION_TAG $FULL_STATIC_TAG
 
-docker push $FULL_IMAGE_NAME:latest
-docker push $FULL_IMAGE_NAME:$VERSION
+docker push $FULL_STATIC_TAG
+docker push $FULL_VERSION_TAG
