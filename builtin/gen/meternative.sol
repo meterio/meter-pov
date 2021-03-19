@@ -9,17 +9,17 @@ contract NewMeterNative is IMeterNative {
         
     }
     
-    function native_mtr_totalSupply() public returns(uint256) {
+    function native_mtr_totalSupply() public view returns(uint256) {
         emit MeterTrackerEvent(msg.sender, uint256(0), "native_mtr_totalSupply");
         return uint256(0);
     }
 
-    function native_mtr_totalBurned() public returns(uint256) {
+    function native_mtr_totalBurned() public view returns(uint256) {
         emit MeterTrackerEvent(msg.sender, uint256(0), "native_mtr_totalBurned");
         return uint256(0);
     }
 
-    function native_mtr_get(address addr) public returns(uint256) {
+    function native_mtr_get(address addr) public view returns(uint256) {
         emit MeterTrackerEvent(addr, uint256(0), "native_mtr_get");
         return uint256(0);    
     }
@@ -34,7 +34,7 @@ contract NewMeterNative is IMeterNative {
         return true;    
     }
 
-   function native_mtr_locked_get(address addr) public returns(uint256) {
+   function native_mtr_locked_get(address addr) public view returns(uint256) {
         emit MeterTrackerEvent(addr, uint256(0), "native_mtr_locked_get");
         return uint256(0);    
     }
@@ -50,17 +50,17 @@ contract NewMeterNative is IMeterNative {
     }
 
     //@@@@@
-    function native_mtrg_totalSupply() public returns(uint256) {
+    function native_mtrg_totalSupply() public view returns(uint256) {
         emit MeterTrackerEvent(msg.sender, uint256(0), "native_mtrg_totalSupply");
         return uint256(0x0);
     }
 
-    function native_mtrg_totalBurned() public returns(uint256) {
+    function native_mtrg_totalBurned() public view returns(uint256) {
         emit MeterTrackerEvent(msg.sender, uint256(0), "native_mtrg_totalBurned");
         return uint256(0);
     }
 
-    function native_mtrg_get(address addr) public returns(uint256) {
+    function native_mtrg_get(address addr) public view returns(uint256) {
         emit MeterTrackerEvent(addr, uint256(0), "native_mtrg_get");
         return uint256(0);
     }
@@ -75,7 +75,7 @@ contract NewMeterNative is IMeterNative {
         return true;    
     }
 
-    function native_mtrg_locked_get(address addr) public returns(uint256) {
+    function native_mtrg_locked_get(address addr) public view returns(uint256) {
         emit MeterTrackerEvent(addr, uint256(0), "native_mtrg_locked_get");
         return uint256(0);
     }
@@ -91,7 +91,7 @@ contract NewMeterNative is IMeterNative {
     }
 
     //@@@
-    function native_master(address addr) public returns(address) {
+    function native_master(address addr) public view returns(address) {
         emit MeterTrackerEvent(addr, uint256(0), "native_master");
         return address(0x0);        
     }
