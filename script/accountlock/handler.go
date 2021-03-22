@@ -199,7 +199,7 @@ func (ab *AccountLockBody) HandleAccountLockTransfer(env *AccountLockEnviroment,
 	if ab.MeterGovAmount.Sign() != 0 {
 		state.SubBalance(ab.FromAddr, ab.MeterGovAmount)
 		state.AddBalance(ab.ToAddr, ab.MeterGovAmount)
-		env.AddTransfer(ab.FromAddr, ab.ToAddr, ab.MeterAmount, meter.MTRG)
+		env.AddTransfer(ab.FromAddr, ab.ToAddr, ab.MeterGovAmount, meter.MTRG)
 	}
 
 	log.Debug("account lock transfer", "from", ab.FromAddr, "to", ab.ToAddr, "meter", ab.MeterAmount, "meterGov", ab.MeterGovAmount)
