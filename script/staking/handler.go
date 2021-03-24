@@ -332,21 +332,21 @@ func (sb *StakingBody) CandidateHandler(env *StakingEnv, gas uint64) (leftOverGa
 		log.Error(fmt.Sprintf("invalid parameter: ip %s (should be a valid ipv4 address)", sb.CandIP))
 		return
 	}
-	
-	for _, record:= range candidateList.candidates{
+
+	for _, record := range candidateList.candidates {
 		pkListed := bytes.Equal(record.PubKey, []byte(candidatePubKey))
-		ipListed := bytes.Equal(record.IPAddr, sb.CandIP) 
+		ipListed := bytes.Equal(record.IPAddr, sb.CandIP)
 		nameListed := bytes.Equal(record.Name, sb.CandName)
 
-		if pkListed{
+		if pkListed {
 			err = errPubKeyListed
 			return
 		}
-		if ipListed{
+		if ipListed {
 			err = errIPListed
 			return
 		}
-		if nameListed{
+		if nameListed {
 			err = errNameListed
 			return
 		}
@@ -1161,7 +1161,7 @@ func (sb *StakingBody) BucketUpdateHandler(env *StakingEnv, gas uint64) (leftOve
 	// update candidate, for both bonus and increase amount
 	if bucket.Candidate.IsZero() == false {
 		if cand := candidateList.Get(bucket.Candidate); cand != nil {
-			cand.TotalVotes.Add(cand.TotalVotes, big.NewInt(int64(bonus)))
+			cand.TotalVotes.Add(cand.TotalVotes, bonus)
 			cand.TotalVotes.Add(cand.TotalVotes, sb.Amount)
 		}
 	}
