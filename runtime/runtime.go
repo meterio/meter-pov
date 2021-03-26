@@ -169,8 +169,17 @@ func (rt *Runtime) restrictTransfer(stateDB *statedb.StateDB, addr meter.Address
 		return false
 	}
 
+	// only take care meterGov, basic sanity
+	balance := stateDB.GetBalance(common.Address(addr))
+	if balance.Cmp(amount) < 0 {
+		return true
+	}
+
+	// ok to transfer: balance + boundBalance > profile-lock + amount
+	availabe := balance.Add(balance, stateDB.GetBoundedBalance(common.Address(addr)))
 	needed := new(big.Int).Add(lockMtrg, amount)
-	return stateDB.GetBalance(common.Address(addr)).Cmp(needed) < 0
+
+	return availabe.Cmp(needed) < 0
 }
 
 // SetVMConfig config VM.

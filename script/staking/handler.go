@@ -1141,10 +1141,13 @@ func (sb *StakingBody) BucketUpdateHandler(env *StakingEnv, gas uint64) (leftOve
 		return
 	}
 
+	// Now allow to change forever lock amount
+	/****
 	if bucket.IsForeverLock() == true {
 		log.Error(fmt.Sprintf("can not update the bucket, ID %v", sb.StakingID))
 		err = errUpdateForeverBucket
 	}
+	***/
 
 	// can not update unbouded bucket
 	if bucket.Unbounded == true {

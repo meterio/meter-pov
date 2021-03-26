@@ -9,6 +9,7 @@ import (
 	"math/big"
 
 	"github.com/dfinlab/meter/meter"
+	//	"github.com/dfinlab/meter/script/accountlock"
 	"github.com/dfinlab/meter/state"
 	"github.com/ethereum/go-ethereum/rlp"
 )
@@ -224,9 +225,27 @@ func (e *MeterTracker) AddMeterGov(addr meter.Address, amount *big.Int) {
 
 // Sub sub amount of energy from given address.
 // False is returned if no enough energy.
+// should consider account lock file here
 func (e *MeterTracker) SubMeterGov(addr meter.Address, amount *big.Int) bool {
 	if amount.Sign() == 0 {
 		return true
+	}
+
+	// comment out for compile
+	//restrict, _, lockMtrg := accountlock.RestrictByAccountLock(addr, r.State())
+	restrict, lockMtrg := false, big.NewInt(0)
+	if restrict == true {
+		balance := e.state.GetBalance(addr)
+		if balance.Cmp(amount) < 0 {
+			return false
+		}
+
+		// ok to transfer: balance + boundBalance > profile-lock + amount
+		availabe := balance.Add(balance, e.state.GetBoundedBalance(addr))
+		needed := new(big.Int).Add(lockMtrg, amount)
+		if availabe.Cmp(needed) < 0 {
+			return false
+		}
 	}
 
 	return e.state.SubBalance(addr, amount)

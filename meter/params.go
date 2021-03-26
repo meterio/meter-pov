@@ -147,4 +147,6 @@ var (
 	InitialDFLTeamAccount6 = MustParseAddress("0x63723217e860bc409e29b46eec70101cd03d8242")
 	InitialDFLTeamAccount7 = MustParseAddress("0x0374f5867ab2effd2277c895e7d1088b10ec9452")
 	InitialDFLTeamAccount8 = MustParseAddress("0x5308b6f26f21238963d0ea0b391eafa9be53c78e")
+
+	TeslaValidatorBenefitRatio = big.NewInt(1e18)
 )

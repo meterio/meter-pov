@@ -44,6 +44,10 @@ func GetCandidateSelfBuckets(c *Candidate, bl *BucketList) ([]*Bucket, error) {
 }
 
 func CheckCandEnoughSelfVotes(newVotes *big.Int, c *Candidate, bl *BucketList) bool {
+	// The previous check is candidata self shoud occupies 1/10 of the total votes.
+	// Remove this check now
+	return true
+
 	bkts, err := GetCandidateSelfBuckets(c, bl)
 	if err != nil {
 		log.Error("Get candidate self bucket failed", "candidate", c.Addr.String(), "error", err)
