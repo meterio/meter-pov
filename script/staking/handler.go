@@ -1149,6 +1149,11 @@ func (sb *StakingBody) BucketUpdateHandler(env *StakingEnv, gas uint64) (leftOve
 	}
 	***/
 
+	if state.GetBalance(sb.HolderAddr).Cmp(sb.Amount) < 0 {
+		err = errors.New("not enough meter-gov balance")
+		return
+	}
+
 	// can not update unbouded bucket
 	if bucket.Unbounded == true {
 		log.Error(fmt.Sprintf("can not update the bucket, ID %v", sb.StakingID))
@@ -1156,6 +1161,12 @@ func (sb *StakingBody) BucketUpdateHandler(env *StakingEnv, gas uint64) (leftOve
 
 	// Now so far so good, calc interest first
 	bonus := TouchBucketBonus(sb.Timestamp, bucket)
+
+	// bound account balance
+	err = staking.BoundAccountMeterGov(sb.HolderAddr, sb.Amount, state, env)
+	if err != nil {
+		return
+	}
 
 	// update bucket values
 	bucket.Value.Add(bucket.Value, sb.Amount)
