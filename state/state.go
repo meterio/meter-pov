@@ -7,6 +7,7 @@ package state
 
 import (
 	"bytes"
+	"encoding/hex"
 	"fmt"
 	"math/big"
 
@@ -530,6 +531,47 @@ func (s *State) Stage() *Stage {
 	}
 
 	return newStage(s.root, s.kv, changes)
+}
+
+func (s *State) IsExclusiveAccount(addr meter.Address) bool {
+	// executor account
+	paramAddr := meter.BytesToAddress([]byte("Params"))
+	key := meter.KeyExecutorAddress
+	val := s.GetStorage(paramAddr, key)
+	executorBytes := val.Bytes()[len(val.Bytes())-40:]
+	executor := meter.MustParseAddress("0x" + hex.EncodeToString(executorBytes))
+	// executor := meter.BytesToAddress(builtin.Params.Native(s).Get(meter.KeyExecutorAddress).Bytes())
+	if bytes.Compare(addr.Bytes(), executor.Bytes()) == 0 {
+		return true
+	}
+
+	// DFL Accounts
+	if bytes.Compare(addr.Bytes(), meter.InitialDFLTeamAccount1.Bytes()) == 0 {
+		return true
+	}
+	if bytes.Compare(addr.Bytes(), meter.InitialDFLTeamAccount2.Bytes()) == 0 {
+		return true
+	}
+	if bytes.Compare(addr.Bytes(), meter.InitialDFLTeamAccount3.Bytes()) == 0 {
+		return true
+	}
+	if bytes.Compare(addr.Bytes(), meter.InitialDFLTeamAccount4.Bytes()) == 0 {
+		return true
+	}
+	if bytes.Compare(addr.Bytes(), meter.InitialDFLTeamAccount5.Bytes()) == 0 {
+		return true
+	}
+	if bytes.Compare(addr.Bytes(), meter.InitialDFLTeamAccount6.Bytes()) == 0 {
+		return true
+	}
+	if bytes.Compare(addr.Bytes(), meter.InitialDFLTeamAccount7.Bytes()) == 0 {
+		return true
+	}
+	if bytes.Compare(addr.Bytes(), meter.InitialDFLTeamAccount8.Bytes()) == 0 {
+		return true
+	}
+
+	return false
 }
 
 type (
