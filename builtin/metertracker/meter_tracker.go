@@ -9,7 +9,7 @@ import (
 	"math/big"
 
 	"github.com/dfinlab/meter/meter"
-	//	"github.com/dfinlab/meter/script/accountlock"
+	"github.com/dfinlab/meter/script/accountlock"
 	"github.com/dfinlab/meter/state"
 	"github.com/ethereum/go-ethereum/rlp"
 )
@@ -233,7 +233,8 @@ func (e *MeterTracker) SubMeterGov(addr meter.Address, amount *big.Int) bool {
 
 	// comment out for compile
 	//restrict, _, lockMtrg := accountlock.RestrictByAccountLock(addr, r.State())
-	restrict, lockMtrg := false, big.NewInt(0)
+	restrict, _, lockMtrg := accountlock.RestrictByAccountLock(addr, e.state)
+	// restrict, lockMtrg := false, big.NewInt(0)
 	if restrict == true {
 		balance := e.state.GetBalance(addr)
 		if balance.Cmp(amount) < 0 {
