@@ -135,17 +135,17 @@ func (rt *Runtime) LoadERC20NativeCotract() {
 	}
 }
 
-func (rt *Runtime) EnforceTelsaTork1_1Corrections() {
+func (rt *Runtime) EnforceTelsaFork1_1Corrections() {
 	blockNumber := rt.Context().Number
-	// flag is nil or 0, is not do. 1 meas done.
-	enforceFlag := builtin.Params.Native(rt.State()).Get(meter.KeyEnforceTesla1_1Correction)
+	if meter.IsMainNet() {
+		// flag is nil or 0, is not do. 1 meas done.
+		enforceFlag := builtin.Params.Native(rt.State()).Get(meter.KeyEnforceTesla1_1Correction)
 
-	if (blockNumber >= meter.Tesla1_1MainnetStartNum) &&
-		(enforceFlag == nil || enforceFlag == big.NewInt(0)) {
-		script.EnforceTeslaFork1_1Corrections(rt.State(), rt.Context().Time)
-		builtin.Params.Native(rt.State()).Set(meter.KeyEnforceTesla1_1Correction, big.NewInt(1))
+		if blockNumber >= meter.Tesla1_1MainnetStartNum && enforceFlag == nil {
+			script.EnforceTeslaFork1_1Corrections(rt.State(), rt.Context().Time)
+			builtin.Params.Native(rt.State()).Set(meter.KeyEnforceTesla1_1Correction, big.NewInt(1))
+		}
 	}
-
 }
 func (rt *Runtime) FromNativeContract(caller meter.Address) bool {
 
@@ -456,7 +456,7 @@ func (rt *Runtime) PrepareClause(
 
 		// check meterNative after sysContract support
 		rt.LoadERC20NativeCotract()
-		rt.EnforceTelsaTork1_1Corrections()
+		rt.EnforceTelsaFork1_1Corrections()
 
 		// check the restriction of transfer.
 		if rt.restrictTransfer(stateDB, txCtx.Origin, clause.Value(), clause.Token()) == true {
