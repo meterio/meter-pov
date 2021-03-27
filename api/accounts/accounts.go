@@ -262,11 +262,14 @@ func (a *Accounts) batchCall(ctx context.Context, batchCallData *BatchCallData, 
 			TotalScore:  header.TotalScore()})
 	results = make(BatchCallResults, 0)
 	vmout := make(chan *runtime.Output, 1)
+	best := a.chain.BestBlock()
+	blockRef := tx.NewBlockRefFromID(best.Header().ID())
 	for i, clause := range clauses {
 		// fmt.Println("Clause: ", clause.String())
 		exec, interrupt := rt.PrepareClause(clause, uint32(i), gas, &xenv.TransactionContext{
 			Origin:     *caller,
 			GasPrice:   gasPrice,
+			BlockRef:   blockRef,
 			ProvedWork: &big.Int{}})
 		go func() {
 			out, _ := exec()

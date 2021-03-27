@@ -141,7 +141,9 @@ func (rt *Runtime) EnforceTelsaFork1_1Corrections() {
 		// flag is nil or 0, is not do. 1 meas done.
 		enforceFlag := builtin.Params.Native(rt.State()).Get(meter.KeyEnforceTesla1_1Correction)
 
-		if blockNumber >= meter.Tesla1_1MainnetStartNum && enforceFlag == nil {
+		if blockNumber > meter.Tesla1_1MainnetStartNum && (enforceFlag == nil || enforceFlag.Sign() == 0) {
+			// Tesla 1.1 Fork
+			fmt.Println("Start to correct Tesla 1.0 Error Buckets")
 			script.EnforceTeslaFork1_1Corrections(rt.State(), rt.Context().Time)
 			builtin.Params.Native(rt.State()).Set(meter.KeyEnforceTesla1_1Correction, big.NewInt(1))
 		}
@@ -182,6 +184,7 @@ func (rt *Runtime) restrictTransfer(stateDB *statedb.StateDB, addr meter.Address
 	}
 
 	if meter.IsTestNet() || (meter.IsMainNet() && blockNum > meter.Tesla1_1MainnetStartNum) {
+		// Tesla 1.1 Fork
 		// only take care meterGov, basic sanity
 		balance := stateDB.GetBalance(common.Address(addr))
 		if balance.Cmp(amount) < 0 {
@@ -189,11 +192,12 @@ func (rt *Runtime) restrictTransfer(stateDB *statedb.StateDB, addr meter.Address
 		}
 
 		// ok to transfer: balance + boundBalance > profile-lock + amount
-		availabe := balance.Add(balance, stateDB.GetBoundedBalance(common.Address(addr)))
+		availabe := new(big.Int).Add(balance, stateDB.GetBoundedBalance(common.Address(addr)))
 		needed := new(big.Int).Add(lockMtrg, amount)
 
 		return availabe.Cmp(needed) < 0
 	} else {
+		// Tesla 1.0 
 		needed := new(big.Int).Add(lockMtrg, amount)
 		return stateDB.GetBalance(common.Address(addr)).Cmp(needed) < 0
 	}

@@ -252,7 +252,7 @@ func (e *MeterTracker) SubMeterGov(addr meter.Address, amount *big.Int) bool {
 		}
 
 		// ok to transfer: balance + boundBalance > profile-lock + amount
-		availabe := balance.Add(balance, e.state.GetBoundedBalance(addr))
+		availabe := new(big.Int).Add(balance, e.state.GetBoundedBalance(addr))
 		needed := new(big.Int).Add(lockMtrg, amount)
 		if availabe.Cmp(needed) < 0 {
 			return false
