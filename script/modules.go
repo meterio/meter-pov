@@ -31,6 +31,7 @@ func ModuleStakingInit(se *ScriptEngine) *staking.Staking {
 	mod := &Module{
 		modName:    STAKING_MODULE_NAME,
 		modID:      STAKING_MODULE_ID,
+		modPtr:     stk,
 		modHandler: stk.PrepareStakingHandler(),
 	}
 	if err := se.modReg.Register(STAKING_MODULE_ID, mod); err != nil {
@@ -51,6 +52,7 @@ func ModuleAuctionInit(se *ScriptEngine) *auction.Auction {
 	mod := &Module{
 		modName:    AUCTION_MODULE_NAME,
 		modID:      AUCTION_MODULE_ID,
+		modPtr:     a,
 		modHandler: a.PrepareAuctionHandler(),
 	}
 	if err := se.modReg.Register(AUCTION_MODULE_ID, mod); err != nil {
@@ -71,6 +73,7 @@ func ModuleAccountLockInit(se *ScriptEngine) *accountlock.AccountLock {
 	mod := &Module{
 		modName:    ACCOUNTLOCK_MODULE_NAME,
 		modID:      ACCOUNTLOCK_MODULE_ID,
+		modPtr:     a,
 		modHandler: a.PrepareAccountLockHandler(),
 	}
 	if err := se.modReg.Register(ACCOUNTLOCK_MODULE_ID, mod); err != nil {

@@ -8,10 +8,11 @@ package script
 import (
 	"fmt"
 	"sync"
+	//	"unsafe"
 
 	"github.com/dfinlab/meter/meter"
-	"github.com/dfinlab/meter/state"
 	setypes "github.com/dfinlab/meter/script/types"
+	"github.com/dfinlab/meter/state"
 	"github.com/dfinlab/meter/xenv"
 )
 
@@ -19,6 +20,7 @@ import (
 type Module struct {
 	modName    string
 	modID      uint32
+	modPtr     interface{} // unsafe.Pointer // main instance of moudle
 	modHandler func(data []byte, to *meter.Address, txCtx *xenv.TransactionContext, gas uint64, state *state.State) (seOutput *setypes.ScriptEngineOutput, leftOverGas uint64, err error)
 }
 

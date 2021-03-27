@@ -11,6 +11,8 @@ import (
 	"math/big"
 	"net"
 
+	"github.com/dfinlab/meter/meter"
+	"github.com/dfinlab/meter/state"
 	"github.com/dfinlab/meter/types"
 )
 
@@ -193,4 +195,44 @@ func TouchBucketBonus(ts uint64, bucket *Bucket) *big.Int {
 	bucket.CalcLastTime = ts // touch timestamp
 
 	return bonus
+}
+
+func (staking *Staking) EnforceTeslaFor1_1Correction(bid meter.Bytes32, owner meter.Address, amount *big.Int, state *state.State, ts uint64) {
+
+	candidateList := staking.GetCandidateList(state)
+	bucketList := staking.GetBucketList(state)
+
+	bucket := bucketList.Get(bid)
+	if bucket == nil {
+		fmt.Println(fmt.Sprintf("does not find out the bucket, ID %v", bid))
+		return
+	}
+
+	if bucket.Owner != owner {
+		fmt.Println(errBucketInfoMismatch)
+		return
+	}
+
+	if bucket.Value.Cmp(amount) < 0 {
+		fmt.Println("bucket does not have enough value", "value", bucket.Value.String(), amount.String())
+		return
+	}
+
+	// now take action
+	bounus := TouchBucketBonus(ts, bucket)
+
+	// update bucket values
+	bucket.Value.Sub(bucket.Value, amount)
+	bucket.TotalVotes.Sub(bucket.TotalVotes, amount)
+
+	// update candidate, for both bonus and increase amount
+	if bucket.Candidate.IsZero() == false {
+		if cand := candidateList.Get(bucket.Candidate); cand != nil {
+			cand.TotalVotes.Sub(cand.TotalVotes, amount)
+			cand.TotalVotes.Add(cand.TotalVotes, bounus)
+		}
+	}
+
+	staking.SetBucketList(bucketList, state)
+	staking.SetCandidateList(candidateList, state)
 }

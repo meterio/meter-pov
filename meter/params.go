@@ -110,6 +110,8 @@ var (
 	KeySystemContractAddress3 = BytesToBytes32([]byte("3-system-contract-address"))
 	KeySystemContractAddress4 = BytesToBytes32([]byte("4-system-contract-address"))
 
+	KeyEnforceTesla1_1Correction = BytesToBytes32([]byte("Tesla1_1Correction-Flag")) // unset or 0 is not do yet, 1 is donw
+
 	// Initial values
 	InitialRewardRatio         = big.NewInt(3e17) // 30%
 	InitialBaseGasPrice        = big.NewInt(5e11) // each tx gas is about 0.01 meter
