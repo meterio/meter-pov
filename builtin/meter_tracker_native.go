@@ -164,7 +164,12 @@ func init() {
 			}
 
 			env.UseGas(meter.GetBalanceGas)
-			ok := MeterTracker.Native(env.State()).SubMeterGov(meter.Address(args.Addr), args.Amount)
+			ok := false
+			if meter.IsTestNet() || (meter.IsMainNet() && env.BlockContext().Number > meter.Tesla1_1MainnetStartNum) {
+				ok = MeterTracker.Native(env.State()).SubMeterGov(meter.Address(args.Addr), args.Amount)
+			} else {
+				ok = MeterTracker.Native(env.State()).Tesla1_0_SubMeterGov(meter.Address(args.Addr), args.Amount)
+			}
 			if ok {
 				env.UseGas(meter.SstoreResetGas)
 			}

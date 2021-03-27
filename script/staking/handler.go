@@ -29,10 +29,12 @@ var (
 	errInvalidParams    = errors.New("invalid params")
 
 	// buckets
-	errBucketNotFound      = errors.New("bucket not found")
-	errBucketInfoMismatch  = errors.New("bucket info mismatch (holderAddr, amount, token)")
-	errBucketInUse         = errors.New("bucket in used (address is not zero)")
-	errUpdateForeverBucket = errors.New("can't update forever bucket")
+	errBucketNotFound       = errors.New("bucket not found")
+	errBucketOwnerMismatch  = errors.New("bucket owner mismatch")
+	errBucketAmountMismatch = errors.New("bucket amount mismatch")
+	errBucketTokenMismatch  = errors.New("bucket token mismatch")
+	errBucketInUse          = errors.New("bucket in used (address is not zero)")
+	errUpdateForeverBucket  = errors.New("can't update forever bucket")
 
 	// amount
 	errLessThanMinimalBalance  = errors.New("amount less than minimal balance (" + new(big.Int).Div(MIN_REQUIRED_BY_DELEGATE, big.NewInt(1e18)).String() + " MTRG)")
@@ -50,7 +52,7 @@ var (
 	errUpdateTooFrequent           = errors.New("update too frequent")
 	errCandidateListedWithDiffInfo = errors.New("candidate address already listed with different infomation (pubkey, ip, port)")
 	errCandidateNotChanged         = errors.New("candidate not changed")
-	errCandidateNotEnoughSelfVotes = errors.New("candidate not have enough self votes")
+	errCandidateNotEnoughSelfVotes = errors.New("candidate's accumulated votes > 100x candidate's own vote")
 )
 
 // Candidate indicates the structure of a candidate
@@ -148,8 +150,14 @@ func (sb *StakingBody) BoundHandler(env *StakingEnv, gas uint64) (leftOverGas ui
 			log.Warn("candidate is not listed", "address", sb.CandAddr)
 			setCand = false
 		} else {
-			if CheckCandEnoughSelfVotes(sb.Amount, c, bucketList) == false {
-				log.Error("Candidate does not have enough self votes", "candidate",
+			selfRatioValid := false
+			if meter.IsTestNet() || meter.IsMainNet() && env.GetTxCtx().BlockRef.Number() > meter.Tesla1_1MainnetStartNum {
+				selfRatioValid = CheckCandEnoughSelfVotes(sb.Amount, c, bucketList, TESLA1_1_SELF_VOTE_RATIO)
+			} else {
+				selfRatioValid = CheckCandEnoughSelfVotes(sb.Amount, c, bucketList, TESLA1_0_SELF_VOTE_RATIO)
+			}
+			if selfRatioValid == false {
+				log.Error(errCandidateNotEnoughSelfVotes.Error(), "candidate",
 					c.Addr.String(), "error", errCandidateNotEnoughSelfVotes)
 				setCand = false
 			}
@@ -251,8 +259,14 @@ func (sb *StakingBody) UnBoundHandler(env *StakingEnv, gas uint64) (leftOverGas 
 	if b == nil {
 		return leftOverGas, errBucketNotFound
 	}
-	if (b.Owner != sb.HolderAddr) || (b.Value.Cmp(sb.Amount) != 0) || (b.Token != sb.Token) {
-		return leftOverGas, errBucketInfoMismatch
+	if b.Owner != sb.HolderAddr {
+		return leftOverGas, errBucketOwnerMismatch
+	}
+	if b.Value.Cmp(sb.Amount) != 0 {
+		return leftOverGas, errBucketAmountMismatch
+	}
+	if b.Token != sb.Token {
+		return leftOverGas, errBucketTokenMismatch
 	}
 	if b.IsForeverLock() == true {
 		return leftOverGas, errUpdateForeverBucket
@@ -490,8 +504,14 @@ func (sb *StakingBody) DelegateHandler(env *StakingEnv, gas uint64) (leftOverGas
 	if b == nil {
 		return leftOverGas, errBucketNotFound
 	}
-	if (b.Owner != sb.HolderAddr) || (b.Value.Cmp(sb.Amount) != 0) || (b.Token != sb.Token) {
-		return leftOverGas, errBucketInfoMismatch
+	if b.Owner != sb.HolderAddr {
+		return leftOverGas, errBucketOwnerMismatch
+	}
+	if b.Value.Cmp(sb.Amount) != 0 {
+		return leftOverGas, errBucketAmountMismatch
+	}
+	if b.Token != sb.Token {
+		return leftOverGas, errBucketTokenMismatch
 	}
 	if b.IsForeverLock() == true {
 		return leftOverGas, errUpdateForeverBucket
@@ -506,8 +526,14 @@ func (sb *StakingBody) DelegateHandler(env *StakingEnv, gas uint64) (leftOverGas
 		return leftOverGas, errBucketNotFound
 	}
 
-	if CheckCandEnoughSelfVotes(b.TotalVotes, cand, bucketList) == false {
-		log.Error("Candidate does not have enough self votes", "candidate", cand.Addr.String())
+	selfRatioValid := false
+	if meter.IsTestNet() || (meter.IsMainNet() && env.GetTxCtx().BlockRef.Number() > meter.Tesla1_1MainnetStartNum) {
+		selfRatioValid = CheckCandEnoughSelfVotes(b.TotalVotes, cand, bucketList, TESLA1_1_SELF_VOTE_RATIO)
+	} else {
+		selfRatioValid = CheckCandEnoughSelfVotes(b.TotalVotes, cand, bucketList, TESLA1_0_SELF_VOTE_RATIO)
+	}
+	if selfRatioValid == false {
+		log.Error(errCandidateNotEnoughSelfVotes.Error(), "candidate", cand.Addr.String())
 		return leftOverGas, errCandidateNotEnoughSelfVotes
 	}
 
@@ -546,8 +572,14 @@ func (sb *StakingBody) UnDelegateHandler(env *StakingEnv, gas uint64) (leftOverG
 	if b == nil {
 		return leftOverGas, errBucketNotFound
 	}
-	if (b.Owner != sb.HolderAddr) || (b.Value.Cmp(sb.Amount) != 0) || (b.Token != sb.Token) {
-		return leftOverGas, errBucketInfoMismatch
+	if b.Owner != sb.HolderAddr {
+		return leftOverGas, errBucketOwnerMismatch
+	}
+	if b.Value.Cmp(sb.Amount) != 0 {
+		return leftOverGas, errBucketAmountMismatch
+	}
+	if b.Token != sb.Token {
+		return leftOverGas, errBucketTokenMismatch
 	}
 	if b.IsForeverLock() == true {
 		return leftOverGas, errUpdateForeverBucket
@@ -1137,36 +1169,54 @@ func (sb *StakingBody) BucketUpdateHandler(env *StakingEnv, gas uint64) (leftOve
 	}
 
 	if bucket.Owner != sb.HolderAddr {
-		err = errBucketInfoMismatch
+		err = errBucketOwnerMismatch
 		return
 	}
 
 	// Now allow to change forever lock amount
-	/****
-	if bucket.IsForeverLock() == true {
-		log.Error(fmt.Sprintf("can not update the bucket, ID %v", sb.StakingID))
-		err = errUpdateForeverBucket
-	}
-	***/
+	number := env.GetTxCtx().BlockRef.Number()
 
-	if state.GetBalance(sb.HolderAddr).Cmp(sb.Amount) < 0 {
-		err = errors.New("not enough meter-gov balance")
-		return
-	}
+	if meter.IsTestNet() || (meter.IsMainNet() && number > meter.Tesla1_1MainnetStartNum) {
 
-	// can not update unbouded bucket
-	if bucket.Unbounded == true {
-		log.Error(fmt.Sprintf("can not update the bucket, ID %v", sb.StakingID))
+		/****
+		if bucket.IsForeverLock() == true {
+			log.Error(fmt.Sprintf("can not update the bucket, ID %v", sb.StakingID))
+			err = errUpdateForeverBucket
+		}
+		***/
+
+		// can not update unbouded bucket
+		if bucket.Unbounded == true {
+			log.Error(fmt.Sprintf("can not update unbounded bucket, ID %v", sb.StakingID))
+			err = errors.New("can not update unbounded bucket")
+			return
+		}
+
+		if state.GetBalance(sb.HolderAddr).Cmp(sb.Amount) < 0 {
+			err = errors.New("not enough meter-gov balance")
+			return
+		}
+
+		// bound account balance
+		err = staking.BoundAccountMeterGov(sb.HolderAddr, sb.Amount, state, env)
+		if err != nil {
+			return
+		}
+	} else {
+
+		if bucket.IsForeverLock() == true {
+			log.Error(fmt.Sprintf("can not update the bucket, ID %v", sb.StakingID))
+			err = errUpdateForeverBucket
+		}
+
+		// can not update unbouded bucket
+		if bucket.Unbounded == true {
+			log.Error(fmt.Sprintf("can not update unbounded bucket, ID %v", sb.StakingID))
+		}
 	}
 
 	// Now so far so good, calc interest first
 	bonus := TouchBucketBonus(sb.Timestamp, bucket)
-
-	// bound account balance
-	err = staking.BoundAccountMeterGov(sb.HolderAddr, sb.Amount, state, env)
-	if err != nil {
-		return
-	}
 
 	// update bucket values
 	bucket.Value.Add(bucket.Value, sb.Amount)

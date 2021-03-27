@@ -7,9 +7,11 @@ import (
 )
 
 const (
-	MIN_CANDIDATE_UPDATE_INTV           = uint64(3600 * 24) // 1 day
-	MAX_CANDIDATE_SELF_TOTAK_VOTE_RATIO = 10                // max candidate total votes / self votes ratio
-	STAKING_TIMESPAN                    = uint64(720)
+	MIN_CANDIDATE_UPDATE_INTV = uint64(3600 * 24) // 1 day
+	TESLA1_0_SELF_VOTE_RATIO  = 10                // max candidate total votes / self votes ratio < 10x in Tesla 1.0
+	TESLA1_1_SELF_VOTE_RATIO  = 100               // max candidate total votes / self votes ratio < 100x in Tesla 1.1
+
+	STAKING_TIMESPAN = uint64(720)
 )
 
 var (

@@ -174,24 +174,29 @@ func (rt *Runtime) FromNativeContract(caller meter.Address) bool {
 }
 
 // retrict enforcement ONLY applies to meterGov, not meter
-func (rt *Runtime) restrictTransfer(stateDB *statedb.StateDB, addr meter.Address, amount *big.Int, token byte) bool {
+func (rt *Runtime) restrictTransfer(stateDB *statedb.StateDB, addr meter.Address, amount *big.Int, token byte, blockNum uint32) bool {
 	restrict, _, lockMtrg := accountlock.RestrictByAccountLock(addr, rt.State())
 	// lock is not there or token meter
 	if restrict == false || token == meter.MTR {
 		return false
 	}
 
-	// only take care meterGov, basic sanity
-	balance := stateDB.GetBalance(common.Address(addr))
-	if balance.Cmp(amount) < 0 {
-		return true
+	if meter.IsTestNet() || (meter.IsMainNet() && blockNum > meter.Tesla1_1MainnetStartNum) {
+		// only take care meterGov, basic sanity
+		balance := stateDB.GetBalance(common.Address(addr))
+		if balance.Cmp(amount) < 0 {
+			return true
+		}
+
+		// ok to transfer: balance + boundBalance > profile-lock + amount
+		availabe := balance.Add(balance, stateDB.GetBoundedBalance(common.Address(addr)))
+		needed := new(big.Int).Add(lockMtrg, amount)
+
+		return availabe.Cmp(needed) < 0
+	} else {
+		needed := new(big.Int).Add(lockMtrg, amount)
+		return stateDB.GetBalance(common.Address(addr)).Cmp(needed) < 0
 	}
-
-	// ok to transfer: balance + boundBalance > profile-lock + amount
-	availabe := balance.Add(balance, stateDB.GetBoundedBalance(common.Address(addr)))
-	needed := new(big.Int).Add(lockMtrg, amount)
-
-	return availabe.Cmp(needed) < 0
 }
 
 // SetVMConfig config VM.
@@ -459,7 +464,7 @@ func (rt *Runtime) PrepareClause(
 		rt.EnforceTelsaFork1_1Corrections()
 
 		// check the restriction of transfer.
-		if rt.restrictTransfer(stateDB, txCtx.Origin, clause.Value(), clause.Token()) == true {
+		if rt.restrictTransfer(stateDB, txCtx.Origin, clause.Value(), clause.Token(), txCtx.BlockRef.Number()) == true {
 			var leftOverGas uint64
 			if gas > meter.ClauseGas {
 				leftOverGas = gas - meter.ClauseGas

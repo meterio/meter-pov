@@ -45,7 +45,7 @@ func GetCandidateSelfBuckets(c *Candidate, bl *BucketList) ([]*Bucket, error) {
 	}
 }
 
-func CheckCandEnoughSelfVotes(newVotes *big.Int, c *Candidate, bl *BucketList) bool {
+func CheckCandEnoughSelfVotes(newVotes *big.Int, c *Candidate, bl *BucketList, selfVoteRatio int64) bool {
 	// The previous check is candidata self shoud occupies 1/10 of the total votes.
 	// Remove this check now
 	return true
@@ -60,10 +60,10 @@ func CheckCandEnoughSelfVotes(newVotes *big.Int, c *Candidate, bl *BucketList) b
 	for _, b := range bkts {
 		self = self.Add(self, b.TotalVotes)
 	}
-	//should: candidate total votes/ self votes <= MAX_CANDIDATE_SELF_TOTAK_VOTE_RATIO
+	//should: candidate total votes/ self votes <= selfVoteRatio
 	// c.TotalVotes is candidate total votes
 	total := new(big.Int).Add(c.TotalVotes, newVotes)
-	total = total.Div(total, big.NewInt(int64(MAX_CANDIDATE_SELF_TOTAK_VOTE_RATIO)))
+	total = total.Div(total, big.NewInt(selfVoteRatio))
 	if total.Cmp(self) > 0 {
 		return false
 	}
@@ -209,7 +209,7 @@ func (staking *Staking) EnforceTeslaFor1_1Correction(bid meter.Bytes32, owner me
 	}
 
 	if bucket.Owner != owner {
-		fmt.Println(errBucketInfoMismatch)
+		fmt.Println(errBucketOwnerMismatch)
 		return
 	}
 

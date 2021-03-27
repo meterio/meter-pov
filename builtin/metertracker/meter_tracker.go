@@ -225,6 +225,16 @@ func (e *MeterTracker) AddMeterGov(addr meter.Address, amount *big.Int) {
 
 // Sub sub amount of energy from given address.
 // False is returned if no enough energy.
+func (e *MeterTracker) Tesla1_0_SubMeterGov(addr meter.Address, amount *big.Int) bool {
+	if amount.Sign() == 0 {
+		return true
+	}
+
+	return e.state.SubBalance(addr, amount)
+}
+
+// Sub sub amount of energy from given address.
+// False is returned if no enough energy.
 // should consider account lock file here
 func (e *MeterTracker) SubMeterGov(addr meter.Address, amount *big.Int) bool {
 	if amount.Sign() == 0 {
