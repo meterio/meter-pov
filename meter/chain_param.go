@@ -68,7 +68,7 @@ func (c *ChainConfig) IsInitialized() bool {
 // chain flag right now ONLY 3: "main"/"test"/"warringstakes"
 func (c *ChainConfig) IsMainnet() bool {
 	if c.IsInitialized() == false {
-		log.Error("Chain is not initialized", c.ChainFlag)
+		log.Error("Chain is not initialized", "chain-flag", c.ChainFlag)
 		return false
 	}
 
