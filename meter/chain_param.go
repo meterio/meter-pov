@@ -27,7 +27,14 @@ const (
 	TeslaMainnetStartNum = 9470000 // Tesla hard fork around 03/22/2021 08:00-09:00 (Beijing Time)
 	TeslaTestnetStartNum = 0       //
 
-	Tesla1_1MainnetStartNum = 9660000 // tesla 1.1 bug-fix release : restrict transfer, bucket update, self vote ratio,
+	// Tesla 1.1 Hardfork
+	// includes feature updates:
+	// 1）bucket update issue fix, bound balance before update bucket
+	// 2) allow update for forever bucket
+	// 2) correct wrong buckets in Tesla 1.0 due to bucket update issue
+	// 3) account lock fix, allow transfer only if (amount + lockedMTRG) < (balance + boundbalance), fix includes native transfer and system contract ERC20 transfer
+    // 4）update (total votes / self vote) limit from 10x to 100x
+	Tesla1_1MainnetStartNum = 9680000 
 )
 
 // start block number support sys-contract
