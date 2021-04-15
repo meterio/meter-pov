@@ -17,6 +17,26 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 )
 
+func ComputeRewardMapV3(baseReward, totalRewards *big.Int, delegates []*types.Delegate, committeeMembers []*types.Validator) (RewardMap, error) {
+	memberKeys := make([][]byte, 0)
+	for _, m := range committeeMembers {
+		keyBytes := crypto.FromECDSAPub(&m.PubKey)
+		memberKeys = append(memberKeys, keyBytes)
+	}
+
+	memberDelegates := make([]*types.Delegate, 0)
+	for _, d := range delegates {
+		keyBytes := crypto.FromECDSAPub(&d.PubKey)
+		for _, kb := range memberKeys {
+			if bytes.Compare(kb, keyBytes) == 0 {
+				memberDelegates = append(memberDelegates, d)
+				break
+			}
+		}
+	}
+	return ComputeRewardMap(baseReward, totalRewards, memberDelegates, true)
+}
+
 func ComputeRewardMapV2(baseReward, totalRewards *big.Int, delegates []*types.Delegate, committeeMembers []*types.Validator) (RewardMap, error) {
 	memberKeys := make([][]byte, 0)
 	for _, m := range committeeMembers {
@@ -34,7 +54,7 @@ func ComputeRewardMapV2(baseReward, totalRewards *big.Int, delegates []*types.De
 			}
 		}
 	}
-	return ComputeRewardMap(baseReward, totalRewards, memberDelegates)
+	return ComputeRewardMap(baseReward, totalRewards, memberDelegates, false)
 }
 
 // Epoch Reward includes these parts:
@@ -55,7 +75,7 @@ func ComputeRewardMapV2(baseReward, totalRewards *big.Int, delegates []*types.De
 // 2. get the propotion reward for each validator based on the votingpower
 // 3. each validator takes commission first
 // 4. finally, distributor takes their propotions of rest
-func ComputeRewardMap(baseReward, totalRewards *big.Int, delegates []*types.Delegate) (RewardMap, error) {
+func ComputeRewardMap(baseReward, totalRewards *big.Int, delegates []*types.Delegate, v3 bool) (RewardMap, error) {
 	rewardMap := RewardMap{}
 	size := len(delegates)
 	baseRewards := new(big.Int).Mul(baseReward, big.NewInt(int64(size)))
@@ -78,7 +98,13 @@ func ComputeRewardMap(baseReward, totalRewards *big.Int, delegates []*types.Dele
 	// only enough for base reward
 	if baseRewardsOnly == true {
 		for i = 0; i < size; i++ {
-			d, err := getSelfDistributor(delegates[i])
+			var d *types.Distributor
+			var err error
+			if v3 {
+				d, err = getSelfDistributorV3(delegates[i])
+			} else {
+				d, err = getSelfDistributor(delegates[i])
+			}
 			if err != nil {
 				logger.Error("get self-distributor failed, treat as 0", "error", err)
 				rewardMap.Add(baseReward, big.NewInt(0), delegates[i].Address)
@@ -193,7 +219,7 @@ func ComputeEpochTotalReward(benefitRatio *big.Int, nDays int, nAuctionPerDay in
 	if size <= nDays*nAuctionPerDay {
 		d = size
 	} else {
-		d = nDays *nAuctionPerDay
+		d = nDays * nAuctionPerDay
 	}
 
 	// sumReward = sum(receivedMTR in last NDays)
@@ -220,6 +246,29 @@ func getSelfDistributor(delegate *types.Delegate) (*types.Distributor, error) {
 		if dist.Address == delegate.Address {
 			return dist, nil
 		}
+	}
+	return nil, errors.New("distributor not found")
+}
+
+func getSelfDistributorV3(delegate *types.Delegate) (*types.Distributor, error) {
+	shares := uint64(0)
+	autobid := uint8(0)
+
+	for _, dist := range delegate.DistList {
+		if dist.Address == delegate.Address {
+			if dist.Autobid > autobid {
+				autobid = dist.Autobid
+			}
+			shares = shares + dist.Shares
+		}
+	}
+	if shares > 0 {
+		return &types.Distributor{
+			Address: delegate.Address,
+			Autobid: autobid,
+			Shares:  shares,
+		}, nil
+
 	}
 	return nil, errors.New("distributor not found")
 }

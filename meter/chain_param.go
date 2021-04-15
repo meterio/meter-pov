@@ -34,7 +34,10 @@ const (
 	// 2) correct wrong buckets in Tesla 1.0 due to bucket update issue
 	// 3) account lock fix, allow transfer only if (amount + lockedMTRG) < (balance + boundbalance), fix includes native transfer and system contract ERC20 transfer
     // 4）update (total votes / self vote) limit from 10x to 100x
-	Tesla1_1MainnetStartNum = 9680000 
+	Tesla1_1MainnetStartNum = 9680000
+
+	TeslaFork2_MainnetStartNum = 2000000 // FIXME: not a realistic number
+	TeslaFork2_TestnetStartNum = 1000000 // FIXME: not a realistic number
 )
 
 // start block number support sys-contract
@@ -42,6 +45,8 @@ var (
 	SysContractStartNum uint32 = EdisonSysContractStartNum
 	EdisonStartNum      uint32 = EdisonSysContractStartNum
 	TeslaStartNum       uint32 = TeslaMainnetStartNum
+
+	TeslaFork2StartNum uint32 = TeslaFork2_MainnetStartNum
 
 	// Genesis hashes to enforce below configs on.
 	GenesisHash = MustParseBytes32("0x00000000733c970e6a7d68c7db54e3705eee865a97a07bf7e695c63b238f5e52")
@@ -129,6 +134,10 @@ func (p *ChainConfig) IsTesla(blockNum uint32) bool {
 	}
 }
 
+func (p *ChainConfig) IsTeslaFork2(blockNum uint32) bool {
+	return blockNum >= TeslaFork2StartNum 
+}
+
 func InitBlockChainConfig(genesisID Bytes32, chainFlag string) {
 	BlockChainConfig.ChainGenesisID = genesisID
 	BlockChainConfig.ChainFlag = chainFlag
@@ -140,10 +149,12 @@ func InitBlockChainConfig(genesisID Bytes32, chainFlag string) {
 		SysContractStartNum = EdisonSysContractStartNum
 		EdisonStartNum = EdisonMainnetStartNum
 		TeslaStartNum = TeslaMainnetStartNum
+		TeslaFork2StartNum = TeslaFork2_MainnetStartNum
 	} else {
 		SysContractStartNum = TestnetSysContractStartNum
 		EdisonStartNum = EdisonTestnetStartNum
 		TeslaStartNum = TeslaTestnetStartNum
+		TeslaFork2StartNum = TeslaFork2_TestnetStartNum
 	}
 }
 
@@ -154,6 +165,16 @@ func IsMainChainEdison(blockNum uint32) bool {
 func IsMainChainTesla(blockNum uint32) bool {
 	return BlockChainConfig.IsMainnet() && BlockChainConfig.IsTesla(blockNum)
 }
+
+func IsMainChainTeslaFork2(blockNum uint32) bool {
+	return BlockChainConfig.IsMainnet() && BlockChainConfig.IsTeslaFork2(blockNum)
+}
+
+func IsTestChainTeslaFork2(blockNum uint32) bool {
+	return BlockChainConfig.IsTestnet() && BlockChainConfig.IsTeslaFork2(blockNum)
+}
+
+
 
 func IsTestNet() bool {
 	return BlockChainConfig.IsTestnet()

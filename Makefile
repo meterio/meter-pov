@@ -25,6 +25,12 @@ disco: |$(SRC_BASE)
 	@cd $(SRC_BASE) && go build -v -i -o $(CURDIR)/bin/$@ -ldflags "-X main.version=$(DISCO_VERSION) -X main.gitCommit=$(GIT_COMMIT) -X main.gitTag=$(GIT_TAG)" ./cmd/disco
 	@echo "done. executable created at 'bin/$@'"
 
+try: |$(SRC_BASE)
+	@echo "building $@..."
+	@cd $(SRC_BASE) && go build -v -i -o $(CURDIR)/bin/$@ -ldflags "-X main.version=$(METER_VERSION) -X main.gitCommit=$(GIT_COMMIT) -X main.gitTag=$(GIT_TAG)" ./cmd/try
+	@echo "done. executable created at 'bin/$@'"
+
+
 
 dep: |$(SRC_BASE)
 ifeq ($(shell command -v dep 2> /dev/null),)
