@@ -151,7 +151,13 @@ func ComputeRewardMap(baseReward, totalRewards *big.Int, delegates []*types.Dele
 		delegateSelf := new(big.Int).Add(baseReward, commission)
 
 		// plus base reward
-		d, err := getSelfDistributor(delegates[i])
+		var d *types.Distributor
+		var err error
+		if v3 {
+			d, err = getSelfDistributorV3(delegates[i])
+		} else {
+			d, err = getSelfDistributor(delegates[i])
+		}
 		if err != nil {
 			logger.Error("get the autobid param failed, treat as 0", "error", err)
 		} else {
