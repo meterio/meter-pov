@@ -64,7 +64,7 @@ func main() {
 
 	baseReward := big.NewInt(479166666666666636)
 	totalReward := new(big.Int).Mul(big.NewInt(3057035746508147716), big.NewInt(100))
-	rewardMap, _ := reward.ComputeRewardMap(baseReward, totalReward, delegates)
+	rewardMap, _ := reward.ComputeRewardMap(baseReward, totalReward, delegates, true)
 
 	distSum := big.NewInt(0)
 	fmt.Println("**** Dist List")
