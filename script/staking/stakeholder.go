@@ -67,6 +67,10 @@ func (s *Stakeholder) RemoveBucket(bucket *Bucket) {
 			// inplace remove match element
 			s.Buckets = append(s.Buckets[:i], s.Buckets[i+1:]...)
 			s.TotalStake.Sub(s.TotalStake, bucket.Value)
+			if s.TotalStake.Sign() < 0 {
+				fmt.Println(fmt.Sprintf("Warning: Snap totalStake from %s to 0 for stakeholder(%s)", s.TotalStake.String(), s.Holder.String()))
+				s.TotalStake = big.NewInt(0)
+			}
 			return
 		}
 	}
