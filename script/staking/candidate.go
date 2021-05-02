@@ -65,6 +65,10 @@ func (c *Candidate) RemoveBucket(bucket *Bucket) {
 		if id.String() == bucketID.String() {
 			c.Buckets = append(c.Buckets[:i], c.Buckets[i+1:]...)
 			c.TotalVotes.Sub(c.TotalVotes, bucket.TotalVotes)
+			if c.TotalVotes.Sign() < 0 {
+				fmt.Println(fmt.Sprintf("Warning: Snap totalVotes from %s to 0 for stakeholder(%s)", c.TotalVotes.String(), c.Addr.String()))
+				c.TotalVotes = big.NewInt(0)
+			}
 			return
 		}
 	}
