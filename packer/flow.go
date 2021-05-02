@@ -7,6 +7,7 @@ package packer
 
 import (
 	"crypto/ecdsa"
+	"fmt"
 
 	"github.com/dfinlab/meter/block"
 	"github.com/dfinlab/meter/meter"
@@ -125,16 +126,19 @@ func (f *Flow) Adopt(tx *tx.Transaction) error {
 // Pack build and sign the new block.
 func (f *Flow) Pack(privateKey *ecdsa.PrivateKey, blockType uint32, lastKBlock uint32) (*block.Block, *state.Stage, tx.Receipts, error) {
 	if f.packer.nodeMaster != meter.Address(crypto.PubkeyToAddress(privateKey.PublicKey)) {
+		fmt.Println("FATAL! pack error from private key mismatch")
 		return nil, nil, nil, errors.New("private key mismatch")
 	}
 
 	if err := f.runtime.Seeker().Err(); err != nil {
+		fmt.Println("FATAL! pack error from runtime seeker: ", err)
 		return nil, nil, nil, err
 	}
 
 	stage := f.runtime.State().Stage()
 	stateRoot, err := stage.Hash()
 	if err != nil {
+		fmt.Println("FATAL! pack error from state/stage: ", err)
 		return nil, nil, nil, err
 	}
 
@@ -157,6 +161,7 @@ func (f *Flow) Pack(privateKey *ecdsa.PrivateKey, blockType uint32, lastKBlock u
 
 	sig, err := crypto.Sign(newBlock.Header().SigningHash().Bytes(), privateKey)
 	if err != nil {
+		fmt.Println("FATAL! pack error from crypto sign: ", err)
 		return nil, nil, nil, err
 	}
 	return newBlock.WithSignature(sig), stage, f.receipts, nil
