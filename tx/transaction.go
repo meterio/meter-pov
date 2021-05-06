@@ -161,7 +161,8 @@ func NewTransactionFromEthTx(ethTx *types.Transaction, chainTag byte, blockRef B
 		return nil, err
 	}
 	if strings.ToLower(origin.Hex()) != strings.ToLower(from.String()) {
-		return nil, errors.New("invalid ethereum tx: origin is not the same as from")
+		fmt.Println("ethereum tx origin != from, this tx is using homestead style")
+		// return nil, errors.New("invalid ethereum tx: origin is not the same as from")
 	}
 	var toto *meter.Address
 	if to.String() == "0x0000000000000000000000000000000000000000" {
