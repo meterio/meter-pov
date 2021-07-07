@@ -30,6 +30,13 @@ func (r *RewardMapInfo) String() string {
 
 type RewardMap map[meter.Address]*RewardMapInfo
 
+func (rmap RewardMap) Empty() error {
+	for k := range rmap {
+		delete(rmap, k)
+	}
+	return nil
+}
+
 func (rmap RewardMap) Add(dist, autobid *big.Int, addr meter.Address) error {
 	info, ok := rmap[addr]
 	if ok == true {

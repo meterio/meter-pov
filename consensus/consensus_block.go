@@ -745,6 +745,7 @@ func (conR *ConsensusReactor) BuildKBlock(parentBlock *block.Block, data *block.
 						conR.logger.Info("autobid tx appended", "txid", tx.ID())
 					}
 				}
+				rewardMap.Empty()
 			} else {
 				fmt.Println("-------------------------")
 				fmt.Println("Reward Map is empty")
