@@ -230,6 +230,7 @@ func defaultAction(ctx *cli.Context) error {
 	defer func() { log.Info("closing log database..."); logDB.Close() }()
 
 	chain := initChain(gene, mainDB, logDB)
+
 	master, blsCommon := loadNodeMaster(ctx)
 	pubkey, err := getNodeComplexPubKey(master, blsCommon)
 	if err != nil {
