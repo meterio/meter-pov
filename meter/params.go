@@ -104,10 +104,14 @@ var (
 	KeyNativeMtrERC20Address = BytesToBytes32([]byte("native-mtr-erc20-address"))
 	// mtrg-erc20, 0x000000000000006e61746976652d6d7472672d65726332302d61646472657373
 	KeyNativeMtrgERC20Address = BytesToBytes32([]byte("native-mtrg-erc20-address"))
-	//
+
+	// 0x00000000000000312d73797374656d2d636f6e74726163742d61646472657373
 	KeySystemContractAddress1 = BytesToBytes32([]byte("1-system-contract-address"))
+	// 0x00000000000000322d73797374656d2d636f6e74726163742d61646472657373
 	KeySystemContractAddress2 = BytesToBytes32([]byte("2-system-contract-address"))
+	// 0x00000000000000332d73797374656d2d636f6e74726163742d61646472657373
 	KeySystemContractAddress3 = BytesToBytes32([]byte("3-system-contract-address"))
+	// 0x00000000000000342d73797374656d2d636f6e74726163742d61646472657373
 	KeySystemContractAddress4 = BytesToBytes32([]byte("4-system-contract-address"))
 
 	KeyEnforceTesla1_1Correction = BytesToBytes32([]byte("Tesla1_1Correction-Flag")) // unset or 0 is not do yet, 1 is donw
