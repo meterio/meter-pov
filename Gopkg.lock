@@ -427,6 +427,7 @@
   packages = [
     "blake2b",
     "pbkdf2",
+    "sha3",
     "ripemd160",
     "scrypt",
   ]
@@ -577,6 +578,7 @@
     "github.com/syndtr/goleveldb/leveldb/util",
     "golang.org/x/crypto/blake2b",
     "golang.org/x/crypto/ripemd160",
+    "golang.org/x/crypto/sha3",
     "gopkg.in/karalabe/cookiejar.v2/collections/prque",
     "gopkg.in/olebedev/go-duktape.v3",
     "gopkg.in/urfave/cli.v1",

@@ -6,6 +6,7 @@
 package blocks
 
 import (
+	"encoding/hex"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -61,7 +62,20 @@ func (b *Blocks) handleGetBlock(w http.ResponseWriter, req *http.Request) error 
 		return err
 	}
 
-	jSummary := buildJSONBlockSummary(block, isTrunk)
+	var receipts tx.Receipts
+	if block.Header().ID().String() == b.chain.GenesisBlock().Header().ID().String() {
+		// if is genesis
+
+	} else {
+		receipts, err = b.chain.GetBlockReceipts(block.Header().ID())
+		if err != nil {
+			// ignore errors
+			receipts = make([]*tx.Receipt, 0)
+		}
+	}
+	bloom := tx.CreateEthBloom(receipts)
+	logsBloom := "0x" + hex.EncodeToString(bloom.Bytes())
+	jSummary := buildJSONBlockSummary(block, isTrunk, logsBloom)
 	if expanded == "true" {
 		var receipts tx.Receipts
 		var err error
