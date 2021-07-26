@@ -163,6 +163,7 @@ func (s *Subscriptions) handleSubject(w http.ResponseWriter, req *http.Request) 
 		if reader, err = s.handleBeatReader(w, req); err != nil {
 			return err
 		}
+
 	default:
 		return utils.HTTPError(errors.New("not found"), http.StatusNotFound)
 	}

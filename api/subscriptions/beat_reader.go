@@ -10,6 +10,7 @@ import (
 
 	"github.com/dfinlab/meter/chain"
 	"github.com/dfinlab/meter/meter"
+	"github.com/dfinlab/meter/meter/bloom"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 )
 
@@ -59,8 +60,8 @@ func (br *beatReader) Read() ([]interface{}, bool, error) {
 		bloomContent.add(signer.Bytes())
 		bloomContent.add(header.Beneficiary().Bytes())
 
-		k := meter.EstimateBloomK(bloomContent.len())
-		bloom := meter.NewBloom(k)
+		k := bloom.LegacyEstimateBloomK(bloomContent.len())
+		bloom := bloom.NewLegacyBloom(k)
 		for _, item := range bloomContent.items {
 			bloom.Add(item)
 		}
