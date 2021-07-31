@@ -106,9 +106,19 @@ func (db *LogDB) FilterEvents(ctx context.Context, filter *EventFilter) ([]*Even
 			stmt += " AND " + condition + " <= ? "
 		}
 	}
+
+	multiCriteria := false
+	if len(filter.CriteriaSet) > 1 {
+		multiCriteria = true
+	}
+
 	for i, criteria := range filter.CriteriaSet {
 		if i == 0 {
-			stmt += " AND ( 1"
+			if multiCriteria == true {
+				stmt += " AND (( 1"
+			} else {
+				stmt += " AND ( 1"
+			}
 		} else {
 			stmt += " OR ( 1"
 		}
@@ -122,6 +132,9 @@ func (db *LogDB) FilterEvents(ctx context.Context, filter *EventFilter) ([]*Even
 				stmt += fmt.Sprintf(" AND topic%v = ?", j)
 			}
 		}
+		stmt += ")"
+	}
+	if multiCriteria == true {
 		stmt += ")"
 	}
 
