@@ -165,15 +165,24 @@ func (a *Auction) ClearAuction(cb *AuctionCB, state *state.State, env *AuctionEn
 		actualPrice = cb.RsvdPrice
 	}
 
-	total := big.NewInt(0)
-	distMtrg := []*DistMtrg{}
+	groupTxMap := make(map[meter.Address]*big.Int)
 	for _, tx := range cb.AuctionTxs {
 		mtrg := new(big.Int).Mul(tx.Amount, big.NewInt(1e18))
 		mtrg = new(big.Int).Div(mtrg, actualPrice)
 
-		a.SendMTRGToBidder(tx.Address, mtrg, stateDB, env)
+		if _, ok := groupTxMap[tx.Address]; ok == true {
+			groupTxMap[tx.Address] = groupTxMap[tx.Address].Add(groupTxMap[tx.Address], mtrg)
+		} else {
+			groupTxMap[tx.Address] = new(big.Int).Set(mtrg)
+		}
+	}
+
+	total := big.NewInt(0)
+	distMtrg := []*DistMtrg{}
+	for addr, mtrg := range groupTxMap {
+		a.SendMTRGToBidder(addr, mtrg, stateDB, env)
 		total = total.Add(total, mtrg)
-		distMtrg = append(distMtrg, &DistMtrg{Addr: tx.Address, Amount: mtrg})
+		distMtrg = append(distMtrg, &DistMtrg{Addr: addr, Amount: mtrg})
 	}
 
 	// sometimes accuracy cause negative value
