@@ -45,6 +45,7 @@ type JSONBlockSummary struct {
 	Epoch            uint64             `json:"epoch"`
 	KblockData       []string           `json:"kblockData"`
 	PowBlocks        []*JSONPowBlock    `json:"powBlocks"`
+	LogsBloom string `json:"logsBloom"`
 }
 
 type JSONCollapsedBlock struct {
@@ -161,7 +162,7 @@ type JSONExpandedBlock struct {
 	Transactions []*JSONEmbeddedTx `json:"transactions"`
 }
 
-func buildJSONBlockSummary(blk *block.Block, isTrunk bool) *JSONBlockSummary {
+func buildJSONBlockSummary(blk *block.Block, isTrunk bool, logsBloom string) *JSONBlockSummary {
 	header := blk.Header()
 	signer, _ := header.Signer()
 
@@ -193,6 +194,7 @@ func buildJSONBlockSummary(blk *block.Block, isTrunk bool) *JSONBlockSummary {
 		LastKBlockHeight: header.LastKBlockHeight(),
 		Epoch:            epoch,
 		KblockData:       make([]string, 0),
+		LogsBloom: logsBloom,
 	}
 	var err error
 	if blk.QC != nil {

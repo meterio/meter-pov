@@ -230,12 +230,12 @@ func NewConsensusReactor(ctx *cli.Context, chain *chain.Chain, state *state.Crea
 		curEpochGauge.Set(float64(0))
 	}
 
-	prometheus.MustRegister(pmRoundGauge)
-	prometheus.MustRegister(curEpochGauge)
-	prometheus.MustRegister(lastKBlockHeightGauge)
-	prometheus.MustRegister(blocksCommitedCounter)
-	prometheus.MustRegister(inCommitteeGauge)
-	prometheus.MustRegister(pmRoleGauge)
+	prometheus.Register(pmRoundGauge)
+	prometheus.Register(curEpochGauge)
+	prometheus.Register(lastKBlockHeightGauge)
+	prometheus.Register(blocksCommitedCounter)
+	prometheus.Register(inCommitteeGauge)
+	prometheus.Register(pmRoleGauge)
 
 	lastKBlockHeightGauge.Set(float64(conR.lastKBlockHeight))
 

@@ -19,6 +19,10 @@ const (
 	TestnetSysContractStartNum = 100000
 	EdisonMainnetStartNum      = 0
 	EdisonTestnetStartNum      = 0
+
+	//chainID
+	MainnetChainID = 82  // 0x52 for mainnet
+	TestnetChainID = 101 // 0x65 for testnet
 )
 
 // Tesla: The staking/auction release, Features include:
@@ -38,6 +42,8 @@ const (
 
 	TeslaFork2_MainnetStartNum = 10382000 // around 4/16/2021 11:00 AM
 	TeslaFork2_TestnetStartNum = 682000   // around 4/16/2021 11:00 AM
+	//Tesla1.2 Hardfork
+	Tesla1_2MainnetStartNum = 14000000
 )
 
 // start block number support sys-contract

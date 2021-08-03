@@ -3,20 +3,20 @@
 
 // file LICENSE or <https://www.gnu.org/licenses/lgpl-3.0.html>
 
-package meter.test
+package bloom.test
 
 import (
 	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/dfinlab/meter/meter"
+	"github.com/dinflab/meter/meter/bloom"
 )
 
-func TestBloom(t *testing.T) {
-
+func TestLegacyBloom(t *testing.T) {
 	itemCount := 100
-	bloom := meter.NewBloom(meter.EstimateBloomK(itemCount))
+
+	bloom := bloom.NewLegacyBloom(bloom.LegacyEstimateBloomK(itemCount))
 
 	for i := 0; i < itemCount; i++ {
 		bloom.Add([]byte(fmt.Sprintf("%v", i)))

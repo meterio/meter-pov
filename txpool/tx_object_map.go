@@ -52,6 +52,12 @@ func (m *txObjectMap) Add(txObj *txObject, limitPerAccount int) error {
 	return nil
 }
 
+func (m *txObjectMap) GetByID(id meter.Bytes32) *txObject {
+	m.lock.Lock()
+	defer m.lock.Unlock()
+	return m.txObjMap[id]
+}
+
 func (m *txObjectMap) Remove(txID meter.Bytes32) bool {
 	m.lock.Lock()
 	defer m.lock.Unlock()

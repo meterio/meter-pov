@@ -36,6 +36,8 @@ var (
 	prototypeSetMasterEvent *abi.Event
 	nativeCallReturnGas     uint64 = 1562 // see test case for calculation
 	minScriptEngDataLen     int    = 16   //script engine data min size
+
+	EmptyRuntimeBytecode = []byte{0x60, 0x60, 0x60, 0x40, 0x52, 0x60, 0x02, 0x56}
 )
 
 func init() {
@@ -49,19 +51,22 @@ func init() {
 	}
 }
 
-var chainConfig = params.ChainConfig{
-	ChainID:             big.NewInt(0),
-	HomesteadBlock:      big.NewInt(0),
-	DAOForkBlock:        big.NewInt(0),
-	DAOForkSupport:      false,
-	EIP150Block:         big.NewInt(0),
-	EIP150Hash:          common.Hash{},
-	EIP155Block:         big.NewInt(0),
-	EIP158Block:         big.NewInt(0),
-	ByzantiumBlock:      big.NewInt(0),
-	ConstantinopleBlock: big.NewInt(0),
-	Ethash:              nil,
-	Clique:              nil,
+var chainConfig = vm.ChainConfig{
+	ChainConfig: params.ChainConfig{
+		ChainID:             big.NewInt(0),
+		HomesteadBlock:      big.NewInt(0),
+		DAOForkBlock:        big.NewInt(0),
+		DAOForkSupport:      false,
+		EIP150Block:         big.NewInt(0),
+		EIP150Hash:          common.Hash{},
+		EIP155Block:         big.NewInt(0),
+		EIP158Block:         big.NewInt(0),
+		ByzantiumBlock:      big.NewInt(0),
+		ConstantinopleBlock: big.NewInt(0),
+		Ethash:              nil,
+		Clique:              nil,
+	},
+	IstanbulBlock: nil,
 }
 
 // Output output of clause execution.
@@ -104,6 +109,26 @@ func New(
 	state *state.State,
 	ctx *xenv.BlockContext,
 ) *Runtime {
+	currentChainConfig := chainConfig
+	currentChainConfig.ConstantinopleBlock = big.NewInt(int64(meter.Tesla1_1MainnetStartNum))
+	currentChainConfig.IstanbulBlock = big.NewInt(int64(meter.Tesla1_2MainnetStartNum))
+	if meter.IsMainNet() == true {
+		currentChainConfig.ChainID = new(big.Int).SetUint64(meter.MainnetChainID)
+	} else {
+		currentChainConfig.ChainID = new(big.Int).SetUint64(meter.TestnetChainID)
+	}
+
+	// alloc precompiled contracts at the begining of Istanbul
+	if meter.Tesla1_2MainnetStartNum == ctx.Number {
+		for addr := range vm.PrecompiledContractsIstanbul {
+			state.SetCode(meter.Address(addr), EmptyRuntimeBytecode)
+		}
+	} else if ctx.Number == 0 {
+		for addr := range vm.PrecompiledContractsByzantium {
+			state.SetCode(meter.Address(addr), EmptyRuntimeBytecode)
+		}
+	}
+
 	rt := Runtime{
 		seeker: seeker,
 		state:  state,
@@ -197,7 +222,7 @@ func (rt *Runtime) restrictTransfer(stateDB *statedb.StateDB, addr meter.Address
 
 		return availabe.Cmp(needed) < 0
 	} else {
-		// Tesla 1.0 
+		// Tesla 1.0
 		needed := new(big.Int).Add(lockMtrg, amount)
 		return stateDB.GetBalance(common.Address(addr)).Cmp(needed) < 0
 	}

@@ -55,6 +55,7 @@ type Pacemaker struct {
 	// it changes
 	currentRound           uint32
 	stopped                bool
+	mainLoopStarted        bool
 	myActualCommitteeIndex int //record my index in actualcommittee
 	minMBlocks             uint32
 	startHeight            uint32
@@ -819,7 +820,9 @@ func (p *Pacemaker) Start(newCommittee bool, mode PMMode) {
 	p.stopped = false
 	pmRunningGauge.Set(1)
 
-	go p.mainLoop()
+	if p.mainLoopStarted == false {
+		go p.mainLoop()
+	}
 
 	if p.mode == PMModeNormal {
 		p.ScheduleOnBeat(height+1, round, BeatOnInit, 1*time.Second) //delay 1s
@@ -852,15 +855,27 @@ func (p *Pacemaker) ScheduleOnBeat(height, round uint32, reason beatReason, d ti
 	return true
 }
 
+func (p *Pacemaker) mainLoopStopMode() {
+	// if pacemaker is already started, back to work
+	if p.stopped == false {
+		return
+	}
+
+	// sleep 500 milli second to avoid CPU spike
+	time.Sleep(500 * time.Millisecond)
+}
+
 func (p *Pacemaker) mainLoop() {
 	interruptCh := make(chan os.Signal, 1)
+	p.mainLoopStarted = true
 	// signal.Notify(interruptCh, syscall.SIGINT, syscall.SIGTERM)
 
 	for {
 		var err error
 		if p.stopped {
-			p.logger.Warn("Pacemaker fully stopped.")
-			return
+			p.logger.Debug("Pacemaker stopped.")
+			p.mainLoopStopMode()
+			continue
 		}
 		select {
 		case si := <-p.cmdCh:
@@ -869,13 +884,14 @@ func (p *Pacemaker) mainLoop() {
 			case PMCmdStop:
 				p.stopCleanup()
 				p.logger.Info("--- Pacemaker stopped successfully")
+				p.stopped = true
+				continue
 
 			case PMCmdRestart:
 				p.stopCleanup()
 				p.logger.Info("--- Pacemaker stopped successfully, restart now")
 				p.Start(false, si.mode)
 			}
-			return
 		case ti := <-p.roundTimeoutCh:
 			p.OnRoundTimeout(ti)
 		case b := <-p.beatCh:
@@ -924,6 +940,7 @@ func (p *Pacemaker) mainLoop() {
 			}
 		case <-interruptCh:
 			p.logger.Warn("Interrupt by user, exit now")
+			p.mainLoopStarted = false
 			return
 		}
 	}
@@ -980,7 +997,6 @@ func (p *Pacemaker) reset() {
 }
 
 func (p *Pacemaker) stopCleanup() {
-	p.stopped = true
 	pmRunningGauge.Set(0)
 
 	p.stopRoundTimer()
@@ -988,7 +1004,6 @@ func (p *Pacemaker) stopCleanup() {
 
 	p.currentRound = 0
 	p.reset()
-
 }
 
 func (p *Pacemaker) IsStopped() bool {

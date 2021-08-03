@@ -9,10 +9,12 @@ import (
 	"bytes"
 	"crypto/ecdsa"
 	"encoding/base64"
+	"fmt"
 
 	//sha256 "crypto/sha256"
 	"time"
 
+	"github.com/dfinlab/meter/block"
 	bls "github.com/dfinlab/meter/crypto/multi_sig"
 	cmn "github.com/dfinlab/meter/libs/common"
 	types "github.com/dfinlab/meter/types"
@@ -194,7 +196,20 @@ func (conR *ConsensusReactor) sendNewCommitteeMessage(peer *ConsensusPeer, leade
 
 	// keep the epoch is the same if it is the replay
 	var nextEpochID uint64
-	nextEpochID = conR.curEpoch + 1
+	best := conR.chain.BestBlock()
+
+	if best.Header().BlockType() == block.BLOCK_TYPE_K_BLOCK {
+		nextEpochID = best.GetBlockEpoch() + 1
+	} else {
+		lastKBlock, err := conR.chain.GetTrunkBlock(best.Header().LastKBlockHeight())
+		if err != nil {
+			fmt.Println("could not get last KBlock")
+			return false
+		}
+		nextEpochID = lastKBlock.GetBlockEpoch() + 1
+
+	}
+	// nextEpochID = conR.curEpoch + 1
 	if conR.newCommittee.Replay == true {
 		nextEpochID = conR.curEpoch
 	}

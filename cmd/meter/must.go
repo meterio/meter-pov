@@ -487,7 +487,12 @@ func startObserveServer(ctx *cli.Context, cons *consensus.ConsensusReactor, comp
 	mux.HandleFunc("/committee", cons.ReceiveCommitteeMsg)
 	mux.HandleFunc("/pacemaker", cons.ReceivePacemakerMsg)
 
-	srv := &http.Server{Handler: mux}
+	srv := &http.Server{
+		Handler:      mux,
+		ReadTimeout:  5 * time.Second,
+		WriteTimeout: 10 * time.Second,
+		IdleTimeout:  120 * time.Second,
+	}
 	var goes co.Goes
 	goes.Go(func() {
 		err := srv.Serve(listener)
@@ -521,7 +526,12 @@ func startAPIServer(ctx *cli.Context, handler http.Handler, genesisID meter.Byte
 	handler = handleXGenesisID(handler, genesisID)
 	handler = handleXMeterVersion(handler)
 	handler = requestBodyLimit(handler)
-	srv := &http.Server{Handler: handler}
+	srv := &http.Server{
+		Handler:      handler,
+		ReadTimeout:  5 * time.Second,
+		WriteTimeout: 10 * time.Second,
+		IdleTimeout:  120 * time.Second,
+	}
 	var goes co.Goes
 	goes.Go(func() {
 		err := srv.Serve(listener)
@@ -544,7 +554,13 @@ func startAPIServer(ctx *cli.Context, handler http.Handler, genesisID meter.Byte
 		}
 
 		tlsConfig := &tls.Config{Certificates: []tls.Certificate{cer}}
-		tlsSrv = &http.Server{Handler: handler, TLSConfig: tlsConfig}
+		tlsSrv = &http.Server{
+			Handler:      handler,
+			TLSConfig:    tlsConfig,
+			ReadTimeout:  5 * time.Second,
+			WriteTimeout: 10 * time.Second,
+			IdleTimeout:  120 * time.Second,
+		}
 		tlsListener, err := tls.Listen("tcp", ":8667", tlsConfig)
 		if err != nil {
 			panic(err)
@@ -590,7 +606,12 @@ func startPowAPIServer(ctx *cli.Context, handler http.Handler) (string, func()) 
 		handler = handleAPITimeout(handler, time.Duration(timeout)*time.Millisecond)
 	}
 	handler = requestBodyLimit(handler)
-	srv := &http.Server{Handler: handler}
+	srv := &http.Server{
+		Handler:      handler,
+		ReadTimeout:  5 * time.Second,
+		WriteTimeout: 10 * time.Second,
+		IdleTimeout:  120 * time.Second,
+	}
 	var goes co.Goes
 	goes.Go(func() {
 		err := srv.Serve(listener)
