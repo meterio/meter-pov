@@ -40,13 +40,10 @@ const (
 	// 4）update (total votes / self vote) limit from 10x to 100x
 	Tesla1_1MainnetStartNum = 9680000
 
-<<<<<<< HEAD
 	TeslaFork2_MainnetStartNum = 10382000 // around 4/16/2021 11:00 AM
 	TeslaFork2_TestnetStartNum = 682000   // around 4/16/2021 11:00 AM
-=======
 	//Tesla1.2 Hardfork
 	Tesla1_2MainnetStartNum = 14000000
->>>>>>> c7e64839 (istanbul porting from vechain)
 )
 
 // start block number support sys-contract
