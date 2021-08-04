@@ -507,14 +507,14 @@ func opExtCodeCopy(pc *uint64, evm *EVM, contract *Contract, memory *Memory, sta
 // return common.Hash{} and zero will be set as the result.
 //
 //   (3) Caller tries to get the code hash for an account without contract code,
-// state should return emptyCodeHash(0xc5d246...) as the result.
+// state should return EmptyCodeHash(0xc5d246...) as the result.
 //
 //   (4) Caller tries to get the code hash of a precompiled account, the result
-// should be zero or emptyCodeHash.
+// should be zero or EmptyCodeHash.
 //
 // It is worth noting that in order to avoid unnecessary create and clean,
 // all precompile accounts on mainnet have been transferred 1 wei, so the return
-// here should be emptyCodeHash.
+// here should be EmptyCodeHash.
 // If the precompile account is not transferred any amount on a private or
 // customized chain, the return value will be zero.
 //
@@ -529,7 +529,7 @@ func opExtCodeHash(pc *uint64, evm *EVM, contract *Contract, memory *Memory, sta
 	if evm.StateDB.Empty(address) {
 		slot.SetUint64(0)
 	} else if codeHash := evm.StateDB.GetCodeHash(address); codeHash == (common.Hash{}) {
-		slot.SetBytes(emptyCodeHash.Bytes())
+		slot.SetBytes(EmptyCodeHash.Bytes())
 	} else {
 		slot.SetBytes(codeHash.Bytes())
 	}

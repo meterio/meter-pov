@@ -26,9 +26,9 @@ import (
 	"github.com/ethereum/go-ethereum/params"
 )
 
-// emptyCodeHash is used by create to ensure deployment is disallowed to already
+// EmptyCodeHash is used by create to ensure deployment is disallowed to already
 // deployed contract addresses (relevant after the account abstraction).
-var emptyCodeHash = crypto.Keccak256Hash(nil)
+var EmptyCodeHash = crypto.Keccak256Hash(nil)
 
 type (
 	CanTransferFunc func(StateDB, common.Address, *big.Int, byte) bool
@@ -38,7 +38,7 @@ type (
 	GetHashFunc func(uint64) common.Hash
 
 	// NewContractAddressFunc create a new contract according to current evm context and creation counter.
-	NewContractAddressFunc func(evm *EVM, counter uint32) common.Address
+	NewContractAddressFunc func(caller common.Address, counter uint32) common.Address
 	// InterceptContractCallFunc intercept contract call.
 	InterceptContractCallFunc func(evm *EVM, contract *Contract, readonly bool) ([]byte, error, bool)
 
@@ -351,7 +351,7 @@ func (evm *EVM) StaticCall(caller ContractRef, addr common.Address, input []byte
 
 // Create creates a new contract using code as deployment code.
 func (evm *EVM) Create(caller ContractRef, code []byte, gas uint64, value *big.Int, token byte) (ret []byte, contractAddr common.Address, leftOverGas uint64, err error) {
-	contractAddr = evm.NewContractAddress(evm, evm.contractCreationCount)
+	contractAddr = evm.NewContractAddress(caller.Address(), evm.contractCreationCount)
 
 	if evm.vmConfig.Debug && evm.depth == 0 {
 		// Capture the tracer start/end events in debug mode
@@ -385,7 +385,7 @@ func (evm *EVM) create(caller ContractRef, code []byte, gas uint64, value *big.I
 
 	// Ensure there's no existing contract already at the designated address
 	contractHash := evm.StateDB.GetCodeHash(contractAddr)
-	if evm.StateDB.GetNonce(contractAddr) != 0 || (contractHash != (common.Hash{}) && contractHash != emptyCodeHash) {
+	if evm.StateDB.GetNonce(contractAddr) != 0 || (contractHash != (common.Hash{}) && contractHash != EmptyCodeHash) {
 		return nil, common.Address{}, 0, ErrContractAddressCollision
 	}
 	// Create a new account on the state

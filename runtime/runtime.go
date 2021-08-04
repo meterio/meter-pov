@@ -298,10 +298,14 @@ func (rt *Runtime) newEVM(stateDB *statedb.StateDB, clauseIndex uint32, txCtx *x
 		GetHash: func(num uint64) common.Hash {
 			return common.Hash(rt.seeker.GetID(uint32(num)))
 		},
-		NewContractAddress: func(_ *vm.EVM, counter uint32) common.Address {
-			//fmt.Println("clauseIndex", clauseIndex, "counter", counter)
+		NewContractAddress: func(caller common.Address, counter uint32) common.Address {
+			fmt.Println("address", meter.Address(caller).String(), "clauseIndex", clauseIndex, "counter", counter)
 			if meter.IsMainChainTesla(txCtx.BlockRef.Number()) || meter.IsTestNet() {
-				return common.Address(meter.EthCreateContractAddress(common.Address(txCtx.Origin), uint32(txCtx.Nonce)+clauseIndex))
+				if stateDB.GetCodeHash(caller) == (common.Hash{}) || stateDB.GetCodeHash(caller) == vm.EmptyCodeHash {
+					return common.Address(meter.EthCreateContractAddress(caller, uint32(txCtx.Nonce)+clauseIndex))
+				} else {
+					return common.Address(meter.EthCreateContractAddress(caller, counter))
+				}
 			} else {
 				return common.Address(meter.CreateContractAddress(txCtx.ID, clauseIndex, counter))
 			}
