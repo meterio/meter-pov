@@ -66,7 +66,7 @@ var chainConfig = vm.ChainConfig{
 		Ethash:              nil,
 		Clique:              nil,
 	},
-	IstanbulBlock: nil,
+	IstanbulBlock: big.NewInt(0),
 }
 
 // Output output of clause execution.
@@ -109,17 +109,18 @@ func New(
 	state *state.State,
 	ctx *xenv.BlockContext,
 ) *Runtime {
-	currentChainConfig := chainConfig
-	currentChainConfig.ConstantinopleBlock = big.NewInt(int64(meter.Tesla1_1MainnetStartNum))
-	currentChainConfig.IstanbulBlock = big.NewInt(int64(meter.Tesla1_2MainnetStartNum))
+	// currentChainConfig := chainConfig
+	chainConfig.ConstantinopleBlock = big.NewInt(int64(meter.Tesla1_1MainnetStartNum))
 	if meter.IsMainNet() == true {
-		currentChainConfig.ChainID = new(big.Int).SetUint64(meter.MainnetChainID)
+		chainConfig.ChainID = new(big.Int).SetUint64(meter.MainnetChainID)
+		chainConfig.IstanbulBlock = big.NewInt(int64(meter.Tesla1_2IstanbulMainnetStartNum))
 	} else {
-		currentChainConfig.ChainID = new(big.Int).SetUint64(meter.TestnetChainID)
+		chainConfig.ChainID = new(big.Int).SetUint64(meter.TestnetChainID)
+		chainConfig.IstanbulBlock = big.NewInt(int64(meter.Tesla1_2IstanbulTestnetStartNum))
 	}
 
 	// alloc precompiled contracts at the begining of Istanbul
-	if meter.Tesla1_2MainnetStartNum == ctx.Number {
+	if meter.Tesla1_2IstanbulMainnetStartNum == ctx.Number {
 		for addr := range vm.PrecompiledContractsIstanbul {
 			state.SetCode(meter.Address(addr), EmptyRuntimeBytecode)
 		}
