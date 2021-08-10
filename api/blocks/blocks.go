@@ -265,7 +265,7 @@ func (b *Blocks) handleGetQC(w http.ResponseWriter, req *http.Request) error {
 	if err != nil {
 		return err
 	}
-	qc, err := convertQC(block.QC)
+	qc, err := convertQCWithRaw(block.QC)
 	if err != nil {
 		return err
 	}

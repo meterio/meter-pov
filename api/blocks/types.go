@@ -45,7 +45,7 @@ type JSONBlockSummary struct {
 	Epoch            uint64             `json:"epoch"`
 	KblockData       []string           `json:"kblockData"`
 	PowBlocks        []*JSONPowBlock    `json:"powBlocks"`
-	LogsBloom string `json:"logsBloom"`
+	LogsBloom        string             `json:"logsBloom"`
 }
 
 type JSONCollapsedBlock struct {
@@ -194,7 +194,7 @@ func buildJSONBlockSummary(blk *block.Block, isTrunk bool, logsBloom string) *JS
 		LastKBlockHeight: header.LastKBlockHeight(),
 		Epoch:            epoch,
 		KblockData:       make([]string, 0),
-		LogsBloom: logsBloom,
+		LogsBloom:        logsBloom,
 	}
 	var err error
 	if blk.QC != nil {
@@ -319,6 +319,14 @@ type QC struct {
 	EpochID          uint64 `json:"epochID"`
 }
 
+type QCWithRaw struct {
+	QCHeight         uint32 `json:"qcHeight"`
+	QCRound          uint32 `json:"qcRound"`
+	VoterBitArrayStr string `json:"voterBitArrayStr"`
+	EpochID          uint64 `json:"epochID"`
+	Raw              string `json:"raw"`
+}
+
 type CommitteeMember struct {
 	Index uint32 `json:"index"`
 	// Name    string `json:"name"`
@@ -327,12 +335,22 @@ type CommitteeMember struct {
 }
 
 func convertQC(qc *block.QuorumCert) (*QC, error) {
-	// raw := hex.EncodeToString(qc.ToBytes())
 	return &QC{
 		QCHeight:         qc.QCHeight,
 		QCRound:          qc.QCRound,
 		VoterBitArrayStr: qc.VoterBitArrayStr,
 		EpochID:          qc.EpochID,
+	}, nil
+}
+
+func convertQCWithRaw(qc *block.QuorumCert) (*QCWithRaw, error) {
+	raw := hex.EncodeToString(qc.ToBytes())
+	return &QCWithRaw{
+		QCHeight:         qc.QCHeight,
+		QCRound:          qc.QCRound,
+		VoterBitArrayStr: qc.VoterBitArrayStr,
+		EpochID:          qc.EpochID,
+		Raw:              raw,
 	}, nil
 }
 

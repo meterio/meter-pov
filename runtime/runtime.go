@@ -113,14 +113,14 @@ func New(
 	chainConfig.ConstantinopleBlock = big.NewInt(int64(meter.Tesla1_1MainnetStartNum))
 	if meter.IsMainNet() == true {
 		chainConfig.ChainID = new(big.Int).SetUint64(meter.MainnetChainID)
-		chainConfig.IstanbulBlock = big.NewInt(int64(meter.Tesla1_2IstanbulMainnetStartNum))
+		chainConfig.IstanbulBlock = big.NewInt(int64(meter.Tesla1_2MainnetStartNum))
 	} else {
 		chainConfig.ChainID = new(big.Int).SetUint64(meter.TestnetChainID)
-		chainConfig.IstanbulBlock = big.NewInt(int64(meter.Tesla1_2IstanbulTestnetStartNum))
+		chainConfig.IstanbulBlock = big.NewInt(int64(meter.Tesla1_2TestnetStartNum))
 	}
 
 	// alloc precompiled contracts at the begining of Istanbul
-	if meter.Tesla1_2IstanbulMainnetStartNum == ctx.Number {
+	if meter.Tesla1_2MainnetStartNum == ctx.Number {
 		for addr := range vm.PrecompiledContractsIstanbul {
 			state.SetCode(meter.Address(addr), EmptyRuntimeBytecode)
 		}
@@ -302,10 +302,14 @@ func (rt *Runtime) newEVM(stateDB *statedb.StateDB, clauseIndex uint32, txCtx *x
 		NewContractAddress: func(caller common.Address, counter uint32) common.Address {
 			fmt.Println("address", meter.Address(caller).String(), "clauseIndex", clauseIndex, "counter", counter)
 			if meter.IsMainChainTesla(txCtx.BlockRef.Number()) || meter.IsTestNet() {
-				if stateDB.GetCodeHash(caller) == (common.Hash{}) || stateDB.GetCodeHash(caller) == vm.EmptyCodeHash {
-					return common.Address(meter.EthCreateContractAddress(caller, uint32(txCtx.Nonce)+clauseIndex))
+				if meter.IsMainChainTeslaFork3(txCtx.BlockRef.Number()) || meter.IsTestChainTeslaFork3(txCtx.BlockRef.Number())  {
+					if stateDB.GetCodeHash(caller) == (common.Hash{}) || stateDB.GetCodeHash(caller) == vm.EmptyCodeHash {
+						return common.Address(meter.EthCreateContractAddress(caller, uint32(txCtx.Nonce)+clauseIndex))
+					} else {
+						return common.Address(meter.EthCreateContractAddress(caller, counter))
+					}
 				} else {
-					return common.Address(meter.EthCreateContractAddress(caller, counter))
+					return common.Address(meter.EthCreateContractAddress(caller, uint32(txCtx.Nonce)+clauseIndex))
 				}
 			} else {
 				return common.Address(meter.CreateContractAddress(txCtx.ID, clauseIndex, counter))
