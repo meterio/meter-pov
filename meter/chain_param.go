@@ -43,12 +43,16 @@ const (
 	TeslaFork2_MainnetStartNum = 10382000 // around 4/16/2021 11:00 AM
 	TeslaFork2_TestnetStartNum = 682000   // around 4/16/2021 11:00 AM
 
-	TeslaFork3_MainnetStartNum = 10382000 // FIXME: change this
+	// Tesla 1.2 Hardfork
+	// includes feature updates:
+	// 1) evm upgrade from v1.18.10 to v1.18.14
+	// 2) istanbul porting from vechain
+	// 3) aggregate autobid
+	// 4) fix the contract address issue: if caller is external, use tx nonce + clauseIndex
+	//    otherwise, caller is internal, use global counter as entropy
+	// 5) fix the empty chainid issue
+	TeslaFork3_MainnetStartNum = 14000000 // FIXME: change this
 	TeslaFork3_TestnetStartNum = 4220000  // FIXME: 4220000
-
-	//Tesla1.2 Hardfork
-	Tesla1_2MainnetStartNum = 14000000
-	Tesla1_2TestnetStartNum = 4000000
 )
 
 // start block number support sys-contract
