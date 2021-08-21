@@ -47,11 +47,17 @@ func (e *EventsLegacy) handleFilter(w http.ResponseWriter, req *http.Request) er
 	}
 	query := req.URL.Query()
 	if query.Get("address") != "" {
-		addr, err := meter.ParseAddress(query.Get("address"))
-		if err != nil {
-			return utils.BadRequest(errors.WithMessage(err, "address"))
+		as := query["address"]
+
+		addrs := []*meter.Address{}
+		for _, a := range as {
+			addr, err := meter.ParseAddress(a)
+			if err != nil {
+				return utils.BadRequest(errors.WithMessage(err, "address"))
+			}
+			addrs = append(addrs, &addr)
 		}
-		filter.Address = &addr
+		filter.Address = addrs
 	}
 	order := query.Get("order")
 	if order != string(logdb.DESC) {

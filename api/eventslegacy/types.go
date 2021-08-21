@@ -23,7 +23,7 @@ type TopicSet struct {
 }
 
 type FilterLegacy struct {
-	Address   *meter.Address
+	Address   []*meter.Address
 	TopicSets []*TopicSet
 	Range     *logdb.Range
 	Options   *logdb.Options
@@ -36,28 +36,42 @@ func convertFilter(filter *FilterLegacy) *logdb.EventFilter {
 		Options: filter.Options,
 		Order:   filter.Order,
 	}
+
 	if len(filter.TopicSets) > 0 {
-		criterias := make([]*logdb.EventCriteria, len(filter.TopicSets))
-		for i, topicSet := range filter.TopicSets {
-			var topics [5]*meter.Bytes32
-			topics[0] = topicSet.Topic0
-			topics[1] = topicSet.Topic1
-			topics[2] = topicSet.Topic2
-			topics[3] = topicSet.Topic3
-			topics[4] = topicSet.Topic4
-			criteria := &logdb.EventCriteria{
-				Address: filter.Address,
-				Topics:  topics,
+		criterias := []*logdb.EventCriteria{}
+		for _, addr := range filter.Address {
+			for _, topicSet := range filter.TopicSets {
+				var topics [5]*meter.Bytes32
+				topics[0] = topicSet.Topic0
+				topics[1] = topicSet.Topic1
+				topics[2] = topicSet.Topic2
+				topics[3] = topicSet.Topic3
+				topics[4] = topicSet.Topic4
+				criteria := &logdb.EventCriteria{
+					Address: addr,
+					Topics:  topics,
+				}
+				criterias = append(criterias, criteria)
 			}
-			criterias[i] = criteria
 		}
 		f.CriteriaSet = criterias
-	} else if filter.Address != nil {
-		f.CriteriaSet = []*logdb.EventCriteria{
-			&logdb.EventCriteria{
-				Address: filter.Address,
-			}}
+	} else {
+		criterias := []*logdb.EventCriteria{}
+		for _, addr := range filter.Address {
+			criteria := &logdb.EventCriteria{
+				Address: addr,
+			}
+			criterias = append(criterias, criteria)
+		}
+
+		f.CriteriaSet = criterias
 	}
+
+	/***
+	for _, c := range f.CriteriaSet {
+		fmt.Println("*criteria", *c)
+	}
+	***/
 	return f
 }
 
