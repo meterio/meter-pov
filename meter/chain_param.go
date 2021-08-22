@@ -40,8 +40,8 @@ const (
 	// 4）update (total votes / self vote) limit from 10x to 100x
 	Tesla1_1MainnetStartNum = 9680000
 
-	TeslaFork2_MainnetStartNum = 10382000 // around 4/16/2021 11:00 AM
-	TeslaFork2_TestnetStartNum = 682000   // around 4/16/2021 11:00 AM
+	TeslaFork2_MainnetStartNum = 10382000 // around 4/16/2021 11:00 AM (Beijing)
+	TeslaFork2_TestnetStartNum = 682000   // around 4/16/2021 11:00 AM (Beijing)
 
 	// Tesla 1.2 Hardfork
 	// includes feature updates:
@@ -51,7 +51,7 @@ const (
 	// 4) fix the contract address issue: if caller is external, use tx nonce + clauseIndex
 	//    otherwise, caller is internal, use global counter as entropy
 	// 5) fix the empty chainid issue
-	TeslaFork3_MainnetStartNum = 14000000 // FIXME: change this
+	TeslaFork3_MainnetStartNum = 14875500 // around 8/24/2021 10:00 AM (Beijing)
 	TeslaFork3_TestnetStartNum = 4220000  // FIXME: 4220000
 )
 

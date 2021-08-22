@@ -6,9 +6,16 @@ WORKDIR  /meter
 COPY . .
 
 RUN git submodule update --init
-# RUN make dep
+# RUN make dep (takes much longer)
+
+# prepare for missed sha3 library
+RUN go get golang.org/x/crypto/sha3
+RUN cp -r "${GOPATH}/src/golang.org/x/crypto/sha3" "/meter/vendor/golang.org/x/crypto/sha3"
+
+# prepare for missed secp256k1 library
 # RUN go get github.com/ethereum/go-ethereum
 # RUN cp -r "${GOPATH}/src/github.com/ethereum/go-ethereum/crypto/secp256k1/libsecp256k1" "/meter/vendor/github.com/ethereum/go-ethereum/crypto/secp256k1/"
+
 RUN make all
 
 # Pull meter into a second stage deploy alpine container
