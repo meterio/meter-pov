@@ -193,6 +193,7 @@ func (a *Auction) ClearAuction(cb *AuctionCB, state *state.State, env *AuctionEn
 			mtrg = new(big.Int).Div(mtrg, actualPrice)
 
 			a.SendMTRGToBidder(tx.Address, mtrg, stateDB, env)
+			total = total.Add(total, mtrg)
 			distMtrg = append(distMtrg, &DistMtrg{Addr: tx.Address, Amount: mtrg})
 		}
 
