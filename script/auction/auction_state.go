@@ -172,7 +172,7 @@ func (a *Auction) ClearAuction(cb *AuctionCB, state *state.State, env *AuctionEn
 	if meter.IsTestChainTeslaFork3(blockNum) || meter.IsMainChainTeslaFork3(blockNum) {
 
 		groupTxMap := make(map[meter.Address]*big.Int)
-		addresses := make([]meter.Address, 0)
+		sortedAddresses := make([]meter.Address, 0)
 		for _, tx := range cb.AuctionTxs {
 			mtrg := new(big.Int).Mul(tx.Amount, big.NewInt(1e18))
 			mtrg = new(big.Int).Div(mtrg, actualPrice)
@@ -181,20 +181,18 @@ func (a *Auction) ClearAuction(cb *AuctionCB, state *state.State, env *AuctionEn
 				groupTxMap[tx.Address] = new(big.Int).Add(groupTxMap[tx.Address], mtrg)
 			} else {
 				groupTxMap[tx.Address] = new(big.Int).Set(mtrg)
-				addresses = append(addresses, tx.Address)
+				sortedAddresses = append(sortedAddresses, tx.Address)
 			}
 		}
 
-		sort.SliceStable(addresses, func(i, j int) bool {
-			return bytes.Compare(addresses[i].Bytes(), addresses[j].Bytes()) <= 0
+		sort.SliceStable(sortedAddresses, func(i, j int) bool {
+			return bytes.Compare(sortedAddresses[i].Bytes(), sortedAddresses[j].Bytes()) <= 0
 		})
 
-		for _, addr := range addresses {
+		for _, addr := range sortedAddresses {
 			mtrg := groupTxMap[addr]
 			a.SendMTRGToBidder(addr, mtrg, stateDB, env)
-			if (meter.IsMainNet() && blockNum <= meter.TeslaFork3_MainnetAuctionDefectStartNum && blockNum >= meter.TeslaFork3_MainnetStartNum) || meter.IsTestNet() {
-				total = total.Add(total, mtrg)
-			}
+			total = total.Add(total, mtrg)
 			distMtrg = append(distMtrg, &DistMtrg{Addr: addr, Amount: mtrg})
 		}
 	} else {
@@ -203,7 +201,9 @@ func (a *Auction) ClearAuction(cb *AuctionCB, state *state.State, env *AuctionEn
 			mtrg = new(big.Int).Div(mtrg, actualPrice)
 
 			a.SendMTRGToBidder(tx.Address, mtrg, stateDB, env)
-			total = total.Add(total, mtrg)
+			if (meter.IsMainNet() && blockNum < meter.TeslaFork3_MainnetAuctionDefectStartNum) || meter.IsTestNet() {
+				total = total.Add(total, mtrg)
+			}
 			distMtrg = append(distMtrg, &DistMtrg{Addr: tx.Address, Amount: mtrg})
 		}
 
