@@ -184,7 +184,9 @@ func (a *Auction) ClearAuction(cb *AuctionCB, state *state.State, env *AuctionEn
 
 		for addr, mtrg := range groupTxMap {
 			a.SendMTRGToBidder(addr, mtrg, stateDB, env)
-			total = total.Add(total, mtrg)
+			if (meter.IsMainNet() && blockNum <= meter.TeslaFork3_MainnetAuctionDefectStartNum && blockNum >= meter.TeslaFork3_MainnetStartNum) || meter.IsTestNet() {
+				total = total.Add(total, mtrg)
+			}
 			distMtrg = append(distMtrg, &DistMtrg{Addr: addr, Amount: mtrg})
 		}
 	} else {

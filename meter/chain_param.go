@@ -51,8 +51,9 @@ const (
 	// 4) fix the contract address issue: if caller is external, use tx nonce + clauseIndex
 	//    otherwise, caller is internal, use global counter as entropy
 	// 5) fix the empty chainid issue
-	TeslaFork3_MainnetStartNum = 14875500 // around 8/24/2021 10:00 AM (Beijing)
-	TeslaFork3_TestnetStartNum = 4220000  // FIXME: 4220000
+	TeslaFork3_MainnetAuctionDefectStartNum = 14811495
+	TeslaFork3_MainnetStartNum              = 14875500 // around 8/24/2021 10:00 AM (Beijing)
+	TeslaFork3_TestnetStartNum              = 4220000  // FIXME: 4220000
 )
 
 // start block number support sys-contract
