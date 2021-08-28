@@ -309,7 +309,8 @@ func (rt *Runtime) newEVM(stateDB *statedb.StateDB, clauseIndex uint32, txCtx *x
 						return common.Address(meter.EthCreateContractAddress(caller, counter))
 					}
 				} else {
-					return common.Address(meter.EthCreateContractAddress(caller, uint32(txCtx.Nonce)+clauseIndex))
+					//return common.Address(meter.EthCreateContractAddress(caller, uint32(txCtx.Nonce)+clauseIndex))
+					return common.Address(meter.EthCreateContractAddress(common.Address(txCtx.Origin), uint32(txCtx.Nonce)+clauseIndex))
 				}
 			} else {
 				return common.Address(meter.CreateContractAddress(txCtx.ID, clauseIndex, counter))
