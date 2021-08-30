@@ -27,6 +27,7 @@ import (
 	"github.com/dfinlab/meter/xenv"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/pkg/errors"
 )
@@ -300,21 +301,33 @@ func (rt *Runtime) newEVM(stateDB *statedb.StateDB, clauseIndex uint32, txCtx *x
 			return common.Hash(rt.seeker.GetID(uint32(num)))
 		},
 		NewContractAddress: func(caller common.Address, counter uint32) common.Address {
-			fmt.Println("address", meter.Address(caller).String(), "clauseIndex", clauseIndex, "counter", counter)
+			log.Info("create new contract address", "origin", txCtx.Origin.String(), "caller", caller.String(), "clauseIndex", clauseIndex, "counter", counter, "nonce", txCtx.Nonce)
+			var addr common.Address
 			if meter.IsMainChainTesla(txCtx.BlockRef.Number()) || meter.IsTestNet() {
 				if meter.IsMainChainTeslaFork3(txCtx.BlockRef.Number()) || meter.IsTestChainTeslaFork3(txCtx.BlockRef.Number()) {
 					if stateDB.GetCodeHash(caller) == (common.Hash{}) || stateDB.GetCodeHash(caller) == vm.EmptyCodeHash {
-						return common.Address(meter.EthCreateContractAddress(caller, uint32(txCtx.Nonce)+clauseIndex))
+						fmt.Println("Condition A: after Tesla fork3, caller is contract, eth compatible")
+						addr = common.Address(meter.EthCreateContractAddress(caller, uint32(txCtx.Nonce)+clauseIndex))
 					} else {
-						return common.Address(meter.EthCreateContractAddress(caller, counter))
+						if meter.IsMainChainTeslaFork4(txCtx.BlockRef.Number()) || meter.IsTestChainTeslaFork4(txCtx.BlockRef.Number()) {
+							fmt.Println("Condition B1: after Tesla fork4, caller is external, meter specific")
+							addr = common.Address(meter.CreateContractAddress(txCtx.ID, clauseIndex, counter))
+						} else {
+							fmt.Println("Condition B2: after Tesla fork4, caller is external, counter related")
+							addr = common.Address(meter.EthCreateContractAddress(caller, counter))
+						}
 					}
 				} else {
+					fmt.Println("Condition C: before Tesla fork3, eth compatible")
 					//return common.Address(meter.EthCreateContractAddress(caller, uint32(txCtx.Nonce)+clauseIndex))
-					return common.Address(meter.EthCreateContractAddress(common.Address(txCtx.Origin), uint32(txCtx.Nonce)+clauseIndex))
+					addr = common.Address(meter.EthCreateContractAddress(common.Address(txCtx.Origin), uint32(txCtx.Nonce)+clauseIndex))
 				}
 			} else {
-				return common.Address(meter.CreateContractAddress(txCtx.ID, clauseIndex, counter))
+				fmt.Println("Condition D: before Tesla, meter specific")
+				addr = common.Address(meter.CreateContractAddress(txCtx.ID, clauseIndex, counter))
 			}
+			fmt.Println("New contract address: ", addr.String())
+			return addr
 		},
 		InterceptContractCall: func(evm *vm.EVM, contract *vm.Contract, readonly bool) ([]byte, error, bool) {
 			if evm.Depth() < 2 {
