@@ -185,7 +185,7 @@ func NewTransactionFromEthTx(ethTx *types.Transaction, chainTag byte, blockRef B
 		},
 	}
 	// tx.cache.signer.Store(from)
-	fmt.Println(from)
+	fmt.Println("NewTransactionFromEthTx created tx: ", tx.ID())
 	return tx, nil
 }
 
@@ -384,7 +384,7 @@ func (t *Transaction) Signer() (signer meter.Address, err error) {
 	if t.IsEthTx() {
 		// ethereum translated tx
 		from := "0x" + hex.EncodeToString(t.body.Reserved[1].([]byte))
-		fmt.Println("Signer for ETH translated TX:", from)
+		// fmt.Println("Signer for ETH translated TX:", from)
 		addr, err := meter.ParseAddress(from)
 		return addr, err
 	}
