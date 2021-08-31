@@ -62,7 +62,7 @@ const (
 	// 2) fixed the sync failure at 10963576 (negative total stake balance for stakeholder, should snap to 0 once negative)
 	// 3) fixed the sync failure at 13931713 (use caller for contract address creation, should use origin)
 	TeslaFork4_TestnetStartNum = 4932000
-	TeslaFork4_MainnetStartNum = 15500000 // FIXME: change this before deploy to mainnet
+	TeslaFork4_MainnetStartNum = 15138000 // around 9/1/2021 9:30 AM (Beijing)
 )
 
 // start block number support sys-contract
