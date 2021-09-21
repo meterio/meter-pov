@@ -5,8 +5,8 @@ import (
 
 	"github.com/dfinlab/meter/meter"
 
-	"github.com/ethereum/go-ethereum/common/math"
 	"github.com/dfinlab/meter/vm"
+	"github.com/ethereum/go-ethereum/common/math"
 )
 
 type TracerOption struct {
@@ -31,6 +31,42 @@ type StructLogRes struct {
 	Stack   *[]string          `json:"stack,omitempty"`
 	Memory  *[]string          `json:"memory,omitempty"`
 	Storage *map[string]string `json:"storage,omitempty"`
+}
+
+type TraceFilterOptions struct {
+	FromBlock   string          `json:"fromBlock"`
+	ToBlock     string          `json:"toBlock"`
+	FromAddress []meter.Address `json:"fromAddress"`
+	ToAddress   []meter.Address `json:"toAddress"`
+	After       uint64          `json:"after"`
+	Count       uint64          `json:"count"`
+}
+
+type TraceAction struct {
+	CallType string               `json:"callType"`
+	From     meter.Address        `json:"from"`
+	Gas      math.HexOrDecimal256 `json:"gas"`
+	Input    string               `json:"input"`
+	To       meter.Address        `json:"to"`
+	Value    math.HexOrDecimal256 `json:"value"`
+}
+type TraceDataResult struct {
+	GasUsed math.HexOrDecimal256 `json:"gasUsed"`
+	Output  string               `json:"output"`
+}
+type TraceData struct {
+	Action              TraceAction     `json:"action"`
+	BlockHash           meter.Bytes32   `json:"blockHash"`
+	BlockNumber         uint64          `json:"blockNumber"`
+	Result              TraceDataResult `json:"result"`
+	Subtraces           uint64          `json:"subtraces"`
+	TraceAddress        []meter.Address `json:"traceAddress"`
+	TransactionHash     meter.Bytes32   `json:"transactionHash"`
+	TransactionPosition uint64          `json:"transactionPosition"`
+	Type                string          `json:"type"`
+}
+type TraceResult struct {
+	Result []TraceData `json:"result"`
 }
 
 // formatLogs formats EVM returned structured logs for json output
@@ -78,7 +114,7 @@ type StorageRangeOption struct {
 }
 
 type StorageRangeResult struct {
-	Storage StorageMap    `json:"storage"`
+	Storage StorageMap     `json:"storage"`
 	NextKey *meter.Bytes32 `json:"nextKey"` // nil if Storage includes the last key in the trie.
 }
 

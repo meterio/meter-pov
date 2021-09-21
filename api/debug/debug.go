@@ -7,14 +7,19 @@ package debug
 
 import (
 	"context"
+	"encoding/hex"
 	"fmt"
+	"math/big"
 	"net/http"
 	"strconv"
 	"strings"
 
+	"github.com/ethereum/go-ethereum/common/math"
+
 	"github.com/ethereum/go-ethereum/crypto"
 
 	"github.com/dfinlab/meter/api/utils"
+	"github.com/dfinlab/meter/block"
 	"github.com/dfinlab/meter/chain"
 	"github.com/dfinlab/meter/consensus"
 	"github.com/dfinlab/meter/meter"
@@ -266,10 +271,140 @@ func (d *Debug) parseTarget(target string) (blockID meter.Bytes32, txIndex uint6
 	return
 }
 
+func (d *Debug) parseRevision(revision string) (interface{}, error) {
+	if revision == "" || revision == "best" {
+		return nil, nil
+	}
+	if len(revision) == 66 || len(revision) == 64 {
+		blockID, err := meter.ParseBytes32(revision)
+		if err != nil {
+			return nil, err
+		}
+		return blockID, nil
+	}
+	n, err := strconv.ParseUint(revision, 0, 0)
+	if err != nil {
+		return nil, err
+	}
+	if n > math.MaxUint32 {
+		return nil, errors.New("block number out of max uint32")
+	}
+	return uint32(n), err
+}
+
+func (d *Debug) getBlock(revision interface{}) (*block.Block, error) {
+	switch revision.(type) {
+	case meter.Bytes32:
+		return d.chain.GetBlock(revision.(meter.Bytes32))
+	case uint32:
+		return d.chain.GetTrunkBlock(revision.(uint32))
+	default:
+		return d.chain.BestBlock(), nil
+	}
+}
+
+func (d *Debug) handleTraceFilter(w http.ResponseWriter, req *http.Request) error {
+	var opt TraceFilterOptions
+	if err := utils.ParseJSON(req.Body, &opt); err != nil {
+		return utils.BadRequest(errors.WithMessage(err, "body"))
+	}
+	fromBlockNum := uint32(0)
+	toBlockNum := uint32(0)
+
+	if opt.FromBlock != "" {
+		revision, err := d.parseRevision(opt.FromBlock)
+		if err != nil {
+			return utils.BadRequest(errors.WithMessage(err, "invalid fromBlock"))
+		}
+		blk, err := d.getBlock(revision)
+		if err != nil {
+			return utils.BadRequest(errors.WithMessage(err, "could not get block"))
+		}
+		fromBlockNum = blk.Header().Number()
+	}
+
+	if opt.ToBlock != "" {
+		revision, err := d.parseRevision(opt.ToBlock)
+		if err != nil {
+			return utils.BadRequest(errors.WithMessage(err, "invalid fromBlock"))
+		}
+		blk, err := d.getBlock(revision)
+		if err != nil {
+			return utils.BadRequest(errors.WithMessage(err, "could not get block"))
+		}
+		toBlockNum = blk.Header().Number()
+	}
+
+	if fromBlockNum > toBlockNum {
+		return utils.BadRequest(errors.New("fromBlock > toBlock"))
+	}
+
+	fromAddrMap := make(map[string]bool)
+	toAddrMap := make(map[string]bool)
+	for _, addr := range opt.FromAddress {
+		fromAddrMap[strings.ToLower(addr.String())] = true
+	}
+	for _, addr := range opt.ToAddress {
+		toAddrMap[strings.ToLower(addr.String())] = true
+	}
+
+	results := make([]TraceData, 0)
+	// start to filter tx in block range
+	num := fromBlockNum
+	for num < toBlockNum {
+		blk, err := d.getBlock(num)
+		if err != nil {
+			return utils.BadRequest(errors.WithMessage(err, "could not get block"))
+		}
+		for txIndex, tx := range blk.Txs {
+			signer, err := tx.Signer()
+			if err != nil {
+				return utils.BadRequest(errors.WithMessage(err, "could not get signer"))
+			}
+
+			matched := false
+			clauseIndex := 0
+
+			_, fromExist := fromAddrMap[strings.ToLower(signer.String())]
+			fromMatch := (len(fromAddrMap) > 0 && fromExist) || len(fromAddrMap) == 0
+			for index, clause := range tx.Clauses() {
+				_, toExist := toAddrMap[strings.ToLower(clause.To().String())]
+				toMatch := len(toAddrMap) > 0 && toExist || len(toAddrMap) == 0
+				if fromMatch && toMatch {
+					matched = true
+					clauseIndex = index
+					break
+				}
+			}
+			if matched {
+				results = append(results, TraceData{
+					Action: TraceAction{
+						CallType: "call",
+						From:     signer,
+						Input:    "0x" + hex.EncodeToString(tx.Clauses()[clauseIndex].Data()),
+						To:       *tx.Clauses()[clauseIndex].To(),
+						Value:    math.HexOrDecimal256(*(tx.Clauses()[clauseIndex].Value())),
+					},
+					BlockHash:           blk.Header().ID(),
+					BlockNumber:         uint64(num),
+					Result:              TraceDataResult{GasUsed: math.HexOrDecimal256(*big.NewInt(0)), Output: "0x"}, // FIXME: fake data
+					Subtraces:           0,                                                                            // FIXME: fake data
+					TraceAddress:        make([]meter.Address, 0),                                                     // FIXME: fake data
+					TransactionHash:     tx.ID(),
+					TransactionPosition: uint64(txIndex),
+					Type:                "call",
+				})
+			}
+		}
+		num++
+	}
+
+	return utils.WriteJSON(w, &TraceResult{Result: results})
+}
+
 func (d *Debug) Mount(root *mux.Router, pathPrefix string) {
 	sub := root.PathPrefix(pathPrefix).Subrouter()
-
 	sub.Path("/tracers").Methods(http.MethodPost).HandlerFunc(utils.WrapHandlerFunc(d.handleTraceTransaction))
 	sub.Path("/storage-range").Methods(http.MethodPost).HandlerFunc(utils.WrapHandlerFunc(d.handleDebugStorage))
-
+	sub.Path("/trace-filter").Methods(http.MethodPost).HandlerFunc((utils.WrapHandlerFunc(d.handleTraceFilter)))
 }
