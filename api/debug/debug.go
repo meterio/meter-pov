@@ -406,5 +406,5 @@ func (d *Debug) Mount(root *mux.Router, pathPrefix string) {
 	sub := root.PathPrefix(pathPrefix).Subrouter()
 	sub.Path("/tracers").Methods(http.MethodPost).HandlerFunc(utils.WrapHandlerFunc(d.handleTraceTransaction))
 	sub.Path("/storage-range").Methods(http.MethodPost).HandlerFunc(utils.WrapHandlerFunc(d.handleDebugStorage))
-	sub.Path("/trace-filter").Methods(http.MethodPost).HandlerFunc((utils.WrapHandlerFunc(d.handleTraceFilter)))
+	sub.Path("/trace_filter").Methods(http.MethodPost).HandlerFunc((utils.WrapHandlerFunc(d.handleTraceFilter)))
 }
