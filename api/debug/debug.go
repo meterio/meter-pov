@@ -303,6 +303,51 @@ func (d *Debug) getBlock(revision interface{}) (*block.Block, error) {
 	}
 }
 
+func (d *Debug) handleOpenEthTraceTransaction(w http.ResponseWriter, req *http.Request) error {
+	params := make([]meter.Bytes32, 0)
+	if err := utils.ParseJSON(req.Body, &params); err != nil {
+		return utils.BadRequest(errors.WithMessage(err, "body"))
+	}
+	results := make([]TraceData, 0)
+	for _, txHash := range params {
+		tx, meta, err := d.chain.GetTrunkTransaction(txHash)
+		if err != nil {
+			fmt.Println("error happened: ", err)
+			continue
+		}
+		signer, err := tx.Signer()
+		if err != nil {
+			fmt.Println("could not get signer:", err)
+			continue
+		}
+		blk, err := d.getBlock(meta.BlockID)
+		if err != nil {
+			fmt.Println("could not get block: ", err)
+			continue
+		}
+		for _, clause := range tx.Clauses() {
+			results = append(results, TraceData{
+				Action: TraceAction{
+					CallType: "call",
+					From:     signer,
+					Input:    "0x" + hex.EncodeToString(clause.Data()),
+					To:       *clause.To(),
+					Value:    math.HexOrDecimal256(*(clause.Value())),
+				},
+				BlockHash:           meta.BlockID,
+				BlockNumber:         uint64(blk.Header().Number()),
+				Result:              TraceDataResult{GasUsed: math.HexOrDecimal256(*big.NewInt(0)), Output: "0x"}, // FIXME: fake data
+				Subtraces:           0,                                                                            // FIXME: fake data
+				TraceAddress:        make([]meter.Address, 0),                                                     // FIXME: fake data
+				TransactionHash:     tx.ID(),
+				TransactionPosition: uint64(meta.Index),
+				Type:                "call",
+			})
+		}
+	}
+	return utils.WriteJSON(w, &TraceResult{Result: results})
+}
+
 func (d *Debug) handleTraceFilter(w http.ResponseWriter, req *http.Request) error {
 	var opt TraceFilterOptions
 	if err := utils.ParseJSON(req.Body, &opt); err != nil {
@@ -407,4 +452,6 @@ func (d *Debug) Mount(root *mux.Router, pathPrefix string) {
 	sub.Path("/tracers").Methods(http.MethodPost).HandlerFunc(utils.WrapHandlerFunc(d.handleTraceTransaction))
 	sub.Path("/storage-range").Methods(http.MethodPost).HandlerFunc(utils.WrapHandlerFunc(d.handleDebugStorage))
 	sub.Path("/trace_filter").Methods(http.MethodPost).HandlerFunc((utils.WrapHandlerFunc(d.handleTraceFilter)))
+	sub.Path("/trace_transaction").Methods(http.MethodPost).HandlerFunc((utils.WrapHandlerFunc(d.handleOpenEthTraceTransaction)))
+
 }
