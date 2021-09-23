@@ -413,7 +413,14 @@ func (d *Debug) handleTraceFilter(w http.ResponseWriter, req *http.Request) erro
 			_, fromExist := fromAddrMap[strings.ToLower(signer.String())]
 			fromMatch := (len(fromAddrMap) > 0 && fromExist) || len(fromAddrMap) == 0
 			for index, clause := range tx.Clauses() {
-				_, toExist := toAddrMap[strings.ToLower(clause.To().String())]
+				var to *meter.Address
+				if clause.To() == nil {
+					to = &meter.Address{}
+				} else {
+					to = clause.To()
+				}
+
+				_, toExist := toAddrMap[strings.ToLower(to.String())]
 				toMatch := len(toAddrMap) > 0 && toExist || len(toAddrMap) == 0
 				if fromMatch && toMatch {
 					matched = true
@@ -421,13 +428,21 @@ func (d *Debug) handleTraceFilter(w http.ResponseWriter, req *http.Request) erro
 					break
 				}
 			}
+
 			if matched {
+				var to *meter.Address
+				if tx.Clauses()[clauseIndex].To() == nil {
+					to = &meter.Address{}
+				} else {
+					to = tx.Clauses()[clauseIndex].To()
+				}
+
 				results = append(results, TraceData{
 					Action: TraceAction{
 						CallType: "call",
 						From:     signer,
 						Input:    "0x" + hex.EncodeToString(tx.Clauses()[clauseIndex].Data()),
-						To:       *tx.Clauses()[clauseIndex].To(),
+						To:       *to,
 						Value:    math.HexOrDecimal256(*(tx.Clauses()[clauseIndex].Value())),
 					},
 					BlockHash:           blk.Header().ID(),
