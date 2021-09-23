@@ -345,7 +345,7 @@ func (d *Debug) handleOpenEthTraceTransaction(w http.ResponseWriter, req *http.R
 			})
 		}
 	}
-	return utils.WriteJSON(w, &TraceResult{Result: results})
+	return utils.WriteJSON(w, results)
 }
 
 func (d *Debug) handleTraceFilter(w http.ResponseWriter, req *http.Request) error {
@@ -459,7 +459,7 @@ func (d *Debug) handleTraceFilter(w http.ResponseWriter, req *http.Request) erro
 		num++
 	}
 
-	return utils.WriteJSON(w, &TraceResult{Result: results})
+	return utils.WriteJSON(w, results)
 }
 
 func (d *Debug) Mount(root *mux.Router, pathPrefix string) {

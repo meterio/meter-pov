@@ -65,9 +65,6 @@ type TraceData struct {
 	TransactionPosition uint64          `json:"transactionPosition"`
 	Type                string          `json:"type"`
 }
-type TraceResult struct {
-	Result []TraceData `json:"result"`
-}
 
 // formatLogs formats EVM returned structured logs for json output
 func formatLogs(logs []vm.StructLog) []StructLogRes {
