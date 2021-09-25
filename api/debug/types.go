@@ -43,16 +43,16 @@ type TraceFilterOptions struct {
 }
 
 type TraceAction struct {
-	CallType string               `json:"callType"`
-	From     meter.Address        `json:"from"`
-	Gas      math.HexOrDecimal256 `json:"gas"`
-	Input    string               `json:"input"`
-	To       meter.Address        `json:"to"`
-	Value    math.HexOrDecimal256 `json:"value"`
+	CallType string        `json:"callType"`
+	From     meter.Address `json:"from"`
+	Gas      string        `json:"gas"`
+	Input    string        `json:"input"`
+	To       meter.Address `json:"to"`
+	Value    string        `json:"value"`
 }
 type TraceDataResult struct {
-	GasUsed math.HexOrDecimal256 `json:"gasUsed"`
-	Output  string               `json:"output"`
+	GasUsed string `json:"gasUsed"`
+	Output  string `json:"output"`
 }
 type TraceData struct {
 	Action              TraceAction     `json:"action"`
@@ -60,10 +60,22 @@ type TraceData struct {
 	BlockNumber         uint64          `json:"blockNumber"`
 	Result              TraceDataResult `json:"result"`
 	Subtraces           uint64          `json:"subtraces"`
-	TraceAddress        []meter.Address `json:"traceAddress"`
+	TraceAddress        []uint64        `json:"traceAddress"`
 	TransactionHash     meter.Bytes32   `json:"transactionHash"`
 	TransactionPosition uint64          `json:"transactionPosition"`
 	Type                string          `json:"type"`
+}
+
+type CallTraceResult struct {
+	Type    string            `json:"type"`
+	From    string            `json:"from"`
+	To      string            `json:"to"`
+	Value   string            `json:"value"`
+	Gas     string            `json:"gas"`
+	GasUsed string            `json:"gasUsed"`
+	Input   string            `json:"input"`
+	Output  string            `json:"output"`
+	Calls   []CallTraceResult `json:"calls"`
 }
 
 // formatLogs formats EVM returned structured logs for json output
