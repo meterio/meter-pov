@@ -170,7 +170,7 @@ func (d *Debug) convertTraceData(callTraceResult CallTraceResult, path []uint64,
 	datas := make([]*TraceData, 0)
 	datas = append(datas, &TraceData{
 		Action: TraceAction{
-			CallType: callTraceResult.Type,
+			CallType: strings.ToLower(callTraceResult.Type),
 			From:     meter.MustParseAddress(callTraceResult.From),
 			Input:    callTraceResult.Input,
 			To:       meter.MustParseAddress(callTraceResult.To),
@@ -186,7 +186,7 @@ func (d *Debug) convertTraceData(callTraceResult CallTraceResult, path []uint64,
 		TraceAddress:        path,
 		TransactionHash:     txHash,
 		TransactionPosition: txIndex,
-		Type:                callTraceResult.Type,
+		Type:                strings.ToLower(callTraceResult.Type),
 	})
 	for index, call := range callTraceResult.Calls {
 		subdatas, err := d.convertTraceData(call, append(path, uint64(index)), blockHash, blockNumber, txHash, txIndex)
