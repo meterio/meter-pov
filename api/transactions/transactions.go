@@ -152,7 +152,7 @@ func (t *Transactions) handleSendEthRawTransaction(w http.ResponseWriter, req *h
 			if txpool.IsTxRejected(err) {
 				return utils.Forbidden(err)
 			}
-			return err
+			return utils.BadRequest(err)
 		}
 		return utils.WriteJSON(w, map[string]string{
 			"id": tx.ID().String(),
