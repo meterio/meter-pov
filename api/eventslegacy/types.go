@@ -37,9 +37,25 @@ func convertFilter(filter *FilterLegacy) *logdb.EventFilter {
 		Order:   filter.Order,
 	}
 
+	criterias := []*logdb.EventCriteria{}
+
 	if len(filter.TopicSets) > 0 {
-		criterias := []*logdb.EventCriteria{}
-		for _, addr := range filter.Address {
+		if len(filter.Address) > 0 {
+			// both topicSet and address filter exists, loop & match
+			for _, addr := range filter.Address {
+				for _, topicSet := range filter.TopicSets {
+					var topics [5]*meter.Bytes32
+					topics[0] = topicSet.Topic0
+					topics[1] = topicSet.Topic1
+					topics[2] = topicSet.Topic2
+					topics[3] = topicSet.Topic3
+					topics[4] = topicSet.Topic4
+					criteria := &logdb.EventCriteria{Address: addr, Topics: topics}
+					criterias = append(criterias, criteria)
+				}
+			}
+		} else {
+			// only topicSet filter exists
 			for _, topicSet := range filter.TopicSets {
 				var topics [5]*meter.Bytes32
 				topics[0] = topicSet.Topic0
@@ -47,16 +63,14 @@ func convertFilter(filter *FilterLegacy) *logdb.EventFilter {
 				topics[2] = topicSet.Topic2
 				topics[3] = topicSet.Topic3
 				topics[4] = topicSet.Topic4
-				criteria := &logdb.EventCriteria{
-					Address: addr,
-					Topics:  topics,
-				}
+				criteria := &logdb.EventCriteria{Topics: topics}
 				criterias = append(criterias, criteria)
+
 			}
 		}
-		f.CriteriaSet = criterias
+
 	} else {
-		criterias := []*logdb.EventCriteria{}
+		// only address filter exists
 		for _, addr := range filter.Address {
 			criteria := &logdb.EventCriteria{
 				Address: addr,
@@ -64,9 +78,9 @@ func convertFilter(filter *FilterLegacy) *logdb.EventFilter {
 			criterias = append(criterias, criteria)
 		}
 
-		f.CriteriaSet = criterias
 	}
 
+	f.CriteriaSet = criterias
 	/***
 	for _, c := range f.CriteriaSet {
 		fmt.Println("*criteria", *c)
