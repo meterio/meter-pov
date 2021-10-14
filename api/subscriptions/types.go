@@ -193,11 +193,22 @@ func (tf *TransferFilter) Match(transfer *tx.Transfer, origin meter.Address) boo
 }
 
 type BeatMessage struct {
-	Number    uint32        `json:"number"`
-	ID        meter.Bytes32 `json:"id"`
-	ParentID  meter.Bytes32 `json:"parentID"`
-	Timestamp uint64        `json:"timestamp"`
-	Bloom     string        `json:"bloom"`
-	K         uint32        `json:"k"`
-	Obsolete  bool          `json:"obsolete"`
+	ID           meter.Bytes32 `json:"hash"`
+	ParentID     meter.Bytes32 `json:"parentHash"`
+	UncleHash    meter.Bytes32 `json:"sha3Uncles"`
+	Signer       meter.Address `json:"miner"`
+	Beneficiary  meter.Address `json:"beneficiary"`
+	StateRoot    meter.Bytes32 `json:"stateRoot"`
+	TxsRoot      meter.Bytes32 `json:"transactionsRoot"`
+	ReceiptsRoot meter.Bytes32 `json:"receiptsRoot"`
+	Bloom        string        `json:"logsbloom"`
+	K            uint32        `json:"k"`
+	Difficaulty  string        `json:"difficulty"`
+	Number       string        `json:"number"`
+	Timestamp    uint64        `json:"timestamp"`
+	GasLimit     uint64        `json:"gasLimit"`
+	GasUsed      uint64        `json:"gasUsed"`
+	Extra        string        `json:"extraData"`
+	Nonce        uint64        `json:"nonce"`
+	Epoch        uint64        `json:"epoch"`
 }
