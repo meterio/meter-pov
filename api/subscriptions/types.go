@@ -201,7 +201,7 @@ type BeatMessage struct {
 	StateRoot    meter.Bytes32 `json:"stateRoot"`
 	TxsRoot      meter.Bytes32 `json:"transactionsRoot"`
 	ReceiptsRoot meter.Bytes32 `json:"receiptsRoot"`
-	Bloom        string        `json:"logsbloom"`
+	Bloom        string        `json:"logsBloom"`
 	K            uint32        `json:"k"`
 	Difficaulty  string        `json:"difficulty"`
 	Number       string        `json:"number"`
