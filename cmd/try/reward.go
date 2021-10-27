@@ -7,10 +7,10 @@ import (
 	"math/big"
 	"net"
 
-	api_staking "github.com/dfinlab/meter/api/staking"
-	bls "github.com/dfinlab/meter/crypto/multi_sig"
-	"github.com/dfinlab/meter/reward"
-	"github.com/dfinlab/meter/types"
+	api_staking "github.com/meterio/meter-pov/api/staking"
+	bls "github.com/meterio/meter-pov/crypto/multi_sig"
+	"github.com/meterio/meter-pov/reward"
+	"github.com/meterio/meter-pov/types"
 )
 
 /*

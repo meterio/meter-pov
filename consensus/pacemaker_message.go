@@ -15,11 +15,11 @@ import (
 
 	"github.com/ethereum/go-ethereum/rlp"
 
-	"github.com/dfinlab/meter/block"
-	"github.com/dfinlab/meter/meter"
-	"github.com/dfinlab/meter/powpool"
-	"github.com/dfinlab/meter/types"
 	crypto "github.com/ethereum/go-ethereum/crypto"
+	"github.com/meterio/meter-pov/block"
+	"github.com/meterio/meter-pov/meter"
+	"github.com/meterio/meter-pov/powpool"
+	"github.com/meterio/meter-pov/types"
 )
 
 func (p *Pacemaker) proposeBlock(parentBlock *block.Block, height, round uint32, qc *pmQuorumCert, timeout bool) (*ProposedBlockInfo, []byte) {

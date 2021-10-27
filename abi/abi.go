@@ -9,8 +9,8 @@ import (
 	"encoding/json"
 	"errors"
 
-	"github.com/dfinlab/meter/meter"
 	ethabi "github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/meterio/meter-pov/meter"
 )
 
 // ABI holds information about methods and events of contract.

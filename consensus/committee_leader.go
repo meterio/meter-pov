@@ -17,10 +17,10 @@ import (
 	"bytes"
 	"time"
 
-	"github.com/dfinlab/meter/block"
-	bls "github.com/dfinlab/meter/crypto/multi_sig"
-	cmn "github.com/dfinlab/meter/libs/common"
 	crypto "github.com/ethereum/go-ethereum/crypto"
+	"github.com/meterio/meter-pov/block"
+	bls "github.com/meterio/meter-pov/crypto/multi_sig"
+	cmn "github.com/meterio/meter-pov/libs/common"
 )
 
 const (

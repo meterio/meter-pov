@@ -6,10 +6,10 @@
 package accountlock
 
 import (
-	"github.com/dfinlab/meter/meter"
-	"github.com/dfinlab/meter/state"
-	setypes "github.com/dfinlab/meter/script/types"
-	"github.com/dfinlab/meter/xenv"
+	"github.com/meterio/meter-pov/meter"
+	setypes "github.com/meterio/meter-pov/script/types"
+	"github.com/meterio/meter-pov/state"
+	"github.com/meterio/meter-pov/xenv"
 )
 
 //
@@ -21,8 +21,8 @@ type AccountLockEnviroment struct {
 func NewAccountLockEnviroment(accountLock *AccountLock, state *state.State, txCtx *xenv.TransactionContext, to *meter.Address) *AccountLockEnviroment {
 	return &AccountLockEnviroment{
 		accountLock: accountLock,
-		ScriptEnv: setypes.NewScriptEnv(state, txCtx, to),
+		ScriptEnv:   setypes.NewScriptEnv(state, txCtx, to),
 	}
 }
 
-func (env *AccountLockEnviroment) GetAccountLock() *AccountLock       { return env.accountLock }
+func (env *AccountLockEnviroment) GetAccountLock() *AccountLock { return env.accountLock }

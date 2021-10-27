@@ -12,12 +12,12 @@ import (
 	"math/rand"
 	"time"
 
-	"github.com/dfinlab/meter/chain"
-	"github.com/dfinlab/meter/meter"
-	"github.com/dfinlab/meter/script"
-	"github.com/dfinlab/meter/script/auction"
-	"github.com/dfinlab/meter/tx"
 	"github.com/ethereum/go-ethereum/rlp"
+	"github.com/meterio/meter-pov/chain"
+	"github.com/meterio/meter-pov/meter"
+	"github.com/meterio/meter-pov/script"
+	"github.com/meterio/meter-pov/script/auction"
+	"github.com/meterio/meter-pov/tx"
 )
 
 func BuildAuctionControlTx(height, epoch uint64, chainTag byte, bestNum uint32, initialRelease float64, reservedPrice *big.Int, chain *chain.Chain) *tx.Transaction {

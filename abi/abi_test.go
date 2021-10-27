@@ -10,10 +10,10 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/meterio/meter-pov/abi"
+	"github.com/meterio/meter-pov/builtin/gen"
+	"github.com/meterio/meter-pov/meter"
 	"github.com/stretchr/testify/assert"
-	"github.com/dfinlab/meter/abi"
-	"github.com/dfinlab/meter/builtin/gen"
-	"github.com/dfinlab/meter/meter"
 )
 
 func TestABI(t *testing.T) {

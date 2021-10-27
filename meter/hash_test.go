@@ -11,7 +11,7 @@ import (
 	"github.com/ethereum/go-ethereum/crypto/sha3"
 	//"golang.org/x/crypto/blake2b"
 
-    "github.com/dfinlab/meter/crypto/blake2b"
+    "github.com/meterio/meter-pov/crypto/blake2b"
 )
 
 func BenchmarkKeccak(b *testing.B) {

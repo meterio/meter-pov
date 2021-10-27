@@ -6,9 +6,9 @@
 package state
 
 import (
-	"github.com/dfinlab/meter/kv"
-	"github.com/dfinlab/meter/meter"
 	"github.com/ethereum/go-ethereum/rlp"
+	"github.com/meterio/meter-pov/kv"
+	"github.com/meterio/meter-pov/meter"
 )
 
 // cachedObject to cache code and storage of an account.

@@ -6,9 +6,9 @@
 package tx
 
 import (
-	"github.com/dfinlab/meter/meter"
-	"github.com/dfinlab/meter/trie"
 	"github.com/ethereum/go-ethereum/rlp"
+	"github.com/meterio/meter-pov/meter"
+	"github.com/meterio/meter-pov/trie"
 )
 
 var (

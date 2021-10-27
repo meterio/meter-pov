@@ -6,12 +6,12 @@ import (
 	"math/rand"
 	"time"
 
-	"github.com/dfinlab/meter/meter"
-	"github.com/dfinlab/meter/script"
-	"github.com/dfinlab/meter/script/auction"
-	"github.com/dfinlab/meter/tx"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/rlp"
+	"github.com/meterio/meter-pov/meter"
+	"github.com/meterio/meter-pov/script"
+	"github.com/meterio/meter-pov/script/auction"
+	"github.com/meterio/meter-pov/tx"
 )
 
 const (

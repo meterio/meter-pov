@@ -9,10 +9,10 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/dfinlab/meter/block"
-	cmn "github.com/dfinlab/meter/libs/common"
-	"github.com/dfinlab/meter/meter"
 	"github.com/ethereum/go-ethereum/rlp"
+	"github.com/meterio/meter-pov/block"
+	cmn "github.com/meterio/meter-pov/libs/common"
+	"github.com/meterio/meter-pov/meter"
 )
 
 // NewViewReason is the reason for new view

@@ -11,7 +11,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/dfinlab/meter/block"
+	"github.com/meterio/meter-pov/block"
 
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
 	"github.com/btcsuite/btcd/wire"

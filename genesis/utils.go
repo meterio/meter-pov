@@ -18,9 +18,9 @@ import (
 
 	"github.com/inconshreveable/log15"
 
-	"github.com/dfinlab/meter/meter"
-	"github.com/dfinlab/meter/script/accountlock"
-	"github.com/dfinlab/meter/state"
+	"github.com/meterio/meter-pov/meter"
+	"github.com/meterio/meter-pov/script/accountlock"
+	"github.com/meterio/meter-pov/state"
 )
 
 var (

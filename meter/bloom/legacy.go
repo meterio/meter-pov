@@ -6,8 +6,9 @@
 package bloom
 
 import (
-	"github.com/dfinlab/meter/meter"
 	"math"
+
+	"github.com/meterio/meter-pov/meter"
 )
 
 const (

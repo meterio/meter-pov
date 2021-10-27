@@ -12,12 +12,12 @@ import (
 	"time"
 
 	amino "github.com/dfinlab/go-amino"
-	"github.com/dfinlab/meter/block"
-	cmn "github.com/dfinlab/meter/libs/common"
-	"github.com/dfinlab/meter/meter"
-	"github.com/dfinlab/meter/types"
 	crypto "github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/rlp"
+	"github.com/meterio/meter-pov/block"
+	cmn "github.com/meterio/meter-pov/libs/common"
+	"github.com/meterio/meter-pov/meter"
+	"github.com/meterio/meter-pov/types"
 )
 
 // new consensus Messages

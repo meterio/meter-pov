@@ -13,10 +13,10 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/dfinlab/meter/builtin"
-	"github.com/dfinlab/meter/meter"
-	"github.com/dfinlab/meter/runtime/statedb"
-	"github.com/dfinlab/meter/state"
+	"github.com/meterio/meter-pov/builtin"
+	"github.com/meterio/meter-pov/meter"
+	"github.com/meterio/meter-pov/runtime/statedb"
+	"github.com/meterio/meter-pov/state"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/rlp"

@@ -21,7 +21,7 @@ import (
 	"strings"
 	"unicode"
 
-	"github.com/dfinlab/meter/tracers/internal/tracers"
+	"github.com/meterio/meter-pov/tracers/internal/tracers"
 )
 
 // all contains all the built in JavaScript tracers by name.

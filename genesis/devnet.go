@@ -10,12 +10,12 @@ import (
 	"math/big"
 	"sync/atomic"
 
-	"github.com/dfinlab/meter/builtin"
-	"github.com/dfinlab/meter/meter"
-	"github.com/dfinlab/meter/state"
-	"github.com/dfinlab/meter/tx"
-	"github.com/dfinlab/meter/vm"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/meterio/meter-pov/builtin"
+	"github.com/meterio/meter-pov/meter"
+	"github.com/meterio/meter-pov/state"
+	"github.com/meterio/meter-pov/tx"
+	"github.com/meterio/meter-pov/vm"
 )
 
 // DevAccount account for development.

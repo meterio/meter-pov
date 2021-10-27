@@ -16,12 +16,12 @@ import (
 	"time"
 
 	"github.com/btcsuite/btcd/rpcclient"
-	"github.com/dfinlab/meter/block"
-	"github.com/dfinlab/meter/builtin"
-	"github.com/dfinlab/meter/chain"
-	"github.com/dfinlab/meter/co"
-	"github.com/dfinlab/meter/meter"
-	"github.com/dfinlab/meter/state"
+	"github.com/meterio/meter-pov/block"
+	"github.com/meterio/meter-pov/builtin"
+	"github.com/meterio/meter-pov/chain"
+	"github.com/meterio/meter-pov/co"
+	"github.com/meterio/meter-pov/meter"
+	"github.com/meterio/meter-pov/state"
 	"github.com/ethereum/go-ethereum/event"
 	"github.com/prometheus/client_golang/prometheus"
 )

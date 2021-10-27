@@ -12,11 +12,11 @@ import (
 	"net"
 	"os"
 
-	"github.com/dfinlab/meter/p2psrv/discv5"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/p2p/nat"
 	"github.com/ethereum/go-ethereum/p2p/netutil"
+	"github.com/meterio/meter-pov/p2psrv/discv5"
 	"github.com/pkg/errors"
 	cli "gopkg.in/urfave/cli.v1"
 )

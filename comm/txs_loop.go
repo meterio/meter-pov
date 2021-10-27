@@ -6,8 +6,8 @@
 package comm
 
 import (
-	"github.com/dfinlab/meter/comm/proto"
-	"github.com/dfinlab/meter/txpool"
+	"github.com/meterio/meter-pov/comm/proto"
+	"github.com/meterio/meter-pov/txpool"
 )
 
 func (c *Communicator) txsLoop() {

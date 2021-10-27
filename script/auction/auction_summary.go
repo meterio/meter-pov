@@ -11,7 +11,7 @@ import (
 	"math/big"
 	"strings"
 
-	"github.com/dfinlab/meter/meter"
+	"github.com/meterio/meter-pov/meter"
 )
 
 type DistMtrg struct {

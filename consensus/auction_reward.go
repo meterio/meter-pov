@@ -8,8 +8,8 @@ package consensus
 import (
 	"math/big"
 
-	"github.com/dfinlab/meter/builtin"
-	"github.com/dfinlab/meter/meter"
+	"github.com/meterio/meter-pov/builtin"
+	"github.com/meterio/meter-pov/meter"
 )
 
 func GetAuctionReservedPrice() *big.Int {

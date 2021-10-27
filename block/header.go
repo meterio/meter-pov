@@ -12,9 +12,9 @@ import (
 	// "io"
 	"sync/atomic"
 
-	"github.com/dfinlab/meter/meter"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/rlp"
+	"github.com/meterio/meter-pov/meter"
 )
 
 const (

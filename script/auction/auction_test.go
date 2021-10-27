@@ -16,14 +16,14 @@ import (
 
 	"testing"
 
-	"github.com/dfinlab/meter/meter"
-	"github.com/dfinlab/meter/script"
-	"github.com/dfinlab/meter/script/auction"
+	"github.com/meterio/meter-pov/meter"
+	"github.com/meterio/meter-pov/script"
+	"github.com/meterio/meter-pov/script/auction"
 )
 
 /*
 Execute this test with
-cd /tmp/meter-build-xxxxx/src/github.com/dfinlab/meter/script/auction
+cd /tmp/meter-build-xxxxx/src/github.com/meterio/meter-pov/script/auction
 GOPATH=/tmp/meter-build-xxxx/:$GOPATH go test
 */
 

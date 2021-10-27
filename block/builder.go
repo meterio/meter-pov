@@ -6,8 +6,8 @@
 package block
 
 import (
-	"github.com/dfinlab/meter/meter"
-	"github.com/dfinlab/meter/tx"
+	"github.com/meterio/meter-pov/meter"
+	"github.com/meterio/meter-pov/tx"
 )
 
 // XXX: Yang: Builder only build header and txs. evidence/committee info and kblock data built by app.

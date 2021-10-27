@@ -18,7 +18,7 @@ import (
 	"strings"
 	"time"
 
-	cmn "github.com/dfinlab/meter/libs/common"
+	cmn "github.com/meterio/meter-pov/libs/common"
 )
 
 // NetAddress defines information about a peer on the network
@@ -79,7 +79,7 @@ func (na *NetAddress) Same(other interface{}) bool {
 		if na.DialString() == o.DialString() {
 			return true
 		}
-    }
+	}
 	return false
 }
 

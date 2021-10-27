@@ -10,10 +10,10 @@ import (
 	"sync"
 	//	"unsafe"
 
-	"github.com/dfinlab/meter/meter"
-	setypes "github.com/dfinlab/meter/script/types"
-	"github.com/dfinlab/meter/state"
-	"github.com/dfinlab/meter/xenv"
+	"github.com/meterio/meter-pov/meter"
+	setypes "github.com/meterio/meter-pov/script/types"
+	"github.com/meterio/meter-pov/state"
+	"github.com/meterio/meter-pov/xenv"
 )
 
 // Registry is the hub of all modules on the chain

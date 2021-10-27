@@ -3,8 +3,8 @@ package types
 import (
 	"math/big"
 
-	"github.com/dfinlab/meter/meter"
-	"github.com/dfinlab/meter/tx"
+	"github.com/meterio/meter-pov/meter"
+	"github.com/meterio/meter-pov/tx"
 )
 
 type ScriptEngineOutput struct {

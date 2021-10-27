@@ -6,11 +6,11 @@
 package comm
 
 import (
-	"github.com/dfinlab/meter/block"
-	"github.com/dfinlab/meter/comm/proto"
-	"github.com/dfinlab/meter/meter"
 	"github.com/ethereum/go-ethereum/p2p/discover"
 	"github.com/ethereum/go-ethereum/rlp"
+	"github.com/meterio/meter-pov/block"
+	"github.com/meterio/meter-pov/comm/proto"
+	"github.com/meterio/meter-pov/meter"
 )
 
 type announcement struct {

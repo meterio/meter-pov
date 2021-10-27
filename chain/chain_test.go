@@ -8,12 +8,12 @@ package chain_test
 import (
 	"testing"
 
-	"github.com/dfinlab/meter/block"
-	"github.com/dfinlab/meter/chain"
-	"github.com/dfinlab/meter/genesis"
-	"github.com/dfinlab/meter/lvldb"
-	"github.com/dfinlab/meter/state"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/meterio/meter-pov/block"
+	"github.com/meterio/meter-pov/chain"
+	"github.com/meterio/meter-pov/genesis"
+	"github.com/meterio/meter-pov/lvldb"
+	"github.com/meterio/meter-pov/state"
 	"github.com/stretchr/testify/assert"
 )
 

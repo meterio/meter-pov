@@ -6,12 +6,12 @@
 package subscriptions
 
 import (
-	"github.com/dfinlab/meter/block"
-	"github.com/dfinlab/meter/chain"
-	"github.com/dfinlab/meter/meter"
-	"github.com/dfinlab/meter/tx"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/common/math"
+	"github.com/meterio/meter-pov/block"
+	"github.com/meterio/meter-pov/chain"
+	"github.com/meterio/meter-pov/meter"
+	"github.com/meterio/meter-pov/tx"
 )
 
 //BlockMessage block piped by websocket

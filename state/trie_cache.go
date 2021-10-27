@@ -6,10 +6,10 @@
 package state
 
 import (
-	"github.com/dfinlab/meter/kv"
-	"github.com/dfinlab/meter/meter"
-	"github.com/dfinlab/meter/trie"
 	lru "github.com/hashicorp/golang-lru"
+	"github.com/meterio/meter-pov/kv"
+	"github.com/meterio/meter-pov/meter"
+	"github.com/meterio/meter-pov/trie"
 )
 
 var trCache = newTrieCache()

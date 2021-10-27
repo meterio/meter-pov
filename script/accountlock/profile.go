@@ -13,8 +13,8 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/dfinlab/meter/meter"
-	"github.com/dfinlab/meter/state"
+	"github.com/meterio/meter-pov/meter"
+	"github.com/meterio/meter-pov/state"
 )
 
 // Profile indicates the structure of a Profile

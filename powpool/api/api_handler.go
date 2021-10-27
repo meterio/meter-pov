@@ -13,9 +13,9 @@ import (
 	"net/http"
 
 	"github.com/btcsuite/btcd/wire"
-	"github.com/dfinlab/meter/api/utils"
-	"github.com/dfinlab/meter/powpool"
 	"github.com/gorilla/mux"
+	"github.com/meterio/meter-pov/api/utils"
+	"github.com/meterio/meter-pov/powpool"
 	// "github.com/pkg/errors"
 	// "github.com/btcsuite/btcd/chaincfg/chainhash"
 )

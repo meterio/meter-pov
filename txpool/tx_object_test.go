@@ -11,15 +11,15 @@ import (
 	"math/rand"
 	"testing"
 
-	"github.com/dfinlab/meter/block"
-	"github.com/dfinlab/meter/chain"
-	"github.com/dfinlab/meter/genesis"
-	"github.com/dfinlab/meter/kv"
-	"github.com/dfinlab/meter/lvldb"
-	"github.com/dfinlab/meter/meter"
-	"github.com/dfinlab/meter/state"
-	"github.com/dfinlab/meter/tx"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/meterio/meter-pov/block"
+	"github.com/meterio/meter-pov/chain"
+	"github.com/meterio/meter-pov/genesis"
+	"github.com/meterio/meter-pov/kv"
+	"github.com/meterio/meter-pov/lvldb"
+	"github.com/meterio/meter-pov/meter"
+	"github.com/meterio/meter-pov/state"
+	"github.com/meterio/meter-pov/tx"
 	"github.com/stretchr/testify/assert"
 )
 

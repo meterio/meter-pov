@@ -6,16 +6,16 @@
 package staking
 
 import (
-	"github.com/dfinlab/meter/meter"
-	"github.com/dfinlab/meter/state"
-	setypes "github.com/dfinlab/meter/script/types"
-	"github.com/dfinlab/meter/xenv"
+	"github.com/meterio/meter-pov/meter"
+	setypes "github.com/meterio/meter-pov/script/types"
+	"github.com/meterio/meter-pov/state"
+	"github.com/meterio/meter-pov/xenv"
 )
 
 //
 type StakingEnv struct {
 	*setypes.ScriptEnv
-	staking   *Staking
+	staking *Staking
 }
 
 func NewStakingEnv(staking *Staking, state *state.State, txCtx *xenv.TransactionContext, to *meter.Address) *StakingEnv {
@@ -25,4 +25,4 @@ func NewStakingEnv(staking *Staking, state *state.State, txCtx *xenv.Transaction
 	}
 }
 
-func (env *StakingEnv) GetStaking() *Staking               { return env.staking }
+func (env *StakingEnv) GetStaking() *Staking { return env.staking }

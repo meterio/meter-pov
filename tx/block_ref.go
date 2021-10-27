@@ -8,7 +8,7 @@ package tx
 import (
 	"encoding/binary"
 
-	"github.com/dfinlab/meter/meter"
+	"github.com/meterio/meter-pov/meter"
 )
 
 // BlockRef is block reference.

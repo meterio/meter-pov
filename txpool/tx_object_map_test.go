@@ -9,9 +9,9 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/dfinlab/meter/genesis"
-	"github.com/dfinlab/meter/lvldb"
-	"github.com/dfinlab/meter/tx"
+	"github.com/meterio/meter-pov/genesis"
+	"github.com/meterio/meter-pov/lvldb"
+	"github.com/meterio/meter-pov/tx"
 	"github.com/stretchr/testify/assert"
 )
 

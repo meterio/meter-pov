@@ -8,9 +8,9 @@ package state
 import (
 	"fmt"
 
-	"github.com/dfinlab/meter/kv"
-	"github.com/dfinlab/meter/meter"
-	"github.com/dfinlab/meter/trie"
+	"github.com/meterio/meter-pov/kv"
+	"github.com/meterio/meter-pov/meter"
+	"github.com/meterio/meter-pov/trie"
 )
 
 // Stage abstracts changes on the main accounts trie.

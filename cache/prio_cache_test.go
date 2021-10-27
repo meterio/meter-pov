@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/meterio/meter-pov/cache"
 	"github.com/stretchr/testify/assert"
-	"github.com/dfinlab/meter/cache"
 )
 
 func TestPrioCacheAddRemove(t *testing.T) {

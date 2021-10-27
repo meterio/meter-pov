@@ -6,11 +6,11 @@ import (
 	"fmt"
 	"math/big"
 
-	"github.com/dfinlab/meter/meter"
-	"github.com/dfinlab/meter/reward"
-	"github.com/dfinlab/meter/script"
-	"github.com/dfinlab/meter/script/auction"
 	"github.com/ethereum/go-ethereum/rlp"
+	"github.com/meterio/meter-pov/meter"
+	"github.com/meterio/meter-pov/reward"
+	"github.com/meterio/meter-pov/script"
+	"github.com/meterio/meter-pov/script/auction"
 )
 
 func test() {

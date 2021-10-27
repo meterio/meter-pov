@@ -3,7 +3,7 @@ package auction
 import (
 	"errors"
 
-	"github.com/dfinlab/meter/block"
+	"github.com/meterio/meter-pov/block"
 )
 
 //  api routine interface

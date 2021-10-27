@@ -11,13 +11,13 @@ import (
 	"fmt"
 	"math/big"
 
-	"github.com/dfinlab/meter/abi"
-	"github.com/dfinlab/meter/builtin"
-	"github.com/dfinlab/meter/chain"
-	"github.com/dfinlab/meter/meter"
-	setypes "github.com/dfinlab/meter/script/types"
-	"github.com/dfinlab/meter/state"
-	"github.com/dfinlab/meter/xenv"
+	"github.com/meterio/meter-pov/abi"
+	"github.com/meterio/meter-pov/builtin"
+	"github.com/meterio/meter-pov/chain"
+	"github.com/meterio/meter-pov/meter"
+	setypes "github.com/meterio/meter-pov/script/types"
+	"github.com/meterio/meter-pov/state"
+	"github.com/meterio/meter-pov/xenv"
 	"github.com/inconshreveable/log15"
 )
 

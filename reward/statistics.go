@@ -17,16 +17,16 @@ import (
 	"strings"
 	"time"
 
-	"github.com/dfinlab/meter/block"
-	"github.com/dfinlab/meter/chain"
-	bls "github.com/dfinlab/meter/crypto/multi_sig"
-	"github.com/dfinlab/meter/meter"
-	"github.com/dfinlab/meter/script"
-	"github.com/dfinlab/meter/script/staking"
-	"github.com/dfinlab/meter/tx"
-	"github.com/dfinlab/meter/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/rlp"
+	"github.com/meterio/meter-pov/block"
+	"github.com/meterio/meter-pov/chain"
+	bls "github.com/meterio/meter-pov/crypto/multi_sig"
+	"github.com/meterio/meter-pov/meter"
+	"github.com/meterio/meter-pov/script"
+	"github.com/meterio/meter-pov/script/staking"
+	"github.com/meterio/meter-pov/tx"
+	"github.com/meterio/meter-pov/types"
 )
 
 // create statistics transaction
@@ -314,61 +314,61 @@ func ComputeStatistics(lastKBlockHeight, height uint32, chain *chain.Chain, curC
 		if err != nil {
 			logger.Warn("Error during missing proposer calculation:", "err", err)
 		}
-			// sort all missed proposer infraction in this order
-			// epoch ascend, height ascend, actual committee index ascend
-			sort.SliceStable(missedProposer, func(i, j int) bool {
-				pi := missedProposer[i]
-				pj := missedProposer[j]
+		// sort all missed proposer infraction in this order
+		// epoch ascend, height ascend, actual committee index ascend
+		sort.SliceStable(missedProposer, func(i, j int) bool {
+			pi := missedProposer[i]
+			pj := missedProposer[j]
 
-				if pi.Info.Epoch < pj.Info.Epoch {
+			if pi.Info.Epoch < pj.Info.Epoch {
+				return true
+			}
+			if pi.Info.Height < pj.Info.Height {
+				return true
+			}
+			if pi.Info.Epoch == pj.Info.Epoch && pi.Info.Height == pj.Info.Height {
+				indexi := findInActualCommittee(curActualCommittee, pi.Address)
+				indexj := findInActualCommittee(curActualCommittee, pj.Address)
+				if indexi < indexj || (indexi == len(curActualCommittee)-1 && indexj == 0) {
 					return true
 				}
-				if pi.Info.Height < pj.Info.Height {
-					return true
-				}
-				if pi.Info.Epoch == pj.Info.Epoch && pi.Info.Height == pj.Info.Height {
-					indexi := findInActualCommittee(curActualCommittee, pi.Address)
-					indexj := findInActualCommittee(curActualCommittee, pj.Address)
-					if indexi < indexj || (indexi == len(curActualCommittee)-1 && indexj == 0) {
-						return true
-					}
-				}
-				return false
-			})
+			}
+			return false
+		})
 
-			i := 0
-			for i < len(missedProposer) {
-				m := missedProposer[i]
+		i := 0
+		for i < len(missedProposer) {
+			m := missedProposer[i]
 
-				// calculate the count for same (epoch, height)
-				j := i + 1
-				for ; j < len(missedProposer) && missedProposer[j].Info.Epoch == m.Info.Epoch && missedProposer[j].Info.Height == m.Info.Height; j++ {
-				}
-				length := j - i
+			// calculate the count for same (epoch, height)
+			j := i + 1
+			for ; j < len(missedProposer) && missedProposer[j].Info.Epoch == m.Info.Epoch && missedProposer[j].Info.Height == m.Info.Height; j++ {
+			}
+			length := j - i
 
-				// if length > 1, append infractions except for the first missing proposer
-				if length > 1 {
-					fmt.Println("exempt missing proposer: ", m.Address, "epoch:", m.Info.Epoch, "height:", m.Info.Height)
-					for k := i + 1; k < j; k++ {
-						mk := missedProposer[k]
-						fmt.Println("followed by:", mk.Address, "epoch:", mk.Info.Epoch, "height:", mk.Info.Epoch)
-						inf := &stats[mk.Address].Infraction
-						inf.MissingProposers.Counter++
-						minfo := &m.Info
-						inf.MissingProposers.Info = append(inf.MissingProposers.Info, minfo)
-					}
-					i = j
-				} else {
-					// otherwise, append the current infraction
-					inf := &stats[m.Address].Infraction
+			// if length > 1, append infractions except for the first missing proposer
+			if length > 1 {
+				fmt.Println("exempt missing proposer: ", m.Address, "epoch:", m.Info.Epoch, "height:", m.Info.Height)
+				for k := i + 1; k < j; k++ {
+					mk := missedProposer[k]
+					fmt.Println("followed by:", mk.Address, "epoch:", mk.Info.Epoch, "height:", mk.Info.Epoch)
+					inf := &stats[mk.Address].Infraction
 					inf.MissingProposers.Counter++
 					minfo := &m.Info
 					inf.MissingProposers.Info = append(inf.MissingProposers.Info, minfo)
-					i = i + 1
 				}
-
+				i = j
+			} else {
+				// otherwise, append the current infraction
+				inf := &stats[m.Address].Infraction
+				inf.MissingProposers.Counter++
+				minfo := &m.Info
+				inf.MissingProposers.Info = append(inf.MissingProposers.Info, minfo)
+				i = i + 1
 			}
-		
+
+		}
+
 	}
 
 	// calculate missing voter

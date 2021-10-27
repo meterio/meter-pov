@@ -9,11 +9,11 @@ import (
 	"encoding/binary"
 
 	lru "github.com/hashicorp/golang-lru"
+	"github.com/meterio/meter-pov/block"
+	"github.com/meterio/meter-pov/kv"
+	"github.com/meterio/meter-pov/meter"
+	"github.com/meterio/meter-pov/trie"
 	"github.com/pkg/errors"
-	"github.com/dfinlab/meter/block"
-	"github.com/dfinlab/meter/kv"
-	"github.com/dfinlab/meter/meter"
-	"github.com/dfinlab/meter/trie"
 )
 
 const rootCacheLimit = 2048

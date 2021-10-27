@@ -13,8 +13,8 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/dfinlab/meter/meter"
 	"github.com/ethereum/go-ethereum/rlp"
+	"github.com/meterio/meter-pov/meter"
 )
 
 const (

@@ -22,7 +22,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethdb"
-	"github.com/dfinlab/meter/meter"
+	"github.com/meterio/meter-pov/meter"
 )
 
 // makeTestTrie create a sample test trie to test node-wise reconstruction.

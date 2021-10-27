@@ -13,11 +13,11 @@ import (
 	"strings"
 	"sync/atomic"
 
-	cmn "github.com/dfinlab/meter/libs/common"
-	"github.com/dfinlab/meter/meter"
-	"github.com/dfinlab/meter/metric"
-	"github.com/dfinlab/meter/tx"
-	"github.com/dfinlab/meter/types"
+	cmn "github.com/meterio/meter-pov/libs/common"
+	"github.com/meterio/meter-pov/meter"
+	"github.com/meterio/meter-pov/metric"
+	"github.com/meterio/meter-pov/tx"
+	"github.com/meterio/meter-pov/types"
 	"github.com/ethereum/go-ethereum/rlp"
 )
 

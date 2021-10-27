@@ -9,9 +9,9 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/dfinlab/meter/lvldb"
-	"github.com/dfinlab/meter/meter"
-	"github.com/dfinlab/meter/state"
+	"github.com/meterio/meter-pov/lvldb"
+	"github.com/meterio/meter-pov/meter"
+	"github.com/meterio/meter-pov/state"
 	"github.com/stretchr/testify/assert"
 )
 

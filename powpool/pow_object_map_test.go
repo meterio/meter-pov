@@ -13,7 +13,7 @@ import (
 
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
 	"github.com/btcsuite/btcd/wire"
-	"github.com/dfinlab/meter/meter"
+	"github.com/meterio/meter-pov/meter"
 	"github.com/stretchr/testify/assert"
 )
 

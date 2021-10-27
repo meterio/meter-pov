@@ -51,7 +51,7 @@ To manually install dependencies, choices are
     ```
     dep ensure -vendor-only
     ```
-    (*Note that to make `dep` work, you should put the source code at `$GOPATH/src/github.com/dfinlab/meter`*)
+    (*Note that to make `dep` work, you should put the source code at `$GOPATH/src/github.com/meterio/meter-pov`*)
 
 - git submodule
 

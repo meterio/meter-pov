@@ -8,10 +8,10 @@ package node
 import (
 	"fmt"
 
-	"github.com/dfinlab/meter/block"
-	"github.com/dfinlab/meter/meter"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/mclock"
+	"github.com/meterio/meter-pov/block"
+	"github.com/meterio/meter-pov/meter"
 )
 
 type blockStats struct {

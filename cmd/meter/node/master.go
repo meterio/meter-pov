@@ -8,8 +8,8 @@ package node
 import (
 	"crypto/ecdsa"
 
-	"github.com/dfinlab/meter/meter"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/meterio/meter-pov/meter"
 )
 
 type Master struct {

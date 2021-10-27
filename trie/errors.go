@@ -19,7 +19,7 @@ package trie
 import (
 	"fmt"
 
-	"github.com/dfinlab/meter/meter"
+	"github.com/meterio/meter-pov/meter"
 )
 
 // MissingNodeError is returned by the trie functions (TryGet, TryUpdate, TryDelete)
@@ -27,7 +27,7 @@ import (
 // information necessary for retrieving the missing node.
 type MissingNodeError struct {
 	NodeHash meter.Bytes32 // hash of the missing node
-	Path     []byte       // hex-encoded path to the missing node
+	Path     []byte        // hex-encoded path to the missing node
 }
 
 func (err *MissingNodeError) Error() string {

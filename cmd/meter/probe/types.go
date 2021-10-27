@@ -8,9 +8,9 @@ package probe
 import (
 	"errors"
 
-	"github.com/dfinlab/meter/block"
-	"github.com/dfinlab/meter/comm"
-	"github.com/dfinlab/meter/meter"
+	"github.com/meterio/meter-pov/block"
+	"github.com/meterio/meter-pov/comm"
+	"github.com/meterio/meter-pov/meter"
 )
 
 //Block block

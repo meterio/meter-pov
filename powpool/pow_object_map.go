@@ -12,8 +12,8 @@ import (
 	"sync"
 
 	"github.com/btcsuite/btcd/blockchain"
-	"github.com/dfinlab/meter/meter"
 	"github.com/inconshreveable/log15"
+	"github.com/meterio/meter-pov/meter"
 )
 
 var (

@@ -11,12 +11,12 @@ import (
 	"fmt"
 	"math/big"
 
-	"github.com/dfinlab/meter/kv"
-	"github.com/dfinlab/meter/meter"
-	"github.com/dfinlab/meter/stackedmap"
-	"github.com/dfinlab/meter/trie"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/rlp"
+	"github.com/meterio/meter-pov/kv"
+	"github.com/meterio/meter-pov/meter"
+	"github.com/meterio/meter-pov/stackedmap"
+	"github.com/meterio/meter-pov/trie"
 )
 
 // State manages the main accounts trie.

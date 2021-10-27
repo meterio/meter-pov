@@ -8,8 +8,8 @@ package accountlock
 import (
 	"sort"
 
-	"github.com/dfinlab/meter/meter"
-	"github.com/dfinlab/meter/script/accountlock"
+	"github.com/meterio/meter-pov/meter"
+	"github.com/meterio/meter-pov/script/accountlock"
 )
 
 type AccountLockProfile struct {

@@ -8,9 +8,9 @@ package params
 import (
 	"math/big"
 
-	"github.com/dfinlab/meter/meter"
-	"github.com/dfinlab/meter/state"
 	"github.com/ethereum/go-ethereum/rlp"
+	"github.com/meterio/meter-pov/meter"
+	"github.com/meterio/meter-pov/state"
 )
 
 // Params binder of `Params` contract.

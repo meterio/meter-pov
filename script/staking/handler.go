@@ -15,10 +15,10 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/dfinlab/meter/builtin"
-	"github.com/dfinlab/meter/meter"
 	crypto "github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/rlp"
+	"github.com/meterio/meter-pov/builtin"
+	"github.com/meterio/meter-pov/meter"
 )
 
 var (

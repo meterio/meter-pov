@@ -4,8 +4,8 @@ import (
 	"encoding/binary"
 	"testing"
 
-	"github.com/dfinlab/meter/lvldb"
-	"github.com/dfinlab/meter/meter"
+	"github.com/meterio/meter-pov/lvldb"
+	"github.com/meterio/meter-pov/meter"
 )
 
 func BenchmarkGet(b *testing.B) {

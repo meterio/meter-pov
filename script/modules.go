@@ -6,9 +6,9 @@
 package script
 
 import (
-	"github.com/dfinlab/meter/script/accountlock"
-	"github.com/dfinlab/meter/script/auction"
-	"github.com/dfinlab/meter/script/staking"
+	"github.com/meterio/meter-pov/script/accountlock"
+	"github.com/meterio/meter-pov/script/auction"
+	"github.com/meterio/meter-pov/script/staking"
 )
 
 const (

@@ -8,9 +8,9 @@ package slashing
 import (
 	"net/http"
 
-	"github.com/dfinlab/meter/api/utils"
-	"github.com/dfinlab/meter/script/staking"
 	"github.com/gorilla/mux"
+	"github.com/meterio/meter-pov/api/utils"
+	"github.com/meterio/meter-pov/script/staking"
 )
 
 type Slashing struct {

@@ -8,10 +8,10 @@ package accountlock
 import (
 	"net/http"
 
-	"github.com/dfinlab/meter/api/utils"
-	"github.com/dfinlab/meter/meter"
-	"github.com/dfinlab/meter/script/accountlock"
 	"github.com/gorilla/mux"
+	"github.com/meterio/meter-pov/api/utils"
+	"github.com/meterio/meter-pov/meter"
+	"github.com/meterio/meter-pov/script/accountlock"
 	"github.com/pkg/errors"
 )
 

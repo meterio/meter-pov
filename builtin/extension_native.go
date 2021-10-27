@@ -1,8 +1,8 @@
 package builtin
 
 import (
-	"github.com/dfinlab/meter/meter"
-	"github.com/dfinlab/meter/xenv"
+	"github.com/meterio/meter-pov/meter"
+	"github.com/meterio/meter-pov/xenv"
 )
 
 const (

@@ -9,7 +9,7 @@ import (
 	sha256 "crypto/sha256"
 	"fmt"
 
-	bls "github.com/dfinlab/meter/crypto/multi_sig"
+	bls "github.com/meterio/meter-pov/crypto/multi_sig"
 )
 
 type ConsensusCommon struct {

@@ -6,9 +6,9 @@
 package node
 
 import (
-	"github.com/dfinlab/meter/comm"
-	"github.com/dfinlab/meter/consensus"
-	"github.com/dfinlab/meter/meter"
+	"github.com/meterio/meter-pov/comm"
+	"github.com/meterio/meter-pov/consensus"
+	"github.com/meterio/meter-pov/meter"
 )
 
 type Network interface {

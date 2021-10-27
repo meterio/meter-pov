@@ -10,9 +10,9 @@ import (
 	"encoding/base64"
 	"fmt"
 
-	bls "github.com/dfinlab/meter/crypto/multi_sig"
-	"github.com/dfinlab/meter/meter"
 	"github.com/ethereum/go-ethereum/crypto"
+	bls "github.com/meterio/meter-pov/crypto/multi_sig"
+	"github.com/meterio/meter-pov/meter"
 )
 
 // Volatile state for each Validator

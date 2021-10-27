@@ -32,18 +32,18 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	cli "gopkg.in/urfave/cli.v1"
 
-	"github.com/dfinlab/meter/block"
-	"github.com/dfinlab/meter/chain"
-	"github.com/dfinlab/meter/comm"
-	bls "github.com/dfinlab/meter/crypto/multi_sig"
-	"github.com/dfinlab/meter/genesis"
-	"github.com/dfinlab/meter/meter"
-	"github.com/dfinlab/meter/powpool"
-	"github.com/dfinlab/meter/script/staking"
-	"github.com/dfinlab/meter/state"
-	"github.com/dfinlab/meter/types"
 	crypto "github.com/ethereum/go-ethereum/crypto"
 	"github.com/inconshreveable/log15"
+	"github.com/meterio/meter-pov/block"
+	"github.com/meterio/meter-pov/chain"
+	"github.com/meterio/meter-pov/comm"
+	bls "github.com/meterio/meter-pov/crypto/multi_sig"
+	"github.com/meterio/meter-pov/genesis"
+	"github.com/meterio/meter-pov/meter"
+	"github.com/meterio/meter-pov/powpool"
+	"github.com/meterio/meter-pov/script/staking"
+	"github.com/meterio/meter-pov/state"
+	"github.com/meterio/meter-pov/types"
 )
 
 const (

@@ -24,7 +24,7 @@ sudo apt install libgmp3-dev
 
 ### get the meter
 ```
-git clone https://github.com/dfinlab/meter-pov-consensus.git
+git clone https://github.com/meterio/meter-pov.git
 
 //our next example is network warringstakes. make sure switch to release branch!!!
 git checkout release

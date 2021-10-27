@@ -20,7 +20,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/dfinlab/meter/meter"
+	"github.com/meterio/meter-pov/meter"
 	"gopkg.in/karalabe/cookiejar.v2/collections/prque"
 )
 

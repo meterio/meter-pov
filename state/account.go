@@ -8,8 +8,8 @@ package state
 import (
 	"math/big"
 
-	"github.com/dfinlab/meter/meter"
 	"github.com/ethereum/go-ethereum/rlp"
+	"github.com/meterio/meter-pov/meter"
 )
 
 // Account is the Thor consensus representation of an account.

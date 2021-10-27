@@ -8,7 +8,7 @@ package block
 import (
 	"math"
 
-	"github.com/dfinlab/meter/meter"
+	"github.com/meterio/meter-pov/meter"
 )
 
 // GasLimit to support block gas limit validation and adjustment.

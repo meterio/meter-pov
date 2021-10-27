@@ -11,14 +11,14 @@ import (
 	"net"
 	"time"
 
-	"github.com/dfinlab/meter/cache"
-	"github.com/dfinlab/meter/co"
-	"github.com/dfinlab/meter/p2psrv/discv5"
 	"github.com/ethereum/go-ethereum/common/mclock"
 	"github.com/ethereum/go-ethereum/p2p"
 	"github.com/ethereum/go-ethereum/p2p/discover"
 	"github.com/ethereum/go-ethereum/p2p/nat"
 	"github.com/inconshreveable/log15"
+	"github.com/meterio/meter-pov/cache"
+	"github.com/meterio/meter-pov/co"
+	"github.com/meterio/meter-pov/p2psrv/discv5"
 )
 
 var log = log15.New("pkg", "p2psrv")

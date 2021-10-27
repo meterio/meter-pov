@@ -8,8 +8,8 @@ package slashing
 import (
 	"sort"
 
-	"github.com/dfinlab/meter/meter"
-	"github.com/dfinlab/meter/script/staking"
+	"github.com/meterio/meter-pov/meter"
+	"github.com/meterio/meter-pov/script/staking"
 )
 
 type DelegateJailed struct {

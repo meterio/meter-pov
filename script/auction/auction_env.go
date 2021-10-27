@@ -6,10 +6,10 @@
 package auction
 
 import (
-	"github.com/dfinlab/meter/meter"
-	"github.com/dfinlab/meter/state"
-	setypes "github.com/dfinlab/meter/script/types"
-	"github.com/dfinlab/meter/xenv"
+	"github.com/meterio/meter-pov/meter"
+	setypes "github.com/meterio/meter-pov/script/types"
+	"github.com/meterio/meter-pov/state"
+	"github.com/meterio/meter-pov/xenv"
 )
 
 //

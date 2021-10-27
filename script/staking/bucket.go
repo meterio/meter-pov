@@ -11,8 +11,8 @@ import (
 	"math/big"
 	"strings"
 
-	"github.com/dfinlab/meter/meter"
 	"github.com/ethereum/go-ethereum/rlp"
+	"github.com/meterio/meter-pov/meter"
 )
 
 // Candidate indicates the structure of a candidate

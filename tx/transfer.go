@@ -7,10 +7,10 @@ package tx
 
 import (
 	"fmt"
-	"strings"
 	"math/big"
+	"strings"
 
-	"github.com/dfinlab/meter/meter"
+	"github.com/meterio/meter-pov/meter"
 )
 
 // Transfer token transfer log.
@@ -24,13 +24,13 @@ type Transfer struct {
 // Transfers slisce of transfer logs.
 type Transfers []*Transfer
 
-func (ts Transfers) String() string{
-	if ts==nil{
+func (ts Transfers) String() string {
+	if ts == nil {
 		return "nil"
 	}
-	lines := make([]string, 0)	
-	for _, t:=range ts {
+	lines := make([]string, 0)
+	for _, t := range ts {
 		lines = append(lines, fmt.Sprintf("Transfer(from:%v, to:%v, amount:%v, token:%v)", t.Sender.String(), t.Recipient.String(), t.Amount, t.Token))
 	}
-	return "["+strings.Join(lines, "\n")+"]"
+	return "[" + strings.Join(lines, "\n") + "]"
 }

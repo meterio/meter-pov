@@ -9,9 +9,9 @@ import (
 	"fmt"
 	"math/big"
 
-	"github.com/dfinlab/meter/meter"
-	"github.com/dfinlab/meter/script/staking"
-	"github.com/dfinlab/meter/state"
+	"github.com/meterio/meter-pov/meter"
+	"github.com/meterio/meter-pov/script/staking"
+	"github.com/meterio/meter-pov/state"
 )
 
 func EnterTeslaForkInit() {

@@ -8,8 +8,8 @@ package consensus
 import (
 	"sync"
 
-	bls "github.com/dfinlab/meter/crypto/multi_sig"
-	cmn "github.com/dfinlab/meter/libs/common"
+	bls "github.com/meterio/meter-pov/crypto/multi_sig"
+	cmn "github.com/meterio/meter-pov/libs/common"
 )
 
 type timeoutID struct {

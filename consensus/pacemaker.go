@@ -13,9 +13,9 @@ import (
 
 	"github.com/ethereum/go-ethereum/rlp"
 
-	"github.com/dfinlab/meter/block"
-	"github.com/dfinlab/meter/chain"
 	"github.com/inconshreveable/log15"
+	"github.com/meterio/meter-pov/block"
+	"github.com/meterio/meter-pov/chain"
 )
 
 const (

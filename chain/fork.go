@@ -6,7 +6,7 @@
 package chain
 
 import (
-	"github.com/dfinlab/meter/block"
+	"github.com/meterio/meter-pov/block"
 )
 
 // Fork describes forked chain.

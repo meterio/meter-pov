@@ -8,13 +8,13 @@ package genesis
 import (
 	"math"
 
-	"github.com/dfinlab/meter/block"
-	"github.com/dfinlab/meter/lvldb"
-	"github.com/dfinlab/meter/meter"
-	"github.com/dfinlab/meter/runtime"
-	"github.com/dfinlab/meter/state"
-	"github.com/dfinlab/meter/tx"
-	"github.com/dfinlab/meter/xenv"
+	"github.com/meterio/meter-pov/block"
+	"github.com/meterio/meter-pov/lvldb"
+	"github.com/meterio/meter-pov/meter"
+	"github.com/meterio/meter-pov/runtime"
+	"github.com/meterio/meter-pov/state"
+	"github.com/meterio/meter-pov/tx"
+	"github.com/meterio/meter-pov/xenv"
 	"github.com/pkg/errors"
 )
 

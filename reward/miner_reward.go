@@ -4,10 +4,10 @@ import (
 	"fmt"
 	"math/big"
 
-	"github.com/dfinlab/meter/powpool"
-	"github.com/dfinlab/meter/tx"
+	"github.com/meterio/meter-pov/powpool"
+	"github.com/meterio/meter-pov/tx"
 
-	"github.com/dfinlab/meter/meter"
+	"github.com/meterio/meter-pov/meter"
 )
 
 func BuildMinerRewardTxs(rewards []powpool.PowReward, chainTag byte, bestNum uint32) tx.Transactions {

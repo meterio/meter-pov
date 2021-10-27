@@ -11,12 +11,10 @@ import (
 	"math/big"
 	"strings"
 
-	"github.com/dfinlab/meter/builtin"
-	"github.com/dfinlab/meter/meter"
-	"github.com/dfinlab/meter/state"
+	"github.com/meterio/meter-pov/builtin"
+	"github.com/meterio/meter-pov/meter"
+	"github.com/meterio/meter-pov/state"
 )
-
-
 
 type Distributor struct {
 	Address meter.Address

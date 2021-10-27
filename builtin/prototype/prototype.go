@@ -8,8 +8,8 @@ package prototype
 import (
 	"math/big"
 
-	"github.com/dfinlab/meter/meter"
-	"github.com/dfinlab/meter/state"
+	"github.com/meterio/meter-pov/meter"
+	"github.com/meterio/meter-pov/state"
 	"github.com/ethereum/go-ethereum/rlp"
 )
 

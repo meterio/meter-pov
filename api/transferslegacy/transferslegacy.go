@@ -9,9 +9,9 @@ import (
 	"context"
 	"net/http"
 
-	"github.com/dfinlab/meter/api/utils"
-	"github.com/dfinlab/meter/logdb"
 	"github.com/gorilla/mux"
+	"github.com/meterio/meter-pov/api/utils"
+	"github.com/meterio/meter-pov/logdb"
 	"github.com/pkg/errors"
 )
 

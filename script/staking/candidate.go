@@ -13,7 +13,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/dfinlab/meter/meter"
+	"github.com/meterio/meter-pov/meter"
 )
 
 // Candidate indicates the structure of a candidate

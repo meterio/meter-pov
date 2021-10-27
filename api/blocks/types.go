@@ -12,13 +12,13 @@ import (
 	"fmt"
 
 	"github.com/btcsuite/btcd/wire"
-	"github.com/dfinlab/meter/block"
-	"github.com/dfinlab/meter/meter"
-	"github.com/dfinlab/meter/powpool"
-	"github.com/dfinlab/meter/tx"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/common/math"
+	"github.com/meterio/meter-pov/block"
+	"github.com/meterio/meter-pov/meter"
+	"github.com/meterio/meter-pov/powpool"
+	"github.com/meterio/meter-pov/tx"
 )
 
 type JSONBlockSummary struct {

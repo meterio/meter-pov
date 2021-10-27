@@ -10,7 +10,7 @@ import (
 	"hash"
 
 	//"golang.org/x/crypto/blake2b"
-	"github.com/dfinlab/meter/crypto/blake2b"
+	"github.com/meterio/meter-pov/crypto/blake2b"
 )
 
 // NewBlake2b return blake2b-256 hash.

@@ -5,11 +5,11 @@ import (
 	"math/rand"
 	"time"
 
-	"github.com/dfinlab/meter/meter"
-	"github.com/dfinlab/meter/script"
-	"github.com/dfinlab/meter/script/staking"
-	"github.com/dfinlab/meter/tx"
 	"github.com/ethereum/go-ethereum/rlp"
+	"github.com/meterio/meter-pov/meter"
+	"github.com/meterio/meter-pov/script"
+	"github.com/meterio/meter-pov/script/staking"
+	"github.com/meterio/meter-pov/tx"
 )
 
 // for distribute validator rewards, recalc the delegates list ...

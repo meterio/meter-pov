@@ -11,8 +11,8 @@ import (
 	"math/big"
 	"strings"
 
-	"github.com/dfinlab/meter/block"
-	"github.com/dfinlab/meter/meter"
+	"github.com/meterio/meter-pov/block"
+	"github.com/meterio/meter-pov/meter"
 )
 
 const (

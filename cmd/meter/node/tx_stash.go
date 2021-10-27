@@ -8,10 +8,10 @@ package node
 import (
 	"container/list"
 
-	"github.com/dfinlab/meter/kv"
-	"github.com/dfinlab/meter/meter"
-	"github.com/dfinlab/meter/tx"
 	"github.com/ethereum/go-ethereum/rlp"
+	"github.com/meterio/meter-pov/kv"
+	"github.com/meterio/meter-pov/meter"
+	"github.com/meterio/meter-pov/tx"
 )
 
 // to stash non-executable txs.

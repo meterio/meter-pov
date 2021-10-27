@@ -8,7 +8,8 @@ package bloom
 
 import (
 	"encoding/binary"
-	"github.com/dfinlab/meter/meter"
+
+	"github.com/meterio/meter-pov/meter"
 )
 
 func distribute(hash uint32, k uint8, nBits uint32, cb func(index int, bit byte) bool) bool {

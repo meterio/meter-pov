@@ -9,14 +9,14 @@ import (
 	"testing"
 	"time"
 
-	"github.com/dfinlab/meter/block"
-	"github.com/dfinlab/meter/genesis"
-	"github.com/dfinlab/meter/lvldb"
-	"github.com/dfinlab/meter/meter"
-	"github.com/dfinlab/meter/state"
-	"github.com/dfinlab/meter/tx"
-	Tx "github.com/dfinlab/meter/tx"
 	"github.com/inconshreveable/log15"
+	"github.com/meterio/meter-pov/block"
+	"github.com/meterio/meter-pov/genesis"
+	"github.com/meterio/meter-pov/lvldb"
+	"github.com/meterio/meter-pov/meter"
+	"github.com/meterio/meter-pov/state"
+	"github.com/meterio/meter-pov/tx"
+	Tx "github.com/meterio/meter-pov/tx"
 	"github.com/stretchr/testify/assert"
 )
 

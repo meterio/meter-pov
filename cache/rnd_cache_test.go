@@ -3,8 +3,8 @@ package cache_test
 import (
 	"testing"
 
+	"github.com/meterio/meter-pov/cache"
 	"github.com/stretchr/testify/assert"
-	"github.com/dfinlab/meter/cache"
 )
 
 func TestRandCacheAddRemove(t *testing.T) {

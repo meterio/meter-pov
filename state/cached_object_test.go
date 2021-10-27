@@ -10,11 +10,11 @@ import (
 	"math/rand"
 	"testing"
 
-	"github.com/dfinlab/meter/lvldb"
-	"github.com/dfinlab/meter/meter"
-	"github.com/dfinlab/meter/trie"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/rlp"
+	"github.com/meterio/meter-pov/lvldb"
+	"github.com/meterio/meter-pov/meter"
+	"github.com/meterio/meter-pov/trie"
 	"github.com/stretchr/testify/assert"
 )
 

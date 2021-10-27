@@ -11,9 +11,9 @@ import (
 	"math/big"
 	"net"
 
-	"github.com/dfinlab/meter/meter"
-	"github.com/dfinlab/meter/state"
-	"github.com/dfinlab/meter/types"
+	"github.com/meterio/meter-pov/meter"
+	"github.com/meterio/meter-pov/state"
+	"github.com/meterio/meter-pov/types"
 )
 
 // get the bucket that candidate initialized

@@ -10,10 +10,10 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/dfinlab/meter/meter"
-	"github.com/dfinlab/meter/tx"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/rlp"
+	"github.com/meterio/meter-pov/meter"
+	"github.com/meterio/meter-pov/tx"
 	"github.com/stretchr/testify/assert"
 )
 

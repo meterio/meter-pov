@@ -12,8 +12,8 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/dfinlab/meter/types"
 	"github.com/inconshreveable/log15"
+	"github.com/meterio/meter-pov/types"
 )
 
 // Consensus Topology Peer

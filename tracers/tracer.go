@@ -29,7 +29,7 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
-	"github.com/dfinlab/meter/vm"
+	"github.com/meterio/meter-pov/vm"
 	duktape "gopkg.in/olebedev/go-duktape.v3"
 )
 
@@ -599,6 +599,9 @@ func (jst *Tracer) CaptureEnd(output []byte, gasUsed uint64, t time.Duration, er
 // GetResult calls the Javascript 'result' function and returns its value, or any accumulated error
 func (jst *Tracer) GetResult() (json.RawMessage, error) {
 	// Transform the context into a JavaScript object and inject into the state
+	if jst.vm == nil {
+		return json.RawMessage{}, nil
+	}
 	obj := jst.vm.PushObject()
 
 	for key, val := range jst.ctx {

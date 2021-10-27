@@ -10,10 +10,10 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/dfinlab/meter/api/utils"
-	"github.com/dfinlab/meter/chain"
-	"github.com/dfinlab/meter/consensus"
-	"github.com/dfinlab/meter/script/staking"
+	"github.com/meterio/meter-pov/api/utils"
+	"github.com/meterio/meter-pov/chain"
+	"github.com/meterio/meter-pov/consensus"
+	"github.com/meterio/meter-pov/script/staking"
 )
 
 type Probe struct {

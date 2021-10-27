@@ -8,9 +8,9 @@ package eventslegacy
 import (
 	"fmt"
 
-	"github.com/dfinlab/meter/api/transactions"
-	"github.com/dfinlab/meter/logdb"
-	"github.com/dfinlab/meter/meter"
+	"github.com/meterio/meter-pov/api/transactions"
+	"github.com/meterio/meter-pov/logdb"
+	"github.com/meterio/meter-pov/meter"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 )
 

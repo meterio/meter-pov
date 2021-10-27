@@ -10,8 +10,8 @@ import (
 	"io"
 	"strings"
 
-	cmn "github.com/dfinlab/meter/libs/common"
 	"github.com/ethereum/go-ethereum/rlp"
+	cmn "github.com/meterio/meter-pov/libs/common"
 )
 
 type QuorumCert struct {

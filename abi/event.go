@@ -6,8 +6,8 @@
 package abi
 
 import (
-	"github.com/dfinlab/meter/meter"
 	ethabi "github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/meterio/meter-pov/meter"
 )
 
 // Event see abi.Event in go-ethereum.

@@ -8,7 +8,7 @@ package co_test
 import (
 	"testing"
 
-	"github.com/dfinlab/meter/co"
+	"github.com/meterio/meter-pov/co"
 	"github.com/stretchr/testify/assert"
 )
 

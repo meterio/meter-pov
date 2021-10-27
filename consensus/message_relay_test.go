@@ -11,8 +11,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/dfinlab/meter/consensus"
 	"github.com/gonum/stat/combin"
+	"github.com/meterio/meter-pov/consensus"
 )
 
 func TestBroadcast(t *testing.T) {

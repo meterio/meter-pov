@@ -12,10 +12,10 @@ import (
 	"os/user"
 	"testing"
 
-	"github.com/dfinlab/meter/block"
-	"github.com/dfinlab/meter/logdb"
-	"github.com/dfinlab/meter/meter"
-	"github.com/dfinlab/meter/tx"
+	"github.com/meterio/meter-pov/block"
+	"github.com/meterio/meter-pov/logdb"
+	"github.com/meterio/meter-pov/meter"
+	"github.com/meterio/meter-pov/tx"
 	"github.com/stretchr/testify/assert"
 )
 

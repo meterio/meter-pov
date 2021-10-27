@@ -12,8 +12,8 @@ import (
 	"fmt"
 	"strings"
 
-	bls "github.com/dfinlab/meter/crypto/multi_sig"
-	"github.com/dfinlab/meter/meter"
+	bls "github.com/meterio/meter-pov/crypto/multi_sig"
+	"github.com/meterio/meter-pov/meter"
 	"github.com/ethereum/go-ethereum/crypto"
 )
 

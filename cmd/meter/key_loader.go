@@ -15,9 +15,9 @@ import (
 	"os"
 	"strings"
 
-	"github.com/dfinlab/meter/consensus"
-	bls "github.com/dfinlab/meter/crypto/multi_sig"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/meterio/meter-pov/consensus"
+	bls "github.com/meterio/meter-pov/crypto/multi_sig"
 	cli "gopkg.in/urfave/cli.v1"
 )
 

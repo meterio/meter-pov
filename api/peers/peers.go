@@ -8,9 +8,9 @@ package peers
 import (
 	"net/http"
 
-	"github.com/dfinlab/meter/api/utils"
-	"github.com/dfinlab/meter/p2psrv"
 	"github.com/gorilla/mux"
+	"github.com/meterio/meter-pov/api/utils"
+	"github.com/meterio/meter-pov/p2psrv"
 )
 
 type Peers struct {

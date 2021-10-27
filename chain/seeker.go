@@ -6,8 +6,8 @@
 package chain
 
 import (
-	"github.com/dfinlab/meter/block"
-	"github.com/dfinlab/meter/meter"
+	"github.com/meterio/meter-pov/block"
+	"github.com/meterio/meter-pov/meter"
 )
 
 // Seeker to seek block by given number on the chain defined by head block ID.

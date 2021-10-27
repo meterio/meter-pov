@@ -8,10 +8,10 @@ package types
 import (
 	"math/big"
 
-	"github.com/dfinlab/meter/meter"
-	"github.com/dfinlab/meter/state"
-	"github.com/dfinlab/meter/tx"
-	"github.com/dfinlab/meter/xenv"
+	"github.com/meterio/meter-pov/meter"
+	"github.com/meterio/meter-pov/state"
+	"github.com/meterio/meter-pov/tx"
+	"github.com/meterio/meter-pov/xenv"
 )
 
 //

@@ -6,14 +6,14 @@
 package builtin
 
 import (
-	"github.com/dfinlab/meter/abi"
-	"github.com/dfinlab/meter/builtin/gen"
-	"github.com/dfinlab/meter/builtin/metertracker"
-	"github.com/dfinlab/meter/builtin/params"
-	"github.com/dfinlab/meter/builtin/prototype"
-	"github.com/dfinlab/meter/meter"
-	"github.com/dfinlab/meter/state"
-	"github.com/dfinlab/meter/xenv"
+	"github.com/meterio/meter-pov/abi"
+	"github.com/meterio/meter-pov/builtin/gen"
+	"github.com/meterio/meter-pov/builtin/metertracker"
+	"github.com/meterio/meter-pov/builtin/params"
+	"github.com/meterio/meter-pov/builtin/prototype"
+	"github.com/meterio/meter-pov/meter"
+	"github.com/meterio/meter-pov/state"
+	"github.com/meterio/meter-pov/xenv"
 	"github.com/pkg/errors"
 )
 

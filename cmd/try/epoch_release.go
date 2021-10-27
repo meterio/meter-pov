@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"math/big"
 
-	"github.com/dfinlab/meter/reward"
-	"github.com/dfinlab/meter/script/auction"
+	"github.com/meterio/meter-pov/reward"
+	"github.com/meterio/meter-pov/script/auction"
 )
 
 func calcEpochRelease() {

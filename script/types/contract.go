@@ -6,9 +6,9 @@
 package types
 
 import (
-	"github.com/dfinlab/meter/abi"
-	"github.com/dfinlab/meter/meter"
-	"github.com/dfinlab/meter/script/types/gen"
+	"github.com/meterio/meter-pov/abi"
+	"github.com/meterio/meter-pov/meter"
+	"github.com/meterio/meter-pov/script/types/gen"
 	"github.com/pkg/errors"
 )
 

@@ -1,7 +1,7 @@
 package consensus
 
 import (
-	"github.com/dfinlab/meter/types"
+	"github.com/meterio/meter-pov/types"
 )
 
 func NewConsensusCommonFromBlsCommon(blsCommon *BlsCommon) *types.ConsensusCommon {

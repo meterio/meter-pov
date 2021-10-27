@@ -9,10 +9,10 @@ import (
 	"errors"
 	"net/http"
 
-	"github.com/dfinlab/meter/api/utils"
-	"github.com/dfinlab/meter/consensus"
-	"github.com/dfinlab/meter/powpool"
 	"github.com/gorilla/mux"
+	"github.com/meterio/meter-pov/api/utils"
+	"github.com/meterio/meter-pov/consensus"
+	"github.com/meterio/meter-pov/powpool"
 )
 
 type Node struct {

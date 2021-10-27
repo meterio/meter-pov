@@ -3,11 +3,11 @@ package reward
 import (
 	"math/big"
 
-	"github.com/dfinlab/meter/meter"
-	"github.com/dfinlab/meter/script"
-	"github.com/dfinlab/meter/script/accountlock"
-	"github.com/dfinlab/meter/tx"
 	"github.com/ethereum/go-ethereum/rlp"
+	"github.com/meterio/meter-pov/meter"
+	"github.com/meterio/meter-pov/script"
+	"github.com/meterio/meter-pov/script/accountlock"
+	"github.com/meterio/meter-pov/tx"
 )
 
 func BuildAccountLockGoverningTx(chainTag byte, bestNum uint32, curEpoch uint32) *tx.Transaction {

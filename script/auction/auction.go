@@ -8,12 +8,12 @@ package auction
 import (
 	"errors"
 
-	"github.com/dfinlab/meter/chain"
-	"github.com/dfinlab/meter/meter"
-	"github.com/dfinlab/meter/state"
-	setypes "github.com/dfinlab/meter/script/types"
-	"github.com/dfinlab/meter/xenv"
 	"github.com/inconshreveable/log15"
+	"github.com/meterio/meter-pov/chain"
+	"github.com/meterio/meter-pov/meter"
+	setypes "github.com/meterio/meter-pov/script/types"
+	"github.com/meterio/meter-pov/state"
+	"github.com/meterio/meter-pov/xenv"
 )
 
 var (

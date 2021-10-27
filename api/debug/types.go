@@ -3,10 +3,10 @@ package debug
 import (
 	"fmt"
 
-	"github.com/dfinlab/meter/meter"
+	"github.com/meterio/meter-pov/meter"
 
-	"github.com/dfinlab/meter/vm"
 	"github.com/ethereum/go-ethereum/common/math"
+	"github.com/meterio/meter-pov/vm"
 )
 
 type TracerOption struct {

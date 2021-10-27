@@ -5,8 +5,8 @@ import (
 	"encoding/hex"
 	"fmt"
 
-	bls "github.com/dfinlab/meter/crypto/multi_sig"
 	"github.com/ethereum/go-ethereum/crypto"
+	bls "github.com/meterio/meter-pov/crypto/multi_sig"
 )
 
 // CommitteeMember is validator structure + consensus fields

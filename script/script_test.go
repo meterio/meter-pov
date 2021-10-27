@@ -12,9 +12,9 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/dfinlab/meter/reward"
-	"github.com/dfinlab/meter/script"
-	"github.com/dfinlab/meter/script/staking"
+	"github.com/meterio/meter-pov/reward"
+	"github.com/meterio/meter-pov/script"
+	"github.com/meterio/meter-pov/script/staking"
 )
 
 func TestReward(t *testing.T) {
@@ -24,7 +24,7 @@ func TestReward(t *testing.T) {
 
 /*
 Execute this test with
-cd /tmp/meter-build-xxxxx/src/github.com/dfinlab/meter/script/staking
+cd /tmp/meter-build-xxxxx/src/github.com/meterio/meter-pov/script/staking
 GOPATH=/tmp/meter-build-xxxx/:$GOPATH go test
 */
 

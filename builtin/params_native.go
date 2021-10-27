@@ -8,9 +8,9 @@ package builtin
 import (
 	"math/big"
 
-	"github.com/dfinlab/meter/meter"
-	"github.com/dfinlab/meter/xenv"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/meterio/meter-pov/meter"
+	"github.com/meterio/meter-pov/xenv"
 )
 
 func init() {

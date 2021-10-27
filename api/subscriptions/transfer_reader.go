@@ -6,8 +6,8 @@
 package subscriptions
 
 import (
-	"github.com/dfinlab/meter/chain"
-	"github.com/dfinlab/meter/meter"
+	"github.com/meterio/meter-pov/chain"
+	"github.com/meterio/meter-pov/meter"
 )
 
 type transferReader struct {

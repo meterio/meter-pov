@@ -5,9 +5,9 @@ import (
 
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/rlp"
+	"github.com/meterio/meter-pov/block"
+	"github.com/meterio/meter-pov/meter"
 	"github.com/stretchr/testify/assert"
-	"github.com/dfinlab/meter/block"
-	"github.com/dfinlab/meter/meter"
 )
 
 func TestRawBlock(t *testing.T) {

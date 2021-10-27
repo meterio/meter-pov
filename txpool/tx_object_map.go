@@ -9,8 +9,8 @@ import (
 	"errors"
 	"sync"
 
-	"github.com/dfinlab/meter/meter"
-	"github.com/dfinlab/meter/tx"
+	"github.com/meterio/meter-pov/meter"
+	"github.com/meterio/meter-pov/tx"
 )
 
 // txObjectMap to maintain mapping of ID to tx object, and account quota.

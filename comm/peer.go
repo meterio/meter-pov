@@ -12,13 +12,13 @@ import (
 	"math/rand"
 	"sync"
 
-	"github.com/dfinlab/meter/meter"
-	"github.com/dfinlab/meter/p2psrv/rpc"
 	"github.com/ethereum/go-ethereum/common/mclock"
 	"github.com/ethereum/go-ethereum/p2p"
 	"github.com/ethereum/go-ethereum/p2p/discover"
 	lru "github.com/hashicorp/golang-lru"
 	"github.com/inconshreveable/log15"
+	"github.com/meterio/meter-pov/meter"
+	"github.com/meterio/meter-pov/p2psrv/rpc"
 )
 
 const (

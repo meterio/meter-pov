@@ -17,12 +17,12 @@ import (
 	"testing"
 	"testing/quick"
 
-	"github.com/dfinlab/meter/lvldb"
-	"github.com/dfinlab/meter/meter"
-	"github.com/dfinlab/meter/runtime/statedb"
-	State "github.com/dfinlab/meter/state"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/meterio/meter-pov/lvldb"
+	"github.com/meterio/meter-pov/meter"
+	"github.com/meterio/meter-pov/runtime/statedb"
+	State "github.com/meterio/meter-pov/state"
 )
 
 func TestSnapshotRandom(t *testing.T) {

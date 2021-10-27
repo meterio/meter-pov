@@ -8,9 +8,9 @@ package genesis_test
 import (
 	"testing"
 
-	"github.com/dfinlab/meter/genesis"
-	"github.com/dfinlab/meter/lvldb"
-	"github.com/dfinlab/meter/state"
+	"github.com/meterio/meter-pov/genesis"
+	"github.com/meterio/meter-pov/lvldb"
+	"github.com/meterio/meter-pov/state"
 	"github.com/stretchr/testify/assert"
 )
 

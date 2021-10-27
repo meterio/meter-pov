@@ -9,10 +9,10 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/dfinlab/meter/block"
-	"github.com/dfinlab/meter/co"
-	"github.com/dfinlab/meter/comm/proto"
 	"github.com/ethereum/go-ethereum/rlp"
+	"github.com/meterio/meter-pov/block"
+	"github.com/meterio/meter-pov/co"
+	"github.com/meterio/meter-pov/comm/proto"
 	"github.com/pkg/errors"
 )
 

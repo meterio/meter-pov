@@ -11,10 +11,10 @@ import (
 	"fmt"
 	"math/big"
 
-	"github.com/dfinlab/meter/block"
-	"github.com/dfinlab/meter/meter"
-	"github.com/dfinlab/meter/tx"
 	sqlite3 "github.com/mattn/go-sqlite3"
+	"github.com/meterio/meter-pov/block"
+	"github.com/meterio/meter-pov/meter"
+	"github.com/meterio/meter-pov/tx"
 )
 
 type LogDB struct {

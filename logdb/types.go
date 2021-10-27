@@ -8,9 +8,9 @@ package logdb
 import (
 	"math/big"
 
-	"github.com/dfinlab/meter/block"
-	"github.com/dfinlab/meter/meter"
-	"github.com/dfinlab/meter/tx"
+	"github.com/meterio/meter-pov/block"
+	"github.com/meterio/meter-pov/meter"
+	"github.com/meterio/meter-pov/tx"
 )
 
 //Event represents tx.Event that can be stored in db.

@@ -8,11 +8,11 @@ package subscriptions
 import (
 	"bytes"
 
-	Block "github.com/dfinlab/meter/block"
-	"github.com/dfinlab/meter/chain"
-	"github.com/dfinlab/meter/meter"
-	"github.com/dfinlab/meter/meter/bloom"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	_block "github.com/meterio/meter-pov/block"
+	"github.com/meterio/meter-pov/chain"
+	"github.com/meterio/meter-pov/meter"
+	"github.com/meterio/meter-pov/meter/bloom"
 )
 
 type beatReader struct {
@@ -68,7 +68,7 @@ func (br *beatReader) Read() ([]interface{}, bool, error) {
 		}
 
 		var epoch uint64
-		isKBlock := (header.BlockType() == Block.BLOCK_TYPE_K_BLOCK)
+		isKBlock := (header.BlockType() == _block.BLOCK_TYPE_K_BLOCK)
 		if isKBlock {
 			epoch = block.QC.EpochID
 		} else if len(block.CommitteeInfos.CommitteeInfo) > 0 {

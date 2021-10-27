@@ -12,9 +12,9 @@ import (
 	"math/big"
 	"strings"
 
-	"github.com/dfinlab/meter/meter"
-	"github.com/dfinlab/meter/state"
 	"github.com/ethereum/go-ethereum/rlp"
+	"github.com/meterio/meter-pov/meter"
+	"github.com/meterio/meter-pov/state"
 )
 
 // Candidate List

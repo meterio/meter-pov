@@ -8,9 +8,9 @@ package builtin
 import (
 	"encoding/hex"
 
-	"github.com/dfinlab/meter/abi"
-	"github.com/dfinlab/meter/builtin/gen"
-	"github.com/dfinlab/meter/meter"
+	"github.com/meterio/meter-pov/abi"
+	"github.com/meterio/meter-pov/builtin/gen"
+	"github.com/meterio/meter-pov/meter"
 	"github.com/pkg/errors"
 )
 

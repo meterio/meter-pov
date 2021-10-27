@@ -12,8 +12,8 @@ import (
 	"strings"
 
 	// "github.com/ethereum/go-ethereum/rlp"
-	"github.com/dfinlab/meter/block"
-	"github.com/dfinlab/meter/meter"
+	"github.com/meterio/meter-pov/block"
+	"github.com/meterio/meter-pov/meter"
 
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
 	"github.com/btcsuite/btcd/wire"

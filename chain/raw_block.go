@@ -8,7 +8,7 @@ package chain
 import (
 	"sync/atomic"
 
-	"github.com/dfinlab/meter/block"
+	"github.com/meterio/meter-pov/block"
 )
 
 type rawBlock struct {

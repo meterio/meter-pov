@@ -8,10 +8,10 @@ package metertracker
 import (
 	"math/big"
 
-	"github.com/dfinlab/meter/meter"
-	"github.com/dfinlab/meter/script/accountlock"
-	"github.com/dfinlab/meter/state"
 	"github.com/ethereum/go-ethereum/rlp"
+	"github.com/meterio/meter-pov/meter"
+	"github.com/meterio/meter-pov/script/accountlock"
+	"github.com/meterio/meter-pov/state"
 )
 
 var (

@@ -12,14 +12,14 @@ import (
 	"testing"
 	"time"
 
-	"github.com/dfinlab/meter/api/node"
-	"github.com/dfinlab/meter/chain"
-	"github.com/dfinlab/meter/comm"
-	"github.com/dfinlab/meter/genesis"
-	"github.com/dfinlab/meter/lvldb"
-	"github.com/dfinlab/meter/state"
-	"github.com/dfinlab/meter/txpool"
 	"github.com/gorilla/mux"
+	"github.com/meterio/meter-pov/api/node"
+	"github.com/meterio/meter-pov/chain"
+	"github.com/meterio/meter-pov/comm"
+	"github.com/meterio/meter-pov/genesis"
+	"github.com/meterio/meter-pov/lvldb"
+	"github.com/meterio/meter-pov/state"
+	"github.com/meterio/meter-pov/txpool"
 	"github.com/stretchr/testify/assert"
 )
 

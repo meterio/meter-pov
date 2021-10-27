@@ -14,9 +14,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/dfinlab/meter/block"
-	"github.com/dfinlab/meter/tx"
-	"github.com/dfinlab/meter/txpool"
+	"github.com/meterio/meter-pov/block"
+	"github.com/meterio/meter-pov/tx"
+	"github.com/meterio/meter-pov/txpool"
 )
 
 const (

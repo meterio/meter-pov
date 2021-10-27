@@ -10,7 +10,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/dfinlab/meter/meter/bloom"
+	"github.com/meterio/meter-pov/meter/bloom"
 )
 
 func TestBloom(t *testing.T) {

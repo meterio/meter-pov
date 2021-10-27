@@ -12,16 +12,16 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	. "github.com/dfinlab/meter/block"
-	"github.com/dfinlab/meter/meter"
-	"github.com/dfinlab/meter/tx"
+	. "github.com/meterio/meter-pov/block"
+	"github.com/meterio/meter-pov/meter"
+	"github.com/meterio/meter-pov/tx"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/rlp"
 
 	// "crypto/rand"
-	// cmn "github.com/dfinlab/meter/libs/common"
+	// cmn "github.com/meterio/meter-pov/libs/common"
 
-	"github.com/dfinlab/meter/types"
+	"github.com/meterio/meter-pov/types"
 )
 
 func TestSerialize(t *testing.T) {

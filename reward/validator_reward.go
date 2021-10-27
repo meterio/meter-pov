@@ -11,10 +11,10 @@ import (
 	"fmt"
 	"math/big"
 
-	"github.com/dfinlab/meter/meter"
-	"github.com/dfinlab/meter/script/auction"
-	"github.com/dfinlab/meter/types"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/meterio/meter-pov/meter"
+	"github.com/meterio/meter-pov/script/auction"
+	"github.com/meterio/meter-pov/types"
 )
 
 func ComputeRewardMapV3(baseReward, totalRewards *big.Int, delegates []*types.Delegate, committeeMembers []*types.Validator) (RewardMap, error) {

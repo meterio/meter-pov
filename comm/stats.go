@@ -6,7 +6,7 @@
 package comm
 
 import (
-	"github.com/dfinlab/meter/meter"
+	"github.com/meterio/meter-pov/meter"
 )
 
 // type Traffic struct {

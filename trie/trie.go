@@ -21,7 +21,7 @@ import (
 	"bytes"
 	"fmt"
 
-	"github.com/dfinlab/meter/meter"
+	"github.com/meterio/meter-pov/meter"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/rcrowley/go-metrics"

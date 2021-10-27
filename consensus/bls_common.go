@@ -6,7 +6,7 @@
 package consensus
 
 import (
-	bls "github.com/dfinlab/meter/crypto/multi_sig"
+	bls "github.com/meterio/meter-pov/crypto/multi_sig"
 )
 
 type BlsCommon struct {

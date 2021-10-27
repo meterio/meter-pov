@@ -10,11 +10,11 @@ import (
 	"encoding/base64"
 	"fmt"
 
-	"github.com/dfinlab/meter/block"
-	bls "github.com/dfinlab/meter/crypto/multi_sig"
-	cmn "github.com/dfinlab/meter/libs/common"
-	types "github.com/dfinlab/meter/types"
 	"github.com/inconshreveable/log15"
+	"github.com/meterio/meter-pov/block"
+	bls "github.com/meterio/meter-pov/crypto/multi_sig"
+	cmn "github.com/meterio/meter-pov/libs/common"
+	types "github.com/meterio/meter-pov/types"
 )
 
 type SignatureAggregator struct {

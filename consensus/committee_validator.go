@@ -21,9 +21,9 @@ import (
 	"fmt"
 	"time"
 
-	bls "github.com/dfinlab/meter/crypto/multi_sig"
-	"github.com/dfinlab/meter/genesis"
-	types "github.com/dfinlab/meter/types"
+	bls "github.com/meterio/meter-pov/crypto/multi_sig"
+	"github.com/meterio/meter-pov/genesis"
+	types "github.com/meterio/meter-pov/types"
 	crypto "github.com/ethereum/go-ethereum/crypto"
 )
 

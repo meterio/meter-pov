@@ -9,14 +9,14 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/dfinlab/meter/block"
-	"github.com/dfinlab/meter/comm/proto"
-	"github.com/dfinlab/meter/meter"
-	"github.com/dfinlab/meter/metric"
-	//"github.com/dfinlab/meter/powpool"
-	"github.com/dfinlab/meter/tx"
+	"github.com/meterio/meter-pov/block"
+	"github.com/meterio/meter-pov/comm/proto"
+	"github.com/meterio/meter-pov/meter"
+	"github.com/meterio/meter-pov/metric"
+	//"github.com/meterio/meter-pov/powpool"
 	"github.com/ethereum/go-ethereum/p2p"
 	"github.com/ethereum/go-ethereum/rlp"
+	"github.com/meterio/meter-pov/tx"
 	"github.com/pkg/errors"
 )
 

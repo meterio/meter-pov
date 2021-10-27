@@ -8,11 +8,11 @@ package genesis
 import (
 	"encoding/hex"
 
-	"github.com/dfinlab/meter/abi"
-	"github.com/dfinlab/meter/block"
-	"github.com/dfinlab/meter/meter"
-	"github.com/dfinlab/meter/state"
-	"github.com/dfinlab/meter/tx"
+	"github.com/meterio/meter-pov/abi"
+	"github.com/meterio/meter-pov/block"
+	"github.com/meterio/meter-pov/meter"
+	"github.com/meterio/meter-pov/state"
+	"github.com/meterio/meter-pov/tx"
 )
 
 const (

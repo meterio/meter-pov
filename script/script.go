@@ -12,15 +12,15 @@ import (
 	"fmt"
 	"math/big"
 
-	"github.com/dfinlab/meter/chain"
-	"github.com/dfinlab/meter/meter"
-	"github.com/dfinlab/meter/script/accountlock"
-	"github.com/dfinlab/meter/script/auction"
-	"github.com/dfinlab/meter/script/staking"
-	setypes "github.com/dfinlab/meter/script/types"
-	"github.com/dfinlab/meter/state"
-	"github.com/dfinlab/meter/xenv"
 	"github.com/inconshreveable/log15"
+	"github.com/meterio/meter-pov/chain"
+	"github.com/meterio/meter-pov/meter"
+	"github.com/meterio/meter-pov/script/accountlock"
+	"github.com/meterio/meter-pov/script/auction"
+	"github.com/meterio/meter-pov/script/staking"
+	setypes "github.com/meterio/meter-pov/script/types"
+	"github.com/meterio/meter-pov/state"
+	"github.com/meterio/meter-pov/xenv"
 )
 
 var (
