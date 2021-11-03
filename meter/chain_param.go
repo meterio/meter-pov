@@ -21,8 +21,8 @@ const (
 	EdisonTestnetStartNum      = 0
 
 	//chainID
-	MainnetChainID = 82  // 0x52 for mainnet
-	TestnetChainID = 101 // 0x65 for testnet
+	MainnetChainID = 82 // 0x52 for mainnet
+	TestnetChainID = 83 // 0x53 for testnet
 )
 
 // Tesla: The staking/auction release, Features include:
