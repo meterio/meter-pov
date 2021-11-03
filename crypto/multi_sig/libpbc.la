@@ -5,16 +5,16 @@
 # It is necessary for linking the library.
 
 # The name that we can dlopen(3).
-dlname='libpbc.1.dylib'
+dlname='libpbc.so.1'
 
 # Names of this library.
-library_names='libpbc.1.dylib libpbc.dylib'
+library_names='libpbc.so.1.0.0 libpbc.so.1 libpbc.so'
 
 # The name of the static archive.
 old_library='libpbc.a'
 
 # Linker flags that can not go in dependency_libs.
-inherited_linker_flags=' '
+inherited_linker_flags=''
 
 # Libraries that this one depends upon.
 dependency_libs=' -lgmp -lm'
