@@ -297,10 +297,36 @@ func (d *Debug) convertTraceData(callTraceResult CallTraceResult, path []uint64,
 		fmt.Println("Error parsing to: ", err, ", set it as default")
 		to = meter.Address{}
 	}
+	resultType := strings.ToLower(callTraceResult.Type)
+	callType := ""
+	txType := ""
+	switch resultType {
+	case "call":
+		fallthrough
+	case "callcode":
+		fallthrough
+	case "delegatecall":
+		fallthrough
+	case "staticcall":
+		callType = resultType
+		txType = "call"
+	case "create":
+		fallthrough
+	case "create2":
+		callType = "create"
+		txType = "create"
+	case "selfdestruct":
+		callType = "selfdestruct"
+		txType = "suicide"
+	default:
+		callType = resultType
+		txType = "unknown"
+	}
+
 	datas := []*TraceData{
 		&TraceData{
 			Action: TraceAction{
-				CallType: strings.ToLower(callTraceResult.Type),
+				CallType: callType,
 				From:     from,
 				Input:    callTraceResult.Input,
 				Gas:      gas,
@@ -317,7 +343,7 @@ func (d *Debug) convertTraceData(callTraceResult CallTraceResult, path []uint64,
 			TraceAddress:        path,
 			TransactionHash:     txHash,
 			TransactionPosition: txIndex,
-			Type:                strings.ToLower(callTraceResult.Type),
+			Type:                txType,
 		},
 	}
 	for index, call := range callTraceResult.Calls {
