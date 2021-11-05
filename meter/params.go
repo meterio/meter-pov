@@ -116,6 +116,9 @@ var (
 
 	KeyEnforceTesla1_1Correction = BytesToBytes32([]byte("Tesla1_1Correction-Flag")) // unset or 0 is not do yet, 1 is donw
 
+	// key set transaction fee address
+	KeyTransactionFeeAddress = BytesToBytes32([]byte("transaction-fee-beneficiary-address"))
+
 	// Initial values
 	InitialRewardRatio         = big.NewInt(3e17) // 30%
 	InitialBaseGasPrice        = big.NewInt(5e11) // each tx gas is about 0.01 meter
