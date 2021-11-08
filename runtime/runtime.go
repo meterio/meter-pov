@@ -675,11 +675,12 @@ func (rt *Runtime) PrepareTransaction(tx *tx.Transaction) (*TransactionExecutor,
 			// mint transaction gas is not prepaid, so no reward.
 			if !origin.IsZero() {
 				txFeeBeneficiary := builtin.Params.Native(rt.State()).GetAddress(meter.KeyTransactionFeeAddress)
+				fmt.Println(meter.KeyTransactionFeeAddress.String())
 				if txFeeBeneficiary.IsZero() {
-					fmt.Println("reward to proposer beneficiary:", "beneficiary", rt.ctx.Beneficiary, "reward", reward.String())
+					fmt.Println("txFee to proposer beneficiary:", "beneficiary", rt.ctx.Beneficiary, "reward", reward.String())
 					rt.state.AddEnergy(rt.ctx.Beneficiary, reward)
 				} else {
-					fmt.Println("reward to global beneficiary:", "beneficiary", txFeeBeneficiary, "reward", reward.String())
+					fmt.Println("txFee to global beneficiary:", "beneficiary", txFeeBeneficiary, "reward", reward.String())
 					rt.state.AddEnergy(txFeeBeneficiary, reward)
 				}
 			}
