@@ -23,15 +23,15 @@ var (
 		CommitteeMinSize: 11,
 		CommitteeMaxSize: 300,
 		DelegateMaxSize:  300,
-		DiscoServer:      "enode://7d4835bebc2d6e515ba6bd61c75f4b68870d34a10450b6bcee268d6c23012e4a344c6ae74bd52b6eb74e0a50261fdeeeaf462e13fdcbe03287349a114caca4a8@54.179.74.104:55555",
+		DiscoServer:      "enode://3d7fd902f61ce3a63239a7e1296be976bbd40bb79902669e8501a5c5c50e7c1070d961d87d668b2eb11001a1fdd01e78b1b97b4c050db9e7d10743de464c65f8@175.41.153.121:55555",
 		DiscoTopic:       "mainnet",
 	}
 
 	ShoalPresetConfig = &PresetConfig{
-		CommitteeMinSize: 11,
+		CommitteeMinSize: 3,
 		CommitteeMaxSize: 300,
 		DelegateMaxSize:  500,
-		DiscoServer:      "enode://edef07cf4108b1b8be09b34290cda09e490a23b1380cbb20cefc250ebaf2470dd470449eb080c18f48c7f1618d7b17f815729dd89ac51193a2f305cf2dee6182@13.228.91.172:55555",
+		DiscoServer:      "enode://5b657dfef1cc6a0f0fe0f15dd6ca160f5cbe2f3ad56faaca7fd933fc552c21bedb3482aff9da6eb73c63731d452d7928db66d16aba2970a3f4386c37a5c740fe@46.137.198.231:55555",
 		DiscoTopic:       "shoal",
 	}
 )
