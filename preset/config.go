@@ -20,10 +20,10 @@ type PresetConfig struct {
 
 var (
 	MainPresetConfig = &PresetConfig{
-		CommitteeMinSize: 11,
+		CommitteeMinSize: 2,
 		CommitteeMaxSize: 300,
 		DelegateMaxSize:  300,
-		DiscoServer:      "enode://3d7fd902f61ce3a63239a7e1296be976bbd40bb79902669e8501a5c5c50e7c1070d961d87d668b2eb11001a1fdd01e78b1b97b4c050db9e7d10743de464c65f8@175.41.153.121:55555",
+		DiscoServer:      "enode://30fa4a57e203cfef6eb13b2fec75e17849fb9e0be41f7abfc5992955b8c86e4ef484f27efe0d6250ec95a4a871be4b8151727dc86f33d3acfeb92b394e702cbd@13.214.56.167:55555",
 		DiscoTopic:       "mainnet",
 	}
 

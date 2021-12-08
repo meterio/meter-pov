@@ -143,20 +143,20 @@ var (
 	// 0x61746f722d62656e656669742d61646472657373
 	ValidatorBenefitAddr = BytesToAddress([]byte("validator-benefit-address"))
 
-	AuctionLeftOverAccount = MustParseAddress("0xe852f654dfaee0e2b60842657379a56e1cafa292")
+	AuctionLeftOverAccount = MustParseAddress("0x536F17262CE42639255B3CA1F8024E5ED0B2A6D0")
 
 	ZeroAddress = MustParseAddress("0x0000000000000000000000000000000000000000")
 	//////////////////////////////
 	// The Following Accounts are defined for DFL Community
-	InitialExecutorAccount = MustParseAddress("0xdbb11b66f1d62bdeb5f47018d85e2401d7e3dc2e")
-	InitialDFLTeamAccount1 = MustParseAddress("0x2fa2d56e312c47709537acb198446205736022aa")
-	InitialDFLTeamAccount2 = MustParseAddress("0x08ebea6584b3d9bf6fbcacf1a1507d00a61d95b7")
-	InitialDFLTeamAccount3 = MustParseAddress("0x045df1ef32d6db371f1857bb60551ef2e43abb1e")
-	InitialDFLTeamAccount4 = MustParseAddress("0xde4f71f45ae821614e9dd1256fef06780b775216")
-	InitialDFLTeamAccount5 = MustParseAddress("0xab22ab75f8c42b6969c5d226f39aeb7be35bf24b")
-	InitialDFLTeamAccount6 = MustParseAddress("0x63723217e860bc409e29b46eec70101cd03d8242")
-	InitialDFLTeamAccount7 = MustParseAddress("0x0374f5867ab2effd2277c895e7d1088b10ec9452")
-	InitialDFLTeamAccount8 = MustParseAddress("0x5308b6f26f21238963d0ea0b391eafa9be53c78e")
+	InitialExecutorAccount = MustParseAddress("0x72C49458728C5661F19BCAB6DA76D96AE94E6E83")
+	InitialDFLTeamAccount1 = MustParseAddress("0x40408141851429DAFC7F8B0D1701D23040110B78")
+	InitialDFLTeamAccount2 = MustParseAddress("0x2B39F8BFA360D5C4D256D30AD48A020A02F6DA61")
+	InitialDFLTeamAccount3 = MustParseAddress("0x29452E7420DAC1387B6104CDC3C44E5CF9B70512")
+	InitialDFLTeamAccount4 = MustParseAddress("0xE5D0691C21BD951E09B48AF1E3F23864FEDB4BC4")
+	InitialDFLTeamAccount5 = MustParseAddress("0x9D7297D2150EE022E7F31A2A23436DF8254C33D4")
+	InitialDFLTeamAccount6 = MustParseAddress("0xB35AFC0A4F88E764ECA2B1FA56600EA1CAAA2E80")
+	InitialDFLTeamAccount7 = MustParseAddress("0xF783E22E53B1E3CB9FC9C6CDF2EF2E1CB35AA93D")
+	InitialDFLTeamAccount8 = MustParseAddress("0x80C9DF0F25967C3A0B2E022F7E968F0571F12297")
 
 	TeslaValidatorBenefitRatio = big.NewInt(1e18)
 )
