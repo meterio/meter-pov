@@ -1,16 +1,17 @@
 # Build meter in a stock Go builder container
-FROM dfinlab/build-env as builder
+FROM meterio/build-env as builder
+RUN go version
 
 WORKDIR  /meter
 
 COPY . .
 
-RUN git submodule update --init
+#RUN git submodule update --init
 # RUN make dep (takes much longer)
 
 # prepare for missed sha3 library
-RUN go get golang.org/x/crypto/sha3
-RUN cp -r "${GOPATH}/src/golang.org/x/crypto/sha3" "/meter/vendor/golang.org/x/crypto/sha3"
+#RUN go get golang.org/x/crypto/sha3
+#RUN cp -r "${GOPATH}/src/golang.org/x/crypto/sha3" "/meter/vendor/golang.org/x/crypto/sha3"
 
 # prepare for missed secp256k1 library
 # RUN go get github.com/ethereum/go-ethereum
