@@ -49,6 +49,9 @@ func (p *Pacemaker) proposeBlock(parentBlock *block.Block, height, round uint32,
 			nonce := binary.LittleEndian.Uint32(pi)
 
 			powResults = powpool.NewPowResult(nonce)
+
+			powRawBlocks := make([]block.PowRawBlock, 0)
+			powResults.Raw = powRawBlocks
 		}
 	}
 
