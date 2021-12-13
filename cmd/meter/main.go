@@ -29,7 +29,7 @@ import (
 	"github.com/meterio/meter-pov/consensus"
 	"github.com/meterio/meter-pov/meter"
 	"github.com/meterio/meter-pov/powpool"
-	pow_api "github.com/meterio/meter-pov/powpool/api"
+	_ "github.com/meterio/meter-pov/powpool/api"
 	"github.com/meterio/meter-pov/preset"
 	"github.com/meterio/meter-pov/script"
 	"github.com/meterio/meter-pov/state"
@@ -289,11 +289,11 @@ func defaultAction(ctx *cli.Context) error {
 	apiURL, srvCloser := startAPIServer(ctx, apiHandler, chain.GenesisBlock().Header().ID())
 	defer func() { log.Info("stopping API server..."); srvCloser() }()
 
-	powApiHandler, powApiCloser := pow_api.New(powPool)
-	defer func() { log.Info("closing Pow Pool API..."); powApiCloser() }()
+	//powApiHandler, powApiCloser := pow_api.New(powPool)
+	//defer func() { log.Info("closing Pow Pool API..."); powApiCloser() }()
 
-	powApiURL, powSrvCloser := startPowAPIServer(ctx, powApiHandler)
-	defer func() { log.Info("stopping Pow API server..."); powSrvCloser() }()
+	//powApiURL, powSrvCloser := startPowAPIServer(ctx, powApiHandler)
+	//defer func() { log.Info("stopping Pow API server..."); powSrvCloser() }()
 
 	stateCreator := state.NewCreator(mainDB)
 	sc := script.NewScriptEngine(chain, stateCreator)
@@ -309,7 +309,7 @@ func defaultAction(ctx *cli.Context) error {
 	genCloser := newKFrameGenerator(ctx, cons)
 	defer func() { log.Info("stopping kframe generator service ..."); genCloser() }()
 
-	printStartupMessage(topic, gene, chain, master, instanceDir, apiURL, powApiURL, observeURL)
+	printStartupMessage(topic, gene, chain, master, instanceDir, apiURL, "powApiURL", observeURL)
 
 	p2pcom.Start()
 	defer p2pcom.Stop()
