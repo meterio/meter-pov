@@ -3,7 +3,7 @@
     "name": "main-01",
     "address": "0xACA5881062F126B3DC7D1AC28C4D94B26977C01F",
     "pub_key": "BPBFYH3y+U3RrSNWbwqxoye2XEtC2ZKTh8ucywQQ8uVPUhlm7ophhd01xBgkGBJlS0IdkgV57oYSwPeyGRkIHMM=:::lRmECrcyeixJjxdkKlBZWELysAjb3Bt15n/GcxuLm706+hj5N+Md/Ph2wUZpp7tDAaTfgFbeQcsEHWTG9OlN0wE=",
-    "voting_power": 120,
+    "voting_power": 100,
     "network_addr": {
       "ip": "13.214.56.167",
       "port": 8670
@@ -13,19 +13,9 @@
     "name": "main-02",
     "address": "0x8B4AAF30BCCE0375449B4128E5E6DF67316DCE1E",
     "pub_key": "BBW+IWNfV+5xQtliI8Epd3wM84Bcu2XRqOlLcHA+wylGWZoUiXYbBIORwtCBQDWLmQ41cWU8odwvtBf7bLkWo4s=:::TH/Gqtrco+zcdiE7Hc2cZl1kYs1oPrfAW4a4xGmfnM5BKMjD61tDnRp8UWign44sYi4wa9kWcCahvFOS+0GSFgA=",
-    "voting_power": 110,
-    "network_addr": {
-      "ip": "13.214.121.186",
-      "port": 8670
-    }
-  },
-  {
-    "name": "main-03",
-    "address": "0x469F227B6711F27F5DB49466436226D18CAA9776",
-    "pub_key": "BMh0VbbazsArpjFC+nOuIgWbWW8WhZmpPwGxuk9qLe1JKcS3Wkk2GLZS/5/UP9iMMdXkdAOrp7AyYf9ahuziBrA=:::rczQbssoI2ct+A034um10L8TQinjVIJT/lUObG88FDSRp1l9MIeqaO6l50CcDD0muR+V5sG+AkIBZIroyB7yAgE=",
     "voting_power": 100,
     "network_addr": {
-      "ip": "119.4.175.115",
+      "ip": "13.214.121.186",
       "port": 8670
     }
   }
