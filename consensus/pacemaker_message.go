@@ -8,6 +8,7 @@ package consensus
 import (
 	"bytes"
 	"crypto/ecdsa"
+	"encoding/binary"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -17,6 +18,7 @@ import (
 
 	crypto "github.com/ethereum/go-ethereum/crypto"
 	"github.com/meterio/meter-pov/block"
+	"github.com/meterio/meter-pov/crypto/vrf"
 	"github.com/meterio/meter-pov/meter"
 	"github.com/meterio/meter-pov/powpool"
 	"github.com/meterio/meter-pov/types"
@@ -27,7 +29,27 @@ func (p *Pacemaker) proposeBlock(parentBlock *block.Block, height, round uint32,
 	var proposalKBlock bool = false
 	var powResults *powpool.PowResult
 	if (height-p.startHeight) >= p.minMBlocks && !timeout {
-		proposalKBlock, powResults = powpool.GetGlobPowPoolInst().GetPowDecision()
+		//proposalKBlock, powResults = powpool.GetGlobPowPoolInst().GetPowDecision()
+
+		if height%200 == 0 {
+			proposalKBlock = true
+
+			// the input to be hashed by the VRF
+			alpha := parentBlock.Header().String()
+
+			sk := &p.csReactor.myPrivKey
+
+			_, pi, err := vrf.Prove(sk, []byte(alpha))
+			if err != nil {
+				// something wrong.
+				// most likely sk is not properly loaded.
+				//return
+			}
+
+			nonce := binary.LittleEndian.Uint32(pi)
+
+			powResults = powpool.NewPowResult(nonce)
+		}
 	}
 
 	var blockBytes []byte
