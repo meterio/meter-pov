@@ -50,7 +50,7 @@ func (p *Pacemaker) proposeBlock(parentBlock *block.Block, height, round uint32,
 
 			powResults = powpool.NewPowResult(nonce)
 
-			powRawBlocks := make([]block.PowRawBlock, 0)
+			powRawBlocks := make([]block.PowRawBlock, 1)
 			powResults.Raw = powRawBlocks
 		}
 	}

@@ -8,7 +8,6 @@ package powpool
 import (
 	"bytes"
 	"encoding/base64"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"math/big"
@@ -16,13 +15,13 @@ import (
 	"time"
 
 	"github.com/btcsuite/btcd/rpcclient"
+	"github.com/ethereum/go-ethereum/event"
 	"github.com/meterio/meter-pov/block"
 	"github.com/meterio/meter-pov/builtin"
 	"github.com/meterio/meter-pov/chain"
 	"github.com/meterio/meter-pov/co"
 	"github.com/meterio/meter-pov/meter"
 	"github.com/meterio/meter-pov/state"
-	"github.com/ethereum/go-ethereum/event"
 	"github.com/prometheus/client_golang/prometheus"
 )
 
@@ -135,9 +134,9 @@ func (p *PowPool) InitialAddKframe(newPowBlockInfo *PowBlockInfo) error {
 	// raw := newPowBlockInfo.Raw
 	// blks := bytes.Split(raw, []byte{0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff})
 	// if len(blks) == 2 {
-	powHex := hex.EncodeToString(newPowBlockInfo.PowRaw)
-	posHex := hex.EncodeToString(newPowBlockInfo.PosRaw)
-	go p.submitPosKblock(powHex, posHex)
+	//powHex := hex.EncodeToString(newPowBlockInfo.PowRaw)
+	//posHex := hex.EncodeToString(newPowBlockInfo.PosRaw)
+	//go p.submitPosKblock(powHex, posHex)
 	// } else {
 	// fmt.Println("not enough items in raw block")
 	// }
