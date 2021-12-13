@@ -14,7 +14,6 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/meterio/meter-pov/api/accountlock"
 	"github.com/meterio/meter-pov/api/accounts"
-	"github.com/meterio/meter-pov/api/auction"
 	"github.com/meterio/meter-pov/api/blocks"
 	"github.com/meterio/meter-pov/api/debug"
 	"github.com/meterio/meter-pov/api/doc"
@@ -87,8 +86,8 @@ func New(chain *chain.Chain, stateCreator *state.Creator, txPool *txpool.TxPool,
 		Mount(router, "/staking")
 	slashing.New().
 		Mount(router, "/slashing")
-	auction.New(chain, stateCreator).
-		Mount(router, "/auction")
+	//auction.New(chain, stateCreator).
+	//	Mount(router, "/auction")
 	accountlock.New().
 		Mount(router, "/accountlock")
 
