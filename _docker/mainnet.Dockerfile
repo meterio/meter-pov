@@ -7,7 +7,7 @@ FROM ubuntu:18.04
 # necessary packages
 RUN apt-get update 
 RUN apt-get install -y --no-install-recommends supervisor rsyslog rsyslog-relp vim-tiny && apt-get clean 
-RUN apt-get install -y --no-install-recommends build-essential gcc python3-minimal python3-dev python3-pip python3-setuptools python3-wheel && pip3 install --no-cache-dir meter-gear==1.0.31 && apt-get remove -y gcc python3-dev build-essential && apt-get clean
+RUN apt-get install -y --no-install-recommends build-essential gcc python3-minimal python3-dev python3-pip python3-setuptools python3-wheel && pip3 install --no-cache-dir meter-gear==1.0.40 && apt-get remove -y gcc python3-dev build-essential && apt-get clean
 
 # POS settings 
 COPY --from=pos /usr/bin/meter /usr/bin/
