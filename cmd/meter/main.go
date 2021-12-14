@@ -279,10 +279,10 @@ func defaultAction(ctx *cli.Context) error {
 	defaultPowPoolOptions.Pass = ctx.String("pow-pass")
 	fmt.Println(defaultPowPoolOptions)
 
-	powPool := powpool.New(defaultPowPoolOptions, chain, state.NewCreator(mainDB))
-	defer func() { log.Info("closing pow pool..."); powPool.Close() }()
+	//powPool := powpool.New(defaultPowPoolOptions, chain, state.NewCreator(mainDB))
+	//defer func() { log.Info("closing pow pool..."); powPool.Close() }()
 
-	p2pcom := newP2PComm(ctx, chain, txPool, instanceDir, powPool, p2pMagic)
+	p2pcom := newP2PComm(ctx, chain, txPool, instanceDir, nil, p2pMagic)
 	apiHandler, apiCloser := api.New(chain, state.NewCreator(mainDB), txPool, logDB, p2pcom.comm, ctx.String(apiCorsFlag.Name), uint32(ctx.Int(apiBacktraceLimitFlag.Name)), uint64(ctx.Int(apiCallGasLimitFlag.Name)), p2pcom.p2pSrv, pubkey)
 	defer func() { log.Info("closing API..."); apiCloser() }()
 
