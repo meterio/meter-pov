@@ -709,13 +709,13 @@ func (conR *ConsensusReactor) BuildKBlock(parentBlock *block.Block, data *block.
 				epochTotalReward = big.NewInt(0)
 			}
 			var rewardMap reward.RewardMap
-			if meter.IsMainChainTeslaFork2(parentBlock.Header().Number()) == true || meter.IsTestChainTeslaFork2(parentBlock.Header().Number()) == true {
+			//if meter.IsMainChainTeslaFork2(parentBlock.Header().Number()) == true || meter.IsTestChainTeslaFork2(parentBlock.Header().Number()) == true {
 				fmt.Println("Compute reward map V3")
 				rewardMap, err = reward.ComputeRewardMapV3(epochBaseReward, epochTotalReward, conR.curDelegates.Delegates, conR.curCommittee.Validators)
-			} else {
-				fmt.Println("Compute reward map v2")
-				rewardMap, err = reward.ComputeRewardMapV2(epochBaseReward, epochTotalReward, conR.curDelegates.Delegates, conR.curCommittee.Validators)
-			}
+			//} else {
+			//	fmt.Println("Compute reward map v2")
+			//	rewardMap, err = reward.ComputeRewardMapV2(epochBaseReward, epochTotalReward, conR.curDelegates.Delegates, conR.curCommittee.Validators)
+			//}
 
 			if err == nil && len(rewardMap) > 0 {
 				distList := rewardMap.GetDistList()

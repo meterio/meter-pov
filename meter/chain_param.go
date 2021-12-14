@@ -40,8 +40,8 @@ const (
 	// 4）update (total votes / self vote) limit from 10x to 100x
 	Tesla1_1MainnetStartNum = 0
 
-	TeslaFork2_MainnetStartNum = 0 // around 4/16/2021 11:00 AM (Beijing)
-	TeslaFork2_TestnetStartNum = 682000   // around 4/16/2021 11:00 AM (Beijing)
+	//TeslaFork2_MainnetStartNum = 0 // around 4/16/2021 11:00 AM (Beijing)
+	//TeslaFork2_TestnetStartNum = 682000   // around 4/16/2021 11:00 AM (Beijing)
 
 	// Tesla 1.3 Hardfork
 	// includes feature updates:
@@ -71,7 +71,7 @@ var (
 	EdisonStartNum      uint32 = EdisonSysContractStartNum
 	TeslaStartNum       uint32 = TeslaMainnetStartNum
 
-	TeslaFork2StartNum uint32 = TeslaFork2_MainnetStartNum
+	//TeslaFork2StartNum uint32 = TeslaFork2_MainnetStartNum
 	//TeslaFork3StartNum uint32 = TeslaFork3_MainnetStartNum
 	//TeslaFork4StartNum uint32 = TeslaFork4_MainnetStartNum
 
@@ -162,9 +162,9 @@ func (p *ChainConfig) IsTesla(blockNum uint32) bool {
 	}
 }
 
-func (p *ChainConfig) IsTeslaFork2(blockNum uint32) bool {
-	return blockNum >= TeslaFork2StartNum
-}
+//func (p *ChainConfig) IsTeslaFork2(blockNum uint32) bool {
+//	return blockNum >= TeslaFork2StartNum
+//}
 
 //func (p *ChainConfig) IsTeslaFork3(blockNum uint32) bool {
 //	return blockNum >= TeslaFork3StartNum
@@ -185,14 +185,14 @@ func InitBlockChainConfig(genesisID Bytes32, chainFlag string) {
 		SysContractStartNum = EdisonSysContractStartNum
 		EdisonStartNum = EdisonMainnetStartNum
 		TeslaStartNum = TeslaMainnetStartNum
-		TeslaFork2StartNum = TeslaFork2_MainnetStartNum
+		//TeslaFork2StartNum = TeslaFork2_MainnetStartNum
 		//TeslaFork3StartNum = TeslaFork3_MainnetStartNum
 		//TeslaFork4StartNum = TeslaFork4_MainnetStartNum
 	} else {
 		SysContractStartNum = TestnetSysContractStartNum
 		EdisonStartNum = EdisonTestnetStartNum
 		TeslaStartNum = TeslaTestnetStartNum
-		TeslaFork2StartNum = TeslaFork2_TestnetStartNum
+		//TeslaFork2StartNum = TeslaFork2_TestnetStartNum
 		//TeslaFork3StartNum = TeslaFork3_TestnetStartNum
 		//TeslaFork4StartNum = TeslaFork4_TestnetStartNum
 	}
@@ -206,13 +206,13 @@ func IsMainChainTesla(blockNum uint32) bool {
 	return BlockChainConfig.IsMainnet() && BlockChainConfig.IsTesla(blockNum)
 }
 
-func IsMainChainTeslaFork2(blockNum uint32) bool {
-	return BlockChainConfig.IsMainnet() && BlockChainConfig.IsTeslaFork2(blockNum)
-}
+//func IsMainChainTeslaFork2(blockNum uint32) bool {
+//	return BlockChainConfig.IsMainnet() && BlockChainConfig.IsTeslaFork2(blockNum)
+//}
 
-func IsTestChainTeslaFork2(blockNum uint32) bool {
-	return BlockChainConfig.IsTestnet() && BlockChainConfig.IsTeslaFork2(blockNum)
-}
+//func IsTestChainTeslaFork2(blockNum uint32) bool {
+//	return BlockChainConfig.IsTestnet() && BlockChainConfig.IsTeslaFork2(blockNum)
+//}
 
 //func IsMainChainTeslaFork3(blockNum uint32) bool {
 //	return BlockChainConfig.IsMainnet() && BlockChainConfig.IsTeslaFork3(blockNum)
