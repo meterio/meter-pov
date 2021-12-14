@@ -731,12 +731,12 @@ func (conR *ConsensusReactor) BuildKBlock(parentBlock *block.Block, data *block.
 					conR.logger.Info("*** governing tx appended", "txid", governingTx.ID())
 				}
 
-				autobidList := rewardMap.GetAutobidList()
-				fmt.Println("**** Autobid List")
-				for _, a := range autobidList {
-					fmt.Println(a.String())
-				}
-				fmt.Println("-------------------------")
+				//autobidList := rewardMap.GetAutobidList()
+				//fmt.Println("**** Autobid List")
+				//for _, a := range autobidList {
+				//	fmt.Println(a.String())
+				//}
+				//fmt.Println("-------------------------")
 
 				//autobidTxs := reward.BuildAutobidTxs(autobidList, chainTag, bestNum)
 				//if len(autobidTxs) > 0 {
