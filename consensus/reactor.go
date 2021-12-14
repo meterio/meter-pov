@@ -1321,13 +1321,13 @@ func (conR *ConsensusReactor) ConsensusHandleReceivedNonce(kBlockHeight uint32, 
 
 		info := &powpool.PowBlockInfo{}
 		if kBlockHeight == 0 {
-			info = powpool.GetPowGenesisBlockInfo()
+			//info = powpool.GetPowGenesisBlockInfo()
 		} else {
-			kblock, _ := conR.chain.GetTrunkBlock(uint32(kBlockHeight))
-			info = powpool.NewPowBlockInfoFromPosKBlock(kblock)
+			//kblock, _ := conR.chain.GetTrunkBlock(uint32(kBlockHeight))
+			//info = powpool.NewPowBlockInfoFromPosKBlock(kblock)
 		}
-		pool := powpool.GetGlobPowPoolInst()
-		pool.Wash()
+		//pool := powpool.GetGlobPowPoolInst()
+		//pool.Wash()
 		//pool.InitialAddKframe(info)
 		conR.logger.Info("PowPool initial added kblock", "kblock height", kBlockHeight, "powHeight", info.PowHeight)
 
@@ -1335,7 +1335,7 @@ func (conR *ConsensusReactor) ConsensusHandleReceivedNonce(kBlockHeight uint32, 
 			//kblock is already added to pool, should start with next one
 			startHeight := info.PowHeight + 1
 			conR.logger.Info("Replay", "replay from powHeight", startHeight)
-			pool.ReplayFrom(int32(startHeight))
+			//pool.ReplayFrom(int32(startHeight))
 		}
 		conR.inCommittee = true
 		inCommitteeGauge.Set(1)
