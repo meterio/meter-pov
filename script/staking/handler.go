@@ -151,11 +151,11 @@ func (sb *StakingBody) BoundHandler(env *StakingEnv, gas uint64) (leftOverGas ui
 			setCand = false
 		} else {
 			selfRatioValid := false
-			if meter.IsTestNet() || meter.IsMainNet() && env.GetTxCtx().BlockRef.Number() > meter.Tesla1_1MainnetStartNum {
+			//if meter.IsTestNet() || meter.IsMainNet() && env.GetTxCtx().BlockRef.Number() > meter.Tesla1_1MainnetStartNum {
 				selfRatioValid = CheckCandEnoughSelfVotes(sb.Amount, c, bucketList, TESLA1_1_SELF_VOTE_RATIO)
-			} else {
-				selfRatioValid = CheckCandEnoughSelfVotes(sb.Amount, c, bucketList, TESLA1_0_SELF_VOTE_RATIO)
-			}
+			//} else {
+			//	selfRatioValid = CheckCandEnoughSelfVotes(sb.Amount, c, bucketList, TESLA1_0_SELF_VOTE_RATIO)
+			//}
 			if selfRatioValid == false {
 				log.Error(errCandidateNotEnoughSelfVotes.Error(), "candidate",
 					c.Addr.String(), "error", errCandidateNotEnoughSelfVotes)
@@ -527,11 +527,11 @@ func (sb *StakingBody) DelegateHandler(env *StakingEnv, gas uint64) (leftOverGas
 	}
 
 	selfRatioValid := false
-	if meter.IsTestNet() || (meter.IsMainNet() && env.GetTxCtx().BlockRef.Number() > meter.Tesla1_1MainnetStartNum) {
+	//if meter.IsTestNet() || (meter.IsMainNet() && env.GetTxCtx().BlockRef.Number() > meter.Tesla1_1MainnetStartNum) {
 		selfRatioValid = CheckCandEnoughSelfVotes(b.TotalVotes, cand, bucketList, TESLA1_1_SELF_VOTE_RATIO)
-	} else {
-		selfRatioValid = CheckCandEnoughSelfVotes(b.TotalVotes, cand, bucketList, TESLA1_0_SELF_VOTE_RATIO)
-	}
+	//} else {
+	//	selfRatioValid = CheckCandEnoughSelfVotes(b.TotalVotes, cand, bucketList, TESLA1_0_SELF_VOTE_RATIO)
+	//}
 	if selfRatioValid == false {
 		log.Error(errCandidateNotEnoughSelfVotes.Error(), "candidate", cand.Addr.String())
 		return leftOverGas, errCandidateNotEnoughSelfVotes
@@ -1174,9 +1174,9 @@ func (sb *StakingBody) BucketUpdateHandler(env *StakingEnv, gas uint64) (leftOve
 	}
 
 	// Now allow to change forever lock amount
-	number := env.GetTxCtx().BlockRef.Number()
+	//number := env.GetTxCtx().BlockRef.Number()
 
-	if meter.IsTestNet() || (meter.IsMainNet() && number > meter.Tesla1_1MainnetStartNum) {
+	//if meter.IsTestNet() || (meter.IsMainNet() && number > meter.Tesla1_1MainnetStartNum) {
 
 		/****
 		if bucket.IsForeverLock() == true {
@@ -1202,18 +1202,18 @@ func (sb *StakingBody) BucketUpdateHandler(env *StakingEnv, gas uint64) (leftOve
 		if err != nil {
 			return
 		}
-	} else {
-
-		if bucket.IsForeverLock() == true {
-			log.Error(fmt.Sprintf("can not update the bucket, ID %v", sb.StakingID))
-			err = errUpdateForeverBucket
-		}
-
-		// can not update unbouded bucket
-		if bucket.Unbounded == true {
-			log.Error(fmt.Sprintf("can not update unbounded bucket, ID %v", sb.StakingID))
-		}
-	}
+	//} else {
+	//
+	//	if bucket.IsForeverLock() == true {
+	//		log.Error(fmt.Sprintf("can not update the bucket, ID %v", sb.StakingID))
+	//		err = errUpdateForeverBucket
+	//	}
+	//
+	//	// can not update unbouded bucket
+	//	if bucket.Unbounded == true {
+	//		log.Error(fmt.Sprintf("can not update unbounded bucket, ID %v", sb.StakingID))
+	//	}
+	//}
 
 	// Now so far so good, calc interest first
 	bonus := TouchBucketBonus(sb.Timestamp, bucket)
