@@ -153,10 +153,11 @@ func (rt *Runtime) ScriptEngineCheck(d []byte) bool {
 }
 
 func (rt *Runtime) LoadERC20NativeCotract() {
-	blockNumber := rt.Context().Number
+	//blockNumber := rt.Context().Number
 	addr := builtin.MeterTracker.Address
 	execAddr := builtin.Executor.Address
-	if blockNumber >= meter.SysContractStartNum && len(rt.State().GetCode(addr)) == 0 {
+	//if blockNumber >= meter.SysContractStartNum && len(rt.State().GetCode(addr)) == 0 {
+	if len(rt.State().GetCode(addr)) == 0 {
 		rt.State().SetCode(addr, gen.Compiled2NewmeternativeBinRuntime)
 		rt.State().SetCode(execAddr, []byte{})
 	}
@@ -304,7 +305,7 @@ func (rt *Runtime) newEVM(stateDB *statedb.StateDB, clauseIndex uint32, txCtx *x
 		NewContractAddress: func(caller common.Address, counter uint32) common.Address {
 			log.Info("create new contract address", "origin", txCtx.Origin.String(), "caller", caller.String(), "clauseIndex", clauseIndex, "counter", counter, "nonce", txCtx.Nonce)
 			var addr common.Address
-			if meter.IsMainChainTesla(txCtx.BlockRef.Number()) || meter.IsTestNet() {
+			//if meter.IsMainChainTesla(txCtx.BlockRef.Number()) || meter.IsTestNet() {
 				//if meter.IsMainChainTeslaFork3(txCtx.BlockRef.Number()) || meter.IsTestChainTeslaFork3(txCtx.BlockRef.Number()) {
 					if stateDB.GetCodeHash(caller) == (common.Hash{}) || stateDB.GetCodeHash(caller) == vm.EmptyCodeHash {
 						fmt.Println("Condition A: after Tesla fork3, caller is contract, eth compatible")
@@ -323,10 +324,10 @@ func (rt *Runtime) newEVM(stateDB *statedb.StateDB, clauseIndex uint32, txCtx *x
 				//	//return common.Address(meter.EthCreateContractAddress(caller, uint32(txCtx.Nonce)+clauseIndex))
 				//	addr = common.Address(meter.EthCreateContractAddress(common.Address(txCtx.Origin), uint32(txCtx.Nonce)+clauseIndex))
 				//}
-			} else {
-				fmt.Println("Condition D: before Tesla, meter specific")
-				addr = common.Address(meter.CreateContractAddress(txCtx.ID, clauseIndex, counter))
-			}
+			//} else {
+			//	fmt.Println("Condition D: before Tesla, meter specific")
+			//	addr = common.Address(meter.CreateContractAddress(txCtx.ID, clauseIndex, counter))
+			//}
 			fmt.Println("New contract address: ", addr.String())
 			return addr
 		},

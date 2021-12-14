@@ -50,8 +50,9 @@ func BuildAuctionControlTx(height, epoch uint64, chainTag byte, bestNum uint32, 
 			lastEndEpoch = summaryList.Summaries[size-1].EndEpoch
 			lastSequence = summaryList.Summaries[size-1].Sequence
 		} else {
-			if meter.IsMainChainTesla(uint32(height)) {
-				lastEndHeight = meter.TeslaMainnetStartNum
+			//if meter.IsMainChainTesla(uint32(height)) {
+			//	lastEndHeight = meter.TeslaMainnetStartNum
+				lastEndHeight = 0
 				ep, err := chain.FindEpochOnBlock(uint32(lastEndHeight))
 				if err != nil {
 					// something wrong to get this epoch
@@ -60,11 +61,11 @@ func BuildAuctionControlTx(height, epoch uint64, chainTag byte, bestNum uint32, 
 					lastEndEpoch = ep
 				}
 				lastSequence = 0
-			} else {
-				lastEndHeight = 0
-				lastEndEpoch = 0
-				lastSequence = 0
-			}
+			//} else {
+			//	lastEndHeight = 0
+			//	lastEndEpoch = 0
+			//	lastSequence = 0
+			//}
 		}
 	}
 

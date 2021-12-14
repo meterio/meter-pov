@@ -675,7 +675,7 @@ func (conR *ConsensusReactor) BuildKBlock(parentBlock *block.Block, data *block.
 	}
 
 	// edison not support the staking/auciton/slashing
-	if meter.IsMainChainTesla(parentBlock.Header().Number()) == true || meter.IsTestNet() {
+	//if meter.IsMainChainTesla(parentBlock.Header().Number()) == true || meter.IsTestNet() {
 		stats, err := reward.ComputeStatistics(lastKBlockHeight, parentBlock.Header().Number(), conR.chain, conR.curCommittee, conR.curActualCommittee, conR.csCommon, conR.csPacemaker.newCommittee, uint32(conR.curEpoch))
 		if err != nil {
 			// TODO: do something about this
@@ -752,7 +752,7 @@ func (conR *ConsensusReactor) BuildKBlock(parentBlock *block.Block, data *block.
 
 			}
 		}
-	}
+	//}
 
 	if tx := reward.BuildAccountLockGoverningTx(chainTag, bestNum, curEpoch); tx != nil {
 		txs = append(txs, tx)
@@ -1049,7 +1049,8 @@ func (conR *ConsensusReactor) FinalizeCommitBlock(blkInfo *ProposedBlockInfo, be
 	}
 
 	if meter.IsMainNet() {
-		if blk.Header().Number() == meter.TeslaMainnetStartNum {
+		//if blk.Header().Number() == meter.TeslaMainnetStartNum {
+		if blk.Header().Number() == 0 {
 			script.EnterTeslaForkInit()
 		}
 	}

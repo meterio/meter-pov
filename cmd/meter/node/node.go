@@ -344,7 +344,8 @@ func (n *Node) commitBlock(newBlock *block.Block, receipts tx.Receipts) (*chain.
 	}
 
 	if meter.IsMainNet() {
-		if newBlock.Header().Number() == meter.TeslaMainnetStartNum {
+		//if newBlock.Header().Number() == meter.TeslaMainnetStartNum {
+		if newBlock.Header().Number() == 0 {
 			script.EnterTeslaForkInit()
 		}
 	}

@@ -263,7 +263,7 @@ func buildJSONEmbeddedTxs(txs tx.Transactions, receipts tx.Receipts) []*JSONEmbe
 		clauses := tx.Clauses()
 		blockRef := tx.BlockRef()
 		origin, _ := tx.Signer()
-		txID := tx.ID()
+		//txID := tx.ID()
 		nonce := tx.Nonce()
 
 		jcs := make([]*JSONClause, 0, len(clauses))
@@ -278,11 +278,11 @@ func buildJSONEmbeddedTxs(txs tx.Transactions, receipts tx.Receipts) []*JSONEmbe
 			})
 			if !receipt.Reverted {
 				contractAddr := meter.Address{}
-				if meter.IsMainChainTesla(blockRef.Number()) || meter.IsTestNet() {
+				//if meter.IsMainChainTesla(blockRef.Number()) || meter.IsTestNet() {
 					contractAddr = meter.Address(meter.EthCreateContractAddress(common.Address(origin), uint32(i)+uint32(nonce)))
-				} else {
-					contractAddr = meter.CreateContractAddress(txID, uint32(i), 0)
-				}
+				//} else {
+				//	contractAddr = meter.CreateContractAddress(txID, uint32(i), 0)
+				//}
 
 				jos = append(jos, buildJSONOutput(c, &contractAddr, receipt.Outputs[i]))
 			}
