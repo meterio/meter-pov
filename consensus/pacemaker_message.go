@@ -39,7 +39,9 @@ func (p *Pacemaker) proposeBlock(parentBlock *block.Block, height, round uint32,
 
 			sk := &p.csReactor.myPrivKey
 
-			_, pi, err := vrf.Prove(sk, []byte(alpha))
+			beta, pi, err := vrf.Prove(sk, []byte(alpha))
+			p.logger.Info("vrf.Prove", "beta", beta, "pi", pi)
+
 			if err != nil {
 				// something wrong.
 				// most likely sk is not properly loaded.
@@ -50,8 +52,8 @@ func (p *Pacemaker) proposeBlock(parentBlock *block.Block, height, round uint32,
 
 			powResults = powpool.NewPowResult(nonce)
 
-			powRawBlocks := make([]block.PowRawBlock, 1)
-			powResults.Raw = powRawBlocks
+			//powRawBlocks := make([]block.PowRawBlock, 1)
+			//powResults.Raw = powRawBlocks
 		}
 	}
 
