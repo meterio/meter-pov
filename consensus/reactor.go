@@ -1224,10 +1224,10 @@ func (conR *ConsensusReactor) JoinEstablishedCommittee(kBlock *block.Block, repl
 	kBlockHeight := kBlock.Header().Number()
 	if kBlock.Header().Number() == 0 {
 		nonce = genesis.GenesisNonce
-		info = powpool.GetPowGenesisBlockInfo()
+		//info = powpool.GetPowGenesisBlockInfo()
 	} else {
 		nonce = kBlock.KBlockData.Nonce
-		info = powpool.NewPowBlockInfoFromPosKBlock(kBlock)
+		//info = powpool.NewPowBlockInfoFromPosKBlock(kBlock)
 	}
 	epoch := conR.chain.BestBlock().GetBlockEpoch()
 	conR.logger.Info("Received a nonce ...", "nonce", nonce, "kBlockHeight", kBlockHeight, "replay", replay, "epoch", epoch)
@@ -1240,16 +1240,16 @@ func (conR *ConsensusReactor) JoinEstablishedCommittee(kBlock *block.Block, repl
 
 	if inCommittee {
 		conR.logger.Info("I am in committee!!!")
-		pool := powpool.GetGlobPowPoolInst()
-		pool.Wash()
-		pool.InitialAddKframe(info)
+		//pool := powpool.GetGlobPowPoolInst()
+		//pool.Wash()
+		//pool.InitialAddKframe(info)
 		conR.logger.Info("PowPool initial added kblock", "kblock height", kBlock.Header().Number(), "powHeight", info.PowHeight)
 
 		if replay == true {
 			//kblock is already added to pool, should start with next one
 			startHeight := info.PowHeight + 1
 			conR.logger.Info("Replay", "replay from powHeight", startHeight)
-			pool.ReplayFrom(int32(startHeight))
+			//pool.ReplayFrom(int32(startHeight))
 		}
 		conR.inCommittee = true
 		inCommitteeGauge.Set(1)
