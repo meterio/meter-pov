@@ -70,5 +70,5 @@ func (n *Node) Mount(root *mux.Router, pathPrefix string) {
 	sub.Path("/network/peers").Methods("Get").HandlerFunc(utils.WrapHandlerFunc(n.handleNetwork))
 	sub.Path("/consensus/committee").Methods("Get").HandlerFunc(utils.WrapHandlerFunc(n.handleCommittee))
 	sub.Path("/pubkey").Methods("Get").HandlerFunc(utils.WrapHandlerFunc(n.handlePubKey))
-	sub.Path("/coef").Methods("Get").HandlerFunc(utils.WrapHandlerFunc(n.handleCoef))
+	//sub.Path("/coef").Methods("Get").HandlerFunc(utils.WrapHandlerFunc(n.handleCoef))
 }
