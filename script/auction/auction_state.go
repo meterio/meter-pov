@@ -166,10 +166,10 @@ func (a *Auction) ClearAuction(cb *AuctionCB, state *state.State, env *AuctionEn
 		actualPrice = cb.RsvdPrice
 	}
 
-	blockNum := env.GetTxCtx().BlockRef.Number()
+	//blockNum := env.GetTxCtx().BlockRef.Number()
 	total := big.NewInt(0)
 	distMtrg := []*DistMtrg{}
-	if meter.IsTestChainTeslaFork3(blockNum) || meter.IsMainChainTeslaFork3(blockNum) {
+	//if meter.IsTestChainTeslaFork3(blockNum) || meter.IsMainChainTeslaFork3(blockNum) {
 
 		groupTxMap := make(map[meter.Address]*big.Int)
 		sortedAddresses := make([]meter.Address, 0)
@@ -195,19 +195,19 @@ func (a *Auction) ClearAuction(cb *AuctionCB, state *state.State, env *AuctionEn
 			total = total.Add(total, mtrg)
 			distMtrg = append(distMtrg, &DistMtrg{Addr: addr, Amount: mtrg})
 		}
-	} else {
-		for _, tx := range cb.AuctionTxs {
-			mtrg := new(big.Int).Mul(tx.Amount, big.NewInt(1e18))
-			mtrg = new(big.Int).Div(mtrg, actualPrice)
+	//} else {
+		//for _, tx := range cb.AuctionTxs {
+		//	mtrg := new(big.Int).Mul(tx.Amount, big.NewInt(1e18))
+		//	mtrg = new(big.Int).Div(mtrg, actualPrice)
+		//
+		//	a.SendMTRGToBidder(tx.Address, mtrg, stateDB, env)
+		//	if (meter.IsMainNet() && blockNum < meter.TeslaFork3_MainnetAuctionDefectStartNum) || meter.IsTestNet() {
+		//		total = total.Add(total, mtrg)
+		//	}
+		//	distMtrg = append(distMtrg, &DistMtrg{Addr: tx.Address, Amount: mtrg})
+		//}
 
-			a.SendMTRGToBidder(tx.Address, mtrg, stateDB, env)
-			if (meter.IsMainNet() && blockNum < meter.TeslaFork3_MainnetAuctionDefectStartNum) || meter.IsTestNet() {
-				total = total.Add(total, mtrg)
-			}
-			distMtrg = append(distMtrg, &DistMtrg{Addr: tx.Address, Amount: mtrg})
-		}
-
-	}
+	//}
 
 	// sometimes accuracy cause negative value
 	leftOver := new(big.Int).Sub(cb.RlsdMTRG, total)

@@ -114,21 +114,21 @@ func New(
 	// chainConfig.ConstantinopleBlock = big.NewInt(int64(meter.Tesla1_1MainnetStartNum))
 	if meter.IsMainNet() == true {
 		chainConfig.ChainID = new(big.Int).SetUint64(meter.MainnetChainID)
-		chainConfig.IstanbulBlock = big.NewInt(int64(meter.TeslaFork3_MainnetStartNum))
+		//chainConfig.IstanbulBlock = big.NewInt(int64(meter.TeslaFork3_MainnetStartNum))
 	} else {
 		chainConfig.ChainID = new(big.Int).SetUint64(meter.TestnetChainID)
-		chainConfig.IstanbulBlock = big.NewInt(int64(meter.TeslaFork3_TestnetStartNum))
+		//chainConfig.IstanbulBlock = big.NewInt(int64(meter.TeslaFork3_TestnetStartNum))
 	}
 
 	// alloc precompiled contracts at the begining of Istanbul
-	if meter.TeslaFork3_MainnetStartNum == ctx.Number {
+	if 0 == ctx.Number {
 		for addr := range vm.PrecompiledContractsIstanbul {
 			state.SetCode(meter.Address(addr), EmptyRuntimeBytecode)
 		}
-	} else if ctx.Number == 0 {
-		for addr := range vm.PrecompiledContractsByzantium {
-			state.SetCode(meter.Address(addr), EmptyRuntimeBytecode)
-		}
+	//} else if ctx.Number == 0 {
+	//	for addr := range vm.PrecompiledContractsByzantium {
+	//		state.SetCode(meter.Address(addr), EmptyRuntimeBytecode)
+	//	}
 	}
 
 	rt := Runtime{
@@ -304,7 +304,7 @@ func (rt *Runtime) newEVM(stateDB *statedb.StateDB, clauseIndex uint32, txCtx *x
 			log.Info("create new contract address", "origin", txCtx.Origin.String(), "caller", caller.String(), "clauseIndex", clauseIndex, "counter", counter, "nonce", txCtx.Nonce)
 			var addr common.Address
 			if meter.IsMainChainTesla(txCtx.BlockRef.Number()) || meter.IsTestNet() {
-				if meter.IsMainChainTeslaFork3(txCtx.BlockRef.Number()) || meter.IsTestChainTeslaFork3(txCtx.BlockRef.Number()) {
+				//if meter.IsMainChainTeslaFork3(txCtx.BlockRef.Number()) || meter.IsTestChainTeslaFork3(txCtx.BlockRef.Number()) {
 					if stateDB.GetCodeHash(caller) == (common.Hash{}) || stateDB.GetCodeHash(caller) == vm.EmptyCodeHash {
 						fmt.Println("Condition A: after Tesla fork3, caller is contract, eth compatible")
 						addr = common.Address(meter.EthCreateContractAddress(caller, uint32(txCtx.Nonce)+clauseIndex))
@@ -317,11 +317,11 @@ func (rt *Runtime) newEVM(stateDB *statedb.StateDB, clauseIndex uint32, txCtx *x
 						//	addr = common.Address(meter.EthCreateContractAddress(caller, counter))
 						//}
 					}
-				} else {
-					fmt.Println("Condition C: before Tesla fork3, eth compatible")
-					//return common.Address(meter.EthCreateContractAddress(caller, uint32(txCtx.Nonce)+clauseIndex))
-					addr = common.Address(meter.EthCreateContractAddress(common.Address(txCtx.Origin), uint32(txCtx.Nonce)+clauseIndex))
-				}
+				//} else {
+				//	fmt.Println("Condition C: before Tesla fork3, eth compatible")
+				//	//return common.Address(meter.EthCreateContractAddress(caller, uint32(txCtx.Nonce)+clauseIndex))
+				//	addr = common.Address(meter.EthCreateContractAddress(common.Address(txCtx.Origin), uint32(txCtx.Nonce)+clauseIndex))
+				//}
 			} else {
 				fmt.Println("Condition D: before Tesla, meter specific")
 				addr = common.Address(meter.CreateContractAddress(txCtx.ID, clauseIndex, counter))
