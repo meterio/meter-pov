@@ -25,7 +25,7 @@ contract MeterERC20 is _Token {
     }
 
     function symbol() public pure returns(string) {
-        return "MTR";
+        return "STPT";
     }
 
     function totalSupply() public view returns(uint256) {
@@ -99,7 +99,7 @@ contract MeterGovERC20 is _Token {
     }
 
     function symbol() public pure returns(string) {
-        return "MTRG";
+        return "VERSE";
     }
 
     function totalSupply() public view returns(uint256) {

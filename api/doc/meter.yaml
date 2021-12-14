@@ -282,7 +282,7 @@ paths:
         - Logs
       summary: Filter transfer logs
       description: |
-        Transfer logs are recorded on MTRG transferring.
+        Transfer logs are recorded on VERSE transferring.
       requestBody:
         required: true
         content:
@@ -344,7 +344,7 @@ paths:
         - Logs
       summary: Filter transfer logs
       description: |
-        Transfer logs are recorded on MTR transferring.
+        Transfer logs are recorded on STPT transferring.
       parameters:
         - $ref: "#/components/parameters/FilterOrderInQuery"
       requestBody:

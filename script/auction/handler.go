@@ -19,7 +19,7 @@ var (
 	// normal min amount is 10 mtr, autobid is 0.1 mtr
 	MinimumBidAmount = new(big.Int).Mul(big.NewInt(10), big.NewInt(1e18))
 	AutobidMinAmount = big.NewInt(1e17)
-	// AuctionReservedPrice = big.NewInt(5e17) // at least  1 MTRG settle down 0.5 MTR
+	// AuctionReservedPrice = big.NewInt(5e17) // at least  1 VERSE settle down 0.5 STPT
 )
 
 // Candidate indicates the structure of a candidate
@@ -62,8 +62,8 @@ func (ab *AuctionBody) GetOpName(op uint32) string {
 var (
 	errNotStart             = errors.New("Auction not start")
 	errNotStop              = errors.New("An auction is active, stop first")
-	errNotEnoughMTR         = errors.New("not enough MTR balance")
-	errLessThanBidThreshold = errors.New("amount less than bid threshold (" + big.NewInt(0).Div(MinimumBidAmount, big.NewInt(1e18)).String() + " MTR)")
+	errNotEnoughMTR         = errors.New("not enough STPT balance")
+	errLessThanBidThreshold = errors.New("amount less than bid threshold (" + big.NewInt(0).Div(MinimumBidAmount, big.NewInt(1e18)).String() + " STPT)")
 	errInvalidNonce         = errors.New("invalid nonce (nonce in auction body and clause are the same)")
 )
 
@@ -244,10 +244,10 @@ func (ab *AuctionBody) HandleAuctionTx(env *AuctionEnv, gas uint64) (leftOverGas
 	}
 
 	if ab.Option == AUTO_BID {
-		// transfer bidder's autobid MTR directly from validator benefit address
+		// transfer bidder's autobid STPT directly from validator benefit address
 		err = Auction.TransferAutobidMTRToAuction(ab.Bidder, ab.Amount, state, env)
 	} else {
-		// now transfer bidder's MTR to auction accout
+		// now transfer bidder's STPT to auction accout
 		err = Auction.TransferMTRToAuction(ab.Bidder, ab.Amount, state, env)
 	}
 	if err != nil {

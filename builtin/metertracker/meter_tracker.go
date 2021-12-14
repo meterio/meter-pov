@@ -53,7 +53,7 @@ func (e *MeterTracker) SetInitialSupply(meterGov *big.Int, meter *big.Int) {
 	})
 }
 
-// MTR Gov totalAddSub
+// STPT Gov totalAddSub
 func (e *MeterTracker) GetMeterGovTotalAddSub() (total MeterGovTotalAddSub) {
 	e.state.DecodeStorage(e.addr, meterGovTotalAddSubKey, func(raw []byte) error {
 		if len(raw) == 0 {
@@ -70,7 +70,7 @@ func (e *MeterTracker) SetMeterGovTotalAddSub(total MeterGovTotalAddSub) {
 	})
 }
 
-// MTR totalAddSub
+// STPT totalAddSub
 func (e *MeterTracker) GetMeterTotalAddSub() (total MeterTotalAddSub) {
 	e.state.DecodeStorage(e.addr, meterTotalAddSubKey, func(raw []byte) error {
 		if len(raw) == 0 {

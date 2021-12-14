@@ -47,7 +47,7 @@ var profiles [][5]string = [][5]string{
 	{"0x78BA7A9E73e219E85bE44D484529944355BF6701", "10", "30000000", "Foundation Lock", "17520"}, // 730 days
 
 	// testnet meter mapping
-	{"0xfB88393e18e1B8c45fC2a90b9c533C61D20E290c", "89672.78", "0", "Account for DFL MTR", "24"}, // 1 day
+	{"0xfB88393e18e1B8c45fC2a90b9c533C61D20E290c", "89672.78", "0", "Account for DFL STPT", "24"}, // 1 day
 	{"0xa6FfDc4f4de5D00f1a218d702a5283300Dfbd5f2", "88763.59", "0", "Account for DFL Airdrop", "24"},
 	{"0xe7f434Ed3b2ff7f0a2C1582C1cd4321713167419", "1798.83", "0", "MC", "24"},
 	{"0x79440D5193b2D83fc828002901D4036a65aF1b4C", "156.88", "0", "PO", "24"},

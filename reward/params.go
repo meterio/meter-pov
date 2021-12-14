@@ -12,7 +12,7 @@ import (
 const (
 
 	// auction params
-	totoalRelease = 160000000 //total released 160M MTRG
+	totoalRelease = 160000000 //total released 160M VERSE
 	totalYears    = 500       // 500 years
 	fadeYears     = 6         // halve every 6 years
 	fadeRate      = 0.8       // fade rate 0.8

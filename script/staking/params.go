@@ -18,7 +18,7 @@ var (
 	// bound minimium requirement 100 mtrgov
 	MIN_BOUND_BALANCE *big.Int = new(big.Int).Mul(big.NewInt(100), big.NewInt(1e18))
 
-	// delegate minimum requirement 2000 MTRG
+	// delegate minimum requirement 2000 VERSE
 	MIN_REQUIRED_BY_DELEGATE *big.Int = new(big.Int).Mul(big.NewInt(int64(2000)), big.NewInt(int64(1e18)))
 
 	// amount to exit from jail 10 MTRGov

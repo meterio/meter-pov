@@ -127,7 +127,7 @@ Updated:
 
 Updated:
 
-1. Calculate delegate with 300 MTRG threshold in staking module
+1. Calculate delegate with 300 VERSE threshold in staking module
 
 ## 1.3.3-beta6
 
@@ -135,7 +135,7 @@ Added:
 
 1. dynamic committee options --committee-min-size, --committee-max-size and --delegates-max-size
 2. bootstrap options --init-configured-delegates and --epoch-mblock-count
-3. require the candidates to have at least 300 MTRG total votes to be considered as delegates
+3. require the candidates to have at least 300 VERSE total votes to be considered as delegates
 
 ## 1.3.3-beta5
 

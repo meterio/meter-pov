@@ -63,7 +63,7 @@ func (d *Delegate) ToString() string {
 
 // match minimum requirements?
 // 1. not on injail list
-// 2. > 300 MTRG
+// 2. > 300 VERSE
 func (d *Delegate) MinimumRequirements(state *state.State) bool {
 	minRequire := builtin.Params.Native(state).Get(meter.KeyMinRequiredByDelegate)
 	if d.VotingPower.Cmp(minRequire) < 0 {

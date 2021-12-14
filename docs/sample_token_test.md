@@ -29,12 +29,12 @@ web3.eth.accounts.wallet;
 
 ## Send transactions in nodejs
 
-The unit in meterify is Wei. 1 MTR = 10e18 Wei and 1 MTRG = 10e18 WeiG
+The unit in meterify is Wei. 1 STPT = 10e18 Wei and 1 VERSE = 10e18 WeiG
 
-a)transfer MTR
+a)transfer STPT
 web3.eth.sendTransaction({from: '0x0205c2D862cA051010698b69b54278cbAf945C0b', to: '0x8A88c59bF15451F9Deb1d62f7734FeCe2002668E', value: '99000000000000000000', data: '00' }).then (function(receipt) {  }).then(function(data){console.log(data)});
 
-b)transfer MTRG
+b)transfer VERSE
 web3.eth.sendTransaction({from: '0x0205c2D862cA051010698b69b54278cbAf945C0b', to: '0x8A88c59bF15451F9Deb1d62f7734FeCe2002668E', value: '99000000000000000000', data: '01' }).then (function(receipt) {console.log(receipt)  })
 
 

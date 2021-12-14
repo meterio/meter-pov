@@ -19,7 +19,7 @@ contract Meter is _Token {
     }
 
     function symbol() public pure returns(string) {
-        return "MTR";
+        return "STPT";
     }
 
     function totalSupply() public view returns(uint256) {
@@ -87,7 +87,7 @@ contract MeterGov is _Token {
     }
 
     function symbol() public pure returns(string) {
-        return "MTRG";
+        return "VERSE";
     }
 
     function totalSupply() public view returns(uint256) {

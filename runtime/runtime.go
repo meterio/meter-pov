@@ -246,7 +246,7 @@ func (rt *Runtime) newEVM(stateDB *statedb.StateDB, clauseIndex uint32, txCtx *x
 			if !meter.Address(addr).IsZero() {
 				if token == meter.VERSE {
 					return stateDB.GetBalance(addr).Cmp(amount) >= 0
-				} else /*if token == meter.MTR*/ {
+				} else /*if token == meter.STPT*/ {
 					// XXX. add gas fee in comparasion
 					return stateDB.GetEnergy(addr).Cmp(amount) >= 0
 				}

@@ -26,7 +26,7 @@ const (
 	MaxNClausePerRewardTx = 200 // pack reward tx with maxinum 200 clauses
 
 	// --------------- Validator Reward ---------------------
-	NDays   = 10 // smooth with n days, the (last n days's total received MTR) * 1/n will be used as the validator reward for current day
+	NDays   = 10 // smooth with n days, the (last n days's total received STPT) * 1/n will be used as the validator reward for current day
 	NDaysV2 = 1  // hard fork from 10 to 1
 
 	// ------------------ Auction ---------------------------
@@ -35,7 +35,7 @@ const (
 	MaxNClausePerAutobidTx = 1000
 
 	// auction release mtrg (new version)
-	AuctionReleaseBase      = 40000000 // total base of 400M MTRG
+	AuctionReleaseBase      = 40000000 // total base of 400M VERSE
 	AuctionReleaseInflation = 5e16     // yoy 5%, in unit of wei (aka. 1e18)
 
 	//  ------------------ Basics ----------------------------
@@ -130,7 +130,7 @@ var (
 	InitialPowPoolCoefFadeRate   = new(big.Int).Mul(big.NewInt(5), big.NewInt(1e17))                  // fade rate initial with 0.5
 	InitialValidatorBenefitRatio = big.NewInt(4e17)                                                   //40% percent of total auciton gain
 	InitialValidatorBaseReward   = new(big.Int).Mul(big.NewInt(25), big.NewInt(1e16))                 // base reward for each validator 0.25
-	InitialAuctionReservedPrice  = big.NewInt(5e17)                                                   // 1 MTRG settle with 0.5 MTR
+	InitialAuctionReservedPrice  = big.NewInt(5e17)                                                   // 1 VERSE settle with 0.5 STPT
 	InitialMinRequiredByDelegate = new(big.Int).Mul(big.NewInt(int64(300)), big.NewInt(int64(1e18)))  // minimium require for delegate is 300 mtrg
 	InitialAuctionInitRelease    = new(big.Int).Mul(big.NewInt(int64(1000)), big.NewInt(int64(1e18))) // auction reward initial release, is 1000
 

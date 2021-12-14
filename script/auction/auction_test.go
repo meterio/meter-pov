@@ -62,7 +62,7 @@ func generateScriptData(opCode uint32, holderAddrStr string, amountInt64 int64, 
 		AuctionID:   auctionID,
 		Bidder:      holderAddr,
 		Amount:      amount,
-		Token:       staking.meter.MTR,
+		Token:       staking.meter.STPT,
 		Timestamp:   uint64(time.Now().Unix()),
 		Nonce:       rand.Uint64(),
 	}

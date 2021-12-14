@@ -162,11 +162,11 @@ func calcWeightedAvgPrice(history *[N]float64) float64 {
 	return WeightedAvgPrice
 }
 
-// calEpochReleaseWithInflation returns the release of MTRG for current epoch, it returns a 0 if curEpoch is less than startEpoch
+// calEpochReleaseWithInflation returns the release of VERSE for current epoch, it returns a 0 if curEpoch is less than startEpoch
 // epochRelease = lastEpochRelease + lastEpochRelease * deltaRate
 // whereas, deltaRate = inflationRate / 365 / nAuctionPerDay
 func ComputeEpochReleaseWithInflation(sequence uint64, lastAuction *auction.AuctionCB) (*big.Int, error) {
-	fmt.Println("Compute MTRG release with inflation (new)")
+	fmt.Println("Compute VERSE release with inflation (new)")
 	fmt.Println(fmt.Sprintf("auction Sequence:%d", sequence))
 
 	// deltaRate = inflationRate / 365 / nAuctionPerDay
@@ -217,9 +217,9 @@ func ComputeEpochReleaseWithInflation(sequence uint64, lastAuction *auction.Auct
 	return curRelease, nil
 }
 
-// released MTRG for a speciefic range
+// released VERSE for a speciefic range
 func calcRewardEpochRange(startEpoch, endEpoch uint64, initialRelease float64, reservedPrice *big.Int) (totalReward float64, totalUnrelease float64, epochRewards []float64, err error) {
-	fmt.Println("Compute MTRG release (old)")
+	fmt.Println("Compute VERSE release (old)")
 	var epoch uint64
 	var epochReward float64
 

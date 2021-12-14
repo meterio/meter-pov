@@ -147,7 +147,7 @@ func TestCandidate(t *testing.T) {
 		CandPort:   CandidatePort,
 		StakingID:  EmptyByte32,
 		Amount:     Amount,
-		Token:      staking.meter.MTRG,
+		Token:      staking.meter.VERSE,
 		Timestamp:  Timestamp,
 		Nonce:      Nonce,
 	}
@@ -164,7 +164,7 @@ func TestUncandidate(t *testing.T) {
 		Version:   StakingVersion,
 		CandAddr:  CandidateAddress,
 		StakingID: EmptyByte32,
-		Token:     staking.meter.MTRG,
+		Token:     staking.meter.VERSE,
 		Timestamp: Timestamp,
 		Nonce:     Nonce,
 	}
@@ -179,7 +179,7 @@ func TestDelegate(t *testing.T) {
 		CandAddr:   CandidateAddress,
 		StakingID:  StakingID,
 		Amount:     Amount,
-		Token:      staking.meter.MTRG,
+		Token:      staking.meter.VERSE,
 		Timestamp:  Timestamp,
 		Nonce:      Nonce,
 	}
@@ -194,7 +194,7 @@ func TestUndelegate(t *testing.T) {
 		CandAddr:   EmptyAddress,
 		StakingID:  StakingID,
 		Amount:     Amount,
-		Token:      staking.meter.MTRG,
+		Token:      staking.meter.VERSE,
 		Timestamp:  Timestamp,
 		Nonce:      Nonce,
 	}
@@ -210,7 +210,7 @@ func TestBound(t *testing.T) {
 		CandAddr:   CandidateAddress,
 		StakingID:  EmptyByte32,
 		Amount:     Amount,
-		Token:      staking.meter.MTRG,
+		Token:      staking.meter.VERSE,
 		Timestamp:  Timestamp,
 		Nonce:      Nonce,
 	}
@@ -225,7 +225,7 @@ func TestUnbound(t *testing.T) {
 		CandAddr:   EmptyAddress,
 		StakingID:  StakingID,
 		Amount:     Amount,
-		Token:      staking.meter.MTRG,
+		Token:      staking.meter.VERSE,
 		Timestamp:  Timestamp,
 		Nonce:      Nonce,
 	}
@@ -240,7 +240,7 @@ func TestBid(t *testing.T) {
 		AuctionID: EmptyByte32,
 		Bidder:    HolderAddress,
 		Amount:    Amount,
-		Token:     auction.meter.MTR,
+		Token:     auction.meter.STPT,
 		Timestamp: Timestamp,
 		Nonce:     Nonce,
 	}
@@ -260,7 +260,7 @@ func TestCandidateUpdate(t *testing.T) {
 		CandPort:   CandidatePort,
 		StakingID:  EmptyByte32,
 		Amount:     big.NewInt(0),
-		Token:      staking.meter.MTRG,
+		Token:      staking.meter.VERSE,
 		Timestamp:  Timestamp,
 		Nonce:      Nonce,
 	}
@@ -275,7 +275,7 @@ func TestBailOut(t *testing.T) {
 		CandAddr:   HolderAddress,
 		StakingID:  EmptyByte32,
 		Amount:     big.NewInt(0),
-		Token:      staking.meter.MTRG,
+		Token:      staking.meter.VERSE,
 		Timestamp:  Timestamp,
 		Nonce:      Nonce,
 	}
@@ -308,7 +308,7 @@ func TestStaticsFlushAll(t *testing.T) {
 		CandAddr:   executor,
 		StakingID:  EmptyByte32,
 		Amount:     big.NewInt(0),
-		Token:      staking.meter.MTRG,
+		Token:      staking.meter.VERSE,
 		Timestamp:  Timestamp,
 		Nonce:      Nonce,
 	}
