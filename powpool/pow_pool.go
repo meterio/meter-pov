@@ -56,6 +56,7 @@ type PowResult struct {
 	Rewards       []PowReward
 	Difficaulties *big.Int
 	Raw           []block.PowRawBlock
+	Proof         []byte
 }
 
 // PowBlockEvent will be posted when pow is added or status changed.

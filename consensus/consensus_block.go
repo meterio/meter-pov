@@ -655,7 +655,7 @@ func (conR *ConsensusReactor) BuildKBlock(parentBlock *block.Block, data *block.
 		}
 	*/
 
-	conR.logger.Info("Start to build KBlock", "nonce", data.Nonce)
+	conR.logger.Info("Start to build KBlock", "nonce", data.Nonce, "proof", data.Proof)
 	startTime := mclock.Now()
 
 	chainTag := conR.chain.Tag()

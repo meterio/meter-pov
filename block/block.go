@@ -13,12 +13,12 @@ import (
 	"strings"
 	"sync/atomic"
 
+	"github.com/ethereum/go-ethereum/rlp"
 	cmn "github.com/meterio/meter-pov/libs/common"
 	"github.com/meterio/meter-pov/meter"
 	"github.com/meterio/meter-pov/metric"
 	"github.com/meterio/meter-pov/tx"
 	"github.com/meterio/meter-pov/types"
-	"github.com/ethereum/go-ethereum/rlp"
 )
 
 const (
@@ -58,6 +58,7 @@ type PowRawBlock []byte
 type KBlockData struct {
 	Nonce uint64 // the last of the pow block
 	Data  []PowRawBlock
+	Proof []byte
 }
 
 func (d KBlockData) ToString() string {
@@ -65,7 +66,7 @@ func (d KBlockData) ToString() string {
 	for _, r := range d.Data {
 		hexs = append(hexs, hex.EncodeToString(r))
 	}
-	return fmt.Sprintf("KBlockData(Nonce:%v, Data:%v)", d.Nonce, strings.Join(hexs, ","))
+	return fmt.Sprintf("KBlockData(Nonce:%v, Proof:%v, Data:%v)", d.Nonce, d.Proof, strings.Join(hexs, ","))
 }
 
 type CommitteeInfo struct {

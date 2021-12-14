@@ -51,6 +51,7 @@ func (p *Pacemaker) proposeBlock(parentBlock *block.Block, height, round uint32,
 			nonce := binary.LittleEndian.Uint32(pi)
 
 			powResults = powpool.NewPowResult(nonce)
+			powResults.Proof = pi
 
 			//powRawBlocks := make([]block.PowRawBlock, 1)
 			//powResults.Raw = powRawBlocks
@@ -62,7 +63,7 @@ func (p *Pacemaker) proposeBlock(parentBlock *block.Block, height, round uint32,
 
 	// propose appropriate block info
 	if proposalKBlock {
-		data := &block.KBlockData{uint64(powResults.Nonce), powResults.Raw}
+		data := &block.KBlockData{uint64(powResults.Nonce), powResults.Raw, powResults.Proof}
 		rewards := powResults.Rewards
 		blkInfo = p.csReactor.BuildKBlock(parentBlock, data, rewards)
 	} else {
