@@ -1243,7 +1243,7 @@ func (conR *ConsensusReactor) JoinEstablishedCommittee(kBlock *block.Block, repl
 		//pool := powpool.GetGlobPowPoolInst()
 		//pool.Wash()
 		//pool.InitialAddKframe(info)
-		conR.logger.Info("PowPool initial added kblock", "kblock height", kBlock.Header().Number(), "powHeight", info.PowHeight)
+		conR.logger.Info("JoinEstablishedCommittee PowPool initial added kblock", "kblock height", kBlock.Header().Number(), "powHeight", info.PowHeight)
 
 		if replay == true {
 			//kblock is already added to pool, should start with next one
@@ -1329,7 +1329,7 @@ func (conR *ConsensusReactor) ConsensusHandleReceivedNonce(kBlockHeight uint32, 
 		//pool := powpool.GetGlobPowPoolInst()
 		//pool.Wash()
 		//pool.InitialAddKframe(info)
-		conR.logger.Info("PowPool initial added kblock", "kblock height", kBlockHeight, "powHeight", info.PowHeight)
+		conR.logger.Info("ConsensusHandleReceivedNonce PowPool initial added kblock", "kblock height", kBlockHeight, "powHeight", info.PowHeight)
 
 		if replay == true {
 			//kblock is already added to pool, should start with next one
