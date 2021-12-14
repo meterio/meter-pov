@@ -309,13 +309,13 @@ func (rt *Runtime) newEVM(stateDB *statedb.StateDB, clauseIndex uint32, txCtx *x
 						fmt.Println("Condition A: after Tesla fork3, caller is contract, eth compatible")
 						addr = common.Address(meter.EthCreateContractAddress(caller, uint32(txCtx.Nonce)+clauseIndex))
 					} else {
-						if meter.IsMainChainTeslaFork4(txCtx.BlockRef.Number()) || meter.IsTestChainTeslaFork4(txCtx.BlockRef.Number()) {
+						//if meter.IsMainChainTeslaFork4(txCtx.BlockRef.Number()) || meter.IsTestChainTeslaFork4(txCtx.BlockRef.Number()) {
 							fmt.Println("Condition B1: after Tesla fork4, caller is external, meter specific")
 							addr = common.Address(meter.CreateContractAddress(txCtx.ID, clauseIndex, counter))
-						} else {
-							fmt.Println("Condition B2: after Tesla fork4, caller is external, counter related")
-							addr = common.Address(meter.EthCreateContractAddress(caller, counter))
-						}
+						//} else {
+						//	fmt.Println("Condition B2: after Tesla fork4, caller is external, counter related")
+						//	addr = common.Address(meter.EthCreateContractAddress(caller, counter))
+						//}
 					}
 				} else {
 					fmt.Println("Condition C: before Tesla fork3, eth compatible")

@@ -61,8 +61,8 @@ const (
 	// meter-specific address scheme for created contract: keccak256(txID, clauseIndex, counter)
 	// 2) fixed the sync failure at 10963576 (negative total stake balance for stakeholder, should snap to 0 once negative)
 	// 3) fixed the sync failure at 13931713 (use caller for contract address creation, should use origin)
-	TeslaFork4_TestnetStartNum = 4932000
-	TeslaFork4_MainnetStartNum = 0 // around 9/1/2021 9:30 AM (Beijing)
+	//TeslaFork4_TestnetStartNum = 4932000
+	//TeslaFork4_MainnetStartNum = 0 // around 9/1/2021 9:30 AM (Beijing)
 )
 
 // start block number support sys-contract
@@ -73,7 +73,7 @@ var (
 
 	TeslaFork2StartNum uint32 = TeslaFork2_MainnetStartNum
 	TeslaFork3StartNum uint32 = TeslaFork3_MainnetStartNum
-	TeslaFork4StartNum uint32 = TeslaFork4_MainnetStartNum
+	//TeslaFork4StartNum uint32 = TeslaFork4_MainnetStartNum
 
 	// Genesis hashes to enforce below configs on.
 	//TODO: change me
@@ -170,9 +170,9 @@ func (p *ChainConfig) IsTeslaFork3(blockNum uint32) bool {
 	return blockNum >= TeslaFork3StartNum
 }
 
-func (p *ChainConfig) IsTeslaFork4(blockNum uint32) bool {
-	return blockNum >= TeslaFork4StartNum
-}
+//func (p *ChainConfig) IsTeslaFork4(blockNum uint32) bool {
+	//return blockNum >= TeslaFork4StartNum
+//}
 
 func InitBlockChainConfig(genesisID Bytes32, chainFlag string) {
 	BlockChainConfig.ChainGenesisID = genesisID
@@ -187,14 +187,14 @@ func InitBlockChainConfig(genesisID Bytes32, chainFlag string) {
 		TeslaStartNum = TeslaMainnetStartNum
 		TeslaFork2StartNum = TeslaFork2_MainnetStartNum
 		TeslaFork3StartNum = TeslaFork3_MainnetStartNum
-		TeslaFork4StartNum = TeslaFork4_MainnetStartNum
+		//TeslaFork4StartNum = TeslaFork4_MainnetStartNum
 	} else {
 		SysContractStartNum = TestnetSysContractStartNum
 		EdisonStartNum = EdisonTestnetStartNum
 		TeslaStartNum = TeslaTestnetStartNum
 		TeslaFork2StartNum = TeslaFork2_TestnetStartNum
 		TeslaFork3StartNum = TeslaFork3_TestnetStartNum
-		TeslaFork4StartNum = TeslaFork4_TestnetStartNum
+		//TeslaFork4StartNum = TeslaFork4_TestnetStartNum
 	}
 }
 
@@ -218,13 +218,13 @@ func IsMainChainTeslaFork3(blockNum uint32) bool {
 	return BlockChainConfig.IsMainnet() && BlockChainConfig.IsTeslaFork3(blockNum)
 }
 
-func IsTestChainTeslaFork4(blockNum uint32) bool {
-	return BlockChainConfig.IsTestnet() && BlockChainConfig.IsTeslaFork4(blockNum)
-}
+//func IsTestChainTeslaFork4(blockNum uint32) bool {
+//	return BlockChainConfig.IsTestnet() && BlockChainConfig.IsTeslaFork4(blockNum)
+//}
 
-func IsMainChainTeslaFork4(blockNum uint32) bool {
-	return BlockChainConfig.IsMainnet() && BlockChainConfig.IsTeslaFork4(blockNum)
-}
+//func IsMainChainTeslaFork4(blockNum uint32) bool {
+//	return BlockChainConfig.IsMainnet() && BlockChainConfig.IsTeslaFork4(blockNum)
+//}
 
 func IsTestChainTeslaFork3(blockNum uint32) bool {
 	return BlockChainConfig.IsTestnet() && BlockChainConfig.IsTeslaFork3(blockNum)
