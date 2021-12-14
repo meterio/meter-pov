@@ -687,13 +687,13 @@ func (conR *ConsensusReactor) BuildKBlock(parentBlock *block.Block, data *block.
 			conR.logger.Info("auction control tx appended", "txid", statsTx.ID())
 		}
 
-		reservedPrice := GetAuctionReservedPrice()
-		initialRelease := GetAuctionInitialRelease()
+		//reservedPrice := GetAuctionReservedPrice()
+		//initialRelease := GetAuctionInitialRelease()
 
-		if tx := reward.BuildAuctionControlTx(uint64(best.Header().Number()+1), uint64(best.GetBlockEpoch()+1), chainTag, bestNum, initialRelease, reservedPrice, conR.chain); tx != nil {
-			txs = append(txs, tx)
-			conR.logger.Info("auction control tx appended", "txid", tx.ID())
-		}
+		//if tx := reward.BuildAuctionControlTx(uint64(best.Header().Number()+1), uint64(best.GetBlockEpoch()+1), chainTag, bestNum, initialRelease, reservedPrice, conR.chain); tx != nil {
+		//	txs = append(txs, tx)
+		//	conR.logger.Info("auction control tx appended", "txid", tx.ID())
+		//}
 
 		// build governing tx && autobid tx only when staking delegates is used
 		if conR.sourceDelegates != fromDelegatesFile {
@@ -738,13 +738,13 @@ func (conR *ConsensusReactor) BuildKBlock(parentBlock *block.Block, data *block.
 				}
 				fmt.Println("-------------------------")
 
-				autobidTxs := reward.BuildAutobidTxs(autobidList, chainTag, bestNum)
-				if len(autobidTxs) > 0 {
-					txs = append(txs, autobidTxs...)
-					for _, tx := range autobidTxs {
-						conR.logger.Info("autobid tx appended", "txid", tx.ID())
-					}
-				}
+				//autobidTxs := reward.BuildAutobidTxs(autobidList, chainTag, bestNum)
+				//if len(autobidTxs) > 0 {
+				//	txs = append(txs, autobidTxs...)
+				//	for _, tx := range autobidTxs {
+				//		conR.logger.Info("autobid tx appended", "txid", tx.ID())
+				//	}
+				//}
 			} else {
 				fmt.Println("-------------------------")
 				fmt.Println("Reward Map is empty")
