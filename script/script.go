@@ -114,7 +114,7 @@ func (se *ScriptEngine) StartAllModules() {
 		ModuleStakingInit(se)
 
 		// auction
-		ModuleAuctionInit(se)
+		//ModuleAuctionInit(se)
 	}
 
 	// accountlock
