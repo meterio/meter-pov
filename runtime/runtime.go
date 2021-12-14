@@ -208,7 +208,7 @@ func (rt *Runtime) FromNativeContract(caller meter.Address) bool {
 func (rt *Runtime) restrictTransfer(stateDB *statedb.StateDB, addr meter.Address, amount *big.Int, token byte, blockNum uint32) bool {
 	restrict, _, lockMtrg := accountlock.RestrictByAccountLock(addr, rt.State())
 	// lock is not there or token meter
-	if restrict == false || token == meter.MTR {
+	if restrict == false || token == meter.STPT {
 		return false
 	}
 
@@ -244,7 +244,7 @@ func (rt *Runtime) newEVM(stateDB *statedb.StateDB, clauseIndex uint32, txCtx *x
 	return vm.NewEVM(vm.Context{
 		CanTransfer: func(_ vm.StateDB, addr common.Address, amount *big.Int, token byte) bool {
 			if !meter.Address(addr).IsZero() {
-				if token == meter.MTRG {
+				if token == meter.VERSE {
 					return stateDB.GetBalance(addr).Cmp(amount) >= 0
 				} else /*if token == meter.MTR*/ {
 					// XXX. add gas fee in comparasion
@@ -270,17 +270,17 @@ func (rt *Runtime) newEVM(stateDB *statedb.StateDB, clauseIndex uint32, txCtx *x
 			***************/
 			// mint transaction (sender is zero) means mint token, otherwise is regular transfer
 			if meter.Address(sender).IsZero() {
-				if token == meter.MTRG {
+				if token == meter.VERSE {
 					stateDB.MintBalance(recipient, amount)
-				} else if token == meter.MTR {
+				} else if token == meter.STPT {
 					stateDB.MintEnergy(recipient, amount)
 				}
 			} else {
 				//regular transfer
-				if token == meter.MTRG {
+				if token == meter.VERSE {
 					stateDB.SubBalance(common.Address(sender), amount)
 					stateDB.AddBalance(common.Address(recipient), amount)
-				} else if token == meter.MTR {
+				} else if token == meter.STPT {
 					stateDB.SubEnergy(common.Address(sender), amount)
 					stateDB.AddEnergy(common.Address(recipient), amount)
 				}
@@ -424,7 +424,7 @@ func (rt *Runtime) newEVM(stateDB *statedb.StateDB, clauseIndex uint32, txCtx *x
 					Sender:    meter.Address(contractAddr),
 					Recipient: meter.Address(tokenReceiver),
 					Amount:    amount,
-					Token:     meter.MTR,
+					Token:     meter.STPT,
 				})
 			}
 
@@ -435,7 +435,7 @@ func (rt *Runtime) newEVM(stateDB *statedb.StateDB, clauseIndex uint32, txCtx *x
 					Sender:    meter.Address(contractAddr),
 					Recipient: meter.Address(tokenReceiver),
 					Amount:    amount,
-					Token:     meter.MTRG,
+					Token:     meter.VERSE,
 				})
 			}
 		},

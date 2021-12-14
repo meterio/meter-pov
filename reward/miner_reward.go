@@ -58,7 +58,7 @@ func buildMinerRewardTx(rewards []powpool.PowReward, chainTag byte, bestNum uint
 	// Only reward METER
 	sum := big.NewInt(0)
 	for _, reward := range rewards {
-		builder.Clause(tx.NewClause(&reward.Rewarder).WithValue(&reward.Value).WithToken(meter.MTR))
+		builder.Clause(tx.NewClause(&reward.Rewarder).WithValue(&reward.Value).WithToken(meter.STPT))
 		logger.Debug("Reward:", "rewarder", reward.Rewarder, "value", reward.Value)
 		sum = sum.Add(sum, &reward.Value)
 	}

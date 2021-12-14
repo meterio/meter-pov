@@ -15,8 +15,8 @@ import (
 // Constants of block chain.
 const (
 	// --------------------- Epoch --------------------------
-	MTR  = byte(0)
-	MTRG = byte(1)
+	STPT  = byte(0)
+	VERSE = byte(1)
 	// minimum height for committee relay.
 	NPowBlockPerEpoch    = 60   // epoch time (normaly 1 pow block takes 1 minutes)
 	MaxNPowBlockPerEpoch = 3000 // if too many pow blocks need to be packed in kblock, truncate to the last 3000 pow blocks

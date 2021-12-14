@@ -61,9 +61,9 @@ func NewStaking(ch *chain.Chain, sc *state.Creator) *Staking {
 		panic("unbound event not found")
 	}
 
-	d, e := boundEvent.Encode(big.NewInt(1000000000000000000), big.NewInt(int64(meter.MTR)))
+	d, e := boundEvent.Encode(big.NewInt(1000000000000000000), big.NewInt(int64(meter.STPT)))
 	fmt.Println(hex.EncodeToString(d), e)
-	d, e = unboundEvent.Encode(big.NewInt(1000000000000000000), big.NewInt(int64(meter.MTRG)))
+	d, e = unboundEvent.Encode(big.NewInt(1000000000000000000), big.NewInt(int64(meter.VERSE)))
 	fmt.Println(hex.EncodeToString(d), e)
 
 	staking := &Staking{

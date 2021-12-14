@@ -317,7 +317,7 @@ func (s *Staking) BoundAccountMeter(addr meter.Address, amount *big.Int, state *
 		meter.Bytes32(boundEvent.ID()),
 		meter.BytesToBytes32(addr.Bytes()),
 	}
-	data, err := boundEvent.Encode(amount, big.NewInt(int64(meter.MTR)))
+	data, err := boundEvent.Encode(amount, big.NewInt(int64(meter.STPT)))
 	if err != nil {
 		fmt.Println("could not encode data for bound")
 	}
@@ -349,7 +349,7 @@ func (s *Staking) UnboundAccountMeter(addr meter.Address, amount *big.Int, state
 
 	topics = append(topics, meter.Bytes32(unboundEvent.ID()))
 	topics = append(topics, meter.BytesToBytes32(addr.Bytes()))
-	data, err = unboundEvent.Encode(amount, big.NewInt(int64(meter.MTR)))
+	data, err = unboundEvent.Encode(amount, big.NewInt(int64(meter.STPT)))
 	if err != nil {
 		fmt.Println("could not encode data for unbound")
 	}
@@ -381,7 +381,7 @@ func (s *Staking) BoundAccountMeterGov(addr meter.Address, amount *big.Int, stat
 		meter.Bytes32(boundEvent.ID()),
 		meter.BytesToBytes32(addr.Bytes()),
 	}
-	data, err := boundEvent.Encode(amount, big.NewInt(int64(meter.MTRG)))
+	data, err := boundEvent.Encode(amount, big.NewInt(int64(meter.VERSE)))
 	if err != nil {
 		fmt.Println("could not encode data for bound")
 	}
@@ -412,7 +412,7 @@ func (s *Staking) UnboundAccountMeterGov(addr meter.Address, amount *big.Int, st
 		meter.Bytes32(unboundEvent.ID()),
 		meter.BytesToBytes32(addr.Bytes()),
 	}
-	data, err := unboundEvent.Encode(amount, big.NewInt(int64(meter.MTRG)))
+	data, err := unboundEvent.Encode(amount, big.NewInt(int64(meter.VERSE)))
 	if err != nil {
 		fmt.Println("could not encode data for unbound")
 	}
@@ -435,7 +435,7 @@ func (s *Staking) CollectBailMeterGov(addr meter.Address, amount *big.Int, state
 
 	state.SubBalance(addr, amount)
 	state.AddBalance(StakingModuleAddr, amount)
-	env.AddTransfer(addr, StakingModuleAddr, amount, meter.MTRG)
+	env.AddTransfer(addr, StakingModuleAddr, amount, meter.VERSE)
 	return nil
 }
 
@@ -451,7 +451,7 @@ func (s *Staking) TransferValidatorReward(amount *big.Int, addr meter.Address, s
 	}
 	state.SubEnergy(meter.ValidatorBenefitAddr, amount)
 	state.AddEnergy(addr, amount)
-	env.AddTransfer(meter.ValidatorBenefitAddr, addr, amount, meter.MTR)
+	env.AddTransfer(meter.ValidatorBenefitAddr, addr, amount, meter.STPT)
 	return nil
 }
 

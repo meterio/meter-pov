@@ -37,7 +37,7 @@ func NewClause(to *meter.Address) *Clause {
 		clauseBody{
 			to,
 			&big.Int{},
-			meter.MTR,
+			meter.STPT,
 			nil,
 		},
 	}

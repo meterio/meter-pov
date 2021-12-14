@@ -100,7 +100,7 @@ func (a *Auction) TransferAutobidMTRToAuction(addr meter.Address, amount *big.In
 	a.logger.Info("transfer autobid MTR", "bidder", addr, "amount", amount)
 	state.SubEnergy(meter.ValidatorBenefitAddr, amount)
 	state.AddEnergy(AuctionAccountAddr, amount)
-	env.AddTransfer(meter.ValidatorBenefitAddr, AuctionAccountAddr, amount, meter.MTR)
+	env.AddTransfer(meter.ValidatorBenefitAddr, AuctionAccountAddr, amount, meter.STPT)
 	return nil
 }
 
@@ -118,7 +118,7 @@ func (a *Auction) TransferMTRToAuction(addr meter.Address, amount *big.Int, stat
 	a.logger.Info("transfer userbid MTR", "bidder", addr, "amount", amount)
 	state.SubEnergy(addr, amount)
 	state.AddEnergy(AuctionAccountAddr, amount)
-	env.AddTransfer(addr, AuctionAccountAddr, amount, meter.MTR)
+	env.AddTransfer(addr, AuctionAccountAddr, amount, meter.STPT)
 	return nil
 }
 
@@ -128,7 +128,7 @@ func (a *Auction) SendMTRGToBidder(addr meter.Address, amount *big.Int, stateDB 
 	}
 	// in auction, MeterGov is mint action.
 	stateDB.MintBalance(common.Address(addr), amount)
-	env.AddTransfer(meter.ZeroAddress, addr, amount, meter.MTRG)
+	env.AddTransfer(meter.ZeroAddress, addr, amount, meter.VERSE)
 	return
 }
 
@@ -145,7 +145,7 @@ func (a *Auction) TransferMTRToValidatorBenefit(amount *big.Int, state *state.St
 
 	state.SubEnergy(AuctionAccountAddr, amount)
 	state.AddEnergy(meter.ValidatorBenefitAddr, amount)
-	env.AddTransfer(AuctionAccountAddr, meter.ValidatorBenefitAddr, amount, meter.MTR)
+	env.AddTransfer(AuctionAccountAddr, meter.ValidatorBenefitAddr, amount, meter.STPT)
 
 	return nil
 }
