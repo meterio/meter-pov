@@ -1328,7 +1328,7 @@ func (conR *ConsensusReactor) ConsensusHandleReceivedNonce(kBlockHeight uint32, 
 		}
 		pool := powpool.GetGlobPowPoolInst()
 		pool.Wash()
-		pool.InitialAddKframe(info)
+		//pool.InitialAddKframe(info)
 		conR.logger.Info("PowPool initial added kblock", "kblock height", kBlockHeight, "powHeight", info.PowHeight)
 
 		if replay == true {
