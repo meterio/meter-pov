@@ -12,6 +12,7 @@ package consensus
 
 import (
 	"bytes"
+	"encoding/binary"
 	"fmt"
 	"math/big"
 	"time"
@@ -24,6 +25,7 @@ import (
 	"github.com/meterio/meter-pov/chain"
 	"github.com/meterio/meter-pov/comm"
 	bls "github.com/meterio/meter-pov/crypto/multi_sig"
+	"github.com/meterio/meter-pov/crypto/vrf"
 	cmn "github.com/meterio/meter-pov/libs/common"
 	"github.com/meterio/meter-pov/logdb"
 	"github.com/meterio/meter-pov/meter"
@@ -181,7 +183,37 @@ func (c *ConsensusReactor) validate(
 		return nil, nil, err
 	}
 
+	if err := c.validateKBlock(block, parentHeader); err != nil {
+		return nil, nil, err
+	}
+
 	return stage, receipts, nil
+}
+
+func (c *ConsensusReactor) validateKBlock(block *block.Block, parentHeader *block.Header,) error {
+	kblockData := block.KBlockData
+
+	if len(kblockData.Proof) > 0 {
+		pub, err := crypto.SigToPub(parentHeader.SigningHash().Bytes(), parentHeader.Body.Signature)
+		if err != nil {
+			return err
+		}
+
+		alpha := parentHeader.String()
+		pi := kblockData.Proof
+
+		if _, err = vrf.Verify(pub, []byte(alpha), pi); err != nil {
+			return err
+		}
+
+		nonce := binary.LittleEndian.Uint32(pi)
+
+		if kblockData.Nonce != uint64(nonce) {
+			return errors.New("err Nonce")
+		}
+	}
+
+	return nil
 }
 
 func (c *ConsensusReactor) validateBlockHeader(header *block.Header, parent *block.Header, nowTimestamp uint64) error {
