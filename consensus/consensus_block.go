@@ -183,18 +183,18 @@ func (c *ConsensusReactor) validate(
 		return nil, nil, err
 	}
 
-	if err := c.validateKBlock(block, parentHeader); err != nil {
+	if err := c.validateKBlock(block, header, parentHeader); err != nil {
 		return nil, nil, err
 	}
 
 	return stage, receipts, nil
 }
 
-func (c *ConsensusReactor) validateKBlock(block *block.Block, parentHeader *block.Header,) error {
+func (c *ConsensusReactor) validateKBlock(block *block.Block, header, parentHeader *block.Header) error {
 	kblockData := block.KBlockData
 
 	if len(kblockData.Proof) > 0 {
-		pub, err := crypto.SigToPub(parentHeader.SigningHash().Bytes(), parentHeader.Body.Signature)
+		pub, err := crypto.SigToPub(header.SigningHash().Bytes(), header.Body.Signature)
 		if err != nil {
 			return err
 		}
@@ -202,7 +202,9 @@ func (c *ConsensusReactor) validateKBlock(block *block.Block, parentHeader *bloc
 		alpha := parentHeader.String()
 		pi := kblockData.Proof
 
-		if _, err = vrf.Verify(pub, []byte(alpha), pi); err != nil {
+		if beta, err := vrf.Verify(pub, []byte(alpha), pi); err != nil {
+			c.logger.Info("vrf.Verify", "alpha", alpha, "beta", beta, "pi", pi)
+
 			return err
 		}
 

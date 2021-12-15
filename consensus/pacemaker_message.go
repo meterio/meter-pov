@@ -40,7 +40,7 @@ func (p *Pacemaker) proposeBlock(parentBlock *block.Block, height, round uint32,
 			sk := &p.csReactor.myPrivKey
 
 			beta, pi, err := vrf.Prove(sk, []byte(alpha))
-			p.logger.Info("vrf.Prove", "beta", beta, "pi", pi)
+			p.logger.Info("vrf.Prove", "alpha", alpha, "beta", beta, "pi", pi)
 
 			if err != nil {
 				// something wrong.
