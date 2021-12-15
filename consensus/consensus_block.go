@@ -199,10 +199,10 @@ func (c *ConsensusReactor) validateKBlock(block *block.Block, header, parentHead
 			return err
 		}
 
-		alpha := parentHeader.String()
+		alpha := parentHeader.ID()
 		pi := kblockData.Proof
 
-		if beta, err := vrf.Verify(pub, []byte(alpha), pi); err != nil {
+		if beta, err := vrf.Verify(pub, alpha[:], pi); err != nil {
 			c.logger.Info("vrf.Verify", "alpha", alpha, "beta", beta, "pi", pi)
 
 			return err

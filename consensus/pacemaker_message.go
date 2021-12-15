@@ -35,11 +35,11 @@ func (p *Pacemaker) proposeBlock(parentBlock *block.Block, height, round uint32,
 			proposalKBlock = true
 
 			// the input to be hashed by the VRF
-			alpha := parentBlock.Header().String()
+			alpha := parentBlock.Header().ID()
 
 			sk := &p.csReactor.myPrivKey
 
-			beta, pi, err := vrf.Prove(sk, []byte(alpha))
+			beta, pi, err := vrf.Prove(sk, alpha[:])
 			p.logger.Info("vrf.Prove", "alpha", alpha, "beta", beta, "pi", pi)
 
 			if err != nil {
@@ -52,9 +52,6 @@ func (p *Pacemaker) proposeBlock(parentBlock *block.Block, height, round uint32,
 
 			powResults = powpool.NewPowResult(nonce)
 			powResults.Proof = pi
-
-			//powRawBlocks := make([]block.PowRawBlock, 1)
-			//powResults.Raw = powRawBlocks
 		}
 	}
 
