@@ -731,17 +731,17 @@ func (conR *ConsensusReactor) BuildKBlock(parentBlock *block.Block, data *block.
 
 		// build governing tx && autobid tx only when staking delegates is used
 		if conR.sourceDelegates != fromDelegatesFile {
-			benefitRatio := reward.GetValidatorBenefitRatio(state)
+			//benefitRatio := reward.GetValidatorBenefitRatio(state)
 			validatorBaseReward := reward.GetValidatorBaseRewards(state)
 			epochBaseReward := reward.ComputeEpochBaseReward(validatorBaseReward)
-			nDays := meter.NDays
-			nAuctionPerDay := meter.NEpochPerDay // wrong number before hardfork
-			nDays = meter.NDaysV2
-			nAuctionPerDay = meter.NAuctionPerDay
-			epochTotalReward, err := reward.ComputeEpochTotalReward(benefitRatio, nDays, nAuctionPerDay)
-			if err != nil {
-				epochTotalReward = big.NewInt(0)
-			}
+			//nDays := meter.NDays
+			//nAuctionPerDay := meter.NEpochPerDay // wrong number before hardfork
+			//nDays = meter.NDaysV2
+			//nAuctionPerDay = meter.NAuctionPerDay
+			//epochTotalReward, err := reward.ComputeEpochTotalReward(benefitRatio, nDays, nAuctionPerDay)
+			//if err != nil {
+				epochTotalReward := big.NewInt(0)
+			//}
 			var rewardMap reward.RewardMap
 			//if meter.IsMainChainTeslaFork2(parentBlock.Header().Number()) == true || meter.IsTestChainTeslaFork2(parentBlock.Header().Number()) == true {
 				fmt.Println("Compute reward map V3")
