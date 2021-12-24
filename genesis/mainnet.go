@@ -30,13 +30,13 @@ func NewMainnet() *Genesis {
 			}
 
 			// alloc builtin contracts
-			state.SetCode(builtin.Meter.Address, builtin.Meter.RuntimeBytecodes())
-			state.SetCode(builtin.MeterGov.Address, builtin.MeterGov.RuntimeBytecodes())
-			state.SetCode(builtin.MeterTracker.Address, builtin.MeterTracker.RuntimeBytecodes())
-			state.SetCode(builtin.Executor.Address, builtin.Executor.RuntimeBytecodes())
-			state.SetCode(builtin.Extension.Address, builtin.Extension.RuntimeBytecodes())
-			state.SetCode(builtin.Params.Address, builtin.Params.RuntimeBytecodes())
-			state.SetCode(builtin.Prototype.Address, builtin.Prototype.RuntimeBytecodes())
+			state.SetCode(builtin.Meter.Address, builtin.Meter.RuntimeBytecodes()) // addr 0x0000000000000000000000000000004d65746572
+			state.SetCode(builtin.MeterGov.Address, builtin.MeterGov.RuntimeBytecodes()) // addr 0x0000000000000000000000004d65746572476f76
+			state.SetCode(builtin.MeterTracker.Address, builtin.MeterTracker.RuntimeBytecodes()) // addr 0x0000000000000000004d657465724e6174697665
+			state.SetCode(builtin.Executor.Address, builtin.Executor.RuntimeBytecodes()) // addr meter.InitialExecutorAccount
+			state.SetCode(builtin.Extension.Address, builtin.Extension.RuntimeBytecodes()) // addr 0x0000000000000000000000457874656e73696f6e
+			state.SetCode(builtin.Params.Address, builtin.Params.RuntimeBytecodes()) // addr 0x0000000000000000000000000000506172616d73
+			state.SetCode(builtin.Prototype.Address, builtin.Prototype.RuntimeBytecodes()) // addr 0x000000000000000000000050726f746f74797065
 
 			tokenSupply := &big.Int{}
 			energySupply := &big.Int{}
