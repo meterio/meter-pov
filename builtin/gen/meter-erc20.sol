@@ -17,7 +17,7 @@ contract MeterERC20 is _Token {
     }
 
     function name() public pure returns(string) {
-        return "Meter";
+        return "STP Token";
     }
 
     function decimals() public pure returns(uint8) {
@@ -91,7 +91,7 @@ contract MeterGovERC20 is _Token {
     }
 
     function name() public pure returns(string) {
-        return "MeterGov";
+        return "Verse Network";
     }
 
     function decimals() public pure returns(uint8) {

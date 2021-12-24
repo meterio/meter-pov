@@ -11,7 +11,7 @@ contract Meter is _Token {
     mapping(address => mapping(address => uint256)) allowed;
 
     function name() public pure returns(string) {
-        return "Meter";
+        return "STP Token";
     }
 
     function decimals() public pure returns(uint8) {
@@ -79,7 +79,7 @@ contract MeterGov is _Token {
     mapping(address => mapping(address => uint256)) allowed;
 
     function name() public pure returns(string) {
-        return "MeterGov";
+        return "Verse Network";
     }
 
     function decimals() public pure returns(uint8) {
