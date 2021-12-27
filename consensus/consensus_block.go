@@ -425,6 +425,10 @@ func (c *ConsensusReactor) verifyBlock(blk *block.Block, state *state.State) (*s
 			return nil, nil, consensusError(fmt.Sprintf("tx signer unavailable: %v", err))
 		}
 
+		if _, err := tx.ChainIdValidate(); err != nil {
+			return nil, nil, err
+		}
+
 		if signer.IsZero() {
 			//TBD: check to addresses in clauses
 			if blk.Header().BlockType() != block.BLOCK_TYPE_K_BLOCK {

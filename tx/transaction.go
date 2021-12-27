@@ -139,7 +139,12 @@ func NewTransactionFromEthTx(ethTx *types.Transaction, chainTag byte, blockRef B
 		fmt.Println("to:", to.String())
 	}
 	fmt.Println("value:", msg.Value())
-	fmt.Println("chainId:", fmt.Sprintf("0x%x", ethTx.ChainId()))
+	chainId := ethTx.ChainId()
+	fmt.Println("chainId:", fmt.Sprintf("0x%x", chainId))
+
+	if _, err = ChainIdValidate(chainId); err != nil {
+		return nil, err
+	}
 
 	signer := types.NewEIP155Signer(ethTx.ChainId())
 	value := msg.Value()
@@ -187,6 +192,34 @@ func NewTransactionFromEthTx(ethTx *types.Transaction, chainTag byte, blockRef B
 	// tx.cache.signer.Store(from)
 	fmt.Println("NewTransactionFromEthTx created tx: ", tx.ID())
 	return tx, nil
+}
+func ChainIdValidate(chainId *big.Int) (bool, error) {
+	if meter.IsMainNet() && chainId != new(big.Int).SetUint64(meter.MainnetChainID) {
+		return false, errors.New("wrong mainNet chainId")
+	}
+	if meter.IsTestNet() && chainId != new(big.Int).SetUint64(meter.TestnetChainID) {
+		return false, errors.New("wrong testNet chainId")
+	}
+
+	return true, nil
+}
+
+func (t *Transaction) ChainIdValidate() (bool, error) {
+	var ethTx *types.Transaction
+	var err error
+
+	if t.IsEthTx() {
+		ethTx, err = t.GetEthTx()
+
+		if err != nil {
+			return false, err
+		}
+
+		chainId := ethTx.ChainId()
+		return ChainIdValidate(chainId)
+	}
+
+	return true, nil
 }
 
 func (t *Transaction) IsEthTx() bool {
