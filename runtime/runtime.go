@@ -17,7 +17,6 @@ import (
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/meterio/meter-pov/abi"
 	"github.com/meterio/meter-pov/builtin"
-	"github.com/meterio/meter-pov/builtin/gen"
 	"github.com/meterio/meter-pov/chain"
 	"github.com/meterio/meter-pov/meter"
 	"github.com/meterio/meter-pov/runtime/statedb"
@@ -125,10 +124,10 @@ func New(
 		for addr := range vm.PrecompiledContractsIstanbul {
 			state.SetCode(meter.Address(addr), EmptyRuntimeBytecode)
 		}
-	//} else if ctx.Number == 0 {
-	//	for addr := range vm.PrecompiledContractsByzantium {
-	//		state.SetCode(meter.Address(addr), EmptyRuntimeBytecode)
-	//	}
+		//} else if ctx.Number == 0 {
+		//	for addr := range vm.PrecompiledContractsByzantium {
+		//		state.SetCode(meter.Address(addr), EmptyRuntimeBytecode)
+		//	}
 	}
 
 	rt := Runtime{
@@ -139,8 +138,8 @@ func New(
 	//if seeker != nil {
 	//	rt.forkConfig = meter.GetForkConfig(seeker.GenesisID())
 	//} else {
-		// for genesis building stage
-		rt.forkConfig = meter.NoFork
+	// for genesis building stage
+	rt.forkConfig = meter.NoFork
 	//}
 	return &rt
 }
@@ -152,16 +151,16 @@ func (rt *Runtime) ScriptEngineCheck(d []byte) bool {
 	return (d[0] == 0xff) && (d[1] == 0xff) && (d[2] == 0xff) && (d[3] == 0xff)
 }
 
-func (rt *Runtime) LoadERC20NativeCotract() {
-	//blockNumber := rt.Context().Number
-	addr := builtin.MeterTracker.Address
-	execAddr := builtin.Executor.Address
-	//if blockNumber >= meter.SysContractStartNum && len(rt.State().GetCode(addr)) == 0 {
-	if len(rt.State().GetCode(addr)) == 0 {
-		rt.State().SetCode(addr, gen.Compiled2NewmeternativeBinRuntime)
-		rt.State().SetCode(execAddr, []byte{})
-	}
-}
+// func (rt *Runtime) LoadERC20NativeCotract() {
+// 	//blockNumber := rt.Context().Number
+// 	addr := builtin.MeterTracker.Address
+// 	execAddr := builtin.Executor.Address
+// 	//if blockNumber >= meter.SysContractStartNum && len(rt.State().GetCode(addr)) == 0 {
+// 	if len(rt.State().GetCode(addr)) == 0 {
+// 		rt.State().SetCode(addr, gen.Compiled2NewmeternativeBinRuntime)
+// 		rt.State().SetCode(execAddr, []byte{})
+// 	}
+// }
 
 //func (rt *Runtime) EnforceTelsaFork1_1Corrections() {
 //	//blockNumber := rt.Context().Number
@@ -213,18 +212,18 @@ func (rt *Runtime) restrictTransfer(stateDB *statedb.StateDB, addr meter.Address
 	}
 
 	//if meter.IsTestNet() || (meter.IsMainNet() && blockNum > meter.Tesla1_1MainnetStartNum) {
-		// Tesla 1.1 Fork
-		// only take care meterGov, basic sanity
-		balance := stateDB.GetBalance(common.Address(addr))
-		if balance.Cmp(amount) < 0 {
-			return true
-		}
+	// Tesla 1.1 Fork
+	// only take care meterGov, basic sanity
+	balance := stateDB.GetBalance(common.Address(addr))
+	if balance.Cmp(amount) < 0 {
+		return true
+	}
 
-		// ok to transfer: balance + boundBalance > profile-lock + amount
-		availabe := new(big.Int).Add(balance, stateDB.GetBoundedBalance(common.Address(addr)))
-		needed := new(big.Int).Add(lockMtrg, amount)
+	// ok to transfer: balance + boundBalance > profile-lock + amount
+	availabe := new(big.Int).Add(balance, stateDB.GetBoundedBalance(common.Address(addr)))
+	needed := new(big.Int).Add(lockMtrg, amount)
 
-		return availabe.Cmp(needed) < 0
+	return availabe.Cmp(needed) < 0
 	//} else {
 	//	// Tesla 1.0
 	//	needed := new(big.Int).Add(lockMtrg, amount)
@@ -287,9 +286,9 @@ func (rt *Runtime) newEVM(stateDB *statedb.StateDB, clauseIndex uint32, txCtx *x
 			}
 
 			//if rt.ctx.Number >= rt.forkConfig.FixTransferLog {
-				// `amount` will be recycled by evm(OP_CALL) right after this function return,
-				// which leads to incorrect transfer log.
-				// Make a copy to prevent it.
+			// `amount` will be recycled by evm(OP_CALL) right after this function return,
+			// which leads to incorrect transfer log.
+			// Make a copy to prevent it.
 			//	amount = new(big.Int).Set(amount)
 			//}
 			stateDB.AddTransfer(&tx.Transfer{
@@ -306,24 +305,24 @@ func (rt *Runtime) newEVM(stateDB *statedb.StateDB, clauseIndex uint32, txCtx *x
 			log.Info("create new contract address", "origin", txCtx.Origin.String(), "caller", caller.String(), "clauseIndex", clauseIndex, "counter", counter, "nonce", txCtx.Nonce)
 			var addr common.Address
 			//if meter.IsMainChainTesla(txCtx.BlockRef.Number()) || meter.IsTestNet() {
-				//if meter.IsMainChainTeslaFork3(txCtx.BlockRef.Number()) || meter.IsTestChainTeslaFork3(txCtx.BlockRef.Number()) {
-					if stateDB.GetCodeHash(caller) == (common.Hash{}) || stateDB.GetCodeHash(caller) == vm.EmptyCodeHash {
-						fmt.Println("Condition A: after Tesla fork3, caller is contract, eth compatible")
-						addr = common.Address(meter.EthCreateContractAddress(caller, uint32(txCtx.Nonce)+clauseIndex))
-					} else {
-						//if meter.IsMainChainTeslaFork4(txCtx.BlockRef.Number()) || meter.IsTestChainTeslaFork4(txCtx.BlockRef.Number()) {
-							fmt.Println("Condition B1: after Tesla fork4, caller is external, meter specific")
-							addr = common.Address(meter.CreateContractAddress(txCtx.ID, clauseIndex, counter))
-						//} else {
-						//	fmt.Println("Condition B2: after Tesla fork4, caller is external, counter related")
-						//	addr = common.Address(meter.EthCreateContractAddress(caller, counter))
-						//}
-					}
+			//if meter.IsMainChainTeslaFork3(txCtx.BlockRef.Number()) || meter.IsTestChainTeslaFork3(txCtx.BlockRef.Number()) {
+			if stateDB.GetCodeHash(caller) == (common.Hash{}) || stateDB.GetCodeHash(caller) == vm.EmptyCodeHash {
+				fmt.Println("Condition A: after Tesla fork3, caller is contract, eth compatible")
+				addr = common.Address(meter.EthCreateContractAddress(caller, uint32(txCtx.Nonce)+clauseIndex))
+			} else {
+				//if meter.IsMainChainTeslaFork4(txCtx.BlockRef.Number()) || meter.IsTestChainTeslaFork4(txCtx.BlockRef.Number()) {
+				fmt.Println("Condition B1: after Tesla fork4, caller is external, meter specific")
+				addr = common.Address(meter.CreateContractAddress(txCtx.ID, clauseIndex, counter))
 				//} else {
-				//	fmt.Println("Condition C: before Tesla fork3, eth compatible")
-				//	//return common.Address(meter.EthCreateContractAddress(caller, uint32(txCtx.Nonce)+clauseIndex))
-				//	addr = common.Address(meter.EthCreateContractAddress(common.Address(txCtx.Origin), uint32(txCtx.Nonce)+clauseIndex))
+				//	fmt.Println("Condition B2: after Tesla fork4, caller is external, counter related")
+				//	addr = common.Address(meter.EthCreateContractAddress(caller, counter))
 				//}
+			}
+			//} else {
+			//	fmt.Println("Condition C: before Tesla fork3, eth compatible")
+			//	//return common.Address(meter.EthCreateContractAddress(caller, uint32(txCtx.Nonce)+clauseIndex))
+			//	addr = common.Address(meter.EthCreateContractAddress(common.Address(txCtx.Origin), uint32(txCtx.Nonce)+clauseIndex))
+			//}
 			//} else {
 			//	fmt.Println("Condition D: before Tesla, meter specific")
 			//	addr = common.Address(meter.CreateContractAddress(txCtx.ID, clauseIndex, counter))
@@ -514,7 +513,7 @@ func (rt *Runtime) PrepareClause(
 		}
 
 		// check meterNative after sysContract support
-		rt.LoadERC20NativeCotract()
+		// rt.LoadERC20NativeCotract()
 		//rt.EnforceTelsaFork1_1Corrections()
 
 		// check the restriction of transfer.

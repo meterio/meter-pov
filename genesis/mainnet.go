@@ -9,6 +9,7 @@ import (
 	"math/big"
 
 	"github.com/meterio/meter-pov/builtin"
+	"github.com/meterio/meter-pov/builtin/gen"
 	"github.com/meterio/meter-pov/meter"
 	"github.com/meterio/meter-pov/state"
 	"github.com/meterio/meter-pov/tx"
@@ -30,12 +31,18 @@ func NewMainnet() *Genesis {
 			}
 
 			// alloc builtin contracts
-			state.SetCode(builtin.Meter.Address, builtin.Meter.RuntimeBytecodes()) // before 0x0000000000000000000000000000004d65746572, after 0x000000000000000000004d657465724552433230
+			state.SetCode(builtin.Meter.Address, builtin.Meter.RuntimeBytecodes())       // before 0x0000000000000000000000000000004d65746572, after 0x000000000000000000004d657465724552433230
 			state.SetCode(builtin.MeterGov.Address, builtin.MeterGov.RuntimeBytecodes()) // before 0x0000000000000000000000004d65746572476f76, after 0x000000000000004d65746572476f764552433230
-			state.SetCode(builtin.MeterTracker.Address, builtin.MeterTracker.RuntimeBytecodes()) // addr 0x0000000000000000004d657465724e6174697665
-			state.SetCode(builtin.Executor.Address, builtin.Executor.RuntimeBytecodes()) // addr meter.InitialExecutorAccount
+
+			// update MeterTracker with new binary
+			state.SetCode(builtin.MeterTracker.Address, gen.Compiled2NewmeternativeBinRuntime) // builtin.MeterTracker.RuntimeBytecodes()) // addr 0x0000000000000000004d657465724e6174697665
+
+			// update Executor with empty binary
+			state.SetCode(builtin.Executor.Address, []byte{}) // builtin.Executor.RuntimeBytecodes())
+			// addr meter.InitialExecutorAccount
+
 			state.SetCode(builtin.Extension.Address, builtin.Extension.RuntimeBytecodes()) // addr 0x0000000000000000000000457874656e73696f6e
-			state.SetCode(builtin.Params.Address, builtin.Params.RuntimeBytecodes()) // addr 0x0000000000000000000000000000506172616d73
+			state.SetCode(builtin.Params.Address, builtin.Params.RuntimeBytecodes())       // addr 0x0000000000000000000000000000506172616d73
 			state.SetCode(builtin.Prototype.Address, builtin.Prototype.RuntimeBytecodes()) // addr 0x000000000000000000000050726f746f74797065
 
 			tokenSupply := &big.Int{}
@@ -59,7 +66,7 @@ func NewMainnet() *Genesis {
 	///// initialize builtin contracts
 
 	// initialize params
-	data := mustEncodeInput(builtin.Params.ABI, "set", meter.KeyExecutorAddress, new(big.Int).SetBytes(builtin.Executor.Address[:]))
+	data := mustEncodeInput(builtin.Params.ABI, "set", meter.KeyExecutorAddress, new(big.Int).SetBytes(builtin.Executor.Address.Bytes()))
 	builder.Call(tx.NewClause(&builtin.Params.Address).WithData(data), meter.Address{})
 
 	data = mustEncodeInput(builtin.Params.ABI, "set", meter.KeyBaseGasPrice, meter.InitialBaseGasPrice)
@@ -101,10 +108,10 @@ func NewMainnet() *Genesis {
 	data = mustEncodeInput(builtin.Params.ABI, "set", meter.KeyConsensusDelegateSize, meter.InitialConsensusDelegateSize)
 	builder.Call(tx.NewClause(&builtin.Params.Address).WithData(data), builtin.Executor.Address)
 
-	data = mustEncodeInput(builtin.Params.ABI, "set", meter.KeyNativeMtrERC20Address, new(big.Int).SetBytes(builtin.Meter.Address[:]))
+	data = mustEncodeInput(builtin.Params.ABI, "set", meter.KeyNativeMtrERC20Address, new(big.Int).SetBytes(builtin.Meter.Address.Bytes()))
 	builder.Call(tx.NewClause(&builtin.Params.Address).WithData(data), builtin.Executor.Address)
 
-	data = mustEncodeInput(builtin.Params.ABI, "set", meter.KeyNativeMtrgERC20Address, new(big.Int).SetBytes(builtin.MeterGov.Address[:]))
+	data = mustEncodeInput(builtin.Params.ABI, "set", meter.KeyNativeMtrgERC20Address, new(big.Int).SetBytes(builtin.MeterGov.Address.Bytes()))
 	builder.Call(tx.NewClause(&builtin.Params.Address).WithData(data), builtin.Executor.Address)
 
 	var extra [28]byte
