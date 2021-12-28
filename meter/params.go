@@ -57,7 +57,7 @@ const (
 	MaxTxWorkDelay uint32 = 30 // (unit: block) if tx delay exceeds this value, no energy can be exchanged.
 
 	MaxBlockProposers uint64 = 101
-	KBlockInterval uint32 = 500
+	KBlockInterval    uint32 = 500
 
 	TolerableBlockPackingTime = 100 * time.Millisecond // the indicator to adjust target block gas limit
 
@@ -102,10 +102,10 @@ var (
 	KeyConsensusDelegateSize  = BytesToBytes32([]byte("consensus-delegate-size"))
 
 	//  mtr-erc20, 0x00000000000000006e61746976652d6d74722d65726332302d61646472657373
-	KeyNativeMtrERC20Address   = BytesToBytes32([]byte("native-mtr-erc20-address"))
+	KeyNativeMtrERC20Address = BytesToBytes32([]byte("native-mtr-erc20-address"))
 	//ValueNativeMtrERC20Address = BytesToAddress([]byte("native-mtr-erc20-address")) // 0x76652d6d74722d65726332302d61646472657373
 	// mtrg-erc20, 0x000000000000006e61746976652d6d7472672d65726332302d61646472657373
-	KeyNativeMtrgERC20Address   = BytesToBytes32([]byte("native-mtrg-erc20-address"))
+	KeyNativeMtrgERC20Address = BytesToBytes32([]byte("native-mtrg-erc20-address"))
 	//ValueNativeMtrgERC20Address = BytesToAddress([]byte("native-mtrg-erc20-address")) // 0x652d6d7472672d65726332302d61646472657373
 
 	// 0x00000000000000312d73797374656d2d636f6e74726163742d61646472657373
@@ -117,7 +117,7 @@ var (
 	// 0x00000000000000342d73797374656d2d636f6e74726163742d61646472657373
 	KeySystemContractAddress4 = BytesToBytes32([]byte("4-system-contract-address"))
 
-	KeyEnforceTesla1_1Correction = BytesToBytes32([]byte("Tesla1_1Correction-Flag")) // unset or 0 is not do yet, 1 is donw
+	//KeyEnforceTesla1_1Correction = BytesToBytes32([]byte("Tesla1_1Correction-Flag")) // unset or 0 is not do yet, 1 is donw
 
 	// key set transaction fee address
 	// 0x6e73616374696f6e2d6665652d62656e65666963696172792d61646472657373

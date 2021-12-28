@@ -163,21 +163,21 @@ func (rt *Runtime) LoadERC20NativeCotract() {
 	}
 }
 
-func (rt *Runtime) EnforceTelsaFork1_1Corrections() {
-	//blockNumber := rt.Context().Number
-	if meter.IsMainNet() {
-		// flag is nil or 0, is not do. 1 meas done.
-		enforceFlag := builtin.Params.Native(rt.State()).Get(meter.KeyEnforceTesla1_1Correction)
-
-		//if blockNumber > meter.Tesla1_1MainnetStartNum && (enforceFlag == nil || enforceFlag.Sign() == 0) {
-		if enforceFlag == nil || enforceFlag.Sign() == 0 {
-			// Tesla 1.1 Fork
-			fmt.Println("Start to correct Tesla 1.0 Error Buckets")
-			script.EnforceTeslaFork1_1Corrections(rt.State(), rt.Context().Time)
-			builtin.Params.Native(rt.State()).Set(meter.KeyEnforceTesla1_1Correction, big.NewInt(1))
-		}
-	}
-}
+//func (rt *Runtime) EnforceTelsaFork1_1Corrections() {
+//	//blockNumber := rt.Context().Number
+//	if meter.IsMainNet() {
+//		// flag is nil or 0, is not do. 1 meas done.
+//		enforceFlag := builtin.Params.Native(rt.State()).Get(meter.KeyEnforceTesla1_1Correction)
+//
+//		//if blockNumber > meter.Tesla1_1MainnetStartNum && (enforceFlag == nil || enforceFlag.Sign() == 0) {
+//		if enforceFlag == nil || enforceFlag.Sign() == 0 {
+//			// Tesla 1.1 Fork
+//			fmt.Println("Start to correct Tesla 1.0 Error Buckets")
+//			script.EnforceTeslaFork1_1Corrections(rt.State(), rt.Context().Time)
+//			builtin.Params.Native(rt.State()).Set(meter.KeyEnforceTesla1_1Correction, big.NewInt(1))
+//		}
+//	}
+//}
 func (rt *Runtime) FromNativeContract(caller meter.Address) bool {
 
 	nativeMtrERC20 := builtin.Params.Native(rt.State()).GetAddress(meter.KeyNativeMtrERC20Address)
@@ -515,7 +515,7 @@ func (rt *Runtime) PrepareClause(
 
 		// check meterNative after sysContract support
 		rt.LoadERC20NativeCotract()
-		rt.EnforceTelsaFork1_1Corrections()
+		//rt.EnforceTelsaFork1_1Corrections()
 
 		// check the restriction of transfer.
 		if rt.restrictTransfer(stateDB, txCtx.Origin, clause.Value(), clause.Token(), txCtx.BlockRef.Number()) == true {
