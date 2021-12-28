@@ -77,7 +77,7 @@ var (
 
 	// Genesis hashes to enforce below configs on.
 	//TODO: change me
-	GenesisHash = MustParseBytes32("0x0000000099725cb54f3134e1946734c6940096747728f6f26ee5179fc741193f")
+	GenesisHash = MustParseBytes32("0x000000008d23443cdb7c8b00391d41d957eab0d5bf812a1657f73f75ead5f997")
 	log         = log15.New("pkg", "meter")
 )
 

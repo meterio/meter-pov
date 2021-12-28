@@ -101,6 +101,12 @@ func NewMainnet() *Genesis {
 	data = mustEncodeInput(builtin.Params.ABI, "set", meter.KeyConsensusDelegateSize, meter.InitialConsensusDelegateSize)
 	builder.Call(tx.NewClause(&builtin.Params.Address).WithData(data), builtin.Executor.Address)
 
+	data = mustEncodeInput(builtin.Params.ABI, "set", meter.KeyNativeMtrERC20Address, new(big.Int).SetBytes(meter.ValueNativeMtrERC20Address[:]))
+	builder.Call(tx.NewClause(&builtin.Params.Address).WithData(data), builtin.Executor.Address)
+
+	data = mustEncodeInput(builtin.Params.ABI, "set", meter.KeyNativeMtrgERC20Address, new(big.Int).SetBytes(meter.ValueNativeMtrgERC20Address[:]))
+	builder.Call(tx.NewClause(&builtin.Params.Address).WithData(data), builtin.Executor.Address)
+
 	var extra [28]byte
 	copy(extra[:], "In Math We Trust !!!")
 	builder.ExtraData(extra)

@@ -54,7 +54,7 @@ func mustLoadContractAddress(name string, addr meter.Address) *contract {
 
 // RuntimeBytecodes load runtime byte codes.
 func (c *contract) RuntimeBytecodes() []byte {
-	asset := "compiled/" + c.name + ".bin-runtime"
+	asset := "compiled/" + c.name + ".bin"
 	data, err := hex.DecodeString(string(gen.MustAsset(asset)))
 	if err != nil {
 		panic(errors.Wrap(err, "load runtime byte code for '"+c.name+"'"))

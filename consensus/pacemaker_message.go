@@ -31,7 +31,7 @@ func (p *Pacemaker) proposeBlock(parentBlock *block.Block, height, round uint32,
 	if (height-p.startHeight) >= p.minMBlocks && !timeout {
 		//proposalKBlock, powResults = powpool.GetGlobPowPoolInst().GetPowDecision()
 
-		if height%200 == 0 {
+		if height%meter.KBlockInterval == 0 {
 			proposalKBlock = true
 
 			// the input to be hashed by the VRF
