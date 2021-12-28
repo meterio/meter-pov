@@ -16,14 +16,14 @@ import (
 	"strings"
 	"sync/atomic"
 
-	"github.com/meterio/meter-pov/meter"
-	"github.com/meterio/meter-pov/metric"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/math"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/rlp"
+	"github.com/meterio/meter-pov/meter"
+	"github.com/meterio/meter-pov/metric"
 )
 
 var (
@@ -194,10 +194,10 @@ func NewTransactionFromEthTx(ethTx *types.Transaction, chainTag byte, blockRef B
 	return tx, nil
 }
 func ChainIdValidate(chainId *big.Int) (bool, error) {
-	if meter.IsMainNet() && chainId != new(big.Int).SetUint64(meter.MainnetChainID) {
+	if meter.IsMainNet() && new(big.Int).SetUint64(meter.MainnetChainID).Cmp(chainId) != 0 {
 		return false, errors.New("wrong mainNet chainId")
 	}
-	if meter.IsTestNet() && chainId != new(big.Int).SetUint64(meter.TestnetChainID) {
+	if meter.IsTestNet() && new(big.Int).SetUint64(meter.TestnetChainID).Cmp(chainId) != 0 {
 		return false, errors.New("wrong testNet chainId")
 	}
 
@@ -276,16 +276,16 @@ func (t *Transaction) IsExpired(blockNum uint32) bool {
 func (t *Transaction) ID() (id meter.Bytes32) {
 	if t.IsEthTx() {
 		//if meter.IsMainChainTesla(t.BlockRef().Number()) || meter.IsTestNet() {
-			ethTx, err := t.GetEthTx()
-			if err != nil {
-				return meter.Bytes32{}
-			}
-			hash := ethTx.Hash()
-			id, err := meter.ParseBytes32(hash.String())
-			if err != nil {
-				return meter.Bytes32{}
-			}
-			return id
+		ethTx, err := t.GetEthTx()
+		if err != nil {
+			return meter.Bytes32{}
+		}
+		hash := ethTx.Hash()
+		id, err := meter.ParseBytes32(hash.String())
+		if err != nil {
+			return meter.Bytes32{}
+		}
+		return id
 		//}
 	}
 	if cached := t.cache.id.Load(); cached != nil {
