@@ -309,7 +309,7 @@ func defaultAction(ctx *cli.Context) error {
 	genCloser := newKFrameGenerator(ctx, cons)
 	defer func() { log.Info("stopping kframe generator service ..."); genCloser() }()
 
-	printStartupMessage(topic, gene, chain, master, instanceDir, apiURL, "powApiURL", observeURL)
+	printStartupMessage(topic, gene, chain, master, instanceDir, apiURL, "nil", observeURL)
 
 	p2pcom.Start()
 	defer p2pcom.Stop()

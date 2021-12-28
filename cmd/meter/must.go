@@ -649,7 +649,7 @@ func printStartupMessage(
     ConsensusMagic  [ %v ]
     Network         [ %v %v ]    
     Best block      [ %v #%v @%v ]
-    //Forks           [ %v ]
+    Forks           [ %v ]
     Master          [ %v ]
     Beneficiary     [ %v ]
     Instance dir    [ %v ]
@@ -663,7 +663,7 @@ func printStartupMessage(
 		hex.EncodeToString(consensusMagic[:]),
 		gene.ID(), gene.Name(),
 		bestBlock.Header().ID(), bestBlock.Header().Number(), time.Unix(int64(bestBlock.Header().Timestamp()), 0),
-		//meter.GetForkConfig(gene.ID()),
+		meter.GetForkConfig(gene.ID()),
 		master.Address(),
 		func() string {
 			if master.Beneficiary == nil {
