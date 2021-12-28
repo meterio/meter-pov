@@ -30,8 +30,8 @@ func NewMainnet() *Genesis {
 			}
 
 			// alloc builtin contracts
-			state.SetCode(builtin.Meter.Address, builtin.Meter.RuntimeBytecodes()) // addr 0x0000000000000000000000000000004d65746572
-			state.SetCode(builtin.MeterGov.Address, builtin.MeterGov.RuntimeBytecodes()) // addr 0x0000000000000000000000004d65746572476f76
+			state.SetCode(builtin.Meter.Address, builtin.Meter.RuntimeBytecodes()) // before 0x0000000000000000000000000000004d65746572, after 0x000000000000000000004d657465724552433230
+			state.SetCode(builtin.MeterGov.Address, builtin.MeterGov.RuntimeBytecodes()) // before 0x0000000000000000000000004d65746572476f76, after 0x000000000000004d65746572476f764552433230
 			state.SetCode(builtin.MeterTracker.Address, builtin.MeterTracker.RuntimeBytecodes()) // addr 0x0000000000000000004d657465724e6174697665
 			state.SetCode(builtin.Executor.Address, builtin.Executor.RuntimeBytecodes()) // addr meter.InitialExecutorAccount
 			state.SetCode(builtin.Extension.Address, builtin.Extension.RuntimeBytecodes()) // addr 0x0000000000000000000000457874656e73696f6e
@@ -101,10 +101,10 @@ func NewMainnet() *Genesis {
 	data = mustEncodeInput(builtin.Params.ABI, "set", meter.KeyConsensusDelegateSize, meter.InitialConsensusDelegateSize)
 	builder.Call(tx.NewClause(&builtin.Params.Address).WithData(data), builtin.Executor.Address)
 
-	data = mustEncodeInput(builtin.Params.ABI, "set", meter.KeyNativeMtrERC20Address, new(big.Int).SetBytes(meter.ValueNativeMtrERC20Address[:]))
+	data = mustEncodeInput(builtin.Params.ABI, "set", meter.KeyNativeMtrERC20Address, new(big.Int).SetBytes(builtin.Meter.Address[:]))
 	builder.Call(tx.NewClause(&builtin.Params.Address).WithData(data), builtin.Executor.Address)
 
-	data = mustEncodeInput(builtin.Params.ABI, "set", meter.KeyNativeMtrgERC20Address, new(big.Int).SetBytes(meter.ValueNativeMtrgERC20Address[:]))
+	data = mustEncodeInput(builtin.Params.ABI, "set", meter.KeyNativeMtrgERC20Address, new(big.Int).SetBytes(builtin.MeterGov.Address[:]))
 	builder.Call(tx.NewClause(&builtin.Params.Address).WithData(data), builtin.Executor.Address)
 
 	var extra [28]byte

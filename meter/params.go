@@ -103,10 +103,10 @@ var (
 
 	//  mtr-erc20, 0x00000000000000006e61746976652d6d74722d65726332302d61646472657373
 	KeyNativeMtrERC20Address   = BytesToBytes32([]byte("native-mtr-erc20-address"))
-	ValueNativeMtrERC20Address = BytesToAddress([]byte("native-mtr-erc20-address"))
+	//ValueNativeMtrERC20Address = BytesToAddress([]byte("native-mtr-erc20-address")) // 0x76652d6d74722d65726332302d61646472657373
 	// mtrg-erc20, 0x000000000000006e61746976652d6d7472672d65726332302d61646472657373
 	KeyNativeMtrgERC20Address   = BytesToBytes32([]byte("native-mtrg-erc20-address"))
-	ValueNativeMtrgERC20Address = BytesToAddress([]byte("native-mtrg-erc20-address"))
+	//ValueNativeMtrgERC20Address = BytesToAddress([]byte("native-mtrg-erc20-address")) // 0x652d6d7472672d65726332302d61646472657373
 
 	// 0x00000000000000312d73797374656d2d636f6e74726163742d61646472657373
 	KeySystemContractAddress1 = BytesToBytes32([]byte("1-system-contract-address"))
