@@ -37,25 +37,25 @@ func ComputeRewardMapV3(baseReward, totalRewards *big.Int, delegates []*types.De
 	return ComputeRewardMap(baseReward, totalRewards, memberDelegates, true)
 }
 
-func ComputeRewardMapV2(baseReward, totalRewards *big.Int, delegates []*types.Delegate, committeeMembers []*types.Validator) (RewardMap, error) {
-	memberKeys := make([][]byte, 0)
-	for _, m := range committeeMembers {
-		keyBytes := crypto.FromECDSAPub(&m.PubKey)
-		memberKeys = append(memberKeys, keyBytes)
-	}
-
-	memberDelegates := make([]*types.Delegate, 0)
-	for _, d := range delegates {
-		keyBytes := crypto.FromECDSAPub(&d.PubKey)
-		for _, kb := range memberKeys {
-			if bytes.Compare(kb, keyBytes) == 0 {
-				memberDelegates = append(memberDelegates, d)
-				break
-			}
-		}
-	}
-	return ComputeRewardMap(baseReward, totalRewards, memberDelegates, false)
-}
+//func ComputeRewardMapV2(baseReward, totalRewards *big.Int, delegates []*types.Delegate, committeeMembers []*types.Validator) (RewardMap, error) {
+//	memberKeys := make([][]byte, 0)
+//	for _, m := range committeeMembers {
+//		keyBytes := crypto.FromECDSAPub(&m.PubKey)
+//		memberKeys = append(memberKeys, keyBytes)
+//	}
+//
+//	memberDelegates := make([]*types.Delegate, 0)
+//	for _, d := range delegates {
+//		keyBytes := crypto.FromECDSAPub(&d.PubKey)
+//		for _, kb := range memberKeys {
+//			if bytes.Compare(kb, keyBytes) == 0 {
+//				memberDelegates = append(memberDelegates, d)
+//				break
+//			}
+//		}
+//	}
+//	return ComputeRewardMap(baseReward, totalRewards, memberDelegates, false)
+//}
 
 // Epoch Reward includes these parts:
 //                |------ extra_reward -----|
@@ -98,25 +98,25 @@ func ComputeRewardMap(baseReward, totalRewards *big.Int, delegates []*types.Dele
 	// only enough for base reward
 	if baseRewardsOnly == true {
 		for i = 0; i < size; i++ {
-			var d *types.Distributor
+			//var d *types.Distributor
 			var err error
 			if v3 {
-				d, err = getSelfDistributorV3(delegates[i])
+				//d, err = getSelfDistributorV3(delegates[i])
 			} else {
-				d, err = getSelfDistributor(delegates[i])
+				//d, err = getSelfDistributor(delegates[i])
 			}
 			if err != nil {
 				logger.Error("get self-distributor failed, treat as 0", "error", err)
 				rewardMap.Add(baseReward, big.NewInt(0), delegates[i].Address)
 			} else {
 				// autobidAmount = baseReward * Autobid / 100
-				autobidAmount := new(big.Int).Mul(baseReward, big.NewInt(int64(d.Autobid)))
-				autobidAmount.Div(autobidAmount, big.NewInt(100))
+				//autobidAmount := new(big.Int).Mul(baseReward, big.NewInt(int64(d.Autobid)))
+				//autobidAmount.Div(autobidAmount, big.NewInt(100))
 
 				// distAmount = baseReward - autobidAmount
-				distAmount := new(big.Int).Sub(baseReward, autobidAmount)
+				//distAmount := new(big.Int).Sub(baseReward, autobidAmount)
 
-				rewardMap.Add(distAmount, autobidAmount, delegates[i].Address)
+				//rewardMap.Add(distAmount, autobidAmount, delegates[i].Address)
 			}
 		}
 		return rewardMap, nil
@@ -171,12 +171,12 @@ func ComputeRewardMap(baseReward, totalRewards *big.Int, delegates []*types.Dele
 
 			// distribute delegate itself
 			// autobidAmount = delegateSelf * Autobid / 100
-			autobidAmount := new(big.Int).Mul(delegateSelf, big.NewInt(int64(d.Autobid)))
-			autobidAmount.Div(autobidAmount, big.NewInt(100))
+			//autobidAmount := new(big.Int).Mul(delegateSelf, big.NewInt(int64(d.Autobid)))
+			//autobidAmount.Div(autobidAmount, big.NewInt(100))
 
 			// distAmount = delegateSelf - autobidAmount
-			distAmount := new(big.Int).Sub(delegateSelf, autobidAmount)
-			rewardMap.Add(distAmount, autobidAmount, delegates[i].Address)
+			//distAmount := new(big.Int).Sub(delegateSelf, autobidAmount)
+			//rewardMap.Add(distAmount, autobidAmount, delegates[i].Address)
 		}
 
 		// now distributes actualReward (remaining part) to each distributor
@@ -192,11 +192,11 @@ func ComputeRewardMap(baseReward, totalRewards *big.Int, delegates []*types.Dele
 			voterReward.Div(voterReward, big.NewInt(1e09))
 
 			// autobidReward = voterReward * Autobid / 100
-			autobidReward := new(big.Int).Mul(voterReward, big.NewInt(int64(dist.Autobid)))
-			autobidReward.Div(autobidReward, big.NewInt(100))
+			//autobidReward := new(big.Int).Mul(voterReward, big.NewInt(int64(dist.Autobid)))
+			//autobidReward.Div(autobidReward, big.NewInt(100))
 
-			distReward := new(big.Int).Sub(voterReward, autobidReward)
-			rewardMap.Add(distReward, autobidReward, dist.Address)
+			//distReward := new(big.Int).Sub(voterReward, autobidReward)
+			//rewardMap.Add(distReward, autobidReward, dist.Address)
 		}
 	}
 	logger.Info("distriubted validators rewards", "total", totalRewards.String())
@@ -276,5 +276,5 @@ func getSelfDistributorV3(delegate *types.Delegate) (*types.Distributor, error) 
 		}, nil
 
 	}
-	return nil, errors.New("distributor not found")
+	return nil, errors.New("distributor v3 not found")
 }
