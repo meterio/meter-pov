@@ -136,12 +136,12 @@ func New(
 		state:  state,
 		ctx:    ctx,
 	}
-	if seeker != nil {
-		rt.forkConfig = meter.GetForkConfig(seeker.GenesisID())
-	} else {
+	//if seeker != nil {
+	//	rt.forkConfig = meter.GetForkConfig(seeker.GenesisID())
+	//} else {
 		// for genesis building stage
 		rt.forkConfig = meter.NoFork
-	}
+	//}
 	return &rt
 }
 
@@ -286,12 +286,12 @@ func (rt *Runtime) newEVM(stateDB *statedb.StateDB, clauseIndex uint32, txCtx *x
 				}
 			}
 
-			if rt.ctx.Number >= rt.forkConfig.FixTransferLog {
+			//if rt.ctx.Number >= rt.forkConfig.FixTransferLog {
 				// `amount` will be recycled by evm(OP_CALL) right after this function return,
 				// which leads to incorrect transfer log.
 				// Make a copy to prevent it.
-				amount = new(big.Int).Set(amount)
-			}
+			//	amount = new(big.Int).Set(amount)
+			//}
 			stateDB.AddTransfer(&tx.Transfer{
 				Sender:    meter.Address(sender),
 				Recipient: meter.Address(recipient),
