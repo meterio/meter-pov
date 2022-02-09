@@ -237,6 +237,46 @@ func (t *Transaction) IsExpired(blockNum uint32) bool {
 	return uint64(blockNum) > uint64(t.BlockRef().Number())+uint64(t.body.Expiration) // cast to uint64 to prevent potential overflow
 }
 
+func ChainIdValidate(chainId *big.Int) (bool, error) {
+	if meter.IsMainNet() && chainId.Cmp(new(big.Int).SetUint64(meter.MainnetChainID)) != 0 {
+		return false, errors.New("wrong mainNet chainId")
+	}
+	if meter.IsTestNet() && chainId.Cmp(new(big.Int).SetUint64(meter.TestnetChainID)) != 0 {
+		return false, errors.New("wrong testNet chainId")
+	}
+
+	return true, nil
+}
+
+func (t *Transaction) EthTxValidate() (bool, error) {
+	var ethTx *types.Transaction
+	var err error
+	var reverseTx *Transaction
+
+	if t.IsEthTx() {
+		ethTx, err = t.GetEthTx()
+		if err != nil {
+			return false, err
+		}
+
+		if _, err = ChainIdValidate(ethTx.ChainId()); err != nil {
+			return false, err
+		}
+
+		if reverseTx, err = NewTransactionFromEthTx(ethTx, t.ChainTag(), t.BlockRef()); err != nil {
+			return false, err
+		}
+
+		txID := t.MeterID()
+		reverseTxID := reverseTx.MeterID()
+		if bytes.Compare(txID[:], reverseTxID[:]) != 0 {
+			return false, errors.New("reverseTx err")
+		}
+	}
+
+	return true, nil
+}
+
 // ID returns id of tx.
 // ID = hash(signingHash, signer).
 // It returns zero Bytes32 if signer not available.
@@ -255,6 +295,10 @@ func (t *Transaction) ID() (id meter.Bytes32) {
 			return id
 		}
 	}
+	return t.MeterID()
+}
+
+func (t *Transaction) MeterID() (id meter.Bytes32) {
 	if cached := t.cache.id.Load(); cached != nil {
 		return cached.(meter.Bytes32)
 	}

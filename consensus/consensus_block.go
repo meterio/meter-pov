@@ -325,6 +325,10 @@ func (c *ConsensusReactor) validateBlockBody(blk *block.Block) error {
 			return consensusError(fmt.Sprintf("tx signer unavailable: %v", err))
 		}
 
+		if _, err = tx.EthTxValidate(); err != nil {
+			return err
+		}
+
 		// transaction critiers:
 		// 1. no signature (no signer)
 		// 2. only located in kblock.
