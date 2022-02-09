@@ -386,6 +386,12 @@ func (c *ConsensusReactor) verifyBlock(blk *block.Block, state *state.State) (*s
 		return true, meta.Reverted, nil
 	}
 
+	if blk.Header().BlockType() == block.BLOCK_TYPE_K_BLOCK {
+		if err := c.verifyKBlock(); err != nil {
+			return nil, nil, err
+		}
+	}
+
 	for _, tx := range txs {
 		// Mint transaction critiers:
 		// 1. no signature (no signer)
@@ -458,6 +464,15 @@ func (c *ConsensusReactor) verifyBlock(blk *block.Block, state *state.State) (*s
 	}
 
 	return stage, receipts, nil
+}
+
+func (c *ConsensusReactor) verifyKBlock() error {
+	p := powpool.GetGlobPowPoolInst()
+	if !p.VerifyNPowBlockPerEpoch() {
+		return errors.New("NPowBlockPerEpoch err")
+	}
+
+	return nil
 }
 
 //-----------------------------------------------------------
