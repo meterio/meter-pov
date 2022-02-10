@@ -319,6 +319,33 @@ func (c *ConsensusReactor) validateBlockBody(blk *block.Block) error {
 		return consensusError(fmt.Sprintf("block magic mismatch, has %v, expect %v", blk.GetMagic(), block.BlockMagicVersion1))
 	}
 
+	rewardTxIds := make(map[meter.Bytes32]bool)
+	if blk.Header().BlockType() == block.BLOCK_TYPE_K_BLOCK {
+		parentBlock, err := c.chain.GetBlock(header.ParentID())
+		if err != nil {
+			panic("get parentBlock failed")
+		}
+		best := parentBlock
+		chainTag := c.chain.Tag()
+		bestNum := c.chain.BestBlock().Header().Number()
+		curEpoch := uint32(c.curEpoch)
+		// distribute the base reward
+		state, err := c.stateCreator.NewState(c.chain.BestBlock().Header().StateRoot())
+		if err != nil {
+			panic("get state failed")
+		}
+
+		proposalKBlock, powResults := powpool.GetGlobPowPoolInst().GetPowDecision()
+		if proposalKBlock {
+			rewards := powResults.Rewards
+			rewardTxs := c.buildRewardTxs(parentBlock, rewards, chainTag, bestNum, curEpoch, best, state)
+
+			for _, rewardTx := range rewardTxs {
+				rewardTxIds[rewardTx.ID()] = true
+			}
+		}
+	}
+
 	for _, tx := range txs {
 		signer, err := tx.Signer()
 		if err != nil {
@@ -335,6 +362,10 @@ func (c *ConsensusReactor) validateBlockBody(blk *block.Block) error {
 		if signer.IsZero() {
 			if blk.Header().BlockType() != block.BLOCK_TYPE_K_BLOCK {
 				return consensusError(fmt.Sprintf("tx signer unavailable"))
+			}
+
+			if _, ok := rewardTxIds[tx.ID()]; !ok {
+				return consensusError(fmt.Sprintf("rewardTx unavailable"))
 			}
 		}
 
@@ -686,6 +717,68 @@ func (conR *ConsensusReactor) BuildKBlock(parentBlock *block.Block, data *block.
 		panic("get state failed")
 	}
 
+	txs := conR.buildRewardTxs(parentBlock, rewards, chainTag, bestNum, curEpoch, best, state)
+
+	pool := txpool.GetGlobTxPoolInst()
+	if pool == nil {
+		conR.logger.Error("get tx pool failed ...")
+		panic("get tx pool failed ...")
+		return nil
+	}
+	txsToRemoved := func() bool {
+		return true
+	}
+	txsToReturned := func() bool {
+		return true
+	}
+
+	p := packer.GetGlobPackerInst()
+	if p == nil {
+		conR.logger.Warn("get packer failed ...")
+		panic("get packer failed")
+		return nil
+	}
+
+	candAddr := conR.curCommittee.Validators[conR.curCommitteeIndex].Address
+	gasLimit := p.GasLimit(best.Header().GasLimit())
+	flow, err := p.Mock(best.Header(), now, gasLimit, &candAddr)
+	if err != nil {
+		conR.logger.Warn("mock packer", "error", err)
+		return nil
+	}
+
+	//create checkPoint before build block
+	checkPoint := state.NewCheckpoint()
+
+	for _, tx := range txs {
+		if err := flow.Adopt(tx); err != nil {
+			if packer.IsGasLimitReached(err) {
+				conR.logger.Warn("tx thrown away due to gas limit", "txid", tx.ID())
+				break
+			}
+			if packer.IsTxNotAdoptableNow(err) {
+				conR.logger.Warn("tx not adoptable", "txid", tx.ID())
+				continue
+			}
+		}
+	}
+
+	newBlock, stage, receipts, err := flow.Pack(&conR.myPrivKey, block.BLOCK_TYPE_K_BLOCK, conR.lastKBlockHeight)
+	if err != nil {
+		conR.logger.Error("build block failed...", "error", err)
+		return nil
+	}
+
+	//serialize KBlockData
+	newBlock.SetKBlockData(*data)
+	newBlock.SetMagic(block.BlockMagicVersion1)
+
+	execElapsed := mclock.Now() - startTime
+	conR.logger.Info("KBlock built", "height", conR.curHeight, "elapseTime", execElapsed)
+	return &ProposedBlockInfo{newBlock, stage, &receipts, txsToRemoved, txsToReturned, checkPoint, KBlockType}
+}
+
+func (conR *ConsensusReactor) buildRewardTxs(parentBlock *block.Block, rewards []powpool.PowReward, chainTag byte, bestNum uint32, curEpoch uint32, best *block.Block, state *state.State) tx.Transactions {
 	// build miner meter reward
 	txs := reward.BuildMinerRewardTxs(rewards, chainTag, bestNum)
 	lastKBlockHeight := parentBlock.Header().LastKBlockHeight()
@@ -777,64 +870,7 @@ func (conR *ConsensusReactor) BuildKBlock(parentBlock *block.Block, data *block.
 		txs = append(txs, tx)
 		conR.logger.Info("account lock tx appended", "txid", tx.ID())
 	}
-
-	pool := txpool.GetGlobTxPoolInst()
-	if pool == nil {
-		conR.logger.Error("get tx pool failed ...")
-		panic("get tx pool failed ...")
-		return nil
-	}
-	txsToRemoved := func() bool {
-		return true
-	}
-	txsToReturned := func() bool {
-		return true
-	}
-
-	p := packer.GetGlobPackerInst()
-	if p == nil {
-		conR.logger.Warn("get packer failed ...")
-		panic("get packer failed")
-		return nil
-	}
-
-	candAddr := conR.curCommittee.Validators[conR.curCommitteeIndex].Address
-	gasLimit := p.GasLimit(best.Header().GasLimit())
-	flow, err := p.Mock(best.Header(), now, gasLimit, &candAddr)
-	if err != nil {
-		conR.logger.Warn("mock packer", "error", err)
-		return nil
-	}
-
-	//create checkPoint before build block
-	checkPoint := state.NewCheckpoint()
-
-	for _, tx := range txs {
-		if err := flow.Adopt(tx); err != nil {
-			if packer.IsGasLimitReached(err) {
-				conR.logger.Warn("tx thrown away due to gas limit", "txid", tx.ID())
-				break
-			}
-			if packer.IsTxNotAdoptableNow(err) {
-				conR.logger.Warn("tx not adoptable", "txid", tx.ID())
-				continue
-			}
-		}
-	}
-
-	newBlock, stage, receipts, err := flow.Pack(&conR.myPrivKey, block.BLOCK_TYPE_K_BLOCK, conR.lastKBlockHeight)
-	if err != nil {
-		conR.logger.Error("build block failed...", "error", err)
-		return nil
-	}
-
-	//serialize KBlockData
-	newBlock.SetKBlockData(*data)
-	newBlock.SetMagic(block.BlockMagicVersion1)
-
-	execElapsed := mclock.Now() - startTime
-	conR.logger.Info("KBlock built", "height", conR.curHeight, "elapseTime", execElapsed)
-	return &ProposedBlockInfo{newBlock, stage, &receipts, txsToRemoved, txsToReturned, checkPoint, KBlockType}
+	return txs
 }
 
 func (conR *ConsensusReactor) BuildStopCommitteeBlock(parentBlock *block.Block) *ProposedBlockInfo {
