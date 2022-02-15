@@ -24,16 +24,16 @@ docker build -f $POS_DOCKERFILE -t $POS_VERSION_TAG .
 docker tag $POS_VERSION_TAG $POS_STATIC_TAG
 
 echo "Push to DockerHub with tags: $POS_VERSION_TAG & $POS_STATIC_TAG"
-docker push $POS_VERSION_TAG
-docker push $POS_STATIC_TAG
+#docker push $POS_VERSION_TAG
+#docker push $POS_STATIC_TAG
 
 echo "Pull latest docker image with tags: $POS_STATIC_TAG & $POW_STATIC_TAG"
-docker pull $POS_STATIC_TAG
-docker pull $POW_STATIC_TAG
+#docker pull $POS_STATIC_TAG
+#docker pull $POW_STATIC_TAG
 
 echo "Building docker image: $FULL_VERSION_TAG $FULL_STATIC_TAG"
 docker build -f $FULL_DOCKERFILE -t $FULL_VERSION_TAG .
 docker tag $FULL_VERSION_TAG $FULL_STATIC_TAG
 
-docker push $FULL_STATIC_TAG
-docker push $FULL_VERSION_TAG
+#docker push $FULL_STATIC_TAG
+#docker push $FULL_VERSION_TAG
