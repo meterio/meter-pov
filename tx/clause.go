@@ -118,3 +118,25 @@ func (c *Clause) String() string {
 	return fmt.Sprintf(`
     (To: %v, Value: %v, Token: %v, Data: 0x%x)`, to, c.body.Value, c.body.Token, c.body.Data)
 }
+
+// SigningHash returns hash of tx excludes signature.
+func (c *Clause) UniteHash() (hash meter.Bytes32) {
+	//if cached := c.cache.signingHash.Load(); cached != nil {
+	//	return cached.(meter.Bytes32)
+	//}
+	//defer func() { c.cache.signingHash.Store(hash) }()
+
+	hw := meter.NewBlake2b()
+	err := rlp.Encode(hw, []interface{}{
+		c.body.To,
+		c.body.Value,
+		c.body.Token,
+		//c.body.Data,
+	})
+	if err != nil {
+		return
+	}
+
+	hw.Sum(hash[:0])
+	return
+}

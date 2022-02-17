@@ -241,3 +241,30 @@ func (ab *AccountLockBody) GoverningHandler(env *AccountLockEnviroment, gas uint
 	AccountLock.SetProfileList(pList, state)
 	return
 }
+
+func (sb *AccountLockBody) UniteHash() (hash meter.Bytes32) {
+	//if cached := c.cache.signingHash.Load(); cached != nil {
+	//	return cached.(meter.Bytes32)
+	//}
+	//defer func() { c.cache.signingHash.Store(hash) }()
+
+	hw := meter.NewBlake2b()
+	err := rlp.Encode(hw, []interface{}{
+		sb.Opcode,
+		sb.Version,
+		sb.Option,
+		sb.LockEpoch,
+		sb.ReleaseEpoch,
+		sb.FromAddr,
+		sb.ToAddr,
+		sb.MeterAmount,
+		sb.MeterGovAmount,
+		sb.Memo,
+	})
+	if err != nil {
+		return
+	}
+
+	hw.Sum(hash[:0])
+	return
+}

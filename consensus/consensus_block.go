@@ -12,7 +12,12 @@ package consensus
 
 import (
 	"bytes"
+	"encoding/hex"
 	"fmt"
+	"github.com/ethereum/go-ethereum/log"
+	"github.com/meterio/meter-pov/script/accountlock"
+	"github.com/meterio/meter-pov/script/auction"
+	"github.com/meterio/meter-pov/script/staking"
 	"math/big"
 	"time"
 
@@ -319,7 +324,11 @@ func (c *ConsensusReactor) validateBlockBody(blk *block.Block) error {
 		return consensusError(fmt.Sprintf("block magic mismatch, has %v, expect %v", blk.GetMagic(), block.BlockMagicVersion1))
 	}
 
-	rewardTxIds := make(map[meter.Bytes32]bool)
+	txUniteHashes := make(map[meter.Bytes32]bool)
+	txClauseIds := make(map[meter.Bytes32]bool)
+	scriptHeaderIds := make(map[meter.Bytes32]bool)
+	scriptBodyIds := make(map[meter.Bytes32]bool)
+
 	if blk.Header().BlockType() == block.BLOCK_TYPE_K_BLOCK {
 		parentBlock, err := c.chain.GetBlock(header.ParentID())
 		if err != nil {
@@ -340,8 +349,64 @@ func (c *ConsensusReactor) validateBlockBody(blk *block.Block) error {
 			rewards := powResults.Rewards
 			rewardTxs := c.buildRewardTxs(parentBlock, rewards, chainTag, bestNum, curEpoch, best, state)
 
+			// Decode.
 			for _, rewardTx := range rewardTxs {
-				rewardTxIds[rewardTx.ID()] = true
+				txUniteHashes[rewardTx.UniteHash()] = true
+
+				for _, clause := range rewardTx.Clauses() {
+					txClauseIds[clause.UniteHash()] = true
+
+					data := clause.Data()[4:]
+					if bytes.Compare(data[:len(script.ScriptPattern)], script.ScriptPattern[:]) != 0 {
+						err := fmt.Errorf("Pattern mismatch, pattern = %v", hex.EncodeToString(data[:len(script.ScriptPattern)]))
+						fmt.Println(err)
+						continue
+						//return nil, gas, err
+					}
+					scriptStruct, err := script.ScriptDecodeFromBytes(data[len(script.ScriptPattern):])
+					if err != nil {
+						fmt.Println("Decode script message failed", err)
+						//return nil, gas, err
+					}
+
+					scriptHeader := scriptStruct.Header
+
+					scriptHeaderIds[scriptHeader.UniteHash()] = true
+
+					switch scriptHeader.ModID {
+					case script.STAKING_MODULE_ID:
+
+						sb, err := staking.StakingDecodeFromBytes(data)
+						if err != nil {
+							log.Error("Decode script message failed", "error", err)
+							//return nil, gas, err
+						}
+						//_ = sb
+
+						scriptBodyIds[sb.UniteHash()] = true
+
+					case script.AUCTION_MODULE_ID:
+
+						ab, err := accountlock.AccountLockDecodeFromBytes(data)
+						if err != nil {
+							log.Error("Decode script message failed", "error", err)
+							//return nil, gas, err
+						}
+						//_ = ab
+						scriptBodyIds[ab.UniteHash()] = true
+
+					case script.ACCOUNTLOCK_MODULE_ID:
+
+						ab, err := auction.AuctionDecodeFromBytes(data)
+						if err != nil {
+							log.Error("Decode script message failed", "error", err)
+							//return nil, gas, err
+						}
+						//_ = ab
+						scriptBodyIds[ab.UniteHash()] = true
+
+					}
+				}
 			}
 		}
 	}
@@ -364,8 +429,78 @@ func (c *ConsensusReactor) validateBlockBody(blk *block.Block) error {
 				return consensusError(fmt.Sprintf("tx signer unavailable"))
 			}
 
-			if _, ok := rewardTxIds[tx.ID()]; !ok {
+			// Validate.
+			if _, ok := txUniteHashes[tx.UniteHash()]; !ok {
 				return consensusError(fmt.Sprintf("rewardTx unavailable"))
+			}
+
+			for _, clause := range tx.Clauses() {
+				//txClauseIds[clause.UniteHash()] = true
+				if _, ok := txClauseIds[clause.UniteHash()]; !ok {
+					return consensusError(fmt.Sprintf("rewardTx clause unavailable"))
+				}
+
+				data := clause.Data()[4:]
+				if bytes.Compare(data[:len(script.ScriptPattern)], script.ScriptPattern[:]) != 0 {
+					err := fmt.Errorf("Pattern mismatch, pattern = %v", hex.EncodeToString(data[:len(script.ScriptPattern)]))
+					fmt.Println(err)
+					continue
+					//return nil, gas, err
+				}
+
+				scriptStruct, err := script.ScriptDecodeFromBytes(data[len(script.ScriptPattern):])
+				if err != nil {
+					fmt.Println("Decode script message failed", err)
+					//return nil, gas, err
+				}
+
+				scriptHeader := scriptStruct.Header
+
+				//se := script.GetScriptGlobInst()
+				//if se == nil {
+				//	fmt.Println("script engine is not initialized")
+				//return nil, true
+				//}
+				//_ = scriptHeader
+				if _, ok := scriptHeaderIds[scriptHeader.UniteHash()]; !ok {
+					return consensusError(fmt.Sprintf("rewardTx scriptHeader unavailable"))
+				}
+
+				switch scriptHeader.ModID {
+				case script.STAKING_MODULE_ID:
+					sb, err := staking.StakingDecodeFromBytes(data)
+					if err != nil {
+						log.Error("Decode script message failed", "error", err)
+						//return nil, gas, err
+					}
+					//_ = sb
+					//scriptBodyIds[sb.UniteHash()] = true
+					if _, ok := scriptBodyIds[sb.UniteHash()]; !ok {
+						return consensusError(fmt.Sprintf("rewardTx scriptBody unavailable"))
+					}
+				case script.AUCTION_MODULE_ID:
+					sb, err := accountlock.AccountLockDecodeFromBytes(data)
+					if err != nil {
+						log.Error("Decode script message failed", "error", err)
+						//return nil, gas, err
+					}
+					//_ = ab
+					//scriptBodyIds[ab.UniteHash()] = true
+					if _, ok := scriptBodyIds[sb.UniteHash()]; !ok {
+						return consensusError(fmt.Sprintf("rewardTx scriptBody unavailable"))
+					}
+				case script.ACCOUNTLOCK_MODULE_ID:
+					sb, err := auction.AuctionDecodeFromBytes(data)
+					if err != nil {
+						log.Error("Decode script message failed", "error", err)
+						//return nil, gas, err
+					}
+					//_ = ab
+					//scriptBodyIds[ab.UniteHash()] = true
+					if _, ok := scriptBodyIds[sb.UniteHash()]; !ok {
+						return consensusError(fmt.Sprintf("rewardTx scriptBody unavailable"))
+					}
+				}
 			}
 		}
 

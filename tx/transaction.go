@@ -16,14 +16,14 @@ import (
 	"strings"
 	"sync/atomic"
 
-	"github.com/meterio/meter-pov/meter"
-	"github.com/meterio/meter-pov/metric"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/math"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/rlp"
+	"github.com/meterio/meter-pov/meter"
+	"github.com/meterio/meter-pov/metric"
 )
 
 var (
@@ -380,6 +380,28 @@ func (t *Transaction) SigningHash() (hash meter.Bytes32) {
 		t.body.DependsOn,
 		t.body.Nonce,
 		t.body.Reserved,
+	})
+	if err != nil {
+		return
+	}
+
+	hw.Sum(hash[:0])
+	return
+}
+
+func (t *Transaction) UniteHash() (hash meter.Bytes32) {
+	hw := meter.NewBlake2b()
+	err := rlp.Encode(hw, []interface{}{
+		t.body.ChainTag,
+		t.body.BlockRef,
+		t.body.Expiration,
+		//t.body.Clauses,
+		t.body.GasPriceCoef,
+		t.body.Gas,
+		t.body.DependsOn,
+		t.body.Nonce,
+		t.body.Reserved,
+		//t.body.Signature,
 	})
 	if err != nil {
 		return

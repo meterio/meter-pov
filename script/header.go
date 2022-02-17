@@ -7,8 +7,10 @@ package script
 
 import (
 	"fmt"
+	"sync/atomic"
 
 	"github.com/ethereum/go-ethereum/rlp"
+	"github.com/meterio/meter-pov/meter"
 )
 
 var (
@@ -24,11 +26,35 @@ type ScriptHeader struct {
 	// Pattern [4]byte
 	Version uint32
 	ModID   uint32
+
+	cache struct {
+		hash  atomic.Value
+	}
 }
 
 // Version returns the version
 func (sh *ScriptHeader) GetVersion() uint32 { return sh.Version }
 func (sh *ScriptHeader) GetModID() uint32   { return sh.ModID }
+
+func (sh *ScriptHeader) UniteHash()  (hash meter.Bytes32) {
+	if cached := sh.cache.hash.Load(); cached != nil {
+		return cached.(meter.Bytes32)
+	}
+	defer func() { sh.cache.hash.Store(hash) }()
+
+	hw := meter.NewBlake2b()
+	err := rlp.Encode(hw, []interface{}{
+		sh.Version,
+		sh.ModID,
+	})
+	if err != nil {
+		return
+	}
+
+	hw.Sum(hash[:0])
+	return
+}
+
 func (sh *ScriptHeader) ToString() string {
 	return fmt.Sprintf("ScriptHeader:::  Version: %v, ModID: %v", sh.Version, sh.ModID)
 }
