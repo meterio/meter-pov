@@ -358,7 +358,7 @@ func (c *ConsensusReactor) validateBlockBody(blk *block.Block) error {
 				for _, clause := range rewardTx.Clauses() {
 					txClauseIds[clause.UniteHash()] = true
 
-					if (clause.Value().Sign() == 0) && (len(clause.Data()) > runtime.MinScriptEngDataLen) {
+					if (clause.Value().Sign() == 0) && (len(clause.Data()) > runtime.MinScriptEngDataLen) && runtime.ScriptEngineCheck(clause.Data()) {
 						data := clause.Data()[4:]
 						if bytes.Compare(data[:len(script.ScriptPattern)], script.ScriptPattern[:]) != 0 {
 							err := fmt.Errorf("Pattern mismatch, pattern = %v", hex.EncodeToString(data[:len(script.ScriptPattern)]))
@@ -443,7 +443,7 @@ func (c *ConsensusReactor) validateBlockBody(blk *block.Block) error {
 					return consensusError(fmt.Sprintf("rewardTx clause unavailable"))
 				}
 
-				if (clause.Value().Sign() == 0) && (len(clause.Data()) > runtime.MinScriptEngDataLen) {
+				if (clause.Value().Sign() == 0) && (len(clause.Data()) > runtime.MinScriptEngDataLen) && runtime.ScriptEngineCheck(clause.Data()) {
 					data := clause.Data()[4:]
 					if bytes.Compare(data[:len(script.ScriptPattern)], script.ScriptPattern[:]) != 0 {
 						err := fmt.Errorf("Pattern mismatch, pattern = %v", hex.EncodeToString(data[:len(script.ScriptPattern)]))
