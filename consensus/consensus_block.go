@@ -469,9 +469,10 @@ func (c *ConsensusReactor) validateBlockBody(blk *block.Block) error {
 						return consensusError(fmt.Sprintf("rewardTx scriptHeader unavailable"))
 					}
 
+					scriptPayload := scriptStruct.Payload
 					switch scriptHeader.ModID {
 					case script.STAKING_MODULE_ID:
-						sb, err := staking.StakingDecodeFromBytes(data)
+						sb, err := staking.StakingDecodeFromBytes(scriptPayload)
 						if err != nil {
 							log.Error("Decode script message failed", "error", err)
 							//return nil, gas, err
@@ -482,7 +483,7 @@ func (c *ConsensusReactor) validateBlockBody(blk *block.Block) error {
 							return consensusError(fmt.Sprintf("rewardTx scriptBody unavailable"))
 						}
 					case script.AUCTION_MODULE_ID:
-						sb, err := accountlock.AccountLockDecodeFromBytes(data)
+						sb, err := accountlock.AccountLockDecodeFromBytes(scriptPayload)
 						if err != nil {
 							log.Error("Decode script message failed", "error", err)
 							//return nil, gas, err
@@ -493,7 +494,7 @@ func (c *ConsensusReactor) validateBlockBody(blk *block.Block) error {
 							return consensusError(fmt.Sprintf("rewardTx scriptBody unavailable"))
 						}
 					case script.ACCOUNTLOCK_MODULE_ID:
-						sb, err := auction.AuctionDecodeFromBytes(data)
+						sb, err := auction.AuctionDecodeFromBytes(scriptPayload)
 						if err != nil {
 							log.Error("Decode script message failed", "error", err)
 							//return nil, gas, err
