@@ -235,6 +235,7 @@ func (p *PowPool) Remove(powID meter.Bytes32) bool {
 
 func (p *PowPool) Wash() error {
 	p.all.Flush()
+	log.Info("PowPool Wash!")
 	return nil
 }
 
