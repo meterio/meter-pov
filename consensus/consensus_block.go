@@ -374,11 +374,12 @@ func (c *ConsensusReactor) validateBlockBody(blk *block.Block) error {
 						scriptHeader := scriptStruct.Header
 
 						scriptHeaderIds[scriptHeader.UniteHash()] = true
+						scriptPayload := scriptStruct.Payload
 
 						switch scriptHeader.ModID {
 						case script.STAKING_MODULE_ID:
 
-							sb, err := staking.StakingDecodeFromBytes(data)
+							sb, err := staking.StakingDecodeFromBytes(scriptPayload)
 							if err != nil {
 								log.Error("Decode script message failed", "error", err)
 								//return nil, gas, err
@@ -389,7 +390,7 @@ func (c *ConsensusReactor) validateBlockBody(blk *block.Block) error {
 
 						case script.AUCTION_MODULE_ID:
 
-							ab, err := accountlock.AccountLockDecodeFromBytes(data)
+							ab, err := accountlock.AccountLockDecodeFromBytes(scriptPayload)
 							if err != nil {
 								log.Error("Decode script message failed", "error", err)
 								//return nil, gas, err
@@ -399,7 +400,7 @@ func (c *ConsensusReactor) validateBlockBody(blk *block.Block) error {
 
 						case script.ACCOUNTLOCK_MODULE_ID:
 
-							ab, err := auction.AuctionDecodeFromBytes(data)
+							ab, err := auction.AuctionDecodeFromBytes(scriptPayload)
 							if err != nil {
 								log.Error("Decode script message failed", "error", err)
 								//return nil, gas, err
