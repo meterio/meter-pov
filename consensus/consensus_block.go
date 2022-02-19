@@ -435,17 +435,21 @@ func (c *ConsensusReactor) validateBlockBody(blk *block.Block, forceValidate boo
 			}
 
 			if forceValidate {
+				log.Info("begin validateBlockBody forceValidate")
+				log.Info("tx", "ID", tx.ID())
 
 				// Validate.
 				if _, ok := txUniteHashes[tx.UniteHash()]; !ok {
 					return consensusError(fmt.Sprintf("rewardTx unavailable"))
 				}
+				log.Info("tx.UniteHash")
 
 				for _, clause := range tx.Clauses() {
 					//txClauseIds[clause.UniteHash()] = true
 					if _, ok := txClauseIds[clause.UniteHash()]; !ok {
 						return consensusError(fmt.Sprintf("rewardTx clause unavailable"))
 					}
+					log.Info("clause.UniteHash")
 
 					if (clause.Value().Sign() == 0) && (len(clause.Data()) > runtime.MinScriptEngDataLen) && runtime.ScriptEngineCheck(clause.Data()) {
 						data := clause.Data()[4:]
@@ -472,6 +476,7 @@ func (c *ConsensusReactor) validateBlockBody(blk *block.Block, forceValidate boo
 						if _, ok := scriptHeaderIds[scriptHeader.UniteHash()]; !ok {
 							return consensusError(fmt.Sprintf("rewardTx scriptHeader unavailable"))
 						}
+						log.Info("scriptHeader.UniteHash")
 
 						scriptPayload := scriptStruct.Payload
 						switch scriptHeader.ModID {
@@ -486,6 +491,7 @@ func (c *ConsensusReactor) validateBlockBody(blk *block.Block, forceValidate boo
 							if _, ok := scriptBodyIds[sb.UniteHash()]; !ok {
 								return consensusError(fmt.Sprintf("rewardTx scriptBody unavailable"))
 							}
+							log.Info("sb.UniteHash")
 						case script.AUCTION_MODULE_ID:
 							sb, err := accountlock.AccountLockDecodeFromBytes(scriptPayload)
 							if err != nil {
@@ -497,6 +503,7 @@ func (c *ConsensusReactor) validateBlockBody(blk *block.Block, forceValidate boo
 							if _, ok := scriptBodyIds[sb.UniteHash()]; !ok {
 								return consensusError(fmt.Sprintf("rewardTx scriptBody unavailable"))
 							}
+							log.Info("sb.UniteHash")
 						case script.ACCOUNTLOCK_MODULE_ID:
 							sb, err := auction.AuctionDecodeFromBytes(scriptPayload)
 							if err != nil {
@@ -508,10 +515,12 @@ func (c *ConsensusReactor) validateBlockBody(blk *block.Block, forceValidate boo
 							if _, ok := scriptBodyIds[sb.UniteHash()]; !ok {
 								return consensusError(fmt.Sprintf("rewardTx scriptBody unavailable"))
 							}
+							log.Info("sb.UniteHash")
 						}
 					}
-
 				}
+
+				log.Info("end validateBlockBody forceValidate")
 			}
 		}
 
