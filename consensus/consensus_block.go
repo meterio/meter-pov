@@ -487,9 +487,9 @@ func (c *ConsensusReactor) validateBlockBody(blk *block.Block, forceValidate boo
 							//_ = sb
 							//scriptBodyIds[sb.UniteHash()] = true
 							if _, ok := scriptBodyIds[sb.UniteHash()]; !ok {
-								return consensusError(fmt.Sprintf("rewardTx STAKING_MODULE_ID scriptBody unavailable"))
+								log.Error(fmt.Sprintf("rewardTx STAKING scriptBody unavailable, sb %v", sb))
 							}
-							log.Info("sb.UniteHash")
+							log.Info("STAKING_MODULE_ID sb.UniteHash", "sb", sb)
 						case script.AUCTION_MODULE_ID:
 							sb, err := auction.AuctionDecodeFromBytes(scriptPayload)
 							if err != nil {
@@ -499,9 +499,9 @@ func (c *ConsensusReactor) validateBlockBody(blk *block.Block, forceValidate boo
 							//_ = ab
 							//scriptBodyIds[ab.UniteHash()] = true
 							if _, ok := scriptBodyIds[sb.UniteHash()]; !ok {
-								return consensusError(fmt.Sprintf("rewardTx AUCTION_MODULE_ID scriptBody unavailable"))
+								log.Error(fmt.Sprintf("rewardTx AUCTION scriptBody unavailable, sb %v", sb))
 							}
-							log.Info("sb.UniteHash")
+							log.Info("AUCTION_MODULE_ID sb.UniteHash", "sb", sb)
 						case script.ACCOUNTLOCK_MODULE_ID:
 							sb, err := accountlock.AccountLockDecodeFromBytes(scriptPayload)
 							if err != nil {
@@ -511,9 +511,9 @@ func (c *ConsensusReactor) validateBlockBody(blk *block.Block, forceValidate boo
 							//_ = ab
 							//scriptBodyIds[ab.UniteHash()] = true
 							if _, ok := scriptBodyIds[sb.UniteHash()]; !ok {
-								return consensusError(fmt.Sprintf("rewardTx ACCOUNTLOCK_MODULE_ID scriptBody unavailable"))
+								log.Error(fmt.Sprintf("rewardTx ACCOUNTLOCK scriptBody unavailable, %v", sb))
 							}
-							log.Info("sb.UniteHash")
+							log.Info("ACCOUNTLOCK_MODULE_ID sb.UniteHash", "sb", sb)
 						}
 					}
 				}
