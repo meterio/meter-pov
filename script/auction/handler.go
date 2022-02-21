@@ -46,6 +46,10 @@ func (ab *AuctionBody) ToString() string {
 		ab.Opcode, ab.Version, ab.Option, ab.StartHeight, ab.StartEpoch, ab.EndHeight, ab.EndEpoch, ab.Sequence, ab.AuctionID.AbbrevString(), ab.Bidder.String(), ab.Amount.String(), ab.ReserveAmount.String(), ab.Token, ab.Timestamp, ab.Nonce)
 }
 
+func (sb *AuctionBody) String() string {
+	return sb.ToString()
+}
+
 func (ab *AuctionBody) GetOpName(op uint32) string {
 	switch op {
 	case OP_START:

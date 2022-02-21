@@ -114,6 +114,10 @@ func (sb *StakingBody) ToString() string {
 		sb.Opcode, sb.Version, sb.Option, sb.HolderAddr.String(), sb.CandAddr.String(), string(sb.CandName), string(sb.CandDescription), string(sb.CandPubKey), string(sb.CandIP), sb.CandPort, sb.StakingID, sb.Amount, sb.Token, sb.Autobid, sb.Nonce, sb.Timestamp, sb.ExtraData)
 }
 
+func (sb *StakingBody) String() string {
+	return sb.ToString()
+}
+
 func (sb *StakingBody) BoundHandler(env *StakingEnv, gas uint64) (leftOverGas uint64, err error) {
 	var ret []byte
 	defer func() {
