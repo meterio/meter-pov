@@ -393,7 +393,7 @@ func (t *Transaction) UniteHash() (hash meter.Bytes32) {
 	hw := meter.NewBlake2b()
 	err := rlp.Encode(hw, []interface{}{
 		t.body.ChainTag,
-		t.body.BlockRef,
+		//t.body.BlockRef,
 		t.body.Expiration,
 		//t.body.Clauses,
 		t.body.GasPriceCoef,

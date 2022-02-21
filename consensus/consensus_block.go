@@ -390,13 +390,25 @@ func (c *ConsensusReactor) validateBlockBody(blk *block.Block, forceValidate boo
 							}
 							log.Info(fmt.Sprintf("STAKING sb %v", sb))
 
-							rinfo := make([]*staking.RewardInfo, 0)
-							err = rlp.DecodeBytes(sb.ExtraData, &rinfo)
-							if err != nil {
-								log.Error("get rewards info failed")
-								//return
+							switch sb.Opcode {
+							case staking.OP_DELEGATE_STATISTICS:
+								IncrInfraction, err := staking.UnpackBytesToInfraction(sb.ExtraData)
+								_ = IncrInfraction
+								_ = err
+								log.Info("rewardTx IncrInfraction", IncrInfraction)
+							case staking.OP_GOVERNING:
+								rinfo := []*staking.RewardInfo{}
+								err = rlp.DecodeBytes(sb.ExtraData, &rinfo)
+								log.Info("rewardTx rinfo", rinfo)
 							}
-							fmt.Printf("rewardTx rinfo %v", rinfo)
+
+							//rinfo := make([]*staking.RewardInfo, 0)
+							//err = rlp.DecodeBytes(sb.ExtraData, &rinfo)
+							//if err != nil {
+							//	log.Error("get rewardTx rewards info failed")
+							//	//return
+							//}
+							//fmt.Printf("rewardTx rinfo %v", rinfo)
 
 							scriptBodyIds[sb.UniteHash()] = true
 
@@ -451,9 +463,8 @@ func (c *ConsensusReactor) validateBlockBody(blk *block.Block, forceValidate boo
 
 				// Validate.
 				if _, ok := txUniteHashes[tx.UniteHash()]; !ok {
-					for _, rewardTx := range rewardTxs {
-						log.Error(fmt.Sprintf("rewardTx-tx unavailable, %v", rewardTx))
-
+					for index, rewardTx := range rewardTxs {
+						log.Info(fmt.Sprintf("rewardTx-tx %v not unavailable, %v", index, rewardTx))
 					}
 					log.Error(fmt.Sprintf("tx-rewardTx unavailable, %v", tx))
 
@@ -504,13 +515,25 @@ func (c *ConsensusReactor) validateBlockBody(blk *block.Block, forceValidate boo
 								//return nil, gas, err
 							}
 
-							rinfo := make([]*staking.RewardInfo, 0)
-							err = rlp.DecodeBytes(sb.ExtraData, &rinfo)
-							if err != nil {
-								log.Error("get rewards info failed")
-								//return
+							switch sb.Opcode {
+							case staking.OP_DELEGATE_STATISTICS:
+								IncrInfraction, err := staking.UnpackBytesToInfraction(sb.ExtraData)
+								_ = IncrInfraction
+								_ = err
+								log.Info("minerTx IncrInfraction", IncrInfraction)
+							case staking.OP_GOVERNING:
+								rinfo := []*staking.RewardInfo{}
+								err = rlp.DecodeBytes(sb.ExtraData, &rinfo)
+								log.Info("minerTx rinfo", rinfo)
 							}
-							fmt.Printf("minerTx rinfo %v", rinfo)
+
+							//rinfo := make([]*staking.RewardInfo, 0)
+							//err = rlp.DecodeBytes(sb.ExtraData, &rinfo)
+							//if err != nil {
+							//	log.Error("get minerTx rewards info failed")
+							//	//return
+							//}
+							//fmt.Printf("minerTx rinfo %v", rinfo)
 
 							//_ = sb
 							//scriptBodyIds[sb.UniteHash()] = true
