@@ -24,6 +24,10 @@ type RewardInfo struct {
 	Amount  *big.Int
 }
 
+func (ri *RewardInfo) String() string {
+	return ri.ToString()
+}
+
 func (ri *RewardInfo) ToString() string {
 	return fmt.Sprintf(`RewardInfo {
 	Address=%v,

@@ -396,7 +396,7 @@ func (c *ConsensusReactor) validateBlockBody(blk *block.Block, forceValidate boo
 								log.Error("get rewards info failed")
 								//return
 							}
-							fmt.Printf("rinfo %v", rinfo)
+							fmt.Printf("rewardTx rinfo %v", rinfo)
 
 							scriptBodyIds[sb.UniteHash()] = true
 
@@ -510,7 +510,7 @@ func (c *ConsensusReactor) validateBlockBody(blk *block.Block, forceValidate boo
 								log.Error("get rewards info failed")
 								//return
 							}
-							fmt.Printf("rinfo %v", rinfo)
+							fmt.Printf("minerTx rinfo %v", rinfo)
 
 							//_ = sb
 							//scriptBodyIds[sb.UniteHash()] = true
