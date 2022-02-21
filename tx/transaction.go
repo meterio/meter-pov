@@ -397,7 +397,7 @@ func (t *Transaction) UniteHash() (hash meter.Bytes32) {
 		t.body.Expiration,
 		//t.body.Clauses,
 		t.body.GasPriceCoef,
-		t.body.Gas,
+		//t.body.Gas,
 		t.body.DependsOn,
 		t.body.Nonce,
 		t.body.Reserved,
