@@ -440,8 +440,12 @@ func (c *ConsensusReactor) validateBlockBody(blk *block.Block, forceValidate boo
 
 				// Validate.
 				if _, ok := txUniteHashes[tx.UniteHash()]; !ok {
-					log.Error("rewardTxs", rewardTxs)
-					log.Error("tx", tx)
+					for _, rewardTx := range rewardTxs {
+						log.Error(fmt.Sprintf("rewardTx-tx unavailable, %v", rewardTx))
+
+					}
+					log.Error(fmt.Sprintf("tx-rewardTx unavailable, %v", tx))
+
 					return consensusError(fmt.Sprintf("rewardTx unavailable"))
 				}
 				log.Info("tx.UniteHash")
