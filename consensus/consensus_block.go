@@ -332,6 +332,8 @@ func (c *ConsensusReactor) validateBlockBody(blk *block.Block, forceValidate boo
 	scriptHeaderIds := make(map[meter.Bytes32]bool)
 	scriptBodyIds := make(map[meter.Bytes32]bool)
 
+	rewardTxs := tx.Transactions{}
+
 	if blk.Header().BlockType() == block.BLOCK_TYPE_K_BLOCK {
 		parentBlock, err := c.chain.GetBlock(header.ParentID())
 		if err != nil {
@@ -350,7 +352,7 @@ func (c *ConsensusReactor) validateBlockBody(blk *block.Block, forceValidate boo
 		proposalKBlock, powResults := powpool.GetGlobPowPoolInst().GetPowDecision()
 		if proposalKBlock {
 			rewards := powResults.Rewards
-			rewardTxs := c.buildRewardTxs(parentBlock, rewards, chainTag, bestNum, curEpoch, best, state)
+			rewardTxs = c.buildRewardTxs(parentBlock, rewards, chainTag, bestNum, curEpoch, best, state)
 
 			// Decode.
 			for _, rewardTx := range rewardTxs {
@@ -438,6 +440,8 @@ func (c *ConsensusReactor) validateBlockBody(blk *block.Block, forceValidate boo
 
 				// Validate.
 				if _, ok := txUniteHashes[tx.UniteHash()]; !ok {
+					log.Error("rewardTxs", rewardTxs)
+					log.Error("tx", tx)
 					return consensusError(fmt.Sprintf("rewardTx unavailable"))
 				}
 				log.Info("tx.UniteHash")

@@ -625,8 +625,9 @@ func (t *Transaction) String() string {
   Nonce:          %v
   UnprovedWork:   %v	
   Signature:      0x%x
+  UniteHash:      %v
 `, t.ID(), t.Size(), from, t.body.Clauses, t.body.GasPriceCoef, t.body.Gas,
-		t.body.ChainTag, br.Number(), br[4:], t.body.Expiration, dependsOn, t.body.Nonce, t.UnprovedWork(), t.body.Signature)
+		t.body.ChainTag, br.Number(), br[4:], t.body.Expiration, dependsOn, t.body.Nonce, t.UnprovedWork(), t.body.Signature, t.UniteHash())
 }
 
 // IntrinsicGas calculate intrinsic gas cost for tx with such clauses.
