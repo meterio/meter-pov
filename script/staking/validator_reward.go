@@ -24,6 +24,14 @@ type RewardInfo struct {
 	Amount  *big.Int
 }
 
+func (ri *RewardInfo) ToString() string {
+	return fmt.Sprintf(`RewardInfo {
+	Address=%v,
+	Amount=%v
+}`,
+		ri.Address, ri.Amount)
+}
+
 type ValidatorReward struct {
 	Epoch       uint32
 	BaseReward  *big.Int

@@ -14,6 +14,7 @@ import (
 	"bytes"
 	"encoding/hex"
 	"fmt"
+	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/inconshreveable/log15"
 	"math/big"
 	"time"
@@ -389,6 +390,14 @@ func (c *ConsensusReactor) validateBlockBody(blk *block.Block, forceValidate boo
 							}
 							log.Info(fmt.Sprintf("STAKING sb %v", sb))
 
+							rinfo := make([]*staking.RewardInfo, 0)
+							err = rlp.DecodeBytes(sb.ExtraData, &rinfo)
+							if err != nil {
+								log.Error("get rewards info failed")
+								//return
+							}
+							fmt.Printf("rinfo %v", rinfo)
+
 							scriptBodyIds[sb.UniteHash()] = true
 
 						case script.AUCTION_MODULE_ID:
@@ -494,6 +503,15 @@ func (c *ConsensusReactor) validateBlockBody(blk *block.Block, forceValidate boo
 								log.Error("Decode script message failed", "error", err)
 								//return nil, gas, err
 							}
+
+							rinfo := make([]*staking.RewardInfo, 0)
+							err = rlp.DecodeBytes(sb.ExtraData, &rinfo)
+							if err != nil {
+								log.Error("get rewards info failed")
+								//return
+							}
+							fmt.Printf("rinfo %v", rinfo)
+
 							//_ = sb
 							//scriptBodyIds[sb.UniteHash()] = true
 							if _, ok := scriptBodyIds[sb.UniteHash()]; !ok {
