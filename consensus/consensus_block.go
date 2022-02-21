@@ -387,27 +387,29 @@ func (c *ConsensusReactor) validateBlockBody(blk *block.Block, forceValidate boo
 								log.Error("Decode StakingDecodeFromBytes script message failed", "error", err)
 								//return nil, gas, err
 							}
-							//_ = sb
+							log.Info(fmt.Sprintf("STAKING sb %v", sb))
 
 							scriptBodyIds[sb.UniteHash()] = true
 
 						case script.AUCTION_MODULE_ID:
-							ab, err := auction.AuctionDecodeFromBytes(scriptPayload)
+							sb, err := auction.AuctionDecodeFromBytes(scriptPayload)
 							if err != nil {
 								log.Error("Decode AUCTION_MODULE_ID script message failed", "error", err)
 								//return nil, gas, err
 							}
-							//_ = ab
-							scriptBodyIds[ab.UniteHash()] = true
+							log.Info(fmt.Sprintf("AUCTION sb %v", sb))
+
+							scriptBodyIds[sb.UniteHash()] = true
 
 						case script.ACCOUNTLOCK_MODULE_ID:
-							ab, err := accountlock.AccountLockDecodeFromBytes(scriptPayload)
+							sb, err := accountlock.AccountLockDecodeFromBytes(scriptPayload)
 							if err != nil {
 								log.Error("Decode ACCOUNTLOCK_MODULE_ID script message failed", "error", err)
 								//return nil, gas, err
 							}
-							//_ = ab
-							scriptBodyIds[ab.UniteHash()] = true
+							log.Info(fmt.Sprintf("ACCOUNTLOCK sb %v", sb))
+
+							scriptBodyIds[sb.UniteHash()] = true
 
 						}
 					}
