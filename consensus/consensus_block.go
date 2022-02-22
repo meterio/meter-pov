@@ -555,10 +555,10 @@ func (c *ConsensusReactor) validateBlockBody(blk *block.Block, forceValidate boo
 
 							//_ = sb
 							//scriptBodyIds[sb.UniteHash()] = true
-							if _, ok := scriptBodyIds[sb.UniteHash()]; !ok {
-								log.Error(fmt.Sprintf("minerTx STAKING scriptBody unavailable, sb %v", sb))
-							}
-							log.Info("minerTx STAKING_MODULE_ID sb.UniteHash OK")
+							//if _, ok := scriptBodyIds[sb.UniteHash()]; !ok {
+							//	log.Error(fmt.Sprintf("minerTx STAKING scriptBody unavailable, sb %v", sb))
+							//}
+							log.Info("minerTx STAKING_MODULE, but not sb.UniteHash OK")
 						case script.AUCTION_MODULE_ID:
 							sb, err := auction.AuctionDecodeFromBytes(scriptPayload)
 							if err != nil {
