@@ -388,7 +388,7 @@ func (c *ConsensusReactor) validateBlockBody(blk *block.Block, forceValidate boo
 								log.Error("Decode StakingDecodeFromBytes script message failed", "error", err)
 								//return nil, gas, err
 							}
-							log.Info(fmt.Sprintf("STAKING sb %v", sb))
+							log.Info(fmt.Sprintf("rewardTx STAKING sb %v", sb))
 
 							switch sb.Opcode {
 							case staking.OP_DELEGATE_STATISTICS:
@@ -399,7 +399,10 @@ func (c *ConsensusReactor) validateBlockBody(blk *block.Block, forceValidate boo
 							case staking.OP_GOVERNING:
 								rinfo := []*staking.RewardInfo{}
 								err = rlp.DecodeBytes(sb.ExtraData, &rinfo)
-								log.Info("rewardTx rinfo", rinfo)
+								log.Info("rewardTx rinfo")
+								for _, d := range rinfo {
+									fmt.Println(d.String())
+								}
 							}
 
 							//rinfo := make([]*staking.RewardInfo, 0)
@@ -418,7 +421,7 @@ func (c *ConsensusReactor) validateBlockBody(blk *block.Block, forceValidate boo
 								log.Error("Decode AUCTION_MODULE_ID script message failed", "error", err)
 								//return nil, gas, err
 							}
-							log.Info(fmt.Sprintf("AUCTION sb %v", sb))
+							log.Info(fmt.Sprintf("rewardTx AUCTION sb %v", sb))
 
 							scriptBodyIds[sb.UniteHash()] = true
 
@@ -428,7 +431,7 @@ func (c *ConsensusReactor) validateBlockBody(blk *block.Block, forceValidate boo
 								log.Error("Decode ACCOUNTLOCK_MODULE_ID script message failed", "error", err)
 								//return nil, gas, err
 							}
-							log.Info(fmt.Sprintf("ACCOUNTLOCK sb %v", sb))
+							log.Info(fmt.Sprintf("rewardTx ACCOUNTLOCK sb %v", sb))
 
 							scriptBodyIds[sb.UniteHash()] = true
 
@@ -468,14 +471,14 @@ func (c *ConsensusReactor) validateBlockBody(blk *block.Block, forceValidate boo
 					}
 					log.Error(fmt.Sprintf("tx-rewardTx unavailable, %v", tx))
 
-					return consensusError(fmt.Sprintf("rewardTx unavailable"))
+					return consensusError(fmt.Sprintf("minerTx unavailable"))
 				}
 				log.Info("tx.UniteHash")
 
 				for _, clause := range tx.Clauses() {
 					//txClauseIds[clause.UniteHash()] = true
 					if _, ok := txClauseIds[clause.UniteHash()]; !ok {
-						return consensusError(fmt.Sprintf("rewardTx clause unavailable"))
+						return consensusError(fmt.Sprintf("minerTx clause unavailable"))
 					}
 					log.Info("clause.UniteHash")
 
@@ -502,9 +505,9 @@ func (c *ConsensusReactor) validateBlockBody(blk *block.Block, forceValidate boo
 						//}
 						//_ = scriptHeader
 						if _, ok := scriptHeaderIds[scriptHeader.UniteHash()]; !ok {
-							return consensusError(fmt.Sprintf("rewardTx scriptHeader unavailable"))
+							return consensusError(fmt.Sprintf("minerTx scriptHeader unavailable"))
 						}
-						log.Info("scriptHeader.UniteHash")
+						log.Info("minerTx scriptHeader.UniteHash OK")
 
 						scriptPayload := scriptStruct.Payload
 						switch scriptHeader.ModID {
@@ -520,11 +523,15 @@ func (c *ConsensusReactor) validateBlockBody(blk *block.Block, forceValidate boo
 								IncrInfraction, err := staking.UnpackBytesToInfraction(sb.ExtraData)
 								_ = IncrInfraction
 								_ = err
-								log.Info(fmt.Sprintf("rewardTx IncrInfraction %v", IncrInfraction))
+								fmt.Sprintf("minerTx IncrInfraction %v", IncrInfraction)
 							case staking.OP_GOVERNING:
-								rinfo := []*staking.RewardInfo{}
+								rinfo := make([]*staking.RewardInfo, 0)
 								err = rlp.DecodeBytes(sb.ExtraData, &rinfo)
-								log.Info(fmt.Sprintf("rewardTx rinfo %v", rinfo))
+
+								fmt.Sprintf("minerTx rinfo")
+								for _, d := range rinfo {
+									fmt.Println(d.String())
+								}
 							}
 
 							//rinfo := make([]*staking.RewardInfo, 0)
@@ -538,9 +545,9 @@ func (c *ConsensusReactor) validateBlockBody(blk *block.Block, forceValidate boo
 							//_ = sb
 							//scriptBodyIds[sb.UniteHash()] = true
 							if _, ok := scriptBodyIds[sb.UniteHash()]; !ok {
-								log.Error(fmt.Sprintf("rewardTx STAKING scriptBody unavailable, sb %v", sb))
+								log.Error(fmt.Sprintf("minerTx STAKING scriptBody unavailable, sb %v", sb))
 							}
-							log.Info("STAKING_MODULE_ID sb.UniteHash", "sb", sb)
+							log.Info("minerTx STAKING_MODULE_ID sb.UniteHash OK")
 						case script.AUCTION_MODULE_ID:
 							sb, err := auction.AuctionDecodeFromBytes(scriptPayload)
 							if err != nil {
@@ -550,9 +557,9 @@ func (c *ConsensusReactor) validateBlockBody(blk *block.Block, forceValidate boo
 							//_ = ab
 							//scriptBodyIds[ab.UniteHash()] = true
 							if _, ok := scriptBodyIds[sb.UniteHash()]; !ok {
-								log.Error(fmt.Sprintf("rewardTx AUCTION scriptBody unavailable, sb %v", sb))
+								log.Error(fmt.Sprintf("minerTx AUCTION scriptBody unavailable, sb %v", sb))
 							}
-							log.Info("AUCTION_MODULE_ID sb.UniteHash", "sb", sb)
+							log.Info("minerTx AUCTION_MODULE_ID sb.UniteHash OK")
 						case script.ACCOUNTLOCK_MODULE_ID:
 							sb, err := accountlock.AccountLockDecodeFromBytes(scriptPayload)
 							if err != nil {
@@ -562,9 +569,9 @@ func (c *ConsensusReactor) validateBlockBody(blk *block.Block, forceValidate boo
 							//_ = ab
 							//scriptBodyIds[ab.UniteHash()] = true
 							if _, ok := scriptBodyIds[sb.UniteHash()]; !ok {
-								log.Error(fmt.Sprintf("rewardTx ACCOUNTLOCK scriptBody unavailable, %v", sb))
+								log.Error(fmt.Sprintf("minerTx ACCOUNTLOCK scriptBody unavailable, %v", sb))
 							}
-							log.Info("ACCOUNTLOCK_MODULE_ID sb.UniteHash", "sb", sb)
+							log.Info("minerTx ACCOUNTLOCK_MODULE_ID sb.UniteHash OK")
 						}
 					}
 				}
