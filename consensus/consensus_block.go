@@ -520,11 +520,11 @@ func (c *ConsensusReactor) validateBlockBody(blk *block.Block, forceValidate boo
 								IncrInfraction, err := staking.UnpackBytesToInfraction(sb.ExtraData)
 								_ = IncrInfraction
 								_ = err
-								log.Info("minerTx IncrInfraction", IncrInfraction)
+								log.Info(fmt.Sprintf("rewardTx IncrInfraction %v", IncrInfraction))
 							case staking.OP_GOVERNING:
 								rinfo := []*staking.RewardInfo{}
 								err = rlp.DecodeBytes(sb.ExtraData, &rinfo)
-								log.Info("minerTx rinfo", rinfo)
+								log.Info(fmt.Sprintf("rewardTx rinfo %v", rinfo))
 							}
 
 							//rinfo := make([]*staking.RewardInfo, 0)
