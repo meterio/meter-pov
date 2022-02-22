@@ -332,6 +332,7 @@ func (c *ConsensusReactor) validateBlockBody(blk *block.Block, forceValidate boo
 	txClauseIds := make(map[meter.Bytes32]bool)
 	scriptHeaderIds := make(map[meter.Bytes32]bool)
 	scriptBodyIds := make(map[meter.Bytes32]bool)
+	rinfoIds := make(map[meter.Address]*big.Int)
 
 	rewardTxs := tx.Transactions{}
 
@@ -391,17 +392,17 @@ func (c *ConsensusReactor) validateBlockBody(blk *block.Block, forceValidate boo
 							log.Info(fmt.Sprintf("rewardTx STAKING sb %v", sb))
 
 							switch sb.Opcode {
-							case staking.OP_DELEGATE_STATISTICS:
-								IncrInfraction, err := staking.UnpackBytesToInfraction(sb.ExtraData)
-								_ = IncrInfraction
-								_ = err
-								log.Info("rewardTx IncrInfraction", IncrInfraction)
+							//case staking.OP_DELEGATE_STATISTICS:
+							//IncrInfraction, err := staking.UnpackBytesToInfraction(sb.ExtraData)
+							//_ = IncrInfraction
+							//_ = err
+							//log.Info("rewardTx IncrInfraction", IncrInfraction)
 							case staking.OP_GOVERNING:
 								rinfo := []*staking.RewardInfo{}
 								err = rlp.DecodeBytes(sb.ExtraData, &rinfo)
 								log.Info("rewardTx rinfo")
 								for _, d := range rinfo {
-									fmt.Println(d.String())
+									rinfoIds[d.Address] = d.Amount
 								}
 							}
 
@@ -519,18 +520,28 @@ func (c *ConsensusReactor) validateBlockBody(blk *block.Block, forceValidate boo
 							}
 
 							switch sb.Opcode {
-							case staking.OP_DELEGATE_STATISTICS:
-								IncrInfraction, err := staking.UnpackBytesToInfraction(sb.ExtraData)
-								_ = IncrInfraction
-								_ = err
-								fmt.Sprintf("minerTx IncrInfraction %v", IncrInfraction)
+							//case staking.OP_DELEGATE_STATISTICS:
+							//	IncrInfraction, err := staking.UnpackBytesToInfraction(sb.ExtraData)
+							//	_ = IncrInfraction
+							//	_ = err
+							//	fmt.Sprintf("minerTx IncrInfraction %v", IncrInfraction)
 							case staking.OP_GOVERNING:
-								rinfo := make([]*staking.RewardInfo, 0)
-								err = rlp.DecodeBytes(sb.ExtraData, &rinfo)
+								minerTxRinfo := make([]*staking.RewardInfo, 0)
+								err = rlp.DecodeBytes(sb.ExtraData, &minerTxRinfo)
+
+								//reflect.DeepEqual(rinfo, txRinfo)
 
 								fmt.Sprintf("minerTx rinfo")
-								for _, d := range rinfo {
-									fmt.Println(d.String())
+								for _, d := range minerTxRinfo {
+									//fmt.Println(d.String())
+
+									if _, ok := rinfoIds[d.Address]; !ok {
+										return consensusError(fmt.Sprintf("d.Address %v not exists", d.Address))
+									}
+
+									if d.Amount.Cmp(rinfoIds[d.Address]) != 0 {
+										return consensusError(fmt.Sprintf("d.Address %v amount %v not correct", d.Address, d.Amount))
+									}
 								}
 							}
 
