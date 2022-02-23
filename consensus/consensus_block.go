@@ -543,6 +543,10 @@ func (c *ConsensusReactor) validateBlockBody(blk *block.Block, forceValidate boo
 										return consensusError(fmt.Sprintf("d.Address %v amount %v not correct", d.Address, d.Amount))
 									}
 								}
+							default:
+								if _, ok := scriptBodyIds[sb.UniteHash()]; !ok {
+									log.Error(fmt.Sprintf("minerTx STAKING scriptBody unavailable, sb %v", sb))
+								}
 							}
 
 							//rinfo := make([]*staking.RewardInfo, 0)
