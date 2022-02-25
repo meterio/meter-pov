@@ -328,11 +328,11 @@ func (c *ConsensusReactor) validateBlockBody(blk *block.Block, forceValidate boo
 		return consensusError(fmt.Sprintf("block magic mismatch, has %v, expect %v", blk.GetMagic(), block.BlockMagicVersion1))
 	}
 
-	txUniteHashes := make(map[meter.Bytes32]bool)
-	txClauseIds := make(map[meter.Bytes32]bool)
-	scriptHeaderIds := make(map[meter.Bytes32]bool)
-	scriptBodyIds := make(map[meter.Bytes32]bool)
-	rinfoIds := make(map[meter.Address]*big.Int)
+	txUniteHashes := make(map[meter.Bytes32]int)
+	txClauseIds := make(map[meter.Bytes32]int)
+	scriptHeaderIds := make(map[meter.Bytes32]int)
+	scriptBodyIds := make(map[meter.Bytes32]int)
+	rinfoIds := make(map[meter.Bytes32]int)
 
 	rewardTxs := tx.Transactions{}
 
@@ -354,14 +354,23 @@ func (c *ConsensusReactor) validateBlockBody(blk *block.Block, forceValidate boo
 		proposalKBlock, powResults := powpool.GetGlobPowPoolInst().GetPowDecision()
 		if proposalKBlock {
 			rewards := powResults.Rewards
+			// Build.
 			rewardTxs = c.buildRewardTxs(parentBlock, rewards, chainTag, bestNum, curEpoch, best, state)
 
 			// Decode.
 			for _, rewardTx := range rewardTxs {
-				txUniteHashes[rewardTx.UniteHash()] = true
+				if _, ok := txUniteHashes[rewardTx.UniteHash()]; ok {
+					txUniteHashes[rewardTx.UniteHash()] += 1
+				} else {
+					txUniteHashes[rewardTx.UniteHash()] = 1
+				}
 
 				for _, clause := range rewardTx.Clauses() {
-					txClauseIds[clause.UniteHash()] = true
+					if _, ok := txClauseIds[clause.UniteHash()]; ok {
+						txClauseIds[clause.UniteHash()] += 1
+					} else {
+						txClauseIds[clause.UniteHash()] = 1
+					}
 
 					if (clause.Value().Sign() == 0) && (len(clause.Data()) > runtime.MinScriptEngDataLen) && runtime.ScriptEngineCheck(clause.Data()) {
 						data := clause.Data()[4:]
@@ -377,8 +386,11 @@ func (c *ConsensusReactor) validateBlockBody(blk *block.Block, forceValidate boo
 						}
 
 						scriptHeader := scriptStruct.Header
-
-						scriptHeaderIds[scriptHeader.UniteHash()] = true
+						if _, ok := scriptHeaderIds[scriptHeader.UniteHash()]; ok {
+							scriptHeaderIds[scriptHeader.UniteHash()] += 1
+						} else {
+							scriptHeaderIds[scriptHeader.UniteHash()] = 1
+						}
 						scriptPayload := scriptStruct.Payload
 
 						switch scriptHeader.ModID {
@@ -402,7 +414,13 @@ func (c *ConsensusReactor) validateBlockBody(blk *block.Block, forceValidate boo
 								err = rlp.DecodeBytes(sb.ExtraData, &rinfo)
 								log.Info("rewardTx rinfo")
 								for _, d := range rinfo {
-									rinfoIds[d.Address] = d.Amount
+									rinfoIds[d.UniteHash()] = 1
+								}
+							default:
+								if _, ok := scriptBodyIds[sb.UniteHash()]; ok {
+									scriptBodyIds[sb.UniteHash()] += 1
+								} else {
+									scriptBodyIds[sb.UniteHash()] = 1
 								}
 							}
 
@@ -414,8 +432,6 @@ func (c *ConsensusReactor) validateBlockBody(blk *block.Block, forceValidate boo
 							//}
 							//fmt.Printf("rewardTx rinfo %v", rinfo)
 
-							scriptBodyIds[sb.UniteHash()] = true
-
 						case script.AUCTION_MODULE_ID:
 							sb, err := auction.AuctionDecodeFromBytes(scriptPayload)
 							if err != nil {
@@ -424,8 +440,11 @@ func (c *ConsensusReactor) validateBlockBody(blk *block.Block, forceValidate boo
 							}
 							log.Info(fmt.Sprintf("rewardTx AUCTION sb %v", sb))
 
-							scriptBodyIds[sb.UniteHash()] = true
-
+							if _, ok := scriptBodyIds[sb.UniteHash()]; ok {
+								scriptBodyIds[sb.UniteHash()] += 1
+							} else {
+								scriptBodyIds[sb.UniteHash()] = 1
+							}
 						case script.ACCOUNTLOCK_MODULE_ID:
 							sb, err := accountlock.AccountLockDecodeFromBytes(scriptPayload)
 							if err != nil {
@@ -434,8 +453,11 @@ func (c *ConsensusReactor) validateBlockBody(blk *block.Block, forceValidate boo
 							}
 							log.Info(fmt.Sprintf("rewardTx ACCOUNTLOCK sb %v", sb))
 
-							scriptBodyIds[sb.UniteHash()] = true
-
+							if _, ok := scriptBodyIds[sb.UniteHash()]; ok {
+								scriptBodyIds[sb.UniteHash()] += 1
+							} else {
+								scriptBodyIds[sb.UniteHash()] = 1
+							}
 						}
 					}
 				}
@@ -474,6 +496,7 @@ func (c *ConsensusReactor) validateBlockBody(blk *block.Block, forceValidate boo
 
 					return consensusError(fmt.Sprintf("minerTx unavailable"))
 				}
+				txUniteHashes[tx.UniteHash()] -= 1
 				log.Info("tx.UniteHash")
 
 				for _, clause := range tx.Clauses() {
@@ -481,8 +504,10 @@ func (c *ConsensusReactor) validateBlockBody(blk *block.Block, forceValidate boo
 					if _, ok := txClauseIds[clause.UniteHash()]; !ok {
 						return consensusError(fmt.Sprintf("minerTx clause unavailable"))
 					}
+					txClauseIds[clause.UniteHash()] -= 1
 					log.Info("clause.UniteHash")
 
+					// Decode.
 					if (clause.Value().Sign() == 0) && (len(clause.Data()) > runtime.MinScriptEngDataLen) && runtime.ScriptEngineCheck(clause.Data()) {
 						data := clause.Data()[4:]
 						if bytes.Compare(data[:len(script.ScriptPattern)], script.ScriptPattern[:]) != 0 {
@@ -508,6 +533,7 @@ func (c *ConsensusReactor) validateBlockBody(blk *block.Block, forceValidate boo
 						if _, ok := scriptHeaderIds[scriptHeader.UniteHash()]; !ok {
 							return consensusError(fmt.Sprintf("minerTx scriptHeader unavailable"))
 						}
+						scriptHeaderIds[scriptHeader.UniteHash()] -= 1
 						log.Info("minerTx scriptHeader.UniteHash OK")
 
 						scriptPayload := scriptStruct.Payload
@@ -535,18 +561,20 @@ func (c *ConsensusReactor) validateBlockBody(blk *block.Block, forceValidate boo
 								for _, d := range minerTxRinfo {
 									//fmt.Println(d.String())
 
-									if _, ok := rinfoIds[d.Address]; !ok {
+									if _, ok := rinfoIds[d.UniteHash()]; !ok {
 										return consensusError(fmt.Sprintf("d.Address %v not exists", d.Address))
 									}
+									rinfoIds[d.UniteHash()] -= 1
 
-									if d.Amount.Cmp(rinfoIds[d.Address]) != 0 {
-										return consensusError(fmt.Sprintf("d.Address %v amount %v not correct", d.Address, d.Amount))
-									}
+									//if d.Amount.Cmp(rinfoIds[d.Address]) != 0 {
+									//	return consensusError(fmt.Sprintf("d.Address %v amount %v not correct", d.Address, d.Amount))
+									//}
 								}
 							default:
 								if _, ok := scriptBodyIds[sb.UniteHash()]; !ok {
 									log.Error(fmt.Sprintf("minerTx STAKING scriptBody unavailable, sb %v", sb))
 								}
+								scriptBodyIds[sb.UniteHash()] -= 1
 							}
 
 							//rinfo := make([]*staking.RewardInfo, 0)
@@ -574,6 +602,7 @@ func (c *ConsensusReactor) validateBlockBody(blk *block.Block, forceValidate boo
 							if _, ok := scriptBodyIds[sb.UniteHash()]; !ok {
 								log.Error(fmt.Sprintf("minerTx AUCTION scriptBody unavailable, sb %v", sb))
 							}
+							scriptBodyIds[sb.UniteHash()] -= 1
 							log.Info("minerTx AUCTION_MODULE_ID sb.UniteHash OK")
 						case script.ACCOUNTLOCK_MODULE_ID:
 							sb, err := accountlock.AccountLockDecodeFromBytes(scriptPayload)
@@ -586,6 +615,7 @@ func (c *ConsensusReactor) validateBlockBody(blk *block.Block, forceValidate boo
 							if _, ok := scriptBodyIds[sb.UniteHash()]; !ok {
 								log.Error(fmt.Sprintf("minerTx ACCOUNTLOCK scriptBody unavailable, %v", sb))
 							}
+							scriptBodyIds[sb.UniteHash()] -= 1
 							log.Info("minerTx ACCOUNTLOCK_MODULE_ID sb.UniteHash OK")
 						}
 					}
@@ -604,6 +634,46 @@ func (c *ConsensusReactor) validateBlockBody(blk *block.Block, forceValidate boo
 			return consensusError(fmt.Sprintf("tx expired: ref %v, current %v, expiration %v", tx.BlockRef().Number(), header.Number(), tx.Expiration()))
 			// case tx.HasReservedFields():
 			// return consensusError(fmt.Sprintf("tx reserved fields not empty"))
+		}
+	}
+
+	if len(txUniteHashes) != 0 {
+		for key, value := range txUniteHashes {
+			if value != 0 {
+				return consensusError(fmt.Sprintf("txUniteHashes not equal %v %v", key, value))
+			}
+		}
+	}
+
+	if len(txClauseIds) != 0 {
+		for key, value := range txClauseIds {
+			if value != 0 {
+				return consensusError(fmt.Sprintf("txClauseIds not equal %v %v", key, value))
+			}
+		}
+	}
+
+	if len(scriptHeaderIds) != 0 {
+		for key, value := range scriptHeaderIds {
+			if value != 0 {
+				return consensusError(fmt.Sprintf("scriptHeaderIds not equal %v %v", key, value))
+			}
+		}
+	}
+
+	if len(scriptBodyIds) != 0 {
+		for key, value := range scriptBodyIds {
+			if value != 0 {
+				return consensusError(fmt.Sprintf("scriptBodyIds not equal %v %v", key, value))
+			}
+		}
+	}
+
+	if len(rinfoIds) != 0 {
+		for key, value := range rinfoIds {
+			if value != 0 {
+				return consensusError(fmt.Sprintf("rinfoIds not equal %v %v", key, value))
+			}
 		}
 	}
 
