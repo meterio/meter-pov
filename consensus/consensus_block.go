@@ -352,7 +352,7 @@ func (c *ConsensusReactor) validateBlockBody(blk *block.Block, forceValidate boo
 		}
 
 		proposalKBlock, powResults := powpool.GetGlobPowPoolInst().GetPowDecision()
-		if proposalKBlock {
+		if proposalKBlock && forceValidate {
 			rewards := powResults.Rewards
 			// Build.
 			rewardTxs = c.buildRewardTxs(parentBlock, rewards, chainTag, bestNum, curEpoch, best, state)
