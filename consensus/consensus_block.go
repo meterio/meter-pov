@@ -334,6 +334,12 @@ func (c *ConsensusReactor) validateBlockBody(blk *block.Block, forceValidate boo
 	scriptBodyIds := make(map[meter.Bytes32]int)
 	rinfoIds := make(map[meter.Bytes32]int)
 
+	//leadersIds := make(map[meter.Bytes32]int)
+	//proposersIds := make(map[meter.Bytes32]int)
+	//votersIds := make(map[meter.Bytes32]int)
+	//signersIds := make(map[meter.Bytes32]int)
+	incrCounter := make([]uint32, 0)
+
 	rewardTxs := tx.Transactions{}
 
 	if blk.Header().BlockType() == block.BLOCK_TYPE_K_BLOCK {
@@ -407,11 +413,31 @@ func (c *ConsensusReactor) validateBlockBody(blk *block.Block, forceValidate boo
 							log.Info(fmt.Sprintf("rewardTx STAKING sb %v", sb))
 
 							switch sb.Opcode {
-							//case staking.OP_DELEGATE_STATISTICS:
-							//IncrInfraction, err := staking.UnpackBytesToInfraction(sb.ExtraData)
-							//_ = IncrInfraction
-							//_ = err
-							//log.Info("rewardTx IncrInfraction", IncrInfraction)
+							case staking.OP_DELEGATE_STATISTICS:
+								incrInfraction, err := staking.UnpackBytesToInfraction(sb.ExtraData)
+								//_ = incrInfraction
+								_ = err
+								//log.Info("rewardTx IncrInfraction", incrInfraction)
+
+								leaders := incrInfraction.MissingLeaders
+								incrCounter = append(incrCounter, leaders.Counter)
+
+								proposers := incrInfraction.MissingProposers
+								incrCounter = append(incrCounter, proposers.Counter)
+
+								voters := incrInfraction.MissingVoters
+								incrCounter = append(incrCounter, voters.Counter)
+
+								signers := incrInfraction.DoubleSigners
+								incrCounter = append(incrCounter, signers.Counter)
+
+								sbUniteHash := sb.UniteHashWithoutExtraData()
+								if _, ok := scriptBodyIds[sbUniteHash]; ok {
+									scriptBodyIds[sbUniteHash] += 1
+								} else {
+									scriptBodyIds[sbUniteHash] = 1
+								}
+
 							case staking.OP_GOVERNING:
 								rinfo := []*staking.RewardInfo{}
 								err = rlp.DecodeBytes(sb.ExtraData, &rinfo)
@@ -427,14 +453,6 @@ func (c *ConsensusReactor) validateBlockBody(blk *block.Block, forceValidate boo
 									scriptBodyIds[sbUniteHash] = 1
 								}
 							}
-
-							//rinfo := make([]*staking.RewardInfo, 0)
-							//err = rlp.DecodeBytes(sb.ExtraData, &rinfo)
-							//if err != nil {
-							//	log.Error("get rewardTx rewards info failed")
-							//	//return
-							//}
-							//fmt.Printf("rewardTx rinfo %v", rinfo)
 
 						case script.AUCTION_MODULE_ID:
 							sb, err := auction.AuctionDecodeFromBytes(scriptPayload)
@@ -555,11 +573,38 @@ func (c *ConsensusReactor) validateBlockBody(blk *block.Block, forceValidate boo
 							}
 
 							switch sb.Opcode {
-							//case staking.OP_DELEGATE_STATISTICS:
-							//	IncrInfraction, err := staking.UnpackBytesToInfraction(sb.ExtraData)
-							//	_ = IncrInfraction
-							//	_ = err
-							//	fmt.Sprintf("minerTx IncrInfraction %v", IncrInfraction)
+							case staking.OP_DELEGATE_STATISTICS:
+								incrInfraction, err := staking.UnpackBytesToInfraction(sb.ExtraData)
+								//_ = incrInfraction
+								_ = err
+								//log.Info("minerTx IncrInfraction", incrInfraction)
+
+								leaders := incrInfraction.MissingLeaders
+								if leaders.Counter != incrCounter[0] {
+									return consensusError(fmt.Sprintf("signers.Counter %v not equal incrCounter %v", leaders.Counter, incrCounter[3]))
+								}
+
+								proposers := incrInfraction.MissingProposers
+								if proposers.Counter != incrCounter[1] {
+									return consensusError(fmt.Sprintf("signers.Counter %v not equal incrCounter %v", proposers.Counter, incrCounter[3]))
+								}
+
+								voters := incrInfraction.MissingVoters
+								if voters.Counter != incrCounter[2] {
+									return consensusError(fmt.Sprintf("signers.Counter %v not equal incrCounter %v", voters.Counter, incrCounter[3]))
+								}
+
+								signers := incrInfraction.DoubleSigners
+								if signers.Counter != incrCounter[3] {
+									return consensusError(fmt.Sprintf("signers.Counter %v not equal incrCounter %v", signers.Counter, incrCounter[3]))
+								}
+
+								sbUniteHash := sb.UniteHashWithoutExtraData()
+								if _, ok := scriptBodyIds[sbUniteHash]; !ok {
+									return consensusError(fmt.Sprintf("minerTx STAKING OP_DELEGATE_STATISTICS scriptBody unavailable, sb %v", sb))
+								}
+								scriptBodyIds[sbUniteHash] -= 1
+
 							case staking.OP_GOVERNING:
 								minerTxRinfo := make([]*staking.RewardInfo, 0)
 								err = rlp.DecodeBytes(sb.ExtraData, &minerTxRinfo)
