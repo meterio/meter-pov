@@ -22,7 +22,7 @@ import (
 )
 
 const (
-	NEW_COMMITTEE_INIT_INTV = 15 * time.Second //15s
+	NEW_COMMITTEE_INIT_INTV = 30 * time.Second // 30s
 )
 
 type NCEvidence struct {
