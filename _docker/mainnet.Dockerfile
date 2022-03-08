@@ -5,9 +5,15 @@ FROM meterio/bitcoind-exporter:latest as be
 FROM ubuntu:18.04
 
 # necessary packages
-RUN apt-get -y update && apt-get install -y libssl-dev
+RUN apt-get -y update && apt-get install -y libssl-dev software-properties-common
 RUN apt-get install -y --no-install-recommends supervisor rsyslog rsyslog-relp vim-tiny && apt-get clean 
-RUN apt-get install -y --no-install-recommends build-essential gcc python3-minimal python3-dev python3-pip python3-setuptools python3-wheel && pip3 install --no-cache-dir meter-gear==1.1.4 && apt-get remove -y gcc python3-dev build-essential && apt-get clean
+RUN add-apt-repository -y ppa:deadsnakes/ppa 
+RUN apt-get install -y --no-install-recommends build-essential gcc python3.7 python3.7-dev python3-pip python3-setuptools python3-wheel 
+RUN python3.7 -m pip install --no-cache-dir pbkdf2 pycryptodome scrypt werkzeug requests aiohttp lru-dict multidict eth-keys eth_utils click
+RUN python3.7 -m pip install --no-cache-dir jsonrpcserver==4.2.0
+RUN python3.7 -m pip install --no-cache-dir rlp==0.6.0
+RUN python3.7 -m pip install --no-cache-dir websockets==10.1
+RUN python3.7 -m pip install --no-cache-dir meter-gear==1.1.4
 
 # POS settings 
 COPY --from=pos /usr/bin/meter /usr/bin/
