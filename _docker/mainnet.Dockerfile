@@ -13,7 +13,7 @@ RUN python3.7 -m pip install --no-cache-dir pbkdf2 pycryptodome scrypt werkzeug 
 RUN python3.7 -m pip install --no-cache-dir jsonrpcserver==4.2.0
 RUN python3.7 -m pip install --no-cache-dir rlp==0.6.0
 RUN python3.7 -m pip install --no-cache-dir websockets==10.1
-RUN python3.7 -m pip install --no-cache-dir meter-gear==1.1.4
+RUN python3.7 -m pip install --no-cache-dir meter-gear==1.1.7
 
 # POS settings 
 COPY --from=pos /usr/bin/meter /usr/bin/
