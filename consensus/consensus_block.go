@@ -364,7 +364,7 @@ func (c *ConsensusReactor) validateBlockBody(blk *block.Block, forceValidate boo
 			rewardTxs = c.buildRewardTxs(parentBlock, rewards, chainTag, bestNum, curEpoch, best, state)
 
 			// Decode.
-			for _, rewardTx := range rewardTxs {
+			for index, rewardTx := range rewardTxs {
 				rewardTxUniteHash := rewardTx.UniteHash()
 				if _, ok := txUniteHashes[rewardTxUniteHash]; ok {
 					txUniteHashes[rewardTxUniteHash] += 1
@@ -379,6 +379,7 @@ func (c *ConsensusReactor) validateBlockBody(blk *block.Block, forceValidate boo
 					} else {
 						txClauseIds[clauseUniteHash] = 1
 					}
+					log.Info("rewardTx index %v clause.UniteHash %v", index, clauseUniteHash)
 
 					if (clause.Value().Sign() == 0) && (len(clause.Data()) > runtime.MinScriptEngDataLen) && runtime.ScriptEngineCheck(clause.Data()) {
 						data := clause.Data()[4:]
@@ -489,7 +490,7 @@ func (c *ConsensusReactor) validateBlockBody(blk *block.Block, forceValidate boo
 		}
 	}
 
-	for _, tx := range txs {
+	for index, tx := range txs {
 		signer, err := tx.Signer()
 		if err != nil {
 			return consensusError(fmt.Sprintf("tx signer unavailable: %v", err))
@@ -522,7 +523,7 @@ func (c *ConsensusReactor) validateBlockBody(blk *block.Block, forceValidate boo
 					return consensusError(fmt.Sprintf("minerTx unavailable"))
 				}
 				txUniteHashes[txUniteHash] -= 1
-				log.Info("tx.UniteHash")
+				//log.Info("tx.UniteHash")
 
 				for _, clause := range tx.Clauses() {
 					clauseUniteHash := clause.UniteHash()
@@ -532,7 +533,7 @@ func (c *ConsensusReactor) validateBlockBody(blk *block.Block, forceValidate boo
 						return consensusError(fmt.Sprintf("minerTx clause unavailable"))
 					}
 					txClauseIds[clauseUniteHash] -= 1
-					log.Info("clause.UniteHash")
+					log.Info("minerTx index %v clause.UniteHash %v", index, clauseUniteHash)
 
 					// Decode.
 					if (clause.Value().Sign() == 0) && (len(clause.Data()) > runtime.MinScriptEngDataLen) && runtime.ScriptEngineCheck(clause.Data()) {
