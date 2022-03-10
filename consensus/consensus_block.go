@@ -379,7 +379,7 @@ func (c *ConsensusReactor) validateBlockBody(blk *block.Block, forceValidate boo
 					} else {
 						txClauseIds[clauseUniteHash] = 1
 					}
-					log.Info("rewardTx index %v clause.UniteHash %v", index, clauseUniteHash)
+					log.Info("rewardTx clause.UniteHash", "index", index, "hash", clauseUniteHash)
 
 					if (clause.Value().Sign() == 0) && (len(clause.Data()) > runtime.MinScriptEngDataLen) && runtime.ScriptEngineCheck(clause.Data()) {
 						data := clause.Data()[4:]
@@ -533,7 +533,7 @@ func (c *ConsensusReactor) validateBlockBody(blk *block.Block, forceValidate boo
 						return consensusError(fmt.Sprintf("minerTx clause unavailable"))
 					}
 					txClauseIds[clauseUniteHash] -= 1
-					log.Info("minerTx index %v clause.UniteHash %v", index, clauseUniteHash)
+					log.Info("minerTx clause.UniteHash", "index", index, "hash", clauseUniteHash)
 
 					// Decode.
 					if (clause.Value().Sign() == 0) && (len(clause.Data()) > runtime.MinScriptEngDataLen) && runtime.ScriptEngineCheck(clause.Data()) {
