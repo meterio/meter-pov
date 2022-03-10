@@ -338,7 +338,7 @@ func (c *ConsensusReactor) validateBlockBody(blk *block.Block, forceValidate boo
 	//proposersIds := make(map[meter.Bytes32]int)
 	//votersIds := make(map[meter.Bytes32]int)
 	//signersIds := make(map[meter.Bytes32]int)
-	incrCounter := make([]uint32, 0)
+	incrCounter := make([]uint32, 4)
 
 	rewardTxs := tx.Transactions{}
 
@@ -421,16 +421,16 @@ func (c *ConsensusReactor) validateBlockBody(blk *block.Block, forceValidate boo
 								//log.Info("rewardTx IncrInfraction", incrInfraction)
 
 								leaders := incrInfraction.MissingLeaders
-								incrCounter = append(incrCounter, leaders.Counter)
+								incrCounter[0] = leaders.Counter
 
 								proposers := incrInfraction.MissingProposers
-								incrCounter = append(incrCounter, proposers.Counter)
+								incrCounter[1] = proposers.Counter
 
 								voters := incrInfraction.MissingVoters
-								incrCounter = append(incrCounter, voters.Counter)
+								incrCounter[2] = voters.Counter
 
 								signers := incrInfraction.DoubleSigners
-								incrCounter = append(incrCounter, signers.Counter)
+								incrCounter[3] = signers.Counter
 
 								sbUniteHash := sb.UniteHashWithoutExtraData()
 								if _, ok := scriptBodyIds[sbUniteHash]; ok {
