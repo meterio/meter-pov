@@ -510,7 +510,8 @@ func (c *ConsensusReactor) validateBlockBody(blk *block.Block, forceValidate boo
 
 			if forceValidate {
 				log.Info("begin validateBlockBody forceValidate")
-				log.Info("tx", "ID", tx.ID())
+				txID := tx.ID()
+				log.Info("tx", "ID", txID)
 
 				// Validate.
 				txUniteHash := tx.UniteHash()
@@ -582,22 +583,22 @@ func (c *ConsensusReactor) validateBlockBody(blk *block.Block, forceValidate boo
 
 								leaders := incrInfraction.MissingLeaders
 								if leaders.Counter != incrCounter[0] {
-									return consensusError(fmt.Sprintf("signers.Counter %v not equal incrCounter %v", leaders.Counter, incrCounter[3]))
+									return consensusError(fmt.Sprintf("leaders.Counter %v not equal incrCounter %v, txID %v", leaders.Counter, incrCounter[0], txID))
 								}
 
 								proposers := incrInfraction.MissingProposers
 								if proposers.Counter != incrCounter[1] {
-									return consensusError(fmt.Sprintf("signers.Counter %v not equal incrCounter %v", proposers.Counter, incrCounter[3]))
+									return consensusError(fmt.Sprintf("proposers.Counter %v not equal incrCounter %v, txID %v", proposers.Counter, incrCounter[1], txID))
 								}
 
 								voters := incrInfraction.MissingVoters
 								if voters.Counter != incrCounter[2] {
-									return consensusError(fmt.Sprintf("signers.Counter %v not equal incrCounter %v", voters.Counter, incrCounter[3]))
+									return consensusError(fmt.Sprintf("voters.Counter %v not equal incrCounter %v, txID %v", voters.Counter, incrCounter[2], txID))
 								}
 
 								signers := incrInfraction.DoubleSigners
 								if signers.Counter != incrCounter[3] {
-									return consensusError(fmt.Sprintf("signers.Counter %v not equal incrCounter %v", signers.Counter, incrCounter[3]))
+									return consensusError(fmt.Sprintf("signers.Counter %v not equal incrCounter %v, txID %v", signers.Counter, incrCounter[3], txID))
 								}
 
 								sbUniteHash := sb.UniteHashWithoutExtraData()
