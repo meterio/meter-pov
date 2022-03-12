@@ -496,8 +496,10 @@ func (c *ConsensusReactor) validateBlockBody(blk *block.Block, forceValidate boo
 			return consensusError(fmt.Sprintf("tx signer unavailable: %v", err))
 		}
 
-		if _, err = tx.EthTxValidate(); err != nil {
-			return err
+		if forceValidate {
+			if _, err = tx.EthTxValidate(); err != nil {
+				return err
+			}
 		}
 
 		// transaction critiers:
