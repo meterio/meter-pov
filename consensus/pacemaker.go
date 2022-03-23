@@ -32,6 +32,7 @@ type PMMode uint32
 const (
 	PMModeNormal  PMMode = 1
 	PMModeCatchUp        = 2
+	PMModeObserve        = 3
 )
 
 func (m PMMode) String() string {
@@ -40,6 +41,8 @@ func (m PMMode) String() string {
 		return "Normal"
 	case PMModeCatchUp:
 		return "CatchUp"
+	case PMModeObserve:
+		return "Observe"
 	}
 	return ""
 }
@@ -766,22 +769,23 @@ func (p *Pacemaker) OnReceiveNewView(mi *consensusMsgInfo) error {
 }
 
 //Committee Leader triggers
-func (p *Pacemaker) Start(newCommittee bool, mode PMMode) {
+func (p *Pacemaker) Start(mode PMMode) {
 	p.mode = mode
-	p.newCommittee = newCommittee
 	p.reset()
 	p.csReactor.chain.UpdateBestQC(nil, chain.None)
 	p.csReactor.chain.UpdateLeafBlock()
 
 	bestQC := p.csReactor.chain.BestQC()
+	bestBlock := p.csReactor.chain.BestBlock()
 
+	freshCommittee := bestBlock.Header().BlockType() == block.BLOCK_TYPE_K_BLOCK
 	height := bestQC.QCHeight
 	round := uint32(0)
-	if newCommittee == false {
+	if freshCommittee == false {
 		round = bestQC.QCRound
 	}
 
-	p.logger.Info(fmt.Sprintf("*** Pacemaker start at height %v, round %v", height, round), "qc", bestQC.CompactString(), "newCommittee", newCommittee, "mode", mode.String())
+	p.logger.Info(fmt.Sprintf("*** Pacemaker start at height %v, round %v", height, round), "qc", bestQC.CompactString(), "freshCommittee", freshCommittee, "mode", mode.String())
 	p.startHeight = height
 	p.startRound = round
 
@@ -819,15 +823,17 @@ func (p *Pacemaker) Start(newCommittee bool, mode PMMode) {
 
 	p.stopped = false
 	pmRunningGauge.Set(1)
-
 	if p.mainLoopStarted == false {
 		go p.mainLoop()
 	}
 
-	if p.mode == PMModeNormal {
+	switch p.mode {
+	case PMModeNormal:
 		p.ScheduleOnBeat(height+1, round, BeatOnInit, 1*time.Second) //delay 1s
-	} else {
+	case PMModeCatchUp:
 		p.SendCatchUpQuery()
+	case PMModeObserve:
+		// do nothing
 	}
 }
 
@@ -890,13 +896,17 @@ func (p *Pacemaker) mainLoop() {
 			case PMCmdRestart:
 				p.stopCleanup()
 				p.logger.Info("--- Pacemaker stopped successfully, restart now")
-				p.Start(false, si.mode)
+				p.Start(si.mode)
 			}
 		case ti := <-p.roundTimeoutCh:
 			p.OnRoundTimeout(ti)
 		case b := <-p.beatCh:
 			err = p.OnBeat(b.height, b.round, b.reason)
 		case m := <-p.pacemakerMsgCh:
+			// if in observe mode, ignore any incoming message
+			if p.mode == PMModeObserve {
+				continue
+			}
 			if m.Msg.EpochID() != p.csReactor.curEpoch {
 				p.logger.Info("receives message w/ mismatched epoch ID", "epoch", m.Msg.EpochID(), "myEpoch", p.csReactor.curEpoch, "type", getConcreteName(m.Msg))
 				break
@@ -942,6 +952,15 @@ func (p *Pacemaker) mainLoop() {
 			p.logger.Warn("Interrupt by user, exit now")
 			p.mainLoopStarted = false
 			return
+		case <-p.csReactor.RcvKBlockInfoQueue:
+			p.stopCleanup()
+			p.csReactor.PrepareEnvForPacemaker()
+			if p.csReactor.inCommittee {
+				p.Restart(PMModeNormal)
+			} else {
+				p.Restart(PMModeObserve)
+			}
+
 		}
 	}
 }

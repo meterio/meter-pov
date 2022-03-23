@@ -209,7 +209,7 @@ func (cl *ConsensusLeader) GenerateAnnounceMsg(height uint32, round uint32) bool
 			// Aggregate signature here
 			cl.announceSigAggregator.Aggregate()
 			// cl.announceVoterAggSig = cl.csReactor.csCommon.AggregateSign(cl.announceVoterSig)
-			cl.csReactor.UpdateActualCommittee(cl.csReactor.curCommitteeIndex, cl.csReactor.config)
+			cl.csReactor.UpdateActualCommittee(cl.csReactor.curCommitteeIndex)
 
 			//send out announce notary
 			// cl.state = COMMITTEE_LEADER_NOTARYSENT
@@ -386,8 +386,8 @@ Myself is Leader, Let's start the pacemaker.
 	cl.csReactor.NewCommitteeCleanup()
 
 	// Now start the pacemaker
-	newCommittee := !cl.replay
-	err := cl.csReactor.startPacemaker(newCommittee, PMModeNormal)
+	// newCommittee := !cl.replay
+	err := cl.csReactor.startPacemaker(PMModeNormal)
 	if err != nil {
 		cl.csReactor.logger.Error("error start pacemaker", "err", err)
 	}
