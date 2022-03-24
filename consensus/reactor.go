@@ -256,8 +256,17 @@ func (conR *ConsensusReactor) OnStart() error {
 
 	// force to receive nonce
 	//conR.ConsensusHandleReceivedNonce(0, 1001)
+	communicator := comm.GetGlobCommInst()
+	if communicator == nil {
+		conR.logger.Error("get communicator instance failed ...")
+		return errors.New("could not get communicator")
+	}
+	select {
+	case <-communicator.Synced():
+		conR.logger.Info("Consensus started ... ", "curHeight", conR.curHeight)
+		conR.SwitchToConsensus()
+	}
 
-	conR.logger.Info("Consensus started ... ", "curHeight", conR.curHeight)
 	return nil
 }
 
@@ -1251,6 +1260,7 @@ func (conR *ConsensusReactor) PrepareEnvForPacemaker() error {
 	conR.inCommittee = inCommittee
 
 	conR.updateCurEpoch(epoch)
+	conR.UpdateActualCommittee(0)
 
 	if inCommittee {
 		conR.logger.Info("I am in committee!!!")
