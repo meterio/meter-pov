@@ -46,6 +46,10 @@ func (ab *AuctionBody) ToString() string {
 		ab.Opcode, ab.Version, ab.Option, ab.StartHeight, ab.StartEpoch, ab.EndHeight, ab.EndEpoch, ab.Sequence, ab.AuctionID.AbbrevString(), ab.Bidder.String(), ab.Amount.String(), ab.ReserveAmount.String(), ab.Token, ab.Timestamp, ab.Nonce)
 }
 
+func (sb *AuctionBody) String() string {
+	return sb.ToString()
+}
+
 func (ab *AuctionBody) GetOpName(op uint32) string {
 	switch op {
 	case OP_START:
@@ -257,5 +261,37 @@ func (ab *AuctionBody) HandleAuctionTx(env *AuctionEnv, gas uint64) (leftOverGas
 	}
 
 	Auction.SetAuctionCB(auctionCB, state)
+	return
+}
+
+func (sb *AuctionBody) UniteHash() (hash meter.Bytes32) {
+	//if cached := c.cache.signingHash.Load(); cached != nil {
+	//	return cached.(meter.Bytes32)
+	//}
+	//defer func() { c.cache.signingHash.Store(hash) }()
+
+	hw := meter.NewBlake2b()
+	err := rlp.Encode(hw, []interface{}{
+		sb.Opcode,
+		sb.Version,
+		sb.Option,
+		sb.StartHeight,
+		sb.StartEpoch,
+		sb.EndHeight,
+		sb.EndEpoch,
+		sb.Sequence,
+		sb.AuctionID,
+		sb.Bidder,
+		sb.Amount,
+		sb.ReserveAmount,
+		sb.Token,
+		//sb.Timestamp,
+		//sb.Nonce,
+	})
+	if err != nil {
+		return
+	}
+
+	hw.Sum(hash[:0])
 	return
 }

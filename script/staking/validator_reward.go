@@ -8,6 +8,7 @@ package staking
 import (
 	"errors"
 	"fmt"
+	"github.com/ethereum/go-ethereum/rlp"
 	"math/big"
 	"strings"
 
@@ -22,6 +23,37 @@ const (
 type RewardInfo struct {
 	Address meter.Address
 	Amount  *big.Int
+}
+
+func (sb *RewardInfo) UniteHash() (hash meter.Bytes32) {
+	//if cached := c.cache.signingHash.Load(); cached != nil {
+	//	return cached.(meter.Bytes32)
+	//}
+	//defer func() { c.cache.signingHash.Store(hash) }()
+
+	hw := meter.NewBlake2b()
+	err := rlp.Encode(hw, []interface{}{
+		sb.Address,
+		sb.Amount,
+	})
+	if err != nil {
+		return
+	}
+
+	hw.Sum(hash[:0])
+	return
+}
+
+func (ri *RewardInfo) String() string {
+	return ri.ToString()
+}
+
+func (ri *RewardInfo) ToString() string {
+	return fmt.Sprintf(`RewardInfo {
+	Address=%v,
+	Amount=%v
+}`,
+		ri.Address, ri.Amount)
 }
 
 type ValidatorReward struct {

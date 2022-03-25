@@ -16,13 +16,13 @@ import (
 	"time"
 
 	"github.com/btcsuite/btcd/rpcclient"
+	"github.com/ethereum/go-ethereum/event"
 	"github.com/meterio/meter-pov/block"
 	"github.com/meterio/meter-pov/builtin"
 	"github.com/meterio/meter-pov/chain"
 	"github.com/meterio/meter-pov/co"
 	"github.com/meterio/meter-pov/meter"
 	"github.com/meterio/meter-pov/state"
-	"github.com/ethereum/go-ethereum/event"
 	"github.com/prometheus/client_golang/prometheus"
 )
 
@@ -235,6 +235,7 @@ func (p *PowPool) Remove(powID meter.Bytes32) bool {
 
 func (p *PowPool) Wash() error {
 	p.all.Flush()
+	log.Info("PowPool Wash!")
 	return nil
 }
 
@@ -288,6 +289,29 @@ func (p *PowPool) GetPowDecision() (bool, *PowResult) {
 		return true, mostDifficaultResult
 	}
 }
+
+func (p *PowPool) VerifyNPowBlockPerEpoch() bool {
+	// cases can not be decided
+	if !p.all.isKframeInitialAdded() {
+		log.Info("GetPowDecision false: kframe is not initially added")
+		return true
+	}
+
+	latestHeight := p.all.GetLatestHeight()
+	lastKframeHeight := p.all.lastKframePowObj.Height()
+	if latestHeight == 0 || lastKframeHeight == 0 {
+		return true
+	}
+
+	if (latestHeight < lastKframeHeight) ||
+		((latestHeight - lastKframeHeight) < meter.NPowBlockPerEpoch) {
+		log.Info("GetPowDecision false", "latestHeight", latestHeight, "lastKframeHeight", lastKframeHeight)
+		return false
+	}
+
+	return true
+}
+
 
 // func (p *PowPool) FetchPowBlock(heights ...uint32) error {
 // 	host := fmt.Sprintf("%v:%v", p.options.Node, p.options.Port)

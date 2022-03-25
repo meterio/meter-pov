@@ -12,7 +12,10 @@ package consensus
 
 import (
 	"bytes"
+	"encoding/hex"
 	"fmt"
+	"github.com/ethereum/go-ethereum/rlp"
+	"github.com/inconshreveable/log15"
 	"math/big"
 	"time"
 
@@ -32,12 +35,17 @@ import (
 	"github.com/meterio/meter-pov/reward"
 	"github.com/meterio/meter-pov/runtime"
 	"github.com/meterio/meter-pov/script"
+	"github.com/meterio/meter-pov/script/accountlock"
+	"github.com/meterio/meter-pov/script/auction"
+	"github.com/meterio/meter-pov/script/staking"
 	"github.com/meterio/meter-pov/state"
 	"github.com/meterio/meter-pov/tx"
 	"github.com/meterio/meter-pov/txpool"
 	"github.com/meterio/meter-pov/types"
 	"github.com/meterio/meter-pov/xenv"
 )
+
+var log = log15.New("pkg", "consensus")
 
 // Process process a block.
 func (c *ConsensusReactor) Process(blk *block.Block, nowTimestamp uint64) (*state.Stage, tx.Receipts, error) {
@@ -69,7 +77,7 @@ func (c *ConsensusReactor) Process(blk *block.Block, nowTimestamp uint64) (*stat
 		return nil, nil, err
 	}
 
-	stage, receipts, err := c.validate(state, blk, parentHeader, nowTimestamp)
+	stage, receipts, err := c.validate(state, blk, parentHeader, nowTimestamp, false)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -97,7 +105,7 @@ func (c *ConsensusReactor) ProcessProposedBlock(parentHeader *block.Header, blk 
 		return nil, nil, err
 	}
 
-	stage, receipts, err := c.validate(state, blk, parentHeader, nowTimestamp)
+	stage, receipts, err := c.validate(state, blk, parentHeader, nowTimestamp, true)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -155,6 +163,7 @@ func (c *ConsensusReactor) validate(
 	block *block.Block,
 	parentHeader *block.Header,
 	nowTimestamp uint64,
+	forceValidate bool,
 ) (*state.Stage, tx.Receipts, error) {
 	header := block.Header()
 
@@ -172,7 +181,7 @@ func (c *ConsensusReactor) validate(
 		return nil, nil, err
 	}
 
-	if err := c.validateBlockBody(block); err != nil {
+	if err := c.validateBlockBody(block, forceValidate); err != nil {
 		return nil, nil, err
 	}
 
@@ -309,7 +318,7 @@ func (c *ConsensusReactor) validateProposer(header *block.Header, parent *block.
 	return nil
 }
 
-func (c *ConsensusReactor) validateBlockBody(blk *block.Block) error {
+func (c *ConsensusReactor) validateBlockBody(blk *block.Block, forceValidate bool) error {
 	header := blk.Header()
 	txs := blk.Transactions()
 	if header.TxsRoot() != txs.RootHash() {
@@ -319,10 +328,147 @@ func (c *ConsensusReactor) validateBlockBody(blk *block.Block) error {
 		return consensusError(fmt.Sprintf("block magic mismatch, has %v, expect %v", blk.GetMagic(), block.BlockMagicVersion1))
 	}
 
-	for _, tx := range txs {
+	txUniteHashes := make(map[meter.Bytes32]int)
+	txClauseIds := make(map[meter.Bytes32]int)
+	scriptHeaderIds := make(map[meter.Bytes32]int)
+	scriptBodyIds := make(map[meter.Bytes32]int)
+	rinfoIds := make(map[meter.Bytes32]int)
+
+	rewardTxs := tx.Transactions{}
+
+	if blk.Header().BlockType() == block.BLOCK_TYPE_K_BLOCK {
+		parentBlock, err := c.chain.GetBlock(header.ParentID())
+		if err != nil {
+			panic("get parentBlock failed")
+		}
+		best := parentBlock
+		chainTag := c.chain.Tag()
+		bestNum := c.chain.BestBlock().Header().Number()
+		curEpoch := uint32(c.curEpoch)
+		// distribute the base reward
+		state, err := c.stateCreator.NewState(c.chain.BestBlock().Header().StateRoot())
+		if err != nil {
+			panic("get state failed")
+		}
+
+		proposalKBlock, powResults := powpool.GetGlobPowPoolInst().GetPowDecision()
+		if proposalKBlock && forceValidate {
+			rewards := powResults.Rewards
+			// Build.
+			rewardTxs = c.buildRewardTxs(parentBlock, rewards, chainTag, bestNum, curEpoch, best, state)
+
+			// Decode.
+			for index, rewardTx := range rewardTxs {
+				rewardTxUniteHash := rewardTx.UniteHash()
+				if _, ok := txUniteHashes[rewardTxUniteHash]; ok {
+					txUniteHashes[rewardTxUniteHash] += 1
+				} else {
+					txUniteHashes[rewardTxUniteHash] = 1
+				}
+
+				for _, clause := range rewardTx.Clauses() {
+					clauseUniteHash := clause.UniteHash()
+					if _, ok := txClauseIds[clauseUniteHash]; ok {
+						txClauseIds[clauseUniteHash] += 1
+					} else {
+						txClauseIds[clauseUniteHash] = 1
+					}
+					log.Info("rewardTx clause.UniteHash", "index", index, "hash", clauseUniteHash)
+
+					if (clause.Value().Sign() == 0) && (len(clause.Data()) > runtime.MinScriptEngDataLen) && runtime.ScriptEngineCheck(clause.Data()) {
+						data := clause.Data()[4:]
+						if bytes.Compare(data[:len(script.ScriptPattern)], script.ScriptPattern[:]) != 0 {
+							err := fmt.Errorf("Pattern mismatch, pattern = %v", hex.EncodeToString(data[:len(script.ScriptPattern)]))
+							fmt.Println(err)
+							//return nil, gas, err
+						}
+						scriptStruct, err := script.ScriptDecodeFromBytes(data[len(script.ScriptPattern):])
+						if err != nil {
+							fmt.Println("Decode script message failed", err)
+							//return nil, gas, err
+						}
+
+						scriptHeader := scriptStruct.Header
+						scriptHeaderUniteHash := scriptHeader.UniteHash()
+						if _, ok := scriptHeaderIds[scriptHeaderUniteHash]; ok {
+							scriptHeaderIds[scriptHeaderUniteHash] += 1
+						} else {
+							scriptHeaderIds[scriptHeaderUniteHash] = 1
+						}
+						scriptPayload := scriptStruct.Payload
+
+						switch scriptHeader.ModID {
+						case script.STAKING_MODULE_ID:
+
+							sb, err := staking.StakingDecodeFromBytes(scriptPayload)
+							if err != nil {
+								log.Error("Decode StakingDecodeFromBytes script message failed", "error", err)
+								//return nil, gas, err
+							}
+							log.Info(fmt.Sprintf("rewardTx STAKING sb %v", sb))
+
+							switch sb.Opcode {
+							case staking.OP_GOVERNING:
+								rinfo := []*staking.RewardInfo{}
+								err = rlp.DecodeBytes(sb.ExtraData, &rinfo)
+								log.Info("rewardTx rinfo")
+								for _, d := range rinfo {
+									rinfoIds[d.UniteHash()] = 1
+								}
+							default:
+								sbUniteHash := sb.UniteHash()
+								if _, ok := scriptBodyIds[sbUniteHash]; ok {
+									scriptBodyIds[sbUniteHash] += 1
+								} else {
+									scriptBodyIds[sbUniteHash] = 1
+								}
+							}
+
+						case script.AUCTION_MODULE_ID:
+							sb, err := auction.AuctionDecodeFromBytes(scriptPayload)
+							if err != nil {
+								log.Error("Decode AUCTION_MODULE_ID script message failed", "error", err)
+								//return nil, gas, err
+							}
+							log.Info(fmt.Sprintf("rewardTx AUCTION sb %v", sb))
+
+							sbUniteHash := sb.UniteHash()
+							if _, ok := scriptBodyIds[sbUniteHash]; ok {
+								scriptBodyIds[sbUniteHash] += 1
+							} else {
+								scriptBodyIds[sbUniteHash] = 1
+							}
+						case script.ACCOUNTLOCK_MODULE_ID:
+							sb, err := accountlock.AccountLockDecodeFromBytes(scriptPayload)
+							if err != nil {
+								log.Error("Decode ACCOUNTLOCK_MODULE_ID script message failed", "error", err)
+								//return nil, gas, err
+							}
+							log.Info(fmt.Sprintf("rewardTx ACCOUNTLOCK sb %v", sb))
+
+							sbUniteHash := sb.UniteHash()
+							if _, ok := scriptBodyIds[sbUniteHash]; ok {
+								scriptBodyIds[sbUniteHash] += 1
+							} else {
+								scriptBodyIds[sbUniteHash] = 1
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+
+	for index, tx := range txs {
 		signer, err := tx.Signer()
 		if err != nil {
 			return consensusError(fmt.Sprintf("tx signer unavailable: %v", err))
+		}
+
+		if forceValidate {
+			if _, err = tx.EthTxValidate(); err != nil {
+				return err
+			}
 		}
 
 		// transaction critiers:
@@ -331,6 +477,137 @@ func (c *ConsensusReactor) validateBlockBody(blk *block.Block) error {
 		if signer.IsZero() {
 			if blk.Header().BlockType() != block.BLOCK_TYPE_K_BLOCK {
 				return consensusError(fmt.Sprintf("tx signer unavailable"))
+			}
+
+			if forceValidate {
+				log.Info("begin validateBlockBody forceValidate")
+				txID := tx.ID()
+				log.Info("tx", "ID", txID)
+
+				// Validate.
+				txUniteHash := tx.UniteHash()
+				if _, ok := txUniteHashes[txUniteHash]; !ok {
+					for index, rewardTx := range rewardTxs {
+						log.Info(fmt.Sprintf("rewardTx-tx %v not unavailable, %v", index, rewardTx))
+					}
+					log.Error(fmt.Sprintf("tx-rewardTx unavailable, %v", tx))
+
+					return consensusError(fmt.Sprintf("minerTx unavailable"))
+				}
+				txUniteHashes[txUniteHash] -= 1
+				//log.Info("tx.UniteHash")
+
+				for _, clause := range tx.Clauses() {
+					clauseUniteHash := clause.UniteHash()
+
+					//txClauseIds[clause.UniteHash()] = true
+					if _, ok := txClauseIds[clauseUniteHash]; !ok {
+						return consensusError(fmt.Sprintf("minerTx clause unavailable"))
+					}
+					txClauseIds[clauseUniteHash] -= 1
+					log.Info("minerTx clause.UniteHash", "index", index, "hash", clauseUniteHash)
+
+					// Decode.
+					if (clause.Value().Sign() == 0) && (len(clause.Data()) > runtime.MinScriptEngDataLen) && runtime.ScriptEngineCheck(clause.Data()) {
+						data := clause.Data()[4:]
+						if bytes.Compare(data[:len(script.ScriptPattern)], script.ScriptPattern[:]) != 0 {
+							err := fmt.Errorf("Pattern mismatch, pattern = %v", hex.EncodeToString(data[:len(script.ScriptPattern)]))
+							return consensusError(err.Error())
+						}
+
+						scriptStruct, err := script.ScriptDecodeFromBytes(data[len(script.ScriptPattern):])
+						if err != nil {
+							fmt.Println("Decode script message failed", err)
+							return consensusError(err.Error())
+						}
+
+						scriptHeader := scriptStruct.Header
+
+						//se := script.GetScriptGlobInst()
+						//if se == nil {
+						//	fmt.Println("script engine is not initialized")
+						//return nil, true
+						//}
+						//_ = scriptHeader
+						scriptHeaderUniteHash := scriptHeader.UniteHash()
+						if _, ok := scriptHeaderIds[scriptHeaderUniteHash]; !ok {
+							return consensusError(fmt.Sprintf("minerTx scriptHeader unavailable"))
+						}
+						scriptHeaderIds[scriptHeaderUniteHash] -= 1
+						log.Info("minerTx scriptHeader.UniteHash OK")
+
+						scriptPayload := scriptStruct.Payload
+						switch scriptHeader.ModID {
+						case script.STAKING_MODULE_ID:
+							sb, err := staking.StakingDecodeFromBytes(scriptPayload)
+							if err != nil {
+								log.Error("Decode script message failed", "error", err)
+								//return nil, gas, err
+							}
+
+							switch sb.Opcode {
+							case staking.OP_GOVERNING:
+								minerTxRinfo := make([]*staking.RewardInfo, 0)
+								err = rlp.DecodeBytes(sb.ExtraData, &minerTxRinfo)
+
+								//reflect.DeepEqual(rinfo, txRinfo)
+
+								fmt.Sprintf("minerTx rinfo")
+								for _, d := range minerTxRinfo {
+									//fmt.Println(d.String())
+
+									dUniteHash := d.UniteHash()
+									if _, ok := rinfoIds[dUniteHash]; !ok {
+										return consensusError(fmt.Sprintf("d.Address %v not exists", d.Address))
+									}
+									rinfoIds[dUniteHash] -= 1
+
+									//if d.Amount.Cmp(rinfoIds[d.Address]) != 0 {
+									//	return consensusError(fmt.Sprintf("d.Address %v amount %v not correct", d.Address, d.Amount))
+									//}
+								}
+							default:
+								sbUniteHash := sb.UniteHash()
+								if _, ok := scriptBodyIds[sbUniteHash]; !ok {
+									return consensusError(fmt.Sprintf("minerTx STAKING scriptBody unavailable, sb %v", sb))
+								}
+								scriptBodyIds[sbUniteHash] -= 1
+							}
+
+							log.Info("minerTx STAKING_MODULE, but not sb.UniteHash OK")
+						case script.AUCTION_MODULE_ID:
+							sb, err := auction.AuctionDecodeFromBytes(scriptPayload)
+							if err != nil {
+								log.Error("Decode script message failed", "error", err)
+								return consensusError(err.Error())
+							}
+							//_ = ab
+							//scriptBodyIds[ab.UniteHash()] = true
+							sbUniteHash := sb.UniteHash()
+							if _, ok := scriptBodyIds[sbUniteHash]; !ok {
+								return consensusError(fmt.Sprintf("minerTx AUCTION scriptBody unavailable, sb %v", sb))
+							}
+							scriptBodyIds[sbUniteHash] -= 1
+							log.Info("minerTx AUCTION_MODULE_ID sb.UniteHash OK")
+						case script.ACCOUNTLOCK_MODULE_ID:
+							sb, err := accountlock.AccountLockDecodeFromBytes(scriptPayload)
+							if err != nil {
+								log.Error("Decode script message failed", "error", err)
+								return consensusError(err.Error())
+							}
+							//_ = ab
+							//scriptBodyIds[ab.UniteHash()] = true
+							sbUniteHash := sb.UniteHash()
+							if _, ok := scriptBodyIds[sbUniteHash]; !ok {
+								return consensusError(fmt.Sprintf("minerTx ACCOUNTLOCK scriptBody unavailable, %v", sb))
+							}
+							scriptBodyIds[sbUniteHash] -= 1
+							log.Info("minerTx ACCOUNTLOCK_MODULE_ID sb.UniteHash OK")
+						}
+					}
+				}
+
+				log.Info("end validateBlockBody forceValidate")
 			}
 		}
 
@@ -343,6 +620,46 @@ func (c *ConsensusReactor) validateBlockBody(blk *block.Block) error {
 			return consensusError(fmt.Sprintf("tx expired: ref %v, current %v, expiration %v", tx.BlockRef().Number(), header.Number(), tx.Expiration()))
 			// case tx.HasReservedFields():
 			// return consensusError(fmt.Sprintf("tx reserved fields not empty"))
+		}
+	}
+
+	if len(txUniteHashes) != 0 {
+		for key, value := range txUniteHashes {
+			if value != 0 {
+				return consensusError(fmt.Sprintf("txUniteHashes not equal %v %v", key, value))
+			}
+		}
+	}
+
+	if len(txClauseIds) != 0 {
+		for key, value := range txClauseIds {
+			if value < 0 {
+				return consensusError(fmt.Sprintf("txClauseIds not equal %v %v", key, value))
+			}
+		}
+	}
+
+	if len(scriptHeaderIds) != 0 {
+		for key, value := range scriptHeaderIds {
+			if value != 0 {
+				return consensusError(fmt.Sprintf("scriptHeaderIds not equal %v %v", key, value))
+			}
+		}
+	}
+
+	if len(scriptBodyIds) != 0 {
+		for key, value := range scriptBodyIds {
+			if value != 0 {
+				return consensusError(fmt.Sprintf("scriptBodyIds not equal %v %v", key, value))
+			}
+		}
+	}
+
+	if len(rinfoIds) != 0 {
+		for key, value := range rinfoIds {
+			if value != 0 {
+				return consensusError(fmt.Sprintf("rinfoIds not equal %v %v", key, value))
+			}
 		}
 	}
 
@@ -380,6 +697,12 @@ func (c *ConsensusReactor) verifyBlock(blk *block.Block, state *state.State) (*s
 			return false, false, err
 		}
 		return true, meta.Reverted, nil
+	}
+
+	if blk.Header().BlockType() == block.BLOCK_TYPE_K_BLOCK {
+		if err := c.verifyKBlock(); err != nil {
+			return nil, nil, err
+		}
 	}
 
 	for _, tx := range txs {
@@ -454,6 +777,15 @@ func (c *ConsensusReactor) verifyBlock(blk *block.Block, state *state.State) (*s
 	}
 
 	return stage, receipts, nil
+}
+
+func (c *ConsensusReactor) verifyKBlock() error {
+	p := powpool.GetGlobPowPoolInst()
+	if !p.VerifyNPowBlockPerEpoch() {
+		return errors.New("NPowBlockPerEpoch err")
+	}
+
+	return nil
 }
 
 //-----------------------------------------------------------
@@ -667,6 +999,68 @@ func (conR *ConsensusReactor) BuildKBlock(parentBlock *block.Block, data *block.
 		panic("get state failed")
 	}
 
+	txs := conR.buildRewardTxs(parentBlock, rewards, chainTag, bestNum, curEpoch, best, state)
+
+	pool := txpool.GetGlobTxPoolInst()
+	if pool == nil {
+		conR.logger.Error("get tx pool failed ...")
+		panic("get tx pool failed ...")
+		return nil
+	}
+	txsToRemoved := func() bool {
+		return true
+	}
+	txsToReturned := func() bool {
+		return true
+	}
+
+	p := packer.GetGlobPackerInst()
+	if p == nil {
+		conR.logger.Warn("get packer failed ...")
+		panic("get packer failed")
+		return nil
+	}
+
+	candAddr := conR.curCommittee.Validators[conR.curCommitteeIndex].Address
+	gasLimit := p.GasLimit(best.Header().GasLimit())
+	flow, err := p.Mock(best.Header(), now, gasLimit, &candAddr)
+	if err != nil {
+		conR.logger.Warn("mock packer", "error", err)
+		return nil
+	}
+
+	//create checkPoint before build block
+	checkPoint := state.NewCheckpoint()
+
+	for _, tx := range txs {
+		if err := flow.Adopt(tx); err != nil {
+			if packer.IsGasLimitReached(err) {
+				conR.logger.Warn("tx thrown away due to gas limit", "txid", tx.ID())
+				break
+			}
+			if packer.IsTxNotAdoptableNow(err) {
+				conR.logger.Warn("tx not adoptable", "txid", tx.ID())
+				continue
+			}
+		}
+	}
+
+	newBlock, stage, receipts, err := flow.Pack(&conR.myPrivKey, block.BLOCK_TYPE_K_BLOCK, conR.lastKBlockHeight)
+	if err != nil {
+		conR.logger.Error("build block failed...", "error", err)
+		return nil
+	}
+
+	//serialize KBlockData
+	newBlock.SetKBlockData(*data)
+	newBlock.SetMagic(block.BlockMagicVersion1)
+
+	execElapsed := mclock.Now() - startTime
+	conR.logger.Info("KBlock built", "height", conR.curHeight, "elapseTime", execElapsed)
+	return &ProposedBlockInfo{newBlock, stage, &receipts, txsToRemoved, txsToReturned, checkPoint, KBlockType}
+}
+
+func (conR *ConsensusReactor) buildRewardTxs(parentBlock *block.Block, rewards []powpool.PowReward, chainTag byte, bestNum uint32, curEpoch uint32, best *block.Block, state *state.State) tx.Transactions {
 	// build miner meter reward
 	txs := reward.BuildMinerRewardTxs(rewards, chainTag, bestNum)
 	lastKBlockHeight := parentBlock.Header().LastKBlockHeight()
@@ -758,64 +1152,7 @@ func (conR *ConsensusReactor) BuildKBlock(parentBlock *block.Block, data *block.
 		txs = append(txs, tx)
 		conR.logger.Info("account lock tx appended", "txid", tx.ID())
 	}
-
-	pool := txpool.GetGlobTxPoolInst()
-	if pool == nil {
-		conR.logger.Error("get tx pool failed ...")
-		panic("get tx pool failed ...")
-		return nil
-	}
-	txsToRemoved := func() bool {
-		return true
-	}
-	txsToReturned := func() bool {
-		return true
-	}
-
-	p := packer.GetGlobPackerInst()
-	if p == nil {
-		conR.logger.Warn("get packer failed ...")
-		panic("get packer failed")
-		return nil
-	}
-
-	candAddr := conR.curCommittee.Validators[conR.curCommitteeIndex].Address
-	gasLimit := p.GasLimit(best.Header().GasLimit())
-	flow, err := p.Mock(best.Header(), now, gasLimit, &candAddr)
-	if err != nil {
-		conR.logger.Warn("mock packer", "error", err)
-		return nil
-	}
-
-	//create checkPoint before build block
-	checkPoint := state.NewCheckpoint()
-
-	for _, tx := range txs {
-		if err := flow.Adopt(tx); err != nil {
-			if packer.IsGasLimitReached(err) {
-				conR.logger.Warn("tx thrown away due to gas limit", "txid", tx.ID())
-				break
-			}
-			if packer.IsTxNotAdoptableNow(err) {
-				conR.logger.Warn("tx not adoptable", "txid", tx.ID())
-				continue
-			}
-		}
-	}
-
-	newBlock, stage, receipts, err := flow.Pack(&conR.myPrivKey, block.BLOCK_TYPE_K_BLOCK, conR.lastKBlockHeight)
-	if err != nil {
-		conR.logger.Error("build block failed...", "error", err)
-		return nil
-	}
-
-	//serialize KBlockData
-	newBlock.SetKBlockData(*data)
-	newBlock.SetMagic(block.BlockMagicVersion1)
-
-	execElapsed := mclock.Now() - startTime
-	conR.logger.Info("KBlock built", "height", conR.curHeight, "elapseTime", execElapsed)
-	return &ProposedBlockInfo{newBlock, stage, &receipts, txsToRemoved, txsToReturned, checkPoint, KBlockType}
+	return txs
 }
 
 func (conR *ConsensusReactor) BuildStopCommitteeBlock(parentBlock *block.Block) *ProposedBlockInfo {

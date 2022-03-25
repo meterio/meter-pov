@@ -36,7 +36,7 @@ var (
 	energyTransferEvent     *abi.Event
 	prototypeSetMasterEvent *abi.Event
 	nativeCallReturnGas     uint64 = 1562 // see test case for calculation
-	minScriptEngDataLen     int    = 16   //script engine data min size
+	MinScriptEngDataLen     int    = 16   //script engine data min size
 
 	EmptyRuntimeBytecode = []byte{0x60, 0x60, 0x60, 0x40, 0x52, 0x60, 0x02, 0x56}
 )
@@ -149,6 +149,10 @@ func (rt *Runtime) Seeker() *chain.Seeker       { return rt.seeker }
 func (rt *Runtime) State() *state.State         { return rt.state }
 func (rt *Runtime) Context() *xenv.BlockContext { return rt.ctx }
 func (rt *Runtime) ScriptEngineCheck(d []byte) bool {
+	return ScriptEngineCheck(d)
+}
+
+func ScriptEngineCheck(d []byte) bool {
 	return (d[0] == 0xff) && (d[1] == 0xff) && (d[2] == 0xff) && (d[3] == 0xff)
 }
 
@@ -480,7 +484,7 @@ func (rt *Runtime) PrepareClause(
 
 	exec = func() (*Output, bool) {
 		// does not handle any transfer, it is a pure script running engine
-		if (clause.Value().Sign() == 0) && (len(clause.Data()) > minScriptEngDataLen) && rt.ScriptEngineCheck(clause.Data()) {
+		if (clause.Value().Sign() == 0) && (len(clause.Data()) > MinScriptEngDataLen) && rt.ScriptEngineCheck(clause.Data()) {
 			se := script.GetScriptGlobInst()
 			if se == nil {
 				fmt.Println("script engine is not initialized")

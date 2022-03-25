@@ -114,6 +114,10 @@ func (sb *StakingBody) ToString() string {
 		sb.Opcode, sb.Version, sb.Option, sb.HolderAddr.String(), sb.CandAddr.String(), string(sb.CandName), string(sb.CandDescription), string(sb.CandPubKey), string(sb.CandIP), sb.CandPort, sb.StakingID, sb.Amount, sb.Token, sb.Autobid, sb.Nonce, sb.Timestamp, sb.ExtraData)
 }
 
+func (sb *StakingBody) String() string {
+	return sb.ToString()
+}
+
 func (sb *StakingBody) BoundHandler(env *StakingEnv, gas uint64) (leftOverGas uint64, err error) {
 	var ret []byte
 	defer func() {
@@ -1232,5 +1236,73 @@ func (sb *StakingBody) BucketUpdateHandler(env *StakingEnv, gas uint64) (leftOve
 
 	staking.SetBucketList(bucketList, state)
 	staking.SetCandidateList(candidateList, state)
+	return
+}
+
+func (sb *StakingBody) UniteHash() (hash meter.Bytes32) {
+	//if cached := c.cache.signingHash.Load(); cached != nil {
+	//	return cached.(meter.Bytes32)
+	//}
+	//defer func() { c.cache.signingHash.Store(hash) }()
+
+	hw := meter.NewBlake2b()
+	err := rlp.Encode(hw, []interface{}{
+		sb.Opcode,
+		sb.Version,
+		sb.Option,
+		sb.HolderAddr,
+		sb.CandAddr,
+		sb.CandName,
+		sb.CandDescription,
+		sb.CandPubKey,
+		sb.CandIP,
+		sb.CandPort,
+		sb.StakingID,
+		sb.Amount,
+		sb.Token,
+		sb.Autobid,
+		//sb.Timestamp,
+		//sb.Nonce,
+		sb.ExtraData,
+	})
+	if err != nil {
+		return
+	}
+
+	hw.Sum(hash[:0])
+	return
+}
+
+func (sb *StakingBody) UniteHashWithoutExtraData() (hash meter.Bytes32) {
+	//if cached := c.cache.signingHash.Load(); cached != nil {
+	//	return cached.(meter.Bytes32)
+	//}
+	//defer func() { c.cache.signingHash.Store(hash) }()
+
+	hw := meter.NewBlake2b()
+	err := rlp.Encode(hw, []interface{}{
+		sb.Opcode,
+		sb.Version,
+		sb.Option,
+		sb.HolderAddr,
+		sb.CandAddr,
+		sb.CandName,
+		sb.CandDescription,
+		sb.CandPubKey,
+		sb.CandIP,
+		sb.CandPort,
+		sb.StakingID,
+		sb.Amount,
+		sb.Token,
+		sb.Autobid,
+		//sb.Timestamp,
+		//sb.Nonce,
+		//sb.ExtraData,
+	})
+	if err != nil {
+		return
+	}
+
+	hw.Sum(hash[:0])
 	return
 }

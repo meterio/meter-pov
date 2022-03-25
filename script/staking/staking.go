@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"math/big"
 
+	"github.com/inconshreveable/log15"
 	"github.com/meterio/meter-pov/abi"
 	"github.com/meterio/meter-pov/builtin"
 	"github.com/meterio/meter-pov/chain"
@@ -18,7 +19,6 @@ import (
 	setypes "github.com/meterio/meter-pov/script/types"
 	"github.com/meterio/meter-pov/state"
 	"github.com/meterio/meter-pov/xenv"
-	"github.com/inconshreveable/log15"
 )
 
 var (
@@ -142,6 +142,9 @@ func (s *Staking) PrepareStakingHandler() (StakingHandler func([]byte, *meter.Ad
 			leftOverGas, err = sb.UnDelegateHandler(senv, gas)
 
 		case OP_GOVERNING:
+			if senv.GetTxCtx().Origin.IsZero() == false {
+				return nil, gas, errors.New("not from kblock")
+			}
 			if senv.GetToAddr().String() != StakingModuleAddr.String() {
 				return nil, gas, errors.New("to address is not the same from module address")
 			}
@@ -160,6 +163,9 @@ func (s *Staking) PrepareStakingHandler() (StakingHandler func([]byte, *meter.Ad
 			leftOverGas, err = sb.BucketUpdateHandler(senv, gas)
 
 		case OP_DELEGATE_STATISTICS:
+			if senv.GetTxCtx().Origin.IsZero() == false {
+				return nil, gas, errors.New("not from kblock")
+			}
 			if senv.GetToAddr().String() != StakingModuleAddr.String() {
 				return nil, gas, errors.New("to address is not the same from module address")
 			}
