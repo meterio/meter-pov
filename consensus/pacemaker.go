@@ -246,7 +246,7 @@ func (p *Pacemaker) OnCommit(commitReady []*pmBlock) {
 		if b.ProposedBlockType == KBlockType {
 			p.csReactor.logger.Info("committed a kblock, stop pacemaker", "height", b.Height, "round", b.Round)
 			p.SendKblockInfo(b)
-			p.Stop()
+			// p.Stop()
 		}
 
 		// BUG FIX: normally proposal message are cleaned once it is committed. It is ok because this proposal
@@ -778,7 +778,7 @@ func (p *Pacemaker) Start(mode PMMode) {
 	bestQC := p.csReactor.chain.BestQC()
 	bestBlock := p.csReactor.chain.BestBlock()
 
-	freshCommittee := bestBlock.Header().BlockType() == block.BLOCK_TYPE_K_BLOCK
+	freshCommittee := (bestBlock.Header().BlockType() == block.BLOCK_TYPE_K_BLOCK) || (bestBlock.Header().Number() == 0)
 	height := bestQC.QCHeight
 	round := uint32(0)
 	if freshCommittee == false {

@@ -424,6 +424,7 @@ func (conR *ConsensusReactor) UpdateActualCommittee(leaderIndex uint32) bool {
 	// validators = append(validators, conR.curCommittee.Validators[leaderIndex:]...)
 	// validators = append(validators, conR.curCommittee.Validators[:leaderIndex]...)
 	// }
+	committee := make([]types.CommitteeMember, 0)
 	for i, v := range validators {
 		cm := types.CommitteeMember{
 			Name:     v.Name,
@@ -432,8 +433,10 @@ func (conR *ConsensusReactor) UpdateActualCommittee(leaderIndex uint32) bool {
 			CSPubKey: v.BlsPubKey,
 			CSIndex:  i, // (i + int(leaderIndex)) % size,
 		}
-		conR.curActualCommittee = append(conR.curActualCommittee, cm)
+		committee = append(committee, cm)
 	}
+
+	conR.curActualCommittee = committee
 
 	// I am Leader, first one should be myself.
 	// if bytes.Equal(crypto.FromECDSAPub(&conR.curActualCommittee[0].PubKey), crypto.FromECDSAPub(&conR.myPubKey)) == false {
@@ -1238,7 +1241,7 @@ func (conR *ConsensusReactor) PrepareEnvForPacemaker() error {
 		return errors.New("could not get best KBlock")
 	}
 	bestBlock := conR.chain.BestBlock()
-	bestIsKBlock := bestBlock.Header().BlockType() == block.BLOCK_TYPE_K_BLOCK
+	bestIsKBlock := (bestBlock.Header().BlockType() == block.BLOCK_TYPE_K_BLOCK) || bestBlock.Header().Number() == 0
 
 	//initialize Delegates
 
