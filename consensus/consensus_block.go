@@ -358,7 +358,7 @@ func (c *ConsensusReactor) validateBlockBody(blk *block.Block, forceValidate boo
 			rewardTxs = c.buildRewardTxs(parentBlock, rewards, chainTag, bestNum, curEpoch, best, state)
 
 			// Decode.
-			for index, rewardTx := range rewardTxs {
+			for _, rewardTx := range rewardTxs {
 				rewardTxUniteHash := rewardTx.UniteHash()
 				if _, ok := txUniteHashes[rewardTxUniteHash]; ok {
 					txUniteHashes[rewardTxUniteHash] += 1
@@ -373,7 +373,6 @@ func (c *ConsensusReactor) validateBlockBody(blk *block.Block, forceValidate boo
 					} else {
 						txClauseIds[clauseUniteHash] = 1
 					}
-					log.Info("rewardTx clause.UniteHash", "index", index, "hash", clauseUniteHash)
 
 					if (clause.Value().Sign() == 0) && (len(clause.Data()) > runtime.MinScriptEngDataLen) && runtime.ScriptEngineCheck(clause.Data()) {
 						data := clause.Data()[4:]
@@ -399,13 +398,11 @@ func (c *ConsensusReactor) validateBlockBody(blk *block.Block, forceValidate boo
 
 						switch scriptHeader.ModID {
 						case script.STAKING_MODULE_ID:
-
 							sb, err := staking.StakingDecodeFromBytes(scriptPayload)
 							if err != nil {
 								log.Error("Decode StakingDecodeFromBytes script message failed", "error", err)
 								//return nil, gas, err
 							}
-							log.Info(fmt.Sprintf("rewardTx STAKING sb %v", sb))
 
 							switch sb.Opcode {
 							case staking.OP_GOVERNING:
@@ -423,14 +420,12 @@ func (c *ConsensusReactor) validateBlockBody(blk *block.Block, forceValidate boo
 									scriptBodyIds[sbUniteHash] = 1
 								}
 							}
-
 						case script.AUCTION_MODULE_ID:
 							sb, err := auction.AuctionDecodeFromBytes(scriptPayload)
 							if err != nil {
 								log.Error("Decode AUCTION_MODULE_ID script message failed", "error", err)
 								//return nil, gas, err
 							}
-							log.Info(fmt.Sprintf("rewardTx AUCTION sb %v", sb))
 
 							sbUniteHash := sb.UniteHash()
 							if _, ok := scriptBodyIds[sbUniteHash]; ok {
@@ -444,7 +439,6 @@ func (c *ConsensusReactor) validateBlockBody(blk *block.Block, forceValidate boo
 								log.Error("Decode ACCOUNTLOCK_MODULE_ID script message failed", "error", err)
 								//return nil, gas, err
 							}
-							log.Info(fmt.Sprintf("rewardTx ACCOUNTLOCK sb %v", sb))
 
 							sbUniteHash := sb.UniteHash()
 							if _, ok := scriptBodyIds[sbUniteHash]; ok {
@@ -459,7 +453,7 @@ func (c *ConsensusReactor) validateBlockBody(blk *block.Block, forceValidate boo
 		}
 	}
 
-	for index, tx := range txs {
+	for _, tx := range txs {
 		signer, err := tx.Signer()
 		if err != nil {
 			return consensusError(fmt.Sprintf("tx signer unavailable: %v", err))
@@ -481,8 +475,6 @@ func (c *ConsensusReactor) validateBlockBody(blk *block.Block, forceValidate boo
 
 			if forceValidate {
 				log.Info("begin validateBlockBody forceValidate")
-				txID := tx.ID()
-				log.Info("tx", "ID", txID)
 
 				// Validate.
 				txUniteHash := tx.UniteHash()
@@ -495,17 +487,14 @@ func (c *ConsensusReactor) validateBlockBody(blk *block.Block, forceValidate boo
 					return consensusError(fmt.Sprintf("minerTx unavailable"))
 				}
 				txUniteHashes[txUniteHash] -= 1
-				//log.Info("tx.UniteHash")
 
 				for _, clause := range tx.Clauses() {
 					clauseUniteHash := clause.UniteHash()
 
-					//txClauseIds[clause.UniteHash()] = true
 					if _, ok := txClauseIds[clauseUniteHash]; !ok {
 						return consensusError(fmt.Sprintf("minerTx clause unavailable"))
 					}
 					txClauseIds[clauseUniteHash] -= 1
-					log.Info("minerTx clause.UniteHash", "index", index, "hash", clauseUniteHash)
 
 					// Decode.
 					if (clause.Value().Sign() == 0) && (len(clause.Data()) > runtime.MinScriptEngDataLen) && runtime.ScriptEngineCheck(clause.Data()) {
@@ -523,18 +512,11 @@ func (c *ConsensusReactor) validateBlockBody(blk *block.Block, forceValidate boo
 
 						scriptHeader := scriptStruct.Header
 
-						//se := script.GetScriptGlobInst()
-						//if se == nil {
-						//	fmt.Println("script engine is not initialized")
-						//return nil, true
-						//}
-						//_ = scriptHeader
 						scriptHeaderUniteHash := scriptHeader.UniteHash()
 						if _, ok := scriptHeaderIds[scriptHeaderUniteHash]; !ok {
 							return consensusError(fmt.Sprintf("minerTx scriptHeader unavailable"))
 						}
 						scriptHeaderIds[scriptHeaderUniteHash] -= 1
-						log.Info("minerTx scriptHeader.UniteHash OK")
 
 						scriptPayload := scriptStruct.Payload
 						switch scriptHeader.ModID {
@@ -550,21 +532,13 @@ func (c *ConsensusReactor) validateBlockBody(blk *block.Block, forceValidate boo
 								minerTxRinfo := make([]*staking.RewardInfo, 0)
 								err = rlp.DecodeBytes(sb.ExtraData, &minerTxRinfo)
 
-								//reflect.DeepEqual(rinfo, txRinfo)
-
 								fmt.Sprintf("minerTx rinfo")
 								for _, d := range minerTxRinfo {
-									//fmt.Println(d.String())
-
 									dUniteHash := d.UniteHash()
 									if _, ok := rinfoIds[dUniteHash]; !ok {
 										return consensusError(fmt.Sprintf("d.Address %v not exists", d.Address))
 									}
 									rinfoIds[dUniteHash] -= 1
-
-									//if d.Amount.Cmp(rinfoIds[d.Address]) != 0 {
-									//	return consensusError(fmt.Sprintf("d.Address %v amount %v not correct", d.Address, d.Amount))
-									//}
 								}
 							default:
 								sbUniteHash := sb.UniteHash()
@@ -573,8 +547,6 @@ func (c *ConsensusReactor) validateBlockBody(blk *block.Block, forceValidate boo
 								}
 								scriptBodyIds[sbUniteHash] -= 1
 							}
-
-							log.Info("minerTx STAKING_MODULE, but not sb.UniteHash OK")
 						case script.AUCTION_MODULE_ID:
 							sb, err := auction.AuctionDecodeFromBytes(scriptPayload)
 							if err != nil {
@@ -588,7 +560,6 @@ func (c *ConsensusReactor) validateBlockBody(blk *block.Block, forceValidate boo
 								return consensusError(fmt.Sprintf("minerTx AUCTION scriptBody unavailable, sb %v", sb))
 							}
 							scriptBodyIds[sbUniteHash] -= 1
-							log.Info("minerTx AUCTION_MODULE_ID sb.UniteHash OK")
 						case script.ACCOUNTLOCK_MODULE_ID:
 							sb, err := accountlock.AccountLockDecodeFromBytes(scriptPayload)
 							if err != nil {
@@ -602,7 +573,6 @@ func (c *ConsensusReactor) validateBlockBody(blk *block.Block, forceValidate boo
 								return consensusError(fmt.Sprintf("minerTx ACCOUNTLOCK scriptBody unavailable, %v", sb))
 							}
 							scriptBodyIds[sbUniteHash] -= 1
-							log.Info("minerTx ACCOUNTLOCK_MODULE_ID sb.UniteHash OK")
 						}
 					}
 				}
