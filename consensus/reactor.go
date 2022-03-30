@@ -1262,6 +1262,10 @@ func (conR *ConsensusReactor) PrepareEnvForPacemaker() error {
 	_, inCommittee := conR.NewValidatorSetByNonce(nonce)
 	conR.inCommittee = inCommittee
 
+	conR.lastKBlockHeight = kBlockHeight
+	if bestIsKBlock {
+		epoch = epoch + 1
+	}
 	conR.updateCurEpoch(epoch)
 	conR.UpdateActualCommittee(0)
 
