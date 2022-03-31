@@ -14,10 +14,11 @@ import (
 	"bytes"
 	"encoding/hex"
 	"fmt"
-	"github.com/ethereum/go-ethereum/rlp"
-	"github.com/inconshreveable/log15"
 	"math/big"
 	"time"
+
+	"github.com/ethereum/go-ethereum/rlp"
+	"github.com/inconshreveable/log15"
 
 	"github.com/ethereum/go-ethereum/common/mclock"
 	crypto "github.com/ethereum/go-ethereum/crypto"
@@ -185,7 +186,7 @@ func (c *ConsensusReactor) validate(
 		return nil, nil, err
 	}
 
-	stage, receipts, err := c.verifyBlock(block, state)
+	stage, receipts, err := c.verifyBlock(block, state, forceValidate)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -636,7 +637,7 @@ func (c *ConsensusReactor) validateBlockBody(blk *block.Block, forceValidate boo
 	return nil
 }
 
-func (c *ConsensusReactor) verifyBlock(blk *block.Block, state *state.State) (*state.Stage, tx.Receipts, error) {
+func (c *ConsensusReactor) verifyBlock(blk *block.Block, state *state.State, forceValidate bool) (*state.Stage, tx.Receipts, error) {
 	var totalGasUsed uint64
 	txs := blk.Transactions()
 	receipts := make(tx.Receipts, 0, len(txs))
@@ -669,7 +670,7 @@ func (c *ConsensusReactor) verifyBlock(blk *block.Block, state *state.State) (*s
 		return true, meta.Reverted, nil
 	}
 
-	if blk.Header().BlockType() == block.BLOCK_TYPE_K_BLOCK {
+	if forceValidate && blk.Header().BlockType() == block.BLOCK_TYPE_K_BLOCK {
 		if err := c.verifyKBlock(); err != nil {
 			return nil, nil, err
 		}
