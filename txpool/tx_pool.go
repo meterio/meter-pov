@@ -9,6 +9,10 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/mclock"
+	"github.com/ethereum/go-ethereum/event"
+	"github.com/inconshreveable/log15"
 	"github.com/meterio/meter-pov/block"
 	"github.com/meterio/meter-pov/builtin"
 	"github.com/meterio/meter-pov/chain"
@@ -16,10 +20,6 @@ import (
 	"github.com/meterio/meter-pov/meter"
 	"github.com/meterio/meter-pov/state"
 	"github.com/meterio/meter-pov/tx"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/mclock"
-	"github.com/ethereum/go-ethereum/event"
-	"github.com/inconshreveable/log15"
 	"github.com/pkg/errors"
 )
 
@@ -177,6 +177,10 @@ func (p *TxPool) add(newTx *tx.Transaction, rejectNonexecutable bool) error {
 	}
 	if signer.IsZero() {
 		return txRejectedError{"no signer specified"}
+	}
+
+	if _, err := newTx.EthTxValidate(); err != nil {
+		return badTxError{err.Error()}
 	}
 
 	txObj, err := resolveTx(newTx)
