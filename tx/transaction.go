@@ -239,10 +239,10 @@ func (t *Transaction) IsExpired(blockNum uint32) bool {
 
 func ChainIdValidate(chainId *big.Int) (bool, error) {
 	if meter.IsMainNet() && chainId.Cmp(new(big.Int).SetUint64(meter.MainnetChainID)) != 0 {
-		return false, errors.New("wrong mainNet chainId")
+		return false, errors.New(fmt.Sprintf("wrong mainNet chainId %v", chainId))
 	}
 	if meter.IsTestNet() && chainId.Cmp(new(big.Int).SetUint64(meter.TestnetChainID)) != 0 {
-		return false, errors.New("wrong testNet chainId")
+		return false, errors.New(fmt.Sprintf("wrong testNet chainId %v", chainId))
 	}
 
 	return true, nil
@@ -270,7 +270,7 @@ func (t *Transaction) EthTxValidate() (bool, error) {
 		txID := t.MeterID()
 		reverseTxID := reverseTx.MeterID()
 		if bytes.Compare(txID[:], reverseTxID[:]) != 0 {
-			return false, errors.New("reverseTx err")
+			return false, errors.New(fmt.Sprintf("reverseTx err, txID %v", t.ID()))
 		}
 	}
 

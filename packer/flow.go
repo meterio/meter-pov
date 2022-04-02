@@ -9,12 +9,12 @@ import (
 	"crypto/ecdsa"
 	"fmt"
 
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/meterio/meter-pov/block"
 	"github.com/meterio/meter-pov/meter"
 	"github.com/meterio/meter-pov/runtime"
 	"github.com/meterio/meter-pov/state"
 	"github.com/meterio/meter-pov/tx"
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/pkg/errors"
 )
 
@@ -86,6 +86,10 @@ func (f *Flow) Adopt(tx *tx.Transaction) error {
 			return errTxNotAdoptableNow
 		}
 		return errGasLimitReached
+	}
+
+	if _, err := tx.EthTxValidate(); err != nil {
+		return err
 	}
 
 	// check if tx already there
