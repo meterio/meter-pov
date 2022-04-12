@@ -213,7 +213,11 @@ func NewConsensusReactor(ctx *cli.Context, chain *chain.Chain, state *state.Crea
 	conR.RcvKBlockInfoQueue = make(chan RecvKBlockInfo, CHAN_DEFAULT_BUF_SIZE)
 
 	//initialize height/round
-	conR.lastKBlockHeight = chain.BestBlock().Header().LastKBlockHeight()
+	if chain.BestBlock().Header().BlockType() == block.BLOCK_TYPE_K_BLOCK {
+		conR.lastKBlockHeight = chain.BestBlock().Header().Number()
+	} else {
+		conR.lastKBlockHeight = chain.BestBlock().Header().LastKBlockHeight()
+	}
 	conR.curHeight = chain.BestBlock().Header().Number()
 
 	// initialize consensus common
@@ -378,8 +382,10 @@ func (conR *ConsensusReactor) UpdateHeight(height uint32) bool {
 
 // update the LastKBlockHeight
 func (conR *ConsensusReactor) UpdateLastKBlockHeight(height uint32) bool {
-	conR.lastKBlockHeight = height
-	lastKBlockHeightGauge.Set(float64(height))
+	if height > conR.lastKBlockHeight {
+		conR.lastKBlockHeight = height
+		lastKBlockHeightGauge.Set(float64(conR.lastKBlockHeight))
+	}
 	return true
 }
 
@@ -390,7 +396,10 @@ func (conR *ConsensusReactor) RefreshCurHeight() error {
 
 	best := conR.chain.BestBlock()
 	conR.curHeight = best.Header().Number()
-	conR.lastKBlockHeight = best.Header().LastKBlockHeight()
+	if best.Header().LastKBlockHeight() > conR.lastKBlockHeight {
+		conR.lastKBlockHeight = best.Header().LastKBlockHeight()
+		lastKBlockHeightGauge.Set(float64(conR.lastKBlockHeight))
+	}
 	conR.updateCurEpoch(best.GetBlockEpoch())
 
 	lastKBlockHeightGauge.Set(float64(conR.lastKBlockHeight))
