@@ -309,6 +309,10 @@ func ComputeStatistics(lastKBlockHeight, height uint32, chain *chain.Chain, curC
 
 	// calculate missing proposer
 	logger.Debug("missing proposer:", "epoch", curEpoch, "newCommittee", newCommittee)
+	fmt.Println("cur Actual Committee: ", len(curActualCommittee))
+	for _, m := range curActualCommittee {
+		fmt.Println("Member: ", m.CSIndex, m.Name, m.NetAddr.String())
+	}
 	if newCommittee == true {
 		missedProposer, err := ComputeMissingProposer(curCommittee.Validators, curActualCommittee, blocks, curEpoch)
 		if err != nil {
@@ -351,7 +355,7 @@ func ComputeStatistics(lastKBlockHeight, height uint32, chain *chain.Chain, curC
 				fmt.Println("exempt missing proposer: ", m.Address, "epoch:", m.Info.Epoch, "height:", m.Info.Height)
 				for k := i + 1; k < j; k++ {
 					mk := missedProposer[k]
-					fmt.Println("followed by:", mk.Address, "epoch:", mk.Info.Epoch, "height:", mk.Info.Epoch)
+					fmt.Println("followed by:", mk.Address, "epoch:", mk.Info.Epoch, "height:", mk.Info.Height)
 					inf := &stats[mk.Address].Infraction
 					inf.MissingProposers.Counter++
 					minfo := &m.Info
