@@ -215,6 +215,10 @@ func (c *ConsensusReactor) validateBlockHeader(header *block.Header, parent *blo
 		return consensusError(fmt.Sprintf("block total score invalid: parent %v, current %v", parent.TotalScore(), header.TotalScore()))
 	}
 
+	if header.LastKBlockHeight() < parent.LastKBlockHeight() {
+		return consensusError(fmt.Sprintf("block LastKBlockHeight invalid: parent %v, current %v", parent.LastKBlockHeight(), header.LastKBlockHeight()))
+	}
+
 	return nil
 }
 
