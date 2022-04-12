@@ -299,6 +299,9 @@ func (conR *ConsensusReactor) SwitchToConsensus() {
 	}
 	replay := (best.Header().Number() != bestKBlock.Header().Number())
 
+	fmt.Println("Update lastKBlockHeight to ", bestKBlock.Header().Number())
+	conR.lastKBlockHeight = bestKBlock.Header().Number()
+
 	// --force-last-kframe
 	if !conR.config.ForceLastKFrame {
 		conR.JoinEstablishedCommittee(bestKBlock, replay)
