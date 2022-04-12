@@ -168,7 +168,7 @@ func (c *ConsensusReactor) validate(
 ) (*state.Stage, tx.Receipts, error) {
 	header := block.Header()
 
-	if err := c.validateBlockHeader(header, parentHeader, nowTimestamp); err != nil {
+	if err := c.validateBlockHeader(header, parentHeader, nowTimestamp, forceValidate); err != nil {
 		return nil, nil, err
 	}
 
@@ -194,7 +194,7 @@ func (c *ConsensusReactor) validate(
 	return stage, receipts, nil
 }
 
-func (c *ConsensusReactor) validateBlockHeader(header *block.Header, parent *block.Header, nowTimestamp uint64) error {
+func (c *ConsensusReactor) validateBlockHeader(header *block.Header, parent *block.Header, nowTimestamp uint64, forceValidate bool) error {
 	if header.Timestamp() <= parent.Timestamp() {
 		return consensusError(fmt.Sprintf("block timestamp behind parents: parent %v, current %v", parent.Timestamp(), header.Timestamp()))
 	}
@@ -217,6 +217,10 @@ func (c *ConsensusReactor) validateBlockHeader(header *block.Header, parent *blo
 
 	if header.LastKBlockHeight() < parent.LastKBlockHeight() {
 		return consensusError(fmt.Sprintf("block LastKBlockHeight invalid: parent %v, current %v", parent.LastKBlockHeight(), header.LastKBlockHeight()))
+	}
+
+	if forceValidate && header.LastKBlockHeight() != c.lastKBlockHeight {
+		return consensusError(fmt.Sprintf("header LastKBlockHeight invalid: header %v, local %v", header.LastKBlockHeight(), c.lastKBlockHeight))
 	}
 
 	return nil
