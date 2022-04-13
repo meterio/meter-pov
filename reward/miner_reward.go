@@ -19,17 +19,19 @@ func BuildMinerRewardTxs(rewards []powpool.PowReward, chainTag byte, bestNum uin
 
 	position := int(0)
 	end := int(0)
+	index := uint64(0)
 	for count > 0 {
 		if count > meter.MaxNClausePerRewardTx {
 			end = meter.MaxNClausePerRewardTx
 		} else {
 			end = count
 		}
-		tx := buildMinerRewardTx(rewards[position:position+end], chainTag, bestNum)
+		tx := buildMinerRewardTx(rewards[position:position+end], chainTag, bestNum, index)
 		if tx != nil {
 			rewardsTxs = append(rewardsTxs, tx)
 		}
 
+		index += 1
 		count = count - meter.MaxNClausePerRewardTx
 		position = position + end
 	}
@@ -38,7 +40,7 @@ func BuildMinerRewardTxs(rewards []powpool.PowReward, chainTag byte, bestNum uin
 	return append(tx.Transactions{}, rewardsTxs...)
 }
 
-func buildMinerRewardTx(rewards []powpool.PowReward, chainTag byte, bestNum uint32) *tx.Transaction {
+func buildMinerRewardTx(rewards []powpool.PowReward, chainTag byte, bestNum uint32, index uint64) *tx.Transaction {
 	if len(rewards) > meter.MaxNClausePerRewardTx {
 		logger.Error("too many reward clauses", "number", len(rewards))
 		return nil
@@ -51,7 +53,7 @@ func buildMinerRewardTx(rewards []powpool.PowReward, chainTag byte, bestNum uint
 		GasPriceCoef(0).
 		Gas(meter.BaseTxGas * uint64(meter.MaxNClausePerRewardTx)).
 		DependsOn(nil).
-		Nonce(12345678)
+		Nonce(index)
 
 	//now build Clauses
 	// Only reward METER
