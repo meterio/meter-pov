@@ -1,7 +1,6 @@
 package reward
 
 import (
-	"fmt"
 	"math/big"
 
 	"github.com/meterio/meter-pov/powpool"
@@ -35,7 +34,7 @@ func BuildMinerRewardTxs(rewards []powpool.PowReward, chainTag byte, bestNum uin
 		position = position + end
 	}
 
-	fmt.Println("Built rewards txs:", rewardsTxs)
+	// fmt.Println("Built rewards txs:", rewardsTxs)
 	return append(tx.Transactions{}, rewardsTxs...)
 }
 

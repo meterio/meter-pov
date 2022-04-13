@@ -483,7 +483,7 @@ func (c *ConsensusReactor) validateBlockBody(blk *block.Block, forceValidate boo
 			}
 
 			if forceValidate {
-				log.Info("begin validateBlockBody forceValidate", "txHash", tx.ID().String())
+				log.Info("validating tx", "hash", tx.ID().String(), "uniteHash", tx.UniteHash().String())
 
 				// Validate.
 				txUniteHash := tx.UniteHash()
@@ -586,7 +586,7 @@ func (c *ConsensusReactor) validateBlockBody(blk *block.Block, forceValidate boo
 					}
 				}
 
-				log.Info("end validateBlockBody forceValidate")
+				// log.Info("end validateBlockBody forceValidate")
 			}
 		}
 
@@ -1042,10 +1042,11 @@ func (conR *ConsensusReactor) BuildKBlock(parentBlock *block.Block, data *block.
 func (conR *ConsensusReactor) buildRewardTxs(parentBlock *block.Block, rewards []powpool.PowReward, chainTag byte, bestNum uint32, curEpoch uint32, best *block.Block, state *state.State) tx.Transactions {
 	// build miner meter reward
 	txs := reward.BuildMinerRewardTxs(rewards, chainTag, bestNum)
-	lastKBlockHeight := parentBlock.LastKBlockHeight()
 	for _, tx := range txs {
-		conR.logger.Info("miner reward tx appended", "txid", tx.ID())
+		conR.logger.Info("Built miner reward tx: ", "hash", tx.ID().String(), "uniteHash", tx.UniteHash().String())
 	}
+
+	lastKBlockHeight := parentBlock.LastKBlockHeight()
 
 	// edison not support the staking/auciton/slashing
 	if meter.IsMainChainTesla(parentBlock.Number()) == true || meter.IsTestNet() {
@@ -1056,16 +1057,16 @@ func (conR *ConsensusReactor) buildRewardTxs(parentBlock *block.Block, rewards [
 		}
 		if len(stats) != 0 {
 			statsTx := reward.BuildStatisticsTx(stats, chainTag, bestNum, curEpoch)
+			conR.logger.Info("Built stats tx: ", "hash", statsTx.ID().String(), "uniteHash", statsTx.UniteHash().String())
 			txs = append(txs, statsTx)
-			conR.logger.Info("auction control tx appended", "txid", statsTx.ID())
 		}
 
 		reservedPrice := GetAuctionReservedPrice()
 		initialRelease := GetAuctionInitialRelease()
 
 		if tx := reward.BuildAuctionControlTx(uint64(best.Number()+1), uint64(best.GetBlockEpoch()+1), chainTag, bestNum, initialRelease, reservedPrice, conR.chain); tx != nil {
+			conR.logger.Info("Built auction control tx: ", "hash", tx.ID().String(), "uniteHash", tx.UniteHash().String())
 			txs = append(txs, tx)
-			conR.logger.Info("auction control tx appended", "txid", tx.ID())
 		}
 
 		// build governing tx && autobid tx only when staking delegates is used
@@ -1092,37 +1093,36 @@ func (conR *ConsensusReactor) buildRewardTxs(parentBlock *block.Block, rewards [
 
 			if err == nil && len(rewardMap) > 0 {
 				distList := rewardMap.GetDistList()
-				fmt.Println("**** Dist List")
-				for _, d := range distList {
-					fmt.Println(d.String())
-				}
-				fmt.Println("-------------------------")
+				// fmt.Println("**** Distribute List")
+				// for _, d := range distList {
+				// 	fmt.Println(d.String())
+				// }
+				// fmt.Println("-------------------------")
 
 				governingTx := reward.BuildStakingGoverningTx(distList, uint32(conR.curEpoch), chainTag, bestNum)
 				if governingTx != nil {
+					conR.logger.Info("Built governing tx: ", "hash", governingTx.ID().String(), "uniteHash", governingTx.UniteHash().String())
 					txs = append(txs, governingTx)
-					conR.logger.Info("*** governing tx appended", "txid", governingTx.ID())
 				}
 
 				autobidList := rewardMap.GetAutobidList()
-				fmt.Println("**** Autobid List")
-				for _, a := range autobidList {
-					fmt.Println(a.String())
-				}
-				fmt.Println("-------------------------")
+				// fmt.Println("**** Autobid List")
+				// for _, a := range autobidList {
+				// 	fmt.Println(a.String())
+				// }
+				// fmt.Println("-------------------------")
 
 				autobidTxs := reward.BuildAutobidTxs(autobidList, chainTag, bestNum)
 				if len(autobidTxs) > 0 {
 					txs = append(txs, autobidTxs...)
 					for _, tx := range autobidTxs {
-						conR.logger.Info("autobid tx appended", "txid", tx.ID())
+						conR.logger.Info("Built autobid tx: ", "hash", tx.ID().String(), "uniteHash", tx.UniteHash().String())
 					}
 				}
 			} else {
 				fmt.Println("-------------------------")
 				fmt.Println("Reward Map is empty")
 				fmt.Println("-------------------------")
-
 			}
 		}
 	}
