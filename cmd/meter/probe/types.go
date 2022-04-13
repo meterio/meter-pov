@@ -33,6 +33,12 @@ type QC struct {
 	EpochID uint64 `json:"epochID"`
 }
 
+type PowStatus struct {
+	Status       string `json:"status"`
+	LatestHeight uint32 `json:"latestHeight"`
+	KFrameHeight uint32 `json:"kframeHeight"`
+}
+
 func convertQC(qc *block.QuorumCert) (*QC, error) {
 	if qc == nil {
 		return nil, errors.New("empty qc")
@@ -83,14 +89,15 @@ func convertBlock(b *block.Block) (*Block, error) {
 }
 
 type ProbeResult struct {
-	Name            string `json:"name"`
-	PubKey          string `json:"pubkey"`
-	PubKeyValid     bool   `json:"pubkeyValid"`
-	Version         string `json:"version"`
-	BestBlock       *Block `json:"bestBlock"`
-	BestQC          *QC    `json:"bestQC"`
-	BestQCCandidate *QC    `json:"bestQCCandidate"`
-	QCHigh          *QC    `json:"qcHigh"`
+	Name            string     `json:"name"`
+	PubKey          string     `json:"pubkey"`
+	PubKeyValid     bool       `json:"pubkeyValid"`
+	Version         string     `json:"version"`
+	BestBlock       *Block     `json:"bestBlock"`
+	BestQC          *QC        `json:"bestQC"`
+	BestQCCandidate *QC        `json:"bestQCCandidate"`
+	QCHigh          *QC        `json:"qcHigh"`
+	PowStatus       *PowStatus `json:"powStatus"`
 
 	IsCommitteeMember  bool `json:"isCommitteeMember"`
 	IsPacemakerRunning bool `json:"isPacemakerRunning"`

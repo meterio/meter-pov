@@ -8,11 +8,13 @@ package probe
 import (
 	"bytes"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"github.com/meterio/meter-pov/api/utils"
 	"github.com/meterio/meter-pov/chain"
 	"github.com/meterio/meter-pov/consensus"
+	"github.com/meterio/meter-pov/powpool"
 	"github.com/meterio/meter-pov/script/staking"
 )
 
@@ -28,6 +30,17 @@ func (p *Probe) HandleProbe(w http.ResponseWriter, r *http.Request) {
 	name := ""
 	pubkeyMatch := false
 	delegateList, _ := staking.GetInternalDelegateList()
+	ppool := powpool.GetGlobPowPoolInst()
+	powStatus := &PowStatus{Status: "", LatestHeight: 0, KFrameHeight: 0}
+	if ppool != nil {
+		poolStatus := ppool.GetStatus()
+		powStatus.Status = poolStatus.Status
+		powStatus.LatestHeight = poolStatus.LatestHeight
+		powStatus.KFrameHeight = poolStatus.KFrameHeight
+
+	} else {
+		powStatus.Status = "powpool is not ready"
+	}
 	for _, d := range delegateList {
 		registeredPK := string(d.PubKey)
 		trimedPK := strings.TrimSpace(registeredPK)
@@ -50,6 +63,7 @@ func (p *Probe) HandleProbe(w http.ResponseWriter, r *http.Request) {
 		BestQC:             bestQC,
 		BestQCCandidate:    bestQCCandidate,
 		QCHigh:             qcHigh,
+		PowStatus:          powStatus,
 		IsCommitteeMember:  p.Cons.IsCommitteeMember(),
 		IsPacemakerRunning: p.Cons.IsPacemakerRunning(),
 	}
@@ -67,4 +81,34 @@ func (p *Probe) HandleVersion(w http.ResponseWriter, r *http.Request) {
 
 func (p *Probe) HandlePeers(w http.ResponseWriter, r *http.Request) {
 	utils.WriteJSON(w, p.Network.PeersStats())
+}
+
+func (p *Probe) HandleReplay(w http.ResponseWriter, r *http.Request) {
+	query := r.URL.Query()
+	height, present := query["height"]
+	if !present {
+		utils.WriteJSON(w, "please set a height in query")
+		return
+	}
+	if len(height) < 1 {
+		utils.WriteJSON(w, "invalid height")
+		return
+	}
+	heightNum, err := strconv.Atoi(height[0])
+	if err != nil {
+		utils.WriteJSON(w, "not valid height")
+		return
+	}
+	ppool := powpool.GetGlobPowPoolInst()
+	if ppool == nil {
+		utils.WriteJSON(w, "powpool is not ready")
+		return
+	}
+
+	err = ppool.ReplayFrom(int32(heightNum))
+	if err != nil {
+		utils.WriteJSON(w, err.Error())
+		return
+	}
+	utils.WriteJSON(w, "ok")
 }

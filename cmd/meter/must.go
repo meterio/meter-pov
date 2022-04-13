@@ -22,6 +22,13 @@ import (
 	"strings"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/fdlimit"
+	"github.com/ethereum/go-ethereum/crypto"
+	ethlog "github.com/ethereum/go-ethereum/log"
+	"github.com/ethereum/go-ethereum/p2p/nat"
+	"github.com/ethereum/go-ethereum/rlp"
+	"github.com/inconshreveable/log15"
 	api_node "github.com/meterio/meter-pov/api/node"
 	api_utils "github.com/meterio/meter-pov/api/utils"
 	"github.com/meterio/meter-pov/chain"
@@ -41,13 +48,6 @@ import (
 	"github.com/meterio/meter-pov/state"
 	"github.com/meterio/meter-pov/txpool"
 	"github.com/meterio/meter-pov/types"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/fdlimit"
-	"github.com/ethereum/go-ethereum/crypto"
-	ethlog "github.com/ethereum/go-ethereum/log"
-	"github.com/ethereum/go-ethereum/p2p/nat"
-	"github.com/ethereum/go-ethereum/rlp"
-	"github.com/inconshreveable/log15"
 	cli "gopkg.in/urfave/cli.v1"
 
 	"github.com/ethereum/go-ethereum/p2p/discover"
@@ -479,6 +479,7 @@ func startObserveServer(ctx *cli.Context, cons *consensus.ConsensusReactor, comp
 	mux := http.NewServeMux()
 	mux.Handle("/metrics", promhttp.Handler())
 	mux.HandleFunc("/probe", probe.HandleProbe)
+	mux.HandleFunc("/probe/replay", probe.HandleReplay)
 	mux.HandleFunc("/probe/version", probe.HandleVersion)
 	mux.HandleFunc("/probe/pubkey", probe.HandlePubkey)
 	mux.HandleFunc("/probe/peers", probe.HandlePeers)

@@ -46,6 +46,12 @@ type Options struct {
 	MaxLifetime     time.Duration
 }
 
+type PowPoolStatus struct {
+	Status       string
+	KFrameHeight uint32
+	LatestHeight uint32
+}
+
 type PowReward struct {
 	Rewarder meter.Address
 	Value    big.Int
@@ -290,6 +296,22 @@ func (p *PowPool) GetPowDecision() (bool, *PowResult) {
 	}
 }
 
+func (p *PowPool) GetStatus() PowPoolStatus {
+	s := PowPoolStatus{Status: "ok", LatestHeight: 0, KFrameHeight: 0}
+	// cases can not be decided
+	if !p.all.isKframeInitialAdded() {
+		log.Info("GetPowDecision false: kframe is not initially added")
+		s.Status = "kframe is not initially added"
+		return s
+	}
+	latestHeight := p.all.GetLatestHeight()
+	lastKframeHeight := p.all.lastKframePowObj.Height()
+
+	s.LatestHeight = latestHeight
+	s.KFrameHeight = lastKframeHeight
+	return s
+}
+
 func (p *PowPool) VerifyNPowBlockPerEpoch() bool {
 	// cases can not be decided
 	if !p.all.isKframeInitialAdded() {
@@ -311,7 +333,6 @@ func (p *PowPool) VerifyNPowBlockPerEpoch() bool {
 
 	return true
 }
-
 
 // func (p *PowPool) FetchPowBlock(heights ...uint32) error {
 // 	host := fmt.Sprintf("%v:%v", p.options.Node, p.options.Port)
