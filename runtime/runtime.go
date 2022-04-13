@@ -511,7 +511,9 @@ func (rt *Runtime) PrepareClause(
 				output.Events = seOutput.GetEvents()
 				output.Transfers = seOutput.GetTransfers()
 			}
-			fmt.Println("Output from script engine:", output)
+			if output.VMErr != nil {
+				fmt.Println("Output from script engine:", output)
+			}
 			return output, interrupted
 		}
 
@@ -680,10 +682,10 @@ func (rt *Runtime) PrepareTransaction(tx *tx.Transaction) (*TransactionExecutor,
 			if !origin.IsZero() {
 				txFeeBeneficiary := builtin.Params.Native(rt.State()).GetAddress(meter.KeyTransactionFeeAddress)
 				if txFeeBeneficiary.IsZero() {
-					fmt.Println("txFee to proposer beneficiary:", "beneficiary", rt.ctx.Beneficiary, "reward", reward.String())
+					// fmt.Println("txFee to proposer beneficiary:", "beneficiary", rt.ctx.Beneficiary, "reward", reward.String())
 					rt.state.AddEnergy(rt.ctx.Beneficiary, reward)
 				} else {
-					fmt.Println("txFee to global beneficiary:", "beneficiary", txFeeBeneficiary, "reward", reward.String())
+					// fmt.Println("txFee to global beneficiary:", "beneficiary", txFeeBeneficiary, "reward", reward.String())
 					rt.state.AddEnergy(txFeeBeneficiary, reward)
 				}
 			}

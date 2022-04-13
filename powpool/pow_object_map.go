@@ -96,10 +96,17 @@ func (m *powObjectMap) InitialAddKframe(powObj *powObject) error {
 	// 	log.Error("InitialAddKframe: Invalid version", "verson", powObj.blockInfo.Version)
 	// 	return fmt.Errorf("InitialAddKframe: Invalid version (%v)", powObj.blockInfo.Version)
 	// }
+	if powObj == nil {
+		log.Warn("pow object is empty")
+		return errors.New("pow object is empty")
+	}
 
 	if m.isKframeInitialAdded() {
+		log.Warn("kframe already added")
 		return fmt.Errorf("Kframe already added, flush object map first")
 	}
+
+	log.Info("initialAddKframe", "height", powObj.Height())
 
 	err := m._add(powObj)
 	if err != nil {
@@ -114,6 +121,7 @@ func (m *powObjectMap) InitialAddKframe(powObj *powObject) error {
 
 func (m *powObjectMap) Add(powObj *powObject) error {
 	if !m.isKframeInitialAdded() {
+		log.Warn("kframe is not added")
 		return fmt.Errorf("Kframe is not added")
 	}
 
@@ -135,7 +143,7 @@ func (m *powObjectMap) Add(powObj *powObject) error {
 	// fmt.Println("Added to powpool: ", powObj.blockInfo.ToString(), "poolSize: ", m.Size())
 	err := m._add(powObj)
 
-	log.Debug("Added to powpool: ", "hash", powObj.blockInfo.HeaderHash, "height", powObj.blockInfo.PowHeight, "powpoolSize", m.Size())
+	log.Info("Add to powpool:", "height", powObj.blockInfo.PowHeight, "hash", powObj.blockInfo.HeaderHash, "poolSize", m.Size())
 	return err
 }
 

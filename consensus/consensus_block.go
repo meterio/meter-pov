@@ -483,7 +483,7 @@ func (c *ConsensusReactor) validateBlockBody(blk *block.Block, forceValidate boo
 			}
 
 			if forceValidate {
-				log.Info("begin validateBlockBody forceValidate")
+				log.Info("begin validateBlockBody forceValidate", "txHash", tx.ID().String())
 
 				// Validate.
 				txUniteHash := tx.UniteHash()

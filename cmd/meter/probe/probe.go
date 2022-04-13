@@ -31,13 +31,13 @@ func (p *Probe) HandleProbe(w http.ResponseWriter, r *http.Request) {
 	pubkeyMatch := false
 	delegateList, _ := staking.GetInternalDelegateList()
 	ppool := powpool.GetGlobPowPoolInst()
-	powStatus := &PowStatus{Status: "", LatestHeight: 0, KFrameHeight: 0}
+	powStatus := &PowStatus{Status: "", LatestHeight: 0, KFrameHeight: 0, PoolSize: 0}
 	if ppool != nil {
 		poolStatus := ppool.GetStatus()
 		powStatus.Status = poolStatus.Status
 		powStatus.LatestHeight = poolStatus.LatestHeight
 		powStatus.KFrameHeight = poolStatus.KFrameHeight
-
+		powStatus.PoolSize = poolStatus.PoolSize
 	} else {
 		powStatus.Status = "powpool is not ready"
 	}

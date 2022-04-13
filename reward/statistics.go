@@ -45,8 +45,10 @@ func BuildStatisticsTx(entries []*StatEntry, chainTag byte, bestNum uint32, curE
 		DependsOn(nil).
 		Nonce(12345678)
 
-	//now build Clauses
-	fmt.Println("Statistics Results")
+		//now build Clauses
+	fmt.Println("*****************************************************")
+	fmt.Println("** Statistics Txs **")
+	fmt.Println("*****************************************************")
 	for _, entry := range entries {
 		data := buildStatisticsData(entry, curEpoch)
 		builder.Clause(
@@ -55,7 +57,7 @@ func BuildStatisticsTx(entries []*StatEntry, chainTag byte, bestNum uint32, curE
 				WithToken(meter.MTRG).
 				WithData(data))
 		logger.Debug("Statistic entry", "entry", entry.String())
-		fmt.Println(entry.Name, entry.Address, entry.Infraction.String())
+		fmt.Println(entry.Name, entry.Address, ":", entry.Infraction.String())
 	}
 
 	builder.Build().IntrinsicGas()
@@ -309,10 +311,10 @@ func ComputeStatistics(lastKBlockHeight, height uint32, chain *chain.Chain, curC
 
 	// calculate missing proposer
 	logger.Debug("missing proposer:", "epoch", curEpoch, "newCommittee", newCommittee)
-	fmt.Println("cur Actual Committee: ", len(curActualCommittee))
-	for _, m := range curActualCommittee {
-		fmt.Println("Member: ", m.CSIndex, m.Name, m.NetAddr.String())
-	}
+	// fmt.Println("cur Actual Committee: ", len(curActualCommittee))
+	// for _, m := range curActualCommittee {
+	// 	fmt.Println("Member: ", m.CSIndex, m.Name, m.NetAddr.String())
+	// }
 	if newCommittee == true {
 		missedProposer, err := ComputeMissingProposer(curCommittee.Validators, curActualCommittee, blocks, curEpoch)
 		if err != nil {
@@ -414,6 +416,6 @@ func ComputeStatistics(lastKBlockHeight, height uint32, chain *chain.Chain, curC
 		result = append(result, stats[signer])
 	}
 
-	logger.Info("calc statistics results", "result", result)
+	// logger.Info("calc statistics results", "result", result)
 	return result, nil
 }

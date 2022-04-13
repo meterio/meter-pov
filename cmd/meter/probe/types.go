@@ -37,6 +37,7 @@ type PowStatus struct {
 	Status       string `json:"status"`
 	LatestHeight uint32 `json:"latestHeight"`
 	KFrameHeight uint32 `json:"kframeHeight"`
+	PoolSize     int    `json:"poolSize"`
 }
 
 func convertQC(qc *block.QuorumCert) (*QC, error) {

@@ -343,6 +343,8 @@ func (n *Node) commitBlock(newBlock *block.Block, receipts tx.Receipts) (*chain.
 		return nil, err
 	}
 
+	log.Info("commit block", "height", newBlock.Number())
+
 	if meter.IsMainNet() {
 		if newBlock.Number() == meter.TeslaMainnetStartNum {
 			script.EnterTeslaForkInit()

@@ -50,6 +50,7 @@ type PowPoolStatus struct {
 	Status       string
 	KFrameHeight uint32
 	LatestHeight uint32
+	PoolSize     int
 }
 
 type PowReward struct {
@@ -297,18 +298,23 @@ func (p *PowPool) GetPowDecision() (bool, *PowResult) {
 }
 
 func (p *PowPool) GetStatus() PowPoolStatus {
-	s := PowPoolStatus{Status: "ok", LatestHeight: 0, KFrameHeight: 0}
+	s := PowPoolStatus{Status: "ok", LatestHeight: 0, KFrameHeight: 0, PoolSize: 0}
 	// cases can not be decided
+	if p.all != nil {
+		s.LatestHeight = p.all.GetLatestHeight()
+		s.PoolSize = p.all.Size()
+	} else {
+		s.Status = "object map is nil"
+		return s
+	}
+
 	if !p.all.isKframeInitialAdded() {
 		log.Info("GetPowDecision false: kframe is not initially added")
 		s.Status = "kframe is not initially added"
-		return s
-	}
-	latestHeight := p.all.GetLatestHeight()
-	lastKframeHeight := p.all.lastKframePowObj.Height()
+	} else {
 
-	s.LatestHeight = latestHeight
-	s.KFrameHeight = lastKframeHeight
+		s.KFrameHeight = p.all.lastKframePowObj.Height()
+	}
 	return s
 }
 

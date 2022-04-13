@@ -116,11 +116,9 @@ type body struct {
 
 func NewTransactionFromEthTx(ethTx *types.Transaction, chainTag byte, blockRef BlockRef) (*Transaction, error) {
 	msg, err := ethTx.AsMessage(types.NewEIP155Signer(ethTx.ChainId()))
-	fmt.Println(err)
 	if err != nil {
 		return nil, err
 	}
-	fmt.Println("eth tx from:", msg.From().Hex())
 	if msg.To() != nil {
 
 	}
@@ -134,18 +132,13 @@ func NewTransactionFromEthTx(ethTx *types.Transaction, chainTag byte, blockRef B
 		if err != nil {
 			return nil, err
 		}
-		fmt.Println("to:", msg.To().Hex())
-	} else {
-		fmt.Println("to:", to.String())
 	}
-	fmt.Println("value:", msg.Value())
-	fmt.Println("chainId:", fmt.Sprintf("0x%x", ethTx.ChainId()))
 
 	signer := types.NewEIP155Signer(ethTx.ChainId())
 	value := msg.Value()
 	V, R, S := ethTx.RawSignatureValues()
 	msgHash := signer.Hash(ethTx)
-	fmt.Println("eth tx msgHash:", hex.EncodeToString(msgHash[:]))
+	// fmt.Println("eth tx msgHash:", hex.EncodeToString(msgHash[:]))
 	var rawEthTx bytes.Buffer
 	err = ethTx.EncodeRLP(&rawEthTx)
 	if err != nil {
@@ -153,7 +146,7 @@ func NewTransactionFromEthTx(ethTx *types.Transaction, chainTag byte, blockRef B
 	}
 
 	ethSignature := append(append(R.Bytes(), S.Bytes()...), V.Bytes()...)
-	fmt.Println("eth tx signature:", hex.EncodeToString(ethSignature))
+	// fmt.Println("eth tx signature:", hex.EncodeToString(ethSignature))
 
 	origin, err := recoverPlain(msgHash, R, S, V, false)
 	if err != nil {
@@ -185,7 +178,7 @@ func NewTransactionFromEthTx(ethTx *types.Transaction, chainTag byte, blockRef B
 		},
 	}
 	// tx.cache.signer.Store(from)
-	fmt.Println("NewTransactionFromEthTx created tx: ", tx.ID())
+	fmt.Println("NewTransactionFromEthTx created tx: ", tx.ID(), "from=", msg.From().Hex(), "to=", to.String(), "value=", msg.Value().String(), "chainID=", fmt.Sprintf("0x%x", ethTx.ChainId()))
 	return tx, nil
 }
 

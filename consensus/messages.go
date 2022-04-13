@@ -372,6 +372,18 @@ func (m *PMProposalMessage) String() string {
 	return fmt.Sprintf("[PMProposal (H:%v,R:%v), Parent:(H:%v,R:%v), Proposed:%v, %v]",
 		ch.Height, ch.Round, m.ParentHeight, m.ParentRound, blkStr, tcStr)
 }
+
+func (m *PMProposalMessage) CompactString() string {
+	blk, err := block.BlockDecodeFromBytes(m.ProposedBlock)
+
+	blkID := ""
+	if err == nil {
+		blkID = blk.Header().ID().AbbrevString()
+	}
+	ch := m.CSMsgCommonHeader
+	return fmt.Sprintf("[PMProposal (H:%v,R:%v) %v]", ch.Height, ch.Round, blkID)
+}
+
 func (m *PMProposalMessage) Header() *ConsensusMsgCommonHeader {
 	return &m.CSMsgCommonHeader
 }

@@ -184,7 +184,7 @@ func ComputeEpochReleaseWithInflation(sequence uint64, lastAuction *auction.Auct
 		fmt.Println("init release: ", initEpochRelease)
 		return initEpochRelease, nil
 	}
-	fmt.Println("last auction: ", lastAuction)
+	// fmt.Println("last auction: ", lastAuction)
 
 	lastRelease := big.NewInt(0)
 
