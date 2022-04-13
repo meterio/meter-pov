@@ -76,9 +76,9 @@ func (t *Transactions) getRawTransaction(txID meter.Bytes32, blockID meter.Bytes
 	return &rawTransaction{
 		RawTx: RawTx{hexutil.Encode(raw)},
 		Meta: TxMeta{
-			BlockID:        block.Header().ID(),
-			BlockNumber:    block.Header().Number(),
-			BlockTimestamp: block.Header().Timestamp(),
+			BlockID:        block.ID(),
+			BlockNumber:    block.Number(),
+			BlockTimestamp: block.Timestamp(),
 		},
 	}, nil
 }
@@ -311,7 +311,7 @@ func (t *Transactions) handleGetTransactionReceiptByID(w http.ResponseWriter, re
 
 func (t *Transactions) parseHead(head string) (meter.Bytes32, error) {
 	if head == "" {
-		return t.chain.BestBlock().Header().ID(), nil
+		return t.chain.BestBlock().ID(), nil
 	}
 	h, err := meter.ParseBytes32(head)
 	if err != nil {
@@ -324,7 +324,7 @@ func (t *Transactions) handleGetRecentTransactions(w http.ResponseWriter, req *h
 	recentTxs := make([]*Transaction, 0)
 	best := t.chain.BestBlock()
 	var err error
-	for best.Header().Number() > 0 {
+	for best.Number() > 0 {
 		blockHeader := best.Header()
 		for _, tx := range best.Txs {
 			txMeta, err := t.chain.GetTransactionMeta(tx.ID(), blockHeader.ID())

@@ -289,8 +289,8 @@ func (p *Pacemaker) OnReceiveProposal(mi *consensusMsgInfo) error {
 	}
 
 	// skip invalid proposal
-	if blk.Header().Number() != uint32(height) {
-		p.logger.Error("invalid proposal: height mismatch", "proposalHeight", height, "proposedBlockHeight", blk.Header().Number())
+	if blk.Number() != uint32(height) {
+		p.logger.Error("invalid proposal: height mismatch", "proposalHeight", height, "proposedBlockHeight", blk.Number())
 		return errors.New("invalid proposal: height mismatch")
 	}
 
@@ -391,7 +391,7 @@ func (p *Pacemaker) OnReceiveProposal(mi *consensusMsgInfo) error {
 
 		// vote back only if not in catch-up mode
 		if p.mode != PMModeCatchUp {
-			msg, err := p.BuildVoteForProposalMessage(proposalMsg, blk.Header().ID(), blk.Header().TxsRoot(), blk.Header().StateRoot())
+			msg, err := p.BuildVoteForProposalMessage(proposalMsg, blk.ID(), blk.Header().TxsRoot(), blk.Header().StateRoot())
 			if err != nil {
 				return err
 			}
@@ -463,13 +463,13 @@ func (p *Pacemaker) OnPropose(b *pmBlock, qc *pmQuorumCert, height, round uint32
 	bnew := p.CreateLeaf(b, qc, height, round)
 	proposedBlk := bnew.ProposedBlockInfo.ProposedBlock
 	proposedQC := bnew.ProposedBlockInfo.ProposedBlock.QC
-	if bnew.Height != height || height != proposedBlk.Header().Number() {
-		p.logger.Error("proposed height mismatch", "expectedHeight", height, "proposedHeight", bnew.Height, "proposedBlockHeight", proposedBlk.Header().Number())
+	if bnew.Height != height || height != proposedBlk.Number() {
+		p.logger.Error("proposed height mismatch", "expectedHeight", height, "proposedHeight", bnew.Height, "proposedBlockHeight", proposedBlk.Number())
 		return nil, errors.New("proposed height mismatch")
 	}
 
-	if bnew.Height <= proposedQC.QCHeight || proposedBlk.Header().Number() <= proposedQC.QCHeight {
-		p.logger.Error("proposed block refers to an invalid qc", "qcHeight", proposedQC.QCHeight, "proposedHeight", bnew.Height, "proposedBlockHeight", proposedBlk.Header().Number(), "expectedHeight", height)
+	if bnew.Height <= proposedQC.QCHeight || proposedBlk.Number() <= proposedQC.QCHeight {
+		p.logger.Error("proposed block refers to an invalid qc", "qcHeight", proposedQC.QCHeight, "proposedHeight", bnew.Height, "proposedBlockHeight", proposedBlk.Number(), "expectedHeight", height)
 		return nil, errors.New("proposed block referes to an invalid qc")
 	}
 
@@ -483,10 +483,10 @@ func (p *Pacemaker) OnPropose(b *pmBlock, qc *pmQuorumCert, height, round uint32
 	// pre-compute msgHash and store it in signature aggregator
 	info := bnew.ProposedBlockInfo
 	blk := info.ProposedBlock
-	id := blk.Header().ID()
+	id := blk.ID()
 	txsRoot := blk.Header().TxsRoot()
 	stateRoot := blk.Header().StateRoot()
-	signMsg := p.csReactor.BuildProposalBlockSignMsg(uint32(info.BlockType), uint64(blk.Header().Number()), &id, &txsRoot, &stateRoot)
+	signMsg := p.csReactor.BuildProposalBlockSignMsg(uint32(info.BlockType), uint64(blk.Number()), &id, &txsRoot, &stateRoot)
 	msgHash := p.csReactor.csCommon.Hash256Msg([]byte(signMsg))
 	p.sigAggregator = newSignatureAggregator(p.csReactor.committeeSize, *p.csReactor.csCommon.GetSystem(), msgHash, p.csReactor.curCommittee.Validators)
 
@@ -949,11 +949,11 @@ func (p *Pacemaker) mainLoop() {
 func (p *Pacemaker) SendKblockInfo(b *pmBlock) {
 	// clean off chain for next committee.
 	blk := b.ProposedBlockInfo.ProposedBlock
-	if blk.Header().BlockType() == block.BLOCK_TYPE_K_BLOCK {
+	if blk.BlockType() == block.BLOCK_TYPE_K_BLOCK {
 		data, _ := blk.GetKBlockData()
 		info := RecvKBlockInfo{
-			Height:           blk.Header().Number(),
-			LastKBlockHeight: blk.Header().LastKBlockHeight(),
+			Height:           blk.Number(),
+			LastKBlockHeight: blk.LastKBlockHeight(),
 			Nonce:            data.Nonce,
 			Epoch:            blk.QC.EpochID,
 		}
@@ -1208,8 +1208,8 @@ func (p *Pacemaker) OnReceiveQueryProposal(mi *consensusMsgInfo) error {
 	returnAddr := queryMsg.ReturnAddr
 	p.logger.Info("receives query", "fromHeight", fromHeight, "toHeight", toHeight, "round", queryRound, "returnAddr", returnAddr)
 
-	bestHeight := p.csReactor.chain.BestBlock().Header().Number()
-	lastKBlockHeight := p.csReactor.chain.BestBlock().Header().LastKBlockHeight() + 1
+	bestHeight := p.csReactor.chain.BestBlock().Number()
+	lastKBlockHeight := p.csReactor.chain.BestBlock().LastKBlockHeight() + 1
 	if toHeight <= bestHeight && toHeight > 0 {
 		// toHeight == 0 is considered as infinity
 		p.logger.Error("query too old", "fromHeight", fromHeight, "toHeight", toHeight, "round", queryRound)

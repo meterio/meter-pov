@@ -286,7 +286,7 @@ func defaultAction(ctx *cli.Context) error {
 	apiHandler, apiCloser := api.New(chain, state.NewCreator(mainDB), txPool, logDB, p2pcom.comm, ctx.String(apiCorsFlag.Name), uint32(ctx.Int(apiBacktraceLimitFlag.Name)), uint64(ctx.Int(apiCallGasLimitFlag.Name)), p2pcom.p2pSrv, pubkey)
 	defer func() { log.Info("closing API..."); apiCloser() }()
 
-	apiURL, srvCloser := startAPIServer(ctx, apiHandler, chain.GenesisBlock().Header().ID())
+	apiURL, srvCloser := startAPIServer(ctx, apiHandler, chain.GenesisBlock().ID())
 	defer func() { log.Info("stopping API server..."); srvCloser() }()
 
 	powApiHandler, powApiCloser := pow_api.New(powPool)

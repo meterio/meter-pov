@@ -43,7 +43,7 @@ func TestSubscribeNewTx(t *testing.T) {
 	defer pool.Close()
 
 	b1 := new(block.Builder).
-		ParentID(pool.chain.GenesisBlock().Header().ID()).
+		ParentID(pool.chain.GenesisBlock().ID()).
 		Timestamp(uint64(time.Now().Unix())).
 		TotalScore(100).
 		GasLimit(10000000).
@@ -78,7 +78,7 @@ func TestWashTxs(t *testing.T) {
 	assert.Equal(t, Tx.Transactions{tx}, txs)
 
 	b1 := new(block.Builder).
-		ParentID(pool.chain.GenesisBlock().Header().ID()).
+		ParentID(pool.chain.GenesisBlock().ID()).
 		Timestamp(uint64(time.Now().Unix())).
 		TotalScore(100).
 		GasLimit(10000000).
@@ -95,7 +95,7 @@ func TestAdd(t *testing.T) {
 	pool := newPool()
 	defer pool.Close()
 	b1 := new(block.Builder).
-		ParentID(pool.chain.GenesisBlock().Header().ID()).
+		ParentID(pool.chain.GenesisBlock().ID()).
 		Timestamp(uint64(time.Now().Unix())).
 		TotalScore(100).
 		GasLimit(10000000).

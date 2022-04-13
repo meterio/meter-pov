@@ -131,7 +131,7 @@ func (cv *ConsensusValidator) ProcessAnnounceCommittee(announceMsg *AnnounceComm
 		cv.csReactor.logger.Warn("Could not get KBlock, use nonce from announce message", "nonce", announceMsg.Nonce)
 		kblockNonce = announceMsg.Nonce
 	} else {
-		if kblock.Header().Number() == 0 {
+		if kblock.Number() == 0 {
 			kblockNonce = genesis.GenesisNonce
 		} else {
 			kblockNonce = kblock.KBlockData.Nonce

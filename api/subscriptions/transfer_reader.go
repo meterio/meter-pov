@@ -31,7 +31,7 @@ func (tr *transferReader) Read() ([]interface{}, bool, error) {
 	}
 	var msgs []interface{}
 	for _, block := range blocks {
-		receipts, err := tr.chain.GetBlockReceipts(block.Header().ID())
+		receipts, err := tr.chain.GetBlockReceipts(block.ID())
 		if err != nil {
 			return nil, false, err
 		}

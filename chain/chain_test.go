@@ -32,7 +32,7 @@ func initChain() *chain.Chain {
 var privateKey, _ = crypto.GenerateKey()
 
 func newBlock(parent *block.Block, score uint64) *block.Block {
-	b := new(block.Builder).ParentID(parent.Header().ID()).TotalScore(parent.Header().TotalScore() + score).Build()
+	b := new(block.Builder).ParentID(parent.ID()).TotalScore(parent.TotalScore() + score).Build()
 	sig, _ := crypto.Sign(b.Header().SigningHash().Bytes(), privateKey)
 	return b.WithSignature(sig)
 }
@@ -61,7 +61,7 @@ func TestAdd(t *testing.T) {
 	for _, tt := range tests {
 		fork, err := ch.AddBlock(tt.newBlock, nil)
 		assert.Nil(t, err)
-		assert.Equal(t, tt.best.ID(), ch.BestBlock().Header().ID())
+		assert.Equal(t, tt.best.ID(), ch.BestBlock().ID())
 
 		assert.Equal(t, tt.fork.Ancestor.ID(), fork.Ancestor.ID())
 		assert.Equal(t, len(tt.fork.Branch), len(fork.Branch))

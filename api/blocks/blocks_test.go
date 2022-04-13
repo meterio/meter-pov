@@ -49,7 +49,7 @@ func TestBlock(t *testing.T) {
 	res, statusCode = httpGet(t, ts.URL+"/blocks/"+invalidNumberRevision)
 	assert.Equal(t, http.StatusBadRequest, statusCode)
 
-	res, statusCode = httpGet(t, ts.URL+"/blocks/"+blk.Header().ID().String())
+	res, statusCode = httpGet(t, ts.URL+"/blocks/"+blk.ID().String())
 	rb := new(blocks.Block)
 	if err := json.Unmarshal(res, &rb); err != nil {
 		t.Fatal(err)

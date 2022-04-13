@@ -180,8 +180,8 @@ func (n *Node) houseKeeping(ctx context.Context) {
 			if isTrunk, err := n.processBlock(newBlock.Block, &stats); err != nil {
 				if consensus.IsFutureBlock(err) ||
 					(consensus.IsParentMissing(err) && futureBlocks.Contains(newBlock.Header().ParentID())) {
-					log.Debug("future block added", "id", newBlock.Header().ID())
-					futureBlocks.Set(newBlock.Header().ID(), newBlock.Block)
+					log.Debug("future block added", "id", newBlock.ID())
+					futureBlocks.Set(newBlock.ID(), newBlock.Block)
 				}
 			} else if isTrunk {
 				n.comm.BroadcastBlock(newBlock.Block)
@@ -195,13 +195,13 @@ func (n *Node) houseKeeping(ctx context.Context) {
 				return true
 			})
 			sort.Slice(blocks, func(i, j int) bool {
-				return blocks[i].Header().Number() < blocks[j].Header().Number()
+				return blocks[i].Number() < blocks[j].Number()
 			})
 			var stats blockStats
 			for i, block := range blocks {
 				if isTrunk, err := n.processBlock(block, &stats); err == nil || consensus.IsKnownBlock(err) {
-					log.Debug("future block consumed", "id", block.Header().ID())
-					futureBlocks.Remove(block.Header().ID())
+					log.Debug("future block consumed", "id", block.ID())
+					futureBlocks.Remove(block.ID())
 					if isTrunk {
 						n.comm.BroadcastBlock(block)
 					}
@@ -308,10 +308,10 @@ func (n *Node) processBlock(blk *block.Block, stats *blockStats) (bool, error) {
 
 	// XXX: shortcut to refresh height
 	n.cons.RefreshCurHeight()
-	if blk.Header().BlockType() == block.BLOCK_TYPE_K_BLOCK {
+	if blk.BlockType() == block.BLOCK_TYPE_K_BLOCK {
 		data, _ := blk.GetKBlockData()
 		info := consensus.RecvKBlockInfo{
-			Height:           blk.Header().Number(),
+			Height:           blk.Number(),
 			LastKBlockHeight: n.cons.GetLastKBlockHeight(),
 			Nonce:            data.Nonce,
 			Epoch:            blk.QC.EpochID,
@@ -337,14 +337,14 @@ func (n *Node) commitBlock(newBlock *block.Block, receipts tx.Receipts) (*chain.
 	n.commitLock.Lock()
 	defer n.commitLock.Unlock()
 
-	// fmt.Println("Calling AddBlock from node.commitBlock, newBlock=", newBlock.Header().ID())
+	// fmt.Println("Calling AddBlock from node.commitBlock, newBlock=", newBlock.ID())
 	fork, err := n.chain.AddBlock(newBlock, receipts, true)
 	if err != nil {
 		return nil, err
 	}
 
 	if meter.IsMainNet() {
-		if newBlock.Header().Number() == meter.TeslaMainnetStartNum {
+		if newBlock.Number() == meter.TeslaMainnetStartNum {
 			script.EnterTeslaForkInit()
 		}
 	}

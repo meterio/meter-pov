@@ -32,7 +32,7 @@ func (g *Genesis) Build(stateCreator *state.Creator) (*block.Block, tx.Events, e
 	if err != nil {
 		return nil, nil, err
 	}
-	if blk.Header().ID() != g.id {
+	if blk.ID() != g.id {
 		panic("built genesis ID incorrect")
 	}
 	blk.QC = block.GenesisQC()

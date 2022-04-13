@@ -152,7 +152,7 @@ func buildJSONEpoch(blk *block.Block) *JSONEpoch {
 	return &JSONEpoch{
 		Nonce:     blk.KBlockData.Nonce,
 		EpochID:   blk.GetBlockEpoch(),
-		Number:    blk.Header().Number(),
+		Number:    blk.Number(),
 		PowBlocks: jPowBlks,
 	}
 }

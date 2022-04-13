@@ -139,7 +139,7 @@ func (tr *testResolvedTransaction) TestBuyGas() {
 		return txBuilder(tr.chain.Tag())
 	}
 
-	targetTime := tr.chain.BestBlock().Header().Timestamp() + meter.BlockInterval
+	targetTime := tr.chain.BestBlock().Timestamp() + meter.BlockInterval
 
 	buyGas := func(tx *tx.Transaction) meter.Address {
 		resolve, err := runtime.ResolveTransaction(tx)

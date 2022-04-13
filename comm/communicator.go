@@ -107,8 +107,8 @@ func (c *Communicator) Sync(handler HandleBlockStream, qcHandler HandleQC) {
 
 		shouldSynced := func() bool {
 			bestQCHeight := c.chain.BestQC().QCHeight
-			bestBlockHeight := c.chain.BestBlock().Header().Number()
-			bestBlockTime := c.chain.BestBlock().Header().Timestamp()
+			bestBlockHeight := c.chain.BestBlock().Number()
+			bestBlockTime := c.chain.BestBlock().Timestamp()
 			now := uint64(time.Now().Unix())
 			if bestBlockTime+meter.BlockInterval >= now && bestQCHeight == bestBlockHeight {
 				return true
@@ -139,7 +139,7 @@ func (c *Communicator) Sync(handler HandleBlockStream, qcHandler HandleQC) {
 					if err := c.sync(peer, best.Number(), handler, qcHandler); err != nil {
 						peer.logger.Info("synchronization failed", "err", err)
 					}
-					log.Info("triggered synchronization done", "bestQC", c.chain.BestQC().QCHeight, "bestBlock", c.chain.BestBlock().Header().Number())
+					log.Info("triggered synchronization done", "bestQC", c.chain.BestQC().QCHeight, "bestBlock", c.chain.BestBlock().Number())
 				}
 				syncCount++
 			case <-timer.C:
@@ -181,7 +181,7 @@ func (c *Communicator) Sync(handler HandleBlockStream, qcHandler HandleQC) {
 
 // Protocols returns all supported protocols.
 func (c *Communicator) Protocols() []*p2psrv.Protocol {
-	genesisID := c.chain.GenesisBlock().Header().ID()
+	genesisID := c.chain.GenesisBlock().ID()
 	return []*p2psrv.Protocol{
 		&p2psrv.Protocol{
 			Protocol: p2p.Protocol{
@@ -258,7 +258,7 @@ func (c *Communicator) runPeer(peer *Peer, dir string) {
 		peer.logger.Debug("failed to get status", "err", err)
 		return
 	}
-	if status.GenesisBlockID != c.chain.GenesisBlock().Header().ID() {
+	if status.GenesisBlockID != c.chain.GenesisBlock().ID() {
 		peer.logger.Debug("failed to handshake", "err", "genesis id mismatch")
 		return
 	}
@@ -311,7 +311,7 @@ func (c *Communicator) BroadcastBlock(blk *block.Block) {
 		"bestQC", bestQC.String())
 
 	peers := c.peerSet.Slice().Filter(func(p *Peer) bool {
-		return !p.IsBlockKnown(blk.Header().ID())
+		return !p.IsBlockKnown(blk.ID())
 	})
 
 	p := int(math.Sqrt(float64(len(peers))))
@@ -320,7 +320,7 @@ func (c *Communicator) BroadcastBlock(blk *block.Block) {
 
 	for _, peer := range toPropagate {
 		peer := peer
-		peer.MarkBlock(blk.Header().ID())
+		peer.MarkBlock(blk.ID())
 		c.goes.Go(func() {
 			log.Debug("Sent BestQC/NewBlock to peer", "peer", peer.Peer.RemoteAddr().String())
 			if err := proto.NotifyNewBestQC(c.ctx, peer, bestQC); err != nil {
@@ -334,13 +334,13 @@ func (c *Communicator) BroadcastBlock(blk *block.Block) {
 
 	for _, peer := range toAnnounce {
 		peer := peer
-		peer.MarkBlock(blk.Header().ID())
+		peer.MarkBlock(blk.ID())
 		c.goes.Go(func() {
 			log.Debug("Broadcast BestQC to peer", "peer", peer.Peer.RemoteAddr().String())
 			if err := proto.NotifyNewBestQC(c.ctx, peer, bestQC); err != nil {
 				peer.logger.Debug("failed to broadcast new bestQC", "err", err)
 			}
-			if err := proto.NotifyNewBlockID(c.ctx, peer, blk.Header().ID()); err != nil {
+			if err := proto.NotifyNewBlockID(c.ctx, peer, blk.ID()); err != nil {
 				peer.logger.Debug("failed to broadcast new block id", "err", err)
 			}
 		})

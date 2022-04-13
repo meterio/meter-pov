@@ -153,11 +153,11 @@ func (cl *ConsensusLeader) GenerateAnnounceMsg(height uint32, round uint32) bool
 
 	best := cl.csReactor.chain.BestBlock()
 	var kblockHeight uint32
-	if best.Header().BlockType() == block.BLOCK_TYPE_K_BLOCK {
-		kblockHeight = best.Header().Number()
+	if best.BlockType() == block.BLOCK_TYPE_K_BLOCK {
+		kblockHeight = best.Number()
 	} else {
 		// mblock
-		kblockHeight = best.Header().LastKBlockHeight()
+		kblockHeight = best.LastKBlockHeight()
 	}
 
 	msg := &AnnounceCommitteeMessage{

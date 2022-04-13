@@ -158,37 +158,37 @@ func (tc *testConsensus) TestValidateBlockHeader() {
 	triggers["triggerErrTimestampBehindParent"] = func() {
 		build := tc.originalBuilder()
 
-		blk := tc.sign(build.Timestamp(tc.parent.Header().Timestamp()).Build())
+		blk := tc.sign(build.Timestamp(tc.parent.Timestamp()).Build())
 		err := tc.consent(blk)
 		expect := consensusError(
 			fmt.Sprintf(
 				"block timestamp behind parents: parent %v, current %v",
-				tc.parent.Header().Timestamp(),
-				blk.Header().Timestamp(),
+				tc.parent.Timestamp(),
+				blk.Timestamp(),
 			),
 		)
 		tc.assert.Equal(err, expect)
 
-		blk = tc.sign(build.Timestamp(tc.parent.Header().Timestamp() - 1).Build())
+		blk = tc.sign(build.Timestamp(tc.parent.Timestamp() - 1).Build())
 		err = tc.consent(blk)
 		expect = consensusError(
 			fmt.Sprintf(
 				"block timestamp behind parents: parent %v, current %v",
-				tc.parent.Header().Timestamp(),
-				blk.Header().Timestamp(),
+				tc.parent.Timestamp(),
+				blk.Timestamp(),
 			),
 		)
 		tc.assert.Equal(err, expect)
 	}
 	triggers["triggerErrInterval"] = func() {
 		build := tc.originalBuilder()
-		blk := tc.sign(build.Timestamp(tc.original.Header().Timestamp() + 1).Build())
+		blk := tc.sign(build.Timestamp(tc.original.Timestamp() + 1).Build())
 		err := tc.consent(blk)
 		expect := consensusError(
 			fmt.Sprintf(
 				"block interval not rounded: parent %v, current %v",
-				tc.parent.Header().Timestamp(),
-				blk.Header().Timestamp(),
+				tc.parent.Timestamp(),
+				blk.Timestamp(),
 			),
 		)
 		tc.assert.Equal(err, expect)
@@ -201,25 +201,25 @@ func (tc *testConsensus) TestValidateBlockHeader() {
 	}
 	triggers["triggerInvalidGasLimit"] = func() {
 		build := tc.originalBuilder()
-		blk := tc.sign(build.GasLimit(tc.parent.Header().GasLimit() * 2).Build())
+		blk := tc.sign(build.GasLimit(tc.parent.GasLimit() * 2).Build())
 		err := tc.consent(blk)
 		expect := consensusError(
 			fmt.Sprintf(
 				"block gas limit invalid: parent %v, current %v",
-				tc.parent.Header().GasLimit(),
-				blk.Header().GasLimit(),
+				tc.parent.GasLimit(),
+				blk.GasLimit(),
 			),
 		)
 		tc.assert.Equal(err, expect)
 	}
 	triggers["triggerExceedGaUsed"] = func() {
 		build := tc.originalBuilder()
-		blk := tc.sign(build.GasUsed(tc.original.Header().GasLimit() + 1).Build())
+		blk := tc.sign(build.GasUsed(tc.original.GasLimit() + 1).Build())
 		err := tc.consent(blk)
 		expect := consensusError(
 			fmt.Sprintf(
 				"block gas used exceeds limit: limit %v, used %v",
-				tc.parent.Header().GasLimit(),
+				tc.parent.GasLimit(),
 				blk.Header().GasUsed(),
 			),
 		)
@@ -227,13 +227,13 @@ func (tc *testConsensus) TestValidateBlockHeader() {
 	}
 	triggers["triggerInvalidTotalScore"] = func() {
 		build := tc.originalBuilder()
-		blk := tc.sign(build.TotalScore(tc.parent.Header().TotalScore()).Build())
+		blk := tc.sign(build.TotalScore(tc.parent.TotalScore()).Build())
 		err := tc.consent(blk)
 		expect := consensusError(
 			fmt.Sprintf(
 				"block total score invalid: parent %v, current %v",
-				tc.parent.Header().TotalScore(),
-				blk.Header().TotalScore(),
+				tc.parent.TotalScore(),
+				blk.TotalScore(),
 			),
 		)
 		tc.assert.Equal(err, expect)
@@ -272,7 +272,7 @@ func (tc *testConsensus) TestTxAlreadyExists() {
 
 func (tc *testConsensus) TestParentMissing() {
 	build := tc.originalBuilder()
-	blk := tc.sign(build.ParentID(tc.original.Header().ID()).Build())
+	blk := tc.sign(build.ParentID(tc.original.ID()).Build())
 	err := tc.consent(blk)
 	tc.assert.Equal(err, errParentMissing)
 }
@@ -364,7 +364,7 @@ func (tc *testConsensus) TestValidateProposer() {
 		expect := consensusError(
 			fmt.Sprintf(
 				"block timestamp unscheduled: t %v, s %v",
-				blk.Header().Timestamp(),
+				blk.Timestamp(),
 				meter.Address(crypto.PubkeyToAddress(genesis.DevAccounts()[1].PrivateKey.PublicKey)),
 			),
 		)
@@ -372,7 +372,7 @@ func (tc *testConsensus) TestValidateProposer() {
 	}
 	triggers["triggerTotalScoreInvalid"] = func() {
 		build := tc.originalBuilder()
-		blk := tc.sign(build.TotalScore(tc.original.Header().TotalScore() + 100).Build())
+		blk := tc.sign(build.TotalScore(tc.original.TotalScore() + 100).Build())
 		err := tc.consent(blk)
 		expect := consensusError("block total score invalid: want 1, have 101")
 		tc.assert.Equal(err, expect)

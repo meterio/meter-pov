@@ -213,12 +213,12 @@ func NewConsensusReactor(ctx *cli.Context, chain *chain.Chain, state *state.Crea
 	conR.RcvKBlockInfoQueue = make(chan RecvKBlockInfo, CHAN_DEFAULT_BUF_SIZE)
 
 	//initialize height/round
-	if chain.BestBlock().Header().BlockType() == block.BLOCK_TYPE_K_BLOCK {
-		conR.lastKBlockHeight = chain.BestBlock().Header().Number()
+	if chain.BestBlock().BlockType() == block.BLOCK_TYPE_K_BLOCK {
+		conR.lastKBlockHeight = chain.BestBlock().Number()
 	} else {
-		conR.lastKBlockHeight = chain.BestBlock().Header().LastKBlockHeight()
+		conR.lastKBlockHeight = chain.BestBlock().LastKBlockHeight()
 	}
-	conR.curHeight = chain.BestBlock().Header().Number()
+	conR.curHeight = chain.BestBlock().Number()
 
 	// initialize consensus common
 	conR.csCommon = NewConsensusCommonFromBlsCommon(blsCommon)
@@ -292,21 +292,21 @@ func (conR *ConsensusReactor) SwitchToConsensus() {
 	if err != nil {
 		panic("could not get best KBlock")
 	}
-	if bestKBlock.Header().Number() == 0 {
+	if bestKBlock.Number() == 0 {
 		nonce = genesis.GenesisNonce
 	} else {
 		nonce = bestKBlock.KBlockData.Nonce
 	}
-	replay := (best.Header().Number() != bestKBlock.Header().Number())
+	replay := (best.Number() != bestKBlock.Number())
 
-	fmt.Println("Update lastKBlockHeight to ", bestKBlock.Header().Number())
-	conR.lastKBlockHeight = bestKBlock.Header().Number()
+	fmt.Println("Update lastKBlockHeight to ", bestKBlock.Number())
+	conR.lastKBlockHeight = bestKBlock.Number()
 
 	// --force-last-kframe
 	if !conR.config.ForceLastKFrame {
 		conR.JoinEstablishedCommittee(bestKBlock, replay)
 	} else {
-		conR.ConsensusHandleReceivedNonce(bestKBlock.Header().Number(), nonce, best.QC.EpochID, replay)
+		conR.ConsensusHandleReceivedNonce(bestKBlock.Number(), nonce, best.QC.EpochID, replay)
 	}
 }
 
@@ -398,9 +398,9 @@ func (conR *ConsensusReactor) RefreshCurHeight() error {
 	prev := conR.curHeight
 
 	best := conR.chain.BestBlock()
-	conR.curHeight = best.Header().Number()
-	if best.Header().LastKBlockHeight() > conR.lastKBlockHeight {
-		conR.lastKBlockHeight = best.Header().LastKBlockHeight()
+	conR.curHeight = best.Number()
+	if best.LastKBlockHeight() > conR.lastKBlockHeight {
+		conR.lastKBlockHeight = best.LastKBlockHeight()
 		lastKBlockHeightGauge.Set(float64(conR.lastKBlockHeight))
 	}
 	conR.updateCurEpoch(best.GetBlockEpoch())
@@ -1139,12 +1139,12 @@ func HandleScheduleReplayLeader(conR *ConsensusReactor, epochID uint64, height u
 	// init consensus common as leader
 	// need to deinit to avoid the memory leak
 	best := conR.chain.BestBlock()
-	curHeight := best.Header().Number()
+	curHeight := best.Number()
 	if height != curHeight {
 		conR.logger.Warn("height is not the same with curHeight")
 	}
 
-	lastKBlockHeight := best.Header().LastKBlockHeight()
+	lastKBlockHeight := best.LastKBlockHeight()
 	lastKBlockHeightGauge.Set(float64(lastKBlockHeight))
 
 	conR.csLeader = NewCommitteeLeader(conR)
@@ -1161,7 +1161,7 @@ func HandleScheduleReplayLeader(conR *ConsensusReactor, epochID uint64, height u
 }
 
 func HandleScheduleLeader(conR *ConsensusReactor, epochID uint64, height uint32, round uint32, ev *NCEvidence) bool {
-	curHeight := conR.chain.BestBlock().Header().Number()
+	curHeight := conR.chain.BestBlock().Number()
 	if curHeight != height {
 		conR.logger.Error("ScheduleLeader: best height is different with kblock height", "curHeight", curHeight, "kblock height", height)
 		if curHeight > height {
@@ -1222,8 +1222,8 @@ func (conR *ConsensusReactor) UpdateCurDelegates() {
 // an established committee and proposing
 func (conR *ConsensusReactor) CheckEstablishedCommittee(kHeight uint32) bool {
 	best := conR.chain.BestBlock()
-	bestHeight := best.Header().Number()
-	lastKBlockHeight := best.Header().LastKBlockHeight()
+	bestHeight := best.Number()
+	lastKBlockHeight := best.LastKBlockHeight()
 	if (bestHeight > kHeight) && ((bestHeight - kHeight) >= 5) && (kHeight == lastKBlockHeight) {
 		return true
 	}
@@ -1233,8 +1233,8 @@ func (conR *ConsensusReactor) CheckEstablishedCommittee(kHeight uint32) bool {
 func (conR *ConsensusReactor) JoinEstablishedCommittee(kBlock *block.Block, replay bool) {
 	var nonce uint64
 	var info *powpool.PowBlockInfo
-	kBlockHeight := kBlock.Header().Number()
-	if kBlock.Header().Number() == 0 {
+	kBlockHeight := kBlock.Number()
+	if kBlock.Number() == 0 {
 		nonce = genesis.GenesisNonce
 		info = powpool.GetPowGenesisBlockInfo()
 	} else {
@@ -1255,7 +1255,7 @@ func (conR *ConsensusReactor) JoinEstablishedCommittee(kBlock *block.Block, repl
 		pool := powpool.GetGlobPowPoolInst()
 		pool.Wash()
 		pool.InitialAddKframe(info)
-		conR.logger.Info("PowPool initial added kblock", "kblock height", kBlock.Header().Number(), "powHeight", info.PowHeight)
+		conR.logger.Info("PowPool initial added kblock", "kblock height", kBlock.Number(), "powHeight", info.PowHeight)
 
 		if replay == true {
 			//kblock is already added to pool, should start with next one
@@ -1410,8 +1410,8 @@ func (conR *ConsensusReactor) startPacemaker(newCommittee bool, mode PMMode) err
 		conR.chain.UpdateBestQC(nil, chain.None)
 		bestQC := conR.chain.BestQC()
 		bestBlock := conR.chain.BestBlock()
-		conR.logger.Info("Checking the QCHeight and Block height...", "QCHeight", bestQC.QCHeight, "bestHeight", bestBlock.Header().Number())
-		if bestQC.QCHeight != bestBlock.Header().Number() {
+		conR.logger.Info("Checking the QCHeight and Block height...", "QCHeight", bestQC.QCHeight, "bestHeight", bestBlock.Number())
+		if bestQC.QCHeight != bestBlock.Number() {
 			com := comm.GetGlobCommInst()
 			if com == nil {
 				conR.logger.Error("get global comm inst failed")
@@ -1427,12 +1427,12 @@ func (conR *ConsensusReactor) startPacemaker(newCommittee bool, mode PMMode) err
 	conR.chain.UpdateBestQC(nil, chain.None)
 	bestQC := conR.chain.BestQC()
 	bestBlock := conR.chain.BestBlock()
-	if bestQC.QCHeight != bestBlock.Header().Number() {
+	if bestQC.QCHeight != bestBlock.Number() {
 		conR.logger.Error("bestQC and bestBlock still not match, Action (start pacemaker) cancelled ...")
 		return nil
 	}
 
-	conR.logger.Info("startConsensusPacemaker", "QCHeight", bestQC.QCHeight, "bestHeight", bestBlock.Header().Number())
+	conR.logger.Info("startConsensusPacemaker", "QCHeight", bestQC.QCHeight, "bestHeight", bestBlock.Number())
 	conR.csPacemaker.Start(newCommittee, mode)
 	return nil
 }

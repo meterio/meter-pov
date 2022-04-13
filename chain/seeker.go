@@ -57,5 +57,5 @@ func (s *Seeker) GetHeader(id meter.Bytes32) *block.Header {
 
 // GenesisID get genesis block ID.
 func (s *Seeker) GenesisID() meter.Bytes32 {
-	return s.chain.GenesisBlock().Header().ID()
+	return s.chain.GenesisBlock().ID()
 }
