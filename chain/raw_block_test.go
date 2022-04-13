@@ -22,7 +22,7 @@ func TestRawBlock(t *testing.T) {
 	raw := &rawBlock{raw: data}
 
 	h, _ := raw.Header()
-	assert.Equal(t, b.Header().ID(), h.ID())
+	assert.Equal(t, b.ID(), h.ID())
 
 	b1, _ := raw.Block()
 

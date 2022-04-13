@@ -107,7 +107,7 @@ func ComputeMissingProposer(validators []*types.Validator, actualMembers []types
 	index := 0
 	origIndex := 0
 	for _, blk := range blocks {
-		actualSigner, err := blk.Header().Signer()
+		actualSigner, err := blk.Signer()
 		if err != nil {
 			return result, err
 		}
@@ -123,7 +123,7 @@ func ComputeMissingProposer(validators []*types.Validator, actualMembers []types
 				Address: validators[actualMembers[index%len(actualMembers)].CSIndex].Address,
 				Info: staking.MissingProposerInfo{
 					Epoch:  curEpoch,
-					Height: blk.Header().Number(),
+					Height: blk.Number(),
 				},
 			}
 			result = append(result, info)
@@ -226,7 +226,7 @@ func ComputeDoubleSigner(common *types.ConsensusCommon, blocks []*block.Block, c
 					Address: v.Address,
 					Info: staking.DoubleSignerInfo{
 						Epoch:  curEpoch,
-						Height: blk.Header().Number(),
+						Height: blk.Number(),
 					},
 				}
 				result = append(result, info)

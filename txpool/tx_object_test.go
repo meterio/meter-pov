@@ -81,7 +81,7 @@ func TestExecutable(t *testing.T) {
 	kv, _ := lvldb.NewMem()
 	chain := newChain(kv)
 	b0 := chain.GenesisBlock()
-	b1 := new(block.Builder).ParentID(b0.Header().ID()).GasLimit(10000000).TotalScore(100).Build()
+	b1 := new(block.Builder).ParentID(b0.ID()).GasLimit(10000000).TotalScore(100).Build()
 	chain.AddBlock(b1, nil)
 	st, _ := state.New(chain.GenesisBlock().Header().StateRoot(), kv)
 

@@ -73,7 +73,7 @@ func (b *Builder) ComputeID() (meter.Bytes32, error) {
 	if err != nil {
 		return meter.Bytes32{}, err
 	}
-	return blk.Header().ID(), nil
+	return blk.ID(), nil
 }
 
 // Build build genesis block according to presets.

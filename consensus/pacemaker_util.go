@@ -224,8 +224,8 @@ func (p *Pacemaker) ValidateProposal(b *pmBlock) error {
 	}
 
 	//create checkPoint before validate block
-	blkID := blk.Header().ID()
-	blkHeight := blk.Header().Number()
+	blkID := blk.ID()
+	blkHeight := blk.Number()
 	state, err := p.csReactor.stateCreator.NewState(p.csReactor.chain.BestBlock().Header().StateRoot())
 	if err != nil {
 		p.logger.Error("revert state failed ...", "height", blkHeight, "id", blkID, "error", err)

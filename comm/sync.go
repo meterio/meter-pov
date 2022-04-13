@@ -76,7 +76,7 @@ func (c *Communicator) download(peer *Peer, fromNum uint32, handler HandleBlockS
 					errCh <- errors.Wrap(err, "invalid block")
 					return
 				}
-				if blk.Header().Number() != fromNum {
+				if blk.Number() != fromNum {
 					errCh <- errors.New("broken sequence")
 					return
 				}
@@ -100,7 +100,7 @@ func (c *Communicator) download(peer *Peer, fromNum uint32, handler HandleBlockS
 			})
 
 			for _, blk := range blocks {
-				peer.MarkBlock(blk.Header().ID())
+				peer.MarkBlock(blk.ID())
 				select {
 				case <-ctx.Done():
 					return

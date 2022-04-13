@@ -11,13 +11,13 @@ import (
 	"sort"
 	"sync"
 
+	"github.com/ethereum/go-ethereum/rlp"
+	"github.com/inconshreveable/log15"
 	"github.com/meterio/meter-pov/block"
 	"github.com/meterio/meter-pov/co"
 	"github.com/meterio/meter-pov/kv"
 	"github.com/meterio/meter-pov/meter"
 	"github.com/meterio/meter-pov/tx"
-	"github.com/ethereum/go-ethereum/rlp"
-	"github.com/inconshreveable/log15"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 )
@@ -71,7 +71,7 @@ func New(kv kv.GetPutter, genesisBlock *block.Block, verbose bool) (*Chain, erro
 	prometheus.MustRegister(bestQCHeightGauge)
 	prometheus.MustRegister(bestHeightGauge)
 
-	if genesisBlock.Header().Number() != 0 {
+	if genesisBlock.Number() != 0 {
 		return nil, errors.New("genesis number != 0")
 	}
 	if len(genesisBlock.Transactions()) != 0 {
@@ -80,7 +80,7 @@ func New(kv kv.GetPutter, genesisBlock *block.Block, verbose bool) (*Chain, erro
 	ancestorTrie := newAncestorTrie(kv)
 	var bestBlock, leafBlock *block.Block
 
-	genesisID := genesisBlock.Header().ID()
+	genesisID := genesisBlock.ID()
 	if bestBlockID, err := loadBestBlockID(kv); err != nil {
 		if !kv.IsNotFound(err) {
 			return nil, err
@@ -109,7 +109,7 @@ func New(kv kv.GetPutter, genesisBlock *block.Block, verbose bool) (*Chain, erro
 		}
 
 		bestBlock = genesisBlock
-		bestHeightGauge.Set(float64(bestBlock.Header().Number()))
+		bestHeightGauge.Set(float64(bestBlock.Number()))
 	} else {
 		existGenesisID, err := ancestorTrie.GetAncestor(bestBlockID, 0)
 		if err != nil {
@@ -126,7 +126,7 @@ func New(kv kv.GetPutter, genesisBlock *block.Block, verbose bool) (*Chain, erro
 		if err != nil {
 			return nil, err
 		}
-		if bestBlock.Header().Number() == 0 && bestBlock.QC == nil {
+		if bestBlock.Number() == 0 && bestBlock.QC == nil {
 			log.Info("QC of best block is empty, set it to genesis QC")
 			bestBlock.QC = block.GenesisQC()
 		}
@@ -162,13 +162,13 @@ func New(kv kv.GetPutter, genesisBlock *block.Block, verbose bool) (*Chain, erro
 	} else {
 		fmt.Println("Leaf Block", leafBlock.CompactString())
 		// remove all leaf blocks that are not finalized
-		for leafBlock.Header().BlockType() == block.BLOCK_TYPE_S_BLOCK || leafBlock.Header().TotalScore() > bestBlock.Header().TotalScore() {
+		for leafBlock.BlockType() == block.BLOCK_TYPE_S_BLOCK || leafBlock.TotalScore() > bestBlock.TotalScore() {
 			fmt.Println("*** Start pruning")
-			parentID, err := ancestorTrie.GetAncestor(leafBlock.Header().ID(), leafBlock.Header().Number()-1)
+			parentID, err := ancestorTrie.GetAncestor(leafBlock.ID(), leafBlock.Number()-1)
 			if err != nil {
 				break
 			}
-			deletedBlock, err := deleteBlock(kv, leafBlock.Header().ID())
+			deletedBlock, err := deleteBlock(kv, leafBlock.ID())
 			if err != nil {
 				fmt.Println("Error delete block: ", err)
 				break
@@ -182,10 +182,10 @@ func New(kv kv.GetPutter, genesisBlock *block.Block, verbose bool) (*Chain, erro
 			leafBlock = parentBlk
 		}
 
-		if leafBlock.Header().TotalScore() < bestBlock.Header().TotalScore() {
+		if leafBlock.TotalScore() < bestBlock.TotalScore() {
 			leafBlock = bestBlock
 		}
-		err := saveLeafBlockID(kv, leafBlock.Header().ID())
+		err := saveLeafBlockID(kv, leafBlock.ID())
 		if err != nil {
 			fmt.Println("could not save leaf block, error: ", err)
 		}
@@ -197,7 +197,7 @@ func New(kv kv.GetPutter, genesisBlock *block.Block, verbose bool) (*Chain, erro
 		bestQC = block.GenesisQC()
 		bestQCHeightGauge.Set(float64(bestQC.QCHeight))
 	}
-	bestHeightGauge.Set(float64(bestBlock.Header().Number()))
+	bestHeightGauge.Set(float64(bestBlock.Number()))
 	bestQCHeightGauge.Set(float64(bestQC.QCHeight))
 	if verbose {
 		fmt.Println("--------------------------------------------------")
@@ -215,7 +215,7 @@ func New(kv kv.GetPutter, genesisBlock *block.Block, verbose bool) (*Chain, erro
 		bestBlock:    bestBlock,
 		leafBlock:    leafBlock,
 		bestQC:       bestQC,
-		tag:          genesisBlock.Header().ID()[31],
+		tag:          genesisBlock.ID()[31],
 		caches: caches{
 			rawBlocks: rawBlocksCache,
 			receipts:  receiptsCache,
@@ -246,10 +246,10 @@ func (c *Chain) BestBlock() *block.Block {
 func (c *Chain) BestKBlock() (*block.Block, error) {
 	c.rw.RLock()
 	defer c.rw.RUnlock()
-	if c.bestBlock.Header().BlockType() == block.BLOCK_TYPE_K_BLOCK {
+	if c.bestBlock.BlockType() == block.BLOCK_TYPE_K_BLOCK {
 		return c.bestBlock, nil
 	} else {
-		lastKblockHeight := c.bestBlock.Header().LastKBlockHeight()
+		lastKblockHeight := c.bestBlock.LastKBlockHeight()
 		return c.GetTrunkBlock(lastKblockHeight)
 	}
 }
@@ -292,7 +292,7 @@ func (c *Chain) RemoveBlock(blockID meter.Bytes32) error {
 		if c.IsNotFound(err) {
 			return err
 		}
-		if block.Number(blockID) <= c.bestBlock.Header().Number() {
+		if block.Number(blockID) <= c.bestBlock.Number() {
 			return errors.New("could not remove finalized block")
 		}
 		return removeBlockRaw(c.kv, blockID)
@@ -307,7 +307,7 @@ func (c *Chain) AddBlock(newBlock *block.Block, receipts tx.Receipts, finalize b
 	c.rw.Lock()
 	defer c.rw.Unlock()
 
-	newBlockID := newBlock.Header().ID()
+	newBlockID := newBlock.ID()
 
 	if header, err := c.getBlockHeader(newBlockID); err != nil {
 		if !c.IsNotFound(err) {
@@ -358,7 +358,7 @@ func (c *Chain) AddBlock(newBlock *block.Block, receipts tx.Receipts, finalize b
 		return nil, err
 	}
 
-	if err := c.ancestorTrie.Update(batch, newBlockID, newBlock.Header().ParentID()); err != nil {
+	if err := c.ancestorTrie.Update(batch, newBlockID, newBlock.ParentID()); err != nil {
 		return nil, err
 	}
 
@@ -390,9 +390,9 @@ func (c *Chain) AddBlock(newBlock *block.Block, receipts tx.Receipts, finalize b
 				return nil, err
 			}
 			c.bestBlock = newBlock
-			bestHeightGauge.Set(float64(c.bestBlock.Header().Number()))
-			log.Debug("Update Best Block", "bestBlock", newBlock.Header().ID())
-			if newBlock.Header().TotalScore() > c.leafBlock.Header().TotalScore() {
+			bestHeightGauge.Set(float64(c.bestBlock.Number()))
+			log.Debug("Update Best Block", "bestBlock", newBlock.ID())
+			if newBlock.TotalScore() > c.leafBlock.TotalScore() {
 				if err := saveLeafBlockID(batch, newBlockID); err != nil {
 					return nil, err
 				}
@@ -404,7 +404,7 @@ func (c *Chain) AddBlock(newBlock *block.Block, receipts tx.Receipts, finalize b
 				fmt.Println("Error during update QC: ", err)
 			}
 		} else {
-			if newBlock.Header().TotalScore() > c.leafBlock.Header().TotalScore() {
+			if newBlock.TotalScore() > c.leafBlock.TotalScore() {
 				if err := saveLeafBlockID(batch, newBlockID); err != nil {
 					return nil, err
 				}
@@ -428,7 +428,7 @@ func (c *Chain) AddBlock(newBlock *block.Block, receipts tx.Receipts, finalize b
 }
 
 func (c *Chain) IsBlockFinalized(id meter.Bytes32) bool {
-	if block.Number(id) <= c.bestBlock.Header().Number() {
+	if block.Number(id) <= c.bestBlock.Number() {
 		return true
 	}
 	return false
@@ -513,14 +513,14 @@ func (c *Chain) GetTransactionReceipt(blockID meter.Bytes32, index uint64) (*tx.
 func (c *Chain) GetTrunkBlockID(num uint32) (meter.Bytes32, error) {
 	c.rw.RLock()
 	defer c.rw.RUnlock()
-	return c.ancestorTrie.GetAncestor(c.bestBlock.Header().ID(), num)
+	return c.ancestorTrie.GetAncestor(c.bestBlock.ID(), num)
 }
 
 // GetTrunkBlockHeader get block header on trunk by given block number.
 func (c *Chain) GetTrunkBlockHeader(num uint32) (*block.Header, error) {
 	c.rw.RLock()
 	defer c.rw.RUnlock()
-	id, err := c.ancestorTrie.GetAncestor(c.bestBlock.Header().ID(), num)
+	id, err := c.ancestorTrie.GetAncestor(c.bestBlock.ID(), num)
 	if err != nil {
 		return nil, err
 	}
@@ -531,7 +531,7 @@ func (c *Chain) GetTrunkBlockHeader(num uint32) (*block.Header, error) {
 func (c *Chain) GetTrunkBlock(num uint32) (*block.Block, error) {
 	c.rw.RLock()
 	defer c.rw.RUnlock()
-	id, err := c.ancestorTrie.GetAncestor(c.bestBlock.Header().ID(), num)
+	id, err := c.ancestorTrie.GetAncestor(c.bestBlock.ID(), num)
 	if err != nil {
 		return nil, err
 	}
@@ -542,7 +542,7 @@ func (c *Chain) GetTrunkBlock(num uint32) (*block.Block, error) {
 func (c *Chain) GetTrunkBlockRaw(num uint32) (block.Raw, error) {
 	c.rw.RLock()
 	defer c.rw.RUnlock()
-	id, err := c.ancestorTrie.GetAncestor(c.bestBlock.Header().ID(), num)
+	id, err := c.ancestorTrie.GetAncestor(c.bestBlock.ID(), num)
 	if err != nil {
 		return nil, err
 	}
@@ -557,14 +557,14 @@ func (c *Chain) GetTrunkBlockRaw(num uint32) (block.Raw, error) {
 func (c *Chain) GetTrunkTransactionMeta(txID meter.Bytes32) (*TxMeta, error) {
 	c.rw.RLock()
 	defer c.rw.RUnlock()
-	return c.getTransactionMeta(txID, c.bestBlock.Header().ID())
+	return c.getTransactionMeta(txID, c.bestBlock.ID())
 }
 
 // GetTrunkTransaction get transaction on trunk by given tx id.
 func (c *Chain) GetTrunkTransaction(txID meter.Bytes32) (*tx.Transaction, *TxMeta, error) {
 	c.rw.RLock()
 	defer c.rw.RUnlock()
-	meta, err := c.getTransactionMeta(txID, c.bestBlock.Header().ID())
+	meta, err := c.getTransactionMeta(txID, c.bestBlock.ID())
 	if err != nil {
 		return nil, nil, err
 	}
@@ -766,7 +766,7 @@ func (c *Chain) NewBlockReader(position meter.Bytes32) BlockReader {
 		c.rw.RLock()
 		defer c.rw.RUnlock()
 
-		bestID := c.bestBlock.Header().ID()
+		bestID := c.bestBlock.ID()
 		if bestID == position {
 			return nil, nil
 		}
@@ -780,7 +780,7 @@ func (c *Chain) NewBlockReader(position meter.Bytes32) BlockReader {
 
 			if block.Number(position) > block.Number(bestID) {
 				blocks = append(blocks, &Block{positionBlock, true})
-				position = positionBlock.Header().ParentID()
+				position = positionBlock.ParentID()
 				continue
 			}
 
@@ -794,12 +794,12 @@ func (c *Chain) NewBlockReader(position meter.Bytes32) BlockReader {
 				if err != nil {
 					return nil, err
 				}
-				position = next.Header().ID()
+				position = next.ID()
 				return append(blocks, &Block{next, false}), nil
 			}
 
 			blocks = append(blocks, &Block{positionBlock, true})
-			position = positionBlock.Header().ParentID()
+			position = positionBlock.ParentID()
 		}
 	})
 }
@@ -818,7 +818,7 @@ func (c *Chain) LeafBlock() *block.Block {
 }
 
 func (c *Chain) UpdateLeafBlock() error {
-	if c.leafBlock.Header().Number() < c.bestBlock.Header().Number() {
+	if c.leafBlock.Number() < c.bestBlock.Number() {
 		c.leafBlock = c.bestBlock
 		fmt.Println("!!! Move Leaf Block to: ", c.leafBlock.String())
 	}
@@ -891,7 +891,7 @@ func (c *Chain) UpdateBestQC(qc *block.QuorumCert, source QCSource) (bool, error
 	//          leaf                       leaf
 	//          best                             best
 	// and bestQCAvailable justifies bestBlock, update it without check
-	if bestQCAvailable.QCHeight == c.bestBlock.Header().Number() && c.leafBlock.Header().Number() <= c.bestBlock.Header().Number() {
+	if bestQCAvailable.QCHeight == c.bestBlock.Number() && c.leafBlock.Number() <= c.bestBlock.Number() {
 		if bestQCAvailable.QCHeight > c.bestQC.QCHeight {
 			log.Info("Update bestQC when it justifies bestBlock", "from", c.bestQC.CompactString(), "to", bestQCAvailable.CompactString(), "source", bestQCSource.String(), "condition", "leaf<=best")
 			c.bestQC = bestQCAvailable
@@ -911,7 +911,7 @@ func (c *Chain) UpdateBestQC(qc *block.QuorumCert, source QCSource) (bool, error
 	//         best                             best
 	var blk *block.Block
 	var err error
-	id, err := c.ancestorTrie.GetAncestor(c.leafBlock.Header().ID(), c.bestBlock.Header().Number()+1)
+	id, err := c.ancestorTrie.GetAncestor(c.leafBlock.ID(), c.bestBlock.Number()+1)
 	if err != nil {
 		blk = c.bestBlock
 	} else {
@@ -923,8 +923,8 @@ func (c *Chain) UpdateBestQC(qc *block.QuorumCert, source QCSource) (bool, error
 		if err != nil {
 			return false, err
 		}
-		if blk.Header().ParentID().String() != c.bestBlock.Header().ID().String() {
-			log.Warn("parent mismatch", "descendantParentID", blk.Header().ParentID().String(), "bestBlockID", c.bestBlock.Header().ID().String(), "bestBlockHeight", c.bestBlock.Header().Number())
+		if blk.ParentID().String() != c.bestBlock.ID().String() {
+			log.Warn("parent mismatch", "descendantParentID", blk.ParentID().String(), "bestBlockID", c.bestBlock.ID().String(), "bestBlockHeight", c.bestBlock.Number())
 			return false, errors.New("parent mismatch ")
 		}
 	}
@@ -940,9 +940,9 @@ func (c *Chain) UpdateBestQC(qc *block.QuorumCert, source QCSource) (bool, error
 
 /*
 func (c *Chain) UpdateBestQC() (bool, error) {
-	if c.leafBlock.Header().ID().String() == c.bestBlock.Header().ID().String() {
+	if c.leafBlock.ID().String() == c.bestBlock.ID().String() {
 		// when leaf is the same with best, usually this is during initialization (before pacemaker) or after pacemaker
-		if c.bestQCCandidate != nil && c.bestQCCandidate.QCHeight > c.bestQC.QCHeight && c.bestQCCandidate.QCHeight <= c.bestBlock.Header().Number() {
+		if c.bestQCCandidate != nil && c.bestQCCandidate.QCHeight > c.bestQC.QCHeight && c.bestQCCandidate.QCHeight <= c.bestBlock.Number() {
 			// bestQC < QCCandidate <= bestBlock, update bestQC with QCCandidate
 			c.bestQC = c.bestQCCandidate
 			c.bestQCCandidate = nil
@@ -957,7 +957,7 @@ func (c *Chain) UpdateBestQC() (bool, error) {
 		}
 		return true, saveBestQC(c.kv, c.bestQC)
 	}
-	if c.bestQCCandidate != nil && c.bestQCCandidate.QCHeight == c.bestBlock.Header().Number() &&
+	if c.bestQCCandidate != nil && c.bestQCCandidate.QCHeight == c.bestBlock.Number() &&
 		c.bestQCCandidate.QCHeight > c.bestQC.QCHeight {
 		// bestQC < QCCandidate == bestBlock
 		c.bestQC = c.bestQCCandidate
@@ -965,7 +965,7 @@ func (c *Chain) UpdateBestQC() (bool, error) {
 		log.Info("Update bestQC", "to", c.bestQC.CompactString())
 		return true, saveBestQC(c.kv, c.bestQC)
 	}
-	id, err := c.ancestorTrie.GetAncestor(c.leafBlock.Header().ID(), c.bestBlock.Header().Number()+1)
+	id, err := c.ancestorTrie.GetAncestor(c.leafBlock.ID(), c.bestBlock.Number()+1)
 	if err != nil {
 		return false, err
 	}
@@ -977,7 +977,7 @@ func (c *Chain) UpdateBestQC() (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	if blk.Header().ParentID().String() != c.bestBlock.Header().ID().String() {
+	if blk.ParentID().String() != c.bestBlock.ID().String() {
 		return false, errors.New("parent mismatch ")
 	}
 	if c.bestQC.QCHeight != blk.QC.QCHeight && c.bestQC.QCRound != blk.QC.QCRound {
@@ -993,9 +993,9 @@ func (c *Chain) SetBestQCCandidate(qc *block.QuorumCert) bool {
 	if qc == nil {
 		return false
 	}
-	if qc.QCHeight < c.bestBlock.Header().Number() {
+	if qc.QCHeight < c.bestBlock.Number() {
 		// if qc is lower than best block, ignore
-		log.Debug(fmt.Sprintf("qc height (%d) is lower than best block height (%d), ignored", qc.QCHeight, c.bestBlock.Header().Number()))
+		log.Debug(fmt.Sprintf("qc height (%d) is lower than best block height (%d), ignored", qc.QCHeight, c.bestBlock.Number()))
 		return false
 	}
 	if c.bestQCCandidate != nil && qc.QCHeight < c.bestQCCandidate.QCHeight {
@@ -1031,7 +1031,7 @@ func (c *Chain) SetBestQCCandidateWithChainLock(qc *block.QuorumCert) bool {
 func (c *Chain) FindEpochOnBlock(num uint32) (uint64, error) {
 	bestBlock := c.BestBlock()
 	curEpoch := bestBlock.QC.EpochID
-	curNum := bestBlock.Header().Number()
+	curNum := bestBlock.Number()
 
 	if num >= curNum {
 		return curEpoch, nil

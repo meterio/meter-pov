@@ -198,10 +198,10 @@ func (conR *ConsensusReactor) sendNewCommitteeMessage(peer *ConsensusPeer, leade
 	var nextEpochID uint64
 	best := conR.chain.BestBlock()
 
-	if best.Header().BlockType() == block.BLOCK_TYPE_K_BLOCK {
+	if best.BlockType() == block.BLOCK_TYPE_K_BLOCK {
 		nextEpochID = best.GetBlockEpoch() + 1
 	} else {
-		lastKBlock, err := conR.chain.GetTrunkBlock(best.Header().LastKBlockHeight())
+		lastKBlock, err := conR.chain.GetTrunkBlock(best.LastKBlockHeight())
 		if err != nil {
 			fmt.Println("could not get last KBlock")
 			return false

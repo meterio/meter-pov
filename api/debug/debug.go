@@ -543,7 +543,7 @@ func (d *Debug) openEthTraceTransaction(ctx context.Context, txHash meter.Bytes3
 		return datas, err
 	}
 
-	res, err := d.traceTransactionWithAllClauses(ctx, blk.Header().ID(), meta.Index)
+	res, err := d.traceTransactionWithAllClauses(ctx, blk.ID(), meta.Index)
 	if err != nil {
 		return datas, err
 	}
@@ -555,7 +555,7 @@ func (d *Debug) openEthTraceTransaction(ctx context.Context, txHash meter.Bytes3
 		return datas, errors.New("not expected res")
 	}
 	fmt.Println("Parse Meter Tracer Result: ", string(resBytes))
-	clauseDatas, err := d.parseMeterTrace(resBytes, meta.BlockID, uint64(blk.Header().Number()), tx.ID(), meta.Index)
+	clauseDatas, err := d.parseMeterTrace(resBytes, meta.BlockID, uint64(blk.Number()), tx.ID(), meta.Index)
 	if err != nil {
 		return datas, err
 	}
@@ -599,7 +599,7 @@ func (d *Debug) handleOpenEthTraceBlock(w http.ResponseWriter, req *http.Request
 	if err != nil {
 		return utils.BadRequest(errors.WithMessage(err, "could not get block"))
 	}
-	fmt.Println("BLOCK: ", blk.Header().ID())
+	fmt.Println("BLOCK: ", blk.ID())
 
 	results := make([]*TraceData, 0)
 	for _, tx := range blk.Transactions() {
@@ -631,7 +631,7 @@ func (d *Debug) handleTraceFilter(w http.ResponseWriter, req *http.Request) erro
 		if err != nil {
 			return utils.BadRequest(errors.WithMessage(err, "could not get block"))
 		}
-		fromBlockNum = blk.Header().Number()
+		fromBlockNum = blk.Number()
 	}
 
 	if opt.ToBlock != "" {
@@ -643,7 +643,7 @@ func (d *Debug) handleTraceFilter(w http.ResponseWriter, req *http.Request) erro
 		if err != nil {
 			return utils.BadRequest(errors.WithMessage(err, "could not get block"))
 		}
-		toBlockNum = blk.Header().Number()
+		toBlockNum = blk.Number()
 	}
 
 	if fromBlockNum > toBlockNum {
@@ -711,7 +711,7 @@ func (d *Debug) handleTraceFilter(w http.ResponseWriter, req *http.Request) erro
 						To:       *to,
 						Value:    math.HexOrDecimal256(*(tx.Clauses()[clauseIndex].Value())),
 					},
-					BlockHash:           blk.Header().ID(),
+					BlockHash:           blk.ID(),
 					BlockNumber:         uint64(num),
 					Result:              TraceDataResult{GasUsed: math.HexOrDecimal256(*big.NewInt(0)), Output: "0x"}, // FIXME: fake data
 					Subtraces:           0,                                                                            // FIXME: fake data
@@ -746,7 +746,7 @@ func (d *Debug) handleOpenEthTraceFilter(w http.ResponseWriter, req *http.Reques
 		if err != nil {
 			return utils.BadRequest(errors.WithMessage(err, "could not get block"))
 		}
-		fromBlockNum = blk.Header().Number()
+		fromBlockNum = blk.Number()
 	}
 
 	if opt.ToBlock != "" {
@@ -758,7 +758,7 @@ func (d *Debug) handleOpenEthTraceFilter(w http.ResponseWriter, req *http.Reques
 		if err != nil {
 			return utils.BadRequest(errors.WithMessage(err, "could not get block"))
 		}
-		toBlockNum = blk.Header().Number()
+		toBlockNum = blk.Number()
 	}
 
 	if fromBlockNum > toBlockNum {

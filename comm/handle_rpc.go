@@ -39,7 +39,7 @@ func (c *Communicator) handleRPC(peer *Peer, msg *p2p.Msg, write func(interface{
 
 		best := c.chain.BestBlock().Header()
 		write(&proto.Status{
-			GenesisBlockID: c.chain.GenesisBlock().Header().ID(),
+			GenesisBlockID: c.chain.GenesisBlock().ID(),
 			SysTimestamp:   uint64(time.Now().Unix()),
 			TotalScore:     best.TotalScore(),
 			BestBlockID:    best.ID(),
@@ -50,8 +50,8 @@ func (c *Communicator) handleRPC(peer *Peer, msg *p2p.Msg, write func(interface{
 			return errors.WithMessage(err, "decode msg")
 		}
 
-		peer.MarkBlock(newBlock.Header().ID())
-		peer.UpdateHead(newBlock.Header().ID(), newBlock.Header().TotalScore())
+		peer.MarkBlock(newBlock.ID())
+		peer.UpdateHead(newBlock.ID(), newBlock.TotalScore())
 		c.newBlockFeed.Send(&NewBlockEvent{Block: newBlock})
 		write(&struct{}{})
 	case proto.MsgNewBlockID:
@@ -180,7 +180,7 @@ func (c *Communicator) handleRPC(peer *Peer, msg *p2p.Msg, write func(interface{
 		var magic [4]byte
 
 		// genesis does not have magic. treat it specially.
-		if c.chain.BestBlock().Header().Number() == 0 {
+		if c.chain.BestBlock().Number() == 0 {
 			magic = block.BlockMagicVersion1
 		} else {
 			magic = c.chain.BestBlock().GetMagic()

@@ -662,7 +662,7 @@ func printStartupMessage(
 		hex.EncodeToString(p2pMagic[:]),
 		hex.EncodeToString(consensusMagic[:]),
 		gene.ID(), gene.Name(),
-		bestBlock.Header().ID(), bestBlock.Header().Number(), time.Unix(int64(bestBlock.Header().Timestamp()), 0),
+		bestBlock.ID(), bestBlock.Number(), time.Unix(int64(bestBlock.Timestamp()), 0),
 		meter.GetForkConfig(gene.ID()),
 		master.Address(),
 		func() string {

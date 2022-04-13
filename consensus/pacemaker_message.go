@@ -40,8 +40,8 @@ func (p *Pacemaker) proposeBlock(parentBlock *block.Block, height, round uint32,
 		blkInfo = p.csReactor.BuildKBlock(parentBlock, data, rewards)
 	} else {
 		blkInfo = p.csReactor.BuildMBlock(parentBlock)
-		lastKBlockHeight := blkInfo.ProposedBlock.Header().LastKBlockHeight()
-		blockNumber := blkInfo.ProposedBlock.Header().Number()
+		lastKBlockHeight := blkInfo.ProposedBlock.LastKBlockHeight()
+		blockNumber := blkInfo.ProposedBlock.Number()
 		if round == 0 || blockNumber == lastKBlockHeight+1 {
 			// set committee info
 			p.packCommitteeInfo(blkInfo.ProposedBlock)
@@ -284,7 +284,7 @@ func (p *Pacemaker) BlockMatchQC(b *pmBlock, qc *block.QuorumCert) (bool, error)
 			fmt.Println("can not decode block", err)
 			return false, errors.New("can not decode proposed block")
 		}
-		blkType = blk.Header().BlockType()
+		blkType = blk.BlockType()
 	} else {
 		blk = b.ProposedBlockInfo.ProposedBlock
 		blkType = uint32(b.ProposedBlockType)
@@ -292,7 +292,7 @@ func (p *Pacemaker) BlockMatchQC(b *pmBlock, qc *block.QuorumCert) (bool, error)
 
 	txsRoot = blk.Header().TxsRoot()
 	stateRoot = blk.Header().StateRoot()
-	blkID = blk.Header().ID()
+	blkID = blk.ID()
 
 	signMsg := p.csReactor.BuildProposalBlockSignMsg(blkType, uint64(b.Height), &blkID, &txsRoot, &stateRoot)
 	p.logger.Debug("BlockMatchQC", "signMsg", signMsg)

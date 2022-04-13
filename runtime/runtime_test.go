@@ -47,7 +47,7 @@ func TestContractSuicide(t *testing.T) {
 	// 	}
 	// }
 	data, _ := hex.DecodeString("608060405260043610603f576000357c0100000000000000000000000000000000000000000000000000000000900463ffffffff168063085da1b3146044575b600080fd5b348015604f57600080fd5b5060566058565b005b3373ffffffffffffffffffffffffffffffffffffffff16ff00a165627a7a723058204cb70b653a3d1821e00e6ade869638e80fa99719931c9fa045cec2189d94086f0029")
-	time := b0.Header().Timestamp()
+	time := b0.Timestamp()
 	addr := meter.BytesToAddress([]byte("acc01"))
 	state, _ := stateCreator.NewState(b0.Header().StateRoot())
 	state.SetCode(addr, data)
@@ -71,7 +71,7 @@ func TestContractSuicide(t *testing.T) {
 	}
 
 	origin := genesis.DevAccounts()[0].Address
-	out := runtime.New(ch.NewSeeker(b0.Header().ID()), state, &xenv.BlockContext{Time: time}).
+	out := runtime.New(ch.NewSeeker(b0.ID()), state, &xenv.BlockContext{Time: time}).
 		ExecuteClause(tx.NewClause(&addr).WithData(methodData), 0, math.MaxUint64, &xenv.TransactionContext{Origin: origin})
 	if out.VMErr != nil {
 		t.Fatal(out.VMErr)
@@ -115,7 +115,7 @@ func TestCall(t *testing.T) {
 
 	state, _ := state.New(b0.Header().StateRoot(), kv)
 
-	rt := runtime.New(ch.NewSeeker(b0.Header().ID()), state, &xenv.BlockContext{})
+	rt := runtime.New(ch.NewSeeker(b0.ID()), state, &xenv.BlockContext{})
 
 	method, _ := builtin.Params.ABI.MethodByName("executor")
 	data, err := method.EncodeInput()

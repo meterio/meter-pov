@@ -188,7 +188,7 @@ func TestParamsNative(t *testing.T) {
 	})
 	c, _ := chain.New(kv, b0)
 	st, _ := state.New(b0.Header().StateRoot(), kv)
-	seeker := c.NewSeeker(b0.Header().ID())
+	seeker := c.NewSeeker(b0.ID())
 	defer func() {
 		assert.Nil(t, st.Err())
 		assert.Nil(t, seeker.Err())
@@ -260,7 +260,7 @@ func TestAuthorityNative(t *testing.T) {
 	})
 	c, _ := chain.New(kv, b0)
 	st, _ := state.New(b0.Header().StateRoot(), kv)
-	seeker := c.NewSeeker(b0.Header().ID())
+	seeker := c.NewSeeker(b0.ID())
 	defer func() {
 		assert.Nil(t, st.Err())
 		assert.Nil(t, seeker.Err())
@@ -370,14 +370,14 @@ func TestEnergyNative(t *testing.T) {
 
 	c, _ := chain.New(kv, b0)
 	st, _ := state.New(b0.Header().StateRoot(), kv)
-	seeker := c.NewSeeker(b0.Header().ID())
+	seeker := c.NewSeeker(b0.ID())
 	defer func() {
 		assert.Nil(t, st.Err())
 		assert.Nil(t, seeker.Err())
 	}()
 
-	st.SetEnergy(addr, eng, b0.Header().Timestamp())
-	builtin.Energy.Native(st, b0.Header().Timestamp()).SetInitialSupply(&big.Int{}, eng)
+	st.SetEnergy(addr, eng, b0.Timestamp())
+	builtin.Energy.Native(st, b0.Timestamp()).SetInitialSupply(&big.Int{}, eng)
 
 	transferEvent := func(from, to meter.Address, value *big.Int) *tx.Event {
 		ev, _ := builtin.Energy.ABI.EventByName("Transfer")
@@ -398,7 +398,7 @@ func TestEnergyNative(t *testing.T) {
 		}
 	}
 
-	rt := runtime.New(seeker, st, &xenv.BlockContext{Time: b0.Header().Timestamp()})
+	rt := runtime.New(seeker, st, &xenv.BlockContext{Time: b0.Timestamp()})
 	test := &ctest{
 		rt:     rt,
 		abi:    builtin.Energy.ABI,
@@ -500,7 +500,7 @@ func TestPrototypeNative(t *testing.T) {
 	genesisBlock, _, _ := gene.Build(state.NewCreator(kv))
 	c, _ := chain.New(kv, genesisBlock)
 	st, _ := state.New(genesisBlock.Header().StateRoot(), kv)
-	seeker := c.NewSeeker(genesisBlock.Header().ID())
+	seeker := c.NewSeeker(genesisBlock.ID())
 	defer func() {
 		assert.Nil(t, st.Err())
 		assert.Nil(t, seeker.Err())
@@ -554,8 +554,8 @@ func TestPrototypeNative(t *testing.T) {
 	}
 
 	rt := runtime.New(seeker, st, &xenv.BlockContext{
-		Time:   genesisBlock.Header().Timestamp(),
-		Number: genesisBlock.Header().Number(),
+		Time:   genesisBlock.Timestamp(),
+		Number: genesisBlock.Number(),
 	})
 
 	code, _ := hex.DecodeString("60606040523415600e57600080fd5b603580601b6000396000f3006060604052600080fd00a165627a7a72305820edd8a93b651b5aac38098767f0537d9b25433278c9d155da2135efc06927fc960029")
@@ -567,7 +567,7 @@ func TestPrototypeNative(t *testing.T) {
 	contract = *out.ContractAddress
 
 	energy := big.NewInt(1000)
-	st.SetEnergy(acc1, energy, genesisBlock.Header().Timestamp())
+	st.SetEnergy(acc1, energy, genesisBlock.Timestamp())
 
 	test := &ctest{
 		rt:     rt,
@@ -771,15 +771,15 @@ func TestPrototypeNativeWithLongerBlockNumber(t *testing.T) {
 	genesisBlock, _, _ := gene.Build(state.NewCreator(kv))
 	st, _ := state.New(genesisBlock.Header().StateRoot(), kv)
 	c, _ := chain.New(kv, genesisBlock)
-	launchTime := genesisBlock.Header().Timestamp()
+	launchTime := genesisBlock.Timestamp()
 
 	for i := 1; i < 100; i++ {
 		st.SetBalance(acc1, big.NewInt(int64(i)))
 		st.SetEnergy(acc1, big.NewInt(int64(i)), launchTime+uint64(i)*10)
 		stateRoot, _ := st.Stage().Commit()
 		b := new(block.Builder).
-			ParentID(c.BestBlock().Header().ID()).
-			TotalScore(c.BestBlock().Header().TotalScore() + 1).
+			ParentID(c.BestBlock().ID()).
+			TotalScore(c.BestBlock().TotalScore() + 1).
 			Timestamp(launchTime + uint64(i)*10).
 			StateRoot(stateRoot).
 			Build()
@@ -787,14 +787,14 @@ func TestPrototypeNativeWithLongerBlockNumber(t *testing.T) {
 	}
 
 	st, _ = state.New(c.BestBlock().Header().StateRoot(), kv)
-	seeker := c.NewSeeker(c.BestBlock().Header().ID())
+	seeker := c.NewSeeker(c.BestBlock().ID())
 	defer func() {
 		assert.Nil(t, st.Err())
 		assert.Nil(t, seeker.Err())
 	}()
 	rt := runtime.New(seeker, st, &xenv.BlockContext{
 		Number: meter.MaxBackTrackingBlockNumber + 1,
-		Time:   c.BestBlock().Header().Timestamp(),
+		Time:   c.BestBlock().Timestamp(),
 	})
 
 	test := &ctest{
@@ -839,15 +839,15 @@ func TestPrototypeNativeWithBlockNumber(t *testing.T) {
 	genesisBlock, _, _ := gene.Build(state.NewCreator(kv))
 	st, _ := state.New(genesisBlock.Header().StateRoot(), kv)
 	c, _ := chain.New(kv, genesisBlock)
-	launchTime := genesisBlock.Header().Timestamp()
+	launchTime := genesisBlock.Timestamp()
 
 	for i := 1; i < 100; i++ {
 		st.SetBalance(acc1, big.NewInt(int64(i)))
 		st.SetEnergy(acc1, big.NewInt(int64(i)), launchTime+uint64(i)*10)
 		stateRoot, _ := st.Stage().Commit()
 		b := new(block.Builder).
-			ParentID(c.BestBlock().Header().ID()).
-			TotalScore(c.BestBlock().Header().TotalScore() + 1).
+			ParentID(c.BestBlock().ID()).
+			TotalScore(c.BestBlock().TotalScore() + 1).
 			Timestamp(launchTime + uint64(i)*10).
 			StateRoot(stateRoot).
 			Build()
@@ -855,14 +855,14 @@ func TestPrototypeNativeWithBlockNumber(t *testing.T) {
 	}
 
 	st, _ = state.New(c.BestBlock().Header().StateRoot(), kv)
-	seeker := c.NewSeeker(c.BestBlock().Header().ID())
+	seeker := c.NewSeeker(c.BestBlock().ID())
 	defer func() {
 		assert.Nil(t, st.Err())
 		assert.Nil(t, seeker.Err())
 	}()
 	rt := runtime.New(seeker, st, &xenv.BlockContext{
-		Number: c.BestBlock().Header().Number(),
-		Time:   c.BestBlock().Header().Timestamp(),
+		Number: c.BestBlock().Number(),
+		Time:   c.BestBlock().Timestamp(),
 	})
 
 	test := &ctest{
@@ -890,7 +890,7 @@ func TestPrototypeNativeWithBlockNumber(t *testing.T) {
 }
 
 func newBlock(parent *block.Block, score uint64, timestamp uint64, privateKey *ecdsa.PrivateKey) *block.Block {
-	b := new(block.Builder).ParentID(parent.Header().ID()).TotalScore(parent.Header().TotalScore() + score).Timestamp(timestamp).Build()
+	b := new(block.Builder).ParentID(parent.ID()).TotalScore(parent.TotalScore() + score).Timestamp(timestamp).Build()
 	sig, _ := crypto.Sign(b.Header().SigningHash().Bytes(), privateKey)
 	return b.WithSignature(sig)
 }
@@ -914,20 +914,20 @@ func TestExtensionNative(t *testing.T) {
 	b1 := newBlock(b0, 123, 456, privKeys[0])
 	b2 := newBlock(b1, 789, 321, privKeys[1])
 
-	b1_singer, _ := b1.Header().Signer()
-	b2_singer, _ := b2.Header().Signer()
+	b1_singer, _ := b1.Signer()
+	b2_singer, _ := b2.Signer()
 
 	_, err := c.AddBlock(b1, nil)
 	assert.Equal(t, err, nil)
 	_, err = c.AddBlock(b2, nil)
 	assert.Equal(t, err, nil)
 
-	seeker := c.NewSeeker(b2.Header().ID())
+	seeker := c.NewSeeker(b2.ID())
 	defer func() {
 		assert.Nil(t, st.Err())
 		assert.Nil(t, seeker.Err())
 	}()
-	rt := runtime.New(seeker, st, &xenv.BlockContext{Number: 2, Time: b2.Header().Timestamp(), TotalScore: b2.Header().TotalScore(), Signer: b2_singer})
+	rt := runtime.New(seeker, st, &xenv.BlockContext{Number: 2, Time: b2.Timestamp(), TotalScore: b2.TotalScore(), Signer: b2_singer})
 
 	test := &ctest{
 		rt:  rt,
@@ -972,11 +972,11 @@ func TestExtensionNative(t *testing.T) {
 		Assert(t)
 
 	test.Case("blockID", big.NewInt(1)).
-		ShouldOutput(b1.Header().ID()).
+		ShouldOutput(b1.ID()).
 		Assert(t)
 
 	test.Case("blockID", big.NewInt(0)).
-		ShouldOutput(b0.Header().ID()).
+		ShouldOutput(b0.ID()).
 		Assert(t)
 
 	test.Case("blockTotalScore", big.NewInt(3)).
@@ -984,15 +984,15 @@ func TestExtensionNative(t *testing.T) {
 		Assert(t)
 
 	test.Case("blockTotalScore", big.NewInt(2)).
-		ShouldOutput(b2.Header().TotalScore()).
+		ShouldOutput(b2.TotalScore()).
 		Assert(t)
 
 	test.Case("blockTotalScore", big.NewInt(1)).
-		ShouldOutput(b1.Header().TotalScore()).
+		ShouldOutput(b1.TotalScore()).
 		Assert(t)
 
 	test.Case("blockTotalScore", big.NewInt(0)).
-		ShouldOutput(b0.Header().TotalScore()).
+		ShouldOutput(b0.TotalScore()).
 		Assert(t)
 
 	test.Case("blockTime", big.NewInt(3)).
@@ -1000,15 +1000,15 @@ func TestExtensionNative(t *testing.T) {
 		Assert(t)
 
 	test.Case("blockTime", big.NewInt(2)).
-		ShouldOutput(new(big.Int).SetUint64(b2.Header().Timestamp())).
+		ShouldOutput(new(big.Int).SetUint64(b2.Timestamp())).
 		Assert(t)
 
 	test.Case("blockTime", big.NewInt(1)).
-		ShouldOutput(new(big.Int).SetUint64(b1.Header().Timestamp())).
+		ShouldOutput(new(big.Int).SetUint64(b1.Timestamp())).
 		Assert(t)
 
 	test.Case("blockTime", big.NewInt(0)).
-		ShouldOutput(new(big.Int).SetUint64(b0.Header().Timestamp())).
+		ShouldOutput(new(big.Int).SetUint64(b0.Timestamp())).
 		Assert(t)
 
 	test.Case("blockSigner", big.NewInt(3)).

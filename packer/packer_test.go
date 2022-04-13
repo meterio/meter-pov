@@ -88,7 +88,7 @@ func TestP(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		iter := &txIterator{chainTag: b0.Header().ID()[31]}
+		iter := &txIterator{chainTag: b0.ID()[31]}
 		for iter.HasNext() {
 			tx := iter.Next()
 			flow.Adopt(tx)
@@ -109,6 +109,6 @@ func TestP(t *testing.T) {
 	}
 
 	best := c.BestBlock()
-	fmt.Println(best.Header().Number(), best.Header().GasUsed())
+	fmt.Println(best.Number(), best.Header().GasUsed())
 	//	fmt.Println(best)
 }

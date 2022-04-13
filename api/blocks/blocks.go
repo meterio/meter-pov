@@ -57,17 +57,17 @@ func (b *Blocks) handleGetBlock(w http.ResponseWriter, req *http.Request) error 
 		}
 		return err
 	}
-	isTrunk, err := b.isTrunk(block.Header().ID(), block.Header().Number())
+	isTrunk, err := b.isTrunk(block.ID(), block.Number())
 	if err != nil {
 		return err
 	}
 
 	var receipts tx.Receipts
-	if block.Header().ID().String() == b.chain.GenesisBlock().Header().ID().String() {
+	if block.ID().String() == b.chain.GenesisBlock().ID().String() {
 		// if is genesis
 
 	} else {
-		receipts, err = b.chain.GetBlockReceipts(block.Header().ID())
+		receipts, err = b.chain.GetBlockReceipts(block.ID())
 		if err != nil {
 			// ignore errors
 			receipts = make([]*tx.Receipt, 0)
@@ -80,12 +80,12 @@ func (b *Blocks) handleGetBlock(w http.ResponseWriter, req *http.Request) error 
 		var receipts tx.Receipts
 		var err error
 		var txs tx.Transactions
-		if block.Header().ID().String() == b.chain.GenesisBlock().Header().ID().String() {
+		if block.ID().String() == b.chain.GenesisBlock().ID().String() {
 			// if is genesis
 
 		} else {
 			txs = block.Txs
-			receipts, err = b.chain.GetBlockReceipts(block.Header().ID())
+			receipts, err = b.chain.GetBlockReceipts(block.ID())
 			if err != nil {
 				return err
 			}
@@ -160,14 +160,14 @@ func (b *Blocks) getKBlockByEpoch(epoch uint64) (*block.Block, error) {
 	}
 
 	//fmt.Println("getKBlockByEpoch", "epoch", epoch, "curEpoch", curEpoch)
-	delta := uint64(best.Header().Number()) / curEpoch
+	delta := uint64(best.Number()) / curEpoch
 
 	var blk *block.Block
 	var ht, ep uint64
 	var err error
 	if curEpoch-epoch <= 5 {
 		blk = best
-		ht = uint64(best.Header().Number())
+		ht = uint64(best.Number())
 		ep = curEpoch
 	} else {
 		ht := delta * (epoch + 4)
@@ -180,8 +180,8 @@ func (b *Blocks) getKBlockByEpoch(epoch uint64) (*block.Block, error) {
 		ep = blk.GetBlockEpoch()
 		for ep < epoch+1 {
 			ht = ht + (4 * delta)
-			if ht >= uint64(best.Header().Number()) {
-				ht = uint64(best.Header().Number())
+			if ht >= uint64(best.Number()) {
+				ht = uint64(best.Number())
 				blk = best
 				ep = curEpoch
 				break
@@ -193,29 +193,29 @@ func (b *Blocks) getKBlockByEpoch(epoch uint64) (*block.Block, error) {
 				return nil, err
 			}
 			ep = blk.GetBlockEpoch()
-			//fmt.Println("... height:", blk.Header().Number(), "epoch", ep)
+			//fmt.Println("... height:", blk.Number(), "epoch", ep)
 		}
 	}
 
 	// find out the close enough search point
-	// fmt.Println("start to search kblock", "height:", blk.Header().Number(), "epoch", ep, "target epoch", epoch)
+	// fmt.Println("start to search kblock", "height:", blk.Number(), "epoch", ep, "target epoch", epoch)
 	for ep > epoch {
-		blk, err = b.chain.GetTrunkBlock(blk.Header().LastKBlockHeight())
+		blk, err = b.chain.GetTrunkBlock(blk.LastKBlockHeight())
 		if err != nil {
 			fmt.Println("get the TrunkBlock failed", "epoch", epoch, "error", err)
 			return nil, err
 		}
 		ep = blk.GetBlockEpoch()
-		//fmt.Println("...searching height:", blk.Header().Number(), "epoch", ep)
+		//fmt.Println("...searching height:", blk.Number(), "epoch", ep)
 	}
 
-	//fmt.Println("get the kblock", "height:", blk.Header().Number(), "epoch", ep)
+	//fmt.Println("get the kblock", "height:", blk.Number(), "epoch", ep)
 	if ep == epoch {
 		return blk, nil
 	}
 
 	// now ep < epoch for some reason.
-	ht = uint64(blk.Header().Number() + 1)
+	ht = uint64(blk.Number() + 1)
 	count := 0
 	for {
 		blk, err = b.chain.GetTrunkBlock(uint32(ht))
@@ -225,7 +225,7 @@ func (b *Blocks) getKBlockByEpoch(epoch uint64) (*block.Block, error) {
 		}
 		ep = blk.GetBlockEpoch()
 
-		if ep == epoch && blk.Header().BlockType() == block.BLOCK_TYPE_K_BLOCK {
+		if ep == epoch && blk.BlockType() == block.BLOCK_TYPE_K_BLOCK {
 			return blk, nil // find it !!!
 		}
 		if ep > epoch {
@@ -242,7 +242,7 @@ func (b *Blocks) getKBlockByEpoch(epoch uint64) (*block.Block, error) {
 
 func (b *Blocks) isTrunk(blkID meter.Bytes32, blkNum uint32) (bool, error) {
 	best := b.chain.BestBlock()
-	ancestorID, err := b.chain.GetAncestorBlockID(best.Header().ID(), blkNum)
+	ancestorID, err := b.chain.GetAncestorBlockID(best.ID(), blkNum)
 	if err != nil {
 		return false, err
 	}
@@ -261,7 +261,7 @@ func (b *Blocks) handleGetQC(w http.ResponseWriter, req *http.Request) error {
 		}
 		return err
 	}
-	_, err = b.isTrunk(block.Header().ID(), block.Header().Number())
+	_, err = b.isTrunk(block.ID(), block.Number())
 	if err != nil {
 		return err
 	}

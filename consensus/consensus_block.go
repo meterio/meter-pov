@@ -58,7 +58,7 @@ func (c *ConsensusReactor) Process(blk *block.Block, nowTimestamp uint64) (*stat
 		}
 	} else {
 		// we may already have this blockID. If it is after the best, still accept it
-		if header.Number() <= c.chain.BestBlock().Header().Number() {
+		if header.Number() <= c.chain.BestBlock().Number() {
 			return nil, nil, errKnownBlock
 		} else {
 			c.logger.Debug("continue to process blk ...", "height", header.Number())
@@ -248,7 +248,7 @@ func (c *ConsensusReactor) validateEvidence(ev *block.Evidence, blk *block.Block
 			return consensusError(fmt.Sprintf("get committee info block failed: %v", err))
 		}
 	}
-	c.logger.Info("get committeeinfo from block", "height", b.Header().Number())
+	c.logger.Info("get committeeinfo from block", "height", b.Number())
 
 	system := c.csCommon.GetSystem()
 	//params := c.csCommon.GetParams()
@@ -345,14 +345,14 @@ func (c *ConsensusReactor) validateBlockBody(blk *block.Block, forceValidate boo
 
 	rewardTxs := tx.Transactions{}
 
-	if blk.Header().BlockType() == block.BLOCK_TYPE_K_BLOCK {
+	if blk.BlockType() == block.BLOCK_TYPE_K_BLOCK {
 		parentBlock, err := c.chain.GetBlock(header.ParentID())
 		if err != nil {
 			panic("get parentBlock failed")
 		}
 		best := parentBlock
 		chainTag := c.chain.Tag()
-		bestNum := c.chain.BestBlock().Header().Number()
+		bestNum := c.chain.BestBlock().Number()
 		curEpoch := uint32(c.curEpoch)
 		// distribute the base reward
 		state, err := c.stateCreator.NewState(c.chain.BestBlock().Header().StateRoot())
@@ -478,7 +478,7 @@ func (c *ConsensusReactor) validateBlockBody(blk *block.Block, forceValidate boo
 		// 1. no signature (no signer)
 		// 2. only located in kblock.
 		if signer.IsZero() {
-			if blk.Header().BlockType() != block.BLOCK_TYPE_K_BLOCK {
+			if blk.BlockType() != block.BLOCK_TYPE_K_BLOCK {
 				return consensusError(fmt.Sprintf("tx signer unavailable"))
 			}
 
@@ -678,7 +678,7 @@ func (c *ConsensusReactor) verifyBlock(blk *block.Block, state *state.State, for
 		return true, meta.Reverted, nil
 	}
 
-	if forceValidate && blk.Header().BlockType() == block.BLOCK_TYPE_K_BLOCK {
+	if forceValidate && blk.BlockType() == block.BLOCK_TYPE_K_BLOCK {
 		if err := c.verifyKBlock(); err != nil {
 			return nil, nil, err
 		}
@@ -695,7 +695,7 @@ func (c *ConsensusReactor) verifyBlock(blk *block.Block, state *state.State, for
 
 		if signer.IsZero() {
 			//TBD: check to addresses in clauses
-			if blk.Header().BlockType() != block.BLOCK_TYPE_K_BLOCK {
+			if blk.BlockType() != block.BLOCK_TYPE_K_BLOCK {
 				return nil, nil, consensusError(fmt.Sprintf("tx signer unavailable"))
 			}
 		}
@@ -878,7 +878,7 @@ func (conR *ConsensusReactor) BuildMBlock(parentBlock *block.Block) *ProposedBlo
 	now := uint64(time.Now().Unix())
 	/*
 		TODO: better check this, comment out temporarily
-		if conR.curHeight != int64(best.Header().Number()) {
+		if conR.curHeight != int64(best.Number()) {
 			conR.logger.Error("Proposed block parent is not current best block")
 			return nil
 		}
@@ -916,7 +916,7 @@ func (conR *ConsensusReactor) BuildMBlock(parentBlock *block.Block) *ProposedBlo
 	}
 
 	candAddr := conR.curCommittee.Validators[conR.curCommitteeIndex].Address
-	gasLimit := p.GasLimit(best.Header().GasLimit())
+	gasLimit := p.GasLimit(best.GasLimit())
 	flow, err := p.Mock(best.Header(), now, gasLimit, &candAddr)
 	if err != nil {
 		conR.logger.Error("mock packer", "error", err)
@@ -951,7 +951,7 @@ func (conR *ConsensusReactor) BuildMBlock(parentBlock *block.Block) *ProposedBlo
 	newBlock.SetMagic(block.BlockMagicVersion1)
 
 	execElapsed := mclock.Now() - startTime
-	conR.logger.Info("MBlock built", "height", newBlock.Header().Number(), "Txs", len(newBlock.Txs), "txsInBlk", len(txsInBlk), "elapseTime", execElapsed)
+	conR.logger.Info("MBlock built", "height", newBlock.Number(), "Txs", len(newBlock.Txs), "txsInBlk", len(txsInBlk), "elapseTime", execElapsed)
 	return &ProposedBlockInfo{newBlock, stage, &receipts, txsToRemoved, txsToReturned, checkPoint, MBlockType}
 }
 
@@ -960,7 +960,7 @@ func (conR *ConsensusReactor) BuildKBlock(parentBlock *block.Block, data *block.
 	now := uint64(time.Now().Unix())
 	/*
 		TODO: better check this, comment out temporarily
-		if conR.curHeight != int64(best.Header().Number()) {
+		if conR.curHeight != int64(best.Number()) {
 			conR.logger.Warn("Proposed block parent is not current best block")
 			return nil
 		}
@@ -970,7 +970,7 @@ func (conR *ConsensusReactor) BuildKBlock(parentBlock *block.Block, data *block.
 	startTime := mclock.Now()
 
 	chainTag := conR.chain.Tag()
-	bestNum := conR.chain.BestBlock().Header().Number()
+	bestNum := conR.chain.BestBlock().Number()
 	curEpoch := uint32(conR.curEpoch)
 	// distribute the base reward
 	state, err := conR.stateCreator.NewState(conR.chain.BestBlock().Header().StateRoot())
@@ -1001,7 +1001,7 @@ func (conR *ConsensusReactor) BuildKBlock(parentBlock *block.Block, data *block.
 	}
 
 	candAddr := conR.curCommittee.Validators[conR.curCommitteeIndex].Address
-	gasLimit := p.GasLimit(best.Header().GasLimit())
+	gasLimit := p.GasLimit(best.GasLimit())
 	flow, err := p.Mock(best.Header(), now, gasLimit, &candAddr)
 	if err != nil {
 		conR.logger.Warn("mock packer", "error", err)
@@ -1042,14 +1042,14 @@ func (conR *ConsensusReactor) BuildKBlock(parentBlock *block.Block, data *block.
 func (conR *ConsensusReactor) buildRewardTxs(parentBlock *block.Block, rewards []powpool.PowReward, chainTag byte, bestNum uint32, curEpoch uint32, best *block.Block, state *state.State) tx.Transactions {
 	// build miner meter reward
 	txs := reward.BuildMinerRewardTxs(rewards, chainTag, bestNum)
-	lastKBlockHeight := parentBlock.Header().LastKBlockHeight()
+	lastKBlockHeight := parentBlock.LastKBlockHeight()
 	for _, tx := range txs {
 		conR.logger.Info("miner reward tx appended", "txid", tx.ID())
 	}
 
 	// edison not support the staking/auciton/slashing
-	if meter.IsMainChainTesla(parentBlock.Header().Number()) == true || meter.IsTestNet() {
-		stats, err := reward.ComputeStatistics(lastKBlockHeight, parentBlock.Header().Number(), conR.chain, conR.curCommittee, conR.curActualCommittee, conR.csCommon, conR.csPacemaker.newCommittee, uint32(conR.curEpoch))
+	if meter.IsMainChainTesla(parentBlock.Number()) == true || meter.IsTestNet() {
+		stats, err := reward.ComputeStatistics(lastKBlockHeight, parentBlock.Number(), conR.chain, conR.curCommittee, conR.curActualCommittee, conR.csCommon, conR.csPacemaker.newCommittee, uint32(conR.curEpoch))
 		if err != nil {
 			// TODO: do something about this
 			conR.logger.Info("no slash statistics need to info", "error", err)
@@ -1063,7 +1063,7 @@ func (conR *ConsensusReactor) buildRewardTxs(parentBlock *block.Block, rewards [
 		reservedPrice := GetAuctionReservedPrice()
 		initialRelease := GetAuctionInitialRelease()
 
-		if tx := reward.BuildAuctionControlTx(uint64(best.Header().Number()+1), uint64(best.GetBlockEpoch()+1), chainTag, bestNum, initialRelease, reservedPrice, conR.chain); tx != nil {
+		if tx := reward.BuildAuctionControlTx(uint64(best.Number()+1), uint64(best.GetBlockEpoch()+1), chainTag, bestNum, initialRelease, reservedPrice, conR.chain); tx != nil {
 			txs = append(txs, tx)
 			conR.logger.Info("auction control tx appended", "txid", tx.ID())
 		}
@@ -1082,7 +1082,7 @@ func (conR *ConsensusReactor) buildRewardTxs(parentBlock *block.Block, rewards [
 				epochTotalReward = big.NewInt(0)
 			}
 			var rewardMap reward.RewardMap
-			if meter.IsMainChainTeslaFork2(parentBlock.Header().Number()) == true || meter.IsTestChainTeslaFork2(parentBlock.Header().Number()) == true {
+			if meter.IsMainChainTeslaFork2(parentBlock.Number()) == true || meter.IsTestChainTeslaFork2(parentBlock.Number()) == true {
 				fmt.Println("Compute reward map V3")
 				rewardMap, err = reward.ComputeRewardMapV3(epochBaseReward, epochTotalReward, conR.curDelegates.Delegates, conR.curCommittee.Validators)
 			} else {
@@ -1162,7 +1162,7 @@ func (conR *ConsensusReactor) BuildStopCommitteeBlock(parentBlock *block.Block) 
 	}
 
 	candAddr := conR.curCommittee.Validators[conR.curCommitteeIndex].Address
-	gasLimit := p.GasLimit(best.Header().GasLimit())
+	gasLimit := p.GasLimit(best.GasLimit())
 	flow, err := p.Mock(best.Header(), now, gasLimit, &candAddr)
 	if err != nil {
 		conR.logger.Error("mock packer", "error", err)
@@ -1194,12 +1194,12 @@ type RecvKBlockInfo struct {
 func (conR *ConsensusReactor) HandleRecvKBlockInfo(ki RecvKBlockInfo) {
 	best := conR.chain.BestBlock()
 
-	if ki.Height != best.Header().Number() {
-		conR.logger.Info("kblock info is ignored ...", "received hight", ki.Height, "my best", best.Header().Number())
+	if ki.Height != best.Number() {
+		conR.logger.Info("kblock info is ignored ...", "received hight", ki.Height, "my best", best.Number())
 		return
 	}
 
-	if best.Header().BlockType() != block.BLOCK_TYPE_K_BLOCK {
+	if best.BlockType() != block.BLOCK_TYPE_K_BLOCK {
 		conR.logger.Info("best block is not kblock")
 		return
 	}
@@ -1220,7 +1220,7 @@ func (conR *ConsensusReactor) HandleRecvKBlockInfo(ki RecvKBlockInfo) {
 	conR.exitCurCommittee()
 
 	// update last kblock height with current Height sine kblock is handled
-	conR.UpdateLastKBlockHeight(best.Header().Number())
+	conR.UpdateLastKBlockHeight(best.Number())
 
 	// run new one.
 	conR.UpdateCurDelegates()
@@ -1237,7 +1237,7 @@ func (conR *ConsensusReactor) PreCommitBlock(blkInfo *ProposedBlockInfo) error {
 	stage := blkInfo.Stage
 	receipts := blkInfo.Receipts
 
-	height := uint64(blk.Header().Number())
+	height := uint64(blk.Number())
 
 	// TODO: temporary remove
 	// if conR.csPacemaker.blockLocked.Height != height+1 {
@@ -1269,13 +1269,13 @@ func (conR *ConsensusReactor) PreCommitBlock(blkInfo *ProposedBlockInfo) error {
 			return false
 		}
 	******/
-	// fmt.Println("Calling AddBlock from consensus_block.PrecommitBlock, newblock=", blk.Header().ID())
+	// fmt.Println("Calling AddBlock from consensus_block.PrecommitBlock, newblock=", blk.ID())
 	fork, err := conR.chain.AddBlock(blk, *receipts, false)
 	if err != nil {
 		if err != chain.ErrBlockExist {
-			conR.logger.Warn("add block failed ...", "err", err, "id", blk.Header().ID())
+			conR.logger.Warn("add block failed ...", "err", err, "id", blk.ID())
 		} else {
-			conR.logger.Info("block already exist", "id", blk.Header().ID())
+			conR.logger.Info("block already exist", "id", blk.ID())
 		}
 		return err
 	}
@@ -1286,7 +1286,7 @@ func (conR *ConsensusReactor) PreCommitBlock(blkInfo *ProposedBlockInfo) error {
 		//return false
 		// process fork????
 		if len(fork.Branch) > 0 {
-			out := fmt.Sprintf("Fork Happened ... fork(Ancestor=%s, Branch=%s), bestBlock=%s", fork.Ancestor.ID().String(), fork.Branch[0].ID().String(), conR.chain.BestBlock().Header().ID().String())
+			out := fmt.Sprintf("Fork Happened ... fork(Ancestor=%s, Branch=%s), bestBlock=%s", fork.Ancestor.ID().String(), fork.Branch[0].ID().String(), conR.chain.BestBlock().ID().String())
 			conR.logger.Warn(out)
 			panic(out)
 		}
@@ -1298,7 +1298,7 @@ func (conR *ConsensusReactor) PreCommitBlock(blkInfo *ProposedBlockInfo) error {
 	// commitElapsed := mclock.Now() - startTime
 
 	blocksCommitedCounter.Inc()
-	conR.logger.Info("block precommited", "height", height, "id", blk.Header().ID())
+	conR.logger.Info("block precommited", "height", height, "id", blk.ID())
 	return nil
 }
 
@@ -1338,16 +1338,16 @@ func (conR *ConsensusReactor) FinalizeCommitBlock(blkInfo *ProposedBlockInfo, be
 		conR.logger.Error("commit logs failed ...", "err", err)
 		return err
 	}
-	// fmt.Println("Calling AddBlock from consensus_block.FinalizeCommitBlock, newBlock=", blk.Header().ID())
-	if blk.Header().Number() <= conR.chain.BestBlock().Header().Number() {
+	// fmt.Println("Calling AddBlock from consensus_block.FinalizeCommitBlock, newBlock=", blk.ID())
+	if blk.Number() <= conR.chain.BestBlock().Number() {
 		return errKnownBlock
 	}
 	fork, err := conR.chain.AddBlock(blk, *receipts, true)
 	if err != nil {
 		if err != chain.ErrBlockExist {
-			conR.logger.Warn("add block failed ...", "err", err, "id", blk.Header().ID())
+			conR.logger.Warn("add block failed ...", "err", err, "id", blk.ID())
 		} else {
-			conR.logger.Info("block already exist", "id", blk.Header().ID())
+			conR.logger.Info("block already exist", "id", blk.ID())
 		}
 		return err
 	}
@@ -1358,14 +1358,14 @@ func (conR *ConsensusReactor) FinalizeCommitBlock(blkInfo *ProposedBlockInfo, be
 		//return false
 		// process fork????
 		if len(fork.Branch) > 0 {
-			out := fmt.Sprintf("Fork Happened ... fork(Ancestor=%s, Branch=%s), bestBlock=%s", fork.Ancestor.ID().String(), fork.Branch[0].ID().String(), conR.chain.BestBlock().Header().ID().String())
+			out := fmt.Sprintf("Fork Happened ... fork(Ancestor=%s, Branch=%s), bestBlock=%s", fork.Ancestor.ID().String(), fork.Branch[0].ID().String(), conR.chain.BestBlock().ID().String())
 			conR.logger.Warn(out)
 			panic(out)
 		}
 	}
 
 	if meter.IsMainNet() {
-		if blk.Header().Number() == meter.TeslaMainnetStartNum {
+		if blk.Number() == meter.TeslaMainnetStartNum {
 			script.EnterTeslaForkInit()
 		}
 	}
@@ -1385,9 +1385,9 @@ func (conR *ConsensusReactor) FinalizeCommitBlock(blkInfo *ProposedBlockInfo, be
 	// XXX: broadcast the new block to all peers
 	comm.GetGlobCommInst().BroadcastBlock(blk)
 	// successfully added the block, update the current hight of consensus
-	conR.logger.Info("Block committed", "height", blk.Header().Number(), "id", blk.Header().ID())
+	conR.logger.Info("Block committed", "height", blk.Number(), "id", blk.ID())
 	fmt.Println(blk.String())
-	conR.UpdateHeight(conR.chain.BestBlock().Header().Number())
+	conR.UpdateHeight(conR.chain.BestBlock().Number())
 
 	return nil
 }
