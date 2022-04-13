@@ -68,8 +68,10 @@ COPY _docker/main/reset.sh /
 
 RUN chmod a+x /reset.sh
 
-RUN touch /var/log/supervisor/pos-stdout.log
-RUN touch /var/log/supervisor/pos-stderr.log
+RUN touch /var/log/supervisor/pos.log
+RUN touch /var/log/supervisor/pow.log
+RUN touch /var/log/supervisor/gear.log
+RUN touch /var/log/supervisor/bitcoind_exporter.log
 
 LABEL com.centurylinklabs.watchtower.lifecycle.pre-update="/reset.sh"
 
