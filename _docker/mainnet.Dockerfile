@@ -57,10 +57,10 @@ ENV LC_ALL=C.UTF-8
 ENV LANG=C.UTF-8
 
 
-RUN mkdir /pow
 RUN mkdir /pos
+RUN mkdir -p /pos/pow
 
-COPY _docker/main/bitcoin.conf /pow/bitcoin.conf
+COPY _docker/main/bitcoin.conf /pos/pow/bitcoin.conf
 COPY _docker/main/00-meter.conf /etc/rsyslog.d/
 COPY _docker/main/rsyslog.conf /etc/rsyslog.conf
 COPY _docker/main/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
