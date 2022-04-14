@@ -15,7 +15,6 @@ import (
 	"time"
 
 	crypto "github.com/ethereum/go-ethereum/crypto"
-	"github.com/meterio/meter-pov/block"
 	bls "github.com/meterio/meter-pov/crypto/multi_sig"
 	cmn "github.com/meterio/meter-pov/libs/common"
 	types "github.com/meterio/meter-pov/types"
@@ -198,7 +197,7 @@ func (conR *ConsensusReactor) sendNewCommitteeMessage(peer *ConsensusPeer, leade
 	var nextEpochID uint64
 	best := conR.chain.BestBlock()
 
-	if best.BlockType() == block.BLOCK_TYPE_K_BLOCK {
+	if best.IsKBlock() {
 		nextEpochID = best.GetBlockEpoch() + 1
 	} else {
 		lastKBlock, err := conR.chain.GetTrunkBlock(best.LastKBlockHeight())

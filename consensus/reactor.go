@@ -213,7 +213,7 @@ func NewConsensusReactor(ctx *cli.Context, chain *chain.Chain, state *state.Crea
 	conR.RcvKBlockInfoQueue = make(chan RecvKBlockInfo, CHAN_DEFAULT_BUF_SIZE)
 
 	//initialize height/round
-	if chain.BestBlock().BlockType() == block.BLOCK_TYPE_K_BLOCK {
+	if chain.BestBlock().IsKBlock() {
 		conR.lastKBlockHeight = chain.BestBlock().Number()
 	} else {
 		conR.lastKBlockHeight = chain.BestBlock().LastKBlockHeight()

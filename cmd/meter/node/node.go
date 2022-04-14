@@ -308,7 +308,7 @@ func (n *Node) processBlock(blk *block.Block, stats *blockStats) (bool, error) {
 
 	// XXX: shortcut to refresh height
 	n.cons.RefreshCurHeight()
-	if blk.BlockType() == block.BLOCK_TYPE_K_BLOCK {
+	if blk.IsKBlock() {
 		data, _ := blk.GetKBlockData()
 		info := consensus.RecvKBlockInfo{
 			Height:           blk.Number(),

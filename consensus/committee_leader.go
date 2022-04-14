@@ -18,7 +18,6 @@ import (
 	"time"
 
 	crypto "github.com/ethereum/go-ethereum/crypto"
-	"github.com/meterio/meter-pov/block"
 	bls "github.com/meterio/meter-pov/crypto/multi_sig"
 	cmn "github.com/meterio/meter-pov/libs/common"
 )
@@ -153,7 +152,7 @@ func (cl *ConsensusLeader) GenerateAnnounceMsg(height uint32, round uint32) bool
 
 	best := cl.csReactor.chain.BestBlock()
 	var kblockHeight uint32
-	if best.BlockType() == block.BLOCK_TYPE_K_BLOCK {
+	if best.IsKBlock() {
 		kblockHeight = best.Number()
 	} else {
 		// mblock
