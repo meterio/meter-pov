@@ -41,12 +41,14 @@ func (p *Probe) HandleProbe(w http.ResponseWriter, r *http.Request) {
 	} else {
 		powStatus.Status = "powpool is not ready"
 	}
+	inDelegateList := false
 	for _, d := range delegateList {
 		registeredPK := string(d.PubKey)
 		trimedPK := strings.TrimSpace(registeredPK)
 		if strings.Compare(trimedPK, p.ComplexPubkey) == 0 {
 			name = string(d.Name)
-			pubkeyMatch = (bytes.Compare(d.PubKey, []byte(p.ComplexPubkey)) == 0)
+			pubkeyMatch = bytes.Equal(d.PubKey, []byte(p.ComplexPubkey))
+			inDelegateList = true
 			break
 		}
 	}
@@ -66,6 +68,7 @@ func (p *Probe) HandleProbe(w http.ResponseWriter, r *http.Request) {
 		PowStatus:          powStatus,
 		IsCommitteeMember:  p.Cons.IsCommitteeMember(),
 		IsPacemakerRunning: p.Cons.IsPacemakerRunning(),
+		InDelegateList:     inDelegateList,
 	}
 
 	utils.WriteJSON(w, result)
