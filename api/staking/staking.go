@@ -32,7 +32,11 @@ func New(chain *chain.Chain,
 }
 
 func (st *Staking) handleGetCandidateList(w http.ResponseWriter, req *http.Request) error {
-	list, err := staking.GetLatestCandidateList()
+	h, err := st.handleRevision(req.URL.Query().Get("revision"))
+	if err != nil {
+		return err
+	}
+	list, err := staking.GetCandidateListByHeader(h)
 	if err != nil {
 		return err
 	}
@@ -57,7 +61,11 @@ func (st *Staking) handleGetCandidateByAddress(w http.ResponseWriter, req *http.
 }
 
 func (st *Staking) handleGetBucketList(w http.ResponseWriter, req *http.Request) error {
-	list, err := staking.GetLatestBucketList()
+	h, err := st.handleRevision(req.URL.Query().Get("revision"))
+	if err != nil {
+		return err
+	}
+	list, err := staking.GetBucketListByHeader(h)
 	if err != nil {
 		return err
 	}
@@ -79,7 +87,11 @@ func (st *Staking) handleGetBucketByID(w http.ResponseWriter, req *http.Request)
 }
 
 func (st *Staking) handleGetStakeholderList(w http.ResponseWriter, req *http.Request) error {
-	list, err := staking.GetLatestStakeholderList()
+	h, err := st.handleRevision(req.URL.Query().Get("revision"))
+	if err != nil {
+		return err
+	}
+	list, err := staking.GetStakeholderListByHeader(h)
 	if err != nil {
 		return err
 	}

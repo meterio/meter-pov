@@ -7,7 +7,6 @@ package staking
 
 import (
 	"bytes"
-	"errors"
 	"fmt"
 	"math/big"
 	"strings"
@@ -28,24 +27,6 @@ func NewStakeholder(holder meter.Address) *Stakeholder {
 		TotalStake: big.NewInt(0),
 		Buckets:    []meter.Bytes32{},
 	}
-}
-
-func GetLatestStakeholderList() (*StakeholderList, error) {
-	staking := GetStakingGlobInst()
-	if staking == nil {
-		log.Warn("staking is not initialized...")
-		err := errors.New("staking is not initialized...")
-		return newStakeholderList(nil), err
-	}
-
-	best := staking.chain.BestBlock()
-	state, err := staking.stateCreator.NewState(best.Header().StateRoot())
-	if err != nil {
-		return newStakeholderList(nil), err
-	}
-	StakeholderList := staking.GetStakeHolderList(state)
-
-	return StakeholderList, nil
 }
 
 func (s *Stakeholder) ToString() string {
