@@ -102,6 +102,7 @@ type ProbeResult struct {
 
 	IsCommitteeMember  bool `json:"isCommitteeMember"`
 	IsPacemakerRunning bool `json:"isPacemakerRunning"`
+	InDelegateList     bool `json:"inDelegateList"`
 }
 
 type Network interface {

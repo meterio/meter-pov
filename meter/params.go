@@ -21,6 +21,7 @@ const (
 	NPowBlockPerEpoch    = 60   // epoch time (normaly 1 pow block takes 1 minutes)
 	MaxNPowBlockPerEpoch = 3000 // if too many pow blocks need to be packed in kblock, truncate to the last 3000 pow blocks
 	NEpochPerDay         = 24 * 60 / NPowBlockPerEpoch
+	KBlockEpoch          = 14603 // wrong LastKBlockHeight
 
 	// ------------------- Miner Reward ---------------------
 	MaxNClausePerRewardTx = 200 // pack reward tx with maxinum 200 clauses

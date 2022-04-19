@@ -162,7 +162,7 @@ func New(kv kv.GetPutter, genesisBlock *block.Block, verbose bool) (*Chain, erro
 	} else {
 		fmt.Println("Leaf Block", leafBlock.CompactString())
 		// remove all leaf blocks that are not finalized
-		for leafBlock.BlockType() == block.BLOCK_TYPE_S_BLOCK || leafBlock.TotalScore() > bestBlock.TotalScore() {
+		for leafBlock.IsKBlock() || leafBlock.TotalScore() > bestBlock.TotalScore() {
 			fmt.Println("*** Start pruning")
 			parentID, err := ancestorTrie.GetAncestor(leafBlock.ID(), leafBlock.Number()-1)
 			if err != nil {
@@ -246,7 +246,7 @@ func (c *Chain) BestBlock() *block.Block {
 func (c *Chain) BestKBlock() (*block.Block, error) {
 	c.rw.RLock()
 	defer c.rw.RUnlock()
-	if c.bestBlock.BlockType() == block.BLOCK_TYPE_K_BLOCK {
+	if c.bestBlock.IsKBlock() {
 		return c.bestBlock, nil
 	} else {
 		lastKblockHeight := c.bestBlock.LastKBlockHeight()

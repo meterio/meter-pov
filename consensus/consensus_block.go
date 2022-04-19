@@ -168,7 +168,9 @@ func (c *ConsensusReactor) validate(
 ) (*state.Stage, tx.Receipts, error) {
 	header := block.Header()
 
-	if err := c.validateBlockHeader(header, parentHeader, nowTimestamp, forceValidate); err != nil {
+	epoch := block.GetBlockEpoch()
+
+	if err := c.validateBlockHeader(header, parentHeader, nowTimestamp, forceValidate, epoch); err != nil {
 		return nil, nil, err
 	}
 
@@ -194,7 +196,7 @@ func (c *ConsensusReactor) validate(
 	return stage, receipts, nil
 }
 
-func (c *ConsensusReactor) validateBlockHeader(header *block.Header, parent *block.Header, nowTimestamp uint64, forceValidate bool) error {
+func (c *ConsensusReactor) validateBlockHeader(header *block.Header, parent *block.Header, nowTimestamp uint64, forceValidate bool, epoch uint64) error {
 	if header.Timestamp() <= parent.Timestamp() {
 		return consensusError(fmt.Sprintf("block timestamp behind parents: parent %v, current %v", parent.Timestamp(), header.Timestamp()))
 	}
@@ -215,7 +217,7 @@ func (c *ConsensusReactor) validateBlockHeader(header *block.Header, parent *blo
 		return consensusError(fmt.Sprintf("block total score invalid: parent %v, current %v", parent.TotalScore(), header.TotalScore()))
 	}
 
-	if header.LastKBlockHeight() < parent.LastKBlockHeight() {
+	if epoch != meter.KBlockEpoch && header.LastKBlockHeight() < parent.LastKBlockHeight() {
 		return consensusError(fmt.Sprintf("block LastKBlockHeight invalid: parent %v, current %v", parent.LastKBlockHeight(), header.LastKBlockHeight()))
 	}
 
@@ -345,7 +347,7 @@ func (c *ConsensusReactor) validateBlockBody(blk *block.Block, forceValidate boo
 
 	rewardTxs := tx.Transactions{}
 
-	if blk.BlockType() == block.BLOCK_TYPE_K_BLOCK {
+	if blk.IsKBlock() {
 		parentBlock, err := c.chain.GetBlock(header.ParentID())
 		if err != nil {
 			panic("get parentBlock failed")
@@ -478,7 +480,7 @@ func (c *ConsensusReactor) validateBlockBody(blk *block.Block, forceValidate boo
 		// 1. no signature (no signer)
 		// 2. only located in kblock.
 		if signer.IsZero() {
-			if blk.BlockType() != block.BLOCK_TYPE_K_BLOCK {
+			if !blk.IsKBlock() {
 				return consensusError(fmt.Sprintf("tx signer unavailable"))
 			}
 
@@ -678,7 +680,7 @@ func (c *ConsensusReactor) verifyBlock(blk *block.Block, state *state.State, for
 		return true, meta.Reverted, nil
 	}
 
-	if forceValidate && blk.BlockType() == block.BLOCK_TYPE_K_BLOCK {
+	if forceValidate && blk.IsKBlock() {
 		if err := c.verifyKBlock(); err != nil {
 			return nil, nil, err
 		}
@@ -695,7 +697,7 @@ func (c *ConsensusReactor) verifyBlock(blk *block.Block, state *state.State, for
 
 		if signer.IsZero() {
 			//TBD: check to addresses in clauses
-			if blk.BlockType() != block.BLOCK_TYPE_K_BLOCK {
+			if !blk.IsKBlock() {
 				return nil, nil, consensusError(fmt.Sprintf("tx signer unavailable"))
 			}
 		}
@@ -1199,7 +1201,7 @@ func (conR *ConsensusReactor) HandleRecvKBlockInfo(ki RecvKBlockInfo) {
 		return
 	}
 
-	if best.BlockType() != block.BLOCK_TYPE_K_BLOCK {
+	if !best.IsKBlock() {
 		conR.logger.Info("best block is not kblock")
 		return
 	}

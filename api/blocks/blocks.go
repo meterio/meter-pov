@@ -225,7 +225,7 @@ func (b *Blocks) getKBlockByEpoch(epoch uint64) (*block.Block, error) {
 		}
 		ep = blk.GetBlockEpoch()
 
-		if ep == epoch && blk.BlockType() == block.BLOCK_TYPE_K_BLOCK {
+		if ep == epoch && blk.IsKBlock() {
 			return blk, nil // find it !!!
 		}
 		if ep > epoch {

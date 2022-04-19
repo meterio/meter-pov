@@ -949,7 +949,7 @@ func (p *Pacemaker) mainLoop() {
 func (p *Pacemaker) SendKblockInfo(b *pmBlock) {
 	// clean off chain for next committee.
 	blk := b.ProposedBlockInfo.ProposedBlock
-	if blk.BlockType() == block.BLOCK_TYPE_K_BLOCK {
+	if blk.IsKBlock() {
 		data, _ := blk.GetKBlockData()
 		info := RecvKBlockInfo{
 			Height:           blk.Number(),

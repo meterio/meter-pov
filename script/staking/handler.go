@@ -792,7 +792,7 @@ func (sb *StakingBody) GoverningHandler(env *StakingEnv, gas uint64) (leftOverGa
 	staking.SetDelegateList(delegateList, state)
 	staking.SetValidatorRewardList(rewardList, state)
 
-	log.Info("After Governing, new delegate list calculated", "members", delegateList.Members())
+	//log.Info("After Governing, new delegate list calculated", "members", delegateList.Members())
 	// fmt.Println(delegateList.ToString())
 	return
 }
