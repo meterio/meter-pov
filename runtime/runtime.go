@@ -435,12 +435,12 @@ func (rt *Runtime) EnforceTeslaFork10_Corrections(stateDB *statedb.StateDB, bloc
 			log.Info("Start fork10 correction")
 
 			// update MTRG with MeterGovERC20Permit V3
-			mtrgAddr := meter.MustParseAddress("0x228ebBeE999c6a7ad74A6130E81b12f9Fe237Ba3")
+			mtrgAddr := meter.MustParseAddress("0x8a419ef4941355476cf04933e90bf3bbf2f73814")
 			rt.state.SetCode(mtrgAddr, builtin.MeterGovERC20Permit_V3_DeployedBytecode)
 			log.Info("Overriden MTRG with V3 bytecode", "addr", mtrgAddr.String())
 
 			// update MTR with MeterERC20Permit V3
-			mtrAddr := meter.MustParseAddress("0x687a6294d0d6d63e751a059bf1ca68e4ae7b13e2")
+			mtrAddr := meter.MustParseAddress("0x897738668c0e69a7ee25e3a30ba2a4be0e44296c")
 			rt.state.SetCode(mtrAddr, builtin.MeterERC20Permit_V3_DeployedBytecode)
 			log.Info("Overriden MTR with V3 bytecode", "addr", mtrAddr.String())
 

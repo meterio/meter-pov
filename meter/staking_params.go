@@ -82,6 +82,9 @@ func GetBoundLockOption(chose uint32) (opt uint32, rate uint8, locktime uint64) 
 }
 
 func GetBoundLocktime(opt uint32) (lock uint64) {
+	if IsTestNet() {
+		return ONE_DAY_LOCK_TIME
+	}
 	switch opt {
 	case ONE_DAY_LOCK:
 		return ONE_DAY_LOCK_TIME
