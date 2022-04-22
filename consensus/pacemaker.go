@@ -28,7 +28,8 @@ const (
 	RoundTimeoutLongInterval = 40 * time.Second
 	ProposeTimeLimit         = 1300 * time.Millisecond
 	BroadcastTimeLimit       = 1400 * time.Millisecond
-	MIN_MBLOCKS_AN_EPOCH     = uint32(4)
+
+	MIN_MBLOCKS_AN_EPOCH = uint32(4)
 )
 
 type Pacemaker struct {

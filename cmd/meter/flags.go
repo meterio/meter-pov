@@ -162,7 +162,7 @@ var (
 	epochBlockCountFlag = cli.Int64Flag{
 		Name:  "epoch-mblock-count",
 		Usage: "mblock count between epochs",
-		Value: 1200,
+		Value: 200,
 	}
 	httpsCertFlag = cli.StringFlag{
 		Name:  "https-cert",
