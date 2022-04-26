@@ -146,6 +146,7 @@ func (t *Transactions) handleSendEthRawTransaction(w http.ResponseWriter, req *h
 
 	var sendTx = func(tx *tx.Transaction) error {
 		if err := t.pool.Add(tx); err != nil {
+			fmt.Println("txpool failed to add tx, error: ", err)
 			if txpool.IsBadTx(err) {
 				return utils.BadRequest(err)
 			}

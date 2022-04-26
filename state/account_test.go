@@ -36,7 +36,7 @@ func TestAccount(t *testing.T) {
 
 	acc = emptyAccount()
 	acc.StorageRoot = []byte{1}
-	assert.True(t, acc.IsEmpty())
+	assert.False(t, acc.IsEmpty())
 }
 
 func newTrie() *trie.SecureTrie {
@@ -56,7 +56,8 @@ func TestTrie(t *testing.T) {
 	acc1 := Account{
 		big.NewInt(1),
 		big.NewInt(0),
-		0,
+		big.NewInt(0),
+		big.NewInt(0),
 		[]byte("master"),
 		[]byte("code hash"),
 		[]byte("storage root"),

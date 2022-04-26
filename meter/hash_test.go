@@ -3,7 +3,7 @@
 // Distributed under the GNU Lesser General Public License v3.0 software license, see the accompanying
 // file LICENSE or <https://www.gnu.org/licenses/lgpl-3.0.html>
 
-package meter.test
+package meter
 
 import (
 	"testing"
@@ -11,7 +11,7 @@ import (
 	"github.com/ethereum/go-ethereum/crypto/sha3"
 	//"golang.org/x/crypto/blake2b"
 
-    "github.com/meterio/meter-pov/crypto/blake2b"
+	"github.com/meterio/meter-pov/crypto/blake2b"
 )
 
 func BenchmarkKeccak(b *testing.B) {

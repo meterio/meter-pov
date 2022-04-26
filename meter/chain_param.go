@@ -96,7 +96,7 @@ type ChainConfig struct {
 }
 
 func (c *ChainConfig) ToString() string {
-	return fmt.Sprintf("BlockChain Configuration (ChainGenesisID: %v, ChainFlag: %v, Initialized: %v, EdisonEpoch: %v)",
+	return fmt.Sprintf("BlockChain Configuration (ChainGenesisID: %v, ChainFlag: %v, Initialized: %v)",
 		c.ChainGenesisID, c.ChainFlag, c.Initialized)
 }
 
@@ -107,7 +107,7 @@ func (c *ChainConfig) IsInitialized() bool {
 // chain flag right now ONLY 3: "main"/"test"/"warringstakes"
 func (c *ChainConfig) IsMainnet() bool {
 	if c.IsInitialized() == false {
-		log.Error("Chain is not initialized", "chain-flag", c.ChainFlag)
+		log.Warn("Chain is not initialized", "chain-flag", c.ChainFlag)
 		return false
 	}
 

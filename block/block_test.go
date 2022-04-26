@@ -12,11 +12,11 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
+	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/rlp"
 	. "github.com/meterio/meter-pov/block"
 	"github.com/meterio/meter-pov/meter"
 	"github.com/meterio/meter-pov/tx"
-	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/ethereum/go-ethereum/rlp"
 
 	// "crypto/rand"
 	// cmn "github.com/meterio/meter-pov/libs/common"
@@ -25,22 +25,6 @@ import (
 )
 
 func TestSerialize(t *testing.T) {
-	bb, err := rlp.EncodeToBytes([]byte{1, 2, 3})
-	fmt.Println("byte slice encoded:", bb, err)
-
-	ok := KBlockData{Data: []byte{1, 2, 3}}
-
-	b := &Block{BlockHeader: &Header{}}
-	b.SetKBlockData(ok)
-	bBytes, err := rlp.EncodeToBytes(b)
-	fmt.Println("Block encoded:", bBytes, err)
-
-	bt := &Block{}
-	err = rlp.DecodeBytes(bBytes, bt)
-	fmt.Println("Block: ", bt, err)
-}
-
-func TestBlock(t *testing.T) {
 
 	tx1 := new(tx.Builder).Clause(tx.NewClause(&meter.Address{})).Clause(tx.NewClause(&meter.Address{})).Build()
 	tx2 := new(tx.Builder).Clause(tx.NewClause(nil)).Build()
@@ -95,36 +79,49 @@ func TestBlock(t *testing.T) {
 
 	block = block.WithSignature(sig)
 	kBlockData := KBlockData{Nonce: 1111}
+	block.SetKBlockData(kBlockData)
 
-	addr := types.NetAddress{IP: []byte{}, Port: 4444, Str: "xxxx"}
-	committeeInfo := CommitteeInfo{Accum: 2222, VotingPower: 20, CSPubKey: []byte{}, PubKey: []byte{}, CSIndex: 0, NetAddr: addr}
+	qc := QuorumCert{QCHeight: 1, QCRound: 1, EpochID: 1, VoterAggSig: []byte{1, 2, 3}, VoterBitArrayStr: "**-", VoterMsgHash: [32]byte{1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1}, VoterViolation: []*Violation{}}
+	block.SetQC(&qc)
+
+	addr := types.NetAddress{IP: []byte{}, Port: 4444}
+	committeeInfo := []CommitteeInfo{CommitteeInfo{
+		Name:     "Testee",
+		CSIndex:  0,
+		CSPubKey: []byte{},
+		PubKey:   []byte{},
+		NetAddr:  addr,
+	}}
 	addrBytes, err := rlp.EncodeToBytes(addr)
 	fmt.Println(addrBytes, err)
-	m, err := rlp.EncodeToBytes(committeeInfo)
-	fmt.Println(m, err)
+	_, err = rlp.EncodeToBytes(committeeInfo)
+	assert.Equal(t, err, nil)
 
-	fmt.Println("SET BLOCK DATA ERROR:", block.SetKBlockData(kBlockData))
 	block.SetCommitteeInfo(committeeInfo)
 
 	fmt.Println("BEFORE KBlockData data:", kBlockData)
 	fmt.Println("BEFORE block.KBlockData:", block.KBlockData)
 	fmt.Println("BEFORE block.CommitteeInfo: ", committeeInfo)
-	fmt.Println("BEFORE block.CommitteeInfo: ", block.CommitteeInfo)
+	fmt.Println("BEFORE block.CommitteeInfo: ", block.CommitteeInfos)
 	fmt.Println("BEFORE BLOCK:", block)
 	data, err := rlp.EncodeToBytes(block)
-	fmt.Println("ENCODE ERROR: ", err)
+	assert.Equal(t, err, nil)
 	fmt.Println("BLOCK SERIALIZED TO:", data)
 
 	b := &Block{}
 
 	err = rlp.DecodeBytes(data, b)
-	fmt.Println("DECODE ERROR:", err)
+	assert.Equal(t, err, nil)
 	fmt.Println("AFTER BLOCK:", b)
 	kb, err := b.GetKBlockData()
-	fmt.Println("AFTER KBlockData: ", kb, err)
-	fmt.Println("AFTER block.KBlockData:", b.KBlockData)
+	assert.Equal(t, err, nil)
+	assert.Equal(t, kBlockData.Nonce, kb.Nonce)
 
-	db, err := rlp.EncodeToBytes(b)
-	fmt.Println(err)
-	fmt.Println("BLOCK SERIALIZED TO:", db)
+	ci, err := b.GetCommitteeInfo()
+	assert.Equal(t, err, nil)
+	assert.Equal(t, len(committeeInfo), len(ci))
+	assert.Equal(t, committeeInfo[0].Name, ci[0].Name)
+
+	dqc := b.GetQC()
+	assert.Equal(t, qc.QCHeight, dqc.QCHeight)
 }

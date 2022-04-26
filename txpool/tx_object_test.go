@@ -26,7 +26,7 @@ import (
 func newChain(kv kv.GetPutter) *chain.Chain {
 	gene := genesis.NewDevnet()
 	b0, _, _ := gene.Build(state.NewCreator(kv))
-	chain, _ := chain.New(kv, b0)
+	chain, _ := chain.New(kv, b0, true)
 	return chain
 }
 
@@ -81,8 +81,10 @@ func TestExecutable(t *testing.T) {
 	kv, _ := lvldb.NewMem()
 	chain := newChain(kv)
 	b0 := chain.GenesisBlock()
-	b1 := new(block.Builder).ParentID(b0.ID()).GasLimit(10000000).TotalScore(100).Build()
-	chain.AddBlock(b1, nil)
+	b1 := new(block.Builder).ParentID(b0.Header().ID()).GasLimit(10000000).TotalScore(100).Build()
+	qc1 := block.QuorumCert{QCHeight: 1, QCRound: 1, EpochID: 0}
+	b1.SetQC(&qc1)
+	chain.AddBlock(b1, nil, true)
 	st, _ := state.New(chain.GenesisBlock().Header().StateRoot(), kv)
 
 	tests := []struct {
@@ -93,7 +95,7 @@ func TestExecutable(t *testing.T) {
 		{newTx(0, nil, 21000, tx.BlockRef{}, 100, nil, acc), true, ""},
 		{newTx(0, nil, math.MaxUint64, tx.BlockRef{}, 100, nil, acc), false, "gas too large"},
 		{newTx(0, nil, 21000, tx.BlockRef{1}, 100, nil, acc), true, "block ref out of schedule"},
-		{newTx(0, nil, 21000, tx.BlockRef{0}, 0, nil, acc), true, "expired"},
+		{newTx(0, nil, 21000, tx.BlockRef{0}, 0, nil, acc), true, "head block expired"},
 		{newTx(0, nil, 21000, tx.BlockRef{0}, 100, &meter.Bytes32{}, acc), false, ""},
 	}
 

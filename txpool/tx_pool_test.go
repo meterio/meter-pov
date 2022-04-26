@@ -49,7 +49,9 @@ func TestSubscribeNewTx(t *testing.T) {
 		GasLimit(10000000).
 		StateRoot(pool.chain.GenesisBlock().Header().StateRoot()).
 		Build()
-	pool.chain.AddBlock(b1, nil)
+	qc := block.QuorumCert{QCHeight: 1, QCRound: 1, EpochID: 0}
+	b1.SetQC(&qc)
+	pool.chain.AddBlock(b1, nil, true)
 
 	txCh := make(chan *TxEvent)
 
@@ -84,7 +86,9 @@ func TestWashTxs(t *testing.T) {
 		GasLimit(10000000).
 		StateRoot(pool.chain.GenesisBlock().Header().StateRoot()).
 		Build()
-	pool.chain.AddBlock(b1, nil)
+	qc := block.QuorumCert{QCHeight: 1, QCRound: 1, EpochID: 0}
+	b1.SetQC(&qc)
+	pool.chain.AddBlock(b1, nil, true)
 
 	txs, _, err = pool.wash(pool.chain.BestBlock().Header())
 	assert.Nil(t, err)
@@ -101,7 +105,9 @@ func TestAdd(t *testing.T) {
 		GasLimit(10000000).
 		StateRoot(pool.chain.GenesisBlock().Header().StateRoot()).
 		Build()
-	pool.chain.AddBlock(b1, nil)
+	qc := block.QuorumCert{QCHeight: 1, QCRound: 1, EpochID: 0}
+	b1.SetQC(&qc)
+	pool.chain.AddBlock(b1, nil, true)
 	acc := genesis.DevAccounts()[0]
 
 	dupTx := newTx(pool.chain.Tag(), nil, 21000, tx.BlockRef{}, 100, nil, acc)

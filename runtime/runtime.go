@@ -168,7 +168,7 @@ func (rt *Runtime) LoadERC20NativeCotract() {
 
 func (rt *Runtime) EnforceTelsaFork1_1Corrections() {
 	blockNumber := rt.Context().Number
-	if meter.IsMainNet() {
+	if blockNumber > 0 && meter.IsMainNet() {
 		// flag is nil or 0, is not do. 1 meas done.
 		enforceFlag := builtin.Params.Native(rt.State()).Get(meter.KeyEnforceTesla1_1Correction)
 

@@ -68,8 +68,8 @@ type caches struct {
 
 // New create an instance of Chain.
 func New(kv kv.GetPutter, genesisBlock *block.Block, verbose bool) (*Chain, error) {
-	prometheus.MustRegister(bestQCHeightGauge)
-	prometheus.MustRegister(bestHeightGauge)
+	prometheus.Register(bestQCHeightGauge)
+	prometheus.Register(bestHeightGauge)
 
 	if genesisBlock.Number() != 0 {
 		return nil, errors.New("genesis number != 0")
@@ -858,10 +858,18 @@ type QCWrap struct {
 }
 
 func (c *Chain) UpdateBestQC(qc *block.QuorumCert, source QCSource) (bool, error) {
-	qcs := []*QCWrap{
-		&QCWrap{source: LocalBestQC, qc: c.bestQC},
-		&QCWrap{source: LocalBestBlock, qc: c.bestBlock.QC},
-		&QCWrap{source: LocalCandidate, qc: c.bestQCCandidate},
+	qcs := make([]*QCWrap, 0)
+
+	if c.bestQC != nil {
+		qcs = append(qcs, &QCWrap{source: LocalBestQC, qc: c.bestQC})
+	}
+
+	if c.bestBlock.QC != nil {
+		qcs = append(qcs, &QCWrap{source: LocalBestBlock, qc: c.bestBlock.QC})
+	}
+
+	if c.bestQCCandidate != nil {
+		qcs = append(qcs, &QCWrap{source: LocalCandidate, qc: c.bestQCCandidate})
 	}
 
 	/*
@@ -929,7 +937,12 @@ func (c *Chain) UpdateBestQC(qc *block.QuorumCert, source QCSource) (bool, error
 		}
 	}
 
-	if blk.QC.QCHeight > c.bestQC.QCHeight {
+	fmt.Println("best qc: ", c.bestQC)
+	fmt.Println("best qc height: ", c.bestQC.QCHeight)
+	fmt.Println("best block: ", blk)
+	fmt.Println("blk.QC", blk.QC)
+	fmt.Println("blk.QC.QCHeight: ", blk.QC.QCHeight)
+	if c.bestQC == nil || blk.QC.QCHeight > c.bestQC.QCHeight {
 		log.Info("Update bestQC from bestBlock descendant", "from", c.bestQC.CompactString(), "to", blk.QC.CompactString())
 		c.bestQC = blk.QC
 		return true, saveBestQC(c.kv, c.bestQC)

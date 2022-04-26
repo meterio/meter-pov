@@ -22,7 +22,10 @@ require (
 	github.com/go-stack/stack v1.8.0
 	github.com/golang/protobuf v1.4.2
 	github.com/golang/snappy v0.0.1
+	github.com/gonum/floats v0.0.0-20181209220543-c233463c7e82 // indirect
+	github.com/gonum/internal v0.0.0-20181124074243-f884aa714029 // indirect
 	github.com/gonum/stat v0.0.0-20181125101827-41a0da705a5b
+	github.com/google/gofuzz v1.2.0 // indirect
 	github.com/google/uuid v1.1.0
 	github.com/gorilla/context v1.1.1
 	github.com/gorilla/handlers v1.4.0
@@ -49,6 +52,7 @@ require (
 	github.com/rs/cors v1.6.0
 	github.com/stretchr/testify v1.3.0
 	github.com/syndtr/goleveldb v0.0.0-20181128100959-b001fa50d6b2
+	github.com/tendermint/go-amino v0.16.0 // indirect
 	golang.org/x/crypto v0.0.0-20200622213623-75b288015ac9
 	golang.org/x/net v0.0.0-20200813134508-3edf25e44fcc
 	golang.org/x/sys v0.0.0-20200814200057-3d37ad5750ed

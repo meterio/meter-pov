@@ -9,15 +9,15 @@ import (
 	"github.com/ethereum/go-ethereum/common/math"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/crypto/secp256k1"
-	"github.com/stretchr/testify/assert"
 	"github.com/meterio/meter-pov/builtin"
 	"github.com/meterio/meter-pov/chain"
 	"github.com/meterio/meter-pov/genesis"
 	"github.com/meterio/meter-pov/lvldb"
+	"github.com/meterio/meter-pov/meter"
 	"github.com/meterio/meter-pov/runtime"
 	"github.com/meterio/meter-pov/state"
-	"github.com/meterio/meter-pov/meter"
 	"github.com/meterio/meter-pov/tx"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestResolvedTx(t *testing.T) {
@@ -56,7 +56,7 @@ func newTestResolvedTransaction(t *testing.T) (*testResolvedTransaction, error) 
 		return nil, err
 	}
 
-	c, err := chain.New(db, parent)
+	c, err := chain.New(db, parent, true)
 	if err != nil {
 		return nil, err
 	}

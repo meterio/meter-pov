@@ -29,8 +29,8 @@ func TestTx(t *testing.T) {
 		DependsOn(nil).
 		Nonce(12345678).Build()
 
-	assert.Equal(t, "0x2a1c25ce0d66f45276a5f308b99bf410e2fc7d5b6ea37a49f2ab9f1da9446478", trx.SigningHash().String())
-	assert.Equal(t, meter.Bytes32{}, trx.ID())
+	assert.Equal(t, "0xfc420290104d43f7c74ba45517a5ebdc2d65b86cab0e0c8584a8aa4cfcb1fe59", trx.SigningHash().String())
+	assert.Equal(t, meter.Bytes32{0x50, 0xf6, 0xff, 0xf2, 0xec, 0x3a, 0x6c, 0xcf, 0xc4, 0xb1, 0x60, 0x2a, 0xb0, 0x3, 0xd4, 0x0, 0xfc, 0x40, 0xf3, 0xd3, 0xa4, 0xf7, 0x9e, 0xc6, 0xa8, 0xdb, 0x19, 0xaa, 0xb0, 0xc2, 0x5a, 0x1a}, trx.ID())
 
 	assert.Equal(t, uint64(21000), func() uint64 { g, _ := new(tx.Builder).Build().IntrinsicGas(); return g }())
 	assert.Equal(t, uint64(37432), func() uint64 { g, _ := trx.IntrinsicGas(); return g }())
@@ -44,9 +44,9 @@ func TestTx(t *testing.T) {
 
 	trx = trx.WithSignature(sig)
 	assert.Equal(t, "0xd989829d88b0ed1b06edf5c50174ecfa64f14a64", func() string { s, _ := trx.Signer(); return s.String() }())
-	assert.Equal(t, "0xda90eaea52980bc4bb8d40cb2ff84d78433b3b4a6e7d50b75736c5e3e77b71ec", trx.ID().String())
+	assert.Equal(t, "0x8b0c95930309aed68a24dc66dad23bdaed7c1a078eb9289126eb458a5ef5eee8", trx.ID().String())
 
-	assert.Equal(t, "f8970184aabbccdd20f840df947567d83b7b8d80addcb281a71d54fc7b3364ffed82271086000000606060df947567d83b7b8d80addcb281a71d54fc7b3364ffed824e208600000060606081808252088083bc614ec0b841f76f3c91a834165872aa9464fc55b03a13f46ea8d3b858e528fcceaf371ad6884193c3f313ff8effbb57fe4d1adc13dceb933bedbf9dbb528d2936203d5511df00",
+	assert.Equal(t, "f8990184aabbccdd20f842e0947567d83b7b8d80addcb281a71d54fc7b3364ffed8227108086000000606060e0947567d83b7b8d80addcb281a71d54fc7b3364ffed824e20808600000060606081808252088083bc614ec0b8412cb8b616227972202d6a80b2a5b0b236e4988b274e8ee8f7f948ff7bf225a3ff061e333d7a2d16c25a8ecd53c11f13299ea220c85656e051199b800dcf3d6c4a00",
 		func() string { d, _ := rlp.EncodeToBytes(trx); return hex.EncodeToString(d) }(),
 	)
 }

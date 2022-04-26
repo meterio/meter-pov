@@ -182,7 +182,7 @@ func initAccountServer(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	chain, _ := chain.New(db, b)
+	chain, _ := chain.New(db, b, true)
 	claTransfer := tx.NewClause(&addr).WithValue(value)
 	claDeploy := tx.NewClause(nil).WithData(bytecode)
 	transaction := buildTxWithClauses(t, chain.Tag(), claTransfer, claDeploy)
