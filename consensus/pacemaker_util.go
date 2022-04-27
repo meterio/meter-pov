@@ -137,7 +137,7 @@ func (p *Pacemaker) GetRelayPeers(round uint32) []*ConsensusPeer {
 		myIndex = myIndex + size - rr
 	}
 
-	indexes := GetRelayPeers(myIndex, size-1)
+	indexes := GetRelayPeers(myIndex, size)
 	for _, i := range indexes {
 		index := i + rr
 		if index >= size {

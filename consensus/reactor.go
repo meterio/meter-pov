@@ -657,7 +657,7 @@ func (conR *ConsensusReactor) GetRelayPeers(round int) ([]*ConsensusPeer, error)
 		myIndex = myIndex + size - rr
 	}
 
-	indexes := GetRelayPeers(myIndex, size-1)
+	indexes := GetRelayPeers(myIndex, size)
 	for _, i := range indexes {
 		index := i + rr
 		if index >= size {
