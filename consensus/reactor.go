@@ -685,9 +685,10 @@ func (conR *ConsensusReactor) relayMsg(mi consensusMsgInfo, round int) {
 	peers, _ := conR.GetRelayPeers(round)
 	typeName := getConcreteName(mi.Msg)
 	conR.logger.Info("Now, relay committee msg", "type", typeName, "round", round)
+	msgHashHex := mi.MsgHashHex()
 	for _, peer := range peers {
 		msgSummary := (mi.Msg).String()
-		go peer.sendCommitteeMsg(mi.RawData, msgSummary, true)
+		go peer.sendCommitteeMsg(mi.RawData, msgSummary, msgHashHex, true)
 	}
 	// conR.asyncSendCommitteeMsg(msg, true, peers...)
 }
@@ -954,10 +955,12 @@ func (conR *ConsensusReactor) asyncSendCommitteeMsg(msg *ConsensusMessage, relay
 		fmt.Println("Could not marshal message")
 		return false
 	}
+	msgHash := sha256.Sum256(data)
+	msgHashHex := hex.EncodeToString(msgHash[:])[:8]
 	msgSummary := (*msg).String()
 
 	for _, peer := range peers {
-		go peer.sendCommitteeMsg(data, msgSummary, relay)
+		go peer.sendCommitteeMsg(data, msgSummary, msgHashHex, relay)
 	}
 
 	//wg.Wait()

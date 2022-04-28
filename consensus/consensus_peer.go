@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/inconshreveable/log15"
@@ -36,17 +37,25 @@ func newConsensusPeer(name string, ip net.IP, port uint16, magic [4]byte) *Conse
 	}
 }
 
-func (peer *ConsensusPeer) sendPacemakerMsg(rawData []byte, msgSummary string, relay bool) error {
+func (peer *ConsensusPeer) sendPacemakerMsg(rawData []byte, msgSummary string, msgHashHex string, relay bool) error {
 	// full size message may taker longer time (> 2s) to complete the tranport.
 	var netClient = &http.Client{
 		Timeout: time.Second * 4, // 2
 	}
 
-	prefix := "Send>>"
-	if relay {
-		prefix = "Relay>>"
+	split := strings.Split(msgSummary, " ")
+	name := ""
+	tail := ""
+	if len(split) > 0 {
+		name = split[0]
+		tail = strings.Join(split[1:], " ")
 	}
-	peer.logger.Info(prefix+" "+msgSummary, "size", len(rawData))
+
+	if relay {
+		peer.logger.Info("Relay>> "+name+" "+msgHashHex+"]", "size", len(rawData))
+	} else {
+		peer.logger.Info("Send>>  "+name+" "+msgHashHex+" "+tail, "size", len(rawData))
+	}
 
 	url := "http://" + peer.netAddr.IP.String() + ":8670/pacemaker"
 	_, err := netClient.Post(url, "application/json", bytes.NewBuffer(rawData))
@@ -57,16 +66,23 @@ func (peer *ConsensusPeer) sendPacemakerMsg(rawData []byte, msgSummary string, r
 	return nil
 }
 
-func (peer *ConsensusPeer) sendCommitteeMsg(rawData []byte, msgSummary string, relay bool) error {
+func (peer *ConsensusPeer) sendCommitteeMsg(rawData []byte, msgSummary string, msgHashHex string, relay bool) error {
 	var netClient = &http.Client{
 		Timeout: time.Second * 4,
 	}
 
-	prefix := "Send>>"
-	if relay {
-		prefix = "Relay>>"
+	split := strings.Split(msgSummary, " ")
+	name := ""
+	tail := ""
+	if len(split) > 0 {
+		name = split[0]
+		tail = strings.Join(split[1:], " ")
 	}
-	peer.logger.Info(prefix+" "+msgSummary, "size", len(rawData))
+	if relay {
+		peer.logger.Info("Relay>> "+name+" "+msgHashHex+"]", "size", len(rawData))
+	} else {
+		peer.logger.Info("Send>>  "+name+" "+msgHashHex+" "+tail, "size", len(rawData))
+	}
 	url := "http://" + peer.netAddr.IP.String() + ":8670/committee"
 	_, err := netClient.Post(url, "application/json", bytes.NewBuffer(rawData))
 	if err != nil {

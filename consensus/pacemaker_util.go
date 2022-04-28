@@ -6,6 +6,7 @@
 package consensus
 
 import (
+	sha256 "crypto/sha256"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -112,11 +113,12 @@ func (p *Pacemaker) relayMsg(mi consensusMsgInfo) {
 	round := msg.Header().Round
 	peers := p.GetRelayPeers(round)
 	typeName := getConcreteName(mi.Msg)
+	msgHashHex := mi.MsgHashHex()
 	if len(peers) > 0 {
 		p.logger.Info("Now, relay this "+typeName+"...", "height", height, "round", round, "msgHash", mi.MsgHashHex())
 		for _, peer := range peers {
 			msgSummary := (mi.Msg).String()
-			go peer.sendPacemakerMsg(mi.RawData, msgSummary, true)
+			go peer.sendPacemakerMsg(mi.RawData, msgSummary, msgHashHex, true)
 		}
 		// p.asyncSendPacemakerMsg(mi.Msg, true, peers...)
 	}
@@ -314,10 +316,12 @@ func (p *Pacemaker) asyncSendPacemakerMsg(msg ConsensusMessage, relay bool, peer
 		return false
 	}
 	msgSummary := msg.String()
+	msgHash := sha256.Sum256(data)
+	msgHashHex := hex.EncodeToString(msgHash[:])[:8]
 
 	// broadcast consensus message to peers
 	for _, peer := range peers {
-		go peer.sendPacemakerMsg(data, msgSummary, relay)
+		go peer.sendPacemakerMsg(data, msgSummary, msgHashHex, relay)
 	}
 	return true
 }
