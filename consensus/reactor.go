@@ -243,10 +243,6 @@ func NewConsensusReactor(ctx *cli.Context, chain *chain.Chain, state *state.Crea
 
 	lastKBlockHeightGauge.Set(float64(conR.lastKBlockHeight))
 
-	//initialize Delegates
-
-	conR.UpdateCurDelegates()
-
 	conR.rcvdNewCommittee = make(map[NewCommitteeKey]*NewCommittee, 10)
 
 	conR.myPrivKey = *privKey
@@ -260,12 +256,21 @@ func NewConsensusReactor(ctx *cli.Context, chain *chain.Chain, state *state.Crea
 // broadcasted to other peers and starting state if we're not in fast sync.
 func (conR *ConsensusReactor) OnStart() error {
 	// Start new consensus
-	conR.NewConsensusStart()
+	// conR.NewConsensusStart()
 
 	// force to receive nonce
 	//conR.ConsensusHandleReceivedNonce(0, 1001)
+	communicator := comm.GetGlobCommInst()
+	if communicator == nil {
+		conR.logger.Error("get communicator instance failed ...")
+		return errors.New("could not get communicator")
+	}
+	select {
+	case <-communicator.Synced():
+		conR.logger.Info("Consensus started ... ", "curHeight", conR.curHeight)
+		conR.SwitchToConsensus()
+	}
 
-	conR.logger.Info("Consensus started ... ", "curHeight", conR.curHeight)
 	return nil
 }
 
@@ -286,28 +291,31 @@ func (conR *ConsensusReactor) SwitchToConsensus() {
 	//conR.Logger.Info("SwitchToConsensus")
 	conR.logger.Info("Synchnization is done. SwitchToConsensus ...")
 
-	var nonce uint64
-	best := conR.chain.BestBlock()
-	bestKBlock, err := conR.chain.BestKBlock()
-	if err != nil {
-		panic("could not get best KBlock")
-	}
-	if bestKBlock.Number() == 0 {
-		nonce = genesis.GenesisNonce
+	// var nonce uint64
+	// best := conR.chain.BestBlock()
+	// bestKBlock, err := conR.chain.BestKBlock()
+	// if err != nil {
+	// 	panic("could not get best KBlock")
+	// }
+	// if bestKBlock.Header().Number() == 0 {
+	// 	nonce = genesis.GenesisNonce
+	// } else {
+	// 	nonce = bestKBlock.KBlockData.Nonce
+	// }
+	// replay := (best.Header().Number() != bestKBlock.Header().Number())
+
+	conR.PrepareEnvForPacemaker()
+	if conR.inCommittee {
+		conR.startPacemaker(PMModeNormal)
 	} else {
-		nonce = bestKBlock.KBlockData.Nonce
+		conR.startPacemaker(PMModeObserve)
 	}
-	replay := (best.Number() != bestKBlock.Number())
-
-	fmt.Println("Update lastKBlockHeight to ", bestKBlock.Number())
-	conR.lastKBlockHeight = bestKBlock.Number()
-
 	// --force-last-kframe
-	if !conR.config.ForceLastKFrame {
-		conR.JoinEstablishedCommittee(bestKBlock, replay)
-	} else {
-		conR.ConsensusHandleReceivedNonce(bestKBlock.Number(), nonce, best.QC.EpochID, replay)
-	}
+	// if !conR.config.ForceLastKFrame {
+	// conR.JoinEstablishedCommittee(bestKBlock, replay)
+	// } else {
+	// conR.ConsensusHandleReceivedNonce(bestKBlock.Header().Number(), nonce, best.QC.EpochID, replay)
+	// }
 }
 
 // String returns a string representation of the ConsensusReactor.
@@ -413,28 +421,31 @@ func (conR *ConsensusReactor) RefreshCurHeight() error {
 // after announce/commit, Leader got the actual committee, which is the subset of curCommittee if some committee member offline.
 // indexs and pubKeys are not sorted slice, AcutalCommittee must be sorted.
 // Only Leader can call this method. indexes do not include the leader itself.
-func (conR *ConsensusReactor) UpdateActualCommittee(leaderIndex uint32, config ConsensusConfig) bool {
-	size := len(conR.curCommittee.Validators)
+func (conR *ConsensusReactor) UpdateActualCommittee(leaderIndex uint32) bool {
+	// size := len(conR.curCommittee.Validators)
 	//validators := conR.curCommittee.Validators
 	validators := make([]*types.Validator, 0)
-	if config.InitCfgdDelegates {
-		validators = append(validators, conR.curCommittee.Validators...)
-	} else {
-		// put leader the first in committee
-		// only if delegates are obtained from staking
-		validators = append(validators, conR.curCommittee.Validators[leaderIndex:]...)
-		validators = append(validators, conR.curCommittee.Validators[:leaderIndex]...)
-	}
+	// if conR.config.InitCfgdDelegates {
+	validators = append(validators, conR.curCommittee.Validators...)
+	// } else {
+	// put leader the first in committee
+	// only if delegates are obtained from staking
+	// validators = append(validators, conR.curCommittee.Validators[leaderIndex:]...)
+	// validators = append(validators, conR.curCommittee.Validators[:leaderIndex]...)
+	// }
+	committee := make([]types.CommitteeMember, 0)
 	for i, v := range validators {
 		cm := types.CommitteeMember{
 			Name:     v.Name,
 			PubKey:   v.PubKey,
 			NetAddr:  v.NetAddr,
 			CSPubKey: v.BlsPubKey,
-			CSIndex:  (i + int(leaderIndex)) % size,
+			CSIndex:  i, // (i + int(leaderIndex)) % size,
 		}
-		conR.curActualCommittee = append(conR.curActualCommittee, cm)
+		committee = append(committee, cm)
 	}
+
+	conR.curActualCommittee = committee
 
 	// I am Leader, first one should be myself.
 	// if bytes.Equal(crypto.FromECDSAPub(&conR.curActualCommittee[0].PubKey), crypto.FromECDSAPub(&conR.myPubKey)) == false {
@@ -1230,6 +1241,95 @@ func (conR *ConsensusReactor) CheckEstablishedCommittee(kHeight uint32) bool {
 	return false
 }
 
+func (conR *ConsensusReactor) PrepareEnvForPacemaker() error {
+	var nonce uint64
+	var info *powpool.PowBlockInfo
+	kBlock, err := conR.chain.BestKBlock()
+	if err != nil {
+		fmt.Println("could not get best KBlock", err)
+		return errors.New("could not get best KBlock")
+	}
+	bestBlock := conR.chain.BestBlock()
+	bestIsKBlock := (bestBlock.Header().BlockType() == block.BLOCK_TYPE_K_BLOCK) || bestBlock.Header().Number() == 0
+
+	//initialize Delegates
+
+	conR.UpdateCurDelegates()
+
+	kBlockHeight := kBlock.Header().Number()
+	if kBlock.Header().Number() == 0 {
+		nonce = genesis.GenesisNonce
+		info = powpool.GetPowGenesisBlockInfo()
+	} else {
+		nonce = kBlock.KBlockData.Nonce
+		info = powpool.NewPowBlockInfoFromPosKBlock(kBlock)
+	}
+	epoch := conR.chain.BestBlock().GetBlockEpoch()
+	conR.logger.Info("Init committee", "nonce", nonce, "kBlockHeight", kBlockHeight, "bestIsKBlock", bestIsKBlock, "epoch", epoch)
+
+	conR.curNonce = nonce
+	_, inCommittee := conR.NewValidatorSetByNonce(nonce)
+	conR.inCommittee = inCommittee
+
+	conR.lastKBlockHeight = kBlockHeight
+	if bestIsKBlock {
+		epoch = epoch + 1
+	}
+	conR.updateCurEpoch(epoch)
+	conR.UpdateActualCommittee(0)
+
+	if inCommittee {
+		conR.logger.Info("I am in committee!!!")
+		pool := powpool.GetGlobPowPoolInst()
+		pool.Wash()
+		pool.InitialAddKframe(info)
+		conR.logger.Info("PowPool initial added kblock", "kblock height", kBlock.Header().Number(), "powHeight", info.PowHeight)
+
+		if bestIsKBlock == false {
+			//kblock is already added to pool, should start with next one
+			startHeight := info.PowHeight + 1
+			conR.logger.Info("Replay", "replay from powHeight", startHeight)
+			pool.ReplayFrom(int32(startHeight))
+		}
+		conR.inCommittee = true
+		inCommitteeGauge.Set(1)
+
+		// verify in committee status with consent block (1st mblock in epoch)
+		// if delegates are obtained from staking
+		if !conR.config.InitCfgdDelegates && !bestIsKBlock {
+			consentBlock, err := conR.chain.GetTrunkBlock(kBlockHeight + 1)
+			if err != nil {
+				fmt.Println("could not get committee info:", err)
+				return errors.New("could not get committee info for status check")
+			}
+			// recover actual committee from consent block
+			committeeInfo := consentBlock.CommitteeInfos
+			leaderIndex := committeeInfo.CommitteeInfo[0].CSIndex
+			conR.UpdateActualCommittee(leaderIndex)
+
+			myself := conR.curCommittee.Validators[conR.curCommitteeIndex]
+			myEcdsaPKBytes := crypto.FromECDSAPub(&myself.PubKey)
+			inCommitteeVerified := false
+			for _, v := range committeeInfo.CommitteeInfo {
+				if bytes.Compare(v.PubKey, myEcdsaPKBytes) == 0 {
+					inCommitteeVerified = true
+					break
+				}
+			}
+			if inCommitteeVerified == false {
+				conR.logger.Error("committee info in consent block doesn't contain myself as a member, stop right now")
+				return errors.New("committee info in consent block doesnt match myself")
+			}
+		}
+
+	} else {
+		conR.inCommittee = false
+		inCommitteeGauge.Set(0)
+		conR.logger.Info("I am NOT in committee!!!", "nonce", nonce)
+	}
+	return nil
+}
+
 func (conR *ConsensusReactor) JoinEstablishedCommittee(kBlock *block.Block, replay bool) {
 	var nonce uint64
 	var info *powpool.PowBlockInfo
@@ -1286,7 +1386,7 @@ func (conR *ConsensusReactor) JoinEstablishedCommittee(kBlock *block.Block, repl
 		// recover actual committee from consent block
 		committeeInfo := consentBlock.CommitteeInfos
 		leaderIndex := committeeInfo.CommitteeInfo[0].CSIndex
-		conR.UpdateActualCommittee(leaderIndex, conR.config)
+		conR.UpdateActualCommittee(leaderIndex)
 
 		if !conR.config.InitCfgdDelegates {
 			// verify in committee status with consent block
@@ -1306,7 +1406,7 @@ func (conR *ConsensusReactor) JoinEstablishedCommittee(kBlock *block.Block, repl
 			}
 		}
 
-		err = conR.startPacemaker(!replay, PMModeCatchUp)
+		err = conR.startPacemaker(PMModeCatchUp)
 		if err != nil {
 			fmt.Println("could not start pacemaker, error:", err)
 		}
@@ -1403,7 +1503,7 @@ func (conR *ConsensusReactor) ConsensusHandleReceivedNonce(kBlockHeight uint32, 
 // true --- with new committee, round = 0, best block is kblock.
 // false ---replay mode, round continues with BestQC.QCRound. best block is mblock
 // XXX: we assume the peers have the bestQC, if they don't ...
-func (conR *ConsensusReactor) startPacemaker(newCommittee bool, mode PMMode) error {
+func (conR *ConsensusReactor) startPacemaker(mode PMMode) error {
 	// 1. bestQC height == best block height
 	// 2. newCommittee is true, best block is kblock
 	for i := 0; i < 3; i++ {
@@ -1432,8 +1532,8 @@ func (conR *ConsensusReactor) startPacemaker(newCommittee bool, mode PMMode) err
 		return nil
 	}
 
-	conR.logger.Info("startConsensusPacemaker", "QCHeight", bestQC.QCHeight, "bestHeight", bestBlock.Number())
-	conR.csPacemaker.Start(newCommittee, mode)
+	conR.logger.Info("startConsensusPacemaker", "QCHeight", bestQC.QCHeight, "bestHeight", bestBlock.Header().Number())
+	conR.csPacemaker.Start(mode)
 	return nil
 }
 

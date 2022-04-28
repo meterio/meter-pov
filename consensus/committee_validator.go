@@ -18,13 +18,12 @@ package consensus
 import (
 	"bytes"
 	"encoding/base64"
-	"fmt"
 	"time"
 
+	crypto "github.com/ethereum/go-ethereum/crypto"
 	bls "github.com/meterio/meter-pov/crypto/multi_sig"
 	"github.com/meterio/meter-pov/genesis"
 	types "github.com/meterio/meter-pov/types"
-	crypto "github.com/ethereum/go-ethereum/crypto"
 )
 
 // for all committee mermbers
@@ -244,7 +243,7 @@ func (cv *ConsensusValidator) ProcessNotaryAnnounceMessage(notaryMsg *NotaryAnno
 	// TBD: validate announce bitarray & signature
 	// validateEvidence()
 
-	cv.csReactor.UpdateActualCommittee(uint32(leaderIndex), cv.csReactor.config)
+	cv.csReactor.UpdateActualCommittee(uint32(leaderIndex))
 	myCommitteInfo := cv.csReactor.BuildCommitteeInfoFromMember(cv.csReactor.csCommon.GetSystem(), cv.csReactor.curActualCommittee)
 
 	// my committee info notaryMsg.CommitteeMembers must be the same !!!
@@ -264,10 +263,10 @@ Let's start the pacemaker...
 ===========================================================`, "Committee Epoch", cv.csReactor.curEpoch)
 
 	// XXX: Start pacemaker here at this time.
-	newCommittee := !cv.replay
-	err = cv.csReactor.startPacemaker(newCommittee, PMModeNormal)
+	// newCommittee := !cv.replay
+	err = cv.csReactor.startPacemaker(PMModeNormal)
 	if err != nil {
-		fmt.Println("could not start pacemaker, error:", err)
+		// fmt.Println("could not start pacemaker, error:", err)
 		return false
 	}
 	return true
