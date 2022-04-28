@@ -68,7 +68,7 @@ func (a *AccountLock) PrepareAccountLockHandler() (AccountLockHandler func([]byt
 		}
 
 		log.Debug("received AccountLock", "body", ab.ToString())
-		log.Info("Entering AccountLock handler " + ab.GetOpName(ab.Opcode))
+		log.Info("Entering AccountLock handler "+ab.GetOpName(ab.Opcode), "tx", txCtx.ID.String())
 		switch ab.Opcode {
 		case OP_ADDLOCK:
 			if env.GetTxCtx().Origin.IsZero() == false {

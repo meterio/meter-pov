@@ -67,7 +67,7 @@ func (a *Auction) PrepareAuctionHandler() (AuctionHandler func([]byte, *meter.Ad
 		}
 
 		log.Debug("received auction", "body", ab.ToString())
-		log.Info("Entering auction handler " + ab.GetOpName(ab.Opcode))
+		log.Info("Entering auction handler "+ab.GetOpName(ab.Opcode), "tx", txCtx.ID.String())
 		switch ab.Opcode {
 		case OP_START:
 			if env.GetTxCtx().Origin.IsZero() == false {

@@ -96,7 +96,16 @@ func (p *Pacemaker) receivePacemakerMsg(w http.ResponseWriter, r *http.Request) 
 	if fromMyself {
 		peerName = peerName + "(myself)"
 	}
-	p.logger.Info(fmt.Sprintf("Recv %s", msg.String()), "peer", peerName, "ip", peer.netAddr.IP.String(), "msgHash", mi.MsgHashHex())
+	summary := msg.String()
+	msgHashHex := mi.MsgHashHex()
+	name := ""
+	tail := ""
+	split := strings.Split(summary, " ")
+	if len(split) > 0 {
+		name = split[0]
+		tail = strings.Join(split[1:], " ")
+	}
+	p.logger.Info(fmt.Sprintf("Recv %s %s %s", name, msgHashHex, tail), "peer", peerName, "ip", peer.netAddr.IP.String())
 
 	p.pacemakerMsgCh <- *mi
 

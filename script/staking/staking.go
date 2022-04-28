@@ -103,7 +103,7 @@ func (s *Staking) PrepareStakingHandler() (StakingHandler func([]byte, *meter.Ad
 		}
 		*/
 
-		log.Info("Entering staking handler " + GetOpName(sb.Opcode))
+		log.Info("Entering staking handler "+GetOpName(sb.Opcode), "tx", txCtx.ID.String())
 		switch sb.Opcode {
 		case OP_BOUND:
 			if senv.GetTxCtx().Origin != sb.HolderAddr {

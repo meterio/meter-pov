@@ -858,6 +858,7 @@ type QCWrap struct {
 }
 
 func (c *Chain) UpdateBestQC(qc *block.QuorumCert, source QCSource) (bool, error) {
+	// log.Info("update best qc", "qc", qc.String(), "source", source)
 	qcs := make([]*QCWrap, 0)
 
 	if c.bestQC != nil {
@@ -937,11 +938,11 @@ func (c *Chain) UpdateBestQC(qc *block.QuorumCert, source QCSource) (bool, error
 		}
 	}
 
-	fmt.Println("best qc: ", c.bestQC)
-	fmt.Println("best qc height: ", c.bestQC.QCHeight)
-	fmt.Println("best block: ", blk)
-	fmt.Println("blk.QC", blk.QC)
-	fmt.Println("blk.QC.QCHeight: ", blk.QC.QCHeight)
+	// fmt.Println("best qc: ", c.bestQC)
+	// fmt.Println("best qc height: ", c.bestQC.QCHeight)
+	// fmt.Println("best block: ", blk)
+	// fmt.Println("blk.QC", blk.QC)
+	// fmt.Println("blk.QC.QCHeight: ", blk.QC.QCHeight)
 	if c.bestQC == nil || blk.QC.QCHeight > c.bestQC.QCHeight {
 		log.Info("Update bestQC from bestBlock descendant", "from", c.bestQC.CompactString(), "to", blk.QC.CompactString())
 		c.bestQC = blk.QC

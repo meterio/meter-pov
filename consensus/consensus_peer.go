@@ -54,7 +54,7 @@ func (peer *ConsensusPeer) sendPacemakerMsg(rawData []byte, msgSummary string, m
 	if relay {
 		peer.logger.Info("Relay>> "+name+" "+msgHashHex+"]", "size", len(rawData))
 	} else {
-		peer.logger.Info("Send>>  "+name+" "+msgHashHex+" "+tail, "size", len(rawData))
+		peer.logger.Info("Send>> "+name+" "+msgHashHex+" "+tail, "size", len(rawData))
 	}
 
 	url := "http://" + peer.netAddr.IP.String() + ":8670/pacemaker"
@@ -81,7 +81,7 @@ func (peer *ConsensusPeer) sendCommitteeMsg(rawData []byte, msgSummary string, m
 	if relay {
 		peer.logger.Info("Relay>> "+name+" "+msgHashHex+"]", "size", len(rawData))
 	} else {
-		peer.logger.Info("Send>>  "+name+" "+msgHashHex+" "+tail, "size", len(rawData))
+		peer.logger.Info("Send>> "+name+" "+msgHashHex+" "+tail, "size", len(rawData))
 	}
 	url := "http://" + peer.netAddr.IP.String() + ":8670/committee"
 	_, err := netClient.Post(url, "application/json", bytes.NewBuffer(rawData))

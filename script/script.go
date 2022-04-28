@@ -131,7 +131,7 @@ func (se *ScriptEngine) StartTeslaForkModules() {
 }
 
 func (se *ScriptEngine) HandleScriptData(data []byte, to *meter.Address, txCtx *xenv.TransactionContext, gas uint64, state *state.State) (seOutput *setypes.ScriptEngineOutput, leftOverGas uint64, err error) {
-	se.logger.Info("received script data", "to", to, "gas", gas, "txHash", txCtx.ID.String()) //"data", hex.EncodeToString(data))
+	// se.logger.Info("received script data", "to", to, "gas", gas, "txHash", txCtx.ID.String()) //"data", hex.EncodeToString(data))
 	if bytes.Compare(data[:len(ScriptPattern)], ScriptPattern[:]) != 0 {
 		err := fmt.Errorf("Pattern mismatch, pattern = %v", hex.EncodeToString(data[:len(ScriptPattern)]))
 		fmt.Println(err)

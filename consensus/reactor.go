@@ -840,7 +840,16 @@ func (conR *ConsensusReactor) ReceiveCommitteeMsg(w http.ResponseWriter, r *http
 		return
 	}
 
-	conR.logger.Info(fmt.Sprintf("Recv %s", msg.String()), "peer", peerName, "ip", peerIP, "msgHash", mi.MsgHashHex())
+	summary := msg.String()
+	msgHashHex := mi.MsgHashHex()
+	name := ""
+	tail := ""
+	split := strings.Split(summary, " ")
+	if len(split) > 0 {
+		name = split[0]
+		tail = strings.Join(split[1:], " ")
+	}
+	conR.logger.Info(fmt.Sprintf("Recv %s %s %s", name, msgHashHex, tail), "peer", peerName, "ip", peerIP, "msgHash", mi.MsgHashHex())
 
 	conR.peerMsgQueue <- *mi
 	// respondWithJson(w, http.StatusOK, map[string]string{"result": "success"})
