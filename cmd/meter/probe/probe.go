@@ -31,15 +31,15 @@ func (p *Probe) HandleProbe(w http.ResponseWriter, r *http.Request) {
 	pubkeyMatch := false
 	delegateList, _ := staking.GetInternalDelegateList()
 	ppool := powpool.GetGlobPowPoolInst()
-	powStatus := &PowStatus{Status: "", LatestHeight: 0, KFrameHeight: 0, PoolSize: 0}
+	pow := &PowProbe{Status: "", LatestHeight: 0, KFrameHeight: 0, PoolSize: 0}
 	if ppool != nil {
 		poolStatus := ppool.GetStatus()
-		powStatus.Status = poolStatus.Status
-		powStatus.LatestHeight = poolStatus.LatestHeight
-		powStatus.KFrameHeight = poolStatus.KFrameHeight
-		powStatus.PoolSize = poolStatus.PoolSize
+		pow.Status = poolStatus.Status
+		pow.LatestHeight = poolStatus.LatestHeight
+		pow.KFrameHeight = poolStatus.KFrameHeight
+		pow.PoolSize = poolStatus.PoolSize
 	} else {
-		powStatus.Status = "powpool is not ready"
+		pow.Status = "powpool is not ready"
 	}
 	inDelegateList := false
 	for _, d := range delegateList {
@@ -55,20 +55,24 @@ func (p *Probe) HandleProbe(w http.ResponseWriter, r *http.Request) {
 	bestBlock, _ := convertBlock(p.Chain.BestBlock())
 	bestQC, _ := convertQC(p.Chain.BestQC())
 	bestQCCandidate, _ := convertQC(p.Chain.BestQCCandidate())
-	qcHigh, _ := convertQC(p.Cons.GetQCHigh())
+	pacemaker, _ := convertPacemakerProbe(p.Cons.PacemakerProbe())
+	chainProbe := &ChainProbe{
+		BestBlock:       bestBlock,
+		BestQC:          bestQC,
+		BestQCCandidate: bestQCCandidate,
+	}
 	result := ProbeResult{
 		Name:               name,
 		PubKey:             p.ComplexPubkey,
 		PubKeyValid:        pubkeyMatch,
 		Version:            p.Version,
-		BestBlock:          bestBlock,
-		BestQC:             bestQC,
-		BestQCCandidate:    bestQCCandidate,
-		QCHigh:             qcHigh,
-		PowStatus:          powStatus,
+		DelegatesSource:    p.Cons.GetDelegatesSource(),
 		IsCommitteeMember:  p.Cons.IsCommitteeMember(),
 		IsPacemakerRunning: p.Cons.IsPacemakerRunning(),
 		InDelegateList:     inDelegateList,
+		Pacemaker:          pacemaker,
+		Chain:              chainProbe,
+		Pow:                pow,
 	}
 
 	utils.WriteJSON(w, result)

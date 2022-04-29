@@ -1721,7 +1721,7 @@ func (conR *ConsensusReactor) GetConsensusDelegates() ([]*types.Delegate, int, i
 		if err != nil || len(delegates) < conR.config.MinCommitteeSize {
 			delegates = conR.config.InitDelegates
 			fmt.Println("Load delegates from delegates.json as fallback, error loading staking candiates")
-			conR.sourceDelegates = fromStaking
+			conR.sourceDelegates = fromDelegatesFile
 		}
 	}
 
@@ -1750,16 +1750,23 @@ func (conR *ConsensusReactor) IsPacemakerRunning() bool {
 	return !conR.csPacemaker.IsStopped()
 }
 
-func (conR *ConsensusReactor) IsCommitteeMember() bool {
-	return conR.inCommittee
+func (conR *ConsensusReactor) PacemakerProbe() *PMProbeResult {
+	if conR.IsPacemakerRunning() {
+		return conR.csPacemaker.Probe()
+	}
+	return nil
 }
 
-func (conR *ConsensusReactor) GetQCHigh() *block.QuorumCert {
-	if conR.csPacemaker == nil {
-		return nil
+func (conR *ConsensusReactor) GetDelegatesSource() string {
+	if conR.sourceDelegates == fromStaking {
+		return "staking"
 	}
-	if conR.csPacemaker.QCHigh == nil {
-		return nil
+	if conR.sourceDelegates == fromDelegatesFile {
+		return "localFile"
 	}
-	return conR.csPacemaker.QCHigh.QC
+	return ""
+}
+
+func (conR *ConsensusReactor) IsCommitteeMember() bool {
+	return conR.inCommittee
 }

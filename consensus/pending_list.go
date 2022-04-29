@@ -37,6 +37,10 @@ func (p *PendingList) GetLowestHeight() uint32 {
 	return p.lowest
 }
 
+func (p *PendingList) Len() int {
+	return len(p.messages)
+}
+
 func (p *PendingList) CleanUpTo(height uint32) {
 	if height < p.lowest {
 		return
