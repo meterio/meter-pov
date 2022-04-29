@@ -37,7 +37,7 @@ type QC struct {
 type BlockProbe struct {
 	Height uint32 `json:"height"`
 	Round  uint32 `json:"round"`
-	Type   uint32 `json:"type"`
+	Type   string `json:"type"`
 	// Raw    string `json:"raw"`
 }
 
@@ -171,10 +171,20 @@ func ConvertPeersStats(ss []*comm.PeerStats) []*PeerStats {
 }
 func convertBlockProbe(p *consensus.BlockProbe) (*BlockProbe, error) {
 	if p != nil {
+		typeStr := ""
+		if p.Type == block.BLOCK_TYPE_K_BLOCK {
+			typeStr = "KBlock"
+		}
+		if p.Type == block.BLOCK_TYPE_M_BLOCK {
+			typeStr = "mBlock"
+		}
+		if p.Type == block.BLOCK_TYPE_S_BLOCK {
+			typeStr = "sBlock"
+		}
 		return &BlockProbe{
 			Height: p.Height,
 			Round:  p.Round,
-			Type:   p.Type,
+			Type:   typeStr,
 		}, nil
 	}
 	return nil, nil
