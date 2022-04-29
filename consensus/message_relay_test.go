@@ -40,7 +40,7 @@ func TestBroadcast(t *testing.T) {
 			continue
 		}
 		visited[i] = true
-		peers := consensus.GetRelayPeers(i, committeeSize-1)
+		peers := consensus.GetRelayPeers(i, committeeSize)
 		fmt.Println("NODE ", i, " TO>", peers)
 		for _, p := range peers {
 			msgCount++
@@ -110,7 +110,7 @@ func TestRobustness(t *testing.T) {
 					// failed node could not send to peers anymore
 					continue
 				}
-				peers := consensus.GetRelayPeers(i, committeeSize-1)
+				peers := consensus.GetRelayPeers(i, committeeSize)
 				// fmt.Println("NODE ", i, " TO>", peers)
 				for _, p := range peers {
 					if _, ok := rcvCount[p]; !ok {
@@ -174,7 +174,7 @@ func TesGetRelay(t *testing.T) {
 					continue
 				}
 				visited[i] = true
-				peers := consensus.GetRelayPeers(i, committeeSize-1)
+				peers := consensus.GetRelayPeers(i, committeeSize)
 				// fmt.Println("NODE ", i, " TO>", peers)
 				for _, p := range peers {
 					_, isVisited := visited[p]
