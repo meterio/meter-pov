@@ -197,6 +197,10 @@ func (b *Block) IsKBlock() bool {
 	return b.BlockHeader.BlockType() == BLOCK_TYPE_K_BLOCK
 }
 
+func (b *Block) IsSBlock() bool {
+	return b.BlockHeader.BlockType() == BLOCK_TYPE_S_BLOCK
+}
+
 // TotalScore returns total score that cumulated from genesis block to this one.
 func (b *Block) TotalScore() uint64 {
 	return b.BlockHeader.TotalScore()
