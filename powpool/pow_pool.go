@@ -77,6 +77,7 @@ type PowPool struct {
 	stateCreator *state.Creator
 	options      Options
 	all          *powObjectMap
+	replaying    bool
 
 	done    chan struct{}
 	powFeed event.Feed
@@ -99,6 +100,7 @@ func New(options Options, chain *chain.Chain, stateCreator *state.Creator) *PowP
 	pool := &PowPool{
 		chain:        chain,
 		stateCreator: stateCreator,
+		replaying:    false,
 		options:      options,
 		all:          newPowObjectMap(),
 		done:         make(chan struct{}),
@@ -375,6 +377,10 @@ func (p *PowPool) VerifyNPowBlockPerEpoch() bool {
 // }
 
 func (p *PowPool) ReplayFrom(startHeight int32) error {
+	if p.replaying {
+		return nil
+	}
+	p.replaying = true
 
 	host := fmt.Sprintf("%v:%v", p.options.Node, p.options.Port)
 	client, err := rpcclient.New(&rpcclient.ConnConfig{
@@ -401,6 +407,8 @@ func (p *PowPool) ReplayFrom(startHeight int32) error {
 	}
 	pool := GetGlobPowPoolInst()
 	height := startHeight
+
+	log.Info("Replay started: ", "start", startHeight, "end", headerVerbose.Height)
 	for height <= headerVerbose.Height {
 		hash, err := client.GetBlockHash(int64(height))
 		if err != nil {
@@ -420,6 +428,8 @@ func (p *PowPool) ReplayFrom(startHeight int32) error {
 		}
 		height++
 	}
+	log.Info("Replay is done: ", "start", startHeight, "end", headerVerbose.Height)
+	p.replaying = false
 	return nil
 }
 
