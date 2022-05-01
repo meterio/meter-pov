@@ -121,12 +121,17 @@ func (p *Pacemaker) relayMsg(mi consensusMsgInfo) {
 	height := msg.Header().Height
 	round := msg.Header().Round
 	peers := p.GetRelayPeers(round)
-	typeName := getConcreteName(mi.Msg)
+	// typeName := getConcreteName(mi.Msg)
 	msgHashHex := mi.MsgHashHex()
 	if len(peers) > 0 {
-		p.logger.Info("Now, relay this "+typeName+"...", "height", height, "round", round, "msgHash", mi.MsgHashHex())
+		peerNames := make([]string, 0)
 		for _, peer := range peers {
-			msgSummary := (mi.Msg).String()
+			peerNames = append(peerNames, peer.String())
+		}
+		msgSummary := (mi.Msg).String()
+		p.logger.Info("Relay>> "+msgSummary, "to", strings.Join(peerNames, ", "), "height", height, "round", round, "msgHash", msgHashHex)
+		// p.logger.Info("Now, relay this "+typeName+"...", "height", height, "round", round, "msgHash", mi.MsgHashHex())
+		for _, peer := range peers {
 			go peer.sendPacemakerMsg(mi.RawData, msgSummary, msgHashHex, true)
 		}
 		// p.asyncSendPacemakerMsg(mi.Msg, true, peers...)
@@ -158,6 +163,7 @@ func (p *Pacemaker) GetRelayPeers(round uint32) []*ConsensusPeer {
 		name := p.csReactor.GetDelegateNameByIP(member.NetAddr.IP)
 		peers = append(peers, newConsensusPeer(name, member.NetAddr.IP, member.NetAddr.Port, p.csReactor.magic))
 	}
+	log.Info("get relay peers result", "myIndex", myIndex, "committeeSize", size, "round", round, "indexes", indexes)
 	return peers
 }
 
@@ -246,7 +252,7 @@ func (p *Pacemaker) ValidateProposal(b *pmBlock) error {
 
 	now := uint64(time.Now().Unix())
 	stage, receipts, err := p.csReactor.ProcessProposedBlock(parentHeader, blk, now)
-	if err != nil {
+	if err != nil && err != errKnownBlock {
 		p.logger.Error("process block failed", "proposed", blk.Oneliner(), "err", err)
 		b.SuccessProcessed = false
 		b.ProcessError = err
@@ -328,6 +334,15 @@ func (p *Pacemaker) asyncSendPacemakerMsg(msg ConsensusMessage, relay bool, peer
 	msgHash := sha256.Sum256(data)
 	msgHashHex := hex.EncodeToString(msgHash[:])[:8]
 
+	peerNames := make([]string, 0)
+	for _, peer := range peers {
+		peerNames = append(peerNames, peer.String())
+	}
+	prefix := "Send>>"
+	if relay {
+		prefix = "Relay>>"
+	}
+	p.logger.Info(prefix+" "+msgSummary, "to", strings.Join(peerNames, ", "), "msgHash", msgHashHex)
 	// broadcast consensus message to peers
 	for _, peer := range peers {
 		go peer.sendPacemakerMsg(data, msgSummary, msgHashHex, relay)

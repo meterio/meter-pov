@@ -43,19 +43,19 @@ func (peer *ConsensusPeer) sendPacemakerMsg(rawData []byte, msgSummary string, m
 		Timeout: time.Second * 4, // 2
 	}
 
-	split := strings.Split(msgSummary, " ")
-	name := ""
-	tail := ""
-	if len(split) > 0 {
-		name = split[0]
-		tail = strings.Join(split[1:], " ")
-	}
+	// split := strings.Split(msgSummary, " ")
+	// name := ""
+	// tail := ""
+	// if len(split) > 0 {
+	// 	name = split[0]
+	// 	tail = strings.Join(split[1:], " ")
+	// }
 
-	if relay {
-		peer.logger.Info("Relay>> "+name+" "+msgHashHex+"]", "size", len(rawData))
-	} else {
-		peer.logger.Info("Send>> "+name+" "+msgHashHex+" "+tail, "size", len(rawData))
-	}
+	// if relay {
+	// 	peer.logger.Info("Relay>> "+name+" "+msgHashHex+"]", "size", len(rawData))
+	// } else {
+	// 	peer.logger.Info("Send>> "+name+" "+msgHashHex+" "+tail, "size", len(rawData))
+	// }
 
 	url := "http://" + peer.netAddr.IP.String() + ":8670/pacemaker"
 	_, err := netClient.Post(url, "application/json", bytes.NewBuffer(rawData))
