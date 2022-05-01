@@ -100,3 +100,7 @@ func (cp *ConsensusPeer) FullString() string {
 func (cp *ConsensusPeer) String() string {
 	return cp.netAddr.IP.String()
 }
+
+func (cp *ConsensusPeer) NameString() string {
+	return fmt.Sprintf("%s[%s]", cp.name, cp.netAddr.IP.String())
+}

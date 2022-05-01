@@ -1248,6 +1248,18 @@ func (conR *ConsensusReactor) PreCommitBlock(blkInfo *ProposedBlockInfo) error {
 	// }
 	conR.logger.Debug("Try to pre-commit block", "block", blk.Oneliner())
 
+	if blk == nil {
+		conR.logger.Warn("pre-commit block is empty")
+		return nil
+	}
+	if stage == nil {
+		conR.logger.Warn("pre-commit stage is empty")
+		return nil
+	}
+	if receipts == nil {
+		conR.logger.Warn("pre-commit receipts is empty")
+		return nil
+	}
 	// similar to node.processBlock
 	// startTime := mclock.Now()
 

@@ -126,7 +126,7 @@ func (p *Pacemaker) relayMsg(mi consensusMsgInfo) {
 	if len(peers) > 0 {
 		peerNames := make([]string, 0)
 		for _, peer := range peers {
-			peerNames = append(peerNames, peer.String())
+			peerNames = append(peerNames, peer.NameString())
 		}
 		msgSummary := (mi.Msg).String()
 		p.logger.Info("Relay>> "+msgSummary, "to", strings.Join(peerNames, ", "), "height", height, "round", round, "msgHash", msgHashHex)
@@ -336,7 +336,7 @@ func (p *Pacemaker) asyncSendPacemakerMsg(msg ConsensusMessage, relay bool, peer
 
 	peerNames := make([]string, 0)
 	for _, peer := range peers {
-		peerNames = append(peerNames, peer.String())
+		peerNames = append(peerNames, peer.NameString())
 	}
 	prefix := "Send>>"
 	if relay {
