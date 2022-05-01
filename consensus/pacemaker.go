@@ -844,6 +844,7 @@ func (p *Pacemaker) Start(mode PMMode) {
 	bestBlock := p.csReactor.chain.BestBlock()
 
 	freshCommittee := (bestBlock.Header().BlockType() == block.BLOCK_TYPE_K_BLOCK) || (bestBlock.Header().Number() == 0)
+	p.newCommittee = freshCommittee
 	height := bestQC.QCHeight
 	round := uint32(0)
 	if freshCommittee == false {
