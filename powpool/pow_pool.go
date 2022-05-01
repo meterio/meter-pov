@@ -381,6 +381,9 @@ func (p *PowPool) ReplayFrom(startHeight int32) error {
 		return nil
 	}
 	p.replaying = true
+	defer func() {
+		p.replaying = false
+	}()
 
 	host := fmt.Sprintf("%v:%v", p.options.Node, p.options.Port)
 	client, err := rpcclient.New(&rpcclient.ConnConfig{
