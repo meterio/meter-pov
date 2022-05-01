@@ -289,15 +289,19 @@ func (p *Pacemaker) OnCommit(commitReady []*pmBlock) {
 		// commit the approved block
 		bestQC := p.proposalMap.Get(b.Height + 1).Justify.QC
 		err := p.csReactor.FinalizeCommitBlock(b.ProposedBlockInfo, bestQC)
-		if err != nil && err != chain.ErrBlockExist {
-			p.csReactor.logger.Warn("Commit block failed ...", "error", err)
-			//revert to checkpoint
-			best := p.csReactor.chain.BestBlock()
-			state, err := p.csReactor.stateCreator.NewState(best.Header().StateRoot())
-			if err != nil {
-				panic(fmt.Sprintf("revert the state faild ... %v", err))
+		if err != nil {
+			if err != chain.ErrBlockExist && err != errKnownBlock {
+				p.csReactor.logger.Warn("Commit block failed ...", "error", err)
+				//revert to checkpoint
+				best := p.csReactor.chain.BestBlock()
+				state, err := p.csReactor.stateCreator.NewState(best.Header().StateRoot())
+				if err != nil {
+					panic(fmt.Sprintf("revert the state faild ... %v", err))
+				}
+				state.RevertTo(b.ProposedBlockInfo.CheckPoint)
+			} else {
+				fmt.Println("block is committed: ", b.ProposedBlockInfo.String())
 			}
-			state.RevertTo(b.ProposedBlockInfo.CheckPoint)
 		}
 
 		p.Execute(b) //b.cmd
