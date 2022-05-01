@@ -982,7 +982,10 @@ func (p *Pacemaker) mainLoop() {
 				err = p.OnReceiveProposal(&m)
 				if err != nil {
 					// 2 errors indicate linking message to pending list for the first time, does not need to check pending
-					if err != errParentMissing && err != errQCNodeMissing && err != errRestartPaceMakerRequired {
+					if err == errKnownBlock {
+						// do nothing in this case
+						fmt.Println("block is known:", m.Msg.String())
+					} else if err != errParentMissing && err != errQCNodeMissing && err != errRestartPaceMakerRequired {
 						err = p.checkPendingMessages(msg.CSMsgCommonHeader.Height)
 					} else {
 						// qcHigh was supposed to be higher than bestQC at all times
@@ -991,6 +994,7 @@ func (p *Pacemaker) mainLoop() {
 						// we'll have to restart the pacemaker in catch-up mode to "jump" the pacemaker ahead in order to
 						// process future proposals in time.
 						if (err == errRestartPaceMakerRequired) || (p.QCHigh != nil && p.QCHigh.QCNode != nil && p.QCHigh.QCNode.Height+CATCH_UP_THRESHOLD < p.csReactor.chain.BestQC().QCHeight) {
+							log.Warn("Pacemaker restart requested", "qcHigh", p.QCHigh.ToString(), "qcHigh.QCNode", p.QCHigh.QCNode.Height, "err", err)
 							p.Restart(PMModeCatchUp)
 						}
 					}
