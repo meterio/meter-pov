@@ -300,7 +300,11 @@ func (p *Pacemaker) OnCommit(commitReady []*pmBlock) {
 				}
 				state.RevertTo(b.ProposedBlockInfo.CheckPoint)
 			} else {
-				fmt.Println("block is committed: ", b.ProposedBlockInfo.String())
+				if b.ProposedBlockInfo != nil && b.ProposedBlockInfo.ProposedBlock != nil {
+					fmt.Println("block already in chain: ", b.ProposedBlockInfo.ProposedBlock.Number(), b.ProposedBlockInfo.ProposedBlock.ID())
+				} else {
+					fmt.Println("block alreday in chain")
+				}
 			}
 		}
 
