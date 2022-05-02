@@ -70,6 +70,8 @@ func (p *Probe) HandleProbe(w http.ResponseWriter, r *http.Request) {
 		IsCommitteeMember:  p.Cons.IsCommitteeMember(),
 		IsPacemakerRunning: p.Cons.IsPacemakerRunning(),
 		InDelegateList:     inDelegateList,
+		BestQC:             bestQC.Height,
+		BestBlock:          bestBlock.Number,
 		Pacemaker:          pacemaker,
 		Chain:              chainProbe,
 		Pow:                pow,

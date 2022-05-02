@@ -102,5 +102,5 @@ func (cp *ConsensusPeer) String() string {
 }
 
 func (cp *ConsensusPeer) NameString() string {
-	return fmt.Sprintf("%s[%s]", cp.name, cp.netAddr.IP.String())
+	return fmt.Sprintf("%s(%s)", cp.name, cp.netAddr.IP.String())
 }

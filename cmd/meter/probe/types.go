@@ -132,6 +132,9 @@ type ProbeResult struct {
 	IsPacemakerRunning bool   `json:"isPacemakerRunning"`
 	InDelegateList     bool   `json:"inDelegateList"`
 
+	BestQC    uint32 `json:"bestQC"`
+	BestBlock uint32 `json:"bestBlock"`
+
 	Pacemaker *PacemakerProbe `json:"pacemaker"`
 	Chain     *ChainProbe     `json:"chain"`
 	Pow       *PowProbe       `json:"pow"`
