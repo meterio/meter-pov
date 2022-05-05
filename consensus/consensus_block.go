@@ -941,6 +941,7 @@ func (conR *ConsensusReactor) BuildMBlock(parentBlock *block.Block) *ProposedBlo
 			if packer.IsTxNotAdoptableNow(err) {
 				continue
 			}
+			conR.logger.Warn("mBlock flow.Adopt(tx) failed...", "txid", tx.ID(), "error", err)
 			txsInBlk = append(txsInBlk, tx)
 		}
 	}
@@ -1023,6 +1024,7 @@ func (conR *ConsensusReactor) BuildKBlock(parentBlock *block.Block, data *block.
 				conR.logger.Warn("tx not adoptable", "txid", tx.ID())
 				continue
 			}
+			conR.logger.Warn("kBlock flow.Adopt(tx) failed...", "txid", tx.ID(), "error", err)
 		}
 	}
 
