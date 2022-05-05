@@ -1135,6 +1135,7 @@ func (conR *ConsensusReactor) buildRewardTxs(parentBlock *block.Block, rewards [
 		txs = append(txs, tx)
 		conR.logger.Info("account lock tx appended", "txid", tx.ID())
 	}
+	conR.logger.Info("buildRewardTxs", "size", len(txs))
 	return txs
 }
 
