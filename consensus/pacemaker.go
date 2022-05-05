@@ -1146,13 +1146,15 @@ R:
 func (p *Pacemaker) OnRoundTimeout(ti PMRoundTimeoutInfo) {
 	p.logger.Warn("Round Time Out", "round", ti.round, "counter", p.timeoutCounter)
 
-	p.updateCurrentRound(p.currentRound+1, UpdateOnTimeout)
+	updated := p.updateCurrentRound(ti.round+1, UpdateOnTimeout)
 	newTi := &PMRoundTimeoutInfo{
 		height:  p.QCHigh.QC.QCHeight + 1,
 		round:   p.currentRound,
 		counter: p.timeoutCounter + 1,
 	}
-	p.OnNextSyncView(p.QCHigh.QC.QCHeight+1, p.currentRound, RoundTimeout, newTi)
+	if updated == true {
+		p.OnNextSyncView(p.QCHigh.QC.QCHeight+1, p.currentRound, RoundTimeout, newTi)
+	}
 	// p.startRoundTimer(ti.height, ti.round+1, ti.counter+1)
 }
 
