@@ -1047,7 +1047,7 @@ func (conR *ConsensusReactor) buildRewardTxs(parentBlock *block.Block, rewards [
 	// build miner meter reward
 	txs := reward.BuildMinerRewardTxs(rewards, chainTag, bestNum)
 	for _, tx := range txs {
-		conR.logger.Info("Built miner reward tx: ", "hash", tx.ID().String(), "uniteHash", tx.UniteHash().String())
+		conR.logger.Info("Built miner reward tx: ", "hash", tx.ID().String(), "clauses-size", len(tx.Clauses()))
 	}
 
 	lastKBlockHeight := parentBlock.LastKBlockHeight()
@@ -1061,7 +1061,7 @@ func (conR *ConsensusReactor) buildRewardTxs(parentBlock *block.Block, rewards [
 		}
 		if len(stats) != 0 {
 			statsTx := reward.BuildStatisticsTx(stats, chainTag, bestNum, curEpoch)
-			conR.logger.Info("Built stats tx: ", "hash", statsTx.ID().String(), "uniteHash", statsTx.UniteHash().String())
+			conR.logger.Info("Built stats tx: ", "hash", statsTx.ID().String(), "clauses-size", len(statsTx.Clauses()))
 			txs = append(txs, statsTx)
 		}
 
@@ -1069,7 +1069,7 @@ func (conR *ConsensusReactor) buildRewardTxs(parentBlock *block.Block, rewards [
 		initialRelease := GetAuctionInitialRelease()
 
 		if tx := reward.BuildAuctionControlTx(uint64(best.Number()+1), uint64(best.GetBlockEpoch()+1), chainTag, bestNum, initialRelease, reservedPrice, conR.chain); tx != nil {
-			conR.logger.Info("Built auction control tx: ", "hash", tx.ID().String(), "uniteHash", tx.UniteHash().String())
+			conR.logger.Info("Built auction control tx: ", "hash", tx.ID().String(), "clauses-size", len(tx.Clauses()))
 			txs = append(txs, tx)
 		}
 
@@ -1105,7 +1105,7 @@ func (conR *ConsensusReactor) buildRewardTxs(parentBlock *block.Block, rewards [
 
 				governingTx := reward.BuildStakingGoverningTx(distList, uint32(conR.curEpoch), chainTag, bestNum)
 				if governingTx != nil {
-					conR.logger.Info("Built governing tx: ", "hash", governingTx.ID().String(), "uniteHash", governingTx.UniteHash().String())
+					conR.logger.Info("Built governing tx: ", "hash", governingTx.ID().String(), "clauses-size", len(governingTx.Clauses()))
 					txs = append(txs, governingTx)
 				}
 
@@ -1120,7 +1120,7 @@ func (conR *ConsensusReactor) buildRewardTxs(parentBlock *block.Block, rewards [
 				if len(autobidTxs) > 0 {
 					txs = append(txs, autobidTxs...)
 					for _, tx := range autobidTxs {
-						conR.logger.Info("Built autobid tx: ", "hash", tx.ID().String(), "uniteHash", tx.UniteHash().String())
+						conR.logger.Info("Built autobid tx: ", "hash", tx.ID().String(), "clauses-size", len(tx.Clauses()))
 					}
 				}
 			} else {
@@ -1133,7 +1133,7 @@ func (conR *ConsensusReactor) buildRewardTxs(parentBlock *block.Block, rewards [
 
 	if tx := reward.BuildAccountLockGoverningTx(chainTag, bestNum, curEpoch); tx != nil {
 		txs = append(txs, tx)
-		conR.logger.Info("account lock tx appended", "txid", tx.ID())
+		conR.logger.Info("Built account lock tx: ", "hash", tx.ID().String(), "clauses-size", len(tx.Clauses()))
 	}
 	conR.logger.Info("buildRewardTxs", "size", len(txs))
 	return txs
