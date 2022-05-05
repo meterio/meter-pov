@@ -247,6 +247,8 @@ func (reason roundUpdateReason) String() string {
 		return "Timeout"
 	case UpdateOnTimeoutCertProposal:
 		return "TimeoutCertProposal"
+	case UpdateOnKBlockProposal:
+		return "KBlockProposal"
 	}
 	return "Unknown"
 }
@@ -259,6 +261,8 @@ func (reason roundTimerUpdateReason) String() string {
 		return "TimerInc"
 	case TimerInit:
 		return "TimerInit"
+	case TimerInitDouble:
+		return "TimerInitDouble"
 	}
 	return ""
 }
@@ -282,11 +286,13 @@ const (
 	UpdateOnRegularProposal     = roundUpdateReason(2)
 	UpdateOnTimeout             = roundUpdateReason(3)
 	UpdateOnTimeoutCertProposal = roundUpdateReason(4)
+	UpdateOnKBlockProposal      = roundUpdateReason(5)
 
 	BeatOnInit     = beatReason(0)
 	BeatOnHigherQC = beatReason(1)
 	BeatOnTimeout  = beatReason(2)
 
-	TimerInit = roundTimerUpdateReason(0)
-	TimerInc  = roundTimerUpdateReason(1)
+	TimerInit       = roundTimerUpdateReason(0)
+	TimerInc        = roundTimerUpdateReason(1)
+	TimerInitDouble = roundTimerUpdateReason(2)
 )

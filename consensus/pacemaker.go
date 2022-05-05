@@ -437,7 +437,12 @@ func (p *Pacemaker) OnReceiveProposal(mi *consensusMsgInfo) error {
 		if validTimeout {
 			p.updateCurrentRound(bnew.Round, UpdateOnTimeoutCertProposal)
 		} else {
-			p.updateCurrentRound(bnew.Round, UpdateOnRegularProposal)
+			if proposalMsg.ProposedBlockType == KBlockType {
+				// if proposed block is KBlock, reset the timer with extra time cushion
+				p.updateCurrentRound(bnew.Round, UpdateOnKBlockProposal)
+			} else {
+				p.updateCurrentRound(bnew.Round, UpdateOnRegularProposal)
+			}
 		}
 
 		// parent got QC, pre-commit
@@ -1159,6 +1164,11 @@ func (p *Pacemaker) updateCurrentRound(round uint32, reason roundUpdateReason) b
 			updated = true
 			p.resetRoundTimer(round, TimerInit)
 		}
+	case UpdateOnKBlockProposal:
+		if round > p.currentRound {
+			updated = true
+			p.resetRoundTimer(round, TimerInitDouble)
+		}
 	case UpdateOnTimeoutCertProposal:
 		p.resetRoundTimer(round, TimerInit)
 	case UpdateOnTimeout:
@@ -1176,14 +1186,18 @@ func (p *Pacemaker) updateCurrentRound(round uint32, reason roundUpdateReason) b
 
 func (p *Pacemaker) startRoundTimer(round uint32, reason roundTimerUpdateReason) {
 	if p.roundTimer == nil {
+		baseInterval := RoundTimeoutInterval
 		switch reason {
+		case TimerInitDouble:
+			baseInterval = RoundTimeoutInterval * 2
+			p.timeoutCounter = 0
 		case TimerInit:
 			p.timeoutCounter = 0
 		case TimerInc:
 			p.timeoutCounter++
 		}
-		p.logger.Info("Start round timer", "round", round, "counter", p.timeoutCounter)
-		timeoutInterval := RoundTimeoutInterval * (1 << p.timeoutCounter)
+		timeoutInterval := baseInterval * (1 << p.timeoutCounter)
+		p.logger.Info("Start round timer", "round", round, "counter", p.timeoutCounter, "interval", int64(timeoutInterval/time.Second))
 		p.roundTimer = time.AfterFunc(timeoutInterval, func() {
 			p.roundTimeoutCh <- PMRoundTimeoutInfo{round: round, counter: p.timeoutCounter}
 		})
