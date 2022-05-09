@@ -24,17 +24,19 @@ type TopicSet struct {
 
 // FilteredEvent only comes from one contract
 type FilteredEvent struct {
-	Address meter.Address        `json:"address"`
-	Topics  []*meter.Bytes32     `json:"topics"`
-	Data    string               `json:"data"`
-	Meta    transactions.LogMeta `json:"meta"`
+	Address  meter.Address        `json:"address"`
+	LogIndex uint32               `json:"logIndex"`
+	Topics   []*meter.Bytes32     `json:"topics"`
+	Data     string               `json:"data"`
+	Meta     transactions.LogMeta `json:"meta"`
 }
 
 //convert a logdb.Event into a json format Event
 func convertEvent(event *logdb.Event) *FilteredEvent {
 	fe := FilteredEvent{
-		Address: event.Address,
-		Data:    hexutil.Encode(event.Data),
+		Address:  event.Address,
+		Data:     hexutil.Encode(event.Data),
+		LogIndex: event.Index,
 		Meta: transactions.LogMeta{
 			BlockID:        event.BlockID,
 			BlockNumber:    event.BlockNumber,
