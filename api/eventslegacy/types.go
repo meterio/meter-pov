@@ -8,10 +8,10 @@ package eventslegacy
 import (
 	"fmt"
 
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/meterio/meter-pov/api/transactions"
 	"github.com/meterio/meter-pov/logdb"
 	"github.com/meterio/meter-pov/meter"
-	"github.com/ethereum/go-ethereum/common/hexutil"
 )
 
 type TopicSet struct {
@@ -91,17 +91,19 @@ func convertFilter(filter *FilterLegacy) *logdb.EventFilter {
 
 // FilteredEvent only comes from one contract
 type FilteredEvent struct {
-	Address meter.Address        `json:"address"`
-	Topics  []*meter.Bytes32     `json:"topics"`
-	Data    string               `json:"data"`
-	Meta    transactions.LogMeta `json:"meta"`
+	Address  meter.Address        `json:"address"`
+	Topics   []*meter.Bytes32     `json:"topics"`
+	LogIndex uint32               `json:"logIndex"`
+	Data     string               `json:"data"`
+	Meta     transactions.LogMeta `json:"meta"`
 }
 
 //convert a logdb.Event into a json format Event
 func convertEvent(event *logdb.Event) *FilteredEvent {
 	fe := FilteredEvent{
-		Address: event.Address,
-		Data:    hexutil.Encode(event.Data),
+		Address:  event.Address,
+		LogIndex: event.Index,
+		Data:     hexutil.Encode(event.Data),
 		Meta: transactions.LogMeta{
 			BlockID:        event.BlockID,
 			BlockNumber:    event.BlockNumber,
@@ -124,6 +126,7 @@ func (e *FilteredEvent) String() string {
 		Event(
 			address: 	   %v,
 			topics:        %v,
+			logIndex:      %v,
 			data:          %v,
 			meta: (blockID     %v,
 				blockNumber    %v,
@@ -133,6 +136,7 @@ func (e *FilteredEvent) String() string {
 			)`,
 		e.Address,
 		e.Topics,
+		e.LogIndex,
 		e.Data,
 		e.Meta.BlockID,
 		e.Meta.BlockNumber,

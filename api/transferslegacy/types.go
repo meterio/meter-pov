@@ -18,6 +18,7 @@ type FilteredTransfer struct {
 	Amount    *math.HexOrDecimal256 `json:"amount"`
 	Token     uint32                `json:"token"`
 	Meta      transactions.LogMeta  `json:"meta"`
+	LogIndex  uint32                `json:"logIndex"`
 }
 
 func convertTransfer(transfer *logdb.Transfer) *FilteredTransfer {
@@ -34,6 +35,7 @@ func convertTransfer(transfer *logdb.Transfer) *FilteredTransfer {
 			TxID:           transfer.TxID,
 			TxOrigin:       transfer.TxOrigin,
 		},
+		LogIndex: transfer.Index,
 	}
 }
 

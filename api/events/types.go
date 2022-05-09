@@ -59,6 +59,7 @@ func (e *FilteredEvent) String() string {
 		Event(
 			address: 	   %v,
 			topics:        %v,
+			logIndex:      %v,
 			data:          %v,
 			meta: (blockID     %v,
 				blockNumber    %v,
@@ -68,6 +69,7 @@ func (e *FilteredEvent) String() string {
 			)`,
 		e.Address,
 		e.Topics,
+		e.LogIndex,
 		e.Data,
 		e.Meta.BlockID,
 		e.Meta.BlockNumber,
