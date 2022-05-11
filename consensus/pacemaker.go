@@ -592,13 +592,22 @@ func (p *Pacemaker) UpdateQCHigh(qc *pmQuorumCert) bool {
 
 func (p *Pacemaker) OnBeat(height, round uint32, reason beatReason) error {
 	if reason == BeatOnTimeout && p.QCHigh != nil && p.QCHigh.QC != nil && height <= (p.QCHigh.QC.QCHeight+1) {
-		return p.OnTimeoutBeat(height, round, reason)
+		return p.onTimeoutBeat(height, round, reason)
 	}
 
 	p.logger.Info(" --------------------------------------------------")
 	p.logger.Info(fmt.Sprintf(" OnBeat Round:%v, Height:%v, Reason:%v", round, height, reason.String()))
 	p.logger.Info(" --------------------------------------------------")
 
+	err := p.onNormalBeat(height, round, reason)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (p *Pacemaker) onNormalBeat(height uint32, round uint32, reason beatReason) error {
 	// parent already got QC, pre-commit it
 	//b := p.QCHigh.QCNode
 	b := p.proposalMap.Get(p.QCHigh.QC.QCHeight)
@@ -635,7 +644,7 @@ func (p *Pacemaker) OnBeat(height, round uint32, reason beatReason) error {
 	return nil
 }
 
-func (p *Pacemaker) OnTimeoutBeat(height, round uint32, reason beatReason) error {
+func (p *Pacemaker) onTimeoutBeat(height, round uint32, reason beatReason) error {
 	p.logger.Info(" --------------------------------------------------")
 	p.logger.Info(fmt.Sprintf(" OnTimeoutBeat Round:%v, Height:%v, Reason:%v", round, height, reason.String()))
 	p.logger.Info(" --------------------------------------------------")
@@ -750,96 +759,111 @@ func (p *Pacemaker) OnReceiveNewView(mi *consensusMsgInfo) error {
 
 	switch newViewMsg.Reason {
 	case RoundTimeout:
-		height := header.Height
-		round := header.Round
-		epoch := header.EpochID
-		if !p.csReactor.amIRoundProproser(round) {
-			p.logger.Info("Not round proposer, drops the newView timeout ...", "Height", height, "Round", round, "Epoch", epoch)
-			return nil
+		err2, done := p.newViewRoundTimeout(header, qc, peer, newViewMsg)
+		if done {
+			return err2
 		}
-
-		qcHeight := qc.QCHeight
-		qcRound := qc.QCRound
-		qcEpoch := qc.EpochID
-
-		// if I don't have the proposal at specified height, query my peer
-		if p.proposalMap.Get(qcHeight) == nil {
-			p.logger.Info("Send PMQueryProposal", "height", qcHeight, "round", qcRound, "epoch", qcEpoch)
-			fromHeight := p.lastVotingHeight
-			bestQC := p.csReactor.chain.BestQC()
-			if fromHeight < bestQC.QCHeight {
-				fromHeight = bestQC.QCHeight
-			}
-			if err := p.sendQueryProposalMsg(fromHeight, qcHeight, qcRound, qcEpoch, peer); err != nil {
-				p.logger.Warn("send PMQueryProposal message failed", "err", err)
-			}
-		}
-
-		// if peer's height is lower than me, forward all available proposals to fill the gap
-		if qcHeight < p.lastVotingHeight && peer.netAddr.IP.String() != p.csReactor.GetMyNetAddr().IP.String() {
-			// forward missing proposals to peers who just sent new view message with lower expected height
-			tmpHeight := qcHeight + 1
-			var proposal *pmBlock
-			missed := make([]*pmBlock, 0)
-			for {
-				proposal = p.proposalMap.Get(tmpHeight)
-				if proposal == nil {
-					break
-				}
-				tmpHeight++
-				missed = append(missed, proposal)
-			}
-			if len(missed) > 0 {
-				p.logger.Info(fmt.Sprintf("peer missed %v proposal, forward to it ... ", len(missed)), "fromHeight", qcHeight+1, "name", peer.name, "ip", peer.netAddr.IP.String())
-				for _, pmp := range missed {
-					p.logger.Debug("forwarding proposal", "height", pmp.Height, "name", peer.name, "ip", peer.netAddr.IP.String())
-					p.asyncSendPacemakerMsg(pmp.ProposalMessage, false, peer)
-				}
-			}
-		}
-
-		// now count the timeout
-		p.timeoutCertManager.collectSignature(newViewMsg)
-		timeoutCount := p.timeoutCertManager.count(newViewMsg.TimeoutHeight, newViewMsg.TimeoutRound)
-		if MajorityTwoThird(uint32(timeoutCount), p.csReactor.committeeSize) == false {
-			p.logger.Info("not reach majority on timeout", "count", timeoutCount, "timeoutHeight", newViewMsg.TimeoutHeight, "timeoutRound", newViewMsg.TimeoutRound, "timeoutCounter", newViewMsg.TimeoutCounter)
-		} else {
-			p.logger.Info("*** Reached majority on timeout", "count", timeoutCount, "timeoutHeight", newViewMsg.TimeoutHeight, "timeoutRound", newViewMsg.TimeoutRound, "timeoutCounter", newViewMsg.TimeoutCounter)
-			p.timeoutCert = p.timeoutCertManager.getTimeoutCert(newViewMsg.TimeoutHeight, newViewMsg.TimeoutRound)
-			p.timeoutCertManager.cleanup(newViewMsg.TimeoutHeight, newViewMsg.TimeoutRound)
-
-			// Schedule OnBeat due to timeout
-			p.logger.Info("Received a newview with timeoutCert, scheduleOnBeat now", "height", header.Height, "round", header.Round)
-			// Now reach timeout consensus on height/round, check myself states
-			if (p.QCHigh.QC.QCHeight + 1) < header.Height {
-				p.logger.Info("Can not OnBeat due to states lagging", "my QCHeight", p.QCHigh.QC.QCHeight, "timeoutCert Height", header.Height)
-				return nil
-			}
-
-			// should not schedule if timeout is too old. <= p.blocked
-			if header.Height <= p.blockLocked.Height {
-				p.logger.Info("Can not OnBeat due to old timeout", "my QCHeight", p.QCHigh.QC.QCHeight, "timeoutCert Height", header.Height, "my blockLocked", p.blockLocked.Height)
-				return nil
-			}
-
-			p.ScheduleOnBeat(header.Height, header.Round, BeatOnTimeout, RoundInterval)
-		}
-
 	case HigherQCSeen:
-		if header.Round <= p.currentRound {
-			p.logger.Info("expired newview message, dropped ... ", "currentRound", p.currentRound, "newViewNxtRound", header.Round)
-			return nil
-		}
-		changed := p.UpdateQCHigh(pmQC)
-		if changed {
-			if qc.QCHeight >= p.blockLocked.Height {
-				// Schedule OnBeat due to New QC
-				p.logger.Info("Received a newview with higher QC, scheduleOnBeat now", "qcHeight", qc.QCHeight, "qcRound", qc.QCRound, "onBeatHeight", qc.QCHeight+1, "onBeatRound", qc.QCRound+1)
-				p.ScheduleOnBeat(p.QCHigh.QC.QCHeight+1, qc.QCRound+1, BeatOnHigherQC, RoundInterval)
-			}
+		err2, done := p.newViewHigherQCSeen(header, pmQC, qc)
+		if done {
+			return err2
 		}
 	}
 	return nil
+}
+
+func (p *Pacemaker) newViewHigherQCSeen(header ConsensusMsgCommonHeader, pmQC *pmQuorumCert, qc block.QuorumCert) (error, bool) {
+	if header.Round <= p.currentRound {
+		p.logger.Info("expired newview message, dropped ... ", "currentRound", p.currentRound, "newViewNxtRound", header.Round)
+		return nil, true
+	}
+	changed := p.UpdateQCHigh(pmQC)
+	if changed {
+		if qc.QCHeight >= p.blockLocked.Height {
+			// Schedule OnBeat due to New QC
+			p.logger.Info("Received a newview with higher QC, scheduleOnBeat now", "qcHeight", qc.QCHeight, "qcRound", qc.QCRound, "onBeatHeight", qc.QCHeight+1, "onBeatRound", qc.QCRound+1)
+			p.ScheduleOnBeat(p.QCHigh.QC.QCHeight+1, qc.QCRound+1, BeatOnHigherQC, RoundInterval)
+		}
+	}
+	return nil, false
+}
+
+func (p *Pacemaker) newViewRoundTimeout(header ConsensusMsgCommonHeader, qc block.QuorumCert, peer *ConsensusPeer, newViewMsg *PMNewViewMessage) (error, bool) {
+	height := header.Height
+	round := header.Round
+	epoch := header.EpochID
+	if !p.csReactor.amIRoundProproser(round) {
+		p.logger.Info("Not round proposer, drops the newView timeout ...", "Height", height, "Round", round, "Epoch", epoch)
+		return nil, true
+	}
+
+	qcHeight := qc.QCHeight
+	qcRound := qc.QCRound
+	qcEpoch := qc.EpochID
+
+	// if I don't have the proposal at specified height, query my peer
+	if p.proposalMap.Get(qcHeight) == nil {
+		p.logger.Info("Send PMQueryProposal", "height", qcHeight, "round", qcRound, "epoch", qcEpoch)
+		fromHeight := p.lastVotingHeight
+		bestQC := p.csReactor.chain.BestQC()
+		if fromHeight < bestQC.QCHeight {
+			fromHeight = bestQC.QCHeight
+		}
+		if err := p.sendQueryProposalMsg(fromHeight, qcHeight, qcRound, qcEpoch, peer); err != nil {
+			p.logger.Warn("send PMQueryProposal message failed", "err", err)
+		}
+	}
+
+	// if peer's height is lower than me, forward all available proposals to fill the gap
+	if qcHeight < p.lastVotingHeight && peer.netAddr.IP.String() != p.csReactor.GetMyNetAddr().IP.String() {
+		// forward missing proposals to peers who just sent new view message with lower expected height
+		tmpHeight := qcHeight + 1
+		var proposal *pmBlock
+		missed := make([]*pmBlock, 0)
+		for {
+			proposal = p.proposalMap.Get(tmpHeight)
+			if proposal == nil {
+				break
+			}
+			tmpHeight++
+			missed = append(missed, proposal)
+		}
+		if len(missed) > 0 {
+			p.logger.Info(fmt.Sprintf("peer missed %v proposal, forward to it ... ", len(missed)), "fromHeight", qcHeight+1, "name", peer.name, "ip", peer.netAddr.IP.String())
+			for _, pmp := range missed {
+				p.logger.Debug("forwarding proposal", "height", pmp.Height, "name", peer.name, "ip", peer.netAddr.IP.String())
+				p.asyncSendPacemakerMsg(pmp.ProposalMessage, false, peer)
+			}
+		}
+	}
+
+	// now count the timeout
+	p.timeoutCertManager.collectSignature(newViewMsg)
+	timeoutCount := p.timeoutCertManager.count(newViewMsg.TimeoutHeight, newViewMsg.TimeoutRound)
+	if MajorityTwoThird(uint32(timeoutCount), p.csReactor.committeeSize) == false {
+		p.logger.Info("not reach majority on timeout", "count", timeoutCount, "timeoutHeight", newViewMsg.TimeoutHeight, "timeoutRound", newViewMsg.TimeoutRound, "timeoutCounter", newViewMsg.TimeoutCounter)
+	} else {
+		p.logger.Info("*** Reached majority on timeout", "count", timeoutCount, "timeoutHeight", newViewMsg.TimeoutHeight, "timeoutRound", newViewMsg.TimeoutRound, "timeoutCounter", newViewMsg.TimeoutCounter)
+		p.timeoutCert = p.timeoutCertManager.getTimeoutCert(newViewMsg.TimeoutHeight, newViewMsg.TimeoutRound)
+		p.timeoutCertManager.cleanup(newViewMsg.TimeoutHeight, newViewMsg.TimeoutRound)
+
+		// Schedule OnBeat due to timeout
+		p.logger.Info("Received a newview with timeoutCert, scheduleOnBeat now", "height", header.Height, "round", header.Round)
+		// Now reach timeout consensus on height/round, check myself states
+		if (p.QCHigh.QC.QCHeight + 1) < header.Height {
+			p.logger.Info("Can not OnBeat due to states lagging", "my QCHeight", p.QCHigh.QC.QCHeight, "timeoutCert Height", header.Height)
+			return nil, true
+		}
+
+		// should not schedule if timeout is too old. <= p.blocked
+		if header.Height <= p.blockLocked.Height {
+			p.logger.Info("Can not OnBeat due to old timeout", "my QCHeight", p.QCHigh.QC.QCHeight, "timeoutCert Height", header.Height, "my blockLocked", p.blockLocked.Height)
+			return nil, true
+		}
+
+		p.ScheduleOnBeat(header.Height, header.Round, BeatOnTimeout, RoundInterval)
+	}
+	return nil, false
 }
 
 //Committee Leader triggers

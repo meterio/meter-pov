@@ -160,4 +160,6 @@ var (
 	InitialDFLTeamAccount8 = MustParseAddress("0x5308b6f26f21238963d0ea0b391eafa9be53c78e")
 
 	TeslaValidatorBenefitRatio = big.NewInt(1e18)
+
+	NewViewPeersLimit = 8
 )

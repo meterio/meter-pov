@@ -10,6 +10,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"github.com/meterio/meter-pov/meter"
 	"io/ioutil"
 	"net/http"
 	"strings"
@@ -296,8 +297,10 @@ func (p *Pacemaker) SendConsensusMessage(round uint32, msg ConsensusMessage, cop
 		proposer := p.getProposerByRound(round)
 		peers = append(peers, proposer)
 	case *PMNewViewMessage:
-		nxtProposer := p.getProposerByRound(round)
-		peers = append(peers, nxtProposer)
+		for i := 0; i < meter.NewViewPeersLimit; i++ {
+			nxtProposer := p.getProposerByRound(round + uint32(i))
+			peers = append(peers, nxtProposer)
+		}
 		myself = nil // don't send new view to myself
 	}
 
