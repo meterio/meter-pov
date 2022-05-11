@@ -38,13 +38,13 @@ func (tr *transferReader) Read() ([]interface{}, bool, error) {
 		txs := block.Transactions()
 		for i, receipt := range receipts {
 			for _, output := range receipt.Outputs {
-				for _, transfer := range output.Transfers {
+				for logIndex, transfer := range output.Transfers {
 					origin, err := txs[i].Signer()
 					if err != nil {
 						return nil, false, err
 					}
 					if tr.filter.Match(transfer, origin) {
-						msg, err := convertTransfer(block.Header(), txs[i], transfer, block.Obsolete)
+						msg, err := convertTransfer(block.Header(), txs[i], transfer, block.Obsolete, logIndex)
 						if err != nil {
 							return nil, false, err
 						}

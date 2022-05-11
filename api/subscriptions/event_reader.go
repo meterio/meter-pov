@@ -38,9 +38,9 @@ func (er *eventReader) Read() ([]interface{}, bool, error) {
 		txs := block.Transactions()
 		for i, receipt := range receipts {
 			for _, output := range receipt.Outputs {
-				for _, event := range output.Events {
+				for logIndex, event := range output.Events {
 					if er.filter.Match(event) {
-						msg, err := convertEvent(block.Header(), txs[i], event, block.Obsolete)
+						msg, err := convertEvent(block.Header(), txs[i], event, block.Obsolete, logIndex)
 						if err != nil {
 							return nil, false, err
 						}

@@ -76,13 +76,14 @@ type LogMeta struct {
 type TransferMessage struct {
 	Sender    meter.Address         `json:"sender"`
 	Recipient meter.Address         `json:"recipient"`
+	LogIndex  uint32                `json:"logIndex"`
 	Amount    *math.HexOrDecimal256 `json:"amount"`
 	Token     byte                  `json:"token"`
 	Meta      LogMeta               `json:"meta"`
 	Obsolete  bool                  `json:"obsolete"`
 }
 
-func convertTransfer(header *block.Header, tx *tx.Transaction, transfer *tx.Transfer, obsolete bool) (*TransferMessage, error) {
+func convertTransfer(header *block.Header, tx *tx.Transaction, transfer *tx.Transfer, obsolete bool, logIndex int) (*TransferMessage, error) {
 	signer, err := tx.Signer()
 	if err != nil {
 		return nil, err
@@ -91,6 +92,7 @@ func convertTransfer(header *block.Header, tx *tx.Transaction, transfer *tx.Tran
 	return &TransferMessage{
 		Sender:    transfer.Sender,
 		Recipient: transfer.Recipient,
+		LogIndex:  uint32(logIndex),
 		Amount:    (*math.HexOrDecimal256)(transfer.Amount),
 		Token:     transfer.Token,
 		Meta: LogMeta{
@@ -108,19 +110,21 @@ func convertTransfer(header *block.Header, tx *tx.Transaction, transfer *tx.Tran
 type EventMessage struct {
 	Address  meter.Address   `json:"address"`
 	Topics   []meter.Bytes32 `json:"topics"`
+	LogIndex uint32          `json:"logIndex"`
 	Data     string          `json:"data"`
 	Meta     LogMeta         `json:"meta"`
 	Obsolete bool            `json:"obsolete"`
 }
 
-func convertEvent(header *block.Header, tx *tx.Transaction, event *tx.Event, obsolete bool) (*EventMessage, error) {
+func convertEvent(header *block.Header, tx *tx.Transaction, event *tx.Event, obsolete bool, logIndex int) (*EventMessage, error) {
 	signer, err := tx.Signer()
 	if err != nil {
 		return nil, err
 	}
 	return &EventMessage{
-		Address: event.Address,
-		Data:    hexutil.Encode(event.Data),
+		Address:  event.Address,
+		Data:     hexutil.Encode(event.Data),
+		LogIndex: uint32(logIndex),
 		Meta: LogMeta{
 			BlockID:        header.ID(),
 			BlockNumber:    header.Number(),
