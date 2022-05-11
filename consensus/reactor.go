@@ -470,6 +470,21 @@ func (conR *ConsensusReactor) amIRoundProproser(round uint32) bool {
 	return bytes.Equal(crypto.FromECDSAPub(&p.PubKey), crypto.FromECDSAPub(&conR.myPubKey))
 }
 
+func (conR *ConsensusReactor) VerifyBothPubKey() {
+	for _, d := range conR.curDelegates.Delegates {
+		if bytes.Equal(crypto.FromECDSAPub(&d.PubKey), crypto.FromECDSAPub(&conR.myPubKey)) == true {
+			csCommonSystem := conR.csCommon.GetSystem()
+
+			myBlsPubKey := csCommonSystem.PubKeyToBytes(conR.csCommon.PubKey)
+			delegateBlsPubKey := csCommonSystem.PubKeyToBytes(d.BlsPubKey)
+
+			if bytes.Equal(myBlsPubKey, delegateBlsPubKey) == false {
+				panic("ECDSA key found in delegate list, but related BLS key mismatch with delegate, probably wrong info in candidate")
+			}
+		}
+	}
+}
+
 //create validatorSet by a given nonce. return by my self role
 func (conR *ConsensusReactor) NewValidatorSetByNonce(nonce uint64) (uint, bool) {
 	committee, role, index, inCommittee := conR.CalcCommitteeByNonce(nonce)
@@ -535,14 +550,6 @@ func (conR *ConsensusReactor) CalcCommitteeByNonce(nonce uint64) (*types.Validat
 
 	for i, val := range vals {
 		if bytes.Equal(crypto.FromECDSAPub(&val.PubKey), crypto.FromECDSAPub(&conR.myPubKey)) == true {
-			csCommonSystem := conR.csCommon.GetSystem()
-
-			csCommonPubKey := csCommonSystem.PubKeyToBytes(conR.csCommon.PubKey)
-			valBlsPubKey := csCommonSystem.PubKeyToBytes(val.BlsPubKey)
-
-			if bytes.Equal(csCommonPubKey, valBlsPubKey) == false {
-				continue
-			}
 
 			return Committee, CONSENSUS_COMMIT_ROLE_VALIDATOR, i, true
 		}
@@ -1276,6 +1283,9 @@ func (conR *ConsensusReactor) PrepareEnvForPacemaker() error {
 	//initialize Delegates
 
 	conR.UpdateCurDelegates()
+
+	// notice: this will panic if ECDSA key matches but BLS doesn't
+	conR.VerifyBothPubKey()
 
 	kBlockHeight := bestKBlock.Header().Number()
 	epoch := uint64(0)
