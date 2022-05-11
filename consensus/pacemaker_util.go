@@ -10,11 +10,12 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"github.com/meterio/meter-pov/meter"
 	"io/ioutil"
 	"net/http"
 	"strings"
 	"time"
+
+	"github.com/meterio/meter-pov/meter"
 
 	"github.com/meterio/meter-pov/block"
 	"github.com/meterio/meter-pov/tx"
@@ -301,7 +302,6 @@ func (p *Pacemaker) SendConsensusMessage(round uint32, msg ConsensusMessage, cop
 			nxtProposer := p.getProposerByRound(round + uint32(i))
 			peers = append(peers, nxtProposer)
 		}
-		myself = nil // don't send new view to myself
 	}
 
 	myselfInPeers := myself == nil

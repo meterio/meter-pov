@@ -595,19 +595,14 @@ func (p *Pacemaker) OnBeat(height, round uint32, reason beatReason) error {
 		return p.onTimeoutBeat(height, round, reason)
 	}
 
+	return p.onNormalBeat(height, round, reason)
+}
+
+func (p *Pacemaker) onNormalBeat(height uint32, round uint32, reason beatReason) error {
 	p.logger.Info(" --------------------------------------------------")
 	p.logger.Info(fmt.Sprintf(" OnBeat Round:%v, Height:%v, Reason:%v", round, height, reason.String()))
 	p.logger.Info(" --------------------------------------------------")
 
-	err := p.onNormalBeat(height, round, reason)
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func (p *Pacemaker) onNormalBeat(height uint32, round uint32, reason beatReason) error {
 	// parent already got QC, pre-commit it
 	//b := p.QCHigh.QCNode
 	b := p.proposalMap.Get(p.QCHigh.QC.QCHeight)
@@ -759,23 +754,17 @@ func (p *Pacemaker) OnReceiveNewView(mi *consensusMsgInfo) error {
 
 	switch newViewMsg.Reason {
 	case RoundTimeout:
-		err2, done := p.newViewRoundTimeout(header, qc, peer, newViewMsg)
-		if done {
-			return err2
-		}
+		return p.newViewRoundTimeout(header, qc, peer, newViewMsg)
 	case HigherQCSeen:
-		err2, done := p.newViewHigherQCSeen(header, pmQC, qc)
-		if done {
-			return err2
-		}
+		return p.newViewHigherQCSeen(header, pmQC, qc)
 	}
 	return nil
 }
 
-func (p *Pacemaker) newViewHigherQCSeen(header ConsensusMsgCommonHeader, pmQC *pmQuorumCert, qc block.QuorumCert) (error, bool) {
+func (p *Pacemaker) newViewHigherQCSeen(header ConsensusMsgCommonHeader, pmQC *pmQuorumCert, qc block.QuorumCert) error {
 	if header.Round <= p.currentRound {
 		p.logger.Info("expired newview message, dropped ... ", "currentRound", p.currentRound, "newViewNxtRound", header.Round)
-		return nil, true
+		return nil
 	}
 	changed := p.UpdateQCHigh(pmQC)
 	if changed {
@@ -785,16 +774,16 @@ func (p *Pacemaker) newViewHigherQCSeen(header ConsensusMsgCommonHeader, pmQC *p
 			p.ScheduleOnBeat(p.QCHigh.QC.QCHeight+1, qc.QCRound+1, BeatOnHigherQC, RoundInterval)
 		}
 	}
-	return nil, false
+	return nil
 }
 
-func (p *Pacemaker) newViewRoundTimeout(header ConsensusMsgCommonHeader, qc block.QuorumCert, peer *ConsensusPeer, newViewMsg *PMNewViewMessage) (error, bool) {
+func (p *Pacemaker) newViewRoundTimeout(header ConsensusMsgCommonHeader, qc block.QuorumCert, peer *ConsensusPeer, newViewMsg *PMNewViewMessage) error {
 	height := header.Height
 	round := header.Round
 	epoch := header.EpochID
 	if !p.csReactor.amIRoundProproser(round) {
 		p.logger.Info("Not round proposer, drops the newView timeout ...", "Height", height, "Round", round, "Epoch", epoch)
-		return nil, true
+		return nil
 	}
 
 	qcHeight := qc.QCHeight
@@ -852,18 +841,18 @@ func (p *Pacemaker) newViewRoundTimeout(header ConsensusMsgCommonHeader, qc bloc
 		// Now reach timeout consensus on height/round, check myself states
 		if (p.QCHigh.QC.QCHeight + 1) < header.Height {
 			p.logger.Info("Can not OnBeat due to states lagging", "my QCHeight", p.QCHigh.QC.QCHeight, "timeoutCert Height", header.Height)
-			return nil, true
+			return nil
 		}
 
 		// should not schedule if timeout is too old. <= p.blocked
 		if header.Height <= p.blockLocked.Height {
 			p.logger.Info("Can not OnBeat due to old timeout", "my QCHeight", p.QCHigh.QC.QCHeight, "timeoutCert Height", header.Height, "my blockLocked", p.blockLocked.Height)
-			return nil, true
+			return nil
 		}
 
 		p.ScheduleOnBeat(header.Height, header.Round, BeatOnTimeout, RoundInterval)
 	}
-	return nil, false
+	return nil
 }
 
 //Committee Leader triggers
