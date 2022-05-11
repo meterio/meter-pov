@@ -535,6 +535,15 @@ func (conR *ConsensusReactor) CalcCommitteeByNonce(nonce uint64) (*types.Validat
 
 	for i, val := range vals {
 		if bytes.Equal(crypto.FromECDSAPub(&val.PubKey), crypto.FromECDSAPub(&conR.myPubKey)) == true {
+			csCommonSystem := conR.csCommon.GetSystem()
+
+			csCommonPubKey := csCommonSystem.PubKeyToBytes(conR.csCommon.PubKey)
+			valBlsPubKey := csCommonSystem.PubKeyToBytes(val.BlsPubKey)
+
+			if bytes.Equal(csCommonPubKey, valBlsPubKey) == false {
+				continue
+			}
+
 			return Committee, CONSENSUS_COMMIT_ROLE_VALIDATOR, i, true
 		}
 	}
