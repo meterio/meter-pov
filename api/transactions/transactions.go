@@ -202,7 +202,13 @@ func (t *Transactions) handleSendTransaction(w http.ResponseWriter, req *http.Re
 				return utils.BadRequest(err)
 			}
 			if txpool.IsTxRejected(err) {
+				if tx != nil {
+					fmt.Println(err, tx.String())
+				}
 				return utils.Forbidden(err)
+			}
+			if tx != nil {
+				fmt.Println(err, tx.String())
 			}
 			return err
 		}
