@@ -1562,7 +1562,9 @@ func (conR *ConsensusReactor) startPacemaker(mode PMMode) error {
 	}
 
 	conR.logger.Info("startConsensusPacemaker", "QCHeight", bestQC.QCHeight, "bestHeight", bestBlock.Header().Number())
-	conR.csPacemaker.Start(mode)
+
+	freshCommittee := (bestBlock.Header().BlockType() == block.BLOCK_TYPE_K_BLOCK) || (bestBlock.Header().Number() == 0)
+	conR.csPacemaker.Start(mode, freshCommittee)
 	return nil
 }
 

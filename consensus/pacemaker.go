@@ -856,16 +856,14 @@ func (p *Pacemaker) newViewRoundTimeout(header ConsensusMsgCommonHeader, qc bloc
 }
 
 //Committee Leader triggers
-func (p *Pacemaker) Start(mode PMMode) {
+func (p *Pacemaker) Start(mode PMMode, freshCommittee bool) {
 	p.mode = mode
 	p.reset()
 	p.csReactor.chain.UpdateBestQC(nil, chain.None)
 	p.csReactor.chain.UpdateLeafBlock()
 
 	bestQC := p.csReactor.chain.BestQC()
-	bestBlock := p.csReactor.chain.BestBlock()
 
-	freshCommittee := (bestBlock.Header().BlockType() == block.BLOCK_TYPE_K_BLOCK) || (bestBlock.Header().Number() == 0)
 	p.newCommittee = freshCommittee
 	height := bestQC.QCHeight
 	round := uint32(0)
@@ -984,7 +982,7 @@ func (p *Pacemaker) mainLoop() {
 			case PMCmdRestart:
 				p.stopCleanup()
 				p.logger.Info("--- Pacemaker stopped successfully, restart now")
-				p.Start(si.mode)
+				p.Start(si.mode, p.newCommittee)
 			}
 		case ti := <-p.roundTimeoutCh:
 			p.OnRoundTimeout(ti)
