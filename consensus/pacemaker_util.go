@@ -107,9 +107,11 @@ func (p *Pacemaker) receivePacemakerMsg(w http.ResponseWriter, r *http.Request) 
 		name = split[0]
 		tail = strings.Join(split[1:], " ")
 	}
-	p.logger.Info(fmt.Sprintf("Recv %s %s %s", name, msgHashHex, tail), "peer", peerName, "ip", peer.netAddr.IP.String())
+	p.logger.Info(fmt.Sprintf("Recv %s %s %s", name, msgHashHex, tail), "peer", peerName, "ip", peer.netAddr.IP.String(), "msgCh", fmt.Sprintf("%d/%d", len(p.pacemakerMsgCh), cap(p.pacemakerMsgCh)))
 
-	p.pacemakerMsgCh <- *mi
+	if len(p.pacemakerMsgCh) < cap(p.pacemakerMsgCh) {
+		p.pacemakerMsgCh <- *mi
+	}
 
 	// relay the message if these two conditions are met:
 	// 1. the original message is not sent by myself
@@ -165,7 +167,7 @@ func (p *Pacemaker) GetRelayPeers(round uint32) []*ConsensusPeer {
 		name := p.csReactor.GetDelegateNameByIP(member.NetAddr.IP)
 		peers = append(peers, newConsensusPeer(name, member.NetAddr.IP, member.NetAddr.Port, p.csReactor.magic))
 	}
-	log.Info("get relay peers result", "myIndex", myIndex, "committeeSize", size, "round", round, "indexes", indexes)
+	log.Debug("get relay peers result", "myIndex", myIndex, "committeeSize", size, "round", round, "indexes", indexes)
 	return peers
 }
 
@@ -369,8 +371,8 @@ func (p *Pacemaker) generateNewQCNode(b *pmBlock) (*pmQuorumCert, error) {
 			VoterViolation:   p.sigAggregator.violations,
 		},
 
-		VoterSig: p.sigAggregator.sigBytes,
-		VoterNum: p.sigAggregator.Count(),
+		// VoterSig: p.sigAggregator.sigBytes,
+		// VoterNum: p.sigAggregator.Count(),
 	}, nil
 }
 
@@ -474,11 +476,24 @@ func (p *Pacemaker) checkPendingMessages(curHeight uint32) error {
 	count := 0
 	if pendingMsg, ok := p.pendingList.messages[height]; ok {
 		count++
-		p.pacemakerMsgCh <- pendingMsg
 		// height++ //move higher
+		capacity := cap(p.pacemakerMsgCh)
+		msgs := make([]consensusMsgInfo, 0)
+		for len(p.pacemakerMsgCh) > 0 {
+			msgs = append(msgs, <-p.pacemakerMsgCh)
+		}
+
+		// promote pending msg to the very next
+		p.pacemakerMsgCh <- pendingMsg
+
+		for _, msg := range msgs {
+			if len(p.pacemakerMsgCh) < capacity {
+				p.pacemakerMsgCh <- msg
+			}
+		}
 	}
 	if count > 0 {
-		p.logger.Info("Found pending messages", "from", height, "count", count)
+		p.logger.Info("Found pending message", "height", height)
 	}
 
 	lowest := p.pendingList.GetLowestHeight()

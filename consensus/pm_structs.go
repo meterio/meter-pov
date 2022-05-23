@@ -182,8 +182,6 @@ type pmQuorumCert struct {
 
 	// temporary data
 	// VoterPubKey []bls.PublicKey
-	VoterSig [][]byte
-	VoterNum uint32
 }
 
 func newPMQuorumCert(qc *block.QuorumCert, qcNode *pmBlock) *pmQuorumCert {

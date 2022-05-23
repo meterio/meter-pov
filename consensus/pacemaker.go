@@ -98,7 +98,7 @@ func NewPaceMaker(conR *ConsensusReactor) *Pacemaker {
 		mode:      PMModeNormal,
 
 		msgCache:       NewMsgCache(2048),
-		pacemakerMsgCh: make(chan consensusMsgInfo, 128),
+		pacemakerMsgCh: make(chan consensusMsgInfo, 1024),
 		cmdCh:          make(chan *PMCmdInfo, 2),
 		beatCh:         make(chan *PMBeatInfo, 2),
 		roundTimeoutCh: make(chan PMRoundTimeoutInfo, 2),
