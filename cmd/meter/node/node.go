@@ -316,7 +316,7 @@ func (n *Node) processBlock(blk *block.Block, stats *blockStats) (bool, error) {
 			Nonce:            data.Nonce,
 			Epoch:            blk.QC.EpochID,
 		}
-		log.Info("received kblock...", "nonce", info.Nonce, "height", info.Height)
+		log.Info("received kblock from block sync...", "nonce", info.Nonce, "height", info.Height)
 		// this chan is initialized as 100, we should clean up if it is almost full.
 		// only the last one is processed.
 		chanLength := len(n.cons.RcvKBlockInfoQueue)

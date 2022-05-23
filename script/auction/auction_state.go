@@ -97,7 +97,7 @@ func (a *Auction) TransferAutobidMTRToAuction(addr meter.Address, amount *big.In
 		return fmt.Errorf("not enough meter balance in validator benefit address, balance:%v amount:%v", meterBalance, amount)
 	}
 
-	a.logger.Info("transfer autobid MTR", "bidder", addr, "amount", amount)
+	// a.logger.Info("transfer autobid MTR", "bidder", addr, "amount", amount)
 	state.SubEnergy(meter.ValidatorBenefitAddr, amount)
 	state.AddEnergy(AuctionAccountAddr, amount)
 	env.AddTransfer(meter.ValidatorBenefitAddr, AuctionAccountAddr, amount, meter.MTR)

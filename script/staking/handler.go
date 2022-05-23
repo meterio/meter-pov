@@ -747,7 +747,7 @@ func (sb *StakingBody) GoverningHandler(env *StakingEnv, gas uint64) (leftOverGa
 		}
 		// delegate must not in jail
 		if jailed := inJailList.Exist(delegate.Address); jailed == true {
-			log.Info("delegate in jail list, ignored ...", "name", string(delegate.Name), "addr", delegate.Address)
+			log.Info("skip injail delegate ...", "name", string(delegate.Name), "addr", delegate.Address)
 			continue
 		}
 		// delegates must satisfy the minimum requirements

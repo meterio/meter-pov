@@ -1001,6 +1001,7 @@ func (p *Pacemaker) mainLoop() {
 			case *PMProposalMessage:
 				err = p.OnReceiveProposal(&m)
 				if err != nil {
+					fmt.Println("Error happend during OnReceiveProposal:", err)
 					// 2 errors indicate linking message to pending list for the first time, does not need to check pending
 					if err == errKnownBlock {
 						// do nothing in this case

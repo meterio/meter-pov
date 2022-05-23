@@ -366,7 +366,9 @@ func (c *ConsensusReactor) validateBlockBody(blk *block.Block, forceValidate boo
 		if proposalKBlock && forceValidate {
 			rewards := powResults.Rewards
 			// Build.
+			fmt.Println("---------------- Local Build Reward Txs for validation ----------------")
 			rewardTxs = c.buildRewardTxs(parentBlock, rewards, chainTag, bestNum, curEpoch, best, state)
+			fmt.Println("---------------- End of Local Build Reward Txs ----------------")
 
 			// Decode.
 			for _, rewardTx := range rewardTxs {
