@@ -619,23 +619,25 @@ func (p *Pacemaker) onNormalBeat(height uint32, round uint32, reason beatReason)
 		// only reset the round timer at initialization
 		p.resetRoundTimer(round, TimerInit)
 	}
-	p.updateCurrentRound(round, UpdateOnBeat)
-	if p.csReactor.amIRoundProproser(round) {
-		pmRoleGauge.Set(2)
-		p.csReactor.logger.Info("OnBeat: I am round proposer", "round", round)
 
-		bleaf, err := p.OnPropose(p.blockLeaf, p.QCHigh, height, round)
-		if err != nil {
-			return err
-		}
-		if bleaf == nil {
-			return errors.New("propose failed")
-		}
-
-		p.blockLeaf = bleaf
-	} else {
+	if !p.csReactor.amIRoundProproser(round) {
 		p.csReactor.logger.Info("OnBeat: I am NOT round proposer", "round", round)
+		return nil
 	}
+
+	p.updateCurrentRound(round, UpdateOnBeat)
+	pmRoleGauge.Set(2)
+	p.csReactor.logger.Info("OnBeat: I am round proposer", "round", round)
+
+	bleaf, err := p.OnPropose(p.blockLeaf, p.QCHigh, height, round)
+	if err != nil {
+		return err
+	}
+	if bleaf == nil {
+		return errors.New("propose failed")
+	}
+
+	p.blockLeaf = bleaf
 	return nil
 }
 
