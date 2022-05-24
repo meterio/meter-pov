@@ -300,9 +300,13 @@ func (p *Pacemaker) SendConsensusMessage(round uint32, msg ConsensusMessage, cop
 		proposer := p.getProposerByRound(round)
 		peers = append(peers, proposer)
 	case *PMNewViewMessage:
+		visited := make(map[string]bool)
 		for i := 0; i < meter.NewViewPeersLimit; i++ {
 			nxtProposer := p.getProposerByRound(round + uint32(i))
-			peers = append(peers, nxtProposer)
+			if _, ok := visited[nxtProposer.String()]; !ok {
+				peers = append(peers, nxtProposer)
+				visited[nxtProposer.String()] = true
+			}
 		}
 	}
 
