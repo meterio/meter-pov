@@ -615,14 +615,14 @@ func (p *Pacemaker) onNormalBeat(height uint32, round uint32, reason beatReason)
 		}
 	}
 
-	if reason == BeatOnInit {
-		// only reset the round timer at initialization
-		p.resetRoundTimer(round, TimerInit)
-	}
-
 	if !p.csReactor.amIRoundProproser(round) {
 		p.csReactor.logger.Info("OnBeat: I am NOT round proposer", "round", round)
 		return nil
+	}
+
+	if reason == BeatOnInit {
+		// only reset the round timer at initialization
+		p.resetRoundTimer(round, TimerInit)
 	}
 
 	p.updateCurrentRound(round, UpdateOnBeat)
@@ -769,6 +769,12 @@ func (p *Pacemaker) newViewHigherQCSeen(header ConsensusMsgCommonHeader, pmQC *p
 		return nil
 	}
 	changed := p.UpdateQCHigh(pmQC)
+
+	if !p.csReactor.amIRoundProproser(header.Round) {
+		p.csReactor.logger.Info("NOT round proposer, drops the newview", "height", header.Height, "round", header.Round)
+		return nil
+	}
+
 	if changed {
 		if qc.QCHeight >= p.blockLocked.Height {
 			// Schedule OnBeat due to New QC
@@ -784,7 +790,7 @@ func (p *Pacemaker) newViewRoundTimeout(header ConsensusMsgCommonHeader, qc bloc
 	round := header.Round
 	epoch := header.EpochID
 	if !p.csReactor.amIRoundProproser(round) {
-		p.logger.Info("Not round proposer, drops the newView timeout ...", "Height", height, "Round", round, "Epoch", epoch)
+		p.logger.Info("NOT round proposer, drops the timeout newView ...", "height", height, "round", round, "epoch", epoch)
 		return nil
 	}
 
