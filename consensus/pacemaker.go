@@ -1181,6 +1181,8 @@ func (p *Pacemaker) OnRoundTimeout(ti PMRoundTimeoutInfo) {
 func (p *Pacemaker) updateCurrentRound(round uint32, reason roundUpdateReason) bool {
 	updated := (p.currentRound != round)
 	switch reason {
+	case UpdateOnBeat:
+		fallthrough
 	case UpdateOnRegularProposal:
 		if round > p.currentRound {
 			updated = true
