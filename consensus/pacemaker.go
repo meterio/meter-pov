@@ -65,7 +65,7 @@ type Pacemaker struct {
 	startRound             uint32
 
 	// Utility data structures
-	newCommittee  bool //pacemaker in replay mode?
+	startOnKBlock bool //pacemaker in replay mode?
 	mode          PMMode
 	msgCache      *MsgCache
 	sigAggregator *SignatureAggregator
@@ -864,7 +864,7 @@ func (p *Pacemaker) newViewRoundTimeout(header ConsensusMsgCommonHeader, qc bloc
 }
 
 //Committee Leader triggers
-func (p *Pacemaker) Start(mode PMMode, freshCommittee bool) {
+func (p *Pacemaker) Start(mode PMMode, startOnKBlock bool) {
 	p.mode = mode
 	p.reset()
 	p.csReactor.chain.UpdateBestQC(nil, chain.None)
@@ -872,14 +872,14 @@ func (p *Pacemaker) Start(mode PMMode, freshCommittee bool) {
 
 	bestQC := p.csReactor.chain.BestQC()
 
-	p.newCommittee = freshCommittee
+	p.startOnKBlock = startOnKBlock
 	height := bestQC.QCHeight
 	round := uint32(0)
-	if freshCommittee == false {
+	if startOnKBlock == false {
 		round = bestQC.QCRound
 	}
 
-	p.logger.Info(fmt.Sprintf("*** Pacemaker start at height %v, round %v", height, round), "qc", bestQC.CompactString(), "freshCommittee", freshCommittee, "mode", mode.String())
+	p.logger.Info(fmt.Sprintf("*** Pacemaker start at height %v, round %v", height, round), "qc", bestQC.CompactString(), "startOnKBlock", startOnKBlock, "mode", mode.String())
 	p.startHeight = height
 	p.startRound = round
 
@@ -979,7 +979,7 @@ func (p *Pacemaker) mainLoop() {
 		}
 		select {
 		case si := <-p.cmdCh:
-			p.logger.Warn("Scheduled cmd", "cmd", si.cmd.String())
+			p.logger.Info("Start to execute cmd", "cmd", si.cmd.String())
 			switch si.cmd {
 			case PMCmdStop:
 				p.stopCleanup()
@@ -990,7 +990,19 @@ func (p *Pacemaker) mainLoop() {
 			case PMCmdRestart:
 				p.stopCleanup()
 				p.logger.Info("--- Pacemaker stopped successfully, restart now")
-				p.Start(si.mode, p.newCommittee)
+				p.Start(si.mode, p.startOnKBlock)
+			case PMCmdReboot:
+				p.stopCleanup()
+				bestQC := p.csReactor.chain.BestQC()
+				bestBlock := p.csReactor.chain.BestBlock()
+				if bestQC.QCHeight != bestBlock.Number() {
+					p.logger.Error("bestQC and bestBlock still not match, Action (start pacemaker) cancelled ...")
+					continue
+				}
+
+				startOnKBlock := (bestBlock.Header().BlockType() == block.BLOCK_TYPE_K_BLOCK) || (bestBlock.Header().Number() == 0)
+				p.logger.Info("--- Pacemaker stopped successfully, REBOOT now")
+				p.Start(si.mode, startOnKBlock)
 			}
 		case ti := <-p.roundTimeoutCh:
 			p.OnRoundTimeout(ti)
@@ -1024,7 +1036,7 @@ func (p *Pacemaker) mainLoop() {
 						// process future proposals in time.
 						if (err == errRestartPaceMakerRequired) || (p.QCHigh != nil && p.QCHigh.QCNode != nil && p.QCHigh.QCNode.Height+CATCH_UP_THRESHOLD < p.csReactor.chain.BestQC().QCHeight) {
 							log.Warn("Pacemaker restart requested", "qcHigh", p.QCHigh.ToString(), "qcHigh.QCNode", p.QCHigh.QCNode.Height, "err", err)
-							p.Restart(PMModeCatchUp)
+							p.scheduleRestart(PMModeCatchUp)
 						}
 					}
 				} else {
@@ -1055,9 +1067,9 @@ func (p *Pacemaker) mainLoop() {
 			p.stopCleanup()
 			p.csReactor.PrepareEnvForPacemaker()
 			if p.csReactor.inCommittee {
-				p.Restart(PMModeNormal)
+				p.scheduleReboot(PMModeNormal)
 			} else {
-				p.Restart(PMModeObserve)
+				p.scheduleReboot(PMModeObserve)
 			}
 
 		}
@@ -1148,7 +1160,7 @@ L:
 	p.cmdCh <- &PMCmdInfo{cmd: PMCmdStop}
 }
 
-func (p *Pacemaker) Restart(mode PMMode) {
+func (p *Pacemaker) scheduleRestart(mode PMMode) {
 	// schedule the restart
 	// make sure this restart cmd is the very next cmd
 R:
@@ -1161,6 +1173,21 @@ R:
 	}
 
 	p.cmdCh <- &PMCmdInfo{cmd: PMCmdRestart, mode: mode}
+}
+
+func (p *Pacemaker) scheduleReboot(mode PMMode) {
+	// schedule the reboot
+	// make sure this reboot cmd is the very next cmd
+REBOOT:
+	for {
+		select {
+		case <-p.cmdCh:
+		default:
+			break REBOOT
+		}
+	}
+
+	p.cmdCh <- &PMCmdInfo{cmd: PMCmdReboot, mode: mode}
 }
 
 func (p *Pacemaker) OnRoundTimeout(ti PMRoundTimeoutInfo) {

@@ -209,7 +209,8 @@ type PMCmd uint32
 
 const (
 	PMCmdStop    PMCmd = 1
-	PMCmdRestart       = 2
+	PMCmdRestart       = 2 // restart pacemaker perserving previous settings
+	PMCmdReboot        = 3 // reboot pacemaker with all fresh start, should be used only when KBlock is received
 )
 
 func (cmd PMCmd) String() string {
@@ -218,6 +219,8 @@ func (cmd PMCmd) String() string {
 		return "Stop"
 	case PMCmdRestart:
 		return "Restart"
+	case PMCmdReboot:
+		return "Reboot"
 	}
 	return ""
 }

@@ -264,7 +264,7 @@ func findInActualCommittee(actualCommittee []types.CommitteeMember, addr meter.A
 	return -1
 }
 
-func ComputeStatistics(lastKBlockHeight, height uint32, chain *chain.Chain, curCommittee *types.ValidatorSet, curActualCommittee []types.CommitteeMember, csCommon *types.ConsensusCommon, newCommittee bool, curEpoch uint32) ([]*StatEntry, error) {
+func ComputeStatistics(lastKBlockHeight, height uint32, chain *chain.Chain, curCommittee *types.ValidatorSet, curActualCommittee []types.CommitteeMember, csCommon *types.ConsensusCommon, startOnKBlock bool, curEpoch uint32) ([]*StatEntry, error) {
 	logger.Info("calcStatistics", "height", height, "lastKblockHeight", lastKBlockHeight)
 	if len(curCommittee.Validators) == 0 {
 		return nil, errors.New("committee is empty")
@@ -314,12 +314,12 @@ func ComputeStatistics(lastKBlockHeight, height uint32, chain *chain.Chain, curC
 	// the last 2 blocks from pacemaker's proposalMap
 
 	// calculate missing proposer
-	logger.Debug("missing proposer:", "epoch", curEpoch, "newCommittee", newCommittee)
+	logger.Debug("missing proposer:", "epoch", curEpoch, "startOnKBlock", startOnKBlock)
 	// fmt.Println("cur Actual Committee: ", len(curActualCommittee))
 	// for _, m := range curActualCommittee {
 	// 	fmt.Println("Member: ", m.CSIndex, m.Name, m.NetAddr.String())
 	// }
-	if newCommittee == true {
+	if startOnKBlock == true {
 		missedProposer, err := ComputeMissingProposer(curCommittee.Validators, curActualCommittee, blocks, curEpoch)
 		if err != nil {
 			logger.Warn("Error during missing proposer calculation:", "err", err)
