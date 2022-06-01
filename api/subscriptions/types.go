@@ -215,4 +215,5 @@ type BeatMessage struct {
 	Extra        string        `json:"extraData"`
 	Nonce        uint64        `json:"nonce"`
 	Epoch        uint64        `json:"epoch"`
+	Size         uint32        `json:"size"`
 }

@@ -96,6 +96,7 @@ func (br *beatReader) Read() ([]interface{}, bool, error) {
 			Extra:        hexutil.Encode([]byte{}),
 			Nonce:        0,
 			Epoch:        epoch,
+			Size:         uint32(block.Size()),
 		})
 	}
 	return msgs, len(blocks) > 0, nil
