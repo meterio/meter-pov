@@ -954,9 +954,9 @@ func (sb *StakingBody) CandidateUpdateHandler(env *StakingEnv, gas uint64) (left
 	}
 
 	if in := inJailList.Exist(sb.CandAddr); in == true {
-		log.Info("in jail list, exit first ...", "address", sb.CandAddr, "name", sb.CandName)
-		err = errCandidateInJail
-		return
+		inJail := inJailList.Get(sb.CandAddr)
+		inJail.Name = sb.CandName
+		inJail.PubKey = sb.CandPubKey
 	}
 
 	var changed bool
@@ -1035,6 +1035,7 @@ func (sb *StakingBody) CandidateUpdateHandler(env *StakingEnv, gas uint64) (left
 		return
 	}
 
+	staking.SetInJailList(inJailList, state)
 	staking.SetBucketList(bucketList, state)
 	staking.SetCandidateList(candidateList, state)
 	return
