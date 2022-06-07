@@ -1035,7 +1035,7 @@ func (sb *StakingBody) DelegateStatisticsHandler(env *StakingEnv, gas uint64) (l
 		staking.SetInJailList(inJailList, state)
 		return
 	}
-	log.Info("Receives statistics", "address", sb.CandAddr, "epoch", epoch, "incremental infraction", IncrInfraction)
+	log.Info("Receives stats", "address", sb.CandAddr, "name", sb.CandName, "epoch", epoch, "infraction", IncrInfraction)
 
 	var jail bool
 	stats := statisticsList.Get(sb.CandAddr)
@@ -1054,7 +1054,7 @@ func (sb *StakingBody) DelegateStatisticsHandler(env *StakingEnv, gas uint64) (l
 	log.Info("delegate violation: ", "missProposer", proposerViolation, "missLeader", leaderViolation, "doubleSign", doubleSignViolation, "jail", jail)
 
 	if jail == true {
-		log.Warn("delegate jailed ...", "address", stats.Addr, "name", string(stats.Name), "epoch", epoch, "totalPts", stats.TotalPts)
+		log.Warn("delegate JAILED", "address", stats.Addr, "name", string(stats.Name), "epoch", epoch, "totalPts", stats.TotalPts)
 
 		// if this candidate already uncandidate, forgive it
 		if cand := candidateList.Get(stats.Addr); cand != nil {

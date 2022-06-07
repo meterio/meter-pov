@@ -1214,10 +1214,18 @@ func (p *Pacemaker) updateCurrentRound(round uint32, reason roundUpdateReason) b
 		if round > p.currentRound {
 			updated = true
 			p.resetRoundTimer(round, TimerInit)
+		} else if round == p.currentRound && p.csReactor.amIRoundProproser(round) {
+			// proposer reset timer when recv proposal
+			updated = false
+			p.resetRoundTimer(round, TimerInit)
 		}
 	case UpdateOnKBlockProposal:
 		if round > p.currentRound {
 			updated = true
+			p.resetRoundTimer(round, TimerInitDouble)
+		} else if round == p.currentRound && p.csReactor.amIRoundProproser(round) {
+			// proposer reset timer when recv proposal
+			updated = false
 			p.resetRoundTimer(round, TimerInitDouble)
 		}
 	case UpdateOnTimeoutCertProposal:

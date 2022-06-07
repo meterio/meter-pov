@@ -233,9 +233,9 @@ func (ds *DelegateStatistics) CountMissingProposerViolation(epoch uint32) int {
 		}
 		counter[inf.Epoch] = counter[inf.Epoch] + 1
 	}
-	if len(counter) > 0 {
-		fmt.Println("delegate", string(ds.Name), " missing proposer:")
-	}
+	// if len(counter) > 0 {
+	// 	fmt.Println("delegate", string(ds.Name), " missing proposer:")
+	// }
 
 	nViolations := 0
 	for epoch, count := range counter {
@@ -259,9 +259,9 @@ func (ds *DelegateStatistics) CountMissingLeaderViolation(epoch uint32) int {
 		counter[inf.Epoch] = counter[inf.Epoch] + 1
 	}
 
-	if len(counter) > 0 {
-		fmt.Println("delegate", string(ds.Name), " missing leader:")
-	}
+	// if len(counter) > 0 {
+	// 	fmt.Println("delegate", string(ds.Name), " missing leader:")
+	// }
 	nViolations := 0
 	for epoch, count := range counter {
 		fmt.Println("epoch: ", epoch, "  count:", count)
@@ -284,9 +284,9 @@ func (ds *DelegateStatistics) CountDoubleSignViolation(epoch uint32) int {
 		counter[inf.Epoch] = counter[inf.Epoch] + 1
 	}
 
-	if len(counter) > 0 {
-		fmt.Println("delegate", string(ds.Name), " double sign:")
-	}
+	// if len(counter) > 0 {
+	// 	fmt.Println("delegate", string(ds.Name), " double sign:")
+	// }
 	nViolations := 0
 	for epoch, count := range counter {
 		fmt.Println("epoch: ", epoch, "  count:", count)
