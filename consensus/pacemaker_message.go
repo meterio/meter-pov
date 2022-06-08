@@ -302,7 +302,7 @@ func (p *Pacemaker) BlockMatchQC(b *pmBlock, qc *block.QuorumCert) (bool, error)
 		p.logger.Debug("QC matches block", "msgHash", msgHash.String(), "qc voter Msghash", meter.Bytes32(qc.VoterMsgHash).String())
 		return true, nil
 	} else {
-		p.logger.Warn("QC doesn't matches block", "msgHash", msgHash.String(), "qc voter Msghash", meter.Bytes32(qc.VoterMsgHash).String())
+		p.logger.Warn("QC doesn't matches block", "msgHash", msgHash.String(), "qcVoterMsghash", meter.Bytes32(qc.VoterMsgHash).String())
 		return false, nil
 	}
 }
