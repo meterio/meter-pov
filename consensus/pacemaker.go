@@ -1209,7 +1209,13 @@ func (p *Pacemaker) updateCurrentRound(round uint32, reason roundUpdateReason) b
 	updated := (p.currentRound != round)
 	switch reason {
 	case UpdateOnBeat:
-		fallthrough
+		if round > p.currentRound {
+			updated = true
+			p.resetRoundTimer(round, TimerInit)
+		} else if round == p.currentRound && round == 0 {
+			updated = false
+			p.resetRoundTimer(round, TimerInit)
+		}
 	case UpdateOnRegularProposal:
 		if round > p.currentRound {
 			updated = true
