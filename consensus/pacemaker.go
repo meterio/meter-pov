@@ -615,14 +615,14 @@ func (p *Pacemaker) onNormalBeat(height uint32, round uint32, reason beatReason)
 		}
 	}
 
-	if !p.csReactor.amIRoundProproser(round) {
-		p.csReactor.logger.Info("OnBeat: I am NOT round proposer", "round", round)
-		return nil
-	}
-
 	if reason == BeatOnInit {
 		// only reset the round timer at initialization
 		p.resetRoundTimer(round, TimerInit)
+	}
+
+	if !p.csReactor.amIRoundProproser(round) {
+		p.csReactor.logger.Info("OnBeat: I am NOT round proposer", "round", round)
+		return nil
 	}
 
 	p.updateCurrentRound(round, UpdateOnBeat)
@@ -1209,13 +1209,7 @@ func (p *Pacemaker) updateCurrentRound(round uint32, reason roundUpdateReason) b
 	updated := (p.currentRound != round)
 	switch reason {
 	case UpdateOnBeat:
-		if round > p.currentRound {
-			updated = true
-			p.resetRoundTimer(round, TimerInit)
-		} else if round == p.currentRound && round == 0 {
-			updated = false
-			p.resetRoundTimer(round, TimerInit)
-		}
+		fallthrough
 	case UpdateOnRegularProposal:
 		if round > p.currentRound {
 			updated = true
