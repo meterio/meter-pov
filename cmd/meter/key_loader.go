@@ -207,8 +207,8 @@ func (k *KeyLoader) Load() (*ecdsa.PrivateKey, *ecdsa.PublicKey, *consensus.BlsC
 
 	err = k.validateBls()
 	if err != nil {
-		fmt.Println("could not validate ecdsa keys, error:", err)
-		panic("could not validate ecdsa keys")
+		fmt.Println("could not validate bls keys, error:", err)
+		panic("could not validate bls keys")
 	}
 
 	paraBytes, err := hex.DecodeString(paraString)
