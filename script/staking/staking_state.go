@@ -398,15 +398,17 @@ func (s *Staking) UnboundAccountMeterGov(addr meter.Address, amount *big.Int, st
 
 	meterGov := state.GetBalance(addr)
 	meterGovBounded := state.GetBoundedBalance(addr)
+	log.Info("unbound meterGov", "address", addr.String(), "amount", amount.String(), "boundedBalance", meterGovBounded.String())
 
 	// meterGovBounded should >= amount
 	if meterGovBounded.Cmp(amount) < 0 {
-		log.Error("not enough bounded meter-gov balance", "account", addr, "unbound amount", amount)
+		log.Error("not enough bounded meter-gov balance", "account", addr, "unbound amount", amount, "boundedBalance", meterGovBounded)
 		return errors.New("not enough bounded meter-gov balance")
 	}
 
 	state.SetBalance(addr, new(big.Int).Add(meterGov, amount))
 	state.SetBoundedBalance(addr, new(big.Int).Sub(meterGovBounded, amount))
+	log.Info("after unbounded", "balance", new(big.Int).Add(meterGov, amount), "boundedBalance", new(big.Int).Sub(meterGovBounded, amount))
 
 	topics := []meter.Bytes32{
 		meter.Bytes32(unboundEvent.ID()),

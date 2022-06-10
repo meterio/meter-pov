@@ -677,6 +677,7 @@ func (sb *StakingBody) GoverningHandler(env *StakingEnv, gas uint64) (leftOverGa
 		if bkt.Unbounded == true {
 			// matured
 			if ts >= bkt.MatureTime+720 {
+				log.Info("bucket matured, prepare to unbound", "id", bkt.ID().String(), "amount", bkt.Value, "address", bkt.Owner)
 				stakeholder := stakeholderList.Get(bkt.Owner)
 				if stakeholder != nil {
 					stakeholder.RemoveBucket(bkt)
