@@ -12,9 +12,9 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/ethereum/go-ethereum/crypto"
 	bls "github.com/meterio/meter-pov/crypto/multi_sig"
 	"github.com/meterio/meter-pov/meter"
-	"github.com/ethereum/go-ethereum/crypto"
 )
 
 // make sure to update that method if changes are made here
@@ -44,6 +44,8 @@ type Delegate struct {
 	NetAddr     NetAddress      `json:"network_addr"`
 	Commission  uint64          `json:"commission"`
 	DistList    []*Distributor  `json:"distibutor_list"`
+
+	internCombinePublicKey string
 }
 
 func NewDelegate(name []byte, addr meter.Address, pubKey ecdsa.PublicKey, blsPub bls.PublicKey, votingPower int64, commission uint64) *Delegate {
@@ -62,6 +64,15 @@ func NewDelegate(name []byte, addr meter.Address, pubKey ecdsa.PublicKey, blsPub
 func (v *Delegate) Copy() *Delegate {
 	vCopy := *v
 	return &vCopy
+}
+
+func (v *Delegate) SetInternCombinePublicKey(rawPublicKey string) {
+	v.internCombinePublicKey = rawPublicKey
+	return
+}
+
+func (v *Delegate) GetInternCombinePubKey() string {
+	return v.internCombinePublicKey
 }
 
 func (v *Delegate) String() string {

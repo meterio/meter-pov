@@ -237,6 +237,10 @@ func defaultAction(ctx *cli.Context) error {
 		panic("could not load pubkey")
 	}
 
+	if pubkey != string(master.GetPublicBytes()) {
+		panic("pubkey mismatch")
+	}
+
 	// load preset config
 	if "warringstakes" == ctx.String(networkFlag.Name) {
 		config := preset.ShoalPresetConfig

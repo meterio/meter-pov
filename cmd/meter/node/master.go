@@ -16,8 +16,18 @@ type Master struct {
 	PrivateKey  *ecdsa.PrivateKey
 	PublicKey   *ecdsa.PublicKey
 	Beneficiary *meter.Address
+
+	publicBytes []byte
 }
 
 func (m *Master) Address() meter.Address {
 	return meter.Address(crypto.PubkeyToAddress(m.PrivateKey.PublicKey))
+}
+
+func (m *Master) SetPublicBytes(publicBytes []byte) {
+	m.publicBytes = publicBytes
+}
+
+func (m *Master) GetPublicBytes() []byte {
+	return m.publicBytes
 }

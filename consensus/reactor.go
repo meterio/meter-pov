@@ -473,6 +473,10 @@ func (conR *ConsensusReactor) amIRoundProproser(round uint32) bool {
 func (conR *ConsensusReactor) VerifyBothPubKey() {
 	for _, d := range conR.curDelegates.Delegates {
 		if bytes.Equal(crypto.FromECDSAPub(&d.PubKey), crypto.FromECDSAPub(&conR.myPubKey)) == true {
+			if conR.GetCombinePubKey() != d.GetInternCombinePubKey() {
+				panic("ECDSA key found in delegate list, but combinePubKey mismatch")
+			}
+
 			csCommonSystem := conR.csCommon.GetSystem()
 
 			myBlsPubKey := csCommonSystem.PubKeyToBytes(conR.csCommon.PubKey)
@@ -1646,6 +1650,7 @@ func (conR *ConsensusReactor) convertFromIntern(interns []*types.DelegateIntern)
 			Commission:  in.Commission,
 			DistList:    in.DistList,
 		}
+		d.SetInternCombinePublicKey(string(in.PubKey))
 		ret = append(ret, d)
 	}
 
@@ -1685,6 +1690,10 @@ func (conR *ConsensusReactor) combinePubKey(ecdsaPub *ecdsa.PublicKey, blsPub *b
 	blsPubB64 := b64.StdEncoding.EncodeToString(blsPubBytes)
 
 	return strings.Join([]string{ecdsaPubB64, blsPubB64}, ":::")
+}
+
+func (conR *ConsensusReactor) GetCombinePubKey() string {
+	return conR.combinePubKey(&conR.myPubKey, &conR.csCommon.PubKey)
 }
 
 func (conR *ConsensusReactor) LoadBlockBytes(num uint32) []byte {
