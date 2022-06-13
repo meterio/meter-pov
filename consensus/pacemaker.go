@@ -649,6 +649,12 @@ func (p *Pacemaker) onTimeoutBeat(height, round uint32, reason beatReason) error
 	//b := p.QCHigh.QCNode
 	parent := p.proposalMap.Get(height - 1)
 	replaced := p.proposalMap.Get(height)
+
+	if p.QCHigh.QC.QCHeight >= height {
+		height = p.QCHigh.QC.QCHeight + 1
+		parent = p.proposalMap.Get(p.QCHigh.QC.QCHeight)
+		replaced = p.proposalMap.Get(height)
+	}
 	if parent == nil {
 		p.logger.Error("missing parent proposal", "parentHeight", height-1, "height", height, "round", round)
 		return errors.New("missing parent proposal")
