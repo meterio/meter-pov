@@ -670,7 +670,8 @@ func (sb *StakingBody) GoverningHandler(env *StakingEnv, gas uint64) (leftOverGa
 
 	// start to calc next round delegates
 	ts := sb.Timestamp
-	for _, bkt := range bucketList.buckets {
+	for i := 0; i < len(bucketList.buckets); i++ {
+		bkt := bucketList.buckets[i]
 
 		log.Debug("before handling", "bucket", bkt.ToString())
 		// handle unbound first
@@ -706,6 +707,7 @@ func (sb *StakingBody) GoverningHandler(env *StakingEnv, gas uint64) (leftOverGa
 
 				// finally, remove bucket from bucketList
 				bucketList.Remove(bkt.BucketID)
+				i--
 			}
 			// Done: for unbounded
 			continue
@@ -733,6 +735,70 @@ func (sb *StakingBody) GoverningHandler(env *StakingEnv, gas uint64) (leftOverGa
 		}
 		log.Debug("after handling", "bucket", bkt.ToString())
 	}
+
+	// for _, bkt := range bucketList.buckets {
+
+	// 	log.Debug("before handling", "bucket", bkt.ToString())
+	// 	// handle unbound first
+	// 	if bkt.Unbounded == true {
+	// 		// matured
+	// 		if ts >= bkt.MatureTime+720 {
+	// 			log.Info("bucket matured, prepare to unbound", "id", bkt.ID().String(), "amount", bkt.Value, "address", bkt.Owner)
+	// 			stakeholder := stakeholderList.Get(bkt.Owner)
+	// 			if stakeholder != nil {
+	// 				stakeholder.RemoveBucket(bkt)
+	// 				if len(stakeholder.Buckets) == 0 {
+	// 					stakeholderList.Remove(stakeholder.Holder)
+	// 				}
+	// 			}
+
+	// 			// update candidate list
+	// 			cand := candidateList.Get(bkt.Candidate)
+	// 			if cand != nil {
+	// 				cand.RemoveBucket(bkt)
+	// 				if len(candidateList.candidates) == 0 {
+	// 					candidateList.Remove(cand.Addr)
+	// 				}
+	// 			}
+
+	// 			switch bkt.Token {
+	// 			case meter.MTR:
+	// 				err = staking.UnboundAccountMeter(bkt.Owner, bkt.Value, state, env)
+	// 			case meter.MTRG:
+	// 				err = staking.UnboundAccountMeterGov(bkt.Owner, bkt.Value, state, env)
+	// 			default:
+	// 				err = errors.New("Invalid token parameter")
+	// 			}
+
+	// 			// finally, remove bucket from bucketList
+	// 			bucketList.Remove(bkt.BucketID)
+	// 		}
+	// 		// Done: for unbounded
+	// 		continue
+	// 	}
+
+	// 	// now calc the bonus votes
+	// 	if ts >= bkt.CalcLastTime {
+	// 		denominator := big.NewInt(int64((3600 * 24 * 365) * 100))
+	// 		bonus := big.NewInt(int64((ts - bkt.CalcLastTime) * uint64(bkt.Rate)))
+	// 		bonus = bonus.Mul(bonus, bkt.Value)
+	// 		bonus = bonus.Div(bonus, denominator)
+	// 		log.Debug("in calclating", "bonus votes", bonus.Uint64(), "ts", ts, "last time", bkt.CalcLastTime)
+
+	// 		// update bucket
+	// 		bkt.BonusVotes += bonus.Uint64()
+	// 		bkt.TotalVotes = bkt.TotalVotes.Add(bkt.TotalVotes, bonus)
+	// 		bkt.CalcLastTime = ts // touch timestamp
+
+	// 		// update candidate
+	// 		if bkt.Candidate.IsZero() == false {
+	// 			if cand := candidateList.Get(bkt.Candidate); cand != nil {
+	// 				cand.TotalVotes = cand.TotalVotes.Add(cand.TotalVotes, bonus)
+	// 			}
+	// 		}
+	// 	}
+	// 	log.Debug("after handling", "bucket", bkt.ToString())
+	// }
 
 	// handle delegateList
 	delegates := []*Delegate{}
