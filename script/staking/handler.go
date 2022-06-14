@@ -1243,6 +1243,7 @@ func (sb *StakingBody) BucketUpdateHandler(env *StakingEnv, gas uint64) (leftOve
 	state := env.GetState()
 	candidateList := staking.GetCandidateList(state)
 	bucketList := staking.GetBucketList(state)
+	stakeholderList := staking.GetStakeHolderList(state)
 
 	if gas < meter.ClauseGas {
 		leftOverGas = 0
@@ -1280,6 +1281,154 @@ func (sb *StakingBody) BucketUpdateHandler(env *StakingEnv, gas uint64) (leftOve
 			log.Error(fmt.Sprintf("can not update unbounded bucket, ID %v", sb.StakingID))
 			err = errors.New("can not update unbounded bucket")
 			return
+		}
+
+		if sb.Option == BUCKET_SUB_OPT {
+			if sb.Amount.Cmp(MIN_SUB_BALANCE) < 0 {
+				err = errors.New("limit MIN_SUB_BALANCE")
+				return
+			}
+
+			if bucket.IsForeverLock() {
+				if bucket.Value.Sub(bucket.Value, sb.Amount).Cmp(MIN_REQUIRED_BY_DELEGATE) < 0 {
+					err = errors.New("limit MIN_REQUIRED_BY_DELEGATE")
+					return
+				}
+
+				// if the candidate already exists return error without paying gas
+				cand := candidateList.Get(sb.CandAddr)
+				if cand == nil {
+					err = errCandidateNotListed
+					return
+				}
+
+				selfRatioValid := CheckEnoughSelfVotes(sb.Amount, cand, bucketList, TESLA1_1_SELF_VOTE_RATIO)
+				if !selfRatioValid {
+					return leftOverGas, errCandidateNotEnoughSelfVotes
+				}
+			} else {
+				if bucket.Value.Sub(bucket.Value, sb.Amount).Cmp(MIN_BOUND_BALANCE) < 0 {
+					err = errors.New("limit MIN_BOUND_BALANCE")
+					return
+				}
+			}
+
+			bucket.TotalVotes.Sub(bucket.TotalVotes, sb.Amount)
+			if !bucket.Candidate.IsZero() {
+				if cand := candidateList.Get(bucket.Candidate); cand != nil {
+					cand.TotalVotes.Sub(cand.TotalVotes, sb.Amount)
+				}
+			}
+
+			//if number >= 3418000 && bucket.Candidate != sb.CandAddr {
+			//	err = errBucketOwnerMismatch
+			//	return
+			//}
+
+			//if number < 3418000 {
+			//subBucket := NewBucket(bucket.Owner, bucket.Candidate, sb.Amount, uint8(bucket.Token), bucket.Option, bucket.Rate, sb.Autobid, sb.Timestamp, sb.Nonce)
+			//subBucket.Unbounded = true
+			//subBucket.MatureTime = sb.Timestamp + GetBoundLocktime(subBucket.Option) // lock time
+			//
+			//bucketList.Add(subBucket)
+			//
+			//staking.SetBucketList(bucketList, state)
+			//staking.SetCandidateList(candidateList, state)
+			//return
+			//} else if number >= meter.FixSubVote {
+			// scriptBody include bucket id and amount
+			// bucket or scriptBody
+			newBucket := NewBucket(bucket.Owner, bucket.Candidate, sb.Amount, uint8(bucket.Token), ONE_WEEK_LOCK, bucket.Rate, bucket.Autobid, sb.Timestamp, sb.Nonce)
+
+			//sb.Amount / bucket.Value
+
+			// sanity check done, take actions
+			newBucket.Unbounded = true
+			newBucket.MatureTime = sb.Timestamp + GetBoundLocktime(newBucket.Option) // lock time
+
+			//stakeholder := stakeholderList.Get(sb.HolderAddr) // ?? bucket.Owner
+			stakeholder := stakeholderList.Get(bucket.Owner) // ??
+			//if stakeholder == nil {
+			//	stakeholder = NewStakeholder(sb.HolderAddr)
+			//}
+			//	stakeholder.AddBucket(bucket)
+
+			bucketID := newBucket.BucketID
+
+			//bucket.TotalVotes.Sub(bucket.TotalVotes, sb.Amount)
+
+			// Now so far so good, calc interest first
+			//bonus := TouchBucketBonus(bucket.CreateTime, bucket)
+
+			_oldBonusVotes := new(big.Int).SetUint64(bucket.BonusVotes)
+
+			// update bucket values
+			changeBonusVotes := big.NewInt(0)
+			changeBonusVotes.Mul(_oldBonusVotes, sb.Amount)
+			changeBonusVotes.Div(changeBonusVotes, bucket.Value)
+
+			bucket.Value.Sub(bucket.Value, sb.Amount)
+			bucket.BonusVotes -= changeBonusVotes.Uint64()
+			bucket.TotalVotes.Sub(bucket.TotalVotes, sb.Amount)
+			bucket.TotalVotes.Sub(bucket.TotalVotes, changeBonusVotes)
+
+			newBucket.BonusVotes += changeBonusVotes.Uint64()
+			newBucket.TotalVotes.Add(newBucket.Value, changeBonusVotes)
+
+			// update candidate, for both bonus and increase amount
+			//if bucket.Candidate.IsZero() == false {
+			//	if cand := candidateList.Get(bucket.Candidate); cand != nil {
+			//		cand.TotalVotes.Sub(cand.TotalVotes, bonus)
+			//		cand.TotalVotes.Sub(cand.TotalVotes, sb.Amount)
+			//	}
+			//}
+
+			//} else {
+			//stakeholder.AddBucket(newBucket)
+			stakeholder.Buckets = append(stakeholder.Buckets, bucketID)
+			//stakeholderList.Add(stakeholder)
+			//}
+
+			bucketList.Add(newBucket)
+
+			// if the candidate already exists return error without paying gas
+			cand := candidateList.Get(sb.CandAddr)
+			if cand == nil {
+				err = errCandidateNotListed
+				return
+			}
+			cand.Buckets = append(cand.Buckets, bucketID)
+
+			staking.SetBucketList(bucketList, state)
+			staking.SetCandidateList(candidateList, state)
+			staking.SetStakeHolderList(stakeholderList, state)
+
+			return
+			//} else {
+			//newBucket := NewBucket(bucket.Owner, sb.CandAddr, sb.Amount, uint8(bucket.Token), ONE_WEEK_LOCK, bucket.Rate, sb.Autobid, sb.Timestamp, sb.Nonce)
+			//
+			//bucketList.Add(newBucket)
+			//
+			//// sanity check done, take actions
+			//newBucket.Unbounded = true
+			//newBucket.MatureTime = sb.Timestamp + GetBoundLocktime(newBucket.Option) // lock time
+			//
+			//stakeholder := stakeholderList.Get(sb.HolderAddr)
+			////if stakeholder == nil {
+			////	stakeholder = NewStakeholder(sb.HolderAddr)
+			////	stakeholder.AddBucket(bucket)
+			//
+			////} else {
+			//stakeholder.AddBucket(newBucket)
+			//stakeholderList.Add(stakeholder)
+			////}
+			//
+			//staking.SetBucketList(bucketList, state)
+			//staking.SetCandidateList(candidateList, state)
+			//staking.SetStakeHolderList(stakeholderList, state)
+			//
+			//return
+			//}
 		}
 
 		if state.GetBalance(sb.HolderAddr).Cmp(sb.Amount) < 0 {

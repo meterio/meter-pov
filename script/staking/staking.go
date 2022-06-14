@@ -196,3 +196,7 @@ func (s *Staking) PrepareStakingHandler() (StakingHandler func([]byte, *meter.Ad
 	}
 	return
 }
+
+func (s *Staking) Chain() *chain.Chain {
+	return s.chain
+}
