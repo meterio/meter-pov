@@ -180,6 +180,31 @@ func (rt *Runtime) EnforceTelsaFork1_1Corrections() {
 		}
 	}
 }
+
+func (rt *Runtime) EnforceTelsaFork5_Corrections() {
+	blockNumber := rt.Context().Number
+	if blockNumber > 0 && meter.IsMainNet() {
+		// flag is nil or 0, is not do. 1 meas done.
+		enforceFlag := builtin.Params.Native(rt.State()).Get(meter.KeyEnforceTesla5_Correction)
+
+		if blockNumber > meter.TeslaFork5_MainnetStartNum && (enforceFlag == nil || enforceFlag.Sign() == 0) {
+			// Tesla 5 Fork
+			fmt.Println("Start to correct Tesla Fork 5 Error Account")
+			targetAddress := meter.MustParseAddress("0x08ebea6584b3d9bf6fbcacf1a1507d00a61d95b7")
+			bal := rt.state.GetBalance(targetAddress)
+			bounded := rt.state.GetBoundedBalance(targetAddress)
+			offset := new(big.Int).Mul(big.NewInt(1000000), big.NewInt(1e18))
+			if bal.Cmp(offset) > 0 {
+				bal = new(big.Int).Sub(bal, offset)
+				bounded := new(big.Int).Add(bounded, offset)
+				rt.state.SetBalance(targetAddress, bal)
+				rt.state.SetBoundedBalance(targetAddress, bounded)
+				builtin.Params.Native(rt.State()).Set(meter.KeyEnforceTesla5_Correction, big.NewInt(1))
+			}
+		}
+	}
+}
+
 func (rt *Runtime) FromNativeContract(caller meter.Address) bool {
 
 	nativeMtrERC20 := builtin.Params.Native(rt.State()).GetAddress(meter.KeyNativeMtrERC20Address)

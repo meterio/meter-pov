@@ -115,7 +115,9 @@ var (
 	// 0x00000000000000342d73797374656d2d636f6e74726163742d61646472657373
 	KeySystemContractAddress4 = BytesToBytes32([]byte("4-system-contract-address"))
 
-	KeyEnforceTesla1_1Correction = BytesToBytes32([]byte("Tesla1_1Correction-Flag")) // unset or 0 is not do yet, 1 is donw
+	KeyEnforceTesla1_1Correction = BytesToBytes32([]byte("Tesla1_1Correction-Flag")) // unset or 0 is not do yet, 1 is done
+
+	KeyEnforceTesla5_Correction = BytesToBytes32([]byte("Tesla5_Correction-Flag")) // unset or 0 is not do yet, 1 is done
 
 	// key set transaction fee address
 	// 0x6e73616374696f6e2d6665652d62656e65666963696172792d61646472657373
