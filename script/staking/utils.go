@@ -189,6 +189,27 @@ func GetCandidateListByHeader(header *block.Header) (*CandidateList, error) {
 	return list, nil
 }
 
+func GetDelegateListByHeader(header *block.Header) (*DelegateList, error) {
+	staking := GetStakingGlobInst()
+	if staking == nil {
+		log.Warn("staking is not initialized...")
+		err := errors.New("staking is not initialized...")
+		return nil, err
+	}
+
+	h := header
+	if header == nil {
+		h = staking.chain.BestBlock().Header()
+	}
+	state, err := staking.stateCreator.NewState(h.StateRoot())
+	if err != nil {
+		return nil, err
+	}
+
+	list := staking.GetDelegateList(state)
+	return list, nil
+}
+
 //  api routine interface
 func GetLatestDelegateList() (*DelegateList, error) {
 	staking := GetStakingGlobInst()

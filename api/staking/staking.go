@@ -115,7 +115,11 @@ func (st *Staking) handleGetStakeholderByAddress(w http.ResponseWriter, req *htt
 }
 
 func (st *Staking) handleGetDelegateList(w http.ResponseWriter, req *http.Request) error {
-	list, err := staking.GetLatestDelegateList()
+	h, err := st.handleRevision(req.URL.Query().Get("revision"))
+	if err != nil {
+		return err
+	}
+	list, err := staking.GetDelegateListByHeader(h)
 	if err != nil {
 		return err
 	}
