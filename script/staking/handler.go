@@ -671,10 +671,11 @@ func (sb *StakingBody) GoverningHandler(env *StakingEnv, gas uint64) (leftOverGa
 	// start to calc next round delegates
 	ts := sb.Timestamp
 	if meter.IsMainChainTeslaFork5(env.GetTxCtx().BlockRef.Number()) || meter.IsTestChainTeslaFork5(env.GetTxCtx().BlockRef.Number()) {
+		// AFTER FORK 5
 		for i := 0; i < len(bucketList.buckets); i++ {
 			bkt := bucketList.buckets[i]
 
-			log.Debug("before handling", "bucket", bkt.ToString())
+			log.Debug("before new handling", "bucket", bkt.ToString())
 			// handle unbound first
 			if bkt.Unbounded == true {
 				// matured
@@ -710,33 +711,48 @@ func (sb *StakingBody) GoverningHandler(env *StakingEnv, gas uint64) (leftOverGa
 					bucketList.Remove(bkt.BucketID)
 					i--
 				}
-				// Done: for unbounded
-				continue
+				log.Debug("after new handling", "bucket", bkt.ToString())
+			} else {
+				log.Debug("no changes to bucket", "id", bkt.ID().String())
 			}
+		}
 
+		candTotalVotes := make(map[meter.Address]*big.Int)
+
+		// Calcuate bonus from createTime
+		for _, bkt := range bucketList.buckets {
 			// now calc the bonus votes
-			if ts >= bkt.CalcLastTime {
+			if ts > bkt.CreateTime {
 				denominator := big.NewInt(int64((3600 * 24 * 365) * 100))
-				bonus := big.NewInt(int64((ts - bkt.CalcLastTime) * uint64(bkt.Rate)))
-				bonus = bonus.Mul(bonus, bkt.Value)
-				bonus = bonus.Div(bonus, denominator)
-				log.Debug("in calclating", "bonus votes", bonus.Uint64(), "ts", ts, "last time", bkt.CalcLastTime)
+				totalBonus := big.NewInt(int64((ts - bkt.CreateTime) * uint64(bkt.Rate)))
+				totalBonus = totalBonus.Mul(totalBonus, bkt.Value)
+				totalBonus = totalBonus.Div(totalBonus, denominator)
+				log.Debug("in calclating", "bonus votes", totalBonus.Uint64(), "ts", ts, "createTime", bkt.CreateTime)
 
 				// update bucket
-				bkt.BonusVotes += bonus.Uint64()
-				bkt.TotalVotes = bkt.TotalVotes.Add(bkt.TotalVotes, bonus)
+				bkt.BonusVotes = totalBonus.Uint64()
+				bkt.TotalVotes = bkt.TotalVotes.Add(bkt.Value, totalBonus)
 				bkt.CalcLastTime = ts // touch timestamp
-
-				// update candidate
-				if bkt.Candidate.IsZero() == false {
-					if cand := candidateList.Get(bkt.Candidate); cand != nil {
-						cand.TotalVotes = cand.TotalVotes.Add(cand.TotalVotes, bonus)
-					}
-				}
+			} else {
+				bkt.BonusVotes = 0
+				bkt.TotalVotes = bkt.Value
+				bkt.CalcLastTime = ts
 			}
-			log.Debug("after handling", "bucket", bkt.ToString())
+
+			if _, ok := candTotalVotes[bkt.Candidate]; !ok {
+				candTotalVotes[bkt.Candidate] = big.NewInt(0)
+			}
+			candTotalVotes[bkt.Candidate] = new(big.Int).Add(candTotalVotes[bkt.Candidate], bkt.TotalVotes)
+		}
+
+		// Update candidate with new total votes
+		for addr, totalVotes := range candTotalVotes {
+			if cand := candidateList.Get(addr); cand != nil {
+				cand.TotalVotes = totalVotes
+			}
 		}
 	} else {
+		// BEFORE FORK 5
 		for _, bkt := range bucketList.buckets {
 
 			log.Debug("before handling", "bucket", bkt.ToString())
