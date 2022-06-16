@@ -12,7 +12,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"math"
-	"math/rand"
 	"os"
 	"path"
 	"path/filepath"
@@ -30,7 +29,6 @@ import (
 	isatty "github.com/mattn/go-isatty"
 	"github.com/meterio/meter-pov/api"
 	"github.com/meterio/meter-pov/api/doc"
-	"github.com/meterio/meter-pov/block"
 	"github.com/meterio/meter-pov/cmd/meter/node"
 	"github.com/meterio/meter-pov/consensus"
 	"github.com/meterio/meter-pov/meter"
@@ -104,9 +102,6 @@ func main() {
 			p2pPortFlag,
 			natFlag,
 			peersFlag,
-			forceLastKFrameFlag,
-			generateKFrameFlag,
-			skipSignatureCheckFlag,
 			powNodeFlag,
 			powPortFlag,
 			powUserFlag,
@@ -309,10 +304,6 @@ func defaultAction(ctx *cli.Context) error {
 	//also create the POW components
 	// powR := pow.NewPowpoolReactor(chain, stateCreator, powpool)
 
-	// XXX: generate kframe (FOR TEST ONLY)
-	genCloser := newKFrameGenerator(ctx, cons)
-	defer func() { log.Info("stopping kframe generator service ..."); genCloser() }()
-
 	printStartupMessage(topic, gene, chain, master, instanceDir, apiURL, powApiURL, observeURL)
 
 	p2pcom.Start()
@@ -329,31 +320,6 @@ func defaultAction(ctx *cli.Context) error {
 		cons,
 		sc).
 		Run(exitSignal)
-}
-
-func newKFrameGenerator(ctx *cli.Context, cons *consensus.ConsensusReactor) func() {
-	done := make(chan int)
-	go func() {
-		if ctx.Bool("gen-kframe") {
-			ticker := time.NewTicker(time.Minute * 1)
-			for {
-				select {
-				case <-ticker.C:
-					data := block.KBlockData{
-						Nonce: rand.Uint64(),
-						Data:  []block.PowRawBlock{},
-					}
-					cons.KBlockDataQueue <- data
-				case <-done:
-					return
-				}
-			}
-		}
-	}()
-
-	return func() {
-		close(done)
-	}
 }
 
 func masterKeyAction(ctx *cli.Context) error {

@@ -334,7 +334,6 @@ func loadNodeMaster(ctx *cli.Context) (*node.Master, *consensus.BlsCommon) {
 		fatal("load key error: ", err)
 	}
 	master := &node.Master{PrivateKey: ePrivKey, PublicKey: ePubKey}
-	master.SetPublicBytes(keyLoader.publicBytes)
 	master.Beneficiary = beneficiary(ctx)
 	return master, blsCommon
 }
@@ -476,7 +475,7 @@ func startObserveServer(ctx *cli.Context, cons *consensus.ConsensusReactor, comp
 	if err != nil {
 		fatal(fmt.Sprintf("listen observe addr [%v]: %v", addr, err))
 	}
-	probe := &probe.Probe{Cons: cons, ComplexPubkey: complexPubkey, Chain: chain, Version: fullVersion(), Network: nw}
+	probe := &probe.Probe{cons, complexPubkey, chain, fullVersion(), nw}
 	mux := http.NewServeMux()
 	mux.Handle("/metrics", promhttp.Handler())
 	mux.HandleFunc("/probe", probe.HandleProbe)
@@ -486,7 +485,6 @@ func startObserveServer(ctx *cli.Context, cons *consensus.ConsensusReactor, comp
 	mux.HandleFunc("/probe/peers", probe.HandlePeers)
 
 	// dispatch the msg to reactor/pacemaker
-	mux.HandleFunc("/committee", cons.ReceiveCommitteeMsg)
 	mux.HandleFunc("/pacemaker", cons.ReceivePacemakerMsg)
 
 	srv := &http.Server{

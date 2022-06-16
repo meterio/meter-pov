@@ -229,11 +229,6 @@ func (c *ConsensusReactor) validateBlockHeader(header *block.Header, parent *blo
 }
 
 func (c *ConsensusReactor) validateEvidence(ev *block.Evidence, blk *block.Block) error {
-	// skip the validation if the 'skip-signature-check' flag is configured
-	if c.config.SkipSignatureCheck {
-		return nil
-	}
-
 	header := blk.Header()
 
 	// find out the block which has the committee info
@@ -1196,46 +1191,6 @@ type RecvKBlockInfo struct {
 	LastKBlockHeight uint32
 	Nonce            uint64
 	Epoch            uint64
-}
-
-func (conR *ConsensusReactor) HandleRecvKBlockInfo(ki RecvKBlockInfo) {
-	best := conR.chain.BestBlock()
-
-	if ki.Height != best.Number() {
-		conR.logger.Info("kblock info is ignored ...", "received hight", ki.Height, "my best", best.Number())
-		return
-	}
-
-	if !best.IsKBlock() {
-		conR.logger.Info("best block is not kblock")
-		return
-	}
-
-	// can only handle kblock info when pacemaker stopped
-	if conR.csPacemaker.IsStopped() == false {
-		time.AfterFunc(1*time.Second, func() {
-			conR.schedulerQueue <- func() { conR.RcvKBlockInfoQueue <- ki }
-		})
-		conR.csPacemaker.Stop()
-		conR.logger.Info("pacemaker is not fully stopped, wait for another sec ...")
-		return
-	}
-
-	conR.logger.Info("received KBlock ...", "height", ki.Height, "lastKBlockHeight", ki.LastKBlockHeight, "nonce", ki.Nonce, "epoch", ki.Epoch)
-
-	// Now handle this nonce. Exit the committee if it is still in.
-	conR.exitCurCommittee()
-
-	// update last kblock height with current Height sine kblock is handled
-	conR.UpdateLastKBlockHeight(best.Number())
-
-	// run new one.
-	conR.UpdateCurDelegates()
-	conR.ConsensusHandleReceivedNonce(ki.Height, ki.Nonce, ki.Epoch, false)
-}
-
-func (conR *ConsensusReactor) HandleKBlockData(kd block.KBlockData) {
-	conR.kBlockData = &kd
 }
 
 //========================================================

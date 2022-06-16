@@ -129,9 +129,6 @@ bin/meter -h
 - `--nat value`            port mapping mechanism (any|none|upnp|pmp|extip:<IP>) (default: "none")
 - `--help, -h`             show help
 - `--version, -v`          print the version
-- `--force-last-kframe`    force the node to take nonce from last k-block, you don't need this when you start the node with genesis block
-- `--gen-kframe`           periodically generate k-block data
-- `--skip-signature-check` skip the signature check (ONLY for debug)
 
 ### Sub-commands
 

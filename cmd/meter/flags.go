@@ -94,14 +94,6 @@ var (
 		Name:  "export",
 		Usage: "export master key to keystore",
 	}
-	generateKFrameFlag = cli.BoolFlag{
-		Name:  "gen-kframe",
-		Usage: "start a coroutine for kframe generation (FOR TEST ONLY)",
-	}
-	forceLastKFrameFlag = cli.BoolFlag{
-		Name:  "force-last-kframe",
-		Usage: "force to use last K frame",
-	}
 	skipSignatureCheckFlag = cli.BoolFlag{
 		Name:  "skip-signature-check",
 		Usage: "skip signature check",
