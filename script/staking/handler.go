@@ -725,13 +725,13 @@ func (sb *StakingBody) GoverningHandler(env *StakingEnv, gas uint64) (leftOverGa
 			if ts > bkt.CreateTime {
 				denominator := big.NewInt(int64((3600 * 24 * 365) * 100))
 				totalBonus := big.NewInt(int64((ts - bkt.CreateTime) * uint64(bkt.Rate)))
-				totalBonus = totalBonus.Mul(totalBonus, bkt.Value)
-				totalBonus = totalBonus.Div(totalBonus, denominator)
+				totalBonus.Mul(totalBonus, bkt.Value)
+				totalBonus.Div(totalBonus, denominator)
 				log.Debug("in calclating", "bonus votes", totalBonus.Uint64(), "ts", ts, "createTime", bkt.CreateTime)
 
 				// update bucket
 				bkt.BonusVotes = totalBonus.Uint64()
-				bkt.TotalVotes = bkt.TotalVotes.Add(bkt.Value, totalBonus)
+				bkt.TotalVotes.Add(bkt.Value, totalBonus)
 				bkt.CalcLastTime = ts // touch timestamp
 			} else {
 				bkt.BonusVotes = 0
@@ -798,13 +798,13 @@ func (sb *StakingBody) GoverningHandler(env *StakingEnv, gas uint64) (leftOverGa
 			if ts >= bkt.CalcLastTime {
 				denominator := big.NewInt(int64((3600 * 24 * 365) * 100))
 				bonus := big.NewInt(int64((ts - bkt.CalcLastTime) * uint64(bkt.Rate)))
-				bonus = bonus.Mul(bonus, bkt.Value)
-				bonus = bonus.Div(bonus, denominator)
+				bonus.Mul(bonus, bkt.Value)
+				bonus.Div(bonus, denominator)
 				log.Debug("in calclating", "bonus votes", bonus.Uint64(), "ts", ts, "last time", bkt.CalcLastTime)
 
 				// update bucket
 				bkt.BonusVotes += bonus.Uint64()
-				bkt.TotalVotes = bkt.TotalVotes.Add(bkt.TotalVotes, bonus)
+				bkt.TotalVotes.Add(bkt.TotalVotes, bonus)
 				bkt.CalcLastTime = ts // touch timestamp
 
 				// update candidate
