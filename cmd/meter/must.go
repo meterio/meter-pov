@@ -334,6 +334,7 @@ func loadNodeMaster(ctx *cli.Context) (*node.Master, *consensus.BlsCommon) {
 		fatal("load key error: ", err)
 	}
 	master := &node.Master{PrivateKey: ePrivKey, PublicKey: ePubKey}
+	master.SetPublicBytes(keyLoader.publicBytes)
 	master.Beneficiary = beneficiary(ctx)
 	return master, blsCommon
 }
