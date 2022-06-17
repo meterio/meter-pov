@@ -1287,13 +1287,6 @@ func (sb *StakingBody) BucketUpdateHandler(env *StakingEnv, gas uint64) (leftOve
 		return
 	}
 
-	// check if candidate is already listed
-	cand := candidateList.Get(bucket.Candidate)
-	if cand == nil {
-		err = errCandidateNotListed
-		return
-	}
-
 	number := env.GetTxCtx().BlockRef.Number()
 
 	if meter.IsTestChainTeslaFork5(number) || meter.IsMainChainTeslaFork5(number) {
@@ -1304,6 +1297,13 @@ func (sb *StakingBody) BucketUpdateHandler(env *StakingEnv, gas uint64) (leftOve
 			if bucket.Unbounded == true {
 				log.Error(fmt.Sprintf("can not update unbounded bucket, ID %v", sb.StakingID))
 				err = errors.New("can not update unbounded bucket")
+				return
+			}
+
+			// check if candidate is already listed
+			cand := candidateList.Get(bucket.Candidate)
+			if cand == nil {
+				err = errCandidateNotListed
 				return
 			}
 
