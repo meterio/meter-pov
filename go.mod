@@ -21,9 +21,9 @@ require (
 	github.com/google/gofuzz v1.2.0 // indirect
 	github.com/google/uuid v1.1.0 // indirect
 	github.com/gorilla/context v1.1.1 // indirect
-	github.com/gorilla/handlers v1.4.0
+	github.com/gorilla/handlers v1.4.1
 	github.com/gorilla/mux v1.6.2
-	github.com/gorilla/websocket v1.4.0
+	github.com/gorilla/websocket v1.5.0
 	github.com/hashicorp/golang-lru v0.5.0
 	github.com/huin/goupnp v0.0.0-20161224104101-679507af18f3 // indirect
 	github.com/inconshreveable/log15 v0.0.0-20180818164646-67afb5ed74ec
