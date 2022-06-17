@@ -38,8 +38,14 @@ func (p *Pacemaker) proposeBlock(parentBlock *block.Block, height, round uint32,
 		data := &block.KBlockData{uint64(powResults.Nonce), powResults.Raw}
 		rewards := powResults.Rewards
 		blkInfo = p.csReactor.BuildKBlock(parentBlock, data, rewards)
+		if blkInfo == nil {
+			return nil, make([]byte, 0)
+		}
 	} else {
 		blkInfo = p.csReactor.BuildMBlock(parentBlock)
+		if blkInfo == nil {
+			return nil, make([]byte, 0)
+		}
 		lastKBlockHeight := blkInfo.ProposedBlock.LastKBlockHeight()
 		blockNumber := blkInfo.ProposedBlock.Number()
 		if round == 0 || blockNumber == lastKBlockHeight+1 {
@@ -59,6 +65,9 @@ func (p *Pacemaker) proposeStopCommitteeBlock(parentBlock *block.Block, height, 
 	var blkInfo *ProposedBlockInfo
 
 	blkInfo = p.csReactor.BuildStopCommitteeBlock(parentBlock)
+	if blkInfo == nil {
+		return nil, make([]byte, 0)
+	}
 	p.packQuorumCert(blkInfo.ProposedBlock, qc)
 	blockBytes = block.BlockEncodeBytes(blkInfo.ProposedBlock)
 

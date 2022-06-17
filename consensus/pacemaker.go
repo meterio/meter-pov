@@ -127,6 +127,10 @@ func (p *Pacemaker) CreateLeaf(parent *pmBlock, qc *pmQuorumCert, height, round 
 	if parent.ProposedBlockType == KBlockType || parent.ProposedBlockType == StopCommitteeType {
 		p.logger.Info(fmt.Sprintf("Proposed Stop pacemaker message: height=%v, round=%v", height, round))
 		info, blockBytes := p.proposeStopCommitteeBlock(parentBlock, height, round, qc)
+		if info == nil {
+			p.logger.Warn("HELP! could not propose stop committee block")
+			return nil
+		}
 		b := &pmBlock{
 			Height:  height,
 			Round:   round,
@@ -143,6 +147,10 @@ func (p *Pacemaker) CreateLeaf(parent *pmBlock, qc *pmQuorumCert, height, round 
 	}
 
 	info, blockBytes := p.proposeBlock(parentBlock, height, round, qc, (p.timeoutCert != nil))
+	if info == nil {
+		p.logger.Warn("HELP! Could not propose block! ")
+		return nil
+	}
 	p.logger.Info(fmt.Sprintf("Proposed Block: %v", info.ProposedBlock.Oneliner()))
 
 	b := &pmBlock{
@@ -479,6 +487,9 @@ func (p *Pacemaker) OnPropose(b *pmBlock, qc *pmQuorumCert, height, round uint32
 	// p.voterBitArray = cmn.NewBitArray(p.csReactor.committeeSize)
 	// p.voteSigs = make([]*PMSignature, 0)
 	bnew := p.CreateLeaf(b, qc, height, round)
+	if bnew == nil {
+		return nil, errors.New("could not propose block")
+	}
 	proposedBlk := bnew.ProposedBlockInfo.ProposedBlock
 	proposedQC := bnew.ProposedBlockInfo.ProposedBlock.QC
 	if bnew.Height != height || height != proposedBlk.Number() {
