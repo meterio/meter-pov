@@ -1264,41 +1264,32 @@ func (sb *StakingBody) BucketUpdateHandler(env *StakingEnv, gas uint64) (leftOve
 		return
 	}
 
+	// check if candidate is already listed
+	cand := candidateList.Get(bucket.Candidate)
+	if cand == nil {
+		err = errCandidateNotListed
+		return
+	}
+
 	// Now allow to change forever lock amount
 	number := env.GetTxCtx().BlockRef.Number()
 
-	if meter.IsTestNet() || (meter.IsMainNet() && number > meter.Tesla1_1MainnetStartNum) {
-
-		/****
-		if bucket.IsForeverLock() == true {
-			log.Error(fmt.Sprintf("can not update the bucket, ID %v", sb.StakingID))
-			err = errUpdateForeverBucket
-		}
-		***/
-
-		// can not update unbouded bucket
-		if bucket.Unbounded == true {
-			log.Error(fmt.Sprintf("can not update unbounded bucket, ID %v", sb.StakingID))
-			err = errors.New("can not update unbounded bucket")
-			return
-		}
-
+	if meter.IsTestChainTeslaFork5(number) || meter.IsMainChainTeslaFork5(number) {
+		// ---------------------------------------
+		// AFTER TESLA FORK 5 : support bucket sub
+		// ---------------------------------------
 		if sb.Option == BUCKET_SUB_OPT {
-			if sb.Amount.Cmp(MIN_SUB_BALANCE) < 0 {
-				err = errors.New("limit MIN_SUB_BALANCE")
+			if bucket.Unbounded == true {
+				log.Error(fmt.Sprintf("can not update unbounded bucket, ID %v", sb.StakingID))
+				err = errors.New("can not update unbounded bucket")
 				return
 			}
 
+			// sanity check before doing the sub
+			valueAfterSub := new(big.Int).Sub(bucket.Value, sb.Amount)
 			if bucket.IsForeverLock() {
-				if bucket.Value.Sub(bucket.Value, sb.Amount).Cmp(MIN_REQUIRED_BY_DELEGATE) < 0 {
+				if valueAfterSub.Cmp(MIN_REQUIRED_BY_DELEGATE) < 0 {
 					err = errors.New("limit MIN_REQUIRED_BY_DELEGATE")
-					return
-				}
-
-				// if the candidate already exists return error without paying gas
-				cand := candidateList.Get(sb.CandAddr)
-				if cand == nil {
-					err = errCandidateNotListed
 					return
 				}
 
@@ -1307,128 +1298,57 @@ func (sb *StakingBody) BucketUpdateHandler(env *StakingEnv, gas uint64) (leftOve
 					return leftOverGas, errCandidateNotEnoughSelfVotes
 				}
 			} else {
-				if bucket.Value.Sub(bucket.Value, sb.Amount).Cmp(MIN_BOUND_BALANCE) < 0 {
+				if valueAfterSub.Cmp(MIN_BOUND_BALANCE) < 0 {
 					err = errors.New("limit MIN_BOUND_BALANCE")
 					return
 				}
 			}
 
+			// bonusDelta is the bonus change due to amount sub
+			denominator := big.NewInt(int64((3600 * 24 * 365) * 100))
+			bonusDelta := big.NewInt(int64((sb.Timestamp - bucket.CreateTime) * uint64(bucket.Rate)))
+			bonusDelta.Mul(bonusDelta, sb.Amount)
+			bonusDelta.Div(bonusDelta, denominator)
+
+			// update old bucket
+			bucket.Value.Sub(bucket.Value, sb.Amount)
+			bucket.BonusVotes = bucket.BonusVotes - bonusDelta.Uint64()
 			bucket.TotalVotes.Sub(bucket.TotalVotes, sb.Amount)
-			if !bucket.Candidate.IsZero() {
-				if cand := candidateList.Get(bucket.Candidate); cand != nil {
-					cand.TotalVotes.Sub(cand.TotalVotes, sb.Amount)
-				}
-			}
+			bucket.TotalVotes.Sub(bucket.TotalVotes, bonusDelta)
 
-			//if number >= 3418000 && bucket.Candidate != sb.CandAddr {
-			//	err = errBucketOwnerMismatch
-			//	return
-			//}
+			// update candidate
+			cand.TotalVotes.Sub(cand.TotalVotes, sb.Amount)
+			cand.TotalVotes.Sub(cand.TotalVotes, bonusDelta)
 
-			//if number < 3418000 {
-			//subBucket := NewBucket(bucket.Owner, bucket.Candidate, sb.Amount, uint8(bucket.Token), bucket.Option, bucket.Rate, sb.Autobid, sb.Timestamp, sb.Nonce)
-			//subBucket.Unbounded = true
-			//subBucket.MatureTime = sb.Timestamp + GetBoundLocktime(subBucket.Option) // lock time
-			//
-			//bucketList.Add(subBucket)
-			//
-			//staking.SetBucketList(bucketList, state)
-			//staking.SetCandidateList(candidateList, state)
-			//return
-			//} else if number >= meter.FixSubVote {
-			// scriptBody include bucket id and amount
-			// bucket or scriptBody
+			// create unbounded new bucket
 			newBucket := NewBucket(bucket.Owner, bucket.Candidate, sb.Amount, uint8(bucket.Token), ONE_WEEK_LOCK, bucket.Rate, bucket.Autobid, sb.Timestamp, sb.Nonce)
-
-			//sb.Amount / bucket.Value
-
-			// sanity check done, take actions
 			newBucket.Unbounded = true
 			newBucket.MatureTime = sb.Timestamp + GetBoundLocktime(newBucket.Option) // lock time
+			newBucketID := newBucket.BucketID
 
-			//stakeholder := stakeholderList.Get(sb.HolderAddr) // ?? bucket.Owner
-			stakeholder := stakeholderList.Get(bucket.Owner) // ??
-			//if stakeholder == nil {
-			//	stakeholder = NewStakeholder(sb.HolderAddr)
-			//}
-			//	stakeholder.AddBucket(bucket)
-
-			bucketID := newBucket.BucketID
-
-			//bucket.TotalVotes.Sub(bucket.TotalVotes, sb.Amount)
-
-			// Now so far so good, calc interest first
-			//bonus := TouchBucketBonus(bucket.CreateTime, bucket)
-
-			_oldBonusVotes := new(big.Int).SetUint64(bucket.BonusVotes)
-
-			// update bucket values
-			changeBonusVotes := big.NewInt(0)
-			changeBonusVotes.Mul(_oldBonusVotes, sb.Amount)
-			changeBonusVotes.Div(changeBonusVotes, bucket.Value)
-
-			bucket.Value.Sub(bucket.Value, sb.Amount)
-			bucket.BonusVotes -= changeBonusVotes.Uint64()
-			bucket.TotalVotes.Sub(bucket.TotalVotes, sb.Amount)
-			bucket.TotalVotes.Sub(bucket.TotalVotes, changeBonusVotes)
-
-			newBucket.BonusVotes += changeBonusVotes.Uint64()
-			newBucket.TotalVotes.Add(newBucket.Value, changeBonusVotes)
-
-			// update candidate, for both bonus and increase amount
-			//if bucket.Candidate.IsZero() == false {
-			//	if cand := candidateList.Get(bucket.Candidate); cand != nil {
-			//		cand.TotalVotes.Sub(cand.TotalVotes, bonus)
-			//		cand.TotalVotes.Sub(cand.TotalVotes, sb.Amount)
-			//	}
-			//}
-
-			//} else {
-			//stakeholder.AddBucket(newBucket)
-			stakeholder.Buckets = append(stakeholder.Buckets, bucketID)
-			//stakeholderList.Add(stakeholder)
-			//}
-
+			// update bucket list with new bucket
 			bucketList.Add(newBucket)
 
-			// if the candidate already exists return error without paying gas
-			cand := candidateList.Get(sb.CandAddr)
-			if cand == nil {
-				err = errCandidateNotListed
-				return
-			}
-			cand.Buckets = append(cand.Buckets, bucketID)
+			// update stake holder list with new bucket
+			stakeholder := stakeholderList.Get(bucket.Owner)
+			stakeholder.Buckets = append(stakeholder.Buckets, newBucketID)
 
 			staking.SetBucketList(bucketList, state)
 			staking.SetCandidateList(candidateList, state)
 			staking.SetStakeHolderList(stakeholderList, state)
-
 			return
-			//} else {
-			//newBucket := NewBucket(bucket.Owner, sb.CandAddr, sb.Amount, uint8(bucket.Token), ONE_WEEK_LOCK, bucket.Rate, sb.Autobid, sb.Timestamp, sb.Nonce)
-			//
-			//bucketList.Add(newBucket)
-			//
-			//// sanity check done, take actions
-			//newBucket.Unbounded = true
-			//newBucket.MatureTime = sb.Timestamp + GetBoundLocktime(newBucket.Option) // lock time
-			//
-			//stakeholder := stakeholderList.Get(sb.HolderAddr)
-			////if stakeholder == nil {
-			////	stakeholder = NewStakeholder(sb.HolderAddr)
-			////	stakeholder.AddBucket(bucket)
-			//
-			////} else {
-			//stakeholder.AddBucket(newBucket)
-			//stakeholderList.Add(stakeholder)
-			////}
-			//
-			//staking.SetBucketList(bucketList, state)
-			//staking.SetCandidateList(candidateList, state)
-			//staking.SetStakeHolderList(stakeholderList, state)
-			//
-			//return
-			//}
+		}
+	}
+
+	// ---------------------------------------
+	// BEFORE TESLA FORK 5 : Only support bucket add
+	// ---------------------------------------
+	if meter.IsTestNet() || (meter.IsMainNet() && number > meter.Tesla1_1MainnetStartNum) {
+		// can not update unbouded bucket
+		if bucket.Unbounded == true {
+			log.Error(fmt.Sprintf("can not update unbounded bucket, ID %v", sb.StakingID))
+			err = errors.New("can not update unbounded bucket")
+			return
 		}
 
 		if state.GetBalance(sb.HolderAddr).Cmp(sb.Amount) < 0 {

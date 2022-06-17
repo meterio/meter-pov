@@ -83,14 +83,14 @@ func CheckEnoughSelfVotes(subVotes *big.Int, c *Candidate, bl *BucketList, selfV
 	for _, b := range bkts {
 		_selfTotal = _selfTotal.Add(_selfTotal, b.TotalVotes)
 	}
-	selfTotal := new(big.Int).Sub(_selfTotal, subVotes)
+	_selfTotal.Sub(_selfTotal, subVotes)
 
 	//should: candidate total votes/ self votes <= selfVoteRatio
 	// c.TotalVotes is candidate total votes
 	_allTotal := new(big.Int).Sub(c.TotalVotes, subVotes)
 	limitMinTotal := _allTotal.Div(_allTotal, big.NewInt(selfVoteRatio))
 
-	if limitMinTotal.Cmp(selfTotal) > 0 {
+	if limitMinTotal.Cmp(_selfTotal) > 0 {
 		return false
 	}
 
