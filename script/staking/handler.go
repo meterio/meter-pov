@@ -670,8 +670,11 @@ func (sb *StakingBody) GoverningHandler(env *StakingEnv, gas uint64) (leftOverGa
 
 	// start to calc next round delegates
 	ts := sb.Timestamp
-	if meter.IsMainChainTeslaFork5(env.GetTxCtx().BlockRef.Number()) || meter.IsTestChainTeslaFork5(env.GetTxCtx().BlockRef.Number()) {
-		// AFTER FORK 5
+	number := env.GetTxCtx().BlockRef.Number()
+	if meter.IsMainChainTeslaFork5(number) || meter.IsTestChainTeslaFork5(number) {
+		// ---------------------------------------
+		// AFTER TESLA FORK 5 : update bucket bonus and candidate total votes with full range re-calc
+		// ---------------------------------------
 		for i := 0; i < len(bucketList.buckets); i++ {
 			bkt := bucketList.buckets[i]
 
@@ -752,7 +755,9 @@ func (sb *StakingBody) GoverningHandler(env *StakingEnv, gas uint64) (leftOverGa
 			}
 		}
 	} else {
-		// BEFORE FORK 5
+		// ---------------------------------------
+		// BEFORE TESLA FORK 5 : update bucket bonus by timestamp delta, update candidate total votes accordingly
+		// ---------------------------------------
 		for _, bkt := range bucketList.buckets {
 
 			log.Debug("before handling", "bucket", bkt.ToString())
@@ -969,10 +974,23 @@ func (sb *StakingBody) CandidateUpdateHandler(env *StakingEnv, gas uint64) (left
 		return
 	}
 
+	number := env.GetTxCtx().BlockRef.Number()
 	if in := inJailList.Exist(sb.CandAddr); in == true {
-		inJail := inJailList.Get(sb.CandAddr)
-		inJail.Name = sb.CandName
-		inJail.PubKey = sb.CandPubKey
+		if meter.IsMainChainTeslaFork5(number) || meter.IsTestChainTeslaFork5(number) {
+			// ---------------------------------------
+			// AFTER TESLA FORK 5 : candidate in jail allowed to be updated
+			// ---------------------------------------
+			inJail := inJailList.Get(sb.CandAddr)
+			inJail.Name = sb.CandName
+			inJail.PubKey = sb.CandPubKey
+		} else {
+			// ---------------------------------------
+			// BEFORE TESLA FORK 5 : candidate in jail is not allowed to be updated
+			// ---------------------------------------
+			log.Info("in jail list, exit first ...", "address", sb.CandAddr, "name", sb.CandName)
+			err = errCandidateInJail
+			return
+		}
 	}
 
 	var changed bool
@@ -1051,7 +1069,12 @@ func (sb *StakingBody) CandidateUpdateHandler(env *StakingEnv, gas uint64) (left
 		return
 	}
 
-	staking.SetInJailList(inJailList, state)
+	if meter.IsMainChainTeslaFork5(number) || meter.IsTestChainTeslaFork5(number) {
+		// ---------------------------------------
+		// AFTER TESLA FORK 5 : candidate in jail allowed to be updated, and injail list is saved
+		// ---------------------------------------
+		staking.SetInJailList(inJailList, state)
+	}
 	staking.SetBucketList(bucketList, state)
 	staking.SetCandidateList(candidateList, state)
 	return
@@ -1271,7 +1294,6 @@ func (sb *StakingBody) BucketUpdateHandler(env *StakingEnv, gas uint64) (leftOve
 		return
 	}
 
-	// Now allow to change forever lock amount
 	number := env.GetTxCtx().BlockRef.Number()
 
 	if meter.IsTestChainTeslaFork5(number) || meter.IsMainChainTeslaFork5(number) {
@@ -1344,7 +1366,7 @@ func (sb *StakingBody) BucketUpdateHandler(env *StakingEnv, gas uint64) (leftOve
 	// BEFORE TESLA FORK 5 : Only support bucket add
 	// ---------------------------------------
 	if meter.IsTestNet() || (meter.IsMainNet() && number > meter.Tesla1_1MainnetStartNum) {
-		// can not update unbouded bucket
+		// Now allow to change forever lock amount
 		if bucket.Unbounded == true {
 			log.Error(fmt.Sprintf("can not update unbounded bucket, ID %v", sb.StakingID))
 			err = errors.New("can not update unbounded bucket")
