@@ -94,10 +94,6 @@ var (
 		Name:  "export",
 		Usage: "export master key to keystore",
 	}
-	skipSignatureCheckFlag = cli.BoolFlag{
-		Name:  "skip-signature-check",
-		Usage: "skip signature check",
-	}
 	powNodeFlag = cli.StringFlag{
 		Name:  "pow-node",
 		Usage: "address of pow node",
