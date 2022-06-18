@@ -1300,13 +1300,6 @@ func (sb *StakingBody) BucketUpdateHandler(env *StakingEnv, gas uint64) (leftOve
 				return
 			}
 
-			// check if candidate is already listed
-			cand := candidateList.Get(bucket.Candidate)
-			if cand == nil {
-				err = errCandidateNotListed
-				return
-			}
-
 			// sanity check before doing the sub
 			valueAfterSub := new(big.Int).Sub(bucket.Value, sb.Amount)
 			if bucket.IsForeverLock() {
@@ -1314,8 +1307,13 @@ func (sb *StakingBody) BucketUpdateHandler(env *StakingEnv, gas uint64) (leftOve
 					err = errors.New("limit MIN_REQUIRED_BY_DELEGATE")
 					return
 				}
+				self := candidateList.Get(bucket.Owner)
+				if self == nil {
+					err = errCandidateNotListed
+					return
+				}
 
-				selfRatioValid := CheckEnoughSelfVotes(sb.Amount, cand, bucketList, TESLA1_1_SELF_VOTE_RATIO)
+				selfRatioValid := CheckEnoughSelfVotes(sb.Amount, self, bucketList, TESLA1_1_SELF_VOTE_RATIO)
 				if !selfRatioValid {
 					return leftOverGas, errCandidateNotEnoughSelfVotes
 				}
@@ -1339,8 +1337,12 @@ func (sb *StakingBody) BucketUpdateHandler(env *StakingEnv, gas uint64) (leftOve
 			bucket.TotalVotes.Sub(bucket.TotalVotes, bonusDelta)
 
 			// update candidate
-			cand.TotalVotes.Sub(cand.TotalVotes, sb.Amount)
-			cand.TotalVotes.Sub(cand.TotalVotes, bonusDelta)
+			// check if candidate is already listed
+			cand := candidateList.Get(bucket.Candidate)
+			if cand != nil {
+				cand.TotalVotes.Sub(cand.TotalVotes, sb.Amount)
+				cand.TotalVotes.Sub(cand.TotalVotes, bonusDelta)
+			}
 
 			// create unbounded new bucket
 			newBucket := NewBucket(bucket.Owner, bucket.Candidate, sb.Amount, uint8(bucket.Token), ONE_WEEK_LOCK, bucket.Rate, bucket.Autobid, sb.Timestamp, sb.Nonce)
