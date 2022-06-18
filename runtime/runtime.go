@@ -181,7 +181,7 @@ func (rt *Runtime) EnforceTelsaFork1_1Corrections() {
 	}
 }
 
-func (rt *Runtime) EnforceTelsaFork5_Corrections() {
+func (rt *Runtime) EnforceTeslaFork5_Corrections() {
 	blockNumber := rt.Context().Number
 	if blockNumber > 0 && meter.IsMainNet() {
 		// flag is nil or 0, is not do. 1 meas done.
@@ -545,6 +545,7 @@ func (rt *Runtime) PrepareClause(
 		// check meterNative after sysContract support
 		rt.LoadERC20NativeCotract()
 		rt.EnforceTelsaFork1_1Corrections()
+		rt.EnforceTeslaFork5_Corrections()
 
 		// check the restriction of transfer.
 		if rt.restrictTransfer(stateDB, txCtx.Origin, clause.Value(), clause.Token(), txCtx.BlockRef.Number()) == true {
