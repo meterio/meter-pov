@@ -151,6 +151,7 @@ func loadDelegates(ctx *cli.Context, blsCommon *consensus.BlsCommon) []*types.De
 		}
 
 		dd := types.NewDelegate([]byte(d.Name), addr, *pubKey, *blsPub, d.VotingPower, types.COMMISSION_RATE_DEFAULT)
+		dd.SetInternCombinePublicKey(string(d.PubKey))
 		dd.NetAddr = d.NetAddr
 		delegates = append(delegates, dd)
 	}
