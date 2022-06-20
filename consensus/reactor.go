@@ -380,6 +380,8 @@ func (conR *ConsensusReactor) VerifyBothPubKey() {
 	for _, d := range conR.curDelegates.Delegates {
 		if bytes.Equal(crypto.FromECDSAPub(&d.PubKey), crypto.FromECDSAPub(&conR.myPubKey)) == true {
 			if conR.GetCombinePubKey() != d.GetInternCombinePubKey() {
+				fmt.Println("Combine PubKey: ", conR.GetCombinePubKey())
+				fmt.Println("Intern Combine PubKey: ", d.GetInternCombinePubKey())
 				panic("ECDSA key found in delegate list, but combinePubKey mismatch")
 			}
 
