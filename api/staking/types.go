@@ -74,7 +74,7 @@ type Bucket struct {
 	Rate         uint8         `json:"rate"`
 	Option       uint32        `json:"option"`
 	Autobid      uint8         `json:"autobid"`
-	BonusVotes   uint64        `json:"bonusVotes"`
+	BonusVotes   string        `json:"bonusVotes"`
 	TotalVotes   string        `json:"totalVotes"`
 	MatureTime   uint64        `json:"matureTime"`
 	CalcLastTime uint64        `json:"calcLastTime"`
@@ -102,7 +102,7 @@ func convertBucket(b *staking.Bucket) *Bucket {
 		Rate:         b.Rate,
 		Option:       b.Option,
 		Autobid:      b.Autobid,
-		BonusVotes:   b.BonusVotes,
+		BonusVotes:   new(big.Int).Sub(b.TotalVotes, b.Value).String(),
 		TotalVotes:   b.TotalVotes.String(),
 		MatureTime:   b.MatureTime,
 		CalcLastTime: b.CalcLastTime,

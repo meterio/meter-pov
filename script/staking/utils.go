@@ -306,6 +306,7 @@ func GetInternalDelegateList() ([]*types.DelegateIntern, error) {
 	return delegateList, nil
 }
 
+// deprecated warning: BonusVotes will always be 0 after Tesla Fork 5
 func TouchBucketBonus(ts uint64, bucket *Bucket) *big.Int {
 	if ts < bucket.CalcLastTime {
 		return big.NewInt(0)

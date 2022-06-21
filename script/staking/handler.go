@@ -733,14 +733,14 @@ func (sb *StakingBody) GoverningHandler(env *StakingEnv, gas uint64) (leftOverGa
 				log.Debug("in calclating", "bonus votes", totalBonus.Uint64(), "ts", ts, "createTime", bkt.CreateTime)
 
 				// update bucket
-				bkt.BonusVotes = totalBonus.Uint64()
 				bkt.TotalVotes.Add(bkt.Value, totalBonus)
 				bkt.CalcLastTime = ts // touch timestamp
 			} else {
-				bkt.BonusVotes = 0
 				bkt.TotalVotes = bkt.Value
 				bkt.CalcLastTime = ts
 			}
+			// deprecated BonusVotes, it could be inferred by TotalVotes - Value
+			bkt.BonusVotes = 0
 
 			if _, ok := candTotalVotes[bkt.Candidate]; !ok {
 				candTotalVotes[bkt.Candidate] = big.NewInt(0)
@@ -1332,7 +1332,7 @@ func (sb *StakingBody) BucketUpdateHandler(env *StakingEnv, gas uint64) (leftOve
 
 			// update old bucket
 			bucket.Value.Sub(bucket.Value, sb.Amount)
-			bucket.BonusVotes = bucket.BonusVotes - bonusDelta.Uint64()
+			// bucket.BonusVotes = bucket.BonusVotes - bonusDelta.Uint64()
 			bucket.TotalVotes.Sub(bucket.TotalVotes, sb.Amount)
 			bucket.TotalVotes.Sub(bucket.TotalVotes, bonusDelta)
 

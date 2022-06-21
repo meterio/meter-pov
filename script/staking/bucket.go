@@ -23,17 +23,19 @@ type Bucket struct {
 	CreateTime uint64        // bucket create time
 
 	//non-key fields
-	Value        *big.Int      // staking unit Wei
-	Token        uint8         // token type MTR / MTRG
-	Unbounded    bool          // this bucket is unbounded, get rid of it after mature
-	Candidate    meter.Address // candidate
-	Rate         uint8         // bounus rate
-	Autobid      uint8         // autobid percentile
-	Option       uint32        // option, link with rate
-	BonusVotes   uint64        // extra votes from staking
-	TotalVotes   *big.Int      // Value votes + extra votes
-	MatureTime   uint64        // time durations, seconds
-	CalcLastTime uint64        // last calculate bounus votes timestamp
+	Value     *big.Int      // staking unit Wei
+	Token     uint8         // token type MTR / MTRG
+	Unbounded bool          // this bucket is unbounded, get rid of it after mature
+	Candidate meter.Address // candidate
+	Rate      uint8         // bounus rate
+	Autobid   uint8         // autobid percentile
+	Option    uint32        // option, link with rate
+	// deprecated: BonusVotes, will always be 0
+	// bonus could be inferred by TotalVotes - Value
+	BonusVotes   uint64   // extra votes from staking
+	TotalVotes   *big.Int // Value votes + extra votes
+	MatureTime   uint64   // time durations, seconds
+	CalcLastTime uint64   // last calculate bounus votes timestamp
 }
 
 //bucketID Candidate .. are excluded
