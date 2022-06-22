@@ -189,23 +189,32 @@ func (rt *Runtime) EnforceTeslaFork5_Corrections() {
 
 		if blockNumber > meter.TeslaFork5_MainnetStartNum && (enforceFlag == nil || enforceFlag.Sign() == 0) {
 			// Tesla 5 Fork
-			fmt.Println("Start to correct Tesla Fork 5 Error Account")
+			fmt.Println("Start to override MTRG V1 with V2 bytecode")
+			mtrgV2Addr := meter.MustParseAddress("0x228ebbee999c6a7ad74a6130e81b12f9fe237ba3")
+			mtrgV1Addr := meter.MustParseAddress("0x5729cb3716a315d0bde3b5e489163bf8b9659436")
+			code := rt.state.GetCode(mtrgV2Addr)
+			rt.state.SetCode(mtrgV1Addr, code)
+			fmt.Println("Override MTRG V1 with V2 bytecode: DONE")
+
+			fmt.Println("Start to Call bonus correction")
+			script.EnforceTeslaFork5BonusCorrections(rt.State(), rt.Context().Time)
+			fmt.Println("Call bonus correction: DONE")
+
+			fmt.Println("Start to correct Tesla Fork 5 Account with wrong bounded balance")
 			targetAddress := meter.MustParseAddress("0x08ebea6584b3d9bf6fbcacf1a1507d00a61d95b7")
 			bal := rt.state.GetBalance(targetAddress)
 			bounded := rt.state.GetBoundedBalance(targetAddress)
 			offset := new(big.Int).Mul(big.NewInt(1000000), big.NewInt(1e18))
+
 			if bal.Cmp(offset) > 0 {
 				bal = new(big.Int).Sub(bal, offset)
 				bounded := new(big.Int).Add(bounded, offset)
 				rt.state.SetBalance(targetAddress, bal)
 				rt.state.SetBoundedBalance(targetAddress, bounded)
-				builtin.Params.Native(rt.State()).Set(meter.KeyEnforceTesla5_Correction, big.NewInt(1))
 			}
+			fmt.Println("Correct Tesla Fork 5 account with wrong bounded balance: DONE")
+			builtin.Params.Native(rt.State()).Set(meter.KeyEnforceTesla5_Correction, big.NewInt(1))
 
-			mtrgV2Addr := meter.MustParseAddress("0x228ebbee999c6a7ad74a6130e81b12f9fe237ba3")
-			mtrgV1Addr := meter.MustParseAddress("0x5729cb3716a315d0bde3b5e489163bf8b9659436")
-			code := rt.state.GetCode(mtrgV2Addr)
-			rt.state.SetCode(mtrgV1Addr, code)
 		}
 	}
 }

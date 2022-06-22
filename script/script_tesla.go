@@ -131,3 +131,26 @@ func LoadStakeCorrections() []*StakingCorrection {
 	}
 	return corrections
 }
+
+func EnforceTeslaFork5BonusCorrections(state *state.State, ts uint64) {
+	se := GetScriptGlobInst()
+	if se == nil {
+		panic("get script engine failed ... ")
+	}
+
+	mod, find := se.modReg.Find(STAKING_MODULE_ID)
+	if find == false {
+		err := fmt.Errorf("could not address module %v", STAKING_MODULE_ID)
+		fmt.Println(err)
+		return
+	}
+
+	stk := mod.modPtr.(*staking.Staking)
+	if stk == nil {
+		err := fmt.Errorf("could not address module %v", STAKING_MODULE_ID)
+		fmt.Println(err)
+		return
+	}
+	stk.EnforceTeslaFork5BonusCorrection(state)
+	fmt.Println("Enforce TeslaFork5 Bonus Corrections done...")
+}

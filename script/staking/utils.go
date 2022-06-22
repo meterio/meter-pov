@@ -312,16 +312,26 @@ func TouchBucketBonus(ts uint64, bucket *Bucket) *big.Int {
 		return big.NewInt(0)
 	}
 
-	denominator := big.NewInt(int64((3600 * 24 * 365) * 100))
-	bonus := big.NewInt(int64((ts - bucket.CalcLastTime) * uint64(bucket.Rate)))
-	bonus = bonus.Mul(bonus, bucket.Value)
-	bonus = bonus.Div(bonus, denominator)
-	log.Debug("calclate the bonus", "bonus votes", bonus.Uint64(), "ts", ts, "last time", bucket.CalcLastTime)
+	bonusDelta := CalcBonus(bucket.CalcLastTime, ts, bucket.Rate, bucket.Value)
+	log.Debug("calclate the bonus", "bonus votes", bonusDelta.Uint64(), "ts", ts, "last time", bucket.CalcLastTime)
 
 	// update bucket
-	bucket.BonusVotes += bonus.Uint64()
-	bucket.TotalVotes = bucket.TotalVotes.Add(bucket.TotalVotes, bonus)
+	bucket.BonusVotes += bonusDelta.Uint64()
+	bucket.TotalVotes = bucket.TotalVotes.Add(bucket.TotalVotes, bonusDelta)
 	bucket.CalcLastTime = ts // touch timestamp
+
+	return bonusDelta
+}
+
+func CalcBonus(fromTS uint64, toTS uint64, rate uint8, value *big.Int) *big.Int {
+	if toTS < fromTS {
+		return big.NewInt(0)
+	}
+
+	denominator := big.NewInt(int64((3600 * 24 * 365) * 100))
+	bonus := big.NewInt(int64((toTS - fromTS) * uint64(rate)))
+	bonus = bonus.Mul(bonus, value)
+	bonus = bonus.Div(bonus, denominator)
 
 	return bonus
 }
@@ -364,4 +374,50 @@ func (staking *Staking) EnforceTeslaFor1_1Correction(bid meter.Bytes32, owner me
 
 	staking.SetBucketList(bucketList, state)
 	staking.SetCandidateList(candidateList, state)
+}
+
+func (staking *Staking) EnforceTeslaFork5BonusCorrection(state *state.State) {
+
+	candidateList := staking.GetCandidateList(state)
+	bucketList := staking.GetBucketList(state)
+
+	fmt.Println("Tesla Fork 5 Recalculate Total Votes")
+	candTotalVotes := make(map[meter.Address]*big.Int)
+	// Calcuate bonus from createTime
+	for _, bkt := range bucketList.buckets {
+		// now calc the bonus votes
+		ts := bkt.CalcLastTime
+		if ts > bkt.CreateTime {
+			totalBonus := CalcBonus(bkt.CreateTime, ts, bkt.Rate, bkt.Value)
+
+			// update bucket
+			bkt.TotalVotes.Add(bkt.Value, totalBonus)
+			bkt.CalcLastTime = ts // touch timestamp
+			log.Info("update bucket", "id", bkt.ID(), "bonus", totalBonus.Uint64(), "value", bkt.Value.String(), "totalVotes", bkt.TotalVotes.String(), "ts", ts, "createTime", bkt.CreateTime)
+		} else {
+			bkt.TotalVotes = bkt.Value
+			bkt.CalcLastTime = ts
+
+			log.Info("update bucket", "id", bkt.ID(), "bonus", 0, "totalVotes", bkt.TotalVotes.String(), "value", bkt.Value.String(), "totalVotes", bkt.TotalVotes.String(), "ts", ts, "createTime", bkt.CreateTime)
+		}
+		// deprecated BonusVotes, it could be inferred by TotalVotes - Value
+		bkt.BonusVotes = 0
+
+		if _, ok := candTotalVotes[bkt.Candidate]; !ok {
+			candTotalVotes[bkt.Candidate] = big.NewInt(0)
+		}
+		candTotalVotes[bkt.Candidate] = new(big.Int).Add(candTotalVotes[bkt.Candidate], bkt.TotalVotes)
+	}
+
+	// Update candidate with new total votes
+	for addr, totalVotes := range candTotalVotes {
+		if cand := candidateList.Get(addr); cand != nil {
+			log.Info("update candidate", "name", cand.Name, "address", cand.Addr, "oldTotalVotes", cand.TotalVotes.String(), "newTotalVotes", totalVotes.String(), "delta", new(big.Int).Sub(totalVotes, cand.TotalVotes).String())
+			cand.TotalVotes = totalVotes
+		}
+	}
+
+	staking.SetBucketList(bucketList, state)
+	staking.SetCandidateList(candidateList, state)
+	fmt.Println("Tesla Fork 5 Recalculate Bonus Votes: DONE")
 }

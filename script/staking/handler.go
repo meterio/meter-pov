@@ -675,6 +675,8 @@ func (sb *StakingBody) GoverningHandler(env *StakingEnv, gas uint64) (leftOverGa
 		// ---------------------------------------
 		// AFTER TESLA FORK 5 : update bucket bonus and candidate total votes with full range re-calc
 		// ---------------------------------------
+		// Handle Unbound
+		// changes: delete during loop pattern
 		for i := 0; i < len(bucketList.buckets); i++ {
 			bkt := bucketList.buckets[i]
 
@@ -718,42 +720,28 @@ func (sb *StakingBody) GoverningHandler(env *StakingEnv, gas uint64) (leftOverGa
 			} else {
 				log.Debug("no changes to bucket", "id", bkt.ID().String())
 			}
-		}
+		} // End of Handle Unbound
 
-		candTotalVotes := make(map[meter.Address]*big.Int)
-
-		// Calcuate bonus from createTime
+		// Add bonus delta
+		// changes: deprecated BonusVotes
 		for _, bkt := range bucketList.buckets {
-			// now calc the bonus votes
-			if ts > bkt.CreateTime {
-				denominator := big.NewInt(int64((3600 * 24 * 365) * 100))
-				totalBonus := big.NewInt(int64((ts - bkt.CreateTime) * uint64(bkt.Rate)))
-				totalBonus.Mul(totalBonus, bkt.Value)
-				totalBonus.Div(totalBonus, denominator)
-				log.Debug("in calclating", "bonus votes", totalBonus.Uint64(), "ts", ts, "createTime", bkt.CreateTime)
+			if ts >= bkt.CalcLastTime {
+				bonusDelta := CalcBonus(bkt.CalcLastTime, ts, bkt.Rate, bkt.Value)
+				log.Info("add bonus delta", "id", bkt.ID(), "bonusDelta", bonusDelta.String(), "ts", ts, "last time", bkt.CalcLastTime)
 
 				// update bucket
-				bkt.TotalVotes.Add(bkt.Value, totalBonus)
+				bkt.BonusVotes = 0
+				bkt.TotalVotes.Add(bkt.TotalVotes, bonusDelta)
 				bkt.CalcLastTime = ts // touch timestamp
-			} else {
-				bkt.TotalVotes = bkt.Value
-				bkt.CalcLastTime = ts
-			}
-			// deprecated BonusVotes, it could be inferred by TotalVotes - Value
-			bkt.BonusVotes = 0
 
-			if _, ok := candTotalVotes[bkt.Candidate]; !ok {
-				candTotalVotes[bkt.Candidate] = big.NewInt(0)
+				// update candidate
+				if bkt.Candidate.IsZero() == false {
+					if cand := candidateList.Get(bkt.Candidate); cand != nil {
+						cand.TotalVotes = cand.TotalVotes.Add(cand.TotalVotes, bonusDelta)
+					}
+				}
 			}
-			candTotalVotes[bkt.Candidate] = new(big.Int).Add(candTotalVotes[bkt.Candidate], bkt.TotalVotes)
-		}
-
-		// Update candidate with new total votes
-		for addr, totalVotes := range candTotalVotes {
-			if cand := candidateList.Get(addr); cand != nil {
-				cand.TotalVotes = totalVotes
-			}
-		}
+		} // End of Add bonus delta
 	} else {
 		// ---------------------------------------
 		// BEFORE TESLA FORK 5 : update bucket bonus by timestamp delta, update candidate total votes accordingly
@@ -801,21 +789,18 @@ func (sb *StakingBody) GoverningHandler(env *StakingEnv, gas uint64) (leftOverGa
 
 			// now calc the bonus votes
 			if ts >= bkt.CalcLastTime {
-				denominator := big.NewInt(int64((3600 * 24 * 365) * 100))
-				bonus := big.NewInt(int64((ts - bkt.CalcLastTime) * uint64(bkt.Rate)))
-				bonus.Mul(bonus, bkt.Value)
-				bonus.Div(bonus, denominator)
-				log.Debug("in calclating", "bonus votes", bonus.Uint64(), "ts", ts, "last time", bkt.CalcLastTime)
+				bonusDelta := CalcBonus(bkt.CalcLastTime, ts, bkt.Rate, bkt.Value)
+				log.Debug("in calclating", "bonus votes", bonusDelta.Uint64(), "ts", ts, "last time", bkt.CalcLastTime)
 
 				// update bucket
-				bkt.BonusVotes += bonus.Uint64()
-				bkt.TotalVotes.Add(bkt.TotalVotes, bonus)
+				bkt.BonusVotes += bonusDelta.Uint64()
+				bkt.TotalVotes.Add(bkt.TotalVotes, bonusDelta)
 				bkt.CalcLastTime = ts // touch timestamp
 
 				// update candidate
 				if bkt.Candidate.IsZero() == false {
 					if cand := candidateList.Get(bkt.Candidate); cand != nil {
-						cand.TotalVotes = cand.TotalVotes.Add(cand.TotalVotes, bonus)
+						cand.TotalVotes = cand.TotalVotes.Add(cand.TotalVotes, bonusDelta)
 					}
 				}
 			}
@@ -1323,29 +1308,11 @@ func (sb *StakingBody) BucketUpdateHandler(env *StakingEnv, gas uint64) (leftOve
 					return
 				}
 			}
+			// NOTICE: no bonus is calculated, since it will be updated automatically during governing
 			// update old bucket
+			bucket.BonusVotes = 0
 			bucket.Value.Sub(bucket.Value, sb.Amount)
-
-			// newBonus is the bonus change due to amount sub
-			denominator := big.NewInt(int64((3600 * 24 * 365) * 100))
-			totalBonus := big.NewInt(int64((sb.Timestamp - bucket.CreateTime) * uint64(bucket.Rate)))
-			totalBonus.Mul(totalBonus, bucket.Value)
-			totalBonus.Div(totalBonus, denominator)
-			newTotalVotes := new(big.Int).Add(bucket.Value, totalBonus)
-
-			// totalVotesDelta = newTotalVotes + amount - bucket.TotalVotes
-			totalVotesDelta := new(big.Int).Add(newTotalVotes, sb.Amount)
-			totalVotesDelta.Sub(totalVotesDelta, bucket.TotalVotes)
-
-			// update total votes
-			bucket.TotalVotes = newTotalVotes
-
-			// update candidate
-			// check if candidate is already listed
-			cand := candidateList.Get(bucket.Candidate)
-			if cand != nil {
-				cand.TotalVotes.Add(cand.TotalVotes, totalVotesDelta)
-			}
+			bucket.TotalVotes.Sub(bucket.TotalVotes, sb.Amount)
 
 			// create unbounded new bucket
 			newBucket := NewBucket(bucket.Owner, bucket.Candidate, sb.Amount, uint8(bucket.Token), ONE_WEEK_LOCK, bucket.Rate, bucket.Autobid, sb.Timestamp, sb.Nonce)
@@ -1356,6 +1323,14 @@ func (sb *StakingBody) BucketUpdateHandler(env *StakingEnv, gas uint64) (leftOve
 			// update bucket list with new bucket
 			bucketList.Add(newBucket)
 
+			// update candidate
+			// check if candidate is already listed
+			cand := candidateList.Get(bucket.Candidate)
+			if cand != nil {
+				cand.TotalVotes.Sub(cand.TotalVotes, sb.Amount)
+				cand.Buckets = append(cand.Buckets, newBucketID)
+			}
+
 			// update stake holder list with new bucket
 			stakeholder := stakeholderList.Get(bucket.Owner)
 			stakeholder.Buckets = append(stakeholder.Buckets, newBucketID)
@@ -1365,6 +1340,46 @@ func (sb *StakingBody) BucketUpdateHandler(env *StakingEnv, gas uint64) (leftOve
 			staking.SetStakeHolderList(stakeholderList, state)
 			return
 		}
+
+		if sb.Option == BUCKET_ADD_OPT {
+			// Now allow to change forever lock amount
+			if bucket.Unbounded == true {
+				log.Error(fmt.Sprintf("can not update unbounded bucket, ID %v", sb.StakingID))
+				err = errors.New("can not update unbounded bucket")
+				return
+			}
+
+			if state.GetBalance(sb.HolderAddr).Cmp(sb.Amount) < 0 {
+				err = errors.New("not enough meter-gov balance")
+				return
+			}
+
+			// bound account balance
+			err = staking.BoundAccountMeterGov(sb.HolderAddr, sb.Amount, state, env)
+			if err != nil {
+				return
+			}
+
+			// NOTICE: no bonus is calculated, since it will be updated automatically during governing
+
+			// update bucket values
+			bucket.BonusVotes = 0
+			bucket.Value.Add(bucket.Value, sb.Amount)
+			bucket.TotalVotes.Add(bucket.TotalVotes, sb.Amount)
+
+			// update candidate, for both bonus and increase amount
+			if bucket.Candidate.IsZero() == false {
+				if cand := candidateList.Get(bucket.Candidate); cand != nil {
+					cand.TotalVotes.Add(cand.TotalVotes, sb.Amount)
+				}
+			}
+
+			staking.SetBucketList(bucketList, state)
+			staking.SetCandidateList(candidateList, state)
+			return
+		}
+		err = errors.New("unsupported option for bucket update")
+		return
 	}
 
 	// ---------------------------------------
