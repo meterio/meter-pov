@@ -1323,25 +1323,28 @@ func (sb *StakingBody) BucketUpdateHandler(env *StakingEnv, gas uint64) (leftOve
 					return
 				}
 			}
-
-			// bonusDelta is the bonus change due to amount sub
-			denominator := big.NewInt(int64((3600 * 24 * 365) * 100))
-			bonusDelta := big.NewInt(int64((sb.Timestamp - bucket.CreateTime) * uint64(bucket.Rate)))
-			bonusDelta.Mul(bonusDelta, sb.Amount)
-			bonusDelta.Div(bonusDelta, denominator)
-
 			// update old bucket
 			bucket.Value.Sub(bucket.Value, sb.Amount)
-			// bucket.BonusVotes = bucket.BonusVotes - bonusDelta.Uint64()
-			bucket.TotalVotes.Sub(bucket.TotalVotes, sb.Amount)
-			bucket.TotalVotes.Sub(bucket.TotalVotes, bonusDelta)
+
+			// newBonus is the bonus change due to amount sub
+			denominator := big.NewInt(int64((3600 * 24 * 365) * 100))
+			totalBonus := big.NewInt(int64((sb.Timestamp - bucket.CreateTime) * uint64(bucket.Rate)))
+			totalBonus.Mul(totalBonus, bucket.Value)
+			totalBonus.Div(totalBonus, denominator)
+			newTotalVotes := new(big.Int).Add(bucket.Value, totalBonus)
+
+			// totalVotesDelta = newTotalVotes + amount - bucket.TotalVotes
+			totalVotesDelta := new(big.Int).Add(newTotalVotes, sb.Amount)
+			totalVotesDelta.Sub(totalVotesDelta, bucket.TotalVotes)
+
+			// update total votes
+			bucket.TotalVotes = newTotalVotes
 
 			// update candidate
 			// check if candidate is already listed
 			cand := candidateList.Get(bucket.Candidate)
 			if cand != nil {
-				cand.TotalVotes.Sub(cand.TotalVotes, sb.Amount)
-				cand.TotalVotes.Sub(cand.TotalVotes, bonusDelta)
+				cand.TotalVotes.Add(cand.TotalVotes, totalVotesDelta)
 			}
 
 			// create unbounded new bucket
