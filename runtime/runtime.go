@@ -190,8 +190,8 @@ func (rt *Runtime) EnforceTeslaFork5_Corrections() {
 		if blockNumber > meter.TeslaFork5_MainnetStartNum && (enforceFlag == nil || enforceFlag.Sign() == 0) {
 			// Tesla 5 Fork
 			fmt.Println("Start to override MTRG V1 with V2 bytecode")
-			mtrgV2Addr := meter.MustParseAddress("0x228ebbee999c6a7ad74a6130e81b12f9fe237ba3")
-			mtrgV1Addr := meter.MustParseAddress("0x5729cb3716a315d0bde3b5e489163bf8b9659436")
+			mtrgV2Addr := meter.MustParseAddress("0x5729cb3716a315d0bde3b5e489163bf8b9659436")
+			mtrgV1Addr := meter.MustParseAddress("0x228ebBeE999c6a7ad74A6130E81b12f9Fe237Ba3")
 			code := rt.state.GetCode(mtrgV2Addr)
 			rt.state.SetCode(mtrgV1Addr, code)
 			fmt.Println("Override MTRG V1 with V2 bytecode: DONE")

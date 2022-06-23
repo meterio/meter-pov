@@ -391,6 +391,7 @@ func (staking *Staking) EnforceTeslaFork5BonusCorrection(state *state.State) {
 		if stakeholder == nil {
 			stakeholder = NewStakeholder(bkt.Owner)
 			stakeholder.AddBucket(bkt)
+			stakeholderList.Add(stakeholder)
 		} else {
 			stakeholder.AddBucket(bkt)
 		}
