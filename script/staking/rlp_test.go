@@ -200,7 +200,7 @@ func TestRlpForStakeholder(t *testing.T) {
 
 func newCandidate(t *testing.T) *staking.Candidate {
 	timestamp := uint64(1587608317451)
-	c := staking.NewCandidate(randomAddr(t), randomBytes(10), randomPubkey(t), randomIP(t), PORT, COMMISSION, timestamp)
+	c := staking.NewCandidate(randomAddr(t), randomBytes(10), randomBytes(10), randomPubkey(t), randomIP(t), PORT, COMMISSION, timestamp)
 
 	c.Buckets = append(c.Buckets, randomID(t), randomID(t), randomID(t))
 	return c
@@ -228,7 +228,7 @@ func TestRlpForCandidate(t *testing.T) {
 }
 
 func newBucket(t *testing.T) *staking.Bucket {
-	return staking.NewBucket(randomAddr(t), randomAddr(t), big.NewInt(int64(rand.Int())), uint8(1), uint32(rand.Int()), uint8(rand.Int()), rand.Uint64(), rand.Uint64())
+	return staking.NewBucket(randomAddr(t), randomAddr(t), big.NewInt(int64(rand.Int())), uint8(1), uint32(rand.Int()), uint8(rand.Int()), uint8(rand.Int()), rand.Uint64(), rand.Uint64())
 }
 
 func TestRlpForBucket(t *testing.T) {
@@ -263,9 +263,9 @@ func newDelegate(t *testing.T) *staking.Delegate {
 		Port:        PORT,
 		Commission:  COMMISSION,
 		DistList: []*staking.Distributor{
-			&staking.Distributor{randomAddr(t), rand.Uint64()},
-			&staking.Distributor{randomAddr(t), rand.Uint64()},
-			&staking.Distributor{randomAddr(t), rand.Uint64()},
+			&staking.Distributor{randomAddr(t), uint8(rand.Int()), rand.Uint64()},
+			&staking.Distributor{randomAddr(t), uint8(rand.Int()), rand.Uint64()},
+			&staking.Distributor{randomAddr(t), uint8(rand.Int()), rand.Uint64()},
 		},
 	}
 }
@@ -355,9 +355,8 @@ func newValidatorReward(t *testing.T) *staking.ValidatorReward {
 	return &staking.ValidatorReward{
 		Epoch:            rand.Uint32(),
 		BaseReward:       big.NewInt(int64(rand.Uint64())),
-		ExpectDistribute: big.NewInt(int64(rand.Uint64())),
-		ActualDistribute: big.NewInt(int64(rand.Uint64())),
-		Info: []*staking.RewardInfo{
+		TotalReward: big.NewInt(int64(rand.Uint64())),
+		Rewards: []*staking.RewardInfo{
 			&staking.RewardInfo{randomAddr(t), big.NewInt(int64(rand.Uint64()))},
 			&staking.RewardInfo{randomAddr(t), big.NewInt(int64(rand.Uint64()))},
 			&staking.RewardInfo{randomAddr(t), big.NewInt(int64(rand.Uint64()))},

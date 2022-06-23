@@ -11,6 +11,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/meterio/meter-pov/meter"
 	"github.com/meterio/meter-pov/script/staking"
@@ -59,10 +60,11 @@ func getCandidateList() (*staking.CandidateList, []*staking.Candidate) {
 	addr2, _ := meter.ParseAddress(TestAddress2)
 	addr3, _ := meter.ParseAddress(TestAddress3)
 	addr4, _ := meter.ParseAddress(TestAddress3)
-	c1 := staking.NewCandidate(addr1, []byte("candidate #1"), []byte("pubkey #1"), []byte("ip1"), 8080, 0, 0)
-	c2 := staking.NewCandidate(addr2, []byte("candidate #2"), []byte("pubkey #2"), []byte("ip2"), 8080, 0, 0)
-	c3 := staking.NewCandidate(addr3, []byte("candidate #3"), []byte("pubkey #3"), []byte("ip3"), 8080, 0, 0)
-	c4 := staking.NewCandidate(addr4, []byte("candidate #4"), []byte("pubkey #4"), []byte("ip4"), 8080, 0, 0)
+	t := uint64(time.Now().Unix())
+	c1 := staking.NewCandidate(addr1, []byte("candidate #1"), []byte("pubkey #1"), []byte("ip1"), []byte("8080"), 0, 0, t)
+	c2 := staking.NewCandidate(addr2, []byte("candidate #2"), []byte("pubkey #2"), []byte("ip2"), []byte("8080"), 0, 0, t)
+	c3 := staking.NewCandidate(addr3, []byte("candidate #3"), []byte("pubkey #3"), []byte("ip3"), []byte("8080"), 0, 0, t)
+	c4 := staking.NewCandidate(addr4, []byte("candidate #4"), []byte("pubkey #4"), []byte("ip4"), []byte("8080"), 0, 0, t)
 	cs := []*staking.Candidate{c1, c2, c3, c4}
 
 	cl.Add(c1)

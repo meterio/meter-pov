@@ -698,7 +698,7 @@ func (sb *StakingBody) GoverningHandler(env *StakingEnv, gas uint64) (leftOverGa
 					cand := candidateList.Get(bkt.Candidate)
 					if cand != nil {
 						cand.RemoveBucket(bkt)
-						if len(candidateList.candidates) == 0 {
+						if len(cand.Buckets) == 0 {
 							candidateList.Remove(cand.Addr)
 						}
 					}
@@ -1341,7 +1341,7 @@ func (sb *StakingBody) BucketUpdateHandler(env *StakingEnv, gas uint64) (leftOve
 			// update stake holder list with new bucket
 			stakeholder := stakeholderList.Get(bucket.Owner)
 			if stakeholder != nil {
-				stakeholder.TotalStake.Add(stakeholder.TotalStake, sb.Amount)
+				stakeholder.Buckets = append(stakeholder.Buckets, newBucketID)
 			}
 
 			staking.SetBucketList(bucketList, state)
@@ -1386,7 +1386,7 @@ func (sb *StakingBody) BucketUpdateHandler(env *StakingEnv, gas uint64) (leftOve
 			// update stakeholder
 			stakeholder := stakeholderList.Get(bucket.Owner)
 			if stakeholder != nil {
-				stakeholder.AddBucket(newBucket)
+				stakeholder.TotalStake.Add(stakeholder.TotalStake, sb.Amount)
 			}
 
 			staking.SetBucketList(bucketList, state)
