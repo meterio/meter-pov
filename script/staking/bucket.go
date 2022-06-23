@@ -9,6 +9,7 @@ import (
 	"bytes"
 	"fmt"
 	"math/big"
+	"sort"
 	"strings"
 
 	"github.com/ethereum/go-ethereum/rlp"
@@ -105,6 +106,9 @@ func newBucketList(buckets []*Bucket) *BucketList {
 	if buckets == nil {
 		buckets = make([]*Bucket, 0)
 	}
+	sort.SliceStable(buckets, func(i, j int) bool {
+		return (bytes.Compare(buckets[i].ID().Bytes(), buckets[j].ID().Bytes()) <= 0)
+	})
 	return &BucketList{buckets: buckets}
 }
 
@@ -163,7 +167,10 @@ func (l *BucketList) Add(b *Bucket) {
 }
 
 func (l *BucketList) Remove(id meter.Bytes32) {
+	fmt.Println("try to remove: ", id.String())
+
 	index, _ := l.indexOf(id)
+	fmt.Println("INDEX: ", index)
 	if index >= 0 {
 		l.buckets = append(l.buckets[:index], l.buckets[index+1:]...)
 	}

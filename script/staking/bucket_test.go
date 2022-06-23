@@ -30,7 +30,7 @@ func TestBucket(t *testing.T) {
 		fmt.Println("")
 		b := list.buckets[i]
 		fmt.Println("visit bucket #", i, b.Value)
-		if b.Value.Cmp(big.NewInt(200)) == 0 || b.Value.Cmp(big.NewInt(400)) == 0 {
+		if b.Value.Cmp(big.NewInt(100)) == 0 || b.Value.Cmp(big.NewInt(400)) == 0 || b.Value.Cmp(big.NewInt(300)) == 0 {
 			fmt.Println("remove bucket:", b.Value)
 			list.Remove(b.ID())
 			i--
