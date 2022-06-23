@@ -1308,11 +1308,17 @@ func (sb *StakingBody) BucketUpdateHandler(env *StakingEnv, gas uint64) (leftOve
 					return
 				}
 			}
-			// NOTICE: no bonus is calculated, since it will be updated automatically during governing
+			// bonus is substracted porpotionally
+			oldBonus := new(big.Int).Sub(bucket.TotalVotes, bucket.Value)
+			bonusDelta := new(big.Int).Mul(oldBonus, sb.Amount)
+			bonusDelta.Div(bonusDelta, bucket.Value)
+
 			// update old bucket
 			bucket.BonusVotes = 0
 			bucket.Value.Sub(bucket.Value, sb.Amount)
+			bucket.Value.Sub(bucket.Value, bonusDelta)
 			bucket.TotalVotes.Sub(bucket.TotalVotes, sb.Amount)
+			bucket.TotalVotes.Sub(bucket.TotalVotes, bonusDelta)
 
 			// create unbounded new bucket
 			newBucket := NewBucket(bucket.Owner, bucket.Candidate, sb.Amount, uint8(bucket.Token), ONE_WEEK_LOCK, bucket.Rate, bucket.Autobid, sb.Timestamp, sb.Nonce)
@@ -1328,6 +1334,7 @@ func (sb *StakingBody) BucketUpdateHandler(env *StakingEnv, gas uint64) (leftOve
 			cand := candidateList.Get(bucket.Candidate)
 			if cand != nil {
 				cand.TotalVotes.Sub(cand.TotalVotes, sb.Amount)
+				cand.TotalVotes.Sub(cand.TotalVotes, bonusDelta)
 				cand.Buckets = append(cand.Buckets, newBucketID)
 			}
 
