@@ -1340,7 +1340,9 @@ func (sb *StakingBody) BucketUpdateHandler(env *StakingEnv, gas uint64) (leftOve
 
 			// update stake holder list with new bucket
 			stakeholder := stakeholderList.Get(bucket.Owner)
-			stakeholder.Buckets = append(stakeholder.Buckets, newBucketID)
+			if stakeholder != nil {
+				stakeholder.TotalStake.Add(stakeholder.TotalStake, sb.Amount)
+			}
 
 			staking.SetBucketList(bucketList, state)
 			staking.SetCandidateList(candidateList, state)
@@ -1381,8 +1383,15 @@ func (sb *StakingBody) BucketUpdateHandler(env *StakingEnv, gas uint64) (leftOve
 				}
 			}
 
+			// update stakeholder
+			stakeholder := stakeholderList.Get(bucket.Owner)
+			if stakeholder != nil {
+				stakeholder.AddBucket(newBucket)
+			}
+
 			staking.SetBucketList(bucketList, state)
 			staking.SetCandidateList(candidateList, state)
+			staking.SetStakeHolderList(stakeholderList, state)
 			return
 		}
 		err = errors.New("unsupported option for bucket update")

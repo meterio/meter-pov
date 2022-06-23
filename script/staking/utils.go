@@ -383,8 +383,18 @@ func (staking *Staking) EnforceTeslaFork5BonusCorrection(state *state.State) {
 
 	fmt.Println("Tesla Fork 5 Recalculate Total Votes")
 	candTotalVotes := make(map[meter.Address]*big.Int)
+	stakeholderList := newStakeholderList(nil)
 	// Calcuate bonus from createTime
 	for _, bkt := range bucketList.buckets {
+		// re-calc stakeholder list
+		stakeholder := stakeholderList.Get(bkt.Owner)
+		if stakeholder == nil {
+			stakeholder = NewStakeholder(bkt.Owner)
+			stakeholder.AddBucket(bkt)
+		} else {
+			stakeholder.AddBucket(bkt)
+		}
+
 		// now calc the bonus votes
 		ts := bkt.CalcLastTime
 		if ts > bkt.CreateTime {
@@ -419,5 +429,6 @@ func (staking *Staking) EnforceTeslaFork5BonusCorrection(state *state.State) {
 
 	staking.SetBucketList(bucketList, state)
 	staking.SetCandidateList(candidateList, state)
+	staking.SetStakeHolderList(stakeholderList, state)
 	fmt.Println("Tesla Fork 5 Recalculate Bonus Votes: DONE")
 }

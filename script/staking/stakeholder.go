@@ -9,6 +9,7 @@ import (
 	"bytes"
 	"fmt"
 	"math/big"
+	"sort"
 	"strings"
 
 	"github.com/meterio/meter-pov/meter"
@@ -65,6 +66,9 @@ func newStakeholderList(holders []*Stakeholder) *StakeholderList {
 	if holders == nil {
 		holders = make([]*Stakeholder, 0)
 	}
+	sort.SliceStable(holders, func(i, j int) bool {
+		return (bytes.Compare(holders[i].Holder.Bytes(), holders[j].Holder.Bytes()) <= 0)
+	})
 	return &StakeholderList{holders: holders}
 }
 
