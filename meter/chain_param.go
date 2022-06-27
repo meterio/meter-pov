@@ -69,8 +69,8 @@ const (
 	// 1) fix the governing for matured unbound buckets to avoid duplicate handling
 	// 2) fix wrong boundbalance on account 0x08ebea6584b3d9bf6fbcacf1a1507d00a61d95b7 on mainnet
 	// 3) more to come
-	TeslaFork5_TestnetStartNum = 0        //FIXME: change this if testnet
-	TeslaFork5_MainnetStartNum = 25473000 // around 6/29/2022 9:00 AM (PDT)
+	TeslaFork5_TestnetStartNum = 0        //FIXME: update if testnet needs a fork
+	TeslaFork5_MainnetStartNum = 25650000 // around 7/4/2022 9:30 AM (PDT)
 )
 
 // start block number support sys-contract

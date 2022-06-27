@@ -423,7 +423,7 @@ func (staking *Staking) EnforceTeslaFork5BonusCorrection(state *state.State) {
 	// Update candidate with new total votes
 	for addr, totalVotes := range candTotalVotes {
 		if cand := candidateList.Get(addr); cand != nil {
-			log.Info("update candidate", "name", cand.Name, "address", cand.Addr, "oldTotalVotes", cand.TotalVotes.String(), "newTotalVotes", totalVotes.String(), "delta", new(big.Int).Sub(totalVotes, cand.TotalVotes).String())
+			log.Info("update candidate", "name", string(cand.Name), "address", cand.Addr, "oldTotalVotes", cand.TotalVotes.String(), "newTotalVotes", totalVotes.String(), "delta", new(big.Int).Sub(totalVotes, cand.TotalVotes).String())
 			cand.TotalVotes = totalVotes
 		}
 	}
