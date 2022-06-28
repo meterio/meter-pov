@@ -403,6 +403,22 @@ func (p *Pacemaker) OnReceiveProposal(mi *consensusMsgInfo) error {
 			}
 		}
 
+		// parent round must strictly < bnew round
+		// justify round must strictly < bnew round
+		if justify != nil && bnew != nil && bnew.Justify != nil && bnew.Justify.QC != nil {
+			justifyRound := justify.Round
+			parentRound := bnew.Justify.QC.QCRound
+			p.logger.Info("check round for proposal", "parentRound", parentRound, "justifyRound", justifyRound, "bnewRound", bnew.Round)
+			if parentRound >= bnew.Round {
+				p.logger.Error("parent round must strictly < bnew round")
+				return errors.New("parent round must strictly < bnew round")
+			}
+			if justifyRound >= bnew.Round {
+				p.logger.Error("justify round must strictly < bnew round")
+				return errors.New("justify round must strictly < bnew round")
+			}
+		}
+
 		if err := p.ValidateProposal(bnew); err != nil {
 			p.logger.Error("HELP: Validate Proposal failed", "error", err)
 			return err
