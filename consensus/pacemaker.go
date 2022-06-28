@@ -65,7 +65,7 @@ type Pacemaker struct {
 	startRound             uint32
 
 	// Utility data structures
-	startOnKBlock bool //pacemaker in replay mode?
+	calcStatsTx   bool // calculate statistics tx
 	mode          PMMode
 	msgCache      *MsgCache
 	sigAggregator *SignatureAggregator
@@ -823,7 +823,7 @@ func (p *Pacemaker) newViewRoundTimeout(header ConsensusMsgCommonHeader, qc bloc
 }
 
 //Committee Leader triggers
-func (p *Pacemaker) Start(mode PMMode, startOnKBlock bool) {
+func (p *Pacemaker) Start(mode PMMode, calcStatsTx bool) {
 	p.mode = mode
 	p.reset()
 	p.csReactor.chain.UpdateBestQC(nil, chain.None)
@@ -831,14 +831,21 @@ func (p *Pacemaker) Start(mode PMMode, startOnKBlock bool) {
 
 	bestQC := p.csReactor.chain.BestQC()
 
-	p.startOnKBlock = startOnKBlock
+	p.calcStatsTx = calcStatsTx
 	height := bestQC.QCHeight
-	round := uint32(0)
-	if startOnKBlock == false {
-		round = bestQC.QCRound
+	blk, err := p.csReactor.chain.GetTrunkBlock(height)
+	if err != nil {
+		p.logger.Error("Could not get block with bestQC")
 	}
 
-	p.logger.Info(fmt.Sprintf("*** Pacemaker start at height %v, round %v", height, round), "qc", bestQC.CompactString(), "startOnKBlock", startOnKBlock, "mode", mode.String())
+	round := bestQC.QCRound
+	actualRound := round + 1
+	if blk.BlockType() == block.BLOCK_TYPE_K_BLOCK || blk.Number() == 0 {
+		round = uint32(0)
+		actualRound = 0
+	}
+
+	p.logger.Info(fmt.Sprintf("*** Pacemaker start with height %v, round %v", height+1, actualRound), "qc", bestQC.CompactString(), "calcStatsTx", calcStatsTx, "mode", mode.String())
 	p.startHeight = height
 	p.startRound = round
 
@@ -882,7 +889,11 @@ func (p *Pacemaker) Start(mode PMMode, startOnKBlock bool) {
 
 	switch p.mode {
 	case PMModeNormal:
-		p.ScheduleOnBeat(height+1, round, BeatOnInit, 1*time.Second) //delay 1s
+		if round == 0 {
+			p.ScheduleOnBeat(height+1, round, BeatOnInit, 1*time.Second) //delay 1s
+		} else {
+			p.ScheduleOnBeat(height+1, round+1, BeatOnInit, 1*time.Second) //delay 1s
+		}
 	case PMModeCatchUp:
 		p.SendCatchUpQuery()
 	case PMModeObserve:
@@ -949,7 +960,7 @@ func (p *Pacemaker) mainLoop() {
 			case PMCmdRestart:
 				p.stopCleanup()
 				p.logger.Info("--- Pacemaker stopped successfully, restart now")
-				p.Start(si.mode, p.startOnKBlock)
+				p.Start(si.mode, p.calcStatsTx)
 			case PMCmdReboot:
 				p.stopCleanup()
 				bestQC := p.csReactor.chain.BestQC()
@@ -959,9 +970,8 @@ func (p *Pacemaker) mainLoop() {
 					continue
 				}
 
-				startOnKBlock := (bestBlock.Header().BlockType() == block.BLOCK_TYPE_K_BLOCK) || (bestBlock.Header().Number() == 0)
 				p.logger.Info("--- Pacemaker stopped successfully, REBOOT now")
-				p.Start(si.mode, startOnKBlock)
+				p.Start(si.mode, true)
 			}
 		case ti := <-p.roundTimeoutCh:
 			p.OnRoundTimeout(ti)

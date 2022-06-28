@@ -363,7 +363,10 @@ func (c *ConsensusReactor) validateBlockBody(blk *block.Block, forceValidate boo
 			// Build.
 			fmt.Println("---------------- Local Build Reward Txs for validation ----------------")
 			rewardTxs = c.buildRewardTxs(parentBlock, rewards, chainTag, bestNum, curEpoch, best, state)
-			fmt.Println("---------------- End of Local Build Reward Txs ----------------")
+			fmt.Println("---------------- End of Local Build Reward Txs ----------------", "txs", len(rewardTxs))
+			for _, tx := range rewardTxs {
+				fmt.Println("hash:", tx.ID().String(), "uniteHash:", tx.UniteHash().String())
+			}
 
 			// Decode.
 			for _, rewardTx := range rewardTxs {
@@ -604,7 +607,7 @@ func (c *ConsensusReactor) validateBlockBody(blk *block.Block, forceValidate boo
 	if len(txUniteHashes) != 0 {
 		for key, value := range txUniteHashes {
 			if value != 0 {
-				return consensusError(fmt.Sprintf("txUniteHashes not equal %v %v", key, value))
+				return consensusError(fmt.Sprintf("local-built txs have %v more tx with uniteHash: %v", value, key))
 			}
 		}
 	}
@@ -612,7 +615,7 @@ func (c *ConsensusReactor) validateBlockBody(blk *block.Block, forceValidate boo
 	if len(txClauseIds) != 0 {
 		for key, value := range txClauseIds {
 			if value < 0 {
-				return consensusError(fmt.Sprintf("txClauseIds not equal %v %v", key, value))
+				return consensusError(fmt.Sprintf("local-built txs have %v more clause with uniteHash: %v", value, key))
 			}
 		}
 	}
@@ -620,7 +623,7 @@ func (c *ConsensusReactor) validateBlockBody(blk *block.Block, forceValidate boo
 	if len(scriptHeaderIds) != 0 {
 		for key, value := range scriptHeaderIds {
 			if value != 0 {
-				return consensusError(fmt.Sprintf("scriptHeaderIds not equal %v %v", key, value))
+				return consensusError(fmt.Sprintf("local-built txs have %v more scriptHead with uniteHash: %v", value, key))
 			}
 		}
 	}
@@ -628,7 +631,7 @@ func (c *ConsensusReactor) validateBlockBody(blk *block.Block, forceValidate boo
 	if len(scriptBodyIds) != 0 {
 		for key, value := range scriptBodyIds {
 			if value != 0 {
-				return consensusError(fmt.Sprintf("scriptBodyIds not equal %v %v", key, value))
+				return consensusError(fmt.Sprintf("local-built txs have %v more scriptBody with uniteHash: %v", value, key))
 			}
 		}
 	}
@@ -636,7 +639,7 @@ func (c *ConsensusReactor) validateBlockBody(blk *block.Block, forceValidate boo
 	if len(rinfoIds) != 0 {
 		for key, value := range rinfoIds {
 			if value != 0 {
-				return consensusError(fmt.Sprintf("rinfoIds not equal %v %v", key, value))
+				return consensusError(fmt.Sprintf("local-built governing tx has %v extraData with uniteHash: %v",  value, key))
 			}
 		}
 	}
@@ -1051,7 +1054,7 @@ func (conR *ConsensusReactor) buildRewardTxs(parentBlock *block.Block, rewards [
 
 	// edison not support the staking/auciton/slashing
 	if meter.IsMainChainTesla(parentBlock.Number()) == true || meter.IsTestNet() {
-		stats, err := reward.ComputeStatistics(lastKBlockHeight, parentBlock.Number(), conR.chain, conR.curCommittee, conR.curActualCommittee, conR.csCommon, conR.csPacemaker.startOnKBlock, uint32(conR.curEpoch))
+		stats, err := reward.ComputeStatistics(lastKBlockHeight, parentBlock.Number(), conR.chain, conR.curCommittee, conR.curActualCommittee, conR.csCommon, conR.csPacemaker.calcStatsTx, uint32(conR.curEpoch))
 		if err != nil {
 			// TODO: do something about this
 			conR.logger.Info("no slash statistics need to info", "error", err)
