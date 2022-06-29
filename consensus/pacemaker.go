@@ -78,6 +78,8 @@ type Pacemaker struct {
 	blockExecuted    *pmBlock
 	blockLocked      *pmBlock
 
+	lastOnBeatRound uint32
+
 	// Channels
 	pacemakerMsgCh chan consensusMsgInfo
 	roundTimeoutCh chan PMRoundTimeoutInfo
@@ -97,16 +99,17 @@ func NewPaceMaker(conR *ConsensusReactor) *Pacemaker {
 		logger:    log15.New("pkg", "pacemaker"),
 		mode:      PMModeNormal,
 
-		msgCache:       NewMsgCache(2048),
-		pacemakerMsgCh: make(chan consensusMsgInfo, 1024),
-		cmdCh:          make(chan *PMCmdInfo, 2),
-		beatCh:         make(chan *PMBeatInfo, 2),
-		roundTimeoutCh: make(chan PMRoundTimeoutInfo, 2),
-		roundTimer:     nil,
-		proposalMap:    NewProposalMap(),
-		pendingList:    NewPendingList(),
-		timeoutCounter: 0,
-		stopped:        true,
+		msgCache:        NewMsgCache(2048),
+		pacemakerMsgCh:  make(chan consensusMsgInfo, 1024),
+		cmdCh:           make(chan *PMCmdInfo, 2),
+		beatCh:          make(chan *PMBeatInfo, 2),
+		roundTimeoutCh:  make(chan PMRoundTimeoutInfo, 2),
+		roundTimer:      nil,
+		proposalMap:     NewProposalMap(),
+		pendingList:     NewPendingList(),
+		timeoutCounter:  0,
+		stopped:         true,
+		lastOnBeatRound: 0,
 	}
 	p.timeoutCertManager = newPMTimeoutCertManager(p)
 	// p.stopCleanup()
@@ -561,6 +564,11 @@ func (p *Pacemaker) UpdateQCHigh(qc *pmQuorumCert) bool {
 }
 
 func (p *Pacemaker) OnBeat(height, round uint32, reason beatReason) error {
+	if round > 0 && round <= p.lastOnBeatRound {
+		p.logger.Warn(fmt.Sprintf("round(%v) <= lastOnBeatRound(%v), skip this OnBeat", round, p.lastOnBeatRound))
+		return nil
+	}
+	p.lastOnBeatRound = round
 	if reason == BeatOnTimeout && p.QCHigh != nil && p.QCHigh.QC != nil && height <= (p.QCHigh.QC.QCHeight+1) {
 		return p.onTimeoutBeat(height, round, reason)
 	}
@@ -866,7 +874,7 @@ func (p *Pacemaker) Start(mode PMMode, calcStatsTx bool) {
 	p.logger.Info(fmt.Sprintf("*** Pacemaker start with height %v, round %v", height+1, actualRound), "qc", bestQC.CompactString(), "calcStatsTx", calcStatsTx, "mode", mode.String())
 	p.startHeight = height
 	p.startRound = round
-
+	p.lastOnBeatRound = round
 	// Hack here. We do not know it is the first pacemaker from beginning
 	// But it is not harmful, the worst case only misses one opportunity to propose kblock.
 	if p.csReactor.config.InitCfgdDelegates == false {
@@ -1083,6 +1091,7 @@ func (p *Pacemaker) SendKblockInfo(b *pmBlock) {
 func (p *Pacemaker) reset() {
 	pmRoleGauge.Set(0)
 	p.lastVotingHeight = 0
+	p.lastOnBeatRound = 0
 	p.QCHigh = nil
 	p.blockLeaf = nil
 	p.blockExecuted = nil

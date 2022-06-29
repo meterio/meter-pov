@@ -41,6 +41,7 @@ type PMProbeResult struct {
 	MyCommitteeIndex int
 
 	LastVotingHeight uint32
+	LastOnBeatRound  uint32
 	QCHigh           *block.QuorumCert
 	BlockLeaf        *BlockProbe
 	BlockExecuted    *BlockProbe
@@ -547,6 +548,7 @@ func (p *Pacemaker) Probe() *PMProbeResult {
 		MyCommitteeIndex: p.myActualCommitteeIndex,
 
 		LastVotingHeight: p.lastVotingHeight,
+		LastOnBeatRound:  p.lastOnBeatRound,
 		QCHigh:           p.QCHigh.QC,
 	}
 	if p.QCHigh != nil && p.QCHigh.QC != nil {

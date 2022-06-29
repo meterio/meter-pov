@@ -49,6 +49,7 @@ type PacemakerProbe struct {
 	MyCommitteeIndex int    `json:"myCommitteeIndex"`
 
 	LastVotingHeight uint32 `json:"lastVotingHeight"`
+	LastOnBeatRound  uint32 `json:"lastOnBeatRound"`
 	ProposalCount    int    `json:"proposalCount"`
 	PendingCount     int    `json:"pendingCount"`
 	PendingLowest    uint32 `json:"pendingLowest"`
@@ -203,6 +204,7 @@ func convertPacemakerProbe(r *consensus.PMProbeResult) (*PacemakerProbe, error) 
 			MyCommitteeIndex: r.MyCommitteeIndex,
 
 			LastVotingHeight: r.LastVotingHeight,
+			LastOnBeatRound:  r.LastOnBeatRound,
 			ProposalCount:    r.ProposalCount,
 			PendingCount:     r.PendingCount,
 			PendingLowest:    r.PendingLowest,
