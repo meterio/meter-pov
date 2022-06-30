@@ -412,14 +412,35 @@ func (p *Pacemaker) OnReceiveProposal(mi *consensusMsgInfo) error {
 			justifyRound := justify.Round
 			parentRound := bnew.Justify.QC.QCRound
 			p.logger.Info("check round for proposal", "parentRound", parentRound, "justifyRound", justifyRound, "bnewRound", bnew.Round)
+
+			// loose check for bnew.round
 			if parentRound > 0 && justifyRound > 0 {
 				if parentRound >= bnew.Round {
-					p.logger.Error("parent round must strictly < bnew round")
-					return errors.New("parent round must strictly < bnew round")
+					msg := fmt.Sprintf("parent round(%v) must strictly < bnew round(%v)", parentRound, bnew.Round)
+					return errors.New(msg)
 				}
 				if justifyRound >= bnew.Round {
-					p.logger.Error("justify round must strictly < bnew round")
-					return errors.New("justify round must strictly < bnew round")
+					msg := fmt.Sprintf("justify round(%v) must strictly < bnew round(%v)", justifyRound, bnew.Round)
+					return errors.New(msg)
+				}
+			}
+
+			// strict check for bnew.round
+			if validTimeout {
+				p.logger.Info("check timeout round for proposal", "timeoutRound", proposalMsg.TimeoutCert.TimeoutRound, "bnewRound", bnew.Round)
+				if bnew.Round != proposalMsg.TimeoutCert.TimeoutRound {
+					msg := fmt.Sprintf("bnew round(%v) != timeout round(%v)", bnew.Round, proposalMsg.TimeoutCert.TimeoutRound+1)
+					return errors.New(msg)
+				}
+			} else {
+				if justifyRound == 0 && bnew.Round != 0 && bnew.Round != 1 {
+					msg := fmt.Sprintf("bnew round(%v) != 0 or 1 when justify round is 0", bnew.Round)
+					p.logger.Error(msg)
+					return errors.New(msg)
+				}
+				if justifyRound > 0 && bnew.Round != justifyRound+1 {
+					msg := fmt.Sprintf("bnew round(%v) != justify round(%v) + 1", bnew.Round, justifyRound)
+					return errors.New(msg)
 				}
 			}
 		}
