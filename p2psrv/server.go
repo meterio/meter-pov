@@ -13,7 +13,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common/mclock"
 	"github.com/ethereum/go-ethereum/p2p"
-	"github.com/ethereum/go-ethereum/p2p/discover"
+	"github.com/ethereum/go-ethereum/p2p/enode"
 	"github.com/ethereum/go-ethereum/p2p/nat"
 	"github.com/inconshreveable/log15"
 	"github.com/meterio/meter-pov/cache"
@@ -69,7 +69,7 @@ func New(opts *Options) *Server {
 
 // Self returns self enode url.
 // Only available when server is running.
-func (s *Server) Self() *discover.Node {
+func (s *Server) Self() *enode.Node {
 	return s.srv.Self()
 }
 
@@ -139,9 +139,9 @@ func (s *Server) Stop() {
 
 // KnownNodes returns known nodes that can be saved for fast connecting next time.
 func (s *Server) KnownNodes() Nodes {
-	nodes := make([]*discover.Node, 0, s.knownNodes.Len())
+	nodes := make([]*enode.Node, 0, s.knownNodes.Len())
 	s.knownNodes.ForEach(func(ent *cache.PrioEntry) bool {
-		nodes = append(nodes, ent.Value.(*discover.Node))
+		nodes = append(nodes, ent.Value.(*enode.Node))
 		return true
 	})
 	return nodes
@@ -150,12 +150,12 @@ func (s *Server) KnownNodes() Nodes {
 // AddStatic connects to the given node and maintains the connection until the
 // server is shut down. If the connection fails for any reason, the server will
 // attempt to reconnect the peer.
-func (s *Server) AddStatic(node *discover.Node) {
+func (s *Server) AddStatic(node *enode.Node) {
 	s.srv.AddPeer(node)
 }
 
 // RemoveStatic disconnects from the given node
-func (s *Server) RemoveStatic(node *discover.Node) {
+func (s *Server) RemoveStatic(node *enode.Node) {
 	s.srv.RemovePeer(node)
 }
 
@@ -198,10 +198,18 @@ func (s *Server) listenDiscV5() (err error) {
 
 	bootnodes := make([]*discv5.Node, 0, len(s.opts.BootstrapNodes)+len(s.opts.KnownNodes))
 	for _, node := range s.opts.BootstrapNodes {
-		bootnodes = append(bootnodes, discv5.NewNode(discv5.NodeID(node.ID), node.IP, node.UDP, node.TCP))
+		n, err := discv5.ParseNode(node.String())
+		if err != nil {
+			fmt.Println("could not parse discv5 node: ", node.String())
+		}
+		bootnodes = append(bootnodes, n)
 	}
 	for _, node := range s.opts.KnownNodes {
-		bootnodes = append(bootnodes, discv5.NewNode(discv5.NodeID(node.ID), node.IP, node.UDP, node.TCP))
+		n, err := discv5.ParseNode(node.String())
+		if err != nil {
+			fmt.Println("could not parse discv5 node: ", node.String())
+		}
+		bootnodes = append(bootnodes, n)
 	}
 
 	if err := network.SetFallbackNodes(bootnodes); err != nil {
@@ -245,9 +253,9 @@ func (s *Server) discoverLoop(topic discv5.Topic) {
 				}
 			}
 		case v5node := <-discNodes:
-			node := discover.NewNode(discover.NodeID(v5node.ID), v5node.IP, v5node.UDP, v5node.TCP)
-			if _, found := s.discoveredNodes.Get(node.ID); !found {
-				s.discoveredNodes.Set(node.ID, node)
+			node := enode.MustParseV4(v5node.String())
+			if _, found := s.discoveredNodes.Get(node.ID()); !found {
+				s.discoveredNodes.Set(node.ID(), node)
 				log.Debug("discovered node", "node", node)
 			}
 		case <-s.done:
@@ -283,8 +291,8 @@ func (s *Server) dialLoop() {
 				continue
 			}
 
-			node := entry.Value.(*discover.Node)
-			if s.dialingNodes.Contains(node.ID) {
+			node := entry.Value.(*enode.Node)
+			if s.dialingNodes.Contains(node.ID()) {
 				continue
 			}
 
@@ -294,7 +302,7 @@ func (s *Server) dialLoop() {
 			// don't use goes.Go, since the dial process can't be interrupted
 			go func() {
 				if err := s.tryDial(node); err != nil {
-					s.dialingNodes.Remove(node.ID)
+					s.dialingNodes.Remove(node.ID())
 					log.Debug("failed to dial node", "err", err)
 				}
 			}()
@@ -318,7 +326,7 @@ func (s *Server) dialLoop() {
 	}
 }
 
-func (s *Server) tryDial(node *discover.Node) error {
+func (s *Server) tryDial(node *enode.Node) error {
 	conn, err := s.srv.Dialer.Dial(node)
 	if err != nil {
 		return err
@@ -326,10 +334,10 @@ func (s *Server) tryDial(node *discover.Node) error {
 	return s.srv.SetupConn(conn, 1, node)
 }
 
-func (s *Server) GetDiscoveredNodes() []*discover.Node {
-	nodes := make([]*discover.Node, 0)
+func (s *Server) GetDiscoveredNodes() []*enode.Node {
+	nodes := make([]*enode.Node, 0)
 	s.discoveredNodes.ForEach(func(e *cache.Entry) bool {
-		nodes = append(nodes, e.Value.(*discover.Node))
+		nodes = append(nodes, e.Value.(*enode.Node))
 		return true
 	})
 	return nodes

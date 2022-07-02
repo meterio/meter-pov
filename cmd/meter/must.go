@@ -26,6 +26,7 @@ import (
 	"github.com/ethereum/go-ethereum/common/fdlimit"
 	"github.com/ethereum/go-ethereum/crypto"
 	ethlog "github.com/ethereum/go-ethereum/log"
+	"github.com/ethereum/go-ethereum/p2p/enode"
 	"github.com/ethereum/go-ethereum/p2p/nat"
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/inconshreveable/log15"
@@ -50,7 +51,6 @@ import (
 	"github.com/meterio/meter-pov/types"
 	cli "gopkg.in/urfave/cli.v1"
 
-	"github.com/ethereum/go-ethereum/p2p/discover"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
@@ -299,18 +299,18 @@ func beneficiary(ctx *cli.Context) *meter.Address {
 	return &addr
 }
 
-func discoServerParse(ctx *cli.Context) ([]*discover.Node, bool, error) {
+func discoServerParse(ctx *cli.Context) ([]*enode.Node, bool, error) {
 
 	nd := ctx.StringSlice(discoServerFlag.Name)
 	if len(nd) == 0 {
-		return []*discover.Node{}, false, nil
+		return []*enode.Node{}, false, nil
 	}
 
-	nodes := make([]*discover.Node, 0)
+	nodes := make([]*enode.Node, 0)
 	for _, n := range nd {
-		node, err := discover.ParseNode(n)
+		node, err := enode.ParseV4(n)
 		if err != nil {
-			return []*discover.Node{}, false, err
+			return []*enode.Node{}, false, err
 		}
 
 		nodes = append(nodes, node)
@@ -378,7 +378,7 @@ func newP2PComm(ctx *cli.Context, chain *chain.Chain, txPool *txpool.TxPool, ins
 	}
 
 	// if the discoverServerFlag is not set, use default hardcoded nodes
-	var BootstrapNodes []*discover.Node
+	var BootstrapNodes []*enode.Node
 	if overrided == true {
 		BootstrapNodes = discoSvr
 	} else {
@@ -407,9 +407,9 @@ func newP2PComm(ctx *cli.Context, chain *chain.Chain, txPool *txpool.TxPool, ins
 
 	topic := ctx.String("disco-topic")
 	peers := ctx.StringSlice("peers")
-	validNodes := make([]*discover.Node, 0)
+	validNodes := make([]*enode.Node, 0)
 	for _, p := range peers {
-		node, err := discover.ParseNode(p)
+		node, err := enode.ParseV4(p)
 		if err == nil {
 			validNodes = append(validNodes, node)
 		}

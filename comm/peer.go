@@ -14,7 +14,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common/mclock"
 	"github.com/ethereum/go-ethereum/p2p"
-	"github.com/ethereum/go-ethereum/p2p/discover"
+	"github.com/ethereum/go-ethereum/p2p/enode"
 	lru "github.com/hashicorp/golang-lru"
 	"github.com/inconshreveable/log15"
 	"github.com/meterio/meter-pov/meter"
@@ -179,8 +179,8 @@ type DirectionCount struct {
 
 // PeerSet manages a set of peers, which mapped by NodeID.
 type PeerSet struct {
-	m       map[discover.NodeID]*Peer
-	d       map[discover.NodeID]string
+	m       map[enode.ID]*Peer
+	d       map[enode.ID]string
 	counter DirectionCount
 	lock    sync.Mutex
 }
@@ -188,8 +188,8 @@ type PeerSet struct {
 // NewSet create a peer set instance.
 func newPeerSet() *PeerSet {
 	return &PeerSet{
-		m:       make(map[discover.NodeID]*Peer),
-		d:       make(map[discover.NodeID]string),
+		m:       make(map[enode.ID]*Peer),
+		d:       make(map[enode.ID]string),
 		counter: DirectionCount{0, 0},
 	}
 }
@@ -208,14 +208,14 @@ func (ps *PeerSet) Add(peer *Peer, dir string) {
 }
 
 // Find find peer for given nodeID.
-func (ps *PeerSet) Find(nodeID discover.NodeID) *Peer {
+func (ps *PeerSet) Find(nodeID enode.ID) *Peer {
 	ps.lock.Lock()
 	defer ps.lock.Unlock()
 	return ps.m[nodeID]
 }
 
 // Remove removes peer for given nodeID.
-func (ps *PeerSet) Remove(nodeID discover.NodeID) *Peer {
+func (ps *PeerSet) Remove(nodeID enode.ID) *Peer {
 	ps.lock.Lock()
 	defer ps.lock.Unlock()
 	if dir, ok := ps.d[nodeID]; ok {
