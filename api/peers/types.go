@@ -6,7 +6,7 @@
 package peers
 
 import (
-	"github.com/ethereum/go-ethereum/p2p/discover"
+	"github.com/ethereum/go-ethereum/p2p/enode"
 )
 
 //Block block
@@ -16,9 +16,9 @@ type Peer struct {
 	Port    uint32 `json:"port"`
 }
 
-func convertNode(n *discover.Node) *Peer {
+func convertNode(n *enode.Node) *Peer {
 	return &Peer{
-		EnodeID: n.ID.String(),
-		IP:      n.IP.String(),
+		EnodeID: n.ID().String(),
+		IP:      n.IP().String(),
 	}
 }

@@ -5,9 +5,11 @@
 
 package main
 
-import "github.com/ethereum/go-ethereum/p2p/discover"
+import (
+	"github.com/ethereum/go-ethereum/p2p/enode"
+)
 
-var bootstrapNodes = []*discover.Node{
+var bootstrapNodes = []*enode.Node{
 	// discover.MustParseNode("enode://bef967df827bfb246d837676beed52ce955f5376dda7dfb58f45b3f7a087c819e1821be7a9c45d89503344d4c9e65e015340e74b0a28f84fbad842430f5719d6@192.168.1.193:55555"),
 	// discover.MustParseNode("enode://3a20f197837c01316f2e4fd6b165c82e07336724d976d049f7314803afebfd738728b02c04bc4e12f29e4b6cc8e527f7f19b18c0dd446858f33ebd79ea310c76@34.222.111.82:55555"),
 	// discover.MustParseNode("enode://61f90566cfb85a0291882ebb97f89a0d896b17ca93fc08acd4558bfbaa25ca662619bd980505bc14523dad4cba97ad757bb77a70d72ba07f648018960814eafd@54.184.235.97:55555"),
@@ -18,7 +20,7 @@ var bootstrapNodes = []*discover.Node{
 	// discover.MustParseNode("enode://a8a83b4faac13f0a05ecd383d661a85e15e2a93fb41c4b5d00976d0bb8e35aab58a6303fe6b437124888da45017b94df8ce72f6a8bb5bcfdc7bd8df51698ad01@106.75.226.133:55555"),
 }
 
-var KnownNodes = []*discover.Node{
+var KnownNodes = []*enode.Node{
 	// Nodes for Yang
 	//discover.MustParseNode("enode://a00f8a399e25e72d92534236d7683b9c4c23582045c7d081735e4badf09d0775797819791502893df901c6b9dd26281f31bf6850fdfcebb48ea37cdbf63a95ae@10.1.10.50:11235"),
 	//discover.MustParseNode("enode://719d706c31723dca3cc5eb9c325b9bf842c4301ec3cc0086beb7823ecf428034b6a6c4f93efd1958a54746ee3d3312c3c26253c88b11c2cc6b08683a4e597190@10.1.10.9:11235"),

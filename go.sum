@@ -39,6 +39,8 @@ github.com/enzoh/go-bls v0.0.0-20180308225442-56f8c69eaff5 h1:pyUjQT2rT2Ena6LyaW
 github.com/enzoh/go-bls v0.0.0-20180308225442-56f8c69eaff5/go.mod h1:eQotghgj2uYXgK5ZhYwH/D0oZN2c4gPFQh16UqJuPRc=
 github.com/ethereum/go-ethereum v1.8.14 h1:q+r1V2aNLAlE3+5FsRM5d2hQF4Wc7h7PfhSeSoq6zUo=
 github.com/ethereum/go-ethereum v1.8.14/go.mod h1:PwpWDrCLZrV+tfrhqqF6kPknbISMHaJv9Ln3kPCZLwY=
+github.com/ethereum/go-ethereum v1.8.17 h1:aoqWfGFYsSxCdFZfQ6h0pnojtoBOcYI+6Yg8JXhGuXs=
+github.com/ethereum/go-ethereum v1.8.17/go.mod h1:PwpWDrCLZrV+tfrhqqF6kPknbISMHaJv9Ln3kPCZLwY=
 github.com/fortytw2/leaktest v1.3.0 h1:u8491cBMTQ8ft8aeV+adlcytMZylmA5nnwwkRZjI8vw=
 github.com/fortytw2/leaktest v1.3.0/go.mod h1:jDsjWgpAGjm2CA7WthBh/CdZYEPF31XHquHwclZch5g=
 github.com/fsnotify/fsnotify v1.4.7/go.mod h1:jwhsz4b93w/PPRr/qN1Yymfu8t87LnFCMoQvtojpjFo=

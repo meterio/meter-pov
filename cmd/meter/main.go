@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"math"
+	"net"
 	"os"
 	"path"
 	"path/filepath"
@@ -23,7 +24,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/ethereum/go-ethereum/p2p/discover"
+	"github.com/ethereum/go-ethereum/p2p/enode"
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/inconshreveable/log15"
 	isatty "github.com/mattn/go-isatty"
@@ -168,7 +169,8 @@ func showEnodeIDAction(ctx *cli.Context) error {
 	if err != nil {
 		fatal("load or generate P2P key:", err)
 	}
-	id := discover.PubkeyID(&key.PublicKey)
+	node := enode.NewV4(&key.PublicKey, net.IP{}, 0, 0)
+	id := node.ID()
 	port := ctx.Int(p2pPortFlag.Name)
 	fmt.Println(fmt.Sprintf("enode://%v@[]:%d", id, port))
 	return nil
@@ -191,7 +193,7 @@ func peersAction(ctx *cli.Context) error {
 	gene := selectGenesis(ctx)
 	instanceDir := makeInstanceDir(ctx, gene)
 	peersCachePath := path.Join(instanceDir, "peers.cache")
-	nodes := make([]*discover.Node, 0)
+	nodes := make([]*enode.Node, 0)
 	if data, err := ioutil.ReadFile(peersCachePath); err != nil {
 		if !os.IsNotExist(err) {
 			fmt.Println("failed to load peers cache", "err", err)
@@ -201,7 +203,7 @@ func peersAction(ctx *cli.Context) error {
 		fmt.Println("failed to load peers cache", "err", err)
 	}
 	for i, n := range nodes {
-		fmt.Println(fmt.Sprintf("Node #%d: enode://%s@%s", i, n.ID, n.IP.String()))
+		fmt.Println(fmt.Sprintf("Node #%d: enode://%s@%s", i, n.ID, n.IP().String()))
 	}
 	fmt.Println("End.")
 	return nil

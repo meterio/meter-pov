@@ -13,7 +13,7 @@ require (
 	github.com/dfinlab/go-amino v0.14.1
 	github.com/elazarl/go-bindata-assetfs v1.0.0
 	github.com/enzoh/go-bls v0.0.0-20180308225442-56f8c69eaff5
-	github.com/ethereum/go-ethereum v1.8.14
+	github.com/ethereum/go-ethereum v1.8.17
 	github.com/fortytw2/leaktest v1.3.0
 	github.com/gonum/floats v0.0.0-20181209220543-c233463c7e82 // indirect
 	github.com/gonum/internal v0.0.0-20181124074243-f884aa714029 // indirect
