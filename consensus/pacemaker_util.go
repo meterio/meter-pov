@@ -441,7 +441,11 @@ func (p *Pacemaker) collectVoteSignature(voteMsg *PMVoteMessage) error {
 func (p *Pacemaker) verifyTimeoutCert(tc *PMTimeoutCert, height, round uint32) bool {
 	if tc != nil {
 		//FIXME: check timeout cert
-		return tc.TimeoutHeight == height && tc.TimeoutRound <= round
+		valid := tc.TimeoutHeight <= height && tc.TimeoutRound == round
+		if !valid {
+			p.logger.Warn("Invalid Timeout Cert", "expected", fmt.Sprintf("H:%v,R:%v", tc.TimeoutHeight, tc.TimeoutRound), "proposal", fmt.Sprintf("H:%v,R:%v", height, round))
+		}
+		return valid
 	}
 	return false
 }
