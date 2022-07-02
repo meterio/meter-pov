@@ -1069,6 +1069,7 @@ func (p *Pacemaker) mainLoop() {
 		case <-p.csReactor.RcvKBlockInfoQueue:
 			p.stopCleanup()
 			p.csReactor.PrepareEnvForPacemaker()
+			p.stopped = false
 			if p.csReactor.inCommittee {
 				p.scheduleReboot(PMModeNormal)
 			} else {
