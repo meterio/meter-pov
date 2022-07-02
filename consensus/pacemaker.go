@@ -980,13 +980,12 @@ func (p *Pacemaker) mainLoop() {
 			case PMCmdStop:
 				p.stopCleanup()
 				p.logger.Info("--- Pacemaker stopped successfully")
-				p.stopped = true
-				continue
 
 			case PMCmdRestart:
 				p.stopCleanup()
 				p.logger.Info("--- Pacemaker stopped successfully, restart now")
 				p.Start(si.mode, p.calcStatsTx)
+
 			case PMCmdReboot:
 				p.stopCleanup()
 				bestQC := p.csReactor.chain.BestQC()
@@ -1000,10 +999,19 @@ func (p *Pacemaker) mainLoop() {
 				p.Start(si.mode, true)
 			}
 		case ti := <-p.roundTimeoutCh:
+			if p.stopped {
+				continue
+			}
 			p.OnRoundTimeout(ti)
 		case b := <-p.beatCh:
+			if p.stopped {
+				continue
+			}
 			err = p.OnBeat(b.height, b.round, b.reason)
 		case m := <-p.pacemakerMsgCh:
+			if p.stopped {
+				continue
+			}
 			// if in observe mode, ignore any incoming message
 			if p.mode == PMModeObserve {
 				continue
@@ -1130,6 +1138,7 @@ func (p *Pacemaker) stopCleanup() {
 
 	p.currentRound = 0
 	p.reset()
+	p.stopped = true
 }
 
 func (p *Pacemaker) IsStopped() bool {
