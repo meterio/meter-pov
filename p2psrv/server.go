@@ -121,6 +121,7 @@ func (s *Server) Start(protocols []*Protocol) error {
 			s.goes.Go(func() { s.discoverLoop(topicToSearch) })
 		}
 	}
+
 	log.Info("start up", "self", s.Self())
 
 	s.goes.Go(s.dialLoop)
@@ -300,12 +301,7 @@ func (s *Server) dialLoop() {
 			log.Debug("try to dial node")
 			s.dialingNodes.Add(node)
 			// don't use goes.Go, since the dial process can't be interrupted
-			go func() {
-				if err := s.tryDial(node); err != nil {
-					s.dialingNodes.Remove(node.ID())
-					log.Debug("failed to dial node", "err", err)
-				}
-			}()
+			s.srv.AddPeer(node)
 
 			dialCount++
 			if dialCount == 20 {
@@ -324,14 +320,6 @@ func (s *Server) dialLoop() {
 			return
 		}
 	}
-}
-
-func (s *Server) tryDial(node *enode.Node) error {
-	conn, err := s.srv.Dialer.Dial(node)
-	if err != nil {
-		return err
-	}
-	return s.srv.SetupConn(conn, 1, node)
 }
 
 func (s *Server) GetDiscoveredNodes() []*enode.Node {

@@ -69,10 +69,10 @@ func New(data []byte) (*ABI, error) {
 		// empty defaults to function according to the abi spec
 		case "function", "":
 			ethMethod := ethabi.Method{
-				Name:    field.Name,
-				Const:   field.Constant,
-				Inputs:  field.Inputs,
-				Outputs: field.Outputs,
+				Name:     field.Name,
+				Constant: field.Constant,
+				Inputs:   field.Inputs,
+				Outputs:  field.Outputs,
 			}
 			var id MethodID
 			canonicalID := crypto.Keccak256([]byte(canonicalMethodSigature(ethMethod)))[:4]
