@@ -20,10 +20,10 @@ import (
 	"github.com/ethereum/go-ethereum/common/math"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/meterio/meter-pov/params"
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/meterio/meter-pov/meter"
 	"github.com/meterio/meter-pov/metric"
+	"github.com/meterio/meter-pov/params"
 )
 
 var (
@@ -115,7 +115,7 @@ type body struct {
 }
 
 func NewTransactionFromEthTx(ethTx *types.Transaction, chainTag byte, blockRef BlockRef) (*Transaction, error) {
-	msg, err := ethTx.AsMessage(types.NewEIP155Signer(ethTx.ChainId()))
+	msg, err := ethTx.AsMessage(types.NewEIP155Signer(ethTx.ChainId()), nil)
 	if err != nil {
 		return nil, err
 	}
