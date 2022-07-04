@@ -64,5 +64,10 @@ func (e *Event) Encode(args ...interface{}) ([]byte, error) {
 
 // Decode decodes event data.
 func (e *Event) Decode(data []byte, v interface{}) error {
-	return e.argsWithoutIndexed.Unpack(v, data)
+	decoded, err := e.argsWithoutIndexed.Unpack(data)
+	if err != nil {
+		return err
+	}
+	e.argsWithoutIndexed.Copy(v, decoded)
+	return nil
 }
