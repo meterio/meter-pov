@@ -386,7 +386,8 @@ func opSha3(pc *uint64, evm *EVM, contract *Contract, memory *Memory, stack *Sta
 }
 
 func opAddress(pc *uint64, evm *EVM, contract *Contract, memory *Memory, stack *Stack) ([]byte, error) {
-	stack.push(contract.Address().Big())
+	addr := new(big.Int).SetBytes(contract.Address().Bytes())
+	stack.push(addr)
 	return nil, nil
 }
 
@@ -397,12 +398,14 @@ func opBalance(pc *uint64, evm *EVM, contract *Contract, memory *Memory, stack *
 }
 
 func opOrigin(pc *uint64, evm *EVM, contract *Contract, memory *Memory, stack *Stack) ([]byte, error) {
-	stack.push(evm.Origin.Big())
+	addr := new(big.Int).SetBytes(evm.Origin.Bytes())
+	stack.push(addr)
 	return nil, nil
 }
 
 func opCaller(pc *uint64, evm *EVM, contract *Contract, memory *Memory, stack *Stack) ([]byte, error) {
-	stack.push(contract.Caller().Big())
+	addr := new(big.Int).SetBytes(contract.Caller().Bytes())
+	stack.push(addr)
 	return nil, nil
 }
 
@@ -555,7 +558,8 @@ func opBlockhash(pc *uint64, evm *EVM, contract *Contract, memory *Memory, stack
 }
 
 func opCoinbase(pc *uint64, evm *EVM, contract *Contract, memory *Memory, stack *Stack) ([]byte, error) {
-	stack.push(evm.Coinbase.Big())
+	addr := new(big.Int).SetBytes(evm.Coinbase.Bytes())
+	stack.push(addr)
 	return nil, nil
 }
 
@@ -694,7 +698,8 @@ func opCreate(pc *uint64, evm *EVM, contract *Contract, memory *Memory, stack *S
 	} else if suberr != nil && suberr != ErrCodeStoreOutOfGas {
 		stack.push(evm.interpreter.intPool.getZero())
 	} else {
-		stack.push(addr.Big())
+		addrInt := new(big.Int).SetBytes(addr.Bytes())
+		stack.push(addrInt)
 	}
 	contract.Gas += returnGas
 	evm.interpreter.intPool.put(value, offset, size)
@@ -722,7 +727,8 @@ func opCreate2(pc *uint64, evm *EVM, contract *Contract, memory *Memory, stack *
 	if suberr != nil {
 		stack.push(evm.interpreter.intPool.getZero())
 	} else {
-		stack.push(addr.Big())
+		addrInt := new(big.Int).SetBytes(addr.Bytes())
+		stack.push(addrInt)
 	}
 	contract.Gas += returnGas
 	evm.interpreter.intPool.put(endowment, offset, size, salt)

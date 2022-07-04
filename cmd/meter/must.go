@@ -217,7 +217,7 @@ func makeInstanceDir(ctx *cli.Context, gene *genesis.Genesis) string {
 }
 
 func openMainDB(ctx *cli.Context, dataDir string) *lvldb.LevelDB {
-	if err := fdlimit.Raise(5120 * 4); err != nil {
+	if _, err := fdlimit.Raise(5120 * 4); err != nil {
 		fatal("failed to increase fd limit", err)
 	}
 	limit, err := fdlimit.Current()

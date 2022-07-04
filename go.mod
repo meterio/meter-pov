@@ -3,6 +3,7 @@ module github.com/meterio/meter-pov
 go 1.13
 
 require (
+	github.com/allegro/bigcache v1.2.1 // indirect
 	github.com/aristanetworks/goarista v0.0.0-20170210015632-ea17b1a17847 // indirect
 	github.com/beevik/ntp v0.2.0
 	github.com/beorn7/perks v1.0.0 // indirect
@@ -11,9 +12,10 @@ require (
 	github.com/davecgh/go-spew v1.1.1
 	github.com/deckarep/golang-set v0.0.0-20180603214616-504e848d77ea // indirect
 	github.com/dfinlab/go-amino v0.14.1
+	github.com/elastic/gosigar v0.14.2 // indirect
 	github.com/elazarl/go-bindata-assetfs v1.0.0
 	github.com/enzoh/go-bls v0.0.0-20180308225442-56f8c69eaff5
-	github.com/ethereum/go-ethereum v1.8.17
+	github.com/ethereum/go-ethereum v1.9.1
 	github.com/fortytw2/leaktest v1.3.0
 	github.com/gonum/floats v0.0.0-20181209220543-c233463c7e82 // indirect
 	github.com/gonum/internal v0.0.0-20181124074243-f884aa714029 // indirect
@@ -33,14 +35,16 @@ require (
 	github.com/mattn/go-sqlite3 v1.10.0
 	github.com/mattn/go-tty v0.0.0-20181127064339-e4f871175a2f
 	github.com/pborman/uuid v0.0.0-20180906182336-adf5a7427709
-	github.com/pkg/errors v0.8.0
+	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v0.9.2
 	github.com/prometheus/client_model v0.0.0-20190129233127-fd36f4220a90 // indirect
 	github.com/prometheus/common v0.3.0 // indirect
 	github.com/prometheus/procfs v0.0.0-20190412120340-e22ddced7142 // indirect
 	github.com/rcrowley/go-metrics v0.0.0-20181016184325-3113b8401b8a
 	github.com/rjeczalik/notify v0.9.1 // indirect
-	github.com/stretchr/testify v1.3.0
+	github.com/steakknife/bloomfilter v0.0.0-20180922174646-6819c0d2a570 // indirect
+	github.com/steakknife/hamming v0.0.0-20180906055917-c99c65617cd3 // indirect
+	github.com/stretchr/testify v1.4.0
 	github.com/syndtr/goleveldb v0.0.0-20181128100959-b001fa50d6b2
 	github.com/tendermint/go-amino v0.16.0 // indirect
 	golang.org/x/crypto v0.0.0-20200622213623-75b288015ac9
