@@ -8,7 +8,7 @@ package meter
 import (
 	"testing"
 
-	"github.com/ethereum/go-ethereum/crypto/sha3"
+	"golang.org/x/crypto/sha3"
 	//"golang.org/x/crypto/blake2b"
 
 	"github.com/meterio/meter-pov/crypto/blake2b"
@@ -17,7 +17,7 @@ import (
 func BenchmarkKeccak(b *testing.B) {
 	data := []byte("hello world")
 	for i := 0; i < b.N; i++ {
-		hash := sha3.NewKeccak256()
+		hash := sha3.NewLegacyKeccak256()
 		hash.Write(data)
 		hash.Sum(nil)
 	}
