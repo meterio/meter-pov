@@ -12,7 +12,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
-	ethparams "github.com/ethereum/go-ethereum/params"
+	ethparams "github.com/meterio/meter-pov/params"
 	"github.com/meterio/meter-pov/abi"
 	"github.com/meterio/meter-pov/chain"
 	"github.com/meterio/meter-pov/meter"

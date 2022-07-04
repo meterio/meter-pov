@@ -9,7 +9,7 @@ import (
 	"math/big"
 	"time"
 
-	"github.com/ethereum/go-ethereum/params"
+	"github.com/meterio/meter-pov/params"
 )
 
 // Constants of block chain.

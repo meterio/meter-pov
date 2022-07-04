@@ -8,7 +8,7 @@ package vm
 import (
 	"math/big"
 
-	"github.com/ethereum/go-ethereum/params"
+	"github.com/meterio/meter-pov/params"
 )
 
 // isForked returns whether a fork scheduled at block s is active at the given head block.
