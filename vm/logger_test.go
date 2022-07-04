@@ -21,7 +21,7 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/params"
+	"github.com/meterio/meter-pov/params"
 )
 
 type dummyContractRef struct {

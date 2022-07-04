@@ -8,10 +8,23 @@ package abi
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
+	"strings"
+
+	"github.com/ethereum/go-ethereum/crypto"
 
 	ethabi "github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/meterio/meter-pov/meter"
 )
+
+//  Added to upgrade ethereum library from v1.9.1 to v1.9.3
+func canonicalMethodSigature(method ethabi.Method) string {
+	types := make([]string, len(method.Inputs))
+	for i, input := range method.Inputs {
+		types[i] = input.Type.String()
+	}
+	return fmt.Sprintf("%v(%v)", method.Name, strings.Join(types, ","))
+}
 
 // ABI holds information about methods and events of contract.
 type ABI struct {
@@ -62,7 +75,8 @@ func New(data []byte) (*ABI, error) {
 				Outputs: field.Outputs,
 			}
 			var id MethodID
-			copy(id[:], ethMethod.Id())
+			canonicalID := crypto.Keccak256([]byte(canonicalMethodSigature(ethMethod)))[:4]
+			copy(id[:], canonicalID)
 			method := &Method{id, &ethMethod}
 			abi.methods = append(abi.methods, method)
 			abi.idToMethod[id] = method

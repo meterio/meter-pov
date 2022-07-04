@@ -18,7 +18,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/ethereum/go-ethereum/params"
+	"github.com/meterio/meter-pov/params"
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/meterio/meter-pov/block"
 	"github.com/meterio/meter-pov/chain"

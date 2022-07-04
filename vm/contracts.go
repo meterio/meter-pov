@@ -25,7 +25,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/math"
 	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/ethereum/go-ethereum/params"
+	"github.com/meterio/meter-pov/params"
 	"golang.org/x/crypto/ripemd160"
 
 	"github.com/meterio/meter-pov/crypto/blake2b"

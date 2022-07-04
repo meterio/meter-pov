@@ -6,9 +6,23 @@
 package abi
 
 import (
+	"fmt"
+	"strings"
+
+	"github.com/ethereum/go-ethereum/crypto"
+
 	ethabi "github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/meterio/meter-pov/meter"
 )
+
+// Added to upgrade ethereum library from v1.9.1 to v1.9.3
+func canonicalEventSignature(e *ethabi.Event) string {
+	types := make([]string, len(e.Inputs))
+	for i, input := range e.Inputs {
+		types[i] = input.Type.String()
+	}
+	return fmt.Sprintf("%v(%v)", e.Name, strings.Join(types, ","))
+}
 
 // Event see abi.Event in go-ethereum.
 type Event struct {
@@ -24,8 +38,10 @@ func newEvent(event *ethabi.Event) *Event {
 			argsWithoutIndexed = append(argsWithoutIndexed, arg)
 		}
 	}
+	canonicalID := crypto.Keccak256([]byte(canonicalEventSignature(event)))
+
 	return &Event{
-		meter.Bytes32(event.Id()),
+		meter.BytesToBytes32(canonicalID),
 		event,
 		argsWithoutIndexed,
 	}
