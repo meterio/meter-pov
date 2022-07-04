@@ -742,7 +742,7 @@ func (conR *ConsensusReactor) PrepareEnvForPacemaker() error {
 	return nil
 }
 
-func (conR *ConsensusReactor) startPacemaker(mode PMMode) error {
+func (conR *ConsensusReactor) verifyBestQCAndBestBlockBeforeStart() bool {
 	// 1. bestQC height == best block height
 	// 2. newCommittee is true, best block is kblock
 	for i := 0; i < 3; i++ {
@@ -754,27 +754,43 @@ func (conR *ConsensusReactor) startPacemaker(mode PMMode) error {
 			com := comm.GetGlobCommInst()
 			if com == nil {
 				conR.logger.Error("get global comm inst failed")
-				return errors.New("pacemaker does not started")
+				return false
 			}
+			conR.logger.Warn("bestQC and bestBlock height mismatch, trigger sync now ...", "bestQC", bestQC.QCHeight, "bestBlock", bestBlock.Number(), "attempt", i+1, "waitInterval", time.Duration(math.Pow(float64(2), float64(i+1))))
 			com.TriggerSync()
-			conR.logger.Warn("bestQC and bestBlock Height are not match ...")
-			<-time.NewTimer(1 * time.Second).C
+			// every attempt wait for 2^(i+1) seconds
+			<-time.NewTimer(time.Duration(math.Pow(float64(2), float64(i+1))) * time.Second).C
 		} else {
 			break
 		}
 	}
+
 	conR.chain.UpdateBestQC(nil, chain.None)
 	bestQC := conR.chain.BestQC()
 	bestBlock := conR.chain.BestBlock()
 	if bestQC.QCHeight != bestBlock.Number() {
-		conR.logger.Error("bestQC and bestBlock still not match, Action (start pacemaker) cancelled ...")
-		return nil
+		conR.logger.Warn("Caution: bestQC and bestBlock mismatch after syncing ...", "bestQC", bestQC.QCHeight, "bestBlock", bestBlock.Number())
+		return false
+	} else {
+		conR.logger.Info("bestQC and bestBlock matches", "bestQC", bestQC.QCHeight, "bestBlock", bestBlock.Number())
+		return true
 	}
+}
 
-	conR.logger.Info("startConsensusPacemaker", "QCHeight", bestQC.QCHeight, "bestHeight", bestBlock.Header().Number())
-
+func (conR *ConsensusReactor) startPacemaker(mode PMMode) error {
+	// 1. bestQC height == best block height
+	// 2. newCommittee is true, best block is kblock
+	verified := conR.verifyBestQCAndBestBlockBeforeStart()
+	bestQC := conR.chain.BestQC()
+	bestBlock := conR.chain.BestBlock()
 	freshCommittee := (bestBlock.Header().BlockType() == block.BLOCK_TYPE_K_BLOCK) || (bestBlock.Header().Number() == 0)
-	conR.csPacemaker.Start(mode, freshCommittee)
+	if verified {
+		conR.logger.Info("start Pacemaker", "bestQC", bestQC.QCHeight, "bestBlock", bestBlock.Header().Number())
+		conR.csPacemaker.Start(mode, freshCommittee)
+	} else {
+		conR.logger.Warn("start Pacemaker in CatchUp mode due to bestQC/bestBlock mismatch", "bestQC", bestQC.QCHeight, "bestBlock", bestBlock.Header().Number())
+		conR.csPacemaker.Start(PMModeCatchUp, freshCommittee)
+	}
 	return nil
 }
 

@@ -982,21 +982,23 @@ func (p *Pacemaker) mainLoop() {
 				p.logger.Info("--- Pacemaker stopped successfully")
 
 			case PMCmdRestart:
+				// restart will keep calcStatsTx as is
 				p.stopCleanup()
 				p.logger.Info("--- Pacemaker stopped successfully, restart now")
 				p.Start(si.mode, p.calcStatsTx)
 
 			case PMCmdReboot:
+				// reboot will set calcStatsTx=true
 				p.stopCleanup()
-				bestQC := p.csReactor.chain.BestQC()
-				bestBlock := p.csReactor.chain.BestBlock()
-				if bestQC.QCHeight != bestBlock.Number() {
-					p.logger.Error("bestQC and bestBlock still not match, Action (start pacemaker) cancelled ...")
-					continue
+				verified := p.csReactor.verifyBestQCAndBestBlockBeforeStart()
+				if verified {
+					p.logger.Info("--- Pacemaker stopped successfully, REBOOT now")
+					p.Start(si.mode, true)
+				} else {
+					p.logger.Warn("--- Pacemaker stopped successfully, REBOOT now into CatchUp mode due to bestQC/bestBlock mismatch")
+					p.Start(PMModeCatchUp, true)
 				}
 
-				p.logger.Info("--- Pacemaker stopped successfully, REBOOT now")
-				p.Start(si.mode, true)
 			}
 		case ti := <-p.roundTimeoutCh:
 			if p.stopped {
