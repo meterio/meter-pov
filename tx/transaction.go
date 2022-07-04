@@ -115,7 +115,7 @@ type body struct {
 }
 
 func NewTransactionFromEthTx(ethTx *types.Transaction, chainTag byte, blockRef BlockRef) (*Transaction, error) {
-	msg, err := ethTx.AsMessage(types.NewEIP155Signer(ethTx.ChainId()))
+	msg, err := ethTx.AsMessage(types.NewEIP155Signer(ethTx.ChainId()), nil)
 	if err != nil {
 		return nil, err
 	}
