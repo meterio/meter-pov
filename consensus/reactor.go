@@ -645,11 +645,7 @@ func (conR *ConsensusReactor) UpdateCurDelegates() {
 	conR.curDelegates = types.NewDelegateSet(delegates[:delegateSize])
 	conR.delegateSize = delegateSize
 	conR.committeeSize = uint32(committeeSize)
-	names := make([]string, 0)
-	for _, d := range conR.curDelegates.Delegates {
-		names = append(names, string(d.Name))
-	}
-	conR.logger.Info("Update curDelegates", "delegateSize", conR.delegateSize, "committeeSize", conR.committeeSize, "names", strings.Join(names, ","))
+	conR.logger.Info("Update curDelegates", "delegateSize", conR.delegateSize, "committeeSize", conR.committeeSize)
 }
 
 func (conR *ConsensusReactor) PrepareEnvForPacemaker() error {
