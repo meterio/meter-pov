@@ -690,14 +690,15 @@ func (conR *ConsensusReactor) PrepareEnvForPacemaker() error {
 	conR.updateCurEpoch(epoch)
 	conR.UpdateActualCommittee()
 
+	conR.logger.Info("PowPool prepare to add kblock, and notify PoW chain to pick head", "powHeight", info.PowHeight, "powRawBlock", hex.EncodeToString(info.PowRaw))
+	pool := powpool.GetGlobPowPoolInst()
+	pool.Wash()
+	pool.InitialAddKframe(info)
+	conR.logger.Info("PowPool initial added kblock", "bestKblock height", kBlockHeight, "powHeight", info.PowHeight)
+
 	if inCommittee {
 		conR.logger.Info("I am in committee!!!")
-		pool := powpool.GetGlobPowPoolInst()
-		pool.Wash()
-		pool.InitialAddKframe(info)
-		conR.logger.Info("PowPool initial added kblock", "bestKblock height", kBlockHeight, "powHeight", info.PowHeight)
-
-		if bestIsKBlock == false {
+		if bestIsKBlock {
 			//kblock is already added to pool, should start with next one
 			startHeight := info.PowHeight + 1
 			conR.logger.Info("Replay", "replay from powHeight", startHeight)
@@ -728,7 +729,7 @@ func (conR *ConsensusReactor) PrepareEnvForPacemaker() error {
 					break
 				}
 			}
-			if inCommitteeVerified == false {
+			if !inCommitteeVerified {
 				conR.logger.Error("committee info in consent block doesn't contain myself as a member, stop right now")
 				return errors.New("committee info in consent block doesnt match myself")
 			}
