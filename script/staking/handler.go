@@ -1316,7 +1316,9 @@ func (sb *StakingBody) BucketUpdateHandler(env *StakingEnv, gas uint64) (leftOve
 			// update old bucket
 			bucket.BonusVotes = 0
 			bucket.Value.Sub(bucket.Value, sb.Amount)
-			bucket.Value.Sub(bucket.Value, bonusDelta)
+			if (meter.IsMainNet() && !meter.IsMainChainTeslaFork6(number)) || (meter.IsTestNet() && !meter.IsTestChainTeslaFork6(number)) {
+				bucket.Value.Sub(bucket.Value, bonusDelta)
+			}
 			bucket.TotalVotes.Sub(bucket.TotalVotes, sb.Amount)
 			bucket.TotalVotes.Sub(bucket.TotalVotes, bonusDelta)
 

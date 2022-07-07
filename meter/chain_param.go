@@ -71,6 +71,10 @@ const (
 	// 3) more to come
 	TeslaFork5_TestnetStartNum = 0        //FIXME: update if testnet needs a fork
 	TeslaFork5_MainnetStartNum = 25650000 // around 7/4/2022 9:30 AM (PDT)
+
+	TeslaFork6_TestnetStartNum = 17127200 //
+	TeslaFork6_MainnetStartNum = 40000000 // FIXME: update
+
 )
 
 // start block number support sys-contract
@@ -83,6 +87,7 @@ var (
 	TeslaFork3StartNum uint32 = TeslaFork3_MainnetStartNum
 	TeslaFork4StartNum uint32 = TeslaFork4_MainnetStartNum
 	TeslaFork5StartNum uint32 = TeslaFork5_MainnetStartNum
+	TeslaFork6StartNum uint32 = TeslaFork6_MainnetStartNum
 
 	// Genesis hashes to enforce below configs on.
 	GenesisHash = MustParseBytes32("0x00000000733c970e6a7d68c7db54e3705eee865a97a07bf7e695c63b238f5e52")
@@ -186,6 +191,10 @@ func (p *ChainConfig) IsTeslaFork5(blockNum uint32) bool {
 	return blockNum >= TeslaFork5StartNum
 }
 
+func (p *ChainConfig) IsTeslaFork6(blockNum uint32) bool {
+	return blockNum >= TeslaFork6StartNum
+}
+
 func InitBlockChainConfig(genesisID Bytes32, chainFlag string) {
 	BlockChainConfig.ChainGenesisID = genesisID
 	BlockChainConfig.ChainFlag = chainFlag
@@ -201,6 +210,7 @@ func InitBlockChainConfig(genesisID Bytes32, chainFlag string) {
 		TeslaFork3StartNum = TeslaFork3_MainnetStartNum
 		TeslaFork4StartNum = TeslaFork4_MainnetStartNum
 		TeslaFork5StartNum = TeslaFork5_MainnetStartNum
+		TeslaFork6StartNum = TeslaFork6_MainnetStartNum
 	} else {
 		SysContractStartNum = TestnetSysContractStartNum
 		EdisonStartNum = EdisonTestnetStartNum
@@ -209,6 +219,7 @@ func InitBlockChainConfig(genesisID Bytes32, chainFlag string) {
 		TeslaFork3StartNum = TeslaFork3_TestnetStartNum
 		TeslaFork4StartNum = TeslaFork4_TestnetStartNum
 		TeslaFork5StartNum = TeslaFork5_TestnetStartNum
+		TeslaFork5StartNum = TeslaFork6_TestnetStartNum
 	}
 }
 
@@ -250,6 +261,14 @@ func IsMainChainTeslaFork5(blockNum uint32) bool {
 
 func IsTestChainTeslaFork5(blockNum uint32) bool {
 	return BlockChainConfig.IsTestnet() && BlockChainConfig.IsTeslaFork5(blockNum)
+}
+
+func IsMainChainTeslaFork6(blockNum uint32) bool {
+	return BlockChainConfig.IsMainnet() && BlockChainConfig.IsTeslaFork6(blockNum)
+}
+
+func IsTestChainTeslaFork6(blockNum uint32) bool {
+	return BlockChainConfig.IsTestnet() && BlockChainConfig.IsTeslaFork6(blockNum)
 }
 
 func IsTestNet() bool {
