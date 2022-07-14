@@ -299,6 +299,11 @@ func (p *Pacemaker) OnReceiveProposal(mi *consensusMsgInfo) error {
 	height := msgHeader.Height
 	round := msgHeader.Round
 
+	if p.blockLocked == nil {
+		p.logger.Info("blockLocked is nil", "height", height)
+		return errParentMissing
+	}
+
 	if height <= p.blockLocked.Height {
 		p.logger.Info("recved proposal with height <= bLocked.height, ignore ...", "height", height, "bLocked.height", p.blockLocked.Height)
 		return nil
