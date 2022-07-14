@@ -6,13 +6,13 @@
 # with two tags (latest & $version)
 
 VERSION=$(cat cmd/meter/VERSION)
-POS_DOCKER_REPO=meterio/pos
-POW_DOCKER_RPEO=meterio/pow
-POW_STATIC_TAG=$POW_DOCKER_RPEO:mainnet
+POS_DOCKER_REPO=meterio/mainnet-pos
+POW_DOCKER_RPEO=meterio/mainnet-pow
+POW_STATIC_TAG=$POW_DOCKER_RPEO:22.04
 
 POS_DOCKERFILE=_docker/pos.Dockerfile
 POS_VERSION_TAG=$POS_DOCKER_REPO:$VERSION
-POS_STATIC_TAG=$POS_DOCKER_REPO:mainnet
+POS_STATIC_TAG=$POS_DOCKER_REPO:22.04
 
 FULL_DOCKER_REPO=meterio/mainnet
 FULL_DOCKERFILE=_docker/mainnet.Dockerfile
@@ -35,5 +35,5 @@ echo "Building docker image: $FULL_VERSION_TAG $FULL_STATIC_TAG"
 docker build -f $FULL_DOCKERFILE -t $FULL_VERSION_TAG .
 docker tag $FULL_VERSION_TAG $FULL_STATIC_TAG
 
-docker push $FULL_STATIC_TAG
-docker push $FULL_VERSION_TAG
+#docker push $FULL_STATIC_TAG
+#docker push $FULL_VERSION_TAG

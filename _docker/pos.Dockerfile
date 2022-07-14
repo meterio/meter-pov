@@ -1,26 +1,15 @@
 # Build meter in a stock Go builder container
-FROM meterio/build-env:20.04 as builder
+FROM meterio/build-env:22.04 as builder
 RUN go version
 
 WORKDIR  /meter
 
 COPY . .
 
-#RUN git submodule update --init
-# RUN make dep (takes much longer)
-
-# prepare for missed sha3 library
-#RUN go get golang.org/x/crypto/sha3
-#RUN cp -r "${GOPATH}/src/golang.org/x/crypto/sha3" "/meter/vendor/golang.org/x/crypto/sha3"
-
-# prepare for missed secp256k1 library
-# RUN go get github.com/ethereum/go-ethereum
-# RUN cp -r "${GOPATH}/src/github.com/ethereum/go-ethereum/crypto/secp256k1/libsecp256k1" "/meter/vendor/github.com/ethereum/go-ethereum/crypto/secp256k1/"
-
 RUN make all
 
 # Pull meter into a second stage deploy alpine container
-FROM ubuntu:20.04
+FROM ubuntu:22.04
 
 # RUN apk add --no-cache ca-certificates
 COPY --from=builder /meter/bin/meter /usr/bin/
