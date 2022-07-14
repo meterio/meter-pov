@@ -1,31 +1,38 @@
-FROM meterio/pos:mainnet AS pos
-FROM meterio/pow:mainnet AS pow
+FROM meterio/pos:mainnet-20.04 AS pos
+FROM meterio/pow:mainnet-20.04 AS pow
 FROM meterio/bitcoind-exporter:latest as be
 
-FROM ubuntu:18.04
+FROM ubuntu:20.04
 
-# necessary packages
-RUN apt-get -y update && apt-get install -y libssl-dev software-properties-common
-RUN add-apt-repository -y ppa:deadsnakes/ppa 
-RUN apt-get install -y --no-install-recommends build-essential gcc python3.8 python3.8-dev python3-pip python3-setuptools python3-wheel 
-RUN apt-get install -y --no-install-recommends supervisor rsyslog rsyslog-relp vim-tiny && apt-get clean 
-RUN python3.8 -m pip install --no-cache-dir pbkdf2 pycryptodome scrypt werkzeug requests aiohttp lru-dict multidict eth-keys eth_utils click
-#RUN python3.8 -m pip install --no-cache-dir jsonrpcserver==4.2.0
-#RUN python3.8 -m pip install --no-cache-dir rlp==0.6.0
-#RUN python3.8 -m pip install --no-cache-dir websockets==10.1
-RUN python3.8 -m pip install --no-cache-dir meter-gear==1.2.14
+ARG DEBIAN_FRONTEND=noninteractive
 
-# POS settings 
+# install necessary packages
+RUN apt-get update && apt-get install -y \
+  python3-pip \
+  python3-setuptools \
+  python3-wheel \
+  supervisor \
+  rsyslog \
+  rsyslog-relp \
+  vim-tiny \
+  libgssapi-krb5-2 \
+  && rm -rf /var/lib/apt/lists/*
+RUN python3 -m pip install --no-cache-dir meter-gear==1.2.14
+
+# copy PoS binary
 COPY --from=pos /usr/bin/meter /usr/bin/
 COPY --from=pos /usr/bin/disco /usr/bin/
+
+# copy PoS dependencies
 COPY --from=pos /usr/lib/libpbc.so* /usr/lib/
 ENV LD_LIBRARY_PATH=/usr/lib:/usr/local/lib
 
-# POW settings
+# copy PoW binary
 COPY --from=pow /usr/local/bin/bitcoind /usr/bin/
 COPY --from=pow /usr/local/bin/bitcoin-cli /usr/bin/
 COPY --from=pow /usr/local/bin/bitcoin-tx /usr/bin/
 
+# copy PoW dependencies
 COPY --from=pow /usr/lib/libboost*.so* /usr/lib/
 COPY --from=pow /usr/lib/libssl*.so* /usr/lib/
 COPY --from=pow /usr/lib/libevent*.so* /usr/lib/
@@ -36,45 +43,41 @@ COPY --from=pow /usr/lib/libstdc++*.so* /usr/lib/
 COPY --from=pow /usr/lib/libsodium*.so* /usr/lib/
 COPY --from=pow /usr/lib/libpgm*.so* /usr/lib/
 COPY --from=pow /usr/lib/libnorm*.so* /usr/lib/
-COPY --from=pow /usr/lib/libdb*.so* /usr/lib/
 
+# copy bitcoind-exporter binary
 COPY --from=be /usr/bin/bitcoind_exporter /usr/bin/
 
-
-ENV POS_EXTRA=
-ENV POW_EXTRA=
-
-# bitcoind-exporter settings
+# config bitcoind-exporter
 ENV BTC_USER=testuser
 ENV BTC_PASS=testpass
 ENV BTC_HOST=127.0.0.1:8332
 ENV HTTP_LISTENADDR=:8333
 
-# meter-gear settings
-RUN cp /usr/lib/x86_64-linux-gnu/libcrypto.so.1.1 /usr/lib/
-RUN cp /usr/lib/x86_64-linux-gnu/libssl.so.1.1 /usr/lib/
-ENV LC_ALL=C.UTF-8
-ENV LANG=C.UTF-8
-
-
+# prepare data dir
 RUN mkdir /pos
 RUN mkdir /pow
 
+# prepare config files
 COPY _docker/main/bitcoin.conf /pow/bitcoin.conf
 COPY _docker/main/00-meter.conf /etc/rsyslog.d/
 COPY _docker/main/rsyslog.conf /etc/rsyslog.conf
 COPY _docker/main/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 COPY _docker/main/reset.sh /
 
+# enable executable for reset script
 RUN chmod a+x /reset.sh
 
+LABEL com.centurylinklabs.watchtower.lifecycle.pre-update="/reset.sh"
+
+# set extra env 
+ENV POS_EXTRA=
+ENV POW_EXTRA=
+
+# create log output file for supervisor
 RUN touch /var/log/supervisor/pos.log
 RUN touch /var/log/supervisor/pow.log
 RUN touch /var/log/supervisor/gear.log
 RUN touch /var/log/supervisor/bitcoind_exporter.log
 
-LABEL com.centurylinklabs.watchtower.lifecycle.pre-update="/reset.sh"
-
 EXPOSE 8668 8669 8670 11235 11235/udp 55555/udp 8332 9209 8545 8333
 ENTRYPOINT [ "/usr/bin/supervisord" ]
-
