@@ -639,7 +639,7 @@ func (c *ConsensusReactor) validateBlockBody(blk *block.Block, forceValidate boo
 	if len(rinfoIds) != 0 {
 		for key, value := range rinfoIds {
 			if value != 0 {
-				return consensusError(fmt.Sprintf("local-built governing tx has %v extraData with uniteHash: %v",  value, key))
+				return consensusError(fmt.Sprintf("local-built governing tx has %v extraData with uniteHash: %v", value, key))
 			}
 		}
 	}
@@ -942,6 +942,7 @@ func (conR *ConsensusReactor) BuildMBlock(parentBlock *block.Block) *ProposedBlo
 				continue
 			}
 			conR.logger.Warn("mBlock flow.Adopt(tx) failed...", "txid", tx.ID(), "error", err)
+		} else {
 			txsInBlk = append(txsInBlk, tx)
 		}
 	}
