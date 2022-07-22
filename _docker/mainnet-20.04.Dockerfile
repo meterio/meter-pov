@@ -1,17 +1,14 @@
-FROM meterio/mainnet-pos:22.04 AS pos
-FROM meterio/mainnet-pow:22.04 AS pow
+ARG UBUNTU_VERSION=20.04
+FROM meterio/mainnet-pos:$UBUNTU_VERSION AS pos
+FROM meterio/mainnet-pow:$UBUNTU_VERSION AS pow
 FROM meterio/bitcoind-exporter:latest as be
 
-FROM ubuntu:22.04
+FROM ubuntu:$UBUNTU_VERSION
 
 ARG DEBIAN_FRONTEND=noninteractive
 
 # install necessary packages
-RUN apt-get -y update && apt-get install -y software-properties-common && rm -rf /var/lib/apt/lists/*
-RUN add-apt-repository -y ppa:deadsnakes/ppa 
 RUN apt-get update && apt-get install -y \
-  python3.9 \
-  python3.9-distutils \
   python3-pip \
   python3-setuptools \
   python3-wheel \
@@ -21,7 +18,7 @@ RUN apt-get update && apt-get install -y \
   vim-tiny \
   libgssapi-krb5-2 \
   && rm -rf /var/lib/apt/lists/*
-RUN python3.9 -m pip install --no-cache-dir meter-gear==1.2.14
+RUN python3 -m pip install --no-cache-dir meter-gear==1.2.14
 
 # copy PoS binary
 COPY --from=pos /usr/bin/meter /usr/bin/
