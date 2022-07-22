@@ -72,7 +72,7 @@ const (
 	TeslaFork5_TestnetStartNum = 0        //FIXME: update if testnet needs a fork
 	TeslaFork5_MainnetStartNum = 25650000 // around 7/4/2022 9:30 AM (PDT)
 
-	TeslaFork6_TestnetStartNum = 17127200 //
+	TeslaFork6_TestnetStartNum = 17743500
 	TeslaFork6_MainnetStartNum = 40000000 // FIXME: update
 
 )
@@ -219,7 +219,7 @@ func InitBlockChainConfig(genesisID Bytes32, chainFlag string) {
 		TeslaFork3StartNum = TeslaFork3_TestnetStartNum
 		TeslaFork4StartNum = TeslaFork4_TestnetStartNum
 		TeslaFork5StartNum = TeslaFork5_TestnetStartNum
-		TeslaFork5StartNum = TeslaFork6_TestnetStartNum
+		TeslaFork6StartNum = TeslaFork6_TestnetStartNum
 	}
 }
 
