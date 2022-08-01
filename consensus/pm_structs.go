@@ -262,8 +262,8 @@ func (reason roundTimerUpdateReason) String() string {
 		return "TimerInc"
 	case TimerInit:
 		return "TimerInit"
-	case TimerInitDouble:
-		return "TimerInitDouble"
+	case TimerInitLong:
+		return "TimerInitLong"
 	}
 	return ""
 }
@@ -293,7 +293,7 @@ const (
 	BeatOnHigherQC = beatReason(1)
 	BeatOnTimeout  = beatReason(2)
 
-	TimerInit       = roundTimerUpdateReason(0)
-	TimerInc        = roundTimerUpdateReason(1)
-	TimerInitDouble = roundTimerUpdateReason(2)
+	TimerInit     = roundTimerUpdateReason(0)
+	TimerInc      = roundTimerUpdateReason(1)
+	TimerInitLong = roundTimerUpdateReason(2)
 )

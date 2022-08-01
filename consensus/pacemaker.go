@@ -19,8 +19,9 @@ import (
 )
 
 const (
-	RoundInterval        = 2 * time.Second
-	RoundTimeoutInterval = 20 * time.Second // move the timeout from 30 to 20 secs.
+	RoundInterval            = 2 * time.Second
+	RoundTimeoutInterval     = 16 * time.Second // move the timeout from 20 to 16 secs.
+	RoundTimeoutLongInterval = 40 * time.Second
 
 	MIN_MBLOCKS_AN_EPOCH = uint32(4)
 
@@ -1235,11 +1236,11 @@ func (p *Pacemaker) updateCurrentRound(round uint32, reason roundUpdateReason) b
 	case UpdateOnKBlockProposal:
 		if round > p.currentRound {
 			updated = true
-			p.resetRoundTimer(round, TimerInitDouble)
+			p.resetRoundTimer(round, TimerInitLong)
 		} else if round == p.currentRound && p.csReactor.amIRoundProproser(round) {
 			// proposer reset timer when recv proposal
 			updated = false
-			p.resetRoundTimer(round, TimerInitDouble)
+			p.resetRoundTimer(round, TimerInitLong)
 		}
 	case UpdateOnTimeoutCertProposal:
 		p.resetRoundTimer(round, TimerInit)
@@ -1260,16 +1261,20 @@ func (p *Pacemaker) startRoundTimer(round uint32, reason roundTimerUpdateReason)
 	if p.roundTimer == nil {
 		baseInterval := RoundTimeoutInterval
 		switch reason {
-		case TimerInitDouble:
-			baseInterval = RoundTimeoutInterval * 2
+		case TimerInitLong:
+			baseInterval = RoundTimeoutLongInterval
 			p.timeoutCounter = 0
 		case TimerInit:
 			p.timeoutCounter = 0
 		case TimerInc:
 			p.timeoutCounter++
 		}
-		timeoutInterval := baseInterval * (1 << p.timeoutCounter)
-		p.logger.Info("Start round timer", "round", round, "counter", p.timeoutCounter, "interval", int64(timeoutInterval/time.Second))
+		var power uint64 = 0
+		if p.timeoutCounter > 1 {
+			power = p.timeoutCounter - 1
+		}
+		timeoutInterval := baseInterval * (1 << power)
+		p.logger.Info("Start round timer", "round", round, "counter", p.timeoutCounter, "power", power, "interval", int64(timeoutInterval/time.Second))
 		p.roundTimer = time.AfterFunc(timeoutInterval, func() {
 			p.roundTimeoutCh <- PMRoundTimeoutInfo{round: round, counter: p.timeoutCounter}
 		})
