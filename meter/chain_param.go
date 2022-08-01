@@ -73,7 +73,7 @@ const (
 	TeslaFork5_MainnetStartNum = 25650000 // around 7/4/2022 9:30 AM (PDT)
 
 	TeslaFork6_TestnetStartNum = 17743500
-	TeslaFork6_MainnetStartNum = 40000000 // FIXME: update
+	TeslaFork6_MainnetStartNum = 80000000 // FIXME: update
 
 )
 
