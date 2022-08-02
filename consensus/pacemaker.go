@@ -610,7 +610,7 @@ func (p *Pacemaker) onNormalBeat(height uint32, round uint32, reason beatReason)
 	}
 
 	p.updateCurrentRound(round, UpdateOnBeat)
-	pmRoleGauge.Set(2)
+	pmRoleGauge.Set(2) // leader
 	p.csReactor.logger.Info("OnBeat: I am round proposer", "round", round)
 
 	bleaf, err := p.OnPropose(p.blockLeaf, p.QCHigh, height, round)
@@ -663,7 +663,7 @@ func (p *Pacemaker) onTimeoutBeat(height, round uint32, reason beatReason) error
 		p.resetRoundTimer(round, TimerInit)
 	}
 	if p.csReactor.amIRoundProproser(round) {
-		pmRoleGauge.Set(2)
+		pmRoleGauge.Set(2) // leader
 		p.csReactor.logger.Info("OnBeat: I am round proposer", "round", round)
 
 		bleaf, err := p.OnPropose(parent, parentQC, height, round)
@@ -674,7 +674,7 @@ func (p *Pacemaker) onTimeoutBeat(height, round uint32, reason beatReason) error
 			return errors.New("propose failed")
 		}
 	} else {
-		pmRoleGauge.Set(1)
+		pmRoleGauge.Set(1) // validator
 		p.csReactor.logger.Info("OnBeat: I am NOT round proposer", "round", round)
 	}
 	return nil
@@ -682,7 +682,7 @@ func (p *Pacemaker) onTimeoutBeat(height, round uint32, reason beatReason) error
 
 func (p *Pacemaker) OnNextSyncView(nextHeight, nextRound uint32, reason NewViewReason, ti *PMRoundTimeoutInfo) {
 	// set role back to validator
-	pmRoleGauge.Set(1)
+	pmRoleGauge.Set(1) // validator
 
 	// send new round msg to next round proposer
 	msg, err := p.BuildNewViewMessage(nextHeight, nextRound, p.QCHigh, reason, ti)
@@ -881,6 +881,7 @@ func (p *Pacemaker) Start(mode PMMode, calcStatsTx bool) {
 	p.startHeight = height
 	p.startRound = round
 	p.lastOnBeatRound = round
+	pmRoleGauge.Set(1) // validator
 	// Hack here. We do not know it is the first pacemaker from beginning
 	// But it is not harmful, the worst case only misses one opportunity to propose kblock.
 	if p.csReactor.config.InitCfgdDelegates == false {
@@ -1106,7 +1107,7 @@ func (p *Pacemaker) SendKblockInfo(b *pmBlock) {
 }
 
 func (p *Pacemaker) reset() {
-	pmRoleGauge.Set(0)
+	pmRoleGauge.Set(0) // init
 	p.lastVotingHeight = 0
 	p.lastOnBeatRound = 0
 	p.QCHigh = nil
@@ -1143,7 +1144,7 @@ func (p *Pacemaker) stopCleanup() {
 	pmRunningGauge.Set(0)
 
 	p.stopRoundTimer()
-	pmRoleGauge.Set(0)
+	pmRoleGauge.Set(0) // init
 
 	p.currentRound = 0
 	p.reset()
