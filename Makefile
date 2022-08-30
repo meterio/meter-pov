@@ -23,6 +23,11 @@ disco:| go_version_check
 	@go build -v -o $(CURDIR)/bin/$@ -ldflags "-X main.version=$(DISCO_VERSION) -X main.gitCommit=$(GIT_COMMIT) -X main.gitTag=$(GIT_TAG)" ./cmd/disco
 	@echo "done. executable created at 'bin/$@'"
 
+prune:| go_version_check
+	@echo "building $@..."
+	@go build -v -o $(CURDIR)/bin/$@ -ldflags "-X main.version=$(DISCO_VERSION) -X main.gitCommit=$(GIT_COMMIT) -X main.gitTag=$(GIT_TAG)" ./cmd/prune
+	@echo "done. executable created at 'bin/$@'"
+
 dep:| go_version_check
 	@go mod download
 
@@ -37,7 +42,7 @@ go_version_check:
 		fi \
 	fi
 
-all: meter disco
+all: meter disco prune
 
 clean:
 	-rm -rf \
