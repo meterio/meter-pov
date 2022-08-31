@@ -31,6 +31,7 @@ type node interface {
 	fstring(string) string
 	cache() (hashNode, bool)
 	canUnload(cachegen, cachelimit uint16) bool
+	String() string
 }
 
 type (
@@ -112,6 +113,10 @@ func mustDecodeNode(hash, buf []byte, cachegen uint16) node {
 	return n
 }
 
+func DecodeNode(hash, buf []byte) (node, error) {
+	return decodeNode(hash, buf, 0)
+}
+
 // decodeNode parses the RLP encoding of a trie node.
 func decodeNode(hash, buf []byte, cachegen uint16) (node, error) {
 	if len(buf) == 0 {
@@ -128,9 +133,11 @@ func decodeNode(hash, buf []byte, cachegen uint16) (node, error) {
 	}
 	switch c {
 	case 2:
+		fmt.Println("SHORT NODE")
 		n, err := decodeShort(hash, buf, elems, cachegen)
 		return n, wrapError(err, "short")
 	case 17:
+		fmt.Println("FULL NODE")
 		n, err := decodeFull(hash, buf, elems, cachegen)
 		return n, wrapError(err, "full")
 	default:
