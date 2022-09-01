@@ -133,11 +133,11 @@ func decodeNode(hash, buf []byte, cachegen uint16) (node, error) {
 	}
 	switch c {
 	case 2:
-		fmt.Println("SHORT NODE")
+		// fmt.Println("SHORT NODE")
 		n, err := decodeShort(hash, buf, elems, cachegen)
 		return n, wrapError(err, "short")
 	case 17:
-		fmt.Println("FULL NODE")
+		// fmt.Println("FULL NODE")
 		n, err := decodeFull(hash, buf, elems, cachegen)
 		return n, wrapError(err, "full")
 	default:
