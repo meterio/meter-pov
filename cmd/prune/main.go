@@ -459,7 +459,7 @@ func pruneByKeys(meterChain *chain.Chain, mainDB *lvldb.LevelDB, snapshotHeight 
 	fmt.Println("Deleted bytes storage keys: ", dByteSKeys, ", roots:", dByteSRoots)
 }
 
-func main() {
+func test() {
 	mainDB := openMainDB(DB_FILE)
 	gene := genesis.NewMainnet()
 	stateC := state.NewCreator(mainDB)
@@ -481,7 +481,58 @@ func main() {
 	// 	fmt.Println("Account: ", addr)
 	// 	fmt.Println(acc.String())
 	// }
-	pruneByKeys(meterChain, mainDB, 25000000, 100000)
+	// pruneByKeys(meterChain, mainDB, 25000000, 100000)
+	// num := 100000
+	// blk, _ := meterChain.GetTrunkBlock(uint32(num))
+	// fmt.Println("Print trie for height: ", num)
+	// s, err := trie.NewTrieSnapshot(blk.StateRoot(), mainDB)
+	// if err != nil {
+	// fmt.Println("err: ", err)
+	// return
+	// }
+	pruneByKeys(meterChain, mainDB, 100000, 99999)
+}
+
+func main() {
+	mainDB := openMainDB(DB_FILE)
+	gene := genesis.NewMainnet()
+	stateC := state.NewCreator(mainDB)
+	geneBlk, _, err := gene.Build(stateC)
+	if err != nil {
+		fmt.Println("could not build mainnet genesis:", err)
+		panic("could not build mainnet genesis")
+	}
+	meterChain, err := chain.New(mainDB, geneBlk, true)
+	if err != nil {
+		fmt.Println("could not create meter chain:", err)
+		panic("could not create meter chain")
+	}
+
+	snapshotNum := uint32(5000000)
+	snapshotBlk, _ := meterChain.GetTrunkBlock(snapshotNum)
+	genesis, _ := meterChain.GetTrunkBlock(0)
+
+	pruner := trie.NewPruner(mainDB, genesis.StateRoot(), snapshotBlk.StateRoot())
+
+	targetNum := snapshotNum - 1
+	prunedBytes := uint64(0)
+	prunedNodes := 0
+	for i := uint32(1); i < targetNum; i++ {
+		targetBlk, _ := meterChain.GetTrunkBlock(i)
+		stat := pruner.Prune(targetBlk.StateRoot())
+		prunedNodes += stat.PrunedNodes + stat.PrunedStorageNodes
+		prunedBytes += stat.PrunedNodeBytes + stat.PrunedStorageBytes
+		if stat.PrunedNodeBytes+stat.PrunedStorageBytes > 0 {
+			fmt.Println("prune block: ", i)
+			fmt.Println(stat)
+			fmt.Println("Accumulate Pruned: ", prunedNodes, "keys")
+			fmt.Println("Accumulate Pruned: ", prunedBytes, "bytes")
+			fmt.Println("------------------------------------------------------------")
+		}
+	}
+	fmt.Println("Pruned:")
+	fmt.Println(prunedNodes, "keys")
+	fmt.Println(prunedBytes, "bytes")
 }
 
 // func main() {
