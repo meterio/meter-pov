@@ -4,7 +4,10 @@ import (
 	"bytes"
 	"encoding/hex"
 	"fmt"
+	"github.com/ethereum/go-ethereum/log"
+	"gopkg.in/urfave/cli.v1"
 	"math/big"
+	"os"
 	"path/filepath"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -29,6 +32,17 @@ var (
 
 	// emptyCode is the known hash of the empty EVM bytecode.
 	emptyCode = crypto.Keccak256(nil)
+)
+
+var (
+	version   string
+	gitCommit string
+	gitTag    string
+
+	flags = []cli.Flag{
+		dataDirFlag,
+		networkFlag,
+	}
 )
 
 type AccountNode struct {
@@ -493,7 +507,7 @@ func test() {
 	pruneByKeys(meterChain, mainDB, 100000, 99999)
 }
 
-func main() {
+func mainBackup() {
 	mainDB := openMainDB(DB_FILE)
 	gene := genesis.NewMainnet()
 	stateC := state.NewCreator(mainDB)
@@ -533,6 +547,152 @@ func main() {
 	fmt.Println("Pruned:")
 	fmt.Println(prunedNodes, "keys")
 	fmt.Println(prunedBytes, "bytes")
+}
+
+func main() {
+	versionMeta := "release"
+	if gitTag == "" {
+		versionMeta = "dev"
+	}
+	app := cli.App{
+		Version:   fmt.Sprintf("%s-%s-%s", version, gitCommit, versionMeta),
+		Name:      "Prune",
+		Usage:     "Meter.io StateDB prune",
+		Copyright: "2018 Meter Foundation <https://meter.io/>",
+		Flags:     flags,
+		Action:    run,
+	}
+	if err := app.Run(os.Args); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+}
+
+func selectGenesis(ctx *cli.Context) *genesis.Genesis {
+	network := ctx.String(networkFlag.Name)
+	switch network {
+	case "warringstakes":
+		fallthrough
+	case "test":
+		return genesis.NewTestnet()
+	case "main":
+		return genesis.NewMainnet()
+	case "main-private":
+		return genesis.NewMainnet()
+	default:
+		cli.ShowAppHelp(ctx)
+		if network == "" {
+			fmt.Printf("network flag not specified: -%s\n", networkFlag.Name)
+		} else {
+			fmt.Printf("unrecognized value '%s' for flag -%s\n", network, networkFlag.Name)
+		}
+		os.Exit(1)
+		return nil
+	}
+}
+
+func run(ctx *cli.Context) error {
+	logHandler := log.NewGlogHandler(log.StreamHandler(os.Stderr, log.TerminalFormat(true)))
+	logHandler.Verbosity(log.Lvl(ctx.Int("verbosity")))
+	log.Root().SetHandler(logHandler)
+
+	gene := selectGenesis(ctx)
+
+	dbFilePath := ctx.String(dataDirFlag.Name)
+	instanceDir := filepath.Join(dbFilePath, fmt.Sprintf("instance-%x", gene.ID().Bytes()[24:]))
+
+	mainDB := openMainDB(instanceDir)
+	//gene := genesis.NewMainnet()
+	stateC := state.NewCreator(mainDB)
+	geneBlk, _, err := gene.Build(stateC)
+	if err != nil {
+		fmt.Println("could not build mainnet genesis:", err)
+		panic("could not build mainnet genesis")
+	}
+	meterChain, err := chain.New(mainDB, geneBlk, true)
+	if err != nil {
+		fmt.Println("could not create meter chain:", err)
+		panic("could not create meter chain")
+	}
+
+	snapshotNum := uint32(5000000)
+	snapshotBlk, _ := meterChain.GetTrunkBlock(snapshotNum)
+	genesis, _ := meterChain.GetTrunkBlock(0)
+
+	pruner := trie.NewPruner(mainDB, genesis.StateRoot(), snapshotBlk.StateRoot())
+
+	targetNum := snapshotNum - 1
+	prunedBytes := uint64(0)
+	prunedNodes := 0
+	for i := uint32(1); i < targetNum; i++ {
+		targetBlk, _ := meterChain.GetTrunkBlock(i)
+		stat := pruner.Prune(targetBlk.StateRoot())
+		prunedNodes += stat.PrunedNodes + stat.PrunedStorageNodes
+		prunedBytes += stat.PrunedNodeBytes + stat.PrunedStorageBytes
+		if stat.PrunedNodeBytes+stat.PrunedStorageBytes > 0 {
+			fmt.Println("prune block: ", i)
+			fmt.Println(stat)
+			fmt.Println("Accumulate Pruned: ", prunedNodes, "keys")
+			fmt.Println("Accumulate Pruned: ", prunedBytes, "bytes")
+			fmt.Println("------------------------------------------------------------")
+		}
+	}
+	fmt.Println("Pruned:")
+	fmt.Println(prunedNodes, "keys")
+	fmt.Println(prunedBytes, "bytes")
+
+	//natm, err := nat.Parse(ctx.String("nat"))
+	//if err != nil {
+	//	return errors.Wrap(err, "-nat")
+	//}
+	//
+	//var key *ecdsa.PrivateKey
+	//
+	//if keyHex := ctx.String("keyhex"); keyHex != "" {
+	//	if key, err = crypto.HexToECDSA(keyHex); err != nil {
+	//		return errors.Wrap(err, "-keyhex")
+	//	}
+	//}
+	//
+	//if key, err = loadOrGenerateKeyFile(ctx.String("keyfile")); err != nil {
+	//	return errors.Wrap(err, "-keyfile")
+	//}
+	//
+	//netrestrict := ctx.String("netrestrict")
+	//var restrictList *netutil.Netlist
+	//if netrestrict != "" {
+	//	restrictList, err = netutil.ParseNetlist(netrestrict)
+	//	if err != nil {
+	//		return errors.Wrap(err, "-netrestrict")
+	//	}
+	//}
+	//
+	//addr, err := net.ResolveUDPAddr("udp", ctx.String("addr"))
+	//if err != nil {
+	//	return errors.Wrap(err, "-addr")
+	//}
+	//conn, err := net.ListenUDP("udp", addr)
+	//if err != nil {
+	//	return err
+	//}
+	//
+	//realAddr := conn.LocalAddr().(*net.UDPAddr)
+	//if natm != nil {
+	//	if !realAddr.IP.IsLoopback() {
+	//		go nat.Map(natm, nil, "udp", realAddr.Port, realAddr.Port, "ethereum discovery")
+	//	}
+	//	// TODO: react to external IP changes over time.
+	//	if ext, err := natm.ExternalIP(); err == nil {
+	//		realAddr = &net.UDPAddr{IP: ext, Port: realAddr.Port}
+	//	}
+	//}
+	//net, err := discv5.ListenUDP(key, conn, realAddr, "", restrictList)
+	//if err != nil {
+	//	return err
+	//}
+	//fmt.Println("Running", net.Self().String())
+
+	select {}
 }
 
 // func main() {
