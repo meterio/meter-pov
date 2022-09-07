@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/hex"
 	"fmt"
+	"time"
 
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/meterio/meter-pov/chain"
@@ -96,11 +97,14 @@ func pruneByKeys(meterChain *chain.Chain, mainDB *lvldb.LevelDB, snapshotHeight 
 	lastVisited := meter.Bytes32{}
 
 	var (
-		nodes   int
-		snodes  int
-		dBytes  int
-		dsBytes int
+		nodes      int
+		snodes     int
+		dBytes     int
+		dsBytes    int
+		lastReport time.Time
+		start      time.Time
 	)
+	start = time.Now()
 	for i := uint32(1); i < uint32(snapshotHeight); i++ {
 		blk, _ := meterChain.GetTrunkBlock(i)
 		root := blk.StateRoot()
@@ -109,6 +113,10 @@ func pruneByKeys(meterChain *chain.Chain, mainDB *lvldb.LevelDB, snapshotHeight 
 		}
 		lastVisited = root
 		log.Info("Scan block", "block", i, "nodes", nodes, "snodes", snodes, "dBytes", dBytes, "dsBytes", dsBytes)
+		if time.Since(lastReport) > time.Second*8 {
+			log.Info("Still pruning", "elapsed", PrettyDuration(time.Since(start)))
+			lastReport = time.Now()
+		}
 
 		stateTrie, _ := getStateTrie(meterChain, mainDB, i)
 		iter := stateTrie.NodeIterator(nil)

@@ -428,6 +428,8 @@ func pruneAction(ctx *cli.Context) error {
 	lastRoot := meter.Bytes32{}
 	totalBytes := uint64(0)
 	totalNodes := 0
+	start := time.Now()
+	var lastReport time.Time
 	for i := uint32(1); i < blk.Number(); i++ {
 		b, _ := meterChain.GetTrunkBlock(i)
 		root := b.StateRoot()
@@ -439,7 +441,12 @@ func pruneAction(ctx *cli.Context) error {
 		totalNodes += stat.PrunedNodes + stat.PrunedStorageNodes
 		totalBytes += stat.PrunedNodeBytes + stat.PrunedStorageBytes
 		log.Info("Pruned", "block", i, "nodes", totalNodes, "bytes", totalBytes)
+		if time.Since(lastReport) > time.Second*8 {
+			log.Info("Still pruning", "elapsed", PrettyDuration(time.Since(start)))
+			lastReport = time.Now()
+		}
 	}
+	log.Info("Pruning completed", "elapsed", PrettyDuration(time.Since(start)))
 	return nil
 }
 
