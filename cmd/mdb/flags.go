@@ -1,11 +1,12 @@
 package main
 
 import (
-	"gopkg.in/urfave/cli.v1"
 	"os"
 	"os/user"
 	"path/filepath"
 	"runtime"
+
+	"gopkg.in/urfave/cli.v1"
 )
 
 var (
@@ -17,8 +18,13 @@ var (
 
 	networkFlag = cli.StringFlag{
 		Name:  "network",
-		Usage: "the network to join (main|test|warringstakes)",
+		Usage: "the network to join (main|test)",
 	}
+
+	revisionFlag       = cli.StringFlag{Name: "revision", Usage: "the revision for target block"}
+	targetRevisionFlag = cli.StringFlag{Name: "target-revision", Usage: "the revision for target block"}
+	addressFlag        = cli.StringFlag{Name: "address", Usage: "address"}
+	keyFlag            = cli.StringFlag{Name: "key", Usage: "key"}
 )
 
 // copy from go-ethereum

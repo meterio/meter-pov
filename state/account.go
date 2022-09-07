@@ -6,6 +6,8 @@
 package state
 
 import (
+	"encoding/hex"
+	"fmt"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/rlp"
@@ -22,6 +24,10 @@ type Account struct {
 	Master       []byte // master address
 	CodeHash     []byte // hash of code
 	StorageRoot  []byte // merkle root of the storage trie
+}
+
+func (a *Account) String() string {
+	return fmt.Sprintf("Account {\n Balance: %v,\n Energy: %v,\n BoundBalance: %v,\n BoundEnergy: %v,\n Master: %v,\n CodeHash: %v,\n StorageRoot: %v\n}", a.Balance.String(), a.Energy.String(), a.BoundBalance.String(), a.BoundEnergy.String(), hex.EncodeToString(a.Master), hex.EncodeToString(a.CodeHash), hex.EncodeToString(a.StorageRoot))
 }
 
 // IsEmpty returns if an account is empty.

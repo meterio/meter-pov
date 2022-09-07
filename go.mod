@@ -22,6 +22,7 @@ require (
 	github.com/gorilla/mux v1.8.0
 	github.com/gorilla/websocket v1.5.0
 	github.com/hashicorp/golang-lru v0.5.5-0.20210104140557-80c98217689d
+	github.com/holiman/bloomfilter/v2 v2.0.3
 	github.com/inconshreveable/log15 v0.0.0-20180818164646-67afb5ed74ec
 	github.com/mattn/go-isatty v0.0.12
 	github.com/mattn/go-sqlite3 v1.11.0

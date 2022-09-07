@@ -49,7 +49,6 @@ type PruneIterator interface {
 	LeafBlob() []byte
 	LeafKey() []byte
 
-	InSnapshot([]byte) bool     // check if key is in snapshot
 	Get([]byte) ([]byte, error) // get value from cache or db
 }
 
@@ -70,33 +69,29 @@ func (s *PruneStat) String() string {
 }
 
 type Pruner struct {
-	iter      PruneIterator
-	db        Database
-	snapshots []*TrieSnapshot
-	visited   map[meter.Bytes32]bool
+	iter     PruneIterator
+	db       Database
+	snapshot *TrieSnapshot
+	bloom    *StateBloom
+	visited  map[meter.Bytes32]bool
 }
 
 // NewIterator creates a new key-value iterator from a node iterator
 func NewPruner(db Database, genesisRoot, snapshotRoot meter.Bytes32) *Pruner {
+	bloom, _ := NewStateBloomWithSize(256)
 	p := &Pruner{
-		db:        db,
-		snapshots: make([]*TrieSnapshot, 0),
-		visited:   make(map[meter.Bytes32]bool),
+		db:       db,
+		snapshot: NewTrieSnapshot(),
+		bloom:    bloom,
+		visited:  make(map[meter.Bytes32]bool),
 	}
-	p.generateSnapshot(genesisRoot)
-	p.generateSnapshot(snapshotRoot)
+	p.snapshot.Add(genesisRoot)
+	p.snapshot.Add(snapshotRoot)
+	gt, _ := New(genesisRoot, p.db)
+	p.snapshot.AddTrie(gt, p.db)
+	st, _ := New(snapshotRoot, p.db)
+	p.snapshot.AddTrie(st, p.db)
 	return p
-}
-
-// generate snapshot on height
-func (p *Pruner) generateSnapshot(root meter.Bytes32) (*TrieSnapshot, error) {
-	snapshot, err := NewTrieSnapshot(root, p.db)
-	if err != nil {
-		fmt.Println("could not generate snapshot for ", err)
-		return nil, err
-	}
-	p.snapshots = append(p.snapshots, snapshot)
-	return snapshot, nil
 }
 
 // prune the trie at block height
@@ -106,7 +101,7 @@ func (p *Pruner) Prune(root meter.Bytes32) *PruneStat {
 	}
 	p.visited[root] = true
 	t, _ := New(root, p.db)
-	p.iter = newPruneIterator(t, p.db, p.snapshots)
+	p.iter = newPruneIterator(t, p.db, p.snapshot, p.bloom)
 	stat := &PruneStat{}
 	for p.iter.Next(true) {
 		hash := p.iter.Hash()
@@ -125,21 +120,21 @@ func (p *Pruner) Prune(root meter.Bytes32) *PruneStat {
 					fmt.Println("Could not get storage trie")
 					continue
 				}
-				storageIter := newPruneIterator(storageTrie, p.db, p.snapshots)
+				storageIter := newPruneIterator(storageTrie, p.db, p.snapshot, p.bloom)
 				for storageIter.Next(true) {
 					shash := storageIter.Hash()
 					if storageIter.Leaf() {
 						continue
 					}
 
-					if !p.iter.InSnapshot(shash[:]) {
+					if !p.snapshot.Has(shash) {
 						loaded, _ := p.iter.Get(shash[:])
 						stat.PrunedStorageBytes += uint64(len(loaded) + len(shash))
 						stat.PrunedStorageNodes++
 					}
 				}
 				sroot := meter.BytesToBytes32(acc.StorageRoot)
-				if !p.iter.InSnapshot(sroot[:]) {
+				if !p.snapshot.Has(sroot) {
 					loaded, _ := p.iter.Get(acc.StorageRoot[:])
 					stat.PrunedStorageBytes += uint64(len(loaded) + len(acc.StorageRoot))
 					stat.PrunedStorageNodes++
@@ -148,7 +143,7 @@ func (p *Pruner) Prune(root meter.Bytes32) *PruneStat {
 		} else {
 			// prune world state trie
 			stat.Nodes++
-			if !p.iter.InSnapshot(hash[:]) {
+			if !p.snapshot.Has(hash) {
 				// fmt.Println("found redundant key: ", hash)
 				loaded, _ := p.iter.Get(hash[:])
 				stat.PrunedNodeBytes += uint64(len(loaded) + len(hash))
@@ -156,7 +151,7 @@ func (p *Pruner) Prune(root meter.Bytes32) *PruneStat {
 			}
 		}
 	}
-	if !p.iter.InSnapshot(root[:]) {
+	if !p.snapshot.Has(root) {
 		loaded, _ := p.iter.Get(root[:])
 		stat.PrunedNodeBytes += uint64(len(loaded) + len(root))
 		stat.PrunedNodes++
@@ -187,46 +182,27 @@ func (st *pruneIteratorState) resolve(pit *pruneIterator, path []byte) error {
 }
 
 type pruneIterator struct {
-	trie         *Trie                    // Trie being iterated
-	cache        map[meter.Bytes32][]byte // cache of database
-	snapshotKeys map[meter.Bytes32]bool   // snapshot
-	db           Database                 // database
-	stack        []*pruneIteratorState    // Hierarchy of trie nodes persisting the iteration state
-	path         []byte                   // Path to the current node
-	err          error                    // Failure set in case of an internal error in the iterator
+	trie     *Trie                 // Trie being iterated
+	snapshot *TrieSnapshot         // snapshot
+	bloom    *StateBloom           // visited nodes bloom filter
+	db       Database              // database
+	stack    []*pruneIteratorState // Hierarchy of trie nodes persisting the iteration state
+	path     []byte                // Path to the current node
+	err      error                 // Failure set in case of an internal error in the iterator
 }
 
-func newPruneIterator(trie *Trie, db Database, snapshots []*TrieSnapshot) *pruneIterator {
-	pcache := make(map[meter.Bytes32][]byte)
-	snapshotKeys := make(map[meter.Bytes32]bool)
-	for _, snapshot := range snapshots {
-		for k, v := range snapshot.cache {
-			pcache[k] = v
-			snapshotKeys[k] = true
-		}
-		for k, v := range snapshot.storageCache {
-			pcache[k] = v
-			snapshotKeys[k] = true
-		}
-	}
+func newPruneIterator(trie *Trie, db Database, snapshot *TrieSnapshot, bloom *StateBloom) *pruneIterator {
 	if trie.Hash() == emptyState {
 		return new(pruneIterator)
 	}
 
-	it := &pruneIterator{trie: trie, snapshotKeys: snapshotKeys, cache: pcache, db: db}
+	it := &pruneIterator{trie: trie, snapshot: snapshot, bloom: bloom, db: db}
 	it.err = it.seek(nil)
 	return it
 }
 
 func (pit *pruneIterator) Get(key []byte) ([]byte, error) {
-	if val, exist := pit.cache[meter.BytesToBytes32(key)]; exist {
-		return val, nil
-	}
-	val, err := pit.db.Get(key)
-	if err == nil {
-		pit.cache[meter.BytesToBytes32(key)] = val
-	}
-	return val, err
+	return pit.db.Get(key)
 }
 
 func (pit *pruneIterator) resolveHash(n hashNode, prefix []byte) (node, error) {
@@ -236,12 +212,6 @@ func (pit *pruneIterator) resolveHash(n hashNode, prefix []byte) (node, error) {
 	}
 	dec := mustDecodeNode(n, enc, 0) // TODO: fixed cachegen
 	return dec, nil
-}
-
-func (pit *pruneIterator) InSnapshot(n []byte) bool {
-	key := meter.BytesToBytes32(n)
-	_, exist := pit.snapshotKeys[key]
-	return exist
 }
 
 func (pit *pruneIterator) Hash() meter.Bytes32 {
@@ -380,9 +350,17 @@ func (pit *pruneIterator) nextChild(parent *pruneIteratorState, ancestor meter.B
 			child := node.Children[i]
 			if child != nil {
 				hash, _ := child.cache()
-				if pit.InSnapshot(hash) {
-					fmt.Println("skip node already in snapshot", hash)
-					continue
+
+				if !bytes.Equal(hash, []byte{}) {
+					if visited, _ := pit.bloom.Contain(hash); visited {
+						// fmt.Println("skip visited node", hash)
+						continue
+					}
+					pit.bloom.Put(hash)
+					if pit.snapshot.Has(meter.BytesToBytes32(hash)) {
+						// fmt.Println("skip node already in snapshot", hash)
+						continue
+					}
 				}
 				state := &pruneIteratorState{
 					hash:    meter.BytesToBytes32(hash),
@@ -400,17 +378,24 @@ func (pit *pruneIterator) nextChild(parent *pruneIteratorState, ancestor meter.B
 		// Short node, return the pointer singleton child
 		if parent.index < 0 {
 			hash, _ := node.Val.cache()
-			if !pit.InSnapshot(hash) {
-				state := &pruneIteratorState{
-					hash:    meter.BytesToBytes32(hash),
-					node:    node.Val,
-					parent:  ancestor,
-					index:   -1,
-					pathlen: len(pit.path),
+			if !bytes.Equal(hash, []byte{}) {
+				if visited, _ := pit.bloom.Contain(hash); visited {
+					return parent, pit.path, false
 				}
-				path := append(pit.path, node.Key...)
-				return state, path, true
+				pit.bloom.Put(hash)
+				if pit.snapshot.Has(meter.BytesToBytes32(hash)) {
+					return parent, pit.path, false
+				}
 			}
+			state := &pruneIteratorState{
+				hash:    meter.BytesToBytes32(hash),
+				node:    node.Val,
+				parent:  ancestor,
+				index:   -1,
+				pathlen: len(pit.path),
+			}
+			path := append(pit.path, node.Key...)
+			return state, path, true
 		}
 	}
 	return parent, pit.path, false

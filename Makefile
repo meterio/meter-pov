@@ -11,7 +11,7 @@ MAJOR = $(shell go version | cut -d' ' -f3 | cut -b 3- | cut -d. -f1)
 MINOR = $(shell go version | cut -d' ' -f3 | cut -b 3- | cut -d. -f2)
 export GO111MODULE=on
 
-.PHONY: meter disco all clean test
+.PHONY: meter disco mdb all clean test
 
 meter:| go_version_check
 	@echo "building $@..."
@@ -23,9 +23,9 @@ disco:| go_version_check
 	@go build -v -o $(CURDIR)/bin/$@ -ldflags "-X main.version=$(DISCO_VERSION) -X main.gitCommit=$(GIT_COMMIT) -X main.gitTag=$(GIT_TAG)" ./cmd/disco
 	@echo "done. executable created at 'bin/$@'"
 
-prune:| go_version_check
+mdb:| go_version_check
 	@echo "building $@..."
-	@go build -v -o $(CURDIR)/bin/$@ -ldflags "-X main.version=$(DISCO_VERSION) -X main.gitCommit=$(GIT_COMMIT) -X main.gitTag=$(GIT_TAG)" ./cmd/prune
+	@go build -v -o $(CURDIR)/bin/$@ -ldflags "-X main.version=$(DISCO_VERSION) -X main.gitCommit=$(GIT_COMMIT) -X main.gitTag=$(GIT_TAG)" ./cmd/mdb
 	@echo "done. executable created at 'bin/$@'"
 
 dep:| go_version_check
@@ -42,7 +42,7 @@ go_version_check:
 		fi \
 	fi
 
-all: meter disco prune
+all: meter disco prune mdb
 
 clean:
 	-rm -rf \
