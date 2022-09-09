@@ -531,7 +531,7 @@ func startAPIServer(ctx *cli.Context, handler http.Handler, genesisID meter.Byte
 	srv := &http.Server{
 		Handler:      handler,
 		ReadTimeout:  5 * time.Second,
-		WriteTimeout: 10 * time.Second,
+		WriteTimeout: 18 * time.Second,
 		IdleTimeout:  120 * time.Second,
 	}
 	var goes co.Goes
@@ -560,7 +560,7 @@ func startAPIServer(ctx *cli.Context, handler http.Handler, genesisID meter.Byte
 			Handler:      handler,
 			TLSConfig:    tlsConfig,
 			ReadTimeout:  5 * time.Second,
-			WriteTimeout: 10 * time.Second,
+			WriteTimeout: 18 * time.Second,
 			IdleTimeout:  120 * time.Second,
 		}
 		tlsListener, err := tls.Listen("tcp", ":8667", tlsConfig)

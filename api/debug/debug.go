@@ -194,7 +194,7 @@ func (d *Debug) handleClauseEnv(ctx context.Context, blockID meter.Bytes32, txIn
 	return nil, nil, utils.Forbidden(errors.New("early reverted"))
 }
 
-//trace an existed transaction
+// trace an existed transaction
 func (d *Debug) traceTransactionWithAllClauses(ctx context.Context, blockID meter.Bytes32, txIndex uint64) (interface{}, error) {
 	rt, txExec, err := d.handleTxEnvNew(ctx, blockID, txIndex)
 	defer func() {
@@ -234,7 +234,7 @@ func (d *Debug) traceTransactionWithAllClauses(ctx context.Context, blockID mete
 	return tracer.GetResult()
 }
 
-//trace an existed transaction
+// trace an existed transaction
 func (d *Debug) traceTransaction(ctx context.Context, tracer vm.Tracer, blockID meter.Bytes32, txIndex uint64, clauseIndex uint64) (interface{}, error) {
 	rt, txExec, err := d.handleClauseEnv(ctx, blockID, txIndex, clauseIndex)
 	if err != nil {
@@ -347,7 +347,7 @@ func (d *Debug) convertTraceData(callTraceResult CallTraceResult, path []uint64,
 		},
 	}
 	for index, call := range callTraceResult.Calls {
-		fmt.Println("convert subcall data: ", call, path, blockHash, blockNumber, txIndex)
+		// fmt.Println("convert subcall data: ", call, path, blockHash, blockNumber, txIndex)
 		subdatas, err := d.convertTraceData(call, append(path, uint64(index)), blockHash, blockNumber, txHash, txIndex)
 		if err != nil {
 			fmt.Println("Error happened during subdata query")
@@ -384,6 +384,7 @@ func (d *Debug) handleTraceTransaction(w http.ResponseWriter, req *http.Request)
 		tracer = tr
 	}
 	blockID, txIndex, clauseIndex, err := d.parseTarget(opt.Target)
+	fmt.Println("handle tracer", "blockID:", blockID, "txIndex:", txIndex, "clauseIndex:", clauseIndex)
 	if err != nil {
 		return err
 	}
@@ -391,6 +392,7 @@ func (d *Debug) handleTraceTransaction(w http.ResponseWriter, req *http.Request)
 	if err != nil {
 		return err
 	}
+	fmt.Println("complete handle tracer")
 	return utils.WriteJSON(w, res)
 }
 
@@ -533,10 +535,10 @@ func (d *Debug) openEthTraceTransaction(ctx context.Context, txHash meter.Bytes3
 	}
 	_, err = tx.Signer()
 	if err != nil {
-		fmt.Println("Could not get signer:", err)
+		fmt.Println("Error: could not get signer:", err)
 		return datas, err
 	}
-	fmt.Println("Trace Tx for: ", tx.ID(), ", BlockID:", meta.BlockID)
+	fmt.Println("Openeth trace tx :", tx.ID(), ", BlockID:", meta.BlockID)
 	blk, err := d.getBlock(meta.BlockID)
 	if err != nil {
 		fmt.Println("Could not get block: ", err)
@@ -554,18 +556,20 @@ func (d *Debug) openEthTraceTransaction(ctx context.Context, txHash meter.Bytes3
 	if !ok {
 		return datas, errors.New("not expected res")
 	}
-	fmt.Println("Parse Meter Tracer Result: ", string(resBytes))
 	clauseDatas, err := d.parseMeterTrace(resBytes, meta.BlockID, uint64(blk.Number()), tx.ID(), meta.Index)
 	if err != nil {
 		return datas, err
 	}
 	datas = append(datas, clauseDatas...)
+	fmt.Println("Completed openeth trace tx: ", len(datas), "data entries")
 	return datas, nil
 
 }
 
 func (d *Debug) handleOpenEthTraceTransaction(w http.ResponseWriter, req *http.Request) error {
 	params := make([]meter.Bytes32, 0)
+
+	fmt.Println("handle trace transaction")
 	if err := utils.ParseJSON(req.Body, &params); err != nil {
 		return utils.BadRequest(errors.WithMessage(err, "body"))
 	}
@@ -578,6 +582,8 @@ func (d *Debug) handleOpenEthTraceTransaction(w http.ResponseWriter, req *http.R
 		}
 		results = append(results, txDatas...)
 	}
+
+	fmt.Println("complete handle trace tx with", len(results), "data entries")
 	return utils.WriteJSON(w, results)
 }
 
@@ -591,15 +597,16 @@ func (d *Debug) handleOpenEthTraceBlock(w http.ResponseWriter, req *http.Request
 	}
 
 	revision, err := d.parseRevision(params[0])
-	fmt.Println("Trace Block with REVISION: ", revision)
+	fmt.Println("handle trace block", "revision:", revision)
 	if err != nil {
-		fmt.Println("could not parse reivision")
+		fmt.Println("Error: could not parse reivision", err)
+		return utils.BadRequest(errors.WithMessage(err, "could not parse revision"))
 	}
 	blk, err := d.getBlock(revision)
 	if err != nil {
+		fmt.Println("Error: could not get block", err)
 		return utils.BadRequest(errors.WithMessage(err, "could not get block"))
 	}
-	fmt.Println("BLOCK: ", blk.ID())
 
 	results := make([]*TraceData, 0)
 	for _, tx := range blk.Transactions() {
@@ -609,125 +616,9 @@ func (d *Debug) handleOpenEthTraceBlock(w http.ResponseWriter, req *http.Request
 		}
 		results = append(results, txDatas...)
 	}
-	fmt.Println("RESULT: ", results)
+	fmt.Println("complete handle trace block with", len(results), "data entries")
 	return utils.WriteJSON(w, results)
 }
-
-/*
-func (d *Debug) handleTraceFilter(w http.ResponseWriter, req *http.Request) error {
-	var opt TraceFilterOptions
-	if err := utils.ParseJSON(req.Body, &opt); err != nil {
-		return utils.BadRequest(errors.WithMessage(err, "body"))
-	}
-	fromBlockNum := uint32(0)
-	toBlockNum := uint32(0)
-
-	if opt.FromBlock != "" {
-		revision, err := d.parseRevision(opt.FromBlock)
-		if err != nil {
-			return utils.BadRequest(errors.WithMessage(err, "invalid fromBlock"))
-		}
-		blk, err := d.getBlock(revision)
-		if err != nil {
-			return utils.BadRequest(errors.WithMessage(err, "could not get block"))
-		}
-		fromBlockNum = blk.Number()
-	}
-
-	if opt.ToBlock != "" {
-		revision, err := d.parseRevision(opt.ToBlock)
-		if err != nil {
-			return utils.BadRequest(errors.WithMessage(err, "invalid fromBlock"))
-		}
-		blk, err := d.getBlock(revision)
-		if err != nil {
-			return utils.BadRequest(errors.WithMessage(err, "could not get block"))
-		}
-		toBlockNum = blk.Number()
-	}
-
-	if fromBlockNum > toBlockNum {
-		return utils.BadRequest(errors.New("fromBlock > toBlock"))
-	}
-
-	fromAddrMap := make(map[string]bool)
-	toAddrMap := make(map[string]bool)
-	for _, addr := range opt.FromAddress {
-		fromAddrMap[strings.ToLower(addr.String())] = true
-	}
-	for _, addr := range opt.ToAddress {
-		toAddrMap[strings.ToLower(addr.String())] = true
-	}
-
-	results := make([]TraceData, 0)
-	// start to filter tx in block range
-	num := fromBlockNum
-	for num < toBlockNum {
-		blk, err := d.getBlock(num)
-		if err != nil {
-			return utils.BadRequest(errors.WithMessage(err, "could not get block"))
-		}
-		for txIndex, tx := range blk.Txs {
-			signer, err := tx.Signer()
-			if err != nil {
-				return utils.BadRequest(errors.WithMessage(err, "could not get signer"))
-			}
-
-			matched := false
-			clauseIndex := 0
-
-			_, fromExist := fromAddrMap[strings.ToLower(signer.String())]
-			fromMatch := (len(fromAddrMap) > 0 && fromExist) || len(fromAddrMap) == 0
-			for index, clause := range tx.Clauses() {
-				var to *meter.Address
-				if clause.To() == nil {
-					to = &meter.Address{}
-				} else {
-					to = clause.To()
-				}
-
-				_, toExist := toAddrMap[strings.ToLower(to.String())]
-				toMatch := len(toAddrMap) > 0 && toExist || len(toAddrMap) == 0
-				if fromMatch && toMatch {
-					matched = true
-					clauseIndex = index
-					break
-				}
-			}
-
-			if matched {
-				var to *meter.Address
-				if tx.Clauses()[clauseIndex].To() == nil {
-					to = &meter.Address{}
-				} else {
-					to = tx.Clauses()[clauseIndex].To()
-				}
-
-				results = append(results, TraceData{
-					Action: TraceAction{
-						CallType: "call",
-						From:     signer,
-						Input:    "0x" + hex.EncodeToString(tx.Clauses()[clauseIndex].Data()),
-						To:       *to,
-						Value:    math.HexOrDecimal256(*(tx.Clauses()[clauseIndex].Value())),
-					},
-					BlockHash:           blk.ID(),
-					BlockNumber:         uint64(num),
-					Result:              TraceDataResult{GasUsed: math.HexOrDecimal256(*big.NewInt(0)), Output: "0x"}, // FIXME: fake data
-					Subtraces:           0,                                                                            // FIXME: fake data
-					TraceAddress:        make([]meter.Address, 0),                                                     // FIXME: fake data
-					TransactionHash:     tx.ID(),
-					TransactionPosition: uint64(txIndex),
-					Type:                "call",
-				})
-			}
-		}
-		num++
-	}
-
-	return utils.WriteJSON(w, results)
-}
-*/
 
 func (d *Debug) handleOpenEthTraceFilter(w http.ResponseWriter, req *http.Request) error {
 	var opt TraceFilterOptions
@@ -740,10 +631,12 @@ func (d *Debug) handleOpenEthTraceFilter(w http.ResponseWriter, req *http.Reques
 	if opt.FromBlock != "" {
 		revision, err := d.parseRevision(opt.FromBlock)
 		if err != nil {
+			fmt.Println("Error: invalid fromBlock", err)
 			return utils.BadRequest(errors.WithMessage(err, "invalid fromBlock"))
 		}
 		blk, err := d.getBlock(revision)
 		if err != nil {
+			fmt.Println("Error: could not get block", err)
 			return utils.BadRequest(errors.WithMessage(err, "could not get block"))
 		}
 		fromBlockNum = blk.Number()
@@ -752,14 +645,17 @@ func (d *Debug) handleOpenEthTraceFilter(w http.ResponseWriter, req *http.Reques
 	if opt.ToBlock != "" {
 		revision, err := d.parseRevision(opt.ToBlock)
 		if err != nil {
-			return utils.BadRequest(errors.WithMessage(err, "invalid fromBlock"))
+			fmt.Println("Error: invalid toBlock", err)
+			return utils.BadRequest(errors.WithMessage(err, "invalid toBlock"))
 		}
 		blk, err := d.getBlock(revision)
 		if err != nil {
+			fmt.Println("Error: could not get block", err)
 			return utils.BadRequest(errors.WithMessage(err, "could not get block"))
 		}
 		toBlockNum = blk.Number()
 	}
+	fmt.Println("handle trace filter", "fromBlock:", fromBlockNum, ", toBlock:", toBlockNum)
 
 	if fromBlockNum > toBlockNum {
 		return utils.BadRequest(errors.New("fromBlock > toBlock"))
@@ -803,6 +699,7 @@ func (d *Debug) handleOpenEthTraceFilter(w http.ResponseWriter, req *http.Reques
 		num++
 	}
 
+	fmt.Println("complete handle trace filter with ", len(results), "data entries")
 	return utils.WriteJSON(w, results)
 }
 
@@ -810,8 +707,6 @@ func (d *Debug) Mount(root *mux.Router, pathPrefix string) {
 	sub := root.PathPrefix(pathPrefix).Subrouter()
 	sub.Path("/tracers").Methods(http.MethodPost).HandlerFunc(utils.WrapHandlerFunc(d.handleTraceTransaction))
 	sub.Path("/storage-range").Methods(http.MethodPost).HandlerFunc(utils.WrapHandlerFunc(d.handleDebugStorage))
-	// sub.Path("/trace_filter").Methods(http.MethodPost).HandlerFunc((utils.WrapHandlerFunc(d.handleTraceFilter)))
-	// sub.Path("/trace_transaction").Methods(http.MethodPost).HandlerFunc((utils.WrapHandlerFunc(d.handleOpenEthTraceTransaction)))
 	sub.Path("/openeth_trace_transaction").Methods(http.MethodPost).HandlerFunc((utils.WrapHandlerFunc(d.handleOpenEthTraceTransaction)))
 	sub.Path("/openeth_trace_block").Methods(http.MethodPost).HandlerFunc((utils.WrapHandlerFunc(d.handleOpenEthTraceBlock)))
 	sub.Path("/openeth_trace_filter").Methods(http.MethodPost).HandlerFunc((utils.WrapHandlerFunc(d.handleOpenEthTraceFilter)))
