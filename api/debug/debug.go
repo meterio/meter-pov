@@ -75,7 +75,13 @@ func (d *Debug) newRuntimeOnBlock(header *block.Header) (*runtime.Runtime, error
 			TotalScore:  header.TotalScore(),
 		}), nil
 }
-func (d *Debug) isScriptEngineClause(rt *runtime.Runtime, blockID meter.Bytes32, txIndex uint64, clauseIndex uint64) bool {
+
+// copied over from runtime
+func ScriptEngineCheck(d []byte) bool {
+	return (d[0] == 0xff) && (d[1] == 0xff) && (d[2] == 0xff) && (d[3] == 0xff)
+}
+
+func (d *Debug) isScriptEngineClause(blockID meter.Bytes32, txIndex uint64, clauseIndex uint64) bool {
 	block, err := d.chain.GetBlock(blockID)
 	if err != nil {
 		if d.chain.IsNotFound(err) {
@@ -93,7 +99,7 @@ func (d *Debug) isScriptEngineClause(rt *runtime.Runtime, blockID meter.Bytes32,
 
 	tx := txs[txIndex]
 	clause := tx.Clauses()[clauseIndex]
-	if (clause.Value().Sign() == 0) && (len(clause.Data()) > 16) && rt.ScriptEngineCheck(clause.Data()) {
+	if (clause.Value().Sign() == 0) && (len(clause.Data()) > 16) && ScriptEngineCheck(clause.Data()) {
 		return true
 	}
 	return false
@@ -196,6 +202,11 @@ func (d *Debug) handleClauseEnv(ctx context.Context, blockID meter.Bytes32, txIn
 
 // trace an existed transaction
 func (d *Debug) traceTransactionWithAllClauses(ctx context.Context, blockID meter.Bytes32, txIndex uint64) (interface{}, error) {
+	se := d.isScriptEngineClause(blockID, txIndex, uint64(0))
+	if se {
+		fmt.Println("Tx has Script Engine clause, skip tracing", se, "blockID", blockID, "txIndex", txIndex, "clauseIndex", 0)
+		return nil, nil
+	}
 	rt, txExec, err := d.handleTxEnvNew(ctx, blockID, txIndex)
 	defer func() {
 		rt = nil
@@ -214,9 +225,6 @@ func (d *Debug) traceTransactionWithAllClauses(ctx context.Context, blockID mete
 	}
 	rt.SetVMConfig(vm.Config{Debug: true, Tracer: tracer})
 	clauseIndex := 0
-	if d.isScriptEngineClause(rt, blockID, txIndex, uint64(0)) {
-		return nil, nil
-	}
 
 	for txExec.HasNextClause() {
 		fmt.Println("Execute ", blockID, txIndex, clauseIndex)
