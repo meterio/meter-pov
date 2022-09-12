@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"fmt"
 
+	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/meterio/meter-pov/meter"
 )
@@ -103,6 +104,7 @@ func (p *Pruner) Prune(root meter.Bytes32) *PruneStat {
 	t, _ := New(root, p.db)
 	p.iter = newPruneIterator(t, p.db, p.snapshot, p.bloom)
 	stat := &PruneStat{}
+	batch := p.db.NewBatch()
 	for p.iter.Next(true) {
 		hash := p.iter.Hash()
 		if p.iter.Leaf() {
@@ -131,6 +133,10 @@ func (p *Pruner) Prune(root meter.Bytes32) *PruneStat {
 						loaded, _ := p.iter.Get(shash[:])
 						stat.PrunedStorageBytes += uint64(len(loaded) + len(shash))
 						stat.PrunedStorageNodes++
+						err := batch.Delete(shash[:])
+						if err != nil {
+							log.Error("Error deleteing", "err", err)
+						}
 					}
 				}
 				sroot := meter.BytesToBytes32(acc.StorageRoot)
@@ -138,6 +144,10 @@ func (p *Pruner) Prune(root meter.Bytes32) *PruneStat {
 					loaded, _ := p.iter.Get(acc.StorageRoot[:])
 					stat.PrunedStorageBytes += uint64(len(loaded) + len(acc.StorageRoot))
 					stat.PrunedStorageNodes++
+					err := batch.Delete(acc.StorageRoot)
+					if err != nil {
+						log.Error("Error deleteing", "err", err)
+					}
 				}
 			}
 		} else {
@@ -148,6 +158,10 @@ func (p *Pruner) Prune(root meter.Bytes32) *PruneStat {
 				loaded, _ := p.iter.Get(hash[:])
 				stat.PrunedNodeBytes += uint64(len(loaded) + len(hash))
 				stat.PrunedNodes++
+				err := batch.Delete(hash[:])
+				if err != nil {
+					log.Error("Error deleteing", "err", err)
+				}
 			}
 		}
 	}
@@ -155,7 +169,18 @@ func (p *Pruner) Prune(root meter.Bytes32) *PruneStat {
 		loaded, _ := p.iter.Get(root[:])
 		stat.PrunedNodeBytes += uint64(len(loaded) + len(root))
 		stat.PrunedNodes++
+		err := batch.Delete(root[:])
+		if err != nil {
+			log.Error("Error deleteing", "err", err)
+		}
 	}
+	if batch.Len() > 0 {
+		if err := batch.Write(); err != nil {
+			log.Error("Error flushing", "err", err)
+		}
+		log.Info("commited deletion batch", "len", batch.Len())
+	}
+	log.Info("Pruned root", "root", root)
 	return stat
 }
 

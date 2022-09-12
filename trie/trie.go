@@ -21,9 +21,10 @@ import (
 	"bytes"
 	"fmt"
 
-	"github.com/meterio/meter-pov/meter"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/rlp"
+	"github.com/meterio/meter-pov/kv"
+	"github.com/meterio/meter-pov/meter"
 	"github.com/rcrowley/go-metrics"
 )
 
@@ -71,6 +72,7 @@ type DatabaseWriter interface {
 	// Implementations must not hold onto the value bytes, the trie
 	// will reuse the slice across calls to Put.
 	Put(key, value []byte) error
+	NewBatch() kv.Batch
 }
 
 // Trie is a Merkle Patricia Trie.
