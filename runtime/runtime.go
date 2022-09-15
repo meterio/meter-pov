@@ -377,7 +377,10 @@ func (rt *Runtime) newEVM(stateDB *statedb.StateDB, clauseIndex uint32, txCtx *x
 				// skip direct calls
 				return nil, nil, false
 			}
+			fmt.Println("INTERCEPT CALL: ", contract.Address().String())
+			fmt.Println("lastNonNativeCallGas:", lastNonNativeCallGas)
 			// comment out, this has been changed
+
 			/****
 			if contract.Address() != contract.Caller() {
 				lastNonNativeCallGas = contract.Gas
@@ -408,9 +411,12 @@ func (rt *Runtime) newEVM(stateDB *statedb.StateDB, clauseIndex uint32, txCtx *x
 				panic("value transfer not allowed")
 			}
 
+			fmt.Println("before contract.Gas", contract.Gas, "lastNonNativeCallGas", lastNonNativeCallGas)
 			// here we return call gas and extcodeSize gas for native calls, to make
 			// builtin contract cheap.
 			contract.Gas += nativeCallReturnGas
+
+			fmt.Println("after contract.Gas", contract.Gas, "lastNonNativeCallGas", lastNonNativeCallGas)
 			if contract.Gas > lastNonNativeCallGas {
 				panic("serious bug: native call returned gas over consumed")
 			}
@@ -624,6 +630,7 @@ func (rt *Runtime) ExecuteTransaction(tx *tx.Transaction) (receipt *tx.Receipt, 
 
 // PrepareTransaction prepare to execute tx.
 func (rt *Runtime) PrepareTransaction(tx *tx.Transaction) (*TransactionExecutor, error) {
+	fmt.Println("Prepare Transaction", tx.ID())
 	resolvedTx, err := ResolveTransaction(tx)
 	if err != nil {
 		return nil, err
