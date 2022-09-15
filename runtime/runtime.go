@@ -9,6 +9,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"math/big"
+	"strings"
 	"sync/atomic"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -640,6 +641,14 @@ func (rt *Runtime) PrepareTransaction(tx *tx.Transaction) (*TransactionExecutor,
 	if tx.ID().String() == "0x33aaf928a82f097cec5b0a86ce06677344768f1f8a0c42a2f27e4bfac795e1f4" {
 		fmt.Println("throw away 0x33aaf928a82f097cec5b0a86ce06677344768f1f8a0c42a2f27e4bfac795e1f4")
 		return nil, errors.New("could not handle this tx")
+	}
+	if len(tx.Clauses()) > 0 {
+		for _, c := range tx.Clauses() {
+			if strings.ToLower(c.To().String()) == "0x4b172ab7983f176ddd588abf2ae74d6569633edb" {
+				fmt.Println("prevent calling problematic contract 0x4b172ab7983f176ddd588abf2ae74d6569633edb")
+				return nil, errors.New("could not handle this tx")
+			}
+		}
 	}
 	resolvedTx, err := ResolveTransaction(tx)
 	if err != nil {
