@@ -22,7 +22,7 @@ import (
 	"os"
 
 	bloomfilter "github.com/holiman/bloomfilter/v2"
-	"github.com/meterio/meter-pov/meter"
+	"github.com/meterio/meter-pov/metric"
 )
 
 // stateBloomHasher is a wrapper around a byte blob to satisfy the interface API
@@ -65,7 +65,7 @@ func NewStateBloomWithSize(size uint64) (*StateBloom, error) {
 	if err != nil {
 		return nil, err
 	}
-	fmt.Println("Initialized state bloom", "size", meter.StorageSize(float64(bloom.M()/8)))
+	fmt.Println("Initialized state bloom", "size", metric.StorageSize(float64(bloom.M()/8)))
 	return &StateBloom{bloom: bloom}, nil
 }
 

@@ -54,10 +54,34 @@ func CacheUnloads() int64 {
 	return cacheUnloadCounter.Count()
 }
 
+type KeyValueStater interface {
+	// Stat returns a particular internal stat of the database.
+	Stat(property string) (string, error)
+}
+
+// Compacter wraps the Compact method of a backing data store.
+type Compacter interface {
+	// Compact flattens the underlying data store for the given key range. In essence,
+	// deleted and overwritten versions are discarded, and the data is rearranged to
+	// reduce the cost of operations needed to access them.
+	//
+	// A nil start is treated as a key before all keys in the data store; a nil limit
+	// is treated as a key after all keys in the data store. If both is nil then it
+	// will compact entire data store.
+	Compact(start []byte, limit []byte) error
+}
+
 // Database must be implemented by backing stores for the trie.
 type Database interface {
 	DatabaseReader
 	DatabaseWriter
+}
+
+type KeyValueStore interface {
+	DatabaseReader
+	DatabaseWriter
+	Compacter
+	KeyValueStater
 }
 
 // DatabaseReader wraps the Get method of a backing store for the trie.

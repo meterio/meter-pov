@@ -18,8 +18,11 @@ package trie
 
 import (
 	"bytes"
+	"encoding/hex"
 	"fmt"
+	"time"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/meterio/meter-pov/meter"
@@ -71,14 +74,14 @@ func (s *PruneStat) String() string {
 
 type Pruner struct {
 	iter     PruneIterator
-	db       Database
+	db       KeyValueStore
 	snapshot *TrieSnapshot
 	bloom    *StateBloom
 	visited  map[meter.Bytes32]bool
 }
 
 // NewIterator creates a new key-value iterator from a node iterator
-func NewPruner(db Database, genesisRoot, snapshotRoot meter.Bytes32) *Pruner {
+func NewPruner(db KeyValueStore, genesisRoot, snapshotRoot meter.Bytes32) *Pruner {
 	bloom, _ := NewStateBloomWithSize(256)
 	p := &Pruner{
 		db:       db,
@@ -93,6 +96,42 @@ func NewPruner(db Database, genesisRoot, snapshotRoot meter.Bytes32) *Pruner {
 	st, _ := New(snapshotRoot, p.db)
 	p.snapshot.AddTrie(st, p.db)
 	return p
+}
+
+func (p *Pruner) PrintStats() {
+	if stats, err := p.db.Stat("leveldb.stats"); err != nil {
+		log.Warn("Failed to read database stats", "error", err)
+	} else {
+		fmt.Println(stats)
+	}
+	if ioStats, err := p.db.Stat("leveldb.iostats"); err != nil {
+		log.Warn("Failed to read database iostats", "error", err)
+	} else {
+		fmt.Println(ioStats)
+	}
+}
+
+func (p *Pruner) Compact() {
+	// Compact the entire database to more accurately measure disk io and print the stats
+	fmt.Println("Compacting entire database...")
+	p.PrintStats()
+	cstart := time.Now()
+	for b := 0x00; b <= 0xf0; b += 0x10 {
+		var (
+			start = []byte{byte(b)}
+			end   = []byte{byte(b + 0x10)}
+		)
+		if b == 0xf0 {
+			end = nil
+		}
+		log.Info("Compacting database", "range", fmt.Sprintf("%#x-%#x", start, end), "elapsed", common.PrettyDuration(time.Since(cstart)))
+		if err := p.db.Compact(start, end); err != nil {
+			log.Error("Database compaction failed", "error", err)
+			return
+		}
+	}
+	log.Info("Database compaction finished", "elapsed", common.PrettyDuration(time.Since(cstart)))
+	p.PrintStats()
 }
 
 // prune the trie at block height
@@ -133,6 +172,7 @@ func (p *Pruner) Prune(root meter.Bytes32) *PruneStat {
 						loaded, _ := p.iter.Get(shash[:])
 						stat.PrunedStorageBytes += uint64(len(loaded) + len(shash))
 						stat.PrunedStorageNodes++
+						log.Info("Prune node", "storageHash", shash, "val", hex.EncodeToString(loaded), "len", len(loaded)+len(shash))
 						err := batch.Delete(shash[:])
 						if err != nil {
 							log.Error("Error deleteing", "err", err)
@@ -144,6 +184,7 @@ func (p *Pruner) Prune(root meter.Bytes32) *PruneStat {
 					loaded, _ := p.iter.Get(acc.StorageRoot[:])
 					stat.PrunedStorageBytes += uint64(len(loaded) + len(acc.StorageRoot))
 					stat.PrunedStorageNodes++
+					log.Info("Prune node", "storageRoot", hex.EncodeToString(acc.StorageRoot), "val", hex.EncodeToString(loaded), "len", len(loaded)+len(acc.StorageRoot))
 					err := batch.Delete(acc.StorageRoot)
 					if err != nil {
 						log.Error("Error deleteing", "err", err)
@@ -159,6 +200,7 @@ func (p *Pruner) Prune(root meter.Bytes32) *PruneStat {
 				stat.PrunedNodeBytes += uint64(len(loaded) + len(hash))
 				stat.PrunedNodes++
 				err := batch.Delete(hash[:])
+				log.Info("Prune node", "hash", hash, "val", hex.EncodeToString(loaded), "len", len(loaded)+len(hash))
 				if err != nil {
 					log.Error("Error deleteing", "err", err)
 				}
@@ -170,6 +212,7 @@ func (p *Pruner) Prune(root meter.Bytes32) *PruneStat {
 		stat.PrunedNodeBytes += uint64(len(loaded) + len(root))
 		stat.PrunedNodes++
 		err := batch.Delete(root[:])
+		log.Info("Prune node", "root", root, "val", hex.EncodeToString(loaded), "len", len(loaded)+len(root))
 		if err != nil {
 			log.Error("Error deleteing", "err", err)
 		}
@@ -180,7 +223,8 @@ func (p *Pruner) Prune(root meter.Bytes32) *PruneStat {
 		}
 		log.Info("commited deletion batch", "len", batch.Len())
 	}
-	log.Info("Pruned root", "root", root)
+
+	log.Info("Pruned root", "root", root, "batch", batch.Len())
 	return stat
 }
 
