@@ -15,6 +15,11 @@ var (
 		Value: defaultDataDir(),
 		Usage: "directory for block-chain databases",
 	}
+	stashDirFlag = cli.StringFlag{
+		Name:  "stash-dir",
+		Value: "",
+		Usage: "directory for tx.stash folder",
+	}
 
 	networkFlag = cli.StringFlag{
 		Name:  "network",

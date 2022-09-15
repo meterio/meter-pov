@@ -11,9 +11,12 @@ import (
 
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/inconshreveable/log15"
+	"github.com/meterio/meter-pov/kv"
+	"github.com/meterio/meter-pov/lvldb"
 	"github.com/meterio/meter-pov/meter"
 	"github.com/meterio/meter-pov/state"
 	"github.com/meterio/meter-pov/trie"
+	"github.com/meterio/meter-pov/tx"
 	"gopkg.in/urfave/cli.v1"
 )
 
@@ -61,6 +64,19 @@ func main() {
 				Flags:  []cli.Flag{dataDirFlag, networkFlag, addressFlag, keyFlag},
 				Action: loadStorageAction,
 			},
+			{
+				Name:   "stat",
+				Usage:  "Print leveldb stats",
+				Flags:  []cli.Flag{dataDirFlag, networkFlag},
+				Action: statAction,
+			},
+			{
+				Name:   "compact",
+				Usage:  "Compact leveldb stats",
+				Flags:  []cli.Flag{dataDirFlag, networkFlag},
+				Action: compactAction,
+			},
+			{Name: "stash", Usage: "Print tx.stash", Flags: []cli.Flag{stashDirFlag}, Action: stashAction},
 			{
 				Name:   "prune",
 				Usage:  "Prune state trie with pruner",
@@ -118,7 +134,32 @@ func defaultAction(ctx *cli.Context) error {
 	key := trie.KeybytesToHex(b)
 	fmt.Println("Key: ", hex.EncodeToString(key))
 	return nil
+}
 
+func stashAction(ctx *cli.Context) error {
+	path := ctx.String(stashDirFlag.Name)
+	db, err := lvldb.New(path, lvldb.Options{})
+	if err != nil {
+		log.Error("create tx stash", "err", err)
+		return nil
+	}
+	defer db.Close()
+
+	iter := db.NewIterator(*kv.NewRangeWithBytesPrefix(nil))
+	for iter.Next() {
+		var tx tx.Transaction
+		if err := rlp.DecodeBytes(iter.Value(), &tx); err != nil {
+			log.Warn("decode stashed tx", "err", err)
+			if err := db.Delete(iter.Key()); err != nil {
+				log.Warn("delete corrupted stashed tx", "err", err)
+			}
+		} else {
+			var raw bytes.Buffer
+			tx.EncodeRLP(&raw)
+			log.Info("found tx: ", "id", tx.ID(), "raw", hex.EncodeToString(raw.Bytes()))
+		}
+	}
+	return nil
 }
 
 func loadRawAction(ctx *cli.Context) error {
@@ -446,7 +487,48 @@ func pruneAction(ctx *cli.Context) error {
 			lastReport = time.Now()
 		}
 	}
+	pruner.Compact()
 	log.Info("Pruning completed", "elapsed", PrettyDuration(time.Since(start)))
+	return nil
+}
+
+func compactAction(ctx *cli.Context) error {
+	initLogger()
+
+	mainDB, gene := openMainDB(ctx)
+	defer func() { log.Info("closing main database..."); mainDB.Close() }()
+
+	meterChain := initChain(gene, mainDB)
+
+	blk, err := loadBlockByRevision(meterChain, ctx.String(revisionFlag.Name))
+	if err != nil {
+		fatal("could not load block with revision")
+	}
+	geneBlk, _, _ := gene.Build(state.NewCreator(mainDB))
+	geneRoot := geneBlk.StateRoot()
+	snapRoot := blk.StateRoot()
+	pruner := trie.NewPruner(mainDB, geneRoot, snapRoot)
+	pruner.Compact()
+	return nil
+}
+
+func statAction(ctx *cli.Context) error {
+	initLogger()
+
+	mainDB, gene := openMainDB(ctx)
+	defer func() { log.Info("closing main database..."); mainDB.Close() }()
+
+	meterChain := initChain(gene, mainDB)
+
+	blk, err := loadBlockByRevision(meterChain, ctx.String(revisionFlag.Name))
+	if err != nil {
+		fatal("could not load block with revision")
+	}
+	geneBlk, _, _ := gene.Build(state.NewCreator(mainDB))
+	geneRoot := geneBlk.StateRoot()
+	snapRoot := blk.StateRoot()
+	pruner := trie.NewPruner(mainDB, geneRoot, snapRoot)
+	pruner.PrintStats()
 	return nil
 }
 
