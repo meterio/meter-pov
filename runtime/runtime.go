@@ -644,7 +644,7 @@ func (rt *Runtime) PrepareTransaction(tx *tx.Transaction) (*TransactionExecutor,
 	}
 	if len(tx.Clauses()) > 0 {
 		for _, c := range tx.Clauses() {
-			if strings.ToLower(c.To().String()) == "0x4b172ab7983f176ddd588abf2ae74d6569633edb" {
+			if c.To() != nil && strings.ToLower(c.To().String()) == "0x4b172ab7983f176ddd588abf2ae74d6569633edb" {
 				fmt.Println("prevent calling problematic contract 0x4b172ab7983f176ddd588abf2ae74d6569633edb")
 				return nil, errors.New("could not handle this tx")
 			}
