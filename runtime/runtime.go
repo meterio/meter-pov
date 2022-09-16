@@ -34,6 +34,7 @@ import (
 )
 
 var (
+	errExecutionReverted    = errors.New("evm: execution reverted")
 	energyTransferEvent     *abi.Event
 	prototypeSetMasterEvent *abi.Event
 	nativeCallReturnGas     uint64 = 1562 // see test case for calculation
@@ -425,7 +426,9 @@ func (rt *Runtime) newEVM(stateDB *statedb.StateDB, clauseIndex uint32, txCtx *x
 
 			fmt.Println("after contract.Gas", contract.Gas, "lastNonNativeCallGas", lastNonNativeCallGas)
 			if contract.Gas > lastNonNativeCallGas {
-				panic("serious bug: native call returned gas over consumed")
+				fmt.Println("serious bug: native call returned gas over consumed")
+				return nil, errExecutionReverted, true
+				// panic("serious bug: native call returned gas over consumed")
 			}
 
 			ret, err := xenv.New(abi, rt.seeker, rt.state, rt.ctx, txCtx, evm, contract).Call(run)
