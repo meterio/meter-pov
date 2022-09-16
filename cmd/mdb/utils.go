@@ -7,8 +7,11 @@ package main
 
 import (
 	"context"
+	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"io"
+	"net/http"
 	"os"
 	"os/signal"
 	"regexp"
@@ -18,6 +21,7 @@ import (
 	"time"
 
 	"github.com/meterio/meter-pov/kv"
+	"github.com/meterio/meter-pov/lvldb"
 	"github.com/meterio/meter-pov/meter"
 )
 
@@ -98,4 +102,76 @@ func (d PrettyDuration) String() string {
 		label = strings.Replace(label, match, match[:4], 1)
 	}
 	return label
+}
+
+func getJson(client *http.Client, url string, target interface{}) error {
+	r, err := client.Get(url)
+	if err != nil {
+		return err
+	}
+	defer r.Body.Close()
+
+	return json.NewDecoder(r.Body).Decode(target)
+}
+
+func getValue(ldb *lvldb.LevelDB, key []byte) (string, error) {
+	val, err := ldb.Get(key)
+	if err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(val), err
+}
+
+func updateLeaf(ldb *lvldb.LevelDB, hexVal string, dryRun bool) error {
+	leafBlockKey := []byte("leaf")
+	v, _ := hex.DecodeString(hexVal)
+	if dryRun {
+		ldb.Put(leafBlockKey, v)
+		fmt.Println("leaf updated:", hexVal)
+	} else {
+		fmt.Println("leaf will be:", hexVal)
+	}
+	return nil
+}
+
+func readLeaf(ldb *lvldb.LevelDB) (string, error) {
+	leafBlockKey := []byte("leaf")
+	val, err := getValue(ldb, leafBlockKey)
+	return val, err
+}
+
+func updateBestQC(ldb *lvldb.LevelDB, hexVal string, dryRun bool) error {
+	key := []byte("best-qc")
+	v, _ := hex.DecodeString(hexVal)
+	if dryRun {
+		ldb.Put(key, v)
+		fmt.Println("best-qc updated:", hexVal)
+	} else {
+		fmt.Println("best-qc will be:", hexVal)
+	}
+	return nil
+}
+
+func readBestQC(ldb *lvldb.LevelDB) (string, error) {
+	key := []byte("best-qc")
+	val, err := getValue(ldb, key)
+	return val, err
+}
+
+func updateBest(ldb *lvldb.LevelDB, hexVal string, dryRun bool) error {
+	key := []byte("best")
+	v, _ := hex.DecodeString(hexVal)
+	if dryRun {
+		ldb.Put(key, v)
+		fmt.Println("best updated:", hexVal)
+	} else {
+		fmt.Println("best will be:", hexVal)
+	}
+	return nil
+}
+
+func readBest(ldb *lvldb.LevelDB) (string, error) {
+	key := []byte("best")
+	val, err := getValue(ldb, key)
+	return val, err
 }

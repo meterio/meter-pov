@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/ethereum/go-ethereum/rlp"
@@ -14,6 +15,7 @@ import (
 	"github.com/meterio/meter-pov/kv"
 	"github.com/meterio/meter-pov/lvldb"
 	"github.com/meterio/meter-pov/meter"
+	"github.com/meterio/meter-pov/script/staking"
 	"github.com/meterio/meter-pov/state"
 	"github.com/meterio/meter-pov/trie"
 	"github.com/meterio/meter-pov/tx"
@@ -118,6 +120,12 @@ func main() {
 				Usage:  "Create a snapshot on revision block",
 				Flags:  flags,
 				Action: snapshotAction,
+			},
+			{
+				Name:   "unsafe-reset",
+				Usage:  "Reset database to any height in history",
+				Flags:  []cli.Flag{networkFlag, dataDirFlag, heightFlag, forceFlag},
+				Action: unsafeResetAction,
 			},
 		},
 	}
@@ -773,5 +781,134 @@ func diffStateAction(ctx *cli.Context) error {
 		return accIter.Error()
 	}
 	log.Info("State is complete", "nodes", nodes, "accounts", accounts, "slots", slots, "codes", codes, "elapsed", PrettyDuration(time.Since(start)))
+	return nil
+}
+
+type BlockInfo struct {
+	Number int64  `json:"number"`
+	Id     string `json:"id"`
+}
+
+type QCInfo struct {
+	QcHeight int64  `json:"qcHeight"`
+	Raw      string `json:"raw"`
+}
+
+func unsafeResetAction(ctx *cli.Context) error {
+	initLogger()
+
+	mainDB, gene := openMainDB(ctx)
+	defer func() { log.Info("closing main database..."); mainDB.Close() }()
+
+	meterChain := initChain(gene, mainDB)
+
+	var (
+		myClient = &http.Client{Timeout: 5 * time.Second}
+
+		network = ctx.String(networkFlag.Name)
+		datadir = ctx.String(dataDirFlag.Name)
+		force   = ctx.Bool(forceFlag.Name)
+		height  = ctx.Int(heightFlag.Name)
+		blkInfo = BlockInfo{}
+		qcInfo  = QCInfo{}
+		domain  = ""
+		err     error
+
+		dryrun = !force
+	)
+
+	if network == "main" {
+		domain = "mainnet.meter.io"
+	} else if network == "test" {
+		domain = "testnet.meter.io"
+	} else {
+		panic(fmt.Sprintf("not supported network: %v", network))
+	}
+
+	err = getJson(myClient, fmt.Sprintf("http://%v:8669/blocks/%v", domain, height), &blkInfo)
+	if err != nil {
+		panic(fmt.Sprintf("could not get block info: %v", height))
+	}
+
+	err = getJson(myClient, fmt.Sprintf("http://%v:8669/blocks/qc/%v", domain, height+1), &qcInfo)
+	if err != nil {
+		panic(fmt.Sprintf("could not get qc info: %v", height+1))
+	}
+
+	// Read/Decode/Display Block
+	fromHash := strings.Replace(blkInfo.Id, "0x", "", 1)
+	bestQC := qcInfo.Raw
+	fmt.Println("------------ Reset ------------")
+	fmt.Println("Datadir: ", datadir)
+	fmt.Println("Network: ", network)
+	fmt.Println("Forceful: ", force)
+	fmt.Println("Height: ", height)
+	fmt.Println("Best/Leaf Hash:", fromHash)
+	fmt.Println("BestQC: ", bestQC)
+	fmt.Println("-------------------------------")
+	// fromHash := BestBlockHash
+
+	leafHash := fromHash
+	// Update Leaf
+	updateLeaf(mainDB, leafHash, dryrun)
+	if !dryrun {
+		val, err := readLeaf(mainDB)
+		if err != nil {
+			panic(fmt.Sprintf("could not read leaf %v", err))
+		}
+		if strings.Compare(val, leafHash) == 0 {
+			fmt.Println("leaf VERIFIED.")
+		} else {
+			panic("leaf verify failed.")
+		}
+	}
+	fmt.Println("")
+
+	// Update Best QC
+	updateBestQC(mainDB, bestQC, dryrun)
+	if !dryrun {
+		val, err := readBestQC(mainDB)
+		if err != nil {
+			panic(fmt.Sprintf("could not read best qc: %v", err))
+		}
+		if strings.Compare(val, bestQC) == 0 {
+			fmt.Println("best-qc VERIFIED.")
+		} else {
+			panic("best-qc verify failed.")
+		}
+
+	}
+	fmt.Println("")
+
+	// Update Best
+	updateBest(mainDB, leafHash, dryrun)
+	if !dryrun {
+		val, err := readBest(mainDB)
+		if err != nil {
+			panic(fmt.Sprintf("could not read best: %v", err))
+		}
+		if strings.Compare(val, leafHash) == 0 {
+			fmt.Println("best VERIFIED.")
+		} else {
+			panic("best VERIFY FAILED.")
+		}
+
+	}
+	fmt.Println("")
+
+	bestBlk, err := loadBlockByRevision(meterChain, "best")
+	if err != nil {
+		panic("could not read best block")
+	}
+	creator := state.NewCreator(mainDB)
+	st, err := creator.NewState(bestBlk.StateRoot())
+	if err != nil {
+		fmt.Println("could not create new state: ", err)
+		return err
+	}
+	stk := staking.NewStaking(meterChain, creator)
+	delegateList := stk.GetDelegateList(st)
+	stk.SetDelegateList(delegateList, st)
+
 	return nil
 }

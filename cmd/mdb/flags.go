@@ -21,15 +21,13 @@ var (
 		Usage: "directory for tx.stash folder",
 	}
 
-	networkFlag = cli.StringFlag{
-		Name:  "network",
-		Usage: "the network to join (main|test)",
-	}
-
+	networkFlag        = cli.StringFlag{Name: "network", Usage: "the network to join (main|test)"}
+	heightFlag         = cli.Int64Flag{Name: "height", Usage: "the height for target block"}
 	revisionFlag       = cli.StringFlag{Name: "revision", Usage: "the revision for target block"}
 	targetRevisionFlag = cli.StringFlag{Name: "target-revision", Usage: "the revision for target block"}
 	addressFlag        = cli.StringFlag{Name: "address", Usage: "address"}
 	keyFlag            = cli.StringFlag{Name: "key", Usage: "key"}
+	forceFlag          = cli.BoolFlag{Name: "force", Usage: "Force unsafe reset"}
 )
 
 // copy from go-ethereum

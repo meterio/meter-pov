@@ -117,6 +117,22 @@ func (ldb *LevelDB) NewIterator(r kv.Range) kv.Iterator {
 	}, &readOpt)
 }
 
+// Stat returns a particular internal stat of the database.
+func (ldb *LevelDB) Stat(property string) (string, error) {
+	return ldb.db.GetProperty(property)
+}
+
+// Compact flattens the underlying data store for the given key range. In essence,
+// deleted and overwritten versions are discarded, and the data is rearranged to
+// reduce the cost of operations needed to access them.
+//
+// A nil start is treated as a key before all keys in the data store; a nil limit
+// is treated as a key after all keys in the data store. If both is nil then it
+// will compact entire data store.
+func (ldb *LevelDB) Compact(start []byte, limit []byte) error {
+	return ldb.db.CompactRange(util.Range{Start: start, Limit: limit})
+}
+
 //////
 
 // levelDBBatch wraps batch operations.
