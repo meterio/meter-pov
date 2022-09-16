@@ -374,14 +374,14 @@ func (rt *Runtime) newEVM(stateDB *statedb.StateDB, clauseIndex uint32, txCtx *x
 		},
 		InterceptContractCall: func(evm *vm.EVM, contract *vm.Contract, readonly bool) ([]byte, error, bool) {
 			if evm.Depth() < 2 {
-				fmt.Println("before skip direct calls", lastNonNativeCallGas, "contract.gas", contract.Gas)
+				// fmt.Println("before skip direct calls", lastNonNativeCallGas, "contract.gas", contract.Gas)
 				lastNonNativeCallGas = contract.Gas
-				fmt.Println("skp direct calls", lastNonNativeCallGas, "contract.gas", contract.Gas)
+				// fmt.Println("skp direct calls", lastNonNativeCallGas, "contract.gas", contract.Gas)
 				// skip direct calls
 				return nil, nil, false
 			}
-			fmt.Println("INTERCEPT CALL: ", contract.Address().String())
-			fmt.Println("lastNonNativeCallGas:", lastNonNativeCallGas, "contract.gas", contract.Gas)
+			// fmt.Println("INTERCEPT CALL: ", contract.Address().String())
+			// fmt.Println("lastNonNativeCallGas:", lastNonNativeCallGas, "contract.gas", contract.Gas)
 			// comment out, this has been changed
 
 			/****
@@ -394,18 +394,18 @@ func (rt *Runtime) newEVM(stateDB *statedb.StateDB, clauseIndex uint32, txCtx *x
 
 			// make sure the allowed caller
 			if rt.FromNativeContract(meter.Address(contract.Caller())) != true {
-				fmt.Println("before skip native call from other contract", lastNonNativeCallGas, "contract.gas", contract.Gas)
+				// fmt.Println("before skip native call from other contract", lastNonNativeCallGas, "contract.gas", contract.Gas)
 				lastNonNativeCallGas = contract.Gas
-				fmt.Println("skip native call from other contract", lastNonNativeCallGas, "contract.gas", contract.Gas)
+				// fmt.Println("skip native call from other contract", lastNonNativeCallGas, "contract.gas", contract.Gas)
 				// skip native calls from other contract
 				return nil, nil, false
 			}
 
 			abi, run, found := builtin.FindNativeCall(meter.Address(contract.Address()), contract.Input)
 			if !found {
-				fmt.Println("before skip native call due to not found", lastNonNativeCallGas, "contract.gas", contract.Gas)
+				// fmt.Println("before skip native call due to not found", lastNonNativeCallGas, "contract.gas", contract.Gas)
 				lastNonNativeCallGas = contract.Gas
-				fmt.Println("skip native call due to not found", lastNonNativeCallGas, "contract.gas", contract.Gas)
+				// fmt.Println("skip native call due to not found", lastNonNativeCallGas, "contract.gas", contract.Gas)
 				return nil, nil, false
 			}
 
@@ -418,12 +418,12 @@ func (rt *Runtime) newEVM(stateDB *statedb.StateDB, clauseIndex uint32, txCtx *x
 				panic("value transfer not allowed")
 			}
 
-			fmt.Println("before contract.Gas", contract.Gas, "lastNonNativeCallGas", lastNonNativeCallGas)
+			// fmt.Println("before contract.Gas", contract.Gas, "lastNonNativeCallGas", lastNonNativeCallGas)
 			// here we return call gas and extcodeSize gas for native calls, to make
 			// builtin contract cheap.
 			contract.Gas += nativeCallReturnGas
 
-			fmt.Println("after contract.Gas", contract.Gas, "lastNonNativeCallGas", lastNonNativeCallGas)
+			// fmt.Println("after contract.Gas", contract.Gas, "lastNonNativeCallGas", lastNonNativeCallGas)
 			if contract.Gas > lastNonNativeCallGas {
 				fmt.Println("serious bug: native call returned gas over consumed")
 				return nil, errExecutionReverted, true

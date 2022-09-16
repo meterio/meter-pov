@@ -119,7 +119,7 @@ func (in *Interpreter) Run(contract *Contract, input []byte) (ret []byte, err er
 		// ignore callcode or delegatecall
 		if *contract.CodeAddr == contract.Address() {
 			contract.Input = input
-			fmt.Println("READY TO INTERCEPT call", "to", contract.Address().String())
+			// fmt.Println("READY TO INTERCEPT call", "to", contract.Address().String())
 			if out, err, handled := in.evm.InterceptContractCall(in.evm, contract, in.readOnly); handled {
 				return out, err
 			}
