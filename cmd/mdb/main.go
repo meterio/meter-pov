@@ -127,6 +127,12 @@ func main() {
 				Flags:  []cli.Flag{networkFlag, dataDirFlag, heightFlag, forceFlag},
 				Action: unsafeResetAction,
 			},
+			{
+				Name:   "pointer",
+				Usage:  "Print database pointers like best-qc, best-block",
+				Flags:  []cli.Flag{networkFlag, dataDirFlag},
+				Action: loadPointersAction,
+			},
 		},
 	}
 
@@ -910,5 +916,54 @@ func unsafeResetAction(ctx *cli.Context) error {
 	delegateList := stk.GetDelegateList(st)
 	stk.SetDelegateList(delegateList, st)
 
+	return nil
+}
+
+func loadPointersAction(ctx *cli.Context) error {
+	initLogger()
+
+	mainDB, gene := openMainDB(ctx)
+	defer func() { log.Info("closing main database..."); mainDB.Close() }()
+
+	meterChain := initChain(gene, mainDB)
+
+	var (
+		network = ctx.String(networkFlag.Name)
+		datadir = ctx.String(dataDirFlag.Name)
+		err     error
+	)
+
+	// Read/Decode/Display Block
+	fmt.Println("------------ Pointers ------------")
+	fmt.Println("Datadir: ", datadir)
+	fmt.Println("Network: ", network)
+	fmt.Println("-------------------------------")
+
+	// Read Leaf
+	val, err := readLeaf(mainDB)
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println("Leaf: ", val)
+
+	// Read Best QC
+	val, err = readBestQC(mainDB)
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println("Best QC: ", val)
+
+	// Read Best
+	val, err = readBest(mainDB)
+	if err != nil {
+		panic(fmt.Sprintf("could not read best: %v", err))
+	}
+	fmt.Println("Best Block:", val)
+
+	bestBlk, err := loadBlockByRevision(meterChain, "best")
+	if err != nil {
+		panic("could not read best block")
+	}
+	fmt.Println("Best Block (Decoded): \n", bestBlk.String())
 	return nil
 }
