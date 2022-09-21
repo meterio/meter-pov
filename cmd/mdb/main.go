@@ -862,6 +862,8 @@ func unsafeResetAction(ctx *cli.Context) error {
 		if err != nil {
 			panic(fmt.Sprintf("could not read leaf %v", err))
 		}
+		fmt.Println("val: ", val)
+		fmt.Println("leafHash: ", leafHash)
 		if strings.Compare(val, leafHash) == 0 {
 			fmt.Println("leaf VERIFIED.")
 		} else {
