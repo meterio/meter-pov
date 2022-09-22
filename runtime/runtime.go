@@ -558,6 +558,7 @@ func (rt *Runtime) PrepareClause(
 			if output.VMErr != nil {
 				fmt.Println("Output from script engine:", output)
 			}
+			log.Warn("HandleScriptData leftOverGas %v", leftOverGas)
 			return output, interrupted
 		}
 
@@ -582,15 +583,18 @@ func (rt *Runtime) PrepareClause(
 				VMErr:           errors.New("account is restricted to transfer"),
 				ContractAddress: contractAddr,
 			}
+			log.Warn("restrictTransfer leftOverGas %v", leftOverGas)
 			return output, false
 		}
 
 		if clause.To() == nil {
 			var caddr common.Address
 			data, caddr, leftOverGas, vmErr = evm.Create(vm.AccountRef(txCtx.Origin), clause.Data(), gas, clause.Value(), clause.Token())
+			log.Warn("evm.Create leftOverGas %v", leftOverGas)
 			contractAddr = (*meter.Address)(&caddr)
 		} else {
 			data, leftOverGas, vmErr = evm.Call(vm.AccountRef(txCtx.Origin), common.Address(*clause.To()), clause.Data(), gas, clause.Value(), clause.Token())
+			log.Warn("evm.Call leftOverGas %v", leftOverGas)
 		}
 
 		interrupted := atomic.LoadUint32(&interruptFlag) != 0
@@ -602,6 +606,7 @@ func (rt *Runtime) PrepareClause(
 			ContractAddress: contractAddr,
 		}
 		output.Events, output.Transfers = stateDB.GetLogs()
+		log.Warn("output LeftOverGas %v, RefundGas %v", output.LeftOverGas, output.RefundGas)
 		return output, interrupted
 	}
 

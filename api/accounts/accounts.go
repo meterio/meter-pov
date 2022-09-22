@@ -8,6 +8,7 @@ package accounts
 import (
 	"context"
 	"fmt"
+	"github.com/ethereum/go-ethereum/log"
 	"math/big"
 	"net/http"
 	"strconv"
@@ -162,6 +163,9 @@ func (a *Accounts) handleCallContract(w http.ResponseWriter, req *http.Request) 
 	} else {
 		addr = nil
 	}
+
+	log.Warn("callData.Gas %v", callData.Gas)
+
 	var batchCallData = &BatchCallData{
 		Clauses: Clauses{
 			Clause{
@@ -212,6 +216,7 @@ func (a *Accounts) handleCallBatchCode(w http.ResponseWriter, req *http.Request)
 
 func (a *Accounts) batchCall(ctx context.Context, batchCallData *BatchCallData, header *block.Header) (results BatchCallResults, err error) {
 	gas, gasPrice, caller, clauses, err := a.handleBatchCallData(batchCallData)
+	log.Warn("batchCall gas %v", gas)
 	if err != nil {
 		return nil, err
 	}
@@ -256,12 +261,14 @@ func (a *Accounts) batchCall(ctx context.Context, batchCallData *BatchCallData, 
 				fmt.Println("State Error: ", err)
 				return nil, err
 			}
+			log.Warn("convertCallResultWithInputGas gas %v", gas)
 			results = append(results, convertCallResultWithInputGas(out, gas))
 			if out.VMErr != nil {
 				fmt.Println("VM Error: ", out.VMErr)
 				return results, nil
 			}
 			gas = out.LeftOverGas
+			log.Warn("batchCall clauses gas %v", gas)
 		}
 	}
 	return results, nil
