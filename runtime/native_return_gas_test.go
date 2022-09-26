@@ -1,7 +1,9 @@
 package runtime
 
 import (
-	"math"
+	"encoding/hex"
+	"fmt"
+	"math/big"
 	"testing"
 
 	"github.com/meterio/meter-pov/builtin"
@@ -18,29 +20,91 @@ func TestNativeCallReturnGas(t *testing.T) {
 	state, _ := state.New(meter.Bytes32{}, kv)
 	state.SetCode(builtin.Measure.Address, builtin.Measure.RuntimeBytecodes())
 
+	maxGas := uint64(60000)
 	inner, _ := builtin.Measure.ABI.MethodByName("inner")
 	innerData, _ := inner.EncodeInput()
 	outer, _ := builtin.Measure.ABI.MethodByName("outer")
 	outerData, _ := outer.EncodeInput()
 
+	// 	fmt.Println("EXECUTE INNER")
 	innerOutput := New(nil, state, &xenv.BlockContext{}).ExecuteClause(
 		tx.NewClause(&builtin.Measure.Address).WithData(innerData),
 		0,
-		math.MaxUint64,
+		maxGas,
 		&xenv.TransactionContext{})
 	assert.Nil(t, innerOutput.VMErr)
+	fmt.Println("AFTER EXECUTE INNER")
 
+	fmt.Println("EXECUTE OUTER")
 	outerOutput := New(nil, state, &xenv.BlockContext{}).ExecuteClause(
 		tx.NewClause(&builtin.Measure.Address).WithData(outerData),
 		0,
-		math.MaxUint64,
+		maxGas,
 		&xenv.TransactionContext{})
 	assert.Nil(t, outerOutput.VMErr)
+	fmt.Println("AFTER EXECUTE OUTER")
 
-	innerGasUsed := math.MaxUint64 - innerOutput.LeftOverGas
-	outerGasUsed := math.MaxUint64 - outerOutput.LeftOverGas
+	innerGasUsed := maxGas - innerOutput.LeftOverGas
+	outerGasUsed := maxGas - outerOutput.LeftOverGas
+	fmt.Println("inner gas used: ", innerGasUsed)
+	fmt.Println("outer gas used: ", outerGasUsed)
+	fmt.Println("diff gas used: ", outerGasUsed-innerGasUsed*2)
 
 	// gas = enter1 + prepare2 + enter2 + leave2 + leave1
 	// here returns prepare2
 	assert.Equal(t, uint64(1562), outerGasUsed-innerGasUsed*2)
+}
+
+// this test could be run only if temporarly enable direct native call
+func TestNativeCallReturnGasNew(t *testing.T) {
+	kv, _ := lvldb.NewMem()
+	state, _ := state.New(meter.Bytes32{}, kv)
+	mtrgV1Addr := meter.MustParseAddress("0x228ebBeE999c6a7ad74A6130E81b12f9Fe237Ba3")
+	mtrgHex, _ := hex.DecodeString(MTRGSysContractByteCodeHex)
+
+	trackerAddr32 := meter.BytesToBytes32(builtin.MeterTracker.Address[:])
+
+	state.SetStorage(mtrgV1Addr, meter.BytesToBytes32([]byte{1}), trackerAddr32)
+	state.SetStorage(builtin.Params.Address, meter.KeyNativeMtrgERC20Address, meter.BytesToBytes32(mtrgV1Addr[:]))
+
+	state.SetCode(mtrgV1Addr, mtrgHex)
+	state.SetCode(builtin.MeterTracker.Address, builtin.MeterTracker.RuntimeBytecodes())
+
+	state.SetBalance(mtrgV1Addr, big.NewInt(5e18))
+	state.SetBalance(builtin.MeterTracker.Address, big.NewInt(5e18))
+
+	maxGas := uint64(60000)
+	outer, _ := builtin.MeterGov.ABI.MethodByName("totalSupply")
+	outerData, _ := outer.EncodeInput()
+	innerData, _ := hex.DecodeString("a236e000") // native_mtrg_totalSupply
+
+	fmt.Println("EXECUTE INNER")
+	innerOutput := New(nil, state, &xenv.BlockContext{}).ExecuteClause(
+		tx.NewClause(&builtin.MeterTracker.Address).WithData(innerData),
+		0,
+		maxGas,
+		&xenv.TransactionContext{Origin: mtrgV1Addr})
+	assert.Nil(t, innerOutput.VMErr)
+	fmt.Println("AFTER EXECUTE INNER")
+
+	fmt.Println("EXECUTE OUTER")
+	outerOutput := New(nil, state, &xenv.BlockContext{}).ExecuteClause(
+		tx.NewClause(&mtrgV1Addr).WithData(outerData),
+		0,
+		maxGas,
+		&xenv.TransactionContext{})
+	assert.Nil(t, outerOutput.VMErr)
+	fmt.Println("AFTER EXECUTE OUTER")
+
+	innerGasUsed := maxGas - innerOutput.LeftOverGas
+	outerGasUsed := maxGas - outerOutput.LeftOverGas
+
+	fmt.Println("inner output: ", innerOutput.String())
+	fmt.Println("outer output: ", outerOutput.String())
+	fmt.Println("inner used gas: ", innerGasUsed)
+	fmt.Println("outer used gas: ", outerGasUsed)
+	fmt.Println("diff used gas:", outerGasUsed-innerGasUsed*2)
+	// gas = enter1 + prepare2 + enter2 + leave2 + leave1
+	// here returns prepare2
+	assert.Equal(t, uint64(1254), outerGasUsed-innerGasUsed*2)
 }
