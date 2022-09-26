@@ -119,6 +119,8 @@ var (
 
 	KeyEnforceTesla5_Correction = BytesToBytes32([]byte("Tesla5_Correction-Flag")) // unset or 0 is not do yet, 1 is done
 
+	KeyEnforceTesla_Fork6_Correction = BytesToBytes32([]byte("Tesla_Fork6_Correction-Flag")) // unset or 0 is not do yet, 1 is done
+
 	// key set transaction fee address
 	// 0x6e73616374696f6e2d6665652d62656e65666963696172792d61646472657373
 	KeyTransactionFeeAddress = BytesToBytes32([]byte("transaction-fee-beneficiary-address"))

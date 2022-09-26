@@ -219,6 +219,68 @@ func (rt *Runtime) EnforceTeslaFork5_Corrections() {
 	}
 }
 
+func (rt *Runtime) EnforceTeslaFork6_Corrections() {
+	blockNumber := rt.Context().Number
+	if blockNumber > 0 && meter.IsMainNet() {
+		// flag is nil or 0, is not do. 1 meas done.
+		enforceFlag := builtin.Params.Native(rt.State()).Get(meter.KeyEnforceTesla_Fork6_Correction)
+
+		if blockNumber > meter.TeslaFork6_MainnetStartNum && (enforceFlag == nil || enforceFlag.Sign() == 0) {
+			// Tesla 6 Fork
+			fmt.Println("Start to update for fork6")
+
+			/*
+				----------------------------------------
+				found mismatch between buckets and candidates for 0xe3aa575d47e435468060e9f9bc488665bd9bc32a
+				total votes from buckets: 498429.806859663347332667
+				total votes from candidates: 498426.806859663347332667
+				diff: 3
+				* update candidate totalVotes
+
+				----------------------------------------
+				found mismatch between buckets and candidates for 0x0f8684f6dc76617d6831b4546381eb6cfb1c559f
+				total votes from buckets: 78241.395566777609357137
+				total votes from candidates: 78211.395566777609357137
+				diff: 30
+				* update candidates totalVotes
+
+				----------------------------------------
+				found mismatch for 0x5308b6f26f21238963d0ea0b391eafa9be53c78e
+				bounded total from buckets: 4222096.36378551686456558
+				unbound total from buckets: 0
+				account bounded balance: 4222203.275101156133971961
+				diff: -106.911315639269406
+				* add diff to an existing bucket
+
+				----------------------------------------
+				found mismatch for 0x0f8684f6dc76617d6831b4546381eb6cfb1c559f
+				bounded total from buckets: 20998.271091894977168951
+				unbound total from buckets: 0
+				account bounded balance: 21000
+				diff: -1.728908105022831
+				* add diff to an existing bucket
+
+				----------------------------------------
+				found mismatch for 0x16fb7dc58954fc1fa65318b752fc91f2824115b6
+				bounded total from buckets: 2079.6117389236189182
+				unbound total from buckets: 0
+				account bounded balance: 2079.6117389236189202
+				diff: -0.000000000000002
+				* add diff to an existing bucket
+
+				----------------------------------------
+				found mismatch for 0x353fdd79dd9a6fbc70a59178d602ad1f020ea52f
+				bounded total from buckets: 2000
+				unbound total from buckets: 0
+				account bounded balance: 2000.000000000000003
+				diff: -0.000000000000003
+				* add diff to an existing bucket
+			*/
+			fmt.Println("Finished update for fork6")
+		}
+	}
+}
+
 func (rt *Runtime) FromNativeContract(caller meter.Address) bool {
 
 	nativeMtrERC20 := builtin.Params.Native(rt.State()).GetAddress(meter.KeyNativeMtrERC20Address)
@@ -572,8 +634,15 @@ func (rt *Runtime) PrepareClause(
 
 		// check meterNative after sysContract support
 		rt.LoadERC20NativeCotract()
+
+		// tesla fork1 correction
 		rt.EnforceTelsaFork1_1Corrections()
+
+		// tesla fork5 correction
 		rt.EnforceTeslaFork5_Corrections()
+
+		// tesla fork6 correction
+		rt.EnforceTeslaFork6_Corrections()
 
 		// check the restriction of transfer.
 		if rt.restrictTransfer(stateDB, txCtx.Origin, clause.Value(), clause.Token(), txCtx.BlockRef.Number()) == true {
