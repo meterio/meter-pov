@@ -33,11 +33,12 @@ import (
 )
 
 var (
-	errExecutionReverted    = errors.New("evm: execution reverted")
-	energyTransferEvent     *abi.Event
-	prototypeSetMasterEvent *abi.Event
-	nativeCallReturnGas     uint64 = 1562 // see test case for calculation
-	MinScriptEngDataLen     int    = 16   //script engine data min size
+	errExecutionReverted          = errors.New("evm: execution reverted")
+	energyTransferEvent           *abi.Event
+	prototypeSetMasterEvent       *abi.Event
+	nativeCallReturnGas           uint64 = 1562 // see test case for calculation
+	nativeCallReturnGasAfterFork6 uint64 = 1264
+	MinScriptEngDataLen           int    = 16 //script engine data min size
 
 	EmptyRuntimeBytecode = []byte{0x60, 0x60, 0x60, 0x40, 0x52, 0x60, 0x02, 0x56}
 )
@@ -228,54 +229,7 @@ func (rt *Runtime) EnforceTeslaFork6_Corrections() {
 		if blockNumber > meter.TeslaFork6_MainnetStartNum && (enforceFlag == nil || enforceFlag.Sign() == 0) {
 			// Tesla 6 Fork
 			fmt.Println("Start to update for fork6")
-
-			/*
-				----------------------------------------
-				found mismatch between buckets and candidates for 0xe3aa575d47e435468060e9f9bc488665bd9bc32a
-				total votes from buckets: 498429.806859663347332667
-				total votes from candidates: 498426.806859663347332667
-				diff: 3
-				* update candidate totalVotes
-
-				----------------------------------------
-				found mismatch between buckets and candidates for 0x0f8684f6dc76617d6831b4546381eb6cfb1c559f
-				total votes from buckets: 78241.395566777609357137
-				total votes from candidates: 78211.395566777609357137
-				diff: 30
-				* update candidates totalVotes
-
-				----------------------------------------
-				found mismatch for 0x5308b6f26f21238963d0ea0b391eafa9be53c78e
-				bounded total from buckets: 4222096.36378551686456558
-				unbound total from buckets: 0
-				account bounded balance: 4222203.275101156133971961
-				diff: -106.911315639269406
-				* add diff to an existing bucket
-
-				----------------------------------------
-				found mismatch for 0x0f8684f6dc76617d6831b4546381eb6cfb1c559f
-				bounded total from buckets: 20998.271091894977168951
-				unbound total from buckets: 0
-				account bounded balance: 21000
-				diff: -1.728908105022831
-				* add diff to an existing bucket
-
-				----------------------------------------
-				found mismatch for 0x16fb7dc58954fc1fa65318b752fc91f2824115b6
-				bounded total from buckets: 2079.6117389236189182
-				unbound total from buckets: 0
-				account bounded balance: 2079.6117389236189202
-				diff: -0.000000000000002
-				* add diff to an existing bucket
-
-				----------------------------------------
-				found mismatch for 0x353fdd79dd9a6fbc70a59178d602ad1f020ea52f
-				bounded total from buckets: 2000
-				unbound total from buckets: 0
-				account bounded balance: 2000.000000000000003
-				diff: -0.000000000000003
-				* add diff to an existing bucket
-			*/
+			script.EnforceTeslaFork6_StakingCorrections(rt.State(), rt.Context().Time)
 			fmt.Println("Finished update for fork6")
 		}
 	}
@@ -483,7 +437,11 @@ func (rt *Runtime) newEVM(stateDB *statedb.StateDB, clauseIndex uint32, txCtx *x
 			// fmt.Println("before contract.Gas", contract.Gas, "lastNonNativeCallGas", lastNonNativeCallGas)
 			// here we return call gas and extcodeSize gas for native calls, to make
 			// builtin contract cheap.
-			contract.Gas += nativeCallReturnGas
+			if meter.IsMainChainTeslaFork6(txCtx.BlockRef.Number()) || meter.IsTestChainTeslaFork6(txCtx.BlockRef.Number()) {
+				contract.Gas += nativeCallReturnGasAfterFork6
+			} else {
+				contract.Gas += nativeCallReturnGas
+			}
 
 			// fmt.Println("after contract.Gas", contract.Gas, "lastNonNativeCallGas", lastNonNativeCallGas)
 			if contract.Gas > lastNonNativeCallGas {

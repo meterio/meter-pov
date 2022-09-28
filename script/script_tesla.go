@@ -50,7 +50,7 @@ func EnforceTeslaFork1_1Corrections(state *state.State, ts uint64) {
 			continue
 		}
 
-		stk.EnforceTeslaFor1_1Correction(c.BucketID, c.Addr, c.MeterGovAmount, state, ts)
+		stk.DoTeslaFork1_Correction(c.BucketID, c.Addr, c.MeterGovAmount, state, ts)
 	}
 	fmt.Println("EnforceTeslaFork1_1Corrections done...")
 }
@@ -151,6 +151,31 @@ func EnforceTeslaFork5BonusCorrections(state *state.State, ts uint64) {
 		fmt.Println(err)
 		return
 	}
-	stk.EnforceTeslaFork5BonusCorrection(state)
+	stk.DoTeslaFork5_BonusCorrection(state)
 	fmt.Println("Enforce TeslaFork5 Bonus Corrections done...")
+}
+
+func EnforceTeslaFork6_StakingCorrections(state *state.State, ts uint64) {
+	fmt.Println("Enforce TeslaFork6 Staking Corrections: start...")
+	se := GetScriptGlobInst()
+	if se == nil {
+		fmt.Println("get script engine failed ... ")
+		return
+	}
+
+	mod, foundMod := se.modReg.Find(STAKING_MODULE_ID)
+	if !foundMod {
+		err := fmt.Errorf("could not address module %v", STAKING_MODULE_ID)
+		fmt.Println(err)
+		return
+	}
+
+	stk := mod.modPtr.(*staking.Staking)
+	if stk == nil {
+		err := fmt.Errorf("could not address module %v", STAKING_MODULE_ID)
+		fmt.Println(err)
+		return
+	}
+	stk.DoTeslaFork6_StakingCorrection(state)
+	fmt.Println("Enforce TeslaFork6 Staking Corrections: done.")
 }

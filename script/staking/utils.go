@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"math/big"
 	"net"
+	"strings"
 
 	"github.com/meterio/meter-pov/block"
 	"github.com/meterio/meter-pov/meter"
@@ -175,7 +176,7 @@ func GetBucketListByHeader(header *block.Header) (*BucketList, error) {
 	return bucketList, nil
 }
 
-//  api routine interface
+// api routine interface
 func GetLatestCandidateList() (*CandidateList, error) {
 	staking := GetStakingGlobInst()
 	if staking == nil {
@@ -237,7 +238,7 @@ func GetDelegateListByHeader(header *block.Header) (*DelegateList, error) {
 	return list, nil
 }
 
-//  api routine interface
+// api routine interface
 func GetLatestDelegateList() (*DelegateList, error) {
 	staking := GetStakingGlobInst()
 	if staking == nil {
@@ -271,7 +272,7 @@ func convertDistList(dist []*Distributor) []*types.Distributor {
 	return list
 }
 
-//  consensus routine interface
+// consensus routine interface
 func GetInternalDelegateList() ([]*types.DelegateIntern, error) {
 	delegateList := []*types.DelegateIntern{}
 	staking := GetStakingGlobInst()
@@ -336,7 +337,7 @@ func CalcBonus(fromTS uint64, toTS uint64, rate uint8, value *big.Int) *big.Int 
 	return bonus
 }
 
-func (staking *Staking) EnforceTeslaFor1_1Correction(bid meter.Bytes32, owner meter.Address, amount *big.Int, state *state.State, ts uint64) {
+func (staking *Staking) DoTeslaFork1_Correction(bid meter.Bytes32, owner meter.Address, amount *big.Int, state *state.State, ts uint64) {
 
 	candidateList := staking.GetCandidateList(state)
 	bucketList := staking.GetBucketList(state)
@@ -376,7 +377,7 @@ func (staking *Staking) EnforceTeslaFor1_1Correction(bid meter.Bytes32, owner me
 	staking.SetCandidateList(candidateList, state)
 }
 
-func (staking *Staking) EnforceTeslaFork5BonusCorrection(state *state.State) {
+func (staking *Staking) DoTeslaFork5_BonusCorrection(state *state.State) {
 
 	candidateList := staking.GetCandidateList(state)
 	bucketList := staking.GetBucketList(state)
@@ -432,4 +433,126 @@ func (staking *Staking) EnforceTeslaFork5BonusCorrection(state *state.State) {
 	staking.SetCandidateList(candidateList, state)
 	staking.SetStakeHolderList(stakeholderList, state)
 	fmt.Println("Tesla Fork 5 Recalculate Bonus Votes: DONE")
+}
+
+func (staking *Staking) DoTeslaFork6_StakingCorrection(state *state.State) {
+
+	fmt.Println("Tesla Fork 6 calibrate staking data: START")
+
+	candidateList := staking.GetCandidateList(state)
+	bucketList := staking.GetBucketList(state)
+
+	candidateMappingTotalVotes := make(map[meter.Address]*big.Int)
+	bucketMappingValue := make(map[meter.Address]*big.Int)
+	for _, bucket := range bucketList.ToList() {
+		if value, ok := candidateMappingTotalVotes[bucket.Candidate]; ok {
+			totalVotes := big.NewInt(0).Add(value, bucket.TotalVotes)
+			candidateMappingTotalVotes[bucket.Candidate] = totalVotes
+		} else {
+			candidateMappingTotalVotes[bucket.Candidate] = bucket.TotalVotes
+		}
+
+		if value, ok := bucketMappingValue[bucket.Owner]; ok {
+			totalValue := big.NewInt(0).Add(value, bucket.Value)
+			bucketMappingValue[bucket.Owner] = totalValue
+		} else {
+			bucketMappingValue[bucket.Owner] = bucket.Value
+		}
+	}
+	fmt.Printf("candidateMappingTotalVotes %v, bucketMappingValue %v", candidateMappingTotalVotes, bucketMappingValue)
+
+	// update candidate totalVotes due to diff(bucket totalvotes, candidate totalvotes)
+	/*
+		----------------------------------------
+		found mismatch between buckets and candidates for 0xe3aa575d47e435468060e9f9bc488665bd9bc32a
+		total votes from buckets: 498429.806859663347332667
+		total votes from candidates: 498426.806859663347332667
+		diff: 3
+
+		----------------------------------------
+		found mismatch between buckets and candidates for 0x0f8684f6dc76617d6831b4546381eb6cfb1c559f
+		total votes from buckets: 78241.395566777609357137
+		total votes from candidates: 78211.395566777609357137
+		diff: 30
+	*/
+	candidateIncorrectAddrs := map[string]bool{
+		"0xe3aa575d47e435468060e9f9bc488665bd9bc32a": true,
+		"0x0f8684f6dc76617d6831b4546381eb6cfb1c559f": true,
+	}
+
+	for _, candidate := range candidateList.ToList() {
+		totalVotes := candidate.TotalVotes
+		if bucketsValue, ok := candidateMappingTotalVotes[candidate.Addr]; ok {
+			if totalVotes.Cmp(bucketsValue) != 0 {
+				lowerAddr := strings.ToLower(candidate.Addr.String())
+				if _, exist := candidateIncorrectAddrs[lowerAddr]; !exist {
+					log.Warn("unexpected modification for candidate", "addr", candidate.Addr)
+					continue
+				}
+				c := candidateList.Get(candidate.Addr)
+
+				log.Info("update candidate totalVotes", "addr", candidate.Addr, "from", totalVotes, "to", bucketsValue, "diff", big.NewInt(0).Sub(bucketsValue, totalVotes))
+				c.TotalVotes = bucketsValue
+
+			}
+		}
+	}
+	staking.SetCandidateList(candidateList, state)
+
+	// update boundbalance/balance due to diff(bucket value, boundbalance)
+	/*
+		----------------------------------------
+		found mismatch for 0x5308b6f26f21238963d0ea0b391eafa9be53c78e
+		bounded total from buckets: 4222096.36378551686456558
+		unbound total from buckets: 0
+		account bounded balance: 4222203.275101156133971961
+		diff: -106.911315639269406
+		----------------------------------------
+		found mismatch for 0x0f8684f6dc76617d6831b4546381eb6cfb1c559f
+		bounded total from buckets: 20998.271091894977168951
+		unbound total from buckets: 0
+		account bounded balance: 21000
+		diff: -1.728908105022831
+		----------------------------------------
+		found mismatch for 0x16fb7dc58954fc1fa65318b752fc91f2824115b6
+		bounded total from buckets: 2079.6117389236189182
+		unbound total from buckets: 0
+		account bounded balance: 2079.6117389236189202
+		diff: -0.000000000000002
+		----------------------------------------
+		found mismatch for 0x353fdd79dd9a6fbc70a59178d602ad1f020ea52f
+		bounded total from buckets: 2000
+		unbound total from buckets: 0
+		account bounded balance: 2000.000000000000003
+	*/
+	balanceIncorrectAddrs := map[string]bool{
+		"0x5308b6f26f21238963d0ea0b391eafa9be53c78e": true,
+		"0x0f8684f6dc76617d6831b4546381eb6cfb1c559f": true,
+		"0x16fb7dc58954fc1fa65318b752fc91f2824115b6": true,
+		"0x353fdd79dd9a6fbc70a59178d602ad1f020ea52f": true,
+	}
+	for address, bucketsValue := range bucketMappingValue {
+		boundedBalance := state.GetBoundedBalance(address)
+
+		if boundedBalance.Cmp(bucketsValue) > 0 {
+			lowerAddr := strings.ToLower(address.String())
+			if _, exist := balanceIncorrectAddrs[lowerAddr]; !exist {
+				log.Warn("unexpected modification", "addr", address)
+				continue
+			}
+			diff := big.NewInt(0).Sub(boundedBalance, bucketsValue)
+			balance := state.GetBalance(address)
+			newBalance := big.NewInt(0).Add(balance, diff)
+
+			log.Info("update account balance", "addr", address, "from", balance, "to", newBalance)
+			log.Info("update account boundbalance", "addr", address, "from", boundedBalance, "to", bucketsValue)
+			state.SetBoundedBalance(address, bucketsValue)
+			state.SetBalance(address, newBalance)
+
+		} else if boundedBalance.Cmp(bucketsValue) < 0 {
+			log.Warn("boundedBalance < sum(bucket.value) for account", "addr", address)
+		}
+	}
+
+	fmt.Println("Tesla Fork 6 calibrate staking data: DONE")
 }
