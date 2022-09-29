@@ -344,7 +344,7 @@ func (staking *Staking) DoTeslaFork1_Correction(bid meter.Bytes32, owner meter.A
 
 	bucket := bucketList.Get(bid)
 	if bucket == nil {
-		fmt.Println(fmt.Sprintf("does not find out the bucket, ID %v", bid))
+		fmt.Printf("does not find out the bucket, ID %v\n", bid)
 		return
 	}
 
@@ -437,7 +437,7 @@ func (staking *Staking) DoTeslaFork5_BonusCorrection(state *state.State) {
 
 func (staking *Staking) DoTeslaFork6_StakingCorrection(state *state.State) {
 
-	fmt.Println("Tesla Fork 6 calibrate staking data: START")
+	fmt.Println("Do Tesla Fork 6 calibrate staking data ")
 
 	candidateList := staking.GetCandidateList(state)
 	bucketList := staking.GetBucketList(state)
@@ -459,21 +459,18 @@ func (staking *Staking) DoTeslaFork6_StakingCorrection(state *state.State) {
 			bucketMappingValue[bucket.Owner] = bucket.Value
 		}
 	}
-	fmt.Printf("candidateMappingTotalVotes %v, bucketMappingValue %v", candidateMappingTotalVotes, bucketMappingValue)
 
 	// update candidate totalVotes due to diff(bucket totalvotes, candidate totalvotes)
 	/*
-		----------------------------------------
 		found mismatch between buckets and candidates for 0xe3aa575d47e435468060e9f9bc488665bd9bc32a
-		total votes from buckets: 498429.806859663347332667
-		total votes from candidates: 498426.806859663347332667
-		diff: 3
-
+		total votes from buckets: 506642.140085753394145926
+		total votes from candidates: 506639.140085753394145926
+		sum(bucket.totalVotes)-candidate.totalVotes: 3
 		----------------------------------------
 		found mismatch between buckets and candidates for 0x0f8684f6dc76617d6831b4546381eb6cfb1c559f
-		total votes from buckets: 78241.395566777609357137
-		total votes from candidates: 78211.395566777609357137
-		diff: 30
+		total votes from buckets: 78406.949309835471406443
+		total votes from candidates: 78376.949309835471406443
+		sum(bucket.totalVotes)-candidate.totalVotes: 30
 	*/
 	candidateIncorrectAddrs := map[string]bool{
 		"0xe3aa575d47e435468060e9f9bc488665bd9bc32a": true,
@@ -501,29 +498,29 @@ func (staking *Staking) DoTeslaFork6_StakingCorrection(state *state.State) {
 
 	// update boundbalance/balance due to diff(bucket value, boundbalance)
 	/*
-		----------------------------------------
 		found mismatch for 0x5308b6f26f21238963d0ea0b391eafa9be53c78e
-		bounded total from buckets: 4222096.36378551686456558
+		bounded total from buckets: 4357096.36378551686456558
 		unbound total from buckets: 0
-		account bounded balance: 4222203.275101156133971961
-		diff: -106.911315639269406
+		account bounded balance: 4357203.275101156133971961
+		sum(bucket.value)-account.boundbalance: -106.911315639269406381
 		----------------------------------------
 		found mismatch for 0x0f8684f6dc76617d6831b4546381eb6cfb1c559f
 		bounded total from buckets: 20998.271091894977168951
 		unbound total from buckets: 0
 		account bounded balance: 21000
-		diff: -1.728908105022831
+		sum(bucket.value)-account.boundbalance: -1.728908105022831049
 		----------------------------------------
 		found mismatch for 0x16fb7dc58954fc1fa65318b752fc91f2824115b6
 		bounded total from buckets: 2079.6117389236189182
 		unbound total from buckets: 0
 		account bounded balance: 2079.6117389236189202
-		diff: -0.000000000000002
+		sum(bucket.value)-account.boundbalance: -0.000000000000002
 		----------------------------------------
 		found mismatch for 0x353fdd79dd9a6fbc70a59178d602ad1f020ea52f
 		bounded total from buckets: 2000
 		unbound total from buckets: 0
 		account bounded balance: 2000.000000000000003
+		sum(bucket.value)-account.boundbalance: -0.000000000000003
 	*/
 	balanceIncorrectAddrs := map[string]bool{
 		"0x5308b6f26f21238963d0ea0b391eafa9be53c78e": true,
@@ -554,5 +551,5 @@ func (staking *Staking) DoTeslaFork6_StakingCorrection(state *state.State) {
 		}
 	}
 
-	fmt.Println("Tesla Fork 6 calibrate staking data: DONE")
+	fmt.Println("Do Tesla Fork 6 calibrate staking data: DONE")
 }
