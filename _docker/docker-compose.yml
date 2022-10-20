@@ -1,0 +1,25 @@
+version: "3.9"
+services:
+  meter_main:
+    image: meterio/mainnet:latest
+    environment:
+      NETWORK: 'main'
+    volumes:
+      - ./data:/pos
+    restart: always
+    container_name: meter_main
+    ports:
+      - "8332:8332"
+      - "9209:9209"
+      - "11235:11235"
+      - "8669:8669"
+      - "8670:8670"
+      - "8545:8545"
+      - "8546:8546"
+
+  watchtower:
+    image: containrrr/watchtower
+    container_name: watchtower
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    command: --include-stopped --revive-stopped --enable-lifecycle-hooks --interval 10 --cleanup meter_main
