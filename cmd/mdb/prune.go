@@ -4,14 +4,10 @@ import (
 	"bytes"
 	"encoding/hex"
 	"fmt"
-	"time"
 
-	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/meterio/meter-pov/chain"
 	"github.com/meterio/meter-pov/lvldb"
 	"github.com/meterio/meter-pov/meter"
-	"github.com/meterio/meter-pov/state"
-	"github.com/meterio/meter-pov/trie"
 )
 
 func pruneByAccount(meterChain *chain.Chain, mainDB *lvldb.LevelDB, snapshotHeight uint32) {
@@ -79,101 +75,4 @@ func pruneByAccount(meterChain *chain.Chain, mainDB *lvldb.LevelDB, snapshotHeig
 	fmt.Println("Final delete bytes: ", deleted)
 	fmt.Println("Trie count: ", trieCount)
 	fmt.Println("Account update count: ", accUpdateCount)
-}
-
-func pruneByKeys(meterChain *chain.Chain, mainDB *lvldb.LevelDB, snapshotHeight uint32) {
-	snapshot, err := getTrieSnapshot(meterChain, mainDB, snapshotHeight)
-	if err != nil {
-		fmt.Println("could not get snapshot for block ", snapshotHeight, ":", err)
-		panic("could not get snapshot")
-	}
-	geneTrie, err := getStateTrie(meterChain, mainDB, 0)
-	if err != nil {
-		panic("could not get genesis trie")
-	}
-	snapshot.AddTrie(geneTrie, mainDB)
-
-	fmt.Println("Snapshot on block ", snapshotHeight)
-	lastVisited := meter.Bytes32{}
-
-	var (
-		nodes      int
-		snodes     int
-		dBytes     int
-		dsBytes    int
-		lastReport time.Time
-		start      time.Time
-	)
-	start = time.Now()
-	for i := uint32(1); i < uint32(snapshotHeight); i++ {
-		blk, _ := meterChain.GetTrunkBlock(i)
-		root := blk.StateRoot()
-		if root == lastVisited {
-			continue
-		}
-		lastVisited = root
-		log.Info("Scan block", "block", i, "nodes", nodes, "snodes", snodes, "dBytes", dBytes, "dsBytes", dsBytes)
-		if time.Since(lastReport) > time.Second*8 {
-			log.Info("Still pruning", "elapsed", PrettyDuration(time.Since(start)))
-			lastReport = time.Now()
-		}
-
-		stateTrie, _ := getStateTrie(meterChain, mainDB, i)
-		iter := stateTrie.NodeIterator(nil)
-		for iter.Next(true) {
-			hash := iter.Hash()
-			if iter.Leaf() {
-				value := iter.LeafBlob()
-				var acc state.Account
-				if err := rlp.DecodeBytes(value, &acc); err != nil {
-					fmt.Println("Invalid account encountered during traversal", "err", err)
-					continue
-				}
-				if !bytes.Equal(acc.StorageRoot, []byte{}) {
-					storageTrie, err := trie.New(meter.BytesToBytes32(acc.StorageRoot), mainDB)
-					if err != nil {
-						fmt.Println("Could not get storage trie")
-						continue
-					}
-					storageIter := storageTrie.NodeIterator(nil)
-					for storageIter.Next(true) {
-						shash := storageIter.Hash()
-						if storageIter.Leaf() {
-							continue
-						}
-
-						if !snapshot.Has(shash) {
-							loaded, _ := mainDB.Get(shash[:])
-							dsBytes += len(loaded) + len(shash)
-							snodes++
-							snapshot.Add(shash)
-						}
-					}
-					sroot := meter.BytesToBytes32(acc.StorageRoot)
-					if !snapshot.Has(sroot) {
-						loaded, _ := mainDB.Get(acc.StorageRoot[:])
-						dsBytes += len(loaded) + len(acc.StorageRoot)
-						snodes++
-						snapshot.Add(sroot)
-					}
-				}
-			} else {
-				if !snapshot.Has(hash) {
-					loaded, _ := mainDB.Get(hash[:])
-					dBytes += len(loaded) + len(hash)
-					nodes++
-					snapshot.Add(hash)
-				}
-			}
-		}
-		if !snapshot.Has(root) {
-			loaded, _ := mainDB.Get(root[:])
-			dBytes += len(loaded) + len(root)
-			nodes++
-		}
-	}
-
-	log.Info("Final delete bytes: ", "total", dBytes+dsBytes)
-	log.Info("Pruned state trie", "nodes", nodes, "bytes", dBytes)
-	log.Info("Pruned storage trie:", "nodes", snodes, "bytes", dsBytes)
 }

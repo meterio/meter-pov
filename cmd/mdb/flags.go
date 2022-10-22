@@ -24,6 +24,9 @@ var (
 	networkFlag        = cli.StringFlag{Name: "network", Usage: "the network to join (main|test)"}
 	heightFlag         = cli.Int64Flag{Name: "height", Usage: "the height for target block"}
 	revisionFlag       = cli.StringFlag{Name: "revision", Usage: "the revision for target block"}
+	rootFlag           = cli.StringFlag{Name: "root", Usage: "the root for trie"}
+	fromFlag           = cli.StringFlag{Name: "from", Usage: "the revision for from block"}
+	toFlag             = cli.StringFlag{Name: "to", Usage: "the revision for to block"}
 	targetRevisionFlag = cli.StringFlag{Name: "target-revision", Usage: "the revision for target block"}
 	addressFlag        = cli.StringFlag{Name: "address", Usage: "address"}
 	keyFlag            = cli.StringFlag{Name: "key", Usage: "key"}

@@ -89,12 +89,8 @@ func NewPruner(db KeyValueStore, genesisRoot, snapshotRoot meter.Bytes32) *Prune
 		bloom:    bloom,
 		visited:  make(map[meter.Bytes32]bool),
 	}
-	p.snapshot.Add(genesisRoot)
-	p.snapshot.Add(snapshotRoot)
-	gt, _ := New(genesisRoot, p.db)
-	p.snapshot.AddTrie(gt, p.db)
-	st, _ := New(snapshotRoot, p.db)
-	p.snapshot.AddTrie(st, p.db)
+	p.snapshot.AddTrie(genesisRoot, p.db)
+	p.snapshot.AddTrie(snapshotRoot, p.db)
 	return p
 }
 
@@ -146,6 +142,7 @@ func (p *Pruner) Prune(root meter.Bytes32) *PruneStat {
 	batch := p.db.NewBatch()
 	for p.iter.Next(true) {
 		hash := p.iter.Hash()
+
 		if p.iter.Leaf() {
 			// prune account storage trie
 			value := p.iter.LeafBlob()
@@ -172,7 +169,7 @@ func (p *Pruner) Prune(root meter.Bytes32) *PruneStat {
 						loaded, _ := p.iter.Get(shash[:])
 						stat.PrunedStorageBytes += uint64(len(loaded) + len(shash))
 						stat.PrunedStorageNodes++
-						log.Info("Prune node", "storageHash", shash, "val", hex.EncodeToString(loaded), "len", len(loaded)+len(shash))
+						log.Info("Prune storage", "key", shash, "len", len(loaded)+len(shash))
 						err := batch.Delete(shash[:])
 						if err != nil {
 							log.Error("Error deleteing", "err", err)
@@ -184,7 +181,7 @@ func (p *Pruner) Prune(root meter.Bytes32) *PruneStat {
 					loaded, _ := p.iter.Get(acc.StorageRoot[:])
 					stat.PrunedStorageBytes += uint64(len(loaded) + len(acc.StorageRoot))
 					stat.PrunedStorageNodes++
-					log.Info("Prune node", "storageRoot", hex.EncodeToString(acc.StorageRoot), "val", hex.EncodeToString(loaded), "len", len(loaded)+len(acc.StorageRoot))
+					log.Info("Prune storage root", "key", hex.EncodeToString(acc.StorageRoot), "len", len(loaded)+len(acc.StorageRoot))
 					err := batch.Delete(acc.StorageRoot)
 					if err != nil {
 						log.Error("Error deleteing", "err", err)
@@ -192,6 +189,7 @@ func (p *Pruner) Prune(root meter.Bytes32) *PruneStat {
 				}
 			}
 		} else {
+			// log.Info("visit node ", "hash", hash)
 			// prune world state trie
 			stat.Nodes++
 			if !p.snapshot.Has(hash) {
@@ -200,23 +198,14 @@ func (p *Pruner) Prune(root meter.Bytes32) *PruneStat {
 				stat.PrunedNodeBytes += uint64(len(loaded) + len(hash))
 				stat.PrunedNodes++
 				err := batch.Delete(hash[:])
-				log.Info("Prune node", "hash", hash, "val", hex.EncodeToString(loaded), "len", len(loaded)+len(hash))
+				log.Info("Prune node", "key", hash, "len", len(loaded)+len(hash))
 				if err != nil {
 					log.Error("Error deleteing", "err", err)
 				}
 			}
 		}
 	}
-	if !p.snapshot.Has(root) {
-		loaded, _ := p.iter.Get(root[:])
-		stat.PrunedNodeBytes += uint64(len(loaded) + len(root))
-		stat.PrunedNodes++
-		err := batch.Delete(root[:])
-		log.Info("Prune node", "root", root, "val", hex.EncodeToString(loaded), "len", len(loaded)+len(root))
-		if err != nil {
-			log.Error("Error deleteing", "err", err)
-		}
-	}
+	log.Info("Pruned trie", "root", root, "batch", batch.Len())
 	if batch.Len() > 0 {
 		if err := batch.Write(); err != nil {
 			log.Error("Error flushing", "err", err)
@@ -224,7 +213,6 @@ func (p *Pruner) Prune(root meter.Bytes32) *PruneStat {
 		log.Info("commited deletion batch", "len", batch.Len())
 	}
 
-	log.Info("Pruned root", "root", root, "batch", batch.Len())
 	return stat
 }
 
@@ -422,12 +410,12 @@ func (pit *pruneIterator) nextChild(parent *pruneIteratorState, ancestor meter.B
 
 				if !bytes.Equal(hash, []byte{}) {
 					if visited, _ := pit.bloom.Contain(hash); visited {
-						// fmt.Println("skip visited node", hash)
+						fmt.Println("skip visited node", hash)
 						continue
 					}
 					pit.bloom.Put(hash)
 					if pit.snapshot.Has(meter.BytesToBytes32(hash)) {
-						// fmt.Println("skip node already in snapshot", hash)
+						fmt.Println("skip node already in snapshot", hash)
 						continue
 					}
 				}
@@ -449,10 +437,12 @@ func (pit *pruneIterator) nextChild(parent *pruneIteratorState, ancestor meter.B
 			hash, _ := node.Val.cache()
 			if !bytes.Equal(hash, []byte{}) {
 				if visited, _ := pit.bloom.Contain(hash); visited {
+					fmt.Println("skip visited node", hash)
 					return parent, pit.path, false
 				}
 				pit.bloom.Put(hash)
 				if pit.snapshot.Has(meter.BytesToBytes32(hash)) {
+					fmt.Println("skip node already in snapshot", hash)
 					return parent, pit.path, false
 				}
 			}

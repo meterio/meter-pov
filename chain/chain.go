@@ -603,10 +603,10 @@ func (c *Chain) isTrunk(header *block.Header) bool {
 
 // Think about the example below:
 //
-//   B1--B2--B3--B4--B5--B6
-//             \
-//              \
-//               b4--b5
+//	B1--B2--B3--B4--B5--B6
+//	          \
+//	           \
+//	            b4--b5
 //
 // When call buildFork(B6, b5), the return values will be:
 // ((B3, [B4, B5, B6], [b4, b5]), nil)

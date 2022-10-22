@@ -50,17 +50,14 @@ func (s *StateSnapshot) AddAccount(acc *AccountNode) {
 
 func getTrieSnapshot(meterChain *chain.Chain, mainDB *lvldb.LevelDB, num uint32) (*trie.TrieSnapshot, error) {
 	snapshot := trie.NewTrieSnapshot()
-	stateTrie, _ := getStateTrie(meterChain, mainDB, num)
 
 	blk, err := meterChain.GetTrunkBlock(num)
 	if err != nil {
 		fmt.Println("Could not get block: ", num)
 		panic("could not get block")
 	}
-	root := blk.StateRoot()
 
-	snapshot.Add(root)
-	snapshot.AddTrie(stateTrie, mainDB)
+	snapshot.AddTrie(blk.StateRoot(), mainDB)
 	return snapshot, nil
 }
 

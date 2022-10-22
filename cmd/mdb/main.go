@@ -23,11 +23,15 @@ import (
 )
 
 var (
-	version   string
-	gitCommit string
-	gitTag    string
-	log       = log15.New()
-	flags     = []cli.Flag{dataDirFlag, networkFlag, revisionFlag}
+	blockPrefix         = []byte("b") // (prefix, block id) -> block
+	txMetaPrefix        = []byte("t") // (prefix, tx id) -> tx location
+	blockReceiptsPrefix = []byte("r") // (prefix, block id) -> receipts
+	indexTrieRootPrefix = []byte("i") // (prefix, block id) -> trie root
+	version             string
+	gitCommit           string
+	gitTag              string
+	log                 = log15.New()
+	flags               = []cli.Flag{dataDirFlag, networkFlag, revisionFlag}
 )
 
 func main() {
@@ -82,20 +86,20 @@ func main() {
 			{
 				Name:   "prune",
 				Usage:  "Prune state trie with pruner",
-				Flags:  flags,
+				Flags:  []cli.Flag{dataDirFlag, networkFlag, fromFlag, toFlag},
 				Action: pruneAction,
-			},
-			{
-				Name:   "prune-state",
-				Usage:  "Prune state trie with manual",
-				Flags:  flags,
-				Action: pruneStateAction,
 			},
 			{
 				Name:   "traverse",
 				Usage:  "Traverse the state with given block and print along the way",
 				Flags:  flags,
 				Action: traverseAction,
+			},
+			{
+				Name:   "traverse-storage",
+				Usage:  "Traverse the storage trie with given root",
+				Flags:  []cli.Flag{networkFlag, dataDirFlag, rootFlag},
+				Action: traverseStorageAction,
 			},
 			{
 				Name:   "diff",
@@ -132,6 +136,12 @@ func main() {
 				Usage:  "Print database pointers like best-qc, best-block",
 				Flags:  []cli.Flag{networkFlag, dataDirFlag},
 				Action: loadPointersAction,
+			},
+			{
+				Name:   "category",
+				Usage:  "Print storage by category",
+				Flags:  []cli.Flag{networkFlag, dataDirFlag},
+				Action: calcStorageByCategoryAction,
 			},
 		},
 	}
@@ -183,14 +193,14 @@ func loadRawAction(ctx *cli.Context) error {
 	defer func() { log.Info("closing main database..."); mainDB.Close() }()
 
 	key := ctx.String(keyFlag.Name)
-	parsedKey, err := meter.ParseBytes32(key)
+	parsedKey, err := hex.DecodeString(key)
 	if err != nil {
-		log.Error("could not parse key", "err", err)
+		log.Error("could not decode hex key", "err", err)
 		return nil
 	}
-	raw, err := mainDB.Get(parsedKey[:])
+	raw, err := mainDB.Get(parsedKey)
 	if err != nil {
-		log.Error("could not find key in database", "err", err)
+		log.Error("could not find key in database", "err", err, "key", key)
 		return nil
 	}
 	log.Info("Loaded key from db", "key", parsedKey, "val", hex.EncodeToString(raw))
@@ -379,6 +389,51 @@ func traverseAction(ctx *cli.Context) error {
 	return nil
 }
 
+func traverseStorageAction(ctx *cli.Context) error {
+	initLogger()
+
+	mainDB, _ := openMainDB(ctx)
+	defer func() { log.Info("closing main database..."); mainDB.Close() }()
+
+	root := meter.MustParseBytes32(ctx.String(rootFlag.Name))
+
+	storageTrie, err := trie.New(root, mainDB)
+	if err != nil {
+		fmt.Println("could not create trie")
+		return nil
+	}
+
+	var (
+		nodes      int
+		slots      int
+		lastReport time.Time
+		start      = time.Now()
+	)
+	log.Info("Start to traverse storage trie", "stateRoot", root)
+	iter := storageTrie.NodeIterator(nil)
+	for iter.Next(true) {
+		nodes += 1
+		if iter.Leaf() {
+			slots += 1
+			key := ReadTrieNode(mainDB, meter.BytesToBytes32(iter.LeafKey()))
+			log.Info("Storage Leaf", "keyHash", hex.EncodeToString(iter.LeafKey()), "key", hex.EncodeToString(key), "hash", iter.Hash().String(), "val", hex.EncodeToString(iter.LeafBlob()), "parent", iter.Parent(), "path", hex.EncodeToString(iter.Path()))
+		} else {
+			raw := ReadTrieNode(mainDB, iter.Hash())
+			log.Info("Storage Branch", "hash", iter.Hash().String(), "val", hex.EncodeToString(raw), "parent", iter.Parent())
+		}
+		if time.Since(lastReport) > time.Second*8 {
+			log.Info("Traversing state", "nodes", nodes, "slots", slots, "elapsed", PrettyDuration(time.Since(start)))
+			lastReport = time.Now()
+		}
+	}
+	if iter.Error() != nil {
+		log.Error("Failed to traverse state trie", "root", root, "err", iter.Error())
+		return iter.Error()
+	}
+	log.Info("Traverse complete", "nodes", nodes, "slots", slots, "elapsed", PrettyDuration(time.Since(start)))
+	return nil
+}
+
 func traverseStateAction(ctx *cli.Context) error {
 	initLogger()
 
@@ -448,22 +503,6 @@ func traverseStateAction(ctx *cli.Context) error {
 	return nil
 }
 
-func pruneStateAction(ctx *cli.Context) error {
-	initLogger()
-
-	mainDB, gene := openMainDB(ctx)
-	defer func() { log.Info("closing main database..."); mainDB.Close() }()
-
-	meterChain := initChain(gene, mainDB)
-
-	blk, err := loadBlockByRevision(meterChain, ctx.String(revisionFlag.Name))
-	if err != nil {
-		fatal("could not load block with revision")
-	}
-	pruneByKeys(meterChain, mainDB, blk.Number())
-	return nil
-}
-
 func pruneAction(ctx *cli.Context) error {
 	initLogger()
 
@@ -472,37 +511,45 @@ func pruneAction(ctx *cli.Context) error {
 
 	meterChain := initChain(gene, mainDB)
 
-	blk, err := loadBlockByRevision(meterChain, ctx.String(revisionFlag.Name))
+	fromBlk, err := loadBlockByRevision(meterChain, ctx.String(fromFlag.Name))
 	if err != nil {
 		fatal("could not load block with revision")
 	}
+	toBlk, err := loadBlockByRevision(meterChain, ctx.String(toFlag.Name))
+	if err != nil {
+		fatal("could not load block with revision")
+	}
+	fmt.Println("FROM_BLOCK: ", fromBlk.Number())
+	fmt.Println("TOBLOCK: ", toBlk.Number())
 	geneBlk, _, _ := gene.Build(state.NewCreator(mainDB))
-	geneRoot := geneBlk.StateRoot()
-	snapRoot := blk.StateRoot()
-	pruner := trie.NewPruner(mainDB, geneRoot, snapRoot)
-	lastRoot := meter.Bytes32{}
-	totalBytes := uint64(0)
-	totalNodes := 0
+	pruner := trie.NewPruner(mainDB, geneBlk.StateRoot(), toBlk.StateRoot())
+
+	var (
+		lastRoot    = meter.Bytes32{}
+		prunedBytes = uint64(0)
+		prunedNodes = 0
+	)
 	start := time.Now()
 	var lastReport time.Time
-	for i := uint32(1); i < blk.Number(); i++ {
+	for i := fromBlk.Number(); i < toBlk.Number(); i++ {
 		b, _ := meterChain.GetTrunkBlock(i)
 		root := b.StateRoot()
 		if bytes.Equal(root[:], lastRoot[:]) {
 			continue
 		}
 		lastRoot = root
+		pruneStart := time.Now()
 		stat := pruner.Prune(root)
-		totalNodes += stat.PrunedNodes + stat.PrunedStorageNodes
-		totalBytes += stat.PrunedNodeBytes + stat.PrunedStorageBytes
-		log.Info("Pruned", "block", i, "nodes", totalNodes, "bytes", totalBytes)
+		prunedNodes += stat.PrunedNodes + stat.PrunedStorageNodes
+		prunedBytes += stat.PrunedNodeBytes + stat.PrunedStorageBytes
+		log.Info(fmt.Sprintf("Pruned block %v", i), "prunedNodes", stat.PrunedNodes+stat.PrunedStorageNodes, "prunedBytes", stat.PrunedNodeBytes+stat.PrunedStorageBytes, "elapsed", PrettyDuration(time.Since(pruneStart)))
 		if time.Since(lastReport) > time.Second*8 {
-			log.Info("Still pruning", "elapsed", PrettyDuration(time.Since(start)))
+			log.Info("Still pruning", "elapsed", PrettyDuration(time.Since(start)), "prunedNodes", prunedNodes, "prunedBytes", prunedBytes)
 			lastReport = time.Now()
 		}
 	}
-	pruner.Compact()
-	log.Info("Pruning completed", "elapsed", PrettyDuration(time.Since(start)))
+	// pruner.Compact()
+	log.Info("Prune complete", "elapsed", PrettyDuration(time.Since(start)), "prunedNodes", prunedNodes, "prunedBytes", prunedBytes)
 	return nil
 }
 
@@ -558,8 +605,10 @@ func snapshotAction(ctx *cli.Context) error {
 	if err != nil {
 		fatal("could not load block with revision")
 	}
-	trie.NewTrieSnapshot()
-	fmt.Println("blk: ", blk)
+	snap := trie.NewTrieSnapshot()
+	snap.AddTrie(blk.StateRoot(), mainDB)
+	fmt.Println(snap.String())
+
 	return nil
 }
 
@@ -754,7 +803,7 @@ func diffStateAction(ctx *cli.Context) error {
 						if snapshot.Has(node) {
 							continue
 						} else {
-							log.Info("storage diff", "address", addr, "hash", node)
+							log.Info("storage diff", "address", addr, "hash", node, "key", storageIter.LeafKey())
 						}
 					}
 				}
@@ -778,7 +827,7 @@ func diffStateAction(ctx *cli.Context) error {
 			if snapshot.Has(node) {
 				continue
 			} else {
-				log.Info("diff", "hash", node)
+				log.Info("branch diff", "hash", node)
 			}
 		}
 	}
@@ -967,5 +1016,63 @@ func loadPointersAction(ctx *cli.Context) error {
 		panic("could not read best block")
 	}
 	fmt.Println("Best Block (Decoded): \n", bestBlk.String())
+	return nil
+}
+
+func calcStorageByCategoryAction(ctx *cli.Context) error {
+	initLogger()
+
+	mainDB, gene := openMainDB(ctx)
+	defer func() { log.Info("closing main database..."); mainDB.Close() }()
+
+	meterChain := initChain(gene, mainDB)
+
+	var (
+		network = ctx.String(networkFlag.Name)
+		datadir = ctx.String(dataDirFlag.Name)
+	)
+
+	// Read/Decode/Display Block
+	fmt.Println("------------ Calc Storage By Category ------------")
+	fmt.Println("Datadir: ", datadir)
+	fmt.Println("Network: ", network)
+	fmt.Println("-------------------------------")
+
+	bestBlock := meterChain.BestBlock()
+	fmt.Println("Best Block (Decoded): \n", bestBlock.String())
+
+	var (
+		blockStorage   = 0
+		receiptStorage = 0
+		txStorage      = 0
+		// indexStorage   = 0
+		start      = time.Now()
+		lastReport time.Time
+	)
+
+	for i := uint32(0); i < bestBlock.Number(); i++ {
+		blk, err := meterChain.GetTrunkBlock(i)
+		if err != nil {
+			fmt.Println("could not get block")
+			continue
+		}
+		rawB, err := mainDB.Get(append(blockPrefix, blk.ID().Bytes()...))
+		blockStorage += len(rawB) + 33
+
+		rawRecipt, _ := mainDB.Get(append(blockReceiptsPrefix, blk.ID().Bytes()...))
+		receiptStorage += len(rawRecipt) + 33
+
+		for _, tx := range blk.Transactions() {
+			tx.Size()
+			rawTx, _ := mainDB.Get(append(txMetaPrefix, tx.ID().Bytes()...))
+			txStorage += len(rawTx) + 33
+		}
+
+		if time.Since(lastReport) > time.Second*8 {
+			log.Info("Calculating", "block", i, "blockStorage", blockStorage, "txStorage", txStorage, "receiptStorage", receiptStorage, "elapsed", PrettyDuration(time.Since(start)))
+			lastReport = time.Now()
+		}
+	}
+	log.Info("Finished calculating", "block", bestBlock.Number(), "blockStorage", blockStorage, "txStorage", txStorage, "receiptStorage", receiptStorage, "elapsed", PrettyDuration(time.Since(start)))
 	return nil
 }
