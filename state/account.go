@@ -6,9 +6,11 @@
 package state
 
 import (
+	"bytes"
 	"encoding/hex"
 	"fmt"
 	"math/big"
+	"strings"
 
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/meterio/meter-pov/meter"
@@ -27,7 +29,55 @@ type Account struct {
 }
 
 func (a *Account) String() string {
-	return fmt.Sprintf("Account {\n Balance: %v,\n Energy: %v,\n BoundBalance: %v,\n BoundEnergy: %v,\n Master: %v,\n CodeHash: %v,\n StorageRoot: %v\n}", a.Balance.String(), a.Energy.String(), a.BoundBalance.String(), a.BoundEnergy.String(), hex.EncodeToString(a.Master), hex.EncodeToString(a.CodeHash), hex.EncodeToString(a.StorageRoot))
+	s := "Account("
+	items := make([]string, 0)
+	if a.Balance.Cmp(big.NewInt(0)) > 0 {
+		items = append(items, fmt.Sprintf("mtrg:%v", a.Balance))
+	}
+	if a.Energy.Cmp(big.NewInt(0)) > 0 {
+		items = append(items, fmt.Sprintf("mtr:%v", a.Energy))
+	}
+	if a.BoundBalance.Cmp(big.NewInt(0)) > 0 {
+		items = append(items, fmt.Sprintf("bounded:%v", a.BoundBalance))
+	}
+	if !bytes.Equal(a.Master, []byte{}) {
+		items = append(items, fmt.Sprintf("master:%v", hex.EncodeToString(a.Master)))
+	}
+	if !bytes.Equal(a.CodeHash, []byte{}) {
+		items = append(items, fmt.Sprintf("master:%v", hex.EncodeToString(a.CodeHash)))
+	}
+	if !bytes.Equal(a.StorageRoot, []byte{}) {
+		items = append(items, fmt.Sprintf("sroot:%v", hex.EncodeToString(a.StorageRoot)))
+	}
+
+	s += strings.Join(items, ", ") + ")"
+	return s
+}
+
+func (a *Account) DiffString(b *Account) string {
+	s := "Account ("
+	items := make([]string, 0)
+	if a.Balance.Cmp(b.Balance) != 0 {
+		items = append(items, fmt.Sprintf("mtrg:%v -> %v", a.Balance, b.Balance))
+	}
+	if a.Energy.Cmp(b.Energy) != 0 {
+		items = append(items, fmt.Sprintf("mtr:%v -> %v", a.Energy, b.Energy))
+	}
+	if a.BoundBalance.Cmp(b.BoundBalance) != 0 {
+		items = append(items, fmt.Sprintf("bounded:%v -> %v", a.BoundBalance, b.BoundBalance))
+	}
+	if !bytes.Equal(a.Master, b.Master) {
+		items = append(items, fmt.Sprintf("master:%v -> %v", hex.EncodeToString(a.Master), hex.EncodeToString(b.Master)))
+	}
+	if !bytes.Equal(a.CodeHash, b.CodeHash) {
+		items = append(items, fmt.Sprintf("master:%v -> %v", hex.EncodeToString(a.CodeHash), hex.EncodeToString(b.CodeHash)))
+	}
+	if !bytes.Equal(a.StorageRoot, b.StorageRoot) {
+		items = append(items, fmt.Sprintf("sroot:%v -> %v", hex.EncodeToString(a.StorageRoot), hex.EncodeToString(b.StorageRoot)))
+	}
+
+	s += strings.Join(items, ", ") + ")"
+	return s
 }
 
 // IsEmpty returns if an account is empty.
