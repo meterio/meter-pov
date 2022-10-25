@@ -81,7 +81,7 @@ type Pruner struct {
 }
 
 // NewIterator creates a new key-value iterator from a node iterator
-func NewPruner(db KeyValueStore, genesisRoot, snapshotRoot meter.Bytes32) *Pruner {
+func NewPruner(db KeyValueStore) *Pruner {
 	bloom, _ := NewStateBloomWithSize(256)
 	p := &Pruner{
 		db:       db,
@@ -89,9 +89,19 @@ func NewPruner(db KeyValueStore, genesisRoot, snapshotRoot meter.Bytes32) *Prune
 		bloom:    bloom,
 		visited:  make(map[meter.Bytes32]bool),
 	}
-	p.snapshot.AddTrie(genesisRoot, p.db)
-	p.snapshot.AddTrie(snapshotRoot, p.db)
+
 	return p
+}
+
+func (p *Pruner) LoadSnapshot(genesisStateRoot, snapStateRoot meter.Bytes32, snapFilePrefix string) {
+	loaded := p.snapshot.LoadFromFile(snapFilePrefix)
+	if loaded {
+		log.Info("load snapshot from file", "prefix", snapFilePrefix)
+	} else {
+		log.Info("load snapshot failed", "prefix", snapFilePrefix)
+		p.snapshot.AddTrie(genesisStateRoot, p.db)
+		p.snapshot.AddTrie(snapStateRoot, p.db)
+	}
 }
 
 func (p *Pruner) PrintStats() {
@@ -132,7 +142,9 @@ func (p *Pruner) Compact() {
 
 // prune the trie at block height
 func (p *Pruner) Prune(root meter.Bytes32) *PruneStat {
+	log.Info("try to prune :", "root", root)
 	if _, exist := p.visited[root]; exist {
+		log.Info("visited, skip pruning", "root", root)
 		return new(PruneStat)
 	}
 	p.visited[root] = true
@@ -149,13 +161,13 @@ func (p *Pruner) Prune(root meter.Bytes32) *PruneStat {
 			var acc StateAccount
 			stat.Accounts++
 			if err := rlp.DecodeBytes(value, &acc); err != nil {
-				fmt.Println("Invalid account encountered during traversal", "err", err)
+				log.Error("Invalid account encountered during traversal", "err", err)
 				continue
 			}
 			if !bytes.Equal(acc.StorageRoot, []byte{}) {
 				storageTrie, err := New(meter.BytesToBytes32(acc.StorageRoot), p.db)
 				if err != nil {
-					fmt.Println("Could not get storage trie")
+					log.Error("Could not get storage trie", "err", err)
 					continue
 				}
 				storageIter := newPruneIterator(storageTrie, p.db, p.snapshot, p.bloom)
@@ -176,20 +188,22 @@ func (p *Pruner) Prune(root meter.Bytes32) *PruneStat {
 						}
 					}
 				}
-				sroot := meter.BytesToBytes32(acc.StorageRoot)
-				if !p.snapshot.Has(sroot) {
-					loaded, _ := p.iter.Get(acc.StorageRoot[:])
-					stat.PrunedStorageBytes += uint64(len(loaded) + len(acc.StorageRoot))
-					stat.PrunedStorageNodes++
-					log.Info("Prune storage root", "key", hex.EncodeToString(acc.StorageRoot), "len", len(loaded)+len(acc.StorageRoot))
-					err := batch.Delete(acc.StorageRoot)
-					if err != nil {
-						log.Error("Error deleteing", "err", err)
-					}
-				}
+				// sroot := meter.BytesToBytes32(acc.StorageRoot)
+				// if !p.snapshot.Has(sroot) {
+				// 	loaded, _ := p.iter.Get(acc.StorageRoot[:])
+				// 	stat.PrunedStorageBytes += uint64(len(loaded) + len(acc.StorageRoot))
+				// 	stat.PrunedStorageNodes++
+				// 	log.Info("Prune storage root", "key", hex.EncodeToString(acc.StorageRoot), "len", len(loaded)+len(acc.StorageRoot))
+				// 	err := batch.Delete(acc.StorageRoot)
+				// 	if err != nil {
+				// 		log.Error("Error deleteing", "err", err)
+				// 	}
+				// }
 			}
 		} else {
-			// log.Info("visit node ", "hash", hash)
+			if hash.String() == "1ceea935b61985e0f4451efe8da3168ef2a701b66d1baf5bd8c32bc5567e10bb" {
+				log.Info("visit node ", "hash", hash)
+			}
 			// prune world state trie
 			stat.Nodes++
 			if !p.snapshot.Has(hash) {
@@ -198,7 +212,7 @@ func (p *Pruner) Prune(root meter.Bytes32) *PruneStat {
 				stat.PrunedNodeBytes += uint64(len(loaded) + len(hash))
 				stat.PrunedNodes++
 				err := batch.Delete(hash[:])
-				log.Info("Prune node", "key", hash, "len", len(loaded)+len(hash))
+				log.Info("Prune node", "hash", hash, "len", len(loaded)+len(hash))
 				if err != nil {
 					log.Error("Error deleteing", "err", err)
 				}
@@ -387,8 +401,10 @@ func (pit *pruneIterator) peek(descend bool) (*pruneIteratorState, *int, []byte,
 			ancestor = parent.parent
 		}
 		state, path, ok := pit.nextChild(parent, ancestor)
+		// log.Info("peek", "path", hex.EncodeToString(path), "ok", ok)
 		if ok {
 			if err := state.resolve(pit, path); err != nil {
+				log.Error("could not resolve path:", "parent", ancestor, "path", hex.EncodeToString(path))
 				return parent, &parent.index, path, err
 			}
 			return state, &parent.index, path, nil
@@ -408,15 +424,17 @@ func (pit *pruneIterator) nextChild(parent *pruneIteratorState, ancestor meter.B
 			if child != nil {
 				hash, _ := child.cache()
 
-				if !bytes.Equal(hash, []byte{}) {
-					if visited, _ := pit.bloom.Contain(hash); visited {
-						fmt.Println("skip visited node", hash)
-						continue
-					}
-					pit.bloom.Put(hash)
-					if pit.snapshot.Has(meter.BytesToBytes32(hash)) {
-						fmt.Println("skip node already in snapshot", hash)
-						continue
+				if key, ok := child.(hashNode); ok {
+					if !bytes.Equal(key, []byte{}) {
+						if visited, _ := pit.bloom.Contain(key); visited {
+							log.Info("skip visited node", "key", hex.EncodeToString(key))
+							continue
+						}
+						pit.bloom.Put(key)
+						if pit.snapshot.Has(meter.BytesToBytes32(key)) {
+							log.Info("skip node already in snapshot", "key", hex.EncodeToString(key))
+							continue
+						}
 					}
 				}
 				state := &pruneIteratorState{
@@ -435,15 +453,17 @@ func (pit *pruneIterator) nextChild(parent *pruneIteratorState, ancestor meter.B
 		// Short node, return the pointer singleton child
 		if parent.index < 0 {
 			hash, _ := node.Val.cache()
-			if !bytes.Equal(hash, []byte{}) {
-				if visited, _ := pit.bloom.Contain(hash); visited {
-					fmt.Println("skip visited node", hash)
-					return parent, pit.path, false
-				}
-				pit.bloom.Put(hash)
-				if pit.snapshot.Has(meter.BytesToBytes32(hash)) {
-					fmt.Println("skip node already in snapshot", hash)
-					return parent, pit.path, false
+			if key, ok := node.Val.(hashNode); ok {
+				if !bytes.Equal(key, []byte{}) {
+					if visited, _ := pit.bloom.Contain(key); visited {
+						log.Info("skip visited short node", "key", hex.EncodeToString(key))
+						return parent, pit.path, false
+					}
+					pit.bloom.Put(key)
+					if pit.snapshot.Has(meter.BytesToBytes32(key)) {
+						log.Debug("skip short node already in snapshot", "key", hex.EncodeToString(key))
+						return parent, pit.path, false
+					}
 				}
 			}
 			state := &pruneIteratorState{
