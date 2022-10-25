@@ -102,9 +102,15 @@ func main() {
 				Action: traverseStorageAction,
 			},
 			{
+				Name:   "traverse-trie",
+				Usage:  "Traverse any trie with given root",
+				Flags:  []cli.Flag{networkFlag, dataDirFlag, rootFlag},
+				Action: traverseTrieAction,
+			},
+			{
 				Name:   "diff",
 				Usage:  "Diff between state tries on two given blocks",
-				Flags:  []cli.Flag{dataDirFlag, networkFlag, revisionFlag, targetRevisionFlag},
+				Flags:  []cli.Flag{dataDirFlag, networkFlag, fromFlag, toFlag},
 				Action: diffStateAction,
 			},
 			{
@@ -193,7 +199,7 @@ func loadRawAction(ctx *cli.Context) error {
 	defer func() { log.Info("closing main database..."); mainDB.Close() }()
 
 	key := ctx.String(keyFlag.Name)
-	parsedKey, err := hex.DecodeString(key)
+	parsedKey, err := hex.DecodeString(strings.Replace(key, "0x", "", 1))
 	if err != nil {
 		log.Error("could not decode hex key", "err", err)
 		return nil
@@ -377,7 +383,7 @@ func traverseAction(ctx *cli.Context) error {
 			log.Info("Branch Node", "hash", iter.Hash(), "val", hex.EncodeToString(raw), "parent", iter.Parent())
 		}
 		if time.Since(lastReport) > time.Second*8 {
-			log.Info("Traversing state", "nodes", nodes, "accounts", accounts, "snodes", snodes, "slots", slots, "codes", codes, "elapsed", PrettyDuration(time.Since(start)))
+			log.Info("Still traversing", "nodes", nodes, "accounts", accounts, "snodes", snodes, "slots", slots, "codes", codes, "elapsed", PrettyDuration(time.Since(start)))
 			lastReport = time.Now()
 		}
 	}
@@ -385,7 +391,54 @@ func traverseAction(ctx *cli.Context) error {
 		log.Error("Failed to traverse state trie", "root", blk.StateRoot(), "err", iter.Error())
 		return iter.Error()
 	}
-	log.Info("State is complete", "nodes", nodes, "accounts", accounts, "snodes", snodes, "slots", slots, "codes", codes, "elapsed", PrettyDuration(time.Since(start)))
+	log.Info("Traverse completed", "nodes", nodes, "accounts", accounts, "snodes", snodes, "slots", slots, "codes", codes, "elapsed", PrettyDuration(time.Since(start)))
+	return nil
+}
+
+func traverseTrieAction(ctx *cli.Context) error {
+	initLogger()
+
+	mainDB, _ := openMainDB(ctx)
+	defer func() { log.Info("closing main database..."); mainDB.Close() }()
+
+	root := meter.MustParseBytes32(ctx.String(rootFlag.Name))
+
+	trieRoot, err := trie.New(root, mainDB)
+	if err != nil {
+		fmt.Println("could not create trie", "err", err)
+		return nil
+	}
+
+	var (
+		nodes      int
+		leafs      int
+		size       int
+		lastReport time.Time
+		start      = time.Now()
+	)
+	log.Info("Start to traverse trie", "root", root)
+	iter := trieRoot.NodeIterator(nil)
+	for iter.Next(true) {
+		nodes += 1
+		if iter.Leaf() {
+			leafs += 1
+			// key := ReadTrieNode(mainDB, meter.BytesToBytes32(iter.LeafKey()))
+			// log.Info("Storage Leaf", "keyHash", hex.EncodeToString(iter.LeafKey()), "key", hex.EncodeToString(key), "hash", iter.Hash().String(), "val", hex.EncodeToString(iter.LeafBlob()), "parent", iter.Parent(), "path", hex.EncodeToString(iter.Path()))
+		} else {
+			raw := ReadTrieNode(mainDB, iter.Hash())
+			// log.Info("Storage Branch", "hash", iter.Hash().String(), "val", hex.EncodeToString(raw), "parent", iter.Parent())
+			size += len(raw) + 32
+		}
+		if time.Since(lastReport) > time.Second*8 {
+			log.Info("Still traversing", "nodes", nodes, "leafs", leafs, "size", size, "elapsed", PrettyDuration(time.Since(start)))
+			lastReport = time.Now()
+		}
+	}
+	if iter.Error() != nil {
+		log.Error("Failed to traverse state trie", "root", root, "err", iter.Error())
+		return iter.Error()
+	}
+	log.Info("Traverse complete", "nodes", nodes, "leafs", leafs, "size", size, "elapsed", PrettyDuration(time.Since(start)))
 	return nil
 }
 
@@ -416,13 +469,17 @@ func traverseStorageAction(ctx *cli.Context) error {
 		if iter.Leaf() {
 			slots += 1
 			key := ReadTrieNode(mainDB, meter.BytesToBytes32(iter.LeafKey()))
-			log.Info("Storage Leaf", "keyHash", hex.EncodeToString(iter.LeafKey()), "key", hex.EncodeToString(key), "hash", iter.Hash().String(), "val", hex.EncodeToString(iter.LeafBlob()), "parent", iter.Parent(), "path", hex.EncodeToString(iter.Path()))
+			if hex.EncodeToString(key) == "c91150be0335dbcbf655db74e150449367bf0f4f9f6e4b8fc2c94e16be18fb77" {
+				log.Info("Storage Leaf", "keyHash", hex.EncodeToString(iter.LeafKey()), "key", hex.EncodeToString(key), "hash", iter.Hash().String(), "val", hex.EncodeToString(iter.LeafBlob()), "parent", iter.Parent(), "path", hex.EncodeToString(iter.Path()))
+			} else {
+				log.Info("Storage Leaf", "keyHash", hex.EncodeToString(iter.LeafKey()), "key", hex.EncodeToString(key), "hash", iter.Hash().String(), "val", len(iter.LeafBlob()), "parent", iter.Parent(), "path", hex.EncodeToString(iter.Path()))
+			}
 		} else {
-			raw := ReadTrieNode(mainDB, iter.Hash())
-			log.Info("Storage Branch", "hash", iter.Hash().String(), "val", hex.EncodeToString(raw), "parent", iter.Parent())
+			// raw := ReadTrieNode(mainDB, iter.Hash())
+			// log.Info("Storage Branch", "hash", iter.Hash().String(), "val", hex.EncodeToString(raw), "parent", iter.Parent())
 		}
 		if time.Since(lastReport) > time.Second*8 {
-			log.Info("Traversing state", "nodes", nodes, "slots", slots, "elapsed", PrettyDuration(time.Since(start)))
+			log.Info("Still traversing", "nodes", nodes, "slots", slots, "elapsed", PrettyDuration(time.Since(start)))
 			lastReport = time.Now()
 		}
 	}
@@ -491,7 +548,7 @@ func traverseStateAction(ctx *cli.Context) error {
 			codes += 1
 		}
 		if time.Since(lastReport) > time.Second*8 {
-			log.Info("Traversing state", "accounts", accounts, "slots", slots, "codes", codes, "elapsed", PrettyDuration(time.Since(start)))
+			log.Info("Still traversing state", "accounts", accounts, "slots", slots, "codes", codes, "elapsed", PrettyDuration(time.Since(start)))
 			lastReport = time.Now()
 		}
 	}
@@ -522,7 +579,10 @@ func pruneAction(ctx *cli.Context) error {
 	fmt.Println("FROM_BLOCK: ", fromBlk.Number())
 	fmt.Println("TOBLOCK: ", toBlk.Number())
 	geneBlk, _, _ := gene.Build(state.NewCreator(mainDB))
-	pruner := trie.NewPruner(mainDB, geneBlk.StateRoot(), toBlk.StateRoot())
+	pruner := trie.NewPruner(mainDB)
+	dataDir := ctx.String(dataDirFlag.Name)
+	prefix := fmt.Sprintf("%v/snap-%v", dataDir, toBlk.Number())
+	pruner.LoadSnapshot(geneBlk.StateRoot(), toBlk.StateRoot(), prefix)
 
 	var (
 		lastRoot    = meter.Bytes32{}
@@ -556,19 +616,10 @@ func pruneAction(ctx *cli.Context) error {
 func compactAction(ctx *cli.Context) error {
 	initLogger()
 
-	mainDB, gene := openMainDB(ctx)
+	mainDB, _ := openMainDB(ctx)
 	defer func() { log.Info("closing main database..."); mainDB.Close() }()
 
-	meterChain := initChain(gene, mainDB)
-
-	blk, err := loadBlockByRevision(meterChain, ctx.String(revisionFlag.Name))
-	if err != nil {
-		fatal("could not load block with revision")
-	}
-	geneBlk, _, _ := gene.Build(state.NewCreator(mainDB))
-	geneRoot := geneBlk.StateRoot()
-	snapRoot := blk.StateRoot()
-	pruner := trie.NewPruner(mainDB, geneRoot, snapRoot)
+	pruner := trie.NewPruner(mainDB)
 	pruner.Compact()
 	return nil
 }
@@ -576,19 +627,10 @@ func compactAction(ctx *cli.Context) error {
 func statAction(ctx *cli.Context) error {
 	initLogger()
 
-	mainDB, gene := openMainDB(ctx)
+	mainDB, _ := openMainDB(ctx)
 	defer func() { log.Info("closing main database..."); mainDB.Close() }()
 
-	meterChain := initChain(gene, mainDB)
-
-	blk, err := loadBlockByRevision(meterChain, ctx.String(revisionFlag.Name))
-	if err != nil {
-		fatal("could not load block with revision")
-	}
-	geneBlk, _, _ := gene.Build(state.NewCreator(mainDB))
-	geneRoot := geneBlk.StateRoot()
-	snapRoot := blk.StateRoot()
-	pruner := trie.NewPruner(mainDB, geneRoot, snapRoot)
+	pruner := trie.NewPruner(mainDB)
 	pruner.PrintStats()
 	return nil
 }
@@ -605,9 +647,24 @@ func snapshotAction(ctx *cli.Context) error {
 	if err != nil {
 		fatal("could not load block with revision")
 	}
+	stateC := state.NewCreator(mainDB)
+	geneBlk, _, _ := gene.Build(stateC)
+
 	snap := trie.NewTrieSnapshot()
-	snap.AddTrie(blk.StateRoot(), mainDB)
-	fmt.Println(snap.String())
+	dbDir := ctx.String(dataDirFlag.Name)
+	prefix := fmt.Sprintf("%v/snap-%v", dbDir, blk.Number())
+	loaded := snap.LoadFromFile(fmt.Sprintf("snap-%v", blk.Number()))
+	if loaded {
+		log.Info("loaded snapshot from file", "prefix", prefix)
+	} else {
+		snap.AddTrie(geneBlk.StateRoot(), mainDB)
+		snap.AddTrie(blk.StateRoot(), mainDB)
+		snap.SaveToFile(prefix)
+	}
+
+	if ctx.Bool(verboseFlag.Name) {
+		fmt.Println(snap.String())
+	}
 
 	return nil
 }
@@ -718,7 +775,7 @@ func traverseRawStateAction(ctx *cli.Context) error {
 				codes += 1
 			}
 			if time.Since(lastReport) > time.Second*8 {
-				log.Info("Traversing state", "nodes", nodes, "accounts", accounts, "slots", slots, "elapsed", PrettyDuration(time.Since(start)))
+				log.Info("Still traversing", "nodes", nodes, "accounts", accounts, "slots", slots, "elapsed", PrettyDuration(time.Since(start)))
 				lastReport = time.Now()
 			}
 		}
@@ -739,27 +796,29 @@ func diffStateAction(ctx *cli.Context) error {
 
 	meterChain := initChain(gene, mainDB)
 
-	tgtBlk, err := loadBlockByRevision(meterChain, ctx.String(targetRevisionFlag.Name))
+	toBlk, err := loadBlockByRevision(meterChain, ctx.String(toFlag.Name))
 	if err != nil {
 		fatal("could not load block with revision")
 	}
-	snapshot, err := getTrieSnapshot(meterChain, mainDB, tgtBlk.Number())
-	if err != nil {
-		panic("could not generate snapshot")
+	snapshot := trie.NewTrieSnapshot()
+	dataDir := ctx.String(dataDirFlag.Name)
+	prefix := fmt.Sprintf("%v/snap-%v", dataDir, toBlk.Number())
+	loaded := snapshot.LoadFromFile(prefix)
+	if loaded {
+		log.Info("load snapshot from file", "prefix", prefix)
+	} else {
+		log.Info("failed to load snapshot from file", "prefix", prefix)
+		snapshot.AddTrie(toBlk.StateRoot(), mainDB)
 	}
-	blk, err := loadBlockByRevision(meterChain, ctx.String(revisionFlag.Name))
+	blk, err := loadBlockByRevision(meterChain, ctx.String(fromFlag.Name))
 	if err != nil {
 		fatal("could not load block with revision")
 	}
 	var (
-		nodes      int
-		accounts   int
-		slots      int
-		codes      int
 		lastReport time.Time
 		start      = time.Now()
-		// hasher     = crypto.NewKeccakState()
-		// got        = make([]byte, 32)
+		diffSize   = 0
+		diffNodes  = 0
 	)
 	t, err := trie.New(blk.StateRoot(), mainDB)
 	if err != nil {
@@ -768,7 +827,6 @@ func diffStateAction(ctx *cli.Context) error {
 	log.Info("Start to traverse trie", "block", blk.Number(), "stateRoot", blk.StateRoot())
 	accIter := t.NodeIterator(nil)
 	for accIter.Next(true) {
-		nodes += 1
 		node := accIter.Hash()
 
 		// Check the present for non-empty hash node(embedded node doesn't
@@ -777,7 +835,6 @@ func diffStateAction(ctx *cli.Context) error {
 		// If it's a leaf node, yes we are touching an account,
 		// dig into the storage trie further.
 		if accIter.Leaf() {
-			accounts += 1
 			var acc state.Account
 			raw, _ := mainDB.Get(accIter.LeafKey())
 			addr := meter.BytesToAddress(raw)
@@ -785,6 +842,15 @@ func diffStateAction(ctx *cli.Context) error {
 				log.Error("Invalid account encountered during traversal", "err", err)
 				return errors.New("invalid account")
 			}
+
+			if snapAccount, exist := snapshot.Accounts[addr]; exist {
+				if bytes.Equal(snapAccount.Raw, accIter.LeafBlob()) {
+					continue
+				} else {
+					log.Info("Account changed", "addr", addr, "diff", acc.DiffString((*state.Account)(&snapAccount.StateAccount)), "parent", accIter.Parent())
+				}
+			}
+
 			if !bytes.Equal(acc.StorageRoot, []byte{}) {
 				storageTrie, err := trie.New(meter.BytesToBytes32(acc.StorageRoot), mainDB)
 				if err != nil {
@@ -793,18 +859,23 @@ func diffStateAction(ctx *cli.Context) error {
 				}
 				storageIter := storageTrie.NodeIterator(nil)
 				for storageIter.Next(true) {
-					nodes += 1
 					node := storageIter.Hash()
 
 					// Bump the counter if it's leaf node.
-					if storageIter.Leaf() {
-						slots += 1
-					} else {
-						if snapshot.Has(node) {
-							continue
-						} else {
-							log.Info("storage diff", "address", addr, "hash", node, "key", storageIter.LeafKey())
+					if !storageIter.Leaf() {
+						if !snapshot.Has(node) {
+							val, err := mainDB.Get(node[:])
+							if err != nil {
+								log.Error("could not load from db", "hash", node, "size", len(val))
+							}
+							log.Info("storage diff", "address", addr, "hash", node, "size", len(val))
+							diffSize += len(val)
+							diffNodes += 1
 						}
+					} else {
+						// key := storageIter.LeafKey()
+						// val, _ := mainDB.Get(key)
+						// log.Info("Storage key", "address", addr, "key", hex.EncodeToString(val), "parent", storageIter.Parent(), "val", hex.EncodeToString(storageIter.LeafBlob()))
 					}
 				}
 				if storageIter.Error() != nil {
@@ -817,17 +888,22 @@ func diffStateAction(ctx *cli.Context) error {
 					log.Error("Code is missing", "account", meter.BytesToBytes32(accIter.LeafKey()))
 					return errors.New("missing code")
 				}
-				codes += 1
 			}
 			if time.Since(lastReport) > time.Second*8 {
-				log.Info("Traversing state", "nodes", nodes, "accounts", accounts, "slots", slots, "elapsed", PrettyDuration(time.Since(start)))
+				log.Info("Still traversing ", "diffNodes", diffNodes, "diffSize", diffSize, "elapsed", PrettyDuration(time.Since(start)))
 				lastReport = time.Now()
 			}
 		} else {
 			if snapshot.Has(node) {
 				continue
 			} else {
-				log.Info("branch diff", "hash", node)
+				val, err := mainDB.Get(node[:])
+				if err != nil {
+					log.Error("could not load from db", "hash", node)
+				}
+				log.Info("branch diff", "hash", node, "size", len(val))
+				diffSize += len(val)
+				diffNodes += 1
 			}
 		}
 	}
@@ -835,7 +911,7 @@ func diffStateAction(ctx *cli.Context) error {
 		log.Error("Failed to traverse state trie", "root", blk.StateRoot(), "err", accIter.Error())
 		return accIter.Error()
 	}
-	log.Info("State is complete", "nodes", nodes, "accounts", accounts, "slots", slots, "codes", codes, "elapsed", PrettyDuration(time.Since(start)))
+	log.Info("Diff complete", "from", ctx.String(fromFlag.Name), "to", ctx.String(toFlag.Name), "diffSize", diffSize, "diffNodes", diffNodes, "elapsed", PrettyDuration(time.Since(start)))
 	return nil
 }
 
@@ -1069,7 +1145,7 @@ func calcStorageByCategoryAction(ctx *cli.Context) error {
 		}
 
 		if time.Since(lastReport) > time.Second*8 {
-			log.Info("Calculating", "block", i, "blockStorage", blockStorage, "txStorage", txStorage, "receiptStorage", receiptStorage, "elapsed", PrettyDuration(time.Since(start)))
+			log.Info("Still calculating", "block", i, "blockStorage", blockStorage, "txStorage", txStorage, "receiptStorage", receiptStorage, "elapsed", PrettyDuration(time.Since(start)))
 			lastReport = time.Now()
 		}
 	}

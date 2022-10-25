@@ -30,6 +30,7 @@ var (
 	targetRevisionFlag = cli.StringFlag{Name: "target-revision", Usage: "the revision for target block"}
 	addressFlag        = cli.StringFlag{Name: "address", Usage: "address"}
 	keyFlag            = cli.StringFlag{Name: "key", Usage: "key"}
+	verboseFlag        = cli.BoolFlag{Name: "verbose", Usage: "verbose for print out"}
 	forceFlag          = cli.BoolFlag{Name: "force", Usage: "Force unsafe reset"}
 )
 
