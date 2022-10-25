@@ -18,8 +18,10 @@ package trie
 
 import (
 	"bytes"
+	"encoding/gob"
 	"encoding/hex"
 	"fmt"
+	"io/ioutil"
 	"math/big"
 	"regexp"
 	"strings"
@@ -39,6 +41,59 @@ type StateAccount struct {
 	CodeHash     []byte // hash of code
 	StorageRoot  []byte // merkle root of the storage trie
 }
+
+func (a *StateAccount) String() string {
+	s := "Account("
+	items := make([]string, 0)
+	if a.Balance.Cmp(big.NewInt(0)) > 0 {
+		items = append(items, fmt.Sprintf("mtrg:%v", a.Balance))
+	}
+	if a.Energy.Cmp(big.NewInt(0)) > 0 {
+		items = append(items, fmt.Sprintf("mtr:%v", a.Energy))
+	}
+	if a.BoundBalance.Cmp(big.NewInt(0)) > 0 {
+		items = append(items, fmt.Sprintf("bounded:%v", a.BoundBalance))
+	}
+	if !bytes.Equal(a.Master, []byte{}) {
+		items = append(items, fmt.Sprintf("master:%v", hex.EncodeToString(a.Master)))
+	}
+	if !bytes.Equal(a.CodeHash, []byte{}) {
+		items = append(items, fmt.Sprintf("master:%v", hex.EncodeToString(a.CodeHash)))
+	}
+	if !bytes.Equal(a.StorageRoot, []byte{}) {
+		items = append(items, fmt.Sprintf("sroot:%v", hex.EncodeToString(a.StorageRoot)))
+	}
+
+	s += strings.Join(items, ", ") + ")"
+	return s
+}
+
+func (a *StateAccount) DiffString(b *StateAccount) string {
+	s := "Account ("
+	items := make([]string, 0)
+	if a.Balance.Cmp(b.Balance) != 0 {
+		items = append(items, fmt.Sprintf("mtrg:%v -> %v", a.Balance, b.Balance))
+	}
+	if a.Energy.Cmp(b.Energy) != 0 {
+		items = append(items, fmt.Sprintf("mtr:%v -> %v", a.Energy, b.Energy))
+	}
+	if a.BoundBalance.Cmp(b.BoundBalance) != 0 {
+		items = append(items, fmt.Sprintf("bounded:%v -> %v", a.BoundBalance, b.BoundBalance))
+	}
+	if !bytes.Equal(a.Master, b.Master) {
+		items = append(items, fmt.Sprintf("master:%v -> %v", hex.EncodeToString(a.Master), hex.EncodeToString(b.Master)))
+	}
+	if !bytes.Equal(a.CodeHash, b.CodeHash) {
+		items = append(items, fmt.Sprintf("master:%v -> %v", hex.EncodeToString(a.CodeHash), hex.EncodeToString(b.CodeHash)))
+	}
+	if !bytes.Equal(a.StorageRoot, b.StorageRoot) {
+		items = append(items, fmt.Sprintf("sroot:%v -> %v", hex.EncodeToString(a.StorageRoot), hex.EncodeToString(b.StorageRoot)))
+	}
+
+	s += strings.Join(items, ", ") + ")"
+	return s
+}
+
 type TrieAccount struct {
 	StateAccount
 	Raw        []byte
@@ -74,11 +129,14 @@ func (ts *TrieSnapshot) AddTrie(root meter.Bytes32, db Database) {
 	ts.add(root)
 
 	var (
-		nodes      = 0
-		accounts   = 0
-		slots      = 0
-		lastReport time.Time
-		start      = time.Now()
+		nodes           = 0
+		accounts        = 0
+		slots           = 0
+		lastReport      time.Time
+		start           = time.Now()
+		stateTrieSize   = 0
+		storageTrieSize = 0
+		codeSize        = 0
 	)
 	log.Info("Start generating snapshot", "root", root)
 	for iter.Next(true) {
@@ -86,6 +144,12 @@ func (ts *TrieSnapshot) AddTrie(root meter.Bytes32, db Database) {
 		if !iter.Leaf() {
 			// add every node
 			ts.add(hash)
+			stateTrieSize += len(hash)
+			val, err := db.Get(hash[:])
+			if err != nil {
+				log.Error("could not load hash", "hash", hash, "err", err)
+			}
+			stateTrieSize += len(val)
 			continue
 		}
 
@@ -95,6 +159,14 @@ func (ts *TrieSnapshot) AddTrie(root meter.Bytes32, db Database) {
 		if err := rlp.DecodeBytes(value, &stateAcc); err != nil {
 			fmt.Println("Invalid account encountered during traversal", "err", err)
 			continue
+		}
+
+		if !bytes.Equal(stateAcc.CodeHash, []byte{}) {
+			codeBytes, err := db.Get(stateAcc.CodeHash)
+			if err != nil {
+				log.Error("could not load code", "hash", hash, "err", err)
+			}
+			codeSize += len(codeBytes)
 		}
 
 		accounts++
@@ -126,6 +198,11 @@ func (ts *TrieSnapshot) AddTrie(root meter.Bytes32, db Database) {
 				if !storageIter.Leaf() {
 					// add storage node
 					ts.add(shash)
+					sval, err := db.Get(shash[:])
+					if err != nil {
+						log.Error("could not load storage", "hash", shash, "err", err)
+					}
+					storageTrieSize += len(sval)
 				} else {
 					slots++
 					raw, _ := db.Get(storageIter.LeafKey())
@@ -135,11 +212,11 @@ func (ts *TrieSnapshot) AddTrie(root meter.Bytes32, db Database) {
 			}
 		}
 		if time.Since(lastReport) > time.Second*8 {
-			log.Info("Generating snapshot", "nodes", nodes, "accounts", accounts, "slots", slots, "elapsed", PrettyDuration(time.Since(start)))
+			log.Info("Still generating snapshot", "nodes", nodes, "accounts", accounts, "slots", slots, "elapsed", PrettyDuration(time.Since(start)))
 			lastReport = time.Now()
 		}
 	}
-	log.Info("Snapshot completed", "root", root, "nodes", nodes, "accounts", accounts, "slots", slots, "elapsed", PrettyDuration(time.Since(start)))
+	log.Info("Snapshot completed", "root", root, "stateTrieSize", stateTrieSize, "storageTrieSize", storageTrieSize, "nodes", nodes, "accounts", accounts, "slots", slots, "elapsed", PrettyDuration(time.Since(start)))
 }
 
 func (ts *TrieSnapshot) String() string {
@@ -158,6 +235,52 @@ func (ts *TrieSnapshot) String() string {
 		}
 	}
 	return s
+}
+
+func (ts *TrieSnapshot) SaveToFile(prefix string) bool {
+	err := ts.Bloom.Commit(prefix+".bloom", prefix+"-tmp.bloom")
+	if err != nil {
+		fmt.Println("could not commit .bloom file: ", err)
+		return false
+	}
+
+	buf := bytes.NewBuffer([]byte{})
+	enc := gob.NewEncoder(buf)
+	err = enc.Encode(ts.Accounts)
+	if err != nil {
+		fmt.Println("error encode:", err)
+		return false
+	}
+	err = ioutil.WriteFile(prefix+".accounts", buf.Bytes(), 0744)
+	if err != nil {
+		fmt.Println("could not write .accounts file: ", err)
+		return false
+	}
+	return true
+}
+
+func (ts *TrieSnapshot) LoadFromFile(prefix string) bool {
+	filter, err := NewStateBloomFromDisk(prefix + ".bloom")
+	if err != nil {
+		fmt.Println("could not read .bloom file: ", err)
+		return false
+	}
+	ts.Bloom = filter
+
+	buf, err := ioutil.ReadFile(prefix + ".accounts")
+	if err != nil {
+		fmt.Println("could not read .accounts file: ", err)
+		return false
+	}
+	reader := bytes.NewReader(buf)
+	dec := gob.NewDecoder(reader)
+	accts := make(map[meter.Address]*TrieAccount)
+	err = dec.Decode(&accts)
+	if err != nil {
+		fmt.Println("could not decode accounts: ", err)
+		return false
+	}
+	return true
 }
 
 // PrettyDuration is a pretty printed version of a time.Duration value that cuts
