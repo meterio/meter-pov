@@ -272,14 +272,15 @@ func newPruneIterator(trie *Trie, db Database, snapshot *TrieSnapshot, bloom *St
 }
 
 func (pit *pruneIterator) Get(key []byte) ([]byte, error) {
-	if val, ok := pit.cache.Get(key); ok {
+	strKey := hex.EncodeToString(key)
+	if val, ok := pit.cache.Get(strKey); ok {
 		return val.([]byte), nil
 	}
 	val, err := pit.db.Get(key)
 	if err != nil {
 		return val, err
 	}
-	pit.cache.Add(key, val)
+	pit.cache.Add(strKey, val)
 	return val, nil
 }
 
