@@ -25,6 +25,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/rlp"
+	lru "github.com/hashicorp/golang-lru"
 	"github.com/meterio/meter-pov/meter"
 )
 
@@ -77,17 +78,21 @@ type Pruner struct {
 	db       KeyValueStore
 	snapshot *TrieSnapshot
 	bloom    *StateBloom
-	visited  map[meter.Bytes32]bool
+	cache    *lru.Cache
 }
 
 // NewIterator creates a new key-value iterator from a node iterator
 func NewPruner(db KeyValueStore) *Pruner {
 	bloom, _ := NewStateBloomWithSize(256)
+	cache, err := lru.New(2048)
+	if err != nil {
+		panic("could not create cache")
+	}
 	p := &Pruner{
 		db:       db,
 		snapshot: NewTrieSnapshot(),
 		bloom:    bloom,
-		visited:  make(map[meter.Bytes32]bool),
+		cache:    cache,
 	}
 
 	return p
@@ -143,13 +148,8 @@ func (p *Pruner) Compact() {
 // prune the trie at block height
 func (p *Pruner) Prune(root meter.Bytes32) *PruneStat {
 	log.Info("try to prune :", "root", root)
-	if _, exist := p.visited[root]; exist {
-		log.Info("visited, skip pruning", "root", root)
-		return new(PruneStat)
-	}
-	p.visited[root] = true
 	t, _ := New(root, p.db)
-	p.iter = newPruneIterator(t, p.db, p.snapshot, p.bloom)
+	p.iter = newPruneIterator(t, p.db, p.snapshot, p.bloom, p.cache)
 	stat := &PruneStat{}
 	batch := p.db.NewBatch()
 	for p.iter.Next(true) {
@@ -170,7 +170,7 @@ func (p *Pruner) Prune(root meter.Bytes32) *PruneStat {
 					log.Error("Could not get storage trie", "err", err)
 					continue
 				}
-				storageIter := newPruneIterator(storageTrie, p.db, p.snapshot, p.bloom)
+				storageIter := newPruneIterator(storageTrie, p.db, p.snapshot, p.bloom, p.cache)
 				for storageIter.Next(true) {
 					shash := storageIter.Hash()
 					if storageIter.Leaf() {
@@ -201,9 +201,7 @@ func (p *Pruner) Prune(root meter.Bytes32) *PruneStat {
 				// }
 			}
 		} else {
-			if hash.String() == "1ceea935b61985e0f4451efe8da3168ef2a701b66d1baf5bd8c32bc5567e10bb" {
-				log.Info("visit node ", "hash", hash)
-			}
+			// log.Info("visit node ", "hash", hash)
 			// prune world state trie
 			stat.Nodes++
 			if !p.snapshot.Has(hash) {
@@ -256,24 +254,33 @@ type pruneIterator struct {
 	trie     *Trie                 // Trie being iterated
 	snapshot *TrieSnapshot         // snapshot
 	bloom    *StateBloom           // visited nodes bloom filter
+	cache    *lru.Cache            // node cache
 	db       Database              // database
 	stack    []*pruneIteratorState // Hierarchy of trie nodes persisting the iteration state
 	path     []byte                // Path to the current node
 	err      error                 // Failure set in case of an internal error in the iterator
 }
 
-func newPruneIterator(trie *Trie, db Database, snapshot *TrieSnapshot, bloom *StateBloom) *pruneIterator {
+func newPruneIterator(trie *Trie, db Database, snapshot *TrieSnapshot, bloom *StateBloom, cache *lru.Cache) *pruneIterator {
 	if trie.Hash() == emptyState {
 		return new(pruneIterator)
 	}
 
-	it := &pruneIterator{trie: trie, snapshot: snapshot, bloom: bloom, db: db}
+	it := &pruneIterator{trie: trie, snapshot: snapshot, bloom: bloom, db: db, cache: cache}
 	it.err = it.seek(nil)
 	return it
 }
 
 func (pit *pruneIterator) Get(key []byte) ([]byte, error) {
-	return pit.db.Get(key)
+	if val, ok := pit.cache.Get(key); ok {
+		return val.([]byte), nil
+	}
+	val, err := pit.db.Get(key)
+	if err != nil {
+		return val, err
+	}
+	pit.cache.Add(key, val)
+	return val, nil
 }
 
 func (pit *pruneIterator) resolveHash(n hashNode, prefix []byte) (node, error) {
