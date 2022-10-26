@@ -591,6 +591,7 @@ func pruneAction(ctx *cli.Context) error {
 	)
 	start := time.Now()
 	var lastReport time.Time
+	batch := mainDB.NewBatch()
 	for i := fromBlk.Number(); i < toBlk.Number(); i++ {
 		b, _ := meterChain.GetTrunkBlock(i)
 		root := b.StateRoot()
@@ -599,13 +600,20 @@ func pruneAction(ctx *cli.Context) error {
 		}
 		lastRoot = root
 		pruneStart := time.Now()
-		stat := pruner.Prune(root)
+		stat := pruner.Prune(root, batch)
 		prunedNodes += stat.PrunedNodes + stat.PrunedStorageNodes
 		prunedBytes += stat.PrunedNodeBytes + stat.PrunedStorageBytes
 		log.Info(fmt.Sprintf("Pruned block %v", i), "prunedNodes", stat.PrunedNodes+stat.PrunedStorageNodes, "prunedBytes", stat.PrunedNodeBytes+stat.PrunedStorageBytes, "elapsed", PrettyDuration(time.Since(pruneStart)))
 		if time.Since(lastReport) > time.Second*8 {
 			log.Info("Still pruning", "elapsed", PrettyDuration(time.Since(start)), "prunedNodes", prunedNodes, "prunedBytes", prunedBytes)
 			lastReport = time.Now()
+		}
+		if batch.Len() > 100 {
+			if err := batch.Write(); err != nil {
+				log.Error("Error flushing", "err", err)
+			}
+			log.Info("commited deletion batch", "len", batch.Len())
+			batch = mainDB.NewBatch()
 		}
 	}
 	// pruner.Compact()

@@ -26,6 +26,7 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/rlp"
 	lru "github.com/hashicorp/golang-lru"
+	"github.com/meterio/meter-pov/kv"
 	"github.com/meterio/meter-pov/meter"
 )
 
@@ -146,12 +147,11 @@ func (p *Pruner) Compact() {
 }
 
 // prune the trie at block height
-func (p *Pruner) Prune(root meter.Bytes32) *PruneStat {
-	log.Info("try to prune :", "root", root)
+func (p *Pruner) Prune(root meter.Bytes32, batch kv.Batch) *PruneStat {
+	log.Info("Start pruning", "root", root)
 	t, _ := New(root, p.db)
 	p.iter = newPruneIterator(t, p.db, p.snapshot, p.bloom, p.cache)
 	stat := &PruneStat{}
-	batch := p.db.NewBatch()
 	for p.iter.Next(true) {
 		hash := p.iter.Hash()
 
@@ -181,7 +181,7 @@ func (p *Pruner) Prune(root meter.Bytes32) *PruneStat {
 						loaded, _ := p.iter.Get(shash[:])
 						stat.PrunedStorageBytes += uint64(len(loaded) + len(shash))
 						stat.PrunedStorageNodes++
-						log.Info("Prune storage", "key", shash, "len", len(loaded)+len(shash))
+						log.Info("Prune storage", "key", shash, "len", len(loaded)+len(shash), "prunedNodes", stat.PrunedStorageNodes)
 						err := batch.Delete(shash[:])
 						if err != nil {
 							log.Error("Error deleteing", "err", err)
@@ -210,20 +210,20 @@ func (p *Pruner) Prune(root meter.Bytes32) *PruneStat {
 				stat.PrunedNodeBytes += uint64(len(loaded) + len(hash))
 				stat.PrunedNodes++
 				err := batch.Delete(hash[:])
-				log.Info("Prune node", "hash", hash, "len", len(loaded)+len(hash))
+				log.Info("Prune node", "hash", hash, "len", len(loaded)+len(hash), "prunedNodes", stat.PrunedNodes)
 				if err != nil {
 					log.Error("Error deleteing", "err", err)
 				}
 			}
 		}
 	}
-	log.Info("Pruned trie", "root", root, "batch", batch.Len())
-	if batch.Len() > 0 {
-		if err := batch.Write(); err != nil {
-			log.Error("Error flushing", "err", err)
-		}
-		log.Info("commited deletion batch", "len", batch.Len())
-	}
+	log.Info("Pruned trie", "root", root, "batch", batch.Len(), "prunedNodes", stat.PrunedNodes+stat.PrunedStorageNodes, "prunedBytes", stat.PrunedNodeBytes+stat.PrunedStorageBytes)
+	// if batch.Len() > 0 {
+	// 	if err := batch.Write(); err != nil {
+	// 		log.Error("Error flushing", "err", err)
+	// 	}
+	// 	log.Info("commited deletion batch", "len", batch.Len())
+	// }
 
 	return stat
 }
@@ -435,12 +435,12 @@ func (pit *pruneIterator) nextChild(parent *pruneIteratorState, ancestor meter.B
 				if key, ok := child.(hashNode); ok {
 					if !bytes.Equal(key, []byte{}) {
 						if visited, _ := pit.bloom.Contain(key); visited {
-							log.Info("skip visited node", "key", hex.EncodeToString(key))
+							log.Debug("skip visited node", "key", hex.EncodeToString(key))
 							continue
 						}
 						pit.bloom.Put(key)
 						if pit.snapshot.Has(meter.BytesToBytes32(key)) {
-							log.Info("skip node already in snapshot", "key", hex.EncodeToString(key))
+							log.Debug("skip node already in snapshot", "key", hex.EncodeToString(key))
 							continue
 						}
 					}
@@ -464,7 +464,7 @@ func (pit *pruneIterator) nextChild(parent *pruneIteratorState, ancestor meter.B
 			if key, ok := node.Val.(hashNode); ok {
 				if !bytes.Equal(key, []byte{}) {
 					if visited, _ := pit.bloom.Contain(key); visited {
-						log.Info("skip visited short node", "key", hex.EncodeToString(key))
+						log.Debug("skip visited short node", "key", hex.EncodeToString(key))
 						return parent, pit.path, false
 					}
 					pit.bloom.Put(key)
