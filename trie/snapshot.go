@@ -98,6 +98,7 @@ type TrieAccount struct {
 	StateAccount
 	Raw        []byte
 	RawStorage map[meter.Bytes32][]byte
+	Code       []byte
 }
 
 type TrieSnapshot struct {
@@ -161,27 +162,29 @@ func (ts *TrieSnapshot) AddTrie(root meter.Bytes32, db Database) {
 			continue
 		}
 
+		var acc TrieAccount
 		if !bytes.Equal(stateAcc.CodeHash, []byte{}) {
 			codeBytes, err := db.Get(stateAcc.CodeHash)
 			if err != nil {
 				log.Error("could not load code", "hash", hash, "err", err)
 			}
+			acc.Code = codeBytes
 			codeSize += len(codeBytes)
 		}
 
 		accounts++
-		acc := &TrieAccount{
-			StateAccount: stateAcc,
-			Raw:          value,
-			RawStorage:   make(map[meter.Bytes32][]byte),
-		}
+
+		acc.StateAccount = stateAcc
+		acc.Raw = value
+		acc.RawStorage = make(map[meter.Bytes32][]byte)
+
 		raw, err := db.Get(iter.LeafKey())
 		if err != nil {
 			fmt.Println("could not read ", iter.LeafKey())
 			continue
 		}
 		addr := meter.BytesToAddress(raw)
-		ts.Accounts[addr] = acc
+		ts.Accounts[addr] = &acc
 
 		if !bytes.Equal(stateAcc.StorageRoot, []byte{}) {
 			sroot := meter.BytesToBytes32(stateAcc.StorageRoot)
@@ -216,7 +219,7 @@ func (ts *TrieSnapshot) AddTrie(root meter.Bytes32, db Database) {
 			lastReport = time.Now()
 		}
 	}
-	log.Info("Snapshot completed", "root", root, "stateTrieSize", stateTrieSize, "storageTrieSize", storageTrieSize, "nodes", nodes, "accounts", accounts, "slots", slots, "elapsed", PrettyDuration(time.Since(start)))
+	log.Info("Snapshot completed", "root", root, "stateTrieSize", stateTrieSize, "storageTrieSize", storageTrieSize, "nodes", nodes, "accounts", accounts, "slots", slots, "codeSize", codeSize, "elapsed", PrettyDuration(time.Since(start)))
 }
 
 func (ts *TrieSnapshot) String() string {
