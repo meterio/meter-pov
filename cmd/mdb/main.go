@@ -93,6 +93,13 @@ func main() {
 				Action: pruneAction,
 			},
 			{
+				Name:   "scan",
+				Usage:  "Scan all state trie with pruner and calculate the total size",
+				Flags:  []cli.Flag{dataDirFlag, networkFlag, toFlag},
+				Action: scanTrieAction,
+			},
+
+			{
 				Name:   "traverse",
 				Usage:  "Traverse the state with given block and print along the way",
 				Flags:  flags,
@@ -614,7 +621,7 @@ func pruneAction(ctx *cli.Context) error {
 			log.Info("Still pruning", "elapsed", PrettyDuration(time.Since(start)), "prunedNodes", prunedNodes, "prunedBytes", prunedBytes)
 			lastReport = time.Now()
 		}
-		if batch.Len() > 100 {
+		if batch.Len() >= 1024 || i == toBlk.Number() {
 			if err := batch.Write(); err != nil {
 				log.Error("Error flushing", "err", err)
 			}
@@ -622,7 +629,11 @@ func pruneAction(ctx *cli.Context) error {
 
 			batch = mainDB.NewBatch()
 
-			// manually call garbage collection
+		}
+
+		// manually call garbage collection every 20 min
+		if int64(time.Since(start).Seconds())%(60*20) == 0 {
+			meterChain = initChain(gene, mainDB)
 			runtime.GC()
 		}
 	}
@@ -1168,5 +1179,56 @@ func calcStorageByCategoryAction(ctx *cli.Context) error {
 		}
 	}
 	log.Info("Finished calculating", "block", bestBlock.Number(), "blockStorage", blockStorage, "txStorage", txStorage, "receiptStorage", receiptStorage, "elapsed", PrettyDuration(time.Since(start)))
+	return nil
+}
+
+func scanTrieAction(ctx *cli.Context) error {
+	initLogger()
+
+	mainDB, gene := openMainDB(ctx)
+	defer func() { log.Info("closing main database..."); mainDB.Close() }()
+
+	meterChain := initChain(gene, mainDB)
+	toBlk, err := loadBlockByRevision(meterChain, ctx.String(toFlag.Name))
+	if err != nil {
+		fatal("could not load block with revision")
+	}
+	pruner := trie.NewPruner(mainDB)
+
+	var (
+		lastRoot   = meter.Bytes32{}
+		totalBytes = uint64(0)
+		totalNodes = 0
+		start      = time.Now()
+		lastReport time.Time
+	)
+	go func() {
+		fmt.Println(http.ListenAndServe("0.0.0.0:6060", nil))
+	}()
+
+	for i := uint32(0); i < toBlk.Number(); i++ {
+		b, _ := meterChain.GetTrunkBlock(i)
+		root := b.StateRoot()
+		if bytes.Equal(root[:], lastRoot[:]) {
+			continue
+		}
+		lastRoot = root
+		scanStart := time.Now()
+		delta := pruner.Scan(root)
+		totalNodes += delta.Nodes + delta.StorageNodes
+		totalBytes += delta.Bytes + delta.StorageBytes
+		if time.Since(lastReport) > time.Second*8 {
+			log.Info("Still pruning", "elapsed", PrettyDuration(time.Since(scanStart)), "nodes", totalNodes, "bytes", totalBytes)
+			lastReport = time.Now()
+		}
+
+		// manually call garbage collection every 20 min
+		if int64(time.Since(start).Seconds())%(60*20) == 0 {
+			meterChain = initChain(gene, mainDB)
+			runtime.GC()
+		}
+	}
+	// pruner.Compact()
+	log.Info("Scan complete", "elapsed", PrettyDuration(time.Since(start)), "nodes", totalNodes, "totalBytes", totalBytes)
 	return nil
 }
