@@ -7,8 +7,11 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"runtime"
 	"strings"
 	"time"
+
+	_ "net/http/pprof"
 
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/inconshreveable/log15"
@@ -567,7 +570,6 @@ func pruneAction(ctx *cli.Context) error {
 	defer func() { log.Info("closing main database..."); mainDB.Close() }()
 
 	meterChain := initChain(gene, mainDB)
-
 	fromBlk, err := loadBlockByRevision(meterChain, ctx.String(fromFlag.Name))
 	if err != nil {
 		fatal("could not load block with revision")
@@ -589,6 +591,10 @@ func pruneAction(ctx *cli.Context) error {
 		prunedBytes = uint64(0)
 		prunedNodes = 0
 	)
+	go func() {
+		fmt.Println(http.ListenAndServe("0.0.0.0:6060", nil))
+	}()
+
 	start := time.Now()
 	var lastReport time.Time
 	batch := mainDB.NewBatch()
@@ -613,7 +619,11 @@ func pruneAction(ctx *cli.Context) error {
 				log.Error("Error flushing", "err", err)
 			}
 			log.Info("commited deletion batch", "len", batch.Len())
+
 			batch = mainDB.NewBatch()
+
+			// manually call garbage collection
+			runtime.GC()
 		}
 	}
 	// pruner.Compact()
