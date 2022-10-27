@@ -1217,8 +1217,9 @@ func scanTrieAction(ctx *cli.Context) error {
 		delta := pruner.Scan(root)
 		totalNodes += delta.Nodes + delta.StorageNodes
 		totalBytes += delta.Bytes + delta.StorageBytes
+		log.Info(fmt.Sprintf("Scanned block %v", i))
 		if time.Since(lastReport) > time.Second*8 {
-			log.Info("Still pruning", "elapsed", PrettyDuration(time.Since(scanStart)), "nodes", totalNodes, "bytes", totalBytes)
+			log.Info("Still scanning", "elapsed", PrettyDuration(time.Since(scanStart)), "nodes", totalNodes, "bytes", totalBytes)
 			lastReport = time.Now()
 		}
 

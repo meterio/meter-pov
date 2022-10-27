@@ -336,10 +336,6 @@ func (st *pruneIteratorState) resolve(pit *pruneIterator, path []byte) error {
 
 type pruneIterator struct {
 	trie      *Trie                 // Trie being iterated
-	snapshot  *TrieSnapshot         // snapshot
-	bloom     *StateBloom           // visited nodes bloom filter
-	cache     *lru.Cache            // node cache
-	db        Database              // database
 	stack     []*pruneIteratorState // Hierarchy of trie nodes persisting the iteration state
 	path      []byte                // Path to the current node
 	err       error                 // Failure set in case of an internal error in the iterator
@@ -359,16 +355,7 @@ func newPruneIterator(trie *Trie, canSkip func([]byte) bool, mark func([]byte), 
 }
 
 func (pit *pruneIterator) Get(key []byte) ([]byte, error) {
-	strKey := hex.EncodeToString(key)
-	if val, ok := pit.cache.Get(strKey); ok {
-		return val.([]byte), nil
-	}
-	val, err := pit.db.Get(key)
-	if err != nil {
-		return val, err
-	}
-	pit.cache.Add(strKey, val)
-	return val, nil
+	return pit.loadOrGet(key)
 }
 
 func (pit *pruneIterator) resolveHash(n hashNode, prefix []byte) (node, error) {
