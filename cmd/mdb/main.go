@@ -93,6 +93,13 @@ func main() {
 				Action: pruneAction,
 			},
 			{
+				Name:   "prune-index",
+				Usage:  "Prune index trie with pruner",
+				Flags:  []cli.Flag{dataDirFlag, networkFlag, toFlag},
+				Action: pruneIndexTrieAction,
+			},
+
+			{
 				Name:   "scan-state",
 				Usage:  "Scan all state trie with pruner and calculate the total size",
 				Flags:  []cli.Flag{dataDirFlag, networkFlag},
@@ -634,6 +641,62 @@ func pruneAction(ctx *cli.Context) error {
 
 			batch = mainDB.NewBatch()
 
+		}
+
+		// manually call garbage collection every 20 min
+		if int64(time.Since(start).Seconds())%(60*20) == 0 {
+			meterChain = initChain(gene, mainDB)
+			runtime.GC()
+		}
+	}
+	// pruner.Compact()
+	log.Info("Prune complete", "elapsed", PrettyDuration(time.Since(start)), "prunedNodes", prunedNodes, "prunedBytes", prunedBytes)
+	return nil
+}
+
+func pruneIndexTrieAction(ctx *cli.Context) error {
+	initLogger()
+
+	mainDB, gene := openMainDB(ctx)
+	defer func() { log.Info("closing main database..."); mainDB.Close() }()
+
+	meterChain := initChain(gene, mainDB)
+	toBlk, err := loadBlockByRevision(meterChain, ctx.String(toFlag.Name))
+	if err != nil {
+		fatal("could not load block with revision")
+	}
+	fmt.Println("TOBLOCK: ", toBlk.Number())
+	pruner := trie.NewPruner(mainDB)
+
+	var (
+		prunedBytes = uint64(0)
+		prunedNodes = 0
+	)
+	go func() {
+		fmt.Println(http.ListenAndServe("0.0.0.0:6060", nil))
+	}()
+
+	start := time.Now()
+	var lastReport time.Time
+	batch := mainDB.NewBatch()
+	for i := uint32(1); i < toBlk.Number(); i++ {
+		b, _ := meterChain.GetTrunkBlock(i)
+		pruneStart := time.Now()
+		stat := pruner.PruneIndexTrie(b.ID(), batch)
+		prunedNodes += stat.Nodes
+		prunedBytes += stat.PrunedNodeBytes
+		log.Info(fmt.Sprintf("Pruned block %v", i), "prunedNodes", stat.Nodes, "prunedBytes", stat.PrunedNodeBytes, "elapsed", PrettyDuration(time.Since(pruneStart)))
+		if time.Since(lastReport) > time.Second*8 {
+			log.Info("Still pruning", "elapsed", PrettyDuration(time.Since(start)), "prunedNodes", prunedNodes, "prunedBytes", prunedBytes)
+			lastReport = time.Now()
+		}
+		if batch.Len() >= 512 || i == toBlk.Number() {
+			if err := batch.Write(); err != nil {
+				log.Error("Error flushing", "err", err)
+			}
+			log.Info("commited deletion batch", "len", batch.Len())
+
+			batch = mainDB.NewBatch()
 		}
 
 		// manually call garbage collection every 20 min

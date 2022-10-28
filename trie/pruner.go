@@ -354,6 +354,32 @@ func (p *Pruner) ScanIndexTrie(blockHash meter.Bytes32) *TrieDelta {
 	return delta
 }
 
+// prune the state trie with given root
+func (p *Pruner) PruneIndexTrie(blockHash meter.Bytes32, batch kv.Batch) *PruneStat {
+	log.Info("Start pruning index trie", "blockHash", blockHash)
+	root, err := p.loadOrGet(append(indexTrieRootPrefix, blockHash[:]...))
+	if err != nil {
+		panic("could not get index trie root")
+	}
+	t, _ := New(meter.BytesToBytes32(root), p.db)
+	p.iter = newPruneIterator(t, p.canSkip, p.mark, p.loadOrGet)
+	stat := &PruneStat{}
+	for p.iter.Next(true) {
+		hash := p.iter.Hash()
+
+		if !p.iter.Leaf() {
+			loaded, _ := p.iter.Get(hash[:])
+			stat.Nodes++
+			stat.PrunedNodeBytes += uint64(len(loaded) + len(hash))
+			log.Info("Prune node", "hash", hash, "len", len(loaded)+len(hash), "nodes", stat.Nodes, "bytes", stat.PrunedNodeBytes)
+			batch.Delete(hash[:])
+		}
+	}
+	log.Info("Pruned index trie", "root", root, "nodes", stat.Nodes, "bytes", stat.PrunedNodeBytes)
+
+	return stat
+}
+
 // pruneIteratorState represents the iteration state at one particular node of the
 // trie, which can be resumed at a later invocation.
 type pruneIteratorState struct {
