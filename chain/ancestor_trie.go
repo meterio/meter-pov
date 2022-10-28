@@ -6,8 +6,6 @@
 package chain
 
 import (
-	"encoding/binary"
-
 	lru "github.com/hashicorp/golang-lru"
 	"github.com/meterio/meter-pov/block"
 	"github.com/meterio/meter-pov/kv"
@@ -31,14 +29,15 @@ func newAncestorTrie(kv kv.GetPutter) *ancestorTrie {
 	return &ancestorTrie{kv, rootsCache, newTrieCache()}
 }
 
-func numberAsKey(num uint32) []byte {
-	var key [4]byte
-	binary.BigEndian.PutUint32(key[:], num)
-	return key[:]
-}
-
-func (at *ancestorTrie) Update(w kv.Putter, id, parentID meter.Bytes32) error {
+func (at *ancestorTrie) Update(w kv.Putter, num uint32, id, parentID meter.Bytes32) error {
 	var parentRoot meter.Bytes32
+	err := saveBlockHash(w, num, id)
+	if err == nil {
+		return nil
+	}
+
+	// optional
+
 	if block.Number(id) > 0 {
 		// non-genesis
 		root, err := at.rootsCache.GetOrLoad(parentID)
@@ -70,6 +69,12 @@ func (at *ancestorTrie) Update(w kv.Putter, id, parentID meter.Bytes32) error {
 }
 
 func (at *ancestorTrie) GetAncestor(descendantID meter.Bytes32, ancestorNum uint32) (meter.Bytes32, error) {
+	blockID, err := loadBlockHash(at.kv, ancestorNum)
+	if err == nil {
+		return blockID, err
+	}
+
+	// optional
 	if ancestorNum > block.Number(descendantID) {
 		return meter.Bytes32{}, errNotFound
 	}
@@ -93,7 +98,7 @@ func (at *ancestorTrie) GetAncestor(descendantID meter.Bytes32, ancestorNum uint
 	return meter.BytesToBytes32(id), nil
 }
 
-///
+// /
 type trieCache struct {
 	cache *lru.Cache
 }

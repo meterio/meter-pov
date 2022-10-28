@@ -679,10 +679,10 @@ func pruneIndexTrieAction(ctx *cli.Context) error {
 	start := time.Now()
 	var lastReport time.Time
 	batch := mainDB.NewBatch()
-	for i := uint32(1); i < toBlk.Number(); i++ {
+	for i := uint32(0); i < toBlk.Number(); i++ {
 		b, _ := meterChain.GetTrunkBlock(i)
 		pruneStart := time.Now()
-		stat := pruner.PruneIndexTrie(b.ID(), batch)
+		stat := pruner.PruneIndexTrie(b.Number(), b.ID(), batch)
 		prunedNodes += stat.Nodes
 		prunedBytes += stat.PrunedNodeBytes
 		log.Info(fmt.Sprintf("Pruned block %v", i), "prunedNodes", stat.Nodes, "prunedBytes", stat.PrunedNodeBytes, "elapsed", PrettyDuration(time.Since(pruneStart)))
