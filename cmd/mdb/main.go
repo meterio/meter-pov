@@ -93,12 +93,17 @@ func main() {
 				Action: pruneAction,
 			},
 			{
-				Name:   "scan",
+				Name:   "scan-state",
 				Usage:  "Scan all state trie with pruner and calculate the total size",
-				Flags:  []cli.Flag{dataDirFlag, networkFlag, toFlag},
+				Flags:  []cli.Flag{dataDirFlag, networkFlag},
 				Action: scanTrieAction,
 			},
-
+			{
+				Name:   "scan-index",
+				Usage:  "Scan all state trie with pruner and calculate the total size",
+				Flags:  []cli.Flag{dataDirFlag, networkFlag},
+				Action: scanIndexTrieAction,
+			},
 			{
 				Name:   "traverse",
 				Usage:  "Traverse the state with given block and print along the way",
@@ -1182,6 +1187,49 @@ func calcStorageByCategoryAction(ctx *cli.Context) error {
 	return nil
 }
 
+func scanIndexTrieAction(ctx *cli.Context) error {
+	initLogger()
+
+	mainDB, gene := openMainDB(ctx)
+	defer func() { log.Info("closing main database..."); mainDB.Close() }()
+
+	meterChain := initChain(gene, mainDB)
+	bestBlock := meterChain.BestBlock()
+	pruner := trie.NewPruner(mainDB)
+
+	var (
+		totalBytes = uint64(0)
+		totalNodes = 0
+		start      = time.Now()
+		lastReport time.Time
+	)
+	go func() {
+		fmt.Println(http.ListenAndServe("0.0.0.0:6060", nil))
+	}()
+
+	for i := uint32(0); i < bestBlock.Number(); i++ {
+		b, _ := meterChain.GetTrunkBlock(i)
+		scanStart := time.Now()
+		delta := pruner.ScanIndexTrie(b.ID())
+		totalNodes += delta.Nodes
+		totalBytes += delta.Bytes
+		log.Info(fmt.Sprintf("Scanned block %v", i), "nodes", totalNodes, "bytes", totalBytes)
+		if time.Since(lastReport) > time.Second*8 {
+			log.Info("Still scanning", "elapsed", PrettyDuration(time.Since(scanStart)), "nodes", totalNodes, "bytes", totalBytes)
+			lastReport = time.Now()
+		}
+
+		// manually call garbage collection every 20 min
+		if int64(time.Since(start).Seconds())%(60*20) == 0 {
+			meterChain = initChain(gene, mainDB)
+			runtime.GC()
+		}
+	}
+	// pruner.Compact()
+	log.Info("Scan complete", "elapsed", PrettyDuration(time.Since(start)), "nodes", totalNodes, "bytes", totalBytes)
+	return nil
+}
+
 func scanTrieAction(ctx *cli.Context) error {
 	initLogger()
 
@@ -1189,10 +1237,7 @@ func scanTrieAction(ctx *cli.Context) error {
 	defer func() { log.Info("closing main database..."); mainDB.Close() }()
 
 	meterChain := initChain(gene, mainDB)
-	toBlk, err := loadBlockByRevision(meterChain, ctx.String(toFlag.Name))
-	if err != nil {
-		fatal("could not load block with revision")
-	}
+	bestBlock := meterChain.BestBlock()
 	pruner := trie.NewPruner(mainDB)
 
 	var (
@@ -1206,7 +1251,7 @@ func scanTrieAction(ctx *cli.Context) error {
 		fmt.Println(http.ListenAndServe("0.0.0.0:6060", nil))
 	}()
 
-	for i := uint32(0); i < toBlk.Number(); i++ {
+	for i := uint32(0); i < bestBlock.Number(); i++ {
 		b, _ := meterChain.GetTrunkBlock(i)
 		root := b.StateRoot()
 		if bytes.Equal(root[:], lastRoot[:]) {
@@ -1216,8 +1261,8 @@ func scanTrieAction(ctx *cli.Context) error {
 		scanStart := time.Now()
 		delta := pruner.Scan(root)
 		totalNodes += delta.Nodes + delta.StorageNodes
-		totalBytes += delta.Bytes + delta.StorageBytes
-		log.Info(fmt.Sprintf("Scanned block %v", i))
+		totalBytes += delta.Bytes + delta.StorageBytes + delta.CodeBytes
+		log.Info(fmt.Sprintf("Scanned block %v", i), "nodes", totalNodes, "bytes", totalBytes)
 		if time.Since(lastReport) > time.Second*8 {
 			log.Info("Still scanning", "elapsed", PrettyDuration(time.Since(scanStart)), "nodes", totalNodes, "bytes", totalBytes)
 			lastReport = time.Now()
@@ -1230,6 +1275,6 @@ func scanTrieAction(ctx *cli.Context) error {
 		}
 	}
 	// pruner.Compact()
-	log.Info("Scan complete", "elapsed", PrettyDuration(time.Since(start)), "nodes", totalNodes, "totalBytes", totalBytes)
+	log.Info("Scan complete", "elapsed", PrettyDuration(time.Since(start)), "nodes", totalNodes, "bytes", totalBytes)
 	return nil
 }

@@ -58,6 +58,10 @@ type PruneIterator interface {
 	Get([]byte) ([]byte, error) // get value from cache or db
 }
 
+var (
+	indexTrieRootPrefix = []byte("i") // (prefix, block id) -> trie root
+)
+
 // Iterator is a key-value trie iterator that traverses a Trie.
 type PruneStat struct {
 	Nodes        int // count of state trie nodes on target trie
@@ -75,6 +79,8 @@ type TrieDelta struct {
 	Bytes        uint64 // count of added bytes
 	StorageNodes int    //  count of added storage nodes on target trie
 	StorageBytes uint64 // count of added storage bytes
+	CodeCount    int
+	CodeBytes    uint64
 }
 
 func (s *PruneStat) String() string {
@@ -261,7 +267,7 @@ func (p *Pruner) Prune(root meter.Bytes32, batch kv.Batch) *PruneStat {
 	return stat
 }
 
-// prune the trie at block height
+// prune the state trie with given root
 func (p *Pruner) Scan(root meter.Bytes32) *TrieDelta {
 	log.Info("Start scanning", "root", root)
 	t, _ := New(root, p.db)
@@ -278,6 +284,17 @@ func (p *Pruner) Scan(root meter.Bytes32) *TrieDelta {
 				log.Error("Invalid account encountered during traversal", "err", err)
 				continue
 			}
+
+			if !bytes.Equal(acc.CodeHash, []byte{}) {
+				code, err := p.iter.Get(acc.CodeHash)
+				if err != nil {
+					log.Error("Could not get code", "err", err)
+				}
+				delta.CodeBytes += uint64(len(code))
+				delta.CodeCount++
+				log.Info("Append code", "hash", hex.EncodeToString(acc.CodeHash), "len", len(code), "codeCount", delta.CodeCount, "codeBytes", delta.CodeBytes)
+			}
+
 			if !bytes.Equal(acc.StorageRoot, []byte{}) {
 				if p.canSkip(acc.StorageRoot) {
 					continue
@@ -297,14 +314,39 @@ func (p *Pruner) Scan(root meter.Bytes32) *TrieDelta {
 					loaded, _ := p.iter.Get(shash[:])
 					delta.StorageBytes += uint64(len(loaded) + len(shash))
 					delta.StorageNodes++
-					log.Info("Append storage", "hash", shash, "len", len(loaded)+len(shash), "prunedNodes", delta.StorageNodes)
+					log.Info("Append storage", "hash", shash, "len", len(loaded)+len(shash), "nodes", delta.StorageNodes, "bytes", delta.StorageNodes)
 				}
 			}
 		} else {
 			loaded, _ := p.iter.Get(hash[:])
 			delta.Nodes++
 			delta.Bytes += uint64(len(loaded) + len(hash))
-			log.Info("Append node", "hash", hash, "len", len(loaded)+len(hash), "nodes", delta.Nodes)
+			log.Info("Append node", "hash", hash, "len", len(loaded)+len(hash), "nodes", delta.Nodes, "bytes", delta.Bytes)
+		}
+	}
+	log.Info("Scaned trie", "root", root, "nodes", delta.Nodes+delta.StorageNodes, "bytes", delta.Bytes+delta.StorageBytes)
+
+	return delta
+}
+
+// prune the state trie with given root
+func (p *Pruner) ScanIndexTrie(blockHash meter.Bytes32) *TrieDelta {
+	log.Info("Start scanning", "blockHash", blockHash)
+	root, err := p.loadOrGet(append(indexTrieRootPrefix, blockHash[:]...))
+	if err != nil {
+		panic("could not get index trie root")
+	}
+	t, _ := New(meter.BytesToBytes32(root), p.db)
+	p.iter = newPruneIterator(t, p.canSkip, p.mark, p.loadOrGet)
+	delta := &TrieDelta{}
+	for p.iter.Next(true) {
+		hash := p.iter.Hash()
+
+		if !p.iter.Leaf() {
+			loaded, _ := p.iter.Get(hash[:])
+			delta.Nodes++
+			delta.Bytes += uint64(len(loaded) + len(hash))
+			log.Info("Append node", "hash", hash, "len", len(loaded)+len(hash), "nodes", delta.Nodes, "bytes", delta.Bytes)
 		}
 	}
 	log.Info("Scaned trie", "root", root, "nodes", delta.Nodes+delta.StorageNodes, "bytes", delta.Bytes+delta.StorageBytes)
