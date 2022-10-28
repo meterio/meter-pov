@@ -18,26 +18,27 @@ const rootCacheLimit = 2048
 
 type ancestorTrie struct {
 	kv         kv.GetPutter
-	rootsCache *cache
-	trieCache  *trieCache
+	rootsCache *cache     // deprecated with old index trie
+	trieCache  *trieCache // deprecated with old index trie
+	hashCache  *blockHashCache
 }
 
 func newAncestorTrie(kv kv.GetPutter) *ancestorTrie {
 	rootsCache := newCache(rootCacheLimit, func(key interface{}) (interface{}, error) {
 		return loadBlockNumberIndexTrieRoot(kv, key.(meter.Bytes32))
 	})
-	return &ancestorTrie{kv, rootsCache, newTrieCache()}
+	return &ancestorTrie{kv, rootsCache, newTrieCache(), newBlockHashCache(1024, kv)}
 }
 
 func (at *ancestorTrie) Update(w kv.Putter, num uint32, id, parentID meter.Bytes32) error {
-	var parentRoot meter.Bytes32
-	err := saveBlockHash(w, num, id)
+	// save with flattern schema
+	err := at.hashCache.put(num, id)
 	if err == nil {
 		return nil
 	}
 
 	// optional
-
+	var parentRoot meter.Bytes32
 	if block.Number(id) > 0 {
 		// non-genesis
 		root, err := at.rootsCache.GetOrLoad(parentID)
@@ -69,8 +70,10 @@ func (at *ancestorTrie) Update(w kv.Putter, num uint32, id, parentID meter.Bytes
 }
 
 func (at *ancestorTrie) GetAncestor(descendantID meter.Bytes32, ancestorNum uint32) (meter.Bytes32, error) {
-	blockID, err := loadBlockHash(at.kv, ancestorNum)
+	// load from cache or flattern schema
+	blockID, err := at.hashCache.loadOrGet(ancestorNum)
 	if err == nil {
+		// update cache
 		return blockID, err
 	}
 
@@ -96,6 +99,32 @@ func (at *ancestorTrie) GetAncestor(descendantID meter.Bytes32, ancestorNum uint
 		return meter.Bytes32{}, err
 	}
 	return meter.BytesToBytes32(id), nil
+}
+
+type blockHashCache struct {
+	cache *lru.Cache
+	kv    kv.GetPutter
+}
+
+func newBlockHashCache(size int, kv kv.GetPutter) *blockHashCache {
+	cache, _ := lru.New(size)
+	return &blockHashCache{cache, kv}
+}
+
+func (bc *blockHashCache) loadOrGet(num uint32) (meter.Bytes32, error) {
+	if blockID, ok := bc.cache.Get(num); ok {
+		return blockID.(meter.Bytes32), nil
+	}
+	id, err := loadBlockHash(bc.kv, num)
+	if err == nil {
+		bc.cache.Add(num, id)
+	}
+	return id, err
+}
+
+func (bc *blockHashCache) put(num uint32, id meter.Bytes32) error {
+	bc.cache.Add(num, id)
+	return saveBlockHash(bc.kv, num, id)
 }
 
 // /
