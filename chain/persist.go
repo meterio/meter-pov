@@ -6,6 +6,8 @@
 package chain
 
 import (
+	"encoding/binary"
+
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/meterio/meter-pov/block"
 	"github.com/meterio/meter-pov/kv"
@@ -21,7 +23,15 @@ var (
 	indexTrieRootPrefix = []byte("i") // (prefix, block id) -> trie root
 	leafBlockKey        = []byte("leaf")
 	bestQCKey           = []byte("best-qc")
+
+	hashKeyPrefix = []byte("hash") // (prefix, block num) -> block hash
 )
+
+func numberAsKey(num uint32) []byte {
+	var key [4]byte
+	binary.BigEndian.PutUint32(key[:], num)
+	return key[:]
+}
 
 // TxMeta contains information about a tx is settled.
 type TxMeta struct {
@@ -61,6 +71,22 @@ func loadBestBlockID(r kv.Getter) (meter.Bytes32, error) {
 // saveBestBlockID save the best block ID on trunk.
 func saveBestBlockID(w kv.Putter, id meter.Bytes32) error {
 	return w.Put(bestBlockKey, id[:])
+}
+
+// loadBlockHash returns the block hash on trunk with num.
+func loadBlockHash(r kv.Getter, num uint32) (meter.Bytes32, error) {
+	numKey := numberAsKey(num)
+	data, err := r.Get(append(hashKeyPrefix, numKey...))
+	if err != nil {
+		return meter.Bytes32{}, err
+	}
+	return meter.BytesToBytes32(data), nil
+}
+
+// saveBlockHash save the block hash on trunk corresponding to a num.
+func saveBlockHash(w kv.Putter, num uint32, id meter.Bytes32) error {
+	numKey := numberAsKey(num)
+	return w.Put(append(hashKeyPrefix, numKey...), id[:])
 }
 
 func loadLeafBlockID(r kv.Getter) (meter.Bytes32, error) {

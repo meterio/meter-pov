@@ -100,7 +100,7 @@ func New(kv kv.GetPutter, genesisBlock *block.Block, verbose bool) (*Chain, erro
 			return nil, err
 		}
 
-		if err := ancestorTrie.Update(batch, genesisID, genesisBlock.Header().ParentID()); err != nil {
+		if err := ancestorTrie.Update(batch, 0, genesisID, genesisBlock.Header().ParentID()); err != nil {
 			return nil, err
 		}
 
@@ -358,7 +358,7 @@ func (c *Chain) AddBlock(newBlock *block.Block, receipts tx.Receipts, finalize b
 		return nil, err
 	}
 
-	if err := c.ancestorTrie.Update(batch, newBlockID, newBlock.ParentID()); err != nil {
+	if err := c.ancestorTrie.Update(batch, newBlock.Number(), newBlockID, newBlock.ParentID()); err != nil {
 		return nil, err
 	}
 
