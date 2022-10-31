@@ -11,12 +11,18 @@ MAJOR = $(shell go version | cut -d' ' -f3 | cut -b 3- | cut -d. -f1)
 MINOR = $(shell go version | cut -d' ' -f3 | cut -b 3- | cut -d. -f2)
 export GO111MODULE=on
 
-.PHONY: meter disco all clean test
+.PHONY: meter disco mdb all clean test
 
 meter:| go_version_check
 	@echo "building $@..."
 	@go build -v -o $(CURDIR)/bin/$@ -ldflags "-X main.version=$(METER_VERSION) -X main.gitCommit=$(GIT_COMMIT) -X main.gitTag=$(GIT_TAG)" ./cmd/meter
 	@echo "done. executable created at 'bin/$@'"
+
+mdb:| go_version_check
+	@echo "building $@..."
+	@go build -v -o $(CURDIR)/bin/$@ -ldflags "-X main.version=$(METER_VERSION) -X main.gitCommit=$(GIT_COMMIT) -X main.gitTag=$(GIT_TAG)" ./cmd/mdb
+	@echo "done. executable created at 'bin/$@'"
+
 
 disco:| go_version_check
 	@echo "building $@..."
