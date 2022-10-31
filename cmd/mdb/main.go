@@ -53,7 +53,7 @@ func main() {
 			{Name: "block", Usage: "Load block from database on revision", Flags: []cli.Flag{dataDirFlag, networkFlag, revisionFlag}, Action: loadBlockAction},
 			{Name: "storage", Usage: "Load storage value from database with account address and key", Flags: []cli.Flag{dataDirFlag, networkFlag, addressFlag, keyFlag}, Action: loadStorageAction},
 			{Name: "peek", Usage: "Load pointers like best-qc, best-block, leaf-block from database", Flags: []cli.Flag{networkFlag, dataDirFlag}, Action: peekAction},
-			{Name: "stash", Usage: "Load all txs from tx.stash", Flags: []cli.Flag{stashDirFlag}, Action: loadStashAction},
+			{Name: "stash", Usage: "Load all txs from tx.stash", Flags: []cli.Flag{dataDirFlag, networkFlag}, Action: loadStashAction},
 			{
 				Name:   "report-state",
 				Usage:  "Scan all state trie and report major metrics such as total size",
@@ -148,7 +148,7 @@ func traverseStateAction(ctx *cli.Context) error {
 	mainDB, gene := openMainDB(ctx)
 	defer func() { log.Info("closing main database..."); mainDB.Close() }()
 
-	meterChain := initChain(gene, mainDB)
+	meterChain := initChain(ctx, gene, mainDB)
 
 	blk, err := loadBlockByRevision(meterChain, ctx.String(revisionFlag.Name))
 	if err != nil {
@@ -227,8 +227,6 @@ func traverseStateAction(ctx *cli.Context) error {
 }
 
 func traverseIndexAction(ctx *cli.Context) error {
-	initLogger()
-
 	mainDB, _ := openMainDB(ctx)
 	defer func() { log.Info("closing main database..."); mainDB.Close() }()
 
@@ -274,8 +272,6 @@ func traverseIndexAction(ctx *cli.Context) error {
 }
 
 func traverseStorageAction(ctx *cli.Context) error {
-	initLogger()
-
 	mainDB, _ := openMainDB(ctx)
 	defer func() { log.Info("closing main database..."); mainDB.Close() }()
 
@@ -319,12 +315,10 @@ func traverseStorageAction(ctx *cli.Context) error {
 }
 
 func pruneStateAction(ctx *cli.Context) error {
-	initLogger()
-
 	mainDB, gene := openMainDB(ctx)
 	defer func() { log.Info("closing main database..."); mainDB.Close() }()
 
-	meterChain := initChain(gene, mainDB)
+	meterChain := initChain(ctx, gene, mainDB)
 	toBlk, err := loadBlockByRevision(meterChain, ctx.String(beforeFlag.Name))
 	if err != nil {
 		fatal("could not load block with revision")
@@ -372,7 +366,7 @@ func pruneStateAction(ctx *cli.Context) error {
 
 		// manually call garbage collection every 20 min
 		if int64(time.Since(start).Seconds())%(60*20) == 0 {
-			meterChain = initChain(gene, mainDB)
+			meterChain = initChain(ctx, gene, mainDB)
 			runtime.GC()
 		}
 	}
@@ -382,12 +376,10 @@ func pruneStateAction(ctx *cli.Context) error {
 }
 
 func pruneIndexAction(ctx *cli.Context) error {
-	initLogger()
-
 	mainDB, gene := openMainDB(ctx)
 	defer func() { log.Info("closing main database..."); mainDB.Close() }()
 
-	meterChain := initChain(gene, mainDB)
+	meterChain := initChain(ctx, gene, mainDB)
 	toBlk, err := loadBlockByRevision(meterChain, ctx.String(beforeFlag.Name))
 	if err != nil {
 		fatal("could not load block with revision")
@@ -425,7 +417,7 @@ func pruneIndexAction(ctx *cli.Context) error {
 
 		// manually call garbage collection every 20 min
 		if int64(time.Since(start).Seconds())%(60*20) == 0 {
-			meterChain = initChain(gene, mainDB)
+			meterChain = initChain(ctx, gene, mainDB)
 			runtime.GC()
 		}
 	}
@@ -435,8 +427,6 @@ func pruneIndexAction(ctx *cli.Context) error {
 }
 
 func compactAction(ctx *cli.Context) error {
-	initLogger()
-
 	mainDB, _ := openMainDB(ctx)
 	defer func() { log.Info("closing main database..."); mainDB.Close() }()
 
@@ -455,12 +445,10 @@ func statAction(ctx *cli.Context) error {
 }
 
 func snapshotAction(ctx *cli.Context) error {
-	initLogger()
-
 	mainDB, gene := openMainDB(ctx)
 	defer func() { log.Info("closing main database..."); mainDB.Close() }()
 
-	meterChain := initChain(gene, mainDB)
+	meterChain := initChain(ctx, gene, mainDB)
 
 	blk, err := loadBlockByRevision(meterChain, ctx.String(revisionFlag.Name))
 	if err != nil {
@@ -493,12 +481,10 @@ func snapshotAction(ctx *cli.Context) error {
 // contract codes are present. It's basically identical to traverseState
 // but it will check each trie node.
 func traverseRawStateAction(ctx *cli.Context) error {
-	initLogger()
-
 	mainDB, gene := openMainDB(ctx)
 	defer func() { log.Info("closing main database..."); mainDB.Close() }()
 
-	meterChain := initChain(gene, mainDB)
+	meterChain := initChain(ctx, gene, mainDB)
 
 	blk, err := loadBlockByRevision(meterChain, ctx.String(revisionFlag.Name))
 	if err != nil {
@@ -618,12 +604,10 @@ type QCInfo struct {
 }
 
 func unsafeResetAction(ctx *cli.Context) error {
-	initLogger()
-
 	mainDB, gene := openMainDB(ctx)
 	defer func() { log.Info("closing main database..."); mainDB.Close() }()
 
-	meterChain := initChain(gene, mainDB)
+	meterChain := initChain(ctx, gene, mainDB)
 
 	var (
 		myClient = &http.Client{Timeout: 5 * time.Second}
@@ -739,12 +723,10 @@ func unsafeResetAction(ctx *cli.Context) error {
 }
 
 func reportIndexAction(ctx *cli.Context) error {
-	initLogger()
-
 	mainDB, gene := openMainDB(ctx)
 	defer func() { log.Info("closing main database..."); mainDB.Close() }()
 
-	meterChain := initChain(gene, mainDB)
+	meterChain := initChain(ctx, gene, mainDB)
 	bestBlock := meterChain.BestBlock()
 	pruner := trie.NewPruner(mainDB)
 
@@ -769,7 +751,7 @@ func reportIndexAction(ctx *cli.Context) error {
 
 		// manually call garbage collection every 20 min
 		if int64(time.Since(start).Seconds())%(60*20) == 0 {
-			meterChain = initChain(gene, mainDB)
+			meterChain = initChain(ctx, gene, mainDB)
 			runtime.GC()
 		}
 	}
@@ -779,12 +761,10 @@ func reportIndexAction(ctx *cli.Context) error {
 }
 
 func reportStateAction(ctx *cli.Context) error {
-	initLogger()
-
 	mainDB, gene := openMainDB(ctx)
 	defer func() { log.Info("closing main database..."); mainDB.Close() }()
 
-	meterChain := initChain(gene, mainDB)
+	meterChain := initChain(ctx, gene, mainDB)
 	bestBlock := meterChain.BestBlock()
 	pruner := trie.NewPruner(mainDB)
 
@@ -817,7 +797,7 @@ func reportStateAction(ctx *cli.Context) error {
 
 		// manually call garbage collection every 20 min
 		if int64(time.Since(start).Seconds())%(60*20) == 0 {
-			meterChain = initChain(gene, mainDB)
+			meterChain = initChain(ctx, gene, mainDB)
 			runtime.GC()
 		}
 	}

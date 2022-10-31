@@ -16,11 +16,6 @@ var (
 		Usage:  "directory for block-chain databases",
 		EnvVar: "MDB_DATA_DIR",
 	}
-	stashDirFlag = cli.StringFlag{
-		Name:  "stash-dir",
-		Value: "",
-		Usage: "directory for tx.stash folder",
-	}
 
 	networkFlag  = cli.StringFlag{Name: "network", Usage: "the network to join (main|test)", EnvVar: "MDB_NETWORK"}
 	heightFlag   = cli.Int64Flag{Name: "height", Usage: "the height for target block"}

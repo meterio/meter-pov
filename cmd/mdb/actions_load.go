@@ -66,12 +66,10 @@ func loadRawAction(ctx *cli.Context) error {
 }
 
 func loadBlockAction(ctx *cli.Context) error {
-	initLogger()
-
 	mainDB, gene := openMainDB(ctx)
 	defer func() { log.Info("closing main database..."); mainDB.Close() }()
 
-	meterChain := initChain(gene, mainDB)
+	meterChain := initChain(ctx, gene, mainDB)
 
 	blk, err := loadBlockByRevision(meterChain, ctx.String(revisionFlag.Name))
 	if err != nil {
@@ -90,12 +88,10 @@ func loadBlockAction(ctx *cli.Context) error {
 }
 
 func loadAccountAction(ctx *cli.Context) error {
-	initLogger()
-
 	mainDB, gene := openMainDB(ctx)
 	defer func() { log.Info("closing main database..."); mainDB.Close() }()
 
-	meterChain := initChain(gene, mainDB)
+	meterChain := initChain(ctx, gene, mainDB)
 
 	blk, err := loadBlockByRevision(meterChain, ctx.String(revisionFlag.Name))
 	if err != nil {
@@ -136,12 +132,10 @@ func loadAccountAction(ctx *cli.Context) error {
 }
 
 func loadStorageAction(ctx *cli.Context) error {
-	initLogger()
-
 	mainDB, gene := openMainDB(ctx)
 	defer func() { log.Info("closing main database..."); mainDB.Close() }()
 
-	meterChain := initChain(gene, mainDB)
+	meterChain := initChain(ctx, gene, mainDB)
 
 	blk, err := loadBlockByRevision(meterChain, ctx.String(revisionFlag.Name))
 	if err != nil {
@@ -164,12 +158,10 @@ func loadStorageAction(ctx *cli.Context) error {
 }
 
 func peekAction(ctx *cli.Context) error {
-	initLogger()
-
 	mainDB, gene := openMainDB(ctx)
 	defer func() { log.Info("closing main database..."); mainDB.Close() }()
 
-	meterChain := initChain(gene, mainDB)
+	meterChain := initChain(ctx, gene, mainDB)
 
 	var (
 		network = ctx.String(networkFlag.Name)

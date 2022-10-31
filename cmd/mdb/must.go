@@ -86,7 +86,8 @@ func selectGenesis(ctx *cli.Context) *genesis.Genesis {
 	}
 }
 
-func initChain(gene *genesis.Genesis, mainDB *lvldb.LevelDB) *chain.Chain {
+func initChain(ctx *cli.Context, gene *genesis.Genesis, mainDB *lvldb.LevelDB) *chain.Chain {
+	meter.InitBlockChainConfig(gene.ID(), ctx.String(networkFlag.Name))
 	genesisBlock, _, err := gene.Build(state.NewCreator(mainDB))
 	if err != nil {
 		fatal("build genesis block: ", err)
@@ -97,7 +98,6 @@ func initChain(gene *genesis.Genesis, mainDB *lvldb.LevelDB) *chain.Chain {
 		fatal("initialize block chain:", err)
 	}
 	fmt.Println("GENESIS BLOCK:\n", genesisBlock.CompactString())
-
 	return chain
 }
 
