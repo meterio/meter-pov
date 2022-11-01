@@ -24,7 +24,11 @@ var (
 	leafBlockKey        = []byte("leaf")
 	bestQCKey           = []byte("best-qc")
 
-	hashKeyPrefix = []byte("hash") // (prefix, block num) -> block hash
+	// added for new flattern index schema
+	hashKeyPrefix         = []byte("hash") // (prefix, block num) -> block hash
+	flatternIndexStartKey = []byte("flattern-index-start")
+	pruneIndexHeadKey     = []byte("prune-index-head")
+	pruneStateHeadKey     = []byte("prune-state-head")
 )
 
 func numberAsKey(num uint32) []byte {
@@ -209,4 +213,50 @@ func loadBestQC(r kv.Getter) (*block.QuorumCert, error) {
 		return nil, err
 	}
 	return &qc, nil
+}
+
+// loadFlatternIndexStart returns the best block ID on trunk.
+func loadFlatternIndexStart(r kv.Getter) (uint32, error) {
+	data, err := r.Get(flatternIndexStartKey)
+	if err != nil {
+		return 0, err
+	}
+	num := binary.LittleEndian.Uint32(data)
+	return num, nil
+}
+
+func saveFlatternIndexStart(w kv.Putter, num uint32) error {
+	b := make([]byte, 4)
+	binary.LittleEndian.PutUint32(b, num)
+	return w.Put(flatternIndexStartKey, b)
+}
+
+func loadPruneIndexHead(r kv.Getter) (uint32, error) {
+	data, err := r.Get(pruneIndexHeadKey)
+	if err != nil {
+		return 0, err
+	}
+	num := binary.LittleEndian.Uint32(data)
+	return num, nil
+}
+
+func savePruneIndexHead(w kv.Putter, num uint32) error {
+	b := make([]byte, 4)
+	binary.LittleEndian.PutUint32(b, num)
+	return w.Put(pruneIndexHeadKey, b)
+}
+
+func loadPruneStateHead(r kv.Getter) (uint32, error) {
+	data, err := r.Get(pruneStateHeadKey)
+	if err != nil {
+		return 0, err
+	}
+	num := binary.LittleEndian.Uint32(data)
+	return num, nil
+}
+
+func savePruneStateHead(w kv.Putter, num uint32) error {
+	b := make([]byte, 4)
+	binary.LittleEndian.PutUint32(b, num)
+	return w.Put(pruneStateHeadKey, b)
 }

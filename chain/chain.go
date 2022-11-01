@@ -603,10 +603,10 @@ func (c *Chain) isTrunk(header *block.Header) bool {
 
 // Think about the example below:
 //
-//   B1--B2--B3--B4--B5--B6
-//             \
-//              \
-//               b4--b5
+//	B1--B2--B3--B4--B5--B6
+//	          \
+//	           \
+//	            b4--b5
 //
 // When call buildFork(B6, b5), the return values will be:
 // ((B3, [B4, B5, B6], [b4, b5]), nil)
@@ -1056,4 +1056,36 @@ func (c *Chain) FindEpochOnBlock(num uint32) (uint64, error) {
 		return 0, err
 	}
 	return b.GetBlockEpoch(), nil
+}
+
+func (c *Chain) RenewAncestorTrie() {
+	c.ancestorTrie = newAncestorTrie(c.kv)
+}
+
+func (c *Chain) CheckFlatternIndexStart() error {
+	if num, err := loadFlatternIndexStart(c.kv); num <= 0 || err != nil {
+		bestNum := c.bestBlock.Number()
+		return saveFlatternIndexStart(c.kv, bestNum)
+	}
+	return nil
+}
+
+func (c *Chain) GetFlatternIndexStart() (uint32, error) {
+	return loadFlatternIndexStart(c.kv)
+}
+
+func (c *Chain) GetPruneIndexHead() (uint32, error) {
+	return loadPruneIndexHead(c.kv)
+}
+
+func (c *Chain) UpdatePruneIndexHead(num uint32) error {
+	return savePruneIndexHead(c.kv, num)
+}
+
+func (c *Chain) GetPruneStateHead() (uint32, error) {
+	return loadPruneStateHead(c.kv)
+}
+
+func (c *Chain) UpdatePruneStateHead(num uint32) error {
+	return savePruneStateHead(c.kv, num)
 }
