@@ -34,6 +34,12 @@ var (
 	flags               = []cli.Flag{dataDirFlag, networkFlag, revisionFlag}
 )
 
+const (
+	statePruningBatch = 1024
+	indexPruningBatch = 512
+	GCInterval        = 20 * 60 // 20 min
+)
+
 func main() {
 	go func() {
 		fmt.Println(http.ListenAndServe("localhost:6060", nil))
@@ -214,7 +220,7 @@ func traverseStateAction(ctx *cli.Context) error {
 			log.Info("Branch Node", "hash", iter.Hash(), "val", hex.EncodeToString(raw), "parent", iter.Parent())
 		}
 		if time.Since(lastReport) > time.Second*8 {
-			log.Info("Still traversing", "nodes", nodes, "accounts", accounts, "snodes", snodes, "slots", slots, "codes", codes, "elapsed", PrettyDuration(time.Since(start)))
+			log.Info("Still traversing", "nodes", nodes, "accounts", accounts, "snodes", snodes, "slots", slots, "codes", codes, "elapsed", meter.PrettyDuration(time.Since(start)))
 			lastReport = time.Now()
 		}
 	}
@@ -222,7 +228,7 @@ func traverseStateAction(ctx *cli.Context) error {
 		log.Error("Failed to traverse state trie", "root", blk.StateRoot(), "err", iter.Error())
 		return iter.Error()
 	}
-	log.Info("Traverse completed", "nodes", nodes, "accounts", accounts, "snodes", snodes, "slots", slots, "codes", codes, "elapsed", PrettyDuration(time.Since(start)))
+	log.Info("Traverse completed", "nodes", nodes, "accounts", accounts, "snodes", snodes, "slots", slots, "codes", codes, "elapsed", meter.PrettyDuration(time.Since(start)))
 	return nil
 }
 
@@ -259,7 +265,7 @@ func traverseIndexAction(ctx *cli.Context) error {
 			size += len(raw) + 32
 		}
 		if time.Since(lastReport) > time.Second*8 {
-			log.Info("Still traversing", "nodes", nodes, "leafs", leafs, "size", size, "elapsed", PrettyDuration(time.Since(start)))
+			log.Info("Still traversing", "nodes", nodes, "leafs", leafs, "size", size, "elapsed", meter.PrettyDuration(time.Since(start)))
 			lastReport = time.Now()
 		}
 	}
@@ -267,7 +273,7 @@ func traverseIndexAction(ctx *cli.Context) error {
 		log.Error("Failed to traverse state trie", "root", root, "err", iter.Error())
 		return iter.Error()
 	}
-	log.Info("Traverse complete", "nodes", nodes, "leafs", leafs, "size", size, "elapsed", PrettyDuration(time.Since(start)))
+	log.Info("Traverse complete", "nodes", nodes, "leafs", leafs, "size", size, "elapsed", meter.PrettyDuration(time.Since(start)))
 	return nil
 }
 
@@ -302,7 +308,7 @@ func traverseStorageAction(ctx *cli.Context) error {
 			// log.Info("Storage Branch", "hash", iter.Hash().String(), "val", hex.EncodeToString(raw), "parent", iter.Parent())
 		}
 		if time.Since(lastReport) > time.Second*8 {
-			log.Info("Still traversing", "nodes", nodes, "slots", slots, "elapsed", PrettyDuration(time.Since(start)))
+			log.Info("Still traversing", "nodes", nodes, "slots", slots, "elapsed", meter.PrettyDuration(time.Since(start)))
 			lastReport = time.Now()
 		}
 	}
@@ -310,7 +316,7 @@ func traverseStorageAction(ctx *cli.Context) error {
 		log.Error("Failed to traverse state trie", "root", root, "err", iter.Error())
 		return iter.Error()
 	}
-	log.Info("Traverse complete", "nodes", nodes, "slots", slots, "elapsed", PrettyDuration(time.Since(start)))
+	log.Info("Traverse complete", "nodes", nodes, "slots", slots, "elapsed", meter.PrettyDuration(time.Since(start)))
 	return nil
 }
 
@@ -349,12 +355,12 @@ func pruneStateAction(ctx *cli.Context) error {
 		stat := pruner.Prune(root, batch)
 		prunedNodes += stat.PrunedNodes + stat.PrunedStorageNodes
 		prunedBytes += stat.PrunedNodeBytes + stat.PrunedStorageBytes
-		log.Info(fmt.Sprintf("Pruned block %v", i), "prunedNodes", stat.PrunedNodes+stat.PrunedStorageNodes, "prunedBytes", stat.PrunedNodeBytes+stat.PrunedStorageBytes, "elapsed", PrettyDuration(time.Since(pruneStart)))
+		log.Info(fmt.Sprintf("Pruned block %v", i), "prunedNodes", stat.PrunedNodes+stat.PrunedStorageNodes, "prunedBytes", stat.PrunedNodeBytes+stat.PrunedStorageBytes, "elapsed", meter.PrettyDuration(time.Since(pruneStart)))
 		if time.Since(lastReport) > time.Second*8 {
-			log.Info("Still pruning", "elapsed", PrettyDuration(time.Since(start)), "prunedNodes", prunedNodes, "prunedBytes", prunedBytes)
+			log.Info("Still pruning", "elapsed", meter.PrettyDuration(time.Since(start)), "prunedNodes", prunedNodes, "prunedBytes", prunedBytes)
 			lastReport = time.Now()
 		}
-		if batch.Len() >= 1024 || i == toBlk.Number() {
+		if batch.Len() >= statePruningBatch || i == toBlk.Number() {
 			if err := batch.Write(); err != nil {
 				log.Error("Error flushing", "err", err)
 			}
@@ -365,13 +371,13 @@ func pruneStateAction(ctx *cli.Context) error {
 		}
 
 		// manually call garbage collection every 20 min
-		if int64(time.Since(start).Seconds())%(60*20) == 0 {
+		if int64(time.Since(start).Seconds())%(GCInterval) == 0 {
 			meterChain = initChain(ctx, gene, mainDB)
 			runtime.GC()
 		}
 	}
 	// pruner.Compact()
-	log.Info("Prune complete", "elapsed", PrettyDuration(time.Since(start)), "prunedNodes", prunedNodes, "prunedBytes", prunedBytes)
+	log.Info("Prune complete", "elapsed", meter.PrettyDuration(time.Since(start)), "prunedNodes", prunedNodes, "prunedBytes", prunedBytes)
 	return nil
 }
 
@@ -401,12 +407,12 @@ func pruneIndexAction(ctx *cli.Context) error {
 		stat := pruner.PruneIndexTrie(b.Number(), b.ID(), batch)
 		prunedNodes += stat.Nodes
 		prunedBytes += stat.PrunedNodeBytes
-		log.Info(fmt.Sprintf("Pruned block %v", i), "prunedNodes", stat.Nodes, "prunedBytes", stat.PrunedNodeBytes, "elapsed", PrettyDuration(time.Since(pruneStart)))
+		log.Info(fmt.Sprintf("Pruned block %v", i), "prunedNodes", stat.Nodes, "prunedBytes", stat.PrunedNodeBytes, "elapsed", meter.PrettyDuration(time.Since(pruneStart)))
 		if time.Since(lastReport) > time.Second*8 {
-			log.Info("Still pruning", "elapsed", PrettyDuration(time.Since(start)), "prunedNodes", prunedNodes, "prunedBytes", prunedBytes)
+			log.Info("Still pruning", "elapsed", meter.PrettyDuration(time.Since(start)), "prunedNodes", prunedNodes, "prunedBytes", prunedBytes)
 			lastReport = time.Now()
 		}
-		if batch.Len() >= 512 || i == toBlk.Number() {
+		if batch.Len() >= indexPruningBatch || i == toBlk.Number() {
 			if err := batch.Write(); err != nil {
 				log.Error("Error flushing", "err", err)
 			}
@@ -416,13 +422,13 @@ func pruneIndexAction(ctx *cli.Context) error {
 		}
 
 		// manually call garbage collection every 20 min
-		if int64(time.Since(start).Seconds())%(60*20) == 0 {
+		if int64(time.Since(start).Seconds())%(GCInterval) == 0 {
 			meterChain = initChain(ctx, gene, mainDB)
 			runtime.GC()
 		}
 	}
 	// pruner.Compact()
-	log.Info("Prune complete", "elapsed", PrettyDuration(time.Since(start)), "prunedNodes", prunedNodes, "prunedBytes", prunedBytes)
+	log.Info("Prune complete", "elapsed", meter.PrettyDuration(time.Since(start)), "prunedNodes", prunedNodes, "prunedBytes", prunedBytes)
 	return nil
 }
 
@@ -580,7 +586,7 @@ func traverseRawStateAction(ctx *cli.Context) error {
 				codes += 1
 			}
 			if time.Since(lastReport) > time.Second*8 {
-				log.Info("Still traversing", "nodes", nodes, "accounts", accounts, "slots", slots, "elapsed", PrettyDuration(time.Since(start)))
+				log.Info("Still traversing", "nodes", nodes, "accounts", accounts, "slots", slots, "elapsed", meter.PrettyDuration(time.Since(start)))
 				lastReport = time.Now()
 			}
 		}
@@ -589,7 +595,7 @@ func traverseRawStateAction(ctx *cli.Context) error {
 		log.Error("Failed to traverse state trie", "root", blk.StateRoot(), "err", accIter.Error())
 		return accIter.Error()
 	}
-	log.Info("State is complete", "nodes", nodes, "accounts", accounts, "slots", slots, "codes", codes, "elapsed", PrettyDuration(time.Since(start)))
+	log.Info("State is complete", "nodes", nodes, "accounts", accounts, "slots", slots, "codes", codes, "elapsed", meter.PrettyDuration(time.Since(start)))
 	return nil
 }
 
@@ -745,7 +751,7 @@ func reportIndexAction(ctx *cli.Context) error {
 		totalBytes += delta.Bytes
 		log.Info(fmt.Sprintf("Scanned block %v", i), "nodes", totalNodes, "bytes", totalBytes)
 		if time.Since(lastReport) > time.Second*8 {
-			log.Info("Still scanning", "elapsed", PrettyDuration(time.Since(scanStart)), "nodes", totalNodes, "bytes", totalBytes)
+			log.Info("Still scanning", "elapsed", meter.PrettyDuration(time.Since(scanStart)), "nodes", totalNodes, "bytes", totalBytes)
 			lastReport = time.Now()
 		}
 
@@ -756,7 +762,7 @@ func reportIndexAction(ctx *cli.Context) error {
 		}
 	}
 	// pruner.Compact()
-	log.Info("Scan complete", "elapsed", PrettyDuration(time.Since(start)), "nodes", totalNodes, "bytes", totalBytes)
+	log.Info("Scan complete", "elapsed", meter.PrettyDuration(time.Since(start)), "nodes", totalNodes, "bytes", totalBytes)
 	return nil
 }
 
@@ -791,7 +797,7 @@ func reportStateAction(ctx *cli.Context) error {
 		totalBytes += delta.Bytes + delta.StorageBytes + delta.CodeBytes
 		log.Info(fmt.Sprintf("Scanned block %v", i), "nodes", totalNodes, "bytes", totalBytes)
 		if time.Since(lastReport) > time.Second*8 {
-			log.Info("Still scanning", "elapsed", PrettyDuration(time.Since(scanStart)), "nodes", totalNodes, "bytes", totalBytes)
+			log.Info("Still scanning", "elapsed", meter.PrettyDuration(time.Since(scanStart)), "nodes", totalNodes, "bytes", totalBytes)
 			lastReport = time.Now()
 		}
 
@@ -801,6 +807,6 @@ func reportStateAction(ctx *cli.Context) error {
 			runtime.GC()
 		}
 	}
-	log.Info("Scan complete", "elapsed", PrettyDuration(time.Since(start)), "nodes", totalNodes, "bytes", totalBytes, "roots", roots)
+	log.Info("Scan complete", "elapsed", meter.PrettyDuration(time.Since(start)), "nodes", totalNodes, "bytes", totalBytes, "roots", roots)
 	return nil
 }
