@@ -8,7 +8,6 @@ package node
 import (
 	"fmt"
 
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/mclock"
 	"github.com/meterio/meter-pov/block"
 	"github.com/meterio/meter-pov/meter"
@@ -41,7 +40,7 @@ func (s *blockStats) LogContext(last *block.Header) []interface{} {
 	return []interface{}{
 		"txs", s.txs,
 		"mgas", float64(s.usedGas) / 1000 / 1000,
-		"et", fmt.Sprintf("%v|%v", common.PrettyDuration(s.exec), common.PrettyDuration(s.commit)),
+		"et", fmt.Sprintf("%v|%v", meter.PrettyDuration(s.exec), meter.PrettyDuration(s.commit)),
 		"mgas/s", float64(s.usedGas) * 1000 / float64(s.exec+s.commit),
 		"id", shortID(last.ID()),
 		"number", last.Number(),

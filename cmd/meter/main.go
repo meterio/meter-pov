@@ -16,6 +16,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"time"
 
@@ -30,14 +31,17 @@ import (
 	isatty "github.com/mattn/go-isatty"
 	"github.com/meterio/meter-pov/api"
 	"github.com/meterio/meter-pov/api/doc"
+	"github.com/meterio/meter-pov/chain"
 	"github.com/meterio/meter-pov/cmd/meter/node"
 	"github.com/meterio/meter-pov/consensus"
+	"github.com/meterio/meter-pov/lvldb"
 	"github.com/meterio/meter-pov/meter"
 	"github.com/meterio/meter-pov/powpool"
 	pow_api "github.com/meterio/meter-pov/powpool/api"
 	"github.com/meterio/meter-pov/preset"
 	"github.com/meterio/meter-pov/script"
 	"github.com/meterio/meter-pov/state"
+	"github.com/meterio/meter-pov/trie"
 	"github.com/meterio/meter-pov/txpool"
 	"github.com/pborman/uuid"
 	"github.com/pkg/errors"
@@ -64,6 +68,11 @@ var (
 		LimitPerAccount: 16,
 		MaxLifetime:     20 * time.Minute,
 	}
+)
+
+const (
+	indexPruningBatch = 512
+	GCInterval        = 60 * 5 // 5 min
 )
 
 func fullVersion() string {
@@ -227,6 +236,17 @@ func defaultAction(ctx *cli.Context) error {
 	defer func() { log.Info("closing log database..."); logDB.Close() }()
 
 	chain := initChain(gene, mainDB, logDB)
+
+	// if flattern index start flag is not set, mark it in db
+	chain.CheckFlatternIndexStart()
+	flatternIndexStart, _ := chain.GetFlatternIndexStart()
+	pruneIndexHead, _ := chain.GetPruneIndexHead()
+
+	// if flattern index start is not set, or pruning is not complete
+	// start the pruning routine right now
+	if flatternIndexStart <= 0 || pruneIndexHead < flatternIndexStart {
+		go pruneIndexTrieUntilFlattern(mainDB, chain)
+	}
 
 	master, blsCommon := loadNodeMaster(ctx)
 	pubkey, err := getNodeComplexPubKey(master, blsCommon)
@@ -400,5 +420,59 @@ func masterKeyAction(ctx *cli.Context) error {
 		_, err = fmt.Println(string(keyjson))
 		return err
 	}
+	return nil
+}
+
+func pruneIndexTrieUntilFlattern(mainDB *lvldb.LevelDB, meterChain *chain.Chain) error {
+	flatternIndexStart, _ := meterChain.GetFlatternIndexStart()
+
+	if flatternIndexStart <= 0 {
+		flatternIndexStart = meterChain.BestBlock().Number()
+	}
+	toBlk, err := meterChain.GetTrunkBlock(flatternIndexStart)
+
+	if err != nil {
+		fmt.Println("could not load block with revision")
+		return errors.New("could not load block with revision")
+	}
+	pruner := trie.NewPruner(mainDB)
+
+	var (
+		prunedBytes = uint64(0)
+		prunedNodes = 0
+	)
+
+	start := time.Now()
+	var lastReport time.Time
+	batch := mainDB.NewBatch()
+	for i := uint32(0); i < toBlk.Number(); i++ {
+		b, _ := meterChain.GetTrunkBlock(i)
+		pruneStart := time.Now()
+		stat := pruner.PruneIndexTrie(b.Number(), b.ID(), batch)
+		prunedNodes += stat.Nodes
+		prunedBytes += stat.PrunedNodeBytes
+		log.Info(fmt.Sprintf("Pruned block %v", i), "prunedNodes", stat.Nodes, "prunedBytes", stat.PrunedNodeBytes, "elapsed", meter.PrettyDuration(time.Since(pruneStart)))
+		if time.Since(lastReport) > time.Second*20 {
+			log.Info("Still pruning", "elapsed", meter.PrettyDuration(time.Since(start)), "prunedNodes", prunedNodes, "prunedBytes", prunedBytes)
+			lastReport = time.Now()
+		}
+		if batch.Len() >= indexPruningBatch || i == toBlk.Number() {
+			if err := batch.Write(); err != nil {
+				log.Error("Error flushing", "err", err)
+			}
+			log.Info("commited deletion batch", "len", batch.Len())
+
+			batch = mainDB.NewBatch()
+			meterChain.UpdatePruneIndexHead(i)
+		}
+
+		// manually call garbage collection every 5 min
+		if int64(time.Since(start).Seconds())%(GCInterval) == 0 {
+			meterChain.RenewAncestorTrie()
+			runtime.GC()
+		}
+	}
+	// pruner.Compact()
+	log.Info("Prune complete", "elapsed", meter.PrettyDuration(time.Since(start)), "prunedNodes", prunedNodes, "prunedBytes", prunedBytes)
 	return nil
 }

@@ -13,7 +13,6 @@ import (
 	"time"
 
 	"github.com/beevik/ntp"
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/mclock"
 	"github.com/ethereum/go-ethereum/event"
 	"github.com/inconshreveable/log15"
@@ -404,6 +403,6 @@ func checkClockOffset() {
 		return
 	}
 	if resp.ClockOffset > time.Duration(meter.BlockInterval)*time.Second/2 {
-		log.Warn("clock offset detected", "offset", common.PrettyDuration(resp.ClockOffset))
+		log.Warn("clock offset detected", "offset", meter.PrettyDuration(resp.ClockOffset))
 	}
 }
