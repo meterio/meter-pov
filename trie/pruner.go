@@ -23,12 +23,20 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/rlp"
 	lru "github.com/hashicorp/golang-lru"
 	"github.com/meterio/meter-pov/kv"
 	"github.com/meterio/meter-pov/meter"
+)
+
+const (
+	nodeCacheSize = 5120
+)
+
+var (
+	indexTrieRootPrefix = []byte("i")    // (prefix, block id) -> trie root
+	hashKeyPrefix       = []byte("hash") // (prefix, block num) -> block hash
 )
 
 type PruneIterator interface {
@@ -59,11 +67,6 @@ type PruneIterator interface {
 	Get([]byte) ([]byte, error) // get value from cache or db
 }
 
-var (
-	indexTrieRootPrefix = []byte("i")    // (prefix, block id) -> trie root
-	hashKeyPrefix       = []byte("hash") // (prefix, block num) -> block hash
-)
-
 // Iterator is a key-value trie iterator that traverses a Trie.
 type PruneStat struct {
 	Nodes        int // count of state trie nodes on target trie
@@ -89,10 +92,6 @@ func (s *PruneStat) String() string {
 	return fmt.Sprintf("Trie: (accounts:%v, nodes:%v, storageNodes:%v)\nPruned (nodes:%v, bytes:%v)\nPruned Storage (nodes:%v, bytes:%v)", s.Accounts, s.Nodes, s.StorageNodes, s.PrunedNodes, s.PrunedNodeBytes, s.PrunedStorageNodes, s.PrunedStorageBytes)
 }
 
-var (
-	CACHE_SIZE = 5120
-)
-
 func numberAsKey(num uint32) []byte {
 	var key [4]byte
 	binary.BigEndian.PutUint32(key[:], num)
@@ -110,7 +109,7 @@ type Pruner struct {
 // NewIterator creates a new key-value iterator from a node iterator
 func NewPruner(db KeyValueStore) *Pruner {
 	bloom, _ := NewStateBloomWithSize(256)
-	cache, err := lru.New(CACHE_SIZE)
+	cache, err := lru.New(nodeCacheSize)
 	if err != nil {
 		panic("could not create cache")
 	}
@@ -161,13 +160,13 @@ func (p *Pruner) Compact() {
 		if b == 0xf0 {
 			end = nil
 		}
-		log.Info("Compacting database", "range", fmt.Sprintf("%#x-%#x", start, end), "elapsed", common.PrettyDuration(time.Since(cstart)))
+		log.Info("Compacting database", "range", fmt.Sprintf("%#x-%#x", start, end), "elapsed", meter.PrettyDuration(time.Since(cstart)))
 		if err := p.db.Compact(start, end); err != nil {
 			log.Error("Database compaction failed", "error", err)
 			return
 		}
 	}
-	log.Info("Database compaction finished", "elapsed", common.PrettyDuration(time.Since(cstart)))
+	log.Info("Database compaction finished", "elapsed", meter.PrettyDuration(time.Since(cstart)))
 	p.PrintStats()
 }
 

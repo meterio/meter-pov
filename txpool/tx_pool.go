@@ -9,7 +9,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/mclock"
 	"github.com/ethereum/go-ethereum/event"
 	"github.com/inconshreveable/log15"
@@ -129,7 +128,7 @@ func (p *TxPool) housekeeping() {
 				ctx := []interface{}{
 					"len", poolLen,
 					"removed", removed,
-					"elapsed", common.PrettyDuration(elapsed),
+					"elapsed", meter.PrettyDuration(elapsed),
 				}
 				if err != nil {
 					ctx = append(ctx, "err", err)
@@ -151,7 +150,7 @@ func (p *TxPool) Close() {
 	log.Debug("closed")
 }
 
-//SubscribeTxEvent receivers will receive a tx
+// SubscribeTxEvent receivers will receive a tx
 func (p *TxPool) SubscribeTxEvent(ch chan *TxEvent) event.Subscription {
 	return p.scope.Track(p.txFeed.Subscribe(ch))
 }

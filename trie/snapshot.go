@@ -23,7 +23,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"math/big"
-	"regexp"
 	"strings"
 	"time"
 
@@ -215,11 +214,11 @@ func (ts *TrieSnapshot) AddTrie(root meter.Bytes32, db Database) {
 			}
 		}
 		if time.Since(lastReport) > time.Second*8 {
-			log.Info("Still generating snapshot", "nodes", nodes, "accounts", accounts, "slots", slots, "elapsed", PrettyDuration(time.Since(start)))
+			log.Info("Still generating snapshot", "nodes", nodes, "accounts", accounts, "slots", slots, "elapsed", meter.PrettyDuration(time.Since(start)))
 			lastReport = time.Now()
 		}
 	}
-	log.Info("Snapshot completed", "root", root, "stateTrieSize", stateTrieSize, "storageTrieSize", storageTrieSize, "nodes", nodes, "accounts", accounts, "slots", slots, "codeSize", codeSize, "elapsed", PrettyDuration(time.Since(start)))
+	log.Info("Snapshot completed", "root", root, "stateTrieSize", stateTrieSize, "storageTrieSize", storageTrieSize, "nodes", nodes, "accounts", accounts, "slots", slots, "codeSize", codeSize, "elapsed", meter.PrettyDuration(time.Since(start)))
 }
 
 func (ts *TrieSnapshot) String() string {
@@ -284,20 +283,4 @@ func (ts *TrieSnapshot) LoadFromFile(prefix string) bool {
 		return false
 	}
 	return true
-}
-
-// PrettyDuration is a pretty printed version of a time.Duration value that cuts
-// the unnecessary precision off from the formatted textual representation.
-type PrettyDuration time.Duration
-
-var prettyDurationRe = regexp.MustCompile(`\.[0-9]{4,}`)
-
-// String implements the Stringer interface, allowing pretty printing of duration
-// values rounded to three decimals.
-func (d PrettyDuration) String() string {
-	label := time.Duration(d).String()
-	if match := prettyDurationRe.FindString(label); len(match) > 4 {
-		label = strings.Replace(label, match, match[:4], 1)
-	}
-	return label
 }
