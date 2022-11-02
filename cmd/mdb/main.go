@@ -47,7 +47,7 @@ var (
 const (
 	statePruningBatch = 1024
 	indexPruningBatch = 512
-	GCInterval        = 20 * 60 // 20 min
+	GCInterval        = 20 * 60 * 1000 // 20 min in milliseconds
 )
 
 func main() {
@@ -382,7 +382,8 @@ func pruneStateAction(ctx *cli.Context) error {
 		}
 
 		// manually call garbage collection every 20 min
-		if int64(time.Since(start).Seconds())%(GCInterval) == 0 {
+		elapsed := time.Since(start).Milliseconds()
+		if elapsed%GCInterval == 0 {
 			meterChain = initChain(ctx, gene, mainDB)
 			runtime.GC()
 		}
@@ -433,7 +434,8 @@ func pruneIndexAction(ctx *cli.Context) error {
 		}
 
 		// manually call garbage collection every 20 min
-		if int64(time.Since(start).Seconds())%(GCInterval) == 0 {
+		elapsed := time.Since(start).Milliseconds()
+		if elapsed%GCInterval == 0 {
 			meterChain = initChain(ctx, gene, mainDB)
 			runtime.GC()
 		}

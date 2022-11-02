@@ -75,7 +75,7 @@ var (
 const (
 	indexPruningBatch     = 512
 	indexFlatterningBatch = 1024
-	GCInterval            = 60 * 5 // 5 min
+	GCInterval            = 5 * 60 * 1000 // 5 min in millisecond
 )
 
 func fullVersion() string {
@@ -474,7 +474,8 @@ func pruneIndexTrie(mainDB *lvldb.LevelDB, meterChain *chain.Chain) error {
 		}
 
 		// manually call garbage collection every 5 min
-		if int64(time.Since(start).Seconds())%(GCInterval) == 0 {
+		elapsed := time.Since(start).Milliseconds()
+		if elapsed%GCInterval == 0 {
 			log.Info("Call garbage collection in index trie pruning", "len", batch.Len(), "head", i)
 			meterChain.RenewAncestorTrie()
 			runtime.GC()
