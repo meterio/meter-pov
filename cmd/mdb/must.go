@@ -29,7 +29,9 @@ func initLogger() {
 }
 
 func openMainDB(ctx *cli.Context) (*lvldb.LevelDB, *genesis.Genesis) {
+	meter.InitBlockChainConfig(ctx.String(networkFlag.Name))
 	gene := selectGenesis(ctx)
+	// init block chain config
 	dbFilePath := ctx.String(dataDirFlag.Name)
 	instanceDir := filepath.Join(dbFilePath, fmt.Sprintf("instance-%x", gene.ID().Bytes()[24:]))
 	if _, err := fdlimit.Raise(5120 * 4); err != nil {
@@ -87,7 +89,6 @@ func selectGenesis(ctx *cli.Context) *genesis.Genesis {
 }
 
 func initChain(ctx *cli.Context, gene *genesis.Genesis, mainDB *lvldb.LevelDB) *chain.Chain {
-	meter.InitBlockChainConfig(gene.ID(), ctx.String(networkFlag.Name))
 	genesisBlock, _, err := gene.Build(state.NewCreator(mainDB))
 	if err != nil {
 		fatal("build genesis block: ", err)
@@ -97,7 +98,6 @@ func initChain(ctx *cli.Context, gene *genesis.Genesis, mainDB *lvldb.LevelDB) *
 	if err != nil {
 		fatal("initialize block chain:", err)
 	}
-	fmt.Println("GENESIS BLOCK:\n", genesisBlock.CompactString())
 	return chain
 }
 

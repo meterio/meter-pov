@@ -157,6 +157,23 @@ func loadStorageAction(ctx *cli.Context) error {
 	return nil
 }
 
+func loadIndexTrieRootAction(ctx *cli.Context) error {
+	mainDB, gene := openMainDB(ctx)
+	defer func() { log.Info("closing main database..."); mainDB.Close() }()
+
+	meterChain := initChain(ctx, gene, mainDB)
+	blk, err := loadBlockByRevision(meterChain, ctx.String(revisionFlag.Name))
+	if err != nil {
+		fmt.Println("could not get block", err)
+	}
+	val, err := mainDB.Get(append(indexTrieRootPrefix, blk.ID().Bytes()...))
+	if err != nil {
+		fmt.Println("could not get index trie root", err)
+	}
+	fmt.Println("index trie root for ", blk.Number(), "is ", hex.EncodeToString(val))
+	return nil
+}
+
 func peekAction(ctx *cli.Context) error {
 	mainDB, gene := openMainDB(ctx)
 	defer func() { log.Info("closing main database..."); mainDB.Close() }()
@@ -201,5 +218,28 @@ func peekAction(ctx *cli.Context) error {
 		panic("could not read best block")
 	}
 	fmt.Println("Best Block (Decoded): \n", bestBlk.String())
+
+	bestBlockIDBeforeFlattern, err := loadBestBlockIDBeforeFlattern(mainDB)
+	if err != nil {
+		fmt.Println("could not read flattern-index-start")
+	} else {
+		blk, _ := meterChain.GetBlock(bestBlockIDBeforeFlattern)
+		fmt.Println("Best Block Before Flattern: ", bestBlockIDBeforeFlattern, "\n", blk.String())
+	}
+
+	pruneIndexHead, err := loadPruneIndexHead(mainDB)
+	if err != nil {
+		fmt.Println("could not read prune-index-head")
+	} else {
+		fmt.Println("Prune Index Head: ", pruneIndexHead)
+	}
+
+	pruneStateHead, err := loadPruneStateHead(mainDB)
+	if err != nil {
+		fmt.Println("could not read prune-state-head")
+	} else {
+		fmt.Println("Prune State Head ", pruneStateHead)
+	}
+
 	return nil
 }

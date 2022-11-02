@@ -27,11 +27,21 @@ var (
 	txMetaPrefix        = []byte("t") // (prefix, tx id) -> tx location
 	blockReceiptsPrefix = []byte("r") // (prefix, block id) -> receipts
 	indexTrieRootPrefix = []byte("i") // (prefix, block id) -> trie root
-	version             string
-	gitCommit           string
-	gitTag              string
-	log                 = log15.New()
-	flags               = []cli.Flag{dataDirFlag, networkFlag, revisionFlag}
+
+	bestBlockKey = []byte("best")
+	leafBlockKey = []byte("leaf")
+	bestQCKey    = []byte("best-qc")
+	// added for new flattern index schema
+	hashKeyPrefix         = []byte("hash") // (prefix, block num) -> block hash
+	bestBeforeFlatternKey = []byte("best-before-flattern")
+	pruneIndexHeadKey     = []byte("prune-index-head")
+	pruneStateHeadKey     = []byte("prune-state-head")
+
+	version   string
+	gitCommit string
+	gitTag    string
+	log       = log15.New()
+	flags     = []cli.Flag{dataDirFlag, networkFlag, revisionFlag}
 )
 
 const (
@@ -57,6 +67,7 @@ func main() {
 			{Name: "raw", Usage: "Load raw value from database with key", Flags: []cli.Flag{dataDirFlag, networkFlag, keyFlag}, Action: loadRawAction},
 			{Name: "account", Usage: "Load account from database on revision", Flags: []cli.Flag{dataDirFlag, networkFlag, revisionFlag, addressFlag}, Action: loadAccountAction},
 			{Name: "block", Usage: "Load block from database on revision", Flags: []cli.Flag{dataDirFlag, networkFlag, revisionFlag}, Action: loadBlockAction},
+			{Name: "index-trie", Usage: "Load index trie root from database on revision", Flags: []cli.Flag{dataDirFlag, networkFlag, revisionFlag}, Action: loadIndexTrieRootAction},
 			{Name: "storage", Usage: "Load storage value from database with account address and key", Flags: []cli.Flag{dataDirFlag, networkFlag, addressFlag, keyFlag}, Action: loadStorageAction},
 			{Name: "peek", Usage: "Load pointers like best-qc, best-block, leaf-block from database", Flags: []cli.Flag{networkFlag, dataDirFlag}, Action: peekAction},
 			{Name: "stash", Usage: "Load all txs from tx.stash", Flags: []cli.Flag{dataDirFlag, networkFlag}, Action: loadStashAction},

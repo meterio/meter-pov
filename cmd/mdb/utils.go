@@ -7,6 +7,7 @@ package main
 
 import (
 	"context"
+	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -104,7 +105,6 @@ func getValue(ldb *lvldb.LevelDB, key []byte) (string, error) {
 }
 
 func updateLeaf(ldb *lvldb.LevelDB, hexVal string, dryRun bool) error {
-	leafBlockKey := []byte("leaf")
 	v, _ := hex.DecodeString(hexVal)
 	if !dryRun {
 		ldb.Put(leafBlockKey, v)
@@ -116,16 +116,14 @@ func updateLeaf(ldb *lvldb.LevelDB, hexVal string, dryRun bool) error {
 }
 
 func readLeaf(ldb *lvldb.LevelDB) (string, error) {
-	leafBlockKey := []byte("leaf")
 	val, err := getValue(ldb, leafBlockKey)
 	return val, err
 }
 
 func updateBestQC(ldb *lvldb.LevelDB, hexVal string, dryRun bool) error {
-	key := []byte("best-qc")
 	v, _ := hex.DecodeString(hexVal)
 	if !dryRun {
-		ldb.Put(key, v)
+		ldb.Put(bestQCKey, v)
 		fmt.Println("best-qc updated:", hexVal)
 	} else {
 		fmt.Println("best-qc will be:", hexVal)
@@ -134,16 +132,14 @@ func updateBestQC(ldb *lvldb.LevelDB, hexVal string, dryRun bool) error {
 }
 
 func readBestQC(ldb *lvldb.LevelDB) (string, error) {
-	key := []byte("best-qc")
-	val, err := getValue(ldb, key)
+	val, err := getValue(ldb, bestQCKey)
 	return val, err
 }
 
 func updateBest(ldb *lvldb.LevelDB, hexVal string, dryRun bool) error {
-	key := []byte("best")
 	v, _ := hex.DecodeString(hexVal)
 	if !dryRun {
-		ldb.Put(key, v)
+		ldb.Put(bestBlockKey, v)
 		fmt.Println("best updated:", hexVal)
 	} else {
 		fmt.Println("best will be:", hexVal)
@@ -152,7 +148,50 @@ func updateBest(ldb *lvldb.LevelDB, hexVal string, dryRun bool) error {
 }
 
 func readBest(ldb *lvldb.LevelDB) (string, error) {
-	key := []byte("best")
-	val, err := getValue(ldb, key)
+	val, err := getValue(ldb, bestBlockKey)
 	return val, err
+}
+
+// loadFlatternIndexStart returns the best block ID on trunk.
+
+func loadPruneIndexHead(r kv.Getter) (uint32, error) {
+	data, err := r.Get(pruneIndexHeadKey)
+	if err != nil {
+		return 0, err
+	}
+	num := binary.LittleEndian.Uint32(data)
+	return num, nil
+}
+
+func savePruneIndexHead(w kv.Putter, num uint32) error {
+	b := make([]byte, 4)
+	binary.LittleEndian.PutUint32(b, num)
+	return w.Put(pruneIndexHeadKey, b)
+}
+
+func loadPruneStateHead(r kv.Getter) (uint32, error) {
+	data, err := r.Get(pruneStateHeadKey)
+	if err != nil {
+		return 0, err
+	}
+	num := binary.LittleEndian.Uint32(data)
+	return num, nil
+}
+
+func savePruneStateHead(w kv.Putter, num uint32) error {
+	b := make([]byte, 4)
+	binary.LittleEndian.PutUint32(b, num)
+	return w.Put(pruneStateHeadKey, b)
+}
+
+func loadBestBlockIDBeforeFlattern(r kv.Getter) (meter.Bytes32, error) {
+	data, err := r.Get(bestBeforeFlatternKey)
+	if err != nil {
+		return meter.Bytes32{}, err
+	}
+	return meter.BytesToBytes32(data), nil
+}
+
+func saveBestBlockIDBeforeFlattern(w kv.Putter, id meter.Bytes32) error {
+	return w.Put(bestBeforeFlatternKey, id.Bytes())
 }
