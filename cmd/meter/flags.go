@@ -12,13 +12,15 @@ import (
 
 var (
 	networkFlag = cli.StringFlag{
-		Name:  "network",
-		Usage: "the network to join (main|test|warringstakes)",
+		Name:   "network",
+		Usage:  "the network to join (main|test|warringstakes)",
+		EnvVar: "METER_NETWORK",
 	}
 	dataDirFlag = cli.StringFlag{
-		Name:  "data-dir",
-		Value: defaultDataDir(),
-		Usage: "directory for block-chain databases",
+		Name:   "data-dir",
+		Value:  defaultDataDir(),
+		Usage:  "directory for block-chain databases",
+		EnvVar: "METER_DATA_DIR",
 	}
 	beneficiaryFlag = cli.StringFlag{
 		Name:  "beneficiary",
