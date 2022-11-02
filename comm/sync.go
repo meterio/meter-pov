@@ -54,7 +54,7 @@ func (c *Communicator) download(peer *Peer, fromNum uint32, handler HandleBlockS
 				errCh <- err
 			}
 			if updated {
-				fmt.Println("GOT QC: ", qc.String(), ", from:", peer.RemoteAddr().String())
+				log.Info("Got QC", "qc", qc.String(), "peer", peer.RemoteAddr().String())
 			}
 
 			result, err := proto.GetBlocksFromNumber(ctx, peer, fromNum)
@@ -63,7 +63,7 @@ func (c *Communicator) download(peer *Peer, fromNum uint32, handler HandleBlockS
 				return
 			}
 			if len(result) > 0 {
-				fmt.Println("GOT Block, ", len(result), "blocks, from height:", fromNum, ", from:", peer.RemoteAddr().String())
+				log.Info("Got Block", "len", len(result), "fromBlock", "fromNum", "peer", peer.RemoteAddr().String())
 			}
 			if len(result) == 0 {
 				return

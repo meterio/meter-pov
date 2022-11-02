@@ -30,6 +30,13 @@ func newAncestorTrie(kv kv.GetPutter) *ancestorTrie {
 	return &ancestorTrie{kv, rootsCache, newTrieCache(), newBlockHashCache(1024, kv)}
 }
 
+// release trie cache which consumes lots of memory with index trie
+// deprecated in flattern index schema
+func (at *ancestorTrie) releaseCache() error {
+	at.trieCache = newTrieCache()
+	return nil
+}
+
 func (at *ancestorTrie) Update(w kv.Putter, num uint32, id, parentID meter.Bytes32) error {
 	// save with flattern schema
 	err := at.hashCache.put(num, id)

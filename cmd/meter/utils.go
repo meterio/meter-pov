@@ -21,6 +21,7 @@ import (
 	"time"
 
 	b64 "encoding/base64"
+	"encoding/binary"
 
 	"encoding/hex"
 
@@ -244,4 +245,10 @@ func getBlsSystem() (*bls.System, error) {
 	}
 
 	return &system, nil
+}
+
+func numberAsKey(num uint32) []byte {
+	var key [4]byte
+	binary.BigEndian.PutUint32(key[:], num)
+	return key[:]
 }

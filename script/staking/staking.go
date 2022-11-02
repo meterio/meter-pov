@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"time"
 
 	"github.com/inconshreveable/log15"
 	"github.com/meterio/meter-pov/abi"
@@ -103,7 +104,7 @@ func (s *Staking) PrepareStakingHandler() (StakingHandler func([]byte, *meter.Ad
 		}
 		*/
 
-		log.Info("Entering staking handler "+GetOpName(sb.Opcode), "tx", txCtx.ID.String())
+		log.Debug("Entering staking handler "+GetOpName(sb.Opcode), "tx", txCtx.ID.String())
 		switch sb.Opcode {
 		case OP_BOUND:
 			if senv.GetTxCtx().Origin != sb.HolderAddr {
@@ -142,6 +143,8 @@ func (s *Staking) PrepareStakingHandler() (StakingHandler func([]byte, *meter.Ad
 			leftOverGas, err = sb.UnDelegateHandler(senv, gas)
 
 		case OP_GOVERNING:
+			log.Info("Staking handler "+GetOpName(sb.Opcode), "tx", txCtx.ID.String())
+			start := time.Now()
 			if senv.GetTxCtx().Origin.IsZero() == false {
 				return nil, gas, errors.New("not from kblock")
 			}
@@ -149,7 +152,7 @@ func (s *Staking) PrepareStakingHandler() (StakingHandler func([]byte, *meter.Ad
 				return nil, gas, errors.New("to address is not the same from module address")
 			}
 			leftOverGas, err = sb.GoverningHandler(senv, gas)
-
+			log.Info(GetOpName(sb.Opcode)+" Completed", "elapsed", meter.PrettyDuration(time.Since(start)))
 		case OP_CANDIDATE_UPDT:
 			if senv.GetTxCtx().Origin != sb.CandAddr {
 				return nil, gas, errors.New("candidate address is not the same from transaction")
@@ -163,6 +166,8 @@ func (s *Staking) PrepareStakingHandler() (StakingHandler func([]byte, *meter.Ad
 			leftOverGas, err = sb.BucketUpdateHandler(senv, gas)
 
 		case OP_DELEGATE_STATISTICS:
+			log.Info("Staking handler "+GetOpName(sb.Opcode), "tx", txCtx.ID.String())
+			start := time.Now()
 			if senv.GetTxCtx().Origin.IsZero() == false {
 				return nil, gas, errors.New("not from kblock")
 			}
@@ -170,6 +175,7 @@ func (s *Staking) PrepareStakingHandler() (StakingHandler func([]byte, *meter.Ad
 				return nil, gas, errors.New("to address is not the same from module address")
 			}
 			leftOverGas, err = sb.DelegateStatisticsHandler(senv, gas)
+			log.Info(GetOpName(sb.Opcode)+" Completed", "elapsed", meter.PrettyDuration(time.Since(start)))
 
 		case OP_DELEGATE_EXITJAIL:
 			if senv.GetTxCtx().Origin != sb.CandAddr {

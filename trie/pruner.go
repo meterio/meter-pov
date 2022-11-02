@@ -357,13 +357,38 @@ func (p *Pruner) ScanIndexTrie(blockHash meter.Bytes32) *TrieDelta {
 	return delta
 }
 
+func (p *Pruner) loadBlockHash(num uint32) (meter.Bytes32, error) {
+	numKey := numberAsKey(num)
+	data, err := p.db.Get(append(hashKeyPrefix, numKey...))
+	if err != nil {
+		return meter.Bytes32{}, err
+	}
+	return meter.BytesToBytes32(data), nil
+}
+
+func (p *Pruner) saveBlockHash(num uint32, id meter.Bytes32) error {
+	numKey := numberAsKey(num)
+	return p.db.Put(append(hashKeyPrefix, numKey...), id[:])
+}
+
 // prune the state trie with given root
 func (p *Pruner) PruneIndexTrie(blockNum uint32, blockHash meter.Bytes32, batch kv.Batch) *PruneStat {
 	log.Info("Start pruning index trie", "blockHash", blockHash)
 	indexTrieKey := append(indexTrieRootPrefix, blockHash[:]...)
 	root, err := p.loadOrGet(indexTrieKey)
 	if err != nil {
-		panic("could not get index trie root")
+		hash, err := p.loadBlockHash(blockNum)
+		if err != nil {
+			log.Warn("could not load index trie root", "blockNum", blockNum, "blockHash", blockHash)
+			p.saveBlockHash(blockNum, blockHash)
+			log.Warn("updated missing block hash", "blockNum", blockNum, "blockHash", blockHash)
+		} else if !bytes.Equal(hash.Bytes(), blockHash.Bytes()) {
+			log.Warn("loaded block hash incorrect", "blockNum", blockNum, "blockHash", blockHash, "hash", hash)
+			p.saveBlockHash(blockNum, blockHash)
+			log.Warn("updated missing block hash", "blockNum", blockNum, "blockHash", blockHash)
+		}
+
+		return &PruneStat{}
 	}
 	t, _ := New(meter.BytesToBytes32(root), p.db)
 	p.iter = newPruneIterator(t, p.canSkip, p.mark, p.loadOrGet)
@@ -384,9 +409,7 @@ func (p *Pruner) PruneIndexTrie(blockNum uint32, blockHash meter.Bytes32, batch 
 	stat.Nodes++
 	log.Info("Pruned index trie", "root", root, "nodes", stat.Nodes, "bytes", stat.PrunedNodeBytes)
 
-	numKey := numberAsKey(blockNum)
-	hashKey := append(hashKeyPrefix, numKey...)
-	p.db.Put(hashKey, blockHash[:])
+	p.saveBlockHash(blockNum, blockHash)
 
 	return stat
 }

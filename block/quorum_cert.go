@@ -39,7 +39,7 @@ func (qc *QuorumCert) String() string {
 
 func (qc *QuorumCert) CompactString() string {
 	if qc != nil {
-		return fmt.Sprintf("QC(Height:%v, Round:%v, Epoch:%v)",
+		return fmt.Sprintf("QC(H:%v, R:%v, Epoch:%v)",
 			qc.QCHeight, qc.QCRound, qc.EpochID)
 	}
 	return "QC(nil)"
@@ -120,7 +120,7 @@ func GenesisQC() *QuorumCert {
 	return &QuorumCert{QCHeight: 0, QCRound: 0, EpochID: 0}
 }
 
-//--------------
+// --------------
 func QCEncodeBytes(qc *QuorumCert) []byte {
 	blockBytes, _ := rlp.EncodeToBytes(qc)
 	return blockBytes

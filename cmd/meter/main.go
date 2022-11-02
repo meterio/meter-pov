@@ -55,6 +55,8 @@ var (
 	log       = log15.New()
 	keyStr    string
 
+	hashKeyPrefix = []byte("hash") // (prefix, block num) -> block hash
+
 	defaultTxPoolOptions = txpool.Options{
 		Limit:           200000,
 		LimitPerAccount: 1024, /*16,*/ //XXX: increase to 1024 from 16 during the testing
@@ -71,8 +73,9 @@ var (
 )
 
 const (
-	indexPruningBatch = 512
-	GCInterval        = 60 * 5 // 5 min
+	indexPruningBatch     = 512
+	indexFlatterningBatch = 1024
+	GCInterval            = 60 * 5 // 5 min
 )
 
 func fullVersion() string {
@@ -225,6 +228,9 @@ func defaultAction(ctx *cli.Context) error {
 
 	initLogger(ctx)
 
+	// init blockchain config
+	meter.InitBlockChainConfig(ctx.String(networkFlag.Name))
+
 	gene := selectGenesis(ctx)
 	instanceDir := makeInstanceDir(ctx, gene)
 
@@ -238,14 +244,14 @@ func defaultAction(ctx *cli.Context) error {
 	chain := initChain(gene, mainDB, logDB)
 
 	// if flattern index start flag is not set, mark it in db
-	chain.CheckFlatternIndexStart()
-	flatternIndexStart, _ := chain.GetFlatternIndexStart()
 	pruneIndexHead, _ := chain.GetPruneIndexHead()
 
+	fmt.Println("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!", "pruneIndexHead=", pruneIndexHead, "bestBlockBeforeFlattern=", chain.BestBlockBeforeIndexFlattern().Number())
 	// if flattern index start is not set, or pruning is not complete
 	// start the pruning routine right now
-	if flatternIndexStart <= 0 || pruneIndexHead < flatternIndexStart {
-		go pruneIndexTrieUntilFlattern(mainDB, chain)
+	if pruneIndexHead < chain.BestBlockBeforeIndexFlattern().Number() {
+		fmt.Println("!!! Pruning Index Trie Begins !!!")
+		go pruneIndexTrie(mainDB, chain)
 	}
 
 	master, blsCommon := loadNodeMaster(ctx)
@@ -274,9 +280,6 @@ func defaultAction(ctx *cli.Context) error {
 		ctx.Set("disco-topic", config.DiscoTopic)
 		ctx.Set("disco-server", config.DiscoServer)
 	}
-
-	// init blockchain config
-	meter.InitBlockChainConfig(gene.ID(), ctx.String(networkFlag.Name))
 
 	// set magic
 	topic := ctx.String("disco-topic")
@@ -423,18 +426,15 @@ func masterKeyAction(ctx *cli.Context) error {
 	return nil
 }
 
-func pruneIndexTrieUntilFlattern(mainDB *lvldb.LevelDB, meterChain *chain.Chain) error {
-	flatternIndexStart, _ := meterChain.GetFlatternIndexStart()
+func pruneIndexTrie(mainDB *lvldb.LevelDB, meterChain *chain.Chain) error {
+	var (
+		start      = time.Now()
+		lastReport time.Time
+	)
 
-	if flatternIndexStart <= 0 {
-		flatternIndexStart = meterChain.BestBlock().Number()
-	}
-	toBlk, err := meterChain.GetTrunkBlock(flatternIndexStart)
+	toBlk := meterChain.BestBlockBeforeIndexFlattern()
+	log.Info("Start to prune index trie", "to", toBlk.Number())
 
-	if err != nil {
-		fmt.Println("could not load block with revision")
-		return errors.New("could not load block with revision")
-	}
 	pruner := trie.NewPruner(mainDB)
 
 	var (
@@ -442,25 +442,32 @@ func pruneIndexTrieUntilFlattern(mainDB *lvldb.LevelDB, meterChain *chain.Chain)
 		prunedNodes = 0
 	)
 
-	start := time.Now()
-	var lastReport time.Time
+	start = time.Now()
+	lastReport = start
+
+	head, err := meterChain.GetPruneIndexHead()
+	if err != nil {
+		log.Error("could not get prune index head", "err", err)
+	}
 	batch := mainDB.NewBatch()
-	for i := uint32(0); i < toBlk.Number(); i++ {
+	for i := head; i < toBlk.Number(); i++ {
 		b, _ := meterChain.GetTrunkBlock(i)
-		pruneStart := time.Now()
+		// pruneStart := time.Now()
 		stat := pruner.PruneIndexTrie(b.Number(), b.ID(), batch)
 		prunedNodes += stat.Nodes
 		prunedBytes += stat.PrunedNodeBytes
-		log.Info(fmt.Sprintf("Pruned block %v", i), "prunedNodes", stat.Nodes, "prunedBytes", stat.PrunedNodeBytes, "elapsed", meter.PrettyDuration(time.Since(pruneStart)))
+		// log.Info(fmt.Sprintf("Pruned block %v", i), "prunedNodes", stat.Nodes, "prunedBytes", stat.PrunedNodeBytes, "elapsed", meter.PrettyDuration(time.Since(pruneStart)))
+
 		if time.Since(lastReport) > time.Second*20 {
-			log.Info("Still pruning", "elapsed", meter.PrettyDuration(time.Since(start)), "prunedNodes", prunedNodes, "prunedBytes", prunedBytes)
+			log.Info("Still pruning index trie", "elapsed", meter.PrettyDuration(time.Since(start)), "head", i, "prunedNodes", prunedNodes, "prunedBytes", prunedBytes)
 			lastReport = time.Now()
 		}
+
 		if batch.Len() >= indexPruningBatch || i == toBlk.Number() {
 			if err := batch.Write(); err != nil {
 				log.Error("Error flushing", "err", err)
 			}
-			log.Info("commited deletion batch", "len", batch.Len())
+			log.Info("Commited batch for index trie pruning", "len", batch.Len(), "head", i)
 
 			batch = mainDB.NewBatch()
 			meterChain.UpdatePruneIndexHead(i)
@@ -468,11 +475,12 @@ func pruneIndexTrieUntilFlattern(mainDB *lvldb.LevelDB, meterChain *chain.Chain)
 
 		// manually call garbage collection every 5 min
 		if int64(time.Since(start).Seconds())%(GCInterval) == 0 {
+			log.Info("Call garbage collection in index trie pruning", "len", batch.Len(), "head", i)
 			meterChain.RenewAncestorTrie()
 			runtime.GC()
 		}
 	}
 	// pruner.Compact()
-	log.Info("Prune complete", "elapsed", meter.PrettyDuration(time.Since(start)), "prunedNodes", prunedNodes, "prunedBytes", prunedBytes)
+	log.Info("Prune index trie completed", "elapsed", meter.PrettyDuration(time.Since(start)), "head", toBlk.Number(), "prunedNodes", prunedNodes, "prunedBytes", prunedBytes)
 	return nil
 }

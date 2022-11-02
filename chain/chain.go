@@ -59,6 +59,8 @@ type Chain struct {
 	rw              sync.RWMutex
 	tick            co.Signal
 	bestQCCandidate *block.QuorumCert
+
+	bestBlockBeforeIndexFlattern *block.Block
 }
 
 type caches struct {
@@ -156,15 +158,33 @@ func New(kv kv.GetPutter, genesisBlock *block.Block, verbose bool) (*Chain, erro
 		return loadBlockReceipts(kv, key.(meter.Bytes32))
 	})
 
+	bestIDBeforeFlattern, err := loadBestBlockIDBeforeFlattern(kv)
+	var bestBlockBeforeFlattern *block.Block
+	if !bytes.Equal(bestIDBeforeFlattern.Bytes(), meter.Bytes32{}.Bytes()) || err == nil {
+		bestBlockBeforeFlatternRaw, err := loadBlockRaw(kv, bestIDBeforeFlattern)
+		if err != nil {
+			fmt.Println("could not load raw for bestBlockBeforeFlattern: ", err)
+		} else {
+			bestBlockBeforeFlattern, _ = (&rawBlock{raw: bestBlockBeforeFlatternRaw}).Block()
+		}
+	} else {
+		saveBestBlockIDBeforeFlattern(kv, bestBlock.ID())
+		bestBlockBeforeFlattern = bestBlock
+	}
+
+	if bestBlockBeforeFlattern == nil {
+		panic("Best Block Before Flattern initialize failed")
+	}
+
 	if leafBlock == nil {
 		fmt.Println("Leaf Block is empty, set it to genesis block")
 		leafBlock = bestBlock
 	} else {
-		fmt.Println("Leaf Block", leafBlock.CompactString())
+		// fmt.Println("Leaf Block", leafBlock.CompactString())
 		// remove all leaf blocks that are not finalized
 		for leafBlock.IsSBlock() || leafBlock.TotalScore() > bestBlock.TotalScore() {
 			fmt.Println("*** Start pruning")
-			parentID, err := ancestorTrie.GetAncestor(leafBlock.ID(), leafBlock.Number()-1)
+			parentID, err := ancestorTrie.GetAncestor(bestBlockBeforeFlattern.ID(), leafBlock.Number()-1)
 			if err != nil {
 				break
 			}
@@ -199,14 +219,18 @@ func New(kv kv.GetPutter, genesisBlock *block.Block, verbose bool) (*Chain, erro
 	}
 	bestHeightGauge.Set(float64(bestBlock.Number()))
 	bestQCHeightGauge.Set(float64(bestQC.QCHeight))
+
 	if verbose {
-		fmt.Println("--------------------------------------------------")
-		fmt.Println("                 CHAIN INITIALIZED                ")
-		fmt.Println("--------------------------------------------------")
-		fmt.Println("Leaf Block: ", leafBlock.CompactString())
-		fmt.Println("Best Block: ", bestBlock.CompactString())
+		fmt.Println("---------------------------------------------------------")
+		fmt.Println("                  METER CHAIN INITIALIZED                ")
+		fmt.Println("---------------------------------------------------------")
+		fmt.Println("Config:  ", meter.BlockChainConfig.ToString())
+		fmt.Println("Genesis: ", genesisBlock.ID())
+		fmt.Println("Leaf:    ", leafBlock.CompactString())
+		fmt.Println("Best:    ", bestBlock.CompactString())
 		fmt.Println("Best QC: ", bestQC.String())
-		fmt.Println("--------------------------------------------------")
+		fmt.Println("Best Before Flattern:", bestBlockBeforeFlattern.CompactString())
+		fmt.Println("---------------------------------------------------------")
 	}
 	c := &Chain{
 		kv:           kv,
@@ -221,6 +245,8 @@ func New(kv kv.GetPutter, genesisBlock *block.Block, verbose bool) (*Chain, erro
 			receipts:  receiptsCache,
 		},
 		bestQCCandidate: bestQC,
+
+		bestBlockBeforeIndexFlattern: bestBlockBeforeFlattern,
 	}
 
 	return c, nil
@@ -234,6 +260,12 @@ func (c *Chain) Tag() byte {
 // GenesisBlock returns genesis block.
 func (c *Chain) GenesisBlock() *block.Block {
 	return c.genesisBlock
+}
+
+func (c *Chain) BestBlockBeforeIndexFlattern() *block.Block {
+	c.rw.Lock()
+	defer c.rw.Unlock()
+	return c.bestBlockBeforeIndexFlattern
 }
 
 // BestBlock returns the newest block on trunk.
@@ -478,7 +510,8 @@ func (c *Chain) GetBlockReceipts(id meter.Bytes32) (tx.Receipts, error) {
 func (c *Chain) GetAncestorBlockID(descendantID meter.Bytes32, ancestorNum uint32) (meter.Bytes32, error) {
 	c.rw.RLock()
 	defer c.rw.RUnlock()
-	return c.ancestorTrie.GetAncestor(descendantID, ancestorNum)
+	return c.ancestorTrie.GetAncestor(c.bestBlockBeforeIndexFlattern.ID(), ancestorNum)
+
 }
 
 // GetTransactionMeta get transaction meta info, on the chain defined by head block ID.
@@ -513,14 +546,14 @@ func (c *Chain) GetTransactionReceipt(blockID meter.Bytes32, index uint64) (*tx.
 func (c *Chain) GetTrunkBlockID(num uint32) (meter.Bytes32, error) {
 	c.rw.RLock()
 	defer c.rw.RUnlock()
-	return c.ancestorTrie.GetAncestor(c.bestBlock.ID(), num)
+	return c.ancestorTrie.GetAncestor(c.bestBlockBeforeIndexFlattern.ID(), num)
 }
 
 // GetTrunkBlockHeader get block header on trunk by given block number.
 func (c *Chain) GetTrunkBlockHeader(num uint32) (*block.Header, error) {
 	c.rw.RLock()
 	defer c.rw.RUnlock()
-	id, err := c.ancestorTrie.GetAncestor(c.bestBlock.ID(), num)
+	id, err := c.ancestorTrie.GetAncestor(c.bestBlockBeforeIndexFlattern.ID(), num)
 	if err != nil {
 		return nil, err
 	}
@@ -531,7 +564,7 @@ func (c *Chain) GetTrunkBlockHeader(num uint32) (*block.Header, error) {
 func (c *Chain) GetTrunkBlock(num uint32) (*block.Block, error) {
 	c.rw.RLock()
 	defer c.rw.RUnlock()
-	id, err := c.ancestorTrie.GetAncestor(c.bestBlock.ID(), num)
+	id, err := c.ancestorTrie.GetAncestor(c.bestBlockBeforeIndexFlattern.ID(), num)
 	if err != nil {
 		return nil, err
 	}
@@ -542,7 +575,7 @@ func (c *Chain) GetTrunkBlock(num uint32) (*block.Block, error) {
 func (c *Chain) GetTrunkBlockRaw(num uint32) (block.Raw, error) {
 	c.rw.RLock()
 	defer c.rw.RUnlock()
-	id, err := c.ancestorTrie.GetAncestor(c.bestBlock.ID(), num)
+	id, err := c.ancestorTrie.GetAncestor(c.bestBlockBeforeIndexFlattern.ID(), num)
 	if err != nil {
 		return nil, err
 	}
@@ -703,7 +736,7 @@ func (c *Chain) getTransactionMeta(txID meter.Bytes32, headBlockID meter.Bytes32
 		return nil, err
 	}
 	for _, m := range meta {
-		ancestorID, err := c.ancestorTrie.GetAncestor(headBlockID, block.Number(m.BlockID))
+		ancestorID, err := c.ancestorTrie.GetAncestor(c.bestBlockBeforeIndexFlattern.ID(), block.Number(m.BlockID))
 		if err != nil {
 			if c.IsNotFound(err) {
 				continue
@@ -784,7 +817,8 @@ func (c *Chain) NewBlockReader(position meter.Bytes32) BlockReader {
 				continue
 			}
 
-			ancestor, err := c.ancestorTrie.GetAncestor(bestID, block.Number(position))
+			ancestor, err := c.ancestorTrie.GetAncestor(c.bestBlockBeforeIndexFlattern.ID(), block.Number(position))
+			// ancestor, err := c.ancestorTrie.GetAncestor(bestID, block.Number(position))
 			if err != nil {
 				return nil, err
 			}
@@ -805,7 +839,7 @@ func (c *Chain) NewBlockReader(position meter.Bytes32) BlockReader {
 }
 
 func (c *Chain) nextBlock(descendantID meter.Bytes32, num uint32) (*block.Block, error) {
-	next, err := c.ancestorTrie.GetAncestor(descendantID, num+1)
+	next, err := c.ancestorTrie.GetAncestor(c.bestBlockBeforeIndexFlattern.ID(), num+1)
 	if err != nil {
 		return nil, err
 	}
@@ -920,7 +954,8 @@ func (c *Chain) UpdateBestQC(qc *block.QuorumCert, source QCSource) (bool, error
 	//         best                             best
 	var blk *block.Block
 	var err error
-	id, err := c.ancestorTrie.GetAncestor(c.leafBlock.ID(), c.bestBlock.Number()+1)
+	id, err := c.ancestorTrie.GetAncestor(c.bestBlockBeforeIndexFlattern.ID(), c.bestBlock.Number()+1)
+	// id, err := c.ancestorTrie.GetAncestor(c.leafBlock.ID(), c.bestBlock.Number()+1)
 	if err != nil {
 		blk = c.bestBlock
 	} else {
@@ -1062,18 +1097,6 @@ func (c *Chain) RenewAncestorTrie() {
 	c.ancestorTrie = newAncestorTrie(c.kv)
 }
 
-func (c *Chain) CheckFlatternIndexStart() error {
-	if num, err := loadFlatternIndexStart(c.kv); num <= 0 || err != nil {
-		bestNum := c.bestBlock.Number()
-		return saveFlatternIndexStart(c.kv, bestNum)
-	}
-	return nil
-}
-
-func (c *Chain) GetFlatternIndexStart() (uint32, error) {
-	return loadFlatternIndexStart(c.kv)
-}
-
 func (c *Chain) GetPruneIndexHead() (uint32, error) {
 	return loadPruneIndexHead(c.kv)
 }
@@ -1088,4 +1111,8 @@ func (c *Chain) GetPruneStateHead() (uint32, error) {
 
 func (c *Chain) UpdatePruneStateHead(num uint32) error {
 	return savePruneStateHead(c.kv, num)
+}
+
+func (c *Chain) ReleaseAncestorCache() {
+	c.ancestorTrie.releaseCache()
 }

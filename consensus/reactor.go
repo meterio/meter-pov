@@ -75,7 +75,7 @@ type ConsensusConfig struct {
 	InitDelegates     []*types.Delegate
 }
 
-//-----------------------------------------------------------------------------
+// -----------------------------------------------------------------------------
 // ConsensusReactor defines a reactor for the consensus service.
 type ConsensusReactor struct {
 	chain        *chain.Chain
@@ -337,7 +337,7 @@ func (conR *ConsensusReactor) RefreshCurHeight() error {
 	conR.updateCurEpoch(best.GetBlockEpoch())
 
 	lastKBlockHeightGauge.Set(float64(conR.lastKBlockHeight))
-	conR.logger.Info("Refresh curHeight", "from", prev, "to", conR.curHeight, "lastKBlock", conR.lastKBlockHeight, "epoch", conR.curEpoch)
+	conR.logger.Debug("Refresh curHeight", "from", prev, "to", conR.curHeight, "lastKBlock", conR.lastKBlockHeight, "epoch", conR.curEpoch)
 	return nil
 }
 
@@ -397,7 +397,7 @@ func (conR *ConsensusReactor) VerifyBothPubKey() {
 	}
 }
 
-//create validatorSet by a given nonce. return by my self role
+// create validatorSet by a given nonce. return by my self role
 func (conR *ConsensusReactor) UpdateCurCommitteeByNonce(nonce uint64) (uint, bool) {
 	committee, role, index, inCommittee := conR.CalcCommitteeByNonce(nonce)
 	conR.curCommittee = committee
@@ -416,7 +416,7 @@ func (conR *ConsensusReactor) UpdateCurCommitteeByNonce(nonce uint64) (uint, boo
 	return role, inCommittee
 }
 
-//it is used for temp calculate committee set by a given nonce in the fly.
+// it is used for temp calculate committee set by a given nonce in the fly.
 // also return the committee
 func (conR *ConsensusReactor) CalcCommitteeByNonce(nonce uint64) (*types.ValidatorSet, uint, int, bool) {
 	buf := make([]byte, binary.MaxVarintLen64)
@@ -940,7 +940,7 @@ func (conR *ConsensusReactor) updateCurEpoch(epoch uint64) {
 		oldVal := conR.curEpoch
 		conR.curEpoch = epoch
 		curEpochGauge.Set(float64(conR.curEpoch))
-		conR.logger.Info("Epoch updated", "to", conR.curEpoch, "from", oldVal)
+		conR.logger.Info("Epoch updated", "from", oldVal, "to", conR.curEpoch)
 	}
 }
 

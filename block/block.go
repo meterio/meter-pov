@@ -332,18 +332,19 @@ QuorumCert: %v,
 
 func (b *Block) CompactString() string {
 	header := b.BlockHeader
-	hasCommittee := len(b.CommitteeInfos.CommitteeInfo) > 0
-	ci := "no"
-	if hasCommittee {
-		ci = "YES"
-	}
-	return fmt.Sprintf(`%v(%v) %v 
-  Parent: %v,
-  QC: %v,
-  LastKBHeight: %v, Magic: %v, #Txs: %v, CommitteeInfo: %v`, b.GetCanonicalName(), header.Number(), header.ID().String(),
-		header.ParentID().String(),
-		b.QC.CompactString(),
-		header.LastKBlockHeight(), b.Magic, len(b.Txs), ci)
+	// hasCommittee := len(b.CommitteeInfos.CommitteeInfo) > 0
+	// ci := "no"
+	// if hasCommittee {
+	// 	ci = "YES"
+	// }
+	return fmt.Sprintf("%v(%v) %v", b.GetCanonicalName(), header.Number(), header.ID())
+	//		return fmt.Sprintf(`%v(%v) %v
+	//	  Parent: %v,
+	//	  QC: %v,
+	//	  LastKBHeight: %v, Magic: %v, #Txs: %v, CommitteeInfo: %v`, b.GetCanonicalName(), header.Number(), header.ID().String(),
+	//			header.ParentID().String(),
+	//			b.QC.CompactString(),
+	//			header.LastKBlockHeight(), b.Magic, len(b.Txs), ci)
 }
 
 func (b *Block) GetCanonicalName() string {
@@ -373,7 +374,7 @@ func (b *Block) Oneliner() string {
 		header.Number(), header.ID().String(), b.QC.CompactString(), b.Magic, len(b.Transactions()), ci, header.ParentID())
 }
 
-//-----------------
+// -----------------
 func (b *Block) SetMagic(m [4]byte) *Block {
 	b.Magic = m
 	return b
@@ -475,7 +476,7 @@ func (b *Block) SetBlockSignature(sig []byte) error {
 	return nil
 }
 
-//--------------
+// --------------
 func BlockEncodeBytes(blk *Block) []byte {
 	blockBytes, err := rlp.EncodeToBytes(blk)
 	if err != nil {

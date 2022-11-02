@@ -265,7 +265,6 @@ func initChain(gene *genesis.Genesis, mainDB *lvldb.LevelDB, logDB *logdb.LogDB)
 	if err != nil {
 		fatal("initialize block chain:", err)
 	}
-	fmt.Println("GENESIS BLOCK:\n", genesisBlock.CompactString())
 
 	if err := logDB.Prepare(genesisBlock.Header()).
 		ForTransaction(meter.Bytes32{}, meter.Address{}).

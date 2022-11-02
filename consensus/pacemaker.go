@@ -854,7 +854,7 @@ func (p *Pacemaker) newViewRoundTimeout(header ConsensusMsgCommonHeader, qc bloc
 	return nil
 }
 
-//Committee Leader triggers
+// Committee Leader triggers
 func (p *Pacemaker) Start(mode PMMode, calcStatsTx bool) {
 	p.mode = mode
 	p.reset()
@@ -1156,7 +1156,7 @@ func (p *Pacemaker) IsStopped() bool {
 	// return p.QCHigh == nil && p.blockExecuted == nil && p.blockLocked == nil
 }
 
-//actions of commites/receives kblock, stop pacemake to next committee
+// actions of commites/receives kblock, stop pacemake to next committee
 // all proposal txs need to be reclaimed before stop
 func (p *Pacemaker) Stop() {
 	chain := p.csReactor.chain

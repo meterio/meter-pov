@@ -97,21 +97,19 @@ var (
 var (
 	// BlocktChainConfig is the chain parameters to run a node on the main network.
 	BlockChainConfig = &ChainConfig{
-		ChainGenesisID: GenesisHash,
-		ChainFlag:      "",
-		Initialized:    false,
+		ChainFlag:   "",
+		Initialized: false,
 	}
 )
 
 type ChainConfig struct {
-	ChainGenesisID Bytes32 // set while init
-	ChainFlag      string
-	Initialized    bool
+	ChainFlag   string
+	Initialized bool
 }
 
 func (c *ChainConfig) ToString() string {
-	return fmt.Sprintf("BlockChain Configuration (ChainGenesisID: %v, ChainFlag: %v, Initialized: %v)",
-		c.ChainGenesisID, c.ChainFlag, c.Initialized)
+	return fmt.Sprintf("BlockChainConfig(ChainFlag: %v, Initialized: %v)",
+		c.ChainFlag, c.Initialized)
 }
 
 func (c *ChainConfig) IsInitialized() bool {
@@ -195,12 +193,11 @@ func (p *ChainConfig) IsTeslaFork6(blockNum uint32) bool {
 	return blockNum >= TeslaFork6StartNum
 }
 
-func InitBlockChainConfig(genesisID Bytes32, chainFlag string) {
-	BlockChainConfig.ChainGenesisID = genesisID
+func InitBlockChainConfig(chainFlag string) {
 	BlockChainConfig.ChainFlag = chainFlag
 	BlockChainConfig.Initialized = true
 
-	fmt.Println(BlockChainConfig.ToString())
+	// fmt.Println("Initialized: ", BlockChainConfig.ToString())
 
 	if BlockChainConfig.IsMainnet() == true {
 		SysContractStartNum = EdisonSysContractStartNum

@@ -26,7 +26,7 @@ var (
 
 	// added for new flattern index schema
 	hashKeyPrefix         = []byte("hash") // (prefix, block num) -> block hash
-	flatternIndexStartKey = []byte("flattern-index-start")
+	bestBeforeFlatternKey = []byte("best-before-flattern")
 	pruneIndexHeadKey     = []byte("prune-index-head")
 	pruneStateHeadKey     = []byte("prune-state-head")
 )
@@ -215,22 +215,6 @@ func loadBestQC(r kv.Getter) (*block.QuorumCert, error) {
 	return &qc, nil
 }
 
-// loadFlatternIndexStart returns the best block ID on trunk.
-func loadFlatternIndexStart(r kv.Getter) (uint32, error) {
-	data, err := r.Get(flatternIndexStartKey)
-	if err != nil {
-		return 0, err
-	}
-	num := binary.LittleEndian.Uint32(data)
-	return num, nil
-}
-
-func saveFlatternIndexStart(w kv.Putter, num uint32) error {
-	b := make([]byte, 4)
-	binary.LittleEndian.PutUint32(b, num)
-	return w.Put(flatternIndexStartKey, b)
-}
-
 func loadPruneIndexHead(r kv.Getter) (uint32, error) {
 	data, err := r.Get(pruneIndexHeadKey)
 	if err != nil {
@@ -259,4 +243,16 @@ func savePruneStateHead(w kv.Putter, num uint32) error {
 	b := make([]byte, 4)
 	binary.LittleEndian.PutUint32(b, num)
 	return w.Put(pruneStateHeadKey, b)
+}
+
+func loadBestBlockIDBeforeFlattern(r kv.Getter) (meter.Bytes32, error) {
+	data, err := r.Get(bestBeforeFlatternKey)
+	if err != nil {
+		return meter.Bytes32{}, err
+	}
+	return meter.BytesToBytes32(data), nil
+}
+
+func saveBestBlockIDBeforeFlattern(w kv.Putter, id meter.Bytes32) error {
+	return w.Put(bestBeforeFlatternKey, id.Bytes())
 }
