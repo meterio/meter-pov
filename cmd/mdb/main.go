@@ -129,12 +129,33 @@ func main() {
 				Action: traverseRawStateAction,
 			},
 
+			{
+				Name:   "check-raw-state",
+				Usage:  "Check the state with given block and perform detailed verification",
+				Flags:  []cli.Flag{networkFlag, dataDirFlag, rootFlag, revisionFlag},
+				Action: checkRawStateAction,
+			},
+
 			// Snapshot for state trie
 			{
 				Name:   "snapshot",
 				Usage:  "Create a snapshot on revision block",
 				Flags:  flags,
 				Action: snapshotAction,
+			},
+
+			{
+				Name:   "state-snapshot",
+				Usage:  "Create a state snapshot on revision block",
+				Flags:  flags,
+				Action: stateSnapshotAction,
+			},
+
+			{
+				Name:   "import-snapshot",
+				Usage:  "Import a state snapshot on revision block",
+				Flags:  flags,
+				Action: importSnapshotAction,
 			},
 
 			// DANGER! USE THIS ONLY IF YOU KNOW THE DETAILS
