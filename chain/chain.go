@@ -8,8 +8,10 @@ package chain
 import (
 	"bytes"
 	"fmt"
+	"runtime"
 	"sort"
 	"sync"
+	"time"
 
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/inconshreveable/log15"
@@ -249,7 +251,19 @@ func New(kv kv.GetPutter, genesisBlock *block.Block, verbose bool) (*Chain, erro
 		bestBlockBeforeIndexFlattern: bestBlockBeforeFlattern,
 	}
 
+	go c.houseKeeping(time.Minute * 10)
 	return c, nil
+}
+
+func (c *Chain) houseKeeping(duration time.Duration) {
+	ticker := time.NewTicker(duration)
+	for true {
+		select {
+		case <-ticker.C:
+			log.Info("Chain housekeeping: purge ancestor trie")
+			c.purgeAncestorTrie()
+		}
+	}
 }
 
 // Tag returns chain tag, which is the last byte of genesis id.
@@ -1093,8 +1107,11 @@ func (c *Chain) FindEpochOnBlock(num uint32) (uint64, error) {
 	return b.GetBlockEpoch(), nil
 }
 
-func (c *Chain) RenewAncestorTrie() {
-	c.ancestorTrie = newAncestorTrie(c.kv)
+func (c *Chain) purgeAncestorTrie() {
+	c.rw.Lock()
+	defer c.rw.Unlock()
+	c.ancestorTrie.PurgeCache()
+	runtime.GC()
 }
 
 func (c *Chain) GetPruneIndexHead() (uint32, error) {
@@ -1111,8 +1128,4 @@ func (c *Chain) GetPruneStateHead() (uint32, error) {
 
 func (c *Chain) UpdatePruneStateHead(num uint32) error {
 	return savePruneStateHead(c.kv, num)
-}
-
-func (c *Chain) ReleaseAncestorCache() {
-	c.ancestorTrie.releaseCache()
 }

@@ -16,7 +16,6 @@ import (
 	"os"
 	"path"
 	"path/filepath"
-	"runtime"
 	"strconv"
 	"time"
 
@@ -246,11 +245,12 @@ func defaultAction(ctx *cli.Context) error {
 	// if flattern index start flag is not set, mark it in db
 	pruneIndexHead, _ := chain.GetPruneIndexHead()
 
-	fmt.Println("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!", "pruneIndexHead=", pruneIndexHead, "bestBlockBeforeFlattern=", chain.BestBlockBeforeIndexFlattern().Number())
+	fmt.Println("!!! Index Trie Pruning Check !!!")
+	fmt.Printf("PruneIndexHead: %v\n, needPruning: %v\n", pruneIndexHead, pruneIndexHead < chain.BestBlockBeforeIndexFlattern().Number())
 	// if flattern index start is not set, or pruning is not complete
 	// start the pruning routine right now
 	if pruneIndexHead < chain.BestBlockBeforeIndexFlattern().Number() {
-		fmt.Println("!!! Pruning Index Trie Begins !!!")
+		fmt.Println("!!! Index Trie Pruning Begins !!!")
 		go pruneIndexTrie(mainDB, chain)
 	}
 
@@ -474,12 +474,12 @@ func pruneIndexTrie(mainDB *lvldb.LevelDB, meterChain *chain.Chain) error {
 		}
 
 		// manually call garbage collection every 5 min
-		elapsed := time.Since(start).Milliseconds()
-		if elapsed%GCInterval == 0 {
-			log.Info("Call garbage collection in index trie pruning", "len", batch.Len(), "head", i)
-			meterChain.RenewAncestorTrie()
-			runtime.GC()
-		}
+		// elapsed := time.Since(start).Milliseconds()
+		// if elapsed%GCInterval == 0 {
+		// 	log.Info("Call garbage collection in index trie pruning", "len", batch.Len(), "head", i)
+		// 	meterChain.RenewAncestorTrie()
+		// 	runtime.GC()
+		// }
 	}
 	// pruner.Compact()
 	log.Info("Prune index trie completed", "elapsed", meter.PrettyDuration(time.Since(start)), "head", toBlk.Number(), "prunedNodes", prunedNodes, "prunedBytes", prunedBytes)

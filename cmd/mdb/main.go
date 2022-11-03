@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"net/http"
 	"os"
-	"runtime"
 	"strings"
 	"time"
 
@@ -382,11 +381,11 @@ func pruneStateAction(ctx *cli.Context) error {
 		}
 
 		// manually call garbage collection every 20 min
-		elapsed := time.Since(start).Milliseconds()
-		if elapsed%GCInterval == 0 {
-			meterChain = initChain(ctx, gene, mainDB)
-			runtime.GC()
-		}
+		// elapsed := time.Since(start).Milliseconds()
+		// if elapsed%GCInterval == 0 {
+		// 	meterChain = initChain(ctx, gene, mainDB)
+		// 	runtime.GC()
+		// }
 	}
 	// pruner.Compact()
 	log.Info("Prune complete", "elapsed", meter.PrettyDuration(time.Since(start)), "prunedNodes", prunedNodes, "prunedBytes", prunedBytes)
@@ -434,11 +433,11 @@ func pruneIndexAction(ctx *cli.Context) error {
 		}
 
 		// manually call garbage collection every 20 min
-		elapsed := time.Since(start).Milliseconds()
-		if elapsed%GCInterval == 0 {
-			meterChain = initChain(ctx, gene, mainDB)
-			runtime.GC()
-		}
+		// elapsed := time.Since(start).Milliseconds()
+		// if elapsed%GCInterval == 0 {
+		// 	meterChain = initChain(ctx, gene, mainDB)
+		// 	runtime.GC()
+		// }
 	}
 	// pruner.Compact()
 	log.Info("Prune complete", "elapsed", meter.PrettyDuration(time.Since(start)), "prunedNodes", prunedNodes, "prunedBytes", prunedBytes)
@@ -769,10 +768,10 @@ func reportIndexAction(ctx *cli.Context) error {
 		}
 
 		// manually call garbage collection every 20 min
-		if int64(time.Since(start).Seconds())%(60*20) == 0 {
-			meterChain = initChain(ctx, gene, mainDB)
-			runtime.GC()
-		}
+		// if int64(time.Since(start).Seconds())%(60*20) == 0 {
+		// 	meterChain = initChain(ctx, gene, mainDB)
+		// 	runtime.GC()
+		// }
 	}
 	// pruner.Compact()
 	log.Info("Scan complete", "elapsed", meter.PrettyDuration(time.Since(start)), "nodes", totalNodes, "bytes", totalBytes)
@@ -815,10 +814,10 @@ func reportStateAction(ctx *cli.Context) error {
 		}
 
 		// manually call garbage collection every 20 min
-		if int64(time.Since(start).Seconds())%(60*20) == 0 {
-			meterChain = initChain(ctx, gene, mainDB)
-			runtime.GC()
-		}
+		// if int64(time.Since(start).Seconds())%(60*20) == 0 {
+		// 	meterChain = initChain(ctx, gene, mainDB)
+		// 	runtime.GC()
+		// }
 	}
 	log.Info("Scan complete", "elapsed", meter.PrettyDuration(time.Since(start)), "nodes", totalNodes, "bytes", totalBytes, "roots", roots)
 	return nil

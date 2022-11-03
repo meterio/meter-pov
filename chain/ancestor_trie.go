@@ -14,27 +14,29 @@ import (
 	"github.com/pkg/errors"
 )
 
-const rootCacheLimit = 2048
+const (
+	rootCacheLimit = 1024
+	hashCacheLimit = 1024
+)
 
 type ancestorTrie struct {
 	kv         kv.GetPutter
 	rootsCache *cache     // deprecated with old index trie
 	trieCache  *trieCache // deprecated with old index trie
-	hashCache  *blockHashCache
+
+	hashCache *blockHashCache // saves num -> blockHash cache
 }
 
 func newAncestorTrie(kv kv.GetPutter) *ancestorTrie {
 	rootsCache := newCache(rootCacheLimit, func(key interface{}) (interface{}, error) {
 		return loadBlockNumberIndexTrieRoot(kv, key.(meter.Bytes32))
 	})
-	return &ancestorTrie{kv, rootsCache, newTrieCache(), newBlockHashCache(1024, kv)}
+	return &ancestorTrie{kv, rootsCache, newTrieCache(), newBlockHashCache(hashCacheLimit, kv)}
 }
 
-// release trie cache which consumes lots of memory with index trie
-// deprecated in flattern index schema
-func (at *ancestorTrie) releaseCache() error {
-	at.trieCache = newTrieCache()
-	return nil
+func (at *ancestorTrie) PurgeCache() {
+	at.rootsCache.Purge()
+	at.trieCache.cache.Purge()
 }
 
 func (at *ancestorTrie) Update(w kv.Putter, num uint32, id, parentID meter.Bytes32) error {
