@@ -340,10 +340,9 @@ func pruneStateAction(ctx *cli.Context) error {
 		fatal("could not load block with revision")
 	}
 	geneBlk, _, _ := gene.Build(state.NewCreator(mainDB))
-	pruner := trie.NewPruner(mainDB)
-	dataDir := ctx.String(dataDirFlag.Name)
-	prefix := fmt.Sprintf("%v/snap-%v", dataDir, toBlk.Number())
-	pruner.LoadSnapshot(geneBlk.StateRoot(), toBlk.StateRoot(), prefix)
+	pruner := trie.NewPruner(mainDB, ctx.String(dataDirFlag.Name))
+
+	pruner.InitForStatePruning(geneBlk.StateRoot(), toBlk.StateRoot(), toBlk.Number())
 
 	var (
 		lastRoot    = meter.Bytes32{}
@@ -402,7 +401,7 @@ func pruneIndexAction(ctx *cli.Context) error {
 		fatal("could not load block with revision")
 	}
 	fmt.Println("TOBLOCK: ", toBlk.Number())
-	pruner := trie.NewPruner(mainDB)
+	pruner := trie.NewPruner(mainDB, ctx.String(dataDirFlag.Name))
 
 	var (
 		prunedBytes = uint64(0)
@@ -448,7 +447,7 @@ func compactAction(ctx *cli.Context) error {
 	mainDB, _ := openMainDB(ctx)
 	defer func() { log.Info("closing main database..."); mainDB.Close() }()
 
-	pruner := trie.NewPruner(mainDB)
+	pruner := trie.NewPruner(mainDB, ctx.String(dataDirFlag.Name))
 	pruner.Compact()
 	return nil
 }
@@ -457,7 +456,7 @@ func statAction(ctx *cli.Context) error {
 	mainDB, _ := openMainDB(ctx)
 	defer func() { log.Info("closing main database..."); mainDB.Close() }()
 
-	pruner := trie.NewPruner(mainDB)
+	pruner := trie.NewPruner(mainDB, ctx.String(dataDirFlag.Name))
 	pruner.PrintStats()
 	return nil
 }
@@ -746,7 +745,7 @@ func reportIndexAction(ctx *cli.Context) error {
 
 	meterChain := initChain(ctx, gene, mainDB)
 	bestBlock := meterChain.BestBlock()
-	pruner := trie.NewPruner(mainDB)
+	pruner := trie.NewPruner(mainDB, ctx.String(dataDirFlag.Name))
 
 	var (
 		totalBytes = uint64(0)
@@ -784,7 +783,7 @@ func reportStateAction(ctx *cli.Context) error {
 
 	meterChain := initChain(ctx, gene, mainDB)
 	bestBlock := meterChain.BestBlock()
-	pruner := trie.NewPruner(mainDB)
+	pruner := trie.NewPruner(mainDB, ctx.String(dataDirFlag.Name))
 
 	var (
 		lastRoot   = meter.Bytes32{}

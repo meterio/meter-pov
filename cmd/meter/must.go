@@ -216,6 +216,16 @@ func makeInstanceDir(ctx *cli.Context, gene *genesis.Genesis) string {
 	return instanceDir
 }
 
+func makeSnapshotDir(ctx *cli.Context) string {
+	dataDir := makeDataDir(ctx)
+
+	snapshotDir := filepath.Join(dataDir, "snapshot")
+	if err := os.MkdirAll(dataDir, 0700); err != nil {
+		fatal(fmt.Sprintf("create data dir [%v]: %v", snapshotDir, err))
+	}
+	return snapshotDir
+}
+
 func openMainDB(ctx *cli.Context, dataDir string) *lvldb.LevelDB {
 	if _, err := fdlimit.Raise(5120 * 4); err != nil {
 		fatal("failed to increase fd limit", err)

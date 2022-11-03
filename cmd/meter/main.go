@@ -6,6 +6,7 @@
 package main
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"encoding/binary"
 	"encoding/json"
@@ -33,6 +34,7 @@ import (
 	"github.com/meterio/meter-pov/chain"
 	"github.com/meterio/meter-pov/cmd/meter/node"
 	"github.com/meterio/meter-pov/consensus"
+	"github.com/meterio/meter-pov/genesis"
 	"github.com/meterio/meter-pov/lvldb"
 	"github.com/meterio/meter-pov/meter"
 	"github.com/meterio/meter-pov/powpool"
@@ -72,6 +74,7 @@ var (
 )
 
 const (
+	statePruningBatch     = 1024
 	indexPruningBatch     = 512
 	indexFlatterningBatch = 1024
 	GCInterval            = 5 * 60 * 1000 // 5 min in millisecond
@@ -128,6 +131,7 @@ func main() {
 			epochBlockCountFlag,
 			httpsCertFlag,
 			httpsKeyFlag,
+			enableStatePruneFlag,
 		},
 		Action: defaultAction,
 		Commands: []cli.Command{
@@ -232,6 +236,7 @@ func defaultAction(ctx *cli.Context) error {
 
 	gene := selectGenesis(ctx)
 	instanceDir := makeInstanceDir(ctx, gene)
+	makeSnapshotDir(ctx)
 
 	log.Info("Meter Start ...")
 	mainDB := openMainDB(ctx, instanceDir)
@@ -251,7 +256,13 @@ func defaultAction(ctx *cli.Context) error {
 	// start the pruning routine right now
 	if pruneIndexHead < chain.BestBlockBeforeIndexFlattern().Number() {
 		fmt.Println("!!! Index Trie Pruning Begins !!!")
-		go pruneIndexTrie(mainDB, chain)
+		go pruneIndexTrie(ctx, mainDB, chain)
+	}
+
+	enableStatePruning := ctx.Bool(enableStatePruneFlag.Name)
+	if enableStatePruning {
+		fmt.Println("!!! State Trie Pruning ENABLED !!!")
+		go pruneStateTrie(ctx, gene, mainDB, chain)
 	}
 
 	master, blsCommon := loadNodeMaster(ctx)
@@ -426,24 +437,18 @@ func masterKeyAction(ctx *cli.Context) error {
 	return nil
 }
 
-func pruneIndexTrie(mainDB *lvldb.LevelDB, meterChain *chain.Chain) error {
-	var (
-		start      = time.Now()
-		lastReport time.Time
-	)
-
+func pruneIndexTrie(ctx *cli.Context, mainDB *lvldb.LevelDB, meterChain *chain.Chain) {
 	toBlk := meterChain.BestBlockBeforeIndexFlattern()
 	log.Info("Start to prune index trie", "to", toBlk.Number())
 
-	pruner := trie.NewPruner(mainDB)
+	pruner := trie.NewPruner(mainDB, ctx.String(dataDirFlag.Name))
 
 	var (
 		prunedBytes = uint64(0)
 		prunedNodes = 0
+		start       = time.Now()
+		lastReport  = start
 	)
-
-	start = time.Now()
-	lastReport = start
 
 	head, err := meterChain.GetPruneIndexHead()
 	if err != nil {
@@ -467,21 +472,87 @@ func pruneIndexTrie(mainDB *lvldb.LevelDB, meterChain *chain.Chain) error {
 			if err := batch.Write(); err != nil {
 				log.Error("Error flushing", "err", err)
 			}
-			log.Info("Commited batch for index trie pruning", "len", batch.Len(), "head", i)
+			log.Info("Comitted batch for index trie pruning", "len", batch.Len(), "head", i)
 
 			batch = mainDB.NewBatch()
 			meterChain.UpdatePruneIndexHead(i)
 		}
 
-		// manually call garbage collection every 5 min
-		// elapsed := time.Since(start).Milliseconds()
-		// if elapsed%GCInterval == 0 {
-		// 	log.Info("Call garbage collection in index trie pruning", "len", batch.Len(), "head", i)
-		// 	meterChain.RenewAncestorTrie()
-		// 	runtime.GC()
-		// }
 	}
-	// pruner.Compact()
 	log.Info("Prune index trie completed", "elapsed", meter.PrettyDuration(time.Since(start)), "head", toBlk.Number(), "prunedNodes", prunedNodes, "prunedBytes", prunedBytes)
-	return nil
+}
+
+func pruneStateTrie(ctx *cli.Context, gene *genesis.Genesis, mainDB *lvldb.LevelDB, meterChain *chain.Chain) {
+	creator := state.NewCreator(mainDB)
+	geneBlk, _, _ := gene.Build(creator)
+	fmt.Println("!!! State Trie Puring Routine Started !!!")
+	for {
+		bestNum := meterChain.BestBlock().Number()
+		snapNum, _ := meterChain.GetStateSnapshotNum() // ignore err, default is 0
+		targetNum := bestNum - 13500000
+		fmt.Println("!!! State Trie Pruning Check !!!")
+		fmt.Printf("Snapshot: %v, Best: %v, Target: %v\n", snapNum, bestNum, targetNum)
+		if snapNum >= targetNum {
+			fmt.Println("Snapshot >= Target, skip pruning for now")
+			time.Sleep(8 * time.Hour)
+			continue
+		}
+		snapNum = targetNum
+		pruneStateHead, _ := meterChain.GetPruneStateHead() // ignore err, default is 0
+		fmt.Printf("Prune State Head: %v\n", pruneStateHead)
+		if snapNum-pruneStateHead < 8000000 {
+			fmt.Println("Not enough for pruning, skip pruning for now")
+			time.Sleep(8 * time.Hour)
+			continue
+		}
+
+		snapBlk, _ := meterChain.GetTrunkBlock(targetNum)
+
+		pruner := trie.NewPruner(mainDB, ctx.String(dataDirFlag.Name))
+		fmt.Println("Load/Generate Snapshot Bloom")
+		pruner.InitForStatePruning(geneBlk.StateRoot(), snapBlk.StateRoot(), snapBlk.Number())
+		fmt.Println("Snapshot Bloom Loaded.")
+
+		meterChain.UpdateStateSnapshotNum(snapNum)
+		fmt.Println("Snapshot Num updated to", snapNum)
+
+		var (
+			lastRoot    = meter.Bytes32{}
+			prunedBytes = uint64(0)
+			prunedNodes = 0
+			start       = time.Now()
+			lastReport  = start
+		)
+
+		batch := mainDB.NewBatch()
+		for i := pruneStateHead + 1; i < snapNum-1; i++ {
+			b, _ := meterChain.GetTrunkBlock(i)
+			root := b.StateRoot()
+			if bytes.Equal(root[:], lastRoot[:]) {
+				continue
+			}
+			lastRoot = root
+			// pruneStart := time.Now()
+			stat := pruner.Prune(root, batch)
+			prunedNodes += stat.PrunedNodes + stat.PrunedStorageNodes
+			prunedBytes += stat.PrunedNodeBytes + stat.PrunedStorageBytes
+			// log.Info(fmt.Sprintf("Pruned block %v", i), "prunedNodes", stat.PrunedNodes+stat.PrunedStorageNodes, "prunedBytes", stat.PrunedNodeBytes+stat.PrunedStorageBytes, "elapsed", meter.PrettyDuration(time.Since(pruneStart)))
+			if time.Since(lastReport) > time.Second*8 {
+				log.Info("Still pruning state trie", "elapsed", meter.PrettyDuration(time.Since(start)), "prunedNodes", prunedNodes, "prunedBytes", prunedBytes)
+				lastReport = time.Now()
+			}
+			if batch.Len() >= statePruningBatch || i == snapNum {
+				if err := batch.Write(); err != nil {
+					log.Error("Error flushing", "err", err)
+				}
+				log.Info("Commited batch for state pruning", "len", batch.Len(), "head", i)
+
+				batch = mainDB.NewBatch()
+				meterChain.UpdatePruneStateHead(i)
+			}
+
+		}
+		log.Info("Prune state trie completed", "elapsed", meter.PrettyDuration(time.Since(start)), "prunedNodes", prunedNodes, "prunedBytes", prunedBytes)
+		time.Sleep(8 * time.Hour)
+	}
 }

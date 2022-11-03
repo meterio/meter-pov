@@ -16,19 +16,21 @@ import (
 )
 
 var (
-	bestBlockKey        = []byte("best")
 	blockPrefix         = []byte("b") // (prefix, block id) -> block
 	txMetaPrefix        = []byte("t") // (prefix, tx id) -> tx location
 	blockReceiptsPrefix = []byte("r") // (prefix, block id) -> receipts
 	indexTrieRootPrefix = []byte("i") // (prefix, block id) -> trie root
-	leafBlockKey        = []byte("leaf")
-	bestQCKey           = []byte("best-qc")
+
+	bestBlockKey = []byte("best")    // best block hash
+	leafBlockKey = []byte("leaf")    // leaf block hash
+	bestQCKey    = []byte("best-qc") // best qc raw
 
 	// added for new flattern index schema
-	hashKeyPrefix         = []byte("hash") // (prefix, block num) -> block hash
-	bestBeforeFlatternKey = []byte("best-before-flattern")
-	pruneIndexHeadKey     = []byte("prune-index-head")
-	pruneStateHeadKey     = []byte("prune-state-head")
+	hashKeyPrefix         = []byte("hash")                 // (prefix, block num) -> block hash
+	bestBeforeFlatternKey = []byte("best-before-flattern") // best block hash before index flattern
+	pruneIndexHeadKey     = []byte("prune-index-head")     // prune index head block num
+	pruneStateHeadKey     = []byte("prune-state-head")     // prune state head block num
+	stateSnapshotNumKey   = []byte("state-snapshot-num")   // state snapshot block num
 )
 
 func numberAsKey(num uint32) []byte {
@@ -255,4 +257,19 @@ func loadBestBlockIDBeforeFlattern(r kv.Getter) (meter.Bytes32, error) {
 
 func saveBestBlockIDBeforeFlattern(w kv.Putter, id meter.Bytes32) error {
 	return w.Put(bestBeforeFlatternKey, id.Bytes())
+}
+
+func loadStateSnapshotNum(r kv.Getter) (uint32, error) {
+	data, err := r.Get(stateSnapshotNumKey)
+	if err != nil {
+		return 0, err
+	}
+	num := binary.LittleEndian.Uint32(data)
+	return num, nil
+}
+
+func saveStateSnapshotNum(w kv.Putter, num uint32) error {
+	b := make([]byte, 4)
+	binary.LittleEndian.PutUint32(b, num)
+	return w.Put(stateSnapshotNumKey, b)
 }

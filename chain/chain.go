@@ -1129,3 +1129,11 @@ func (c *Chain) GetPruneStateHead() (uint32, error) {
 func (c *Chain) UpdatePruneStateHead(num uint32) error {
 	return savePruneStateHead(c.kv, num)
 }
+
+func (c *Chain) GetStateSnapshotNum() (uint32, error) {
+	return loadStateSnapshotNum(c.kv)
+}
+
+func (c *Chain) UpdateStateSnapshotNum(num uint32) error {
+	return saveStateSnapshotNum(c.kv, num)
+}
