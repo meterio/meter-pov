@@ -20,7 +20,10 @@ import (
 	"bytes"
 	"encoding/binary"
 	"encoding/hex"
+	"errors"
 	"fmt"
+	"os"
+	"path"
 	"time"
 
 	"github.com/ethereum/go-ethereum/log"
@@ -101,37 +104,122 @@ func numberAsKey(num uint32) []byte {
 type Pruner struct {
 	iter         PruneIterator
 	db           KeyValueStore
-	snapshot     *TrieSnapshot
-	visitedBloom *StateBloom
+	dataDir      string
+	visitedBloom *StateBloom // visited bloom filter
 	cache        *lru.Cache
 }
 
 // NewIterator creates a new key-value iterator from a node iterator
-func NewPruner(db KeyValueStore) *Pruner {
-	bloom, _ := NewStateBloomWithSize(256)
+func NewPruner(db KeyValueStore, dataDir string) *Pruner {
+	visitedBloom, _ := NewStateBloomWithSize(256)
 	cache, err := lru.New(nodeCacheSize)
 	if err != nil {
 		panic("could not create cache")
 	}
+
 	p := &Pruner{
 		db:           db,
-		snapshot:     NewTrieSnapshot(),
-		visitedBloom: bloom,
+		dataDir:      dataDir,
+		visitedBloom: visitedBloom,
 		cache:        cache,
 	}
 
 	return p
 }
 
-func (p *Pruner) LoadSnapshot(genesisStateRoot, snapStateRoot meter.Bytes32, snapFilePrefix string) {
-	loaded := p.snapshot.LoadFromFile(snapFilePrefix)
-	if loaded {
-		log.Info("load snapshot from file", "prefix", snapFilePrefix)
-	} else {
-		log.Info("load snapshot failed", "prefix", snapFilePrefix)
-		p.snapshot.AddTrie(genesisStateRoot, p.db)
-		p.snapshot.AddTrie(snapStateRoot, p.db)
+func (p *Pruner) InitForStatePruning(geneStateRoot, snapStateRoot meter.Bytes32, snapNum uint32) {
+	err := p.loadBloomFilter(snapNum)
+	if err != nil {
+		p.updateBloomWithTrie(geneStateRoot)
+		p.updateBloomWithTrie(snapStateRoot)
+		p.saveBloomFilter(snapNum)
 	}
+}
+
+func (p *Pruner) loadBloomFilter(blockNum uint32) error {
+	bloomfile := path.Join(p.dataDir, "snapshot", fmt.Sprintf("%v.bloom", blockNum))
+	if _, err := os.Stat(bloomfile); errors.Is(err, os.ErrNotExist) {
+		return err
+	}
+	bloom, err := NewStateBloomFromDisk(bloomfile)
+	if err != nil {
+		return err
+	}
+	p.visitedBloom = bloom
+	return nil
+}
+
+func (p *Pruner) saveBloomFilter(blockNum uint32) error {
+	bloomfile := path.Join(p.dataDir, "snapshot", fmt.Sprintf("%v.bloom", blockNum))
+	tmpfile := path.Join(p.dataDir, "snapshot", fmt.Sprintf("%v.tmp", blockNum))
+	return p.visitedBloom.Commit(bloomfile, tmpfile)
+}
+
+func (p *Pruner) updateBloomWithTrie(root meter.Bytes32) {
+	stateTrie, _ := New(root, p.db)
+	iter := stateTrie.NodeIterator(nil)
+	p.visitedBloom.Put(stateTrie.Root())
+
+	var (
+		nodes           = 0
+		lastReport      time.Time
+		start           = time.Now()
+		stateTrieSize   = 0
+		storageTrieSize = 0
+		codeSize        = 0
+	)
+	log.Info("Start generating snapshot", "root", root)
+	for iter.Next(true) {
+		hash := iter.Hash()
+		if !iter.Leaf() {
+			// add every node
+			p.visitedBloom.Put(hash.Bytes())
+			stateTrieSize += len(hash)
+			val, err := p.db.Get(hash[:])
+			if err != nil {
+				log.Error("could not load hash", "hash", hash, "err", err)
+			}
+			stateTrieSize += len(val)
+			continue
+		}
+
+		nodes++
+		value := iter.LeafBlob()
+		var stateAcc StateAccount
+		if err := rlp.DecodeBytes(value, &stateAcc); err != nil {
+			fmt.Println("Invalid account encountered during traversal", "err", err)
+			continue
+		}
+
+		if !bytes.Equal(stateAcc.StorageRoot, []byte{}) {
+			sroot := meter.BytesToBytes32(stateAcc.StorageRoot)
+			// add storage root
+			p.visitedBloom.Put(sroot.Bytes())
+			storageTrie, err := New(meter.BytesToBytes32(stateAcc.StorageRoot), p.db)
+			if err != nil {
+				fmt.Println("Could not get storage trie")
+				continue
+			}
+			storageIter := storageTrie.NodeIterator(nil)
+			for storageIter.Next(true) {
+				shash := storageIter.Hash()
+				if !storageIter.Leaf() {
+					// add storage node
+					p.visitedBloom.Put(shash.Bytes())
+					sval, err := p.db.Get(shash[:])
+					if err != nil {
+						log.Error("could not load storage", "hash", shash, "err", err)
+					}
+					storageTrieSize += len(sval)
+				}
+			}
+		}
+		if time.Since(lastReport) > time.Second*8 {
+			log.Info("Still generating snap bloom", "nodes", nodes, "elapsed", meter.PrettyDuration(time.Since(start)))
+			lastReport = time.Now()
+		}
+	}
+	log.Info("Snap Bloom completed", "root", root, "stateTrieSize", stateTrieSize, "storageTrieSize", storageTrieSize, "nodes", nodes, "codeSize", codeSize, "elapsed", meter.PrettyDuration(time.Since(start)))
 }
 
 func (p *Pruner) PrintStats() {
@@ -192,10 +280,7 @@ func (p *Pruner) canSkip(key []byte) bool {
 		log.Debug("skip visited node", "key", hex.EncodeToString(key))
 		return true
 	}
-	if p.snapshot.Has(meter.BytesToBytes32(key)) {
-		log.Debug("skip node already in snapshot", "key", hex.EncodeToString(key))
-		return true
-	}
+
 	return false
 }
 
@@ -236,7 +321,7 @@ func (p *Pruner) Prune(root meter.Bytes32, batch kv.Batch) *PruneStat {
 					continue
 				}
 
-				if !p.snapshot.Has(shash) {
+				if visited, _ := p.visitedBloom.Contain(shash.Bytes()); !visited {
 					loaded, _ := p.iter.Get(shash[:])
 					stat.PrunedStorageBytes += uint64(len(loaded) + len(shash))
 					stat.PrunedStorageNodes++
@@ -249,7 +334,7 @@ func (p *Pruner) Prune(root meter.Bytes32, batch kv.Batch) *PruneStat {
 			}
 		} else {
 			stat.Nodes++
-			if !p.snapshot.Has(hash) {
+			if visited, _ := p.visitedBloom.Contain(hash.Bytes()); !visited {
 				loaded, _ := p.iter.Get(hash[:])
 				stat.PrunedNodeBytes += uint64(len(loaded) + len(hash))
 				stat.PrunedNodes++
@@ -374,6 +459,8 @@ func (p *Pruner) saveBlockHash(num uint32, id meter.Bytes32) error {
 // prune the state trie with given root
 func (p *Pruner) PruneIndexTrie(blockNum uint32, blockHash meter.Bytes32, batch kv.Batch) *PruneStat {
 	log.Info("Start pruning index trie", "blockHash", blockHash)
+	p.saveBlockHash(blockNum, blockHash)
+
 	indexTrieKey := append(indexTrieRootPrefix, blockHash[:]...)
 	root, err := p.loadOrGet(indexTrieKey)
 	if err != nil {
@@ -408,8 +495,6 @@ func (p *Pruner) PruneIndexTrie(blockNum uint32, blockHash meter.Bytes32, batch 
 	stat.PrunedNodeBytes += uint64(len(root) + len(indexTrieKey))
 	stat.Nodes++
 	log.Info("Pruned index trie", "root", root, "nodes", stat.Nodes, "bytes", stat.PrunedNodeBytes)
-
-	p.saveBlockHash(blockNum, blockHash)
 
 	return stat
 }
