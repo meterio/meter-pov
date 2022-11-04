@@ -8,6 +8,8 @@ package consensus
 import (
 	"bytes"
 	"fmt"
+	"io"
+	"io/ioutil"
 	"net"
 	"net/http"
 	"strings"
@@ -58,12 +60,13 @@ func (peer *ConsensusPeer) sendPacemakerMsg(rawData []byte, msgSummary string, m
 	// }
 
 	url := "http://" + peer.netAddr.IP.String() + ":8670/pacemaker"
-	_, err := netClient.Post(url, "application/json", bytes.NewBuffer(rawData))
+	res, err := netClient.Post(url, "application/json", bytes.NewBuffer(rawData))
 	if err != nil {
 		peer.logger.Error("Failed to send message to peer", "err", err)
-		return err
 	}
-	return nil
+	io.Copy(ioutil.Discard, res.Body)
+	res.Body.Close()
+	return err
 }
 
 func (peer *ConsensusPeer) sendCommitteeMsg(rawData []byte, msgSummary string, msgHashHex string, relay bool) error {
@@ -84,13 +87,13 @@ func (peer *ConsensusPeer) sendCommitteeMsg(rawData []byte, msgSummary string, m
 		peer.logger.Info("Send>> "+name+" "+msgHashHex+" "+tail, "size", len(rawData))
 	}
 	url := "http://" + peer.netAddr.IP.String() + ":8670/committee"
-	_, err := netClient.Post(url, "application/json", bytes.NewBuffer(rawData))
+	res, err := netClient.Post(url, "application/json", bytes.NewBuffer(rawData))
 	if err != nil {
 		peer.logger.Error("Failed to send message to peer", "err", err)
-		return err
 	}
-
-	return nil
+	io.Copy(io.Discard, res.Body)
+	res.Body.Close()
+	return err
 }
 
 func (cp *ConsensusPeer) FullString() string {
