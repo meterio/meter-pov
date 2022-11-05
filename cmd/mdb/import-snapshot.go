@@ -15,198 +15,83 @@ import (
 func importSnapshotAction(ctx *cli.Context) error {
 	initLogger()
 
-	mainDB, _ := openMainDB(ctx)
+	mainDB, gene := openMainDB(ctx)
 	defer func() { log.Info("closing main database..."); mainDB.Close() }()
 
-	blkNumber := ctx.String(revisionFlag.Name)
+	meterChain := initChain(ctx, gene, mainDB)
 
-	snap := trie.NewStateSnapshot()
+	blk, err := loadBlockByRevision(meterChain, ctx.String(revisionFlag.Name))
+	if err != nil {
+		fatal("could not load block with revision")
+	}
+	blkNumber := blk.Number()
+
 	dbDir := ctx.String(dataDirFlag.Name)
 	prefix := fmt.Sprintf("%v/state-snap-%v", dbDir, blkNumber)
-	stateBloom, err := trie.NewStateBloomFromDisk(prefix + ".bloom")
-	if err != nil {
-		//	...
-	}
-	snap.Bloom = stateBloom
+
+	commit := ctx.Bool(commitFlag.Name)
 
 	// -----------------------------------------
-	dat, err := os.ReadFile(prefix + "-nodes.db")
+	dat, err := os.ReadFile(prefix + ".db")
 	if err != nil {
-
+		log.Error("os ReadFile", "err", err)
+		return err
 	}
 	buf := bytes.NewBuffer(dat)
 	dec := gob.NewDecoder(buf)
 
-	nodes := make(map[string][]byte)
-	err = dec.Decode(&nodes)
+	ss := &trie.StateSnapshot{}
+	err = dec.Decode(&ss)
 	if err != nil {
-
+		log.Error("gob Decoder Decode", "err", err)
+		return err
 	}
-	for s, value := range nodes {
+
+	accountTrie, err := trie.New(meter.Bytes32{}, mainDB)
+	if err != nil {
+		log.Error("build accountTrie", "err", err)
+		return err
+	}
+
+	for s, value := range ss.Accounts {
 		key, _ := hex.DecodeString(s)
-		mainDB.Put(key, value)
-	}
+		accountTrie.Update(key, value)
 
-	log.Info("loaded snapshot", "file", prefix+"-nodes.db")
-
-	// -----------------------------------------
-	dat, err = os.ReadFile(prefix + "-codes.db")
-	if err != nil {
-
-	}
-	buf = bytes.NewBuffer(dat)
-	dec = gob.NewDecoder(buf)
-
-	codes := make(map[string][]byte)
-	err = dec.Decode(&codes)
-	if err != nil {
-
-	}
-
-	for s, value := range codes {
-		key, _ := hex.DecodeString(s)
-		mainDB.Put(key, value)
-	}
-
-	log.Info("loaded snapshot", "file", prefix+"-codes.db")
-
-	// -----------------------------------------
-	dat, err = os.ReadFile(prefix + "-leaf-keys.db")
-	if err != nil {
-
-	}
-	buf = bytes.NewBuffer(dat)
-	dec = gob.NewDecoder(buf)
-
-	leafKeys := make(map[string][]byte)
-	err = dec.Decode(&leafKeys)
-	if err != nil {
-
-	}
-
-	for s, value := range leafKeys {
-		key, _ := hex.DecodeString(s)
-		mainDB.Put(key, value)
-
-		//if err := rlp.DecodeBytes(value, &stateAcc); err != nil {
-		//	fmt.Println("Invalid account encountered during traversal", "err", err)
-		//	continue
-		//}
-	}
-
-	log.Info("loaded snapshot", "file", prefix+"-leaf-keys.db")
-
-	// -----------------------------------------
-	dat, err = os.ReadFile(prefix + "-leaf-blobs.db")
-	if err != nil {
-
-	}
-	buf = bytes.NewBuffer(dat)
-	dec = gob.NewDecoder(buf)
-
-	leafBlobs := make(map[string][]byte)
-	err = dec.Decode(&leafBlobs)
-	if err != nil {
-
-	}
-
-	var stateAcc trie.StateAccount
-	for s, value := range leafBlobs {
-		key, _ := hex.DecodeString(s)
-		mainDB.Put(key, value)
-
+		var stateAcc trie.StateAccount
 		if err := rlp.DecodeBytes(value, &stateAcc); err != nil {
 			fmt.Println("Invalid account encountered during traversal", "err", err)
 			continue
 		}
+
+		if !bytes.Equal(stateAcc.StorageRoot, []byte{}) {
+			storageTrie, _ := trie.New(meter.Bytes32{}, mainDB)
+			storages := ss.Storages[hex.EncodeToString(stateAcc.StorageRoot)]
+
+			for s2, value2 := range storages {
+				key2, _ := hex.DecodeString(s2)
+				storageTrie.Update(key2, value2)
+			}
+
+			storageTrieHash := storageTrie.Hash()
+			log.Info("storageRoot diff", "build", storageTrieHash, "snap", meter.BytesToBytes32(stateAcc.StorageRoot))
+
+			if commit {
+				_, err = storageTrie.Commit()
+				if err != nil {
+					log.Error("storageTrie Commit", "err", err)
+				}
+			}
+		}
 	}
 
-	log.Info("loaded snapshot", "file", prefix+"-leaf-blobs.db")
-
-	// -----------------------------------------
-	dat, err = os.ReadFile(prefix + "-storage-nodes.db")
-	if err != nil {
-
+	accountTrieHash := accountTrie.Hash()
+	log.Info("blk stateRoot diff", "local", blk.StateRoot(), "snap", accountTrieHash)
+	if commit {
+		_, err = accountTrie.Commit()
+		if err != nil {
+			log.Error("accountTrie Commit", "err", err)
+		}
 	}
-	buf = bytes.NewBuffer(dat)
-	dec = gob.NewDecoder(buf)
-
-	nodeStorages := make(map[string][]byte)
-	err = dec.Decode(&nodeStorages)
-	if err != nil {
-
-	}
-	for s, value := range nodeStorages {
-		key, _ := hex.DecodeString(s)
-		mainDB.Put(key, value)
-	}
-
-	log.Info("loaded snapshot", "file", prefix+"-storage-nodes.db")
-
-	// -----------------------------------------
-	dat, err = os.ReadFile(prefix + "-storage-leaf-keys.db")
-	if err != nil {
-
-	}
-	buf = bytes.NewBuffer(dat)
-	dec = gob.NewDecoder(buf)
-
-	storageLeafKeys := make(map[string][]byte)
-	err = dec.Decode(&storageLeafKeys)
-	if err != nil {
-
-	}
-
-	for s, value := range storageLeafKeys {
-		key, _ := hex.DecodeString(s)
-		mainDB.Put(key, value)
-	}
-
-	log.Info("loaded snapshot", "file", prefix+"-storage-leaf-keys.db")
-
-	// -----------------------------------------
-	dat, err = os.ReadFile(prefix + "-storage-leaf-blobs.db")
-	if err != nil {
-
-	}
-	buf = bytes.NewBuffer(dat)
-	dec = gob.NewDecoder(buf)
-
-	storageLeafBlobs := make(map[string][]byte)
-	err = dec.Decode(&storageLeafBlobs)
-	if err != nil {
-
-	}
-
-	for s, value := range storageLeafBlobs {
-		key, _ := hex.DecodeString(s)
-		mainDB.Put(key, value)
-	}
-
-	log.Info("loaded snapshot", "file", prefix+"-storage-leaf-blobs.db")
-
-	// -----------------------------------------
-	dat, err = os.ReadFile(prefix + "-root-enc.db")
-	if err != nil {
-
-	}
-	buf = bytes.NewBuffer(dat)
-	dec = gob.NewDecoder(buf)
-
-	rootEnc := make(map[string][]byte)
-	err = dec.Decode(&rootEnc)
-	if err != nil {
-
-	}
-
-	var blkStateRoot meter.Bytes32
-	for s, value := range rootEnc {
-		key, _ := hex.DecodeString(s)
-		copy(blkStateRoot[:], key[:])
-		mainDB.Put(key, value)
-	}
-
-	log.Info("loaded snapshot", "file", prefix+"-root-enc.db")
 
 	return nil
 }

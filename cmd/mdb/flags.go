@@ -26,6 +26,7 @@ var (
 	keyFlag      = cli.StringFlag{Name: "key", Usage: "key"}
 	verboseFlag  = cli.BoolFlag{Name: "verbose", Usage: "verbose for print out"}
 	forceFlag    = cli.BoolFlag{Name: "force", Usage: "Force unsafe reset"}
+	commitFlag   = cli.BoolFlag{Name: "commit", Usage: "Commit stateDB"}
 )
 
 // copy from go-ethereum

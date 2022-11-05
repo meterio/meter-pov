@@ -154,7 +154,7 @@ func main() {
 			{
 				Name:   "import-snapshot",
 				Usage:  "Import a state snapshot on revision block",
-				Flags:  flags,
+				Flags:  []cli.Flag{dataDirFlag, networkFlag, revisionFlag, commitFlag},
 				Action: importSnapshotAction,
 			},
 
