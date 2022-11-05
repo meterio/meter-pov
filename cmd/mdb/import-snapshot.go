@@ -73,23 +73,23 @@ func importSnapshotAction(ctx *cli.Context) error {
 			}
 
 			storageTrieHash := storageTrie.Hash()
-			log.Info("storageRoot diff", "build", storageTrieHash, "snap", meter.BytesToBytes32(stateAcc.StorageRoot))
+			log.Info("StorageRoot diff", "build", storageTrieHash, "snap", meter.BytesToBytes32(stateAcc.StorageRoot))
 
 			if commit {
 				_, err = storageTrie.Commit()
 				if err != nil {
-					log.Error("storageTrie Commit", "err", err)
+					log.Error("StorageTrie Commit", "err", err)
 				}
 			}
 		}
 	}
 
 	accountTrieHash := accountTrie.Hash()
-	log.Info("blk stateRoot diff", "local", blk.StateRoot(), "snap", accountTrieHash)
+	log.Info("StateRoot diff", "blkNumber", blkNumber, "local", blk.StateRoot(), "snap", accountTrieHash)
 	if commit {
 		_, err = accountTrie.Commit()
 		if err != nil {
-			log.Error("accountTrie Commit", "err", err)
+			log.Error("AccountTrie Commit", "err", err)
 		}
 	}
 

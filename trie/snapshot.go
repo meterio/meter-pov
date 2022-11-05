@@ -330,6 +330,9 @@ func (ts *StateSnapshot) SaveStateToFile(prefix string) bool {
 		return false
 	}
 
+	path := prefix + ".db"
+	log.Info("Saved state snapshot", "path", path)
+
 	return true
 }
 
