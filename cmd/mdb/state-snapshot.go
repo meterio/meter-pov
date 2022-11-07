@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/meterio/meter-pov/trie"
 	"gopkg.in/urfave/cli.v1"
+	"os"
 )
 
 func stateSnapshotAction(ctx *cli.Context) error {
@@ -21,7 +22,15 @@ func stateSnapshotAction(ctx *cli.Context) error {
 
 	snap := trie.NewStateSnapshot()
 	dbDir := ctx.String(dataDirFlag.Name)
-	prefix := fmt.Sprintf("%v/state-snap-%v", dbDir, blk.Number())
+	path := dbDir + "/snapshot"
+	if _, err := os.Stat(path); os.IsNotExist(err) {
+		err = os.Mkdir(path, 0700)
+		if err != nil {
+			fatal(err)
+		}
+		// TODO: handle error
+	}
+	prefix := fmt.Sprintf("%v/snapshot/state-%v", dbDir, blk.Number())
 
 	snap.AddStateTrie(blk.StateRoot(), mainDB)
 	snap.SaveStateToFile(prefix)

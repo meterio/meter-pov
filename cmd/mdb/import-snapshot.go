@@ -27,7 +27,7 @@ func importSnapshotAction(ctx *cli.Context) error {
 	blkNumber := blk.Number()
 
 	dbDir := ctx.String(dataDirFlag.Name)
-	prefix := fmt.Sprintf("%v/state-snap-%v", dbDir, blkNumber)
+	prefix := fmt.Sprintf("%v/snapshot/state-%v", dbDir, blkNumber)
 
 	commit := ctx.Bool(commitFlag.Name)
 
