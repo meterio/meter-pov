@@ -7,6 +7,7 @@ package consensus
 
 import (
 	"bytes"
+	"encoding/hex"
 	"fmt"
 	"strings"
 	"time"
@@ -95,7 +96,7 @@ type ConsensusMsgCommonHeader struct {
 	Signature []byte // ecdsa signature of whole consensus message
 }
 
-func (ch ConsensusMsgCommonHeader) fields() []interface{} {
+func (ch ConsensusMsgCommonHeader) Fields() []interface{} {
 	return []interface{}{
 		ch.Height, ch.Round, ch.Sender, ch.Timestamp, ch.MsgType, ch.MsgSubType, ch.EpochID,
 	}
@@ -111,13 +112,16 @@ func (cmh *ConsensusMsgCommonHeader) verifySignature(msgHash meter.Bytes32) bool
 	if err != nil {
 		return false
 	}
-
 	return bytes.Equal(crypto.FromECDSAPub(pub), cmh.Sender)
+}
+
+func (cmh *ConsensusMsgCommonHeader) ToString() string {
+	return fmt.Sprintf("cmHeader(H:%v, R:%v, Sender:%v, ts:%v, msgType:%v, msgSubType:%v, epoch:%v)", cmh.Height, cmh.Round, hex.EncodeToString(cmh.Sender), cmh.Timestamp.UnixMilli(), cmh.MsgType, cmh.MsgSubType, cmh.EpochID)
 }
 
 // New Consensus
 // Message Definitions
-//---------------------------------------
+// ---------------------------------------
 // AnnounceCommitteeMessage is sent when new committee is relayed. The leader of new committee
 // send out to announce the new committee is setup, after collects the majority signature from
 // new committee members.
@@ -141,7 +145,7 @@ type AnnounceCommitteeMessage struct {
 // SigningHash computes hash of all header fields excluding signature.
 func (m *AnnounceCommitteeMessage) SigningHash() (hash meter.Bytes32) {
 	hw := meter.NewBlake2b()
-	data := append(m.CSMsgCommonHeader.fields(),
+	data := append(m.CSMsgCommonHeader.Fields(),
 		m.AnnouncerID, m.AnnouncerBlsPK,
 		m.CommitteeSize, m.Nonce, m.KBlockHeight, m.POWBlockHeight,
 		m.VotingBitArray, m.VotingMsgHash, m.VotingAggSig,
@@ -186,7 +190,7 @@ type CommitCommitteeMessage struct {
 // SigningHash computes hash of all header fields excluding signature.
 func (m *CommitCommitteeMessage) SigningHash() (hash meter.Bytes32) {
 	hw := meter.NewBlake2b()
-	data := append(m.CSMsgCommonHeader.fields(),
+	data := append(m.CSMsgCommonHeader.Fields(),
 		m.CommitterID, m.CommitterBlsPK, m.CommitterIndex,
 		m.BlsSignature, m.SignedMsgHash,
 	)
@@ -216,7 +220,7 @@ func (m *CommitCommitteeMessage) MsgType() byte {
 	return m.CSMsgCommonHeader.MsgType
 }
 
-//-------------------------------------
+// -------------------------------------
 type NotaryAnnounceMessage struct {
 	CSMsgCommonHeader ConsensusMsgCommonHeader
 
@@ -240,7 +244,7 @@ type NotaryAnnounceMessage struct {
 // SigningHash computes hash of all header fields excluding signature.
 func (m *NotaryAnnounceMessage) SigningHash() (hash meter.Bytes32) {
 	hw := meter.NewBlake2b()
-	data := append(m.CSMsgCommonHeader.fields(),
+	data := append(m.CSMsgCommonHeader.Fields(),
 		m.AnnouncerID, m.AnnouncerBlsPK,
 		m.VotingBitArray, m.VotingMsgHash, m.VotingAggSig,
 		m.NotarizeBitArray, m.NotarizeMsgHash, m.NotarizeAggSig,
@@ -274,7 +278,7 @@ func (m *NotaryAnnounceMessage) MsgType() byte {
 	return m.CSMsgCommonHeader.MsgType
 }
 
-//------------------------------------
+// ------------------------------------
 type NewCommitteeMessage struct {
 	CSMsgCommonHeader ConsensusMsgCommonHeader
 
@@ -292,7 +296,7 @@ type NewCommitteeMessage struct {
 // SigningHash computes hash of all header fields excluding signature.
 func (m *NewCommitteeMessage) SigningHash() (hash meter.Bytes32) {
 	hw := meter.NewBlake2b()
-	data := append(m.CSMsgCommonHeader.fields(),
+	data := append(m.CSMsgCommonHeader.Fields(),
 		m.NewLeaderID, m.ValidatorID, m.ValidatorBlsPK,
 		m.NextEpochID, m.Nonce, m.KBlockHeight, m.SignedMsgHash, m.BlsSignature,
 	)
@@ -341,11 +345,11 @@ type PMProposalMessage struct {
 // SigningHash computes hash of all header fields excluding signature.
 func (m *PMProposalMessage) SigningHash() (hash meter.Bytes32) {
 	hw := meter.NewBlake2b()
-	data := append(m.CSMsgCommonHeader.fields(),
+	data := append(m.CSMsgCommonHeader.Fields(),
 		m.ParentHeight, m.ParentRound,
 		m.ProposerID, m.ProposerBlsPK,
 		m.ProposedSize, m.ProposedBlock, m.ProposedBlockType,
-		m.KBlockHeight, m.TimeoutCert,
+		m.KBlockHeight, /* m.TimeoutCert, */
 	)
 	err := rlp.Encode(hw, data)
 	if err != nil {
@@ -408,7 +412,7 @@ type PMVoteMessage struct {
 // SigningHash computes hash of all header fields excluding signature.
 func (m *PMVoteMessage) SigningHash() (hash meter.Bytes32) {
 	hw := meter.NewBlake2b()
-	data := append(m.CSMsgCommonHeader.fields(),
+	data := append(m.CSMsgCommonHeader.Fields(),
 		m.VoterIndex, m.VoterID, m.VoterBlsPK,
 		m.BlsSignature, m.SignedMessageHash,
 	)
@@ -458,7 +462,7 @@ type PMNewViewMessage struct {
 // SigningHash computes hash of all header fields excluding signature.
 func (m *PMNewViewMessage) SigningHash() (hash meter.Bytes32) {
 	hw := meter.NewBlake2b()
-	data := append(m.CSMsgCommonHeader.fields(),
+	data := append(m.CSMsgCommonHeader.Fields(),
 		m.QCHeight, m.QCRound, m.QCHigh, m.Reason,
 		m.TimeoutHeight, m.TimeoutRound, m.TimeoutCounter,
 		m.PeerID, m.PeerIndex,
@@ -499,7 +503,7 @@ type PMQueryProposalMessage struct {
 // SigningHash computes hash of all header fields excluding signature.
 func (m *PMQueryProposalMessage) SigningHash() (hash meter.Bytes32) {
 	hw := meter.NewBlake2b()
-	data := append(m.CSMsgCommonHeader.fields(),
+	data := append(m.CSMsgCommonHeader.Fields(),
 		m.FromHeight,
 		m.ToHeight,
 		m.Round,
