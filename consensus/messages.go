@@ -351,6 +351,9 @@ func (m *PMProposalMessage) SigningHash() (hash meter.Bytes32) {
 		m.ProposedSize, m.ProposedBlock, m.ProposedBlockType,
 		m.KBlockHeight, /* m.TimeoutCert, */
 	)
+	if m.TimeoutCert != nil {
+		data = append(data, m.TimeoutCert)
+	}
 	err := rlp.Encode(hw, data)
 	if err != nil {
 		fmt.Println("RLP Encode Error: ", err)
