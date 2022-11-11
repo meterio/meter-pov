@@ -63,10 +63,11 @@ func (peer *ConsensusPeer) sendPacemakerMsg(rawData []byte, msgSummary string, m
 	res, err := netClient.Post(url, "application/json", bytes.NewBuffer(rawData))
 	if err != nil {
 		peer.logger.Error("Failed to send message to peer", "err", err)
+		return err
 	}
+	defer res.Body.Close()
 	io.Copy(ioutil.Discard, res.Body)
-	res.Body.Close()
-	return err
+	return nil
 }
 
 func (peer *ConsensusPeer) sendCommitteeMsg(rawData []byte, msgSummary string, msgHashHex string, relay bool) error {
@@ -90,10 +91,12 @@ func (peer *ConsensusPeer) sendCommitteeMsg(rawData []byte, msgSummary string, m
 	res, err := netClient.Post(url, "application/json", bytes.NewBuffer(rawData))
 	if err != nil {
 		peer.logger.Error("Failed to send message to peer", "err", err)
+		return err
 	}
-	io.Copy(io.Discard, res.Body)
-	res.Body.Close()
-	return err
+
+	defer res.Body.Close()
+	io.Copy(ioutil.Discard, res.Body)
+	return nil
 }
 
 func (cp *ConsensusPeer) FullString() string {
