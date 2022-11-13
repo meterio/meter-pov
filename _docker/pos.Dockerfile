@@ -12,6 +12,7 @@ RUN make all
 FROM ubuntu:22.04
 
 # RUN apk add --no-cache ca-certificates
+COPY --from=builder /meter/bin/mdb /usr/bin/
 COPY --from=builder /meter/bin/meter /usr/bin/
 COPY --from=builder /meter/bin/disco /usr/bin/
 COPY --from=builder /meter/crypto/multi_sig/libpbc.so* /usr/lib/
