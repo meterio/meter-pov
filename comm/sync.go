@@ -81,7 +81,10 @@ func (c *Communicator) download(peer *Peer, fromNum uint32, handler HandleBlockS
 					return
 				}
 				fromNum++
-				blocks = append(blocks, &blk)
+				// only append non-sblock
+				if blk.BlockType() != block.BLOCK_TYPE_S_BLOCK {
+					blocks = append(blocks, &blk)
+				}
 			}
 
 			<-co.Parallel(func(queue chan<- func()) {
