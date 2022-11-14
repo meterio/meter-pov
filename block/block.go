@@ -320,14 +320,23 @@ func (b *Block) Size() metric.StorageSize {
 
 func (b *Block) String() string {
 	canonicalName := b.GetCanonicalName()
-	return fmt.Sprintf(`%v(%v) %v {
-  BlockHeader: %v,
-  Magic: %v,
-  Transactions: %v,
-  KBlockData: %v,
-  CommitteeInfo: %v,
-  QuorumCert: %v,
-}`, canonicalName, b.BlockHeader.Number(), b.ID(), b.BlockHeader, "0x"+hex.EncodeToString(b.Magic[:]), b.Txs, b.KBlockData.ToString(), b.CommitteeInfos, b.QC)
+	s := fmt.Sprintf(`%v(%v) %v {
+  Magic:       %v
+  BlockHeader: %v
+  QuorumCert:  %v
+  Transactions: %v`, canonicalName, b.BlockHeader.Number(), b.ID(), "0x"+hex.EncodeToString(b.Magic[:]), b.BlockHeader, b.QC, b.Txs)
+
+	if len(b.KBlockData.Data) > 0 {
+		s += fmt.Sprintf(`
+  KBlockData:    %v`, b.KBlockData.ToString())
+	}
+
+	if len(b.CommitteeInfos.CommitteeInfo) > 0 {
+		s += fmt.Sprintf(`
+  CommitteeInfo: %v`, b.CommitteeInfos)
+	}
+	s += "\n}"
+	return s
 }
 
 func (b *Block) CompactString() string {

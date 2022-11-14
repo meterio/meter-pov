@@ -374,9 +374,9 @@ func (m *PMProposalMessage) String() string {
 	ch := m.CSMsgCommonHeader
 	tcStr := ""
 	if m.TimeoutCert != nil {
-		tcStr = "TimeoutCert:" + m.TimeoutCert.String()
+		tcStr = " + " + m.TimeoutCert.String()
 	}
-	return fmt.Sprintf("[PMProposal (H:%v,R:%v), Parent:(H:%v,R:%v), Proposed:%v, %v]",
+	return fmt.Sprintf("[PMProposal (H:%v,R:%v), Parent:(H:%v,R:%v), Proposed:%v%v]",
 		ch.Height, ch.Round, m.ParentHeight, m.ParentRound, blkStr, tcStr)
 }
 

@@ -309,7 +309,9 @@ func (mi *consensusMsgInfo) MsgHashHex() string {
 }
 
 func (conR *ConsensusReactor) UpdateHeight(height uint32) bool {
-	conR.logger.Info(fmt.Sprintf("Update conR.curHeight from %d to %d", conR.curHeight, height))
+	if height != conR.curHeight {
+		conR.logger.Info(fmt.Sprintf("Update curHeight from %d to %d", conR.curHeight, height))
+	}
 	conR.curHeight = height
 	return true
 }
@@ -337,7 +339,9 @@ func (conR *ConsensusReactor) RefreshCurHeight() error {
 	conR.updateCurEpoch(best.GetBlockEpoch())
 
 	lastKBlockHeightGauge.Set(float64(conR.lastKBlockHeight))
-	conR.logger.Debug("Refresh curHeight", "from", prev, "to", conR.curHeight, "lastKBlock", conR.lastKBlockHeight, "epoch", conR.curEpoch)
+	if prev != best.Number() {
+		conR.logger.Info("Refresh curHeight", "from", prev, "to", conR.curHeight, "lastKBlock", conR.lastKBlockHeight, "epoch", conR.curEpoch)
+	}
 	return nil
 }
 

@@ -417,7 +417,7 @@ func (p *Pacemaker) OnReceiveProposal(mi *consensusMsgInfo) error {
 		if justify != nil && bnew != nil && bnew.Justify != nil && bnew.Justify.QC != nil {
 			justifyRound := justify.Round
 			parentRound := bnew.Justify.QC.QCRound
-			p.logger.Info("check round for proposal", "parentRound", parentRound, "justifyRound", justifyRound, "bnewRound", bnew.Round)
+			p.logger.Debug("check round for proposal", "parentRound", parentRound, "justifyRound", justifyRound, "bnewRound", bnew.Round)
 			if parentRound > 0 && justifyRound > 0 {
 				if parentRound >= bnew.Round {
 					p.logger.Error("parent round must strictly < bnew round")

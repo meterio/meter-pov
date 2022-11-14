@@ -1004,7 +1004,7 @@ func (c *Chain) UpdateBestQC(qc *block.QuorumCert, source QCSource) (bool, error
 		c.bestQC = blk.QC
 		return true, saveBestQC(c.kv, c.bestQC)
 	}
-	log.Info("No changes to bestQC, skip updating ...")
+	log.Debug("No changes to bestQC, skip updating ...")
 	return false, nil
 }
 
