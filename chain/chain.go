@@ -589,6 +589,13 @@ func (c *Chain) GetTrunkBlock(num uint32) (*block.Block, error) {
 func (c *Chain) GetTrunkBlockRaw(num uint32) (block.Raw, error) {
 	c.rw.RLock()
 	defer c.rw.RUnlock()
+	bestNum := c.bestBlock.Number()
+
+	// limit trunk block to numbers less than or equal to best
+	if num > bestNum {
+		return []byte{}, errors.New("no trunk block beyond best")
+	}
+
 	id, err := c.ancestorTrie.GetAncestor(c.bestBlockBeforeIndexFlattern.ID(), num)
 	if err != nil {
 		return nil, err
