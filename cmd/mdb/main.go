@@ -15,7 +15,6 @@ import (
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/inconshreveable/log15"
 	"github.com/meterio/meter-pov/meter"
-	"github.com/meterio/meter-pov/script/staking"
 	"github.com/meterio/meter-pov/state"
 	"github.com/meterio/meter-pov/trie"
 	"gopkg.in/urfave/cli.v1"
@@ -635,10 +634,8 @@ type QCInfo struct {
 }
 
 func unsafeResetAction(ctx *cli.Context) error {
-	mainDB, gene := openMainDB(ctx)
+	mainDB, _ := openMainDB(ctx)
 	defer func() { log.Info("closing main database..."); mainDB.Close() }()
-
-	meterChain := initChain(ctx, gene, mainDB)
 
 	var (
 		myClient = &http.Client{Timeout: 5 * time.Second}
@@ -735,20 +732,6 @@ func unsafeResetAction(ctx *cli.Context) error {
 
 	}
 	fmt.Println("")
-
-	bestBlk, err := loadBlockByRevision(meterChain, "best")
-	if err != nil {
-		panic("could not read best block")
-	}
-	creator := state.NewCreator(mainDB)
-	st, err := creator.NewState(bestBlk.StateRoot())
-	if err != nil {
-		fmt.Println("could not create new state: ", err)
-		return err
-	}
-	stk := staking.NewStaking(meterChain, creator)
-	delegateList := stk.GetDelegateList(st)
-	stk.SetDelegateList(delegateList, st)
 
 	return nil
 }

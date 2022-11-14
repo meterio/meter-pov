@@ -43,7 +43,7 @@ go_version_check:
 		fi \
 	fi
 
-all: meter disco
+all: meter disco mdb
 
 clean:
 	-rm -rf \
