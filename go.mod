@@ -26,7 +26,7 @@ require (
 	github.com/holiman/bloomfilter/v2 v2.0.3
 	github.com/inconshreveable/log15 v0.0.0-20180818164646-67afb5ed74ec
 	github.com/mattn/go-isatty v0.0.5-0.20180830101745-3fb116b82035
-	github.com/mattn/go-sqlite3 v1.10.0
+	github.com/mattn/go-sqlite3 v1.14.16
 	github.com/mattn/go-tty v0.0.0-20181127064339-e4f871175a2f
 	github.com/pborman/uuid v0.0.0-20180906182336-adf5a7427709
 	github.com/pkg/errors v0.9.1
