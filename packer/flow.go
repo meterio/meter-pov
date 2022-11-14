@@ -158,8 +158,11 @@ func (f *Flow) Pack(privateKey *ecdsa.PrivateKey, blockType uint32, lastKBlock u
 		BlockType(blockType).
 		LastKBlockHeight(lastKBlock)
 
-	for _, tx := range f.txs {
-		builder.Transaction(tx)
+	// skip txs for sblock
+	if blockType != block.BLOCK_TYPE_S_BLOCK {
+		for _, tx := range f.txs {
+			builder.Transaction(tx)
+		}
 	}
 	newBlock := builder.Build()
 
