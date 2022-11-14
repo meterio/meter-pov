@@ -50,11 +50,10 @@ func (v *Validator) String() string {
 		return "nil-Validator"
 	}
 	pubkey := base64.StdEncoding.EncodeToString(crypto.FromECDSAPub(&v.PubKey))
-	pubkey = pubkey[:4] + "..." + pubkey[len(pubkey)-4:]
-	return fmt.Sprintf("%15v (%15v %v %v)",
-		v.Name,
+	pubkey = pubkey[:8] + "..." + pubkey[len(pubkey)-8:]
+	return fmt.Sprintf("%-20v %-15v pub: %v)",
+		v.Name[:20],
 		v.NetAddr.IP.String(),
-		v.Address.String(),
 		pubkey,
 	)
 }

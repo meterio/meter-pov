@@ -223,23 +223,17 @@ func (h *Header) String() string {
 		signerStr = signer.String()
 	}
 
-	return fmt.Sprintf(`Header(%v):
-  Number:  %v
-  ParentID: %v
-  Timestamp: %v
-  Signer: %v
-  Beneficiary: %v
-  BlockType: %v
-  LastKBlockHeight: %v
-  GasLimit: %v
-  GasUsed: %v
-  TotalScore: %v
-  TxsRoot: %v
-  StateRoot: %v
-  ReceiptsRoot: %v
-  Signature: 0x%x`, h.ID(), h.Number(), h.Body.ParentID, h.Body.Timestamp, signerStr,
-		h.Body.Beneficiary, h.Body.BlockType, h.Body.LastKBlockHeight, h.Body.GasLimit, h.Body.GasUsed, h.Body.TotalScore,
-		h.Body.TxsRoot, h.Body.StateRoot, h.Body.ReceiptsRoot, h.Body.Signature)
+	return fmt.Sprintf(`
+    ParentID:            %v
+    Timestamp:           %v
+    LastKBlock:          %v
+    Signer / TotalScore: %v / %v
+    GasUsed / GasLimit:  %v / %v
+    TxsRoot:      %v
+    StateRoot:    %v
+    ReceiptsRoot: %v
+    Signature:    0x%x`, h.Body.ParentID, h.Body.Timestamp, h.Body.LastKBlockHeight, signerStr, h.Body.TotalScore,
+		h.Body.GasUsed, h.Body.GasLimit, h.Body.TxsRoot, h.Body.StateRoot, h.Body.ReceiptsRoot, h.Body.Signature)
 }
 
 // Number extract block number from block id.

@@ -79,7 +79,7 @@ type CommitteeInfo struct {
 func (ci CommitteeInfo) String() string {
 	ecdsaPK := base64.StdEncoding.EncodeToString(ci.PubKey)
 	blsPK := base64.StdEncoding.EncodeToString(ci.CSPubKey)
-	return fmt.Sprintf("%v: { Name:%v, IP:%v, ECDSA_PK:%v, BLS_PK:%v }", ci.CSIndex, ci.Name, ci.NetAddr.IP.String(), ecdsaPK, blsPK)
+	return fmt.Sprintf("%v: %v{IP:%v, PubKey: %v:::%v }", ci.CSIndex, ci.Name, ci.NetAddr.IP.String(), ecdsaPK, blsPK)
 }
 
 type CommitteeInfos struct {
@@ -320,14 +320,14 @@ func (b *Block) Size() metric.StorageSize {
 
 func (b *Block) String() string {
 	canonicalName := b.GetCanonicalName()
-	return fmt.Sprintf(`%v(%v){
-BlockHeader: %v,
-Magic: %v,
-Transactions: %v,
-KBlockData: %v,
-CommitteeInfo: %v,
-QuorumCert: %v,
-}`, canonicalName, b.BlockHeader.Number(), b.BlockHeader, "0x"+hex.EncodeToString(b.Magic[:]), b.Txs, b.KBlockData.ToString(), b.CommitteeInfos, b.QC)
+	return fmt.Sprintf(`%v(%v) %v {
+  BlockHeader: %v,
+  Magic: %v,
+  Transactions: %v,
+  KBlockData: %v,
+  CommitteeInfo: %v,
+  QuorumCert: %v,
+}`, canonicalName, b.BlockHeader.Number(), b.ID(), b.BlockHeader, "0x"+hex.EncodeToString(b.Magic[:]), b.Txs, b.KBlockData.ToString(), b.CommitteeInfos, b.QC)
 }
 
 func (b *Block) CompactString() string {

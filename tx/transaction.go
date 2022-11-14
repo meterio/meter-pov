@@ -20,10 +20,10 @@ import (
 	"github.com/ethereum/go-ethereum/common/math"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/meterio/meter-pov/params"
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/meterio/meter-pov/meter"
 	"github.com/meterio/meter-pov/metric"
+	"github.com/meterio/meter-pov/params"
 )
 
 var (
@@ -197,14 +197,14 @@ func NewTransactionFromEthTx(ethTx *types.Transaction, chainTag byte, blockRef B
 	}
 	// tx.cache.signer.Store(from)
 	fmt.Println("NewTransactionFromEthTx created tx: ", tx.ID(),
-		"\n  from:", msg.From().Hex(),
-		"\n  to:", to.String(),
+		"\n  from:", msg.From().Hex(), "  to:", to.String(),
 		"\n  value:", msg.Value().String(),
-		"\n  chainID:", fmt.Sprintf("0x%x", ethTx.ChainId()),
+		"  nonce:", msg.Nonce(),
+		"  chainID:", fmt.Sprintf("0x%x", ethTx.ChainId()),
 		"\n  r:", fmt.Sprintf("0x%x", rBytes),
 		"\n  s:", fmt.Sprintf("0x%x", sBytes),
 		"\n  v:", fmt.Sprintf("0x%x", V.Bytes()),
-		"\n  nonce:", msg.Nonce())
+	)
 	return tx, nil
 }
 
@@ -626,27 +626,22 @@ func (t *Transaction) String() string {
 
 	binary.BigEndian.PutUint64(br[:], t.body.BlockRef)
 	if t.body.DependsOn == nil {
-		dependsOn = "nil"
+		dependsOn = ""
 	} else {
-		dependsOn = t.body.DependsOn.String()
+		dependsOn = fmt.Sprintf("DependsOn: %v", t.body.DependsOn.String())
 	}
 
 	return fmt.Sprintf(`
-  Tx(%v, %v)
-  From:           %v
-  Clauses:        %v
-  GasPriceCoef:   %v
-  Gas:            %v
-  ChainTag:       %v
-  BlockRef:       %v-%x
-  Expiration:     %v
-  DependsOn:      %v
-  Nonce:          %v
-  UnprovedWork:   %v	
-  Signature:      0x%x
-  UniteHash:      %v
-`, t.ID(), t.Size(), from, t.body.Clauses, t.body.GasPriceCoef, t.body.Gas,
-		t.body.ChainTag, br.Number(), br[4:], t.body.Expiration, dependsOn, t.body.Nonce, t.UnprovedWork(), t.body.Signature, t.UniteHash())
+  Tx %v %v %v (
+    From:               %v
+    ClauseCount:        %v
+    GasPriceCoef / Gas: %v / %v
+    ChainTag / Nonce:   %v / %v
+    BlockRef / Exp:     %v-%x / %v
+    Signature:          0x%x
+  )
+`, t.ID(), t.Size(), dependsOn, from, len(t.body.Clauses), t.body.GasPriceCoef, t.body.Gas,
+		t.body.ChainTag, t.body.Nonce, br.Number(), br[4:], t.body.Expiration, t.body.Signature)
 }
 
 // IntrinsicGas calculate intrinsic gas cost for tx with such clauses.

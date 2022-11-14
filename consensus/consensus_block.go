@@ -792,7 +792,7 @@ func (conR *ConsensusReactor) CommitteeInfoCompare(cm1, cm2 []block.CommitteeInf
 	return true
 }
 
-//build block committee info part
+// build block committee info part
 func (conR *ConsensusReactor) BuildCommitteeInfoFromMember(system *bls.System, cms []types.CommitteeMember) []block.CommitteeInfo {
 	cis := []block.CommitteeInfo{}
 	for _, cm := range cms {
@@ -803,7 +803,7 @@ func (conR *ConsensusReactor) BuildCommitteeInfoFromMember(system *bls.System, c
 	return (cis)
 }
 
-//de-serialize the block committee info part
+// de-serialize the block committee info part
 func (conR *ConsensusReactor) BuildCommitteeMemberFromInfo(system *bls.System, cis []block.CommitteeInfo) []types.CommitteeMember {
 	cms := []types.CommitteeMember{}
 	for _, ci := range cis {
@@ -829,7 +829,7 @@ func (conR *ConsensusReactor) BuildCommitteeMemberFromInfo(system *bls.System, c
 	return (cms)
 }
 
-//build block committee info part
+// build block committee info part
 func (conR *ConsensusReactor) MakeBlockCommitteeInfo(system *bls.System, cms []types.CommitteeMember) []block.CommitteeInfo {
 	cis := []block.CommitteeInfo{}
 
@@ -1197,7 +1197,7 @@ type RecvKBlockInfo struct {
 	Epoch            uint64
 }
 
-//========================================================
+// ========================================================
 func (conR *ConsensusReactor) PreCommitBlock(blkInfo *ProposedBlockInfo) error {
 	blk := blkInfo.ProposedBlock
 	stage := blkInfo.Stage
@@ -1276,7 +1276,7 @@ func (conR *ConsensusReactor) PreCommitBlock(blkInfo *ProposedBlockInfo) error {
 	// commitElapsed := mclock.Now() - startTime
 
 	blocksCommitedCounter.Inc()
-	conR.logger.Info("block precommited", "height", height, "id", blk.ID())
+	conR.logger.Info("block precommited by consensus", "height", height, "id", blk.ID())
 	return nil
 }
 
@@ -1363,7 +1363,7 @@ func (conR *ConsensusReactor) FinalizeCommitBlock(blkInfo *ProposedBlockInfo, be
 	// XXX: broadcast the new block to all peers
 	comm.GetGlobCommInst().BroadcastBlock(blk)
 	// successfully added the block, update the current hight of consensus
-	conR.logger.Info("Block committed", "height", blk.Number(), "id", blk.ID())
+	conR.logger.Info("block committed by consensus", "height", blk.Number(), "id", blk.ID())
 	fmt.Println(blk.String())
 	conR.UpdateHeight(conR.chain.BestBlock().Number())
 

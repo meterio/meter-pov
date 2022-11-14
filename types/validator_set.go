@@ -35,10 +35,10 @@ type ValidatorSet struct {
 
 func (v *ValidatorSet) String() string {
 	s := make([]string, 0)
-	for _, val := range v.Validators {
-		s = append(s, val.String())
+	for index, val := range v.Validators {
+		s = append(s, fmt.Sprintf("#%-3v ", index)+val.String())
 	}
-	return fmt.Sprintf("Committee members in actual order: \n  %s", strings.Join(s, "\n  "))
+	return fmt.Sprintf("Committee members in actual order: \n  %s", strings.Join(s, "\n"))
 }
 
 func NewValidatorSet(valz []*Validator) *ValidatorSet {
@@ -57,7 +57,7 @@ func NewValidatorSet(valz []*Validator) *ValidatorSet {
 	return vals
 }
 
-//validator slice itself is sorted.
+// validator slice itself is sorted.
 func NewValidatorSet2(vals []*Validator) *ValidatorSet {
 	validators := make([]*Validator, len(vals))
 	for i, val := range vals {
@@ -230,7 +230,7 @@ func (valz ValidatorsByAddress) Swap(i, j int) {
 	valz[j] = it
 }
 
-///////////////////////////////////////////////////////////////////////////////
+// /////////////////////////////////////////////////////////////////////////////
 // Safe multiplication and addition/subtraction
 func safeMul(a, b int64) (int64, bool) {
 	if a == 0 || b == 0 {

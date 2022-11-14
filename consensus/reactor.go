@@ -645,7 +645,15 @@ func (conR *ConsensusReactor) UpdateCurDelegates() {
 	conR.curDelegates = types.NewDelegateSet(delegates[:delegateSize])
 	conR.delegateSize = delegateSize
 	conR.committeeSize = uint32(committeeSize)
-	conR.logger.Info("Update curDelegates", "delegateSize", conR.delegateSize, "committeeSize", conR.committeeSize)
+
+	first3Names := make([]string, 0)
+	if len(delegates) > 3 {
+		for _, d := range delegates {
+			name := string(d.Name)
+			first3Names = append(first3Names, name)
+		}
+	}
+	conR.logger.Info("Update curDelegates", "delegateSize", conR.delegateSize, "committeeSize", conR.committeeSize, "first3", strings.Join(first3Names, ","))
 }
 
 func (conR *ConsensusReactor) PrepareEnvForPacemaker() error {
@@ -905,15 +913,15 @@ func (conR *ConsensusReactor) GetConsensusDelegates() ([]*types.Delegate, int, i
 	if forceDelegates == true {
 		delegates = conR.config.InitDelegates
 		conR.sourceDelegates = fromDelegatesFile
-		fmt.Println("Load delegates from delegates.json")
+		conR.logger.Info("Load delegates from delegates.json")
 	} else {
 		delegatesIntern, err := staking.GetInternalDelegateList()
 		delegates = conR.convertFromIntern(delegatesIntern)
-		fmt.Println("Load delegates from staking candidates")
+		conR.logger.Info("Load delegates from staking candidates")
 		conR.sourceDelegates = fromStaking
 		if err != nil || len(delegates) < conR.config.MinCommitteeSize {
 			delegates = conR.config.InitDelegates
-			fmt.Println("Load delegates from delegates.json as fallback, error loading staking candiates")
+			conR.logger.Info("Load delegates from delegates.json as fallback, error loading staking candiates")
 			conR.sourceDelegates = fromDelegatesFile
 		}
 	}
@@ -921,7 +929,7 @@ func (conR *ConsensusReactor) GetConsensusDelegates() ([]*types.Delegate, int, i
 	delegateSize, committeeSize := calcCommitteeSize(len(delegates), conR.config)
 	conR.allDelegates = delegates
 	conR.logger.Info("Loaded delegates", "delegateSize", delegateSize, "committeeSize", committeeSize)
-	PrintDelegates(delegates[:delegateSize])
+	// PrintDelegates(delegates[:delegateSize])
 	return delegates, delegateSize, committeeSize
 }
 

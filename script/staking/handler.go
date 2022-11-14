@@ -727,7 +727,7 @@ func (sb *StakingBody) GoverningHandler(env *StakingEnv, gas uint64) (leftOverGa
 		for _, bkt := range bucketList.buckets {
 			if ts >= bkt.CalcLastTime {
 				bonusDelta := CalcBonus(bkt.CalcLastTime, ts, bkt.Rate, bkt.Value)
-				log.Info("add bonus delta", "id", bkt.ID(), "bonusDelta", bonusDelta.String(), "ts", ts, "last time", bkt.CalcLastTime)
+				log.Debug("add bonus delta", "id", bkt.ID(), "bonusDelta", bonusDelta.String(), "ts", ts, "last time", bkt.CalcLastTime)
 
 				// update bucket
 				bkt.BonusVotes = 0

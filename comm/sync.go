@@ -63,7 +63,7 @@ func (c *Communicator) download(peer *Peer, fromNum uint32, handler HandleBlockS
 				return
 			}
 			if len(result) > 0 {
-				log.Info("Got Block", "len", len(result), "fromBlock", "fromNum", "peer", peer.RemoteAddr().String())
+				log.Info("Got Block", "len", len(result), "fromBlock", fromNum, "peer", peer.RemoteAddr().String())
 			}
 			if len(result) == 0 {
 				return
