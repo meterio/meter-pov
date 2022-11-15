@@ -174,6 +174,20 @@ func loadIndexTrieRootAction(ctx *cli.Context) error {
 	return nil
 }
 
+func loadHashAction(ctx *cli.Context) error {
+	mainDB, _ := openMainDB(ctx)
+	defer func() { log.Info("closing main database..."); mainDB.Close() }()
+
+	num := uint32(ctx.Int(heightFlag.Name))
+	numKey := numberAsKey(num)
+	val, err := mainDB.Get(append(hashKeyPrefix, numKey...))
+	if err != nil {
+		fmt.Println("could not get index trie root", err)
+	}
+	fmt.Printf("block hash for %v is %v \n", num, hex.EncodeToString(val))
+	return nil
+}
+
 func peekAction(ctx *cli.Context) error {
 	mainDB, gene := openMainDB(ctx)
 	defer func() { log.Info("closing main database..."); mainDB.Close() }()

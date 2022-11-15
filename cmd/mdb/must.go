@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"math"
@@ -124,4 +125,10 @@ func loadBlockByRevision(meterChain *chain.Chain, revision string) (*block.Block
 		return nil, InvalidRevision
 	}
 	return meterChain.GetTrunkBlock(uint32(n))
+}
+
+func numberAsKey(num uint32) []byte {
+	var key [4]byte
+	binary.BigEndian.PutUint32(key[:], num)
+	return key[:]
 }
