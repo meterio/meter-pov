@@ -26,6 +26,9 @@ RUN python3.9 -m pip install --no-cache-dir meter-gear==1.2.21
 # copy PoS binary
 COPY --from=pos /usr/bin/meter /usr/bin/
 COPY --from=pos /usr/bin/disco /usr/bin/
+COPY --from=pos /usr/bin/mdb /usr/bin/
+ENV MDB_NETWORK=main
+ENV MDB_DATA_DIR=/pos
 
 # copy PoS dependencies
 COPY --from=pos /usr/lib/libpbc.so* /usr/lib/
