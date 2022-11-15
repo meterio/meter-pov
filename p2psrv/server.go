@@ -39,10 +39,10 @@ type Server struct {
 func New(opts *Options) *Server {
 	knownNodes := cache.NewPrioCache(5)
 	discoveredNodes := cache.NewRandCache(128)
-	for _, node := range opts.KnownNodes {
-		knownNodes.Set(node.ID, node, 0)
-		discoveredNodes.Set(node.ID, node)
-	}
+	// for _, node := range opts.KnownNodes {
+	// 	knownNodes.Set(node.ID(), node, 0)
+	// 	discoveredNodes.Set(node.ID(), node)
+	// }
 
 	return &Server{
 		opts: *opts,
@@ -122,7 +122,7 @@ func (s *Server) Start(protocols []*Protocol) error {
 		}
 	}
 
-	log.Info("start up", "self", s.Self())
+	log.Info("p2psrv start up", "self", s.Self().URLv4())
 
 	s.goes.Go(s.dialLoop)
 	return nil
@@ -197,15 +197,8 @@ func (s *Server) listenDiscV5() (err error) {
 		}
 	}()
 
-	bootnodes := make([]*discv5.Node, 0, len(s.opts.BootstrapNodes)+len(s.opts.KnownNodes))
+	bootnodes := make([]*discv5.Node, 0, len(s.opts.BootstrapNodes))
 	for _, node := range s.opts.BootstrapNodes {
-		n, err := discv5.ParseNode(node.String())
-		if err != nil {
-			fmt.Println("could not parse discv5 node: ", node.String())
-		}
-		bootnodes = append(bootnodes, n)
-	}
-	for _, node := range s.opts.KnownNodes {
 		n, err := discv5.ParseNode(node.String())
 		if err != nil {
 			fmt.Println("could not parse discv5 node: ", node.String())
