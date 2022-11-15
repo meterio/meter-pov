@@ -18,6 +18,7 @@ import (
 	"path"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"time"
 
 	"net/http"
@@ -26,7 +27,6 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/p2p/enode"
-	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/inconshreveable/log15"
 	isatty "github.com/mattn/go-isatty"
 	"github.com/meterio/meter-pov/api"
@@ -135,42 +135,10 @@ func main() {
 		},
 		Action: defaultAction,
 		Commands: []cli.Command{
-			{
-				Name:  "master-key",
-				Usage: "import and export master key",
-				Flags: []cli.Flag{
-					dataDirFlag,
-					importMasterKeyFlag,
-					exportMasterKeyFlag,
-				},
-				Action: masterKeyAction,
-			},
-			{
-				Name:  "enode-id",
-				Usage: "display enode-id",
-				Flags: []cli.Flag{
-					dataDirFlag,
-					p2pPortFlag,
-				},
-				Action: showEnodeIDAction,
-			},
-			{
-				Name:  "public-key",
-				Usage: "export public key",
-				Flags: []cli.Flag{
-					dataDirFlag,
-				},
-				Action: publicKeyAction,
-			},
-			{
-				Name:  "peers",
-				Usage: "export peers",
-				Flags: []cli.Flag{
-					networkFlag,
-					dataDirFlag,
-				},
-				Action: peersAction,
-			},
+			{Name: "master-key", Usage: "import and export master key", Flags: []cli.Flag{dataDirFlag, importMasterKeyFlag, exportMasterKeyFlag}, Action: masterKeyAction},
+			{Name: "enode-id", Usage: "display enode-id", Flags: []cli.Flag{dataDirFlag, p2pPortFlag}, Action: showEnodeIDAction},
+			{Name: "public-key", Usage: "export public key", Flags: []cli.Flag{dataDirFlag}, Action: publicKeyAction},
+			{Name: "peers", Usage: "export peers", Flags: []cli.Flag{networkFlag, dataDirFlag}, Action: peersAction},
 		},
 	}
 
@@ -185,9 +153,10 @@ func showEnodeIDAction(ctx *cli.Context) error {
 		fatal("load or generate P2P key:", err)
 	}
 	node := enode.NewV4(&key.PublicKey, net.IP{}, 0, 0)
-	id := node.ID()
+	// id := node.ID()
 	port := ctx.Int(p2pPortFlag.Name)
-	fmt.Println(fmt.Sprintf("enode://%v@[]:%d", id, port))
+	// fmt.Printf("enode://%v@[]:%d\n", id, port)
+	fmt.Printf("%v@[]:%d\n", node.String(), port)
 	return nil
 }
 
@@ -204,21 +173,27 @@ func publicKeyAction(ctx *cli.Context) error {
 }
 
 func peersAction(ctx *cli.Context) error {
+	initLogger(ctx)
+
 	fmt.Println("Peers from peers.cache")
+	// init blockchain config
+	meter.InitBlockChainConfig(ctx.String(networkFlag.Name))
+
 	gene := selectGenesis(ctx)
 	instanceDir := makeInstanceDir(ctx, gene)
 	peersCachePath := path.Join(instanceDir, "peers.cache")
-	nodes := make([]*enode.Node, 0)
+	nodes := make([]string, 0)
 	if data, err := ioutil.ReadFile(peersCachePath); err != nil {
 		if !os.IsNotExist(err) {
 			fmt.Println("failed to load peers cache", "err", err)
 			return err
 		}
-	} else if err := rlp.DecodeBytes(data, &nodes); err != nil {
-		fmt.Println("failed to load peers cache", "err", err)
+	} else {
+		// fmt.Println("loaded from peers.cache: ", string(data))
+		nodes = strings.Split(string(data), "\n")
 	}
 	for i, n := range nodes {
-		fmt.Println(fmt.Sprintf("Node #%d: enode://%s@%s", i, n.ID(), n.IP().String()))
+		fmt.Printf("Node #%d: %s\n", i, n)
 	}
 	fmt.Println("End.")
 	return nil

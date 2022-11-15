@@ -28,7 +28,6 @@ import (
 	ethlog "github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/p2p/enode"
 	"github.com/ethereum/go-ethereum/p2p/nat"
-	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/inconshreveable/log15"
 	api_node "github.com/meterio/meter-pov/api/node"
 	api_utils "github.com/meterio/meter-pov/api/utils"
@@ -406,22 +405,23 @@ func newP2PComm(ctx *cli.Context, chain *chain.Chain, txPool *txpool.TxPool, ins
 
 	peersCachePath := filepath.Join(instanceDir, "peers.cache")
 
-	cachedPeers := make([]*enode.Node, 0)
+	cachedPeers := make([]string, 0)
 	if data, err := ioutil.ReadFile(peersCachePath); err != nil {
 		if !os.IsNotExist(err) {
 			log.Warn("failed to load peers cache", "err", err)
 		}
-	} else if err := rlp.DecodeBytes(data, cachedPeers); err != nil {
-		log.Warn("failed to load peers cache", "err", err)
+	} else {
+		cachedPeers = strings.Split(string(data), "\n")
 	}
 
 	// load peers from peers.cache
 	for _, p := range cachedPeers {
-		node, err := enode.ParseV4(p.String())
+		node, err := enode.ParseV4(p)
 		if err == nil {
 			opts.BootstrapNodes = append(opts.BootstrapNodes, node)
+			log.Info("load peer from cache", "peer", node.String())
 		} else {
-			fmt.Println("could not parse peer from cache: ", p.String())
+			log.Warn("cant parse peer from cache", "peer", p)
 		}
 	}
 
@@ -460,14 +460,14 @@ func (p *p2pComm) Stop() {
 	log.Info("stopping P2P server...")
 	p.p2pSrv.Stop()
 
-	log.Info("saving peers cache...")
 	nodes := p.p2pSrv.KnownNodes()
-	data, err := rlp.EncodeToBytes(nodes)
-	if err != nil {
-		log.Warn("failed to encode cached peers", "err", err)
-		return
+	log.Info("saving peers cache...", "#peers", len(nodes))
+	strs := make([]string, 0)
+	for _, n := range nodes {
+		strs = append(strs, n.String())
 	}
-	if err := ioutil.WriteFile(p.peersCachePath, data, 0600); err != nil {
+	data := strings.Join(strs, "\n")
+	if err := ioutil.WriteFile(p.peersCachePath, []byte(data), 0600); err != nil {
 		log.Warn("failed to write peers cache", "err", err)
 	}
 }
