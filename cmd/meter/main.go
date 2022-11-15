@@ -218,7 +218,7 @@ func peersAction(ctx *cli.Context) error {
 		fmt.Println("failed to load peers cache", "err", err)
 	}
 	for i, n := range nodes {
-		fmt.Println(fmt.Sprintf("Node #%d: enode://%s@%s", i, n.ID, n.IP().String()))
+		fmt.Println(fmt.Sprintf("Node #%d: enode://%s@%s", i, n.ID(), n.IP().String()))
 	}
 	fmt.Println("End.")
 	return nil
@@ -250,12 +250,12 @@ func defaultAction(ctx *cli.Context) error {
 	// if flattern index start flag is not set, mark it in db
 	pruneIndexHead, _ := chain.GetPruneIndexHead()
 
-	fmt.Println("!!! Index Trie Pruning Check !!!")
-	fmt.Printf("PruneIndexHead: %v\n, needPruning: %v\n", pruneIndexHead, pruneIndexHead < chain.BestBlockBeforeIndexFlattern().Number())
+	fmt.Printf("PruneIndexHead: %v, needPruning: %v\n", pruneIndexHead, pruneIndexHead < chain.BestBlockBeforeIndexFlattern().Number())
 	// if flattern index start is not set, or pruning is not complete
 	// start the pruning routine right now
+
 	if pruneIndexHead < chain.BestBlockBeforeIndexFlattern().Number() {
-		fmt.Println("!!! Index Trie Pruning Begins !!!")
+		fmt.Println("!!! Index Trie Pruning ENABLED !!!")
 		go pruneIndexTrie(ctx, mainDB, chain)
 	}
 
@@ -456,7 +456,11 @@ func pruneIndexTrie(ctx *cli.Context, mainDB *lvldb.LevelDB, meterChain *chain.C
 	}
 	batch := mainDB.NewBatch()
 	for i := head; i < toBlk.Number(); i++ {
-		b, _ := meterChain.GetTrunkBlock(i)
+		b, err := meterChain.GetTrunkBlock(i)
+		if err != nil {
+			log.Warn("could not load trunk block", "height", i, "err", err)
+			continue
+		}
 		// pruneStart := time.Now()
 		stat := pruner.PruneIndexTrie(b.Number(), b.ID(), batch)
 		prunedNodes += stat.Nodes

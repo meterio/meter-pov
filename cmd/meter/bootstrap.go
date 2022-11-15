@@ -19,13 +19,3 @@ var bootstrapNodes = []*enode.Node{
 	// discover.MustParseNode("enode://797fdd968592ca3b59a143f1aa2f152913499d4bb469f2bd5b62dfb1257707b4cb0686563fe144ee2088b1cc4f174bd72df51dbeb7ec1c5b6a8d8599c756f38b@107.150.112.22:55555"),
 	// discover.MustParseNode("enode://a8a83b4faac13f0a05ecd383d661a85e15e2a93fb41c4b5d00976d0bb8e35aab58a6303fe6b437124888da45017b94df8ce72f6a8bb5bcfdc7bd8df51698ad01@106.75.226.133:55555"),
 }
-
-var KnownNodes = []*enode.Node{
-	// Nodes for Yang
-	//discover.MustParseNode("enode://a00f8a399e25e72d92534236d7683b9c4c23582045c7d081735e4badf09d0775797819791502893df901c6b9dd26281f31bf6850fdfcebb48ea37cdbf63a95ae@10.1.10.50:11235"),
-	//discover.MustParseNode("enode://719d706c31723dca3cc5eb9c325b9bf842c4301ec3cc0086beb7823ecf428034b6a6c4f93efd1958a54746ee3d3312c3c26253c88b11c2cc6b08683a4e597190@10.1.10.9:11235"),
-
-	// Nodes for Simon
-	// discover.MustParseNode("enode://615dea026b3dac00b6b9935a412bed586ea4e5ce8ac9c2dc45db40c4cdeee2fd4db24c5af897dc1b6516429a33f3e7840ea38feec637fd6d405e4c50776b5739@10.1.10.12:11235")
-	// discover.MustParseNode("enode://4d06ba9da6a7121931113be6546f847a4ee24d23a9ba0c2126995d5431a07d0470ec4dbc6144903e6d149d45cacc034e7edb3e154622429f41b873befc7d8caa@10.1.10.183:11235")
-}

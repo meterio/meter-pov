@@ -406,24 +406,37 @@ func newP2PComm(ctx *cli.Context, chain *chain.Chain, txPool *txpool.TxPool, ins
 
 	peersCachePath := filepath.Join(instanceDir, "peers.cache")
 
+	cachedPeers := make([]*enode.Node, 0)
 	if data, err := ioutil.ReadFile(peersCachePath); err != nil {
 		if !os.IsNotExist(err) {
 			log.Warn("failed to load peers cache", "err", err)
 		}
-	} else if err := rlp.DecodeBytes(data, &opts.KnownNodes); err != nil {
+	} else if err := rlp.DecodeBytes(data, cachedPeers); err != nil {
 		log.Warn("failed to load peers cache", "err", err)
 	}
 
-	topic := ctx.String("disco-topic")
-	peers := ctx.StringSlice("peers")
-	validNodes := make([]*enode.Node, 0)
-	for _, p := range peers {
-		node, err := enode.ParseV4(p)
+	// load peers from peers.cache
+	for _, p := range cachedPeers {
+		node, err := enode.ParseV4(p.String())
 		if err == nil {
-			validNodes = append(validNodes, node)
+			opts.BootstrapNodes = append(opts.BootstrapNodes, node)
+		} else {
+			fmt.Println("could not parse peer from cache: ", p.String())
 		}
 	}
-	opts.KnownNodes = append(opts.KnownNodes, validNodes...)
+
+	// load peers from cli flags
+	inputPeers := ctx.StringSlice("peers")
+	for _, p := range inputPeers {
+		node, err := enode.ParseV4(p)
+		if err == nil {
+			opts.BootstrapNodes = append(opts.BootstrapNodes, node)
+		} else {
+			fmt.Println("could not parse peer: ", p)
+		}
+	}
+
+	topic := ctx.String("disco-topic")
 
 	return &p2pComm{
 		comm:           comm.New(chain, txPool, powPool, topic, magic),
