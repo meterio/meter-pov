@@ -210,7 +210,6 @@ func (conR *ConsensusReactor) OnStart() error {
 	}
 	select {
 	case <-communicator.Synced():
-		conR.logger.Info("Consensus started ... ", "curHeight", conR.curHeight)
 		conR.SwitchToConsensus()
 	}
 
@@ -231,7 +230,7 @@ func (conR *ConsensusReactor) GetLastKBlockHeight() uint32 {
 // SwitchToConsensus switches from fast_sync mode to consensus mode.
 // It resets the state, turns off fast_sync, and starts the consensus state-machine
 func (conR *ConsensusReactor) SwitchToConsensus() {
-	conR.logger.Info("Synchnization is done. SwitchToConsensus ...")
+	conR.logger.Info("sync is done, switch to consensus ...", "curHeight", conR.curHeight)
 
 	conR.PrepareEnvForPacemaker()
 	if conR.inCommittee {
@@ -415,6 +414,7 @@ func (conR *ConsensusReactor) UpdateCurCommitteeByNonce(nonce uint64) (uint, boo
 		// FIXME: find a better way
 		conR.logger.Info("New committee calculated")
 	}
+	fmt.Println("Committee members in order:")
 	fmt.Println(committee)
 
 	return role, inCommittee
@@ -652,7 +652,7 @@ func (conR *ConsensusReactor) UpdateCurDelegates() {
 
 	first3Names := make([]string, 0)
 	if len(delegates) > 3 {
-		for _, d := range delegates {
+		for _, d := range delegates[:3] {
 			name := string(d.Name)
 			first3Names = append(first3Names, name)
 		}
@@ -888,7 +888,7 @@ func (conR *ConsensusReactor) GetCombinePubKey() string {
 func (conR *ConsensusReactor) LoadBlockBytes(num uint32) []byte {
 	raw, err := conR.chain.GetTrunkBlockRaw(num)
 	if err != nil {
-		fmt.Print("Error load raw block: ", err)
+		log.Error("Error load raw block", "err", err)
 		return []byte{}
 	}
 	return raw[:]
@@ -914,25 +914,26 @@ func (conR *ConsensusReactor) GetConsensusDelegates() ([]*types.Delegate, int, i
 
 	// special handle for flag --init-configured-delegates
 	var delegates []*types.Delegate
+	hint := ""
 	if forceDelegates == true {
 		delegates = conR.config.InitDelegates
 		conR.sourceDelegates = fromDelegatesFile
-		conR.logger.Info("Load delegates from delegates.json")
+		hint = "Loaded delegates from delegates.json"
 	} else {
 		delegatesIntern, err := staking.GetInternalDelegateList()
 		delegates = conR.convertFromIntern(delegatesIntern)
-		conR.logger.Info("Load delegates from staking candidates")
+		hint = "Loaded delegates from staking candidates"
 		conR.sourceDelegates = fromStaking
 		if err != nil || len(delegates) < conR.config.MinCommitteeSize {
 			delegates = conR.config.InitDelegates
-			conR.logger.Info("Load delegates from delegates.json as fallback, error loading staking candiates")
+			hint = "Loaded delegates from delegates.json as fallback, error loading staking candiates"
 			conR.sourceDelegates = fromDelegatesFile
 		}
 	}
 
 	delegateSize, committeeSize := calcCommitteeSize(len(delegates), conR.config)
 	conR.allDelegates = delegates
-	conR.logger.Info("Loaded delegates", "delegateSize", delegateSize, "committeeSize", committeeSize)
+	conR.logger.Info(hint, "delegateSize", delegateSize, "committeeSize", committeeSize)
 	// PrintDelegates(delegates[:delegateSize])
 	return delegates, delegateSize, committeeSize
 }

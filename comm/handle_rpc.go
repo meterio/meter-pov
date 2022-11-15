@@ -13,6 +13,7 @@ import (
 	"github.com/meterio/meter-pov/comm/proto"
 	"github.com/meterio/meter-pov/meter"
 	"github.com/meterio/meter-pov/metric"
+
 	//"github.com/meterio/meter-pov/powpool"
 	"github.com/ethereum/go-ethereum/p2p"
 	"github.com/ethereum/go-ethereum/rlp"
@@ -117,7 +118,7 @@ func (c *Communicator) handleRPC(peer *Peer, msg *p2p.Msg, write func(interface{
 			raw, err := c.chain.GetTrunkBlockRaw(num)
 			if err != nil {
 				if !c.chain.IsNotFound(err) {
-					log.Error("failed to get block raw by number", "err", err)
+					log.Warn("failed to get block raw by number", "err", err)
 				}
 				break
 			}

@@ -38,7 +38,7 @@ func (v *ValidatorSet) String() string {
 	for index, val := range v.Validators {
 		s = append(s, fmt.Sprintf("#%-3v ", index)+val.String())
 	}
-	return fmt.Sprintf("Committee members in actual order: \n  %s", strings.Join(s, "\n"))
+	return strings.Join(s, "\n")
 }
 
 func NewValidatorSet(valz []*Validator) *ValidatorSet {

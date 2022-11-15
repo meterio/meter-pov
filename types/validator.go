@@ -51,8 +51,12 @@ func (v *Validator) String() string {
 	}
 	pubkey := base64.StdEncoding.EncodeToString(crypto.FromECDSAPub(&v.PubKey))
 	pubkey = pubkey[:8] + "..." + pubkey[len(pubkey)-8:]
-	return fmt.Sprintf("%-20v %-15v pub: %v)",
-		v.Name[:20],
+	name := v.Name
+	if len(v.Name) > 26 {
+		name = v.Name[:26]
+	}
+	return fmt.Sprintf("%-26v %-15v pub: %v",
+		name,
 		v.NetAddr.IP.String(),
 		pubkey,
 	)

@@ -632,15 +632,13 @@ func (t *Transaction) String() string {
 	}
 
 	return fmt.Sprintf(`
-  Tx %v %v %v (
+Tx %v %v %v:
     From:               %v
     ClauseCount:        %v
     GasPriceCoef / Gas: %v / %v
     ChainTag / Nonce:   %v / %v
     BlockRef / Exp:     %v-%x / %v
-    Signature:          0x%x
-  )
-`, t.ID(), t.Size(), dependsOn, from, len(t.body.Clauses), t.body.GasPriceCoef, t.body.Gas,
+    Signature:          0x%x`, t.ID(), t.Size(), dependsOn, from, len(t.body.Clauses), t.body.GasPriceCoef, t.body.Gas,
 		t.body.ChainTag, t.body.Nonce, br.Number(), br[4:], t.body.Expiration, t.body.Signature)
 }
 
