@@ -1,14 +1,13 @@
 package reward
 
 import (
-	"fmt"
 	"math/big"
 	"math/rand"
 	"time"
 
-	"github.com/meterio/meter-pov/params"
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/meterio/meter-pov/meter"
+	"github.com/meterio/meter-pov/params"
 	"github.com/meterio/meter-pov/script"
 	"github.com/meterio/meter-pov/script/auction"
 	"github.com/meterio/meter-pov/tx"
@@ -80,8 +79,8 @@ func BuildAutobidTx(autobidList []*RewardInfo, chainTag byte, bestNum uint32) *t
 	}
 	builder.Gas(gas)
 
-	inGas, _ := builder.Build().IntrinsicGas()
-	fmt.Println("build autobid tx, gas:", gas, ", intrinsicGas: ", inGas)
+	// inGas, _ := builder.Build().IntrinsicGas()
+	// fmt.Println("build autobid tx, gas:", gas, ", intrinsicGas: ", inGas)
 	return builder.Build()
 }
 

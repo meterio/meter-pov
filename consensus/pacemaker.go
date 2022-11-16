@@ -816,7 +816,8 @@ func (p *Pacemaker) newViewRoundTimeout(header ConsensusMsgCommonHeader, qc bloc
 			tmpHeight++
 			missed = append(missed, proposal)
 		}
-		if len(missed) > 0 {
+		if round < p.currentRound && len(missed) > 0 {
+			// forward proposal only if I'm not the expected proposer for the very next block
 			p.logger.Info(fmt.Sprintf("peer missed %v proposal, forward to it ... ", len(missed)), "fromHeight", qcHeight+1, "name", peer.name, "ip", peer.netAddr.IP.String())
 			for _, pmp := range missed {
 				p.logger.Debug("forwarding proposal", "height", pmp.Height, "name", peer.name, "ip", peer.netAddr.IP.String())
