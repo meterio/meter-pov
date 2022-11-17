@@ -74,10 +74,10 @@ var (
 )
 
 const (
-	statePruningBatch     = 1024
-	indexPruningBatch     = 512
-	indexFlatterningBatch = 1024
-	GCInterval            = 5 * 60 * 1000 // 5 min in millisecond
+	statePruningBatch = 1024
+	indexPruningBatch = 256
+	// indexFlatterningBatch = 1024
+	GCInterval = 5 * 60 * 1000 // 5 min in millisecond
 )
 
 func fullVersion() string {
@@ -441,6 +441,7 @@ func pruneIndexTrie(ctx *cli.Context, mainDB *lvldb.LevelDB, meterChain *chain.C
 		prunedNodes += stat.Nodes
 		prunedBytes += stat.PrunedNodeBytes
 		// log.Info(fmt.Sprintf("Pruned block %v", i), "prunedNodes", stat.Nodes, "prunedBytes", stat.PrunedNodeBytes, "elapsed", meter.PrettyDuration(time.Since(pruneStart)))
+		// time.Sleep(time.Millisecond * 300)
 
 		if time.Since(lastReport) > time.Second*20 {
 			log.Info("Still pruning index trie", "elapsed", meter.PrettyDuration(time.Since(start)), "head", i, "prunedNodes", prunedNodes, "prunedBytes", prunedBytes)
@@ -455,6 +456,7 @@ func pruneIndexTrie(ctx *cli.Context, mainDB *lvldb.LevelDB, meterChain *chain.C
 
 			batch = mainDB.NewBatch()
 			meterChain.UpdatePruneIndexHead(i)
+			time.Sleep(time.Second * 5)
 		}
 
 	}
