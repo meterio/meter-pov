@@ -21,10 +21,11 @@ import (
 
 // Consensus Topology Peer
 type ConsensusPeer struct {
-	name    string
-	netAddr types.NetAddress
-	logger  log15.Logger
-	magic   [4]byte
+	name      string
+	netAddr   types.NetAddress
+	logger    log15.Logger
+	magic     [4]byte
+	netClient *http.Client
 }
 
 func newConsensusPeer(name string, ip net.IP, port uint16, magic [4]byte) *ConsensusPeer {
@@ -36,15 +37,14 @@ func newConsensusPeer(name string, ip net.IP, port uint16, magic [4]byte) *Conse
 		},
 		logger: log15.New("pkg", "peer", "peer", name, "ip", ip.String()),
 		magic:  magic,
+		netClient: &http.Client{
+			Timeout: time.Second * 4, // 2
+		},
 	}
 }
 
 func (peer *ConsensusPeer) sendPacemakerMsg(rawData []byte, msgSummary string, msgHashHex string, relay bool) error {
 	// full size message may taker longer time (> 2s) to complete the tranport.
-	var netClient = &http.Client{
-		Timeout: time.Second * 4, // 2
-	}
-
 	// split := strings.Split(msgSummary, " ")
 	// name := ""
 	// tail := ""
@@ -60,7 +60,7 @@ func (peer *ConsensusPeer) sendPacemakerMsg(rawData []byte, msgSummary string, m
 	// }
 
 	url := "http://" + peer.netAddr.IP.String() + ":8670/pacemaker"
-	res, err := netClient.Post(url, "application/json", bytes.NewBuffer(rawData))
+	res, err := peer.netClient.Post(url, "application/json", bytes.NewBuffer(rawData))
 	if err != nil {
 		peer.logger.Error("Failed to send message to peer", "err", err)
 		return err
@@ -71,10 +71,6 @@ func (peer *ConsensusPeer) sendPacemakerMsg(rawData []byte, msgSummary string, m
 }
 
 func (peer *ConsensusPeer) sendCommitteeMsg(rawData []byte, msgSummary string, msgHashHex string, relay bool) error {
-	var netClient = &http.Client{
-		Timeout: time.Second * 4,
-	}
-
 	split := strings.Split(msgSummary, " ")
 	name := ""
 	tail := ""
@@ -88,7 +84,7 @@ func (peer *ConsensusPeer) sendCommitteeMsg(rawData []byte, msgSummary string, m
 		peer.logger.Info("Send>> "+name+" "+msgHashHex+" "+tail, "size", len(rawData))
 	}
 	url := "http://" + peer.netAddr.IP.String() + ":8670/committee"
-	res, err := netClient.Post(url, "application/json", bytes.NewBuffer(rawData))
+	res, err := peer.netClient.Post(url, "application/json", bytes.NewBuffer(rawData))
 	if err != nil {
 		peer.logger.Error("Failed to send message to peer", "err", err)
 		return err
