@@ -168,6 +168,7 @@ func NewConsensusReactor(ctx *cli.Context, chain *chain.Chain, state *state.Crea
 	} else {
 		conR.lastKBlockHeight = chain.BestBlock().LastKBlockHeight()
 	}
+	lastKBlockHeightGauge.Set(float64(conR.lastKBlockHeight))
 	conR.curHeight = chain.BestBlock().Number()
 
 	// initialize consensus common
@@ -190,8 +191,6 @@ func NewConsensusReactor(ctx *cli.Context, chain *chain.Chain, state *state.Crea
 	prometheus.Register(blocksCommitedCounter)
 	prometheus.Register(inCommitteeGauge)
 	prometheus.Register(pmRoleGauge)
-
-	lastKBlockHeightGauge.Set(float64(conR.lastKBlockHeight))
 
 	conR.myPrivKey = *privKey
 	conR.myPubKey = *pubKey
@@ -316,13 +315,13 @@ func (conR *ConsensusReactor) UpdateHeight(height uint32) bool {
 }
 
 // update the LastKBlockHeight
-func (conR *ConsensusReactor) UpdateLastKBlockHeight(height uint32) bool {
-	if height > conR.lastKBlockHeight {
-		conR.lastKBlockHeight = height
-		lastKBlockHeightGauge.Set(float64(conR.lastKBlockHeight))
-	}
-	return true
-}
+// func (conR *ConsensusReactor) UpdateLastKBlockHeight(height uint32) bool {
+// 	if height > conR.lastKBlockHeight {
+// 		conR.lastKBlockHeight = height
+// 		lastKBlockHeightGauge.Set(float64(conR.lastKBlockHeight))
+// 	}
+// 	return true
+// }
 
 // Refresh the current Height from the best block
 // normally call this routine after block chain changed
@@ -672,17 +671,6 @@ func (conR *ConsensusReactor) PrepareEnvForPacemaker() error {
 	bestIsKBlock := (bestBlock.Header().BlockType() == block.BLOCK_TYPE_K_BLOCK) || bestBlock.Header().Number() == 0
 	kBlockHeight := bestKBlock.Header().Number()
 
-	if conR.lastKBlockHeight == kBlockHeight {
-		// already initialized
-		return nil
-	}
-
-	//initialize Delegates
-	conR.UpdateCurDelegates()
-
-	// notice: this will panic if ECDSA key matches but BLS doesn't
-	conR.VerifyBothPubKey()
-
 	epoch := uint64(0)
 	if kBlockHeight == 0 {
 		nonce = genesis.GenesisNonce
@@ -692,13 +680,26 @@ func (conR *ConsensusReactor) PrepareEnvForPacemaker() error {
 		info = powpool.NewPowBlockInfoFromPosKBlock(bestKBlock)
 		epoch = bestKBlock.GetBlockEpoch() + 1
 	}
+
+	if conR.curNonce == nonce {
+		conR.logger.Info("committee initialized already", "nonce", nonce, "kBlock", kBlockHeight, "bestIsKBlock", bestIsKBlock, "epoch", epoch)
+		return nil
+	}
+
 	conR.logger.Info("Init committee", "nonce", nonce, "kBlockHeight", kBlockHeight, "bestIsKBlock", bestIsKBlock, "epoch", epoch)
+
+	//initialize Delegates
+	conR.UpdateCurDelegates()
+
+	// notice: this will panic if ECDSA key matches but BLS doesn't
+	conR.VerifyBothPubKey()
 
 	conR.curNonce = nonce
 	_, inCommittee := conR.UpdateCurCommitteeByNonce(nonce)
 	conR.inCommittee = inCommittee
 
 	conR.lastKBlockHeight = kBlockHeight
+	lastKBlockHeightGauge.Set(float64(conR.lastKBlockHeight))
 	conR.updateCurEpoch(epoch)
 	conR.UpdateActualCommittee()
 
