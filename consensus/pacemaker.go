@@ -990,6 +990,8 @@ func (p *Pacemaker) mainLoop() {
 				p.logger.Info("--- Pacemaker stopped successfully")
 
 			case PMCmdRestart:
+				p.csReactor.PrepareEnvForPacemaker()
+
 				// restart will keep calcStatsTx as is
 				p.stopCleanup()
 				p.logger.Info("--- Pacemaker stopped successfully, restart now")

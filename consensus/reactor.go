@@ -670,15 +670,19 @@ func (conR *ConsensusReactor) PrepareEnvForPacemaker() error {
 	}
 	bestBlock := conR.chain.BestBlock()
 	bestIsKBlock := (bestBlock.Header().BlockType() == block.BLOCK_TYPE_K_BLOCK) || bestBlock.Header().Number() == 0
+	kBlockHeight := bestKBlock.Header().Number()
+
+	if conR.lastKBlockHeight == kBlockHeight {
+		// already initialized
+		return nil
+	}
 
 	//initialize Delegates
-
 	conR.UpdateCurDelegates()
 
 	// notice: this will panic if ECDSA key matches but BLS doesn't
 	conR.VerifyBothPubKey()
 
-	kBlockHeight := bestKBlock.Header().Number()
 	epoch := uint64(0)
 	if kBlockHeight == 0 {
 		nonce = genesis.GenesisNonce
