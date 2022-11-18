@@ -757,6 +757,13 @@ func (c *Chain) getTransactionMeta(txID meter.Bytes32, headBlockID meter.Bytes32
 		return nil, err
 	}
 	for _, m := range meta {
+		mBlockNum := tx.NewBlockRefFromID(m.BlockID).Number()
+		headBlockNum := tx.NewBlockRefFromID(headBlockID).Number()
+		if mBlockNum > headBlockNum {
+			log.Warn("load tx meta from future blocks", "headBlock", headBlockNum, "headID", headBlockID, "metaBlock", mBlockNum, "metaID", m.BlockID)
+			continue
+		}
+
 		ancestorID, err := c.ancestorTrie.GetAncestor(c.bestBlockBeforeIndexFlattern.ID(), block.Number(m.BlockID))
 		if err != nil {
 			if c.IsNotFound(err) {
