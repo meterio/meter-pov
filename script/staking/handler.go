@@ -950,6 +950,31 @@ func (sb *StakingBody) CandidateUpdateHandler(env *StakingEnv, gas uint64) (left
 		return
 	}
 
+	number := env.GetTxCtx().BlockRef.Number()
+	if meter.IsMainChainTeslaFork6(number) || meter.IsTestNet() {
+		// ---------------------------------------
+		// AFTER TESLA FORK 6 : candidate update can't use existing IP, name, or PubKey
+		// ---------------------------------------
+		for _, record := range candidateList.candidates {
+			pkListed := bytes.Equal(record.PubKey, []byte(candidatePubKey))
+			ipListed := bytes.Equal(record.IPAddr, sb.CandIP)
+			nameListed := bytes.Equal(record.Name, sb.CandName)
+
+			if pkListed {
+				err = errPubKeyListed
+				return
+			}
+			if ipListed {
+				err = errIPListed
+				return
+			}
+			if nameListed {
+				err = errNameListed
+				return
+			}
+		}
+	}
+
 	// domainPattern, err := regexp.Compile("^([0-9a-zA-Z-_]+[.]*)+$")
 	// if the candidate already exists return error without paying gas
 	record := candidateList.Get(sb.CandAddr)
