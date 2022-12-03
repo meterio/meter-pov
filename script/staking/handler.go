@@ -984,7 +984,6 @@ func (sb *StakingBody) CandidateUpdateHandler(env *StakingEnv, gas uint64) (left
 		return
 	}
 
-	number := env.GetTxCtx().BlockRef.Number()
 	if in := inJailList.Exist(sb.CandAddr); in == true {
 		if meter.IsMainChainTeslaFork5(number) || meter.IsTestChainTeslaFork5(number) {
 			// ---------------------------------------
