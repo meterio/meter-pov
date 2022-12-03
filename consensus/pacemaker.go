@@ -120,7 +120,12 @@ func NewPaceMaker(conR *ConsensusReactor) *Pacemaker {
 func (p *Pacemaker) CreateLeaf(parent *pmBlock, qc *pmQuorumCert, height, round uint32) *pmBlock {
 	parentBlock, err := block.BlockDecodeFromBytes(parent.ProposedBlock)
 	if err != nil {
+
 		panic("Error decode the parent block")
+	}
+	if parentBlock == nil {
+		p.logger.Error("parent block is nil")
+		return nil
 	}
 	p.logger.Info(fmt.Sprintf("CreateLeaf: height=%v, round=%v, QC(Height:%v,Round:%v), Parent(Height:%v,Round:%v)", height, round, qc.QC.QCHeight, qc.QC.QCRound, parent.Height, parent.Round))
 	// after kblock is proposed, we should propose 2 rounds of stopcommitteetype block
@@ -148,6 +153,20 @@ func (p *Pacemaker) CreateLeaf(parent *pmBlock, qc *pmQuorumCert, height, round 
 		}
 		fmt.Print(b.ToString())
 		return b
+	}
+
+	// Validate round before propose
+	// round must be strictly larger than qcRound and parentRound within one epoch
+	parentIsKBlock := parentBlock.BlockType() == block.BLOCK_TYPE_K_BLOCK
+	if !parentIsKBlock {
+		if round <= qc.QC.QCRound {
+			p.logger.Warn("Invalid round to propose", "round", round, "qcRound", qc.QC.QCRound)
+			return nil
+		}
+		if round <= parent.Round {
+			p.logger.Warn("Invalid round to propose", "round", round, "parentRound", parent.Round)
+			return nil
+		}
 	}
 
 	info, blockBytes := p.proposeBlock(parentBlock, height, round, qc, (p.timeoutCert != nil))
@@ -371,6 +390,11 @@ func (p *Pacemaker) OnReceiveProposal(mi *consensusMsgInfo) error {
 
 	// revert the proposals if I'm not the round proposer and I received a proposal with a valid TC
 	validTimeout := p.verifyTimeoutCert(proposalMsg.TimeoutCert, height, round)
+	if p.blockExecuted != nil && round < p.blockExecuted.Round {
+		p.logger.Warn("timeout cert has a round < blockExecuted.Round, set it as invalid", "tcRound", round, "execRound", p.blockExecuted.Round)
+		return errors.New("timeout cert has round < blockExecuted.Round, skip processing")
+	}
+
 	if validTimeout {
 		p.revertTo(height)
 	}
