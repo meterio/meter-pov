@@ -107,7 +107,7 @@ func (t *Transactions) getTransactionByID(txID meter.Bytes32, blockID meter.Byte
 	return convertTransaction(tx, h, txMeta.Index)
 }
 
-//GetTransactionReceiptByID get tx's receipt
+// GetTransactionReceiptByID get tx's receipt
 func (t *Transactions) getTransactionReceiptByID(txID meter.Bytes32, blockID meter.Bytes32) (*Receipt, error) {
 	txMeta, err := t.chain.GetTransactionMeta(txID, blockID)
 	if err != nil {
@@ -123,6 +123,11 @@ func (t *Transactions) getTransactionReceiptByID(txID meter.Bytes32, blockID met
 	h, err := t.chain.GetBlockHeader(txMeta.BlockID)
 	if err != nil {
 		return nil, err
+	}
+	// disallow getting receipt for tx after best block
+	bestBlock := t.chain.BestBlock()
+	if h.Number() > bestBlock.Number() {
+		return nil, nil
 	}
 	receipt, err := t.chain.GetTransactionReceipt(txMeta.BlockID, txMeta.Index)
 	if err != nil {
