@@ -89,7 +89,7 @@ func (p *TxPool) housekeeping() {
 	log.Debug("enter housekeeping")
 	defer log.Debug("leave housekeeping")
 
-	ticker := time.NewTicker(time.Second * 2)
+	ticker := time.NewTicker(time.Second * 1)
 	defer ticker.Stop()
 
 	// Hotstuff: Should change to after seem new proposal and do wash txs.
