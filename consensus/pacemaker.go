@@ -391,11 +391,15 @@ func (p *Pacemaker) OnReceiveProposal(mi *consensusMsgInfo) error {
 	// revert the proposals if I'm not the round proposer and I received a proposal with a valid TC
 	validTimeout := p.verifyTimeoutCert(proposalMsg.TimeoutCert, height, round)
 	if p.blockExecuted != nil && round < p.blockExecuted.Round {
-		p.logger.Warn("timeout cert has a round < blockExecuted.Round, set it as invalid", "tcRound", round, "execRound", p.blockExecuted.Round)
-		return errors.New("timeout cert has round < blockExecuted.Round, skip processing")
+		p.logger.Warn("proposal has a round < blockExecuted.Round, set it as invalid", "round", round, "execRound", p.blockExecuted.Round)
+		return errors.New("proposal has round < blockExecuted.Round, skip processing")
 	}
 
 	if validTimeout {
+		if round < p.currentRound {
+			p.logger.Warn("proposal with tc has round < p.currentRound, skip processing", "round", round, "currentRound", p.currentRound)
+			return errors.New("proposal with tc has round < p.currentRound, skip processing")
+		}
 		p.revertTo(height)
 	}
 
