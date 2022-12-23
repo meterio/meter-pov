@@ -396,10 +396,12 @@ func (p *Pacemaker) OnReceiveProposal(mi *consensusMsgInfo) error {
 	}
 
 	if validTimeout {
+		p.logger.Info("proposal with tc, check rounds", "round", round, "currentRound", p.currentRound)
 		if round < p.currentRound {
 			p.logger.Warn("proposal with tc has round < p.currentRound, skip processing", "round", round, "currentRound", p.currentRound)
 			return errors.New("proposal with tc has round < p.currentRound, skip processing")
 		}
+		p.logger.Info("after check round, start revertTo")
 		p.revertTo(height)
 	}
 
