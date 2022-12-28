@@ -118,7 +118,7 @@ func (c *Communicator) handleRPC(peer *Peer, msg *p2p.Msg, write func(interface{
 			raw, err := c.chain.GetTrunkBlockRaw(num)
 			if err != nil {
 				if !c.chain.IsNotFound(err) {
-					log.Warn("failed to get block raw by number", "err", err)
+					log.Debug("failed to get block raw by number", "err", err)
 				}
 				break
 			}

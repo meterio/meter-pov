@@ -47,7 +47,6 @@ func NewAuction(ch *chain.Chain, sc *state.Creator) *Auction {
 }
 
 func (a *Auction) Start() error {
-	log.Info("auction module started")
 	return nil
 }
 

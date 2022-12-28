@@ -324,7 +324,7 @@ func (p *Pacemaker) OnReceiveProposal(mi *consensusMsgInfo) error {
 		return errParentMissing
 	}
 
-	if height <= p.blockLocked.Height {
+	if height < p.blockLocked.Height {
 		p.logger.Info("recved proposal with height <= bLocked.height, ignore ...", "height", height, "bLocked.height", p.blockLocked.Height)
 		return nil
 	}
@@ -401,8 +401,18 @@ func (p *Pacemaker) OnReceiveProposal(mi *consensusMsgInfo) error {
 			p.logger.Warn("proposal with tc has round < p.currentRound, skip processing", "round", round, "currentRound", p.currentRound)
 			return errors.New("proposal with tc has round < p.currentRound, skip processing")
 		}
-		p.logger.Info("after check round, start revertTo")
-		p.revertTo(height)
+		pivot := p.proposalMap.Get(height)
+		if pivot != nil && pivot.Justify != nil {
+			qcHighAfterRevert := pivot.Justify.QC
+			// only allow revert when
+			// qcHigh after revert is the same as qc in proposal
+			if qcHighAfterRevert.QCHeight == qc.QCHeight && qcHighAfterRevert.QCRound == qc.QCRound && qcHighAfterRevert.EpochID == qc.EpochID {
+				p.revertTo(height)
+			} else {
+				p.logger.Warn("qcHigh after revert != proposal.qc, skip processing", "qcHighAfterRevert", qcHighAfterRevert.String(), "proposal.qc", qc.String())
+				return errors.New("qcHigh after revert != proposal.qc, skip processing")
+			}
+		}
 	}
 
 	// update the proposalMap if current proposal was not tracked before
@@ -514,10 +524,11 @@ func (p *Pacemaker) OnReceiveVote(mi *consensusMsgInfo) error {
 	if MajorityTwoThird(voteCount, p.csReactor.committeeSize) == false {
 		// if voteCount < p.csReactor.committeeSize {
 		// not reach 2/3
-		p.csReactor.logger.Debug("not reach majority", "committeeSize", p.csReactor.committeeSize, "count", voteCount)
+		p.csReactor.logger.Debug("vote counted", "committeeSize", p.csReactor.committeeSize, "count", voteCount)
 		return nil
 	} else {
-		p.csReactor.logger.Info("*** Reached majority, new QC formed", "committeeSize", p.csReactor.committeeSize, "count", voteCount)
+		p.csReactor.logger.Info(
+			fmt.Sprintf("*** Reached majority, new QC formed. no future votes will be counted", "committeeSize", p.csReactor.committeeSize, "count", voteCount, "height", height, "round", round))
 	}
 
 	// seal the signature, avoid re-trigger

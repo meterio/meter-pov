@@ -76,7 +76,6 @@ func NewStaking(ch *chain.Chain, sc *state.Creator) *Staking {
 }
 
 func (s *Staking) Start() error {
-	log.Info("staking module started")
 	return nil
 }
 

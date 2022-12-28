@@ -39,7 +39,7 @@ func ModuleStakingInit(se *ScriptEngine) *staking.Staking {
 	}
 
 	stk.Start()
-	se.logger.Info("ScriptEngine", "started moudle", mod.modName)
+	se.logger.Info("ScriptEngine registered module", "mod", mod.modName)
 	return stk
 }
 
@@ -60,7 +60,7 @@ func ModuleAuctionInit(se *ScriptEngine) *auction.Auction {
 	}
 
 	a.Start()
-	se.logger.Info("ScriptEngine", "started moudle", mod.modName)
+	se.logger.Info("ScriptEngine registered module", "mod", mod.modName)
 	return a
 }
 
@@ -81,6 +81,6 @@ func ModuleAccountLockInit(se *ScriptEngine) *accountlock.AccountLock {
 	}
 
 	a.Start()
-	se.logger.Info("ScriptEngine", "started moudle", mod.modName)
+	se.logger.Info("ScriptEngine registered module", "mod", mod.modName)
 	return a
 }

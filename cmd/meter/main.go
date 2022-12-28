@@ -287,7 +287,7 @@ func defaultAction(ctx *cli.Context) error {
 	defaultPowPoolOptions.Port = ctx.Int("pow-port")
 	defaultPowPoolOptions.User = ctx.String("pow-user")
 	defaultPowPoolOptions.Pass = ctx.String("pow-pass")
-	fmt.Println(defaultPowPoolOptions)
+	// fmt.Println(defaultPowPoolOptions)
 
 	powPool := powpool.New(defaultPowPoolOptions, chain, state.NewCreator(mainDB))
 	defer func() { log.Info("closing pow pool..."); powPool.Close() }()
@@ -452,7 +452,7 @@ func pruneIndexTrie(ctx *cli.Context, mainDB *lvldb.LevelDB, meterChain *chain.C
 			if err := batch.Write(); err != nil {
 				log.Error("Error flushing", "err", err)
 			}
-			log.Info("Comitted batch for index trie pruning", "len", batch.Len(), "head", i)
+			log.Debug("Comitted batch for index trie pruning", "len", batch.Len(), "head", i)
 
 			batch = mainDB.NewBatch()
 			meterChain.UpdatePruneIndexHead(i)
