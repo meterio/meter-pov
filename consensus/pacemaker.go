@@ -25,7 +25,9 @@ const (
 
 	MIN_MBLOCKS_AN_EPOCH = uint32(4)
 
-	CATCH_UP_THRESHOLD = 5
+	CATCH_UP_THRESHOLD = 5 //
+
+	TIMEOUT_THRESHOLD_FOR_REBOOT = 5 // defines how many continuous timeouts will trigger a pacemaker reboot
 )
 
 type PMMode uint32
@@ -528,7 +530,7 @@ func (p *Pacemaker) OnReceiveVote(mi *consensusMsgInfo) error {
 		return nil
 	} else {
 		p.csReactor.logger.Info(
-			fmt.Sprintf("*** Reached majority, new QC formed. no future votes will be counted", "committeeSize", p.csReactor.committeeSize, "count", voteCount, "height", height, "round", round))
+			"*** Reached majority, new QC formed. no future votes will be counted", "committeeSize", p.csReactor.committeeSize, "count", voteCount, "height", height, "round", round)
 	}
 
 	// seal the signature, avoid re-trigger
@@ -1258,8 +1260,12 @@ func (p *Pacemaker) OnRoundTimeout(ti PMRoundTimeoutInfo) {
 		round:   p.currentRound,
 		counter: p.timeoutCounter + 1,
 	}
-	if updated == true {
+	if updated {
 		p.OnNextSyncView(p.QCHigh.QC.QCHeight+1, p.currentRound, RoundTimeout, newTi)
+	}
+	if !updated && p.timeoutCounter >= TIMEOUT_THRESHOLD_FOR_REBOOT {
+		p.logger.Warn("Continuous timeout, restart pacemaker now", "counter", p.timeoutCounter)
+		p.scheduleReboot(PMModeNormal)
 	}
 	// p.startRoundTimer(ti.height, ti.round+1, ti.counter+1)
 }
