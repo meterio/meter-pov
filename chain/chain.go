@@ -964,11 +964,11 @@ func (c *Chain) UpdateBestQC(qc *block.QuorumCert, source QCSource) (bool, error
 	// and bestQCAvailable justifies bestBlock, update it without check
 	if bestQCAvailable.QCHeight == c.bestBlock.Number() && c.leafBlock.Number() <= c.bestBlock.Number() {
 		if bestQCAvailable.QCHeight > c.bestQC.QCHeight {
-			log.Info("Update bestQC when it justifies bestBlock", "from", c.bestQC.CompactString(), "to", bestQCAvailable.CompactString(), "source", bestQCSource.String(), "condition", "leaf<=best")
+			log.Debug("Update bestQC when it justifies bestBlock", "from", c.bestQC.CompactString(), "to", bestQCAvailable.CompactString(), "source", bestQCSource.String(), "condition", "leaf<=best")
 			c.bestQC = bestQCAvailable
 			return true, saveBestQC(c.kv, c.bestQC)
 		} else {
-			log.Info("No change to bestQC, skip updating ...", "condition", "leaf<=best")
+			log.Debug("No change to bestQC, skip updating ...", "condition", "leaf<=best")
 			return false, nil
 		}
 	}

@@ -971,7 +971,7 @@ func (conR *ConsensusReactor) BuildKBlock(parentBlock *block.Block, data *block.
 	*/
 
 	conR.logger.Info("Start to build KBlock", "nonce", data.Nonce)
-	startTime := mclock.Now()
+	startTime := time.Now()
 
 	chainTag := conR.chain.Tag()
 	bestNum := conR.chain.BestBlock().Number()
@@ -982,7 +982,9 @@ func (conR *ConsensusReactor) BuildKBlock(parentBlock *block.Block, data *block.
 		panic("get state failed")
 	}
 
+	buildStart := time.Now()
 	txs := conR.buildRewardTxs(parentBlock, rewards, chainTag, bestNum, curEpoch, best, state)
+	conR.logger.Info("Built txs for kblock", "elapsed", meter.PrettyDuration(time.Since(buildStart)))
 
 	pool := txpool.GetGlobTxPoolInst()
 	if pool == nil {
@@ -1016,6 +1018,7 @@ func (conR *ConsensusReactor) BuildKBlock(parentBlock *block.Block, data *block.
 	checkPoint := state.NewCheckpoint()
 
 	for _, tx := range txs {
+		start := time.Now()
 		if err := flow.Adopt(tx); err != nil {
 			if packer.IsGasLimitReached(err) {
 				conR.logger.Warn("tx thrown away due to gas limit", "txid", tx.ID())
@@ -1025,8 +1028,9 @@ func (conR *ConsensusReactor) BuildKBlock(parentBlock *block.Block, data *block.
 				conR.logger.Warn("tx not adoptable", "txid", tx.ID())
 				continue
 			}
-			conR.logger.Warn("kBlock flow.Adopt(tx) failed...", "txid", tx.ID(), "error", err)
+			conR.logger.Warn("kBlock flow.Adopt(tx) failed...", "txid", tx.ID(), "elapsed", meter.PrettyDuration(time.Since(start)), "error", err)
 		}
+		conR.logger.Info("Adopted tx", "txid", tx.ID(), "elapsed", meter.PrettyDuration(time.Since(start)))
 	}
 
 	newBlock, stage, receipts, err := flow.Pack(&conR.myPrivKey, block.BLOCK_TYPE_K_BLOCK, conR.lastKBlockHeight)
@@ -1039,8 +1043,7 @@ func (conR *ConsensusReactor) BuildKBlock(parentBlock *block.Block, data *block.
 	newBlock.SetKBlockData(*data)
 	newBlock.SetMagic(block.BlockMagicVersion1)
 
-	execElapsed := mclock.Now() - startTime
-	conR.logger.Info("KBlock built", "height", conR.curHeight, "elapseTime", execElapsed)
+	conR.logger.Info("KBlock built", "height", conR.curHeight, "elapsed", meter.PrettyDuration(time.Since(startTime)))
 	return &ProposedBlockInfo{newBlock, stage, &receipts, txsToRemoved, txsToReturned, checkPoint, KBlockType}
 }
 

@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"time"
 
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/meterio/meter-pov/builtin"
@@ -88,11 +89,13 @@ func AuctionDecodeFromBytes(bytes []byte) (*AuctionBody, error) {
 
 func (ab *AuctionBody) StartAuctionCB(env *AuctionEnv, gas uint64) (leftOverGas uint64, err error) {
 	var ret []byte
+	start := time.Now()
 	defer func() {
 		if err != nil {
 			ret = []byte(err.Error())
 		}
 		env.SetReturnData(ret)
+		log.Info("Auction start completed", "elapsed", meter.PrettyDuration(time.Since(start)))
 	}()
 	Auction := env.GetAuction()
 	state := env.GetState()
@@ -129,11 +132,13 @@ func (ab *AuctionBody) StartAuctionCB(env *AuctionEnv, gas uint64) (leftOverGas 
 
 func (ab *AuctionBody) CloseAuctionCB(env *AuctionEnv, gas uint64) (leftOverGas uint64, err error) {
 	var ret []byte
+	start := time.Now()
 	defer func() {
 		if err != nil {
 			ret = []byte(err.Error())
 		}
 		env.SetReturnData(ret)
+		log.Info("Auction close completed", "elapsed", meter.PrettyDuration(time.Since(start)))
 	}()
 	Auction := env.GetAuction()
 	state := env.GetState()
@@ -195,11 +200,13 @@ func (ab *AuctionBody) CloseAuctionCB(env *AuctionEnv, gas uint64) (leftOverGas 
 
 func (ab *AuctionBody) HandleAuctionTx(env *AuctionEnv, gas uint64) (leftOverGas uint64, err error) {
 	var ret []byte
+	start := time.Now()
 	defer func() {
 		if err != nil {
 			ret = []byte(err.Error())
 		}
 		env.SetReturnData(ret)
+		log.Info("Bid completed", "elapsed", meter.PrettyDuration(time.Since(start)))
 	}()
 	Auction := env.GetAuction()
 	state := env.GetState()

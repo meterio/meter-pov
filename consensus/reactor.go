@@ -338,7 +338,7 @@ func (conR *ConsensusReactor) RefreshCurHeight() error {
 
 	lastKBlockHeightGauge.Set(float64(conR.lastKBlockHeight))
 	if prev != best.Number() {
-		conR.logger.Info("Refresh curHeight", "from", prev, "to", conR.curHeight, "lastKBlock", conR.lastKBlockHeight, "epoch", conR.curEpoch)
+		// conR.logger.Info("Refresh curHeight", "from", prev, "to", conR.curHeight, "lastKBlock", conR.lastKBlockHeight, "epoch", conR.curEpoch)
 	}
 	return nil
 }

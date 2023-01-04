@@ -43,7 +43,6 @@ func (s *blockStats) LogContext(last *block.Header) []interface{} {
 		"et", fmt.Sprintf("%v|%v", meter.PrettyDuration(s.exec), meter.PrettyDuration(s.commit)),
 		"mgas/s", float64(s.usedGas) * 1000 / float64(s.exec+s.commit),
 		"id", shortID(last.ID()),
-		"number", last.Number(),
 	}
 }
 

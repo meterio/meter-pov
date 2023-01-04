@@ -14,6 +14,7 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+	"time"
 
 	crypto "github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/rlp"
@@ -611,11 +612,13 @@ func (sb *StakingBody) UnDelegateHandler(env *StakingEnv, gas uint64) (leftOverG
 
 func (sb *StakingBody) GoverningHandler(env *StakingEnv, gas uint64) (leftOverGas uint64, err error) {
 	var ret []byte
+	start := time.Now()
 	defer func() {
 		if err != nil {
 			ret = []byte(err.Error())
 		}
 		env.SetReturnData(ret)
+		log.Info("Govern completed", "elapsed", meter.PrettyDuration(time.Since(start)))
 	}()
 	staking := env.GetStaking()
 	state := env.GetState()
@@ -1091,11 +1094,13 @@ func (sb *StakingBody) CandidateUpdateHandler(env *StakingEnv, gas uint64) (left
 
 func (sb *StakingBody) DelegateStatisticsHandler(env *StakingEnv, gas uint64) (leftOverGas uint64, err error) {
 	var ret []byte
+	start := time.Now()
 	defer func() {
 		if err != nil {
 			ret = []byte(err.Error())
 		}
 		env.SetReturnData(ret)
+		log.Info("Stats completed", "elapsed", meter.PrettyDuration(time.Since(start)))
 	}()
 
 	if gas < meter.ClauseGas {
