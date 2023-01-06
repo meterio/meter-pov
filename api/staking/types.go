@@ -11,7 +11,6 @@ import (
 	"sort"
 
 	"github.com/meterio/meter-pov/meter"
-	"github.com/meterio/meter-pov/script/staking"
 )
 
 type Candidate struct {
@@ -194,7 +193,7 @@ type ValidatorReward struct {
 	Rewards     []*RewardInfo `json:"rewards"`
 }
 
-func convertValidatorRewardList(list *staking.ValidatorRewardList) []*ValidatorReward {
+func convertValidatorRewardList(list *meter.ValidatorRewardList) []*ValidatorReward {
 	rewardList := make([]*ValidatorReward, 0)
 	for _, r := range list.GetList() {
 		rewardList = append(rewardList, convertValidatorReward(*r))
@@ -202,7 +201,7 @@ func convertValidatorRewardList(list *staking.ValidatorRewardList) []*ValidatorR
 	return rewardList
 }
 
-func convertRewardInfo(rinfo []*staking.RewardInfo) []*RewardInfo {
+func convertRewardInfo(rinfo []*meter.RewardInfo) []*RewardInfo {
 	ri := []*RewardInfo{}
 	for _, r := range rinfo {
 		ri = append(ri, &RewardInfo{Address: r.Address, Amount: r.Amount})
@@ -210,7 +209,7 @@ func convertRewardInfo(rinfo []*staking.RewardInfo) []*RewardInfo {
 	return ri
 }
 
-func convertValidatorReward(r staking.ValidatorReward) *ValidatorReward {
+func convertValidatorReward(r meter.ValidatorReward) *ValidatorReward {
 	return &ValidatorReward{
 		Epoch:       r.Epoch,
 		BaseReward:  r.BaseReward.String(),

@@ -417,7 +417,7 @@ func (c *ConsensusReactor) validateBlockBody(blk *block.Block, forceValidate boo
 
 							switch sb.Opcode {
 							case staking.OP_GOVERNING:
-								rinfo := []*staking.RewardInfo{}
+								rinfo := []*meter.RewardInfo{}
 								err = rlp.DecodeBytes(sb.ExtraData, &rinfo)
 								log.Info("rewardTx rinfo")
 								for _, d := range rinfo {
@@ -540,7 +540,7 @@ func (c *ConsensusReactor) validateBlockBody(blk *block.Block, forceValidate boo
 
 							switch sb.Opcode {
 							case staking.OP_GOVERNING:
-								minerTxRinfo := make([]*staking.RewardInfo, 0)
+								minerTxRinfo := make([]*meter.RewardInfo, 0)
 								err = rlp.DecodeBytes(sb.ExtraData, &minerTxRinfo)
 
 								fmt.Sprintf("minerTx rinfo")

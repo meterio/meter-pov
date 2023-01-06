@@ -92,6 +92,16 @@ var (
 	AuctionModuleAddr     = BytesToAddress([]byte("auction-account-address"))
 	AuctionSummaryListKey = Blake2b([]byte("summary-list-key"))
 	AuctionCBKey          = Blake2b([]byte("auction-active-cb-key"))
+
+	StakingModuleAddr      = BytesToAddress([]byte("staking-module-address")) // 0x616B696e672D6D6F64756c652d61646472657373
+	DelegateListKey        = Blake2b([]byte("delegate-list-key"))
+	CandidateListKey       = Blake2b([]byte("candidate-list-key"))
+	StakeHolderListKey     = Blake2b([]byte("stake-holder-list-key"))
+	BucketListKey          = Blake2b([]byte("global-bucket-list-key"))
+	DelegateStatListKey    = Blake2b([]byte("delegate-statistics-list-key"))
+	StatisticsEpochKey     = Blake2b([]byte("delegate-statistics-epoch-key"))
+	InJailListKey          = Blake2b([]byte("delegate-injail-list-key"))
+	ValidatorRewardListKey = Blake2b([]byte("validator-reward-list-key"))
 )
 
 // Keys of governance params.

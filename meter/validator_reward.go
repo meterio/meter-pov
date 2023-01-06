@@ -3,17 +3,14 @@
 // Distributed under the GNU Lesser General Public License v3.0 software license, see the accompanying
 // file LICENSE or <https://www.gnu.org/licenses/lgpl-3.0.html>
 
-package staking
+package meter
 
 import (
-	"errors"
 	"fmt"
-	"github.com/ethereum/go-ethereum/rlp"
 	"math/big"
 	"strings"
 
-	"github.com/meterio/meter-pov/block"
-	"github.com/meterio/meter-pov/meter"
+	"github.com/ethereum/go-ethereum/rlp"
 )
 
 const (
@@ -21,17 +18,17 @@ const (
 )
 
 type RewardInfo struct {
-	Address meter.Address
+	Address Address
 	Amount  *big.Int
 }
 
-func (sb *RewardInfo) UniteHash() (hash meter.Bytes32) {
+func (sb *RewardInfo) UniteHash() (hash Bytes32) {
 	//if cached := c.cache.signingHash.Load(); cached != nil {
-	//	return cached.(meter.Bytes32)
+	//	return cached.(Bytes32)
 	//}
 	//defer func() { c.cache.signingHash.Store(hash) }()
 
-	hw := meter.NewBlake2b()
+	hw := NewBlake2b()
 	err := rlp.Encode(hw, []interface{}{
 		sb.Address,
 		sb.Amount,
@@ -69,12 +66,12 @@ func (v *ValidatorReward) ToString() string {
 }
 
 type ValidatorRewardList struct {
-	rewards []*ValidatorReward
+	Rewards []*ValidatorReward
 }
 
 func (v *ValidatorRewardList) String() string {
 	s := make([]string, 0)
-	for _, reward := range v.rewards {
+	for _, reward := range v.Rewards {
 		s = append(s, reward.ToString())
 	}
 	return strings.Join(s, ", ")
@@ -84,11 +81,11 @@ func NewValidatorRewardList(rewards []*ValidatorReward) *ValidatorRewardList {
 	if rewards == nil {
 		rewards = make([]*ValidatorReward, 0)
 	}
-	return &ValidatorRewardList{rewards: rewards}
+	return &ValidatorRewardList{Rewards: rewards}
 }
 
 func (v *ValidatorRewardList) Get(epoch uint32) *ValidatorReward {
-	for _, reward := range v.rewards {
+	for _, reward := range v.Rewards {
 		if reward.Epoch == epoch {
 			return reward
 		}
@@ -97,26 +94,26 @@ func (v *ValidatorRewardList) Get(epoch uint32) *ValidatorReward {
 }
 
 func (v *ValidatorRewardList) Last() *ValidatorReward {
-	if len(v.rewards) > 0 {
-		return v.rewards[len(v.rewards)-1]
+	if len(v.Rewards) > 0 {
+		return v.Rewards[len(v.Rewards)-1]
 	}
 	return nil
 }
 
 func (v *ValidatorRewardList) Count() int {
-	return len(v.rewards)
+	return len(v.Rewards)
 }
 
 func (v *ValidatorRewardList) GetList() []*ValidatorReward {
-	return v.rewards
+	return v.Rewards
 }
 
 func (v *ValidatorRewardList) ToString() string {
-	if v == nil || len(v.rewards) == 0 {
+	if v == nil || len(v.Rewards) == 0 {
 		return "ValidatorRewardList (size:0)"
 	}
-	s := []string{fmt.Sprintf("ValidatorRewardList (size:%v) {", len(v.rewards))}
-	for i, c := range v.rewards {
+	s := []string{fmt.Sprintf("ValidatorRewardList (size:%v) {", len(v.Rewards))}
+	for i, c := range v.Rewards {
 		s = append(s, fmt.Sprintf("  %d.%v", i, c.ToString()))
 	}
 	s = append(s, "}")
@@ -125,31 +122,8 @@ func (v *ValidatorRewardList) ToString() string {
 
 func (v *ValidatorRewardList) ToList() []*ValidatorReward {
 	result := make([]*ValidatorReward, 0)
-	for _, s := range v.rewards {
+	for _, s := range v.Rewards {
 		result = append(result, s)
 	}
 	return result
-}
-
-//  api routine interface
-func GetValidatorRewardListByHeader(header *block.Header) (*ValidatorRewardList, error) {
-	staking := GetStakingGlobInst()
-	if staking == nil {
-		log.Warn("staking is not initialized...")
-		err := errors.New("staking is not initialized...")
-		return nil, err
-	}
-
-	h := header
-	if header == nil {
-		h = staking.chain.BestBlock().Header()
-	}
-	state, err := staking.stateCreator.NewState(h.StateRoot())
-	if err != nil {
-		return nil, err
-	}
-
-	list := staking.GetValidatorRewardList(state)
-	// fmt.Println("delegateList from state", list.ToString())
-	return list, nil
 }

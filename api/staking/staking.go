@@ -138,7 +138,7 @@ func (st *Staking) handleGetLastValidatorReward(w http.ResponseWriter, req *http
 	}
 	last := list.Last()
 	if last == nil {
-		last = &staking.ValidatorReward{}
+		last = &meter.ValidatorReward{}
 	}
 	reward := convertValidatorReward(*last)
 	return utils.WriteJSON(w, reward)

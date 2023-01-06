@@ -6,10 +6,6 @@ import (
 	"strings"
 )
 
-const (
-	STAKING_MAX_VALIDATOR_REWARDS = 1200
-)
-
 type ValidatorReward struct {
 	Epoch            uint32
 	BaseReward       *big.Int

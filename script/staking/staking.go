@@ -20,6 +20,7 @@ import (
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/inconshreveable/log15"
 	"github.com/meterio/meter-pov/abi"
+	"github.com/meterio/meter-pov/block"
 	"github.com/meterio/meter-pov/builtin"
 	"github.com/meterio/meter-pov/chain"
 	"github.com/meterio/meter-pov/meter"
@@ -145,7 +146,7 @@ func (s *Staking) StakingHandler(senv *setypes.ScriptEnv, payload []byte, to *me
 		if senv.GetTxCtx().Origin.IsZero() == false {
 			return nil, gas, errors.New("not from kblock")
 		}
-		if to.String() != StakingModuleAddr.String() {
+		if to.String() != meter.StakingModuleAddr.String() {
 			return nil, gas, errors.New("to address is not the same from module address")
 		}
 		leftOverGas, err = s.GoverningHandler(senv, sb, gas)
@@ -168,7 +169,7 @@ func (s *Staking) StakingHandler(senv *setypes.ScriptEnv, payload []byte, to *me
 		if senv.GetTxCtx().Origin.IsZero() == false {
 			return nil, gas, errors.New("not from kblock")
 		}
-		if to.String() != StakingModuleAddr.String() {
+		if to.String() != meter.StakingModuleAddr.String() {
 			return nil, gas, errors.New("to address is not the same from module address")
 		}
 		leftOverGas, err = s.DelegateStatHandler(senv, sb, gas)
@@ -211,9 +212,9 @@ func (s *Staking) BoundHandler(env *setypes.ScriptEnv, sb *StakingBody, gas uint
 		env.SetReturnData(ret)
 	}()
 	state := env.GetState()
-	candidateList := s.GetCandidateList(state)
-	bucketList := s.GetBucketList(state)
-	stakeholderList := s.GetStakeHolderList(state)
+	candidateList := state.GetCandidateList()
+	bucketList := state.GetBucketList()
+	stakeholderList := state.GetStakeHolderList()
 
 	if gas < meter.ClauseGas {
 		leftOverGas = 0
@@ -316,9 +317,9 @@ func (s *Staking) BoundHandler(env *setypes.ScriptEnv, sb *StakingBody, gas uint
 		err = errInvalidToken
 	}
 
-	s.SetCandidateList(candidateList, state)
-	s.SetBucketList(bucketList, state)
-	s.SetStakeHolderList(stakeholderList, state)
+	state.SetCandidateList(candidateList)
+	state.SetBucketList(bucketList)
+	state.SetStakeHolderList(stakeholderList)
 	return
 }
 
@@ -331,9 +332,9 @@ func (s *Staking) UnBoundHandler(env *setypes.ScriptEnv, sb *StakingBody, gas ui
 		env.SetReturnData(ret)
 	}()
 	state := env.GetState()
-	candidateList := s.GetCandidateList(state)
-	bucketList := s.GetBucketList(state)
-	stakeholderList := s.GetStakeHolderList(state)
+	candidateList := state.GetCandidateList()
+	bucketList := state.GetBucketList()
+	stakeholderList := state.GetStakeHolderList()
 
 	if gas < meter.ClauseGas {
 		leftOverGas = 0
@@ -362,9 +363,9 @@ func (s *Staking) UnBoundHandler(env *setypes.ScriptEnv, sb *StakingBody, gas ui
 	b.Unbounded = true
 	b.MatureTime = sb.Timestamp + GetBoundLocktime(b.Option) // lock time
 
-	s.SetCandidateList(candidateList, state)
-	s.SetBucketList(bucketList, state)
-	s.SetStakeHolderList(stakeholderList, state)
+	state.SetCandidateList(candidateList)
+	state.SetBucketList(bucketList)
+	state.SetStakeHolderList(stakeholderList)
 	return
 }
 
@@ -378,9 +379,9 @@ func (s *Staking) CandidateHandler(env *setypes.ScriptEnv, sb *StakingBody, gas 
 	}()
 
 	state := env.GetState()
-	candidateList := s.GetCandidateList(state)
-	bucketList := s.GetBucketList(state)
-	stakeholderList := s.GetStakeHolderList(state)
+	candidateList := state.GetCandidateList()
+	bucketList := state.GetBucketList()
+	stakeholderList := state.GetStakeHolderList()
 
 	if gas < meter.ClauseGas {
 		leftOverGas = 0
@@ -497,9 +498,9 @@ func (s *Staking) CandidateHandler(env *setypes.ScriptEnv, sb *StakingBody, gas 
 		err = errInvalidToken
 	}
 
-	s.SetCandidateList(candidateList, state)
-	s.SetBucketList(bucketList, state)
-	s.SetStakeHolderList(stakeholderList, state)
+	state.SetCandidateList(candidateList)
+	state.SetBucketList(bucketList)
+	state.SetStakeHolderList(stakeholderList)
 
 	return
 }
@@ -513,10 +514,10 @@ func (s *Staking) UnCandidateHandler(env *setypes.ScriptEnv, sb *StakingBody, ga
 		env.SetReturnData(ret)
 	}()
 	state := env.GetState()
-	candidateList := s.GetCandidateList(state)
-	bucketList := s.GetBucketList(state)
-	stakeholderList := s.GetStakeHolderList(state)
-	inJailList := s.GetInJailList(state)
+	candidateList := state.GetCandidateList()
+	bucketList := state.GetBucketList()
+	stakeholderList := state.GetStakeHolderList()
+	inJailList := state.GetInJailList()
 
 	if gas < meter.ClauseGas {
 		leftOverGas = 0
@@ -557,9 +558,9 @@ func (s *Staking) UnCandidateHandler(env *setypes.ScriptEnv, sb *StakingBody, ga
 	}
 	candidateList.Remove(record.Addr)
 
-	s.SetCandidateList(candidateList, state)
-	s.SetBucketList(bucketList, state)
-	s.SetStakeHolderList(stakeholderList, state)
+	state.SetCandidateList(candidateList)
+	state.SetBucketList(bucketList)
+	state.SetStakeHolderList(stakeholderList)
 	return
 
 }
@@ -573,9 +574,9 @@ func (s *Staking) DelegateHandler(env *setypes.ScriptEnv, sb *StakingBody, gas u
 		env.SetReturnData(ret)
 	}()
 	state := env.GetState()
-	candidateList := s.GetCandidateList(state)
-	bucketList := s.GetBucketList(state)
-	stakeholderList := s.GetStakeHolderList(state)
+	candidateList := state.GetCandidateList()
+	bucketList := state.GetBucketList()
+	stakeholderList := state.GetStakeHolderList()
 
 	if gas < meter.ClauseGas {
 		leftOverGas = 0
@@ -625,9 +626,9 @@ func (s *Staking) DelegateHandler(env *setypes.ScriptEnv, sb *StakingBody, gas u
 	b.Autobid = sb.Autobid
 	cand.AddBucket(b)
 
-	s.SetCandidateList(candidateList, state)
-	s.SetBucketList(bucketList, state)
-	s.SetStakeHolderList(stakeholderList, state)
+	state.SetCandidateList(candidateList)
+	state.SetBucketList(bucketList)
+	state.SetStakeHolderList(stakeholderList)
 	return
 }
 
@@ -640,9 +641,9 @@ func (s *Staking) UnDelegateHandler(env *setypes.ScriptEnv, sb *StakingBody, gas
 		env.SetReturnData(ret)
 	}()
 	state := env.GetState()
-	candidateList := s.GetCandidateList(state)
-	bucketList := s.GetBucketList(state)
-	stakeholderList := s.GetStakeHolderList(state)
+	candidateList := state.GetCandidateList()
+	bucketList := state.GetBucketList()
+	stakeholderList := state.GetStakeHolderList()
 
 	if gas < meter.ClauseGas {
 		leftOverGas = 0
@@ -681,9 +682,9 @@ func (s *Staking) UnDelegateHandler(env *setypes.ScriptEnv, sb *StakingBody, gas
 	b.Autobid = 0
 	cand.RemoveBucket(b)
 
-	s.SetCandidateList(candidateList, state)
-	s.SetBucketList(bucketList, state)
-	s.SetStakeHolderList(stakeholderList, state)
+	state.SetCandidateList(candidateList)
+	state.SetBucketList(bucketList)
+	state.SetStakeHolderList(stakeholderList)
 	return
 }
 
@@ -698,12 +699,12 @@ func (s *Staking) GoverningHandler(env *setypes.ScriptEnv, sb *StakingBody, gas 
 		log.Info("Govern completed", "elapsed", meter.PrettyDuration(time.Since(start)))
 	}()
 	state := env.GetState()
-	candidateList := s.GetCandidateList(state)
-	bucketList := s.GetBucketList(state)
-	stakeholderList := s.GetStakeHolderList(state)
-	delegateList := s.GetDelegateList(state)
-	inJailList := s.GetInJailList(state)
-	rewardList := s.GetValidatorRewardList(state)
+	candidateList := state.GetCandidateList()
+	bucketList := state.GetBucketList()
+	stakeholderList := state.GetStakeHolderList()
+	delegateList := state.GetDelegateList()
+	inJailList := state.GetInJailList()
+	rewardList := state.GetValidatorRewardList()
 
 	if gas < meter.ClauseGas {
 		leftOverGas = 0
@@ -711,7 +712,7 @@ func (s *Staking) GoverningHandler(env *setypes.ScriptEnv, sb *StakingBody, gas 
 		leftOverGas = gas - meter.ClauseGas
 	}
 
-	rinfo := []*RewardInfo{}
+	rinfo := []*meter.RewardInfo{}
 	err = rlp.DecodeBytes(sb.ExtraData, &rinfo)
 	if err != nil {
 		log.Error("get rewards info failed")
@@ -726,7 +727,7 @@ func (s *Staking) GoverningHandler(env *setypes.ScriptEnv, sb *StakingBody, gas 
 		if err != nil {
 			log.Error("Distribute validator rewards failed" + err.Error())
 		} else {
-			reward := &ValidatorReward{
+			reward := &meter.ValidatorReward{
 				Epoch:       epoch,
 				BaseReward:  builtin.Params.Native(state).Get(meter.KeyValidatorBaseReward),
 				TotalReward: sum,
@@ -734,15 +735,15 @@ func (s *Staking) GoverningHandler(env *setypes.ScriptEnv, sb *StakingBody, gas 
 			}
 			log.Info("validator rewards", "reward", reward.ToString())
 
-			var rewards []*ValidatorReward
-			rLen := len(rewardList.rewards)
-			if rLen >= STAKING_MAX_VALIDATOR_REWARDS {
-				rewards = append(rewardList.rewards[rLen-STAKING_MAX_VALIDATOR_REWARDS+1:], reward)
+			var rewards []*meter.ValidatorReward
+			rLen := len(rewardList.Rewards)
+			if rLen >= meter.STAKING_MAX_VALIDATOR_REWARDS {
+				rewards = append(rewardList.Rewards[rLen-meter.STAKING_MAX_VALIDATOR_REWARDS+1:], reward)
 			} else {
-				rewards = append(rewardList.rewards, reward)
+				rewards = append(rewardList.Rewards, reward)
 			}
 
-			rewardList = NewValidatorRewardList(rewards)
+			rewardList = meter.NewValidatorRewardList(rewards)
 			log.Info("validator rewards", "reward", sum.String())
 		}
 	}
@@ -942,11 +943,11 @@ func (s *Staking) GoverningHandler(env *setypes.ScriptEnv, sb *StakingBody, gas 
 	// set the delegateList with sorted delegates
 	delegateList.SetDelegates(delegates)
 
-	s.SetCandidateList(candidateList, state)
-	s.SetBucketList(bucketList, state)
-	s.SetStakeHolderList(stakeholderList, state)
-	s.SetDelegateList(delegateList, state)
-	s.SetValidatorRewardList(rewardList, state)
+	state.SetCandidateList(candidateList)
+	state.SetBucketList(bucketList)
+	state.SetStakeHolderList(stakeholderList)
+	state.SetDelegateList(delegateList)
+	state.SetValidatorRewardList(rewardList)
 
 	//log.Info("After Governing, new delegate list calculated", "members", delegateList.Members())
 	// fmt.Println(delegateList.ToString())
@@ -996,9 +997,9 @@ func (s *Staking) CandidateUpdateHandler(env *setypes.ScriptEnv, sb *StakingBody
 	}()
 
 	state := env.GetState()
-	candidateList := s.GetCandidateList(state)
-	inJailList := s.GetInJailList(state)
-	bucketList := s.GetBucketList(state)
+	candidateList := state.GetCandidateList()
+	inJailList := state.GetInJailList()
+	bucketList := state.GetBucketList()
 
 	if gas < meter.ClauseGas {
 		leftOverGas = 0
@@ -1162,10 +1163,10 @@ func (s *Staking) CandidateUpdateHandler(env *setypes.ScriptEnv, sb *StakingBody
 		// ---------------------------------------
 		// AFTER TESLA FORK 5 : candidate in jail allowed to be updated, and injail list is saved
 		// ---------------------------------------
-		s.SetInJailList(inJailList, state)
+		state.SetInJailList(inJailList)
 	}
-	s.SetBucketList(bucketList, state)
-	s.SetCandidateList(candidateList, state)
+	state.SetBucketList(bucketList)
+	state.SetCandidateList(candidateList)
 	return
 }
 
@@ -1187,10 +1188,10 @@ func (s *Staking) DelegateStatHandler(env *setypes.ScriptEnv, sb *StakingBody, g
 	}
 
 	state := env.GetState()
-	candidateList := s.GetCandidateList(state)
-	statisticsList := s.GetDelegateStatList(state)
-	inJailList := s.GetInJailList(state)
-	phaseOutEpoch := s.GetStatisticsEpoch(state)
+	candidateList := state.GetCandidateList()
+	statisticsList := state.GetDelegateStatList()
+	inJailList := state.GetInJailList()
+	phaseOutEpoch := state.GetStatisticsEpoch()
 
 	log.Debug("in DelegateStatHandler", "phaseOutEpoch", phaseOutEpoch)
 	// handle phase out from the start
@@ -1220,18 +1221,18 @@ func (s *Staking) DelegateStatHandler(env *setypes.ScriptEnv, sb *StakingBody, g
 	// ignore thos updates. it already paid for it
 	if in := inJailList.Exist(sb.CandAddr); in == true {
 		log.Info("in jail list, updates ignored ...", "address", sb.CandAddr, "name", sb.CandName)
-		s.SetStatisticsEpoch(phaseOutEpoch, state)
-		s.SetDelegateStatList(statisticsList, state)
-		s.SetInJailList(inJailList, state)
+		state.SetStatisticsEpoch(phaseOutEpoch)
+		state.SetDelegateStatList(statisticsList)
+		state.SetInJailList(inJailList)
 		return
 	}
 
 	IncrInfraction, err := meter.UnpackBytesToInfraction(sb.ExtraData)
 	if err != nil {
 		log.Info("decode infraction failed ...", "error", err.Error)
-		s.SetStatisticsEpoch(phaseOutEpoch, state)
-		s.SetDelegateStatList(statisticsList, state)
-		s.SetInJailList(inJailList, state)
+		state.SetStatisticsEpoch(phaseOutEpoch)
+		state.SetDelegateStatList(statisticsList)
+		state.SetInJailList(inJailList)
 		return
 	}
 	log.Info("Receives stats", "address", sb.CandAddr, "name", sb.CandName, "epoch", epoch, "infraction", IncrInfraction)
@@ -1264,9 +1265,9 @@ func (s *Staking) DelegateStatHandler(env *setypes.ScriptEnv, sb *StakingBody, g
 		}
 	}
 
-	s.SetStatisticsEpoch(phaseOutEpoch, state)
-	s.SetDelegateStatList(statisticsList, state)
-	s.SetInJailList(inJailList, state)
+	state.SetStatisticsEpoch(phaseOutEpoch)
+	state.SetDelegateStatList(statisticsList)
+	state.SetInJailList(inJailList)
 	return
 }
 
@@ -1286,8 +1287,8 @@ func (s *Staking) DelegateExitJailHandler(env *setypes.ScriptEnv, sb *StakingBod
 	}
 
 	state := env.GetState()
-	inJailList := s.GetInJailList(state)
-	statisticsList := s.GetDelegateStatList(state)
+	inJailList := state.GetInJailList()
+	statisticsList := state.GetDelegateStatList()
 
 	jailed := inJailList.Get(sb.CandAddr)
 	if jailed == nil {
@@ -1310,8 +1311,8 @@ func (s *Staking) DelegateExitJailHandler(env *setypes.ScriptEnv, sb *StakingBod
 	statisticsList.Remove(jailed.Addr)
 
 	log.Info("removed from jail list ...", "address", jailed.Addr, "name", jailed.Name)
-	s.SetInJailList(inJailList, state)
-	s.SetDelegateStatList(statisticsList, state)
+	state.SetInJailList(inJailList)
+	state.SetDelegateStatList(statisticsList)
 	return
 }
 
@@ -1335,8 +1336,8 @@ func (s *Staking) DelegateStatFlushHandler(env *setypes.ScriptEnv, sb *StakingBo
 	statisticsList := &meter.DelegateStatList{}
 	inJailList := &meter.InJailList{}
 
-	s.SetDelegateStatList(statisticsList, state)
-	s.SetInJailList(inJailList, state)
+	state.SetDelegateStatList(statisticsList)
+	state.SetInJailList(inJailList)
 	return
 }
 
@@ -1351,9 +1352,9 @@ func (s *Staking) BucketUpdateHandler(env *setypes.ScriptEnv, sb *StakingBody, g
 	}()
 
 	state := env.GetState()
-	candidateList := s.GetCandidateList(state)
-	bucketList := s.GetBucketList(state)
-	stakeholderList := s.GetStakeHolderList(state)
+	candidateList := state.GetCandidateList()
+	bucketList := state.GetBucketList()
+	stakeholderList := state.GetStakeHolderList()
 
 	if gas < meter.ClauseGas {
 		leftOverGas = 0
@@ -1448,9 +1449,9 @@ func (s *Staking) BucketUpdateHandler(env *setypes.ScriptEnv, sb *StakingBody, g
 				stakeholder.Buckets = append(stakeholder.Buckets, newBucketID)
 			}
 
-			s.SetBucketList(bucketList, state)
-			s.SetCandidateList(candidateList, state)
-			s.SetStakeHolderList(stakeholderList, state)
+			state.SetBucketList(bucketList)
+			state.SetCandidateList(candidateList)
+			state.SetStakeHolderList(stakeholderList)
 			return
 		}
 
@@ -1493,9 +1494,9 @@ func (s *Staking) BucketUpdateHandler(env *setypes.ScriptEnv, sb *StakingBody, g
 				stakeholder.TotalStake.Add(stakeholder.TotalStake, sb.Amount)
 			}
 
-			s.SetBucketList(bucketList, state)
-			s.SetCandidateList(candidateList, state)
-			s.SetStakeHolderList(stakeholderList, state)
+			state.SetBucketList(bucketList)
+			state.SetCandidateList(candidateList)
+			state.SetStakeHolderList(stakeholderList)
 			return
 		}
 		err = errors.New("unsupported option for bucket update")
@@ -1551,8 +1552,8 @@ func (s *Staking) BucketUpdateHandler(env *setypes.ScriptEnv, sb *StakingBody, g
 		}
 	}
 
-	s.SetBucketList(bucketList, state)
-	s.SetCandidateList(candidateList, state)
+	state.SetBucketList(bucketList)
+	state.SetCandidateList(candidateList)
 	return
 }
 
@@ -1571,7 +1572,7 @@ func GetLatestInJailList() (*meter.InJailList, error) {
 		return meter.NewInJailList(nil), err
 	}
 
-	JailList := staking.GetInJailList(state)
+	JailList := state.GetInJailList()
 	return JailList, nil
 }
 
@@ -1590,6 +1591,29 @@ func GetLatestDelegateStatList() (*meter.DelegateStatList, error) {
 		return meter.NewDelegateStatList(nil), err
 	}
 
-	list := staking.GetDelegateStatList(state)
+	list := state.GetDelegateStatList()
+	return list, nil
+}
+
+// api routine interface
+func GetValidatorRewardListByHeader(header *block.Header) (*meter.ValidatorRewardList, error) {
+	staking := GetStakingGlobInst()
+	if staking == nil {
+		log.Warn("staking is not initialized...")
+		err := errors.New("staking is not initialized...")
+		return nil, err
+	}
+
+	h := header
+	if header == nil {
+		h = staking.chain.BestBlock().Header()
+	}
+	state, err := staking.stateCreator.NewState(h.StateRoot())
+	if err != nil {
+		return nil, err
+	}
+
+	list := state.GetValidatorRewardList()
+	// fmt.Println("delegateList from state", list.ToString())
 	return list, nil
 }

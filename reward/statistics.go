@@ -55,7 +55,7 @@ func BuildStatisticsTx(entries []*StatEntry, chainTag byte, bestNum uint32, curE
 		data := buildStatisticsData(entry, curEpoch)
 		gas += uint64(len(data)) * params.TxDataNonZeroGas
 		builder.Clause(
-			tx.NewClause(&staking.StakingModuleAddr).
+			tx.NewClause(&meter.StakingModuleAddr).
 				WithValue(big.NewInt(0)).
 				WithToken(meter.MTRG).
 				WithData(data))

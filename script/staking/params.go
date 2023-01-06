@@ -2,8 +2,6 @@ package staking
 
 import (
 	"math/big"
-
-	"github.com/meterio/meter-pov/meter"
 )
 
 const (
@@ -24,18 +22,6 @@ var (
 
 	// amount to exit from jail 10 MTRGov
 	BAIL_FOR_EXIT_JAIL *big.Int = new(big.Int).Mul(big.NewInt(int64(10)), big.NewInt(int64(1e18)))
-)
-
-var (
-	StakingModuleAddr      = meter.BytesToAddress([]byte("staking-module-address")) // 0x616B696e672D6D6F64756c652d61646472657373
-	DelegateListKey        = meter.Blake2b([]byte("delegate-list-key"))
-	CandidateListKey       = meter.Blake2b([]byte("candidate-list-key"))
-	StakeHolderListKey     = meter.Blake2b([]byte("stake-holder-list-key"))
-	BucketListKey          = meter.Blake2b([]byte("global-bucket-list-key"))
-	DelegateStatListKey    = meter.Blake2b([]byte("delegate-statistics-list-key"))
-	StatisticsEpochKey     = meter.Blake2b([]byte("delegate-statistics-epoch-key"))
-	InJailListKey          = meter.Blake2b([]byte("delegate-injail-list-key"))
-	ValidatorRewardListKey = meter.Blake2b([]byte("validator-reward-list-key"))
 )
 
 const (

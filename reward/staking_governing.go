@@ -26,7 +26,7 @@ func BuildStakingGoverningTx(distList []*RewardInfo, curEpoch uint32, chainTag b
 		Nonce(12345678)
 
 	builder.Clause(
-		tx.NewClause(&staking.StakingModuleAddr).
+		tx.NewClause(&meter.StakingModuleAddr).
 			WithValue(big.NewInt(0)).
 			WithToken(meter.MTRG).
 			WithData(buildStakingGoverningData(distList, curEpoch)))

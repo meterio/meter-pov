@@ -145,7 +145,7 @@ func GetLatestStakeholderList() (*meter.StakeholderList, error) {
 	if err != nil {
 		return meter.NewStakeholderList(nil), err
 	}
-	StakeholderList := staking.GetStakeHolderList(state)
+	StakeholderList := state.GetStakeHolderList()
 
 	return StakeholderList, nil
 }
@@ -166,7 +166,7 @@ func GetStakeholderListByHeader(header *block.Header) (*meter.StakeholderList, e
 	if err != nil {
 		return meter.NewStakeholderList(nil), err
 	}
-	StakeholderList := staking.GetStakeHolderList(state)
+	StakeholderList := state.GetStakeHolderList()
 
 	return StakeholderList, nil
 }
@@ -184,7 +184,7 @@ func GetLatestBucketList() (*meter.BucketList, error) {
 	if err != nil {
 		return meter.NewBucketList(nil), err
 	}
-	bucketList := staking.GetBucketList(state)
+	bucketList := state.GetBucketList()
 
 	return bucketList, nil
 }
@@ -205,7 +205,7 @@ func GetBucketListByHeader(header *block.Header) (*meter.BucketList, error) {
 	if err != nil {
 		return meter.NewBucketList(nil), err
 	}
-	bucketList := staking.GetBucketList(state)
+	bucketList := state.GetBucketList()
 
 	return bucketList, nil
 }
@@ -226,7 +226,7 @@ func GetLatestCandidateList() (*meter.CandidateList, error) {
 		return meter.NewCandidateList(nil), err
 	}
 
-	CandList := staking.GetCandidateList(state)
+	CandList := state.GetCandidateList()
 	return CandList, nil
 }
 
@@ -247,7 +247,7 @@ func GetCandidateListByHeader(header *block.Header) (*meter.CandidateList, error
 		return nil, err
 	}
 
-	list := staking.GetCandidateList(state)
+	list := state.GetCandidateList()
 	return list, nil
 }
 
@@ -268,7 +268,7 @@ func GetDelegateListByHeader(header *block.Header) (*meter.DelegateList, error) 
 		return nil, err
 	}
 
-	list := staking.GetDelegateList(state)
+	list := state.GetDelegateList()
 	return list, nil
 }
 
@@ -287,7 +287,7 @@ func GetLatestDelegateList() (*meter.DelegateList, error) {
 		return nil, err
 	}
 
-	list := staking.GetDelegateList(state)
+	list := state.GetDelegateList()
 	// fmt.Println("delegateList from state", list.ToString())
 
 	return list, nil
@@ -322,7 +322,7 @@ func GetInternalDelegateList() ([]*types.DelegateIntern, error) {
 		return delegateList, err
 	}
 
-	list := staking.GetDelegateList(state)
+	list := state.GetDelegateList()
 	// fmt.Println("delegateList from state\n", list.ToString())
 	for _, s := range list.Delegates {
 		d := &types.DelegateIntern{
@@ -373,8 +373,8 @@ func CalcBonus(fromTS uint64, toTS uint64, rate uint8, value *big.Int) *big.Int 
 
 func (staking *Staking) DoTeslaFork1_Correction(bid meter.Bytes32, owner meter.Address, amount *big.Int, state *state.State, ts uint64) {
 
-	candidateList := staking.GetCandidateList(state)
-	bucketList := staking.GetBucketList(state)
+	candidateList := state.GetCandidateList()
+	bucketList := state.GetBucketList()
 
 	bucket := bucketList.Get(bid)
 	if bucket == nil {
@@ -407,14 +407,14 @@ func (staking *Staking) DoTeslaFork1_Correction(bid meter.Bytes32, owner meter.A
 		}
 	}
 
-	staking.SetBucketList(bucketList, state)
-	staking.SetCandidateList(candidateList, state)
+	state.SetBucketList(bucketList)
+	state.SetCandidateList(candidateList)
 }
 
 func (staking *Staking) DoTeslaFork5_BonusCorrection(state *state.State) {
 
-	candidateList := staking.GetCandidateList(state)
-	bucketList := staking.GetBucketList(state)
+	candidateList := state.GetCandidateList()
+	bucketList := state.GetBucketList()
 
 	fmt.Println("Tesla Fork 5 Recalculate Total Votes")
 	candTotalVotes := make(map[meter.Address]*big.Int)
@@ -463,9 +463,9 @@ func (staking *Staking) DoTeslaFork5_BonusCorrection(state *state.State) {
 		}
 	}
 
-	staking.SetBucketList(bucketList, state)
-	staking.SetCandidateList(candidateList, state)
-	staking.SetStakeHolderList(stakeholderList, state)
+	state.SetBucketList(bucketList)
+	state.SetCandidateList(candidateList)
+	state.SetStakeHolderList(stakeholderList)
 	fmt.Println("Tesla Fork 5 Recalculate Bonus Votes: DONE")
 }
 
@@ -473,8 +473,8 @@ func (staking *Staking) DoTeslaFork6_StakingCorrection(state *state.State) {
 
 	fmt.Println("Do Tesla Fork 6 calibrate staking data ")
 
-	candidateList := staking.GetCandidateList(state)
-	bucketList := staking.GetBucketList(state)
+	candidateList := state.GetCandidateList()
+	bucketList := state.GetBucketList()
 
 	candidateMappingTotalVotes := make(map[meter.Address]*big.Int)
 	bucketMappingValue := make(map[meter.Address]*big.Int)
@@ -528,7 +528,7 @@ func (staking *Staking) DoTeslaFork6_StakingCorrection(state *state.State) {
 			}
 		}
 	}
-	staking.SetCandidateList(candidateList, state)
+	state.SetCandidateList(candidateList)
 
 	// update boundbalance/balance due to diff(bucket value, boundbalance)
 	/*

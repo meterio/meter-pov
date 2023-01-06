@@ -356,11 +356,11 @@ func newValidatorReward(t *testing.T) *staking.ValidatorReward {
 		Epoch:       rand.Uint32(),
 		BaseReward:  big.NewInt(int64(rand.Uint64())),
 		TotalReward: big.NewInt(int64(rand.Uint64())),
-		Rewards: []*staking.RewardInfo{
-			&staking.RewardInfo{randomAddr(t), big.NewInt(int64(rand.Uint64()))},
-			&staking.RewardInfo{randomAddr(t), big.NewInt(int64(rand.Uint64()))},
-			&staking.RewardInfo{randomAddr(t), big.NewInt(int64(rand.Uint64()))},
-			&staking.RewardInfo{randomAddr(t), big.NewInt(int64(rand.Uint64()))},
+		Rewards: []*meter.RewardInfo{
+			&meter.RewardInfo{randomAddr(t), big.NewInt(int64(rand.Uint64()))},
+			&meter.RewardInfo{randomAddr(t), big.NewInt(int64(rand.Uint64()))},
+			&meter.RewardInfo{randomAddr(t), big.NewInt(int64(rand.Uint64()))},
+			&meter.RewardInfo{randomAddr(t), big.NewInt(int64(rand.Uint64()))},
 		},
 	}
 }
