@@ -8,12 +8,11 @@ package script
 import (
 	"fmt"
 	"sync"
+
 	//	"unsafe"
 
 	"github.com/meterio/meter-pov/meter"
 	setypes "github.com/meterio/meter-pov/script/types"
-	"github.com/meterio/meter-pov/state"
-	"github.com/meterio/meter-pov/xenv"
 )
 
 // Registry is the hub of all modules on the chain
@@ -21,7 +20,7 @@ type Module struct {
 	modName    string
 	modID      uint32
 	modPtr     interface{} // unsafe.Pointer // main instance of moudle
-	modHandler func(data []byte, to *meter.Address, txCtx *xenv.TransactionContext, gas uint64, state *state.State) (seOutput *setypes.ScriptEngineOutput, leftOverGas uint64, err error)
+	modHandler func(senv *setypes.ScriptEnv, payload []byte, to *meter.Address, gas uint64) (seOutput *setypes.ScriptEngineOutput, leftOverGas uint64, err error)
 }
 
 func (m *Module) ToString() string {

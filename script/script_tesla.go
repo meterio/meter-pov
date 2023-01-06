@@ -31,7 +31,7 @@ func EnforceTeslaFork1_1Corrections(state *state.State, ts uint64) {
 	}
 
 	mod, find := se.modReg.Find(STAKING_MODULE_ID)
-	if find == false {
+	if !find {
 		err := fmt.Errorf("could not address module %v", STAKING_MODULE_ID)
 		fmt.Println(err)
 		return
@@ -139,7 +139,7 @@ func EnforceTeslaFork5BonusCorrections(state *state.State, ts uint64) {
 	}
 
 	mod, find := se.modReg.Find(STAKING_MODULE_ID)
-	if find == false {
+	if !find {
 		err := fmt.Errorf("could not address module %v", STAKING_MODULE_ID)
 		fmt.Println(err)
 		return

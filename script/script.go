@@ -7,20 +7,14 @@ package script
 
 import (
 	"bytes"
-	"encoding/gob"
 	"encoding/hex"
 	"fmt"
-	"math/big"
 
 	"github.com/inconshreveable/log15"
 	"github.com/meterio/meter-pov/chain"
 	"github.com/meterio/meter-pov/meter"
-	"github.com/meterio/meter-pov/script/accountlock"
-	"github.com/meterio/meter-pov/script/auction"
-	"github.com/meterio/meter-pov/script/staking"
 	setypes "github.com/meterio/meter-pov/script/types"
 	"github.com/meterio/meter-pov/state"
-	"github.com/meterio/meter-pov/xenv"
 )
 
 var (
@@ -52,64 +46,13 @@ func NewScriptEngine(chain *chain.Chain, state *state.Creator) *ScriptEngine {
 	}
 	SetScriptGlobInst(se)
 
-	// initGobEncode()
-
 	// start all sub modules
 	se.StartAllModules()
 	return se
 }
 
-// deprecated
-func initGobEncode() {
-	// Basics
-	gob.Register(big.NewInt(0))
-	gob.Register([]byte{})
-	gob.Register(meter.Address{})
-	gob.Register(meter.Bytes32{})
-	gob.Register([]meter.Bytes32{})
-
-	// Staking
-	gob.Register(staking.Infraction{})
-	gob.Register(staking.Distributor{})
-	gob.Register(&staking.Delegate{})
-	gob.Register(&staking.Candidate{})
-	gob.Register(&staking.Stakeholder{})
-	gob.Register(&staking.Bucket{})
-	gob.Register(&staking.DelegateStatistics{})
-	gob.Register(&staking.DelegateJailed{})
-	gob.Register([]*staking.Delegate{})
-	gob.Register([]*staking.Candidate{})
-	gob.Register([]*staking.Stakeholder{})
-	gob.Register([]*staking.Bucket{})
-	gob.Register([]*staking.DelegateStatistics{})
-	gob.Register([]*staking.DelegateJailed{})
-
-	// Auction
-	gob.Register(&auction.AuctionCB{})
-	gob.Register(&auction.AuctionSummary{})
-	gob.Register([]*auction.AuctionCB{})
-	gob.Register([]*auction.AuctionSummary{})
-
-	// AccountLock
-	gob.Register(&accountlock.Profile{})
-	gob.Register([]*accountlock.Profile{})
-
-	buf := bytes.NewBuffer([]byte{})
-	encoder := gob.NewEncoder(buf)
-	encoder.Encode([]*staking.Candidate{&staking.Candidate{}})
-	encoder.Encode([]*staking.Bucket{&staking.Bucket{}})
-	encoder.Encode([]*staking.Stakeholder{&staking.Stakeholder{}})
-	encoder.Encode([]*staking.Delegate{&staking.Delegate{}})
-	encoder.Encode([]*staking.DelegateStatistics{&staking.DelegateStatistics{}})
-	encoder.Encode([]*staking.DelegateJailed{&staking.DelegateJailed{}})
-	encoder.Encode(&auction.AuctionCB{})
-	encoder.Encode([]*auction.AuctionSummary{&auction.AuctionSummary{}})
-	encoder.Encode(&accountlock.Profile{})
-	encoder.Encode([]*accountlock.Profile{&accountlock.Profile{}})
-}
-
 func (se *ScriptEngine) StartAllModules() {
-	if meter.IsMainChainTesla(se.chain.BestBlock().Number()) == true || meter.IsTestNet() {
+	if meter.IsMainChainTesla(se.chain.BestBlock().Number()) || meter.IsTestNet() {
 		// start module staking
 		ModuleStakingInit(se)
 
@@ -130,7 +73,7 @@ func (se *ScriptEngine) StartTeslaForkModules() {
 	ModuleAuctionInit(se)
 }
 
-func (se *ScriptEngine) HandleScriptData(data []byte, to *meter.Address, txCtx *xenv.TransactionContext, gas uint64, state *state.State) (seOutput *setypes.ScriptEngineOutput, leftOverGas uint64, err error) {
+func (se *ScriptEngine) HandleScriptData(senv *setypes.ScriptEnv, data []byte, to *meter.Address, gas uint64) (seOutput *setypes.ScriptEngineOutput, leftOverGas uint64, err error) {
 	// se.logger.Info("received script data", "to", to, "gas", gas, "txHash", txCtx.ID.String()) //"data", hex.EncodeToString(data))
 	if bytes.Compare(data[:len(ScriptPattern)], ScriptPattern[:]) != 0 {
 		err := fmt.Errorf("Pattern mismatch, pattern = %v", hex.EncodeToString(data[:len(ScriptPattern)]))
@@ -146,7 +89,7 @@ func (se *ScriptEngine) HandleScriptData(data []byte, to *meter.Address, txCtx *
 	header := script.Header
 
 	mod, find := se.modReg.Find(header.GetModID())
-	if find == false {
+	if !find {
 		err := fmt.Errorf("could not address module %v", header.GetModID())
 		fmt.Println(err)
 		return nil, gas, err
@@ -154,6 +97,6 @@ func (se *ScriptEngine) HandleScriptData(data []byte, to *meter.Address, txCtx *
 	// se.logger.Info("script header", "header", header.ToString(), "module", mod.ToString())
 
 	//module handler
-	seOutput, leftOverGas, err = mod.modHandler(script.Payload, to, txCtx, gas, state)
+	seOutput, leftOverGas, err = mod.modHandler(senv, script.Payload, to, gas)
 	return
 }

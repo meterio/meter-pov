@@ -32,13 +32,12 @@ func ModuleStakingInit(se *ScriptEngine) *staking.Staking {
 		modName:    STAKING_MODULE_NAME,
 		modID:      STAKING_MODULE_ID,
 		modPtr:     stk,
-		modHandler: stk.PrepareStakingHandler(),
+		modHandler: stk.StakingHandler,
 	}
 	if err := se.modReg.Register(STAKING_MODULE_ID, mod); err != nil {
 		panic("register staking module failed")
 	}
 
-	stk.Start()
 	se.logger.Info("ScriptEngine registered module", "mod", mod.modName)
 	return stk
 }
@@ -53,13 +52,12 @@ func ModuleAuctionInit(se *ScriptEngine) *auction.Auction {
 		modName:    AUCTION_MODULE_NAME,
 		modID:      AUCTION_MODULE_ID,
 		modPtr:     a,
-		modHandler: a.PrepareAuctionHandler(),
+		modHandler: a.AuctionHandler,
 	}
 	if err := se.modReg.Register(AUCTION_MODULE_ID, mod); err != nil {
 		panic("register auction module failed")
 	}
 
-	a.Start()
 	se.logger.Info("ScriptEngine registered module", "mod", mod.modName)
 	return a
 }
@@ -74,13 +72,12 @@ func ModuleAccountLockInit(se *ScriptEngine) *accountlock.AccountLock {
 		modName:    ACCOUNTLOCK_MODULE_NAME,
 		modID:      ACCOUNTLOCK_MODULE_ID,
 		modPtr:     a,
-		modHandler: a.PrepareAccountLockHandler(),
+		modHandler: a.AccountLockHandler,
 	}
 	if err := se.modReg.Register(ACCOUNTLOCK_MODULE_ID, mod); err != nil {
 		panic("register accountlock module failed")
 	}
 
-	a.Start()
 	se.logger.Info("ScriptEngine registered module", "mod", mod.modName)
 	return a
 }

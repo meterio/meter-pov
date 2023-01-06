@@ -16,13 +16,14 @@ import (
 	"github.com/meterio/meter-pov/builtin"
 	"github.com/meterio/meter-pov/meter"
 	"github.com/meterio/meter-pov/runtime/statedb"
+	setypes "github.com/meterio/meter-pov/script/types"
 	"github.com/meterio/meter-pov/state"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/rlp"
 )
 
-// Candidate List
+// Auction List
 func (a *Auction) GetAuctionCB(state *state.State) (result *AuctionCB) {
 	state.DecodeStorage(AuctionAccountAddr, AuctionCBKey, func(raw []byte) error {
 		auctionCB := &AuctionCB{}
@@ -85,9 +86,9 @@ func (a *Auction) SetSummaryList(summaryList *AuctionSummaryList, state *state.S
 	})
 }
 
-//==================== account openation===========================
-//from meter.ValidatorBenefitAddr ==> AuctionAccountAddr
-func (a *Auction) TransferAutobidMTRToAuction(addr meter.Address, amount *big.Int, state *state.State, env *AuctionEnv) error {
+// ==================== account openation===========================
+// from meter.ValidatorBenefitAddr ==> AuctionAccountAddr
+func (a *Auction) TransferAutobidMTRToAuction(addr meter.Address, amount *big.Int, state *state.State, env *setypes.ScriptEnv) error {
 	if amount.Sign() == 0 {
 		return nil
 	}
@@ -105,7 +106,7 @@ func (a *Auction) TransferAutobidMTRToAuction(addr meter.Address, amount *big.In
 }
 
 // from addr == > AuctionAccountAddr
-func (a *Auction) TransferMTRToAuction(addr meter.Address, amount *big.Int, state *state.State, env *AuctionEnv) error {
+func (a *Auction) TransferMTRToAuction(addr meter.Address, amount *big.Int, state *state.State, env *setypes.ScriptEnv) error {
 	if amount.Sign() == 0 {
 		return nil
 	}
@@ -122,7 +123,7 @@ func (a *Auction) TransferMTRToAuction(addr meter.Address, amount *big.Int, stat
 	return nil
 }
 
-func (a *Auction) SendMTRGToBidder(addr meter.Address, amount *big.Int, stateDB *statedb.StateDB, env *AuctionEnv) {
+func (a *Auction) SendMTRGToBidder(addr meter.Address, amount *big.Int, stateDB *statedb.StateDB, env *setypes.ScriptEnv) {
 	if amount.Sign() == 0 {
 		return
 	}
@@ -133,7 +134,7 @@ func (a *Auction) SendMTRGToBidder(addr meter.Address, amount *big.Int, stateDB 
 }
 
 // form AuctionAccountAddr ==> meter.ValidatorBenefitAddr
-func (a *Auction) TransferMTRToValidatorBenefit(amount *big.Int, state *state.State, env *AuctionEnv) error {
+func (a *Auction) TransferMTRToValidatorBenefit(amount *big.Int, state *state.State, env *setypes.ScriptEnv) error {
 	if amount.Sign() == 0 {
 		return nil
 	}
@@ -150,9 +151,9 @@ func (a *Auction) TransferMTRToValidatorBenefit(amount *big.Int, state *state.St
 	return nil
 }
 
-////////////////////////
+// //////////////////////
 // called when auction is over
-func (a *Auction) ClearAuction(cb *AuctionCB, state *state.State, env *AuctionEnv) (*big.Int, *big.Int, []*DistMtrg, error) {
+func (a *Auction) ClearAuction(cb *AuctionCB, state *state.State, env *setypes.ScriptEnv) (*big.Int, *big.Int, []*DistMtrg, error) {
 	stateDB := statedb.New(state)
 	ValidatorBenefitRatio := builtin.Params.Native(state).Get(meter.KeyValidatorBenefitRatio)
 

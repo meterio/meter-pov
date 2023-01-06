@@ -14,22 +14,24 @@ import (
 	"github.com/meterio/meter-pov/xenv"
 )
 
-//
 type ScriptEnv struct {
-	state  *state.State
-	txCtx  *xenv.TransactionContext
-	toAddr *meter.Address
+	state       *state.State
+	blockCtx    *xenv.BlockContext
+	txCtx       *xenv.TransactionContext
+	clauseIndex uint32
 
 	returnData []byte
 	transfers  []*tx.Transfer
 	events     []*tx.Event
 }
 
-func NewScriptEnv(state *state.State, txCtx *xenv.TransactionContext, to *meter.Address) *ScriptEnv {
+func NewScriptEnv(state *state.State, blockCtx *xenv.BlockContext, txCtx *xenv.TransactionContext, clauseIndex uint32) *ScriptEnv {
 	return &ScriptEnv{
-		state:      state,
-		txCtx:      txCtx,
-		toAddr:     to,
+		state:       state,
+		blockCtx:    blockCtx,
+		txCtx:       txCtx,
+		clauseIndex: clauseIndex,
+
 		returnData: make([]byte, 0),
 		transfers:  make([]*tx.Transfer, 0),
 		events:     make([]*tx.Event, 0),
@@ -38,7 +40,11 @@ func NewScriptEnv(state *state.State, txCtx *xenv.TransactionContext, to *meter.
 
 func (env *ScriptEnv) GetState() *state.State             { return env.state }
 func (env *ScriptEnv) GetTxCtx() *xenv.TransactionContext { return env.txCtx }
-func (env *ScriptEnv) GetToAddr() *meter.Address          { return env.toAddr }
+func (env *ScriptEnv) GetTxOrigin() meter.Address         { return env.txCtx.Origin }
+func (env *ScriptEnv) GetTxHash() meter.Bytes32           { return env.txCtx.ID }
+func (env *ScriptEnv) GetBlockCtx() *xenv.BlockContext    { return env.blockCtx }
+func (env *ScriptEnv) GetBlockNum() uint32                { return env.blockCtx.Number }
+func (env *ScriptEnv) GetClauseIndex() uint32             { return env.clauseIndex }
 
 func (env *ScriptEnv) SetReturnData(data []byte) {
 	env.returnData = data

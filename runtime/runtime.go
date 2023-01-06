@@ -565,7 +565,8 @@ func (rt *Runtime) PrepareClause(
 			}
 			// exclude 4 bytes of clause data
 			// fmt.Println("Exec Clause: ", hex.EncodeToString(clause.Data()))
-			seOutput, leftOverGas, vmErr = se.HandleScriptData(clause.Data()[4:], clause.To(), txCtx, gas, rt.state)
+			senv := setypes.NewScriptEnv(rt.state, rt.ctx, txCtx, clauseIndex)
+			seOutput, leftOverGas, vmErr = se.HandleScriptData(senv, clause.Data()[4:], clause.To(), gas)
 			// fmt.Println("scriptEngine handling return", data, leftOverGas, vmErr)
 
 			var data []byte

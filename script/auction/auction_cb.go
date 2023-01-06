@@ -60,7 +60,7 @@ func NewAuctionTx(addr meter.Address, amount *big.Int, txtype uint32, time uint6
 	return tx
 }
 
-///////////////////////////////////////////////////
+// /////////////////////////////////////////////////
 // auctionTx indicates the structure of a auctionTx
 type AuctionCB struct {
 	AuctionID   meter.Bytes32
@@ -79,7 +79,7 @@ type AuctionCB struct {
 	AuctionTxs []*AuctionTx
 }
 
-//bucketID auctionTx .. are excluded
+// bucketID auctionTx .. are excluded
 func (cb *AuctionCB) ID() (hash meter.Bytes32) {
 	hw := meter.NewBlake2b()
 	err := rlp.Encode(hw, []interface{}{
@@ -101,12 +101,17 @@ func (cb *AuctionCB) ID() (hash meter.Bytes32) {
 }
 
 func (cb *AuctionCB) AddAuctionTx(tx *AuctionTx) error {
+	stub := time.Now()
 	if cb.Get(tx.TxID) != nil {
 		return errors.New("tx already exist")
 	}
+	log.Info("Get completed", "elapsed", meter.PrettyDuration(time.Since(stub)))
 
 	cb.RcvdMTR = cb.RcvdMTR.Add(cb.RcvdMTR, tx.Amount)
+
+	stub = time.Now()
 	cb.Add(tx)
+	log.Info("Add completed", "elapsed", meter.PrettyDuration(time.Since(stub)))
 	return nil
 }
 
@@ -158,7 +163,11 @@ func (cb *AuctionCB) Exist(id meter.Bytes32) bool {
 }
 
 func (cb *AuctionCB) Add(tx *AuctionTx) {
+	// stub := time.Now()
 	index, insertIndex := cb.indexOf(tx.TxID)
+	// log.Info("indexOf completed", "elapsed", meter.PrettyDuration(time.Since(stub)))
+
+	// stub = time.Now()
 	if index < 0 {
 		if len(cb.AuctionTxs) == 0 {
 			cb.AuctionTxs = append(cb.AuctionTxs, tx)
@@ -169,11 +178,12 @@ func (cb *AuctionCB) Add(tx *AuctionTx) {
 		newList = append(newList, tx)
 		newList = append(newList, cb.AuctionTxs[insertIndex:]...)
 		cb.AuctionTxs = newList
+		// log.Info("insert completed", "elapsed", meter.PrettyDuration(time.Since(stub)))
 	} else {
 		cb.AuctionTxs[index] = tx
+		// log.Info("update completed", "elapsed", meter.PrettyDuration(time.Since(stub)))
 	}
 
-	return
 }
 
 func (cb *AuctionCB) Remove(id meter.Bytes32) {
@@ -181,7 +191,6 @@ func (cb *AuctionCB) Remove(id meter.Bytes32) {
 	if index >= 0 {
 		cb.AuctionTxs = append(cb.AuctionTxs[:index], cb.AuctionTxs[index+1:]...)
 	}
-	return
 }
 
 func (cb *AuctionCB) Count() int {

@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"math/big"
 	"math/rand"
+	"strconv"
 	"time"
 
 	"github.com/ethereum/go-ethereum/rlp"
@@ -62,7 +63,7 @@ func generateScriptData(opCode uint32, holderAddrStr string, amountInt64 int64, 
 		AuctionID:   auctionID,
 		Bidder:      holderAddr,
 		Amount:      amount,
-		Token:       staking.meter.MTR,
+		Token:       meter.MTR,
 		Timestamp:   uint64(time.Now().Unix()),
 		Nonce:       rand.Uint64(),
 	}
@@ -108,4 +109,56 @@ func TestScriptDataForStop(t *testing.T) {
 		t.Fail()
 	}
 	fmt.Println("Script Data Hex for Auction Stop: ", hexData)
+}
+
+func TestLargeRlpDecode(t *testing.T) {
+	cb := auction.AuctionCB{
+		AuctionID:   meter.BytesToBytes32([]byte("name")),
+		StartHeight: 1234,
+		StartEpoch:  1,
+		EndHeight:   4321,
+		EndEpoch:    2,
+		Sequence:    1,
+		RlsdMTRG:    big.NewInt(0), //released mtrg
+		RsvdMTRG:    big.NewInt(0), // reserved mtrg
+		RsvdPrice:   big.NewInt(0),
+		CreateTime:  1234,
+
+		//changed fields after auction start
+		RcvdMTR:    big.NewInt(0),
+		AuctionTxs: make([]*auction.AuctionTx, 0),
+	}
+	for i := 1; i < 24; i++ {
+		length := len(cb.AuctionTxs)
+		for j := 1; j < 660; j++ {
+			seq := length + j
+			tx := &auction.AuctionTx{
+				TxID:      meter.BytesToBytes32([]byte("test-" + strconv.Itoa(seq))),
+				Address:   meter.BytesToAddress([]byte("address-" + strconv.Itoa(seq))),
+				Amount:    big.NewInt(1234),
+				Type:      auction.AUTO_BID,
+				Timestamp: rand.Uint64(),
+				Nonce:     rand.Uint64(),
+			}
+			cb.AuctionTxs = append(cb.AuctionTxs, tx)
+		}
+
+		fmt.Println("Epoch", i, ", Auction Txs: ", len(cb.AuctionTxs))
+		start := time.Now()
+		b, err := rlp.EncodeToBytes(cb)
+		if err != nil {
+			fmt.Println("rlp encode error: ", err)
+		}
+		encodeElapse := meter.PrettyDuration(time.Since(start))
+
+		start = time.Now()
+		val := &auction.AuctionCB{}
+		err = rlp.DecodeBytes(b, val)
+		if err != nil {
+			fmt.Println("rlp decode error: ", err)
+		}
+		decodeElapse := meter.PrettyDuration(time.Since(start))
+
+		fmt.Println("RLP decode:", decodeElapse, ", encode:", encodeElapse, len(b), "bytes")
+	}
 }

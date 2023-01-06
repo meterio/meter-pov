@@ -14,6 +14,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/meterio/meter-pov/meter"
+	setypes "github.com/meterio/meter-pov/script/types"
 	"github.com/meterio/meter-pov/state"
 )
 
@@ -157,7 +158,7 @@ func (s *Staking) SetDelegateList(delegateList *DelegateList, state *state.State
 	})
 }
 
-//====
+// ====
 // Statistics List, unlike others, save/get list
 func (s *Staking) GetStatisticsList(state *state.State) (result *StatisticsList) {
 	state.DecodeStorage(StakingModuleAddr, StatisticsListKey, func(raw []byte) error {
@@ -295,8 +296,8 @@ func (s *Staking) SetValidatorRewardList(list *ValidatorRewardList, state *state
 	})
 }
 
-//==================== bound/unbound account ===========================
-func (s *Staking) BoundAccountMeter(addr meter.Address, amount *big.Int, state *state.State, env *StakingEnv) error {
+// ==================== bound/unbound account ===========================
+func (s *Staking) BoundAccountMeter(addr meter.Address, amount *big.Int, state *state.State, env *setypes.ScriptEnv) error {
 	if amount.Sign() == 0 {
 		return nil
 	}
@@ -326,7 +327,7 @@ func (s *Staking) BoundAccountMeter(addr meter.Address, amount *big.Int, state *
 	return nil
 }
 
-func (s *Staking) UnboundAccountMeter(addr meter.Address, amount *big.Int, state *state.State, env *StakingEnv) error {
+func (s *Staking) UnboundAccountMeter(addr meter.Address, amount *big.Int, state *state.State, env *setypes.ScriptEnv) error {
 	if amount.Sign() == 0 {
 		return nil
 	}
@@ -360,7 +361,7 @@ func (s *Staking) UnboundAccountMeter(addr meter.Address, amount *big.Int, state
 }
 
 // bound a meter gov in an account -- move amount from balance to bounded balance
-func (s *Staking) BoundAccountMeterGov(addr meter.Address, amount *big.Int, state *state.State, env *StakingEnv) error {
+func (s *Staking) BoundAccountMeterGov(addr meter.Address, amount *big.Int, state *state.State, env *setypes.ScriptEnv) error {
 	if amount.Sign() == 0 {
 		return nil
 	}
@@ -391,7 +392,7 @@ func (s *Staking) BoundAccountMeterGov(addr meter.Address, amount *big.Int, stat
 }
 
 // unbound a meter gov in an account -- move amount from bounded balance to balance
-func (s *Staking) UnboundAccountMeterGov(addr meter.Address, amount *big.Int, state *state.State, env *StakingEnv) error {
+func (s *Staking) UnboundAccountMeterGov(addr meter.Address, amount *big.Int, state *state.State, env *setypes.ScriptEnv) error {
 	if amount.Sign() == 0 {
 		return nil
 	}
@@ -424,7 +425,7 @@ func (s *Staking) UnboundAccountMeterGov(addr meter.Address, amount *big.Int, st
 }
 
 // collect bail to StakingModuleAddr. addr ==> StakingModuleAddr
-func (s *Staking) CollectBailMeterGov(addr meter.Address, amount *big.Int, state *state.State, env *StakingEnv) error {
+func (s *Staking) CollectBailMeterGov(addr meter.Address, amount *big.Int, state *state.State, env *setypes.ScriptEnv) error {
 	if amount.Sign() == 0 {
 		return nil
 	}
@@ -441,8 +442,8 @@ func (s *Staking) CollectBailMeterGov(addr meter.Address, amount *big.Int, state
 	return nil
 }
 
-//m meter.ValidatorBenefitAddr ==> addr
-func (s *Staking) TransferValidatorReward(amount *big.Int, addr meter.Address, state *state.State, env *StakingEnv) error {
+// m meter.ValidatorBenefitAddr ==> addr
+func (s *Staking) TransferValidatorReward(amount *big.Int, addr meter.Address, state *state.State, env *setypes.ScriptEnv) error {
 	if amount.Sign() == 0 {
 		return nil
 	}
@@ -457,7 +458,7 @@ func (s *Staking) TransferValidatorReward(amount *big.Int, addr meter.Address, s
 	return nil
 }
 
-func (s *Staking) DistValidatorRewards(rinfo []*RewardInfo, state *state.State, env *StakingEnv) (*big.Int, error) {
+func (s *Staking) DistValidatorRewards(rinfo []*RewardInfo, state *state.State, env *setypes.ScriptEnv) (*big.Int, error) {
 
 	sum := big.NewInt(0)
 	for _, r := range rinfo {

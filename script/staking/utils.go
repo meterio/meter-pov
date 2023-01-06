@@ -18,6 +18,40 @@ import (
 	"github.com/meterio/meter-pov/types"
 )
 
+var (
+	errInvalidPubkey    = errors.New("invalid public key")
+	errInvalidIpAddress = errors.New("invalid ip address")
+	errInvalidPort      = errors.New("invalid port number")
+	errInvalidToken     = errors.New("invalid token")
+	errInvalidParams    = errors.New("invalid params")
+
+	// buckets
+	errBucketNotFound       = errors.New("bucket not found")
+	errBucketOwnerMismatch  = errors.New("bucket owner mismatch")
+	errBucketAmountMismatch = errors.New("bucket amount mismatch")
+	errBucketTokenMismatch  = errors.New("bucket token mismatch")
+	errBucketInUse          = errors.New("bucket in used (address is not zero)")
+	errUpdateForeverBucket  = errors.New("can't update forever bucket")
+
+	// amount
+	errLessThanMinimalBalance  = errors.New("amount less than minimal balance (" + new(big.Int).Div(MIN_REQUIRED_BY_DELEGATE, big.NewInt(1e18)).String() + " MTRG)")
+	errLessThanMinBoundBalance = errors.New("amount less than minimal balance (" + new(big.Int).Div(MIN_BOUND_BALANCE, big.NewInt(1e18)).String() + " MTRG)")
+	errNotEnoughMTR            = errors.New("not enough MTR")
+	errNotEnoughMTRG           = errors.New("not enough MTRG")
+
+	// candidate
+	errCandidateNotListed          = errors.New("candidate address is not listed")
+	errCandidateInJail             = errors.New("candidate address is in jail")
+	errPubKeyListed                = errors.New("candidate with the same pubkey already listed")
+	errIPListed                    = errors.New("candidate with the same ip already listed")
+	errNameListed                  = errors.New("candidate with the same name already listed")
+	errCandidateListed             = errors.New("candidate info already listed")
+	errUpdateTooFrequent           = errors.New("update too frequent")
+	errCandidateListedWithDiffInfo = errors.New("candidate address already listed with different infomation (pubkey, ip, port)")
+	errCandidateNotChanged         = errors.New("candidate not changed")
+	errCandidateNotEnoughSelfVotes = errors.New("candidate's accumulated votes > 100x candidate's own vote")
+)
+
 // get the bucket that candidate initialized
 func GetCandidateBucket(c *Candidate, bl *BucketList) (*Bucket, error) {
 	for _, id := range c.Buckets {
