@@ -22,7 +22,7 @@ func GetActiveAuctionCB() (*meter.AuctionCB, error) {
 		return nil, err
 	}
 
-	cb := auction.GetAuctionCB(state)
+	cb := state.GetAuctionCB()
 	return cb, nil
 }
 
@@ -40,7 +40,7 @@ func GetAuctionSummaryList() (*meter.AuctionSummaryList, error) {
 		return meter.NewAuctionSummaryList(nil), err
 	}
 
-	summaryList := auction.GetSummaryList(state)
+	summaryList := state.GetSummaryList()
 	if summaryList == nil {
 		log.Error("no summaryList stored ...")
 		return meter.NewAuctionSummaryList(nil), nil
@@ -66,7 +66,7 @@ func GetAuctionSummaryListByHeader(header *block.Header) (*meter.AuctionSummaryL
 		return meter.NewAuctionSummaryList(nil), err
 	}
 
-	summaryList := auction.GetSummaryList(state)
+	summaryList := state.GetSummaryList()
 	if summaryList == nil {
 		log.Error("no summaryList stored ...")
 		return meter.NewAuctionSummaryList(nil), nil

@@ -104,7 +104,7 @@ func LoadVestProfile() []*meter.Profile {
 }
 
 func SetProfileList(lockList *meter.ProfileList, state *state.State) {
-	state.EncodeStorage(meter.AccountLockAddr, meter.AccountLockProfileKey, func() ([]byte, error) {
+	state.EncodeStorage(meter.AccountLockModuleAddr, meter.ProfileListKey, func() ([]byte, error) {
 		// buf := bytes.NewBuffer([]byte{})
 		// encoder := gob.NewEncoder(buf)
 		// err := encoder.Encode(lockList)

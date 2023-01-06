@@ -80,7 +80,7 @@ func (a *AccountLock) AccountLockHandler(senv *setypes.ScriptEnv, payload []byte
 		leftOverGas, err = a.HandleAccountLockTransfer(senv, ab, gas)
 
 	case OP_GOVERNING:
-		if to.String() != meter.AccountLockAddr.String() {
+		if to.String() != meter.AccountLockModuleAddr.String() {
 			return nil, gas, errors.New("to address is not the same from module address")
 		}
 		leftOverGas, err = a.GoverningHandler(senv, ab, gas)

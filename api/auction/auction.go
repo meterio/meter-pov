@@ -103,7 +103,7 @@ func (at *Auction) handleGetAuctionCB(w http.ResponseWriter, req *http.Request) 
 		err := errors.New("auction is not initialized...")
 		return err
 	}
-	cb := auctionInst.GetAuctionCB(state)
+	cb := state.GetAuctionCB()
 	acb := convertAuctionCB(cb)
 
 	return utils.WriteJSON(w, acb)

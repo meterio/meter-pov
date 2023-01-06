@@ -71,7 +71,7 @@ func BuildAutobidTx(autobidList []*RewardInfo, chainTag byte, bestNum uint32) *t
 		data := BuildAutobidData(autobidList[i])
 		gas = gas + uint64(len(data))*params.TxDataNonZeroGas
 		builder.Clause(
-			tx.NewClause(&auction.AuctionAccountAddr).
+			tx.NewClause(&meter.AuctionModuleAddr).
 				WithValue(big.NewInt(0)).
 				WithToken(meter.MTR).
 				WithData(data),

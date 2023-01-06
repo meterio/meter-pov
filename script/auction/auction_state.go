@@ -11,7 +11,6 @@ import (
 	"fmt"
 	"math/big"
 	"sort"
-	"strings"
 
 	"github.com/meterio/meter-pov/builtin"
 	"github.com/meterio/meter-pov/meter"
@@ -20,74 +19,10 @@ import (
 	"github.com/meterio/meter-pov/state"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/rlp"
 )
 
-// Auction List
-func (a *Auction) GetAuctionCB(state *state.State) (result *meter.AuctionCB) {
-	state.DecodeStorage(AuctionAccountAddr, AuctionCBKey, func(raw []byte) error {
-		auctionCB := &meter.AuctionCB{}
-
-		if len(strings.TrimSpace(string(raw))) >= 0 {
-			err := rlp.Decode(bytes.NewReader(raw), auctionCB)
-			if err != nil {
-				if err.Error() == "EOF" && len(raw) == 0 {
-					// EOF is caused by no value, is not error case, so returns with empty slice
-				} else {
-					log.Warn("Error during decoding auction control block", "err", err)
-					return err
-				}
-			}
-		}
-
-		result = auctionCB
-		return nil
-	})
-	return
-}
-
-func (a *Auction) SetAuctionCB(auctionCB *meter.AuctionCB, state *state.State) {
-	state.EncodeStorage(AuctionAccountAddr, AuctionCBKey, func() ([]byte, error) {
-		return rlp.EncodeToBytes(auctionCB)
-	})
-}
-
-// summary List
-func (a *Auction) GetSummaryList(state *state.State) (result *meter.AuctionSummaryList) {
-	state.DecodeStorage(AuctionAccountAddr, SummaryListKey, func(raw []byte) error {
-		summaries := make([]*meter.AuctionSummary, 0)
-
-		if len(strings.TrimSpace(string(raw))) >= 0 {
-			err := rlp.Decode(bytes.NewReader(raw), &summaries)
-			if err != nil {
-				if err.Error() == "EOF" && len(raw) == 0 {
-					// EOF is caused by no value, is not error case, so returns with empty slice
-				} else {
-					log.Warn("Error during decoding auction summary list", "err", err)
-					return err
-				}
-			}
-		}
-
-		result = meter.NewAuctionSummaryList(summaries)
-		return nil
-	})
-	return
-}
-
-func (a *Auction) SetSummaryList(summaryList *meter.AuctionSummaryList, state *state.State) {
-	/**** Do not need sort here, it is automatically sorted by Epoch
-	sort.SliceStable(summaryList.Summaries, func(i, j int) bool {
-		return bytes.Compare(summaryList.Summaries[i].AuctionID.Bytes(), summaryList.Summaries[j].AuctionID.Bytes()) <= 0
-	})
-	****/
-	state.EncodeStorage(AuctionAccountAddr, SummaryListKey, func() ([]byte, error) {
-		return rlp.EncodeToBytes(summaryList.Summaries)
-	})
-}
-
 // ==================== account openation===========================
-// from meter.ValidatorBenefitAddr ==> AuctionAccountAddr
+// from meter.ValidatorBenefitAddr ==> AuctionModuleAddr
 func (a *Auction) TransferAutobidMTRToAuction(addr meter.Address, amount *big.Int, state *state.State, env *setypes.ScriptEnv) error {
 	if amount.Sign() == 0 {
 		return nil
@@ -100,12 +35,12 @@ func (a *Auction) TransferAutobidMTRToAuction(addr meter.Address, amount *big.In
 
 	// a.logger.Info("transfer autobid MTR", "bidder", addr, "amount", amount)
 	state.SubEnergy(meter.ValidatorBenefitAddr, amount)
-	state.AddEnergy(AuctionAccountAddr, amount)
-	env.AddTransfer(meter.ValidatorBenefitAddr, AuctionAccountAddr, amount, meter.MTR)
+	state.AddEnergy(meter.AuctionModuleAddr, amount)
+	env.AddTransfer(meter.ValidatorBenefitAddr, meter.AuctionModuleAddr, amount, meter.MTR)
 	return nil
 }
 
-// from addr == > AuctionAccountAddr
+// from addr == > AuctionModuleAddr
 func (a *Auction) TransferMTRToAuction(addr meter.Address, amount *big.Int, state *state.State, env *setypes.ScriptEnv) error {
 	if amount.Sign() == 0 {
 		return nil
@@ -118,8 +53,8 @@ func (a *Auction) TransferMTRToAuction(addr meter.Address, amount *big.Int, stat
 
 	a.logger.Info("transfer userbid MTR", "bidder", addr, "amount", amount)
 	state.SubEnergy(addr, amount)
-	state.AddEnergy(AuctionAccountAddr, amount)
-	env.AddTransfer(addr, AuctionAccountAddr, amount, meter.MTR)
+	state.AddEnergy(meter.AuctionModuleAddr, amount)
+	env.AddTransfer(addr, meter.AuctionModuleAddr, amount, meter.MTR)
 	return nil
 }
 
@@ -133,20 +68,20 @@ func (a *Auction) SendMTRGToBidder(addr meter.Address, amount *big.Int, stateDB 
 	return
 }
 
-// form AuctionAccountAddr ==> meter.ValidatorBenefitAddr
+// form AuctionModuleAddr ==> meter.ValidatorBenefitAddr
 func (a *Auction) TransferMTRToValidatorBenefit(amount *big.Int, state *state.State, env *setypes.ScriptEnv) error {
 	if amount.Sign() == 0 {
 		return nil
 	}
 
-	meterBalance := state.GetEnergy(AuctionAccountAddr)
+	meterBalance := state.GetEnergy(meter.AuctionModuleAddr)
 	if meterBalance.Cmp(amount) < 0 {
 		return errors.New("not enough meter")
 	}
 
-	state.SubEnergy(AuctionAccountAddr, amount)
+	state.SubEnergy(meter.AuctionModuleAddr, amount)
 	state.AddEnergy(meter.ValidatorBenefitAddr, amount)
-	env.AddTransfer(AuctionAccountAddr, meter.ValidatorBenefitAddr, amount, meter.MTR)
+	env.AddTransfer(meter.AuctionModuleAddr, meter.ValidatorBenefitAddr, amount, meter.MTR)
 
 	return nil
 }

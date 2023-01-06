@@ -108,7 +108,7 @@ func (a *Auction) StartAuctionCB(env *setypes.ScriptEnv, ab *AuctionBody, gas ui
 		log.Info("Auction start completed", "elapsed", meter.PrettyDuration(time.Since(start)))
 	}()
 	state := env.GetState()
-	auctionCB := a.GetAuctionCB(state)
+	auctionCB := state.GetAuctionCB()
 
 	if gas < meter.ClauseGas {
 		leftOverGas = 0
@@ -135,7 +135,7 @@ func (a *Auction) StartAuctionCB(env *setypes.ScriptEnv, ab *AuctionBody, gas ui
 	auctionCB.AuctionTxs = make([]*meter.AuctionTx, 0)
 	auctionCB.AuctionID = auctionCB.ID()
 
-	a.SetAuctionCB(auctionCB, state)
+	state.SetAuctionCB(auctionCB)
 	return
 }
 
@@ -156,11 +156,11 @@ func (a *Auction) CloseAuctionCB(env *setypes.ScriptEnv, ab *AuctionBody, gas ui
 	state := env.GetState()
 
 	stub = time.Now()
-	summaryList := a.GetSummaryList(state)
+	summaryList := state.GetSummaryList()
 	log.Info("Get summary list", "elapsed", meter.PrettyDuration(time.Since(stub)))
 
 	stub = time.Now()
-	auctionCB := a.GetAuctionCB(state)
+	auctionCB := state.GetAuctionCB()
 	log.Info("Get auction cb", "elapsed", meter.PrettyDuration(time.Since(stub)))
 
 	stub = time.Now()
@@ -219,11 +219,11 @@ func (a *Auction) CloseAuctionCB(env *setypes.ScriptEnv, ab *AuctionBody, gas ui
 	log.Info("append summary completed", "elapsed", meter.PrettyDuration(time.Since(stub)))
 
 	stub = time.Now()
-	a.SetSummaryList(summaryList, state)
+	state.SetSummaryList(summaryList)
 	log.Info("set summary completed", "elapsed", meter.PrettyDuration(time.Since(stub)))
 
 	stub = time.Now()
-	a.SetAuctionCB(auctionCB, state)
+	state.SetAuctionCB(auctionCB)
 	log.Info("set auction cb completed", "elapsed", meter.PrettyDuration(time.Since(stub)))
 
 	return
@@ -247,7 +247,7 @@ func (a *Auction) HandleAuctionTx(env *setypes.ScriptEnv, ab *AuctionBody, gas u
 	getStateTime := meter.PrettyDuration(time.Since(stub))
 
 	stub = time.Now()
-	auctionCB := a.GetAuctionCB(state)
+	auctionCB := state.GetAuctionCB()
 	getAuctionCBTime := meter.PrettyDuration(time.Since(stub))
 	log.Info("Read completed. ", "getAuction", getAuctionTime, "getState", getStateTime, "getAuctionCB", getAuctionCBTime)
 
@@ -311,7 +311,7 @@ func (a *Auction) HandleAuctionTx(env *setypes.ScriptEnv, ab *AuctionBody, gas u
 	}
 
 	stub = time.Now()
-	a.SetAuctionCB(auctionCB, state)
+	state.SetAuctionCB(auctionCB)
 	log.Info("Save completed", "elapsed", meter.PrettyDuration(time.Since(stub)))
 	return
 }

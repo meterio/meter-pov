@@ -82,11 +82,16 @@ const (
 	POW_M10_EFFECIENCY_MAIN      = 0.053
 )
 
-// Auction
+// Script Engine
 var (
 	//0x6163636f756e742d6c6f636b2d61646472657373
-	AccountLockAddr       = BytesToAddress([]byte("account-lock-address"))
-	AccountLockProfileKey = Blake2b([]byte("account-lock-profile-list-key"))
+	AccountLockModuleAddr = BytesToAddress([]byte("account-lock-address"))
+	ProfileListKey        = Blake2b([]byte("account-lock-profile-list-key"))
+
+	// 0x74696f6e2d6163636f756e742d61646472657373
+	AuctionModuleAddr     = BytesToAddress([]byte("auction-account-address"))
+	AuctionSummaryListKey = Blake2b([]byte("summary-list-key"))
+	AuctionCBKey          = Blake2b([]byte("auction-active-cb-key"))
 )
 
 // Keys of governance params.

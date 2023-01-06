@@ -1,15 +1,5 @@
 package auction
 
-import "github.com/meterio/meter-pov/meter"
-
-// the global variables in auction
-var (
-	// 0x74696f6e2d6163636f756e742d61646472657373
-	AuctionAccountAddr = meter.BytesToAddress([]byte("auction-account-address"))
-	SummaryListKey     = meter.Blake2b([]byte("summary-list-key"))
-	AuctionCBKey       = meter.Blake2b([]byte("auction-active-cb-key"))
-)
-
 const (
 	OP_START = uint32(1)
 	OP_STOP  = uint32(2)

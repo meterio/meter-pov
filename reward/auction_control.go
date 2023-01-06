@@ -84,14 +84,14 @@ func BuildAuctionControlTx(height, epoch uint64, chainTag byte, bestNum uint32, 
 
 	if currentActive == true {
 		builder.Clause(
-			tx.NewClause(&auction.AuctionAccountAddr).
+			tx.NewClause(&meter.AuctionModuleAddr).
 				WithValue(big.NewInt(0)).
 				WithToken(meter.MTRG).
 				WithData(buildAuctionStopData(cb.StartHeight, cb.StartEpoch, cb.EndHeight, cb.EndEpoch, cb.Sequence, &cb.AuctionID)))
 	}
 
 	builder.Clause(
-		tx.NewClause(&auction.AuctionAccountAddr).
+		tx.NewClause(&meter.AuctionModuleAddr).
 			WithValue(big.NewInt(0)).
 			WithToken(meter.MTRG).
 			WithData(buildAuctionStartData(lastEndHeight+1, lastEndEpoch+1, height, epoch, lastSequence+1, initialRelease, reservedPrice)))
