@@ -30,11 +30,11 @@ func (sl *Slashing) handleGetInJailList(w http.ResponseWriter, req *http.Request
 }
 
 func (sl *Slashing) handleGetDelegateStatsList(w http.ResponseWriter, req *http.Request) error {
-	list, err := staking.GetLatestStatisticsList()
+	list, err := staking.GetLatestDelegateStatList()
 	if err != nil {
 		return err
 	}
-	statsList := convertStatisticsList(list)
+	statsList := convertDelegateStatList(list)
 	return utils.WriteJSON(w, statsList)
 }
 

@@ -171,7 +171,7 @@ func (s *Staking) StakingHandler(senv *setypes.ScriptEnv, payload []byte, to *me
 		if to.String() != StakingModuleAddr.String() {
 			return nil, gas, errors.New("to address is not the same from module address")
 		}
-		leftOverGas, err = s.DelegateStatisticsHandler(senv, sb, gas)
+		leftOverGas, err = s.DelegateStatHandler(senv, sb, gas)
 		log.Info(GetOpName(sb.Opcode)+" Completed", "elapsed", meter.PrettyDuration(time.Since(start)))
 
 	case OP_DELEGATE_EXITJAIL:
@@ -186,7 +186,7 @@ func (s *Staking) StakingHandler(senv *setypes.ScriptEnv, payload []byte, to *me
 		if senv.GetTxCtx().Origin != executor || sb.HolderAddr != executor {
 			return nil, gas, errors.New("only executor can exec this API")
 		}
-		leftOverGas, err = s.DelegateStatisticsFlushHandler(senv, sb, gas)
+		leftOverGas, err = s.DelegateStatFlushHandler(senv, sb, gas)
 
 	default:
 		log.Error("unknown Opcode", "Opcode", sb.Opcode)
@@ -1169,7 +1169,7 @@ func (s *Staking) CandidateUpdateHandler(env *setypes.ScriptEnv, sb *StakingBody
 	return
 }
 
-func (s *Staking) DelegateStatisticsHandler(env *setypes.ScriptEnv, sb *StakingBody, gas uint64) (leftOverGas uint64, err error) {
+func (s *Staking) DelegateStatHandler(env *setypes.ScriptEnv, sb *StakingBody, gas uint64) (leftOverGas uint64, err error) {
 	var ret []byte
 	start := time.Now()
 	defer func() {
@@ -1188,11 +1188,11 @@ func (s *Staking) DelegateStatisticsHandler(env *setypes.ScriptEnv, sb *StakingB
 
 	state := env.GetState()
 	candidateList := s.GetCandidateList(state)
-	statisticsList := s.GetStatisticsList(state)
+	statisticsList := s.GetDelegateStatList(state)
 	inJailList := s.GetInJailList(state)
 	phaseOutEpoch := s.GetStatisticsEpoch(state)
 
-	log.Debug("in DelegateStatisticsHandler", "phaseOutEpoch", phaseOutEpoch)
+	log.Debug("in DelegateStatHandler", "phaseOutEpoch", phaseOutEpoch)
 	// handle phase out from the start
 	removed := []meter.Address{}
 	epoch := sb.Option
@@ -1221,7 +1221,7 @@ func (s *Staking) DelegateStatisticsHandler(env *setypes.ScriptEnv, sb *StakingB
 	if in := inJailList.Exist(sb.CandAddr); in == true {
 		log.Info("in jail list, updates ignored ...", "address", sb.CandAddr, "name", sb.CandName)
 		s.SetStatisticsEpoch(phaseOutEpoch, state)
-		s.SetStatisticsList(statisticsList, state)
+		s.SetDelegateStatList(statisticsList, state)
 		s.SetInJailList(inJailList, state)
 		return
 	}
@@ -1230,7 +1230,7 @@ func (s *Staking) DelegateStatisticsHandler(env *setypes.ScriptEnv, sb *StakingB
 	if err != nil {
 		log.Info("decode infraction failed ...", "error", err.Error)
 		s.SetStatisticsEpoch(phaseOutEpoch, state)
-		s.SetStatisticsList(statisticsList, state)
+		s.SetDelegateStatList(statisticsList, state)
 		s.SetInJailList(inJailList, state)
 		return
 	}
@@ -1239,7 +1239,7 @@ func (s *Staking) DelegateStatisticsHandler(env *setypes.ScriptEnv, sb *StakingB
 	var jail bool
 	stats := statisticsList.Get(sb.CandAddr)
 	if stats == nil {
-		stats = meter.NewDelegateStatistics(sb.CandAddr, sb.CandName, sb.CandPubKey)
+		stats = meter.NewDelegateStat(sb.CandAddr, sb.CandName, sb.CandPubKey)
 		stats.Update(IncrInfraction)
 		statisticsList.Add(stats)
 	} else {
@@ -1265,7 +1265,7 @@ func (s *Staking) DelegateStatisticsHandler(env *setypes.ScriptEnv, sb *StakingB
 	}
 
 	s.SetStatisticsEpoch(phaseOutEpoch, state)
-	s.SetStatisticsList(statisticsList, state)
+	s.SetDelegateStatList(statisticsList, state)
 	s.SetInJailList(inJailList, state)
 	return
 }
@@ -1287,7 +1287,7 @@ func (s *Staking) DelegateExitJailHandler(env *setypes.ScriptEnv, sb *StakingBod
 
 	state := env.GetState()
 	inJailList := s.GetInJailList(state)
-	statisticsList := s.GetStatisticsList(state)
+	statisticsList := s.GetDelegateStatList(state)
 
 	jailed := inJailList.Get(sb.CandAddr)
 	if jailed == nil {
@@ -1311,12 +1311,12 @@ func (s *Staking) DelegateExitJailHandler(env *setypes.ScriptEnv, sb *StakingBod
 
 	log.Info("removed from jail list ...", "address", jailed.Addr, "name", jailed.Name)
 	s.SetInJailList(inJailList, state)
-	s.SetStatisticsList(statisticsList, state)
+	s.SetDelegateStatList(statisticsList, state)
 	return
 }
 
 // this is debug API, only executor has the right to call
-func (s *Staking) DelegateStatisticsFlushHandler(env *setypes.ScriptEnv, sb *StakingBody, gas uint64) (leftOverGas uint64, err error) {
+func (s *Staking) DelegateStatFlushHandler(env *setypes.ScriptEnv, sb *StakingBody, gas uint64) (leftOverGas uint64, err error) {
 	var ret []byte
 	defer func() {
 		if err != nil {
@@ -1332,10 +1332,10 @@ func (s *Staking) DelegateStatisticsFlushHandler(env *setypes.ScriptEnv, sb *Sta
 	}
 
 	state := env.GetState()
-	statisticsList := &meter.StatisticsList{}
+	statisticsList := &meter.DelegateStatList{}
 	inJailList := &meter.InJailList{}
 
-	s.SetStatisticsList(statisticsList, state)
+	s.SetDelegateStatList(statisticsList, state)
 	s.SetInJailList(inJailList, state)
 	return
 }
@@ -1575,21 +1575,21 @@ func GetLatestInJailList() (*meter.InJailList, error) {
 	return JailList, nil
 }
 
-func GetLatestStatisticsList() (*meter.StatisticsList, error) {
+func GetLatestDelegateStatList() (*meter.DelegateStatList, error) {
 	staking := GetStakingGlobInst()
 	if staking == nil {
 		log.Warn("staking is not initialized...")
 		err := errors.New("staking is not initialized...")
-		return meter.NewStatisticsList(nil), err
+		return meter.NewDelegateStatList(nil), err
 	}
 
 	best := staking.chain.BestBlock()
 	state, err := staking.stateCreator.NewState(best.Header().StateRoot())
 	if err != nil {
 
-		return meter.NewStatisticsList(nil), err
+		return meter.NewDelegateStatList(nil), err
 	}
 
-	list := staking.GetStatisticsList(state)
+	list := staking.GetDelegateStatList(state)
 	return list, nil
 }

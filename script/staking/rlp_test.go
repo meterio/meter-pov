@@ -387,8 +387,8 @@ func TestRlpForValidatorReward(t *testing.T) {
 	}
 }
 
-func newStats(t *testing.T) *meter.DelegateStatistics {
-	return &meter.DelegateStatistics{
+func newStats(t *testing.T) *meter.DelegateStat {
+	return &meter.DelegateStat{
 		Addr:        randomAddr(t),
 		Name:        randomBytes(10),
 		PubKey:      randomPubkey(t),
@@ -405,7 +405,7 @@ func TestRlpForStats(t *testing.T) {
 		t.Fail()
 	}
 
-	tgt := &meter.DelegateStatistics{}
+	tgt := &meter.DelegateStat{}
 	err = rlp.DecodeBytes(data, tgt)
 	if err != nil {
 		fmt.Println("Decode error:", err)

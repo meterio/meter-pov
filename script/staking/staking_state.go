@@ -160,9 +160,9 @@ func (s *Staking) SetDelegateList(delegateList *meter.DelegateList, state *state
 
 // ====
 // Statistics List, unlike others, save/get list
-func (s *Staking) GetStatisticsList(state *state.State) (result *meter.StatisticsList) {
-	state.DecodeStorage(StakingModuleAddr, StatisticsListKey, func(raw []byte) error {
-		stats := make([]*meter.DelegateStatistics, 0)
+func (s *Staking) GetDelegateStatList(state *state.State) (result *meter.DelegateStatList) {
+	state.DecodeStorage(StakingModuleAddr, DelegateStatListKey, func(raw []byte) error {
+		stats := make([]*meter.DelegateStat, 0)
 
 		if len(strings.TrimSpace(string(raw))) >= 0 {
 			err := rlp.Decode(bytes.NewReader(raw), &stats)
@@ -176,20 +176,20 @@ func (s *Staking) GetStatisticsList(state *state.State) (result *meter.Statistic
 			}
 		}
 
-		result = meter.NewStatisticsList(stats)
+		result = meter.NewDelegateStatList(stats)
 		return nil
 	})
 	return
 }
 
-func (s *Staking) SetStatisticsList(list *meter.StatisticsList, state *state.State) {
+func (s *Staking) SetDelegateStatList(list *meter.DelegateStatList, state *state.State) {
 	/***
 	sort.SliceStable(list.delegates, func(i, j int) bool {
 		return bytes.Compare(list.delegates[i].Addr.Bytes(), list.delegates[j].Addr.Bytes()) <= 0
 	})
 	***/
 
-	state.EncodeStorage(StakingModuleAddr, StatisticsListKey, func() ([]byte, error) {
+	state.EncodeStorage(StakingModuleAddr, DelegateStatListKey, func() ([]byte, error) {
 		return rlp.EncodeToBytes(list.Delegates)
 	})
 }
@@ -197,7 +197,7 @@ func (s *Staking) SetStatisticsList(list *meter.StatisticsList, state *state.Sta
 // Statistics List, unlike others, save/get list
 func (s *Staking) GetStatisticsEpoch(state *state.State) (result uint32) {
 	state.DecodeStorage(StakingModuleAddr, StatisticsEpochKey, func(raw []byte) error {
-		//stats := make([]*DelegateStatistics, 0)
+		//stats := make([]*DelegateStat, 0)
 		epoch := uint32(0)
 		if len(strings.TrimSpace(string(raw))) >= 0 {
 			err := rlp.Decode(bytes.NewReader(raw), &epoch)

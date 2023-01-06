@@ -42,7 +42,7 @@ const (
 )
 
 // Candidate indicates the structure of a candidate
-type DelegateStatistics struct {
+type DelegateStat struct {
 	Addr        Address // the address for staking / reward
 	Name        []byte
 	PubKey      []byte // node public key
@@ -50,15 +50,15 @@ type DelegateStatistics struct {
 	Infractions Infraction
 }
 
-func NewDelegateStatistics(addr Address, name []byte, pubKey []byte) *DelegateStatistics {
-	return &DelegateStatistics{
+func NewDelegateStat(addr Address, name []byte, pubKey []byte) *DelegateStat {
+	return &DelegateStat{
 		Addr:   addr,
 		Name:   name,
 		PubKey: pubKey,
 	}
 }
 
-func (ds *DelegateStatistics) PhaseOut(curEpoch uint32) {
+func (ds *DelegateStat) PhaseOut(curEpoch uint32) {
 	if curEpoch <= PhaseOutEpochCount {
 		return
 	}
@@ -134,7 +134,7 @@ func (ds *DelegateStatistics) PhaseOut(curEpoch uint32) {
 	return
 }
 
-func (ds *DelegateStatistics) Update(incr *Infraction) {
+func (ds *DelegateStat) Update(incr *Infraction) {
 
 	infr := &ds.Infractions
 	infr.MissingLeaders.Info = append(infr.MissingLeaders.Info, incr.MissingLeaders.Info...)
@@ -157,7 +157,7 @@ func (ds *DelegateStatistics) Update(incr *Infraction) {
 	// return false
 }
 
-func (ds *DelegateStatistics) CountMissingProposerViolation(epoch uint32) int {
+func (ds *DelegateStat) CountMissingProposerViolation(epoch uint32) int {
 	counter := make(map[uint32]int)
 	for _, inf := range ds.Infractions.MissingProposers.Info {
 		if inf.Epoch < epoch-NObservationEpochs {
@@ -183,7 +183,7 @@ func (ds *DelegateStatistics) CountMissingProposerViolation(epoch uint32) int {
 	return nViolations
 }
 
-func (ds *DelegateStatistics) CountMissingLeaderViolation(epoch uint32) int {
+func (ds *DelegateStat) CountMissingLeaderViolation(epoch uint32) int {
 	counter := make(map[uint32]int)
 	for _, inf := range ds.Infractions.MissingLeaders.Info {
 		if inf.Epoch < epoch-NObservationEpochs {
@@ -208,7 +208,7 @@ func (ds *DelegateStatistics) CountMissingLeaderViolation(epoch uint32) int {
 	return nViolations
 }
 
-func (ds *DelegateStatistics) CountDoubleSignViolation(epoch uint32) int {
+func (ds *DelegateStat) CountDoubleSignViolation(epoch uint32) int {
 	counter := make(map[uint32]int)
 	for _, inf := range ds.Infractions.DoubleSigners.Info {
 		if inf.Epoch < epoch-NObservationEpochs {
@@ -233,27 +233,27 @@ func (ds *DelegateStatistics) CountDoubleSignViolation(epoch uint32) int {
 	return nViolations
 }
 
-func (ds *DelegateStatistics) ToString() string {
+func (ds *DelegateStat) ToString() string {
 	pubKeyEncoded := b64.StdEncoding.EncodeToString(ds.PubKey)
-	return fmt.Sprintf("DelegateStatistics(%v) Addr=%v, PubKey=%v, TotoalPts=%v, Infractions (Missing Leader=%v, Proposer=%v, Voter=%v, DoubleSigner=%v)",
+	return fmt.Sprintf("DelegateStat(%v) Addr=%v, PubKey=%v, TotoalPts=%v, Infractions (Missing Leader=%v, Proposer=%v, Voter=%v, DoubleSigner=%v)",
 		string(ds.Name), ds.Addr, pubKeyEncoded, ds.TotalPts, ds.Infractions.MissingLeaders, ds.Infractions.MissingProposers, ds.Infractions.MissingVoters, ds.Infractions.DoubleSigners)
 }
 
-type StatisticsList struct {
-	Delegates []*DelegateStatistics
+type DelegateStatList struct {
+	Delegates []*DelegateStat
 }
 
-func NewStatisticsList(delegates []*DelegateStatistics) *StatisticsList {
+func NewDelegateStatList(delegates []*DelegateStat) *DelegateStatList {
 	if delegates == nil {
-		delegates = make([]*DelegateStatistics, 0)
+		delegates = make([]*DelegateStat, 0)
 	}
 	sort.SliceStable(delegates, func(i, j int) bool {
 		return bytes.Compare(delegates[i].Addr.Bytes(), delegates[j].Addr.Bytes()) <= 0
 	})
-	return &StatisticsList{Delegates: delegates /*, phaseOutEpoch: 0*/}
+	return &DelegateStatList{Delegates: delegates /*, phaseOutEpoch: 0*/}
 }
 
-func (sl *StatisticsList) indexOf(addr Address) (int, int) {
+func (sl *DelegateStatList) indexOf(addr Address) (int, int) {
 	// return values:
 	//     first parameter: if found, the index of the item
 	//     second parameter: if not found, the correct insert index of the item
@@ -276,7 +276,7 @@ func (sl *StatisticsList) indexOf(addr Address) (int, int) {
 	return -1, r
 }
 
-func (sl *StatisticsList) Get(addr Address) *DelegateStatistics {
+func (sl *DelegateStatList) Get(addr Address) *DelegateStat {
 	index, _ := sl.indexOf(addr)
 	if index < 0 {
 		return nil
@@ -284,19 +284,19 @@ func (sl *StatisticsList) Get(addr Address) *DelegateStatistics {
 	return sl.Delegates[index]
 }
 
-func (sl *StatisticsList) Exist(addr Address) bool {
+func (sl *DelegateStatList) Exist(addr Address) bool {
 	index, _ := sl.indexOf(addr)
 	return index >= 0
 }
 
-func (sl *StatisticsList) Add(c *DelegateStatistics) {
+func (sl *DelegateStatList) Add(c *DelegateStat) {
 	index, insertIndex := sl.indexOf(c.Addr)
 	if index < 0 {
 		if len(sl.Delegates) == 0 {
 			sl.Delegates = append(sl.Delegates, c)
 			return
 		}
-		newList := make([]*DelegateStatistics, insertIndex)
+		newList := make([]*DelegateStat, insertIndex)
 		copy(newList, sl.Delegates[:insertIndex])
 		newList = append(newList, c)
 		newList = append(newList, sl.Delegates[insertIndex:]...)
@@ -308,7 +308,7 @@ func (sl *StatisticsList) Add(c *DelegateStatistics) {
 	return
 }
 
-func (sl *StatisticsList) Remove(addr Address) {
+func (sl *DelegateStatList) Remove(addr Address) {
 	index, _ := sl.indexOf(addr)
 	if index >= 0 {
 		sl.Delegates = append(sl.Delegates[:index], sl.Delegates[index+1:]...)
@@ -316,15 +316,15 @@ func (sl *StatisticsList) Remove(addr Address) {
 	return
 }
 
-func (sl *StatisticsList) Count() int {
+func (sl *DelegateStatList) Count() int {
 	return len(sl.Delegates)
 }
 
-func (sl *StatisticsList) ToString() string {
+func (sl *DelegateStatList) ToString() string {
 	if sl == nil || len(sl.Delegates) == 0 {
-		return "StatisticsList (size:0)"
+		return "DelegateStatList (size:0)"
 	}
-	s := []string{fmt.Sprintf("StatisticsList (size:%v) {", len(sl.Delegates))}
+	s := []string{fmt.Sprintf("DelegateStatList (size:%v) {", len(sl.Delegates))}
 	for i, c := range sl.Delegates {
 		s = append(s, fmt.Sprintf("  %d.%v", i, c.ToString()))
 	}
@@ -332,8 +332,8 @@ func (sl *StatisticsList) ToString() string {
 	return strings.Join(s, "\n")
 }
 
-func (sl *StatisticsList) ToList() []DelegateStatistics {
-	result := make([]DelegateStatistics, 0)
+func (sl *DelegateStatList) ToList() []DelegateStat {
+	result := make([]DelegateStat, 0)
 	for _, v := range sl.Delegates {
 		result = append(result, *v)
 	}

@@ -67,7 +67,7 @@ type Infraction struct {
 	MissingVoter    MissingVoter    `json:"missingVoter"`
 	DoubleSigner    DoubleSigner    `json:"doubleSigner`
 }
-type DelegateStatistics struct {
+type DelegateStat struct {
 	Address     meter.Address `json:"address"`
 	Name        string        `json:"name"`
 	PubKey      string        `json:"pubKey"`
@@ -94,10 +94,10 @@ func convertInJail(d *meter.InJail) *InJail {
 	}
 }
 
-func convertStatisticsList(list *meter.StatisticsList) []*DelegateStatistics {
-	statsList := make([]*DelegateStatistics, 0)
+func convertDelegateStatList(list *meter.DelegateStatList) []*DelegateStat {
+	statsList := make([]*DelegateStat, 0)
 	for _, s := range list.ToList() {
-		statsList = append(statsList, convertDelegateStatistics(&s))
+		statsList = append(statsList, convertDelegateStat(&s))
 	}
 
 	// sort with descendent total points
@@ -152,7 +152,7 @@ func convertDoubleSignerInfo(info []*meter.DoubleSignerInfo) []*DoubleSignerInfo
 	return signer
 }
 
-func convertDelegateStatistics(d *meter.DelegateStatistics) *DelegateStatistics {
+func convertDelegateStat(d *meter.DelegateStat) *DelegateStat {
 	infs := Infraction{
 		MissingLeader: MissingLeader{
 			d.Infractions.MissingLeaders.Counter,
@@ -171,7 +171,7 @@ func convertDelegateStatistics(d *meter.DelegateStatistics) *DelegateStatistics 
 			convertDoubleSignerInfo(d.Infractions.DoubleSigners.Info),
 		},
 	}
-	return &DelegateStatistics{
+	return &DelegateStat{
 		Name:        string(d.Name),
 		Address:     d.Addr,
 		PubKey:      string(d.PubKey),

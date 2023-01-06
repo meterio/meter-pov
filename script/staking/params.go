@@ -32,7 +32,7 @@ var (
 	CandidateListKey       = meter.Blake2b([]byte("candidate-list-key"))
 	StakeHolderListKey     = meter.Blake2b([]byte("stake-holder-list-key"))
 	BucketListKey          = meter.Blake2b([]byte("global-bucket-list-key"))
-	StatisticsListKey      = meter.Blake2b([]byte("delegate-statistics-list-key"))
+	DelegateStatListKey    = meter.Blake2b([]byte("delegate-statistics-list-key"))
 	StatisticsEpochKey     = meter.Blake2b([]byte("delegate-statistics-epoch-key"))
 	InJailListKey          = meter.Blake2b([]byte("delegate-injail-list-key"))
 	ValidatorRewardListKey = meter.Blake2b([]byte("validator-reward-list-key"))
@@ -74,7 +74,7 @@ func GetOpName(op uint32) string {
 	case OP_BUCKET_UPDT:
 		return "BucketUpdate"
 	case OP_DELEGATE_STATISTICS:
-		return "DelegateStatistics"
+		return "DelegateStat"
 	case OP_DELEGATE_EXITJAIL:
 		return "DelegateExitJail"
 	case OP_FLUSH_ALL_STATISTICS:
