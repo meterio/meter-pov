@@ -7,6 +7,7 @@ package accountlock
 
 import (
 	"errors"
+	"math/big"
 
 	"github.com/inconshreveable/log15"
 	"github.com/meterio/meter-pov/chain"
@@ -117,7 +118,7 @@ func (a *AccountLock) HandleAccountLockAdd(env *setypes.ScriptEnv, ab *AccountLo
 		return
 	}
 
-	p := NewProfile(ab.FromAddr, ab.Memo, ab.LockEpoch, ab.ReleaseEpoch, ab.MeterAmount, ab.MeterGovAmount)
+	p := meter.NewProfile(ab.FromAddr, ab.Memo, ab.LockEpoch, ab.ReleaseEpoch, ab.MeterAmount, ab.MeterGovAmount)
 	pList.Add(p)
 
 	a.SetProfileList(pList, state)
@@ -205,7 +206,7 @@ func (a *AccountLock) HandleAccountLockTransfer(env *setypes.ScriptEnv, ab *Acco
 
 	// sanity done!
 	if pFrom == nil {
-		p := NewProfile(ab.ToAddr, ab.Memo, ab.LockEpoch, ab.ReleaseEpoch, ab.MeterAmount, ab.MeterGovAmount)
+		p := meter.NewProfile(ab.ToAddr, ab.Memo, ab.LockEpoch, ab.ReleaseEpoch, ab.MeterAmount, ab.MeterGovAmount)
 		pList.Add(p)
 	} else {
 		var release uint32
@@ -214,7 +215,7 @@ func (a *AccountLock) HandleAccountLockTransfer(env *setypes.ScriptEnv, ab *Acco
 		} else {
 			release = ab.ReleaseEpoch
 		}
-		p := NewProfile(ab.ToAddr, ab.Memo, ab.LockEpoch, release, ab.MeterAmount, ab.MeterGovAmount)
+		p := meter.NewProfile(ab.ToAddr, ab.Memo, ab.LockEpoch, release, ab.MeterAmount, ab.MeterGovAmount)
 		pList.Add(p)
 	}
 
@@ -267,4 +268,50 @@ func (a *AccountLock) GoverningHandler(env *setypes.ScriptEnv, ab *AccountLockBo
 	log.Debug("account lock governing done...", "epoch", curEpoch)
 	a.SetProfileList(pList, state)
 	return
+}
+
+// api routine interface
+func GetLatestProfileList() (*meter.ProfileList, error) {
+	accountlock := GetAccountLockGlobInst()
+	if accountlock == nil {
+		log.Warn("accountlock is not initialized...")
+		err := errors.New("accountlock is not initialized...")
+		return meter.NewProfileList(nil), err
+	}
+
+	best := accountlock.chain.BestBlock()
+	state, err := accountlock.stateCreator.NewState(best.Header().StateRoot())
+	if err != nil {
+		return meter.NewProfileList(nil), err
+	}
+
+	list := accountlock.GetProfileList(state)
+	return list, nil
+}
+
+func RestrictByAccountLock(addr meter.Address, state *state.State) (bool, *big.Int, *big.Int) {
+	accountlock := GetAccountLockGlobInst()
+	if accountlock == nil {
+		//log.Debug("accountlock is not initialized...")
+		return false, nil, nil
+	}
+
+	list := accountlock.GetProfileList(state)
+	if list == nil {
+		log.Warn("get the accountlock profile failed")
+		return false, nil, nil
+	}
+
+	p := list.Get(addr)
+	if p == nil {
+		return false, nil, nil
+	}
+
+	if accountlock.GetCurrentEpoch() >= p.ReleaseEpoch {
+		return false, nil, nil
+	}
+
+	log.Debug("the Address is not allowed to do transfer", "address", addr,
+		"meter", p.MeterAmount.String(), "meterGov", p.MeterGovAmount.String())
+	return true, p.MeterAmount, p.MeterGovAmount
 }

@@ -10,13 +10,14 @@ import (
 	"strings"
 
 	"github.com/ethereum/go-ethereum/rlp"
+	"github.com/meterio/meter-pov/meter"
 	"github.com/meterio/meter-pov/state"
 )
 
 // Profile List
-func (a *AccountLock) GetProfileList(state *state.State) (result *ProfileList) {
+func (a *AccountLock) GetProfileList(state *state.State) (result *meter.ProfileList) {
 	state.DecodeStorage(AccountLockAddr, AccountLockProfileKey, func(raw []byte) error {
-		profiles := make([]*Profile, 0)
+		profiles := make([]*meter.Profile, 0)
 
 		if len(strings.TrimSpace(string(raw))) >= 0 {
 			err := rlp.Decode(bytes.NewReader(raw), &profiles)
@@ -30,13 +31,13 @@ func (a *AccountLock) GetProfileList(state *state.State) (result *ProfileList) {
 			}
 		}
 
-		result = NewProfileList(profiles)
+		result = meter.NewProfileList(profiles)
 		return nil
 	})
 	return
 }
 
-func (a *AccountLock) SetProfileList(lockList *ProfileList, state *state.State) {
+func (a *AccountLock) SetProfileList(lockList *meter.ProfileList, state *state.State) {
 	/*****
 	sort.SliceStable(lockList.Profiles, func(i, j int) bool {
 		return bytes.Compare(lockList.Profiles[i].Addr.Bytes(), lockList.Profiles[j].Addr.Bytes()) <= 0

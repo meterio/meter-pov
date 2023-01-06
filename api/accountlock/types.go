@@ -9,7 +9,6 @@ import (
 	"sort"
 
 	"github.com/meterio/meter-pov/meter"
-	"github.com/meterio/meter-pov/script/accountlock"
 )
 
 type AccountLockProfile struct {
@@ -21,7 +20,7 @@ type AccountLockProfile struct {
 	MeterGovAmount string        `json:"meterGov"`
 }
 
-func convertProfileList(list *accountlock.ProfileList) []*AccountLockProfile {
+func convertProfileList(list *meter.ProfileList) []*AccountLockProfile {
 	profileList := make([]*AccountLockProfile, 0)
 	for _, s := range list.ToList() {
 		profileList = append(profileList, convertProfile(&s))
@@ -34,7 +33,7 @@ func convertProfileList(list *accountlock.ProfileList) []*AccountLockProfile {
 	return profileList
 }
 
-func convertProfile(a *accountlock.Profile) *AccountLockProfile {
+func convertProfile(a *meter.Profile) *AccountLockProfile {
 	return &AccountLockProfile{
 		Addr:           a.Addr,
 		Memo:           string(a.Memo),

@@ -70,8 +70,8 @@ var profiles [][5]string = [][5]string{
 	{"0xd8d58db373fc83258b26409248cc481af8395ffa", "33.00", "0", "name 6", "24"},
 }
 
-func LoadVestProfile() []*accountlock.Profile {
-	plans := make([]*accountlock.Profile, 0, len(profiles))
+func LoadVestProfile() []*meter.Profile {
+	plans := make([]*meter.Profile, 0, len(profiles))
 	for _, p := range profiles {
 		address := meter.MustParseAddress(p[0])
 		mtr, err := strconv.ParseFloat(p[1], 64)
@@ -91,7 +91,7 @@ func LoadVestProfile() []*accountlock.Profile {
 		}
 		memo := []byte(p[3])
 
-		pp := accountlock.NewProfile(address, memo, 0, uint32(epoch), FloatToBigInt(mtr), FloatToBigInt(mtrg))
+		pp := meter.NewProfile(address, memo, 0, uint32(epoch), FloatToBigInt(mtr), FloatToBigInt(mtrg))
 		log.Debug("new profile created", "profile", pp.ToString())
 
 		plans = append(plans, pp)
@@ -104,7 +104,7 @@ func LoadVestProfile() []*accountlock.Profile {
 	return plans
 }
 
-func SetProfileList(lockList *accountlock.ProfileList, state *state.State) {
+func SetProfileList(lockList *meter.ProfileList, state *state.State) {
 	state.EncodeStorage(accountlock.AccountLockAddr, accountlock.AccountLockProfileKey, func() ([]byte, error) {
 		// buf := bytes.NewBuffer([]byte{})
 		// encoder := gob.NewEncoder(buf)
@@ -114,8 +114,8 @@ func SetProfileList(lockList *accountlock.ProfileList, state *state.State) {
 	})
 }
 
-func SetAccountLockProfileState(list []*accountlock.Profile, state *state.State) {
-	pList := accountlock.NewProfileList(list)
+func SetAccountLockProfileState(list []*meter.Profile, state *state.State) {
+	pList := meter.NewProfileList(list)
 	SetProfileList(pList, state)
 }
 

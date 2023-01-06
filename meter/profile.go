@@ -3,23 +3,19 @@
 // Distributed under the GNU Lesser General Public License v3.0 software license, see the accompanying
 // file LICENSE or <https://www.gnu.org/licenses/lgpl-3.0.html>
 
-package accountlock
+package meter
 
 import (
 	"bytes"
-	"errors"
 	"fmt"
 	"math/big"
 	"sort"
 	"strings"
-
-	"github.com/meterio/meter-pov/meter"
-	"github.com/meterio/meter-pov/state"
 )
 
 // Profile indicates the structure of a Profile
 type Profile struct {
-	Addr           meter.Address
+	Addr           Address
 	Memo           []byte
 	LockEpoch      uint32
 	ReleaseEpoch   uint32
@@ -27,7 +23,7 @@ type Profile struct {
 	MeterGovAmount *big.Int
 }
 
-func NewProfile(addr meter.Address, memo []byte, lock uint32, release uint32, mtr *big.Int, mtrg *big.Int) *Profile {
+func NewProfile(addr Address, memo []byte, lock uint32, release uint32, mtr *big.Int, mtrg *big.Int) *Profile {
 	return &Profile{
 		Addr:           addr,
 		Memo:           memo,
@@ -57,7 +53,7 @@ func NewProfileList(Profiles []*Profile) *ProfileList {
 	return &ProfileList{Profiles: Profiles}
 }
 
-func (cl *ProfileList) indexOf(addr meter.Address) (int, int) {
+func (cl *ProfileList) indexOf(addr Address) (int, int) {
 	// return values:
 	//     first parameter: if found, the index of the item
 	//     second parameter: if not found, the correct insert index of the item
@@ -80,7 +76,7 @@ func (cl *ProfileList) indexOf(addr meter.Address) (int, int) {
 	return -1, r
 }
 
-func (cl *ProfileList) Get(addr meter.Address) *Profile {
+func (cl *ProfileList) Get(addr Address) *Profile {
 	index, _ := cl.indexOf(addr)
 	if index < 0 {
 		return nil
@@ -88,7 +84,7 @@ func (cl *ProfileList) Get(addr meter.Address) *Profile {
 	return cl.Profiles[index]
 }
 
-func (cl *ProfileList) Exist(addr meter.Address) bool {
+func (cl *ProfileList) Exist(addr Address) bool {
 	index, _ := cl.indexOf(addr)
 	return index >= 0
 }
@@ -112,7 +108,7 @@ func (cl *ProfileList) Add(c *Profile) {
 	return
 }
 
-func (cl *ProfileList) Remove(addr meter.Address) {
+func (cl *ProfileList) Remove(addr Address) {
 	index, _ := cl.indexOf(addr)
 	if index >= 0 {
 		cl.Profiles = append(cl.Profiles[:index], cl.Profiles[index+1:]...)
@@ -142,50 +138,4 @@ func (l *ProfileList) ToList() []Profile {
 		result = append(result, *v)
 	}
 	return result
-}
-
-// api routine interface
-func GetLatestProfileList() (*ProfileList, error) {
-	accountlock := GetAccountLockGlobInst()
-	if accountlock == nil {
-		log.Warn("accountlock is not initialized...")
-		err := errors.New("accountlock is not initialized...")
-		return NewProfileList(nil), err
-	}
-
-	best := accountlock.chain.BestBlock()
-	state, err := accountlock.stateCreator.NewState(best.Header().StateRoot())
-	if err != nil {
-		return NewProfileList(nil), err
-	}
-
-	list := accountlock.GetProfileList(state)
-	return list, nil
-}
-
-func RestrictByAccountLock(addr meter.Address, state *state.State) (bool, *big.Int, *big.Int) {
-	accountlock := GetAccountLockGlobInst()
-	if accountlock == nil {
-		//log.Debug("accountlock is not initialized...")
-		return false, nil, nil
-	}
-
-	list := accountlock.GetProfileList(state)
-	if list == nil {
-		log.Warn("get the accountlock profile failed")
-		return false, nil, nil
-	}
-
-	p := list.Get(addr)
-	if p == nil {
-		return false, nil, nil
-	}
-
-	if accountlock.GetCurrentEpoch() >= p.ReleaseEpoch {
-		return false, nil, nil
-	}
-
-	log.Debug("the Address is not allowed to do transfer", "address", addr,
-		"meter", p.MeterAmount.String(), "meterGov", p.MeterGovAmount.String())
-	return true, p.MeterAmount, p.MeterGovAmount
 }
