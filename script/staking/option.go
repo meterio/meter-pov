@@ -6,6 +6,7 @@
 package staking
 
 import (
+	"github.com/meterio/meter-pov/meter"
 	"github.com/meterio/meter-pov/types"
 )
 
@@ -32,7 +33,6 @@ const (
 	FOUR_WEEK_LOCK_TIME = uint64(60 * 60 * 24 * 28)
 
 	// for candidate bucket ONLY
-	FOREVER_LOCK      = uint32(1000)
 	FOREVER_LOCK_RATE = ONE_WEEK_LOCK_RATE
 	FOREVER_LOCK_TIME = uint64(0)
 
@@ -57,8 +57,8 @@ func GetBoundLockOption(chose uint32) (opt uint32, rate uint8, locktime uint64) 
 	case FOUR_WEEK_LOCK:
 		return FOUR_WEEK_LOCK, FOUR_WEEK_LOCK_RATE, FOUR_WEEK_LOCK_TIME
 
-	case FOREVER_LOCK:
-		return FOREVER_LOCK, FOREVER_LOCK_RATE, FOREVER_LOCK_TIME
+	case meter.FOREVER_LOCK:
+		return meter.FOREVER_LOCK, FOREVER_LOCK_RATE, FOREVER_LOCK_TIME
 
 	// at least lock 1 day
 	default:
@@ -83,7 +83,7 @@ func GetBoundLocktime(opt uint32) (lock uint64) {
 	case FOUR_WEEK_LOCK:
 		return FOUR_WEEK_LOCK_TIME
 
-	case FOREVER_LOCK:
+	case meter.FOREVER_LOCK:
 		return FOREVER_LOCK_TIME
 
 	// at least lock 1 week

@@ -53,10 +53,10 @@ var (
 )
 
 // get the bucket that candidate initialized
-func GetCandidateBucket(c *Candidate, bl *BucketList) (*Bucket, error) {
+func GetCandidateBucket(c *Candidate, bl *meter.BucketList) (*meter.Bucket, error) {
 	for _, id := range c.Buckets {
 		b := bl.Get(id)
-		if b.Owner == c.Addr && b.Candidate == c.Addr && b.Option == FOREVER_LOCK {
+		if b.Owner == c.Addr && b.Candidate == c.Addr && b.Option == meter.FOREVER_LOCK {
 			return b, nil
 		}
 
@@ -66,8 +66,8 @@ func GetCandidateBucket(c *Candidate, bl *BucketList) (*Bucket, error) {
 }
 
 // get the buckets which owner is candidate
-func GetCandidateSelfBuckets(c *Candidate, bl *BucketList) ([]*Bucket, error) {
-	self := []*Bucket{}
+func GetCandidateSelfBuckets(c *Candidate, bl *meter.BucketList) ([]*meter.Bucket, error) {
+	self := []*meter.Bucket{}
 	for _, id := range c.Buckets {
 		b := bl.Get(id)
 		if b.Owner == c.Addr && b.Candidate == c.Addr {
@@ -81,7 +81,7 @@ func GetCandidateSelfBuckets(c *Candidate, bl *BucketList) ([]*Bucket, error) {
 	}
 }
 
-func CheckCandEnoughSelfVotes(newVotes *big.Int, c *Candidate, bl *BucketList, selfVoteRatio int64) bool {
+func CheckCandEnoughSelfVotes(newVotes *big.Int, c *Candidate, bl *meter.BucketList, selfVoteRatio int64) bool {
 	// The previous check is candidata self shoud occupies 1/10 of the total votes.
 	// Remove this check now
 	bkts, err := GetCandidateSelfBuckets(c, bl)
@@ -105,7 +105,7 @@ func CheckCandEnoughSelfVotes(newVotes *big.Int, c *Candidate, bl *BucketList, s
 	return true
 }
 
-func CheckEnoughSelfVotes(subVotes *big.Int, c *Candidate, bl *BucketList, selfVoteRatio int64) bool {
+func CheckEnoughSelfVotes(subVotes *big.Int, c *Candidate, bl *meter.BucketList, selfVoteRatio int64) bool {
 	// The previous check is candidata self shoud occupies 1/10 of the total votes.
 	// Remove this check now
 	bkts, err := GetCandidateSelfBuckets(c, bl)
@@ -171,30 +171,30 @@ func GetStakeholderListByHeader(header *block.Header) (*StakeholderList, error) 
 	return StakeholderList, nil
 }
 
-func GetLatestBucketList() (*BucketList, error) {
+func GetLatestBucketList() (*meter.BucketList, error) {
 	staking := GetStakingGlobInst()
 	if staking == nil {
 		log.Warn("staking is not initialized...")
 		err := errors.New("staking is not initialized...")
-		return newBucketList(nil), err
+		return meter.NewBucketList(nil), err
 	}
 
 	best := staking.chain.BestBlock()
 	state, err := staking.stateCreator.NewState(best.Header().StateRoot())
 	if err != nil {
-		return newBucketList(nil), err
+		return meter.NewBucketList(nil), err
 	}
 	bucketList := staking.GetBucketList(state)
 
 	return bucketList, nil
 }
 
-func GetBucketListByHeader(header *block.Header) (*BucketList, error) {
+func GetBucketListByHeader(header *block.Header) (*meter.BucketList, error) {
 	staking := GetStakingGlobInst()
 	if staking == nil {
 		log.Warn("staking is not initialized...")
 		err := errors.New("staking is not initialized...")
-		return newBucketList(nil), err
+		return meter.NewBucketList(nil), err
 	}
 
 	h := header
@@ -203,7 +203,7 @@ func GetBucketListByHeader(header *block.Header) (*BucketList, error) {
 	}
 	state, err := staking.stateCreator.NewState(h.StateRoot())
 	if err != nil {
-		return newBucketList(nil), err
+		return meter.NewBucketList(nil), err
 	}
 	bucketList := staking.GetBucketList(state)
 
@@ -342,7 +342,7 @@ func GetInternalDelegateList() ([]*types.DelegateIntern, error) {
 }
 
 // deprecated warning: BonusVotes will always be 0 after Tesla Fork 5
-func TouchBucketBonus(ts uint64, bucket *Bucket) *big.Int {
+func TouchBucketBonus(ts uint64, bucket *meter.Bucket) *big.Int {
 	if ts < bucket.CalcLastTime {
 		return big.NewInt(0)
 	}
@@ -420,7 +420,7 @@ func (staking *Staking) DoTeslaFork5_BonusCorrection(state *state.State) {
 	candTotalVotes := make(map[meter.Address]*big.Int)
 	stakeholderList := newStakeholderList(nil)
 	// Calcuate bonus from createTime
-	for _, bkt := range bucketList.buckets {
+	for _, bkt := range bucketList.Buckets {
 		// re-calc stakeholder list
 		stakeholder := stakeholderList.Get(bkt.Owner)
 		if stakeholder == nil {

@@ -80,7 +80,7 @@ type Bucket struct {
 	CalcLastTime uint64        `json:"calcLastTime"`
 }
 
-func convertBucketList(list *staking.BucketList) []*Bucket {
+func convertBucketList(list *meter.BucketList) []*Bucket {
 	bucketList := make([]*Bucket, 0)
 
 	for _, b := range list.ToList() {
@@ -89,7 +89,7 @@ func convertBucketList(list *staking.BucketList) []*Bucket {
 	return bucketList
 }
 
-func convertBucket(b *staking.Bucket) *Bucket {
+func convertBucket(b *meter.Bucket) *Bucket {
 	return &Bucket{
 		ID:           b.BucketID.String(),
 		Owner:        b.Owner,

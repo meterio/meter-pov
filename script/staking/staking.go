@@ -285,7 +285,7 @@ func (s *Staking) BoundHandler(env *setypes.ScriptEnv, sb *StakingBody, gas uint
 		candAddr = meter.Address{}
 	}
 
-	bucket := NewBucket(sb.HolderAddr, candAddr, sb.Amount, uint8(sb.Token), opt, rate, sb.Autobid, sb.Timestamp, sb.Nonce)
+	bucket := meter.NewBucket(sb.HolderAddr, candAddr, sb.Amount, uint8(sb.Token), opt, rate, sb.Autobid, sb.Timestamp, sb.Nonce)
 	bucketList.Add(bucket)
 
 	stakeholder := stakeholderList.Get(sb.HolderAddr)
@@ -466,12 +466,12 @@ func (s *Staking) CandidateHandler(env *setypes.ScriptEnv, sb *StakingBody, gas 
 	}
 
 	// now staking the amount, force to forever lock
-	opt, rate, locktime := GetBoundLockOption(FOREVER_LOCK)
+	opt, rate, locktime := GetBoundLockOption(meter.FOREVER_LOCK)
 	commission := GetCommissionRate(sb.Option)
 	log.Info("get bound option", "option", opt, "rate", rate, "locktime", locktime, "commission", commission)
 
 	// bucket owner is candidate
-	bucket := NewBucket(sb.CandAddr, sb.CandAddr, sb.Amount, uint8(sb.Token), opt, rate, sb.Autobid, sb.Timestamp, sb.Nonce)
+	bucket := meter.NewBucket(sb.CandAddr, sb.CandAddr, sb.Amount, uint8(sb.Token), opt, rate, sb.Autobid, sb.Timestamp, sb.Nonce)
 	bucketList.Add(bucket)
 
 	candidate := NewCandidate(sb.CandAddr, sb.CandName, sb.CandDescription, []byte(candidatePubKey), sb.CandIP, sb.CandPort, commission, sb.Timestamp)
@@ -756,8 +756,8 @@ func (s *Staking) GoverningHandler(env *setypes.ScriptEnv, sb *StakingBody, gas 
 		// ---------------------------------------
 		// Handle Unbound
 		// changes: delete during loop pattern
-		for i := 0; i < len(bucketList.buckets); i++ {
-			bkt := bucketList.buckets[i]
+		for i := 0; i < len(bucketList.Buckets); i++ {
+			bkt := bucketList.Buckets[i]
 
 			log.Debug("before new handling", "bucket", bkt.ToString())
 			// handle unbound first
@@ -803,7 +803,7 @@ func (s *Staking) GoverningHandler(env *setypes.ScriptEnv, sb *StakingBody, gas 
 
 		// Add bonus delta
 		// changes: deprecated BonusVotes
-		for _, bkt := range bucketList.buckets {
+		for _, bkt := range bucketList.Buckets {
 			if ts >= bkt.CalcLastTime {
 				bonusDelta := CalcBonus(bkt.CalcLastTime, ts, bkt.Rate, bkt.Value)
 				log.Debug("add bonus delta", "id", bkt.ID(), "bonusDelta", bonusDelta.String(), "ts", ts, "last time", bkt.CalcLastTime)
@@ -825,7 +825,7 @@ func (s *Staking) GoverningHandler(env *setypes.ScriptEnv, sb *StakingBody, gas 
 		// ---------------------------------------
 		// BEFORE TESLA FORK 5 : update bucket bonus by timestamp delta, update candidate total votes accordingly
 		// ---------------------------------------
-		for _, bkt := range bucketList.buckets {
+		for _, bkt := range bucketList.Buckets {
 
 			log.Debug("before handling", "bucket", bkt.ToString())
 			// handle unbound first
@@ -1423,7 +1423,7 @@ func (s *Staking) BucketUpdateHandler(env *setypes.ScriptEnv, sb *StakingBody, g
 			bucket.TotalVotes.Sub(bucket.TotalVotes, bonusDelta)
 
 			// create unbounded new bucket
-			newBucket := NewBucket(bucket.Owner, bucket.Candidate, sb.Amount, uint8(bucket.Token), ONE_WEEK_LOCK, bucket.Rate, bucket.Autobid, sb.Timestamp, sb.Nonce)
+			newBucket := meter.NewBucket(bucket.Owner, bucket.Candidate, sb.Amount, uint8(bucket.Token), ONE_WEEK_LOCK, bucket.Rate, bucket.Autobid, sb.Timestamp, sb.Nonce)
 			newBucket.Unbounded = true
 			newBucket.MatureTime = sb.Timestamp + GetBoundLocktime(newBucket.Option) // lock time
 			newBucketID := newBucket.BucketID

@@ -35,14 +35,14 @@ func (s *Stakeholder) ToString() string {
 		s.Holder, s.TotalStake)
 }
 
-func (s *Stakeholder) AddBucket(bucket *Bucket) {
+func (s *Stakeholder) AddBucket(bucket *meter.Bucket) {
 	// TODO: deal with duplicates?
 	bucketID := bucket.BucketID
 	s.Buckets = append(s.Buckets, bucketID)
 	s.TotalStake.Add(s.TotalStake, bucket.Value)
 }
 
-func (s *Stakeholder) RemoveBucket(bucket *Bucket) {
+func (s *Stakeholder) RemoveBucket(bucket *meter.Bucket) {
 	bucketID := bucket.BucketID
 	for i, id := range s.Buckets {
 		if id.String() == bucketID.String() {

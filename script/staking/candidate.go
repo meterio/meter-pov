@@ -52,14 +52,14 @@ func (c *Candidate) ToString() string {
 		string(c.Name), string(c.IPAddr), c.Port, c.Addr, c.TotalVotes.Uint64(), pubKeyEncoded)
 }
 
-func (c *Candidate) AddBucket(bucket *Bucket) {
+func (c *Candidate) AddBucket(bucket *meter.Bucket) {
 	// TODO: deal with duplicates?
 	bucketID := bucket.BucketID
 	c.Buckets = append(c.Buckets, bucketID)
 	c.TotalVotes.Add(c.TotalVotes, bucket.TotalVotes)
 }
 
-func (c *Candidate) RemoveBucket(bucket *Bucket) {
+func (c *Candidate) RemoveBucket(bucket *meter.Bucket) {
 	bucketID := bucket.BucketID
 	for i, id := range c.Buckets {
 		if id.String() == bucketID.String() {

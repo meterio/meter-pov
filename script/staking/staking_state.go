@@ -89,9 +89,9 @@ func (s *Staking) SetStakeHolderList(holderList *StakeholderList, state *state.S
 }
 
 // Bucket List
-func (s *Staking) GetBucketList(state *state.State) (result *BucketList) {
+func (s *Staking) GetBucketList(state *state.State) (result *meter.BucketList) {
 	state.DecodeStorage(StakingModuleAddr, BucketListKey, func(raw []byte) error {
-		buckets := make([]*Bucket, 0)
+		buckets := make([]*meter.Bucket, 0)
 
 		if len(strings.TrimSpace(string(raw))) >= 0 {
 			err := rlp.Decode(bytes.NewReader(raw), &buckets)
@@ -105,21 +105,21 @@ func (s *Staking) GetBucketList(state *state.State) (result *BucketList) {
 			}
 		}
 
-		result = newBucketList(buckets)
+		result = meter.NewBucketList(buckets)
 		return nil
 	})
 	return
 }
 
-func (s *Staking) SetBucketList(bucketList *BucketList, state *state.State) {
+func (s *Staking) SetBucketList(bucketList *meter.BucketList, state *state.State) {
 	/***
-	sort.SliceStable(bucketList.buckets, func(i, j int) bool {
-		return bytes.Compare(bucketList.buckets[i].BucketID.Bytes(), bucketList.buckets[j].BucketID.Bytes()) <= 0
+	sort.SliceStable(bucketList.Buckets, func(i, j int) bool {
+		return bytes.Compare(bucketList.Buckets[i].BucketID.Bytes(), bucketList.Buckets[j].BucketID.Bytes()) <= 0
 	})
 	***/
 
 	state.EncodeStorage(StakingModuleAddr, BucketListKey, func() ([]byte, error) {
-		return rlp.EncodeToBytes(bucketList.buckets)
+		return rlp.EncodeToBytes(bucketList.Buckets)
 	})
 }
 
