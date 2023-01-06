@@ -236,12 +236,12 @@ func (s *State) SubBalance(addr meter.Address, amount *big.Int) bool {
 		return true
 	}
 
-	balance := s.GetBalance(meter.Address(addr))
+	balance := s.GetBalance(addr)
 	if balance.Cmp(amount) < 0 {
 		return false
 	}
 
-	s.SetBalance(meter.Address(addr), new(big.Int).Sub(balance, amount))
+	s.SetBalance(addr, new(big.Int).Sub(balance, amount))
 	return true
 }
 

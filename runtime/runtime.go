@@ -335,11 +335,11 @@ func (rt *Runtime) newEVM(stateDB *statedb.StateDB, clauseIndex uint32, txCtx *x
 			} else {
 				//regular transfer
 				if token == meter.MTRG {
-					stateDB.SubBalance(common.Address(sender), amount)
-					stateDB.AddBalance(common.Address(recipient), amount)
+					stateDB.SubBalance(sender, amount)
+					stateDB.AddBalance(recipient, amount)
 				} else if token == meter.MTR {
-					stateDB.SubEnergy(common.Address(sender), amount)
-					stateDB.AddEnergy(common.Address(recipient), amount)
+					stateDB.SubEnergy(sender, amount)
+					stateDB.AddEnergy(recipient, amount)
 				}
 			}
 

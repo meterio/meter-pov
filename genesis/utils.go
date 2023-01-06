@@ -19,7 +19,6 @@ import (
 	"github.com/inconshreveable/log15"
 
 	"github.com/meterio/meter-pov/meter"
-	"github.com/meterio/meter-pov/script/accountlock"
 	"github.com/meterio/meter-pov/state"
 )
 
@@ -105,7 +104,7 @@ func LoadVestProfile() []*meter.Profile {
 }
 
 func SetProfileList(lockList *meter.ProfileList, state *state.State) {
-	state.EncodeStorage(accountlock.AccountLockAddr, accountlock.AccountLockProfileKey, func() ([]byte, error) {
+	state.EncodeStorage(meter.AccountLockAddr, meter.AccountLockProfileKey, func() ([]byte, error) {
 		// buf := bytes.NewBuffer([]byte{})
 		// encoder := gob.NewEncoder(buf)
 		// err := encoder.Encode(lockList)

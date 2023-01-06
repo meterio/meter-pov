@@ -23,7 +23,7 @@ func BuildAccountLockGoverningTx(chainTag byte, bestNum uint32, curEpoch uint32)
 		Nonce(12345678)
 
 	builder.Clause(
-		tx.NewClause(&accountlock.AccountLockAddr).
+		tx.NewClause(&meter.AccountLockAddr).
 			WithValue(big.NewInt(0)).
 			WithToken(meter.MTRG).
 			WithData(buildAccoutLockGoverningData(curEpoch)))
@@ -32,7 +32,7 @@ func BuildAccountLockGoverningTx(chainTag byte, bestNum uint32, curEpoch uint32)
 	return builder.Build()
 }
 
-/////// account lock governing
+// ///// account lock governing
 func buildAccoutLockGoverningData(curEpoch uint32) (ret []byte) {
 	ret = []byte{}
 

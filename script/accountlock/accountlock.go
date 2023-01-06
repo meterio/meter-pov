@@ -80,7 +80,7 @@ func (a *AccountLock) AccountLockHandler(senv *setypes.ScriptEnv, payload []byte
 		leftOverGas, err = a.HandleAccountLockTransfer(senv, ab, gas)
 
 	case OP_GOVERNING:
-		if to.String() != AccountLockAddr.String() {
+		if to.String() != meter.AccountLockAddr.String() {
 			return nil, gas, errors.New("to address is not the same from module address")
 		}
 		leftOverGas, err = a.GoverningHandler(senv, ab, gas)
@@ -104,7 +104,7 @@ func (a *AccountLock) HandleAccountLockAdd(env *setypes.ScriptEnv, ab *AccountLo
 		env.SetReturnData(ret)
 	}()
 	state := env.GetState()
-	pList := a.GetProfileList(state)
+	pList := state.GetProfileList()
 
 	if gas < meter.ClauseGas {
 		leftOverGas = 0
@@ -121,7 +121,7 @@ func (a *AccountLock) HandleAccountLockAdd(env *setypes.ScriptEnv, ab *AccountLo
 	p := meter.NewProfile(ab.FromAddr, ab.Memo, ab.LockEpoch, ab.ReleaseEpoch, ab.MeterAmount, ab.MeterGovAmount)
 	pList.Add(p)
 
-	a.SetProfileList(pList, state)
+	state.SetProfileList(pList)
 	return
 }
 
@@ -134,7 +134,7 @@ func (a *AccountLock) HandleAccountLockRemove(env *setypes.ScriptEnv, ab *Accoun
 		env.SetReturnData(ret)
 	}()
 	state := env.GetState()
-	pList := a.GetProfileList(state)
+	pList := state.GetProfileList()
 
 	if gas < meter.ClauseGas {
 		leftOverGas = 0
@@ -151,7 +151,7 @@ func (a *AccountLock) HandleAccountLockRemove(env *setypes.ScriptEnv, ab *Accoun
 
 	pList.Remove(ab.FromAddr)
 
-	a.SetProfileList(pList, state)
+	state.SetProfileList(pList)
 	return
 }
 
@@ -164,7 +164,7 @@ func (a *AccountLock) HandleAccountLockTransfer(env *setypes.ScriptEnv, ab *Acco
 		env.SetReturnData(ret)
 	}()
 	state := env.GetState()
-	pList := a.GetProfileList(state)
+	pList := state.GetProfileList()
 
 	if gas < meter.ClauseGas {
 		leftOverGas = 0
@@ -232,7 +232,7 @@ func (a *AccountLock) HandleAccountLockTransfer(env *setypes.ScriptEnv, ab *Acco
 	}
 
 	log.Debug("account lock transfer", "from", ab.FromAddr, "to", ab.ToAddr, "meter", ab.MeterAmount, "meterGov", ab.MeterGovAmount)
-	a.SetProfileList(pList, state)
+	state.SetProfileList(pList)
 	return
 }
 
@@ -245,7 +245,7 @@ func (a *AccountLock) GoverningHandler(env *setypes.ScriptEnv, ab *AccountLockBo
 		env.SetReturnData(ret)
 	}()
 	state := env.GetState()
-	pList := a.GetProfileList(state)
+	pList := state.GetProfileList()
 
 	if gas < meter.ClauseGas {
 		leftOverGas = 0
@@ -266,7 +266,7 @@ func (a *AccountLock) GoverningHandler(env *setypes.ScriptEnv, ab *AccountLockBo
 	}
 
 	log.Debug("account lock governing done...", "epoch", curEpoch)
-	a.SetProfileList(pList, state)
+	state.SetProfileList(pList)
 	return
 }
 
@@ -285,7 +285,7 @@ func GetLatestProfileList() (*meter.ProfileList, error) {
 		return meter.NewProfileList(nil), err
 	}
 
-	list := accountlock.GetProfileList(state)
+	list := state.GetProfileList()
 	return list, nil
 }
 
@@ -296,7 +296,7 @@ func RestrictByAccountLock(addr meter.Address, state *state.State) (bool, *big.I
 		return false, nil, nil
 	}
 
-	list := accountlock.GetProfileList(state)
+	list := state.GetProfileList()
 	if list == nil {
 		log.Warn("get the accountlock profile failed")
 		return false, nil, nil

@@ -82,6 +82,13 @@ const (
 	POW_M10_EFFECIENCY_MAIN      = 0.053
 )
 
+// Auction
+var (
+	//0x6163636f756e742d6c6f636b2d61646472657373
+	AccountLockAddr       = BytesToAddress([]byte("account-lock-address"))
+	AccountLockProfileKey = Blake2b([]byte("account-lock-profile-list-key"))
+)
+
 // Keys of governance params.
 var (
 	// Keys

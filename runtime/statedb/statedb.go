@@ -97,25 +97,12 @@ func (s *StateDB) GetBalance(addr common.Address) *big.Int {
 
 // SubBalance stub.
 func (s *StateDB) SubBalance(addr common.Address, amount *big.Int) bool {
-	if amount.Sign() == 0 {
-		return true
-	}
-	balance := s.state.GetBalance(meter.Address(addr))
-	if balance.Cmp(amount) < 0 {
-		return false
-	}
-
-	s.state.SetBalance(meter.Address(addr), new(big.Int).Sub(balance, amount))
-	return true
+	return s.state.SubBalance(meter.Address(addr), amount)
 }
 
 // AddBalance stub.
 func (s *StateDB) AddBalance(addr common.Address, amount *big.Int) {
-	if amount.Sign() == 0 {
-		return
-	}
-	balance := s.state.GetBalance(meter.Address(addr))
-	s.state.SetBalance(meter.Address(addr), new(big.Int).Add(balance, amount))
+	s.state.AddBalance(meter.Address(addr), amount)
 }
 
 // mintBalance stub
@@ -131,32 +118,16 @@ func (s *StateDB) BurnBalance(addr common.Address, amount *big.Int) {
 	e.BurnMeterGov(a, amount)
 }
 
-// GetEnergy stub.
 func (s *StateDB) GetEnergy(addr common.Address) *big.Int {
 	return s.state.GetEnergy(meter.Address(addr))
 }
 
-// SubEnergy stub.
 func (s *StateDB) SubEnergy(addr common.Address, amount *big.Int) bool {
-	if amount.Sign() == 0 {
-		return true
-	}
-	balance := s.state.GetEnergy(meter.Address(addr))
-	if balance.Cmp(amount) < 0 {
-		return false
-	}
-
-	s.state.SetEnergy(meter.Address(addr), new(big.Int).Sub(balance, amount))
-	return true
+	return s.state.SubEnergy(meter.Address(addr), amount)
 }
 
-// AddEnergy stub.
 func (s *StateDB) AddEnergy(addr common.Address, amount *big.Int) {
-	if amount.Sign() == 0 {
-		return
-	}
-	balance := s.state.GetEnergy(meter.Address(addr))
-	s.state.SetEnergy(meter.Address(addr), new(big.Int).Add(balance, amount))
+	s.state.AddEnergy(meter.Address(addr), amount)
 }
 
 // minEnergy stub
@@ -179,25 +150,12 @@ func (s *StateDB) GetBoundedBalance(addr common.Address) *big.Int {
 
 // SubBoundedBalance stub.
 func (s *StateDB) SubBoundedBalance(addr common.Address, amount *big.Int) bool {
-	if amount.Sign() == 0 {
-		return true
-	}
-	balance := s.state.GetBoundedBalance(meter.Address(addr))
-	if balance.Cmp(amount) < 0 {
-		return false
-	}
-
-	s.state.SetBoundedBalance(meter.Address(addr), new(big.Int).Sub(balance, amount))
-	return true
+	return s.SubBoundedBalance(addr, amount)
 }
 
 // AddBoundedBalance stub.
 func (s *StateDB) AddBoundedBalance(addr common.Address, amount *big.Int) {
-	if amount.Sign() == 0 {
-		return
-	}
-	balance := s.state.GetBoundedBalance(meter.Address(addr))
-	s.state.SetBoundedBalance(meter.Address(addr), new(big.Int).Add(balance, amount))
+	s.state.AddBoundedBalance(meter.Address(addr), amount)
 }
 
 // GetBoundedEnergy stub.
@@ -207,25 +165,12 @@ func (s *StateDB) GetBoundedEnergy(addr common.Address) *big.Int {
 
 // SubBoundedEnergy stub.
 func (s *StateDB) SubBoundedEnergy(addr common.Address, amount *big.Int) bool {
-	if amount.Sign() == 0 {
-		return true
-	}
-	balance := s.state.GetBoundedEnergy(meter.Address(addr))
-	if balance.Cmp(amount) < 0 {
-		return false
-	}
-
-	s.state.SetBoundedEnergy(meter.Address(addr), new(big.Int).Sub(balance, amount))
-	return true
+	return s.state.SubBoundedEnergy(meter.Address(addr), amount)
 }
 
 // AddBoundedEnergy stub.
 func (s *StateDB) AddBoundedEnergy(addr common.Address, amount *big.Int) {
-	if amount.Sign() == 0 {
-		return
-	}
-	balance := s.state.GetBoundedEnergy(meter.Address(addr))
-	s.state.SetBoundedEnergy(meter.Address(addr), new(big.Int).Add(balance, amount))
+	s.state.AddBoundedEnergy(meter.Address(addr), amount)
 }
 
 // GetNonce stub.
