@@ -888,9 +888,9 @@ func (s *Staking) GoverningHandler(env *setypes.ScriptEnv, sb *StakingBody, gas 
 	}
 
 	// handle delegateList
-	delegates := []*Delegate{}
+	delegates := []*meter.Delegate{}
 	for _, c := range candidateList.Candidates {
-		delegate := &Delegate{
+		delegate := &meter.Delegate{
 			Address:     c.Addr,
 			PubKey:      c.PubKey,
 			Name:        c.Name,
@@ -904,8 +904,10 @@ func (s *Staking) GoverningHandler(env *setypes.ScriptEnv, sb *StakingBody, gas 
 			log.Info("skip injail delegate ...", "name", string(delegate.Name), "addr", delegate.Address)
 			continue
 		}
+
 		// delegates must satisfy the minimum requirements
-		if ok := delegate.MinimumRequirements(state); ok == false {
+		minRequire := builtin.Params.Native(state).Get(meter.KeyMinRequiredByDelegate)
+		if delegate.VotingPower.Cmp(minRequire) < 0 {
 			log.Info("delegate does not meet minimum requrirements, ignored ...", "name", string(delegate.Name), "addr", delegate.Address)
 			continue
 		}
@@ -920,7 +922,7 @@ func (s *Staking) GoverningHandler(env *setypes.ScriptEnv, sb *StakingBody, gas 
 			shares := big.NewInt(1e09)
 			shares = shares.Mul(b.TotalVotes, shares)
 			shares = shares.Div(shares, c.TotalVotes)
-			delegate.DistList = append(delegate.DistList, NewDistributor(b.Owner, b.Autobid, shares.Uint64()))
+			delegate.DistList = append(delegate.DistList, meter.NewDistributor(b.Owner, b.Autobid, shares.Uint64()))
 		}
 		delegates = append(delegates, delegate)
 	}

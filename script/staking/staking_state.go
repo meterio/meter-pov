@@ -124,9 +124,9 @@ func (s *Staking) SetBucketList(bucketList *meter.BucketList, state *state.State
 }
 
 // Delegates List
-func (s *Staking) GetDelegateList(state *state.State) (result *DelegateList) {
+func (s *Staking) GetDelegateList(state *state.State) (result *meter.DelegateList) {
 	state.DecodeStorage(StakingModuleAddr, DelegateListKey, func(raw []byte) error {
-		delegates := make([]*Delegate, 0)
+		delegates := make([]*meter.Delegate, 0)
 
 		if len(strings.TrimSpace(string(raw))) >= 0 {
 			err := rlp.Decode(bytes.NewReader(raw), &delegates)
@@ -140,13 +140,13 @@ func (s *Staking) GetDelegateList(state *state.State) (result *DelegateList) {
 			}
 		}
 
-		result = newDelegateList(delegates)
+		result = meter.NewDelegateList(delegates)
 		return nil
 	})
 	return
 }
 
-func (s *Staking) SetDelegateList(delegateList *DelegateList, state *state.State) {
+func (s *Staking) SetDelegateList(delegateList *meter.DelegateList, state *state.State) {
 	/***
 	sort.SliceStable(delegateList.delegates, func(i, j int) bool {
 		return bytes.Compare(delegateList.delegates[i].Address.Bytes(), delegateList.delegates[j].Address.Bytes()) <= 0
@@ -154,7 +154,7 @@ func (s *Staking) SetDelegateList(delegateList *DelegateList, state *state.State
 	***/
 
 	state.EncodeStorage(StakingModuleAddr, DelegateListKey, func() ([]byte, error) {
-		return rlp.EncodeToBytes(delegateList.delegates)
+		return rlp.EncodeToBytes(delegateList.Delegates)
 	})
 }
 

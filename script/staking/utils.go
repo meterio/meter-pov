@@ -251,7 +251,7 @@ func GetCandidateListByHeader(header *block.Header) (*meter.CandidateList, error
 	return list, nil
 }
 
-func GetDelegateListByHeader(header *block.Header) (*DelegateList, error) {
+func GetDelegateListByHeader(header *block.Header) (*meter.DelegateList, error) {
 	staking := GetStakingGlobInst()
 	if staking == nil {
 		log.Warn("staking is not initialized...")
@@ -273,7 +273,7 @@ func GetDelegateListByHeader(header *block.Header) (*DelegateList, error) {
 }
 
 // api routine interface
-func GetLatestDelegateList() (*DelegateList, error) {
+func GetLatestDelegateList() (*meter.DelegateList, error) {
 	staking := GetStakingGlobInst()
 	if staking == nil {
 		log.Warn("staking is not initialized...")
@@ -293,7 +293,7 @@ func GetLatestDelegateList() (*DelegateList, error) {
 	return list, nil
 }
 
-func convertDistList(dist []*Distributor) []*types.Distributor {
+func convertDistList(dist []*meter.Distributor) []*types.Distributor {
 	list := []*types.Distributor{}
 	for _, d := range dist {
 		l := &types.Distributor{
@@ -324,7 +324,7 @@ func GetInternalDelegateList() ([]*types.DelegateIntern, error) {
 
 	list := staking.GetDelegateList(state)
 	// fmt.Println("delegateList from state\n", list.ToString())
-	for _, s := range list.delegates {
+	for _, s := range list.Delegates {
 		d := &types.DelegateIntern{
 			Name:        s.Name,
 			Address:     s.Address,

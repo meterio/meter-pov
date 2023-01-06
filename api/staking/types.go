@@ -152,7 +152,7 @@ type Delegate struct {
 	DistList    []*Distributor `json:"distributors"`
 }
 
-func convertDelegateList(list *staking.DelegateList) []*Delegate {
+func convertDelegateList(list *meter.DelegateList) []*Delegate {
 	delegateList := make([]*Delegate, 0)
 	for _, d := range list.GetDelegates() {
 		delegateList = append(delegateList, convertDelegate(*d))
@@ -160,7 +160,7 @@ func convertDelegateList(list *staking.DelegateList) []*Delegate {
 	return delegateList
 }
 
-func convertDelegate(d staking.Delegate) *Delegate {
+func convertDelegate(d meter.Delegate) *Delegate {
 	dists := []*Distributor{}
 	for _, dist := range d.DistList {
 		dists = append(dists, &Distributor{

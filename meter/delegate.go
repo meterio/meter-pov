@@ -3,26 +3,22 @@
 // Distributed under the GNU Lesser General Public License v3.0 software license, see the accompanying
 // file LICENSE or <https://www.gnu.org/licenses/lgpl-3.0.html>
 
-package staking
+package meter
 
 import (
 	b64 "encoding/base64"
 	"fmt"
 	"math/big"
 	"strings"
-
-	"github.com/meterio/meter-pov/builtin"
-	"github.com/meterio/meter-pov/meter"
-	"github.com/meterio/meter-pov/state"
 )
 
 type Distributor struct {
-	Address meter.Address
+	Address Address
 	Autobid uint8  // autobid percentile
 	Shares  uint64 // unit shannon, aka, 1e09
 }
 
-func NewDistributor(addr meter.Address, autobid uint8, shares uint64) *Distributor {
+func NewDistributor(addr Address, autobid uint8, shares uint64) *Distributor {
 	return &Distributor{
 		Address: addr,
 		Autobid: autobid,
@@ -35,9 +31,9 @@ func (d *Distributor) ToString() string {
 		d.Address, d.Autobid, d.Shares)
 }
 
-//====
+// ====
 type Delegate struct {
-	Address     meter.Address
+	Address     Address
 	PubKey      []byte //ecdsa.PublicKey
 	Name        []byte
 	VotingPower *big.Int
@@ -48,11 +44,11 @@ type Delegate struct {
 }
 
 type DelegateList struct {
-	delegates []*Delegate
+	Delegates []*Delegate
 }
 
-func newDelegateList(delegates []*Delegate) *DelegateList {
-	return &DelegateList{delegates: delegates}
+func NewDelegateList(delegates []*Delegate) *DelegateList {
+	return &DelegateList{Delegates: delegates}
 }
 
 func (d *Delegate) ToString() string {
@@ -61,50 +57,39 @@ func (d *Delegate) ToString() string {
 		string(d.Name), d.Address, pubKeyEncoded, string(d.IPAddr), d.Port, d.VotingPower.Uint64(), len(d.DistList))
 }
 
-// match minimum requirements?
-// 1. not on injail list
-// 2. > 300 MTRG
-func (d *Delegate) MinimumRequirements(state *state.State) bool {
-	minRequire := builtin.Params.Native(state).Get(meter.KeyMinRequiredByDelegate)
-	if d.VotingPower.Cmp(minRequire) < 0 {
-		return false
-	}
-	return true
-}
-
 func (l *DelegateList) CleanAll() error {
-	l.delegates = []*Delegate{}
+	l.Delegates = []*Delegate{}
 	return nil
 }
 
 func (l *DelegateList) Members() string {
 	members := make([]string, 0)
-	for _, d := range l.delegates {
+	for _, d := range l.Delegates {
 		members = append(members, string(d.Name))
 	}
 	return strings.Join(members, ", ")
 }
 
 func (l *DelegateList) SetDelegates(delegates []*Delegate) {
-	l.delegates = delegates
+	l.Delegates = delegates
 	return
 }
 
 func (l *DelegateList) GetDelegates() []*Delegate {
-	return l.delegates
+	return l.Delegates
 }
 
 func (l *DelegateList) Add(c *Delegate) error {
-	l.delegates = append(l.delegates, c)
+	l.Delegates = append(l.Delegates, c)
 	return nil
 }
 
 func (l *DelegateList) ToString() string {
-	if l == nil || len(l.delegates) == 0 {
+	if l == nil || len(l.Delegates) == 0 {
 		return "DelegateList (size:0)"
 	}
-	s := []string{fmt.Sprintf("DelegateList (size:%v) {", len(l.delegates))}
-	for k, v := range l.delegates {
+	s := []string{fmt.Sprintf("DelegateList (size:%v) {", len(l.Delegates))}
+	for k, v := range l.Delegates {
 		s = append(s, fmt.Sprintf("%v. %v", k, v.ToString()))
 	}
 	s = append(s, "}")
