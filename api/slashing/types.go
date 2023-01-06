@@ -9,7 +9,6 @@ import (
 	"sort"
 
 	"github.com/meterio/meter-pov/meter"
-	"github.com/meterio/meter-pov/script/staking"
 )
 
 type DelegateJailed struct {
@@ -95,7 +94,7 @@ func convertDelegateJailed(d *meter.DelegateJailed) *DelegateJailed {
 	}
 }
 
-func convertStatisticsList(list *staking.StatisticsList) []*DelegateStatistics {
+func convertStatisticsList(list *meter.StatisticsList) []*DelegateStatistics {
 	statsList := make([]*DelegateStatistics, 0)
 	for _, s := range list.ToList() {
 		statsList = append(statsList, convertDelegateStatistics(&s))
@@ -153,7 +152,7 @@ func convertDoubleSignerInfo(info []*meter.DoubleSignerInfo) []*DoubleSignerInfo
 	return signer
 }
 
-func convertDelegateStatistics(d *staking.DelegateStatistics) *DelegateStatistics {
+func convertDelegateStatistics(d *meter.DelegateStatistics) *DelegateStatistics {
 	infs := Infraction{
 		MissingLeader: MissingLeader{
 			d.Infractions.MissingLeaders.Counter,

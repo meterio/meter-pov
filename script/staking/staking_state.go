@@ -160,9 +160,9 @@ func (s *Staking) SetDelegateList(delegateList *meter.DelegateList, state *state
 
 // ====
 // Statistics List, unlike others, save/get list
-func (s *Staking) GetStatisticsList(state *state.State) (result *StatisticsList) {
+func (s *Staking) GetStatisticsList(state *state.State) (result *meter.StatisticsList) {
 	state.DecodeStorage(StakingModuleAddr, StatisticsListKey, func(raw []byte) error {
-		stats := make([]*DelegateStatistics, 0)
+		stats := make([]*meter.DelegateStatistics, 0)
 
 		if len(strings.TrimSpace(string(raw))) >= 0 {
 			err := rlp.Decode(bytes.NewReader(raw), &stats)
@@ -176,13 +176,13 @@ func (s *Staking) GetStatisticsList(state *state.State) (result *StatisticsList)
 			}
 		}
 
-		result = NewStatisticsList(stats)
+		result = meter.NewStatisticsList(stats)
 		return nil
 	})
 	return
 }
 
-func (s *Staking) SetStatisticsList(list *StatisticsList, state *state.State) {
+func (s *Staking) SetStatisticsList(list *meter.StatisticsList, state *state.State) {
 	/***
 	sort.SliceStable(list.delegates, func(i, j int) bool {
 		return bytes.Compare(list.delegates[i].Addr.Bytes(), list.delegates[j].Addr.Bytes()) <= 0
@@ -190,7 +190,7 @@ func (s *Staking) SetStatisticsList(list *StatisticsList, state *state.State) {
 	***/
 
 	state.EncodeStorage(StakingModuleAddr, StatisticsListKey, func() ([]byte, error) {
-		return rlp.EncodeToBytes(list.delegates)
+		return rlp.EncodeToBytes(list.Delegates)
 	})
 }
 

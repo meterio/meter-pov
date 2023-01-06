@@ -69,7 +69,7 @@ func BuildStatisticsTx(entries []*StatEntry, chainTag byte, bestNum uint32, curE
 }
 
 func buildStatisticsData(entry *StatEntry, curEpoch uint32) (ret []byte) {
-	extra, err := staking.PackInfractionToBytes(&entry.Infraction)
+	extra, err := meter.PackInfractionToBytes(&entry.Infraction)
 	if err != nil {
 		logger.Error("packing infraction failed", "error", err.Error())
 		return

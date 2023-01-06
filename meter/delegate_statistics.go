@@ -3,18 +3,16 @@
 // Distributed under the GNU Lesser General Public License v3.0 software license, see the accompanying
 // file LICENSE or <https://www.gnu.org/licenses/lgpl-3.0.html>
 
-package staking
+package meter
 
 import (
 	"bytes"
 	b64 "encoding/base64"
-	"errors"
 	"fmt"
 	"sort"
 	"strings"
 
 	"github.com/ethereum/go-ethereum/rlp"
-	"github.com/meterio/meter-pov/meter"
 )
 
 const (
@@ -45,14 +43,14 @@ const (
 
 // Candidate indicates the structure of a candidate
 type DelegateStatistics struct {
-	Addr        meter.Address // the address for staking / reward
+	Addr        Address // the address for staking / reward
 	Name        []byte
 	PubKey      []byte // node public key
 	TotalPts    uint64 // total points of infraction
-	Infractions meter.Infraction
+	Infractions Infraction
 }
 
-func NewDelegateStatistics(addr meter.Address, name []byte, pubKey []byte) *DelegateStatistics {
+func NewDelegateStatistics(addr Address, name []byte, pubKey []byte) *DelegateStatistics {
 	return &DelegateStatistics{
 		Addr:   addr,
 		Name:   name,
@@ -73,7 +71,7 @@ func (ds *DelegateStatistics) PhaseOut(curEpoch uint32) {
 	}
 
 	//missing leader
-	leaderInfo := []*meter.MissingLeaderInfo{}
+	leaderInfo := []*MissingLeaderInfo{}
 	leaderPts := uint64(0)
 	for _, info := range ds.Infractions.MissingLeaders.Info {
 		if info.Epoch >= phaseOneEpoch {
@@ -88,7 +86,7 @@ func (ds *DelegateStatistics) PhaseOut(curEpoch uint32) {
 	ds.Infractions.MissingLeaders.Info = leaderInfo
 
 	// missing proposer
-	proposerInfo := []*meter.MissingProposerInfo{}
+	proposerInfo := []*MissingProposerInfo{}
 	proposerPts := uint64(0)
 	for _, info := range ds.Infractions.MissingProposers.Info {
 		if info.Epoch >= phaseOneEpoch {
@@ -103,7 +101,7 @@ func (ds *DelegateStatistics) PhaseOut(curEpoch uint32) {
 	ds.Infractions.MissingProposers.Info = proposerInfo
 
 	// missing voter
-	voterInfo := []*meter.MissingVoterInfo{}
+	voterInfo := []*MissingVoterInfo{}
 	voterPts := uint64(0)
 	for _, info := range ds.Infractions.MissingVoters.Info {
 		if info.Epoch >= phaseOneEpoch {
@@ -118,7 +116,7 @@ func (ds *DelegateStatistics) PhaseOut(curEpoch uint32) {
 	ds.Infractions.MissingVoters.Info = voterInfo
 
 	// double signer
-	dsignInfo := []*meter.DoubleSignerInfo{}
+	dsignInfo := []*DoubleSignerInfo{}
 	dsignPts := uint64(0)
 	for _, info := range ds.Infractions.DoubleSigners.Info {
 		if info.Epoch >= phaseOneEpoch {
@@ -136,7 +134,7 @@ func (ds *DelegateStatistics) PhaseOut(curEpoch uint32) {
 	return
 }
 
-func (ds *DelegateStatistics) Update(incr *meter.Infraction) {
+func (ds *DelegateStatistics) Update(incr *Infraction) {
 
 	infr := &ds.Infractions
 	infr.MissingLeaders.Info = append(infr.MissingLeaders.Info, incr.MissingLeaders.Info...)
@@ -242,7 +240,7 @@ func (ds *DelegateStatistics) ToString() string {
 }
 
 type StatisticsList struct {
-	delegates []*DelegateStatistics
+	Delegates []*DelegateStatistics
 }
 
 func NewStatisticsList(delegates []*DelegateStatistics) *StatisticsList {
@@ -252,21 +250,21 @@ func NewStatisticsList(delegates []*DelegateStatistics) *StatisticsList {
 	sort.SliceStable(delegates, func(i, j int) bool {
 		return bytes.Compare(delegates[i].Addr.Bytes(), delegates[j].Addr.Bytes()) <= 0
 	})
-	return &StatisticsList{delegates: delegates /*, phaseOutEpoch: 0*/}
+	return &StatisticsList{Delegates: delegates /*, phaseOutEpoch: 0*/}
 }
 
-func (sl *StatisticsList) indexOf(addr meter.Address) (int, int) {
+func (sl *StatisticsList) indexOf(addr Address) (int, int) {
 	// return values:
 	//     first parameter: if found, the index of the item
 	//     second parameter: if not found, the correct insert index of the item
-	if len(sl.delegates) <= 0 {
+	if len(sl.Delegates) <= 0 {
 		return -1, 0
 	}
 	l := 0
-	r := len(sl.delegates)
+	r := len(sl.Delegates)
 	for l < r {
 		m := (l + r) / 2
-		cmp := bytes.Compare(addr.Bytes(), sl.delegates[m].Addr.Bytes())
+		cmp := bytes.Compare(addr.Bytes(), sl.Delegates[m].Addr.Bytes())
 		if cmp < 0 {
 			r = m
 		} else if cmp > 0 {
@@ -278,15 +276,15 @@ func (sl *StatisticsList) indexOf(addr meter.Address) (int, int) {
 	return -1, r
 }
 
-func (sl *StatisticsList) Get(addr meter.Address) *DelegateStatistics {
+func (sl *StatisticsList) Get(addr Address) *DelegateStatistics {
 	index, _ := sl.indexOf(addr)
 	if index < 0 {
 		return nil
 	}
-	return sl.delegates[index]
+	return sl.Delegates[index]
 }
 
-func (sl *StatisticsList) Exist(addr meter.Address) bool {
+func (sl *StatisticsList) Exist(addr Address) bool {
 	index, _ := sl.indexOf(addr)
 	return index >= 0
 }
@@ -294,40 +292,40 @@ func (sl *StatisticsList) Exist(addr meter.Address) bool {
 func (sl *StatisticsList) Add(c *DelegateStatistics) {
 	index, insertIndex := sl.indexOf(c.Addr)
 	if index < 0 {
-		if len(sl.delegates) == 0 {
-			sl.delegates = append(sl.delegates, c)
+		if len(sl.Delegates) == 0 {
+			sl.Delegates = append(sl.Delegates, c)
 			return
 		}
 		newList := make([]*DelegateStatistics, insertIndex)
-		copy(newList, sl.delegates[:insertIndex])
+		copy(newList, sl.Delegates[:insertIndex])
 		newList = append(newList, c)
-		newList = append(newList, sl.delegates[insertIndex:]...)
-		sl.delegates = newList
+		newList = append(newList, sl.Delegates[insertIndex:]...)
+		sl.Delegates = newList
 	} else {
-		sl.delegates[index] = c
+		sl.Delegates[index] = c
 	}
 
 	return
 }
 
-func (sl *StatisticsList) Remove(addr meter.Address) {
+func (sl *StatisticsList) Remove(addr Address) {
 	index, _ := sl.indexOf(addr)
 	if index >= 0 {
-		sl.delegates = append(sl.delegates[:index], sl.delegates[index+1:]...)
+		sl.Delegates = append(sl.Delegates[:index], sl.Delegates[index+1:]...)
 	}
 	return
 }
 
 func (sl *StatisticsList) Count() int {
-	return len(sl.delegates)
+	return len(sl.Delegates)
 }
 
 func (sl *StatisticsList) ToString() string {
-	if sl == nil || len(sl.delegates) == 0 {
+	if sl == nil || len(sl.Delegates) == 0 {
 		return "StatisticsList (size:0)"
 	}
-	s := []string{fmt.Sprintf("StatisticsList (size:%v) {", len(sl.delegates))}
-	for i, c := range sl.delegates {
+	s := []string{fmt.Sprintf("StatisticsList (size:%v) {", len(sl.Delegates))}
+	for i, c := range sl.Delegates {
 		s = append(s, fmt.Sprintf("  %d.%v", i, c.ToString()))
 	}
 	s = append(s, "}")
@@ -336,32 +334,13 @@ func (sl *StatisticsList) ToString() string {
 
 func (sl *StatisticsList) ToList() []DelegateStatistics {
 	result := make([]DelegateStatistics, 0)
-	for _, v := range sl.delegates {
+	for _, v := range sl.Delegates {
 		result = append(result, *v)
 	}
 	return result
 }
 
-func GetLatestStatisticsList() (*StatisticsList, error) {
-	staking := GetStakingGlobInst()
-	if staking == nil {
-		log.Warn("staking is not initialized...")
-		err := errors.New("staking is not initialized...")
-		return NewStatisticsList(nil), err
-	}
-
-	best := staking.chain.BestBlock()
-	state, err := staking.stateCreator.NewState(best.Header().StateRoot())
-	if err != nil {
-
-		return NewStatisticsList(nil), err
-	}
-
-	list := staking.GetStatisticsList(state)
-	return list, nil
-}
-
-func PackInfractionToBytes(v *meter.Infraction) ([]byte, error) {
+func PackInfractionToBytes(v *Infraction) ([]byte, error) {
 
 	infBytes, err := rlp.EncodeToBytes(v)
 	if err != nil {
@@ -371,8 +350,8 @@ func PackInfractionToBytes(v *meter.Infraction) ([]byte, error) {
 	return infBytes, nil
 }
 
-func UnpackBytesToInfraction(b []byte) (*meter.Infraction, error) {
-	inf := &meter.Infraction{}
+func UnpackBytesToInfraction(b []byte) (*Infraction, error) {
+	inf := &Infraction{}
 	if err := rlp.DecodeBytes(b, inf); err != nil {
 		fmt.Println("Deocde Infraction failed", "error =", err.Error())
 		return nil, err

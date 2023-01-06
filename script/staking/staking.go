@@ -1197,7 +1197,7 @@ func (s *Staking) DelegateStatisticsHandler(env *setypes.ScriptEnv, sb *StakingB
 	removed := []meter.Address{}
 	epoch := sb.Option
 	if epoch > phaseOutEpoch {
-		for _, d := range statisticsList.delegates {
+		for _, d := range statisticsList.Delegates {
 			// do not phase out if it is in jail
 			if in := inJailList.Exist(d.Addr); in == true {
 				continue
@@ -1226,7 +1226,7 @@ func (s *Staking) DelegateStatisticsHandler(env *setypes.ScriptEnv, sb *StakingB
 		return
 	}
 
-	IncrInfraction, err := UnpackBytesToInfraction(sb.ExtraData)
+	IncrInfraction, err := meter.UnpackBytesToInfraction(sb.ExtraData)
 	if err != nil {
 		log.Info("decode infraction failed ...", "error", err.Error)
 		s.SetStatisticsEpoch(phaseOutEpoch, state)
@@ -1239,7 +1239,7 @@ func (s *Staking) DelegateStatisticsHandler(env *setypes.ScriptEnv, sb *StakingB
 	var jail bool
 	stats := statisticsList.Get(sb.CandAddr)
 	if stats == nil {
-		stats = NewDelegateStatistics(sb.CandAddr, sb.CandName, sb.CandPubKey)
+		stats = meter.NewDelegateStatistics(sb.CandAddr, sb.CandName, sb.CandPubKey)
 		stats.Update(IncrInfraction)
 		statisticsList.Add(stats)
 	} else {
@@ -1249,7 +1249,7 @@ func (s *Staking) DelegateStatisticsHandler(env *setypes.ScriptEnv, sb *StakingB
 	proposerViolation := stats.CountMissingProposerViolation(epoch)
 	leaderViolation := stats.CountMissingLeaderViolation(epoch)
 	doubleSignViolation := stats.CountDoubleSignViolation(epoch)
-	jail = proposerViolation >= JailCriteria_MissingProposerViolation || leaderViolation >= JailCriteria_MissingLeaderViolation || doubleSignViolation >= JailCriteria_DoubleSignViolation || (proposerViolation >= 1 && leaderViolation >= 1)
+	jail = proposerViolation >= meter.JailCriteria_MissingProposerViolation || leaderViolation >= meter.JailCriteria_MissingLeaderViolation || doubleSignViolation >= meter.JailCriteria_DoubleSignViolation || (proposerViolation >= 1 && leaderViolation >= 1)
 	log.Info("delegate violation: ", "missProposer", proposerViolation, "missLeader", leaderViolation, "doubleSign", doubleSignViolation, "jail", jail)
 
 	if jail == true {
@@ -1332,7 +1332,7 @@ func (s *Staking) DelegateStatisticsFlushHandler(env *setypes.ScriptEnv, sb *Sta
 	}
 
 	state := env.GetState()
-	statisticsList := &StatisticsList{}
+	statisticsList := &meter.StatisticsList{}
 	inJailList := &meter.DelegateInJailList{}
 
 	s.SetStatisticsList(statisticsList, state)
@@ -1573,4 +1573,23 @@ func GetLatestInJailList() (*meter.DelegateInJailList, error) {
 
 	JailList := staking.GetInJailList(state)
 	return JailList, nil
+}
+
+func GetLatestStatisticsList() (*meter.StatisticsList, error) {
+	staking := GetStakingGlobInst()
+	if staking == nil {
+		log.Warn("staking is not initialized...")
+		err := errors.New("staking is not initialized...")
+		return meter.NewStatisticsList(nil), err
+	}
+
+	best := staking.chain.BestBlock()
+	state, err := staking.stateCreator.NewState(best.Header().StateRoot())
+	if err != nil {
+
+		return meter.NewStatisticsList(nil), err
+	}
+
+	list := staking.GetStatisticsList(state)
+	return list, nil
 }
