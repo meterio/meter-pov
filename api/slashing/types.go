@@ -21,7 +21,6 @@ type DelegateJailed struct {
 	JailedTime  uint64        `json:"jailedTime"`
 }
 
-//
 // MissingLeader
 type MissingLeaderInfo struct {
 	Epoch uint32 `json:"epoch"`
@@ -77,7 +76,7 @@ type DelegateStatistics struct {
 	Infractions Infraction    `json:"infractions"`
 }
 
-func convertJailedList(list *staking.DelegateInJailList) []*DelegateJailed {
+func convertJailedList(list *meter.DelegateInJailList) []*DelegateJailed {
 	jailedList := make([]*DelegateJailed, 0)
 	for _, j := range list.ToList() {
 		jailedList = append(jailedList, convertDelegateJailed(&j))
@@ -85,7 +84,7 @@ func convertJailedList(list *staking.DelegateInJailList) []*DelegateJailed {
 	return jailedList
 }
 
-func convertDelegateJailed(d *staking.DelegateJailed) *DelegateJailed {
+func convertDelegateJailed(d *meter.DelegateJailed) *DelegateJailed {
 	return &DelegateJailed{
 		Name:        string(d.Name),
 		Address:     d.Addr,
@@ -109,7 +108,7 @@ func convertStatisticsList(list *staking.StatisticsList) []*DelegateStatistics {
 	return statsList
 }
 
-func convertMissingLeaderInfo(info []*staking.MissingLeaderInfo) []*MissingLeaderInfo {
+func convertMissingLeaderInfo(info []*meter.MissingLeaderInfo) []*MissingLeaderInfo {
 	leader := make([]*MissingLeaderInfo, 0)
 	for _, s := range info {
 		m := &MissingLeaderInfo{
@@ -120,7 +119,7 @@ func convertMissingLeaderInfo(info []*staking.MissingLeaderInfo) []*MissingLeade
 	}
 	return leader
 }
-func convertMissingProposerInfo(info []*staking.MissingProposerInfo) []*MissingProposerInfo {
+func convertMissingProposerInfo(info []*meter.MissingProposerInfo) []*MissingProposerInfo {
 	proposer := make([]*MissingProposerInfo, 0)
 	for _, s := range info {
 		m := &MissingProposerInfo{
@@ -131,7 +130,7 @@ func convertMissingProposerInfo(info []*staking.MissingProposerInfo) []*MissingP
 	}
 	return proposer
 }
-func convertMissingVoterInfo(info []*staking.MissingVoterInfo) []*MissingVoterInfo {
+func convertMissingVoterInfo(info []*meter.MissingVoterInfo) []*MissingVoterInfo {
 	voter := make([]*MissingVoterInfo, 0)
 	for _, s := range info {
 		m := &MissingVoterInfo{
@@ -142,7 +141,7 @@ func convertMissingVoterInfo(info []*staking.MissingVoterInfo) []*MissingVoterIn
 	}
 	return voter
 }
-func convertDoubleSignerInfo(info []*staking.DoubleSignerInfo) []*DoubleSignerInfo {
+func convertDoubleSignerInfo(info []*meter.DoubleSignerInfo) []*DoubleSignerInfo {
 	signer := make([]*DoubleSignerInfo, 0)
 	for _, s := range info {
 		m := &DoubleSignerInfo{

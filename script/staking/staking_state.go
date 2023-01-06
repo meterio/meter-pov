@@ -228,9 +228,9 @@ func (s *Staking) SetStatisticsEpoch(phaseOutEpoch uint32, state *state.State) {
 }
 
 // inJail List
-func (s *Staking) GetInJailList(state *state.State) (result *DelegateInJailList) {
+func (s *Staking) GetInJailList(state *state.State) (result *meter.DelegateInJailList) {
 	state.DecodeStorage(StakingModuleAddr, InJailListKey, func(raw []byte) error {
-		inJails := make([]*DelegateJailed, 0)
+		inJails := make([]*meter.DelegateJailed, 0)
 
 		if len(strings.TrimSpace(string(raw))) >= 0 {
 			err := rlp.Decode(bytes.NewReader(raw), &inJails)
@@ -244,20 +244,20 @@ func (s *Staking) GetInJailList(state *state.State) (result *DelegateInJailList)
 			}
 		}
 
-		result = NewDelegateInJailList(inJails)
+		result = meter.NewDelegateInJailList(inJails)
 		return nil
 	})
 	return
 }
 
-func (s *Staking) SetInJailList(list *DelegateInJailList, state *state.State) {
+func (s *Staking) SetInJailList(list *meter.DelegateInJailList, state *state.State) {
 	/****
 	sort.SliceStable(list.inJails, func(i, j int) bool {
 		return bytes.Compare(list.inJails[i].Addr.Bytes(), list.inJails[j].Addr.Bytes()) <= 0
 	})
 	***/
 	state.EncodeStorage(StakingModuleAddr, InJailListKey, func() ([]byte, error) {
-		return rlp.EncodeToBytes(list.inJails)
+		return rlp.EncodeToBytes(list.InJails)
 	})
 }
 

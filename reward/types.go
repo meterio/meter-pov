@@ -5,7 +5,6 @@ import (
 	"math/big"
 
 	"github.com/meterio/meter-pov/meter"
-	"github.com/meterio/meter-pov/script/staking"
 )
 
 type RewardInfo struct {
@@ -17,7 +16,7 @@ func (r RewardInfo) String() string {
 	return fmt.Sprintf("  Reward %v with %v", r.Address.String(), r.Amount)
 }
 
-//// RewardMap
+// // RewardMap
 type RewardMapInfo struct {
 	Address       meter.Address
 	DistAmount    *big.Int
@@ -83,29 +82,29 @@ func (rmap RewardMap) ToList() (*big.Int, *big.Int, []*RewardMapInfo) {
 
 type missingLeaderInfo struct {
 	Address meter.Address
-	Info    staking.MissingLeaderInfo
+	Info    meter.MissingLeaderInfo
 }
 
 type missingProposerInfo struct {
 	Address meter.Address
-	Info    staking.MissingProposerInfo
+	Info    meter.MissingProposerInfo
 }
 
 type missingVoterInfo struct {
 	Address meter.Address
-	Info    staking.MissingVoterInfo
+	Info    meter.MissingVoterInfo
 }
 
 type doubleSignerInfo struct {
 	Address meter.Address
-	Info    staking.DoubleSignerInfo
+	Info    meter.DoubleSignerInfo
 }
 
 type StatEntry struct {
 	Address    meter.Address
 	Name       string
 	PubKey     string
-	Infraction staking.Infraction
+	Infraction meter.Infraction
 }
 
 func (e StatEntry) String() string {

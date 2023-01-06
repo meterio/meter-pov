@@ -18,12 +18,12 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/meterio/meter-pov/params"
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/meterio/meter-pov/block"
 	"github.com/meterio/meter-pov/chain"
 	bls "github.com/meterio/meter-pov/crypto/multi_sig"
 	"github.com/meterio/meter-pov/meter"
+	"github.com/meterio/meter-pov/params"
 	"github.com/meterio/meter-pov/script"
 	"github.com/meterio/meter-pov/script/staking"
 	"github.com/meterio/meter-pov/tx"
@@ -127,7 +127,7 @@ func ComputeMissingProposer(validators []*types.Validator, actualMembers []types
 			}
 			info := &missingProposerInfo{
 				Address: validators[actualMembers[index%len(actualMembers)].CSIndex].Address,
-				Info: staking.MissingProposerInfo{
+				Info: meter.MissingProposerInfo{
 					Epoch:  curEpoch,
 					Height: blk.Number(),
 				},
@@ -154,7 +154,7 @@ func ComputeMissingLeader(validators []*types.Validator, actualMembers []types.C
 	for index < actualLeader.CSIndex {
 		info := &missingLeaderInfo{
 			Address: validators[index].Address,
-			Info: staking.MissingLeaderInfo{
+			Info: meter.MissingLeaderInfo{
 				Epoch: curEpoch,
 				Round: uint32(index),
 			},
@@ -183,7 +183,7 @@ func ComputeMissingVoter(validators []*types.Validator, actualMembers []types.Co
 			if voterBitArray.GetIndex(member.CSIndex) == false {
 				info := &missingVoterInfo{
 					Address: validators[member.CSIndex].Address,
-					Info: staking.MissingVoterInfo{
+					Info: meter.MissingVoterInfo{
 						Epoch:  uint32(blk.QC.EpochID),
 						Height: blk.QC.QCHeight,
 					},
@@ -230,7 +230,7 @@ func ComputeDoubleSigner(common *types.ConsensusCommon, blocks []*block.Block, c
 
 				info := &doubleSignerInfo{
 					Address: v.Address,
-					Info: staking.DoubleSignerInfo{
+					Info: meter.DoubleSignerInfo{
 						Epoch:  curEpoch,
 						Height: blk.Number(),
 					},

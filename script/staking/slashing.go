@@ -43,75 +43,13 @@ const (
 	JailCriteria_DoubleSignViolation      = 1
 )
 
-// MissingLeader
-type MissingLeaderInfo struct {
-	Epoch uint32
-	Round uint32
-}
-type MissingLeader struct {
-	Counter uint32
-	Info    []*MissingLeaderInfo
-}
-
-// MissingProposer
-type MissingProposerInfo struct {
-	Epoch  uint32
-	Height uint32
-}
-type MissingProposer struct {
-	Counter uint32
-	Info    []*MissingProposerInfo
-}
-
-func (m MissingProposer) String() string {
-	str := ""
-	for _, i := range m.Info {
-		str += fmt.Sprintf("(E:%d, H:%d)", i.Epoch, i.Height)
-	}
-	return fmt.Sprintf("[%d %s]", m.Counter, str)
-}
-
-// MissingVoter
-type MissingVoterInfo struct {
-	Epoch  uint32
-	Height uint32
-}
-type MissingVoter struct {
-	Counter uint32
-	Info    []*MissingVoterInfo
-}
-
-// DoubleSigner
-type DoubleSignerInfo struct {
-	Epoch  uint32
-	Height uint32
-}
-type DoubleSigner struct {
-	Counter uint32
-	Info    []*DoubleSignerInfo
-}
-
-type Infraction struct {
-	MissingLeaders   MissingLeader
-	MissingProposers MissingProposer
-	MissingVoters    MissingVoter
-	DoubleSigners    DoubleSigner
-}
-
-func (inf *Infraction) String() string {
-	if inf == nil {
-		return "infraction(nil)"
-	}
-	return fmt.Sprintf("Infraction(leader:%v, proposer:%v, voter:%v, doubleSign:%v)", inf.MissingLeaders, inf.MissingProposers, inf.MissingVoters, inf.DoubleSigners)
-}
-
 // Candidate indicates the structure of a candidate
 type DelegateStatistics struct {
 	Addr        meter.Address // the address for staking / reward
 	Name        []byte
 	PubKey      []byte // node public key
 	TotalPts    uint64 // total points of infraction
-	Infractions Infraction
+	Infractions meter.Infraction
 }
 
 func NewDelegateStatistics(addr meter.Address, name []byte, pubKey []byte) *DelegateStatistics {
@@ -135,7 +73,7 @@ func (ds *DelegateStatistics) PhaseOut(curEpoch uint32) {
 	}
 
 	//missing leader
-	leaderInfo := []*MissingLeaderInfo{}
+	leaderInfo := []*meter.MissingLeaderInfo{}
 	leaderPts := uint64(0)
 	for _, info := range ds.Infractions.MissingLeaders.Info {
 		if info.Epoch >= phaseOneEpoch {
@@ -150,7 +88,7 @@ func (ds *DelegateStatistics) PhaseOut(curEpoch uint32) {
 	ds.Infractions.MissingLeaders.Info = leaderInfo
 
 	// missing proposer
-	proposerInfo := []*MissingProposerInfo{}
+	proposerInfo := []*meter.MissingProposerInfo{}
 	proposerPts := uint64(0)
 	for _, info := range ds.Infractions.MissingProposers.Info {
 		if info.Epoch >= phaseOneEpoch {
@@ -165,7 +103,7 @@ func (ds *DelegateStatistics) PhaseOut(curEpoch uint32) {
 	ds.Infractions.MissingProposers.Info = proposerInfo
 
 	// missing voter
-	voterInfo := []*MissingVoterInfo{}
+	voterInfo := []*meter.MissingVoterInfo{}
 	voterPts := uint64(0)
 	for _, info := range ds.Infractions.MissingVoters.Info {
 		if info.Epoch >= phaseOneEpoch {
@@ -180,7 +118,7 @@ func (ds *DelegateStatistics) PhaseOut(curEpoch uint32) {
 	ds.Infractions.MissingVoters.Info = voterInfo
 
 	// double signer
-	dsignInfo := []*DoubleSignerInfo{}
+	dsignInfo := []*meter.DoubleSignerInfo{}
 	dsignPts := uint64(0)
 	for _, info := range ds.Infractions.DoubleSigners.Info {
 		if info.Epoch >= phaseOneEpoch {
@@ -198,7 +136,7 @@ func (ds *DelegateStatistics) PhaseOut(curEpoch uint32) {
 	return
 }
 
-func (ds *DelegateStatistics) Update(incr *Infraction) {
+func (ds *DelegateStatistics) Update(incr *meter.Infraction) {
 
 	infr := &ds.Infractions
 	infr.MissingLeaders.Info = append(infr.MissingLeaders.Info, incr.MissingLeaders.Info...)
@@ -423,7 +361,7 @@ func GetLatestStatisticsList() (*StatisticsList, error) {
 	return list, nil
 }
 
-func PackInfractionToBytes(v *Infraction) ([]byte, error) {
+func PackInfractionToBytes(v *meter.Infraction) ([]byte, error) {
 
 	infBytes, err := rlp.EncodeToBytes(v)
 	if err != nil {
@@ -433,8 +371,8 @@ func PackInfractionToBytes(v *Infraction) ([]byte, error) {
 	return infBytes, nil
 }
 
-func UnpackBytesToInfraction(b []byte) (*Infraction, error) {
-	inf := &Infraction{}
+func UnpackBytesToInfraction(b []byte) (*meter.Infraction, error) {
+	inf := &meter.Infraction{}
 	if err := rlp.DecodeBytes(b, inf); err != nil {
 		fmt.Println("Deocde Infraction failed", "error =", err.Error())
 		return nil, err
