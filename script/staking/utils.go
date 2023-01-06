@@ -132,30 +132,30 @@ func CheckEnoughSelfVotes(subVotes *big.Int, c *meter.Candidate, bl *meter.Bucke
 	return true
 }
 
-func GetLatestStakeholderList() (*StakeholderList, error) {
+func GetLatestStakeholderList() (*meter.StakeholderList, error) {
 	staking := GetStakingGlobInst()
 	if staking == nil {
 		log.Warn("staking is not initialized...")
 		err := errors.New("staking is not initialized...")
-		return newStakeholderList(nil), err
+		return meter.NewStakeholderList(nil), err
 	}
 
 	best := staking.chain.BestBlock()
 	state, err := staking.stateCreator.NewState(best.Header().StateRoot())
 	if err != nil {
-		return newStakeholderList(nil), err
+		return meter.NewStakeholderList(nil), err
 	}
 	StakeholderList := staking.GetStakeHolderList(state)
 
 	return StakeholderList, nil
 }
 
-func GetStakeholderListByHeader(header *block.Header) (*StakeholderList, error) {
+func GetStakeholderListByHeader(header *block.Header) (*meter.StakeholderList, error) {
 	staking := GetStakingGlobInst()
 	if staking == nil {
 		log.Warn("staking is not initialized...")
 		err := errors.New("staking is not initialized...")
-		return newStakeholderList(nil), err
+		return meter.NewStakeholderList(nil), err
 	}
 
 	h := header
@@ -164,7 +164,7 @@ func GetStakeholderListByHeader(header *block.Header) (*StakeholderList, error) 
 	}
 	state, err := staking.stateCreator.NewState(h.StateRoot())
 	if err != nil {
-		return newStakeholderList(nil), err
+		return meter.NewStakeholderList(nil), err
 	}
 	StakeholderList := staking.GetStakeHolderList(state)
 
@@ -418,13 +418,13 @@ func (staking *Staking) DoTeslaFork5_BonusCorrection(state *state.State) {
 
 	fmt.Println("Tesla Fork 5 Recalculate Total Votes")
 	candTotalVotes := make(map[meter.Address]*big.Int)
-	stakeholderList := newStakeholderList(nil)
+	stakeholderList := meter.NewStakeholderList(nil)
 	// Calcuate bonus from createTime
 	for _, bkt := range bucketList.Buckets {
 		// re-calc stakeholder list
 		stakeholder := stakeholderList.Get(bkt.Owner)
 		if stakeholder == nil {
-			stakeholder = NewStakeholder(bkt.Owner)
+			stakeholder = meter.NewStakeholder(bkt.Owner)
 			stakeholder.AddBucket(bkt)
 			stakeholderList.Add(stakeholder)
 		} else {

@@ -290,7 +290,7 @@ func (s *Staking) BoundHandler(env *setypes.ScriptEnv, sb *StakingBody, gas uint
 
 	stakeholder := stakeholderList.Get(sb.HolderAddr)
 	if stakeholder == nil {
-		stakeholder = NewStakeholder(sb.HolderAddr)
+		stakeholder = meter.NewStakeholder(sb.HolderAddr)
 		stakeholder.AddBucket(bucket)
 		stakeholderList.Add(stakeholder)
 	} else {
@@ -480,7 +480,7 @@ func (s *Staking) CandidateHandler(env *setypes.ScriptEnv, sb *StakingBody, gas 
 
 	stakeholder := stakeholderList.Get(sb.CandAddr)
 	if stakeholder == nil {
-		stakeholder = NewStakeholder(sb.CandAddr)
+		stakeholder = meter.NewStakeholder(sb.CandAddr)
 		stakeholder.AddBucket(bucket)
 		stakeholderList.Add(stakeholder)
 	} else {

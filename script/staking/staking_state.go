@@ -54,9 +54,9 @@ func (s *Staking) SetCandidateList(candList *meter.CandidateList, state *state.S
 }
 
 // StakeHolder List
-func (s *Staking) GetStakeHolderList(state *state.State) (result *StakeholderList) {
+func (s *Staking) GetStakeHolderList(state *state.State) (result *meter.StakeholderList) {
 	state.DecodeStorage(StakingModuleAddr, StakeHolderListKey, func(raw []byte) error {
-		stakeholders := make([]*Stakeholder, 0)
+		stakeholders := make([]*meter.Stakeholder, 0)
 
 		if len(strings.TrimSpace(string(raw))) >= 0 {
 			err := rlp.Decode(bytes.NewReader(raw), &stakeholders)
@@ -70,13 +70,13 @@ func (s *Staking) GetStakeHolderList(state *state.State) (result *StakeholderLis
 			}
 		}
 
-		result = newStakeholderList(stakeholders)
+		result = meter.NewStakeholderList(stakeholders)
 		return nil
 	})
 	return
 }
 
-func (s *Staking) SetStakeHolderList(holderList *StakeholderList, state *state.State) {
+func (s *Staking) SetStakeHolderList(holderList *meter.StakeholderList, state *state.State) {
 	/***
 	sort.SliceStable(holderList.holders, func(i, j int) bool {
 		return bytes.Compare(holderList.holders[i].Holder.Bytes(), holderList.holders[j].Holder.Bytes()) <= 0
@@ -84,7 +84,7 @@ func (s *Staking) SetStakeHolderList(holderList *StakeholderList, state *state.S
 	***/
 
 	state.EncodeStorage(StakingModuleAddr, StakeHolderListKey, func() ([]byte, error) {
-		return rlp.EncodeToBytes(holderList.holders)
+		return rlp.EncodeToBytes(holderList.Holders)
 	})
 }
 

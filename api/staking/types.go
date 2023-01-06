@@ -115,7 +115,7 @@ type Stakeholder struct {
 	Buckets    []string      `json:"buckets"`
 }
 
-func convertStakeholderList(list *staking.StakeholderList) []*Stakeholder {
+func convertStakeholderList(list *meter.StakeholderList) []*Stakeholder {
 	stakeholderList := make([]*Stakeholder, 0)
 	for _, s := range list.ToList() {
 		stakeholderList = append(stakeholderList, convertStakeholder(s))
@@ -123,7 +123,7 @@ func convertStakeholderList(list *staking.StakeholderList) []*Stakeholder {
 	return stakeholderList
 }
 
-func convertStakeholder(s staking.Stakeholder) *Stakeholder {
+func convertStakeholder(s meter.Stakeholder) *Stakeholder {
 	buckets := make([]string, 0)
 	for _, b := range s.Buckets {
 		buckets = append(buckets, b.String())
