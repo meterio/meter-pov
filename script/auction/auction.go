@@ -132,7 +132,7 @@ func (a *Auction) StartAuctionCB(env *setypes.ScriptEnv, ab *AuctionBody, gas ui
 	auctionCB.RsvdPrice = builtin.Params.Native(state).Get(meter.KeyAuctionReservedPrice)
 	auctionCB.CreateTime = ab.Timestamp
 	auctionCB.RcvdMTR = big.NewInt(0)
-	auctionCB.AuctionTxs = make([]*AuctionTx, 0)
+	auctionCB.AuctionTxs = make([]*meter.AuctionTx, 0)
 	auctionCB.AuctionID = auctionCB.ID()
 
 	a.SetAuctionCB(auctionCB, state)
@@ -215,7 +215,7 @@ func (a *Auction) CloseAuctionCB(env *setypes.ScriptEnv, ab *AuctionBody, gas ui
 	}
 
 	summaryList = NewAuctionSummaryList(summaries)
-	auctionCB = &AuctionCB{}
+	auctionCB = &meter.AuctionCB{}
 	log.Info("append summary completed", "elapsed", meter.PrettyDuration(time.Since(stub)))
 
 	stub = time.Now()
@@ -287,7 +287,7 @@ func (a *Auction) HandleAuctionTx(env *setypes.ScriptEnv, ab *AuctionBody, gas u
 		// autobid assume the validator reward account have enough balance
 	}
 
-	tx := NewAuctionTx(ab.Bidder, ab.Amount, ab.Option, ab.Timestamp, ab.Nonce)
+	tx := meter.NewAuctionTx(ab.Bidder, ab.Amount, ab.Option, ab.Timestamp, ab.Nonce)
 
 	stub = time.Now()
 	err = auctionCB.AddAuctionTx(tx)

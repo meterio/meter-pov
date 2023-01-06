@@ -1,9 +1,4 @@
-// Copyright (c) 2020 The Meter.io developers
-
-// Distributed under the GNU Lesser General Public License v3.0 software license, see the accompanying
-// file LICENSE or <https://www.gnu.org/licenses/lgpl-3.0.html>
-
-package auction
+package meter
 
 import (
 	"bytes"
@@ -14,56 +9,12 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/rlp"
-	"github.com/meterio/meter-pov/meter"
 )
-
-type AuctionTx struct {
-	TxID      meter.Bytes32
-	Address   meter.Address
-	Amount    *big.Int // total amont wei is unit
-	Type      uint32   // USER_BID or AUTO_BID
-	Timestamp uint64   //timestamp
-	Nonce     uint64   //randomness
-}
-
-func (a *AuctionTx) ToString() string {
-	return fmt.Sprintf("AuctionTx(addr=%v, amount=%v, type=%v, nonce=%v, Time=%v)",
-		a.Address, a.Amount.String(), a.Type, a.Nonce, fmt.Sprintln(time.Unix(int64(a.Timestamp), 0)))
-}
-
-func (a *AuctionTx) ID() (hash meter.Bytes32) {
-	hw := meter.NewBlake2b()
-	err := rlp.Encode(hw, []interface{}{
-		a.Address,
-		a.Amount,
-		a.Type,
-		a.Timestamp,
-		a.Nonce,
-	})
-	if err != nil {
-		fmt.Printf("rlp encode failed, %s.\n", err.Error())
-		return meter.Bytes32{}
-	}
-	hw.Sum(hash[:0])
-	return
-}
-
-func NewAuctionTx(addr meter.Address, amount *big.Int, txtype uint32, time uint64, nonce uint64) *AuctionTx {
-	tx := &AuctionTx{
-		Address:   addr,
-		Amount:    amount,
-		Type:      txtype,
-		Timestamp: time,
-		Nonce:     nonce,
-	}
-	tx.TxID = tx.ID()
-	return tx
-}
 
 // /////////////////////////////////////////////////
 // auctionTx indicates the structure of a auctionTx
 type AuctionCB struct {
-	AuctionID   meter.Bytes32
+	AuctionID   Bytes32
 	StartHeight uint64
 	StartEpoch  uint64
 	EndHeight   uint64
@@ -80,8 +31,8 @@ type AuctionCB struct {
 }
 
 // bucketID auctionTx .. are excluded
-func (cb *AuctionCB) ID() (hash meter.Bytes32) {
-	hw := meter.NewBlake2b()
+func (cb *AuctionCB) ID() (hash Bytes32) {
+	hw := NewBlake2b()
 	err := rlp.Encode(hw, []interface{}{
 		cb.StartHeight,
 		cb.StartEpoch,
@@ -94,7 +45,7 @@ func (cb *AuctionCB) ID() (hash meter.Bytes32) {
 	})
 	if err != nil {
 		fmt.Printf("rlp encode failed, %s.\n", err.Error())
-		return meter.Bytes32{}
+		return Bytes32{}
 	}
 	hw.Sum(hash[:0])
 	return
@@ -105,13 +56,13 @@ func (cb *AuctionCB) AddAuctionTx(tx *AuctionTx) error {
 	if cb.Get(tx.TxID) != nil {
 		return errors.New("tx already exist")
 	}
-	log.Info("Get completed", "elapsed", meter.PrettyDuration(time.Since(stub)))
+	log.Info("Get completed", "elapsed", PrettyDuration(time.Since(stub)))
 
 	cb.RcvdMTR = cb.RcvdMTR.Add(cb.RcvdMTR, tx.Amount)
 
 	stub = time.Now()
 	cb.Add(tx)
-	log.Info("Add completed", "elapsed", meter.PrettyDuration(time.Since(stub)))
+	log.Info("Add completed", "elapsed", PrettyDuration(time.Since(stub)))
 	return nil
 }
 
@@ -126,7 +77,7 @@ func (cb *AuctionCB) RemoveAuctionTx(tx *AuctionTx) error {
 	return nil
 }
 
-func (cb *AuctionCB) indexOf(id meter.Bytes32) (int, int) {
+func (cb *AuctionCB) indexOf(id Bytes32) (int, int) {
 	// return values:
 	//     first parameter: if found, the index of the item
 	//     second parameter: if not found, the correct insert index of the item
@@ -149,7 +100,7 @@ func (cb *AuctionCB) indexOf(id meter.Bytes32) (int, int) {
 	return -1, r
 }
 
-func (cb *AuctionCB) Get(id meter.Bytes32) *AuctionTx {
+func (cb *AuctionCB) Get(id Bytes32) *AuctionTx {
 	index, _ := cb.indexOf(id)
 	if index < 0 {
 		return nil
@@ -157,7 +108,7 @@ func (cb *AuctionCB) Get(id meter.Bytes32) *AuctionTx {
 	return cb.AuctionTxs[index]
 }
 
-func (cb *AuctionCB) Exist(id meter.Bytes32) bool {
+func (cb *AuctionCB) Exist(id Bytes32) bool {
 	index, _ := cb.indexOf(id)
 	return index >= 0
 }
@@ -165,7 +116,7 @@ func (cb *AuctionCB) Exist(id meter.Bytes32) bool {
 func (cb *AuctionCB) Add(tx *AuctionTx) {
 	// stub := time.Now()
 	index, insertIndex := cb.indexOf(tx.TxID)
-	// log.Info("indexOf completed", "elapsed", meter.PrettyDuration(time.Since(stub)))
+	// log.Info("indexOf completed", "elapsed", PrettyDuration(time.Since(stub)))
 
 	// stub = time.Now()
 	if index < 0 {
@@ -178,15 +129,15 @@ func (cb *AuctionCB) Add(tx *AuctionTx) {
 		newList = append(newList, tx)
 		newList = append(newList, cb.AuctionTxs[insertIndex:]...)
 		cb.AuctionTxs = newList
-		// log.Info("insert completed", "elapsed", meter.PrettyDuration(time.Since(stub)))
+		// log.Info("insert completed", "elapsed", PrettyDuration(time.Since(stub)))
 	} else {
 		cb.AuctionTxs[index] = tx
-		// log.Info("update completed", "elapsed", meter.PrettyDuration(time.Since(stub)))
+		// log.Info("update completed", "elapsed", PrettyDuration(time.Since(stub)))
 	}
 
 }
 
-func (cb *AuctionCB) Remove(id meter.Bytes32) {
+func (cb *AuctionCB) Remove(id Bytes32) {
 	index, _ := cb.indexOf(id)
 	if index >= 0 {
 		cb.AuctionTxs = append(cb.AuctionTxs[:index], cb.AuctionTxs[index+1:]...)

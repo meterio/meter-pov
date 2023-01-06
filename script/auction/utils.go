@@ -4,10 +4,11 @@ import (
 	"errors"
 
 	"github.com/meterio/meter-pov/block"
+	"github.com/meterio/meter-pov/meter"
 )
 
-//  api routine interface
-func GetActiveAuctionCB() (*AuctionCB, error) {
+// api routine interface
+func GetActiveAuctionCB() (*meter.AuctionCB, error) {
 	auction := GetAuctionGlobInst()
 	if auction == nil {
 		log.Warn("auction is not initialized...")

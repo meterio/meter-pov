@@ -100,7 +100,8 @@ func BuildAuctionControlTx(height, epoch uint64, chainTag byte, bestNum uint32, 
 	return builder.Build()
 }
 
-/***************
+/*
+**************
 clear;
 Year = 500;
 Len = Year*365;
@@ -109,16 +110,19 @@ DailyReward=zeros(1,Len);
 Annual=zeros(1,Year);
 Total = 0;
 for i=1:Len
-    DailyReward(i) = 400000000/Halving*log(1/0.8)*0.8^(i/Halving);
-    Total=Total+DailyReward(i);
-    n = idivide(i-1,int32(365))+1;
-    Annual(n)=Annual(n)+DailyReward(i);
+
+	DailyReward(i) = 400000000/Halving*log(1/0.8)*0.8^(i/Halving);
+	Total=Total+DailyReward(i);
+	n = idivide(i-1,int32(365))+1;
+	Annual(n)=Annual(n)+DailyReward(i);
+
 end
 figure(1);
 plot(DailyReward);
 figure(2);
 plot(Annual);
-*****************/
+****************
+*/
 func getHistoryPrices(reservedPrice *big.Int) *[N]float64 {
 	var i int
 	history := [N]float64{}
@@ -164,7 +168,7 @@ func calcWeightedAvgPrice(history *[N]float64) float64 {
 // calEpochReleaseWithInflation returns the release of MTRG for current epoch, it returns a 0 if curEpoch is less than startEpoch
 // epochRelease = lastEpochRelease + lastEpochRelease * deltaRate
 // whereas, deltaRate = inflationRate / 365 / nAuctionPerDay
-func ComputeEpochReleaseWithInflation(sequence uint64, lastAuction *auction.AuctionCB) (*big.Int, error) {
+func ComputeEpochReleaseWithInflation(sequence uint64, lastAuction *meter.AuctionCB) (*big.Int, error) {
 	fmt.Println("Compute MTRG release with inflation (new)")
 	fmt.Println(fmt.Sprintf("auction Sequence:%d", sequence))
 

@@ -33,7 +33,7 @@ type AuctionSummary struct {
 	RcvdMTR      *big.Int
 	ActualPrice  *big.Int
 	LeftoverMTRG *big.Int
-	AuctionTxs   []*AuctionTx
+	AuctionTxs   []*meter.AuctionTx
 	DistMTRG     []*DistMtrg
 }
 

@@ -24,9 +24,9 @@ import (
 )
 
 // Auction List
-func (a *Auction) GetAuctionCB(state *state.State) (result *AuctionCB) {
+func (a *Auction) GetAuctionCB(state *state.State) (result *meter.AuctionCB) {
 	state.DecodeStorage(AuctionAccountAddr, AuctionCBKey, func(raw []byte) error {
-		auctionCB := &AuctionCB{}
+		auctionCB := &meter.AuctionCB{}
 
 		if len(strings.TrimSpace(string(raw))) >= 0 {
 			err := rlp.Decode(bytes.NewReader(raw), auctionCB)
@@ -46,7 +46,7 @@ func (a *Auction) GetAuctionCB(state *state.State) (result *AuctionCB) {
 	return
 }
 
-func (a *Auction) SetAuctionCB(auctionCB *AuctionCB, state *state.State) {
+func (a *Auction) SetAuctionCB(auctionCB *meter.AuctionCB, state *state.State) {
 	state.EncodeStorage(AuctionAccountAddr, AuctionCBKey, func() ([]byte, error) {
 		return rlp.EncodeToBytes(auctionCB)
 	})
@@ -153,7 +153,7 @@ func (a *Auction) TransferMTRToValidatorBenefit(amount *big.Int, state *state.St
 
 // //////////////////////
 // called when auction is over
-func (a *Auction) ClearAuction(cb *AuctionCB, state *state.State, env *setypes.ScriptEnv) (*big.Int, *big.Int, []*DistMtrg, error) {
+func (a *Auction) ClearAuction(cb *meter.AuctionCB, state *state.State, env *setypes.ScriptEnv) (*big.Int, *big.Int, []*DistMtrg, error) {
 	stateDB := statedb.New(state)
 	ValidatorBenefitRatio := builtin.Params.Native(state).Get(meter.KeyValidatorBenefitRatio)
 

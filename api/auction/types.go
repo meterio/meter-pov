@@ -11,6 +11,7 @@ import (
 	"math/big"
 	"time"
 
+	"github.com/meterio/meter-pov/meter"
 	"github.com/meterio/meter-pov/script/auction"
 )
 
@@ -185,7 +186,7 @@ func convertSummary(s *auction.AuctionSummary) *AuctionSummary {
 	}
 }
 
-func convertAuctionTx(t *auction.AuctionTx) *AuctionTx {
+func convertAuctionTx(t *meter.AuctionTx) *AuctionTx {
 	var bidType string
 	if t.Type == auction.USER_BID {
 		bidType = "userbid"
@@ -204,7 +205,7 @@ func convertAuctionTx(t *auction.AuctionTx) *AuctionTx {
 	}
 }
 
-func convertAuctionCB(cb *auction.AuctionCB) *AuctionCB {
+func convertAuctionCB(cb *meter.AuctionCB) *AuctionCB {
 	if cb == nil {
 		return nil
 	}
