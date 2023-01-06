@@ -171,7 +171,7 @@ func CompareValue(src, tgt reflect.Value) (result bool) {
 }
 
 func newStakeholder(t *testing.T) *staking.Stakeholder {
-	s := staking.NewStakeholder(randomAddr(t))
+	s := meter.NewStakeholder(randomAddr(t))
 	s.TotalStake = big.NewInt(10)
 	s.Buckets = append(s.Buckets, randomID(t), randomID(t), randomID(t))
 	return s
@@ -185,7 +185,7 @@ func TestRlpForStakeholder(t *testing.T) {
 		t.Fail()
 	}
 
-	tgt := &staking.Stakeholder{}
+	tgt := &meter.Stakeholder{}
 	err = rlp.DecodeBytes(data, tgt)
 	if err != nil {
 		fmt.Println("Decode error:", err)
@@ -198,9 +198,9 @@ func TestRlpForStakeholder(t *testing.T) {
 	}
 }
 
-func newCandidate(t *testing.T) *staking.Candidate {
+func newCandidate(t *testing.T) *meter.Candidate {
 	timestamp := uint64(1587608317451)
-	c := staking.NewCandidate(randomAddr(t), randomBytes(10), randomBytes(10), randomPubkey(t), randomIP(t), PORT, COMMISSION, timestamp)
+	c := meter.NewCandidate(randomAddr(t), randomBytes(10), randomBytes(10), randomPubkey(t), randomIP(t), PORT, COMMISSION, timestamp)
 
 	c.Buckets = append(c.Buckets, randomID(t), randomID(t), randomID(t))
 	return c
@@ -214,7 +214,7 @@ func TestRlpForCandidate(t *testing.T) {
 		fmt.Println("Encode error:", err)
 		t.Fail()
 	}
-	tgt := &staking.Candidate{}
+	tgt := &meter.Candidate{}
 	err = rlp.DecodeBytes(data, tgt)
 	if err != nil {
 		fmt.Println("Decode error:", err)
@@ -228,7 +228,7 @@ func TestRlpForCandidate(t *testing.T) {
 }
 
 func newBucket(t *testing.T) *meter.Bucket {
-	return staking.meter.NewBucket(randomAddr(t), randomAddr(t), big.NewInt(int64(rand.Int())), uint8(1), uint32(rand.Int()), uint8(rand.Int()), uint8(rand.Int()), rand.Uint64(), rand.Uint64())
+	return meter.meter.NewBucket(randomAddr(t), randomAddr(t), big.NewInt(int64(rand.Int())), uint8(1), uint32(rand.Int()), uint8(rand.Int()), uint8(rand.Int()), rand.Uint64(), rand.Uint64())
 }
 
 func TestRlpForBucket(t *testing.T) {
@@ -240,7 +240,7 @@ func TestRlpForBucket(t *testing.T) {
 	}
 	// fmt.Println("DATA: ", data)
 
-	tgt := &staking.Bucket{}
+	tgt := &meter.Bucket{}
 	err = rlp.DecodeBytes(data, tgt)
 	if err != nil {
 		fmt.Println("Decode error:", err)
@@ -253,8 +253,8 @@ func TestRlpForBucket(t *testing.T) {
 	}
 }
 
-func newDelegate(t *testing.T) *staking.Delegate {
-	return &staking.Delegate{
+func newDelegate(t *testing.T) *meter.Delegate {
+	return &meter.Delegate{
 		Address:     randomAddr(t),
 		PubKey:      randomPubkey(t),
 		Name:        randomBytes(10),
@@ -262,10 +262,10 @@ func newDelegate(t *testing.T) *staking.Delegate {
 		IPAddr:      randomIP(t),
 		Port:        PORT,
 		Commission:  COMMISSION,
-		DistList: []*staking.Distributor{
-			&staking.Distributor{randomAddr(t), uint8(rand.Int()), rand.Uint64()},
-			&staking.Distributor{randomAddr(t), uint8(rand.Int()), rand.Uint64()},
-			&staking.Distributor{randomAddr(t), uint8(rand.Int()), rand.Uint64()},
+		DistList: []*meter.Distributor{
+			&meter.Distributor{randomAddr(t), uint8(rand.Int()), rand.Uint64()},
+			&meter.Distributor{randomAddr(t), uint8(rand.Int()), rand.Uint64()},
+			&meter.Distributor{randomAddr(t), uint8(rand.Int()), rand.Uint64()},
 		},
 	}
 }
@@ -278,7 +278,7 @@ func TestRlpForDelegate(t *testing.T) {
 	}
 	// fmt.Println("DATA: ", data)
 
-	tgt := &staking.Delegate{}
+	tgt := &meter.Delegate{}
 	err = rlp.DecodeBytes(data, tgt)
 	if err != nil {
 		fmt.Println("Decode error:", err)
@@ -291,28 +291,28 @@ func TestRlpForDelegate(t *testing.T) {
 	}
 }
 
-func newInfraction(t *testing.T) staking.Infraction {
-	return staking.Infraction{
-		MissingLeaders: staking.MissingLeader{
-			uint32(1), []*staking.MissingLeaderInfo{
-				&staking.MissingLeaderInfo{rand.Uint32(), rand.Uint32()}}},
+func newInfraction(t *testing.T) meter.Infraction {
+	return meter.Infraction{
+		MissingLeaders: meter.MissingLeader{
+			uint32(1), []*meter.MissingLeaderInfo{
+				&meter.MissingLeaderInfo{rand.Uint32(), rand.Uint32()}}},
 
-		MissingProposers: staking.MissingProposer{
-			uint32(1), []*staking.MissingProposerInfo{
-				&staking.MissingProposerInfo{rand.Uint32(), rand.Uint32()}}},
+		MissingProposers: meter.MissingProposer{
+			uint32(1), []*meter.MissingProposerInfo{
+				&meter.MissingProposerInfo{rand.Uint32(), rand.Uint32()}}},
 
-		MissingVoters: staking.MissingVoter{
-			uint32(1), []*staking.MissingVoterInfo{
-				&staking.MissingVoterInfo{rand.Uint32(), rand.Uint32()}}},
+		MissingVoters: meter.MissingVoter{
+			uint32(1), []*meter.MissingVoterInfo{
+				&meter.MissingVoterInfo{rand.Uint32(), rand.Uint32()}}},
 
-		DoubleSigners: staking.DoubleSigner{
-			uint32(1), []*staking.DoubleSignerInfo{
-				&staking.DoubleSignerInfo{rand.Uint32(), rand.Uint32()}}},
+		DoubleSigners: meter.DoubleSigner{
+			uint32(1), []*meter.DoubleSignerInfo{
+				&meter.DoubleSignerInfo{rand.Uint32(), rand.Uint32()}}},
 	}
 }
 
-func newInJail(t *testing.T) *staking.DelegateJailed {
-	return &staking.DelegateJailed{
+func newInJail(t *testing.T) *meter.InJail {
+	return &meter.InJail{
 		Addr:        randomAddr(t),
 		Name:        randomBytes(10),
 		PubKey:      randomPubkey(t),
@@ -333,7 +333,7 @@ func TestRlpForInJail(t *testing.T) {
 	}
 	// fmt.Println("DATA: ", data)
 
-	tgt := &staking.DelegateJailed{}
+	tgt := &meter.InJail{}
 	err = rlp.DecodeBytes(data, tgt)
 	if err != nil {
 		fmt.Println("Decode error:", err)
@@ -374,7 +374,7 @@ func TestRlpForValidatorReward(t *testing.T) {
 	}
 	// fmt.Println("DATA: ", data)
 
-	tgt := &staking.ValidatorReward{}
+	tgt := &meter.ValidatorReward{}
 	err = rlp.DecodeBytes(data, tgt)
 	if err != nil {
 		fmt.Println("Decode error:", err)
@@ -387,8 +387,8 @@ func TestRlpForValidatorReward(t *testing.T) {
 	}
 }
 
-func newStats(t *testing.T) *staking.DelegateStatistics {
-	return &staking.DelegateStatistics{
+func newStats(t *testing.T) *meter.DelegateStatistics {
+	return &meter.DelegateStatistics{
 		Addr:        randomAddr(t),
 		Name:        randomBytes(10),
 		PubKey:      randomPubkey(t),
@@ -405,7 +405,7 @@ func TestRlpForStats(t *testing.T) {
 		t.Fail()
 	}
 
-	tgt := &staking.DelegateStatistics{}
+	tgt := &meter.DelegateStatistics{}
 	err = rlp.DecodeBytes(data, tgt)
 	if err != nil {
 		fmt.Println("Decode error:", err)
@@ -423,7 +423,7 @@ func TestRlpForStats(t *testing.T) {
 //////////////////////////////////////////////////////////////////////////////
 
 func TestCandidateList(t *testing.T) {
-	src := []*staking.Candidate{newCandidate(t), newCandidate(t), newCandidate(t)}
+	src := []*meter.Candidate{newCandidate(t), newCandidate(t), newCandidate(t)}
 	data, err := rlp.EncodeToBytes(src)
 	if err != nil {
 		fmt.Println("Encode error:", err)
@@ -431,7 +431,7 @@ func TestCandidateList(t *testing.T) {
 	}
 	// fmt.Println("DATA: ", data)
 
-	tgt := make([]*staking.Candidate, 0)
+	tgt := make([]*meter.Candidate, 0)
 	err = rlp.DecodeBytes(data, &tgt)
 	if err != nil {
 		fmt.Println("Decode error:", err)
@@ -467,7 +467,7 @@ func TestBucketList(t *testing.T) {
 }
 
 func TestStakeholderList(t *testing.T) {
-	src := []*staking.Stakeholder{newStakeholder(t), newStakeholder(t), newStakeholder(t)}
+	src := []*meter.Stakeholder{newStakeholder(t), newStakeholder(t), newStakeholder(t)}
 	data, err := rlp.EncodeToBytes(src)
 	if err != nil {
 		fmt.Println("Encode error:", err)
@@ -475,7 +475,7 @@ func TestStakeholderList(t *testing.T) {
 	}
 	// fmt.Println("DATA: ", data)
 
-	tgt := make([]*staking.Stakeholder, 0)
+	tgt := make([]*meter.Stakeholder, 0)
 	err = rlp.DecodeBytes(data, &tgt)
 	if err != nil {
 		fmt.Println("Decode error:", err)

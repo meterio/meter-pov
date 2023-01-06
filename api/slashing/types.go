@@ -11,7 +11,7 @@ import (
 	"github.com/meterio/meter-pov/meter"
 )
 
-type DelegateJailed struct {
+type InJail struct {
 	Address     meter.Address `json:"address"`
 	Name        string        `json:"name"`
 	PubKey      string        `json:"pubKey"`
@@ -75,16 +75,16 @@ type DelegateStatistics struct {
 	Infractions Infraction    `json:"infractions"`
 }
 
-func convertJailedList(list *meter.DelegateInJailList) []*DelegateJailed {
-	jailedList := make([]*DelegateJailed, 0)
+func convertJailedList(list *meter.InJailList) []*InJail {
+	jailedList := make([]*InJail, 0)
 	for _, j := range list.ToList() {
-		jailedList = append(jailedList, convertDelegateJailed(&j))
+		jailedList = append(jailedList, convertInJail(&j))
 	}
 	return jailedList
 }
 
-func convertDelegateJailed(d *meter.DelegateJailed) *DelegateJailed {
-	return &DelegateJailed{
+func convertInJail(d *meter.InJail) *InJail {
+	return &InJail{
 		Name:        string(d.Name),
 		Address:     d.Addr,
 		PubKey:      string(d.PubKey),

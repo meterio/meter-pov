@@ -1258,7 +1258,7 @@ func (s *Staking) DelegateStatisticsHandler(env *setypes.ScriptEnv, sb *StakingB
 		// if this candidate already uncandidate, forgive it
 		if cand := candidateList.Get(stats.Addr); cand != nil {
 			bail := BAIL_FOR_EXIT_JAIL
-			inJailList.Add(meter.NewDelegateJailed(stats.Addr, stats.Name, stats.PubKey, stats.TotalPts, &stats.Infractions, bail, sb.Timestamp))
+			inJailList.Add(meter.NewInJail(stats.Addr, stats.Name, stats.PubKey, stats.TotalPts, &stats.Infractions, bail, sb.Timestamp))
 		} else {
 			log.Warn("delegate already uncandidated, skip ...", "address", stats.Addr, "name", string(stats.Name))
 		}
@@ -1333,7 +1333,7 @@ func (s *Staking) DelegateStatisticsFlushHandler(env *setypes.ScriptEnv, sb *Sta
 
 	state := env.GetState()
 	statisticsList := &meter.StatisticsList{}
-	inJailList := &meter.DelegateInJailList{}
+	inJailList := &meter.InJailList{}
 
 	s.SetStatisticsList(statisticsList, state)
 	s.SetInJailList(inJailList, state)
@@ -1557,18 +1557,18 @@ func (s *Staking) BucketUpdateHandler(env *setypes.ScriptEnv, sb *StakingBody, g
 }
 
 // api routine interface
-func GetLatestInJailList() (*meter.DelegateInJailList, error) {
+func GetLatestInJailList() (*meter.InJailList, error) {
 	staking := GetStakingGlobInst()
 	if staking == nil {
 		log.Warn("staking is not initialized...")
 		err := errors.New("staking is not initialized...")
-		return meter.NewDelegateInJailList(nil), err
+		return meter.NewInJailList(nil), err
 	}
 
 	best := staking.chain.BestBlock()
 	state, err := staking.stateCreator.NewState(best.Header().StateRoot())
 	if err != nil {
-		return meter.NewDelegateInJailList(nil), err
+		return meter.NewInJailList(nil), err
 	}
 
 	JailList := staking.GetInJailList(state)

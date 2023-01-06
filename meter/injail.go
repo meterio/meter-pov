@@ -16,7 +16,7 @@ import (
 )
 
 // Candidate indicates the structure of a candidate
-type DelegateJailed struct {
+type InJail struct {
 	Addr        Address // the address for staking / reward
 	Name        []byte
 	PubKey      []byte // node public key
@@ -26,8 +26,8 @@ type DelegateJailed struct {
 	JailedTime  uint64
 }
 
-func NewDelegateJailed(addr Address, name []byte, pubKey []byte, pts uint64, inf *Infraction, bail *big.Int, timeStamp uint64) *DelegateJailed {
-	return &DelegateJailed{
+func NewInJail(addr Address, name []byte, pubKey []byte, pts uint64, inf *Infraction, bail *big.Int, timeStamp uint64) *InJail {
+	return &InJail{
 		Addr:        addr,
 		Name:        name,
 		PubKey:      pubKey,
@@ -38,27 +38,27 @@ func NewDelegateJailed(addr Address, name []byte, pubKey []byte, pts uint64, inf
 	}
 }
 
-func (d *DelegateJailed) ToString() string {
+func (d *InJail) ToString() string {
 	pubKeyEncoded := b64.StdEncoding.EncodeToString(d.PubKey)
-	return fmt.Sprintf("DelegateJailed(%v) Addr=%v, PubKey=%v, TotalPts=%v, BailAmount=%v, JailedTime=%v",
+	return fmt.Sprintf("InJail(%v) Addr=%v, PubKey=%v, TotalPts=%v, BailAmount=%v, JailedTime=%v",
 		string(d.Name), d.Addr, pubKeyEncoded, d.TotalPts, d.BailAmount.Uint64(), fmt.Sprintln(time.Unix(int64(d.JailedTime), 0)))
 }
 
-type DelegateInJailList struct {
-	InJails []*DelegateJailed
+type InJailList struct {
+	InJails []*InJail
 }
 
-func NewDelegateInJailList(in []*DelegateJailed) *DelegateInJailList {
+func NewInJailList(in []*InJail) *InJailList {
 	if in == nil {
-		in = make([]*DelegateJailed, 0)
+		in = make([]*InJail, 0)
 	}
 	sort.SliceStable(in, func(i, j int) bool {
 		return bytes.Compare(in[i].Addr.Bytes(), in[j].Addr.Bytes()) <= 0
 	})
-	return &DelegateInJailList{InJails: in}
+	return &InJailList{InJails: in}
 }
 
-func (dl *DelegateInJailList) indexOf(addr Address) (int, int) {
+func (dl *InJailList) indexOf(addr Address) (int, int) {
 	// return values:
 	//     first parameter: if found, the index of the item
 	//     second parameter: if not found, the correct insert index of the item
@@ -81,7 +81,7 @@ func (dl *DelegateInJailList) indexOf(addr Address) (int, int) {
 	return -1, r
 }
 
-func (dl *DelegateInJailList) Get(addr Address) *DelegateJailed {
+func (dl *InJailList) Get(addr Address) *InJail {
 	index, _ := dl.indexOf(addr)
 	if index < 0 {
 		return nil
@@ -89,19 +89,19 @@ func (dl *DelegateInJailList) Get(addr Address) *DelegateJailed {
 	return dl.InJails[index]
 }
 
-func (dl *DelegateInJailList) Exist(addr Address) bool {
+func (dl *InJailList) Exist(addr Address) bool {
 	index, _ := dl.indexOf(addr)
 	return index >= 0
 }
 
-func (dl *DelegateInJailList) Add(c *DelegateJailed) {
+func (dl *InJailList) Add(c *InJail) {
 	index, insertIndex := dl.indexOf(c.Addr)
 	if index < 0 {
 		if len(dl.InJails) == 0 {
 			dl.InJails = append(dl.InJails, c)
 			return
 		}
-		newList := make([]*DelegateJailed, insertIndex)
+		newList := make([]*InJail, insertIndex)
 		copy(newList, dl.InJails[:insertIndex])
 		newList = append(newList, c)
 		newList = append(newList, dl.InJails[insertIndex:]...)
@@ -113,7 +113,7 @@ func (dl *DelegateInJailList) Add(c *DelegateJailed) {
 	return
 }
 
-func (dl *DelegateInJailList) Remove(addr Address) error {
+func (dl *InJailList) Remove(addr Address) error {
 	index, _ := dl.indexOf(addr)
 	if index >= 0 {
 		dl.InJails = append(dl.InJails[:index], dl.InJails[index+1:]...)
@@ -121,11 +121,11 @@ func (dl *DelegateInJailList) Remove(addr Address) error {
 	return nil
 }
 
-func (dl *DelegateInJailList) Count() int {
+func (dl *InJailList) Count() int {
 	return len(dl.InJails)
 }
 
-func (dl *DelegateInJailList) ToString() string {
+func (dl *InJailList) ToString() string {
 	if dl == nil || len(dl.InJails) == 0 {
 		return "CandidateList (size:0)"
 	}
@@ -137,8 +137,8 @@ func (dl *DelegateInJailList) ToString() string {
 	return strings.Join(s, "\n")
 }
 
-func (dl *DelegateInJailList) ToList() []DelegateJailed {
-	result := make([]DelegateJailed, 0)
+func (dl *InJailList) ToList() []InJail {
+	result := make([]InJail, 0)
 	for _, v := range dl.InJails {
 		result = append(result, *v)
 	}

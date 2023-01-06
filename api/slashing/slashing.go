@@ -20,7 +20,7 @@ func New() *Slashing {
 	return &Slashing{}
 }
 
-func (sl *Slashing) handleGetDelegateJailedList(w http.ResponseWriter, req *http.Request) error {
+func (sl *Slashing) handleGetInJailList(w http.ResponseWriter, req *http.Request) error {
 	list, err := staking.GetLatestInJailList()
 	if err != nil {
 		return err
@@ -40,7 +40,7 @@ func (sl *Slashing) handleGetDelegateStatsList(w http.ResponseWriter, req *http.
 
 func (sl *Slashing) Mount(root *mux.Router, pathPrefix string) {
 	sub := root.PathPrefix(pathPrefix).Subrouter()
-	sub.Path("/injail").Methods("Get").HandlerFunc(utils.WrapHandlerFunc(sl.handleGetDelegateJailedList))
+	sub.Path("/injail").Methods("Get").HandlerFunc(utils.WrapHandlerFunc(sl.handleGetInJailList))
 	sub.Path("/statistics").Methods("Get").HandlerFunc(utils.WrapHandlerFunc(sl.handleGetDelegateStatsList))
 
 }
