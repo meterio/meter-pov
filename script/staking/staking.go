@@ -432,7 +432,7 @@ func (s *Staking) CandidateHandler(env *setypes.ScriptEnv, sb *StakingBody, gas 
 		return
 	}
 
-	for _, record := range candidateList.candidates {
+	for _, record := range candidateList.Candidates {
 		pkListed := bytes.Equal(record.PubKey, []byte(candidatePubKey))
 		ipListed := bytes.Equal(record.IPAddr, sb.CandIP)
 		nameListed := bytes.Equal(record.Name, sb.CandName)
@@ -474,7 +474,7 @@ func (s *Staking) CandidateHandler(env *setypes.ScriptEnv, sb *StakingBody, gas 
 	bucket := meter.NewBucket(sb.CandAddr, sb.CandAddr, sb.Amount, uint8(sb.Token), opt, rate, sb.Autobid, sb.Timestamp, sb.Nonce)
 	bucketList.Add(bucket)
 
-	candidate := NewCandidate(sb.CandAddr, sb.CandName, sb.CandDescription, []byte(candidatePubKey), sb.CandIP, sb.CandPort, commission, sb.Timestamp)
+	candidate := meter.NewCandidate(sb.CandAddr, sb.CandName, sb.CandDescription, []byte(candidatePubKey), sb.CandIP, sb.CandPort, commission, sb.Timestamp)
 	candidate.AddBucket(bucket)
 	candidateList.Add(candidate)
 
@@ -845,7 +845,7 @@ func (s *Staking) GoverningHandler(env *setypes.ScriptEnv, sb *StakingBody, gas 
 					cand := candidateList.Get(bkt.Candidate)
 					if cand != nil {
 						cand.RemoveBucket(bkt)
-						if len(candidateList.candidates) == 0 {
+						if len(candidateList.Candidates) == 0 {
 							candidateList.Remove(cand.Addr)
 						}
 					}
@@ -889,7 +889,7 @@ func (s *Staking) GoverningHandler(env *setypes.ScriptEnv, sb *StakingBody, gas 
 
 	// handle delegateList
 	delegates := []*Delegate{}
-	for _, c := range candidateList.candidates {
+	for _, c := range candidateList.Candidates {
 		delegate := &Delegate{
 			Address:     c.Addr,
 			PubKey:      c.PubKey,
@@ -1033,7 +1033,7 @@ func (s *Staking) CandidateUpdateHandler(env *setypes.ScriptEnv, sb *StakingBody
 		// ---------------------------------------
 		// AFTER TESLA FORK 6 : candidate update can't use existing IP, name, or PubKey
 		// ---------------------------------------
-		for _, record := range candidateList.candidates {
+		for _, record := range candidateList.Candidates {
 			pkListed := bytes.Equal(record.PubKey, []byte(candidatePubKey))
 			ipListed := bytes.Equal(record.IPAddr, sb.CandIP)
 			nameListed := bytes.Equal(record.Name, sb.CandName)

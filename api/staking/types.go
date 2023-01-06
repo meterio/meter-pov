@@ -26,7 +26,7 @@ type Candidate struct {
 	Buckets     []string      `json:"buckets"`    // all buckets voted for this candidate
 }
 
-func convertCandidateList(list *staking.CandidateList) []*Candidate {
+func convertCandidateList(list *meter.CandidateList) []*Candidate {
 	candidateList := make([]*Candidate, 0)
 	for _, c := range list.ToList() {
 		candidateList = append(candidateList, convertCandidate(c))
@@ -42,7 +42,7 @@ func convertCandidateList(list *staking.CandidateList) []*Candidate {
 	return candidateList
 }
 
-func convertCandidate(c staking.Candidate) *Candidate {
+func convertCandidate(c meter.Candidate) *Candidate {
 	buckets := make([]string, 0)
 	for _, b := range c.Buckets {
 		buckets = append(buckets, b.String())

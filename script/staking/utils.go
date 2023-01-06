@@ -53,7 +53,7 @@ var (
 )
 
 // get the bucket that candidate initialized
-func GetCandidateBucket(c *Candidate, bl *meter.BucketList) (*meter.Bucket, error) {
+func GetCandidateBucket(c *meter.Candidate, bl *meter.BucketList) (*meter.Bucket, error) {
 	for _, id := range c.Buckets {
 		b := bl.Get(id)
 		if b.Owner == c.Addr && b.Candidate == c.Addr && b.Option == meter.FOREVER_LOCK {
@@ -66,7 +66,7 @@ func GetCandidateBucket(c *Candidate, bl *meter.BucketList) (*meter.Bucket, erro
 }
 
 // get the buckets which owner is candidate
-func GetCandidateSelfBuckets(c *Candidate, bl *meter.BucketList) ([]*meter.Bucket, error) {
+func GetCandidateSelfBuckets(c *meter.Candidate, bl *meter.BucketList) ([]*meter.Bucket, error) {
 	self := []*meter.Bucket{}
 	for _, id := range c.Buckets {
 		b := bl.Get(id)
@@ -81,7 +81,7 @@ func GetCandidateSelfBuckets(c *Candidate, bl *meter.BucketList) ([]*meter.Bucke
 	}
 }
 
-func CheckCandEnoughSelfVotes(newVotes *big.Int, c *Candidate, bl *meter.BucketList, selfVoteRatio int64) bool {
+func CheckCandEnoughSelfVotes(newVotes *big.Int, c *meter.Candidate, bl *meter.BucketList, selfVoteRatio int64) bool {
 	// The previous check is candidata self shoud occupies 1/10 of the total votes.
 	// Remove this check now
 	bkts, err := GetCandidateSelfBuckets(c, bl)
@@ -105,7 +105,7 @@ func CheckCandEnoughSelfVotes(newVotes *big.Int, c *Candidate, bl *meter.BucketL
 	return true
 }
 
-func CheckEnoughSelfVotes(subVotes *big.Int, c *Candidate, bl *meter.BucketList, selfVoteRatio int64) bool {
+func CheckEnoughSelfVotes(subVotes *big.Int, c *meter.Candidate, bl *meter.BucketList, selfVoteRatio int64) bool {
 	// The previous check is candidata self shoud occupies 1/10 of the total votes.
 	// Remove this check now
 	bkts, err := GetCandidateSelfBuckets(c, bl)
@@ -211,26 +211,26 @@ func GetBucketListByHeader(header *block.Header) (*meter.BucketList, error) {
 }
 
 // api routine interface
-func GetLatestCandidateList() (*CandidateList, error) {
+func GetLatestCandidateList() (*meter.CandidateList, error) {
 	staking := GetStakingGlobInst()
 	if staking == nil {
 		log.Warn("staking is not initialized...")
 		err := errors.New("staking is not initialized...")
-		return NewCandidateList(nil), err
+		return meter.NewCandidateList(nil), err
 	}
 
 	best := staking.chain.BestBlock()
 	state, err := staking.stateCreator.NewState(best.Header().StateRoot())
 	if err != nil {
 
-		return NewCandidateList(nil), err
+		return meter.NewCandidateList(nil), err
 	}
 
 	CandList := staking.GetCandidateList(state)
 	return CandList, nil
 }
 
-func GetCandidateListByHeader(header *block.Header) (*CandidateList, error) {
+func GetCandidateListByHeader(header *block.Header) (*meter.CandidateList, error) {
 	staking := GetStakingGlobInst()
 	if staking == nil {
 		log.Warn("staking is not initialized...")

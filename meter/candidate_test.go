@@ -3,7 +3,7 @@
 // Distributed under the GNU Lesser General Public License v3.0 software license, see the accompanying
 // file LICENSE or <https://www.gnu.org/licenses/lgpl-3.0.html>
 
-package staking_test
+package meter_test
 
 import (
 	"bytes"
@@ -14,7 +14,6 @@ import (
 	"time"
 
 	"github.com/meterio/meter-pov/meter"
-	"github.com/meterio/meter-pov/script/staking"
 )
 
 /*
@@ -53,19 +52,19 @@ func permute(path [][]int, candidates []int) [][]int {
 	return result
 }
 
-func getCandidateList() (*staking.CandidateList, []*staking.Candidate) {
-	cl := staking.NewCandidateList([]*staking.Candidate{})
+func getCandidateList() (*meter.CandidateList, []*meter.Candidate) {
+	cl := meter.NewCandidateList([]*meter.Candidate{})
 
 	addr1, _ := meter.ParseAddress(TestAddress1)
 	addr2, _ := meter.ParseAddress(TestAddress2)
 	addr3, _ := meter.ParseAddress(TestAddress3)
 	addr4, _ := meter.ParseAddress(TestAddress3)
 	t := uint64(time.Now().Unix())
-	c1 := staking.NewCandidate(addr1, []byte("candidate #1"), []byte("pubkey #1"), []byte("ip1"), []byte("8080"), 0, 0, t)
-	c2 := staking.NewCandidate(addr2, []byte("candidate #2"), []byte("pubkey #2"), []byte("ip2"), []byte("8080"), 0, 0, t)
-	c3 := staking.NewCandidate(addr3, []byte("candidate #3"), []byte("pubkey #3"), []byte("ip3"), []byte("8080"), 0, 0, t)
-	c4 := staking.NewCandidate(addr4, []byte("candidate #4"), []byte("pubkey #4"), []byte("ip4"), []byte("8080"), 0, 0, t)
-	cs := []*staking.Candidate{c1, c2, c3, c4}
+	c1 := meter.NewCandidate(addr1, []byte("candidate #1"), []byte("pubkey #1"), []byte("ip1"), []byte("8080"), 0, 0, t)
+	c2 := meter.NewCandidate(addr2, []byte("candidate #2"), []byte("pubkey #2"), []byte("ip2"), []byte("8080"), 0, 0, t)
+	c3 := meter.NewCandidate(addr3, []byte("candidate #3"), []byte("pubkey #3"), []byte("ip3"), []byte("8080"), 0, 0, t)
+	c4 := meter.NewCandidate(addr4, []byte("candidate #4"), []byte("pubkey #4"), []byte("ip4"), []byte("8080"), 0, 0, t)
+	cs := []*meter.Candidate{c1, c2, c3, c4}
 
 	cl.Add(c1)
 	cl.Add(c2)
@@ -86,7 +85,7 @@ func TestAddWithAllPossibleOrder(t *testing.T) {
 	}
 	permutations := permute(make([][]int, 0), indexes)
 	for _, perm := range permutations {
-		cl = staking.NewCandidateList([]*staking.Candidate{})
+		cl = meter.NewCandidateList([]*meter.Candidate{})
 		buf.Reset()
 		for _, i := range perm {
 			cl.Add(cs[i])

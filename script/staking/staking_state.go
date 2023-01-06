@@ -19,9 +19,9 @@ import (
 )
 
 // Candidate List
-func (s *Staking) GetCandidateList(state *state.State) (result *CandidateList) {
+func (s *Staking) GetCandidateList(state *state.State) (result *meter.CandidateList) {
 	state.DecodeStorage(StakingModuleAddr, CandidateListKey, func(raw []byte) error {
-		candidates := make([]*Candidate, 0)
+		candidates := make([]*meter.Candidate, 0)
 
 		if len(strings.TrimSpace(string(raw))) >= 0 {
 			err := rlp.Decode(bytes.NewReader(raw), &candidates)
@@ -35,13 +35,13 @@ func (s *Staking) GetCandidateList(state *state.State) (result *CandidateList) {
 			}
 		}
 
-		result = NewCandidateList(candidates)
+		result = meter.NewCandidateList(candidates)
 		return nil
 	})
 	return
 }
 
-func (s *Staking) SetCandidateList(candList *CandidateList, state *state.State) {
+func (s *Staking) SetCandidateList(candList *meter.CandidateList, state *state.State) {
 	/*****
 	sort.SliceStable(candList.candidates, func(i, j int) bool {
 		return bytes.Compare(candList.candidates[i].Addr.Bytes(), candList.candidates[j].Addr.Bytes()) <= 0
@@ -49,7 +49,7 @@ func (s *Staking) SetCandidateList(candList *CandidateList, state *state.State) 
 	*****/
 
 	state.EncodeStorage(StakingModuleAddr, CandidateListKey, func() ([]byte, error) {
-		return rlp.EncodeToBytes(candList.candidates)
+		return rlp.EncodeToBytes(candList.Candidates)
 	})
 }
 
