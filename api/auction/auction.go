@@ -54,7 +54,7 @@ func (at *Auction) handleGetLastAuctionSummary(w http.ResponseWriter, req *http.
 	}
 	last := list.Last()
 	if last == nil {
-		last = &auction.AuctionSummary{}
+		last = &meter.AuctionSummary{}
 	}
 	lastSummary := convertSummary(last)
 	return utils.WriteJSON(w, lastSummary)

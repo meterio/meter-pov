@@ -187,7 +187,7 @@ func (a *Auction) CloseAuctionCB(env *setypes.ScriptEnv, ab *AuctionBody, gas ui
 	log.Info("clear auction completed", "elapsed", meter.PrettyDuration(time.Since(stub)))
 
 	stub = time.Now()
-	summary := &AuctionSummary{
+	summary := &meter.AuctionSummary{
 		AuctionID:    auctionCB.AuctionID,
 		StartHeight:  auctionCB.StartHeight,
 		StartEpoch:   auctionCB.StartEpoch,
@@ -206,7 +206,7 @@ func (a *Auction) CloseAuctionCB(env *setypes.ScriptEnv, ab *AuctionBody, gas ui
 	}
 
 	// limit the summary list to AUCTION_MAX_SUMMARIES
-	var summaries []*AuctionSummary
+	var summaries []*meter.AuctionSummary
 	sumLen := len(summaryList.Summaries)
 	if sumLen >= AUCTION_MAX_SUMMARIES {
 		summaries = append(summaryList.Summaries[sumLen-AUCTION_MAX_SUMMARIES+1:], summary)
@@ -214,7 +214,7 @@ func (a *Auction) CloseAuctionCB(env *setypes.ScriptEnv, ab *AuctionBody, gas ui
 		summaries = append(summaryList.Summaries, summary)
 	}
 
-	summaryList = NewAuctionSummaryList(summaries)
+	summaryList = meter.NewAuctionSummaryList(summaries)
 	auctionCB = &meter.AuctionCB{}
 	log.Info("append summary completed", "elapsed", meter.PrettyDuration(time.Since(stub)))
 

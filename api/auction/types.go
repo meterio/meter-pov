@@ -88,7 +88,7 @@ type AuctionCB struct {
 	AuctionTxs  []*AuctionTx `json:"auctionTxs"`
 }
 
-func convertDigestList(list *auction.AuctionSummaryList) []*AuctionDigest {
+func convertDigestList(list *meter.AuctionSummaryList) []*AuctionDigest {
 	digestList := make([]*AuctionDigest, 0)
 	for _, s := range list.ToList() {
 		digestList = append(digestList, convertDigest(&s))
@@ -96,7 +96,7 @@ func convertDigestList(list *auction.AuctionSummaryList) []*AuctionDigest {
 	return digestList
 }
 
-func convertDigest(s *auction.AuctionSummary) *AuctionDigest {
+func convertDigest(s *meter.AuctionSummary) *AuctionDigest {
 	distCount := len(s.DistMTRG)
 	distTotal := big.NewInt(0)
 	for _, d := range s.DistMTRG {
@@ -141,7 +141,7 @@ func convertDigest(s *auction.AuctionSummary) *AuctionDigest {
 	}
 }
 
-func convertSummaryList(list *auction.AuctionSummaryList) []*AuctionSummary {
+func convertSummaryList(list *meter.AuctionSummaryList) []*AuctionSummary {
 	summaryList := make([]*AuctionSummary, 0)
 	for _, s := range list.ToList() {
 		summaryList = append(summaryList, convertSummary(&s))
@@ -149,14 +149,14 @@ func convertSummaryList(list *auction.AuctionSummaryList) []*AuctionSummary {
 	return summaryList
 }
 
-func convertDistMtrg(d *auction.DistMtrg) *DistMtrg {
+func convertDistMtrg(d *meter.DistMtrg) *DistMtrg {
 	return &DistMtrg{
 		Addr:   d.Addr.String(),
 		Amount: d.Amount.String(),
 	}
 }
 
-func convertSummary(s *auction.AuctionSummary) *AuctionSummary {
+func convertSummary(s *meter.AuctionSummary) *AuctionSummary {
 	dists := make([]*DistMtrg, 0)
 	for _, d := range s.DistMTRG {
 		dists = append(dists, convertDistMtrg(d))

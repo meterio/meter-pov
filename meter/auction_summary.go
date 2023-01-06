@@ -3,24 +3,22 @@
 // Distributed under the GNU Lesser General Public License v3.0 software license, see the accompanying
 // file LICENSE or <https://www.gnu.org/licenses/lgpl-3.0.html>
 
-package auction
+package meter
 
 import (
 	"bytes"
 	"fmt"
 	"math/big"
 	"strings"
-
-	"github.com/meterio/meter-pov/meter"
 )
 
 type DistMtrg struct {
-	Addr   meter.Address
+	Addr   Address
 	Amount *big.Int
 }
 
 type AuctionSummary struct {
-	AuctionID    meter.Bytes32
+	AuctionID    Bytes32
 	StartHeight  uint64
 	StartEpoch   uint64
 	EndHeight    uint64
@@ -33,7 +31,7 @@ type AuctionSummary struct {
 	RcvdMTR      *big.Int
 	ActualPrice  *big.Int
 	LeftoverMTRG *big.Int
-	AuctionTxs   []*meter.AuctionTx
+	AuctionTxs   []*AuctionTx
 	DistMTRG     []*DistMtrg
 }
 
@@ -62,7 +60,7 @@ func NewAuctionSummaryList(summaries []*AuctionSummary) *AuctionSummaryList {
 	return &AuctionSummaryList{Summaries: summaries}
 }
 
-func (a *AuctionSummaryList) Get(id meter.Bytes32) *AuctionSummary {
+func (a *AuctionSummaryList) Get(id Bytes32) *AuctionSummary {
 	for _, summary := range a.Summaries {
 		if bytes.Compare(id.Bytes(), summary.AuctionID.Bytes()) == 0 {
 			return summary
@@ -77,7 +75,7 @@ func (a *AuctionSummaryList) Add(summary *AuctionSummary) error {
 }
 
 // unsupport at this time
-func (a *AuctionSummaryList) Remove(id meter.Bytes32) error {
+func (a *AuctionSummaryList) Remove(id Bytes32) error {
 
 	return nil
 }

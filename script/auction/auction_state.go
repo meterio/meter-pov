@@ -53,9 +53,9 @@ func (a *Auction) SetAuctionCB(auctionCB *meter.AuctionCB, state *state.State) {
 }
 
 // summary List
-func (a *Auction) GetSummaryList(state *state.State) (result *AuctionSummaryList) {
+func (a *Auction) GetSummaryList(state *state.State) (result *meter.AuctionSummaryList) {
 	state.DecodeStorage(AuctionAccountAddr, SummaryListKey, func(raw []byte) error {
-		summaries := make([]*AuctionSummary, 0)
+		summaries := make([]*meter.AuctionSummary, 0)
 
 		if len(strings.TrimSpace(string(raw))) >= 0 {
 			err := rlp.Decode(bytes.NewReader(raw), &summaries)
@@ -69,13 +69,13 @@ func (a *Auction) GetSummaryList(state *state.State) (result *AuctionSummaryList
 			}
 		}
 
-		result = NewAuctionSummaryList(summaries)
+		result = meter.NewAuctionSummaryList(summaries)
 		return nil
 	})
 	return
 }
 
-func (a *Auction) SetSummaryList(summaryList *AuctionSummaryList, state *state.State) {
+func (a *Auction) SetSummaryList(summaryList *meter.AuctionSummaryList, state *state.State) {
 	/**** Do not need sort here, it is automatically sorted by Epoch
 	sort.SliceStable(summaryList.Summaries, func(i, j int) bool {
 		return bytes.Compare(summaryList.Summaries[i].AuctionID.Bytes(), summaryList.Summaries[j].AuctionID.Bytes()) <= 0
@@ -153,7 +153,7 @@ func (a *Auction) TransferMTRToValidatorBenefit(amount *big.Int, state *state.St
 
 // //////////////////////
 // called when auction is over
-func (a *Auction) ClearAuction(cb *meter.AuctionCB, state *state.State, env *setypes.ScriptEnv) (*big.Int, *big.Int, []*DistMtrg, error) {
+func (a *Auction) ClearAuction(cb *meter.AuctionCB, state *state.State, env *setypes.ScriptEnv) (*big.Int, *big.Int, []*meter.DistMtrg, error) {
 	stateDB := statedb.New(state)
 	ValidatorBenefitRatio := builtin.Params.Native(state).Get(meter.KeyValidatorBenefitRatio)
 
@@ -169,7 +169,7 @@ func (a *Auction) ClearAuction(cb *meter.AuctionCB, state *state.State, env *set
 
 	blockNum := env.GetTxCtx().BlockRef.Number()
 	total := big.NewInt(0)
-	distMtrg := []*DistMtrg{}
+	distMtrg := []*meter.DistMtrg{}
 	if meter.IsTestChainTeslaFork3(blockNum) || meter.IsMainChainTeslaFork3(blockNum) {
 
 		groupTxMap := make(map[meter.Address]*big.Int)
@@ -194,7 +194,7 @@ func (a *Auction) ClearAuction(cb *meter.AuctionCB, state *state.State, env *set
 			mtrg := groupTxMap[addr]
 			a.SendMTRGToBidder(addr, mtrg, stateDB, env)
 			total = total.Add(total, mtrg)
-			distMtrg = append(distMtrg, &DistMtrg{Addr: addr, Amount: mtrg})
+			distMtrg = append(distMtrg, &meter.DistMtrg{Addr: addr, Amount: mtrg})
 		}
 	} else {
 		for _, tx := range cb.AuctionTxs {
@@ -205,7 +205,7 @@ func (a *Auction) ClearAuction(cb *meter.AuctionCB, state *state.State, env *set
 			if (meter.IsMainNet() && blockNum < meter.TeslaFork3_MainnetAuctionDefectStartNum) || meter.IsTestNet() {
 				total = total.Add(total, mtrg)
 			}
-			distMtrg = append(distMtrg, &DistMtrg{Addr: tx.Address, Amount: mtrg})
+			distMtrg = append(distMtrg, &meter.DistMtrg{Addr: tx.Address, Amount: mtrg})
 		}
 
 	}
