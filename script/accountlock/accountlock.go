@@ -270,25 +270,6 @@ func (a *AccountLock) GoverningHandler(env *setypes.ScriptEnv, ab *AccountLockBo
 	return
 }
 
-// api routine interface
-func GetLatestProfileList() (*meter.ProfileList, error) {
-	accountlock := GetAccountLockGlobInst()
-	if accountlock == nil {
-		log.Warn("accountlock is not initialized...")
-		err := errors.New("accountlock is not initialized...")
-		return meter.NewProfileList(nil), err
-	}
-
-	best := accountlock.chain.BestBlock()
-	state, err := accountlock.stateCreator.NewState(best.Header().StateRoot())
-	if err != nil {
-		return meter.NewProfileList(nil), err
-	}
-
-	list := state.GetProfileList()
-	return list, nil
-}
-
 func RestrictByAccountLock(addr meter.Address, state *state.State) (bool, *big.Int, *big.Int) {
 	accountlock := GetAccountLockGlobInst()
 	if accountlock == nil {

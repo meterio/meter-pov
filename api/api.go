@@ -35,7 +35,7 @@ import (
 	"github.com/meterio/meter-pov/txpool"
 )
 
-//New return api router
+// New return api router
 func New(chain *chain.Chain, stateCreator *state.Creator, txPool *txpool.TxPool, logDB *logdb.LogDB, nw node.Network, allowedOrigins string, backtraceLimit uint32, callGasLimit uint64, p2pServer *p2psrv.Server, pubKey string) (http.HandlerFunc, func()) {
 	origins := strings.Split(strings.TrimSpace(allowedOrigins), ",")
 	for i, o := range origins {
@@ -85,11 +85,11 @@ func New(chain *chain.Chain, stateCreator *state.Creator, txPool *txpool.TxPool,
 	subs.Mount(router, "/subscriptions")
 	staking.New(chain, stateCreator).
 		Mount(router, "/staking")
-	slashing.New().
+	slashing.New(chain, stateCreator).
 		Mount(router, "/slashing")
 	auction.New(chain, stateCreator).
 		Mount(router, "/auction")
-	accountlock.New().
+	accountlock.New(chain, stateCreator).
 		Mount(router, "/accountlock")
 
 	return handlers.CORS(

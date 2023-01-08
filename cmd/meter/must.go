@@ -493,13 +493,13 @@ func (d *Dispatcher) handlePeers(w http.ResponseWriter, r *http.Request) {
 	api_utils.WriteJSON(w, d.nw.PeersStats())
 }
 
-func startObserveServer(ctx *cli.Context, cons *consensus.ConsensusReactor, complexPubkey string, nw probe.Network, chain *chain.Chain) (string, func()) {
+func startObserveServer(ctx *cli.Context, cons *consensus.ConsensusReactor, complexPubkey string, nw probe.Network, chain *chain.Chain, stateCreator *state.Creator) (string, func()) {
 	addr := ":8670"
 	listener, err := net.Listen("tcp", addr)
 	if err != nil {
 		fatal(fmt.Sprintf("listen observe addr [%v]: %v", addr, err))
 	}
-	probe := &probe.Probe{cons, complexPubkey, chain, fullVersion(), nw}
+	probe := &probe.Probe{cons, complexPubkey, chain, fullVersion(), nw, stateCreator}
 	mux := http.NewServeMux()
 	mux.Handle("/metrics", promhttp.Handler())
 	mux.HandleFunc("/probe", probe.HandleProbe)

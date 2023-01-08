@@ -6,7 +6,6 @@
 package staking
 
 import (
-	"encoding/hex"
 	"math"
 	"net/http"
 	"strconv"
@@ -16,7 +15,6 @@ import (
 	"github.com/meterio/meter-pov/block"
 	"github.com/meterio/meter-pov/chain"
 	"github.com/meterio/meter-pov/meter"
-	"github.com/meterio/meter-pov/script/staking"
 	"github.com/meterio/meter-pov/state"
 	"github.com/pkg/errors"
 )
@@ -36,28 +34,13 @@ func (st *Staking) handleGetCandidateList(w http.ResponseWriter, req *http.Reque
 	if err != nil {
 		return err
 	}
-	list, err := staking.GetCandidateListByHeader(h)
+	state, err := st.stateCreator.NewState(h.StateRoot())
 	if err != nil {
 		return err
 	}
+	list := state.GetCandidateList()
 	candidateList := convertCandidateList(list)
 	return utils.WriteJSON(w, candidateList)
-}
-
-func (st *Staking) handleGetCandidateByAddress(w http.ResponseWriter, req *http.Request) error {
-	list, err := staking.GetLatestCandidateList()
-	if err != nil {
-		return err
-	}
-	addr := mux.Vars(req)["address"]
-	bytes, err := hex.DecodeString(addr)
-	if err != nil {
-		return err
-	}
-	meterAddr := meter.BytesToAddress(bytes)
-	c := list.Get(meterAddr)
-	candidate := convertCandidate(*c)
-	return utils.WriteJSON(w, candidate)
 }
 
 func (st *Staking) handleGetBucketList(w http.ResponseWriter, req *http.Request) error {
@@ -65,17 +48,27 @@ func (st *Staking) handleGetBucketList(w http.ResponseWriter, req *http.Request)
 	if err != nil {
 		return err
 	}
-	list, err := staking.GetBucketListByHeader(h)
+	state, err := st.stateCreator.NewState(h.StateRoot())
 	if err != nil {
 		return err
 	}
+	list := state.GetBucketList()
 	bucketList := convertBucketList(list)
 
 	return utils.WriteJSON(w, bucketList)
 }
 
 func (st *Staking) handleGetBucketByID(w http.ResponseWriter, req *http.Request) error {
-	list, err := staking.GetLatestBucketList()
+	h, err := st.handleRevision(req.URL.Query().Get("revision"))
+	if err != nil {
+		return err
+	}
+	state, err := st.stateCreator.NewState(h.StateRoot())
+	if err != nil {
+		return err
+	}
+	list := state.GetBucketList()
+
 	id := mux.Vars(req)["id"]
 	bucketID, err := meter.ParseBytes32(id)
 	if err != nil {
@@ -91,27 +84,14 @@ func (st *Staking) handleGetStakeholderList(w http.ResponseWriter, req *http.Req
 	if err != nil {
 		return err
 	}
-	list, err := staking.GetStakeholderListByHeader(h)
+	state, err := st.stateCreator.NewState(h.StateRoot())
 	if err != nil {
 		return err
 	}
+	list := state.GetStakeHolderList()
 	bucketList := convertStakeholderList(list)
 
 	return utils.WriteJSON(w, bucketList)
-}
-
-func (st *Staking) handleGetStakeholderByAddress(w http.ResponseWriter, req *http.Request) error {
-	list, err := staking.GetLatestStakeholderList()
-	addr := mux.Vars(req)["address"]
-	bytes, err := hex.DecodeString(addr)
-	if err != nil {
-		return err
-	}
-	meterAddr := meter.BytesToAddress(bytes)
-
-	s := list.Get(meterAddr)
-	stakeholder := convertStakeholder(*s)
-	return utils.WriteJSON(w, stakeholder)
 }
 
 func (st *Staking) handleGetDelegateList(w http.ResponseWriter, req *http.Request) error {
@@ -119,10 +99,11 @@ func (st *Staking) handleGetDelegateList(w http.ResponseWriter, req *http.Reques
 	if err != nil {
 		return err
 	}
-	list, err := staking.GetDelegateListByHeader(h)
+	state, err := st.stateCreator.NewState(h.StateRoot())
 	if err != nil {
 		return err
 	}
+	list := state.GetDelegateList()
 	delegateList := convertDelegateList(list)
 	return utils.WriteJSON(w, delegateList)
 }
@@ -132,29 +113,17 @@ func (st *Staking) handleGetLastValidatorReward(w http.ResponseWriter, req *http
 	if err != nil {
 		return err
 	}
-	list, err := staking.GetValidatorRewardListByHeader(h)
+	state, err := st.stateCreator.NewState(h.StateRoot())
 	if err != nil {
 		return err
 	}
+	list := state.GetValidatorRewardList()
 	last := list.Last()
 	if last == nil {
 		last = &meter.ValidatorReward{}
 	}
 	reward := convertValidatorReward(*last)
 	return utils.WriteJSON(w, reward)
-}
-
-func (st *Staking) handleGetValidatorRewardList(w http.ResponseWriter, req *http.Request) error {
-	h, err := st.handleRevision(req.URL.Query().Get("revision"))
-	if err != nil {
-		return err
-	}
-	list, err := staking.GetValidatorRewardListByHeader(h)
-	if err != nil {
-		return err
-	}
-	validatorRewardList := convertValidatorRewardList(list)
-	return utils.WriteJSON(w, validatorRewardList)
 }
 
 func (st *Staking) handleRevision(revision string) (*block.Header, error) {
@@ -197,10 +166,7 @@ func (st *Staking) Mount(root *mux.Router, pathPrefix string) {
 	sub.Path("/candidates").Methods("Get").HandlerFunc(utils.WrapHandlerFunc(st.handleGetCandidateList))
 	sub.Path("/buckets").Methods("Get").HandlerFunc(utils.WrapHandlerFunc(st.handleGetBucketList))
 	sub.Path("/buckets/{id}").Methods("Get").HandlerFunc(utils.WrapHandlerFunc(st.handleGetBucketByID))
-	sub.Path("/candidates/{address}").Methods("Get").HandlerFunc(utils.WrapHandlerFunc(st.handleGetCandidateByAddress))
 	sub.Path("/stakeholders").Methods("Get").HandlerFunc(utils.WrapHandlerFunc(st.handleGetStakeholderList))
-	sub.Path("/stakeholders/{address}").Methods("Get").HandlerFunc(utils.WrapHandlerFunc(st.handleGetStakeholderByAddress))
 	sub.Path("/delegates").Methods("Get").HandlerFunc(utils.WrapHandlerFunc(st.handleGetDelegateList))
-	sub.Path("/validator-rewards").Methods("Get").HandlerFunc(utils.WrapHandlerFunc(st.handleGetValidatorRewardList))
 	sub.Path("/last/rewards").Methods("Get").HandlerFunc(utils.WrapHandlerFunc(st.handleGetLastValidatorReward))
 }

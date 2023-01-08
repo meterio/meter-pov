@@ -20,7 +20,6 @@ import (
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/inconshreveable/log15"
 	"github.com/meterio/meter-pov/abi"
-	"github.com/meterio/meter-pov/block"
 	"github.com/meterio/meter-pov/builtin"
 	"github.com/meterio/meter-pov/chain"
 	"github.com/meterio/meter-pov/meter"
@@ -105,37 +104,37 @@ func (s *Staking) StakingHandler(senv *setypes.ScriptEnv, payload []byte, to *me
 	log.Debug("Entering staking handler "+GetOpName(sb.Opcode), "tx", senv.GetTxHash())
 	switch sb.Opcode {
 	case OP_BOUND:
-		if senv.GetTxCtx().Origin != sb.HolderAddr {
+		if senv.GetTxOrigin() != sb.HolderAddr {
 			return nil, gas, errors.New("holder address is not the same from transaction")
 		}
 
 		leftOverGas, err = s.BoundHandler(senv, sb, gas)
 	case OP_UNBOUND:
-		if senv.GetTxCtx().Origin != sb.HolderAddr {
+		if senv.GetTxOrigin() != sb.HolderAddr {
 			return nil, gas, errors.New("holder address is not the same from transaction")
 		}
 		leftOverGas, err = s.UnBoundHandler(senv, sb, gas)
 
 	case OP_CANDIDATE:
-		if senv.GetTxCtx().Origin != sb.CandAddr {
+		if senv.GetTxOrigin() != sb.CandAddr {
 			return nil, gas, errors.New("candidate address is not the same from transaction")
 		}
 		leftOverGas, err = s.CandidateHandler(senv, sb, gas)
 
 	case OP_UNCANDIDATE:
-		if senv.GetTxCtx().Origin != sb.CandAddr {
+		if senv.GetTxOrigin() != sb.CandAddr {
 			return nil, gas, errors.New("candidate address is not the same from transaction")
 		}
 		leftOverGas, err = s.UnCandidateHandler(senv, sb, gas)
 
 	case OP_DELEGATE:
-		if senv.GetTxCtx().Origin != sb.HolderAddr {
+		if senv.GetTxOrigin() != sb.HolderAddr {
 			return nil, gas, errors.New("holder address is not the same from transaction")
 		}
 		leftOverGas, err = s.DelegateHandler(senv, sb, gas)
 
 	case OP_UNDELEGATE:
-		if senv.GetTxCtx().Origin != sb.HolderAddr {
+		if senv.GetTxOrigin() != sb.HolderAddr {
 			return nil, gas, errors.New("holder address is not the same from transaction")
 		}
 		leftOverGas, err = s.UnDelegateHandler(senv, sb, gas)
@@ -143,7 +142,7 @@ func (s *Staking) StakingHandler(senv *setypes.ScriptEnv, payload []byte, to *me
 	case OP_GOVERNING:
 		log.Info("Staking handler "+GetOpName(sb.Opcode), "tx", senv.GetTxHash())
 		start := time.Now()
-		if senv.GetTxCtx().Origin.IsZero() == false {
+		if senv.GetTxOrigin().IsZero() == false {
 			return nil, gas, errors.New("not from kblock")
 		}
 		if to.String() != meter.StakingModuleAddr.String() {
@@ -152,13 +151,13 @@ func (s *Staking) StakingHandler(senv *setypes.ScriptEnv, payload []byte, to *me
 		leftOverGas, err = s.GoverningHandler(senv, sb, gas)
 		log.Info(GetOpName(sb.Opcode)+" Completed", "elapsed", meter.PrettyDuration(time.Since(start)))
 	case OP_CANDIDATE_UPDT:
-		if senv.GetTxCtx().Origin != sb.CandAddr {
+		if senv.GetTxOrigin() != sb.CandAddr {
 			return nil, gas, errors.New("candidate address is not the same from transaction")
 		}
 		leftOverGas, err = s.CandidateUpdateHandler(senv, sb, gas)
 
 	case OP_BUCKET_UPDT:
-		if senv.GetTxCtx().Origin != sb.HolderAddr {
+		if senv.GetTxOrigin() != sb.HolderAddr {
 			return nil, gas, errors.New("holder address is not the same from transaction")
 		}
 		leftOverGas, err = s.BucketUpdateHandler(senv, sb, gas)
@@ -166,7 +165,7 @@ func (s *Staking) StakingHandler(senv *setypes.ScriptEnv, payload []byte, to *me
 	case OP_DELEGATE_STATISTICS:
 		log.Info("Staking handler "+GetOpName(sb.Opcode), "tx", senv.GetTxHash())
 		start := time.Now()
-		if senv.GetTxCtx().Origin.IsZero() == false {
+		if senv.GetTxOrigin().IsZero() == false {
 			return nil, gas, errors.New("not from kblock")
 		}
 		if to.String() != meter.StakingModuleAddr.String() {
@@ -176,7 +175,7 @@ func (s *Staking) StakingHandler(senv *setypes.ScriptEnv, payload []byte, to *me
 		log.Info(GetOpName(sb.Opcode)+" Completed", "elapsed", meter.PrettyDuration(time.Since(start)))
 
 	case OP_DELEGATE_EXITJAIL:
-		if senv.GetTxCtx().Origin != sb.CandAddr {
+		if senv.GetTxOrigin() != sb.CandAddr {
 			return nil, gas, errors.New("candidate address is not the same from transaction")
 		}
 		leftOverGas, err = s.DelegateExitJailHandler(senv, sb, gas)
@@ -184,7 +183,7 @@ func (s *Staking) StakingHandler(senv *setypes.ScriptEnv, payload []byte, to *me
 	// this API is only for executor
 	case OP_FLUSH_ALL_STATISTICS:
 		executor := meter.BytesToAddress(builtin.Params.Native(senv.GetState()).Get(meter.KeyExecutorAddress).Bytes())
-		if senv.GetTxCtx().Origin != executor || sb.HolderAddr != executor {
+		if senv.GetTxOrigin() != executor || sb.HolderAddr != executor {
 			return nil, gas, errors.New("only executor can exec this API")
 		}
 		leftOverGas, err = s.DelegateStatFlushHandler(senv, sb, gas)
@@ -230,6 +229,7 @@ func (s *Staking) BoundHandler(env *setypes.ScriptEnv, sb *StakingBody, gas uint
 		return
 	}
 
+	number := env.GetBlockNum()
 	// check if candidate exists or not
 	setCand := !sb.CandAddr.IsZero()
 	if setCand {
@@ -239,7 +239,7 @@ func (s *Staking) BoundHandler(env *setypes.ScriptEnv, sb *StakingBody, gas uint
 			setCand = false
 		} else {
 			selfRatioValid := false
-			if meter.IsTestNet() || meter.IsMainNet() && env.GetTxCtx().BlockRef.Number() > meter.Tesla1_1MainnetStartNum {
+			if meter.IsTestNet() || meter.IsMainNet() && number > meter.Tesla1_1MainnetStartNum {
 				selfRatioValid = CheckCandEnoughSelfVotes(sb.Amount, c, bucketList, TESLA1_1_SELF_VOTE_RATIO)
 			} else {
 				selfRatioValid = CheckCandEnoughSelfVotes(sb.Amount, c, bucketList, TESLA1_0_SELF_VOTE_RATIO)
@@ -610,8 +610,9 @@ func (s *Staking) DelegateHandler(env *setypes.ScriptEnv, sb *StakingBody, gas u
 		return leftOverGas, errBucketNotFound
 	}
 
+	number := env.GetBlockNum()
 	selfRatioValid := false
-	if meter.IsTestNet() || (meter.IsMainNet() && env.GetTxCtx().BlockRef.Number() > meter.Tesla1_1MainnetStartNum) {
+	if meter.IsTestNet() || (meter.IsMainNet() && number > meter.Tesla1_1MainnetStartNum) {
 		selfRatioValid = CheckCandEnoughSelfVotes(b.TotalVotes, cand, bucketList, TESLA1_1_SELF_VOTE_RATIO)
 	} else {
 		selfRatioValid = CheckCandEnoughSelfVotes(b.TotalVotes, cand, bucketList, TESLA1_0_SELF_VOTE_RATIO)
@@ -750,7 +751,7 @@ func (s *Staking) GoverningHandler(env *setypes.ScriptEnv, sb *StakingBody, gas 
 
 	// start to calc next round delegates
 	ts := sb.Timestamp
-	number := env.GetTxCtx().BlockRef.Number()
+	number := env.GetBlockNum()
 	if meter.IsMainChainTeslaFork5(number) || meter.IsTestChainTeslaFork5(number) {
 		// ---------------------------------------
 		// AFTER TESLA FORK 5 : update bucket bonus and candidate total votes with full range re-calc
@@ -1031,7 +1032,7 @@ func (s *Staking) CandidateUpdateHandler(env *setypes.ScriptEnv, sb *StakingBody
 		return
 	}
 
-	number := env.GetTxCtx().BlockRef.Number()
+	number := env.GetBlockNum()
 	if meter.IsMainChainTeslaFork6(number) || meter.IsTestNet() {
 		// ---------------------------------------
 		// AFTER TESLA FORK 6 : candidate update can't use existing IP, name, or PubKey
@@ -1375,8 +1376,7 @@ func (s *Staking) BucketUpdateHandler(env *setypes.ScriptEnv, sb *StakingBody, g
 		return
 	}
 
-	number := env.GetTxCtx().BlockRef.Number()
-
+	number := env.GetBlockNum()
 	if meter.IsTestChainTeslaFork5(number) || meter.IsMainChainTeslaFork5(number) {
 		// ---------------------------------------
 		// AFTER TESLA FORK 5 : support bucket sub
@@ -1555,65 +1555,4 @@ func (s *Staking) BucketUpdateHandler(env *setypes.ScriptEnv, sb *StakingBody, g
 	state.SetBucketList(bucketList)
 	state.SetCandidateList(candidateList)
 	return
-}
-
-// api routine interface
-func GetLatestInJailList() (*meter.InJailList, error) {
-	staking := GetStakingGlobInst()
-	if staking == nil {
-		log.Warn("staking is not initialized...")
-		err := errors.New("staking is not initialized...")
-		return meter.NewInJailList(nil), err
-	}
-
-	best := staking.chain.BestBlock()
-	state, err := staking.stateCreator.NewState(best.Header().StateRoot())
-	if err != nil {
-		return meter.NewInJailList(nil), err
-	}
-
-	JailList := state.GetInJailList()
-	return JailList, nil
-}
-
-func GetLatestDelegateStatList() (*meter.DelegateStatList, error) {
-	staking := GetStakingGlobInst()
-	if staking == nil {
-		log.Warn("staking is not initialized...")
-		err := errors.New("staking is not initialized...")
-		return meter.NewDelegateStatList(nil), err
-	}
-
-	best := staking.chain.BestBlock()
-	state, err := staking.stateCreator.NewState(best.Header().StateRoot())
-	if err != nil {
-
-		return meter.NewDelegateStatList(nil), err
-	}
-
-	list := state.GetDelegateStatList()
-	return list, nil
-}
-
-// api routine interface
-func GetValidatorRewardListByHeader(header *block.Header) (*meter.ValidatorRewardList, error) {
-	staking := GetStakingGlobInst()
-	if staking == nil {
-		log.Warn("staking is not initialized...")
-		err := errors.New("staking is not initialized...")
-		return nil, err
-	}
-
-	h := header
-	if header == nil {
-		h = staking.chain.BestBlock().Header()
-	}
-	state, err := staking.stateCreator.NewState(h.StateRoot())
-	if err != nil {
-		return nil, err
-	}
-
-	list := state.GetValidatorRewardList()
-	// fmt.Println("delegateList from state", list.ToString())
-	return list, nil
 }

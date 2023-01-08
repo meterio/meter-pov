@@ -14,8 +14,9 @@ import (
 	"github.com/meterio/meter-pov/api/utils"
 	"github.com/meterio/meter-pov/chain"
 	"github.com/meterio/meter-pov/consensus"
+	"github.com/meterio/meter-pov/meter"
 	"github.com/meterio/meter-pov/powpool"
-	"github.com/meterio/meter-pov/script/staking"
+	"github.com/meterio/meter-pov/state"
 )
 
 type Probe struct {
@@ -24,12 +25,20 @@ type Probe struct {
 	Chain         *chain.Chain
 	Version       string
 	Network       Network
+	StateCreator  *state.Creator
 }
 
 func (p *Probe) HandleProbe(w http.ResponseWriter, r *http.Request) {
 	name := ""
 	pubkeyMatch := false
-	delegateList, _ := staking.GetInternalDelegateList()
+	best := p.Chain.BestBlock()
+	state, err := p.StateCreator.NewState(best.StateRoot())
+	var delegateList *meter.DelegateList
+	if err != nil {
+		delegateList = meter.NewDelegateList([]*meter.Delegate{})
+	} else {
+		delegateList = state.GetDelegateList()
+	}
 	ppool := powpool.GetGlobPowPoolInst()
 	pow := &PowProbe{Status: "", LatestHeight: 0, KFrameHeight: 0, PoolSize: 0}
 	if ppool != nil {
@@ -42,7 +51,7 @@ func (p *Probe) HandleProbe(w http.ResponseWriter, r *http.Request) {
 		pow.Status = "powpool is not ready"
 	}
 	inDelegateList := false
-	for _, d := range delegateList {
+	for _, d := range delegateList.Delegates {
 		registeredPK := string(d.PubKey)
 		trimedPK := strings.TrimSpace(registeredPK)
 		if strings.Compare(trimedPK, p.ComplexPubkey) == 0 {

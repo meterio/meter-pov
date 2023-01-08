@@ -3,7 +3,6 @@ package auction
 import (
 	"errors"
 
-	"github.com/meterio/meter-pov/block"
 	"github.com/meterio/meter-pov/meter"
 )
 
@@ -36,32 +35,6 @@ func GetAuctionSummaryList() (*meter.AuctionSummaryList, error) {
 
 	best := auction.chain.BestBlock()
 	state, err := auction.stateCreator.NewState(best.Header().StateRoot())
-	if err != nil {
-		return meter.NewAuctionSummaryList(nil), err
-	}
-
-	summaryList := state.GetSummaryList()
-	if summaryList == nil {
-		log.Error("no summaryList stored ...")
-		return meter.NewAuctionSummaryList(nil), nil
-	}
-	return summaryList, nil
-}
-
-// api routine interface
-func GetAuctionSummaryListByHeader(header *block.Header) (*meter.AuctionSummaryList, error) {
-	auction := GetAuctionGlobInst()
-	if auction == nil {
-		log.Error("auction is not initialized...")
-		err := errors.New("aution is not initialized...")
-		return meter.NewAuctionSummaryList(nil), err
-	}
-
-	h := header
-	if header == nil {
-		h = auction.chain.BestBlock().Header()
-	}
-	state, err := auction.stateCreator.NewState(h.StateRoot())
 	if err != nil {
 		return meter.NewAuctionSummaryList(nil), err
 	}

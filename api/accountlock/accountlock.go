@@ -6,44 +6,76 @@
 package accountlock
 
 import (
+	"math"
 	"net/http"
+	"strconv"
 
 	"github.com/gorilla/mux"
 	"github.com/meterio/meter-pov/api/utils"
+	"github.com/meterio/meter-pov/block"
+	"github.com/meterio/meter-pov/chain"
 	"github.com/meterio/meter-pov/meter"
-	"github.com/meterio/meter-pov/script/accountlock"
+	"github.com/meterio/meter-pov/state"
 	"github.com/pkg/errors"
 )
 
 type AccountLock struct {
+	chain        *chain.Chain
+	stateCreator *state.Creator
 }
 
-func New() *AccountLock {
-	return &AccountLock{}
+func New(chain *chain.Chain,
+	stateCreator *state.Creator) *AccountLock {
+	return &AccountLock{chain: chain, stateCreator: stateCreator}
 }
 
 func (a *AccountLock) handleGetAccountLockProfile(w http.ResponseWriter, req *http.Request) error {
-	list, err := accountlock.GetLatestProfileList()
+	h, err := a.handleRevision(req.URL.Query().Get("revision"))
 	if err != nil {
 		return err
 	}
+	state, err := a.stateCreator.NewState(h.StateRoot())
+	if err != nil {
+		return err
+	}
+	list := state.GetProfileList()
 	profileList := convertProfileList(list)
 	return utils.WriteJSON(w, profileList)
 }
 
-func (a *AccountLock) handleGetProfileByID(w http.ResponseWriter, req *http.Request) error {
-	list, err := accountlock.GetLatestProfileList()
-	if err != nil {
-		return err
+func (a *AccountLock) handleRevision(revision string) (*block.Header, error) {
+	if revision == "" || revision == "best" {
+		return a.chain.BestBlock().Header(), nil
 	}
-	id := mux.Vars(req)["address"]
-	bytes, err := meter.ParseAddress(id)
-	if err != nil {
-		return utils.BadRequest(errors.WithMessage(err, "address"))
+	if len(revision) == 66 || len(revision) == 64 {
+		blockID, err := meter.ParseBytes32(revision)
+		if err != nil {
+			return nil, utils.BadRequest(errors.WithMessage(err, "revision"))
+		}
+		h, err := a.chain.GetBlockHeader(blockID)
+		if err != nil {
+			if a.chain.IsNotFound(err) {
+				return nil, utils.BadRequest(errors.WithMessage(err, "revision"))
+			}
+			return nil, err
+		}
+		return h, nil
 	}
-	s := list.Get(bytes)
-	profile := convertProfile(s)
-	return utils.WriteJSON(w, profile)
+	n, err := strconv.ParseUint(revision, 0, 0)
+	if err != nil {
+		return nil, utils.BadRequest(errors.WithMessage(err, "revision"))
+	}
+	if n > math.MaxUint32 {
+		return nil, utils.BadRequest(errors.WithMessage(errors.New("block number out of max uint32"), "revision"))
+	}
+	h, err := a.chain.GetTrunkBlockHeader(uint32(n))
+	if err != nil {
+		if a.chain.IsNotFound(err) {
+			return nil, utils.BadRequest(errors.WithMessage(err, "revision"))
+		}
+		return nil, err
+	}
+	return h, nil
 }
 
 func (a *AccountLock) Mount(root *mux.Router, pathPrefix string) {
