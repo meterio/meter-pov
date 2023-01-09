@@ -239,7 +239,7 @@ func (s *Staking) BoundHandler(env *setypes.ScriptEnv, sb *StakingBody, gas uint
 			setCand = false
 		} else {
 			selfRatioValid := false
-			if meter.IsTestNet() || meter.IsMainNet() && number > meter.Tesla1_1MainnetStartNum {
+			if meter.IsTeslaFork1(number) {
 				selfRatioValid = CheckCandEnoughSelfVotes(sb.Amount, c, bucketList, TESLA1_1_SELF_VOTE_RATIO)
 			} else {
 				selfRatioValid = CheckCandEnoughSelfVotes(sb.Amount, c, bucketList, TESLA1_0_SELF_VOTE_RATIO)
@@ -612,7 +612,7 @@ func (s *Staking) DelegateHandler(env *setypes.ScriptEnv, sb *StakingBody, gas u
 
 	number := env.GetBlockNum()
 	selfRatioValid := false
-	if meter.IsTestNet() || (meter.IsMainNet() && number > meter.Tesla1_1MainnetStartNum) {
+	if meter.IsTeslaFork1(number) {
 		selfRatioValid = CheckCandEnoughSelfVotes(b.TotalVotes, cand, bucketList, TESLA1_1_SELF_VOTE_RATIO)
 	} else {
 		selfRatioValid = CheckCandEnoughSelfVotes(b.TotalVotes, cand, bucketList, TESLA1_0_SELF_VOTE_RATIO)
@@ -752,7 +752,7 @@ func (s *Staking) GoverningHandler(env *setypes.ScriptEnv, sb *StakingBody, gas 
 	// start to calc next round delegates
 	ts := sb.Timestamp
 	number := env.GetBlockNum()
-	if meter.IsMainChainTeslaFork5(number) || meter.IsTestChainTeslaFork5(number) {
+	if meter.IsTeslaFork5(number) {
 		// ---------------------------------------
 		// AFTER TESLA FORK 5 : update bucket bonus and candidate total votes with full range re-calc
 		// ---------------------------------------
@@ -1033,7 +1033,7 @@ func (s *Staking) CandidateUpdateHandler(env *setypes.ScriptEnv, sb *StakingBody
 	}
 
 	number := env.GetBlockNum()
-	if meter.IsMainChainTeslaFork6(number) || meter.IsTestNet() {
+	if meter.IsTeslaFork6(number) {
 		// ---------------------------------------
 		// AFTER TESLA FORK 6 : candidate update can't use existing IP, name, or PubKey
 		// ---------------------------------------
@@ -1067,7 +1067,7 @@ func (s *Staking) CandidateUpdateHandler(env *setypes.ScriptEnv, sb *StakingBody
 	}
 
 	if in := inJailList.Exist(sb.CandAddr); in == true {
-		if meter.IsMainChainTeslaFork5(number) || meter.IsTestChainTeslaFork5(number) {
+		if meter.IsTeslaFork5(number) {
 			// ---------------------------------------
 			// AFTER TESLA FORK 5 : candidate in jail allowed to be updated
 			// ---------------------------------------
@@ -1160,7 +1160,7 @@ func (s *Staking) CandidateUpdateHandler(env *setypes.ScriptEnv, sb *StakingBody
 		return
 	}
 
-	if meter.IsMainChainTeslaFork5(number) || meter.IsTestChainTeslaFork5(number) {
+	if meter.IsTeslaFork5(number) {
 		// ---------------------------------------
 		// AFTER TESLA FORK 5 : candidate in jail allowed to be updated, and injail list is saved
 		// ---------------------------------------
@@ -1377,7 +1377,7 @@ func (s *Staking) BucketUpdateHandler(env *setypes.ScriptEnv, sb *StakingBody, g
 	}
 
 	number := env.GetBlockNum()
-	if meter.IsTestChainTeslaFork5(number) || meter.IsMainChainTeslaFork5(number) {
+	if meter.IsTeslaFork5(number) {
 		// ---------------------------------------
 		// AFTER TESLA FORK 5 : support bucket sub
 		// ---------------------------------------
@@ -1419,7 +1419,7 @@ func (s *Staking) BucketUpdateHandler(env *setypes.ScriptEnv, sb *StakingBody, g
 			// update old bucket
 			bucket.BonusVotes = 0
 			bucket.Value.Sub(bucket.Value, sb.Amount)
-			if (meter.IsMainNet() && !meter.IsMainChainTeslaFork6(number)) || (meter.IsTestNet() && !meter.IsTestChainTeslaFork6(number)) {
+			if !meter.IsTeslaFork6(number) {
 				bucket.Value.Sub(bucket.Value, bonusDelta)
 			}
 			bucket.TotalVotes.Sub(bucket.TotalVotes, sb.Amount)
@@ -1506,7 +1506,7 @@ func (s *Staking) BucketUpdateHandler(env *setypes.ScriptEnv, sb *StakingBody, g
 	// ---------------------------------------
 	// BEFORE TESLA FORK 5 : Only support bucket add
 	// ---------------------------------------
-	if meter.IsTestNet() || (meter.IsMainNet() && number > meter.Tesla1_1MainnetStartNum) {
+	if meter.IsTeslaFork1(number) {
 		// Now allow to change forever lock amount
 		if bucket.Unbounded == true {
 			log.Error(fmt.Sprintf("can not update unbounded bucket, ID %v", sb.StakingID))

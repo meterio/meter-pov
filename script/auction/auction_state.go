@@ -105,7 +105,7 @@ func (a *Auction) ClearAuction(cb *meter.AuctionCB, state *state.State, env *set
 	blockNum := env.GetTxCtx().BlockRef.Number()
 	total := big.NewInt(0)
 	distMtrg := []*meter.DistMtrg{}
-	if meter.IsTestChainTeslaFork3(blockNum) || meter.IsMainChainTeslaFork3(blockNum) {
+	if meter.IsTeslaFork3(blockNum) {
 
 		groupTxMap := make(map[meter.Address]*big.Int)
 		sortedAddresses := make([]meter.Address, 0)

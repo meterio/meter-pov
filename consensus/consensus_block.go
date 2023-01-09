@@ -1057,7 +1057,7 @@ func (conR *ConsensusReactor) buildRewardTxs(parentBlock *block.Block, rewards [
 	lastKBlockHeight := parentBlock.LastKBlockHeight()
 
 	// edison not support the staking/auciton/slashing
-	if meter.IsMainChainTesla(parentBlock.Number()) == true || meter.IsTestNet() {
+	if meter.IsTesla(parentBlock.Number()) {
 		stats, err := reward.ComputeStatistics(lastKBlockHeight, parentBlock.Number(), conR.chain, conR.curCommittee, conR.curActualCommittee, conR.csCommon, conR.csPacemaker.calcStatsTx, uint32(conR.curEpoch))
 		if err != nil {
 			// TODO: do something about this
@@ -1091,7 +1091,7 @@ func (conR *ConsensusReactor) buildRewardTxs(parentBlock *block.Block, rewards [
 				epochTotalReward = big.NewInt(0)
 			}
 			var rewardMap reward.RewardMap
-			if meter.IsMainChainTeslaFork2(parentBlock.Number()) == true || meter.IsTestChainTeslaFork2(parentBlock.Number()) == true {
+			if meter.IsTeslaFork2(parentBlock.Number()) {
 				fmt.Println("Compute reward map V3")
 				rewardMap, err = reward.ComputeRewardMapV3(epochBaseReward, epochTotalReward, conR.curDelegates.Delegates, conR.curCommittee.Validators)
 			} else {

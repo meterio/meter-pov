@@ -301,7 +301,7 @@ func (t *Transaction) EthTxValidate() (bool, error) {
 // It returns zero Bytes32 if signer not available.
 func (t *Transaction) ID() (id meter.Bytes32) {
 	if t.IsEthTx() {
-		if meter.IsMainChainTesla(t.BlockRef().Number()) || meter.IsTestNet() {
+		if meter.IsTesla(t.BlockRef().Number()) {
 			ethTx, err := t.GetEthTx()
 			if err != nil {
 				return meter.Bytes32{}

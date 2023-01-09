@@ -137,7 +137,7 @@ var (
 	// 0x00000000000000342d73797374656d2d636f6e74726163742d61646472657373
 	KeySystemContractAddress4 = BytesToBytes32([]byte("4-system-contract-address"))
 
-	KeyEnforceTesla1_1Correction = BytesToBytes32([]byte("Tesla1_1Correction-Flag")) // unset or 0 is not do yet, 1 is done
+	KeyEnforceTesla1_Correction = BytesToBytes32([]byte("Tesla1_1Correction-Flag")) // unset or 0 is not do yet, 1 is done
 
 	KeyEnforceTesla5_Correction = BytesToBytes32([]byte("Tesla5_Correction-Flag")) // unset or 0 is not do yet, 1 is done
 

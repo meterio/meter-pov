@@ -24,7 +24,7 @@ func EnterTeslaForkInit() {
 	se.logger.Info("enabled script tesla modules ... ")
 }
 
-func EnforceTeslaFork1_1Corrections(state *state.State, ts uint64) {
+func EnforceTeslaFork1_Corrections(state *state.State, ts uint64) {
 	se := GetScriptGlobInst()
 	if se == nil {
 		panic("get script engine failed ... ")
@@ -52,7 +52,7 @@ func EnforceTeslaFork1_1Corrections(state *state.State, ts uint64) {
 
 		stk.DoTeslaFork1_Correction(c.BucketID, c.Addr, c.MeterGovAmount, state, ts)
 	}
-	fmt.Println("EnforceTeslaFork1_1Corrections done...")
+	fmt.Println("EnforceTeslaFork1_Corrections done...")
 }
 
 var TeslaFork_1_1_Correction [][3]string = [][3]string{

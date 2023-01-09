@@ -159,26 +159,26 @@ func ScriptEngineCheck(d []byte) bool {
 }
 
 func (rt *Runtime) LoadERC20NativeCotract() {
-	blockNumber := rt.Context().Number
+	blockNum := rt.Context().Number
 	addr := builtin.MeterTracker.Address
 	execAddr := builtin.Executor.Address
-	if blockNumber >= meter.SysContractStartNum && len(rt.State().GetCode(addr)) == 0 {
+	if meter.IsSysContractEnabled(blockNum) && len(rt.State().GetCode(addr)) == 0 {
 		rt.State().SetCode(addr, gen.Compiled2NewmeternativeBinRuntime)
 		rt.State().SetCode(execAddr, []byte{})
 	}
 }
 
-func (rt *Runtime) EnforceTelsaFork1_1Corrections() {
+func (rt *Runtime) EnforceTelsaFork1_Corrections() {
 	blockNumber := rt.Context().Number
 	if blockNumber > 0 && meter.IsMainNet() {
 		// flag is nil or 0, is not do. 1 meas done.
-		enforceFlag := builtin.Params.Native(rt.State()).Get(meter.KeyEnforceTesla1_1Correction)
+		enforceFlag := builtin.Params.Native(rt.State()).Get(meter.KeyEnforceTesla1_Correction)
 
-		if blockNumber > meter.Tesla1_1MainnetStartNum && (enforceFlag == nil || enforceFlag.Sign() == 0) {
+		if meter.IsTeslaFork1(blockNumber) && (enforceFlag == nil || enforceFlag.Sign() == 0) {
 			// Tesla 1.1 Fork
 			fmt.Println("Start to correct Tesla 1.0 Error Buckets")
-			script.EnforceTeslaFork1_1Corrections(rt.State(), rt.Context().Time)
-			builtin.Params.Native(rt.State()).Set(meter.KeyEnforceTesla1_1Correction, big.NewInt(1))
+			script.EnforceTeslaFork1_Corrections(rt.State(), rt.Context().Time)
+			builtin.Params.Native(rt.State()).Set(meter.KeyEnforceTesla1_Correction, big.NewInt(1))
 		}
 	}
 }
@@ -189,7 +189,7 @@ func (rt *Runtime) EnforceTeslaFork5_Corrections() {
 		// flag is nil or 0, is not do. 1 meas done.
 		enforceFlag := builtin.Params.Native(rt.State()).Get(meter.KeyEnforceTesla5_Correction)
 
-		if blockNumber > meter.TeslaFork5_MainnetStartNum && (enforceFlag == nil || enforceFlag.Sign() == 0) {
+		if meter.IsTeslaFork5(blockNumber) && (enforceFlag == nil || enforceFlag.Sign() == 0) {
 			// Tesla 5 Fork
 			fmt.Println("Start to override MTRG V1 with V2 bytecode")
 			mtrgV1Addr := meter.MustParseAddress("0x228ebBeE999c6a7ad74A6130E81b12f9Fe237Ba3")
@@ -269,7 +269,7 @@ func (rt *Runtime) restrictTransfer(stateDB *statedb.StateDB, addr meter.Address
 		return false
 	}
 
-	if meter.IsTestNet() || (meter.IsMainNet() && blockNum > meter.Tesla1_1MainnetStartNum) {
+	if meter.IsTeslaFork1(blockNum) {
 		// Tesla 1.1 Fork
 		// only take care meterGov, basic sanity
 		balance := stateDB.GetBalance(common.Address(addr))
@@ -362,13 +362,14 @@ func (rt *Runtime) newEVM(stateDB *statedb.StateDB, clauseIndex uint32, txCtx *x
 		NewContractAddress: func(caller common.Address, counter uint32) common.Address {
 			log.Info("create new contract address", "origin", txCtx.Origin.String(), "caller", caller.String(), "clauseIndex", clauseIndex, "counter", counter, "nonce", txCtx.Nonce)
 			var addr common.Address
-			if meter.IsMainChainTesla(txCtx.BlockRef.Number()) || meter.IsTestNet() {
-				if meter.IsMainChainTeslaFork3(txCtx.BlockRef.Number()) || meter.IsTestChainTeslaFork3(txCtx.BlockRef.Number()) {
+			number := rt.ctx.Number
+			if meter.IsTesla(number) {
+				if meter.IsTeslaFork3(number) {
 					if stateDB.GetCodeHash(caller) == (common.Hash{}) || stateDB.GetCodeHash(caller) == vm.EmptyCodeHash {
 						fmt.Println("Condition A: after Tesla fork3, caller is contract, eth compatible")
 						addr = common.Address(meter.EthCreateContractAddress(caller, uint32(txCtx.Nonce)+clauseIndex))
 					} else {
-						if meter.IsMainChainTeslaFork4(txCtx.BlockRef.Number()) || meter.IsTestChainTeslaFork4(txCtx.BlockRef.Number()) {
+						if meter.IsTeslaFork4(number) {
 							fmt.Println("Condition B1: after Tesla fork4, caller is external, meter specific")
 							addr = common.Address(meter.CreateContractAddress(txCtx.ID, clauseIndex, counter))
 						} else {
@@ -437,7 +438,7 @@ func (rt *Runtime) newEVM(stateDB *statedb.StateDB, clauseIndex uint32, txCtx *x
 			// fmt.Println("before contract.Gas", contract.Gas, "lastNonNativeCallGas", lastNonNativeCallGas)
 			// here we return call gas and extcodeSize gas for native calls, to make
 			// builtin contract cheap.
-			if meter.IsMainChainTeslaFork6(txCtx.BlockRef.Number()) || meter.IsTestChainTeslaFork6(txCtx.BlockRef.Number()) {
+			if meter.IsTeslaFork6(rt.ctx.Number) {
 				contract.Gas += nativeCallReturnGasAfterFork6
 			} else {
 				contract.Gas += nativeCallReturnGas
@@ -595,7 +596,7 @@ func (rt *Runtime) PrepareClause(
 		rt.LoadERC20NativeCotract()
 
 		// tesla fork1 correction
-		rt.EnforceTelsaFork1_1Corrections()
+		rt.EnforceTelsaFork1_Corrections()
 
 		// tesla fork5 correction
 		rt.EnforceTeslaFork5_Corrections()
@@ -604,7 +605,7 @@ func (rt *Runtime) PrepareClause(
 		rt.EnforceTeslaFork6_Corrections()
 
 		// check the restriction of transfer.
-		if rt.restrictTransfer(stateDB, txCtx.Origin, clause.Value(), clause.Token(), txCtx.BlockRef.Number()) == true {
+		if rt.restrictTransfer(stateDB, txCtx.Origin, clause.Value(), clause.Token(), rt.ctx.Number) == true {
 			var leftOverGas uint64
 			if gas > meter.ClauseGas {
 				leftOverGas = gas - meter.ClauseGas

@@ -278,7 +278,7 @@ func buildJSONEmbeddedTxs(txs tx.Transactions, receipts tx.Receipts) []*JSONEmbe
 			})
 			if !receipt.Reverted {
 				contractAddr := meter.Address{}
-				if meter.IsMainChainTesla(blockRef.Number()) || meter.IsTestNet() {
+				if meter.IsTesla(blockRef.Number()) {
 					contractAddr = meter.Address(meter.EthCreateContractAddress(common.Address(origin), uint32(i)+uint32(nonce)))
 				} else {
 					contractAddr = meter.CreateContractAddress(txID, uint32(i), 0)

@@ -28,6 +28,8 @@ type State struct {
 	sm       *stackedmap.StackedMap          // keeps revisions of accounts state
 	err      error
 	setError func(err error)
+
+	seCache *SECache
 }
 
 // to constrain ability of trie
@@ -53,6 +55,8 @@ func New(root meter.Bytes32, kv kv.GetPutter) (*State, error) {
 		kv:    kv,
 		trie:  trie,
 		cache: make(map[meter.Address]*cachedObject),
+
+		seCache: NewSECache(),
 	}
 	state.setError = func(err error) {
 		if state.err == nil {

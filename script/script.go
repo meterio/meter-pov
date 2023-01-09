@@ -52,7 +52,7 @@ func NewScriptEngine(chain *chain.Chain, state *state.Creator) *ScriptEngine {
 }
 
 func (se *ScriptEngine) StartAllModules() {
-	if meter.IsMainChainTesla(se.chain.BestBlock().Number()) || meter.IsTestNet() {
+	if meter.IsTesla(se.chain.BestBlock().Number()) {
 		// start module staking
 		ModuleStakingInit(se)
 

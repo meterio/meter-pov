@@ -112,7 +112,7 @@ func TestScriptDataForStop(t *testing.T) {
 }
 
 func TestLargeRlpDecode(t *testing.T) {
-	cb := auction.AuctionCB{
+	cb := meter.AuctionCB{
 		AuctionID:   meter.BytesToBytes32([]byte("name")),
 		StartHeight: 1234,
 		StartEpoch:  1,
@@ -126,13 +126,13 @@ func TestLargeRlpDecode(t *testing.T) {
 
 		//changed fields after auction start
 		RcvdMTR:    big.NewInt(0),
-		AuctionTxs: make([]*auction.AuctionTx, 0),
+		AuctionTxs: make([]*meter.AuctionTx, 0),
 	}
 	for i := 1; i < 24; i++ {
 		length := len(cb.AuctionTxs)
 		for j := 1; j < 660; j++ {
 			seq := length + j
-			tx := &auction.AuctionTx{
+			tx := &meter.AuctionTx{
 				TxID:      meter.BytesToBytes32([]byte("test-" + strconv.Itoa(seq))),
 				Address:   meter.BytesToAddress([]byte("address-" + strconv.Itoa(seq))),
 				Amount:    big.NewInt(1234),
@@ -152,7 +152,7 @@ func TestLargeRlpDecode(t *testing.T) {
 		encodeElapse := meter.PrettyDuration(time.Since(start))
 
 		start = time.Now()
-		val := &auction.AuctionCB{}
+		val := &meter.AuctionCB{}
 		err = rlp.DecodeBytes(b, val)
 		if err != nil {
 			fmt.Println("rlp decode error: ", err)
