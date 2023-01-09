@@ -1007,7 +1007,7 @@ func (c *Chain) UpdateBestQC(qc *block.QuorumCert, source QCSource) (bool, error
 	// fmt.Println("blk.QC", blk.QC)
 	// fmt.Println("blk.QC.QCHeight: ", blk.QC.QCHeight)
 	if c.bestQC == nil || blk.QC.QCHeight > c.bestQC.QCHeight {
-		log.Info("Update bestQC from bestBlock descendant", "from", c.bestQC.CompactString(), "to", blk.QC.CompactString())
+		log.Debug("Update bestQC from bestBlock descendant", "from", c.bestQC.CompactString(), "to", blk.QC.CompactString())
 		c.bestQC = blk.QC
 		return true, saveBestQC(c.kv, c.bestQC)
 	}
