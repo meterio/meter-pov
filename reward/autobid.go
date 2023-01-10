@@ -18,14 +18,14 @@ const (
 	MaxNAutobidTx = meter.MaxNClausePerAutobidTx * 10
 )
 
-func BuildAutobidTxs(autobidList []*RewardInfo, chainTag byte, bestNum uint32) tx.Transactions {
+func BuildAutobidTxs(autobidList []*meter.RewardInfo, chainTag byte, bestNum uint32) tx.Transactions {
 	txs := tx.Transactions{}
 
 	if len(autobidList) <= 0 {
 		return nil
 	}
 
-	listRemainning := []*RewardInfo{}
+	listRemainning := []*meter.RewardInfo{}
 	if len(autobidList) >= MaxNAutobidTx {
 		listRemainning = autobidList[:MaxNAutobidTx]
 	} else {
@@ -51,7 +51,7 @@ func BuildAutobidTxs(autobidList []*RewardInfo, chainTag byte, bestNum uint32) t
 	return txs
 }
 
-func BuildAutobidTx(autobidList []*RewardInfo, chainTag byte, bestNum uint32) *tx.Transaction {
+func BuildAutobidTx(autobidList []*meter.RewardInfo, chainTag byte, bestNum uint32) *tx.Transaction {
 	if len(autobidList) > meter.MaxNClausePerAutobidTx {
 		autobidList = autobidList[:meter.MaxNClausePerAutobidTx-1]
 	}
@@ -84,7 +84,7 @@ func BuildAutobidTx(autobidList []*RewardInfo, chainTag byte, bestNum uint32) *t
 	return builder.Build()
 }
 
-func BuildAutobidData(autobid *RewardInfo) (ret []byte) {
+func BuildAutobidData(autobid *meter.RewardInfo) (ret []byte) {
 	ret = []byte{}
 
 	body := &auction.AuctionBody{

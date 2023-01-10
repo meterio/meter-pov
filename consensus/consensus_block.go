@@ -1100,31 +1100,40 @@ func (conR *ConsensusReactor) buildRewardTxs(parentBlock *block.Block, rewards [
 			}
 
 			if err == nil && len(rewardMap) > 0 {
-				distList := rewardMap.GetDistList()
-				// fmt.Println("**** Distribute List")
-				// for _, d := range distList {
-				// 	fmt.Println(d.String())
-				// }
-				// fmt.Println("-------------------------")
+				if meter.IsTeslaFork6(parentBlock.Number()) {
+					_, _, rewardV2List := rewardMap.ToList()
+					governingV2Tx := reward.BuildStakingGoverningV2Tx(rewardV2List, uint32(conR.curEpoch), chainTag, bestNum)
+					if governingV2Tx != nil {
+						conR.logger.Info("Built governing V2 tx: ", "hash", governingV2Tx.ID().String(), "clauses-size", len(governingV2Tx.Clauses()))
+						txs = append(txs, governingV2Tx)
+					}
+				} else {
+					distList := rewardMap.GetDistList()
+					// fmt.Println("**** Distribute List")
+					// for _, d := range distList {
+					// 	fmt.Println(d.String())
+					// }
+					// fmt.Println("-------------------------")
 
-				governingTx := reward.BuildStakingGoverningTx(distList, uint32(conR.curEpoch), chainTag, bestNum)
-				if governingTx != nil {
-					conR.logger.Info("Built governing tx: ", "hash", governingTx.ID().String(), "clauses-size", len(governingTx.Clauses()))
-					txs = append(txs, governingTx)
-				}
+					governingTx := reward.BuildStakingGoverningTx(distList, uint32(conR.curEpoch), chainTag, bestNum)
+					if governingTx != nil {
+						conR.logger.Info("Built governing tx: ", "hash", governingTx.ID().String(), "clauses-size", len(governingTx.Clauses()))
+						txs = append(txs, governingTx)
+					}
 
-				autobidList := rewardMap.GetAutobidList()
-				// fmt.Println("**** Autobid List")
-				// for _, a := range autobidList {
-				// 	fmt.Println(a.String())
-				// }
-				// fmt.Println("-------------------------")
+					autobidList := rewardMap.GetAutobidList()
+					// fmt.Println("**** Autobid List")
+					// for _, a := range autobidList {
+					// 	fmt.Println(a.String())
+					// }
+					// fmt.Println("-------------------------")
 
-				autobidTxs := reward.BuildAutobidTxs(autobidList, chainTag, bestNum)
-				if len(autobidTxs) > 0 {
-					txs = append(txs, autobidTxs...)
-					for _, tx := range autobidTxs {
-						conR.logger.Info("Built autobid tx: ", "hash", tx.ID().String(), "clauses-size", len(tx.Clauses()))
+					autobidTxs := reward.BuildAutobidTxs(autobidList, chainTag, bestNum)
+					if len(autobidTxs) > 0 {
+						txs = append(txs, autobidTxs...)
+						for _, tx := range autobidTxs {
+							conR.logger.Info("Built autobid tx: ", "hash", tx.ID().String(), "clauses-size", len(tx.Clauses()))
+						}
 					}
 				}
 			} else {
