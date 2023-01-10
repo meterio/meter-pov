@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"math/big"
 	"strings"
-	"time"
 
 	"github.com/ethereum/go-ethereum/rlp"
 )
@@ -52,17 +51,13 @@ func (cb *AuctionCB) ID() (hash Bytes32) {
 }
 
 func (cb *AuctionCB) AddAuctionTx(tx *AuctionTx) error {
-	stub := time.Now()
 	if cb.Get(tx.TxID) != nil {
 		return errors.New("tx already exist")
 	}
-	log.Info("Get completed", "elapsed", PrettyDuration(time.Since(stub)))
 
 	cb.RcvdMTR = cb.RcvdMTR.Add(cb.RcvdMTR, tx.Amount)
 
-	stub = time.Now()
 	cb.Add(tx)
-	log.Info("Add completed", "elapsed", PrettyDuration(time.Since(stub)))
 	return nil
 }
 

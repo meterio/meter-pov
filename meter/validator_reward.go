@@ -22,7 +22,7 @@ type RewardInfo struct {
 	Amount  *big.Int
 }
 
-func (sb *RewardInfo) UniteHash() (hash Bytes32) {
+func (ri *RewardInfo) UniteHash() (hash Bytes32) {
 	//if cached := c.cache.signingHash.Load(); cached != nil {
 	//	return cached.(Bytes32)
 	//}
@@ -30,8 +30,8 @@ func (sb *RewardInfo) UniteHash() (hash Bytes32) {
 
 	hw := NewBlake2b()
 	err := rlp.Encode(hw, []interface{}{
-		sb.Address,
-		sb.Amount,
+		ri.Address,
+		ri.Amount,
 	})
 	if err != nil {
 		return
@@ -51,6 +51,16 @@ func (ri *RewardInfo) ToString() string {
 	Amount=%v
 }`,
 		ri.Address, ri.Amount)
+}
+
+type RewardInfoV2 struct {
+	Address       Address
+	DistAmount    *big.Int
+	AutobidAmount *big.Int
+}
+
+func (r *RewardInfoV2) String() string {
+	return fmt.Sprintf("Reward: %v Dist: %v, Autobid: %v", r.Address.String(), r.DistAmount.Uint64(), r.AutobidAmount.Uint64())
 }
 
 type ValidatorReward struct {
