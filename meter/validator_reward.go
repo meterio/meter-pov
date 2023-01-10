@@ -46,10 +46,7 @@ func (ri *RewardInfo) String() string {
 }
 
 func (ri *RewardInfo) ToString() string {
-	return fmt.Sprintf(`RewardInfo {
-	Address=%v,
-	Amount=%v
-}`,
+	return fmt.Sprintf(`RewardInfo{ Address=%v, Amount=%v }`,
 		ri.Address, ri.Amount)
 }
 

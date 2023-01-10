@@ -116,7 +116,7 @@ func (a *Auction) StartAuctionCB(env *setypes.ScriptEnv, ab *AuctionBody, gas ui
 		leftOverGas = gas - meter.ClauseGas
 	}
 
-	if auctionCB.IsActive() == true {
+	if auctionCB.IsActive() {
 		log.Info("an auction is still active, stop first", "acution id", auctionCB.AuctionID)
 		err = errNotStop
 		return
@@ -170,7 +170,7 @@ func (a *Auction) CloseAuctionCB(env *setypes.ScriptEnv, ab *AuctionBody, gas ui
 		leftOverGas = gas - meter.ClauseGas
 	}
 
-	if auctionCB.IsActive() == false {
+	if !auctionCB.IsActive() {
 		log.Info("HandleAuctionTx: auction not start")
 		err = errNotStart
 		return
@@ -216,6 +216,12 @@ func (a *Auction) CloseAuctionCB(env *setypes.ScriptEnv, ab *AuctionBody, gas ui
 		summaries = append(summaryList.Summaries, summary)
 	}
 
+	number := env.GetBlockNum()
+	if meter.IsTeslaFork6(number) {
+		for i := 0; i < len(summaryList.Summaries)-1; i++ {
+			summaryList.Summaries[i].AuctionTxs = make([]*meter.AuctionTx, 0)
+		}
+	}
 	summaryList = meter.NewAuctionSummaryList(summaries)
 	auctionCB = &meter.AuctionCB{}
 	log.Info("append summary completed", "elapsed", meter.PrettyDuration(time.Since(stub)))
