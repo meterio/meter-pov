@@ -8,10 +8,17 @@ package types
 import (
 	"math/big"
 
+	"github.com/inconshreveable/log15"
 	"github.com/meterio/meter-pov/meter"
 	"github.com/meterio/meter-pov/state"
 	"github.com/meterio/meter-pov/tx"
 	"github.com/meterio/meter-pov/xenv"
+)
+
+var (
+	log             = log15.New("pkg", "staking")
+	boundEvent, _   = ScriptEngine.ABI.EventByName("Bound")
+	unboundEvent, _ = ScriptEngine.Events().EventByName("Unbound")
 )
 
 type ScriptEnv struct {

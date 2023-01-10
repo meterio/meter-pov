@@ -3,7 +3,7 @@
 // Distributed under the GNU Lesser General Public License v3.0 software license, see the accompanying
 // file LICENSE or <https://www.gnu.org/licenses/lgpl-3.0.html>
 
-package staking
+package types
 
 import (
 	"errors"
@@ -11,16 +11,14 @@ import (
 	"math/big"
 
 	"github.com/meterio/meter-pov/meter"
-	setypes "github.com/meterio/meter-pov/script/types"
-	"github.com/meterio/meter-pov/state"
 )
 
 // ==================== bound/unbound account ===========================
-func (s *Staking) BoundAccountMeter(addr meter.Address, amount *big.Int, state *state.State, env *setypes.ScriptEnv) error {
+func (env *ScriptEnv) BoundAccountMeter(addr meter.Address, amount *big.Int) error {
 	if amount.Sign() == 0 {
 		return nil
 	}
-
+	state := env.GetState()
 	meterBalance := state.GetEnergy(addr)
 	meterBoundedBalance := state.GetBoundedEnergy(addr)
 
@@ -46,11 +44,11 @@ func (s *Staking) BoundAccountMeter(addr meter.Address, amount *big.Int, state *
 	return nil
 }
 
-func (s *Staking) UnboundAccountMeter(addr meter.Address, amount *big.Int, state *state.State, env *setypes.ScriptEnv) error {
+func (env *ScriptEnv) UnboundAccountMeter(addr meter.Address, amount *big.Int) error {
 	if amount.Sign() == 0 {
 		return nil
 	}
-
+	state := env.GetState()
 	meterBalance := state.GetEnergy(addr)
 	meterBoundedBalance := state.GetBoundedEnergy(addr)
 
@@ -80,11 +78,11 @@ func (s *Staking) UnboundAccountMeter(addr meter.Address, amount *big.Int, state
 }
 
 // bound a meter gov in an account -- move amount from balance to bounded balance
-func (s *Staking) BoundAccountMeterGov(addr meter.Address, amount *big.Int, state *state.State, env *setypes.ScriptEnv) error {
+func (env *ScriptEnv) BoundAccountMeterGov(addr meter.Address, amount *big.Int) error {
 	if amount.Sign() == 0 {
 		return nil
 	}
-
+	state := env.GetState()
 	meterGov := state.GetBalance(addr)
 	meterGovBounded := state.GetBoundedBalance(addr)
 
@@ -111,10 +109,11 @@ func (s *Staking) BoundAccountMeterGov(addr meter.Address, amount *big.Int, stat
 }
 
 // unbound a meter gov in an account -- move amount from bounded balance to balance
-func (s *Staking) UnboundAccountMeterGov(addr meter.Address, amount *big.Int, state *state.State, env *setypes.ScriptEnv) error {
+func (env *ScriptEnv) UnboundAccountMeterGov(addr meter.Address, amount *big.Int) error {
 	if amount.Sign() == 0 {
 		return nil
 	}
+	state := env.GetState()
 
 	meterGov := state.GetBalance(addr)
 	meterGovBounded := state.GetBoundedBalance(addr)
@@ -144,11 +143,12 @@ func (s *Staking) UnboundAccountMeterGov(addr meter.Address, amount *big.Int, st
 }
 
 // collect bail to StakingModuleAddr. addr ==> StakingModuleAddr
-func (s *Staking) CollectBailMeterGov(addr meter.Address, amount *big.Int, state *state.State, env *setypes.ScriptEnv) error {
+func (env *ScriptEnv) CollectBailMeterGov(addr meter.Address, amount *big.Int) error {
 	if amount.Sign() == 0 {
 		return nil
 	}
 
+	state := env.GetState()
 	meterGov := state.GetBalance(addr)
 	if meterGov.Cmp(amount) < 0 {
 		log.Error("not enough bounded meter-gov balance", "account", addr)
@@ -162,11 +162,12 @@ func (s *Staking) CollectBailMeterGov(addr meter.Address, amount *big.Int, state
 }
 
 // m meter.ValidatorBenefitAddr ==> addr
-func (s *Staking) TransferValidatorReward(amount *big.Int, addr meter.Address, state *state.State, env *setypes.ScriptEnv) error {
+func (env *ScriptEnv) TransferValidatorReward(amount *big.Int, addr meter.Address) error {
 	if amount.Sign() == 0 {
 		return nil
 	}
 
+	state := env.GetState()
 	meterBalance := state.GetEnergy(meter.ValidatorBenefitAddr)
 	if meterBalance.Cmp(amount) < 0 {
 		return fmt.Errorf("not enough meter in validator benefit addr, amount:%v, balance:%v", amount, meterBalance)
@@ -177,11 +178,11 @@ func (s *Staking) TransferValidatorReward(amount *big.Int, addr meter.Address, s
 	return nil
 }
 
-func (s *Staking) DistValidatorRewards(rinfo []*meter.RewardInfo, state *state.State, env *setypes.ScriptEnv) (*big.Int, error) {
+func (env *ScriptEnv) DistValidatorRewards(rinfo []*meter.RewardInfo) (*big.Int, error) {
 
 	sum := big.NewInt(0)
 	for _, r := range rinfo {
-		s.TransferValidatorReward(r.Amount, r.Address, state, env)
+		env.TransferValidatorReward(r.Amount, r.Address)
 		sum = sum.Add(sum, r.Amount)
 	}
 

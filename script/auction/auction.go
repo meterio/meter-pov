@@ -179,7 +179,9 @@ func (a *Auction) CloseAuctionCB(env *setypes.ScriptEnv, ab *AuctionBody, gas ui
 
 	stub = time.Now()
 	// clear the auction
-	actualPrice, leftover, dist, err := a.ClearAuction(auctionCB, state, env)
+	validatorBenefitRatio := builtin.Params.Native(state).Get(meter.KeyValidatorBenefitRatio)
+
+	actualPrice, leftover, dist, err := a.ClearAuction(env, auctionCB, validatorBenefitRatio)
 	if err != nil {
 		log.Info("clear active auction failed failed")
 		return
@@ -299,10 +301,10 @@ func (a *Auction) HandleAuctionTx(env *setypes.ScriptEnv, ab *AuctionBody, gas u
 
 	if ab.Option == AUTO_BID {
 		// transfer bidder's autobid MTR directly from validator benefit address
-		err = a.TransferAutobidMTRToAuction(ab.Bidder, ab.Amount, state, env)
+		err = env.TransferAutobidMTRToAuction(ab.Bidder, ab.Amount)
 	} else {
 		// now transfer bidder's MTR to auction accout
-		err = a.TransferMTRToAuction(ab.Bidder, ab.Amount, state, env)
+		err = env.TransferMTRToAuction(ab.Bidder, ab.Amount)
 	}
 	if err != nil {
 		log.Error("error happend during auction bid transfer", "address", ab.Bidder, "err", err)

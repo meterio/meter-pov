@@ -6,11 +6,16 @@
 package staking
 
 import (
+	"errors"
 	"fmt"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/meterio/meter-pov/meter"
+)
+
+var (
+	errNotStart = errors.New("Auction not start")
 )
 
 // Candidate indicates the structure of a candidate

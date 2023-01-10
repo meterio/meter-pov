@@ -12,12 +12,10 @@ import (
 	"fmt"
 	"math/big"
 	"regexp"
-	"sort"
 	"strings"
 	"time"
 
 	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/inconshreveable/log15"
 	"github.com/meterio/meter-pov/abi"
 	"github.com/meterio/meter-pov/builtin"
@@ -92,7 +90,7 @@ func (s *Staking) StakingHandler(senv *setypes.ScriptEnv, payload []byte, to *me
 		panic("create staking enviroment failed")
 	}
 
-	log.Debug("received staking data", "body", sb.ToString())
+	// log.Debug("received staking data", "body", sb.ToString())
 	/*  now := uint64(time.Now().Unix())
 	if InTimeSpan(sb.Timestamp, now, STAKING_TIMESPAN) == false {
 		log.Error("timestamp span too far", "timestamp", sb.Timestamp, "now", now)
@@ -310,9 +308,9 @@ func (s *Staking) BoundHandler(env *setypes.ScriptEnv, sb *StakingBody, gas uint
 
 	switch sb.Token {
 	case meter.MTR:
-		err = s.BoundAccountMeter(sb.HolderAddr, sb.Amount, state, env)
+		err = env.BoundAccountMeter(sb.HolderAddr, sb.Amount)
 	case meter.MTRG:
-		err = s.BoundAccountMeterGov(sb.HolderAddr, sb.Amount, state, env)
+		err = env.BoundAccountMeterGov(sb.HolderAddr, sb.Amount)
 	default:
 		err = errInvalidToken
 	}
@@ -490,9 +488,9 @@ func (s *Staking) CandidateHandler(env *setypes.ScriptEnv, sb *StakingBody, gas 
 
 	switch sb.Token {
 	case meter.MTR:
-		err = s.BoundAccountMeter(sb.CandAddr, sb.Amount, state, env)
+		err = env.BoundAccountMeter(sb.CandAddr, sb.Amount)
 	case meter.MTRG:
-		err = s.BoundAccountMeterGov(sb.CandAddr, sb.Amount, state, env)
+		err = env.BoundAccountMeterGov(sb.CandAddr, sb.Amount)
 	default:
 		//leftOverGas = gas
 		err = errInvalidToken
@@ -686,272 +684,6 @@ func (s *Staking) UnDelegateHandler(env *setypes.ScriptEnv, sb *StakingBody, gas
 	state.SetCandidateList(candidateList)
 	state.SetBucketList(bucketList)
 	state.SetStakeHolderList(stakeholderList)
-	return
-}
-
-func (s *Staking) GoverningHandler(env *setypes.ScriptEnv, sb *StakingBody, gas uint64) (leftOverGas uint64, err error) {
-	var ret []byte
-	start := time.Now()
-	defer func() {
-		if err != nil {
-			ret = []byte(err.Error())
-		}
-		env.SetReturnData(ret)
-		log.Info("Govern completed", "elapsed", meter.PrettyDuration(time.Since(start)))
-	}()
-	state := env.GetState()
-	candidateList := state.GetCandidateList()
-	bucketList := state.GetBucketList()
-	stakeholderList := state.GetStakeHolderList()
-	delegateList := state.GetDelegateList()
-	inJailList := state.GetInJailList()
-	rewardList := state.GetValidatorRewardList()
-
-	if gas < meter.ClauseGas {
-		leftOverGas = 0
-	} else {
-		leftOverGas = gas - meter.ClauseGas
-	}
-
-	rinfo := []*meter.RewardInfo{}
-	err = rlp.DecodeBytes(sb.ExtraData, &rinfo)
-	if err != nil {
-		log.Error("get rewards info failed")
-		return
-	}
-
-	// distribute rewarding before calculating new delegates
-	// only need to take action when distribute amount is non-zero
-	if len(rinfo) != 0 {
-		epoch := sb.Version //epoch is stored in sb.Version tempraroly
-		sum, err := s.DistValidatorRewards(rinfo, state, env)
-		if err != nil {
-			log.Error("Distribute validator rewards failed" + err.Error())
-		} else {
-			reward := &meter.ValidatorReward{
-				Epoch:       epoch,
-				BaseReward:  builtin.Params.Native(state).Get(meter.KeyValidatorBaseReward),
-				TotalReward: sum,
-				Rewards:     rinfo,
-			}
-			log.Info("validator rewards", "reward", reward.ToString())
-
-			var rewards []*meter.ValidatorReward
-			rLen := len(rewardList.Rewards)
-			if rLen >= meter.STAKING_MAX_VALIDATOR_REWARDS {
-				rewards = append(rewardList.Rewards[rLen-meter.STAKING_MAX_VALIDATOR_REWARDS+1:], reward)
-			} else {
-				rewards = append(rewardList.Rewards, reward)
-			}
-
-			rewardList = meter.NewValidatorRewardList(rewards)
-			log.Info("validator rewards", "reward", sum.String())
-		}
-	}
-
-	// start to calc next round delegates
-	ts := sb.Timestamp
-	number := env.GetBlockNum()
-	if meter.IsTeslaFork5(number) {
-		// ---------------------------------------
-		// AFTER TESLA FORK 5 : update bucket bonus and candidate total votes with full range re-calc
-		// ---------------------------------------
-		// Handle Unbound
-		// changes: delete during loop pattern
-		for i := 0; i < len(bucketList.Buckets); i++ {
-			bkt := bucketList.Buckets[i]
-
-			log.Debug("before new handling", "bucket", bkt.ToString())
-			// handle unbound first
-			if bkt.Unbounded == true {
-				// matured
-				if ts >= bkt.MatureTime+720 {
-					log.Info("bucket matured, prepare to unbound", "id", bkt.ID().String(), "amount", bkt.Value, "address", bkt.Owner)
-					stakeholder := stakeholderList.Get(bkt.Owner)
-					if stakeholder != nil {
-						stakeholder.RemoveBucket(bkt)
-						if len(stakeholder.Buckets) == 0 {
-							stakeholderList.Remove(stakeholder.Holder)
-						}
-					}
-
-					// update candidate list
-					cand := candidateList.Get(bkt.Candidate)
-					if cand != nil {
-						cand.RemoveBucket(bkt)
-						if len(cand.Buckets) == 0 {
-							candidateList.Remove(cand.Addr)
-						}
-					}
-
-					switch bkt.Token {
-					case meter.MTR:
-						err = s.UnboundAccountMeter(bkt.Owner, bkt.Value, state, env)
-					case meter.MTRG:
-						err = s.UnboundAccountMeterGov(bkt.Owner, bkt.Value, state, env)
-					default:
-						err = errors.New("Invalid token parameter")
-					}
-
-					// finally, remove bucket from bucketList
-					bucketList.Remove(bkt.BucketID)
-					i--
-				}
-				log.Debug("after new handling", "bucket", bkt.ToString())
-			} else {
-				log.Debug("no changes to bucket", "id", bkt.ID().String())
-			}
-		} // End of Handle Unbound
-
-		// Add bonus delta
-		// changes: deprecated BonusVotes
-		for _, bkt := range bucketList.Buckets {
-			if ts >= bkt.CalcLastTime {
-				bonusDelta := CalcBonus(bkt.CalcLastTime, ts, bkt.Rate, bkt.Value)
-				log.Debug("add bonus delta", "id", bkt.ID(), "bonusDelta", bonusDelta.String(), "ts", ts, "last time", bkt.CalcLastTime)
-
-				// update bucket
-				bkt.BonusVotes = 0
-				bkt.TotalVotes.Add(bkt.TotalVotes, bonusDelta)
-				bkt.CalcLastTime = ts // touch timestamp
-
-				// update candidate
-				if bkt.Candidate.IsZero() == false {
-					if cand := candidateList.Get(bkt.Candidate); cand != nil {
-						cand.TotalVotes = cand.TotalVotes.Add(cand.TotalVotes, bonusDelta)
-					}
-				}
-			}
-		} // End of Add bonus delta
-	} else {
-		// ---------------------------------------
-		// BEFORE TESLA FORK 5 : update bucket bonus by timestamp delta, update candidate total votes accordingly
-		// ---------------------------------------
-		for _, bkt := range bucketList.Buckets {
-
-			log.Debug("before handling", "bucket", bkt.ToString())
-			// handle unbound first
-			if bkt.Unbounded == true {
-				// matured
-				if ts >= bkt.MatureTime+720 {
-					log.Info("bucket matured, prepare to unbound", "id", bkt.ID().String(), "amount", bkt.Value, "address", bkt.Owner)
-					stakeholder := stakeholderList.Get(bkt.Owner)
-					if stakeholder != nil {
-						stakeholder.RemoveBucket(bkt)
-						if len(stakeholder.Buckets) == 0 {
-							stakeholderList.Remove(stakeholder.Holder)
-						}
-					}
-
-					// update candidate list
-					cand := candidateList.Get(bkt.Candidate)
-					if cand != nil {
-						cand.RemoveBucket(bkt)
-						if len(candidateList.Candidates) == 0 {
-							candidateList.Remove(cand.Addr)
-						}
-					}
-
-					switch bkt.Token {
-					case meter.MTR:
-						err = s.UnboundAccountMeter(bkt.Owner, bkt.Value, state, env)
-					case meter.MTRG:
-						err = s.UnboundAccountMeterGov(bkt.Owner, bkt.Value, state, env)
-					default:
-						err = errors.New("Invalid token parameter")
-					}
-
-					// finally, remove bucket from bucketList
-					bucketList.Remove(bkt.BucketID)
-				}
-				// Done: for unbounded
-				continue
-			}
-
-			// now calc the bonus votes
-			if ts >= bkt.CalcLastTime {
-				bonusDelta := CalcBonus(bkt.CalcLastTime, ts, bkt.Rate, bkt.Value)
-				log.Debug("in calclating", "bonus votes", bonusDelta.Uint64(), "ts", ts, "last time", bkt.CalcLastTime)
-
-				// update bucket
-				bkt.BonusVotes += bonusDelta.Uint64()
-				bkt.TotalVotes.Add(bkt.TotalVotes, bonusDelta)
-				bkt.CalcLastTime = ts // touch timestamp
-
-				// update candidate
-				if bkt.Candidate.IsZero() == false {
-					if cand := candidateList.Get(bkt.Candidate); cand != nil {
-						cand.TotalVotes = cand.TotalVotes.Add(cand.TotalVotes, bonusDelta)
-					}
-				}
-			}
-			log.Debug("after handling", "bucket", bkt.ToString())
-		}
-	}
-
-	// handle delegateList
-	delegates := []*meter.Delegate{}
-	for _, c := range candidateList.Candidates {
-		delegate := &meter.Delegate{
-			Address:     c.Addr,
-			PubKey:      c.PubKey,
-			Name:        c.Name,
-			VotingPower: c.TotalVotes,
-			IPAddr:      c.IPAddr,
-			Port:        c.Port,
-			Commission:  c.Commission,
-		}
-		// delegate must not in jail
-		if jailed := inJailList.Exist(delegate.Address); jailed == true {
-			log.Info("skip injail delegate ...", "name", string(delegate.Name), "addr", delegate.Address)
-			continue
-		}
-
-		// delegates must satisfy the minimum requirements
-		minRequire := builtin.Params.Native(state).Get(meter.KeyMinRequiredByDelegate)
-		if delegate.VotingPower.Cmp(minRequire) < 0 {
-			log.Info("delegate does not meet minimum requrirements, ignored ...", "name", string(delegate.Name), "addr", delegate.Address)
-			continue
-		}
-
-		for _, bucketID := range c.Buckets {
-			b := bucketList.Get(bucketID)
-			if b == nil {
-				log.Info("get bucket from ID failed", "bucketID", bucketID)
-				continue
-			}
-			// amplify 1e09 because unit is shannon (1e09),  votes of bucket / votes of candidate * 1e09
-			shares := big.NewInt(1e09)
-			shares = shares.Mul(b.TotalVotes, shares)
-			shares = shares.Div(shares, c.TotalVotes)
-			delegate.DistList = append(delegate.DistList, meter.NewDistributor(b.Owner, b.Autobid, shares.Uint64()))
-		}
-		delegates = append(delegates, delegate)
-	}
-
-	sort.SliceStable(delegates, func(i, j int) bool {
-		vpCmp := delegates[i].VotingPower.Cmp(delegates[j].VotingPower)
-		if vpCmp > 0 {
-			return true
-		}
-		if vpCmp < 0 {
-			return false
-		}
-
-		return bytes.Compare(delegates[i].PubKey, delegates[j].PubKey) >= 0
-	})
-
-	// set the delegateList with sorted delegates
-	delegateList.SetDelegates(delegates)
-
-	state.SetCandidateList(candidateList)
-	state.SetBucketList(bucketList)
-	state.SetStakeHolderList(stakeholderList)
-	state.SetDelegateList(delegateList)
-	state.SetValidatorRewardList(rewardList)
-
-	//log.Info("After Governing, new delegate list calculated", "members", delegateList.Members())
-	// fmt.Println(delegateList.ToString())
 	return
 }
 
@@ -1304,7 +1036,7 @@ func (s *Staking) DelegateExitJailHandler(env *setypes.ScriptEnv, sb *StakingBod
 	}
 
 	// take actions
-	if err = s.CollectBailMeterGov(jailed.Addr, jailed.BailAmount, state, env); err != nil {
+	if err = env.CollectBailMeterGov(jailed.Addr, jailed.BailAmount); err != nil {
 		log.Error(err.Error())
 		return
 	}
@@ -1469,7 +1201,7 @@ func (s *Staking) BucketUpdateHandler(env *setypes.ScriptEnv, sb *StakingBody, g
 			}
 
 			// bound account balance
-			err = s.BoundAccountMeterGov(sb.HolderAddr, sb.Amount, state, env)
+			err = env.BoundAccountMeterGov(sb.HolderAddr, sb.Amount)
 			if err != nil {
 				return
 			}
@@ -1520,7 +1252,7 @@ func (s *Staking) BucketUpdateHandler(env *setypes.ScriptEnv, sb *StakingBody, g
 		}
 
 		// bound account balance
-		err = s.BoundAccountMeterGov(sb.HolderAddr, sb.Amount, state, env)
+		err = env.BoundAccountMeterGov(sb.HolderAddr, sb.Amount)
 		if err != nil {
 			return
 		}
