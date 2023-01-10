@@ -27,13 +27,13 @@ import (
 	"github.com/meterio/meter-pov/block"
 	"github.com/meterio/meter-pov/chain"
 	"github.com/meterio/meter-pov/comm"
+	"github.com/meterio/meter-pov/consensus/governor"
 	bls "github.com/meterio/meter-pov/crypto/multi_sig"
 	cmn "github.com/meterio/meter-pov/libs/common"
 	"github.com/meterio/meter-pov/logdb"
 	"github.com/meterio/meter-pov/meter"
 	"github.com/meterio/meter-pov/packer"
 	"github.com/meterio/meter-pov/powpool"
-	"github.com/meterio/meter-pov/reward"
 	"github.com/meterio/meter-pov/runtime"
 	"github.com/meterio/meter-pov/script"
 	"github.com/meterio/meter-pov/script/accountlock"
@@ -1049,7 +1049,7 @@ func (conR *ConsensusReactor) BuildKBlock(parentBlock *block.Block, data *block.
 
 func (conR *ConsensusReactor) buildRewardTxs(parentBlock *block.Block, rewards []powpool.PowReward, chainTag byte, bestNum uint32, curEpoch uint32, best *block.Block, state *state.State) tx.Transactions {
 	// build miner meter reward
-	txs := reward.BuildMinerRewardTxs(rewards, chainTag, bestNum)
+	txs := governor.BuildMinerRewardTxs(rewards, chainTag, bestNum)
 	for _, tx := range txs {
 		conR.logger.Info("Built miner reward tx: ", "hash", tx.ID().String(), "clauses-size", len(tx.Clauses()))
 	}
@@ -1058,13 +1058,13 @@ func (conR *ConsensusReactor) buildRewardTxs(parentBlock *block.Block, rewards [
 
 	// edison not support the staking/auciton/slashing
 	if meter.IsTesla(parentBlock.Number()) {
-		stats, err := reward.ComputeStatistics(lastKBlockHeight, parentBlock.Number(), conR.chain, conR.curCommittee, conR.curActualCommittee, conR.csCommon, conR.csPacemaker.calcStatsTx, uint32(conR.curEpoch))
+		stats, err := governor.ComputeStatistics(lastKBlockHeight, parentBlock.Number(), conR.chain, conR.curCommittee, conR.curActualCommittee, conR.csCommon, conR.csPacemaker.calcStatsTx, uint32(conR.curEpoch))
 		if err != nil {
 			// TODO: do something about this
 			conR.logger.Info("no slash statistics need to info", "error", err)
 		}
 		if len(stats) != 0 {
-			statsTx := reward.BuildStatisticsTx(stats, chainTag, bestNum, curEpoch)
+			statsTx := governor.BuildStatisticsTx(stats, chainTag, bestNum, curEpoch)
 			conR.logger.Info("Built stats tx: ", "hash", statsTx.ID().String(), "clauses-size", len(statsTx.Clauses()))
 			txs = append(txs, statsTx)
 		}
@@ -1072,37 +1072,37 @@ func (conR *ConsensusReactor) buildRewardTxs(parentBlock *block.Block, rewards [
 		reservedPrice := GetAuctionReservedPrice()
 		initialRelease := GetAuctionInitialRelease()
 
-		if tx := reward.BuildAuctionControlTx(uint64(best.Number()+1), uint64(best.GetBlockEpoch()+1), chainTag, bestNum, initialRelease, reservedPrice, conR.chain); tx != nil {
+		if tx := governor.BuildAuctionControlTx(uint64(best.Number()+1), uint64(best.GetBlockEpoch()+1), chainTag, bestNum, initialRelease, reservedPrice, conR.chain); tx != nil {
 			conR.logger.Info("Built auction control tx: ", "hash", tx.ID().String(), "clauses-size", len(tx.Clauses()))
 			txs = append(txs, tx)
 		}
 
 		// build governing tx && autobid tx only when staking delegates is used
 		if conR.sourceDelegates != fromDelegatesFile {
-			benefitRatio := reward.GetValidatorBenefitRatio(state)
-			validatorBaseReward := reward.GetValidatorBaseRewards(state)
-			epochBaseReward := reward.ComputeEpochBaseReward(validatorBaseReward)
+			benefitRatio := governor.GetValidatorBenefitRatio(state)
+			validatorBaseReward := governor.GetValidatorBaseRewards(state)
+			epochBaseReward := governor.ComputeEpochBaseReward(validatorBaseReward)
 			nDays := meter.NDays
 			nAuctionPerDay := meter.NEpochPerDay // wrong number before hardfork
 			nDays = meter.NDaysV2
 			nAuctionPerDay = meter.NAuctionPerDay
-			epochTotalReward, err := reward.ComputeEpochTotalReward(benefitRatio, nDays, nAuctionPerDay)
+			epochTotalReward, err := governor.ComputeEpochTotalReward(benefitRatio, nDays, nAuctionPerDay)
 			if err != nil {
 				epochTotalReward = big.NewInt(0)
 			}
-			var rewardMap reward.RewardMap
+			var rewardMap governor.RewardMap
 			if meter.IsTeslaFork2(parentBlock.Number()) {
 				fmt.Println("Compute reward map V3")
-				rewardMap, err = reward.ComputeRewardMapV3(epochBaseReward, epochTotalReward, conR.curDelegates.Delegates, conR.curCommittee.Validators)
+				rewardMap, err = governor.ComputeRewardMapV3(epochBaseReward, epochTotalReward, conR.curDelegates.Delegates, conR.curCommittee.Validators)
 			} else {
 				fmt.Println("Compute reward map v2")
-				rewardMap, err = reward.ComputeRewardMapV2(epochBaseReward, epochTotalReward, conR.curDelegates.Delegates, conR.curCommittee.Validators)
+				rewardMap, err = governor.ComputeRewardMapV2(epochBaseReward, epochTotalReward, conR.curDelegates.Delegates, conR.curCommittee.Validators)
 			}
 
 			if err == nil && len(rewardMap) > 0 {
 				if meter.IsTeslaFork6(parentBlock.Number()) {
 					_, _, rewardV2List := rewardMap.ToList()
-					governingV2Tx := reward.BuildStakingGoverningV2Tx(rewardV2List, uint32(conR.curEpoch), chainTag, bestNum)
+					governingV2Tx := governor.BuildStakingGoverningV2Tx(rewardV2List, uint32(conR.curEpoch), chainTag, bestNum)
 					if governingV2Tx != nil {
 						conR.logger.Info("Built governing V2 tx: ", "hash", governingV2Tx.ID().String(), "clauses-size", len(governingV2Tx.Clauses()))
 						txs = append(txs, governingV2Tx)
@@ -1115,7 +1115,7 @@ func (conR *ConsensusReactor) buildRewardTxs(parentBlock *block.Block, rewards [
 					// }
 					// fmt.Println("-------------------------")
 
-					governingTx := reward.BuildStakingGoverningTx(distList, uint32(conR.curEpoch), chainTag, bestNum)
+					governingTx := governor.BuildStakingGoverningTx(distList, uint32(conR.curEpoch), chainTag, bestNum)
 					if governingTx != nil {
 						conR.logger.Info("Built governing tx: ", "hash", governingTx.ID().String(), "clauses-size", len(governingTx.Clauses()))
 						txs = append(txs, governingTx)
@@ -1128,7 +1128,7 @@ func (conR *ConsensusReactor) buildRewardTxs(parentBlock *block.Block, rewards [
 					// }
 					// fmt.Println("-------------------------")
 
-					autobidTxs := reward.BuildAutobidTxs(autobidList, chainTag, bestNum)
+					autobidTxs := governor.BuildAutobidTxs(autobidList, chainTag, bestNum)
 					if len(autobidTxs) > 0 {
 						txs = append(txs, autobidTxs...)
 						for _, tx := range autobidTxs {
@@ -1144,7 +1144,7 @@ func (conR *ConsensusReactor) buildRewardTxs(parentBlock *block.Block, rewards [
 		}
 	}
 
-	if tx := reward.BuildAccountLockGoverningTx(chainTag, bestNum, curEpoch); tx != nil {
+	if tx := governor.BuildAccountLockGoverningTx(chainTag, bestNum, curEpoch); tx != nil {
 		txs = append(txs, tx)
 		conR.logger.Info("Built account lock tx: ", "hash", tx.ID().String(), "clauses-size", len(tx.Clauses()))
 	}

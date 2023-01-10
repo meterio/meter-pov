@@ -1,4 +1,4 @@
-package reward
+package governor
 
 import (
 	"math/big"

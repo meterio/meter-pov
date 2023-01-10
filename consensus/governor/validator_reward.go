@@ -3,7 +3,7 @@
 // Distributed under the GNU Lesser General Public License v3.0 software license, see the accompanying
 // file LICENSE or <https://www.gnu.org/licenses/lgpl-3.0.html>
 
-package reward
+package governor
 
 import (
 	"bytes"
@@ -58,10 +58,11 @@ func ComputeRewardMapV2(baseReward, totalRewards *big.Int, delegates []*types.De
 }
 
 // Epoch Reward includes these parts:
-//                |------ extra_reward -----|
-//  |------|   |------------|   |---------------|
-//  | base | + | commission | + | actual_reward |  =  each_reward
-//  |------|   |------------|   |---------------|
+//
+//	              |------ extra_reward -----|
+//	|------|   |------------|   |---------------|
+//	| base | + | commission | + | actual_reward |  =  each_reward
+//	|------|   |------------|   |---------------|
 //
 // such that:
 // sum(extra_reward) = total_rewards - base * delegate_size

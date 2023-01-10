@@ -7,6 +7,7 @@ package consensus
 
 import (
 	bls "github.com/meterio/meter-pov/crypto/multi_sig"
+	"github.com/meterio/meter-pov/types"
 )
 
 type BlsCommon struct {
@@ -60,4 +61,15 @@ func (cc *BlsCommon) GetPrivKey() bls.PrivateKey {
 
 func (cc *BlsCommon) GetPubKey() *bls.PublicKey {
 	return &cc.PubKey
+}
+
+func NewConsensusCommonFromBlsCommon(blsCommon *BlsCommon) *types.ConsensusCommon {
+	return &types.ConsensusCommon{
+		PrivKey:     blsCommon.PrivKey,
+		PubKey:      blsCommon.PubKey,
+		System:      blsCommon.system,
+		Params:      blsCommon.params,
+		Pairing:     blsCommon.pairing,
+		Initialized: true,
+	}
 }

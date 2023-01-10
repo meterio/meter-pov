@@ -1,12 +1,12 @@
-package reward
+package governor
 
 import (
 	"math/big"
 
+	"github.com/inconshreveable/log15"
 	"github.com/meterio/meter-pov/builtin"
 	"github.com/meterio/meter-pov/meter"
 	"github.com/meterio/meter-pov/state"
-	"github.com/inconshreveable/log15"
 )
 
 const (

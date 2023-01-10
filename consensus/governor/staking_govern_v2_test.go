@@ -1,4 +1,4 @@
-package reward_test
+package governor_test
 
 import (
 	"fmt"
@@ -6,18 +6,18 @@ import (
 	"testing"
 	"time"
 
+	"github.com/meterio/meter-pov/consensus/governor"
 	"github.com/meterio/meter-pov/meter"
-	"github.com/meterio/meter-pov/reward"
 	"github.com/meterio/meter-pov/tx"
 	"github.com/stretchr/testify/assert"
 )
 
-func buildGoverningV2Tx(rewardMap reward.RewardMap) *tx.Transaction {
+func buildGoverningV2Tx(rewardMap governor.RewardMap) *tx.Transaction {
 	_, _, rV2s := rewardMap.ToList()
 
 	epoch := uint32(321)
 	bestNum := uint32(123)
-	tx := reward.BuildStakingGoverningV2Tx(rV2s, epoch, byte(82), bestNum)
+	tx := governor.BuildStakingGoverningV2Tx(rV2s, epoch, byte(82), bestNum)
 	return tx
 }
 

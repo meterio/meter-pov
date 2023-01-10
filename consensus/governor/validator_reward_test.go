@@ -1,4 +1,4 @@
-package reward_test
+package governor_test
 
 import (
 	"fmt"

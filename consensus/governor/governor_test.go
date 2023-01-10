@@ -1,36 +1,65 @@
-package reward_test
+package governor_test
 
 import (
-	"fmt"
-	"testing"
-	"time"
-
 	"math/big"
 	"math/rand"
+	"strconv"
+	"time"
 
 	"github.com/inconshreveable/log15"
 	"github.com/meterio/meter-pov/block"
 	"github.com/meterio/meter-pov/builtin"
 	"github.com/meterio/meter-pov/chain"
+	"github.com/meterio/meter-pov/consensus/governor"
 	"github.com/meterio/meter-pov/genesis"
 	"github.com/meterio/meter-pov/kv"
 	"github.com/meterio/meter-pov/lvldb"
 	"github.com/meterio/meter-pov/meter"
-	"github.com/meterio/meter-pov/reward"
 	"github.com/meterio/meter-pov/runtime"
 	"github.com/meterio/meter-pov/script"
+	"github.com/meterio/meter-pov/script/auction"
 	"github.com/meterio/meter-pov/state"
-	"github.com/meterio/meter-pov/tx"
 	"github.com/meterio/meter-pov/xenv"
-	"github.com/stretchr/testify/assert"
 )
 
 var (
 	initValidatorBenefitBalance = big.NewInt(0).Mul(big.NewInt(1e18), big.NewInt(1e18))
 )
 
-func buildRewardMap() reward.RewardMap {
-	rewardMap := reward.RewardMap{}
+func buildAuctionCB() *meter.AuctionCB {
+	cb := &meter.AuctionCB{
+		AuctionID:   meter.BytesToBytes32([]byte("test-auction")),
+		StartHeight: 1234,
+		StartEpoch:  1,
+		EndHeight:   4321,
+		EndEpoch:    2,
+		Sequence:    1,
+		RlsdMTRG:    big.NewInt(0), //released mtrg
+		RsvdMTRG:    big.NewInt(0), // reserved mtrg
+		RsvdPrice:   big.NewInt(0),
+		CreateTime:  1234,
+
+		//changed fields after auction start
+		RcvdMTR:    big.NewInt(0),
+		AuctionTxs: make([]*meter.AuctionTx, 0),
+	}
+	for i := 1; i < 24*660; i++ {
+		seq := i
+		tx := &meter.AuctionTx{
+			TxID:      meter.BytesToBytes32([]byte("test-" + strconv.Itoa(seq))),
+			Address:   meter.BytesToAddress([]byte("address-" + strconv.Itoa(seq))),
+			Amount:    big.NewInt(1234),
+			Type:      auction.AUTO_BID,
+			Timestamp: rand.Uint64(),
+			Nonce:     rand.Uint64(),
+		}
+		cb.AuctionTxs = append(cb.AuctionTxs, tx)
+	}
+	return cb
+}
+
+func buildRewardMap() governor.RewardMap {
+	rewardMap := governor.RewardMap{}
 	N := 660
 	for i := 0; i < N; i++ {
 		addr := meter.BytesToAddress([]byte{byte(i)})
@@ -110,23 +139,4 @@ func initRuntimeAfterFork6() *runtime.Runtime {
 		Number: meter.TeslaFork6_MainnetStartNum + 1})
 
 	return rt
-}
-
-func buildGoverningTx(rewardMap reward.RewardMap) *tx.Transaction {
-	rinfo := rewardMap.GetDistList()
-	epoch := uint32(321)
-	bestNum := uint32(123)
-	start := time.Now()
-	tx := reward.BuildStakingGoverningTx(rinfo, epoch, byte(82), bestNum)
-	fmt.Println("Build Govern tx elapsed: ", meter.PrettyDuration(time.Since(start)))
-	fmt.Println(tx)
-	return tx
-}
-
-func TestRunGoverningTx(t *testing.T) {
-	rt := initRuntime()
-	rewardMap := buildRewardMap()
-	tx := buildGoverningTx(rewardMap)
-	_, err := rt.ExecuteTransaction(tx)
-	assert.Nil(t, err)
 }
