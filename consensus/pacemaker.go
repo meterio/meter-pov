@@ -16,6 +16,7 @@ import (
 	"github.com/inconshreveable/log15"
 	"github.com/meterio/meter-pov/block"
 	"github.com/meterio/meter-pov/chain"
+	"github.com/meterio/meter-pov/meter"
 )
 
 const (
@@ -932,7 +933,11 @@ func (p *Pacemaker) Start(mode PMMode, calcStatsTx bool) {
 		p.minMBlocks = MIN_MBLOCKS_AN_EPOCH
 	} else {
 		p.minMBlocks = p.csReactor.config.EpochMBlockCount
-		p.csReactor.config.InitCfgdDelegates = false // clean off InitCfgdDelegates
+		if meter.IsStaging() {
+			log.Info("skip setting InitCfgdDelegates to false in staging")
+		} else {
+			p.csReactor.config.InitCfgdDelegates = false // clean off InitCfgdDelegates
+		}
 	}
 
 	qcNode := p.AddressBlock(height)
