@@ -47,7 +47,7 @@ func TestAnd(t *testing.T) {
 	if len(bA3.Elems) != len(bA2.Elems) {
 		t.Error("Expected min elems length")
 	}
-	for i := 0; i < bA3.Bits; i++ {
+	for i := 0; uint32(i) < bA3.Bits; i++ {
 		expected := bA1.GetIndex(i) && bA2.GetIndex(i)
 		if bA3.GetIndex(i) != expected {
 			t.Error("Wrong bit from bA3", i, bA1.GetIndex(i), bA2.GetIndex(i), bA3.GetIndex(i))
@@ -72,7 +72,7 @@ func TestOr(t *testing.T) {
 	if len(bA3.Elems) != len(bA1.Elems) {
 		t.Error("Expected max elems length")
 	}
-	for i := 0; i < bA3.Bits; i++ {
+	for i := 0; uint32(i) < bA3.Bits; i++ {
 		expected := bA1.GetIndex(i) || bA2.GetIndex(i)
 		if bA3.GetIndex(i) != expected {
 			t.Error("Wrong bit from bA3", i, bA1.GetIndex(i), bA2.GetIndex(i), bA3.GetIndex(i))
@@ -97,7 +97,7 @@ func TestSub1(t *testing.T) {
 	if len(bA3.Elems) != len(bA1.Elems) {
 		t.Error("Expected bA1 elems length")
 	}
-	for i := 0; i < bA3.Bits; i++ {
+	for i := 0; uint32(i) < bA3.Bits; i++ {
 		expected := bA1.GetIndex(i)
 		if bA2.GetIndex(i) {
 			expected = false
@@ -125,9 +125,9 @@ func TestSub2(t *testing.T) {
 	if len(bA3.Elems) != len(bA1.Elems) {
 		t.Error("Expected bA1 elems length")
 	}
-	for i := 0; i < bA3.Bits; i++ {
+	for i := 0; uint32(i) < bA3.Bits; i++ {
 		expected := bA1.GetIndex(i)
-		if i < bA2.Bits && bA2.GetIndex(i) {
+		if uint32(i) < bA2.Bits && bA2.GetIndex(i) {
 			expected = false
 		}
 		if bA3.GetIndex(i) != expected {
