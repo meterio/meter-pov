@@ -6,7 +6,6 @@
 package block_test
 
 import (
-	"fmt"
 	"testing"
 	"time"
 
@@ -60,8 +59,6 @@ func TestSerialize(t *testing.T) {
 	body := block.Body()
 	txsRootHash := txs.RootHash()
 
-	fmt.Println(h.ID())
-
 	assert.Equal(t, body.Txs, txs)
 	assert.Equal(t, Compose(h, txs), block)
 	assert.Equal(t, gasLimit, h.GasLimit())
@@ -92,27 +89,26 @@ func TestSerialize(t *testing.T) {
 		PubKey:   []byte{},
 		NetAddr:  addr,
 	}}
-	addrBytes, err := rlp.EncodeToBytes(addr)
-	fmt.Println(addrBytes, err)
+	_, err := rlp.EncodeToBytes(addr)
 	_, err = rlp.EncodeToBytes(committeeInfo)
 	assert.Equal(t, err, nil)
 
 	block.SetCommitteeInfo(committeeInfo)
 
-	fmt.Println("BEFORE KBlockData data:", kBlockData)
-	fmt.Println("BEFORE block.KBlockData:", block.KBlockData)
-	fmt.Println("BEFORE block.CommitteeInfo: ", committeeInfo)
-	fmt.Println("BEFORE block.CommitteeInfo: ", block.CommitteeInfos)
-	fmt.Println("BEFORE BLOCK:", block)
+	// fmt.Println("BEFORE KBlockData data:", kBlockData)
+	// fmt.Println("BEFORE block.KBlockData:", block.KBlockData)
+	// fmt.Println("BEFORE block.CommitteeInfo: ", committeeInfo)
+	// fmt.Println("BEFORE block.CommitteeInfo: ", block.CommitteeInfos)
+	// fmt.Println("BEFORE BLOCK:", block)
 	data, err := rlp.EncodeToBytes(block)
 	assert.Equal(t, err, nil)
-	fmt.Println("BLOCK SERIALIZED TO:", data)
+	// fmt.Println("BLOCK SERIALIZED TO:", data)
 
 	b := &Block{}
 
 	err = rlp.DecodeBytes(data, b)
 	assert.Equal(t, err, nil)
-	fmt.Println("AFTER BLOCK:", b)
+	// fmt.Println("AFTER BLOCK:", b)
 	kb, err := b.GetKBlockData()
 	assert.Equal(t, err, nil)
 	assert.Equal(t, kBlockData.Nonce, kb.Nonce)
