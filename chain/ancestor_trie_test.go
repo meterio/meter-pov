@@ -17,7 +17,7 @@ func BenchmarkGet(b *testing.B) {
 		var id, parentID meter.Bytes32
 		binary.BigEndian.PutUint32(id[:], bn)
 		binary.BigEndian.PutUint32(parentID[:], bn-1)
-		if err := at.Update(kv, id, parentID); err != nil {
+		if err := at.Update(kv, bn, id, parentID); err != nil {
 			b.Fatal(err)
 		}
 	}

@@ -179,7 +179,7 @@ func New(kv kv.GetPutter, genesisBlock *block.Block, verbose bool) (*Chain, erro
 	}
 
 	if leafBlock == nil {
-		fmt.Println("Leaf Block is empty, set it to genesis block")
+		log.Debug("LeafBlock is empty, set it to genesis ")
 		leafBlock = bestBlock
 	} else {
 		// fmt.Println("Leaf Block", leafBlock.CompactString())
@@ -200,7 +200,7 @@ func New(kv kv.GetPutter, genesisBlock *block.Block, verbose bool) (*Chain, erro
 			if err != nil {
 				fmt.Println("Error load parent", err)
 			}
-			parentBlk, err := (&rawBlock{raw: parentRaw}).Block()
+			parentBlk, _ := (&rawBlock{raw: parentRaw}).Block()
 			leafBlock = parentBlk
 		}
 
@@ -215,7 +215,7 @@ func New(kv kv.GetPutter, genesisBlock *block.Block, verbose bool) (*Chain, erro
 
 	bestQC, err := loadBestQC(kv)
 	if err != nil {
-		fmt.Println("Best QC is not in database, set it to use genesis QC, error: ", err)
+		log.Debug("BestQC is empty, set it to use genesisQC")
 		bestQC = block.GenesisQC()
 		bestQCHeightGauge.Set(float64(bestQC.QCHeight))
 	}
@@ -1006,7 +1006,7 @@ func (c *Chain) UpdateBestQC(qc *block.QuorumCert, source QCSource) (bool, error
 	// fmt.Println("best block: ", blk)
 	// fmt.Println("blk.QC", blk.QC)
 	// fmt.Println("blk.QC.QCHeight: ", blk.QC.QCHeight)
-	if c.bestQC == nil || blk.QC.QCHeight > c.bestQC.QCHeight {
+	if c.bestQC == nil || (blk.QC != nil && blk.QC.QCHeight > c.bestQC.QCHeight) {
 		log.Debug("Update bestQC from bestBlock descendant", "from", c.bestQC.CompactString(), "to", blk.QC.CompactString())
 		c.bestQC = blk.QC
 		return true, saveBestQC(c.kv, c.bestQC)

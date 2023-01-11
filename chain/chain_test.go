@@ -22,7 +22,7 @@ func initChain() *chain.Chain {
 	g := genesis.NewDevnet()
 	b0, _, _ := g.Build(state.NewCreator(kv))
 
-	chain, err := chain.New(kv, b0, true)
+	chain, err := chain.New(kv, b0, false)
 	if err != nil {
 		panic(err)
 	}
