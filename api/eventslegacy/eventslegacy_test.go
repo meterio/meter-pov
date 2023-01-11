@@ -47,7 +47,7 @@ func getEvents(t *testing.T) {
 			Limit:  uint64(limit),
 		},
 		Order:   "",
-		Address: &contractAddr,
+		Address: []*meter.Address{&contractAddr},
 		TopicSets: []*eventslegacy.TopicSet{
 			&eventslegacy.TopicSet{
 				Topic0: &t0,

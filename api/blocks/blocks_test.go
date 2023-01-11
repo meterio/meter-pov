@@ -14,8 +14,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/gorilla/mux"
 	"github.com/meterio/meter-pov/api/blocks"
-	"github.com/meterio/meter-pov/block"
+	meter_block "github.com/meterio/meter-pov/block"
 	"github.com/meterio/meter-pov/chain"
 	"github.com/meterio/meter-pov/genesis"
 	"github.com/meterio/meter-pov/lvldb"
@@ -23,8 +25,6 @@ import (
 	"github.com/meterio/meter-pov/packer"
 	"github.com/meterio/meter-pov/state"
 	"github.com/meterio/meter-pov/tx"
-	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/gorilla/mux"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -33,7 +33,7 @@ const (
 	testPrivHex = "efa321f290811731036e5eccd373114e5186d9fe419081f5a607231279d5ef01"
 )
 
-var blk *block.Block
+var blk *meter_block.Block
 var ts *httptest.Server
 
 var invalidBytes32 = "0x000000000000000000000000000000000000000000000000000000000000000g" //invlaid bytes32
@@ -50,7 +50,7 @@ func TestBlock(t *testing.T) {
 	assert.Equal(t, http.StatusBadRequest, statusCode)
 
 	res, statusCode = httpGet(t, ts.URL+"/blocks/"+blk.ID().String())
-	rb := new(blocks.Block)
+	rb := new(blocks.JSONBlockSummary)
 	if err := json.Unmarshal(res, &rb); err != nil {
 		t.Fatal(err)
 	}
@@ -74,6 +74,7 @@ func TestBlock(t *testing.T) {
 }
 
 func initBlockServer(t *testing.T) {
+	meter.InitBlockChainConfig("test")
 	db, _ := lvldb.NewMem()
 	stateC := state.NewCreator(db)
 	gene := genesis.NewDevnet()
@@ -82,7 +83,7 @@ func initBlockServer(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	chain, _ := chain.New(db, b)
+	chain, _ := chain.New(db, b, false)
 	addr := meter.BytesToAddress([]byte("to"))
 	cla := tx.NewClause(&addr).WithValue(big.NewInt(10000))
 	tx := new(tx.Builder).
@@ -101,7 +102,7 @@ func initBlockServer(t *testing.T) {
 	}
 	tx = tx.WithSignature(sig)
 	packer := packer.New(chain, stateC, genesis.DevAccounts()[0].Address, &genesis.DevAccounts()[0].Address)
-	flow, err := packer.Schedule(b.Header(), uint64(time.Now().Unix()))
+	flow, err := packer.Mock(b.Header(), uint64(time.Now().Unix()), 2000000, &meter.Address{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -109,14 +110,15 @@ func initBlockServer(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	block, stage, receipts, err := flow.Pack(genesis.DevAccounts()[0].PrivateKey)
+	block, stage, receipts, err := flow.Pack(genesis.DevAccounts()[0].PrivateKey, meter_block.BLOCK_TYPE_M_BLOCK, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if _, err := stage.Commit(); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := chain.AddBlock(block, receipts); err != nil {
+	block.SetQC(&meter_block.QuorumCert{QCHeight: 0, QCRound: 0, EpochID: 0})
+	if _, err := chain.AddBlock(block, receipts, true); err != nil {
 		t.Fatal(err)
 	}
 	router := mux.NewRouter()
@@ -125,7 +127,7 @@ func initBlockServer(t *testing.T) {
 	blk = block
 }
 
-func checkBlock(t *testing.T, expBl *block.Block, actBl *blocks.Block) {
+func checkBlock(t *testing.T, expBl *meter_block.Block, actBl *blocks.JSONBlockSummary) {
 	header := expBl.Header()
 	assert.Equal(t, header.Number(), actBl.Number, "Number should be equal")
 	assert.Equal(t, header.ID(), actBl.ID, "Hash should be equal")
@@ -138,9 +140,6 @@ func checkBlock(t *testing.T, expBl *block.Block, actBl *blocks.Block) {
 	assert.Equal(t, header.TxsRoot(), actBl.TxsRoot, "TxsRoot should be equal")
 	assert.Equal(t, header.StateRoot(), actBl.StateRoot, "StateRoot should be equal")
 	assert.Equal(t, header.ReceiptsRoot(), actBl.ReceiptsRoot, "ReceiptsRoot should be equal")
-	for i, tx := range expBl.Transactions() {
-		assert.Equal(t, tx.ID(), actBl.Transactions[i], "txid should be equal")
-	}
 
 }
 

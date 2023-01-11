@@ -180,12 +180,10 @@ func (a *Accounts) handleCallContract(w http.ResponseWriter, req *http.Request) 
 		fmt.Println("Error in eth_call: ", err)
 		fmt.Println("Called with data:")
 		fmt.Println("  Caller: ", callData.Caller)
-		fmt.Println("  Value: ", callData.Value)
+		fmt.Println("  Value: ", callData.Value, ", Token:", callData.Token)
 		fmt.Println("  Data: ", callData.Data)
-		fmt.Println("  Token:", callData.Token)
-		fmt.Println("  Gas:", callData.Gas)
-		fmt.Println("  GasPrice:", callData.GasPrice)
-		fmt.Println("  mux.Vars(req)['address']: ", mux.Vars(req)["address"])
+		fmt.Println("  Gas:", callData.Gas, ", GasPrice:", callData.GasPrice)
+		fmt.Println("  Sender: ", mux.Vars(req)["address"])
 		return err
 	}
 	// fmt.Println("handleCallContract Results:", results)
@@ -193,7 +191,6 @@ func (a *Accounts) handleCallContract(w http.ResponseWriter, req *http.Request) 
 }
 
 func (a *Accounts) handleCallBatchCode(w http.ResponseWriter, req *http.Request) error {
-	fmt.Println("handleCall")
 	batchCallData := &BatchCallData{}
 	if err := utils.ParseJSON(req.Body, &batchCallData); err != nil {
 		return utils.BadRequest(errors.WithMessage(err, "body"))

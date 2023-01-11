@@ -15,6 +15,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/rlp"
+	"github.com/gorilla/mux"
 	"github.com/meterio/meter-pov/api/transactions"
 	"github.com/meterio/meter-pov/block"
 	"github.com/meterio/meter-pov/chain"
@@ -26,10 +30,6 @@ import (
 	"github.com/meterio/meter-pov/state"
 	"github.com/meterio/meter-pov/tx"
 	"github.com/meterio/meter-pov/txpool"
-	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/ethereum/go-ethereum/rlp"
-	"github.com/gorilla/mux"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -144,6 +144,7 @@ func httpPost(t *testing.T, url string, obj interface{}) []byte {
 }
 
 func initTransactionServer(t *testing.T) {
+	meter.InitBlockChainConfig("test")
 	logDB, err := logdb.NewMem()
 	if err != nil {
 		t.Fatal(err)
@@ -173,7 +174,7 @@ func initTransactionServer(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	c, _ = chain.New(db, b)
+	c, _ = chain.New(db, b, false)
 	addr := meter.BytesToAddress([]byte("to"))
 	cla := tx.NewClause(&addr).WithValue(big.NewInt(10000))
 	transaction = new(tx.Builder).
@@ -192,19 +193,19 @@ func initTransactionServer(t *testing.T) {
 	}
 	transaction = transaction.WithSignature(sig)
 	packer := packer.New(c, stateC, genesis.DevAccounts()[0].Address, &genesis.DevAccounts()[0].Address)
-	flow, err := packer.Schedule(b.Header(), uint64(time.Now().Unix()))
+	flow, err := packer.Mock(b.Header(), uint64(time.Now().Unix()), 2000000, &meter.Address{})
 	err = flow.Adopt(transaction)
 	if err != nil {
 		t.Fatal(err)
 	}
-	b, stage, receipts, err := flow.Pack(genesis.DevAccounts()[0].PrivateKey)
+	b, stage, receipts, err := flow.Pack(genesis.DevAccounts()[0].PrivateKey, block.BLOCK_TYPE_M_BLOCK, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if _, err := stage.Commit(); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := c.AddBlock(b, receipts); err != nil {
+	if _, err := c.AddBlock(b, receipts, true); err != nil {
 		t.Fatal(err)
 	}
 	router := mux.NewRouter()
