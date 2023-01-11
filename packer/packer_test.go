@@ -65,7 +65,7 @@ func TestP(t *testing.T) {
 	g := genesis.NewDevnet()
 	b0, _, _ := g.Build(state.NewCreator(kv))
 
-	c, _ := chain.New(kv, b0, true)
+	c, _ := chain.New(kv, b0, false)
 
 	a1 := genesis.DevAccounts()[0]
 
