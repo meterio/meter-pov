@@ -79,23 +79,23 @@ type Hex32 struct {
 
 type Signature = Element
 
-//Below function receives PublicKey object and formats it
-//according to the %x format specifier
-//and returns the resulting string.
+// Below function receives PublicKey object and formats it
+// according to the %x format specifier
+// and returns the resulting string.
 func (key PublicKey) ToString() string {
 	return fmt.Sprintf("%x", key.gx)
 }
 
-//Below function receives PrivateKey object and formats it
-//according to the %x format specifier
-//and returns the resulting string.
+// Below function receives PrivateKey object and formats it
+// according to the %x format specifier
+// and returns the resulting string.
 func (secret PrivateKey) ToString() string {
 	return fmt.Sprintf("%x", secret.x)
 }
 
-//Below function receives object of Struct Hex32
-//and formats it according to the %x format specifier
-//and returns the resulting string.
+// Below function receives object of Struct Hex32
+// and formats it according to the %x format specifier
+// and returns the resulting string.
 func (h Hex32) ToString() string {
 	str := ""
 	for j := 0; j < len(h.Input); j++ {
@@ -104,9 +104,9 @@ func (h Hex32) ToString() string {
 	return str
 }
 
-//Below function receives Element object and formats it
-//according to the %x format specifier
-//and returns the resulting string.
+// Below function receives Element object and formats it
+// according to the %x format specifier
+// and returns the resulting string.
 func (temp Element) ToString() string {
 	return fmt.Sprintf("%x", temp)
 }

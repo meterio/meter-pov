@@ -28,32 +28,36 @@
 // access the public key (PublicKey.gx field).
 //
 
-package bls
+package bls_test
 
 import (
 	"crypto/sha256"
 	"fmt"
+	"testing"
 
+	// This is a simple C wrapper of pbc library.
 	"math/rand"
 	"time"
+
+	bls "github.com/meterio/meter-pov/crypto/multi_sig"
 )
 
-func TestBls() {
+func TestBls(t *testing.T) {
 	messages := []string{
 		"This is a message",
-		"This is a message",
-		"This is a message",
-		"This is a message",
-		"This is a message",
-		"This is a message",
-		"This is a message",
-		"This is a message",
-		"This is a message",
-		"This is a message",
+		"This is a message2",
+		"This is a message3",
+		"This is a message4",
+		"This is a message5",
+		"This is a message6",
+		"This is a message7",
+		"This is a message8",
+		"This is a message9",
+		"This is a message10",
 	}
-	params := GenParamsTypeA(160, 512)
-	pairing := GenPairing(params)
-	system, err := GenSystem(pairing)
+	params := bls.GenParamsTypeA(160, 512)
+	pairing := bls.GenPairing(params)
+	system, err := bls.GenSystem(pairing)
 	if err != nil {
 		panic(err)
 	}
@@ -61,11 +65,11 @@ func TestBls() {
 	N := 10
 
 	// Gene N key pairs
-	keys := make([]PublicKey, N)
-	secrets := make([]PrivateKey, N)
+	keys := make([]bls.PublicKey, N)
+	secrets := make([]bls.PrivateKey, N)
 
 	for i := 0; i < N; i++ {
-		keys[i], secrets[i], err = GenKeys(system)
+		keys[i], secrets[i], err = bls.GenKeys(system)
 		if err != nil {
 			panic(err)
 		}
@@ -73,7 +77,7 @@ func TestBls() {
 
 	// Sign secrets
 	hashes := make([][sha256.Size]byte, 10)
-	signatures := make([]Signature, 10)
+	signatures := make([]bls.Signature, 10)
 	for i := 0; i < 10; i++ {
 		// TODO: will prepend pub keys[i].gx
 		// the go library needs to add methods
@@ -85,7 +89,7 @@ func TestBls() {
 		// In either case, the final verifier has the same
 		// information regarding the signed messages.
 		hashes[i] = sha256.Sum256([]byte(messages[i]))
-		signatures[i] = Sign(hashes[i], secrets[i])
+		signatures[i] = bls.Sign(hashes[i], secrets[i])
 	}
 	//Choose 6 by random sampling
 	indexSlice := make([]int, 10)
@@ -96,38 +100,38 @@ func TestBls() {
 	rand.Shuffle(len(indexSlice), func(i, j int) {
 		indexSlice[i], indexSlice[j] = indexSlice[j], indexSlice[i]
 	})
-	pickedIndices := indexSlice[0:3]
+	pickedIndices := indexSlice[0:6]
 
 	// bitmap of 6 out of 10
 	fmt.Printf("%s %v\n",
-		"Randomly selected 3 signature indices...",
+		"Randomly selected 6 signature indices...",
 		pickedIndices)
 
 	// Verify each of 6
 	for _, idx := range pickedIndices {
-		if !Verify(signatures[idx], hashes[idx], keys[idx]) {
+		if !bls.Verify(signatures[idx], hashes[idx], keys[idx]) {
 			panic("Unable to verify signature.")
 		}
 	}
-	fmt.Printf("Successfully verified all 3 signatures\n")
+	fmt.Printf("Successfully verified all 6 signatures\n")
 
 	// Aggregate signature
-	var aggregatedSignatures []Signature
+	var aggregatedSignatures []bls.Signature
 	var pickedHashes [][sha256.Size]byte
-	var pickedKeys []PublicKey
+	var pickedKeys []bls.PublicKey
 	for _, idx := range pickedIndices {
 		aggregatedSignatures = append(aggregatedSignatures, signatures[idx])
 		pickedHashes = append(pickedHashes, hashes[idx])
 		pickedKeys = append(pickedKeys, keys[idx])
 	}
 	fmt.Printf("%s %v\n", "Aggregated signatures...", aggregatedSignatures)
-	aggregate, err := Aggregate(aggregatedSignatures, system)
+	aggregate, err := bls.Aggregate(aggregatedSignatures, system)
 	if err != nil {
 		panic(err)
 	}
 
 	// Verify signature aggregate
-	valid, err := AggregateVerify(aggregate, pickedHashes, pickedKeys)
+	valid, err := bls.AggregateVerify(aggregate, pickedHashes, pickedKeys)
 	if err != nil {
 		panic(err)
 	}
