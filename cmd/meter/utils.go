@@ -222,7 +222,7 @@ func writeOutKeys(system bls.System, path string) (bls.PublicKey, bls.PrivateKey
 	return pubKey, privKey, nil
 }
 
-func getBlsSystem() (*bls.System, error) {
+func GetBlsSystem() (*bls.System, error) {
 	paraBytes, err := hex.DecodeString(paraString)
 	if err != nil {
 		return nil, err

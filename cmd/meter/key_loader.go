@@ -130,7 +130,7 @@ func (k *KeyLoader) validateECDSA() error {
 }
 
 func (k *KeyLoader) genBls() error {
-	system, err := getBlsSystem()
+	system, err := GetBlsSystem()
 	if err != nil {
 		return err
 	}
@@ -151,7 +151,7 @@ func (k *KeyLoader) validateBls() error {
 	if len(split) < 2 || len(psplit) < 2 {
 		return k.genBls()
 	}
-	system, err := getBlsSystem()
+	system, err := GetBlsSystem()
 	if err != nil {
 		return err
 	}
