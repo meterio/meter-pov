@@ -26,7 +26,7 @@ import (
 func newChain(kv kv.GetPutter) *chain.Chain {
 	gene := genesis.NewDevnet()
 	b0, _, _ := gene.Build(state.NewCreator(kv))
-	chain, _ := chain.New(kv, b0, true)
+	chain, _ := chain.New(kv, b0, false)
 	return chain
 }
 
