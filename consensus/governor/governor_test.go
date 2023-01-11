@@ -98,7 +98,7 @@ func initRuntime() *runtime.Runtime {
 		return nil
 	})
 
-	c, _ := chain.New(kv, b0, true)
+	c, _ := chain.New(kv, b0, false)
 	st, _ := state.New(b0.Header().StateRoot(), kv)
 	seeker := c.NewSeeker(b0.ID())
 	meter.InitBlockChainConfig("main")
@@ -127,7 +127,7 @@ func initRuntimeAfterFork6() *runtime.Runtime {
 		return nil
 	})
 
-	c, _ := chain.New(kv, b0, true)
+	c, _ := chain.New(kv, b0, false)
 	st, _ := state.New(b0.Header().StateRoot(), kv)
 	seeker := c.NewSeeker(b0.ID())
 	meter.InitBlockChainConfig("main")
