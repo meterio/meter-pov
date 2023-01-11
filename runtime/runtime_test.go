@@ -35,7 +35,7 @@ func TestContractSuicide(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	ch, _ := chain.New(kv, b0, true)
+	ch, _ := chain.New(kv, b0, false)
 
 	// contract:
 	//
@@ -77,13 +77,21 @@ func TestContractSuicide(t *testing.T) {
 		t.Fatal(out.VMErr)
 	}
 
-	expectedTransfer := &tx.Transfer{
+	expectedMTRTransfer := &tx.Transfer{
+		Sender:    addr,
+		Recipient: origin,
+		Amount:    big.NewInt(100),
+		Token:     meter.MTR,
+	}
+	expectedMTRGTransfer := &tx.Transfer{
 		Sender:    addr,
 		Recipient: origin,
 		Amount:    big.NewInt(200),
+		Token:     meter.MTRG,
 	}
-	assert.Equal(1, len(out.Transfers))
-	assert.Equal(expectedTransfer, out.Transfers[0])
+	assert.Equal(2, len(out.Transfers))
+	assert.Equal(expectedMTRTransfer, out.Transfers[0])
+	assert.Equal(expectedMTRGTransfer, out.Transfers[1])
 
 	/*
 		event, _ := builtin.Energy.ABI.EventByName("Transfer")
@@ -113,7 +121,7 @@ func TestCall(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	ch, _ := chain.New(kv, b0, true)
+	ch, _ := chain.New(kv, b0, false)
 
 	state, _ := state.New(b0.Header().StateRoot(), kv)
 

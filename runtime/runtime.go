@@ -379,6 +379,8 @@ func (rt *Runtime) newEVM(stateDB *statedb.StateDB, clauseIndex uint32, txCtx *x
 					}
 				} else {
 					fmt.Println("Condition C: before Tesla fork3, eth compatible")
+					fmt.Println("tx origin: ", txCtx.Origin, ", nonce:", txCtx.Nonce, ", clauseIndex:", clauseIndex)
+
 					//return common.Address(meter.EthCreateContractAddress(caller, uint32(txCtx.Nonce)+clauseIndex))
 					addr = common.Address(meter.EthCreateContractAddress(common.Address(txCtx.Origin), uint32(txCtx.Nonce)+clauseIndex))
 				}
@@ -729,7 +731,7 @@ func (rt *Runtime) PrepareTransaction(tx *tx.Transaction) (*TransactionExecutor,
 			if output.VMErr != nil {
 				// vm exception here
 				// revert all executed clauses
-				fmt.Println("output Error:", output.VMErr)
+				fmt.Println("output Error:", output.VMErr, "for: ", txCtx.ID)
 				rt.state.RevertTo(checkpoint)
 				reverted = true
 				txOutputs = nil

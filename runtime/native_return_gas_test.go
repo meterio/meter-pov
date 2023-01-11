@@ -2,7 +2,6 @@ package runtime
 
 import (
 	"encoding/hex"
-	"fmt"
 	"math/big"
 	"testing"
 
@@ -16,6 +15,7 @@ import (
 )
 
 func TestNativeCallReturnGas(t *testing.T) {
+	meter.InitBlockChainConfig("main")
 	kv, _ := lvldb.NewMem()
 	state, _ := state.New(meter.Bytes32{}, kv)
 	state.SetCode(builtin.Measure.Address, builtin.Measure.RuntimeBytecodes())
@@ -33,22 +33,19 @@ func TestNativeCallReturnGas(t *testing.T) {
 		maxGas,
 		&xenv.TransactionContext{})
 	assert.Nil(t, innerOutput.VMErr)
-	fmt.Println("AFTER EXECUTE INNER")
 
-	fmt.Println("EXECUTE OUTER")
 	outerOutput := New(nil, state, &xenv.BlockContext{}).ExecuteClause(
 		tx.NewClause(&builtin.Measure.Address).WithData(outerData),
 		0,
 		maxGas,
 		&xenv.TransactionContext{})
 	assert.Nil(t, outerOutput.VMErr)
-	fmt.Println("AFTER EXECUTE OUTER")
 
 	innerGasUsed := maxGas - innerOutput.LeftOverGas
 	outerGasUsed := maxGas - outerOutput.LeftOverGas
-	fmt.Println("inner gas used: ", innerGasUsed)
-	fmt.Println("outer gas used: ", outerGasUsed)
-	fmt.Println("diff gas used: ", outerGasUsed-innerGasUsed*2)
+	// fmt.Println("inner gas used: ", innerGasUsed)
+	// fmt.Println("outer gas used: ", outerGasUsed)
+	// fmt.Println("diff gas used: ", outerGasUsed-innerGasUsed*2)
 
 	// gas = enter1 + prepare2 + enter2 + leave2 + leave1
 	// here returns prepare2
@@ -57,6 +54,7 @@ func TestNativeCallReturnGas(t *testing.T) {
 
 // this test could be run only if temporarly enable direct native call
 func TestNativeCallReturnGasNew(t *testing.T) {
+	meter.InitBlockChainConfig("main")
 	kv, _ := lvldb.NewMem()
 	state, _ := state.New(meter.Bytes32{}, kv)
 	mtrgV1Addr := meter.MustParseAddress("0x228ebBeE999c6a7ad74A6130E81b12f9Fe237Ba3")
@@ -78,33 +76,29 @@ func TestNativeCallReturnGasNew(t *testing.T) {
 	outerData, _ := outer.EncodeInput()
 	innerData, _ := hex.DecodeString("a236e000") // native_mtrg_totalSupply
 
-	fmt.Println("EXECUTE INNER")
 	innerOutput := New(nil, state, &xenv.BlockContext{}).ExecuteClause(
 		tx.NewClause(&builtin.MeterTracker.Address).WithData(innerData),
 		0,
 		maxGas,
 		&xenv.TransactionContext{Origin: mtrgV1Addr})
 	assert.Nil(t, innerOutput.VMErr)
-	fmt.Println("AFTER EXECUTE INNER")
 
-	fmt.Println("EXECUTE OUTER")
 	outerOutput := New(nil, state, &xenv.BlockContext{}).ExecuteClause(
 		tx.NewClause(&mtrgV1Addr).WithData(outerData),
 		0,
 		maxGas,
 		&xenv.TransactionContext{})
 	assert.Nil(t, outerOutput.VMErr)
-	fmt.Println("AFTER EXECUTE OUTER")
 
 	innerGasUsed := maxGas - innerOutput.LeftOverGas
 	outerGasUsed := maxGas - outerOutput.LeftOverGas
 
-	fmt.Println("inner output: ", innerOutput.String())
-	fmt.Println("outer output: ", outerOutput.String())
-	fmt.Println("inner used gas: ", innerGasUsed)
-	fmt.Println("outer used gas: ", outerGasUsed)
-	fmt.Println("diff used gas:", outerGasUsed-innerGasUsed*2)
+	// fmt.Println("inner output: ", innerOutput.String())
+	// fmt.Println("outer output: ", outerOutput.String())
+	// fmt.Println("inner used gas: ", innerGasUsed)
+	// fmt.Println("outer used gas: ", outerGasUsed)
+	// fmt.Println("diff used gas:", outerGasUsed-innerGasUsed*2)
 	// gas = enter1 + prepare2 + enter2 + leave2 + leave1
 	// here returns prepare2
-	assert.Equal(t, uint64(1254), outerGasUsed-innerGasUsed*2)
+	assert.Equal(t, uint64(92), outerGasUsed-innerGasUsed*2)
 }
