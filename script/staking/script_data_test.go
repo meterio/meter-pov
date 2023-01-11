@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	"github.com/ethereum/go-ethereum/rlp"
+	"github.com/stretchr/testify/assert"
 
 	"testing"
 
@@ -51,15 +52,15 @@ var (
 )
 
 func genScriptDataForStaking(body *staking.StakingBody) (string, error) {
-	opName := staking.GetOpName(body.Opcode)
+	// opName := staking.GetOpName(body.Opcode)
 	version := uint32(0)
 	payload, err := rlp.EncodeToBytes(body)
 	if err != nil {
 		return "", err
 	}
-	fmt.Println("")
+	// fmt.Println("")
 	// fmt.Println(opName, "payload Hex:")
-	fmt.Println("0x" + hex.EncodeToString(payload))
+	// fmt.Println("0x" + hex.EncodeToString(payload))
 	s := &script.Script{
 		Header: script.ScriptHeader{
 			Version: version,
@@ -73,21 +74,21 @@ func genScriptDataForStaking(body *staking.StakingBody) (string, error) {
 	}
 	prefix := append([]byte{0xff, 0xff, 0xff, 0xff}, script.ScriptPattern[:]...)
 	data = append(prefix, data...)
-	fmt.Println(opName, "script data Hex:")
-	fmt.Println("0x" + hex.EncodeToString(data))
+	// fmt.Println(opName, "script data Hex:")
+	// fmt.Println("0x" + hex.EncodeToString(data))
 	return "0x" + hex.EncodeToString(data), nil
 }
 
 func genScriptDataForAuction(body *auction.AuctionBody) (string, error) {
-	opName := auction.GetOpName(body.Opcode)
+	// opName := auction.GetOpName(body.Opcode)
 	version := uint32(0)
 	payload, err := rlp.EncodeToBytes(body)
 	if err != nil {
 		return "", err
 	}
-	fmt.Println("")
-	fmt.Println(opName, "payload Hex:")
-	fmt.Println("0x" + hex.EncodeToString(payload))
+	// fmt.Println("")
+	// fmt.Println(opName, "payload Hex:")
+	// fmt.Println("0x" + hex.EncodeToString(payload))
 	s := &script.Script{
 		Header: script.ScriptHeader{
 			Version: version,
@@ -101,21 +102,21 @@ func genScriptDataForAuction(body *auction.AuctionBody) (string, error) {
 	}
 	prefix := append([]byte{0xff, 0xff, 0xff, 0xff}, script.ScriptPattern[:]...)
 	data = append(prefix, data...)
-	fmt.Println(opName, "script data Hex:")
-	fmt.Println("0x" + hex.EncodeToString(data))
+	// fmt.Println(opName, "script data Hex:")
+	// fmt.Println("0x" + hex.EncodeToString(data))
 	return "0x" + hex.EncodeToString(data), nil
 }
 
 func genScriptDataForAccountLock(body *accountlock.AccountLockBody) (string, error) {
-	opName := body.GetOpName(body.Opcode)
+	// opName := body.GetOpName(body.Opcode)
 	version := uint32(0)
 	payload, err := rlp.EncodeToBytes(body)
 	if err != nil {
 		return "", err
 	}
-	fmt.Println("")
+	// fmt.Println("")
 	// fmt.Println(opName, "payload Hex:")
-	fmt.Println("0x" + hex.EncodeToString(payload))
+	// fmt.Println("0x" + hex.EncodeToString(payload))
 	s := &script.Script{
 		Header: script.ScriptHeader{
 			Version: version,
@@ -129,8 +130,8 @@ func genScriptDataForAccountLock(body *accountlock.AccountLockBody) (string, err
 	}
 	prefix := append([]byte{0xff, 0xff, 0xff, 0xff}, script.ScriptPattern[:]...)
 	data = append(prefix, data...)
-	fmt.Println(opName, "script data Hex:")
-	fmt.Println("0x" + hex.EncodeToString(data))
+	// fmt.Println(opName, "script data Hex:")
+	// fmt.Println("0x" + hex.EncodeToString(data))
 	return "0x" + hex.EncodeToString(data), nil
 }
 
@@ -152,9 +153,7 @@ func TestCandidate(t *testing.T) {
 		Nonce:      Nonce,
 	}
 	_, err := genScriptDataForStaking(body)
-	if err != nil {
-		t.Fail()
-	}
+	assert.Nil(t, err)
 
 }
 
@@ -168,7 +167,8 @@ func TestUncandidate(t *testing.T) {
 		Timestamp: Timestamp,
 		Nonce:     Nonce,
 	}
-	genScriptDataForStaking(body)
+	_, err := genScriptDataForStaking(body)
+	assert.Nil(t, err)
 }
 
 func TestDelegate(t *testing.T) {
@@ -183,7 +183,8 @@ func TestDelegate(t *testing.T) {
 		Timestamp:  Timestamp,
 		Nonce:      Nonce,
 	}
-	genScriptDataForStaking(body)
+	_, err := genScriptDataForStaking(body)
+	assert.Nil(t, err)
 }
 
 func TestUndelegate(t *testing.T) {
@@ -198,7 +199,8 @@ func TestUndelegate(t *testing.T) {
 		Timestamp:  Timestamp,
 		Nonce:      Nonce,
 	}
-	genScriptDataForStaking(body)
+	_, err := genScriptDataForStaking(body)
+	assert.Nil(t, err)
 }
 
 func TestBound(t *testing.T) {
@@ -214,7 +216,8 @@ func TestBound(t *testing.T) {
 		Timestamp:  Timestamp,
 		Nonce:      Nonce,
 	}
-	genScriptDataForStaking(body)
+	_, err := genScriptDataForStaking(body)
+	assert.Nil(t, err)
 }
 
 func TestUnbound(t *testing.T) {
@@ -229,7 +232,8 @@ func TestUnbound(t *testing.T) {
 		Timestamp:  Timestamp,
 		Nonce:      Nonce,
 	}
-	genScriptDataForStaking(body)
+	_, err := genScriptDataForStaking(body)
+	assert.Nil(t, err)
 }
 
 func TestBid(t *testing.T) {
@@ -244,7 +248,8 @@ func TestBid(t *testing.T) {
 		Timestamp: Timestamp,
 		Nonce:     Nonce,
 	}
-	genScriptDataForAuction(body)
+	_, err := genScriptDataForAuction(body)
+	assert.Nil(t, err)
 }
 
 func TestCandidateUpdate(t *testing.T) {
@@ -264,7 +269,8 @@ func TestCandidateUpdate(t *testing.T) {
 		Timestamp:  Timestamp,
 		Nonce:      Nonce,
 	}
-	genScriptDataForStaking(body)
+	_, err := genScriptDataForStaking(body)
+	assert.Nil(t, err)
 }
 
 func TestBailOut(t *testing.T) {
@@ -279,7 +285,8 @@ func TestBailOut(t *testing.T) {
 		Timestamp:  Timestamp,
 		Nonce:      Nonce,
 	}
-	genScriptDataForStaking(body)
+	_, err := genScriptDataForStaking(body)
+	assert.Nil(t, err)
 }
 
 func TestLockedTransfer(t *testing.T) {
@@ -295,7 +302,8 @@ func TestLockedTransfer(t *testing.T) {
 		MeterGovAmount: MTRGAmount,
 		Memo:           []byte("memo"),
 	}
-	genScriptDataForAccountLock(body)
+	_, err := genScriptDataForAccountLock(body)
+	assert.Nil(t, err)
 }
 
 func TestStaticsFlushAll(t *testing.T) {
@@ -312,12 +320,12 @@ func TestStaticsFlushAll(t *testing.T) {
 		Timestamp:  Timestamp,
 		Nonce:      Nonce,
 	}
-	genScriptDataForStaking(body)
+	_, err := genScriptDataForStaking(body)
+	assert.Nil(t, err)
 }
 
 func TestDecode(t *testing.T) {
-	fmt.Println("DDDDDDDDDDDDDDDDEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE")
-	hexString := "deadbeeff9012dc4808203e8b90125f90122078080941de8ca2f973d026300af89041b0ecb1c0803a7e6941de8ca2f973d026300af89041b0ecb1c0803a7e683747474b8b34241433661675565397066714667664950426b7469394b31302f464b4343636933312b3046693351326e4f3242316f656f485569316643366666616841636e4747676e2f3178575637767177457766335569486c4b67493d3a3a3a6731497a2b6932782f6552786a546b3849586547364e56346565476243517438584b7a4d4c4c48565735576c50504756454c41445151483530787a2b624a78464670364a5a5a7a513247425232633936746453306141453d87312e322e332e348221dea0000000000000000000000000000000000000000000000000000000000000000080018401406f40870b5211034cdcd080"
+	hexString := "ffffffffdeadbeeff9013ac4808203e8b90132f9012f03808401312d00948a88c59bf15451f9deb1d62f7734fece2002668e948a88c59bf15451f9deb1d62f7734fece2002668e8674657374657280b8b3424b6a7236774f3334566966396f4a484b312f41624d434c485670764a7569334e7833684c77754f667a7778315468344834473049346c6947454333714b7366384b4f64303738675946544b2b34316e2b4b6844547a6b3d3a3a3a75483273632b5767737278507339314c427938704942456a4d354937774e5074537752534e613833776f345639695833526d556d6b4550713151527634777752626f734e4f3152464a2f723634627764534b4b315677413d87312e322e332e348221dea00000000000000000000000000000000000000000000000000000000000000000884563918244f400000180845d743c8d8301e24080"
 	// remove prefixs
 	prefixs := []string{"deadbeef", "0xdeadbeef", "ffffffffdeadbeef", "0xffffffffdeadbeef"}
 	for _, p := range prefixs {

@@ -11,17 +11,16 @@ import (
 	"fmt"
 	"math/big"
 	"math/rand"
-	"reflect"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/ethereum/go-ethereum/rlp"
+	"github.com/stretchr/testify/assert"
 
 	"testing"
 
 	"github.com/meterio/meter-pov/meter"
-	"github.com/meterio/meter-pov/script/staking"
 )
 
 const (
@@ -29,11 +28,9 @@ const (
 	COMMISSION = 5e7
 )
 
-/*
-Execute this test with
-cd /tmp/meter-build-xxxxx/src/github.com/meterio/meter-pov/script/staking
-GOPATH=/tmp/meter-build-xxxx/:$GOPATH go test
-*/
+func randomBigInt() *big.Int {
+	return big.NewInt(rand.Int63())
+}
 
 // randomHex returns a random hexadecimal string of length n.
 func randomHex(n int) string {
@@ -63,25 +60,13 @@ func randomBytes(n int) []byte {
 	return []byte(randomString(n))
 }
 
-func TestRandomString(t *testing.T) {
-	fmt.Println("RANDOM HEX:", randomHex(20))
-}
-
-func randomAddr(t *testing.T) meter.Address {
-	addr, err := meter.ParseAddress("0x" + randomHex(40))
-	if err != nil {
-		fmt.Println("Could not parse address")
-		t.Fail()
-	}
+func randomAddr() meter.Address {
+	addr, _ := meter.ParseAddress("0x" + randomHex(40))
 	return addr
 }
 
-func randomID(t *testing.T) meter.Bytes32 {
-	bytes32, err := meter.ParseBytes32("0x" + randomHex(64))
-	if err != nil {
-		fmt.Println("Could not parse address")
-		t.Fail()
-	}
+func randomID() meter.Bytes32 {
+	bytes32, _ := meter.ParseBytes32("0x" + randomHex(64))
 	return bytes32
 }
 
@@ -110,216 +95,126 @@ func randomIP(t *testing.T) []byte {
 	return []byte(strings.Join(ns, ","))
 }
 
-func TestCompareValue(t *testing.T) {
-	fmt.Println("a", "a", CompareValue(reflect.ValueOf("a"), reflect.ValueOf("a")))
-	fmt.Println("a", " a", CompareValue(reflect.ValueOf("a"), reflect.ValueOf(" a")))
-	fmt.Println("a", "abc", CompareValue(reflect.ValueOf("a"), reflect.ValueOf("abc")))
-	fmt.Println(1, 1, CompareValue(reflect.ValueOf(1), reflect.ValueOf(1)))
-
-	s := newStakeholder(t)
-	tg := newStakeholder(t)
-	fmt.Println(s, tg, CompareValue(reflect.ValueOf(s), reflect.ValueOf(tg)))
-}
-
-func CompareValue(src, tgt reflect.Value) (result bool) {
-	defer func() {
-		if result == false {
-			srcTypeName := src.Type().Name()
-			tgtTypeName := tgt.Type().Name()
-
-			fmt.Println(fmt.Sprintf("src.%v does not equal to tgt.%v", srcTypeName, tgtTypeName))
-		}
-	}()
-	switch src.Kind() {
-	case reflect.String:
-		return src.String() == tgt.String()
-	case reflect.Int, reflect.Int64:
-		return src.Int() == tgt.Int()
-	case reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
-		return src.Uint() == tgt.Uint()
-
-	case reflect.Array:
-		for i := 0; i < src.Len(); i++ {
-			se := src.Index(i)
-			te := tgt.Index(i)
-			if !CompareValue(se, te) {
-				return false
-			}
-
-		}
-	case reflect.Ptr:
-		fmt.Println(src)
-		fmt.Println(tgt)
-		return CompareValue(src.Elem(), tgt.Elem())
-
-	case reflect.Struct:
-		for i := 0; i < src.NumField(); i++ {
-			// sf := src.Type().Field(i)
-			sv := src.Field(i)
-			// tf := tgt.Type().Field(i)
-			tv := tgt.Field(i)
-
-			// fmt.Println("Checking: ", sf.Name, sf.Type, sv)
-			// fmt.Println("Checking: ", tf.Name, tf.Type, tv)
-
-			if !CompareValue(sv, tv) {
-				return false
-			}
-		}
-	}
-	return true
-}
-
-func newStakeholder(t *testing.T) *staking.Stakeholder {
-	s := meter.NewStakeholder(randomAddr(t))
+func newStakeholder(t *testing.T) *meter.Stakeholder {
+	s := meter.NewStakeholder(randomAddr())
 	s.TotalStake = big.NewInt(10)
-	s.Buckets = append(s.Buckets, randomID(t), randomID(t), randomID(t))
+	s.Buckets = append(s.Buckets, randomID(), randomID(), randomID())
 	return s
 }
 
 func TestRlpForStakeholder(t *testing.T) {
 	s := newStakeholder(t)
 	data, err := rlp.EncodeToBytes(s)
-	if err != nil {
-		fmt.Println("Encode error:", err)
-		t.Fail()
-	}
+	assert.Nil(t, err)
 
 	tgt := &meter.Stakeholder{}
 	err = rlp.DecodeBytes(data, tgt)
-	if err != nil {
-		fmt.Println("Decode error:", err)
-		t.Fail()
-	}
+	assert.Nil(t, err)
 
-	if !CompareValue(reflect.ValueOf(s), reflect.ValueOf(tgt)) {
-		fmt.Println("stakeholder not equal")
-		t.Fail()
-	}
+	tgtData, err := rlp.EncodeToBytes(tgt)
+	assert.Nil(t, err)
+	assert.Equal(t, data, tgtData, "validator reward not equal")
 }
 
 func newCandidate(t *testing.T) *meter.Candidate {
 	timestamp := uint64(1587608317451)
-	c := meter.NewCandidate(randomAddr(t), randomBytes(10), randomBytes(10), randomPubkey(t), randomIP(t), PORT, COMMISSION, timestamp)
+	c := meter.NewCandidate(randomAddr(), randomBytes(10), randomBytes(10), randomPubkey(t), randomIP(t), PORT, COMMISSION, timestamp)
 
-	c.Buckets = append(c.Buckets, randomID(t), randomID(t), randomID(t))
+	c.Buckets = append(c.Buckets, randomID(), randomID(), randomID())
 	return c
 }
 
 func TestRlpForCandidate(t *testing.T) {
 	src := newCandidate(t)
-
 	data, err := rlp.EncodeToBytes(src)
-	if err != nil {
-		fmt.Println("Encode error:", err)
-		t.Fail()
-	}
+	assert.Nil(t, err)
+
 	tgt := &meter.Candidate{}
 	err = rlp.DecodeBytes(data, tgt)
-	if err != nil {
-		fmt.Println("Decode error:", err)
-		t.Fail()
-	}
+	assert.Nil(t, err)
 
-	if !CompareValue(reflect.ValueOf(src), reflect.ValueOf(tgt)) {
-		fmt.Println("candidate not equal")
-		t.Fail()
-	}
+	tgtData, err := rlp.EncodeToBytes(tgt)
+	assert.Nil(t, err)
+	assert.Equal(t, data, tgtData, "validator reward not equal")
 }
 
 func newBucket(t *testing.T) *meter.Bucket {
-	return meter.meter.NewBucket(randomAddr(t), randomAddr(t), big.NewInt(int64(rand.Int())), uint8(1), uint32(rand.Int()), uint8(rand.Int()), uint8(rand.Int()), rand.Uint64(), rand.Uint64())
+	return meter.NewBucket(randomAddr(), randomAddr(), big.NewInt(int64(rand.Int())), uint8(1), uint32(rand.Int()), uint8(rand.Int()), uint8(rand.Int()), rand.Uint64(), rand.Uint64())
 }
 
 func TestRlpForBucket(t *testing.T) {
 	src := newBucket(t)
 	data, err := rlp.EncodeToBytes(src)
-	if err != nil {
-		fmt.Println("Encode error:", err)
-		t.Fail()
-	}
-	// fmt.Println("DATA: ", data)
+	assert.Nil(t, err)
 
 	tgt := &meter.Bucket{}
 	err = rlp.DecodeBytes(data, tgt)
-	if err != nil {
-		fmt.Println("Decode error:", err)
-		t.Fail()
-	}
+	assert.Nil(t, err)
 
-	if !CompareValue(reflect.ValueOf(src), reflect.ValueOf(tgt)) {
-		fmt.Println("bucket not equal")
-		t.Fail()
-	}
+	tgtData, err := rlp.EncodeToBytes(tgt)
+	assert.Nil(t, err)
+	assert.Equal(t, data, tgtData, "validator reward not equal")
 }
 
 func newDelegate(t *testing.T) *meter.Delegate {
 	return &meter.Delegate{
-		Address:     randomAddr(t),
+		Address:     randomAddr(),
 		PubKey:      randomPubkey(t),
 		Name:        randomBytes(10),
-		VotingPower: big.NewInt(int64(rand.Uint64())),
+		VotingPower: randomBigInt(),
 		IPAddr:      randomIP(t),
 		Port:        PORT,
 		Commission:  COMMISSION,
 		DistList: []*meter.Distributor{
-			&meter.Distributor{randomAddr(t), uint8(rand.Int()), rand.Uint64()},
-			&meter.Distributor{randomAddr(t), uint8(rand.Int()), rand.Uint64()},
-			&meter.Distributor{randomAddr(t), uint8(rand.Int()), rand.Uint64()},
+			{Address: randomAddr(), Autobid: uint8(rand.Int()), Shares: rand.Uint64()},
+			{Address: randomAddr(), Autobid: uint8(rand.Int()), Shares: rand.Uint64()},
+			{Address: randomAddr(), Autobid: uint8(rand.Int()), Shares: rand.Uint64()},
 		},
 	}
 }
 func TestRlpForDelegate(t *testing.T) {
 	src := newDelegate(t)
 	data, err := rlp.EncodeToBytes(src)
-	if err != nil {
-		fmt.Println("Encode error:", err)
-		t.Fail()
-	}
-	// fmt.Println("DATA: ", data)
+	assert.Nil(t, err)
 
 	tgt := &meter.Delegate{}
 	err = rlp.DecodeBytes(data, tgt)
-	if err != nil {
-		fmt.Println("Decode error:", err)
-		t.Fail()
-	}
+	assert.Nil(t, err)
 
-	if !CompareValue(reflect.ValueOf(src), reflect.ValueOf(tgt)) {
-		fmt.Println("bucket not equal")
-		t.Fail()
-	}
+	tgtData, err := rlp.EncodeToBytes(tgt)
+	assert.Nil(t, err)
+	assert.Equal(t, data, tgtData, "validator reward not equal")
 }
 
 func newInfraction(t *testing.T) meter.Infraction {
 	return meter.Infraction{
 		MissingLeaders: meter.MissingLeader{
-			uint32(1), []*meter.MissingLeaderInfo{
-				&meter.MissingLeaderInfo{rand.Uint32(), rand.Uint32()}}},
+			Counter: uint32(1), Info: []*meter.MissingLeaderInfo{
+				{Epoch: rand.Uint32(), Round: rand.Uint32()}}},
 
 		MissingProposers: meter.MissingProposer{
-			uint32(1), []*meter.MissingProposerInfo{
-				&meter.MissingProposerInfo{rand.Uint32(), rand.Uint32()}}},
+			Counter: uint32(1), Info: []*meter.MissingProposerInfo{
+				{Epoch: rand.Uint32(), Height: rand.Uint32()}}},
 
 		MissingVoters: meter.MissingVoter{
-			uint32(1), []*meter.MissingVoterInfo{
-				&meter.MissingVoterInfo{rand.Uint32(), rand.Uint32()}}},
+			Counter: uint32(1), Info: []*meter.MissingVoterInfo{
+				{Epoch: rand.Uint32(), Height: rand.Uint32()}}},
 
 		DoubleSigners: meter.DoubleSigner{
-			uint32(1), []*meter.DoubleSignerInfo{
-				&meter.DoubleSignerInfo{rand.Uint32(), rand.Uint32()}}},
+			Counter: uint32(1), Info: []*meter.DoubleSignerInfo{
+				{Epoch: rand.Uint32(), Height: rand.Uint32()}}},
 	}
 }
 
 func newInJail(t *testing.T) *meter.InJail {
 	return &meter.InJail{
-		Addr:        randomAddr(t),
+		Addr:        randomAddr(),
 		Name:        randomBytes(10),
 		PubKey:      randomPubkey(t),
 		TotalPts:    rand.Uint64(),
 		Infractions: newInfraction(t),
 
-		BailAmount: big.NewInt(int64(rand.Uint64())),
+		BailAmount: randomBigInt(),
 		JailedTime: rand.Uint64(),
 	}
 }
@@ -327,40 +222,27 @@ func newInJail(t *testing.T) *meter.InJail {
 func TestRlpForInJail(t *testing.T) {
 	src := newInJail(t)
 	data, err := rlp.EncodeToBytes(src)
-	if err != nil {
-		fmt.Println("Encode error:", err)
-		t.Fail()
-	}
-	// fmt.Println("DATA: ", data)
+	assert.Nil(t, err)
 
 	tgt := &meter.InJail{}
 	err = rlp.DecodeBytes(data, tgt)
-	if err != nil {
-		fmt.Println("Decode error:", err)
-		t.Fail()
-	}
+	assert.Nil(t, err)
 
-	if !CompareValue(reflect.ValueOf(src), reflect.ValueOf(tgt)) {
-		fmt.Println("bucket not equal")
-		t.Fail()
-	}
+	tgtData, err := rlp.EncodeToBytes(tgt)
+	assert.Nil(t, err)
+	assert.Equal(t, data, tgtData, "validator reward not equal")
 }
 
-func newValidatorReward(t *testing.T) *staking.ValidatorReward {
-	type RewardInfo struct {
-		Address meter.Address
-		Amount  *big.Int
-	}
-
-	return &staking.ValidatorReward{
+func newValidatorReward(t *testing.T) *meter.ValidatorReward {
+	return &meter.ValidatorReward{
 		Epoch:       rand.Uint32(),
-		BaseReward:  big.NewInt(int64(rand.Uint64())),
-		TotalReward: big.NewInt(int64(rand.Uint64())),
+		BaseReward:  randomBigInt(),
+		TotalReward: randomBigInt(),
 		Rewards: []*meter.RewardInfo{
-			&meter.RewardInfo{randomAddr(t), big.NewInt(int64(rand.Uint64()))},
-			&meter.RewardInfo{randomAddr(t), big.NewInt(int64(rand.Uint64()))},
-			&meter.RewardInfo{randomAddr(t), big.NewInt(int64(rand.Uint64()))},
-			&meter.RewardInfo{randomAddr(t), big.NewInt(int64(rand.Uint64()))},
+			{Address: randomAddr(), Amount: randomBigInt()},
+			{Address: randomAddr(), Amount: randomBigInt()},
+			{Address: randomAddr(), Amount: randomBigInt()},
+			{Address: randomAddr(), Amount: randomBigInt()},
 		},
 	}
 }
@@ -368,28 +250,20 @@ func newValidatorReward(t *testing.T) *staking.ValidatorReward {
 func TestRlpForValidatorReward(t *testing.T) {
 	src := newValidatorReward(t)
 	data, err := rlp.EncodeToBytes(src)
-	if err != nil {
-		fmt.Println("Encode error:", err)
-		t.Fail()
-	}
-	// fmt.Println("DATA: ", data)
+	assert.Nil(t, err)
 
 	tgt := &meter.ValidatorReward{}
 	err = rlp.DecodeBytes(data, tgt)
-	if err != nil {
-		fmt.Println("Decode error:", err)
-		t.Fail()
-	}
+	assert.Nil(t, err)
 
-	if !CompareValue(reflect.ValueOf(src), reflect.ValueOf(tgt)) {
-		fmt.Println("bucket not equal")
-		t.Fail()
-	}
+	tgtData, err := rlp.EncodeToBytes(tgt)
+	assert.Nil(t, err)
+	assert.Equal(t, data, tgtData, "validator reward not equal")
 }
 
 func newStats(t *testing.T) *meter.DelegateStat {
 	return &meter.DelegateStat{
-		Addr:        randomAddr(t),
+		Addr:        randomAddr(),
 		Name:        randomBytes(10),
 		PubKey:      randomPubkey(t),
 		TotalPts:    rand.Uint64(),
@@ -400,22 +274,15 @@ func newStats(t *testing.T) *meter.DelegateStat {
 func TestRlpForStats(t *testing.T) {
 	src := newStats(t)
 	data, err := rlp.EncodeToBytes(src)
-	if err != nil {
-		fmt.Println("Encode error:", err)
-		t.Fail()
-	}
+	assert.Nil(t, err)
 
 	tgt := &meter.DelegateStat{}
 	err = rlp.DecodeBytes(data, tgt)
-	if err != nil {
-		fmt.Println("Decode error:", err)
-		t.Fail()
-	}
+	assert.Nil(t, err)
 
-	if !CompareValue(reflect.ValueOf(src), reflect.ValueOf(tgt)) {
-		fmt.Println("bucket not equal")
-		t.Fail()
-	}
+	tgtData, err := rlp.EncodeToBytes(tgt)
+	assert.Nil(t, err)
+	assert.Equal(t, data, tgtData, "validator reward not equal")
 }
 
 //////////////////////////////////////////////////////////////////////////////
@@ -425,65 +292,41 @@ func TestRlpForStats(t *testing.T) {
 func TestCandidateList(t *testing.T) {
 	src := []*meter.Candidate{newCandidate(t), newCandidate(t), newCandidate(t)}
 	data, err := rlp.EncodeToBytes(src)
-	if err != nil {
-		fmt.Println("Encode error:", err)
-		t.Fail()
-	}
-	// fmt.Println("DATA: ", data)
+	assert.Nil(t, err)
 
 	tgt := make([]*meter.Candidate, 0)
 	err = rlp.DecodeBytes(data, &tgt)
-	if err != nil {
-		fmt.Println("Decode error:", err)
-		t.Fail()
-	}
+	assert.Nil(t, err)
 
-	if !CompareValue(reflect.ValueOf(src), reflect.ValueOf(tgt)) {
-		fmt.Println("candidate list not equal")
-		t.Fail()
-	}
+	tgtData, err := rlp.EncodeToBytes(tgt)
+	assert.Nil(t, err)
+	assert.Equal(t, data, tgtData, "validator reward not equal")
 }
 
 func TestBucketList(t *testing.T) {
 	src := []*meter.Bucket{newBucket(t), newBucket(t), newBucket(t)}
 	data, err := rlp.EncodeToBytes(src)
-	if err != nil {
-		fmt.Println("Encode error:", err)
-		t.Fail()
-	}
-	// fmt.Println("DATA: ", data)
+	assert.Nil(t, err)
 
 	tgt := make([]*meter.Bucket, 0)
 	err = rlp.DecodeBytes(data, &tgt)
-	if err != nil {
-		fmt.Println("Decode error:", err)
-		t.Fail()
-	}
+	assert.Nil(t, err)
 
-	if !CompareValue(reflect.ValueOf(src), reflect.ValueOf(tgt)) {
-		fmt.Println("candidate list not equal")
-		t.Fail()
-	}
+	tgtData, err := rlp.EncodeToBytes(tgt)
+	assert.Nil(t, err)
+	assert.Equal(t, data, tgtData, "validator reward not equal")
 }
 
 func TestStakeholderList(t *testing.T) {
 	src := []*meter.Stakeholder{newStakeholder(t), newStakeholder(t), newStakeholder(t)}
 	data, err := rlp.EncodeToBytes(src)
-	if err != nil {
-		fmt.Println("Encode error:", err)
-		t.Fail()
-	}
-	// fmt.Println("DATA: ", data)
+	assert.Nil(t, err)
 
 	tgt := make([]*meter.Stakeholder, 0)
 	err = rlp.DecodeBytes(data, &tgt)
-	if err != nil {
-		fmt.Println("Decode error:", err)
-		t.Fail()
-	}
+	assert.Nil(t, err)
 
-	if !CompareValue(reflect.ValueOf(src), reflect.ValueOf(tgt)) {
-		fmt.Println("candidate list not equal")
-		t.Fail()
-	}
+	tgtData, err := rlp.EncodeToBytes(tgt)
+	assert.Nil(t, err)
+	assert.Equal(t, data, tgtData, "validator reward not equal")
 }
