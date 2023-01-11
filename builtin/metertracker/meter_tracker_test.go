@@ -21,16 +21,16 @@ func TestEnergy(t *testing.T) {
 
 	acc := meter.BytesToAddress([]byte("a1"))
 
-	eng := New(meter.BytesToAddress([]byte("eng")), st, 0)
+	eng := New(meter.BytesToAddress([]byte("eng")), st)
 	tests := []struct {
 		ret      interface{}
 		expected interface{}
 	}{
-		{eng.Get(acc), &big.Int{}},
-		{func() bool { eng.Add(acc, big.NewInt(10)); return true }(), true},
-		{eng.Get(acc), big.NewInt(10)},
-		{eng.Sub(acc, big.NewInt(5)), true},
-		{eng.Sub(acc, big.NewInt(6)), false},
+		{eng.state.GetEnergy(acc), &big.Int{}},
+		{func() bool { eng.state.AddEnergy(acc, big.NewInt(10)); return true }(), true},
+		{eng.state.GetEnergy(acc), big.NewInt(10)},
+		{eng.state.SubEnergy(acc, big.NewInt(5)), true},
+		{eng.state.SubEnergy(acc, big.NewInt(6)), false},
 	}
 
 	for _, tt := range tests {
@@ -38,28 +38,4 @@ func TestEnergy(t *testing.T) {
 	}
 
 	assert.Nil(t, st.Err())
-}
-
-func TestEnergyGrowth(t *testing.T) {
-	kv, _ := lvldb.NewMem()
-	st, _ := state.New(meter.Bytes32{}, kv)
-
-	acc := meter.BytesToAddress([]byte("a1"))
-
-	st.SetEnergy(acc, &big.Int{}, 10)
-
-	vetBal := big.NewInt(1e18)
-	st.SetBalance(acc, vetBal)
-
-	bal1 := New(meter.Address{}, st, 1000).
-		Get(acc)
-
-	x := new(big.Int).Mul(meter.EnergyGrowthRate, vetBal)
-	x.Mul(x, new(big.Int).SetUint64(1000-10))
-	x.Div(x, big.NewInt(1e18))
-
-	assert.Equal(t, x, bal1)
-
-	assert.Nil(t, st.Err())
-
 }

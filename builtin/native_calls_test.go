@@ -187,7 +187,7 @@ func TestParamsNative(t *testing.T) {
 		builtin.Params.Native(state).Set(meter.KeyExecutorAddress, new(big.Int).SetBytes(executor[:]))
 		return nil
 	})
-	c, _ := chain.New(kv, b0, true)
+	c, _ := chain.New(kv, b0, false)
 	st, _ := state.New(b0.Header().StateRoot(), kv)
 	seeker := c.NewSeeker(b0.ID())
 	defer func() {
@@ -381,7 +381,7 @@ func TestPrototypeNative(t *testing.T) {
 	kv, _ := lvldb.NewMem()
 	gene := genesis.NewDevnet()
 	genesisBlock, _, _ := gene.Build(state.NewCreator(kv))
-	c, _ := chain.New(kv, genesisBlock, true)
+	c, _ := chain.New(kv, genesisBlock, false)
 	st, _ := state.New(genesisBlock.Header().StateRoot(), kv)
 	seeker := c.NewSeeker(genesisBlock.ID())
 	defer func() {
@@ -653,7 +653,7 @@ func TestPrototypeNativeWithLongerBlockNumber(t *testing.T) {
 	gene := genesis.NewDevnet()
 	genesisBlock, _, _ := gene.Build(state.NewCreator(kv))
 	st, _ := state.New(genesisBlock.Header().StateRoot(), kv)
-	c, _ := chain.New(kv, genesisBlock, true)
+	c, _ := chain.New(kv, genesisBlock, false)
 	launchTime := genesisBlock.Header().Timestamp()
 
 	for i := 1; i < 100; i++ {
@@ -724,7 +724,7 @@ func TestPrototypeNativeWithBlockNumber(t *testing.T) {
 	gene := genesis.NewDevnet()
 	genesisBlock, _, _ := gene.Build(state.NewCreator(kv))
 	st, _ := state.New(genesisBlock.Header().StateRoot(), kv)
-	c, _ := chain.New(kv, genesisBlock, true)
+	c, _ := chain.New(kv, genesisBlock, false)
 	launchTime := genesisBlock.Header().Timestamp()
 
 	for i := 1; i < 100; i++ {
