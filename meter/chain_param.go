@@ -125,10 +125,24 @@ func (c *ChainConfig) IsMainnet() bool {
 	switch c.ChainFlag {
 	case "main":
 		return true
-	case "main-private":
+	case "staging":
 		return true
 	default:
 		// log.Error("Unknown chain", "chain", c.ChainFlag)
+		return false
+	}
+}
+
+func (c *ChainConfig) IsStaging() bool {
+	if !c.IsInitialized() {
+		log.Warn("Chain is not initialized", "chain-flag", c.ChainFlag)
+		return false
+	}
+
+	switch c.ChainFlag {
+	case "staging":
+		return true
+	default:
 		return false
 	}
 }
@@ -160,6 +174,10 @@ func IsTestNet() bool {
 
 func IsMainNet() bool {
 	return BlockChainConfig.IsMainnet()
+}
+
+func IsStaging() bool {
+	return BlockChainConfig.IsStaging()
 }
 
 func IsEdison(blockNum uint32) bool {

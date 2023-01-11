@@ -383,7 +383,11 @@ func (s *Staking) GoverningHandler(env *setypes.ScriptEnv, sb *StakingBody, gas 
 		err = s.unboundAndCalcBonus(env, bucketList, candidateList, stakeholderList, ts)
 	}
 
-	s.calcDelegates(env, bucketList, candidateList, inJailList)
+	if meter.IsStaging() {
+		log.Info("Skip delegate calculation in staging")
+	} else {
+		s.calcDelegates(env, bucketList, candidateList, inJailList)
+	}
 
 	state.SetCandidateList(candidateList)
 	state.SetBucketList(bucketList)
