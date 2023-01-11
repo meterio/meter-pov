@@ -3,14 +3,14 @@
 
 // file LICENSE or <https://www.gnu.org/licenses/lgpl-3.0.html>
 
-package bloom.test
+package bloom_test
 
 import (
 	"fmt"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
 	"github.com/meterio/meter-pov/meter/bloom"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestBloom(t *testing.T) {

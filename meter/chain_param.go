@@ -107,7 +107,7 @@ type ChainConfig struct {
 }
 
 func (c *ChainConfig) ToString() string {
-	return fmt.Sprintf("BlockChainConfig(ChainFlag: %v, Initialized: %v)",
+	return fmt.Sprintf("ChainFlag: %v, Initialized: %v",
 		c.ChainFlag, c.Initialized)
 }
 
@@ -128,7 +128,7 @@ func (c *ChainConfig) IsMainnet() bool {
 	case "main-private":
 		return true
 	default:
-		log.Error("Unknown chain", "chain", c.ChainFlag)
+		// log.Error("Unknown chain", "chain", c.ChainFlag)
 		return false
 	}
 }
