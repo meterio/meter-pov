@@ -1077,8 +1077,9 @@ func (conR *ConsensusReactor) buildRewardTxs(parentBlock *block.Block, rewards [
 			txs = append(txs, tx)
 		}
 
+		// exception for staging env
 		// build governing tx && autobid tx only when staking delegates is used
-		if conR.sourceDelegates != fromDelegatesFile {
+		if meter.IsStaging() || conR.sourceDelegates != fromDelegatesFile {
 			benefitRatio := governor.GetValidatorBenefitRatio(state)
 			validatorBaseReward := governor.GetValidatorBaseRewards(state)
 			epochBaseReward := governor.ComputeEpochBaseReward(validatorBaseReward)

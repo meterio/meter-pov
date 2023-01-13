@@ -93,7 +93,8 @@ var (
 	AuctionSummaryListKey = Blake2b([]byte("summary-list-key"))
 	AuctionCBKey          = Blake2b([]byte("auction-active-cb-key"))
 
-	StakingModuleAddr      = BytesToAddress([]byte("staking-module-address")) // 0x616B696e672D6D6F64756c652d61646472657373
+	// 0x616B696e672D6D6F64756c652d61646472657373
+	StakingModuleAddr      = BytesToAddress([]byte("staking-module-address"))
 	DelegateListKey        = Blake2b([]byte("delegate-list-key"))
 	CandidateListKey       = Blake2b([]byte("candidate-list-key"))
 	StakeHolderListKey     = Blake2b([]byte("stake-holder-list-key"))
