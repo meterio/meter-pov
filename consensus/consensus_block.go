@@ -1096,14 +1096,11 @@ func (conR *ConsensusReactor) buildRewardTxs(parentBlock *block.Block, rewards [
 				fmt.Println("Compute reward map V3")
 				if meter.IsStaging() {
 					// use staking delegates for calculation during staging
-					delegatesIntern, err := staking.GetInternalDelegateList()
-					if err != nil {
-						fmt.Println("could not get internal delegate list")
-					}
+					delegatesIntern, _ := staking.GetInternalDelegateList()
 					delegates := conR.convertFromIntern(delegatesIntern)
-					fmt.Println("delegates list got: ", len(delegates))
-					fmt.Println(delegates)
-					rewardMap, err = governor.ComputeRewardMapV3(epochBaseReward, epochTotalReward, delegates, conR.curCommittee.Validators)
+
+					// skip member check for delegates in ComputeRewardMapV3
+					rewardMap, err = governor.ComputeRewardMap(epochBaseReward, epochTotalReward, delegates, true)
 				} else {
 					rewardMap, err = governor.ComputeRewardMapV3(epochBaseReward, epochTotalReward, conR.curDelegates.Delegates, conR.curCommittee.Validators)
 				}
