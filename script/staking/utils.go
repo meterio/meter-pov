@@ -161,7 +161,7 @@ func GetInternalDelegateList() ([]*types.DelegateIntern, error) {
 	}
 
 	list := state.GetDelegateList()
-	// fmt.Println("delegateList from state\n", list.ToString())
+	fmt.Println("delegateList from state\n", list.ToString())
 	for _, s := range list.Delegates {
 		d := &types.DelegateIntern{
 			Name:        s.Name,
