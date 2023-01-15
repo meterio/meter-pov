@@ -342,11 +342,11 @@ func (c *ConsensusReactor) validateBlockBody(blk *block.Block, forceValidate boo
 
 	rewardTxs := tx.Transactions{}
 
+	parentBlock, err := c.chain.GetBlock(header.ParentID())
+	if err != nil {
+		panic("get parentBlock failed")
+	}
 	if blk.IsKBlock() {
-		parentBlock, err := c.chain.GetBlock(header.ParentID())
-		if err != nil {
-			panic("get parentBlock failed")
-		}
 		best := parentBlock
 		chainTag := c.chain.Tag()
 		bestNum := c.chain.BestBlock().Number()
@@ -417,11 +417,21 @@ func (c *ConsensusReactor) validateBlockBody(blk *block.Block, forceValidate boo
 
 							switch sb.Opcode {
 							case staking.OP_GOVERNING:
-								rinfo := []*meter.RewardInfo{}
-								err = rlp.DecodeBytes(sb.ExtraData, &rinfo)
-								log.Info("rewardTx rinfo")
-								for _, d := range rinfo {
-									rinfoIds[d.UniteHash()] = 1
+								if meter.IsTeslaFork6(parentBlock.Number()) {
+
+									rinfo := []*meter.RewardInfoV2{}
+									err = rlp.DecodeBytes(sb.ExtraData, &rinfo)
+									log.Info("rewardTx rinfo")
+									for _, d := range rinfo {
+										rinfoIds[d.UniteHash()] = 1
+									}
+								} else {
+									rinfo := []*meter.RewardInfo{}
+									err = rlp.DecodeBytes(sb.ExtraData, &rinfo)
+									log.Info("rewardTx rinfo")
+									for _, d := range rinfo {
+										rinfoIds[d.UniteHash()] = 1
+									}
 								}
 							default:
 								sbUniteHash := sb.UniteHash()
@@ -540,16 +550,30 @@ func (c *ConsensusReactor) validateBlockBody(blk *block.Block, forceValidate boo
 
 							switch sb.Opcode {
 							case staking.OP_GOVERNING:
-								minerTxRinfo := make([]*meter.RewardInfo, 0)
-								err = rlp.DecodeBytes(sb.ExtraData, &minerTxRinfo)
+								if meter.IsTeslaFork6(parentBlock.Number()) {
+									minerTxRinfo := make([]*meter.RewardInfoV2, 0)
+									err = rlp.DecodeBytes(sb.ExtraData, &minerTxRinfo)
 
-								fmt.Sprintf("minerTx rinfo")
-								for _, d := range minerTxRinfo {
-									dUniteHash := d.UniteHash()
-									if _, ok := rinfoIds[dUniteHash]; !ok {
-										return consensusError(fmt.Sprintf("d.Address %v not exists", d.Address))
+									fmt.Sprintf("minerTx rinfo")
+									for _, d := range minerTxRinfo {
+										dUniteHash := d.UniteHash()
+										if _, ok := rinfoIds[dUniteHash]; !ok {
+											return consensusError(fmt.Sprintf("d.Address %v not exists", d.Address))
+										}
+										rinfoIds[dUniteHash] -= 1
 									}
-									rinfoIds[dUniteHash] -= 1
+								} else {
+									minerTxRinfo := make([]*meter.RewardInfo, 0)
+									err = rlp.DecodeBytes(sb.ExtraData, &minerTxRinfo)
+
+									fmt.Sprintf("minerTx rinfo")
+									for _, d := range minerTxRinfo {
+										dUniteHash := d.UniteHash()
+										if _, ok := rinfoIds[dUniteHash]; !ok {
+											return consensusError(fmt.Sprintf("d.Address %v not exists", d.Address))
+										}
+										rinfoIds[dUniteHash] -= 1
+									}
 								}
 							default:
 								sbUniteHash := sb.UniteHash()

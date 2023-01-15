@@ -60,6 +60,26 @@ func (r *RewardInfoV2) String() string {
 	return fmt.Sprintf("Reward: %v Dist: %v, Autobid: %v", r.Address.String(), r.DistAmount.Uint64(), r.AutobidAmount.Uint64())
 }
 
+func (r *RewardInfoV2) UniteHash() (hash Bytes32) {
+	//if cached := c.cache.signingHash.Load(); cached != nil {
+	//	return cached.(Bytes32)
+	//}
+	//defer func() { c.cache.signingHash.Store(hash) }()
+
+	hw := NewBlake2b()
+	err := rlp.Encode(hw, []interface{}{
+		r.Address,
+		r.DistAmount,
+		r.AutobidAmount,
+	})
+	if err != nil {
+		return
+	}
+
+	hw.Sum(hash[:0])
+	return
+}
+
 type ValidatorReward struct {
 	Epoch       uint32
 	BaseReward  *big.Int
