@@ -17,6 +17,10 @@ var (
 	errParentHeaderMissing      = errors.New("parent header is missing")
 	errDecodeParentFailed       = errors.New("decode parent failed")
 	errRestartPaceMakerRequired = errors.New("restart pacemaker required")
+
+	ErrUnrecognizedPayload = errors.New("unrecognized payload")
+	ErrMagicMismatch       = errors.New("magic mismatch")
+	ErrMalformattedMsg     = errors.New("malformatted msg")
 )
 
 type consensusError string

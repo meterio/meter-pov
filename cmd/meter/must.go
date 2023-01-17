@@ -509,7 +509,7 @@ func startObserveServer(ctx *cli.Context, cons *consensus.ConsensusReactor, comp
 	mux.HandleFunc("/probe/peers", probe.HandlePeers)
 
 	// dispatch the msg to reactor/pacemaker
-	mux.HandleFunc("/pacemaker", cons.ReceivePacemakerMsg)
+	mux.HandleFunc("/pacemaker", cons.OnReceivePacemakerMsg)
 
 	srv := &http.Server{
 		Handler:      mux,

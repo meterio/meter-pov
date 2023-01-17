@@ -15,39 +15,14 @@ import (
 	"github.com/meterio/meter-pov/meter"
 )
 
-// NewViewReason is the reason for new view
-type NewViewReason byte
-
-const (
-	// HigherQCSeen
-	HigherQCSeen NewViewReason = NewViewReason(1)
-	RoundTimeout NewViewReason = NewViewReason(2)
-)
-
-func (r NewViewReason) String() string {
-	switch r {
-	case HigherQCSeen:
-		return "HigherQCSeen"
-	case RoundTimeout:
-		return "RoundTimeout"
-	default:
-		return ""
-	}
+type RecvKBlockInfo struct {
+	Height           uint32
+	LastKBlockHeight uint32
+	Nonce            uint64
+	Epoch            uint64
 }
 
-// PMRoundState is the const state for pacemaker state machine
-type PMRoundState byte
-
-const (
-	PMRoundStateInit                 PMRoundState = 1
-	PMRoundStateProposalRcvd         PMRoundState = 2
-	PMRoundStateProposalSent         PMRoundState = 3
-	PMRoundStateProposalMajorReached PMRoundState = 4
-	PMRoundStateProposalCommitted    PMRoundState = 4
-	PMRoundStateProposalDecided      PMRoundState = 4
-)
-
-// TimeoutCert
+// definition for PMTimeoutCert
 type PMTimeoutCert struct {
 	TimeoutRound   uint32
 	TimeoutHeight  uint32
@@ -140,6 +115,7 @@ func (tc *PMTimeoutCert) String() string {
 	return "nil"
 }
 
+// definition for pmBlock
 type pmBlock struct {
 	Height uint32
 	Round  uint32
@@ -174,14 +150,11 @@ func (pb *pmBlock) ToString() string {
 	}
 }
 
-// Definition for pmQuorumCert
+// definition for pmQuorumCert
 type pmQuorumCert struct {
 	//QCHeight/QCround must be the same with QCNode.Height/QCnode.Round
 	QCNode *pmBlock
 	QC     *block.QuorumCert
-
-	// temporary data
-	// VoterPubKey []bls.PublicKey
 }
 
 func newPMQuorumCert(qc *block.QuorumCert, qcNode *pmBlock) *pmQuorumCert {
@@ -199,12 +172,7 @@ func (qc *pmQuorumCert) ToString() string {
 	}
 }
 
-type PMRoundTimeoutInfo struct {
-	height  uint32
-	round   uint32
-	counter uint64
-}
-
+// enum PMCmd
 type PMCmd uint32
 
 const (
@@ -225,17 +193,24 @@ func (cmd PMCmd) String() string {
 	return ""
 }
 
+// struct
 type PMCmdInfo struct {
 	cmd  PMCmd
 	mode PMMode
 }
 
+type PMRoundTimeoutInfo struct {
+	height  uint32
+	round   uint32
+	counter uint64
+}
 type PMBeatInfo struct {
 	height uint32
 	round  uint32
 	reason beatReason
 }
 
+// enum roundUpdateReason
 type roundUpdateReason int32
 
 func (reason roundUpdateReason) String() string {
@@ -254,6 +229,7 @@ func (reason roundUpdateReason) String() string {
 	return "Unknown"
 }
 
+// enum roundTimerUpdateReason
 type roundTimerUpdateReason int32
 
 func (reason roundTimerUpdateReason) String() string {
@@ -268,6 +244,7 @@ func (reason roundTimerUpdateReason) String() string {
 	return ""
 }
 
+// enum beatReason
 type beatReason int32
 
 func (reason beatReason) String() string {
@@ -280,6 +257,20 @@ func (reason beatReason) String() string {
 		return "Timeout"
 	}
 	return "Unkown"
+}
+
+// enum NewViewReason is the reason for new view
+type NewViewReason byte
+
+func (r NewViewReason) String() string {
+	switch r {
+	case HigherQCSeen:
+		return "HigherQCSeen"
+	case RoundTimeout:
+		return "RoundTimeout"
+	default:
+		return ""
+	}
 }
 
 const (
@@ -296,4 +287,8 @@ const (
 	TimerInit     = roundTimerUpdateReason(0)
 	TimerInc      = roundTimerUpdateReason(1)
 	TimerInitLong = roundTimerUpdateReason(2)
+
+	// new view reasons
+	HigherQCSeen NewViewReason = NewViewReason(1)
+	RoundTimeout NewViewReason = NewViewReason(2)
 )

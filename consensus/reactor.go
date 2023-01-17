@@ -8,19 +8,16 @@ package consensus
 import (
 	"bytes"
 	"crypto/ecdsa"
-	sha256 "crypto/sha256"
 	"encoding/base64"
 	b64 "encoding/base64"
 	"encoding/binary"
 	"encoding/hex"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"math"
 	"net"
 	"net/http"
 	"sort"
-	"strconv"
 	"strings"
 	"time"
 
@@ -57,15 +54,7 @@ var (
 	ConsensusGlobInst *ConsensusReactor
 )
 
-var (
-	ErrUnrecognizedPayload = errors.New("unrecognized payload")
-	ErrMagicMismatch       = errors.New("magic mismatch")
-	ErrMalformattedMsg     = errors.New("Malformatted msg")
-	ErrInvalidSignature    = errors.New("invalid signature")
-	ErrInvalidMsgType      = errors.New("invalid msg type")
-)
-
-type ConsensusConfig struct {
+type ReactorConfig struct {
 	InitCfgdDelegates bool
 	EpochMBlockCount  uint32
 	MinCommitteeSize  int
@@ -80,7 +69,7 @@ type ConsensusReactor struct {
 	chain        *chain.Chain
 	stateCreator *state.Creator
 	logger       log15.Logger
-	config       ConsensusConfig
+	config       ReactorConfig
 	SyncDone     bool
 
 	// copy of master/node
@@ -109,23 +98,6 @@ type ConsensusReactor struct {
 	inCommittee     bool
 	allDelegates    []*types.Delegate
 	sourceDelegates int
-
-	// deprecated fields
-	// mtx                sync.RWMutex
-	// msgCache *MsgCache
-	// myBeneficiary meter.Address
-	// csMode             byte // delegates, committee, other
-	// csRoleInitialized uint
-	// csLeader          *ConsensusLeader
-	// csProposer        *ConsensusProposer
-	// csValidator *ConsensusValidator
-
-	// kBlockData *block.KBlockData
-	// peerMsgQueue     chan consensusMsgInfo
-	// internalMsgQueue chan consensusMsgInfo
-	// schedulerQueue   chan func()
-	// KBlockDataQueue    chan block.KBlockData // from POW simulation
-
 }
 
 // Glob Instance
@@ -149,7 +121,7 @@ func NewConsensusReactor(ctx *cli.Context, chain *chain.Chain, state *state.Crea
 	}
 
 	if ctx != nil {
-		conR.config = ConsensusConfig{
+		conR.config = ReactorConfig{
 			InitCfgdDelegates: ctx.Bool("init-configured-delegates"),
 			EpochMBlockCount:  uint32(ctx.Uint("epoch-mblock-count")),
 			MinCommitteeSize:  ctx.Int("committee-min-size"),
@@ -214,13 +186,6 @@ func (conR *ConsensusReactor) OnStart() error {
 	return nil
 }
 
-// OnStop implements BaseService by unsubscribing from events and stopping
-// state.
-func (conR *ConsensusReactor) OnStop() {
-	// New consensus
-	conR.NewConsensusStop()
-}
-
 func (conR *ConsensusReactor) GetLastKBlockHeight() uint32 {
 	return conR.lastKBlockHeight
 }
@@ -236,73 +201,6 @@ func (conR *ConsensusReactor) SwitchToConsensus() {
 	} else {
 		conR.startPacemaker(PMModeObserve)
 	}
-}
-
-// String returns a string representation of the ConsensusReactor.
-// NOTE: For now, it is just a hard-coded string to avoid accessing unprotected shared variables.
-// TODO: improve!
-func (conR *ConsensusReactor) String() string {
-	// better not to access shared variables
-	return "ConsensusReactor" // conR.StringIndented("")
-}
-
-//-----------------------------------------------------------------------------
-//----new consensus-------------------------------------------------------------
-//-----------------------------------------------------------------------------
-//define the node mode
-// 1. CONSENSUS_MODE_OTHER
-// 2. CONSENSUS_MODE_OBSERVER
-// 3. CONSENSUS_MODE_DELEGATE
-// 4. CONSENSUS_MODE_COMMITTEE
-
-const (
-	CONSENSUS_MODE_OTHER     = byte(0x01)
-	CONSENSUS_MODE_OBSERVER  = byte(0x02)
-	CONSENSUS_MODE_DELEGATE  = byte(0x03)
-	CONSENSUS_MODE_COMMITTEE = byte(0x04)
-
-	// Flags of Roles
-	CONSENSUS_COMMIT_ROLE_NONE      = uint(0x0)
-	CONSENSUS_COMMIT_ROLE_LEADER    = uint(0x01)
-	CONSENSUS_COMMIT_ROLE_PROPOSER  = uint(0x02)
-	CONSENSUS_COMMIT_ROLE_VALIDATOR = uint(0x04)
-)
-
-type consensusMsgInfo struct {
-	//Msg    ConsensusMessage
-	Msg       ConsensusMessage
-	Peer      *ConsensusPeer
-	RawData   []byte
-	Signature []byte
-
-	cache struct {
-		msgHash    [32]byte
-		msgHashHex string
-	}
-}
-
-func newConsensusMsgInfo(msg ConsensusMessage, peer *ConsensusPeer, rawData []byte) *consensusMsgInfo {
-	return &consensusMsgInfo{
-		Msg:       msg,
-		Peer:      peer,
-		RawData:   rawData,
-		Signature: msg.Header().Signature,
-		cache: struct {
-			msgHash    [32]byte
-			msgHashHex string
-		}{msgHashHex: ""},
-	}
-}
-
-func (mi *consensusMsgInfo) MsgHashHex() string {
-	if mi.cache.msgHashHex == "" {
-		msgHash := sha256.Sum256(mi.RawData)
-		msgHashHex := hex.EncodeToString(msgHash[:])[:8]
-		mi.cache.msgHash = msgHash
-		mi.cache.msgHashHex = msgHashHex
-	}
-	return mi.cache.msgHashHex
-
 }
 
 func (conR *ConsensusReactor) UpdateHeight(height uint32) bool {
@@ -399,14 +297,14 @@ func (conR *ConsensusReactor) VerifyBothPubKey() {
 }
 
 // create validatorSet by a given nonce. return by my self role
-func (conR *ConsensusReactor) UpdateCurCommitteeByNonce(nonce uint64) (uint, bool) {
-	committee, role, index, inCommittee := conR.CalcCommitteeByNonce(nonce)
+func (conR *ConsensusReactor) UpdateCurCommitteeByNonce(nonce uint64) bool {
+	committee, index, inCommittee := conR.calcCommitteeByNonce(nonce)
 	conR.curCommittee = committee
-	if inCommittee == true {
+	if inCommittee {
 		conR.curCommitteeIndex = uint32(index)
 		myAddr := conR.curCommittee.Validators[index].NetAddr
 		myName := conR.curCommittee.Validators[index].Name
-		conR.logger.Info("New committee calculated", "index", index, "role", role, "myName", myName, "myIP", myAddr.IP.String())
+		conR.logger.Info("New committee calculated", "index", index, "myName", myName, "myIP", myAddr.IP.String())
 	} else {
 		conR.curCommitteeIndex = 0
 		// FIXME: find a better way
@@ -415,12 +313,12 @@ func (conR *ConsensusReactor) UpdateCurCommitteeByNonce(nonce uint64) (uint, boo
 	fmt.Println("Committee members in order:")
 	fmt.Println(committee)
 
-	return role, inCommittee
+	return inCommittee
 }
 
 // it is used for temp calculate committee set by a given nonce in the fly.
 // also return the committee
-func (conR *ConsensusReactor) CalcCommitteeByNonce(nonce uint64) (*types.ValidatorSet, uint, int, bool) {
+func (conR *ConsensusReactor) calcCommitteeByNonce(nonce uint64) (*types.ValidatorSet, int, bool) {
 	buf := make([]byte, binary.MaxVarintLen64)
 	binary.PutUvarint(buf, nonce)
 
@@ -450,121 +348,31 @@ func (conR *ConsensusReactor) CalcCommitteeByNonce(nonce uint64) (*types.Validat
 	if len(vals) < 1 {
 		conR.logger.Error("VALIDATOR SET is empty, potential error config with delegates.json", "delegates", len(conR.curDelegates.Delegates))
 
-		return Committee, CONSENSUS_COMMIT_ROLE_NONE, 0, false
+		return Committee, 0, false
 	}
 
-	if bytes.Equal(crypto.FromECDSAPub(&vals[0].PubKey), crypto.FromECDSAPub(&conR.myPubKey)) == true {
-		return Committee, CONSENSUS_COMMIT_ROLE_LEADER, 0, true
+	if bytes.Equal(crypto.FromECDSAPub(&vals[0].PubKey), crypto.FromECDSAPub(&conR.myPubKey)) {
+		return Committee, 0, true
 	}
 
 	for i, val := range vals {
-		if bytes.Equal(crypto.FromECDSAPub(&val.PubKey), crypto.FromECDSAPub(&conR.myPubKey)) == true {
+		if bytes.Equal(crypto.FromECDSAPub(&val.PubKey), crypto.FromECDSAPub(&conR.myPubKey)) {
 
-			return Committee, CONSENSUS_COMMIT_ROLE_VALIDATOR, i, true
+			return Committee, i, true
 		}
 	}
 
-	return Committee, CONSENSUS_COMMIT_ROLE_NONE, 0, false
+	return Committee, 0, false
 }
 
 func (conR *ConsensusReactor) GetCommitteeMemberIndex(pubKey ecdsa.PublicKey) int {
 	for i, v := range conR.curCommittee.Validators {
-		if bytes.Equal(crypto.FromECDSAPub(&v.PubKey), crypto.FromECDSAPub(&pubKey)) == true {
+		if bytes.Equal(crypto.FromECDSAPub(&v.PubKey), crypto.FromECDSAPub(&pubKey)) {
 			return i
 		}
 	}
 	conR.logger.Error("I'm not in committee, please check public key settings", "pubKey", pubKey)
 	return -1
-}
-
-func (conR *ConsensusReactor) GetActualCommitteeMemberIndex(pubKey *ecdsa.PublicKey) int {
-	for i, member := range conR.curActualCommittee {
-		if bytes.Equal(crypto.FromECDSAPub(&member.PubKey), crypto.FromECDSAPub(pubKey)) == true {
-			return i
-		}
-	}
-	conR.logger.Error("public key not found in actual committee", "pubKey", pubKey)
-	return -1
-}
-
-// input is serialized ecdsa.PublicKey
-func (conR *ConsensusReactor) GetCommitteeMember(pubKey []byte) *types.CommitteeMember {
-	for _, v := range conR.curActualCommittee {
-		if bytes.Equal(crypto.FromECDSAPub(&v.PubKey), pubKey) == true {
-			return &v
-		}
-	}
-	conR.logger.Error("not found", "pubKey", pubKey)
-	return nil
-}
-
-func (conR *ConsensusReactor) MarshalMsg(msg *ConsensusMessage) ([]byte, error) {
-	rawMsg := cdc.MustMarshalBinaryBare(msg)
-	if len(rawMsg) > maxMsgSize {
-		conR.logger.Error("Msg exceeds max size", "rawMsg", len(rawMsg), "maxMsgSize", maxMsgSize)
-		return make([]byte, 0), errors.New("Msg exceeds max size")
-	}
-
-	magicHex := hex.EncodeToString(conR.magic[:])
-	myNetAddr := conR.GetMyNetAddr()
-	payload := map[string]interface{}{
-		"message":   hex.EncodeToString(rawMsg),
-		"peer_ip":   myNetAddr.IP.String(),
-		"peer_port": strconv.Itoa(int(myNetAddr.Port)),
-		"magic":     magicHex,
-	}
-
-	return json.Marshal(payload)
-}
-
-func (conR *ConsensusReactor) UnmarshalMsg(data []byte) (*consensusMsgInfo, error) {
-	var params map[string]string
-	err := json.NewDecoder(bytes.NewReader(data)).Decode(&params)
-	if err != nil {
-		fmt.Println(err)
-		return nil, ErrUnrecognizedPayload
-	}
-	if strings.Compare(params["magic"], hex.EncodeToString(conR.magic[:])) != 0 {
-		return nil, ErrMagicMismatch
-	}
-	peerIP := net.ParseIP(params["peer_ip"])
-	peerPort, err := strconv.ParseUint(params["peer_port"], 10, 16)
-	if err != nil {
-		fmt.Println("Unrecognized Payload: ", err)
-		return nil, ErrUnrecognizedPayload
-	}
-	peerName := conR.GetDelegateNameByIP(peerIP)
-	peer := newConsensusPeer(peerName, peerIP, uint16(peerPort), conR.magic)
-	rawMsg, err := hex.DecodeString(params["message"])
-	if err != nil {
-		fmt.Println("could not decode string: ", params["message"])
-		return nil, ErrMalformattedMsg
-	}
-	msg, err := decodeMsg(rawMsg)
-	if err != nil {
-		fmt.Println("Malformatted Msg: ", msg)
-		return nil, ErrMalformattedMsg
-		// conR.logger.Error("Malformated message, error decoding", "peer", peerName, "ip", peerIP, "msg", msg, "err", err)
-	}
-
-	return newConsensusMsgInfo(msg, peer, data), nil
-}
-
-func (conR *ConsensusReactor) ReceivePacemakerMsg(w http.ResponseWriter, r *http.Request) {
-	if conR.csPacemaker != nil {
-		conR.csPacemaker.receivePacemakerMsg(w, r)
-	} else {
-		conR.logger.Warn("pacemaker is not initialized, dropped message")
-	}
-}
-
-// called by reactor stop
-func (conR *ConsensusReactor) NewConsensusStop() int {
-	conR.logger.Warn("Stop New Consensus ...")
-
-	// Deinitialize consensus common
-	conR.csCommon.Destroy()
-	return 0
 }
 
 func (conR *ConsensusReactor) GetMyNetAddr() types.NetAddress {
@@ -581,17 +389,6 @@ func (conR *ConsensusReactor) GetMyName() string {
 	return "unknown"
 }
 
-func (conR *ConsensusReactor) GetMyPeers() ([]*ConsensusPeer, error) {
-	peers := make([]*ConsensusPeer, 0)
-	myNetAddr := conR.GetMyNetAddr()
-	for _, member := range conR.curActualCommittee {
-		if member.NetAddr.IP.String() != myNetAddr.IP.String() {
-			peers = append(peers, newConsensusPeer(member.Name, member.NetAddr.IP, member.NetAddr.Port, conR.magic))
-		}
-	}
-	return peers, nil
-}
-
 func (conR *ConsensusReactor) GetMyActualCommitteeIndex() int {
 	myNetAddr := conR.GetMyNetAddr()
 	for index, member := range conR.curActualCommittee {
@@ -600,17 +397,6 @@ func (conR *ConsensusReactor) GetMyActualCommitteeIndex() int {
 		}
 	}
 	return -1
-}
-
-type ApiCommitteeMember struct {
-	Name        string
-	Address     meter.Address
-	PubKey      string
-	VotingPower int64
-	NetAddr     string
-	CsPubKey    string
-	CsIndex     int
-	InCommittee bool
 }
 
 func (conR *ConsensusReactor) SignConsensusMsg(msgHash []byte) (sig []byte, err error) {
@@ -694,7 +480,7 @@ func (conR *ConsensusReactor) PrepareEnvForPacemaker() error {
 	conR.VerifyBothPubKey()
 
 	conR.curNonce = nonce
-	_, inCommittee := conR.UpdateCurCommitteeByNonce(nonce)
+	inCommittee := conR.UpdateCurCommitteeByNonce(nonce)
 	conR.inCommittee = inCommittee
 
 	conR.lastKBlockHeight = kBlockHeight
@@ -877,7 +663,7 @@ func (conR *ConsensusReactor) LoadBlockBytes(num uint32) []byte {
 	return raw[:]
 }
 
-func calcCommitteeSize(delegateSize int, config ConsensusConfig) (int, int) {
+func calcCommitteeSize(delegateSize int, config ReactorConfig) (int, int) {
 	if delegateSize >= config.MaxDelegateSize {
 		delegateSize = config.MaxDelegateSize
 	}
@@ -954,75 +740,10 @@ func PrintDelegates(delegates []*types.Delegate) {
 	fmt.Println("============================================")
 }
 
-// ------------------------------------
-// USED FOR PROBE ONLY
-// ------------------------------------
-func (conR *ConsensusReactor) IsPacemakerRunning() bool {
-	if conR.csPacemaker == nil {
-		return false
+func (conR *ConsensusReactor) OnReceivePacemakerMsg(w http.ResponseWriter, r *http.Request) {
+	if conR.csPacemaker != nil {
+		conR.csPacemaker.OnReceiveMsg(w, r)
+	} else {
+		conR.logger.Warn("pacemaker is not initialized, dropped message")
 	}
-	return !conR.csPacemaker.IsStopped()
-}
-
-func (conR *ConsensusReactor) PacemakerProbe() *PMProbeResult {
-	if conR.IsPacemakerRunning() {
-		return conR.csPacemaker.Probe()
-	}
-	return nil
-}
-
-func (conR *ConsensusReactor) IsCommitteeMember() bool {
-	return conR.inCommittee
-}
-
-func (conR *ConsensusReactor) GetDelegatesSource() string {
-	if conR.sourceDelegates == fromStaking {
-		return "staking"
-	}
-	if conR.sourceDelegates == fromDelegatesFile {
-		return "localFile"
-	}
-	return ""
-}
-
-// ------------------------------------
-// USED FOR API ONLY
-// ------------------------------------
-func (conR *ConsensusReactor) GetLatestCommitteeList() ([]*ApiCommitteeMember, error) {
-	var committeeMembers []*ApiCommitteeMember
-	inCommittee := make([]bool, len(conR.curCommittee.Validators))
-	for i := range inCommittee {
-		inCommittee[i] = false
-	}
-
-	for _, cm := range conR.curActualCommittee {
-		v := conR.curCommittee.Validators[cm.CSIndex]
-		apiCm := &ApiCommitteeMember{
-			Name:        v.Name,
-			Address:     v.Address,
-			PubKey:      b64.StdEncoding.EncodeToString(crypto.FromECDSAPub(&cm.PubKey)),
-			VotingPower: v.VotingPower,
-			NetAddr:     cm.NetAddr.String(),
-			CsPubKey:    hex.EncodeToString(conR.csCommon.GetSystem().PubKeyToBytes(cm.CSPubKey)),
-			CsIndex:     cm.CSIndex,
-			InCommittee: true,
-		}
-		// fmt.Println(fmt.Sprintf("set %d to true, with index = %d ", i, cm.CSIndex))
-		committeeMembers = append(committeeMembers, apiCm)
-		inCommittee[cm.CSIndex] = true
-	}
-	for i, val := range inCommittee {
-		if val == false {
-			v := conR.curCommittee.Validators[i]
-			apiCm := &ApiCommitteeMember{
-				Name:        v.Name,
-				Address:     v.Address,
-				PubKey:      b64.StdEncoding.EncodeToString(crypto.FromECDSAPub(&v.PubKey)),
-				CsIndex:     i,
-				InCommittee: false,
-			}
-			committeeMembers = append(committeeMembers, apiCm)
-		}
-	}
-	return committeeMembers, nil
 }

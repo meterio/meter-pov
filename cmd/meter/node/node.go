@@ -270,7 +270,7 @@ func (n *Node) txStashLoop(ctx context.Context) {
 func (n *Node) processBlock(blk *block.Block, stats *blockStats) (bool, error) {
 	startTime := mclock.Now()
 	now := uint64(time.Now().Unix())
-	stage, receipts, err := n.cons.Process(blk, now)
+	stage, receipts, err := n.cons.ProcessSyncedBlock(blk, now)
 	if err != nil {
 		switch {
 		case consensus.IsKnownBlock(err):

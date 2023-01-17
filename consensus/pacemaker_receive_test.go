@@ -40,7 +40,7 @@ func TestBroadcast(t *testing.T) {
 			continue
 		}
 		visited[i] = true
-		peers := consensus.GetRelayPeers(i, committeeSize)
+		peers := consensus.CalcRelayPeers(i, committeeSize)
 		fmt.Println("NODE ", i, " TO>", peers)
 		for _, p := range peers {
 			msgCount++
@@ -110,7 +110,7 @@ func TestRobustness(t *testing.T) {
 					// failed node could not send to peers anymore
 					continue
 				}
-				peers := consensus.GetRelayPeers(i, committeeSize)
+				peers := consensus.CalcRelayPeers(i, committeeSize)
 				// fmt.Println("NODE ", i, " TO>", peers)
 				for _, p := range peers {
 					if _, ok := rcvCount[p]; !ok {
@@ -153,7 +153,7 @@ func TestRobustness(t *testing.T) {
 func TesGetRelay(t *testing.T) {
 	committeeSize := 50
 
-	fmt.Println("Testing GetRelayPeers with committee size: ", committeeSize)
+	fmt.Println("Testing CalcRelayPeers with committee size: ", committeeSize)
 	for k := 4; k < 5; k++ {
 		fmt.Println("Testing with missing set size of ", k)
 		missedComb := combin.Combinations(committeeSize, k)
@@ -174,7 +174,7 @@ func TesGetRelay(t *testing.T) {
 					continue
 				}
 				visited[i] = true
-				peers := consensus.GetRelayPeers(i, committeeSize)
+				peers := consensus.CalcRelayPeers(i, committeeSize)
 				// fmt.Println("NODE ", i, " TO>", peers)
 				for _, p := range peers {
 					_, isVisited := visited[p]

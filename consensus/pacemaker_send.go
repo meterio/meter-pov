@@ -5,12 +5,18 @@
 
 package consensus
 
+// This is part of pacemaker that in charge of:
+// 1. build outgoing messages
+// 2. send messages to peer
+
 import (
 	"bytes"
 	"crypto/ecdsa"
+	sha256 "crypto/sha256"
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/ethereum/go-ethereum/rlp"
@@ -18,77 +24,85 @@ import (
 	crypto "github.com/ethereum/go-ethereum/crypto"
 	"github.com/meterio/meter-pov/block"
 	"github.com/meterio/meter-pov/meter"
-	"github.com/meterio/meter-pov/powpool"
 	"github.com/meterio/meter-pov/types"
 )
 
-func (p *Pacemaker) proposeBlock(parentBlock *block.Block, height, round uint32, qc *pmQuorumCert, timeout bool) (*ProposedBlockInfo, []byte) {
+func (p *Pacemaker) sendMsg(round uint32, msg ConsensusMessage, copyMyself bool) bool {
+	myNetAddr := p.csReactor.GetMyNetAddr()
+	myName := p.csReactor.GetMyName()
+	myself := newConsensusPeer(myName, myNetAddr.IP, myNetAddr.Port, p.csReactor.magic)
 
-	var proposalKBlock bool = false
-	var powResults *powpool.PowResult
-	if (height-p.startHeight) >= p.minMBlocks && !timeout {
-		proposalKBlock, powResults = powpool.GetGlobPowPoolInst().GetPowDecision()
-	}
-
-	var blockBytes []byte
-	var blkInfo *ProposedBlockInfo
-
-	// propose appropriate block info
-	if proposalKBlock {
-		data := &block.KBlockData{uint64(powResults.Nonce), powResults.Raw}
-		rewards := powResults.Rewards
-		blkInfo = p.csReactor.BuildKBlock(parentBlock, data, rewards)
-		if blkInfo == nil {
-			return nil, make([]byte, 0)
-		}
-	} else {
-		blkInfo = p.csReactor.BuildMBlock(parentBlock)
-		if blkInfo == nil {
-			return nil, make([]byte, 0)
-		}
-		lastKBlockHeight := blkInfo.ProposedBlock.LastKBlockHeight()
-		blockNumber := blkInfo.ProposedBlock.Number()
-		if round == 0 || blockNumber == lastKBlockHeight+1 {
-			// set committee info
-			p.packCommitteeInfo(blkInfo.ProposedBlock)
+	peers := make([]*ConsensusPeer, 0)
+	switch msg.(type) {
+	case *PMProposalMessage:
+		peers = p.GetRelayPeers(round)
+	case *PMVoteMessage:
+		proposer := p.getProposerByRound(round)
+		peers = append(peers, proposer)
+	case *PMNewViewMessage:
+		nv := msg.(*PMNewViewMessage)
+		if nv.Reason == HigherQCSeen {
+			visited := make(map[string]bool)
+			for i := 0; i < meter.NewViewPeersLimit; i++ {
+				nxtProposer := p.getProposerByRound(round + uint32(i))
+				if _, ok := visited[nxtProposer.String()]; !ok {
+					peers = append(peers, nxtProposer)
+					visited[nxtProposer.String()] = true
+				}
+			}
+		} else {
+			nxtProposer := p.getProposerByRound(round)
+			peers = append(peers, nxtProposer)
 		}
 	}
-	p.packQuorumCert(blkInfo.ProposedBlock, qc)
-	blockBytes = block.BlockEncodeBytes(blkInfo.ProposedBlock)
 
-	return blkInfo, blockBytes
-}
-
-func (p *Pacemaker) proposeStopCommitteeBlock(parentBlock *block.Block, height, round uint32, qc *pmQuorumCert) (*ProposedBlockInfo, []byte) {
-
-	var blockBytes []byte
-	var blkInfo *ProposedBlockInfo
-
-	blkInfo = p.csReactor.BuildStopCommitteeBlock(parentBlock)
-	if blkInfo == nil {
-		return nil, make([]byte, 0)
+	myselfInPeers := myself == nil
+	for _, p := range peers {
+		if p.netAddr.IP.String() == myNetAddr.IP.String() {
+			myselfInPeers = true
+			break
+		}
 	}
-	p.packQuorumCert(blkInfo.ProposedBlock, qc)
-	blockBytes = block.BlockEncodeBytes(blkInfo.ProposedBlock)
+	// send consensus message to myself first (except for PMNewViewMessage)
+	typeName := getConcreteName(msg)
+	if copyMyself && !myselfInPeers {
+		p.logger.Debug(fmt.Sprintf("Sending %v to myself", typeName))
+		p.sendMsgToPeer(msg, false, myself)
+	}
 
-	return blkInfo, blockBytes
+	peerNames := make([]string, 0)
+	for _, p := range peers {
+		peerNames = append(peerNames, p.name)
+	}
+	p.logger.Debug(fmt.Sprintf("Sending %v to peers: %v", typeName, strings.Join(peerNames, ",")))
+	p.sendMsgToPeer(msg, false, peers...)
+	return true
 }
 
-func (p *Pacemaker) packCommitteeInfo(blk *block.Block) {
-	committeeInfo := []block.CommitteeInfo{}
+func (p *Pacemaker) sendMsgToPeer(msg ConsensusMessage, relay bool, peers ...*ConsensusPeer) bool {
+	data, err := p.csReactor.MarshalMsg(&msg)
+	if err != nil {
+		fmt.Println("error marshaling message", err)
+		return false
+	}
+	msgSummary := msg.String()
+	msgHash := sha256.Sum256(data)
+	msgHashHex := hex.EncodeToString(msgHash[:])[:8]
 
-	// blk.SetBlockEvidence(ev)
-	committeeInfo = p.csReactor.MakeBlockCommitteeInfo(p.csReactor.csCommon.GetSystem(), p.csReactor.curActualCommittee)
-	// fmt.Println("committee info: ", committeeInfo)
-	blk.SetCommitteeInfo(committeeInfo)
-	blk.SetCommitteeEpoch(p.csReactor.curEpoch)
-
-	//Fill new info into block, re-calc hash/signature
-	// blk.SetEvidenceDataHash(blk.EvidenceDataHash())
-}
-
-func (p *Pacemaker) packQuorumCert(blk *block.Block, qc *pmQuorumCert) {
-	blk.SetQC(qc.QC)
+	peerNames := make([]string, 0)
+	for _, peer := range peers {
+		peerNames = append(peerNames, peer.NameString())
+	}
+	prefix := "Send>>"
+	if relay {
+		prefix = "Relay>>"
+	}
+	p.logger.Info(prefix+" "+msgSummary, "to", strings.Join(peerNames, ", "), "msgHash", msgHashHex)
+	// broadcast consensus message to peers
+	for _, peer := range peers {
+		go peer.sendPacemakerMsg(data, msgSummary, msgHashHex, relay)
+	}
+	return true
 }
 
 func (p *Pacemaker) BuildProposalMessage(height, round uint32, bnew *pmBlock, tc *PMTimeoutCert) (*PMProposalMessage, error) {

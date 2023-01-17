@@ -263,7 +263,7 @@ func (p *Pacemaker) OnCommit(commitReady []*pmBlock) {
 		}
 		// commit the approved block
 		bestQC := p.proposalMap.Get(b.Height + 1).Justify.QC
-		err := p.csReactor.FinalizeCommitBlock(b.ProposedBlockInfo, bestQC)
+		err := p.commitBlock(b.ProposedBlockInfo, bestQC)
 		if err != nil {
 			if err != chain.ErrBlockExist && err != errKnownBlock {
 				p.csReactor.logger.Warn("Commit block failed ...", "error", err)
@@ -306,7 +306,7 @@ func (p *Pacemaker) OnPreCommitBlock(b *pmBlock) error {
 		p.csReactor.logger.Error("Process this proposal failed, possible my states are wrong, restart pacemaker", "height", b.Height, "round", b.Round, "action", "precommit", "err", b.ProcessError)
 		return errRestartPaceMakerRequired
 	}
-	err := p.csReactor.PreCommitBlock(b.ProposedBlockInfo)
+	err := p.precommitBlock(b.ProposedBlockInfo)
 
 	if err != nil && err != chain.ErrBlockExist {
 		p.logger.Warn("precommit failed", "err", err)
@@ -490,7 +490,7 @@ func (p *Pacemaker) OnReceiveProposal(mi *consensusMsgInfo) error {
 				return err
 			}
 			// send vote message to leader
-			p.SendConsensusMessage(proposalMsg.CSMsgCommonHeader.Round, msg, false)
+			p.sendMsg(proposalMsg.CSMsgCommonHeader.Round, msg, false)
 			p.lastVotingHeight = bnew.Height
 		} else {
 			p.logger.Info("No voting due to catch-up mode")
@@ -595,7 +595,7 @@ func (p *Pacemaker) OnPropose(b *pmBlock, qc *pmQuorumCert, height, round uint32
 	p.proposalMap.Add(bnew)
 
 	//send proposal to all include myself
-	p.SendConsensusMessage(round, msg, true)
+	p.sendMsg(round, msg, true)
 
 	return bnew, nil
 }
@@ -733,7 +733,7 @@ func (p *Pacemaker) OnNextSyncView(nextHeight, nextRound uint32, reason NewViewR
 	if err != nil {
 		p.logger.Error("could not build new view message", "err", err)
 	} else {
-		p.SendConsensusMessage(nextRound, msg, false)
+		p.sendMsg(nextRound, msg, false)
 	}
 }
 
@@ -865,7 +865,7 @@ func (p *Pacemaker) newViewRoundTimeout(header ConsensusMsgCommonHeader, qc bloc
 			p.logger.Info(fmt.Sprintf("peer missed %v proposal, forward to it ... ", len(missed)), "fromHeight", qcHeight+1, "name", peer.name, "ip", peer.netAddr.IP.String())
 			for _, pmp := range missed {
 				p.logger.Debug("forwarding proposal", "height", pmp.Height, "name", peer.name, "ip", peer.netAddr.IP.String())
-				p.asyncSendPacemakerMsg(pmp.ProposalMessage, false, peer)
+				p.sendMsgToPeer(pmp.ProposalMessage, false, peer)
 			}
 		}
 	}
@@ -1007,16 +1007,6 @@ func (p *Pacemaker) ScheduleOnBeat(height, round uint32, reason beatReason, d ti
 	return true
 }
 
-func (p *Pacemaker) mainLoopStopMode() {
-	// if pacemaker is already started, back to work
-	if p.stopped == false {
-		return
-	}
-
-	// sleep 500 milli second to avoid CPU spike
-	time.Sleep(500 * time.Millisecond)
-}
-
 func (p *Pacemaker) mainLoop() {
 	interruptCh := make(chan os.Signal, 1)
 	p.mainLoopStarted = true
@@ -1026,7 +1016,8 @@ func (p *Pacemaker) mainLoop() {
 		var err error
 		if p.stopped {
 			p.logger.Debug("Pacemaker stopped.")
-			p.mainLoopStopMode()
+			// sleep for 500 ms to avoid CPU spike
+			time.Sleep(500 * time.Millisecond)
 			continue
 		}
 		select {
@@ -1474,7 +1465,7 @@ func (p *Pacemaker) OnReceiveQueryProposal(mi *consensusMsgInfo) error {
 		}
 
 		//send
-		p.asyncSendPacemakerMsg(result.ProposalMessage, false, mi.Peer)
+		p.sendMsgToPeer(result.ProposalMessage, false, mi.Peer)
 
 		queryHeight++
 	}
