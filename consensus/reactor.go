@@ -36,7 +36,6 @@ import (
 	"github.com/meterio/meter-pov/genesis"
 	"github.com/meterio/meter-pov/meter"
 	"github.com/meterio/meter-pov/powpool"
-	"github.com/meterio/meter-pov/script/staking"
 	"github.com/meterio/meter-pov/state"
 	"github.com/meterio/meter-pov/types"
 )
@@ -830,27 +829,6 @@ func MajorityTwoThird(voterNum, committeeSize uint32) bool {
 	return false
 }
 
-func (conR *ConsensusReactor) convertFromIntern(interns []*types.DelegateIntern) []*types.Delegate {
-	ret := []*types.Delegate{}
-	for _, in := range interns {
-		pubKey, blsPub := conR.splitPubKey(string(in.PubKey))
-		d := &types.Delegate{
-			Name:        in.Name,
-			Address:     in.Address,
-			PubKey:      *pubKey,
-			BlsPubKey:   *blsPub,
-			VotingPower: in.VotingPower,
-			NetAddr:     in.NetAddr,
-			Commission:  in.Commission,
-			DistList:    in.DistList,
-		}
-		d.SetInternCombinePublicKey(string(in.PubKey))
-		ret = append(ret, d)
-	}
-
-	return ret
-}
-
 func (conR *ConsensusReactor) splitPubKey(comboPub string) (*ecdsa.PublicKey, *bls.PublicKey) {
 	// first part is ecdsa public, 2nd part is bls public key
 	split := strings.Split(comboPub, ":::")
@@ -925,9 +903,8 @@ func (conR *ConsensusReactor) GetConsensusDelegates() ([]*types.Delegate, int, i
 		conR.sourceDelegates = fromDelegatesFile
 		hint = "Loaded delegates from delegates.json"
 	} else {
-		delegatesIntern, err := staking.GetInternalDelegateList()
-		delegates = conR.convertFromIntern(delegatesIntern)
-		hint = "Loaded delegates from staking candidates"
+		delegates, err := conR.getDelegatesFromStaking()
+		hint = "Loaded delegates from staking"
 		conR.sourceDelegates = fromStaking
 		if err != nil || len(delegates) < conR.config.MinCommitteeSize {
 			delegates = conR.config.InitDelegates

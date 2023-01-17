@@ -17,17 +17,6 @@ import (
 	"github.com/meterio/meter-pov/meter"
 )
 
-// make sure to update that method if changes are made here
-type DelegateIntern struct {
-	Name        []byte
-	Address     meter.Address
-	PubKey      []byte //actually the comb of ecdsa & bls publickeys
-	VotingPower int64
-	NetAddr     NetAddress
-	Commission  uint64
-	DistList    []*Distributor
-}
-
 type Distributor struct {
 	Address meter.Address
 	Autobid uint8  // autobid percentile
@@ -104,7 +93,7 @@ type DelegateSet struct {
 	totalVotingPower int64
 }
 
-//=================================
+// =================================
 // commission rate 1% presents 1e07, unit is shannon (1e09)
 const (
 	COMMISSION_RATE_MAX     = uint64(100 * 1e07) // 100%

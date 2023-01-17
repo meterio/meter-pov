@@ -9,12 +9,10 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
-	"net"
 	"strings"
 
 	"github.com/meterio/meter-pov/meter"
 	"github.com/meterio/meter-pov/state"
-	"github.com/meterio/meter-pov/types"
 )
 
 var (
@@ -129,54 +127,6 @@ func CheckEnoughSelfVotes(subVotes *big.Int, c *meter.Candidate, bl *meter.Bucke
 	}
 
 	return true
-}
-
-func convertDistList(dist []*meter.Distributor) []*types.Distributor {
-	list := []*types.Distributor{}
-	for _, d := range dist {
-		l := &types.Distributor{
-			Address: d.Address,
-			Autobid: d.Autobid,
-			Shares:  d.Shares,
-		}
-		list = append(list, l)
-	}
-	return list
-}
-
-// consensus routine interface
-func GetInternalDelegateList() ([]*types.DelegateIntern, error) {
-	delegateList := []*types.DelegateIntern{}
-	staking := GetStakingGlobInst()
-	if staking == nil {
-		fmt.Println("staking is not initialized...")
-		err := errors.New("staking is not initialized...")
-		return delegateList, err
-	}
-
-	best := staking.chain.BestBlock()
-	state, err := staking.stateCreator.NewState(best.Header().StateRoot())
-	if err != nil {
-		return delegateList, err
-	}
-
-	list := state.GetDelegateList()
-	fmt.Println("delegateList from state\n", list.ToString())
-	for _, s := range list.Delegates {
-		d := &types.DelegateIntern{
-			Name:        s.Name,
-			Address:     s.Address,
-			PubKey:      s.PubKey,
-			VotingPower: new(big.Int).Div(s.VotingPower, big.NewInt(1e12)).Int64(),
-			Commission:  s.Commission,
-			NetAddr: types.NetAddress{
-				IP:   net.ParseIP(string(s.IPAddr)),
-				Port: s.Port},
-			DistList: convertDistList(s.DistList),
-		}
-		delegateList = append(delegateList, d)
-	}
-	return delegateList, nil
 }
 
 // deprecated warning: BonusVotes will always be 0 after Tesla Fork 5

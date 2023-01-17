@@ -15,6 +15,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"math/big"
+	"net"
 	"time"
 
 	"github.com/ethereum/go-ethereum/rlp"
@@ -1071,6 +1072,49 @@ func (conR *ConsensusReactor) BuildKBlock(parentBlock *block.Block, data *block.
 	return &ProposedBlockInfo{newBlock, stage, &receipts, txsToRemoved, txsToReturned, checkPoint, KBlockType}
 }
 
+func convertDistList(dist []*meter.Distributor) []*types.Distributor {
+	list := []*types.Distributor{}
+	for _, d := range dist {
+		l := &types.Distributor{
+			Address: d.Address,
+			Autobid: d.Autobid,
+			Shares:  d.Shares,
+		}
+		list = append(list, l)
+	}
+	return list
+}
+
+func (conR *ConsensusReactor) getDelegatesFromStaking() ([]*types.Delegate, error) {
+	delegateList := []*types.Delegate{}
+
+	best := conR.chain.BestBlock()
+	state, err := conR.stateCreator.NewState(best.Header().StateRoot())
+	if err != nil {
+		return delegateList, err
+	}
+
+	list := state.GetDelegateList()
+	fmt.Println("delegateList from state\n", list.ToString())
+	for _, s := range list.Delegates {
+		pubKey, blsPub := conR.splitPubKey(string(s.PubKey))
+		d := &types.Delegate{
+			Name:        s.Name,
+			Address:     s.Address,
+			PubKey:      *pubKey,
+			BlsPubKey:   *blsPub,
+			VotingPower: new(big.Int).Div(s.VotingPower, big.NewInt(1e12)).Int64(),
+			Commission:  s.Commission,
+			NetAddr: types.NetAddress{
+				IP:   net.ParseIP(string(s.IPAddr)),
+				Port: s.Port},
+			DistList: convertDistList(s.DistList),
+		}
+		delegateList = append(delegateList, d)
+	}
+	return delegateList, nil
+}
+
 func (conR *ConsensusReactor) buildRewardTxs(parentBlock *block.Block, rewards []powpool.PowReward, chainTag byte, bestNum uint32, curEpoch uint32, best *block.Block, state *state.State) tx.Transactions {
 	// build miner meter reward
 	txs := governor.BuildMinerRewardTxs(rewards, chainTag, bestNum)
@@ -1120,9 +1164,10 @@ func (conR *ConsensusReactor) buildRewardTxs(parentBlock *block.Block, rewards [
 				fmt.Println("Compute reward map V3")
 				if meter.IsStaging() {
 					// use staking delegates for calculation during staging
-					delegatesIntern, err := staking.GetInternalDelegateList()
-					fmt.Println("Got delegates intern", len(delegatesIntern), err)
-					delegates := conR.convertFromIntern(delegatesIntern)
+					delegates, _ := conR.getDelegatesFromStaking()
+					if err != nil {
+						fmt.Println("could not get delegates from staking")
+					}
 					fmt.Println("Got delegates: ", len(delegates))
 
 					// skip member check for delegates in ComputeRewardMapV3
