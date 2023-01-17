@@ -12,7 +12,6 @@ import (
 	"io/ioutil"
 	"net"
 	"net/http"
-	"strings"
 	"time"
 
 	"github.com/inconshreveable/log15"
@@ -63,40 +62,15 @@ func (peer *ConsensusPeer) sendPacemakerMsg(rawData []byte, msgSummary string, m
 	res, err := peer.netClient.Post(url, "application/json", bytes.NewBuffer(rawData))
 	if err != nil {
 		peer.logger.Error("Failed to send message to peer", "err", err)
+		newNetClient := &http.Client{
+			Timeout: time.Second * 4, // 2
+		}
+		peer.netClient = newNetClient
 		return err
 	}
 	defer res.Body.Close()
 	io.Copy(ioutil.Discard, res.Body)
 	return nil
-}
-
-func (peer *ConsensusPeer) sendCommitteeMsg(rawData []byte, msgSummary string, msgHashHex string, relay bool) error {
-	split := strings.Split(msgSummary, " ")
-	name := ""
-	tail := ""
-	if len(split) > 0 {
-		name = split[0]
-		tail = strings.Join(split[1:], " ")
-	}
-	if relay {
-		peer.logger.Info("Relay>> "+name+" "+msgHashHex+"]", "size", len(rawData))
-	} else {
-		peer.logger.Info("Send>> "+name+" "+msgHashHex+" "+tail, "size", len(rawData))
-	}
-	url := "http://" + peer.netAddr.IP.String() + ":8670/committee"
-	res, err := peer.netClient.Post(url, "application/json", bytes.NewBuffer(rawData))
-	if err != nil {
-		peer.logger.Error("Failed to send message to peer", "err", err)
-		return err
-	}
-
-	defer res.Body.Close()
-	io.Copy(ioutil.Discard, res.Body)
-	return nil
-}
-
-func (cp *ConsensusPeer) FullString() string {
-	return fmt.Sprintf("%s:%d", cp.netAddr.IP.String(), cp.netAddr.Port)
 }
 
 func (cp *ConsensusPeer) String() string {
