@@ -4,12 +4,112 @@ import (
 	"bytes"
 	"math/big"
 	"sort"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/meterio/meter-pov/builtin"
 	"github.com/meterio/meter-pov/meter"
 	"github.com/meterio/meter-pov/runtime/statedb"
 	setypes "github.com/meterio/meter-pov/script/types"
 )
+
+func (a *Auction) CloseAuctionCB(env *setypes.ScriptEnv, ab *AuctionBody, gas uint64) (leftOverGas uint64, err error) {
+	var ret []byte
+	start := time.Now()
+	defer func() {
+		if err != nil {
+			ret = []byte(err.Error())
+		}
+		env.SetReturnData(ret)
+		log.Info("Auction close completed", "elapsed", meter.PrettyDuration(time.Since(start)))
+	}()
+	stub := time.Now()
+	log.Info("Get auction", "elapsed", meter.PrettyDuration(time.Since(stub)))
+
+	stub = time.Now()
+	state := env.GetState()
+
+	stub = time.Now()
+	summaryList := state.GetSummaryList()
+	log.Info("Get summary list", "elapsed", meter.PrettyDuration(time.Since(stub)))
+
+	stub = time.Now()
+	auctionCB := state.GetAuctionCB()
+	log.Info("Get auction cb", "elapsed", meter.PrettyDuration(time.Since(stub)))
+
+	stub = time.Now()
+	if gas < meter.ClauseGas {
+		leftOverGas = 0
+	} else {
+		leftOverGas = gas - meter.ClauseGas
+	}
+
+	if !auctionCB.IsActive() {
+		log.Info("HandleAuctionTx: auction not start")
+		err = errNotStart
+		return
+	}
+	log.Info("precheck completed", "elapsed", meter.PrettyDuration(time.Since(stub)))
+
+	stub = time.Now()
+	// clear the auction
+	validatorBenefitRatio := builtin.Params.Native(state).Get(meter.KeyValidatorBenefitRatio)
+
+	actualPrice, leftover, dist, err := a.ClearAuction(env, auctionCB, validatorBenefitRatio)
+	if err != nil {
+		log.Info("clear active auction failed failed")
+		return
+	}
+	log.Info("clear auction completed", "elapsed", meter.PrettyDuration(time.Since(stub)))
+
+	stub = time.Now()
+	summary := &meter.AuctionSummary{
+		AuctionID:    auctionCB.AuctionID,
+		StartHeight:  auctionCB.StartHeight,
+		StartEpoch:   auctionCB.StartEpoch,
+		EndHeight:    auctionCB.EndHeight,
+		EndEpoch:     auctionCB.EndEpoch,
+		Sequence:     auctionCB.Sequence,
+		RlsdMTRG:     auctionCB.RlsdMTRG,
+		RsvdMTRG:     auctionCB.RsvdMTRG,
+		RsvdPrice:    auctionCB.RsvdPrice,
+		CreateTime:   auctionCB.CreateTime,
+		RcvdMTR:      auctionCB.RcvdMTR,
+		ActualPrice:  actualPrice,
+		LeftoverMTRG: leftover,
+		AuctionTxs:   auctionCB.AuctionTxs,
+		DistMTRG:     dist,
+	}
+
+	// limit the summary list to AUCTION_MAX_SUMMARIES
+	var summaries []*meter.AuctionSummary
+	sumLen := len(summaryList.Summaries)
+	if sumLen >= AUCTION_MAX_SUMMARIES {
+		summaries = append(summaryList.Summaries[sumLen-AUCTION_MAX_SUMMARIES+1:], summary)
+	} else {
+		summaries = append(summaryList.Summaries, summary)
+	}
+
+	number := env.GetBlockNum()
+	if meter.IsTeslaFork6(number) {
+		for i := 0; i < len(summaryList.Summaries)-1; i++ {
+			summaryList.Summaries[i].AuctionTxs = make([]*meter.AuctionTx, 0)
+		}
+	}
+	summaryList = meter.NewAuctionSummaryList(summaries)
+	auctionCB = &meter.AuctionCB{}
+	log.Info("append summary completed", "elapsed", meter.PrettyDuration(time.Since(stub)))
+
+	stub = time.Now()
+	state.SetSummaryList(summaryList)
+	log.Info("set summary completed", "elapsed", meter.PrettyDuration(time.Since(stub)))
+
+	stub = time.Now()
+	state.SetAuctionCB(auctionCB)
+	log.Info("set auction cb completed", "elapsed", meter.PrettyDuration(time.Since(stub)))
+
+	return
+}
 
 func (a *Auction) MintMTRGToBidder(env *setypes.ScriptEnv, addr meter.Address, amount *big.Int) {
 	if amount.Sign() == 0 {
