@@ -16,7 +16,6 @@ import (
 	"fmt"
 	"math/big"
 
-	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/inconshreveable/log15"
 
 	"github.com/pkg/errors"
@@ -27,9 +26,6 @@ import (
 	"github.com/meterio/meter-pov/powpool"
 	"github.com/meterio/meter-pov/runtime"
 	"github.com/meterio/meter-pov/script"
-	"github.com/meterio/meter-pov/script/accountlock"
-	"github.com/meterio/meter-pov/script/auction"
-	"github.com/meterio/meter-pov/script/staking"
 	"github.com/meterio/meter-pov/state"
 	"github.com/meterio/meter-pov/tx"
 	"github.com/meterio/meter-pov/xenv"
@@ -177,21 +173,17 @@ func (c *ConsensusReactor) validateProposer(header *block.Header, parent *block.
 
 func (c *ConsensusReactor) validateBlockBody(blk *block.Block, forceValidate bool) error {
 	header := blk.Header()
-	txs := blk.Transactions()
-	if header.TxsRoot() != txs.RootHash() {
-		return consensusError(fmt.Sprintf("block txs root mismatch: want %v, have %v", header.TxsRoot(), txs.RootHash()))
+	proposedTxs := blk.Transactions()
+	if header.TxsRoot() != proposedTxs.RootHash() {
+		return consensusError(fmt.Sprintf("block txs root mismatch: want %v, have %v", header.TxsRoot(), proposedTxs.RootHash()))
 	}
 	if blk.GetMagic() != block.BlockMagicVersion1 {
 		return consensusError(fmt.Sprintf("block magic mismatch, has %v, expect %v", blk.GetMagic(), block.BlockMagicVersion1))
 	}
 
-	txUniteHashes := make(map[meter.Bytes32]int)
-	txClauseIds := make(map[meter.Bytes32]int)
-	scriptHeaderIds := make(map[meter.Bytes32]int)
-	scriptBodyIds := make(map[meter.Bytes32]int)
-	rinfoIds := make(map[meter.Bytes32]int)
-
-	rewardTxs := tx.Transactions{}
+	txUniteHashs := make(map[meter.Bytes32]int)
+	clauseUniteHashs := make(map[meter.Bytes32]int)
+	scriptUniteHashs := make(map[meter.Bytes32]int)
 
 	parentBlock, err := c.chain.GetBlock(header.ParentID())
 	if err != nil {
@@ -211,29 +203,28 @@ func (c *ConsensusReactor) validateBlockBody(blk *block.Block, forceValidate boo
 		proposalKBlock, powResults := powpool.GetGlobPowPoolInst().GetPowDecision()
 		if proposalKBlock && forceValidate {
 			rewards := powResults.Rewards
-			// Build.
 			fmt.Println("---------------- Local Build Reward Txs for validation ----------------")
-			rewardTxs = c.buildKBlockTxs(parentBlock, rewards, chainTag, bestNum, curEpoch, best, state)
-			fmt.Println("---------------- End of Local Build Reward Txs ----------------", "txs", len(rewardTxs))
-			for _, tx := range rewardTxs {
+			kblockTxs := c.buildKBlockTxs(parentBlock, rewards, chainTag, bestNum, curEpoch, best, state)
+			fmt.Println("---------------- End of Local Build Reward Txs ----------------", "txs", len(kblockTxs))
+			for _, tx := range kblockTxs {
 				fmt.Println("hash:", tx.ID().String(), "uniteHash:", tx.UniteHash().String())
 			}
 
 			// Decode.
-			for _, rewardTx := range rewardTxs {
-				rewardTxUniteHash := rewardTx.UniteHash()
-				if _, ok := txUniteHashes[rewardTxUniteHash]; ok {
-					txUniteHashes[rewardTxUniteHash] += 1
+			for _, kblockTx := range kblockTxs {
+				txUH := kblockTx.UniteHash()
+				if _, ok := txUniteHashs[txUH]; ok {
+					txUniteHashs[txUH] += 1
 				} else {
-					txUniteHashes[rewardTxUniteHash] = 1
+					txUniteHashs[txUH] = 1
 				}
 
-				for _, clause := range rewardTx.Clauses() {
-					clauseUniteHash := clause.UniteHash()
-					if _, ok := txClauseIds[clauseUniteHash]; ok {
-						txClauseIds[clauseUniteHash] += 1
+				for _, clause := range kblockTx.Clauses() {
+					clauseUH := clause.UniteHash()
+					if _, ok := clauseUniteHashs[clauseUH]; ok {
+						clauseUniteHashs[clauseUH] += 1
 					} else {
-						txClauseIds[clauseUniteHash] = 1
+						clauseUniteHashs[clauseUH] = 1
 					}
 
 					if (clause.Value().Sign() == 0) && (len(clause.Data()) > runtime.MinScriptEngDataLen) && runtime.ScriptEngineCheck(clause.Data()) {
@@ -249,75 +240,11 @@ func (c *ConsensusReactor) validateBlockBody(blk *block.Block, forceValidate boo
 							//return nil, gas, err
 						}
 
-						scriptHeader := scriptStruct.Header
-						scriptHeaderUniteHash := scriptHeader.UniteHash()
-						if _, ok := scriptHeaderIds[scriptHeaderUniteHash]; ok {
-							scriptHeaderIds[scriptHeaderUniteHash] += 1
+						scriptUH := scriptStruct.UniteHash()
+						if _, ok := scriptUniteHashs[scriptUH]; ok {
+							scriptUniteHashs[scriptUH] += 1
 						} else {
-							scriptHeaderIds[scriptHeaderUniteHash] = 1
-						}
-						scriptPayload := scriptStruct.Payload
-
-						switch scriptHeader.ModID {
-						case script.STAKING_MODULE_ID:
-							sb, err := staking.StakingDecodeFromBytes(scriptPayload)
-							if err != nil {
-								log.Error("Decode StakingDecodeFromBytes script message failed", "error", err)
-								//return nil, gas, err
-							}
-
-							switch sb.Opcode {
-							case staking.OP_GOVERNING:
-								if meter.IsTeslaFork6(parentBlock.Number()) {
-
-									rinfo := []*meter.RewardInfoV2{}
-									err = rlp.DecodeBytes(sb.ExtraData, &rinfo)
-									log.Info("rewardTx rinfo")
-									for _, d := range rinfo {
-										rinfoIds[d.UniteHash()] = 1
-									}
-								} else {
-									rinfo := []*meter.RewardInfo{}
-									err = rlp.DecodeBytes(sb.ExtraData, &rinfo)
-									log.Info("rewardTx rinfo")
-									for _, d := range rinfo {
-										rinfoIds[d.UniteHash()] = 1
-									}
-								}
-							default:
-								sbUniteHash := sb.UniteHash()
-								if _, ok := scriptBodyIds[sbUniteHash]; ok {
-									scriptBodyIds[sbUniteHash] += 1
-								} else {
-									scriptBodyIds[sbUniteHash] = 1
-								}
-							}
-						case script.AUCTION_MODULE_ID:
-							sb, err := auction.AuctionDecodeFromBytes(scriptPayload)
-							if err != nil {
-								log.Error("Decode AUCTION_MODULE_ID script message failed", "error", err)
-								//return nil, gas, err
-							}
-
-							sbUniteHash := sb.UniteHash()
-							if _, ok := scriptBodyIds[sbUniteHash]; ok {
-								scriptBodyIds[sbUniteHash] += 1
-							} else {
-								scriptBodyIds[sbUniteHash] = 1
-							}
-						case script.ACCOUNTLOCK_MODULE_ID:
-							sb, err := accountlock.AccountLockDecodeFromBytes(scriptPayload)
-							if err != nil {
-								log.Error("Decode ACCOUNTLOCK_MODULE_ID script message failed", "error", err)
-								//return nil, gas, err
-							}
-
-							sbUniteHash := sb.UniteHash()
-							if _, ok := scriptBodyIds[sbUniteHash]; ok {
-								scriptBodyIds[sbUniteHash] += 1
-							} else {
-								scriptBodyIds[sbUniteHash] = 1
-							}
+							scriptUniteHashs[scriptUH] = 1
 						}
 					}
 				}
@@ -325,7 +252,8 @@ func (c *ConsensusReactor) validateBlockBody(blk *block.Block, forceValidate boo
 		}
 	}
 
-	for _, tx := range txs {
+	// Validate txs in proposal
+	for _, tx := range proposedTxs {
 		signer, err := tx.Signer()
 		if err != nil {
 			return consensusError(fmt.Sprintf("tx signer unavailable: %v", err))
@@ -342,36 +270,30 @@ func (c *ConsensusReactor) validateBlockBody(blk *block.Block, forceValidate boo
 		// 2. only located in kblock.
 		if signer.IsZero() {
 			if !blk.IsKBlock() {
-				return consensusError(fmt.Sprintf("tx signer unavailable"))
+				return consensusError("tx signer 0x00..00 can only exist in KBlocks")
 			}
 
 			if forceValidate {
-				log.Info("validating tx", "hash", tx.ID().String(), "uniteHash", tx.UniteHash().String())
+				log.Info("validating tx", "tx", tx.ID().String(), "uniteHash", tx.UniteHash().String())
 
 				// Validate.
-				txUniteHash := tx.UniteHash()
-				if _, ok := txUniteHashes[txUniteHash]; !ok {
-					for index, rewardTx := range rewardTxs {
-						log.Info(fmt.Sprintf("rewardTx-tx %v not unavailable, %v", index, rewardTx))
-					}
-					log.Error(fmt.Sprintf("tx-rewardTx unavailable, %v", tx))
-
-					return consensusError(fmt.Sprintf("minerTx unavailable"))
+				txUH := tx.UniteHash()
+				if _, ok := txUniteHashs[txUH]; !ok {
+					return consensusError(fmt.Sprintf("proposed tx %s don't exist in local kblock, uniteHash:%s", tx.ID(), txUH))
 				}
-				txUniteHashes[txUniteHash] -= 1
+				txUniteHashs[txUH] -= 1
 
 				for _, clause := range tx.Clauses() {
-					clauseUniteHash := clause.UniteHash()
+					clauseUH := clause.UniteHash()
 
-					if _, ok := txClauseIds[clauseUniteHash]; !ok {
-						return consensusError(fmt.Sprintf("minerTx clause unavailable"))
+					if _, ok := clauseUniteHashs[clauseUH]; !ok {
+						return consensusError(fmt.Sprintf("proposed tx %s has clause not exist in local kblock, clauseUH:%s", tx.ID(), clauseUH))
 					}
-					txClauseIds[clauseUniteHash] -= 1
+					clauseUniteHashs[clauseUH] -= 1
 
-					// Decode.
 					if (clause.Value().Sign() == 0) && (len(clause.Data()) > runtime.MinScriptEngDataLen) && runtime.ScriptEngineCheck(clause.Data()) {
 						data := clause.Data()[4:]
-						if bytes.Compare(data[:len(script.ScriptPattern)], script.ScriptPattern[:]) != 0 {
+						if !bytes.Equal(data[:len(script.ScriptPattern)], script.ScriptPattern[:]) {
 							err := fmt.Errorf("Pattern mismatch, pattern = %v", hex.EncodeToString(data[:len(script.ScriptPattern)]))
 							return consensusError(err.Error())
 						}
@@ -382,88 +304,15 @@ func (c *ConsensusReactor) validateBlockBody(blk *block.Block, forceValidate boo
 							return consensusError(err.Error())
 						}
 
-						scriptHeader := scriptStruct.Header
-
-						scriptHeaderUniteHash := scriptHeader.UniteHash()
-						if _, ok := scriptHeaderIds[scriptHeaderUniteHash]; !ok {
-							return consensusError(fmt.Sprintf("minerTx scriptHeader unavailable"))
+						scriptUH := scriptStruct.UniteHash()
+						if _, ok := scriptUniteHashs[scriptUH]; !ok {
+							return consensusError(fmt.Sprintf("proposed tx %s has script data not exist in local kblock, scriptUH:%s", tx.ID(), scriptUH))
 						}
-						scriptHeaderIds[scriptHeaderUniteHash] -= 1
+						scriptUniteHashs[scriptUH] -= 1
 
-						scriptPayload := scriptStruct.Payload
-						switch scriptHeader.ModID {
-						case script.STAKING_MODULE_ID:
-							sb, err := staking.StakingDecodeFromBytes(scriptPayload)
-							if err != nil {
-								log.Error("Decode script message failed", "error", err)
-								//return nil, gas, err
-							}
-
-							switch sb.Opcode {
-							case staking.OP_GOVERNING:
-								if meter.IsTeslaFork6(parentBlock.Number()) {
-									minerTxRinfo := make([]*meter.RewardInfoV2, 0)
-									err = rlp.DecodeBytes(sb.ExtraData, &minerTxRinfo)
-
-									fmt.Sprintf("minerTx rinfo")
-									for _, d := range minerTxRinfo {
-										dUniteHash := d.UniteHash()
-										if _, ok := rinfoIds[dUniteHash]; !ok {
-											return consensusError(fmt.Sprintf("d.Address %v not exists", d.Address))
-										}
-										rinfoIds[dUniteHash] -= 1
-									}
-								} else {
-									minerTxRinfo := make([]*meter.RewardInfo, 0)
-									err = rlp.DecodeBytes(sb.ExtraData, &minerTxRinfo)
-
-									fmt.Sprintf("minerTx rinfo")
-									for _, d := range minerTxRinfo {
-										dUniteHash := d.UniteHash()
-										if _, ok := rinfoIds[dUniteHash]; !ok {
-											return consensusError(fmt.Sprintf("d.Address %v not exists", d.Address))
-										}
-										rinfoIds[dUniteHash] -= 1
-									}
-								}
-							default:
-								sbUniteHash := sb.UniteHash()
-								if _, ok := scriptBodyIds[sbUniteHash]; !ok {
-									return consensusError(fmt.Sprintf("minerTx STAKING scriptBody unavailable, sb %v", sb))
-								}
-								scriptBodyIds[sbUniteHash] -= 1
-							}
-						case script.AUCTION_MODULE_ID:
-							sb, err := auction.AuctionDecodeFromBytes(scriptPayload)
-							if err != nil {
-								log.Error("Decode script message failed", "error", err)
-								return consensusError(err.Error())
-							}
-							//_ = ab
-							//scriptBodyIds[ab.UniteHash()] = true
-							sbUniteHash := sb.UniteHash()
-							if _, ok := scriptBodyIds[sbUniteHash]; !ok {
-								return consensusError(fmt.Sprintf("minerTx AUCTION scriptBody unavailable, sb %v", sb))
-							}
-							scriptBodyIds[sbUniteHash] -= 1
-						case script.ACCOUNTLOCK_MODULE_ID:
-							sb, err := accountlock.AccountLockDecodeFromBytes(scriptPayload)
-							if err != nil {
-								log.Error("Decode script message failed", "error", err)
-								return consensusError(err.Error())
-							}
-							//_ = ab
-							//scriptBodyIds[ab.UniteHash()] = true
-							sbUniteHash := sb.UniteHash()
-							if _, ok := scriptBodyIds[sbUniteHash]; !ok {
-								return consensusError(fmt.Sprintf("minerTx ACCOUNTLOCK scriptBody unavailable, %v", sb))
-							}
-							scriptBodyIds[sbUniteHash] -= 1
-						}
 					}
 				}
 
-				// log.Info("end validateBlockBody forceValidate")
 			}
 		}
 
@@ -479,42 +328,26 @@ func (c *ConsensusReactor) validateBlockBody(blk *block.Block, forceValidate boo
 		}
 	}
 
-	if len(txUniteHashes) != 0 {
-		for key, value := range txUniteHashes {
+	if len(txUniteHashs) != 0 {
+		for key, value := range txUniteHashs {
 			if value != 0 {
-				return consensusError(fmt.Sprintf("local-built txs have %v more tx with uniteHash: %v", value, key))
+				return consensusError(fmt.Sprintf("local kblock has %v more tx with uniteHash: %v", value, key))
 			}
 		}
 	}
 
-	if len(txClauseIds) != 0 {
-		for key, value := range txClauseIds {
+	if len(clauseUniteHashs) != 0 {
+		for key, value := range clauseUniteHashs {
 			if value < 0 {
-				return consensusError(fmt.Sprintf("local-built txs have %v more clause with uniteHash: %v", value, key))
+				return consensusError(fmt.Sprintf("local kblock has %v more clause with uniteHash: %v", value, key))
 			}
 		}
 	}
 
-	if len(scriptHeaderIds) != 0 {
-		for key, value := range scriptHeaderIds {
+	if len(scriptUniteHashs) != 0 {
+		for key, value := range scriptUniteHashs {
 			if value != 0 {
-				return consensusError(fmt.Sprintf("local-built txs have %v more scriptHead with uniteHash: %v", value, key))
-			}
-		}
-	}
-
-	if len(scriptBodyIds) != 0 {
-		for key, value := range scriptBodyIds {
-			if value != 0 {
-				return consensusError(fmt.Sprintf("local-built txs have %v more scriptBody with uniteHash: %v", value, key))
-			}
-		}
-	}
-
-	if len(rinfoIds) != 0 {
-		for key, value := range rinfoIds {
-			if value != 0 {
-				return consensusError(fmt.Sprintf("local-built governing tx has %v extraData with uniteHash: %v", value, key))
+				return consensusError(fmt.Sprintf("local kblock has %v more script data with uniteHash: %v", value, key))
 			}
 		}
 	}

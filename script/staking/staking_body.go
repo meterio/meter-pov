@@ -6,9 +6,11 @@
 package staking
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"math/big"
+	"sort"
 
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/meterio/meter-pov/meter"
@@ -87,6 +89,47 @@ func (sb *StakingBody) UniteHash() (hash meter.Bytes32) {
 	//}
 	//defer func() { c.cache.signingHash.Store(hash) }()
 
+	extraDataHash := meter.Bytes32{}
+	extraBlake := meter.NewBlake2b()
+	switch sb.Opcode {
+	case OP_GOVERNING:
+		data := make([]interface{}, 0)
+		infoV2s := make([]*meter.RewardInfoV2, 0)
+		err := rlp.DecodeBytes(sb.ExtraData, &infoV2s)
+
+		if err != nil {
+			infos := make([]*meter.RewardInfo, 0)
+			err = rlp.DecodeBytes(sb.ExtraData, &infos)
+
+			if err != nil {
+				log.Warn("could not decode govern extra data, use data directly for unite hash")
+				data = append(data, sb.ExtraData)
+			} else {
+				// sort with address
+				sort.SliceStable(infos, func(i, j int) bool {
+					return (bytes.Compare(infos[i].Address[:], infos[j].Address[:]) <= 0)
+				})
+
+				for _, d := range infos {
+					data = append(data, d)
+				}
+			}
+
+		} else {
+			// sort with address
+			sort.SliceStable(infoV2s, func(i, j int) bool {
+				return (bytes.Compare(infoV2s[i].Address[:], infoV2s[j].Address[:]) <= 0)
+			})
+
+			for _, d := range infoV2s {
+				data = append(data, d)
+			}
+		}
+		rlp.Encode(extraBlake, data)
+		extraBlake.Sum(extraDataHash[:0])
+	default:
+		extraBlake.Write(sb.ExtraData)
+	}
 	hw := meter.NewBlake2b()
 	err := rlp.Encode(hw, []interface{}{
 		sb.Opcode,
@@ -105,7 +148,9 @@ func (sb *StakingBody) UniteHash() (hash meter.Bytes32) {
 		sb.Autobid,
 		//sb.Timestamp,
 		//sb.Nonce,
-		sb.ExtraData,
+
+		// sb.ExtraData,
+		extraDataHash,
 	})
 	if err != nil {
 		return
