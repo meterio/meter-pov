@@ -12,10 +12,8 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
-	"math/rand"
 	"sort"
 	"strings"
-	"time"
 
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/rlp"
@@ -77,8 +75,8 @@ func buildStatisticsData(entry *StatEntry, curEpoch uint32) (ret []byte) {
 	body := &staking.StakingBody{
 		Opcode:     staking.OP_DELEGATE_STATISTICS,
 		Option:     curEpoch,
-		Timestamp:  uint64(time.Now().Unix()),
-		Nonce:      rand.Uint64(),
+		Timestamp:  0,
+		Nonce:      0,
 		CandAddr:   entry.Address,
 		CandName:   []byte(entry.Name),
 		CandPubKey: []byte(entry.PubKey),

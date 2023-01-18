@@ -49,7 +49,7 @@ func (conR *ConsensusReactor) getDelegatesFromStaking() ([]*types.Delegate, erro
 	}
 
 	list := state.GetDelegateList()
-	fmt.Println("delegateList from state\n", list.ToString())
+	fmt.Println("delegateList from staking\n", list.ToString())
 	for _, s := range list.Delegates {
 		pubKey, blsPub := conR.splitPubKey(string(s.PubKey))
 		d := &types.Delegate{

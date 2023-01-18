@@ -90,13 +90,18 @@ func (s *Staking) DelegateStatHandler(env *setypes.ScriptEnv, sb *StakingBody, g
 	jail = proposerViolation >= meter.JailCriteria_MissingProposerViolation || leaderViolation >= meter.JailCriteria_MissingLeaderViolation || doubleSignViolation >= meter.JailCriteria_DoubleSignViolation || (proposerViolation >= 1 && leaderViolation >= 1)
 	log.Info("delegate violation: ", "missProposer", proposerViolation, "missLeader", leaderViolation, "doubleSign", doubleSignViolation, "jail", jail)
 
+	blockNum := env.GetBlockNum()
 	if jail == true {
 		log.Warn("delegate JAILED", "address", stats.Addr, "name", string(stats.Name), "epoch", epoch, "totalPts", stats.TotalPts)
 
 		// if this candidate already uncandidate, forgive it
 		if cand := candidateList.Get(stats.Addr); cand != nil {
 			bail := BAIL_FOR_EXIT_JAIL
-			inJailList.Add(meter.NewInJail(stats.Addr, stats.Name, stats.PubKey, stats.TotalPts, &stats.Infractions, bail, sb.Timestamp))
+			if meter.IsTeslaFork6(blockNum) {
+				inJailList.Add(meter.NewInJail(stats.Addr, stats.Name, stats.PubKey, stats.TotalPts, &stats.Infractions, bail, uint64(blockNum)))
+			} else {
+				inJailList.Add(meter.NewInJail(stats.Addr, stats.Name, stats.PubKey, stats.TotalPts, &stats.Infractions, bail, sb.Timestamp))
+			}
 		} else {
 			log.Warn("delegate already uncandidated, skip ...", "address", stats.Addr, "name", string(stats.Name))
 		}

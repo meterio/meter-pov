@@ -9,8 +9,6 @@ import (
 	"fmt"
 	"math"
 	"math/big"
-	"math/rand"
-	"time"
 
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/meterio/meter-pov/chain"
@@ -293,8 +291,8 @@ func buildAuctionStartData(start, startEpoch, end, endEpoch, sequence uint64, in
 		Sequence:      sequence,
 		Amount:        releaseBigInt,
 		ReserveAmount: reserveBigInt,
-		Timestamp:     uint64(time.Now().Unix()),
-		Nonce:         rand.Uint64(),
+		Timestamp:     0,
+		Nonce:         0,
 	}
 	payload, err := rlp.EncodeToBytes(body)
 	if err != nil {
@@ -334,8 +332,8 @@ func buildAuctionStopData(start, startEpoch, end, endEpoch, sequence uint64, id 
 		EndEpoch:    endEpoch,
 		Sequence:    sequence,
 		AuctionID:   *id,
-		Timestamp:   uint64(time.Now().Unix()),
-		Nonce:       rand.Uint64(),
+		Timestamp:   0,
+		Nonce:       0,
 	}
 	payload, err := rlp.EncodeToBytes(body)
 	if err != nil {
