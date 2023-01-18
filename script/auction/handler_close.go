@@ -127,6 +127,7 @@ func (a *Auction) MintMTRGToBidder(env *setypes.ScriptEnv, addr meter.Address, a
 // called when auction is over
 func (a *Auction) ClearAuction(env *setypes.ScriptEnv, cb *meter.AuctionCB, validatorBenefitRatio *big.Int) (*big.Int, *big.Int, []*meter.DistMtrg, error) {
 
+	start := time.Now()
 	actualPrice := new(big.Int).Mul(cb.RcvdMTR, big.NewInt(1e18))
 	if cb.RlsdMTRG.Cmp(big.NewInt(0)) > 0 {
 		actualPrice = actualPrice.Div(actualPrice, cb.RlsdMTRG)
@@ -195,6 +196,6 @@ func (a *Auction) ClearAuction(env *setypes.ScriptEnv, cb *meter.AuctionCB, vali
 	amount = amount.Div(amount, big.NewInt(1e18))
 	env.TransferMTRToValidatorBenefit(amount)
 
-	log.Info("finished auctionCB clear...", "actualPrice", actualPrice.String(), "leftOver", leftOver.String(), "validatorBenefit", amount.String())
+	log.Info("finished auctionCB clear...", "actualPrice", actualPrice.String(), "leftOver", leftOver.String(), "validatorBenefit", amount.String(), "elapsed", meter.PrettyDuration(time.Since(start)))
 	return actualPrice, leftOver, distMtrg, nil
 }

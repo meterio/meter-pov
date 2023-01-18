@@ -134,7 +134,6 @@ func (s *Staking) Handle(senv *setypes.ScriptEnv, payload []byte, to *meter.Addr
 		leftOverGas, err = s.UnDelegateHandler(senv, sb, gas)
 
 	case OP_GOVERNING:
-		log.Info("Staking handler "+GetOpName(sb.Opcode), "tx", senv.GetTxHash())
 		start := time.Now()
 		if senv.GetTxOrigin().IsZero() == false {
 			return nil, gas, errors.New("not from kblock")
@@ -157,7 +156,6 @@ func (s *Staking) Handle(senv *setypes.ScriptEnv, payload []byte, to *meter.Addr
 		leftOverGas, err = s.BucketUpdateHandler(senv, sb, gas)
 
 	case OP_DELEGATE_STATISTICS:
-		log.Info("Staking handler "+GetOpName(sb.Opcode), "tx", senv.GetTxHash())
 		start := time.Now()
 		if senv.GetTxOrigin().IsZero() == false {
 			return nil, gas, errors.New("not from kblock")

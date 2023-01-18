@@ -481,7 +481,7 @@ func (conR *ConsensusReactor) buildKBlockTxs(parentBlock *block.Block, rewards [
 	// build miner meter reward
 	txs := governor.BuildMinerRewardTxs(rewards, chainTag, bestNum)
 	for _, tx := range txs {
-		conR.logger.Info("Built miner reward tx: ", "hash", tx.ID().String(), "clauses-size", len(tx.Clauses()))
+		conR.logger.Info(fmt.Sprintf("Built miner reward tx: %s", tx.ID().String()), "clauses", len(tx.Clauses()))
 	}
 
 	lastKBlockHeight := parentBlock.LastKBlockHeight()
@@ -495,7 +495,7 @@ func (conR *ConsensusReactor) buildKBlockTxs(parentBlock *block.Block, rewards [
 		}
 		if len(stats) != 0 {
 			statsTx := governor.BuildStatisticsTx(stats, chainTag, bestNum, curEpoch)
-			conR.logger.Info("Built stats tx: ", "hash", statsTx.ID().String(), "clauses-size", len(statsTx.Clauses()))
+			conR.logger.Info(fmt.Sprintf("Built stats tx: %s", statsTx.ID().String()), "clauses", len(statsTx.Clauses()))
 			txs = append(txs, statsTx)
 		}
 
@@ -503,7 +503,7 @@ func (conR *ConsensusReactor) buildKBlockTxs(parentBlock *block.Block, rewards [
 		initialRelease := GetAuctionInitialRelease()
 
 		if tx := governor.BuildAuctionControlTx(uint64(best.Number()+1), uint64(best.GetBlockEpoch()+1), chainTag, bestNum, initialRelease, reservedPrice, conR.chain); tx != nil {
-			conR.logger.Info("Built auction control tx: ", "hash", tx.ID().String(), "clauses-size", len(tx.Clauses()))
+			conR.logger.Info(fmt.Sprintf("Built auction control tx: %s", tx.ID().String()), "clauses", len(tx.Clauses()))
 			txs = append(txs, tx)
 		}
 
@@ -547,7 +547,7 @@ func (conR *ConsensusReactor) buildKBlockTxs(parentBlock *block.Block, rewards [
 					_, _, rewardV2List := rewardMap.ToList()
 					governingV2Tx := governor.BuildStakingGoverningV2Tx(rewardV2List, uint32(conR.curEpoch), chainTag, bestNum)
 					if governingV2Tx != nil {
-						conR.logger.Info("Built governing V2 tx: ", "hash", governingV2Tx.ID().String(), "clauses-size", len(governingV2Tx.Clauses()))
+						conR.logger.Info(fmt.Sprintf("Built governV2 tx: %s", governingV2Tx.ID().String()), "clauses", len(governingV2Tx.Clauses()))
 						txs = append(txs, governingV2Tx)
 					}
 				} else {
@@ -560,7 +560,7 @@ func (conR *ConsensusReactor) buildKBlockTxs(parentBlock *block.Block, rewards [
 
 					governingTx := governor.BuildStakingGoverningTx(distList, uint32(conR.curEpoch), chainTag, bestNum)
 					if governingTx != nil {
-						conR.logger.Info("Built governing tx: ", "hash", governingTx.ID().String(), "clauses-size", len(governingTx.Clauses()))
+						conR.logger.Info(fmt.Sprintf("Built govern tx: %s", governingTx.ID().String()), "clauses", len(governingTx.Clauses()))
 						txs = append(txs, governingTx)
 					}
 
@@ -575,22 +575,20 @@ func (conR *ConsensusReactor) buildKBlockTxs(parentBlock *block.Block, rewards [
 					if len(autobidTxs) > 0 {
 						txs = append(txs, autobidTxs...)
 						for _, tx := range autobidTxs {
-							conR.logger.Info("Built autobid tx: ", "hash", tx.ID().String(), "clauses-size", len(tx.Clauses()))
+							conR.logger.Info(fmt.Sprintf("Built autobid tx: %s", tx.ID().String()), "clauses", len(tx.Clauses()))
 						}
 					}
 				}
 			} else {
-				fmt.Println("-------------------------")
-				fmt.Println("Reward Map is empty")
-				fmt.Println("-------------------------")
+				conR.logger.Info("Reward Map is empty, skip building govern & autobid tx")
 			}
 		}
 	}
 
 	if tx := governor.BuildAccountLockGoverningTx(chainTag, bestNum, curEpoch); tx != nil {
 		txs = append(txs, tx)
-		conR.logger.Info("Built account lock tx: ", "hash", tx.ID().String(), "clauses-size", len(tx.Clauses()))
+		conR.logger.Info(fmt.Sprintf("Built account lock tx: %s", tx.ID().String()), "clauses", len(tx.Clauses()))
 	}
-	conR.logger.Info("buildKBlockTxs", "size", len(txs))
+	conR.logger.Info(fmt.Sprintf("Built %d KBlock Governor Txs", len(txs)))
 	return txs
 }
