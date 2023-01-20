@@ -24,7 +24,6 @@ import (
 	"io/ioutil"
 	"math/big"
 	"math/rand"
-	"os"
 	"reflect"
 	"testing"
 	"testing/quick"
@@ -32,8 +31,9 @@ import (
 	"github.com/davecgh/go-spew/spew"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/ethereum/go-ethereum/ethdb"
+	"github.com/ethereum/go-ethereum/ethdb/memorydb"
 	"github.com/ethereum/go-ethereum/rlp"
+	"github.com/meterio/meter-pov/lvldb"
 	"github.com/meterio/meter-pov/meter"
 )
 
@@ -44,7 +44,7 @@ func init() {
 
 // Used for testing
 func newEmpty() *Trie {
-	db := ethdb.NewMemDatabase()
+	db := memorydb.New()
 	trie, _ := New(meter.Bytes32{}, db)
 	return trie
 }
@@ -69,7 +69,7 @@ func TestNull(t *testing.T) {
 }
 
 func TestMissingRoot(t *testing.T) {
-	db := ethdb.NewMemDatabase()
+	db := memorydb.New()
 	root := meter.Bytes32{1, 2, 3, 4, 5}
 	trie, err := New(root, db)
 	if trie != nil {
@@ -81,7 +81,7 @@ func TestMissingRoot(t *testing.T) {
 }
 
 func TestMissingNode(t *testing.T) {
-	db := ethdb.NewMemDatabase()
+	db := memorydb.New()
 	trie, _ := New(meter.Bytes32{}, db)
 	updateString(trie, "120000", "qwerqwerqwerqwerqwerqwerqwerqwer")
 	updateString(trie, "123456", "asdfasdfasdfasdfasdfasdfasdfasdf")
@@ -409,7 +409,7 @@ func (randTest) Generate(r *rand.Rand, size int) reflect.Value {
 }
 
 func runRandTest(rt randTest) bool {
-	db := ethdb.NewMemDatabase()
+	db := memorydb.New()
 	tr, _ := New(meter.Bytes32{}, db)
 	values := make(map[string]string) // tracks content of the trie
 
@@ -536,9 +536,9 @@ func benchGet(b *testing.B, commit bool) {
 	b.StopTimer()
 
 	if commit {
-		ldb := trie.db.(*ethdb.LDBDatabase)
+		ldb := trie.db.(*lvldb.LevelDB)
 		ldb.Close()
-		os.RemoveAll(ldb.Path())
+		// os.RemoveAll(ldb.Path())
 	}
 }
 
@@ -592,7 +592,7 @@ func tempDB() (string, Database) {
 	if err != nil {
 		panic(fmt.Sprintf("can't create temporary directory: %v", err))
 	}
-	db, err := ethdb.NewLDBDatabase(dir, 256, 0)
+	db, err := lvldb.New(dir, lvldb.Options{CacheSize: 256})
 	if err != nil {
 		panic(fmt.Sprintf("can't create temporary database: %v", err))
 	}

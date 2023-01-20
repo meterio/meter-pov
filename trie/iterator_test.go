@@ -23,9 +23,40 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/ethdb"
+	"github.com/ethereum/go-ethereum/ethdb/memorydb"
 	"github.com/meterio/meter-pov/meter"
 )
+
+// makeTestTrie create a sample test trie to test node-wise reconstruction.
+func makeTestTrie() (*memorydb.Database, *Trie, map[string][]byte) {
+	// Create an empty trie
+	db := memorydb.New()
+	trie, _ := New(meter.Bytes32{}, db)
+
+	// Fill it with some arbitrary data
+	content := make(map[string][]byte)
+	for i := byte(0); i < 255; i++ {
+		// Map the same data under multiple keys
+		key, val := common.LeftPadBytes([]byte{1, i}, 32), []byte{i}
+		content[string(key)] = val
+		trie.Update(key, val)
+
+		key, val = common.LeftPadBytes([]byte{2, i}, 32), []byte{i}
+		content[string(key)] = val
+		trie.Update(key, val)
+
+		// Add some other data to inflate the trie
+		for j := byte(3); j < 13; j++ {
+			key, val = common.LeftPadBytes([]byte{j, i}, 32), []byte{j, i}
+			content[string(key)] = val
+			trie.Update(key, val)
+		}
+	}
+	trie.Commit()
+
+	// Return the generated trie
+	return db, trie, content
+}
 
 func TestIterator(t *testing.T) {
 	trie := newEmpty()
@@ -58,18 +89,18 @@ func TestIterator(t *testing.T) {
 	}
 }
 
-type kv struct {
+type kvStore struct {
 	k, v []byte
 	t    bool
 }
 
 func TestIteratorLargeData(t *testing.T) {
 	trie := newEmpty()
-	vals := make(map[string]*kv)
+	vals := make(map[string]*kvStore)
 
 	for i := byte(0); i < 255; i++ {
-		value := &kv{common.LeftPadBytes([]byte{i}, 32), []byte{i}, false}
-		value2 := &kv{common.LeftPadBytes([]byte{10, i}, 32), []byte{i}, false}
+		value := &kvStore{common.LeftPadBytes([]byte{i}, 32), []byte{i}, false}
+		value2 := &kvStore{common.LeftPadBytes([]byte{10, i}, 32), []byte{i}, false}
 		trie.Update(value.k, value.v)
 		trie.Update(value2.k, value2.v)
 		vals[string(value.k)] = value
@@ -81,7 +112,7 @@ func TestIteratorLargeData(t *testing.T) {
 		vals[string(it.Key)].t = true
 	}
 
-	var untouched []*kv
+	var untouched []*kvStore
 	for _, value := range vals {
 		if !value.t {
 			untouched = append(untouched, value)
@@ -114,7 +145,12 @@ func TestNodeIteratorCoverage(t *testing.T) {
 			t.Errorf("failed to retrieve reported node %x: %v", hash, err)
 		}
 	}
-	for _, key := range db.(*ethdb.MemDatabase).Keys() {
+	iter := db.NewIterator(nil, nil)
+	keys := make([][]byte, 0)
+	for iter.Next() {
+		keys = append(keys, iter.Key())
+	}
+	for _, key := range keys {
 		if _, ok := hashes[meter.BytesToBytes32(key)]; !ok {
 			t.Errorf("state entry not reported %x", key)
 		}
@@ -280,14 +316,19 @@ func TestIteratorNoDups(t *testing.T) {
 
 // This test checks that nodeIterator.Next can be retried after inserting missing trie nodes.
 func TestIteratorContinueAfterError(t *testing.T) {
-	db := ethdb.NewMemDatabase()
+	db := memorydb.New()
 	tr, _ := New(meter.Bytes32{}, db)
 	for _, val := range testdata1 {
 		tr.Update([]byte(val.k), []byte(val.v))
 	}
 	tr.Commit()
 	wantNodeCount := checkIteratorNoDups(t, tr.NodeIterator(nil), nil)
-	keys := db.Keys()
+	keys := make([][]byte, 0)
+	iter := db.NewIterator(nil, nil)
+	for iter.Next() {
+		keys = append(keys, iter.Key())
+	}
+	iter.Release()
 	t.Log("node count", wantNodeCount)
 
 	for i := 0; i < 20; i++ {
@@ -331,7 +372,7 @@ func TestIteratorContinueAfterError(t *testing.T) {
 // should retry seeking before returning true for the first time.
 func TestIteratorContinueAfterSeekError(t *testing.T) {
 	// Commit test trie to db, then remove the node containing "bars".
-	db := ethdb.NewMemDatabase()
+	db := memorydb.New()
 	ctr, _ := New(meter.Bytes32{}, db)
 	for _, val := range testdata1 {
 		ctr.Update([]byte(val.k), []byte(val.v))

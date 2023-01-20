@@ -23,20 +23,20 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/ethdb"
+	"github.com/ethereum/go-ethereum/ethdb/memorydb"
 	"github.com/meterio/meter-pov/meter"
 )
 
 func newEmptySecure() *SecureTrie {
-	db := ethdb.NewMemDatabase()
+	db := memorydb.New()
 	trie, _ := NewSecure(meter.Bytes32{}, db, 0)
 	return trie
 }
 
 // makeTestSecureTrie creates a large enough secure trie for testing.
-func makeTestSecureTrie() (ethdb.Database, *SecureTrie, map[string][]byte) {
+func makeTestSecureTrie() (*memorydb.Database, *SecureTrie, map[string][]byte) {
 	// Create an empty trie
-	db := ethdb.NewMemDatabase()
+	db := memorydb.New()
 	trie, _ := NewSecure(meter.Bytes32{}, db, 0)
 
 	// Fill it with some arbitrary data
