@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"path"
 	"strings"
+	"time"
 
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/meterio/meter-pov/kv"
@@ -97,37 +98,28 @@ func loadAccountAction(ctx *cli.Context) error {
 	if err != nil {
 		panic("could not load block")
 	}
-	t, err := trie.New(blk.StateRoot(), mainDB)
+	t, err := trie.NewSecure(blk.StateRoot(), mainDB, 1024)
 	if err != nil {
-		panic("could not load trie")
+		panic("could not load secure trie")
 	}
-	iter := t.NodeIterator(nil)
 	addr := ctx.String(addressFlag.Name)
 	parsedAddr := meter.MustParseAddress(addr)
-	found := false
-	for iter.Next(true) {
-		if iter.Leaf() {
-			key := iter.LeafKey()
-			raw, _ := mainDB.Get(key)
-			accAddr := meter.BytesToAddress(raw)
-			if bytes.Equal(accAddr[:], parsedAddr[:]) {
-				var acc state.Account
-				if err := rlp.DecodeBytes(iter.LeafBlob(), &acc); err != nil {
-					log.Error("Invalid account encountered during traversal", "err", err)
-					return err
-				}
-				found = true
-				log.Info("Loaded Account", "address", parsedAddr)
-				log.Info("Account node", "key", hex.EncodeToString(key), "path", iter.Path(), "parent", iter.Parent(), "value", hex.EncodeToString(iter.LeafBlob()))
-				fmt.Println(acc.String())
-				break
-			}
-		}
-	}
+	fmt.Println("parsed address : ", parsedAddr)
 
-	if !found {
-		log.Warn("Could not find account", "address", parsedAddr, "revision", ctx.String(revisionFlag.Name))
+	start := time.Now()
+	data, err := t.TryGet(parsedAddr[:])
+	if err != nil {
+		fmt.Println(err)
+		return err
 	}
+	acct := &state.Account{}
+	err = rlp.DecodeBytes(data, &acct)
+	if err != nil {
+		fmt.Println("error: ", err)
+		return err
+	}
+	fmt.Println("Load account elapsed: ", meter.PrettyDuration(time.Since(start)))
+	fmt.Println("Account found: ", acct)
 	return nil
 }
 
