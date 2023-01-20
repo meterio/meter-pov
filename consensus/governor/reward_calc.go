@@ -82,7 +82,7 @@ func ComputeRewardMap(baseReward, totalRewards *big.Int, delegates []*types.Dele
 	baseRewards := new(big.Int).Mul(baseReward, big.NewInt(int64(size)))
 
 	fmt.Println("-----------------------------------------------------------------------")
-	fmt.Println(fmt.Sprintf("Calculate Reward Map, baseRewards:%v, totalRewards:%v (for this epoch)", baseRewards, totalRewards))
+	fmt.Println(fmt.Sprintf("Calculate Dist/Autobid Reward Map, baseRewards:%v, totalRewards:%v (for this epoch)", baseRewards, totalRewards))
 	fmt.Println(fmt.Sprintf("baseReward per member:%v, size:%v", baseReward, size))
 	fmt.Println("-----------------------------------------------------------------------")
 
@@ -107,7 +107,7 @@ func ComputeRewardMap(baseReward, totalRewards *big.Int, delegates []*types.Dele
 				d, err = getSelfDistributor(delegates[i])
 			}
 			if err != nil {
-				logger.Error("get self-distributor failed, treat as 0", "error", err)
+				log.Error("get self-distributor failed, treat as 0", "error", err)
 				rewardMap.Add(baseReward, big.NewInt(0), delegates[i].Address)
 			} else {
 				// autobidAmount = baseReward * Autobid / 100
@@ -160,7 +160,7 @@ func ComputeRewardMap(baseReward, totalRewards *big.Int, delegates []*types.Dele
 			d, err = getSelfDistributor(delegates[i])
 		}
 		if err != nil {
-			logger.Error("get the autobid param failed, treat as 0", "error", err)
+			log.Error("get the autobid param failed, treat as 0", "error", err)
 		} else {
 			// delegate's proportion
 			// selfPortion = actualReward * Shares / 1e09
@@ -200,7 +200,7 @@ func ComputeRewardMap(baseReward, totalRewards *big.Int, delegates []*types.Dele
 			rewardMap.Add(distReward, autobidReward, dist.Address)
 		}
 	}
-	logger.Info("distriubted validators rewards", "total", totalRewards.String())
+	log.Info("validators rewards in epoch", "sum", totalRewards.String())
 
 	return rewardMap, nil
 }
@@ -215,7 +215,7 @@ func ComputeEpochBaseReward(validatorBaseReward *big.Int) *big.Int {
 func ComputeEpochTotalReward(benefitRatio *big.Int, nDays int, nAuctionPerDay int) (*big.Int, error) {
 	summaryList, err := auction.GetAuctionSummaryList()
 	if err != nil {
-		logger.Error("get summary list failed", "error", err)
+		log.Error("get summary list failed", "error", err)
 		return big.NewInt(0), err
 	}
 	size := len(summaryList.Summaries)
@@ -233,10 +233,9 @@ func ComputeEpochTotalReward(benefitRatio *big.Int, nDays int, nAuctionPerDay in
 	sumReward := big.NewInt(0)
 	for i = 0; i < d; i++ {
 		s := summaryList.Summaries[size-1-i]
-		fmt.Println("Use auction summary: ", s.AuctionID)
 		sumReward.Add(sumReward, s.RcvdMTR)
 	}
-	fmt.Println("sumReward: ", sumReward.String(), "benefitRatio", benefitRatio)
+	log.Debug("calc epoch total MTR reward", "sumReward: ", sumReward.String(), "benefitRatio", benefitRatio)
 
 	// epochTotalRewards = sumReward * benefitRatio / NDays / NEpochPerDay
 	epochTotalRewards := new(big.Int).Mul(sumReward, benefitRatio)
@@ -244,7 +243,7 @@ func ComputeEpochTotalReward(benefitRatio *big.Int, nDays int, nAuctionPerDay in
 	epochTotalRewards.Div(epochTotalRewards, big.NewInt(int64(meter.NEpochPerDay)))
 	epochTotalRewards.Div(epochTotalRewards, big.NewInt(1e18))
 
-	fmt.Println("Epoch total rewards:", epochTotalRewards)
+	log.Info("total MTR rewards for epoch", "val", epochTotalRewards)
 	return epochTotalRewards, nil
 }
 

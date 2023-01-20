@@ -10,7 +10,6 @@ import (
 	"errors"
 	"time"
 
-	"github.com/ethereum/go-ethereum/common/mclock"
 	"github.com/meterio/meter-pov/block"
 	"github.com/meterio/meter-pov/meter"
 	"github.com/meterio/meter-pov/packer"
@@ -313,7 +312,7 @@ func (p *Pacemaker) buildKBlock(qc *block.QuorumCert, parentBlock *block.Block, 
 			}
 			p.logger.Warn("kBlock flow.Adopt(tx) failed...", "txid", tx.ID(), "elapsed", meter.PrettyDuration(time.Since(start)), "error", err)
 		}
-		p.logger.Info("Adopted tx", "txid", tx.ID(), "elapsed", meter.PrettyDuration(time.Since(start)))
+		p.logger.Info("adopted tx", "tx", tx.ID(), "elapsed", meter.PrettyDuration(time.Since(start)))
 	}
 
 	newBlock, stage, receipts, err := flow.Pack(&p.csReactor.myPrivKey, block.BLOCK_TYPE_K_BLOCK, p.csReactor.lastKBlockHeight)
@@ -335,7 +334,7 @@ func (p *Pacemaker) buildStopCommitteeBlock(qc *block.QuorumCert, parentBlock *b
 	best := parentBlock
 	now := uint64(time.Now().Unix())
 
-	startTime := mclock.Now()
+	startTime := time.Now()
 	pool := txpool.GetGlobTxPoolInst()
 	if pool == nil {
 		p.logger.Error("get tx pool failed ...")
@@ -374,7 +373,6 @@ func (p *Pacemaker) buildStopCommitteeBlock(qc *block.QuorumCert, parentBlock *b
 	newBlock.SetMagic(block.BlockMagicVersion1)
 	newBlock.SetQC(qc)
 
-	execElapsed := mclock.Now() - startTime
-	p.logger.Info("Stop Committee Block built", "height", p.csReactor.curHeight, "elapseTime", execElapsed)
+	p.logger.Info("Built SBlock", "num", newBlock.Number(), "elapsed", meter.PrettyDuration(time.Since(startTime)))
 	return &ProposedBlockInfo{newBlock, stage, &receipts, txsToRemoved, txsToReturned, 0, StopCommitteeType}
 }

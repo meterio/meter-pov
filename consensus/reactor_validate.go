@@ -31,7 +31,7 @@ import (
 	"github.com/meterio/meter-pov/xenv"
 )
 
-var log = log15.New("pkg", "consensus")
+var log = log15.New("pkg", "reactor")
 
 // Process process a block.
 func (c *ConsensusReactor) ProcessSyncedBlock(blk *block.Block, nowTimestamp uint64) (*state.Stage, tx.Receipts, error) {
@@ -203,12 +203,9 @@ func (c *ConsensusReactor) validateBlockBody(blk *block.Block, forceValidate boo
 		proposalKBlock, powResults := powpool.GetGlobPowPoolInst().GetPowDecision()
 		if proposalKBlock && forceValidate {
 			rewards := powResults.Rewards
-			fmt.Println("---------------- Local Build Reward Txs for validation ----------------")
+			fmt.Println("---------------- Local Build KBlock Txs for validation ----------------")
 			kblockTxs := c.buildKBlockTxs(parentBlock, rewards, chainTag, bestNum, curEpoch, best, state)
-			fmt.Println("---------------- End of Local Build Reward Txs ----------------", "txs", len(kblockTxs))
-			for _, tx := range kblockTxs {
-				fmt.Println("hash:", tx.ID().String(), "uniteHash:", tx.UniteHash().String())
-			}
+			fmt.Printf("---------------- End of Local Build %d KBlock Txs ----------------\n", len(kblockTxs))
 
 			// Decode.
 			for _, kblockTx := range kblockTxs {
@@ -530,8 +527,7 @@ func (conR *ConsensusReactor) buildKBlockTxs(parentBlock *block.Block, rewards [
 					if err != nil {
 						fmt.Println("could not get delegates from staking")
 					}
-					fmt.Println("Got delegates: ", len(delegates))
-
+					conR.logger.Info("Loaded delegateList from staking for staging only", "len", len(delegates))
 					// skip member check for delegates in ComputeRewardMapV3
 					rewardMap, err = governor.ComputeRewardMap(epochBaseReward, epochTotalReward, delegates, true)
 				} else {

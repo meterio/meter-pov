@@ -342,7 +342,7 @@ func (n *Node) commitBlock(newBlock *block.Block, receipts tx.Receipts) (*chain.
 		return nil, err
 	}
 
-	log.Info(fmt.Sprintf("+++ block committed [%d] by sync", newBlock.Number()), "id", newBlock.ID(), "epoch", newBlock.GetBlockEpoch())
+	log.Info(fmt.Sprintf("*** block committed [%d] by sync", newBlock.Number()), "id", newBlock.ID(), "epoch", newBlock.GetBlockEpoch())
 
 	if meter.IsMainNet() {
 		if newBlock.Number() == meter.TeslaMainnetStartNum {

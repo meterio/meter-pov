@@ -123,7 +123,7 @@ func (p *PowPool) Close() {
 	log.Debug("closed")
 }
 
-//SubscribePowBlockEvent receivers will receive a pow
+// SubscribePowBlockEvent receivers will receive a pow
 func (p *PowPool) SubscribePowBlockEvent(ch chan *PowBlockEvent) event.Subscription {
 	return p.scope.Track(p.powFeed.Subscribe(ch))
 }
@@ -244,11 +244,11 @@ func (p *PowPool) Remove(powID meter.Bytes32) bool {
 
 func (p *PowPool) Wash() error {
 	p.all.Flush()
-	log.Info("PowPool Wash!")
+	log.Info("Powpool wash")
 	return nil
 }
 
-//==============APIs for consensus ===================
+// ==============APIs for consensus ===================
 func NewPowResult(nonce uint32) *PowResult {
 	return &PowResult{
 		Nonce:         nonce,
@@ -411,7 +411,7 @@ func (p *PowPool) ReplayFrom(startHeight int32) error {
 	pool := GetGlobPowPoolInst()
 	height := startHeight
 
-	log.Info("Replay started: ", "start", startHeight, "end", headerVerbose.Height)
+	log.Info("Pow replay started", "start", startHeight, "end", headerVerbose.Height)
 	for height <= headerVerbose.Height {
 		hash, err := client.GetBlockHash(int64(height))
 		if err != nil {
@@ -431,7 +431,7 @@ func (p *PowPool) ReplayFrom(startHeight int32) error {
 		}
 		height++
 	}
-	log.Info("Replay is done: ", "start", startHeight, "end", headerVerbose.Height)
+	log.Info("Pow replay is done", "start", startHeight, "end", headerVerbose.Height)
 	p.replaying = false
 	return nil
 }
@@ -466,6 +466,6 @@ func (pool *PowPool) GetCurCoef() (curCoef int64) {
 
 	log.Debug("GetCurCoef", "coef", coef, "epoch", epoch, "fadeDays", fadeDays, "fadeRate", fadeRate)
 	curCoef = calcPowCoef(0, epoch, coef, fadeDays, fadeRate)
-	log.Info("Current Coef:", "curCoef", curCoef)
+	log.Debug("Current Coef:", "curCoef", curCoef)
 	return curCoef
 }

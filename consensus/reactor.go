@@ -433,15 +433,6 @@ func (conR *ConsensusReactor) UpdateCurDelegates() {
 	conR.curDelegates = types.NewDelegateSet(delegates[:delegateSize])
 	conR.delegateSize = delegateSize
 	conR.committeeSize = uint32(committeeSize)
-
-	first3Names := make([]string, 0)
-	if len(delegates) > 3 {
-		for _, d := range delegates[:3] {
-			name := string(d.Name)
-			first3Names = append(first3Names, name)
-		}
-	}
-	conR.logger.Info("Update curDelegates", "delegateSize", conR.delegateSize, "committeeSize", conR.committeeSize, "first3", strings.Join(first3Names, ","))
 }
 
 func (conR *ConsensusReactor) PrepareEnvForPacemaker() error {
@@ -471,7 +462,7 @@ func (conR *ConsensusReactor) PrepareEnvForPacemaker() error {
 		return nil
 	}
 
-	conR.logger.Info("Init committee", "nonce", nonce, "kBlockHeight", kBlockHeight, "bestIsKBlock", bestIsKBlock, "epoch", epoch)
+	conR.logger.Info("prepare env for pacemaker", "nonce", nonce, "kBlock", kBlockHeight, "bestIsKBlock", bestIsKBlock, "epoch", epoch)
 
 	//initialize Delegates
 	conR.UpdateCurDelegates()
@@ -488,11 +479,11 @@ func (conR *ConsensusReactor) PrepareEnvForPacemaker() error {
 	conR.updateCurEpoch(epoch)
 	conR.UpdateActualCommittee()
 
-	conR.logger.Info("PowPool prepare to add kblock, and notify PoW chain to pick head", "powHeight", info.PowHeight, "powRawBlock", hex.EncodeToString(info.PowRaw))
+	conR.logger.Info("Powpool prepare to add kblock, and notify PoW chain to pick head", "powHeight", info.PowHeight, "powRawBlock", hex.EncodeToString(info.PowRaw))
 	pool := powpool.GetGlobPowPoolInst()
 	pool.Wash()
 	pool.InitialAddKframe(info)
-	conR.logger.Info("PowPool initial added kblock", "bestKblock height", kBlockHeight, "powHeight", info.PowHeight)
+	conR.logger.Info("Powpool initial added kblock", "bestKblock", kBlockHeight, "powHeight", info.PowHeight)
 
 	if inCommittee {
 		conR.logger.Info("I am in committee!!!")
@@ -701,7 +692,22 @@ func (conR *ConsensusReactor) GetConsensusDelegates() ([]*types.Delegate, int, i
 
 	delegateSize, committeeSize := calcCommitteeSize(len(delegates), conR.config)
 	conR.allDelegates = delegates
-	conR.logger.Info(hint, "delegateSize", delegateSize, "committeeSize", committeeSize)
+
+	first3Names := make([]string, 0)
+	if len(delegates) > 3 {
+		for _, d := range delegates[:3] {
+			name := string(d.Name)
+			first3Names = append(first3Names, name)
+		}
+	} else {
+		for _, d := range delegates {
+			name := string(d.Name)
+			first3Names = append(first3Names, name)
+		}
+
+	}
+
+	conR.logger.Info(hint, "delegateSize", delegateSize, "committeeSize", committeeSize, "first3", strings.Join(first3Names, ","))
 	// PrintDelegates(delegates[:delegateSize])
 	return delegates, delegateSize, committeeSize
 }

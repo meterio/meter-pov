@@ -12,7 +12,7 @@ import (
 func BuildMinerRewardTxs(rewards []powpool.PowReward, chainTag byte, bestNum uint32) tx.Transactions {
 	count := len(rewards)
 	if count > meter.MaxNPowBlockPerEpoch {
-		logger.Error("too many reward clauses", "number", count)
+		log.Error("too many reward clauses", "number", count)
 	}
 
 	rewardsTxs := []*tx.Transaction{}
@@ -42,7 +42,7 @@ func BuildMinerRewardTxs(rewards []powpool.PowReward, chainTag byte, bestNum uin
 
 func buildMinerRewardTx(rewards []powpool.PowReward, chainTag byte, bestNum uint32, index uint64) *tx.Transaction {
 	if len(rewards) > meter.MaxNClausePerRewardTx {
-		logger.Error("too many reward clauses", "number", len(rewards))
+		log.Error("too many reward clauses", "number", len(rewards))
 		return nil
 	}
 
@@ -60,10 +60,10 @@ func buildMinerRewardTx(rewards []powpool.PowReward, chainTag byte, bestNum uint
 	sum := big.NewInt(0)
 	for _, reward := range rewards {
 		builder.Clause(tx.NewClause(&reward.Rewarder).WithValue(&reward.Value).WithToken(meter.MTR))
-		logger.Debug("Reward:", "rewarder", reward.Rewarder, "value", reward.Value)
+		log.Debug("Reward:", "rewarder", reward.Rewarder, "value", reward.Value)
 		sum = sum.Add(sum, &reward.Value)
 	}
-	logger.Info("Reward", "Kblock Height", bestNum+1, "Total", sum)
+	log.Info("miner reward in epoch", "kBlock", bestNum+1, "sum", sum)
 
 	builder.Build().IntrinsicGas()
 	return builder.Build()

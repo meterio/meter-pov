@@ -38,7 +38,7 @@ func (s *Staking) distributeValidatorRewards(env *setypes.ScriptEnv, sb *Staking
 				TotalReward: sum,
 				Rewards:     rinfo,
 			}
-			s.logger.Info("validator rewards", "reward", reward.ToString())
+			s.logger.Debug("validator MTR rewards", "reward", reward.ToString())
 
 			var rewards []*meter.ValidatorReward
 			rLen := len(rewardList.Rewards)
@@ -49,7 +49,6 @@ func (s *Staking) distributeValidatorRewards(env *setypes.ScriptEnv, sb *Staking
 			}
 
 			rewardList = meter.NewValidatorRewardList(rewards)
-			s.logger.Info("validator rewards", "reward", sum.String())
 		}
 	}
 	state.SetValidatorRewardList(rewardList)
@@ -90,7 +89,7 @@ func (s *Staking) distributeAndAutobidAfterTeslaFork6(env *setypes.ScriptEnv, sb
 				TotalReward: sum,
 				Rewards:     rinfo,
 			}
-			s.logger.Info("validator rewards", "reward", reward.ToString())
+			s.logger.Debug("validator MTR rewards", "reward", reward.ToString(), "sum", sum.String())
 
 			var rewards []*meter.ValidatorReward
 			rLen := len(rewardList.Rewards)
@@ -101,7 +100,6 @@ func (s *Staking) distributeAndAutobidAfterTeslaFork6(env *setypes.ScriptEnv, sb
 			}
 
 			rewardList = meter.NewValidatorRewardList(rewards)
-			s.logger.Info("validator rewards", "reward", sum.String())
 		}
 	}
 	state.SetValidatorRewardList(rewardList)

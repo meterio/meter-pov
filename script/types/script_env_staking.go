@@ -186,6 +186,6 @@ func (env *ScriptEnv) DistValidatorRewards(rinfo []*meter.RewardInfo) (*big.Int,
 		sum = sum.Add(sum, r.Amount)
 	}
 
-	log.Info("distriubted validators rewards", "total", sum.String())
+	log.Info("distriubted validators MTR rewards", "total", sum.String())
 	return sum, nil
 }

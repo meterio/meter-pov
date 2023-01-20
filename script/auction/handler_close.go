@@ -23,21 +23,11 @@ func (a *Auction) CloseAuctionCB(env *setypes.ScriptEnv, ab *AuctionBody, gas ui
 		env.SetReturnData(ret)
 		a.logger.Info("Auction close completed", "elapsed", meter.PrettyDuration(time.Since(start)))
 	}()
-	stub := time.Now()
-	a.logger.Info("Get auction", "elapsed", meter.PrettyDuration(time.Since(stub)))
 
-	stub = time.Now()
 	state := env.GetState()
-
-	stub = time.Now()
 	summaryList := state.GetSummaryList()
-	a.logger.Info("Get summary list", "elapsed", meter.PrettyDuration(time.Since(stub)))
-
-	stub = time.Now()
 	auctionCB := state.GetAuctionCB()
-	a.logger.Info("Get auction cb", "elapsed", meter.PrettyDuration(time.Since(stub)))
 
-	stub = time.Now()
 	if gas < meter.ClauseGas {
 		leftOverGas = 0
 	} else {
@@ -45,13 +35,10 @@ func (a *Auction) CloseAuctionCB(env *setypes.ScriptEnv, ab *AuctionBody, gas ui
 	}
 
 	if !auctionCB.IsActive() {
-		a.logger.Info("HandleAuctionTx: auction not start")
+		a.logger.Error("auction not started yet")
 		err = errNotStart
 		return
 	}
-	a.logger.Info("precheck completed", "elapsed", meter.PrettyDuration(time.Since(stub)))
-
-	stub = time.Now()
 	// clear the auction
 	validatorBenefitRatio := builtin.Params.Native(state).Get(meter.KeyValidatorBenefitRatio)
 
@@ -60,9 +47,6 @@ func (a *Auction) CloseAuctionCB(env *setypes.ScriptEnv, ab *AuctionBody, gas ui
 		a.logger.Info("clear active auction failed failed")
 		return
 	}
-	a.logger.Info("clear auction completed", "elapsed", meter.PrettyDuration(time.Since(stub)))
-
-	stub = time.Now()
 	summary := &meter.AuctionSummary{
 		AuctionID:    auctionCB.AuctionID,
 		StartHeight:  auctionCB.StartHeight,
@@ -99,15 +83,9 @@ func (a *Auction) CloseAuctionCB(env *setypes.ScriptEnv, ab *AuctionBody, gas ui
 	}
 	summaryList = meter.NewAuctionSummaryList(summaries)
 	auctionCB = &meter.AuctionCB{}
-	a.logger.Info("append summary completed", "elapsed", meter.PrettyDuration(time.Since(stub)))
 
-	stub = time.Now()
 	state.SetSummaryList(summaryList)
-	a.logger.Info("set summary completed", "elapsed", meter.PrettyDuration(time.Since(stub)))
-
-	stub = time.Now()
 	state.SetAuctionCB(auctionCB)
-	a.logger.Info("set auction cb completed", "elapsed", meter.PrettyDuration(time.Since(stub)))
 
 	return
 }
@@ -202,6 +180,6 @@ func (a *Auction) ClearAuction(env *setypes.ScriptEnv, cb *meter.AuctionCB, vali
 	amount = amount.Div(amount, big.NewInt(1e18))
 	env.TransferMTRToValidatorBenefit(amount)
 
-	a.logger.Info("finished auctionCB clear...", "actualPrice", actualPrice.String(), "leftOver", leftOver.String(), "validatorBenefit", amount.String(), "elapsed", meter.PrettyDuration(time.Since(start)))
+	a.logger.Info("Auction cleared", "actualPrice", actualPrice.String(), "leftOver", leftOver.String(), "validatorBenefit", amount.String(), "elapsed", meter.PrettyDuration(time.Since(start)))
 	return actualPrice, leftOver, distMtrg, nil
 }

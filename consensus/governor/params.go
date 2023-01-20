@@ -26,7 +26,7 @@ var (
 	UnitMWei = big.NewInt(1e12)
 	UnitGWei = big.NewInt(1e9)
 
-	logger = log15.New("pkg", "compute")
+	log = log15.New("pkg", "governor")
 )
 
 func GetValidatorBenefitRatio(state *state.State) *big.Int {

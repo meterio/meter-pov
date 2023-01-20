@@ -942,7 +942,7 @@ func (p *Pacemaker) Start(mode PMMode, calcStatsTx bool) {
 
 	qcNode := p.AddressBlock(height)
 	if qcNode == nil {
-		p.logger.Warn("Started with empty qcNode")
+		p.logger.Debug("Started with empty qcNode")
 	}
 	qcInit := newPMQuorumCert(bestQC, qcNode)
 	bInit := &pmBlock{

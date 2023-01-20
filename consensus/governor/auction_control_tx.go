@@ -23,7 +23,7 @@ func BuildAuctionControlTx(height, epoch uint64, chainTag byte, bestNum uint32, 
 	var currentActive bool
 	cb, err := auction.GetActiveAuctionCB()
 	if err != nil {
-		logger.Error("get auctionCB failed ...", "error", err)
+		log.Error("get auctionCB failed ...", "error", err)
 		return nil
 	}
 	if cb.IsActive() == true {
@@ -39,7 +39,7 @@ func BuildAuctionControlTx(height, epoch uint64, chainTag byte, bestNum uint32, 
 	} else {
 		summaryList, err := auction.GetAuctionSummaryList()
 		if err != nil {
-			logger.Error("get summary list failed", "error", err)
+			log.Error("get summary list failed", "error", err)
 			return nil //TBD: still create Tx?
 		}
 		size := len(summaryList.Summaries)
@@ -68,7 +68,7 @@ func BuildAuctionControlTx(height, epoch uint64, chainTag byte, bestNum uint32, 
 	fmt.Println("lastEndEpoch", lastEndEpoch, "epoch", epoch)
 
 	if shouldAuctionStart(epoch, lastEndEpoch) == false {
-		logger.Info("no auction Tx in the kblock ...", "height", height, "epoch", epoch)
+		log.Info("no auction Tx in the kblock ...", "height", height, "epoch", epoch)
 		return nil
 	}
 
@@ -95,7 +95,6 @@ func BuildAuctionControlTx(height, epoch uint64, chainTag byte, bestNum uint32, 
 			WithToken(meter.MTRG).
 			WithData(buildAuctionStartData(lastEndHeight+1, lastEndEpoch+1, height, epoch, lastSequence+1, initialRelease, reservedPrice)))
 
-	logger.Info("Auction Tx Built", "Height", height, "epoch", epoch)
 	return builder.Build()
 }
 

@@ -9,7 +9,6 @@ import (
 	"encoding/base64"
 	"errors"
 	"strings"
-	"time"
 
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/inconshreveable/log15"
@@ -135,7 +134,6 @@ func (s *Staking) Handle(senv *setypes.ScriptEnv, payload []byte, to *meter.Addr
 		leftOverGas, err = s.UnDelegateHandler(senv, sb, gas)
 
 	case OP_GOVERNING:
-		start := time.Now()
 		if senv.GetTxOrigin().IsZero() == false {
 			return nil, gas, errors.New("not from kblock")
 		}
@@ -143,7 +141,6 @@ func (s *Staking) Handle(senv *setypes.ScriptEnv, payload []byte, to *meter.Addr
 			return nil, gas, errors.New("to address is not the same from module address")
 		}
 		leftOverGas, err = s.GoverningHandler(senv, sb, gas)
-		s.logger.Info(GetOpName(sb.Opcode)+" Completed", "elapsed", meter.PrettyDuration(time.Since(start)))
 	case OP_CANDIDATE_UPDT:
 		if senv.GetTxOrigin() != sb.CandAddr {
 			return nil, gas, errors.New("candidate address is not the same from transaction")
@@ -157,7 +154,6 @@ func (s *Staking) Handle(senv *setypes.ScriptEnv, payload []byte, to *meter.Addr
 		leftOverGas, err = s.BucketUpdateHandler(senv, sb, gas)
 
 	case OP_DELEGATE_STATISTICS:
-		start := time.Now()
 		if senv.GetTxOrigin().IsZero() == false {
 			return nil, gas, errors.New("not from kblock")
 		}
@@ -165,7 +161,6 @@ func (s *Staking) Handle(senv *setypes.ScriptEnv, payload []byte, to *meter.Addr
 			return nil, gas, errors.New("to address is not the same from module address")
 		}
 		leftOverGas, err = s.DelegateStatHandler(senv, sb, gas)
-		s.logger.Info(GetOpName(sb.Opcode)+" Completed", "elapsed", meter.PrettyDuration(time.Since(start)))
 
 	case OP_DELEGATE_EXITJAIL:
 		if senv.GetTxOrigin() != sb.CandAddr {

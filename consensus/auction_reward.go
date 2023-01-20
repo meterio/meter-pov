@@ -21,7 +21,9 @@ func GetAuctionReservedPrice(c *chain.Chain, sc *state.Creator) *big.Int {
 		panic("get state failed")
 	}
 
-	return builtin.Params.Native(state).Get(meter.KeyAuctionReservedPrice)
+	rsvdPrice := builtin.Params.Native(state).Get(meter.KeyAuctionReservedPrice)
+	log.Info("auction rsvd price", "value", rsvdPrice)
+	return rsvdPrice
 }
 
 func GetAuctionInitialRelease(c *chain.Chain, sc *state.Creator) float64 {
@@ -38,6 +40,6 @@ func GetAuctionInitialRelease(c *chain.Chain, sc *state.Creator) float64 {
 	initRelease, accuracy := fr.Float64()
 	initRelease = initRelease / (1e09)
 
-	log.Info("get inital release", "value", initRelease, "accuracy", accuracy)
+	log.Info("inital release", "value", initRelease, "accuracy", accuracy)
 	return initRelease
 }

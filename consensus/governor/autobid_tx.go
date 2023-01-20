@@ -98,7 +98,7 @@ func BuildAutobidData(autobid *meter.RewardInfo) (ret []byte) {
 	}
 	payload, err := rlp.EncodeToBytes(body)
 	if err != nil {
-		logger.Info("encode payload failed", "error", err.Error())
+		log.Info("encode payload failed", "error", err.Error())
 		return
 	}
 

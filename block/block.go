@@ -379,8 +379,8 @@ func (b *Block) Oneliner() string {
 		ci = "YES"
 	}
 	canonicalName := b.GetCanonicalName()
-	return fmt.Sprintf("%v(%v) %v QC:%v, Magic:%v, #Txs:%v, CI:%v, Parent:%v ", canonicalName,
-		header.Number(), header.ID().String(), b.QC.CompactString(), b.Magic, len(b.Transactions()), ci, header.ParentID())
+	return fmt.Sprintf("%v(%v) %v %v magic:%v, #txs:%v, ci:%v, parent:%v ", canonicalName,
+		header.Number(), header.ID().String(), b.QC.CompactString(), hex.EncodeToString(b.Magic[:]), len(b.Transactions()), ci, header.ParentID())
 }
 
 // -----------------

@@ -73,11 +73,11 @@ func (p *Pacemaker) ValidateProposal(b *pmBlock) error {
 
 		parent := p.proposalMap.Get(b.Height - 1)
 		if parent.ProposedBlockType == KBlockType {
-			p.logger.Info("the first stop committee block")
+			p.logger.Info(fmt.Sprintf("proposal [%d] is the first stop committee block", b.Height))
 		} else if parent.ProposedBlockType == StopCommitteeType {
 			grandParent := p.proposalMap.Get(b.Height - 2)
 			if grandParent.ProposedBlockType == KBlockType {
-				p.logger.Info("The second stop committee block")
+				p.logger.Info(fmt.Sprintf("proposal [%d] is the second stop committee block", b.Height))
 
 			}
 		}
@@ -163,7 +163,7 @@ func (p *Pacemaker) ValidateProposal(b *pmBlock) error {
 
 	b.SuccessProcessed = true
 
-	p.logger.Info(fmt.Sprintf("Validated proposal %d", blkHeight), "id", blkID)
+	p.logger.Info(fmt.Sprintf("validated proposal %d", blkHeight), "id", blkID)
 	return nil
 }
 

@@ -188,10 +188,10 @@ func printDelegates(delegates []*types.Delegate) {
 	fmt.Println(fmt.Sprintf("         DELEGATES INITIALIZED (size:%d)        ", len(delegates)))
 	fmt.Println("--------------------------------------------------")
 
-	for i, d := range delegates {
-		fmt.Printf("#%d: %s\n", i+1, d.String())
-	}
-	fmt.Println("--------------------------------------------------")
+	// for i, d := range delegates {
+	// 	fmt.Printf("#%d: %s\n", i+1, d.String())
+	// }
+	// fmt.Println("--------------------------------------------------")
 }
 
 func makeDataDir(ctx *cli.Context) string {

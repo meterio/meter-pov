@@ -1,7 +1,6 @@
 package consensus
 
 import (
-	"fmt"
 	"math/big"
 	"net"
 
@@ -49,7 +48,7 @@ func (conR *ConsensusReactor) getDelegatesFromStaking() ([]*types.Delegate, erro
 	}
 
 	list := state.GetDelegateList()
-	fmt.Println("delegateList from staking\n", list.ToString())
+	// conR.logger.Info("Loaded delegateList from staking", "len", len(list.Delegates))
 	for _, s := range list.Delegates {
 		pubKey, blsPub := conR.splitPubKey(string(s.PubKey))
 		d := &types.Delegate{

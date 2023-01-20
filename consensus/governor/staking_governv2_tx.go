@@ -50,7 +50,7 @@ func buildStakingGoverningV2Data(rewardInfoV2s []*meter.RewardInfoV2, curEpoch u
 	// XXX: 52 bytes for each rewardInfo, Tx can accommodate about 1000 rewardinfo
 	extraBytes, err := rlp.EncodeToBytes(rewardInfoV2s)
 	if err != nil {
-		logger.Info("encode validators failed", "error", err.Error())
+		log.Info("encode validators failed", "error", err.Error())
 		return
 	}
 
@@ -65,7 +65,7 @@ func buildStakingGoverningV2Data(rewardInfoV2s []*meter.RewardInfoV2, curEpoch u
 	}
 	payload, err := rlp.EncodeToBytes(body)
 	if err != nil {
-		logger.Info("encode payload failed", "error", err.Error())
+		log.Info("encode payload failed", "error", err.Error())
 		return
 	}
 

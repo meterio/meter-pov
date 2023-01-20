@@ -376,7 +376,7 @@ func (m *PMProposalMessage) String() string {
 	if m.TimeoutCert != nil {
 		tcStr = " + " + m.TimeoutCert.String()
 	}
-	return fmt.Sprintf("[PMProposal (H:%v,R:%v), Parent:(H:%v,R:%v), Proposed:%v%v]",
+	return fmt.Sprintf("[PMProposal H:%v,R:%v, Parent:(H:%v,R:%v), Proposed:%v%v]",
 		ch.Height, ch.Round, m.ParentHeight, m.ParentRound, blkStr, tcStr)
 }
 
@@ -388,7 +388,7 @@ func (m *PMProposalMessage) CompactString() string {
 		blkID = blk.Header().ID().AbbrevString()
 	}
 	ch := m.CSMsgCommonHeader
-	return fmt.Sprintf("[PMProposal (H:%v,R:%v) %v]", ch.Height, ch.Round, blkID)
+	return fmt.Sprintf("[PMProposal H:%v,R:%v %v]", ch.Height, ch.Round, blkID)
 }
 
 func (m *PMProposalMessage) Header() *ConsensusMsgCommonHeader {
@@ -522,7 +522,7 @@ func (m *PMQueryProposalMessage) SigningHash() (hash meter.Bytes32) {
 
 // String returns a string representation.
 func (m *PMQueryProposalMessage) String() string {
-	return fmt.Sprintf("[PMQueryProposal FromHeight:%v ToHeight:%v QueryRound:%v]", m.FromHeight, m.ToHeight, m.Round)
+	return fmt.Sprintf("[PMQueryProposal From:%v To:%v QueryRound:%v]", m.FromHeight, m.ToHeight, m.Round)
 }
 func (m *PMQueryProposalMessage) Header() *ConsensusMsgCommonHeader {
 	return &m.CSMsgCommonHeader
