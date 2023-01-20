@@ -26,7 +26,7 @@ func (a *AccountLock) HandleAccountLockAdd(env *setypes.ScriptEnv, ab *AccountLo
 
 	if p := pList.Get(ab.FromAddr); p != nil {
 		err = errors.New("profile is already in state")
-		log.Error("profile is already in state", "addr", ab.FromAddr)
+		a.logger.Error("profile is already in state", "addr", ab.FromAddr)
 		return
 	}
 

@@ -17,7 +17,7 @@ import (
 
 var (
 	AccountLockGlobInst *AccountLock
-	log                 = log15.New("pkg", "accountlock")
+	log                 = log15.New("pkg", "acctlock")
 )
 
 // Candidate indicates the structure of a candidate
@@ -39,7 +39,7 @@ func NewAccountLock(ch *chain.Chain, sc *state.Creator) *AccountLock {
 	AccountLock := &AccountLock{
 		chain:        ch,
 		stateCreator: sc,
-		logger:       log15.New("pkg", "AccountLock"),
+		logger:       log15.New("pkg", "acctlock"),
 	}
 	SetAccountLockGlobInst(AccountLock)
 	return AccountLock
@@ -49,7 +49,7 @@ func (a *AccountLock) Handle(senv *setypes.ScriptEnv, payload []byte, to *meter.
 
 	ab, err := AccountLockDecodeFromBytes(payload)
 	if err != nil {
-		log.Error("Decode script message failed", "error", err)
+		a.logger.Error("Decode script message failed", "error", err)
 		return nil, gas, err
 	}
 
@@ -57,8 +57,8 @@ func (a *AccountLock) Handle(senv *setypes.ScriptEnv, payload []byte, to *meter.
 		panic("create AccountLock enviroment failed")
 	}
 
-	log.Debug("received AccountLock", "body", ab.ToString())
-	log.Debug("Entering accountLock handler "+ab.GetOpName(ab.Opcode), "tx", senv.GetTxHash())
+	a.logger.Debug("received AccountLock", "body", ab.ToString())
+	a.logger.Debug("Entering accountLock handler "+ab.GetOpName(ab.Opcode), "tx", senv.GetTxHash())
 	switch ab.Opcode {
 	case OP_ADDLOCK:
 		if senv.GetTxOrigin().IsZero() == false {
@@ -85,10 +85,10 @@ func (a *AccountLock) Handle(senv *setypes.ScriptEnv, payload []byte, to *meter.
 		leftOverGas, err = a.GoverningHandler(senv, ab, gas)
 
 	default:
-		log.Error("unknown Opcode", "Opcode", ab.Opcode)
+		a.logger.Error("unknown Opcode", "Opcode", ab.Opcode)
 		return nil, gas, errors.New("unknow AccountLock opcode")
 	}
-	log.Debug("Leaving script handler for operation", "op", ab.GetOpName(ab.Opcode))
+	a.logger.Debug("Leaving script handler for operation", "op", ab.GetOpName(ab.Opcode))
 
 	seOutput = senv.GetOutput()
 	return

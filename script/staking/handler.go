@@ -23,7 +23,6 @@ import (
 
 var (
 	StakingGlobInst *Staking
-	log             = log15.New("pkg", "staking")
 
 	boundEvent   *abi.Event
 	unboundEvent *abi.Event
@@ -33,6 +32,7 @@ var (
 type Staking struct {
 	chain        *chain.Chain
 	stateCreator *state.Creator
+	logger       log15.Logger
 }
 
 func GetStakingGlobInst() *Staking {
@@ -69,6 +69,7 @@ func NewStaking(ch *chain.Chain, sc *state.Creator) *Staking {
 	staking := &Staking{
 		chain:        ch,
 		stateCreator: sc,
+		logger:       log15.New("pkg", "staking"),
 	}
 	SetStakingGlobInst(staking)
 	return staking
@@ -78,7 +79,7 @@ func (s *Staking) Handle(senv *setypes.ScriptEnv, payload []byte, to *meter.Addr
 
 	sb, err := StakingDecodeFromBytes(payload)
 	if err != nil {
-		log.Error("Decode script message failed", "error", err)
+		s.logger.Error("Decode script message failed", "error", err)
 		return nil, gas, err
 	}
 
@@ -86,16 +87,16 @@ func (s *Staking) Handle(senv *setypes.ScriptEnv, payload []byte, to *meter.Addr
 		panic("create staking enviroment failed")
 	}
 
-	// log.Debug("received staking data", "body", sb.ToString())
+	// s.logger.Debug("received staking data", "body", sb.ToString())
 	/*  now := uint64(time.Now().Unix())
 	if InTimeSpan(sb.Timestamp, now, STAKING_TIMESPAN) == false {
-		log.Error("timestamp span too far", "timestamp", sb.Timestamp, "now", now)
+		s.logger.Error("timestamp span too far", "timestamp", sb.Timestamp, "now", now)
 		err = errors.New("timestamp span too far")
 		return
 	}
 	*/
 
-	log.Debug("Entering staking handler "+GetOpName(sb.Opcode), "tx", senv.GetTxHash())
+	s.logger.Debug("Entering staking handler "+GetOpName(sb.Opcode), "tx", senv.GetTxHash())
 	switch sb.Opcode {
 	case OP_BOUND:
 		if senv.GetTxOrigin() != sb.HolderAddr {
@@ -142,7 +143,7 @@ func (s *Staking) Handle(senv *setypes.ScriptEnv, payload []byte, to *meter.Addr
 			return nil, gas, errors.New("to address is not the same from module address")
 		}
 		leftOverGas, err = s.GoverningHandler(senv, sb, gas)
-		log.Info(GetOpName(sb.Opcode)+" Completed", "elapsed", meter.PrettyDuration(time.Since(start)))
+		s.logger.Info(GetOpName(sb.Opcode)+" Completed", "elapsed", meter.PrettyDuration(time.Since(start)))
 	case OP_CANDIDATE_UPDT:
 		if senv.GetTxOrigin() != sb.CandAddr {
 			return nil, gas, errors.New("candidate address is not the same from transaction")
@@ -164,7 +165,7 @@ func (s *Staking) Handle(senv *setypes.ScriptEnv, payload []byte, to *meter.Addr
 			return nil, gas, errors.New("to address is not the same from module address")
 		}
 		leftOverGas, err = s.DelegateStatHandler(senv, sb, gas)
-		log.Info(GetOpName(sb.Opcode)+" Completed", "elapsed", meter.PrettyDuration(time.Since(start)))
+		s.logger.Info(GetOpName(sb.Opcode)+" Completed", "elapsed", meter.PrettyDuration(time.Since(start)))
 
 	case OP_DELEGATE_EXITJAIL:
 		if senv.GetTxOrigin() != sb.CandAddr {
@@ -181,10 +182,10 @@ func (s *Staking) Handle(senv *setypes.ScriptEnv, payload []byte, to *meter.Addr
 		leftOverGas, err = s.DelegateStatFlushHandler(senv, sb, gas)
 
 	default:
-		log.Error("unknown Opcode", "Opcode", sb.Opcode)
+		s.logger.Error("unknown Opcode", "Opcode", sb.Opcode)
 		return nil, gas, errors.New("unknow staking opcode")
 	}
-	log.Debug("Leaving script handler for operation", "op", GetOpName(sb.Opcode))
+	s.logger.Debug("Leaving script handler for operation", "op", GetOpName(sb.Opcode))
 
 	seOutput = senv.GetOutput()
 	return
@@ -199,26 +200,26 @@ func (s *Staking) validatePubKey(comboPubKey []byte) ([]byte, error) {
 	pubKey = strings.TrimSuffix(pubKey, " ")
 	split := strings.Split(pubKey, ":::")
 	if len(split) != 2 {
-		log.Error("invalid public keys for split")
+		s.logger.Error("invalid public keys for split")
 		return nil, errInvalidPubkey
 	}
 
 	// validate ECDSA pubkey
 	decoded, err := base64.StdEncoding.DecodeString(split[0])
 	if err != nil {
-		log.Error("could not decode ECDSA public key")
+		s.logger.Error("could not decode ECDSA public key")
 		return nil, errInvalidPubkey
 	}
 	_, err = crypto.UnmarshalPubkey(decoded)
 	if err != nil {
-		log.Error("could not unmarshal ECDSA public key")
+		s.logger.Error("could not unmarshal ECDSA public key")
 		return nil, errInvalidPubkey
 	}
 
 	// validate BLS key
 	_, err = base64.StdEncoding.DecodeString(split[1])
 	if err != nil {
-		log.Error("could not decode BLS public key")
+		s.logger.Error("could not decode BLS public key")
 		return nil, errInvalidPubkey
 	}
 	// TODO: validate BLS key with bls common

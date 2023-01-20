@@ -15,7 +15,7 @@ func (s *Staking) DelegateStatHandler(env *setypes.ScriptEnv, sb *StakingBody, g
 			ret = []byte(err.Error())
 		}
 		env.SetReturnData(ret)
-		log.Info("Stats completed", "elapsed", meter.PrettyDuration(time.Since(start)))
+		s.logger.Info("Stats completed", "elapsed", meter.PrettyDuration(time.Since(start)))
 	}()
 
 	if gas < meter.ClauseGas {
@@ -30,7 +30,7 @@ func (s *Staking) DelegateStatHandler(env *setypes.ScriptEnv, sb *StakingBody, g
 	inJailList := state.GetInJailList()
 	phaseOutEpoch := state.GetStatisticsEpoch()
 
-	log.Debug("in DelegateStatHandler", "phaseOutEpoch", phaseOutEpoch)
+	s.logger.Debug("in DelegateStatHandler", "phaseOutEpoch", phaseOutEpoch)
 	// handle phase out from the start
 	removed := []meter.Address{}
 	epoch := sb.Option
@@ -57,7 +57,7 @@ func (s *Staking) DelegateStatHandler(env *setypes.ScriptEnv, sb *StakingBody, g
 	// while delegate in jail list, it is still received some statistics.
 	// ignore thos updates. it already paid for it
 	if in := inJailList.Exist(sb.CandAddr); in == true {
-		log.Info("in jail list, updates ignored ...", "address", sb.CandAddr, "name", sb.CandName)
+		s.logger.Info("in jail list, updates ignored ...", "address", sb.CandAddr, "name", sb.CandName)
 		state.SetStatisticsEpoch(phaseOutEpoch)
 		state.SetDelegateStatList(statisticsList)
 		state.SetInJailList(inJailList)
@@ -66,13 +66,13 @@ func (s *Staking) DelegateStatHandler(env *setypes.ScriptEnv, sb *StakingBody, g
 
 	IncrInfraction, err := meter.UnpackBytesToInfraction(sb.ExtraData)
 	if err != nil {
-		log.Info("decode infraction failed ...", "error", err.Error)
+		s.logger.Info("decode infraction failed ...", "error", err.Error)
 		state.SetStatisticsEpoch(phaseOutEpoch)
 		state.SetDelegateStatList(statisticsList)
 		state.SetInJailList(inJailList)
 		return
 	}
-	log.Info("Receives stats", "address", sb.CandAddr, "name", sb.CandName, "epoch", epoch, "infraction", IncrInfraction)
+	s.logger.Info("Receives stats", "address", sb.CandAddr, "name", sb.CandName, "epoch", epoch, "infraction", IncrInfraction)
 
 	var jail bool
 	stats := statisticsList.Get(sb.CandAddr)
@@ -88,11 +88,11 @@ func (s *Staking) DelegateStatHandler(env *setypes.ScriptEnv, sb *StakingBody, g
 	leaderViolation := stats.CountMissingLeaderViolation(epoch)
 	doubleSignViolation := stats.CountDoubleSignViolation(epoch)
 	jail = proposerViolation >= meter.JailCriteria_MissingProposerViolation || leaderViolation >= meter.JailCriteria_MissingLeaderViolation || doubleSignViolation >= meter.JailCriteria_DoubleSignViolation || (proposerViolation >= 1 && leaderViolation >= 1)
-	log.Info("delegate violation: ", "missProposer", proposerViolation, "missLeader", leaderViolation, "doubleSign", doubleSignViolation, "jail", jail)
+	s.logger.Info("delegate violation: ", "missProposer", proposerViolation, "missLeader", leaderViolation, "doubleSign", doubleSignViolation, "jail", jail)
 
 	blockNum := env.GetBlockNum()
 	if jail == true {
-		log.Warn("delegate JAILED", "address", stats.Addr, "name", string(stats.Name), "epoch", epoch, "totalPts", stats.TotalPts)
+		s.logger.Warn("delegate JAILED", "address", stats.Addr, "name", string(stats.Name), "epoch", epoch, "totalPts", stats.TotalPts)
 
 		// if this candidate already uncandidate, forgive it
 		if cand := candidateList.Get(stats.Addr); cand != nil {
@@ -103,7 +103,7 @@ func (s *Staking) DelegateStatHandler(env *setypes.ScriptEnv, sb *StakingBody, g
 				inJailList.Add(meter.NewInJail(stats.Addr, stats.Name, stats.PubKey, stats.TotalPts, &stats.Infractions, bail, sb.Timestamp))
 			}
 		} else {
-			log.Warn("delegate already uncandidated, skip ...", "address", stats.Addr, "name", string(stats.Name))
+			s.logger.Warn("delegate already uncandidated, skip ...", "address", stats.Addr, "name", string(stats.Name))
 		}
 	}
 

@@ -35,7 +35,7 @@ func (s *Staking) UnCandidateHandler(env *setypes.ScriptEnv, sb *StakingBody, ga
 	}
 
 	if in := inJailList.Exist(sb.CandAddr); in == true {
-		log.Info("in jail list, exit first ...", "address", sb.CandAddr, "name", sb.CandName)
+		s.logger.Info("in jail list, exit first ...", "address", sb.CandAddr, "name", sb.CandName)
 		err = errCandidateInJail
 		return
 	}
@@ -44,11 +44,11 @@ func (s *Staking) UnCandidateHandler(env *setypes.ScriptEnv, sb *StakingBody, ga
 	for _, id := range record.Buckets {
 		b := bucketList.Get(id)
 		if b == nil {
-			log.Error("bucket not found", "bucket id", id)
+			s.logger.Error("bucket not found", "bucket id", id)
 			continue
 		}
 		if bytes.Compare(b.Candidate.Bytes(), record.Addr.Bytes()) != 0 {
-			log.Error("bucket info mismatch", "candidate address", record.Addr)
+			s.logger.Error("bucket info mismatch", "candidate address", record.Addr)
 			continue
 		}
 		b.Candidate = meter.Address{}

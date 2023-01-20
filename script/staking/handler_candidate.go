@@ -33,7 +33,7 @@ func (s *Staking) CandidateHandler(env *setypes.ScriptEnv, sb *StakingBody, gas 
 	// current it is 300 MTRGov
 	if sb.Amount.Cmp(MIN_REQUIRED_BY_DELEGATE) < 0 {
 		err = errLessThanMinimalBalance
-		log.Error("does not meet minimial balance")
+		s.logger.Error("does not meet minimial balance")
 		return
 	}
 
@@ -51,7 +51,7 @@ func (s *Staking) CandidateHandler(env *setypes.ScriptEnv, sb *StakingBody, gas 
 		err = errInvalidToken
 	}
 	if err != nil {
-		log.Error("Errors:", "error", err)
+		s.logger.Error("Errors:", "error", err)
 		return
 	}
 
@@ -62,14 +62,14 @@ func (s *Staking) CandidateHandler(env *setypes.ScriptEnv, sb *StakingBody, gas 
 
 	if sb.CandPort < 1 || sb.CandPort > 65535 {
 		err = errInvalidPort
-		log.Error(fmt.Sprintf("invalid parameter: port %d (should be in [1,65535])", sb.CandPort))
+		s.logger.Error(fmt.Sprintf("invalid parameter: port %d (should be in [1,65535])", sb.CandPort))
 		return
 	}
 
 	ipPattern, err := regexp.Compile("^\\d+[.]\\d+[.]\\d+[.]\\d+$")
 	if !ipPattern.MatchString(string(sb.CandIP)) {
 		err = errInvalidIpAddress
-		log.Error(fmt.Sprintf("invalid parameter: ip %s (should be a valid ipv4 address)", sb.CandIP))
+		s.logger.Error(fmt.Sprintf("invalid parameter: ip %s (should be a valid ipv4 address)", sb.CandIP))
 		return
 	}
 
@@ -97,8 +97,8 @@ func (s *Staking) CandidateHandler(env *setypes.ScriptEnv, sb *StakingBody, gas 
 	if record := candidateList.Get(sb.CandAddr); record != nil {
 		if bytes.Equal(record.PubKey, []byte(candidatePubKey)) && bytes.Equal(record.IPAddr, sb.CandIP) && record.Port == sb.CandPort {
 			// exact same candidate
-			// log.Info("Record: ", record.ToString())
-			// log.Info("sb:", sb.ToString())
+			// s.logger.Info("Record: ", record.ToString())
+			// s.logger.Info("sb:", sb.ToString())
 			err = errCandidateListed
 		} else {
 			err = errCandidateListedWithDiffInfo
@@ -109,7 +109,7 @@ func (s *Staking) CandidateHandler(env *setypes.ScriptEnv, sb *StakingBody, gas 
 	// now staking the amount, force to forever lock
 	opt, rate, locktime := GetBoundLockOption(meter.FOREVER_LOCK)
 	commission := GetCommissionRate(sb.Option)
-	log.Info("get bound option", "option", opt, "rate", rate, "locktime", locktime, "commission", commission)
+	s.logger.Info("get bound option", "option", opt, "rate", rate, "locktime", locktime, "commission", commission)
 
 	// bucket owner is candidate
 	bucket := meter.NewBucket(sb.CandAddr, sb.CandAddr, sb.Amount, uint8(sb.Token), opt, rate, sb.Autobid, sb.Timestamp, sb.Nonce)

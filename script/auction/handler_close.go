@@ -21,21 +21,21 @@ func (a *Auction) CloseAuctionCB(env *setypes.ScriptEnv, ab *AuctionBody, gas ui
 			ret = []byte(err.Error())
 		}
 		env.SetReturnData(ret)
-		log.Info("Auction close completed", "elapsed", meter.PrettyDuration(time.Since(start)))
+		a.logger.Info("Auction close completed", "elapsed", meter.PrettyDuration(time.Since(start)))
 	}()
 	stub := time.Now()
-	log.Info("Get auction", "elapsed", meter.PrettyDuration(time.Since(stub)))
+	a.logger.Info("Get auction", "elapsed", meter.PrettyDuration(time.Since(stub)))
 
 	stub = time.Now()
 	state := env.GetState()
 
 	stub = time.Now()
 	summaryList := state.GetSummaryList()
-	log.Info("Get summary list", "elapsed", meter.PrettyDuration(time.Since(stub)))
+	a.logger.Info("Get summary list", "elapsed", meter.PrettyDuration(time.Since(stub)))
 
 	stub = time.Now()
 	auctionCB := state.GetAuctionCB()
-	log.Info("Get auction cb", "elapsed", meter.PrettyDuration(time.Since(stub)))
+	a.logger.Info("Get auction cb", "elapsed", meter.PrettyDuration(time.Since(stub)))
 
 	stub = time.Now()
 	if gas < meter.ClauseGas {
@@ -45,11 +45,11 @@ func (a *Auction) CloseAuctionCB(env *setypes.ScriptEnv, ab *AuctionBody, gas ui
 	}
 
 	if !auctionCB.IsActive() {
-		log.Info("HandleAuctionTx: auction not start")
+		a.logger.Info("HandleAuctionTx: auction not start")
 		err = errNotStart
 		return
 	}
-	log.Info("precheck completed", "elapsed", meter.PrettyDuration(time.Since(stub)))
+	a.logger.Info("precheck completed", "elapsed", meter.PrettyDuration(time.Since(stub)))
 
 	stub = time.Now()
 	// clear the auction
@@ -57,10 +57,10 @@ func (a *Auction) CloseAuctionCB(env *setypes.ScriptEnv, ab *AuctionBody, gas ui
 
 	actualPrice, leftover, dist, err := a.ClearAuction(env, auctionCB, validatorBenefitRatio)
 	if err != nil {
-		log.Info("clear active auction failed failed")
+		a.logger.Info("clear active auction failed failed")
 		return
 	}
-	log.Info("clear auction completed", "elapsed", meter.PrettyDuration(time.Since(stub)))
+	a.logger.Info("clear auction completed", "elapsed", meter.PrettyDuration(time.Since(stub)))
 
 	stub = time.Now()
 	summary := &meter.AuctionSummary{
@@ -92,21 +92,22 @@ func (a *Auction) CloseAuctionCB(env *setypes.ScriptEnv, ab *AuctionBody, gas ui
 
 	number := env.GetBlockNum()
 	if meter.IsTeslaFork6(number) {
-		for i := 0; i < len(summaryList.Summaries)-1; i++ {
-			summaryList.Summaries[i].AuctionTxs = make([]*meter.AuctionTx, 0)
+		for i := 0; i < len(summaries)-1; i++ {
+			summaries[i].AuctionTxs = make([]*meter.AuctionTx, 0)
+			summaries[i].DistMTRG = make([]*meter.DistMtrg, 0)
 		}
 	}
 	summaryList = meter.NewAuctionSummaryList(summaries)
 	auctionCB = &meter.AuctionCB{}
-	log.Info("append summary completed", "elapsed", meter.PrettyDuration(time.Since(stub)))
+	a.logger.Info("append summary completed", "elapsed", meter.PrettyDuration(time.Since(stub)))
 
 	stub = time.Now()
 	state.SetSummaryList(summaryList)
-	log.Info("set summary completed", "elapsed", meter.PrettyDuration(time.Since(stub)))
+	a.logger.Info("set summary completed", "elapsed", meter.PrettyDuration(time.Since(stub)))
 
 	stub = time.Now()
 	state.SetAuctionCB(auctionCB)
-	log.Info("set auction cb completed", "elapsed", meter.PrettyDuration(time.Since(stub)))
+	a.logger.Info("set auction cb completed", "elapsed", meter.PrettyDuration(time.Since(stub)))
 
 	return
 }
@@ -128,6 +129,7 @@ func (a *Auction) MintMTRGToBidder(env *setypes.ScriptEnv, addr meter.Address, a
 func (a *Auction) ClearAuction(env *setypes.ScriptEnv, cb *meter.AuctionCB, validatorBenefitRatio *big.Int) (*big.Int, *big.Int, []*meter.DistMtrg, error) {
 
 	start := time.Now()
+
 	actualPrice := new(big.Int).Mul(cb.RcvdMTR, big.NewInt(1e18))
 	if cb.RlsdMTRG.Cmp(big.NewInt(0)) > 0 {
 		actualPrice = actualPrice.Div(actualPrice, cb.RlsdMTRG)
@@ -138,7 +140,7 @@ func (a *Auction) ClearAuction(env *setypes.ScriptEnv, cb *meter.AuctionCB, vali
 		actualPrice = cb.RsvdPrice
 	}
 
-	blockNum := env.GetTxCtx().BlockRef.Number()
+	blockNum := env.GetBlockNum()
 	total := big.NewInt(0)
 	distMtrg := []*meter.DistMtrg{}
 	if meter.IsTeslaFork3(blockNum) {
@@ -160,13 +162,18 @@ func (a *Auction) ClearAuction(env *setypes.ScriptEnv, cb *meter.AuctionCB, vali
 		sort.SliceStable(sortedAddresses, func(i, j int) bool {
 			return bytes.Compare(sortedAddresses[i].Bytes(), sortedAddresses[j].Bytes()) <= 0
 		})
+		a.logger.Info("3. sort auction tx", "elapsed", meter.PrettyDuration(time.Since(stub)))
 
+		stub := time.Now()
 		for _, addr := range sortedAddresses {
+			mstart := time.Now()
 			mtrg := groupTxMap[addr]
 			a.MintMTRGToBidder(env, addr, mtrg)
 			total = total.Add(total, mtrg)
 			distMtrg = append(distMtrg, &meter.DistMtrg{Addr: addr, Amount: mtrg})
+			a.logger.Warn("mint MTRG to bidder", "elapsed", meter.PrettyDuration(time.Since(mstart)), "addr", addr)
 		}
+		a.logger.Info("4. mint MTRG to bidder total", "elapsed", meter.PrettyDuration(time.Since(stub)))
 	} else {
 		for _, tx := range cb.AuctionTxs {
 			mtrg := new(big.Int).Mul(tx.Amount, big.NewInt(1e18))
@@ -196,6 +203,6 @@ func (a *Auction) ClearAuction(env *setypes.ScriptEnv, cb *meter.AuctionCB, vali
 	amount = amount.Div(amount, big.NewInt(1e18))
 	env.TransferMTRToValidatorBenefit(amount)
 
-	log.Info("finished auctionCB clear...", "actualPrice", actualPrice.String(), "leftOver", leftOver.String(), "validatorBenefit", amount.String(), "elapsed", meter.PrettyDuration(time.Since(start)))
+	a.logger.Info("finished auctionCB clear...", "actualPrice", actualPrice.String(), "leftOver", leftOver.String(), "validatorBenefit", amount.String(), "elapsed", meter.PrettyDuration(time.Since(start)))
 	return actualPrice, leftOver, distMtrg, nil
 }

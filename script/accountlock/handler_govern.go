@@ -37,7 +37,7 @@ func (a *AccountLock) GoverningHandler(env *setypes.ScriptEnv, ab *AccountLockBo
 		pList.Remove(r)
 	}
 
-	log.Debug("account lock governing done...", "epoch", curEpoch)
+	a.logger.Debug("account lock governing done...", "epoch", curEpoch)
 	state.SetProfileList(pList)
 	return
 }
@@ -45,7 +45,7 @@ func (a *AccountLock) GoverningHandler(env *setypes.ScriptEnv, ab *AccountLockBo
 func RestrictByAccountLock(addr meter.Address, state *state.State) (bool, *big.Int, *big.Int) {
 	accountlock := GetAccountLockGlobInst()
 	if accountlock == nil {
-		//log.Debug("accountlock is not initialized...")
+		//a.logger.Debug("accountlock is not initialized...")
 		return false, nil, nil
 	}
 

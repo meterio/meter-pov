@@ -36,20 +36,20 @@ func (s *Staking) CandidateUpdateHandler(env *setypes.ScriptEnv, sb *StakingBody
 	}
 
 	if sb.CandPort < 1 || sb.CandPort > 65535 {
-		log.Error(fmt.Sprintf("invalid parameter: port %d (should be in [1,65535])", sb.CandPort))
+		s.logger.Error(fmt.Sprintf("invalid parameter: port %d (should be in [1,65535])", sb.CandPort))
 		err = errInvalidPort
 		return
 	}
 
 	ipPattern, err := regexp.Compile("^\\d+[.]\\d+[.]\\d+[.]\\d+$")
 	if !ipPattern.MatchString(string(sb.CandIP)) {
-		log.Error(fmt.Sprintf("invalid parameter: ip %s (should be a valid ipv4 address)", sb.CandIP))
+		s.logger.Error(fmt.Sprintf("invalid parameter: ip %s (should be a valid ipv4 address)", sb.CandIP))
 		err = errInvalidIpAddress
 		return
 	}
 
 	if sb.Autobid > 100 {
-		log.Error(fmt.Sprintf("invalid parameter: autobid %d (should be in [0， 100])", sb.Autobid))
+		s.logger.Error(fmt.Sprintf("invalid parameter: autobid %d (should be in [0， 100])", sb.Autobid))
 		err = errInvalidParams
 		return
 	}
@@ -83,7 +83,7 @@ func (s *Staking) CandidateUpdateHandler(env *setypes.ScriptEnv, sb *StakingBody
 	// if the candidate already exists return error without paying gas
 	record := candidateList.Get(sb.CandAddr)
 	if record == nil {
-		log.Error(fmt.Sprintf("does not find out the candiate record %v", sb.CandAddr))
+		s.logger.Error(fmt.Sprintf("does not find out the candiate record %v", sb.CandAddr))
 		err = errCandidateNotListed
 		return
 	}
@@ -100,7 +100,7 @@ func (s *Staking) CandidateUpdateHandler(env *setypes.ScriptEnv, sb *StakingBody
 			// ---------------------------------------
 			// BEFORE TESLA FORK 5 : candidate in jail is not allowed to be updated
 			// ---------------------------------------
-			log.Info("in jail list, exit first ...", "address", sb.CandAddr, "name", sb.CandName)
+			s.logger.Info("in jail list, exit first ...", "address", sb.CandAddr, "name", sb.CandName)
 			err = errCandidateInJail
 			return
 		}
@@ -128,7 +128,7 @@ func (s *Staking) CandidateUpdateHandler(env *setypes.ScriptEnv, sb *StakingBody
 
 	candBucket, err := GetCandidateBucket(record, bucketList)
 	if err != nil {
-		log.Error(fmt.Sprintf("does not find out the candiate initial bucket %v", record.Addr))
+		s.logger.Error(fmt.Sprintf("does not find out the candiate initial bucket %v", record.Addr))
 	} else {
 		if sb.Autobid != candBucket.Autobid {
 			autobidUpdated = true
@@ -138,7 +138,7 @@ func (s *Staking) CandidateUpdateHandler(env *setypes.ScriptEnv, sb *StakingBody
 	// the above changes are restricted by time
 	// except ip and pubkey, which can be updated at any time
 	if (sb.Timestamp-record.Timestamp) < MIN_CANDIDATE_UPDATE_INTV && !ipUpdated && !pubUpdated {
-		log.Error("update too frequently", "curTime", sb.Timestamp, "recordedTime", record.Timestamp)
+		s.logger.Error("update too frequently", "curTime", sb.Timestamp, "recordedTime", record.Timestamp)
 		err = errUpdateTooFrequent
 		return
 	}
@@ -177,7 +177,7 @@ func (s *Staking) CandidateUpdateHandler(env *setypes.ScriptEnv, sb *StakingBody
 	}
 
 	if changed == false {
-		log.Warn("no candidate info changed")
+		s.logger.Warn("no candidate info changed")
 		err = errCandidateNotChanged
 		return
 	}

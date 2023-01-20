@@ -28,25 +28,25 @@ func (s *Staking) DelegateExitJailHandler(env *setypes.ScriptEnv, sb *StakingBod
 
 	jailed := inJailList.Get(sb.CandAddr)
 	if jailed == nil {
-		log.Info("not in jail list ...", "address", sb.CandAddr, "name", sb.CandName)
+		s.logger.Info("not in jail list ...", "address", sb.CandAddr, "name", sb.CandName)
 		return
 	}
 
 	if state.GetBalance(jailed.Addr).Cmp(jailed.BailAmount) < 0 {
-		log.Error("not enough balance for bail")
+		s.logger.Error("not enough balance for bail")
 		err = errors.New("not enough balance for bail")
 		return
 	}
 
 	// take actions
 	if err = env.CollectBailMeterGov(jailed.Addr, jailed.BailAmount); err != nil {
-		log.Error(err.Error())
+		s.logger.Error(err.Error())
 		return
 	}
 	inJailList.Remove(jailed.Addr)
 	statisticsList.Remove(jailed.Addr)
 
-	log.Info("removed from jail list ...", "address", jailed.Addr, "name", jailed.Name)
+	s.logger.Info("removed from jail list ...", "address", jailed.Addr, "name", jailed.Name)
 	state.SetInJailList(inJailList)
 	state.SetDelegateStatList(statisticsList)
 	return

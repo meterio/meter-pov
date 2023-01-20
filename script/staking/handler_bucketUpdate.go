@@ -33,7 +33,7 @@ func (s *Staking) BucketUpdateHandler(env *setypes.ScriptEnv, sb *StakingBody, g
 	// if the candidate already exists return error without paying gas
 	bucket := bucketList.Get(sb.StakingID)
 	if bucket == nil {
-		log.Error(fmt.Sprintf("does not find out the bucket, ID %v", sb.StakingID))
+		s.logger.Error(fmt.Sprintf("does not find out the bucket, ID %v", sb.StakingID))
 		err = errBucketNotFound
 		return
 	}
@@ -50,7 +50,7 @@ func (s *Staking) BucketUpdateHandler(env *setypes.ScriptEnv, sb *StakingBody, g
 		// ---------------------------------------
 		if sb.Option == BUCKET_SUB_OPT {
 			if bucket.Unbounded == true {
-				log.Error(fmt.Sprintf("can not update unbounded bucket, ID %v", sb.StakingID))
+				s.logger.Error(fmt.Sprintf("can not update unbounded bucket, ID %v", sb.StakingID))
 				err = errors.New("can not update unbounded bucket")
 				return
 			}
@@ -125,7 +125,7 @@ func (s *Staking) BucketUpdateHandler(env *setypes.ScriptEnv, sb *StakingBody, g
 		if sb.Option == BUCKET_ADD_OPT {
 			// Now allow to change forever lock amount
 			if bucket.Unbounded == true {
-				log.Error(fmt.Sprintf("can not update unbounded bucket, ID %v", sb.StakingID))
+				s.logger.Error(fmt.Sprintf("can not update unbounded bucket, ID %v", sb.StakingID))
 				err = errors.New("can not update unbounded bucket")
 				return
 			}
@@ -176,7 +176,7 @@ func (s *Staking) BucketUpdateHandler(env *setypes.ScriptEnv, sb *StakingBody, g
 	if meter.IsTeslaFork1(number) {
 		// Now allow to change forever lock amount
 		if bucket.Unbounded == true {
-			log.Error(fmt.Sprintf("can not update unbounded bucket, ID %v", sb.StakingID))
+			s.logger.Error(fmt.Sprintf("can not update unbounded bucket, ID %v", sb.StakingID))
 			err = errors.New("can not update unbounded bucket")
 			return
 		}
@@ -194,13 +194,13 @@ func (s *Staking) BucketUpdateHandler(env *setypes.ScriptEnv, sb *StakingBody, g
 	} else {
 
 		if bucket.IsForeverLock() == true {
-			log.Error(fmt.Sprintf("can not update the bucket, ID %v", sb.StakingID))
+			s.logger.Error(fmt.Sprintf("can not update the bucket, ID %v", sb.StakingID))
 			err = errUpdateForeverBucket
 		}
 
 		// can not update unbouded bucket
 		if bucket.Unbounded == true {
-			log.Error(fmt.Sprintf("can not update unbounded bucket, ID %v", sb.StakingID))
+			s.logger.Error(fmt.Sprintf("can not update unbounded bucket, ID %v", sb.StakingID))
 		}
 	}
 

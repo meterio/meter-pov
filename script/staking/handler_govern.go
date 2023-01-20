@@ -20,7 +20,7 @@ func (s *Staking) distributeValidatorRewards(env *setypes.ScriptEnv, sb *Staking
 	rinfo := []*meter.RewardInfo{}
 	err := rlp.DecodeBytes(sb.ExtraData, &rinfo)
 	if err != nil {
-		log.Error("get rewards info failed")
+		s.logger.Error("get rewards info failed")
 		return
 	}
 
@@ -30,7 +30,7 @@ func (s *Staking) distributeValidatorRewards(env *setypes.ScriptEnv, sb *Staking
 		epoch := sb.Version //epoch is stored in sb.Version tempraroly
 		sum, err := env.DistValidatorRewards(rinfo)
 		if err != nil {
-			log.Error("Distribute validator rewards failed" + err.Error())
+			s.logger.Error("Distribute validator rewards failed" + err.Error())
 		} else {
 			reward := &meter.ValidatorReward{
 				Epoch:       epoch,
@@ -38,7 +38,7 @@ func (s *Staking) distributeValidatorRewards(env *setypes.ScriptEnv, sb *Staking
 				TotalReward: sum,
 				Rewards:     rinfo,
 			}
-			log.Info("validator rewards", "reward", reward.ToString())
+			s.logger.Info("validator rewards", "reward", reward.ToString())
 
 			var rewards []*meter.ValidatorReward
 			rLen := len(rewardList.Rewards)
@@ -49,7 +49,7 @@ func (s *Staking) distributeValidatorRewards(env *setypes.ScriptEnv, sb *Staking
 			}
 
 			rewardList = meter.NewValidatorRewardList(rewards)
-			log.Info("validator rewards", "reward", sum.String())
+			s.logger.Info("validator rewards", "reward", sum.String())
 		}
 	}
 	state.SetValidatorRewardList(rewardList)
@@ -61,7 +61,7 @@ func (s *Staking) distributeAndAutobidAfterTeslaFork6(env *setypes.ScriptEnv, sb
 	riV2s := []*meter.RewardInfoV2{}
 	err := rlp.DecodeBytes(sb.ExtraData, &riV2s)
 	if err != nil {
-		log.Error("get rewards info v2 failed")
+		s.logger.Error("get rewards info v2 failed")
 		return
 	}
 
@@ -82,7 +82,7 @@ func (s *Staking) distributeAndAutobidAfterTeslaFork6(env *setypes.ScriptEnv, sb
 		epoch := sb.Version //epoch is stored in sb.Version tempraroly
 		sum, err := env.DistValidatorRewards(rinfo)
 		if err != nil {
-			log.Error("Distribute validator rewards failed" + err.Error())
+			s.logger.Error("Distribute validator rewards failed" + err.Error())
 		} else {
 			reward := &meter.ValidatorReward{
 				Epoch:       epoch,
@@ -90,7 +90,7 @@ func (s *Staking) distributeAndAutobidAfterTeslaFork6(env *setypes.ScriptEnv, sb
 				TotalReward: sum,
 				Rewards:     rinfo,
 			}
-			log.Info("validator rewards", "reward", reward.ToString())
+			s.logger.Info("validator rewards", "reward", reward.ToString())
 
 			var rewards []*meter.ValidatorReward
 			rLen := len(rewardList.Rewards)
@@ -101,14 +101,14 @@ func (s *Staking) distributeAndAutobidAfterTeslaFork6(env *setypes.ScriptEnv, sb
 			}
 
 			rewardList = meter.NewValidatorRewardList(rewards)
-			log.Info("validator rewards", "reward", sum.String())
+			s.logger.Info("validator rewards", "reward", sum.String())
 		}
 	}
 	state.SetValidatorRewardList(rewardList)
 
 	auctionCB := state.GetAuctionCB()
 	if !auctionCB.IsActive() {
-		log.Info("HandleAuctionTx: auction not start")
+		s.logger.Info("HandleAuctionTx: auction not start")
 		err = errNotStart
 		return
 	}
@@ -116,7 +116,7 @@ func (s *Staking) distributeAndAutobidAfterTeslaFork6(env *setypes.ScriptEnv, sb
 		for i, a := range ainfo {
 			// check bidder have enough meter balance?
 			if state.GetEnergy(meter.ValidatorBenefitAddr).Cmp(a.Amount) < 0 {
-				log.Info("not enough meter balance in validator benefit addr", "amount", a.Amount, "bidder", a.Address.String(), "vbalance", state.GetEnergy(meter.ValidatorBenefitAddr))
+				s.logger.Info("not enough meter balance in validator benefit addr", "amount", a.Amount, "bidder", a.Address.String(), "vbalance", state.GetEnergy(meter.ValidatorBenefitAddr))
 				err = errNotEnoughMTR
 				return
 			}
@@ -125,14 +125,14 @@ func (s *Staking) distributeAndAutobidAfterTeslaFork6(env *setypes.ScriptEnv, sb
 			err = auctionCB.AddAuctionTx(tx)
 
 			if err != nil {
-				log.Error("add auctionTx failed", "error", err)
+				s.logger.Error("add auctionTx failed", "error", err)
 				return
 			}
 
 			// transfer bidder's autobid MTR directly from validator benefit address
 			err = env.TransferAutobidMTRToAuction(a.Address, a.Amount)
 			if err != nil {
-				log.Error("error happend during auction bid transfer", "address", a.Address, "err", err)
+				s.logger.Error("error happend during auction bid transfer", "address", a.Address, "err", err)
 				err = errNotEnoughMTR
 				return
 			}
@@ -159,21 +159,21 @@ func (s *Staking) calcDelegates(env *setypes.ScriptEnv, bucketList *meter.Bucket
 		}
 		// delegate must not in jail
 		if jailed := inJailList.Exist(delegate.Address); jailed == true {
-			log.Info("skip injail delegate ...", "name", string(delegate.Name), "addr", delegate.Address)
+			s.logger.Info("skip injail delegate ...", "name", string(delegate.Name), "addr", delegate.Address)
 			continue
 		}
 
 		// delegates must satisfy the minimum requirements
 		minRequire := builtin.Params.Native(state).Get(meter.KeyMinRequiredByDelegate)
 		if delegate.VotingPower.Cmp(minRequire) < 0 {
-			log.Info("delegate does not meet minimum requrirements, ignored ...", "name", string(delegate.Name), "addr", delegate.Address)
+			s.logger.Info("delegate does not meet minimum requrirements, ignored ...", "name", string(delegate.Name), "addr", delegate.Address)
 			continue
 		}
 
 		for _, bucketID := range c.Buckets {
 			b := bucketList.Get(bucketID)
 			if b == nil {
-				log.Info("get bucket from ID failed", "bucketID", bucketID)
+				s.logger.Info("get bucket from ID failed", "bucketID", bucketID)
 				continue
 			}
 			// amplify 1e09 because unit is shannon (1e09),  votes of bucket / votes of candidate * 1e09
@@ -208,12 +208,12 @@ func (s *Staking) unboundAndCalcBonusAfterTeslaFork5(env *setypes.ScriptEnv, buc
 	for i := 0; i < len(bucketList.Buckets); i++ {
 		bkt := bucketList.Buckets[i]
 
-		log.Debug("before new handling", "bucket", bkt.ToString())
+		s.logger.Debug("before new handling", "bucket", bkt.ToString())
 		// handle unbound first
 		if bkt.Unbounded == true {
 			// matured
 			if ts >= bkt.MatureTime+720 {
-				log.Info("bucket matured, prepare to unbound", "id", bkt.ID().String(), "amount", bkt.Value, "address", bkt.Owner)
+				s.logger.Info("bucket matured, prepare to unbound", "id", bkt.ID().String(), "amount", bkt.Value, "address", bkt.Owner)
 				stakeholder := stakeholderList.Get(bkt.Owner)
 				if stakeholder != nil {
 					stakeholder.RemoveBucket(bkt)
@@ -244,9 +244,9 @@ func (s *Staking) unboundAndCalcBonusAfterTeslaFork5(env *setypes.ScriptEnv, buc
 				bucketList.Remove(bkt.BucketID)
 				i--
 			}
-			log.Debug("after new handling", "bucket", bkt.ToString())
+			s.logger.Debug("after new handling", "bucket", bkt.ToString())
 		} else {
-			log.Debug("no changes to bucket", "id", bkt.ID().String())
+			s.logger.Debug("no changes to bucket", "id", bkt.ID().String())
 		}
 	} // End of Handle Unbound
 
@@ -255,7 +255,7 @@ func (s *Staking) unboundAndCalcBonusAfterTeslaFork5(env *setypes.ScriptEnv, buc
 	for _, bkt := range bucketList.Buckets {
 		if ts >= bkt.CalcLastTime {
 			bonusDelta := CalcBonus(bkt.CalcLastTime, ts, bkt.Rate, bkt.Value)
-			log.Debug("add bonus delta", "id", bkt.ID(), "bonusDelta", bonusDelta.String(), "ts", ts, "last time", bkt.CalcLastTime)
+			s.logger.Debug("add bonus delta", "id", bkt.ID(), "bonusDelta", bonusDelta.String(), "ts", ts, "last time", bkt.CalcLastTime)
 
 			// update bucket
 			bkt.BonusVotes = 0
@@ -277,12 +277,12 @@ func (s *Staking) unboundAndCalcBonus(env *setypes.ScriptEnv, bucketList *meter.
 	var err error
 	for _, bkt := range bucketList.Buckets {
 
-		log.Debug("before handling", "bucket", bkt.ToString())
+		s.logger.Debug("before handling", "bucket", bkt.ToString())
 		// handle unbound first
 		if bkt.Unbounded == true {
 			// matured
 			if ts >= bkt.MatureTime+720 {
-				log.Info("bucket matured, prepare to unbound", "id", bkt.ID().String(), "amount", bkt.Value, "address", bkt.Owner)
+				s.logger.Info("bucket matured, prepare to unbound", "id", bkt.ID().String(), "amount", bkt.Value, "address", bkt.Owner)
 				stakeholder := stakeholderList.Get(bkt.Owner)
 				if stakeholder != nil {
 					stakeholder.RemoveBucket(bkt)
@@ -319,7 +319,7 @@ func (s *Staking) unboundAndCalcBonus(env *setypes.ScriptEnv, bucketList *meter.
 		// now calc the bonus votes
 		if ts >= bkt.CalcLastTime {
 			bonusDelta := CalcBonus(bkt.CalcLastTime, ts, bkt.Rate, bkt.Value)
-			log.Debug("in calclating", "bonus votes", bonusDelta.Uint64(), "ts", ts, "last time", bkt.CalcLastTime)
+			s.logger.Debug("in calclating", "bonus votes", bonusDelta.Uint64(), "ts", ts, "last time", bkt.CalcLastTime)
 
 			// update bucket
 			bkt.BonusVotes += bonusDelta.Uint64()
@@ -333,7 +333,7 @@ func (s *Staking) unboundAndCalcBonus(env *setypes.ScriptEnv, bucketList *meter.
 				}
 			}
 		}
-		log.Debug("after handling", "bucket", bkt.ToString())
+		s.logger.Debug("after handling", "bucket", bkt.ToString())
 	}
 	return err
 }
@@ -346,7 +346,7 @@ func (s *Staking) GoverningHandler(env *setypes.ScriptEnv, sb *StakingBody, gas 
 			ret = []byte(err.Error())
 		}
 		env.SetReturnData(ret)
-		log.Info("Govern completed", "elapsed", meter.PrettyDuration(time.Since(start)))
+		s.logger.Info("Govern completed", "elapsed", meter.PrettyDuration(time.Since(start)))
 	}()
 	state := env.GetState()
 	candidateList := state.GetCandidateList()
@@ -384,7 +384,7 @@ func (s *Staking) GoverningHandler(env *setypes.ScriptEnv, sb *StakingBody, gas 
 	}
 
 	if meter.IsStaging() {
-		log.Info("Skip delegate calculation in staging")
+		s.logger.Info("Skip delegate calculation in staging")
 	} else {
 		s.calcDelegates(env, bucketList, candidateList, inJailList)
 	}
@@ -393,7 +393,7 @@ func (s *Staking) GoverningHandler(env *setypes.ScriptEnv, sb *StakingBody, gas 
 	state.SetBucketList(bucketList)
 	state.SetStakeHolderList(stakeholderList)
 
-	//log.Info("After Governing, new delegate list calculated", "members", delegateList.Members())
+	//s.logger.Info("After Governing, new delegate list calculated", "members", delegateList.Members())
 	// fmt.Println(delegateList.ToString())
 	return
 }

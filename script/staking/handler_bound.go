@@ -30,7 +30,7 @@ func (s *Staking) BoundHandler(env *setypes.ScriptEnv, sb *StakingBody, gas uint
 	// current it is 10 MTRGov
 	if sb.Amount.Cmp(MIN_BOUND_BALANCE) < 0 {
 		err = errLessThanMinBoundBalance
-		log.Error("does not meet minimium bound balance")
+		s.logger.Error("does not meet minimium bound balance")
 		return
 	}
 
@@ -40,7 +40,7 @@ func (s *Staking) BoundHandler(env *setypes.ScriptEnv, sb *StakingBody, gas uint
 	if setCand {
 		c := candidateList.Get(sb.CandAddr)
 		if c == nil {
-			log.Warn("candidate is not listed", "address", sb.CandAddr)
+			s.logger.Warn("candidate is not listed", "address", sb.CandAddr)
 			setCand = false
 		} else {
 			selfRatioValid := false
@@ -50,7 +50,7 @@ func (s *Staking) BoundHandler(env *setypes.ScriptEnv, sb *StakingBody, gas uint
 				selfRatioValid = CheckCandEnoughSelfVotes(sb.Amount, c, bucketList, TESLA1_0_SELF_VOTE_RATIO)
 			}
 			if selfRatioValid == false {
-				log.Error(errCandidateNotEnoughSelfVotes.Error(), "candidate",
+				s.logger.Error(errCandidateNotEnoughSelfVotes.Error(), "candidate",
 					c.Addr.String(), "error", errCandidateNotEnoughSelfVotes)
 				setCand = false
 			}
@@ -71,18 +71,18 @@ func (s *Staking) BoundHandler(env *setypes.ScriptEnv, sb *StakingBody, gas uint
 		err = errInvalidToken
 	}
 	if err != nil {
-		log.Error("errors", "error", err)
+		s.logger.Error("errors", "error", err)
 		return
 	}
 
 	if sb.Autobid > 100 {
-		log.Error("errors", "error", errors.New("Autobid > 100 %"))
+		s.logger.Error("errors", "error", errors.New("Autobid > 100 %"))
 		return
 	}
 
 	// sanity checked, now do the action
 	opt, rate, locktime := GetBoundLockOption(sb.Option)
-	log.Info("get bound option", "option", opt, "rate", rate, "locktime", locktime)
+	s.logger.Info("get bound option", "option", opt, "rate", rate, "locktime", locktime)
 
 	var candAddr meter.Address
 	if setCand {
@@ -107,7 +107,7 @@ func (s *Staking) BoundHandler(env *setypes.ScriptEnv, sb *StakingBody, gas uint
 		cand := candidateList.Get(sb.CandAddr)
 		if cand == nil {
 			err = errCandidateNotListed
-			log.Error("Errors", "error", err)
+			s.logger.Error("Errors", "error", err)
 			return
 		}
 		cand.AddBucket(bucket)

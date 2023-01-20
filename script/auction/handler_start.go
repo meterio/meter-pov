@@ -17,7 +17,7 @@ func (a *Auction) StartAuctionCB(env *setypes.ScriptEnv, ab *AuctionBody, gas ui
 			ret = []byte(err.Error())
 		}
 		env.SetReturnData(ret)
-		log.Info("Auction start completed", "elapsed", meter.PrettyDuration(time.Since(start)))
+		a.logger.Info("Auction start completed", "elapsed", meter.PrettyDuration(time.Since(start)))
 	}()
 	state := env.GetState()
 	auctionCB := state.GetAuctionCB()
@@ -29,7 +29,7 @@ func (a *Auction) StartAuctionCB(env *setypes.ScriptEnv, ab *AuctionBody, gas ui
 	}
 
 	if auctionCB.IsActive() {
-		log.Info("an auction is still active, stop first", "acution id", auctionCB.AuctionID)
+		a.logger.Info("an auction is still active, stop first", "acution id", auctionCB.AuctionID)
 		err = errNotStop
 		return
 	}

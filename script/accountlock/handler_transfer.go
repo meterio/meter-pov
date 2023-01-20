@@ -27,7 +27,7 @@ func (a *AccountLock) HandleAccountLockTransfer(env *setypes.ScriptEnv, ab *Acco
 	// can not transfer to address which already has account lock
 	if pTo := pList.Get(ab.ToAddr); pTo != nil {
 		err = errors.New("profile of ToAddr is already in state")
-		log.Error("profile is already in state", "addr", ab.ToAddr)
+		a.logger.Error("profile is already in state", "addr", ab.ToAddr)
 		return
 	}
 
@@ -36,10 +36,10 @@ func (a *AccountLock) HandleAccountLockTransfer(env *setypes.ScriptEnv, ab *Acco
 	if pFrom != nil {
 		if state.IsExclusiveAccount(ab.FromAddr) == false {
 			err = errors.New("profile of FromAddr is already in state")
-			log.Error("profile is already in state", "addr", ab.FromAddr)
+			a.logger.Error("profile is already in state", "addr", ab.FromAddr)
 			return
 		}
-		log.Info("profile is in state but is exceptional address, continue ...", "addr", ab.FromAddr)
+		a.logger.Info("profile is in state but is exceptional address, continue ...", "addr", ab.FromAddr)
 	}
 
 	// check have enough balance
@@ -83,7 +83,7 @@ func (a *AccountLock) HandleAccountLockTransfer(env *setypes.ScriptEnv, ab *Acco
 		env.AddTransfer(ab.FromAddr, ab.ToAddr, ab.MeterGovAmount, meter.MTRG)
 	}
 
-	log.Debug("account lock transfer", "from", ab.FromAddr, "to", ab.ToAddr, "meter", ab.MeterAmount, "meterGov", ab.MeterGovAmount)
+	a.logger.Debug("account lock transfer", "from", ab.FromAddr, "to", ab.ToAddr, "meter", ab.MeterAmount, "meterGov", ab.MeterGovAmount)
 	state.SetProfileList(pList)
 	return
 }

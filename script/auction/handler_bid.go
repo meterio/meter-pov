@@ -15,7 +15,7 @@ func (a *Auction) HandleAuctionTx(env *setypes.ScriptEnv, ab *AuctionBody, gas u
 			ret = []byte(err.Error())
 		}
 		env.SetReturnData(ret)
-		log.Info("Bid completed", "elapsed", meter.PrettyDuration(time.Since(start)))
+		a.logger.Debug("Bid completed", "elapsed", meter.PrettyDuration(time.Since(start)))
 	}()
 	stub := time.Now()
 	getAuctionTime := meter.PrettyDuration(time.Since(stub))
@@ -27,9 +27,8 @@ func (a *Auction) HandleAuctionTx(env *setypes.ScriptEnv, ab *AuctionBody, gas u
 	stub = time.Now()
 	auctionCB := state.GetAuctionCB()
 	getAuctionCBTime := meter.PrettyDuration(time.Since(stub))
-	log.Info("Read completed. ", "getAuction", getAuctionTime, "getState", getStateTime, "getAuctionCB", getAuctionCBTime)
+	a.logger.Debug("Read completed. ", "getAuction", getAuctionTime, "getState", getStateTime, "getAuctionCB", getAuctionCBTime)
 
-	stub = time.Now()
 	if gas < meter.ClauseGas {
 		leftOverGas = 0
 	} else {
@@ -37,7 +36,7 @@ func (a *Auction) HandleAuctionTx(env *setypes.ScriptEnv, ab *AuctionBody, gas u
 	}
 
 	if !auctionCB.IsActive() {
-		log.Info("HandleAuctionTx: auction not start")
+		a.logger.Info("HandleAuctionTx: auction not start")
 		err = errNotStart
 		return
 	}
@@ -45,20 +44,20 @@ func (a *Auction) HandleAuctionTx(env *setypes.ScriptEnv, ab *AuctionBody, gas u
 	if ab.Option == AUTO_BID {
 		// check bidder have enough meter balance?
 		if state.GetEnergy(meter.ValidatorBenefitAddr).Cmp(ab.Amount) < 0 {
-			log.Info("not enough meter balance in validator benefit addr", "amount", ab.Amount, "bidder", ab.Bidder.String(), "vbalance", state.GetEnergy(meter.ValidatorBenefitAddr))
+			a.logger.Info("not enough meter balance in validator benefit addr", "amount", ab.Amount, "bidder", ab.Bidder.String(), "vbalance", state.GetEnergy(meter.ValidatorBenefitAddr))
 			err = errNotEnoughMTR
 			return
 		}
 	} else {
 		mtrBalance := state.GetEnergy(ab.Bidder)
 		if mtrBalance.Cmp(ab.Amount) < 0 {
-			log.Info("not enough meter balance", "bidder", ab.Bidder, "amount", ab.Amount, "balance", mtrBalance)
+			a.logger.Info("not enough meter balance", "bidder", ab.Bidder, "amount", ab.Amount, "balance", mtrBalance)
 			err = errNotEnoughMTR
 			return
 		}
 
 		if ab.Amount.Cmp(MinimumBidAmount) < 0 {
-			log.Info("amount lower than minimum bid threshold", "amount", ab.Amount, "minBid", MinimumBidAmount)
+			a.logger.Info("amount lower than minimum bid threshold", "amount", ab.Amount, "minBid", MinimumBidAmount)
 			err = errLessThanBidThreshold
 			return
 		}
@@ -69,9 +68,9 @@ func (a *Auction) HandleAuctionTx(env *setypes.ScriptEnv, ab *AuctionBody, gas u
 
 	stub = time.Now()
 	err = auctionCB.AddAuctionTx(tx)
-	log.Debug("Auction tx added", "elapsed", meter.PrettyDuration(time.Since(stub)))
+	a.logger.Debug("Auction tx added", "elapsed", meter.PrettyDuration(time.Since(stub)))
 	if err != nil {
-		log.Error("add auctionTx failed", "error", err)
+		a.logger.Error("add auctionTx failed", "error", err)
 		return
 	}
 
@@ -83,13 +82,13 @@ func (a *Auction) HandleAuctionTx(env *setypes.ScriptEnv, ab *AuctionBody, gas u
 		err = env.TransferMTRToAuction(ab.Bidder, ab.Amount)
 	}
 	if err != nil {
-		log.Error("error happend during auction bid transfer", "address", ab.Bidder, "err", err)
+		a.logger.Error("error happend during auction bid transfer", "address", ab.Bidder, "err", err)
 		err = errNotEnoughMTR
 		return
 	}
 
 	stub = time.Now()
 	state.SetAuctionCB(auctionCB)
-	log.Info("Save completed", "elapsed", meter.PrettyDuration(time.Since(stub)))
+	a.logger.Debug("Save completed", "elapsed", meter.PrettyDuration(time.Since(stub)))
 	return
 }

@@ -41,7 +41,7 @@ func (s *Staking) UnDelegateHandler(env *setypes.ScriptEnv, sb *StakingBody, gas
 		return leftOverGas, errUpdateForeverBucket
 	}
 	if b.Candidate.IsZero() {
-		log.Error("bucket is not in use")
+		s.logger.Error("bucket is not in use")
 		return leftOverGas, errBucketInUse
 	}
 

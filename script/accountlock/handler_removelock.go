@@ -27,7 +27,7 @@ func (a *AccountLock) HandleAccountLockRemove(env *setypes.ScriptEnv, ab *Accoun
 	p := pList.Get(ab.FromAddr)
 	if p == nil {
 		err = errors.New("profile is no in state")
-		log.Error("profile is not in state", "addr", ab.FromAddr)
+		a.logger.Error("profile is not in state", "addr", ab.FromAddr)
 		return
 	}
 

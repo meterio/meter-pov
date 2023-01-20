@@ -11,6 +11,7 @@ import (
 	"math/big"
 	"strings"
 
+	"github.com/inconshreveable/log15"
 	"github.com/meterio/meter-pov/meter"
 	"github.com/meterio/meter-pov/state"
 )
@@ -47,6 +48,8 @@ var (
 	errCandidateListedWithDiffInfo = errors.New("candidate address already listed with different infomation (pubkey, ip, port)")
 	errCandidateNotChanged         = errors.New("candidate not changed")
 	errCandidateNotEnoughSelfVotes = errors.New("candidate's accumulated votes > 100x candidate's own vote")
+
+	log = log15.New("pkg", "staking")
 )
 
 // get the bucket that candidate initialized
@@ -159,7 +162,7 @@ func CalcBonus(fromTS uint64, toTS uint64, rate uint8, value *big.Int) *big.Int 
 	return bonus
 }
 
-func (staking *Staking) DoTeslaFork1_Correction(bid meter.Bytes32, owner meter.Address, amount *big.Int, state *state.State, ts uint64) {
+func (s *Staking) DoTeslaFork1_Correction(bid meter.Bytes32, owner meter.Address, amount *big.Int, state *state.State, ts uint64) {
 
 	candidateList := state.GetCandidateList()
 	bucketList := state.GetBucketList()
@@ -199,7 +202,7 @@ func (staking *Staking) DoTeslaFork1_Correction(bid meter.Bytes32, owner meter.A
 	state.SetCandidateList(candidateList)
 }
 
-func (staking *Staking) DoTeslaFork5_BonusCorrection(state *state.State) {
+func (s *Staking) DoTeslaFork5_BonusCorrection(state *state.State) {
 
 	candidateList := state.GetCandidateList()
 	bucketList := state.GetBucketList()
@@ -227,12 +230,12 @@ func (staking *Staking) DoTeslaFork5_BonusCorrection(state *state.State) {
 			// update bucket
 			bkt.TotalVotes.Add(bkt.Value, totalBonus)
 			bkt.CalcLastTime = ts // touch timestamp
-			log.Info("update bucket", "id", bkt.ID(), "bonus", totalBonus.Uint64(), "value", bkt.Value.String(), "totalVotes", bkt.TotalVotes.String(), "ts", ts, "createTime", bkt.CreateTime)
+			s.logger.Info("update bucket", "id", bkt.ID(), "bonus", totalBonus.Uint64(), "value", bkt.Value.String(), "totalVotes", bkt.TotalVotes.String(), "ts", ts, "createTime", bkt.CreateTime)
 		} else {
 			bkt.TotalVotes = bkt.Value
 			bkt.CalcLastTime = ts
 
-			log.Info("update bucket", "id", bkt.ID(), "bonus", 0, "totalVotes", bkt.TotalVotes.String(), "value", bkt.Value.String(), "totalVotes", bkt.TotalVotes.String(), "ts", ts, "createTime", bkt.CreateTime)
+			s.logger.Info("update bucket", "id", bkt.ID(), "bonus", 0, "totalVotes", bkt.TotalVotes.String(), "value", bkt.Value.String(), "totalVotes", bkt.TotalVotes.String(), "ts", ts, "createTime", bkt.CreateTime)
 		}
 		// deprecated BonusVotes, it could be inferred by TotalVotes - Value
 		bkt.BonusVotes = 0
@@ -246,7 +249,7 @@ func (staking *Staking) DoTeslaFork5_BonusCorrection(state *state.State) {
 	// Update candidate with new total votes
 	for addr, totalVotes := range candTotalVotes {
 		if cand := candidateList.Get(addr); cand != nil {
-			log.Info("update candidate", "name", string(cand.Name), "address", cand.Addr, "oldTotalVotes", cand.TotalVotes.String(), "newTotalVotes", totalVotes.String(), "delta", new(big.Int).Sub(totalVotes, cand.TotalVotes).String())
+			s.logger.Info("update candidate", "name", string(cand.Name), "address", cand.Addr, "oldTotalVotes", cand.TotalVotes.String(), "newTotalVotes", totalVotes.String(), "delta", new(big.Int).Sub(totalVotes, cand.TotalVotes).String())
 			cand.TotalVotes = totalVotes
 		}
 	}
@@ -257,7 +260,7 @@ func (staking *Staking) DoTeslaFork5_BonusCorrection(state *state.State) {
 	fmt.Println("Tesla Fork 5 Recalculate Bonus Votes: DONE")
 }
 
-func (staking *Staking) DoTeslaFork6_StakingCorrection(state *state.State) {
+func (s *Staking) DoTeslaFork6_StakingCorrection(state *state.State) {
 
 	fmt.Println("Do Tesla Fork 6 calibrate staking data ")
 
@@ -305,12 +308,12 @@ func (staking *Staking) DoTeslaFork6_StakingCorrection(state *state.State) {
 			if totalVotes.Cmp(bucketsValue) != 0 {
 				lowerAddr := strings.ToLower(candidate.Addr.String())
 				if _, exist := candidateIncorrectAddrs[lowerAddr]; !exist {
-					log.Warn("unexpected modification for candidate", "addr", candidate.Addr)
+					s.logger.Warn("unexpected modification for candidate", "addr", candidate.Addr)
 					continue
 				}
 				c := candidateList.Get(candidate.Addr)
 
-				log.Info("update candidate totalVotes", "addr", candidate.Addr, "from", totalVotes, "to", bucketsValue, "diff", big.NewInt(0).Sub(bucketsValue, totalVotes))
+				s.logger.Info("update candidate totalVotes", "addr", candidate.Addr, "from", totalVotes, "to", bucketsValue, "diff", big.NewInt(0).Sub(bucketsValue, totalVotes))
 				c.TotalVotes = bucketsValue
 
 			}
@@ -356,22 +359,30 @@ func (staking *Staking) DoTeslaFork6_StakingCorrection(state *state.State) {
 		if boundedBalance.Cmp(bucketsValue) > 0 {
 			lowerAddr := strings.ToLower(address.String())
 			if _, exist := balanceIncorrectAddrs[lowerAddr]; !exist {
-				log.Warn("unexpected modification", "addr", address)
+				s.logger.Warn("unexpected modification", "addr", address)
 				continue
 			}
 			diff := big.NewInt(0).Sub(boundedBalance, bucketsValue)
 			balance := state.GetBalance(address)
 			newBalance := big.NewInt(0).Add(balance, diff)
 
-			log.Info("update account balance", "addr", address, "from", balance, "to", newBalance)
-			log.Info("update account boundbalance", "addr", address, "from", boundedBalance, "to", bucketsValue)
+			s.logger.Info("update account balance", "addr", address, "from", balance, "to", newBalance)
+			s.logger.Info("update account boundbalance", "addr", address, "from", boundedBalance, "to", bucketsValue)
 			state.SetBoundedBalance(address, bucketsValue)
 			state.SetBalance(address, newBalance)
 
 		} else if boundedBalance.Cmp(bucketsValue) < 0 {
-			log.Warn("boundedBalance < sum(bucket.value) for account", "addr", address)
+			s.logger.Warn("boundedBalance < sum(bucket.value) for account", "addr", address)
 		}
 	}
+
+	summaryList := state.GetSummaryList()
+	for i := 0; i < summaryList.Count()-1; i++ {
+		summaryList.Summaries[i].AuctionTxs = make([]*meter.AuctionTx, 0)
+		summaryList.Summaries[i].DistMTRG = make([]*meter.DistMtrg, 0)
+		s.logger.Info("clean summary", "id", summaryList.Summaries[i].AuctionID)
+	}
+	state.SetSummaryList(summaryList)
 
 	fmt.Println("Do Tesla Fork 6 calibrate staking data: DONE")
 }
