@@ -9,17 +9,14 @@ import (
 	"math/big"
 
 	"github.com/meterio/meter-pov/builtin"
+	"github.com/meterio/meter-pov/chain"
 	"github.com/meterio/meter-pov/meter"
+	"github.com/meterio/meter-pov/state"
 )
 
-func GetAuctionReservedPrice() *big.Int {
-	conR := GetConsensusGlobInst()
-	if conR == nil {
-		panic("get global consensus reactor failed")
-	}
-
-	best := conR.chain.BestBlock()
-	state, err := conR.stateCreator.NewState(best.Header().StateRoot())
+func GetAuctionReservedPrice(c *chain.Chain, sc *state.Creator) *big.Int {
+	best := c.BestBlock()
+	state, err := sc.NewState(best.Header().StateRoot())
 	if err != nil {
 		panic("get state failed")
 	}
@@ -27,14 +24,10 @@ func GetAuctionReservedPrice() *big.Int {
 	return builtin.Params.Native(state).Get(meter.KeyAuctionReservedPrice)
 }
 
-func GetAuctionInitialRelease() float64 {
-	conR := GetConsensusGlobInst()
-	if conR == nil {
-		panic("get global consensus reactor failed")
-	}
+func GetAuctionInitialRelease(c *chain.Chain, sc *state.Creator) float64 {
 
-	best := conR.chain.BestBlock()
-	state, err := conR.stateCreator.NewState(best.Header().StateRoot())
+	best := c.BestBlock()
+	state, err := sc.NewState(best.Header().StateRoot())
 	if err != nil {
 		panic("get state failed")
 	}
@@ -45,6 +38,6 @@ func GetAuctionInitialRelease() float64 {
 	initRelease, accuracy := fr.Float64()
 	initRelease = initRelease / (1e09)
 
-	conR.logger.Info("get inital release", "value", initRelease, "accuracy", accuracy)
+	log.Info("get inital release", "value", initRelease, "accuracy", accuracy)
 	return initRelease
 }

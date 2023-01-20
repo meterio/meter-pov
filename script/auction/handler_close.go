@@ -162,7 +162,6 @@ func (a *Auction) ClearAuction(env *setypes.ScriptEnv, cb *meter.AuctionCB, vali
 		sort.SliceStable(sortedAddresses, func(i, j int) bool {
 			return bytes.Compare(sortedAddresses[i].Bytes(), sortedAddresses[j].Bytes()) <= 0
 		})
-		a.logger.Info("3. sort auction tx", "elapsed", meter.PrettyDuration(time.Since(stub)))
 
 		stub := time.Now()
 		for _, addr := range sortedAddresses {
