@@ -65,9 +65,10 @@ func BuildAuctionControlTx(height, epoch uint64, chainTag byte, bestNum uint32, 
 			}
 		}
 	}
+	fmt.Println("lastEndEpoch", lastEndEpoch, "epoch", epoch)
 
 	if shouldAuctionStart(epoch, lastEndEpoch) == false {
-		logger.Debug("no auction Tx in the kblock ...", "height", height, "epoch", epoch)
+		logger.Info("no auction Tx in the kblock ...", "height", height, "epoch", epoch)
 		return nil
 	}
 

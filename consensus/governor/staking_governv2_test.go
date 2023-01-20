@@ -24,7 +24,7 @@ func buildGoverningV2Tx(rewardMap governor.RewardMap) *tx.Transaction {
 func TestRunGoverningV2Tx(t *testing.T) {
 	rewardMap := buildRewardMap()
 
-	rt := initRuntime()
+	rt, _ := initRuntime()
 
 	start := time.Now()
 	gtx := buildGoverningTx(rewardMap)

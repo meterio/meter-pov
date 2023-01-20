@@ -19,7 +19,7 @@ func buildAutobidTx(rewardMap governor.RewardMap) *tx.Transaction {
 }
 
 func TestRunAutobidTx(t *testing.T) {
-	rt := initRuntime()
+	rt, _ := initRuntime()
 	rewardMap := buildRewardMap()
 
 	start := time.Now()

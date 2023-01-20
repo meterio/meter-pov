@@ -1,6 +1,7 @@
 package governor_test
 
 import (
+	"fmt"
 	"math/big"
 	"math/rand"
 	"strconv"
@@ -26,7 +27,85 @@ var (
 	initValidatorBenefitBalance = big.NewInt(0).Mul(big.NewInt(1e18), big.NewInt(1e18))
 )
 
+func buildAuctionTxs(n int) []*meter.AuctionTx {
+	txs := make([]*meter.AuctionTx, 0)
+	for i := 1; i < n; i++ {
+		_type := auction.AUTO_BID
+		if i%2 == 0 {
+			_type = auction.USER_BID
+		}
+		amount := big.NewInt(0).Mul(big.NewInt(int64(rand.Uint64())), big.NewInt(1e18))
+		amount = amount.Abs(amount)
+		tx := &meter.AuctionTx{
+			TxID:      meter.BytesToBytes32([]byte("test-" + strconv.Itoa(i))),
+			Address:   meter.BytesToAddress([]byte("address-" + strconv.Itoa(i))),
+			Amount:    amount,
+			Type:      _type,
+			Timestamp: rand.Uint64(),
+			Nonce:     rand.Uint64(),
+		}
+		txs = append(txs, tx)
+	}
+	return txs
+}
+
+func buildAuctionSummaryList(epochs int) *meter.AuctionSummaryList {
+	summaries := make([]*meter.AuctionSummary, 0)
+	for epoch := 1; epoch <= epochs; epoch++ {
+		s := buildAuctionSummary(uint64(epoch))
+		summaries = append(summaries, s)
+	}
+	return meter.NewAuctionSummaryList(summaries)
+}
+
+func buildAuctionSummary(epoch uint64) *meter.AuctionSummary {
+	txs := buildAuctionTxs(24 * 660)
+	rcvdMTR := big.NewInt(0)
+	rlsdMTRG := big.NewInt(0)
+	rsvdPrice := big.NewInt(0).Mul(big.NewInt(11), big.NewInt(1e17))
+	dists := make([]*meter.DistMtrg, 0)
+
+	for _, tx := range txs {
+		rcvdMTR.Add(rcvdMTR, tx.Amount)
+		mtrg := big.NewInt(0).Mul(tx.Amount, big.NewInt(1e18))
+		mtrg.Div(mtrg, rsvdPrice)
+		dists = append(dists, &meter.DistMtrg{Addr: tx.Address, Amount: mtrg})
+	}
+	rlsdMTRG.Mul(rcvdMTR, big.NewInt(1e18))
+	rlsdMTRG.Div(rlsdMTRG, rsvdPrice)
+
+	s := &meter.AuctionSummary{
+		AuctionID:   meter.BytesToBytes32([]byte("test-auction")),
+		StartHeight: (epoch - 1) * 10,
+		StartEpoch:  epoch - 1,
+		EndHeight:   epoch * 10,
+		EndEpoch:    epoch,
+		Sequence:    epoch,
+		RlsdMTRG:    rlsdMTRG,
+		RsvdMTRG:    big.NewInt(0), // reserved mtrg
+		RsvdPrice:   rsvdPrice,
+		CreateTime:  epoch * 1000,
+
+		//changed fields after auction start
+		RcvdMTR:    rcvdMTR,
+		AuctionTxs: txs,
+		DistMTRG:   dists,
+	}
+	return s
+}
+
 func buildAuctionCB() *meter.AuctionCB {
+	txs := buildAuctionTxs(24 * 660)
+	rcvdMTR := big.NewInt(0)
+	rsvdPrice := big.NewInt(0).Mul(big.NewInt(11), big.NewInt(1e17))
+
+	for _, tx := range txs {
+		rcvdMTR.Add(rcvdMTR, tx.Amount)
+	}
+	rlsdMTRG := big.NewInt(0)
+	rlsdMTRG.Mul(rcvdMTR, big.NewInt(1e18))
+	rlsdMTRG.Div(rlsdMTRG, rsvdPrice)
+
 	cb := &meter.AuctionCB{
 		AuctionID:   meter.BytesToBytes32([]byte("test-auction")),
 		StartHeight: 1234,
@@ -34,26 +113,14 @@ func buildAuctionCB() *meter.AuctionCB {
 		EndHeight:   4321,
 		EndEpoch:    2,
 		Sequence:    1,
-		RlsdMTRG:    big.NewInt(0), //released mtrg
+		RlsdMTRG:    rlsdMTRG,
 		RsvdMTRG:    big.NewInt(0), // reserved mtrg
-		RsvdPrice:   big.NewInt(0),
+		RsvdPrice:   rsvdPrice,
 		CreateTime:  1234,
 
 		//changed fields after auction start
-		RcvdMTR:    big.NewInt(0),
-		AuctionTxs: make([]*meter.AuctionTx, 0),
-	}
-	for i := 1; i < 24*660; i++ {
-		seq := i
-		tx := &meter.AuctionTx{
-			TxID:      meter.BytesToBytes32([]byte("test-" + strconv.Itoa(seq))),
-			Address:   meter.BytesToAddress([]byte("address-" + strconv.Itoa(seq))),
-			Amount:    big.NewInt(1234),
-			Type:      auction.AUTO_BID,
-			Timestamp: rand.Uint64(),
-			Nonce:     rand.Uint64(),
-		}
-		cb.AuctionTxs = append(cb.AuctionTxs, tx)
+		RcvdMTR:    rcvdMTR,
+		AuctionTxs: txs,
 	}
 	return cb
 }
@@ -65,16 +132,21 @@ func buildRewardMap() governor.RewardMap {
 		addr := meter.BytesToAddress([]byte{byte(i)})
 		dist := big.NewInt(int64(rand.Int()))
 		autobid := big.NewInt(int64(rand.Int()))
+		dist.Abs(dist)
+		autobid.Abs(autobid)
 		rewardMap.Add(dist, autobid, addr)
 	}
 	return rewardMap
 }
 
 func buildGenesis(kv kv.GetPutter, proc func(state *state.State) error) *block.Block {
-	blk, _, _ := new(genesis.Builder).
+	blk, _, err := new(genesis.Builder).
 		Timestamp(uint64(time.Now().Unix())).
 		State(proc).
 		Build(state.NewCreator(kv))
+	if err != nil {
+		fmt.Println("ERROR: ", err)
+	}
 	return blk
 }
 
@@ -82,7 +154,7 @@ func initLogger() {
 	log15.Root().SetHandler(log15.LvlFilterHandler(log15.Lvl(3), log15.StderrHandler))
 }
 
-func initRuntime() *runtime.Runtime {
+func initRuntime() (*runtime.Runtime, *chain.Chain) {
 	initLogger()
 	kv, _ := lvldb.NewMem()
 
@@ -108,7 +180,7 @@ func initRuntime() *runtime.Runtime {
 
 	rt := runtime.New(seeker, st, &xenv.BlockContext{Time: uint64(time.Now().Unix())})
 
-	return rt
+	return rt, c
 }
 
 func initRuntimeAfterFork6() *runtime.Runtime {

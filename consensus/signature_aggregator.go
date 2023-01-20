@@ -42,7 +42,7 @@ func setBit(n int, pos uint) int {
 
 func newSignatureAggregator(size uint32, system bls.System, msgHash [32]byte, validators []*types.Validator) *SignatureAggregator {
 	logger := log15.New("pkg", "sig")
-	logger.Info("Init signature aggregator", "size", size)
+	logger.Debug("Init signature aggregator", "size", size)
 	return &SignatureAggregator{
 		logger:     logger,
 		sigs:       make([]bls.Signature, size),
@@ -86,6 +86,11 @@ func (sa *SignatureAggregator) Add(index int, msgHash [32]byte, signature []byte
 			return false
 		}
 
+		member := sa.committee[index]
+		voter := "unknown"
+		if member != nil {
+			voter = member.Name
+		}
 		sig, err := sa.system.SigFromBytes(signature)
 		if err != nil {
 			sa.logger.Error("invalid signature", "err", err)
@@ -95,7 +100,7 @@ func (sa *SignatureAggregator) Add(index int, msgHash [32]byte, signature []byte
 		sa.sigBytes[index] = signature
 		sa.sigs[index] = sig
 		sa.pubkeys[index] = pubkey
-		sa.logger.Info(fmt.Sprintf("vote counted, %d out of %d has voted", sa.bitArray.Count(), sa.size), "voterIndex", index)
+		sa.logger.Info(fmt.Sprintf("vote counted, now %d/%d has voted", sa.bitArray.Count(), sa.size), "voterIndex", index, "voter", voter)
 		return true
 	}
 	return false

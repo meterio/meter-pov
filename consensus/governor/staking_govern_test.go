@@ -23,7 +23,7 @@ func buildGoverningTx(rewardMap governor.RewardMap) *tx.Transaction {
 }
 
 func TestRunGoverningTx(t *testing.T) {
-	rt := initRuntime()
+	rt, _ := initRuntime()
 	rewardMap := buildRewardMap()
 	tx := buildGoverningTx(rewardMap)
 	_, err := rt.ExecuteTransaction(tx)
