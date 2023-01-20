@@ -154,7 +154,7 @@ func (p *Pacemaker) CreateLeaf(parent *pmBlock, qc *pmQuorumCert, height, round 
 			ProposedBlock:     blockBytes,
 			ProposedBlockType: info.BlockType,
 		}
-		fmt.Print(b.ToString())
+		// fmt.Print(b.ToString())
 		return b
 	}
 
@@ -276,9 +276,9 @@ func (p *Pacemaker) OnCommit(commitReady []*pmBlock) {
 				state.RevertTo(b.ProposedBlockInfo.CheckPoint)
 			} else {
 				if b.ProposedBlockInfo != nil && b.ProposedBlockInfo.ProposedBlock != nil {
-					fmt.Println("block already in chain: ", b.ProposedBlockInfo.ProposedBlock.Number(), b.ProposedBlockInfo.ProposedBlock.ID())
+					p.logger.Debug(fmt.Sprintf("block %d already in chain", b.ProposedBlockInfo.ProposedBlock.Number()), "id", b.ProposedBlockInfo.ProposedBlock.ID())
 				} else {
-					fmt.Println("block alreday in chain")
+					p.logger.Info("block alreday in chain")
 				}
 			}
 		}
@@ -531,7 +531,7 @@ func (p *Pacemaker) OnReceiveVote(mi *consensusMsgInfo) error {
 		return nil
 	} else {
 		p.csReactor.logger.Info(
-			"*** Reached majority, new QC formed. no future votes will be counted", "committeeSize", p.csReactor.committeeSize, "count", voteCount, "height", height, "round", round)
+			fmt.Sprintf("Reached majority on proposal(H:%d,R:%d), new QC formed. Future votes will be ignored.", height, round), "voted", fmt.Sprintf("%d/%d", voteCount, p.csReactor.committeeSize))
 	}
 
 	// seal the signature, avoid re-trigger
@@ -876,7 +876,7 @@ func (p *Pacemaker) newViewRoundTimeout(header ConsensusMsgCommonHeader, qc bloc
 	if MajorityTwoThird(uint32(timeoutCount), p.csReactor.committeeSize) == false {
 		p.logger.Info("not reach majority on timeout", "count", timeoutCount, "timeoutHeight", newViewMsg.TimeoutHeight, "timeoutRound", newViewMsg.TimeoutRound, "timeoutCounter", newViewMsg.TimeoutCounter)
 	} else {
-		p.logger.Info("*** Reached majority on timeout", "count", timeoutCount, "timeoutHeight", newViewMsg.TimeoutHeight, "timeoutRound", newViewMsg.TimeoutRound, "timeoutCounter", newViewMsg.TimeoutCounter)
+		p.logger.Info(fmt.Sprintf("Reached majority on timeout(H:%d,R:%d)", newViewMsg.TimeoutHeight, newViewMsg.TimeoutRound), "voted", fmt.Sprintf("%d/%d", timeoutCount, p.csReactor.committeeSize))
 		p.timeoutCert = p.timeoutCertManager.getTimeoutCert(newViewMsg.TimeoutHeight, newViewMsg.TimeoutRound)
 		p.timeoutCertManager.cleanup(newViewMsg.TimeoutHeight, newViewMsg.TimeoutRound)
 
@@ -922,7 +922,7 @@ func (p *Pacemaker) Start(mode PMMode, calcStatsTx bool) {
 		actualRound = 0
 	}
 
-	p.logger.Info(fmt.Sprintf("*** Pacemaker start with height %v, round %v", height+1, actualRound), "qc", bestQC.CompactString(), "calcStatsTx", calcStatsTx, "mode", mode.String())
+	p.logger.Info(fmt.Sprintf("*** Pacemaker start with height %v, round %v", height, actualRound), "qc", bestQC.CompactString(), "calcStatsTx", calcStatsTx, "mode", mode.String())
 	p.startHeight = height
 	p.startRound = round
 	p.lastOnBeatRound = round
@@ -1296,8 +1296,9 @@ func (p *Pacemaker) updateCurrentRound(round uint32, reason roundUpdateReason) b
 	}
 
 	if updated {
+		oldRound := p.currentRound
 		p.currentRound = round
-		p.logger.Info("update current round", "to", p.currentRound, "reason", reason.String())
+		p.logger.Info("update current round", "from", oldRound, "to", p.currentRound, "reason", reason.String())
 		pmRoundGauge.Set(float64(p.currentRound))
 		return true
 	}
@@ -1321,7 +1322,7 @@ func (p *Pacemaker) startRoundTimer(round uint32, reason roundTimerUpdateReason)
 			power = p.timeoutCounter - 1
 		}
 		timeoutInterval := baseInterval * (1 << power)
-		p.logger.Info("Start round timer", "round", round, "counter", p.timeoutCounter, "power", power, "interval", int64(timeoutInterval/time.Second))
+		p.logger.Info("Start round timer", "round", round, "timeoutCounter", p.timeoutCounter, "interval", int64(timeoutInterval/time.Second))
 		p.roundTimer = time.AfterFunc(timeoutInterval, func() {
 			p.roundTimeoutCh <- PMRoundTimeoutInfo{round: round, counter: p.timeoutCounter}
 		})
@@ -1330,7 +1331,7 @@ func (p *Pacemaker) startRoundTimer(round uint32, reason roundTimerUpdateReason)
 
 func (p *Pacemaker) stopRoundTimer() bool {
 	if p.roundTimer != nil {
-		p.logger.Info("Stop round timer", "round", p.currentRound)
+		p.logger.Debug("Stop round timer", "round", p.currentRound)
 		p.roundTimer.Stop()
 		p.roundTimer = nil
 	}

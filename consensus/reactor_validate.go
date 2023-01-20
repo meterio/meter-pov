@@ -499,8 +499,8 @@ func (conR *ConsensusReactor) buildKBlockTxs(parentBlock *block.Block, rewards [
 			txs = append(txs, statsTx)
 		}
 
-		reservedPrice := GetAuctionReservedPrice()
-		initialRelease := GetAuctionInitialRelease()
+		reservedPrice := GetAuctionReservedPrice(conR.chain, conR.stateCreator)
+		initialRelease := GetAuctionInitialRelease(conR.chain, conR.stateCreator)
 
 		if tx := governor.BuildAuctionControlTx(uint64(best.Number()+1), uint64(best.GetBlockEpoch()+1), chainTag, bestNum, initialRelease, reservedPrice, conR.chain); tx != nil {
 			conR.logger.Info(fmt.Sprintf("Built auction control tx: %s", tx.ID().String()), "clauses", len(tx.Clauses()))

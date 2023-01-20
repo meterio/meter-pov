@@ -53,14 +53,8 @@ func (p *Pacemaker) OnReceiveMsg(w http.ResponseWriter, r *http.Request) {
 	}
 	summary := msg.String()
 	msgHashHex := mi.MsgHashHex()
-	name := ""
-	tail := ""
-	split := strings.Split(summary, " ")
-	if len(split) > 0 {
-		name = split[0]
-		tail = strings.Join(split[1:], " ")
-	}
-	p.logger.Info(fmt.Sprintf("Recv %s %s %s", name, msgHashHex, tail), "peer", peerName, "ip", peer.netAddr.IP.String(), "msgCh", fmt.Sprintf("%d/%d", len(p.pacemakerMsgCh), cap(p.pacemakerMsgCh)))
+
+	p.logger.Info(fmt.Sprintf("Recv %s", summary), "peer", peerName, "ip", peer.netAddr.IP.String(), "msgCh", fmt.Sprintf("%d/%d", len(p.pacemakerMsgCh), cap(p.pacemakerMsgCh)), "msgHash", msgHashHex)
 
 	if len(p.pacemakerMsgCh) < cap(p.pacemakerMsgCh) {
 		p.pacemakerMsgCh <- *mi
@@ -75,7 +69,6 @@ func (p *Pacemaker) OnReceiveMsg(w http.ResponseWriter, r *http.Request) {
 }
 func (p *Pacemaker) relayMsg(mi consensusMsgInfo) {
 	msg := mi.Msg
-	height := msg.Header().Height
 	round := msg.Header().Round
 	peers := p.GetRelayPeers(round)
 	// typeName := getConcreteName(mi.Msg)
@@ -86,7 +79,7 @@ func (p *Pacemaker) relayMsg(mi consensusMsgInfo) {
 			peerNames = append(peerNames, peer.NameString())
 		}
 		msgSummary := (mi.Msg).String()
-		p.logger.Info("Relay>> "+msgSummary, "to", strings.Join(peerNames, ", "), "height", height, "round", round, "msgHash", msgHashHex)
+		p.logger.Info("Relay>> "+msgSummary, "to", strings.Join(peerNames, ", "), "msgHash", msgHashHex)
 		// p.logger.Info("Now, relay this "+typeName+"...", "height", height, "round", round, "msgHash", mi.MsgHashHex())
 		for _, peer := range peers {
 			go peer.sendPacemakerMsg(mi.RawData, msgSummary, msgHashHex, true)

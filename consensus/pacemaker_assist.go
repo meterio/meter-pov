@@ -163,7 +163,7 @@ func (p *Pacemaker) ValidateProposal(b *pmBlock) error {
 
 	b.SuccessProcessed = true
 
-	p.logger.Info("Validated block proposal", "height", blkHeight, "id", blkID)
+	p.logger.Info(fmt.Sprintf("Validated proposal %d", blkHeight), "id", blkID)
 	return nil
 }
 

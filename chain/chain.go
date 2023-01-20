@@ -185,7 +185,7 @@ func New(kv kv.GetPutter, genesisBlock *block.Block, verbose bool) (*Chain, erro
 		// fmt.Println("Leaf Block", leafBlock.CompactString())
 		// remove all leaf blocks that are not finalized
 		for leafBlock.IsSBlock() || leafBlock.TotalScore() > bestBlock.TotalScore() {
-			fmt.Println("*** Start pruning")
+			fmt.Println("Pruning leaf blocks")
 			parentID, err := ancestorTrie.GetAncestor(bestBlockBeforeFlattern.ID(), leafBlock.Number()-1)
 			if err != nil {
 				break

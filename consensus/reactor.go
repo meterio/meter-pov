@@ -205,7 +205,7 @@ func (conR *ConsensusReactor) SwitchToConsensus() {
 
 func (conR *ConsensusReactor) UpdateHeight(height uint32) bool {
 	if height != conR.curHeight {
-		conR.logger.Info(fmt.Sprintf("Update curHeight from %d to %d", conR.curHeight, height))
+		conR.logger.Debug(fmt.Sprintf("Update curHeight from %d to %d", conR.curHeight, height))
 	}
 	conR.curHeight = height
 	return true

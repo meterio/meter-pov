@@ -171,7 +171,7 @@ func (p *Pacemaker) buildMBlock(qc *block.QuorumCert, parentBlock *block.Block) 
 		}
 	*/
 
-	startTime := mclock.Now()
+	start := time.Now()
 	pool := txpool.GetGlobTxPoolInst()
 	if pool == nil {
 		p.logger.Error("get tx pool failed ...")
@@ -240,8 +240,7 @@ func (p *Pacemaker) buildMBlock(qc *block.QuorumCert, parentBlock *block.Block) 
 	newBlock.SetMagic(block.BlockMagicVersion1)
 	newBlock.SetQC(qc)
 
-	execElapsed := mclock.Now() - startTime
-	p.logger.Info("MBlock built", "height", newBlock.Number(), "Txs", len(newBlock.Txs), "txsInBlk", len(txsInBlk), "elapseTime", execElapsed)
+	p.logger.Info("Built MBlock", "num", newBlock.Number(), "id", newBlock.ID(), "txs", len(newBlock.Txs), "elapsed", meter.PrettyDuration(time.Since(start)))
 	return &ProposedBlockInfo{newBlock, stage, &receipts, txsToRemoved, txsToReturned, checkPoint, MBlockType}
 }
 
@@ -268,9 +267,7 @@ func (p *Pacemaker) buildKBlock(qc *block.QuorumCert, parentBlock *block.Block, 
 		panic("get state failed")
 	}
 
-	buildStart := time.Now()
 	txs := p.csReactor.buildKBlockTxs(parentBlock, rewards, chainTag, bestNum, curEpoch, best, state)
-	p.logger.Info("Built txs for kblock", "elapsed", meter.PrettyDuration(time.Since(buildStart)))
 
 	pool := txpool.GetGlobTxPoolInst()
 	if pool == nil {
@@ -330,7 +327,7 @@ func (p *Pacemaker) buildKBlock(qc *block.QuorumCert, parentBlock *block.Block, 
 	newBlock.SetMagic(block.BlockMagicVersion1)
 	newBlock.SetQC(qc)
 
-	p.logger.Info("KBlock built", "height", p.csReactor.curHeight, "elapsed", meter.PrettyDuration(time.Since(startTime)))
+	p.logger.Info("Built KBlock", "num", newBlock.Number(), "id", newBlock.ID(), "txs", len(newBlock.Txs), "elapsed", meter.PrettyDuration(time.Since(startTime)))
 	return &ProposedBlockInfo{newBlock, stage, &receipts, txsToRemoved, txsToReturned, checkPoint, KBlockType}
 }
 

@@ -45,9 +45,9 @@ func (p *Pacemaker) precommitBlock(blkInfo *ProposedBlockInfo) error {
 	fork, err := p.csReactor.chain.AddBlock(blk, *receipts, false)
 	if err != nil {
 		if err != chain.ErrBlockExist {
-			p.logger.Warn("add block failed ...", "err", err, "id", blk.ID(), "num", blk.Number())
+			p.logger.Warn("add block failed ...", "num", blk.Number(), "id", blk.ID(), "err", err)
 		} else {
-			p.logger.Info("block already exist", "id", blk.ID(), "num", blk.Number())
+			p.logger.Debug("block already exist", "num", blk.Number(), "id", blk.ID())
 		}
 		return err
 	}
@@ -68,7 +68,7 @@ func (p *Pacemaker) precommitBlock(blkInfo *ProposedBlockInfo) error {
 	blkInfo.txsToRemoved()
 
 	blocksCommitedCounter.Inc()
-	p.logger.Info("block precommited by consensus", "num", blk.Number(), "id", blk.ID())
+	p.logger.Info("block precommited by pacemaker", "num", blk.Number(), "id", blk.ID())
 	return nil
 }
 
@@ -136,7 +136,7 @@ func (p *Pacemaker) commitBlock(blkInfo *ProposedBlockInfo, bestQC *block.Quorum
 	// broadcast the new block to all peers
 	comm.GetGlobCommInst().BroadcastBlock(blk)
 	// successfully added the block, update the current hight of consensus
-	p.logger.Info("block committed by consensus", "num", blk.Number(), "id", blk.ID(), "txs", len(blk.Txs))
+	p.logger.Info(fmt.Sprintf("+++ block committed [%d] by pacemaker", blk.Number()), "id", blk.ID(), "txs", len(blk.Txs))
 	p.csReactor.UpdateHeight(p.csReactor.chain.BestBlock().Number())
 
 	return nil

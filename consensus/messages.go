@@ -429,7 +429,7 @@ func (m *PMVoteMessage) SigningHash() (hash meter.Bytes32) {
 
 // String returns a string representation.
 func (m *PMVoteMessage) String() string {
-	return fmt.Sprintf("[PMVote Height:%v Round:%v]",
+	return fmt.Sprintf("[PMVote H:%v R:%v]",
 		m.CSMsgCommonHeader.Height, m.CSMsgCommonHeader.Round)
 }
 func (m *PMVoteMessage) Header() *ConsensusMsgCommonHeader {
@@ -481,7 +481,7 @@ func (m *PMNewViewMessage) SigningHash() (hash meter.Bytes32) {
 
 // String returns a string representation.
 func (m *PMNewViewMessage) String() string {
-	return fmt.Sprintf("[PMNewView Reason:%s NextHeight:%v NextRound:%v QC(Height:%d,Round:%d)]",
+	return fmt.Sprintf("[PMNewView %s NextHeight:%v NextRound:%v QC(H:%d,R:%d)]",
 		m.Reason.String(), m.CSMsgCommonHeader.Height, m.CSMsgCommonHeader.Round, m.QCHeight, m.QCRound)
 }
 func (m *PMNewViewMessage) Header() *ConsensusMsgCommonHeader {
