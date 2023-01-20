@@ -104,6 +104,17 @@ func (n valueNode) fstring(ind string) string {
 	return fmt.Sprintf("%x ", []byte(n))
 }
 
+// mustDecodeNodeUnsafe is a wrapper of decodeNodeUnsafe and panic if any error is
+// encountered.
+func mustDecodeNodeUnsafe(hash, buf []byte, cachgen uint16) node {
+	n, err := decodeNodeUnsafe(hash, buf, cachgen)
+	if err != nil {
+		panic(fmt.Sprintf("node %x: %v", hash, err))
+	}
+	return n
+}
+
+// mustDecodeNode is a wrapper of decodeNode and panic if any error is encountered.
 func mustDecodeNode(hash, buf []byte, cachegen uint16) node {
 	n, err := decodeNode(hash, buf, cachegen)
 	if err != nil {
@@ -112,8 +123,19 @@ func mustDecodeNode(hash, buf []byte, cachegen uint16) node {
 	return n
 }
 
-// decodeNode parses the RLP encoding of a trie node.
+// decodeNode parses the RLP encoding of a trie node. It will deep-copy the passed
+// byte slice for decoding, so it's safe to modify the byte slice afterwards. The-
+// decode performance of this function is not optimal, but it is suitable for most
+// scenarios with low performance requirements and hard to determine whether the
+// byte slice be modified or not.
 func decodeNode(hash, buf []byte, cachegen uint16) (node, error) {
+	return decodeNodeUnsafe(hash, common.CopyBytes(buf), cachegen)
+}
+
+// decodeNodeUnsafe parses the RLP encoding of a trie node. The passed byte slice
+// will be directly referenced by node without bytes deep copy, so the input MUST
+// not be changed after.
+func decodeNodeUnsafe(hash, buf []byte, cachegen uint16) (node, error) {
 	if len(buf) == 0 {
 		return nil, io.ErrUnexpectedEOF
 	}

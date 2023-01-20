@@ -471,7 +471,7 @@ func (t *Trie) resolveHash(n hashNode, prefix []byte) (node, error) {
 	if err != nil || enc == nil {
 		return nil, &MissingNodeError{NodeHash: meter.BytesToBytes32(n), Path: prefix}
 	}
-	dec := mustDecodeNode(n, enc, t.cachegen)
+	dec := mustDecodeNodeUnsafe(n, enc, t.cachegen)
 	return dec, nil
 }
 
