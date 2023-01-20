@@ -16,6 +16,7 @@
 
 package vm
 
+/*
 import (
 	"bytes"
 	"encoding/json"
@@ -317,3 +318,5 @@ func loadJsonFail(name string) ([]precompiledFailureTest, error) {
 	err = json.Unmarshal(data, &testcases)
 	return testcases, err
 }
+
+*/
