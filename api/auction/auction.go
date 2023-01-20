@@ -29,6 +29,21 @@ func New(chain *chain.Chain,
 	return &Auction{chain: chain, stateCreator: stateCreator}
 }
 
+func (at *Auction) handleGetAuctionSummaryList(w http.ResponseWriter, req *http.Request) error {
+	h, err := at.handleRevision(req.URL.Query().Get("revision"))
+	if err != nil {
+		return err
+	}
+	state, err := at.stateCreator.NewState(h.StateRoot())
+	if err != nil {
+		return err
+	}
+
+	list := state.GetSummaryList()
+	summaries := convertSummaryList(list)
+	return utils.WriteJSON(w, summaries)
+}
+
 func (at *Auction) handleGetLastAuctionSummary(w http.ResponseWriter, req *http.Request) error {
 	h, err := at.handleRevision(req.URL.Query().Get("revision"))
 	if err != nil {
@@ -101,6 +116,7 @@ func (at *Auction) handleRevision(revision string) (*block.Header, error) {
 
 func (at *Auction) Mount(root *mux.Router, pathPrefix string) {
 	sub := root.PathPrefix(pathPrefix).Subrouter()
+	sub.Path("/summaries").Methods("Get").HandlerFunc(utils.WrapHandlerFunc(at.handleGetAuctionSummaryList))
 	sub.Path("/last/summary").Methods("Get").HandlerFunc(utils.WrapHandlerFunc(at.handleGetLastAuctionSummary))
 	sub.Path("/present").Methods("Get").HandlerFunc(utils.WrapHandlerFunc(at.handleGetAuctionCB))
 	//sub.Path("/auctioncb/{address}").Methods("Get").HandlerFunc(utils.WrapHandlerFunc(st.handleGetAuctionTxByAddress))
