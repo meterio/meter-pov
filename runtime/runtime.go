@@ -230,10 +230,10 @@ func (rt *Runtime) EnforceTeslaFork6_Corrections() {
 			// Tesla 6 Fork
 			fmt.Println("Start to update for fork6")
 			script.EnforceTeslaFork6_StakingCorrections(rt.State(), rt.Context().Time)
+			builtin.Params.Native(rt.State()).Set(meter.KeyEnforceTesla_Fork6_Correction, big.NewInt(1))
 			fmt.Println("Finished update for fork6")
 		}
 
-		builtin.Params.Native(rt.State()).Set(meter.KeyEnforceTesla_Fork6_Correction, big.NewInt(1))
 	}
 }
 

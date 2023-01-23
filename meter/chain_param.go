@@ -70,8 +70,8 @@ const (
 // 2) fixed the sync failure at 10963576 (negative total stake balance for stakeholder, should snap to 0 once negative)
 // 3) fixed the sync failure at 13931713 (use caller for contract address creation, should use origin)
 const (
-	TeslaFork4_TestnetStartNum = 4932000
 	TeslaFork4_MainnetStartNum = 15138000 // around 9/1/2021 9:30 AM (Beijing)
+	TeslaFork4_TestnetStartNum = 4932000
 )
 
 // Tesla 1.5 Hardfork (Not Yet)
@@ -81,11 +81,30 @@ const (
 // 3) more to come
 const (
 	TeslaFork5_MainnetStartNum = 25650000 // around 7/4/2022 9:30 AM (PDT)
-	TeslaFork5_TestnetStartNum = 0        //FIXME: update if testnet needs a fork
+	TeslaFork5_TestnetStartNum = 4932000  // same as fork4
+)
 
-	TeslaFork6_TestnetStartNum = 17743500
-	TeslaFork6_MainnetStartNum = 80000000 // FIXME: update
-
+// fork6 includes feature:
+// 1) huge performance boost:
+// 1.1) merge autobid into governV2 txs to minimize tx execution overhead
+// 1.2) upgrade ethereum dependency to 1.10.20 that include rlp enhancement, 30% faster encoding/decoding
+// 1.3) trie optimization, 20-30% faster trie node access, this is really helpful for large tries
+// 1.4) removes unncessary auctionTxs/dists in auction summary list, except for the very last auction. It takes effect on the first tx after fork6, and auction close will keep it that way.
+// 2) pacemaker restart after 5 consecutive timeouts to bound max timeout, enable overriting for pre-commited block
+// 3) staking updates:
+// 3.1) staking correction on the first tx after fork6, takes care of candidates/buckets mismatch
+// 3.2) correct calculation for bucket sub
+// 3.3) disallow candidate update with same name/ip/pubkey
+// 3.4) injail information will fill `createTime` with jailed block number
+// 4) native call return gas updated from 1562 to 1264
+// 5) create a new http net client every time error occurs so peer won't be blocked by `Failed to send message`
+// 6) code structure & test
+// 6.1) fix all the test cases that ships with binary
+// 6.2) code refactory for maintanability, and prepare for liquid staking
+// 6.3) log optimization for readability
+const (
+	TeslaFork6_MainnetStartNum = 32988000 // around 1/30/2023 9:00 AM (PDT)
+	TeslaFork6_TestnetStartNum = 4932000  // same as fork4
 )
 
 var (
