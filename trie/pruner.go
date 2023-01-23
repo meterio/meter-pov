@@ -550,7 +550,7 @@ func (pit *pruneIterator) resolveHash(n hashNode, prefix []byte) (node, error) {
 	if err != nil || enc == nil {
 		return nil, &MissingNodeError{NodeHash: meter.BytesToBytes32(n), Path: prefix}
 	}
-	dec := mustDecodeNode(n, enc, 0) // TODO: fixed cachegen
+	dec := mustDecodeNodeUnsafe(n, enc, 0) // TODO: fixed cachegen
 	return dec, nil
 }
 

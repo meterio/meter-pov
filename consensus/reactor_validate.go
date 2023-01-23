@@ -205,6 +205,9 @@ func (c *ConsensusReactor) validateBlockBody(blk *block.Block, forceValidate boo
 			rewards := powResults.Rewards
 			fmt.Println("---------------- Local Build KBlock Txs for validation ----------------")
 			kblockTxs := c.buildKBlockTxs(parentBlock, rewards, chainTag, bestNum, curEpoch, best, state)
+			for _, tx := range kblockTxs {
+				fmt.Println("tx=", tx.ID(), ", uniteHash=", tx.UniteHash(), "gas", tx.Gas())
+			}
 			fmt.Printf("---------------- End of Local Build %d KBlock Txs ----------------\n", len(kblockTxs))
 
 			// Decode.
@@ -271,7 +274,7 @@ func (c *ConsensusReactor) validateBlockBody(blk *block.Block, forceValidate boo
 			}
 
 			if forceValidate {
-				log.Info("validating tx", "tx", tx.ID().String(), "uniteHash", tx.UniteHash().String())
+				log.Info("validating tx", "tx", tx.ID().String(), "uniteHash", tx.UniteHash().String(), "gas", tx.Gas())
 
 				// Validate.
 				txUH := tx.UniteHash()

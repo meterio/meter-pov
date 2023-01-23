@@ -41,7 +41,7 @@ func (s *Staking) DelegateHandler(env *setypes.ScriptEnv, sb *StakingBody, gas u
 		return leftOverGas, errUpdateForeverBucket
 	}
 	if b.Candidate.IsZero() != true {
-		log.Error("bucket is in use", "candidate", b.Candidate)
+		s.logger.Error("bucket is in use", "candidate", b.Candidate)
 		return leftOverGas, errBucketInUse
 	}
 
@@ -58,7 +58,7 @@ func (s *Staking) DelegateHandler(env *setypes.ScriptEnv, sb *StakingBody, gas u
 		selfRatioValid = CheckCandEnoughSelfVotes(b.TotalVotes, cand, bucketList, TESLA1_0_SELF_VOTE_RATIO)
 	}
 	if selfRatioValid == false {
-		log.Error(errCandidateNotEnoughSelfVotes.Error(), "candidate", cand.Addr.String())
+		s.logger.Error(errCandidateNotEnoughSelfVotes.Error(), "candidate", cand.Addr.String())
 		return leftOverGas, errCandidateNotEnoughSelfVotes
 	}
 
