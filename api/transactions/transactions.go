@@ -179,7 +179,7 @@ func (t *Transactions) handleSendEthRawTransaction(w http.ResponseWriter, req *h
 		chainTag := genID[len(genID)-1]
 		bestBlockID := bestBlock.BlockHeader.ID()
 		blockRef := tx.NewBlockRefFromID(bestBlockID)
-		nativeTx, err := tx.NewTransactionFromEthTx(&ethTx, chainTag, blockRef)
+		nativeTx, err := tx.NewTransactionFromEthTx(&ethTx, chainTag, blockRef, true)
 		if err != nil {
 			return utils.BadRequest(err)
 		} else {

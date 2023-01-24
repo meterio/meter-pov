@@ -114,7 +114,7 @@ type body struct {
 	Signature    []byte
 }
 
-func NewTransactionFromEthTx(ethTx *types.Transaction, chainTag byte, blockRef BlockRef) (*Transaction, error) {
+func NewTransactionFromEthTx(ethTx *types.Transaction, chainTag byte, blockRef BlockRef, verbose bool) (*Transaction, error) {
 	msg, err := ethTx.AsMessage(types.NewEIP155Signer(ethTx.ChainId()), nil)
 	if err != nil {
 		return nil, err
@@ -196,15 +196,17 @@ func NewTransactionFromEthTx(ethTx *types.Transaction, chainTag byte, blockRef B
 		},
 	}
 	// tx.cache.signer.Store(from)
-	fmt.Println("NewTransactionFromEthTx created tx: ", tx.ID(),
-		"\n  from:", msg.From().Hex(), "  to:", to.String(),
-		"\n  value:", msg.Value().String(),
-		"  nonce:", msg.Nonce(),
-		"  chainID:", fmt.Sprintf("0x%x", ethTx.ChainId()),
-		"\n  r:", fmt.Sprintf("0x%x", rBytes),
-		"\n  s:", fmt.Sprintf("0x%x", sBytes),
-		"\n  v:", fmt.Sprintf("0x%x", V.Bytes()),
-	)
+	if verbose {
+		fmt.Println("new tx from ethTx. nativeTxId=", tx.ID(),
+			"\n  from:", msg.From().Hex(), "  to:", to.String(),
+			"\n  value:", msg.Value().String(),
+			"  nonce:", msg.Nonce(),
+			"  chainID:", fmt.Sprintf("0x%x", ethTx.ChainId()),
+			"\n  r:", fmt.Sprintf("0x%x", rBytes),
+			"\n  s:", fmt.Sprintf("0x%x", sBytes),
+			"\n  v:", fmt.Sprintf("0x%x", V.Bytes()),
+		)
+	}
 	return tx, nil
 }
 
@@ -282,7 +284,7 @@ func (t *Transaction) EthTxValidate() (bool, error) {
 			return false, err
 		}
 
-		if reverseTx, err = NewTransactionFromEthTx(ethTx, t.ChainTag(), t.BlockRef()); err != nil {
+		if reverseTx, err = NewTransactionFromEthTx(ethTx, t.ChainTag(), t.BlockRef(), false); err != nil {
 			return false, err
 		}
 
