@@ -39,8 +39,6 @@ func BuildStakingGoverningTx(distList []*meter.RewardInfo, curEpoch uint32, chai
 }
 
 func buildStakingGoverningData(distList []*meter.RewardInfo, curEpoch uint32) (ret []byte) {
-	ret = []byte{}
-
 	validatorRewards := big.NewInt(0)
 	for _, dist := range distList {
 		validatorRewards = validatorRewards.Add(validatorRewards, dist.Amount)
@@ -62,27 +60,6 @@ func buildStakingGoverningData(distList []*meter.RewardInfo, curEpoch uint32) (r
 		Nonce:     rand.Uint64(),
 		ExtraData: extraBytes,
 	}
-	payload, err := rlp.EncodeToBytes(body)
-	if err != nil {
-		log.Info("encode payload failed", "error", err.Error())
-		return
-	}
-
-	// fmt.Println("Payload Hex: ", hex.EncodeToString(payload))
-	s := &script.Script{
-		Header: script.ScriptHeader{
-			Version: uint32(0),
-			ModID:   script.STAKING_MODULE_ID,
-		},
-		Payload: payload,
-	}
-	data, err := rlp.EncodeToBytes(s)
-	if err != nil {
-		return
-	}
-	data = append(script.ScriptPattern[:], data...)
-	prefix := []byte{0xff, 0xff, 0xff, 0xff}
-	ret = append(prefix, data...)
-	// fmt.Println("script Hex:", hex.EncodeToString(ret))
+	ret, _ = script.EncodeScriptData(body)
 	return
 }

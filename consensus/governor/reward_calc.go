@@ -13,7 +13,6 @@ import (
 
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/meterio/meter-pov/meter"
-	"github.com/meterio/meter-pov/script/auction"
 	"github.com/meterio/meter-pov/types"
 )
 
@@ -212,12 +211,7 @@ func ComputeEpochBaseReward(validatorBaseReward *big.Int) *big.Int {
 	return epochBaseReward
 }
 
-func ComputeEpochTotalReward(benefitRatio *big.Int, nDays int, nAuctionPerDay int) (*big.Int, error) {
-	summaryList, err := auction.GetAuctionSummaryList()
-	if err != nil {
-		log.Error("get summary list failed", "error", err)
-		return big.NewInt(0), err
-	}
+func ComputeEpochTotalReward(benefitRatio *big.Int, nDays int, nAuctionPerDay int, summaryList *meter.AuctionSummaryList) (*big.Int, error) {
 	size := len(summaryList.Summaries)
 	if size == 0 {
 		return big.NewInt(0), nil

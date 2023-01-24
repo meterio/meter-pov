@@ -47,7 +47,7 @@ func NewAccountLock(ch *chain.Chain, sc *state.Creator) *AccountLock {
 
 func (a *AccountLock) Handle(senv *setypes.ScriptEnv, payload []byte, to *meter.Address, gas uint64) (seOutput *setypes.ScriptEngineOutput, leftOverGas uint64, err error) {
 
-	ab, err := AccountLockDecodeFromBytes(payload)
+	ab, err := DecodeFromBytes(payload)
 	if err != nil {
 		a.logger.Error("Decode script message failed", "error", err)
 		return nil, gas, err

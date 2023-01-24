@@ -234,7 +234,7 @@ func (c *ConsensusReactor) validateBlockBody(blk *block.Block, forceValidate boo
 							fmt.Println(err)
 							//return nil, gas, err
 						}
-						scriptStruct, err := script.ScriptDecodeFromBytes(data[len(script.ScriptPattern):])
+						scriptStruct, err := script.DecodeScriptData(data[len(script.ScriptPattern):])
 						if err != nil {
 							fmt.Println("Decode script message failed", err)
 							//return nil, gas, err
@@ -298,7 +298,7 @@ func (c *ConsensusReactor) validateBlockBody(blk *block.Block, forceValidate boo
 							return consensusError(err.Error())
 						}
 
-						scriptStruct, err := script.ScriptDecodeFromBytes(data[len(script.ScriptPattern):])
+						scriptStruct, err := script.DecodeScriptData(data[len(script.ScriptPattern):])
 						if err != nil {
 							fmt.Println("Decode script message failed", err)
 							return consensusError(err.Error())
@@ -498,11 +498,8 @@ func (conR *ConsensusReactor) buildKBlockTxs(parentBlock *block.Block, rewards [
 			conR.logger.Info(fmt.Sprintf("Built stats tx: %s", statsTx.ID().String()), "clauses", len(statsTx.Clauses()))
 			txs = append(txs, statsTx)
 		}
-
-		reservedPrice := GetAuctionReservedPrice(conR.chain, conR.stateCreator)
-		initialRelease := GetAuctionInitialRelease(conR.chain, conR.stateCreator)
-
-		if tx := governor.BuildAuctionControlTx(uint64(best.Number()+1), uint64(best.GetBlockEpoch()+1), chainTag, bestNum, initialRelease, reservedPrice, conR.chain); tx != nil {
+		state, err := conR.stateCreator.NewState(parentBlock.Header().StateRoot())
+		if tx := governor.BuildAuctionControlTx(uint64(best.Number()+1), uint64(best.GetBlockEpoch()+1), chainTag, bestNum, state, conR.chain); tx != nil {
 			conR.logger.Info(fmt.Sprintf("Built auction control tx: %s", tx.ID().String()), "clauses", len(tx.Clauses()))
 			txs = append(txs, tx)
 		}
@@ -517,7 +514,8 @@ func (conR *ConsensusReactor) buildKBlockTxs(parentBlock *block.Block, rewards [
 			nAuctionPerDay := meter.NEpochPerDay // wrong number before hardfork
 			nDays = meter.NDaysV2
 			nAuctionPerDay = meter.NAuctionPerDay
-			epochTotalReward, err := governor.ComputeEpochTotalReward(benefitRatio, nDays, nAuctionPerDay)
+			summaryList := state.GetSummaryList()
+			epochTotalReward, err := governor.ComputeEpochTotalReward(benefitRatio, nDays, nAuctionPerDay, summaryList)
 			if err != nil {
 				epochTotalReward = big.NewInt(0)
 			}

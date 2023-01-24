@@ -41,16 +41,7 @@ type StakingBody struct {
 	ExtraData       []byte
 }
 
-func StakingEncodeBytes(sb *StakingBody) []byte {
-	stakingBytes, err := rlp.EncodeToBytes(sb)
-	if err != nil {
-		fmt.Printf("rlp encode failed, %s\n", err.Error())
-		return []byte{}
-	}
-	return stakingBytes
-}
-
-func StakingDecodeFromBytes(bytes []byte) (*StakingBody, error) {
+func DecodeFromBytes(bytes []byte) (*StakingBody, error) {
 	sb := StakingBody{}
 	err := rlp.DecodeBytes(bytes, &sb)
 	return &sb, err

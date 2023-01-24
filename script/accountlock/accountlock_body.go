@@ -51,16 +51,7 @@ func (a *AccountLockBody) GetOpName(op uint32) string {
 	}
 }
 
-func AccountLockEncodeBytes(sb *AccountLockBody) []byte {
-	AccountLockBytes, err := rlp.EncodeToBytes(sb)
-	if err != nil {
-		log.Error("rlp encode failed", "error", err)
-		return []byte{}
-	}
-	return AccountLockBytes
-}
-
-func AccountLockDecodeFromBytes(bytes []byte) (*AccountLockBody, error) {
+func DecodeFromBytes(bytes []byte) (*AccountLockBody, error) {
 	ab := AccountLockBody{}
 	err := rlp.DecodeBytes(bytes, &ab)
 	return &ab, err

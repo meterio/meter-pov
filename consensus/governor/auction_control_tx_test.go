@@ -8,7 +8,6 @@ import (
 
 	"github.com/meterio/meter-pov/builtin"
 	"github.com/meterio/meter-pov/chain"
-	"github.com/meterio/meter-pov/consensus"
 	"github.com/meterio/meter-pov/consensus/governor"
 	"github.com/meterio/meter-pov/lvldb"
 	"github.com/meterio/meter-pov/meter"
@@ -55,9 +54,9 @@ func initRuntimeWithSummary() (*runtime.Runtime, *chain.Chain, *state.Creator) {
 func buildAuctionControlTx(c *chain.Chain, sc *state.Creator) *tx.Transaction {
 	epoch := uint64(28)
 	bestNum := uint64(123)
-	reservedPrice := consensus.GetAuctionReservedPrice(c, sc)
-	initialRelease := consensus.GetAuctionInitialRelease(c, sc)
-	tx := governor.BuildAuctionControlTx(uint64(bestNum), epoch, byte(82), 0, initialRelease, reservedPrice, c)
+	best := c.BestBlock()
+	s, _ := sc.NewState(best.StateRoot())
+	tx := governor.BuildAuctionControlTx(uint64(bestNum), epoch, byte(82), 0, s, c)
 	fmt.Println(tx)
 	return tx
 }

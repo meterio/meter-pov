@@ -19,12 +19,12 @@ var (
 	ScriptPattern = [4]byte{0xde, 0xad, 0xbe, 0xef} //pattern: deadbeef
 )
 
-type Script struct {
+type ScriptData struct {
 	Header  ScriptHeader
 	Payload []byte
 }
 
-func (s *Script) UniteHash() (hash meter.Bytes32) {
+func (s *ScriptData) UniteHash() (hash meter.Bytes32) {
 	hw := meter.NewBlake2b()
 
 	var bodyHash meter.Bytes32
@@ -34,26 +34,29 @@ func (s *Script) UniteHash() (hash meter.Bytes32) {
 	payloadBlake.Sum(payloadHash[:])
 	switch s.Header.ModID {
 	case STAKING_MODULE_ID:
-		sb, err := staking.StakingDecodeFromBytes(s.Payload)
+		sb, err := staking.DecodeFromBytes(s.Payload)
 		if err != nil {
 			fmt.Println("could not decode staking, use payload directl for unite hash")
 			bodyHash = payloadHash
+		} else {
+			bodyHash = sb.UniteHash()
 		}
-		bodyHash = sb.UniteHash()
 	case AUCTION_MODULE_ID:
-		ab, err := auction.AuctionDecodeFromBytes(s.Payload)
+		ab, err := auction.DecodeFromBytes(s.Payload)
 		if err != nil {
 			fmt.Println("could not decode auction, use payload directl for unite hash")
 			bodyHash = payloadHash
+		} else {
+			bodyHash = ab.UniteHash()
 		}
-		bodyHash = ab.UniteHash()
 	case ACCOUNTLOCK_MODULE_ID:
-		ab, err := accountlock.AccountLockDecodeFromBytes(s.Payload)
+		ab, err := accountlock.DecodeFromBytes(s.Payload)
 		if err != nil {
 			fmt.Println("could not decode accountlock, use payload directl for unite hash")
 			bodyHash = payloadHash
+		} else {
+			bodyHash = ab.UniteHash()
 		}
-		bodyHash = ab.UniteHash()
 	default:
 		bodyHash = payloadHash
 	}
@@ -82,20 +85,4 @@ func (sh *ScriptHeader) GetModID() uint32   { return sh.ModID }
 
 func (sh *ScriptHeader) ToString() string {
 	return fmt.Sprintf("ScriptHeader:::  Version: %v, ModID: %v", sh.Version, sh.ModID)
-}
-
-func ScriptEncodeBytes(script *Script) []byte {
-	scriptBytes, err := rlp.EncodeToBytes(script)
-	if err != nil {
-		fmt.Printf("rlp encode failed, %s\n", err.Error())
-		return []byte{}
-	}
-
-	return scriptBytes
-}
-
-func ScriptDecodeFromBytes(bytes []byte) (*Script, error) {
-	script := Script{}
-	err := rlp.DecodeBytes(bytes, &script)
-	return &script, err
 }

@@ -21,8 +21,6 @@ import (
 )
 
 var (
-	StakingGlobInst *Staking
-
 	boundEvent   *abi.Event
 	unboundEvent *abi.Event
 )
@@ -32,14 +30,6 @@ type Staking struct {
 	chain        *chain.Chain
 	stateCreator *state.Creator
 	logger       log15.Logger
-}
-
-func GetStakingGlobInst() *Staking {
-	return StakingGlobInst
-}
-
-func SetStakingGlobInst(inst *Staking) {
-	StakingGlobInst = inst
 }
 
 func InTimeSpan(ts, now, span uint64) bool {
@@ -70,13 +60,12 @@ func NewStaking(ch *chain.Chain, sc *state.Creator) *Staking {
 		stateCreator: sc,
 		logger:       log15.New("pkg", "staking"),
 	}
-	SetStakingGlobInst(staking)
 	return staking
 }
 
 func (s *Staking) Handle(senv *setypes.ScriptEnv, payload []byte, to *meter.Address, gas uint64) (seOutput *setypes.ScriptEngineOutput, leftOverGas uint64, err error) {
 
-	sb, err := StakingDecodeFromBytes(payload)
+	sb, err := DecodeFromBytes(payload)
 	if err != nil {
 		s.logger.Error("Decode script message failed", "error", err)
 		return nil, gas, err

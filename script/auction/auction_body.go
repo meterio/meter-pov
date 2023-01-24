@@ -70,16 +70,7 @@ var (
 	errInvalidNonce         = errors.New("invalid nonce (nonce in auction body and clause are the same)")
 )
 
-func AuctionEncodeBytes(sb *AuctionBody) []byte {
-	auctionBytes, err := rlp.EncodeToBytes(sb)
-	if err != nil {
-		log.Error("rlp encode failed", "error", err)
-		return []byte{}
-	}
-	return auctionBytes
-}
-
-func AuctionDecodeFromBytes(bytes []byte) (*AuctionBody, error) {
+func DecodeFromBytes(bytes []byte) (*AuctionBody, error) {
 	ab := AuctionBody{}
 	err := rlp.DecodeBytes(bytes, &ab)
 	return &ab, err

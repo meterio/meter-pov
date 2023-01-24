@@ -54,7 +54,7 @@ func generateScriptData(opCode uint32, holderAddrStr string, amountInt64 int64, 
 	option := uint32(0)
 
 	amount := big.NewInt(int64(amountInt64))
-	body := auction.AuctionBody{
+	body := &auction.AuctionBody{
 		Opcode:      opCode,
 		Version:     version,
 		Option:      option,
@@ -67,48 +67,29 @@ func generateScriptData(opCode uint32, holderAddrStr string, amountInt64 int64, 
 		Timestamp:   uint64(time.Now().Unix()),
 		Nonce:       rand.Uint64(),
 	}
-	payload, err := rlp.EncodeToBytes(body)
-	if err != nil {
-		return "", err
-	}
-	fmt.Println("Payload Hex: ", hex.EncodeToString(payload))
-	s := &script.Script{
-		Header: script.ScriptHeader{
-			Version: version,
-			ModID:   script.AUCTION_MODULE_ID,
-		},
-		Payload: payload,
-	}
-	data, err := rlp.EncodeToBytes(s)
-	if err != nil {
-		return "", err
-	}
-	data = append(script.ScriptPattern[:], data...)
-	// fmt.Println("Script Data Bytes: ", data)
-	prefix := []byte{0xff, 0xff, 0xff, 0xff}
-	data = append(prefix, data...)
-	return hex.EncodeToString(data), nil
+	ret, err := script.EncodeScriptData(body)
+	return hex.EncodeToString(ret), err
 }
 func TestScriptDataForBid(t *testing.T) {
 	hexData, err := generateScriptData(auction.OP_BID, HOLDER_ADDRESS, 8e18, 0, 0)
 	if err != nil {
 		t.Fail()
 	}
-	fmt.Println("Script Data Hex for Auction Bid: ", hexData)
+	fmt.Println("ScriptData Data Hex for Auction Bid: ", hexData)
 }
 func TestScriptDataForStart(t *testing.T) {
 	hexData, err := generateScriptData(auction.OP_START, HOLDER_ADDRESS, 0, 30000, 60000)
 	if err != nil {
 		t.Fail()
 	}
-	fmt.Println("Script Data Hex for Auction Start: ", hexData)
+	fmt.Println("ScriptData Data Hex for Auction Start: ", hexData)
 }
 func TestScriptDataForStop(t *testing.T) {
 	hexData, err := generateScriptData(auction.OP_STOP, HOLDER_ADDRESS, 0, 0, 0)
 	if err != nil {
 		t.Fail()
 	}
-	fmt.Println("Script Data Hex for Auction Stop: ", hexData)
+	fmt.Println("ScriptData Data Hex for Auction Stop: ", hexData)
 }
 
 func TestLargeRlpDecode(t *testing.T) {

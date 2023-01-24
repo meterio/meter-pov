@@ -51,90 +51,6 @@ var (
 	MTRGAmount   = big.NewInt(1e5)
 )
 
-func genScriptDataForStaking(body *staking.StakingBody) (string, error) {
-	// opName := staking.GetOpName(body.Opcode)
-	version := uint32(0)
-	payload, err := rlp.EncodeToBytes(body)
-	if err != nil {
-		return "", err
-	}
-	// fmt.Println("")
-	// fmt.Println(opName, "payload Hex:")
-	// fmt.Println("0x" + hex.EncodeToString(payload))
-	s := &script.Script{
-		Header: script.ScriptHeader{
-			Version: version,
-			ModID:   script.STAKING_MODULE_ID,
-		},
-		Payload: payload,
-	}
-	data, err := rlp.EncodeToBytes(s)
-	if err != nil {
-		return "", err
-	}
-	prefix := append([]byte{0xff, 0xff, 0xff, 0xff}, script.ScriptPattern[:]...)
-	data = append(prefix, data...)
-	// fmt.Println(opName, "script data Hex:")
-	// fmt.Println("0x" + hex.EncodeToString(data))
-	return "0x" + hex.EncodeToString(data), nil
-}
-
-func genScriptDataForAuction(body *auction.AuctionBody) (string, error) {
-	// opName := auction.GetOpName(body.Opcode)
-	version := uint32(0)
-	payload, err := rlp.EncodeToBytes(body)
-	if err != nil {
-		return "", err
-	}
-	// fmt.Println("")
-	// fmt.Println(opName, "payload Hex:")
-	// fmt.Println("0x" + hex.EncodeToString(payload))
-	s := &script.Script{
-		Header: script.ScriptHeader{
-			Version: version,
-			ModID:   script.AUCTION_MODULE_ID,
-		},
-		Payload: payload,
-	}
-	data, err := rlp.EncodeToBytes(s)
-	if err != nil {
-		return "", err
-	}
-	prefix := append([]byte{0xff, 0xff, 0xff, 0xff}, script.ScriptPattern[:]...)
-	data = append(prefix, data...)
-	// fmt.Println(opName, "script data Hex:")
-	// fmt.Println("0x" + hex.EncodeToString(data))
-	return "0x" + hex.EncodeToString(data), nil
-}
-
-func genScriptDataForAccountLock(body *accountlock.AccountLockBody) (string, error) {
-	// opName := body.GetOpName(body.Opcode)
-	version := uint32(0)
-	payload, err := rlp.EncodeToBytes(body)
-	if err != nil {
-		return "", err
-	}
-	// fmt.Println("")
-	// fmt.Println(opName, "payload Hex:")
-	// fmt.Println("0x" + hex.EncodeToString(payload))
-	s := &script.Script{
-		Header: script.ScriptHeader{
-			Version: version,
-			ModID:   script.ACCOUNTLOCK_MODULE_ID,
-		},
-		Payload: payload,
-	}
-	data, err := rlp.EncodeToBytes(s)
-	if err != nil {
-		return "", err
-	}
-	prefix := append([]byte{0xff, 0xff, 0xff, 0xff}, script.ScriptPattern[:]...)
-	data = append(prefix, data...)
-	// fmt.Println(opName, "script data Hex:")
-	// fmt.Println("0x" + hex.EncodeToString(data))
-	return "0x" + hex.EncodeToString(data), nil
-}
-
 func TestCandidate(t *testing.T) {
 	body := &staking.StakingBody{
 		Opcode:     staking.OP_CANDIDATE,
@@ -152,7 +68,7 @@ func TestCandidate(t *testing.T) {
 		Timestamp:  Timestamp,
 		Nonce:      Nonce,
 	}
-	_, err := genScriptDataForStaking(body)
+	_, err := script.EncodeScriptData(body)
 	assert.Nil(t, err)
 
 }
@@ -167,7 +83,7 @@ func TestUncandidate(t *testing.T) {
 		Timestamp: Timestamp,
 		Nonce:     Nonce,
 	}
-	_, err := genScriptDataForStaking(body)
+	_, err := script.EncodeScriptData(body)
 	assert.Nil(t, err)
 }
 
@@ -183,7 +99,7 @@ func TestDelegate(t *testing.T) {
 		Timestamp:  Timestamp,
 		Nonce:      Nonce,
 	}
-	_, err := genScriptDataForStaking(body)
+	_, err := script.EncodeScriptData(body)
 	assert.Nil(t, err)
 }
 
@@ -199,7 +115,7 @@ func TestUndelegate(t *testing.T) {
 		Timestamp:  Timestamp,
 		Nonce:      Nonce,
 	}
-	_, err := genScriptDataForStaking(body)
+	_, err := script.EncodeScriptData(body)
 	assert.Nil(t, err)
 }
 
@@ -216,7 +132,7 @@ func TestBound(t *testing.T) {
 		Timestamp:  Timestamp,
 		Nonce:      Nonce,
 	}
-	_, err := genScriptDataForStaking(body)
+	_, err := script.EncodeScriptData(body)
 	assert.Nil(t, err)
 }
 
@@ -232,7 +148,7 @@ func TestUnbound(t *testing.T) {
 		Timestamp:  Timestamp,
 		Nonce:      Nonce,
 	}
-	_, err := genScriptDataForStaking(body)
+	_, err := script.EncodeScriptData(body)
 	assert.Nil(t, err)
 }
 
@@ -248,7 +164,7 @@ func TestBid(t *testing.T) {
 		Timestamp: Timestamp,
 		Nonce:     Nonce,
 	}
-	_, err := genScriptDataForAuction(body)
+	_, err := script.EncodeScriptData(body)
 	assert.Nil(t, err)
 }
 
@@ -269,7 +185,7 @@ func TestCandidateUpdate(t *testing.T) {
 		Timestamp:  Timestamp,
 		Nonce:      Nonce,
 	}
-	_, err := genScriptDataForStaking(body)
+	_, err := script.EncodeScriptData(body)
 	assert.Nil(t, err)
 }
 
@@ -285,7 +201,7 @@ func TestBailOut(t *testing.T) {
 		Timestamp:  Timestamp,
 		Nonce:      Nonce,
 	}
-	_, err := genScriptDataForStaking(body)
+	_, err := script.EncodeScriptData(body)
 	assert.Nil(t, err)
 }
 
@@ -302,7 +218,7 @@ func TestLockedTransfer(t *testing.T) {
 		MeterGovAmount: MTRGAmount,
 		Memo:           []byte("memo"),
 	}
-	_, err := genScriptDataForAccountLock(body)
+	_, err := script.EncodeScriptData(body)
 	assert.Nil(t, err)
 }
 
@@ -320,7 +236,7 @@ func TestStaticsFlushAll(t *testing.T) {
 		Timestamp:  Timestamp,
 		Nonce:      Nonce,
 	}
-	_, err := genScriptDataForStaking(body)
+	_, err := script.EncodeScriptData(body)
 	assert.Nil(t, err)
 }
 
@@ -339,7 +255,7 @@ func TestDecode(t *testing.T) {
 		fmt.Println("Hex Error:", err)
 		t.Fail()
 	}
-	s := script.Script{}
+	s := script.ScriptData{}
 	err = rlp.DecodeBytes(bs, &s)
 	if err != nil {
 		fmt.Println("RLP Error:", err)

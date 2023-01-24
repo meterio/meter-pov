@@ -35,8 +35,8 @@ func (b *Builder) SetPayload(p []byte) *Builder {
 }
 
 // Build build a block object.
-func (b *Builder) Build() *Script {
-	return &Script{
+func (b *Builder) Build() *ScriptData {
+	return &ScriptData{
 		Header:  b.Header,
 		Payload: b.Payload,
 	}

@@ -16,7 +16,6 @@ import (
 	"strings"
 
 	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/meterio/meter-pov/block"
 	"github.com/meterio/meter-pov/chain"
 	bls "github.com/meterio/meter-pov/crypto/multi_sig"
@@ -82,27 +81,7 @@ func buildStatisticsData(entry *StatEntry, curEpoch uint32) (ret []byte) {
 		CandPubKey: []byte(entry.PubKey),
 		ExtraData:  extra,
 	}
-	payload, err := rlp.EncodeToBytes(body)
-	if err != nil {
-		log.Error("encode stakingBody failed", "error", err.Error())
-		return
-	}
-
-	s := &script.Script{
-		Header: script.ScriptHeader{
-			Version: uint32(0),
-			ModID:   script.STAKING_MODULE_ID,
-		},
-		Payload: payload,
-	}
-	data, err := rlp.EncodeToBytes(s)
-	if err != nil {
-		return
-	}
-	data = append(script.ScriptPattern[:], data...)
-	prefix := []byte{0xff, 0xff, 0xff, 0xff}
-	ret = append(prefix, data...)
-	// fmt.Println("script Hex:", hex.EncodeToString(ret))
+	ret, _ = script.EncodeScriptData(body)
 	return
 }
 

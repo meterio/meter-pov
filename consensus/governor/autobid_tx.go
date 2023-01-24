@@ -5,7 +5,6 @@ import (
 	"math/rand"
 	"time"
 
-	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/meterio/meter-pov/meter"
 	"github.com/meterio/meter-pov/params"
 	"github.com/meterio/meter-pov/script"
@@ -85,8 +84,6 @@ func BuildAutobidTx(autobidList []*meter.RewardInfo, chainTag byte, bestNum uint
 }
 
 func BuildAutobidData(autobid *meter.RewardInfo) (ret []byte) {
-	ret = []byte{}
-
 	body := &auction.AuctionBody{
 		Bidder:    autobid.Address,
 		Opcode:    auction.OP_BID,
@@ -96,27 +93,6 @@ func BuildAutobidData(autobid *meter.RewardInfo) (ret []byte) {
 		Timestamp: uint64(time.Now().Unix()),
 		Nonce:     rand.Uint64(),
 	}
-	payload, err := rlp.EncodeToBytes(body)
-	if err != nil {
-		log.Info("encode payload failed", "error", err.Error())
-		return
-	}
-
-	// fmt.Println("Payload Hex: ", hex.EncodeToString(payload))
-	s := &script.Script{
-		Header: script.ScriptHeader{
-			Version: uint32(0),
-			ModID:   script.AUCTION_MODULE_ID,
-		},
-		Payload: payload,
-	}
-	data, err := rlp.EncodeToBytes(s)
-	if err != nil {
-		return
-	}
-	data = append(script.ScriptPattern[:], data...)
-	prefix := []byte{0xff, 0xff, 0xff, 0xff}
-	ret = append(prefix, data...)
-	// fmt.Println("script Hex:", hex.EncodeToString(ret))
+	ret, _ = script.EncodeScriptData(body)
 	return
 }

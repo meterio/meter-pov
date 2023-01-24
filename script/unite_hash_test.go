@@ -87,7 +87,7 @@ func TestGovern(t *testing.T) {
 	}
 	payload, err := rlp.EncodeToBytes(sb)
 	assert.Nil(t, err)
-	s := script.Script{Header: script.ScriptHeader{Version: 0, ModID: script.STAKING_MODULE_ID}, Payload: payload}
+	s := script.ScriptData{Header: script.ScriptHeader{Version: 0, ModID: script.STAKING_MODULE_ID}, Payload: payload}
 
 	// sort
 	infos2 := make([]*meter.RewardInfo, 0)
@@ -117,7 +117,7 @@ func TestGovern(t *testing.T) {
 
 	payload, err = rlp.EncodeToBytes(sb2)
 	assert.Nil(t, err)
-	s2 := script.Script{Header: script.ScriptHeader{Version: 0, ModID: script.STAKING_MODULE_ID}, Payload: payload}
+	s2 := script.ScriptData{Header: script.ScriptHeader{Version: 0, ModID: script.STAKING_MODULE_ID}, Payload: payload}
 
 	assert.Equal(t, s.UniteHash(), s2.UniteHash())
 
@@ -151,7 +151,7 @@ func TestGovernV2(t *testing.T) {
 	}
 	payload, err := rlp.EncodeToBytes(sb)
 	assert.Nil(t, err)
-	s := script.Script{Header: script.ScriptHeader{Version: 0, ModID: script.STAKING_MODULE_ID}, Payload: payload}
+	s := script.ScriptData{Header: script.ScriptHeader{Version: 0, ModID: script.STAKING_MODULE_ID}, Payload: payload}
 
 	// sort
 	infos2 := make([]*meter.RewardInfoV2, 0)
@@ -181,7 +181,7 @@ func TestGovernV2(t *testing.T) {
 
 	payload, err = rlp.EncodeToBytes(sb2)
 	assert.Nil(t, err)
-	s2 := script.Script{Header: script.ScriptHeader{Version: 0, ModID: script.STAKING_MODULE_ID}, Payload: payload}
+	s2 := script.ScriptData{Header: script.ScriptHeader{Version: 0, ModID: script.STAKING_MODULE_ID}, Payload: payload}
 
 	assert.Equal(t, s.UniteHash(), s2.UniteHash())
 }
@@ -208,7 +208,7 @@ func TestAuction(t *testing.T) {
 
 	payload, err := rlp.EncodeToBytes(b)
 	assert.Nil(t, err)
-	s := script.Script{Header: script.ScriptHeader{Version: 0, ModID: script.AUCTION_MODULE_ID}, Payload: payload}
+	s := script.ScriptData{Header: script.ScriptHeader{Version: 0, ModID: script.AUCTION_MODULE_ID}, Payload: payload}
 
 	b2 := &auction.AuctionBody{
 		Opcode:        auction.OP_BID,
@@ -230,7 +230,7 @@ func TestAuction(t *testing.T) {
 
 	payload, err = rlp.EncodeToBytes(b2)
 	assert.Nil(t, err)
-	s2 := script.Script{Header: script.ScriptHeader{Version: 0, ModID: script.AUCTION_MODULE_ID}, Payload: payload}
+	s2 := script.ScriptData{Header: script.ScriptHeader{Version: 0, ModID: script.AUCTION_MODULE_ID}, Payload: payload}
 
 	assert.True(t, bytes.Equal(s.UniteHash().Bytes(), s2.UniteHash().Bytes()))
 }

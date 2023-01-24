@@ -6,17 +6,15 @@
 package accountlock_test
 
 import (
-	"encoding/hex"
 	"fmt"
 	"math/big"
-
-	"github.com/ethereum/go-ethereum/rlp"
 
 	"testing"
 
 	"github.com/meterio/meter-pov/meter"
 	"github.com/meterio/meter-pov/script"
 	"github.com/meterio/meter-pov/script/accountlock"
+	"github.com/stretchr/testify/assert"
 )
 
 /*
@@ -30,7 +28,7 @@ const (
 	TO_ADDRESS   = "0x0205c2D862cA051010698b69b54278cbAf945C0b"
 )
 
-func generateAccountLockData(op, version, option, lock, release uint32, from, to meter.Address, mtr, mtrg int64, memo string) (string, error) {
+func generateAccountLockData(op, version, option, lock, release uint32, from, to meter.Address, mtr, mtrg int64, memo string) ([]byte, error) {
 	opStr := ""
 	switch op {
 	case accountlock.OP_ADDLOCK:
@@ -42,7 +40,7 @@ func generateAccountLockData(op, version, option, lock, release uint32, from, to
 	}
 	fmt.Println("\nGenerate data for :", opStr)
 
-	body := accountlock.AccountLockBody{
+	body := &accountlock.AccountLockBody{
 		Opcode:         op,
 		Version:        version,
 		Option:         option,
@@ -54,28 +52,7 @@ func generateAccountLockData(op, version, option, lock, release uint32, from, to
 		MeterGovAmount: big.NewInt(mtrg),
 		Memo:           []byte(memo),
 	}
-	payload, err := rlp.EncodeToBytes(body)
-	if err != nil {
-		return "", err
-	}
-
-	fmt.Println("Payload Hex: ", hex.EncodeToString(payload))
-	s := &script.Script{
-		Header: script.ScriptHeader{
-			Version: version,
-			ModID:   script.ACCOUNTLOCK_MODULE_ID,
-		},
-		Payload: payload,
-	}
-	data, err := rlp.EncodeToBytes(s)
-	if err != nil {
-		return "", err
-	}
-	data = append(script.ScriptPattern[:], data...)
-	// fmt.Println("Script Data Bytes: ", data)
-	prefix := []byte{0xff, 0xff, 0xff, 0xff}
-	data = append(prefix, data...)
-	return hex.EncodeToString(data), nil
+	return script.EncodeScriptData(body)
 }
 
 func TestScriptDataForAdd(t *testing.T) {
@@ -87,11 +64,9 @@ func TestScriptDataForAdd(t *testing.T) {
 	lock := uint32(0)
 	release := uint32(1000000)
 
-	hexData, err := generateAccountLockData(accountlock.OP_ADDLOCK, 0, 0, lock, release, from, to, mtr, mtrg, memo)
-	if err != nil {
-		t.Fail()
-	}
-	fmt.Println("Script Data Hex for account lock add: ", hexData)
+	_, err := generateAccountLockData(accountlock.OP_ADDLOCK, 0, 0, lock, release, from, to, mtr, mtrg, memo)
+	assert.Nil(t, err)
+	// fmt.Println("ScriptData Data Hex for account lock add: ", hexData)
 }
 
 func TestScriptDataForTransfer(t *testing.T) {
@@ -103,9 +78,7 @@ func TestScriptDataForTransfer(t *testing.T) {
 	lock := uint32(0)
 	release := uint32(1000000)
 
-	hexData, err := generateAccountLockData(accountlock.OP_TRANSFER, 0, 0, lock, release, from, to, mtr, mtrg, memo)
-	if err != nil {
-		t.Fail()
-	}
-	fmt.Println("Script Data Hex for accountlock transfer: ", hexData)
+	_, err := generateAccountLockData(accountlock.OP_TRANSFER, 0, 0, lock, release, from, to, mtr, mtrg, memo)
+	assert.Nil(t, err)
+	// fmt.Println("ScriptData Data Hex for accountlock transfer: ", hexData)
 }

@@ -8,11 +8,16 @@ package script
 import (
 	"bytes"
 	"encoding/hex"
+	"errors"
 	"fmt"
 
+	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/inconshreveable/log15"
 	"github.com/meterio/meter-pov/chain"
 	"github.com/meterio/meter-pov/meter"
+	"github.com/meterio/meter-pov/script/accountlock"
+	"github.com/meterio/meter-pov/script/auction"
+	"github.com/meterio/meter-pov/script/staking"
 	setypes "github.com/meterio/meter-pov/script/types"
 	"github.com/meterio/meter-pov/state"
 )
@@ -80,7 +85,7 @@ func (se *ScriptEngine) HandleScriptData(senv *setypes.ScriptEnv, data []byte, t
 		fmt.Println(err)
 		return nil, gas, err
 	}
-	script, err := ScriptDecodeFromBytes(data[len(ScriptPattern):])
+	script, err := DecodeScriptData(data[len(ScriptPattern):])
 	if err != nil {
 		fmt.Println("Decode script message failed", err)
 		return nil, gas, err
@@ -99,4 +104,48 @@ func (se *ScriptEngine) HandleScriptData(senv *setypes.ScriptEnv, data []byte, t
 	//module handler
 	seOutput, leftOverGas, err = mod.modHandler(senv, script.Payload, to, gas)
 	return
+}
+
+func EncodeScriptData(body interface{}) ([]byte, error) {
+	modId := uint32(999)
+	switch body.(type) {
+	case staking.StakingBody:
+		modId = STAKING_MODULE_ID
+	case *staking.StakingBody:
+		modId = STAKING_MODULE_ID
+
+	case auction.AuctionBody:
+		modId = AUCTION_MODULE_ID
+	case *auction.AuctionBody:
+		modId = AUCTION_MODULE_ID
+
+	case accountlock.AccountLockBody:
+		modId = ACCOUNTLOCK_MODULE_ID
+	case *accountlock.AccountLockBody:
+		modId = ACCOUNTLOCK_MODULE_ID
+	default:
+		return []byte{}, errors.New("unrecognized body")
+	}
+	payload, err := rlp.EncodeToBytes(body)
+	if err != nil {
+		fmt.Printf("rlp encode body failed, %s\n", err.Error())
+		return []byte{}, err
+	}
+	s := &ScriptData{Header: ScriptHeader{Version: uint32(0), ModID: modId}, Payload: payload}
+	data, err := rlp.EncodeToBytes(s)
+	if err != nil {
+		fmt.Printf("rlp encode script data failed, %s\n", err.Error())
+		return []byte{}, err
+	}
+	data = append(ScriptPattern[:], data...)
+	prefix := []byte{0xff, 0xff, 0xff, 0xff}
+	scriptBytes := append(prefix, data...)
+
+	return scriptBytes, nil
+}
+
+func DecodeScriptData(bytes []byte) (*ScriptData, error) {
+	script := ScriptData{}
+	err := rlp.DecodeBytes(bytes, &script)
+	return &script, err
 }

@@ -16,8 +16,7 @@ import (
 )
 
 var (
-	AuctionGlobInst *Auction
-	log             = log15.New("pkg", "auction")
+	log = log15.New("pkg", "auction")
 )
 
 // Candidate indicates the structure of a candidate
@@ -27,27 +26,18 @@ type Auction struct {
 	logger       log15.Logger
 }
 
-func GetAuctionGlobInst() *Auction {
-	return AuctionGlobInst
-}
-
-func SetAuctionGlobInst(inst *Auction) {
-	AuctionGlobInst = inst
-}
-
 func NewAuction(ch *chain.Chain, sc *state.Creator) *Auction {
 	auction := &Auction{
 		chain:        ch,
 		stateCreator: sc,
 		logger:       log15.New("pkg", "auction"),
 	}
-	SetAuctionGlobInst(auction)
 	return auction
 }
 
 func (a *Auction) Handle(senv *setypes.ScriptEnv, payload []byte, to *meter.Address, gas uint64) (seOutput *setypes.ScriptEngineOutput, leftOverGas uint64, err error) {
 
-	ab, err := AuctionDecodeFromBytes(payload)
+	ab, err := DecodeFromBytes(payload)
 	if err != nil {
 		log.Error("Decode script message failed", "error", err)
 		return nil, gas, err

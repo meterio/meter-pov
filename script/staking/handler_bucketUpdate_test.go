@@ -1,4 +1,4 @@
-package governor
+package staking_test
 
 import (
 	"math/big"
@@ -9,7 +9,7 @@ import (
 	"github.com/meterio/meter-pov/tx"
 )
 
-func BuildAccountLockGoverningTx(chainTag byte, bestNum uint32, curEpoch uint32) *tx.Transaction {
+func BuildBucketAddTx(chainTag byte, bestNum uint32, curEpoch uint32) *tx.Transaction {
 	// 1. signer is nil
 	// 1. transaction in kblock.
 	builder := new(tx.Builder)
@@ -21,17 +21,25 @@ func BuildAccountLockGoverningTx(chainTag byte, bestNum uint32, curEpoch uint32)
 		DependsOn(nil).
 		Nonce(12345678)
 
+	builder.Clause(
+		tx.NewClause(&meter.AccountLockModuleAddr).
+			WithValue(big.NewInt(0)).
+			WithToken(meter.MTRG).
+			WithData(buildBucketAddData(curEpoch)))
+
+	builder.Build().IntrinsicGas()
+	return builder.Build()
+}
+
+// ///// account lock governing
+func buildBucketAddData(curEpoch uint32) (ret []byte) {
+	ret = []byte{}
+
 	body := &accountlock.AccountLockBody{
 		Opcode:  accountlock.OP_GOVERNING,
 		Version: curEpoch,
 		Option:  uint32(0),
 	}
-	data, _ := script.EncodeScriptData(body)
-	builder.Clause(
-		tx.NewClause(&meter.AccountLockModuleAddr).
-			WithValue(big.NewInt(0)).
-			WithToken(meter.MTRG).
-			WithData(data))
-
-	return builder.Build()
+	ret, _ = script.EncodeScriptData(body)
+	return
 }
