@@ -72,7 +72,7 @@ func (s *Staking) DelegateStatHandler(env *setypes.ScriptEnv, sb *StakingBody, g
 		state.SetInJailList(inJailList)
 		return
 	}
-	s.logger.Info("Receives stats", "address", sb.CandAddr, "name", sb.CandName, "epoch", epoch, "infraction", IncrInfraction)
+	s.logger.Info("Receives stats", "address", sb.CandAddr, "name", string(sb.CandName), "epoch", epoch, "infraction", IncrInfraction)
 
 	var jail bool
 	stats := statisticsList.Get(sb.CandAddr)
@@ -88,7 +88,7 @@ func (s *Staking) DelegateStatHandler(env *setypes.ScriptEnv, sb *StakingBody, g
 	leaderViolation := stats.CountMissingLeaderViolation(epoch)
 	doubleSignViolation := stats.CountDoubleSignViolation(epoch)
 	jail = proposerViolation >= meter.JailCriteria_MissingProposerViolation || leaderViolation >= meter.JailCriteria_MissingLeaderViolation || doubleSignViolation >= meter.JailCriteria_DoubleSignViolation || (proposerViolation >= 1 && leaderViolation >= 1)
-	s.logger.Info("delegate violation: ", "missProposer", proposerViolation, "missLeader", leaderViolation, "doubleSign", doubleSignViolation, "jail", jail)
+	s.logger.Info("stat", "missProposer", proposerViolation, "missLeader", leaderViolation, "doubleSign", doubleSignViolation, "jail", jail)
 
 	blockNum := env.GetBlockNum()
 	if jail == true {

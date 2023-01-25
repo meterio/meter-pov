@@ -2,6 +2,7 @@ package consensus
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/meterio/meter-pov/block"
 	"github.com/meterio/meter-pov/chain"
@@ -16,6 +17,7 @@ func (p *Pacemaker) precommitBlock(blkInfo *ProposedBlockInfo) error {
 	stage := blkInfo.Stage
 	receipts := blkInfo.Receipts
 
+	start := time.Now()
 	// TODO: temporary remove
 	// if p.csReactor.csPacemaker.blockLocked.Height != height+1 {
 	// p.logger.Error(fmt.Sprintf("finalizeCommitBlock(H:%v): Invalid height. bLocked Height:%v, curRround: %v", height, p.csReactor.csPacemaker.blockLocked.Height, p.csReactor.curRound))
@@ -68,7 +70,9 @@ func (p *Pacemaker) precommitBlock(blkInfo *ProposedBlockInfo) error {
 	blkInfo.txsToRemoved()
 
 	blocksCommitedCounter.Inc()
-	p.logger.Info(fmt.Sprintf("+++ block precommited [%d] by pacemaker", blk.Number()), "id", blk.ID())
+	blkID := blk.ID()
+
+	p.logger.Info(fmt.Sprintf("+ block [#%d..%x] pre-committed", blk.Number(), blkID[28:]), "txs", len(blk.Txs), "epoch", blk.GetBlockEpoch(), "elapsed", meter.PrettyDuration(time.Since(start)))
 	return nil
 }
 
@@ -85,6 +89,7 @@ func (p *Pacemaker) commitBlock(blkInfo *ProposedBlockInfo, bestQC *block.Quorum
 	// }
 	p.logger.Debug("Try to finalize block", "block", blk.Oneliner())
 
+	start := time.Now()
 	batch := logdb.GetGlobalLogDBInstance().Prepare(blk.Header())
 	for i, tx := range blk.Transactions() {
 		origin, _ := tx.Signer()
@@ -124,6 +129,9 @@ func (p *Pacemaker) commitBlock(blkInfo *ProposedBlockInfo, bestQC *block.Quorum
 		}
 	}
 
+	blkID := blk.ID()
+	p.logger.Info(fmt.Sprintf("* block [#%d..%x] committed", blk.Number(), blkID[28:]), "txs", len(blk.Txs), "epoch", blk.GetBlockEpoch(), "elapsed", meter.PrettyDuration(time.Since(start)))
+
 	if meter.IsMainNet() {
 		if blk.Number() == meter.TeslaMainnetStartNum {
 			script.EnterTeslaForkInit()
@@ -136,7 +144,6 @@ func (p *Pacemaker) commitBlock(blkInfo *ProposedBlockInfo, bestQC *block.Quorum
 	// broadcast the new block to all peers
 	comm.GetGlobCommInst().BroadcastBlock(blk)
 	// successfully added the block, update the current hight of consensus
-	p.logger.Info(fmt.Sprintf("*** block committed [%d] by pacemaker", blk.Number()), "id", blk.ID(), "txs", len(blk.Txs))
 	p.csReactor.UpdateHeight(p.csReactor.chain.BestBlock().Number())
 
 	return nil

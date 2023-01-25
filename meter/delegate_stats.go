@@ -174,8 +174,8 @@ func (ds *DelegateStat) CountMissingProposerViolation(epoch uint32) int {
 	// }
 
 	nViolations := 0
-	for epoch, count := range counter {
-		fmt.Println("epoch: ", epoch, "  count:", count)
+	for _, count := range counter {
+		// fmt.Println("epoch: ", epoch, "  count:", count)
 		if count >= MaxMissingProposerPerEpoch {
 			nViolations = nViolations + 1
 		}
@@ -199,8 +199,8 @@ func (ds *DelegateStat) CountMissingLeaderViolation(epoch uint32) int {
 	// 	fmt.Println("delegate", string(ds.Name), " missing leader:")
 	// }
 	nViolations := 0
-	for epoch, count := range counter {
-		fmt.Println("epoch: ", epoch, "  count:", count)
+	for _, count := range counter {
+		// fmt.Println("epoch: ", epoch, "  count:", count)
 		if count >= MaxMissingLeaderPerEpoch {
 			nViolations = nViolations + 1
 		}
@@ -224,8 +224,8 @@ func (ds *DelegateStat) CountDoubleSignViolation(epoch uint32) int {
 	// 	fmt.Println("delegate", string(ds.Name), " double sign:")
 	// }
 	nViolations := 0
-	for epoch, count := range counter {
-		fmt.Println("epoch: ", epoch, "  count:", count)
+	for _, count := range counter {
+		// fmt.Println("epoch: ", epoch, "  count:", count)
 		if count >= MaxDoubleSignPerEpoch {
 			nViolations = nViolations + 1
 		}

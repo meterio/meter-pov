@@ -335,14 +335,14 @@ func (n *Node) processBlock(blk *block.Block, stats *blockStats) (bool, error) {
 func (n *Node) commitBlock(newBlock *block.Block, receipts tx.Receipts) (*chain.Fork, error) {
 	n.commitLock.Lock()
 	defer n.commitLock.Unlock()
-
+	start := time.Now()
 	// fmt.Println("Calling AddBlock from node.commitBlock, newBlock=", newBlock.ID())
 	fork, err := n.chain.AddBlock(newBlock, receipts, true)
 	if err != nil {
 		return nil, err
 	}
-
-	log.Info(fmt.Sprintf("*** block committed [%d] by sync", newBlock.Number()), "id", newBlock.ID(), "epoch", newBlock.GetBlockEpoch())
+	blkID := newBlock.ID()
+	log.Info(fmt.Sprintf("* block [#%d..%x] committed", newBlock.Number(), blkID[28:]), "txs", len(newBlock.Txs), "epoch", newBlock.GetBlockEpoch(), "elapsed", meter.PrettyDuration(time.Since(start)))
 
 	if meter.IsMainNet() {
 		if newBlock.Number() == meter.TeslaMainnetStartNum {
