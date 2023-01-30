@@ -674,13 +674,15 @@ func (conR *ConsensusReactor) GetConsensusDelegates() ([]*types.Delegate, int, i
 
 	// special handle for flag --init-configured-delegates
 	var delegates []*types.Delegate
+	var err error
 	hint := ""
-	if forceDelegates == true {
+	if forceDelegates {
 		delegates = conR.config.InitDelegates
 		conR.sourceDelegates = fromDelegatesFile
 		hint = "Loaded delegates from delegates.json"
 	} else {
-		delegates, err := conR.getDelegatesFromStaking()
+		delegates, err = conR.getDelegatesFromStaking()
+		conR.logger.Info("1 delegates", "len", len(delegates))
 		hint = "Loaded delegates from staking"
 		conR.sourceDelegates = fromStaking
 		if err != nil || len(delegates) < conR.config.MinCommitteeSize {

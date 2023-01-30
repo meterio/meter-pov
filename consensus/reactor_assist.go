@@ -48,7 +48,7 @@ func (conR *ConsensusReactor) getDelegatesFromStaking() ([]*types.Delegate, erro
 	}
 
 	list := state.GetDelegateList()
-	// conR.logger.Info("Loaded delegateList from staking", "len", len(list.Delegates))
+	conR.logger.Info("Loaded delegateList from staking", "len", len(list.Delegates))
 	for _, s := range list.Delegates {
 		pubKey, blsPub := conR.splitPubKey(string(s.PubKey))
 		d := &types.Delegate{
@@ -63,6 +63,7 @@ func (conR *ConsensusReactor) getDelegatesFromStaking() ([]*types.Delegate, erro
 				Port: s.Port},
 			DistList: convertDistList(s.DistList),
 		}
+		d.SetInternCombinePublicKey(string(s.PubKey))
 		delegateList = append(delegateList, d)
 	}
 	return delegateList, nil
