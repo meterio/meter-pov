@@ -275,6 +275,9 @@ func (p *PowPool) GetPowDecision() (bool, *PowResult) {
 
 	// Now have enough info to process
 	for _, latestObj := range p.all.GetLatestObjects() {
+		if latestObj == nil {
+			continue
+		}
 		result, err := p.all.FillLatestObjChain(latestObj)
 		if err != nil {
 			fmt.Print(err)
