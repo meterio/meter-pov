@@ -296,7 +296,11 @@ func (c *Chain) BestKBlock() (*block.Block, error) {
 		return c.bestBlock, nil
 	} else {
 		lastKblockHeight := c.bestBlock.LastKBlockHeight()
-		return c.GetTrunkBlock(lastKblockHeight)
+		id, err := c.ancestorTrie.GetAncestor(c.bestBlockBeforeIndexFlattern.ID(), lastKblockHeight)
+		if err != nil {
+			return nil, err
+		}
+		return c.getBlock(id)
 	}
 }
 
