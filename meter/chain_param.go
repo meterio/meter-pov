@@ -103,7 +103,7 @@ const (
 // 6.2) code refactory for maintanability, and prepare for liquid staking
 // 6.3) log optimization for readability
 const (
-	TeslaFork6_MainnetStartNum = 32988000 // around 1/30/2023 9:00 AM (PDT)
+	TeslaFork6_MainnetStartNum = 33023000 // around 1/31/2023 9:30 AM (PDT)
 	TeslaFork6_TestnetStartNum = 4932000  // same as fork4
 )
 
