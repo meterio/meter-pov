@@ -72,7 +72,7 @@ func (p *Pacemaker) precommitBlock(blkInfo *ProposedBlockInfo) error {
 	blocksCommitedCounter.Inc()
 	blkID := blk.ID()
 
-	p.logger.Info(fmt.Sprintf("Pre-committed [#%d..%x]", blk.Number(), blkID[28:]), "txs", len(blk.Txs), "epoch", blk.GetBlockEpoch(), "elapsed", meter.PrettyDuration(time.Since(start)))
+	p.logger.Info(fmt.Sprintf("pre-committed [#%d..%x]", blk.Number(), blkID[28:]), "txs", len(blk.Txs), "epoch", blk.GetBlockEpoch(), "elapsed", meter.PrettyDuration(time.Since(start)))
 	return nil
 }
 
@@ -130,7 +130,7 @@ func (p *Pacemaker) commitBlock(blkInfo *ProposedBlockInfo, bestQC *block.Quorum
 	}
 
 	blkID := blk.ID()
-	p.logger.Info(fmt.Sprintf("Committed [#%d..%x]", blk.Number(), blkID[28:]), "txs", len(blk.Txs), "epoch", blk.GetBlockEpoch(), "elapsed", meter.PrettyDuration(time.Since(start)))
+	p.logger.Info(fmt.Sprintf("committed [#%d..%x]", blk.Number(), blkID[28:]), "txs", len(blk.Txs), "epoch", blk.GetBlockEpoch(), "elapsed", meter.PrettyDuration(time.Since(start)))
 
 	if meter.IsMainNet() {
 		if blk.Number() == meter.TeslaMainnetStartNum {

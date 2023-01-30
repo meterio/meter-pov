@@ -253,11 +253,10 @@ func (p *Pacemaker) Execute(b *pmBlock) {
 
 func (p *Pacemaker) OnCommit(commitReady []*pmBlock) {
 	for _, b := range commitReady {
-		p.csReactor.logger.Debug("OnCommit", "height", b.Height, "round", b.Round)
 
 		// TBD: how to handle this case???
 		if b.SuccessProcessed == false {
-			p.csReactor.logger.Error("Process this proposal failed, possible my states are wrong", "height", b.Height, "round", b.Round, "action", "commit", "err", b.ProcessError)
+			p.csReactor.logger.Error("process this proposal failed, possible my states are wrong", "height", b.Height, "round", b.Round, "action", "commit", "err", b.ProcessError)
 			continue
 		}
 		// commit the approved block
@@ -265,7 +264,7 @@ func (p *Pacemaker) OnCommit(commitReady []*pmBlock) {
 		err := p.commitBlock(b.ProposedBlockInfo, bestQC)
 		if err != nil {
 			if err != chain.ErrBlockExist && err != errKnownBlock {
-				p.csReactor.logger.Warn("Commit block failed ...", "error", err)
+				p.csReactor.logger.Warn("commit block failed ...", "error", err)
 				//revert to checkpoint
 				best := p.csReactor.chain.BestBlock()
 				state, err := p.csReactor.stateCreator.NewState(best.Header().StateRoot())
@@ -302,7 +301,7 @@ func (p *Pacemaker) OnPreCommitBlock(b *pmBlock) error {
 	// This is the situation: 2/3 of committee agree the proposal while I disagree.
 	// posslible my state is deviated from the majority of committee, resatart pacemaker.
 	if b.SuccessProcessed == false {
-		p.csReactor.logger.Error("Process this proposal failed, possible my states are wrong, restart pacemaker", "height", b.Height, "round", b.Round, "action", "precommit", "err", b.ProcessError)
+		p.csReactor.logger.Error("process this proposal failed, possible my states are wrong, restart pacemaker", "height", b.Height, "round", b.Round, "action", "precommit", "err", b.ProcessError)
 		return errRestartPaceMakerRequired
 	}
 	err := p.precommitBlock(b.ProposedBlockInfo)
@@ -311,7 +310,6 @@ func (p *Pacemaker) OnPreCommitBlock(b *pmBlock) error {
 		p.logger.Warn("precommit failed", "err", err)
 		return err
 	}
-	// p.csReactor.logger.Info("PreCommitted block", "height", b.Height, "round", b.Round)
 	return nil
 }
 
@@ -353,6 +351,7 @@ func (p *Pacemaker) OnReceiveProposal(mi *consensusMsgInfo) error {
 		if err := p.pendingProposal(proposalMsg.ParentHeight, proposalMsg.ParentRound, proposalMsg.CSMsgCommonHeader.EpochID, mi); err != nil {
 			p.logger.Error("handle pending proposal failed", "error", err)
 		}
+		p.logger.Error("could not address parent block", "parent", proposalMsg.ParentHeight)
 		return errParentMissing
 	}
 
@@ -492,7 +491,7 @@ func (p *Pacemaker) OnReceiveProposal(mi *consensusMsgInfo) error {
 			p.sendMsg(proposalMsg.CSMsgCommonHeader.Round, msg, false)
 			p.lastVotingHeight = bnew.Height
 		} else {
-			p.logger.Info("No voting due to catch-up mode")
+			p.logger.Info("no voting due to catch-up mode")
 		}
 	}
 
@@ -530,7 +529,7 @@ func (p *Pacemaker) OnReceiveVote(mi *consensusMsgInfo) error {
 		return nil
 	} else {
 		p.csReactor.logger.Info(
-			fmt.Sprintf("Reached majority on proposal(H:%d,R:%d), new QC formed. Future votes will be ignored.", height, round), "voted", fmt.Sprintf("%d/%d", voteCount, p.csReactor.committeeSize))
+			fmt.Sprintf("reached majority on proposal(H:%d,R:%d), new QC formed, future votes will be ignored.", height, round), "voted", fmt.Sprintf("%d/%d", voteCount, p.csReactor.committeeSize))
 	}
 
 	// seal the signature, avoid re-trigger
@@ -607,7 +606,7 @@ func (p *Pacemaker) UpdateQCHigh(qc *pmQuorumCert) bool {
 		p.blockLeaf = p.QCHigh.QCNode
 		updated = true
 	}
-	p.logger.Debug("After update QCHigh", "updated", updated, "from", oqc.ToString(), "to", p.QCHigh.ToString())
+	p.logger.Debug("after update QCHigh", "updated", updated, "from", oqc.ToString(), "to", p.QCHigh.ToString())
 
 	return updated
 }
@@ -626,9 +625,8 @@ func (p *Pacemaker) OnBeat(height, round uint32, reason beatReason) error {
 }
 
 func (p *Pacemaker) onNormalBeat(height uint32, round uint32, reason beatReason) error {
-	p.logger.Info(" --------------------------------------------------")
-	p.logger.Info(fmt.Sprintf(" OnBeat Round:%v, Height:%v, Reason:%v", round, height, reason.String()))
-	p.logger.Info(" --------------------------------------------------")
+	p.logger.Info("--------------------------------------------------")
+	p.logger.Info(fmt.Sprintf("  OnBeat Round:%v, Height:%v, Reason:%v ", round, height, reason.String()))
 
 	// parent already got QC, pre-commit it
 	//b := p.QCHigh.QCNode
@@ -648,13 +646,13 @@ func (p *Pacemaker) onNormalBeat(height uint32, round uint32, reason beatReason)
 	}
 
 	if !p.csReactor.amIRoundProproser(round) {
-		p.csReactor.logger.Info("OnBeat: I am NOT round proposer", "round", round)
+		p.csReactor.logger.Info("I am NOT round proposer", "round", round)
 		return nil
 	}
 
 	p.updateCurrentRound(round, UpdateOnBeat)
 	pmRoleGauge.Set(2) // leader
-	p.csReactor.logger.Info("OnBeat: I am round proposer", "round", round)
+	p.csReactor.logger.Info("I AM round proposer", "round", round)
 
 	bleaf, err := p.OnPropose(p.blockLeaf, p.QCHigh, height, round)
 	if err != nil {
@@ -669,9 +667,8 @@ func (p *Pacemaker) onNormalBeat(height uint32, round uint32, reason beatReason)
 }
 
 func (p *Pacemaker) onTimeoutBeat(height, round uint32, reason beatReason) error {
-	p.logger.Info(" --------------------------------------------------")
+	p.logger.Info("--------------------------------------------------")
 	p.logger.Info(fmt.Sprintf(" OnTimeoutBeat Round:%v, Height:%v, Reason:%v", round, height, reason.String()))
-	p.logger.Info(" --------------------------------------------------")
 	// parent already got QC, pre-commit it
 	//b := p.QCHigh.QCNode
 	parent := p.proposalMap.Get(height - 1)
@@ -707,7 +704,7 @@ func (p *Pacemaker) onTimeoutBeat(height, round uint32, reason beatReason) error
 	}
 	if p.csReactor.amIRoundProproser(round) {
 		pmRoleGauge.Set(2) // leader
-		p.csReactor.logger.Info("OnBeat: I am round proposer", "round", round)
+		p.csReactor.logger.Info("I AM round proposer", "round", round)
 
 		bleaf, err := p.OnPropose(parent, parentQC, height, round)
 		if err != nil {
@@ -718,7 +715,7 @@ func (p *Pacemaker) onTimeoutBeat(height, round uint32, reason beatReason) error
 		}
 	} else {
 		pmRoleGauge.Set(1) // validator
-		p.csReactor.logger.Info("OnBeat: I am NOT round proposer", "round", round)
+		p.csReactor.logger.Info("I am NOT round proposer", "round", round)
 	}
 	return nil
 }
@@ -805,14 +802,14 @@ func (p *Pacemaker) newViewHigherQCSeen(header ConsensusMsgCommonHeader, pmQC *p
 	changed := p.UpdateQCHigh(pmQC)
 
 	if !p.csReactor.amIRoundProproser(header.Round) {
-		p.csReactor.logger.Info("not round proposer, drops the newview", "height", header.Height, "round", header.Round)
+		p.csReactor.logger.Info("not round proposer, drops newview", "height", header.Height, "round", header.Round)
 		return nil
 	}
 
 	if changed {
 		if qc.QCHeight >= p.blockLocked.Height {
 			// Schedule OnBeat due to New QC
-			p.logger.Info("Received a newview with higher QC, scheduleOnBeat now", "qcHeight", qc.QCHeight, "qcRound", qc.QCRound, "onBeatHeight", qc.QCHeight+1, "onBeatRound", qc.QCRound+1)
+			p.logger.Info("rcvd newview with higher QC, schedule OnBeat now", "qcHeight", qc.QCHeight, "qcRound", qc.QCRound, "onBeatHeight", qc.QCHeight+1, "onBeatRound", qc.QCRound+1)
 			p.ScheduleOnBeat(p.QCHigh.QC.QCHeight+1, qc.QCRound+1, BeatOnHigherQC, RoundInterval)
 		}
 	}
@@ -875,21 +872,21 @@ func (p *Pacemaker) newViewRoundTimeout(header ConsensusMsgCommonHeader, qc bloc
 	if MajorityTwoThird(uint32(timeoutCount), p.csReactor.committeeSize) == false {
 		p.logger.Info("not reach majority on timeout", "count", timeoutCount, "timeoutHeight", newViewMsg.TimeoutHeight, "timeoutRound", newViewMsg.TimeoutRound, "timeoutCounter", newViewMsg.TimeoutCounter)
 	} else {
-		p.logger.Info(fmt.Sprintf("Reached majority on timeout(H:%d,R:%d)", newViewMsg.TimeoutHeight, newViewMsg.TimeoutRound), "voted", fmt.Sprintf("%d/%d", timeoutCount, p.csReactor.committeeSize))
+		p.logger.Info(fmt.Sprintf("reached majority on timeout(H:%d,R:%d)", newViewMsg.TimeoutHeight, newViewMsg.TimeoutRound), "voted", fmt.Sprintf("%d/%d", timeoutCount, p.csReactor.committeeSize))
 		p.timeoutCert = p.timeoutCertManager.getTimeoutCert(newViewMsg.TimeoutHeight, newViewMsg.TimeoutRound)
 		p.timeoutCertManager.cleanup(newViewMsg.TimeoutHeight, newViewMsg.TimeoutRound)
 
 		// Schedule OnBeat due to timeout
-		p.logger.Info("Received a newview with timeoutCert, scheduleOnBeat now", "height", header.Height, "round", header.Round)
+		p.logger.Info("received a newview with timeoutCert, scheduleOnBeat now", "height", header.Height, "round", header.Round)
 		// Now reach timeout consensus on height/round, check myself states
 		if (p.QCHigh.QC.QCHeight + 1) < header.Height {
-			p.logger.Info("Can not OnBeat due to states lagging", "my QCHeight", p.QCHigh.QC.QCHeight, "timeoutCert Height", header.Height)
+			p.logger.Info("can not OnBeat due to states lagging", "my QCHeight", p.QCHigh.QC.QCHeight, "timeoutCert Height", header.Height)
 			return nil
 		}
 
 		// should not schedule if timeout is too old. <= p.blocked
 		if header.Height <= p.blockLocked.Height {
-			p.logger.Info("Can not OnBeat due to old timeout", "my QCHeight", p.QCHigh.QC.QCHeight, "timeoutCert Height", header.Height, "my blockLocked", p.blockLocked.Height)
+			p.logger.Info("can not OnBeat due to old timeout", "my QCHeight", p.QCHigh.QC.QCHeight, "timeoutCert Height", header.Height, "my blockLocked", p.blockLocked.Height)
 			return nil
 		}
 
@@ -911,7 +908,7 @@ func (p *Pacemaker) Start(mode PMMode, calcStatsTx bool) {
 	height := bestQC.QCHeight
 	blk, err := p.csReactor.chain.GetTrunkBlock(height)
 	if err != nil {
-		p.logger.Error("Could not get block with bestQC")
+		p.logger.Error("could not get block with bestQC")
 	}
 
 	round := bestQC.QCRound
@@ -941,7 +938,7 @@ func (p *Pacemaker) Start(mode PMMode, calcStatsTx bool) {
 
 	qcNode := p.AddressBlock(height)
 	if qcNode == nil {
-		p.logger.Debug("Started with empty qcNode")
+		p.logger.Debug("started with empty qcNode")
 	}
 	qcInit := newPMQuorumCert(bestQC, qcNode)
 	bInit := &pmBlock{
@@ -1021,7 +1018,7 @@ func (p *Pacemaker) mainLoop() {
 		}
 		select {
 		case si := <-p.cmdCh:
-			p.logger.Info("Start to execute cmd", "cmd", si.cmd.String())
+			p.logger.Info("start to execute cmd", "cmd", si.cmd.String())
 			switch si.cmd {
 			case PMCmdStop:
 				p.stopCleanup()
@@ -1074,11 +1071,10 @@ func (p *Pacemaker) mainLoop() {
 			case *PMProposalMessage:
 				err = p.OnReceiveProposal(&m)
 				if err != nil {
-					fmt.Println("Error happend during OnReceiveProposal:", err)
 					// 2 errors indicate linking message to pending list for the first time, does not need to check pending
 					if err == errKnownBlock {
 						// do nothing in this case
-						fmt.Println("block is known:", m.Msg.String())
+						log.Debug("known block", "block", m.Msg.String())
 					} else if err != errParentMissing && err != errQCNodeMissing && err != errRestartPaceMakerRequired {
 						err = p.checkPendingMessages(msg.CSMsgCommonHeader.Height)
 					} else {
@@ -1102,18 +1098,18 @@ func (p *Pacemaker) mainLoop() {
 			case *PMQueryProposalMessage:
 				err = p.OnReceiveQueryProposal(&m)
 			default:
-				p.logger.Warn("Received an message in unknown type")
+				p.logger.Warn("received an message in unknown type")
 			}
 			if err != nil {
 				typeName := getConcreteName(m.Msg)
 				if err == errParentMissing || err == errQCNodeMissing || err == errKnownBlock {
-					p.logger.Warn(fmt.Sprintf("Process %v failed", typeName), "err", err)
+					p.logger.Warn(fmt.Sprintf("process %v failed", typeName), "err", err)
 				} else {
-					p.logger.Error(fmt.Sprintf("Process %v failed", typeName), "err", err)
+					p.logger.Error(fmt.Sprintf("process %v failed", typeName), "err", err)
 				}
 			}
 		case <-interruptCh:
-			p.logger.Warn("Interrupt by user, exit now")
+			p.logger.Warn("interrupt by user, exit now")
 			p.mainLoopStarted = false
 			return
 		case <-p.csReactor.RcvKBlockInfoQueue:
@@ -1321,7 +1317,8 @@ func (p *Pacemaker) startRoundTimer(round uint32, reason roundTimerUpdateReason)
 			power = p.timeoutCounter - 1
 		}
 		timeoutInterval := baseInterval * (1 << power)
-		p.logger.Info("Start round timer", "round", round, "timeoutCounter", p.timeoutCounter, "interval", int64(timeoutInterval/time.Second))
+		p.logger.Info("--------------------------------------------------")
+		p.logger.Info(fmt.Sprintf("start timer for round %d", round), "interval", int64(timeoutInterval/time.Second), "timeoutCount", p.timeoutCounter)
 		p.roundTimer = time.AfterFunc(timeoutInterval, func() {
 			p.roundTimeoutCh <- PMRoundTimeoutInfo{round: round, counter: p.timeoutCounter}
 		})
@@ -1330,7 +1327,7 @@ func (p *Pacemaker) startRoundTimer(round uint32, reason roundTimerUpdateReason)
 
 func (p *Pacemaker) stopRoundTimer() bool {
 	if p.roundTimer != nil {
-		p.logger.Debug("Stop round timer", "round", p.currentRound)
+		p.logger.Debug(fmt.Sprintf("stop timer for round %d", p.currentRound))
 		p.roundTimer.Stop()
 		p.roundTimer = nil
 	}
