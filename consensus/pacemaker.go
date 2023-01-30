@@ -137,7 +137,6 @@ func (p *Pacemaker) CreateLeaf(parent *pmBlock, qc *pmQuorumCert, height, round 
 	// resend the previous kblock as special type to get vote stop message to get vote
 	// This proposal will not get into block database
 	if parent.ProposedBlockType == KBlockType || parent.ProposedBlockType == StopCommitteeType {
-		p.logger.Info(fmt.Sprintf("Proposed Stop pacemaker message: height=%v, round=%v", height, round))
 		info, blockBytes := p.proposeStopCommitteeBlock(parentBlock, height, round, qc)
 		if info == nil {
 			p.logger.Warn("HELP! could not propose stop committee block")
@@ -806,7 +805,7 @@ func (p *Pacemaker) newViewHigherQCSeen(header ConsensusMsgCommonHeader, pmQC *p
 	changed := p.UpdateQCHigh(pmQC)
 
 	if !p.csReactor.amIRoundProproser(header.Round) {
-		p.csReactor.logger.Info("NOT round proposer, drops the newview", "height", header.Height, "round", header.Round)
+		p.csReactor.logger.Info("not round proposer, drops the newview", "height", header.Height, "round", header.Round)
 		return nil
 	}
 
@@ -825,7 +824,7 @@ func (p *Pacemaker) newViewRoundTimeout(header ConsensusMsgCommonHeader, qc bloc
 	round := header.Round
 	epoch := header.EpochID
 	if !p.csReactor.amIRoundProproser(round) {
-		p.logger.Info("NOT round proposer, drops the timeout newView ...", "height", height, "round", round, "epoch", epoch)
+		p.logger.Info("not round proposer, drops the timeout newView ...", "height", height, "round", round, "epoch", epoch)
 		return nil
 	}
 

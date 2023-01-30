@@ -205,9 +205,9 @@ func (c *ConsensusReactor) validateBlockBody(blk *block.Block, forceValidate boo
 			rewards := powResults.Rewards
 			fmt.Println("---------------- Local Build KBlock Txs for validation ----------------")
 			kblockTxs := c.buildKBlockTxs(parentBlock, rewards, chainTag, bestNum, curEpoch, best, state)
-			for _, tx := range kblockTxs {
-				fmt.Println("tx=", tx.ID(), ", uniteHash=", tx.UniteHash(), "gas", tx.Gas())
-			}
+			// for _, tx := range kblockTxs {
+			// 	fmt.Println("tx=", tx.ID(), ", uniteHash=", tx.UniteHash(), "gas", tx.Gas())
+			// }
 			fmt.Printf("---------------- End of Local Build %d KBlock Txs ----------------\n", len(kblockTxs))
 
 			// Decode.
@@ -274,12 +274,12 @@ func (c *ConsensusReactor) validateBlockBody(blk *block.Block, forceValidate boo
 			}
 
 			if forceValidate {
-				log.Info("validating tx", "tx", tx.ID().String(), "uniteHash", tx.UniteHash().String(), "gas", tx.Gas())
+				log.Info("validating tx", "tx", tx.ID().String(), "uhash", tx.UniteHash().String(), "gas", tx.Gas())
 
 				// Validate.
 				txUH := tx.UniteHash()
 				if _, ok := txUniteHashs[txUH]; !ok {
-					return consensusError(fmt.Sprintf("proposed tx %s don't exist in local kblock, uniteHash:%s", tx.ID(), txUH))
+					return consensusError(fmt.Sprintf("proposed tx %s don't exist in local kblock, uhash:%s", tx.ID(), txUH))
 				}
 				txUniteHashs[txUH] -= 1
 
@@ -481,7 +481,7 @@ func (conR *ConsensusReactor) buildKBlockTxs(parentBlock *block.Block, rewards [
 	// build miner meter reward
 	txs := governor.BuildMinerRewardTxs(rewards, chainTag, bestNum)
 	for _, tx := range txs {
-		conR.logger.Info(fmt.Sprintf("Built miner reward tx: %s", tx.ID().String()), "clauses", len(tx.Clauses()))
+		conR.logger.Info(fmt.Sprintf("Built miner reward tx: %s", tx.ID().String()), "clauses", len(tx.Clauses()), "uhash", tx.UniteHash())
 	}
 
 	lastKBlockHeight := parentBlock.LastKBlockHeight()
@@ -495,12 +495,14 @@ func (conR *ConsensusReactor) buildKBlockTxs(parentBlock *block.Block, rewards [
 		}
 		if len(stats) != 0 {
 			statsTx := governor.BuildStatisticsTx(stats, chainTag, bestNum, curEpoch)
-			conR.logger.Info(fmt.Sprintf("Built stats tx: %s", statsTx.ID().String()), "clauses", len(statsTx.Clauses()))
+			conR.logger.Info(fmt.Sprintf("Built stats tx: %s", statsTx.ID().String()), "clauses", len(statsTx.Clauses()), "uhash", statsTx.UniteHash())
 			txs = append(txs, statsTx)
+		} else {
+			conR.logger.Info("no stats needed")
 		}
 		state, err := conR.stateCreator.NewState(parentBlock.Header().StateRoot())
 		if tx := governor.BuildAuctionControlTx(uint64(best.Number()+1), uint64(best.GetBlockEpoch()+1), chainTag, bestNum, state, conR.chain); tx != nil {
-			conR.logger.Info(fmt.Sprintf("Built auction control tx: %s", tx.ID().String()), "clauses", len(tx.Clauses()))
+			conR.logger.Info(fmt.Sprintf("Built auction control tx: %s", tx.ID().String()), "clauses", len(tx.Clauses()), "uhash", tx.UniteHash())
 			txs = append(txs, tx)
 		}
 
@@ -540,11 +542,18 @@ func (conR *ConsensusReactor) buildKBlockTxs(parentBlock *block.Block, rewards [
 			}
 
 			if err == nil && len(rewardMap) > 0 {
+				distTotal := big.NewInt(0)
+				autobidTotal := big.NewInt(0)
+				for _, rinfo := range rewardMap {
+					distTotal.Add(distTotal, rinfo.DistAmount)
+					autobidTotal.Add(autobidTotal, rinfo.AutobidAmount)
+				}
+				conR.logger.Info("epoch MTR reward", "distTotal", distTotal, "autobidTotal", autobidTotal)
 				if meter.IsTeslaFork6(parentBlock.Number()) {
 					_, _, rewardV2List := rewardMap.ToList()
 					governingV2Tx := governor.BuildStakingGoverningV2Tx(rewardV2List, uint32(conR.curEpoch), chainTag, bestNum)
 					if governingV2Tx != nil {
-						conR.logger.Info(fmt.Sprintf("Built governV2 tx: %s", governingV2Tx.ID().String()), "clauses", len(governingV2Tx.Clauses()))
+						conR.logger.Info(fmt.Sprintf("Built governV2 tx: %s", governingV2Tx.ID().String()), "clauses", len(governingV2Tx.Clauses()), "uhash", governingV2Tx.UniteHash())
 						txs = append(txs, governingV2Tx)
 					}
 				} else {
@@ -557,7 +566,7 @@ func (conR *ConsensusReactor) buildKBlockTxs(parentBlock *block.Block, rewards [
 
 					governingTx := governor.BuildStakingGoverningTx(distList, uint32(conR.curEpoch), chainTag, bestNum)
 					if governingTx != nil {
-						conR.logger.Info(fmt.Sprintf("Built govern tx: %s", governingTx.ID().String()), "clauses", len(governingTx.Clauses()))
+						conR.logger.Info(fmt.Sprintf("Built govern tx: %s", governingTx.ID().String()), "clauses", len(governingTx.Clauses()), "uhash", governingTx.UniteHash())
 						txs = append(txs, governingTx)
 					}
 
@@ -572,7 +581,7 @@ func (conR *ConsensusReactor) buildKBlockTxs(parentBlock *block.Block, rewards [
 					if len(autobidTxs) > 0 {
 						txs = append(txs, autobidTxs...)
 						for _, tx := range autobidTxs {
-							conR.logger.Info(fmt.Sprintf("Built autobid tx: %s", tx.ID().String()), "clauses", len(tx.Clauses()))
+							conR.logger.Info(fmt.Sprintf("Built autobid tx: %s", tx.ID().String()), "clauses", len(tx.Clauses()), "uhash", tx.UniteHash())
 						}
 					}
 				}
@@ -584,7 +593,7 @@ func (conR *ConsensusReactor) buildKBlockTxs(parentBlock *block.Block, rewards [
 
 	if tx := governor.BuildAccountLockGoverningTx(chainTag, bestNum, curEpoch); tx != nil {
 		txs = append(txs, tx)
-		conR.logger.Info(fmt.Sprintf("Built account lock tx: %s", tx.ID().String()), "clauses", len(tx.Clauses()))
+		conR.logger.Info(fmt.Sprintf("Built account lock tx: %s", tx.ID().String()), "clauses", len(tx.Clauses()), "uhash", tx.UniteHash())
 	}
 	conR.logger.Info(fmt.Sprintf("Built %d KBlock Governor Txs", len(txs)))
 	return txs

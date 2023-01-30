@@ -199,15 +199,14 @@ func ComputeRewardMap(baseReward, totalRewards *big.Int, delegates []*types.Dele
 			rewardMap.Add(distReward, autobidReward, dist.Address)
 		}
 	}
-	log.Info("validators rewards in epoch", "sum", totalRewards.String())
+	log.Debug("validators rewards in epoch", "sum", totalRewards.String())
 
 	return rewardMap, nil
 }
 
 func ComputeEpochBaseReward(validatorBaseReward *big.Int) *big.Int {
-	fmt.Println("NEpochPerDay: ", meter.NEpochPerDay)
 	epochBaseReward := new(big.Int).Div(validatorBaseReward, big.NewInt(int64(meter.NEpochPerDay)))
-	fmt.Println("Epoch base reward: ", epochBaseReward)
+	log.Info("compute epoch base reward ", "NEpochPerDay", meter.NEpochPerDay, "epochBaseReward", epochBaseReward)
 	return epochBaseReward
 }
 
@@ -229,7 +228,6 @@ func ComputeEpochTotalReward(benefitRatio *big.Int, nDays int, nAuctionPerDay in
 		s := summaryList.Summaries[size-1-i]
 		sumReward.Add(sumReward, s.RcvdMTR)
 	}
-	log.Debug("calc epoch total MTR reward", "sumReward: ", sumReward.String(), "benefitRatio", benefitRatio)
 
 	// epochTotalRewards = sumReward * benefitRatio / NDays / NEpochPerDay
 	epochTotalRewards := new(big.Int).Mul(sumReward, benefitRatio)
@@ -237,7 +235,7 @@ func ComputeEpochTotalReward(benefitRatio *big.Int, nDays int, nAuctionPerDay in
 	epochTotalRewards.Div(epochTotalRewards, big.NewInt(int64(meter.NEpochPerDay)))
 	epochTotalRewards.Div(epochTotalRewards, big.NewInt(1e18))
 
-	log.Info("total MTR rewards for epoch", "val", epochTotalRewards)
+	log.Info("compute epoch total reward", "sumReward", sumReward.String(), "benefitRatio", benefitRatio, "epochTotalRewards", epochTotalRewards)
 	return epochTotalRewards, nil
 }
 

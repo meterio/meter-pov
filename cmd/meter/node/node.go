@@ -116,7 +116,7 @@ func (n *Node) handleBlockStream(ctx context.Context, stream <-chan *block.Block
 	startTime := mclock.Now()
 
 	report := func(block *block.Block) {
-		log.Info(fmt.Sprintf("imported blocks (%v) ", stats.processed), stats.LogContext(block.Header())...)
+		// log.Info(fmt.Sprintf("imported blocks (%v) ", stats.processed), stats.LogContext(block.Header())...)
 		stats = blockStats{}
 		startTime = mclock.Now()
 	}
@@ -184,7 +184,7 @@ func (n *Node) houseKeeping(ctx context.Context) {
 				}
 			} else if isTrunk {
 				n.comm.BroadcastBlock(newBlock.Block)
-				log.Info(fmt.Sprintf("imported blocks (%v)", stats.processed), stats.LogContext(newBlock.Block.Header())...)
+				// log.Info(fmt.Sprintf("imported blocks (%v)", stats.processed), stats.LogContext(newBlock.Block.Header())...)
 			}
 		case <-futureTicker.C:
 			// process future blocks
@@ -207,7 +207,7 @@ func (n *Node) houseKeeping(ctx context.Context) {
 				}
 
 				if stats.processed > 0 && i == len(blocks)-1 {
-					log.Info(fmt.Sprintf("imported blocks (%v)", stats.processed), stats.LogContext(block.Header())...)
+					// log.Info(fmt.Sprintf("imported blocks (%v)", stats.processed), stats.LogContext(block.Header())...)
 				}
 			}
 		case <-connectivityTicker.C:

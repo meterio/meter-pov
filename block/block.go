@@ -379,7 +379,7 @@ func (b *Block) Oneliner() string {
 		ci = "YES"
 	}
 	canonicalName := b.GetCanonicalName()
-	return fmt.Sprintf("%v(%v) %v %v size:%v, magic:%v, #txs:%v, ci:%v, parent:%v ", canonicalName,
+	return fmt.Sprintf("%v(%v) %v %v %v, magic:%v, #txs:%v, ci:%v, parent:%v ", canonicalName,
 		header.Number(), header.ID().String(), b.Size(), b.QC.CompactString(), hex.EncodeToString(b.Magic[:]), len(b.Transactions()), ci, header.ParentID())
 }
 

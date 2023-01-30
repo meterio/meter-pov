@@ -490,7 +490,7 @@ func (conR *ConsensusReactor) PrepareEnvForPacemaker() error {
 		if bestIsKBlock {
 			//kblock is already added to pool, should start with next one
 			startHeight := info.PowHeight + 1
-			conR.logger.Info("Replay", "replay from powHeight", startHeight)
+			conR.logger.Info("Replay pow blocks", "fromHeight", startHeight)
 			pool.ReplayFrom(int32(startHeight))
 		}
 		conR.inCommittee = true

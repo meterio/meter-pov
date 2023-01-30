@@ -27,14 +27,13 @@ func BuildAuctionControlTx(height, epoch uint64, chainTag byte, bestNum uint32, 
 		currentActive = true
 	}
 	reservedPrice := builtin.Params.Native(s).Get(meter.KeyAuctionReservedPrice)
-	log.Info("auction rsvd price", "value", reservedPrice)
 
 	r := builtin.Params.Native(s).Get(meter.KeyAuctionInitRelease)
 	r = r.Div(r, big.NewInt(1e09))
 	fr := new(big.Float).SetInt(r)
 	initialRelease, accuracy := fr.Float64()
 	initialRelease = initialRelease / (1e09)
-	log.Info("inital release", "value", initialRelease, "accuracy", accuracy)
+	log.Info("get auction constants", "rsvdPrice", reservedPrice, "initialRelease", initialRelease, "accuracy", accuracy)
 
 	// now start a new auction
 	var lastEndHeight, lastEndEpoch, lastSequence uint64
@@ -66,11 +65,12 @@ func BuildAuctionControlTx(height, epoch uint64, chainTag byte, bestNum uint32, 
 			}
 		}
 	}
-	fmt.Println("lastEndEpoch", lastEndEpoch, "epoch", epoch)
 
 	if shouldAuctionStart(epoch, lastEndEpoch) == false {
-		log.Info("no auction Tx in the kblock ...", "height", height, "epoch", epoch)
+		log.Info("no auction control txs needed", "height", height, "epoch", epoch, "lastEndEpoch", lastEndEpoch)
 		return nil
+	} else {
+		fmt.Println("build auction control txs", "epoch", epoch, "lastEndEpoch", lastEndEpoch)
 	}
 
 	builder := new(tx.Builder)
@@ -171,22 +171,22 @@ plot(Annual);
 // whereas, deltaRate = inflationRate / 365 / nAuctionPerDay
 func ComputeEpochReleaseWithInflation(sequence uint64, lastAuction *meter.AuctionCB) (*big.Int, error) {
 	fmt.Println("Compute MTRG release with inflation (new)")
-	fmt.Println(fmt.Sprintf("auction Sequence:%d", sequence))
+	fmt.Println(fmt.Sprintf("  current sequence: %d", sequence))
 
 	// deltaRate = inflationRate / 365 / nAuctionPerDay
 	// notice: rate is in the unit of Wei
 	deltaRate := new(big.Int).Div(big.NewInt(meter.AuctionReleaseInflation), big.NewInt(int64(meter.NAuctionPerDay)))
 	deltaRate.Div(deltaRate, big.NewInt(365))
 
-	fmt.Println("delta rate: ", deltaRate)
+	fmt.Println("  delta rate: ", deltaRate)
 
 	if lastAuction == nil || (lastAuction.StartHeight == 0 && lastAuction.EndHeight == 0 && lastAuction.RlsdMTRG == nil && lastAuction.StartEpoch == 0 && lastAuction.EndEpoch == 0) {
-		fmt.Println("first: ", true, "sequence: ", sequence)
+		fmt.Println("  first: ", true, "sequence: ", sequence)
 		// initEpochRelease = MTRReleaseBase * 1e18 / deltaRate / 1e18
 		initEpochRelease := new(big.Int).Mul(big.NewInt(meter.AuctionReleaseBase), UnitWei) // multiply base with 1e18
 		initEpochRelease.Mul(initEpochRelease, deltaRate)
 		initEpochRelease.Div(initEpochRelease, UnitWei)
-		fmt.Println("init release: ", initEpochRelease)
+		fmt.Println("  init release: ", initEpochRelease)
 		return initEpochRelease, nil
 	}
 	// fmt.Println("last auction: ", lastAuction)
@@ -210,13 +210,13 @@ func ComputeEpochReleaseWithInflation(sequence uint64, lastAuction *meter.Auctio
 		release.Mul(release, deltaRate)
 		release.Div(release, UnitWei)
 	}
-	fmt.Println("Sequence = ", lastAuction.Sequence)
-	fmt.Println("last release:", lastRelease, " (calibrate):", release)
+	fmt.Println("  last sequence:", lastAuction.Sequence)
+	fmt.Println("  last release:", lastRelease, " (calibrate):", release)
 
 	release.Add(release, new(big.Int).Mul(big.NewInt(meter.AuctionReleaseBase), UnitWei))
 	release.Mul(release, deltaRate)
 	release.Div(release, UnitWei)
-	fmt.Println("current release:", curRelease, " (calibrate):", release)
+	fmt.Println("  current release:", curRelease, " (calibrate):", release)
 
 	return curRelease, nil
 }

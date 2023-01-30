@@ -148,9 +148,9 @@ func (a *Auction) ClearAuction(env *setypes.ScriptEnv, cb *meter.AuctionCB, vali
 			a.MintMTRGToBidder(env, addr, mtrg)
 			total = total.Add(total, mtrg)
 			distMtrg = append(distMtrg, &meter.DistMtrg{Addr: addr, Amount: mtrg})
-			a.logger.Warn("mint MTRG to bidder", "elapsed", meter.PrettyDuration(time.Since(mstart)), "addr", addr)
+			a.logger.Debug("mint MTRG to bidder", "elapsed", meter.PrettyDuration(time.Since(mstart)), "addr", addr)
 		}
-		a.logger.Info("4. mint MTRG to bidder total", "elapsed", meter.PrettyDuration(time.Since(stub)))
+		a.logger.Info("4. mint MTRG to bidder total", "elapsed", meter.PrettyDuration(time.Since(stub)), "count", len(sortedAddresses))
 	} else {
 		for _, tx := range cb.AuctionTxs {
 			mtrg := new(big.Int).Mul(tx.Amount, big.NewInt(1e18))
