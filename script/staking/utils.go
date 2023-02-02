@@ -24,12 +24,13 @@ var (
 	errInvalidParams    = errors.New("invalid params")
 
 	// buckets
-	errBucketNotFound       = errors.New("bucket not found")
-	errBucketOwnerMismatch  = errors.New("bucket owner mismatch")
-	errBucketAmountMismatch = errors.New("bucket amount mismatch")
-	errBucketTokenMismatch  = errors.New("bucket token mismatch")
-	errBucketInUse          = errors.New("bucket in used (address is not zero)")
-	errUpdateForeverBucket  = errors.New("can't update forever bucket")
+	errBucketNotFound         = errors.New("bucket not found")
+	errBucketOwnerMismatch    = errors.New("bucket owner mismatch")
+	errBucketAmountMismatch   = errors.New("bucket amount mismatch")
+	errBucketTokenMismatch    = errors.New("bucket token mismatch")
+	errBucketInUse            = errors.New("bucket in used (address is not zero)")
+	errUpdateForeverBucket    = errors.New("can't update forever bucket")
+	errBucketAlreadyUnbounded = errors.New("bucket already unbounded")
 
 	// amount
 	errLessThanMinimalBalance  = errors.New("amount less than minimal balance (" + new(big.Int).Div(meter.MIN_REQUIRED_BY_DELEGATE, big.NewInt(1e18)).String() + " MTRG)")

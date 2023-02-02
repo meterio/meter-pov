@@ -47,7 +47,6 @@ func TestPowObjMap(t *testing.T) {
 	info3 := NewPowBlockInfoFromPowBlock(blk3)
 	// h3 := info3.HashID().String()[2:]
 
-	//FIXME: hard coded only to pass
 	info1.PowHeight = 1
 	info2.PowHeight = 2
 	info3.PowHeight = 3

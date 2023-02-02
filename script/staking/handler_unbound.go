@@ -37,7 +37,14 @@ func (s *Staking) UnBoundHandler(env *setypes.ScriptEnv, sb *StakingBody, gas ui
 	if b.Token != sb.Token {
 		return leftOverGas, errBucketTokenMismatch
 	}
-	if b.IsForeverLock() == true {
+	number := env.GetBlockNum()
+	if meter.IsTeslaFork7(number) {
+		if b.Unbounded {
+			return leftOverGas, errBucketAlreadyUnbounded
+		}
+	}
+
+	if b.IsForeverLock() {
 		return leftOverGas, errUpdateForeverBucket
 	}
 

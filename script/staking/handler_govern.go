@@ -366,7 +366,13 @@ func (s *Staking) GoverningHandler(env *setypes.ScriptEnv, sb *StakingBody, gas 
 
 	// start to calc next round delegates
 	ts := sb.Timestamp
-	if meter.IsTeslaFork5(number) {
+	if meter.IsTeslaFork7(number) {
+		// ---------------------------------------
+		// AFTER TESLA FORK 7 : use block timestamp instead of input timestamp
+		// ---------------------------------------
+		ts = env.GetBlockCtx().Time
+		err = s.unboundAndCalcBonusAfterTeslaFork5(env, bucketList, candidateList, stakeholderList, ts)
+	} else if meter.IsTeslaFork5(number) {
 		// ---------------------------------------
 		// AFTER TESLA FORK 5 : update bucket bonus and candidate total votes with full range re-calc
 		// ---------------------------------------

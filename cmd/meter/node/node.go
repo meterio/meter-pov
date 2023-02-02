@@ -305,7 +305,7 @@ func (n *Node) processBlock(blk *block.Block, stats *blockStats) (bool, error) {
 	stats.UpdateProcessed(1, len(receipts), execElapsed, commitElapsed, blk.Header().GasUsed())
 	n.processFork(fork)
 
-	// XXX: shortcut to refresh height
+	// shortcut to refresh height
 	n.cons.RefreshCurHeight()
 	if blk.IsKBlock() {
 		data, _ := blk.GetKBlockData()

@@ -107,6 +107,12 @@ const (
 	TeslaFork6_TestnetStartNum = 4932000  // same as fork4
 )
 
+// FIXME: update this when fork7 is formal
+const (
+	TeslaFork7_MainnetStartNum = 80000000 // around 1/31/2023 9:30 AM (PDT)
+	TeslaFork7_TestnetStartNum = 80000000 // same as fork4
+)
+
 var (
 	// Genesis hashes to enforce below configs on.
 	log = log15.New("pkg", "meter")
@@ -233,4 +239,8 @@ func IsTeslaFork5(blockNum uint32) bool {
 
 func IsTeslaFork6(blockNum uint32) bool {
 	return (BlockChainConfig.IsMainnet() && blockNum > TeslaFork6_MainnetStartNum) || (BlockChainConfig.IsTestnet() && blockNum > TeslaFork6_TestnetStartNum)
+}
+
+func IsTeslaFork7(blockNum uint32) bool {
+	return (BlockChainConfig.IsMainnet() && blockNum > TeslaFork7_MainnetStartNum) || (BlockChainConfig.IsTestnet() && blockNum > TeslaFork7_TestnetStartNum)
 }
