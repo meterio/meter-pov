@@ -60,25 +60,25 @@ func (a *AccountLock) Handle(senv *setypes.ScriptEnv, payload []byte, to *meter.
 	a.logger.Debug("received AccountLock", "body", ab.ToString())
 	a.logger.Debug("Entering accountLock handler "+ab.GetOpName(ab.Opcode), "tx", senv.GetTxHash())
 	switch ab.Opcode {
-	case OP_ADDLOCK:
+	case meter.OP_ADDLOCK:
 		if senv.GetTxOrigin().IsZero() == false {
 			return nil, gas, errors.New("not from kblock")
 		}
 		leftOverGas, err = a.HandleAccountLockAdd(senv, ab, gas)
 
-	case OP_REMOVELOCK:
+	case meter.OP_REMOVELOCK:
 		if senv.GetTxOrigin().IsZero() == false {
 			return nil, gas, errors.New("not form kblock")
 		}
 		leftOverGas, err = a.HandleAccountLockRemove(senv, ab, gas)
 
-	case OP_TRANSFER:
+	case meter.OP_TRANSFER:
 		if senv.GetTxOrigin() != ab.FromAddr {
 			return nil, gas, errors.New("from address is not the same from transaction")
 		}
 		leftOverGas, err = a.HandleAccountLockTransfer(senv, ab, gas)
 
-	case OP_GOVERNING:
+	case meter.OP_GOVERNING:
 		if to.String() != meter.AccountLockModuleAddr.String() {
 			return nil, gas, errors.New("to address is not the same from module address")
 		}

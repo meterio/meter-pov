@@ -10,7 +10,6 @@ import (
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/meterio/meter-pov/builtin"
 	"github.com/meterio/meter-pov/meter"
-	"github.com/meterio/meter-pov/script/auction"
 	setypes "github.com/meterio/meter-pov/script/types"
 )
 
@@ -119,7 +118,7 @@ func (s *Staking) distributeAndAutobidAfterTeslaFork6(env *setypes.ScriptEnv, sb
 				return
 			}
 
-			tx := meter.NewAuctionTx(a.Address, a.Amount, auction.AUTO_BID, env.GetBlockCtx().Time, uint64(i))
+			tx := meter.NewAuctionTx(a.Address, a.Amount, meter.AUTO_BID, env.GetBlockCtx().Time, uint64(i))
 			err = auctionCB.AddAuctionTx(tx)
 
 			if err != nil {

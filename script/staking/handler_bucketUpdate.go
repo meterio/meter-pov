@@ -48,7 +48,7 @@ func (s *Staking) BucketUpdateHandler(env *setypes.ScriptEnv, sb *StakingBody, g
 		// ---------------------------------------
 		// AFTER TESLA FORK 5 : support bucket sub
 		// ---------------------------------------
-		if sb.Option == BUCKET_SUB_OPT {
+		if sb.Option == meter.BUCKET_SUB_OPT {
 			if bucket.Unbounded == true {
 				s.logger.Error(fmt.Sprintf("can not update unbounded bucket, ID %v", sb.StakingID))
 				err = errors.New("can not update unbounded bucket")
@@ -58,7 +58,7 @@ func (s *Staking) BucketUpdateHandler(env *setypes.ScriptEnv, sb *StakingBody, g
 			// sanity check before doing the sub
 			valueAfterSub := new(big.Int).Sub(bucket.Value, sb.Amount)
 			if bucket.IsForeverLock() {
-				if valueAfterSub.Cmp(MIN_REQUIRED_BY_DELEGATE) < 0 {
+				if valueAfterSub.Cmp(meter.MIN_REQUIRED_BY_DELEGATE) < 0 {
 					err = errors.New("limit MIN_REQUIRED_BY_DELEGATE")
 					return
 				}
@@ -68,12 +68,12 @@ func (s *Staking) BucketUpdateHandler(env *setypes.ScriptEnv, sb *StakingBody, g
 					return
 				}
 
-				selfRatioValid := CheckEnoughSelfVotes(sb.Amount, self, bucketList, TESLA1_1_SELF_VOTE_RATIO)
+				selfRatioValid := CheckEnoughSelfVotes(sb.Amount, self, bucketList, meter.TESLA1_1_SELF_VOTE_RATIO)
 				if !selfRatioValid {
 					return leftOverGas, errCandidateNotEnoughSelfVotes
 				}
 			} else {
-				if valueAfterSub.Cmp(MIN_BOUND_BALANCE) < 0 {
+				if valueAfterSub.Cmp(meter.MIN_BOUND_BALANCE) < 0 {
 					err = errors.New("limit MIN_BOUND_BALANCE")
 					return
 				}
@@ -93,9 +93,9 @@ func (s *Staking) BucketUpdateHandler(env *setypes.ScriptEnv, sb *StakingBody, g
 			bucket.TotalVotes.Sub(bucket.TotalVotes, bonusDelta)
 
 			// create unbounded new bucket
-			newBucket := meter.NewBucket(bucket.Owner, bucket.Candidate, sb.Amount, uint8(bucket.Token), ONE_WEEK_LOCK, bucket.Rate, bucket.Autobid, sb.Timestamp, sb.Nonce)
+			newBucket := meter.NewBucket(bucket.Owner, bucket.Candidate, sb.Amount, uint8(bucket.Token), meter.ONE_WEEK_LOCK, bucket.Rate, bucket.Autobid, sb.Timestamp, sb.Nonce)
 			newBucket.Unbounded = true
-			newBucket.MatureTime = sb.Timestamp + GetBoundLocktime(newBucket.Option) // lock time
+			newBucket.MatureTime = sb.Timestamp + meter.GetBoundLocktime(newBucket.Option) // lock time
 			newBucketID := newBucket.BucketID
 
 			// update bucket list with new bucket
@@ -122,7 +122,7 @@ func (s *Staking) BucketUpdateHandler(env *setypes.ScriptEnv, sb *StakingBody, g
 			return
 		}
 
-		if sb.Option == BUCKET_ADD_OPT {
+		if sb.Option == meter.BUCKET_ADD_OPT {
 			// Now allow to change forever lock amount
 			if bucket.Unbounded == true {
 				s.logger.Error(fmt.Sprintf("can not update unbounded bucket, ID %v", sb.StakingID))

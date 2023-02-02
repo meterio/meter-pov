@@ -86,9 +86,9 @@ func BuildAutobidTx(autobidList []*meter.RewardInfo, chainTag byte, bestNum uint
 func BuildAutobidData(autobid *meter.RewardInfo) (ret []byte) {
 	body := &auction.AuctionBody{
 		Bidder:    autobid.Address,
-		Opcode:    auction.OP_BID,
+		Opcode:    meter.OP_BID,
 		Version:   uint32(0),
-		Option:    auction.AUTO_BID,
+		Option:    meter.AUTO_BID,
 		Amount:    autobid.Amount,
 		Timestamp: uint64(time.Now().Unix()),
 		Nonce:     rand.Uint64(),

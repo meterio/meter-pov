@@ -15,10 +15,6 @@ import (
 	"github.com/ethereum/go-ethereum/rlp"
 )
 
-var (
-	FOREVER_LOCK = uint32(1000)
-)
-
 // Candidate indicates the structure of a candidate
 type Bucket struct {
 	BucketID   Bytes32

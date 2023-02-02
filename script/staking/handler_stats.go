@@ -96,7 +96,7 @@ func (s *Staking) DelegateStatHandler(env *setypes.ScriptEnv, sb *StakingBody, g
 
 		// if this candidate already uncandidate, forgive it
 		if cand := candidateList.Get(stats.Addr); cand != nil {
-			bail := BAIL_FOR_EXIT_JAIL
+			bail := meter.BAIL_FOR_EXIT_JAIL
 			if meter.IsTeslaFork6(blockNum) {
 				inJailList.Add(meter.NewInJail(stats.Addr, stats.Name, stats.PubKey, stats.TotalPts, &stats.Infractions, bail, uint64(blockNum)))
 			} else {

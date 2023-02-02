@@ -18,7 +18,6 @@ import (
 	"github.com/meterio/meter-pov/meter"
 	"github.com/meterio/meter-pov/runtime"
 	"github.com/meterio/meter-pov/script"
-	"github.com/meterio/meter-pov/script/auction"
 	"github.com/meterio/meter-pov/state"
 	"github.com/meterio/meter-pov/xenv"
 )
@@ -30,9 +29,9 @@ var (
 func buildAuctionTxs(n int) []*meter.AuctionTx {
 	txs := make([]*meter.AuctionTx, 0)
 	for i := 1; i < n; i++ {
-		_type := auction.AUTO_BID
+		_type := meter.AUTO_BID
 		if i%2 == 0 {
-			_type = auction.USER_BID
+			_type = meter.USER_BID
 		}
 		amount := big.NewInt(0).Mul(big.NewInt(int64(rand.Uint64())), big.NewInt(1e18))
 		amount = amount.Abs(amount)

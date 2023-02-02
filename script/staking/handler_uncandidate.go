@@ -54,7 +54,7 @@ func (s *Staking) UnCandidateHandler(env *setypes.ScriptEnv, sb *StakingBody, ga
 		b.Candidate = meter.Address{}
 		// candidate locked bucket back to normal(longest lock)
 		if b.IsForeverLock() == true {
-			opt, rate, _ := GetBoundLockOption(ONE_WEEK_LOCK)
+			opt, rate, _ := meter.GetBoundLockOption(meter.ONE_WEEK_LOCK)
 			b.UpdateLockOption(opt, rate)
 		}
 	}

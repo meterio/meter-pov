@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"github.com/meterio/meter-pov/meter"
-	"github.com/meterio/meter-pov/script/auction"
 )
 
 type AuctionSummary struct {
@@ -108,11 +107,11 @@ func convertDigest(s *meter.AuctionSummary) *AuctionDigest {
 	userbidCount := 0
 	userbidTotal := big.NewInt(0)
 	for _, t := range s.AuctionTxs {
-		if t.Type == auction.USER_BID {
+		if t.Type == meter.USER_BID {
 			userbidCount++
 			userbidTotal.Add(userbidTotal, t.Amount)
 		}
-		if t.Type == auction.AUTO_BID {
+		if t.Type == meter.AUTO_BID {
 			autobidCount++
 			autobidTotal.Add(autobidTotal, t.Amount)
 		}
@@ -188,7 +187,7 @@ func convertSummary(s *meter.AuctionSummary) *AuctionSummary {
 
 func convertAuctionTx(t *meter.AuctionTx) *AuctionTx {
 	var bidType string
-	if t.Type == auction.USER_BID {
+	if t.Type == meter.USER_BID {
 		bidType = "userbid"
 	} else {
 		bidType = "autobid"

@@ -28,7 +28,7 @@ func (s *Staking) BoundHandler(env *setypes.ScriptEnv, sb *StakingBody, gas uint
 
 	// bound should meet the stake minmial requirement
 	// current it is 10 MTRGov
-	if sb.Amount.Cmp(MIN_BOUND_BALANCE) < 0 {
+	if sb.Amount.Cmp(meter.MIN_BOUND_BALANCE) < 0 {
 		err = errLessThanMinBoundBalance
 		s.logger.Error("does not meet minimium bound balance")
 		return
@@ -45,9 +45,9 @@ func (s *Staking) BoundHandler(env *setypes.ScriptEnv, sb *StakingBody, gas uint
 		} else {
 			selfRatioValid := false
 			if meter.IsTeslaFork1(number) {
-				selfRatioValid = CheckCandEnoughSelfVotes(sb.Amount, c, bucketList, TESLA1_1_SELF_VOTE_RATIO)
+				selfRatioValid = CheckCandEnoughSelfVotes(sb.Amount, c, bucketList, meter.TESLA1_1_SELF_VOTE_RATIO)
 			} else {
-				selfRatioValid = CheckCandEnoughSelfVotes(sb.Amount, c, bucketList, TESLA1_0_SELF_VOTE_RATIO)
+				selfRatioValid = CheckCandEnoughSelfVotes(sb.Amount, c, bucketList, meter.TESLA1_0_SELF_VOTE_RATIO)
 			}
 			if selfRatioValid == false {
 				s.logger.Error(errCandidateNotEnoughSelfVotes.Error(), "candidate",
@@ -81,7 +81,7 @@ func (s *Staking) BoundHandler(env *setypes.ScriptEnv, sb *StakingBody, gas uint
 	}
 
 	// sanity checked, now do the action
-	opt, rate, locktime := GetBoundLockOption(sb.Option)
+	opt, rate, locktime := meter.GetBoundLockOption(sb.Option)
 	s.logger.Info("get bound option", "option", opt, "rate", rate, "locktime", locktime)
 
 	var candAddr meter.Address

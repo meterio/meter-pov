@@ -279,7 +279,7 @@ func buildAuctionStartData(start, startEpoch, end, endEpoch, sequence uint64, in
 	// reserveBigInt = FloatToBigInt(reserve)
 
 	body := &auction.AuctionBody{
-		Opcode:        auction.OP_START,
+		Opcode:        meter.OP_START,
 		Version:       uint32(0),
 		StartHeight:   start,
 		StartEpoch:    startEpoch,
@@ -297,7 +297,7 @@ func buildAuctionStartData(start, startEpoch, end, endEpoch, sequence uint64, in
 
 func buildAuctionStopData(start, startEpoch, end, endEpoch, sequence uint64, id *meter.Bytes32) (ret []byte) {
 	body := &auction.AuctionBody{
-		Opcode:      auction.OP_STOP,
+		Opcode:      meter.OP_STOP,
 		Version:     uint32(0),
 		StartHeight: start,
 		StartEpoch:  startEpoch,

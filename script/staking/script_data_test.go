@@ -122,7 +122,7 @@ func TestUndelegate(t *testing.T) {
 func TestBound(t *testing.T) {
 	body := &staking.StakingBody{
 		Opcode:     staking.OP_BOUND,
-		Option:     staking.ONE_WEEK_LOCK,
+		Option:     meter.ONE_WEEK_LOCK,
 		Version:    StakingVersion,
 		HolderAddr: HolderAddress,
 		CandAddr:   CandidateAddress,
@@ -155,7 +155,7 @@ func TestUnbound(t *testing.T) {
 func TestBid(t *testing.T) {
 	version := uint32(0)
 	body := &auction.AuctionBody{
-		Opcode:    auction.OP_BID,
+		Opcode:    meter.OP_BID,
 		Version:   version,
 		AuctionID: EmptyByte32,
 		Bidder:    HolderAddress,
@@ -207,7 +207,7 @@ func TestBailOut(t *testing.T) {
 
 func TestLockedTransfer(t *testing.T) {
 	body := &accountlock.AccountLockBody{
-		Opcode:         accountlock.OP_TRANSFER,
+		Opcode:         meter.OP_TRANSFER,
 		Version:        0,
 		Option:         0,
 		LockEpoch:      LockEpoch,

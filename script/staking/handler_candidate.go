@@ -31,7 +31,7 @@ func (s *Staking) CandidateHandler(env *setypes.ScriptEnv, sb *StakingBody, gas 
 
 	// candidate should meet the stake minmial requirement
 	// current it is 300 MTRGov
-	if sb.Amount.Cmp(MIN_REQUIRED_BY_DELEGATE) < 0 {
+	if sb.Amount.Cmp(meter.MIN_REQUIRED_BY_DELEGATE) < 0 {
 		err = errLessThanMinimalBalance
 		s.logger.Error("does not meet minimial balance")
 		return
@@ -107,8 +107,8 @@ func (s *Staking) CandidateHandler(env *setypes.ScriptEnv, sb *StakingBody, gas 
 	}
 
 	// now staking the amount, force to forever lock
-	opt, rate, locktime := GetBoundLockOption(meter.FOREVER_LOCK)
-	commission := GetCommissionRate(sb.Option)
+	opt, rate, locktime := meter.GetBoundLockOption(meter.FOREVER_LOCK)
+	commission := meter.GetCommissionRate(sb.Option)
 	s.logger.Info("get bound option", "option", opt, "rate", rate, "locktime", locktime, "commission", commission)
 
 	// bucket owner is candidate

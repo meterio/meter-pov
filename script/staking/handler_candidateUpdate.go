@@ -121,7 +121,7 @@ func (s *Staking) CandidateUpdateHandler(env *setypes.ScriptEnv, sb *StakingBody
 	if bytes.Equal(record.Description, sb.CandDescription) == false {
 		descUpdated = true
 	}
-	commission := GetCommissionRate(sb.Option)
+	commission := meter.GetCommissionRate(sb.Option)
 	if record.Commission != commission {
 		commissionUpdated = true
 	}
@@ -137,7 +137,7 @@ func (s *Staking) CandidateUpdateHandler(env *setypes.ScriptEnv, sb *StakingBody
 
 	// the above changes are restricted by time
 	// except ip and pubkey, which can be updated at any time
-	if (sb.Timestamp-record.Timestamp) < MIN_CANDIDATE_UPDATE_INTV && !ipUpdated && !pubUpdated {
+	if (sb.Timestamp-record.Timestamp) < meter.MIN_CANDIDATE_UPDATE_INTV && !ipUpdated && !pubUpdated {
 		s.logger.Error("update too frequently", "curTime", sb.Timestamp, "recordedTime", record.Timestamp)
 		err = errUpdateTooFrequent
 		return
@@ -153,7 +153,7 @@ func (s *Staking) CandidateUpdateHandler(env *setypes.ScriptEnv, sb *StakingBody
 		changed = true
 	}
 
-	if (sb.Timestamp - record.Timestamp) >= MIN_CANDIDATE_UPDATE_INTV {
+	if (sb.Timestamp - record.Timestamp) >= meter.MIN_CANDIDATE_UPDATE_INTV {
 		if commissionUpdated {
 			record.Commission = commission
 			changed = true

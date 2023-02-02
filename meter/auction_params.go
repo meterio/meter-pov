@@ -1,4 +1,4 @@
-package auction
+package meter
 
 const (
 	OP_START = uint32(1)

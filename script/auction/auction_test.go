@@ -38,11 +38,11 @@ const (
 func generateScriptData(opCode uint32, holderAddrStr string, amountInt64 int64, startHeight, endHeight uint64) (string, error) {
 	op := ""
 	switch opCode {
-	case auction.OP_STOP:
+	case meter.OP_STOP:
 		op = "Auction Stop"
-	case auction.OP_START:
+	case meter.OP_START:
 		op = "Auction Start"
-	case auction.OP_BID:
+	case meter.OP_BID:
 		op = "Auction Bid"
 	}
 	rand.Seed(int64(time.Now().Nanosecond()))
@@ -71,21 +71,21 @@ func generateScriptData(opCode uint32, holderAddrStr string, amountInt64 int64, 
 	return hex.EncodeToString(ret), err
 }
 func TestScriptDataForBid(t *testing.T) {
-	hexData, err := generateScriptData(auction.OP_BID, HOLDER_ADDRESS, 8e18, 0, 0)
+	hexData, err := generateScriptData(meter.OP_BID, HOLDER_ADDRESS, 8e18, 0, 0)
 	if err != nil {
 		t.Fail()
 	}
 	fmt.Println("ScriptData Data Hex for Auction Bid: ", hexData)
 }
 func TestScriptDataForStart(t *testing.T) {
-	hexData, err := generateScriptData(auction.OP_START, HOLDER_ADDRESS, 0, 30000, 60000)
+	hexData, err := generateScriptData(meter.OP_START, HOLDER_ADDRESS, 0, 30000, 60000)
 	if err != nil {
 		t.Fail()
 	}
 	fmt.Println("ScriptData Data Hex for Auction Start: ", hexData)
 }
 func TestScriptDataForStop(t *testing.T) {
-	hexData, err := generateScriptData(auction.OP_STOP, HOLDER_ADDRESS, 0, 0, 0)
+	hexData, err := generateScriptData(meter.OP_STOP, HOLDER_ADDRESS, 0, 0, 0)
 	if err != nil {
 		t.Fail()
 	}
@@ -117,7 +117,7 @@ func TestLargeRlpDecode(t *testing.T) {
 				TxID:      meter.BytesToBytes32([]byte("test-" + strconv.Itoa(seq))),
 				Address:   meter.BytesToAddress([]byte("address-" + strconv.Itoa(seq))),
 				Amount:    big.NewInt(1234),
-				Type:      auction.AUTO_BID,
+				Type:      meter.AUTO_BID,
 				Timestamp: rand.Uint64(),
 				Nonce:     rand.Uint64(),
 			}

@@ -50,20 +50,20 @@ func (a *Auction) Handle(senv *setypes.ScriptEnv, payload []byte, to *meter.Addr
 	log.Debug("received auction", "body", ab.ToString())
 	log.Debug("Entering auction handler "+ab.GetOpName(ab.Opcode), "tx", senv.GetTxHash())
 	switch ab.Opcode {
-	case OP_START:
+	case meter.OP_START:
 		if senv.GetTxOrigin().IsZero() == false {
 			return nil, gas, errors.New("not from kblock")
 		}
 		leftOverGas, err = a.StartAuctionCB(senv, ab, gas)
 
-	case OP_STOP:
+	case meter.OP_STOP:
 		if senv.GetTxOrigin().IsZero() == false {
 			return nil, gas, errors.New("not form kblock")
 		}
 		leftOverGas, err = a.CloseAuctionCB(senv, ab, gas)
 
-	case OP_BID:
-		if ab.Option == AUTO_BID {
+	case meter.OP_BID:
+		if ab.Option == meter.AUTO_BID {
 			if senv.GetTxOrigin().IsZero() == false {
 				return nil, gas, errors.New("not from kblock")
 			}

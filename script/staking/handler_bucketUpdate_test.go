@@ -36,7 +36,7 @@ func buildBucketAddData(curEpoch uint32) (ret []byte) {
 	ret = []byte{}
 
 	body := &accountlock.AccountLockBody{
-		Opcode:  accountlock.OP_GOVERNING,
+		Opcode:  meter.OP_GOVERNING,
 		Version: curEpoch,
 		Option:  uint32(0),
 	}

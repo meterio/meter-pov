@@ -32,8 +32,8 @@ var (
 	errUpdateForeverBucket  = errors.New("can't update forever bucket")
 
 	// amount
-	errLessThanMinimalBalance  = errors.New("amount less than minimal balance (" + new(big.Int).Div(MIN_REQUIRED_BY_DELEGATE, big.NewInt(1e18)).String() + " MTRG)")
-	errLessThanMinBoundBalance = errors.New("amount less than minimal balance (" + new(big.Int).Div(MIN_BOUND_BALANCE, big.NewInt(1e18)).String() + " MTRG)")
+	errLessThanMinimalBalance  = errors.New("amount less than minimal balance (" + new(big.Int).Div(meter.MIN_REQUIRED_BY_DELEGATE, big.NewInt(1e18)).String() + " MTRG)")
+	errLessThanMinBoundBalance = errors.New("amount less than minimal balance (" + new(big.Int).Div(meter.MIN_BOUND_BALANCE, big.NewInt(1e18)).String() + " MTRG)")
 	errNotEnoughMTR            = errors.New("not enough MTR")
 	errNotEnoughMTRG           = errors.New("not enough MTRG")
 

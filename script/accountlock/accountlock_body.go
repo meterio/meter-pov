@@ -38,13 +38,13 @@ func (sb *AccountLockBody) String() string {
 
 func (a *AccountLockBody) GetOpName(op uint32) string {
 	switch op {
-	case OP_ADDLOCK:
+	case meter.OP_ADDLOCK:
 		return "addlock"
-	case OP_REMOVELOCK:
+	case meter.OP_REMOVELOCK:
 		return "removelock"
-	case OP_TRANSFER:
+	case meter.OP_TRANSFER:
 		return "transfer"
-	case OP_GOVERNING:
+	case meter.OP_GOVERNING:
 		return "governing"
 	default:
 		return "Unknown"

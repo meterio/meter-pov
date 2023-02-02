@@ -1,16 +1,33 @@
-// Copyright (c) 2020 The Meter.io developers
-
-// Distributed under the GNU Lesser General Public License v3.0 software license, see the accompanying
-// file LICENSE or <https://www.gnu.org/licenses/lgpl-3.0.html>
-
-package staking
+package meter
 
 import (
-	"github.com/meterio/meter-pov/meter"
-	"github.com/meterio/meter-pov/types"
+	"math/big"
 )
 
-// staking options
+const (
+	MIN_CANDIDATE_UPDATE_INTV = uint64(3600 * 24) // 1 day
+	TESLA1_0_SELF_VOTE_RATIO  = 10                // max candidate total votes / self votes ratio < 10x in Tesla 1.0
+	TESLA1_1_SELF_VOTE_RATIO  = 100               // max candidate total votes / self votes ratio < 100x in Tesla 1.1
+)
+
+var (
+	// bound minimium requirement 100 MTRG
+	MIN_BOUND_BALANCE = new(big.Int).Mul(big.NewInt(100), big.NewInt(1e18))
+
+	// delegate minimum requirement 2000 MTRG
+	MIN_REQUIRED_BY_DELEGATE *big.Int = new(big.Int).Mul(big.NewInt(int64(2000)), big.NewInt(int64(1e18)))
+
+	// amount to exit from jail 10 MTRGov
+	BAIL_FOR_EXIT_JAIL = new(big.Int).Mul(big.NewInt(int64(10)), big.NewInt(int64(1e18)))
+)
+
+// bucket update options
+const (
+	BUCKET_ADD_OPT = 0
+	BUCKET_SUB_OPT = 1
+)
+
+// bound lock options
 const (
 	ONE_DAY_LOCK      = uint32(0)
 	ONE_DAY_LOCK_RATE = uint8(0)
@@ -33,11 +50,9 @@ const (
 	FOUR_WEEK_LOCK_TIME = uint64(60 * 60 * 24 * 28)
 
 	// for candidate bucket ONLY
+	FOREVER_LOCK      = uint32(1000)
 	FOREVER_LOCK_RATE = ONE_WEEK_LOCK_RATE
 	FOREVER_LOCK_TIME = uint64(0)
-
-	BUCKET_ADD_OPT = 0
-	BUCKET_SUB_OPT = 1
 )
 
 func GetBoundLockOption(chose uint32) (opt uint32, rate uint8, locktime uint64) {
@@ -57,8 +72,8 @@ func GetBoundLockOption(chose uint32) (opt uint32, rate uint8, locktime uint64) 
 	case FOUR_WEEK_LOCK:
 		return FOUR_WEEK_LOCK, FOUR_WEEK_LOCK_RATE, FOUR_WEEK_LOCK_TIME
 
-	case meter.FOREVER_LOCK:
-		return meter.FOREVER_LOCK, FOREVER_LOCK_RATE, FOREVER_LOCK_TIME
+	case FOREVER_LOCK:
+		return FOREVER_LOCK, FOREVER_LOCK_RATE, FOREVER_LOCK_TIME
 
 	// at least lock 1 day
 	default:
@@ -83,7 +98,7 @@ func GetBoundLocktime(opt uint32) (lock uint64) {
 	case FOUR_WEEK_LOCK:
 		return FOUR_WEEK_LOCK_TIME
 
-	case meter.FOREVER_LOCK:
+	case FOREVER_LOCK:
 		return FOREVER_LOCK_TIME
 
 	// at least lock 1 week
@@ -92,10 +107,18 @@ func GetBoundLocktime(opt uint32) (lock uint64) {
 	}
 }
 
+// =================================
+// commission rate 1% presents 1e07, unit is shannon (1e09)
+const (
+	COMMISSION_RATE_MAX     = uint64(100 * 1e07) // 100%
+	COMMISSION_RATE_MIN     = uint64(1 * 1e07)   // 1%
+	COMMISSION_RATE_DEFAULT = uint64(10 * 1e07)  // 10%
+)
+
 func GetCommissionRate(opt uint32) uint64 {
 	commission := uint64(opt)
-	if commission > types.COMMISSION_RATE_MAX || commission < types.COMMISSION_RATE_MIN {
-		return types.COMMISSION_RATE_DEFAULT
+	if commission > COMMISSION_RATE_MAX || commission < COMMISSION_RATE_MIN {
+		return COMMISSION_RATE_DEFAULT
 	}
 	return commission
 }

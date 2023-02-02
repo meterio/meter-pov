@@ -68,8 +68,8 @@ func (a *Auction) CloseAuctionCB(env *setypes.ScriptEnv, ab *AuctionBody, gas ui
 	// limit the summary list to AUCTION_MAX_SUMMARIES
 	var summaries []*meter.AuctionSummary
 	sumLen := len(summaryList.Summaries)
-	if sumLen >= AUCTION_MAX_SUMMARIES {
-		summaries = append(summaryList.Summaries[sumLen-AUCTION_MAX_SUMMARIES+1:], summary)
+	if sumLen >= meter.AUCTION_MAX_SUMMARIES {
+		summaries = append(summaryList.Summaries[sumLen-meter.AUCTION_MAX_SUMMARIES+1:], summary)
 	} else {
 		summaries = append(summaryList.Summaries, summary)
 	}

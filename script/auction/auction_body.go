@@ -51,11 +51,11 @@ func (sb *AuctionBody) String() string {
 
 func (ab *AuctionBody) GetOpName(op uint32) string {
 	switch op {
-	case OP_START:
+	case meter.OP_START:
 		return "Start"
-	case OP_STOP:
+	case meter.OP_STOP:
 		return "Stop"
-	case OP_BID:
+	case meter.OP_BID:
 		return "Bid"
 	default:
 		return "Unknown"

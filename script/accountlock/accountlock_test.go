@@ -31,11 +31,11 @@ const (
 func generateAccountLockData(op, version, option, lock, release uint32, from, to meter.Address, mtr, mtrg int64, memo string) ([]byte, error) {
 	opStr := ""
 	switch op {
-	case accountlock.OP_ADDLOCK:
+	case meter.OP_ADDLOCK:
 		opStr = "add profile"
-	case accountlock.OP_REMOVELOCK:
+	case meter.OP_REMOVELOCK:
 		opStr = "remove profile"
-	case accountlock.OP_TRANSFER:
+	case meter.OP_TRANSFER:
 		opStr = "transfer w/ account lock"
 	}
 	fmt.Println("\nGenerate data for :", opStr)
@@ -64,7 +64,7 @@ func TestScriptDataForAdd(t *testing.T) {
 	lock := uint32(0)
 	release := uint32(1000000)
 
-	_, err := generateAccountLockData(accountlock.OP_ADDLOCK, 0, 0, lock, release, from, to, mtr, mtrg, memo)
+	_, err := generateAccountLockData(meter.OP_ADDLOCK, 0, 0, lock, release, from, to, mtr, mtrg, memo)
 	assert.Nil(t, err)
 	// fmt.Println("ScriptData Data Hex for account lock add: ", hexData)
 }
@@ -78,7 +78,7 @@ func TestScriptDataForTransfer(t *testing.T) {
 	lock := uint32(0)
 	release := uint32(1000000)
 
-	_, err := generateAccountLockData(accountlock.OP_TRANSFER, 0, 0, lock, release, from, to, mtr, mtrg, memo)
+	_, err := generateAccountLockData(meter.OP_TRANSFER, 0, 0, lock, release, from, to, mtr, mtrg, memo)
 	assert.Nil(t, err)
 	// fmt.Println("ScriptData Data Hex for accountlock transfer: ", hexData)
 }

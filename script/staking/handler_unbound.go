@@ -43,7 +43,7 @@ func (s *Staking) UnBoundHandler(env *setypes.ScriptEnv, sb *StakingBody, gas ui
 
 	// sanity check done, take actions
 	b.Unbounded = true
-	b.MatureTime = sb.Timestamp + GetBoundLocktime(b.Option) // lock time
+	b.MatureTime = sb.Timestamp + meter.GetBoundLocktime(b.Option) // lock time
 
 	state.SetCandidateList(candidateList)
 	state.SetBucketList(bucketList)
