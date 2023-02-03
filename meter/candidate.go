@@ -172,3 +172,7 @@ func (l *CandidateList) ToList() []Candidate {
 	}
 	return result
 }
+
+func (l *CandidateList) Len() int {
+	return len(l.Candidates)
+}

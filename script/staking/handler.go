@@ -75,15 +75,6 @@ func (s *Staking) Handle(senv *setypes.ScriptEnv, payload []byte, to *meter.Addr
 		panic("create staking enviroment failed")
 	}
 
-	// s.logger.Debug("received staking data", "body", sb.ToString())
-	/*  now := uint64(time.Now().Unix())
-	if InTimeSpan(sb.Timestamp, now, STAKING_TIMESPAN) == false {
-		s.logger.Error("timestamp span too far", "timestamp", sb.Timestamp, "now", now)
-		err = errors.New("timestamp span too far")
-		return
-	}
-	*/
-
 	s.logger.Debug("Entering staking handler "+GetOpName(sb.Opcode), "tx", senv.GetTxHash())
 	switch sb.Opcode {
 	case OP_BOUND:

@@ -82,7 +82,7 @@ func (s *Staking) BoundHandler(env *setypes.ScriptEnv, sb *StakingBody, gas uint
 
 	// sanity checked, now do the action
 	opt, rate, locktime := meter.GetBoundLockOption(sb.Option)
-	s.logger.Info("get bound option", "option", opt, "rate", rate, "locktime", locktime)
+	s.logger.Info("get lock option in bound", "option", opt, "rate", rate, "locktime", locktime)
 
 	var candAddr meter.Address
 	if setCand {
@@ -91,7 +91,13 @@ func (s *Staking) BoundHandler(env *setypes.ScriptEnv, sb *StakingBody, gas uint
 		candAddr = meter.Address{}
 	}
 
-	bucket := meter.NewBucket(sb.HolderAddr, candAddr, sb.Amount, uint8(sb.Token), opt, rate, sb.Autobid, sb.Timestamp, sb.Nonce)
+	ts := sb.Timestamp
+	nonce := sb.Nonce
+	if meter.IsTeslaFork7(number) {
+		ts = env.GetBlockCtx().Time
+		nonce = uint64(env.GetClauseIndex())
+	}
+	bucket := meter.NewBucket(sb.HolderAddr, candAddr, sb.Amount, uint8(sb.Token), opt, rate, sb.Autobid, ts, nonce)
 	bucketList.Add(bucket)
 
 	stakeholder := stakeholderList.Get(sb.HolderAddr)

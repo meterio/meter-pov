@@ -117,7 +117,7 @@ func (env *ScriptEnv) UnboundAccountMeterGov(addr meter.Address, amount *big.Int
 
 	meterGov := state.GetBalance(addr)
 	meterGovBounded := state.GetBoundedBalance(addr)
-	log.Info("unbound meterGov", "address", addr.String(), "amount", amount.String(), "boundedBalance", meterGovBounded.String())
+	log.Info("before unbound", "address", addr.String(), "amount", amount.String(), "boundedBalance", meterGovBounded.String())
 
 	// meterGovBounded should >= amount
 	if meterGovBounded.Cmp(amount) < 0 {
@@ -127,7 +127,7 @@ func (env *ScriptEnv) UnboundAccountMeterGov(addr meter.Address, amount *big.Int
 
 	state.SetBalance(addr, new(big.Int).Add(meterGov, amount))
 	state.SetBoundedBalance(addr, new(big.Int).Sub(meterGovBounded, amount))
-	log.Info("after unbounded", "balance", new(big.Int).Add(meterGov, amount), "boundedBalance", new(big.Int).Sub(meterGovBounded, amount))
+	log.Info("after unbounded", "address", addr.String(), "balance", new(big.Int).Add(meterGov, amount), "boundedBalance", new(big.Int).Sub(meterGovBounded, amount))
 
 	topics := []meter.Bytes32{
 		meter.Bytes32(unboundEvent.ID()),

@@ -64,7 +64,14 @@ func (a *Auction) HandleAuctionTx(env *setypes.ScriptEnv, ab *AuctionBody, gas u
 		// autobid assume the validator reward account have enough balance
 	}
 
-	tx := meter.NewAuctionTx(ab.Bidder, ab.Amount, ab.Option, ab.Timestamp, ab.Nonce)
+	number := env.GetBlockNum()
+	ts := ab.Timestamp
+	nonce := ab.Nonce
+	if meter.IsTeslaFork7(number) {
+		ts = env.GetBlockCtx().Time
+		nonce = uint64(env.GetClauseIndex())
+	}
+	tx := meter.NewAuctionTx(ab.Bidder, ab.Amount, ab.Option, ts, nonce)
 
 	stub = time.Now()
 	err = auctionCB.AddAuctionTx(tx)

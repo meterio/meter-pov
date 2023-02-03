@@ -44,6 +44,12 @@ func (s *Staking) BucketUpdateHandler(env *setypes.ScriptEnv, sb *StakingBody, g
 	}
 
 	number := env.GetBlockNum()
+	ts := sb.Timestamp
+	nonce := sb.Nonce
+	if meter.IsTeslaFork7(number) {
+		ts = env.GetBlockCtx().Time
+		nonce = uint64(env.GetClauseIndex())
+	}
 	if meter.IsTeslaFork5(number) {
 		// ---------------------------------------
 		// AFTER TESLA FORK 5 : support bucket sub
@@ -93,9 +99,10 @@ func (s *Staking) BucketUpdateHandler(env *setypes.ScriptEnv, sb *StakingBody, g
 			bucket.TotalVotes.Sub(bucket.TotalVotes, bonusDelta)
 
 			// create unbounded new bucket
-			newBucket := meter.NewBucket(bucket.Owner, bucket.Candidate, sb.Amount, uint8(bucket.Token), meter.ONE_WEEK_LOCK, bucket.Rate, bucket.Autobid, sb.Timestamp, sb.Nonce)
+			newBucket := meter.NewBucket(bucket.Owner, bucket.Candidate, sb.Amount, uint8(bucket.Token), meter.ONE_WEEK_LOCK, bucket.Rate, bucket.Autobid, ts, nonce)
 			newBucket.Unbounded = true
-			newBucket.MatureTime = sb.Timestamp + meter.GetBoundLocktime(newBucket.Option) // lock time
+
+			newBucket.MatureTime = ts + meter.GetBoundLocktime(newBucket.Option) // lock time
 			newBucketID := newBucket.BucketID
 
 			// update bucket list with new bucket
@@ -175,7 +182,7 @@ func (s *Staking) BucketUpdateHandler(env *setypes.ScriptEnv, sb *StakingBody, g
 	// ---------------------------------------
 	if meter.IsTeslaFork1(number) {
 		// Now allow to change forever lock amount
-		if bucket.Unbounded == true {
+		if bucket.Unbounded {
 			s.logger.Error(fmt.Sprintf("can not update unbounded bucket, ID %v", sb.StakingID))
 			err = errors.New("can not update unbounded bucket")
 			return
@@ -193,19 +200,19 @@ func (s *Staking) BucketUpdateHandler(env *setypes.ScriptEnv, sb *StakingBody, g
 		}
 	} else {
 
-		if bucket.IsForeverLock() == true {
+		if bucket.IsForeverLock() {
 			s.logger.Error(fmt.Sprintf("can not update the bucket, ID %v", sb.StakingID))
 			err = errUpdateForeverBucket
 		}
 
 		// can not update unbouded bucket
-		if bucket.Unbounded == true {
+		if bucket.Unbounded {
 			s.logger.Error(fmt.Sprintf("can not update unbounded bucket, ID %v", sb.StakingID))
 		}
 	}
 
 	// Now so far so good, calc interest first
-	bonus := TouchBucketBonus(sb.Timestamp, bucket)
+	bonus := TouchBucketBonus(ts, bucket)
 
 	// update bucket values
 	bucket.Value.Add(bucket.Value, sb.Amount)

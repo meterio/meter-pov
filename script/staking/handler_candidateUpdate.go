@@ -137,8 +137,12 @@ func (s *Staking) CandidateUpdateHandler(env *setypes.ScriptEnv, sb *StakingBody
 
 	// the above changes are restricted by time
 	// except ip and pubkey, which can be updated at any time
-	if (sb.Timestamp-record.Timestamp) < meter.MIN_CANDIDATE_UPDATE_INTV && !ipUpdated && !pubUpdated {
-		s.logger.Error("update too frequently", "curTime", sb.Timestamp, "recordedTime", record.Timestamp)
+	ts := sb.Timestamp
+	if meter.IsTeslaFork7(number) {
+		ts = env.GetBlockCtx().Time
+	}
+	if (ts-record.Timestamp) < meter.MIN_CANDIDATE_UPDATE_INTV && !ipUpdated && !pubUpdated {
+		s.logger.Error("update too frequently", "curTime", ts, "recordedTime", record.Timestamp)
 		err = errUpdateTooFrequent
 		return
 	}
@@ -153,7 +157,7 @@ func (s *Staking) CandidateUpdateHandler(env *setypes.ScriptEnv, sb *StakingBody
 		changed = true
 	}
 
-	if (sb.Timestamp - record.Timestamp) >= meter.MIN_CANDIDATE_UPDATE_INTV {
+	if (ts - record.Timestamp) >= meter.MIN_CANDIDATE_UPDATE_INTV {
 		if commissionUpdated {
 			record.Commission = commission
 			changed = true

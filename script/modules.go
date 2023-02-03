@@ -38,7 +38,7 @@ func ModuleStakingInit(se *ScriptEngine) *staking.Staking {
 		panic("register staking module failed")
 	}
 
-	se.logger.Info("ScriptEngine registered module", "mod", mod.modName)
+	se.logger.Debug("ScriptEngine registered module", "mod", mod.modName)
 	return stk
 }
 
@@ -58,7 +58,7 @@ func ModuleAuctionInit(se *ScriptEngine) *auction.Auction {
 		panic("register auction module failed")
 	}
 
-	se.logger.Info("ScriptEngine registered module", "mod", mod.modName)
+	se.logger.Debug("ScriptEngine registered module", "mod", mod.modName)
 	return a
 }
 
@@ -78,6 +78,6 @@ func ModuleAccountLockInit(se *ScriptEngine) *accountlock.AccountLock {
 		panic("register accountlock module failed")
 	}
 
-	se.logger.Info("ScriptEngine registered module", "mod", mod.modName)
+	se.logger.Debug("ScriptEngine registered module", "mod", mod.modName)
 	return a
 }

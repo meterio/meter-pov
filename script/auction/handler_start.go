@@ -34,6 +34,11 @@ func (a *Auction) StartAuctionCB(env *setypes.ScriptEnv, ab *AuctionBody, gas ui
 		return
 	}
 
+	number := env.GetBlockNum()
+	ts := ab.Timestamp
+	if meter.IsTeslaFork7(number) {
+		ts = env.GetBlockCtx().Time
+	}
 	auctionCB.StartHeight = ab.StartHeight
 	auctionCB.StartEpoch = ab.StartEpoch
 	auctionCB.EndHeight = ab.EndHeight
@@ -42,7 +47,7 @@ func (a *Auction) StartAuctionCB(env *setypes.ScriptEnv, ab *AuctionBody, gas ui
 	auctionCB.RlsdMTRG = ab.Amount
 	auctionCB.RsvdMTRG = ab.ReserveAmount
 	auctionCB.RsvdPrice = builtin.Params.Native(state).Get(meter.KeyAuctionReservedPrice)
-	auctionCB.CreateTime = ab.Timestamp
+	auctionCB.CreateTime = ts
 	auctionCB.RcvdMTR = big.NewInt(0)
 	auctionCB.AuctionTxs = make([]*meter.AuctionTx, 0)
 	auctionCB.AuctionID = auctionCB.ID()
