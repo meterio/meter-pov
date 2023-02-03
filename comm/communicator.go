@@ -96,8 +96,8 @@ func (c *Communicator) TriggerSync() {
 
 // Sync start synchronization process.
 func (c *Communicator) Sync(handler HandleBlockStream, qcHandler HandleQC) {
-	const initSyncInterval = 2 * time.Second
-	const syncInterval = 30 * time.Second
+	const initSyncInterval = 1500 * time.Microsecond
+	const syncInterval = 20 * time.Second
 
 	c.goes.Go(func() {
 		timer := time.NewTimer(0)

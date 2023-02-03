@@ -104,13 +104,12 @@ const (
 // 6.3) log optimization for readability
 const (
 	TeslaFork6_MainnetStartNum = 33023000 // around 1/31/2023 9:30 AM (PDT)
-	TeslaFork6_TestnetStartNum = 4932000  // same as fork4
+	TeslaFork6_TestnetStartNum = 25836347 //
 )
 
-// FIXME: update this when fork7 is formal
 const (
-	TeslaFork7_MainnetStartNum = 80000000 // around 1/31/2023 9:30 AM (PDT)
-	TeslaFork7_TestnetStartNum = 80000000 // same as fork4
+	TeslaFork7_MainnetStartNum = 33238000 // around 2/6/2023 9:30 AM (PDT)
+	TeslaFork7_TestnetStartNum = 25836347 // same as fork6
 )
 
 var (

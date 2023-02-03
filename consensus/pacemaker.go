@@ -20,7 +20,7 @@ import (
 )
 
 const (
-	RoundInterval            = 2 * time.Second
+	RoundInterval            = 1500 * time.Millisecond
 	RoundTimeoutInterval     = 16 * time.Second // move the timeout from 20 to 16 secs.
 	RoundTimeoutLongInterval = 40 * time.Second
 
