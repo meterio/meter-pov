@@ -1,6 +1,7 @@
 package fork7
 
 import (
+	"math/rand"
 	"testing"
 
 	"github.com/meterio/meter-pov/meter"
@@ -26,7 +27,8 @@ func TestListCandidate(t *testing.T) {
 		Timestamp:       uint64(0),
 		Nonce:           0,
 	}
-	trx := buildStakingTx(0, body, CandKey)
+	txNonce := rand.Uint64()
+	trx := buildStakingTx(0, body, CandKey, txNonce)
 
 	candCount := s.GetCandidateList().Len()
 	bktCount := s.GetBucketList().Len()

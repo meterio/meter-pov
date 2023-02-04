@@ -2,6 +2,7 @@ package fork7
 
 import (
 	"math/big"
+	"math/rand"
 	"testing"
 
 	"github.com/meterio/meter-pov/meter"
@@ -24,7 +25,8 @@ func TestBucketAdd(t *testing.T) {
 		Timestamp:  uint64(0),
 		Nonce:      0,
 	}
-	trx := buildStakingTx(0, body, VoterKey)
+	txNonce := rand.Uint64()
+	trx := buildStakingTx(0, body, VoterKey, txNonce)
 
 	candCount := s.GetCandidateList().Len()
 	bktCount := s.GetBucketList().Len()
@@ -66,7 +68,8 @@ func TestBucketSub(t *testing.T) {
 		Timestamp:  uint64(0),
 		Nonce:      0,
 	}
-	trx := buildStakingTx(0, body, VoterKey)
+	txNonce := rand.Uint64()
+	trx := buildStakingTx(0, body, VoterKey, txNonce)
 
 	candCount := s.GetCandidateList().Len()
 	bktCount := s.GetBucketList().Len()
@@ -92,7 +95,7 @@ func TestBucketSub(t *testing.T) {
 	assert.Equal(t, subAmount.String(), new(big.Int).Sub(bkt.TotalVotes, bktAfter.TotalVotes).String(), "should sub bucket totalVotes")
 	assert.Equal(t, subAmount.String(), new(big.Int).Sub(bkt.Value, bktAfter.Value).String(), "should sub bucket value")
 
-	subBktID := bucketID(VoterAddr, ts, 0)
+	subBktID := bucketID(VoterAddr, ts, txNonce+0)
 	subBkt := bucketList.Get(subBktID)
 	assert.NotNil(t, subBkt)
 	assert.Equal(t, subAmount.String(), subBkt.Value.String())

@@ -3,6 +3,7 @@ package fork7
 import (
 	"fmt"
 	"math/big"
+	"math/rand"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/rlp"
@@ -36,7 +37,8 @@ func TestBound(t *testing.T) {
 		Timestamp:  uint64(0),
 		Nonce:      0,
 	}
-	trx := buildStakingTx(0, body, Voter2Key)
+	txNonce := rand.Uint64()
+	trx := buildStakingTx(0, body, Voter2Key, txNonce)
 
 	bktCount := s.GetBucketList().Len()
 	candidateList := s.GetCandidateList()
@@ -62,7 +64,7 @@ func TestBound(t *testing.T) {
 	assert.Equal(t, boundAmount.String(), new(big.Int).Sub(bbalAfter, bbal).String(), "bound balance should increase by 1000")
 	assert.Equal(t, bktCount+1, len(bucketList.Buckets), "should add 1 more bucket")
 
-	bktID := bucketID(Voter2Addr, ts, 0)
+	bktID := bucketID(Voter2Addr, ts, txNonce+0)
 	bkt := bucketList.Get(bktID)
 	assert.NotNil(t, bkt)
 	assert.Equal(t, boundAmount.String(), bkt.Value.String())

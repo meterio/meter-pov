@@ -3,8 +3,8 @@ package fork7
 import (
 	"bytes"
 	"encoding/hex"
-	"fmt"
 	"math/big"
+	"math/rand"
 	"testing"
 
 	"github.com/meterio/meter-pov/consensus/governor"
@@ -33,9 +33,7 @@ func TestReleaseMaturedBucket(t *testing.T) {
 	assert.Equal(t, 1, unboundEvtCount, "only 1 Unbound event")
 
 	bucketList := s.GetBucketList()
-	for _, b := range bucketList.Buckets {
-		fmt.Println(b)
-	}
+
 	assert.Equal(t, bktCount-1, len(bucketList.Buckets), "bucket not released")
 	balAfter := s.GetBalance(HolderAddr)
 	assert.Equal(t, new(big.Int).Sub(balAfter, bal).String(), "1000000000000000000000", "boundbalance not released to balance")
@@ -62,9 +60,9 @@ func TestDuplicateUnbound(t *testing.T) {
 		Timestamp:  uint64(0),
 		Nonce:      0,
 	}
-	trx := buildStakingTx(0, body, HolderKey)
+	txNonce := rand.Uint64()
+	trx := buildStakingTx(0, body, HolderKey, txNonce)
 	receipt, err := rt.ExecuteTransaction(trx)
 	assert.Nil(t, err)
 	assert.True(t, receipt.Reverted)
-	fmt.Println(receipt)
 }

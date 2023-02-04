@@ -3,6 +3,7 @@ package fork7
 import (
 	"fmt"
 	"math/big"
+	"math/rand"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/rlp"
@@ -34,7 +35,8 @@ func TestBid(t *testing.T) {
 		Timestamp: 0,
 		Nonce:     0,
 	}
-	trx := buildAuctionTx(0, body, VoterKey)
+	txNonce := rand.Uint64()
+	trx := buildAuctionTx(0, body, VoterKey, txNonce)
 
 	acb := s.GetAuctionCB()
 	rcvd := new(big.Int)
@@ -50,7 +52,7 @@ func TestBid(t *testing.T) {
 	assert.Nil(t, err)
 	assert.False(t, receipt.Reverted)
 
-	id := bidID(VoterAddr, amount, meter.USER_BID, ts, 0)
+	id := bidID(VoterAddr, amount, meter.USER_BID, ts, txNonce+0)
 	acbAfter := s.GetAuctionCB()
 	rcvdAfter := new(big.Int)
 	for _, b := range acb.AuctionTxs {

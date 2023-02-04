@@ -59,7 +59,7 @@ var (
 	ActiveAuctionID = meter.BytesToBytes32([]byte("active-auction"))
 )
 
-func buildStakingTx(bestRef uint32, body *staking.StakingBody, key *ecdsa.PrivateKey) *tx.Transaction {
+func buildStakingTx(bestRef uint32, body *staking.StakingBody, key *ecdsa.PrivateKey, nonce uint64) *tx.Transaction {
 	chainTag := byte(82)
 	builder := new(tx.Builder)
 	builder.ChainTag(chainTag).
@@ -68,7 +68,7 @@ func buildStakingTx(bestRef uint32, body *staking.StakingBody, key *ecdsa.Privat
 		GasPriceCoef(0).
 		Gas(meter.BaseTxGas * 10). //buffer for builder.Build().IntrinsicGas()
 		DependsOn(nil).
-		Nonce(1)
+		Nonce(nonce)
 
 	data, _ := script.EncodeScriptData(body)
 	builder.Clause(
@@ -80,7 +80,7 @@ func buildStakingTx(bestRef uint32, body *staking.StakingBody, key *ecdsa.Privat
 	return trx
 }
 
-func buildAuctionTx(bestRef uint32, body *auction.AuctionBody, key *ecdsa.PrivateKey) *tx.Transaction {
+func buildAuctionTx(bestRef uint32, body *auction.AuctionBody, key *ecdsa.PrivateKey, nonce uint64) *tx.Transaction {
 	chainTag := byte(82)
 	builder := new(tx.Builder)
 	builder.ChainTag(chainTag).
@@ -89,7 +89,7 @@ func buildAuctionTx(bestRef uint32, body *auction.AuctionBody, key *ecdsa.Privat
 		GasPriceCoef(0).
 		Gas(meter.BaseTxGas * 10). //buffer for builder.Build().IntrinsicGas()
 		DependsOn(nil).
-		Nonce(1)
+		Nonce(nonce)
 
 	data, _ := script.EncodeScriptData(body)
 	builder.Clause(
