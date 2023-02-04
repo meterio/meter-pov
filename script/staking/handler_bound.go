@@ -95,7 +95,7 @@ func (s *Staking) BoundHandler(env *setypes.ScriptEnv, sb *StakingBody, gas uint
 	nonce := sb.Nonce
 	if meter.IsTeslaFork7(number) {
 		ts = env.GetBlockCtx().Time
-		nonce = uint64(env.GetClauseIndex())
+		nonce = env.GetTxCtx().Nonce + uint64(env.GetClauseIndex())
 	}
 	bucket := meter.NewBucket(sb.HolderAddr, candAddr, sb.Amount, uint8(sb.Token), opt, rate, sb.Autobid, ts, nonce)
 	bucketList.Add(bucket)

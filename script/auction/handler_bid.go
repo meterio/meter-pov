@@ -69,7 +69,7 @@ func (a *Auction) HandleAuctionTx(env *setypes.ScriptEnv, ab *AuctionBody, gas u
 	nonce := ab.Nonce
 	if meter.IsTeslaFork7(number) {
 		ts = env.GetBlockCtx().Time
-		nonce = uint64(env.GetClauseIndex())
+		nonce = env.GetTxCtx().Nonce + uint64(env.GetClauseIndex())
 	}
 	tx := meter.NewAuctionTx(ab.Bidder, ab.Amount, ab.Option, ts, nonce)
 

@@ -48,7 +48,7 @@ func (s *Staking) BucketUpdateHandler(env *setypes.ScriptEnv, sb *StakingBody, g
 	nonce := sb.Nonce
 	if meter.IsTeslaFork7(number) {
 		ts = env.GetBlockCtx().Time
-		nonce = uint64(env.GetClauseIndex())
+		nonce = env.GetTxCtx().Nonce + uint64(env.GetClauseIndex())
 	}
 	if meter.IsTeslaFork5(number) {
 		// ---------------------------------------
