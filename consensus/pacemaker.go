@@ -82,7 +82,7 @@ type Pacemaker struct {
 	blockExecuted    *pmBlock
 	blockLocked      *pmBlock
 
-	lastOnBeatRound uint32
+	lastOnBeatRound int32
 
 	// Channels
 	pacemakerMsgCh chan consensusMsgInfo
@@ -113,7 +113,7 @@ func NewPaceMaker(conR *ConsensusReactor) *Pacemaker {
 		pendingList:     NewPendingList(),
 		timeoutCounter:  0,
 		stopped:         true,
-		lastOnBeatRound: 0,
+		lastOnBeatRound: -1,
 	}
 	p.timeoutCertManager = newPMTimeoutCertManager(p)
 	// p.stopCleanup()
@@ -612,11 +612,11 @@ func (p *Pacemaker) UpdateQCHigh(qc *pmQuorumCert) bool {
 }
 
 func (p *Pacemaker) OnBeat(height, round uint32, reason beatReason) error {
-	if round > 0 && round <= p.lastOnBeatRound {
+	if int32(round) <= p.lastOnBeatRound {
 		p.logger.Warn(fmt.Sprintf("round(%v) <= lastOnBeatRound(%v), skip this OnBeat", round, p.lastOnBeatRound))
 		return nil
 	}
-	p.lastOnBeatRound = round
+	p.lastOnBeatRound = int32(round)
 	if reason == BeatOnTimeout && p.QCHigh != nil && p.QCHigh.QC != nil && height <= (p.QCHigh.QC.QCHeight+1) {
 		return p.onTimeoutBeat(height, round, reason)
 	}
@@ -921,7 +921,7 @@ func (p *Pacemaker) Start(mode PMMode, calcStatsTx bool) {
 	p.logger.Info(fmt.Sprintf("*** Pacemaker start with height %v, round %v", height, actualRound), "qc", bestQC.CompactString(), "calcStatsTx", calcStatsTx, "mode", mode.String())
 	p.startHeight = height
 	p.startRound = round
-	p.lastOnBeatRound = round
+	p.lastOnBeatRound = int32(round)
 	pmRoleGauge.Set(1) // validator
 	// Hack here. We do not know it is the first pacemaker from beginning
 	// But it is not harmful, the worst case only misses one opportunity to propose kblock.
@@ -1146,7 +1146,7 @@ func (p *Pacemaker) SendKblockInfo(b *pmBlock) {
 func (p *Pacemaker) reset() {
 	pmRoleGauge.Set(0) // init
 	p.lastVotingHeight = 0
-	p.lastOnBeatRound = 0
+	p.lastOnBeatRound = -1
 	p.QCHigh = nil
 	p.blockLeaf = nil
 	p.blockExecuted = nil
