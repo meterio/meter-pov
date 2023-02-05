@@ -921,7 +921,7 @@ func (p *Pacemaker) Start(mode PMMode, calcStatsTx bool) {
 	p.logger.Info(fmt.Sprintf("*** Pacemaker start with height %v, round %v", height, actualRound), "qc", bestQC.CompactString(), "calcStatsTx", calcStatsTx, "mode", mode.String())
 	p.startHeight = height
 	p.startRound = round
-	p.lastOnBeatRound = int32(round)
+	p.lastOnBeatRound = int32(round) - 1
 	pmRoleGauge.Set(1) // validator
 	// Hack here. We do not know it is the first pacemaker from beginning
 	// But it is not harmful, the worst case only misses one opportunity to propose kblock.
@@ -968,9 +968,9 @@ func (p *Pacemaker) Start(mode PMMode, calcStatsTx bool) {
 	switch p.mode {
 	case PMModeNormal:
 		if round == 0 {
-			p.ScheduleOnBeat(height+1, round, BeatOnInit, 1*time.Second) //delay 1s
+			p.ScheduleOnBeat(height+1, round, BeatOnInit, 500*time.Microsecond) //delay 1s
 		} else {
-			p.ScheduleOnBeat(height+1, round+1, BeatOnInit, 1*time.Second) //delay 1s
+			p.ScheduleOnBeat(height+1, round+1, BeatOnInit, 500*time.Microsecond) //delay 0.5s
 		}
 	case PMModeCatchUp:
 		p.SendCatchUpQuery()
