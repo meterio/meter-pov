@@ -192,7 +192,7 @@ func TestAuction(t *testing.T) {
 	// should have the same unite hash
 
 	b := &auction.AuctionBody{
-		Opcode:        auction.OP_BID,
+		Opcode:        meter.OP_BID,
 		Version:       rand.Uint32(),
 		Option:        0,
 		StartHeight:   randomBigInt().Uint64(),
@@ -211,7 +211,7 @@ func TestAuction(t *testing.T) {
 	s := script.ScriptData{Header: script.ScriptHeader{Version: 0, ModID: script.AUCTION_MODULE_ID}, Payload: payload}
 
 	b2 := &auction.AuctionBody{
-		Opcode:        auction.OP_BID,
+		Opcode:        meter.OP_BID,
 		Version:       b.Version,
 		Option:        0,
 		StartHeight:   b.StartHeight,
