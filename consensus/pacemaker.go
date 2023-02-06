@@ -21,8 +21,8 @@ import (
 
 const (
 	RoundInterval            = 1500 * time.Millisecond
-	RoundTimeoutInterval     = 16 * time.Second // move the timeout from 20 to 16 secs.
-	RoundTimeoutLongInterval = 40 * time.Second
+	RoundTimeoutInterval     = 12 * time.Second // update timeout from 16 to 12 secs.
+	RoundTimeoutLongInterval = 21 * time.Second // update timeout from 40 to 21 secs
 
 	MIN_MBLOCKS_AN_EPOCH = uint32(4)
 
