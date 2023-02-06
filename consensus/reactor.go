@@ -479,11 +479,11 @@ func (conR *ConsensusReactor) PrepareEnvForPacemaker() error {
 	conR.updateCurEpoch(epoch)
 	conR.UpdateActualCommittee()
 
-	conR.logger.Info("Powpool prepare to add kblock, and notify PoW chain to pick head", "powHeight", info.PowHeight, "powRawBlock", hex.EncodeToString(info.PowRaw))
+	conR.logger.Info("Powpool prepare to add kframe, and notify PoW chain to pick head", "powHeight", info.PowHeight, "powRawBlock", hex.EncodeToString(info.PowRaw))
 	pool := powpool.GetGlobPowPoolInst()
-	pool.Wash()
+	// pool.Wash()
 	pool.InitialAddKframe(info)
-	conR.logger.Info("Powpool initial added kblock", "bestKblock", kBlockHeight, "powHeight", info.PowHeight)
+	conR.logger.Info("Powpool initial added kframe", "bestKblock", kBlockHeight, "powHeight", info.PowHeight)
 
 	if inCommittee {
 		conR.logger.Info("I am in committee!!!")
@@ -539,14 +539,14 @@ func (conR *ConsensusReactor) verifyBestQCAndBestBlockBeforeStart() bool {
 		conR.chain.UpdateBestQC(nil, chain.None)
 		bestQC := conR.chain.BestQC()
 		bestBlock := conR.chain.BestBlock()
-		conR.logger.Info("Checking the QCHeight and Block height...", "QCHeight", bestQC.QCHeight, "bestHeight", bestBlock.Number())
+		// conR.logger.Info("Checking the QCHeight and Block height...", "QCHeight", bestQC.QCHeight, "bestHeight", bestBlock.Number())
 		if bestQC.QCHeight != bestBlock.Number() {
 			com := comm.GetGlobCommInst()
 			if com == nil {
 				conR.logger.Error("get global comm inst failed")
 				return false
 			}
-			conR.logger.Warn("bestQC and bestBlock height mismatch, trigger sync now ...", "bestQC", bestQC.QCHeight, "bestBlock", bestBlock.Number(), "attempt", i+1, "waitInterval", time.Duration(math.Pow(float64(2), float64(i+1))))
+			conR.logger.Warn("bestQC and bestBlock mismatch, trigger sync now ...", "bestQC", bestQC.QCHeight, "bestBlock", bestBlock.Number(), "attempt", i+1, "waitInterval", time.Duration(math.Pow(float64(2), float64(i+1))))
 			com.TriggerSync()
 			// every attempt wait for 2^(i+1) seconds
 			<-time.NewTimer(time.Duration(math.Pow(float64(2), float64(i+1))) * time.Second).C
@@ -571,14 +571,14 @@ func (conR *ConsensusReactor) startPacemaker(mode PMMode) error {
 	// 1. bestQC height == best block height
 	// 2. newCommittee is true, best block is kblock
 	verified := conR.verifyBestQCAndBestBlockBeforeStart()
-	bestQC := conR.chain.BestQC()
+	// bestQC := conR.chain.BestQC()
 	bestBlock := conR.chain.BestBlock()
 	freshCommittee := (bestBlock.Header().BlockType() == block.BLOCK_TYPE_K_BLOCK) || (bestBlock.Header().Number() == 0)
 	if verified {
-		conR.logger.Info("start Pacemaker", "bestQC", bestQC.QCHeight, "bestBlock", bestBlock.Header().Number())
+		// conR.logger.Info("start Pacemaker", "bestQC", bestQC.QCHeight, "bestBlock", bestBlock.Header().Number())
 		conR.csPacemaker.Start(mode, freshCommittee)
 	} else {
-		conR.logger.Warn("start Pacemaker in CatchUp mode due to bestQC/bestBlock mismatch", "bestQC", bestQC.QCHeight, "bestBlock", bestBlock.Header().Number())
+		// conR.logger.Warn("start Pacemaker in CatchUp mode due to bestQC/bestBlock mismatch", "bestQC", bestQC.QCHeight, "bestBlock", bestBlock.Header().Number())
 		conR.csPacemaker.Start(PMModeCatchUp, freshCommittee)
 	}
 	return nil
@@ -682,7 +682,6 @@ func (conR *ConsensusReactor) GetConsensusDelegates() ([]*types.Delegate, int, i
 		hint = "Loaded delegates from delegates.json"
 	} else {
 		delegates, err = conR.getDelegatesFromStaking()
-		conR.logger.Info("1 delegates", "len", len(delegates))
 		hint = "Loaded delegates from staking"
 		conR.sourceDelegates = fromStaking
 		if err != nil || len(delegates) < conR.config.MinCommitteeSize {

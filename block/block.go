@@ -362,11 +362,11 @@ func (b *Block) GetCanonicalName() string {
 	}
 	switch b.BlockHeader.BlockType() {
 	case BLOCK_TYPE_K_BLOCK:
-		return "kBlock"
+		return "KBlock"
 	case BLOCK_TYPE_M_BLOCK:
-		return "mBlock"
+		return "MBlock"
 	case BLOCK_TYPE_S_BLOCK:
-		return "sBlock"
+		return "SBlock"
 	default:
 		return "Block"
 	}
@@ -379,8 +379,8 @@ func (b *Block) Oneliner() string {
 		ci = "YES"
 	}
 	canonicalName := b.GetCanonicalName()
-	return fmt.Sprintf("%v(%v) %v %v %v, magic:%v, #txs:%v, ci:%v, parent:%v ", canonicalName,
-		header.Number(), header.ID().String(), b.Size(), b.QC.CompactString(), hex.EncodeToString(b.Magic[:]), len(b.Transactions()), ci, header.ParentID())
+	return fmt.Sprintf("%v(%v) %v %v, #txs:%v, ci:%v, parent:%v ", canonicalName,
+		header.Number(), header.ID().String(), b.QC.CompactString(), len(b.Transactions()), ci, header.ParentID().AbbrevString())
 }
 
 // -----------------

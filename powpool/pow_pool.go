@@ -414,7 +414,9 @@ func (p *PowPool) ReplayFrom(startHeight int32) error {
 	pool := GetGlobPowPoolInst()
 	height := startHeight
 
-	log.Info("Pow replay started", "start", startHeight, "end", headerVerbose.Height)
+	if startHeight <= headerVerbose.Height {
+		log.Info("Pow replay started", "start", startHeight, "end", headerVerbose.Height)
+	}
 	for height <= headerVerbose.Height {
 		hash, err := client.GetBlockHash(int64(height))
 		if err != nil {
@@ -434,7 +436,7 @@ func (p *PowPool) ReplayFrom(startHeight int32) error {
 		}
 		height++
 	}
-	log.Info("Pow replay is done", "start", startHeight, "end", headerVerbose.Height)
+	log.Info("Pow replay done", "start", startHeight, "end", headerVerbose.Height)
 	p.replaying = false
 	return nil
 }

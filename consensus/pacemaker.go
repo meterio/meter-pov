@@ -6,6 +6,7 @@
 package consensus
 
 import (
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"os"
@@ -171,12 +172,13 @@ func (p *Pacemaker) CreateLeaf(parent *pmBlock, qc *pmQuorumCert, height, round 
 		}
 	}
 
+	start := time.Now()
 	info, blockBytes := p.proposeBlock(parentBlock, height, round, qc, (p.timeoutCert != nil))
 	if info == nil {
 		p.logger.Warn("HELP! Could not propose block! ")
 		return nil
 	}
-	p.logger.Info(fmt.Sprintf("Proposed Block: %v", info.ProposedBlock.Oneliner()))
+	p.logger.Info(fmt.Sprintf("Proposed: %v", info.ProposedBlock.Oneliner()), "magic", hex.EncodeToString(info.ProposedBlock.Magic[:]), "size", info.ProposedBlock.Size(), "elapsed", meter.PrettyDuration(time.Since(start)))
 
 	b := &pmBlock{
 		Height:  height,
@@ -1293,7 +1295,8 @@ func (p *Pacemaker) updateCurrentRound(round uint32, reason roundUpdateReason) b
 	if updated {
 		oldRound := p.currentRound
 		p.currentRound = round
-		p.logger.Info("update current round", "from", oldRound, "to", p.currentRound, "reason", reason.String())
+		proposer := p.csReactor.getRoundProposer(round)
+		p.logger.Info(fmt.Sprintf("update current round %d->%d", oldRound, p.currentRound), "reason", reason.String(), "proposer", proposer.NameWithIP())
 		pmRoundGauge.Set(float64(p.currentRound))
 		return true
 	}

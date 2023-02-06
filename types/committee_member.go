@@ -29,6 +29,11 @@ func (cm *CommitteeMember) ToString() string {
 		cm.CSPubKey.ToString(), cm.CSIndex)
 }
 
+func (cm *CommitteeMember) NameWithIP() string {
+	return fmt.Sprintf("#%d %s(%s)",
+		cm.CSIndex, cm.Name, cm.NetAddr.IP)
+}
+
 func (cm *CommitteeMember) String() string {
 	return fmt.Sprintf("%15s: ip:%s pubkey:%v index:%d", cm.Name, cm.NetAddr.IP.String(),
 		hex.EncodeToString(crypto.FromECDSAPub(&cm.PubKey)), cm.CSIndex)

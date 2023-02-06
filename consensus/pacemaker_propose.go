@@ -170,7 +170,7 @@ func (p *Pacemaker) buildMBlock(qc *block.QuorumCert, parentBlock *block.Block) 
 		}
 	*/
 
-	start := time.Now()
+	// start := time.Now()
 	pool := txpool.GetGlobTxPoolInst()
 	if pool == nil {
 		p.logger.Error("get tx pool failed ...")
@@ -239,7 +239,7 @@ func (p *Pacemaker) buildMBlock(qc *block.QuorumCert, parentBlock *block.Block) 
 	newBlock.SetMagic(block.BlockMagicVersion1)
 	newBlock.SetQC(qc)
 
-	p.logger.Info("Built MBlock", "num", newBlock.Number(), "id", newBlock.ID(), "txs", len(newBlock.Txs), "elapsed", meter.PrettyDuration(time.Since(start)))
+	// p.logger.Info("Built MBlock", "num", newBlock.Number(), "id", newBlock.ID(), "txs", len(newBlock.Txs), "elapsed", meter.PrettyDuration(time.Since(start)))
 	return &ProposedBlockInfo{newBlock, stage, &receipts, txsToRemoved, txsToReturned, checkPoint, MBlockType}
 }
 
@@ -255,7 +255,7 @@ func (p *Pacemaker) buildKBlock(qc *block.QuorumCert, parentBlock *block.Block, 
 	*/
 
 	p.logger.Info("Start to build KBlock", "nonce", data.Nonce)
-	startTime := time.Now()
+	// startTime := time.Now()
 
 	chainTag := p.csReactor.chain.Tag()
 	bestNum := p.csReactor.chain.BestBlock().Number()
@@ -326,7 +326,7 @@ func (p *Pacemaker) buildKBlock(qc *block.QuorumCert, parentBlock *block.Block, 
 	newBlock.SetMagic(block.BlockMagicVersion1)
 	newBlock.SetQC(qc)
 
-	p.logger.Info("Built KBlock", "num", newBlock.Number(), "id", newBlock.ID(), "txs", len(newBlock.Txs), "elapsed", meter.PrettyDuration(time.Since(startTime)))
+	// p.logger.Info("Built KBlock", "num", newBlock.Number(), "id", newBlock.ID(), "txs", len(newBlock.Txs), "elapsed", meter.PrettyDuration(time.Since(startTime)))
 	return &ProposedBlockInfo{newBlock, stage, &receipts, txsToRemoved, txsToReturned, checkPoint, KBlockType}
 }
 
@@ -334,7 +334,7 @@ func (p *Pacemaker) buildStopCommitteeBlock(qc *block.QuorumCert, parentBlock *b
 	best := parentBlock
 	now := uint64(time.Now().Unix())
 
-	startTime := time.Now()
+	// startTime := time.Now()
 	pool := txpool.GetGlobTxPoolInst()
 	if pool == nil {
 		p.logger.Error("get tx pool failed ...")
@@ -373,6 +373,6 @@ func (p *Pacemaker) buildStopCommitteeBlock(qc *block.QuorumCert, parentBlock *b
 	newBlock.SetMagic(block.BlockMagicVersion1)
 	newBlock.SetQC(qc)
 
-	p.logger.Info("Built SBlock", "num", newBlock.Number(), "elapsed", meter.PrettyDuration(time.Since(startTime)))
+	// p.logger.Info("Built SBlock", "num", newBlock.Number(), "elapsed", meter.PrettyDuration(time.Since(startTime)))
 	return &ProposedBlockInfo{newBlock, stage, &receipts, txsToRemoved, txsToReturned, 0, StopCommitteeType}
 }
