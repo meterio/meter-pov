@@ -108,7 +108,7 @@ const (
 )
 
 const (
-	TeslaFork7_MainnetStartNum = 33238000 // around 2/6/2023 9:30 AM (PDT)
+	TeslaFork7_MainnetStartNum = 33274000 // around 2/7/2023 9:30 AM (PDT)
 	TeslaFork7_TestnetStartNum = 25836347 // same as fork6
 )
 
