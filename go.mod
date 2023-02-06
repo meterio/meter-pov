@@ -4,7 +4,7 @@ go 1.13
 
 require (
 	github.com/beevik/ntp v0.2.0
-	github.com/btcsuite/btcd v0.23.1
+	github.com/btcsuite/btcd v0.23.2
 	github.com/btcsuite/btcd/chaincfg/chainhash v1.0.1
 	github.com/cespare/cp v1.1.1 // indirect
 	github.com/davecgh/go-spew v1.1.1
