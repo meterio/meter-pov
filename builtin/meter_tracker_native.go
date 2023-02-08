@@ -231,7 +231,8 @@ func init() {
 		}},
 		{"native_bucket_open", func(env *xenv.Environment) []interface{} {
 			var args struct {
-				CandidateAddr common.Address
+				Owner         meter.Address
+				CandidateAddr meter.Address
 				Amount        *big.Int
 			}
 			env.ParseArgs(&args)
@@ -242,7 +243,7 @@ func init() {
 
 			env.UseGas(meter.GetBalanceGas)
 
-			bktID, err := MeterTracker.Native(env.State()).BucketOpen(env.Caller(), meter.Address(args.CandidateAddr), args.Amount)
+			bktID, err := MeterTracker.Native(env.State()).BucketOpen(args.Owner, args.CandidateAddr, args.Amount, env.BlockContext().Time)
 			if err != nil {
 				return []interface{}{bktID, err.Error()}
 			}
@@ -251,6 +252,7 @@ func init() {
 		}},
 		{"native_bucket_close", func(env *xenv.Environment) []interface{} {
 			var args struct {
+				Owner    meter.Address
 				BucketID meter.Bytes32
 			}
 			env.ParseArgs(&args)
@@ -263,7 +265,7 @@ func init() {
 			}
 
 			env.UseGas(meter.GetBalanceGas)
-			err := MeterTracker.Native(env.State()).BucketClose(env.Caller(), args.BucketID, env.BlockContext().Time)
+			err := MeterTracker.Native(env.State()).BucketClose(args.Owner, args.BucketID, env.BlockContext().Time)
 			if err != nil {
 				return []interface{}{err.Error()}
 			}
@@ -273,6 +275,7 @@ func init() {
 
 		{"native_bucket_deposit", func(env *xenv.Environment) []interface{} {
 			var args struct {
+				Owner    meter.Address
 				BucketID meter.Bytes32
 				Amount   *big.Int
 			}
@@ -286,7 +289,7 @@ func init() {
 			}
 
 			env.UseGas(meter.GetBalanceGas)
-			err := MeterTracker.Native(env.State()).BucketDeposit(env.Caller(), args.BucketID, args.Amount)
+			err := MeterTracker.Native(env.State()).BucketDeposit(args.Owner, args.BucketID, args.Amount)
 			if err != nil {
 				return []interface{}{err.Error()}
 			}
@@ -295,9 +298,10 @@ func init() {
 		}},
 		{"native_bucket_withdraw", func(env *xenv.Environment) []interface{} {
 			var args struct {
-				BucketID meter.Bytes32
-				Amount   *big.Int
-				To       meter.Address
+				Owner     meter.Address
+				BucketID  meter.Bytes32
+				Amount    *big.Int
+				Recipient meter.Address
 			}
 			env.ParseArgs(&args)
 			s := env.State()
@@ -309,7 +313,7 @@ func init() {
 			}
 
 			env.UseGas(meter.GetBalanceGas)
-			bktID, err := MeterTracker.Native(env.State()).BucketWithdraw(env.Caller(), args.BucketID, args.Amount, args.To, uint64(1234), uint64(0))
+			bktID, err := MeterTracker.Native(env.State()).BucketWithdraw(args.Owner, args.BucketID, args.Amount, args.Recipient, env.BlockContext().Time)
 			if err != nil {
 				env.UseGas(meter.SstoreResetGas)
 				return []interface{}{bktID, err.Error()}

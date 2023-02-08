@@ -63,8 +63,8 @@ func (e *MeterTracker) UnboundMeterGov(addr meter.Address, amount *big.Int) erro
 }
 
 // create a bucket
-func (e *MeterTracker) BucketOpen(caller meter.Address, candAddr meter.Address, amount *big.Int) (bucketID meter.Bytes32, err error) {
-	fmt.Println("CALLER: ", caller)
+func (e *MeterTracker) BucketOpen(owner meter.Address, candAddr meter.Address, amount *big.Int, ts uint64) (bucketID meter.Bytes32, err error) {
+	fmt.Println("owner: ", owner)
 	emptyBucketID := meter.Bytes32{}
 	if amount.Sign() == 0 {
 		return emptyBucketID, errZeroAmount
@@ -80,7 +80,7 @@ func (e *MeterTracker) BucketOpen(caller meter.Address, candAddr meter.Address, 
 		return emptyBucketID, errEmptyCandidate
 	}
 
-	if e.state.GetBalance(caller).Cmp(amount) < 0 {
+	if e.state.GetBalance(owner).Cmp(amount) < 0 {
 		return emptyBucketID, errNotEnoughBalance
 	}
 
@@ -92,17 +92,17 @@ func (e *MeterTracker) BucketOpen(caller meter.Address, candAddr meter.Address, 
 		return emptyBucketID, errCandidateNotListed
 	}
 
-	if bytes.Equal(caller[:], candAddr[:]) {
+	if bytes.Equal(owner[:], candAddr[:]) {
 		return emptyBucketID, errSelfVoteNotAllowed
 	}
 
-	meterGov := e.state.GetBalance(caller)
-	meterGovBounded := e.state.GetBoundedBalance(caller)
+	meterGov := e.state.GetBalance(owner)
+	meterGovBounded := e.state.GetBoundedBalance(owner)
 
-	e.state.SetBalance(caller, new(big.Int).Sub(meterGov, amount))
-	e.state.SetBoundedBalance(caller, new(big.Int).Add(meterGovBounded, amount))
+	e.state.SetBalance(owner, new(big.Int).Sub(meterGov, amount))
+	e.state.SetBoundedBalance(owner, new(big.Int).Add(meterGovBounded, amount))
 
-	newBucket := meter.NewBucket(caller, candAddr, amount, meter.MTRG, meter.ONE_WEEK_LOCK, meter.ONE_WEEK_LOCK_RATE, 100 /*autobid*/, uint64(0), uint64(0))
+	newBucket := meter.NewBucket(owner, candAddr, amount, meter.MTRG, meter.ONE_WEEK_LOCK, meter.ONE_WEEK_LOCK_RATE, 100 /*autobid*/, ts, uint64(0))
 	bucketList.Add(newBucket)
 	candidate.AddBucket(newBucket)
 
@@ -140,7 +140,7 @@ func (e *MeterTracker) BucketClose(caller meter.Address, id meter.Bytes32, times
 	return nil
 }
 
-func (e *MeterTracker) BucketDeposit(caller meter.Address, id meter.Bytes32, amount *big.Int) error {
+func (e *MeterTracker) BucketDeposit(owner meter.Address, id meter.Bytes32, amount *big.Int) error {
 	candidateList := e.state.GetCandidateList()
 	bucketList := e.state.GetBucketList()
 
@@ -153,7 +153,7 @@ func (e *MeterTracker) BucketDeposit(caller meter.Address, id meter.Bytes32, amo
 		return errBucketAlreadyUnbounded
 	}
 
-	if b.Owner != caller {
+	if b.Owner != owner {
 		return errBucketNotOwned
 	}
 
@@ -161,12 +161,12 @@ func (e *MeterTracker) BucketDeposit(caller meter.Address, id meter.Bytes32, amo
 		return errNoUpdateAllowedOnForeverBucket
 	}
 
-	if e.state.GetBalance(caller).Cmp(amount) < 0 {
+	if e.state.GetBalance(owner).Cmp(amount) < 0 {
 		return errNotEnoughBalance
 	}
 
 	// bound account balance
-	err := e.BoundMeterGov(caller, amount)
+	err := e.BoundMeterGov(owner, amount)
 	if err != nil {
 		return err
 	}
@@ -190,9 +190,10 @@ func (e *MeterTracker) BucketDeposit(caller meter.Address, id meter.Bytes32, amo
 	return nil
 }
 
-func (e *MeterTracker) BucketWithdraw(caller meter.Address, id meter.Bytes32, amount *big.Int, to meter.Address, ts uint64, nonce uint64) (meter.Bytes32, error) {
+func (e *MeterTracker) BucketWithdraw(owner meter.Address, id meter.Bytes32, amount *big.Int, recipient meter.Address, ts uint64) (meter.Bytes32, error) {
 	candidateList := e.state.GetCandidateList()
 	bucketList := e.state.GetBucketList()
+	nonce := uint64(0)
 
 	emptyBktID := meter.Bytes32{}
 	b := bucketList.Get(id)
@@ -204,7 +205,7 @@ func (e *MeterTracker) BucketWithdraw(caller meter.Address, id meter.Bytes32, am
 		return emptyBktID, errBucketAlreadyUnbounded
 	}
 
-	if b.Owner != caller {
+	if b.Owner != owner {
 		return emptyBktID, errBucketNotOwned
 	}
 
@@ -212,7 +213,7 @@ func (e *MeterTracker) BucketWithdraw(caller meter.Address, id meter.Bytes32, am
 		return emptyBktID, errNoUpdateAllowedOnForeverBucket
 	}
 
-	if e.state.GetBoundedBalance(caller).Cmp(amount) < 0 {
+	if e.state.GetBoundedBalance(owner).Cmp(amount) < 0 {
 		return emptyBktID, errNotEnoughBoundedBalance
 	}
 
@@ -228,10 +229,15 @@ func (e *MeterTracker) BucketWithdraw(caller meter.Address, id meter.Bytes32, am
 	b.TotalVotes.Sub(b.TotalVotes, amount)
 	b.TotalVotes.Sub(b.TotalVotes, bonusDelta)
 
-	// create unbounded new bucket
-	newBucket := meter.NewBucket(to, b.Candidate, amount, uint8(b.Token), meter.ONE_WEEK_LOCK, b.Rate, b.Autobid, ts, nonce)
-	newBucket.Unbounded = true
+	// transfer bounded balance
+	ownerBounded := e.state.GetBoundedBalance(owner)
+	e.state.SetBoundedBalance(owner, new(big.Int).Sub(ownerBounded, amount))
+	recipientBounded := e.state.GetBoundedBalance(recipient)
+	e.state.SetBoundedBalance(recipient, new(big.Int).Add(recipientBounded, amount))
 
+	// create unbounded new bucket
+	newBucket := meter.NewBucket(recipient, b.Candidate, amount, uint8(b.Token), meter.ONE_WEEK_LOCK, b.Rate, b.Autobid, ts, nonce)
+	newBucket.Unbounded = true
 	newBucket.MatureTime = ts + meter.GetBoundLocktime(newBucket.Option) // lock time
 	newBucketID := newBucket.BucketID
 
