@@ -245,15 +245,15 @@ func (rt *Runtime) EnforceTeslaFork8_LiquidStaking() {
 		if meter.IsTeslaFork8(blockNumber) && (enforceFlag == nil || enforceFlag.Sign() == 0) {
 			fmt.Println("Start to update for fork8")
 			// Tesla 8 Fork
-			fmt.Println("Start to override ScriptEngine bytecode", meter.ScriptEngineSysContractAddr)
-			rt.state.SetCode(meter.ScriptEngineSysContractAddr, builtin.ScriptEngine_DeployedBytecode)
-			fmt.Println("Override ScriptEngine sys contract bytecode: DONE", len(builtin.ScriptEngine_DeployedBytecode))
+			// fmt.Println("Start to override ScriptEngine bytecode", meter.ScriptEngineSysContractAddr)
+			// rt.state.SetCode(meter.ScriptEngineSysContractAddr, builtin.ScriptEngine_DeployedBytecode)
+			// fmt.Println("Override ScriptEngine sys contract bytecode: DONE", len(builtin.ScriptEngine_DeployedBytecode))
 
 			fmt.Println("Start to override MeterNative with V3 bytecode", builtin.MeterTracker.Address)
 			rt.state.SetCode(builtin.MeterTracker.Address, builtin.MeterNative_V3_DeployedBytecode)
 			fmt.Println("Override MeterNative with V3 bytecode: DONE", len(builtin.MeterNative_V3_DeployedBytecode))
 
-			builtin.Params.Native(rt.State()).SetAddress(meter.KeySystemContractAddress2, meter.ScriptEngineSysContractAddr)
+			// builtin.Params.Native(rt.State()).SetAddress(meter.KeySystemContractAddress2, meter.ScriptEngineSysContractAddr)
 			builtin.Params.Native(rt.State()).Set(meter.KeyEnforceTesla_Fork8_Correction, big.NewInt(1))
 			fmt.Println("Finished update for fork8")
 		}
