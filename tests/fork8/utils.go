@@ -166,8 +166,6 @@ func initRuntimeAfterFork8() (*runtime.Runtime, *state.State, uint64) {
 		builtin.Params.Native(state).Set(meter.KeyEnforceTesla_Fork6_Correction, big.NewInt(1))
 
 		scriptEngineAddr := meter.Address(meter.EthCreateContractAddress(common.Address(HolderAddr), 0))
-		state.AddBalance(scriptEngineAddr, buildAmount(1000))
-		state.AddEnergy(scriptEngineAddr, buildAmount(100))
 
 		builtin.Params.Native(state).SetAddress(meter.KeySystemContractAddress2, scriptEngineAddr)
 		return nil

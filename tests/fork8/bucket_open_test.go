@@ -14,7 +14,7 @@ import (
 )
 
 func TestBucketOpen(t *testing.T) {
-	rt, s, _ := initRuntimeAfterFork8()
+	rt, s, ts := initRuntimeAfterFork8()
 	scriptEngineAddr := meter.Address(meter.EthCreateContractAddress(common.Address(HolderAddr), 0))
 	fmt.Println("SCRIPT ENGINE CONTRACT", scriptEngineAddr)
 
@@ -32,7 +32,7 @@ func TestBucketOpen(t *testing.T) {
 	assert.NotNil(t, cand)
 	totalVotes := cand.TotalVotes
 
-	bal := s.GetBalance(scriptEngineAddr)
+	bal := s.GetBalance(HolderAddr)
 	bktCount := s.GetBucketList().Len()
 	receipt, err := rt.ExecuteTransaction(trx)
 	assert.Nil(t, err)
@@ -40,14 +40,14 @@ func TestBucketOpen(t *testing.T) {
 
 	candAfter := s.GetCandidateList().Get(CandAddr)
 	bucketList := s.GetBucketList()
-	balAfter := s.GetBalance(scriptEngineAddr)
+	balAfter := s.GetBalance(HolderAddr)
 	totalVotesAfter := candAfter.TotalVotes
 
 	assert.Equal(t, 1, bucketList.Len()-bktCount, "should add 1 more bucket")
 	assert.Equal(t, amount.String(), new(big.Int).Sub(totalVotesAfter, totalVotes).String(), "should add total votes to candidate")
 	assert.Equal(t, amount.String(), new(big.Int).Sub(bal, balAfter).String(), "should sub balance from holder")
 
-	bktID := bucketID(scriptEngineAddr, 0, 0)
+	bktID := bucketID(HolderAddr, ts, 0)
 	bkt := bucketList.Get(bktID)
 
 	assert.Equal(t, amount.String(), bkt.Value.String(), "bucket must have value")
@@ -71,7 +71,7 @@ func TestNotEnoughBalance(t *testing.T) {
 	cand := s.GetCandidateList().Get(CandAddr)
 	assert.NotNil(t, cand)
 
-	s.SetBalance(scriptEngineAddr, buildAmount(1))
+	s.SetBalance(HolderAddr, buildAmount(1))
 	executor, _ := rt.PrepareTransaction(trx)
 	_, output, err := executor.NextClause()
 
