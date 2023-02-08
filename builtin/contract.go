@@ -83,10 +83,28 @@ func GetContractABI(name string) *abi.ABI {
 }
 
 func GetContractABIForNewMeterNative() *abi.ABI {
-	data := []byte(gen.NewMeterNative_abi)
+	data := []byte(NewMeterNative_ABI)
 	abi, err := abi.New(data)
 	if err != nil {
 		panic(errors.Wrap(err, "load ABI for NewMeterNative"))
+	}
+	return abi
+}
+
+func GetABIForMeterNativeV3() *abi.ABI {
+	data := []byte(MeterNative_V3_ABI)
+	abi, err := abi.New(data)
+	if err != nil {
+		panic(errors.Wrap(err, "load ABI for MeterNative V3"))
+	}
+	return abi
+}
+
+func GetABIForScriptEngine() *abi.ABI {
+	data := []byte(ScriptEngine_ABI)
+	abi, err := abi.New(data)
+	if err != nil {
+		panic(errors.Wrap(err, "load ABI for ScriptEngine"))
 	}
 	return abi
 }
