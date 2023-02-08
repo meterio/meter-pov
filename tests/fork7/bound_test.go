@@ -1,28 +1,15 @@
 package fork7
 
 import (
-	"fmt"
 	"math/big"
 	"math/rand"
 	"testing"
 
-	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/meterio/meter-pov/meter"
 	"github.com/meterio/meter-pov/script/staking"
 	"github.com/stretchr/testify/assert"
 )
 
-func bucketID(owner meter.Address, ts uint64, nonce uint64) (hash meter.Bytes32) {
-	hw := meter.NewBlake2b()
-	err := rlp.Encode(hw, []interface{}{owner, nonce, ts})
-	if err != nil {
-		fmt.Printf("rlp encode failed., %s\n", err.Error())
-		return meter.Bytes32{}
-	}
-
-	hw.Sum(hash[:0])
-	return
-}
 func TestBound(t *testing.T) {
 	rt, s, ts := initRuntimeAfterFork7()
 	boundAmount := buildAmount(1000)

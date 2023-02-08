@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/inconshreveable/log15"
 	"github.com/meterio/meter-pov/block"
 	"github.com/meterio/meter-pov/builtin"
@@ -58,6 +59,18 @@ var (
 	BucketID        = meter.BytesToBytes32([]byte("bucket-id"))
 	ActiveAuctionID = meter.BytesToBytes32([]byte("active-auction"))
 )
+
+func bucketID(owner meter.Address, ts uint64, nonce uint64) (hash meter.Bytes32) {
+	hw := meter.NewBlake2b()
+	err := rlp.Encode(hw, []interface{}{owner, nonce, ts})
+	if err != nil {
+		fmt.Printf("rlp encode failed., %s\n", err.Error())
+		return meter.Bytes32{}
+	}
+
+	hw.Sum(hash[:0])
+	return
+}
 
 func buildStakingTx(bestRef uint32, body *staking.StakingBody, key *ecdsa.PrivateKey, nonce uint64) *tx.Transaction {
 	chainTag := byte(82)
