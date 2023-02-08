@@ -7,6 +7,7 @@ import (
 	"math/big"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/inconshreveable/log15"
@@ -125,10 +126,6 @@ func initRuntimeAfterFork8() (*runtime.Runtime, *state.State, uint64) {
 		state.SetCode(builtin.Params.Address, builtin.Params.RuntimeBytecodes())
 		builtin.Params.Native(state).Set(meter.KeyExecutorAddress, new(big.Int).SetBytes(builtin.Executor.Address[:]))
 
-		state.SetCode(builtin.MeterTracker.Address, builtin.MeterNative_V3_DeployedBytecode)
-		state.SetCode(meter.ScriptEngineSysContractAddr, builtin.ScriptEngine_DeployedBytecode)
-		state.SetCode(StakingPoolAddr, StakingPool_DeployedBytes)
-
 		// testing env set up like this:
 		// 2 candidates: Cand, Cand2
 		// 2 votes: Cand->Cand(self, Cand2->Cand2(self)
@@ -154,7 +151,7 @@ func initRuntimeAfterFork8() (*runtime.Runtime, *state.State, uint64) {
 		state.AddEnergy(Cand2Addr, buildAmount(100))
 
 		// init balance for holders
-		state.AddBalance(HolderAddr, buildAmount(99))
+		state.AddBalance(HolderAddr, buildAmount(1000))
 		state.AddEnergy(HolderAddr, buildAmount(100))
 
 		// init balance for voters
@@ -163,6 +160,16 @@ func initRuntimeAfterFork8() (*runtime.Runtime, *state.State, uint64) {
 		state.AddBalance(Voter2Addr, buildAmount(1000))
 		state.AddEnergy(Voter2Addr, buildAmount(100))
 
+		// disable previous fork corrections
+		builtin.Params.Native(state).Set(meter.KeyEnforceTesla1_Correction, big.NewInt(1))
+		builtin.Params.Native(state).Set(meter.KeyEnforceTesla5_Correction, big.NewInt(1))
+		builtin.Params.Native(state).Set(meter.KeyEnforceTesla_Fork6_Correction, big.NewInt(1))
+
+		scriptEngineAddr := meter.Address(meter.EthCreateContractAddress(common.Address(HolderAddr), 0))
+		state.AddBalance(scriptEngineAddr, buildAmount(1000))
+		state.AddEnergy(scriptEngineAddr, buildAmount(100))
+
+		builtin.Params.Native(state).SetAddress(meter.KeySystemContractAddress2, scriptEngineAddr)
 		return nil
 	})
 
@@ -177,6 +184,16 @@ func initRuntimeAfterFork8() (*runtime.Runtime, *state.State, uint64) {
 		&xenv.BlockContext{Time: uint64(time.Now().Unix()),
 			Number: meter.TeslaFork8_MainnetStartNum + 1,
 			Signer: HolderAddr})
+
+	// deploy ScriptEngine contract
+	createTrx := buildCallTx(0, nil, builtin.ScriptEngine_Bytecode, 0, HolderKey)
+	r, err := rt.ExecuteTransaction(createTrx)
+	if err != nil {
+		panic(err)
+	}
+	if r.Reverted {
+		panic("deploy ScriptEngine failed")
+	}
 
 	return rt, st, ts
 }
