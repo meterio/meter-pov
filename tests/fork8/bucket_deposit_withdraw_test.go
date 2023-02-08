@@ -122,5 +122,4 @@ func TestBucketDepositWithdraw(t *testing.T) {
 		amount := randomAmount(100)
 		testBucketWithdraw(t, &scriptEngineAddr, &HolderAddr, bktID, amount, &VoterAddr, HolderKey, rt, s, ts)
 	}
-
 }

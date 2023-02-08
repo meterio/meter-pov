@@ -20,6 +20,7 @@ import (
 	"github.com/meterio/meter-pov/meter"
 	"github.com/meterio/meter-pov/runtime"
 	"github.com/meterio/meter-pov/script"
+	"github.com/meterio/meter-pov/script/staking"
 	"github.com/meterio/meter-pov/state"
 	"github.com/meterio/meter-pov/tx"
 	"github.com/meterio/meter-pov/xenv"
@@ -54,6 +55,11 @@ var (
 	Cand2PubKey = []byte("BImN21FGrt2O4OCIuJ/B2hn7XDaLSrLjugf7LieDh1ciqHiVZ5pY3l0wD6SBXwkYp8Qji/qg6rr7m/stMCVswIg=:::OhyEtI0rZbEcKtR1xpwvSD4vzcNbVH0KdjIEzc1E9LbFD5+lEVfV5WLM33cplstrokrnlB7SVt0DxWAzvMFu/wA=")
 	Cand2IP     = []byte("4.3.2.1")
 	Cand2Port   = uint16(8670)
+
+	ChangeName   = []byte("change")
+	ChangeIP     = []byte("99.99.99.99")
+	ChangePort   = uint16(8888)
+	ChangePubKey = []byte("BImN21FGrt2O4OCIuJ/B2hn7XDaLSrLjugf7LieDh1ciqHiVZ5pY3l0wD6SBXwkYp8Qji/qg6rr7m/stMCVswIg=:::OhyEtI0rZbEcKtR1xpwvSD4vzcNbVH0KdjIEzc1E9LbFD5+lEVfV5WLM33cplstrokrnlB7SVt0DxWAzvMFu/wA=")
 
 	ActiveAuctionID = meter.BytesToBytes32([]byte("active-auction"))
 )
@@ -107,6 +113,27 @@ func initLogger() {
 
 func buildAmount(amount int) *big.Int {
 	return new(big.Int).Mul(big.NewInt(int64(amount)), big.NewInt(1e18))
+}
+
+func buildStakingTx(bestRef uint32, body *staking.StakingBody, key *ecdsa.PrivateKey, nonce uint64) *tx.Transaction {
+	chainTag := byte(82)
+	builder := new(tx.Builder)
+	builder.ChainTag(chainTag).
+		BlockRef(tx.NewBlockRef(bestRef)).
+		Expiration(720).
+		GasPriceCoef(0).
+		Gas(meter.BaseTxGas * 10). //buffer for builder.Build().IntrinsicGas()
+		DependsOn(nil).
+		Nonce(nonce)
+
+	data, _ := script.EncodeScriptData(body)
+	builder.Clause(
+		tx.NewClause(&meter.StakingModuleAddr).WithValue(big.NewInt(0)).WithToken(meter.MTRG).WithData(data),
+	)
+	trx := builder.Build()
+	sig, _ := crypto.Sign(trx.SigningHash().Bytes(), key)
+	trx = trx.WithSignature(sig)
+	return trx
 }
 
 func initRuntimeAfterFork8() (*runtime.Runtime, *state.State, uint64) {
