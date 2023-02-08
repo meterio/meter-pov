@@ -107,9 +107,18 @@ const (
 	TeslaFork6_TestnetStartNum = 25836347 //
 )
 
+// deprecate the usage of `timestamp` and `nonce` in StakingBody and AuctionBody
+// input `timestamp` will be ignored, and set to block timestamp
+// input `nonce` will be ignored, and set to clause index
 const (
 	TeslaFork7_MainnetStartNum = 33274000 // around 2/7/2023 9:30 AM (PDT)
 	TeslaFork7_TestnetStartNum = 25836347 // same as fork6
+)
+
+const (
+	// FIXME: update when settle
+	TeslaFork8_MainnetStartNum = 80000000 // around 2/7/2023 9:30 AM (PDT)
+	TeslaFork8_TestnetStartNum = 80000000 // same as fork6
 )
 
 var (
@@ -242,4 +251,8 @@ func IsTeslaFork6(blockNum uint32) bool {
 
 func IsTeslaFork7(blockNum uint32) bool {
 	return (BlockChainConfig.IsMainnet() && blockNum > TeslaFork7_MainnetStartNum) || (BlockChainConfig.IsTestnet() && blockNum > TeslaFork7_TestnetStartNum)
+}
+
+func IsTeslaFork8(blockNum uint32) bool {
+	return (BlockChainConfig.IsMainnet() && blockNum > TeslaFork8_MainnetStartNum) || (BlockChainConfig.IsTestnet() && blockNum > TeslaFork8_TestnetStartNum)
 }

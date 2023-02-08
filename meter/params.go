@@ -144,6 +144,7 @@ var (
 
 	KeyEnforceTesla_Fork6_Correction = BytesToBytes32([]byte("Tesla_Fork6_Correction-Flag")) // unset or 0 is not do yet, 1 is done
 
+	KeyEnforceTesla_Fork8_Correction = BytesToBytes32([]byte("Tesla_Fork8_Correction_Flag")) // unset or 0 is not do yet, 1 is done
 	// key set transaction fee address
 	// 0x6e73616374696f6e2d6665652d62656e65666963696172792d61646472657373
 	KeyTransactionFeeAddress = BytesToBytes32([]byte("transaction-fee-beneficiary-address"))
@@ -170,6 +171,8 @@ var (
 	// This account takes 40% of auction gain to distribute to validators in consensus
 	// 0x61746f722d62656e656669742d61646472657373
 	ValidatorBenefitAddr = BytesToAddress([]byte("validator-benefit-address"))
+
+	ScriptEngineSysContractAddr = BytesToAddress([]byte("native-script-engine-address"))
 
 	AuctionLeftOverAccount = MustParseAddress("0xe852f654dfaee0e2b60842657379a56e1cafa292")
 

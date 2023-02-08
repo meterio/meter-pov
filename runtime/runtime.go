@@ -16,7 +16,6 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/meterio/meter-pov/abi"
 	"github.com/meterio/meter-pov/builtin"
-	"github.com/meterio/meter-pov/builtin/gen"
 	"github.com/meterio/meter-pov/chain"
 	"github.com/meterio/meter-pov/meter"
 	"github.com/meterio/meter-pov/params"
@@ -163,7 +162,7 @@ func (rt *Runtime) LoadERC20NativeCotract() {
 	addr := builtin.MeterTracker.Address
 	execAddr := builtin.Executor.Address
 	if meter.IsSysContractEnabled(blockNum) && len(rt.State().GetCode(addr)) == 0 {
-		rt.State().SetCode(addr, gen.Compiled2NewmeternativeBinRuntime)
+		rt.State().SetCode(addr, builtin.NewMeterNative_BinRuntime)
 		rt.State().SetCode(execAddr, []byte{})
 	}
 }
@@ -193,7 +192,7 @@ func (rt *Runtime) EnforceTeslaFork5_Corrections() {
 			// Tesla 5 Fork
 			fmt.Println("Start to override MTRG V1 with V2 bytecode")
 			mtrgV1Addr := meter.MustParseAddress("0x228ebBeE999c6a7ad74A6130E81b12f9Fe237Ba3")
-			mtrgV2Code, _ := hex.DecodeString(MTRGSysContractByteCodeHex)
+			mtrgV2Code, _ := hex.DecodeString(builtin.MeterGovERC20Permit_DeployedBytecode)
 			rt.state.SetCode(mtrgV1Addr, mtrgV2Code)
 			fmt.Println("Override MTRG V1 with V2 bytecode: DONE")
 
@@ -234,6 +233,30 @@ func (rt *Runtime) EnforceTeslaFork6_Corrections() {
 			fmt.Println("Finished update for fork6")
 		}
 
+	}
+}
+
+func (rt *Runtime) EnforceTeslaFork8_LiquidStaking() {
+	blockNumber := rt.Context().Number
+	if blockNumber > 0 && meter.IsMainNet() {
+		// flag is nil or 0, is not do. 1 meas done.
+		enforceFlag := builtin.Params.Native(rt.State()).Get(meter.KeyEnforceTesla_Fork8_Correction)
+
+		if meter.IsTeslaFork8(blockNumber) && (enforceFlag == nil || enforceFlag.Sign() == 0) {
+			fmt.Println("Start to update for fork8")
+			// Tesla 8 Fork
+			fmt.Println("Start to override ScriptEngine bytecode", meter.ScriptEngineSysContractAddr)
+			rt.state.SetCode(meter.ScriptEngineSysContractAddr, builtin.ScriptEngine_DeployedBytecode)
+			fmt.Println("Override ScriptEngine sys contract bytecode: DONE", len(builtin.ScriptEngine_DeployedBytecode))
+
+			fmt.Println("Start to override MeterNative with V3 bytecode", builtin.MeterTracker.Address)
+			rt.state.SetCode(builtin.MeterTracker.Address, builtin.MeterNative_V3_DeployedBytecode)
+			fmt.Println("Override MeterNative with V3 bytecode: DONE", len(builtin.MeterNative_V3_DeployedBytecode))
+
+			builtin.Params.Native(rt.State()).SetAddress(meter.KeySystemContractAddress2, meter.ScriptEngineSysContractAddr)
+			builtin.Params.Native(rt.State()).Set(meter.KeyEnforceTesla_Fork8_Correction, big.NewInt(1))
+			fmt.Println("Finished update for fork8")
+		}
 	}
 }
 
@@ -394,10 +417,12 @@ func (rt *Runtime) newEVM(stateDB *statedb.StateDB, clauseIndex uint32, txCtx *x
 			return addr
 		},
 		InterceptContractCall: func(evm *vm.EVM, contract *vm.Contract, readonly bool) ([]byte, error, bool) {
+			// fmt.Println("evm depth: ", evm.Depth(), "contract: ", contract.Address())
+			// fmt.Println("caller: ", contract.Caller())
 			if evm.Depth() < 2 {
 				// fmt.Println("before skip direct calls", lastNonNativeCallGas, "contract.gas", contract.Gas)
 				lastNonNativeCallGas = contract.Gas
-				// fmt.Println("skp direct calls", lastNonNativeCallGas, "contract.gas", contract.Gas)
+				// fmt.Println("skip direct calls", lastNonNativeCallGas, "contract.gas", contract.Gas)
 				// skip direct calls
 				return nil, nil, false
 			}
@@ -429,6 +454,7 @@ func (rt *Runtime) newEVM(stateDB *statedb.StateDB, clauseIndex uint32, txCtx *x
 				// fmt.Println("skip native call due to not found", lastNonNativeCallGas, "contract.gas", contract.Gas)
 				return nil, nil, false
 			}
+			// fmt.Println("found call for ", contract.Address(), hex.EncodeToString(contract.Input))
 
 			if readonly && !abi.Const() {
 				panic("invoke non-const method in readonly env")
@@ -608,6 +634,9 @@ func (rt *Runtime) PrepareClause(
 		// tesla fork6 correction
 		rt.EnforceTeslaFork6_Corrections()
 
+		// tesla fork8 enable liquid staking
+		rt.EnforceTeslaFork8_LiquidStaking()
+
 		// check the restriction of transfer.
 		if rt.restrictTransfer(stateDB, txCtx.Origin, clause.Value(), clause.Token(), rt.ctx.Number) == true {
 			var leftOverGas uint64
@@ -733,6 +762,7 @@ func (rt *Runtime) PrepareTransaction(tx *tx.Transaction) (*TransactionExecutor,
 			if output.VMErr != nil {
 				// vm exception here
 				// revert all executed clauses
+				// fmt.Println(output.Data)
 				fmt.Println("output Error:", output.VMErr, "for: ", txCtx.ID)
 				rt.state.RevertTo(checkpoint)
 				reverted = true
