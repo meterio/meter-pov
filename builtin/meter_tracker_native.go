@@ -6,6 +6,7 @@
 package builtin
 
 import (
+	"fmt"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -227,9 +228,98 @@ func init() {
 			master := env.State().GetMaster(meter.Address(addr))
 			return []interface{}{master}
 		}},
+		{"native_bucket_open", func(env *xenv.Environment) []interface{} {
+			var args struct {
+				CandidateAddr common.Address
+				Amount        *big.Int
+			}
+			env.ParseArgs(&args)
+			fmt.Println("ENTERED BUCKET_OPEN", args.Amount, args.CandidateAddr, args.Amount)
+			if args.Amount.Sign() == 0 {
+				return []interface{}{meter.Bytes32{}, false}
+			}
+			fmt.Println("XXXXXXXXXXXX")
+
+			env.UseGas(meter.GetBalanceGas)
+
+			bktID, err := MeterTracker.Native(env.State()).BucketOpen(env.Caller(), meter.Address(args.CandidateAddr), args.Amount)
+			if err != nil {
+				fmt.Println("ERROR: ", err)
+				env.UseGas(meter.SstoreResetGas)
+				return []interface{}{meter.Bytes32{}, false}
+			}
+			return []interface{}{bktID, true}
+		}},
+		{"native_bucket_close", func(env *xenv.Environment) []interface{} {
+			var args struct {
+				BucketID meter.Bytes32
+			}
+			env.ParseArgs(&args)
+			s := env.State()
+			bucketList := s.GetBucketList()
+			bkt := bucketList.Get(args.BucketID)
+			env.UseGas(meter.GetBalanceGas)
+
+			if bkt == nil {
+				return []interface{}{false}
+			}
+
+			err := MeterTracker.Native(env.State()).BucketClose(env.Caller(), args.BucketID, env.BlockContext().Time)
+			if err != nil {
+				env.UseGas(meter.SstoreResetGas)
+				return []interface{}{false}
+			}
+			return []interface{}{true}
+		}},
+
+		{"native_bucket_deposit", func(env *xenv.Environment) []interface{} {
+			var args struct {
+				BucketID meter.Bytes32
+				Amount   *big.Int
+			}
+			env.ParseArgs(&args)
+			s := env.State()
+			bucketList := s.GetBucketList()
+			bkt := bucketList.Get(args.BucketID)
+			env.UseGas(meter.GetBalanceGas)
+
+			if bkt == nil {
+				return []interface{}{false}
+			}
+
+			err := MeterTracker.Native(env.State()).BucketDeposit(env.Caller(), args.BucketID, args.Amount)
+			if err != nil {
+				env.UseGas(meter.SstoreResetGas)
+				return []interface{}{false}
+			}
+			return []interface{}{true}
+		}},
+		{"native_bucket_withdraw", func(env *xenv.Environment) []interface{} {
+			var args struct {
+				BucketID meter.Bytes32
+				Amount   *big.Int
+				To       meter.Address
+			}
+			env.ParseArgs(&args)
+			s := env.State()
+			bucketList := s.GetBucketList()
+			bkt := bucketList.Get(args.BucketID)
+			env.UseGas(meter.GetBalanceGas)
+
+			if bkt == nil {
+				return []interface{}{meter.Bytes32{}, false}
+			}
+
+			bktID, err := MeterTracker.Native(env.State()).BucketWithdraw(env.Caller(), args.BucketID, args.Amount, args.To, uint64(1234), uint64(0))
+			if err != nil {
+				env.UseGas(meter.SstoreResetGas)
+				return []interface{}{bktID, false}
+			}
+			return []interface{}{bktID, true}
+		}},
 	}
 	//abi := GetContractABI("NewMeterNative")
-	abi := GetContractABIForNewMeterNative()
+	abi := GetABIForMeterNativeV3()
 	for _, def := range defines {
 		if method, found := abi.MethodByName(def.name); found {
 			nativeMethods[methodKey{MeterTracker.Address, method.ID()}] = &nativeMethod{
