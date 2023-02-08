@@ -55,7 +55,39 @@ func (s *Staking) CandidateUpdateHandler(env *setypes.ScriptEnv, sb *StakingBody
 	}
 
 	number := env.GetBlockNum()
-	if meter.IsTeslaFork6(number) {
+	if meter.IsTeslaFork8(number) {
+		// ---------------------------------------
+		// AFTER TESLA FORK 8 : candidate update can't use existing IP, name, or PubKey
+		// Fix the bug introduced in fork6:
+		// only find duplicate name/ip/pubkey in other candidates except for itself.
+		// ---------------------------------------
+		cand := candidateList.Get(sb.CandAddr)
+		if cand == nil {
+			err = errCandidateNotListed
+			return
+		}
+
+		for _, record := range candidateList.Candidates {
+			isSelf := bytes.Equal(record.Addr[:], sb.CandAddr[:])
+			pkListed := bytes.Equal(record.PubKey, []byte(candidatePubKey))
+			ipListed := bytes.Equal(record.IPAddr, sb.CandIP)
+			nameListed := bytes.Equal(record.Name, sb.CandName)
+
+			if !isSelf && pkListed {
+				err = errPubKeyListed
+				return
+			}
+			if !isSelf && ipListed {
+				err = errIPListed
+				return
+			}
+			if !isSelf && nameListed {
+				err = errNameListed
+				return
+			}
+		}
+
+	} else if meter.IsTeslaFork6(number) {
 		// ---------------------------------------
 		// AFTER TESLA FORK 6 : candidate update can't use existing IP, name, or PubKey
 		// ---------------------------------------
