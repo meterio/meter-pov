@@ -11,6 +11,7 @@ import (
 	"math/big"
 	"sync/atomic"
 
+	ethabi "github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
@@ -764,6 +765,9 @@ func (rt *Runtime) PrepareTransaction(tx *tx.Transaction) (*TransactionExecutor,
 				// revert all executed clauses
 				// fmt.Println(output.Data)
 				fmt.Println("output Error:", output.VMErr, "for: ", txCtx.ID)
+				if reason, e := ethabi.UnpackRevert(output.Data); e == nil {
+					fmt.Println("Caused by: ", reason)
+				}
 				rt.state.RevertTo(checkpoint)
 				reverted = true
 				txOutputs = nil
