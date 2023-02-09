@@ -155,12 +155,15 @@ func initRuntimeAfterFork8() (*runtime.Runtime, *state.State, uint64) {
 
 		// testing env set up like this:
 		// 2 candidates: Cand, Cand2
-		// 2 votes: Cand->Cand(self, Cand2->Cand2(self)
+		// 3 votes: Cand->Cand(self, Cand2->Cand2(self), Voter->Cand
 
 		// init candidate Cand
 		selfBkt := meter.NewBucket(CandAddr, CandAddr, buildAmount(2000), meter.MTRG, meter.FOREVER_LOCK, meter.FOREVER_LOCK_RATE, 100, 0, 0)
 		cand := meter.NewCandidate(CandAddr, CandName, CandDesc, CandPubKey, CandIP, CandPort, 5e9, ts-meter.MIN_CANDIDATE_UPDATE_INTV-10)
 		cand.AddBucket(selfBkt)
+
+		bkt := meter.NewBucket(Voter2Addr, CandAddr, buildAmount(500), meter.MTRG, meter.ONE_WEEK_LOCK, meter.ONE_WEEK_LOCK_RATE, 100, 0, 0)
+		cand.AddBucket(bkt)
 
 		// init candidate Cand2
 		selfBkt2 := meter.NewBucket(Cand2Addr, Cand2Addr, buildAmount(2000), meter.MTRG, meter.FOREVER_LOCK, meter.FOREVER_LOCK_RATE, 100, 0, 0)
@@ -169,7 +172,7 @@ func initRuntimeAfterFork8() (*runtime.Runtime, *state.State, uint64) {
 
 		// init candidate list & bucket list
 		state.SetCandidateList(meter.NewCandidateList([]*meter.Candidate{cand, cand2}))
-		state.SetBucketList(meter.NewBucketList([]*meter.Bucket{selfBkt, selfBkt2}))
+		state.SetBucketList(meter.NewBucketList([]*meter.Bucket{selfBkt, selfBkt2, bkt}))
 
 		// init balance for candidates
 		state.AddBoundedBalance(CandAddr, buildAmount(2000))
@@ -185,6 +188,7 @@ func initRuntimeAfterFork8() (*runtime.Runtime, *state.State, uint64) {
 		state.AddBalance(VoterAddr, buildAmount(3000))
 		state.AddEnergy(VoterAddr, buildAmount(100))
 		state.AddBalance(Voter2Addr, buildAmount(1000))
+		state.AddBoundedBalance(Voter2Addr, buildAmount(500))
 		state.AddEnergy(Voter2Addr, buildAmount(100))
 
 		// disable previous fork corrections

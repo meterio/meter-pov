@@ -47,7 +47,7 @@ func TestBucketOpen(t *testing.T) {
 	assert.Equal(t, amount.String(), new(big.Int).Sub(totalVotesAfter, totalVotes).String(), "should add total votes to candidate")
 	assert.Equal(t, amount.String(), new(big.Int).Sub(bal, balAfter).String(), "should sub balance from holder")
 
-	bktID := bucketID(HolderAddr, ts, 0)
+	bktID := bucketID(HolderAddr, ts, txNonce+0)
 	bkt := bucketList.Get(bktID)
 
 	assert.Equal(t, amount.String(), bkt.Value.String(), "bucket must have value")

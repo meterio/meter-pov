@@ -58,7 +58,7 @@ func testBucketWithdraw(t *testing.T, scriptEngineAddr *meter.Address, owner *me
 	balRecipient := s.GetBalance(*recipient)
 	bbalRecipient := s.GetBoundedBalance(*recipient)
 
-	// bucket deposit
+	// bucket withdraw
 	bucketWithdrawFunc, found := builtin.GetABIForScriptEngine().MethodByName("bucketWithdraw")
 	assert.True(t, found)
 	data, err := bucketWithdrawFunc.EncodeInput(bktID, amount, recipient)
@@ -80,8 +80,9 @@ func testBucketWithdraw(t *testing.T, scriptEngineAddr *meter.Address, owner *me
 	assert.Equal(t, balRecipient.String(), balRecipientAfter.String(), "should keep balance for recipient")
 	assert.Equal(t, amount.String(), new(big.Int).Sub(bbalRecipientAfter, bbalRecipient).String(), "should add bounded balance for recipient")
 
-	unboundBktID := bucketID(*recipient, ts, uint64(0))
+	unboundBktID := bucketID(*recipient, ts, txNonce+0)
 	unboundBkt := s.GetBucketList().Get(unboundBktID)
+
 	assert.NotNil(t, unboundBkt)
 	assert.Equal(t, amount.String(), unboundBkt.Value.String(), "should create an unbound bucket with amount")
 	assert.True(t, unboundBkt.Unbounded)
@@ -110,16 +111,15 @@ func TestBucketDepositWithdraw(t *testing.T) {
 	assert.Nil(t, err)
 	assert.False(t, receipt.Reverted)
 
-	bktID := bucketID(HolderAddr, ts, 0)
+	bktID := bucketID(HolderAddr, ts, txNonce+0)
 
 	s.SetBalance(HolderAddr, buildAmount(100*100))
 	for i := 0; i < 100; i++ {
 		amount := randomAmount(100)
 		testBucketDeposit(t, &scriptEngineAddr, &HolderAddr, bktID, amount, HolderKey, rt, s)
+		testBucketWithdraw(t, &scriptEngineAddr, &HolderAddr, bktID, amount, &VoterAddr, HolderKey, rt, s, ts)
+		bkt := s.GetBucketList().Get(bktID)
+		assert.Equal(t, openAmount.String(), bkt.Value.String(), "open bucket should has the same value")
 	}
 
-	for i := 0; i < 100; i++ {
-		amount := randomAmount(100)
-		testBucketWithdraw(t, &scriptEngineAddr, &HolderAddr, bktID, amount, &VoterAddr, HolderKey, rt, s, ts)
-	}
 }
