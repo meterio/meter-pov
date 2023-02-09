@@ -22,6 +22,7 @@ var (
 	errBucketNotOwned                 = errors.New("bucket not owned")
 	errNoUpdateAllowedOnForeverBucket = errors.New("no update allowed on forever bucket")
 	errBucketAlreadyUnbounded         = errors.New("bucket already unbounded")
+	errBucketNotEnoughValue           = errors.New("not enough value")
 )
 
 func (e *MeterTracker) BoundMeterGov(addr meter.Address, amount *big.Int) error {
@@ -63,7 +64,7 @@ func (e *MeterTracker) UnboundMeterGov(addr meter.Address, amount *big.Int) erro
 }
 
 // create a bucket
-func (e *MeterTracker) BucketOpen(owner meter.Address, candAddr meter.Address, amount *big.Int, ts uint64) (bucketID meter.Bytes32, err error) {
+func (e *MeterTracker) BucketOpen(owner meter.Address, candAddr meter.Address, amount *big.Int, ts uint64, nonce uint64) (bucketID meter.Bytes32, err error) {
 	fmt.Println("owner: ", owner)
 	emptyBucketID := meter.Bytes32{}
 	if amount.Sign() == 0 {
@@ -102,7 +103,7 @@ func (e *MeterTracker) BucketOpen(owner meter.Address, candAddr meter.Address, a
 	e.state.SetBalance(owner, new(big.Int).Sub(meterGov, amount))
 	e.state.SetBoundedBalance(owner, new(big.Int).Add(meterGovBounded, amount))
 
-	newBucket := meter.NewBucket(owner, candAddr, amount, meter.MTRG, meter.ONE_WEEK_LOCK, meter.ONE_WEEK_LOCK_RATE, 100 /*autobid*/, ts, uint64(0))
+	newBucket := meter.NewBucket(owner, candAddr, amount, meter.MTRG, meter.ONE_WEEK_LOCK, meter.ONE_WEEK_LOCK_RATE, 100 /*autobid*/, ts, nonce)
 	bucketList.Add(newBucket)
 	candidate.AddBucket(newBucket)
 
@@ -112,7 +113,7 @@ func (e *MeterTracker) BucketOpen(owner meter.Address, candAddr meter.Address, a
 	return newBucket.ID(), nil
 }
 
-func (e *MeterTracker) BucketClose(caller meter.Address, id meter.Bytes32, timestamp uint64) error {
+func (e *MeterTracker) BucketClose(owner meter.Address, id meter.Bytes32, timestamp uint64) error {
 	bucketList := e.state.GetBucketList()
 
 	b := bucketList.Get(id)
@@ -124,11 +125,11 @@ func (e *MeterTracker) BucketClose(caller meter.Address, id meter.Bytes32, times
 		return errBucketAlreadyUnbounded
 	}
 
-	if b.Owner != caller {
+	if b.Owner != owner {
 		return errBucketNotOwned
 	}
 
-	if b.IsForeverLock() == true {
+	if b.IsForeverLock() {
 		return errNoUpdateAllowedOnForeverBucket
 	}
 
@@ -190,10 +191,9 @@ func (e *MeterTracker) BucketDeposit(owner meter.Address, id meter.Bytes32, amou
 	return nil
 }
 
-func (e *MeterTracker) BucketWithdraw(owner meter.Address, id meter.Bytes32, amount *big.Int, recipient meter.Address, ts uint64) (meter.Bytes32, error) {
+func (e *MeterTracker) BucketWithdraw(owner meter.Address, id meter.Bytes32, amount *big.Int, recipient meter.Address, ts uint64, nonce uint64) (meter.Bytes32, error) {
 	candidateList := e.state.GetCandidateList()
 	bucketList := e.state.GetBucketList()
-	nonce := uint64(0)
 
 	emptyBktID := meter.Bytes32{}
 	b := bucketList.Get(id)
@@ -215,6 +215,10 @@ func (e *MeterTracker) BucketWithdraw(owner meter.Address, id meter.Bytes32, amo
 
 	if e.state.GetBoundedBalance(owner).Cmp(amount) < 0 {
 		return emptyBktID, errNotEnoughBoundedBalance
+	}
+
+	if b.Value.Cmp(amount) < 0 || b.TotalVotes.Cmp(amount) < 0 {
+		return emptyBktID, errBucketNotEnoughValue
 	}
 
 	// bonus is substracted porpotionally

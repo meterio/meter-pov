@@ -6,6 +6,7 @@
 package builtin
 
 import (
+	"fmt"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -243,7 +244,9 @@ func init() {
 
 			env.UseGas(meter.GetBalanceGas)
 
-			bktID, err := MeterTracker.Native(env.State()).BucketOpen(args.Owner, args.CandidateAddr, args.Amount, env.BlockContext().Time)
+			txNonce := env.TransactionContext().Nonce
+			clauseIndex := env.ClauseIndex()
+			bktID, err := MeterTracker.Native(env.State()).BucketOpen(args.Owner, args.CandidateAddr, args.Amount, env.BlockContext().Time, txNonce+uint64(clauseIndex))
 			if err != nil {
 				return []interface{}{bktID, err.Error()}
 			}
@@ -259,6 +262,10 @@ func init() {
 			s := env.State()
 			bucketList := s.GetBucketList()
 			bkt := bucketList.Get(args.BucketID)
+			fmt.Println("LOOKING FOR BUCKET: ", args.BucketID)
+			for _, b := range bucketList.Buckets {
+				fmt.Println("bucket: ", b.ID(), "owner: ", b.Owner)
+			}
 
 			if bkt == nil {
 				return []interface{}{"bucket not listed"}
@@ -313,7 +320,10 @@ func init() {
 			}
 
 			env.UseGas(meter.GetBalanceGas)
-			bktID, err := MeterTracker.Native(env.State()).BucketWithdraw(args.Owner, args.BucketID, args.Amount, args.Recipient, env.BlockContext().Time)
+			txNonce := env.TransactionContext().Nonce
+			clauseIndex := env.ClauseIndex()
+			ts := env.BlockContext().Time
+			bktID, err := MeterTracker.Native(env.State()).BucketWithdraw(args.Owner, args.BucketID, args.Amount, args.Recipient, ts, txNonce+uint64(clauseIndex))
 			if err != nil {
 				env.UseGas(meter.SstoreResetGas)
 				return []interface{}{bktID, err.Error()}
