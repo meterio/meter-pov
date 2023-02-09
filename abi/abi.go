@@ -17,7 +17,7 @@ import (
 	"github.com/meterio/meter-pov/meter"
 )
 
-//  Added to upgrade ethereum library from v1.9.1 to v1.9.3
+// Added to upgrade ethereum library from v1.9.1 to v1.9.3
 func canonicalMethodSigature(method ethabi.Method) string {
 	types := make([]string, len(method.Inputs))
 	for i, input := range method.Inputs {
@@ -40,12 +40,13 @@ type ABI struct {
 // New create an ABI instance.
 func New(data []byte) (*ABI, error) {
 	var fields []struct {
-		Type      string
-		Name      string
-		Constant  bool
-		Anonymous bool
-		Inputs    []ethabi.Argument
-		Outputs   []ethabi.Argument
+		Type            string
+		Name            string
+		Constant        bool
+		Anonymous       bool
+		StateMutability string
+		Inputs          []ethabi.Argument
+		Outputs         []ethabi.Argument
 	}
 
 	if err := json.Unmarshal(data, &fields); err != nil {
@@ -70,7 +71,7 @@ func New(data []byte) (*ABI, error) {
 		case "function", "":
 			ethMethod := ethabi.Method{
 				Name:     field.Name,
-				Constant: field.Constant,
+				Constant: field.StateMutability == "view" || field.StateMutability == "pure" || field.Constant,
 				Inputs:   field.Inputs,
 				Outputs:  field.Outputs,
 			}
