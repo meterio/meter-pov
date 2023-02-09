@@ -12,10 +12,10 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
-	ethparams "github.com/meterio/meter-pov/params"
 	"github.com/meterio/meter-pov/abi"
 	"github.com/meterio/meter-pov/chain"
 	"github.com/meterio/meter-pov/meter"
+	ethparams "github.com/meterio/meter-pov/params"
 	"github.com/meterio/meter-pov/state"
 	"github.com/meterio/meter-pov/tx"
 	"github.com/meterio/meter-pov/vm"
@@ -49,13 +49,14 @@ func (ctx *TransactionContext) String() string {
 
 // Environment an env to execute native method.
 type Environment struct {
-	abi      *abi.Method
-	seeker   *chain.Seeker
-	state    *state.State
-	blockCtx *BlockContext
-	txCtx    *TransactionContext
-	evm      *vm.EVM
-	contract *vm.Contract
+	abi         *abi.Method
+	seeker      *chain.Seeker
+	state       *state.State
+	blockCtx    *BlockContext
+	txCtx       *TransactionContext
+	evm         *vm.EVM
+	contract    *vm.Contract
+	clauseIndex uint32
 }
 
 // New create a new env.
@@ -67,15 +68,17 @@ func New(
 	txCtx *TransactionContext,
 	evm *vm.EVM,
 	contract *vm.Contract,
+	clauseIndex uint32,
 ) *Environment {
 	return &Environment{
-		abi:      abi,
-		seeker:   seeker,
-		state:    state,
-		blockCtx: blockCtx,
-		txCtx:    txCtx,
-		evm:      evm,
-		contract: contract,
+		abi:         abi,
+		seeker:      seeker,
+		state:       state,
+		blockCtx:    blockCtx,
+		txCtx:       txCtx,
+		evm:         evm,
+		contract:    contract,
+		clauseIndex: clauseIndex,
 	}
 }
 
@@ -85,6 +88,7 @@ func (env *Environment) TransactionContext() *TransactionContext { return env.tx
 func (env *Environment) BlockContext() *BlockContext             { return env.blockCtx }
 func (env *Environment) Caller() meter.Address                   { return meter.Address(env.contract.Caller()) }
 func (env *Environment) To() meter.Address                       { return meter.Address(env.contract.Address()) }
+func (env *Environment) ClauseIndex() uint32                     { return env.clauseIndex }
 
 func (env *Environment) UseGas(gas uint64) {
 	if !env.contract.UseGas(gas) {

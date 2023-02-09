@@ -427,7 +427,7 @@ func (rt *Runtime) newEVM(stateDB *statedb.StateDB, clauseIndex uint32, txCtx *x
 				// skip direct calls
 				return nil, nil, false
 			}
-			// fmt.Println("INTERCEPT CALL: ", contract.Address().String())
+			// fmt.Println("INTERCEPT CALL: ", contract.Address().String(), "readonly:", readonly)
 			// fmt.Println("lastNonNativeCallGas:", lastNonNativeCallGas, "contract.gas", contract.Gas)
 			// comment out, this has been changed
 
@@ -456,6 +456,7 @@ func (rt *Runtime) newEVM(stateDB *statedb.StateDB, clauseIndex uint32, txCtx *x
 				return nil, nil, false
 			}
 			// fmt.Println("found call for ", contract.Address(), hex.EncodeToString(contract.Input))
+			// fmt.Println("abi: ", abi.Const(), abi.Name(), abi.ID())
 
 			if readonly && !abi.Const() {
 				panic("invoke non-const method in readonly env")
@@ -482,7 +483,7 @@ func (rt *Runtime) newEVM(stateDB *statedb.StateDB, clauseIndex uint32, txCtx *x
 				// panic("serious bug: native call returned gas over consumed")
 			}
 
-			ret, err := xenv.New(abi, rt.seeker, rt.state, rt.ctx, txCtx, evm, contract).Call(run)
+			ret, err := xenv.New(abi, rt.seeker, rt.state, rt.ctx, txCtx, evm, contract, clauseIndex).Call(run)
 			return ret, err, true
 		},
 		OnCreateContract: func(_ *vm.EVM, contractAddr, caller common.Address) {
