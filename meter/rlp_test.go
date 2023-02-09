@@ -8,7 +8,6 @@ import (
 
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/meterio/meter-pov/meter"
-	"github.com/meterio/meter-pov/script/auction"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -31,7 +30,7 @@ func TestRLPAppend(t *testing.T) {
 func TestRLPAppendSummary(t *testing.T) {
 	atxs := []*meter.AuctionTx{}
 	for i := 0; i < 1; i++ {
-		atx := meter.NewAuctionTx(meter.BytesToAddress([]byte("test-1")), big.NewInt(1), auction.USER_BID, 0, 0)
+		atx := meter.NewAuctionTx(meter.BytesToAddress([]byte("test-1")), big.NewInt(1), meter.USER_BID, 0, 0)
 		atxs = append(atxs, atx)
 	}
 	list := []*meter.AuctionSummary{{StartHeight: 1, EndHeight: 2, AuctionTxs: atxs}}
