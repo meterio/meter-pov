@@ -74,13 +74,13 @@ var chainConfig = vm.ChainConfig{
 
 // Output output of clause execution.
 type Output struct {
-	Data            []byte
-	Events          tx.Events
-	Transfers       tx.Transfers
-	LeftOverGas     uint64
-	RefundGas       uint64
-	VMErr           error          // VMErr identify the execution result of the contract function, not evm function's err.
-	ContractAddress *meter.Address // if create a new contract, or is nil.
+	Data            []byte         `json:"data"`
+	Events          tx.Events      `json:"events"`
+	Transfers       tx.Transfers   `json:"transfers"`
+	LeftOverGas     uint64         `json:"leftOverGas"`
+	RefundGas       uint64         `json:"refundGas"`
+	VMErr           error          `json:"vmErr"`           // VMErr identify the execution result of the contract function, not evm function's err.
+	ContractAddress *meter.Address `json:"contractAddress"` // if create a new contract, or is nil.
 }
 
 func (o *Output) String() string {

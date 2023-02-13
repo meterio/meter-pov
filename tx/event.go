@@ -17,11 +17,11 @@ import (
 // stored/indexed by the node.
 type Event struct {
 	// address of the contract that generated the event
-	Address meter.Address
+	Address meter.Address `json:"address"`
 	// list of topics provided by the contract.
-	Topics []meter.Bytes32
+	Topics []meter.Bytes32 `json:"topics"`
 	// supplied by the contract, usually ABI-encoded
-	Data []byte
+	Data []byte `json:"data"`
 }
 
 // Events slice of event logs.

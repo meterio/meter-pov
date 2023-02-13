@@ -15,10 +15,10 @@ import (
 
 // Transfer token transfer log.
 type Transfer struct {
-	Sender    meter.Address
-	Recipient meter.Address
-	Amount    *big.Int
-	Token     byte
+	Sender    meter.Address `json:"sender"`
+	Recipient meter.Address `json:"recipient"`
+	Amount    *big.Int      `json:"amount"`
+	Token     byte          `json:"token"`
 }
 
 // Transfers slisce of transfer logs.

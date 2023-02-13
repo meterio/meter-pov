@@ -7,8 +7,10 @@ package debug
 
 import (
 	"context"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"math/big"
 	"net/http"
 	"strconv"
 	"strings"
@@ -242,6 +244,52 @@ func (d *Debug) traceTransactionWithAllClauses(ctx context.Context, blockID mete
 	return tracer.GetResult()
 }
 
+type TraceResult struct {
+	Type    string        `json:"type"`
+	From    meter.Address `json:"from"`
+	To      meter.Address `json:"to"`
+	Value   *big.Int      `json:"value"`
+	Gas     *big.Int      `json:"gas"`
+	GasUsed *big.Int      `json:"gasUsed"`
+	Input   string        `json:"input"`
+	Output  string        `json:"output"`
+	Error   string        `json:"error"`
+	Time    string        `json:"time"`
+	// Calls
+}
+
+// trace an existed transaction
+
+func (d *Debug) execClause(ctx context.Context, blockID meter.Bytes32, txIndex uint64, clauseIndex uint64) (interface{}, error) {
+	_, txExec, err := d.handleClauseEnv(ctx, blockID, txIndex, clauseIndex)
+	if err != nil {
+		fmt.Println("error handle clause env: ", err)
+		return nil, err
+	}
+	gasUsed, output, err := txExec.NextClause()
+	if err != nil {
+		fmt.Println("error next clause: ", err)
+		return nil, err
+	}
+
+	errMsg := ""
+	if output.VMErr != nil {
+		errMsg = output.VMErr.Error()
+	}
+	b, _ := d.chain.GetBlock(blockID)
+	tx := b.Transactions()[txIndex]
+	clause := tx.Clauses()[clauseIndex]
+	return &TraceResult{
+		Type:    "SCRIPTENGINE",
+		To:      *clause.To(),
+		Input:   "",
+		Output:  "0x" + hex.EncodeToString(output.Data),
+		Error:   errMsg,
+		Value:   clause.Value(),
+		Gas:     big.NewInt(int64(tx.Gas())),
+		GasUsed: big.NewInt(int64(gasUsed))}, nil
+}
+
 // trace an existed transaction
 func (d *Debug) traceTransaction(ctx context.Context, tracer vm.Tracer, blockID meter.Bytes32, txIndex uint64, clauseIndex uint64) (interface{}, error) {
 	rt, txExec, err := d.handleClauseEnv(ctx, blockID, txIndex, clauseIndex)
@@ -363,6 +411,78 @@ func (d *Debug) convertTraceData(callTraceResult CallTraceResult, path []uint64,
 		datas = append(datas, subdatas...)
 	}
 	return datas, nil
+}
+
+func (d *Debug) handleRerunTransaction(w http.ResponseWriter, req *http.Request) error {
+	clauseIndexStr := mux.Vars(req)["clauseIndex"]
+	clauseIndex, err := strconv.Atoi(clauseIndexStr)
+	if err != nil {
+		return err
+	}
+	txHashStr := mux.Vars(req)["txhash"]
+	txID, err := meter.ParseBytes32(txHashStr)
+	if err != nil {
+		fmt.Println("error parsing txid", err)
+		return err
+	}
+	best := d.chain.BestBlock()
+	txMeta, err := d.chain.GetTransactionMeta(txID, best.ID())
+	if err != nil {
+		fmt.Println("error getting txmeta", err)
+		return err
+	}
+	fmt.Println("handle trace", "blockID:", txMeta.BlockID, "txIndex:", txMeta.Index, "clauseIndex:", clauseIndex)
+	res, err := d.execClause(req.Context(), txMeta.BlockID, txMeta.Index, uint64(clauseIndex))
+	if err != nil {
+		return err
+	}
+	fmt.Println("complete handle trace")
+	return utils.WriteJSON(w, res)
+}
+
+func (d *Debug) handleNewTraceTransaction(w http.ResponseWriter, req *http.Request) error {
+	clauseIndexStr := mux.Vars(req)["clauseIndex"]
+	clauseIndex, err := strconv.Atoi(clauseIndexStr)
+	if err != nil {
+		return err
+	}
+	txHashStr := mux.Vars(req)["txhash"]
+	txID, err := meter.ParseBytes32(txHashStr)
+	if err != nil {
+		fmt.Println("error parsing txid", err)
+		return err
+	}
+	best := d.chain.BestBlock()
+	txMeta, err := d.chain.GetTransactionMeta(txID, best.ID())
+	if err != nil {
+		fmt.Println("error getting txmeta", err)
+		return err
+	}
+	isSE := d.isScriptEngineClause(txMeta.BlockID, txMeta.Index, uint64(clauseIndex))
+	var res interface{}
+	if isSE {
+		fmt.Println("handle trace", "blockID:", txMeta.BlockID, "txIndex:", txMeta.Index, "clauseIndex:", clauseIndex)
+		res, err = d.execClause(req.Context(), txMeta.BlockID, txMeta.Index, uint64(clauseIndex))
+		if err != nil {
+			return err
+		}
+	} else {
+		code, ok := tracers.CodeByName("callTracer")
+		if !ok {
+			return utils.BadRequest(errors.New("name: unsupported tracer"))
+		}
+		tracer, err := tracers.New(code)
+		if err != nil {
+			return err
+		}
+		res, err = d.traceTransaction(req.Context(), tracer, txMeta.BlockID, txMeta.Index, uint64(clauseIndex))
+		if err != nil {
+			return err
+		}
+	}
+
+	fmt.Println("complete handle trace")
+	return utils.WriteJSON(w, res)
 }
 
 func (d *Debug) handleTraceTransaction(w http.ResponseWriter, req *http.Request) error {
@@ -718,4 +838,8 @@ func (d *Debug) Mount(root *mux.Router, pathPrefix string) {
 	sub.Path("/openeth_trace_transaction").Methods(http.MethodPost).HandlerFunc((utils.WrapHandlerFunc(d.handleOpenEthTraceTransaction)))
 	sub.Path("/openeth_trace_block").Methods(http.MethodPost).HandlerFunc((utils.WrapHandlerFunc(d.handleOpenEthTraceBlock)))
 	sub.Path("/openeth_trace_filter").Methods(http.MethodPost).HandlerFunc((utils.WrapHandlerFunc(d.handleOpenEthTraceFilter)))
+
+	// add api for trace and rerun clause
+	sub.Path("/trace/{txhash}/{clauseIndex}").Methods(http.MethodGet).HandlerFunc(utils.WrapHandlerFunc(d.handleNewTraceTransaction))
+	sub.Path("/rerun/{txhash}/{clauseIndex}").Methods(http.MethodGet).HandlerFunc(utils.WrapHandlerFunc(d.handleRerunTransaction))
 }
