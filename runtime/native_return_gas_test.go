@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	"github.com/meterio/meter-pov/builtin"
-	"github.com/meterio/meter-pov/builtin/gen"
 	"github.com/meterio/meter-pov/lvldb"
 	"github.com/meterio/meter-pov/meter"
 	"github.com/meterio/meter-pov/state"
@@ -59,7 +58,7 @@ func TestNativeCallReturnGasNew(t *testing.T) {
 	kv, _ := lvldb.NewMem()
 	state, _ := state.New(meter.Bytes32{}, kv)
 	mtrgV1Addr := meter.MustParseAddress("0x228ebBeE999c6a7ad74A6130E81b12f9Fe237Ba3")
-	mtrgHex, _ := hex.DecodeString(gen.MeterGovERC20Permit_DeployedBytecode)
+	mtrgHex, _ := hex.DecodeString(builtin.MeterGovERC20Permit_DeployedBytecode)
 
 	trackerAddr32 := meter.BytesToBytes32(builtin.MeterTracker.Address[:])
 
