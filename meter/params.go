@@ -172,7 +172,7 @@ var (
 	// 0x61746f722d62656e656669742d61646472657373
 	ValidatorBenefitAddr = BytesToAddress([]byte("validator-benefit-address"))
 
-	// ScriptEngineSysContractAddr = BytesToAddress([]byte("native-script-engine-address"))
+	ScriptEngineSysContractAddr = BytesToAddress([]byte("native-script-engine-address"))
 
 	AuctionLeftOverAccount = MustParseAddress("0xe852f654dfaee0e2b60842657379a56e1cafa292")
 
