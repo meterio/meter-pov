@@ -15,6 +15,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
+	"github.com/inconshreveable/log15"
 	"github.com/meterio/meter-pov/abi"
 	"github.com/meterio/meter-pov/builtin"
 	"github.com/meterio/meter-pov/chain"
@@ -162,46 +163,50 @@ func (rt *Runtime) LoadERC20NativeCotract() {
 	blockNum := rt.Context().Number
 	addr := builtin.MeterTracker.Address
 	execAddr := builtin.Executor.Address
+	log := log15.New("pkg", "forkNative")
 	if meter.IsSysContractEnabled(blockNum) && len(rt.State().GetCode(addr)) == 0 {
 		rt.State().SetCode(addr, builtin.NewMeterNative_BinRuntime)
 		rt.State().SetCode(execAddr, []byte{})
+		log.Info("Loaded NewMeterNative (v2)")
 	}
 }
 
 func (rt *Runtime) EnforceTelsaFork1_Corrections() {
 	blockNumber := rt.Context().Number
+	log := log15.New("pkg", "fork1")
 	if blockNumber > 0 && meter.IsMainNet() {
 		// flag is nil or 0, is not do. 1 meas done.
 		enforceFlag := builtin.Params.Native(rt.State()).Get(meter.KeyEnforceTesla1_Correction)
 
 		if meter.IsTeslaFork1(blockNumber) && (enforceFlag == nil || enforceFlag.Sign() == 0) {
+			log.Info("Start fork1 correction")
 			// Tesla 1.1 Fork
-			fmt.Println("Start to correct Tesla 1.0 Error Buckets")
 			script.EnforceTeslaFork1_Corrections(rt.State(), rt.Context().Time)
+			log.Info("Finished Tesla 1.0 Error Buckets correction")
+
 			builtin.Params.Native(rt.State()).Set(meter.KeyEnforceTesla1_Correction, big.NewInt(1))
+			log.Info("Finished fork1 correction")
 		}
 	}
 }
 
 func (rt *Runtime) EnforceTeslaFork5_Corrections() {
 	blockNumber := rt.Context().Number
+	log := log15.New("pkg", "fork5")
 	if blockNumber > 0 && meter.IsMainNet() {
 		// flag is nil or 0, is not do. 1 meas done.
 		enforceFlag := builtin.Params.Native(rt.State()).Get(meter.KeyEnforceTesla5_Correction)
 
 		if meter.IsTeslaFork5(blockNumber) && (enforceFlag == nil || enforceFlag.Sign() == 0) {
+			log.Info("Start fork5 correction")
 			// Tesla 5 Fork
-			fmt.Println("Start to override MTRG V1 with V2 bytecode")
 			mtrgV1Addr := meter.MustParseAddress("0x228ebBeE999c6a7ad74A6130E81b12f9Fe237Ba3")
-			mtrgV2Code, _ := hex.DecodeString(builtin.MeterGovERC20Permit_DeployedBytecode)
-			rt.state.SetCode(mtrgV1Addr, mtrgV2Code)
-			fmt.Println("Override MTRG V1 with V2 bytecode: DONE")
+			rt.state.SetCode(mtrgV1Addr, builtin.MeterGovERC20Permit_DeployedBytecode)
+			log.Info("Overriden MTRG with V2 bytecode", "addr", mtrgV1Addr.String())
 
-			fmt.Println("Start to Call bonus correction")
 			script.EnforceTeslaFork5BonusCorrections(rt.State(), rt.Context().Time)
-			fmt.Println("Call bonus correction: DONE")
+			log.Info("Finished bonus correction")
 
-			fmt.Println("Start to correct Tesla Fork 5 Account with wrong bounded balance")
 			targetAddress := meter.MustParseAddress("0x08ebea6584b3d9bf6fbcacf1a1507d00a61d95b7")
 			bal := rt.state.GetBalance(targetAddress)
 			bounded := rt.state.GetBoundedBalance(targetAddress)
@@ -213,25 +218,26 @@ func (rt *Runtime) EnforceTeslaFork5_Corrections() {
 				rt.state.SetBalance(targetAddress, bal)
 				rt.state.SetBoundedBalance(targetAddress, bounded)
 			}
-			fmt.Println("Correct Tesla Fork 5 account with wrong bounded balance: DONE")
+			log.Info("Correct Tesla Fork 5 Account with wrong bounded balance")
 			builtin.Params.Native(rt.State()).Set(meter.KeyEnforceTesla5_Correction, big.NewInt(1))
-
+			log.Info("Finished fork5 correction")
 		}
 	}
 }
 
 func (rt *Runtime) EnforceTeslaFork6_Corrections() {
 	blockNumber := rt.Context().Number
+	log := log15.New("pkg", "fork6")
 	if blockNumber > 0 && meter.IsMainNet() {
 		// flag is nil or 0, is not do. 1 meas done.
 		enforceFlag := builtin.Params.Native(rt.State()).Get(meter.KeyEnforceTesla_Fork6_Correction)
 
 		if blockNumber > meter.TeslaFork6_MainnetStartNum && (enforceFlag == nil || enforceFlag.Sign() == 0) {
 			// Tesla 6 Fork
-			fmt.Println("Start to update for fork6")
+			log.Info("Start fork6 correction")
 			script.EnforceTeslaFork6_StakingCorrections(rt.State(), rt.Context().Time)
 			builtin.Params.Native(rt.State()).Set(meter.KeyEnforceTesla_Fork6_Correction, big.NewInt(1))
-			fmt.Println("Finished update for fork6")
+			log.Info("Finished fork6 correction")
 		}
 
 	}
@@ -239,24 +245,24 @@ func (rt *Runtime) EnforceTeslaFork6_Corrections() {
 
 func (rt *Runtime) EnforceTeslaFork8_LiquidStaking() {
 	blockNumber := rt.Context().Number
+	log := log15.New("pkg", "fork8")
 	if blockNumber > 0 && meter.IsMainNet() {
 		// flag is nil or 0, is not do. 1 meas done.
 		enforceFlag := builtin.Params.Native(rt.State()).Get(meter.KeyEnforceTesla_Fork8_Correction)
 
 		if meter.IsTeslaFork8(blockNumber) && (enforceFlag == nil || enforceFlag.Sign() == 0) {
-			fmt.Println("Start to update for fork8")
-			// Tesla 8 Fork
-			// fmt.Println("Start to override ScriptEngine bytecode", meter.ScriptEngineSysContractAddr)
-			// rt.state.SetCode(meter.ScriptEngineSysContractAddr, builtin.ScriptEngine_DeployedBytecode)
-			// fmt.Println("Override ScriptEngine sys contract bytecode: DONE", len(builtin.ScriptEngine_DeployedBytecode))
-
-			fmt.Println("Start to override MeterNative with V3 bytecode", builtin.MeterTracker.Address)
+			log.Info("Start fork8 correction")
 			rt.state.SetCode(builtin.MeterTracker.Address, builtin.MeterNative_V3_DeployedBytecode)
-			fmt.Println("Override MeterNative with V3 bytecode: DONE", len(builtin.MeterNative_V3_DeployedBytecode))
+			log.Info("Overriden MeterNative with V3 bytecode", "addr", builtin.MeterTracker.Address)
+
+			rt.state.SetCode(meter.ScriptEngineSysContractAddr, builtin.ScriptEngine_DeployedBytecode)
+			rt.state.SetStorage(meter.ScriptEngineSysContractAddr, meter.BytesToBytes32([]byte{0}), meter.BytesToBytes32(builtin.MeterTracker.Address[:]))
+			builtin.Params.Native(rt.state).SetAddress(meter.KeySystemContractAddress2, meter.ScriptEngineSysContractAddr)
+			log.Info("Deploy ScriptEngine bytecode at slot 4", "addr", meter.ScriptEngineSysContractAddr)
 
 			// builtin.Params.Native(rt.State()).SetAddress(meter.KeySystemContractAddress2, meter.ScriptEngineSysContractAddr)
 			builtin.Params.Native(rt.State()).Set(meter.KeyEnforceTesla_Fork8_Correction, big.NewInt(1))
-			fmt.Println("Finished update for fork8")
+			log.Info("Finished fork8 correction")
 		}
 	}
 }
@@ -420,6 +426,7 @@ func (rt *Runtime) newEVM(stateDB *statedb.StateDB, clauseIndex uint32, txCtx *x
 		InterceptContractCall: func(evm *vm.EVM, contract *vm.Contract, readonly bool) ([]byte, error, bool) {
 			// fmt.Println("evm depth: ", evm.Depth(), "contract: ", contract.Address())
 			// fmt.Println("caller: ", contract.Caller())
+
 			if evm.Depth() < 2 {
 				// fmt.Println("before skip direct calls", lastNonNativeCallGas, "contract.gas", contract.Gas)
 				lastNonNativeCallGas = contract.Gas

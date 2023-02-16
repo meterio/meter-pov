@@ -58,14 +58,13 @@ func TestNativeCallReturnGasNew(t *testing.T) {
 	kv, _ := lvldb.NewMem()
 	state, _ := state.New(meter.Bytes32{}, kv)
 	mtrgV1Addr := meter.MustParseAddress("0x228ebBeE999c6a7ad74A6130E81b12f9Fe237Ba3")
-	mtrgHex, _ := hex.DecodeString(builtin.MeterGovERC20Permit_DeployedBytecode)
 
 	trackerAddr32 := meter.BytesToBytes32(builtin.MeterTracker.Address[:])
 
 	state.SetStorage(mtrgV1Addr, meter.BytesToBytes32([]byte{1}), trackerAddr32)
 	state.SetStorage(builtin.Params.Address, meter.KeyNativeMtrgERC20Address, meter.BytesToBytes32(mtrgV1Addr[:]))
 
-	state.SetCode(mtrgV1Addr, mtrgHex)
+	state.SetCode(mtrgV1Addr, builtin.MeterGovERC20Permit_DeployedBytecode)
 	state.SetCode(builtin.MeterTracker.Address, builtin.MeterTracker.RuntimeBytecodes())
 
 	state.SetBalance(mtrgV1Addr, big.NewInt(5e18))
