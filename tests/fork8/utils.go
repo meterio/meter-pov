@@ -1,4 +1,4 @@
-package fork7
+package fork8
 
 import (
 	"crypto/ecdsa"
@@ -7,7 +7,6 @@ import (
 	"math/big"
 	"time"
 
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/inconshreveable/log15"
@@ -137,11 +136,11 @@ func buildStakingTx(bestRef uint32, body *staking.StakingBody, key *ecdsa.Privat
 }
 
 func initRuntimeAfterFork8() (*runtime.Runtime, *state.State, uint64) {
-	fmt.Println("Holder: ", HolderAddr)
-	fmt.Println("Cand: ", CandAddr)
-	fmt.Println("Cand2: ", Cand2Addr)
-	fmt.Println("Voter: ", VoterAddr)
-	fmt.Println("Voter2: ", Voter2Addr)
+	// fmt.Println("Holder: ", HolderAddr)
+	// fmt.Println("Cand: ", CandAddr)
+	// fmt.Println("Cand2: ", Cand2Addr)
+	// fmt.Println("Voter: ", VoterAddr)
+	// fmt.Println("Voter2: ", Voter2Addr)
 	initLogger()
 	kv, _ := lvldb.NewMem()
 	meter.InitBlockChainConfig("main")
@@ -151,7 +150,16 @@ func initRuntimeAfterFork8() (*runtime.Runtime, *state.State, uint64) {
 		state.SetCode(builtin.Prototype.Address, builtin.Prototype.RuntimeBytecodes())
 		state.SetCode(builtin.Executor.Address, builtin.Executor.RuntimeBytecodes())
 		state.SetCode(builtin.Params.Address, builtin.Params.RuntimeBytecodes())
+		state.SetCode(builtin.Measure.Address, builtin.Measure.RuntimeBytecodes())
 		builtin.Params.Native(state).Set(meter.KeyExecutorAddress, new(big.Int).SetBytes(builtin.Executor.Address[:]))
+
+		// init MTRG sys contract
+		mtrgSysContractAddr := meter.MustParseAddress("0x228ebBeE999c6a7ad74A6130E81b12f9Fe237Ba3")
+		state.SetCode(mtrgSysContractAddr, builtin.MeterGovERC20Permit_DeployedBytecode)
+		state.SetStorage(mtrgSysContractAddr, meter.BytesToBytes32([]byte{1}), meter.BytesToBytes32(builtin.MeterTracker.Address[:]))
+		builtin.Params.Native(state).SetAddress(meter.KeySystemContractAddress1, mtrgSysContractAddr)
+
+		// MeterTracker / ScriptEngine will be initialized on fork8
 
 		// testing env set up like this:
 		// 2 candidates: Cand, Cand2
@@ -176,29 +184,36 @@ func initRuntimeAfterFork8() (*runtime.Runtime, *state.State, uint64) {
 
 		// init balance for candidates
 		state.AddBoundedBalance(CandAddr, buildAmount(2000))
-		state.AddEnergy(CandAddr, buildAmount(100))
+		// state.AddEnergy(CandAddr, buildAmount(100))
+		builtin.MeterTracker.Native(state).MintMeter(CandAddr, buildAmount(100))
 		state.AddBoundedBalance(Cand2Addr, buildAmount(2000))
-		state.AddEnergy(Cand2Addr, buildAmount(100))
+		// state.AddEnergy(Cand2Addr, buildAmount(100))
+		builtin.MeterTracker.Native(state).MintMeter(Cand2Addr, buildAmount(100))
 
 		// init balance for holders
-		state.AddBalance(HolderAddr, buildAmount(1000))
-		state.AddEnergy(HolderAddr, buildAmount(100))
+		// state.AddBalance(HolderAddr, buildAmount(1000))
+		builtin.MeterTracker.Native(state).MintMeterGov(HolderAddr, buildAmount(1000))
+		// state.AddEnergy(HolderAddr, buildAmount(100))
+		builtin.MeterTracker.Native(state).MintMeter(HolderAddr, buildAmount(100))
 
 		// init balance for voters
-		state.AddBalance(VoterAddr, buildAmount(3000))
-		state.AddEnergy(VoterAddr, buildAmount(100))
-		state.AddBalance(Voter2Addr, buildAmount(1000))
+		// state.AddBalance(VoterAddr, buildAmount(3000))
+		builtin.MeterTracker.Native(state).MintMeterGov(VoterAddr, buildAmount(3000))
+		// state.AddEnergy(VoterAddr, buildAmount(100))
+		builtin.MeterTracker.Native(state).MintMeter(VoterAddr, buildAmount(100))
+		// state.AddBalance(Voter2Addr, buildAmount(1000))
+		builtin.MeterTracker.Native(state).MintMeterGov(Voter2Addr, buildAmount(1000))
+		// state.AddEnergy(Voter2Addr, buildAmount(100))
+		builtin.MeterTracker.Native(state).MintMeter(Voter2Addr, buildAmount(100))
 		state.AddBoundedBalance(Voter2Addr, buildAmount(500))
-		state.AddEnergy(Voter2Addr, buildAmount(100))
 
+		builtin.MeterTracker.Native(state).MintMeterGov(Voter2Addr, buildAmount(1234))
+		builtin.MeterTracker.Native(state).BurnMeterGov(Voter2Addr, buildAmount(1234))
 		// disable previous fork corrections
 		builtin.Params.Native(state).Set(meter.KeyEnforceTesla1_Correction, big.NewInt(1))
 		builtin.Params.Native(state).Set(meter.KeyEnforceTesla5_Correction, big.NewInt(1))
 		builtin.Params.Native(state).Set(meter.KeyEnforceTesla_Fork6_Correction, big.NewInt(1))
 
-		scriptEngineAddr := meter.Address(meter.EthCreateContractAddress(common.Address(HolderAddr), 0))
-
-		builtin.Params.Native(state).SetAddress(meter.KeySystemContractAddress2, scriptEngineAddr)
 		return nil
 	})
 
@@ -214,15 +229,16 @@ func initRuntimeAfterFork8() (*runtime.Runtime, *state.State, uint64) {
 			Number: meter.TeslaFork8_MainnetStartNum + 1,
 			Signer: HolderAddr})
 
-	// deploy ScriptEngine contract
-	createTrx := buildCallTx(0, nil, builtin.ScriptEngine_Bytecode, 0, HolderKey)
-	r, err := rt.ExecuteTransaction(createTrx)
-	if err != nil {
-		panic(err)
-	}
-	if r.Reverted {
-		panic("deploy ScriptEngine failed")
-	}
+	rt.EnforceTeslaFork8_LiquidStaking()
+	// // deploy ScriptEngine contract
+	// createTrx := buildCallTx(0, nil, builtin.ScriptEngine_Bytecode, 0, HolderKey)
+	// r, err := rt.ExecuteTransaction(createTrx)
+	// if err != nil {
+	// 	panic(err)
+	// }
+	// if r.Reverted {
+	// 	panic("deploy ScriptEngine failed")
+	// }
 
 	return rt, st, ts
 }
