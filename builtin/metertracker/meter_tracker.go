@@ -120,18 +120,18 @@ func (e *MeterTracker) GetMeterTotalSupply() *big.Int {
 // Meter Gov: TotalBurned returns Meter Gov totally burned.
 func (e *MeterTracker) GetMeterGovTotalBurned() *big.Int {
 	total := e.GetMeterGovTotalAddSub()
-	return new(big.Int).Sub(total.TotalSub, total.TotalAdd)
+	return total.TotalSub
 }
 
 // Meter: TotalBurned returns Meter totally burned.
 func (e *MeterTracker) GetMeterTotalBurned() *big.Int {
 	total := e.GetMeterTotalAddSub()
-	return new(big.Int).Sub(total.TotalSub, total.TotalAdd)
+	return total.TotalSub
 }
 
-///////////////////////////////////////////////////////////////
-///////////////////////////////////////////////////////////////
-//Meter Gov
+// /////////////////////////////////////////////////////////////
+// /////////////////////////////////////////////////////////////
+// Meter Gov
 func (e *MeterTracker) GetMeter(addr meter.Address) *big.Int {
 	return e.state.GetEnergy(addr)
 }
@@ -179,7 +179,7 @@ func (e *MeterTracker) BurnMeter(addr meter.Address, amount *big.Int) bool {
 	}
 
 	total := e.GetMeterTotalAddSub()
-	total.TotalAdd = new(big.Int).Add(total.TotalSub, amount)
+	total.TotalSub = new(big.Int).Add(total.TotalSub, amount)
 	e.SetMeterTotalAddSub(total)
 
 	//update state
@@ -209,7 +209,7 @@ func (e *MeterTracker) SubMeterLocked(addr meter.Address, amount *big.Int) bool 
 	return e.state.SubBoundedEnergy(addr, amount)
 }
 
-/////// Meter Gov /////////////////
+// ///// Meter Gov /////////////////
 func (e *MeterTracker) GetMeterGov(addr meter.Address) *big.Int {
 	return e.state.GetBalance(addr)
 }
@@ -287,7 +287,7 @@ func (e *MeterTracker) BurnMeterGov(addr meter.Address, amount *big.Int) {
 	}
 
 	total := e.GetMeterGovTotalAddSub()
-	total.TotalAdd = new(big.Int).Add(total.TotalSub, amount)
+	total.TotalSub = new(big.Int).Add(total.TotalSub, amount)
 	e.SetMeterGovTotalAddSub(total)
 
 	//update state
