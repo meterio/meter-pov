@@ -1,13 +1,11 @@
-package fork7
+package fork8
 
 import (
-	"fmt"
 	"math/big"
 	"math/rand"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/meterio/meter-pov/builtin"
 	"github.com/meterio/meter-pov/meter"
 	"github.com/stretchr/testify/assert"
@@ -15,10 +13,9 @@ import (
 
 func TestBucketOpen(t *testing.T) {
 	rt, s, ts := initRuntimeAfterFork8()
-	scriptEngineAddr := meter.Address(meter.EthCreateContractAddress(common.Address(HolderAddr), 0))
-	fmt.Println("SCRIPT ENGINE CONTRACT", scriptEngineAddr)
+	scriptEngineAddr := meter.ScriptEngineSysContractAddr
 
-	bucketOpenFunc, found := builtin.GetABIForScriptEngine().MethodByName("bucketOpen")
+	bucketOpenFunc, found := builtin.ScriptEngine_ABI.MethodByName("bucketOpen")
 	assert.True(t, found)
 	amount := buildAmount(100)
 
@@ -55,10 +52,9 @@ func TestBucketOpen(t *testing.T) {
 
 func TestNotEnoughBalance(t *testing.T) {
 	rt, s, _ := initRuntimeAfterFork8()
-	scriptEngineAddr := meter.Address(meter.EthCreateContractAddress(common.Address(HolderAddr), 0))
-	fmt.Println("SCRIPT ENGINE CONTRACT", scriptEngineAddr)
+	scriptEngineAddr := meter.ScriptEngineSysContractAddr
 
-	bucketOpenFunc, found := builtin.GetABIForScriptEngine().MethodByName("bucketOpen")
+	bucketOpenFunc, found := builtin.ScriptEngine_ABI.MethodByName("bucketOpen")
 	assert.True(t, found)
 	amount := buildAmount(100)
 

@@ -1,11 +1,9 @@
-package fork7
+package fork8
 
 import (
-	"fmt"
 	"math/rand"
 	"testing"
 
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/meterio/meter-pov/builtin"
 	"github.com/meterio/meter-pov/meter"
 	"github.com/stretchr/testify/assert"
@@ -13,12 +11,11 @@ import (
 
 func TestBucketClose(t *testing.T) {
 	rt, s, ts := initRuntimeAfterFork8()
-	scriptEngineAddr := meter.Address(meter.EthCreateContractAddress(common.Address(HolderAddr), 0))
-	fmt.Println("SCRIPT ENGINE CONTRACT", scriptEngineAddr)
+	scriptEngineAddr := meter.ScriptEngineSysContractAddr
 
 	bktID := bucketID(Voter2Addr, 0, 0)
 
-	bucketCloseFunc, found := builtin.GetABIForScriptEngine().MethodByName("bucketClose")
+	bucketCloseFunc, found := builtin.ScriptEngine_ABI.MethodByName("bucketClose")
 	assert.True(t, found)
 
 	data, err := bucketCloseFunc.EncodeInput(bktID)

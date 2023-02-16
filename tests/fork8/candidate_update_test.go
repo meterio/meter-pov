@@ -1,4 +1,4 @@
-package fork7
+package fork8
 
 import (
 	"math/rand"

@@ -56,6 +56,8 @@ func TestBucketAdd(t *testing.T) {
 func TestBucketSub(t *testing.T) {
 	rt, s, ts := initRuntimeAfterFork7()
 	bktID := bucketID(VoterAddr, 0, 0)
+	b := s.GetBucketList().Get(bktID)
+	assert.NotNil(t, b)
 	subAmount := buildAmount(100)
 	body := &staking.StakingBody{
 		Opcode:     staking.OP_BUCKET_UPDT,

@@ -1,12 +1,12 @@
-package fork7
+package fork8
 
 import (
 	"crypto/ecdsa"
+	"fmt"
 	"math/big"
 	"math/rand"
 	"testing"
 
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/meterio/meter-pov/builtin"
 	"github.com/meterio/meter-pov/meter"
 	"github.com/meterio/meter-pov/runtime"
@@ -28,7 +28,7 @@ func testBucketDeposit(t *testing.T, scriptEngineAddr *meter.Address, owner *met
 	bbal := s.GetBoundedBalance(HolderAddr)
 
 	// bucket deposit
-	bucketDepositFunc, found := builtin.GetABIForScriptEngine().MethodByName("bucketDeposit")
+	bucketDepositFunc, found := builtin.ScriptEngine_ABI.MethodByName("bucketDeposit")
 	assert.True(t, found)
 	data, err := bucketDepositFunc.EncodeInput(bktID, amount)
 	assert.Nil(t, err)
@@ -59,7 +59,7 @@ func testBucketWithdraw(t *testing.T, scriptEngineAddr *meter.Address, owner *me
 	bbalRecipient := s.GetBoundedBalance(*recipient)
 
 	// bucket withdraw
-	bucketWithdrawFunc, found := builtin.GetABIForScriptEngine().MethodByName("bucketWithdraw")
+	bucketWithdrawFunc, found := builtin.ScriptEngine_ABI.MethodByName("bucketWithdraw")
 	assert.True(t, found)
 	data, err := bucketWithdrawFunc.EncodeInput(bktID, amount, recipient)
 	assert.Nil(t, err)
@@ -95,9 +95,9 @@ func testBucketWithdraw(t *testing.T, scriptEngineAddr *meter.Address, owner *me
 
 func TestBucketDepositWithdraw(t *testing.T) {
 	rt, s, ts := initRuntimeAfterFork8()
-	scriptEngineAddr := meter.Address(meter.EthCreateContractAddress(common.Address(HolderAddr), 0))
+	scriptEngineAddr := meter.ScriptEngineSysContractAddr
 
-	bucketOpenFunc, found := builtin.GetABIForScriptEngine().MethodByName("bucketOpen")
+	bucketOpenFunc, found := builtin.ScriptEngine_ABI.MethodByName("bucketOpen")
 	assert.True(t, found)
 	openAmount := buildAmount(150)
 	data, err := bucketOpenFunc.EncodeInput(CandAddr, openAmount)
@@ -108,6 +108,7 @@ func TestBucketDepositWithdraw(t *testing.T) {
 	txNonce := rand.Uint64()
 	trx := buildCallTx(0, &scriptEngineAddr, data, txNonce, HolderKey)
 	receipt, err := rt.ExecuteTransaction(trx)
+	fmt.Println(receipt)
 	assert.Nil(t, err)
 	assert.False(t, receipt.Reverted)
 
