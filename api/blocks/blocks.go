@@ -141,8 +141,20 @@ func (b *Blocks) parseEpoch(epoch string) (uint32, error) {
 func (b *Blocks) getBlock(revision interface{}) (*block.Block, error) {
 	switch revision.(type) {
 	case meter.Bytes32:
-		return b.chain.GetBlock(revision.(meter.Bytes32))
+		blk, err := b.chain.GetBlock(revision.(meter.Bytes32))
+		if err != nil {
+			return blk, err
+		}
+		best := b.chain.BestBlock()
+		if blk.Number() > best.Number() {
+			return nil, errors.New("not found")
+		}
+		return blk, err
 	case uint32:
+		best := b.chain.BestBlock()
+		if revision.(uint32) > best.Number() {
+			return nil, errors.New("not found")
+		}
 		return b.chain.GetTrunkBlock(revision.(uint32))
 	case string:
 		return b.chain.LeafBlock(), nil
