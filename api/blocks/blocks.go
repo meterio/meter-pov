@@ -147,13 +147,13 @@ func (b *Blocks) getBlock(revision interface{}) (*block.Block, error) {
 		}
 		best := b.chain.BestBlock()
 		if blk.Number() > best.Number() {
-			return nil, errors.New("not found")
+			return nil, chain.ErrNotFound
 		}
 		return blk, err
 	case uint32:
 		best := b.chain.BestBlock()
 		if revision.(uint32) > best.Number() {
-			return nil, errors.New("not found")
+			return nil, chain.ErrNotFound
 		}
 		return b.chain.GetTrunkBlock(revision.(uint32))
 	case string:

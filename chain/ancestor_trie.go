@@ -88,7 +88,7 @@ func (at *ancestorTrie) GetAncestor(descendantID meter.Bytes32, ancestorNum uint
 
 	// optional
 	if ancestorNum > block.Number(descendantID) {
-		return meter.Bytes32{}, errNotFound
+		return meter.Bytes32{}, ErrNotFound
 	}
 	if ancestorNum == block.Number(descendantID) {
 		return descendantID, nil

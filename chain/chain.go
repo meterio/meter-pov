@@ -33,7 +33,7 @@ var (
 	log = log15.New("pkg", "chain")
 )
 
-var errNotFound = errors.New("not found")
+var ErrNotFound = errors.New("not found")
 var ErrBlockExist = errors.New("block already exists")
 var errParentNotFinalized = errors.New("parent is not finalized")
 var (
@@ -779,7 +779,7 @@ func (c *Chain) getTransactionMeta(txID meter.Bytes32, headBlockID meter.Bytes32
 			return &m, nil
 		}
 	}
-	return nil, errNotFound
+	return nil, ErrNotFound
 }
 
 func (c *Chain) getTransaction(blockID meter.Bytes32, index uint64) (*tx.Transaction, error) {
@@ -795,7 +795,7 @@ func (c *Chain) getTransaction(blockID meter.Bytes32, index uint64) (*tx.Transac
 
 // IsNotFound returns if an error means not found.
 func (c *Chain) IsNotFound(err error) bool {
-	return err == errNotFound || c.kv.IsNotFound(err)
+	return err == ErrNotFound || c.kv.IsNotFound(err)
 }
 
 // IsBlockExist returns if the error means block was already in the chain.
