@@ -6,7 +6,6 @@
 package builtin
 
 import (
-	"fmt"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -146,7 +145,6 @@ func init() {
 			if args.Amount.Sign() == 0 {
 				return nil
 			}
-
 			env.UseGas(meter.GetBalanceGas)
 			if env.State().Exists(meter.Address(args.Addr)) {
 				env.UseGas(meter.SstoreResetGas)
@@ -250,7 +248,7 @@ func init() {
 			if err != nil {
 				return []interface{}{bktID, err.Error()}
 			}
-			env.UseGas(meter.SstoreSetGas)
+			// env.UseGas(meter.SstoreSetGas)
 			return []interface{}{bktID, ""}
 		}},
 		{"native_bucket_close", func(env *xenv.Environment) []interface{} {
@@ -262,10 +260,10 @@ func init() {
 			s := env.State()
 			bucketList := s.GetBucketList()
 			bkt := bucketList.Get(args.BucketID)
-			fmt.Println("LOOKING FOR BUCKET: ", args.BucketID)
-			for _, b := range bucketList.Buckets {
-				fmt.Println("bucket: ", b.ID(), "owner: ", b.Owner)
-			}
+			// fmt.Println("LOOKING FOR BUCKET: ", args.BucketID)
+			// for _, b := range bucketList.Buckets {
+			// 	fmt.Println("bucket: ", b.ID(), "owner: ", b.Owner)
+			// }
 
 			if bkt == nil {
 				return []interface{}{"bucket not listed"}
@@ -276,7 +274,7 @@ func init() {
 			if err != nil {
 				return []interface{}{err.Error()}
 			}
-			env.UseGas(meter.SstoreSetGas)
+			// env.UseGas(meter.SstoreSetGas)
 			return []interface{}{""}
 		}},
 
@@ -300,7 +298,7 @@ func init() {
 			if err != nil {
 				return []interface{}{err.Error()}
 			}
-			env.UseGas(meter.SstoreSetGas)
+			// env.UseGas(meter.SstoreSetGas)
 			return []interface{}{""}
 		}},
 		{"native_bucket_withdraw", func(env *xenv.Environment) []interface{} {
@@ -325,7 +323,7 @@ func init() {
 			ts := env.BlockContext().Time
 			bktID, err := MeterTracker.Native(env.State()).BucketWithdraw(args.Owner, args.BucketID, args.Amount, args.Recipient, ts, txNonce+uint64(clauseIndex))
 			if err != nil {
-				env.UseGas(meter.SstoreResetGas)
+				// env.UseGas(meter.SstoreResetGas)
 				return []interface{}{bktID, err.Error()}
 			}
 			return []interface{}{bktID, ""}
