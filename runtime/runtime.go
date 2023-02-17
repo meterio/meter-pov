@@ -775,6 +775,8 @@ func (rt *Runtime) PrepareTransaction(tx *tx.Transaction) (*TransactionExecutor,
 				fmt.Println("output Error:", output.VMErr, "for: ", txCtx.ID)
 				if reason, e := ethabi.UnpackRevert(output.Data); e == nil {
 					fmt.Println("Caused by: ", reason)
+				} else {
+					fmt.Println("unpackRevert err: ", e)
 				}
 				rt.state.RevertTo(checkpoint)
 				reverted = true
