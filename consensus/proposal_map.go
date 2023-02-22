@@ -24,8 +24,10 @@ func (p *ProposalMap) Add(blk *pmBlock) {
 		delKey := p.keys[0]
 		p.keys = p.keys[1:]
 		b := p.pmap[delKey]
-		b.Parent = nil
-		b.Justify = nil
+		if b != nil {
+			b.Parent = nil
+			b.Justify = nil
+		}
 		delete(p.pmap, delKey)
 	}
 }
