@@ -243,7 +243,7 @@ func (rt *Runtime) EnforceTeslaFork6_Corrections() {
 	}
 }
 
-func (rt *Runtime) EnforceTeslaFork8_LiquidStaking() {
+func (rt *Runtime) EnforceTeslaFork8_LiquidStaking(stateDB *statedb.StateDB, blockNum *big.Int) {
 	blockNumber := rt.Context().Number
 	log := log15.New("pkg", "fork8")
 	if blockNumber > 0 && meter.IsMainNet() {
@@ -259,6 +259,18 @@ func (rt *Runtime) EnforceTeslaFork8_LiquidStaking() {
 			rt.state.SetStorage(meter.ScriptEngineSysContractAddr, meter.BytesToBytes32([]byte{0}), meter.BytesToBytes32(builtin.MeterTracker.Address[:]))
 			builtin.Params.Native(rt.state).SetAddress(meter.KeySystemContractAddress2, meter.ScriptEngineSysContractAddr)
 			log.Info("Deploy ScriptEngine bytecode at slot 4", "addr", meter.ScriptEngineSysContractAddr)
+
+			// add $Master event declaring ownership
+			ev, _ := builtin.Prototype.Events().EventByName("$Master")
+			data, _ := ev.Encode(meter.Address{})
+			stateDB.AddLog(&types.Log{
+				Address: common.Address(meter.ScriptEngineSysContractAddr),
+				Topics:  []common.Hash{common.Hash(ev.ID())},
+				Data:    data,
+				// This is a non-consensus field, but assigned here because
+				// core/state doesn't know the current block number.
+				BlockNumber: blockNum.Uint64(),
+			})
 
 			// builtin.Params.Native(rt.State()).SetAddress(meter.KeySystemContractAddress2, meter.ScriptEngineSysContractAddr)
 			builtin.Params.Native(rt.State()).Set(meter.KeyEnforceTesla_Fork8_Correction, big.NewInt(1))
@@ -644,7 +656,7 @@ func (rt *Runtime) PrepareClause(
 		rt.EnforceTeslaFork6_Corrections()
 
 		// tesla fork8 enable liquid staking
-		rt.EnforceTeslaFork8_LiquidStaking()
+		rt.EnforceTeslaFork8_LiquidStaking(stateDB, evm.BlockNumber)
 
 		// check the restriction of transfer.
 		if rt.restrictTransfer(stateDB, txCtx.Origin, clause.Value(), clause.Token(), rt.ctx.Number) == true {
