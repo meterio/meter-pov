@@ -118,7 +118,7 @@ const (
 const (
 	// FIXME: update when settle
 	TeslaFork8_MainnetStartNum = 80000000 // around 2/7/2023 9:30 AM (PDT)
-	TeslaFork8_TestnetStartNum = 27318000 // around 2/18/2023 3:00 PM (PDT)
+	TeslaFork8_TestnetStartNum = 27323000 // around 2/18/2023 4:00 PM (PDT)
 )
 
 var (
