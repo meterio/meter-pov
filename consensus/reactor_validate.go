@@ -506,9 +506,9 @@ func (conR *ConsensusReactor) buildKBlockTxs(parentBlock *block.Block, rewards [
 			txs = append(txs, tx)
 		}
 
-		// exception for staging env
-		// build governing tx && autobid tx only when staking delegates is used
-		if meter.IsStaging() || conR.sourceDelegates != fromDelegatesFile {
+		// exception for staging and testnet env
+		// otherwise (mainnet), build governing && autobid tx only when staking delegates is used
+		if meter.IsStaging() || meter.IsTestNet() || conR.sourceDelegates != fromDelegatesFile {
 			benefitRatio := governor.GetValidatorBenefitRatio(state)
 			validatorBaseReward := governor.GetValidatorBaseRewards(state)
 			epochBaseReward := governor.ComputeEpochBaseReward(validatorBaseReward)
@@ -524,7 +524,13 @@ func (conR *ConsensusReactor) buildKBlockTxs(parentBlock *block.Block, rewards [
 			var rewardMap governor.RewardMap
 			if meter.IsTeslaFork2(parentBlock.Number()) {
 				fmt.Println("Compute reward map V3")
-				if meter.IsStaging() {
+				// if staging or "locked" testnet
+				// "locked" testnet means when minimum delegates is not met, testnet will have to load delegates from file
+				// and this means all distributor lists of delegate is empty
+				// and then rewardMap is always 0
+				// now it won't build governing tx, and delegates never get re-calced
+				// then it's locked
+				if meter.IsStaging() || (meter.IsTestNet() && conR.sourceDelegates == fromDelegatesFile) {
 					// use staking delegates for calculation during staging
 					delegates, _ := conR.getDelegatesFromStaking()
 					if err != nil {
