@@ -1027,6 +1027,14 @@ func (p *Pacemaker) mainLoop() {
 				p.logger.Info("--- Pacemaker stopped successfully")
 
 			case PMCmdRestart:
+				bestQC := p.csReactor.chain.BestQC()
+				height := bestQC.QCHeight
+				round := bestQC.QCRound
+				if p.startHeight == height && p.startRound == round {
+					p.logger.Info("*** Pacemaker restart cancelled, start height/round is the same, probably a duplicate cmd", "height", height, "round", round)
+					return
+				}
+
 				p.csReactor.PrepareEnvForPacemaker()
 
 				// restart will keep calcStatsTx as is
@@ -1036,6 +1044,14 @@ func (p *Pacemaker) mainLoop() {
 
 			case PMCmdReboot:
 				// reboot will set calcStatsTx=true
+				bestQC := p.csReactor.chain.BestQC()
+				height := bestQC.QCHeight
+				round := bestQC.QCRound
+				if p.startHeight == height && p.startRound == round {
+					p.logger.Info("*** Pacemaker REBOOT cancelled, start height/round is the same, probably a duplicate cmd", "height", height, "round", round)
+					return
+				}
+
 				p.stopCleanup()
 				verified := p.csReactor.verifyBestQCAndBestBlockBeforeStart()
 				if verified {
