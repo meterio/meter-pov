@@ -14,6 +14,12 @@ import (
 	"github.com/meterio/meter-pov/xenv"
 )
 
+var (
+	boundEvent, _                = MeterTracker.ABI.EventByName("Bound")
+	unboundEvent, _              = MeterTracker.ABI.EventByName("Unbound")
+	nativeBucketWithdrawEvent, _ = MeterTracker.ABI.EventByName("NativeBucketWithdraw")
+)
+
 func init() {
 	log := log15.New("pkg", "metertracker")
 	defines := []struct {
@@ -248,6 +254,13 @@ func init() {
 			if err != nil {
 				return []interface{}{bktID, err.Error()}
 			}
+
+			// emit Bound event
+			topics := []meter.Bytes32{
+				// meter.Bytes32(boundEvent.ID()),
+				meter.BytesToBytes32(args.Owner[:]),
+			}
+			env.Log(boundEvent, meter.StakingModuleAddr, topics, args.Amount, big.NewInt(int64(meter.MTRG)))
 			// env.UseGas(meter.SstoreSetGas)
 			return []interface{}{bktID, ""}
 		}},
@@ -298,6 +311,14 @@ func init() {
 			if err != nil {
 				return []interface{}{err.Error()}
 			}
+
+			// emit Bound event
+			topics := []meter.Bytes32{
+				// meter.Bytes32(boundEvent.ID()),
+				meter.BytesToBytes32(args.Owner[:]),
+			}
+			env.Log(boundEvent, meter.StakingModuleAddr, topics, args.Amount, big.NewInt(int64(meter.MTRG)))
+
 			// env.UseGas(meter.SstoreSetGas)
 			return []interface{}{""}
 		}},
@@ -326,6 +347,13 @@ func init() {
 				// env.UseGas(meter.SstoreResetGas)
 				return []interface{}{bktID, err.Error()}
 			}
+
+			// emit NativeBucketWithdraw event
+			topics := []meter.Bytes32{
+				// meter.Bytes32(boundEvent.ID()),
+				meter.BytesToBytes32(args.Owner[:]),
+			}
+			env.Log(nativeBucketWithdrawEvent, meter.StakingModuleAddr, topics, args.Amount, big.NewInt(int64(meter.MTRG)), args.Recipient)
 			return []interface{}{bktID, ""}
 		}},
 	}
