@@ -11,6 +11,17 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+type BoundEventData struct {
+	Amount *big.Int
+	Token  *big.Int
+}
+
+type NativeBucketWithdrawEventData struct {
+	Amount    *big.Int
+	Token     *big.Int
+	Recipient meter.Address
+}
+
 func TestBucketOpen(t *testing.T) {
 	rt, s, ts := initRuntimeAfterFork8()
 	scriptEngineAddr := meter.ScriptEngineSysContractAddr
@@ -48,6 +59,23 @@ func TestBucketOpen(t *testing.T) {
 	bkt := bucketList.Get(bktID)
 
 	assert.Equal(t, amount.String(), bkt.Value.String(), "bucket must have value")
+
+	// check output
+	assert.Equal(t, 1, len(receipt.Outputs), "should have 1 output")
+	o := receipt.Outputs[0]
+	// check events
+	assert.Equal(t, 1, len(o.Events), "should have 1 event")
+	e := o.Events[0]
+	assert.Equal(t, 2, len(e.Topics), "should have 2 topics")
+	boundEvent, found := builtin.MeterTracker.ABI.EventByName("Bound")
+	assert.True(t, found)
+	assert.Equal(t, boundEvent.ID(), e.Topics[0])
+	assert.Equal(t, meter.BytesToBytes32(HolderAddr[:]), e.Topics[1])
+
+	evtData := &BoundEventData{}
+	boundEvent.Decode(e.Data, evtData)
+	assert.Equal(t, amount.String(), evtData.Amount.String(), "event amount should match")
+	assert.Equal(t, "1", evtData.Token.String(), "event token should match")
 }
 
 func TestNotEnoughBalance(t *testing.T) {
