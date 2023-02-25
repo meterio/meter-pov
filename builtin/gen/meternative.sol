@@ -6,7 +6,6 @@ contract NewMeterNative is IMeterNative {
     event MeterTrackerEvent(address _address, uint256 _amount, string _method);
     event Bound(address indexed owner, uint256 amount, uint256 token);
     event Unbound(address indexed owner, uint256 amount, uint256 token);
-    event NativeBucketWithdraw(address indexed owner, uint256 amount, uint256 token, address recipient);
 
     constructor () public payable {
         
