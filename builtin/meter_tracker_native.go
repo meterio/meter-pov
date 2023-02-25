@@ -15,9 +15,8 @@ import (
 )
 
 var (
-	boundEvent, found            = MeterTracker.ABI.EventByName("Bound")
-	unboundEvent, _              = MeterTracker.ABI.EventByName("Unbound")
-	nativeBucketWithdrawEvent, _ = MeterTracker.ABI.EventByName("NativeBucketWithdraw")
+	boundEvent, _                = MeterNative_V3_ABI.EventByName("Bound")
+	nativeBucketWithdrawEvent, _ = MeterNative_V3_ABI.EventByName("NativeBucketWithdraw")
 )
 
 func init() {
