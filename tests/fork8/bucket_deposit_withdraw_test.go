@@ -45,6 +45,23 @@ func testBucketDeposit(t *testing.T, scriptEngineAddr *meter.Address, owner *met
 	assert.Equal(t, amount.String(), new(big.Int).Sub(bal, balAfter).String(), "should sub balance")
 	assert.Equal(t, amount.String(), new(big.Int).Sub(candAfter.TotalVotes, cand.TotalVotes).String(), "should sub balance")
 	assert.Equal(t, amount.String(), new(big.Int).Sub(bbalAfter, bbal).String(), "should add bounded balance")
+
+	// check output
+	assert.Equal(t, 1, len(receipt.Outputs), "should have 1 output")
+	o := receipt.Outputs[0]
+	// check events
+	assert.Equal(t, 1, len(o.Events), "should have 1 event")
+	e := o.Events[0]
+	assert.Equal(t, 2, len(e.Topics), "should have 2 topics")
+	boundEvent, found := builtin.MeterTracker.ABI.EventByName("Bound")
+	assert.True(t, found)
+	assert.Equal(t, boundEvent.ID(), e.Topics[0])
+	assert.Equal(t, meter.BytesToBytes32(HolderAddr[:]), e.Topics[1])
+
+	evtData := &BoundEventData{}
+	boundEvent.Decode(e.Data, evtData)
+	assert.Equal(t, amount.String(), evtData.Amount.String(), "event amount should match")
+	assert.Equal(t, "1", evtData.Token.String(), "event token should match")
 }
 
 func testBucketWithdraw(t *testing.T, scriptEngineAddr *meter.Address, owner *meter.Address, bktID meter.Bytes32, amount *big.Int, recipient *meter.Address, key *ecdsa.PrivateKey, rt *runtime.Runtime, s *state.State, ts uint64) {
@@ -91,6 +108,24 @@ func testBucketWithdraw(t *testing.T, scriptEngineAddr *meter.Address, owner *me
 	deltaBonus.Div(deltaBonus, bkt.Value)
 
 	assert.Equal(t, deltaBonus.String(), new(big.Int).Sub(cand.TotalVotes, candAfter.TotalVotes).String(), "should sub bonus delta from totalVotes")
+
+	// check output
+	assert.Equal(t, 1, len(receipt.Outputs), "should have 1 output")
+	o := receipt.Outputs[0]
+	// check events
+	assert.Equal(t, 1, len(o.Events), "should have 1 event")
+	e := o.Events[0]
+	assert.Equal(t, 2, len(e.Topics), "should have 2 topics")
+	nativeWithdrawEvent, found := builtin.MeterTracker.ABI.EventByName("NativeBucketWithdraw")
+	assert.True(t, found)
+	assert.Equal(t, nativeWithdrawEvent.ID(), e.Topics[0])
+	assert.Equal(t, meter.BytesToBytes32(HolderAddr[:]), e.Topics[1])
+
+	evtData := &NativeBucketWithdrawEventData{}
+	nativeWithdrawEvent.Decode(e.Data, evtData)
+	assert.Equal(t, amount.String(), evtData.Amount.String(), "event amount should match")
+	assert.Equal(t, "1", evtData.Token.String(), "event token should match")
+	assert.Equal(t, *recipient, evtData.Recipient, "event recipient should match")
 }
 
 func TestBucketDepositWithdraw(t *testing.T) {
