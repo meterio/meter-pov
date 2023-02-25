@@ -17,6 +17,7 @@ var (
 	errNotEnoughBalance        = errors.New("not enough balance")
 	errNotEnoughBoundedBalance = errors.New("not enough bounded balance")
 	errSelfVoteNotAllowed      = errors.New("self vote not allowed")
+	errNotEnoughVotes          = errors.New("not enough votes")
 
 	errBucketNotListed                = errors.New("bucket not listed")
 	errBucketNotOwned                 = errors.New("bucket not owned")
@@ -256,4 +257,35 @@ func (e *MeterTracker) BucketWithdraw(owner meter.Address, id meter.Bytes32, amo
 	e.state.SetBucketList(bucketList)
 	e.state.SetCandidateList(candidateList)
 	return newBucketID, nil
+}
+
+func (e *MeterTracker) BucketUpdateCandidate(owner meter.Address, id meter.Bytes32, newCandidateAddr meter.Address) error {
+	candidateList := e.state.GetCandidateList()
+	bucketList := e.state.GetBucketList()
+
+	b := bucketList.Get(id)
+	if b == nil {
+		return errBucketNotListed
+	}
+
+	nc := candidateList.Get(newCandidateAddr)
+	if nc == nil {
+		return errCandidateNotListed
+	}
+
+	c := candidateList.Get(b.Candidate)
+	// subtract totalVotes from old candidate
+	if c != nil {
+		if c.TotalVotes.Cmp(b.TotalVotes) < 0 {
+			return errNotEnoughVotes
+		}
+		c.TotalVotes.Sub(c.TotalVotes, b.TotalVotes)
+	}
+	// add totalVotes to new candidate
+	nc.TotalVotes.Add(nc.TotalVotes, b.TotalVotes)
+	b.Candidate = nc.Addr
+
+	e.state.SetBucketList(bucketList)
+	e.state.SetCandidateList(candidateList)
+	return nil
 }

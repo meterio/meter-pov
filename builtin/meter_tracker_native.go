@@ -15,7 +15,7 @@ import (
 )
 
 var (
-	boundEvent, _                = MeterTracker.ABI.EventByName("Bound")
+	boundEvent, found            = MeterTracker.ABI.EventByName("Bound")
 	unboundEvent, _              = MeterTracker.ABI.EventByName("Unbound")
 	nativeBucketWithdrawEvent, _ = MeterTracker.ABI.EventByName("NativeBucketWithdraw")
 )
@@ -270,18 +270,6 @@ func init() {
 				BucketID meter.Bytes32
 			}
 			env.ParseArgs(&args)
-			s := env.State()
-			bucketList := s.GetBucketList()
-			bkt := bucketList.Get(args.BucketID)
-			// fmt.Println("LOOKING FOR BUCKET: ", args.BucketID)
-			// for _, b := range bucketList.Buckets {
-			// 	fmt.Println("bucket: ", b.ID(), "owner: ", b.Owner)
-			// }
-
-			if bkt == nil {
-				return []interface{}{"bucket not listed"}
-			}
-
 			env.UseGas(meter.GetBalanceGas)
 			err := MeterTracker.Native(env.State()).BucketClose(args.Owner, args.BucketID, env.BlockContext().Time)
 			if err != nil {
@@ -298,14 +286,6 @@ func init() {
 				Amount   *big.Int
 			}
 			env.ParseArgs(&args)
-			s := env.State()
-			bucketList := s.GetBucketList()
-			bkt := bucketList.Get(args.BucketID)
-
-			if bkt == nil {
-				return []interface{}{"bucket not listed"}
-			}
-
 			env.UseGas(meter.GetBalanceGas)
 			err := MeterTracker.Native(env.State()).BucketDeposit(args.Owner, args.BucketID, args.Amount)
 			if err != nil {
@@ -330,14 +310,6 @@ func init() {
 				Recipient meter.Address
 			}
 			env.ParseArgs(&args)
-			s := env.State()
-			bucketList := s.GetBucketList()
-			bkt := bucketList.Get(args.BucketID)
-
-			if bkt == nil {
-				return []interface{}{meter.Bytes32{}, "bucket not listed"}
-			}
-
 			env.UseGas(meter.GetBalanceGas)
 			txNonce := env.TransactionContext().Nonce
 			clauseIndex := env.ClauseIndex()
@@ -355,6 +327,21 @@ func init() {
 			}
 			env.Log(nativeBucketWithdrawEvent, meter.StakingModuleAddr, topics, args.Amount, big.NewInt(int64(meter.MTRG)), args.Recipient)
 			return []interface{}{bktID, ""}
+		}},
+		{"native_bucket_update_candidate", func(env *xenv.Environment) []interface{} {
+			var args struct {
+				Owner            meter.Address
+				BucketID         meter.Bytes32
+				NewCandidateAddr meter.Address
+			}
+			env.ParseArgs(&args)
+			env.UseGas(meter.GetBalanceGas)
+			err := MeterTracker.Native(env.State()).BucketUpdateCandidate(args.Owner, args.BucketID, args.NewCandidateAddr)
+			if err != nil {
+				return []interface{}{err.Error()}
+			}
+
+			return []interface{}{""}
 		}},
 	}
 	//abi := GetContractABI("NewMeterNative")
