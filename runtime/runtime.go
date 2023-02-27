@@ -246,7 +246,7 @@ func (rt *Runtime) EnforceTeslaFork6_Corrections() {
 func (rt *Runtime) EnforceTeslaFork8_LiquidStaking(stateDB *statedb.StateDB, blockNum *big.Int) {
 	blockNumber := rt.Context().Number
 	log := log15.New("pkg", "fork8")
-	if blockNumber > 0 && meter.IsMainNet() {
+	if blockNumber > 0 {
 		// flag is nil or 0, is not do. 1 meas done.
 		enforceFlag := builtin.Params.Native(rt.State()).Get(meter.KeyEnforceTesla_Fork8_Correction)
 
