@@ -21,6 +21,7 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/meterio/meter-pov/api/utils"
 	"github.com/meterio/meter-pov/block"
+	"github.com/meterio/meter-pov/builtin"
 	"github.com/meterio/meter-pov/chain"
 	"github.com/meterio/meter-pov/meter"
 	"github.com/meterio/meter-pov/runtime"
@@ -831,6 +832,43 @@ func (d *Debug) handleOpenEthTraceFilter(w http.ResponseWriter, req *http.Reques
 	return utils.WriteJSON(w, results)
 }
 
+type TokenSupplyDetail struct {
+	InitSupply *big.Int `json:"initSupply"`
+	TotalAdd   *big.Int `json:"totalAdd"`
+	TotalSub   *big.Int `json:"totalSub"`
+}
+
+type NativeTokenSupply struct {
+	MTR  TokenSupplyDetail `json:"MTR"`
+	MTRG TokenSupplyDetail `json:"MTRG"`
+}
+
+func (d *Debug) handleSupply(w http.ResponseWriter, req *http.Request) error {
+	revision, err := d.parseRevision(mux.Vars(req)["revision"])
+	fmt.Println("handle get meter info", "revision:", revision)
+	if err != nil {
+		fmt.Println("Error: could not parse reivision", err)
+		return utils.BadRequest(errors.WithMessage(err, "could not parse revision"))
+	}
+	blk, err := d.getBlock(revision)
+	if err != nil {
+		fmt.Println("Error: could not get block", err)
+		return utils.BadRequest(errors.WithMessage(err, "could not get block"))
+	}
+
+	s, _ := d.stateC.NewState(blk.StateRoot())
+	tracker := builtin.MeterTracker.Native(s)
+	mtrInitSupply := tracker.GetMeterInitialSupply()
+	mtrAddSub := tracker.GetMeterTotalAddSub()
+	mtrgInitSupply := tracker.GetMeterGovInitialSupply()
+	mtrgAddSub := tracker.GetMeterGovTotalAddSub()
+
+	return utils.WriteJSON(w, NativeTokenSupply{
+		MTR:  TokenSupplyDetail{InitSupply: mtrInitSupply, TotalAdd: mtrAddSub.TotalAdd, TotalSub: mtrAddSub.TotalSub},
+		MTRG: TokenSupplyDetail{InitSupply: mtrgInitSupply, TotalAdd: mtrgAddSub.TotalAdd, TotalSub: mtrgAddSub.TotalSub},
+	})
+}
+
 func (d *Debug) Mount(root *mux.Router, pathPrefix string) {
 	sub := root.PathPrefix(pathPrefix).Subrouter()
 	sub.Path("/tracers").Methods(http.MethodPost).HandlerFunc(utils.WrapHandlerFunc(d.handleTraceTransaction))
@@ -842,4 +880,7 @@ func (d *Debug) Mount(root *mux.Router, pathPrefix string) {
 	// add api for trace and rerun clause
 	sub.Path("/trace/{txhash}/{clauseIndex}").Methods(http.MethodGet).HandlerFunc(utils.WrapHandlerFunc(d.handleNewTraceTransaction))
 	sub.Path("/rerun/{txhash}/{clauseIndex}").Methods(http.MethodGet).HandlerFunc(utils.WrapHandlerFunc(d.handleRerunTransaction))
+
+	// add api for supply debug
+	sub.Path("/supply").Methods(http.MethodGet).HandlerFunc(utils.WrapHandlerFunc(d.handleSupply))
 }
