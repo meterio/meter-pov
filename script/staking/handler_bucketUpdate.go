@@ -55,7 +55,7 @@ func (s *Staking) BucketUpdateHandler(env *setypes.ScriptEnv, sb *StakingBody, g
 		// AFTER TESLA FORK 5 : support bucket sub
 		// ---------------------------------------
 		if sb.Option == meter.BUCKET_SUB_OPT {
-			if bucket.Unbounded == true {
+			if bucket.Unbounded {
 				s.logger.Error(fmt.Sprintf("can not update unbounded bucket, ID %v", sb.StakingID))
 				err = errors.New("can not update unbounded bucket")
 				return
@@ -74,7 +74,7 @@ func (s *Staking) BucketUpdateHandler(env *setypes.ScriptEnv, sb *StakingBody, g
 					return
 				}
 
-				selfRatioValid := CheckEnoughSelfVotes(sb.Amount, self, bucketList, meter.TESLA1_1_SELF_VOTE_RATIO)
+				selfRatioValid := CheckEnoughSelfVotes(valueAfterSub, self, bucketList, meter.TESLA1_1_SELF_VOTE_RATIO)
 				if !selfRatioValid {
 					return leftOverGas, errCandidateNotEnoughSelfVotes
 				}
@@ -131,7 +131,7 @@ func (s *Staking) BucketUpdateHandler(env *setypes.ScriptEnv, sb *StakingBody, g
 
 		if sb.Option == meter.BUCKET_ADD_OPT {
 			// Now allow to change forever lock amount
-			if bucket.Unbounded == true {
+			if bucket.Unbounded {
 				s.logger.Error(fmt.Sprintf("can not update unbounded bucket, ID %v", sb.StakingID))
 				err = errors.New("can not update unbounded bucket")
 				return
