@@ -142,6 +142,16 @@ func (l *BucketList) Get(id Bytes32) *Bucket {
 	return nil
 }
 
+func (l *BucketList) GetByOwner(owner Address) []*Bucket {
+	bkts := make([]*Bucket, 0)
+	for _, b := range l.Buckets {
+		if strings.ToLower(b.Owner.String()) == strings.ToLower(owner.String()) {
+			bkts = append(bkts, b)
+		}
+	}
+	return bkts
+}
+
 func (l *BucketList) Exist(id Bytes32) bool {
 	index, _ := l.indexOf(id)
 	return index >= 0

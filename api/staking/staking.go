@@ -79,6 +79,30 @@ func (st *Staking) handleGetBucketByID(w http.ResponseWriter, req *http.Request)
 	return utils.WriteJSON(w, converted)
 }
 
+func (st *Staking) handleGetBucketsByOwner(w http.ResponseWriter, req *http.Request) error {
+	h, err := st.handleRevision(req.URL.Query().Get("revision"))
+	if err != nil {
+		return err
+	}
+	state, err := st.stateCreator.NewState(h.StateRoot())
+	if err != nil {
+		return err
+	}
+	list := state.GetBucketList()
+
+	ownerStr := mux.Vars(req)["owner"]
+	owner, err := meter.ParseAddress(ownerStr)
+	if err != nil {
+		return err
+	}
+	buckets := list.GetByOwner(owner)
+	converted := make([]*Bucket, 0)
+	for _, b := range buckets {
+		converted = append(converted, convertBucket(b))
+	}
+	return utils.WriteJSON(w, converted)
+}
+
 func (st *Staking) handleGetStakeholderList(w http.ResponseWriter, req *http.Request) error {
 	h, err := st.handleRevision(req.URL.Query().Get("revision"))
 	if err != nil {
@@ -166,6 +190,7 @@ func (st *Staking) Mount(root *mux.Router, pathPrefix string) {
 	sub.Path("/candidates").Methods("Get").HandlerFunc(utils.WrapHandlerFunc(st.handleGetCandidateList))
 	sub.Path("/buckets").Methods("Get").HandlerFunc(utils.WrapHandlerFunc(st.handleGetBucketList))
 	sub.Path("/buckets/{id}").Methods("Get").HandlerFunc(utils.WrapHandlerFunc(st.handleGetBucketByID))
+	sub.Path("/buckets/ownedby/{owner}").Methods("Get").HandlerFunc(utils.WrapHandlerFunc(st.handleGetBucketsByOwner))
 	sub.Path("/stakeholders").Methods("Get").HandlerFunc(utils.WrapHandlerFunc(st.handleGetStakeholderList))
 	sub.Path("/delegates").Methods("Get").HandlerFunc(utils.WrapHandlerFunc(st.handleGetDelegateList))
 	sub.Path("/last/rewards").Methods("Get").HandlerFunc(utils.WrapHandlerFunc(st.handleGetLastValidatorReward))
