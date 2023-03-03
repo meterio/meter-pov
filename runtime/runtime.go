@@ -18,6 +18,7 @@ import (
 	"github.com/inconshreveable/log15"
 	"github.com/meterio/meter-pov/abi"
 	"github.com/meterio/meter-pov/builtin"
+	"github.com/meterio/meter-pov/builtin/metertracker"
 	"github.com/meterio/meter-pov/chain"
 	"github.com/meterio/meter-pov/meter"
 	"github.com/meterio/meter-pov/params"
@@ -252,6 +253,31 @@ func (rt *Runtime) EnforceTeslaFork8_LiquidStaking(stateDB *statedb.StateDB, blo
 
 		if meter.IsTeslaFork8(blockNumber) && (enforceFlag == nil || enforceFlag.Sign() == 0) {
 			log.Info("Start fork8 correction")
+
+			buckets := rt.state.GetBucketList().Buckets
+			mtrTotalAdd := big.NewInt(0)
+			mtrgTotalAdd := big.NewInt(0)
+			// filter out all the addresses in buckets
+			addrs := make(map[meter.Address]bool)
+			for _, b := range buckets {
+				addrs[b.Owner] = true
+				addrs[b.Candidate] = true
+			}
+			// add up total mint on MTR/MTRG
+			for addr, _ := range addrs {
+				privTracker := metertracker.New(addr, rt.state)
+				mtrAddSub := privTracker.GetMeterTotalAddSub()
+				mtrgAddSub := privTracker.GetMeterGovTotalAddSub()
+				mtrTotalAdd.Add(mtrTotalAdd, mtrAddSub.TotalAdd)
+				mtrgTotalAdd.Add(mtrgTotalAdd, mtrgAddSub.TotalAdd)
+			}
+			// update global meter tracker
+			globalTracker := builtin.MeterTracker.Native(rt.state)
+			log.Info("update meterTotalAddSub", "totalAdd", mtrTotalAdd)
+			globalTracker.SetMeterTotalAddSub(metertracker.MeterTotalAddSub{TotalAdd: mtrTotalAdd, TotalSub: new(big.Int)})
+			log.Info("update meterGovTotalAddSub", "totalAdd", mtrgTotalAdd)
+			globalTracker.SetMeterGovTotalAddSub(metertracker.MeterGovTotalAddSub{TotalAdd: mtrgTotalAdd, TotalSub: new(big.Int)})
+			// set V3 code for MeterTracker
 			rt.state.SetCode(builtin.MeterTracker.Address, builtin.MeterNative_V3_DeployedBytecode)
 			log.Info("Overriden MeterNative with V3 bytecode", "addr", builtin.MeterTracker.Address)
 
@@ -340,7 +366,7 @@ func (rt *Runtime) SetVMConfig(config vm.Config) *Runtime {
 	return rt
 }
 
-func (rt *Runtime) newEVM(stateDB *statedb.StateDB, clauseIndex uint32, txCtx *xenv.TransactionContext) *vm.EVM {
+func (rt *Runtime) newEVM(stateDB *statedb.StateDB, clauseIndex uint32, txCtx *xenv.TransactionContext, blkCtx *xenv.BlockContext) *vm.EVM {
 	var lastNonNativeCallGas uint64
 	return vm.NewEVM(vm.Context{
 		CanTransfer: func(_ vm.StateDB, addr common.Address, amount *big.Int, token byte) bool {
@@ -370,11 +396,21 @@ func (rt *Runtime) newEVM(stateDB *statedb.StateDB, clauseIndex uint32, txCtx *x
 				rt.state.GetEnergy(meter.Address(recipient), rt.ctx.Time), rt.ctx.Time)
 			***************/
 			// mint transaction (sender is zero) means mint token, otherwise is regular transfer
+			blockNum := blkCtx.Number
+
 			if meter.Address(sender).IsZero() {
-				if token == meter.MTRG {
-					stateDB.MintBalance(recipient, amount)
-				} else if token == meter.MTR {
-					stateDB.MintEnergy(recipient, amount)
+				if meter.IsTeslaFork8(blockNum) {
+					if token == meter.MTRG {
+						stateDB.MintBalanceAfterFork8(recipient, amount)
+					} else if token == meter.MTR {
+						stateDB.MintEnergyAfterFork8(recipient, amount)
+					}
+				} else {
+					if token == meter.MTRG {
+						stateDB.MintBalance(recipient, amount)
+					} else if token == meter.MTR {
+						stateDB.MintEnergy(recipient, amount)
+					}
 				}
 			} else {
 				//regular transfer
@@ -598,7 +634,7 @@ func (rt *Runtime) PrepareClause(
 ) (exec func() (output *Output, interrupted bool), interrupt func()) {
 	var (
 		stateDB       = statedb.New(rt.state)
-		evm           = rt.newEVM(stateDB, clauseIndex, txCtx)
+		evm           = rt.newEVM(stateDB, clauseIndex, txCtx, rt.Context())
 		data          []byte
 		leftOverGas   uint64
 		vmErr         error

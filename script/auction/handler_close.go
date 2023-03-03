@@ -97,7 +97,12 @@ func (a *Auction) MintMTRGToBidder(env *setypes.ScriptEnv, addr meter.Address, a
 	state := env.GetState()
 	stateDB := statedb.New(state)
 	// in auction, MeterGov is mint action.
-	stateDB.MintBalance(common.Address(addr), amount)
+	blockNum := env.GetBlockNum()
+	if meter.IsTeslaFork8(blockNum) {
+		stateDB.MintBalanceAfterFork8(common.Address(addr), amount)
+	} else {
+		stateDB.MintBalance(common.Address(addr), amount)
+	}
 	env.AddTransfer(meter.ZeroAddress, addr, amount, meter.MTRG)
 	return
 }

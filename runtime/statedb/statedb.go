@@ -12,6 +12,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	lru "github.com/hashicorp/golang-lru"
+	"github.com/meterio/meter-pov/builtin"
 	"github.com/meterio/meter-pov/builtin/metertracker"
 	"github.com/meterio/meter-pov/meter"
 	"github.com/meterio/meter-pov/stackedmap"
@@ -112,10 +113,15 @@ func (s *StateDB) MintBalance(addr common.Address, amount *big.Int) {
 	e.MintMeterGov(a, amount)
 }
 
+func (s *StateDB) MintBalanceAfterFork8(addr common.Address, amount *big.Int) {
+	e := builtin.MeterTracker.Native(s.state)
+	e.MintMeterGov(meter.Address(addr), amount)
+}
+
+// not used
 func (s *StateDB) BurnBalance(addr common.Address, amount *big.Int) {
-	a := meter.Address(addr)
-	e := metertracker.New(a, s.state)
-	e.BurnMeterGov(a, amount)
+	e := builtin.MeterTracker.Native(s.state)
+	e.BurnMeterGov(meter.Address(addr), amount)
 }
 
 func (s *StateDB) GetEnergy(addr common.Address) *big.Int {
@@ -137,10 +143,15 @@ func (s *StateDB) MintEnergy(addr common.Address, amount *big.Int) {
 	e.MintMeter(a, amount)
 }
 
+func (s *StateDB) MintEnergyAfterFork8(addr common.Address, amount *big.Int) {
+	e := builtin.MeterTracker.Native(s.state)
+	e.MintMeter(meter.Address(addr), amount)
+}
+
+// not used
 func (s *StateDB) BurnEnergy(addr common.Address, amount *big.Int) {
-	a := meter.Address(addr)
-	e := metertracker.New(a, s.state)
-	e.BurnMeter(a, amount)
+	e := builtin.MeterTracker.Native(s.state)
+	e.BurnMeter(meter.Address(addr), amount)
 }
 
 // GetBoundedBalance stub.
