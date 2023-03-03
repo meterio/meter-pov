@@ -133,6 +133,7 @@ func loadStorageAction(ctx *cli.Context) error {
 	if err != nil {
 		panic("could not load block")
 	}
+	fmt.Println("Revision block: ", blk.Number(), blk.ID())
 	stateC := state.NewCreator(mainDB)
 	s, err := stateC.NewState(blk.StateRoot())
 	if err != nil {
@@ -141,11 +142,29 @@ func loadStorageAction(ctx *cli.Context) error {
 
 	addr := ctx.String(addressFlag.Name)
 	key := ctx.String(keyFlag.Name)
+	_, err = hex.DecodeString(key)
+	if err == nil {
+		key = "0x" + key
+	}
+	_, err = meter.ParseBytes32(key)
+	if err != nil {
+		fmt.Println("String key: ", key)
+		key = meter.Blake2b([]byte(key)).String()
+	}
+	fmt.Println("Actual key: ", key)
+
 	parsedAddr, err := meter.ParseAddress(addr)
+	if err != nil {
+		panic(err)
+	}
 	parsedKey, err := meter.ParseBytes32(key)
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println("Address: ", parsedAddr)
 
 	raw := s.GetRawStorage(parsedAddr, parsedKey)
-	fmt.Println("Loaded: ", hex.EncodeToString(raw))
+	fmt.Println("Raw Storage: ", hex.EncodeToString(raw))
 	return nil
 }
 

@@ -67,7 +67,7 @@ func main() {
 			{Name: "block", Usage: "Load block from database on revision", Flags: []cli.Flag{dataDirFlag, networkFlag, revisionFlag}, Action: loadBlockAction},
 			{Name: "index-trie", Usage: "Load index trie root from database on revision", Flags: []cli.Flag{dataDirFlag, networkFlag, revisionFlag}, Action: loadIndexTrieRootAction},
 			{Name: "hash", Usage: "Load block hash with block number", Flags: []cli.Flag{dataDirFlag, networkFlag, heightFlag}, Action: loadHashAction},
-			{Name: "storage", Usage: "Load storage value from database with account address and key", Flags: []cli.Flag{dataDirFlag, networkFlag, addressFlag, keyFlag}, Action: loadStorageAction},
+			{Name: "storage", Usage: "Load storage value from database with account address and key", Flags: []cli.Flag{dataDirFlag, networkFlag, addressFlag, keyFlag, revisionFlag}, Action: loadStorageAction},
 			{Name: "peek", Usage: "Load pointers like best-qc, best-block, leaf-block from database", Flags: []cli.Flag{networkFlag, dataDirFlag}, Action: peekAction},
 			{Name: "stash", Usage: "Load all txs from tx.stash", Flags: []cli.Flag{dataDirFlag, networkFlag}, Action: loadStashAction},
 			{
