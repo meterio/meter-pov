@@ -23,7 +23,7 @@ type NativeBucketWithdrawEventData struct {
 }
 
 func TestBucketOpen(t *testing.T) {
-	rt, s, ts := initRuntimeAfterFork8()
+	tenv := initRuntimeAfterFork8()
 	scriptEngineAddr := meter.ScriptEngineSysContractAddr
 
 	bucketOpenFunc, found := builtin.ScriptEngine_ABI.MethodByName("bucketOpen")
@@ -34,28 +34,28 @@ func TestBucketOpen(t *testing.T) {
 	assert.Nil(t, err)
 
 	txNonce := rand.Uint64()
-	trx := buildCallTx(0, &scriptEngineAddr, data, txNonce, HolderKey)
+	trx := buildCallTx(tenv.chainTag, 0, &scriptEngineAddr, data, txNonce, HolderKey)
 
-	cand := s.GetCandidateList().Get(CandAddr)
+	cand := tenv.state.GetCandidateList().Get(CandAddr)
 	assert.NotNil(t, cand)
 	totalVotes := cand.TotalVotes
 
-	bal := s.GetBalance(HolderAddr)
-	bktCount := s.GetBucketList().Len()
-	receipt, err := rt.ExecuteTransaction(trx)
+	bal := tenv.state.GetBalance(HolderAddr)
+	bktCount := tenv.state.GetBucketList().Len()
+	receipt, err := tenv.runtime.ExecuteTransaction(trx)
 	assert.Nil(t, err)
 	assert.False(t, receipt.Reverted)
 
-	candAfter := s.GetCandidateList().Get(CandAddr)
-	bucketList := s.GetBucketList()
-	balAfter := s.GetBalance(HolderAddr)
+	candAfter := tenv.state.GetCandidateList().Get(CandAddr)
+	bucketList := tenv.state.GetBucketList()
+	balAfter := tenv.state.GetBalance(HolderAddr)
 	totalVotesAfter := candAfter.TotalVotes
 
 	assert.Equal(t, 1, bucketList.Len()-bktCount, "should add 1 more bucket")
 	assert.Equal(t, amount.String(), new(big.Int).Sub(totalVotesAfter, totalVotes).String(), "should add total votes to candidate")
 	assert.Equal(t, amount.String(), new(big.Int).Sub(bal, balAfter).String(), "should sub balance from holder")
 
-	bktID := bucketID(HolderAddr, ts, txNonce+0)
+	bktID := bucketID(HolderAddr, tenv.currentTS, txNonce+0)
 	bkt := bucketList.Get(bktID)
 
 	assert.Equal(t, amount.String(), bkt.Value.String(), "bucket must have value")
@@ -67,7 +67,7 @@ func TestBucketOpen(t *testing.T) {
 	assert.Equal(t, 1, len(o.Events), "should have 1 event")
 	e := o.Events[0]
 	assert.Equal(t, 2, len(e.Topics), "should have 2 topics")
-	boundEvent, found := builtin.MeterTracker.ABI.EventByName("Bound")
+	boundEvent, found := builtin.MeterNative_V3_ABI.EventByName("Bound")
 	assert.True(t, found)
 	assert.Equal(t, boundEvent.ID(), e.Topics[0])
 	assert.Equal(t, meter.BytesToBytes32(HolderAddr[:]), e.Topics[1])
@@ -79,7 +79,7 @@ func TestBucketOpen(t *testing.T) {
 }
 
 func TestNotEnoughBalance(t *testing.T) {
-	rt, s, _ := initRuntimeAfterFork8()
+	tenv := initRuntimeAfterFork8()
 	scriptEngineAddr := meter.ScriptEngineSysContractAddr
 
 	bucketOpenFunc, found := builtin.ScriptEngine_ABI.MethodByName("bucketOpen")
@@ -90,13 +90,13 @@ func TestNotEnoughBalance(t *testing.T) {
 	assert.Nil(t, err)
 
 	txNonce := rand.Uint64()
-	trx := buildCallTx(0, &scriptEngineAddr, data, txNonce, HolderKey)
+	trx := buildCallTx(tenv.chainTag, 0, &scriptEngineAddr, data, txNonce, HolderKey)
 
-	cand := s.GetCandidateList().Get(CandAddr)
+	cand := tenv.state.GetCandidateList().Get(CandAddr)
 	assert.NotNil(t, cand)
 
-	s.SetBalance(HolderAddr, buildAmount(1))
-	executor, _ := rt.PrepareTransaction(trx)
+	tenv.state.SetBalance(HolderAddr, buildAmount(1))
+	executor, _ := tenv.runtime.PrepareTransaction(trx)
 	_, output, err := executor.NextClause()
 
 	assert.Nil(t, err)

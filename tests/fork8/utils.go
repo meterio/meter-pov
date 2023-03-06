@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/inconshreveable/log15"
@@ -19,6 +20,7 @@ import (
 	"github.com/meterio/meter-pov/kv"
 	"github.com/meterio/meter-pov/lvldb"
 	"github.com/meterio/meter-pov/meter"
+	"github.com/meterio/meter-pov/packer"
 	"github.com/meterio/meter-pov/runtime"
 	"github.com/meterio/meter-pov/runtime/statedb"
 	"github.com/meterio/meter-pov/script"
@@ -82,8 +84,7 @@ func bucketID(owner meter.Address, ts uint64, nonce uint64) (hash meter.Bytes32)
 	return
 }
 
-func buildCallTx(bestRef uint32, toAddr *meter.Address, data []byte, nonce uint64, key *ecdsa.PrivateKey) *tx.Transaction {
-	chainTag := byte(82)
+func buildCallTx(chainTag byte, bestRef uint32, toAddr *meter.Address, data []byte, nonce uint64, key *ecdsa.PrivateKey) *tx.Transaction {
 	builder := new(tx.Builder)
 	builder.ChainTag(chainTag).
 		BlockRef(tx.NewBlockRef(bestRef)).
@@ -121,8 +122,7 @@ func buildAmount(amount int) *big.Int {
 	return new(big.Int).Mul(big.NewInt(int64(amount)), big.NewInt(1e18))
 }
 
-func buildStakingTx(bestRef uint32, body *staking.StakingBody, key *ecdsa.PrivateKey, nonce uint64) *tx.Transaction {
-	chainTag := byte(82)
+func buildStakingTx(chainTag byte, bestRef uint32, body *staking.StakingBody, key *ecdsa.PrivateKey, nonce uint64) *tx.Transaction {
 	builder := new(tx.Builder)
 	builder.ChainTag(chainTag).
 		BlockRef(tx.NewBlockRef(bestRef)).
@@ -142,7 +142,15 @@ func buildStakingTx(bestRef uint32, body *staking.StakingBody, key *ecdsa.Privat
 	return trx
 }
 
-func initRuntimeAfterFork8() (*runtime.Runtime, *state.State, uint64) {
+type TestEnv struct {
+	runtime     *runtime.Runtime
+	state       *state.State
+	bktCreateTS uint64
+	currentTS   uint64
+	chainTag    byte
+}
+
+func initRuntimeAfterFork8() *TestEnv {
 	// fmt.Println("Holder: ", HolderAddr)
 	// fmt.Println("Cand: ", CandAddr)
 	// fmt.Println("Cand2: ", Cand2Addr)
@@ -151,7 +159,7 @@ func initRuntimeAfterFork8() (*runtime.Runtime, *state.State, uint64) {
 	initLogger()
 	kv, _ := lvldb.NewMem()
 	meter.InitBlockChainConfig("main")
-	ts := uint64(time.Now().Unix())
+	// ts := uint64(time.Now().Unix()) - meter.MIN_CANDIDATE_UPDATE_INTV - 1
 
 	b0 := buildGenesis(kv, func(state *state.State) error {
 		state.SetCode(builtin.Prototype.Address, builtin.Prototype.RuntimeBytecodes())
@@ -172,49 +180,61 @@ func initRuntimeAfterFork8() (*runtime.Runtime, *state.State, uint64) {
 		// 3 votes: Cand->Cand(self, Cand2->Cand2(self), Voter2->Cand
 
 		// init candidate Cand
-		selfBkt := meter.NewBucket(CandAddr, CandAddr, buildAmount(2000), meter.MTRG, meter.FOREVER_LOCK, meter.FOREVER_LOCK_RATE, 100, 0, 0)
-		cand := meter.NewCandidate(CandAddr, CandName, CandDesc, CandPubKey, CandIP, CandPort, 5e9, ts-meter.MIN_CANDIDATE_UPDATE_INTV-10)
-		cand.AddBucket(selfBkt)
+		// selfBkt := meter.NewBucket(CandAddr, CandAddr, buildAmount(2000), meter.MTRG, meter.FOREVER_LOCK, meter.FOREVER_LOCK_RATE, 100, 0, 0)
+		// cand := meter.NewCandidate(CandAddr, CandName, CandDesc, CandPubKey, CandIP, CandPort, 5e9, ts-meter.MIN_CANDIDATE_UPDATE_INTV-10)
+		// cand.AddBucket(selfBkt)
 
-		bkt := meter.NewBucket(Voter2Addr, CandAddr, buildAmount(500), meter.MTRG, meter.ONE_WEEK_LOCK, meter.ONE_WEEK_LOCK_RATE, 100, 0, 0)
-		cand.AddBucket(bkt)
+		// bkt := meter.NewBucket(Voter2Addr, CandAddr, buildAmount(500), meter.MTRG, meter.ONE_WEEK_LOCK, meter.ONE_WEEK_LOCK_RATE, 100, 0, 0)
+		// cand.AddBucket(bkt)
 
 		// init candidate Cand2
-		selfBkt2 := meter.NewBucket(Cand2Addr, Cand2Addr, buildAmount(2000), meter.MTRG, meter.FOREVER_LOCK, meter.FOREVER_LOCK_RATE, 100, 0, 0)
-		cand2 := meter.NewCandidate(Cand2Addr, Cand2Name, Cand2Desc, Cand2PubKey, Cand2IP, Cand2Port, 5e9, ts-meter.MIN_CANDIDATE_UPDATE_INTV-10)
-		cand2.AddBucket(selfBkt2)
+		// selfBkt2 := meter.NewBucket(Cand2Addr, Cand2Addr, buildAmount(2000), meter.MTRG, meter.FOREVER_LOCK, meter.FOREVER_LOCK_RATE, 100, 0, 0)
+		// cand2 := meter.NewCandidate(Cand2Addr, Cand2Name, Cand2Desc, Cand2PubKey, Cand2IP, Cand2Port, 5e9, ts-meter.MIN_CANDIDATE_UPDATE_INTV-10)
+		// cand2.AddBucket(selfBkt2)
 
 		// init candidate list & bucket list
-		state.SetCandidateList(meter.NewCandidateList([]*meter.Candidate{cand, cand2}))
-		state.SetBucketList(meter.NewBucketList([]*meter.Bucket{selfBkt, selfBkt2, bkt}))
+		// state.SetCandidateList(meter.NewCandidateList([]*meter.Candidate{cand, cand2}))
+		// state.SetBucketList(meter.NewBucketList([]*meter.Bucket{selfBkt, selfBkt2, bkt}))
+
+		sdb := statedb.New(state)
 
 		// init balance for candidates
-		state.AddBoundedBalance(CandAddr, buildAmount(2000))
+		// state.AddBoundedBalance(CandAddr, buildAmount(2000))
+		sdb.MintBalance(common.Address(CandAddr), buildAmount(2000))
 		// state.AddEnergy(CandAddr, buildAmount(100))
-		builtin.MeterTracker.Native(state).MintMeter(CandAddr, buildAmount(100))
-		state.AddBoundedBalance(Cand2Addr, buildAmount(2000))
+		sdb.MintEnergy(common.Address(CandAddr), buildAmount(100))
+		// builtin.MeterTracker.Native(state).MintMeter(CandAddr, buildAmount(100))
+		// state.AddBoundedBalance(Cand2Addr, buildAmount(2000))
+		sdb.MintBalance(common.Address(Cand2Addr), buildAmount(2000))
 		// state.AddEnergy(Cand2Addr, buildAmount(100))
-		builtin.MeterTracker.Native(state).MintMeter(Cand2Addr, buildAmount(100))
+		sdb.MintEnergy(common.Address(Cand2Addr), buildAmount(100))
 
 		// init balance for holders
-		// state.AddBalance(HolderAddr, buildAmount(1000))
-		builtin.MeterTracker.Native(state).MintMeterGov(HolderAddr, buildAmount(1000))
+		sdb.MintBalance(common.Address(HolderAddr), buildAmount(1200))
+		sdb.MintEnergy(common.Address(HolderAddr), buildAmount(100))
+		// builtin.MeterTracker.Native(state).MintMeterGov(HolderAddr, buildAmount(1000))
 		// state.AddEnergy(HolderAddr, buildAmount(100))
-		builtin.MeterTracker.Native(state).MintMeter(HolderAddr, buildAmount(100))
+		// builtin.MeterTracker.Native(state).MintMeter(HolderAddr, buildAmount(100))
 
 		// init balance for voters
 		// state.AddBalance(VoterAddr, buildAmount(3000))
-		builtin.MeterTracker.Native(state).MintMeterGov(VoterAddr, buildAmount(3000))
+		sdb.MintBalance(common.Address(VoterAddr), buildAmount(3000))
+		sdb.MintEnergy(common.Address(VoterAddr), buildAmount(100))
+		sdb.MintBalance(common.Address(Voter2Addr), buildAmount(1500))
+		sdb.MintEnergy(common.Address(Voter2Addr), buildAmount(100))
+		// builtin.MeterTracker.Native(state).MintMeterGov(VoterAddr, buildAmount(3000))
 		// state.AddEnergy(VoterAddr, buildAmount(100))
-		builtin.MeterTracker.Native(state).MintMeter(VoterAddr, buildAmount(100))
+		// builtin.MeterTracker.Native(state).MintMeter(VoterAddr, buildAmount(100))
 		// state.AddBalance(Voter2Addr, buildAmount(1000))
-		builtin.MeterTracker.Native(state).MintMeterGov(Voter2Addr, buildAmount(1000))
+		// builtin.MeterTracker.Native(state).MintMeterGov(Voter2Addr, buildAmount(1000))
 		// state.AddEnergy(Voter2Addr, buildAmount(100))
-		builtin.MeterTracker.Native(state).MintMeter(Voter2Addr, buildAmount(100))
-		state.AddBoundedBalance(Voter2Addr, buildAmount(500))
+		// builtin.MeterTracker.Native(state).MintMeter(Voter2Addr, buildAmount(100))
+		// state.AddBoundedBalance(Voter2Addr, buildAmount(500))
 
-		builtin.MeterTracker.Native(state).MintMeterGov(Voter2Addr, buildAmount(1234))
-		builtin.MeterTracker.Native(state).BurnMeterGov(Voter2Addr, buildAmount(1234))
+		sdb.MintEnergy(common.Address(Voter2Addr), buildAmount(1234))
+		sdb.BurnEnergy(common.Address(Voter2Addr), buildAmount(1234))
+		// builtin.MeterTracker.Native(state).MintMeterGov(Voter2Addr, buildAmount(1234))
+		// builtin.MeterTracker.Native(state).BurnMeterGov(Voter2Addr, buildAmount(1234))
 		// disable previous fork corrections
 		builtin.Params.Native(state).Set(meter.KeyEnforceTesla1_Correction, big.NewInt(1))
 		builtin.Params.Native(state).Set(meter.KeyEnforceTesla5_Correction, big.NewInt(1))
@@ -228,21 +248,52 @@ func initRuntimeAfterFork8() (*runtime.Runtime, *state.State, uint64) {
 		state.SetBalance(SampleStakingPoolAddr, buildAmount(200))
 		return nil
 	})
-
+	b0.SetQC(&block.QuorumCert{QCHeight: 0, QCRound: 0, EpochID: 0, VoterBitArrayStr: "X_XXX", VoterMsgHash: meter.BytesToBytes32([]byte("hello")), VoterAggSig: []byte("voteraggr")})
+	fmt.Println(b0.ID())
 	c, _ := chain.New(kv, b0, false)
-	st, _ := state.New(b0.Header().StateRoot(), kv)
 	seeker := c.NewSeeker(b0.ID())
 	sc := state.NewCreator(kv)
 	se := script.NewScriptEngine(c, sc)
 	se.StartTeslaForkModules()
+
+	currentTs := uint64(time.Now().Unix())
+	packer := packer.New(c, sc, genesis.DevAccounts()[0].Address, &genesis.DevAccounts()[0].Address)
+	flow, err := packer.Mock(b0.Header(), currentTs, 2000000, &meter.Address{})
+	if err != nil {
+		panic(err)
+	}
+	tx1 := buildTxForCandidateOfCand(c.Tag())
+	err = flow.Adopt(tx1)
+	if err != nil {
+		panic(err)
+	}
+	tx2 := buildTxForCandidateOfCand2(c.Tag())
+	err = flow.Adopt(tx2)
+	if err != nil {
+		panic(err)
+	}
+	tx3 := buildTxForVote(c.Tag(), Voter2Key, Voter2Addr, Cand2Addr, buildAmount(500))
+	err = flow.Adopt(tx3)
+	if err != nil {
+		panic(err)
+	}
+
+	b, stage, receipts, err := flow.Pack(genesis.DevAccounts()[0].PrivateKey, block.BLOCK_TYPE_M_BLOCK, 0)
+	if _, err := stage.Commit(); err != nil {
+		panic(err)
+	}
+	b.SetQC(&block.QuorumCert{QCHeight: 1, QCRound: 1, EpochID: 1, VoterBitArrayStr: "X_XXX", VoterMsgHash: meter.BytesToBytes32([]byte("hello")), VoterAggSig: []byte("voteraggr")})
+	if _, err = c.AddBlock(b, receipts, false); err != nil {
+		panic(err)
+	}
+	st, _ := state.New(b.Header().StateRoot(), kv)
 	sdb := statedb.New(st)
 
 	rt := runtime.New(seeker, st,
-		&xenv.BlockContext{Time: uint64(time.Now().Unix()),
+		&xenv.BlockContext{Time: currentTs,
 			Number: meter.TeslaFork8_MainnetStartNum + 1,
 			Signer: HolderAddr})
 
-	rt.EnforceTeslaFork8_LiquidStaking(sdb, big.NewInt(0))
 	// // deploy ScriptEngine contract
 	// createTrx := buildCallTx(0, nil, builtin.ScriptEngine_Bytecode, 0, HolderKey)
 	// r, err := rt.ExecuteTransaction(createTrx)
@@ -253,5 +304,61 @@ func initRuntimeAfterFork8() (*runtime.Runtime, *state.State, uint64) {
 	// 	panic("deploy ScriptEngine failed")
 	// }
 
-	return rt, st, ts
+	rt.EnforceTeslaFork8_LiquidStaking(sdb, big.NewInt(0), []meter.Address{HolderAddr, VoterAddr})
+	return &TestEnv{runtime: rt, state: st, bktCreateTS: 0, currentTS: currentTs, chainTag: c.Tag()}
+}
+
+func buildTxForVote(chainTag byte, voterKey *ecdsa.PrivateKey, voterAddr meter.Address, candAddr meter.Address, amount *big.Int) *tx.Transaction {
+	body := &staking.StakingBody{
+		Opcode:     staking.OP_BOUND,
+		Version:    0,
+		Option:     uint32(1),
+		Amount:     amount,
+		HolderAddr: voterAddr,
+		CandAddr:   candAddr,
+		Token:      meter.MTRG,
+		Timestamp:  uint64(0),
+		Nonce:      0,
+	}
+	return buildStakingTx(chainTag, 0, body, voterKey, 0)
+}
+
+func buildTxForCandidateOfCand(chainTag byte) *tx.Transaction {
+	body := &staking.StakingBody{
+		Opcode:          staking.OP_CANDIDATE,
+		Version:         0,
+		Option:          uint32(0),
+		Amount:          buildAmount(2000),
+		HolderAddr:      CandAddr,
+		CandAddr:        CandAddr,
+		CandName:        CandName,
+		CandDescription: CandDesc,
+		CandPubKey:      CandPubKey,
+		CandPort:        CandPort,
+		CandIP:          CandIP,
+		Token:           meter.MTRG,
+		Timestamp:       uint64(0),
+		Nonce:           0,
+	}
+	return buildStakingTx(chainTag, 0, body, CandKey, 0)
+}
+
+func buildTxForCandidateOfCand2(chainTag byte) *tx.Transaction {
+	body := &staking.StakingBody{
+		Opcode:          staking.OP_CANDIDATE,
+		Version:         0,
+		Option:          uint32(0),
+		Amount:          buildAmount(2000),
+		HolderAddr:      Cand2Addr,
+		CandAddr:        Cand2Addr,
+		CandName:        Cand2Name,
+		CandDescription: Cand2Desc,
+		CandPubKey:      Cand2PubKey,
+		CandPort:        Cand2Port,
+		CandIP:          Cand2IP,
+		Token:           meter.MTRG,
+		Timestamp:       uint64(0),
+		Nonce:           0,
+	}
+	return buildStakingTx(chainTag, 0, body, Cand2Key, 0)
 }

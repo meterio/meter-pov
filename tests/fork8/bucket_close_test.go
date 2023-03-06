@@ -1,6 +1,7 @@
 package fork8
 
 import (
+	"fmt"
 	"math/rand"
 	"testing"
 
@@ -10,10 +11,10 @@ import (
 )
 
 func TestBucketClose(t *testing.T) {
-	rt, s, ts := initRuntimeAfterFork8()
+	tenv := initRuntimeAfterFork8()
 	scriptEngineAddr := meter.ScriptEngineSysContractAddr
 
-	bktID := bucketID(Voter2Addr, 0, 0)
+	bktID := bucketID(Voter2Addr, tenv.bktCreateTS, 0)
 
 	bucketCloseFunc, found := builtin.ScriptEngine_ABI.MethodByName("bucketClose")
 	assert.True(t, found)
@@ -22,27 +23,28 @@ func TestBucketClose(t *testing.T) {
 	assert.Nil(t, err)
 
 	txNonce := rand.Uint64()
-	trx := buildCallTx(0, &scriptEngineAddr, data, txNonce, Voter2Key)
+	trx := buildCallTx(tenv.chainTag, 0, &scriptEngineAddr, data, txNonce, Voter2Key)
 
-	cand := s.GetCandidateList().Get(CandAddr)
+	cand := tenv.state.GetCandidateList().Get(CandAddr)
 
-	bal := s.GetBalance(Voter2Addr)
-	bbal := s.GetBoundedBalance(Voter2Addr)
-	bktCount := s.GetBucketList().Len()
-	receipt, err := rt.ExecuteTransaction(trx)
+	bal := tenv.state.GetBalance(Voter2Addr)
+	bbal := tenv.state.GetBoundedBalance(Voter2Addr)
+	bktCount := tenv.state.GetBucketList().Len()
+	receipt, err := tenv.runtime.ExecuteTransaction(trx)
 	assert.Nil(t, err)
 	assert.False(t, receipt.Reverted)
 
-	candAfter := s.GetCandidateList().Get(CandAddr)
-	bucketList := s.GetBucketList()
-	balAfter := s.GetBalance(Voter2Addr)
-	bbalAfter := s.GetBoundedBalance(Voter2Addr)
+	candAfter := tenv.state.GetCandidateList().Get(CandAddr)
+	bucketList := tenv.state.GetBucketList()
+	balAfter := tenv.state.GetBalance(Voter2Addr)
+	bbalAfter := tenv.state.GetBoundedBalance(Voter2Addr)
 
 	bkt := bucketList.Get(bktID)
 	assert.NotNil(t, bkt)
 	assert.True(t, bkt.Unbounded)
 	_, _, locktime := meter.GetBoundLockOption(meter.ONE_WEEK_LOCK)
-	assert.Equal(t, ts+locktime, bkt.MatureTime, "should mature in time")
+	fmt.Println("CURRENT TS:", tenv.currentTS, "LOCKTIME: ", locktime)
+	assert.Equal(t, tenv.currentTS+locktime, bkt.MatureTime, "should mature in time")
 
 	assert.Equal(t, bucketList.Len(), bktCount, "should not add bucket")
 	assert.Equal(t, cand.TotalVotes.String(), candAfter.TotalVotes.String(), "should not change totalVotes")

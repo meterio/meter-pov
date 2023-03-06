@@ -12,7 +12,7 @@ import (
 )
 
 func TestBucketUpdateCandidate(t *testing.T) {
-	rt, s, ts := initRuntimeAfterFork8()
+	tenv := initRuntimeAfterFork8()
 	scriptEngineAddr := meter.ScriptEngineSysContractAddr
 
 	bucketOpenFunc, found := builtin.ScriptEngine_ABI.MethodByName("bucketOpen")
@@ -24,13 +24,13 @@ func TestBucketUpdateCandidate(t *testing.T) {
 	// bucket open
 	rand.Uint64()
 	txNonce := rand.Uint64()
-	trx := buildCallTx(0, &scriptEngineAddr, data, txNonce, HolderKey)
-	receipt, err := rt.ExecuteTransaction(trx)
+	trx := buildCallTx(tenv.chainTag, 0, &scriptEngineAddr, data, txNonce, HolderKey)
+	receipt, err := tenv.runtime.ExecuteTransaction(trx)
 	fmt.Println(receipt)
 	assert.Nil(t, err)
 	assert.False(t, receipt.Reverted)
 
-	bktID := bucketID(HolderAddr, ts, txNonce+0)
+	bktID := bucketID(HolderAddr, tenv.currentTS, txNonce+0)
 
 	assert.NotNil(t, bktID)
 
@@ -40,19 +40,19 @@ func TestBucketUpdateCandidate(t *testing.T) {
 	data, err = bucketUpdateCandidateFunc.EncodeInput(bktID, Cand2Addr)
 	assert.Nil(t, err)
 
-	fromCanVotes := s.GetCandidateList().Get(CandAddr).TotalVotes
-	toCanVotes := s.GetCandidateList().Get(Cand2Addr).TotalVotes
+	fromCanVotes := tenv.state.GetCandidateList().Get(CandAddr).TotalVotes
+	toCanVotes := tenv.state.GetCandidateList().Get(Cand2Addr).TotalVotes
 	txNonce = rand.Uint64()
-	trx = buildCallTx(0, &scriptEngineAddr, data, txNonce, HolderKey)
-	receipt, err = rt.ExecuteTransaction(trx)
+	trx = buildCallTx(tenv.chainTag, 0, &scriptEngineAddr, data, txNonce, HolderKey)
+	receipt, err = tenv.runtime.ExecuteTransaction(trx)
 	assert.Nil(t, err)
 	assert.False(t, receipt.Reverted)
 	fmt.Println(receipt)
 
-	bkt := s.GetBucketList().Get(bktID)
+	bkt := tenv.state.GetBucketList().Get(bktID)
 	assert.Equal(t, Cand2Addr.String(), bkt.Candidate.String())
-	fromCanVotesAfter := s.GetCandidateList().Get(CandAddr).TotalVotes
-	toCanVotesAfter := s.GetCandidateList().Get(Cand2Addr).TotalVotes
+	fromCanVotesAfter := tenv.state.GetCandidateList().Get(CandAddr).TotalVotes
+	toCanVotesAfter := tenv.state.GetCandidateList().Get(Cand2Addr).TotalVotes
 	assert.Equal(t, bkt.TotalVotes.String(), new(big.Int).Sub(fromCanVotes, fromCanVotesAfter).String(), "should sub from from candidate")
 	assert.Equal(t, bkt.TotalVotes.String(), new(big.Int).Sub(toCanVotesAfter, toCanVotes).String(), "should add to to candidate")
 
