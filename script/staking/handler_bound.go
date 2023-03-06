@@ -45,7 +45,7 @@ func (s *Staking) BoundHandler(env *setypes.ScriptEnv, sb *StakingBody, gas uint
 		} else {
 			selfRatioValid := false
 			if meter.IsTeslaFork1(number) {
-				selfRatioValid = CheckCandEnoughSelfVotes(sb.Amount, c, bucketList, meter.TESLA1_1_SELF_VOTE_RATIO)
+				selfRatioValid = CorrectCheckEnoughSelfVotes(c, bucketList, meter.TESLA1_1_SELF_VOTE_RATIO, nil, nil, sb.Amount, nil)
 			} else {
 				selfRatioValid = CheckCandEnoughSelfVotes(sb.Amount, c, bucketList, meter.TESLA1_0_SELF_VOTE_RATIO)
 			}

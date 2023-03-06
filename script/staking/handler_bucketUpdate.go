@@ -54,6 +54,7 @@ func (s *Staking) BucketUpdateHandler(env *setypes.ScriptEnv, sb *StakingBody, g
 		// ---------------------------------------
 		// AFTER TESLA FORK 5 : support bucket sub
 		// ---------------------------------------
+		cand := candidateList.Get(bucket.Candidate)
 		if sb.Option == meter.BUCKET_SUB_OPT {
 			if bucket.Unbounded {
 				s.logger.Error(fmt.Sprintf("can not update unbounded bucket, ID %v", sb.StakingID))
@@ -61,29 +62,57 @@ func (s *Staking) BucketUpdateHandler(env *setypes.ScriptEnv, sb *StakingBody, g
 				return
 			}
 
-			// sanity check before doing the sub
 			valueAfterSub := new(big.Int).Sub(bucket.Value, sb.Amount)
+
+			// sanity check before doing the sub
 			if bucket.IsForeverLock() {
+				// is candidate bucket
+
 				if valueAfterSub.Cmp(meter.MIN_REQUIRED_BY_DELEGATE) < 0 {
 					err = errors.New("limit MIN_REQUIRED_BY_DELEGATE")
 					return
 				}
-				self := candidateList.Get(bucket.Owner)
-				if self == nil {
+				if cand == nil {
 					err = errCandidateNotListed
 					return
 				}
 
-				selfRatioValid := CheckEnoughSelfVotes(valueAfterSub, self, bucketList, meter.TESLA1_1_SELF_VOTE_RATIO)
-				if !selfRatioValid {
+				ratioValid := CorrectCheckEnoughSelfVotes(cand, bucketList, meter.TESLA1_1_SELF_VOTE_RATIO, nil, sb.Amount, nil, sb.Amount)
+				if !ratioValid {
 					return leftOverGas, errCandidateNotEnoughSelfVotes
 				}
+
 			} else {
+				// vote to other candidate
 				if valueAfterSub.Cmp(meter.MIN_BOUND_BALANCE) < 0 {
 					err = errors.New("limit MIN_BOUND_BALANCE")
 					return
 				}
 			}
+			/*
+				if bucket.IsForeverLock() {
+					if valueAfterSub.Cmp(meter.MIN_REQUIRED_BY_DELEGATE) < 0 {
+						err = errors.New("limit MIN_REQUIRED_BY_DELEGATE")
+						return
+					}
+					self := candidateList.Get(bucket.Owner)
+					if self == nil {
+						err = errCandidateNotListed
+						return
+					}
+
+					selfRatioValid := CheckEnoughSelfVotes(valueAfterSub, self, bucketList, meter.TESLA1_1_SELF_VOTE_RATIO)
+					if !selfRatioValid {
+						return leftOverGas, errCandidateNotEnoughSelfVotes
+					}
+				} else {
+					if valueAfterSub.Cmp(meter.MIN_BOUND_BALANCE) < 0 {
+						err = errors.New("limit MIN_BOUND_BALANCE")
+						return
+					}
+				}
+			*/
+
 			// bonus is substracted porpotionally
 			oldBonus := new(big.Int).Sub(bucket.TotalVotes, bucket.Value)
 			bonusDelta := new(big.Int).Mul(oldBonus, sb.Amount)
@@ -110,7 +139,6 @@ func (s *Staking) BucketUpdateHandler(env *setypes.ScriptEnv, sb *StakingBody, g
 
 			// update candidate
 			// check if candidate is already listed
-			cand := candidateList.Get(bucket.Candidate)
 			if cand != nil {
 				cand.TotalVotes.Sub(cand.TotalVotes, sb.Amount)
 				cand.TotalVotes.Sub(cand.TotalVotes, bonusDelta)
@@ -140,6 +168,13 @@ func (s *Staking) BucketUpdateHandler(env *setypes.ScriptEnv, sb *StakingBody, g
 			if state.GetBalance(sb.HolderAddr).Cmp(sb.Amount) < 0 {
 				err = errors.New("not enough meter-gov balance")
 				return
+			}
+
+			if !bucket.IsForeverLock() {
+				selfRatioValid := CorrectCheckEnoughSelfVotes(cand, bucketList, meter.TESLA1_1_SELF_VOTE_RATIO, nil, nil, sb.Amount, nil)
+				if !selfRatioValid {
+					return leftOverGas, errCandidateNotEnoughSelfVotes
+				}
 			}
 
 			// bound account balance
