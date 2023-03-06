@@ -244,7 +244,7 @@ func (rt *Runtime) EnforceTeslaFork6_Corrections() {
 	}
 }
 
-func (rt *Runtime) EnforceTeslaFork8_LiquidStaking(stateDB *statedb.StateDB, blockNum *big.Int) {
+func (rt *Runtime) EnforceTeslaFork8_LiquidStaking(stateDB *statedb.StateDB, blockNum *big.Int, additialAddr []meter.Address) {
 	blockNumber := rt.Context().Number
 	log := log15.New("pkg", "fork8")
 	if blockNumber > 0 {
@@ -255,10 +255,13 @@ func (rt *Runtime) EnforceTeslaFork8_LiquidStaking(stateDB *statedb.StateDB, blo
 			log.Info("Start fork8 correction")
 
 			buckets := rt.state.GetBucketList().Buckets
-			mtrTotalAdd := big.NewInt(0)
-			mtrgTotalAdd := big.NewInt(0)
+			mtrTotalAddSub := metertracker.MeterTotalAddSub{TotalAdd: new(big.Int), TotalSub: new(big.Int)}
+			mtrgTotalAddSub := metertracker.MeterTotalAddSub{TotalAdd: new(big.Int), TotalSub: new(big.Int)}
 			// filter out all the addresses in buckets
 			addrs := make(map[meter.Address]bool)
+			for _, addr := range additialAddr {
+				addrs[addr] = true
+			}
 			for _, b := range buckets {
 				addrs[b.Owner] = true
 				addrs[b.Candidate] = true
@@ -268,15 +271,25 @@ func (rt *Runtime) EnforceTeslaFork8_LiquidStaking(stateDB *statedb.StateDB, blo
 				privTracker := metertracker.New(addr, rt.state)
 				mtrAddSub := privTracker.GetMeterTotalAddSub()
 				mtrgAddSub := privTracker.GetMeterGovTotalAddSub()
-				mtrTotalAdd.Add(mtrTotalAdd, mtrAddSub.TotalAdd)
-				mtrgTotalAdd.Add(mtrgTotalAdd, mtrgAddSub.TotalAdd)
+				mtrTotalAddSub.TotalAdd.Add(mtrTotalAddSub.TotalAdd, mtrAddSub.TotalAdd)
+				mtrTotalAddSub.TotalSub.Add(mtrTotalAddSub.TotalSub, mtrAddSub.TotalSub)
+				mtrgTotalAddSub.TotalAdd.Add(mtrgTotalAddSub.TotalAdd, mtrgAddSub.TotalAdd)
+				mtrgTotalAddSub.TotalSub.Add(mtrgTotalAddSub.TotalSub, mtrgAddSub.TotalSub)
 			}
 			// update global meter tracker
 			globalTracker := builtin.MeterTracker.Native(rt.state)
-			log.Info("update meterTotalAddSub", "totalAdd", mtrTotalAdd)
-			globalTracker.SetMeterTotalAddSub(metertracker.MeterTotalAddSub{TotalAdd: mtrTotalAdd, TotalSub: new(big.Int)})
-			log.Info("update meterGovTotalAddSub", "totalAdd", mtrgTotalAdd)
-			globalTracker.SetMeterGovTotalAddSub(metertracker.MeterGovTotalAddSub{TotalAdd: mtrgTotalAdd, TotalSub: new(big.Int)})
+			globalMTRTotalAddSub := globalTracker.GetMeterTotalAddSub()
+			mtrTotalAddSub.TotalAdd.Add(mtrTotalAddSub.TotalAdd, globalMTRTotalAddSub.TotalAdd)
+			mtrTotalAddSub.TotalSub.Add(mtrTotalAddSub.TotalSub, globalMTRTotalAddSub.TotalSub)
+			log.Info("update meterTotalAddSub", "totalAdd", mtrTotalAddSub.TotalAdd, "totalSub", mtrTotalAddSub.TotalSub)
+			globalTracker.SetMeterTotalAddSub(mtrTotalAddSub)
+
+			globalMTRGTotalAddSub := globalTracker.GetMeterGovTotalAddSub()
+			mtrgTotalAddSub.TotalAdd.Add(mtrgTotalAddSub.TotalAdd, globalMTRGTotalAddSub.TotalAdd)
+			mtrgTotalAddSub.TotalSub.Add(mtrgTotalAddSub.TotalSub, globalMTRGTotalAddSub.TotalSub)
+			log.Info("update meterGovTotalAddSub", "totalAdd", mtrgTotalAddSub.TotalAdd, "totalSub", mtrgTotalAddSub.TotalSub)
+			globalTracker.SetMeterGovTotalAddSub(metertracker.MeterGovTotalAddSub(mtrgTotalAddSub))
+
 			// set V3 code for MeterTracker
 			rt.state.SetCode(builtin.MeterTracker.Address, builtin.MeterNative_V3_DeployedBytecode)
 			log.Info("Overriden MeterNative with V3 bytecode", "addr", builtin.MeterTracker.Address)
@@ -692,7 +705,7 @@ func (rt *Runtime) PrepareClause(
 		rt.EnforceTeslaFork6_Corrections()
 
 		// tesla fork8 enable liquid staking
-		rt.EnforceTeslaFork8_LiquidStaking(stateDB, evm.BlockNumber)
+		rt.EnforceTeslaFork8_LiquidStaking(stateDB, evm.BlockNumber, []meter.Address{})
 
 		// check the restriction of transfer.
 		if rt.restrictTransfer(stateDB, txCtx.Origin, clause.Value(), clause.Token(), rt.ctx.Number) == true {

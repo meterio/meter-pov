@@ -79,8 +79,8 @@ func NewBucket(owner Address, cand Address, value *big.Int, token uint8, opt uin
 }
 
 func (b *Bucket) ToString() string {
-	return fmt.Sprintf("Bucket(%v) Owner=%v, Candidate=%v, Value=%d, BonusVotes=%d, TotalVotes=%v, Nonce=%v, Token%v, CreateTime=%v, Option=%v, Autobid=%v, MatureTime=%v, CalcLastTIme=%v, Unbounded=%v, Rate=%v",
-		b.BucketID, b.Owner, b.Candidate, b.Value.Uint64(), b.BonusVotes, b.TotalVotes.Uint64(),
+	return fmt.Sprintf("Bucket(%v) Owner=%v, Candidate=%v, Value=%s, BonusVotes=%d, TotalVotes=%v, Nonce=%v, Token%v, CreateTime=%v, Option=%v, Autobid=%v, MatureTime=%v, CalcLastTIme=%v, Unbounded=%v, Rate=%v",
+		b.BucketID, b.Owner, b.Candidate, b.Value.String(), b.BonusVotes, b.TotalVotes.Uint64(),
 		b.Nonce, b.Token, b.CreateTime, b.Option, b.Autobid, b.MatureTime, b.CalcLastTime, b.Unbounded, b.Rate)
 }
 
