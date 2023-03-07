@@ -222,6 +222,11 @@ func (e *MeterTracker) BucketWithdraw(owner meter.Address, id meter.Bytes32, amo
 		return emptyBktID, errBucketNotEnoughValue
 	}
 
+	valueAfterWithdraw := new(big.Int).Sub(b.Value, amount)
+	if valueAfterWithdraw.Cmp(meter.MIN_BOUND_BALANCE) < 0 {
+		return emptyBktID, errLessThanMinBoundBalance
+	}
+
 	// bonus is substracted porpotionally
 	oldBonus := new(big.Int).Sub(b.TotalVotes, b.Value)
 	// bonus delta = oldBonus * (amount/bucke value)
