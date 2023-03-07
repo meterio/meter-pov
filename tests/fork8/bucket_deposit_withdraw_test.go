@@ -155,5 +155,19 @@ func TestBucketDepositWithdraw(t *testing.T) {
 		bkt := tenv.state.GetBucketList().Get(bktID)
 		assert.Equal(t, openAmount.String(), bkt.Value.String(), "open bucket should has the same value")
 	}
+	bkt := tenv.state.GetBucketList().Get(bktID)
+	assert.NotNil(t, bkt)
+
+	// bucket should always keep a minimum balance of 100MTRG
+	delta := new(big.Int).Sub(bkt.Value, buildAmount(99))
+	// bucket withdraw
+	bucketWithdrawFunc, found := builtin.ScriptEngine_ABI.MethodByName("bucketWithdraw")
+	assert.True(t, found)
+	data, err = bucketWithdrawFunc.EncodeInput(bktID, delta, HolderAddr)
+	assert.Nil(t, err)
+	trx = buildCallTx(tenv.chainTag, 0, &scriptEngineAddr, data, 0, HolderKey)
+	receipt, err = tenv.runtime.ExecuteTransaction(trx)
+	assert.Nil(t, err)
+	assert.True(t, receipt.Reverted)
 
 }
