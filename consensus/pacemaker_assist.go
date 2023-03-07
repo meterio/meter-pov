@@ -133,11 +133,9 @@ func (p *Pacemaker) ValidateProposal(b *pmBlock) error {
 	}
 
 	//create checkPoint before validate block
-	blkID := blk.ID()
-	blkHeight := blk.Number()
 	state, err := p.csReactor.stateCreator.NewState(p.csReactor.chain.BestBlock().Header().StateRoot())
 	if err != nil {
-		p.logger.Error("revert state failed ...", "height", blkHeight, "id", blkID, "error", err)
+		p.logger.Error("revert state failed ...", "height", blk.Number(), "id", blk.ID(), "error", err)
 		return nil
 	}
 	checkPoint := state.NewCheckpoint()
@@ -162,8 +160,9 @@ func (p *Pacemaker) ValidateProposal(b *pmBlock) error {
 	}
 
 	b.SuccessProcessed = true
+	b.ProcessError = err
 
-	p.logger.Info(fmt.Sprintf("validated proposal %d", blkHeight), "id", blkID)
+	p.logger.Info(fmt.Sprintf("validated proposal %d", blk.Number()), "id", blk.ID())
 	return nil
 }
 

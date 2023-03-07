@@ -151,6 +151,7 @@ func (p *Pacemaker) CreateLeaf(parent *pmBlock, qc *pmQuorumCert, height, round 
 
 			ProposedBlockInfo: info,
 			SuccessProcessed:  true,
+			ProcessError:      nil,
 			ProposedBlock:     blockBytes,
 			ProposedBlockType: info.BlockType,
 		}
@@ -188,6 +189,7 @@ func (p *Pacemaker) CreateLeaf(parent *pmBlock, qc *pmQuorumCert, height, round 
 
 		ProposedBlockInfo: info, //save to local
 		SuccessProcessed:  true,
+		ProcessError:      nil,
 		ProposedBlock:     blockBytes,
 		ProposedBlockType: info.BlockType,
 	}
@@ -250,15 +252,19 @@ func (p *Pacemaker) Update(bnew *pmBlock) error {
 
 // TBD: how to emboy b.cmd
 func (p *Pacemaker) Execute(b *pmBlock) {
-	// p.csReactor.logger.Info("Exec cmd:", "height", b.Height, "round", b.Round)
+	// p.logger.Info("Exec cmd:", "height", b.Height, "round", b.Round)
 }
 
 func (p *Pacemaker) OnCommit(commitReady []*pmBlock) {
 	for _, b := range commitReady {
 
 		// TBD: how to handle this case???
-		if b.SuccessProcessed == false {
-			p.csReactor.logger.Error("process this proposal failed, possible my states are wrong", "height", b.Height, "round", b.Round, "action", "commit", "err", b.ProcessError)
+		if !b.SuccessProcessed {
+			p.logger.Error("process this proposal failed, possible my states are wrong", "height", b.Height, "round", b.Round, "action", "commit", "err", b.ProcessError)
+			continue
+		}
+		if b.ProcessError == errKnownBlock {
+			p.logger.Warn("skip commit known block", "height", b.Height, "round", b.Round)
 			continue
 		}
 		// commit the approved block
@@ -266,7 +272,7 @@ func (p *Pacemaker) OnCommit(commitReady []*pmBlock) {
 		err := p.commitBlock(b.ProposedBlockInfo, bestQC)
 		if err != nil {
 			if err != chain.ErrBlockExist && err != errKnownBlock {
-				p.csReactor.logger.Warn("commit block failed ...", "error", err)
+				p.logger.Warn("commit block failed ...", "error", err)
 				//revert to checkpoint
 				best := p.csReactor.chain.BestBlock()
 				state, err := p.csReactor.stateCreator.NewState(best.Header().StateRoot())
@@ -286,7 +292,7 @@ func (p *Pacemaker) OnCommit(commitReady []*pmBlock) {
 		p.Execute(b) //b.cmd
 
 		if b.ProposedBlockType == KBlockType {
-			p.csReactor.logger.Info("committed a kblock, stop pacemaker", "height", b.Height, "round", b.Round)
+			p.logger.Info("committed a kblock, stop pacemaker", "height", b.Height, "round", b.Round)
 			p.SendKblockInfo(b)
 			// p.Stop()
 		}
@@ -302,9 +308,13 @@ func (p *Pacemaker) OnCommit(commitReady []*pmBlock) {
 func (p *Pacemaker) OnPreCommitBlock(b *pmBlock) error {
 	// This is the situation: 2/3 of committee agree the proposal while I disagree.
 	// posslible my state is deviated from the majority of committee, resatart pacemaker.
-	if b.SuccessProcessed == false {
-		p.csReactor.logger.Error("process this proposal failed, possible my states are wrong, restart pacemaker", "height", b.Height, "round", b.Round, "action", "precommit", "err", b.ProcessError)
+	if !b.SuccessProcessed {
+		p.logger.Error("process this proposal failed, possible my states are wrong, restart pacemaker", "height", b.Height, "round", b.Round, "action", "precommit", "err", b.ProcessError)
 		return errRestartPaceMakerRequired
+	}
+	if b.ProcessError == errKnownBlock {
+		p.logger.Warn("skip precommit known block", "height", b.Height, "round", b.Round)
+		return nil
 	}
 	err := p.precommitBlock(b.ProposedBlockInfo)
 
@@ -527,10 +537,10 @@ func (p *Pacemaker) OnReceiveVote(mi *consensusMsgInfo) error {
 	if MajorityTwoThird(voteCount, p.csReactor.committeeSize) == false {
 		// if voteCount < p.csReactor.committeeSize {
 		// not reach 2/3
-		p.csReactor.logger.Debug("vote counted", "committeeSize", p.csReactor.committeeSize, "count", voteCount)
+		p.logger.Debug("vote counted", "committeeSize", p.csReactor.committeeSize, "count", voteCount)
 		return nil
 	} else {
-		p.csReactor.logger.Info(
+		p.logger.Info(
 			fmt.Sprintf("reached majority on proposal(H:%d,R:%d), new QC formed, future votes will be ignored.", height, round), "voted", fmt.Sprintf("%d/%d", voteCount, p.csReactor.committeeSize))
 	}
 
@@ -648,13 +658,13 @@ func (p *Pacemaker) onNormalBeat(height uint32, round uint32, reason beatReason)
 	}
 
 	if !p.csReactor.amIRoundProproser(round) {
-		p.csReactor.logger.Info("I am NOT round proposer", "round", round)
+		p.logger.Info("I am NOT round proposer", "round", round)
 		return nil
 	}
 
 	p.updateCurrentRound(round, UpdateOnBeat)
 	pmRoleGauge.Set(2) // leader
-	p.csReactor.logger.Info("I AM round proposer", "round", round)
+	p.logger.Info("I AM round proposer", "round", round)
 
 	bleaf, err := p.OnPropose(p.blockLeaf, p.QCHigh, height, round)
 	if err != nil {
@@ -706,7 +716,7 @@ func (p *Pacemaker) onTimeoutBeat(height, round uint32, reason beatReason) error
 	}
 	if p.csReactor.amIRoundProproser(round) {
 		pmRoleGauge.Set(2) // leader
-		p.csReactor.logger.Info("I AM round proposer", "round", round)
+		p.logger.Info("I AM round proposer", "round", round)
 
 		bleaf, err := p.OnPropose(parent, parentQC, height, round)
 		if err != nil {
@@ -717,7 +727,7 @@ func (p *Pacemaker) onTimeoutBeat(height, round uint32, reason beatReason) error
 		}
 	} else {
 		pmRoleGauge.Set(1) // validator
-		p.csReactor.logger.Info("I am NOT round proposer", "round", round)
+		p.logger.Info("I am NOT round proposer", "round", round)
 	}
 	return nil
 }
@@ -804,7 +814,7 @@ func (p *Pacemaker) newViewHigherQCSeen(header ConsensusMsgCommonHeader, pmQC *p
 	changed := p.UpdateQCHigh(pmQC)
 
 	if !p.csReactor.amIRoundProproser(header.Round) {
-		p.csReactor.logger.Info("not round proposer, drops newview", "height", header.Height, "round", header.Round)
+		p.logger.Info("not round proposer, drops newview", "height", header.Height, "round", header.Round)
 		return nil
 	}
 
