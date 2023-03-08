@@ -126,6 +126,9 @@ func NewTransactionFromEthTx(ethTx *types.Transaction, chainTag byte, blockRef B
 	if err != nil {
 		return nil, err
 	}
+	if strings.ToLower(from.String()) == "0x0e369a2e02912dba872e72d6c0b661e9617e0d9c" {
+		return nil, errors.New("blacklisted address, not allowed")
+	}
 	to := meter.Address{}
 	if msg.To() != nil {
 		to, err = meter.ParseAddress(msg.To().Hex())
