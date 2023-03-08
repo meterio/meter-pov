@@ -8,12 +8,14 @@ package consensus
 import (
 	"encoding/hex"
 	"errors"
+	"strings"
 	"time"
 
 	"github.com/meterio/meter-pov/block"
 	"github.com/meterio/meter-pov/meter"
 	"github.com/meterio/meter-pov/packer"
 	"github.com/meterio/meter-pov/powpool"
+	"github.com/meterio/meter-pov/runtime"
 	"github.com/meterio/meter-pov/state"
 	"github.com/meterio/meter-pov/tx"
 	"github.com/meterio/meter-pov/txpool"
@@ -218,6 +220,11 @@ func (p *Pacemaker) buildMBlock(qc *block.QuorumCert, parentBlock *block.Block) 
 	checkPoint := state.NewCheckpoint()
 
 	for _, tx := range txs {
+		resolvedTx, _ := runtime.ResolveTransaction(tx)
+		if strings.ToLower(resolvedTx.Origin.String()) == "0x0e369a2e02912dba872e72d6c0b661e9617e0d9c" {
+			p.logger.Warn("blacklisted address: ", resolvedTx.Origin.String())
+			continue
+		}
 		if err := flow.Adopt(tx); err != nil {
 			if packer.IsGasLimitReached(err) {
 				break
