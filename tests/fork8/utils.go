@@ -222,6 +222,7 @@ func initRuntimeAfterFork8() *TestEnv {
 		sdb.MintEnergy(common.Address(VoterAddr), buildAmount(100))
 		sdb.MintBalance(common.Address(Voter2Addr), buildAmount(1500))
 		sdb.MintEnergy(common.Address(Voter2Addr), buildAmount(100))
+		sdb.MintBalance(common.Address(VoterAddr), buildAmount(2000000))
 		// builtin.MeterTracker.Native(state).MintMeterGov(VoterAddr, buildAmount(3000))
 		// state.AddEnergy(VoterAddr, buildAmount(100))
 		// builtin.MeterTracker.Native(state).MintMeter(VoterAddr, buildAmount(100))
