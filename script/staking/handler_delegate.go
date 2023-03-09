@@ -52,12 +52,14 @@ func (s *Staking) DelegateHandler(env *setypes.ScriptEnv, sb *StakingBody, gas u
 
 	number := env.GetBlockNum()
 	selfRatioValid := false
-	if meter.IsTeslaFork1(number) {
+	if meter.IsTeslaFork8(number) {
 		selfRatioValid = CorrectCheckEnoughSelfVotes(cand, bucketList, meter.TESLA1_1_SELF_VOTE_RATIO, nil, nil, b.Value, nil)
+	} else if meter.IsTeslaFork1(number) {
+		selfRatioValid = CheckCandEnoughSelfVotes(sb.Amount, cand, bucketList, meter.TESLA1_1_SELF_VOTE_RATIO)
 	} else {
 		selfRatioValid = CheckCandEnoughSelfVotes(b.TotalVotes, cand, bucketList, meter.TESLA1_0_SELF_VOTE_RATIO)
 	}
-	if selfRatioValid == false {
+	if !selfRatioValid {
 		s.logger.Error(errCandidateNotEnoughSelfVotes.Error(), "candidate", cand.Addr.String())
 		return leftOverGas, errCandidateNotEnoughSelfVotes
 	}

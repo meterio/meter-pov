@@ -116,11 +116,21 @@ func CorrectCheckEnoughSelfVotes(c *meter.Candidate, bl *meter.BucketList, selfV
 		}
 	}
 
+	// fmt.Println("---------- CHECK SELF VOTE RATIO ----------")
+	// fmt.Println("Candidate: ", c.Addr)
+	// fmt.Println("Total Votes: ", c.TotalVotes, ", totalValue: ", totalValue.String())
+	// fmt.Println("selfValue: ", selfValue.String())
+	// fmt.Println("selfVoteRatio: ", selfVoteRatio)
+
 	// enforce: candidate total votes / self votes <= selfVoteRatio
 	// that means total votes / selfVoteRatio <= self votes
 	limitSelfTotalValue := new(big.Int).Div(totalValue, big.NewInt(selfVoteRatio))
 
-	return limitSelfTotalValue.Cmp(selfValue) <= 0
+	result := limitSelfTotalValue.Cmp(selfValue) <= 0
+	// fmt.Println("Result: ", result)
+	// fmt.Println("-------------------------------------------")
+	return result
+
 }
 
 func CheckCandEnoughSelfVotes(newVotes *big.Int, c *meter.Candidate, bl *meter.BucketList, selfVoteRatio int64) bool {
@@ -147,7 +157,6 @@ func CheckCandEnoughSelfVotes(newVotes *big.Int, c *meter.Candidate, bl *meter.B
 	return true
 }
 
-/*
 func CheckEnoughSelfVotes(subVotes *big.Int, c *meter.Candidate, bl *meter.BucketList, selfVoteRatio int64) bool {
 	bkts, err := GetCandidateSelfBuckets(c, bl)
 	if err != nil {
@@ -171,7 +180,6 @@ func CheckEnoughSelfVotes(subVotes *big.Int, c *meter.Candidate, bl *meter.Bucke
 
 	return true
 }
-*/
 
 // deprecated warning: BonusVotes will always be 0 after Tesla Fork 5
 func TouchBucketBonus(ts uint64, bucket *meter.Bucket) *big.Int {
