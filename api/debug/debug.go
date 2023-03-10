@@ -869,10 +869,70 @@ func (d *Debug) handleSupply(w http.ResponseWriter, req *http.Request) error {
 	})
 }
 
+func (d *Debug) handleRevision(revision string) (*block.Header, error) {
+	if revision == "" || revision == "best" {
+		return d.chain.BestBlock().Header(), nil
+	}
+	if len(revision) == 66 || len(revision) == 64 {
+		blockID, err := meter.ParseBytes32(revision)
+		if err != nil {
+			return nil, utils.BadRequest(errors.WithMessage(err, "revision"))
+		}
+		h, err := d.chain.GetBlockHeader(blockID)
+		if err != nil {
+			if d.chain.IsNotFound(err) {
+				return nil, utils.BadRequest(errors.WithMessage(err, "revision"))
+			}
+			return nil, err
+		}
+		return h, nil
+	}
+	n, err := strconv.ParseUint(revision, 0, 0)
+	if err != nil {
+		return nil, utils.BadRequest(errors.WithMessage(err, "revision"))
+	}
+	if n > math.MaxUint32 {
+		return nil, utils.BadRequest(errors.WithMessage(errors.New("block number out of max uint32"), "revision"))
+	}
+	h, err := d.chain.GetTrunkBlockHeader(uint32(n))
+	if err != nil {
+		if d.chain.IsNotFound(err) {
+			return nil, utils.BadRequest(errors.WithMessage(err, "revision"))
+		}
+		return nil, err
+	}
+	return h, nil
+}
+
+func (d *Debug) handleGetRawStorage(w http.ResponseWriter, req *http.Request) error {
+	addr, err := meter.ParseAddress(mux.Vars(req)["address"])
+	if err != nil {
+		return utils.BadRequest(errors.WithMessage(err, "address"))
+	}
+	key, err := meter.ParseBytes32(mux.Vars(req)["key"])
+	if err != nil {
+		return utils.BadRequest(errors.WithMessage(err, "key"))
+	}
+	h, err := d.handleRevision(req.URL.Query().Get("revision"))
+	if err != nil {
+		return err
+	}
+	state, err := d.stateC.NewState(h.StateRoot())
+	if err != nil {
+		return err
+	}
+	raw := state.GetRawStorage(addr, key)
+	if err := state.Err(); err != nil {
+		return err
+	}
+	return utils.WriteJSON(w, map[string]string{"raw": "0x" + hex.EncodeToString(raw)})
+}
+
 func (d *Debug) Mount(root *mux.Router, pathPrefix string) {
 	sub := root.PathPrefix(pathPrefix).Subrouter()
 	sub.Path("/tracers").Methods(http.MethodPost).HandlerFunc(utils.WrapHandlerFunc(d.handleTraceTransaction))
 	sub.Path("/storage-range").Methods(http.MethodPost).HandlerFunc(utils.WrapHandlerFunc(d.handleDebugStorage))
+	sub.Path("/rawstorage/{address}/{key}").Methods(http.MethodGet).HandlerFunc(utils.WrapHandlerFunc(d.handleGetRawStorage))
 	sub.Path("/openeth_trace_transaction").Methods(http.MethodPost).HandlerFunc((utils.WrapHandlerFunc(d.handleOpenEthTraceTransaction)))
 	sub.Path("/openeth_trace_block").Methods(http.MethodPost).HandlerFunc((utils.WrapHandlerFunc(d.handleOpenEthTraceBlock)))
 	sub.Path("/openeth_trace_filter").Methods(http.MethodPost).HandlerFunc((utils.WrapHandlerFunc(d.handleOpenEthTraceFilter)))
