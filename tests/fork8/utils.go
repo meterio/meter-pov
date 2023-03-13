@@ -305,7 +305,7 @@ func initRuntimeAfterFork8() *TestEnv {
 	// 	panic("deploy ScriptEngine failed")
 	// }
 
-	rt.EnforceTeslaFork8_LiquidStaking(sdb, big.NewInt(0), []meter.Address{HolderAddr, VoterAddr})
+	rt.EnforceTeslaFork8_LiquidStaking(sdb, big.NewInt(0))
 	return &TestEnv{runtime: rt, state: st, bktCreateTS: 0, currentTS: currentTs, chainTag: c.Tag()}
 }
 

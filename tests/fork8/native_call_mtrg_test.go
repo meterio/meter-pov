@@ -8,6 +8,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/meterio/meter-pov/builtin"
+	"github.com/meterio/meter-pov/genesis"
 	"github.com/meterio/meter-pov/meter"
 	"github.com/meterio/meter-pov/tx"
 	"github.com/meterio/meter-pov/xenv"
@@ -74,7 +75,8 @@ func TestCallTotalSupply(t *testing.T) {
 	outerResult := big.NewInt(0)
 	outerResult.SetBytes(outerOutput.Data)
 	mtrgTotalSupply := new(big.Int)
-	for _, addr := range []meter.Address{CandAddr, Cand2Addr, Voter2Addr, VoterAddr, HolderAddr} {
+	for _, acct := range genesis.DevAccounts() {
+		addr := acct.Address
 		bal := tenv.state.GetBalance(addr)
 		bbal := tenv.state.GetBoundedBalance(addr)
 		mtrgTotalSupply.Add(mtrgTotalSupply, bal)
