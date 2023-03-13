@@ -9,6 +9,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"math/big"
+	"strings"
 	"sync/atomic"
 
 	ethabi "github.com/ethereum/go-ethereum/accounts/abi"
@@ -244,7 +245,7 @@ func (rt *Runtime) EnforceTeslaFork6_Corrections() {
 	}
 }
 
-func (rt *Runtime) EnforceTeslaFork8_LiquidStaking(stateDB *statedb.StateDB, blockNum *big.Int, additialAddr []meter.Address) {
+func (rt *Runtime) EnforceTeslaFork8_LiquidStaking(stateDB *statedb.StateDB, blockNum *big.Int) {
 	blockNumber := rt.Context().Number
 	log := log15.New("pkg", "fork8")
 	if blockNumber > 0 {
@@ -254,41 +255,74 @@ func (rt *Runtime) EnforceTeslaFork8_LiquidStaking(stateDB *statedb.StateDB, blo
 		if meter.IsTeslaFork8(blockNumber) && (enforceFlag == nil || enforceFlag.Sign() == 0) {
 			log.Info("Start fork8 correction")
 
+			mtrAddrMap := make(map[meter.Address]bool)
+			mtrgAddrMap := make(map[meter.Address]bool)
+
+			// accounts minted MTR in history
+			for _, addr := range strings.Split(meter.MTRAddSubAccounts, "\n") {
+				parsedAddr, err := meter.ParseAddress(addr)
+				if err == nil {
+					mtrAddrMap[parsedAddr] = true
+				}
+			}
+			// accounts minted MTRG in history
+			for _, addr := range strings.Split(meter.MTRGAddSubAccounts, "\n") {
+				parsedAddr, err := meter.ParseAddress(addr)
+				if err == nil {
+					mtrgAddrMap[parsedAddr] = true
+				}
+			}
+			// include all the dev accounts
+			for _, addr := range strings.Split(meter.DevAccounts, "\n") {
+				parsedAddr, err := meter.ParseAddress(addr)
+				if err == nil {
+					mtrAddrMap[parsedAddr] = true
+					mtrgAddrMap[parsedAddr] = true
+				}
+			}
 			buckets := rt.state.GetBucketList().Buckets
-			mtrTotalAddSub := metertracker.MeterTotalAddSub{TotalAdd: new(big.Int), TotalSub: new(big.Int)}
-			mtrgTotalAddSub := metertracker.MeterTotalAddSub{TotalAdd: new(big.Int), TotalSub: new(big.Int)}
+
 			// filter out all the addresses in buckets
-			addrs := make(map[meter.Address]bool)
-			for _, addr := range additialAddr {
-				addrs[addr] = true
-			}
 			for _, b := range buckets {
-				addrs[b.Owner] = true
-				addrs[b.Candidate] = true
+				mtrAddrMap[b.Owner] = true
+				mtrAddrMap[b.Candidate] = true
+				mtrgAddrMap[b.Owner] = true
+				mtrgAddrMap[b.Candidate] = true
 			}
+
+			mtrAdd := new(big.Int)
+			mtrSub := new(big.Int)
+			mtrgAdd := new(big.Int)
+			mtrgSub := new(big.Int)
 			// add up total mint on MTR/MTRG
-			for addr, _ := range addrs {
+			for addr, _ := range mtrAddrMap {
 				privTracker := metertracker.New(addr, rt.state)
 				mtrAddSub := privTracker.GetMeterTotalAddSub()
-				mtrgAddSub := privTracker.GetMeterGovTotalAddSub()
-				mtrTotalAddSub.TotalAdd.Add(mtrTotalAddSub.TotalAdd, mtrAddSub.TotalAdd)
-				mtrTotalAddSub.TotalSub.Add(mtrTotalAddSub.TotalSub, mtrAddSub.TotalSub)
-				mtrgTotalAddSub.TotalAdd.Add(mtrgTotalAddSub.TotalAdd, mtrgAddSub.TotalAdd)
-				mtrgTotalAddSub.TotalSub.Add(mtrgTotalAddSub.TotalSub, mtrgAddSub.TotalSub)
+				mtrAdd.Add(mtrAdd, mtrAddSub.TotalAdd)
+				mtrSub.Add(mtrSub, mtrAddSub.TotalSub)
 			}
-			// update global meter tracker
+			for addr, _ := range mtrgAddrMap {
+				privTracker := metertracker.New(addr, rt.state)
+				mtrgAddSub := privTracker.GetMeterGovTotalAddSub()
+				mtrgAdd.Add(mtrgAdd, mtrgAddSub.TotalAdd)
+				mtrgSub.Add(mtrgSub, mtrgAddSub.TotalSub)
+			}
+			// update global meter tracker with MTR mint/burn
 			globalTracker := builtin.MeterTracker.Native(rt.state)
 			globalMTRTotalAddSub := globalTracker.GetMeterTotalAddSub()
-			mtrTotalAddSub.TotalAdd.Add(mtrTotalAddSub.TotalAdd, globalMTRTotalAddSub.TotalAdd)
-			mtrTotalAddSub.TotalSub.Add(mtrTotalAddSub.TotalSub, globalMTRTotalAddSub.TotalSub)
-			log.Info("update meterTotalAddSub", "totalAdd", mtrTotalAddSub.TotalAdd, "totalSub", mtrTotalAddSub.TotalSub)
-			globalTracker.SetMeterTotalAddSub(mtrTotalAddSub)
+			mtrAdd.Add(mtrAdd, globalMTRTotalAddSub.TotalAdd)
+			mtrSub.Add(mtrSub, globalMTRTotalAddSub.TotalSub)
+			newMTRTotalAddSub := metertracker.MeterTotalAddSub{TotalAdd: mtrAdd, TotalSub: mtrSub}
+			log.Info("update meterTotalAddSub to:", "totalAdd", newMTRTotalAddSub.TotalAdd, "totalSub", newMTRTotalAddSub.TotalSub)
+			globalTracker.SetMeterTotalAddSub(newMTRTotalAddSub)
 
+			// update global meter tracker with MTRG mint/burn
 			globalMTRGTotalAddSub := globalTracker.GetMeterGovTotalAddSub()
-			mtrgTotalAddSub.TotalAdd.Add(mtrgTotalAddSub.TotalAdd, globalMTRGTotalAddSub.TotalAdd)
-			mtrgTotalAddSub.TotalSub.Add(mtrgTotalAddSub.TotalSub, globalMTRGTotalAddSub.TotalSub)
-			log.Info("update meterGovTotalAddSub", "totalAdd", mtrgTotalAddSub.TotalAdd, "totalSub", mtrgTotalAddSub.TotalSub)
-			globalTracker.SetMeterGovTotalAddSub(metertracker.MeterGovTotalAddSub(mtrgTotalAddSub))
+			mtrgAdd.Add(mtrgAdd, globalMTRGTotalAddSub.TotalAdd)
+			mtrgSub.Add(mtrgSub, globalMTRGTotalAddSub.TotalSub)
+			newMTRGTotalAddSub := metertracker.MeterGovTotalAddSub{TotalAdd: mtrgAdd, TotalSub: mtrgSub}
+			log.Info("update meterGovTotalAddSub to:", "totalAdd", newMTRGTotalAddSub.TotalAdd, "totalSub", newMTRGTotalAddSub.TotalSub)
+			globalTracker.SetMeterGovTotalAddSub(newMTRGTotalAddSub)
 
 			// set V3 code for MeterTracker
 			rt.state.SetCode(builtin.MeterTracker.Address, builtin.MeterNative_V3_DeployedBytecode)
@@ -705,7 +739,7 @@ func (rt *Runtime) PrepareClause(
 		rt.EnforceTeslaFork6_Corrections()
 
 		// tesla fork8 enable liquid staking
-		rt.EnforceTeslaFork8_LiquidStaking(stateDB, evm.BlockNumber, []meter.Address{})
+		rt.EnforceTeslaFork8_LiquidStaking(stateDB, evm.BlockNumber)
 
 		// check the restriction of transfer.
 		if rt.restrictTransfer(stateDB, txCtx.Origin, clause.Value(), clause.Token(), rt.ctx.Number) == true {
