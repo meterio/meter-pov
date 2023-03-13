@@ -115,6 +115,25 @@ const (
 	TeslaFork7_TestnetStartNum = 25836347 // same as fork6
 )
 
+// fork8 includes features:
+//  1. LiquidStaking native support with two parts
+//     1.1) upgraded meter tracker interface with `native_bucket` operations
+//     1.2) auto loaded `ScriptEngine` system contract that provides accessible methods
+//  2. recalculate MTR/MTRG total add sub, providing a correct total supply for system contract
+//  3. future minted MTR/MTRG will update global meter tracker
+//  4. enable validator to change ip/pubkey/name separately
+//  5. self vote ratio check will only check (total value of buckets voted to candidate) / (candidate bucket value) < 100
+//  6. fix two race conditions:
+//     6.1) commited kblock handled and pacemaker started, but right before OnBeat, synced KBlock kicks in and reset the pacemaker
+//     in this case, the proposalMap panics due to nil pointer
+//     6.2) commited kblock handled, but pacemaker not started yet, a NewView with HigherQC arrives and scheduled an OnBeat with very high round
+//     in this case, the OnBeat will invalidate all future rounds
+//  7. added API
+//     7.1) GET /buckets/ownedby/{owner} to read buckets owned by a specific user
+//     7.1) GET /debug/rawstorage/{address}/{key} to read raw storage on state
+//     7.2) GET /debug/supply to read MTR/MTRG tracker
+//     7.3) GET /trace/{txhash}/{clauseIndex} to provide unified trace that includes scriptengine tx
+//     7.4) GET /rerun/{txhash}/{clauseIndex} rerun tx and get the result
 const (
 	// FIXME: update when settle
 	TeslaFork8_MainnetStartNum = 80000000 // around 2/7/2023 9:30 AM (PDT)
