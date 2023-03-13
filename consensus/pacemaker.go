@@ -1022,12 +1022,6 @@ func (p *Pacemaker) mainLoop() {
 
 	for {
 		var err error
-		if p.stopped {
-			p.logger.Debug("Pacemaker stopped.")
-			// sleep for 500 ms to avoid CPU spike
-			time.Sleep(500 * time.Millisecond)
-			continue
-		}
 		select {
 		case si := <-p.cmdCh:
 			p.logger.Info("start to execute cmd", "cmd", si.cmd.String())
@@ -1075,20 +1069,24 @@ func (p *Pacemaker) mainLoop() {
 			}
 		case ti := <-p.roundTimeoutCh:
 			if p.stopped {
+				p.logger.Info("pacemaker stopped, skip handling roundTimeout")
 				continue
 			}
 			p.OnRoundTimeout(ti)
 		case b := <-p.beatCh:
 			if p.stopped {
+				p.logger.Info("pacemaker stopped, skip handling onbeat")
 				continue
 			}
 			err = p.OnBeat(b.height, b.round, b.reason)
 		case m := <-p.pacemakerMsgCh:
 			if p.stopped {
+				p.logger.Info("pacemaker stopped, skip handling msg", "type", getConcreteName(m.Msg))
 				continue
 			}
 			// if in observe mode, ignore any incoming message
 			if p.mode == PMModeObserve {
+				p.logger.Info("pacemaker observe mode, skip handling msg", "type", getConcreteName(m.Msg))
 				continue
 			}
 			if m.Msg.EpochID() != p.csReactor.curEpoch {
@@ -1143,7 +1141,6 @@ func (p *Pacemaker) mainLoop() {
 		case <-p.csReactor.RcvKBlockInfoQueue:
 			p.stopCleanup()
 			p.csReactor.PrepareEnvForPacemaker()
-			p.stopped = false
 			if p.csReactor.inCommittee {
 				p.scheduleReboot(PMModeNormal)
 			} else {
