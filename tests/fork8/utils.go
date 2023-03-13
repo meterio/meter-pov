@@ -122,6 +122,25 @@ func buildAmount(amount int) *big.Int {
 	return new(big.Int).Mul(big.NewInt(int64(amount)), big.NewInt(1e18))
 }
 
+func buildMintTx(chainTag byte, bestRef uint32, to meter.Address, amount *big.Int, token byte, nonce uint64) *tx.Transaction {
+	builder := new(tx.Builder)
+	builder.ChainTag(chainTag).
+		BlockRef(tx.NewBlockRef(bestRef)).
+		Expiration(720).
+		GasPriceCoef(0).
+		Gas(meter.BaseTxGas * 10). //buffer for builder.Build().IntrinsicGas()
+		DependsOn(nil).
+		Nonce(nonce)
+
+	builder.Clause(
+		tx.NewClause(&to).WithValue(amount).WithToken(token).WithData([]byte{}),
+	)
+	trx := builder.Build()
+	// sig, _ := crypto.Sign(trx.SigningHash().Bytes(), key)
+	// trx = trx.WithSignature(sig)
+	return trx
+}
+
 func buildStakingTx(chainTag byte, bestRef uint32, body *staking.StakingBody, key *ecdsa.PrivateKey, nonce uint64) *tx.Transaction {
 	builder := new(tx.Builder)
 	builder.ChainTag(chainTag).
