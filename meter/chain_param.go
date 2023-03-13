@@ -135,8 +135,7 @@ const (
 //     7.3) GET /trace/{txhash}/{clauseIndex} to provide unified trace that includes scriptengine tx
 //     7.4) GET /rerun/{txhash}/{clauseIndex} rerun tx and get the result
 const (
-	// FIXME: update when settle
-	TeslaFork8_MainnetStartNum = 80000000 // around 2/7/2023 9:30 AM (PDT)
+	TeslaFork8_MainnetStartNum = 34975000 // around 3/17/2023 9:30 AM (PDT)
 	// TeslaFork8_TestnetStartNum = 27323000 // around 2/18/2023 4:00 PM (PDT)
 	TeslaFork8_TestnetStartNum = 27902500 // around 2/26/2023 12:00 PM (PDT)
 )
