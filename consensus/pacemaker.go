@@ -1036,7 +1036,7 @@ func (p *Pacemaker) mainLoop() {
 				round := bestQC.QCRound
 				if p.startHeight == height && p.startRound == round {
 					p.logger.Info("*** Pacemaker restart cancelled, start height/round is the same, probably a duplicate cmd", "height", height, "round", round)
-					return
+					continue
 				}
 
 				p.csReactor.PrepareEnvForPacemaker()
@@ -1053,7 +1053,7 @@ func (p *Pacemaker) mainLoop() {
 				round := bestQC.QCRound
 				if p.startHeight == height && p.startRound == round {
 					p.logger.Info("*** Pacemaker REBOOT cancelled, start height/round is the same, probably a duplicate cmd", "height", height, "round", round)
-					return
+					continue
 				}
 
 				p.stopCleanup()
