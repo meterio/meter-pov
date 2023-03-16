@@ -175,10 +175,12 @@ func (s *Staking) BucketUpdateHandler(env *setypes.ScriptEnv, sb *StakingBody, g
 				return
 			}
 
-			if !bucket.IsForeverLock() {
-				selfRatioValid := CorrectCheckEnoughSelfVotes(cand, bucketList, meter.TESLA1_1_SELF_VOTE_RATIO, nil, nil, sb.Amount, nil)
-				if !selfRatioValid {
-					return leftOverGas, errCandidateNotEnoughSelfVotes
+			if meter.IsTeslaFork8(number) {
+				if !bucket.IsForeverLock() {
+					selfRatioValid := CorrectCheckEnoughSelfVotes(cand, bucketList, meter.TESLA1_1_SELF_VOTE_RATIO, nil, nil, sb.Amount, nil)
+					if !selfRatioValid {
+						return leftOverGas, errCandidateNotEnoughSelfVotes
+					}
 				}
 			}
 
