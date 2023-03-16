@@ -155,7 +155,7 @@ func (a *Accounts) handleCallContract(w http.ResponseWriter, req *http.Request) 
 	if mux.Vars(req)["address"] != "" && mux.Vars(req)["address"] != "0x" {
 		address, err := meter.ParseAddress(mux.Vars(req)["address"])
 		if err != nil {
-			fmt.Println("Error in address: ", err)
+			fmt.Printf("Error in address:%s, %s\n", mux.Vars(req)["address"], err)
 			return utils.BadRequest(errors.WithMessage(err, "address"))
 		}
 		addr = &address
