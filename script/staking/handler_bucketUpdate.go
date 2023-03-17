@@ -81,7 +81,7 @@ func (s *Staking) BucketUpdateHandler(env *setypes.ScriptEnv, sb *StakingBody, g
 				if meter.IsTeslaFork8(number) {
 					ratioValid = CorrectCheckEnoughSelfVotes(cand, bucketList, meter.TESLA1_1_SELF_VOTE_RATIO, nil, sb.Amount, nil, sb.Amount)
 				} else {
-					ratioValid = CheckEnoughSelfVotes(valueAfterSub, cand, bucketList, meter.TESLA1_1_SELF_VOTE_RATIO)
+					ratioValid = CheckEnoughSelfVotes(sb.Amount, cand, bucketList, meter.TESLA1_1_SELF_VOTE_RATIO)
 				}
 				if !ratioValid {
 					return leftOverGas, errCandidateNotEnoughSelfVotes
