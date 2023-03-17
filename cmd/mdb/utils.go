@@ -7,6 +7,7 @@ package main
 
 import (
 	"context"
+	"crypto/ecdsa"
 	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
@@ -18,6 +19,7 @@ import (
 	"runtime"
 	"syscall"
 
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/meterio/meter-pov/kv"
 	"github.com/meterio/meter-pov/lvldb"
 	"github.com/meterio/meter-pov/meter"
@@ -194,4 +196,13 @@ func loadBestBlockIDBeforeFlattern(r kv.Getter) (meter.Bytes32, error) {
 
 func saveBestBlockIDBeforeFlattern(w kv.Putter, id meter.Bytes32) error {
 	return w.Put(bestBeforeFlatternKey, id.Bytes())
+}
+
+func GenECDSAKeys() (*ecdsa.PublicKey, *ecdsa.PrivateKey, error) {
+	key, err := crypto.GenerateKey()
+	if err != nil {
+		fmt.Println("Error during ECDSA key pair generation: ", err)
+		return nil, nil, err
+	}
+	return &key.PublicKey, key, nil
 }

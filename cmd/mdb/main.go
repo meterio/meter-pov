@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"math"
 	"net/http"
 	"os"
 	"strings"
@@ -14,7 +15,11 @@ import (
 
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/inconshreveable/log15"
+	"github.com/meterio/meter-pov/chain"
+	"github.com/meterio/meter-pov/consensus"
 	"github.com/meterio/meter-pov/meter"
+	"github.com/meterio/meter-pov/powpool"
+	"github.com/meterio/meter-pov/script"
 	"github.com/meterio/meter-pov/state"
 	"github.com/meterio/meter-pov/trie"
 	"gopkg.in/urfave/cli.v1"
@@ -155,9 +160,21 @@ func main() {
 			// database fix
 			{
 				Name:   "unsafe-reset",
-				Usage:  "Reset database to any height in history",
+				Usage:  "Reset chain to any block in history",
 				Flags:  []cli.Flag{networkFlag, dataDirFlag, heightFlag, forceFlag},
 				Action: unsafeResetAction,
+			},
+			{
+				Name:   "local-reset",
+				Usage:  "Reset chain with local highest block",
+				Flags:  []cli.Flag{networkFlag, dataDirFlag},
+				Action: safeResetAction,
+			},
+			{
+				Name:   "sync-verify",
+				Usage:  "Revisit local blocks and validate with current code",
+				Flags:  []cli.Flag{networkFlag, dataDirFlag, fromFlag, toFlag},
+				Action: syncVerifyAction,
 			},
 		},
 	}
@@ -817,5 +834,138 @@ func reportStateAction(ctx *cli.Context) error {
 		// }
 	}
 	log.Info("Scan complete", "elapsed", meter.PrettyDuration(time.Since(start)), "nodes", totalNodes, "bytes", totalBytes, "roots", roots)
+	return nil
+}
+
+func syncVerifyAction(ctx *cli.Context) error {
+	mainDB, gene := openMainDB(ctx)
+	defer func() { log.Info("closing main database..."); mainDB.Close() }()
+
+	fromNum := ctx.Int(fromFlag.Name)
+	toNum := ctx.Int64(toFlag.Name)
+	localChain := initChain(ctx, gene, mainDB)
+	localBest := localChain.BestBlock()
+	if toNum <= 0 {
+		toNum = int64(localBest.Number())
+	}
+	if _, err := localChain.GetTrunkBlock(uint32(toNum)); err != nil {
+		log.Error("could not load to block")
+		log.Error(err.Error())
+		return err
+	}
+	if _, err := localChain.GetTrunkBlock(uint32(fromNum)); err != nil {
+		log.Error("could not load from block")
+		log.Error(err.Error())
+		return err
+	}
+	parentBlk, err := localChain.GetTrunkBlock(uint32(fromNum))
+	if err != nil {
+		log.Error("could not load parent block")
+		log.Error(err.Error())
+		return nil
+	}
+
+	parentQCRaw, err := rlp.EncodeToBytes(parentBlk.QC)
+	if err != nil {
+		log.Error("could not encode parent QC")
+		log.Error(err.Error())
+		return nil
+	}
+	updateBest(mainDB, hex.EncodeToString(parentBlk.ID().Bytes()), false)
+	updateLeaf(mainDB, hex.EncodeToString(parentBlk.ID().Bytes()), false)
+	updateBestQC(mainDB, hex.EncodeToString(parentQCRaw), false)
+
+	meterChain := initChain(ctx, gene, mainDB)
+	stateCreator := state.NewCreator(mainDB)
+
+	if fromNum <= 0 {
+		fromNum = 1
+	}
+	ecdsaPubKey, ecdsaPrivKey, _ := GenECDSAKeys()
+	blsCommon := consensus.NewBlsCommon()
+	defaultPowPoolOptions := powpool.Options{
+		Node:            "localhost",
+		Port:            8332,
+		Limit:           10000,
+		LimitPerAccount: 16,
+		MaxLifetime:     20 * time.Minute,
+	}
+	// init powpool for kblock query
+	powpool.New(defaultPowPoolOptions, meterChain, stateCreator)
+	// init scriptengine
+	script.NewScriptEngine(meterChain, stateCreator)
+
+	start := time.Now()
+	initDelegates := loadDelegates(ctx, blsCommon)
+	cons := consensus.NewConsensusReactor(ctx, meterChain, stateCreator, ecdsaPrivKey, ecdsaPubKey, [4]byte{0x0, 0x0, 0x0, 0x0}, blsCommon, initDelegates)
+
+	for i := uint32(fromNum); i < uint32(toNum); i++ {
+		b, _ := meterChain.GetTrunkBlock(i)
+		// cons.ResetToHeight(b)
+		now := uint64(time.Now().Unix())
+		parentBlk, err := meterChain.GetBlock(b.ParentID())
+		if err != nil {
+			log.Error("could not load parent block")
+			log.Error(err.Error())
+			return nil
+		}
+		parentState, err := stateCreator.NewState(parentBlk.StateRoot())
+		if err != nil {
+			log.Error("could not load parent state")
+			log.Error(err.Error())
+			return nil
+		}
+		parentHeader := parentBlk.Header()
+		log.Info("validate block", "num", b.Number())
+		_, receipts, err := cons.Validate(parentState, b, parentHeader, now, false)
+		if err != nil {
+			log.Error(err.Error())
+			return err
+		}
+		_, err = meterChain.AddBlock(b, receipts, true)
+		if err != nil {
+			if err != chain.ErrBlockExist {
+				log.Error(err.Error())
+				return err
+			}
+		}
+	}
+	log.Info("Sync verify complete", "elapsed", meter.PrettyDuration(time.Since(start)), "from", fromNum, "to", toNum)
+	return nil
+}
+
+func safeResetAction(ctx *cli.Context) error {
+	mainDB, gene := openMainDB(ctx)
+	defer func() { log.Info("closing main database..."); mainDB.Close() }()
+
+	meterChain := initChain(ctx, gene, mainDB)
+
+	var (
+		step = 1000000
+	)
+
+	cur := meterChain.BestBlock().Number()
+	for step >= 1 {
+		b, err := meterChain.GetTrunkBlock(cur + uint32(step))
+		if err != nil {
+			step = int(math.Floor(float64(step) / 2))
+			log.Info("block not exist, cut step", "num", cur+uint32(step), "newStep", step)
+		} else {
+			cur = b.Number()
+			log.Info("block exists, move cur", "num", cur)
+		}
+	}
+	log.Info("Local Best Block Number:", "num", cur)
+	localBest, err := meterChain.GetTrunkBlock(cur)
+	if err != nil {
+		log.Error("could not load local best block")
+		log.Error(err.Error())
+		return err
+	}
+	log.Info("Local Best Block ", "num", localBest.Number(), "id", localBest.ID())
+	updateBest(mainDB, hex.EncodeToString(localBest.ID().Bytes()), false)
+	updateLeaf(mainDB, hex.EncodeToString(localBest.ID().Bytes()), false)
+	rawQC, _ := rlp.EncodeToBytes(localBest.QC)
+	updateBestQC(mainDB, hex.EncodeToString(rawQC), false)
 	return nil
 }

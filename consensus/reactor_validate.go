@@ -63,7 +63,7 @@ func (c *ConsensusReactor) ProcessSyncedBlock(blk *block.Block, nowTimestamp uin
 		return nil, nil, err
 	}
 
-	stage, receipts, err := c.validate(state, blk, parentHeader, nowTimestamp, false)
+	stage, receipts, err := c.Validate(state, blk, parentHeader, nowTimestamp, false)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -91,7 +91,7 @@ func (c *ConsensusReactor) ProcessProposedBlock(parentHeader *block.Header, blk 
 		return nil, nil, err
 	}
 
-	stage, receipts, err := c.validate(state, blk, parentHeader, nowTimestamp, true)
+	stage, receipts, err := c.Validate(state, blk, parentHeader, nowTimestamp, true)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -99,7 +99,7 @@ func (c *ConsensusReactor) ProcessProposedBlock(parentHeader *block.Header, blk 
 	return stage, receipts, nil
 }
 
-func (c *ConsensusReactor) validate(
+func (c *ConsensusReactor) Validate(
 	state *state.State,
 	block *block.Block,
 	parentHeader *block.Header,
