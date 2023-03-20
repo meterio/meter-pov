@@ -1023,6 +1023,19 @@ func (p *Pacemaker) mainLoop() {
 	for {
 		var err error
 		select {
+		case kinfo := <-p.csReactor.RcvKBlockInfoQueue:
+			if kinfo.Height <= p.csReactor.lastKBlockHeight || kinfo.Nonce == p.csReactor.curNonce {
+				p.logger.Info("kblock info handled already, skip for now ...", "height", kinfo.Height, "nonce", kinfo.Nonce)
+				continue
+			}
+			p.logger.Info("hanlde kblock info", "height", kinfo.Height, "nonce", kinfo.Nonce)
+			p.stopCleanup()
+			p.csReactor.PrepareEnvForPacemaker()
+			if p.csReactor.inCommittee {
+				p.scheduleReboot(PMModeNormal)
+			} else {
+				p.scheduleReboot(PMModeObserve)
+			}
 		case si := <-p.cmdCh:
 			p.logger.Info("start to execute cmd", "cmd", si.cmd.String())
 			switch si.cmd {
@@ -1138,19 +1151,6 @@ func (p *Pacemaker) mainLoop() {
 			p.logger.Warn("interrupt by user, exit now")
 			p.mainLoopStarted = false
 			return
-		case kinfo := <-p.csReactor.RcvKBlockInfoQueue:
-			if kinfo.Height <= p.csReactor.lastKBlockHeight || kinfo.Nonce == p.csReactor.curNonce {
-				p.logger.Info("kblock info handled already, skip for now ...", "height", kinfo.Height, "nonce", kinfo.Nonce)
-				continue
-			}
-			p.logger.Info("hanlde kblock info", "height", kinfo.Height, "nonce", kinfo.Nonce)
-			p.stopCleanup()
-			p.csReactor.PrepareEnvForPacemaker()
-			if p.csReactor.inCommittee {
-				p.scheduleReboot(PMModeNormal)
-			} else {
-				p.scheduleReboot(PMModeObserve)
-			}
 
 		}
 	}
