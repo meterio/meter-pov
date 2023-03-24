@@ -277,7 +277,7 @@ func ComputeStatistics(lastKBlockHeight, height uint32, chain *chain.Chain, comm
 	// currently we are building the kblock height. Only height - 3 are available in chain
 	blocks := make([]*block.Block, 0)
 	h := lastKBlockHeight + 1
-	for h < (height - 2) {
+	for h < (height-2) && h < lastKBlockHeight+10000 {
 		blk, err := chain.GetTrunkBlock(h)
 		if err != nil {
 			return result, err
