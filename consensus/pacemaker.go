@@ -267,6 +267,10 @@ func (p *Pacemaker) OnCommit(commitReady []*pmBlock) {
 			p.logger.Warn("skip commit known block", "height", b.Height, "round", b.Round)
 			continue
 		}
+		if b.ProposedBlockInfo == nil {
+			p.logger.Warn("skip commit empty block", "height", b.Height, "round", b.Round)
+			continue
+		}
 		// commit the approved block
 		bestQC := p.proposalMap.Get(b.Height + 1).Justify.QC
 		err := p.commitBlock(b.ProposedBlockInfo, bestQC)
@@ -314,6 +318,10 @@ func (p *Pacemaker) OnPreCommitBlock(b *pmBlock) error {
 	}
 	if b.ProcessError == errKnownBlock {
 		p.logger.Warn("skip precommit known block", "height", b.Height, "round", b.Round)
+		return nil
+	}
+	if b.ProposedBlockInfo == nil {
+		p.logger.Warn("skip precommit empty block", "height", b.Height, "round", b.Round)
 		return nil
 	}
 	err := p.precommitBlock(b.ProposedBlockInfo)

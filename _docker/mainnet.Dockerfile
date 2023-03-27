@@ -21,7 +21,7 @@ RUN apt-get update && apt-get install -y \
   vim-tiny \
   libgssapi-krb5-2 \
   && rm -rf /var/lib/apt/lists/*
-RUN python3.9 -m pip install --no-cache-dir meter-gear==1.2.32
+RUN python3.9 -m pip install --no-cache-dir meter-gear==1.2.33
 
 # copy PoS binary
 COPY --from=pos /usr/bin/meter /usr/bin/
