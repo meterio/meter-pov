@@ -1282,7 +1282,8 @@ func (p *Pacemaker) OnRoundTimeout(ti PMRoundTimeoutInfo) {
 		counter: p.timeoutCounter + 1,
 	}
 	if updated {
-		p.OnNextSyncView(p.QCHigh.QC.QCHeight+1, p.currentRound, RoundTimeout, newTi)
+		bestNum := p.csReactor.chain.BestBlock().Number()
+		p.OnNextSyncView( /*p.QCHigh.QC.QCHeight+1*/ bestNum+1, p.currentRound, RoundTimeout, newTi)
 	}
 	if !updated && p.timeoutCounter >= TIMEOUT_THRESHOLD_FOR_REBOOT {
 		p.logger.Warn("Continuous timeout, restart pacemaker now", "counter", p.timeoutCounter)
