@@ -121,7 +121,7 @@ func NewPaceMaker(conR *ConsensusReactor) *Pacemaker {
 	return p
 }
 
-func (p *Pacemaker) CreateLeaf(parent *pmBlock, qc *pmQuorumCert, height, round uint32) *pmBlock {
+func (p *Pacemaker) CreateLeaf(parent *pmBlock, qc *pmQuorumCert, round uint32) *pmBlock {
 	parentBlock, err := block.BlockDecodeFromBytes(parent.ProposedBlock)
 	if err != nil {
 
@@ -131,20 +131,20 @@ func (p *Pacemaker) CreateLeaf(parent *pmBlock, qc *pmQuorumCert, height, round 
 		p.logger.Error("parent block is nil")
 		return nil
 	}
-	p.logger.Info(fmt.Sprintf("CreateLeaf: height=%v, round=%v, QC(Height:%v,Round:%v), Parent(Height:%v,Round:%v)", height, round, qc.QC.QCHeight, qc.QC.QCRound, parent.Height, parent.Round))
+	p.logger.Info(fmt.Sprintf("CreateLeaf: round=%v, QC(Height:%v,Round:%v), Parent(Height:%v,Round:%v)", round, qc.QC.QCHeight, qc.QC.QCRound, parent.Height, parent.Round))
 	// after kblock is proposed, we should propose 2 rounds of stopcommitteetype block
 	// to finish the pipeline. This mechnism guranttee kblock get into block server.
 
 	// resend the previous kblock as special type to get vote stop message to get vote
 	// This proposal will not get into block database
 	if parent.ProposedBlockType == KBlockType || parent.ProposedBlockType == StopCommitteeType {
-		info, blockBytes := p.proposeStopCommitteeBlock(parentBlock, height, round, qc)
+		info, blockBytes := p.proposeStopCommitteeBlock(parentBlock, qc)
 		if info == nil {
 			p.logger.Warn("HELP! could not propose stop committee block")
 			return nil
 		}
 		b := &pmBlock{
-			Height:  height,
+			Height:  info.ProposedBlock.Number(),
 			Round:   round,
 			Parent:  parent,
 			Justify: qc,
@@ -174,7 +174,7 @@ func (p *Pacemaker) CreateLeaf(parent *pmBlock, qc *pmQuorumCert, height, round 
 	}
 
 	start := time.Now()
-	info, blockBytes := p.proposeBlock(parentBlock, height, round, qc, (p.timeoutCert != nil))
+	info, blockBytes := p.proposeBlock(parentBlock, round, qc, (p.timeoutCert != nil))
 	if info == nil {
 		p.logger.Warn("HELP! Could not propose block! ")
 		return nil
@@ -182,7 +182,7 @@ func (p *Pacemaker) CreateLeaf(parent *pmBlock, qc *pmQuorumCert, height, round 
 	p.logger.Info(fmt.Sprintf("Proposed: %v", info.ProposedBlock.Oneliner()), "magic", hex.EncodeToString(info.ProposedBlock.Magic[:]), "size", info.ProposedBlock.Size(), "elapsed", meter.PrettyDuration(time.Since(start)))
 
 	b := &pmBlock{
-		Height:  height,
+		Height:  info.ProposedBlock.Number(),
 		Round:   round,
 		Parent:  parent,
 		Justify: qc,
@@ -572,27 +572,27 @@ func (p *Pacemaker) OnReceiveVote(mi *consensusMsgInfo) error {
 	return nil
 }
 
-func (p *Pacemaker) OnPropose(b *pmBlock, qc *pmQuorumCert, height, round uint32) (*pmBlock, error) {
+func (p *Pacemaker) OnPropose(parent *pmBlock, qc *pmQuorumCert, round uint32) (*pmBlock, error) {
 	// clean signature cache
 	// p.voterBitArray = cmn.NewBitArray(p.csReactor.committeeSize)
 	// p.voteSigs = make([]*PMSignature, 0)
-	bnew := p.CreateLeaf(b, qc, height, round)
+	bnew := p.CreateLeaf(parent, qc, round)
 	if bnew == nil {
 		return nil, errors.New("could not propose block")
 	}
-	proposedBlk := bnew.ProposedBlockInfo.ProposedBlock
+	// proposedBlk := bnew.ProposedBlockInfo.ProposedBlock
 	proposedQC := bnew.ProposedBlockInfo.ProposedBlock.QC
-	if bnew.Height != height || height != proposedBlk.Number() {
-		p.logger.Error("proposed height mismatch", "expectedHeight", height, "proposedHeight", bnew.Height, "proposedBlockHeight", proposedBlk.Number())
-		return nil, errors.New("proposed height mismatch")
-	}
+	// if bnew.Height != height || height != proposedBlk.Number() {
+	// 	p.logger.Error("proposed height mismatch", "expectedHeight", height, "proposedHeight", bnew.Height, "proposedBlockHeight", proposedBlk.Number())
+	// 	return nil, errors.New("proposed height mismatch")
+	// }
 
-	if bnew.Height <= proposedQC.QCHeight || proposedBlk.Number() <= proposedQC.QCHeight {
-		p.logger.Error("proposed block refers to an invalid qc", "qcHeight", proposedQC.QCHeight, "proposedHeight", bnew.Height, "proposedBlockHeight", proposedBlk.Number(), "expectedHeight", height)
+	if bnew.Height <= proposedQC.QCHeight {
+		p.logger.Error("proposed block refers to an invalid qc", "proposedQC", proposedQC.QCHeight, "proposedHeight", bnew.Height)
 		return nil, errors.New("proposed block referes to an invalid qc")
 	}
 
-	msg, err := p.BuildProposalMessage(height, round, bnew, p.timeoutCert)
+	msg, err := p.BuildProposalMessage(bnew.Height, bnew.Round, bnew, p.timeoutCert)
 	if err != nil {
 		p.logger.Error("could not build proposal message", "err", err)
 		return nil, err
@@ -632,22 +632,22 @@ func (p *Pacemaker) UpdateQCHigh(qc *pmQuorumCert) bool {
 	return updated
 }
 
-func (p *Pacemaker) OnBeat(height, round uint32, reason beatReason) error {
+func (p *Pacemaker) OnBeat(round uint32, reason beatReason) error {
 	if int32(round) <= p.lastOnBeatRound {
 		p.logger.Warn(fmt.Sprintf("round(%v) <= lastOnBeatRound(%v), skip this OnBeat", round, p.lastOnBeatRound))
 		return nil
 	}
 	p.lastOnBeatRound = int32(round)
-	if reason == BeatOnTimeout && p.QCHigh != nil && p.QCHigh.QC != nil && height <= (p.QCHigh.QC.QCHeight+1) {
-		return p.onTimeoutBeat(height, round, reason)
+	if reason == BeatOnTimeout && p.QCHigh != nil && p.QCHigh.QC != nil {
+		return p.onTimeoutBeat(round, reason)
 	}
 
-	return p.onNormalBeat(height, round, reason)
+	return p.onNormalBeat(round, reason)
 }
 
-func (p *Pacemaker) onNormalBeat(height uint32, round uint32, reason beatReason) error {
+func (p *Pacemaker) onNormalBeat(round uint32, reason beatReason) error {
 	p.logger.Info("--------------------------------------------------")
-	p.logger.Info(fmt.Sprintf("  OnBeat Round:%v, Height:%v, Reason:%v ", round, height, reason.String()))
+	p.logger.Info(fmt.Sprintf("  OnBeat Epoch:%v, Round:%v, Reason:%v ", p.csReactor.curEpoch, round, reason.String()))
 
 	// parent already got QC, pre-commit it
 	//b := p.QCHigh.QCNode
@@ -675,7 +675,7 @@ func (p *Pacemaker) onNormalBeat(height uint32, round uint32, reason beatReason)
 	pmRoleGauge.Set(2) // leader
 	p.logger.Info("I AM round proposer", "round", round)
 
-	bleaf, err := p.OnPropose(p.blockLeaf, p.QCHigh, height, round)
+	bleaf, err := p.OnPropose(p.blockLeaf, p.QCHigh, round)
 	if err != nil {
 		return err
 	}
@@ -687,21 +687,16 @@ func (p *Pacemaker) onNormalBeat(height uint32, round uint32, reason beatReason)
 	return nil
 }
 
-func (p *Pacemaker) onTimeoutBeat(height, round uint32, reason beatReason) error {
+func (p *Pacemaker) onTimeoutBeat(round uint32, reason beatReason) error {
 	p.logger.Info("--------------------------------------------------")
-	p.logger.Info(fmt.Sprintf(" OnTimeoutBeat Round:%v, Height:%v, Reason:%v", round, height, reason.String()))
+	p.logger.Info(fmt.Sprintf(" OnTimeoutBeat Epoch:%v, Round:%v, Reason:%v", p.csReactor.curEpoch, round, reason.String()))
 	// parent already got QC, pre-commit it
 	//b := p.QCHigh.QCNode
-	parent := p.proposalMap.Get(height - 1)
+	height := p.QCHigh.QC.QCHeight + 1
+	parent := p.proposalMap.Get(p.QCHigh.QC.QCHeight)
 	replaced := p.proposalMap.Get(height)
-
-	if p.QCHigh.QC.QCHeight >= height {
-		height = p.QCHigh.QC.QCHeight + 1
-		parent = p.proposalMap.Get(p.QCHigh.QC.QCHeight)
-		replaced = p.proposalMap.Get(height)
-	}
 	if parent == nil {
-		p.logger.Error("missing parent proposal", "parentHeight", height-1, "height", height, "round", round)
+		p.logger.Error("missing parent proposal", "parentHeight", height-1, "round", round)
 		return errors.New("missing parent proposal")
 	}
 
@@ -712,7 +707,7 @@ func (p *Pacemaker) onTimeoutBeat(height, round uint32, reason beatReason) error
 		if p.QCHigh.QC.QCHeight == (height - 1) {
 			parentQC = p.QCHigh
 		} else {
-			p.logger.Error("missing qc for proposal", "parentHeight", height-1, "height", height, "round", round)
+			p.logger.Error("missing qc for proposal", "parentHeight", height-1, "round", round)
 			return errors.New("missing qc for proposal")
 		}
 	} else {
@@ -727,7 +722,7 @@ func (p *Pacemaker) onTimeoutBeat(height, round uint32, reason beatReason) error
 		pmRoleGauge.Set(2) // leader
 		p.logger.Info("I AM round proposer", "round", round)
 
-		bleaf, err := p.OnPropose(parent, parentQC, height, round)
+		bleaf, err := p.OnPropose(parent, parentQC, round)
 		if err != nil {
 			return err
 		}
@@ -897,8 +892,6 @@ func (p *Pacemaker) newViewRoundTimeout(header ConsensusMsgCommonHeader, qc bloc
 		p.timeoutCert = p.timeoutCertManager.getTimeoutCert(newViewMsg.TimeoutHeight, newViewMsg.TimeoutRound)
 		p.timeoutCertManager.cleanup(newViewMsg.TimeoutHeight, newViewMsg.TimeoutRound)
 
-		// Schedule OnBeat due to timeout
-		p.logger.Info("received a newview with timeoutCert, scheduleOnBeat now", "height", header.Height, "round", header.Round)
 		// Now reach timeout consensus on height/round, check myself states
 		if (p.QCHigh.QC.QCHeight + 1) < header.Height {
 			p.logger.Info("can not OnBeat due to states lagging", "my QCHeight", p.QCHigh.QC.QCHeight, "timeoutCert Height", header.Height)
@@ -906,12 +899,15 @@ func (p *Pacemaker) newViewRoundTimeout(header ConsensusMsgCommonHeader, qc bloc
 		}
 
 		// should not schedule if timeout is too old. <= p.blocked
-		if header.Height <= p.blockLocked.Height {
+		if header.Height < p.blockLocked.Height {
 			p.logger.Info("can not OnBeat due to old timeout", "my QCHeight", p.QCHigh.QC.QCHeight, "timeoutCert Height", header.Height, "my blockLocked", p.blockLocked.Height)
 			return nil
 		}
 
-		p.ScheduleOnBeat(header.Height, header.Round, BeatOnTimeout, RoundInterval)
+		// Schedule OnBeat due to timeout
+		p.logger.Info("received a newview with timeoutCert, scheduleOnBeat now", "height", header.Height, "round", header.Round)
+
+		p.ScheduleOnBeat(header.Height, header.Round, BeatOnTimeout, 500*time.Microsecond)
 	}
 	return nil
 }
@@ -1100,7 +1096,7 @@ func (p *Pacemaker) mainLoop() {
 				p.logger.Info("pacemaker stopped, skip handling onbeat")
 				continue
 			}
-			err = p.OnBeat(b.height, b.round, b.reason)
+			err = p.OnBeat(b.round, b.reason)
 		case m := <-p.pacemakerMsgCh:
 			if p.stopped {
 				p.logger.Info("pacemaker stopped, skip handling msg", "type", getConcreteName(m.Msg))

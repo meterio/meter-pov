@@ -50,11 +50,11 @@ func (pb *ProposedBlockInfo) String() string {
 		return "ProposedBlockInfo[block: nil]"
 	}
 }
-func (p *Pacemaker) proposeBlock(parentBlock *block.Block, height, round uint32, qc *pmQuorumCert, timeout bool) (*ProposedBlockInfo, []byte) {
+func (p *Pacemaker) proposeBlock(parentBlock *block.Block, round uint32, qc *pmQuorumCert, timeout bool) (*ProposedBlockInfo, []byte) {
 
 	var proposalKBlock bool = false
 	var powResults *powpool.PowResult
-	if (height-p.startHeight) >= p.minMBlocks && !timeout {
+	if (parentBlock.Number()+1-parentBlock.LastKBlockHeight()) >= p.minMBlocks && !timeout {
 		proposalKBlock, powResults = powpool.GetGlobPowPoolInst().GetPowDecision()
 	}
 
@@ -86,7 +86,7 @@ func (p *Pacemaker) proposeBlock(parentBlock *block.Block, height, round uint32,
 	return blkInfo, blockBytes
 }
 
-func (p *Pacemaker) proposeStopCommitteeBlock(parentBlock *block.Block, height, round uint32, qc *pmQuorumCert) (*ProposedBlockInfo, []byte) {
+func (p *Pacemaker) proposeStopCommitteeBlock(parentBlock *block.Block, qc *pmQuorumCert) (*ProposedBlockInfo, []byte) {
 
 	var blockBytes []byte
 	var blkInfo *ProposedBlockInfo
