@@ -233,7 +233,7 @@ func (p *Pacemaker) BuildNewViewMessage(nextHeight, nextRound uint32, qcHigh *pm
 	}
 
 	if ti != nil {
-		msg.TimeoutHeight = ti.height
+		msg.TimeoutHeight = nextHeight
 		msg.TimeoutRound = ti.round
 		msg.TimeoutCounter = ti.counter
 	}

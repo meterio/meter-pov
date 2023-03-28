@@ -840,11 +840,10 @@ func (p *Pacemaker) newViewHigherQCSeen(header ConsensusMsgCommonHeader, pmQC *p
 }
 
 func (p *Pacemaker) newViewRoundTimeout(header ConsensusMsgCommonHeader, qc block.QuorumCert, peer *ConsensusPeer, newViewMsg *PMNewViewMessage) error {
-	height := header.Height
 	round := header.Round
 	epoch := header.EpochID
 	if !p.csReactor.amIRoundProproser(round) {
-		p.logger.Debug("not round proposer, drops the timeout newView ...", "height", height, "round", round, "epoch", epoch)
+		p.logger.Debug("not round proposer, drops the timeout newView ...", "round", round, "epoch", epoch)
 		return nil
 	}
 

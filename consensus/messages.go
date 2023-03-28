@@ -480,8 +480,8 @@ func (m *PMNewViewMessage) SigningHash() (hash meter.Bytes32) {
 
 // String returns a string representation.
 func (m *PMNewViewMessage) String() string {
-	return fmt.Sprintf("[%s E:%v,R:%v QC(H:%d,R:%d)]",
-		m.Reason.String(), m.CSMsgCommonHeader.EpochID, m.CSMsgCommonHeader.Round, m.QCHeight, m.QCRound)
+	return fmt.Sprintf("[%s E:%v,R:%v Timeout(H:%d,R:%d) QC(H:%d,R:%d)]",
+		m.Reason.String(), m.CSMsgCommonHeader.EpochID, m.CSMsgCommonHeader.Round, m.TimeoutHeight, m.TimeoutRound, m.QCHeight, m.QCRound)
 }
 func (m *PMNewViewMessage) Header() *ConsensusMsgCommonHeader {
 	return &m.CSMsgCommonHeader
