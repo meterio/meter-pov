@@ -1289,13 +1289,15 @@ func (p *Pacemaker) OnRoundTimeout(ti PMRoundTimeoutInfo) {
 		round:   p.currentRound,
 		counter: p.timeoutCounter + 1,
 	}
+	bestNum := p.csReactor.chain.BestBlock().Number()
 	if updated {
-		bestNum := p.csReactor.chain.BestBlock().Number()
 		p.OnNextSyncView( /*p.QCHigh.QC.QCHeight+1*/ bestNum+1, p.currentRound, RoundTimeout, newTi)
 	}
-	if !updated && p.timeoutCounter >= TIMEOUT_THRESHOLD_FOR_REBOOT {
-		p.logger.Warn("Continuous timeout, restart pacemaker now", "counter", p.timeoutCounter)
-		p.scheduleReboot(PMModeNormal)
+	if p.timeoutCounter >= TIMEOUT_THRESHOLD_FOR_REBOOT {
+		p.logger.Warn("continuous timeout, revert pacemaker to", "height", bestNum+1)
+		p.revertTo(bestNum + 1)
+		p.logger.Warn("resert pacemaker timeoutCounter to 0")
+		p.timeoutCounter = 0
 	}
 	// p.startRoundTimer(ti.height, ti.round+1, ti.counter+1)
 }
@@ -1406,7 +1408,7 @@ func (p *Pacemaker) revertTo(revertHeight uint32) {
 			}
 			state.RevertTo(info.CheckPoint)
 		}
-		p.logger.Warn("Deleted from proposalMap", "height", height, "block", proposal.ToString())
+		p.logger.Warn("revert block", "height", height, "block", proposal.ToString())
 		height++
 	}
 

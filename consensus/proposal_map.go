@@ -1,18 +1,24 @@
 package consensus
 
-import "sort"
+import (
+	"sort"
+
+	"github.com/inconshreveable/log15"
+)
 
 type ProposalMap struct {
-	pmap map[uint32]*pmBlock
-	keys []uint32
+	pmap   map[uint32]*pmBlock
+	keys   []uint32
+	logger log15.Logger
 }
 
 const PROPOSAL_MAP_MAX_SIZE = 40
 
 func NewProposalMap() *ProposalMap {
 	return &ProposalMap{
-		pmap: make(map[uint32]*pmBlock),
-		keys: make([]uint32, 0),
+		pmap:   make(map[uint32]*pmBlock),
+		keys:   make([]uint32, 0),
+		logger: log15.New("pkg", "pmap"),
 	}
 }
 
@@ -61,6 +67,8 @@ func (p *ProposalMap) RevertTo(height uint32) {
 			b.Parent = nil
 			b.Justify = nil
 			delete(p.pmap, k)
+			p.logger.Warn("delete proposal", "height", b.Height, "round", b.Round)
+
 		} else {
 			keys = append(keys, k)
 		}
