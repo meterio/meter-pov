@@ -54,6 +54,10 @@ func (p *Pacemaker) OnReceiveMsg(w http.ResponseWriter, r *http.Request) {
 	summary := msg.String()
 	msgHashHex := mi.MsgHashHex()
 
+	if msg.EpochID() < p.csReactor.curEpoch {
+		p.logger.Info(fmt.Sprintf("recv outdated %s", summary), "peer", peerName, "ip", peer.netAddr.IP.String())
+		return
+	}
 	p.logger.Info(fmt.Sprintf("recv %s", summary), "peer", peerName, "ip", peer.netAddr.IP.String(), "msgCh", fmt.Sprintf("%d/%d", len(p.pacemakerMsgCh), cap(p.pacemakerMsgCh)), "msgHash", msgHashHex)
 
 	if len(p.pacemakerMsgCh) < cap(p.pacemakerMsgCh) {

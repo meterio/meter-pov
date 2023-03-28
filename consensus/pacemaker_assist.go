@@ -186,6 +186,16 @@ func (p *Pacemaker) verifyTimeoutCert(tc *PMTimeoutCert, height, round uint32) b
 // for proposals which can not be addressed parent and QC node should
 // put it to pending list and query the parent node
 func (p *Pacemaker) sendQueryProposalMsg(fromHeight, toHeight, queryRound uint32, EpochID uint64, peer *ConsensusPeer) error {
+	key := QueryKey{From: fromHeight, To: toHeight}
+	if count, exist := p.queryCount[key]; !exist {
+		p.queryCount[key] = 1
+	} else {
+		p.queryCount[key] = count + 1
+	}
+	if p.queryCount[key] > 3 {
+		p.logger.Info(fmt.Sprintf("skip query %v:%v, already %v queries sent", fromHeight, toHeight, p.queryCount[key]))
+		return nil
+	}
 	// put this proposal to pending list, and sent out query
 	myNetAddr := p.csReactor.curCommittee.Validators[p.csReactor.curCommitteeIndex].NetAddr
 

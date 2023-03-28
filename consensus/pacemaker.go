@@ -96,6 +96,13 @@ type Pacemaker struct {
 	timeoutCertManager *PMTimeoutCertManager
 	timeoutCert        *PMTimeoutCert
 	timeoutCounter     uint64
+
+	queryCount map[QueryKey]int
+}
+
+type QueryKey struct {
+	From uint32
+	To   uint32
 }
 
 func NewPaceMaker(conR *ConsensusReactor) *Pacemaker {
@@ -115,6 +122,8 @@ func NewPaceMaker(conR *ConsensusReactor) *Pacemaker {
 		timeoutCounter:  0,
 		stopped:         true,
 		lastOnBeatRound: -1,
+
+		queryCount: make(map[QueryKey]int),
 	}
 	p.timeoutCertManager = newPMTimeoutCertManager(p)
 	// p.stopCleanup()
@@ -646,8 +655,7 @@ func (p *Pacemaker) OnBeat(round uint32, reason beatReason) error {
 }
 
 func (p *Pacemaker) onNormalBeat(round uint32, reason beatReason) error {
-	p.logger.Info("--------------------------------------------------")
-	p.logger.Info(fmt.Sprintf("  OnBeat Epoch:%v, Round:%v, Reason:%v ", p.csReactor.curEpoch, round, reason.String()))
+	p.logger.Info(fmt.Sprintf("--- OnBeat Epoch:%v, Round:%v, Reason:%v ", p.csReactor.curEpoch, round, reason.String()))
 
 	// parent already got QC, pre-commit it
 	//b := p.QCHigh.QCNode
@@ -688,8 +696,7 @@ func (p *Pacemaker) onNormalBeat(round uint32, reason beatReason) error {
 }
 
 func (p *Pacemaker) onTimeoutBeat(round uint32, reason beatReason) error {
-	p.logger.Info("--------------------------------------------------")
-	p.logger.Info(fmt.Sprintf(" OnTimeoutBeat Epoch:%v, Round:%v, Reason:%v", p.csReactor.curEpoch, round, reason.String()))
+	p.logger.Info(fmt.Sprintf("--- OnTimeoutBeat Epoch:%v, Round:%v, Reason:%v", p.csReactor.curEpoch, round, reason.String()))
 	// parent already got QC, pre-commit it
 	//b := p.QCHigh.QCNode
 	height := p.QCHigh.QC.QCHeight + 1
@@ -865,6 +872,9 @@ func (p *Pacemaker) newViewRoundTimeout(header ConsensusMsgCommonHeader, qc bloc
 		var proposal *pmBlock
 		missed := make([]*pmBlock, 0)
 		for {
+			if tmpHeight > p.QCHigh.QC.QCHeight {
+				break
+			}
 			proposal = p.proposalMap.Get(tmpHeight)
 			if proposal == nil {
 				break
@@ -1190,6 +1200,8 @@ func (p *Pacemaker) reset() {
 	p.startHeight = 0
 	p.startRound = 0
 
+	p.queryCount = make(map[QueryKey]int)
+
 	// clean up proposal map
 	p.proposalMap.Reset()
 
@@ -1356,8 +1368,7 @@ func (p *Pacemaker) startRoundTimer(round uint32, reason roundTimerUpdateReason)
 			power = p.timeoutCounter - 1
 		}
 		timeoutInterval := baseInterval * (1 << power)
-		p.logger.Info("--------------------------------------------------")
-		p.logger.Info(fmt.Sprintf("start round %d timer", round), "interval", int64(timeoutInterval/time.Second), "timeoutCount", p.timeoutCounter)
+		p.logger.Info(fmt.Sprintf("--- start round %d timer", round), "interval", int64(timeoutInterval/time.Second), "timeoutCount", p.timeoutCounter)
 		p.roundTimer = time.AfterFunc(timeoutInterval, func() {
 			p.roundTimeoutCh <- PMRoundTimeoutInfo{round: round, counter: p.timeoutCounter}
 		})
