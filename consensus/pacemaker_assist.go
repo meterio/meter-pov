@@ -162,7 +162,7 @@ func (p *Pacemaker) ValidateProposal(b *pmBlock) error {
 	b.SuccessProcessed = true
 	b.ProcessError = err
 
-	p.logger.Info(fmt.Sprintf("validated proposal %d", blk.Number()), "id", blk.ID())
+	p.logger.Info(fmt.Sprintf("validated proposal [%v]", blk.ShortID()))
 	return nil
 }
 

@@ -167,6 +167,13 @@ func (b *Block) ID() meter.Bytes32 {
 	return b.BlockHeader.ID()
 }
 
+func (b *Block) ShortID() string {
+	if b != nil {
+		return fmt.Sprintf("#%v..%x", b.Number(), b.ID().Bytes()[28:])
+	}
+	return ""
+}
+
 // ParentID returns id of parent block.
 func (b *Block) ParentID() meter.Bytes32 {
 	return b.BlockHeader.ParentID()
@@ -340,13 +347,12 @@ func (b *Block) String() string {
 }
 
 func (b *Block) CompactString() string {
-	header := b.BlockHeader
 	// hasCommittee := len(b.CommitteeInfos.CommitteeInfo) > 0
 	// ci := "no"
 	// if hasCommittee {
 	// 	ci = "YES"
 	// }
-	return fmt.Sprintf("%v(%v) %v", b.GetCanonicalName(), header.Number(), header.ID())
+	return fmt.Sprintf("%v[%v]", b.GetCanonicalName(), b.ShortID())
 	//		return fmt.Sprintf(`%v(%v) %v
 	//	  Parent: %v,
 	//	  QC: %v,
@@ -379,8 +385,8 @@ func (b *Block) Oneliner() string {
 		ci = "YES"
 	}
 	canonicalName := b.GetCanonicalName()
-	return fmt.Sprintf("%v(%v) %v %v, #txs:%v, ci:%v, parent:%v ", canonicalName,
-		header.Number(), header.ID().String(), b.QC.CompactString(), len(b.Transactions()), ci, header.ParentID().AbbrevString())
+	return fmt.Sprintf("%v(%v) %v, #txs:%v, ci:%v, parent:%v ", canonicalName,
+		b.ShortID(), b.QC.CompactString(), len(b.Transactions()), ci, header.ParentID().AbbrevString())
 }
 
 // -----------------

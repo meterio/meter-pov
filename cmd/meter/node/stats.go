@@ -47,5 +47,5 @@ func (s *blockStats) LogContext(last *block.Header) []interface{} {
 }
 
 func shortID(id meter.Bytes32) string {
-	return fmt.Sprintf("[#%v…%x]", block.Number(id), id[28:])
+	return fmt.Sprintf("[#%v..%x]", block.Number(id), id[28:])
 }

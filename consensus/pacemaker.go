@@ -529,7 +529,8 @@ func (p *Pacemaker) OnReceiveVote(mi *consensusMsgInfo) error {
 	height := msgHeader.Height
 	round := msgHeader.Round
 	if round < p.currentRound {
-		p.logger.Info("expired voteForProposal message, dropped ...", "currentRound", p.currentRound, "voteRound", round)
+		p.logger.Info("expired vote, dropped ...", "currentRound", p.currentRound, "voteRound", round)
+		return nil
 	}
 
 	b := p.AddressBlock(height)
@@ -822,7 +823,7 @@ func (p *Pacemaker) newViewHigherQCSeen(header ConsensusMsgCommonHeader, pmQC *p
 	changed := p.UpdateQCHigh(pmQC)
 
 	if !p.csReactor.amIRoundProproser(header.Round) {
-		p.logger.Info("not round proposer, drops newview", "height", header.Height, "round", header.Round)
+		p.logger.Debug("not round proposer, drops newview", "height", header.Height, "round", header.Round)
 		return nil
 	}
 
@@ -841,7 +842,7 @@ func (p *Pacemaker) newViewRoundTimeout(header ConsensusMsgCommonHeader, qc bloc
 	round := header.Round
 	epoch := header.EpochID
 	if !p.csReactor.amIRoundProproser(round) {
-		p.logger.Info("not round proposer, drops the timeout newView ...", "height", height, "round", round, "epoch", epoch)
+		p.logger.Debug("not round proposer, drops the timeout newView ...", "height", height, "round", round, "epoch", epoch)
 		return nil
 	}
 
@@ -1281,7 +1282,7 @@ REBOOT:
 }
 
 func (p *Pacemaker) OnRoundTimeout(ti PMRoundTimeoutInfo) {
-	p.logger.Warn("Round Time Out", "round", ti.round, "counter", p.timeoutCounter)
+	p.logger.Warn(fmt.Sprintf("round %d timeout", ti.round), "counter", p.timeoutCounter)
 
 	updated := p.updateCurrentRound(ti.round+1, UpdateOnTimeout)
 	newTi := &PMRoundTimeoutInfo{
@@ -1335,7 +1336,7 @@ func (p *Pacemaker) updateCurrentRound(round uint32, reason roundUpdateReason) b
 		oldRound := p.currentRound
 		p.currentRound = round
 		proposer := p.csReactor.getRoundProposer(round)
-		p.logger.Info(fmt.Sprintf("update current round %d->%d", oldRound, p.currentRound), "reason", reason.String(), "proposer", proposer.NameWithIP())
+		p.logger.Info(fmt.Sprintf("update round %d->%d", oldRound, p.currentRound), "reason", reason.String(), "proposer", proposer.NameWithIP())
 		pmRoundGauge.Set(float64(p.currentRound))
 		return true
 	}
@@ -1360,7 +1361,7 @@ func (p *Pacemaker) startRoundTimer(round uint32, reason roundTimerUpdateReason)
 		}
 		timeoutInterval := baseInterval * (1 << power)
 		p.logger.Info("--------------------------------------------------")
-		p.logger.Info(fmt.Sprintf("start timer for round %d", round), "interval", int64(timeoutInterval/time.Second), "timeoutCount", p.timeoutCounter)
+		p.logger.Info(fmt.Sprintf("start round %d timer", round), "interval", int64(timeoutInterval/time.Second), "timeoutCount", p.timeoutCounter)
 		p.roundTimer = time.AfterFunc(timeoutInterval, func() {
 			p.roundTimeoutCh <- PMRoundTimeoutInfo{round: round, counter: p.timeoutCounter}
 		})
