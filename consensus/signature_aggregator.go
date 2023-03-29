@@ -100,7 +100,7 @@ func (sa *SignatureAggregator) Add(index int, msgHash [32]byte, signature []byte
 		sa.sigBytes[index] = signature
 		sa.sigs[index] = sig
 		sa.pubkeys[index] = pubkey
-		sa.logger.Info(fmt.Sprintf("vote counted, now %d/%d has voted", sa.bitArray.Count(), sa.size), "voterIndex", index, "voter", voter)
+		sa.logger.Info(fmt.Sprintf("vote counted, vote rate: %d/%d", sa.bitArray.Count(), sa.size), "voterIndex", index, "voter", voter)
 		return true
 	}
 	return false

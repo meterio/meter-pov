@@ -97,7 +97,7 @@ func (p *Pacemaker) sendMsgToPeer(msg ConsensusMessage, relay bool, peers ...*Co
 	if relay {
 		prefix = "relay"
 	}
-	p.logger.Info(prefix+" "+msgSummary, "to", strings.Join(peerNames, ", "), "msgHash", msgHashHex)
+	p.logger.Info(prefix+" "+msgSummary, "to", strings.Join(peerNames, ", "))
 	// broadcast consensus message to peers
 	for _, peer := range peers {
 		go peer.sendPacemakerMsg(data, msgSummary, msgHashHex, relay)

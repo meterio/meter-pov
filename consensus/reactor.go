@@ -483,7 +483,7 @@ func (conR *ConsensusReactor) PrepareEnvForPacemaker() error {
 	pool := powpool.GetGlobPowPoolInst()
 	// pool.Wash()
 	pool.InitialAddKframe(info)
-	conR.logger.Info("Powpool initial added kframe", "bestKblock", kBlockHeight, "powHeight", info.PowHeight)
+	conR.logger.Debug("Powpool initial added kframe", "bestKblock", kBlockHeight, "powHeight", info.PowHeight)
 
 	if inCommittee {
 		conR.logger.Info("I am in committee!!!")

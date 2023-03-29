@@ -35,9 +35,14 @@ type ValidatorSet struct {
 
 func (v *ValidatorSet) String() string {
 	s := make([]string, 0)
-	for index, val := range v.Validators {
-		s = append(s, fmt.Sprintf("#%-3v ", index)+val.String())
+	for index, val := range v.Validators[:3] {
+		s = append(s, fmt.Sprintf("#%4v ", index)+val.String())
 	}
+	s = append(s, "...\n")
+	for index, val := range v.Validators[len(v.Validators)-3:] {
+		s = append(s, fmt.Sprintf("#%4v ", index+len(v.Validators)-3)+val.String())
+	}
+
 	return strings.Join(s, "\n")
 }
 

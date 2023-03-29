@@ -52,13 +52,13 @@ func (p *Pacemaker) OnReceiveMsg(w http.ResponseWriter, r *http.Request) {
 		peerName = peerName + "(myself)"
 	}
 	summary := msg.String()
-	msgHashHex := mi.MsgHashHex()
+	// msgHashHex := mi.MsgHashHex()
 
 	if msg.EpochID() < p.csReactor.curEpoch {
-		p.logger.Info(fmt.Sprintf("recv outdated %s", summary), "peer", peerName, "ip", peer.netAddr.IP.String())
+		p.logger.Info(fmt.Sprintf("recv outdated %s", summary), fmt.Sprintf("%v(%s)", peerName, peer.netAddr.IP.String()))
 		return
 	}
-	p.logger.Info(fmt.Sprintf("recv %s", summary), "peer", peerName, "ip", peer.netAddr.IP.String(), "msgCh", fmt.Sprintf("%d/%d", len(p.pacemakerMsgCh), cap(p.pacemakerMsgCh)), "msgHash", msgHashHex)
+	p.logger.Info(fmt.Sprintf("recv %s", summary), "from", fmt.Sprintf("%v(%s)", peerName, peer.netAddr.IP.String()))
 
 	if len(p.pacemakerMsgCh) < cap(p.pacemakerMsgCh) {
 		p.pacemakerMsgCh <- *mi
@@ -83,7 +83,7 @@ func (p *Pacemaker) relayMsg(mi consensusMsgInfo) {
 			peerNames = append(peerNames, peer.NameString())
 		}
 		msgSummary := (mi.Msg).String()
-		p.logger.Debug("relay "+msgSummary, "to", strings.Join(peerNames, ", "), "msgHash", msgHashHex)
+		p.logger.Debug("relay "+msgSummary, "to", strings.Join(peerNames, ", "))
 		// p.logger.Info("Now, relay this "+typeName+"...", "height", height, "round", round, "msgHash", mi.MsgHashHex())
 		for _, peer := range peers {
 			go peer.sendPacemakerMsg(mi.RawData, msgSummary, msgHashHex, true)

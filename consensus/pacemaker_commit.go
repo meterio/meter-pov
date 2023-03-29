@@ -2,7 +2,6 @@ package consensus
 
 import (
 	"fmt"
-	"time"
 
 	"github.com/meterio/meter-pov/block"
 	"github.com/meterio/meter-pov/chain"
@@ -17,7 +16,7 @@ func (p *Pacemaker) precommitBlock(blkInfo *ProposedBlockInfo) error {
 	stage := blkInfo.Stage
 	receipts := blkInfo.Receipts
 
-	start := time.Now()
+	// start := time.Now()
 	// TODO: temporary remove
 	// if p.csReactor.csPacemaker.blockLocked.Height != height+1 {
 	// p.logger.Error(fmt.Sprintf("finalizeCommitBlock(H:%v): Invalid height. bLocked Height:%v, curRround: %v", height, p.csReactor.csPacemaker.blockLocked.Height, p.csReactor.curRound))
@@ -71,7 +70,7 @@ func (p *Pacemaker) precommitBlock(blkInfo *ProposedBlockInfo) error {
 
 	blocksCommitedCounter.Inc()
 
-	p.logger.Info(fmt.Sprintf("pre-committed [%v]", blk.ShortID()), "txs", len(blk.Txs), "epoch", blk.GetBlockEpoch(), "elapsed", meter.PrettyDuration(time.Since(start)))
+	p.logger.Info(fmt.Sprintf("pre-committed %v", blk.ShortID()), "txs", len(blk.Txs), "epoch", blk.GetBlockEpoch())
 	return nil
 }
 
@@ -88,7 +87,7 @@ func (p *Pacemaker) commitBlock(blkInfo *ProposedBlockInfo, bestQC *block.Quorum
 	// }
 	p.logger.Debug("Try to finalize block", "block", blk.Oneliner())
 
-	start := time.Now()
+	// start := time.Now()
 	batch := logdb.GetGlobalLogDBInstance().Prepare(blk.Header())
 	for i, tx := range blk.Transactions() {
 		origin, _ := tx.Signer()
@@ -128,7 +127,7 @@ func (p *Pacemaker) commitBlock(blkInfo *ProposedBlockInfo, bestQC *block.Quorum
 		}
 	}
 
-	p.logger.Info(fmt.Sprintf("committed [%v]", blk.ShortID()), "txs", len(blk.Txs), "epoch", blk.GetBlockEpoch(), "elapsed", meter.PrettyDuration(time.Since(start)))
+	p.logger.Info(fmt.Sprintf("committed %v", blk.ShortID()), "txs", len(blk.Txs), "epoch", blk.GetBlockEpoch())
 
 	if meter.IsMainNet() {
 		if blk.Number() == meter.TeslaMainnetStartNum {

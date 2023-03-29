@@ -108,7 +108,7 @@ type QueryKey struct {
 func NewPaceMaker(conR *ConsensusReactor) *Pacemaker {
 	p := &Pacemaker{
 		csReactor: conR,
-		logger:    log15.New("pkg", "pacemaker"),
+		logger:    log15.New("pkg", "pacer"),
 		mode:      PMModeNormal,
 
 		msgCache:        NewMsgCache(2048),
@@ -559,7 +559,7 @@ func (p *Pacemaker) OnReceiveVote(mi *consensusMsgInfo) error {
 		return nil
 	} else {
 		p.logger.Info(
-			fmt.Sprintf("reached majority on proposal(H:%d,R:%d), new QC formed, future votes will be ignored.", height, round), "voted", fmt.Sprintf("%d/%d", voteCount, p.csReactor.committeeSize))
+			fmt.Sprintf("QC formed on proposal(H:%d,R:%d), future votes will be ignored.", height, round), "voted", fmt.Sprintf("%d/%d", voteCount, p.csReactor.committeeSize))
 	}
 
 	// seal the signature, avoid re-trigger
@@ -655,8 +655,9 @@ func (p *Pacemaker) OnBeat(round uint32, reason beatReason) error {
 }
 
 func (p *Pacemaker) onNormalBeat(round uint32, reason beatReason) error {
-	p.logger.Info(fmt.Sprintf("--- OnBeat Epoch:%v, Round:%v, Reason:%v ", p.csReactor.curEpoch, round, reason.String()))
-
+	p.logger.Info("--------------------------------------------------")
+	p.logger.Info(fmt.Sprintf("OnBeat Epoch:%v, Round:%v, Reason:%v ", p.csReactor.curEpoch, round, reason.String()))
+	p.logger.Info("--------------------------------------------------")
 	// parent already got QC, pre-commit it
 	//b := p.QCHigh.QCNode
 	b := p.proposalMap.Get(p.QCHigh.QC.QCHeight)
@@ -696,7 +697,9 @@ func (p *Pacemaker) onNormalBeat(round uint32, reason beatReason) error {
 }
 
 func (p *Pacemaker) onTimeoutBeat(round uint32, reason beatReason) error {
-	p.logger.Info(fmt.Sprintf("--- OnTimeoutBeat Epoch:%v, Round:%v, Reason:%v", p.csReactor.curEpoch, round, reason.String()))
+	p.logger.Info("--------------------------------------------------")
+	p.logger.Info(fmt.Sprintf("OnTimeoutBeat Epoch:%v, Round:%v, Reason:%v", p.csReactor.curEpoch, round, reason.String()))
+	p.logger.Info("--------------------------------------------------")
 	// parent already got QC, pre-commit it
 	//b := p.QCHigh.QCNode
 	height := p.QCHigh.QC.QCHeight + 1
@@ -819,7 +822,7 @@ func (p *Pacemaker) OnReceiveNewView(mi *consensusMsgInfo) error {
 
 func (p *Pacemaker) newViewHigherQCSeen(header ConsensusMsgCommonHeader, pmQC *pmQuorumCert, qc block.QuorumCert) error {
 	if header.Round <= p.currentRound {
-		p.logger.Info("expired newview message, dropped ... ", "currentRound", p.currentRound, "newViewNxtRound", header.Round)
+		p.logger.Info("expired newview, dropped ... ", "currentRound", p.currentRound, "newViewNxtRound", header.Round)
 		return nil
 	}
 	changed := p.UpdateQCHigh(pmQC)
@@ -832,7 +835,7 @@ func (p *Pacemaker) newViewHigherQCSeen(header ConsensusMsgCommonHeader, pmQC *p
 	if changed {
 		if qc.QCHeight >= p.blockLocked.Height {
 			// Schedule OnBeat due to New QC
-			p.logger.Info("rcvd newview with higher QC, schedule OnBeat now", "qcHeight", qc.QCHeight, "qcRound", qc.QCRound, "onBeatHeight", qc.QCHeight+1, "onBeatRound", qc.QCRound+1)
+			p.logger.Info("rcvd higher QC, schedule OnBeat now", "qcHeight", qc.QCHeight, "qcRound", qc.QCRound, "onBeatHeight", qc.QCHeight+1, "onBeatRound", qc.QCRound+1)
 			p.ScheduleOnBeat(p.QCHigh.QC.QCHeight+1, qc.QCRound+1, BeatOnHigherQC, RoundInterval)
 		}
 	}
@@ -895,26 +898,26 @@ func (p *Pacemaker) newViewRoundTimeout(header ConsensusMsgCommonHeader, qc bloc
 	p.timeoutCertManager.collectSignature(newViewMsg)
 	timeoutCount := p.timeoutCertManager.count(newViewMsg.TimeoutHeight, newViewMsg.TimeoutRound)
 	if MajorityTwoThird(uint32(timeoutCount), p.csReactor.committeeSize) == false {
-		p.logger.Info("not reach majority on timeout", "count", timeoutCount, "timeoutHeight", newViewMsg.TimeoutHeight, "timeoutRound", newViewMsg.TimeoutRound, "timeoutCounter", newViewMsg.TimeoutCounter)
+		p.logger.Info(fmt.Sprintf("timeout(H:%v,R:%v) counted, vote rate: %d/%d", newViewMsg.TimeoutHeight, newViewMsg.TimeoutRound, timeoutCount, p.csReactor.committeeSize))
 	} else {
-		p.logger.Info(fmt.Sprintf("reached majority on timeout(H:%d,R:%d)", newViewMsg.TimeoutHeight, newViewMsg.TimeoutRound), "voted", fmt.Sprintf("%d/%d", timeoutCount, p.csReactor.committeeSize))
+		p.logger.Info(fmt.Sprintf("TC formed on timeout(H:%d,R:%d)", newViewMsg.TimeoutHeight, newViewMsg.TimeoutRound), "voted", fmt.Sprintf("%d/%d", timeoutCount, p.csReactor.committeeSize))
 		p.timeoutCert = p.timeoutCertManager.getTimeoutCert(newViewMsg.TimeoutHeight, newViewMsg.TimeoutRound)
 		p.timeoutCertManager.cleanup(newViewMsg.TimeoutHeight, newViewMsg.TimeoutRound)
 
 		// Now reach timeout consensus on height/round, check myself states
 		if (p.QCHigh.QC.QCHeight + 1) < header.Height {
-			p.logger.Info("can not OnBeat due to states lagging", "my QCHeight", p.QCHigh.QC.QCHeight, "timeoutCert Height", header.Height)
+			p.logger.Info(fmt.Sprintf("QCHigh.QCHeight(%v)+1 < header.Height(%v), skip OnBeat ...", p.QCHigh.QC.QCHeight, header.Height))
 			return nil
 		}
 
 		// should not schedule if timeout is too old. <= p.blocked
 		if header.Height < p.blockLocked.Height {
-			p.logger.Info("can not OnBeat due to old timeout", "my QCHeight", p.QCHigh.QC.QCHeight, "timeoutCert Height", header.Height, "my blockLocked", p.blockLocked.Height)
+			p.logger.Info(fmt.Sprintf("header.Height(%v) < bLocked.Height(%v), skip OnBeat ...", header.Height, p.blockLocked.Height))
 			return nil
 		}
 
 		// Schedule OnBeat due to timeout
-		p.logger.Info("received a newview with timeoutCert, scheduleOnBeat now", "height", header.Height, "round", header.Round)
+		p.logger.Info("rcvd TC, schedule OnBeat now", "height", header.Height, "round", header.Round)
 
 		p.ScheduleOnBeat(header.Height, header.Round, BeatOnTimeout, 500*time.Microsecond)
 	}
@@ -1367,7 +1370,7 @@ func (p *Pacemaker) startRoundTimer(round uint32, reason roundTimerUpdateReason)
 			power = p.timeoutCounter - 1
 		}
 		timeoutInterval := baseInterval * (1 << power)
-		p.logger.Info(fmt.Sprintf("--- start round %d timer", round), "interval", int64(timeoutInterval/time.Second), "timeoutCount", p.timeoutCounter)
+		p.logger.Info(fmt.Sprintf("» start round %d timer", round), "interval", int64(timeoutInterval/time.Second), "timeoutCount", p.timeoutCounter)
 		p.roundTimer = time.AfterFunc(timeoutInterval, func() {
 			p.roundTimeoutCh <- PMRoundTimeoutInfo{round: round, counter: p.timeoutCounter}
 		})
@@ -1470,7 +1473,7 @@ func (p *Pacemaker) revertTo(revertHeight uint32) {
 			// FIXME: remove precommited block and release tx
 		}
 	*/
-	p.logger.Info("Reverted !!!", "current block-leaf", p.blockLeaf.ToString(), "current QCHigh", p.QCHigh.ToString())
+	p.logger.Info("Reverted !!!", "leaf", p.blockLeaf.ToString(), "qcHigh", p.QCHigh.ToString())
 }
 
 func (p *Pacemaker) OnReceiveQueryProposal(mi *consensusMsgInfo) error {

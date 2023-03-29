@@ -106,7 +106,7 @@ func (m *powObjectMap) InitialAddKframe(powObj *powObject) error {
 		return fmt.Errorf("Kframe already added, flush object map first")
 	}
 
-	log.Info("added pow kframe", "powHeight", powObj.Height())
+	log.Info("initial added kframe", "powHeight", powObj.Height())
 
 	err := m._add(powObj)
 	if err != nil {
@@ -143,7 +143,7 @@ func (m *powObjectMap) Add(powObj *powObject) error {
 	// fmt.Println("Added to powpool: ", powObj.blockInfo.ToString(), "poolSize: ", m.Size())
 	err := m._add(powObj)
 
-	log.Info("added powblock", "height", powObj.blockInfo.PowHeight, "hash", powObj.blockInfo.HeaderHash, "poolSize", m.Size())
+	log.Info(fmt.Sprintf("added powblock %v", powObj.blockInfo.PowHeight), "hash", powObj.blockInfo.HeaderHash, "poolSize", m.Size())
 	return err
 }
 
