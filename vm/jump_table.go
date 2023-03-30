@@ -56,7 +56,20 @@ var (
 	byzantiumInstructionSet      = NewByzantiumInstructionSet()
 	constantinopleInstructionSet = NewConstantinopleInstructionSet()
 	istanbulInstructionSet       = NewIstanbulInstructionSet()
+	londonInstructionSet         = NewLondonInstructionSet()
 )
+
+func NewLondonInstructionSet() [256]operation {
+	instructionSet := NewIstanbulInstructionSet()
+	// Base fee opcode https://eips.ethereum.org/EIPS/eip-3198
+	instructionSet[BASEFEE] = operation{
+		execute:       opBaseFee,
+		gasCost:       constGasFunc(GasFastStep),
+		validateStack: makeStackFunc(0, 1),
+		valid:         true,
+	}
+	return instructionSet
+}
 
 // IstanbulInstruction
 func NewIstanbulInstructionSet() [256]operation {

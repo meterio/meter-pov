@@ -73,6 +73,7 @@ var chainConfig = vm.ChainConfig{
 		Clique:              nil,
 	},
 	IstanbulBlock: big.NewInt(0),
+	LondonBlock:   big.NewInt(0),
 }
 
 // Output output of clause execution.

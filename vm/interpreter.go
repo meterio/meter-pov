@@ -62,6 +62,8 @@ func NewInterpreter(evm *EVM, cfg Config) *Interpreter {
 	// we'll set the default jump table.
 	if !cfg.JumpTable[STOP].valid {
 		switch {
+		case evm.ChainConfig().IsLondon(evm.BlockNumber):
+			cfg.JumpTable = londonInstructionSet
 		case evm.ChainConfig().IsIstanbul(evm.BlockNumber):
 			cfg.JumpTable = istanbulInstructionSet
 		case evm.ChainConfig().IsConstantinople(evm.BlockNumber):

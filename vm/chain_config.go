@@ -23,9 +23,15 @@ func isForked(s, head *big.Int) bool {
 type ChainConfig struct {
 	params.ChainConfig
 	IstanbulBlock *big.Int `json:"istanbulBlock,omitempty"` // Istanbul switch block (nil = no fork, 0 = already on istanbul)
+	LondonBlock   *big.Int `json:"londonBlock,omitempty"`   // London switch block (nil = no fork, 0 = already on london)
 }
 
 // IsIstanbul returns whether num is either equal to the Istanbul fork block or greater.
 func (c *ChainConfig) IsIstanbul(num *big.Int) bool {
 	return isForked(c.IstanbulBlock, num)
+}
+
+// London returns whether num is either equal to the Istanbul fork block or greater.
+func (c *ChainConfig) IsLondon(num *big.Int) bool {
+	return isForked(c.LondonBlock, num)
 }
