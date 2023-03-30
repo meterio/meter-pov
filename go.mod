@@ -26,7 +26,7 @@ require (
 	github.com/mattn/go-sqlite3 v1.14.16
 	github.com/mattn/go-tty v0.0.0-20181127064339-e4f871175a2f
 	github.com/pkg/errors v0.9.1
-	github.com/prometheus/client_golang v1.0.0
+	github.com/prometheus/client_golang v1.11.1
 	github.com/rcrowley/go-metrics v0.0.0-20181016184325-3113b8401b8a
 	github.com/stretchr/testify v1.7.2
 	github.com/syndtr/goleveldb v1.0.1-0.20220614013038-64ee5596c38a
