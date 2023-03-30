@@ -6,7 +6,7 @@
 package consensus
 
 import (
-	"github.com/dfinlab/go-amino"
+	"github.com/tendermint/go-amino"
 	//"github.com/meterio/meter-pov/types"
 )
 

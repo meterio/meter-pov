@@ -8,7 +8,6 @@ require (
 	github.com/btcsuite/btcd/chaincfg/chainhash v1.0.1
 	github.com/cespare/cp v1.1.1 // indirect
 	github.com/davecgh/go-spew v1.1.1
-	github.com/dfinlab/go-amino v0.14.1
 	github.com/elazarl/go-bindata-assetfs v1.0.0
 	github.com/ethereum/go-ethereum v1.10.22
 	github.com/fortytw2/leaktest v1.3.0
@@ -22,7 +21,7 @@ require (
 	github.com/gorilla/websocket v1.5.0
 	github.com/hashicorp/golang-lru v0.5.5-0.20210104140557-80c98217689d
 	github.com/holiman/bloomfilter/v2 v2.0.3
-	github.com/inconshreveable/log15 v0.0.0-20180818164646-67afb5ed74ec
+	github.com/inconshreveable/log15 v2.16.0+incompatible
 	github.com/mattn/go-isatty v0.0.12
 	github.com/mattn/go-sqlite3 v1.14.16
 	github.com/mattn/go-tty v0.0.0-20181127064339-e4f871175a2f
@@ -31,7 +30,7 @@ require (
 	github.com/rcrowley/go-metrics v0.0.0-20181016184325-3113b8401b8a
 	github.com/stretchr/testify v1.7.2
 	github.com/syndtr/goleveldb v1.0.1-0.20220614013038-64ee5596c38a
-	github.com/tendermint/go-amino v0.16.0 // indirect
+	github.com/tendermint/go-amino v0.16.0
 	golang.org/x/crypto v0.0.0-20210921155107-089bfa567519
 	golang.org/x/sys v0.0.0-20220520151302-bc2c85ada10a
 	gopkg.in/karalabe/cookiejar.v2 v2.0.0-20150724131613-8dcd6a7f4951
@@ -40,4 +39,4 @@ require (
 	gopkg.in/yaml.v2 v2.4.0
 )
 
-replace github.com/syndtr/goleveldb => github.com/vechain/goleveldb v1.0.1-0.20211222044317-26c94f2f8e7e
+replace github.com/syndtr/goleveldb => github.com/vechain/goleveldb v1.0.1-0.20220107084823-eb292ce39601

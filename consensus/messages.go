@@ -12,13 +12,13 @@ import (
 	"strings"
 	"time"
 
-	amino "github.com/dfinlab/go-amino"
 	crypto "github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/meterio/meter-pov/block"
 	cmn "github.com/meterio/meter-pov/libs/common"
 	"github.com/meterio/meter-pov/meter"
 	"github.com/meterio/meter-pov/types"
+	amino "github.com/tendermint/go-amino"
 )
 
 // new consensus Messages
