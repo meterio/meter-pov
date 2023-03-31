@@ -221,7 +221,7 @@ func (t *Transactions) handleSendTransaction(w http.ResponseWriter, req *http.Re
 			if tx != nil {
 				fmt.Println(err, tx.String())
 			}
-			return err
+			return utils.HTTPError(err, 500)
 		}
 		return utils.WriteJSON(w, map[string]string{
 			"id": tx.ID().String(),
