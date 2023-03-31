@@ -178,6 +178,7 @@ func (t *Transactions) handleSendEthRawTransaction(w http.ResponseWriter, req *h
 		err := ethTx.DecodeRLP(stream)
 		if err != nil {
 			fmt.Println("raw tx ERR: ", err)
+			return utils.BadRequest(err)
 		}
 		bestBlock := t.chain.BestBlock()
 		genID, _ := t.chain.GetAncestorBlockID(bestBlock.BlockHeader.ID(), 0)
