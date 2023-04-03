@@ -85,6 +85,10 @@ func ComputeRewardMap(baseReward, totalRewards *big.Int, delegates []*types.Dele
 	fmt.Println(fmt.Sprintf("baseReward per member:%v, size:%v", baseReward, size))
 	fmt.Println("-----------------------------------------------------------------------")
 
+	if size <= 0 {
+		fmt.Println("size is 0, skip calculating")
+		return rewardMap, nil
+	}
 	var i int
 	baseRewardsOnly := false
 
