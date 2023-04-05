@@ -205,7 +205,7 @@ type PMRoundTimeoutInfo struct {
 	counter uint64
 }
 type PMBeatInfo struct {
-	height uint32
+	epoch  uint64
 	round  uint32
 	reason beatReason
 }

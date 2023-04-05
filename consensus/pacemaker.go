@@ -641,22 +641,26 @@ func (p *Pacemaker) UpdateQCHigh(qc *pmQuorumCert) bool {
 	return updated
 }
 
-func (p *Pacemaker) OnBeat(round uint32, reason beatReason) error {
+func (p *Pacemaker) OnBeat(epoch uint64, round uint32, reason beatReason) error {
 	if int32(round) <= p.lastOnBeatRound {
 		p.logger.Warn(fmt.Sprintf("round(%v) <= lastOnBeatRound(%v), skip this OnBeat", round, p.lastOnBeatRound))
 		return nil
 	}
+	if epoch < p.csReactor.curEpoch {
+		p.logger.Warn(fmt.Sprintf("epoch(%v) < local epoch(%v), skip this OnBeat", epoch, p.csReactor.curEpoch))
+		return nil
+	}
 	p.lastOnBeatRound = int32(round)
 	if reason == BeatOnTimeout && p.QCHigh != nil && p.QCHigh.QC != nil {
-		return p.onTimeoutBeat(round, reason)
+		return p.onTimeoutBeat(epoch, round, reason)
 	}
 
-	return p.onNormalBeat(round, reason)
+	return p.onNormalBeat(epoch, round, reason)
 }
 
-func (p *Pacemaker) onNormalBeat(round uint32, reason beatReason) error {
+func (p *Pacemaker) onNormalBeat(epoch uint64, round uint32, reason beatReason) error {
 	p.logger.Info("--------------------------------------------------")
-	p.logger.Info(fmt.Sprintf("OnBeat Epoch:%v, Round:%v, Reason:%v ", p.csReactor.curEpoch, round, reason.String()))
+	p.logger.Info(fmt.Sprintf("OnBeat Epoch:%v, Round:%v, Reason:%v ", epoch, round, reason.String()))
 	p.logger.Info("--------------------------------------------------")
 	// parent already got QC, pre-commit it
 	//b := p.QCHigh.QCNode
@@ -696,9 +700,9 @@ func (p *Pacemaker) onNormalBeat(round uint32, reason beatReason) error {
 	return nil
 }
 
-func (p *Pacemaker) onTimeoutBeat(round uint32, reason beatReason) error {
+func (p *Pacemaker) onTimeoutBeat(epoch uint64, round uint32, reason beatReason) error {
 	p.logger.Info("--------------------------------------------------")
-	p.logger.Info(fmt.Sprintf("OnTimeoutBeat Epoch:%v, Round:%v, Reason:%v", p.csReactor.curEpoch, round, reason.String()))
+	p.logger.Info(fmt.Sprintf("OnTimeoutBeat Epoch:%v, Round:%v, Reason:%v", epoch, round, reason.String()))
 	p.logger.Info("--------------------------------------------------")
 	// parent already got QC, pre-commit it
 	//b := p.QCHigh.QCNode
@@ -836,7 +840,7 @@ func (p *Pacemaker) newViewHigherQCSeen(header ConsensusMsgCommonHeader, pmQC *p
 		if qc.QCHeight >= p.blockLocked.Height {
 			// Schedule OnBeat due to New QC
 			p.logger.Info("rcvd higher QC, schedule OnBeat now", "qcHeight", qc.QCHeight, "qcRound", qc.QCRound, "onBeatHeight", qc.QCHeight+1, "onBeatRound", qc.QCRound+1)
-			p.ScheduleOnBeat(p.QCHigh.QC.QCHeight+1, qc.QCRound+1, BeatOnHigherQC, RoundInterval)
+			p.ScheduleOnBeat(header.EpochID, qc.QCRound+1, BeatOnHigherQC, RoundInterval)
 		}
 	}
 	return nil
@@ -919,7 +923,7 @@ func (p *Pacemaker) newViewRoundTimeout(header ConsensusMsgCommonHeader, qc bloc
 		// Schedule OnBeat due to timeout
 		p.logger.Info("rcvd TC, schedule OnBeat now", "height", header.Height, "round", header.Round)
 
-		p.ScheduleOnBeat(header.Height, header.Round, BeatOnTimeout, 500*time.Microsecond)
+		p.ScheduleOnBeat(header.EpochID, header.Round, BeatOnTimeout, 500*time.Microsecond)
 	}
 	return nil
 }
@@ -997,9 +1001,9 @@ func (p *Pacemaker) Start(mode PMMode, calcStatsTx bool) {
 	switch p.mode {
 	case PMModeNormal:
 		if round == 0 {
-			p.ScheduleOnBeat(height+1, round, BeatOnInit, 500*time.Microsecond) //delay 1s
+			p.ScheduleOnBeat(p.csReactor.curEpoch, round, BeatOnInit, 500*time.Microsecond) //delay 1s
 		} else {
-			p.ScheduleOnBeat(height+1, round+1, BeatOnInit, 500*time.Microsecond) //delay 0.5s
+			p.ScheduleOnBeat(p.csReactor.curEpoch, round+1, BeatOnInit, 500*time.Microsecond) //delay 0.5s
 		}
 	case PMModeCatchUp:
 		p.SendCatchUpQuery()
@@ -1024,10 +1028,10 @@ func (p *Pacemaker) SendCatchUpQuery() {
 	}
 }
 
-func (p *Pacemaker) ScheduleOnBeat(height, round uint32, reason beatReason, d time.Duration) bool {
+func (p *Pacemaker) ScheduleOnBeat(epoch uint64, round uint32, reason beatReason, d time.Duration) bool {
 	// p.updateCurrentRound(round, IncRoundOnBeat)
 	time.AfterFunc(d, func() {
-		p.beatCh <- &PMBeatInfo{height, round, reason}
+		p.beatCh <- &PMBeatInfo{epoch, round, reason}
 	})
 	return true
 }
@@ -1108,7 +1112,7 @@ func (p *Pacemaker) mainLoop() {
 				p.logger.Info("pacemaker stopped, skip handling onbeat")
 				continue
 			}
-			err = p.OnBeat(b.round, b.reason)
+			err = p.OnBeat(b.epoch, b.round, b.reason)
 		case m := <-p.pacemakerMsgCh:
 			if p.stopped {
 				p.logger.Info("pacemaker stopped, skip handling msg", "type", getConcreteName(m.Msg))
