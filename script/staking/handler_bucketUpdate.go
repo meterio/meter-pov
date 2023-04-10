@@ -145,7 +145,11 @@ func (s *Staking) BucketUpdateHandler(env *setypes.ScriptEnv, sb *StakingBody, g
 			// update candidate
 			// check if candidate is already listed
 			if cand != nil {
-				cand.TotalVotes.Sub(cand.TotalVotes, sb.Amount)
+				if !meter.IsTeslaFork9(number) {
+					// don't need to sub totalVotes now
+					// it will be taken care during unbound execution
+					cand.TotalVotes.Sub(cand.TotalVotes, sb.Amount)
+				}
 				cand.TotalVotes.Sub(cand.TotalVotes, bonusDelta)
 				cand.Buckets = append(cand.Buckets, newBucketID)
 			}

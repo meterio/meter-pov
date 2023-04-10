@@ -353,6 +353,43 @@ func (rt *Runtime) EnforceTeslaFork8_LiquidStaking(stateDB *statedb.StateDB, blo
 	}
 }
 
+func (rt *Runtime) EnforceTeslaFork9_Corrections(stateDB *statedb.StateDB, blockNum *big.Int) {
+	blockNumber := rt.Context().Number
+	log := log15.New("pkg", "fork9")
+	if blockNumber > 0 {
+		// flag is nil or 0, is not do. 1 meas done.
+		enforceFlag := builtin.Params.Native(rt.State()).Get(meter.KeyEnforceTesla_Fork9_Correction)
+
+		if meter.IsTeslaFork9(blockNumber) && (enforceFlag == nil || enforceFlag.Sign() == 0) {
+			log.Info("Start fork9 correction")
+
+			candidates := rt.state.GetCandidateList()
+			buckets := rt.state.GetBucketList()
+
+			for _, c := range candidates.Candidates {
+				actualTotalVotes := new(big.Int)
+				for _, bid := range c.Buckets {
+					b := buckets.Get(bid)
+					if b != nil {
+						actualTotalVotes.Add(actualTotalVotes, b.TotalVotes)
+					} else {
+						log.Warn("Bucket not exist:", "id", bid)
+					}
+				}
+				if c.TotalVotes.Cmp(actualTotalVotes) < 0 {
+					log.Info("Fix candidate totalVotes", "from", c.TotalVotes.String(), "to", actualTotalVotes.String())
+					c.TotalVotes = actualTotalVotes
+				}
+			}
+			rt.state.SetCandidateList(candidates)
+
+			// builtin.Params.Native(rt.State()).SetAddress(meter.KeySystemContractAddress2, meter.ScriptEngineSysContractAddr)
+			builtin.Params.Native(rt.State()).Set(meter.KeyEnforceTesla_Fork9_Correction, big.NewInt(1))
+			log.Info("Finished fork9 correction")
+		}
+	}
+}
+
 func (rt *Runtime) FromNativeContract(caller meter.Address) bool {
 
 	nativeMtrERC20 := builtin.Params.Native(rt.State()).GetAddress(meter.KeyNativeMtrERC20Address)
@@ -741,6 +778,8 @@ func (rt *Runtime) PrepareClause(
 
 		// tesla fork8 enable liquid staking
 		rt.EnforceTeslaFork8_LiquidStaking(stateDB, evm.BlockNumber)
+
+		rt.EnforceTeslaFork9_Corrections(stateDB, evm.BlockNumber)
 
 		// check the restriction of transfer.
 		if rt.restrictTransfer(stateDB, txCtx.Origin, clause.Value(), clause.Token(), rt.ctx.Number) == true {

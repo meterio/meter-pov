@@ -140,6 +140,11 @@ const (
 	TeslaFork8_TestnetStartNum = 27902500 // around 2/26/2023 12:00 PM (PDT)
 )
 
+const (
+	TeslaFork9_MainnetStartNum = 99999999 // TODO: change this
+	TeslaFork9_TestnetStartNum = 99999999 // TODO: change this
+)
+
 var (
 	// Genesis hashes to enforce below configs on.
 	log = log15.New("pkg", "meter")
@@ -274,4 +279,8 @@ func IsTeslaFork7(blockNum uint32) bool {
 
 func IsTeslaFork8(blockNum uint32) bool {
 	return (BlockChainConfig.IsMainnet() && blockNum > TeslaFork8_MainnetStartNum) || (BlockChainConfig.IsTestnet() && blockNum > TeslaFork8_TestnetStartNum)
+}
+
+func IsTeslaFork9(blockNum uint32) bool {
+	return (BlockChainConfig.IsMainnet() && blockNum > TeslaFork9_MainnetStartNum) || (BlockChainConfig.IsTestnet() && blockNum > TeslaFork9_TestnetStartNum)
 }
