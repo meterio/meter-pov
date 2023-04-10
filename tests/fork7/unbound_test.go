@@ -10,13 +10,14 @@ import (
 	"github.com/meterio/meter-pov/consensus/governor"
 	"github.com/meterio/meter-pov/meter"
 	"github.com/meterio/meter-pov/script/staking"
+	"github.com/meterio/meter-pov/tests"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestReleaseMaturedBucket(t *testing.T) {
 	rt, s, _ := initRuntimeAfterFork7()
 	tx := governor.BuildStakingGoverningV2Tx([]*meter.RewardInfoV2{}, 1, byte(82), 0)
-	bal := s.GetBalance(HolderAddr)
+	bal := s.GetBalance(tests.HolderAddr)
 	bktCount := s.GetBucketList().Len()
 	receipt, err := rt.ExecuteTransaction(tx)
 	assert.Nil(t, err)
@@ -35,7 +36,7 @@ func TestReleaseMaturedBucket(t *testing.T) {
 	bucketList := s.GetBucketList()
 
 	assert.Equal(t, bktCount-1, len(bucketList.Buckets), "bucket not released")
-	balAfter := s.GetBalance(HolderAddr)
+	balAfter := s.GetBalance(tests.HolderAddr)
 	assert.Equal(t, new(big.Int).Sub(balAfter, bal).String(), "1000000000000000000000", "boundbalance not released to balance")
 }
 
@@ -52,7 +53,7 @@ func TestDuplicateUnbound(t *testing.T) {
 	body := &staking.StakingBody{
 		Opcode:     staking.OP_UNBOUND,
 		Version:    0,
-		HolderAddr: HolderAddr,
+		HolderAddr: tests.HolderAddr,
 		Option:     uint32(0),
 		Amount:     bkt.Value,
 		StakingID:  bkt.ID(),
@@ -61,7 +62,7 @@ func TestDuplicateUnbound(t *testing.T) {
 		Nonce:      0,
 	}
 	txNonce := rand.Uint64()
-	trx := buildStakingTx(0, body, HolderKey, txNonce)
+	trx := tests.BuildStakingTx(82, 0, body, tests.HolderKey, txNonce)
 	receipt, err := rt.ExecuteTransaction(trx)
 	assert.Nil(t, err)
 	assert.True(t, receipt.Reverted)

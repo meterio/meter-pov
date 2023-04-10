@@ -2,96 +2,29 @@ package fork7
 
 import (
 	"crypto/ecdsa"
-	"fmt"
 	"math/big"
 	"math/rand"
 	"strconv"
 	"time"
 
 	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/ethereum/go-ethereum/rlp"
-	"github.com/inconshreveable/log15"
-	"github.com/meterio/meter-pov/block"
 	"github.com/meterio/meter-pov/builtin"
 	"github.com/meterio/meter-pov/chain"
 	"github.com/meterio/meter-pov/consensus/governor"
-	"github.com/meterio/meter-pov/genesis"
-	"github.com/meterio/meter-pov/kv"
 	"github.com/meterio/meter-pov/lvldb"
 	"github.com/meterio/meter-pov/meter"
 	"github.com/meterio/meter-pov/runtime"
 	"github.com/meterio/meter-pov/script"
 	"github.com/meterio/meter-pov/script/auction"
-	"github.com/meterio/meter-pov/script/staking"
 	"github.com/meterio/meter-pov/state"
+	"github.com/meterio/meter-pov/tests"
 	"github.com/meterio/meter-pov/tx"
 	"github.com/meterio/meter-pov/xenv"
 )
 
 var (
 	initValidatorBenefitBalance = big.NewInt(0).Mul(big.NewInt(1e18), big.NewInt(1e18))
-
-	HolderAddr = genesis.DevAccounts()[0].Address
-	HolderKey  = genesis.DevAccounts()[0].PrivateKey
-	CandAddr   = genesis.DevAccounts()[1].Address
-	CandKey    = genesis.DevAccounts()[1].PrivateKey
-	Cand2Addr  = genesis.DevAccounts()[2].Address
-	Cand2Key   = genesis.DevAccounts()[2].PrivateKey
-
-	VoterAddr = genesis.DevAccounts()[3].Address
-	VoterKey  = genesis.DevAccounts()[3].PrivateKey
-
-	Voter2Addr = genesis.DevAccounts()[4].Address
-	Voter2Key  = genesis.DevAccounts()[4].PrivateKey
-
-	CandName   = []byte("candidate")
-	CandDesc   = []byte("description")
-	CandPubKey = []byte("BNtAfvcF7yOesySap5YjLfeygvIF2/Zzm8MvtAxXxJT5+ziA1lw0sr9IDQJguwqFSIfKtTE9FJdyFiT8eTRx54s=:::aJL/hH10KJs/JTEL0AVwBKR/OhCfuZYVLKM58F9bOyI/jDXw98J6ZnThs7F1a3fQ+3CqosxUhec7V1FBjCRHfQA=")
-	CandIP     = []byte("1.2.3.4")
-	CandPort   = uint16(8670)
-
-	Cand2Name   = []byte("candidate2")
-	Cand2Desc   = []byte("description2")
-	Cand2PubKey = []byte("BImN21FGrt2O4OCIuJ/B2hn7XDaLSrLjugf7LieDh1ciqHiVZ5pY3l0wD6SBXwkYp8Qji/qg6rr7m/stMCVswIg=:::OhyEtI0rZbEcKtR1xpwvSD4vzcNbVH0KdjIEzc1E9LbFD5+lEVfV5WLM33cplstrokrnlB7SVt0DxWAzvMFu/wA=")
-	Cand2IP     = []byte("4.3.2.1")
-	Cand2Port   = uint16(8670)
-
-	BucketID        = meter.BytesToBytes32([]byte("bucket-id"))
-	ActiveAuctionID = meter.BytesToBytes32([]byte("active-auction"))
 )
-
-func bucketID(owner meter.Address, ts uint64, nonce uint64) (hash meter.Bytes32) {
-	hw := meter.NewBlake2b()
-	err := rlp.Encode(hw, []interface{}{owner, nonce, ts})
-	if err != nil {
-		fmt.Printf("rlp encode failed., %s\n", err.Error())
-		return meter.Bytes32{}
-	}
-
-	hw.Sum(hash[:0])
-	return
-}
-
-func buildStakingTx(bestRef uint32, body *staking.StakingBody, key *ecdsa.PrivateKey, nonce uint64) *tx.Transaction {
-	chainTag := byte(82)
-	builder := new(tx.Builder)
-	builder.ChainTag(chainTag).
-		BlockRef(tx.NewBlockRef(bestRef)).
-		Expiration(720).
-		GasPriceCoef(0).
-		Gas(meter.BaseTxGas * 10). //buffer for builder.Build().IntrinsicGas()
-		DependsOn(nil).
-		Nonce(nonce)
-
-	data, _ := script.EncodeScriptData(body)
-	builder.Clause(
-		tx.NewClause(&meter.StakingModuleAddr).WithValue(big.NewInt(0)).WithToken(meter.MTRG).WithData(data),
-	)
-	trx := builder.Build()
-	sig, _ := crypto.Sign(trx.SigningHash().Bytes(), key)
-	trx = trx.WithSignature(sig)
-	return trx
-}
 
 func buildAuctionTx(bestRef uint32, body *auction.AuctionBody, key *ecdsa.PrivateKey, nonce uint64) *tx.Transaction {
 	chainTag := byte(82)
@@ -183,7 +116,7 @@ func buildAuctionSummary(epoch uint64) *meter.AuctionSummary {
 
 func buildAuctionCB() *meter.AuctionCB {
 	txs := buildAuctionTxs(24 * 660)
-	rcvdMTR := buildAmount(100)
+	rcvdMTR := tests.BuildAmount(100)
 	rsvdPrice := big.NewInt(0).Mul(big.NewInt(11), big.NewInt(1e17))
 
 	for _, tx := range txs {
@@ -194,7 +127,7 @@ func buildAuctionCB() *meter.AuctionCB {
 	rlsdMTRG.Div(rlsdMTRG, rsvdPrice)
 
 	cb := &meter.AuctionCB{
-		AuctionID:   ActiveAuctionID,
+		AuctionID:   tests.ActiveAuctionID,
 		StartHeight: 0,
 		StartEpoch:  1,
 		EndHeight:   0,
@@ -226,60 +159,41 @@ func buildRewardMap() governor.RewardMap {
 	return rewardMap
 }
 
-func buildGenesis(kv kv.GetPutter, proc func(state *state.State) error) *block.Block {
-	blk, _, err := new(genesis.Builder).
-		Timestamp(uint64(time.Now().Unix())).
-		State(proc).
-		Build(state.NewCreator(kv))
-	if err != nil {
-		fmt.Println("ERROR: ", err)
-	}
-	return blk
-}
-
-func initLogger() {
-	log15.Root().SetHandler(log15.LvlFilterHandler(log15.Lvl(3), log15.StderrHandler))
-}
-
-func buildAmount(amount int) *big.Int {
-	return new(big.Int).Mul(big.NewInt(int64(amount)), big.NewInt(1e18))
-}
-
 func initRuntimeAfterFork7() (*runtime.Runtime, *state.State, uint64) {
-	initLogger()
+	tests.InitLogger()
 	kv, _ := lvldb.NewMem()
 	meter.InitBlockChainConfig("main")
 	ts := uint64(time.Now().Unix())
 
-	b0 := buildGenesis(kv, func(state *state.State) error {
+	b0 := tests.BuildGenesis(kv, func(state *state.State) error {
 		state.SetCode(builtin.Prototype.Address, builtin.Prototype.RuntimeBytecodes())
 		state.SetCode(builtin.Executor.Address, builtin.Executor.RuntimeBytecodes())
 		state.SetCode(builtin.Params.Address, builtin.Params.RuntimeBytecodes())
 		builtin.Params.Native(state).Set(meter.KeyExecutorAddress, new(big.Int).SetBytes(builtin.Executor.Address[:]))
 
-		state.AddBalance(HolderAddr, buildAmount(2000))
-		state.AddEnergy(HolderAddr, buildAmount(100))
+		state.AddBalance(tests.HolderAddr, tests.BuildAmount(2000))
+		state.AddEnergy(tests.HolderAddr, tests.BuildAmount(100))
 
 		// testing env set up like this:
 		// 1 candidate: Cand2
 		// 3 votes: Holder->Cand2(matured), Voter->Cand2, Cand2->Cand2(self)
 
 		// self bucket
-		selfBkt := meter.NewBucket(Cand2Addr, Cand2Addr, buildAmount(2000), meter.MTRG, meter.FOREVER_LOCK, meter.FOREVER_LOCK_RATE, 100, 0, 0)
+		selfBkt := meter.NewBucket(tests.Cand2Addr, tests.Cand2Addr, tests.BuildAmount(2000), meter.MTRG, meter.FOREVER_LOCK, meter.FOREVER_LOCK_RATE, 100, 0, 0)
 
 		// matured bucket
-		bkt := meter.NewBucket(HolderAddr, Cand2Addr, buildAmount(1000), meter.MTRG, meter.ONE_WEEK_LOCK, meter.ONE_WEEK_LOCK_RATE, 100, 0, 0)
+		bkt := meter.NewBucket(tests.HolderAddr, tests.Cand2Addr, tests.BuildAmount(1000), meter.MTRG, meter.ONE_WEEK_LOCK, meter.ONE_WEEK_LOCK_RATE, 100, 0, 0)
 		bkt.Unbounded = true
 		bkt.MatureTime = ts - 800
 
 		// vote bucket
-		bkt2 := meter.NewBucket(VoterAddr, Cand2Addr, buildAmount(1000), meter.MTRG, meter.ONE_WEEK_LOCK, meter.ONE_WEEK_LOCK_RATE, 100, 0, 0)
+		bkt2 := meter.NewBucket(tests.VoterAddr, tests.Cand2Addr, tests.BuildAmount(1000), meter.MTRG, meter.ONE_WEEK_LOCK, meter.ONE_WEEK_LOCK_RATE, 100, 0, 0)
 		state.SetBucketList(meter.NewBucketList([]*meter.Bucket{selfBkt, bkt, bkt2}))
-		state.SetBoundedBalance(HolderAddr, buildAmount(1000)) // for unbound
-		state.SetBoundedBalance(VoterAddr, buildAmount(1000))
+		state.SetBoundedBalance(tests.HolderAddr, tests.BuildAmount(1000)) // for unbound
+		state.SetBoundedBalance(tests.VoterAddr, tests.BuildAmount(1000))
 
 		// init candidate (updateable)
-		cand := meter.NewCandidate(Cand2Addr, Cand2Name, Cand2Desc, Cand2PubKey, Cand2IP, Cand2Port, 5e9, ts-meter.MIN_CANDIDATE_UPDATE_INTV-10)
+		cand := meter.NewCandidate(tests.Cand2Addr, tests.Cand2Name, tests.Cand2Desc, tests.Cand2PubKey, tests.Cand2IP, tests.Cand2Port, 5e9, ts-meter.MIN_CANDIDATE_UPDATE_INTV-10)
 		cand.AddBucket(selfBkt)
 		cand.AddBucket(bkt)
 		cand.AddBucket(bkt2)
@@ -291,12 +205,12 @@ func initRuntimeAfterFork7() (*runtime.Runtime, *state.State, uint64) {
 		state.SetAuctionCB(auctionCB)
 
 		// init balance
-		state.AddBalance(CandAddr, buildAmount(2000))
-		state.AddEnergy(CandAddr, buildAmount(100))
-		state.AddEnergy(VoterAddr, buildAmount(100))
-		state.AddBalance(VoterAddr, buildAmount(1000))
-		state.AddEnergy(Voter2Addr, buildAmount(100))
-		state.AddBalance(Voter2Addr, buildAmount(1000))
+		state.AddBalance(tests.CandAddr, tests.BuildAmount(2000))
+		state.AddEnergy(tests.CandAddr, tests.BuildAmount(100))
+		state.AddEnergy(tests.VoterAddr, tests.BuildAmount(100))
+		state.AddBalance(tests.VoterAddr, tests.BuildAmount(1000))
+		state.AddEnergy(tests.Voter2Addr, tests.BuildAmount(100))
+		state.AddBalance(tests.Voter2Addr, tests.BuildAmount(1000))
 
 		return nil
 	})
@@ -311,7 +225,7 @@ func initRuntimeAfterFork7() (*runtime.Runtime, *state.State, uint64) {
 	rt := runtime.New(seeker, st,
 		&xenv.BlockContext{Time: uint64(time.Now().Unix()),
 			Number: meter.TeslaFork7_MainnetStartNum + 1,
-			Signer: HolderAddr})
+			Signer: tests.HolderAddr})
 
 	return rt, st, ts
 }

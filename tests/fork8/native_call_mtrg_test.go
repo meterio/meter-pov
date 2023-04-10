@@ -10,6 +10,7 @@ import (
 	"github.com/meterio/meter-pov/builtin"
 	"github.com/meterio/meter-pov/genesis"
 	"github.com/meterio/meter-pov/meter"
+	"github.com/meterio/meter-pov/tests"
 	"github.com/meterio/meter-pov/tx"
 	"github.com/meterio/meter-pov/xenv"
 	"github.com/stretchr/testify/assert"
@@ -49,7 +50,7 @@ func TestCallTotalSupply(t *testing.T) {
 
 	// call inner function
 	innerData := nativeTotalSupplyFuncSig
-	innerOutput := tenv.runtime.ExecuteClause(
+	innerOutput := tenv.Runtime.ExecuteClause(
 		tx.NewClause(&builtin.MeterTracker.Address).WithData(innerData),
 		0, maxGas, &xenv.TransactionContext{Origin: mtrgSysContractAddr})
 	innerGasUsed := maxGas - innerOutput.LeftOverGas
@@ -59,11 +60,11 @@ func TestCallTotalSupply(t *testing.T) {
 	assert.Nil(t, innerOutput.VMErr)
 	innerResult := big.NewInt(0)
 	innerResult.SetBytes(innerOutput.Data)
-	assert.Equal(t, buildAmount(0).String(), innerResult.String(), "total supply default should be 0")
+	assert.Equal(t, tests.BuildAmount(0).String(), innerResult.String(), "total supply default should be 0")
 
 	// call outer function
 	outerData, _ := totalSupplyFunc.EncodeInput()
-	outerOutput := tenv.runtime.ExecuteClause(
+	outerOutput := tenv.Runtime.ExecuteClause(
 		tx.NewClause(&mtrgSysContractAddr).WithData(outerData),
 		0, maxGas, &xenv.TransactionContext{})
 	outerGasUsed := maxGas - outerOutput.LeftOverGas
@@ -77,15 +78,15 @@ func TestCallTotalSupply(t *testing.T) {
 	mtrgTotalSupply := new(big.Int)
 	for _, acct := range genesis.DevAccounts() {
 		addr := acct.Address
-		bal := tenv.state.GetBalance(addr)
-		bbal := tenv.state.GetBoundedBalance(addr)
+		bal := tenv.State.GetBalance(addr)
+		bbal := tenv.State.GetBoundedBalance(addr)
 		mtrgTotalSupply.Add(mtrgTotalSupply, bal)
 		mtrgTotalSupply.Add(mtrgTotalSupply, bbal)
 	}
 	fmt.Println("Hav MTRG: ", mtrgTotalSupply.String())
 	fmt.Println("total supply: ", outerResult.String())
-	fmt.Println("init supply", builtin.MeterTracker.Native(tenv.state).GetMeterGovInitialSupply())
-	fmt.Println("add sub", builtin.MeterTracker.Native(tenv.state).GetMeterGovTotalAddSub())
+	fmt.Println("init supply", builtin.MeterTracker.Native(tenv.State).GetMeterGovInitialSupply())
+	fmt.Println("add sub", builtin.MeterTracker.Native(tenv.State).GetMeterGovTotalAddSub())
 	assert.Equal(t, mtrgTotalSupply.String(), outerResult.String(), "total supply should be "+mtrgTotalSupply.String())
 
 	// validate diff gas
@@ -95,11 +96,11 @@ func TestCallTotalSupply(t *testing.T) {
 
 func TestCallTotalBurned(t *testing.T) {
 	tenv := initRuntimeAfterFork8()
-	builtin.MeterTracker.Native(tenv.state).BurnMeterGov(HolderAddr, buildAmount(1000))
+	builtin.MeterTracker.Native(tenv.State).BurnMeterGov(tests.HolderAddr, tests.BuildAmount(1000))
 
 	// call inner function
 	innerData := nativeTotalBurnedFuncSig
-	innerOutput := tenv.runtime.ExecuteClause(
+	innerOutput := tenv.Runtime.ExecuteClause(
 		tx.NewClause(&builtin.MeterTracker.Address).WithData(innerData),
 		0,
 		maxGas,
@@ -112,11 +113,11 @@ func TestCallTotalBurned(t *testing.T) {
 	assert.Nil(t, innerOutput.VMErr)
 	innerResult := big.NewInt(0)
 	innerResult.SetBytes(innerOutput.Data)
-	assert.Equal(t, buildAmount(0).String(), innerResult.String(), "total burned default should be 0")
+	assert.Equal(t, tests.BuildAmount(0).String(), innerResult.String(), "total burned default should be 0")
 
 	// call outer function
 	outerData, _ := totalBurnedFunc.EncodeInput()
-	outerOutput := tenv.runtime.ExecuteClause(
+	outerOutput := tenv.Runtime.ExecuteClause(
 		tx.NewClause(&mtrgSysContractAddr).WithData(outerData),
 		0, maxGas, &xenv.TransactionContext{})
 	outerGasUsed := maxGas - outerOutput.LeftOverGas
@@ -127,7 +128,7 @@ func TestCallTotalBurned(t *testing.T) {
 	assert.Nil(t, outerOutput.VMErr)
 	outerResult := big.NewInt(0)
 	outerResult.SetBytes(outerOutput.Data)
-	assert.Equal(t, buildAmount(1000).String(), outerResult.String(), "total burned should be 1234")
+	assert.Equal(t, tests.BuildAmount(1000).String(), outerResult.String(), "total burned should be 1234")
 
 	// validate diff gas
 	assert.GreaterOrEqual(t, outerGasUsed, innerGasUsed)
@@ -138,8 +139,8 @@ func TestCallBalanceOf(t *testing.T) {
 	tenv := initRuntimeAfterFork8()
 
 	// call inner function
-	innerData := append(nativeBalanceOfFuncSig, meter.BytesToBytes32(HolderAddr[:]).Bytes()...)
-	innerOutput := tenv.runtime.ExecuteClause(
+	innerData := append(nativeBalanceOfFuncSig, meter.BytesToBytes32(tests.HolderAddr[:]).Bytes()...)
+	innerOutput := tenv.Runtime.ExecuteClause(
 		tx.NewClause(&builtin.MeterTracker.Address).WithData(innerData),
 		0, maxGas, &xenv.TransactionContext{Origin: mtrgSysContractAddr})
 	innerGasUsed := maxGas - innerOutput.LeftOverGas
@@ -150,11 +151,11 @@ func TestCallBalanceOf(t *testing.T) {
 	assert.Nil(t, innerOutput.VMErr)
 	innerResult := big.NewInt(0)
 	innerResult.SetBytes(innerOutput.Data)
-	assert.Equal(t, buildAmount(0).String(), innerResult.String(), "balanceOf default should be 0")
+	assert.Equal(t, tests.BuildAmount(0).String(), innerResult.String(), "balanceOf default should be 0")
 
 	// call outer function
-	outerData, _ := balanceOfFunc.EncodeInput(HolderAddr)
-	outerOutput := tenv.runtime.ExecuteClause(
+	outerData, _ := balanceOfFunc.EncodeInput(tests.HolderAddr)
+	outerOutput := tenv.Runtime.ExecuteClause(
 		tx.NewClause(&mtrgSysContractAddr).WithData(outerData),
 		0, maxGas, &xenv.TransactionContext{})
 	outerGasUsed := maxGas - outerOutput.LeftOverGas
@@ -165,7 +166,7 @@ func TestCallBalanceOf(t *testing.T) {
 	assert.Nil(t, outerOutput.VMErr)
 	outerResult := big.NewInt(0)
 	outerResult.SetBytes(outerOutput.Data)
-	assert.Equal(t, buildAmount(1200).String(), outerResult.String(), "balanceOf should be 1200 for HolderAddr")
+	assert.Equal(t, tests.BuildAmount(1200).String(), outerResult.String(), "balanceOf should be 1200 for HolderAddr")
 
 	// validate diff gas
 	assert.GreaterOrEqual(t, outerGasUsed, innerGasUsed)
@@ -176,8 +177,8 @@ func TestCallBalanceOfBoundMtrg(t *testing.T) {
 	tenv := initRuntimeAfterFork8()
 
 	// call inner function
-	innerData := append(nativeBalanceOfBoundMtrgFuncSig, meter.BytesToBytes32(Voter2Addr[:]).Bytes()...)
-	innerOutput := tenv.runtime.ExecuteClause(
+	innerData := append(nativeBalanceOfBoundMtrgFuncSig, meter.BytesToBytes32(tests.Voter2Addr[:]).Bytes()...)
+	innerOutput := tenv.Runtime.ExecuteClause(
 		tx.NewClause(&builtin.MeterTracker.Address).WithData(innerData),
 		0, maxGas, &xenv.TransactionContext{Origin: mtrgSysContractAddr})
 	innerGasUsed := maxGas - innerOutput.LeftOverGas
@@ -188,11 +189,11 @@ func TestCallBalanceOfBoundMtrg(t *testing.T) {
 	assert.Nil(t, innerOutput.VMErr)
 	innerResult := big.NewInt(0)
 	innerResult.SetBytes(innerOutput.Data)
-	assert.Equal(t, buildAmount(0).String(), innerResult.String(), "balanceOfBoundMtrg default should be 0")
+	assert.Equal(t, tests.BuildAmount(0).String(), innerResult.String(), "balanceOfBoundMtrg default should be 0")
 
 	// call outer function
-	outerData, _ := balanceOfBoundMtrgFunc.EncodeInput(Voter2Addr)
-	outerOutput := tenv.runtime.ExecuteClause(
+	outerData, _ := balanceOfBoundMtrgFunc.EncodeInput(tests.Voter2Addr)
+	outerOutput := tenv.Runtime.ExecuteClause(
 		tx.NewClause(&mtrgSysContractAddr).WithData(outerData),
 		0, maxGas, &xenv.TransactionContext{})
 	outerGasUsed := maxGas - outerOutput.LeftOverGas
@@ -203,7 +204,7 @@ func TestCallBalanceOfBoundMtrg(t *testing.T) {
 	assert.Nil(t, outerOutput.VMErr)
 	outerResult := big.NewInt(0)
 	outerResult.SetBytes(outerOutput.Data)
-	assert.Equal(t, buildAmount(500).String(), outerResult.String(), "balanceOfBoundMtrg should be 500 for Voter2Addr")
+	assert.Equal(t, tests.BuildAmount(500).String(), outerResult.String(), "balanceOfBoundMtrg should be 500 for Voter2Addr")
 
 	// validate diff gas
 	assert.GreaterOrEqual(t, outerGasUsed, innerGasUsed)
@@ -211,77 +212,77 @@ func TestCallBalanceOfBoundMtrg(t *testing.T) {
 
 func TestCallTransfer(t *testing.T) {
 	tenv := initRuntimeAfterFork8()
-	fromBal := tenv.state.GetBalance(HolderAddr)
-	toBal := tenv.state.GetBalance(VoterAddr)
+	fromBal := tenv.State.GetBalance(tests.HolderAddr)
+	toBal := tenv.State.GetBalance(tests.VoterAddr)
 
 	// execute
-	data, _ := transferFunc.EncodeInput(VoterAddr, buildAmount(50))
-	output := tenv.runtime.ExecuteClause(tx.NewClause(
+	data, _ := transferFunc.EncodeInput(tests.VoterAddr, tests.BuildAmount(50))
+	output := tenv.Runtime.ExecuteClause(tx.NewClause(
 		&mtrgSysContractAddr).WithData(data),
-		0, maxGas, &xenv.TransactionContext{Origin: HolderAddr})
+		0, maxGas, &xenv.TransactionContext{Origin: tests.HolderAddr})
 
 	// validate result
 	assert.Nil(t, output.VMErr)
 
 	// validate account balance
-	fromBalAfter := tenv.state.GetBalance(HolderAddr)
-	toBalAfter := tenv.state.GetBalance(VoterAddr)
-	assert.Equal(t, buildAmount(50).String(), new(big.Int).Sub(fromBal, fromBalAfter).String(), "should sub 50 on from")
-	assert.Equal(t, buildAmount(50).String(), new(big.Int).Sub(toBalAfter, toBal).String(), "should add 50 on to")
+	fromBalAfter := tenv.State.GetBalance(tests.HolderAddr)
+	toBalAfter := tenv.State.GetBalance(tests.VoterAddr)
+	assert.Equal(t, tests.BuildAmount(50).String(), new(big.Int).Sub(fromBal, fromBalAfter).String(), "should sub 50 on from")
+	assert.Equal(t, tests.BuildAmount(50).String(), new(big.Int).Sub(toBalAfter, toBal).String(), "should add 50 on to")
 }
 
 func TestCallTransferWithoutEnoughBalance(t *testing.T) {
 	tenv := initRuntimeAfterFork8()
-	fromBal := tenv.state.GetBalance(HolderAddr)
-	toBal := tenv.state.GetBalance(VoterAddr)
+	fromBal := tenv.State.GetBalance(tests.HolderAddr)
+	toBal := tenv.State.GetBalance(tests.VoterAddr)
 
 	// execute
-	data, _ := transferFunc.EncodeInput(VoterAddr, buildAmount(3001))
-	output := tenv.runtime.ExecuteClause(tx.NewClause(
+	data, _ := transferFunc.EncodeInput(tests.VoterAddr, tests.BuildAmount(3001))
+	output := tenv.Runtime.ExecuteClause(tx.NewClause(
 		&mtrgSysContractAddr).WithData(data),
-		0, maxGas, &xenv.TransactionContext{Origin: HolderAddr})
+		0, maxGas, &xenv.TransactionContext{Origin: tests.HolderAddr})
 
 	// validate vmerr
 	assert.Equal(t, "evm: execution reverted", output.VMErr.Error())
 
 	// validate account balance
-	fromBalAfter := tenv.state.GetBalance(HolderAddr)
-	toBalAfter := tenv.state.GetBalance(VoterAddr)
-	assert.Equal(t, buildAmount(0).String(), new(big.Int).Sub(fromBal, fromBalAfter).String(), "should not sub 50 on from")
-	assert.Equal(t, buildAmount(0).String(), new(big.Int).Sub(toBalAfter, toBal).String(), "should not add 50 on to")
+	fromBalAfter := tenv.State.GetBalance(tests.HolderAddr)
+	toBalAfter := tenv.State.GetBalance(tests.VoterAddr)
+	assert.Equal(t, tests.BuildAmount(0).String(), new(big.Int).Sub(fromBal, fromBalAfter).String(), "should not sub 50 on from")
+	assert.Equal(t, tests.BuildAmount(0).String(), new(big.Int).Sub(toBalAfter, toBal).String(), "should not add 50 on to")
 }
 
 func TestCallMove(t *testing.T) {
 	tenv := initRuntimeAfterFork8()
-	fromBal := tenv.state.GetBalance(HolderAddr)
-	toBal := tenv.state.GetBalance(VoterAddr)
+	fromBal := tenv.State.GetBalance(tests.HolderAddr)
+	toBal := tenv.State.GetBalance(tests.VoterAddr)
 
 	// execute
-	data, _ := moveFunc.EncodeInput(HolderAddr, VoterAddr, buildAmount(50))
-	output := tenv.runtime.ExecuteClause(tx.NewClause(
+	data, _ := moveFunc.EncodeInput(tests.HolderAddr, tests.VoterAddr, tests.BuildAmount(50))
+	output := tenv.Runtime.ExecuteClause(tx.NewClause(
 		&mtrgSysContractAddr).WithData(data),
-		0, maxGas, &xenv.TransactionContext{Origin: HolderAddr})
+		0, maxGas, &xenv.TransactionContext{Origin: tests.HolderAddr})
 
 	// validate result
 	assert.Nil(t, output.VMErr)
 
 	// validate account balance
-	fromBalAfter := tenv.state.GetBalance(HolderAddr)
-	toBalAfter := tenv.state.GetBalance(VoterAddr)
-	assert.Equal(t, buildAmount(50).String(), new(big.Int).Sub(fromBal, fromBalAfter).String(), "should sub 50 on from")
-	assert.Equal(t, buildAmount(50).String(), new(big.Int).Sub(toBalAfter, toBal).String(), "should add 50 on to")
+	fromBalAfter := tenv.State.GetBalance(tests.HolderAddr)
+	toBalAfter := tenv.State.GetBalance(tests.VoterAddr)
+	assert.Equal(t, tests.BuildAmount(50).String(), new(big.Int).Sub(fromBal, fromBalAfter).String(), "should sub 50 on from")
+	assert.Equal(t, tests.BuildAmount(50).String(), new(big.Int).Sub(toBalAfter, toBal).String(), "should add 50 on to")
 }
 
 func TestCallMoveFromWrongAccount(t *testing.T) {
 	tenv := initRuntimeAfterFork8()
-	fromBal := tenv.state.GetBalance(HolderAddr)
-	toBal := tenv.state.GetBalance(VoterAddr)
+	fromBal := tenv.State.GetBalance(tests.HolderAddr)
+	toBal := tenv.State.GetBalance(tests.VoterAddr)
 
 	// execute
-	data, _ := moveFunc.EncodeInput(HolderAddr, VoterAddr, buildAmount(50))
-	output := tenv.runtime.ExecuteClause(tx.NewClause(
+	data, _ := moveFunc.EncodeInput(tests.HolderAddr, tests.VoterAddr, tests.BuildAmount(50))
+	output := tenv.Runtime.ExecuteClause(tx.NewClause(
 		&mtrgSysContractAddr).WithData(data),
-		0, maxGas, &xenv.TransactionContext{Origin: CandAddr})
+		0, maxGas, &xenv.TransactionContext{Origin: tests.CandAddr})
 
 	// validate vmerr
 	assert.Equal(t, "evm: execution reverted", output.VMErr.Error())
@@ -292,8 +293,8 @@ func TestCallMoveFromWrongAccount(t *testing.T) {
 	assert.Equal(t, "builtin: self or master required", reason, "reason mismatch")
 
 	// validate account balance
-	fromBalAfter := tenv.state.GetBalance(HolderAddr)
-	toBalAfter := tenv.state.GetBalance(VoterAddr)
-	assert.Equal(t, buildAmount(0).String(), new(big.Int).Sub(fromBal, fromBalAfter).String(), "should not sub 50 on from")
-	assert.Equal(t, buildAmount(0).String(), new(big.Int).Sub(toBalAfter, toBal).String(), "should not add 50 on to")
+	fromBalAfter := tenv.State.GetBalance(tests.HolderAddr)
+	toBalAfter := tenv.State.GetBalance(tests.VoterAddr)
+	assert.Equal(t, tests.BuildAmount(0).String(), new(big.Int).Sub(fromBal, fromBalAfter).String(), "should not sub 50 on from")
+	assert.Equal(t, tests.BuildAmount(0).String(), new(big.Int).Sub(toBalAfter, toBal).String(), "should not add 50 on to")
 }

@@ -9,6 +9,7 @@ import (
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/meterio/meter-pov/meter"
 	"github.com/meterio/meter-pov/script/auction"
+	"github.com/meterio/meter-pov/tests"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -25,9 +26,9 @@ func bidID(addr meter.Address, amount *big.Int, _type uint32, ts uint64, nonce u
 }
 func TestBid(t *testing.T) {
 	rt, s, ts := initRuntimeAfterFork7()
-	amount := buildAmount(50)
+	amount := tests.BuildAmount(50)
 	body := &auction.AuctionBody{
-		Bidder:    VoterAddr,
+		Bidder:    tests.VoterAddr,
 		Opcode:    meter.OP_BID,
 		Version:   uint32(0),
 		Option:    meter.USER_BID,
@@ -36,7 +37,7 @@ func TestBid(t *testing.T) {
 		Nonce:     0,
 	}
 	txNonce := rand.Uint64()
-	trx := buildAuctionTx(0, body, VoterKey, txNonce)
+	trx := buildAuctionTx(0, body, tests.VoterKey, txNonce)
 
 	acb := s.GetAuctionCB()
 	rcvd := new(big.Int)
@@ -44,15 +45,15 @@ func TestBid(t *testing.T) {
 		rcvd.Add(rcvd, b.Amount)
 	}
 	bidCount := s.GetAuctionCB().Count()
-	bal := s.GetBalance(VoterAddr)
-	enr := s.GetEnergy(VoterAddr)
+	bal := s.GetBalance(tests.VoterAddr)
+	enr := s.GetEnergy(tests.VoterAddr)
 	reserveEnr := s.GetEnergy(meter.AuctionModuleAddr)
 
 	receipt, err := rt.ExecuteTransaction(trx)
 	assert.Nil(t, err)
 	assert.False(t, receipt.Reverted)
 
-	id := bidID(VoterAddr, amount, meter.USER_BID, ts, txNonce+0)
+	id := bidID(tests.VoterAddr, amount, meter.USER_BID, ts, txNonce+0)
 	acbAfter := s.GetAuctionCB()
 	rcvdAfter := new(big.Int)
 	for _, b := range acb.AuctionTxs {
@@ -64,8 +65,8 @@ func TestBid(t *testing.T) {
 	assert.NotNil(t, bid, "bid should not be nil")
 	assert.Equal(t, amount.String(), bid.Amount.String(), "should bid with amount")
 
-	balAfter := s.GetBalance(VoterAddr)
-	enrAfter := s.GetEnergy(VoterAddr)
+	balAfter := s.GetBalance(tests.VoterAddr)
+	enrAfter := s.GetEnergy(tests.VoterAddr)
 	reserveEnrAfter := s.GetEnergy(meter.AuctionModuleAddr)
 
 	assert.Equal(t, amount.String(), new(big.Int).Sub(rcvdAfter, rcvd).String(), "should add rcvd MTR")

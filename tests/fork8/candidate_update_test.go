@@ -6,6 +6,7 @@ import (
 
 	"github.com/meterio/meter-pov/meter"
 	"github.com/meterio/meter-pov/script/staking"
+	"github.com/meterio/meter-pov/tests"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -15,37 +16,37 @@ func TestUpdateNameOnly(t *testing.T) {
 		Opcode:     staking.OP_CANDIDATE_UPDT,
 		Version:    0,
 		Option:     uint32(0),
-		HolderAddr: Cand2Addr,
-		CandAddr:   Cand2Addr,
-		CandName:   ChangeName,
-		CandIP:     Cand2IP,
-		CandPort:   Cand2Port,
-		CandPubKey: Cand2PubKey,
+		HolderAddr: tests.Cand2Addr,
+		CandAddr:   tests.Cand2Addr,
+		CandName:   tests.ChangeName,
+		CandIP:     tests.Cand2IP,
+		CandPort:   tests.Cand2Port,
+		CandPubKey: tests.Cand2PubKey,
 		Autobid:    12,
 		Token:      meter.MTRG,
 		Timestamp:  uint64(0),
 		Nonce:      0,
 	}
 	txNonce := rand.Uint64()
-	trx := buildStakingTx(tenv.chainTag, 0, body, Cand2Key, txNonce)
+	trx := tests.BuildStakingTx(tenv.ChainTag, 0, body, tests.Cand2Key, txNonce)
 
-	candCount := tenv.state.GetCandidateList().Len()
-	bktCount := tenv.state.GetBucketList().Len()
-	receipt, err := tenv.runtime.ExecuteTransaction(trx)
+	candCount := tenv.State.GetCandidateList().Len()
+	bktCount := tenv.State.GetBucketList().Len()
+	receipt, err := tenv.Runtime.ExecuteTransaction(trx)
 	assert.Nil(t, err)
 	assert.False(t, receipt.Reverted)
 
-	candidateList := tenv.state.GetCandidateList()
-	bucketList := tenv.state.GetBucketList()
+	candidateList := tenv.State.GetCandidateList()
+	bucketList := tenv.State.GetBucketList()
 
 	assert.Equal(t, candCount, candidateList.Len(), "should not change candidate list size")
 	assert.Equal(t, bktCount, bucketList.Len(), "should not change bucket list size")
 
-	cand := candidateList.Get(Cand2Addr)
+	cand := candidateList.Get(tests.Cand2Addr)
 	assert.NotNil(t, cand)
-	assert.Equal(t, ChangeName, cand.Name, "should change name")
+	assert.Equal(t, tests.ChangeName, cand.Name, "should change name")
 
-	selfBktID := bucketID(Cand2Addr, tenv.bktCreateTS, 0)
+	selfBktID := tests.BucketID(tests.Cand2Addr, tenv.BktCreateTS, 0)
 	selfBkt := bucketList.Get(selfBktID)
 	assert.NotNil(t, selfBkt)
 	assert.Equal(t, 12, int(selfBkt.Autobid), "should change autobid on bucket")
@@ -57,36 +58,36 @@ func TestUpdateIPOnly(t *testing.T) {
 		Opcode:     staking.OP_CANDIDATE_UPDT,
 		Version:    0,
 		Option:     uint32(0),
-		HolderAddr: Cand2Addr,
-		CandAddr:   Cand2Addr,
-		CandIP:     ChangeIP,
-		CandPort:   Cand2Port,
-		CandPubKey: Cand2PubKey,
+		HolderAddr: tests.Cand2Addr,
+		CandAddr:   tests.Cand2Addr,
+		CandIP:     tests.ChangeIP,
+		CandPort:   tests.Cand2Port,
+		CandPubKey: tests.Cand2PubKey,
 		Autobid:    12,
 		Token:      meter.MTRG,
 		Timestamp:  uint64(0),
 		Nonce:      0,
 	}
 	txNonce := rand.Uint64()
-	trx := buildStakingTx(tenv.chainTag, 0, body, Cand2Key, txNonce)
+	trx := tests.BuildStakingTx(tenv.ChainTag, 0, body, tests.Cand2Key, txNonce)
 
-	candCount := tenv.state.GetCandidateList().Len()
-	bktCount := tenv.state.GetBucketList().Len()
-	receipt, err := tenv.runtime.ExecuteTransaction(trx)
+	candCount := tenv.State.GetCandidateList().Len()
+	bktCount := tenv.State.GetBucketList().Len()
+	receipt, err := tenv.Runtime.ExecuteTransaction(trx)
 	assert.Nil(t, err)
 	assert.False(t, receipt.Reverted)
 
-	candidateList := tenv.state.GetCandidateList()
-	bucketList := tenv.state.GetBucketList()
+	candidateList := tenv.State.GetCandidateList()
+	bucketList := tenv.State.GetBucketList()
 
 	assert.Equal(t, candCount, candidateList.Len(), "should not change candidate list size")
 	assert.Equal(t, bktCount, bucketList.Len(), "should not change bucket list size")
 
-	cand := candidateList.Get(Cand2Addr)
+	cand := candidateList.Get(tests.Cand2Addr)
 	assert.NotNil(t, cand)
-	assert.Equal(t, ChangeIP, cand.IPAddr, "should change ip")
+	assert.Equal(t, tests.ChangeIP, cand.IPAddr, "should change ip")
 
-	selfBktID := bucketID(Cand2Addr, tenv.bktCreateTS, 0)
+	selfBktID := tests.BucketID(tests.Cand2Addr, tenv.BktCreateTS, 0)
 	selfBkt := bucketList.Get(selfBktID)
 	assert.NotNil(t, selfBkt)
 	assert.Equal(t, 12, int(selfBkt.Autobid), "should change autobid on bucket")
@@ -98,33 +99,33 @@ func TestUpdatePubkeyOnly(t *testing.T) {
 		Opcode:     staking.OP_CANDIDATE_UPDT,
 		Version:    0,
 		Option:     uint32(0),
-		HolderAddr: Cand2Addr,
-		CandAddr:   Cand2Addr,
-		CandIP:     Cand2IP,
-		CandPort:   Cand2Port,
-		CandPubKey: ChangePubKey,
+		HolderAddr: tests.Cand2Addr,
+		CandAddr:   tests.Cand2Addr,
+		CandIP:     tests.Cand2IP,
+		CandPort:   tests.Cand2Port,
+		CandPubKey: tests.ChangePubKey,
 		Token:      meter.MTRG,
 		Timestamp:  uint64(0),
 		Nonce:      0,
 	}
 	txNonce := rand.Uint64()
-	trx := buildStakingTx(tenv.chainTag, 0, body, Cand2Key, txNonce)
+	trx := tests.BuildStakingTx(tenv.ChainTag, 0, body, tests.Cand2Key, txNonce)
 
-	candCount := tenv.state.GetCandidateList().Len()
-	bktCount := tenv.state.GetBucketList().Len()
-	receipt, err := tenv.runtime.ExecuteTransaction(trx)
+	candCount := tenv.State.GetCandidateList().Len()
+	bktCount := tenv.State.GetBucketList().Len()
+	receipt, err := tenv.Runtime.ExecuteTransaction(trx)
 	assert.Nil(t, err)
 	assert.False(t, receipt.Reverted)
 
-	candidateList := tenv.state.GetCandidateList()
-	bucketList := tenv.state.GetBucketList()
+	candidateList := tenv.State.GetCandidateList()
+	bucketList := tenv.State.GetBucketList()
 
 	assert.Equal(t, candCount, candidateList.Len(), "should not change candidate list size")
 	assert.Equal(t, bktCount, bucketList.Len(), "should not change bucket list size")
 
-	cand := candidateList.Get(Cand2Addr)
+	cand := candidateList.Get(tests.Cand2Addr)
 	assert.NotNil(t, cand)
-	assert.Equal(t, ChangePubKey, cand.PubKey, "should change pubkey")
+	assert.Equal(t, tests.ChangePubKey, cand.PubKey, "should change pubkey")
 }
 
 func TestUpdateMultiples(t *testing.T) {
@@ -133,40 +134,40 @@ func TestUpdateMultiples(t *testing.T) {
 		Opcode:     staking.OP_CANDIDATE_UPDT,
 		Version:    0,
 		Option:     uint32(0),
-		HolderAddr: Cand2Addr,
-		CandAddr:   Cand2Addr,
-		CandName:   ChangeName,
-		CandIP:     ChangeIP,
-		CandPort:   ChangePort,
-		CandPubKey: ChangePubKey,
+		HolderAddr: tests.Cand2Addr,
+		CandAddr:   tests.Cand2Addr,
+		CandName:   tests.ChangeName,
+		CandIP:     tests.ChangeIP,
+		CandPort:   tests.ChangePort,
+		CandPubKey: tests.ChangePubKey,
 		Autobid:    14,
 		Token:      meter.MTRG,
 		Timestamp:  uint64(0),
 		Nonce:      0,
 	}
 	txNonce := rand.Uint64()
-	trx := buildStakingTx(tenv.chainTag, 0, body, Cand2Key, txNonce)
+	trx := tests.BuildStakingTx(tenv.ChainTag, 0, body, tests.Cand2Key, txNonce)
 
-	candCount := tenv.state.GetCandidateList().Len()
-	bktCount := tenv.state.GetBucketList().Len()
-	receipt, err := tenv.runtime.ExecuteTransaction(trx)
+	candCount := tenv.State.GetCandidateList().Len()
+	bktCount := tenv.State.GetBucketList().Len()
+	receipt, err := tenv.Runtime.ExecuteTransaction(trx)
 	assert.Nil(t, err)
 	assert.False(t, receipt.Reverted)
 
-	candidateList := tenv.state.GetCandidateList()
-	bucketList := tenv.state.GetBucketList()
+	candidateList := tenv.State.GetCandidateList()
+	bucketList := tenv.State.GetBucketList()
 
 	assert.Equal(t, candCount, candidateList.Len(), "should not change candidate list size")
 	assert.Equal(t, bktCount, bucketList.Len(), "should not change bucket list size")
 
-	cand := candidateList.Get(Cand2Addr)
+	cand := candidateList.Get(tests.Cand2Addr)
 	assert.NotNil(t, cand)
-	assert.Equal(t, ChangeName, cand.Name, "should change name")
-	assert.Equal(t, ChangeIP, cand.IPAddr, "should change ip")
-	assert.Equal(t, ChangePort, cand.Port, "should change port")
-	assert.Equal(t, ChangePubKey, cand.PubKey, "should change pubkey")
+	assert.Equal(t, tests.ChangeName, cand.Name, "should change name")
+	assert.Equal(t, tests.ChangeIP, cand.IPAddr, "should change ip")
+	assert.Equal(t, tests.ChangePort, cand.Port, "should change port")
+	assert.Equal(t, tests.ChangePubKey, cand.PubKey, "should change pubkey")
 
-	selfBktID := bucketID(Cand2Addr, tenv.bktCreateTS, 0)
+	selfBktID := tests.BucketID(tests.Cand2Addr, tenv.BktCreateTS, 0)
 	selfBkt := bucketList.Get(selfBktID)
 	assert.NotNil(t, selfBkt)
 	assert.Equal(t, 14, int(selfBkt.Autobid), "should change autobid on bucket")

@@ -8,28 +8,29 @@ import (
 
 	"github.com/meterio/meter-pov/builtin"
 	"github.com/meterio/meter-pov/meter"
+	"github.com/meterio/meter-pov/tests"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestMintMTR(t *testing.T) {
 	tenv := initRuntimeAfterFork8()
 
-	enr := tenv.state.GetEnergy(HolderAddr)
-	mintAmount := buildAmount(3456)
-	globalTracker := builtin.MeterTracker.Native(tenv.state)
+	enr := tenv.State.GetEnergy(tests.HolderAddr)
+	mintAmount := tests.BuildAmount(3456)
+	globalTracker := builtin.MeterTracker.Native(tenv.State)
 	mtrTotalAddSub := globalTracker.GetMeterTotalAddSub()
 	mtrgTotalAddSub := globalTracker.GetMeterGovTotalAddSub()
 
 	txNonce := rand.Uint64()
-	trx := buildMintTx(tenv.chainTag, 0, HolderAddr, mintAmount, meter.MTR, txNonce)
+	trx := tests.BuildMintTx(tenv.ChainTag, 0, tests.HolderAddr, mintAmount, meter.MTR, txNonce)
 
-	receipt, err := tenv.runtime.ExecuteTransaction(trx)
+	receipt, err := tenv.Runtime.ExecuteTransaction(trx)
 	assert.Nil(t, err)
 	assert.False(t, receipt.Reverted)
 	fmt.Println("reciept: ", receipt)
 
-	enrAfter := tenv.state.GetEnergy(HolderAddr)
-	globalTracker = builtin.MeterTracker.Native(tenv.state)
+	enrAfter := tenv.State.GetEnergy(tests.HolderAddr)
+	globalTracker = builtin.MeterTracker.Native(tenv.State)
 	mtrTotalAddSubAfter := globalTracker.GetMeterTotalAddSub()
 	mtrgTotalAddSubAfter := globalTracker.GetMeterGovTotalAddSub()
 	assert.Equal(t, mintAmount.String(), new(big.Int).Sub(enrAfter, enr).String(), "should add minted amount")
@@ -43,22 +44,22 @@ func TestMintMTR(t *testing.T) {
 func TestMintMTRG(t *testing.T) {
 	tenv := initRuntimeAfterFork8()
 
-	bal := tenv.state.GetBalance(HolderAddr)
-	mintAmount := buildAmount(6543)
-	globalTracker := builtin.MeterTracker.Native(tenv.state)
+	bal := tenv.State.GetBalance(tests.HolderAddr)
+	mintAmount := tests.BuildAmount(6543)
+	globalTracker := builtin.MeterTracker.Native(tenv.State)
 	mtrTotalAddSub := globalTracker.GetMeterTotalAddSub()
 	mtrgTotalAddSub := globalTracker.GetMeterGovTotalAddSub()
 
 	txNonce := rand.Uint64()
-	trx := buildMintTx(tenv.chainTag, 0, HolderAddr, mintAmount, meter.MTRG, txNonce)
+	trx := tests.BuildMintTx(tenv.ChainTag, 0, tests.HolderAddr, mintAmount, meter.MTRG, txNonce)
 
-	receipt, err := tenv.runtime.ExecuteTransaction(trx)
+	receipt, err := tenv.Runtime.ExecuteTransaction(trx)
 	assert.Nil(t, err)
 	assert.False(t, receipt.Reverted)
 	fmt.Println("reciept: ", receipt)
 
-	balAfter := tenv.state.GetBalance(HolderAddr)
-	globalTracker = builtin.MeterTracker.Native(tenv.state)
+	balAfter := tenv.State.GetBalance(tests.HolderAddr)
+	globalTracker = builtin.MeterTracker.Native(tenv.State)
 	mtrTotalAddSubAfter := globalTracker.GetMeterTotalAddSub()
 	mtrgTotalAddSubAfter := globalTracker.GetMeterGovTotalAddSub()
 	assert.Equal(t, mintAmount.String(), new(big.Int).Sub(balAfter, bal).String(), "should add minted amount")

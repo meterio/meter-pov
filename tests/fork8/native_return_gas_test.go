@@ -21,9 +21,9 @@ func TestNativeCallReturnGas(t *testing.T) {
 	outerData, _ := outer.EncodeInput()
 
 	testCaller := meter.BytesToAddress([]byte("test"))
-	builtin.Params.Native(tenv.state).SetAddress(meter.KeySystemContractAddress1, testCaller)
+	builtin.Params.Native(tenv.State).SetAddress(meter.KeySystemContractAddress1, testCaller)
 	// 	fmt.Println("EXECUTE INNER")
-	innerOutput := tenv.runtime.ExecuteClause(
+	innerOutput := tenv.Runtime.ExecuteClause(
 		tx.NewClause(&builtin.Measure.Address).WithData(innerData),
 		0,
 		maxGas,
@@ -31,7 +31,7 @@ func TestNativeCallReturnGas(t *testing.T) {
 	fmt.Println("inner output: ", innerOutput.String())
 	assert.Nil(t, innerOutput.VMErr)
 
-	outerOutput := tenv.runtime.ExecuteClause(
+	outerOutput := tenv.Runtime.ExecuteClause(
 		tx.NewClause(&builtin.Measure.Address).WithData(outerData),
 		0,
 		maxGas,

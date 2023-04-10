@@ -7,31 +7,32 @@ import (
 
 	"github.com/meterio/meter-pov/meter"
 	"github.com/meterio/meter-pov/script/staking"
+	"github.com/meterio/meter-pov/tests"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestBound(t *testing.T) {
 	rt, s, ts := initRuntimeAfterFork7()
-	boundAmount := buildAmount(1000)
+	boundAmount := tests.BuildAmount(1000)
 	body := &staking.StakingBody{
 		Opcode:     staking.OP_BOUND,
 		Version:    0,
 		Option:     uint32(0),
 		Amount:     boundAmount,
-		HolderAddr: Voter2Addr,
-		CandAddr:   Cand2Addr,
+		HolderAddr: tests.Voter2Addr,
+		CandAddr:   tests.Cand2Addr,
 		Token:      meter.MTRG,
 		Timestamp:  uint64(0),
 		Nonce:      0,
 	}
 	txNonce := rand.Uint64()
-	trx := buildStakingTx(0, body, Voter2Key, txNonce)
+	trx := tests.BuildStakingTx(82, 0, body, tests.Voter2Key, txNonce)
 
 	bktCount := s.GetBucketList().Len()
 	candidateList := s.GetCandidateList()
-	cand := candidateList.Get(Cand2Addr)
-	bal := s.GetBalance(Voter2Addr)
-	bbal := s.GetBoundedBalance(Voter2Addr)
+	cand := candidateList.Get(tests.Cand2Addr)
+	bal := s.GetBalance(tests.Voter2Addr)
+	bbal := s.GetBoundedBalance(tests.Voter2Addr)
 	assert.NotNil(t, cand, "candidate should not be nil")
 
 	receipt, err := rt.ExecuteTransaction(trx)
@@ -40,18 +41,18 @@ func TestBound(t *testing.T) {
 
 	candidateList = s.GetCandidateList()
 	bucketList := s.GetBucketList()
-	candAfter := candidateList.Get(Cand2Addr)
+	candAfter := candidateList.Get(tests.Cand2Addr)
 
 	assert.NotNil(t, candAfter, "candidate should not be nil")
 	assert.Equal(t, boundAmount.String(), new(big.Int).Sub(candAfter.TotalVotes, cand.TotalVotes).String(), "should add votes")
 
-	balAfter := s.GetBalance(Voter2Addr)
-	bbalAfter := s.GetBoundedBalance(Voter2Addr)
+	balAfter := s.GetBalance(tests.Voter2Addr)
+	bbalAfter := s.GetBoundedBalance(tests.Voter2Addr)
 	assert.Equal(t, boundAmount.String(), new(big.Int).Sub(bal, balAfter).String(), "balance should decrease by 1000")
 	assert.Equal(t, boundAmount.String(), new(big.Int).Sub(bbalAfter, bbal).String(), "bound balance should increase by 1000")
 	assert.Equal(t, bktCount+1, len(bucketList.Buckets), "should add 1 more bucket")
 
-	bktID := bucketID(Voter2Addr, ts, txNonce+0)
+	bktID := tests.BucketID(tests.Voter2Addr, ts, txNonce+0)
 	bkt := bucketList.Get(bktID)
 	assert.NotNil(t, bkt)
 	assert.Equal(t, boundAmount.String(), bkt.Value.String())

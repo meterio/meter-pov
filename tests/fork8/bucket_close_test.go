@@ -7,6 +7,7 @@ import (
 
 	"github.com/meterio/meter-pov/builtin"
 	"github.com/meterio/meter-pov/meter"
+	"github.com/meterio/meter-pov/tests"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -14,7 +15,7 @@ func TestBucketClose(t *testing.T) {
 	tenv := initRuntimeAfterFork8()
 	scriptEngineAddr := meter.ScriptEngineSysContractAddr
 
-	bktID := bucketID(Voter2Addr, tenv.bktCreateTS, 0)
+	bktID := tests.BucketID(tests.Voter2Addr, tenv.BktCreateTS, 0)
 
 	bucketCloseFunc, found := builtin.ScriptEngine_ABI.MethodByName("bucketClose")
 	assert.True(t, found)
@@ -23,28 +24,28 @@ func TestBucketClose(t *testing.T) {
 	assert.Nil(t, err)
 
 	txNonce := rand.Uint64()
-	trx := buildCallTx(tenv.chainTag, 0, &scriptEngineAddr, data, txNonce, Voter2Key)
+	trx := tests.BuildCallTx(tenv.ChainTag, 0, &scriptEngineAddr, data, txNonce, tests.Voter2Key)
 
-	cand := tenv.state.GetCandidateList().Get(CandAddr)
+	cand := tenv.State.GetCandidateList().Get(tests.CandAddr)
 
-	bal := tenv.state.GetBalance(Voter2Addr)
-	bbal := tenv.state.GetBoundedBalance(Voter2Addr)
-	bktCount := tenv.state.GetBucketList().Len()
-	receipt, err := tenv.runtime.ExecuteTransaction(trx)
+	bal := tenv.State.GetBalance(tests.Voter2Addr)
+	bbal := tenv.State.GetBoundedBalance(tests.Voter2Addr)
+	bktCount := tenv.State.GetBucketList().Len()
+	receipt, err := tenv.Runtime.ExecuteTransaction(trx)
 	assert.Nil(t, err)
 	assert.False(t, receipt.Reverted)
 
-	candAfter := tenv.state.GetCandidateList().Get(CandAddr)
-	bucketList := tenv.state.GetBucketList()
-	balAfter := tenv.state.GetBalance(Voter2Addr)
-	bbalAfter := tenv.state.GetBoundedBalance(Voter2Addr)
+	candAfter := tenv.State.GetCandidateList().Get(tests.CandAddr)
+	bucketList := tenv.State.GetBucketList()
+	balAfter := tenv.State.GetBalance(tests.Voter2Addr)
+	bbalAfter := tenv.State.GetBoundedBalance(tests.Voter2Addr)
 
 	bkt := bucketList.Get(bktID)
 	assert.NotNil(t, bkt)
 	assert.True(t, bkt.Unbounded)
 	_, _, locktime := meter.GetBoundLockOption(meter.ONE_WEEK_LOCK)
-	fmt.Println("CURRENT TS:", tenv.currentTS, "LOCKTIME: ", locktime)
-	assert.Equal(t, tenv.currentTS+locktime, bkt.MatureTime, "should mature in time")
+	fmt.Println("CURRENT TS:", tenv.CurrentTS, "LOCKTIME: ", locktime)
+	assert.Equal(t, tenv.CurrentTS+locktime, bkt.MatureTime, "should mature in time")
 
 	assert.Equal(t, bucketList.Len(), bktCount, "should not add bucket")
 	assert.Equal(t, cand.TotalVotes.String(), candAfter.TotalVotes.String(), "should not change totalVotes")

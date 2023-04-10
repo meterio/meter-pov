@@ -8,6 +8,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/meterio/meter-pov/builtin"
 	"github.com/meterio/meter-pov/meter"
+	"github.com/meterio/meter-pov/tests"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -28,34 +29,34 @@ func TestBucketOpen(t *testing.T) {
 
 	bucketOpenFunc, found := builtin.ScriptEngine_ABI.MethodByName("bucketOpen")
 	assert.True(t, found)
-	amount := buildAmount(100)
+	amount := tests.BuildAmount(100)
 
-	data, err := bucketOpenFunc.EncodeInput(CandAddr, amount)
+	data, err := bucketOpenFunc.EncodeInput(tests.CandAddr, amount)
 	assert.Nil(t, err)
 
 	txNonce := rand.Uint64()
-	trx := buildCallTx(tenv.chainTag, 0, &scriptEngineAddr, data, txNonce, HolderKey)
+	trx := tests.BuildCallTx(tenv.ChainTag, 0, &scriptEngineAddr, data, txNonce, tests.HolderKey)
 
-	cand := tenv.state.GetCandidateList().Get(CandAddr)
+	cand := tenv.State.GetCandidateList().Get(tests.CandAddr)
 	assert.NotNil(t, cand)
 	totalVotes := cand.TotalVotes
 
-	bal := tenv.state.GetBalance(HolderAddr)
-	bktCount := tenv.state.GetBucketList().Len()
-	receipt, err := tenv.runtime.ExecuteTransaction(trx)
+	bal := tenv.State.GetBalance(tests.HolderAddr)
+	bktCount := tenv.State.GetBucketList().Len()
+	receipt, err := tenv.Runtime.ExecuteTransaction(trx)
 	assert.Nil(t, err)
 	assert.False(t, receipt.Reverted)
 
-	candAfter := tenv.state.GetCandidateList().Get(CandAddr)
-	bucketList := tenv.state.GetBucketList()
-	balAfter := tenv.state.GetBalance(HolderAddr)
+	candAfter := tenv.State.GetCandidateList().Get(tests.CandAddr)
+	bucketList := tenv.State.GetBucketList()
+	balAfter := tenv.State.GetBalance(tests.HolderAddr)
 	totalVotesAfter := candAfter.TotalVotes
 
 	assert.Equal(t, 1, bucketList.Len()-bktCount, "should add 1 more bucket")
 	assert.Equal(t, amount.String(), new(big.Int).Sub(totalVotesAfter, totalVotes).String(), "should add total votes to candidate")
 	assert.Equal(t, amount.String(), new(big.Int).Sub(bal, balAfter).String(), "should sub balance from holder")
 
-	bktID := bucketID(HolderAddr, tenv.currentTS, txNonce+0)
+	bktID := tests.BucketID(tests.HolderAddr, tenv.CurrentTS, txNonce+0)
 	bkt := bucketList.Get(bktID)
 
 	assert.Equal(t, amount.String(), bkt.Value.String(), "bucket must have value")
@@ -70,7 +71,7 @@ func TestBucketOpen(t *testing.T) {
 	boundEvent, found := builtin.MeterNative_V3_ABI.EventByName("Bound")
 	assert.True(t, found)
 	assert.Equal(t, boundEvent.ID(), e.Topics[0])
-	assert.Equal(t, meter.BytesToBytes32(HolderAddr[:]), e.Topics[1])
+	assert.Equal(t, meter.BytesToBytes32(tests.HolderAddr[:]), e.Topics[1])
 
 	evtData := &BoundEventData{}
 	boundEvent.Decode(e.Data, evtData)
@@ -84,19 +85,19 @@ func TestNotEnoughBalance(t *testing.T) {
 
 	bucketOpenFunc, found := builtin.ScriptEngine_ABI.MethodByName("bucketOpen")
 	assert.True(t, found)
-	amount := buildAmount(100)
+	amount := tests.BuildAmount(100)
 
-	data, err := bucketOpenFunc.EncodeInput(CandAddr, amount)
+	data, err := bucketOpenFunc.EncodeInput(tests.CandAddr, amount)
 	assert.Nil(t, err)
 
 	txNonce := rand.Uint64()
-	trx := buildCallTx(tenv.chainTag, 0, &scriptEngineAddr, data, txNonce, HolderKey)
+	trx := tests.BuildCallTx(tenv.ChainTag, 0, &scriptEngineAddr, data, txNonce, tests.HolderKey)
 
-	cand := tenv.state.GetCandidateList().Get(CandAddr)
+	cand := tenv.State.GetCandidateList().Get(tests.CandAddr)
 	assert.NotNil(t, cand)
 
-	tenv.state.SetBalance(HolderAddr, buildAmount(1))
-	executor, _ := tenv.runtime.PrepareTransaction(trx)
+	tenv.State.SetBalance(tests.HolderAddr, tests.BuildAmount(1))
+	executor, _ := tenv.Runtime.PrepareTransaction(trx)
 	_, output, err := executor.NextClause()
 
 	assert.Nil(t, err)
