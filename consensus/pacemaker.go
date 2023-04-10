@@ -1045,7 +1045,7 @@ func (p *Pacemaker) mainLoop() {
 		var err error
 		select {
 		case kinfo := <-p.csReactor.RcvKBlockInfoQueue:
-			if kinfo.Height <= p.csReactor.lastKBlockHeight || kinfo.Nonce == p.csReactor.curNonce {
+			if kinfo.Height < p.csReactor.lastKBlockHeight || kinfo.Nonce == p.csReactor.curNonce {
 				p.logger.Info("kblock info handled already, skip for now ...", "height", kinfo.Height, "nonce", kinfo.Nonce)
 				continue
 			}
