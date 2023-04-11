@@ -174,8 +174,7 @@ func (t *Transactions) handleSendEthRawTransaction(w http.ResponseWriter, req *h
 		raw := strings.Replace(m["raw"].(string), "0x", "", 1)
 		rawBytes, _ := hex.DecodeString(raw)
 		ethTx := types.Transaction{}
-		stream := rlp.NewStream(bytes.NewReader(rawBytes), 0)
-		err := ethTx.DecodeRLP(stream)
+		err := ethTx.UnmarshalBinary(rawBytes)
 		if err != nil {
 			fmt.Println("raw tx ERR: ", err)
 			return utils.BadRequest(err)

@@ -115,13 +115,12 @@ type body struct {
 }
 
 func NewTransactionFromEthTx(ethTx *types.Transaction, chainTag byte, blockRef BlockRef, verbose bool) (*Transaction, error) {
-	msg, err := ethTx.AsMessage(types.NewEIP155Signer(ethTx.ChainId()), nil)
+	signer := types.NewLondonSigner(ethTx.ChainId())
+	msg, err := ethTx.AsMessage(signer, big.NewInt(500e9))
 	if err != nil {
 		return nil, err
 	}
-	if msg.To() != nil {
 
-	}
 	from, err := meter.ParseAddress(msg.From().Hex())
 	if err != nil {
 		return nil, err
@@ -137,10 +136,13 @@ func NewTransactionFromEthTx(ethTx *types.Transaction, chainTag byte, blockRef B
 		}
 	}
 
-	signer := types.NewEIP155Signer(ethTx.ChainId())
-	value := msg.Value()
+	raw, err := ethTx.MarshalBinary()
+	if err != nil {
+		return nil, err
+	}
+
+	// collect signature from ethereum tx
 	V, R, S := ethTx.RawSignatureValues()
-	msgHash := signer.Hash(ethTx)
 	// fmt.Println("eth tx msgHash:", hex.EncodeToString(msgHash[:]))
 	var rawEthTx bytes.Buffer
 	err = ethTx.EncodeRLP(&rawEthTx)
@@ -167,41 +169,48 @@ func NewTransactionFromEthTx(ethTx *types.Transaction, chainTag byte, blockRef B
 	rBytes = append(rBytes, R.Bytes()...)
 
 	ethSignature := append(append(rBytes, sBytes...), V.Bytes()...)
-	// fmt.Println("eth tx signature:", hex.EncodeToString(ethSignature))
+	value := msg.Value()
+	// fmt.Println("eth tx msgHash:", hex.EncodeToString(msgHash[:]))
 
-	origin, err := recoverPlain(msgHash, R, S, V, false)
+	sender, err := signer.Sender(ethTx)
 	if err != nil {
-		fmt.Println("invalid ethereum tx: incorrect signature")
 		return nil, err
 	}
-	if strings.ToLower(origin.Hex()) != strings.ToLower(from.String()) {
-		fmt.Println("ethereum tx origin != from, this tx is using homestead style")
-		// return nil, errors.New("invalid ethereum tx: origin is not the same as from")
+
+	if !strings.EqualFold(sender.Hex(), from.String()) {
+		fmt.Println("ethereum sender != from, this tx uses homestead style")
+		fmt.Println("origin: ", sender.Hex())
+		fmt.Println("from: ", from.String())
+		return nil, errors.New("invalid ethereum tx: origin is not the same as from")
 	}
-	var toto *meter.Address
+	var actualTo *meter.Address
 	if to.String() == "0x0000000000000000000000000000000000000000" {
-		toto = nil
+		actualTo = nil
 	} else {
-		toto = &to
+		actualTo = &to
 	}
 	tx := &Transaction{
 		body: body{
 			ChainTag:     chainTag,
 			BlockRef:     blockRef.Uint64(),
 			Expiration:   320,
-			Clauses:      []*Clause{&Clause{body: clauseBody{To: toto, Value: value, Token: meter.MTR, Data: ethTx.Data()}}},
+			Clauses:      []*Clause{&Clause{body: clauseBody{To: actualTo, Value: value, Token: meter.MTR, Data: ethTx.Data()}}},
 			GasPriceCoef: 0,
 			Gas:          msg.Gas(),
 			DependsOn:    nil,
 			Nonce:        msg.Nonce(),
-			Reserved:     []interface{}{RESERVED_PREFIX, msg.From().Bytes(), rawEthTx.Bytes()},
+			Reserved:     []interface{}{RESERVED_PREFIX, msg.From().Bytes(), raw},
 			Signature:    ethSignature,
 		},
 	}
+
+	if !strings.EqualFold(tx.ID().String(), ethTx.Hash().Hex()) {
+		return nil, errors.New("tx.id not matching ethTx.Hash")
+	}
 	// tx.cache.signer.Store(from)
 	if verbose {
-		fmt.Println("new tx from ethTx. nativeTxId=", tx.ID(),
-			"\n  from:", msg.From().Hex(), "  to:", to.String(),
+		fmt.Println("new nativeTx from ethTx:", tx.ID(), tx.IsEthTx(),
+			"\n  from:", msg.From().Hex(), "to:", to.String(),
 			"\n  value:", msg.Value().String(),
 			"  nonce:", msg.Nonce(),
 			"  chainID:", fmt.Sprintf("0x%x", ethTx.ChainId()),
@@ -214,23 +223,31 @@ func NewTransactionFromEthTx(ethTx *types.Transaction, chainTag byte, blockRef B
 }
 
 func (t *Transaction) IsEthTx() bool {
-	return len(t.body.Reserved) == 3 &&
-		len(t.body.Reserved[0].([]byte)) == len(RESERVED_PREFIX) &&
-		hex.EncodeToString(t.body.Reserved[0].([]byte)) == hex.EncodeToString(RESERVED_PREFIX[:]) &&
-		len(t.body.Signature) >= 65
+	reserved3 := len(t.body.Reserved) == 3
+	if !reserved3 {
+		return false
+	}
+
+	reservedPrefixSameLen := len(t.body.Reserved[0].([]byte)) == len(RESERVED_PREFIX)
+	reservedPrefixEqual := hex.EncodeToString(t.body.Reserved[0].([]byte)) == hex.EncodeToString(RESERVED_PREFIX[:])
+	sigLen65 := len(t.body.Signature) >= 65
+	sigLen64 := len(t.body.Signature) >= 64
+	typedTx := t.body.Reserved[2].([]byte)[0] > 0 && t.body.Reserved[2].([]byte)[0] < 3 // only 0x01 and 0x02 is alllowed
+	return reserved3 && reservedPrefixSameLen && reservedPrefixEqual && ((typedTx && sigLen64) || sigLen65)
+
 }
 
 func (t *Transaction) GetEthTx() (*types.Transaction, error) {
 	if !t.IsEthTx() {
 		return nil, errors.New("not a tx from ethereum")
 	}
-	var tx *types.Transaction
-	rawTx := t.body.Reserved[2].([]byte)
-	err := rlp.DecodeBytes(rawTx, &tx)
+	var ethTx types.Transaction
+	rawEthTx := t.body.Reserved[2].([]byte)
+	err := ethTx.UnmarshalBinary(rawEthTx)
 	if err != nil {
 		return nil, err
 	}
-	return tx, nil
+	return &ethTx, nil
 }
 
 // ChainTag returns chain tag.
@@ -636,14 +653,19 @@ func (t *Transaction) String() string {
 		dependsOn = fmt.Sprintf("DependsOn: %v", t.body.DependsOn.String())
 	}
 
+	suffix := ""
+	if t.IsEthTx() {
+		suffix = "(from EthTx)"
+	}
+
 	return fmt.Sprintf(`
-Tx %v %v %v:
+Tx %v %v %v %v:
     From:               %v
     ClauseCount:        %v
     GasPriceCoef / Gas: %v / %v
     ChainTag / Nonce:   %v / %v
     BlockRef / Exp:     %v-%x / %v
-    Signature:          0x%x`, t.ID(), t.Size(), dependsOn, from, len(t.body.Clauses), t.body.GasPriceCoef, t.body.Gas,
+    Signature:          0x%x`, t.ID(), t.Size(), suffix, dependsOn, from, len(t.body.Clauses), t.body.GasPriceCoef, t.body.Gas,
 		t.body.ChainTag, t.body.Nonce, br.Number(), br[4:], t.body.Expiration, t.body.Signature)
 }
 
