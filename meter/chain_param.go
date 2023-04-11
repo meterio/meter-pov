@@ -140,6 +140,18 @@ const (
 	TeslaFork8_TestnetStartNum = 27902500 // around 2/26/2023 12:00 PM (PDT)
 )
 
+// fork8 fixes include:
+// 1. optimize proposal query/forward to avoid query flood
+// 2. propose block with local QCHigh, instead of designated height
+// 3. use best block in timeout newview, to secure network liveness
+
+// fork9 includes:
+// 1. re-calculate candidate.totalVotes for incorrect records
+// 2. during bucket sub, do NOT subtract sb.amount
+// 3. support BASEFEE opcode to be compatible with London fork
+// 4. upgrade dependencies for `goleveldb`, `go-amino`, `prometheus`, `crypto` and `log15`
+// 5. use (epoch, round) to indicate OnBeat
+
 const (
 	TeslaFork9_MainnetStartNum = 99999999 // TODO: change this
 	TeslaFork9_TestnetStartNum = 99999999 // TODO: change this

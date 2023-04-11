@@ -377,7 +377,7 @@ func (rt *Runtime) EnforceTeslaFork9_Corrections(stateDB *statedb.StateDB, block
 					}
 				}
 				if c.TotalVotes.Cmp(actualTotalVotes) < 0 {
-					log.Info("Fix candidate totalVotes", "from", c.TotalVotes.String(), "to", actualTotalVotes.String())
+					log.Info(fmt.Sprintf("Fix totalVotes for candidate %s", c.Addr), "from", c.TotalVotes.String(), "to", actualTotalVotes.String())
 					c.TotalVotes = actualTotalVotes
 				}
 			}
