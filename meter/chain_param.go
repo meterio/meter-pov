@@ -153,7 +153,7 @@ const (
 // 5. use (epoch, round) to indicate OnBeat
 
 const (
-	TeslaFork9_MainnetStartNum = 99999999 // TODO: change this
+	TeslaFork9_MainnetStartNum = 36385000 // around 4/17/2023 12:00 PM (PDT)
 	TeslaFork9_TestnetStartNum = 99999999 // TODO: change this
 )
 
