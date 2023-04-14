@@ -79,10 +79,11 @@ type PowPool struct {
 	all          *powObjectMap
 	replaying    bool
 
-	done    chan struct{}
-	powFeed event.Feed
-	scope   event.SubscriptionScope
-	goes    co.Goes
+	done      chan struct{}
+	powFeed   event.Feed
+	scope     event.SubscriptionScope
+	rpcClient *rpcclient.Client
+	goes      co.Goes
 }
 
 func SetGlobPowPoolInst(pool *PowPool) bool {
@@ -108,6 +109,7 @@ func New(options Options, chain *chain.Chain, stateCreator *state.Creator) *PowP
 	pool.goes.Go(pool.housekeeping)
 	SetGlobPowPoolInst(pool)
 	prometheus.MustRegister(powBlockRecvedGauge)
+	pool.initRpcClient()
 
 	return pool
 }
@@ -379,16 +381,9 @@ func (p *PowPool) VerifyNPowBlockPerEpoch() bool {
 // 	return nil
 // }
 
-func (p *PowPool) ReplayFrom(startHeight int32) error {
-	if p.replaying {
-		return nil
-	}
-	p.replaying = true
-	defer func() {
-		p.replaying = false
-	}()
-
+func (p *PowPool) initRpcClient() {
 	host := fmt.Sprintf("%v:%v", p.options.Node, p.options.Port)
+	log.Info("init bitcoin rpc client", "host", host)
 	client, err := rpcclient.New(&rpcclient.ConnConfig{
 		HTTPPostMode: true,
 		DisableTLS:   true,
@@ -398,17 +393,34 @@ func (p *PowPool) ReplayFrom(startHeight int32) error {
 	}, nil)
 	if err != nil {
 		log.Error("error creating new btc client", "err", err)
-		return err
 	}
-	hash, err := client.GetBestBlockHash()
+	p.rpcClient = client
+}
+
+func (p *PowPool) ReplayFrom(startHeight int32) error {
+	if p.replaying {
+		return nil
+	}
+	p.replaying = true
+	defer func() {
+		p.replaying = false
+	}()
+
+	if p.rpcClient == nil {
+		p.initRpcClient()
+	}
+
+	hash, err := p.rpcClient.GetBestBlockHash()
 	if err != nil {
 		log.Error("error occured during getbestblockhash", "err", err)
+		p.initRpcClient()
 		return err
 	}
 
-	headerVerbose, err := client.GetBlockHeaderVerbose(hash)
+	headerVerbose, err := p.rpcClient.GetBlockHeaderVerbose(hash)
 	if err != nil {
 		log.Error("error occured during getblockheaderverbose", "err", err)
+		p.initRpcClient()
 		return err
 	}
 	pool := GetGlobPowPoolInst()
@@ -418,14 +430,16 @@ func (p *PowPool) ReplayFrom(startHeight int32) error {
 		log.Info("Pow replay started", "start", startHeight, "end", headerVerbose.Height)
 	}
 	for height <= headerVerbose.Height {
-		hash, err := client.GetBlockHash(int64(height))
+		hash, err := p.rpcClient.GetBlockHash(int64(height))
 		if err != nil {
 			log.Error("error getting block hash", "err", err)
+			p.initRpcClient()
 			return err
 		}
-		blk, err := client.GetBlock(hash)
+		blk, err := p.rpcClient.GetBlock(hash)
 		if err != nil {
 			log.Error("error getting block", "err", err)
+			p.initRpcClient()
 			return err
 		}
 		info := NewPowBlockInfoFromPowBlock(blk)
