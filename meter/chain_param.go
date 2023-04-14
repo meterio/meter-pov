@@ -154,7 +154,7 @@ const (
 
 const (
 	TeslaFork9_MainnetStartNum = 36385000 // around 4/17/2023 12:00 PM (PDT)
-	TeslaFork9_TestnetStartNum = 99999999 // TODO: change this
+	TeslaFork9_TestnetStartNum = 31556000 // around 4/15/2023 7:00 AM (PDT)
 )
 
 var (
