@@ -121,9 +121,11 @@ func New(
 	if meter.IsMainNet() == true {
 		chainConfig.ChainID = new(big.Int).SetUint64(meter.MainnetChainID)
 		chainConfig.IstanbulBlock = big.NewInt(int64(meter.TeslaFork3_MainnetStartNum))
+		chainConfig.LondonBlock = big.NewInt(int64(meter.TeslaFork9_MainnetStartNum))
 	} else {
 		chainConfig.ChainID = new(big.Int).SetUint64(meter.TestnetChainID)
 		chainConfig.IstanbulBlock = big.NewInt(int64(meter.TeslaFork3_TestnetStartNum))
+		chainConfig.LondonBlock = big.NewInt(int64(meter.TeslaFork9_TestnetStartNum))
 	}
 
 	// alloc precompiled contracts at the begining of Istanbul
