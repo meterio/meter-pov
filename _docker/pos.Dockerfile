@@ -1,5 +1,5 @@
 # Build meter in a stock Go builder container
-FROM meterio/build-env:22.04 as builder
+FROM meterio/build-env:go1.19 as builder
 RUN go version
 
 WORKDIR  /meter
