@@ -46,12 +46,24 @@ func (p *PendingList) CleanUpTo(height uint32) {
 		return
 	}
 
-	for key, _ := range p.messages {
+	for key := range p.messages {
 		if key <= height {
 			delete(p.messages, key)
 		}
 	}
 	p.lowest = height
+}
+
+func (p *PendingList) CleanFrom(height uint32) {
+	if height <= p.lowest {
+		p.CleanAll()
+		return
+	}
+	for key := range p.messages {
+		if key >= height {
+			delete(p.messages, key)
+		}
+	}
 }
 
 // clean all the pending messages

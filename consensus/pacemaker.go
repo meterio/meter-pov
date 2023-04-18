@@ -1436,6 +1436,11 @@ func (p *Pacemaker) revertTo(revertHeight uint32) {
 			p.QCHigh = pivotJustify
 		}
 	}
+
+	p.pendingList.CleanFrom(revertHeight)
+	if p.blockLeaf != nil {
+		p.lastVotingHeight = p.blockLeaf.Height
+	}
 	// First senario : pivot height < b-leaf height
 	//           pivot b-leaf                           b-leaf
 	//             v     v                                v
@@ -1508,8 +1513,8 @@ func (p *Pacemaker) OnReceiveQueryProposal(mi *consensusMsgInfo) error {
 		result := p.proposalMap.Get(queryHeight)
 		if result == nil {
 			// Oooop!, I do not have it
-			p.logger.Error("I dont have the specific proposal", "height", queryHeight, "round", queryRound)
-			return fmt.Errorf("I dont have the specific proposal on height %v", queryHeight)
+			p.logger.Error("dont have the specific proposal", "height", queryHeight, "round", queryRound)
+			return fmt.Errorf("dont have the specific proposal on height %v", queryHeight)
 		}
 
 		if result.ProposalMessage == nil {
