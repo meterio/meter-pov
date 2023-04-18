@@ -1311,7 +1311,7 @@ func (p *Pacemaker) OnRoundTimeout(ti PMRoundTimeoutInfo) {
 	if p.timeoutCounter >= TIMEOUT_THRESHOLD_FOR_REBOOT {
 		p.logger.Warn("continuous timeout, revert pacemaker to", "height", bestNum+1)
 		p.revertTo(bestNum + 1)
-		p.logger.Warn("resert pacemaker timeoutCounter to 0")
+		p.logger.Warn("reset pacemaker timeoutCounter to 0")
 		p.timeoutCounter = 0
 	}
 	// p.startRoundTimer(ti.height, ti.round+1, ti.counter+1)

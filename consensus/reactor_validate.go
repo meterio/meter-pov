@@ -187,7 +187,8 @@ func (c *ConsensusReactor) validateBlockBody(blk *block.Block, forceValidate boo
 
 	parentBlock, err := c.chain.GetBlock(header.ParentID())
 	if err != nil {
-		panic("get parentBlock failed")
+		c.logger.Error("get parentBlock failed", "err", err.Error())
+		return err
 	}
 	if blk.IsKBlock() {
 		best := parentBlock
@@ -197,7 +198,8 @@ func (c *ConsensusReactor) validateBlockBody(blk *block.Block, forceValidate boo
 		// distribute the base reward
 		state, err := c.stateCreator.NewState(c.chain.BestBlock().Header().StateRoot())
 		if err != nil {
-			panic("get state failed")
+			c.logger.Error("get state failed", "err", err.Error())
+			return err
 		}
 
 		proposalKBlock, powResults := powpool.GetGlobPowPoolInst().GetPowDecision()
