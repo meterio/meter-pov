@@ -6,28 +6,25 @@ This is the first implementation written in golang.
 
 ## Table of contents
 
-* [Installation](#installation)
-    * [Requirements](#requirements)
-    * [Getting the source](#getting-the-source)
-    * [Dependency management](#dependency-management)
-    * [Building](#building)
-* [Running Meter](#running-meter)
-    * [Sub-commands](#sub-commands)
-* [Docker](#docker)
-* [Explorers](#explorers)
-* [Faucet](#testnet-faucet)
-* [RESTful API](#api)
-* [Acknowledgement](#acknowledgement)
-* [Contributing](#contributing)
+- [Installation](#installation)
+  - [Requirements](#requirements)
+  - [Building](#building)
+- [Running Meter](#running-meter)
+  - [Sub-commands](#sub-commands)
+- [Docker](#docker)
+- [Explorers](#explorers)
+- [Faucet](#testnet-faucet)
+- [RESTful API](#api)
+- [Acknowledgement](#acknowledgement)
+- [Contributing](#contributing)
 
 ## Installation
 
 ### Requirements
 
-Meter requires `Go` 1.12+ and `C` compiler to build. To install `Go`, follow this [link](https://golang.org/doc/install). 
+Meter requires `Go` 1.18+ and `C` compiler to build. To install `Go`, follow this [link](https://golang.org/doc/install).
 
-
-### Getting the source
+### Building
 
 Clone the meter-pov repo:
 
@@ -36,67 +33,13 @@ git clone https://github.com/meterio/meter-pov.git
 cd meter-pov
 ```
 
-
-### Dependency management
-
 Simply run:
-```
-make dep
-```
-
-To manually install dependencies, choices are
-
-- [dep](https://github.com/golang/dep), Golang's official dependency management tool 
-
-    ```
-    dep ensure -vendor-only
-    ```
-    (*Note that to make `dep` work, you should put the source code at `$GOPATH/src/github.com/meterio/meter-pov`*)
-
-- git submodule
-
-    ```
-    git submodule update --init
-    ```
-
-### Building
-
-To build the main app `meter`, just run
-
-```
-make
-```
-
-#### Tips
-
-You might encounter problems like this during `make`:
-
-```
-vendor/github.com/ethereum/go-ethereum/crypto/secp256k1/curve.go:43:44: fatal error: libsecp256k1/include/secp256k1.h: No such file or directory
- #include "libsecp256k1/include/secp256k1.h"
-                                            ^
-compilation terminated.
-```
-
-Then solution will be like this: 
-```
-go get github.com/ethereum/go-ethereum
-cp -r \
-  "${GOPATH}/src/github.com/ethereum/go-ethereum/crypto/secp256k1/libsecp256k1" \
-  "vendor/github.com/ethereum/go-ethereum/crypto/secp256k1/"
-
-```
-
-
-or build the full suite:
 
 ```
 make all
 ```
 
-If no error reported, all built executable binaries will appear in folder *bin*.
-
-## Running Meter
+## Running
 
 Connect to Meter's mainnet:
 
@@ -104,13 +47,11 @@ Connect to Meter's mainnet:
 bin/meter --network main
 ```
 
-
-Connect to VeChain's testnet:
+Connect to Meter's testnet:
 
 ```
 bin/meter --network warringstakes
 ```
-
 
 To find out usages of all command line options:
 
@@ -118,21 +59,21 @@ To find out usages of all command line options:
 bin/meter -h
 ```
 
-- `--network value`        the network to join (main|test)
-- `--data-dir value`       directory for block-chain databases
-- `--beneficiary value`    address for block rewards
-- `--api-addr value`       API service listening address (default: "localhost:8669")
-- `--api-cors value`       comma separated list of domains from which to accept cross origin requests to API
-- `--verbosity value`      log verbosity (0-9) (default: 3)
-- `--max-peers value`      maximum number of P2P network peers (P2P network disabled if set to 0) (default: 25)
-- `--p2p-port value`       P2P network listening port (default: 11235)
-- `--nat value`            port mapping mechanism (any|none|upnp|pmp|extip:<IP>) (default: "none")
-- `--help, -h`             show help
-- `--version, -v`          print the version
+- `--network value` the network to join (main|test)
+- `--data-dir value` directory for block-chain databases
+- `--beneficiary value` address for block rewards
+- `--api-addr value` API service listening address (default: "localhost:8669")
+- `--api-cors value` comma separated list of domains from which to accept cross origin requests to API
+- `--verbosity value` log verbosity (0-9) (default: 3)
+- `--max-peers value` maximum number of P2P network peers (P2P network disabled if set to 0) (default: 25)
+- `--p2p-port value` P2P network listening port (default: 11235)
+- `--nat value` port mapping mechanism (any|none|upnp|pmp|extip:<IP>) (default: "none")
+- `--help, -h` show help
+- `--version, -v` print the version
 
 ### Sub-commands
 
-- `master-key`          import and export master key
+- `master-key` import and export master key
 
 ```
 # export master key to keystore
@@ -169,7 +110,7 @@ Awesome explorers built by the meter team:
 
 ## API
 
-Once `meter` started, online *OpenAPI* doc can be accessed in your browser. e.g. http://localhost:8669/ by default.
+Once `meter` started, online _OpenAPI_ doc can be accessed in your browser. e.g. http://localhost:8669/ by default.
 
 [![Meter Restful API](meter-rest.png)](http://localhost:8669/)
 
@@ -188,21 +129,23 @@ Thanks you so much for considering to help out with the source code! We welcome 
 Please fork, fix, commit and send a pull request for the maintainers to review and merge into the main code base.
 
 ### Forking Meter
+
 When you "Fork" the project, GitHub will make a copy of the project that is entirely yours; it lives in your namespace, and you can push to it.
 
 ### Getting ready for a pull request
+
 Please check the following:
 
 - Code must be adhere to the official Go Formatting guidelines.
 - Get the branch up to date, by merging in any recent changes from the master branch.
 
 ### Making the pull request
+
 - On the GitHub site, go to "Code". Then click the green "Compare and Review" button. Your branch is probably in the "Example Comparisons" list, so click on it. If not, select it for the "compare" branch.
 - Make sure you are comparing your new branch to master. It probably won't be, since the front page is the latest release branch, rather than master now. So click the base branch and change it to master.
 - Press Create Pull Request button.
 - Give a brief title.
 - Explain the major changes you are asking to be code reviewed. Often it is useful to open a second tab in your browser where you can look through the diff yourself to remind yourself of all the changes you have made.
-
 
 ## Deployment Steps
 
@@ -301,4 +244,4 @@ That's it. The next time, you won't need the `--peers` flag for `node2` any more
 
 Meter is licensed under the
 [GNU Lesser General Public License v3.0](https://www.gnu.org/licenses/lgpl-3.0.html), also included
-in *LICENSE* file in repository.
+in _LICENSE_ file in repository.
