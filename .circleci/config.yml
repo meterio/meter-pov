@@ -1,0 +1,21 @@
+version: 2.1
+
+jobs:
+  go_test:
+    resource_class: large
+    docker:
+      - image: "cimg/go:1.20.3"
+    steps:
+      - checkout
+      - run: sudo apt update && sudo apt install libgmp-dev
+      - run: make
+      - run: go test ./...
+
+workflows:
+  tests:
+    jobs:
+      - go_test:
+          filters:
+            branches:
+              only:
+                - mainnet
