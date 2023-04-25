@@ -549,6 +549,11 @@ func (conR *ConsensusReactor) buildKBlockTxs(parentBlock *block.Block, rewards [
 				rewardMap, err = governor.ComputeRewardMapV2(epochBaseReward, epochTotalReward, conR.curDelegates.Delegates, conR.curCommittee.Validators)
 			}
 
+			fmt.Println("*** Reward Map ***")
+			_, _, rewardList := rewardMap.ToList()
+			for _, r := range rewardList {
+				fmt.Println(r.String())
+			}
 			if err == nil && len(rewardMap) > 0 {
 				distTotal := big.NewInt(0)
 				autobidTotal := big.NewInt(0)
