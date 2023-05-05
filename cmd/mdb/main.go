@@ -165,6 +165,12 @@ func main() {
 				Action: unsafeResetAction,
 			},
 			{
+				Name:   "unsafe-delete-raw",
+				Usage:  "Delete raw key from local db",
+				Flags:  []cli.Flag{networkFlag, dataDirFlag, keyFlag},
+				Action: unsafeDeleteRawAction,
+			},
+			{
 				Name:   "local-reset",
 				Usage:  "Reset chain with local highest block",
 				Flags:  []cli.Flag{networkFlag, dataDirFlag},
@@ -649,6 +655,27 @@ type BlockInfo struct {
 type QCInfo struct {
 	QcHeight int64  `json:"qcHeight"`
 	Raw      string `json:"raw"`
+}
+
+func unsafeDeleteRawAction(ctx *cli.Context) error {
+	initLogger()
+
+	mainDB, _ := openMainDB(ctx)
+	defer func() { log.Info("closing main database..."); mainDB.Close() }()
+
+	key := ctx.String(keyFlag.Name)
+	parsedKey, err := hex.DecodeString(strings.Replace(key, "0x", "", 1))
+	if err != nil {
+		log.Error("could not decode hex key", "err", err)
+		return nil
+	}
+	err = mainDB.Delete(parsedKey)
+	if err != nil {
+		log.Error("could not delete key in database", "err", err, "key", key)
+		return nil
+	}
+	log.Info("Deleted key from db", "key", parsedKey)
+	return nil
 }
 
 func unsafeResetAction(ctx *cli.Context) error {
