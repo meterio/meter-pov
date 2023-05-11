@@ -793,7 +793,6 @@ func (p *Pacemaker) OnReceiveNewView(mi *consensusMsgInfo) error {
 		}
 		return nil
 	}
-	p.OnPreCommitBlock(qcNode)
 
 	// now have qcNode, check qcNode and blk.QC is referenced the same
 	if match, err := p.BlockMatchQC(qcNode, &qc); match == true && err == nil {
@@ -812,6 +811,8 @@ func (p *Pacemaker) OnReceiveNewView(mi *consensusMsgInfo) error {
 		}
 		return nil
 	}
+
+	p.OnPreCommitBlock(qcNode)
 
 	pmQC := newPMQuorumCert(&qc, qcNode)
 
