@@ -94,6 +94,7 @@ type Transaction struct {
 	Size         uint32              `json:"size"`
 	Meta         TxMeta              `json:"meta"`
 	EthTx        *EthTx              `json:"ethTx"`
+	Type         uint32              `json:"type"`
 	Reserved     []string            `json:"reserved"`
 }
 type UnSignedTx struct {
@@ -183,13 +184,14 @@ func convertTransaction(tx *tx.Transaction, header *block.Header, txIndex uint64
 	for i, c := range tx.Clauses() {
 		cls[i] = convertClause(c)
 	}
-	ethTxJSON := make([]byte, 0)
 	var convertedEthTx *EthTx
 	br := tx.BlockRef()
+	_type := uint32(0)
 	if tx.IsEthTx() {
 		ethTx, err := tx.GetEthTx()
 		if err == nil {
-			ethTxJSON, err = ethTx.MarshalJSON()
+			_type = uint32(ethTx.Type())
+			ethTxJSON, err := ethTx.MarshalJSON()
 			if err != nil {
 				fmt.Println("could not marshal ethereum tx")
 			}
@@ -228,6 +230,7 @@ func convertTransaction(tx *tx.Transaction, header *block.Header, txIndex uint64
 		},
 		Reserved: Reserved,
 		EthTx:    convertedEthTx,
+		Type:     _type,
 	}
 	return t, nil
 }
