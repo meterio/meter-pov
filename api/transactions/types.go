@@ -6,6 +6,7 @@
 package transactions
 
 import (
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"math/big"
@@ -31,10 +32,10 @@ type Clause struct {
 	Data  string               `json:"data"`
 }
 
-//Clauses array of clauses.
+// Clauses array of clauses.
 type Clauses []Clause
 
-//ConvertClause convert a raw clause into a json format clause
+// ConvertClause convert a raw clause into a json format clause
 func convertClause(c *tx.Clause) Clause {
 	return Clause{
 		c.To(),
@@ -78,7 +79,7 @@ type EthTx struct {
 	Hash     string `json:"hash"`
 }
 
-//Transaction transaction
+// Transaction transaction
 type Transaction struct {
 	ID           meter.Bytes32       `json:"id"`
 	ChainTag     byte                `json:"chainTag"`
@@ -93,6 +94,7 @@ type Transaction struct {
 	Size         uint32              `json:"size"`
 	Meta         TxMeta              `json:"meta"`
 	EthTx        *EthTx              `json:"ethTx"`
+	Reserved     []string            `json:"reserved"`
 }
 type UnSignedTx struct {
 	ChainTag     uint8               `json:"chainTag"`
@@ -170,7 +172,7 @@ type rawTransaction struct {
 	Meta TxMeta `json:"meta"`
 }
 
-//convertTransaction convert a raw transaction into a json format transaction
+// convertTransaction convert a raw transaction into a json format transaction
 func convertTransaction(tx *tx.Transaction, header *block.Header, txIndex uint64) (*Transaction, error) {
 	//tx signer
 	signer, err := tx.Signer()
@@ -199,6 +201,14 @@ func convertTransaction(tx *tx.Transaction, header *block.Header, txIndex uint64
 			convertedEthTx = &etx
 		}
 	}
+	Reserved := make([]string, 0)
+	if tx.HasReservedFields() {
+		for _, r := range tx.Reserved() {
+			if v, ok := r.([]byte); ok {
+				Reserved = append(Reserved, hex.EncodeToString(v))
+			}
+		}
+	}
 	t := &Transaction{
 		ChainTag:     tx.ChainTag(),
 		ID:           tx.ID(),
@@ -216,7 +226,8 @@ func convertTransaction(tx *tx.Transaction, header *block.Header, txIndex uint64
 			BlockNumber:    header.Number(),
 			BlockTimestamp: header.Timestamp(),
 		},
-		EthTx: convertedEthTx,
+		Reserved: Reserved,
+		EthTx:    convertedEthTx,
 	}
 	return t, nil
 }
@@ -235,7 +246,7 @@ type LogMeta struct {
 	TxOrigin       meter.Address `json:"txOrigin"`
 }
 
-//Receipt for json marshal
+// Receipt for json marshal
 type Receipt struct {
 	GasUsed  uint64                `json:"gasUsed"`
 	GasPayer meter.Address         `json:"gasPayer"`
@@ -268,7 +279,7 @@ type Transfer struct {
 	Token     uint32                `json:"token"`
 }
 
-//ConvertReceipt convert a raw clause into a jason format clause
+// ConvertReceipt convert a raw clause into a jason format clause
 func convertReceipt(txReceipt *tx.Receipt, header *block.Header, tx *tx.Transaction) (*Receipt, error) {
 	reward := math.HexOrDecimal256(*txReceipt.Reward)
 	paid := math.HexOrDecimal256(*txReceipt.Paid)

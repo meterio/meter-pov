@@ -255,6 +255,10 @@ func (t *Transaction) ChainTag() byte {
 	return t.body.ChainTag
 }
 
+func (t *Transaction) Reserved() []interface{} {
+	return t.body.Reserved
+}
+
 // Nonce returns nonce value.
 func (t *Transaction) Nonce() uint64 {
 	return t.body.Nonce
