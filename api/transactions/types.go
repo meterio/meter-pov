@@ -67,16 +67,19 @@ func hasKey(m map[string]interface{}, key string) bool {
 }
 
 type EthTx struct {
-	Nonce    string `json:"nonce"`
-	GasPrice string `json:"gasPrice"`
-	Gas      string `json:"gas"`
-	To       string `json:"to"`
-	Value    string `json:"value"`
-	Input    string `json:"input"`
-	V        string `json:"v"`
-	R        string `json:"r"`
-	S        string `json:"s"`
-	Hash     string `json:"hash"`
+	Nonce                string `json:"nonce"`
+	GasPrice             string `json:"gasPrice"`
+	Gas                  string `json:"gas"`
+	To                   string `json:"to"`
+	Value                string `json:"value"`
+	Input                string `json:"input"`
+	V                    string `json:"v"`
+	R                    string `json:"r"`
+	S                    string `json:"s"`
+	Hash                 string `json:"hash"`
+	Type                 uint8  `json:"type"`
+	MaxPriorityFeePerGas string `json:"maxPriorityFeePerGas"`
+	MaxFeePerGas         string `json:"maxFeePerGas"`
 }
 
 // Transaction transaction
@@ -186,11 +189,9 @@ func convertTransaction(tx *tx.Transaction, header *block.Header, txIndex uint64
 	}
 	var convertedEthTx *EthTx
 	br := tx.BlockRef()
-	_type := uint32(0)
 	if tx.IsEthTx() {
 		ethTx, err := tx.GetEthTx()
 		if err == nil {
-			_type = uint32(ethTx.Type())
 			ethTxJSON, err := ethTx.MarshalJSON()
 			if err != nil {
 				fmt.Println("could not marshal ethereum tx")
@@ -201,6 +202,7 @@ func convertTransaction(tx *tx.Transaction, header *block.Header, txIndex uint64
 				fmt.Println("could not unmarshal ethTx")
 			}
 			convertedEthTx = &etx
+			convertedEthTx.Type = ethTx.Type()
 		}
 	}
 	Reserved := make([]string, 0)
@@ -230,7 +232,6 @@ func convertTransaction(tx *tx.Transaction, header *block.Header, txIndex uint64
 		},
 		Reserved: Reserved,
 		EthTx:    convertedEthTx,
-		Type:     _type,
 	}
 	return t, nil
 }
