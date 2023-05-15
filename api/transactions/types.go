@@ -78,6 +78,7 @@ type EthTx struct {
 	S                    string `json:"s"`
 	Hash                 string `json:"hash"`
 	Type                 uint8  `json:"type"`
+	ChainId              string `json:"chainId"`
 	MaxPriorityFeePerGas string `json:"maxPriorityFeePerGas"`
 	MaxFeePerGas         string `json:"maxFeePerGas"`
 }
@@ -97,7 +98,6 @@ type Transaction struct {
 	Size         uint32              `json:"size"`
 	Meta         TxMeta              `json:"meta"`
 	EthTx        *EthTx              `json:"ethTx"`
-	Type         uint32              `json:"type"`
 	Reserved     []string            `json:"reserved"`
 }
 type UnSignedTx struct {
@@ -203,6 +203,7 @@ func convertTransaction(tx *tx.Transaction, header *block.Header, txIndex uint64
 			}
 			convertedEthTx = &etx
 			convertedEthTx.Type = ethTx.Type()
+			convertedEthTx.ChainId = ethTx.ChainId().String()
 		}
 	}
 	Reserved := make([]string, 0)
