@@ -12,6 +12,7 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/meterio/meter-pov/api/utils"
 	"github.com/meterio/meter-pov/consensus"
+	"github.com/meterio/meter-pov/meter"
 	"github.com/meterio/meter-pov/powpool"
 )
 
@@ -64,6 +65,13 @@ func (n *Node) handleCoef(w http.ResponseWriter, req *http.Request) error {
 	return nil
 }
 
+func (n *Node) handleGetChainId(w http.ResponseWriter, req *http.Request) error {
+	if meter.IsMainNet() {
+		return utils.WriteJSON(w, 82) // mainnet
+	}
+	return utils.WriteJSON(w, 83) // testnet
+}
+
 func (n *Node) Mount(root *mux.Router, pathPrefix string) {
 	sub := root.PathPrefix(pathPrefix).Subrouter()
 
@@ -71,4 +79,5 @@ func (n *Node) Mount(root *mux.Router, pathPrefix string) {
 	sub.Path("/consensus/committee").Methods("Get").HandlerFunc(utils.WrapHandlerFunc(n.handleCommittee))
 	sub.Path("/pubkey").Methods("Get").HandlerFunc(utils.WrapHandlerFunc(n.handlePubKey))
 	sub.Path("/coef").Methods("Get").HandlerFunc(utils.WrapHandlerFunc(n.handleCoef))
+	sub.Path("/chainid").Methods("Get").HandlerFunc(utils.WrapHandlerFunc(n.handleGetChainId))
 }
