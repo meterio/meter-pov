@@ -279,19 +279,6 @@ func (t *Transactions) handleSendTransaction(w http.ResponseWriter, req *http.Re
 	}
 }
 
-func (t *Transactions) handleGetGasPrice(w http.ResponseWriter, req *http.Request) error {
-	headBlock := t.chain.BestBlock()
-	if headBlock == nil {
-		return errors.New("could not load latest block")
-	}
-	s, err := t.stateCreator.NewState(headBlock.StateRoot())
-	if err != nil {
-		return err
-	}
-	baseGasPrice := builtin.Params.Native(s).Get(meter.KeyBaseGasPrice)
-	return utils.WriteJSON(w, baseGasPrice)
-}
-
 func (t *Transactions) handleGetTransactionByID(w http.ResponseWriter, req *http.Request) error {
 	id := mux.Vars(req)["id"]
 	txID, err := meter.ParseBytes32(id)
@@ -418,6 +405,5 @@ func (t *Transactions) Mount(root *mux.Router, pathPrefix string) {
 	sub.Path("/recent").Methods("GET").HandlerFunc(utils.WrapHandlerFunc(t.handleGetRecentTransactions))
 	sub.Path("/{id}").Methods("GET").HandlerFunc(utils.WrapHandlerFunc(t.handleGetTransactionByID))
 	sub.Path("/{id}/receipt").Methods("GET").HandlerFunc(utils.WrapHandlerFunc(t.handleGetTransactionReceiptByID))
-	sub.Path("/gasprice").Methods("GET").HandlerFunc(utils.WrapHandlerFunc(t.handleGetGasPrice))
 
 }

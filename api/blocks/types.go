@@ -10,6 +10,7 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"fmt"
+	"math/big"
 
 	"github.com/btcsuite/btcd/wire"
 	"github.com/ethereum/go-ethereum/common"
@@ -46,6 +47,7 @@ type JSONBlockSummary struct {
 	KblockData       []string           `json:"kblockData"`
 	PowBlocks        []*JSONPowBlock    `json:"powBlocks"`
 	LogsBloom        string             `json:"logsBloom"`
+	BaseFeePerGas    uint64             `json:"baseFeePerGas"`
 }
 
 type JSONCollapsedBlock struct {
@@ -87,6 +89,7 @@ type JSONEmbeddedTx struct {
 	Clauses      []*JSONClause       `json:"clauses"`
 	GasPriceCoef uint8               `json:"gasPriceCoef"`
 	Gas          uint64              `json:"gas"`
+	GasPrice     uint64              `json:"gasPrice"`
 	Origin       meter.Address       `json:"origin"`
 	Delegator    *meter.Address      `json:"delegator"`
 	Nonce        math.HexOrDecimal64 `json:"nonce"`
@@ -162,7 +165,7 @@ type JSONExpandedBlock struct {
 	Transactions []*JSONEmbeddedTx `json:"transactions"`
 }
 
-func buildJSONBlockSummary(blk *block.Block, isTrunk bool, logsBloom string) *JSONBlockSummary {
+func buildJSONBlockSummary(blk *block.Block, isTrunk bool, logsBloom string, baseFeePerGas *big.Int) *JSONBlockSummary {
 	header := blk.Header()
 	signer, _ := header.Signer()
 
@@ -195,6 +198,7 @@ func buildJSONBlockSummary(blk *block.Block, isTrunk bool, logsBloom string) *JS
 		Epoch:            epoch,
 		KblockData:       make([]string, 0),
 		LogsBloom:        logsBloom,
+		BaseFeePerGas:    baseFeePerGas.Uint64(),
 	}
 	var err error
 	if blk.QC != nil {
@@ -255,7 +259,7 @@ func buildJSONOutput(c *tx.Clause, contractAddr *meter.Address, o *tx.Output) *J
 	return jo
 }
 
-func buildJSONEmbeddedTxs(txs tx.Transactions, receipts tx.Receipts) []*JSONEmbeddedTx {
+func buildJSONEmbeddedTxs(txs tx.Transactions, receipts tx.Receipts, baseGasFee *big.Int) []*JSONEmbeddedTx {
 	jTxs := make([]*JSONEmbeddedTx, 0, len(txs))
 	for itx, tx := range txs {
 		receipt := receipts[itx]
@@ -294,6 +298,7 @@ func buildJSONEmbeddedTxs(txs tx.Transactions, receipts tx.Receipts) []*JSONEmbe
 			BlockRef:     hexutil.Encode(blockRef[:]),
 			Expiration:   tx.Expiration(),
 			Clauses:      jcs,
+			GasPrice:     tx.GasPrice(baseGasFee).Uint64(),
 			GasPriceCoef: tx.GasPriceCoef(),
 			Gas:          tx.Gas(),
 			Origin:       origin,

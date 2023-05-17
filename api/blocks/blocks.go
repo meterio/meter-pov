@@ -15,19 +15,23 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/meterio/meter-pov/api/utils"
 	"github.com/meterio/meter-pov/block"
+	"github.com/meterio/meter-pov/builtin"
 	"github.com/meterio/meter-pov/chain"
 	"github.com/meterio/meter-pov/meter"
+	"github.com/meterio/meter-pov/state"
 	"github.com/meterio/meter-pov/tx"
 	"github.com/pkg/errors"
 )
 
 type Blocks struct {
-	chain *chain.Chain
+	chain  *chain.Chain
+	stateC *state.Creator
 }
 
-func New(chain *chain.Chain) *Blocks {
+func New(chain *chain.Chain, stateC *state.Creator) *Blocks {
 	return &Blocks{
 		chain,
+		stateC,
 	}
 }
 
@@ -75,7 +79,12 @@ func (b *Blocks) handleGetBlock(w http.ResponseWriter, req *http.Request) error 
 	}
 	bloom := tx.CreateEthBloom(receipts)
 	logsBloom := "0x" + hex.EncodeToString(bloom.Bytes())
-	jSummary := buildJSONBlockSummary(block, isTrunk, logsBloom)
+	s, e := b.stateC.NewState(block.StateRoot())
+	if e != nil {
+		return e
+	}
+	baseGasFee := builtin.Params.Native(s).Get(meter.KeyBaseGasPrice)
+	jSummary := buildJSONBlockSummary(block, isTrunk, logsBloom, baseGasFee)
 	if expanded == "true" {
 		var receipts tx.Receipts
 		var err error
@@ -93,7 +102,7 @@ func (b *Blocks) handleGetBlock(w http.ResponseWriter, req *http.Request) error 
 
 		return utils.WriteJSON(w, &JSONExpandedBlock{
 			jSummary,
-			buildJSONEmbeddedTxs(txs, receipts),
+			buildJSONEmbeddedTxs(txs, receipts, baseGasFee),
 		})
 	}
 	txIds := make([]meter.Bytes32, 0)
@@ -306,8 +315,22 @@ func (b *Blocks) handleGetEpochPowInfo(w http.ResponseWriter, req *http.Request)
 	return utils.WriteJSON(w, jEpoch)
 }
 
+func (b *Blocks) handleGetBaseFee(w http.ResponseWriter, req *http.Request) error {
+	headBlock := b.chain.BestBlock()
+	if headBlock == nil {
+		return errors.New("could not load latest block")
+	}
+	s, err := b.stateC.NewState(headBlock.StateRoot())
+	if err != nil {
+		return err
+	}
+	baseGasPrice := builtin.Params.Native(s).Get(meter.KeyBaseGasPrice)
+	return utils.WriteJSON(w, baseGasPrice)
+}
+
 func (b *Blocks) Mount(root *mux.Router, pathPrefix string) {
 	sub := root.PathPrefix(pathPrefix).Subrouter()
+	sub.Path("/baseFee").Methods("GET").HandlerFunc(utils.WrapHandlerFunc(b.handleGetBaseFee))
 	sub.Path("/qc/{revision}").Methods("Get").HandlerFunc(utils.WrapHandlerFunc(b.handleGetQC))
 	sub.Path("/{revision}").Methods("GET").HandlerFunc(utils.WrapHandlerFunc(b.handleGetBlock))
 	sub.Path("/epoch/{epoch}").Methods("Get").HandlerFunc(utils.WrapHandlerFunc(b.handleGetEpochPowInfo))
