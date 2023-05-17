@@ -91,6 +91,7 @@ type Transaction struct {
 	Expiration   uint32              `json:"expiration"`
 	Clauses      Clauses             `json:"clauses"`
 	GasPriceCoef uint8               `json:"gasPriceCoef"`
+	GasPrice     uint64              `json:"gasPrice"`
 	Gas          uint64              `json:"gas"`
 	Origin       meter.Address       `json:"origin"`
 	Nonce        math.HexOrDecimal64 `json:"nonce"`
@@ -177,7 +178,7 @@ type rawTransaction struct {
 }
 
 // convertTransaction convert a raw transaction into a json format transaction
-func convertTransaction(tx *tx.Transaction, header *block.Header, txIndex uint64) (*Transaction, error) {
+func convertTransaction(tx *tx.Transaction, header *block.Header, txIndex uint64, gasPrice *big.Int) (*Transaction, error) {
 	//tx signer
 	signer, err := tx.Signer()
 	if err != nil {
@@ -223,6 +224,7 @@ func convertTransaction(tx *tx.Transaction, header *block.Header, txIndex uint64
 		Nonce:        math.HexOrDecimal64(tx.Nonce()),
 		Size:         uint32(tx.Size()),
 		GasPriceCoef: tx.GasPriceCoef(),
+		GasPrice:     gasPrice.Uint64(),
 		Gas:          tx.Gas(),
 		DependsOn:    tx.DependsOn(),
 		Clauses:      cls,

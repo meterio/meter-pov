@@ -19,8 +19,10 @@ import (
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/gorilla/mux"
 	"github.com/meterio/meter-pov/api/utils"
+	"github.com/meterio/meter-pov/builtin"
 	"github.com/meterio/meter-pov/chain"
 	"github.com/meterio/meter-pov/meter"
+	"github.com/meterio/meter-pov/state"
 	"github.com/meterio/meter-pov/tx"
 	"github.com/meterio/meter-pov/txpool"
 	"github.com/pkg/errors"
@@ -31,13 +33,15 @@ const (
 )
 
 type Transactions struct {
-	chain *chain.Chain
-	pool  *txpool.TxPool
+	chain        *chain.Chain
+	stateCreator *state.Creator
+	pool         *txpool.TxPool
 }
 
-func New(chain *chain.Chain, pool *txpool.TxPool) *Transactions {
+func New(chain *chain.Chain, stateCreator *state.Creator, pool *txpool.TxPool) *Transactions {
 	return &Transactions{
 		chain,
+		stateCreator,
 		pool,
 	}
 }
@@ -89,7 +93,14 @@ func (t *Transactions) getTransactionByID(txID meter.Bytes32, blockID meter.Byte
 		if t.chain.IsNotFound(err) {
 			if allowPending {
 				if pending := t.pool.Get(txID); pending != nil {
-					return convertTransaction(pending, nil, 0)
+					bestBlock := t.chain.BestBlock()
+					s, e := t.stateCreator.NewState(bestBlock.StateRoot())
+					if e != nil {
+						return nil, e
+					}
+					baseGasPrice := builtin.Params.Native(s).Get(meter.KeyBaseGasPrice)
+					gasPrice := pending.GasPrice(baseGasPrice)
+					return convertTransaction(pending, nil, 0, gasPrice)
 				}
 			}
 			return nil, nil
@@ -104,7 +115,13 @@ func (t *Transactions) getTransactionByID(txID meter.Bytes32, blockID meter.Byte
 	if err != nil {
 		return nil, err
 	}
-	return convertTransaction(tx, h, txMeta.Index)
+	s, err := t.stateCreator.NewState(h.StateRoot())
+	if err != nil {
+		return nil, err
+	}
+	baseGasPrice := builtin.Params.Native(s).Get(meter.KeyBaseGasPrice)
+	gasPrice := tx.GasPrice(baseGasPrice)
+	return convertTransaction(tx, h, txMeta.Index, gasPrice)
 }
 
 // GetTransactionReceiptByID get tx's receipt
@@ -262,6 +279,19 @@ func (t *Transactions) handleSendTransaction(w http.ResponseWriter, req *http.Re
 	}
 }
 
+func (t *Transactions) handleGetGasPrice(w http.ResponseWriter, req *http.Request) error {
+	headBlock := t.chain.BestBlock()
+	if headBlock == nil {
+		return errors.New("could not load latest block")
+	}
+	s, err := t.stateCreator.NewState(headBlock.StateRoot())
+	if err != nil {
+		return err
+	}
+	baseGasPrice := builtin.Params.Native(s).Get(meter.KeyBaseGasPrice)
+	return utils.WriteJSON(w, baseGasPrice)
+}
+
 func (t *Transactions) handleGetTransactionByID(w http.ResponseWriter, req *http.Request) error {
 	id := mux.Vars(req)["id"]
 	txID, err := meter.ParseBytes32(id)
@@ -343,6 +373,11 @@ func (t *Transactions) handleGetRecentTransactions(w http.ResponseWriter, req *h
 	var err error
 	for best.Number() > 0 {
 		blockHeader := best.Header()
+		s, e := t.stateCreator.NewState(blockHeader.StateRoot())
+		if e != nil {
+			return e
+		}
+		baseGasPrice := builtin.Params.Native(s).Get(meter.KeyBaseGasPrice)
 		for _, tx := range best.Txs {
 			txMeta, err := t.chain.GetTransactionMeta(tx.ID(), blockHeader.ID())
 			if err != nil {
@@ -351,7 +386,8 @@ func (t *Transactions) handleGetRecentTransactions(w http.ResponseWriter, req *h
 				}
 				continue
 			}
-			converted, err := convertTransaction(tx, blockHeader, txMeta.Index)
+			gasPrice := tx.GasPrice(baseGasPrice)
+			converted, err := convertTransaction(tx, blockHeader, txMeta.Index, gasPrice)
 			if err != nil {
 				continue
 			}
@@ -382,4 +418,6 @@ func (t *Transactions) Mount(root *mux.Router, pathPrefix string) {
 	sub.Path("/recent").Methods("GET").HandlerFunc(utils.WrapHandlerFunc(t.handleGetRecentTransactions))
 	sub.Path("/{id}").Methods("GET").HandlerFunc(utils.WrapHandlerFunc(t.handleGetTransactionByID))
 	sub.Path("/{id}/receipt").Methods("GET").HandlerFunc(utils.WrapHandlerFunc(t.handleGetTransactionReceiptByID))
+	sub.Path("/gasprice").Methods("GET").HandlerFunc(utils.WrapHandlerFunc(t.handleGetGasPrice))
+
 }

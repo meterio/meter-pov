@@ -74,7 +74,7 @@ func New(chain *chain.Chain, stateCreator *state.Creator, txPool *txpool.TxPool,
 		Mount(router, "/logs/transfer")
 	blocks.New(chain).
 		Mount(router, "/blocks")
-	transactions.New(chain, txPool).
+	transactions.New(chain, stateCreator, txPool).
 		Mount(router, "/transactions")
 	debug.New(chain, stateCreator).
 		Mount(router, "/debug")
