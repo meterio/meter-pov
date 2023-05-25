@@ -285,7 +285,11 @@ func (p *Pacemaker) OnCommit(commitReady []*pmBlock) {
 		err := p.commitBlock(b.ProposedBlockInfo, bestQC)
 		if err != nil {
 			if err != chain.ErrBlockExist && err != errKnownBlock {
-				p.logger.Warn("commit block failed ...", "error", err)
+				if b.ProposedBlockInfo.ProposedBlock != nil {
+					p.logger.Warn("commit failed !!!", "err", err, "blk", b.ProposedBlockInfo.ProposedBlock.CompactString())
+				} else {
+					p.logger.Warn("commit failed !!!", "err", err)
+				}
 				//revert to checkpoint
 				best := p.csReactor.chain.BestBlock()
 				state, err := p.csReactor.stateCreator.NewState(best.Header().StateRoot())
@@ -336,7 +340,11 @@ func (p *Pacemaker) OnPreCommitBlock(b *pmBlock) error {
 	err := p.precommitBlock(b.ProposedBlockInfo)
 
 	if err != nil && err != chain.ErrBlockExist {
-		p.logger.Warn("precommit failed", "err", err)
+		if b.ProposedBlockInfo.ProposedBlock != nil {
+			p.logger.Warn("precommit failed !!!", "err", err, "blk", b.ProposedBlockInfo.ProposedBlock.CompactString())
+		} else {
+			p.logger.Warn("precommit failed !!!", "err", err)
+		}
 		return err
 	}
 	return nil
@@ -456,6 +464,12 @@ func (p *Pacemaker) OnReceiveProposal(mi *consensusMsgInfo) error {
 			ProposedBlock:     proposalMsg.ProposedBlock,
 			ProposedBlockType: proposalMsg.ProposedBlockType,
 		})
+	}
+
+	bestBlock := p.csReactor.chain.BestBlock()
+	if bestBlock != nil && height <= bestBlock.Number() {
+		p.logger.Info("recved proposal with height <= bestBlock.height, skip processing ...")
+		return nil
 	}
 
 	bnew := p.proposalMap.Get(height)
@@ -1375,7 +1389,7 @@ func (p *Pacemaker) startRoundTimer(round uint32, reason roundTimerUpdateReason)
 			power = p.timeoutCounter - 1
 		}
 		timeoutInterval := baseInterval * (1 << power)
-		p.logger.Info(fmt.Sprintf("» start round %d timer", round), "interval", int64(timeoutInterval/time.Second), "timeoutCount", p.timeoutCounter)
+		p.logger.Info(fmt.Sprintf("> start round %d timer", round), "interval", int64(timeoutInterval/time.Second), "timeoutCount", p.timeoutCounter)
 		p.roundTimer = time.AfterFunc(timeoutInterval, func() {
 			p.roundTimeoutCh <- PMRoundTimeoutInfo{round: round, counter: p.timeoutCounter}
 		})

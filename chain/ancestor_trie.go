@@ -6,6 +6,8 @@
 package chain
 
 import (
+	"fmt"
+
 	lru "github.com/hashicorp/golang-lru"
 	"github.com/meterio/meter-pov/block"
 	"github.com/meterio/meter-pov/kv"
@@ -52,7 +54,8 @@ func (at *ancestorTrie) Update(w kv.Putter, num uint32, id, parentID meter.Bytes
 		// non-genesis
 		root, err := at.rootsCache.GetOrLoad(parentID)
 		if err != nil {
-			return errors.WithMessage(err, "load index root")
+			fmt.Println("could not load index root in update for ", parentID)
+			return errors.WithMessage(err, "load index root in update")
 		}
 		parentRoot = root.(meter.Bytes32)
 	}
@@ -96,7 +99,8 @@ func (at *ancestorTrie) GetAncestor(descendantID meter.Bytes32, ancestorNum uint
 
 	root, err := at.rootsCache.GetOrLoad(descendantID)
 	if err != nil {
-		return meter.Bytes32{}, errors.WithMessage(err, "load index root")
+		fmt.Println("could not load index root in getAncestor for ", descendantID)
+		return meter.Bytes32{}, errors.WithMessage(err, "load index root in getAncestor")
 	}
 	tr, err := at.trieCache.Get(root.(meter.Bytes32), at.kv, false)
 	if err != nil {
