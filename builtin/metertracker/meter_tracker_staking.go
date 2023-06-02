@@ -273,6 +273,14 @@ func (e *MeterTracker) BucketUpdateCandidate(owner meter.Address, id meter.Bytes
 		return errBucketNotListed
 	}
 
+	if b.Owner != owner {
+		return errBucketNotOwned
+	}
+
+	if b.IsForeverLock() {
+		return errNoUpdateAllowedOnForeverBucket
+	}
+
 	nc := candidateList.Get(newCandidateAddr)
 	if nc == nil {
 		return errCandidateNotListed
