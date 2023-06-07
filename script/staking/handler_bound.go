@@ -34,6 +34,12 @@ func (s *Staking) BoundHandler(env *setypes.ScriptEnv, sb *StakingBody, gas uint
 		return
 	}
 
+	if sb.Token != meter.MTRG {
+		err = errInvalidToken
+		s.logger.Error("invalid token")
+		return
+	}
+
 	number := env.GetBlockNum()
 	// check if candidate exists or not
 	setCand := !sb.CandAddr.IsZero()
@@ -61,10 +67,10 @@ func (s *Staking) BoundHandler(env *setypes.ScriptEnv, sb *StakingBody, gas uint
 
 	// check the account have enough balance
 	switch sb.Token {
-	case meter.MTR:
-		if state.GetEnergy(sb.HolderAddr).Cmp(sb.Amount) < 0 {
-			err = errors.New("not enough meter balance")
-		}
+	// case meter.MTR:
+	// 	if state.GetEnergy(sb.HolderAddr).Cmp(sb.Amount) < 0 {
+	// 		err = errors.New("not enough meter balance")
+	// 	}
 	case meter.MTRG:
 		if state.GetBalance(sb.HolderAddr).Cmp(sb.Amount) < 0 {
 			err = errors.New("not enough meter-gov balance")
@@ -122,8 +128,8 @@ func (s *Staking) BoundHandler(env *setypes.ScriptEnv, sb *StakingBody, gas uint
 	}
 
 	switch sb.Token {
-	case meter.MTR:
-		err = env.BoundAccountMeter(sb.HolderAddr, sb.Amount)
+	// case meter.MTR:
+	// 	err = env.BoundAccountMeter(sb.HolderAddr, sb.Amount)
 	case meter.MTRG:
 		err = env.BoundAccountMeterGov(sb.HolderAddr, sb.Amount)
 	default:
