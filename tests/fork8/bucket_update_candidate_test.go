@@ -57,4 +57,24 @@ func TestBucketUpdateCandidate(t *testing.T) {
 	assert.Equal(t, bkt.TotalVotes.String(), new(big.Int).Sub(fromCanVotes, fromCanVotesAfter).String(), "should sub from from candidate")
 	assert.Equal(t, bkt.TotalVotes.String(), new(big.Int).Sub(toCanVotesAfter, toCanVotes).String(), "should add to to candidate")
 
+	fromCan := tenv.State.GetCandidateList().Get(tests.CandAddr)
+	toCan := tenv.State.GetCandidateList().Get(tests.Cand2Addr)
+
+	// bucket should be removed from (from candidate)
+	inFromBuckets := false
+	for _, bid := range fromCan.Buckets {
+		if bid.String() == bktID.String() {
+			inFromBuckets = true
+		}
+	}
+	assert.False(t, inFromBuckets)
+
+	// bucket should be added to (to candidate)
+	inToBuckets := false
+	for _, bid := range toCan.Buckets {
+		if bid.String() == bktID.String() {
+			inToBuckets = true
+		}
+	}
+	assert.True(t, inToBuckets)
 }

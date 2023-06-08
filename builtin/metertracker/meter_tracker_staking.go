@@ -292,10 +292,12 @@ func (e *MeterTracker) BucketUpdateCandidate(owner meter.Address, id meter.Bytes
 		if c.TotalVotes.Cmp(b.TotalVotes) < 0 {
 			return errNotEnoughVotes
 		}
-		c.TotalVotes.Sub(c.TotalVotes, b.TotalVotes)
+		// c.TotalVotes.Sub(c.TotalVotes, b.TotalVotes)
+		c.RemoveBucket(b)
 	}
 	// add totalVotes to new candidate
-	nc.TotalVotes.Add(nc.TotalVotes, b.TotalVotes)
+	// nc.TotalVotes.Add(nc.TotalVotes, b.TotalVotes)
+	nc.AddBucket(b)
 	b.Candidate = nc.Addr
 
 	e.state.SetBucketList(bucketList)
