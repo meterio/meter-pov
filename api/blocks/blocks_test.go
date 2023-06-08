@@ -122,7 +122,7 @@ func initBlockServer(t *testing.T) {
 		t.Fatal(err)
 	}
 	router := mux.NewRouter()
-	blocks.New(chain).Mount(router, "/blocks")
+	blocks.New(chain, stateC).Mount(router, "/blocks")
 	ts = httptest.NewServer(router)
 	blk = block
 }
