@@ -1,6 +1,8 @@
 package staking
 
 import (
+	"errors"
+
 	"github.com/meterio/meter-pov/meter"
 	setypes "github.com/meterio/meter-pov/script/types"
 )
@@ -37,12 +39,18 @@ func (s *Staking) DelegateHandler(env *setypes.ScriptEnv, sb *StakingBody, gas u
 	if b.Token != sb.Token {
 		return leftOverGas, errBucketTokenMismatch
 	}
-	if b.IsForeverLock() == true {
+	if b.IsForeverLock() {
 		return leftOverGas, errUpdateForeverBucket
 	}
-	if b.Candidate.IsZero() != true {
+	if !b.Candidate.IsZero() {
 		s.logger.Error("bucket is in use", "candidate", b.Candidate)
 		return leftOverGas, errBucketInUse
+	}
+
+	if sb.Autobid > 100 {
+		err = errors.New("autobid > 100%")
+		s.logger.Error("errors", "error", err)
+		return
 	}
 
 	cand := candidateList.Get(sb.CandAddr)

@@ -2,6 +2,7 @@ package staking
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"regexp"
 
@@ -39,10 +40,10 @@ func (s *Staking) CandidateHandler(env *setypes.ScriptEnv, sb *StakingBody, gas 
 
 	// check the account have enough balance
 	switch sb.Token {
-	case meter.MTR:
-		if state.GetEnergy(sb.CandAddr).Cmp(sb.Amount) < 0 {
-			err = errNotEnoughMTR
-		}
+	// case meter.MTR:
+	// 	if state.GetEnergy(sb.CandAddr).Cmp(sb.Amount) < 0 {
+	// 		err = errNotEnoughMTR
+	// 	}
 	case meter.MTRG:
 		if state.GetBalance(sb.CandAddr).Cmp(sb.Amount) < 0 {
 			err = errNotEnoughMTRG
@@ -52,6 +53,12 @@ func (s *Staking) CandidateHandler(env *setypes.ScriptEnv, sb *StakingBody, gas 
 	}
 	if err != nil {
 		s.logger.Error("Errors:", "error", err)
+		return
+	}
+
+	if sb.Autobid > 100 {
+		err = errors.New("autobid > 100%")
+		s.logger.Error("errors", "error", err)
 		return
 	}
 
