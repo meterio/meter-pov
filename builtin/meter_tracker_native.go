@@ -17,10 +17,10 @@ import (
 var (
 	boundEvent, _                = MeterNative_V3_ABI.EventByName("Bound")
 	nativeBucketWithdrawEvent, _ = MeterNative_V3_ABI.EventByName("NativeBucketWithdraw")
+	log                          = log15.New("pkt", "tracker")
 )
 
 func init() {
-	log := log15.New("pkg", "metertracker")
 	defines := []struct {
 		name string
 		run  func(env *xenv.Environment) []interface{}
@@ -240,7 +240,7 @@ func init() {
 				Amount        *big.Int
 			}
 			env.ParseArgs(&args)
-			log.Info("ENTERED BUCKET_OPEN", "candidateAddr", args.CandidateAddr, "amount", args.Amount)
+			log.Info("native_bucket_open", "owner", args.Owner, "candidateAddr", args.CandidateAddr, "amount", args.Amount)
 			if args.Amount.Sign() == 0 {
 				return []interface{}{meter.Bytes32{}, "amount is 0"}
 			}
@@ -269,6 +269,7 @@ func init() {
 				BucketID meter.Bytes32
 			}
 			env.ParseArgs(&args)
+			log.Info("native_bucket_close", "owner", args.Owner, "bucketID", args.BucketID)
 			env.UseGas(meter.GetBalanceGas)
 			err := MeterTracker.Native(env.State()).BucketClose(args.Owner, args.BucketID, env.BlockContext().Time)
 			if err != nil {
@@ -285,6 +286,7 @@ func init() {
 				Amount   *big.Int
 			}
 			env.ParseArgs(&args)
+			log.Info("native_bucket_deposit", "owner", args.Owner, "bucketID", args.BucketID, "amount", args.Amount)
 			env.UseGas(meter.GetBalanceGas)
 			err := MeterTracker.Native(env.State()).BucketDeposit(args.Owner, args.BucketID, args.Amount)
 			if err != nil {
@@ -309,6 +311,7 @@ func init() {
 				Recipient meter.Address
 			}
 			env.ParseArgs(&args)
+			log.Info("native_bucket_withdraw", "owner", args.Owner, "bucketID", args.BucketID, "amount", args.Amount, "recipient", args.Recipient)
 			env.UseGas(meter.GetBalanceGas)
 			txNonce := env.TransactionContext().Nonce
 			clauseIndex := env.ClauseIndex()
@@ -334,6 +337,7 @@ func init() {
 				NewCandidateAddr meter.Address
 			}
 			env.ParseArgs(&args)
+			log.Info("native_bucket_update_candidate", "owner", args.Owner, "bucketID", args.BucketID, "newCandidateAddr", args.NewCandidateAddr)
 			env.UseGas(meter.GetBalanceGas)
 			err := MeterTracker.Native(env.State()).BucketUpdateCandidate(args.Owner, args.BucketID, args.NewCandidateAddr)
 			if err != nil {
