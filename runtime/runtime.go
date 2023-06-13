@@ -392,6 +392,31 @@ func (rt *Runtime) EnforceTeslaFork9_Corrections(stateDB *statedb.StateDB, block
 	}
 }
 
+func (rt *Runtime) EnforceTeslaFork10_Corrections(stateDB *statedb.StateDB, blockNum *big.Int) {
+	blockNumber := rt.Context().Number
+	log := log15.New("pkg", "fork10")
+	if blockNumber > 0 {
+		// flag is nil or 0, is not do. 1 meas done.
+		enforceFlag := builtin.Params.Native(rt.State()).Get(meter.KeyEnforceTesla_Fork10_Correction)
+
+		if meter.IsTeslaFork10(blockNumber) && (enforceFlag == nil || enforceFlag.Sign() == 0) {
+			log.Info("Start fork10 correction")
+
+			// update MTRG with MeterGovERC20Permit V3
+			mtrgAddr := meter.MustParseAddress("0x228ebBeE999c6a7ad74A6130E81b12f9Fe237Ba3")
+			rt.state.SetCode(mtrgAddr, builtin.MeterGovERC20Permit_V3_DeployedBytecode)
+			log.Info("Overriden MTRG with V3 bytecode", "addr", mtrgAddr.String())
+
+			// update MTR with MeterERC20Permit V3
+			mtrAddr := meter.MustParseAddress("0x687a6294d0d6d63e751a059bf1ca68e4ae7b13e2")
+			rt.state.SetCode(mtrAddr, builtin.MeterERC20Permit_V3_DeployedBytecode)
+			log.Info("Overriden MTR with V3 bytecode", "addr", mtrAddr.String())
+
+			log.Info("Finished fork10 correction")
+		}
+	}
+}
+
 func (rt *Runtime) FromNativeContract(caller meter.Address) bool {
 
 	nativeMtrERC20 := builtin.Params.Native(rt.State()).GetAddress(meter.KeyNativeMtrERC20Address)
@@ -781,7 +806,11 @@ func (rt *Runtime) PrepareClause(
 		// tesla fork8 enable liquid staking
 		rt.EnforceTeslaFork8_LiquidStaking(stateDB, evm.BlockNumber)
 
+		// tesla fork9
 		rt.EnforceTeslaFork9_Corrections(stateDB, evm.BlockNumber)
+
+		// tesla fork10
+		rt.EnforceTeslaFork10_Corrections(stateDB, evm.BlockNumber)
 
 		// check the restriction of transfer.
 		if rt.restrictTransfer(stateDB, txCtx.Origin, clause.Value(), clause.Token(), rt.ctx.Number) == true {

@@ -67,6 +67,10 @@ func (a *Address) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
+func (a *Address) EqualFold(b *Address) bool {
+	return strings.EqualFold(a.String(), b.String())
+}
+
 // ParseAddress convert string presented address into Address type.
 func ParseAddress(s string) (Address, error) {
 	if len(s) == AddressLength*2 {
