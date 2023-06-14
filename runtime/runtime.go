@@ -412,6 +412,14 @@ func (rt *Runtime) EnforceTeslaFork10_Corrections(stateDB *statedb.StateDB, bloc
 			rt.state.SetCode(mtrAddr, builtin.MeterERC20Permit_V3_DeployedBytecode)
 			log.Info("Overriden MTR with V3 bytecode", "addr", mtrAddr.String())
 
+			// update MeterNative with V4
+			rt.state.SetCode(builtin.MeterTracker.Address, builtin.MeterNative_V4_DeployedBytecode)
+			log.Info("Overriden MeterNative with V4 bytecode", "addr", builtin.MeterTracker.Address)
+
+			// update ScriptEngine with V2
+			rt.state.SetCode(meter.ScriptEngineSysContractAddr, builtin.ScriptEngine_V2_DeployedBytecode)
+			log.Info("Overriden ScriptEngine with V2 bytecode", "addr", meter.ScriptEngineSysContractAddr)
+
 			log.Info("Finished fork10 correction")
 		}
 	}

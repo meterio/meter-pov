@@ -167,6 +167,7 @@ func (s *Staking) BucketUpdateHandler(env *setypes.ScriptEnv, sb *StakingBody, g
 		}
 
 		if sb.Option == meter.BUCKET_ADD_OPT {
+
 			// Now allow to change forever lock amount
 			if bucket.Unbounded {
 				s.logger.Error(fmt.Sprintf("can not update unbounded bucket, ID %v", sb.StakingID))

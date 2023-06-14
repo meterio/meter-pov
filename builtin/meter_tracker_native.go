@@ -346,6 +346,49 @@ func init() {
 
 			return []interface{}{""}
 		}},
+		{"native_bucket_transfer_fund", func(env *xenv.Environment) []interface{} {
+			var args struct {
+				Owner        meter.Address
+				FromBucketID meter.Bytes32
+				ToBucketID   meter.Bytes32
+				Amount       *big.Int
+			}
+			env.ParseArgs(&args)
+			log.Info("native_bucket_transfer_fund", "fromBucketID", args.FromBucketID, "toBucketID", args.ToBucketID, "amount", args.Amount)
+			env.UseGas(meter.GetBalanceGas)
+			err := MeterTracker.Native(env.State()).BucketTransferFund(args.Owner, args.FromBucketID, args.ToBucketID, args.Amount)
+			if err != nil {
+				return []interface{}{err.Error()}
+			}
+
+			return []interface{}{""}
+		}},
+		{"native_bucket_merge", func(env *xenv.Environment) []interface{} {
+			var args struct {
+				Owner        meter.Address
+				FromBucketID meter.Bytes32
+				ToBucketID   meter.Bytes32
+			}
+			env.ParseArgs(&args)
+			log.Info("native_bucket_merge", "fromBucketID", args.FromBucketID, "toBucketID", args.ToBucketID)
+			env.UseGas(meter.GetBalanceGas)
+			err := MeterTracker.Native(env.State()).BucketMerge(args.Owner, args.FromBucketID, args.ToBucketID)
+			if err != nil {
+				return []interface{}{err.Error()}
+			}
+
+			return []interface{}{""}
+		}},
+		{"native_bucket_value", func(env *xenv.Environment) []interface{} {
+			var args struct {
+				BucketID meter.Bytes32
+			}
+			env.ParseArgs(&args)
+			log.Info("native_bucket_value", "bucketID", args.BucketID)
+			env.UseGas(meter.GetBalanceGas)
+			val, _ := MeterTracker.Native(env.State()).BucketValue(args.BucketID)
+			return []interface{}{val}
+		}},
 	}
 	//abi := GetContractABI("NewMeterNative")
 	abi := MeterNative_V3_ABI

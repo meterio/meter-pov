@@ -123,27 +123,9 @@ func (e *MeterTracker) BucketOpen(owner meter.Address, candAddr meter.Address, a
 
 func (e *MeterTracker) BucketClose(owner meter.Address, id meter.Bytes32, timestamp uint64) error {
 	bucketList := e.state.GetBucketList()
-
 	b := bucketList.Get(id)
-
-	// assert bucket listed
-	if b == nil {
-		return errBucketNotListed
-	}
-
-	// assert bucket not unbounded
-	if b.Unbounded {
-		return errBucketAlreadyUnbounded
-	}
-
-	// assert bucket owned
-	if b.Owner != owner {
-		return errBucketNotOwned
-	}
-
-	// assert bucket not forever
-	if b.IsForeverLock() {
-		return errNoUpdateAllowedOnForeverBucket
+	if err := e.checkBucket(b, owner); err != nil {
+		return err
 	}
 
 	// sanity check done, take action
@@ -154,12 +136,7 @@ func (e *MeterTracker) BucketClose(owner meter.Address, id meter.Bytes32, timest
 	return nil
 }
 
-func (e *MeterTracker) BucketDeposit(owner meter.Address, id meter.Bytes32, amount *big.Int) error {
-	candidateList := e.state.GetCandidateList()
-	bucketList := e.state.GetBucketList()
-
-	b := bucketList.Get(id)
-
+func (e *MeterTracker) checkBucket(b *meter.Bucket, owner meter.Address) error {
 	// assert bucket listed
 	if b == nil {
 		return errBucketNotListed
@@ -178,6 +155,17 @@ func (e *MeterTracker) BucketDeposit(owner meter.Address, id meter.Bytes32, amou
 	// assert bucket not forever
 	if b.IsForeverLock() {
 		return errNoUpdateAllowedOnForeverBucket
+	}
+	return nil
+}
+
+func (e *MeterTracker) BucketDeposit(owner meter.Address, id meter.Bytes32, amount *big.Int) error {
+	candidateList := e.state.GetCandidateList()
+	bucketList := e.state.GetBucketList()
+
+	b := bucketList.Get(id)
+	if err := e.checkBucket(b, owner); err != nil {
+		return err
 	}
 
 	// assert balance(owner) > amount
@@ -217,24 +205,8 @@ func (e *MeterTracker) BucketWithdraw(owner meter.Address, id meter.Bytes32, amo
 	emptyBktID := meter.Bytes32{}
 	b := bucketList.Get(id)
 
-	// assert bucket listed
-	if b == nil {
-		return emptyBktID, errBucketNotListed
-	}
-
-	// assert bucket not unbounded
-	if b.Unbounded {
-		return emptyBktID, errBucketAlreadyUnbounded
-	}
-
-	// assert bucket owned
-	if b.Owner != owner {
-		return emptyBktID, errBucketNotOwned
-	}
-
-	// assert bucket not forever
-	if b.IsForeverLock() {
-		return emptyBktID, errNoUpdateAllowedOnForeverBucket
+	if err := e.checkBucket(b, owner); err != nil {
+		return emptyBktID, err
 	}
 
 	// assert boundedBalance(owner) > amount
@@ -295,18 +267,22 @@ func (e *MeterTracker) BucketUpdateCandidate(owner meter.Address, id meter.Bytes
 	bucketList := e.state.GetBucketList()
 
 	b := bucketList.Get(id)
+	// assert bucket listed
 	if b == nil {
 		return errBucketNotListed
 	}
 
+	// assert bucket owned
 	if b.Owner != owner {
 		return errBucketNotOwned
 	}
 
+	// assert bucket not forever
 	if b.IsForeverLock() {
 		return errNoUpdateAllowedOnForeverBucket
 	}
 
+	// assert candidate listed
 	nc := candidateList.Get(newCandidateAddr)
 	if nc == nil {
 		return errCandidateNotListed
@@ -326,7 +302,117 @@ func (e *MeterTracker) BucketUpdateCandidate(owner meter.Address, id meter.Bytes
 	nc.AddBucket(b)
 	b.Candidate = nc.Addr
 
+	bucketList.Remove(id)
 	e.state.SetBucketList(bucketList)
 	e.state.SetCandidateList(candidateList)
 	return nil
+}
+
+func (e *MeterTracker) BucketMerge(owner meter.Address, fromBucketID meter.Bytes32, toBucketID meter.Bytes32) error {
+	candidateList := e.state.GetCandidateList()
+	bucketList := e.state.GetBucketList()
+
+	fromBkt := bucketList.Get(fromBucketID)
+	toBkt := bucketList.Get(toBucketID)
+	if err := e.checkBucket(fromBkt, owner); err != nil {
+		return err
+	}
+	if err := e.checkBucket(toBkt, owner); err != nil {
+		return err
+	}
+
+	fromCand := candidateList.Get(fromBkt.Candidate)
+	toCand := candidateList.Get(toBkt.Candidate)
+
+	if fromCand != nil {
+		fromCand.RemoveBucket(fromBkt)
+	}
+	toBkt.BonusVotes = toBkt.BonusVotes + fromBkt.BonusVotes
+	toBkt.Value.Add(toBkt.Value, fromBkt.Value)
+	toBkt.TotalVotes.Add(toBkt.TotalVotes, fromBkt.TotalVotes)
+
+	if toCand != nil {
+		toCand.TotalVotes.Add(toCand.TotalVotes, fromBkt.TotalVotes)
+	}
+
+	bucketList.Remove(fromBucketID)
+	e.state.SetBucketList(bucketList)
+	e.state.SetCandidateList(candidateList)
+	return nil
+}
+
+func (e *MeterTracker) BucketTransferFund(owner meter.Address, fromBucketID meter.Bytes32, toBucketID meter.Bytes32, amount *big.Int) error {
+	candidateList := e.state.GetCandidateList()
+	bucketList := e.state.GetBucketList()
+
+	fromBkt := bucketList.Get(fromBucketID)
+	toBkt := bucketList.Get(toBucketID)
+	if err := e.checkBucket(fromBkt, owner); err != nil {
+		return err
+	}
+	if err := e.checkBucket(toBkt, owner); err != nil {
+		return err
+	}
+
+	// assert boundedBalance(owner) > amount
+	if e.state.GetBoundedBalance(owner).Cmp(amount) < 0 {
+		return errNotEnoughBoundedBalance
+	}
+
+	// assert from bucket value > amount
+	if fromBkt.Value.Cmp(amount) < 0 || fromBkt.TotalVotes.Cmp(amount) < 0 {
+		return errBucketNotEnoughValue
+	}
+
+	// assert leftover votes > staking requirement
+	valueAfterTransfer := new(big.Int).Sub(fromBkt.Value, amount)
+	if valueAfterTransfer.Cmp(meter.MIN_BOUND_BALANCE) < 0 {
+		return errLessThanMinBoundBalance
+	}
+
+	// bonus is substracted porpotionally
+	fromBonus := new(big.Int).Sub(fromBkt.TotalVotes, fromBkt.Value)
+	// bonus delta = oldBonus * (amount/bucket value)
+	bonusDelta := new(big.Int).Mul(fromBonus, amount)
+	bonusDelta.Div(bonusDelta, fromBkt.Value)
+
+	// update from bucket
+	fromBkt.BonusVotes = new(big.Int).Sub(fromBonus, bonusDelta).Uint64()
+	fromBkt.Value.Sub(fromBkt.Value, amount)
+	fromBkt.TotalVotes.Sub(fromBkt.TotalVotes, amount)
+	fromBkt.TotalVotes.Sub(fromBkt.TotalVotes, bonusDelta)
+
+	// update to bucket
+	toBkt.BonusVotes = toBkt.BonusVotes + bonusDelta.Uint64()
+	toBkt.Value.Add(toBkt.Value, amount)
+	toBkt.TotalVotes.Add(toBkt.TotalVotes, amount)
+	toBkt.TotalVotes.Add(toBkt.TotalVotes, bonusDelta)
+
+	fromCand := candidateList.Get(fromBkt.Candidate)
+	toCand := candidateList.Get(toBkt.Candidate)
+
+	// update from candidate if exists
+	if fromCand != nil {
+		fromCand.TotalVotes.Sub(fromCand.TotalVotes, amount)
+		fromCand.TotalVotes.Sub(fromCand.TotalVotes, bonusDelta)
+	}
+
+	// update to candidate if exists
+	if toCand != nil {
+		toCand.TotalVotes.Add(toCand.TotalVotes, amount)
+		toCand.TotalVotes.Add(toCand.TotalVotes, bonusDelta)
+	}
+
+	e.state.SetBucketList(bucketList)
+	e.state.SetCandidateList(candidateList)
+	return nil
+}
+
+func (e *MeterTracker) BucketValue(id meter.Bytes32) (*big.Int, error) {
+	bucketList := e.state.GetBucketList()
+	b := bucketList.Get(id)
+	if b == nil {
+		return new(big.Int), errBucketNotListed
+	}
+	return b.Value, nil
 }
