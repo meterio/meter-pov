@@ -34,6 +34,7 @@ func TestBucketUpdateCandidate(t *testing.T) {
 	bktID := tests.BucketID(tests.HolderAddr, tenv.CurrentTS, txNonce+0)
 
 	assert.NotNil(t, bktID)
+	assert.NotNil(t, tenv.State.GetBucketList().Get(bktID))
 
 	bucketUpdateCandidateFunc, found := builtin.ScriptEngine_ABI.MethodByName("bucketUpdateCandidate")
 	assert.True(t, found)
