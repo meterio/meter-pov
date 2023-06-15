@@ -391,7 +391,7 @@ func init() {
 		}},
 	}
 	//abi := GetContractABI("NewMeterNative")
-	abi := MeterNative_V3_ABI
+	abi := MeterNative_V4_ABI
 	for _, def := range defines {
 		if method, found := abi.MethodByName(def.name); found {
 			nativeMethods[methodKey{MeterTracker.Address, method.ID()}] = &nativeMethod{

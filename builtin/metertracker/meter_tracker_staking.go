@@ -3,6 +3,7 @@ package metertracker
 import (
 	"errors"
 	"math/big"
+	"strings"
 
 	"github.com/meterio/meter-pov/meter"
 )
@@ -22,6 +23,7 @@ var (
 	errNoUpdateAllowedOnForeverBucket = errors.New("no update allowed on forever bucket")
 	errBucketAlreadyUnbounded         = errors.New("bucket already unbounded")
 	errBucketNotEnoughValue           = errors.New("not enough value")
+	errBucketNotMergableToItself      = errors.New("bucket not mergable to itself")
 )
 
 func (e *MeterTracker) BoundMeterGov(addr meter.Address, amount *big.Int) error {
@@ -302,7 +304,6 @@ func (e *MeterTracker) BucketUpdateCandidate(owner meter.Address, id meter.Bytes
 	nc.AddBucket(b)
 	b.Candidate = nc.Addr
 
-	bucketList.Remove(id)
 	e.state.SetBucketList(bucketList)
 	e.state.SetCandidateList(candidateList)
 	return nil
@@ -312,6 +313,9 @@ func (e *MeterTracker) BucketMerge(owner meter.Address, fromBucketID meter.Bytes
 	candidateList := e.state.GetCandidateList()
 	bucketList := e.state.GetBucketList()
 
+	if strings.EqualFold(fromBucketID.String(), toBucketID.String()) {
+		return errBucketNotMergableToItself
+	}
 	fromBkt := bucketList.Get(fromBucketID)
 	toBkt := bucketList.Get(toBucketID)
 	if err := e.checkBucket(fromBkt, owner); err != nil {
@@ -327,6 +331,7 @@ func (e *MeterTracker) BucketMerge(owner meter.Address, fromBucketID meter.Bytes
 	if fromCand != nil {
 		fromCand.RemoveBucket(fromBkt)
 	}
+	// BonusVotes has been deprecated, could be inferred by (totalVotes - value)
 	toBkt.BonusVotes = toBkt.BonusVotes + fromBkt.BonusVotes
 	toBkt.Value.Add(toBkt.Value, fromBkt.Value)
 	toBkt.TotalVotes.Add(toBkt.TotalVotes, fromBkt.TotalVotes)
@@ -347,6 +352,10 @@ func (e *MeterTracker) BucketTransferFund(owner meter.Address, fromBucketID mete
 
 	fromBkt := bucketList.Get(fromBucketID)
 	toBkt := bucketList.Get(toBucketID)
+	if strings.EqualFold(fromBucketID.String(), toBucketID.String()) {
+		return errBucketNotMergableToItself
+	}
+
 	if err := e.checkBucket(fromBkt, owner); err != nil {
 		return err
 	}
