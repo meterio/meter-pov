@@ -420,6 +420,7 @@ func (rt *Runtime) EnforceTeslaFork10_Corrections(stateDB *statedb.StateDB, bloc
 			rt.state.SetCode(meter.ScriptEngineSysContractAddr, builtin.ScriptEngine_V2_DeployedBytecode)
 			log.Info("Overriden ScriptEngine with V2 bytecode", "addr", meter.ScriptEngineSysContractAddr)
 
+			builtin.Params.Native(rt.State()).Set(meter.KeyEnforceTesla_Fork10_Correction, big.NewInt(1))
 			log.Info("Finished fork10 correction")
 		}
 	}
