@@ -159,7 +159,7 @@ const (
 
 const (
 	TeslaFork10_MainnetStartNum = 99999999 // TODO: TBD
-	TeslaFork10_TestnetStartNum = 99999999 // TODO: TBD
+	TeslaFork10_TestnetStartNum = 36782600 // around 6/17/2023 12:00 AM (PDT)
 )
 
 var (
