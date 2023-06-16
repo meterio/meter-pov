@@ -9,14 +9,15 @@ import (
 )
 
 var (
-	errLessThanMinBoundBalance = errors.New("bound amount < minimal " + new(big.Int).Div(meter.MIN_BOUND_BALANCE, big.NewInt(1e18)).String() + " MTRG")
-	errZeroAmount              = errors.New("zero amount")
-	errEmptyCandidate          = errors.New("empty candidate address")
-	errCandidateNotListed      = errors.New("candidate not listed")
-	errNotEnoughBalance        = errors.New("not enough balance")
-	errNotEnoughBoundedBalance = errors.New("not enough bounded balance")
-	errSelfVoteNotAllowed      = errors.New("self vote not allowed")
-	errNotEnoughVotes          = errors.New("not enough votes")
+	errLessThanMinBoundBalance     = errors.New("bound amount < minimal " + new(big.Int).Div(meter.MIN_BOUND_BALANCE, big.NewInt(1e18)).String() + " MTRG")
+	errZeroAmount                  = errors.New("zero amount")
+	errEmptyCandidate              = errors.New("empty candidate address")
+	errCandidateNotListed          = errors.New("candidate not listed")
+	errNotEnoughBalance            = errors.New("not enough balance")
+	errNotEnoughBoundedBalance     = errors.New("not enough bounded balance")
+	errSelfVoteNotAllowed          = errors.New("self vote not allowed")
+	errNotEnoughVotes              = errors.New("not enough votes")
+	errCandidateNotEnoughSelfVotes = errors.New("candidate's accumulated votes > 100x candidate's own vote")
 
 	errBucketNotListed                = errors.New("bucket not listed")
 	errBucketNotOwned                 = errors.New("bucket not owned")
@@ -161,6 +162,57 @@ func (e *MeterTracker) checkBucket(b *meter.Bucket, owner meter.Address) error {
 	return nil
 }
 
+func CorrectCheckEnoughSelfVotes(c *meter.Candidate, bl *meter.BucketList, selfVoteRatio int64, addSelfValue *big.Int, subSelfValue *big.Int, addTotalValue *big.Int, subTotalValue *big.Int) bool {
+	selfValue := big.NewInt(0)
+	totalValue := big.NewInt(0)
+	for _, b := range bl.Buckets {
+		if b.Owner == c.Addr && b.Candidate == c.Addr && b.IsForeverLock() {
+			// self candidate bucket
+			selfValue.Add(selfValue, b.Value)
+		}
+		if b.Candidate == c.Addr {
+			totalValue.Add(totalValue, b.Value)
+		}
+	}
+	if addSelfValue != nil {
+		selfValue.Add(selfValue, addSelfValue)
+	}
+	if subSelfValue != nil {
+		if selfValue.Cmp(subSelfValue) > 0 {
+			selfValue.Sub(selfValue, subSelfValue)
+		} else {
+			selfValue = new(big.Int)
+		}
+	}
+
+	if addTotalValue != nil {
+		totalValue.Add(totalValue, addTotalValue)
+	}
+	if subTotalValue != nil {
+		if totalValue.Cmp(subTotalValue) > 0 {
+			totalValue.Sub(totalValue, subTotalValue)
+		} else {
+			totalValue = new(big.Int)
+		}
+	}
+
+	// fmt.Println("---------- CHECK SELF VOTE RATIO ----------")
+	// fmt.Println("Candidate: ", c.Addr)
+	// fmt.Println("Total Votes: ", c.TotalVotes, ", totalValue: ", totalValue.String())
+	// fmt.Println("selfValue: ", selfValue.String())
+	// fmt.Println("selfVoteRatio: ", selfVoteRatio)
+
+	// enforce: candidate total votes / self votes <= selfVoteRatio
+	// that means total votes / selfVoteRatio <= self votes
+	limitSelfTotalValue := new(big.Int).Div(totalValue, big.NewInt(selfVoteRatio))
+
+	result := limitSelfTotalValue.Cmp(selfValue) <= 0
+	// fmt.Println("Result: ", result)
+	// fmt.Println("-------------------------------------------")
+	return result
+
+}
+
 func (e *MeterTracker) BucketDeposit(owner meter.Address, id meter.Bytes32, amount *big.Int) error {
 	candidateList := e.state.GetCandidateList()
 	bucketList := e.state.GetBucketList()
@@ -182,7 +234,14 @@ func (e *MeterTracker) BucketDeposit(owner meter.Address, id meter.Bytes32, amou
 	}
 
 	// NOTICE: no bonus is calculated, since it will be updated automatically during governing
+	cand := candidateList.Get(b.Candidate)
 
+	// assert candidate has valid self vote ratio
+	if cand != nil {
+		if selfRatioValid := CorrectCheckEnoughSelfVotes(cand, bucketList, meter.TESLA1_1_SELF_VOTE_RATIO, nil, nil, amount, nil); !selfRatioValid {
+			return errCandidateNotEnoughSelfVotes
+		}
+	}
 	// update bucket values
 	b.BonusVotes = 0
 	b.Value.Add(b.Value, amount)
@@ -290,6 +349,11 @@ func (e *MeterTracker) BucketUpdateCandidate(owner meter.Address, id meter.Bytes
 		return errCandidateNotListed
 	}
 
+	// assert new candidate has valid self vote ratio
+	if selfRatioValid := CorrectCheckEnoughSelfVotes(nc, bucketList, meter.TESLA1_1_SELF_VOTE_RATIO, nil, nil, b.TotalVotes, nil); !selfRatioValid {
+		return errCandidateNotEnoughSelfVotes
+	}
+
 	c := candidateList.Get(b.Candidate)
 	// subtract totalVotes from old candidate
 	if c != nil {
@@ -328,6 +392,13 @@ func (e *MeterTracker) BucketMerge(owner meter.Address, fromBucketID meter.Bytes
 	fromCand := candidateList.Get(fromBkt.Candidate)
 	toCand := candidateList.Get(toBkt.Candidate)
 
+	// assert to candidate has valid self vote ratio
+	if toCand != nil {
+		if selfRatioValid := CorrectCheckEnoughSelfVotes(toCand, bucketList, meter.TESLA1_1_SELF_VOTE_RATIO, nil, nil, fromBkt.TotalVotes, nil); !selfRatioValid {
+			return errCandidateNotEnoughSelfVotes
+		}
+	}
+
 	if fromCand != nil {
 		fromCand.RemoveBucket(fromBkt)
 	}
@@ -363,6 +434,16 @@ func (e *MeterTracker) BucketTransferFund(owner meter.Address, fromBucketID mete
 		return err
 	}
 
+	fromCand := candidateList.Get(fromBkt.Candidate)
+	toCand := candidateList.Get(toBkt.Candidate)
+
+	// assert to candidate has valid self vote ratio
+	if toCand != nil {
+		if selfRatioValid := CorrectCheckEnoughSelfVotes(toCand, bucketList, meter.TESLA1_1_SELF_VOTE_RATIO, nil, nil, amount, nil); !selfRatioValid {
+			return errCandidateNotEnoughSelfVotes
+		}
+	}
+
 	// assert boundedBalance(owner) > amount
 	if e.state.GetBoundedBalance(owner).Cmp(amount) < 0 {
 		return errNotEnoughBoundedBalance
@@ -396,9 +477,6 @@ func (e *MeterTracker) BucketTransferFund(owner meter.Address, fromBucketID mete
 	toBkt.Value.Add(toBkt.Value, amount)
 	toBkt.TotalVotes.Add(toBkt.TotalVotes, amount)
 	toBkt.TotalVotes.Add(toBkt.TotalVotes, bonusDelta)
-
-	fromCand := candidateList.Get(fromBkt.Candidate)
-	toCand := candidateList.Get(toBkt.Candidate)
 
 	// update from candidate if exists
 	if fromCand != nil {
