@@ -6,6 +6,7 @@ import (
 	"math/rand"
 	"testing"
 
+	ethabi "github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/meterio/meter-pov/builtin"
 	"github.com/meterio/meter-pov/meter"
 	"github.com/meterio/meter-pov/tests"
@@ -113,4 +114,61 @@ func TestBucketTransferFund(t *testing.T) {
 	assert.Equal(t, fromBktAfter.Value.String(), new(big.Int).Sub(fromBkt.Value, amount).String(), "to bucket should have value of (from-amount)")
 	assert.Equal(t, fromCandAfter.TotalVotes.String(), new(big.Int).Sub(fromCand.TotalVotes, amountAndDelta).String(), "from candidate should have total votes of (from-amount+bonusDelta)")
 
+}
+
+func TestBucketTransferFundOverSelfVoteRatio(t *testing.T) {
+	tenv := initRuntimeAfterFork10()
+	scriptEngineAddr := meter.ScriptEngineSysContractAddr
+
+	// bucket open Holder -> Cand
+	bucketOpenFunc, found := builtin.ScriptEngine_V2_ABI.MethodByName("bucketOpen")
+	assert.True(t, found)
+	openAmount := tests.BuildAmount(200200)
+	data, err := bucketOpenFunc.EncodeInput(tests.CandAddr, openAmount)
+	assert.Nil(t, err)
+
+	txNonce := rand.Uint64()
+	trx := tests.BuildCallTx(tenv.ChainTag, 0, &scriptEngineAddr, data, txNonce, tests.HolderKey)
+	receipt, err := tenv.Runtime.ExecuteTransaction(trx)
+	fmt.Println(receipt)
+	assert.Nil(t, err)
+	assert.False(t, receipt.Reverted)
+
+	fromBktID := tests.BucketID(tests.HolderAddr, tenv.CurrentTS, txNonce+0)
+
+	// bucket open Holder -> Cand2
+	openAmount2 := tests.BuildAmount(123)
+	data, err = bucketOpenFunc.EncodeInput(tests.Cand2Addr, openAmount2)
+	assert.Nil(t, err)
+
+	txNonce2 := rand.Uint64()
+	trx2 := tests.BuildCallTx(tenv.ChainTag, 0, &scriptEngineAddr, data, txNonce2, tests.HolderKey)
+	receipt, err = tenv.Runtime.ExecuteTransaction(trx2)
+	fmt.Println(receipt)
+	assert.Nil(t, err)
+	assert.False(t, receipt.Reverted)
+
+	toBktID := tests.BucketID(tests.HolderAddr, tenv.CurrentTS, txNonce2+0)
+
+	assert.NotNil(t, tenv.State.GetBucketList().Get(fromBktID))
+	assert.NotNil(t, tenv.State.GetBucketList().Get(toBktID))
+
+	// bucket transfer fund should fail because leftover is not enough for minimum
+	bucketTransferFundFunc, found := builtin.ScriptEngine_V2_ABI.MethodByName("bucketTransferFund")
+	assert.True(t, found)
+
+	amount := tests.BuildAmount(200000)
+	data, err = bucketTransferFundFunc.EncodeInput(fromBktID, toBktID, amount)
+	assert.Nil(t, err)
+
+	txNonce4 := rand.Uint64()
+	trx4 := tests.BuildCallTx(tenv.ChainTag, 0, &scriptEngineAddr, data, txNonce4, tests.HolderKey)
+	exec, err := tenv.Runtime.PrepareTransaction(trx4)
+	assert.Nil(t, err)
+	_, out, err := exec.NextClause()
+	assert.Nil(t, err)
+	assert.NotNil(t, out.VMErr)
+	reason, err := ethabi.UnpackRevert(out.Data)
+	assert.Nil(t, err)
+	assert.Equal(t, reason, "candidate's accumulated votes > 100x candidate's own vote")
 }

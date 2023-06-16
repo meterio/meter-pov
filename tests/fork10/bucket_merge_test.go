@@ -6,6 +6,7 @@ import (
 	"math/rand"
 	"testing"
 
+	ethabi "github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/meterio/meter-pov/builtin"
 	"github.com/meterio/meter-pov/meter"
 	"github.com/meterio/meter-pov/tests"
@@ -19,7 +20,7 @@ func TestBucketMerge(t *testing.T) {
 	// bucket open Holder -> Cand
 	bucketOpenFunc, found := builtin.ScriptEngine_V2_ABI.MethodByName("bucketOpen")
 	assert.True(t, found)
-	openAmount := tests.BuildAmount(150)
+	openAmount := tests.BuildAmount(321)
 	data, err := bucketOpenFunc.EncodeInput(tests.CandAddr, openAmount)
 	assert.Nil(t, err)
 
@@ -85,4 +86,61 @@ func TestBucketMerge(t *testing.T) {
 
 	assert.Equal(t, expectedFromCandTotalVotesAfter.String(), fromCandAfter.TotalVotes.String(), "from candidate should sub bucket total votes")
 	assert.Equal(t, expectedToCandTotalVotesAfter.String(), toCandAfter.TotalVotes.String(), "to candidate should add bucket total votes")
+}
+
+func TestBucketMergeOverSelfVoteRatio(t *testing.T) {
+	tenv := initRuntimeAfterFork10()
+	scriptEngineAddr := meter.ScriptEngineSysContractAddr
+
+	// bucket open Holder -> Cand
+	bucketOpenFunc, found := builtin.ScriptEngine_V2_ABI.MethodByName("bucketOpen")
+	assert.True(t, found)
+	openAmount := tests.BuildAmount(200000)
+	data, err := bucketOpenFunc.EncodeInput(tests.CandAddr, openAmount)
+	assert.Nil(t, err)
+
+	txNonce := rand.Uint64()
+	trx := tests.BuildCallTx(tenv.ChainTag, 0, &scriptEngineAddr, data, txNonce, tests.HolderKey)
+	receipt, err := tenv.Runtime.ExecuteTransaction(trx)
+	fmt.Println(receipt)
+	assert.Nil(t, err)
+	assert.False(t, receipt.Reverted)
+
+	fromBktID := tests.BucketID(tests.HolderAddr, tenv.CurrentTS, txNonce+0)
+
+	// bucket open Holder -> Cand2
+	openAmount2 := tests.BuildAmount(123)
+	data, err = bucketOpenFunc.EncodeInput(tests.Cand2Addr, openAmount2)
+	assert.Nil(t, err)
+
+	txNonce2 := rand.Uint64()
+	trx2 := tests.BuildCallTx(tenv.ChainTag, 0, &scriptEngineAddr, data, txNonce2, tests.HolderKey)
+	receipt, err = tenv.Runtime.ExecuteTransaction(trx2)
+	fmt.Println(receipt)
+	assert.Nil(t, err)
+	assert.False(t, receipt.Reverted)
+
+	toBktID := tests.BucketID(tests.HolderAddr, tenv.CurrentTS, txNonce2+0)
+
+	assert.NotNil(t, tenv.State.GetBucketList().Get(fromBktID))
+	originBucketList := tenv.State.GetBucketList()
+	toBkt := originBucketList.Get(toBktID)
+	assert.NotNil(t, toBkt)
+
+	// bucket merge
+	bucketMergeFunc, found := builtin.ScriptEngine_V2_ABI.MethodByName("bucketMerge")
+	assert.True(t, found)
+	data, err = bucketMergeFunc.EncodeInput(fromBktID, toBktID)
+	assert.Nil(t, err)
+
+	txNonce3 := rand.Uint64()
+	trx3 := tests.BuildCallTx(tenv.ChainTag, 0, &scriptEngineAddr, data, txNonce3, tests.HolderKey)
+	exec, err := tenv.Runtime.PrepareTransaction(trx3)
+	assert.Nil(t, err)
+	_, out, err := exec.NextClause()
+	assert.Nil(t, err)
+	assert.NotNil(t, out.VMErr)
+	reason, err := ethabi.UnpackRevert(out.Data)
+	assert.Nil(t, err)
+	assert.Equal(t, reason, "candidate's accumulated votes > 100x candidate's own vote")
 }

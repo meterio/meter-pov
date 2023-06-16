@@ -54,7 +54,7 @@ func initRuntimeAfterFork10() *tests.TestEnv {
 		sdb.MintEnergy(common.Address(tests.Cand2Addr), tests.BuildAmount(100))
 
 		// init balance for holders
-		sdb.MintBalance(common.Address(tests.HolderAddr), tests.BuildAmount(1200))
+		sdb.MintBalance(common.Address(tests.HolderAddr), tests.BuildAmount(2100000))
 		sdb.MintEnergy(common.Address(tests.HolderAddr), tests.BuildAmount(100))
 
 		// init balance for voters
