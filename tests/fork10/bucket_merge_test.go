@@ -6,7 +6,6 @@ import (
 	"math/rand"
 	"testing"
 
-	ethabi "github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/meterio/meter-pov/builtin"
 	"github.com/meterio/meter-pov/meter"
 	"github.com/meterio/meter-pov/tests"
@@ -127,7 +126,7 @@ func TestBucketMergeOverSelfVoteRatio(t *testing.T) {
 	toBkt := originBucketList.Get(toBktID)
 	assert.NotNil(t, toBkt)
 
-	// bucket merge
+	// bucket merge should fail
 	bucketMergeFunc, found := builtin.ScriptEngine_V2_ABI.MethodByName("bucketMerge")
 	assert.True(t, found)
 	data, err = bucketMergeFunc.EncodeInput(fromBktID, toBktID)
@@ -139,8 +138,9 @@ func TestBucketMergeOverSelfVoteRatio(t *testing.T) {
 	assert.Nil(t, err)
 	_, out, err := exec.NextClause()
 	assert.Nil(t, err)
-	assert.NotNil(t, out.VMErr)
-	reason, err := ethabi.UnpackRevert(out.Data)
+	success := true
+	err = bucketMergeFunc.DecodeOutput(out.Data, &success)
 	assert.Nil(t, err)
-	assert.Equal(t, reason, "candidate's accumulated votes > 100x candidate's own vote")
+	assert.False(t, success)
+
 }

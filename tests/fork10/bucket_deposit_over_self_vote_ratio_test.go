@@ -5,7 +5,6 @@ import (
 	"math/rand"
 	"testing"
 
-	ethabi "github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/meterio/meter-pov/builtin"
 	"github.com/meterio/meter-pov/meter"
 	"github.com/meterio/meter-pov/tests"
@@ -45,8 +44,9 @@ func TestBucketDepositOverSelfVoteRatio(t *testing.T) {
 	assert.Nil(t, err)
 	_, out, err := exec.NextClause()
 	assert.Nil(t, err)
-	assert.NotNil(t, out.VMErr)
-	reason, err := ethabi.UnpackRevert(out.Data)
+	// should fail due to over self rat
+	success := true
+	err = bucketDepositFunc.DecodeOutput(out.Data, &success)
 	assert.Nil(t, err)
-	assert.Equal(t, reason, "candidate's accumulated votes > 100x candidate's own vote")
+	assert.False(t, success)
 }
