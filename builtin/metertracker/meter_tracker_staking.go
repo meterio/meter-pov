@@ -228,13 +228,6 @@ func (e *MeterTracker) BucketDeposit(owner meter.Address, id meter.Bytes32, amou
 		return errNotEnoughBalance
 	}
 
-	// bound account balance
-	err := e.BoundMeterGov(owner, amount)
-	if err != nil {
-		return err
-	}
-
-	// NOTICE: no bonus is calculated, since it will be updated automatically during governing
 	cand := candidateList.Get(b.Candidate)
 
 	// assert candidate has valid self vote ratio
@@ -243,6 +236,13 @@ func (e *MeterTracker) BucketDeposit(owner meter.Address, id meter.Bytes32, amou
 			return errCandidateNotEnoughSelfVotes
 		}
 	}
+
+	// bound account balance
+	err := e.BoundMeterGov(owner, amount)
+	if err != nil {
+		return err
+	}
+
 	// update bucket values
 	b.BonusVotes = 0
 	b.Value.Add(b.Value, amount)
@@ -267,6 +267,7 @@ func (e *MeterTracker) BucketWithdraw(owner meter.Address, id meter.Bytes32, amo
 	emptyBktID := meter.Bytes32{}
 	b := bucketList.Get(id)
 
+	// basic check for bucket
 	if err := e.checkBucket(b, owner); err != nil {
 		return emptyBktID, err
 	}
@@ -378,14 +379,19 @@ func (e *MeterTracker) BucketMerge(owner meter.Address, fromBucketID meter.Bytes
 	candidateList := e.state.GetCandidateList()
 	bucketList := e.state.GetBucketList()
 
+	// assert from/to is not the same
 	if strings.EqualFold(fromBucketID.String(), toBucketID.String()) {
 		return errBucketNotMergableToItself
 	}
+
 	fromBkt := bucketList.Get(fromBucketID)
 	toBkt := bucketList.Get(toBucketID)
+
+	// basic check for from bucket
 	if err := e.checkBucket(fromBkt, owner); err != nil {
 		return err
 	}
+	// basic check for to bucket
 	if err := e.checkBucket(toBkt, owner); err != nil {
 		return err
 	}
@@ -424,13 +430,17 @@ func (e *MeterTracker) BucketTransferFund(owner meter.Address, fromBucketID mete
 
 	fromBkt := bucketList.Get(fromBucketID)
 	toBkt := bucketList.Get(toBucketID)
+
+	// assert from/to is not the same
 	if strings.EqualFold(fromBucketID.String(), toBucketID.String()) {
 		return errBucketNotMergableToItself
 	}
 
+	// basic check for from bucket
 	if err := e.checkBucket(fromBkt, owner); err != nil {
 		return err
 	}
+	// basic check for to bucket
 	if err := e.checkBucket(toBkt, owner); err != nil {
 		return err
 	}
