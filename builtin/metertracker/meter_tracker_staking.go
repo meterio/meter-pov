@@ -109,6 +109,10 @@ func (e *MeterTracker) BucketOpen(owner meter.Address, candAddr meter.Address, a
 		return emptyBucketID, errCandidateNotListed
 	}
 
+	if selfRatioValid := CorrectCheckEnoughSelfVotes(candidate, bucketList, meter.TESLA1_1_SELF_VOTE_RATIO, nil, nil, amount, nil); !selfRatioValid {
+		return emptyBucketID, errCandidateNotEnoughSelfVotes
+	}
+
 	meterGov := e.state.GetBalance(owner)
 	meterGovBounded := e.state.GetBoundedBalance(owner)
 
