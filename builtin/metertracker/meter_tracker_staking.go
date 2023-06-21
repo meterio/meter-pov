@@ -2,6 +2,7 @@ package metertracker
 
 import (
 	"errors"
+	"fmt"
 	"math/big"
 	"strings"
 
@@ -196,19 +197,19 @@ func CorrectCheckEnoughSelfVotes(c *meter.Candidate, bl *meter.BucketList, selfV
 		}
 	}
 
-	// fmt.Println("---------- CHECK SELF VOTE RATIO ----------")
-	// fmt.Println("Candidate: ", c.Addr)
-	// fmt.Println("Total Votes: ", c.TotalVotes, ", totalValue: ", totalValue.String())
-	// fmt.Println("selfValue: ", selfValue.String())
-	// fmt.Println("selfVoteRatio: ", selfVoteRatio)
+	fmt.Println("---------- CHECK SELF VOTE RATIO ----------")
+	fmt.Println("Candidate: ", c.Addr)
+	fmt.Println("Total Votes: ", c.TotalVotes, ", totalValue: ", totalValue.String())
+	fmt.Println("selfValue: ", selfValue.String())
+	fmt.Println("selfVoteRatio: ", selfVoteRatio)
 
 	// enforce: candidate total votes / self votes <= selfVoteRatio
 	// that means total votes / selfVoteRatio <= self votes
 	limitSelfTotalValue := new(big.Int).Div(totalValue, big.NewInt(selfVoteRatio))
 
 	result := limitSelfTotalValue.Cmp(selfValue) <= 0
-	// fmt.Println("Result: ", result)
-	// fmt.Println("-------------------------------------------")
+	fmt.Println("Result: ", result)
+	fmt.Println("-------------------------------------------")
 	return result
 
 }

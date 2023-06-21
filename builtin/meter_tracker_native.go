@@ -251,6 +251,7 @@ func init() {
 			clauseIndex := env.ClauseIndex()
 			bktID, err := MeterTracker.Native(env.State()).BucketOpen(args.Owner, args.CandidateAddr, args.Amount, env.BlockContext().Time, txNonce+uint64(clauseIndex))
 			if err != nil {
+				log.Error("open failed", "err", err)
 				return []interface{}{bktID, err.Error()}
 			}
 
@@ -273,6 +274,7 @@ func init() {
 			env.UseGas(meter.GetBalanceGas)
 			err := MeterTracker.Native(env.State()).BucketClose(args.Owner, args.BucketID, env.BlockContext().Time)
 			if err != nil {
+				log.Error("close failed", "err", err)
 				return []interface{}{err.Error()}
 			}
 			// env.UseGas(meter.SstoreSetGas)
@@ -290,6 +292,7 @@ func init() {
 			env.UseGas(meter.GetBalanceGas)
 			err := MeterTracker.Native(env.State()).BucketDeposit(args.Owner, args.BucketID, args.Amount)
 			if err != nil {
+				log.Error("deposit failed", "err", err)
 				return []interface{}{err.Error()}
 			}
 
@@ -318,7 +321,7 @@ func init() {
 			ts := env.BlockContext().Time
 			bktID, err := MeterTracker.Native(env.State()).BucketWithdraw(args.Owner, args.BucketID, args.Amount, args.Recipient, ts, txNonce+uint64(clauseIndex))
 			if err != nil {
-				// env.UseGas(meter.SstoreResetGas)
+				log.Error("withdraw failed", "err", err)
 				return []interface{}{bktID, err.Error()}
 			}
 
@@ -341,6 +344,7 @@ func init() {
 			env.UseGas(meter.GetBalanceGas)
 			err := MeterTracker.Native(env.State()).BucketUpdateCandidate(args.Owner, args.BucketID, args.NewCandidateAddr)
 			if err != nil {
+				log.Error("update candidate failed", "err", err)
 				return []interface{}{err.Error()}
 			}
 
@@ -358,6 +362,7 @@ func init() {
 			env.UseGas(meter.GetBalanceGas)
 			err := MeterTracker.Native(env.State()).BucketTransferFund(args.Owner, args.FromBucketID, args.ToBucketID, args.Amount)
 			if err != nil {
+				log.Error("transfer fund failed", "err", err)
 				return []interface{}{err.Error()}
 			}
 
@@ -374,6 +379,7 @@ func init() {
 			env.UseGas(meter.GetBalanceGas)
 			err := MeterTracker.Native(env.State()).BucketMerge(args.Owner, args.FromBucketID, args.ToBucketID)
 			if err != nil {
+				log.Error("merge failed", "err", err)
 				return []interface{}{err.Error()}
 			}
 
