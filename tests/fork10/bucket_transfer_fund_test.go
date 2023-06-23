@@ -122,7 +122,7 @@ func TestBucketTransferFundOverSelfVoteRatio(t *testing.T) {
 	// bucket open Holder -> Cand
 	bucketOpenFunc, found := builtin.ScriptEngine_V2_ABI.MethodByName("bucketOpen")
 	assert.True(t, found)
-	openAmount := tests.BuildAmount(200200)
+	openAmount := tests.BuildAmount(200000 - 2000)
 	data, err := bucketOpenFunc.EncodeInput(tests.CandAddr, openAmount)
 	assert.Nil(t, err)
 

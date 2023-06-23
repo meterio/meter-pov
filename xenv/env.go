@@ -41,10 +41,16 @@ type TransactionContext struct {
 	BlockRef   tx.BlockRef
 	Expiration uint32
 	Nonce      uint64
+	Counter    uint64
 }
 
 func (ctx *TransactionContext) String() string {
 	return fmt.Sprintf("txCtx{ID:%s Origin:%s GasPrice:%s ProvedWork:%s BlockRef:%s Exp:%d Nonce:%d}", ctx.ID.String(), ctx.Origin.String(), ctx.GasPrice.String(), ctx.ProvedWork.String(), "0x"+hex.EncodeToString(ctx.BlockRef[:]), ctx.Expiration, ctx.Nonce)
+}
+
+func (ctx *TransactionContext) Inc() {
+	ctx.Counter += 1
+	fmt.Println("txCtx counter updated to: ", ctx.Counter)
 }
 
 // Environment an env to execute native method.

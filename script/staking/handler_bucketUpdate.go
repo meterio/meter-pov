@@ -48,7 +48,7 @@ func (s *Staking) BucketUpdateHandler(env *setypes.ScriptEnv, sb *StakingBody, g
 	nonce := sb.Nonce
 	if meter.IsTeslaFork7(number) {
 		ts = env.GetBlockCtx().Time
-		nonce = env.GetTxCtx().Nonce + uint64(env.GetClauseIndex())
+		nonce = env.GetTxCtx().Nonce + uint64(env.GetClauseIndex()) + env.GetTxCtx().Counter
 	}
 	if meter.IsTeslaFork5(number) {
 		// ---------------------------------------
@@ -134,6 +134,7 @@ func (s *Staking) BucketUpdateHandler(env *setypes.ScriptEnv, sb *StakingBody, g
 
 			// create unbounded new bucket
 			newBucket := meter.NewBucket(bucket.Owner, bucket.Candidate, sb.Amount, uint8(bucket.Token), meter.ONE_WEEK_LOCK, bucket.Rate, bucket.Autobid, ts, nonce)
+			env.GetTxCtx().Inc()
 			newBucket.Unbounded = true
 
 			newBucket.MatureTime = ts + meter.GetBoundLocktime(newBucket.Option) // lock time

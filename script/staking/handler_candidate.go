@@ -116,7 +116,7 @@ func (s *Staking) CandidateHandler(env *setypes.ScriptEnv, sb *StakingBody, gas 
 	// now staking the amount, force to forever lock
 	opt, rate, locktime := meter.GetBoundLockOption(meter.FOREVER_LOCK)
 	commission := meter.GetCommissionRate(sb.Option)
-	s.logger.Info("get lock option in candidate", "option", opt, "rate", rate, "locktime", locktime, "commission", commission)
+	s.logger.Debug("get lock option in candidate", "option", opt, "rate", rate, "locktime", locktime, "commission", commission)
 
 	// bucket owner is candidate
 	number := env.GetBlockNum()
@@ -124,9 +124,10 @@ func (s *Staking) CandidateHandler(env *setypes.ScriptEnv, sb *StakingBody, gas 
 	nonce := sb.Nonce
 	if meter.IsTeslaFork7(number) {
 		ts = env.GetBlockCtx().Time
-		nonce = env.GetTxCtx().Nonce + uint64(env.GetClauseIndex())
+		nonce = env.GetTxCtx().Nonce + uint64(env.GetClauseIndex()) + env.GetTxCtx().Counter
 	}
 	bucket := meter.NewBucket(sb.CandAddr, sb.CandAddr, sb.Amount, uint8(sb.Token), opt, rate, sb.Autobid, ts, nonce)
+	env.GetTxCtx().Inc()
 	bucketList.Add(bucket)
 
 	candidate := meter.NewCandidate(sb.CandAddr, sb.CandName, sb.CandDescription, []byte(candidatePubKey), sb.CandIP, sb.CandPort, commission, ts)
