@@ -15,9 +15,14 @@ import (
 )
 
 var (
-	boundEvent, _                = MeterNative_V3_ABI.EventByName("Bound")
-	nativeBucketWithdrawEvent, _ = MeterNative_V3_ABI.EventByName("NativeBucketWithdraw")
-	log                          = log15.New("pkt", "tracker")
+	boundEvent, _                    = MeterNative_V3_ABI.EventByName("Bound")
+	nativeBucketDepositEvent, _      = MeterNative_V4_ABI.EventByName("NativeBucketDeposit")
+	nativeBucketWithdrawEvent, _     = MeterNative_V4_ABI.EventByName("NativeBucketWithdraw")
+	nativeBucketMergeEvent, _        = MeterNative_V4_ABI.EventByName("NativeBucketMerge")
+	nativeBucketOpenEvent, _         = MeterNative_V4_ABI.EventByName("NativeBucketOpen")
+	nativeBucketCloseEvent, _        = MeterNative_V4_ABI.EventByName("NativeBucketClose")
+	nativeBucketTransferFundEvent, _ = MeterNative_V4_ABI.EventByName("NativeBucketTransferFund")
+	log                              = log15.New("pkt", "tracker")
 )
 
 func init() {
@@ -257,12 +262,13 @@ func init() {
 
 			env.TransactionContext().Inc()
 
+			topics := []meter.Bytes32{meter.BytesToBytes32(args.Owner[:])}
 			// emit Bound event
-			topics := []meter.Bytes32{
-				// meter.Bytes32(boundEvent.ID()),
-				meter.BytesToBytes32(args.Owner[:]),
-			}
 			env.Log(boundEvent, meter.StakingModuleAddr, topics, args.Amount, big.NewInt(int64(meter.MTRG)))
+
+			// emit NativeBucketOpen event
+			env.Log(nativeBucketOpenEvent, meter.StakingModuleAddr, topics, bktID, args.Amount, big.NewInt(int64(meter.MTRG)))
+
 			// env.UseGas(meter.SstoreSetGas)
 			return []interface{}{bktID, ""}
 		}},
@@ -280,6 +286,10 @@ func init() {
 				return []interface{}{err.Error()}
 			}
 			log.Info("native_bucket_close success")
+
+			topics := []meter.Bytes32{meter.BytesToBytes32(args.Owner[:])}
+			// emit NativeBucketClose
+			env.Log(nativeBucketCloseEvent, meter.StakingModuleAddr, topics, args.BucketID)
 			// env.UseGas(meter.SstoreSetGas)
 			return []interface{}{""}
 		}},
@@ -300,12 +310,12 @@ func init() {
 			}
 			log.Info("native_bucket_deposit success")
 
+			topics := []meter.Bytes32{meter.BytesToBytes32(args.Owner[:])}
 			// emit Bound event
-			topics := []meter.Bytes32{
-				// meter.Bytes32(boundEvent.ID()),
-				meter.BytesToBytes32(args.Owner[:]),
-			}
 			env.Log(boundEvent, meter.StakingModuleAddr, topics, args.Amount, big.NewInt(int64(meter.MTRG)))
+
+			// emit NativeBucketDeposit
+			env.Log(nativeBucketDepositEvent, meter.StakingModuleAddr, topics, args.BucketID, args.Amount, big.NewInt(int64(meter.MTRG)))
 
 			// env.UseGas(meter.SstoreSetGas)
 			return []interface{}{""}
@@ -331,12 +341,10 @@ func init() {
 
 			env.TransactionContext().Inc()
 
+			topics := []meter.Bytes32{meter.BytesToBytes32(args.Owner[:])}
 			// emit NativeBucketWithdraw event
-			topics := []meter.Bytes32{
-				// meter.Bytes32(boundEvent.ID()),
-				meter.BytesToBytes32(args.Owner[:]),
-			}
-			env.Log(nativeBucketWithdrawEvent, meter.StakingModuleAddr, topics, args.Amount, big.NewInt(int64(meter.MTRG)), args.Recipient)
+			env.Log(nativeBucketWithdrawEvent, meter.StakingModuleAddr, topics, args.BucketID, args.Amount, big.NewInt(int64(meter.MTRG)), args.Recipient, bktID)
+
 			return []interface{}{bktID, ""}
 		}},
 		{"native_bucket_update_candidate", func(env *xenv.Environment) []interface{} {
@@ -374,6 +382,9 @@ func init() {
 			}
 			log.Info("native_bucket_transfer_fund success")
 
+			topics := []meter.Bytes32{meter.BytesToBytes32(args.Owner[:])}
+			// emit NativeBucketTransferFund
+			env.Log(nativeBucketTransferFundEvent, meter.StakingModuleAddr, topics, args.FromBucketID, args.Amount, big.NewInt(int64(meter.MTRG)), args.ToBucketID)
 			return []interface{}{""}
 		}},
 		{"native_bucket_merge", func(env *xenv.Environment) []interface{} {
@@ -391,6 +402,10 @@ func init() {
 				return []interface{}{err.Error()}
 			}
 			log.Info(("native_bucket_merge success"))
+
+			topics := []meter.Bytes32{meter.BytesToBytes32(args.Owner[:])}
+			// emit NativeBucketMerge
+			env.Log(nativeBucketMergeEvent, meter.StakingModuleAddr, topics, args.FromBucketID, args.ToBucketID)
 
 			return []interface{}{""}
 		}},
