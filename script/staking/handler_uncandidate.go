@@ -39,6 +39,7 @@ func (s *Staking) UnCandidateHandler(env *setypes.ScriptEnv, sb *StakingBody, ga
 		err = errCandidateInJail
 		return
 	}
+	number := env.GetBlockNum()
 
 	// sanity is done. take actions
 	for _, id := range record.Buckets {
@@ -51,12 +52,25 @@ func (s *Staking) UnCandidateHandler(env *setypes.ScriptEnv, sb *StakingBody, ga
 			s.logger.Error("bucket info mismatch", "candidate address", record.Addr)
 			continue
 		}
+
+		// emit NativeBucketUpdateCandidate
+		if meter.IsTeslaFork10(number) {
+			env.AddNativeBucketUpdateCandidate(b.Owner, b.BucketID, b.Candidate, meter.Address{})
+		}
+
 		b.Candidate = meter.Address{}
+
 		// candidate locked bucket back to normal(longest lock)
 		if b.IsForeverLock() == true {
 			opt, rate, _ := meter.GetBoundLockOption(meter.ONE_WEEK_LOCK)
 			b.UpdateLockOption(opt, rate)
+
+			// emit NativeBucketClose
+			if meter.IsTeslaFork10(number) {
+				env.AddNativeBucketCloseEvent(b.Owner, b.BucketID)
+			}
 		}
+
 	}
 	candidateList.Remove(record.Addr)
 

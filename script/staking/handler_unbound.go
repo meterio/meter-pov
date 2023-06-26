@@ -56,6 +56,11 @@ func (s *Staking) UnBoundHandler(env *setypes.ScriptEnv, sb *StakingBody, gas ui
 	}
 	b.MatureTime = ts + meter.GetBoundLocktime(b.Option) // lock time
 
+	// emit NativeBucketClose
+	if meter.IsTeslaFork10(number) {
+		env.AddNativeBucketCloseEvent(b.Owner, b.BucketID)
+	}
+
 	state.SetCandidateList(candidateList)
 	state.SetBucketList(bucketList)
 	state.SetStakeHolderList(stakeholderList)

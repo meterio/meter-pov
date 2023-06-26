@@ -50,6 +50,12 @@ func (s *Staking) UnDelegateHandler(env *setypes.ScriptEnv, sb *StakingBody, gas
 		return leftOverGas, errCandidateNotListed
 	}
 
+	number := env.GetBlockNum()
+	// emit NativeBucketUpdateCandidate
+	if meter.IsTeslaFork10(number) {
+		env.AddNativeBucketUpdateCandidate(b.Owner, b.BucketID, b.Candidate, meter.Address{})
+	}
+
 	// sanity check done, take actions
 	b.Candidate = meter.Address{}
 	b.Autobid = 0

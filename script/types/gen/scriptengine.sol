@@ -8,4 +8,12 @@ pragma solidity 0.4.24;
 contract ScriptEngineEvent {
     event Bound(address indexed owner, uint256 amount, uint256 token);
     event Unbound(address indexed owner, uint256 amount, uint256 token);
+
+    // added on 6/23/2023
+    event NativeBucketDeposit(address indexed owner, bytes32 bucketID, uint256 amount, uint256 token);
+    event NativeBucketWithdraw(address indexed owner, bytes32 fromBktID, uint256 amount, uint256 token, address recipient, bytes32 toBktID);
+    event NativeBucketOpen(address indexed owner, bytes32 bucketID, uint256 amount, uint256 token);
+    event NativeBucketClose(address indexed owner, bytes32 bucketID);
+    event NativeBucketMerge(address indexed owner, bytes32 fromBktID,  uint256 amount, uint256 token, bytes32 toBktID);
+    event NativeBucketTransferFund(address indexed owner, bytes32 fromBktID, uint256 amount, uint256 token, bytes32 toBktID);
 }

@@ -49,10 +49,10 @@ func testBucketDeposit(t *testing.T, tenv *tests.TestEnv, scriptEngineAddr *mete
 	assert.Equal(t, 1, len(receipt.Outputs), "should have 1 output")
 	o := receipt.Outputs[0]
 	// check events
-	assert.Equal(t, 1, len(o.Events), "should have 1 event")
+	assert.Equal(t, 2, len(o.Events), "should have 2 events")
 	e := o.Events[0]
 	assert.Equal(t, 2, len(e.Topics), "should have 2 topics")
-	boundEvent, found := builtin.MeterNative_V3_ABI.EventByName("Bound")
+	boundEvent, found := builtin.MeterNative_V4_ABI.EventByName("Bound")
 	assert.True(t, found)
 	assert.Equal(t, boundEvent.ID(), e.Topics[0])
 	assert.Equal(t, meter.BytesToBytes32(tests.HolderAddr[:]), e.Topics[1])
@@ -115,7 +115,7 @@ func testBucketWithdraw(t *testing.T, tenv *tests.TestEnv, scriptEngineAddr *met
 	assert.Equal(t, 1, len(o.Events), "should have 1 event")
 	e := o.Events[0]
 	assert.Equal(t, 2, len(e.Topics), "should have 2 topics")
-	nativeWithdrawEvent, found := builtin.MeterNative_V3_ABI.EventByName("NativeBucketWithdraw")
+	nativeWithdrawEvent, found := builtin.MeterNative_V4_ABI.EventByName("NativeBucketWithdraw")
 	assert.True(t, found)
 	assert.Equal(t, nativeWithdrawEvent.ID(), e.Topics[0])
 	assert.Equal(t, meter.BytesToBytes32(tests.HolderAddr[:]), e.Topics[1])

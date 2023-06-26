@@ -137,6 +137,11 @@ func (s *Staking) BoundHandler(env *setypes.ScriptEnv, sb *StakingBody, gas uint
 		err = errInvalidToken
 	}
 
+	// emit NativeBucketOpen
+	if meter.IsTeslaFork10(number) {
+		env.AddNativeBucketOpenEvent(bucket.Owner, bucket.BucketID, sb.Amount, sb.Token)
+	}
+
 	state.SetCandidateList(candidateList)
 	state.SetBucketList(bucketList)
 	state.SetStakeHolderList(stakeholderList)

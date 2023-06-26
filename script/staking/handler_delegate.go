@@ -72,6 +72,11 @@ func (s *Staking) DelegateHandler(env *setypes.ScriptEnv, sb *StakingBody, gas u
 		return leftOverGas, errCandidateNotEnoughSelfVotes
 	}
 
+	// emit NativeBucketUpdateCandidate
+	if meter.IsTeslaFork10(number) {
+		env.AddNativeBucketUpdateCandidate(b.Owner, b.BucketID, b.Candidate, sb.CandAddr)
+	}
+
 	// sanity check done, take actions
 	b.Candidate = sb.CandAddr
 	b.Autobid = sb.Autobid

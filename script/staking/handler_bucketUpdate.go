@@ -50,10 +50,11 @@ func (s *Staking) BucketUpdateHandler(env *setypes.ScriptEnv, sb *StakingBody, g
 		ts = env.GetBlockCtx().Time
 		nonce = env.GetTxCtx().Nonce + uint64(env.GetClauseIndex()) + env.GetTxCtx().Counter
 	}
+	// ---------------------------------------
+	// AFTER TESLA FORK 5 : support bucket sub
+	// ---------------------------------------
 	if meter.IsTeslaFork5(number) {
-		// ---------------------------------------
-		// AFTER TESLA FORK 5 : support bucket sub
-		// ---------------------------------------
+
 		cand := candidateList.Get(bucket.Candidate)
 		if sb.Option == meter.BUCKET_SUB_OPT {
 			if bucket.Unbounded {
@@ -161,12 +162,21 @@ func (s *Staking) BucketUpdateHandler(env *setypes.ScriptEnv, sb *StakingBody, g
 				stakeholder.Buckets = append(stakeholder.Buckets, newBucketID)
 			}
 
+			// emit NativeBucketWithdraw
+			if meter.IsTeslaFork10(number) {
+				env.AddNativeBucketWithdrawEvent(bucket.Owner, bucket.BucketID, sb.Amount, sb.Token, newBucket.Owner, newBucketID)
+			}
+
 			state.SetBucketList(bucketList)
 			state.SetCandidateList(candidateList)
 			state.SetStakeHolderList(stakeholderList)
 			return
 		}
+		// End of fork5 bucket sub handling
 
+		// ---------------------------------------
+		// AFTER TESLA FORK 5 : bucket add is updated
+		// ---------------------------------------
 		if sb.Option == meter.BUCKET_ADD_OPT {
 
 			// Now allow to change forever lock amount
@@ -216,6 +226,11 @@ func (s *Staking) BucketUpdateHandler(env *setypes.ScriptEnv, sb *StakingBody, g
 				stakeholder.TotalStake.Add(stakeholder.TotalStake, sb.Amount)
 			}
 
+			// emit NativeBucketWithdraw
+			if meter.IsTeslaFork10(number) {
+				env.AddNativeBucketDepositEvent(bucket.Owner, bucket.BucketID, sb.Amount, sb.Token)
+			}
+
 			state.SetBucketList(bucketList)
 			state.SetCandidateList(candidateList)
 			state.SetStakeHolderList(stakeholderList)
@@ -223,6 +238,7 @@ func (s *Staking) BucketUpdateHandler(env *setypes.ScriptEnv, sb *StakingBody, g
 		}
 		err = errors.New("unsupported option for bucket update")
 		return
+		// End of fork5 bucket add handling
 	}
 
 	// ---------------------------------------

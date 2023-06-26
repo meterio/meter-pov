@@ -143,14 +143,19 @@ func (s *Staking) CandidateHandler(env *setypes.ScriptEnv, sb *StakingBody, gas 
 		stakeholder.AddBucket(bucket)
 	}
 
-	switch sb.Token {
-	case meter.MTR:
-		err = env.BoundAccountMeter(sb.CandAddr, sb.Amount)
-	case meter.MTRG:
-		err = env.BoundAccountMeterGov(sb.CandAddr, sb.Amount)
-	default:
-		//leftOverGas = gas
-		err = errInvalidToken
+	// switch sb.Token {
+	// case meter.MTR:
+	// 	err = env.BoundAccountMeter(sb.CandAddr, sb.Amount)
+	// case meter.MTRG:
+	err = env.BoundAccountMeterGov(sb.CandAddr, sb.Amount)
+	// default:
+	//leftOverGas = gas
+	// err = errInvalidToken
+	// }
+
+	if meter.IsTeslaFork10(number) {
+		// emit NativeBucketOpen event
+		env.AddNativeBucketOpenEvent(sb.CandAddr, bucket.ID(), sb.Amount, sb.Token)
 	}
 
 	state.SetCandidateList(candidateList)

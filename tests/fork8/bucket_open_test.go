@@ -18,9 +18,11 @@ type BoundEventData struct {
 }
 
 type NativeBucketWithdrawEventData struct {
+	FromBktID meter.Bytes32
 	Amount    *big.Int
 	Token     *big.Int
 	Recipient meter.Address
+	ToBktID   meter.Bytes32
 }
 
 func TestBucketOpen(t *testing.T) {
@@ -65,7 +67,7 @@ func TestBucketOpen(t *testing.T) {
 	assert.Equal(t, 1, len(receipt.Outputs), "should have 1 output")
 	o := receipt.Outputs[0]
 	// check events
-	assert.Equal(t, 1, len(o.Events), "should have 1 event")
+	assert.Equal(t, 2, len(o.Events), "should have 2 events")
 	e := o.Events[0]
 	assert.Equal(t, 2, len(e.Topics), "should have 2 topics")
 	boundEvent, found := builtin.MeterNative_V3_ABI.EventByName("Bound")
