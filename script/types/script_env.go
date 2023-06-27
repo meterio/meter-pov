@@ -91,7 +91,7 @@ func (env *ScriptEnv) AddNativeBucketUpdateCandidate(owner meter.Address, bucket
 
 	data, err := evt.Encode(bucketID, fromCandidate, toCandidate)
 	if err != nil {
-		fmt.Println("could not encode data for:", evt.Name())
+		fmt.Println("could not encode data for:", evt.Name(), err)
 	}
 
 	// save event
@@ -102,9 +102,10 @@ func (env *ScriptEnv) AddNativeBucketOpenEvent(owner meter.Address, bucketID met
 	evt := nativeBucketOpenEvent
 	topics := []meter.Bytes32{evt.ID(), meter.BytesToBytes32(owner[:])}
 
-	data, err := evt.Encode(bucketID, amount, token)
+	tokenInt := big.NewInt(int64(token))
+	data, err := evt.Encode(bucketID, amount, tokenInt)
 	if err != nil {
-		fmt.Println("could not encode data for:", evt.Name())
+		fmt.Println("could not encode data for:", evt.Name(), err)
 	}
 
 	// save event
@@ -117,7 +118,7 @@ func (env *ScriptEnv) AddNativeBucketCloseEvent(owner meter.Address, bucketID me
 
 	data, err := evt.Encode(bucketID)
 	if err != nil {
-		fmt.Println("could not encode data for:", evt.Name())
+		fmt.Println("could not encode data for:", evt.Name(), err)
 	}
 
 	// save event
@@ -125,12 +126,21 @@ func (env *ScriptEnv) AddNativeBucketCloseEvent(owner meter.Address, bucketID me
 }
 
 func (env *ScriptEnv) AddNativeBucketDepositEvent(owner meter.Address, bucketID meter.Bytes32, amount *big.Int, token byte) {
+
+	fmt.Println("Pack NativeBucketDeposit event")
 	evt := nativeBucketDepositEvent
 	topics := []meter.Bytes32{evt.ID(), meter.BytesToBytes32(owner[:])}
 
-	data, err := evt.Encode(bucketID, amount, token)
+	tokenInt := big.NewInt(int64(token))
+	fmt.Printf("topics: %x %x\n", topics[0], topics[1])
+	fmt.Println("bucketID: ", bucketID)
+	fmt.Println("amount: ", amount)
+	fmt.Println("token: ", tokenInt)
+
+	data, err := evt.Encode(bucketID, amount, tokenInt)
+	fmt.Println("data: %x \n", data)
 	if err != nil {
-		fmt.Println("could not encode data for:", evt.Name())
+		fmt.Println("could not encode data for:", evt.Name(), err)
 	}
 
 	// save event
@@ -141,9 +151,10 @@ func (env *ScriptEnv) AddNativeBucketWithdrawEvent(owner meter.Address, fromBuck
 	evt := nativeBucketWithdrawEvent
 	topics := []meter.Bytes32{evt.ID(), meter.BytesToBytes32(owner[:])}
 
-	data, err := evt.Encode(fromBucketID, amount, token, recipient, newBucketID)
+	tokenInt := big.NewInt(int64(token))
+	data, err := evt.Encode(fromBucketID, amount, tokenInt, recipient, newBucketID)
 	if err != nil {
-		fmt.Println("could not encode data for:", evt.Name())
+		fmt.Println("could not encode data for:", evt.Name(), err)
 	}
 
 	// save event
