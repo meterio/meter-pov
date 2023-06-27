@@ -106,7 +106,7 @@ func (env *ScriptEnv) AddNativeAuctionStart(auctionID meter.Bytes32, startHeight
 }
 
 func (env *ScriptEnv) AddNativeAuctionEnd(auctionID meter.Bytes32, receivedMTR *big.Int, releasedMTRG *big.Int, actualPrice *big.Int) {
-	evt := nativeBucketUpdateCandidateEvent
+	evt := nativeAuctionEndEvent
 	topics := []meter.Bytes32{evt.ID(), auctionID}
 
 	data, err := evt.Encode(receivedMTR, releasedMTRG, actualPrice)
