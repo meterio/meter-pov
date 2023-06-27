@@ -81,6 +81,12 @@ func (a *Auction) CloseAuctionCB(env *setypes.ScriptEnv, ab *AuctionBody, gas ui
 			summaries[i].DistMTRG = make([]*meter.DistMtrg, 0)
 		}
 	}
+
+	// emit NativeAuctionEnd
+	if meter.IsTeslaFork10(number) {
+		env.AddNativeAuctionEnd(auctionCB.ID(), auctionCB.RcvdMTR, auctionCB.RlsdMTRG, actualPrice)
+	}
+
 	summaryList = meter.NewAuctionSummaryList(summaries)
 	auctionCB = &meter.AuctionCB{}
 

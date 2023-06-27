@@ -25,6 +25,8 @@ var (
 	nativeBucketDepositEvent, _         = ScriptEngine.ABI.EventByName("NativeBucketDeposit")
 	nativeBucketWithdrawEvent, _        = ScriptEngine.ABI.EventByName("NativeBucketWithdraw")
 	nativeBucketUpdateCandidateEvent, _ = ScriptEngine.ABI.EventByName("NativeBucketUpdateCandidate")
+	nativeAuctionStartEvent, _          = ScriptEngine.ABI.EventByName("NativeAuctionStart")
+	nativeAuctionEndEvent, _            = ScriptEngine.ABI.EventByName("NativeAuctionEnd")
 )
 
 type ScriptEnv struct {
@@ -85,6 +87,37 @@ func (env *ScriptEnv) AddEvent(address meter.Address, topics []meter.Bytes32, da
 		Data:    data,
 	})
 }
+
+/*
+event NativeAuctionStart(bytes32 indexed id, uint256 startHeight, uint256 endHeight, uint256 mtrgOnAuction, uint256 reservedPrice);
+event NativeAuctionEnd(bytes32 indexed id, uint256 receivedMTR, uint256 releasedMTRG, uint256 actualPrice);
+*/
+func (env *ScriptEnv) AddNativeAuctionStart(auctionID meter.Bytes32, startHeight *big.Int, endHeight *big.Int, mtrgOnAuction *big.Int, reservedPrice *big.Int) {
+	evt := nativeAuctionStartEvent
+	topics := []meter.Bytes32{evt.ID(), auctionID}
+
+	data, err := evt.Encode(startHeight, endHeight, mtrgOnAuction, reservedPrice)
+	if err != nil {
+		fmt.Println("could not encode data for:", evt.Name(), err)
+	}
+
+	// save event
+	env.AddEvent(meter.AuctionModuleAddr, topics, data)
+}
+
+func (env *ScriptEnv) AddNativeAuctionEnd(auctionID meter.Bytes32, receivedMTR *big.Int, releasedMTRG *big.Int, actualPrice *big.Int) {
+	evt := nativeBucketUpdateCandidateEvent
+	topics := []meter.Bytes32{evt.ID(), auctionID}
+
+	data, err := evt.Encode(receivedMTR, releasedMTRG, actualPrice)
+	if err != nil {
+		fmt.Println("could not encode data for:", evt.Name(), err)
+	}
+
+	// save event
+	env.AddEvent(meter.AuctionModuleAddr, topics, data)
+}
+
 func (env *ScriptEnv) AddNativeBucketUpdateCandidate(owner meter.Address, bucketID meter.Bytes32, fromCandidate meter.Address, toCandidate meter.Address) {
 	evt := nativeBucketUpdateCandidateEvent
 	topics := []meter.Bytes32{evt.ID(), meter.BytesToBytes32(owner[:])}

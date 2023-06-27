@@ -52,6 +52,11 @@ func (a *Auction) StartAuctionCB(env *setypes.ScriptEnv, ab *AuctionBody, gas ui
 	auctionCB.AuctionTxs = make([]*meter.AuctionTx, 0)
 	auctionCB.AuctionID = auctionCB.ID()
 
+	// emit NativeAuctionStart
+	if meter.IsTeslaFork10(number) {
+		env.AddNativeAuctionStart(auctionCB.ID(), big.NewInt(int64(ab.StartHeight)), big.NewInt(int64(ab.EndHeight)), ab.Amount, auctionCB.RsvdPrice)
+	}
+
 	state.SetAuctionCB(auctionCB)
 	return
 }
