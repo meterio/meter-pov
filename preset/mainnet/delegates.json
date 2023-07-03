@@ -5,7 +5,7 @@
     "pub_key": "BEdvoJsZLZw2mmKPkZIpLQ3B9/L0warwsmmS1dNHSXfDP0vBx6JSYsmuWwj/3so5j/mn9OfTJMMEMO/LtRmSPOo=:::LWilIBiprQWu9CfOxUGME9l09994UozRan3iterG/2zqtUzE6nw2Pv8vpAFJSQTz4fbq2hd5dHrQIjWX574ftAA=",
     "voting_power": 100,
     "network_addr": {
-      "ip": "13.215.100.10",
+      "ip": "3.0.39.82",
       "port": 8670
     }
   },
@@ -15,7 +15,7 @@
     "pub_key": "BEaaRrf4wJZhtGlgmiffJGxn0dcR7mIbS5qMcDBvbfDs/njjV4jdSvibcQdE6agklgenUnMTlA9/6Zd3it1HxWI=:::VB7HSRio7qM9ikpBsDZw4UKRVkxH1jSV6+BE9tq1i+LlIdH/iP3Gf7kwSBTgKxStlglSA9CMNYp4M+XeNXb1jAE=",
     "voting_power": 100,
     "network_addr": {
-      "ip": "13.215.144.249",
+      "ip": "3.1.136.160",
       "port": 8670
     }
   },
@@ -25,7 +25,7 @@
     "pub_key": "BEZO/q3aKFSIXgIh50FKN8zlNMk8CKdiYeq+rNLnDIFTpM/LYqAguaDuNzxHTgFXiB/imQLj9ZlFQMK5j/Cj9PE=:::Ptux3rGIa1Isfw7UVy5+LkFzYI4FFV33ssqmO6qTD8ZeocZybNJwKPLIpgCurN2tjQDwGP1YKt1XZ4GLMl1OrwE=",
     "voting_power": 100,
     "network_addr": {
-      "ip": "13.215.170.204",
+      "ip": "3.1.243.167",
       "port": 8670
     }
   },
@@ -35,7 +35,7 @@
     "pub_key": "BJmMSFBVnr0JSTo6MhJr5TWlVaKp88tIZhwsn83hnwwAa12WKJrgJLYgmXs3cudZoENDhqpVWLTo9mLogc5fZv4=:::Io+O9rtIHMRB+2b0KAnARYTe7pD+r3U3DrVS9dPEpHgKcLXSpdnkkx8pbfdBCz68s+stkWcajRCEHN0O1tbC4gE=",
     "voting_power": 100,
     "network_addr": {
-      "ip": "13.215.211.230",
+      "ip": "3.233.5.46",
       "port": 8670
     }
   },
@@ -45,67 +45,7 @@
     "pub_key": "BBzIyiEmHlh+k9qbN/jQWmW7CfFzjmnNJPtSVCpPobH+0k/2zgtPic4UcHA7WiOrdWR6aAUML/eVvPH/p4LR2xo=:::PvuNxTb5AFHAQmZHhfJv3lS0i1dpIKNVuyUuaJSzFCtkG/Zhd9N0UAhe9I211GQL09ielD1MHAAvdvqUq/HxngA=",
     "voting_power": 100,
     "network_addr": {
-      "ip": "13.215.239.184",
-      "port": 8670
-    }
-  },
-  {
-    "name": "main-06",
-    "address": "0x42AbEc81b1cf45825c9DBF4D695051df90cE75ca",
-    "pub_key": "BJbdlkf5FYkKcBArsZoh2HiG9bO7e2Wpc5pPQ2vcsX5KTJr+gzUbCyvrThVXaGKWS2HUpXdqZ5kfPO2uAWR6X1I=:::BC0M7dmHdV3M0eSEQz3vli+n3FkS8mPPSz/Y7FA2r/ugqmqf12c4YLNVCdtLQAfmmfzQhXKQTqay+o3rNMf3AQE=",
-    "voting_power": 100,
-    "network_addr": {
-      "ip": "52.200.252.52",
-      "port": 8670
-    }
-  },
-  {
-    "name": "main-07",
-    "address": "0x9E9A88FB8dF6d9419e4563a357Aa40280C88020B",
-    "pub_key": "BBJ16RGbjlyunmWC8RcD5P7CGMH0dh7T3whhV3XNHaCA3kcbzGYeuc4E7T6W5xJO96ly3eEp5bhq9qdm/5Zpb4M=:::mFHRB+OK/l8ye2rwOZXO9Dnlu4rnPq6reaygdJ5dBiOkMYHSLlJ0A+bFhzabk+TB8NKGx617d5NZ69LS/J3qdgE=",
-    "voting_power": 100,
-    "network_addr": {
-      "ip": "54.235.126.160",
-      "port": 8670
-    }
-  },
-  {
-    "name": "main-08",
-    "address": "0xc4a6D309F6F755d0eecDe320423896D42E545FD9",
-    "pub_key": "BPO/wh3qI7oxiNZFkp7hNvL0NIPtQTzONkXq/oCIIYKmB3/FzRK7b2Z7kI/wnfeeyEDKbjfMicH1kbfxJRwMNx8=:::caxrbfsN8mxPYlNi9czhsA9TSOLt0Xp/npCmcfh/27fZcJgTYaQ4fTnPY4dEPReWJnvoDBzaowOZLRURaj1wbgA=",
-    "voting_power": 100,
-    "network_addr": {
-      "ip": "54.85.10.23",
-      "port": 8670
-    }
-  },
-  {
-    "name": "main-09",
-    "address": "0x6C814A9176922f462f0D21dcB512693212Ca5A88",
-    "pub_key": "BJQkmBX6K24DPM920sK5CxRFEEzfGA0wIzNR/bTUpXBEp9AkNEArZJ/eMPBX7E/kcPvrv+VpESLH+ECs3wuUOdQ=:::OeyP//h+fig22Sh6uFL3ktVtOTyyPq2RAYbNmXCgRIRpcliJh2X6zOExIaZZbhv0SrDYPbSxEbhjW4mrOoX3PQA=",
-    "voting_power": 100,
-    "network_addr": {
-      "ip": "3.69.81.7",
-      "port": 8670
-    }
-  },
-  {
-    "name": "main-10",
-    "address": "0x31A645D4303216FeCcf15E3408cD934deaA11961",
-    "pub_key": "BF+pjkGM9bDnjjRIEt+3W82sMj5vfcOm5EVTKQnUUtpP5DZS/ranmGy5/pPmz3/CxvtjcGiCuRNdem78kNg85yM=:::jMotv64MoMcQZLniGahXEWsZsAK18ycvZ9t1rxFOqQuwfGchEcqrWCS0YR9hJrkPd2Ny7kQETGXsTDSNapaZJwE=",
-    "voting_power": 100,
-    "network_addr": {
-      "ip": "3.73.169.0",
-      "port": 8670
-    }
-  },
-  {
-    "name": "main-11",
-    "address": "0xE135AF414Ef577807d85F292DcE067Cf20964971",
-    "pub_key": "BOwo7bnxahUTL4DeSGo4ioZqocs1LjY7h9drAVP/HVHmXBD3WVDJrUIhzcIR3XpyzShw9RWxS0Oi788mEisVGSE=:::ZbPc7iPjBmHapOKNusHK8ux8791J65xQrgFTUGpEpqOWh2cF4bstR2q6QO5hi/SykqeVvw6pqiI22IIlP50EOwE=",
-    "voting_power": 100,
-    "network_addr": {
-      "ip": "3.74.141.27",
+      "ip": "3.65.53.232",
       "port": 8670
     }
   }
