@@ -24,6 +24,7 @@ var (
 	beforeFlag   = cli.StringFlag{Name: "before", Usage: "the revision for to block"}
 	addressFlag  = cli.StringFlag{Name: "address", Usage: "address"}
 	keyFlag      = cli.StringFlag{Name: "key", Usage: "key"}
+	valueFlag    = cli.StringFlag{Name: "value", Usage: "value"}
 	verboseFlag  = cli.BoolFlag{Name: "verbose", Usage: "verbose for print out"}
 	forceFlag    = cli.BoolFlag{Name: "force", Usage: "Force unsafe reset"}
 	commitFlag   = cli.BoolFlag{Name: "commit", Usage: "Commit stateDB"}

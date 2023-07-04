@@ -171,6 +171,12 @@ func main() {
 				Action: unsafeDeleteRawAction,
 			},
 			{
+				Name:   "unsafe-set-raw",
+				Usage:  "Set raw key/value to local db",
+				Flags:  []cli.Flag{networkFlag, dataDirFlag, keyFlag, valueFlag},
+				Action: unsafeSetRawAction,
+			},
+			{
 				Name:   "local-reset",
 				Usage:  "Reset chain with local highest block",
 				Flags:  []cli.Flag{networkFlag, dataDirFlag},
@@ -674,7 +680,31 @@ func unsafeDeleteRawAction(ctx *cli.Context) error {
 		log.Error("could not delete key in database", "err", err, "key", key)
 		return nil
 	}
-	log.Info("Deleted key from db", "key", parsedKey)
+	log.Info("Deleted key from db", "key", hex.EncodeToString(parsedKey))
+	return nil
+}
+
+func unsafeSetRawAction(ctx *cli.Context) error {
+	initLogger()
+
+	mainDB, _ := openMainDB(ctx)
+	defer func() { log.Info("closing main database..."); mainDB.Close() }()
+
+	key := ctx.String(keyFlag.Name)
+	parsedKey, err := hex.DecodeString(strings.Replace(key, "0x", "", 1))
+	if err != nil {
+		log.Error("could not decode hex key", "err", err)
+		return nil
+	}
+	val := ctx.String(valueFlag.Name)
+	parsedVal, err := hex.DecodeString(strings.Replace(val, "0x", "", 1))
+
+	err = mainDB.Put(parsedKey, parsedVal)
+	if err != nil {
+		log.Error("could not set key in database", "err", err, "key", key)
+		return nil
+	}
+	log.Info("Set key/value in db", "key", hex.EncodeToString(parsedKey), "value", hex.EncodeToString(parsedVal))
 	return nil
 }
 
