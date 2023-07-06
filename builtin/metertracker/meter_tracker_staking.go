@@ -19,6 +19,7 @@ var (
 	errSelfVoteNotAllowed          = errors.New("self vote not allowed")
 	errNotEnoughVotes              = errors.New("not enough votes")
 	errCandidateNotEnoughSelfVotes = errors.New("candidate's accumulated votes > 100x candidate's own vote")
+	errCandidateJailed             = errors.New("candidate is jailed")
 
 	errBucketNotListed                = errors.New("bucket not listed")
 	errBucketNotOwned                 = errors.New("bucket not owned")
@@ -221,6 +222,7 @@ func CorrectCheckEnoughSelfVotes(c *meter.Candidate, bl *meter.BucketList, selfV
 func (e *MeterTracker) BucketDeposit(owner meter.Address, id meter.Bytes32, amount *big.Int) error {
 	candidateList := e.state.GetCandidateList()
 	bucketList := e.state.GetBucketList()
+	injailList := e.state.GetInJailList()
 
 	b := bucketList.Get(id)
 	if err := e.checkBucket(b, owner); err != nil {
@@ -239,6 +241,11 @@ func (e *MeterTracker) BucketDeposit(owner meter.Address, id meter.Bytes32, amou
 		if selfRatioValid := CorrectCheckEnoughSelfVotes(cand, bucketList, meter.TESLA1_1_SELF_VOTE_RATIO, nil, nil, amount, nil); !selfRatioValid {
 			return errCandidateNotEnoughSelfVotes
 		}
+	}
+
+	jailed := injailList.Get(b.Candidate)
+	if jailed == nil {
+		return errCandidateJailed
 	}
 
 	// bound account balance
