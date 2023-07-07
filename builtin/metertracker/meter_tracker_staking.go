@@ -70,6 +70,8 @@ func (e *MeterTracker) UnboundMeterGov(addr meter.Address, amount *big.Int) erro
 // create a bucket
 func (e *MeterTracker) BucketOpen(owner meter.Address, candAddr meter.Address, amount *big.Int, ts uint64, nonce uint64) (bucketID meter.Bytes32, err error) {
 	emptyBucketID := meter.Bytes32{}
+	injailList := e.state.GetInJailList()
+
 	// assert amount not 0
 	if amount.Sign() == 0 {
 		return emptyBucketID, errZeroAmount
@@ -93,6 +95,12 @@ func (e *MeterTracker) BucketOpen(owner meter.Address, candAddr meter.Address, a
 	// assert not self vote
 	if owner.EqualFold(&candAddr) {
 		return emptyBucketID, errSelfVoteNotAllowed
+	}
+
+	// assert candidate not in jail
+	jailed := injailList.Get(candAddr)
+	if jailed == nil {
+		return emptyBucketID, errCandidateJailed
 	}
 
 	candidateList := e.state.GetCandidateList()
@@ -243,6 +251,7 @@ func (e *MeterTracker) BucketDeposit(owner meter.Address, id meter.Bytes32, amou
 		}
 	}
 
+	// assert candidate not in jail
 	jailed := injailList.Get(b.Candidate)
 	if jailed == nil {
 		return errCandidateJailed
@@ -339,6 +348,7 @@ func (e *MeterTracker) BucketWithdraw(owner meter.Address, id meter.Bytes32, amo
 func (e *MeterTracker) BucketUpdateCandidate(owner meter.Address, id meter.Bytes32, newCandidateAddr meter.Address) error {
 	candidateList := e.state.GetCandidateList()
 	bucketList := e.state.GetBucketList()
+	injailList := e.state.GetInJailList()
 
 	b := bucketList.Get(id)
 	// assert bucket listed
@@ -360,6 +370,12 @@ func (e *MeterTracker) BucketUpdateCandidate(owner meter.Address, id meter.Bytes
 	nc := candidateList.Get(newCandidateAddr)
 	if nc == nil {
 		return errCandidateNotListed
+	}
+
+	// assert candidate not in jail
+	jailed := injailList.Get(newCandidateAddr)
+	if jailed == nil {
+		return errCandidateJailed
 	}
 
 	// assert new candidate has valid self vote ratio
@@ -389,6 +405,7 @@ func (e *MeterTracker) BucketUpdateCandidate(owner meter.Address, id meter.Bytes
 func (e *MeterTracker) BucketMerge(owner meter.Address, fromBucketID meter.Bytes32, toBucketID meter.Bytes32) error {
 	candidateList := e.state.GetCandidateList()
 	bucketList := e.state.GetBucketList()
+	injailList := e.state.GetInJailList()
 
 	// assert from/to is not the same
 	if strings.EqualFold(fromBucketID.String(), toBucketID.String()) {
@@ -409,6 +426,12 @@ func (e *MeterTracker) BucketMerge(owner meter.Address, fromBucketID meter.Bytes
 
 	fromCand := candidateList.Get(fromBkt.Candidate)
 	toCand := candidateList.Get(toBkt.Candidate)
+
+	// assert candidate not in jail
+	jailed := injailList.Get(toBkt.Candidate)
+	if jailed == nil {
+		return errCandidateJailed
+	}
 
 	// assert to candidate has valid self vote ratio
 	if toCand != nil {
@@ -438,9 +461,16 @@ func (e *MeterTracker) BucketMerge(owner meter.Address, fromBucketID meter.Bytes
 func (e *MeterTracker) BucketTransferFund(owner meter.Address, fromBucketID meter.Bytes32, toBucketID meter.Bytes32, amount *big.Int) error {
 	candidateList := e.state.GetCandidateList()
 	bucketList := e.state.GetBucketList()
+	injailList := e.state.GetInJailList()
 
 	fromBkt := bucketList.Get(fromBucketID)
 	toBkt := bucketList.Get(toBucketID)
+
+	// assert candidate not in jail
+	jailed := injailList.Get(toBkt.Candidate)
+	if jailed == nil {
+		return errCandidateJailed
+	}
 
 	// assert from/to is not the same
 	if strings.EqualFold(fromBucketID.String(), toBucketID.String()) {
