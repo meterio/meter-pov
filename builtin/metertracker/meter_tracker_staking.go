@@ -99,7 +99,7 @@ func (e *MeterTracker) BucketOpen(owner meter.Address, candAddr meter.Address, a
 
 	// assert candidate not in jail
 	jailed := injailList.Get(candAddr)
-	if jailed == nil {
+	if jailed != nil {
 		return emptyBucketID, errCandidateJailed
 	}
 
@@ -253,7 +253,7 @@ func (e *MeterTracker) BucketDeposit(owner meter.Address, id meter.Bytes32, amou
 
 	// assert candidate not in jail
 	jailed := injailList.Get(b.Candidate)
-	if jailed == nil {
+	if jailed != nil {
 		return errCandidateJailed
 	}
 
@@ -374,7 +374,7 @@ func (e *MeterTracker) BucketUpdateCandidate(owner meter.Address, id meter.Bytes
 
 	// assert candidate not in jail
 	jailed := injailList.Get(newCandidateAddr)
-	if jailed == nil {
+	if jailed != nil {
 		return errCandidateJailed
 	}
 
@@ -429,7 +429,7 @@ func (e *MeterTracker) BucketMerge(owner meter.Address, fromBucketID meter.Bytes
 
 	// assert candidate not in jail
 	jailed := injailList.Get(toBkt.Candidate)
-	if jailed == nil {
+	if jailed != nil {
 		return errCandidateJailed
 	}
 
@@ -468,7 +468,7 @@ func (e *MeterTracker) BucketTransferFund(owner meter.Address, fromBucketID mete
 
 	// assert candidate not in jail
 	jailed := injailList.Get(toBkt.Candidate)
-	if jailed == nil {
+	if jailed != nil {
 		return errCandidateJailed
 	}
 

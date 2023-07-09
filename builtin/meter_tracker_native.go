@@ -7,6 +7,7 @@ package builtin
 
 import (
 	"math/big"
+	"strings"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/inconshreveable/log15"
@@ -418,6 +419,21 @@ func init() {
 			env.UseGas(meter.GetBalanceGas)
 			val, _ := MeterTracker.Native(env.State()).BucketValue(args.BucketID)
 			return []interface{}{val}
+		}},
+		{"native_bucket_exists", func(env *xenv.Environment) []interface{} {
+			var args struct {
+				BucketID meter.Bytes32
+			}
+			env.ParseArgs(&args)
+			log.Info("native_bucket_exists", "bucketID", args.BucketID)
+			bucketList := env.State().GetBucketList()
+			bkt := bucketList.Get(args.BucketID)
+			if bkt != nil && strings.EqualFold(bkt.ID().String(), args.BucketID.String()) {
+				log.Info("native_bucket_exists true")
+				return []interface{}{true}
+			}
+			log.Info("native_bucket_exists false")
+			return []interface{}{false}
 		}},
 	}
 	//abi := GetContractABI("NewMeterNative")
