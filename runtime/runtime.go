@@ -422,14 +422,21 @@ func (rt *Runtime) EnforceTeslaFork10_Corrections(stateDB *statedb.StateDB, bloc
 
 			energy := rt.state.GetEnergy(meter.ValidatorBenefitAddr)
 			summaryList := rt.state.GetSummaryList().Summaries
-			reserve := new(big.Int)
-			if len(summaryList) > 2 {
+
+			// reserve = cushion(2000) + current auction rcvdMTR + last summary rcvdMTR
+			reserve := new(big.Int).Mul(big.NewInt(2000), big.NewInt(1e18))
+			if len(summaryList) > 1 {
 				last := summaryList[len(summaryList)-1]
-				last2 := summaryList[len(summaryList)-1-1]
+				log.Info("last summary rcvd MTR", "amount", last.RcvdMTR.String())
 				reserve = new(big.Int).Add(reserve, last.RcvdMTR)
-				reserve = new(big.Int).Add(reserve, last2.RcvdMTR)
 			}
-			log.Info("Validator benefit", "mtr", energy.String(), "reserve", reserve.String())
+			activeCB := rt.state.GetAuctionCB()
+			if activeCB != nil && activeCB.IsActive() {
+				log.Info("active auction rcvd MTR", "amount", activeCB.RcvdMTR.String())
+				reserve = new(big.Int).Add(reserve, activeCB.RcvdMTR)
+			}
+
+			log.Info("Validator benefit", "currentEnergy", energy.String(), "reserve", reserve.String())
 			if energy.Cmp(reserve) > 0 {
 				toAddr := meter.MustParseAddress("0x62e3e1df0430e6da83060b3cffc1adeb3792daf1")
 				moved := new(big.Int).Sub(energy, reserve)
