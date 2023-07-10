@@ -735,12 +735,12 @@ func unsafeResetAction(ctx *cli.Context) error {
 		panic(fmt.Sprintf("not supported network: %v", network))
 	}
 
-	err = getJson(myClient, fmt.Sprintf("http://%v:8669/blocks/%v", domain, height), &blkInfo)
+	err = getJson(myClient, fmt.Sprintf("http://%v/blocks/%v", domain, height), &blkInfo)
 	if err != nil {
 		panic(fmt.Sprintf("could not get block info: %v", height))
 	}
 
-	err = getJson(myClient, fmt.Sprintf("http://%v:8669/blocks/qc/%v", domain, height+1), &qcInfo)
+	err = getJson(myClient, fmt.Sprintf("http://%v/blocks/qc/%v", domain, height+1), &qcInfo)
 	if err != nil {
 		panic(fmt.Sprintf("could not get qc info: %v", height+1))
 	}
