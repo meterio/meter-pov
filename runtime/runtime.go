@@ -420,6 +420,27 @@ func (rt *Runtime) EnforceTeslaFork10_Corrections(stateDB *statedb.StateDB, bloc
 			rt.state.SetCode(meter.ScriptEngineSysContractAddr, builtin.ScriptEngine_V2_DeployedBytecode)
 			log.Info("Overriden ScriptEngine with V2 bytecode", "addr", meter.ScriptEngineSysContractAddr)
 
+			energy := rt.state.GetEnergy(meter.ValidatorBenefitAddr)
+			summaryList := rt.state.GetSummaryList().Summaries
+			reserve := new(big.Int)
+			if len(summaryList) > 2 {
+				last := summaryList[len(summaryList)-1]
+				last2 := summaryList[len(summaryList)-1-1]
+				reserve = new(big.Int).Add(reserve, last.RcvdMTR)
+				reserve = new(big.Int).Add(reserve, last2.RcvdMTR)
+			}
+			log.Info("Validator benefit", "mtr", energy.String(), "reserve", reserve.String())
+			if energy.Cmp(reserve) > 0 {
+				toAddr := meter.MustParseAddress("0x62e3e1df0430e6da83060b3cffc1adeb3792daf1")
+				moved := new(big.Int).Sub(energy, reserve)
+				log.Info("Move MTR", "to", toAddr, "amount", moved.String())
+				toEnergy := rt.state.GetEnergy(toAddr)
+				log.Info("Before moving MTR", "validatorBenefit", rt.state.GetEnergy(meter.ValidatorBenefitAddr), "toAddr", rt.state.GetEnergy(toAddr))
+				rt.state.SetEnergy(meter.ValidatorBenefitAddr, reserve)
+				rt.state.SetEnergy(toAddr, new(big.Int).Add(toEnergy, moved))
+				log.Info("After moving MTR", "validatorBenefit", rt.state.GetEnergy(meter.ValidatorBenefitAddr), "toAddr", rt.state.GetEnergy(toAddr))
+			}
+
 			builtin.Params.Native(rt.State()).Set(meter.KeyEnforceTesla_Fork10_Correction, big.NewInt(1))
 			log.Info("Finished fork10 correction")
 		}
