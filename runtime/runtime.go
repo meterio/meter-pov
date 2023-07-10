@@ -445,6 +445,14 @@ func (rt *Runtime) EnforceTeslaFork10_Corrections(stateDB *statedb.StateDB, bloc
 				log.Info("Before moving MTR", "validatorBenefit", rt.state.GetEnergy(meter.ValidatorBenefitAddr), "toAddr", rt.state.GetEnergy(toAddr))
 				rt.state.SetEnergy(meter.ValidatorBenefitAddr, reserve)
 				rt.state.SetEnergy(toAddr, new(big.Int).Add(toEnergy, moved))
+
+				stateDB.AddTransfer(&tx.Transfer{
+					Sender:    meter.Address(meter.ValidatorBenefitAddr),
+					Recipient: meter.Address(toAddr),
+					Amount:    moved,
+					Token:     0,
+				})
+
 				log.Info("After moving MTR", "validatorBenefit", rt.state.GetEnergy(meter.ValidatorBenefitAddr), "toAddr", rt.state.GetEnergy(toAddr))
 			}
 
