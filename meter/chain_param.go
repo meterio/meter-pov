@@ -140,7 +140,7 @@ const (
 	TeslaFork8_TestnetStartNum = 27902500 // around 2/26/2023 12:00 PM (PDT)
 )
 
-// fork8 fixes include:
+// fork9 fixes include:
 // 1. optimize proposal query/forward to avoid query flood
 // 2. propose block with local QCHigh, instead of designated height
 // 3. use best block in timeout newview, to secure network liveness
@@ -157,6 +157,24 @@ const (
 	TeslaFork9_TestnetStartNum = 31556000 // around 4/15/2023 7:00 AM (PDT)
 )
 
+// fork10 fixes include:
+// 1. liquid staking native methods:
+//   - `native_bucket_open`
+//   - `native_bucket_close`
+//   - `native_bucket_deposit`
+//   - `native_bucket_withdraw`
+//   - `native_bucket_transfer_fund`
+//   - `native_bucket_merge`
+//   - `native_bucket_update_candidate`
+//   - `native_bucket_value`
+//   - `native_bucket_exists`
+//
+// 2. remove `move` vulnerability from MTR/MTRG system contract
+// 3. disable staking with MTR
+// 4. range check for autobid in `candidate` and `delegate` op
+// 5. update mainnet settings to shrink bootstrap node from 11 to 5
+// 6. emit `NativeAuctionStart` and `NativeAuctionEnd` event in auction module
+// 7. Transfer fund from validator benefit to eMTRG map
 const (
 	TeslaFork10_MainnetStartNum = 40093000 // around 7/10/2023 10:00 AM (PDT)
 	TeslaFork10_TestnetStartNum = 36782600 // around 6/17/2023 12:00 AM (PDT)
