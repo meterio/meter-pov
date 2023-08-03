@@ -200,7 +200,7 @@ func convertTransaction(tx *tx.Transaction, header *block.Header, txIndex uint64
 			etx := EthTx{}
 			err = json.Unmarshal(ethTxJSON, &etx)
 			if err != nil {
-				fmt.Println("could not unmarshal ethTx")
+				fmt.Println("could not unmarshal ethTx", err, string(ethTxJSON))
 			}
 			convertedEthTx = &etx
 			convertedEthTx.Type = ethTx.Type()
