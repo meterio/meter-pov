@@ -1426,7 +1426,7 @@ func (p *Pacemaker) revertTo(revertHeight uint32) {
 		}
 		info := proposal.ProposedBlockInfo
 		if info == nil {
-			p.logger.Warn("Empty block info", "height", height)
+			p.logger.Warn("Empty block info, skip reverting", "height", height)
 		} else {
 			// return the txs in precommitted blocks
 			info.txsToReturned()
@@ -1436,19 +1436,29 @@ func (p *Pacemaker) revertTo(revertHeight uint32) {
 				p.logger.Error("revert the state faild ...", "err", err)
 			}
 			state.RevertTo(info.CheckPoint)
+			p.logger.Warn("revert states on", "height", height, "block", proposal.ToString())
 		}
-		p.logger.Warn("revert block", "height", height, "block", proposal.ToString())
 		height++
 	}
 
 	p.proposalMap.RevertTo(revertHeight)
 
 	if pivot != nil {
-		if p.blockLeaf.Height >= pivot.Height {
+		if p.blockLeaf.Height >= pivot.Height && pivotParent != nil {
 			p.blockLeaf = pivotParent
+			p.logger.Info("move blockLeaf to ", "height", pivotParent.Height)
 		}
-		if p.QCHigh != nil && p.QCHigh.QCNode != nil && p.QCHigh.QCNode.Height >= pivot.Height {
+		if p.QCHigh != nil && p.QCHigh.QCNode != nil && p.QCHigh.QCNode.Height >= pivot.Height && pivotJustify != nil {
+			p.logger.Info("move QCHigh to ", "height", pivotJustify.QC.QCHeight)
 			p.QCHigh = pivotJustify
+		}
+		if p.blockLocked.Height >= pivot.Height && pivotParent != nil {
+			p.blockLocked = pivotParent
+			p.logger.Info("move blockLocked to ", "height", pivotParent.Height)
+		}
+		if p.blockExecuted.Height >= pivot.Height && pivotParent != nil {
+			p.blockExecuted = pivotParent
+			p.logger.Info("move blockExecuted to ", "height", pivotParent.Height)
 		}
 	}
 
