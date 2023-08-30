@@ -337,6 +337,7 @@ func (p *Pacemaker) OnPreCommitBlock(b *pmBlock) error {
 		p.logger.Warn("skip precommit empty block", "height", b.Height, "round", b.Round)
 		return nil
 	}
+	p.logger.Info("try to pre-commit", "height", b.Height)
 	err := p.precommitBlock(b.ProposedBlockInfo)
 
 	if err != nil && err != chain.ErrBlockExist {
