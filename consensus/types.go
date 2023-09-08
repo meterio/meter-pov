@@ -7,12 +7,10 @@ package consensus
 
 import (
 	"fmt"
-	"io"
 
-	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/meterio/meter-pov/block"
-	cmn "github.com/meterio/meter-pov/libs/common"
-	"github.com/meterio/meter-pov/meter"
+	"github.com/meterio/meter-pov/state"
+	"github.com/meterio/meter-pov/tx"
 )
 
 type RecvKBlockInfo struct {
@@ -22,119 +20,34 @@ type RecvKBlockInfo struct {
 	Epoch            uint64
 }
 
-// definition for PMTimeoutCert
-type PMTimeoutCert struct {
-	TimeoutRound   uint32
-	TimeoutHeight  uint32
-	TimeoutCounter uint32
-
-	TimeoutBitArray *cmn.BitArray
-	TimeoutAggSig   []byte
-}
-
-func newPMTimeoutCert(height, round uint32, counter uint32, committeeSize int) *PMTimeoutCert {
-
-	return &PMTimeoutCert{
-		TimeoutRound:   round,
-		TimeoutHeight:  height,
-		TimeoutCounter: counter,
-
-		TimeoutBitArray: cmn.NewBitArray(committeeSize),
-		TimeoutAggSig:   make([]byte, 0),
-	}
-}
-
-func (tc *PMTimeoutCert) SigningHash() (hash meter.Bytes32) {
-	hw := meter.NewBlake2b()
-	err := rlp.Encode(hw, []interface{}{
-		tc.TimeoutRound,
-		tc.TimeoutHeight,
-		tc.TimeoutCounter,
-
-		tc.TimeoutBitArray.String(),
-		tc.TimeoutAggSig,
-	})
-	if err != nil {
-		fmt.Println("could not get signing hash, error:", err)
-	}
-	hw.Sum(hash[:0])
-	return
-}
-
-// EncodeRLP implements rlp.Encoder.
-func (tc *PMTimeoutCert) EncodeRLP(w io.Writer) error {
-	s := []byte("")
-	if tc == nil {
-		w.Write([]byte{})
-		return nil
-	}
-	if tc.TimeoutBitArray != nil {
-		s, _ = tc.TimeoutBitArray.MarshalJSON()
-	}
-	return rlp.Encode(w, []interface{}{
-		tc.TimeoutHeight,
-		tc.TimeoutRound,
-		tc.TimeoutCounter,
-		string(s),
-		tc.TimeoutAggSig,
-	})
-}
-
-// DecodeRLP implements rlp.Decoder.
-func (tc *PMTimeoutCert) DecodeRLP(s *rlp.Stream) error {
-	payload := struct {
-		Height      uint32
-		Round       uint32
-		Counter     uint32
-		BitArrayStr string
-		AggSig      []byte
-	}{}
-
-	if err := s.Decode(&payload); err != nil {
-		return err
-	}
-	bitArray := &cmn.BitArray{}
-	err := bitArray.UnmarshalJSON([]byte(payload.BitArrayStr))
-	if err != nil {
-		bitArray = nil
-	}
-	*tc = PMTimeoutCert{
-		TimeoutHeight:   payload.Height,
-		TimeoutRound:    payload.Round,
-		TimeoutCounter:  payload.Counter,
-		TimeoutBitArray: bitArray,
-		TimeoutAggSig:   payload.AggSig,
-	}
-	return nil
-}
-
-func (tc *PMTimeoutCert) String() string {
-	if tc != nil {
-		return fmt.Sprintf("TCert(H:%v, R:%v, C:%v, Voted:%v/%v)", tc.TimeoutHeight, tc.TimeoutRound, tc.TimeoutCounter, tc.TimeoutBitArray.Count(), tc.TimeoutBitArray.Size())
-	}
-	return "nil"
+type commitReadyBlock struct {
+	block      *pmBlock
+	matchingQC *block.QuorumCert
 }
 
 // definition for pmBlock
 type pmBlock struct {
-	Height uint32
-	Round  uint32
-
-	Parent  *pmBlock
-	Justify *pmQuorumCert
-
-	ProposedBlock     []byte // byte slice block
-	ProposedBlockType BlockType
-
-	// derived
-	Decided         bool
-	ProposalMessage *PMProposalMessage
+	Height        uint32
+	Round         uint32
+	Parent        *pmBlock
+	Justify       *pmQuorumCert
+	Committed     bool // used for pmBlock created from database
+	ProposedBlock *block.Block
+	RawBlock      []byte
 
 	// local derived data structure, re-exec all txs and get
 	// states. If states are match proposer, then vote, otherwise decline.
-	ProposedBlockInfo *ProposedBlockInfo
-	SuccessProcessed  bool
-	ProcessError      error
+
+	// executed results
+	Stage         *state.Stage
+	Receipts      *tx.Receipts
+	txsToRemoved  func() bool
+	txsToReturned func() bool
+	CheckPoint    int
+	BlockType     BlockType
+
+	SuccessProcessed bool
+	ProcessError     error
 }
 
 func (pb *pmBlock) ToString() string {
@@ -153,8 +66,8 @@ func (pb *pmBlock) ToString() string {
 // definition for pmQuorumCert
 type pmQuorumCert struct {
 	//QCHeight/QCround must be the same with QCNode.Height/QCnode.Round
-	QCNode *pmBlock
-	QC     *block.QuorumCert
+	QCNode *pmBlock          // this is the QCed block
+	QC     *block.QuorumCert // this is the actual QC that goes into the next block
 }
 
 func newPMQuorumCert(qc *block.QuorumCert, qcNode *pmBlock) *pmQuorumCert {
