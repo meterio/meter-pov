@@ -11,10 +11,10 @@ import (
 	"github.com/meterio/meter-pov/script"
 )
 
-func (p *Pacemaker) precommitBlock(blkInfo *ProposedBlockInfo) error {
-	blk := blkInfo.ProposedBlock
-	stage := blkInfo.Stage
-	receipts := blkInfo.Receipts
+func (p *Pacemaker) precommitBlock(pmBlk *pmBlock) error {
+	blk := pmBlk.ProposedBlock
+	stage := pmBlk.Stage
+	receipts := pmBlk.Receipts
 
 	// start := time.Now()
 	// TODO: temporary remove
@@ -66,7 +66,7 @@ func (p *Pacemaker) precommitBlock(blkInfo *ProposedBlockInfo) error {
 	}
 
 	// now only Mblock remove the txs from txpool
-	blkInfo.txsToRemoved()
+	pmBlk.txsToRemoved()
 
 	blocksCommitedCounter.Inc()
 
@@ -75,10 +75,10 @@ func (p *Pacemaker) precommitBlock(blkInfo *ProposedBlockInfo) error {
 }
 
 // finalize the block with its own QC
-func (p *Pacemaker) commitBlock(blkInfo *ProposedBlockInfo, bestQC *block.QuorumCert) error {
-	blk := blkInfo.ProposedBlock
+func (p *Pacemaker) commitBlock(pmBlk *pmBlock, bestQC *block.QuorumCert) error {
+	blk := pmBlk.ProposedBlock
 	//stage := blkInfo.Stage
-	receipts := blkInfo.Receipts
+	receipts := pmBlk.Receipts
 
 	// TODO: temporary remove
 	// if p.csReactor.csPacemaker.blockLocked.Height != height+1 {
