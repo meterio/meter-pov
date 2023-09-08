@@ -7,72 +7,36 @@ package consensus
 
 import (
 	"bytes"
-	"encoding/hex"
+	"crypto/ecdsa"
 	"fmt"
-	"strings"
 	"time"
 
 	crypto "github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/meterio/meter-pov/block"
-	cmn "github.com/meterio/meter-pov/libs/common"
 	"github.com/meterio/meter-pov/meter"
-	"github.com/meterio/meter-pov/types"
 	amino "github.com/tendermint/go-amino"
 )
 
-// new consensus Messages
-
-const (
-	//Consensus Message Type
-	CONSENSUS_MSG_NEW_COMMITTEE      = byte(0x01)
-	CONSENSUS_MSG_ANNOUNCE_COMMITTEE = byte(0x02)
-	CONSENSUS_MSG_COMMIT_COMMITTEE   = byte(0x03)
-	CONSENSUS_MSG_NOTARY_ANNOUNCE    = byte(0x04)
-	// CONSENSUS_MSG_PROPOSAL_BLOCK              = byte(0x03)
-	// CONSENSUS_MSG_NOTARY_BLOCK                = byte(0x05)
-	// CONSENSUS_MSG_VOTE_FOR_PROPOSAL           = byte(0x06)
-	// CONSENSUS_MSG_VOTE_FOR_NOTARY             = byte(0x07)
-	// CONSENSUS_MSG_MOVE_NEW_ROUND              = byte(0x08)
-	PACEMAKER_MSG_PROPOSAL       = byte(0x10)
-	PACEMAKER_MSG_VOTE           = byte(0x11)
-	PACEMAKER_MSG_NEW_VIEW       = byte(0x12)
-	PACEMAKER_MSG_QUERY_PROPOSAL = byte(0x13)
-)
-
-var typeMap = map[string]byte{
-	"AnnounceCommittee": CONSENSUS_MSG_ANNOUNCE_COMMITTEE,
-	"CommitCommittee":   CONSENSUS_MSG_COMMIT_COMMITTEE,
-	"NotaryAnnounce":    CONSENSUS_MSG_NOTARY_ANNOUNCE,
-	"NewCommittee":      CONSENSUS_MSG_NEW_COMMITTEE,
-	"PMNewView":         PACEMAKER_MSG_NEW_VIEW,
-	"PMProposal":        PACEMAKER_MSG_PROPOSAL,
-	"PMVote":            PACEMAKER_MSG_VOTE,
-	"PMQueryProposal":   PACEMAKER_MSG_QUERY_PROPOSAL,
-}
-
 // ConsensusMessage is a message that can be sent and received on the ConsensusReactor
 type ConsensusMessage interface {
+	GetSignerIndex() uint32
+	GetEpoch() uint64
+	GetType() string
+	GetRound() uint32
+
 	String() string
-	EpochID() uint64
-	MsgType() byte
-	Header() *ConsensusMsgCommonHeader
-	SigningHash() meter.Bytes32
+	GetMsgHash() meter.Bytes32
+	SetMsgSignature(signature []byte)
+	VerifyMsgSignature(pubkey *ecdsa.PublicKey) bool
 }
 
 func RegisterConsensusMessages(cdc *amino.Codec) {
 	cdc.RegisterInterface((*ConsensusMessage)(nil), nil)
 
-	// New consensus
-	cdc.RegisterConcrete(&AnnounceCommitteeMessage{}, "dfinlab/AnnounceCommittee", nil)
-	cdc.RegisterConcrete(&CommitCommitteeMessage{}, "dfinlab/CommitCommittee", nil)
-	cdc.RegisterConcrete(&NotaryAnnounceMessage{}, "dfinlab/NotaryAnnounce", nil)
-	cdc.RegisterConcrete(&NewCommitteeMessage{}, "dfinlab/NewCommittee", nil)
-
-	cdc.RegisterConcrete(&PMProposalMessage{}, "dfinlab/PMProposal", nil)
-	cdc.RegisterConcrete(&PMVoteMessage{}, "dfinlab/PMVote", nil)
-	cdc.RegisterConcrete(&PMNewViewMessage{}, "dfinlab/PMNewView", nil)
-	cdc.RegisterConcrete(&PMQueryProposalMessage{}, "dfinlab/PMQueryProposal", nil)
+	cdc.RegisterConcrete(&PMProposalMessage{}, "meterio/PMProposal", nil)
+	cdc.RegisterConcrete(&PMVoteMessage{}, "meterio/PMVote", nil)
+	cdc.RegisterConcrete(&PMTimeoutMessage{}, "meterio/PMTimeout", nil)
 }
 
 func decodeMsg(bz []byte) (msg ConsensusMessage, err error) {
@@ -83,274 +47,49 @@ func decodeMsg(bz []byte) (msg ConsensusMessage, err error) {
 	return
 }
 
-// ConsensusMsgCommonHeader
-type ConsensusMsgCommonHeader struct {
-	Height     uint32
-	Round      uint32
-	Sender     []byte //ecdsa.PublicKey
-	Timestamp  time.Time
-	MsgType    byte
-	MsgSubType byte
-	EpochID    uint64
-
-	Signature []byte // ecdsa signature of whole consensus message
-}
-
-func (ch ConsensusMsgCommonHeader) Fields() []interface{} {
-	return []interface{}{
-		ch.Height, ch.Round, ch.Sender, ch.Timestamp, ch.MsgType, ch.MsgSubType, ch.EpochID,
-	}
-}
-
-func (cmh *ConsensusMsgCommonHeader) SetMsgSignature(sig []byte) {
-	cpy := append([]byte(nil), sig...)
-	cmh.Signature = cpy
-}
-
-func (cmh *ConsensusMsgCommonHeader) verifySignature(msgHash meter.Bytes32) bool {
-	pub, err := crypto.SigToPub(msgHash[:], cmh.Signature)
-	if err != nil {
-		return false
-	}
-	return bytes.Equal(crypto.FromECDSAPub(pub), cmh.Sender)
-}
-
-func (cmh *ConsensusMsgCommonHeader) ToString() string {
-	return fmt.Sprintf("cmHeader(H:%v, R:%v, Sender:%v, ts:%v, msgType:%v, msgSubType:%v, epoch:%v)", cmh.Height, cmh.Round, hex.EncodeToString(cmh.Sender), cmh.Timestamp.UnixMilli(), cmh.MsgType, cmh.MsgSubType, cmh.EpochID)
-}
-
-// New Consensus
-// Message Definitions
-// ---------------------------------------
-// AnnounceCommitteeMessage is sent when new committee is relayed. The leader of new committee
-// send out to announce the new committee is setup, after collects the majority signature from
-// new committee members.
-type AnnounceCommitteeMessage struct {
-	CSMsgCommonHeader ConsensusMsgCommonHeader
-
-	AnnouncerID    []byte //ecdsa.PublicKey
-	AnnouncerBlsPK []byte //bls.PublicKey
-
-	CommitteeSize  uint32
-	Nonce          uint64 //nonce is 8 bytes
-	KBlockHeight   uint32 // kblockdata
-	POWBlockHeight uint32
-
-	//collected NewCommittee signature
-	VotingBitArray *cmn.BitArray
-	VotingMsgHash  [32]byte // all message hash from Newcommittee msgs
-	VotingAggSig   []byte   // aggregate signature of voterSig above
-}
-
-// SigningHash computes hash of all header fields excluding signature.
-func (m *AnnounceCommitteeMessage) SigningHash() (hash meter.Bytes32) {
-	hw := meter.NewBlake2b()
-	data := append(m.CSMsgCommonHeader.Fields(),
-		m.AnnouncerID, m.AnnouncerBlsPK,
-		m.CommitteeSize, m.Nonce, m.KBlockHeight, m.POWBlockHeight,
-		m.VotingBitArray, m.VotingMsgHash, m.VotingAggSig,
-	)
-	err := rlp.Encode(hw, data)
-	if err != nil {
-		fmt.Println("RLP Encode Error: ", err)
-	}
-	hw.Sum(hash[:0])
-	return
-}
-
-// String returns a string representation.
-func (m *AnnounceCommitteeMessage) String() string {
-	header := m.CSMsgCommonHeader
-	return fmt.Sprintf("[AnnounceCommittee Height:%v Round:%v Epoch:%v Nonce:%v Size:%d KBlockHeight:%v PowBlockHeight:%v]",
-		header.Height, header.Round, header.EpochID, m.Nonce, m.CommitteeSize, m.KBlockHeight, m.POWBlockHeight)
-}
-func (m *AnnounceCommitteeMessage) Header() *ConsensusMsgCommonHeader {
-	return &m.CSMsgCommonHeader
-}
-func (m *AnnounceCommitteeMessage) EpochID() uint64 {
-	return m.CSMsgCommonHeader.EpochID
-}
-func (m *AnnounceCommitteeMessage) MsgType() byte {
-	return m.CSMsgCommonHeader.MsgType
-}
-
-// CommitCommitteMessage is sent after announce committee is received. Told the Leader
-// there is enough member to setup the committee.
-type CommitCommitteeMessage struct {
-	CSMsgCommonHeader ConsensusMsgCommonHeader
-
-	CommitterID    []byte //ecdsa.PublicKey
-	CommitterBlsPK []byte //bls.PublicKey
-	CommitterIndex uint32
-
-	BlsSignature  []byte   //bls.Signature
-	SignedMsgHash [32]byte //bls signed message hash
-}
-
-// SigningHash computes hash of all header fields excluding signature.
-func (m *CommitCommitteeMessage) SigningHash() (hash meter.Bytes32) {
-	hw := meter.NewBlake2b()
-	data := append(m.CSMsgCommonHeader.Fields(),
-		m.CommitterID, m.CommitterBlsPK, m.CommitterIndex,
-		m.BlsSignature, m.SignedMsgHash,
-	)
-	err := rlp.Encode(hw, data)
-	if err != nil {
-		fmt.Println("RLP Encode Error: ", err)
-	}
-	hw.Sum(hash[:0])
-	return
-}
-
-// String returns a string representation.
-func (m *CommitCommitteeMessage) String() string {
-	header := m.CSMsgCommonHeader
-	return fmt.Sprintf("[CommitCommittee Height:%v Round:%v Epoch:%v Index:%d]",
-		header.Height, header.Round, header.EpochID, m.CommitterIndex)
-}
-func (m *CommitCommitteeMessage) Header() *ConsensusMsgCommonHeader {
-	return &m.CSMsgCommonHeader
-}
-
-func (m *CommitCommitteeMessage) EpochID() uint64 {
-	return m.CSMsgCommonHeader.EpochID
-}
-
-func (m *CommitCommitteeMessage) MsgType() byte {
-	return m.CSMsgCommonHeader.MsgType
-}
-
-// -------------------------------------
-type NotaryAnnounceMessage struct {
-	CSMsgCommonHeader ConsensusMsgCommonHeader
-
-	AnnouncerID    []byte //ecdsa.PublicKey
-	AnnouncerBlsPK []byte //bls.PublicKey
-
-	//collected NewCommittee messages
-	VotingBitArray *cmn.BitArray
-	VotingMsgHash  [32]byte // all message hash from Newcommittee msgs
-	VotingAggSig   []byte   // aggregate signature of voterSig above
-
-	// collected from commitcommittee messages
-	NotarizeBitArray *cmn.BitArray
-	NotarizeMsgHash  [32]byte // all message hash from Newcommittee msgs
-	NotarizeAggSig   []byte   // aggregate signature of voterSig above
-
-	CommitteeSize    uint32 // summarized committee info
-	CommitteeMembers []block.CommitteeInfo
-}
-
-// SigningHash computes hash of all header fields excluding signature.
-func (m *NotaryAnnounceMessage) SigningHash() (hash meter.Bytes32) {
-	hw := meter.NewBlake2b()
-	data := append(m.CSMsgCommonHeader.Fields(),
-		m.AnnouncerID, m.AnnouncerBlsPK,
-		m.VotingBitArray, m.VotingMsgHash, m.VotingAggSig,
-		m.NotarizeBitArray, m.NotarizeMsgHash, m.NotarizeAggSig,
-		m.CommitteeSize, m.CommitteeMembers,
-	)
-	err := rlp.Encode(hw, data)
-	if err != nil {
-		fmt.Println("RLP Encode Error: ", err)
-	}
-	hw.Sum(hash[:0])
-	return
-}
-
-// String returns a string representation.
-func (m *NotaryAnnounceMessage) String() string {
-	header := m.CSMsgCommonHeader
-	s := make([]string, 0)
-	for _, m := range m.CommitteeMembers {
-		s = append(s, m.Name)
-	}
-	return fmt.Sprintf("[NotaryAnnounce Height:%v Round:%v Epoch:%v CommitteeSize:%d Members:%s]",
-		header.Height, header.Round, header.EpochID, m.CommitteeSize, strings.Join(s, ","))
-}
-func (m *NotaryAnnounceMessage) Header() *ConsensusMsgCommonHeader {
-	return &m.CSMsgCommonHeader
-}
-func (m *NotaryAnnounceMessage) EpochID() uint64 {
-	return m.CSMsgCommonHeader.EpochID
-}
-func (m *NotaryAnnounceMessage) MsgType() byte {
-	return m.CSMsgCommonHeader.MsgType
-}
-
-// ------------------------------------
-type NewCommitteeMessage struct {
-	CSMsgCommonHeader ConsensusMsgCommonHeader
-
-	NewLeaderID    []byte //ecdsa.PublicKey
-	ValidatorID    []byte //ecdsa.PublicKey
-	ValidatorBlsPK []byte //bls publickey
-
-	NextEpochID   uint64
-	Nonce         uint64 // 8 bytes  Kblock info
-	KBlockHeight  uint32
-	SignedMsgHash [32]byte // BLS signed message hash
-	BlsSignature  []byte   // BLS signed signature
-}
-
-// SigningHash computes hash of all header fields excluding signature.
-func (m *NewCommitteeMessage) SigningHash() (hash meter.Bytes32) {
-	hw := meter.NewBlake2b()
-	data := append(m.CSMsgCommonHeader.Fields(),
-		m.NewLeaderID, m.ValidatorID, m.ValidatorBlsPK,
-		m.NextEpochID, m.Nonce, m.KBlockHeight, m.SignedMsgHash, m.BlsSignature,
-	)
-	err := rlp.Encode(hw, data)
-	if err != nil {
-		fmt.Println("RLP Encode Error: ", err)
-	}
-	hw.Sum(hash[:0])
-	return
-}
-
-// String returns a string representation.
-func (m *NewCommitteeMessage) String() string {
-	return fmt.Sprintf("[NewCommittee Height:%v Round:%v NextEpochID:%v Nonce:%v]",
-		m.CSMsgCommonHeader.Height, m.CSMsgCommonHeader.Round, m.NextEpochID, m.Nonce)
-}
-func (m *NewCommitteeMessage) Header() *ConsensusMsgCommonHeader {
-	return &m.CSMsgCommonHeader
-}
-func (m *NewCommitteeMessage) EpochID() uint64 {
-	return m.CSMsgCommonHeader.EpochID
-}
-func (m *NewCommitteeMessage) MsgType() byte {
-	return m.CSMsgCommonHeader.MsgType
-}
-
 // PMProposalMessage is sent when a new block leaf is proposed
 type PMProposalMessage struct {
-	CSMsgCommonHeader ConsensusMsgCommonHeader
+	Timestamp   time.Time
+	Epoch       uint64
+	SignerIndex uint32
 
+	Height       uint32
+	Round        uint32
 	ParentHeight uint32
 	ParentRound  uint32
+	RawBlock     []byte
 
-	ProposerID    []byte //ecdsa.PublicKey
-	ProposerBlsPK []byte //bls.PublicKey
-	KBlockHeight  uint32
-	// SignOffset        uint
-	// SignLength        uint
-	ProposedSize      uint32
-	ProposedBlock     []byte
-	ProposedBlockType BlockType
+	TimeoutCert *TimeoutCert
 
-	TimeoutCert *PMTimeoutCert
+	MsgSignature []byte
+
+	// cached
+	decodedBlock *block.Block
 }
 
-// SigningHash computes hash of all header fields excluding signature.
-func (m *PMProposalMessage) SigningHash() (hash meter.Bytes32) {
+func (m *PMProposalMessage) GetEpoch() uint64 {
+	return m.Epoch
+}
+
+func (m *PMProposalMessage) GetSignerIndex() uint32 {
+	return m.SignerIndex
+}
+
+func (m *PMProposalMessage) GetType() string {
+	return "PMProposal"
+}
+
+func (m *PMProposalMessage) GetRound() uint32 {
+	return m.Round
+}
+
+// GetMsgHash computes hash of all header fields excluding signature.
+func (m *PMProposalMessage) GetMsgHash() (hash meter.Bytes32) {
 	hw := meter.NewBlake2b()
-	data := append(m.CSMsgCommonHeader.Fields(),
-		m.ParentHeight, m.ParentRound,
-		m.ProposerID, m.ProposerBlsPK,
-		m.ProposedSize, m.ProposedBlock, m.ProposedBlockType,
-		m.KBlockHeight, /* m.TimeoutCert, */
-	)
+	data := []interface{}{
+		m.Timestamp, m.Epoch, m.SignerIndex,
+		m.Height, m.Round, m.ParentHeight, m.ParentRound, m.RawBlock,
+	}
 	if m.TimeoutCert != nil {
 		data = append(data, m.TimeoutCert)
 	}
@@ -362,62 +101,84 @@ func (m *PMProposalMessage) SigningHash() (hash meter.Bytes32) {
 	return
 }
 
+func (m *PMProposalMessage) DecodeBlock() *block.Block {
+	if m.decodedBlock != nil {
+		return m.decodedBlock
+	}
+	blk, err := block.BlockDecodeFromBytes(m.RawBlock)
+	if err != nil {
+		m.decodedBlock = nil
+		return nil
+	}
+	m.decodedBlock = blk
+	return blk
+}
+
 // String returns a string representation.
 func (m *PMProposalMessage) String() string {
-	blk, err := block.BlockDecodeFromBytes(m.ProposedBlock)
-	blkStr := ""
-	if err == nil {
-		canonicalName := blk.GetCanonicalName()
-		blkStr = fmt.Sprintf("%v(%v) QC:(H:%v,R:%v)", canonicalName, blk.ShortID(), blk.QC.QCHeight, blk.QC.QCRound)
-	}
-	ch := m.CSMsgCommonHeader
+	blk := m.DecodeBlock()
 	tcStr := ""
 	if m.TimeoutCert != nil {
-		tcStr = " + " + m.TimeoutCert.String()
+		tcStr = "TC:" + m.TimeoutCert.String()
 	}
-	return fmt.Sprintf("[Proposal H:%v,R:%v, Parent:(H:%v,R:%v), Proposed:%v%v]",
-		ch.Height, ch.Round, m.ParentHeight, m.ParentRound, blkStr, tcStr)
+	blkStr := blk.Oneliner()
+	return fmt.Sprintf("[Proposal] (H:%v,R:%v)<-(H:%v,R:%v): %v %v",
+		m.ParentHeight, m.ParentRound, m.Height, m.Round, blkStr, tcStr)
 }
 
-func (m *PMProposalMessage) CompactString() string {
-	blk, err := block.BlockDecodeFromBytes(m.ProposedBlock)
+func (m *PMProposalMessage) SetMsgSignature(msgSignature []byte) {
+	m.MsgSignature = msgSignature
+}
 
-	blkID := ""
-	if err == nil {
-		blkID = blk.Header().ID().AbbrevString()
+func (m *PMProposalMessage) VerifyMsgSignature(pubkey *ecdsa.PublicKey) bool {
+	msgHash := m.GetMsgHash()
+	pub, err := crypto.SigToPub(msgHash[:], m.MsgSignature)
+	if err != nil {
+		return false
 	}
-	ch := m.CSMsgCommonHeader
-	return fmt.Sprintf("[Proposal H:%v,R:%v %v]", ch.Height, ch.Round, blkID)
+	return bytes.Equal(crypto.FromECDSAPub(pub), crypto.FromECDSAPub(pubkey))
 }
 
-func (m *PMProposalMessage) Header() *ConsensusMsgCommonHeader {
-	return &m.CSMsgCommonHeader
-}
-func (m *PMProposalMessage) EpochID() uint64 {
-	return m.CSMsgCommonHeader.EpochID
-}
-func (m *PMProposalMessage) MsgType() byte {
-	return m.CSMsgCommonHeader.MsgType
-}
-
-// PMVoteResponseMessage is sent when voting for a proposal (or lack thereof).
+// PMVoteMessage is sent when voting for a proposal (or lack thereof).
 type PMVoteMessage struct {
-	CSMsgCommonHeader ConsensusMsgCommonHeader
+	Timestamp   time.Time
+	Epoch       uint64
+	SignerIndex uint32
 
-	VoterID           []byte //ecdsa.PublicKey
-	VoterBlsPK        []byte //bls.PublicKey
-	BlsSignature      []byte //bls.Signature
-	VoterIndex        uint32
-	SignedMessageHash [32]byte
+	// VoterID           []byte //ecdsa.PublicKey
+	// VoterBlsPK        []byte //bls.PublicKey
+	VoteHeight    uint32
+	VoteRound     uint32
+	VoteBlockID   meter.Bytes32
+	VoteSignature []byte //bls.Signature
+	VoteHash      [32]byte
+
+	MsgSignature []byte
 }
 
-// SigningHash computes hash of all header fields excluding signature.
-func (m *PMVoteMessage) SigningHash() (hash meter.Bytes32) {
+func (m *PMVoteMessage) GetSignerIndex() uint32 {
+	return m.SignerIndex
+}
+
+func (m *PMVoteMessage) GetEpoch() uint64 {
+	return m.Epoch
+}
+
+func (m *PMVoteMessage) GetType() string {
+	return "PMVote"
+}
+
+func (m *PMVoteMessage) GetRound() uint32 {
+	return m.VoteRound
+}
+
+// GetMsgHash computes hash of all header fields excluding signature.
+func (m *PMVoteMessage) GetMsgHash() (hash meter.Bytes32) {
 	hw := meter.NewBlake2b()
-	data := append(m.CSMsgCommonHeader.Fields(),
-		m.VoterIndex, m.VoterID, m.VoterBlsPK,
-		m.BlsSignature, m.SignedMessageHash,
-	)
+	data := []interface{}{
+		m.Timestamp, m.Epoch, m.SignerIndex,
+		m.VoteHeight, m.VoteRound, m.VoteBlockID, m.VoteSignature, m.VoteHash,
+	}
 	err := rlp.Encode(hw, data)
 	if err != nil {
 		fmt.Println("RLP Encode Error: ", err)
@@ -428,48 +189,75 @@ func (m *PMVoteMessage) SigningHash() (hash meter.Bytes32) {
 
 // String returns a string representation.
 func (m *PMVoteMessage) String() string {
-	return fmt.Sprintf("[Vote H:%v R:%v]",
-		m.CSMsgCommonHeader.Height, m.CSMsgCommonHeader.Round)
-}
-func (m *PMVoteMessage) Header() *ConsensusMsgCommonHeader {
-	return &m.CSMsgCommonHeader
-}
-func (m *PMVoteMessage) EpochID() uint64 {
-	return m.CSMsgCommonHeader.EpochID
-}
-func (m *PMVoteMessage) MsgType() byte {
-	return m.CSMsgCommonHeader.MsgType
+	return fmt.Sprintf("[Vote] H:%v R:%v Block:%x",
+		m.VoteHeight, m.VoteRound, m.VoteBlockID.ToBlockShortID())
 }
 
-// PMNewViewMessage is sent to the next leader in these two senarios
-// 1. leader relay
-// 2. repica timeout
-type PMNewViewMessage struct {
-	CSMsgCommonHeader ConsensusMsgCommonHeader
-
-	QCHeight       uint32
-	QCRound        uint32
-	QCHigh         []byte
-	Reason         NewViewReason
-	TimeoutHeight  uint32
-	TimeoutRound   uint32
-	TimeoutCounter uint64
-
-	PeerID            []byte
-	PeerIndex         uint32
-	SignedMessageHash [32]byte
-	PeerSignature     []byte
+func (m *PMVoteMessage) SetMsgSignature(msgSignature []byte) {
+	m.MsgSignature = msgSignature
 }
 
-// SigningHash computes hash of all header fields excluding signature.
-func (m *PMNewViewMessage) SigningHash() (hash meter.Bytes32) {
+func (m *PMVoteMessage) VerifyMsgSignature(pubkey *ecdsa.PublicKey) bool {
+	msgHash := m.GetMsgHash()
+	pub, err := crypto.SigToPub(msgHash[:], m.MsgSignature)
+	if err != nil {
+		return false
+	}
+	return bytes.Equal(crypto.FromECDSAPub(pub), crypto.FromECDSAPub(pubkey))
+}
+
+// PMTimeoutMessage is sent to the next leader in these two senarios
+type PMTimeoutMessage struct {
+	Timestamp   time.Time
+	Epoch       uint64
+	SignerIndex uint32
+
+	WishRound uint32
+
+	// local QCHigh
+	QCHigh []byte
+
+	// timeout vote
+	WishVoteHash [32]byte
+	WishVoteSig  []byte // signature
+
+	// last vote for proposal
+	LastVoteHeight    uint32
+	LastVoteRound     uint32
+	LastVoteBlockID   meter.Bytes32
+	LastVoteHash      [32]byte
+	LastVoteSignature []byte
+
+	MsgSignature []byte
+
+	// cached
+	decodedQCHigh *block.QuorumCert
+}
+
+func (m *PMTimeoutMessage) GetSignerIndex() uint32 {
+	return m.SignerIndex
+}
+
+func (m *PMTimeoutMessage) GetEpoch() uint64 {
+	return m.Epoch
+}
+
+func (m *PMTimeoutMessage) GetType() string {
+	return "PMTimeout"
+}
+
+func (m *PMTimeoutMessage) GetRound() uint32 {
+	return m.WishRound
+}
+
+// GetMsgHash computes hash of all header fields excluding signature.
+func (m *PMTimeoutMessage) GetMsgHash() (hash meter.Bytes32) {
 	hw := meter.NewBlake2b()
-	data := append(m.CSMsgCommonHeader.Fields(),
-		m.QCHeight, m.QCRound, m.QCHigh, m.Reason,
-		m.TimeoutHeight, m.TimeoutRound, m.TimeoutCounter,
-		m.PeerID, m.PeerIndex,
-		m.SignedMessageHash, m.PeerSignature,
-	)
+	data := []interface{}{
+		m.Timestamp, m.Epoch, m.SignerIndex,
+		m.WishRound, m.QCHigh, m.WishVoteHash, m.WishVoteSig,
+		m.LastVoteHeight, m.LastVoteRound, m.LastVoteBlockID, m.LastVoteHash, m.LastVoteSignature,
+	}
 	err := rlp.Encode(hw, data)
 	if err != nil {
 		fmt.Println("RLP Encode Error: ", err)
@@ -478,93 +266,35 @@ func (m *PMNewViewMessage) SigningHash() (hash meter.Bytes32) {
 	return
 }
 
-// String returns a string representation.
-func (m *PMNewViewMessage) String() string {
-	return fmt.Sprintf("[%s E:%v,R:%v Timeout(H:%d,R:%d) QC(H:%d,R:%d)]",
-		m.Reason.String(), m.CSMsgCommonHeader.EpochID, m.CSMsgCommonHeader.Round, m.TimeoutHeight, m.TimeoutRound, m.QCHeight, m.QCRound)
-}
-func (m *PMNewViewMessage) Header() *ConsensusMsgCommonHeader {
-	return &m.CSMsgCommonHeader
-}
-func (m *PMNewViewMessage) EpochID() uint64 {
-	return m.CSMsgCommonHeader.EpochID
-}
-func (m *PMNewViewMessage) MsgType() byte {
-	return m.CSMsgCommonHeader.MsgType
-}
-
-// PMQueryProposalMessage is sent to current leader to get the parent proposal
-type PMQueryProposalMessage struct {
-	CSMsgCommonHeader ConsensusMsgCommonHeader
-	FromHeight        uint32
-	ToHeight          uint32
-	Round             uint32
-	ReturnAddr        types.NetAddress
-}
-
-// SigningHash computes hash of all header fields excluding signature.
-func (m *PMQueryProposalMessage) SigningHash() (hash meter.Bytes32) {
-	hw := meter.NewBlake2b()
-	data := append(m.CSMsgCommonHeader.Fields(),
-		m.FromHeight,
-		m.ToHeight,
-		m.Round,
-		m.ReturnAddr,
-	)
-	err := rlp.Encode(hw, data)
+func (m *PMTimeoutMessage) DecodeQCHigh() *block.QuorumCert {
+	if m.decodedQCHigh != nil {
+		return m.decodedQCHigh
+	}
+	qcHigh, err := block.QCDecodeFromBytes(m.QCHigh)
 	if err != nil {
-		fmt.Println("RLP Encode Error: ", err)
+		m.decodedQCHigh = nil
+		return nil
 	}
-	hw.Sum(hash[:0])
-	return
+	m.decodedQCHigh = qcHigh
+	return qcHigh
 }
 
 // String returns a string representation.
-func (m *PMQueryProposalMessage) String() string {
-	return fmt.Sprintf("[QueryProposal From:%v To:%v QueryRound:%v]", m.FromHeight, m.ToHeight, m.Round)
-}
-func (m *PMQueryProposalMessage) Header() *ConsensusMsgCommonHeader {
-	return &m.CSMsgCommonHeader
-}
-func (m *PMQueryProposalMessage) EpochID() uint64 {
-	return m.CSMsgCommonHeader.EpochID
-}
-func (m *PMQueryProposalMessage) MsgType() byte {
-	return m.CSMsgCommonHeader.MsgType
+func (m *PMTimeoutMessage) String() string {
+	qcHigh := m.DecodeQCHigh()
+	return fmt.Sprintf("[Timeout] E:%v,R:%d QCHigh(H:%d,R:%d) Vote(H:%d,R:%d,Block:%v)",
+		m.Epoch, m.WishRound, qcHigh.QCHeight, qcHigh.QCRound, m.LastVoteHeight, m.LastVoteRound, m.LastVoteBlockID.ToBlockShortID(), m.SignerIndex)
 }
 
-func getConcreteName(msg ConsensusMessage) string {
-	switch msg.(type) {
-	// committee messages
-	case *AnnounceCommitteeMessage:
-		return "AnnounceCommittee"
-	case *CommitCommitteeMessage:
-		return "CommitCommittee"
-	case *NotaryAnnounceMessage:
-		return "NotaryAnnounce"
-	case *NewCommitteeMessage:
-		return "NewCommittee"
+func (m *PMTimeoutMessage) SetMsgSignature(msgSignature []byte) {
+	m.MsgSignature = msgSignature
+}
 
-	// pacemaker messages
-	case *PMProposalMessage:
-		return "PMProposal"
-	case *PMVoteMessage:
-		return "PMVote"
-	case *PMNewViewMessage:
-		return "PMNewView"
-	case *PMQueryProposalMessage:
-		return "PMQueryProposal"
+func (m *PMTimeoutMessage) VerifyMsgSignature(pubkey *ecdsa.PublicKey) bool {
+	msgHash := m.GetMsgHash()
+	pub, err := crypto.SigToPub(msgHash[:], m.MsgSignature)
+	if err != nil {
+		return false
 	}
-	return ""
-}
-
-func VerifyMsgType(m ConsensusMessage) bool {
-	typeName := getConcreteName(m)
-	expectMsgType := typeMap[typeName]
-	return expectMsgType == m.Header().MsgType
-}
-
-func VerifySignature(m ConsensusMessage) bool {
-	msgHash := m.SigningHash()
-	return m.Header().verifySignature(msgHash)
+	return bytes.Equal(crypto.FromECDSAPub(pub), crypto.FromECDSAPub(pubkey))
 }
