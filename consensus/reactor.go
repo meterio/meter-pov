@@ -14,6 +14,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"io/ioutil"
 	"math"
 	"net"
 	"net/http"
@@ -31,7 +32,6 @@ import (
 	"github.com/meterio/meter-pov/comm"
 	bls "github.com/meterio/meter-pov/crypto/multi_sig"
 	"github.com/meterio/meter-pov/genesis"
-	"github.com/meterio/meter-pov/meter"
 	"github.com/meterio/meter-pov/powpool"
 	"github.com/meterio/meter-pov/state"
 	"github.com/meterio/meter-pov/types"
@@ -98,6 +98,8 @@ type ConsensusReactor struct {
 	inCommittee     bool
 	allDelegates    []*types.Delegate
 	sourceDelegates int
+
+	msgCache *MsgCache
 }
 
 // Glob Instance
@@ -118,6 +120,8 @@ func NewConsensusReactor(ctx *cli.Context, chain *chain.Chain, state *state.Crea
 		SyncDone:     false,
 		magic:        magic,
 		inCommittee:  false,
+
+		msgCache: NewMsgCache(1024),
 	}
 
 	if ctx != nil {
@@ -397,32 +401,6 @@ func (conR *ConsensusReactor) GetMyActualCommitteeIndex() int {
 		}
 	}
 	return -1
-}
-
-func (conR *ConsensusReactor) SignConsensusMsg(msgHash []byte) (sig []byte, err error) {
-	sig, err = crypto.Sign(msgHash, &conR.myPrivKey)
-	if err != nil {
-		return []byte{}, err
-	}
-
-	return sig, nil
-}
-
-// Sign Propopal Message
-// "Proposal Block Message: BlockType <8 bytes> Height <16 (8x2) bytes> Round <8 (4x2) bytes>
-func (conR *ConsensusReactor) BuildProposalBlockSignMsg(blockType uint32, height uint64, id, txsRoot, stateRoot *meter.Bytes32) string {
-	c := make([]byte, binary.MaxVarintLen32)
-	binary.BigEndian.PutUint32(c, blockType)
-
-	h := make([]byte, binary.MaxVarintLen64)
-	binary.BigEndian.PutUint64(h, height)
-
-	return fmt.Sprintf("%s %s %s %s %s %s %s %s %s %s",
-		"BlockType", hex.EncodeToString(c),
-		"Height", hex.EncodeToString(h),
-		"BlockID", id.String(),
-		"TxRoot", txsRoot.String(),
-		"StateRoot", stateRoot.String())
 }
 
 // update current delegates with new delegates from staking or config file
@@ -747,10 +725,204 @@ func PrintDelegates(delegates []*types.Delegate) {
 	fmt.Println("============================================")
 }
 
-func (conR *ConsensusReactor) OnReceivePacemakerMsg(w http.ResponseWriter, r *http.Request) {
-	if conR.csPacemaker != nil {
-		conR.csPacemaker.OnReceiveMsg(w, r)
-	} else {
-		conR.logger.Warn("pacemaker is not initialized, dropped message")
+func (conR *ConsensusReactor) OnReceiveMsg(w http.ResponseWriter, r *http.Request) {
+	defer r.Body.Close()
+
+	data, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		conR.logger.Error("Unrecognized payload", "err", err)
+		return
 	}
+	mi, err := conR.UnmarshalMsg(data)
+	if err != nil {
+		conR.logger.Error("Unmarshal error", "err", err)
+		return
+	}
+
+	msg, peer := mi.Msg, mi.Peer
+	typeName := mi.Msg.GetType()
+
+	signerIndex := msg.GetSignerIndex()
+	signer := conR.curActualCommittee[signerIndex]
+
+	if msg.VerifyMsgSignature(&signer.PubKey) == false {
+		conR.logger.Error("invalid signature, dropped ...", "peer", peer.NameAndIP(), "msg", msg.String(), "signer", signer.Name)
+		return
+	}
+	mi.Signer = signer
+
+	// sanity check for PMProposal
+	if msg.GetType() == "PMProposal" {
+		proposalMsg := msg.(*PMProposalMessage)
+		blk := proposalMsg.DecodeBlock()
+		if blk == nil {
+			conR.logger.Error("Invalid PMProposal: could not decode proposed block")
+			return
+		}
+		if blk.Number() != proposalMsg.Height {
+			conR.logger.Error("Invalid PMProposal: block.number != msg.height")
+			return
+		}
+	}
+
+	if msg.GetType() == "PMTimeout" {
+		timeoutMsg := msg.(*PMTimeoutMessage)
+		qcHigh := timeoutMsg.DecodeQCHigh()
+		if qcHigh == nil {
+			conR.logger.Error("Invalid QCHigh: could not decode qcHigh")
+		}
+	}
+
+	fromMyself := peer.netAddr.IP.String() == conR.GetMyNetAddr().IP.String()
+	suffix := ""
+	if fromMyself {
+		suffix = " (myself)"
+	}
+
+	if msg.GetEpoch() < conR.curEpoch {
+		conR.logger.Info(fmt.Sprintf("recv outdated %s", msg.String()), "peer", peer.NameAndIP()+suffix)
+		return
+	}
+
+	if conR.csPacemaker == nil {
+		conR.logger.Warn("pacemaker is not initialized, dropped message")
+		return
+	}
+	conR.csPacemaker.onIncomingMsg(mi)
+
+	// relay the message if these two conditions are met:
+	// 1. the original message is not sent by myself
+	// 2. it's a proposal message
+	if fromMyself == false && typeName == "PMProposal" {
+		conR.relayMsg(mi)
+	}
+}
+
+// Assumptions to use this:
+// myIndex is always 0 for proposer (or leader in consensus)
+// indexes starts from 0
+// 1st layer: 				0  (proposer)
+// 2nd layer: 				[1, 2], [3, 4], [5, 6], [7, 8]
+// 3rd layer (32 groups):   [9..] ...
+func CalcRelayPeers(myIndex, size int) (peers []int) {
+	peers = []int{}
+	if myIndex > size {
+		fmt.Println("Input wrong!!! myIndex > size")
+		return
+	}
+	replicas := 8
+	if size <= replicas {
+		replicas = size
+		for i := 1; i <= replicas; i++ {
+			peers = append(peers, (myIndex+i)%size)
+		}
+	} else {
+		replica1 := 8
+		replica2 := 4
+		replica3 := 2
+		limit1 := int(math.Ceil(float64(size)/float64(replica1))) * 2
+		limit2 := limit1 + int(math.Ceil(float64(size)/float64(replica2)))*4
+
+		if myIndex < limit1 {
+			base := myIndex * replica1
+			for i := 1; i <= replica1; i++ {
+				peers = append(peers, (base+i)%size)
+			}
+		} else if myIndex >= limit1 && myIndex < limit2 {
+			base := replica1*limit1 + (myIndex-limit1)*replica2
+			for i := 1; i <= replica2; i++ {
+				peers = append(peers, (base+i)%size)
+			}
+		} else if myIndex >= limit2 {
+			base := replica1*limit1 + (limit2-limit1)*replica2 + (myIndex-limit2)*replica3
+			for i := 1; i <= replica3; i++ {
+				peers = append(peers, (base+i)%size)
+			}
+		}
+	}
+	return
+
+	// if myIndex == 0 {
+	// 	var k int
+	// 	if maxIndex >= 8 {
+	// 		k = 8
+	// 	} else {
+	// 		k = maxIndex
+	// 	}
+	// 	for i := 1; i <= k; i++ {
+	// 		peers = append(peers, i)
+	// 	}
+	// 	return
+	// }
+	// if maxIndex <= 8 {
+	// 	return //no peer
+	// }
+
+	// var groupSize, groupCount int
+	// groupSize = ((maxIndex - 8) / 16) + 1
+	// groupCount = (maxIndex - 8) / groupSize
+	// // fmt.Println("groupSize", groupSize, "groupCount", groupCount)
+
+	// if myIndex <= 8 {
+	// 	mySet := (myIndex - 1) / 4
+	// 	myRole := (myIndex - 1) % 4
+	// 	for i := 0; i < 8; i++ {
+	// 		group := (mySet * 8) + i
+	// 		if group >= groupCount {
+	// 			return
+	// 		}
+
+	// 		begin := 9 + (group * groupSize)
+	// 		if myRole == 0 {
+	// 			peers = append(peers, begin)
+	// 		} else {
+	// 			end := begin + groupSize - 1
+	// 			if end > maxIndex {
+	// 				end = maxIndex
+	// 			}
+	// 			middle := (begin + end) / 2
+	// 			peers = append(peers, middle)
+	// 		}
+	// 	}
+	// } else {
+	// 	// I am in group, so begin << myIndex << end
+	// 	// if wrap happens, redundant the 2nd layer
+	// 	group := (maxIndex - 8) / 16
+	// 	begin := 9 + (group * groupSize)
+	// 	end := begin + groupSize - 1
+	// 	if end > maxIndex {
+	// 		end = maxIndex
+	// 	}
+
+	// 	var peerIndex int
+	// 	var wrap bool = false
+	// 	if myIndex == end && end != begin {
+	// 		peers = append(peers, begin)
+	// 	}
+	// 	if peerIndex = myIndex + 1; peerIndex <= maxIndex {
+	// 		peers = append(peers, peerIndex)
+	// 	} else {
+	// 		wrap = true
+	// 	}
+	// 	if peerIndex = myIndex + 2; peerIndex <= maxIndex {
+	// 		peers = append(peers, peerIndex)
+	// 	} else {
+	// 		wrap = true
+	// 	}
+	// 	if peerIndex = myIndex + 4; peerIndex <= maxIndex {
+	// 		peers = append(peers, peerIndex)
+	// 	} else {
+	// 		wrap = true
+	// 	}
+	// 	if peerIndex = myIndex + 8; peerIndex <= maxIndex {
+	// 		peers = append(peers, peerIndex)
+	// 	} else {
+	// 		wrap = true
+	// 	}
+	// 	if wrap == true {
+	// 		peers = append(peers, (myIndex%8)+1)
+	// 		peers = append(peers, (myIndex%8)+1+8)
+	// 	}
+	// }
+	// return
 }

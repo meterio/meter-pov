@@ -10,54 +10,42 @@ import (
 	"net"
 	"strconv"
 	"strings"
+
+	"github.com/meterio/meter-pov/types"
 )
 
-type consensusMsgInfo struct {
+type msgParcel struct {
 	//Msg    ConsensusMessage
-	Msg       ConsensusMessage
-	Peer      *ConsensusPeer
-	RawData   []byte
-	Signature []byte
+	Msg          ConsensusMessage
+	Peer         *ConsensusPeer
+	RawData      []byte
+	Hash         [32]byte
+	ShortHashStr string
 
-	cache struct {
-		msgHash    [32]byte
-		msgHashHex string
+	Signer types.CommitteeMember
+}
+
+func newConsensusMsgInfo(msg ConsensusMessage, peer *ConsensusPeer, rawData []byte) *msgParcel {
+	msgHash := sha256.Sum256(rawData)
+	shortMsgHash := hex.EncodeToString(msgHash[:])[:8]
+	return &msgParcel{
+		Msg:          msg,
+		Peer:         peer,
+		RawData:      rawData,
+		Hash:         msgHash,
+		ShortHashStr: shortMsgHash,
 	}
 }
 
-func newConsensusMsgInfo(msg ConsensusMessage, peer *ConsensusPeer, rawData []byte) *consensusMsgInfo {
-	return &consensusMsgInfo{
-		Msg:       msg,
-		Peer:      peer,
-		RawData:   rawData,
-		Signature: msg.Header().Signature,
-		cache: struct {
-			msgHash    [32]byte
-			msgHashHex string
-		}{msgHashHex: ""},
-	}
-}
-
-func (mi *consensusMsgInfo) MsgHashHex() string {
-	if mi.cache.msgHashHex == "" {
-		msgHash := sha256.Sum256(mi.RawData)
-		msgHashHex := hex.EncodeToString(msgHash[:])[:8]
-		mi.cache.msgHash = msgHash
-		mi.cache.msgHashHex = msgHashHex
-	}
-	return mi.cache.msgHashHex
-
-}
-
-func (conR *ConsensusReactor) MarshalMsg(msg *ConsensusMessage) ([]byte, error) {
+func (r *ConsensusReactor) MarshalMsg(msg *ConsensusMessage) ([]byte, error) {
 	rawMsg := cdc.MustMarshalBinaryBare(msg)
 	if len(rawMsg) > maxMsgSize {
-		conR.logger.Error("Msg exceeds max size", "rawMsg", len(rawMsg), "maxMsgSize", maxMsgSize)
+		r.logger.Error("Msg exceeds max size", "rawMsg", len(rawMsg), "maxMsgSize", maxMsgSize)
 		return make([]byte, 0), errors.New("Msg exceeds max size")
 	}
 
-	magicHex := hex.EncodeToString(conR.magic[:])
-	myNetAddr := conR.GetMyNetAddr()
+	magicHex := hex.EncodeToString(r.magic[:])
+	myNetAddr := r.GetMyNetAddr()
 	payload := map[string]interface{}{
 		"message":   hex.EncodeToString(rawMsg),
 		"peer_ip":   myNetAddr.IP.String(),
@@ -68,14 +56,14 @@ func (conR *ConsensusReactor) MarshalMsg(msg *ConsensusMessage) ([]byte, error) 
 	return json.Marshal(payload)
 }
 
-func (conR *ConsensusReactor) UnmarshalMsg(data []byte) (*consensusMsgInfo, error) {
+func (r *ConsensusReactor) UnmarshalMsg(rawData []byte) (*msgParcel, error) {
 	var params map[string]string
-	err := json.NewDecoder(bytes.NewReader(data)).Decode(&params)
+	err := json.NewDecoder(bytes.NewReader(rawData)).Decode(&params)
 	if err != nil {
 		fmt.Println(err)
 		return nil, ErrUnrecognizedPayload
 	}
-	if strings.Compare(params["magic"], hex.EncodeToString(conR.magic[:])) != 0 {
+	if strings.Compare(params["magic"], hex.EncodeToString(r.magic[:])) != 0 {
 		return nil, ErrMagicMismatch
 	}
 	peerIP := net.ParseIP(params["peer_ip"])
@@ -84,8 +72,8 @@ func (conR *ConsensusReactor) UnmarshalMsg(data []byte) (*consensusMsgInfo, erro
 		fmt.Println("Unrecognized Payload: ", err)
 		return nil, ErrUnrecognizedPayload
 	}
-	peerName := conR.GetDelegateNameByIP(peerIP)
-	peer := newConsensusPeer(peerName, peerIP, uint16(peerPort), conR.magic)
+	peerName := r.GetDelegateNameByIP(peerIP)
+	peer := newConsensusPeer(peerName, peerIP, uint16(peerPort), r.magic)
 	rawMsg, err := hex.DecodeString(params["message"])
 	if err != nil {
 		fmt.Println("could not decode string: ", params["message"])
@@ -95,8 +83,13 @@ func (conR *ConsensusReactor) UnmarshalMsg(data []byte) (*consensusMsgInfo, erro
 	if err != nil {
 		fmt.Println("Malformatted Msg: ", msg)
 		return nil, ErrMalformattedMsg
-		// conR.logger.Error("Malformated message, error decoding", "peer", peerName, "ip", peerIP, "msg", msg, "err", err)
+		// r.logger.Error("Malformated message, error decoding", "peer", peerName, "ip", peerIP, "msg", msg, "err", err)
 	}
 
-	return newConsensusMsgInfo(msg, peer, data), nil
+	msgInfo := newConsensusMsgInfo(msg, peer, rawData)
+	existed := r.msgCache.Add(msgInfo.Hash[:])
+	if existed {
+		return nil, ErrKnownMsg
+	}
+	return msgInfo, nil
 }
