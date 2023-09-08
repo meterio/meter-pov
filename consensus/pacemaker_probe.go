@@ -5,6 +5,12 @@ package consensus
 
 import "github.com/meterio/meter-pov/block"
 
+type BlockProbe struct {
+	Height uint32
+	Round  uint32
+	Type   uint32
+	Raw    []byte
+}
 type PMProbeResult struct {
 	Mode             string
 	StartHeight      uint32
@@ -20,8 +26,6 @@ type PMProbeResult struct {
 	BlockLocked      *BlockProbe
 
 	ProposalCount int
-	PendingCount  int
-	PendingLowest uint32
 }
 
 func (p *Pacemaker) Probe() *PMProbeResult {
@@ -40,21 +44,18 @@ func (p *Pacemaker) Probe() *PMProbeResult {
 		result.QCHigh = p.QCHigh.QC
 	}
 	if p.blockLeaf != nil {
-		result.BlockLeaf = &BlockProbe{Height: p.blockLeaf.Height, Round: p.blockLeaf.Round, Type: uint32(p.blockLeaf.ProposedBlockType), Raw: p.blockLeaf.ProposedBlock}
+		result.BlockLeaf = &BlockProbe{Height: p.blockLeaf.Height, Round: p.blockLeaf.Round, Type: uint32(p.blockLeaf.BlockType), Raw: p.blockLeaf.RawBlock}
 	}
 	if p.blockExecuted != nil {
-		result.BlockExecuted = &BlockProbe{Height: p.blockExecuted.Height, Round: p.blockExecuted.Round, Type: uint32(p.blockExecuted.ProposedBlockType), Raw: p.blockExecuted.ProposedBlock}
+		result.BlockExecuted = &BlockProbe{Height: p.blockExecuted.Height, Round: p.blockExecuted.Round, Type: uint32(p.blockExecuted.BlockType), Raw: p.blockExecuted.RawBlock}
 	}
 	if p.blockLocked != nil {
-		result.BlockLocked = &BlockProbe{Height: p.blockLocked.Height, Round: p.blockLocked.Round, Type: uint32(p.blockLocked.ProposedBlockType), Raw: p.blockLocked.ProposedBlock}
+		result.BlockLocked = &BlockProbe{Height: p.blockLocked.Height, Round: p.blockLocked.Round, Type: uint32(p.blockLocked.BlockType), Raw: p.blockLocked.RawBlock}
 	}
 	if p.proposalMap != nil {
 		result.ProposalCount = p.proposalMap.Len()
 	}
-	if p.pendingList != nil {
-		result.PendingCount = p.pendingList.Len()
-		result.PendingLowest = p.pendingList.GetLowestHeight()
-	}
+
 	return result
 
 }
