@@ -21,6 +21,7 @@ var (
 	ErrUnrecognizedPayload = errors.New("unrecognized payload")
 	ErrMagicMismatch       = errors.New("magic mismatch")
 	ErrMalformattedMsg     = errors.New("malformatted msg")
+	ErrKnownMsg            = errors.New("known msg")
 )
 
 type consensusError string

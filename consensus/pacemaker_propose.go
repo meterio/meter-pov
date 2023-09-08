@@ -6,7 +6,6 @@ package consensus
 // 3. collect votes and generate new QC
 
 import (
-	"encoding/hex"
 	"errors"
 	"strings"
 	"time"
@@ -16,7 +15,6 @@ import (
 	"github.com/meterio/meter-pov/packer"
 	"github.com/meterio/meter-pov/powpool"
 	"github.com/meterio/meter-pov/runtime"
-	"github.com/meterio/meter-pov/state"
 	"github.com/meterio/meter-pov/tx"
 	"github.com/meterio/meter-pov/txpool"
 )
@@ -29,82 +27,16 @@ const (
 	StopCommitteeType BlockType = 255 //special message to stop pacemake, not a block
 )
 
-// proposed block info
-type ProposedBlockInfo struct {
-	ProposedBlock *block.Block
-	Stage         *state.Stage
-	Receipts      *tx.Receipts
-	txsToRemoved  func() bool
-	txsToReturned func() bool
-	CheckPoint    int
-	BlockType     BlockType
-}
-
-func (pb *ProposedBlockInfo) String() string {
-	if pb == nil {
-		return "ProposedBlockInfo(nil)"
-	}
-	if pb.ProposedBlock != nil {
-		return "ProposedBlockInfo[block: " + pb.ProposedBlock.String() + "]"
-	} else {
-		return "ProposedBlockInfo[block: nil]"
-	}
-}
-func (p *Pacemaker) proposeBlock(parentBlock *block.Block, round uint32, qc *pmQuorumCert, timeout bool) (*ProposedBlockInfo, []byte) {
-
-	var proposalKBlock bool = false
-	var powResults *powpool.PowResult
-	if (parentBlock.Number()+1-parentBlock.LastKBlockHeight()) >= p.minMBlocks && !timeout {
-		proposalKBlock, powResults = powpool.GetGlobPowPoolInst().GetPowDecision()
-	}
-
-	var blockBytes []byte
-	var blkInfo *ProposedBlockInfo
-
-	// propose appropriate block info
-	if proposalKBlock {
-		data := &block.KBlockData{uint64(powResults.Nonce), powResults.Raw}
-		rewards := powResults.Rewards
-		blkInfo = p.buildKBlock(qc.QC, parentBlock, data, rewards)
-		if blkInfo == nil {
-			return nil, make([]byte, 0)
-		}
-	} else {
-		blkInfo = p.buildMBlock(qc.QC, parentBlock)
-		if blkInfo == nil {
-			return nil, make([]byte, 0)
-		}
-		lastKBlockHeight := blkInfo.ProposedBlock.LastKBlockHeight()
-		blockNumber := blkInfo.ProposedBlock.Number()
-		if round == 0 || blockNumber == lastKBlockHeight+1 {
-			// set committee info
-			p.packCommitteeInfo(blkInfo.ProposedBlock)
-		}
-	}
-	blockBytes = block.BlockEncodeBytes(blkInfo.ProposedBlock)
-
-	return blkInfo, blockBytes
-}
-
-func (p *Pacemaker) proposeStopCommitteeBlock(parentBlock *block.Block, qc *pmQuorumCert) (*ProposedBlockInfo, []byte) {
-
-	var blockBytes []byte
-	var blkInfo *ProposedBlockInfo
-
-	blkInfo = p.buildStopCommitteeBlock(qc.QC, parentBlock)
-	if blkInfo == nil {
-		return nil, make([]byte, 0)
-	}
-	blockBytes = block.BlockEncodeBytes(blkInfo.ProposedBlock)
-
-	return blkInfo, blockBytes
-}
+var (
+	ErrParentBlockEmpty     = errors.New("parent block empty")
+	ErrPackerEmpty          = errors.New("packer is empty")
+	ErrFlowEmpty            = errors.New("flow is empty")
+	ErrStateCreaterNotReady = errors.New("state creater not ready")
+	ErrInvalidRound         = errors.New("invalid round")
+)
 
 func (p *Pacemaker) packCommitteeInfo(blk *block.Block) {
-	committeeInfo := []block.CommitteeInfo{}
-
-	// blk.SetBlockEvidence(ev)
-	committeeInfo = p.csReactor.MakeBlockCommitteeInfo()
+	committeeInfo := p.csReactor.MakeBlockCommitteeInfo()
 	// fmt.Println("committee info: ", committeeInfo)
 	blk.SetCommitteeInfo(committeeInfo)
 	blk.SetCommitteeEpoch(p.csReactor.curEpoch)
@@ -113,56 +45,11 @@ func (p *Pacemaker) packCommitteeInfo(blk *block.Block) {
 	// blk.SetEvidenceDataHash(blk.EvidenceDataHash())
 }
 
-func (p *Pacemaker) generateNewQCNode(b *pmBlock) (*pmQuorumCert, error) {
-	aggSigBytes := p.sigAggregator.Aggregate()
-
-	return &pmQuorumCert{
-		QCNode: b,
-
-		QC: &block.QuorumCert{
-			QCHeight:         b.Height,
-			QCRound:          b.Round,
-			EpochID:          p.csReactor.curEpoch,
-			VoterBitArrayStr: p.sigAggregator.BitArrayString(),
-			VoterMsgHash:     p.sigAggregator.msgHash,
-			VoterAggSig:      aggSigBytes,
-			VoterViolation:   p.sigAggregator.violations,
-		},
-
-		// VoterSig: p.sigAggregator.sigBytes,
-		// VoterNum: p.sigAggregator.Count(),
-	}, nil
-}
-
-func (p *Pacemaker) collectVoteSignature(voteMsg *PMVoteMessage) error {
-	round := voteMsg.CSMsgCommonHeader.Round
-	if p.sigAggregator == nil {
-		return errors.New("signature aggregator is nil, this proposal is not proposed by me")
-	}
-	if round == p.currentRound && p.csReactor.amIRoundProproser(round) {
-		// if round matches and I am proposer, collect signature and store in cache
-
-		_, err := p.csReactor.csCommon.GetSystem().SigFromBytes(voteMsg.BlsSignature)
-		if err != nil {
-			return err
-		}
-		if voteMsg.VoterIndex < p.csReactor.committeeSize {
-			blsPubkey := p.csReactor.curCommittee.Validators[voteMsg.VoterIndex].BlsPubKey
-			p.sigAggregator.Add(int(voteMsg.VoterIndex), voteMsg.SignedMessageHash, voteMsg.BlsSignature, blsPubkey)
-			p.logger.Debug("Collected signature ", "index", voteMsg.VoterIndex, "signature", hex.EncodeToString(voteMsg.BlsSignature))
-		} else {
-			p.logger.Debug("Signature ignored because of msg hash mismatch")
-		}
-	} else {
-		p.logger.Debug("Signature ignored because of round mismatch", "round", round, "currRound", p.currentRound)
-	}
-	// ignore the signatures if the round doesn't match
-	return nil
-}
-
 // Build MBlock
-func (p *Pacemaker) buildMBlock(qc *block.QuorumCert, parentBlock *block.Block) *ProposedBlockInfo {
+func (p *Pacemaker) buildMBlock(parent *pmBlock, justify *pmQuorumCert, round uint32) (error, *pmBlock) {
+	parentBlock := parent.ProposedBlock
 	best := parentBlock
+	qc := justify.QC
 	now := uint64(time.Now().Unix())
 	/*
 		TODO: better check this, comment out temporarily
@@ -176,8 +63,8 @@ func (p *Pacemaker) buildMBlock(qc *block.QuorumCert, parentBlock *block.Block) 
 	pool := txpool.GetGlobTxPoolInst()
 	if pool == nil {
 		p.logger.Error("get tx pool failed ...")
-		panic("get tx pool failed ...")
-		return nil
+		// panic("get tx pool failed ...")
+		return errors.New("tx pool not ready"), nil
 	}
 
 	txs := pool.Executables()
@@ -199,8 +86,8 @@ func (p *Pacemaker) buildMBlock(qc *block.QuorumCert, parentBlock *block.Block) 
 	pker := packer.GetGlobPackerInst()
 	if pker == nil {
 		p.logger.Error("get packer failed ...")
-		panic("get packer failed")
-		return nil
+		// panic("get packer failed")
+		return ErrPackerEmpty, nil
 	}
 
 	candAddr := p.csReactor.curCommittee.Validators[p.csReactor.curCommitteeIndex].Address
@@ -208,14 +95,14 @@ func (p *Pacemaker) buildMBlock(qc *block.QuorumCert, parentBlock *block.Block) 
 	flow, err := pker.Mock(best.Header(), now, gasLimit, &candAddr)
 	if err != nil {
 		p.logger.Error("mock packer", "error", err)
-		return nil
+		return ErrFlowEmpty, nil
 	}
 
 	//create checkPoint before build block
 	state, err := p.csReactor.stateCreator.NewState(best.Header().StateRoot())
 	if err != nil {
 		p.logger.Error("revert state failed ...", "error", err)
-		return nil
+		return ErrStateCreaterNotReady, nil
 	}
 	checkPoint := state.NewCheckpoint()
 
@@ -241,16 +128,45 @@ func (p *Pacemaker) buildMBlock(qc *block.QuorumCert, parentBlock *block.Block) 
 	newBlock, stage, receipts, err := flow.Pack(&p.csReactor.myPrivKey, block.BLOCK_TYPE_M_BLOCK, p.csReactor.lastKBlockHeight)
 	if err != nil {
 		p.logger.Error("build block failed", "error", err)
-		return nil
+		return err, nil
 	}
 	newBlock.SetMagic(block.BlockMagicVersion1)
 	newBlock.SetQC(qc)
 
 	// p.logger.Info("Built MBlock", "num", newBlock.Number(), "id", newBlock.ID(), "txs", len(newBlock.Txs), "elapsed", meter.PrettyDuration(time.Since(start)))
-	return &ProposedBlockInfo{newBlock, stage, &receipts, txsToRemoved, txsToReturned, checkPoint, MBlockType}
+
+	lastKBlockHeight := newBlock.LastKBlockHeight()
+	blockNumber := newBlock.Number()
+	if round == 0 || blockNumber == lastKBlockHeight+1 {
+		// set committee info
+		p.packCommitteeInfo(newBlock)
+	}
+
+	rawBlock := block.BlockEncodeBytes(newBlock)
+	proposed := &pmBlock{
+		Height:        newBlock.Number(),
+		Round:         round,
+		Parent:        parent,
+		Justify:       justify,
+		ProposedBlock: newBlock,
+		RawBlock:      rawBlock,
+
+		Stage:            stage,
+		Receipts:         &receipts,
+		txsToRemoved:     txsToRemoved,
+		txsToReturned:    txsToReturned,
+		CheckPoint:       checkPoint,
+		BlockType:        MBlockType,
+		SuccessProcessed: true,
+		ProcessError:     nil,
+	}
+
+	return nil, proposed
 }
 
-func (p *Pacemaker) buildKBlock(qc *block.QuorumCert, parentBlock *block.Block, data *block.KBlockData, rewards []powpool.PowReward) *ProposedBlockInfo {
+func (p *Pacemaker) buildKBlock(parent *pmBlock, justify *pmQuorumCert, round uint32, kblockData *block.KBlockData, rewards []powpool.PowReward) (error, *pmBlock) {
+	parentBlock := parent.ProposedBlock
+	qc := justify.QC
 	best := parentBlock
 	now := uint64(time.Now().Unix())
 	/*
@@ -261,7 +177,7 @@ func (p *Pacemaker) buildKBlock(qc *block.QuorumCert, parentBlock *block.Block, 
 		}
 	*/
 
-	p.logger.Info("Start to build KBlock", "nonce", data.Nonce)
+	p.logger.Info("Start to build KBlock", "nonce", kblockData.Nonce)
 	// startTime := time.Now()
 
 	chainTag := p.csReactor.chain.Tag()
@@ -270,7 +186,8 @@ func (p *Pacemaker) buildKBlock(qc *block.QuorumCert, parentBlock *block.Block, 
 	// distribute the base reward
 	state, err := p.csReactor.stateCreator.NewState(p.csReactor.chain.BestBlock().Header().StateRoot())
 	if err != nil {
-		panic("get state failed")
+		// panic("get state failed")
+		return errors.New("state creater not ready"), nil
 	}
 
 	txs := p.csReactor.buildKBlockTxs(parentBlock, rewards, chainTag, bestNum, curEpoch, best, state)
@@ -278,8 +195,8 @@ func (p *Pacemaker) buildKBlock(qc *block.QuorumCert, parentBlock *block.Block, 
 	pool := txpool.GetGlobTxPoolInst()
 	if pool == nil {
 		p.logger.Error("get tx pool failed ...")
-		panic("get tx pool failed ...")
-		return nil
+		// panic("get tx pool failed ...")
+		return errors.New("tx pool not ready"), nil
 	}
 	txsToRemoved := func() bool {
 		return true
@@ -289,10 +206,10 @@ func (p *Pacemaker) buildKBlock(qc *block.QuorumCert, parentBlock *block.Block, 
 	}
 
 	pker := packer.GetGlobPackerInst()
-	if p == nil {
+	if pker == nil {
 		p.logger.Warn("get packer failed ...")
-		panic("get packer failed")
-		return nil
+		// panic("get packer failed")
+		return ErrPackerEmpty, nil
 	}
 
 	candAddr := p.csReactor.curCommittee.Validators[p.csReactor.curCommitteeIndex].Address
@@ -300,7 +217,7 @@ func (p *Pacemaker) buildKBlock(qc *block.QuorumCert, parentBlock *block.Block, 
 	flow, err := pker.Mock(best.Header(), now, gasLimit, &candAddr)
 	if err != nil {
 		p.logger.Warn("mock packer", "error", err)
-		return nil
+		return ErrFlowEmpty, nil
 	}
 
 	//create checkPoint before build block
@@ -325,61 +242,86 @@ func (p *Pacemaker) buildKBlock(qc *block.QuorumCert, parentBlock *block.Block, 
 	newBlock, stage, receipts, err := flow.Pack(&p.csReactor.myPrivKey, block.BLOCK_TYPE_K_BLOCK, p.csReactor.lastKBlockHeight)
 	if err != nil {
 		p.logger.Error("build block failed...", "error", err)
-		return nil
+		return err, nil
 	}
 
 	//serialize KBlockData
-	newBlock.SetKBlockData(*data)
+	newBlock.SetKBlockData(*kblockData)
 	newBlock.SetMagic(block.BlockMagicVersion1)
 	newBlock.SetQC(qc)
 
 	// p.logger.Info("Built KBlock", "num", newBlock.Number(), "id", newBlock.ID(), "txs", len(newBlock.Txs), "elapsed", meter.PrettyDuration(time.Since(startTime)))
-	return &ProposedBlockInfo{newBlock, stage, &receipts, txsToRemoved, txsToReturned, checkPoint, KBlockType}
+
+	rawBlock := block.BlockEncodeBytes(newBlock)
+	proposed := &pmBlock{
+		Height:        newBlock.Number(),
+		Round:         round,
+		Parent:        parent,
+		Justify:       justify,
+		ProposedBlock: newBlock,
+		RawBlock:      rawBlock,
+
+		Stage:            stage,
+		Receipts:         &receipts,
+		txsToRemoved:     txsToRemoved,
+		txsToReturned:    txsToReturned,
+		CheckPoint:       checkPoint,
+		BlockType:        KBlockType,
+		SuccessProcessed: true,
+		ProcessError:     nil,
+	}
+	return nil, proposed
 }
 
-func (p *Pacemaker) buildStopCommitteeBlock(qc *block.QuorumCert, parentBlock *block.Block) *ProposedBlockInfo {
+func (p *Pacemaker) buildStopCommitteeBlock(parent *pmBlock, justify *pmQuorumCert, round uint32) (error, *pmBlock) {
+	parentBlock := parent.ProposedBlock
+	qc := justify.QC
 	best := parentBlock
 	now := uint64(time.Now().Unix())
 
-	// startTime := time.Now()
-	pool := txpool.GetGlobTxPoolInst()
-	if pool == nil {
-		p.logger.Error("get tx pool failed ...")
-		panic("get tx pool failed ...")
-		return nil
-	}
-
 	pker := packer.GetGlobPackerInst()
-	if p == nil {
+	if pker == nil {
 		p.logger.Error("get packer failed ...")
-		panic("get packer failed")
-		return nil
+		return ErrPackerEmpty, nil
 	}
 
-	txsToRemoved := func() bool {
-		// Kblock does not need to clean up txs now
-		return true
-	}
-	txsToReturned := func() bool {
-		return true
-	}
+	txsToRemoved := func() bool { return true }
+	txsToReturned := func() bool { return true }
 
 	candAddr := p.csReactor.curCommittee.Validators[p.csReactor.curCommitteeIndex].Address
 	gasLimit := pker.GasLimit(best.GasLimit())
 	flow, err := pker.Mock(best.Header(), now, gasLimit, &candAddr)
 	if err != nil {
 		p.logger.Error("mock packer", "error", err)
-		return nil
+		return ErrFlowEmpty, nil
 	}
 
 	newBlock, stage, receipts, err := flow.Pack(&p.csReactor.myPrivKey, block.BLOCK_TYPE_S_BLOCK, p.csReactor.lastKBlockHeight)
 	if err != nil {
 		p.logger.Error("build block failed", "error", err)
-		return nil
+		return err, nil
 	}
 	newBlock.SetMagic(block.BlockMagicVersion1)
 	newBlock.SetQC(qc)
 
 	// p.logger.Info("Built SBlock", "num", newBlock.Number(), "elapsed", meter.PrettyDuration(time.Since(startTime)))
-	return &ProposedBlockInfo{newBlock, stage, &receipts, txsToRemoved, txsToReturned, 0, StopCommitteeType}
+	rawBlock := block.BlockEncodeBytes(newBlock)
+	proposed := &pmBlock{
+		Height:        newBlock.Number(),
+		Round:         round,
+		Parent:        parent,
+		Justify:       justify,
+		ProposedBlock: newBlock,
+		RawBlock:      rawBlock,
+
+		Stage:            stage,
+		Receipts:         &receipts,
+		txsToRemoved:     txsToRemoved,
+		txsToReturned:    txsToReturned,
+		CheckPoint:       0,
+		BlockType:        StopCommitteeType,
+		SuccessProcessed: true,
+		ProcessError:     nil,
+	}
+	return nil, proposed
 }
