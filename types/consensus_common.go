@@ -62,22 +62,15 @@ func (cc *ConsensusCommon) GetPublicKey() *bls.PublicKey {
 // }
 
 // sign the part of msg
-func (cc *ConsensusCommon) Hash256Msg(msg []byte) [32]byte {
-	return sha256.Sum256(msg)
-}
-
-// sign the part of msg
 func (cc *ConsensusCommon) SignMessage(msg []byte) (bls.Signature, [32]byte) {
 	hash := sha256.Sum256(msg)
 	sig := bls.Sign(hash, cc.PrivKey)
 	return sig, hash
 }
 
-// the return with slice byte
-func (cc *ConsensusCommon) SignMessage2(msg []byte) ([]byte, [32]byte) {
-	hash := sha256.Sum256(msg)
+func (cc *ConsensusCommon) SignHash(hash [32]byte) []byte {
 	sig := bls.Sign(hash, cc.PrivKey)
-	return cc.System.SigToBytes(sig), hash
+	return cc.System.SigToBytes(sig)
 }
 
 func (cc *ConsensusCommon) VerifySignature(signature, msgHash, blsPK []byte) bool {
@@ -103,14 +96,6 @@ func (cc *ConsensusCommon) AggregateSign(sigs []bls.Signature) bls.Signature {
 		fmt.Println("aggreate signature failed")
 	}
 	return sig
-}
-
-func (cc *ConsensusCommon) AggregateSign2(sigs []bls.Signature) []byte {
-	sig, err := bls.Aggregate(sigs, cc.System)
-	if err != nil {
-		fmt.Println("aggreate signature failed")
-	}
-	return cc.System.SigToBytes(sig)
 }
 
 // all voter sign the same msg.
