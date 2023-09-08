@@ -104,8 +104,8 @@ func NewPaceMaker(r *Reactor) *Pacemaker {
 		logger:  log15.New("pkg", "pacer"),
 		mode:    PMModeNormal,
 
-		proposalVoteManager: NewProposalVoteManager(r.csCommon.System, r.committeeSize),
-		wishVoteManager:     NewWishVoteManager(r.csCommon.System, r.committeeSize),
+		proposalVoteManager: NewProposalVoteManager(r.blsCommon.System, r.committeeSize),
+		wishVoteManager:     NewWishVoteManager(r.blsCommon.System, r.committeeSize),
 
 		incomingCh:      make(chan msgParcel, 1024),
 		cmdCh:           make(chan *PMCmdInfo, 2),
@@ -565,7 +565,7 @@ func (p *Pacemaker) OnPropose(parent *draftBlock, qc *draftQC, round uint32) (er
 	// blk := bnew.ProposedBlock
 	// signMsg := p.reactor.BuildProposalBlockSignMsg(uint32(bnew.BlockType), uint64(blk.Number()), blk.ID(), blk.TxsRoot(), blk.StateRoot())
 	// msgHash := Sha256([]byte(signMsg))
-	// p.sigAggregator = newSignatureAggregator(p.reactor.committeeSize, *p.reactor.csCommon.GetSystem(), msgHash, p.reactor.curCommittee.Validators)
+	// p.sigAggregator = newSignatureAggregator(p.reactor.committeeSize, *p.reactor.blsCommon.GetSystem(), msgHash, p.reactor.curCommittee.Validators)
 
 	// create slot in proposalMap directly, instead of sendmsg to self.
 	p.proposalMap.Add(bnew)

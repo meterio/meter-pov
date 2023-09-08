@@ -22,6 +22,7 @@ import (
 	"github.com/meterio/meter-pov/script"
 	"github.com/meterio/meter-pov/state"
 	"github.com/meterio/meter-pov/trie"
+	"github.com/meterio/meter-pov/types"
 	"gopkg.in/urfave/cli.v1"
 )
 
@@ -939,7 +940,7 @@ func syncVerifyAction(ctx *cli.Context) error {
 		fromNum = 1
 	}
 	ecdsaPubKey, ecdsaPrivKey, _ := GenECDSAKeys()
-	blsCommon := consensus.NewBlsCommon()
+	blsCommon := types.NewBlsCommon()
 	defaultPowPoolOptions := powpool.Options{
 		Node:            "localhost",
 		Port:            8332,

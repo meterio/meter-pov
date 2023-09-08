@@ -12,7 +12,7 @@ import (
 
 // build block committee info part
 func (r *Reactor) MakeBlockCommitteeInfo() []block.CommitteeInfo {
-	system := r.csCommon.GetSystem()
+	system := r.blsCommon.GetSystem()
 	cms := r.curActualCommittee
 
 	cis := []block.CommitteeInfo{}

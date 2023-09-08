@@ -175,7 +175,7 @@ func ComputeMissingVoter(validators []*types.Validator, actualMembers []types.Co
 	return result, nil
 }
 
-func ComputeDoubleSigner(common *types.ConsensusCommon, blocks []*block.Block, curEpoch uint32) ([]*doubleSignerInfo, error) {
+func ComputeDoubleSigner(common *types.BlsCommon, blocks []*block.Block, curEpoch uint32) ([]*doubleSignerInfo, error) {
 	result := make([]*doubleSignerInfo, 0)
 	if len(blocks) < 1 {
 		return make([]*doubleSignerInfo, 0), errors.New("could not find committee info")
@@ -221,11 +221,11 @@ func ComputeDoubleSigner(common *types.ConsensusCommon, blocks []*block.Block, c
 	return result, nil
 }
 
-func combinePubKey(csCommon *types.ConsensusCommon, ecdsaPub *ecdsa.PublicKey, blsPub *bls.PublicKey) string {
+func combinePubKey(blsCommon *types.BlsCommon, ecdsaPub *ecdsa.PublicKey, blsPub *bls.PublicKey) string {
 	ecdsaPubBytes := crypto.FromECDSAPub(ecdsaPub)
 	ecdsaPubB64 := b64.StdEncoding.EncodeToString(ecdsaPubBytes)
 
-	blsPubBytes := csCommon.GetSystem().PubKeyToBytes(*blsPub)
+	blsPubBytes := blsCommon.GetSystem().PubKeyToBytes(*blsPub)
 	blsPubB64 := b64.StdEncoding.EncodeToString(blsPubBytes)
 
 	return strings.Join([]string{ecdsaPubB64, blsPubB64}, ":::")
@@ -241,7 +241,7 @@ func findInActualCommittee(actualCommittee []types.CommitteeMember, addr meter.A
 	return -1
 }
 
-func ComputeStatistics(lastKBlockHeight, height uint32, chain *chain.Chain, curCommittee *types.ValidatorSet, curActualCommittee []types.CommitteeMember, csCommon *types.ConsensusCommon, calcStatsTx bool, curEpoch uint32) ([]*StatEntry, error) {
+func ComputeStatistics(lastKBlockHeight, height uint32, chain *chain.Chain, curCommittee *types.ValidatorSet, curActualCommittee []types.CommitteeMember, blsCommon *types.BlsCommon, calcStatsTx bool, curEpoch uint32) ([]*StatEntry, error) {
 	log.Info("compute stats", "from", lastKBlockHeight, "to", height)
 	if len(curCommittee.Validators) == 0 {
 		return nil, errors.New("committee is empty")
@@ -256,7 +256,7 @@ func ComputeStatistics(lastKBlockHeight, height uint32, chain *chain.Chain, curC
 	for _, v := range curCommittee.Validators {
 		stats[v.Address] = &StatEntry{
 			Address: v.Address,
-			PubKey:  combinePubKey(csCommon, &v.PubKey, &v.BlsPubKey),
+			PubKey:  combinePubKey(blsCommon, &v.PubKey, &v.BlsPubKey),
 			Name:    v.Name,
 		}
 	}
@@ -377,7 +377,7 @@ func ComputeStatistics(lastKBlockHeight, height uint32, chain *chain.Chain, curC
 	}
 	***/
 
-	doubleSigner, err := ComputeDoubleSigner(csCommon, blocks, curEpoch)
+	doubleSigner, err := ComputeDoubleSigner(blsCommon, blocks, curEpoch)
 	if err != nil {
 		log.Warn("Error during missing voter calculation", "err", err)
 	} else {

@@ -134,7 +134,7 @@ func (p *Pacemaker) BuildVoteMessage(proposalMsg *PMProposalMessage) (*PMVoteMes
 
 	proposedBlock := proposalMsg.DecodeBlock()
 	voteHash := BuildBlockVotingHash(uint32(proposedBlock.BlockType()), uint64(proposalMsg.Height), proposedBlock.ID(), proposedBlock.TxsRoot(), proposedBlock.StateRoot())
-	voteSig := p.reactor.csCommon.SignHash(voteHash)
+	voteSig := p.reactor.blsCommon.SignHash(voteHash)
 	// p.logger.Debug("Built PMVoteMessage", "signMsg", signMsg)
 
 	msg := &PMVoteMessage{
@@ -165,7 +165,7 @@ func (p *Pacemaker) BuildTimeoutMessage(qcHigh *draftQC, ti *PMRoundTimeoutInfo,
 
 	// TODO: changed from nextHeight/nextRound to ti.height/ti.round, not sure if this is correct
 	wishVoteHash := BuildTimeoutVotingHash(p.reactor.curEpoch, ti.round)
-	wishVoteSig := p.reactor.csCommon.SignHash(wishVoteHash)
+	wishVoteSig := p.reactor.blsCommon.SignHash(wishVoteHash)
 
 	qcBytes, err := rlp.EncodeToBytes(qcHigh.QC)
 	if err != nil {

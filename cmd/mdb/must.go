@@ -21,7 +21,6 @@ import (
 	"github.com/inconshreveable/log15"
 	"github.com/meterio/meter-pov/block"
 	"github.com/meterio/meter-pov/chain"
-	"github.com/meterio/meter-pov/consensus"
 	bls "github.com/meterio/meter-pov/crypto/multi_sig"
 	"github.com/meterio/meter-pov/genesis"
 	"github.com/meterio/meter-pov/lvldb"
@@ -156,7 +155,7 @@ func (d Delegate1) String() string {
 	return fmt.Sprintf("Name:%v, Address:%v, PubKey:%v, VotingPower:%v, NetAddr:%v", d.Name, d.Address, d.PubKey, d.VotingPower, d.NetAddr.String())
 }
 
-func splitPubKey(comboPub string, blsCommon *consensus.BlsCommon) (*ecdsa.PublicKey, *bls.PublicKey) {
+func splitPubKey(comboPub string, blsCommon *types.BlsCommon) (*ecdsa.PublicKey, *bls.PublicKey) {
 	// first part is ecdsa public, 2nd part is bls public key
 	trimmed := strings.TrimSuffix(comboPub, "\n")
 	split := strings.Split(trimmed, ":::")
@@ -182,7 +181,7 @@ func splitPubKey(comboPub string, blsCommon *consensus.BlsCommon) (*ecdsa.Public
 	return pubKey, &blsPub
 }
 
-func loadDelegates(ctx *cli.Context, blsCommon *consensus.BlsCommon) []*types.Delegate {
+func loadDelegates(ctx *cli.Context, blsCommon *types.BlsCommon) []*types.Delegate {
 	delegates1 := make([]*Delegate1, 0)
 
 	// Hack for compile

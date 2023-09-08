@@ -85,7 +85,7 @@ type Reactor struct {
 	curActualCommittee []types.CommitteeMember // Real committee, should be subset of curCommittee if someone is offline.
 	curCommitteeIndex  uint32
 
-	csCommon    *types.ConsensusCommon //this must be allocated as validator
+	blsCommon   *types.BlsCommon //this must be allocated as validator
 	csPacemaker *Pacemaker
 
 	lastKBlockHeight   uint32
@@ -112,7 +112,7 @@ func SetConsensusGlobInst(inst *Reactor) {
 }
 
 // NewConsensusReactor returns a new Reactor with config
-func NewConsensusReactor(ctx *cli.Context, chain *chain.Chain, state *state.Creator, privKey *ecdsa.PrivateKey, pubKey *ecdsa.PublicKey, magic [4]byte, blsCommon *BlsCommon, initDelegates []*types.Delegate) *Reactor {
+func NewConsensusReactor(ctx *cli.Context, chain *chain.Chain, state *state.Creator, privKey *ecdsa.PrivateKey, pubKey *ecdsa.PublicKey, magic [4]byte, blsCommon *types.BlsCommon, initDelegates []*types.Delegate) *Reactor {
 	r := &Reactor{
 		chain:        chain,
 		stateCreator: state,
@@ -147,7 +147,7 @@ func NewConsensusReactor(ctx *cli.Context, chain *chain.Chain, state *state.Crea
 	r.curHeight = chain.BestBlock().Number()
 
 	// initialize consensus common
-	r.csCommon = NewConsensusCommonFromBlsCommon(blsCommon)
+	r.blsCommon = blsCommon
 
 	// initialize pacemaker
 	r.csPacemaker = NewPaceMaker(r)
@@ -288,10 +288,10 @@ func (r *Reactor) VerifyBothPubKey() {
 				panic("ECDSA key found in delegate list, but combinePubKey mismatch")
 			}
 
-			csCommonSystem := r.csCommon.GetSystem()
+			blsCommonSystem := r.blsCommon.GetSystem()
 
-			myBlsPubKey := csCommonSystem.PubKeyToBytes(r.csCommon.PubKey)
-			delegateBlsPubKey := csCommonSystem.PubKeyToBytes(d.BlsPubKey)
+			myBlsPubKey := blsCommonSystem.PubKeyToBytes(r.blsCommon.PubKey)
+			delegateBlsPubKey := blsCommonSystem.PubKeyToBytes(d.BlsPubKey)
 
 			if bytes.Equal(myBlsPubKey, delegateBlsPubKey) == false {
 				panic("ECDSA key found in delegate list, but related BLS key mismatch with delegate, probably wrong info in candidate")
@@ -601,7 +601,7 @@ func (r *Reactor) splitPubKey(comboPub string) (*ecdsa.PublicKey, *bls.PublicKey
 	if err != nil {
 		panic(fmt.Sprintf("read Bls public key of delegate failed, %v", err))
 	}
-	blsPub, err := r.csCommon.GetSystem().PubKeyFromBytes(blsPubBytes)
+	blsPub, err := r.blsCommon.GetSystem().PubKeyFromBytes(blsPubBytes)
 	if err != nil {
 		panic(fmt.Sprintf("read Bls public key of delegate failed, %v", err))
 	}
@@ -613,14 +613,14 @@ func (r *Reactor) combinePubKey(ecdsaPub *ecdsa.PublicKey, blsPub *bls.PublicKey
 	ecdsaPubBytes := crypto.FromECDSAPub(ecdsaPub)
 	ecdsaPubB64 := b64.StdEncoding.EncodeToString(ecdsaPubBytes)
 
-	blsPubBytes := r.csCommon.GetSystem().PubKeyToBytes(*blsPub)
+	blsPubBytes := r.blsCommon.GetSystem().PubKeyToBytes(*blsPub)
 	blsPubB64 := b64.StdEncoding.EncodeToString(blsPubBytes)
 
 	return strings.Join([]string{ecdsaPubB64, blsPubB64}, ":::")
 }
 
 func (r *Reactor) GetCombinePubKey() string {
-	return r.combinePubKey(&r.myPubKey, &r.csCommon.PubKey)
+	return r.combinePubKey(&r.myPubKey, &r.blsCommon.PubKey)
 }
 
 func (r *Reactor) LoadBlockBytes(num uint32) []byte {

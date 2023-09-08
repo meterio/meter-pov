@@ -16,8 +16,8 @@ import (
 	"strings"
 
 	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/meterio/meter-pov/consensus"
 	bls "github.com/meterio/meter-pov/crypto/multi_sig"
+	"github.com/meterio/meter-pov/types"
 	cli "gopkg.in/urfave/cli.v1"
 )
 
@@ -198,7 +198,7 @@ func (k *KeyLoader) saveKeys(system bls.System) error {
 	return err
 }
 
-func (k *KeyLoader) Load() (*ecdsa.PrivateKey, *ecdsa.PublicKey, *consensus.BlsCommon, error) {
+func (k *KeyLoader) Load() (*ecdsa.PrivateKey, *ecdsa.PublicKey, *types.BlsCommon, error) {
 	err := k.validateECDSA()
 	if err != nil {
 		fmt.Println("could not validate ecdsa keys, error:", err)
@@ -243,6 +243,6 @@ func (k *KeyLoader) Load() (*ecdsa.PrivateKey, *ecdsa.PublicKey, *consensus.BlsC
 
 	}
 
-	blsCommon := consensus.NewBlsCommonFromParams(*k.blsPubKey, *k.blsPrivKey, system, params, pairing)
+	blsCommon := types.NewBlsCommonFromParams(*k.blsPubKey, *k.blsPrivKey, system, params, pairing)
 	return k.ecdsaPrivKey, k.ecdsaPubKey, blsCommon, nil
 }

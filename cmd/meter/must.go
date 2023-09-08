@@ -102,7 +102,7 @@ func (d Delegate1) String() string {
 	return fmt.Sprintf("Name:%v, Address:%v, PubKey:%v, VotingPower:%v, NetAddr:%v", d.Name, d.Address, d.PubKey, d.VotingPower, d.NetAddr.String())
 }
 
-func loadDelegates(ctx *cli.Context, blsCommon *consensus.BlsCommon) []*types.Delegate {
+func loadDelegates(ctx *cli.Context, blsCommon *types.BlsCommon) []*types.Delegate {
 	delegates1 := make([]*Delegate1, 0)
 
 	// Hack for compile
@@ -157,7 +157,7 @@ func loadDelegates(ctx *cli.Context, blsCommon *consensus.BlsCommon) []*types.De
 	return delegates
 }
 
-func splitPubKey(comboPub string, blsCommon *consensus.BlsCommon) (*ecdsa.PublicKey, *bls.PublicKey) {
+func splitPubKey(comboPub string, blsCommon *types.BlsCommon) (*ecdsa.PublicKey, *bls.PublicKey) {
 	// first part is ecdsa public, 2nd part is bls public key
 	trimmed := strings.TrimSuffix(comboPub, "\n")
 	split := strings.Split(trimmed, ":::")
@@ -327,7 +327,7 @@ func discoServerParse(ctx *cli.Context) ([]*enode.Node, bool, error) {
 	return nodes, true, nil
 }
 
-func loadNodeMaster(ctx *cli.Context) (*node.Master, *consensus.BlsCommon) {
+func loadNodeMaster(ctx *cli.Context) (*node.Master, *types.BlsCommon) {
 	if ctx.String(networkFlag.Name) == "dev" {
 		i := rand.Intn(len(genesis.DevAccounts()))
 		acc := genesis.DevAccounts()[i]
@@ -348,11 +348,11 @@ func loadNodeMaster(ctx *cli.Context) (*node.Master, *consensus.BlsCommon) {
 	return master, blsCommon
 }
 
-func getNodeComplexPubKey(master *node.Master, blsCommon *consensus.BlsCommon) (string, error) {
+func getNodeComplexPubKey(master *node.Master, blsCommon *types.BlsCommon) (string, error) {
 	ecdsaPubBytes := crypto.FromECDSAPub(master.PublicKey)
 	ecdsaPubB64 := b64.StdEncoding.EncodeToString(ecdsaPubBytes)
 
-	blsPubBytes := blsCommon.GetSystem().PubKeyToBytes(*blsCommon.GetPubKey())
+	blsPubBytes := blsCommon.GetSystem().PubKeyToBytes(*blsCommon.GetPublicKey())
 	blsPubB64 := b64.StdEncoding.EncodeToString(blsPubBytes)
 
 	pub := strings.Join([]string{ecdsaPubB64, blsPubB64}, ":::")

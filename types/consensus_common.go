@@ -12,7 +12,7 @@ import (
 	bls "github.com/meterio/meter-pov/crypto/multi_sig"
 )
 
-type ConsensusCommon struct {
+type BlsCommon struct {
 	PrivKey bls.PrivateKey //my private key
 	PubKey  bls.PublicKey  //my public key
 
@@ -23,9 +23,42 @@ type ConsensusCommon struct {
 	Initialized bool
 }
 
+func NewBlsCommon() *BlsCommon {
+	params := bls.GenParamsTypeA(160, 512)
+	pairing := bls.GenPairing(params)
+	system, err := bls.GenSystem(pairing)
+	if err != nil {
+		return nil
+	}
+
+	PubKey, PrivKey, err := bls.GenKeys(system)
+	if err != nil {
+		return nil
+	}
+	return &BlsCommon{
+		PrivKey:     PrivKey,
+		PubKey:      PubKey,
+		System:      system,
+		Params:      params,
+		Pairing:     pairing,
+		Initialized: true,
+	}
+}
+
+func NewBlsCommonFromParams(pubKey bls.PublicKey, privKey bls.PrivateKey, system bls.System, params bls.Params, pairing bls.Pairing) *BlsCommon {
+	return &BlsCommon{
+		PrivKey:     privKey,
+		PubKey:      pubKey,
+		System:      system,
+		Params:      params,
+		Pairing:     pairing,
+		Initialized: true,
+	}
+}
+
 // BLS is implemented by C, memeory need to be freed.
 // Signatures also need to be freed but Not here!!!
-func (cc *ConsensusCommon) Destroy() bool {
+func (cc *BlsCommon) Destroy() bool {
 	if !cc.Initialized {
 		fmt.Println("BLS is not initialized!")
 		return false
@@ -41,39 +74,39 @@ func (cc *ConsensusCommon) Destroy() bool {
 	return true
 }
 
-func (cc *ConsensusCommon) GetSystem() *bls.System {
+func (cc *BlsCommon) GetSystem() *bls.System {
 	return &cc.System
 }
 
-func (cc *ConsensusCommon) GetParams() *bls.Params {
+func (cc *BlsCommon) GetParams() *bls.Params {
 	return &cc.Params
 }
 
-func (cc *ConsensusCommon) GetPairing() *bls.Pairing {
+func (cc *BlsCommon) GetPairing() *bls.Pairing {
 	return &cc.Pairing
 }
 
-func (cc *ConsensusCommon) GetPublicKey() *bls.PublicKey {
+func (cc *BlsCommon) GetPublicKey() *bls.PublicKey {
 	return &cc.PubKey
 }
 
-// func (cc *ConsensusCommon) GetPrivateKey() *bls.PrivateKey {
+// func (cc *BlsCommon) GetPrivateKey() *bls.PrivateKey {
 // 	return &cc.PrivKey
 // }
 
 // sign the part of msg
-func (cc *ConsensusCommon) SignMessage(msg []byte) (bls.Signature, [32]byte) {
+func (cc *BlsCommon) SignMessage(msg []byte) (bls.Signature, [32]byte) {
 	hash := sha256.Sum256(msg)
 	sig := bls.Sign(hash, cc.PrivKey)
 	return sig, hash
 }
 
-func (cc *ConsensusCommon) SignHash(hash [32]byte) []byte {
+func (cc *BlsCommon) SignHash(hash [32]byte) []byte {
 	sig := bls.Sign(hash, cc.PrivKey)
 	return cc.System.SigToBytes(sig)
 }
 
-func (cc *ConsensusCommon) VerifySignature(signature, msgHash, blsPK []byte) bool {
+func (cc *BlsCommon) VerifySignature(signature, msgHash, blsPK []byte) bool {
 	var fixedMsgHash [32]byte
 	copy(fixedMsgHash[:], msgHash[32:])
 	pubkey, err := cc.System.PubKeyFromBytes(blsPK)
@@ -90,7 +123,7 @@ func (cc *ConsensusCommon) VerifySignature(signature, msgHash, blsPK []byte) boo
 	return bls.Verify(sig, fixedMsgHash, pubkey)
 }
 
-func (cc *ConsensusCommon) AggregateSign(sigs []bls.Signature) bls.Signature {
+func (cc *BlsCommon) AggregateSign(sigs []bls.Signature) bls.Signature {
 	sig, err := bls.Aggregate(sigs, cc.System)
 	if err != nil {
 		fmt.Println("aggreate signature failed")
@@ -99,6 +132,6 @@ func (cc *ConsensusCommon) AggregateSign(sigs []bls.Signature) bls.Signature {
 }
 
 // all voter sign the same msg.
-func (cc *ConsensusCommon) AggregateVerify(sig bls.Signature, hashes [][32]byte, pubKeys []bls.PublicKey) (bool, error) {
+func (cc *BlsCommon) AggregateVerify(sig bls.Signature, hashes [][32]byte, pubKeys []bls.PublicKey) (bool, error) {
 	return bls.AggregateVerify(sig, hashes, pubKeys)
 }
