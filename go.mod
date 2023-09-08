@@ -25,7 +25,7 @@ require (
 	github.com/prometheus/client_golang v1.11.1
 	github.com/rcrowley/go-metrics v0.0.0-20181016184325-3113b8401b8a
 	github.com/stretchr/testify v1.7.2
-	github.com/syndtr/goleveldb v1.0.1-0.20220614013038-64ee5596c38a
+	github.com/syndtr/goleveldb v1.0.1-0.20210819022825-2ae1ddf74ef7
 	github.com/tendermint/go-amino v0.16.0
 	golang.org/x/crypto v0.1.0
 	golang.org/x/sys v0.1.0
@@ -76,4 +76,4 @@ require (
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
 
-replace github.com/syndtr/goleveldb => github.com/vechain/goleveldb v1.0.1-0.20220107084823-eb292ce39601
+// replace github.com/syndtr/goleveldb => github.com/vechain/goleveldb v1.0.1-0.20220107084823-eb292ce39601

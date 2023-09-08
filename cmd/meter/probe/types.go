@@ -14,7 +14,7 @@ import (
 	"github.com/meterio/meter-pov/meter"
 )
 
-//Block block
+// Block block
 type Block struct {
 	Number           uint32        `json:"number"`
 	ID               meter.Bytes32 `json:"id"`
@@ -51,8 +51,6 @@ type PacemakerProbe struct {
 	LastVotingHeight uint32 `json:"lastVotingHeight"`
 	LastOnBeatRound  uint32 `json:"lastOnBeatRound"`
 	ProposalCount    int    `json:"proposalCount"`
-	PendingCount     int    `json:"pendingCount"`
-	PendingLowest    uint32 `json:"pendingLowest"`
 
 	QCHigh        *QC         `json:"qcHigh"`
 	BlockExecuted *BlockProbe `json:"blockExecuted"`
@@ -206,8 +204,6 @@ func convertPacemakerProbe(r *consensus.PMProbeResult) (*PacemakerProbe, error) 
 			LastVotingHeight: r.LastVotingHeight,
 			LastOnBeatRound:  r.LastOnBeatRound,
 			ProposalCount:    r.ProposalCount,
-			PendingCount:     r.PendingCount,
-			PendingLowest:    r.PendingLowest,
 		}
 		if r.QCHigh != nil {
 			probe.QCHigh, _ = convertQC(r.QCHigh)
