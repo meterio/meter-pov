@@ -18,7 +18,7 @@ import (
 	amino "github.com/tendermint/go-amino"
 )
 
-// ConsensusMessage is a message that can be sent and received on the ConsensusReactor
+// ConsensusMessage is a message that can be sent and received on the Reactor
 type ConsensusMessage interface {
 	GetSignerIndex() uint32
 	GetEpoch() uint64

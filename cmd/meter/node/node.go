@@ -42,7 +42,7 @@ var (
 type Node struct {
 	goes   co.Goes
 	packer *packer.Packer
-	cons   *consensus.ConsensusReactor
+	cons   *consensus.Reactor
 
 	master      *Master
 	chain       *chain.Chain
@@ -71,7 +71,7 @@ func New(
 	txPool *txpool.TxPool,
 	txStashPath string,
 	comm *comm.Communicator,
-	cons *consensus.ConsensusReactor,
+	cons *consensus.Reactor,
 	script *script.ScriptEngine,
 ) *Node {
 	node := &Node{

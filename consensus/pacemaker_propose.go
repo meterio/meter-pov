@@ -36,24 +36,24 @@ var (
 )
 
 func (p *Pacemaker) packCommitteeInfo(blk *block.Block) {
-	committeeInfo := p.csReactor.MakeBlockCommitteeInfo()
+	committeeInfo := p.reactor.MakeBlockCommitteeInfo()
 	// fmt.Println("committee info: ", committeeInfo)
 	blk.SetCommitteeInfo(committeeInfo)
-	blk.SetCommitteeEpoch(p.csReactor.curEpoch)
+	blk.SetCommitteeEpoch(p.reactor.curEpoch)
 
 	//Fill new info into block, re-calc hash/signature
 	// blk.SetEvidenceDataHash(blk.EvidenceDataHash())
 }
 
 // Build MBlock
-func (p *Pacemaker) buildMBlock(parent *pmBlock, justify *pmQuorumCert, round uint32) (error, *pmBlock) {
+func (p *Pacemaker) buildMBlock(parent *draftBlock, justify *draftQC, round uint32) (error, *draftBlock) {
 	parentBlock := parent.ProposedBlock
 	best := parentBlock
 	qc := justify.QC
 	now := uint64(time.Now().Unix())
 	/*
 		TODO: better check this, comment out temporarily
-		if p.csReactor.curHeight != int64(best.Number()) {
+		if p.reactor.curHeight != int64(best.Number()) {
 			p.logger.Error("Proposed block parent is not current best block")
 			return nil
 		}
@@ -90,7 +90,7 @@ func (p *Pacemaker) buildMBlock(parent *pmBlock, justify *pmQuorumCert, round ui
 		return ErrPackerEmpty, nil
 	}
 
-	candAddr := p.csReactor.curCommittee.Validators[p.csReactor.curCommitteeIndex].Address
+	candAddr := p.reactor.curCommittee.Validators[p.reactor.curCommitteeIndex].Address
 	gasLimit := pker.GasLimit(best.GasLimit())
 	flow, err := pker.Mock(best.Header(), now, gasLimit, &candAddr)
 	if err != nil {
@@ -99,7 +99,7 @@ func (p *Pacemaker) buildMBlock(parent *pmBlock, justify *pmQuorumCert, round ui
 	}
 
 	//create checkPoint before build block
-	state, err := p.csReactor.stateCreator.NewState(best.Header().StateRoot())
+	state, err := p.reactor.stateCreator.NewState(best.Header().StateRoot())
 	if err != nil {
 		p.logger.Error("revert state failed ...", "error", err)
 		return ErrStateCreaterNotReady, nil
@@ -125,7 +125,7 @@ func (p *Pacemaker) buildMBlock(parent *pmBlock, justify *pmQuorumCert, round ui
 		}
 	}
 
-	newBlock, stage, receipts, err := flow.Pack(&p.csReactor.myPrivKey, block.BLOCK_TYPE_M_BLOCK, p.csReactor.lastKBlockHeight)
+	newBlock, stage, receipts, err := flow.Pack(&p.reactor.myPrivKey, block.BLOCK_TYPE_M_BLOCK, p.reactor.lastKBlockHeight)
 	if err != nil {
 		p.logger.Error("build block failed", "error", err)
 		return err, nil
@@ -143,7 +143,7 @@ func (p *Pacemaker) buildMBlock(parent *pmBlock, justify *pmQuorumCert, round ui
 	}
 
 	rawBlock := block.BlockEncodeBytes(newBlock)
-	proposed := &pmBlock{
+	proposed := &draftBlock{
 		Height:        newBlock.Number(),
 		Round:         round,
 		Parent:        parent,
@@ -164,14 +164,14 @@ func (p *Pacemaker) buildMBlock(parent *pmBlock, justify *pmQuorumCert, round ui
 	return nil, proposed
 }
 
-func (p *Pacemaker) buildKBlock(parent *pmBlock, justify *pmQuorumCert, round uint32, kblockData *block.KBlockData, rewards []powpool.PowReward) (error, *pmBlock) {
+func (p *Pacemaker) buildKBlock(parent *draftBlock, justify *draftQC, round uint32, kblockData *block.KBlockData, rewards []powpool.PowReward) (error, *draftBlock) {
 	parentBlock := parent.ProposedBlock
 	qc := justify.QC
 	best := parentBlock
 	now := uint64(time.Now().Unix())
 	/*
 		TODO: better check this, comment out temporarily
-		if p.csReactor.curHeight != int64(best.Number()) {
+		if p.reactor.curHeight != int64(best.Number()) {
 			p.logger.Warn("Proposed block parent is not current best block")
 			return nil
 		}
@@ -180,17 +180,17 @@ func (p *Pacemaker) buildKBlock(parent *pmBlock, justify *pmQuorumCert, round ui
 	p.logger.Info("Start to build KBlock", "nonce", kblockData.Nonce)
 	// startTime := time.Now()
 
-	chainTag := p.csReactor.chain.Tag()
-	bestNum := p.csReactor.chain.BestBlock().Number()
-	curEpoch := uint32(p.csReactor.curEpoch)
+	chainTag := p.reactor.chain.Tag()
+	bestNum := p.reactor.chain.BestBlock().Number()
+	curEpoch := uint32(p.reactor.curEpoch)
 	// distribute the base reward
-	state, err := p.csReactor.stateCreator.NewState(p.csReactor.chain.BestBlock().Header().StateRoot())
+	state, err := p.reactor.stateCreator.NewState(p.reactor.chain.BestBlock().Header().StateRoot())
 	if err != nil {
 		// panic("get state failed")
 		return errors.New("state creater not ready"), nil
 	}
 
-	txs := p.csReactor.buildKBlockTxs(parentBlock, rewards, chainTag, bestNum, curEpoch, best, state)
+	txs := p.reactor.buildKBlockTxs(parentBlock, rewards, chainTag, bestNum, curEpoch, best, state)
 
 	pool := txpool.GetGlobTxPoolInst()
 	if pool == nil {
@@ -212,7 +212,7 @@ func (p *Pacemaker) buildKBlock(parent *pmBlock, justify *pmQuorumCert, round ui
 		return ErrPackerEmpty, nil
 	}
 
-	candAddr := p.csReactor.curCommittee.Validators[p.csReactor.curCommitteeIndex].Address
+	candAddr := p.reactor.curCommittee.Validators[p.reactor.curCommitteeIndex].Address
 	gasLimit := pker.GasLimit(best.GasLimit())
 	flow, err := pker.Mock(best.Header(), now, gasLimit, &candAddr)
 	if err != nil {
@@ -239,7 +239,7 @@ func (p *Pacemaker) buildKBlock(parent *pmBlock, justify *pmQuorumCert, round ui
 		p.logger.Info("adopted tx", "tx", tx.ID(), "elapsed", meter.PrettyDuration(time.Since(start)))
 	}
 
-	newBlock, stage, receipts, err := flow.Pack(&p.csReactor.myPrivKey, block.BLOCK_TYPE_K_BLOCK, p.csReactor.lastKBlockHeight)
+	newBlock, stage, receipts, err := flow.Pack(&p.reactor.myPrivKey, block.BLOCK_TYPE_K_BLOCK, p.reactor.lastKBlockHeight)
 	if err != nil {
 		p.logger.Error("build block failed...", "error", err)
 		return err, nil
@@ -253,7 +253,7 @@ func (p *Pacemaker) buildKBlock(parent *pmBlock, justify *pmQuorumCert, round ui
 	// p.logger.Info("Built KBlock", "num", newBlock.Number(), "id", newBlock.ID(), "txs", len(newBlock.Txs), "elapsed", meter.PrettyDuration(time.Since(startTime)))
 
 	rawBlock := block.BlockEncodeBytes(newBlock)
-	proposed := &pmBlock{
+	proposed := &draftBlock{
 		Height:        newBlock.Number(),
 		Round:         round,
 		Parent:        parent,
@@ -273,7 +273,7 @@ func (p *Pacemaker) buildKBlock(parent *pmBlock, justify *pmQuorumCert, round ui
 	return nil, proposed
 }
 
-func (p *Pacemaker) buildStopCommitteeBlock(parent *pmBlock, justify *pmQuorumCert, round uint32) (error, *pmBlock) {
+func (p *Pacemaker) buildStopCommitteeBlock(parent *draftBlock, justify *draftQC, round uint32) (error, *draftBlock) {
 	parentBlock := parent.ProposedBlock
 	qc := justify.QC
 	best := parentBlock
@@ -288,7 +288,7 @@ func (p *Pacemaker) buildStopCommitteeBlock(parent *pmBlock, justify *pmQuorumCe
 	txsToRemoved := func() bool { return true }
 	txsToReturned := func() bool { return true }
 
-	candAddr := p.csReactor.curCommittee.Validators[p.csReactor.curCommitteeIndex].Address
+	candAddr := p.reactor.curCommittee.Validators[p.reactor.curCommitteeIndex].Address
 	gasLimit := pker.GasLimit(best.GasLimit())
 	flow, err := pker.Mock(best.Header(), now, gasLimit, &candAddr)
 	if err != nil {
@@ -296,7 +296,7 @@ func (p *Pacemaker) buildStopCommitteeBlock(parent *pmBlock, justify *pmQuorumCe
 		return ErrFlowEmpty, nil
 	}
 
-	newBlock, stage, receipts, err := flow.Pack(&p.csReactor.myPrivKey, block.BLOCK_TYPE_S_BLOCK, p.csReactor.lastKBlockHeight)
+	newBlock, stage, receipts, err := flow.Pack(&p.reactor.myPrivKey, block.BLOCK_TYPE_S_BLOCK, p.reactor.lastKBlockHeight)
 	if err != nil {
 		p.logger.Error("build block failed", "error", err)
 		return err, nil
@@ -306,7 +306,7 @@ func (p *Pacemaker) buildStopCommitteeBlock(parent *pmBlock, justify *pmQuorumCe
 
 	// p.logger.Info("Built SBlock", "num", newBlock.Number(), "elapsed", meter.PrettyDuration(time.Since(startTime)))
 	rawBlock := block.BlockEncodeBytes(newBlock)
-	proposed := &pmBlock{
+	proposed := &draftBlock{
 		Height:        newBlock.Number(),
 		Round:         round,
 		Parent:        parent,

@@ -11,9 +11,9 @@ import (
 )
 
 // build block committee info part
-func (conR *ConsensusReactor) MakeBlockCommitteeInfo() []block.CommitteeInfo {
-	system := conR.csCommon.GetSystem()
-	cms := conR.curActualCommittee
+func (r *Reactor) MakeBlockCommitteeInfo() []block.CommitteeInfo {
+	system := r.csCommon.GetSystem()
+	cms := r.curActualCommittee
 
 	cis := []block.CommitteeInfo{}
 
@@ -38,19 +38,19 @@ func convertDistList(dist []*meter.Distributor) []*types.Distributor {
 	return list
 }
 
-func (conR *ConsensusReactor) getDelegatesFromStaking() ([]*types.Delegate, error) {
+func (r *Reactor) getDelegatesFromStaking() ([]*types.Delegate, error) {
 	delegateList := []*types.Delegate{}
 
-	best := conR.chain.BestBlock()
-	state, err := conR.stateCreator.NewState(best.Header().StateRoot())
+	best := r.chain.BestBlock()
+	state, err := r.stateCreator.NewState(best.Header().StateRoot())
 	if err != nil {
 		return delegateList, err
 	}
 
 	list := state.GetDelegateList()
-	conR.logger.Debug("Loaded delegateList from staking", "len", len(list.Delegates))
+	r.logger.Debug("Loaded delegateList from staking", "len", len(list.Delegates))
 	for _, s := range list.Delegates {
-		pubKey, blsPub := conR.splitPubKey(string(s.PubKey))
+		pubKey, blsPub := r.splitPubKey(string(s.PubKey))
 		d := &types.Delegate{
 			Name:        s.Name,
 			Address:     s.Address,

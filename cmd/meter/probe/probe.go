@@ -20,7 +20,7 @@ import (
 )
 
 type Probe struct {
-	Cons          *consensus.ConsensusReactor
+	Cons          *consensus.Reactor
 	ComplexPubkey string
 	Chain         *chain.Chain
 	Version       string

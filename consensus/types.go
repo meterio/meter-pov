@@ -21,17 +21,17 @@ type RecvKBlockInfo struct {
 }
 
 type commitReadyBlock struct {
-	block      *pmBlock
+	block      *draftBlock
 	matchingQC *block.QuorumCert
 }
 
-// definition for pmBlock
-type pmBlock struct {
+// definition for draftBlock
+type draftBlock struct {
 	Height        uint32
 	Round         uint32
-	Parent        *pmBlock
-	Justify       *pmQuorumCert
-	Committed     bool // used for pmBlock created from database
+	Parent        *draftBlock
+	Justify       *draftQC
+	Committed     bool // used for draftBlock created from database
 	ProposedBlock *block.Block
 	RawBlock      []byte
 
@@ -50,34 +50,34 @@ type pmBlock struct {
 	ProcessError     error
 }
 
-func (pb *pmBlock) ToString() string {
+func (pb *draftBlock) ToString() string {
 	if pb == nil {
-		return fmt.Sprintf("PMBlock(nil)")
+		return fmt.Sprintf("DraftBlock(nil)")
 	}
 	if pb.Parent != nil {
-		return fmt.Sprintf("PMBlock{(H:%v,R:%v), QC:(H:%v, R:%v), Parent:(H:%v, H:%v)}",
+		return fmt.Sprintf("DraftBlock{(H:%v,R:%v), QC:(H:%v, R:%v), Parent:(H:%v, H:%v)}",
 			pb.Height, pb.Round, pb.Justify.QC.QCHeight, pb.Justify.QC.QCRound, pb.Parent.Height, pb.Parent.Round)
 	} else {
-		return fmt.Sprintf("PMBlock{(H:%v,R:%v), QC:(H:%v, R:%v)}",
+		return fmt.Sprintf("DraftBlock{(H:%v,R:%v), QC:(H:%v, R:%v)}",
 			pb.Height, pb.Round, pb.Justify.QC.QCHeight, pb.Justify.QC.QCRound)
 	}
 }
 
-// definition for pmQuorumCert
-type pmQuorumCert struct {
+// definition for draftQC
+type draftQC struct {
 	//QCHeight/QCround must be the same with QCNode.Height/QCnode.Round
-	QCNode *pmBlock          // this is the QCed block
+	QCNode *draftBlock       // this is the QCed block
 	QC     *block.QuorumCert // this is the actual QC that goes into the next block
 }
 
-func newPMQuorumCert(qc *block.QuorumCert, qcNode *pmBlock) *pmQuorumCert {
-	return &pmQuorumCert{
+func newPMQuorumCert(qc *block.QuorumCert, qcNode *draftBlock) *draftQC {
+	return &draftQC{
 		QCNode: qcNode,
 		QC:     qc,
 	}
 }
 
-func (qc *pmQuorumCert) ToString() string {
+func (qc *draftQC) ToString() string {
 	if qc.QCNode != nil {
 		return fmt.Sprintf("pmQC{QC:(H:%v,R:%v), qcNode:(H:%v,R:%v)}", qc.QC.QCHeight, qc.QC.QCRound, qc.QCNode.Height, qc.QCNode.Round)
 	} else {

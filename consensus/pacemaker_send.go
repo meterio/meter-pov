@@ -26,16 +26,16 @@ import (
 )
 
 func (p *Pacemaker) sendMsg(msg ConsensusMessage, copyMyself bool) bool {
-	myNetAddr := p.csReactor.GetMyNetAddr()
-	myName := p.csReactor.GetMyName()
-	myself := newConsensusPeer(myName, myNetAddr.IP, myNetAddr.Port, p.csReactor.magic)
+	myNetAddr := p.reactor.GetMyNetAddr()
+	myName := p.reactor.GetMyName()
+	myself := newConsensusPeer(myName, myNetAddr.IP, myNetAddr.Port, p.reactor.magic)
 
 	round := msg.GetRound()
 
 	peers := make([]*ConsensusPeer, 0)
 	switch msg.(type) {
 	case *PMProposalMessage:
-		peers = p.csReactor.GetRelayPeers(round)
+		peers = p.reactor.GetRelayPeers(round)
 	case *PMVoteMessage:
 		nxtProposer := p.getProposerByRound(round + 1)
 		peers = append(peers, nxtProposer)
@@ -68,7 +68,7 @@ func (p *Pacemaker) sendMsg(msg ConsensusMessage, copyMyself bool) bool {
 }
 
 func (p *Pacemaker) sendMsgToPeer(msg ConsensusMessage, relay bool, peers ...*ConsensusPeer) bool {
-	data, err := p.csReactor.MarshalMsg(&msg)
+	data, err := p.reactor.MarshalMsg(&msg)
 	if err != nil {
 		fmt.Println("error marshaling message", err)
 		return false
@@ -93,7 +93,7 @@ func (p *Pacemaker) sendMsgToPeer(msg ConsensusMessage, relay bool, peers ...*Co
 	return true
 }
 
-func (p *Pacemaker) BuildProposalMessage(height, round uint32, bnew *pmBlock, tc *TimeoutCert) (*PMProposalMessage, error) {
+func (p *Pacemaker) BuildProposalMessage(height, round uint32, bnew *draftBlock, tc *TimeoutCert) (*PMProposalMessage, error) {
 	parentHeight := uint32(0)
 	parentRound := uint32(0)
 	if bnew.Parent != nil {
@@ -101,9 +101,9 @@ func (p *Pacemaker) BuildProposalMessage(height, round uint32, bnew *pmBlock, tc
 		parentRound = bnew.Parent.Round
 	}
 	msg := &PMProposalMessage{
-		// Sender:    crypto.FromECDSAPub(&p.csReactor.myPubKey),
+		// Sender:    crypto.FromECDSAPub(&p.reactor.myPubKey),
 		Timestamp:   time.Now(),
-		Epoch:       p.csReactor.curEpoch,
+		Epoch:       p.reactor.curEpoch,
 		SignerIndex: uint32(p.myActualCommitteeIndex),
 
 		Height:       height,
@@ -117,7 +117,7 @@ func (p *Pacemaker) BuildProposalMessage(height, round uint32, bnew *pmBlock, tc
 	}
 
 	// sign message
-	msgSig, err := crypto.Sign(msg.GetMsgHash().Bytes(), &p.csReactor.myPrivKey)
+	msgSig, err := crypto.Sign(msg.GetMsgHash().Bytes(), &p.reactor.myPrivKey)
 	if err != nil {
 		p.logger.Error("Sign message failed", "error", err)
 		return nil, err
@@ -134,12 +134,12 @@ func (p *Pacemaker) BuildVoteMessage(proposalMsg *PMProposalMessage) (*PMVoteMes
 
 	proposedBlock := proposalMsg.DecodeBlock()
 	voteHash := BuildBlockVotingHash(uint32(proposedBlock.BlockType()), uint64(proposalMsg.Height), proposedBlock.ID(), proposedBlock.TxsRoot(), proposedBlock.StateRoot())
-	voteSig := p.csReactor.csCommon.SignHash(voteHash)
+	voteSig := p.reactor.csCommon.SignHash(voteHash)
 	// p.logger.Debug("Built PMVoteMessage", "signMsg", signMsg)
 
 	msg := &PMVoteMessage{
 		Timestamp:   time.Now(),
-		Epoch:       p.csReactor.curEpoch,
+		Epoch:       p.reactor.curEpoch,
 		SignerIndex: uint32(p.myActualCommitteeIndex),
 
 		VoteHeight:    proposalMsg.Height,
@@ -150,7 +150,7 @@ func (p *Pacemaker) BuildVoteMessage(proposalMsg *PMProposalMessage) (*PMVoteMes
 	}
 
 	// sign message
-	msgSig, err := crypto.Sign(msg.GetMsgHash().Bytes(), &p.csReactor.myPrivKey)
+	msgSig, err := crypto.Sign(msg.GetMsgHash().Bytes(), &p.reactor.myPrivKey)
 	if err != nil {
 		p.logger.Error("Sign message failed", "error", err)
 		return nil, err
@@ -161,11 +161,11 @@ func (p *Pacemaker) BuildVoteMessage(proposalMsg *PMProposalMessage) (*PMVoteMes
 }
 
 // BuildVoteForProposalMsg build VFP message for proposal
-func (p *Pacemaker) BuildTimeoutMessage(qcHigh *pmQuorumCert, ti *PMRoundTimeoutInfo, lastVoteMsg *PMVoteMessage) (*PMTimeoutMessage, error) {
+func (p *Pacemaker) BuildTimeoutMessage(qcHigh *draftQC, ti *PMRoundTimeoutInfo, lastVoteMsg *PMVoteMessage) (*PMTimeoutMessage, error) {
 
 	// TODO: changed from nextHeight/nextRound to ti.height/ti.round, not sure if this is correct
-	wishVoteHash := BuildTimeoutVotingHash(p.csReactor.curEpoch, ti.round)
-	wishVoteSig := p.csReactor.csCommon.SignHash(wishVoteHash)
+	wishVoteHash := BuildTimeoutVotingHash(p.reactor.curEpoch, ti.round)
+	wishVoteSig := p.reactor.csCommon.SignHash(wishVoteHash)
 
 	qcBytes, err := rlp.EncodeToBytes(qcHigh.QC)
 	if err != nil {
@@ -173,7 +173,7 @@ func (p *Pacemaker) BuildTimeoutMessage(qcHigh *pmQuorumCert, ti *PMRoundTimeout
 	}
 	msg := &PMTimeoutMessage{
 		Timestamp:   time.Now(),
-		Epoch:       p.csReactor.curEpoch,
+		Epoch:       p.reactor.curEpoch,
 		SignerIndex: uint32(p.myActualCommitteeIndex),
 
 		WishRound: ti.round + 1,
@@ -200,7 +200,7 @@ func (p *Pacemaker) BuildTimeoutMessage(qcHigh *pmQuorumCert, ti *PMRoundTimeout
 	// 	msg.TimeoutCounter = ti.counter
 	// }
 	// sign message
-	msgSig, err := crypto.Sign(msg.GetMsgHash().Bytes(), &p.csReactor.myPrivKey)
+	msgSig, err := crypto.Sign(msg.GetMsgHash().Bytes(), &p.reactor.myPrivKey)
 	if err != nil {
 		p.logger.Error("Sign message failed", "error", err)
 		return nil, err
@@ -211,8 +211,8 @@ func (p *Pacemaker) BuildTimeoutMessage(qcHigh *pmQuorumCert, ti *PMRoundTimeout
 }
 
 // qc is for that block?
-// blk is derived from pmBlock message. pass it in if already decoded
-func BlockMatchQC(b *pmBlock, qc *block.QuorumCert) (bool, error) {
+// blk is derived from draftBlock message. pass it in if already decoded
+func BlockMatchQC(b *draftBlock, qc *block.QuorumCert) (bool, error) {
 
 	if b == nil {
 		// decode block to get qc

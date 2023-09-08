@@ -4,7 +4,7 @@ import (
 	"strings"
 )
 
-func (r *ConsensusReactor) GetRelayPeers(round uint32) []*ConsensusPeer {
+func (r *Reactor) GetRelayPeers(round uint32) []*ConsensusPeer {
 	peers := make([]*ConsensusPeer, 0)
 	size := len(r.curActualCommittee)
 	myIndex := r.GetMyActualCommitteeIndex()
@@ -32,7 +32,7 @@ func (r *ConsensusReactor) GetRelayPeers(round uint32) []*ConsensusPeer {
 	return peers
 }
 
-func (r *ConsensusReactor) relayMsg(mi *msgParcel) {
+func (r *Reactor) relayMsg(mi *msgParcel) {
 	msg := mi.Msg
 	if mi.Msg.GetType() != "PMProposal" {
 		return

@@ -37,7 +37,7 @@ func newConsensusMsgInfo(msg ConsensusMessage, peer *ConsensusPeer, rawData []by
 	}
 }
 
-func (r *ConsensusReactor) MarshalMsg(msg *ConsensusMessage) ([]byte, error) {
+func (r *Reactor) MarshalMsg(msg *ConsensusMessage) ([]byte, error) {
 	rawMsg := cdc.MustMarshalBinaryBare(msg)
 	if len(rawMsg) > maxMsgSize {
 		r.logger.Error("Msg exceeds max size", "rawMsg", len(rawMsg), "maxMsgSize", maxMsgSize)
@@ -56,7 +56,7 @@ func (r *ConsensusReactor) MarshalMsg(msg *ConsensusMessage) ([]byte, error) {
 	return json.Marshal(payload)
 }
 
-func (r *ConsensusReactor) UnmarshalMsg(rawData []byte) (*msgParcel, error) {
+func (r *Reactor) UnmarshalMsg(rawData []byte) (*msgParcel, error) {
 	var params map[string]string
 	err := json.NewDecoder(bytes.NewReader(rawData)).Decode(&params)
 	if err != nil {

@@ -35,7 +35,7 @@ var log = log15.New("pkg", "reactor")
 
 // TODO: check the logic in here
 // Process process a block.
-func (c *ConsensusReactor) ProcessSyncedBlock(blk *block.Block, nowTimestamp uint64) (*state.Stage, tx.Receipts, error) {
+func (c *Reactor) ProcessSyncedBlock(blk *block.Block, nowTimestamp uint64) (*state.Stage, tx.Receipts, error) {
 	header := blk.Header()
 
 	if _, err := c.chain.GetBlockHeader(header.ID()); err != nil {
@@ -72,7 +72,7 @@ func (c *ConsensusReactor) ProcessSyncedBlock(blk *block.Block, nowTimestamp uin
 	return stage, receipts, nil
 }
 
-func (c *ConsensusReactor) ProcessProposedBlock(parentHeader *block.Header, blk *block.Block, nowTimestamp uint64) (*state.Stage, tx.Receipts, error) {
+func (c *Reactor) ProcessProposedBlock(parentHeader *block.Header, blk *block.Block, nowTimestamp uint64) (*state.Stage, tx.Receipts, error) {
 	header := blk.Header()
 
 	if _, err := c.chain.GetBlockHeader(header.ID()); err != nil {
@@ -100,7 +100,7 @@ func (c *ConsensusReactor) ProcessProposedBlock(parentHeader *block.Header, blk 
 	return stage, receipts, nil
 }
 
-func (c *ConsensusReactor) Validate(
+func (c *Reactor) Validate(
 	state *state.State,
 	block *block.Block,
 	parentHeader *block.Header,
@@ -131,7 +131,7 @@ func (c *ConsensusReactor) Validate(
 	return stage, receipts, nil
 }
 
-func (c *ConsensusReactor) validateBlockHeader(header *block.Header, parent *block.Header, nowTimestamp uint64, forceValidate bool, epoch uint64) error {
+func (c *Reactor) validateBlockHeader(header *block.Header, parent *block.Header, nowTimestamp uint64, forceValidate bool, epoch uint64) error {
 	if header.Timestamp() <= parent.Timestamp() {
 		return consensusError(fmt.Sprintf("block timestamp behind parents: parent %v, current %v", parent.Timestamp(), header.Timestamp()))
 	}
@@ -163,7 +163,7 @@ func (c *ConsensusReactor) validateBlockHeader(header *block.Header, parent *blo
 	return nil
 }
 
-func (c *ConsensusReactor) validateProposer(header *block.Header, parent *block.Header, st *state.State) error {
+func (c *Reactor) validateProposer(header *block.Header, parent *block.Header, st *state.State) error {
 	_, err := header.Signer()
 	if err != nil {
 		return consensusError(fmt.Sprintf("block signer unavailable: %v", err))
@@ -172,7 +172,7 @@ func (c *ConsensusReactor) validateProposer(header *block.Header, parent *block.
 	return nil
 }
 
-func (c *ConsensusReactor) validateBlockBody(blk *block.Block, forceValidate bool) error {
+func (c *Reactor) validateBlockBody(blk *block.Block, forceValidate bool) error {
 	header := blk.Header()
 	proposedTxs := blk.Transactions()
 	if header.TxsRoot() != proposedTxs.RootHash() {
@@ -358,7 +358,7 @@ func (c *ConsensusReactor) validateBlockBody(blk *block.Block, forceValidate boo
 	return nil
 }
 
-func (c *ConsensusReactor) verifyBlock(blk *block.Block, state *state.State, forceValidate bool) (*state.Stage, tx.Receipts, error) {
+func (c *Reactor) verifyBlock(blk *block.Block, state *state.State, forceValidate bool) (*state.Stage, tx.Receipts, error) {
 	var totalGasUsed uint64
 	txs := blk.Transactions()
 	receipts := make(tx.Receipts, 0, len(txs))
@@ -471,7 +471,7 @@ func (c *ConsensusReactor) verifyBlock(blk *block.Block, state *state.State, for
 	return stage, receipts, nil
 }
 
-func (c *ConsensusReactor) verifyKBlock() error {
+func (c *Reactor) verifyKBlock() error {
 	p := powpool.GetGlobPowPoolInst()
 	if !p.VerifyNPowBlockPerEpoch() {
 		return errors.New("NPowBlockPerEpoch err")
@@ -480,38 +480,38 @@ func (c *ConsensusReactor) verifyKBlock() error {
 	return nil
 }
 
-func (conR *ConsensusReactor) buildKBlockTxs(parentBlock *block.Block, rewards []powpool.PowReward, chainTag byte, bestNum uint32, curEpoch uint32, best *block.Block, state *state.State) tx.Transactions {
+func (r *Reactor) buildKBlockTxs(parentBlock *block.Block, rewards []powpool.PowReward, chainTag byte, bestNum uint32, curEpoch uint32, best *block.Block, state *state.State) tx.Transactions {
 	// build miner meter reward
 	txs := governor.BuildMinerRewardTxs(rewards, chainTag, bestNum)
 	for _, tx := range txs {
-		conR.logger.Info(fmt.Sprintf("Built miner reward tx: %s", tx.ID().String()), "clauses", len(tx.Clauses()), "uhash", tx.UniteHash())
+		r.logger.Info(fmt.Sprintf("Built miner reward tx: %s", tx.ID().String()), "clauses", len(tx.Clauses()), "uhash", tx.UniteHash())
 	}
 
 	lastKBlockHeight := parentBlock.LastKBlockHeight()
 
 	// edison not support the staking/auciton/slashing
 	if meter.IsTesla(parentBlock.Number()) {
-		stats, err := governor.ComputeStatistics(lastKBlockHeight, parentBlock.Number(), conR.chain, conR.curCommittee, conR.curActualCommittee, conR.csCommon, conR.csPacemaker.calcStatsTx, uint32(conR.curEpoch))
+		stats, err := governor.ComputeStatistics(lastKBlockHeight, parentBlock.Number(), r.chain, r.curCommittee, r.curActualCommittee, r.csCommon, r.csPacemaker.calcStatsTx, uint32(r.curEpoch))
 		if err != nil {
 			// TODO: do something about this
-			conR.logger.Info("no slash statistics need to info", "error", err)
+			r.logger.Info("no slash statistics need to info", "error", err)
 		}
 		if len(stats) != 0 {
 			statsTx := governor.BuildStatisticsTx(stats, chainTag, bestNum, curEpoch)
-			conR.logger.Info(fmt.Sprintf("Built stats tx: %s", statsTx.ID().String()), "clauses", len(statsTx.Clauses()), "uhash", statsTx.UniteHash())
+			r.logger.Info(fmt.Sprintf("Built stats tx: %s", statsTx.ID().String()), "clauses", len(statsTx.Clauses()), "uhash", statsTx.UniteHash())
 			txs = append(txs, statsTx)
 		} else {
-			conR.logger.Info("no stats needed")
+			r.logger.Info("no stats needed")
 		}
-		state, err := conR.stateCreator.NewState(parentBlock.Header().StateRoot())
-		if tx := governor.BuildAuctionControlTx(uint64(best.Number()+1), uint64(best.GetBlockEpoch()+1), chainTag, bestNum, state, conR.chain); tx != nil {
-			conR.logger.Info(fmt.Sprintf("Built auction control tx: %s", tx.ID().String()), "clauses", len(tx.Clauses()), "uhash", tx.UniteHash())
+		state, err := r.stateCreator.NewState(parentBlock.Header().StateRoot())
+		if tx := governor.BuildAuctionControlTx(uint64(best.Number()+1), uint64(best.GetBlockEpoch()+1), chainTag, bestNum, state, r.chain); tx != nil {
+			r.logger.Info(fmt.Sprintf("Built auction control tx: %s", tx.ID().String()), "clauses", len(tx.Clauses()), "uhash", tx.UniteHash())
 			txs = append(txs, tx)
 		}
 
 		// exception for staging and testnet env
 		// otherwise (mainnet), build governing && autobid tx only when staking delegates is used
-		if meter.IsStaging() || meter.IsTestNet() || conR.sourceDelegates != fromDelegatesFile {
+		if meter.IsStaging() || meter.IsTestNet() || r.sourceDelegates != fromDelegatesFile {
 			benefitRatio := governor.GetValidatorBenefitRatio(state)
 			validatorBaseReward := governor.GetValidatorBaseRewards(state)
 			epochBaseReward := governor.ComputeEpochBaseReward(validatorBaseReward)
@@ -533,21 +533,21 @@ func (conR *ConsensusReactor) buildKBlockTxs(parentBlock *block.Block, rewards [
 				// and then rewardMap is always 0
 				// now it won't build governing tx, and delegates never get re-calced
 				// then it's locked
-				if meter.IsStaging() || (meter.IsTestNet() && conR.sourceDelegates == fromDelegatesFile) {
+				if meter.IsStaging() || (meter.IsTestNet() && r.sourceDelegates == fromDelegatesFile) {
 					// use staking delegates for calculation during staging
-					delegates, _ := conR.getDelegatesFromStaking()
+					delegates, _ := r.getDelegatesFromStaking()
 					if err != nil {
 						fmt.Println("could not get delegates from staking")
 					}
-					conR.logger.Info("Loaded delegateList from staking for staging only", "len", len(delegates))
+					r.logger.Info("Loaded delegateList from staking for staging only", "len", len(delegates))
 					// skip member check for delegates in ComputeRewardMapV3
 					rewardMap, err = governor.ComputeRewardMap(epochBaseReward, epochTotalReward, delegates, true)
 				} else {
-					rewardMap, err = governor.ComputeRewardMapV3(epochBaseReward, epochTotalReward, conR.curDelegates.Delegates, conR.curCommittee.Validators)
+					rewardMap, err = governor.ComputeRewardMapV3(epochBaseReward, epochTotalReward, r.curDelegates.Delegates, r.curCommittee.Validators)
 				}
 			} else {
 				fmt.Println("Compute reward map v2")
-				rewardMap, err = governor.ComputeRewardMapV2(epochBaseReward, epochTotalReward, conR.curDelegates.Delegates, conR.curCommittee.Validators)
+				rewardMap, err = governor.ComputeRewardMapV2(epochBaseReward, epochTotalReward, r.curDelegates.Delegates, r.curCommittee.Validators)
 			}
 
 			fmt.Println("*** Reward Map ***")
@@ -562,12 +562,12 @@ func (conR *ConsensusReactor) buildKBlockTxs(parentBlock *block.Block, rewards [
 					distTotal.Add(distTotal, rinfo.DistAmount)
 					autobidTotal.Add(autobidTotal, rinfo.AutobidAmount)
 				}
-				conR.logger.Info("epoch MTR reward", "distTotal", distTotal, "autobidTotal", autobidTotal)
+				r.logger.Info("epoch MTR reward", "distTotal", distTotal, "autobidTotal", autobidTotal)
 				if meter.IsTeslaFork6(parentBlock.Number()) {
 					_, _, rewardV2List := rewardMap.ToList()
-					governingV2Tx := governor.BuildStakingGoverningV2Tx(rewardV2List, uint32(conR.curEpoch), chainTag, bestNum)
+					governingV2Tx := governor.BuildStakingGoverningV2Tx(rewardV2List, uint32(r.curEpoch), chainTag, bestNum)
 					if governingV2Tx != nil {
-						conR.logger.Info(fmt.Sprintf("Built governV2 tx: %s", governingV2Tx.ID().String()), "clauses", len(governingV2Tx.Clauses()), "uhash", governingV2Tx.UniteHash())
+						r.logger.Info(fmt.Sprintf("Built governV2 tx: %s", governingV2Tx.ID().String()), "clauses", len(governingV2Tx.Clauses()), "uhash", governingV2Tx.UniteHash())
 						txs = append(txs, governingV2Tx)
 					}
 				} else {
@@ -578,9 +578,9 @@ func (conR *ConsensusReactor) buildKBlockTxs(parentBlock *block.Block, rewards [
 					// }
 					// fmt.Println("-------------------------")
 
-					governingTx := governor.BuildStakingGoverningTx(distList, uint32(conR.curEpoch), chainTag, bestNum)
+					governingTx := governor.BuildStakingGoverningTx(distList, uint32(r.curEpoch), chainTag, bestNum)
 					if governingTx != nil {
-						conR.logger.Info(fmt.Sprintf("Built govern tx: %s", governingTx.ID().String()), "clauses", len(governingTx.Clauses()), "uhash", governingTx.UniteHash())
+						r.logger.Info(fmt.Sprintf("Built govern tx: %s", governingTx.ID().String()), "clauses", len(governingTx.Clauses()), "uhash", governingTx.UniteHash())
 						txs = append(txs, governingTx)
 					}
 
@@ -595,20 +595,20 @@ func (conR *ConsensusReactor) buildKBlockTxs(parentBlock *block.Block, rewards [
 					if len(autobidTxs) > 0 {
 						txs = append(txs, autobidTxs...)
 						for _, tx := range autobidTxs {
-							conR.logger.Info(fmt.Sprintf("Built autobid tx: %s", tx.ID().String()), "clauses", len(tx.Clauses()), "uhash", tx.UniteHash())
+							r.logger.Info(fmt.Sprintf("Built autobid tx: %s", tx.ID().String()), "clauses", len(tx.Clauses()), "uhash", tx.UniteHash())
 						}
 					}
 				}
 			} else {
-				conR.logger.Info("Reward Map is empty, skip building govern & autobid tx")
+				r.logger.Info("Reward Map is empty, skip building govern & autobid tx")
 			}
 		}
 	}
 
 	if tx := governor.BuildAccountLockGoverningTx(chainTag, bestNum, curEpoch); tx != nil {
 		txs = append(txs, tx)
-		conR.logger.Info(fmt.Sprintf("Built account lock tx: %s", tx.ID().String()), "clauses", len(tx.Clauses()), "uhash", tx.UniteHash())
+		r.logger.Info(fmt.Sprintf("Built account lock tx: %s", tx.ID().String()), "clauses", len(tx.Clauses()), "uhash", tx.UniteHash())
 	}
-	conR.logger.Info(fmt.Sprintf("Built %d KBlock Governor Txs", len(txs)))
+	r.logger.Info(fmt.Sprintf("Built %d KBlock Governor Txs", len(txs)))
 	return txs
 }

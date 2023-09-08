@@ -11,15 +11,15 @@ import (
 	"github.com/meterio/meter-pov/script"
 )
 
-func (p *Pacemaker) precommitBlock(pmBlk *pmBlock) error {
-	blk := pmBlk.ProposedBlock
-	stage := pmBlk.Stage
-	receipts := pmBlk.Receipts
+func (p *Pacemaker) precommitBlock(draftBlk *draftBlock) error {
+	blk := draftBlk.ProposedBlock
+	stage := draftBlk.Stage
+	receipts := draftBlk.Receipts
 
 	// start := time.Now()
 	// TODO: temporary remove
-	// if p.csReactor.csPacemaker.blockLocked.Height != height+1 {
-	// p.logger.Error(fmt.Sprintf("finalizeCommitBlock(H:%v): Invalid height. bLocked Height:%v, curRround: %v", height, p.csReactor.csPacemaker.blockLocked.Height, p.csReactor.curRound))
+	// if p.reactor.csPacemaker.blockLocked.Height != height+1 {
+	// p.logger.Error(fmt.Sprintf("finalizeCommitBlock(H:%v): Invalid height. bLocked Height:%v, curRround: %v", height, p.reactor.csPacemaker.blockLocked.Height, p.reactor.curRound))
 	// return false
 	// }
 	p.logger.Debug("Try to pre-commit block", "block", blk.Oneliner())
@@ -43,7 +43,7 @@ func (p *Pacemaker) precommitBlock(pmBlk *pmBlock) error {
 	}
 
 	// fmt.Println("Calling AddBlock from consensus_block.PrecommitBlock, newblock=", blk.ID())
-	fork, err := p.csReactor.chain.AddBlock(blk, *receipts, false)
+	fork, err := p.reactor.chain.AddBlock(blk, *receipts, false)
 	if err != nil {
 		if err != chain.ErrBlockExist {
 			p.logger.Warn("add block failed ...", "num", blk.Number(), "id", blk.ID(), "err", err)
@@ -59,14 +59,14 @@ func (p *Pacemaker) precommitBlock(pmBlk *pmBlock) error {
 		//return false
 		// process fork????
 		if len(fork.Branch) > 0 {
-			out := fmt.Sprintf("Fork Happened ... fork(Ancestor=%s, Branch=%s), bestBlock=%s", fork.Ancestor.ID().String(), fork.Branch[0].ID().String(), p.csReactor.chain.BestBlock().ID().String())
+			out := fmt.Sprintf("Fork Happened ... fork(Ancestor=%s, Branch=%s), bestBlock=%s", fork.Ancestor.ID().String(), fork.Branch[0].ID().String(), p.reactor.chain.BestBlock().ID().String())
 			p.logger.Warn(out)
 			panic(out)
 		}
 	}
 
 	// now only Mblock remove the txs from txpool
-	pmBlk.txsToRemoved()
+	draftBlk.txsToRemoved()
 
 	blocksCommitedCounter.Inc()
 
@@ -75,14 +75,14 @@ func (p *Pacemaker) precommitBlock(pmBlk *pmBlock) error {
 }
 
 // finalize the block with its own QC
-func (p *Pacemaker) commitBlock(pmBlk *pmBlock, bestQC *block.QuorumCert) error {
-	blk := pmBlk.ProposedBlock
+func (p *Pacemaker) commitBlock(draftBlk *draftBlock, bestQC *block.QuorumCert) error {
+	blk := draftBlk.ProposedBlock
 	//stage := blkInfo.Stage
-	receipts := pmBlk.Receipts
+	receipts := draftBlk.Receipts
 
 	// TODO: temporary remove
-	// if p.csReactor.csPacemaker.blockLocked.Height != height+1 {
-	// p.logger.Error(fmt.Sprintf("commitBlock(H:%v): Invalid height. bLocked Height:%v, curRround: %v", height, p.csReactor.csPacemaker.blockLocked.Height, p.csReactor.curRound))
+	// if p.reactor.csPacemaker.blockLocked.Height != height+1 {
+	// p.logger.Error(fmt.Sprintf("commitBlock(H:%v): Invalid height. bLocked Height:%v, curRround: %v", height, p.reactor.csPacemaker.blockLocked.Height, p.reactor.curRound))
 	// return false
 	// }
 	p.logger.Debug("Try to finalize block", "block", blk.Oneliner())
@@ -102,10 +102,10 @@ func (p *Pacemaker) commitBlock(pmBlk *pmBlock, bestQC *block.QuorumCert) error 
 		return err
 	}
 	// fmt.Println("Calling AddBlock from consensus_block.commitBlock, newBlock=", blk.ID())
-	if blk.Number() <= p.csReactor.chain.BestBlock().Number() {
+	if blk.Number() <= p.reactor.chain.BestBlock().Number() {
 		return errKnownBlock
 	}
-	fork, err := p.csReactor.chain.AddBlock(blk, *receipts, true)
+	fork, err := p.reactor.chain.AddBlock(blk, *receipts, true)
 	if err != nil {
 		if err != chain.ErrBlockExist {
 			p.logger.Warn("add block failed ...", "err", err, "id", blk.ID(), "num", blk.Number())
@@ -121,7 +121,7 @@ func (p *Pacemaker) commitBlock(pmBlk *pmBlock, bestQC *block.QuorumCert) error 
 		//return false
 		// process fork????
 		if len(fork.Branch) > 0 {
-			out := fmt.Sprintf("Fork Happened ... fork(Ancestor=%s, Branch=%s), bestBlock=%s", fork.Ancestor.ID().String(), fork.Branch[0].ID().String(), p.csReactor.chain.BestBlock().ID().String())
+			out := fmt.Sprintf("Fork Happened ... fork(Ancestor=%s, Branch=%s), bestBlock=%s", fork.Ancestor.ID().String(), fork.Branch[0].ID().String(), p.reactor.chain.BestBlock().ID().String())
 			p.logger.Warn(out)
 			panic(out)
 		}
@@ -136,12 +136,12 @@ func (p *Pacemaker) commitBlock(pmBlk *pmBlock, bestQC *block.QuorumCert) error 
 	}
 
 	// Save bestQC
-	p.csReactor.chain.UpdateBestQC(bestQC, chain.LocalCommit)
+	p.reactor.chain.UpdateBestQC(bestQC, chain.LocalCommit)
 
 	// broadcast the new block to all peers
 	comm.GetGlobCommInst().BroadcastBlock(blk)
 	// successfully added the block, update the current hight of consensus
-	p.csReactor.UpdateHeight(p.csReactor.chain.BestBlock().Number())
+	p.reactor.UpdateHeight(p.reactor.chain.BestBlock().Number())
 
 	return nil
 }

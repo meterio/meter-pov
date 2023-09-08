@@ -11,29 +11,29 @@ import (
 // ------------------------------------
 // USED FOR PROBE ONLY
 // ------------------------------------
-func (conR *ConsensusReactor) IsPacemakerRunning() bool {
-	if conR.csPacemaker == nil {
+func (r *Reactor) IsPacemakerRunning() bool {
+	if r.csPacemaker == nil {
 		return false
 	}
-	return !conR.csPacemaker.IsStopped()
+	return !r.csPacemaker.IsStopped()
 }
 
-func (conR *ConsensusReactor) PacemakerProbe() *PMProbeResult {
-	if conR.IsPacemakerRunning() {
-		return conR.csPacemaker.Probe()
+func (r *Reactor) PacemakerProbe() *PMProbeResult {
+	if r.IsPacemakerRunning() {
+		return r.csPacemaker.Probe()
 	}
 	return nil
 }
 
-func (conR *ConsensusReactor) IsCommitteeMember() bool {
-	return conR.inCommittee
+func (r *Reactor) IsCommitteeMember() bool {
+	return r.inCommittee
 }
 
-func (conR *ConsensusReactor) GetDelegatesSource() string {
-	if conR.sourceDelegates == fromStaking {
+func (r *Reactor) GetDelegatesSource() string {
+	if r.sourceDelegates == fromStaking {
 		return "staking"
 	}
-	if conR.sourceDelegates == fromDelegatesFile {
+	if r.sourceDelegates == fromDelegatesFile {
 		return "localFile"
 	}
 	return ""
@@ -53,22 +53,22 @@ type ApiCommitteeMember struct {
 	InCommittee bool
 }
 
-func (conR *ConsensusReactor) GetLatestCommitteeList() ([]*ApiCommitteeMember, error) {
+func (r *Reactor) GetLatestCommitteeList() ([]*ApiCommitteeMember, error) {
 	var committeeMembers []*ApiCommitteeMember
-	inCommittee := make([]bool, len(conR.curCommittee.Validators))
+	inCommittee := make([]bool, len(r.curCommittee.Validators))
 	for i := range inCommittee {
 		inCommittee[i] = false
 	}
 
-	for _, cm := range conR.curActualCommittee {
-		v := conR.curCommittee.Validators[cm.CSIndex]
+	for _, cm := range r.curActualCommittee {
+		v := r.curCommittee.Validators[cm.CSIndex]
 		apiCm := &ApiCommitteeMember{
 			Name:        v.Name,
 			Address:     v.Address,
 			PubKey:      b64.StdEncoding.EncodeToString(crypto.FromECDSAPub(&cm.PubKey)),
 			VotingPower: v.VotingPower,
 			NetAddr:     cm.NetAddr.String(),
-			CsPubKey:    hex.EncodeToString(conR.csCommon.GetSystem().PubKeyToBytes(cm.CSPubKey)),
+			CsPubKey:    hex.EncodeToString(r.csCommon.GetSystem().PubKeyToBytes(cm.CSPubKey)),
 			CsIndex:     cm.CSIndex,
 			InCommittee: true,
 		}
@@ -78,7 +78,7 @@ func (conR *ConsensusReactor) GetLatestCommitteeList() ([]*ApiCommitteeMember, e
 	}
 	for i, val := range inCommittee {
 		if val == false {
-			v := conR.curCommittee.Validators[i]
+			v := r.curCommittee.Validators[i]
 			apiCm := &ApiCommitteeMember{
 				Name:        v.Name,
 				Address:     v.Address,

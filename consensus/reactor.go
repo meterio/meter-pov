@@ -51,7 +51,7 @@ const (
 )
 
 var (
-	ConsensusGlobInst *ConsensusReactor
+	ConsensusGlobInst *Reactor
 )
 
 type ReactorConfig struct {
@@ -64,8 +64,8 @@ type ReactorConfig struct {
 }
 
 // -----------------------------------------------------------------------------
-// ConsensusReactor defines a reactor for the consensus service.
-type ConsensusReactor struct {
+// Reactor defines a reactor for the consensus service.
+type Reactor struct {
 	chain        *chain.Chain
 	stateCreator *state.Creator
 	logger       log15.Logger
@@ -103,17 +103,17 @@ type ConsensusReactor struct {
 }
 
 // Glob Instance
-func GetConsensusGlobInst() *ConsensusReactor {
+func GetConsensusGlobInst() *Reactor {
 	return ConsensusGlobInst
 }
 
-func SetConsensusGlobInst(inst *ConsensusReactor) {
+func SetConsensusGlobInst(inst *Reactor) {
 	ConsensusGlobInst = inst
 }
 
-// NewConsensusReactor returns a new ConsensusReactor with config
-func NewConsensusReactor(ctx *cli.Context, chain *chain.Chain, state *state.Creator, privKey *ecdsa.PrivateKey, pubKey *ecdsa.PublicKey, magic [4]byte, blsCommon *BlsCommon, initDelegates []*types.Delegate) *ConsensusReactor {
-	conR := &ConsensusReactor{
+// NewConsensusReactor returns a new Reactor with config
+func NewConsensusReactor(ctx *cli.Context, chain *chain.Chain, state *state.Creator, privKey *ecdsa.PrivateKey, pubKey *ecdsa.PublicKey, magic [4]byte, blsCommon *BlsCommon, initDelegates []*types.Delegate) *Reactor {
+	r := &Reactor{
 		chain:        chain,
 		stateCreator: state,
 		logger:       log15.New("pkg", "reactor"),
@@ -125,7 +125,7 @@ func NewConsensusReactor(ctx *cli.Context, chain *chain.Chain, state *state.Crea
 	}
 
 	if ctx != nil {
-		conR.config = ReactorConfig{
+		r.config = ReactorConfig{
 			InitCfgdDelegates: ctx.Bool("init-configured-delegates"),
 			EpochMBlockCount:  uint32(ctx.Uint("epoch-mblock-count")),
 			MinCommitteeSize:  ctx.Int("committee-min-size"),
@@ -135,28 +135,28 @@ func NewConsensusReactor(ctx *cli.Context, chain *chain.Chain, state *state.Crea
 		}
 	}
 	// add the hardcoded genesis nonce in the case every node in block 0
-	conR.RcvKBlockInfoQueue = make(chan RecvKBlockInfo, CHAN_DEFAULT_BUF_SIZE)
+	r.RcvKBlockInfoQueue = make(chan RecvKBlockInfo, CHAN_DEFAULT_BUF_SIZE)
 
 	//initialize height/round
 	if chain.BestBlock().IsKBlock() {
-		conR.lastKBlockHeight = chain.BestBlock().Number()
+		r.lastKBlockHeight = chain.BestBlock().Number()
 	} else {
-		conR.lastKBlockHeight = chain.BestBlock().LastKBlockHeight()
+		r.lastKBlockHeight = chain.BestBlock().LastKBlockHeight()
 	}
-	lastKBlockHeightGauge.Set(float64(conR.lastKBlockHeight))
-	conR.curHeight = chain.BestBlock().Number()
+	lastKBlockHeightGauge.Set(float64(r.lastKBlockHeight))
+	r.curHeight = chain.BestBlock().Number()
 
 	// initialize consensus common
-	conR.csCommon = NewConsensusCommonFromBlsCommon(blsCommon)
+	r.csCommon = NewConsensusCommonFromBlsCommon(blsCommon)
 
 	// initialize pacemaker
-	conR.csPacemaker = NewPaceMaker(conR)
+	r.csPacemaker = NewPaceMaker(r)
 
 	// committee info is stored in the first of Mblock after Kblock
-	if conR.curHeight != 0 {
-		conR.updateCurEpoch(chain.BestBlock().GetBlockEpoch())
+	if r.curHeight != 0 {
+		r.updateCurEpoch(chain.BestBlock().GetBlockEpoch())
 	} else {
-		conR.curEpoch = 0
+		r.curEpoch = 0
 		curEpochGauge.Set(float64(0))
 	}
 
@@ -167,88 +167,88 @@ func NewConsensusReactor(ctx *cli.Context, chain *chain.Chain, state *state.Crea
 	prometheus.Register(inCommitteeGauge)
 	prometheus.Register(pmRoleGauge)
 
-	conR.myPrivKey = *privKey
-	conR.myPubKey = *pubKey
+	r.myPrivKey = *privKey
+	r.myPubKey = *pubKey
 
-	SetConsensusGlobInst(conR)
-	return conR
+	SetConsensusGlobInst(r)
+	return r
 }
 
 // OnStart implements BaseService by subscribing to events, which later will be
 // broadcasted to other peers and starting state if we're not in fast sync.
-func (conR *ConsensusReactor) OnStart() error {
+func (r *Reactor) OnStart() error {
 	communicator := comm.GetGlobCommInst()
 	if communicator == nil {
-		conR.logger.Error("get communicator instance failed ...")
+		r.logger.Error("get communicator instance failed ...")
 		return errors.New("could not get communicator")
 	}
 	select {
 	case <-communicator.Synced():
-		conR.SwitchToConsensus()
+		r.SwitchToConsensus()
 	}
 
 	return nil
 }
 
-func (conR *ConsensusReactor) GetLastKBlockHeight() uint32 {
-	return conR.lastKBlockHeight
+func (r *Reactor) GetLastKBlockHeight() uint32 {
+	return r.lastKBlockHeight
 }
 
 // SwitchToConsensus switches from fast_sync mode to consensus mode.
 // It resets the state, turns off fast_sync, and starts the consensus state-machine
-func (conR *ConsensusReactor) SwitchToConsensus() {
-	conR.logger.Info("sync is done, switch to consensus ...", "curHeight", conR.curHeight)
+func (r *Reactor) SwitchToConsensus() {
+	r.logger.Info("sync is done, switch to consensus ...", "curHeight", r.curHeight)
 
-	conR.PrepareEnvForPacemaker()
-	if conR.inCommittee {
-		conR.startPacemaker(PMModeNormal)
+	r.PrepareEnvForPacemaker()
+	if r.inCommittee {
+		r.startPacemaker(PMModeNormal)
 	} else {
-		conR.startPacemaker(PMModeObserve)
+		r.startPacemaker(PMModeObserve)
 	}
 }
 
-func (conR *ConsensusReactor) UpdateHeight(height uint32) bool {
-	if height != conR.curHeight {
-		conR.logger.Debug(fmt.Sprintf("Update curHeight from %d to %d", conR.curHeight, height))
+func (r *Reactor) UpdateHeight(height uint32) bool {
+	if height != r.curHeight {
+		r.logger.Debug(fmt.Sprintf("Update curHeight from %d to %d", r.curHeight, height))
 	}
-	conR.curHeight = height
+	r.curHeight = height
 	return true
 }
 
 // update the LastKBlockHeight
-// func (conR *ConsensusReactor) UpdateLastKBlockHeight(height uint32) bool {
-// 	if height > conR.lastKBlockHeight {
-// 		conR.lastKBlockHeight = height
-// 		lastKBlockHeightGauge.Set(float64(conR.lastKBlockHeight))
+// func (r *Reactor) UpdateLastKBlockHeight(height uint32) bool {
+// 	if height > r.lastKBlockHeight {
+// 		r.lastKBlockHeight = height
+// 		lastKBlockHeightGauge.Set(float64(r.lastKBlockHeight))
 // 	}
 // 	return true
 // }
 
 // Refresh the current Height from the best block
 // normally call this routine after block chain changed
-func (conR *ConsensusReactor) RefreshCurHeight() error {
-	prev := conR.curHeight
+func (r *Reactor) RefreshCurHeight() error {
+	prev := r.curHeight
 
-	best := conR.chain.BestBlock()
-	conR.curHeight = best.Number()
-	if best.LastKBlockHeight() > conR.lastKBlockHeight {
-		conR.lastKBlockHeight = best.LastKBlockHeight()
-		lastKBlockHeightGauge.Set(float64(conR.lastKBlockHeight))
+	best := r.chain.BestBlock()
+	r.curHeight = best.Number()
+	if best.LastKBlockHeight() > r.lastKBlockHeight {
+		r.lastKBlockHeight = best.LastKBlockHeight()
+		lastKBlockHeightGauge.Set(float64(r.lastKBlockHeight))
 	}
-	conR.updateCurEpoch(best.GetBlockEpoch())
+	r.updateCurEpoch(best.GetBlockEpoch())
 
-	lastKBlockHeightGauge.Set(float64(conR.lastKBlockHeight))
+	lastKBlockHeightGauge.Set(float64(r.lastKBlockHeight))
 	if prev != best.Number() {
-		// conR.logger.Info("Refresh curHeight", "from", prev, "to", conR.curHeight, "lastKBlock", conR.lastKBlockHeight, "epoch", conR.curEpoch)
+		// r.logger.Info("Refresh curHeight", "from", prev, "to", r.curHeight, "lastKBlock", r.lastKBlockHeight, "epoch", r.curEpoch)
 	}
 	return nil
 }
 
 // actual committee is exactly the same as committee
 // with one more field: CSIndex, the index order in committee
-func (conR *ConsensusReactor) UpdateActualCommittee() bool {
+func (r *Reactor) UpdateActualCommittee() bool {
 	validators := make([]*types.Validator, 0)
-	validators = append(validators, conR.curCommittee.Validators...)
+	validators = append(validators, r.curCommittee.Validators...)
 	committee := make([]types.CommitteeMember, 0)
 	for i, v := range validators {
 		cm := types.CommitteeMember{
@@ -261,36 +261,36 @@ func (conR *ConsensusReactor) UpdateActualCommittee() bool {
 		committee = append(committee, cm)
 	}
 
-	conR.curActualCommittee = committee
+	r.curActualCommittee = committee
 	return true
 }
 
 // get the specific round proposer
-func (conR *ConsensusReactor) getRoundProposer(round uint32) types.CommitteeMember {
-	size := len(conR.curActualCommittee)
+func (r *Reactor) getRoundProposer(round uint32) types.CommitteeMember {
+	size := len(r.curActualCommittee)
 	if size == 0 {
 		return types.CommitteeMember{}
 	}
-	return conR.curActualCommittee[int(round)%size]
+	return r.curActualCommittee[int(round)%size]
 }
 
-func (conR *ConsensusReactor) amIRoundProproser(round uint32) bool {
-	p := conR.getRoundProposer(round)
-	return bytes.Equal(crypto.FromECDSAPub(&p.PubKey), crypto.FromECDSAPub(&conR.myPubKey))
+func (r *Reactor) amIRoundProproser(round uint32) bool {
+	p := r.getRoundProposer(round)
+	return bytes.Equal(crypto.FromECDSAPub(&p.PubKey), crypto.FromECDSAPub(&r.myPubKey))
 }
 
-func (conR *ConsensusReactor) VerifyBothPubKey() {
-	for _, d := range conR.curDelegates.Delegates {
-		if bytes.Equal(crypto.FromECDSAPub(&d.PubKey), crypto.FromECDSAPub(&conR.myPubKey)) == true {
-			if conR.GetCombinePubKey() != d.GetInternCombinePubKey() {
-				fmt.Println("Combine PubKey: ", conR.GetCombinePubKey())
+func (r *Reactor) VerifyBothPubKey() {
+	for _, d := range r.curDelegates.Delegates {
+		if bytes.Equal(crypto.FromECDSAPub(&d.PubKey), crypto.FromECDSAPub(&r.myPubKey)) == true {
+			if r.GetCombinePubKey() != d.GetInternCombinePubKey() {
+				fmt.Println("Combine PubKey: ", r.GetCombinePubKey())
 				fmt.Println("Intern Combine PubKey: ", d.GetInternCombinePubKey())
 				panic("ECDSA key found in delegate list, but combinePubKey mismatch")
 			}
 
-			csCommonSystem := conR.csCommon.GetSystem()
+			csCommonSystem := r.csCommon.GetSystem()
 
-			myBlsPubKey := csCommonSystem.PubKeyToBytes(conR.csCommon.PubKey)
+			myBlsPubKey := csCommonSystem.PubKeyToBytes(r.csCommon.PubKey)
 			delegateBlsPubKey := csCommonSystem.PubKeyToBytes(d.BlsPubKey)
 
 			if bytes.Equal(myBlsPubKey, delegateBlsPubKey) == false {
@@ -301,18 +301,18 @@ func (conR *ConsensusReactor) VerifyBothPubKey() {
 }
 
 // create validatorSet by a given nonce. return by my self role
-func (conR *ConsensusReactor) UpdateCurCommitteeByNonce(nonce uint64) bool {
-	committee, index, inCommittee := conR.calcCommitteeByNonce(nonce)
-	conR.curCommittee = committee
+func (r *Reactor) UpdateCurCommitteeByNonce(nonce uint64) bool {
+	committee, index, inCommittee := r.calcCommitteeByNonce(nonce)
+	r.curCommittee = committee
 	if inCommittee {
-		conR.curCommitteeIndex = uint32(index)
-		myAddr := conR.curCommittee.Validators[index].NetAddr
-		myName := conR.curCommittee.Validators[index].Name
-		conR.logger.Info("New committee calculated", "index", index, "myName", myName, "myIP", myAddr.IP.String())
+		r.curCommitteeIndex = uint32(index)
+		myAddr := r.curCommittee.Validators[index].NetAddr
+		myName := r.curCommittee.Validators[index].Name
+		r.logger.Info("New committee calculated", "index", index, "myName", myName, "myIP", myAddr.IP.String())
 	} else {
-		conR.curCommitteeIndex = 0
+		r.curCommitteeIndex = 0
 		// FIXME: find a better way
-		conR.logger.Info("New committee calculated")
+		r.logger.Info("New committee calculated")
 	}
 	fmt.Println("Committee members in order:")
 	fmt.Println(committee)
@@ -322,12 +322,12 @@ func (conR *ConsensusReactor) UpdateCurCommitteeByNonce(nonce uint64) bool {
 
 // it is used for temp calculate committee set by a given nonce in the fly.
 // also return the committee
-func (conR *ConsensusReactor) calcCommitteeByNonce(nonce uint64) (*types.ValidatorSet, int, bool) {
+func (r *Reactor) calcCommitteeByNonce(nonce uint64) (*types.ValidatorSet, int, bool) {
 	buf := make([]byte, binary.MaxVarintLen64)
 	binary.PutUvarint(buf, nonce)
 
 	vals := make([]*types.Validator, 0)
-	for _, d := range conR.curDelegates.Delegates {
+	for _, d := range r.curDelegates.Delegates {
 		v := &types.Validator{
 			Name:        string(d.Name),
 			Address:     d.Address,
@@ -344,23 +344,23 @@ func (conR *ConsensusReactor) calcCommitteeByNonce(nonce uint64) (*types.Validat
 		return (bytes.Compare(vals[i].CommitKey, vals[j].CommitKey) <= 0)
 	})
 
-	vals = vals[:conR.committeeSize]
+	vals = vals[:r.committeeSize]
 	// the full list is stored in currCommittee, sorted.
 	// To become a validator (real member in committee), must repond the leader's
-	// announce. Validators are stored in conR.conS.Vlidators
+	// announce. Validators are stored in r.conS.Vlidators
 	Committee := types.NewValidatorSet2(vals)
 	if len(vals) < 1 {
-		conR.logger.Error("VALIDATOR SET is empty, potential error config with delegates.json", "delegates", len(conR.curDelegates.Delegates))
+		r.logger.Error("VALIDATOR SET is empty, potential error config with delegates.json", "delegates", len(r.curDelegates.Delegates))
 
 		return Committee, 0, false
 	}
 
-	if bytes.Equal(crypto.FromECDSAPub(&vals[0].PubKey), crypto.FromECDSAPub(&conR.myPubKey)) {
+	if bytes.Equal(crypto.FromECDSAPub(&vals[0].PubKey), crypto.FromECDSAPub(&r.myPubKey)) {
 		return Committee, 0, true
 	}
 
 	for i, val := range vals {
-		if bytes.Equal(crypto.FromECDSAPub(&val.PubKey), crypto.FromECDSAPub(&conR.myPubKey)) {
+		if bytes.Equal(crypto.FromECDSAPub(&val.PubKey), crypto.FromECDSAPub(&r.myPubKey)) {
 
 			return Committee, i, true
 		}
@@ -369,33 +369,33 @@ func (conR *ConsensusReactor) calcCommitteeByNonce(nonce uint64) (*types.Validat
 	return Committee, 0, false
 }
 
-func (conR *ConsensusReactor) GetCommitteeMemberIndex(pubKey ecdsa.PublicKey) int {
-	for i, v := range conR.curCommittee.Validators {
+func (r *Reactor) GetCommitteeMemberIndex(pubKey ecdsa.PublicKey) int {
+	for i, v := range r.curCommittee.Validators {
 		if bytes.Equal(crypto.FromECDSAPub(&v.PubKey), crypto.FromECDSAPub(&pubKey)) {
 			return i
 		}
 	}
-	conR.logger.Error("I'm not in committee, please check public key settings", "pubKey", pubKey)
+	r.logger.Error("I'm not in committee, please check public key settings", "pubKey", pubKey)
 	return -1
 }
 
-func (conR *ConsensusReactor) GetMyNetAddr() types.NetAddress {
-	if conR.curCommittee != nil && len(conR.curCommittee.Validators) > 0 {
-		return conR.curCommittee.Validators[conR.curCommitteeIndex].NetAddr
+func (r *Reactor) GetMyNetAddr() types.NetAddress {
+	if r.curCommittee != nil && len(r.curCommittee.Validators) > 0 {
+		return r.curCommittee.Validators[r.curCommitteeIndex].NetAddr
 	}
 	return types.NetAddress{IP: net.IP{}, Port: 0}
 }
 
-func (conR *ConsensusReactor) GetMyName() string {
-	if conR.curCommittee != nil && len(conR.curCommittee.Validators) > 0 {
-		return conR.curCommittee.Validators[conR.curCommitteeIndex].Name
+func (r *Reactor) GetMyName() string {
+	if r.curCommittee != nil && len(r.curCommittee.Validators) > 0 {
+		return r.curCommittee.Validators[r.curCommitteeIndex].Name
 	}
 	return "unknown"
 }
 
-func (conR *ConsensusReactor) GetMyActualCommitteeIndex() int {
-	myNetAddr := conR.GetMyNetAddr()
-	for index, member := range conR.curActualCommittee {
+func (r *Reactor) GetMyActualCommitteeIndex() int {
+	myNetAddr := r.GetMyNetAddr()
+	for index, member := range r.curActualCommittee {
 		if member.NetAddr.IP.String() == myNetAddr.IP.String() {
 			return index
 		}
@@ -405,23 +405,23 @@ func (conR *ConsensusReactor) GetMyActualCommitteeIndex() int {
 
 // update current delegates with new delegates from staking or config file
 // keep this standalone method intentionly
-func (conR *ConsensusReactor) UpdateCurDelegates() {
-	delegates, delegateSize, committeeSize := conR.GetConsensusDelegates()
-	conR.allDelegates = delegates
-	conR.curDelegates = types.NewDelegateSet(delegates[:delegateSize])
-	conR.delegateSize = delegateSize
-	conR.committeeSize = uint32(committeeSize)
+func (r *Reactor) UpdateCurDelegates() {
+	delegates, delegateSize, committeeSize := r.GetConsensusDelegates()
+	r.allDelegates = delegates
+	r.curDelegates = types.NewDelegateSet(delegates[:delegateSize])
+	r.delegateSize = delegateSize
+	r.committeeSize = uint32(committeeSize)
 }
 
-func (conR *ConsensusReactor) PrepareEnvForPacemaker() error {
+func (r *Reactor) PrepareEnvForPacemaker() error {
 	var nonce uint64
 	var info *powpool.PowBlockInfo
-	bestKBlock, err := conR.chain.BestKBlock()
+	bestKBlock, err := r.chain.BestKBlock()
 	if err != nil {
 		fmt.Println("could not get best KBlock", err)
 		return errors.New("could not get best KBlock")
 	}
-	bestBlock := conR.chain.BestBlock()
+	bestBlock := r.chain.BestBlock()
 	bestIsKBlock := (bestBlock.Header().BlockType() == block.BLOCK_TYPE_K_BLOCK) || bestBlock.Header().Number() == 0
 	kBlockHeight := bestKBlock.Header().Number()
 
@@ -435,49 +435,49 @@ func (conR *ConsensusReactor) PrepareEnvForPacemaker() error {
 		epoch = bestKBlock.GetBlockEpoch() + 1
 	}
 
-	if conR.curNonce == nonce {
-		conR.logger.Info("committee initialized already", "nonce", nonce, "kBlock", kBlockHeight, "bestIsKBlock", bestIsKBlock, "epoch", epoch)
+	if r.curNonce == nonce {
+		r.logger.Info("committee initialized already", "nonce", nonce, "kBlock", kBlockHeight, "bestIsKBlock", bestIsKBlock, "epoch", epoch)
 		return nil
 	}
 
-	conR.logger.Info("prepare env for pacemaker", "nonce", nonce, "kBlock", kBlockHeight, "bestIsKBlock", bestIsKBlock, "epoch", epoch)
+	r.logger.Info("prepare env for pacemaker", "nonce", nonce, "kBlock", kBlockHeight, "bestIsKBlock", bestIsKBlock, "epoch", epoch)
 
 	//initialize Delegates
-	conR.UpdateCurDelegates()
+	r.UpdateCurDelegates()
 
 	// notice: this will panic if ECDSA key matches but BLS doesn't
-	conR.VerifyBothPubKey()
+	r.VerifyBothPubKey()
 
-	conR.curNonce = nonce
-	inCommittee := conR.UpdateCurCommitteeByNonce(nonce)
-	conR.inCommittee = inCommittee
+	r.curNonce = nonce
+	inCommittee := r.UpdateCurCommitteeByNonce(nonce)
+	r.inCommittee = inCommittee
 
-	conR.lastKBlockHeight = kBlockHeight
-	lastKBlockHeightGauge.Set(float64(conR.lastKBlockHeight))
-	conR.updateCurEpoch(epoch)
-	conR.UpdateActualCommittee()
+	r.lastKBlockHeight = kBlockHeight
+	lastKBlockHeightGauge.Set(float64(r.lastKBlockHeight))
+	r.updateCurEpoch(epoch)
+	r.UpdateActualCommittee()
 
-	conR.logger.Info("Powpool prepare to add kframe, and notify PoW chain to pick head", "powHeight", info.PowHeight, "powRawBlock", hex.EncodeToString(info.PowRaw))
+	r.logger.Info("Powpool prepare to add kframe, and notify PoW chain to pick head", "powHeight", info.PowHeight, "powRawBlock", hex.EncodeToString(info.PowRaw))
 	pool := powpool.GetGlobPowPoolInst()
 	// pool.Wash()
 	pool.InitialAddKframe(info)
-	conR.logger.Debug("Powpool initial added kframe", "bestKblock", kBlockHeight, "powHeight", info.PowHeight)
+	r.logger.Debug("Powpool initial added kframe", "bestKblock", kBlockHeight, "powHeight", info.PowHeight)
 
 	if inCommittee {
-		conR.logger.Info("I am in committee!!!")
+		r.logger.Info("I am in committee!!!")
 		if bestIsKBlock {
 			//kblock is already added to pool, should start with next one
 			startHeight := info.PowHeight + 1
-			conR.logger.Info("Replay pow blocks", "fromHeight", startHeight)
+			r.logger.Info("Replay pow blocks", "fromHeight", startHeight)
 			pool.ReplayFrom(int32(startHeight))
 		}
-		conR.inCommittee = true
+		r.inCommittee = true
 		inCommitteeGauge.Set(1)
 
 		// verify in committee status with consent block (1st mblock in epoch)
 		// if delegates are obtained from staking
-		if !conR.config.InitCfgdDelegates && !bestIsKBlock {
-			consentBlock, err := conR.chain.GetTrunkBlock(kBlockHeight + 1)
+		if !r.config.InitCfgdDelegates && !bestIsKBlock {
+			consentBlock, err := r.chain.GetTrunkBlock(kBlockHeight + 1)
 			if err != nil {
 				fmt.Println("could not get committee info:", err)
 				return errors.New("could not get committee info for status check")
@@ -485,9 +485,9 @@ func (conR *ConsensusReactor) PrepareEnvForPacemaker() error {
 			// recover actual committee from consent block
 			committeeInfo := consentBlock.CommitteeInfos
 			// leaderIndex := committeeInfo.CommitteeInfo[0].CSIndex
-			conR.UpdateActualCommittee()
+			r.UpdateActualCommittee()
 
-			myself := conR.curCommittee.Validators[conR.curCommitteeIndex]
+			myself := r.curCommittee.Validators[r.curCommitteeIndex]
 			myEcdsaPKBytes := crypto.FromECDSAPub(&myself.PubKey)
 			inCommitteeVerified := false
 			for _, v := range committeeInfo.CommitteeInfo {
@@ -497,34 +497,34 @@ func (conR *ConsensusReactor) PrepareEnvForPacemaker() error {
 				}
 			}
 			if !inCommitteeVerified {
-				conR.logger.Error("committee info in consent block doesn't contain myself as a member, stop right now")
+				r.logger.Error("committee info in consent block doesn't contain myself as a member, stop right now")
 				return errors.New("committee info in consent block doesnt match myself")
 			}
 		}
 
 	} else {
-		conR.inCommittee = false
+		r.inCommittee = false
 		inCommitteeGauge.Set(0)
-		conR.logger.Info("I am NOT in committee!!!", "nonce", nonce)
+		r.logger.Info("I am NOT in committee!!!", "nonce", nonce)
 	}
 	return nil
 }
 
-func (conR *ConsensusReactor) verifyBestQCAndBestBlockBeforeStart() bool {
+func (r *Reactor) verifyBestQCAndBestBlockBeforeStart() bool {
 	// 1. bestQC height == best block height
 	// 2. newCommittee is true, best block is kblock
 	for i := 0; i < 3; i++ {
-		conR.chain.UpdateBestQC(nil, chain.None)
-		bestQC := conR.chain.BestQC()
-		bestBlock := conR.chain.BestBlock()
-		// conR.logger.Info("Checking the QCHeight and Block height...", "QCHeight", bestQC.QCHeight, "bestHeight", bestBlock.Number())
+		r.chain.UpdateBestQC(nil, chain.None)
+		bestQC := r.chain.BestQC()
+		bestBlock := r.chain.BestBlock()
+		// r.logger.Info("Checking the QCHeight and Block height...", "QCHeight", bestQC.QCHeight, "bestHeight", bestBlock.Number())
 		if bestQC.QCHeight != bestBlock.Number() {
 			com := comm.GetGlobCommInst()
 			if com == nil {
-				conR.logger.Error("get global comm inst failed")
+				r.logger.Error("get global comm inst failed")
 				return false
 			}
-			conR.logger.Warn("bestQC and bestBlock mismatch, trigger sync now ...", "bestQC", bestQC.QCHeight, "bestBlock", bestBlock.Number(), "attempt", i+1, "waitInterval", time.Duration(math.Pow(float64(2), float64(i+1))))
+			r.logger.Warn("bestQC and bestBlock mismatch, trigger sync now ...", "bestQC", bestQC.QCHeight, "bestBlock", bestBlock.Number(), "attempt", i+1, "waitInterval", time.Duration(math.Pow(float64(2), float64(i+1))))
 			com.TriggerSync()
 			// every attempt wait for 2^(i+1) seconds
 			<-time.NewTimer(time.Duration(math.Pow(float64(2), float64(i+1))) * time.Second).C
@@ -533,31 +533,31 @@ func (conR *ConsensusReactor) verifyBestQCAndBestBlockBeforeStart() bool {
 		}
 	}
 
-	conR.chain.UpdateBestQC(nil, chain.None)
-	bestQC := conR.chain.BestQC()
-	bestBlock := conR.chain.BestBlock()
+	r.chain.UpdateBestQC(nil, chain.None)
+	bestQC := r.chain.BestQC()
+	bestBlock := r.chain.BestBlock()
 	if bestQC.QCHeight != bestBlock.Number() {
-		conR.logger.Warn("Caution: bestQC and bestBlock mismatch after syncing ...", "bestQC", bestQC.QCHeight, "bestBlock", bestBlock.Number())
+		r.logger.Warn("Caution: bestQC and bestBlock mismatch after syncing ...", "bestQC", bestQC.QCHeight, "bestBlock", bestBlock.Number())
 		return false
 	} else {
-		conR.logger.Info("bestQC and bestBlock matches", "bestQC", bestQC.QCHeight, "bestBlock", bestBlock.Number())
+		r.logger.Info("bestQC and bestBlock matches", "bestQC", bestQC.QCHeight, "bestBlock", bestBlock.Number())
 		return true
 	}
 }
 
-func (conR *ConsensusReactor) startPacemaker(mode PMMode) error {
+func (r *Reactor) startPacemaker(mode PMMode) error {
 	// 1. bestQC height == best block height
 	// 2. newCommittee is true, best block is kblock
-	verified := conR.verifyBestQCAndBestBlockBeforeStart()
-	// bestQC := conR.chain.BestQC()
-	bestBlock := conR.chain.BestBlock()
+	verified := r.verifyBestQCAndBestBlockBeforeStart()
+	// bestQC := r.chain.BestQC()
+	bestBlock := r.chain.BestBlock()
 	freshCommittee := (bestBlock.Header().BlockType() == block.BLOCK_TYPE_K_BLOCK) || (bestBlock.Header().Number() == 0)
 	if verified {
-		// conR.logger.Info("start Pacemaker", "bestQC", bestQC.QCHeight, "bestBlock", bestBlock.Header().Number())
-		conR.csPacemaker.Start(mode, freshCommittee)
+		// r.logger.Info("start Pacemaker", "bestQC", bestQC.QCHeight, "bestBlock", bestBlock.Header().Number())
+		r.csPacemaker.Start(mode, freshCommittee)
 	} else {
-		// conR.logger.Warn("start Pacemaker in CatchUp mode due to bestQC/bestBlock mismatch", "bestQC", bestQC.QCHeight, "bestBlock", bestBlock.Header().Number())
-		conR.csPacemaker.Start(PMModeCatchUp, freshCommittee)
+		// r.logger.Warn("start Pacemaker in CatchUp mode due to bestQC/bestBlock mismatch", "bestQC", bestQC.QCHeight, "bestBlock", bestBlock.Header().Number())
+		r.csPacemaker.Start(PMModeCatchUp, freshCommittee)
 	}
 	return nil
 }
@@ -584,7 +584,7 @@ func MajorityTwoThird(voterNum, committeeSize uint32) bool {
 	return false
 }
 
-func (conR *ConsensusReactor) splitPubKey(comboPub string) (*ecdsa.PublicKey, *bls.PublicKey) {
+func (r *Reactor) splitPubKey(comboPub string) (*ecdsa.PublicKey, *bls.PublicKey) {
 	// first part is ecdsa public, 2nd part is bls public key
 	split := strings.Split(comboPub, ":::")
 	// fmt.Println("ecdsa PubKey", split[0], "Bls PubKey", split[1])
@@ -601,7 +601,7 @@ func (conR *ConsensusReactor) splitPubKey(comboPub string) (*ecdsa.PublicKey, *b
 	if err != nil {
 		panic(fmt.Sprintf("read Bls public key of delegate failed, %v", err))
 	}
-	blsPub, err := conR.csCommon.GetSystem().PubKeyFromBytes(blsPubBytes)
+	blsPub, err := r.csCommon.GetSystem().PubKeyFromBytes(blsPubBytes)
 	if err != nil {
 		panic(fmt.Sprintf("read Bls public key of delegate failed, %v", err))
 	}
@@ -609,22 +609,22 @@ func (conR *ConsensusReactor) splitPubKey(comboPub string) (*ecdsa.PublicKey, *b
 	return pubKey, &blsPub
 }
 
-func (conR *ConsensusReactor) combinePubKey(ecdsaPub *ecdsa.PublicKey, blsPub *bls.PublicKey) string {
+func (r *Reactor) combinePubKey(ecdsaPub *ecdsa.PublicKey, blsPub *bls.PublicKey) string {
 	ecdsaPubBytes := crypto.FromECDSAPub(ecdsaPub)
 	ecdsaPubB64 := b64.StdEncoding.EncodeToString(ecdsaPubBytes)
 
-	blsPubBytes := conR.csCommon.GetSystem().PubKeyToBytes(*blsPub)
+	blsPubBytes := r.csCommon.GetSystem().PubKeyToBytes(*blsPub)
 	blsPubB64 := b64.StdEncoding.EncodeToString(blsPubBytes)
 
 	return strings.Join([]string{ecdsaPubB64, blsPubB64}, ":::")
 }
 
-func (conR *ConsensusReactor) GetCombinePubKey() string {
-	return conR.combinePubKey(&conR.myPubKey, &conR.csCommon.PubKey)
+func (r *Reactor) GetCombinePubKey() string {
+	return r.combinePubKey(&r.myPubKey, &r.csCommon.PubKey)
 }
 
-func (conR *ConsensusReactor) LoadBlockBytes(num uint32) []byte {
-	raw, err := conR.chain.GetTrunkBlockRaw(num)
+func (r *Reactor) LoadBlockBytes(num uint32) []byte {
+	raw, err := r.chain.GetTrunkBlockRaw(num)
 	if err != nil {
 		log.Error("Error load raw block", "err", err)
 		return []byte{}
@@ -647,30 +647,30 @@ func calcCommitteeSize(delegateSize int, config ReactorConfig) (int, int) {
 // entry point for each committee
 // return with delegates list, delegateSize, committeeSize
 // maxDelegateSize >= maxCommiteeSize >= minCommitteeSize
-func (conR *ConsensusReactor) GetConsensusDelegates() ([]*types.Delegate, int, int) {
-	forceDelegates := conR.config.InitCfgdDelegates
+func (r *Reactor) GetConsensusDelegates() ([]*types.Delegate, int, int) {
+	forceDelegates := r.config.InitCfgdDelegates
 
 	// special handle for flag --init-configured-delegates
 	var delegates []*types.Delegate
 	var err error
 	hint := ""
 	if forceDelegates {
-		delegates = conR.config.InitDelegates
-		conR.sourceDelegates = fromDelegatesFile
+		delegates = r.config.InitDelegates
+		r.sourceDelegates = fromDelegatesFile
 		hint = "Loaded delegates from delegates.json"
 	} else {
-		delegates, err = conR.getDelegatesFromStaking()
+		delegates, err = r.getDelegatesFromStaking()
 		hint = "Loaded delegates from staking"
-		conR.sourceDelegates = fromStaking
-		if err != nil || len(delegates) < conR.config.MinCommitteeSize {
-			delegates = conR.config.InitDelegates
+		r.sourceDelegates = fromStaking
+		if err != nil || len(delegates) < r.config.MinCommitteeSize {
+			delegates = r.config.InitDelegates
 			hint = "Loaded delegates from delegates.json as fallback, error loading staking candiates"
-			conR.sourceDelegates = fromDelegatesFile
+			r.sourceDelegates = fromDelegatesFile
 		}
 	}
 
-	delegateSize, committeeSize := calcCommitteeSize(len(delegates), conR.config)
-	conR.allDelegates = delegates
+	delegateSize, committeeSize := calcCommitteeSize(len(delegates), r.config)
+	r.allDelegates = delegates
 
 	first3Names := make([]string, 0)
 	if len(delegates) > 3 {
@@ -686,13 +686,13 @@ func (conR *ConsensusReactor) GetConsensusDelegates() ([]*types.Delegate, int, i
 
 	}
 
-	conR.logger.Info(hint, "delegateSize", delegateSize, "committeeSize", committeeSize, "first3", strings.Join(first3Names, ","))
+	r.logger.Info(hint, "delegateSize", delegateSize, "committeeSize", committeeSize, "first3", strings.Join(first3Names, ","))
 	// PrintDelegates(delegates[:delegateSize])
 	return delegates, delegateSize, committeeSize
 }
 
-func (conR *ConsensusReactor) GetDelegateNameByIP(ip net.IP) string {
-	for _, d := range conR.allDelegates {
+func (r *Reactor) GetDelegateNameByIP(ip net.IP) string {
+	for _, d := range r.allDelegates {
 		if d.NetAddr.IP.String() == ip.String() {
 			return string(d.Name)
 		}
@@ -701,12 +701,12 @@ func (conR *ConsensusReactor) GetDelegateNameByIP(ip net.IP) string {
 	return ""
 }
 
-func (conR *ConsensusReactor) updateCurEpoch(epoch uint64) {
-	if epoch > conR.curEpoch {
-		oldVal := conR.curEpoch
-		conR.curEpoch = epoch
-		curEpochGauge.Set(float64(conR.curEpoch))
-		conR.logger.Info("Epoch updated", "from", oldVal, "to", conR.curEpoch)
+func (r *Reactor) updateCurEpoch(epoch uint64) {
+	if epoch > r.curEpoch {
+		oldVal := r.curEpoch
+		r.curEpoch = epoch
+		curEpochGauge.Set(float64(r.curEpoch))
+		r.logger.Info("Epoch updated", "from", oldVal, "to", r.curEpoch)
 	}
 }
 
@@ -725,17 +725,17 @@ func PrintDelegates(delegates []*types.Delegate) {
 	fmt.Println("============================================")
 }
 
-func (conR *ConsensusReactor) OnReceiveMsg(w http.ResponseWriter, r *http.Request) {
-	defer r.Body.Close()
+func (r *Reactor) OnReceiveMsg(w http.ResponseWriter, req *http.Request) {
+	defer req.Body.Close()
 
-	data, err := ioutil.ReadAll(r.Body)
+	data, err := ioutil.ReadAll(req.Body)
 	if err != nil {
-		conR.logger.Error("Unrecognized payload", "err", err)
+		r.logger.Error("Unrecognized payload", "err", err)
 		return
 	}
-	mi, err := conR.UnmarshalMsg(data)
+	mi, err := r.UnmarshalMsg(data)
 	if err != nil {
-		conR.logger.Error("Unmarshal error", "err", err)
+		r.logger.Error("Unmarshal error", "err", err)
 		return
 	}
 
@@ -743,10 +743,10 @@ func (conR *ConsensusReactor) OnReceiveMsg(w http.ResponseWriter, r *http.Reques
 	typeName := mi.Msg.GetType()
 
 	signerIndex := msg.GetSignerIndex()
-	signer := conR.curActualCommittee[signerIndex]
+	signer := r.curActualCommittee[signerIndex]
 
 	if msg.VerifyMsgSignature(&signer.PubKey) == false {
-		conR.logger.Error("invalid signature, dropped ...", "peer", peer.NameAndIP(), "msg", msg.String(), "signer", signer.Name)
+		r.logger.Error("invalid signature, dropped ...", "peer", peer.NameAndIP(), "msg", msg.String(), "signer", signer.Name)
 		return
 	}
 	mi.Signer = signer
@@ -756,11 +756,11 @@ func (conR *ConsensusReactor) OnReceiveMsg(w http.ResponseWriter, r *http.Reques
 		proposalMsg := msg.(*PMProposalMessage)
 		blk := proposalMsg.DecodeBlock()
 		if blk == nil {
-			conR.logger.Error("Invalid PMProposal: could not decode proposed block")
+			r.logger.Error("Invalid PMProposal: could not decode proposed block")
 			return
 		}
 		if blk.Number() != proposalMsg.Height {
-			conR.logger.Error("Invalid PMProposal: block.number != msg.height")
+			r.logger.Error("Invalid PMProposal: block.number != msg.height")
 			return
 		}
 	}
@@ -769,32 +769,32 @@ func (conR *ConsensusReactor) OnReceiveMsg(w http.ResponseWriter, r *http.Reques
 		timeoutMsg := msg.(*PMTimeoutMessage)
 		qcHigh := timeoutMsg.DecodeQCHigh()
 		if qcHigh == nil {
-			conR.logger.Error("Invalid QCHigh: could not decode qcHigh")
+			r.logger.Error("Invalid QCHigh: could not decode qcHigh")
 		}
 	}
 
-	fromMyself := peer.netAddr.IP.String() == conR.GetMyNetAddr().IP.String()
+	fromMyself := peer.netAddr.IP.String() == r.GetMyNetAddr().IP.String()
 	suffix := ""
 	if fromMyself {
 		suffix = " (myself)"
 	}
 
-	if msg.GetEpoch() < conR.curEpoch {
-		conR.logger.Info(fmt.Sprintf("recv outdated %s", msg.String()), "peer", peer.NameAndIP()+suffix)
+	if msg.GetEpoch() < r.curEpoch {
+		r.logger.Info(fmt.Sprintf("recv outdated %s", msg.String()), "peer", peer.NameAndIP()+suffix)
 		return
 	}
 
-	if conR.csPacemaker == nil {
-		conR.logger.Warn("pacemaker is not initialized, dropped message")
+	if r.csPacemaker == nil {
+		r.logger.Warn("pacemaker is not initialized, dropped message")
 		return
 	}
-	conR.csPacemaker.onIncomingMsg(mi)
+	r.csPacemaker.onIncomingMsg(mi)
 
 	// relay the message if these two conditions are met:
 	// 1. the original message is not sent by myself
 	// 2. it's a proposal message
 	if fromMyself == false && typeName == "PMProposal" {
-		conR.relayMsg(mi)
+		r.relayMsg(mi)
 	}
 }
 

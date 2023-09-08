@@ -8,24 +8,24 @@ import (
 )
 
 type ProposalMap struct {
-	proposals map[meter.Bytes32]*pmBlock
+	proposals map[meter.Bytes32]*draftBlock
 	chain     *chain.Chain
 	logger    log15.Logger
 }
 
 func NewProposalMap(c *chain.Chain) *ProposalMap {
 	return &ProposalMap{
-		proposals: make(map[meter.Bytes32]*pmBlock),
+		proposals: make(map[meter.Bytes32]*draftBlock),
 		chain:     c,
 		logger:    log15.New("pkg", "pmap"),
 	}
 }
 
-func (p *ProposalMap) Add(blk *pmBlock) {
+func (p *ProposalMap) Add(blk *draftBlock) {
 	p.proposals[blk.ProposedBlock.ID()] = blk
 }
 
-func (p *ProposalMap) GetByID(blkID meter.Bytes32) *pmBlock {
+func (p *ProposalMap) GetByID(blkID meter.Bytes32) *draftBlock {
 	blk, ok := p.proposals[blkID]
 	if ok {
 		return blk
@@ -34,7 +34,7 @@ func (p *ProposalMap) GetByID(blkID meter.Bytes32) *pmBlock {
 	// load from database
 	blkInDB, err := p.chain.GetBlock(blkID)
 	if err == nil {
-		return &pmBlock{
+		return &draftBlock{
 			Height:        blkInDB.Number(),
 			Round:         blkInDB.QC.QCRound + 1, // TODO: might have better ways doing this
 			Parent:        nil,
@@ -47,18 +47,18 @@ func (p *ProposalMap) GetByID(blkID meter.Bytes32) *pmBlock {
 	return nil
 }
 
-func (p *ProposalMap) GetOne(height, round uint32, blkID meter.Bytes32) *pmBlock {
+func (p *ProposalMap) GetOne(height, round uint32, blkID meter.Bytes32) *draftBlock {
 	for key := range p.proposals {
-		pmBlk := p.proposals[key]
-		if pmBlk.Height == height && pmBlk.Round == round && pmBlk.ProposedBlock.ID() == blkID {
-			return pmBlk
+		draftBlk := p.proposals[key]
+		if draftBlk.Height == height && draftBlk.Round == round && draftBlk.ProposedBlock.ID() == blkID {
+			return draftBlk
 		}
 	}
 	// load from database
 	blkInDB, err := p.chain.GetBlock(blkID)
 	if err == nil {
 		if blkInDB.Number() == height {
-			return &pmBlock{
+			return &draftBlock{
 				Height:        blkInDB.Number(),
 				Round:         blkInDB.QC.QCRound + 1, // TODO: might have better ways doing this
 				Parent:        nil,
@@ -72,12 +72,12 @@ func (p *ProposalMap) GetOne(height, round uint32, blkID meter.Bytes32) *pmBlock
 	return nil
 }
 
-func (p *ProposalMap) GetOneByMatchingQC(qc *block.QuorumCert) *pmBlock {
+func (p *ProposalMap) GetOneByMatchingQC(qc *block.QuorumCert) *draftBlock {
 	for key := range p.proposals {
-		pmBlk := p.proposals[key]
-		if pmBlk.Height == qc.QCHeight && pmBlk.Round == qc.QCRound {
-			if match, err := BlockMatchQC(pmBlk, qc); match && err == nil {
-				return pmBlk
+		draftBlk := p.proposals[key]
+		if draftBlk.Height == qc.QCHeight && draftBlk.Round == qc.QCRound {
+			if match, err := BlockMatchQC(draftBlk, qc); match && err == nil {
+				return draftBlk
 			}
 		}
 	}
@@ -88,7 +88,7 @@ func (p *ProposalMap) GetOneByMatchingQC(qc *block.QuorumCert) *pmBlock {
 		blkInDB, err := p.chain.GetBlock(blkID)
 		if err == nil {
 			if blkInDB.Number() == qc.QCHeight {
-				return &pmBlock{
+				return &draftBlock{
 					Height:        qc.QCHeight,
 					Round:         qc.QCRound,
 					Parent:        nil,
@@ -115,9 +115,9 @@ func (p *ProposalMap) CleanAll() {
 
 func (p *ProposalMap) DeleteBeforeOrEqual(height uint32) {
 	for k := range p.proposals {
-		pmBlk := p.proposals[k]
-		if pmBlk.ProposedBlock.Number() <= height {
-			delete(p.proposals, pmBlk.ProposedBlock.ID())
+		draftBlk := p.proposals[k]
+		if draftBlk.ProposedBlock.Number() <= height {
+			delete(p.proposals, draftBlk.ProposedBlock.ID())
 		}
 	}
 }

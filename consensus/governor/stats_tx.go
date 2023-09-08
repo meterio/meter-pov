@@ -364,7 +364,7 @@ func ComputeStatistics(lastKBlockHeight, height uint32, chain *chain.Chain, curC
 	// currently do not calc the missingVoter. Because signature aggreator skips the votes after the count reaches
 	// to 2/3. So missingVoter counting is inacurate and causes the false alarm.
 	/****
-	missedVoter, err := conR.calcMissingVoter(conR.curCommittee.Validators, conR.curActualCommittee, blocks)
+	missedVoter, err := r.calcMissingVoter(r.curCommittee.Validators, r.curActualCommittee, blocks)
 	if err != nil {
 		log.Warn("Error during missing voter calculation", "err", err)
 	} else {

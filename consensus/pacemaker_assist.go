@@ -18,8 +18,8 @@ import (
 // 1. pending proposal/newView
 // 2. timeout cert management
 
-// check a pmBlock is the extension of b_locked, max 10 hops
-func (p *Pacemaker) IsExtendedFromBLocked(b *pmBlock) bool {
+// check a draftBlock is the extension of b_locked, max 10 hops
+func (p *Pacemaker) IsExtendedFromBLocked(b *draftBlock) bool {
 
 	i := int(0)
 	tmp := b
@@ -35,7 +35,7 @@ func (p *Pacemaker) IsExtendedFromBLocked(b *pmBlock) bool {
 	return false
 }
 
-func (p *Pacemaker) ValidateProposal(b *pmBlock) error {
+func (p *Pacemaker) ValidateProposal(b *draftBlock) error {
 	blk := b.ProposedBlock
 
 	// special valiadte StopCommitteeType
@@ -94,7 +94,7 @@ func (p *Pacemaker) ValidateProposal(b *pmBlock) error {
 	}
 
 	//create checkPoint before validate block
-	state, err := p.csReactor.stateCreator.NewState(p.csReactor.chain.BestBlock().Header().StateRoot())
+	state, err := p.reactor.stateCreator.NewState(p.reactor.chain.BestBlock().Header().StateRoot())
 	if err != nil {
 		p.logger.Error("revert state failed ...", "height", blk.Number(), "id", blk.ID(), "error", err)
 		return nil
@@ -102,7 +102,7 @@ func (p *Pacemaker) ValidateProposal(b *pmBlock) error {
 	checkPoint := state.NewCheckpoint()
 
 	now := uint64(time.Now().Unix())
-	stage, receipts, err := p.csReactor.ProcessProposedBlock(parentHeader, blk, now)
+	stage, receipts, err := p.reactor.ProcessProposedBlock(parentHeader, blk, now)
 	if err != nil && err != errKnownBlock {
 		p.logger.Error("process block failed", "proposed", blk.Oneliner(), "err", err)
 		b.SuccessProcessed = false
@@ -123,16 +123,16 @@ func (p *Pacemaker) ValidateProposal(b *pmBlock) error {
 }
 
 func (p *Pacemaker) getProposerByRound(round uint32) *ConsensusPeer {
-	proposer := p.csReactor.getRoundProposer(round)
-	return newConsensusPeer(proposer.Name, proposer.NetAddr.IP, 8080, p.csReactor.magic)
+	proposer := p.reactor.getRoundProposer(round)
+	return newConsensusPeer(proposer.Name, proposer.NetAddr.IP, 8080, p.reactor.magic)
 }
 
 func (p *Pacemaker) verifyTimeoutCert(tc *TimeoutCert, round uint32) bool {
 	if tc != nil {
 		//FIXME: check timeout cert
-		valid := tc.Epoch == p.csReactor.curEpoch && tc.Round == round
+		valid := tc.Epoch == p.reactor.curEpoch && tc.Round == round
 		if !valid {
-			p.logger.Warn("Invalid TC", "expected", fmt.Sprintf("E:%v,R:%v", tc.Epoch, tc.Round), "proposal", fmt.Sprintf("E:%v,R:%v", p.csReactor.curEpoch, round))
+			p.logger.Warn("Invalid TC", "expected", fmt.Sprintf("E:%v,R:%v", tc.Epoch, tc.Round), "proposal", fmt.Sprintf("E:%v,R:%v", p.reactor.curEpoch, round))
 		}
 		return valid
 	}
