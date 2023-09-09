@@ -309,7 +309,7 @@ func (n *Node) processBlock(blk *block.Block, stats *blockStats) (bool, error) {
 	n.cons.RefreshCurHeight()
 	if blk.IsKBlock() {
 		data, _ := blk.GetKBlockData()
-		info := consensus.RecvKBlockInfo{
+		info := consensus.EpochEndInfo{
 			Height:           blk.Number(),
 			LastKBlockHeight: n.cons.GetLastKBlockHeight(),
 			Nonce:            data.Nonce,
@@ -318,15 +318,15 @@ func (n *Node) processBlock(blk *block.Block, stats *blockStats) (bool, error) {
 		log.Info("received kblock from block sync...", "nonce", info.Nonce, "height", info.Height)
 		// this chan is initialized as 100, we should clean up if it is almost full.
 		// only the last one is processed.
-		chanLength := len(n.cons.RcvKBlockInfoQueue)
-		chanCap := cap(n.cons.RcvKBlockInfoQueue)
+		chanLength := len(n.cons.EpochEndCh)
+		chanCap := cap(n.cons.EpochEndCh)
 		if chanLength >= (chanCap / 10 * 9) {
 			for i := int(0); i < chanLength; i++ {
-				<-n.cons.RcvKBlockInfoQueue
+				<-n.cons.EpochEndCh
 			}
-			log.Info("garbaged all kblock infoi ...")
+			log.Info("garbaged all kblock info ...")
 		}
-		n.cons.RcvKBlockInfoQueue <- info
+		n.cons.EpochEndCh <- info
 	}
 	// end of shortcut
 	return len(fork.Trunk) > 0, nil

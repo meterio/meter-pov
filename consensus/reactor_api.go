@@ -11,18 +11,9 @@ import (
 // ------------------------------------
 // USED FOR PROBE ONLY
 // ------------------------------------
-func (r *Reactor) IsPacemakerRunning() bool {
-	if r.csPacemaker == nil {
-		return false
-	}
-	return !r.csPacemaker.IsStopped()
-}
 
 func (r *Reactor) PacemakerProbe() *PMProbeResult {
-	if r.IsPacemakerRunning() {
-		return r.csPacemaker.Probe()
-	}
-	return nil
+	return r.csPacemaker.Probe()
 }
 
 func (r *Reactor) IsCommitteeMember() bool {

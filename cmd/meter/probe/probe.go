@@ -71,19 +71,18 @@ func (p *Probe) HandleProbe(w http.ResponseWriter, r *http.Request) {
 		BestQCCandidate: bestQCCandidate,
 	}
 	result := ProbeResult{
-		Name:               name,
-		PubKey:             p.ComplexPubkey,
-		PubKeyValid:        pubkeyMatch,
-		Version:            p.Version,
-		DelegatesSource:    p.Cons.GetDelegatesSource(),
-		IsCommitteeMember:  p.Cons.IsCommitteeMember(),
-		IsPacemakerRunning: p.Cons.IsPacemakerRunning(),
-		InDelegateList:     inDelegateList,
-		BestQC:             bestQC.Height,
-		BestBlock:          bestBlock.Number,
-		Pacemaker:          pacemaker,
-		Chain:              chainProbe,
-		Pow:                pow,
+		Name:              name,
+		PubKey:            p.ComplexPubkey,
+		PubKeyValid:       pubkeyMatch,
+		Version:           p.Version,
+		DelegatesSource:   p.Cons.GetDelegatesSource(),
+		IsCommitteeMember: p.Cons.IsCommitteeMember(),
+		InDelegateList:    inDelegateList,
+		BestQC:            bestQC.Height,
+		BestBlock:         bestBlock.Number,
+		Pacemaker:         pacemaker,
+		Chain:             chainProbe,
+		Pow:               pow,
 	}
 
 	utils.WriteJSON(w, result)

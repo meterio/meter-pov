@@ -126,10 +126,9 @@ type ProbeResult struct {
 	PubKeyValid bool   `json:"pubkeyValid"`
 	Version     string `json:"version"`
 
-	DelegatesSource    string `json:"delegatesSource"`
-	IsCommitteeMember  bool   `json:"isCommitteeMember"`
-	IsPacemakerRunning bool   `json:"isPacemakerRunning"`
-	InDelegateList     bool   `json:"inDelegateList"`
+	DelegatesSource   string `json:"delegatesSource"`
+	IsCommitteeMember bool   `json:"isCommitteeMember"`
+	InDelegateList    bool   `json:"inDelegateList"`
 
 	BestQC    uint32 `json:"bestQC"`
 	BestBlock uint32 `json:"bestBlock"`
@@ -196,8 +195,6 @@ func convertPacemakerProbe(r *consensus.PMProbeResult) (*PacemakerProbe, error) 
 	if r != nil {
 		probe := &PacemakerProbe{
 			Mode:             r.Mode,
-			StartHeight:      r.StartHeight,
-			StartRound:       r.StartRound,
 			CurRound:         r.CurRound,
 			MyCommitteeIndex: r.MyCommitteeIndex,
 

@@ -88,11 +88,11 @@ type Reactor struct {
 	blsCommon   *types.BlsCommon //this must be allocated as validator
 	csPacemaker *Pacemaker
 
-	lastKBlockHeight   uint32
-	curNonce           uint64
-	curEpoch           uint64
-	curHeight          uint32              // come from parentBlockID first 4 bytes uint32
-	RcvKBlockInfoQueue chan RecvKBlockInfo // this channel for kblock notify from node module.
+	lastKBlockHeight uint32
+	curNonce         uint64
+	curEpoch         uint64
+	curHeight        uint32            // come from parentBlockID first 4 bytes uint32
+	EpochEndCh       chan EpochEndInfo // this channel for kblock notify from node module.
 
 	magic           [4]byte
 	inCommittee     bool
@@ -135,7 +135,7 @@ func NewConsensusReactor(ctx *cli.Context, chain *chain.Chain, state *state.Crea
 		}
 	}
 	// add the hardcoded genesis nonce in the case every node in block 0
-	r.RcvKBlockInfoQueue = make(chan RecvKBlockInfo, CHAN_DEFAULT_BUF_SIZE)
+	r.EpochEndCh = make(chan EpochEndInfo, CHAN_DEFAULT_BUF_SIZE)
 
 	//initialize height/round
 	if chain.BestBlock().IsKBlock() {
@@ -150,7 +150,7 @@ func NewConsensusReactor(ctx *cli.Context, chain *chain.Chain, state *state.Crea
 	r.blsCommon = blsCommon
 
 	// initialize pacemaker
-	r.csPacemaker = NewPaceMaker(r)
+	r.csPacemaker = NewPacemaker(r)
 
 	// committee info is stored in the first of Mblock after Kblock
 	if r.curHeight != 0 {
@@ -184,7 +184,8 @@ func (r *Reactor) OnStart() error {
 	}
 	select {
 	case <-communicator.Synced():
-		r.SwitchToConsensus()
+		r.logger.Info("sync is done, start pacemaker ...", "curHeight", r.curHeight)
+		r.csPacemaker.Regulate()
 	}
 
 	return nil
@@ -192,19 +193,6 @@ func (r *Reactor) OnStart() error {
 
 func (r *Reactor) GetLastKBlockHeight() uint32 {
 	return r.lastKBlockHeight
-}
-
-// SwitchToConsensus switches from fast_sync mode to consensus mode.
-// It resets the state, turns off fast_sync, and starts the consensus state-machine
-func (r *Reactor) SwitchToConsensus() {
-	r.logger.Info("sync is done, switch to consensus ...", "curHeight", r.curHeight)
-
-	r.PrepareEnvForPacemaker()
-	if r.inCommittee {
-		r.startPacemaker(PMModeNormal)
-	} else {
-		r.startPacemaker(PMModeObserve)
-	}
 }
 
 func (r *Reactor) UpdateHeight(height uint32) bool {
@@ -543,23 +531,6 @@ func (r *Reactor) verifyBestQCAndBestBlockBeforeStart() bool {
 		r.logger.Info("bestQC and bestBlock matches", "bestQC", bestQC.QCHeight, "bestBlock", bestBlock.Number())
 		return true
 	}
-}
-
-func (r *Reactor) startPacemaker(mode PMMode) error {
-	// 1. bestQC height == best block height
-	// 2. newCommittee is true, best block is kblock
-	verified := r.verifyBestQCAndBestBlockBeforeStart()
-	// bestQC := r.chain.BestQC()
-	bestBlock := r.chain.BestBlock()
-	freshCommittee := (bestBlock.Header().BlockType() == block.BLOCK_TYPE_K_BLOCK) || (bestBlock.Header().Number() == 0)
-	if verified {
-		// r.logger.Info("start Pacemaker", "bestQC", bestQC.QCHeight, "bestBlock", bestBlock.Header().Number())
-		r.csPacemaker.Start(mode, freshCommittee)
-	} else {
-		// r.logger.Warn("start Pacemaker in CatchUp mode due to bestQC/bestBlock mismatch", "bestQC", bestQC.QCHeight, "bestBlock", bestBlock.Header().Number())
-		r.csPacemaker.Start(PMModeCatchUp, freshCommittee)
-	}
-	return nil
 }
 
 // since votes of pacemaker include propser, but committee votes

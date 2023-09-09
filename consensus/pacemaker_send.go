@@ -104,7 +104,7 @@ func (p *Pacemaker) BuildProposalMessage(height, round uint32, bnew *draftBlock,
 		// Sender:    crypto.FromECDSAPub(&p.reactor.myPubKey),
 		Timestamp:   time.Now(),
 		Epoch:       p.reactor.curEpoch,
-		SignerIndex: uint32(p.myActualCommitteeIndex),
+		SignerIndex: uint32(p.reactor.GetMyActualCommitteeIndex()),
 
 		Height:       height,
 		Round:        round,
@@ -140,7 +140,7 @@ func (p *Pacemaker) BuildVoteMessage(proposalMsg *PMProposalMessage) (*PMVoteMes
 	msg := &PMVoteMessage{
 		Timestamp:   time.Now(),
 		Epoch:       p.reactor.curEpoch,
-		SignerIndex: uint32(p.myActualCommitteeIndex),
+		SignerIndex: uint32(p.reactor.GetMyActualCommitteeIndex()),
 
 		VoteHeight:    proposalMsg.Height,
 		VoteRound:     proposalMsg.Round,
@@ -174,7 +174,7 @@ func (p *Pacemaker) BuildTimeoutMessage(qcHigh *draftQC, ti *PMRoundTimeoutInfo,
 	msg := &PMTimeoutMessage{
 		Timestamp:   time.Now(),
 		Epoch:       p.reactor.curEpoch,
-		SignerIndex: uint32(p.myActualCommitteeIndex),
+		SignerIndex: uint32(p.reactor.GetMyActualCommitteeIndex()),
 
 		WishRound: ti.round + 1,
 

@@ -13,7 +13,7 @@ import (
 	"github.com/meterio/meter-pov/tx"
 )
 
-type RecvKBlockInfo struct {
+type EpochEndInfo struct {
 	Height           uint32
 	LastKBlockHeight uint32
 	Nonce            uint64
@@ -89,29 +89,18 @@ func (qc *draftQC) ToString() string {
 type PMCmd uint32
 
 const (
-	PMCmdStop    PMCmd = 1
-	PMCmdRestart       = 2 // restart pacemaker perserving previous settings
-	PMCmdReboot        = 3 // reboot pacemaker with all fresh start, should be used only when KBlock is received
+	PMCmdRegulate = 0 // regulate pacemaker with all fresh start, could be used any time when pacemaker is out of sync
 )
 
 func (cmd PMCmd) String() string {
 	switch cmd {
-	case PMCmdStop:
-		return "Stop"
-	case PMCmdRestart:
-		return "Restart"
-	case PMCmdReboot:
-		return "Reboot"
+	case PMCmdRegulate:
+		return "Regulate"
 	}
 	return ""
 }
 
 // struct
-type PMCmdInfo struct {
-	cmd  PMCmd
-	mode PMMode
-}
-
 type PMRoundTimeoutInfo struct {
 	height  uint32
 	round   uint32

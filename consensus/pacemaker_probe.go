@@ -13,8 +13,6 @@ type BlockProbe struct {
 }
 type PMProbeResult struct {
 	Mode             string
-	StartHeight      uint32
-	StartRound       uint32
 	CurRound         uint32
 	MyCommitteeIndex int
 
@@ -30,11 +28,8 @@ type PMProbeResult struct {
 
 func (p *Pacemaker) Probe() *PMProbeResult {
 	result := &PMProbeResult{
-		Mode:             p.mode.String(),
-		StartHeight:      p.startHeight,
-		StartRound:       p.startRound,
 		CurRound:         p.currentRound,
-		MyCommitteeIndex: p.myActualCommitteeIndex,
+		MyCommitteeIndex: p.reactor.GetMyActualCommitteeIndex(),
 
 		LastVotingHeight: p.lastVotingHeight,
 		LastOnBeatRound:  uint32(p.lastOnBeatRound),
