@@ -40,8 +40,6 @@ type Pacemaker struct {
 	minMBlocks      uint32
 
 	// Utility data structures
-	calcStatsTx bool // calculate statistics tx
-	// sigAggregator *SignatureAggregator
 	proposalVoteManager *ProposalVoteManager
 	wishVoteManager     *WishVoteManager
 
@@ -278,26 +276,20 @@ func (p *Pacemaker) OnReceiveProposal(mi *IncomingMsg) {
 		p.logger.Warn("outdated proposal, dropped ...", "height", height, "QCHigh.height", p.QCHigh.QC.QCHeight)
 		return
 	}
-	//TODO: this maybe removed
-	if p.blockLocked == nil {
-		p.logger.Error("blockLocked is nil", "height", height)
-		return
-	}
 	if height < p.blockLocked.Height {
 		p.logger.Info("outdated proposal (height <= bLocked.height), dropped ...", "height", height, "bLocked.height", p.blockLocked.Height)
 		return
 	}
 
 	blk := msg.DecodeBlock()
-
 	qc := blk.QC
 	p.logger.Debug("start to handle received block proposal ", "block", blk.Oneliner())
 
 	// address parent
 	parent := p.proposalMap.GetOne(msg.ParentHeight, msg.ParentRound, blk.ParentID())
 	if parent == nil {
+		p.logger.Error("could not get parent draft, throw it back in queue", "height", msg.ParentHeight, "round", msg.ParentRound, "ID", blk.ParentID().ToBlockShortID())
 		p.reactor.inQueue.Add(mi)
-		p.logger.Error("could not get parent draft", "height", msg.ParentHeight, "round", msg.ParentRound, "ID", blk.ParentID().ToBlockShortID())
 		return
 	}
 
@@ -729,7 +721,11 @@ func (p *Pacemaker) mainLoop() {
 			}
 			if m.Msg.GetEpoch() != p.reactor.curEpoch {
 				p.logger.Info("rcvd message w/ mismatched epoch ", "epoch", m.Msg.GetEpoch(), "myEpoch", p.reactor.curEpoch, "type", m.Msg.GetType())
-				break
+				continue
+			}
+			if time.Now().After(m.ExpireAt) {
+				p.logger.Info(fmt.Sprintf("incoming %s msg expired, dropped ...", m.Msg.GetType()))
+				continue
 			}
 			switch m.Msg.(type) {
 			case *PMProposalMessage:

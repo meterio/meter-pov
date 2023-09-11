@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"net"
 
-	"github.com/inconshreveable/log15"
 	"github.com/meterio/meter-pov/types"
 )
 
@@ -17,7 +16,6 @@ import (
 type ConsensusPeer struct {
 	name    string
 	netAddr types.NetAddress
-	logger  log15.Logger
 	magic   [4]byte
 }
 
@@ -28,8 +26,7 @@ func newConsensusPeer(name string, ip net.IP, port uint16, magic [4]byte) *Conse
 			IP:   ip,
 			Port: port,
 		},
-		logger: log15.New("pkg", "peer", "peer", name, "ip", ip.String()),
-		magic:  magic,
+		magic: magic,
 	}
 }
 

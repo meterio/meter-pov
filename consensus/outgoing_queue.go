@@ -57,7 +57,7 @@ func (q OutgoingQueue) Start() {
 			return
 		case p := <-q.queue:
 			if time.Now().After(p.expireAt) {
-				q.logger.Info(fmt.Sprintf(`%s msg expired, dropped ...`, p.msg.GetType()))
+				q.logger.Info(fmt.Sprintf(`outgoing %s msg expired, dropped ...`, p.msg.GetType()))
 				continue
 			}
 			ipAddr := p.to.netAddr.IP.String()
