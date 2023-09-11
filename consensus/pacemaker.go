@@ -8,7 +8,6 @@ package consensus
 import (
 	"fmt"
 	"os"
-	"sync"
 	"time"
 
 	"github.com/inconshreveable/log15"
@@ -57,11 +56,9 @@ type Pacemaker struct {
 	lastOnBeatRound int32
 
 	// Channels
-	incomingWriteMutex sync.Mutex
-	incomingCh         chan msgParcel
-	roundTimeoutCh     chan PMRoundTimeoutInfo
-	cmdCh              chan PMCmd
-	beatCh             chan PMBeatInfo
+	roundTimeoutCh chan PMRoundTimeoutInfo
+	cmdCh          chan PMCmd
+	beatCh         chan PMBeatInfo
 
 	// Timeout
 	roundTimer     *time.Timer
@@ -78,7 +75,6 @@ func NewPacemaker(r *Reactor) *Pacemaker {
 		proposalVoteManager: NewProposalVoteManager(r.blsCommon.System, r.committeeSize),
 		wishVoteManager:     NewWishVoteManager(r.blsCommon.System, r.committeeSize),
 
-		incomingCh:      make(chan msgParcel, 1024),
 		cmdCh:           make(chan PMCmd, 2),
 		beatCh:          make(chan PMBeatInfo, 2),
 		roundTimeoutCh:  make(chan PMRoundTimeoutInfo, 2),
@@ -272,7 +268,7 @@ func (p *Pacemaker) OnPreCommitBlock(b *draftBlock) error {
 	return nil
 }
 
-func (p *Pacemaker) OnReceiveProposal(mi *msgParcel) {
+func (p *Pacemaker) OnReceiveProposal(mi *IncomingMsg) {
 	msg := mi.Msg.(*PMProposalMessage)
 	height := msg.Height
 	round := msg.Round
@@ -300,7 +296,7 @@ func (p *Pacemaker) OnReceiveProposal(mi *msgParcel) {
 	// address parent
 	parent := p.proposalMap.GetOne(msg.ParentHeight, msg.ParentRound, blk.ParentID())
 	if parent == nil {
-		p.onIncomingMsg(mi)
+		p.reactor.inQueue.Add(mi)
 		p.logger.Error("could not get parent draft", "height", msg.ParentHeight, "round", msg.ParentRound, "ID", blk.ParentID().ToBlockShortID())
 		return
 	}
@@ -417,7 +413,7 @@ func (p *Pacemaker) OnReceiveProposal(mi *msgParcel) {
 	p.Update(bnew)
 }
 
-func (p *Pacemaker) OnReceiveVote(mi *msgParcel) {
+func (p *Pacemaker) OnReceiveVote(mi *IncomingMsg) {
 	msg := mi.Msg.(*PMVoteMessage)
 
 	height := msg.VoteHeight
@@ -568,7 +564,7 @@ func (p *Pacemaker) OnBeat(epoch uint64, round uint32, reason beatReason) {
 	p.OnPropose(p.blockLeaf, p.QCHigh, round)
 }
 
-func (p *Pacemaker) OnReceiveTimeout(mi *msgParcel) {
+func (p *Pacemaker) OnReceiveTimeout(mi *IncomingMsg) {
 	msg := mi.Msg.(*PMTimeoutMessage)
 
 	// drop invalid msg
@@ -725,7 +721,7 @@ func (p *Pacemaker) mainLoop() {
 			p.OnRoundTimeout(ti)
 		case b := <-p.beatCh:
 			p.OnBeat(b.epoch, b.round, b.reason)
-		case m := <-p.incomingCh:
+		case m := <-p.reactor.inQueue.queue:
 			// if not in committee, skip rcvd messages
 			if !p.reactor.inCommittee {
 				p.logger.Info("skip handling msg bcuz I'm not in committee", "type", m.Msg.GetType())
@@ -737,11 +733,11 @@ func (p *Pacemaker) mainLoop() {
 			}
 			switch m.Msg.(type) {
 			case *PMProposalMessage:
-				p.OnReceiveProposal(&m)
+				p.OnReceiveProposal(m)
 			case *PMVoteMessage:
-				p.OnReceiveVote(&m)
+				p.OnReceiveVote(m)
 			case *PMTimeoutMessage:
-				p.OnReceiveTimeout(&m)
+				p.OnReceiveTimeout(m)
 			default:
 				p.logger.Warn("received an message in unknown type")
 			}

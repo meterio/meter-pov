@@ -18,8 +18,8 @@ func (p *Pacemaker) precommitBlock(draftBlk *draftBlock) error {
 
 	// start := time.Now()
 	// TODO: temporary remove
-	// if p.reactor.csPacemaker.blockLocked.Height != height+1 {
-	// p.logger.Error(fmt.Sprintf("finalizeCommitBlock(H:%v): Invalid height. bLocked Height:%v, curRround: %v", height, p.reactor.csPacemaker.blockLocked.Height, p.reactor.curRound))
+	// if p.reactor.pacemaker.blockLocked.Height != height+1 {
+	// p.logger.Error(fmt.Sprintf("finalizeCommitBlock(H:%v): Invalid height. bLocked Height:%v, curRround: %v", height, p.reactor.pacemaker.blockLocked.Height, p.reactor.curRound))
 	// return false
 	// }
 	p.logger.Debug("Try to pre-commit block", "block", blk.Oneliner())
@@ -81,8 +81,8 @@ func (p *Pacemaker) commitBlock(draftBlk *draftBlock, bestQC *block.QuorumCert) 
 	receipts := draftBlk.Receipts
 
 	// TODO: temporary remove
-	// if p.reactor.csPacemaker.blockLocked.Height != height+1 {
-	// p.logger.Error(fmt.Sprintf("commitBlock(H:%v): Invalid height. bLocked Height:%v, curRround: %v", height, p.reactor.csPacemaker.blockLocked.Height, p.reactor.curRound))
+	// if p.reactor.pacemaker.blockLocked.Height != height+1 {
+	// p.logger.Error(fmt.Sprintf("commitBlock(H:%v): Invalid height. bLocked Height:%v, curRround: %v", height, p.reactor.pacemaker.blockLocked.Height, p.reactor.curRound))
 	// return false
 	// }
 	p.logger.Debug("Try to finalize block", "block", blk.Oneliner())

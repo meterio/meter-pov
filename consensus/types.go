@@ -161,20 +161,6 @@ func (reason beatReason) String() string {
 	return "Unkown"
 }
 
-// enum NewViewReason is the reason for new view
-type NewViewReason byte
-
-func (r NewViewReason) String() string {
-	switch r {
-	case HigherQCSeen:
-		return "HigherQCSeen"
-	case RoundTimeout:
-		return "RoundTimeout"
-	default:
-		return ""
-	}
-}
-
 const (
 	UpdateOnBeat                = roundUpdateReason(1)
 	UpdateOnRegularProposal     = roundUpdateReason(2)
@@ -189,8 +175,4 @@ const (
 	TimerInit     = roundTimerUpdateReason(0)
 	TimerInc      = roundTimerUpdateReason(1)
 	TimerInitLong = roundTimerUpdateReason(2)
-
-	// new view reasons
-	HigherQCSeen NewViewReason = NewViewReason(1)
-	RoundTimeout NewViewReason = NewViewReason(2)
 )

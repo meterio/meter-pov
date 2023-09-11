@@ -11,11 +11,7 @@ package consensus
 
 import (
 	"bytes"
-	sha256 "crypto/sha256"
-	"encoding/hex"
 	"errors"
-	"fmt"
-	"strings"
 	"time"
 
 	"github.com/ethereum/go-ethereum/rlp"
@@ -52,44 +48,11 @@ func (p *Pacemaker) sendMsg(msg ConsensusMessage, copyMyself bool) bool {
 		}
 	}
 	// send consensus message to myself first (except for PMNewViewMessage)
-	typeName := msg.GetType()
 	if copyMyself && !myselfInPeers {
-		p.logger.Debug(fmt.Sprintf("Sending %v to myself", typeName))
-		p.sendMsgToPeer(msg, false, myself)
+		p.reactor.Send(msg, myself)
 	}
 
-	peerNames := make([]string, 0)
-	for _, p := range peers {
-		peerNames = append(peerNames, p.name)
-	}
-	p.logger.Debug(fmt.Sprintf("Sending %v to peers: %v", typeName, strings.Join(peerNames, ",")))
-	p.sendMsgToPeer(msg, false, peers...)
-	return true
-}
-
-func (p *Pacemaker) sendMsgToPeer(msg ConsensusMessage, relay bool, peers ...*ConsensusPeer) bool {
-	data, err := p.reactor.MarshalMsg(&msg)
-	if err != nil {
-		fmt.Println("error marshaling message", err)
-		return false
-	}
-	msgSummary := msg.String()
-	msgHash := sha256.Sum256(data)
-	msgHashHex := hex.EncodeToString(msgHash[:])[:8]
-
-	peerNames := make([]string, 0)
-	for _, peer := range peers {
-		peerNames = append(peerNames, peer.NameAndIP())
-	}
-	prefix := "send"
-	if relay {
-		prefix = "relay"
-	}
-	p.logger.Info(prefix+" "+msgSummary, "to", strings.Join(peerNames, ", "))
-	// broadcast consensus message to peers
-	for _, peer := range peers {
-		go peer.sendPacemakerMsg(data, msgSummary, msgHashHex, relay)
-	}
+	p.reactor.Send(msg, peers...)
 	return true
 }
 

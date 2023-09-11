@@ -13,7 +13,7 @@ import (
 // ------------------------------------
 
 func (r *Reactor) PacemakerProbe() *PMProbeResult {
-	return r.csPacemaker.Probe()
+	return r.pacemaker.Probe()
 }
 
 func (r *Reactor) IsCommitteeMember() bool {
