@@ -75,7 +75,7 @@ func (p *Pacemaker) precommitBlock(draftBlk *draftBlock) error {
 }
 
 // finalize the block with its own QC
-func (p *Pacemaker) commitBlock(draftBlk *draftBlock, bestQC *block.QuorumCert) error {
+func (p *Pacemaker) commitBlock(draftBlk *draftBlock, escortQC *block.QuorumCert) error {
 	blk := draftBlk.ProposedBlock
 	//stage := blkInfo.Stage
 	receipts := draftBlk.Receipts
@@ -136,10 +136,10 @@ func (p *Pacemaker) commitBlock(draftBlk *draftBlock, bestQC *block.QuorumCert) 
 	}
 
 	// Save bestQC
-	p.reactor.chain.UpdateBestQC(bestQC, chain.LocalCommit)
+	p.reactor.chain.UpdateBestQC(escortQC, chain.LocalCommit)
 
 	// broadcast the new block to all peers
-	comm.GetGlobCommInst().BroadcastBlock(blk)
+	comm.GetGlobCommInst().BroadcastBlock(&block.EscortedBlock{Block: blk, EscortQC: escortQC})
 	// successfully added the block, update the current hight of consensus
 	p.reactor.UpdateHeight(p.reactor.chain.BestBlock().Number())
 

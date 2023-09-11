@@ -63,12 +63,10 @@ func (p *Probe) HandleProbe(w http.ResponseWriter, r *http.Request) {
 	}
 	bestBlock, _ := convertBlock(p.Chain.BestBlock())
 	bestQC, _ := convertQC(p.Chain.BestQC())
-	bestQCCandidate, _ := convertQC(p.Chain.BestQCCandidate())
 	pacemaker, _ := convertPacemakerProbe(p.Cons.PacemakerProbe())
 	chainProbe := &ChainProbe{
-		BestBlock:       bestBlock,
-		BestQC:          bestQC,
-		BestQCCandidate: bestQCCandidate,
+		BestBlock: bestBlock,
+		BestQC:    bestQC,
 	}
 	result := ProbeResult{
 		Name:              name,

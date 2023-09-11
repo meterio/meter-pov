@@ -95,7 +95,7 @@ func (c *Communicator) TriggerSync() {
 }
 
 // Sync start synchronization process.
-func (c *Communicator) Sync(handler HandleBlockStream, qcHandler HandleQC) {
+func (c *Communicator) Sync(handler HandleBlockStream) {
 	const initSyncInterval = 1500 * time.Microsecond
 	const syncInterval = 20 * time.Second
 
@@ -136,7 +136,7 @@ func (c *Communicator) Sync(handler HandleBlockStream, qcHandler HandleQC) {
 				})
 				if peer != nil {
 					log.Info("trigger sync with peer", "peer", peer.RemoteAddr().String())
-					if err := c.sync(peer, best.Number(), handler, qcHandler); err != nil {
+					if err := c.sync(peer, best.Number(), handler); err != nil {
 						peer.logger.Info("synchronization failed", "err", err)
 					}
 					log.Info("triggered synchronization done", "bestQC", c.chain.BestQC().QCHeight, "bestBlock", c.chain.BestBlock().Number())
@@ -160,7 +160,7 @@ func (c *Communicator) Sync(handler HandleBlockStream, qcHandler HandleQC) {
 					// if more than 3 peers connected, we are assumed to be the best
 					log.Debug("synchronization done, best assumed")
 				} else {
-					if err := c.sync(peer, best.Number(), handler, qcHandler); err != nil {
+					if err := c.sync(peer, best.Number(), handler); err != nil {
 						peer.logger.Debug("synchronization failed", "err", err)
 						break
 					}
@@ -301,17 +301,17 @@ func (c *Communicator) SubscribeBlock(ch chan *NewBlockEvent) event.Subscription
 }
 
 // BroadcastBlock broadcast a block to remote peers.
-func (c *Communicator) BroadcastBlock(blk *block.Block) {
-	h := blk.Header()
-	bestQC := c.chain.BestQCOrCandidate()
+func (c *Communicator) BroadcastBlock(blk *block.EscortedBlock) {
+	h := blk.Block.Header()
+	qc := blk.EscortQC
 	log.Debug("Broadcast block and qc",
 		"height", h.Number(),
 		"id", h.ID(),
 		"lastKblock", h.LastKBlockHeight(),
-		"bestQC", bestQC.String())
+		"escortQC", qc.String())
 
 	peers := c.peerSet.Slice().Filter(func(p *Peer) bool {
-		return !p.IsBlockKnown(blk.ID())
+		return !p.IsBlockKnown(blk.Block.ID())
 	})
 
 	p := int(math.Sqrt(float64(len(peers))))
@@ -320,12 +320,9 @@ func (c *Communicator) BroadcastBlock(blk *block.Block) {
 
 	for _, peer := range toPropagate {
 		peer := peer
-		peer.MarkBlock(blk.ID())
+		peer.MarkBlock(blk.Block.ID())
 		c.goes.Go(func() {
 			log.Debug("Sent BestQC/NewBlock to peer", "peer", peer.Peer.RemoteAddr().String())
-			if err := proto.NotifyNewBestQC(c.ctx, peer, bestQC); err != nil {
-				peer.logger.Debug("failed to broadcast new bestQC", "err", err)
-			}
 			if err := proto.NotifyNewBlock(c.ctx, peer, blk); err != nil {
 				peer.logger.Debug("failed to broadcast new block", "err", err)
 			}
@@ -334,13 +331,10 @@ func (c *Communicator) BroadcastBlock(blk *block.Block) {
 
 	for _, peer := range toAnnounce {
 		peer := peer
-		peer.MarkBlock(blk.ID())
+		peer.MarkBlock(blk.Block.ID())
 		c.goes.Go(func() {
 			log.Debug("Broadcast BestQC to peer", "peer", peer.Peer.RemoteAddr().String())
-			if err := proto.NotifyNewBestQC(c.ctx, peer, bestQC); err != nil {
-				peer.logger.Debug("failed to broadcast new bestQC", "err", err)
-			}
-			if err := proto.NotifyNewBlockID(c.ctx, peer, blk.ID()); err != nil {
+			if err := proto.NotifyNewBlockID(c.ctx, peer, blk.Block.ID()); err != nil {
 				peer.logger.Debug("failed to broadcast new block id", "err", err)
 			}
 		})

@@ -35,15 +35,6 @@ func New(chain *chain.Chain, stateC *state.Creator) *Blocks {
 	}
 }
 
-func (b *Blocks) handleGetBestQC(w http.ResponseWriter, req *http.Request) error {
-	quorumCert := b.chain.BestQCOrCandidate()
-	qc, err := convertQC(quorumCert)
-	if err != nil {
-		return err
-	}
-	return utils.WriteJSON(w, qc)
-}
-
 func (b *Blocks) handleGetBlock(w http.ResponseWriter, req *http.Request) error {
 	revision, err := b.parseRevision(mux.Vars(req)["revision"])
 	if err != nil {

@@ -16,21 +16,21 @@ import (
 	"github.com/pkg/errors"
 )
 
-func (c *Communicator) sync(peer *Peer, headNum uint32, handler HandleBlockStream, qcHandler HandleQC) error {
+func (c *Communicator) sync(peer *Peer, headNum uint32, handler HandleBlockStream) error {
 	ancestor, err := c.findCommonAncestor(peer, headNum)
 	if err != nil {
 		return errors.WithMessage(err, "find common ancestor")
 	}
-	return c.download(peer, ancestor+1, handler, qcHandler)
+	return c.download(peer, ancestor+1, handler)
 }
 
-func (c *Communicator) download(peer *Peer, fromNum uint32, handler HandleBlockStream, qcHandler HandleQC) error {
+func (c *Communicator) download(peer *Peer, fromNum uint32, handler HandleBlockStream) error {
 
 	// it's important to set cap to 2
 	errCh := make(chan error, 2)
 
 	ctx, cancel := context.WithCancel(c.ctx)
-	blockCh := make(chan *block.Block, 2048)
+	blockCh := make(chan *block.EscortedBlock, 2048)
 
 	var goes co.Goes
 	goes.Go(func() {
@@ -41,22 +41,8 @@ func (c *Communicator) download(peer *Peer, fromNum uint32, handler HandleBlockS
 	})
 	goes.Go(func() {
 		defer close(blockCh)
-		var blocks []*block.Block
+		var blocks []*block.EscortedBlock
 		for {
-			qc, err := proto.GetBestQC(ctx, peer)
-			// fmt.Println("HANDLE QC:", qc.String(), ", ERROR=", err)
-			if err != nil {
-				errCh <- err
-				return
-			}
-			updated, err := qcHandler(ctx, qc)
-			if err != nil {
-				errCh <- err
-			}
-			if updated {
-				log.Info("Got QC", "qc", qc.String(), "peer", peer.RemoteAddr().String())
-			}
-
 			result, err := proto.GetBlocksFromNumber(ctx, peer, fromNum)
 			if err != nil {
 				errCh <- err
@@ -71,27 +57,27 @@ func (c *Communicator) download(peer *Peer, fromNum uint32, handler HandleBlockS
 
 			blocks = blocks[:0]
 			for _, raw := range result {
-				var blk block.Block
+				var blk block.EscortedBlock
 				if err := rlp.DecodeBytes(raw, &blk); err != nil {
 					errCh <- errors.Wrap(err, "invalid block")
 					return
 				}
-				if blk.Number() != fromNum {
+				if blk.Block.Number() != fromNum {
 					errCh <- errors.New("broken sequence")
 					return
 				}
 				fromNum++
 				// only append non-sblock
-				if blk.BlockType() != block.BLOCK_TYPE_S_BLOCK {
+				if !blk.Block.IsSBlock() {
 					blocks = append(blocks, &blk)
 				}
 			}
 
 			<-co.Parallel(func(queue chan<- func()) {
 				for _, blk := range blocks {
-					h := blk.Header()
+					h := blk.Block.Header()
 					queue <- func() { h.ID() }
-					for _, tx := range blk.Transactions() {
+					for _, tx := range blk.Block.Transactions() {
 						tx := tx
 						queue <- func() {
 							tx.ID()
@@ -103,7 +89,7 @@ func (c *Communicator) download(peer *Peer, fromNum uint32, handler HandleBlockS
 			})
 
 			for _, blk := range blocks {
-				peer.MarkBlock(blk.ID())
+				peer.MarkBlock(blk.Block.ID())
 				select {
 				case <-ctx.Done():
 					return

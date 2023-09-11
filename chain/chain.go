@@ -50,17 +50,16 @@ var (
 // Chain describes a persistent block chain.
 // It's thread-safe.
 type Chain struct {
-	kv              kv.GetPutter
-	ancestorTrie    *ancestorTrie
-	genesisBlock    *block.Block
-	bestBlock       *block.Block
-	leafBlock       *block.Block
-	bestQC          *block.QuorumCert
-	tag             byte
-	caches          caches
-	rw              sync.RWMutex
-	tick            co.Signal
-	bestQCCandidate *block.QuorumCert
+	kv           kv.GetPutter
+	ancestorTrie *ancestorTrie
+	genesisBlock *block.Block
+	bestBlock    *block.Block
+	leafBlock    *block.Block
+	bestQC       *block.QuorumCert
+	tag          byte
+	caches       caches
+	rw           sync.RWMutex
+	tick         co.Signal
 
 	bestBlockBeforeIndexFlattern *block.Block
 }
@@ -246,7 +245,6 @@ func New(kv kv.GetPutter, genesisBlock *block.Block, verbose bool) (*Chain, erro
 			rawBlocks: rawBlocksCache,
 			receipts:  receiptsCache,
 		},
-		bestQCCandidate: bestQC,
 
 		bestBlockBeforeIndexFlattern: bestBlockBeforeFlattern,
 	}
@@ -308,30 +306,6 @@ func (c *Chain) BestQC() *block.QuorumCert {
 	c.rw.RLock()
 	defer c.rw.RUnlock()
 	return c.bestQC
-}
-
-func (c *Chain) BestQCCandidate() *block.QuorumCert {
-	c.rw.RLock()
-	defer c.rw.RUnlock()
-	return c.bestQCCandidate
-}
-
-func (c *Chain) BestQCOrCandidate() *block.QuorumCert {
-	c.rw.RLock()
-	defer c.rw.RUnlock()
-	bestQCHeight := uint32(0)
-	if c.bestQC != nil {
-		bestQCHeight = c.bestQC.QCHeight
-	}
-	bestCandidateHeight := uint32(0)
-	if c.bestQCCandidate != nil {
-		bestCandidateHeight = c.bestQCCandidate.QCHeight
-	}
-
-	if bestQCHeight > bestCandidateHeight {
-		return c.bestQC
-	}
-	return c.bestQCCandidate
 }
 
 func (c *Chain) RemoveBlock(blockID meter.Bytes32) error {
@@ -935,17 +909,6 @@ func (c *Chain) UpdateBestQC(qc *block.QuorumCert, source QCSource) (bool, error
 		qcs = append(qcs, &QCWrap{source: LocalBestBlock, qc: c.bestBlock.QC})
 	}
 
-	if c.bestQCCandidate != nil {
-		qcs = append(qcs, &QCWrap{source: LocalCandidate, qc: c.bestQCCandidate})
-	}
-
-	/*
-		log.Info("LocalBestQC", "qc", c.bestQC.String())
-		log.Info("LocalBestBlock.QC", "qc", c.bestBlock.QC.String())
-		log.Info("CandidateQC", "qc", c.bestQCCandidate.String())
-		log.Info("InputQC", "qc", qc)
-	*/
-
 	if qc != nil {
 		qcs = append(qcs, &QCWrap{source: source, qc: qc})
 	}
@@ -956,9 +919,6 @@ func (c *Chain) UpdateBestQC(qc *block.QuorumCert, source QCSource) (bool, error
 
 	bestQCAvailable := qcs[0].qc
 	bestQCSource := qcs[0].source
-	if bestQCAvailable.QCHeight > c.bestQCCandidate.QCHeight {
-		c.bestQCCandidate = bestQCAvailable
-	}
 
 	// under these two circumstance:
 	// A -- B -- C          or          A -- B -- C
@@ -1019,94 +979,10 @@ func (c *Chain) UpdateBestQC(qc *block.QuorumCert, source QCSource) (bool, error
 	return false, nil
 }
 
-/*
-func (c *Chain) UpdateBestQC() (bool, error) {
-	if c.leafBlock.ID().String() == c.bestBlock.ID().String() {
-		// when leaf is the same with best, usually this is during initialization (before pacemaker) or after pacemaker
-		if c.bestQCCandidate != nil && c.bestQCCandidate.QCHeight > c.bestQC.QCHeight && c.bestQCCandidate.QCHeight <= c.bestBlock.Number() {
-			// bestQC < QCCandidate <= bestBlock, update bestQC with QCCandidate
-			c.bestQC = c.bestQCCandidate
-			c.bestQCCandidate = nil
-			log.Info("Update bestQC", "to", c.bestQC.CompactString(), "condition", "leaf_is_best")
-		} else if c.bestQC.QCHeight <= c.bestBlock.QC.QCHeight {
-			// bestQC < bestBlock
-			// bestBlock synced via gossip, update bestQC with it
-			c.bestQC = c.bestBlock.QC
-			log.Info("Update bestQC", "to", c.bestQC.CompactString(), "condition", "leaf_is_best")
-		} else {
-			return false, nil
-		}
-		return true, saveBestQC(c.kv, c.bestQC)
-	}
-	if c.bestQCCandidate != nil && c.bestQCCandidate.QCHeight == c.bestBlock.Number() &&
-		c.bestQCCandidate.QCHeight > c.bestQC.QCHeight {
-		// bestQC < QCCandidate == bestBlock
-		c.bestQC = c.bestQCCandidate
-		c.bestQCCandidate = nil
-		log.Info("Update bestQC", "to", c.bestQC.CompactString())
-		return true, saveBestQC(c.kv, c.bestQC)
-	}
-	id, err := c.ancestorTrie.GetAncestor(c.leafBlock.ID(), c.bestBlock.Number()+1)
-	if err != nil {
-		return false, err
-	}
-	raw, err := loadBlockRaw(c.kv, id)
-	if err != nil {
-		return false, err
-	}
-	blk, err := raw.DecodeBlockBody()
-	if err != nil {
-		return false, err
-	}
-	if blk.ParentID().String() != c.bestBlock.ID().String() {
-		return false, errors.New("parent mismatch ")
-	}
-	if c.bestQC.QCHeight != blk.QC.QCHeight && c.bestQC.QCRound != blk.QC.QCRound {
-		c.bestQC = blk.QC
-		log.Info("Update bestQC", "to", c.bestQC.CompactString())
-		return true, saveBestQC(c.kv, c.bestQC)
-	}
-	return false, nil
-}
-***/
-
-func (c *Chain) SetBestQCCandidate(qc *block.QuorumCert) bool {
-	if qc == nil {
-		return false
-	}
-	if qc.QCHeight < c.bestBlock.Number() {
-		// if qc is lower than best block, ignore
-		log.Debug(fmt.Sprintf("qc height (%d) is lower than best block height (%d), ignored", qc.QCHeight, c.bestBlock.Number()))
-		return false
-	}
-	if c.bestQCCandidate != nil && qc.QCHeight < c.bestQCCandidate.QCHeight {
-		// if qc is lower than best qc candidate, ignore
-		log.Debug(fmt.Sprintf("qc height (%d) is lower than best qc candidate height (%d), ignored", qc.QCHeight, c.bestQCCandidate.QCHeight))
-		return false
-	}
-	if c.bestQCCandidate != nil && qc.QCHeight == c.bestQCCandidate.QCHeight && qc.QCRound == c.bestQCCandidate.QCRound && qc.EpochID == c.bestQCCandidate.EpochID {
-		// if qc is the same as candidate, ignore
-		return false
-	}
-	c.bestQCCandidate = qc
-	log.Debug("Update QC Candidate", "qc", c.bestQCCandidate.CompactString())
-	return true
-}
-
-func (c *Chain) GetBestQCCandidate() *block.QuorumCert {
-	return c.bestQCCandidate
-}
-
 func (c *Chain) UpdateBestQCWithChainLock(qc *block.QuorumCert, source QCSource) (bool, error) {
 	c.rw.Lock()
 	defer c.rw.Unlock()
 	return c.UpdateBestQC(qc, source)
-}
-
-func (c *Chain) SetBestQCCandidateWithChainLock(qc *block.QuorumCert) bool {
-	c.rw.Lock()
-	defer c.rw.Unlock()
-	return c.SetBestQCCandidate(qc)
 }
 
 func (c *Chain) FindEpochOnBlock(num uint32) (uint64, error) {

@@ -295,7 +295,7 @@ func (p *Pacemaker) OnReceiveProposal(mi *IncomingMsg) {
 
 	qcNode := parent
 	// we have qcNode, need to check qcNode and blk.QC is referenced the same
-	if match, err := BlockMatchQC(qcNode, qc); match && err == nil {
+	if match, err := draftBlockMatchQC(qcNode, qc); match && err == nil {
 		p.logger.Debug("addressed qcNode ...", "qcHeight", qc.QCHeight, "qcRound", qc.QCRound)
 	} else {
 		p.logger.Error("parent doesn't match qc from proposal, potential fork happens...", "qcHeight", qc.QCHeight, "qcRound", qc.QCRound, "parent", parent.ProposedBlock.ID().ToBlockShortID())

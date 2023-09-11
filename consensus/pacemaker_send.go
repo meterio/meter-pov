@@ -175,7 +175,7 @@ func (p *Pacemaker) BuildTimeoutMessage(qcHigh *draftQC, ti *PMRoundTimeoutInfo,
 
 // qc is for that block?
 // blk is derived from draftBlock message. pass it in if already decoded
-func BlockMatchQC(b *draftBlock, qc *block.QuorumCert) (bool, error) {
+func draftBlockMatchQC(b *draftBlock, qc *block.QuorumCert) (bool, error) {
 
 	if b == nil {
 		// decode block to get qc
@@ -190,7 +190,12 @@ func BlockMatchQC(b *draftBlock, qc *block.QuorumCert) (bool, error) {
 
 	blk := b.ProposedBlock
 
-	voteHash := BuildBlockVotingHash(uint32(b.BlockType), uint64(b.Height), blk.ID(), blk.TxsRoot(), blk.StateRoot())
+	return BlockMatchQC(blk, qc)
+}
+
+func BlockMatchQC(blk *block.Block, qc *block.QuorumCert) (bool, error) {
+
+	voteHash := BuildBlockVotingHash(uint32(blk.BlockType()), uint64(blk.Number()), blk.ID(), blk.TxsRoot(), blk.StateRoot())
 	//qc at least has 1 vote signature and they are the same, so compare [0] is good enough
 	if bytes.Equal(voteHash[:], qc.VoterMsgHash[:]) {
 		log.Debug("QC matches block", "qc", qc.String(), "block", blk.String())

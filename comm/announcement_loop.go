@@ -78,13 +78,13 @@ func (c *Communicator) fetchBlockByID(peer *Peer, newBlockID meter.Bytes32) {
 		return
 	}
 
-	var blk block.Block
+	var blk block.EscortedBlock
 	if err := rlp.DecodeBytes(result, &blk); err != nil {
 		peer.logger.Debug("failed to decode block got by id", "err", err)
 		return
 	}
 
 	c.newBlockFeed.Send(&NewBlockEvent{
-		Block: &blk,
+		EscortedBlock: &blk,
 	})
 }

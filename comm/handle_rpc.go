@@ -46,14 +46,14 @@ func (c *Communicator) handleRPC(peer *Peer, msg *p2p.Msg, write func(interface{
 			BestBlockID:    best.ID(),
 		})
 	case proto.MsgNewBlock:
-		var newBlock *block.Block
+		var newBlock *block.EscortedBlock
 		if err := msg.Decode(&newBlock); err != nil {
 			return errors.WithMessage(err, "decode msg")
 		}
 
-		peer.MarkBlock(newBlock.ID())
-		peer.UpdateHead(newBlock.ID(), newBlock.TotalScore())
-		c.newBlockFeed.Send(&NewBlockEvent{Block: newBlock})
+		peer.MarkBlock(newBlock.Block.ID())
+		peer.UpdateHead(newBlock.Block.ID(), newBlock.Block.TotalScore())
+		c.newBlockFeed.Send(&NewBlockEvent{EscortedBlock: newBlock})
 		write(&struct{}{})
 	case proto.MsgNewBlockID:
 		var newBlockID meter.Bytes32
@@ -80,13 +80,28 @@ func (c *Communicator) handleRPC(peer *Peer, msg *p2p.Msg, write func(interface{
 			return errors.WithMessage(err, "decode msg")
 		}
 		var result []rlp.RawValue
-		raw, err := c.chain.GetBlockRaw(blockID)
+		blk, err := c.chain.GetBlock(blockID)
 		if err != nil {
 			if !c.chain.IsNotFound(err) {
 				log.Error("failed to get block", "err", err)
 			}
 		} else {
-			result = append(result, rlp.RawValue(raw))
+			num := blk.Number()
+			var escortQC *block.QuorumCert
+			if num == c.chain.BestBlock().Number() {
+				escortQC = c.chain.BestQC()
+			} else {
+				child, err := c.chain.GetTrunkBlock(num + 1)
+				if err != nil {
+					log.Error("failed to get block id by number", "err", err)
+				} else {
+					escortQC = child.QC
+				}
+			}
+			if escortQC != nil && blk != nil {
+				rlp.EncodeToBytes(&block.EscortedBlock{Block: blk, EscortQC: escortQC})
+			}
+
 		}
 		write(result)
 	case proto.MsgGetBlockIDByNumber:
@@ -115,11 +130,23 @@ func (c *Communicator) handleRPC(peer *Peer, msg *p2p.Msg, write func(interface{
 		result := make([]rlp.RawValue, 0, maxBlocks)
 		var size metric.StorageSize
 		for size < maxSize && len(result) < maxBlocks {
-			raw, err := c.chain.GetTrunkBlockRaw(num)
+			blk, err := c.chain.GetTrunkBlock(num)
 			if err != nil {
 				if !c.chain.IsNotFound(err) {
 					log.Debug("failed to get block raw by number", "err", err)
 				}
+				break
+			}
+			nxtBlk, _ := c.chain.GetTrunkBlock(num + 1)
+			var escortQC *block.QuorumCert
+			if nxtBlk != nil {
+				escortQC = nxtBlk.QC
+			} else {
+				escortQC = c.chain.BestQC()
+			}
+			raw, err := rlp.EncodeToBytes(&block.EscortedBlock{Block: blk, EscortQC: escortQC})
+			if err != nil {
+				log.Error("could not encode escorted block")
 				break
 			}
 			result = append(result, rlp.RawValue(raw))
@@ -177,38 +204,7 @@ func (c *Communicator) handleRPC(peer *Peer, msg *p2p.Msg, write func(interface{
 		//peer.MarkPowBlock(powID)
 		//c.powPool.Add(newPowBlockInfo)
 		//write(&struct{}{})
-	case proto.MsgGetBestQC:
-		var magic [4]byte
 
-		// genesis does not have magic. treat it specially.
-		if c.chain.BestBlock().Number() == 0 {
-			magic = block.BlockMagicVersion1
-		} else {
-			magic = c.chain.BestBlock().GetMagic()
-		}
-
-		if magic != block.BlockMagicVersion1 {
-			log.Warn("block magic is not expected", "has", magic, "expect", block.BlockMagicVersion1)
-		}
-
-		qc := c.chain.BestQCOrCandidate()
-		write(&proto.WireQC{magic, qc})
-	case proto.MsgNewBestQC:
-		var newQC *proto.WireQC //*block.QuorumCert
-		if err := msg.Decode(&newQC); err != nil {
-			return errors.WithMessage(err, "decode msg")
-		}
-
-		if newQC.Magic != block.BlockMagicVersion1 {
-			str := fmt.Sprintf("magic mismatch, has %v, expect %v", newQC.Magic, block.BlockMagicVersion1)
-			log.Error("receive bestQC", "error", str)
-			return errors.WithMessage(err, str)
-		}
-
-		//fmt.Println("WRITE QC: ", newQC.QC.String())
-		log.Debug("SetBestQCCandidate", "QC", newQC.QC.String())
-		c.chain.SetBestQCCandidate(newQC.QC)
-		write(&struct{}{})
 	default:
 		return fmt.Errorf("unknown message (%v)", msg.Code)
 	}

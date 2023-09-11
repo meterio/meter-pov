@@ -90,7 +90,7 @@ func New(
 }
 
 func (n *Node) Run(ctx context.Context) error {
-	n.comm.Sync(n.handleBlockStream, n.handleQC)
+	n.comm.Sync(n.handleBlockStream)
 
 	n.goes.Go(func() { n.houseKeeping(ctx) })
 	n.goes.Go(func() { n.txStashLoop(ctx) })
@@ -101,15 +101,7 @@ func (n *Node) Run(ctx context.Context) error {
 	return nil
 }
 
-func (n *Node) handleQC(ctx context.Context, qc *block.QuorumCert) (updated bool, err error) {
-	log.Debug("start to handle received qc")
-	defer log.Debug("handle qc done", "err", err)
-
-	//log.Debug("handle QC, SetBestQCCandidate", "QC", qc.String())
-	return n.chain.SetBestQCCandidateWithChainLock(qc), nil
-}
-
-func (n *Node) handleBlockStream(ctx context.Context, stream <-chan *block.Block) (err error) {
+func (n *Node) handleBlockStream(ctx context.Context, stream <-chan *block.EscortedBlock) (err error) {
 	log.Debug("start to process block stream")
 	defer log.Debug("process block stream done", "err", err)
 	var stats blockStats
@@ -121,10 +113,10 @@ func (n *Node) handleBlockStream(ctx context.Context, stream <-chan *block.Block
 		startTime = mclock.Now()
 	}
 
-	var blk *block.Block
+	var blk *block.EscortedBlock
 	for blk = range stream {
 		log.Debug("handle block", "block", blk)
-		if isTrunk, err := n.processBlock(blk, &stats); err != nil {
+		if isTrunk, err := n.processBlock(blk.Block, blk.EscortQC, &stats); err != nil {
 			return err
 		} else if isTrunk {
 			// this processBlock happens after consensus SyncDone, need to broadcast
@@ -135,7 +127,7 @@ func (n *Node) handleBlockStream(ctx context.Context, stream <-chan *block.Block
 
 		if stats.processed > 0 &&
 			mclock.Now()-startTime > mclock.AbsTime(time.Second*2) {
-			report(blk)
+			report(blk.Block)
 		}
 
 		select {
@@ -145,7 +137,7 @@ func (n *Node) handleBlockStream(ctx context.Context, stream <-chan *block.Block
 		}
 	}
 	if blk != nil && stats.processed > 0 {
-		report(blk)
+		report(blk.Block)
 	}
 	return nil
 }
@@ -176,31 +168,31 @@ func (n *Node) houseKeeping(ctx context.Context) {
 			return
 		case newBlock := <-newBlockCh:
 			var stats blockStats
-			if isTrunk, err := n.processBlock(newBlock.Block, &stats); err != nil {
+			if isTrunk, err := n.processBlock(newBlock.Block, newBlock.EscortQC, &stats); err != nil {
 				if consensus.IsFutureBlock(err) ||
-					(consensus.IsParentMissing(err) && futureBlocks.Contains(newBlock.Header().ParentID())) {
-					log.Debug("future block added", "id", newBlock.ID())
-					futureBlocks.Set(newBlock.ID(), newBlock.Block)
+					(consensus.IsParentMissing(err) && futureBlocks.Contains(newBlock.Block.Header().ParentID())) {
+					log.Debug("future block added", "id", newBlock.Block.ID())
+					futureBlocks.Set(newBlock.Block.ID(), newBlock)
 				}
 			} else if isTrunk {
-				n.comm.BroadcastBlock(newBlock.Block)
+				n.comm.BroadcastBlock(newBlock.EscortedBlock)
 				// log.Info(fmt.Sprintf("imported blocks (%v)", stats.processed), stats.LogContext(newBlock.Block.Header())...)
 			}
 		case <-futureTicker.C:
 			// process future blocks
-			var blocks []*block.Block
+			var blocks []*block.EscortedBlock
 			futureBlocks.ForEach(func(ent *cache.Entry) bool {
-				blocks = append(blocks, ent.Value.(*block.Block))
+				blocks = append(blocks, ent.Value.(*block.EscortedBlock))
 				return true
 			})
 			sort.Slice(blocks, func(i, j int) bool {
-				return blocks[i].Number() < blocks[j].Number()
+				return blocks[i].Block.Number() < blocks[j].Block.Number()
 			})
 			var stats blockStats
 			for i, block := range blocks {
-				if isTrunk, err := n.processBlock(block, &stats); err == nil || consensus.IsKnownBlock(err) {
-					log.Debug("future block consumed", "id", block.ID())
-					futureBlocks.Remove(block.ID())
+				if isTrunk, err := n.processBlock(block.Block, block.EscortQC, &stats); err == nil || consensus.IsKnownBlock(err) {
+					log.Debug("future block consumed", "id", block.Block.ID())
+					futureBlocks.Remove(block.Block.ID())
 					if isTrunk {
 						n.comm.BroadcastBlock(block)
 					}
@@ -267,9 +259,13 @@ func (n *Node) txStashLoop(ctx context.Context) {
 	}
 }
 
-func (n *Node) processBlock(blk *block.Block, stats *blockStats) (bool, error) {
+func (n *Node) processBlock(blk *block.Block, escortQC *block.QuorumCert, stats *blockStats) (bool, error) {
 	startTime := mclock.Now()
 	now := uint64(time.Now().Unix())
+	QCValid, err := consensus.BlockMatchQC(blk, escortQC)
+	if !QCValid || err != nil {
+		return false, errors.New("invalid QC")
+	}
 	stage, receipts, err := n.cons.ProcessSyncedBlock(blk, now)
 	if err != nil {
 		switch {
@@ -294,7 +290,7 @@ func (n *Node) processBlock(blk *block.Block, stats *blockStats) (bool, error) {
 		return false, err
 	}
 
-	fork, err := n.commitBlock(blk, receipts)
+	fork, err := n.commitBlock(blk, escortQC, receipts)
 	if err != nil {
 		if !n.chain.IsBlockExist(err) {
 			log.Error("failed to commit block", "err", err)
@@ -332,7 +328,7 @@ func (n *Node) processBlock(blk *block.Block, stats *blockStats) (bool, error) {
 	return len(fork.Trunk) > 0, nil
 }
 
-func (n *Node) commitBlock(newBlock *block.Block, receipts tx.Receipts) (*chain.Fork, error) {
+func (n *Node) commitBlock(newBlock *block.Block, escortQC *block.QuorumCert, receipts tx.Receipts) (*chain.Fork, error) {
 	n.commitLock.Lock()
 	defer n.commitLock.Unlock()
 	start := time.Now()
@@ -342,6 +338,8 @@ func (n *Node) commitBlock(newBlock *block.Block, receipts tx.Receipts) (*chain.
 		return nil, err
 	}
 	log.Info(fmt.Sprintf("synced %v", newBlock.ShortID()), "txs", len(newBlock.Txs), "epoch", newBlock.GetBlockEpoch(), "elapsed", meter.PrettyDuration(time.Since(start)))
+
+	n.chain.UpdateBestQC(escortQC, chain.LocalCommit)
 
 	if meter.IsMainNet() {
 		if newBlock.Number() == meter.TeslaMainnetStartNum {
