@@ -51,7 +51,7 @@ func (m *WishVoteManager) AddVote(index uint32, epoch uint64, round uint32, sig 
 	if MajorityTwoThird(voteCount, m.committeeSize) {
 		m.logger.Info(
 			fmt.Sprintf("TC formed on (E:%d,R:%d), future votes will be ignored.", epoch, round), "voted", fmt.Sprintf("%d/%d", voteCount, m.committeeSize))
-		m.Seal(epoch, round)
+		m.seal(epoch, round)
 	}
 	return nil
 }
@@ -61,12 +61,13 @@ func (m *WishVoteManager) Count(epoch uint64, round uint32) uint32 {
 	return uint32(len(m.votes[key]))
 }
 
-func (m *WishVoteManager) Seal(epoch uint64, round uint32) {
+func (m *WishVoteManager) seal(epoch uint64, round uint32) {
 	key := timeoutVoteKey{Epoch: epoch, Round: round}
 	m.sealed[key] = true
 }
 
 func (m *WishVoteManager) Aggregate(epoch uint64, round uint32) *TimeoutCert {
+	m.seal(epoch, round)
 	sigs := make([]bls.Signature, 0)
 	key := timeoutVoteKey{Epoch: epoch, Round: round}
 

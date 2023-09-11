@@ -225,7 +225,7 @@ func (p *Pacemaker) OnCommit(commitReady []commitReadyBlock) {
 
 		if blk.BlockType == KBlockType {
 			p.logger.Info("committed a kblock, stop pacemaker", "height", blk.Height, "round", blk.Round)
-			p.SendKblockInfo(blk)
+			p.SendEpochEndInfo(blk)
 			// p.Stop()
 		}
 
@@ -293,32 +293,19 @@ func (p *Pacemaker) OnReceiveProposal(mi *IncomingMsg) {
 		return
 	}
 
-	// address qcNode
 	qcNode := parent
-
 	// we have qcNode, need to check qcNode and blk.QC is referenced the same
 	if match, err := BlockMatchQC(qcNode, qc); match && err == nil {
 		p.logger.Debug("addressed qcNode ...", "qcHeight", qc.QCHeight, "qcRound", qc.QCRound)
 	} else {
-		// possible fork !!! TODO: handle?
-		p.logger.Error("qcNode doesn't match qc from proposal, potential fork happens...", "qcHeight", qc.QCHeight, "qcRound", qc.QCRound)
+		p.logger.Error("parent doesn't match qc from proposal, potential fork happens...", "qcHeight", qc.QCHeight, "qcRound", qc.QCRound, "parent", parent.ProposedBlock.ID().ToBlockShortID())
 
-		// TBD: How to handle this??
-		// if this block does not have Qc yet, revertTo previous
-		// if this block has QC, The real one need to be replaced
-		// anyway, get the new one.
-		// put this proposal to pending list, and sent out query
-		// if err := p.pendingProposal(qc.QCHeight, qc.QCRound, msg.GetEpoch(), mi); err != nil {
-		// 	p.logger.Error("handle pending proposal failed", "error", err)
-		// }
-
-		// theoratically, this should not be worried anymore, since the parent is addressed by blockID
-		// instead of height, we already supported the fork in proposal space
-		// so if the qc doesn't match block known to me, cases are:
-		// 1. I don't have the correct parent, I will assume that others do and i'll do nothing
-		// 2. The proposal is invalid and I should not vote
-		// in these both cases, I should wait instead of react
-		//TODO: think more about this
+		// Theoratically, this should not be worrisome anymore, since the parent is addressed by blockID
+		// instead of addressing proposal by height, we already supported the fork in proposal space
+		// so if the qc doesn't match parent proposal known to me, cases are:
+		// 1. I don't have the correct parent, I will assume that others to commit to the right one and i'll do nothing
+		// 2. The current proposal is invalid and I should not vote
+		// in both cases, I should wait instead of sending messages to confuse peers
 		return
 	}
 
@@ -328,7 +315,7 @@ func (p *Pacemaker) OnReceiveProposal(mi *IncomingMsg) {
 	// revert the proposals if I'm not the round proposer and I received a proposal with a valid TC
 	validTimeout := p.verifyTimeoutCert(msg.TimeoutCert, msg.Round)
 
-	// update the proposalMap if current proposal was not tracked before
+	// place the current proposal in proposal space
 	if p.proposalMap.GetByID(blk.ID()) == nil {
 		p.proposalMap.Add(&draftBlock{
 			Height:        height,
@@ -342,17 +329,15 @@ func (p *Pacemaker) OnReceiveProposal(mi *IncomingMsg) {
 	}
 
 	bnew := p.proposalMap.GetByID(blk.ID())
-	if ((bnew.Height > p.lastVotingHeight) &&
-		(p.IsExtendedFromBLocked(bnew) || bnew.Justify.QC.QCHeight > p.blockLocked.Height)) || validTimeout {
-
+	if bnew.Height > p.lastVotingHeight && p.IsExtendedFromBLocked(bnew) {
 		if validTimeout {
-			p.updateCurrentRound(bnew.Round, UpdateOnTimeoutCertProposal)
+			p.enterRound(bnew.Round, UpdateOnTimeoutCertProposal)
 		} else {
-			if BlockType(msg.DecodeBlock().BlockType()) == KBlockType {
+			if msg.DecodeBlock().IsKBlock() {
 				// if proposed block is KBlock, reset the timer with extra time cushion
-				p.updateCurrentRound(bnew.Round, UpdateOnKBlockProposal)
+				p.enterRound(bnew.Round, UpdateOnKBlockProposal)
 			} else {
-				p.updateCurrentRound(bnew.Round, UpdateOnRegularProposal)
+				p.enterRound(bnew.Round, UpdateOnRegularProposal)
 			}
 		}
 
@@ -438,9 +423,6 @@ func (p *Pacemaker) OnReceiveVote(mi *IncomingMsg) {
 	}
 	p.logger.Info(
 		fmt.Sprintf("QC formed on proposal(H:%d,R:%d,B:%v), future votes will be ignored.", height, round, msg.VoteBlockID), "voted", fmt.Sprintf("%d/%d", voteCount, p.reactor.committeeSize))
-
-	// seal the signature, avoid re-trigger
-	p.proposalVoteManager.Seal(height, round, msg.VoteBlockID)
 
 	//reach 2/3 majority, trigger the pipeline cmd
 	qc := p.proposalVoteManager.Aggregate(height, round, msg.VoteBlockID, p.reactor.curEpoch)
@@ -549,7 +531,7 @@ func (p *Pacemaker) OnBeat(epoch uint64, round uint32, reason beatReason) {
 		return
 	}
 
-	p.updateCurrentRound(round, UpdateOnBeat)
+	p.enterRound(round, UpdateOnBeat)
 	pmRoleGauge.Set(2) // leader
 	p.logger.Info("I AM round proposer", "round", round)
 
@@ -565,7 +547,8 @@ func (p *Pacemaker) OnReceiveTimeout(mi *IncomingMsg) {
 		return
 	}
 
-	needOnbeat := false
+	tcUpdated := false
+	qcUpdated := false
 
 	// collect wish vote to see if TC is formed
 	p.wishVoteManager.AddVote(msg.SignerIndex, msg.Epoch, msg.WishRound, msg.WishVoteSig, msg.WishVoteHash)
@@ -573,7 +556,7 @@ func (p *Pacemaker) OnReceiveTimeout(mi *IncomingMsg) {
 	if MajorityTwoThird(timeoutVoteCount, p.reactor.committeeSize) {
 		tc := p.wishVoteManager.Aggregate(msg.Epoch, msg.WishRound)
 		p.TCHigh = tc
-		needOnbeat = true
+		tcUpdated = true
 	}
 
 	// collect vote and see if QC is formed
@@ -581,12 +564,11 @@ func (p *Pacemaker) OnReceiveTimeout(mi *IncomingMsg) {
 	voteCount := p.proposalVoteManager.Count(msg.LastVoteHeight, msg.LastVoteRound, msg.LastVoteBlockID)
 	if MajorityTwoThird(voteCount, p.reactor.committeeSize) {
 		// TODO: new qc formed
-		p.proposalVoteManager.Seal(msg.LastVoteHeight, msg.LastVoteRound, msg.LastVoteBlockID)
 		qc := p.proposalVoteManager.Aggregate(msg.LastVoteHeight, msg.LastVoteRound, msg.LastVoteBlockID, p.reactor.curEpoch)
 		matchingQCNode := p.proposalMap.GetOneByMatchingQC(qc)
 		updated := p.UpdateQCHigh(&draftQC{QCNode: matchingQCNode, QC: qc})
 		if updated {
-			needOnbeat = true
+			qcUpdated = true
 		}
 	}
 
@@ -594,11 +576,14 @@ func (p *Pacemaker) OnReceiveTimeout(mi *IncomingMsg) {
 	qcNode := p.proposalMap.GetOneByMatchingQC(qc)
 	updated := p.UpdateQCHigh(&draftQC{QCNode: qcNode, QC: qc})
 	if updated {
-		needOnbeat = true
+		qcUpdated = true
 	}
 
-	if needOnbeat {
-		p.ScheduleOnBeat(p.reactor.curEpoch, msg.WishRound, BeatOnHigherQC, 500*time.Millisecond)
+	if qcUpdated {
+		p.ScheduleOnBeat(p.reactor.curEpoch, p.QCHigh.QC.QCRound+1, BeatOnHigherQC, 500*time.Millisecond)
+	}
+	if tcUpdated {
+		p.ScheduleOnBeat(p.reactor.curEpoch, p.TCHigh.Round, BeatOnHigherQC, 500*time.Millisecond)
 	}
 }
 
@@ -665,7 +650,7 @@ func (p *Pacemaker) Regulate() {
 }
 
 func (p *Pacemaker) ScheduleOnBeat(epoch uint64, round uint32, reason beatReason, d time.Duration) {
-	// p.updateCurrentRound(round, IncRoundOnBeat)
+	// p.enterRound(round, IncRoundOnBeat)
 	time.AfterFunc(d, func() {
 		p.beatCh <- PMBeatInfo{epoch, round, reason}
 	})
@@ -747,7 +732,7 @@ func (p *Pacemaker) mainLoop() {
 	}
 }
 
-func (p *Pacemaker) SendKblockInfo(b *draftBlock) {
+func (p *Pacemaker) SendEpochEndInfo(b *draftBlock) {
 	// clean off chain for next committee.
 	blk := b.ProposedBlock
 	if blk.IsKBlock() {
@@ -767,7 +752,7 @@ func (p *Pacemaker) SendKblockInfo(b *draftBlock) {
 func (p *Pacemaker) OnRoundTimeout(ti PMRoundTimeoutInfo) {
 	p.logger.Warn(fmt.Sprintf("round %d timeout", ti.round), "counter", p.timeoutCounter)
 
-	updated := p.updateCurrentRound(ti.round+1, UpdateOnTimeout)
+	updated := p.enterRound(ti.round+1, UpdateOnTimeout)
 	newTi := &PMRoundTimeoutInfo{
 		height:  p.QCHigh.QC.QCHeight + 1,
 		round:   p.currentRound,
@@ -784,10 +769,9 @@ func (p *Pacemaker) OnRoundTimeout(ti PMRoundTimeoutInfo) {
 			p.sendMsg(msg, false)
 		}
 	}
-
 }
 
-func (p *Pacemaker) updateCurrentRound(round uint32, reason roundUpdateReason) bool {
+func (p *Pacemaker) enterRound(round uint32, reason roundUpdateReason) bool {
 	updated := (p.currentRound != round)
 	switch reason {
 	case UpdateOnBeat:
@@ -811,7 +795,9 @@ func (p *Pacemaker) updateCurrentRound(round uint32, reason roundUpdateReason) b
 			p.resetRoundTimer(round, TimerInitLong)
 		}
 	case UpdateOnTimeoutCertProposal:
-		p.resetRoundTimer(round, TimerInit)
+		if round >= p.currentRound {
+			p.resetRoundTimer(round, TimerInit)
+		}
 	case UpdateOnTimeout:
 		p.resetRoundTimer(round, TimerInc)
 	}

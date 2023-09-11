@@ -60,7 +60,7 @@ func (m *ProposalVoteManager) AddVote(index, height, round uint32, blockID meter
 	if MajorityTwoThird(voteCount, m.committeeSize) {
 		m.logger.Info(
 			fmt.Sprintf("QC formed on Proposal(H:%d,R:%d,B:%v), future votes will be ignored.", height, round, blockID.ToBlockShortID()), "voted", fmt.Sprintf("%d/%d", voteCount, m.committeeSize))
-		m.Seal(height, round, blockID)
+		m.seal(height, round, blockID)
 	}
 	return nil
 }
@@ -70,12 +70,13 @@ func (m *ProposalVoteManager) Count(height, round uint32, blockID meter.Bytes32)
 	return uint32(len(m.votes[key]))
 }
 
-func (m *ProposalVoteManager) Seal(height, round uint32, blockID meter.Bytes32) {
+func (m *ProposalVoteManager) seal(height, round uint32, blockID meter.Bytes32) {
 	key := voteKey{Height: height, Round: round, BlockID: blockID}
 	m.sealed[key] = true
 }
 
 func (m *ProposalVoteManager) Aggregate(height, round uint32, blockID meter.Bytes32, epoch uint64) *block.QuorumCert {
+	m.seal(height, round, blockID)
 	sigs := make([]bls.Signature, 0)
 	key := voteKey{Height: height, Round: round, BlockID: blockID}
 

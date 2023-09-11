@@ -491,7 +491,7 @@ func (r *Reactor) buildKBlockTxs(parentBlock *block.Block, rewards []powpool.Pow
 
 	// edison not support the staking/auciton/slashing
 	if meter.IsTesla(parentBlock.Number()) {
-		stats, err := governor.ComputeStatistics(lastKBlockHeight, parentBlock.Number(), r.chain, r.curCommittee, r.curActualCommittee, r.blsCommon, r.pacemaker.calcStatsTx, uint32(r.curEpoch))
+		stats, err := governor.ComputeStatistics(lastKBlockHeight, parentBlock.Number(), r.chain, r.curCommittee, r.curActualCommittee, r.blsCommon, !r.config.InitCfgdDelegates, uint32(r.curEpoch))
 		if err != nil {
 			// TODO: do something about this
 			r.logger.Info("no slash statistics need to info", "error", err)
