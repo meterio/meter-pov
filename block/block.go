@@ -6,7 +6,10 @@
 package block
 
 import (
+	"bytes"
+	"crypto/sha256"
 	"encoding/base64"
+	"encoding/binary"
 	"encoding/hex"
 	"fmt"
 	"io"
@@ -147,6 +150,19 @@ func Compose(header *Header, txs tx.Transactions) *Block {
 	return &Block{
 		BlockHeader: header,
 		Txs:         append(tx.Transactions(nil), txs...),
+	}
+}
+
+// TODO: check QC thoroughly
+func (blk *Block) MatchQC(qc *QuorumCert) (bool, error) {
+	voteHash := blk.VotingHash()
+	//qc at least has 1 vote signature and they are the same, so compare [0] is good enough
+	if bytes.Equal(voteHash[:], qc.VoterMsgHash[:]) {
+		fmt.Println("QC matches block", "qc", qc.String(), "block", blk.String())
+		return true, nil
+	} else {
+		fmt.Println("QC doesn't matches block", "msgHash", meter.Bytes32(voteHash).String(), "qc.VoteHash", meter.Bytes32(qc.VoterMsgHash).String())
+		return false, nil
 	}
 }
 
@@ -511,4 +527,22 @@ func BlockDecodeFromBytes(bytes []byte) (*Block, error) {
 	err := rlp.DecodeBytes(bytes, &blk)
 	//fmt.Println("decode failed", err)
 	return &blk, err
+}
+
+// Vote Message Hash
+// "Proposal Block Message: BlockType <8 bytes> Height <16 (8x2) bytes> Round <8 (4x2) bytes>
+func (b *Block) VotingHash() [32]byte {
+	c := make([]byte, binary.MaxVarintLen32)
+	binary.BigEndian.PutUint32(c, b.BlockType())
+
+	h := make([]byte, binary.MaxVarintLen64)
+	binary.BigEndian.PutUint64(h, uint64(b.Number()))
+
+	msg := fmt.Sprintf("%s %s %s %s %s %s %s %s %s %s",
+		"BlockType", hex.EncodeToString(c),
+		"Height", hex.EncodeToString(h),
+		"BlockID", b.ID().String(),
+		"TxRoot", b.TxsRoot().String(),
+		"StateRoot", b.StateRoot().String())
+	return sha256.Sum256([]byte(msg))
 }

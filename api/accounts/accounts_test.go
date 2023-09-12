@@ -239,7 +239,9 @@ func packTx(chain *chain.Chain, stateC *state.Creator, transaction *tx.Transacti
 	if _, err := stage.Commit(); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := chain.AddBlock(b, nil, receipts); err != nil {
+	b.SetQC(&block.QuorumCert{QCHeight: 1, QCRound: 1, EpochID: 1})
+	escortQC := &block.QuorumCert{QCHeight: b.Number(), QCRound: b.QC.QCRound + 1, EpochID: b.QC.EpochID, VoterMsgHash: b.VotingHash()}
+	if _, err := chain.AddBlock(b, escortQC, receipts); err != nil {
 		t.Fatal(err)
 	}
 }

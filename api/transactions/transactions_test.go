@@ -205,7 +205,9 @@ func initTransactionServer(t *testing.T) {
 	if _, err := stage.Commit(); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := c.AddBlock(b, nil, receipts); err != nil {
+	b.SetQC(&block.QuorumCert{QCHeight: 1, QCRound: 1, EpochID: 0})
+	escortQC := &block.QuorumCert{QCHeight: b.Number(), QCRound: b.QC.QCRound + 1, EpochID: b.QC.EpochID, VoterMsgHash: b.VotingHash()}
+	if _, err := c.AddBlock(b, escortQC, receipts); err != nil {
 		t.Fatal(err)
 	}
 	router := mux.NewRouter()

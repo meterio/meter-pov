@@ -10,7 +10,6 @@ package consensus
 // 2. send messages to peer
 
 import (
-	"bytes"
 	"errors"
 	"time"
 
@@ -18,7 +17,6 @@ import (
 
 	crypto "github.com/ethereum/go-ethereum/crypto"
 	"github.com/meterio/meter-pov/block"
-	"github.com/meterio/meter-pov/meter"
 )
 
 func (p *Pacemaker) sendMsg(msg ConsensusMessage, copyMyself bool) bool {
@@ -96,7 +94,7 @@ func (p *Pacemaker) BuildProposalMessage(height, round uint32, bnew *draftBlock,
 func (p *Pacemaker) BuildVoteMessage(proposalMsg *PMProposalMessage) (*PMVoteMessage, error) {
 
 	proposedBlock := proposalMsg.DecodeBlock()
-	voteHash := BuildBlockVotingHash(uint32(proposedBlock.BlockType()), uint64(proposalMsg.Height), proposedBlock.ID(), proposedBlock.TxsRoot(), proposedBlock.StateRoot())
+	voteHash := proposedBlock.VotingHash()
 	voteSig := p.reactor.blsCommon.SignHash(voteHash)
 	// p.logger.Debug("Built PMVoteMessage", "signMsg", signMsg)
 
@@ -190,18 +188,5 @@ func draftBlockMatchQC(b *draftBlock, qc *block.QuorumCert) (bool, error) {
 
 	blk := b.ProposedBlock
 
-	return BlockMatchQC(blk, qc)
-}
-
-func BlockMatchQC(blk *block.Block, qc *block.QuorumCert) (bool, error) {
-
-	voteHash := BuildBlockVotingHash(uint32(blk.BlockType()), uint64(blk.Number()), blk.ID(), blk.TxsRoot(), blk.StateRoot())
-	//qc at least has 1 vote signature and they are the same, so compare [0] is good enough
-	if bytes.Equal(voteHash[:], qc.VoterMsgHash[:]) {
-		log.Debug("QC matches block", "qc", qc.String(), "block", blk.String())
-		return true, nil
-	} else {
-		log.Warn("QC doesn't matches block", "msgHash", meter.Bytes32(voteHash).String(), "qc.VoteHash", meter.Bytes32(qc.VoterMsgHash).String())
-		return false, nil
-	}
+	return blk.MatchQC(qc)
 }

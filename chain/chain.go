@@ -130,6 +130,7 @@ func New(kv kv.GetPutter, genesisBlock *block.Block, verbose bool) (*Chain, erro
 		if bestBlock.Number() == 0 && bestBlock.QC == nil {
 			log.Info("QC of best block is empty, set it to genesis QC")
 			bestBlock.QC = block.GenesisQC()
+			saveBestQC(kv, block.GenesisQC())
 		}
 
 	}
@@ -366,6 +367,9 @@ func (c *Chain) AddBlock(newBlock *block.Block, escortQC *block.QuorumCert, rece
 		bestHeightGauge.Set(float64(c.bestBlock.Number()))
 		log.Debug("Update Best Block", "bestBlock", newBlock.ID())
 
+		if escortQC == nil {
+			return nil, errors.New("escort QC is nil")
+		}
 		err = saveBestQC(batch, escortQC)
 		if err != nil {
 			fmt.Println("Error during update QC: ", err)

@@ -118,7 +118,8 @@ func initBlockServer(t *testing.T) {
 		t.Fatal(err)
 	}
 	block.SetQC(&meter_block.QuorumCert{QCHeight: 0, QCRound: 0, EpochID: 0})
-	if _, err := chain.AddBlock(block, nil, receipts); err != nil {
+	escortQC := &meter_block.QuorumCert{QCHeight: block.Number(), QCRound: 1, EpochID: 0, VoterMsgHash: block.VotingHash()}
+	if _, err := chain.AddBlock(block, escortQC, receipts); err != nil {
 		t.Fatal(err)
 	}
 	router := mux.NewRouter()
