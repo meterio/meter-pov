@@ -339,8 +339,6 @@ func (n *Node) commitBlock(newBlock *block.Block, escortQC *block.QuorumCert, re
 	}
 	log.Info(fmt.Sprintf("synced %v", newBlock.ShortID()), "txs", len(newBlock.Txs), "epoch", newBlock.GetBlockEpoch(), "elapsed", meter.PrettyDuration(time.Since(start)))
 
-	n.chain.UpdateBestQC(escortQC, chain.LocalCommit)
-
 	if meter.IsMainNet() {
 		if newBlock.Number() == meter.TeslaMainnetStartNum {
 			script.EnterTeslaForkInit()

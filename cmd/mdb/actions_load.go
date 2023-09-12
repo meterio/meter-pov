@@ -217,15 +217,8 @@ func peekAction(ctx *cli.Context) error {
 	fmt.Println("Network: ", network)
 	fmt.Println("-------------------------------")
 
-	// Read Leaf
-	val, err := readLeaf(mainDB)
-	if err != nil {
-		panic(err)
-	}
-	fmt.Println("Leaf: ", val)
-
 	// Read Best QC
-	val, err = readBestQC(mainDB)
+	val, err := readBestQC(mainDB)
 	if err != nil {
 		panic(err)
 	}

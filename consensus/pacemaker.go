@@ -47,7 +47,6 @@ type Pacemaker struct {
 	lastVotingHeight uint32
 	lastVoteMsg      *PMVoteMessage
 	QCHigh           *draftQC
-	blockLeaf        *draftBlock
 	blockExecuted    *draftBlock
 	blockLocked      *draftBlock
 
@@ -402,7 +401,8 @@ func (p *Pacemaker) OnReceiveVote(mi *IncomingMsg) {
 	}
 }
 
-func (p *Pacemaker) OnPropose(parent *draftBlock, qc *draftQC, round uint32) {
+func (p *Pacemaker) OnPropose(qc *draftQC, round uint32) {
+	parent := p.proposalMap.GetOneByMatchingQC(qc.QC)
 	err, bnew := p.CreateLeaf(parent, qc, round)
 	if err != nil {
 		p.logger.Error("could not create leaf", "err", err)
@@ -429,9 +429,6 @@ func (p *Pacemaker) OnPropose(parent *draftBlock, qc *draftQC, round uint32) {
 	//send proposal to every committee members including myself
 	p.sendMsg(msg, true)
 
-	if bnew != nil {
-		p.blockLeaf = bnew
-	}
 }
 
 func (p *Pacemaker) UpdateQCHigh(qc *draftQC) bool {
@@ -442,7 +439,6 @@ func (p *Pacemaker) UpdateQCHigh(qc *draftQC) bool {
 	// or newQC.height = qcHigh.height && newQC.round > qcHigh.round
 	if qc.QC.QCHeight > p.QCHigh.QC.QCHeight || (qc.QC.QCHeight == p.QCHigh.QCNode.Height && qc.QC.QCRound > p.QCHigh.QCNode.Round) {
 		p.QCHigh = qc
-		p.blockLeaf = p.QCHigh.QCNode
 		updated = true
 	}
 	p.logger.Debug("after update QCHigh", "updated", updated, "from", oqc.ToString(), "to", p.QCHigh.ToString())
@@ -488,7 +484,7 @@ func (p *Pacemaker) OnBeat(epoch uint64, round uint32, reason beatReason) {
 	pmRoleGauge.Set(2) // leader
 	p.logger.Info("I AM round proposer", "round", round)
 
-	p.OnPropose(p.blockLeaf, p.QCHigh, round)
+	p.OnPropose(p.QCHigh, round)
 }
 
 func (p *Pacemaker) OnReceiveTimeout(mi *IncomingMsg) {
@@ -542,8 +538,6 @@ func (p *Pacemaker) OnReceiveTimeout(mi *IncomingMsg) {
 
 // Committee Leader triggers
 func (p *Pacemaker) Regulate() {
-	p.reactor.chain.UpdateBestQC(nil, chain.None)
-	p.reactor.chain.UpdateLeafBlock()
 	p.reactor.PrepareEnvForPacemaker()
 
 	bestQC := p.reactor.chain.BestQC()
@@ -587,7 +581,6 @@ func (p *Pacemaker) Regulate() {
 	// now assign b_lock b_exec, b_leaf qc_high
 	p.blockLocked = bestNode
 	p.blockExecuted = bestNode
-	p.blockLeaf = bestNode
 	p.lastVotingHeight = 0
 	p.lastVoteMsg = nil
 	p.QCHigh = qcInit

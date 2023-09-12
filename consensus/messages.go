@@ -47,7 +47,7 @@ func decodeMsg(bz []byte) (msg ConsensusMessage, err error) {
 	return
 }
 
-// PMProposalMessage is sent when a new block leaf is proposed
+// PMProposalMessage is sent when a new block is proposed
 type PMProposalMessage struct {
 	Timestamp   time.Time
 	Epoch       uint64

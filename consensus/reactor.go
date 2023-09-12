@@ -505,7 +505,6 @@ func (r *Reactor) verifyBestQCAndBestBlockBeforeStart() bool {
 	// 1. bestQC height == best block height
 	// 2. newCommittee is true, best block is kblock
 	for i := 0; i < 3; i++ {
-		r.chain.UpdateBestQC(nil, chain.None)
 		bestQC := r.chain.BestQC()
 		bestBlock := r.chain.BestBlock()
 		// r.logger.Info("Checking the QCHeight and Block height...", "QCHeight", bestQC.QCHeight, "bestHeight", bestBlock.Number())
@@ -524,7 +523,6 @@ func (r *Reactor) verifyBestQCAndBestBlockBeforeStart() bool {
 		}
 	}
 
-	r.chain.UpdateBestQC(nil, chain.None)
 	bestQC := r.chain.BestQC()
 	bestBlock := r.chain.BestBlock()
 	if bestQC.QCHeight != bestBlock.Number() {

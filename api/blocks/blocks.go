@@ -107,9 +107,6 @@ func (b *Blocks) parseRevision(revision string) (interface{}, error) {
 	if revision == "" || revision == "best" {
 		return nil, nil
 	}
-	if revision == "leaf" {
-		return "", nil
-	}
 	if len(revision) == 66 || len(revision) == 64 {
 		blockID, err := meter.ParseBytes32(revision)
 		if err != nil {
@@ -156,8 +153,6 @@ func (b *Blocks) getBlock(revision interface{}) (*block.Block, error) {
 			return nil, chain.ErrNotFound
 		}
 		return b.chain.GetTrunkBlock(revision.(uint32))
-	case string:
-		return b.chain.LeafBlock(), nil
 	default:
 		return b.chain.BestBlock(), nil
 	}

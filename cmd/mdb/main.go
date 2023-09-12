@@ -33,7 +33,6 @@ var (
 	indexTrieRootPrefix = []byte("i") // (prefix, block id) -> trie root
 
 	bestBlockKey = []byte("best")
-	leafBlockKey = []byte("leaf")
 	bestQCKey    = []byte("best-qc")
 	// added for new flattern index schema
 	hashKeyPrefix         = []byte("hash") // (prefix, block num) -> block hash
@@ -74,7 +73,7 @@ func main() {
 			{Name: "index-trie", Usage: "Load index trie root from database on revision", Flags: []cli.Flag{dataDirFlag, networkFlag, revisionFlag}, Action: loadIndexTrieRootAction},
 			{Name: "hash", Usage: "Load block hash with block number", Flags: []cli.Flag{dataDirFlag, networkFlag, heightFlag}, Action: loadHashAction},
 			{Name: "storage", Usage: "Load storage value from database with account address and key", Flags: []cli.Flag{dataDirFlag, networkFlag, addressFlag, keyFlag, revisionFlag}, Action: loadStorageAction},
-			{Name: "peek", Usage: "Load pointers like best-qc, best-block, leaf-block from database", Flags: []cli.Flag{networkFlag, dataDirFlag}, Action: peekAction},
+			{Name: "peek", Usage: "Load pointers like best-qc, best-block from database", Flags: []cli.Flag{networkFlag, dataDirFlag}, Action: peekAction},
 			{Name: "stash", Usage: "Load all txs from tx.stash", Flags: []cli.Flag{dataDirFlag, networkFlag}, Action: loadStashAction},
 			{
 				Name:   "report-state",
@@ -754,28 +753,10 @@ func unsafeResetAction(ctx *cli.Context) error {
 	fmt.Println("Network: ", network)
 	fmt.Println("Forceful: ", force)
 	fmt.Println("Height: ", height)
-	fmt.Println("Best/Leaf Hash:", fromHash)
+	fmt.Println("Best Hash:", fromHash)
 	fmt.Println("BestQC: ", bestQC)
 	fmt.Println("-------------------------------")
 	// fromHash := BestBlockHash
-
-	leafHash := fromHash
-	// Update Leaf
-	updateLeaf(mainDB, leafHash, dryrun)
-	if !dryrun {
-		val, err := readLeaf(mainDB)
-		if err != nil {
-			panic(fmt.Sprintf("could not read leaf %v", err))
-		}
-		fmt.Println("val: ", val)
-		fmt.Println("leafHash: ", leafHash)
-		if strings.Compare(val, leafHash) == 0 {
-			fmt.Println("leaf VERIFIED.")
-		} else {
-			panic("leaf verify failed.")
-		}
-	}
-	fmt.Println("")
 
 	// Update Best QC
 	updateBestQC(mainDB, bestQC, dryrun)
@@ -788,22 +769,6 @@ func unsafeResetAction(ctx *cli.Context) error {
 			fmt.Println("best-qc VERIFIED.")
 		} else {
 			panic("best-qc verify failed.")
-		}
-
-	}
-	fmt.Println("")
-
-	// Update Best
-	updateBest(mainDB, leafHash, dryrun)
-	if !dryrun {
-		val, err := readBest(mainDB)
-		if err != nil {
-			panic(fmt.Sprintf("could not read best: %v", err))
-		}
-		if strings.Compare(val, leafHash) == 0 {
-			fmt.Println("best VERIFIED.")
-		} else {
-			panic("best VERIFY FAILED.")
 		}
 
 	}
@@ -930,7 +895,6 @@ func syncVerifyAction(ctx *cli.Context) error {
 		return nil
 	}
 	updateBest(mainDB, hex.EncodeToString(parentBlk.ID().Bytes()), false)
-	updateLeaf(mainDB, hex.EncodeToString(parentBlk.ID().Bytes()), false)
 	updateBestQC(mainDB, hex.EncodeToString(parentQCRaw), false)
 
 	meterChain := initChain(ctx, gene, mainDB)
@@ -1022,7 +986,6 @@ func safeResetAction(ctx *cli.Context) error {
 	}
 	log.Info("Local Best Block ", "num", localBest.Number(), "id", localBest.ID())
 	updateBest(mainDB, hex.EncodeToString(localBest.ID().Bytes()), false)
-	updateLeaf(mainDB, hex.EncodeToString(localBest.ID().Bytes()), false)
 	rawQC, _ := rlp.EncodeToBytes(localBest.QC)
 	updateBestQC(mainDB, hex.EncodeToString(rawQC), false)
 	return nil

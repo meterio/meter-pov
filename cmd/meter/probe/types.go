@@ -55,7 +55,6 @@ type PacemakerProbe struct {
 	QCHigh        *QC         `json:"qcHigh"`
 	BlockExecuted *BlockProbe `json:"blockExecuted"`
 	BlockLocked   *BlockProbe `json:"blockLocked"`
-	BlockLeaf     *BlockProbe `json:"blockLeaf"`
 }
 
 type PowProbe struct {
@@ -204,7 +203,6 @@ func convertPacemakerProbe(r *consensus.PMProbeResult) (*PacemakerProbe, error) 
 		if r.QCHigh != nil {
 			probe.QCHigh, _ = convertQC(r.QCHigh)
 		}
-		probe.BlockLeaf, _ = convertBlockProbe(r.BlockLeaf)
 		probe.BlockLocked, _ = convertBlockProbe(r.BlockLocked)
 		probe.BlockExecuted, _ = convertBlockProbe(r.BlockExecuted)
 		return probe, nil

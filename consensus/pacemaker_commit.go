@@ -72,9 +72,6 @@ func (p *Pacemaker) commitBlock(draftBlk *draftBlock, escortQC *block.QuorumCert
 		}
 	}
 
-	// Save bestQC
-	p.reactor.chain.UpdateBestQC(escortQC, chain.LocalCommit)
-
 	// broadcast the new block to all peers
 	comm.GetGlobCommInst().BroadcastBlock(&block.EscortedBlock{Block: blk, EscortQC: escortQC})
 	// successfully added the block, update the current hight of consensus

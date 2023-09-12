@@ -83,7 +83,7 @@ func (p *ProposalMap) GetOneByMatchingQC(qc *block.QuorumCert) *draftBlock {
 	}
 
 	// load from database
-	blkID, err := p.chain.GetAncestorBlockID(p.chain.LeafBlock().ID(), qc.QCHeight)
+	blkID, err := p.chain.GetAncestorBlockID(p.chain.BestBlock().ID(), qc.QCHeight)
 	if err == nil {
 		blkInDB, err := p.chain.GetBlock(blkID)
 		if err == nil {

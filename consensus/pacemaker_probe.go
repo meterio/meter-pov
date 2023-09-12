@@ -19,7 +19,6 @@ type PMProbeResult struct {
 	LastVotingHeight uint32
 	LastOnBeatRound  uint32
 	QCHigh           *block.QuorumCert
-	BlockLeaf        *BlockProbe
 	BlockExecuted    *BlockProbe
 	BlockLocked      *BlockProbe
 
@@ -37,9 +36,6 @@ func (p *Pacemaker) Probe() *PMProbeResult {
 	}
 	if p.QCHigh != nil && p.QCHigh.QC != nil {
 		result.QCHigh = p.QCHigh.QC
-	}
-	if p.blockLeaf != nil {
-		result.BlockLeaf = &BlockProbe{Height: p.blockLeaf.Height, Round: p.blockLeaf.Round, Type: uint32(p.blockLeaf.BlockType), Raw: p.blockLeaf.RawBlock}
 	}
 	if p.blockExecuted != nil {
 		result.BlockExecuted = &BlockProbe{Height: p.blockExecuted.Height, Round: p.blockExecuted.Round, Type: uint32(p.blockExecuted.BlockType), Raw: p.blockExecuted.RawBlock}
