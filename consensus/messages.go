@@ -283,7 +283,7 @@ func (m *PMTimeoutMessage) DecodeQCHigh() *block.QuorumCert {
 func (m *PMTimeoutMessage) String() string {
 	qcHigh := m.DecodeQCHigh()
 	return fmt.Sprintf("[Timeout] E:%v,R:%d QCHigh(H:%d,R:%d) Vote(H:%d,R:%d,Block:%v)",
-		m.Epoch, m.WishRound, qcHigh.QCHeight, qcHigh.QCRound, m.LastVoteHeight, m.LastVoteRound, m.LastVoteBlockID.ToBlockShortID(), m.SignerIndex)
+		m.Epoch, m.WishRound, qcHigh.QCHeight, qcHigh.QCRound, m.LastVoteHeight, m.LastVoteRound, m.LastVoteBlockID.ToBlockShortID())
 }
 
 func (m *PMTimeoutMessage) SetMsgSignature(msgSignature []byte) {
