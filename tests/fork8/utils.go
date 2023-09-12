@@ -115,7 +115,7 @@ func initRuntimeAfterFork8() *tests.TestEnv {
 		panic(err)
 	}
 	b.SetQC(&block.QuorumCert{QCHeight: 1, QCRound: 1, EpochID: 1, VoterBitArrayStr: "X_XXX", VoterMsgHash: meter.BytesToBytes32([]byte("hello")), VoterAggSig: []byte("voteraggr")})
-	if _, err = c.AddBlock(b, receipts, false); err != nil {
+	if _, err = c.AddBlock(b, nil, receipts); err != nil {
 		panic(err)
 	}
 	st, _ := state.New(b.Header().StateRoot(), kv)

@@ -51,7 +51,7 @@ func TestSubscribeNewTx(t *testing.T) {
 		Build()
 	qc := block.QuorumCert{QCHeight: 1, QCRound: 1, EpochID: 0}
 	b1.SetQC(&qc)
-	pool.chain.AddBlock(b1, nil, true)
+	pool.chain.AddBlock(b1, nil, nil)
 
 	txCh := make(chan *TxEvent)
 
@@ -88,7 +88,7 @@ func TestWashTxs(t *testing.T) {
 		Build()
 	qc := block.QuorumCert{QCHeight: 1, QCRound: 1, EpochID: 0}
 	b1.SetQC(&qc)
-	pool.chain.AddBlock(b1, nil, true)
+	pool.chain.AddBlock(b1, nil, nil)
 
 	txs, _, err = pool.wash(pool.chain.BestBlock().Header())
 	assert.Nil(t, err)
@@ -107,7 +107,7 @@ func TestAdd(t *testing.T) {
 		Build()
 	qc := block.QuorumCert{QCHeight: 1, QCRound: 1, EpochID: 0}
 	b1.SetQC(&qc)
-	pool.chain.AddBlock(b1, nil, true)
+	pool.chain.AddBlock(b1, nil, nil)
 	acc := genesis.DevAccounts()[0]
 
 	dupTx := newTx(pool.chain.Tag(), nil, 21000, tx.BlockRef{}, 100, nil, acc)

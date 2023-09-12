@@ -980,7 +980,7 @@ func syncVerifyAction(ctx *cli.Context) error {
 			log.Error(err.Error())
 			return err
 		}
-		_, err = meterChain.AddBlock(b, receipts, true)
+		_, err = meterChain.AddBlock(parentBlk, b.QC, receipts)
 		if err != nil {
 			if err != chain.ErrBlockExist {
 				log.Error(err.Error())

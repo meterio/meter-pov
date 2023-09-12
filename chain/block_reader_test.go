@@ -17,16 +17,16 @@ func TestBlockReader(t *testing.T) {
 	b0 := ch.GenesisBlock()
 
 	b1 := newBlock(b0, 2)
-	ch.AddBlock(b1, nil, true)
+	ch.AddBlock(b1, nil, nil)
 
 	b2 := newBlock(b1, 2)
-	ch.AddBlock(b2, nil, true)
+	ch.AddBlock(b2, nil, nil)
 
 	b3 := newBlock(b2, 2)
-	ch.AddBlock(b3, nil, true)
+	ch.AddBlock(b3, nil, nil)
 
 	b4 := newBlock(b3, 2)
-	ch.AddBlock(b4, nil, true)
+	ch.AddBlock(b4, nil, nil)
 
 	br := ch.NewBlockReader(b2.ID())
 
@@ -46,19 +46,19 @@ func TestBlockReaderFork(t *testing.T) {
 	b0 := ch.GenesisBlock()
 
 	b1 := newBlock(b0, 1)
-	ch.AddBlock(b1, nil, true)
+	ch.AddBlock(b1, nil, nil)
 
 	b2 := newBlock(b1, 2)
-	ch.AddBlock(b2, nil, true)
+	ch.AddBlock(b2, nil, nil)
 
 	b2x := newBlock(b1, 2)
-	ch.AddBlock(b2x, nil, true)
+	ch.AddBlock(b2x, nil, nil)
 
 	b3 := newBlock(b2, 3)
-	ch.AddBlock(b3, nil, true)
+	ch.AddBlock(b3, nil, nil)
 
 	b4 := newBlock(b3, 4)
-	ch.AddBlock(b4, nil, true)
+	ch.AddBlock(b4, nil, nil)
 
 	br := ch.NewBlockReader(b2x.ID())
 

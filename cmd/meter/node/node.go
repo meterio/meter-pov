@@ -333,7 +333,7 @@ func (n *Node) commitBlock(newBlock *block.Block, escortQC *block.QuorumCert, re
 	defer n.commitLock.Unlock()
 	start := time.Now()
 	// fmt.Println("Calling AddBlock from node.commitBlock, newBlock=", newBlock.ID())
-	fork, err := n.chain.AddBlock(newBlock, receipts, true)
+	fork, err := n.chain.AddBlock(newBlock, escortQC, receipts)
 	if err != nil {
 		return nil, err
 	}

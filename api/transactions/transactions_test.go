@@ -205,7 +205,7 @@ func initTransactionServer(t *testing.T) {
 	if _, err := stage.Commit(); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := c.AddBlock(b, receipts, true); err != nil {
+	if _, err := c.AddBlock(b, nil, receipts); err != nil {
 		t.Fatal(err)
 	}
 	router := mux.NewRouter()

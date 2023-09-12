@@ -62,7 +62,7 @@ func TestAdd(t *testing.T) {
 	}
 
 	for i, tt := range tests {
-		fork, err := ch.AddBlock(tt.newBlock, nil, true)
+		fork, err := ch.AddBlock(tt.newBlock, nil, nil)
 		if i != 4 {
 			assert.Nil(t, err)
 			// assert.Equal(t, tt.fork.Ancestor.ID(), fork.Ancestor.ID())

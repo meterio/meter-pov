@@ -237,35 +237,6 @@ func (p *Pacemaker) OnCommit(commitReady []commitReadyBlock) {
 	}
 }
 
-func (p *Pacemaker) OnPreCommitBlock(b *draftBlock) error {
-	// This is the situation: 2/3 of committee agree the proposal while I disagree.
-	// posslible my state is deviated from the majority of committee, resatart pacemaker.
-	if !b.SuccessProcessed {
-		p.logger.Error("process this proposal failed, possible my states are wrong, restart pacemaker", "height", b.Height, "round", b.Round, "action", "precommit", "err", b.ProcessError)
-		return errRestartPaceMakerRequired
-	}
-	if b.ProcessError == errKnownBlock {
-		p.logger.Warn("skip precommit known block", "height", b.Height, "round", b.Round)
-		return nil
-	}
-	if b == nil {
-		p.logger.Warn("skip precommit empty block", "height", b.Height, "round", b.Round)
-		return nil
-	}
-	p.logger.Info("try to pre-commit", "height", b.Height)
-	err := p.precommitBlock(b)
-
-	if err != nil && err != chain.ErrBlockExist {
-		if b.ProposedBlock != nil {
-			p.logger.Warn("precommit failed !!!", "err", err, "blk", b.ProposedBlock.CompactString())
-		} else {
-			p.logger.Warn("precommit failed !!!", "err", err)
-		}
-		return err
-	}
-	return nil
-}
-
 func (p *Pacemaker) OnReceiveProposal(mi *IncomingMsg) {
 	msg := mi.Msg.(*PMProposalMessage)
 	height := msg.Height
@@ -341,20 +312,10 @@ func (p *Pacemaker) OnReceiveProposal(mi *IncomingMsg) {
 			}
 		}
 
-		// parent got QC, pre-commit
-		justify := bnew.Parent
-		if (justify != nil) && (justify.Height > p.blockLocked.Height) {
-			err := p.OnPreCommitBlock(justify)
-			if err != nil {
-				p.logger.Info("precommit error", "err", err)
-				return
-			}
-		}
-
 		// parent round must strictly < bnew round
 		// justify round must strictly < bnew round
 		if justify != nil && bnew != nil && bnew.Justify != nil && bnew.Justify.QC != nil {
-			justifyRound := justify.Round
+			justifyRound := justify.QC.QCRound
 			parentRound := bnew.Justify.QC.QCRound
 			p.logger.Debug("check round for proposal", "parentRound", parentRound, "justifyRound", justifyRound, "bnewRound", bnew.Round)
 			if parentRound > 0 && justifyRound > 0 {
@@ -427,7 +388,7 @@ func (p *Pacemaker) OnReceiveVote(mi *IncomingMsg) {
 	//reach 2/3 majority, trigger the pipeline cmd
 	qc := p.proposalVoteManager.Aggregate(height, round, msg.VoteBlockID, p.reactor.curEpoch)
 	if qc == nil {
-		p.logger.Warn("could not address qc")
+		p.logger.Warn("could not form qc")
 		return
 		// return errors.New("could not form QC")
 	}
@@ -511,14 +472,6 @@ func (p *Pacemaker) OnBeat(epoch uint64, round uint32, reason beatReason) {
 	b := p.proposalMap.GetOneByMatchingQC(p.QCHigh.QC)
 	if b == nil {
 		return
-	}
-
-	if b.Height > p.blockLocked.Height {
-		err := p.OnPreCommitBlock(b)
-		if err != nil {
-			p.logger.Error("precommit block failed", "height", b.Height, "error", err)
-			return
-		}
 	}
 
 	if reason == BeatOnInit {

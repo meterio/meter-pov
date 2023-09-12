@@ -239,7 +239,7 @@ func packTx(chain *chain.Chain, stateC *state.Creator, transaction *tx.Transacti
 	if _, err := stage.Commit(); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := chain.AddBlock(b, receipts, true); err != nil {
+	if _, err := chain.AddBlock(b, nil, receipts); err != nil {
 		t.Fatal(err)
 	}
 }

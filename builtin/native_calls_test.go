@@ -669,7 +669,7 @@ func TestPrototypeNativeWithLongerBlockNumber(t *testing.T) {
 		qc := block.QuorumCert{QCHeight: uint32(i), QCRound: uint32(i), EpochID: uint64(0)}
 		b.SetQC(&qc)
 		fmt.Println("BLOKC:", b)
-		c.AddBlock(b, tx.Receipts{}, true)
+		c.AddBlock(b, nil, tx.Receipts{})
 	}
 
 	st, _ = state.New(c.BestBlock().Header().StateRoot(), kv)
@@ -739,7 +739,7 @@ func TestPrototypeNativeWithBlockNumber(t *testing.T) {
 			Build()
 		qc := block.QuorumCert{QCHeight: uint32(i), QCRound: uint32(i), EpochID: uint64(0)}
 		b.SetQC(&qc)
-		c.AddBlock(b, tx.Receipts{}, true)
+		c.AddBlock(b, nil, tx.Receipts{})
 	}
 
 	st, _ = state.New(c.BestBlock().Header().StateRoot(), kv)

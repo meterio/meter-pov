@@ -327,7 +327,7 @@ func (c *Chain) RemoveBlock(blockID meter.Bytes32) error {
 // AddBlock add a new block into block chain.
 // Once reorg happened (len(Trunk) > 0 && len(Branch) >0), Fork.Branch will be the chain transitted from trunk to branch.
 // Reorg happens when isTrunk is true.
-func (c *Chain) AddBlock(newBlock *block.Block, receipts tx.Receipts, finalize bool) (*Fork, error) {
+func (c *Chain) AddBlock(newBlock *block.Block, escortQC *block.QuorumCert, receipts tx.Receipts) (*Fork, error) {
 	c.rw.Lock()
 	defer c.rw.Unlock()
 
@@ -347,12 +347,11 @@ func (c *Chain) AddBlock(newBlock *block.Block, receipts tx.Receipts, finalize b
 			string(header.Signature()) == string(newHeader.Signature()) &&
 			header.ReceiptsRoot() == newHeader.ReceiptsRoot() &&
 			header.Timestamp() == newHeader.Timestamp() &&
-			parentFinalized == true &&
-			finalize == true {
+			parentFinalized {
 			// if the current block is the finalized version of saved block, update it accordingly
 			// do nothing
 			selfFinalized := c.IsBlockFinalized(newHeader.ID())
-			if selfFinalized == true {
+			if selfFinalized {
 				// if the new block has already been finalized, return directly
 				return nil, ErrBlockExist
 			}
@@ -409,33 +408,25 @@ func (c *Chain) AddBlock(newBlock *block.Block, receipts tx.Receipts, finalize b
 		if fork, err = c.buildFork(newBlock.Header(), c.bestBlock.Header()); err != nil {
 			return nil, err
 		}
-		if finalize == true {
-			if err := saveBestBlockID(batch, newBlockID); err != nil {
+
+		if err := saveBestBlockID(batch, newBlockID); err != nil {
+			return nil, err
+		}
+		c.bestBlock = newBlock
+		bestHeightGauge.Set(float64(c.bestBlock.Number()))
+		log.Debug("Update Best Block", "bestBlock", newBlock.ID())
+		if newBlock.TotalScore() > c.leafBlock.TotalScore() {
+			if err := saveLeafBlockID(batch, newBlockID); err != nil {
 				return nil, err
 			}
-			c.bestBlock = newBlock
-			bestHeightGauge.Set(float64(c.bestBlock.Number()))
-			log.Debug("Update Best Block", "bestBlock", newBlock.ID())
-			if newBlock.TotalScore() > c.leafBlock.TotalScore() {
-				if err := saveLeafBlockID(batch, newBlockID); err != nil {
-					return nil, err
-				}
 
-				c.leafBlock = newBlock
-			}
-			_, err := c.UpdateBestQC(nil, None)
-			if err != nil {
-				fmt.Println("Error during update QC: ", err)
-			}
-		} else {
-			if newBlock.TotalScore() > c.leafBlock.TotalScore() {
-				if err := saveLeafBlockID(batch, newBlockID); err != nil {
-					return nil, err
-				}
-
-				c.leafBlock = newBlock
-			}
+			c.leafBlock = newBlock
 		}
+		_, err := c.UpdateBestQC(escortQC, None)
+		if err != nil {
+			fmt.Println("Error during update QC: ", err)
+		}
+
 	} else {
 		fork = &Fork{Ancestor: parent, Branch: []*block.Header{newBlock.Header()}}
 	}
@@ -452,10 +443,7 @@ func (c *Chain) AddBlock(newBlock *block.Block, receipts tx.Receipts, finalize b
 }
 
 func (c *Chain) IsBlockFinalized(id meter.Bytes32) bool {
-	if block.Number(id) <= c.bestBlock.Number() {
-		return true
-	}
-	return false
+	return block.Number(id) <= c.bestBlock.Number()
 }
 
 // GetBlockHeader get block header by block id.

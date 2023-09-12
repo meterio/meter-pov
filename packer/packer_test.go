@@ -100,7 +100,7 @@ func TestP(t *testing.T) {
 		qc := block.QuorumCert{QCHeight: best.QC.QCHeight + 1, QCRound: best.QC.QCHeight + 1, EpochID: best.QC.EpochID}
 		blk.SetQC(&qc)
 
-		if _, err := c.AddBlock(blk, receipts, true); err != nil {
+		if _, err := c.AddBlock(blk, nil, receipts); err != nil {
 			t.Fatal(err)
 		}
 
