@@ -7,6 +7,7 @@ package consensus
 
 import (
 	"bytes"
+	"context"
 	"crypto/ecdsa"
 	"encoding/base64"
 	b64 "encoding/base64"
@@ -178,7 +179,7 @@ func NewConsensusReactor(ctx *cli.Context, chain *chain.Chain, state *state.Crea
 
 // OnStart implements BaseService by subscribing to events, which later will be
 // broadcasted to other peers and starting state if we're not in fast sync.
-func (r *Reactor) OnStart() error {
+func (r *Reactor) OnStart(ctx context.Context) error {
 	go r.outQueue.Start()
 	communicator := comm.GetGlobCommInst()
 	if communicator == nil {
@@ -186,6 +187,9 @@ func (r *Reactor) OnStart() error {
 		return errors.New("could not get communicator")
 	}
 	select {
+	case <-ctx.Done():
+		r.logger.Warn("stop reactor due to context end")
+		return nil
 	case <-communicator.Synced():
 		r.logger.Info("sync is done, start pacemaker ...", "curHeight", r.curHeight)
 		r.pacemaker.Regulate()

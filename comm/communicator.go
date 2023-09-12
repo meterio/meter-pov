@@ -36,10 +36,10 @@ var (
 
 // Communicator communicates with remote p2p peers to exchange blocks and txs, etc.
 type Communicator struct {
-	chain          *chain.Chain
-	txPool         *txpool.TxPool
-	ctx            context.Context
-	cancel         context.CancelFunc
+	chain  *chain.Chain
+	txPool *txpool.TxPool
+	ctx    context.Context
+	// cancel         context.CancelFunc
 	peerSet        *PeerSet
 	syncedCh       chan struct{}
 	newBlockFeed   event.Feed
@@ -64,14 +64,13 @@ func GetGlobCommInst() *Communicator {
 }
 
 // New create a new Communicator instance.
-func New(chain *chain.Chain, txPool *txpool.TxPool, powPool *powpool.PowPool, configTopic string, magic [4]byte) *Communicator {
-	ctx, cancel := context.WithCancel(context.Background())
+func New(ctx context.Context, chain *chain.Chain, txPool *txpool.TxPool, powPool *powpool.PowPool, configTopic string, magic [4]byte) *Communicator {
 	c := &Communicator{
-		chain:          chain,
-		txPool:         txPool,
-		powPool:        powPool,
-		ctx:            ctx,
-		cancel:         cancel,
+		chain:   chain,
+		txPool:  txPool,
+		powPool: powPool,
+		ctx:     ctx,
+		// cancel:         cancel,
 		peerSet:        newPeerSet(),
 		syncedCh:       make(chan struct{}),
 		announcementCh: make(chan *announcement),
@@ -124,6 +123,7 @@ func (c *Communicator) Sync(handler HandleBlockStream) {
 			timer = time.NewTimer(delay)
 			select {
 			case <-c.ctx.Done():
+				log.Warn("stop communicator due to context end")
 				return
 			case <-c.syncTrigCh:
 				log.Info("Triggered synchronization start")
@@ -204,7 +204,7 @@ func (c *Communicator) Start() {
 
 // Stop stop the communicator.
 func (c *Communicator) Stop() {
-	c.cancel()
+	// c.cancel()
 	c.feedScope.Close()
 	c.goes.Wait()
 }

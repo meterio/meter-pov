@@ -95,7 +95,7 @@ func (n *Node) Run(ctx context.Context) error {
 	n.goes.Go(func() { n.houseKeeping(ctx) })
 	n.goes.Go(func() { n.txStashLoop(ctx) })
 
-	n.goes.Go(func() { n.cons.OnStart() })
+	n.goes.Go(func() { n.cons.OnStart(ctx) })
 
 	n.goes.Wait()
 	return nil

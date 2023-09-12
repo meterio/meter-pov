@@ -173,7 +173,7 @@ func (p *Pacemaker) BuildTimeoutMessage(qcHigh *draftQC, ti *PMRoundTimeoutInfo,
 
 // qc is for that block?
 // blk is derived from draftBlock message. pass it in if already decoded
-func draftBlockMatchQC(b *draftBlock, qc *block.QuorumCert) (bool, error) {
+func draftBlockMatchQC(b *draftBlock, escortQC *block.QuorumCert) (bool, error) {
 
 	if b == nil {
 		// decode block to get qc
@@ -182,11 +182,11 @@ func draftBlockMatchQC(b *draftBlock, qc *block.QuorumCert) (bool, error) {
 	}
 
 	// genesis does not have qc
-	if b.Height == 0 && qc.QCHeight == 0 {
+	if b.Height == 0 && escortQC.QCHeight == 0 {
 		return true, nil
 	}
 
 	blk := b.ProposedBlock
 
-	return blk.MatchQC(qc)
+	return blk.MatchQC(escortQC)
 }

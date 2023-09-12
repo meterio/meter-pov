@@ -6,6 +6,7 @@
 package main
 
 import (
+	"context"
 	"crypto/ecdsa"
 	"crypto/tls"
 	b64 "encoding/base64"
@@ -77,7 +78,7 @@ func selectGenesis(ctx *cli.Context) *genesis.Genesis {
 	case "main":
 		return genesis.NewMainnet()
 	case "staging":
-		return genesis.NewMainnet()
+		return genesis.NewDevnet()
 	default:
 		cli.ShowAppHelp(ctx)
 		if network == "" {
@@ -365,22 +366,22 @@ type p2pComm struct {
 	peersCachePath string
 }
 
-func newP2PComm(ctx *cli.Context, chain *chain.Chain, txPool *txpool.TxPool, instanceDir string, powPool *powpool.PowPool, magic [4]byte) *p2pComm {
-	key, err := loadOrGeneratePrivateKey(filepath.Join(ctx.String("data-dir"), "p2p.key"))
+func newP2PComm(cliCtx *cli.Context, ctx context.Context, chain *chain.Chain, txPool *txpool.TxPool, instanceDir string, powPool *powpool.PowPool, magic [4]byte) *p2pComm {
+	key, err := loadOrGeneratePrivateKey(filepath.Join(cliCtx.String("data-dir"), "p2p.key"))
 	if err != nil {
 		fatal("load or generate P2P key:", err)
 	}
 
-	nat, err := nat.Parse(ctx.String(natFlag.Name))
+	nat, err := nat.Parse(cliCtx.String(natFlag.Name))
 	if err != nil {
-		cli.ShowAppHelp(ctx)
+		cli.ShowAppHelp(cliCtx)
 		fmt.Println("parse -nat flag:", err)
 		os.Exit(1)
 	}
 
-	discoSvr, overrided, err := discoServerParse(ctx)
+	discoSvr, overrided, err := discoServerParse(cliCtx)
 	if err != nil {
-		cli.ShowAppHelp(ctx)
+		cli.ShowAppHelp(cliCtx)
 		fmt.Println("parse bootstrap nodes failed:", err)
 		os.Exit(1)
 	}
@@ -396,11 +397,11 @@ func newP2PComm(ctx *cli.Context, chain *chain.Chain, txPool *txpool.TxPool, ins
 	opts := &p2psrv.Options{
 		Name:           common.MakeName("meter", fullVersion()),
 		PrivateKey:     key,
-		MaxPeers:       ctx.Int(maxPeersFlag.Name),
-		ListenAddr:     fmt.Sprintf(":%v", ctx.Int(p2pPortFlag.Name)),
+		MaxPeers:       cliCtx.Int(maxPeersFlag.Name),
+		ListenAddr:     fmt.Sprintf(":%v", cliCtx.Int(p2pPortFlag.Name)),
 		BootstrapNodes: BootstrapNodes,
 		NAT:            nat,
-		NoDiscovery:    ctx.Bool("no-discover"),
+		NoDiscovery:    cliCtx.Bool("no-discover"),
 	}
 
 	peersCachePath := filepath.Join(instanceDir, "peers.cache")
@@ -426,7 +427,7 @@ func newP2PComm(ctx *cli.Context, chain *chain.Chain, txPool *txpool.TxPool, ins
 	}
 
 	// load peers from cli flags
-	inputPeers := ctx.StringSlice("peers")
+	inputPeers := cliCtx.StringSlice("peers")
 	for _, p := range inputPeers {
 		node, err := enode.ParseV4(p)
 		if err == nil {
@@ -436,10 +437,10 @@ func newP2PComm(ctx *cli.Context, chain *chain.Chain, txPool *txpool.TxPool, ins
 		}
 	}
 
-	topic := ctx.String("disco-topic")
+	topic := cliCtx.String("disco-topic")
 
 	return &p2pComm{
-		comm:           comm.New(chain, txPool, powPool, topic, magic),
+		comm:           comm.New(ctx, chain, txPool, powPool, topic, magic),
 		p2pSrv:         p2psrv.New(opts),
 		peersCachePath: peersCachePath,
 	}
@@ -560,10 +561,8 @@ func startAPIServer(ctx *cli.Context, handler http.Handler, genesisID meter.Byte
 	goes.Go(func() {
 		err := srv.Serve(listener)
 		if err != nil {
-			fmt.Println("could not start API service, error:", err)
-			panic("could not start API service")
+			log.Warn(err.Error())
 		}
-
 	})
 
 	returnStr := "http://" + listener.Addr().String() + "/"
@@ -639,10 +638,7 @@ func startPowAPIServer(ctx *cli.Context, handler http.Handler) (string, func()) 
 	var goes co.Goes
 	goes.Go(func() {
 		err := srv.Serve(listener)
-		if err != nil {
-			fmt.Println("could not start powpool service, error:", err)
-			panic("could not start powpool service")
-		}
+		log.Warn(err.Error())
 
 	})
 	return "http://" + listener.Addr().String() + "/", func() {
