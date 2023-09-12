@@ -72,7 +72,7 @@ func (p *ProposalMap) GetOne(height, round uint32, blkID meter.Bytes32) *draftBl
 	return nil
 }
 
-func (p *ProposalMap) GetOneByMatchingQC(qc *block.QuorumCert) *draftBlock {
+func (p *ProposalMap) GetOneByEscortQC(qc *block.QuorumCert) *draftBlock {
 	for key := range p.proposals {
 		draftBlk := p.proposals[key]
 		if draftBlk.Height == qc.QCHeight && draftBlk.Round == qc.QCRound {

@@ -52,9 +52,8 @@ type PacemakerProbe struct {
 	LastOnBeatRound  uint32 `json:"lastOnBeatRound"`
 	ProposalCount    int    `json:"proposalCount"`
 
-	QCHigh        *QC         `json:"qcHigh"`
-	BlockExecuted *BlockProbe `json:"blockExecuted"`
-	BlockLocked   *BlockProbe `json:"blockLocked"`
+	QCHigh      *QC         `json:"qcHigh"`
+	BlockLocked *BlockProbe `json:"blockLocked"`
 }
 
 type PowProbe struct {
@@ -204,7 +203,6 @@ func convertPacemakerProbe(r *consensus.PMProbeResult) (*PacemakerProbe, error) 
 			probe.QCHigh, _ = convertQC(r.QCHigh)
 		}
 		probe.BlockLocked, _ = convertBlockProbe(r.BlockLocked)
-		probe.BlockExecuted, _ = convertBlockProbe(r.BlockExecuted)
 		return probe, nil
 	}
 	return nil, nil

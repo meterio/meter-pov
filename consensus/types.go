@@ -21,8 +21,8 @@ type EpochEndInfo struct {
 }
 
 type commitReadyBlock struct {
-	block      *draftBlock
-	matchingQC *block.QuorumCert
+	block    *draftBlock
+	escortQC *block.QuorumCert
 }
 
 // definition for draftBlock

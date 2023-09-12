@@ -47,7 +47,6 @@ type Pacemaker struct {
 	lastVotingHeight uint32
 	lastVoteMsg      *PMVoteMessage
 	QCHigh           *draftQC
-	blockExecuted    *draftBlock
 	blockLocked      *draftBlock
 
 	lastOnBeatRound int32
@@ -118,17 +117,12 @@ func (p *Pacemaker) CreateLeaf(parent *draftBlock, justify *draftQC, round uint3
 	}
 }
 
-// b_exec <- b_lock <- b <- b' <- b" <- bnew*
+// b_exec <- b_lock <- b <- b' <- bnew*
 func (p *Pacemaker) Update(bnew *draftBlock) error {
 
-	var block, blockPrime, blockPrimePrime *draftBlock
+	var block, blockPrime *draftBlock
 	//now pipeline full, roll this pipeline first
-	blockPrimePrime = bnew.Justify.QCNode
-	if blockPrimePrime == nil {
-		p.logger.Warn("blockPrimePrime is empty, early termination of Update")
-		return nil
-	}
-	blockPrime = blockPrimePrime.Justify.QCNode
+	blockPrime = bnew.Justify.QCNode
 	if blockPrime == nil {
 		p.logger.Warn("blockPrime is empty, early termination of Update")
 		return nil
@@ -142,31 +136,25 @@ func (p *Pacemaker) Update(bnew *draftBlock) error {
 	}
 
 	p.logger.Debug(fmt.Sprintf("bnew = %v", bnew.ToString()))
-	p.logger.Debug(fmt.Sprintf("b\"   = %v", blockPrimePrime.ToString()))
 	p.logger.Debug(fmt.Sprintf("b'   = %v", blockPrime.ToString()))
 	p.logger.Debug(fmt.Sprintf("b    = %v", block.ToString()))
 
 	// pre-commit phase on b"
 	p.UpdateQCHigh(bnew.Justify)
 
-	if blockPrime.Height > p.blockLocked.Height {
-		p.blockLocked = blockPrime // commit phase on b'
-	}
-
 	/* commit requires direct parent */
-	if (blockPrimePrime.Parent != blockPrime) ||
-		(blockPrime.Parent != block) {
+	if blockPrime.Parent != block {
 		return nil
 	}
 
 	commitReady := []commitReadyBlock{}
-	for b := blockPrime; b.Parent.Height > p.blockExecuted.Height; b = b.Parent {
+	for b := blockPrime; b.Parent.Height > p.blockLocked.Height; b = b.Parent {
 		// XXX: b must be prepended the slice, so we can commit blocks in order
-		commitReady = append([]commitReadyBlock{{block: b.Parent, matchingQC: b.Justify.QC}}, commitReady...)
+		commitReady = append([]commitReadyBlock{{block: b.Parent, escortQC: b.Justify.QC}}, commitReady...)
 	}
 	p.OnCommit(commitReady)
 
-	p.blockExecuted = block // decide phase on b
+	p.blockLocked = block // commit phase on b
 	return nil
 }
 
@@ -179,7 +167,7 @@ func (p *Pacemaker) OnCommit(commitReady []commitReadyBlock) {
 	for _, b := range commitReady {
 
 		blk := b.block
-		matchingQC := b.matchingQC
+		escortQC := b.escortQC
 
 		if blk == nil {
 			p.logger.Warn("skip commit empty block")
@@ -196,7 +184,7 @@ func (p *Pacemaker) OnCommit(commitReady []commitReadyBlock) {
 			continue
 		}
 		// commit the approved block
-		err := p.commitBlock(blk, matchingQC)
+		err := p.commitBlock(blk, escortQC)
 		if err != nil {
 			if err != chain.ErrBlockExist && err != errKnownBlock {
 				if blk != nil {
@@ -242,10 +230,6 @@ func (p *Pacemaker) OnReceiveProposal(mi *IncomingMsg) {
 	round := msg.Round
 
 	// drop outdated proposal
-	if height < p.QCHigh.QC.QCHeight {
-		p.logger.Warn("outdated proposal, dropped ...", "height", height, "QCHigh.height", p.QCHigh.QC.QCHeight)
-		return
-	}
 	if height < p.blockLocked.Height {
 		p.logger.Info("outdated proposal (height <= bLocked.height), dropped ...", "height", height, "bLocked.height", p.blockLocked.Height)
 		return
@@ -402,7 +386,7 @@ func (p *Pacemaker) OnReceiveVote(mi *IncomingMsg) {
 }
 
 func (p *Pacemaker) OnPropose(qc *draftQC, round uint32) {
-	parent := p.proposalMap.GetOneByMatchingQC(qc.QC)
+	parent := p.proposalMap.GetOneByEscortQC(qc.QC)
 	err, bnew := p.CreateLeaf(parent, qc, round)
 	if err != nil {
 		p.logger.Error("could not create leaf", "err", err)
@@ -465,7 +449,7 @@ func (p *Pacemaker) OnBeat(epoch uint64, round uint32, reason beatReason) {
 	// parent already got QC, pre-commit it
 
 	//b := p.QCHigh.QCNode
-	b := p.proposalMap.GetOneByMatchingQC(p.QCHigh.QC)
+	b := p.proposalMap.GetOneByEscortQC(p.QCHigh.QC)
 	if b == nil {
 		return
 	}
@@ -514,15 +498,15 @@ func (p *Pacemaker) OnReceiveTimeout(mi *IncomingMsg) {
 	if MajorityTwoThird(voteCount, p.reactor.committeeSize) {
 		// TODO: new qc formed
 		qc := p.proposalVoteManager.Aggregate(msg.LastVoteHeight, msg.LastVoteRound, msg.LastVoteBlockID, p.reactor.curEpoch)
-		matchingQCNode := p.proposalMap.GetOneByMatchingQC(qc)
-		updated := p.UpdateQCHigh(&draftQC{QCNode: matchingQCNode, QC: qc})
+		escortQCNode := p.proposalMap.GetOneByEscortQC(qc)
+		updated := p.UpdateQCHigh(&draftQC{QCNode: escortQCNode, QC: qc})
 		if updated {
 			qcUpdated = true
 		}
 	}
 
 	qc := msg.DecodeQCHigh()
-	qcNode := p.proposalMap.GetOneByMatchingQC(qc)
+	qcNode := p.proposalMap.GetOneByEscortQC(qc)
 	updated := p.UpdateQCHigh(&draftQC{QCNode: qcNode, QC: qc})
 	if updated {
 		qcUpdated = true
@@ -572,7 +556,7 @@ func (p *Pacemaker) Regulate() {
 		}
 	}
 
-	bestNode := p.proposalMap.GetOneByMatchingQC(bestQC)
+	bestNode := p.proposalMap.GetOneByEscortQC(bestQC)
 	if bestNode == nil {
 		p.logger.Debug("started with empty qcNode")
 	}
@@ -580,7 +564,6 @@ func (p *Pacemaker) Regulate() {
 
 	// now assign b_lock b_exec, b_leaf qc_high
 	p.blockLocked = bestNode
-	p.blockExecuted = bestNode
 	p.lastVotingHeight = 0
 	p.lastVoteMsg = nil
 	p.QCHigh = qcInit
