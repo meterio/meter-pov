@@ -75,7 +75,7 @@ func (q *IncomingQueue) Add(mi *IncomingMsg) error {
 	}
 
 	// TODO: check if this caused a dead lock for putting message into a full channel
-	q.logger.Info(fmt.Sprintf("recv %s", mi.Msg.String()), "from", mi.Peer.NameAndIP(), "hash", hex.EncodeToString(mi.Hash[:]))
+	q.logger.Info(fmt.Sprintf("recv %s", mi.Msg.String()), "from", mi.Peer.NameAndIP())
 	mi.EnqueueAt = time.Now()
 	mi.ExpireAt = time.Now().Add(IN_QUEUE_TTL)
 	q.queue <- mi

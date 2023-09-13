@@ -79,14 +79,8 @@ func (r *Reactor) GetRelayPeers(round uint32) []*ConsensusPeer {
 	return peers
 }
 
-func (r *Reactor) Relay(msg ConsensusMessage) {
+func (r *Reactor) Relay(msg ConsensusMessage, rawMsg []byte) {
 	if msg.GetType() != "PMProposal" {
-		return
-	}
-
-	rawMsg, err := r.MarshalMsg(&msg)
-	if err != nil {
-		r.logger.Warn("could not marshal msg")
 		return
 	}
 

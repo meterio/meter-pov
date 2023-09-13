@@ -179,7 +179,7 @@ func NewConsensusReactor(ctx *cli.Context, chain *chain.Chain, state *state.Crea
 // OnStart implements BaseService by subscribing to events, which later will be
 // broadcasted to other peers and starting state if we're not in fast sync.
 func (r *Reactor) OnStart(ctx context.Context) error {
-	go r.outQueue.Start()
+	go r.outQueue.Start(ctx)
 	communicator := comm.GetGlobCommInst()
 	if communicator == nil {
 		r.logger.Error("get communicator instance failed ...")
@@ -508,8 +508,8 @@ func (r *Reactor) PrepareEnvForPacemaker() error {
 // do not have leader itself, we seperate the majority func
 // Easier adjust the logic of major 2/3, for pacemaker
 func MajorityTwoThird(voterNum, committeeSize uint32) bool {
-	if (voterNum < 0) || (committeeSize < 1) {
-		fmt.Println("MajorityTwoThird, inputs out of range")
+	if committeeSize < 1 {
+		fmt.Println("MajorityTwoThird, committee size < 1", committeeSize)
 		return false
 	}
 	// Examples
@@ -520,10 +520,7 @@ func MajorityTwoThird(voterNum, committeeSize uint32) bool {
 	// committeeSize= 5 twoThirds= 4
 	// committeeSize= 6 twoThirds= 4
 	twoThirds := math.Ceil(float64(committeeSize) * 2 / 3)
-	if float64(voterNum) >= twoThirds {
-		return true
-	}
-	return false
+	return float64(voterNum) >= twoThirds
 }
 
 func (r *Reactor) splitPubKey(comboPub string) (*ecdsa.PublicKey, *bls.PublicKey) {
@@ -730,6 +727,6 @@ func (r *Reactor) OnReceiveMsg(w http.ResponseWriter, req *http.Request) {
 	// 1. the original message is not sent by myself
 	// 2. it's a proposal message
 	if !fromMyself && typeName == "PMProposal" {
-		r.Relay(mi.Msg)
+		r.Relay(mi.Msg, data)
 	}
 }

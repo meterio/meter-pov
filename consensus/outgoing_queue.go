@@ -2,18 +2,18 @@ package consensus
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"io"
 	"io/ioutil"
 	"net/http"
-	"os"
 	"time"
 
 	"github.com/inconshreveable/log15"
 )
 
 const (
-	OUT_QUEUE_TTL = time.Second * 3
+	OUT_QUEUE_TTL = time.Second * 5
 	REQ_TIMEOUT   = time.Second * 4
 )
 
@@ -41,7 +41,7 @@ func NewOutgoingQueue() *OutgoingQueue {
 }
 
 func (q *OutgoingQueue) Add(to *ConsensusPeer, msg ConsensusMessage, rawMsg []byte, relay bool) {
-	q.logger.Debug(fmt.Sprintf("add %s msg to out queue", msg.GetType()), "to", to.NameAndIP(), "len", len(q.queue), "cap", cap(q.queue))
+	q.logger.Info(fmt.Sprintf("add %s msg to out queue", msg.GetType()), "to", to.NameAndIP(), "len", len(q.queue), "cap", cap(q.queue))
 	// q.logger.Debug("checking out queue", "len", len(q.queue), "cap", cap(q.queue))
 	for len(q.queue) >= cap(q.queue) {
 		p := <-q.queue
@@ -50,12 +50,11 @@ func (q *OutgoingQueue) Add(to *ConsensusPeer, msg ConsensusMessage, rawMsg []by
 	q.queue <- &OutgoingParcel{to: to, msg: msg, rawMsg: rawMsg, relay: relay, enqueueAt: time.Now(), expireAt: time.Now().Add(OUT_QUEUE_TTL)}
 }
 
-func (q OutgoingQueue) Start() {
+func (q OutgoingQueue) Start(ctx context.Context) {
 	q.logger.Info(`outgoing queue started`)
-	interruptCh := make(chan os.Signal, 1)
 	for {
 		select {
-		case <-interruptCh:
+		case <-ctx.Done():
 			return
 		case p := <-q.queue:
 			if time.Now().After(p.expireAt) {
@@ -81,7 +80,7 @@ func (q OutgoingQueue) Start() {
 			if err != nil {
 				q.logger.Error(fmt.Sprintf("send msg %s failed", p.msg.GetType()), "to", p.to.NameAndIP(), "err", err)
 				q.clients[ipAddr] = &http.Client{Timeout: REQ_TIMEOUT}
-				return
+				continue
 			}
 			defer res.Body.Close()
 			io.Copy(ioutil.Discard, res.Body)

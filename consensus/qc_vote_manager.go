@@ -31,12 +31,14 @@ type QCVoteManager struct {
 }
 
 func NewQCVoteManager(system bls.System, committeeSize uint32) *QCVoteManager {
+	logger := log15.New("pkg", "qcman")
+	logger.Info("New QC vote manager", "committeeSize", committeeSize)
 	return &QCVoteManager{
 		system:        system,
 		votes:         make(map[voteKey]map[uint32]*vote),
 		sealed:        make(map[voteKey]bool), // sealed indicator
 		committeeSize: committeeSize,
-		logger:        log15.New("pkg", "vman"),
+		logger:        logger,
 	}
 }
 
@@ -64,7 +66,7 @@ func (m *QCVoteManager) AddVote(index uint32, epoch uint64, height, round uint32
 		m.seal(height, round, blockID)
 		return m.Aggregate(height, round, blockID, epoch)
 	}
-	m.logger.Debug("vote counted", "committeeSize", m.committeeSize, "count", voteCount)
+	m.logger.Info("vote counted", "committeeSize", m.committeeSize, "count", voteCount)
 	return nil
 }
 

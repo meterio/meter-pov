@@ -6,6 +6,7 @@
 package consensus
 
 import (
+	"encoding/hex"
 	"fmt"
 	"os"
 	"time"
@@ -63,13 +64,11 @@ type Pacemaker struct {
 }
 
 func NewPacemaker(r *Reactor) *Pacemaker {
+	fmt.Println("committeeSize: ", r.committeeSize)
 	p := &Pacemaker{
 		reactor: r,
 		logger:  log15.New("pkg", "pacer"),
 		chain:   r.chain,
-
-		qcVoteManager: NewQCVoteManager(r.blsCommon.System, r.committeeSize),
-		tcVoteManager: NewTCVoteManager(r.blsCommon.System, r.committeeSize),
 
 		cmdCh:           make(chan PMCmd, 2),
 		beatCh:          make(chan PMBeatInfo, 2),
@@ -238,6 +237,7 @@ func (p *Pacemaker) OnReceiveProposal(mi *IncomingMsg) {
 	blk := msg.DecodeBlock()
 	qc := blk.QC
 	p.logger.Debug("start to handle received block proposal ", "block", blk.Oneliner())
+	p.logger.Info(fmt.Sprintf("Recv %s", msg.GetType()), "blk", blk.ID().ToBlockShortID())
 
 	// load parent
 	parent := p.proposalMap.GetOne(msg.ParentHeight, msg.ParentRound, blk.ParentID())
@@ -299,7 +299,7 @@ func (p *Pacemaker) OnReceiveProposal(mi *IncomingMsg) {
 		p.proposalMap.Add(bnew)
 	}
 
-	if bnew.Height > p.lastVotingHeight && p.IsExtendedFromBLocked(bnew) {
+	if bnew.Height >= p.lastVotingHeight && p.IsExtendedFromBLocked(bnew) {
 		vote, err := p.BuildVoteMessage(msg)
 		if err != nil {
 			p.logger.Error("could not build vote message", "err", err)
@@ -326,12 +326,13 @@ func (p *Pacemaker) OnReceiveProposal(mi *IncomingMsg) {
 
 func (p *Pacemaker) OnReceiveVote(mi *IncomingMsg) {
 	msg := mi.Msg.(*PMVoteMessage)
+	p.logger.Info(fmt.Sprintf("Recv %s", msg.GetType()), "blk", msg.VoteBlockID.ToBlockShortID())
 
 	height := msg.VoteHeight
 	round := msg.VoteRound
 
 	// drop outdated vote
-	if round < p.currentRound {
+	if round < p.currentRound-1 {
 		p.logger.Info("outdated vote, dropped ...", "currentRound", p.currentRound, "voteRound", round)
 		return
 	}
@@ -342,7 +343,7 @@ func (p *Pacemaker) OnReceiveVote(mi *IncomingMsg) {
 
 	b := p.proposalMap.GetOne(height, round, msg.VoteBlockID)
 	if b == nil {
-		p.logger.Warn("can not get parnet block")
+		p.logger.Warn("can not get proposed block", "id", b.ProposedBlock.ID().ToBlockShortID())
 		p.reactor.inQueue.Add(mi)
 		// return errors.New("can not address block")
 		return
@@ -399,7 +400,7 @@ func (p *Pacemaker) UpdateQCHigh(qc *draftQC) bool {
 		p.QCHigh = qc
 		updated = true
 	}
-	p.logger.Debug("after update QCHigh", "updated", updated, "from", oqc.ToString(), "to", p.QCHigh.ToString())
+	p.logger.Info("after update QCHigh", "updated", updated, "from", oqc.ToString(), "to", p.QCHigh.ToString())
 
 	return updated
 }
@@ -440,6 +441,7 @@ func (p *Pacemaker) OnBeat(epoch uint64, round uint32) {
 
 func (p *Pacemaker) OnReceiveTimeout(mi *IncomingMsg) {
 	msg := mi.Msg.(*PMTimeoutMessage)
+	p.logger.Info(fmt.Sprintf("Recv %s", msg.GetType()), "epoch", msg.Epoch, "wishRound", msg.WishRound, "lastVoteSig", hex.EncodeToString(msg.LastVoteSignature))
 
 	// drop invalid msg
 	if !p.reactor.amIRoundProproser(msg.WishRound) {
@@ -470,6 +472,8 @@ func (p *Pacemaker) OnReceiveTimeout(mi *IncomingMsg) {
 // Committee Leader triggers
 func (p *Pacemaker) Regulate() {
 	p.reactor.PrepareEnvForPacemaker()
+	p.qcVoteManager = NewQCVoteManager(p.reactor.blsCommon.System, p.reactor.committeeSize)
+	p.tcVoteManager = NewTCVoteManager(p.reactor.blsCommon.System, p.reactor.committeeSize)
 
 	bestQC := p.reactor.chain.BestQC()
 	bestBlk, err := p.reactor.chain.GetTrunkBlock(bestQC.QCHeight)
@@ -629,27 +633,26 @@ func (p *Pacemaker) SendEpochEndInfo(b *draftBlock) {
 func (p *Pacemaker) OnRoundTimeout(ti PMRoundTimeoutInfo) {
 	p.logger.Warn(fmt.Sprintf("round %d timeout", ti.round), "counter", p.timeoutCounter)
 
-	updated := p.enterRound(ti.round+1, UpdateOnTimeout)
+	p.enterRound(ti.round+1, UpdateOnTimeout)
 	newTi := &PMRoundTimeoutInfo{
 		height:  p.QCHigh.QC.QCHeight + 1,
 		round:   p.currentRound,
 		counter: p.timeoutCounter + 1,
 	}
-	if updated {
-		pmRoleGauge.Set(1) // validator
+	pmRoleGauge.Set(1) // validator
 
-		// send new round msg to next round proposer
-		msg, err := p.BuildTimeoutMessage(p.QCHigh, newTi, p.lastVoteMsg)
-		if err != nil {
-			p.logger.Error("could not build new view message", "err", err)
-		} else {
-			p.sendMsg(msg, false)
-		}
+	// send new round msg to next round proposer
+	msg, err := p.BuildTimeoutMessage(p.QCHigh, newTi, p.lastVoteMsg)
+	if err != nil {
+		p.logger.Error("could not build timeout message", "err", err)
+	} else {
+		p.sendMsg(msg, false)
 	}
 }
 
 func (p *Pacemaker) enterRound(round uint32, reason roundUpdateReason) bool {
 	if round <= p.currentRound {
+		p.logger.Warn(fmt.Sprintf("update round skipped %d->%d", p.currentRound, round))
 		return false
 	}
 	switch reason {

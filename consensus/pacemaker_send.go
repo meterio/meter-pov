@@ -10,6 +10,7 @@ package consensus
 // 2. send messages to peer
 
 import (
+	"encoding/hex"
 	"time"
 
 	"github.com/ethereum/go-ethereum/rlp"
@@ -33,7 +34,7 @@ func (p *Pacemaker) sendMsg(msg ConsensusMessage, copyMyself bool) bool {
 		nxtProposer := p.getProposerByRound(round + 1)
 		peers = append(peers, nxtProposer)
 	case *PMTimeoutMessage:
-		nxtProposer := p.getProposerByRound(round + 1)
+		nxtProposer := p.getProposerByRound(round)
 		peers = append(peers, nxtProposer)
 	}
 
@@ -137,17 +138,17 @@ func (p *Pacemaker) BuildTimeoutMessage(qcHigh *draftQC, ti *PMRoundTimeoutInfo,
 		Epoch:       p.reactor.curEpoch,
 		SignerIndex: uint32(p.reactor.GetMyActualCommitteeIndex()),
 
-		WishRound: ti.round + 1,
+		WishRound: ti.round,
 
 		QCHigh: qcBytes,
 
 		WishVoteHash: wishVoteHash,
 		WishVoteSig:  wishVoteSig,
-
-		// LAST VOTE
 	}
 
+	// attach last vote
 	if lastVoteMsg != nil {
+		p.logger.Info("attached last vote", "votSig", hex.EncodeToString(lastVoteMsg.VoteSignature))
 		msg.LastVoteHeight = lastVoteMsg.VoteHeight
 		msg.LastVoteRound = lastVoteMsg.VoteRound
 		msg.LastVoteBlockID = lastVoteMsg.VoteBlockID

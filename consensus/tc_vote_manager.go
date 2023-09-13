@@ -22,12 +22,14 @@ type TCVoteManager struct {
 }
 
 func NewTCVoteManager(system bls.System, committeeSize uint32) *TCVoteManager {
+	logger := log15.New("pkg", "tcman")
+	logger.Info("New TC vote manager", "committeeSize", committeeSize)
 	return &TCVoteManager{
 		system:        system,
 		votes:         make(map[timeoutVoteKey]map[uint32]*vote),
 		sealed:        make(map[timeoutVoteKey]bool), // sealed indicator
 		committeeSize: committeeSize,
-		logger:        log15.New("pkg", "tvman"),
+		logger:        logger,
 	}
 }
 
@@ -48,7 +50,8 @@ func (m *TCVoteManager) AddVote(index uint32, epoch uint64, round uint32, sig []
 	}
 	m.votes[key][index] = &vote{Signature: sig, Hash: hash, BlsSig: blsSig}
 
-	voteCount := uint32(len(m.votes))
+	voteCount := uint32(len(m.votes[key]))
+	m.logger.Info("TC vote", "count", voteCount, "committeeSize", m.committeeSize)
 	if MajorityTwoThird(voteCount, m.committeeSize) {
 		m.logger.Info(
 			fmt.Sprintf("TC formed on (E:%d,R:%d), future votes will be ignored.", epoch, round), "voted", fmt.Sprintf("%d/%d", voteCount, m.committeeSize))
