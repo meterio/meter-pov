@@ -13,7 +13,7 @@ type timeoutVoteKey struct {
 	Round uint32
 }
 
-type WishVoteManager struct {
+type TCVoteManager struct {
 	system        bls.System
 	votes         map[timeoutVoteKey]map[uint32]*vote
 	sealed        map[timeoutVoteKey]bool
@@ -21,8 +21,8 @@ type WishVoteManager struct {
 	logger        log15.Logger
 }
 
-func NewWishVoteManager(system bls.System, committeeSize uint32) *WishVoteManager {
-	return &WishVoteManager{
+func NewTCVoteManager(system bls.System, committeeSize uint32) *TCVoteManager {
+	return &TCVoteManager{
 		system:        system,
 		votes:         make(map[timeoutVoteKey]map[uint32]*vote),
 		sealed:        make(map[timeoutVoteKey]bool), // sealed indicator
@@ -31,19 +31,20 @@ func NewWishVoteManager(system bls.System, committeeSize uint32) *WishVoteManage
 	}
 }
 
-func (m *WishVoteManager) AddVote(index uint32, epoch uint64, round uint32, sig []byte, hash [32]byte) error {
+func (m *TCVoteManager) AddVote(index uint32, epoch uint64, round uint32, sig []byte, hash [32]byte) bool {
 	key := timeoutVoteKey{Epoch: epoch, Round: round}
 	if _, existed := m.votes[key]; !existed {
 		m.votes[key] = make(map[uint32]*vote)
 	}
 
 	if _, sealed := m.sealed[key]; sealed {
-		return nil
+		return false
 	}
 
 	blsSig, err := m.system.SigFromBytes(sig)
+	m.logger.Error("load signature failed", "err", err)
 	if err != nil {
-		return err
+		return false
 	}
 	m.votes[key][index] = &vote{Signature: sig, Hash: hash, BlsSig: blsSig}
 
@@ -52,21 +53,25 @@ func (m *WishVoteManager) AddVote(index uint32, epoch uint64, round uint32, sig 
 		m.logger.Info(
 			fmt.Sprintf("TC formed on (E:%d,R:%d), future votes will be ignored.", epoch, round), "voted", fmt.Sprintf("%d/%d", voteCount, m.committeeSize))
 		m.seal(epoch, round)
+		return true
+	} else {
+		m.logger.Debug("tc vote counted")
 	}
-	return nil
+
+	return false
 }
 
-func (m *WishVoteManager) Count(epoch uint64, round uint32) uint32 {
+func (m *TCVoteManager) Count(epoch uint64, round uint32) uint32 {
 	key := timeoutVoteKey{Epoch: epoch, Round: round}
 	return uint32(len(m.votes[key]))
 }
 
-func (m *WishVoteManager) seal(epoch uint64, round uint32) {
+func (m *TCVoteManager) seal(epoch uint64, round uint32) {
 	key := timeoutVoteKey{Epoch: epoch, Round: round}
 	m.sealed[key] = true
 }
 
-func (m *WishVoteManager) Aggregate(epoch uint64, round uint32) *TimeoutCert {
+func (m *TCVoteManager) Aggregate(epoch uint64, round uint32) *TimeoutCert {
 	m.seal(epoch, round)
 	sigs := make([]bls.Signature, 0)
 	key := timeoutVoteKey{Epoch: epoch, Round: round}

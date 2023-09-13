@@ -40,8 +40,8 @@ type Pacemaker struct {
 	minMBlocks      uint32
 
 	// Utility data structures
-	proposalVoteManager *ProposalVoteManager
-	wishVoteManager     *WishVoteManager
+	qcVoteManager *QCVoteManager
+	tcVoteManager *TCVoteManager
 
 	// HotStuff fields
 	lastVotingHeight uint32
@@ -68,8 +68,8 @@ func NewPacemaker(r *Reactor) *Pacemaker {
 		logger:  log15.New("pkg", "pacer"),
 		chain:   r.chain,
 
-		proposalVoteManager: NewProposalVoteManager(r.blsCommon.System, r.committeeSize),
-		wishVoteManager:     NewWishVoteManager(r.blsCommon.System, r.committeeSize),
+		qcVoteManager: NewQCVoteManager(r.blsCommon.System, r.committeeSize),
+		tcVoteManager: NewTCVoteManager(r.blsCommon.System, r.committeeSize),
 
 		cmdCh:           make(chan PMCmd, 2),
 		beatCh:          make(chan PMBeatInfo, 2),
@@ -165,11 +165,6 @@ func (p *Pacemaker) Update(bnew *draftBlock) error {
 	return nil
 }
 
-// TBD: how to emboy b.cmd
-func (p *Pacemaker) Execute(b *draftBlock) {
-	// p.logger.Info("Exec cmd:", "height", b.Height, "round", b.Round)
-}
-
 func (p *Pacemaker) OnCommit(commitReady []commitReadyBlock) {
 	for _, b := range commitReady {
 
@@ -215,8 +210,6 @@ func (p *Pacemaker) OnCommit(commitReady []commitReadyBlock) {
 			}
 		}
 
-		p.Execute(blk) //b.cmd
-
 		if blk.BlockType == KBlockType {
 			p.logger.Info("committed a kblock, stop pacemaker", "height", blk.Height, "round", blk.Round)
 			p.SendEpochEndInfo(blk)
@@ -228,6 +221,7 @@ func (p *Pacemaker) OnCommit(commitReady []commitReadyBlock) {
 		// so proposals are kept in this committee and clean all of them at the stopping of pacemaker.
 		// remove this draftBlock from map.
 		//delete(p.proposalMap, b.Height)
+		p.proposalMap.Prune(blk)
 	}
 }
 
@@ -364,18 +358,13 @@ func (p *Pacemaker) OnReceiveVote(mi *IncomingMsg) {
 		return
 	}
 
-	p.proposalVoteManager.AddVote(msg.GetSignerIndex(), height, round, msg.VoteBlockID, msg.VoteSignature, msg.VoteHash)
-	voteCount := p.proposalVoteManager.Count(height, round, msg.VoteBlockID)
-	if !MajorityTwoThird(voteCount, p.reactor.committeeSize) {
-		// voteCount < p.reactor.committeeSize * 2/3, QC not formed
-		p.logger.Debug("vote counted", "committeeSize", p.reactor.committeeSize, "count", voteCount)
+	qcFormed := p.qcVoteManager.AddVote(msg.GetSignerIndex(), height, round, msg.VoteBlockID, msg.VoteSignature, msg.VoteHash)
+	if !qcFormed {
 		return
 	}
-	p.logger.Info(
-		fmt.Sprintf("QC formed on proposal(H:%d,R:%d,B:%v), future votes will be ignored.", height, round, msg.VoteBlockID), "voted", fmt.Sprintf("%d/%d", voteCount, p.reactor.committeeSize))
 
 	//reach 2/3 majority, trigger the pipeline cmd
-	qc := p.proposalVoteManager.Aggregate(height, round, msg.VoteBlockID, p.reactor.curEpoch)
+	qc := p.qcVoteManager.Aggregate(height, round, msg.VoteBlockID, p.reactor.curEpoch)
 	if qc == nil {
 		p.logger.Warn("could not form qc")
 		return
@@ -488,20 +477,18 @@ func (p *Pacemaker) OnReceiveTimeout(mi *IncomingMsg) {
 	qcUpdated := false
 
 	// collect wish vote to see if TC is formed
-	p.wishVoteManager.AddVote(msg.SignerIndex, msg.Epoch, msg.WishRound, msg.WishVoteSig, msg.WishVoteHash)
-	timeoutVoteCount := p.wishVoteManager.Count(msg.Epoch, msg.WishRound)
-	if MajorityTwoThird(timeoutVoteCount, p.reactor.committeeSize) {
-		tc := p.wishVoteManager.Aggregate(msg.Epoch, msg.WishRound)
+	tcFormed := p.tcVoteManager.AddVote(msg.SignerIndex, msg.Epoch, msg.WishRound, msg.WishVoteSig, msg.WishVoteHash)
+	if tcFormed {
+		tc := p.tcVoteManager.Aggregate(msg.Epoch, msg.WishRound)
 		p.TCHigh = tc
 		tcUpdated = true
 	}
 
 	// collect vote and see if QC is formed
-	p.proposalVoteManager.AddVote(msg.SignerIndex, msg.LastVoteHeight, msg.LastVoteRound, msg.LastVoteBlockID, msg.LastVoteSignature, msg.LastVoteHash)
-	voteCount := p.proposalVoteManager.Count(msg.LastVoteHeight, msg.LastVoteRound, msg.LastVoteBlockID)
-	if MajorityTwoThird(voteCount, p.reactor.committeeSize) {
+	qcFormed := p.qcVoteManager.AddVote(msg.SignerIndex, msg.LastVoteHeight, msg.LastVoteRound, msg.LastVoteBlockID, msg.LastVoteSignature, msg.LastVoteHash)
+	if qcFormed {
 		// TODO: new qc formed
-		qc := p.proposalVoteManager.Aggregate(msg.LastVoteHeight, msg.LastVoteRound, msg.LastVoteBlockID, p.reactor.curEpoch)
+		qc := p.qcVoteManager.Aggregate(msg.LastVoteHeight, msg.LastVoteRound, msg.LastVoteBlockID, p.reactor.curEpoch)
 		escortQCNode := p.proposalMap.GetOneByEscortQC(qc)
 		updated := p.UpdateQCHigh(&draftQC{QCNode: escortQCNode, QC: qc})
 		if updated {

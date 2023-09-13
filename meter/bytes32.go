@@ -6,6 +6,7 @@
 package meter
 
 import (
+	"bytes"
 	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
@@ -37,6 +38,10 @@ func (b Bytes32) AbbrevString() string {
 // Bytes returns byte slice form of Bytes32.
 func (b Bytes32) Bytes() []byte {
 	return b[:]
+}
+
+func (b Bytes32) Equal(a Bytes32) bool {
+	return bytes.Equal(a[:], b[:])
 }
 
 // IsZero returns if Bytes32 has all zero bytes.

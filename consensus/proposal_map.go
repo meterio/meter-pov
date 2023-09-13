@@ -116,10 +116,17 @@ func (p *ProposalMap) CleanAll() {
 	}
 }
 
-func (p *ProposalMap) DeleteBeforeOrEqual(height uint32) {
+func (p *ProposalMap) Prune(lastCommitted *draftBlock) {
 	for k := range p.proposals {
 		draftBlk := p.proposals[k]
-		if draftBlk.ProposedBlock.Number() <= height {
+		if draftBlk.ProposedBlock.Number() < lastCommitted.Height {
+			delete(p.proposals, draftBlk.ProposedBlock.ID())
+		}
+		if draftBlk.ProposedBlock.Number() == lastCommitted.Height {
+			if !draftBlk.ProposedBlock.ID().Equal(lastCommitted.ProposedBlock.ID()) {
+				// TODO: return txs to txpool
+				draftBlk.txsToReturned()
+			}
 			delete(p.proposals, draftBlk.ProposedBlock.ID())
 		}
 	}
