@@ -130,7 +130,7 @@ func New(kv kv.GetPutter, genesisBlock *block.Block, verbose bool) (*Chain, erro
 		if bestBlock.Number() == 0 && bestBlock.QC == nil {
 			log.Info("QC of best block is empty, set it to genesis QC")
 			bestBlock.QC = block.GenesisQC()
-			saveBestQC(kv, block.GenesisQC())
+			saveBestQC(kv, block.GenesisEscortQC(bestBlock))
 		}
 
 	}
@@ -167,8 +167,8 @@ func New(kv kv.GetPutter, genesisBlock *block.Block, verbose bool) (*Chain, erro
 
 	bestQC, err := loadBestQC(kv)
 	if err != nil {
-		log.Debug("BestQC is empty, set it to use genesisQC")
-		bestQC = block.GenesisQC()
+		log.Debug("BestQC is empty, set it to use genesisEscortQC")
+		bestQC = block.GenesisEscortQC(genesisBlock)
 		bestQCHeightGauge.Set(float64(bestQC.QCHeight))
 	}
 	bestHeightGauge.Set(float64(bestBlock.Number()))

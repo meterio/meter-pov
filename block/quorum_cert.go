@@ -120,6 +120,10 @@ func GenesisQC() *QuorumCert {
 	return &QuorumCert{QCHeight: 0, QCRound: 0, EpochID: 0}
 }
 
+func GenesisEscortQC(b *Block) *QuorumCert {
+	return &QuorumCert{QCHeight: 0, QCRound: 0, EpochID: 0, VoterMsgHash: b.VotingHash()}
+}
+
 // --------------
 func QCEncodeBytes(qc *QuorumCert) []byte {
 	blockBytes, _ := rlp.EncodeToBytes(qc)

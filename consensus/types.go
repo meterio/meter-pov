@@ -52,7 +52,11 @@ type draftBlock struct {
 
 func (pb *draftBlock) ToString() string {
 	if pb == nil {
-		return fmt.Sprintf("DraftBlock(nil)")
+		return "DraftBlock(nil)"
+	}
+	if pb.Committed {
+		return fmt.Sprintf("Block{(H:%v,R:%v), QC:(H:%v, R:%v), Parent:%v}",
+			pb.Height, pb.Round, pb.ProposedBlock.QC.QCHeight, pb.ProposedBlock.QC.QCRound, pb.ProposedBlock.ParentID().ToBlockShortID())
 	}
 	if pb.Parent != nil {
 		return fmt.Sprintf("DraftBlock{(H:%v,R:%v), QC:(H:%v, R:%v), Parent:(H:%v, H:%v)}",
@@ -79,9 +83,9 @@ func newPMQuorumCert(qc *block.QuorumCert, qcNode *draftBlock) *draftQC {
 
 func (qc *draftQC) ToString() string {
 	if qc.QCNode != nil {
-		return fmt.Sprintf("pmQC{QC:(H:%v,R:%v), qcNode:(H:%v,R:%v)}", qc.QC.QCHeight, qc.QC.QCRound, qc.QCNode.Height, qc.QCNode.Round)
+		return fmt.Sprintf("DraftQC{QC:(H:%v,R:%v), qcNode:(H:%v,R:%v)}", qc.QC.QCHeight, qc.QC.QCRound, qc.QCNode.Height, qc.QCNode.Round)
 	} else {
-		return fmt.Sprintf("pmQC{QC:(H:%v,R:%v), qcNode: nil}", qc.QC.QCHeight, qc.QC.QCRound)
+		return fmt.Sprintf("DraftQC{QC:(H:%v,R:%v), qcNode: nil}", qc.QC.QCHeight, qc.QC.QCRound)
 	}
 }
 

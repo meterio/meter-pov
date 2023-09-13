@@ -755,7 +755,10 @@ func (r *Reactor) OnReceiveMsg(w http.ResponseWriter, req *http.Request) {
 		r.logger.Warn("pacemaker is not initialized, dropped message")
 		return
 	}
-	r.inQueue.Add(mi)
+	err = r.inQueue.Add(mi)
+	if err != nil {
+		return
+	}
 
 	// relay the message if these two conditions are met:
 	// 1. the original message is not sent by myself

@@ -189,7 +189,7 @@ func (m *PMVoteMessage) GetMsgHash() (hash meter.Bytes32) {
 
 // String returns a string representation.
 func (m *PMVoteMessage) String() string {
-	return fmt.Sprintf("[Vote] H:%v R:%v Block:%x",
+	return fmt.Sprintf("[Vote] H:%v R:%v Block:%v",
 		m.VoteHeight, m.VoteRound, m.VoteBlockID.ToBlockShortID())
 }
 

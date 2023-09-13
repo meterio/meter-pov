@@ -51,7 +51,7 @@ func (c *Reactor) ProcessSyncedBlock(blk *block.Block, nowTimestamp uint64) (*st
 		}
 	}
 
-	parentHeader, err := c.chain.GetBlockHeader(header.ParentID())
+	parent, err := c.chain.GetBlock(header.ParentID())
 	if err != nil {
 		if !c.chain.IsNotFound(err) {
 			return nil, nil, err
@@ -59,12 +59,12 @@ func (c *Reactor) ProcessSyncedBlock(blk *block.Block, nowTimestamp uint64) (*st
 		return nil, nil, errParentMissing
 	}
 
-	state, err := c.stateCreator.NewState(parentHeader.StateRoot())
+	state, err := c.stateCreator.NewState(parent.StateRoot())
 	if err != nil {
 		return nil, nil, err
 	}
 
-	stage, receipts, err := c.Validate(state, blk, parentHeader, nowTimestamp, false)
+	stage, receipts, err := c.Validate(state, blk, parent, nowTimestamp, false)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -72,7 +72,7 @@ func (c *Reactor) ProcessSyncedBlock(blk *block.Block, nowTimestamp uint64) (*st
 	return stage, receipts, nil
 }
 
-func (c *Reactor) ProcessProposedBlock(parentHeader *block.Header, blk *block.Block, nowTimestamp uint64) (*state.Stage, tx.Receipts, error) {
+func (c *Reactor) ProcessProposedBlock(parent *block.Block, blk *block.Block, nowTimestamp uint64) (*state.Stage, tx.Receipts, error) {
 	header := blk.Header()
 
 	if _, err := c.chain.GetBlockHeader(header.ID()); err != nil {
@@ -83,16 +83,16 @@ func (c *Reactor) ProcessProposedBlock(parentHeader *block.Header, blk *block.Bl
 		return nil, nil, errKnownBlock
 	}
 
-	if parentHeader == nil {
+	if parent == nil {
 		return nil, nil, errParentHeaderMissing
 	}
 
-	state, err := c.stateCreator.NewState(parentHeader.StateRoot())
+	state, err := c.stateCreator.NewState(parent.StateRoot())
 	if err != nil {
 		return nil, nil, err
 	}
 
-	stage, receipts, err := c.Validate(state, blk, parentHeader, nowTimestamp, true)
+	stage, receipts, err := c.Validate(state, blk, parent, nowTimestamp, true)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -103,7 +103,7 @@ func (c *Reactor) ProcessProposedBlock(parentHeader *block.Header, blk *block.Bl
 func (c *Reactor) Validate(
 	state *state.State,
 	block *block.Block,
-	parentHeader *block.Header,
+	parent *block.Block,
 	nowTimestamp uint64,
 	forceValidate bool,
 ) (*state.Stage, tx.Receipts, error) {
@@ -111,15 +111,15 @@ func (c *Reactor) Validate(
 
 	epoch := block.GetBlockEpoch()
 
-	if err := c.validateBlockHeader(header, parentHeader, nowTimestamp, forceValidate, epoch); err != nil {
+	if err := c.validateBlockHeader(header, parent.Header(), nowTimestamp, forceValidate, epoch); err != nil {
 		return nil, nil, err
 	}
 
-	if err := c.validateProposer(header, parentHeader, state); err != nil {
+	if err := c.validateProposer(header, parent.Header(), state); err != nil {
 		return nil, nil, err
 	}
 
-	if err := c.validateBlockBody(block, forceValidate); err != nil {
+	if err := c.validateBlockBody(block, parent, forceValidate); err != nil {
 		return nil, nil, err
 	}
 
@@ -172,7 +172,7 @@ func (c *Reactor) validateProposer(header *block.Header, parent *block.Header, s
 	return nil
 }
 
-func (c *Reactor) validateBlockBody(blk *block.Block, forceValidate bool) error {
+func (c *Reactor) validateBlockBody(blk *block.Block, parent *block.Block, forceValidate bool) error {
 	header := blk.Header()
 	proposedTxs := blk.Transactions()
 	if header.TxsRoot() != proposedTxs.RootHash() {
@@ -186,13 +186,12 @@ func (c *Reactor) validateBlockBody(blk *block.Block, forceValidate bool) error 
 	clauseUniteHashs := make(map[meter.Bytes32]int)
 	scriptUniteHashs := make(map[meter.Bytes32]int)
 
-	parentBlock, err := c.chain.GetBlock(header.ParentID())
-	if err != nil {
-		c.logger.Error("get parentBlock failed", "err", err.Error())
-		return err
+	if parent == nil {
+		c.logger.Error("parent is nil")
+		return errors.New("parent is nil")
 	}
 	if blk.IsKBlock() {
-		best := parentBlock
+		best := parent
 		chainTag := c.chain.Tag()
 		bestNum := c.chain.BestBlock().Number()
 		curEpoch := uint32(c.curEpoch)
@@ -207,7 +206,7 @@ func (c *Reactor) validateBlockBody(blk *block.Block, forceValidate bool) error 
 		if proposalKBlock && forceValidate {
 			rewards := powResults.Rewards
 			fmt.Println("---------------- Local Build KBlock Txs for validation ----------------")
-			kblockTxs := c.buildKBlockTxs(parentBlock, rewards, chainTag, bestNum, curEpoch, best, state)
+			kblockTxs := c.buildKBlockTxs(parent, rewards, chainTag, bestNum, curEpoch, best, state)
 			// for _, tx := range kblockTxs {
 			// 	fmt.Println("tx=", tx.ID(), ", uniteHash=", tx.UniteHash(), "gas", tx.Gas())
 			// }

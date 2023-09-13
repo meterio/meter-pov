@@ -13,7 +13,7 @@ import (
 )
 
 const (
-	IN_QUEUE_TTL = time.Second * 3
+	IN_QUEUE_TTL = time.Second * 5
 )
 
 type IncomingMsg struct {
@@ -61,11 +61,11 @@ func NewIncomingQueue() *IncomingQueue {
 	}
 }
 
-func (q *IncomingQueue) Add(mi *IncomingMsg) {
+func (q *IncomingQueue) Add(mi *IncomingMsg) error {
 	defer q.Mutex.Unlock()
 	q.Mutex.Lock()
 	if q.cache.Contains(mi.Hash) {
-		return
+		return ErrKnownMsg
 	}
 	q.cache.Add(mi.Hash, true)
 	// instead of drop the latest message, drop the oldest one in front of queue
@@ -75,10 +75,11 @@ func (q *IncomingQueue) Add(mi *IncomingMsg) {
 	}
 
 	// TODO: check if this caused a dead lock for putting message into a full channel
-	q.logger.Info(fmt.Sprintf("recv %s", mi.Msg.String()), "from", mi.Peer.NameAndIP())
+	q.logger.Info(fmt.Sprintf("recv %s", mi.Msg.String()), "from", mi.Peer.NameAndIP(), "hash", hex.EncodeToString(mi.Hash[:]))
 	mi.EnqueueAt = time.Now()
 	mi.ExpireAt = time.Now().Add(IN_QUEUE_TTL)
 	q.queue <- mi
+	return nil
 }
 
 func (q *IncomingQueue) drain() {

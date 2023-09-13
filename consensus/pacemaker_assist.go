@@ -61,7 +61,6 @@ func (p *Pacemaker) ValidateProposal(b *draftBlock) error {
 	if parentBlock == nil {
 		return errDecodeParentFailed
 	}
-	parentHeader := parentBlock.Header()
 
 	pool := txpool.GetGlobTxPoolInst()
 	if pool == nil {
@@ -102,7 +101,7 @@ func (p *Pacemaker) ValidateProposal(b *draftBlock) error {
 	checkPoint := state.NewCheckpoint()
 
 	now := uint64(time.Now().Unix())
-	stage, receipts, err := p.reactor.ProcessProposedBlock(parentHeader, blk, now)
+	stage, receipts, err := p.reactor.ProcessProposedBlock(parentBlock, blk, now)
 	if err != nil && err != errKnownBlock {
 		p.logger.Error("process block failed", "proposed", blk.Oneliner(), "err", err)
 		b.SuccessProcessed = false

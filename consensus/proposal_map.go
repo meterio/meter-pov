@@ -34,6 +34,7 @@ func (p *ProposalMap) GetByID(blkID meter.Bytes32) *draftBlock {
 	// load from database
 	blkInDB, err := p.chain.GetBlock(blkID)
 	if err == nil {
+		p.logger.Debug("load block from DB", "num", blkInDB.Number(), "id", blkInDB.ShortID())
 		return &draftBlock{
 			Height:        blkInDB.Number(),
 			Round:         blkInDB.QC.QCRound + 1, // TODO: might have better ways doing this
@@ -57,6 +58,7 @@ func (p *ProposalMap) GetOne(height, round uint32, blkID meter.Bytes32) *draftBl
 	// load from database
 	blkInDB, err := p.chain.GetBlock(blkID)
 	if err == nil {
+		p.logger.Debug("load block from DB", "num", blkInDB.Number(), "id", blkInDB.ShortID())
 		if blkInDB.Number() == height {
 			return &draftBlock{
 				Height:        blkInDB.Number(),
@@ -87,6 +89,7 @@ func (p *ProposalMap) GetOneByEscortQC(qc *block.QuorumCert) *draftBlock {
 	if err == nil {
 		blkInDB, err := p.chain.GetBlock(blkID)
 		if err == nil {
+			p.logger.Debug("load block from DB", "num", blkInDB.Number(), "id", blkInDB.ShortID())
 			if blkInDB.Number() == qc.QCHeight {
 				return &draftBlock{
 					Height:        qc.QCHeight,

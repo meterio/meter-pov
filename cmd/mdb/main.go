@@ -937,9 +937,8 @@ func syncVerifyAction(ctx *cli.Context) error {
 			log.Error(err.Error())
 			return nil
 		}
-		parentHeader := parentBlk.Header()
 		log.Info("validate block", "num", b.Number())
-		_, receipts, err := cons.Validate(parentState, b, parentHeader, now, false)
+		_, receipts, err := cons.Validate(parentState, b, parentBlk, now, false)
 		if err != nil {
 			log.Error(err.Error())
 			return err

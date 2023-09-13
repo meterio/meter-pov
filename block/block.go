@@ -405,8 +405,8 @@ func (b *Block) Oneliner() string {
 		ci = "YES"
 	}
 	canonicalName := b.GetCanonicalName()
-	return fmt.Sprintf("%v(%v) %v, #txs:%v, ci:%v, parent:%v ", canonicalName,
-		b.ShortID(), b.QC.CompactString(), len(b.Transactions()), ci, header.ParentID().AbbrevString())
+	return fmt.Sprintf("%v(%v) %v, #txs:%v, ci:%v, parent:%v", canonicalName,
+		b.ShortID(), b.QC.CompactString(), len(b.Transactions()), ci, header.ParentID().ToBlockShortID())
 }
 
 // -----------------

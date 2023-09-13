@@ -41,6 +41,8 @@ func NewOutgoingQueue() *OutgoingQueue {
 }
 
 func (q *OutgoingQueue) Add(to *ConsensusPeer, msg ConsensusMessage, rawMsg []byte, relay bool) {
+	q.logger.Debug(fmt.Sprintf("add %s msg to out queue", msg.GetType()), "to", to.NameAndIP(), "len", len(q.queue), "cap", cap(q.queue))
+	// q.logger.Debug("checking out queue", "len", len(q.queue), "cap", cap(q.queue))
 	for len(q.queue) >= cap(q.queue) {
 		p := <-q.queue
 		q.logger.Info(fmt.Sprintf(`%s msg dropped due to cap ...`, p.msg.GetType()))
@@ -74,13 +76,15 @@ func (q OutgoingQueue) Start() {
 
 			}
 			res, err := client.Post(url, "application/json", bytes.NewBuffer(p.rawMsg))
-			defer res.Body.Close()
-			io.Copy(ioutil.Discard, res.Body)
+
 			// TODO: print response
 			if err != nil {
 				q.logger.Error(fmt.Sprintf("send msg %s failed", p.msg.GetType()), "to", p.to.NameAndIP(), "err", err)
 				q.clients[ipAddr] = &http.Client{Timeout: REQ_TIMEOUT}
+				return
 			}
+			defer res.Body.Close()
+			io.Copy(ioutil.Discard, res.Body)
 		}
 	}
 }

@@ -105,11 +105,11 @@ func (p *Pacemaker) CreateLeaf(parent *draftBlock, justify *draftQC, round uint3
 		rewards := powResults.Rewards
 		return p.buildKBlock(parent, justify, round, kblockData, rewards)
 	} else {
-		if round <= justify.QC.QCRound {
+		if p.reactor.curEpoch != 0 && round != 0 && round <= justify.QC.QCRound {
 			p.logger.Warn("Invalid round to propose", "round", round, "qcRound", justify.QC.QCRound)
 			return ErrInvalidRound, nil
 		}
-		if round <= parent.Round {
+		if p.reactor.curEpoch != 0 && round != 0 && round <= parent.Round {
 			p.logger.Warn("Invalid round to propose", "round", round, "parentRound", parent.Round)
 			return ErrInvalidRound, nil
 		}
@@ -127,7 +127,14 @@ func (p *Pacemaker) Update(bnew *draftBlock) error {
 		p.logger.Warn("blockPrime is empty, early termination of Update")
 		return nil
 	}
+	if blockPrime.Committed {
+		p.logger.Warn("b' is commited", "b'", blockPrime.ProposedBlock.ShortID())
+		return nil
+	}
 	block = blockPrime.Justify.QCNode
+	if block.Committed {
+		p.logger.Warn("b is committed", "b", block.ProposedBlock.ShortID())
+	}
 	if block == nil {
 		//bnew Justify is already higher than current QCHigh
 		p.UpdateQCHigh(bnew.Justify)
@@ -150,7 +157,7 @@ func (p *Pacemaker) Update(bnew *draftBlock) error {
 	commitReady := []commitReadyBlock{}
 	for b := blockPrime; b.Parent.Height > p.blockLocked.Height; b = b.Parent {
 		// XXX: b must be prepended the slice, so we can commit blocks in order
-		commitReady = append([]commitReadyBlock{{block: b.Parent, escortQC: b.Justify.QC}}, commitReady...)
+		commitReady = append([]commitReadyBlock{{block: b.Parent, escortQC: b.ProposedBlock.QC}}, commitReady...)
 	}
 	p.OnCommit(commitReady)
 
@@ -242,7 +249,7 @@ func (p *Pacemaker) OnReceiveProposal(mi *IncomingMsg) {
 	// address parent
 	parent := p.proposalMap.GetOne(msg.ParentHeight, msg.ParentRound, blk.ParentID())
 	if parent == nil {
-		p.logger.Error("could not get parent draft, throw it back in queue", "height", msg.ParentHeight, "round", msg.ParentRound, "ID", blk.ParentID().ToBlockShortID())
+		p.logger.Error("could not get parent draft, throw it back in queue", "height", msg.ParentHeight, "round", msg.ParentRound, "parent", blk.ParentID().ToBlockShortID())
 		p.reactor.inQueue.Add(mi)
 		return
 	}
@@ -359,9 +366,8 @@ func (p *Pacemaker) OnReceiveVote(mi *IncomingMsg) {
 
 	p.proposalVoteManager.AddVote(msg.GetSignerIndex(), height, round, msg.VoteBlockID, msg.VoteSignature, msg.VoteHash)
 	voteCount := p.proposalVoteManager.Count(height, round, msg.VoteBlockID)
-	if MajorityTwoThird(voteCount, p.reactor.committeeSize) == false {
-		// if voteCount < p.reactor.committeeSize {
-		// not reach 2/3
+	if !MajorityTwoThird(voteCount, p.reactor.committeeSize) {
+		// voteCount < p.reactor.committeeSize * 2/3, QC not formed
 		p.logger.Debug("vote counted", "committeeSize", p.reactor.committeeSize, "count", voteCount)
 		return
 	}
@@ -376,12 +382,10 @@ func (p *Pacemaker) OnReceiveVote(mi *IncomingMsg) {
 		// return errors.New("could not form QC")
 	}
 	pmQC := &draftQC{QCNode: b, QC: qc}
-
 	changed := p.UpdateQCHigh(pmQC)
-
 	if changed {
 		// if QC is updated, schedule onbeat now
-		p.ScheduleOnBeat(p.reactor.curEpoch, qc.QCRound+1, BeatOnHigherQC, 500*time.Millisecond)
+		p.ScheduleOnBeat(p.reactor.curEpoch, qc.QCRound+1, BeatOnHigherQC, 1000*time.Millisecond)
 	}
 }
 
