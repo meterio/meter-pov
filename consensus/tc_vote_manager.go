@@ -31,20 +31,20 @@ func NewTCVoteManager(system bls.System, committeeSize uint32) *TCVoteManager {
 	}
 }
 
-func (m *TCVoteManager) AddVote(index uint32, epoch uint64, round uint32, sig []byte, hash [32]byte) bool {
+func (m *TCVoteManager) AddVote(index uint32, epoch uint64, round uint32, sig []byte, hash [32]byte) *TimeoutCert {
 	key := timeoutVoteKey{Epoch: epoch, Round: round}
 	if _, existed := m.votes[key]; !existed {
 		m.votes[key] = make(map[uint32]*vote)
 	}
 
 	if _, sealed := m.sealed[key]; sealed {
-		return false
+		return nil
 	}
 
 	blsSig, err := m.system.SigFromBytes(sig)
-	m.logger.Error("load signature failed", "err", err)
 	if err != nil {
-		return false
+		m.logger.Error("load signature failed", "err", err)
+		return nil
 	}
 	m.votes[key][index] = &vote{Signature: sig, Hash: hash, BlsSig: blsSig}
 
@@ -53,12 +53,11 @@ func (m *TCVoteManager) AddVote(index uint32, epoch uint64, round uint32, sig []
 		m.logger.Info(
 			fmt.Sprintf("TC formed on (E:%d,R:%d), future votes will be ignored.", epoch, round), "voted", fmt.Sprintf("%d/%d", voteCount, m.committeeSize))
 		m.seal(epoch, round)
-		return true
+		return m.Aggregate(epoch, round)
 	} else {
 		m.logger.Debug("tc vote counted")
 	}
-
-	return false
+	return nil
 }
 
 func (m *TCVoteManager) Count(epoch uint64, round uint32) uint32 {

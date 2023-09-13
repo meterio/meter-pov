@@ -78,7 +78,7 @@ func (p *ProposalMap) GetOneByEscortQC(qc *block.QuorumCert) *draftBlock {
 	for key := range p.proposals {
 		draftBlk := p.proposals[key]
 		if draftBlk.Height == qc.QCHeight && draftBlk.Round == qc.QCRound {
-			if match, err := draftBlockMatchQC(draftBlk, qc); match && err == nil {
+			if match := BlockMatchDraftQC(draftBlk, qc); match {
 				return draftBlk
 			}
 		}

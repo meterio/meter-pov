@@ -262,8 +262,8 @@ func (n *Node) txStashLoop(ctx context.Context) {
 func (n *Node) processBlock(blk *block.Block, escortQC *block.QuorumCert, stats *blockStats) (bool, error) {
 	startTime := mclock.Now()
 	now := uint64(time.Now().Unix())
-	QCValid, err := blk.MatchQC(escortQC)
-	if !QCValid || err != nil {
+	QCValid := blk.MatchQC(escortQC)
+	if !QCValid {
 		return false, errors.New("invalid QC")
 	}
 	stage, receipts, err := n.cons.ProcessSyncedBlock(blk, now)

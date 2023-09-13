@@ -111,9 +111,8 @@ type PMRoundTimeoutInfo struct {
 	counter uint64
 }
 type PMBeatInfo struct {
-	epoch  uint64
-	round  uint32
-	reason beatReason
+	epoch uint64
+	round uint32
 }
 
 // enum roundUpdateReason
@@ -127,8 +126,6 @@ func (reason roundUpdateReason) String() string {
 		return "RegularProposal"
 	case UpdateOnTimeout:
 		return "Timeout"
-	case UpdateOnTimeoutCertProposal:
-		return "TimeoutCertProposal"
 	case UpdateOnKBlockProposal:
 		return "KBlockProposal"
 	}
@@ -150,31 +147,11 @@ func (reason roundTimerUpdateReason) String() string {
 	return ""
 }
 
-// enum beatReason
-type beatReason int32
-
-func (reason beatReason) String() string {
-	switch reason {
-	case BeatOnInit:
-		return "Init"
-	case BeatOnHigherQC:
-		return "HigherQC"
-	case BeatOnTimeout:
-		return "Timeout"
-	}
-	return "Unkown"
-}
-
 const (
-	UpdateOnBeat                = roundUpdateReason(1)
-	UpdateOnRegularProposal     = roundUpdateReason(2)
-	UpdateOnTimeout             = roundUpdateReason(3)
-	UpdateOnTimeoutCertProposal = roundUpdateReason(4)
-	UpdateOnKBlockProposal      = roundUpdateReason(5)
-
-	BeatOnInit     = beatReason(0)
-	BeatOnHigherQC = beatReason(1)
-	BeatOnTimeout  = beatReason(2)
+	UpdateOnBeat            = roundUpdateReason(1)
+	UpdateOnRegularProposal = roundUpdateReason(2)
+	UpdateOnTimeout         = roundUpdateReason(3)
+	UpdateOnKBlockProposal  = roundUpdateReason(5)
 
 	TimerInit     = roundTimerUpdateReason(0)
 	TimerInc      = roundTimerUpdateReason(1)

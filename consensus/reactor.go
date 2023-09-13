@@ -21,7 +21,6 @@ import (
 	"net/http"
 	"sort"
 	"strings"
-	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
 	cli "gopkg.in/urfave/cli.v1"
@@ -503,39 +502,6 @@ func (r *Reactor) PrepareEnvForPacemaker() error {
 		r.logger.Info("I am NOT in committee!!!", "nonce", nonce)
 	}
 	return nil
-}
-
-func (r *Reactor) verifyBestQCAndBestBlockBeforeStart() bool {
-	// 1. bestQC height == best block height
-	// 2. newCommittee is true, best block is kblock
-	for i := 0; i < 3; i++ {
-		bestQC := r.chain.BestQC()
-		bestBlock := r.chain.BestBlock()
-		// r.logger.Info("Checking the QCHeight and Block height...", "QCHeight", bestQC.QCHeight, "bestHeight", bestBlock.Number())
-		if bestQC.QCHeight != bestBlock.Number() {
-			com := comm.GetGlobCommInst()
-			if com == nil {
-				r.logger.Error("get global comm inst failed")
-				return false
-			}
-			r.logger.Warn("bestQC and bestBlock mismatch, trigger sync now ...", "bestQC", bestQC.QCHeight, "bestBlock", bestBlock.Number(), "attempt", i+1, "waitInterval", time.Duration(math.Pow(float64(2), float64(i+1))))
-			com.TriggerSync()
-			// every attempt wait for 2^(i+1) seconds
-			<-time.NewTimer(time.Duration(math.Pow(float64(2), float64(i+1))) * time.Second).C
-		} else {
-			break
-		}
-	}
-
-	bestQC := r.chain.BestQC()
-	bestBlock := r.chain.BestBlock()
-	if bestQC.QCHeight != bestBlock.Number() {
-		r.logger.Warn("Caution: bestQC and bestBlock mismatch after syncing ...", "bestQC", bestQC.QCHeight, "bestBlock", bestBlock.Number())
-		return false
-	} else {
-		r.logger.Info("bestQC and bestBlock matches", "bestQC", bestQC.QCHeight, "bestBlock", bestBlock.Number())
-		return true
-	}
 }
 
 // since votes of pacemaker include propser, but committee votes

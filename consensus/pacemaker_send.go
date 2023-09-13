@@ -10,7 +10,6 @@ package consensus
 // 2. send messages to peer
 
 import (
-	"errors"
 	"time"
 
 	"github.com/ethereum/go-ethereum/rlp"
@@ -131,6 +130,7 @@ func (p *Pacemaker) BuildTimeoutMessage(qcHigh *draftQC, ti *PMRoundTimeoutInfo,
 	qcBytes, err := rlp.EncodeToBytes(qcHigh.QC)
 	if err != nil {
 		p.logger.Error("Error encode qc", "err", err)
+		return nil, err
 	}
 	msg := &PMTimeoutMessage{
 		Timestamp:   time.Now(),
@@ -173,17 +173,17 @@ func (p *Pacemaker) BuildTimeoutMessage(qcHigh *draftQC, ti *PMRoundTimeoutInfo,
 
 // qc is for that block?
 // blk is derived from draftBlock message. pass it in if already decoded
-func draftBlockMatchQC(b *draftBlock, escortQC *block.QuorumCert) (bool, error) {
+func BlockMatchDraftQC(b *draftBlock, escortQC *block.QuorumCert) bool {
 
 	if b == nil {
 		// decode block to get qc
 		// fmt.Println("can not decode block", err)
-		return false, errors.New("can not decode proposed block")
+		return false
 	}
 
 	// genesis does not have qc
 	if b.Height == 0 && escortQC.QCHeight == 0 {
-		return true, nil
+		return true
 	}
 
 	blk := b.ProposedBlock

@@ -154,15 +154,15 @@ func Compose(header *Header, txs tx.Transactions) *Block {
 }
 
 // TODO: check QC thoroughly
-func (blk *Block) MatchQC(qc *QuorumCert) (bool, error) {
+func (blk *Block) MatchQC(qc *QuorumCert) bool {
 	voteHash := blk.VotingHash()
 	//qc at least has 1 vote signature and they are the same, so compare [0] is good enough
 	if bytes.Equal(voteHash[:], qc.VoterMsgHash[:]) {
 		fmt.Println("QC matches block", "qc", qc.String(), "block", blk.String())
-		return true, nil
+		return true
 	} else {
 		fmt.Println("QC doesn't matches block", "msgHash", meter.Bytes32(voteHash).String(), "qc.VoteHash", meter.Bytes32(qc.VoterMsgHash).String())
-		return false, nil
+		return false
 	}
 }
 

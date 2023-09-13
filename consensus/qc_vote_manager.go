@@ -40,20 +40,20 @@ func NewQCVoteManager(system bls.System, committeeSize uint32) *QCVoteManager {
 	}
 }
 
-func (m *QCVoteManager) AddVote(index, height, round uint32, blockID meter.Bytes32, sig []byte, hash [32]byte) bool {
+func (m *QCVoteManager) AddVote(index uint32, epoch uint64, height, round uint32, blockID meter.Bytes32, sig []byte, hash [32]byte) *block.QuorumCert {
 	key := voteKey{Height: height, Round: round, BlockID: blockID}
 	if _, existed := m.votes[key]; !existed {
 		m.votes[key] = make(map[uint32]*vote)
 	}
 
 	if _, sealed := m.sealed[key]; sealed {
-		return false
+		return nil
 	}
 
 	blsSig, err := m.system.SigFromBytes(sig)
 	if err != nil {
 		m.logger.Error("load qc signature failed", "err", err)
-		return false
+		return nil
 	}
 	m.votes[key][index] = &vote{Signature: sig, Hash: hash, BlsSig: blsSig}
 
@@ -62,10 +62,10 @@ func (m *QCVoteManager) AddVote(index, height, round uint32, blockID meter.Bytes
 		m.logger.Info(
 			fmt.Sprintf("QC formed on Proposal(H:%d,R:%d,B:%v), future votes will be ignored.", height, round, blockID.ToBlockShortID()), "voted", fmt.Sprintf("%d/%d", voteCount, m.committeeSize))
 		m.seal(height, round, blockID)
-		return true
+		return m.Aggregate(height, round, blockID, epoch)
 	}
 	m.logger.Debug("vote counted", "committeeSize", m.committeeSize, "count", voteCount)
-	return false
+	return nil
 }
 
 func (m *QCVoteManager) Count(height, round uint32, blockID meter.Bytes32) uint32 {
