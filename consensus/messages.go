@@ -53,11 +53,11 @@ type PMProposalMessage struct {
 	Epoch       uint64
 	SignerIndex uint32
 
-	Height       uint32
-	Round        uint32
-	ParentHeight uint32
-	ParentRound  uint32
-	RawBlock     []byte
+	// Height       uint32 // inherit from decodedBlock.ID
+	Round uint32
+	// ParentHeight uint32 // inherit from decodedBlock.ParentID
+	// ParentRound uint32 // inherit from decodedBlock.QC.QCRound
+	RawBlock []byte
 
 	TimeoutCert *TimeoutCert
 
@@ -86,10 +86,7 @@ func (m *PMProposalMessage) GetRound() uint32 {
 // GetMsgHash computes hash of all header fields excluding signature.
 func (m *PMProposalMessage) GetMsgHash() (hash meter.Bytes32) {
 	hw := meter.NewBlake2b()
-	data := []interface{}{
-		m.Timestamp, m.Epoch, m.SignerIndex,
-		m.Height, m.Round, m.ParentHeight, m.ParentRound, m.RawBlock,
-	}
+	data := []interface{}{m.Timestamp, m.Epoch, m.SignerIndex, m.Round, m.RawBlock}
 	if m.TimeoutCert != nil {
 		data = append(data, m.TimeoutCert)
 	}
@@ -122,8 +119,7 @@ func (m *PMProposalMessage) String() string {
 		tcStr = "TC:" + m.TimeoutCert.String()
 	}
 	blkStr := blk.Oneliner()
-	return fmt.Sprintf("[Proposal] (H:%v,R:%v)<-(H:%v,R:%v): %v %v",
-		m.ParentHeight, m.ParentRound, m.Height, m.Round, blkStr, tcStr)
+	return fmt.Sprintf("Proposal R:%v %v %v", m.Round, blkStr, tcStr)
 }
 
 func (m *PMProposalMessage) SetMsgSignature(msgSignature []byte) {
@@ -188,7 +184,7 @@ func (m *PMVoteMessage) GetMsgHash() (hash meter.Bytes32) {
 
 // String returns a string representation.
 func (m *PMVoteMessage) String() string {
-	return fmt.Sprintf("[Vote] H:%v R:%v Block:%v",
+	return fmt.Sprintf("Vote R:%v Block:%v",
 		m.VoteRound, m.VoteBlockID.ToBlockShortID())
 }
 
@@ -280,7 +276,7 @@ func (m *PMTimeoutMessage) DecodeQCHigh() *block.QuorumCert {
 // String returns a string representation.
 func (m *PMTimeoutMessage) String() string {
 	qcHigh := m.DecodeQCHigh()
-	return fmt.Sprintf("[Timeout] E:%v,R:%d QCHigh(H:%d,R:%d) Vote(R:%d,Block:%v)",
+	return fmt.Sprintf("Timeout E:%v,R:%d QCHigh(#%d,R:%d) LastVote(R:%d,Block:%v)",
 		m.Epoch, m.WishRound, qcHigh.QCHeight, qcHigh.QCRound, m.LastVoteRound, m.LastVoteBlockID.ToBlockShortID())
 }
 

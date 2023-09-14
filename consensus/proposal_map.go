@@ -25,7 +25,7 @@ func (p *ProposalMap) Add(blk *draftBlock) {
 	p.proposals[blk.ProposedBlock.ID()] = blk
 }
 
-func (p *ProposalMap) GetByID(blkID meter.Bytes32) *draftBlock {
+func (p *ProposalMap) Get(blkID meter.Bytes32) *draftBlock {
 	blk, ok := p.proposals[blkID]
 	if ok {
 		return blk
@@ -43,32 +43,6 @@ func (p *ProposalMap) GetByID(blkID meter.Bytes32) *draftBlock {
 			Committed:     true,
 			ProposedBlock: blkInDB,
 			BlockType:     BlockType(blkInDB.BlockType()),
-		}
-	}
-	return nil
-}
-
-func (p *ProposalMap) GetOne(height, round uint32, blkID meter.Bytes32) *draftBlock {
-	for key := range p.proposals {
-		draftBlk := p.proposals[key]
-		if draftBlk.Height == height && draftBlk.Round == round && draftBlk.ProposedBlock.ID() == blkID {
-			return draftBlk
-		}
-	}
-	// load from database
-	blkInDB, err := p.chain.GetBlock(blkID)
-	if err == nil {
-		p.logger.Debug("load block from DB", "num", blkInDB.Number(), "id", blkInDB.ShortID())
-		if blkInDB.Number() == height {
-			return &draftBlock{
-				Height:        blkInDB.Number(),
-				Round:         blkInDB.QC.QCRound + 1, // TODO: might have better ways doing this
-				Parent:        nil,
-				Justify:       nil,
-				Committed:     true,
-				ProposedBlock: blkInDB,
-				BlockType:     BlockType(blkInDB.BlockType()),
-			}
 		}
 	}
 	return nil

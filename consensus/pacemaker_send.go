@@ -55,25 +55,14 @@ func (p *Pacemaker) sendMsg(msg ConsensusMessage, copyMyself bool) bool {
 }
 
 func (p *Pacemaker) BuildProposalMessage(height, round uint32, bnew *draftBlock, tc *TimeoutCert) (*PMProposalMessage, error) {
-	parentHeight := uint32(0)
-	parentRound := uint32(0)
-	if bnew.Parent != nil {
-		parentHeight = bnew.Parent.Height
-		parentRound = bnew.Parent.Round
-	}
 	msg := &PMProposalMessage{
 		// Sender:    crypto.FromECDSAPub(&p.reactor.myPubKey),
 		Timestamp:   time.Now(),
 		Epoch:       p.reactor.curEpoch,
 		SignerIndex: uint32(p.reactor.GetMyActualCommitteeIndex()),
 
-		Height:       height,
-		Round:        round,
-		ParentHeight: parentHeight,
-		ParentRound:  parentRound,
-
-		RawBlock: bnew.RawBlock,
-
+		Round:       round,
+		RawBlock:    bnew.RawBlock,
 		TimeoutCert: tc,
 	}
 
@@ -84,7 +73,7 @@ func (p *Pacemaker) BuildProposalMessage(height, round uint32, bnew *draftBlock,
 		return nil, err
 	}
 	msg.SetMsgSignature(msgSig)
-	p.logger.Debug("Built Proposal Message", "height", msg.Height, "msg", msg.String(), "timestamp", msg.Timestamp)
+	p.logger.Debug("Built Proposal Message", "blk", bnew.ProposedBlock.ID().ToBlockShortID(), "msg", msg.String(), "timestamp", msg.Timestamp)
 
 	return msg, nil
 }

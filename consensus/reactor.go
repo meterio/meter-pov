@@ -681,23 +681,17 @@ func (r *Reactor) OnReceiveMsg(w http.ResponseWriter, req *http.Request) {
 	}
 	mi.Signer = signer
 
-	// sanity check for PMProposal
-	if msg.GetType() == "PMProposal" {
-		proposalMsg := msg.(*PMProposalMessage)
-		blk := proposalMsg.DecodeBlock()
+	// sanity check for messages
+	switch m := msg.(type) {
+	case *PMProposalMessage:
+		blk := m.DecodeBlock()
 		if blk == nil {
 			r.logger.Error("Invalid PMProposal: could not decode proposed block")
 			return
 		}
-		if blk.Number() != proposalMsg.Height {
-			r.logger.Error("Invalid PMProposal: block.number != msg.height")
-			return
-		}
-	}
 
-	if msg.GetType() == "PMTimeout" {
-		timeoutMsg := msg.(*PMTimeoutMessage)
-		qcHigh := timeoutMsg.DecodeQCHigh()
+	case *PMTimeoutMessage:
+		qcHigh := m.DecodeQCHigh()
 		if qcHigh == nil {
 			r.logger.Error("Invalid QCHigh: could not decode qcHigh")
 		}

@@ -80,16 +80,14 @@ func (r *Reactor) GetRelayPeers(round uint32) []*ConsensusPeer {
 }
 
 func (r *Reactor) Relay(msg ConsensusMessage, rawMsg []byte) {
-	if msg.GetType() != "PMProposal" {
-		return
-	}
-
-	proposalMsg := msg.(*PMProposalMessage)
-	round := proposalMsg.Round
-	peers := r.GetRelayPeers(round)
-	if len(peers) > 0 {
-		for _, peer := range peers {
-			r.outQueue.Add(peer, msg, rawMsg, true)
+	// only relay proposal message
+	if proposalMsg, ok := msg.(*PMProposalMessage); ok {
+		round := proposalMsg.Round
+		peers := r.GetRelayPeers(round)
+		if len(peers) > 0 {
+			for _, peer := range peers {
+				r.outQueue.Add(peer, msg, rawMsg, true)
+			}
 		}
 	}
 

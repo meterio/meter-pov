@@ -41,7 +41,7 @@ func (p *Pacemaker) ValidateProposal(b *draftBlock) error {
 	// special valiadte StopCommitteeType
 	// possible 2 rounds of stop messagB
 	if BlockType(blk.BlockType()) == StopCommitteeType {
-		parent := p.proposalMap.GetByID(b.ProposedBlock.ParentID())
+		parent := p.proposalMap.Get(b.ProposedBlock.ParentID())
 		if parent.BlockType != KBlockType && parent.BlockType != StopCommitteeType {
 			p.logger.Info(fmt.Sprintf("proposal [%d] is the first stop committee block", b.Height))
 			return errors.New("sBlock should have kBlock/sBlock parent")

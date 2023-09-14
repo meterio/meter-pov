@@ -41,8 +41,6 @@ func (p *Pacemaker) packCommitteeInfo(blk *block.Block) {
 	blk.SetCommitteeInfo(committeeInfo)
 	blk.SetCommitteeEpoch(p.reactor.curEpoch)
 
-	//Fill new info into block, re-calc hash/signature
-	// blk.SetEvidenceDataHash(blk.EvidenceDataHash())
 }
 
 // Build MBlock

@@ -225,7 +225,7 @@ func (p *Pacemaker) OnCommit(commitReady []commitReadyBlock) {
 
 func (p *Pacemaker) OnReceiveProposal(mi *IncomingMsg) {
 	msg := mi.Msg.(*PMProposalMessage)
-	height := msg.Height
+	height := msg.DecodeBlock().Number()
 	round := msg.Round
 
 	// drop outdated proposal
@@ -240,9 +240,9 @@ func (p *Pacemaker) OnReceiveProposal(mi *IncomingMsg) {
 	p.logger.Info(fmt.Sprintf("Recv %s", msg.GetType()), "blk", blk.ID().ToBlockShortID())
 
 	// load parent
-	parent := p.proposalMap.GetOne(msg.ParentHeight, msg.ParentRound, blk.ParentID())
+	parent := p.proposalMap.Get(blk.ParentID())
 	if parent == nil {
-		p.logger.Error("could not get parent draft, throw it back in queue", "height", msg.ParentHeight, "round", msg.ParentRound, "parent", blk.ParentID().ToBlockShortID())
+		p.logger.Error("could not get parent draft, throw it back in queue", "parent", blk.ParentID().ToBlockShortID())
 		p.reactor.inQueue.ForceAdd(mi)
 		return
 	}
@@ -295,7 +295,7 @@ func (p *Pacemaker) OnReceiveProposal(mi *IncomingMsg) {
 	}
 
 	// place the current proposal in proposal space
-	if p.proposalMap.GetByID(blk.ID()) == nil {
+	if p.proposalMap.Get(blk.ID()) == nil {
 		p.proposalMap.Add(bnew)
 	}
 
@@ -328,7 +328,6 @@ func (p *Pacemaker) OnReceiveVote(mi *IncomingMsg) {
 	msg := mi.Msg.(*PMVoteMessage)
 	p.logger.Info(fmt.Sprintf("Recv %s", msg.GetType()), "blk", msg.VoteBlockID.ToBlockShortID())
 
-	height := block.Number(msg.VoteBlockID)
 	round := msg.VoteRound
 
 	// drop outdated vote
@@ -341,11 +340,15 @@ func (p *Pacemaker) OnReceiveVote(mi *IncomingMsg) {
 		return
 	}
 
-	b := p.proposalMap.GetOne(height, round, msg.VoteBlockID)
+	b := p.proposalMap.Get(msg.VoteBlockID)
 	if b == nil {
 		p.logger.Warn("can not get proposed block")
 		p.reactor.inQueue.ForceAdd(mi)
 		// return errors.New("can not address block")
+		return
+	}
+	if b.Round != round {
+		p.logger.Info("proposal round mismatch", "voteRound", round, "proposalRound", b.Round)
 		return
 	}
 
