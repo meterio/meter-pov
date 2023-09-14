@@ -17,7 +17,6 @@ type vote struct {
 }
 
 type voteKey struct {
-	Height  uint32
 	Round   uint32
 	BlockID meter.Bytes32
 }
@@ -42,8 +41,8 @@ func NewQCVoteManager(system bls.System, committeeSize uint32) *QCVoteManager {
 	}
 }
 
-func (m *QCVoteManager) AddVote(index uint32, epoch uint64, height, round uint32, blockID meter.Bytes32, sig []byte, hash [32]byte) *block.QuorumCert {
-	key := voteKey{Height: height, Round: round, BlockID: blockID}
+func (m *QCVoteManager) AddVote(index uint32, epoch uint64, round uint32, blockID meter.Bytes32, sig []byte, hash [32]byte) *block.QuorumCert {
+	key := voteKey{Round: round, BlockID: blockID}
 	if _, existed := m.votes[key]; !existed {
 		m.votes[key] = make(map[uint32]*vote)
 	}
@@ -62,28 +61,28 @@ func (m *QCVoteManager) AddVote(index uint32, epoch uint64, height, round uint32
 	voteCount := uint32(len(m.votes))
 	if MajorityTwoThird(voteCount, m.committeeSize) {
 		m.logger.Info(
-			fmt.Sprintf("QC formed on Proposal(H:%d,R:%d,B:%v), future votes will be ignored.", height, round, blockID.ToBlockShortID()), "voted", fmt.Sprintf("%d/%d", voteCount, m.committeeSize))
-		m.seal(height, round, blockID)
-		return m.Aggregate(height, round, blockID, epoch)
+			fmt.Sprintf("QC formed on Proposal(R:%d,B:%v), future votes will be ignored.", round, blockID.ToBlockShortID()), "voted", fmt.Sprintf("%d/%d", voteCount, m.committeeSize))
+		m.seal(round, blockID)
+		return m.Aggregate(round, blockID, epoch)
 	}
 	m.logger.Info("vote counted", "committeeSize", m.committeeSize, "count", voteCount)
 	return nil
 }
 
-func (m *QCVoteManager) Count(height, round uint32, blockID meter.Bytes32) uint32 {
-	key := voteKey{Height: height, Round: round, BlockID: blockID}
+func (m *QCVoteManager) Count(round uint32, blockID meter.Bytes32) uint32 {
+	key := voteKey{Round: round, BlockID: blockID}
 	return uint32(len(m.votes[key]))
 }
 
-func (m *QCVoteManager) seal(height, round uint32, blockID meter.Bytes32) {
-	key := voteKey{Height: height, Round: round, BlockID: blockID}
+func (m *QCVoteManager) seal(round uint32, blockID meter.Bytes32) {
+	key := voteKey{Round: round, BlockID: blockID}
 	m.sealed[key] = true
 }
 
-func (m *QCVoteManager) Aggregate(height, round uint32, blockID meter.Bytes32, epoch uint64) *block.QuorumCert {
-	m.seal(height, round, blockID)
+func (m *QCVoteManager) Aggregate(round uint32, blockID meter.Bytes32, epoch uint64) *block.QuorumCert {
+	m.seal(round, blockID)
 	sigs := make([]bls.Signature, 0)
-	key := voteKey{Height: height, Round: round, BlockID: blockID}
+	key := voteKey{Round: round, BlockID: blockID}
 
 	bitArray := cmn.NewBitArray(int(m.committeeSize))
 	var msgHash [32]byte
@@ -101,7 +100,7 @@ func (m *QCVoteManager) Aggregate(height, round uint32, blockID meter.Bytes32, e
 	bitArrayStr := bitArray.String()
 
 	return &block.QuorumCert{
-		QCHeight:         height,
+		QCHeight:         block.Number(blockID),
 		QCRound:          round,
 		EpochID:          epoch,
 		VoterBitArrayStr: bitArrayStr,

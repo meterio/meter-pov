@@ -328,7 +328,7 @@ func (p *Pacemaker) OnReceiveVote(mi *IncomingMsg) {
 	msg := mi.Msg.(*PMVoteMessage)
 	p.logger.Info(fmt.Sprintf("Recv %s", msg.GetType()), "blk", msg.VoteBlockID.ToBlockShortID())
 
-	height := msg.VoteHeight
+	height := block.Number(msg.VoteBlockID)
 	round := msg.VoteRound
 
 	// drop outdated vote
@@ -349,7 +349,7 @@ func (p *Pacemaker) OnReceiveVote(mi *IncomingMsg) {
 		return
 	}
 
-	qc := p.qcVoteManager.AddVote(msg.GetSignerIndex(), p.reactor.curEpoch, height, round, msg.VoteBlockID, msg.VoteSignature, msg.VoteHash)
+	qc := p.qcVoteManager.AddVote(msg.GetSignerIndex(), p.reactor.curEpoch, round, msg.VoteBlockID, msg.VoteSignature, msg.VoteHash)
 	if qc == nil {
 		p.logger.Debug("no qc formed")
 		return
@@ -450,7 +450,7 @@ func (p *Pacemaker) OnReceiveTimeout(mi *IncomingMsg) {
 	}
 
 	// collect vote and see if QC is formed
-	newQC := p.qcVoteManager.AddVote(msg.SignerIndex, p.reactor.curEpoch, msg.LastVoteHeight, msg.LastVoteRound, msg.LastVoteBlockID, msg.LastVoteSignature, msg.LastVoteHash)
+	newQC := p.qcVoteManager.AddVote(msg.SignerIndex, p.reactor.curEpoch, msg.LastVoteRound, msg.LastVoteBlockID, msg.LastVoteSignature, msg.LastVoteHash)
 	if newQC != nil {
 		// TODO: new qc formed
 		escortQCNode := p.proposalMap.GetOneByEscortQC(newQC)

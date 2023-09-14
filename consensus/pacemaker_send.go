@@ -103,7 +103,6 @@ func (p *Pacemaker) BuildVoteMessage(proposalMsg *PMProposalMessage) (*PMVoteMes
 		Epoch:       p.reactor.curEpoch,
 		SignerIndex: uint32(p.reactor.GetMyActualCommitteeIndex()),
 
-		VoteHeight:    proposalMsg.Height,
 		VoteRound:     proposalMsg.Round,
 		VoteBlockID:   proposedBlock.ID(),
 		VoteSignature: voteSig,
@@ -149,7 +148,6 @@ func (p *Pacemaker) BuildTimeoutMessage(qcHigh *draftQC, ti *PMRoundTimeoutInfo,
 	// attach last vote
 	if lastVoteMsg != nil {
 		p.logger.Info("attached last vote", "votSig", hex.EncodeToString(lastVoteMsg.VoteSignature))
-		msg.LastVoteHeight = lastVoteMsg.VoteHeight
 		msg.LastVoteRound = lastVoteMsg.VoteRound
 		msg.LastVoteBlockID = lastVoteMsg.VoteBlockID
 		msg.LastVoteHash = lastVoteMsg.VoteHash

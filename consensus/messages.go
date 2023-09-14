@@ -147,7 +147,6 @@ type PMVoteMessage struct {
 
 	// VoterID           []byte //ecdsa.PublicKey
 	// VoterBlsPK        []byte //bls.PublicKey
-	VoteHeight    uint32
 	VoteRound     uint32
 	VoteBlockID   meter.Bytes32
 	VoteSignature []byte //bls.Signature
@@ -177,7 +176,7 @@ func (m *PMVoteMessage) GetMsgHash() (hash meter.Bytes32) {
 	hw := meter.NewBlake2b()
 	data := []interface{}{
 		m.Timestamp, m.Epoch, m.SignerIndex,
-		m.VoteHeight, m.VoteRound, m.VoteBlockID, m.VoteSignature, m.VoteHash,
+		m.VoteRound, m.VoteBlockID, m.VoteSignature, m.VoteHash,
 	}
 	err := rlp.Encode(hw, data)
 	if err != nil {
@@ -190,7 +189,7 @@ func (m *PMVoteMessage) GetMsgHash() (hash meter.Bytes32) {
 // String returns a string representation.
 func (m *PMVoteMessage) String() string {
 	return fmt.Sprintf("[Vote] H:%v R:%v Block:%v",
-		m.VoteHeight, m.VoteRound, m.VoteBlockID.ToBlockShortID())
+		m.VoteRound, m.VoteBlockID.ToBlockShortID())
 }
 
 func (m *PMVoteMessage) SetMsgSignature(msgSignature []byte) {
@@ -222,7 +221,6 @@ type PMTimeoutMessage struct {
 	WishVoteSig  []byte // signature
 
 	// last vote for proposal
-	LastVoteHeight    uint32
 	LastVoteRound     uint32
 	LastVoteBlockID   meter.Bytes32
 	LastVoteHash      [32]byte
@@ -256,7 +254,7 @@ func (m *PMTimeoutMessage) GetMsgHash() (hash meter.Bytes32) {
 	data := []interface{}{
 		m.Timestamp, m.Epoch, m.SignerIndex,
 		m.WishRound, m.QCHigh, m.WishVoteHash, m.WishVoteSig,
-		m.LastVoteHeight, m.LastVoteRound, m.LastVoteBlockID, m.LastVoteHash, m.LastVoteSignature,
+		m.LastVoteRound, m.LastVoteBlockID, m.LastVoteHash, m.LastVoteSignature,
 	}
 	err := rlp.Encode(hw, data)
 	if err != nil {
@@ -282,8 +280,8 @@ func (m *PMTimeoutMessage) DecodeQCHigh() *block.QuorumCert {
 // String returns a string representation.
 func (m *PMTimeoutMessage) String() string {
 	qcHigh := m.DecodeQCHigh()
-	return fmt.Sprintf("[Timeout] E:%v,R:%d QCHigh(H:%d,R:%d) Vote(H:%d,R:%d,Block:%v)",
-		m.Epoch, m.WishRound, qcHigh.QCHeight, qcHigh.QCRound, m.LastVoteHeight, m.LastVoteRound, m.LastVoteBlockID.ToBlockShortID())
+	return fmt.Sprintf("[Timeout] E:%v,R:%d QCHigh(H:%d,R:%d) Vote(R:%d,Block:%v)",
+		m.Epoch, m.WishRound, qcHigh.QCHeight, qcHigh.QCRound, m.LastVoteRound, m.LastVoteBlockID.ToBlockShortID())
 }
 
 func (m *PMTimeoutMessage) SetMsgSignature(msgSignature []byte) {
