@@ -137,7 +137,11 @@ func (c *Communicator) handleRPC(peer *Peer, msg *p2p.Msg, write func(interface{
 				}
 				break
 			}
-			nxtBlk, _ := c.chain.GetTrunkBlock(num + 1)
+			nxtBlk, err := c.chain.GetTrunkBlock(num + 1)
+			if err != nil {
+				log.Warn("could not get next block", "num", num+1)
+				break
+			}
 			var escortQC *block.QuorumCert
 			if nxtBlk != nil {
 				escortQC = nxtBlk.QC

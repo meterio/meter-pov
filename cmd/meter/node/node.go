@@ -108,15 +108,16 @@ func (n *Node) handleBlockStream(ctx context.Context, stream <-chan *block.Escor
 	startTime := mclock.Now()
 
 	report := func(block *block.Block) {
-		// log.Info(fmt.Sprintf("imported blocks (%v) ", stats.processed), stats.LogContext(block.Header())...)
+		log.Info(fmt.Sprintf("imported blocks (%v) ", stats.processed), stats.LogContext(block.Header())...)
 		stats = blockStats{}
 		startTime = mclock.Now()
 	}
 
 	var blk *block.EscortedBlock
 	for blk = range stream {
-		log.Debug("handle block", "block", blk)
+		log.Info("handle block", "block", blk)
 		if isTrunk, err := n.processBlock(blk.Block, blk.EscortQC, &stats); err != nil {
+			log.Error("process block failed", "id", blk.Block.ID(), "err", err)
 			return err
 		} else if isTrunk {
 			// this processBlock happens after consensus SyncDone, need to broadcast
