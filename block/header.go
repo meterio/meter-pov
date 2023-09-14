@@ -51,7 +51,7 @@ type HeaderBody struct {
 	TxsRoot          meter.Bytes32
 	StateRoot        meter.Bytes32
 	ReceiptsRoot     meter.Bytes32
-	EvidenceDataRoot meter.Bytes32
+	EvidenceDataRoot meter.Bytes32 // deprecated, saved just for compatibility
 
 	Signature []byte
 }
@@ -115,11 +115,6 @@ func (h *Header) StateRoot() meter.Bytes32 {
 // ReceiptsRoot returns merkle root of tx receipts.
 func (h *Header) ReceiptsRoot() meter.Bytes32 {
 	return h.Body.ReceiptsRoot
-}
-
-// EvidenceDataRoot returns merkle root of tx receipts.
-func (h *Header) EvidenceDataRoot() meter.Bytes32 {
-	return h.Body.EvidenceDataRoot
 }
 
 // ID computes id of block.

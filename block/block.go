@@ -17,7 +17,6 @@ import (
 	"sync/atomic"
 
 	"github.com/ethereum/go-ethereum/rlp"
-	cmn "github.com/meterio/meter-pov/libs/common"
 	"github.com/meterio/meter-pov/meter"
 	"github.com/meterio/meter-pov/metric"
 	"github.com/meterio/meter-pov/tx"
@@ -39,21 +38,6 @@ type Violation struct {
 	MsgHash    [32]byte
 	Signature1 []byte
 	Signature2 []byte
-}
-
-// NewEvidence records the voting/notarization aggregated signatures and bitmap
-// of validators.
-// Validators info can get from 1st proposaed block meta data
-type Evidence struct {
-	VotingSig       []byte //serialized bls signature
-	VotingMsgHash   []byte //[][32]byte
-	VotingBitArray  cmn.BitArray
-	VotingViolation []*Violation
-
-	NotarizeSig       []byte
-	NotarizeMsgHash   []byte //[][32]byte
-	NotarizeBitArray  cmn.BitArray
-	NotarizeViolation []*Violation
 }
 
 type PowRawBlock []byte
@@ -117,19 +101,6 @@ type Block struct {
 // Body defines body of a block.
 type Body struct {
 	Txs tx.Transactions
-}
-
-// Create new Evidence
-func NewEvidence(votingSig []byte, votingMsgHash [][32]byte, votingBA cmn.BitArray,
-	notarizeSig []byte, notarizeMsgHash [][32]byte, notarizeBA cmn.BitArray) *Evidence {
-	return &Evidence{
-		VotingSig:        votingSig,
-		VotingMsgHash:    cmn.Byte32ToByteSlice(votingMsgHash),
-		VotingBitArray:   votingBA,
-		NotarizeSig:      notarizeSig,
-		NotarizeMsgHash:  cmn.Byte32ToByteSlice(notarizeMsgHash),
-		NotarizeBitArray: notarizeBA,
-	}
 }
 
 // Create new committee Info
@@ -261,11 +232,6 @@ func (b *Block) StateRoot() meter.Bytes32 {
 // ReceiptsRoot returns merkle root of tx receipts.
 func (b *Block) ReceiptsRoot() meter.Bytes32 {
 	return b.BlockHeader.ReceiptsRoot()
-}
-
-// EvidenceDataRoot returns merkle root of tx receipts.
-func (b *Block) EvidenceDataRoot() meter.Bytes32 {
-	return b.BlockHeader.EvidenceDataRoot()
 }
 
 func (b *Block) Signer() (signer meter.Address, err error) {
@@ -400,12 +366,12 @@ func (b *Block) GetCanonicalName() string {
 func (b *Block) Oneliner() string {
 	header := b.BlockHeader
 	hasCommittee := len(b.CommitteeInfos.CommitteeInfo) > 0
-	ci := "no"
+	ci := ""
 	if hasCommittee {
-		ci = "YES"
+		ci = ",committee"
 	}
 	canonicalName := b.GetCanonicalName()
-	return fmt.Sprintf("%v(%v) %v, #txs:%v, ci:%v, parent:%v", canonicalName,
+	return fmt.Sprintf("%v[%v,%v,txs:%v%v] ->[%v]", canonicalName,
 		b.ShortID(), b.QC.CompactString(), len(b.Transactions()), ci, header.ParentID().ToBlockShortID())
 }
 
@@ -479,30 +445,6 @@ func (b *Block) ToBytes() []byte {
 	}
 
 	return bytes
-}
-
-func (b *Block) EvidenceDataHash() (hash meter.Bytes32) {
-	hw := meter.NewBlake2b()
-	err := rlp.Encode(hw, []interface{}{
-		b.QC.QCHeight,
-		b.QC.QCRound,
-		// b.QC.VotingBitArray,
-		b.QC.VoterMsgHash,
-		b.QC.VoterAggSig,
-		b.CommitteeInfos,
-		b.KBlockData,
-	})
-	if err != nil {
-		fmt.Println("error:", err)
-	}
-
-	hw.Sum(hash[:0])
-	return
-}
-
-func (b *Block) SetEvidenceDataHash(hash meter.Bytes32) error {
-	b.BlockHeader.Body.EvidenceDataRoot = hash
-	return nil
 }
 
 func (b *Block) SetBlockSignature(sig []byte) error {

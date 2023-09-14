@@ -10,7 +10,7 @@ import (
 	"github.com/meterio/meter-pov/tx"
 )
 
-// Builder only build header and txs. evidence/committee info and kblock data built by app.
+// Builder only build header and txs. committee info and kblock data built by app.
 // Builder to make it easy to build a block object.
 type Builder struct {
 	headerBody HeaderBody
