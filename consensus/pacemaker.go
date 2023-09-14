@@ -243,7 +243,7 @@ func (p *Pacemaker) OnReceiveProposal(mi *IncomingMsg) {
 	parent := p.proposalMap.GetOne(msg.ParentHeight, msg.ParentRound, blk.ParentID())
 	if parent == nil {
 		p.logger.Error("could not get parent draft, throw it back in queue", "height", msg.ParentHeight, "round", msg.ParentRound, "parent", blk.ParentID().ToBlockShortID())
-		p.reactor.inQueue.Add(mi)
+		p.reactor.inQueue.ForceAdd(mi)
 		return
 	}
 
@@ -343,8 +343,8 @@ func (p *Pacemaker) OnReceiveVote(mi *IncomingMsg) {
 
 	b := p.proposalMap.GetOne(height, round, msg.VoteBlockID)
 	if b == nil {
-		p.logger.Warn("can not get proposed block", "id", b.ProposedBlock.ID().ToBlockShortID())
-		p.reactor.inQueue.Add(mi)
+		p.logger.Warn("can not get proposed block")
+		p.reactor.inQueue.ForceAdd(mi)
 		// return errors.New("can not address block")
 		return
 	}

@@ -61,6 +61,18 @@ func NewIncomingQueue() *IncomingQueue {
 	}
 }
 
+func (q *IncomingQueue) ForceAdd(mi *IncomingMsg) {
+	defer q.Mutex.Unlock()
+	q.Mutex.Lock()
+
+	for len(q.queue) >= cap(q.queue) {
+		dropped := <-q.queue
+		q.logger.Warn(fmt.Sprintf("dropped %s due to cap", dropped.Msg.String()), "from", dropped.Peer.NameAndIP())
+	}
+
+	q.queue <- mi
+}
+
 func (q *IncomingQueue) Add(mi *IncomingMsg) error {
 	defer q.Mutex.Unlock()
 	q.Mutex.Lock()
@@ -68,6 +80,7 @@ func (q *IncomingQueue) Add(mi *IncomingMsg) error {
 		return ErrKnownMsg
 	}
 	q.cache.Add(mi.Hash, true)
+
 	// instead of drop the latest message, drop the oldest one in front of queue
 	for len(q.queue) >= cap(q.queue) {
 		dropped := <-q.queue
