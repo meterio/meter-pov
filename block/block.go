@@ -371,7 +371,7 @@ func (b *Block) Oneliner() string {
 		ci = ",committee"
 	}
 	canonicalName := b.GetCanonicalName()
-	return fmt.Sprintf("%v[%v,%v,txs:%v%v] ->[%v]", canonicalName,
+	return fmt.Sprintf("%v[%v,%v,txs:%v%v] -> %v", canonicalName,
 		b.ShortID(), b.QC.CompactString(), len(b.Transactions()), ci, header.ParentID().ToBlockShortID())
 }
 

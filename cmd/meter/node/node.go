@@ -115,7 +115,7 @@ func (n *Node) handleBlockStream(ctx context.Context, stream <-chan *block.Escor
 
 	var blk *block.EscortedBlock
 	for blk = range stream {
-		log.Info("handle block", "block", blk)
+		log.Info("handle block", "block", blk.Block.ID().ToBlockShortID())
 		if isTrunk, err := n.processBlock(blk.Block, blk.EscortQC, &stats); err != nil {
 			log.Error("process block failed", "id", blk.Block.ID(), "err", err)
 			return err
@@ -265,7 +265,7 @@ func (n *Node) processBlock(blk *block.Block, escortQC *block.QuorumCert, stats 
 	now := uint64(time.Now().Unix())
 	QCValid := blk.MatchQC(escortQC)
 	if !QCValid {
-		return false, errors.New("invalid QC")
+		return false, errors.New(fmt.Sprintf("invalid %s on Block %s", escortQC.String(), blk.ID().ToBlockShortID()))
 	}
 	stage, receipts, err := n.cons.ProcessSyncedBlock(blk, now)
 	if err != nil {

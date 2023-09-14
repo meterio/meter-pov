@@ -22,14 +22,12 @@ type TCVoteManager struct {
 }
 
 func NewTCVoteManager(system bls.System, committeeSize uint32) *TCVoteManager {
-	logger := log15.New("pkg", "tcman")
-	logger.Info("New TC vote manager", "committeeSize", committeeSize)
 	return &TCVoteManager{
 		system:        system,
 		votes:         make(map[timeoutVoteKey]map[uint32]*vote),
 		sealed:        make(map[timeoutVoteKey]bool), // sealed indicator
 		committeeSize: committeeSize,
-		logger:        logger,
+		logger:        log15.New("pkg", "tcman"),
 	}
 }
 

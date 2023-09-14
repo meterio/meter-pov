@@ -42,6 +42,10 @@ func newIncomingMsg(msg ConsensusMessage, peer *ConsensusPeer, rawData []byte) *
 	}
 }
 
+func (m *IncomingMsg) Expired() bool {
+	return time.Now().After(m.ExpireAt)
+}
+
 type IncomingQueue struct {
 	sync.Mutex
 	logger log15.Logger
@@ -61,7 +65,7 @@ func NewIncomingQueue() *IncomingQueue {
 	}
 }
 
-func (q *IncomingQueue) ForceAdd(mi *IncomingMsg) {
+func (q *IncomingQueue) forceAdd(mi *IncomingMsg) {
 	defer q.Mutex.Unlock()
 	q.Mutex.Lock()
 
@@ -71,6 +75,12 @@ func (q *IncomingQueue) ForceAdd(mi *IncomingMsg) {
 	}
 
 	q.queue <- mi
+}
+
+func (q *IncomingQueue) DelayedAdd(mi *IncomingMsg) {
+	time.AfterFunc(time.Second, func() {
+		q.forceAdd(mi)
+	})
 }
 
 func (q *IncomingQueue) Add(mi *IncomingMsg) error {

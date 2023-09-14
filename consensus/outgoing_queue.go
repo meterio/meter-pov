@@ -14,8 +14,9 @@ import (
 )
 
 const (
-	OUT_QUEUE_TTL = time.Second * 5
-	REQ_TIMEOUT   = time.Second * 4
+	OUT_QUEUE_TTL      = time.Second * 5
+	REQ_TIMEOUT        = time.Second * 4
+	WORKER_CONCURRENCY = 8
 )
 
 type OutgoingParcel struct {
@@ -25,6 +26,10 @@ type OutgoingParcel struct {
 	relay     bool
 	enqueueAt time.Time
 	expireAt  time.Time
+}
+
+func (p *OutgoingParcel) Expired() bool {
+	return time.Now().After(p.expireAt)
 }
 
 type OutgoingQueue struct {
@@ -43,8 +48,7 @@ func NewOutgoingQueue() *OutgoingQueue {
 }
 
 func (q *OutgoingQueue) Add(to *ConsensusPeer, msg ConsensusMessage, rawMsg []byte, relay bool) {
-	q.logger.Info(fmt.Sprintf("add %s msg to out queue", msg.GetType()), "to", to.NameAndIP(), "len", len(q.queue), "cap", cap(q.queue))
-	// q.logger.Debug("checking out queue", "len", len(q.queue), "cap", cap(q.queue))
+	q.logger.Debug(fmt.Sprintf("add %s msg to out queue", msg.GetType()), "to", to.NameAndIP(), "len", len(q.queue), "cap", cap(q.queue))
 	for len(q.queue) >= cap(q.queue) {
 		p := <-q.queue
 		q.logger.Info(fmt.Sprintf(`%s msg dropped due to cap ...`, p.msg.GetType()))
@@ -55,7 +59,7 @@ func (q *OutgoingQueue) Add(to *ConsensusPeer, msg ConsensusMessage, rawMsg []by
 func (q *OutgoingQueue) Start(ctx context.Context) {
 	q.logger.Info(`outgoing queue started`)
 
-	for i := 1; i < 5; i++ {
+	for i := 1; i <= WORKER_CONCURRENCY; i++ {
 		worker := NewOutgoingWorker(i)
 		q.WaitGroup.Add(1)
 		go worker.Run(ctx, q.queue, &q.WaitGroup)
@@ -72,7 +76,7 @@ type outgoingWorker struct {
 
 func NewOutgoingWorker(num int) *outgoingWorker {
 	return &outgoingWorker{
-		logger:  log15.New("pkg", fmt.Sprintf("worker-%d", num)),
+		logger:  log15.New("pkg", fmt.Sprintf("w-%d", num)),
 		clients: make(map[string]*http.Client),
 	}
 }
@@ -81,7 +85,7 @@ func (w *outgoingWorker) Run(ctx context.Context, queue chan *OutgoingParcel, wg
 	defer wg.Done()
 
 	for parcel := range queue {
-		if time.Now().After(parcel.expireAt) {
+		if parcel.Expired() {
 			w.logger.Info(fmt.Sprintf(`outgoing %s msg expired, dropped ...`, parcel.msg.GetType()))
 			continue
 		}

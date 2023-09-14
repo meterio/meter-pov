@@ -485,7 +485,7 @@ func (r *Reactor) PrepareEnvForPacemaker() error {
 			myEcdsaPKBytes := crypto.FromECDSAPub(&myself.PubKey)
 			inCommitteeVerified := false
 			for _, v := range committeeInfo.CommitteeInfo {
-				if bytes.Compare(v.PubKey, myEcdsaPKBytes) == 0 {
+				if bytes.Equal(v.PubKey, myEcdsaPKBytes) {
 					inCommitteeVerified = true
 					break
 				}

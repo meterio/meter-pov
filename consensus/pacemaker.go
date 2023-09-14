@@ -64,10 +64,9 @@ type Pacemaker struct {
 }
 
 func NewPacemaker(r *Reactor) *Pacemaker {
-	fmt.Println("committeeSize: ", r.committeeSize)
 	p := &Pacemaker{
 		reactor: r,
-		logger:  log15.New("pkg", "pacer"),
+		logger:  log15.New("pkg", "pm"),
 		chain:   r.chain,
 
 		cmdCh:           make(chan PMCmd, 2),
@@ -82,7 +81,7 @@ func NewPacemaker(r *Reactor) *Pacemaker {
 }
 
 func (p *Pacemaker) CreateLeaf(parent *draftBlock, justify *draftQC, round uint32) (error, *draftBlock) {
-	p.logger.Info(fmt.Sprintf("CreateLeaf: round=%v, QC(H:%v,R:%v), Parent(H:%v,R:%v)", round, justify.QC.QCHeight, justify.QC.QCRound, parent.Height, parent.Round))
+	p.logger.Info(fmt.Sprintf("CreateLeaf on round:%v with QCHigh(H:%v,R:%v), Parent(H:%v,R:%v,Block:%v)", round, justify.QC.QCHeight, justify.QC.QCRound, parent.Height, parent.Round, parent.ProposedBlock.ID().ToBlockShortID()))
 	timeout := p.TCHigh != nil
 	parentBlock := parent.ProposedBlock
 	if parentBlock == nil {
@@ -236,14 +235,21 @@ func (p *Pacemaker) OnReceiveProposal(mi *IncomingMsg) {
 
 	blk := msg.DecodeBlock()
 	qc := blk.QC
-	p.logger.Debug("start to handle received block proposal ", "block", blk.Oneliner())
-	p.logger.Info(fmt.Sprintf("Recv %s", msg.GetType()), "blk", blk.ID().ToBlockShortID())
+	p.logger.Debug(fmt.Sprintf("Handling %s", msg.GetType()), "blk", blk.ID().ToBlockShortID())
 
 	// load parent
 	parent := p.proposalMap.Get(blk.ParentID())
 	if parent == nil {
-		p.logger.Error("could not get parent draft, throw it back in queue", "parent", blk.ParentID().ToBlockShortID())
-		p.reactor.inQueue.ForceAdd(mi)
+		if blk.Number() > p.QCHigh.QC.QCHeight {
+			p.logger.Error("cant load parent for future proposal, throw it back in queue", "parent", blk.ParentID().ToBlockShortID())
+			// future propsal, throw it back in queue
+			if mi.ExpireAt.Add(time.Second * (-2)).After(time.Now()) {
+				mi.ExpireAt = mi.ExpireAt.Add(time.Second + 5)
+			}
+			p.reactor.inQueue.DelayedAdd(mi)
+		} else {
+			p.logger.Warn("cant load parent, dropped ...", "parent", blk.ParentID().ToBlockShortID())
+		}
 		return
 	}
 
@@ -326,7 +332,7 @@ func (p *Pacemaker) OnReceiveProposal(mi *IncomingMsg) {
 
 func (p *Pacemaker) OnReceiveVote(mi *IncomingMsg) {
 	msg := mi.Msg.(*PMVoteMessage)
-	p.logger.Info(fmt.Sprintf("Recv %s", msg.GetType()), "blk", msg.VoteBlockID.ToBlockShortID())
+	p.logger.Debug(fmt.Sprintf("Handling %s", msg.GetType()), "blk", msg.VoteBlockID.ToBlockShortID())
 
 	round := msg.VoteRound
 
@@ -343,7 +349,7 @@ func (p *Pacemaker) OnReceiveVote(mi *IncomingMsg) {
 	b := p.proposalMap.Get(msg.VoteBlockID)
 	if b == nil {
 		p.logger.Warn("can not get proposed block")
-		p.reactor.inQueue.ForceAdd(mi)
+		p.reactor.inQueue.DelayedAdd(mi)
 		// return errors.New("can not address block")
 		return
 	}
@@ -399,11 +405,11 @@ func (p *Pacemaker) UpdateQCHigh(qc *draftQC) bool {
 	// update local qcHigh if
 	// newQC.height > qcHigh.height
 	// or newQC.height = qcHigh.height && newQC.round > qcHigh.round
-	if qc.QC.QCHeight > p.QCHigh.QC.QCHeight || (qc.QC.QCHeight == p.QCHigh.QCNode.Height && qc.QC.QCRound > p.QCHigh.QCNode.Round) {
+	if qc.QCNode != nil && qc.QC.QCHeight > p.QCHigh.QC.QCHeight || (qc.QC.QCHeight == p.QCHigh.QCNode.Height && qc.QC.QCRound > p.QCHigh.QCNode.Round) {
 		p.QCHigh = qc
 		updated = true
+		p.logger.Info("QCHigh updated", "from", oqc.ToString(), "to", p.QCHigh.ToString())
 	}
-	p.logger.Info("after update QCHigh", "updated", updated, "from", oqc.ToString(), "to", p.QCHigh.ToString())
 
 	return updated
 }
@@ -444,7 +450,7 @@ func (p *Pacemaker) OnBeat(epoch uint64, round uint32) {
 
 func (p *Pacemaker) OnReceiveTimeout(mi *IncomingMsg) {
 	msg := mi.Msg.(*PMTimeoutMessage)
-	p.logger.Info(fmt.Sprintf("Recv %s", msg.GetType()), "epoch", msg.Epoch, "wishRound", msg.WishRound, "lastVoteSig", hex.EncodeToString(msg.LastVoteSignature))
+	p.logger.Debug(fmt.Sprintf("Handling %s", msg.GetType()), "epoch", msg.Epoch, "wishRound", msg.WishRound, "lastVoteSig", hex.EncodeToString(msg.LastVoteSignature))
 
 	// drop invalid msg
 	if !p.reactor.amIRoundProproser(msg.WishRound) {
@@ -474,6 +480,7 @@ func (p *Pacemaker) OnReceiveTimeout(mi *IncomingMsg) {
 
 // Committee Leader triggers
 func (p *Pacemaker) Regulate() {
+	p.logger.Info("!!! Pacemaker Regulate")
 	p.reactor.PrepareEnvForPacemaker()
 	p.qcVoteManager = NewQCVoteManager(p.reactor.blsCommon.System, p.reactor.committeeSize)
 	p.tcVoteManager = NewTCVoteManager(p.reactor.blsCommon.System, p.reactor.committeeSize)
@@ -593,7 +600,7 @@ func (p *Pacemaker) mainLoop() {
 				p.logger.Info("rcvd message w/ mismatched epoch ", "epoch", m.Msg.GetEpoch(), "myEpoch", p.reactor.curEpoch, "type", m.Msg.GetType())
 				continue
 			}
-			if time.Now().After(m.ExpireAt) {
+			if m.Expired() {
 				p.logger.Info(fmt.Sprintf("incoming %s msg expired, dropped ...", m.Msg.GetType()))
 				continue
 			}
@@ -659,26 +666,36 @@ func (p *Pacemaker) enterRound(round uint32, reason roundUpdateReason) bool {
 		p.logger.Warn(fmt.Sprintf("update round skipped %d->%d", p.currentRound, round))
 		return false
 	}
+	var interval time.Duration
 	switch reason {
 	case UpdateOnBeat:
 		fallthrough
 	case UpdateOnRegularProposal:
-		p.resetRoundTimer(round, TimerInit)
+		interval = p.resetRoundTimer(round, TimerInit)
 	case UpdateOnKBlockProposal:
-		p.resetRoundTimer(round, TimerInitLong)
+		interval = p.resetRoundTimer(round, TimerInitLong)
 	case UpdateOnTimeout:
-		p.resetRoundTimer(round, TimerInc)
+		interval = p.resetRoundTimer(round, TimerInc)
+	default:
+		return false
 	}
 
 	oldRound := p.currentRound
 	p.currentRound = round
 	proposer := p.reactor.getRoundProposer(round)
-	p.logger.Info(fmt.Sprintf("update round %d->%d", oldRound, p.currentRound), "reason", reason.String(), "proposer", proposer.NameWithIP())
+	p.logger.Info(fmt.Sprintf("update round %d->%d, timer started", oldRound, p.currentRound), "reason", reason.String(), "proposer", proposer.NameWithIP(), "interval", meter.PrettyDuration(interval))
 	pmRoundGauge.Set(float64(p.currentRound))
 	return true
 }
 
-func (p *Pacemaker) startRoundTimer(round uint32, reason roundTimerUpdateReason) {
+func (p *Pacemaker) resetRoundTimer(round uint32, reason roundTimerUpdateReason) time.Duration {
+	// stop existing round timer
+	if p.roundTimer != nil {
+		p.logger.Debug(fmt.Sprintf("stop timer for round %d", p.currentRound))
+		p.roundTimer.Stop()
+		p.roundTimer = nil
+	}
+	// start round timer
 	if p.roundTimer == nil {
 		baseInterval := RoundTimeoutInterval
 		switch reason {
@@ -695,19 +712,11 @@ func (p *Pacemaker) startRoundTimer(round uint32, reason roundTimerUpdateReason)
 			power = p.timeoutCounter - 1
 		}
 		timeoutInterval := baseInterval * (1 << power)
-		p.logger.Info(fmt.Sprintf("> start round %d timer", round), "interval", int64(timeoutInterval/time.Second), "timeoutCount", p.timeoutCounter)
+		// p.logger.Debug(fmt.Sprintf("> start round %d timer", round), "interval", int64(timeoutInterval/time.Second), "timeoutCount", p.timeoutCounter)
 		p.roundTimer = time.AfterFunc(timeoutInterval, func() {
 			p.roundTimeoutCh <- PMRoundTimeoutInfo{round: round, counter: p.timeoutCounter}
 		})
+		return timeoutInterval
 	}
-}
-
-func (p *Pacemaker) resetRoundTimer(round uint32, reason roundTimerUpdateReason) {
-	// stop existing round timer
-	if p.roundTimer != nil {
-		p.logger.Debug(fmt.Sprintf("stop timer for round %d", p.currentRound))
-		p.roundTimer.Stop()
-		p.roundTimer = nil
-	}
-	p.startRoundTimer(round, reason)
+	return time.Second
 }

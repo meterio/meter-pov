@@ -374,6 +374,7 @@ func (c *Chain) AddBlock(newBlock *block.Block, escortQC *block.QuorumCert, rece
 		if err != nil {
 			fmt.Println("Error during update QC: ", err)
 		}
+		c.bestQC = escortQC
 
 	} else {
 		fork = &Fork{Ancestor: parent, Branch: []*block.Header{newBlock.Header()}}
