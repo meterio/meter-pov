@@ -673,6 +673,10 @@ func (r *Reactor) OnReceiveMsg(w http.ResponseWriter, req *http.Request) {
 	typeName := mi.Msg.GetType()
 
 	signerIndex := msg.GetSignerIndex()
+	if int(signerIndex) >= len(r.curActualCommittee) {
+		r.logger.Warn("actual committee not initialized, skip relay ...", "msg", msg.GetType())
+		return
+	}
 	signer := r.curActualCommittee[signerIndex]
 
 	if !msg.VerifyMsgSignature(&signer.PubKey) {
