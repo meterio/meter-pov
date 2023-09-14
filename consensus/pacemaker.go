@@ -526,6 +526,7 @@ func (p *Pacemaker) Regulate() {
 		go p.mainLoop()
 	}
 
+	p.currentRound = 0
 	p.enterRound(actualRound, UpdateOnBeat)
 	p.ScheduleOnBeat(p.reactor.curEpoch, actualRound, 100*time.Microsecond) //delay 0.1s
 }
@@ -651,7 +652,7 @@ func (p *Pacemaker) OnRoundTimeout(ti PMRoundTimeoutInfo) {
 }
 
 func (p *Pacemaker) enterRound(round uint32, reason roundUpdateReason) bool {
-	if round <= p.currentRound {
+	if round > 0 && round <= p.currentRound {
 		p.logger.Warn(fmt.Sprintf("update round skipped %d->%d", p.currentRound, round))
 		return false
 	}
