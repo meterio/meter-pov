@@ -482,8 +482,12 @@ func (p *Pacemaker) OnReceiveTimeout(mi *IncomingMsg) {
 func (p *Pacemaker) Regulate() {
 	p.logger.Info("!!! Pacemaker Regulate")
 	p.reactor.PrepareEnvForPacemaker()
-	p.qcVoteManager = NewQCVoteManager(p.reactor.blsCommon.System, p.reactor.committeeSize)
-	p.tcVoteManager = NewTCVoteManager(p.reactor.blsCommon.System, p.reactor.committeeSize)
+	if p.qcVoteManager == nil {
+		p.qcVoteManager = NewQCVoteManager(p.reactor.blsCommon.System, p.reactor.committeeSize)
+	}
+	if p.tcVoteManager == nil {
+		p.tcVoteManager = NewTCVoteManager(p.reactor.blsCommon.System, p.reactor.committeeSize)
+	}
 
 	bestQC := p.reactor.chain.BestQC()
 	bestBlk, err := p.reactor.chain.GetTrunkBlock(bestQC.QCHeight)
