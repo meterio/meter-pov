@@ -10,7 +10,9 @@ package consensus
 // 2. send messages to peer
 
 import (
+	sha256 "crypto/sha256"
 	"encoding/hex"
+	"fmt"
 	"time"
 
 	"github.com/ethereum/go-ethereum/rlp"
@@ -107,6 +109,13 @@ func (p *Pacemaker) BuildVoteMessage(proposalMsg *PMProposalMessage) (*PMVoteMes
 	msg.SetMsgSignature(msgSig)
 	p.logger.Debug("Built Vote Message", "msg", msg.String())
 	return msg, nil
+}
+
+// Timeout Vote Message Hash
+func BuildTimeoutVotingHash(epoch uint64, round uint32) [32]byte {
+	msg := fmt.Sprintf("Timeout: Epoch:%v Round:%v", epoch, round)
+	voteHash := sha256.Sum256([]byte(msg))
+	return voteHash
 }
 
 // BuildVoteForProposalMsg build VFP message for proposal

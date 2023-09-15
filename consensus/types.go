@@ -117,44 +117,22 @@ type PMBeatInfo struct {
 }
 
 // enum roundUpdateReason
-type roundUpdateReason int32
+type roundType int32
 
-func (reason roundUpdateReason) String() string {
-	switch reason {
-	case UpdateOnBeat:
-		return "Beat"
-	case UpdateOnRegularProposal:
-		return "RegularProposal"
-	case UpdateOnTimeout:
+func (rtype roundType) String() string {
+	switch rtype {
+	case RegularRound:
+		return "Regular"
+	case TimeoutRound:
 		return "Timeout"
-	case UpdateOnKBlockProposal:
-		return "KBlockProposal"
+	case KBlockRound:
+		return "KBlock"
 	}
 	return "Unknown"
 }
 
-// enum roundTimerUpdateReason
-type roundTimerUpdateReason int32
-
-func (reason roundTimerUpdateReason) String() string {
-	switch reason {
-	case TimerInc:
-		return "TimerInc"
-	case TimerInit:
-		return "TimerInit"
-	case TimerInitLong:
-		return "TimerInitLong"
-	}
-	return ""
-}
-
 const (
-	UpdateOnBeat            = roundUpdateReason(1)
-	UpdateOnRegularProposal = roundUpdateReason(2)
-	UpdateOnTimeout         = roundUpdateReason(3)
-	UpdateOnKBlockProposal  = roundUpdateReason(5)
-
-	TimerInit     = roundTimerUpdateReason(0)
-	TimerInc      = roundTimerUpdateReason(1)
-	TimerInitLong = roundTimerUpdateReason(2)
+	RegularRound = roundType(1)
+	TimeoutRound = roundType(3)
+	KBlockRound  = roundType(5)
 )

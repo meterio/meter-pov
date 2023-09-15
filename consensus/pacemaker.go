@@ -341,9 +341,9 @@ func (p *Pacemaker) OnReceiveProposal(mi *IncomingMsg) {
 		// enter round and reset timer
 		if msg.DecodeBlock().IsKBlock() {
 			// if proposed block is KBlock, reset the timer with extra time cushion
-			p.enterRound(bnew.Round+1, UpdateOnKBlockProposal)
+			p.enterRound(bnew.Round+1, KBlockRound)
 		} else {
-			p.enterRound(bnew.Round+1, UpdateOnRegularProposal)
+			p.enterRound(bnew.Round+1, RegularRound)
 		}
 	}
 
@@ -573,7 +573,7 @@ func (p *Pacemaker) Regulate() {
 	}
 
 	p.currentRound = 0
-	p.enterRound(actualRound, UpdateOnBeat)
+	p.enterRound(actualRound, RegularRound)
 	p.ScheduleOnBeat(p.reactor.curEpoch, actualRound, 100*time.Microsecond) //delay 0.1s
 }
 
@@ -682,7 +682,7 @@ func (p *Pacemaker) SendEpochEndInfo(b *draftBlock) {
 func (p *Pacemaker) OnRoundTimeout(ti PMRoundTimeoutInfo) {
 	p.logger.Warn(fmt.Sprintf("round %d timeout", ti.round), "counter", p.timeoutCounter)
 
-	p.enterRound(ti.round+1, UpdateOnTimeout)
+	p.enterRound(ti.round+1, TimeoutRound)
 	newTi := &PMRoundTimeoutInfo{
 		height:  p.QCHigh.QC.QCHeight + 1,
 		round:   p.currentRound,
@@ -699,21 +699,19 @@ func (p *Pacemaker) OnRoundTimeout(ti PMRoundTimeoutInfo) {
 	}
 }
 
-func (p *Pacemaker) enterRound(round uint32, reason roundUpdateReason) bool {
+func (p *Pacemaker) enterRound(round uint32, rtype roundType) bool {
 	if round > 0 && round <= p.currentRound {
 		p.logger.Warn(fmt.Sprintf("update round skipped %d->%d", p.currentRound, round))
 		return false
 	}
 	var interval time.Duration
-	switch reason {
-	case UpdateOnBeat:
+	switch rtype {
+	case RegularRound:
 		fallthrough
-	case UpdateOnRegularProposal:
-		interval = p.resetRoundTimer(round, TimerInit)
-	case UpdateOnKBlockProposal:
-		interval = p.resetRoundTimer(round, TimerInitLong)
-	case UpdateOnTimeout:
-		interval = p.resetRoundTimer(round, TimerInc)
+	case KBlockRound:
+		fallthrough
+	case TimeoutRound:
+		interval = p.resetRoundTimer(round, rtype)
 	default:
 		return false
 	}
@@ -721,12 +719,12 @@ func (p *Pacemaker) enterRound(round uint32, reason roundUpdateReason) bool {
 	oldRound := p.currentRound
 	p.currentRound = round
 	proposer := p.reactor.getRoundProposer(round)
-	p.logger.Info(fmt.Sprintf("update round %d->%d, timer started", oldRound, p.currentRound), "reason", reason.String(), "proposer", proposer.NameWithIP(), "interval", meter.PrettyDuration(interval))
+	p.logger.Info(fmt.Sprintf("round %d->%d, timer started", oldRound, p.currentRound), "type", rtype.String(), "proposer", proposer.NameWithIP(), "interval", meter.PrettyDuration(interval))
 	pmRoundGauge.Set(float64(p.currentRound))
 	return true
 }
 
-func (p *Pacemaker) resetRoundTimer(round uint32, reason roundTimerUpdateReason) time.Duration {
+func (p *Pacemaker) resetRoundTimer(round uint32, rtype roundType) time.Duration {
 	// stop existing round timer
 	if p.roundTimer != nil {
 		p.logger.Debug(fmt.Sprintf("stop timer for round %d", p.currentRound))
@@ -736,13 +734,13 @@ func (p *Pacemaker) resetRoundTimer(round uint32, reason roundTimerUpdateReason)
 	// start round timer
 	if p.roundTimer == nil {
 		baseInterval := RoundTimeoutInterval
-		switch reason {
-		case TimerInitLong:
+		switch rtype {
+		case KBlockRound:
 			baseInterval = RoundTimeoutLongInterval
 			p.timeoutCounter = 0
-		case TimerInit:
+		case RegularRound:
 			p.timeoutCounter = 0
-		case TimerInc:
+		case TimeoutRound:
 			p.timeoutCounter++
 		}
 		var power uint64 = 0

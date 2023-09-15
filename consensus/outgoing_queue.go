@@ -76,7 +76,7 @@ type outgoingWorker struct {
 
 func NewOutgoingWorker(num int) *outgoingWorker {
 	return &outgoingWorker{
-		logger:  log15.New("pkg", fmt.Sprintf("w-%d", num)),
+		logger:  log15.New("pkg", fmt.Sprintf("w%d", num)),
 		clients: make(map[string]*http.Client),
 	}
 }

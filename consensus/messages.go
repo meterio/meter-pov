@@ -40,6 +40,16 @@ func RegisterConsensusMessages(cdc *amino.Codec) {
 	cdc.RegisterConcrete(&PMQueryMessage{}, "meterio/PMQuery", nil)
 }
 
+var (
+	cdc = amino.NewCodec()
+)
+
+func init() {
+	RegisterConsensusMessages(cdc)
+	//    RegisterWALMessages(cdc)
+	//    types.RegisterBlockAmino(cdc)
+}
+
 func decodeMsg(bz []byte) (msg ConsensusMessage, err error) {
 	if len(bz) > maxMsgSize {
 		return msg, fmt.Errorf("Msg exceeds max size (%d > %d)", len(bz), maxMsgSize)
