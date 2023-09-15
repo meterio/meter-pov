@@ -37,6 +37,7 @@ func RegisterConsensusMessages(cdc *amino.Codec) {
 	cdc.RegisterConcrete(&PMProposalMessage{}, "meterio/PMProposal", nil)
 	cdc.RegisterConcrete(&PMVoteMessage{}, "meterio/PMVote", nil)
 	cdc.RegisterConcrete(&PMTimeoutMessage{}, "meterio/PMTimeout", nil)
+	cdc.RegisterConcrete(&PMQueryMessage{}, "meterio/PMQuery", nil)
 }
 
 func decodeMsg(bz []byte) (msg ConsensusMessage, err error) {
