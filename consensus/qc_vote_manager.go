@@ -56,12 +56,14 @@ func (m *QCVoteManager) AddVote(index uint32, epoch uint64, round uint32, blockI
 	}
 	m.votes[key][index] = &vote{Signature: sig, Hash: hash, BlsSig: blsSig}
 
-	voteCount := uint32(len(m.votes))
+	voteCount := uint32(len(m.votes[key]))
 	if MajorityTwoThird(voteCount, m.committeeSize) {
+		m.seal(round, blockID)
+		qc := m.Aggregate(round, blockID, epoch)
 		m.logger.Info(
 			fmt.Sprintf("QC formed on Proposal(R:%d,B:%v), future votes will be ignored.", round, blockID.ToBlockShortID()), "voted", fmt.Sprintf("%d/%d", voteCount, m.committeeSize))
-		m.seal(round, blockID)
-		return m.Aggregate(round, blockID, epoch)
+		return qc
+
 	}
 	m.logger.Info("vote counted", "committeeSize", m.committeeSize, "count", voteCount)
 	return nil

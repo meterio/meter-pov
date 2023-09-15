@@ -51,10 +51,12 @@ func (m *TCVoteManager) AddVote(index uint32, epoch uint64, round uint32, sig []
 	voteCount := uint32(len(m.votes[key]))
 	m.logger.Info("TC vote", "count", voteCount, "committeeSize", m.committeeSize)
 	if MajorityTwoThird(voteCount, m.committeeSize) {
+		m.seal(epoch, round)
+		tc := m.Aggregate(epoch, round)
 		m.logger.Info(
 			fmt.Sprintf("TC formed on (E:%d,R:%d), future votes will be ignored.", epoch, round), "voted", fmt.Sprintf("%d/%d", voteCount, m.committeeSize))
-		m.seal(epoch, round)
-		return m.Aggregate(epoch, round)
+
+		return tc
 	} else {
 		m.logger.Debug("tc vote counted")
 	}
