@@ -50,7 +50,6 @@ type Communicator struct {
 
 	powPool     *powpool.PowPool
 	configTopic string
-	syncTrigCh  chan bool
 
 	magic [4]byte
 }
@@ -75,7 +74,6 @@ func New(ctx context.Context, chain *chain.Chain, txPool *txpool.TxPool, powPool
 		syncedCh:       make(chan struct{}),
 		announcementCh: make(chan *announcement),
 		configTopic:    configTopic,
-		syncTrigCh:     make(chan bool),
 		magic:          magic,
 	}
 
@@ -88,15 +86,10 @@ func (c *Communicator) Synced() <-chan struct{} {
 	return c.syncedCh
 }
 
-// trigger a manual sync
-func (c *Communicator) TriggerSync() {
-	c.syncTrigCh <- true
-}
-
 // Sync start synchronization process.
 func (c *Communicator) Sync(handler HandleBlockStream) {
-	const initSyncInterval = 1500 * time.Microsecond
-	const syncInterval = 20 * time.Second
+	const initSyncInterval = 500 * time.Millisecond
+	const syncInterval = 6 * time.Second
 
 	c.goes.Go(func() {
 		timer := time.NewTimer(0)
@@ -125,23 +118,6 @@ func (c *Communicator) Sync(handler HandleBlockStream) {
 			case <-c.ctx.Done():
 				log.Warn("stop communicator due to context end")
 				return
-			case <-c.syncTrigCh:
-				log.Info("Triggered synchronization start")
-
-				best := c.chain.BestBlock().Header()
-				// choose peer which has the head block with higher total score
-				peer := c.peerSet.Slice().Find(func(peer *Peer) bool {
-					_, totalScore := peer.Head()
-					return totalScore >= best.TotalScore()
-				})
-				if peer != nil {
-					log.Info("trigger sync with peer", "peer", peer.RemoteAddr().String())
-					if err := c.sync(peer, best.Number(), handler); err != nil {
-						peer.logger.Info("synchronization failed", "err", err)
-					}
-					log.Info("triggered synchronization done", "bestQC", c.chain.BestQC().QCHeight, "bestBlock", c.chain.BestBlock().Number())
-				}
-				syncCount++
 			case <-timer.C:
 				log.Debug("synchronization start")
 
@@ -276,7 +252,7 @@ func (c *Communicator) runPeer(peer *Peer, dir string) {
 
 	peer.UpdateHead(status.BestBlockID, status.TotalScore)
 	c.peerSet.Add(peer, dir)
-	peer.logger.Debug(fmt.Sprintf("peer added (%v)", c.peerSet.Len()))
+	peer.logger.Info(fmt.Sprintf("peer added (%v)", c.peerSet.Len()))
 
 	defer func() {
 		c.peerSet.Remove(peer.ID())
