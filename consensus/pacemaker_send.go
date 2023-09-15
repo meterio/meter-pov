@@ -10,6 +10,7 @@ package consensus
 // 2. send messages to peer
 
 import (
+	"bytes"
 	sha256 "crypto/sha256"
 	"encoding/hex"
 	"fmt"
@@ -186,6 +187,36 @@ func BlockMatchDraftQC(b *draftBlock, escortQC *block.QuorumCert) bool {
 	blk := b.ProposedBlock
 
 	return blk.MatchQC(escortQC)
+
+}
+
+func (p *Pacemaker) verifyQC(b *draftBlock, escortQC *block.QuorumCert) bool {
+
+	if b == nil {
+		// decode block to get qc
+		// fmt.Println("can not decode block", err)
+		return false
+	}
+
+	// genesis does not have qc
+	if b.Height == 0 && escortQC.QCHeight == 0 {
+		return true
+	}
+
+	blk := b.ProposedBlock
+
+	quickCheck := blk.MatchQC(escortQC)
+
+	voteHash := blk.VotingHash()
+	validSigCount := 0
+	for _, member := range p.reactor.curActualCommittee {
+		pubkey := p.reactor.blsCommon.System.PubKeyToBytes(member.CSPubKey)
+		if p.reactor.blsCommon.VerifySignature(escortQC.VoterAggSig, escortQC.VoterMsgHash[:], pubkey) {
+			validSigCount++
+		}
+	}
+	enoughVotes := MajorityTwoThird(uint32(validSigCount), p.reactor.committeeSize)
+	return enoughVotes && bytes.Equal(escortQC.VoterMsgHash[:], voteHash[:]) && quickCheck
 }
 
 // BuildQueryMessage

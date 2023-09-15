@@ -272,7 +272,7 @@ func (p *Pacemaker) OnReceiveProposal(mi *IncomingMsg) {
 	}
 
 	// check QC with parent
-	if match := BlockMatchDraftQC(parent, qc); !match {
+	if match := p.verifyQC(parent, qc); !match {
 		p.logger.Error("parent doesn't match qc in proposal ...", "qcHeight", qc.QCHeight, "qcRound", qc.QCRound, "parent", parent.ProposedBlock.ID().ToBlockShortID())
 		// Theoratically, this should not be worrisome anymore, since the parent is addressed by blockID
 		// instead of addressing proposal by height, we already supported the fork in proposal space
@@ -291,7 +291,7 @@ func (p *Pacemaker) OnReceiveProposal(mi *IncomingMsg) {
 	}
 	// otherwise round must = parent round + 1 without TC
 	if round > 0 && parent.Round+1 != round {
-		validTC := p.verifyTimeoutCert(msg.TimeoutCert, msg.Round)
+		validTC := p.verifyTC(msg.TimeoutCert, msg.Round)
 		if !validTC {
 			p.logger.Error("round jump without valid TC", "parentRound", parent.Round, "round", round)
 			return
@@ -315,7 +315,7 @@ func (p *Pacemaker) OnReceiveProposal(mi *IncomingMsg) {
 
 	// validate proposal
 	if err := p.ValidateProposal(bnew); err != nil {
-		p.logger.Error("HELP: Validate Proposal failed", "error", err)
+		p.logger.Error("validate proposal failed", "err", err)
 		return
 	}
 

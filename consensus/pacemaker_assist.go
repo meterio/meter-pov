@@ -6,6 +6,7 @@
 package consensus
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"time"
@@ -126,10 +127,18 @@ func (p *Pacemaker) getProposerByRound(round uint32) *ConsensusPeer {
 	return newConsensusPeer(proposer.Name, proposer.NetAddr.IP, 8670)
 }
 
-func (p *Pacemaker) verifyTimeoutCert(tc *TimeoutCert, round uint32) bool {
+func (p *Pacemaker) verifyTC(tc *TimeoutCert, round uint32) bool {
 	if tc != nil {
-		//FIXME: check timeout cert
-		valid := tc.Epoch == p.reactor.curEpoch && tc.Round == round
+		voteHash := BuildTimeoutVotingHash(tc.Epoch, tc.Round)
+		validSigCount := 0
+		for _, member := range p.reactor.curActualCommittee {
+			pubkey := p.reactor.blsCommon.System.PubKeyToBytes(member.CSPubKey)
+			if p.reactor.blsCommon.VerifySignature(tc.AggSig, tc.MsgHash[:], pubkey) {
+				validSigCount++
+			}
+		}
+		enoughVotes := MajorityTwoThird(uint32(validSigCount), p.reactor.committeeSize)
+		valid := enoughVotes && tc.Epoch == p.reactor.curEpoch && tc.Round == round && bytes.Equal(tc.MsgHash[:], voteHash[:])
 		if !valid {
 			p.logger.Warn("Invalid TC", "expected", fmt.Sprintf("E:%v,R:%v", tc.Epoch, tc.Round), "proposal", fmt.Sprintf("E:%v,R:%v", p.reactor.curEpoch, round))
 		}
