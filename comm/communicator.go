@@ -128,7 +128,7 @@ func (c *Communicator) Sync(handler HandleBlockStream) {
 					return totalScore >= best.TotalScore()
 				})
 				if peer == nil {
-					// XXX: original setting was 3, changed to 1 for cold start
+					// original setting was 3, changed to 1 for cold start
 					if c.peerSet.Len() < 1 {
 						log.Debug("no suitable peer to sync")
 						break
@@ -174,7 +174,7 @@ func (c *Communicator) Protocols() []*p2psrv.Protocol {
 func (c *Communicator) Start() {
 	c.goes.Go(c.txsLoop)
 	c.goes.Go(c.announcementLoop)
-	// XXX: disable powpool gossip
+	// disable powpool gossip
 	//c.goes.Go(c.powsLoop)
 }
 

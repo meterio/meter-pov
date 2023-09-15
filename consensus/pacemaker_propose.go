@@ -49,13 +49,6 @@ func (p *Pacemaker) buildMBlock(parent *draftBlock, justify *draftQC, round uint
 	best := parentBlock
 	qc := justify.QC
 	now := uint64(time.Now().Unix())
-	/*
-		TODO: better check this, comment out temporarily
-		if p.reactor.curHeight != int64(best.Number()) {
-			p.logger.Error("Proposed block parent is not current best block")
-			return nil
-		}
-	*/
 
 	// start := time.Now()
 	pool := txpool.GetGlobTxPoolInst()
@@ -167,13 +160,6 @@ func (p *Pacemaker) buildKBlock(parent *draftBlock, justify *draftQC, round uint
 	qc := justify.QC
 	best := parentBlock
 	now := uint64(time.Now().Unix())
-	/*
-		TODO: better check this, comment out temporarily
-		if p.reactor.curHeight != int64(best.Number()) {
-			p.logger.Warn("Proposed block parent is not current best block")
-			return nil
-		}
-	*/
 
 	p.logger.Info("Start to build KBlock", "nonce", kblockData.Nonce)
 	// startTime := time.Now()

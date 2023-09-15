@@ -33,7 +33,6 @@ import (
 
 var log = log15.New("pkg", "reactor")
 
-// TODO: check the logic in here
 // Process process a block.
 func (c *Reactor) ProcessSyncedBlock(blk *block.Block, nowTimestamp uint64) (*state.Stage, tx.Receipts, error) {
 	header := blk.Header()

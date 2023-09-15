@@ -91,7 +91,6 @@ func (m *QCVoteManager) Aggregate(round uint32, blockID meter.Bytes32, epoch uin
 		bitArray.SetIndex(int(index), true)
 		msgHash = v.Hash
 	}
-	// TODO: should check error here
 	sigAgg, err := bls.Aggregate(sigs, m.system)
 	if err != nil {
 		return nil

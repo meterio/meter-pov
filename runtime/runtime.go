@@ -545,7 +545,7 @@ func (rt *Runtime) newEVM(stateDB *statedb.StateDB, clauseIndex uint32, txCtx *x
 			}
 			// touch energy balance when token balance changed
 			// SHOULD be performed before transfer
-			// XXX: with no interest of engery, the following touch is meaningless.
+			// with no interest of engery, the following touch is meaningless.
 			/**************
 			rt.state.SetEnergy(meter.Address(sender),
 				rt.state.GetEnergy(meter.Address(sender), rt.ctx.Time), rt.ctx.Time)

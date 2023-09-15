@@ -154,7 +154,7 @@ func (p *Pacemaker) Update(bnew *draftBlock) {
 
 	commitReady := []commitReadyBlock{}
 	for b := blockPrime; b.Parent.Height > p.lastCommitted.Height; b = b.Parent {
-		// XXX: b must be prepended the slice, so we can commit blocks in order
+		// Notice: b must be prepended the slice, so we can commit blocks in order
 		commitReady = append([]commitReadyBlock{{block: b.Parent, escortQC: b.ProposedBlock.QC}}, commitReady...)
 	}
 	p.OnCommit(commitReady)
@@ -482,7 +482,6 @@ func (p *Pacemaker) OnReceiveTimeout(mi *IncomingMsg) {
 	// collect vote and see if QC is formed
 	newQC := p.qcVoteManager.AddVote(msg.SignerIndex, p.reactor.curEpoch, msg.LastVoteRound, msg.LastVoteBlockID, msg.LastVoteSignature, msg.LastVoteHash)
 	if newQC != nil {
-		// TODO: new qc formed
 		escortQCNode := p.proposalMap.GetOneByEscortQC(newQC)
 		p.UpdateQCHigh(&draftQC{QCNode: escortQCNode, QC: newQC})
 	}
@@ -495,7 +494,7 @@ func (p *Pacemaker) OnReceiveTimeout(mi *IncomingMsg) {
 	tc := p.tcVoteManager.AddVote(msg.SignerIndex, msg.Epoch, msg.WishRound, msg.WishVoteSig, msg.WishVoteHash)
 	if tc != nil {
 		p.TCHigh = tc
-		p.ScheduleOnBeat(p.reactor.curEpoch, p.TCHigh.Round, 500*time.Millisecond)
+		p.ScheduleOnBeat(p.reactor.curEpoch, p.TCHigh.Round, 100*time.Millisecond)
 	}
 }
 
@@ -596,6 +595,7 @@ Regulate:
 		}
 	}
 
+	p.logger.Info("Pacemaker regulate scheduled")
 	p.cmdCh <- PMCmdRegulate
 }
 
@@ -607,7 +607,6 @@ func (p *Pacemaker) mainLoop() {
 	for {
 		bestBlock := p.chain.BestBlock()
 		if bestBlock.Number() > p.QCHigh.QC.QCHeight {
-			//TODO: regulate pacemaker
 			p.scheduleRegulate()
 		}
 		select {

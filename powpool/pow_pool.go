@@ -137,12 +137,12 @@ func (p *PowPool) InitialAddKframe(newPowBlockInfo *PowBlockInfo) error {
 	}
 
 	powObj := NewPowObject(newPowBlockInfo)
-	// XXX: disable gossip
+	// disable gossip
 	//p.goes.Go(func() {
 	//	p.powFeed.Send(&PowBlockEvent{BlockInfo: newPowBlockInfo})
 	//})
 
-	// XXX: send block to POW
+	// send block to POW
 	// raw := newPowBlockInfo.Raw
 	// blks := bytes.Split(raw, []byte{0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff})
 	// if len(blks) == 2 {
@@ -216,7 +216,7 @@ func (p *PowPool) Add(newPowBlockInfo *PowBlockInfo) error {
 		return nil
 	}
 
-	// XXX: disable powpool gossip
+	// disable powpool gossip
 	//p.goes.Go(func() {
 	//	p.powFeed.Send(&PowBlockEvent{BlockInfo: newPowBlockInfo})
 	//})
@@ -226,7 +226,7 @@ func (p *PowPool) Add(newPowBlockInfo *PowBlockInfo) error {
 	// if parent is not genesis and it's not contained in powpool
 	// fetch the block immediately in a coroutine
 	// Here err is set ONLY kframe is not added (not in committee).
-	// XXX: a fat chance --- the powObj is already in chain, the parent block fetch is still sent.
+	// a fat chance --- the powObj is already in chain, the parent block fetch is still sent.
 	if err == nil && p.all.isKframeInitialAdded() && powObj.Height() >= p.all.lastKframePowObj.Height() && !p.all.Contains(powObj.blockInfo.HashPrevBlock) {
 		// go p.FetchPowBlock(powObj.Height() - uint32(1))
 		p.ReplayFrom(int32(p.all.lastKframePowObj.Height()) + 1)

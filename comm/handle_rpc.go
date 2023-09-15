@@ -199,7 +199,7 @@ func (c *Communicator) handleRPC(peer *Peer, msg *p2p.Msg, write func(interface{
 			write(toSend)
 		}
 	case proto.MsgNewPowBlock:
-		// XXX: Disable the powpool gossip.
+		// Disable the powpool gossip.
 		// comment out here for safe
 		//var newPowBlockInfo *powpool.PowBlockInfo
 		//if err := msg.Decode(&newPowBlockInfo); err != nil {

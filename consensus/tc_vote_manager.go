@@ -85,7 +85,6 @@ func (m *TCVoteManager) Aggregate(epoch uint64, round uint32) *TimeoutCert {
 		bitArray.SetIndex(int(index), true)
 		msgHash = v.Hash
 	}
-	// TODO: should check error here
 	sigAgg, err := bls.Aggregate(sigs, m.system)
 	if err != nil {
 		return nil
