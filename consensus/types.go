@@ -27,6 +27,7 @@ type commitReadyBlock struct {
 
 // definition for draftBlock
 type draftBlock struct {
+	Msg           ConsensusMessage
 	Height        uint32
 	Round         uint32
 	Parent        *draftBlock
@@ -74,7 +75,7 @@ type draftQC struct {
 	QC     *block.QuorumCert // this is the actual QC that goes into the next block
 }
 
-func newPMQuorumCert(qc *block.QuorumCert, qcNode *draftBlock) *draftQC {
+func newDraftQC(qc *block.QuorumCert, qcNode *draftBlock) *draftQC {
 	return &draftQC{
 		QCNode: qcNode,
 		QC:     qc,

@@ -680,7 +680,7 @@ func (r *Reactor) OnReceiveMsg(w http.ResponseWriter, req *http.Request) {
 	signer := r.curActualCommittee[signerIndex]
 
 	if !msg.VerifyMsgSignature(&signer.PubKey) {
-		r.logger.Error("invalid signature, dropped ...", "peer", peer.NameAndIP(), "msg", msg.String(), "signer", signer.Name)
+		r.logger.Error("invalid signature, dropped ...", "peer", peer, "msg", msg.String(), "signer", signer.Name)
 		return
 	}
 	mi.Signer = signer
@@ -701,14 +701,14 @@ func (r *Reactor) OnReceiveMsg(w http.ResponseWriter, req *http.Request) {
 		}
 	}
 
-	fromMyself := peer.netAddr.IP.String() == r.GetMyNetAddr().IP.String()
+	fromMyself := peer.IP == r.GetMyNetAddr().IP.String()
 	suffix := ""
 	if fromMyself {
 		suffix = " (myself)"
 	}
 
 	if msg.GetEpoch() < r.curEpoch {
-		r.logger.Info(fmt.Sprintf("recv outdated %s", msg.String()), "peer", peer.NameAndIP()+suffix)
+		r.logger.Info(fmt.Sprintf("recv outdated %s", msg.String()), "peer", peer.String()+suffix)
 		return
 	}
 

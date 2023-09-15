@@ -73,7 +73,7 @@ func (r *Reactor) GetRelayPeers(round uint32) []*ConsensusPeer {
 		}
 		member := r.curActualCommittee[index]
 		name := r.GetDelegateNameByIP(member.NetAddr.IP)
-		peers = append(peers, newConsensusPeer(name, member.NetAddr.IP, member.NetAddr.Port, r.magic))
+		peers = append(peers, newConsensusPeer(name, member.NetAddr.IP, member.NetAddr.Port))
 	}
 	log.Debug("get relay peers result", "myIndex", myIndex, "committeeSize", size, "round", round, "indexes", indexes)
 	return peers

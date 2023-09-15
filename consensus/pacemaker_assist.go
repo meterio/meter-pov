@@ -19,12 +19,12 @@ import (
 // 2. timeout cert management
 
 // check a draftBlock is the extension of b_locked, max 10 hops
-func (p *Pacemaker) IsExtendedFromBLocked(b *draftBlock) bool {
+func (p *Pacemaker) ExtendedFromLastCommitted(b *draftBlock) bool {
 
 	i := int(0)
 	tmp := b
 	for i < 10 {
-		if tmp == p.blockLocked {
+		if tmp == p.lastCommitted {
 			return true
 		}
 		if tmp = tmp.Parent; tmp == nil {
@@ -123,7 +123,7 @@ func (p *Pacemaker) ValidateProposal(b *draftBlock) error {
 
 func (p *Pacemaker) getProposerByRound(round uint32) *ConsensusPeer {
 	proposer := p.reactor.getRoundProposer(round)
-	return newConsensusPeer(proposer.Name, proposer.NetAddr.IP, 8670, p.reactor.magic)
+	return newConsensusPeer(proposer.Name, proposer.NetAddr.IP, 8670)
 }
 
 func (p *Pacemaker) verifyTimeoutCert(tc *TimeoutCert, round uint32) bool {

@@ -28,6 +28,8 @@ type IncomingMsg struct {
 
 	EnqueueAt time.Time
 	ExpireAt  time.Time
+
+	ProcessCount uint32
 }
 
 func newIncomingMsg(msg ConsensusMessage, peer *ConsensusPeer, rawData []byte) *IncomingMsg {
@@ -39,11 +41,14 @@ func newIncomingMsg(msg ConsensusMessage, peer *ConsensusPeer, rawData []byte) *
 		RawData:      rawData,
 		Hash:         msgHash,
 		ShortHashStr: shortMsgHash,
+
+		ProcessCount: 0,
 	}
 }
 
 func (m *IncomingMsg) Expired() bool {
-	return time.Now().After(m.ExpireAt)
+	// return time.Now().After(m.ExpireAt)
+	return false
 }
 
 type IncomingQueue struct {
@@ -71,13 +76,14 @@ func (q *IncomingQueue) forceAdd(mi *IncomingMsg) {
 
 	for len(q.queue) >= cap(q.queue) {
 		dropped := <-q.queue
-		q.logger.Warn(fmt.Sprintf("dropped %s due to cap", dropped.Msg.String()), "from", dropped.Peer.NameAndIP())
+		q.logger.Warn(fmt.Sprintf("dropped %s due to cap", dropped.Msg.String()), "from", dropped.Peer)
 	}
 
 	q.queue <- mi
 }
 
 func (q *IncomingQueue) DelayedAdd(mi *IncomingMsg) {
+	mi.ProcessCount = mi.ProcessCount + 1
 	time.AfterFunc(time.Second, func() {
 		q.forceAdd(mi)
 	})
@@ -94,11 +100,11 @@ func (q *IncomingQueue) Add(mi *IncomingMsg) error {
 	// instead of drop the latest message, drop the oldest one in front of queue
 	for len(q.queue) >= cap(q.queue) {
 		dropped := <-q.queue
-		q.logger.Warn(fmt.Sprintf("dropped %s due to cap", dropped.Msg.String()), "from", dropped.Peer.NameAndIP())
+		q.logger.Warn(fmt.Sprintf("dropped %s due to cap", dropped.Msg.String()), "from", dropped.Peer)
 	}
 
 	// TODO: check if this caused a dead lock for putting message into a full channel
-	q.logger.Info(fmt.Sprintf("recv %s", mi.Msg.String()), "from", mi.Peer.NameAndIP())
+	q.logger.Info(fmt.Sprintf("recv %s", mi.Msg.String()), "from", mi.Peer)
 	mi.EnqueueAt = time.Now()
 	mi.ExpireAt = time.Now().Add(IN_QUEUE_TTL)
 	q.queue <- mi

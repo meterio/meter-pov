@@ -31,7 +31,7 @@ func (qc *QuorumCert) String() string {
 		// bitArray := strings.ReplaceAll(qc.VoterBitArrayStr, "\"", "")
 		voted := strings.Count(qc.VoterBitArrayStr, "x")
 		unvoted := strings.Count(qc.VoterBitArrayStr, "_")
-		return fmt.Sprintf("QC(Height:%v, Round:%v, Epoch:%v, BitArray:(%v/%v), AggSig:len(%v))",
+		return fmt.Sprintf("QC(#%v, R:%v, E:%v, BitArray:(%v/%v), AggSig:len(%v))",
 			qc.QCHeight, qc.QCRound, qc.EpochID, voted, (voted + unvoted), len(qc.VoterAggSig))
 	}
 	return "QC(nil)"

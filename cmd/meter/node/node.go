@@ -115,7 +115,7 @@ func (n *Node) handleBlockStream(ctx context.Context, stream <-chan *block.Escor
 
 	var blk *block.EscortedBlock
 	for blk = range stream {
-		log.Info("handle block", "block", blk.Block.ID().ToBlockShortID())
+		log.Debug("handle block", "block", blk.Block.ID().ToBlockShortID())
 		if isTrunk, err := n.processBlock(blk.Block, blk.EscortQC, &stats); err != nil {
 			log.Error("process block failed", "id", blk.Block.ID(), "err", err)
 			return err

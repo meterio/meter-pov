@@ -47,6 +47,14 @@ func decodeMsg(bz []byte) (msg ConsensusMessage, err error) {
 	return
 }
 
+func verifyMsgSignature(pubkey *ecdsa.PublicKey, msgHash meter.Bytes32, signature []byte) bool {
+	pub, err := crypto.SigToPub(msgHash[:], signature)
+	if err != nil {
+		return false
+	}
+	return bytes.Equal(crypto.FromECDSAPub(pub), crypto.FromECDSAPub(pubkey))
+}
+
 // PMProposalMessage is sent when a new block is proposed
 type PMProposalMessage struct {
 	Timestamp   time.Time
@@ -127,12 +135,7 @@ func (m *PMProposalMessage) SetMsgSignature(msgSignature []byte) {
 }
 
 func (m *PMProposalMessage) VerifyMsgSignature(pubkey *ecdsa.PublicKey) bool {
-	msgHash := m.GetMsgHash()
-	pub, err := crypto.SigToPub(msgHash[:], m.MsgSignature)
-	if err != nil {
-		return false
-	}
-	return bytes.Equal(crypto.FromECDSAPub(pub), crypto.FromECDSAPub(pubkey))
+	return verifyMsgSignature(pubkey, m.GetMsgHash(), m.MsgSignature)
 }
 
 // PMVoteMessage is sent when voting for a proposal (or lack thereof).
@@ -193,12 +196,7 @@ func (m *PMVoteMessage) SetMsgSignature(msgSignature []byte) {
 }
 
 func (m *PMVoteMessage) VerifyMsgSignature(pubkey *ecdsa.PublicKey) bool {
-	msgHash := m.GetMsgHash()
-	pub, err := crypto.SigToPub(msgHash[:], m.MsgSignature)
-	if err != nil {
-		return false
-	}
-	return bytes.Equal(crypto.FromECDSAPub(pub), crypto.FromECDSAPub(pubkey))
+	return verifyMsgSignature(pubkey, m.GetMsgHash(), m.MsgSignature)
 }
 
 // PMTimeoutMessage is sent to the next leader in these two senarios
@@ -285,10 +283,56 @@ func (m *PMTimeoutMessage) SetMsgSignature(msgSignature []byte) {
 }
 
 func (m *PMTimeoutMessage) VerifyMsgSignature(pubkey *ecdsa.PublicKey) bool {
-	msgHash := m.GetMsgHash()
-	pub, err := crypto.SigToPub(msgHash[:], m.MsgSignature)
+	return verifyMsgSignature(pubkey, m.GetMsgHash(), m.MsgSignature)
+}
+
+type PMQueryMessage struct {
+	Timestamp   time.Time
+	Epoch       uint64
+	SignerIndex uint32
+
+	LastCommitted meter.Bytes32
+
+	MsgSignature []byte
+}
+
+func (m *PMQueryMessage) GetSignerIndex() uint32 {
+	return m.SignerIndex
+}
+
+func (m *PMQueryMessage) GetEpoch() uint64 {
+	return m.Epoch
+}
+
+func (m *PMQueryMessage) GetType() string {
+	return "PMQuery"
+}
+
+func (m *PMQueryMessage) GetRound() uint32 {
+	return uint32(0)
+}
+
+// GetMsgHash computes hash of all header fields excluding signature.
+func (m *PMQueryMessage) GetMsgHash() (hash meter.Bytes32) {
+	hw := meter.NewBlake2b()
+	data := []interface{}{m.Timestamp, m.Epoch, m.SignerIndex, m.LastCommitted}
+	err := rlp.Encode(hw, data)
 	if err != nil {
-		return false
+		fmt.Println("RLP Encode Error: ", err)
 	}
-	return bytes.Equal(crypto.FromECDSAPub(pub), crypto.FromECDSAPub(pubkey))
+	hw.Sum(hash[:0])
+	return
+}
+
+// String returns a string representation.
+func (m *PMQueryMessage) String() string {
+	return fmt.Sprintf("Query LastCommitted:%v", m.LastCommitted.ToBlockShortID())
+}
+
+func (m *PMQueryMessage) SetMsgSignature(msgSignature []byte) {
+	m.MsgSignature = msgSignature
+}
+
+func (m *PMQueryMessage) VerifyMsgSignature(pubkey *ecdsa.PublicKey) bool {
+	return verifyMsgSignature(pubkey, m.GetMsgHash(), m.MsgSignature)
 }

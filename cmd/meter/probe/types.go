@@ -42,9 +42,6 @@ type BlockProbe struct {
 }
 
 type PacemakerProbe struct {
-	Mode             string `json:"mode"`
-	StartHeight      uint32 `json:"startHeight"`
-	StartRound       uint32 `json:"startRound"`
 	CurRound         uint32 `json:"curRound"`
 	MyCommitteeIndex int    `json:"myCommitteeIndex"`
 
@@ -52,8 +49,8 @@ type PacemakerProbe struct {
 	LastOnBeatRound  uint32 `json:"lastOnBeatRound"`
 	ProposalCount    int    `json:"proposalCount"`
 
-	QCHigh      *QC         `json:"qcHigh"`
-	BlockLocked *BlockProbe `json:"blockLocked"`
+	QCHigh        *QC         `json:"qcHigh"`
+	LastCommitted *BlockProbe `json:"lastCommitted"`
 }
 
 type PowProbe struct {
@@ -191,7 +188,6 @@ func convertBlockProbe(p *consensus.BlockProbe) (*BlockProbe, error) {
 func convertPacemakerProbe(r *consensus.PMProbeResult) (*PacemakerProbe, error) {
 	if r != nil {
 		probe := &PacemakerProbe{
-			Mode:             r.Mode,
 			CurRound:         r.CurRound,
 			MyCommitteeIndex: r.MyCommitteeIndex,
 
@@ -202,7 +198,7 @@ func convertPacemakerProbe(r *consensus.PMProbeResult) (*PacemakerProbe, error) 
 		if r.QCHigh != nil {
 			probe.QCHigh, _ = convertQC(r.QCHigh)
 		}
-		probe.BlockLocked, _ = convertBlockProbe(r.BlockLocked)
+		probe.LastCommitted, _ = convertBlockProbe(r.LastCommitted)
 		return probe, nil
 	}
 	return nil, nil

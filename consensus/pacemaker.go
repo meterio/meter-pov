@@ -48,7 +48,7 @@ type Pacemaker struct {
 	lastVotingHeight uint32
 	lastVoteMsg      *PMVoteMessage
 	QCHigh           *draftQC
-	blockLocked      *draftBlock
+	lastCommitted    *draftBlock
 
 	lastOnBeatRound int32
 
@@ -153,13 +153,13 @@ func (p *Pacemaker) Update(bnew *draftBlock) {
 	}
 
 	commitReady := []commitReadyBlock{}
-	for b := blockPrime; b.Parent.Height > p.blockLocked.Height; b = b.Parent {
+	for b := blockPrime; b.Parent.Height > p.lastCommitted.Height; b = b.Parent {
 		// XXX: b must be prepended the slice, so we can commit blocks in order
 		commitReady = append([]commitReadyBlock{{block: b.Parent, escortQC: b.ProposedBlock.QC}}, commitReady...)
 	}
 	p.OnCommit(commitReady)
 
-	p.blockLocked = block // commit phase on b
+	p.lastCommitted = block // commit phase on b
 }
 
 func (p *Pacemaker) OnCommit(commitReady []commitReadyBlock) {
@@ -228,8 +228,8 @@ func (p *Pacemaker) OnReceiveProposal(mi *IncomingMsg) {
 	round := msg.Round
 
 	// drop outdated proposal
-	if height < p.blockLocked.Height {
-		p.logger.Info("outdated proposal (height <= bLocked.height), dropped ...", "height", height, "bLocked.height", p.blockLocked.Height)
+	if height < p.lastCommitted.Height {
+		p.logger.Info("outdated proposal (height <= bLocked.height), dropped ...", "height", height, "bLocked.height", p.lastCommitted.Height)
 		return
 	}
 
@@ -241,11 +241,29 @@ func (p *Pacemaker) OnReceiveProposal(mi *IncomingMsg) {
 	parent := p.proposalMap.Get(blk.ParentID())
 	if parent == nil {
 		if blk.Number() > p.QCHigh.QC.QCHeight {
-			p.logger.Error("cant load parent for future proposal, throw it back in queue", "parent", blk.ParentID().ToBlockShortID())
-			// future propsal, throw it back in queue
-			if mi.ExpireAt.Add(time.Second * (-2)).After(time.Now()) {
-				mi.ExpireAt = mi.ExpireAt.Add(time.Second + 5)
+			// future propsal, throw it back in queue with extended expire
+			// if mi.ExpireAt.Add(time.Second * (-2)).After(time.Now()) {
+			// 	mi.ExpireAt = mi.ExpireAt.Add(time.Second + 5)
+			// }
+			if mi.ProcessCount%2 == 0 {
+				query, err := p.BuildQueryMessage()
+				if err != nil {
+					p.logger.Error("could not build query message")
+				}
+				// query the replica that forwards this msg
+				p.reactor.Send(query, mi.Peer)
+
+				// query the proposer
+				signerPeer := newConsensusPeer(mi.Signer.Name, mi.Signer.NetAddr.IP, 8670)
+				p.reactor.Send(query, signerPeer)
+
+				// query the next proposer
+				nxtPeer := p.getProposerByRound(round + 1)
+				p.reactor.Send(query, nxtPeer)
+
+				p.logger.Info(`query proposals`, "peer", mi.Peer, "signer", signerPeer, "nxtProposer", nxtPeer)
 			}
+			p.logger.Error("cant load parent for future proposal, throw it back in queue", "parent", blk.ParentID().ToBlockShortID())
 			p.reactor.inQueue.DelayedAdd(mi)
 		} else {
 			p.logger.Warn("cant load parent, dropped ...", "parent", blk.ParentID().ToBlockShortID())
@@ -283,8 +301,9 @@ func (p *Pacemaker) OnReceiveProposal(mi *IncomingMsg) {
 		}
 	}
 
-	justify := newPMQuorumCert(qc, parent)
+	justify := newDraftQC(qc, parent)
 	bnew := &draftBlock{
+		Msg:           msg,
 		Height:        height,
 		Round:         round,
 		Parent:        parent,
@@ -305,7 +324,7 @@ func (p *Pacemaker) OnReceiveProposal(mi *IncomingMsg) {
 		p.proposalMap.Add(bnew)
 	}
 
-	if bnew.Height >= p.lastVotingHeight && p.IsExtendedFromBLocked(bnew) {
+	if bnew.Height >= p.lastVotingHeight && p.ExtendedFromLastCommitted(bnew) {
 		vote, err := p.BuildVoteMessage(msg)
 		if err != nil {
 			p.logger.Error("could not build vote message", "err", err)
@@ -385,14 +404,16 @@ func (p *Pacemaker) OnPropose(qc *draftQC, round uint32) {
 		return
 	}
 
-	// create slot in proposalMap directly, instead of sendmsg to self.
-	p.proposalMap.Add(bnew)
-
 	msg, err := p.BuildProposalMessage(bnew.Height, bnew.Round, bnew, p.TCHigh)
 	if err != nil {
 		p.logger.Error("could not build proposal message", "err", err)
 		return
 	}
+
+	bnew.Msg = msg
+	// create slot in proposalMap directly, instead of sendmsg to self.
+	p.proposalMap.Add(bnew)
+
 	p.TCHigh = nil
 
 	//send proposal to every committee members including myself
@@ -478,6 +499,17 @@ func (p *Pacemaker) OnReceiveTimeout(mi *IncomingMsg) {
 	}
 }
 
+func (p *Pacemaker) OnReceiveQuery(mi *IncomingMsg) {
+	msg := mi.Msg.(*PMQueryMessage)
+	proposals := p.proposalMap.GetProposalsUpTo(msg.LastCommitted, p.QCHigh.QC)
+	p.logger.Info(`received query`, "lastCommitted", msg.LastCommitted.ToBlockShortID(), "from", mi.Peer)
+	for _, proposal := range proposals {
+		p.logger.Info(`forward proposal`, "id", proposal.ProposedBlock.ID().ToBlockShortID(), "to", mi.Peer)
+		p.sendMsg(proposal.Msg, false)
+		p.reactor.Send(proposal.Msg, mi.Peer)
+	}
+}
+
 // Committee Leader triggers
 func (p *Pacemaker) Regulate() {
 	p.logger.Info("!!! Pacemaker Regulate")
@@ -525,10 +557,10 @@ func (p *Pacemaker) Regulate() {
 	if bestNode == nil {
 		p.logger.Debug("started with empty qcNode")
 	}
-	qcInit := newPMQuorumCert(bestQC, bestNode)
+	qcInit := newDraftQC(bestQC, bestNode)
 
 	// now assign b_lock b_exec, b_leaf qc_high
-	p.blockLocked = bestNode
+	p.lastCommitted = bestNode
 	p.lastVotingHeight = 0
 	p.lastVoteMsg = nil
 	p.QCHigh = qcInit
@@ -615,6 +647,8 @@ func (p *Pacemaker) mainLoop() {
 				p.OnReceiveVote(m)
 			case *PMTimeoutMessage:
 				p.OnReceiveTimeout(m)
+			case *PMQueryMessage:
+				p.OnReceiveQuery(m)
 			default:
 				p.logger.Warn("received an message in unknown type")
 			}

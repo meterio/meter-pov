@@ -22,7 +22,7 @@ import (
 func (p *Pacemaker) sendMsg(msg ConsensusMessage, copyMyself bool) bool {
 	myNetAddr := p.reactor.GetMyNetAddr()
 	myName := p.reactor.GetMyName()
-	myself := newConsensusPeer(myName, myNetAddr.IP, myNetAddr.Port, p.reactor.magic)
+	myself := newConsensusPeer(myName, myNetAddr.IP, myNetAddr.Port)
 
 	round := msg.GetRound()
 
@@ -40,7 +40,7 @@ func (p *Pacemaker) sendMsg(msg ConsensusMessage, copyMyself bool) bool {
 
 	myselfInPeers := myself == nil
 	for _, p := range peers {
-		if p.netAddr.IP.String() == myNetAddr.IP.String() {
+		if p.IP == myNetAddr.IP.String() {
 			myselfInPeers = true
 			break
 		}
@@ -177,4 +177,25 @@ func BlockMatchDraftQC(b *draftBlock, escortQC *block.QuorumCert) bool {
 	blk := b.ProposedBlock
 
 	return blk.MatchQC(escortQC)
+}
+
+// BuildQueryMessage
+func (p *Pacemaker) BuildQueryMessage() (*PMQueryMessage, error) {
+	msg := &PMQueryMessage{
+		Timestamp:   time.Now(),
+		Epoch:       p.reactor.curEpoch,
+		SignerIndex: uint32(p.reactor.GetMyActualCommitteeIndex()),
+
+		LastCommitted: p.lastCommitted.ProposedBlock.ID(),
+	}
+
+	// sign message
+	msgSig, err := crypto.Sign(msg.GetMsgHash().Bytes(), &p.reactor.myPrivKey)
+	if err != nil {
+		p.logger.Error("Sign message failed", "error", err)
+		return nil, err
+	}
+	msg.SetMsgSignature(msgSig)
+	p.logger.Debug("Built Query Message", "msg", msg.String())
+	return msg, nil
 }

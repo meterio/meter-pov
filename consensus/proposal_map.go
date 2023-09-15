@@ -25,6 +25,27 @@ func (p *ProposalMap) Add(blk *draftBlock) {
 	p.proposals[blk.ProposedBlock.ID()] = blk
 }
 
+func (p *ProposalMap) GetProposalsUpTo(committedBlkID meter.Bytes32, qcHigh *block.QuorumCert) []*draftBlock {
+	commited := p.Get(committedBlkID)
+	head := p.GetOneByEscortQC(qcHigh)
+	result := make([]*draftBlock, 0)
+	if commited == nil || head == nil {
+		return result
+	}
+
+	for i := 0; i < 4; i++ {
+		if head == nil || head.Committed {
+			break
+		}
+		if commited.ProposedBlock.ID().Equal(head.ProposedBlock.ID()) {
+			return result
+		}
+		result = append([]*draftBlock{head}, result...)
+		head = head.Parent
+	}
+	return make([]*draftBlock, 0)
+}
+
 func (p *ProposalMap) Get(blkID meter.Bytes32) *draftBlock {
 	blk, ok := p.proposals[blkID]
 	if ok {

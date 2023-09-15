@@ -12,14 +12,13 @@ type BlockProbe struct {
 	Raw    []byte
 }
 type PMProbeResult struct {
-	Mode             string
 	CurRound         uint32
 	MyCommitteeIndex int
 
 	LastVotingHeight uint32
 	LastOnBeatRound  uint32
 	QCHigh           *block.QuorumCert
-	BlockLocked      *BlockProbe
+	LastCommitted    *BlockProbe
 
 	ProposalCount int
 }
@@ -36,8 +35,8 @@ func (p *Pacemaker) Probe() *PMProbeResult {
 	if p.QCHigh != nil && p.QCHigh.QC != nil {
 		result.QCHigh = p.QCHigh.QC
 	}
-	if p.blockLocked != nil {
-		result.BlockLocked = &BlockProbe{Height: p.blockLocked.Height, Round: p.blockLocked.Round, Type: uint32(p.blockLocked.BlockType), Raw: p.blockLocked.RawBlock}
+	if p.lastCommitted != nil {
+		result.LastCommitted = &BlockProbe{Height: p.lastCommitted.Height, Round: p.lastCommitted.Round, Type: uint32(p.lastCommitted.BlockType), Raw: p.lastCommitted.RawBlock}
 	}
 	if p.proposalMap != nil {
 		result.ProposalCount = p.proposalMap.Len()

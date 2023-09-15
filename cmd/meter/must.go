@@ -185,9 +185,9 @@ func splitPubKey(comboPub string, blsCommon *types.BlsCommon) (*ecdsa.PublicKey,
 }
 
 func printDelegates(delegates []*types.Delegate) {
-	fmt.Println("--------------------------------------------------")
-	fmt.Println(fmt.Sprintf("         DELEGATES INITIALIZED (size:%d)        ", len(delegates)))
-	fmt.Println("--------------------------------------------------")
+	// fmt.Println("--------------------------------------------------")
+	fmt.Printf("Delegates Initialized (size:%d)\n", len(delegates))
+	// fmt.Println(------------------------------------------------")
 
 	// for i, d := range delegates {
 	// 	fmt.Printf("#%d: %s\n", i+1, d.String())
@@ -665,8 +665,7 @@ func printStartupMessage(
 
 	fmt.Printf(`Starting %v
     Discover Topic  [ %v ]
-    P2PMagic        [ %v ]
-    ConsensusMagic  [ %v ]
+    Magic           [ %v p2p & consensus ]
     Network         [ %v %v ]    
     Best block      [ %v #%v @%v ]
     Forks           [ %v ]
@@ -680,7 +679,6 @@ func printStartupMessage(
 		common.MakeName("Meter", fullVersion()),
 		topic,
 		hex.EncodeToString(p2pMagic[:]),
-		hex.EncodeToString(consensusMagic[:]),
 		gene.ID(), gene.Name(),
 		bestBlock.ID(), bestBlock.Number(), time.Unix(int64(bestBlock.Timestamp()), 0),
 		meter.GetForkConfig(gene.ID()),

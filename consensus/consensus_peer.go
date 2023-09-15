@@ -8,32 +8,23 @@ package consensus
 import (
 	"fmt"
 	"net"
-
-	"github.com/meterio/meter-pov/types"
 )
 
 // Consensus Topology Peer
 type ConsensusPeer struct {
-	name    string
-	netAddr types.NetAddress
-	magic   [4]byte
+	name string
+	IP   string
+	port uint16
 }
 
-func newConsensusPeer(name string, ip net.IP, port uint16, magic [4]byte) *ConsensusPeer {
+func newConsensusPeer(name string, ip net.IP, port uint16) *ConsensusPeer {
 	return &ConsensusPeer{
 		name: name,
-		netAddr: types.NetAddress{
-			IP:   ip,
-			Port: port,
-		},
-		magic: magic,
+		IP:   ip.String(),
+		port: port,
 	}
 }
 
 func (cp *ConsensusPeer) String() string {
-	return cp.netAddr.IP.String()
-}
-
-func (cp *ConsensusPeer) NameAndIP() string {
-	return fmt.Sprintf("%s(%s)", cp.name, cp.netAddr.IP.String())
+	return fmt.Sprintf("%s(%s)", cp.name, cp.IP)
 }
