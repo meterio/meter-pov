@@ -308,6 +308,8 @@ func defaultAction(ctx *cli.Context) error {
 	stateCreator := state.NewCreator(mainDB)
 	sc := script.NewScriptEngine(chain, stateCreator)
 	cons := consensus.NewConsensusReactor(ctx, chain, stateCreator, master.PrivateKey, master.PublicKey, consensusMagic, blsCommon, initDelegates)
+	// calculate committee so that relay is not an issue
+	cons.PrepareEnvForPacemaker()
 
 	observeURL, observeSrvCloser := startObserveServer(ctx, cons, pubkey, p2pcom.comm, chain, stateCreator)
 	defer func() { log.Info("closing Observe Server ..."); observeSrvCloser() }()

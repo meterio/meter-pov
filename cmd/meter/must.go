@@ -447,11 +447,14 @@ func newP2PComm(cliCtx *cli.Context, ctx context.Context, chain *chain.Chain, tx
 }
 
 func (p *p2pComm) Start() {
-	log.Info("starting P2P networking")
+	start := time.Now()
 	if err := p.p2pSrv.Start(p.comm.Protocols()); err != nil {
 		fatal("start P2P server:", err)
 	}
+	log.Info("P2P server started", "elapsed", meter.PrettyDuration(time.Since(start)))
+	start = time.Now()
 	p.comm.Start()
+	log.Info("communicator started", "elapsed", meter.PrettyDuration(time.Since(start)))
 }
 
 func (p *p2pComm) Stop() {
