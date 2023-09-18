@@ -84,11 +84,11 @@ func convertBlock(b *block.Block) (*Block, error) {
 	header := b.Header()
 	blockType := "unknown"
 	switch header.BlockType() {
-	case block.BLOCK_TYPE_K_BLOCK:
+	case block.KBlockType:
 		blockType = "kBlock"
-	case block.BLOCK_TYPE_S_BLOCK:
+	case block.SBlockType:
 		blockType = "sBlock"
-	case block.BLOCK_TYPE_M_BLOCK:
+	case block.MBlockType:
 		blockType = "mBlock"
 	}
 
@@ -167,13 +167,13 @@ func ConvertPeersStats(ss []*comm.PeerStats) []*PeerStats {
 func convertBlockProbe(p *consensus.BlockProbe) (*BlockProbe, error) {
 	if p != nil {
 		typeStr := ""
-		if p.Type == block.BLOCK_TYPE_K_BLOCK {
+		if p.Type == block.KBlockType {
 			typeStr = "KBlock"
 		}
-		if p.Type == block.BLOCK_TYPE_M_BLOCK {
+		if p.Type == block.MBlockType {
 			typeStr = "mBlock"
 		}
-		if p.Type == block.BLOCK_TYPE_S_BLOCK {
+		if p.Type == block.SBlockType {
 			typeStr = "sBlock"
 		}
 		return &BlockProbe{

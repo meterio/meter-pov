@@ -93,7 +93,7 @@ func TestP(t *testing.T) {
 			flow.Adopt(tx)
 		}
 
-		blk, stage, receipts, err := flow.Pack(genesis.DevAccounts()[0].PrivateKey, block.BLOCK_TYPE_M_BLOCK, 0)
+		blk, stage, receipts, err := flow.Pack(genesis.DevAccounts()[0].PrivateKey, block.MBlockType, 0)
 		root, _ := stage.Commit()
 		assert.Equal(t, root, blk.Header().StateRoot())
 		// fmt.Println(consensus.New(c, stateCreator).Process(blk, uint64(time.Now().Unix()*2)))

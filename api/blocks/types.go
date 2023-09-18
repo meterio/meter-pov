@@ -170,7 +170,7 @@ func buildJSONBlockSummary(blk *block.Block, isTrunk bool, logsBloom string, bas
 	signer, _ := header.Signer()
 
 	var epoch uint64
-	isKBlock := header.BlockType() == block.BLOCK_TYPE_K_BLOCK
+	isKBlock := header.BlockType() == block.KBlockType
 	if isTrunk && isKBlock {
 		epoch = blk.QC.EpochID
 	} else if len(blk.CommitteeInfos.CommitteeInfo) > 0 {

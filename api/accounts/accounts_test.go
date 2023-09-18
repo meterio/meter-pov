@@ -232,7 +232,7 @@ func packTx(chain *chain.Chain, stateC *state.Creator, transaction *tx.Transacti
 	if err != nil {
 		t.Fatal(err)
 	}
-	b, stage, receipts, err := flow.Pack(genesis.DevAccounts()[0].PrivateKey, block.BLOCK_TYPE_M_BLOCK, 0)
+	b, stage, receipts, err := flow.Pack(genesis.DevAccounts()[0].PrivateKey, block.MBlockType, 0)
 	if err != nil {
 		t.Fatal(err)
 	}

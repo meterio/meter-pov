@@ -8,7 +8,7 @@ import "github.com/meterio/meter-pov/block"
 type BlockProbe struct {
 	Height uint32
 	Round  uint32
-	Type   uint32
+	Type   block.BlockType
 	Raw    []byte
 }
 type PMProbeResult struct {
@@ -36,7 +36,7 @@ func (p *Pacemaker) Probe() *PMProbeResult {
 		result.QCHigh = p.QCHigh.QC
 	}
 	if p.lastCommitted != nil {
-		result.LastCommitted = &BlockProbe{Height: p.lastCommitted.Height, Round: p.lastCommitted.Round, Type: uint32(p.lastCommitted.BlockType), Raw: p.lastCommitted.RawBlock}
+		result.LastCommitted = &BlockProbe{Height: p.lastCommitted.Height, Round: p.lastCommitted.Round, Type: p.lastCommitted.ProposedBlock.BlockType(), Raw: p.lastCommitted.RawBlock}
 	}
 	if p.proposalMap != nil {
 		result.ProposalCount = p.proposalMap.Len()

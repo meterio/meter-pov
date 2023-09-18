@@ -37,8 +37,8 @@ func (b *Builder) Timestamp(ts uint64) *Builder {
 	return b
 }
 
-// BlockType set block type BLOCK_TYPE_K_BLOCK/BLOCK_TYPE_M_BLOCK.
-func (b *Builder) BlockType(t uint32) *Builder {
+// BlockType set block type KBlockType/MBlockType.
+func (b *Builder) BlockType(t BlockType) *Builder {
 	b.headerBody.BlockType = t
 	return b
 }

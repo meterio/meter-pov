@@ -110,7 +110,7 @@ func initRuntimeAfterFork9() *tests.TestEnv {
 		panic(err)
 	}
 
-	b, stage, receipts, err := flow.Pack(genesis.DevAccounts()[0].PrivateKey, block.BLOCK_TYPE_M_BLOCK, 0)
+	b, stage, receipts, err := flow.Pack(genesis.DevAccounts()[0].PrivateKey, block.MBlockType, 0)
 	if _, err := stage.Commit(); err != nil {
 		panic(err)
 	}

@@ -45,7 +45,6 @@ type draftBlock struct {
 	txsToRemoved  func() bool
 	txsToReturned func() bool
 	CheckPoint    int
-	BlockType     BlockType
 
 	SuccessProcessed bool
 	ProcessError     error

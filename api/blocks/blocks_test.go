@@ -110,7 +110,7 @@ func initBlockServer(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	block, stage, receipts, err := flow.Pack(genesis.DevAccounts()[0].PrivateKey, meter_block.BLOCK_TYPE_M_BLOCK, 0)
+	block, stage, receipts, err := flow.Pack(genesis.DevAccounts()[0].PrivateKey, meter_block.MBlockType, 0)
 	if err != nil {
 		t.Fatal(err)
 	}

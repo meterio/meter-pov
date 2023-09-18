@@ -416,7 +416,7 @@ func (r *Reactor) PrepareEnvForPacemaker() error {
 		return errors.New("could not get best KBlock")
 	}
 	bestBlock := r.chain.BestBlock()
-	bestIsKBlock := (bestBlock.Header().BlockType() == block.BLOCK_TYPE_K_BLOCK) || bestBlock.Header().Number() == 0
+	bestIsKBlock := (bestBlock.Header().BlockType() == block.KBlockType) || bestBlock.Header().Number() == 0
 	kBlockHeight := bestKBlock.Header().Number()
 
 	epoch := uint64(0)

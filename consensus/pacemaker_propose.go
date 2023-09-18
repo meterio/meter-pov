@@ -19,14 +19,6 @@ import (
 	"github.com/meterio/meter-pov/txpool"
 )
 
-type BlockType uint32
-
-const (
-	KBlockType        BlockType = 1
-	MBlockType        BlockType = 2
-	StopCommitteeType BlockType = 255 //special message to stop pacemake, not a block
-)
-
 var (
 	ErrParentBlockEmpty     = errors.New("parent block empty")
 	ErrPackerEmpty          = errors.New("packer is empty")
@@ -116,7 +108,7 @@ func (p *Pacemaker) buildMBlock(parent *draftBlock, justify *draftQC, round uint
 		}
 	}
 
-	newBlock, stage, receipts, err := flow.Pack(&p.reactor.myPrivKey, block.BLOCK_TYPE_M_BLOCK, p.reactor.lastKBlockHeight)
+	newBlock, stage, receipts, err := flow.Pack(&p.reactor.myPrivKey, block.MBlockType, p.reactor.lastKBlockHeight)
 	if err != nil {
 		p.logger.Error("build block failed", "error", err)
 		return err, nil
@@ -147,7 +139,6 @@ func (p *Pacemaker) buildMBlock(parent *draftBlock, justify *draftQC, round uint
 		txsToRemoved:     txsToRemoved,
 		txsToReturned:    txsToReturned,
 		CheckPoint:       checkPoint,
-		BlockType:        MBlockType,
 		SuccessProcessed: true,
 		ProcessError:     nil,
 	}
@@ -223,7 +214,7 @@ func (p *Pacemaker) buildKBlock(parent *draftBlock, justify *draftQC, round uint
 		p.logger.Info("adopted tx", "tx", tx.ID(), "elapsed", meter.PrettyDuration(time.Since(start)))
 	}
 
-	newBlock, stage, receipts, err := flow.Pack(&p.reactor.myPrivKey, block.BLOCK_TYPE_K_BLOCK, p.reactor.lastKBlockHeight)
+	newBlock, stage, receipts, err := flow.Pack(&p.reactor.myPrivKey, block.KBlockType, p.reactor.lastKBlockHeight)
 	if err != nil {
 		p.logger.Error("build block failed...", "error", err)
 		return err, nil
@@ -250,7 +241,6 @@ func (p *Pacemaker) buildKBlock(parent *draftBlock, justify *draftQC, round uint
 		txsToRemoved:     txsToRemoved,
 		txsToReturned:    txsToReturned,
 		CheckPoint:       checkPoint,
-		BlockType:        KBlockType,
 		SuccessProcessed: true,
 		ProcessError:     nil,
 	}
@@ -280,7 +270,7 @@ func (p *Pacemaker) buildStopCommitteeBlock(parent *draftBlock, justify *draftQC
 		return ErrFlowEmpty, nil
 	}
 
-	newBlock, stage, receipts, err := flow.Pack(&p.reactor.myPrivKey, block.BLOCK_TYPE_S_BLOCK, p.reactor.lastKBlockHeight)
+	newBlock, stage, receipts, err := flow.Pack(&p.reactor.myPrivKey, block.SBlockType, p.reactor.lastKBlockHeight)
 	if err != nil {
 		p.logger.Error("build block failed", "error", err)
 		return err, nil
@@ -303,7 +293,6 @@ func (p *Pacemaker) buildStopCommitteeBlock(parent *draftBlock, justify *draftQC
 		txsToRemoved:     txsToRemoved,
 		txsToReturned:    txsToReturned,
 		CheckPoint:       0,
-		BlockType:        StopCommitteeType,
 		SuccessProcessed: true,
 		ProcessError:     nil,
 	}

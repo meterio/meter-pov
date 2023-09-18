@@ -63,7 +63,6 @@ func (p *ProposalMap) Get(blkID meter.Bytes32) *draftBlock {
 			Justify:       nil,
 			Committed:     true,
 			ProposedBlock: blkInDB,
-			BlockType:     BlockType(blkInDB.BlockType()),
 		}
 	}
 	return nil
@@ -93,7 +92,6 @@ func (p *ProposalMap) GetOneByEscortQC(qc *block.QuorumCert) *draftBlock {
 					Justify:       nil,
 					Committed:     true,
 					ProposedBlock: blkInDB,
-					BlockType:     BlockType(blkInDB.BlockType()),
 				}
 			}
 		}

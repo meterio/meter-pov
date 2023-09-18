@@ -183,20 +183,20 @@ func (b *Block) Timestamp() uint64 {
 }
 
 // BlockType returns block type of this block.
-func (b *Block) BlockType() uint32 {
+func (b *Block) BlockType() BlockType {
 	return b.BlockHeader.BlockType()
 }
 
 func (b *Block) IsKBlock() bool {
-	return b.BlockHeader.BlockType() == BLOCK_TYPE_K_BLOCK
+	return b.BlockHeader.BlockType() == KBlockType
 }
 
 func (b *Block) IsSBlock() bool {
-	return b.BlockHeader.BlockType() == BLOCK_TYPE_S_BLOCK
+	return b.BlockHeader.BlockType() == SBlockType
 }
 
 func (b *Block) IsMBlock() bool {
-	return b.BlockHeader.BlockType() == BLOCK_TYPE_M_BLOCK
+	return b.BlockHeader.BlockType() == MBlockType
 }
 
 // TotalScore returns total score that cumulated from genesis block to this one.
@@ -353,11 +353,11 @@ func (b *Block) GetCanonicalName() string {
 		return ""
 	}
 	switch b.BlockHeader.BlockType() {
-	case BLOCK_TYPE_K_BLOCK:
+	case KBlockType:
 		return "KBlock"
-	case BLOCK_TYPE_M_BLOCK:
+	case MBlockType:
 		return "MBlock"
-	case BLOCK_TYPE_S_BLOCK:
+	case SBlockType:
 		return "SBlock"
 	default:
 		return "Block"
@@ -475,7 +475,7 @@ func BlockDecodeFromBytes(bytes []byte) (*Block, error) {
 // "Proposal Block Message: BlockType <8 bytes> Height <16 (8x2) bytes> Round <8 (4x2) bytes>
 func (b *Block) VotingHash() [32]byte {
 	c := make([]byte, binary.MaxVarintLen32)
-	binary.BigEndian.PutUint32(c, b.BlockType())
+	binary.BigEndian.PutUint32(c, uint32(b.BlockType()))
 
 	h := make([]byte, binary.MaxVarintLen64)
 	binary.BigEndian.PutUint64(h, uint64(b.Number()))

@@ -93,7 +93,7 @@ func (p *Pacemaker) CreateLeaf(parent *draftBlock, justify *draftQC, round uint3
 		proposeKBlock, powResults = powpool.GetGlobPowPoolInst().GetPowDecision()
 	}
 
-	proposeStopCommitteeBlock := (parentBlock.BlockType() == block.BLOCK_TYPE_K_BLOCK)
+	proposeStopCommitteeBlock := (parentBlock.BlockType() == block.KBlockType)
 
 	// propose appropriate block info
 	if proposeStopCommitteeBlock {
@@ -207,7 +207,7 @@ func (p *Pacemaker) OnCommit(commitReady []commitReadyBlock) {
 			}
 		}
 
-		if blk.BlockType == KBlockType {
+		if blk.ProposedBlock.IsKBlock() {
 			p.logger.Info("committed a kblock, stop pacemaker", "height", blk.Height, "round", blk.Round)
 			p.SendEpochEndInfo(blk)
 			// p.Stop()
@@ -310,7 +310,6 @@ func (p *Pacemaker) OnReceiveProposal(mi *IncomingMsg) {
 		Justify:       justify,
 		ProposedBlock: blk,
 		RawBlock:      block.BlockEncodeBytes(blk),
-		BlockType:     BlockType(blk.BlockType()),
 	}
 
 	// validate proposal

@@ -17,10 +17,12 @@ import (
 	"github.com/meterio/meter-pov/meter"
 )
 
+type BlockType uint32
+
 const (
-	BLOCK_TYPE_K_BLOCK = uint32(1)
-	BLOCK_TYPE_M_BLOCK = uint32(2)
-	BLOCK_TYPE_S_BLOCK = uint32(255) // stop committee block
+	KBlockType BlockType = 1
+	MBlockType BlockType = 2
+	SBlockType BlockType = 255 //special message to stop pacemake, not a block
 )
 
 // Header contains almost all information about a block, except block body.
@@ -41,7 +43,7 @@ type HeaderBody struct {
 	Timestamp        uint64
 	GasLimit         uint64
 	LastKBlockHeight uint32
-	BlockType        uint32
+	BlockType        BlockType
 	Beneficiary      meter.Address
 	Proposer         meter.Address
 
@@ -78,7 +80,7 @@ func (h *Header) Timestamp() uint64 {
 }
 
 // BlockType returns block type of this block.
-func (h *Header) BlockType() uint32 {
+func (h *Header) BlockType() BlockType {
 	return h.Body.BlockType
 }
 

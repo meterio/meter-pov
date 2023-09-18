@@ -68,7 +68,7 @@ func (br *beatReader) Read() ([]interface{}, bool, error) {
 		}
 
 		var epoch uint64
-		isKBlock := header.BlockType() == _block.BLOCK_TYPE_K_BLOCK
+		isKBlock := header.BlockType() == _block.KBlockType
 		if isKBlock {
 			epoch = block.QC.EpochID
 		} else if len(block.CommitteeInfos.CommitteeInfo) > 0 {
