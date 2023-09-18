@@ -282,13 +282,14 @@ func (r *Reactor) VerifyBothPubKey() {
 // create validatorSet by a given nonce. return by my self role
 func (r *Reactor) UpdateCurCommitteeByNonce(nonce uint64) bool {
 	committee, index, inCommittee := r.calcCommitteeByNonce(nonce)
+	r.committee = committee
+	r.committeeIndex = uint32(index)
+	r.inCommittee = inCommittee
 	if inCommittee {
-		r.committeeIndex = uint32(index)
-		myAddr := r.committee[index].NetAddr
-		myName := r.committee[index].Name
+		myAddr := committee[index].NetAddr
+		myName := committee[index].Name
 		r.logger.Info("New committee calculated", "index", index, "myName", myName, "myIP", myAddr.IP.String())
 	} else {
-		r.committeeIndex = 0
 		// FIXME: find a better way
 		r.logger.Info("New committee calculated")
 	}
@@ -300,7 +301,7 @@ func (r *Reactor) UpdateCurCommitteeByNonce(nonce uint64) bool {
 
 // it is used for temp calculate committee set by a given nonce in the fly.
 // also return the committee
-func (r *Reactor) calcCommitteeByNonce(nonce uint64) (*types.ValidatorSet, int, bool) {
+func (r *Reactor) calcCommitteeByNonce(nonce uint64) ([]*types.Validator, int, bool) {
 	buf := make([]byte, binary.MaxVarintLen64)
 	binary.PutUvarint(buf, nonce)
 
@@ -319,6 +320,7 @@ func (r *Reactor) calcCommitteeByNonce(nonce uint64) (*types.ValidatorSet, int, 
 		}
 		vals = append(vals, v)
 	}
+	r.logger.Info("cal committee", "delegates", len(r.curDelegates.Delegates), "committeeSize", r.committeeSize, "vals", len(vals))
 
 	sort.SliceStable(vals, func(i, j int) bool {
 		return (bytes.Compare(vals[i].SortKey, vals[j].SortKey) <= 0)
@@ -328,25 +330,17 @@ func (r *Reactor) calcCommitteeByNonce(nonce uint64) (*types.ValidatorSet, int, 
 	// the full list is stored in currCommittee, sorted.
 	// To become a validator (real member in committee), must repond the leader's
 	// announce. Validators are stored in r.conS.Vlidators
-	Committee := types.NewValidatorSet2(vals)
-	if len(vals) < 1 {
-		r.logger.Error("VALIDATOR SET is empty, potential error config with delegates.json", "delegates", len(r.curDelegates.Delegates))
+	if len(vals) > 0 {
+		for i, val := range vals {
+			if bytes.Equal(crypto.FromECDSAPub(&val.PubKey), crypto.FromECDSAPub(&r.myPubKey)) {
 
-		return Committee, 0, false
-	}
-
-	if bytes.Equal(crypto.FromECDSAPub(&vals[0].PubKey), crypto.FromECDSAPub(&r.myPubKey)) {
-		return Committee, 0, true
-	}
-
-	for i, val := range vals {
-		if bytes.Equal(crypto.FromECDSAPub(&val.PubKey), crypto.FromECDSAPub(&r.myPubKey)) {
-
-			return Committee, i, true
+				return vals, i, true
+			}
 		}
 	}
 
-	return Committee, 0, false
+	r.logger.Error("VALIDATOR SET is empty, potential error config with delegates.json", "delegates", len(r.curDelegates.Delegates))
+	return vals, 0, false
 }
 
 func (r *Reactor) GetCommitteeMemberIndex(pubKey ecdsa.PublicKey) int {

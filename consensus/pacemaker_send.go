@@ -209,23 +209,28 @@ func (p *Pacemaker) verifyQC(b *draftBlock, escortQC *block.QuorumCert) bool {
 	// check voting hash
 	voteHash := blk.VotingHash()
 	if !bytes.Equal(escortQC.VoterMsgHash[:], voteHash[:]) {
+		p.logger.Warn("hash mismatch")
 		return false
 	}
 
 	// basic check for qc
 	if !blk.MatchQC(escortQC) {
+		p.logger.Warn("could not match qc")
 		return false
 	}
 
 	// check vote count
 	voteCount := escortQC.VoterBitArray().Count()
 	if !MajorityTwoThird(uint32(voteCount), p.reactor.committeeSize) {
+		p.logger.Warn("QC dont have enough votes", "voteCOunt", voteCount, "committeeSize", p.reactor.committeeSize)
 		return false
 	}
 
 	pubkeys := make([]bls.PublicKey, 0)
-	for _, v := range p.reactor.committee {
-		pubkeys = append(pubkeys, v.BlsPubKey)
+	for index, v := range p.reactor.committee {
+		if escortQC.VoterBitArray().GetIndex(index) {
+			pubkeys = append(pubkeys, v.BlsPubKey)
+		}
 	}
 	sig, err := p.reactor.blsCommon.System.SigFromBytes(escortQC.VoterAggSig)
 	if err != nil {
@@ -233,8 +238,10 @@ func (p *Pacemaker) verifyQC(b *draftBlock, escortQC *block.QuorumCert) bool {
 	}
 	validSig, err := p.reactor.blsCommon.AggregateVerify(sig, escortQC.VoterMsgHash, pubkeys)
 	if err != nil {
+		p.logger.Error("could not verify agg sig", "err", err)
 		return false
 	}
+	p.logger.Error("could not verify agg sig", "bitarray", escortQC.VoterBitArrayStr)
 	return validSig
 }
 

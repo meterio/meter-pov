@@ -149,8 +149,10 @@ func (p *Pacemaker) verifyTC(tc *TimeoutCert, round uint32) bool {
 		}
 
 		// check signature
-		for _, v := range p.reactor.committee {
-			pubkeys = append(pubkeys, v.BlsPubKey)
+		for index, v := range p.reactor.committee {
+			if tc.BitArray.GetIndex(index) {
+				pubkeys = append(pubkeys, v.BlsPubKey)
+			}
 		}
 		sig, err := p.reactor.blsCommon.System.SigFromBytes(tc.AggSig)
 		if err != nil {
