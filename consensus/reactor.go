@@ -255,7 +255,7 @@ func (r *Reactor) getRoundProposer(round uint32) *types.Validator {
 
 func (r *Reactor) amIRoundProproser(round uint32) bool {
 	p := r.getRoundProposer(round)
-	return bytes.Equal(crypto.FromECDSAPub(&p.PubKey), crypto.FromECDSAPub(&r.myPubKey))
+	return bytes.Equal(p.PubKeyBytes, crypto.FromECDSAPub(&r.myPubKey))
 }
 
 func (r *Reactor) VerifyBothPubKey() {
@@ -272,7 +272,7 @@ func (r *Reactor) VerifyBothPubKey() {
 			myBlsPubKey := blsCommonSystem.PubKeyToBytes(r.blsCommon.PubKey)
 			delegateBlsPubKey := blsCommonSystem.PubKeyToBytes(d.BlsPubKey)
 
-			if bytes.Equal(myBlsPubKey, delegateBlsPubKey) == false {
+			if !bytes.Equal(myBlsPubKey, delegateBlsPubKey) {
 				panic("ECDSA key found in delegate list, but related BLS key mismatch with delegate, probably wrong info in candidate")
 			}
 		}
@@ -307,13 +307,15 @@ func (r *Reactor) calcCommitteeByNonce(nonce uint64) (*types.ValidatorSet, int, 
 	vals := make([]*types.Validator, 0)
 	for _, d := range r.curDelegates.Delegates {
 		v := &types.Validator{
-			Name:        string(d.Name),
-			Address:     d.Address,
-			PubKey:      d.PubKey,
-			BlsPubKey:   d.BlsPubKey,
-			VotingPower: d.VotingPower,
-			NetAddr:     d.NetAddr,
-			SortKey:     crypto.Keccak256(append(crypto.FromECDSAPub(&d.PubKey), buf...)),
+			Name:           string(d.Name),
+			Address:        d.Address,
+			PubKey:         d.PubKey,
+			PubKeyBytes:    crypto.FromECDSAPub(&d.PubKey),
+			BlsPubKey:      d.BlsPubKey,
+			BlsPubKeyBytes: r.blsCommon.GetSystem().PubKeyToBytes(d.BlsPubKey),
+			VotingPower:    d.VotingPower,
+			NetAddr:        d.NetAddr,
+			SortKey:        crypto.Keccak256(append(crypto.FromECDSAPub(&d.PubKey), buf...)),
 		}
 		vals = append(vals, v)
 	}

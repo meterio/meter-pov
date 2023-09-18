@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"time"
 
+	bls "github.com/meterio/meter-pov/crypto/multi_sig"
 	"github.com/meterio/meter-pov/tx"
 	"github.com/meterio/meter-pov/txpool"
 )
@@ -130,15 +131,35 @@ func (p *Pacemaker) getProposerByRound(round uint32) *ConsensusPeer {
 func (p *Pacemaker) verifyTC(tc *TimeoutCert, round uint32) bool {
 	if tc != nil {
 		voteHash := BuildTimeoutVotingHash(tc.Epoch, tc.Round)
-		validSigCount := 0
-		for _, member := range p.reactor.committee {
-			pubkey := p.reactor.blsCommon.System.PubKeyToBytes(member.BlsPubKey)
-			if p.reactor.blsCommon.VerifySignature(tc.AggSig, tc.MsgHash[:], pubkey) {
-				validSigCount++
-			}
+		pubkeys := make([]bls.PublicKey, 0)
+
+		// check epoch and round
+		if tc.Epoch != p.reactor.curEpoch || tc.Round != round {
+			return false
+
 		}
-		enoughVotes := MajorityTwoThird(uint32(validSigCount), p.reactor.committeeSize)
-		valid := enoughVotes && tc.Epoch == p.reactor.curEpoch && tc.Round == round && bytes.Equal(tc.MsgHash[:], voteHash[:])
+		// check hash
+		if !bytes.Equal(tc.MsgHash[:], voteHash[:]) {
+			return false
+		}
+		// check vote count
+		voteCount := tc.BitArray.Count()
+		if !MajorityTwoThird(uint32(voteCount), p.reactor.committeeSize) {
+			return false
+		}
+
+		// check signature
+		for _, v := range p.reactor.committee {
+			pubkeys = append(pubkeys, v.BlsPubKey)
+		}
+		sig, err := p.reactor.blsCommon.System.SigFromBytes(tc.AggSig)
+		if err != nil {
+			return false
+		}
+		valid, err := p.reactor.blsCommon.AggregateVerify(sig, tc.MsgHash, pubkeys)
+		if err != nil {
+			return false
+		}
 		if !valid {
 			p.logger.Warn("Invalid TC", "expected", fmt.Sprintf("E:%v,R:%v", tc.Epoch, tc.Round), "proposal", fmt.Sprintf("E:%v,R:%v", p.reactor.curEpoch, round))
 		}

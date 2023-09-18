@@ -55,10 +55,10 @@ func (r *Reactor) GetLatestCommitteeList() ([]*ApiCommitteeMember, error) {
 		apiCm := &ApiCommitteeMember{
 			Name:        v.Name,
 			Address:     v.Address,
-			PubKey:      b64.StdEncoding.EncodeToString(crypto.FromECDSAPub(&v.PubKey)),
+			PubKey:      b64.StdEncoding.EncodeToString(v.PubKeyBytes),
 			VotingPower: v.VotingPower,
 			NetAddr:     v.NetAddr.String(),
-			CsPubKey:    hex.EncodeToString(r.blsCommon.GetSystem().PubKeyToBytes(v.BlsPubKey)),
+			CsPubKey:    hex.EncodeToString(v.BlsPubKeyBytes),
 			CsIndex:     index,
 			InCommittee: true,
 		}

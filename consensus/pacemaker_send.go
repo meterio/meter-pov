@@ -20,6 +20,7 @@ import (
 
 	crypto "github.com/ethereum/go-ethereum/crypto"
 	"github.com/meterio/meter-pov/block"
+	bls "github.com/meterio/meter-pov/crypto/multi_sig"
 )
 
 func (p *Pacemaker) sendMsg(msg ConsensusMessage, copyMyself bool) bool {
@@ -205,18 +206,36 @@ func (p *Pacemaker) verifyQC(b *draftBlock, escortQC *block.QuorumCert) bool {
 
 	blk := b.ProposedBlock
 
-	quickCheck := blk.MatchQC(escortQC)
-
+	// check voting hash
 	voteHash := blk.VotingHash()
-	validSigCount := 0
-	for _, member := range p.reactor.committee {
-		pubkey := p.reactor.blsCommon.System.PubKeyToBytes(member.BlsPubKey)
-		if p.reactor.blsCommon.VerifySignature(escortQC.VoterAggSig, escortQC.VoterMsgHash[:], pubkey) {
-			validSigCount++
-		}
+	if !bytes.Equal(escortQC.VoterMsgHash[:], voteHash[:]) {
+		return false
 	}
-	enoughVotes := MajorityTwoThird(uint32(validSigCount), p.reactor.committeeSize)
-	return enoughVotes && bytes.Equal(escortQC.VoterMsgHash[:], voteHash[:]) && quickCheck
+
+	// basic check for qc
+	if !blk.MatchQC(escortQC) {
+		return false
+	}
+
+	// check vote count
+	voteCount := escortQC.VoterBitArray().Count()
+	if !MajorityTwoThird(uint32(voteCount), p.reactor.committeeSize) {
+		return false
+	}
+
+	pubkeys := make([]bls.PublicKey, 0)
+	for _, v := range p.reactor.committee {
+		pubkeys = append(pubkeys, v.BlsPubKey)
+	}
+	sig, err := p.reactor.blsCommon.System.SigFromBytes(escortQC.VoterAggSig)
+	if err != nil {
+		return false
+	}
+	validSig, err := p.reactor.blsCommon.AggregateVerify(sig, escortQC.VoterMsgHash, pubkeys)
+	if err != nil {
+		return false
+	}
+	return validSig
 }
 
 // BuildQueryMessage

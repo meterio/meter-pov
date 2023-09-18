@@ -132,6 +132,10 @@ func (cc *BlsCommon) AggregateSign(sigs []bls.Signature) bls.Signature {
 }
 
 // all voter sign the same msg.
-func (cc *BlsCommon) AggregateVerify(sig bls.Signature, hashes [][32]byte, pubKeys []bls.PublicKey) (bool, error) {
+func (cc *BlsCommon) AggregateVerify(sig bls.Signature, hash [32]byte, pubKeys []bls.PublicKey) (bool, error) {
+	hashes := make([][32]byte, 0)
+	for i := 0; i < len(pubKeys); i++ {
+		hashes = append(hashes, hash)
+	}
 	return bls.AggregateVerify(sig, hashes, pubKeys)
 }

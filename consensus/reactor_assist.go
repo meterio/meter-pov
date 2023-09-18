@@ -4,7 +4,6 @@ import (
 	"math/big"
 	"net"
 
-	crypto "github.com/ethereum/go-ethereum/crypto"
 	"github.com/meterio/meter-pov/block"
 	"github.com/meterio/meter-pov/meter"
 	"github.com/meterio/meter-pov/types"
@@ -12,14 +11,11 @@ import (
 
 // build block committee info part
 func (r *Reactor) MakeBlockCommitteeInfo() []block.CommitteeInfo {
-	system := r.blsCommon.GetSystem()
-	cms := r.committee
-
 	cis := []block.CommitteeInfo{}
 
-	for index, cm := range cms {
-		ci := block.NewCommitteeInfo(cm.Name, crypto.FromECDSAPub(&cm.PubKey), cm.NetAddr,
-			system.PubKeyToBytes(cm.BlsPubKey), uint32(index))
+	for index, cm := range r.committee {
+		ci := block.NewCommitteeInfo(cm.Name, cm.PubKeyBytes, cm.NetAddr,
+			cm.BlsPubKeyBytes, uint32(index))
 		cis = append(cis, *ci)
 	}
 	return (cis)
