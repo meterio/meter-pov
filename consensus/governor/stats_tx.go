@@ -85,7 +85,7 @@ func buildStatisticsData(entry *StatEntry, curEpoch uint32) (ret []byte) {
 	return
 }
 
-func ComputeMissingProposer(validators []*types.Validator, actualMembers []types.CommitteeMember, blocks []*block.Block, curEpoch uint32) ([]*missingProposerInfo, error) {
+func ComputeMissingProposer(validators []*types.Validator, blocks []*block.Block, curEpoch uint32) ([]*missingProposerInfo, error) {
 	result := make([]*missingProposerInfo, 0)
 	index := 0
 	origIndex := 0
@@ -98,12 +98,12 @@ func ComputeMissingProposer(validators []*types.Validator, actualMembers []types
 		// in this case, we should punish the voter instead of the proposer
 		origIndex = index
 		for true {
-			expectedSigner := meter.Address(crypto.PubkeyToAddress(actualMembers[index%len(actualMembers)].PubKey))
+			expectedSigner := meter.Address(crypto.PubkeyToAddress(validators[index%len(validators)].PubKey))
 			if bytes.Compare(actualSigner.Bytes(), expectedSigner.Bytes()) == 0 {
 				break
 			}
 			info := &missingProposerInfo{
-				Address: validators[actualMembers[index%len(actualMembers)].CSIndex].Address,
+				Address: validators[index%len(validators)].Address,
 				Info: meter.MissingProposerInfo{
 					Epoch:  curEpoch,
 					Height: blk.Number(),
@@ -113,7 +113,7 @@ func ComputeMissingProposer(validators []*types.Validator, actualMembers []types
 			log.Debug("missingPropopser", "height", info.Info.Height, "expectedSigner", expectedSigner, "actualSigner", actualSigner)
 			index++
 			// prevent the deadlock if actual proposer does not exist in actual committee
-			if index-origIndex >= len(actualMembers) {
+			if index-origIndex >= len(validators) {
 				break
 			}
 		}
@@ -123,12 +123,12 @@ func ComputeMissingProposer(validators []*types.Validator, actualMembers []types
 	return result, nil
 }
 
-func ComputeMissingLeader(validators []*types.Validator, actualMembers []types.CommitteeMember, curEpoch uint32) ([]*missingLeaderInfo, error) {
+func ComputeMissingLeader(validators []*types.Validator, curEpoch uint32) ([]*missingLeaderInfo, error) {
 	result := make([]*missingLeaderInfo, 0)
 
-	actualLeader := actualMembers[0]
+	// actualLeader := validators[0]
 	index := 0
-	for index < actualLeader.CSIndex {
+	for index < 0 {
 		info := &missingLeaderInfo{
 			Address: validators[index].Address,
 			Info: meter.MissingLeaderInfo{
@@ -143,7 +143,7 @@ func ComputeMissingLeader(validators []*types.Validator, actualMembers []types.C
 	return result, nil
 }
 
-func ComputeMissingVoter(validators []*types.Validator, actualMembers []types.CommitteeMember, blocks []*block.Block) ([]*missingVoterInfo, error) {
+func ComputeMissingVoter(validators []*types.Validator, blocks []*block.Block) ([]*missingVoterInfo, error) {
 	result := make([]*missingVoterInfo, 0)
 
 	for i, blk := range blocks {
@@ -156,10 +156,10 @@ func ComputeMissingVoter(validators []*types.Validator, actualMembers []types.Co
 		if voterBitArray == nil {
 			log.Warn("voterBitArray is nil")
 		}
-		for _, member := range actualMembers {
-			if voterBitArray.GetIndex(member.CSIndex) == false {
+		for index, _ := range validators {
+			if voterBitArray.GetIndex(index) == false {
 				info := &missingVoterInfo{
-					Address: validators[member.CSIndex].Address,
+					Address: validators[index].Address,
 					Info: meter.MissingVoterInfo{
 						Epoch:  uint32(blk.QC.EpochID),
 						Height: blk.QC.QCHeight,
@@ -231,7 +231,7 @@ func combinePubKey(blsCommon *types.BlsCommon, ecdsaPub *ecdsa.PublicKey, blsPub
 	return strings.Join([]string{ecdsaPubB64, blsPubB64}, ":::")
 }
 
-func findInActualCommittee(actualCommittee []types.CommitteeMember, addr meter.Address) int {
+func findInActualCommittee(actualCommittee []*types.Validator, addr meter.Address) int {
 	for i, m := range actualCommittee {
 		memberAddr := meter.Address(crypto.PubkeyToAddress(m.PubKey))
 		if bytes.Compare(memberAddr.Bytes(), addr.Bytes()) == 0 {
@@ -241,19 +241,19 @@ func findInActualCommittee(actualCommittee []types.CommitteeMember, addr meter.A
 	return -1
 }
 
-func ComputeStatistics(lastKBlockHeight, height uint32, chain *chain.Chain, curCommittee *types.ValidatorSet, curActualCommittee []types.CommitteeMember, blsCommon *types.BlsCommon, calcStatsTx bool, curEpoch uint32) ([]*StatEntry, error) {
+func ComputeStatistics(lastKBlockHeight, height uint32, chain *chain.Chain, committee []*types.Validator, blsCommon *types.BlsCommon, calcStatsTx bool, curEpoch uint32) ([]*StatEntry, error) {
 	log.Info("compute stats", "from", lastKBlockHeight, "to", height)
-	if len(curCommittee.Validators) == 0 {
+	if len(committee) == 0 {
 		return nil, errors.New("committee is empty")
 	}
-	if len(curActualCommittee) == 0 {
+	if len(committee) == 0 {
 		return nil, errors.New("actual committee is empty")
 	}
 	result := make([]*StatEntry, 0)
 
 	// data structure to save infractions
 	stats := make(map[meter.Address]*StatEntry)
-	for _, v := range curCommittee.Validators {
+	for _, v := range committee {
 		stats[v.Address] = &StatEntry{
 			Address: v.Address,
 			PubKey:  combinePubKey(blsCommon, &v.PubKey, &v.BlsPubKey),
@@ -262,7 +262,7 @@ func ComputeStatistics(lastKBlockHeight, height uint32, chain *chain.Chain, curC
 	}
 
 	// calculate missing leader
-	missedLeader, err := ComputeMissingLeader(curCommittee.Validators, curActualCommittee, curEpoch)
+	missedLeader, err := ComputeMissingLeader(committee, curEpoch)
 	if err != nil {
 		log.Warn("Error during missing leader calculation:", "err", err)
 	}
@@ -292,12 +292,12 @@ func ComputeStatistics(lastKBlockHeight, height uint32, chain *chain.Chain, curC
 
 	// calculate missing proposer
 	log.Debug("missing proposer:", "epoch", curEpoch, "calcStatsTx", calcStatsTx)
-	// fmt.Println("cur Actual Committee: ", len(curActualCommittee))
-	// for _, m := range curActualCommittee {
+	// fmt.Println("cur Actual Committee: ", len(committee))
+	// for _, m := range committee {
 	// 	fmt.Println("Member: ", m.CSIndex, m.Name, m.NetAddr.String())
 	// }
 	if calcStatsTx == true {
-		missedProposer, err := ComputeMissingProposer(curCommittee.Validators, curActualCommittee, blocks, curEpoch)
+		missedProposer, err := ComputeMissingProposer(committee, blocks, curEpoch)
 		if err != nil {
 			log.Warn("Error during missing proposer calculation:", "err", err)
 		}
@@ -314,9 +314,9 @@ func ComputeStatistics(lastKBlockHeight, height uint32, chain *chain.Chain, curC
 				return true
 			}
 			if pi.Info.Epoch == pj.Info.Epoch && pi.Info.Height == pj.Info.Height {
-				indexi := findInActualCommittee(curActualCommittee, pi.Address)
-				indexj := findInActualCommittee(curActualCommittee, pj.Address)
-				if indexi < indexj || (indexi == len(curActualCommittee)-1 && indexj == 0) {
+				indexi := findInActualCommittee(committee, pi.Address)
+				indexj := findInActualCommittee(committee, pj.Address)
+				if indexi < indexj || (indexi == len(committee)-1 && indexj == 0) {
 					return true
 				}
 			}
@@ -364,7 +364,7 @@ func ComputeStatistics(lastKBlockHeight, height uint32, chain *chain.Chain, curC
 	// currently do not calc the missingVoter. Because signature aggreator skips the votes after the count reaches
 	// to 2/3. So missingVoter counting is inacurate and causes the false alarm.
 	/****
-	missedVoter, err := r.calcMissingVoter(r.curCommittee.Validators, r.curActualCommittee, blocks)
+	missedVoter, err := r.calcMissingVoter(r.committee, r.committee, blocks)
 	if err != nil {
 		log.Warn("Error during missing voter calculation", "err", err)
 	} else {

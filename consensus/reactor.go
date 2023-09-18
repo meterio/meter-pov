@@ -78,12 +78,11 @@ type Reactor struct {
 
 	// still references above consensuStae, reactor if this node is
 	// involved the consensus
-	delegateSize       int // global constant, current available delegate size.
-	committeeSize      uint32
-	curDelegates       *types.DelegateSet      // current delegates list
-	curCommittee       *types.ValidatorSet     // This is top 400 of delegates by given nonce
-	curActualCommittee []types.CommitteeMember // Real committee, should be subset of curCommittee if someone is offline.
-	curCommitteeIndex  uint32
+	delegateSize   int // global constant, current available delegate size.
+	committeeSize  uint32
+	curDelegates   *types.DelegateSet // current delegates list
+	committee      []*types.Validator // Real committee, should be subset of curCommittee if someone is offline.
+	committeeIndex uint32
 
 	blsCommon *types.BlsCommon //this must be allocated as validator
 	pacemaker *Pacemaker
@@ -241,31 +240,17 @@ func (r *Reactor) RefreshCurHeight() error {
 // actual committee is exactly the same as committee
 // with one more field: CSIndex, the index order in committee
 func (r *Reactor) UpdateActualCommittee() bool {
-	validators := make([]*types.Validator, 0)
-	validators = append(validators, r.curCommittee.Validators...)
-	committee := make([]types.CommitteeMember, 0)
-	for i, v := range validators {
-		cm := types.CommitteeMember{
-			Name:     v.Name,
-			PubKey:   v.PubKey,
-			NetAddr:  v.NetAddr,
-			CSPubKey: v.BlsPubKey,
-			CSIndex:  i, // (i + int(leaderIndex)) % size,
-		}
-		committee = append(committee, cm)
-	}
-
-	r.curActualCommittee = committee
+	r.committee = r.committee
 	return true
 }
 
 // get the specific round proposer
-func (r *Reactor) getRoundProposer(round uint32) types.CommitteeMember {
-	size := len(r.curActualCommittee)
+func (r *Reactor) getRoundProposer(round uint32) *types.Validator {
+	size := len(r.committee)
 	if size == 0 {
-		return types.CommitteeMember{}
+		return &types.Validator{}
 	}
-	return r.curActualCommittee[int(round)%size]
+	return r.committee[int(round)%size]
 }
 
 func (r *Reactor) amIRoundProproser(round uint32) bool {
@@ -297,14 +282,13 @@ func (r *Reactor) VerifyBothPubKey() {
 // create validatorSet by a given nonce. return by my self role
 func (r *Reactor) UpdateCurCommitteeByNonce(nonce uint64) bool {
 	committee, index, inCommittee := r.calcCommitteeByNonce(nonce)
-	r.curCommittee = committee
 	if inCommittee {
-		r.curCommitteeIndex = uint32(index)
-		myAddr := r.curCommittee.Validators[index].NetAddr
-		myName := r.curCommittee.Validators[index].Name
+		r.committeeIndex = uint32(index)
+		myAddr := r.committee[index].NetAddr
+		myName := r.committee[index].Name
 		r.logger.Info("New committee calculated", "index", index, "myName", myName, "myIP", myAddr.IP.String())
 	} else {
-		r.curCommitteeIndex = 0
+		r.committeeIndex = 0
 		// FIXME: find a better way
 		r.logger.Info("New committee calculated")
 	}
@@ -329,13 +313,13 @@ func (r *Reactor) calcCommitteeByNonce(nonce uint64) (*types.ValidatorSet, int, 
 			BlsPubKey:   d.BlsPubKey,
 			VotingPower: d.VotingPower,
 			NetAddr:     d.NetAddr,
-			CommitKey:   crypto.Keccak256(append(crypto.FromECDSAPub(&d.PubKey), buf...)),
+			SortKey:     crypto.Keccak256(append(crypto.FromECDSAPub(&d.PubKey), buf...)),
 		}
 		vals = append(vals, v)
 	}
 
 	sort.SliceStable(vals, func(i, j int) bool {
-		return (bytes.Compare(vals[i].CommitKey, vals[j].CommitKey) <= 0)
+		return (bytes.Compare(vals[i].SortKey, vals[j].SortKey) <= 0)
 	})
 
 	vals = vals[:r.committeeSize]
@@ -364,7 +348,7 @@ func (r *Reactor) calcCommitteeByNonce(nonce uint64) (*types.ValidatorSet, int, 
 }
 
 func (r *Reactor) GetCommitteeMemberIndex(pubKey ecdsa.PublicKey) int {
-	for i, v := range r.curCommittee.Validators {
+	for i, v := range r.committee {
 		if bytes.Equal(crypto.FromECDSAPub(&v.PubKey), crypto.FromECDSAPub(&pubKey)) {
 			return i
 		}
@@ -374,22 +358,22 @@ func (r *Reactor) GetCommitteeMemberIndex(pubKey ecdsa.PublicKey) int {
 }
 
 func (r *Reactor) GetMyNetAddr() types.NetAddress {
-	if r.curCommittee != nil && len(r.curCommittee.Validators) > 0 {
-		return r.curCommittee.Validators[r.curCommitteeIndex].NetAddr
+	if r.committee != nil && len(r.committee) > 0 {
+		return r.committee[r.committeeIndex].NetAddr
 	}
 	return types.NetAddress{IP: net.IP{}, Port: 0}
 }
 
 func (r *Reactor) GetMyName() string {
-	if r.curCommittee != nil && len(r.curCommittee.Validators) > 0 {
-		return r.curCommittee.Validators[r.curCommitteeIndex].Name
+	if r.committee != nil && len(r.committee) > 0 {
+		return r.committee[r.committeeIndex].Name
 	}
 	return "unknown"
 }
 
 func (r *Reactor) GetMyActualCommitteeIndex() int {
 	myNetAddr := r.GetMyNetAddr()
-	for index, member := range r.curActualCommittee {
+	for index, member := range r.committee {
 		if member.NetAddr.IP.String() == myNetAddr.IP.String() {
 			return index
 		}
@@ -481,7 +465,7 @@ func (r *Reactor) PrepareEnvForPacemaker() error {
 			// leaderIndex := committeeInfo.CommitteeInfo[0].CSIndex
 			r.UpdateActualCommittee()
 
-			myself := r.curCommittee.Validators[r.curCommitteeIndex]
+			myself := r.committee[r.committeeIndex]
 			myEcdsaPKBytes := crypto.FromECDSAPub(&myself.PubKey)
 			inCommitteeVerified := false
 			for _, v := range committeeInfo.CommitteeInfo {
@@ -673,11 +657,11 @@ func (r *Reactor) OnReceiveMsg(w http.ResponseWriter, req *http.Request) {
 	typeName := mi.Msg.GetType()
 
 	signerIndex := msg.GetSignerIndex()
-	if int(signerIndex) >= len(r.curActualCommittee) {
+	if int(signerIndex) >= len(r.committee) {
 		r.logger.Warn("actual committee not initialized, skip relay ...", "msg", msg.GetType())
 		return
 	}
-	signer := r.curActualCommittee[signerIndex]
+	signer := r.committee[signerIndex]
 
 	if !msg.VerifyMsgSignature(&signer.PubKey) {
 		r.logger.Error("invalid signature, dropped ...", "peer", peer, "msg", msg.String(), "signer", signer.Name)

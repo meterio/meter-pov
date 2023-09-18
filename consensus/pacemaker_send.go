@@ -209,8 +209,8 @@ func (p *Pacemaker) verifyQC(b *draftBlock, escortQC *block.QuorumCert) bool {
 
 	voteHash := blk.VotingHash()
 	validSigCount := 0
-	for _, member := range p.reactor.curActualCommittee {
-		pubkey := p.reactor.blsCommon.System.PubKeyToBytes(member.CSPubKey)
+	for _, member := range p.reactor.committee {
+		pubkey := p.reactor.blsCommon.System.PubKeyToBytes(member.BlsPubKey)
 		if p.reactor.blsCommon.VerifySignature(escortQC.VoterAggSig, escortQC.VoterMsgHash[:], pubkey) {
 			validSigCount++
 		}

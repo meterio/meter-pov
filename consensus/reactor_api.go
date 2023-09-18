@@ -46,30 +46,29 @@ type ApiCommitteeMember struct {
 
 func (r *Reactor) GetLatestCommitteeList() ([]*ApiCommitteeMember, error) {
 	var committeeMembers []*ApiCommitteeMember
-	inCommittee := make([]bool, len(r.curCommittee.Validators))
+	inCommittee := make([]bool, len(r.committee))
 	for i := range inCommittee {
 		inCommittee[i] = false
 	}
 
-	for _, cm := range r.curActualCommittee {
-		v := r.curCommittee.Validators[cm.CSIndex]
+	for index, v := range r.committee {
 		apiCm := &ApiCommitteeMember{
 			Name:        v.Name,
 			Address:     v.Address,
-			PubKey:      b64.StdEncoding.EncodeToString(crypto.FromECDSAPub(&cm.PubKey)),
+			PubKey:      b64.StdEncoding.EncodeToString(crypto.FromECDSAPub(&v.PubKey)),
 			VotingPower: v.VotingPower,
-			NetAddr:     cm.NetAddr.String(),
-			CsPubKey:    hex.EncodeToString(r.blsCommon.GetSystem().PubKeyToBytes(cm.CSPubKey)),
-			CsIndex:     cm.CSIndex,
+			NetAddr:     v.NetAddr.String(),
+			CsPubKey:    hex.EncodeToString(r.blsCommon.GetSystem().PubKeyToBytes(v.BlsPubKey)),
+			CsIndex:     index,
 			InCommittee: true,
 		}
 		// fmt.Println(fmt.Sprintf("set %d to true, with index = %d ", i, cm.CSIndex))
 		committeeMembers = append(committeeMembers, apiCm)
-		inCommittee[cm.CSIndex] = true
+		inCommittee[index] = true
 	}
 	for i, val := range inCommittee {
 		if val == false {
-			v := r.curCommittee.Validators[i]
+			v := r.committee[i]
 			apiCm := &ApiCommitteeMember{
 				Name:        v.Name,
 				Address:     v.Address,

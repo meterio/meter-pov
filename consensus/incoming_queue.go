@@ -24,7 +24,7 @@ type IncomingMsg struct {
 	Hash         [32]byte
 	ShortHashStr string
 
-	Signer types.CommitteeMember
+	Signer *types.Validator
 
 	EnqueueAt time.Time
 	ExpireAt  time.Time

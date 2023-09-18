@@ -25,7 +25,7 @@ type Validator struct {
 	BlsPubKey   bls.PublicKey
 	VotingPower int64
 	NetAddr     NetAddress
-	CommitKey   []byte
+	SortKey     []byte
 }
 
 func NewValidator(name string, address meter.Address, pubKey ecdsa.PublicKey, blsPub bls.PublicKey, votingPower int64) *Validator {
@@ -60,4 +60,8 @@ func (v *Validator) String() string {
 		v.NetAddr.IP.String(),
 		pubkey,
 	)
+}
+
+func (v *Validator) NameAndIP() string {
+	return fmt.Sprintf("%s(%s)", v.Name, v.NetAddr.IP)
 }

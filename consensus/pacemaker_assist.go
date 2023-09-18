@@ -131,8 +131,8 @@ func (p *Pacemaker) verifyTC(tc *TimeoutCert, round uint32) bool {
 	if tc != nil {
 		voteHash := BuildTimeoutVotingHash(tc.Epoch, tc.Round)
 		validSigCount := 0
-		for _, member := range p.reactor.curActualCommittee {
-			pubkey := p.reactor.blsCommon.System.PubKeyToBytes(member.CSPubKey)
+		for _, member := range p.reactor.committee {
+			pubkey := p.reactor.blsCommon.System.PubKeyToBytes(member.BlsPubKey)
 			if p.reactor.blsCommon.VerifySignature(tc.AggSig, tc.MsgHash[:], pubkey) {
 				validSigCount++
 			}

@@ -717,7 +717,7 @@ func (p *Pacemaker) enterRound(round uint32, rtype roundType) bool {
 	oldRound := p.currentRound
 	p.currentRound = round
 	proposer := p.reactor.getRoundProposer(round)
-	p.logger.Info(fmt.Sprintf("round %d->%d, timer started", oldRound, p.currentRound), "type", rtype.String(), "proposer", proposer.NameWithIP(), "interval", meter.PrettyDuration(interval))
+	p.logger.Info(fmt.Sprintf("round %d->%d, timer started", oldRound, p.currentRound), "type", rtype.String(), "proposer", proposer.NameAndIP(), "interval", meter.PrettyDuration(interval))
 	pmRoundGauge.Set(float64(p.currentRound))
 	return true
 }

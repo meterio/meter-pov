@@ -13,13 +13,13 @@ import (
 // build block committee info part
 func (r *Reactor) MakeBlockCommitteeInfo() []block.CommitteeInfo {
 	system := r.blsCommon.GetSystem()
-	cms := r.curActualCommittee
+	cms := r.committee
 
 	cis := []block.CommitteeInfo{}
 
-	for _, cm := range cms {
+	for index, cm := range cms {
 		ci := block.NewCommitteeInfo(cm.Name, crypto.FromECDSAPub(&cm.PubKey), cm.NetAddr,
-			system.PubKeyToBytes(cm.CSPubKey), uint32(cm.CSIndex))
+			system.PubKeyToBytes(cm.BlsPubKey), uint32(index))
 		cis = append(cis, *ci)
 	}
 	return (cis)
