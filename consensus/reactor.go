@@ -16,7 +16,6 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
-	"math"
 	"net"
 	"net/http"
 	"sort"
@@ -484,25 +483,6 @@ func (r *Reactor) PrepareEnvForPacemaker() error {
 	return nil
 }
 
-// since votes of pacemaker include propser, but committee votes
-// do not have leader itself, we seperate the majority func
-// Easier adjust the logic of major 2/3, for pacemaker
-func MajorityTwoThird(voterNum, committeeSize uint32) bool {
-	if committeeSize < 1 {
-		fmt.Println("MajorityTwoThird, committee size < 1", committeeSize)
-		return false
-	}
-	// Examples
-	// committeeSize= 1 twoThirds= 1
-	// committeeSize= 2 twoThirds= 2
-	// committeeSize= 3 twoThirds= 2
-	// committeeSize= 4 twoThirds= 3
-	// committeeSize= 5 twoThirds= 4
-	// committeeSize= 6 twoThirds= 4
-	twoThirds := math.Ceil(float64(committeeSize) * 2 / 3)
-	return float64(voterNum) >= twoThirds
-}
-
 func (r *Reactor) splitPubKey(comboPub string) (*ecdsa.PublicKey, *bls.PublicKey) {
 	// first part is ecdsa public, 2nd part is bls public key
 	split := strings.Split(comboPub, ":::")
@@ -707,4 +687,12 @@ func (r *Reactor) OnReceiveMsg(w http.ResponseWriter, req *http.Request) {
 	if !fromMyself && typeName == "PMProposal" {
 		r.Relay(mi.Msg, data)
 	}
+}
+
+func (r *Reactor) ValidateQC(b *block.Block, escortQC *block.QuorumCert) bool {
+	valid, err := b.VerifyQC(escortQC, r.blsCommon, r.committeeSize, r.committee)
+	if err != nil {
+		r.logger.Error("QC validate failed", "err", err)
+	}
+	return valid
 }

@@ -11,12 +11,15 @@ import (
 	"encoding/base64"
 	"encoding/binary"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"io"
+	"math"
 	"strings"
 	"sync/atomic"
 
 	"github.com/ethereum/go-ethereum/rlp"
+	bls "github.com/meterio/meter-pov/crypto/multi_sig"
 	"github.com/meterio/meter-pov/meter"
 	"github.com/meterio/meter-pov/metric"
 	"github.com/meterio/meter-pov/tx"
@@ -124,17 +127,61 @@ func Compose(header *Header, txs tx.Transactions) *Block {
 	}
 }
 
-// TODO: check QC thoroughly
-func (blk *Block) MatchQC(qc *QuorumCert) bool {
-	voteHash := blk.VotingHash()
-	//qc at least has 1 vote signature and they are the same, so compare [0] is good enough
-	if bytes.Equal(voteHash[:], qc.VoterMsgHash[:]) {
-		// fmt.Println("QC matches block", "qc", qc.String(), "block", blk.String())
-		return true
-	} else {
-		// fmt.Println("QC doesn't matches block", "msgHash", meter.Bytes32(voteHash).String(), "qc.VoteHash", meter.Bytes32(qc.VoterMsgHash).String())
+func MajorityTwoThird(voterNum, committeeSize uint32) bool {
+	if committeeSize < 1 {
 		return false
 	}
+	// Examples
+	// committeeSize= 1 twoThirds= 1
+	// committeeSize= 2 twoThirds= 2
+	// committeeSize= 3 twoThirds= 2
+	// committeeSize= 4 twoThirds= 3
+	// committeeSize= 5 twoThirds= 4
+	// committeeSize= 6 twoThirds= 4
+	twoThirds := math.Ceil(float64(committeeSize) * 2 / 3)
+	return float64(voterNum) >= twoThirds
+}
+
+func (b *Block) VerifyQC(escortQC *QuorumCert, blsCommon *types.BlsCommon, committeeSize uint32, committee []*types.Validator) (bool, error) {
+
+	if b == nil {
+		// decode block to get qc
+		// fmt.Println("can not decode block", err)
+		return false, errors.New("block empty")
+	}
+
+	// genesis does not have qc
+	if b.Number() == 0 && escortQC.QCHeight == 0 {
+		return true, nil
+	}
+
+	// check voting hash
+	voteHash := b.VotingHash()
+	if !bytes.Equal(escortQC.VoterMsgHash[:], voteHash[:]) {
+		return false, errors.New("voting hash mismatch")
+	}
+
+	// check vote count
+	voteCount := escortQC.VoterBitArray().Count()
+	if !MajorityTwoThird(uint32(voteCount), committeeSize) {
+		return false, errors.New("not enough votes in QC")
+	}
+
+	pubkeys := make([]bls.PublicKey, 0)
+	for index, v := range committee {
+		if escortQC.VoterBitArray().GetIndex(index) {
+			pubkeys = append(pubkeys, v.BlsPubKey)
+		}
+	}
+	sig, err := blsCommon.System.SigFromBytes(escortQC.VoterAggSig)
+	if err != nil {
+		return false, errors.New("invalid aggregate signature")
+	}
+	validSig, err := blsCommon.AggregateVerify(sig, escortQC.VoterMsgHash, pubkeys)
+	if err != nil {
+		return false, errors.New("invalid aggregate signature")
+	}
+	return validSig, nil
 }
 
 // WithSignature create a new block object with signature set.

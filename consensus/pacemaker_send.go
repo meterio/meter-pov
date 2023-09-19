@@ -20,7 +20,6 @@ import (
 
 	crypto "github.com/ethereum/go-ethereum/crypto"
 	"github.com/meterio/meter-pov/block"
-	bls "github.com/meterio/meter-pov/crypto/multi_sig"
 )
 
 func (p *Pacemaker) sendMsg(msg ConsensusMessage, copyMyself bool) bool {
@@ -187,62 +186,8 @@ func BlockMatchDraftQC(b *draftBlock, escortQC *block.QuorumCert) bool {
 
 	blk := b.ProposedBlock
 
-	return blk.MatchQC(escortQC)
-
-}
-
-func (p *Pacemaker) verifyQC(b *draftBlock, escortQC *block.QuorumCert) bool {
-
-	if b == nil {
-		// decode block to get qc
-		// fmt.Println("can not decode block", err)
-		return false
-	}
-
-	// genesis does not have qc
-	if b.Height == 0 && escortQC.QCHeight == 0 {
-		return true
-	}
-
-	blk := b.ProposedBlock
-
-	// check voting hash
-	voteHash := blk.VotingHash()
-	if !bytes.Equal(escortQC.VoterMsgHash[:], voteHash[:]) {
-		p.logger.Warn("hash mismatch")
-		return false
-	}
-
-	// basic check for qc
-	if !blk.MatchQC(escortQC) {
-		p.logger.Warn("could not match qc")
-		return false
-	}
-
-	// check vote count
-	voteCount := escortQC.VoterBitArray().Count()
-	if !MajorityTwoThird(uint32(voteCount), p.reactor.committeeSize) {
-		p.logger.Warn("QC dont have enough votes", "voteCOunt", voteCount, "committeeSize", p.reactor.committeeSize)
-		return false
-	}
-
-	pubkeys := make([]bls.PublicKey, 0)
-	for index, v := range p.reactor.committee {
-		if escortQC.VoterBitArray().GetIndex(index) {
-			pubkeys = append(pubkeys, v.BlsPubKey)
-		}
-	}
-	sig, err := p.reactor.blsCommon.System.SigFromBytes(escortQC.VoterAggSig)
-	if err != nil {
-		return false
-	}
-	validSig, err := p.reactor.blsCommon.AggregateVerify(sig, escortQC.VoterMsgHash, pubkeys)
-	if err != nil {
-		p.logger.Error("could not verify agg sig", "err", err)
-		return false
-	}
-	p.logger.Error("could not verify agg sig", "bitarray", escortQC.VoterBitArrayStr)
-	return validSig
+	votingHash := blk.VotingHash()
+	return bytes.Equal(escortQC.VoterMsgHash[:], votingHash[:])
 }
 
 // BuildQueryMessage

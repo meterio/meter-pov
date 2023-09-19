@@ -272,7 +272,7 @@ func (p *Pacemaker) OnReceiveProposal(mi *IncomingMsg) {
 	}
 
 	// check QC with parent
-	if match := p.verifyQC(parent, qc); !match {
+	if match := p.reactor.ValidateQC(parent.ProposedBlock, qc); !match {
 		p.logger.Error("parent doesn't match qc in proposal ...", "qcHeight", qc.QCHeight, "qcRound", qc.QCRound, "parent", parent.ProposedBlock.ID().ToBlockShortID())
 		// Theoratically, this should not be worrisome anymore, since the parent is addressed by blockID
 		// instead of addressing proposal by height, we already supported the fork in proposal space
@@ -280,6 +280,7 @@ func (p *Pacemaker) OnReceiveProposal(mi *IncomingMsg) {
 		// 1. I don't have the correct parent, I will assume that others to commit to the right one and i'll do nothing
 		// 2. The current proposal is invalid and I should not vote
 		// in both cases, I should wait instead of sending messages to confuse peers
+
 		return
 	}
 

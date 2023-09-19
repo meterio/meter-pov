@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/inconshreveable/log15"
+	"github.com/meterio/meter-pov/block"
 	bls "github.com/meterio/meter-pov/crypto/multi_sig"
 	cmn "github.com/meterio/meter-pov/libs/common"
 )
@@ -50,7 +51,7 @@ func (m *TCVoteManager) AddVote(index uint32, epoch uint64, round uint32, sig []
 
 	voteCount := uint32(len(m.votes[key]))
 	m.logger.Info("TC vote", "count", voteCount, "committeeSize", m.committeeSize)
-	if MajorityTwoThird(voteCount, m.committeeSize) {
+	if block.MajorityTwoThird(voteCount, m.committeeSize) {
 		m.seal(epoch, round)
 		tc := m.Aggregate(epoch, round)
 		m.logger.Info(

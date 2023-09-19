@@ -263,7 +263,8 @@ func (n *Node) txStashLoop(ctx context.Context) {
 func (n *Node) processBlock(blk *block.Block, escortQC *block.QuorumCert, stats *blockStats) (bool, error) {
 	startTime := mclock.Now()
 	now := uint64(time.Now().Unix())
-	QCValid := blk.MatchQC(escortQC)
+
+	QCValid := n.cons.ValidateQC(blk, escortQC)
 	if !QCValid {
 		return false, errors.New(fmt.Sprintf("invalid %s on Block %s", escortQC.String(), blk.ID().ToBlockShortID()))
 	}

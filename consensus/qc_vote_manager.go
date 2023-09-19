@@ -57,7 +57,7 @@ func (m *QCVoteManager) AddVote(index uint32, epoch uint64, round uint32, blockI
 	m.votes[key][index] = &vote{Signature: sig, Hash: hash, BlsSig: blsSig}
 
 	voteCount := uint32(len(m.votes[key]))
-	if MajorityTwoThird(voteCount, m.committeeSize) {
+	if block.MajorityTwoThird(voteCount, m.committeeSize) {
 		m.seal(round, blockID)
 		qc := m.Aggregate(round, blockID, epoch)
 		m.logger.Info(

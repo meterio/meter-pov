@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/meterio/meter-pov/block"
 	bls "github.com/meterio/meter-pov/crypto/multi_sig"
 	"github.com/meterio/meter-pov/tx"
 	"github.com/meterio/meter-pov/txpool"
@@ -144,7 +145,7 @@ func (p *Pacemaker) verifyTC(tc *TimeoutCert, round uint32) bool {
 		}
 		// check vote count
 		voteCount := tc.BitArray.Count()
-		if !MajorityTwoThird(uint32(voteCount), p.reactor.committeeSize) {
+		if !block.MajorityTwoThird(uint32(voteCount), p.reactor.committeeSize) {
 			return false
 		}
 
