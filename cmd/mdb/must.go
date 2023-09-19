@@ -1,8 +1,6 @@
 package main
 
 import (
-	"crypto/ecdsa"
-	b64 "encoding/base64"
 	"encoding/binary"
 	"encoding/json"
 	"errors"
@@ -13,7 +11,6 @@ import (
 	"path"
 	"path/filepath"
 	"strconv"
-	"strings"
 
 	"github.com/ethereum/go-ethereum/common/fdlimit"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -21,7 +18,6 @@ import (
 	"github.com/inconshreveable/log15"
 	"github.com/meterio/meter-pov/block"
 	"github.com/meterio/meter-pov/chain"
-	bls "github.com/meterio/meter-pov/crypto/multi_sig"
 	"github.com/meterio/meter-pov/genesis"
 	"github.com/meterio/meter-pov/logdb"
 	"github.com/meterio/meter-pov/lvldb"
@@ -169,32 +165,6 @@ func (d Delegate1) String() string {
 	return fmt.Sprintf("Name:%v, Address:%v, PubKey:%v, VotingPower:%v, NetAddr:%v", d.Name, d.Address, d.PubKey, d.VotingPower, d.NetAddr.String())
 }
 
-func splitPubKey(comboPub string, blsCommon *types.BlsCommon) (*ecdsa.PublicKey, *bls.PublicKey) {
-	// first part is ecdsa public, 2nd part is bls public key
-	trimmed := strings.TrimSuffix(comboPub, "\n")
-	split := strings.Split(trimmed, ":::")
-	// fmt.Println("ecdsa PubKey", split[0], "Bls PubKey", split[1])
-	pubKeyBytes, err := b64.StdEncoding.DecodeString(split[0])
-	if err != nil {
-		panic(fmt.Sprintf("read public key of delegate failed, %v", err))
-	}
-	pubKey, err := crypto.UnmarshalPubkey(pubKeyBytes)
-	if err != nil {
-		panic(fmt.Sprintf("read public key of delegate failed, %v", err))
-	}
-
-	blsPubBytes, err := b64.StdEncoding.DecodeString(split[1])
-	if err != nil {
-		panic(fmt.Sprintf("read Bls public key of delegate failed, %v", err))
-	}
-	blsPub, err := blsCommon.GetSystem().PubKeyFromBytes(blsPubBytes)
-	if err != nil {
-		panic(fmt.Sprintf("read Bls public key of delegate failed, %v", err))
-	}
-
-	return pubKey, &blsPub
-}
-
 func loadDelegates(ctx *cli.Context, blsCommon *types.BlsCommon) []*types.Delegate {
 	delegates1 := make([]*Delegate1, 0)
 
@@ -226,7 +196,7 @@ func loadDelegates(ctx *cli.Context, blsCommon *types.BlsCommon) []*types.Delega
 	delegates := make([]*types.Delegate, 0)
 	for _, d := range delegates1 {
 		// first part is ecdsa public, 2nd part is bls public key
-		pubKey, blsPub := splitPubKey(string(d.PubKey), blsCommon)
+		pubKey, blsPub := blsCommon.SplitPubKey(string(d.PubKey))
 
 		var addr meter.Address
 		if len(d.Address) != 0 {
@@ -242,9 +212,7 @@ func loadDelegates(ctx *cli.Context, blsCommon *types.BlsCommon) []*types.Delega
 			addr = meter.Address(crypto.PubkeyToAddress(*pubKey))
 		}
 
-		dd := types.NewDelegate([]byte(d.Name), addr, *pubKey, *blsPub, d.VotingPower, types.COMMISSION_RATE_DEFAULT)
-		dd.SetInternCombinePublicKey(string(d.PubKey))
-		dd.NetAddr = d.NetAddr
+		dd := types.NewDelegate([]byte(d.Name), addr, *pubKey, *blsPub, d.PubKey, d.VotingPower, types.COMMISSION_RATE_DEFAULT, d.NetAddr)
 		delegates = append(delegates, dd)
 	}
 	return delegates

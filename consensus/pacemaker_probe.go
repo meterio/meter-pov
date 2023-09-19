@@ -12,8 +12,10 @@ type BlockProbe struct {
 	Raw    []byte
 }
 type PMProbeResult struct {
-	CurRound         uint32
-	MyCommitteeIndex int
+	CurRound       uint32
+	InCommittee    bool
+	CommitteeIndex int
+	CommitteeSize  int
 
 	LastVotingHeight uint32
 	LastOnBeatRound  uint32
@@ -25,8 +27,10 @@ type PMProbeResult struct {
 
 func (p *Pacemaker) Probe() *PMProbeResult {
 	result := &PMProbeResult{
-		CurRound:         p.currentRound,
-		MyCommitteeIndex: int(p.reactor.committeeIndex),
+		CurRound:       p.currentRound,
+		InCommittee:    p.reactor.inCommittee,
+		CommitteeIndex: int(p.reactor.committeeIndex),
+		CommitteeSize:  int(p.reactor.committeeSize),
 
 		LastVotingHeight: p.lastVotingHeight,
 		LastOnBeatRound:  uint32(p.lastOnBeatRound),

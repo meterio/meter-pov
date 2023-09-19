@@ -16,7 +16,7 @@ func (r *Reactor) PacemakerProbe() *PMProbeResult {
 	return r.pacemaker.Probe()
 }
 
-func (r *Reactor) IsCommitteeMember() bool {
+func (r *Reactor) InCommittee() bool {
 	return r.inCommittee
 }
 

@@ -20,12 +20,12 @@ import (
 )
 
 type Probe struct {
-	Cons          *consensus.Reactor
-	ComplexPubkey string
-	Chain         *chain.Chain
-	Version       string
-	Network       Network
-	StateCreator  *state.Creator
+	Cons         *consensus.Reactor
+	ComboPubkey  string
+	Chain        *chain.Chain
+	Version      string
+	Network      Network
+	StateCreator *state.Creator
 }
 
 func (p *Probe) HandleProbe(w http.ResponseWriter, r *http.Request) {
@@ -54,40 +54,44 @@ func (p *Probe) HandleProbe(w http.ResponseWriter, r *http.Request) {
 	for _, d := range delegateList.Delegates {
 		registeredPK := string(d.PubKey)
 		trimedPK := strings.TrimSpace(registeredPK)
-		if strings.Compare(trimedPK, p.ComplexPubkey) == 0 {
+		if strings.Compare(trimedPK, p.ComboPubkey) == 0 {
 			name = string(d.Name)
-			pubkeyMatch = bytes.Equal(d.PubKey, []byte(p.ComplexPubkey))
+			pubkeyMatch = bytes.Equal(d.PubKey, []byte(p.ComboPubkey))
 			inDelegateList = true
 			break
 		}
 	}
 	bestBlock, _ := convertBlock(p.Chain.BestBlock())
 	bestQC, _ := convertQC(p.Chain.BestQC())
-	pacemaker, _ := convertPacemakerProbe(p.Cons.PacemakerProbe())
+	pmProbe := p.Cons.PacemakerProbe()
+	pacemaker, _ := convertPacemakerProbe(pmProbe)
 	chainProbe := &ChainProbe{
 		BestBlock: bestBlock,
 		BestQC:    bestQC,
 	}
 	result := ProbeResult{
-		Name:              name,
-		PubKey:            p.ComplexPubkey,
-		PubKeyValid:       pubkeyMatch,
-		Version:           p.Version,
-		DelegatesSource:   p.Cons.GetDelegatesSource(),
-		IsCommitteeMember: p.Cons.IsCommitteeMember(),
-		InDelegateList:    inDelegateList,
-		BestQC:            bestQC.Height,
-		BestBlock:         bestBlock.Number,
-		Pacemaker:         pacemaker,
-		Chain:             chainProbe,
-		Pow:               pow,
+		Name:            name,
+		PubKey:          p.ComboPubkey,
+		PubKeyValid:     pubkeyMatch,
+		Version:         p.Version,
+		DelegatesSource: p.Cons.GetDelegatesSource(),
+		InCommittee:     pmProbe.InCommittee,
+		CommitteeSize:   uint32(pmProbe.CommitteeSize),
+		CommitteeIndex:  uint32(pmProbe.CommitteeIndex),
+
+		InDelegateList: inDelegateList,
+		BestQC:         bestQC.Height,
+		BestBlock:      bestBlock.Number,
+		Pacemaker:      pacemaker,
+		Chain:          chainProbe,
+		Pow:            pow,
 	}
 
 	utils.WriteJSON(w, result)
 }
 
 func (p *Probe) HandlePubkey(w http.ResponseWriter, r *http.Request) {
-	utils.WriteJSON(w, p.ComplexPubkey)
+	utils.WriteJSON(w, p.ComboPubkey)
 }
 
 func (p *Probe) HandleVersion(w http.ResponseWriter, r *http.Request) {

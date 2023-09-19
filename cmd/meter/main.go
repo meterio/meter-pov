@@ -306,7 +306,6 @@ func defaultAction(ctx *cli.Context) error {
 	pker := packer.New(chain, stateCreator, master.Address(), master.Beneficiary)
 	reactor := consensus.NewConsensusReactor(ctx, chain, logDB, p2pcom.comm, txPool, pker, stateCreator, master.PrivateKey, master.PublicKey, consensusMagic, blsCommon, initDelegates)
 	// calculate committee so that relay is not an issue
-	reactor.UpdateCurEpoch()
 
 	apiHandler, apiCloser := api.New(reactor, chain, state.NewCreator(mainDB), txPool, logDB, p2pcom.comm, ctx.String(apiCorsFlag.Name), uint32(ctx.Int(apiBacktraceLimitFlag.Name)), uint64(ctx.Int(apiCallGasLimitFlag.Name)), p2pcom.p2pSrv, pubkey)
 	defer func() { log.Info("closing API..."); apiCloser() }()

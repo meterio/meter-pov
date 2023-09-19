@@ -164,7 +164,7 @@ func (b *Block) VerifyQC(escortQC *QuorumCert, blsCommon *types.BlsCommon, commi
 	// check vote count
 	voteCount := escortQC.VoterBitArray().Count()
 	if !MajorityTwoThird(uint32(voteCount), committeeSize) {
-		return false, errors.New("not enough votes in QC")
+		return false, fmt.Errorf("not enough votes (%d/%d) in QC", voteCount, committeeSize)
 	}
 
 	pubkeys := make([]bls.PublicKey, 0)

@@ -6,9 +6,13 @@
 package types
 
 import (
+	"crypto/ecdsa"
 	sha256 "crypto/sha256"
+	b64 "encoding/base64"
 	"fmt"
+	"strings"
 
+	"github.com/ethereum/go-ethereum/crypto"
 	bls "github.com/meterio/meter-pov/crypto/multi_sig"
 )
 
@@ -138,4 +142,29 @@ func (cc *BlsCommon) AggregateVerify(sig bls.Signature, hash [32]byte, pubKeys [
 		hashes = append(hashes, hash)
 	}
 	return bls.AggregateVerify(sig, hashes, pubKeys)
+}
+
+func (cc *BlsCommon) SplitPubKey(comboPubKey string) (*ecdsa.PublicKey, *bls.PublicKey) {
+	// first part is ecdsa public, 2nd part is bls public key
+	split := strings.Split(comboPubKey, ":::")
+	// fmt.Println("ecdsa PubKey", split[0], "Bls PubKey", split[1])
+	pubKeyBytes, err := b64.StdEncoding.DecodeString(split[0])
+	if err != nil {
+		panic(fmt.Sprintf("read public key of delegate failed, %v", err))
+	}
+	pubKey, err := crypto.UnmarshalPubkey(pubKeyBytes)
+	if err != nil {
+		panic(fmt.Sprintf("read public key of delegate failed, %v", err))
+	}
+
+	blsPubBytes, err := b64.StdEncoding.DecodeString(split[1])
+	if err != nil {
+		panic(fmt.Sprintf("read Bls public key of delegate failed, %v", err))
+	}
+	blsPub, err := cc.GetSystem().PubKeyFromBytes(blsPubBytes)
+	if err != nil {
+		panic(fmt.Sprintf("read Bls public key of delegate failed, %v", err))
+	}
+
+	return pubKey, &blsPub
 }

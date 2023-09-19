@@ -32,17 +32,19 @@ type Delegate struct {
 	Commission  uint64          `json:"commission"`
 	DistList    []*Distributor  `json:"distibutor_list"`
 
-	internCombinePublicKey string
+	comboPubKeyStr string
 }
 
-func NewDelegate(name []byte, addr meter.Address, pubKey ecdsa.PublicKey, blsPub bls.PublicKey, votingPower int64, commission uint64) *Delegate {
+func NewDelegate(name []byte, addr meter.Address, pubKey ecdsa.PublicKey, blsPub bls.PublicKey, comboPubKeyStr string, votingPower int64, commission uint64, netAddr NetAddress) *Delegate {
 	return &Delegate{
-		Name:        name,
-		Address:     addr,
-		PubKey:      pubKey,
-		BlsPubKey:   blsPub,
-		VotingPower: votingPower,
-		Commission:  commission,
+		Name:           name,
+		Address:        addr,
+		PubKey:         pubKey,
+		BlsPubKey:      blsPub,
+		comboPubKeyStr: comboPubKeyStr,
+		VotingPower:    votingPower,
+		Commission:     commission,
+		NetAddr:        netAddr,
 	}
 }
 
@@ -53,12 +55,8 @@ func (v *Delegate) Copy() *Delegate {
 	return &vCopy
 }
 
-func (v *Delegate) SetInternCombinePublicKey(rawPublicKey string) {
-	v.internCombinePublicKey = rawPublicKey
-}
-
-func (v *Delegate) GetInternCombinePubKey() string {
-	return v.internCombinePublicKey
+func (v *Delegate) GetComboPubkey() string {
+	return v.comboPubKeyStr
 }
 
 func (v *Delegate) String() string {

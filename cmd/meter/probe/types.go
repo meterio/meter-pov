@@ -42,8 +42,7 @@ type BlockProbe struct {
 }
 
 type PacemakerProbe struct {
-	CurRound         uint32 `json:"curRound"`
-	MyCommitteeIndex int    `json:"myCommitteeIndex"`
+	CurRound uint32 `json:"curRound"`
 
 	LastVotingHeight uint32 `json:"lastVotingHeight"`
 	LastOnBeatRound  uint32 `json:"lastOnBeatRound"`
@@ -120,9 +119,11 @@ type ProbeResult struct {
 	PubKeyValid bool   `json:"pubkeyValid"`
 	Version     string `json:"version"`
 
-	DelegatesSource   string `json:"delegatesSource"`
-	IsCommitteeMember bool   `json:"isCommitteeMember"`
-	InDelegateList    bool   `json:"inDelegateList"`
+	DelegatesSource string `json:"delegatesSource"`
+	InCommittee     bool   `json:"inCommittee"`
+	InDelegateList  bool   `json:"inDelegateList"`
+	CommitteeIndex  uint32 `json:"committeeIndex"`
+	CommitteeSize   uint32 `json:"committeeSize"`
 
 	BestQC    uint32 `json:"bestQC"`
 	BestBlock uint32 `json:"bestBlock"`
@@ -188,8 +189,7 @@ func convertBlockProbe(p *consensus.BlockProbe) (*BlockProbe, error) {
 func convertPacemakerProbe(r *consensus.PMProbeResult) (*PacemakerProbe, error) {
 	if r != nil {
 		probe := &PacemakerProbe{
-			CurRound:         r.CurRound,
-			MyCommitteeIndex: r.MyCommitteeIndex,
+			CurRound: r.CurRound,
 
 			LastVotingHeight: r.LastVotingHeight,
 			LastOnBeatRound:  r.LastOnBeatRound,

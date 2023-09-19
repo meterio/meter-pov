@@ -123,8 +123,13 @@ func NewConsensusReactor(ctx *cli.Context, chain *chain.Chain, logDB *logdb.LogD
 		magic:        magic,
 		inCommittee:  false,
 
-		inQueue:  NewIncomingQueue(),
-		outQueue: NewOutgoingQueue(),
+		inQueue:    NewIncomingQueue(),
+		outQueue:   NewOutgoingQueue(),
+		EpochEndCh: make(chan EpochEndInfo, CHAN_DEFAULT_BUF_SIZE),
+
+		blsCommon: blsCommon,
+		myPrivKey: *privKey,
+		myPubKey:  *pubKey,
 	}
 
 	if ctx != nil {
@@ -137,20 +142,15 @@ func NewConsensusReactor(ctx *cli.Context, chain *chain.Chain, logDB *logdb.LogD
 			InitDelegates:     initDelegates,
 		}
 	}
-	// add the hardcoded genesis nonce in the case every node in block 0
-	r.EpochEndCh = make(chan EpochEndInfo, CHAN_DEFAULT_BUF_SIZE)
 
 	// initialize consensus common
-	r.blsCommon = blsCommon
-
-	// initialize pacemaker
-	r.pacemaker = NewPacemaker(r)
+	r.logger.Info("my keys", "pubkey", b64.RawStdEncoding.EncodeToString(crypto.FromECDSAPub(pubKey)), "privkey", b64.RawStdEncoding.EncodeToString(crypto.FromECDSA(privKey)))
 
 	// committee info is stored in the first of Mblock after Kblock
 	r.UpdateCurEpoch()
 
-	r.myPrivKey = *privKey
-	r.myPubKey = *pubKey
+	// initialize pacemaker
+	r.pacemaker = NewPacemaker(r)
 
 	return r
 }
@@ -192,11 +192,11 @@ func (r *Reactor) amIRoundProproser(round uint32) bool {
 }
 
 func (r *Reactor) VerifyBothPubKey() {
-	for _, d := range r.curDelegates {
-		if bytes.Equal(crypto.FromECDSAPub(&d.PubKey), crypto.FromECDSAPub(&r.myPubKey)) == true {
-			if r.GetCombinePubKey() != d.GetInternCombinePubKey() {
-				fmt.Println("Combine PubKey: ", r.GetCombinePubKey())
-				fmt.Println("Intern Combine PubKey: ", d.GetInternCombinePubKey())
+	for _, d := range r.allDelegates {
+		if bytes.Equal(crypto.FromECDSAPub(&d.PubKey), crypto.FromECDSAPub(&r.myPubKey)) {
+			if r.GetComboPubKey() != d.GetComboPubkey() {
+				fmt.Println("My Combo PubKey: ", r.GetComboPubKey())
+				fmt.Println("Combo PubKey in delegate list:", d.GetComboPubkey())
 				panic("ECDSA key found in delegate list, but combinePubKey mismatch")
 			}
 
@@ -210,26 +210,6 @@ func (r *Reactor) VerifyBothPubKey() {
 			}
 		}
 	}
-}
-
-// create validatorSet by a given nonce. return by my self role
-func (r *Reactor) UpdateCurCommitteeByNonce(nonce uint64) bool {
-	committee, index, inCommittee := r.calcCommitteeByNonce(nonce)
-	r.committee = committee
-	r.committeeIndex = uint32(index)
-	r.inCommittee = inCommittee
-	if inCommittee {
-		myAddr := committee[index].NetAddr
-		myName := committee[index].Name
-		r.logger.Info("New committee calculated", "index", index, "myName", myName, "myIP", myAddr.IP.String())
-	} else {
-		// FIXME: find a better way
-		r.logger.Info("New committee calculated")
-	}
-	fmt.Println("Committee members in order:")
-	fmt.Println(committee)
-
-	return inCommittee
 }
 
 // it is used for temp calculate committee set by a given nonce in the fly.
@@ -358,31 +338,6 @@ func (r *Reactor) verifyInCommittee() bool {
 	return false
 }
 
-func (r *Reactor) splitPubKey(comboPub string) (*ecdsa.PublicKey, *bls.PublicKey) {
-	// first part is ecdsa public, 2nd part is bls public key
-	split := strings.Split(comboPub, ":::")
-	// fmt.Println("ecdsa PubKey", split[0], "Bls PubKey", split[1])
-	pubKeyBytes, err := b64.StdEncoding.DecodeString(split[0])
-	if err != nil {
-		panic(fmt.Sprintf("read public key of delegate failed, %v", err))
-	}
-	pubKey, err := crypto.UnmarshalPubkey(pubKeyBytes)
-	if err != nil {
-		panic(fmt.Sprintf("read public key of delegate failed, %v", err))
-	}
-
-	blsPubBytes, err := b64.StdEncoding.DecodeString(split[1])
-	if err != nil {
-		panic(fmt.Sprintf("read Bls public key of delegate failed, %v", err))
-	}
-	blsPub, err := r.blsCommon.GetSystem().PubKeyFromBytes(blsPubBytes)
-	if err != nil {
-		panic(fmt.Sprintf("read Bls public key of delegate failed, %v", err))
-	}
-
-	return pubKey, &blsPub
-}
-
 func (r *Reactor) combinePubKey(ecdsaPub *ecdsa.PublicKey, blsPub *bls.PublicKey) string {
 	ecdsaPubBytes := crypto.FromECDSAPub(ecdsaPub)
 	ecdsaPubB64 := b64.StdEncoding.EncodeToString(ecdsaPubBytes)
@@ -393,7 +348,7 @@ func (r *Reactor) combinePubKey(ecdsaPub *ecdsa.PublicKey, blsPub *bls.PublicKey
 	return strings.Join([]string{ecdsaPubB64, blsPubB64}, ":::")
 }
 
-func (r *Reactor) GetCombinePubKey() string {
+func (r *Reactor) GetComboPubKey() string {
 	return r.combinePubKey(&r.myPubKey, &r.blsCommon.PubKey)
 }
 
@@ -469,6 +424,7 @@ func (r *Reactor) GetDelegateNameByIP(ip net.IP) string {
 func (r *Reactor) UpdateCurEpoch() (bool, error) {
 	bestK, err := r.chain.BestKBlock()
 	if err != nil {
+		r.logger.Error("could not get bestK", "err", err)
 		return false, errors.New("could not get best KBlock")
 	}
 
@@ -480,8 +436,10 @@ func (r *Reactor) UpdateCurEpoch() (bool, error) {
 		nonce = bestK.KBlockData.Nonce
 		epoch = bestK.GetBlockEpoch() + 1
 	}
-
-	if epoch > r.curEpoch && r.curNonce != nonce {
+	if epoch >= r.curEpoch && r.curNonce != nonce {
+		r.logger.Info("---------------------------------------------------------")
+		r.logger.Info(fmt.Sprintf(" Enter epoch %v", epoch), "lastEpoch", r.curEpoch)
+		r.logger.Info("---------------------------------------------------------")
 		//initialize Delegates
 		delegates, delegateSize, committeeSize := r.GetConsensusDelegates()
 		r.allDelegates = delegates
@@ -494,12 +452,22 @@ func (r *Reactor) UpdateCurEpoch() (bool, error) {
 
 		// update nonce
 		r.curNonce = nonce
-		r.inCommittee = r.UpdateCurCommitteeByNonce(nonce)
+
+		committee, index, inCommittee := r.calcCommitteeByNonce(nonce)
+		r.committee = committee
+		r.committeeIndex = uint32(index)
+		r.inCommittee = inCommittee
+		r.PrintCommittee()
+
 		if r.inCommittee {
-			r.logger.Info("I am in committee!!!")
+			myAddr := committee[index].NetAddr
+			myName := committee[index].Name
+
+			r.logger.Info("I'm IN committee !!!", "myName", myName, "myIP", myAddr.IP.String())
 			inCommitteeGauge.Set(1)
 			verified := r.verifyInCommittee()
 			if !verified {
+				//FIXME: fix this
 				r.logger.Error("committee info in consent block doesn't contain myself as a member, stop right now")
 				return false, errors.New("in committee but not verified")
 			}
@@ -513,7 +481,8 @@ func (r *Reactor) UpdateCurEpoch() (bool, error) {
 		lastEpoch := r.curEpoch
 		r.curEpoch = epoch
 		curEpochGauge.Set(float64(r.curEpoch))
-		r.logger.Info("Epoch updated", "from", lastEpoch, "to", r.curEpoch)
+		r.logger.Info(fmt.Sprintf("Entered epoch %d", r.curEpoch), "lastEpoch", lastEpoch)
+		r.logger.Info("---------------------------------------------------------")
 		return true, nil
 	}
 	return false, nil
@@ -614,4 +583,23 @@ func (r *Reactor) ValidateQC(b *block.Block, escortQC *block.QuorumCert) bool {
 		r.logger.Error("QC validate failed", "err", err)
 	}
 	return valid
+}
+
+func (r *Reactor) PrintCommittee() {
+	s := make([]string, 0)
+	if len(r.committee) > 6 {
+		for index, val := range r.committee[:3] {
+			s = append(s, fmt.Sprintf("#%-4v %v", index, val.String()))
+		}
+		s = append(s, "...")
+		for index, val := range r.committee[len(r.committee)-3:] {
+			s = append(s, fmt.Sprintf("#%-4v %v", index+len(r.committee)-3, val.String()))
+		}
+	} else {
+		for index, val := range r.committee {
+			s = append(s, fmt.Sprintf("#%-2v %v", index, val.String()))
+		}
+	}
+
+	fmt.Println("Current Committee:", strings.Join(s, "\n"))
 }
