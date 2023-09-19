@@ -79,17 +79,19 @@ type Reactor struct {
 
 	// still references above consensuStae, reactor if this node is
 	// involved the consensus
-	delegateSize     int // global constant, current available delegate size.
-	committeeSize    uint32
-	allDelegates     []*types.Delegate
-	curDelegates     []*types.Delegate  // current delegates list
-	committee        []*types.Validator // Real committee, should be subset of curCommittee if someone is offline.
-	committeeIndex   uint32
-	inCommittee      bool
-	sourceDelegates  int
-	lastKBlockHeight uint32
-	curNonce         uint64
-	curEpoch         uint64
+	delegateSize         int // global constant, current available delegate size.
+	committeeSize        uint32
+	allDelegates         []*types.Delegate
+	curDelegates         []*types.Delegate  // current delegates list
+	committee            []*types.Validator // Real committee, should be subset of curCommittee if someone is offline.
+	bootstrapCommittee11 []*types.Validator
+	bootstrapCommittee5  []*types.Validator
+	committeeIndex       uint32
+	inCommittee          bool
+	sourceDelegates      int
+	lastKBlockHeight     uint32
+	curNonce             uint64
+	curEpoch             uint64
 
 	blsCommon *types.BlsCommon //this must be allocated as validator
 	pacemaker *Pacemaker
@@ -151,6 +153,9 @@ func NewConsensusReactor(ctx *cli.Context, chain *chain.Chain, logDB *logdb.LogD
 
 	// initialize pacemaker
 	r.pacemaker = NewPacemaker(r)
+
+	r.bootstrapCommittee11 = r.bootstrapCommitteeSize11()
+	r.bootstrapCommittee5 = r.bootstrapCommitteeSize5()
 
 	return r
 }
@@ -578,10 +583,27 @@ func (r *Reactor) OnReceiveMsg(w http.ResponseWriter, req *http.Request) {
 }
 
 func (r *Reactor) ValidateQC(b *block.Block, escortQC *block.QuorumCert) bool {
+	// validate with current committee
 	valid, err := b.VerifyQC(escortQC, r.blsCommon, r.committeeSize, r.committee)
 	if err != nil {
 		r.logger.Error("QC validate failed", "err", err)
 	}
+
+	if escortQC.VoterBitArray().Size() == 11 {
+		// validate with bootstrap committee of size 11
+		valid, err = b.VerifyQC(escortQC, r.blsCommon, 11, r.bootstrapCommittee11)
+		if err != nil {
+			r.logger.Error("QC validate failed with bootstrap committee size 11", "err", err)
+		}
+
+	} else if escortQC.VoterBitArray().Size() == 5 {
+		// validate with bootstrap committee of size 5
+		valid, err = b.VerifyQC(escortQC, r.blsCommon, 5, r.bootstrapCommittee5)
+		if err != nil {
+			r.logger.Error("QC validate failed with bootstrap committee size 5", "err", err)
+		}
+	}
+
 	return valid
 }
 
