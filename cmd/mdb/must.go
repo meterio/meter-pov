@@ -23,6 +23,7 @@ import (
 	"github.com/meterio/meter-pov/chain"
 	bls "github.com/meterio/meter-pov/crypto/multi_sig"
 	"github.com/meterio/meter-pov/genesis"
+	"github.com/meterio/meter-pov/logdb"
 	"github.com/meterio/meter-pov/lvldb"
 	"github.com/meterio/meter-pov/meter"
 	"github.com/meterio/meter-pov/preset"
@@ -37,6 +38,19 @@ func initLogger() {
 	ethLogHandler := ethlog.NewGlogHandler(ethlog.StreamHandler(os.Stderr, ethlog.TerminalFormat(true)))
 	ethLogHandler.Verbosity(ethlog.LvlInfo)
 	ethlog.Root().SetHandler(ethLogHandler)
+}
+
+func openLogDB(ctx *cli.Context) *logdb.LogDB {
+	gene := selectGenesis(ctx)
+	// init block chain config
+	dbFilePath := ctx.String(dataDirFlag.Name)
+	instanceDir := filepath.Join(dbFilePath, fmt.Sprintf("instance-%x", gene.ID().Bytes()[24:]))
+	dir := filepath.Join(instanceDir, "logs.db")
+	db, err := logdb.New(dir)
+	if err != nil {
+		fatal(fmt.Sprintf("open log database [%v]: %v", dir, err))
+	}
+	return db
 }
 
 func openMainDB(ctx *cli.Context) (*lvldb.LevelDB, *genesis.Genesis) {

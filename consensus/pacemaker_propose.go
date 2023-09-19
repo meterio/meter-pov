@@ -16,7 +16,6 @@ import (
 	"github.com/meterio/meter-pov/powpool"
 	"github.com/meterio/meter-pov/runtime"
 	"github.com/meterio/meter-pov/tx"
-	"github.com/meterio/meter-pov/txpool"
 )
 
 var (
@@ -43,7 +42,7 @@ func (p *Pacemaker) buildMBlock(parent *draftBlock, justify *draftQC, round uint
 	now := uint64(time.Now().Unix())
 
 	// start := time.Now()
-	pool := txpool.GetGlobTxPoolInst()
+	pool := p.reactor.txpool
 	if pool == nil {
 		p.logger.Error("get tx pool failed ...")
 		// panic("get tx pool failed ...")
@@ -66,7 +65,7 @@ func (p *Pacemaker) buildMBlock(parent *draftBlock, justify *draftQC, round uint
 		return true
 	}
 
-	pker := packer.GetGlobPackerInst()
+	pker := p.reactor.packer
 	if pker == nil {
 		p.logger.Error("get packer failed ...")
 		// panic("get packer failed")
@@ -167,7 +166,7 @@ func (p *Pacemaker) buildKBlock(parent *draftBlock, justify *draftQC, round uint
 
 	txs := p.reactor.buildKBlockTxs(parentBlock, rewards, chainTag, bestNum, curEpoch, best, state)
 
-	pool := txpool.GetGlobTxPoolInst()
+	pool := p.reactor.txpool
 	if pool == nil {
 		p.logger.Error("get tx pool failed ...")
 		// panic("get tx pool failed ...")
@@ -180,7 +179,7 @@ func (p *Pacemaker) buildKBlock(parent *draftBlock, justify *draftQC, round uint
 		return true
 	}
 
-	pker := packer.GetGlobPackerInst()
+	pker := p.reactor.packer
 	if pker == nil {
 		p.logger.Warn("get packer failed ...")
 		// panic("get packer failed")
@@ -253,7 +252,7 @@ func (p *Pacemaker) buildStopCommitteeBlock(parent *draftBlock, justify *draftQC
 	best := parentBlock
 	now := uint64(time.Now().Unix())
 
-	pker := packer.GetGlobPackerInst()
+	pker := p.reactor.packer
 	if pker == nil {
 		p.logger.Error("get packer failed ...")
 		return ErrPackerEmpty, nil

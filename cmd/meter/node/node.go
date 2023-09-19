@@ -40,9 +40,9 @@ var (
 )
 
 type Node struct {
-	goes   co.Goes
-	packer *packer.Packer
-	cons   *consensus.Reactor
+	goes    co.Goes
+	packer  *packer.Packer
+	reactor *consensus.Reactor
 
 	master      *Master
 	chain       *chain.Chain
@@ -64,6 +64,7 @@ func GetGlobNode() *Node {
 }
 
 func New(
+	reactor *consensus.Reactor,
 	master *Master,
 	chain *chain.Chain,
 	stateCreator *state.Creator,
@@ -71,12 +72,11 @@ func New(
 	txPool *txpool.TxPool,
 	txStashPath string,
 	comm *comm.Communicator,
-	cons *consensus.Reactor,
 	script *script.ScriptEngine,
 ) *Node {
 	node := &Node{
+		reactor:     reactor,
 		packer:      packer.New(chain, stateCreator, master.Address(), master.Beneficiary),
-		cons:        cons,
 		master:      master,
 		chain:       chain,
 		logDB:       logDB,
@@ -95,7 +95,7 @@ func (n *Node) Run(ctx context.Context) error {
 	n.goes.Go(func() { n.houseKeeping(ctx) })
 	n.goes.Go(func() { n.txStashLoop(ctx) })
 
-	n.goes.Go(func() { n.cons.OnStart(ctx) })
+	n.goes.Go(func() { n.reactor.OnStart(ctx) })
 
 	n.goes.Wait()
 	return nil
@@ -121,7 +121,7 @@ func (n *Node) handleBlockStream(ctx context.Context, stream <-chan *block.Escor
 			return err
 		} else if isTrunk {
 			// this processBlock happens after consensus SyncDone, need to broadcast
-			if n.cons.SyncDone {
+			if n.reactor.SyncDone {
 				n.comm.BroadcastBlock(blk)
 			}
 		}
@@ -264,11 +264,11 @@ func (n *Node) processBlock(blk *block.Block, escortQC *block.QuorumCert, stats 
 	startTime := mclock.Now()
 	now := uint64(time.Now().Unix())
 
-	QCValid := n.cons.ValidateQC(blk, escortQC)
+	QCValid := n.reactor.ValidateQC(blk, escortQC)
 	if !QCValid {
 		return false, errors.New(fmt.Sprintf("invalid %s on Block %s", escortQC.String(), blk.ID().ToBlockShortID()))
 	}
-	stage, receipts, err := n.cons.ProcessSyncedBlock(blk, now)
+	stage, receipts, err := n.reactor.ProcessSyncedBlock(blk, now)
 	if err != nil {
 		switch {
 		case consensus.IsKnownBlock(err):
@@ -303,28 +303,29 @@ func (n *Node) processBlock(blk *block.Block, escortQC *block.QuorumCert, stats 
 	stats.UpdateProcessed(1, len(receipts), execElapsed, commitElapsed, blk.Header().GasUsed())
 	n.processFork(fork)
 
-	// shortcut to refresh height
-	n.cons.RefreshCurHeight()
-	if blk.IsKBlock() {
+	// shortcut to refresh epoch
+	n.reactor.UpdateCurEpoch()
+
+	if blk.IsKBlock() && !n.reactor.SyncDone {
 		data, _ := blk.GetKBlockData()
 		info := consensus.EpochEndInfo{
 			Height:           blk.Number(),
-			LastKBlockHeight: n.cons.GetLastKBlockHeight(),
+			LastKBlockHeight: n.reactor.GetLastKBlockHeight(),
 			Nonce:            data.Nonce,
 			Epoch:            blk.QC.EpochID,
 		}
 		log.Info("received kblock from block sync...", "nonce", info.Nonce, "height", info.Height)
 		// this chan is initialized as 100, we should clean up if it is almost full.
 		// only the last one is processed.
-		chanLength := len(n.cons.EpochEndCh)
-		chanCap := cap(n.cons.EpochEndCh)
+		chanLength := len(n.reactor.EpochEndCh)
+		chanCap := cap(n.reactor.EpochEndCh)
 		if chanLength >= (chanCap / 10 * 9) {
 			for i := int(0); i < chanLength; i++ {
-				<-n.cons.EpochEndCh
+				<-n.reactor.EpochEndCh
 			}
 			log.Info("garbaged all kblock info ...")
 		}
-		n.cons.EpochEndCh <- info
+		n.reactor.EpochEndCh <- info
 	}
 	// end of shortcut
 	return len(fork.Trunk) > 0, nil

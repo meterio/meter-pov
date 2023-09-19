@@ -38,6 +38,7 @@ import (
 	"github.com/meterio/meter-pov/genesis"
 	"github.com/meterio/meter-pov/lvldb"
 	"github.com/meterio/meter-pov/meter"
+	"github.com/meterio/meter-pov/packer"
 	"github.com/meterio/meter-pov/powpool"
 	pow_api "github.com/meterio/meter-pov/powpool/api"
 	"github.com/meterio/meter-pov/preset"
@@ -293,11 +294,6 @@ func defaultAction(ctx *cli.Context) error {
 	defer func() { log.Info("closing pow pool..."); powPool.Close() }()
 
 	p2pcom := newP2PComm(ctx, exitSignal, chain, txPool, instanceDir, powPool, p2pMagic)
-	apiHandler, apiCloser := api.New(chain, state.NewCreator(mainDB), txPool, logDB, p2pcom.comm, ctx.String(apiCorsFlag.Name), uint32(ctx.Int(apiBacktraceLimitFlag.Name)), uint64(ctx.Int(apiCallGasLimitFlag.Name)), p2pcom.p2pSrv, pubkey)
-	defer func() { log.Info("closing API..."); apiCloser() }()
-
-	apiURL, srvCloser := startAPIServer(ctx, apiHandler, chain.GenesisBlock().ID())
-	defer func() { log.Info("stopping API server..."); srvCloser() }()
 
 	powApiHandler, powApiCloser := pow_api.New(powPool)
 	defer func() { log.Info("closing Pow Pool API..."); powApiCloser() }()
@@ -307,11 +303,18 @@ func defaultAction(ctx *cli.Context) error {
 
 	stateCreator := state.NewCreator(mainDB)
 	sc := script.NewScriptEngine(chain, stateCreator)
-	cons := consensus.NewConsensusReactor(ctx, chain, stateCreator, master.PrivateKey, master.PublicKey, consensusMagic, blsCommon, initDelegates)
+	pker := packer.New(chain, stateCreator, master.Address(), master.Beneficiary)
+	reactor := consensus.NewConsensusReactor(ctx, chain, logDB, p2pcom.comm, txPool, pker, stateCreator, master.PrivateKey, master.PublicKey, consensusMagic, blsCommon, initDelegates)
 	// calculate committee so that relay is not an issue
-	cons.PrepareEnvForPacemaker()
+	reactor.UpdateCurEpoch()
 
-	observeURL, observeSrvCloser := startObserveServer(ctx, cons, pubkey, p2pcom.comm, chain, stateCreator)
+	apiHandler, apiCloser := api.New(reactor, chain, state.NewCreator(mainDB), txPool, logDB, p2pcom.comm, ctx.String(apiCorsFlag.Name), uint32(ctx.Int(apiBacktraceLimitFlag.Name)), uint64(ctx.Int(apiCallGasLimitFlag.Name)), p2pcom.p2pSrv, pubkey)
+	defer func() { log.Info("closing API..."); apiCloser() }()
+
+	apiURL, srvCloser := startAPIServer(ctx, apiHandler, chain.GenesisBlock().ID())
+	defer func() { log.Info("stopping API server..."); srvCloser() }()
+
+	observeURL, observeSrvCloser := startObserveServer(ctx, reactor, pubkey, p2pcom.comm, chain, stateCreator)
 	defer func() { log.Info("closing Observe Server ..."); observeSrvCloser() }()
 
 	//also create the POW components
@@ -323,6 +326,7 @@ func defaultAction(ctx *cli.Context) error {
 	defer p2pcom.Stop()
 
 	return node.New(
+		reactor,
 		master,
 		chain,
 		stateCreator,
@@ -330,7 +334,6 @@ func defaultAction(ctx *cli.Context) error {
 		txPool,
 		filepath.Join(instanceDir, "tx.stash"),
 		p2pcom.comm,
-		cons,
 		sc).
 		Run(exitSignal)
 }

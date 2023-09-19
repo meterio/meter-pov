@@ -18,6 +18,7 @@ import (
 	"github.com/meterio/meter-pov/chain"
 	"github.com/meterio/meter-pov/consensus"
 	"github.com/meterio/meter-pov/meter"
+	"github.com/meterio/meter-pov/packer"
 	"github.com/meterio/meter-pov/powpool"
 	"github.com/meterio/meter-pov/script"
 	"github.com/meterio/meter-pov/state"
@@ -864,6 +865,9 @@ func syncVerifyAction(ctx *cli.Context) error {
 	mainDB, gene := openMainDB(ctx)
 	defer func() { log.Info("closing main database..."); mainDB.Close() }()
 
+	logDB := openLogDB(ctx)
+	defer func() { log.Info("closing log database..."); logDB.Close() }()
+
 	fromNum := ctx.Int(fromFlag.Name)
 	toNum := ctx.Int64(toFlag.Name)
 	localChain := initChain(ctx, gene, mainDB)
@@ -919,7 +923,8 @@ func syncVerifyAction(ctx *cli.Context) error {
 
 	start := time.Now()
 	initDelegates := loadDelegates(ctx, blsCommon)
-	cons := consensus.NewConsensusReactor(ctx, meterChain, stateCreator, ecdsaPrivKey, ecdsaPubKey, [4]byte{0x0, 0x0, 0x0, 0x0}, blsCommon, initDelegates)
+	pker := packer.New(meterChain, stateCreator, meter.Address{}, &meter.Address{})
+	cons := consensus.NewConsensusReactor(ctx, meterChain, logDB, nil /* empty communicator */, nil /* empty txpool */, pker, stateCreator, ecdsaPrivKey, ecdsaPubKey, [4]byte{0x0, 0x0, 0x0, 0x0}, blsCommon, initDelegates)
 
 	for i := uint32(fromNum); i < uint32(toNum); i++ {
 		b, _ := meterChain.GetTrunkBlock(i)

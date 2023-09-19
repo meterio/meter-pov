@@ -23,18 +23,6 @@ type LogDB struct {
 	driverVersion string
 }
 
-var (
-	GlobalLogDBInstance *LogDB
-)
-
-func setGlobalLogDBInstance(db *LogDB) {
-	GlobalLogDBInstance = db
-}
-
-func GetGlobalLogDBInstance() *LogDB {
-	return GlobalLogDBInstance
-}
-
 // New create or open log db at given path.
 func New(path string) (logDB *LogDB, err error) {
 	db, err := sql.Open("sqlite3", path)
@@ -54,13 +42,11 @@ func New(path string) (logDB *LogDB, err error) {
 	}
 
 	driverVer, _, _ := sqlite3.Version()
-	logdbInstance := &LogDB{
+	return &LogDB{
 		path,
 		db,
 		driverVer,
-	}
-	setGlobalLogDBInstance(logdbInstance)
-	return logdbInstance, nil
+	}, nil
 }
 
 // NewMem create a log db in ram.

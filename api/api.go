@@ -29,6 +29,7 @@ import (
 	"github.com/meterio/meter-pov/api/transfers"
 	"github.com/meterio/meter-pov/api/transferslegacy"
 	"github.com/meterio/meter-pov/chain"
+	"github.com/meterio/meter-pov/consensus"
 	"github.com/meterio/meter-pov/logdb"
 	"github.com/meterio/meter-pov/p2psrv"
 	"github.com/meterio/meter-pov/state"
@@ -36,7 +37,7 @@ import (
 )
 
 // New return api router
-func New(chain *chain.Chain, stateCreator *state.Creator, txPool *txpool.TxPool, logDB *logdb.LogDB, nw node.Network, allowedOrigins string, backtraceLimit uint32, callGasLimit uint64, p2pServer *p2psrv.Server, pubKey string) (http.HandlerFunc, func()) {
+func New(reactor *consensus.Reactor, chain *chain.Chain, stateCreator *state.Creator, txPool *txpool.TxPool, logDB *logdb.LogDB, nw node.Network, allowedOrigins string, backtraceLimit uint32, callGasLimit uint64, p2pServer *p2psrv.Server, pubKey string) (http.HandlerFunc, func()) {
 	origins := strings.Split(strings.TrimSpace(allowedOrigins), ",")
 	for i, o := range origins {
 		origins[i] = strings.ToLower(strings.TrimSpace(o))
@@ -78,7 +79,7 @@ func New(chain *chain.Chain, stateCreator *state.Creator, txPool *txpool.TxPool,
 		Mount(router, "/transactions")
 	debug.New(chain, stateCreator).
 		Mount(router, "/debug")
-	node.New(nw, pubKey).
+	node.New(nw, reactor, pubKey).
 		Mount(router, "/node")
 	peers.New(p2pServer).Mount(router, "/peers")
 	subs := subscriptions.New(chain, origins, backtraceLimit)

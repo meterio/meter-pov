@@ -5,8 +5,6 @@ import (
 
 	"github.com/meterio/meter-pov/block"
 	"github.com/meterio/meter-pov/chain"
-	"github.com/meterio/meter-pov/comm"
-	"github.com/meterio/meter-pov/logdb"
 	"github.com/meterio/meter-pov/meter"
 	"github.com/meterio/meter-pov/script"
 )
@@ -17,15 +15,9 @@ func (p *Pacemaker) commitBlock(draftBlk *draftBlock, escortQC *block.QuorumCert
 	//stage := blkInfo.Stage
 	receipts := draftBlk.Receipts
 
-	// TODO: temporary remove
-	// if p.reactor.pacemaker.lastCommitted.Height != height+1 {
-	// p.logger.Error(fmt.Sprintf("commitBlock(H:%v): Invalid height. bLocked Height:%v, curRround: %v", height, p.reactor.pacemaker.lastCommitted.Height, p.reactor.curRound))
-	// return false
-	// }
 	p.logger.Debug("Try to finalize block", "block", blk.Oneliner())
 
-	// start := time.Now()
-	batch := logdb.GetGlobalLogDBInstance().Prepare(blk.Header())
+	batch := p.reactor.logDB.Prepare(blk.Header())
 	for i, tx := range blk.Transactions() {
 		origin, _ := tx.Signer()
 		txBatch := batch.ForTransaction(tx.ID(), origin)
@@ -73,9 +65,7 @@ func (p *Pacemaker) commitBlock(draftBlk *draftBlock, escortQC *block.QuorumCert
 	}
 
 	// broadcast the new block to all peers
-	comm.GetGlobCommInst().BroadcastBlock(&block.EscortedBlock{Block: blk, EscortQC: escortQC})
+	p.reactor.comm.BroadcastBlock(&block.EscortedBlock{Block: blk, EscortQC: escortQC})
 	// successfully added the block, update the current hight of consensus
-	p.reactor.UpdateHeight(p.reactor.chain.BestBlock().Number())
-
 	return nil
 }

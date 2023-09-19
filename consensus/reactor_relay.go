@@ -54,7 +54,7 @@ func CalcRelayPeers(myIndex, size int) (peers []int) {
 func (r *Reactor) GetRelayPeers(round uint32) []*ConsensusPeer {
 	peers := make([]*ConsensusPeer, 0)
 	size := len(r.committee)
-	myIndex := r.GetMyActualCommitteeIndex()
+	myIndex := int(r.committeeIndex)
 	if size == 0 {
 		return make([]*ConsensusPeer, 0)
 	}

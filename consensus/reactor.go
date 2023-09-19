@@ -12,7 +12,6 @@ import (
 	"encoding/base64"
 	b64 "encoding/base64"
 	"encoding/binary"
-	"encoding/hex"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -31,8 +30,11 @@ import (
 	"github.com/meterio/meter-pov/comm"
 	bls "github.com/meterio/meter-pov/crypto/multi_sig"
 	"github.com/meterio/meter-pov/genesis"
+	"github.com/meterio/meter-pov/logdb"
+	"github.com/meterio/meter-pov/packer"
 	"github.com/meterio/meter-pov/powpool"
 	"github.com/meterio/meter-pov/state"
+	"github.com/meterio/meter-pov/txpool"
 	"github.com/meterio/meter-pov/types"
 )
 
@@ -49,10 +51,6 @@ const (
 	fromStaking
 )
 
-var (
-	ConsensusGlobInst *Reactor
-)
-
 type ReactorConfig struct {
 	InitCfgdDelegates bool
 	EpochMBlockCount  uint32
@@ -65,7 +63,11 @@ type ReactorConfig struct {
 // -----------------------------------------------------------------------------
 // Reactor defines a reactor for the consensus service.
 type Reactor struct {
+	txpool       *txpool.TxPool
+	comm         *comm.Communicator
+	packer       *packer.Packer
 	chain        *chain.Chain
+	logDB        *logdb.LogDB
 	stateCreator *state.Creator
 	logger       log15.Logger
 	config       ReactorConfig
@@ -77,43 +79,44 @@ type Reactor struct {
 
 	// still references above consensuStae, reactor if this node is
 	// involved the consensus
-	delegateSize   int // global constant, current available delegate size.
-	committeeSize  uint32
-	curDelegates   *types.DelegateSet // current delegates list
-	committee      []*types.Validator // Real committee, should be subset of curCommittee if someone is offline.
-	committeeIndex uint32
+	delegateSize     int // global constant, current available delegate size.
+	committeeSize    uint32
+	allDelegates     []*types.Delegate
+	curDelegates     []*types.Delegate  // current delegates list
+	committee        []*types.Validator // Real committee, should be subset of curCommittee if someone is offline.
+	committeeIndex   uint32
+	inCommittee      bool
+	sourceDelegates  int
+	lastKBlockHeight uint32
+	curNonce         uint64
+	curEpoch         uint64
 
 	blsCommon *types.BlsCommon //this must be allocated as validator
 	pacemaker *Pacemaker
 
-	lastKBlockHeight uint32
-	curNonce         uint64
-	curEpoch         uint64
-	curHeight        uint32            // come from parentBlockID first 4 bytes uint32
-	EpochEndCh       chan EpochEndInfo // this channel for kblock notify from node module.
+	EpochEndCh chan EpochEndInfo // this channel for kblock notify from node module.
 
-	magic           [4]byte
-	inCommittee     bool
-	allDelegates    []*types.Delegate
-	sourceDelegates int
+	magic [4]byte
 
 	inQueue  *IncomingQueue
 	outQueue *OutgoingQueue
 }
 
-// Glob Instance
-func GetConsensusGlobInst() *Reactor {
-	return ConsensusGlobInst
-}
-
-func SetConsensusGlobInst(inst *Reactor) {
-	ConsensusGlobInst = inst
-}
-
 // NewConsensusReactor returns a new Reactor with config
-func NewConsensusReactor(ctx *cli.Context, chain *chain.Chain, state *state.Creator, privKey *ecdsa.PrivateKey, pubKey *ecdsa.PublicKey, magic [4]byte, blsCommon *types.BlsCommon, initDelegates []*types.Delegate) *Reactor {
+func NewConsensusReactor(ctx *cli.Context, chain *chain.Chain, logDB *logdb.LogDB, comm *comm.Communicator, txpool *txpool.TxPool, packer *packer.Packer, state *state.Creator, privKey *ecdsa.PrivateKey, pubKey *ecdsa.PublicKey, magic [4]byte, blsCommon *types.BlsCommon, initDelegates []*types.Delegate) *Reactor {
+	prometheus.Register(pmRoundGauge)
+	prometheus.Register(curEpochGauge)
+	prometheus.Register(lastKBlockHeightGauge)
+	prometheus.Register(blocksCommitedCounter)
+	prometheus.Register(inCommitteeGauge)
+	prometheus.Register(pmRoleGauge)
+
 	r := &Reactor{
+		comm:         comm,
+		txpool:       txpool,
+		packer:       packer,
 		chain:        chain,
+		logDB:        logDB,
 		stateCreator: state,
 		logger:       log15.New("pkg", "reactor"),
 		SyncDone:     false,
@@ -137,15 +140,6 @@ func NewConsensusReactor(ctx *cli.Context, chain *chain.Chain, state *state.Crea
 	// add the hardcoded genesis nonce in the case every node in block 0
 	r.EpochEndCh = make(chan EpochEndInfo, CHAN_DEFAULT_BUF_SIZE)
 
-	//initialize height/round
-	if chain.BestBlock().IsKBlock() {
-		r.lastKBlockHeight = chain.BestBlock().Number()
-	} else {
-		r.lastKBlockHeight = chain.BestBlock().LastKBlockHeight()
-	}
-	lastKBlockHeightGauge.Set(float64(r.lastKBlockHeight))
-	r.curHeight = chain.BestBlock().Number()
-
 	// initialize consensus common
 	r.blsCommon = blsCommon
 
@@ -153,42 +147,26 @@ func NewConsensusReactor(ctx *cli.Context, chain *chain.Chain, state *state.Crea
 	r.pacemaker = NewPacemaker(r)
 
 	// committee info is stored in the first of Mblock after Kblock
-	if r.curHeight != 0 {
-		r.updateCurEpoch(chain.BestBlock().GetBlockEpoch())
-	} else {
-		r.curEpoch = 0
-		curEpochGauge.Set(float64(0))
-	}
-
-	prometheus.Register(pmRoundGauge)
-	prometheus.Register(curEpochGauge)
-	prometheus.Register(lastKBlockHeightGauge)
-	prometheus.Register(blocksCommitedCounter)
-	prometheus.Register(inCommitteeGauge)
-	prometheus.Register(pmRoleGauge)
+	r.UpdateCurEpoch()
 
 	r.myPrivKey = *privKey
 	r.myPubKey = *pubKey
 
-	SetConsensusGlobInst(r)
 	return r
 }
 
 // OnStart implements BaseService by subscribing to events, which later will be
 // broadcasted to other peers and starting state if we're not in fast sync.
 func (r *Reactor) OnStart(ctx context.Context) error {
+
 	go r.outQueue.Start(ctx)
-	communicator := comm.GetGlobCommInst()
-	if communicator == nil {
-		r.logger.Error("get communicator instance failed ...")
-		return errors.New("could not get communicator")
-	}
+
 	select {
 	case <-ctx.Done():
 		r.logger.Warn("stop reactor due to context end")
 		return nil
-	case <-communicator.Synced():
-		r.logger.Info("sync is done, start pacemaker ...", "curHeight", r.curHeight)
+	case <-r.comm.Synced():
+		r.logger.Info("sync is done, start pacemaker ...")
 		r.pacemaker.Regulate()
 	}
 
@@ -197,50 +175,6 @@ func (r *Reactor) OnStart(ctx context.Context) error {
 
 func (r *Reactor) GetLastKBlockHeight() uint32 {
 	return r.lastKBlockHeight
-}
-
-func (r *Reactor) UpdateHeight(height uint32) bool {
-	if height != r.curHeight {
-		r.logger.Debug(fmt.Sprintf("Update curHeight from %d to %d", r.curHeight, height))
-	}
-	r.curHeight = height
-	return true
-}
-
-// update the LastKBlockHeight
-// func (r *Reactor) UpdateLastKBlockHeight(height uint32) bool {
-// 	if height > r.lastKBlockHeight {
-// 		r.lastKBlockHeight = height
-// 		lastKBlockHeightGauge.Set(float64(r.lastKBlockHeight))
-// 	}
-// 	return true
-// }
-
-// Refresh the current Height from the best block
-// normally call this routine after block chain changed
-func (r *Reactor) RefreshCurHeight() error {
-	prev := r.curHeight
-
-	best := r.chain.BestBlock()
-	r.curHeight = best.Number()
-	if best.LastKBlockHeight() > r.lastKBlockHeight {
-		r.lastKBlockHeight = best.LastKBlockHeight()
-		lastKBlockHeightGauge.Set(float64(r.lastKBlockHeight))
-	}
-	r.updateCurEpoch(best.GetBlockEpoch())
-
-	lastKBlockHeightGauge.Set(float64(r.lastKBlockHeight))
-	if prev != best.Number() {
-		// r.logger.Info("Refresh curHeight", "from", prev, "to", r.curHeight, "lastKBlock", r.lastKBlockHeight, "epoch", r.curEpoch)
-	}
-	return nil
-}
-
-// actual committee is exactly the same as committee
-// with one more field: CSIndex, the index order in committee
-func (r *Reactor) UpdateActualCommittee() bool {
-	r.committee = r.committee
-	return true
 }
 
 // get the specific round proposer
@@ -258,7 +192,7 @@ func (r *Reactor) amIRoundProproser(round uint32) bool {
 }
 
 func (r *Reactor) VerifyBothPubKey() {
-	for _, d := range r.curDelegates.Delegates {
+	for _, d := range r.curDelegates {
 		if bytes.Equal(crypto.FromECDSAPub(&d.PubKey), crypto.FromECDSAPub(&r.myPubKey)) == true {
 			if r.GetCombinePubKey() != d.GetInternCombinePubKey() {
 				fmt.Println("Combine PubKey: ", r.GetCombinePubKey())
@@ -305,7 +239,7 @@ func (r *Reactor) calcCommitteeByNonce(nonce uint64) ([]*types.Validator, int, b
 	binary.PutUvarint(buf, nonce)
 
 	vals := make([]*types.Validator, 0)
-	for _, d := range r.curDelegates.Delegates {
+	for _, d := range r.curDelegates {
 		v := &types.Validator{
 			Name:           string(d.Name),
 			Address:        d.Address,
@@ -319,7 +253,7 @@ func (r *Reactor) calcCommitteeByNonce(nonce uint64) ([]*types.Validator, int, b
 		}
 		vals = append(vals, v)
 	}
-	r.logger.Info("cal committee", "delegates", len(r.curDelegates.Delegates), "committeeSize", r.committeeSize, "vals", len(vals))
+	r.logger.Info("cal committee", "delegates", len(r.curDelegates), "committeeSize", r.committeeSize, "vals", len(vals))
 
 	sort.SliceStable(vals, func(i, j int) bool {
 		return (bytes.Compare(vals[i].SortKey, vals[j].SortKey) <= 0)
@@ -338,18 +272,8 @@ func (r *Reactor) calcCommitteeByNonce(nonce uint64) ([]*types.Validator, int, b
 		}
 	}
 
-	r.logger.Error("VALIDATOR SET is empty, potential error config with delegates.json", "delegates", len(r.curDelegates.Delegates))
+	r.logger.Error("VALIDATOR SET is empty, potential error config with delegates.json", "delegates", len(r.curDelegates))
 	return vals, 0, false
-}
-
-func (r *Reactor) GetCommitteeMemberIndex(pubKey ecdsa.PublicKey) int {
-	for i, v := range r.committee {
-		if bytes.Equal(crypto.FromECDSAPub(&v.PubKey), crypto.FromECDSAPub(&pubKey)) {
-			return i
-		}
-	}
-	r.logger.Error("I'm not in committee, please check public key settings", "pubKey", pubKey)
-	return -1
 }
 
 func (r *Reactor) GetMyNetAddr() types.NetAddress {
@@ -366,121 +290,72 @@ func (r *Reactor) GetMyName() string {
 	return "unknown"
 }
 
-func (r *Reactor) GetMyActualCommitteeIndex() int {
-	myNetAddr := r.GetMyNetAddr()
-	for index, member := range r.committee {
-		if member.NetAddr.IP.String() == myNetAddr.IP.String() {
-			return index
-		}
-	}
-	return -1
-}
-
-// update current delegates with new delegates from staking or config file
-// keep this standalone method intentionly
-func (r *Reactor) UpdateCurDelegates() {
-	delegates, delegateSize, committeeSize := r.GetConsensusDelegates()
-	r.allDelegates = delegates
-	r.curDelegates = types.NewDelegateSet(delegates[:delegateSize])
-	r.delegateSize = delegateSize
-	r.committeeSize = uint32(committeeSize)
-}
-
 func (r *Reactor) PrepareEnvForPacemaker() error {
-	var nonce uint64
-	var info *powpool.PowBlockInfo
+
 	bestKBlock, err := r.chain.BestKBlock()
 	if err != nil {
 		fmt.Println("could not get best KBlock", err)
 		return errors.New("could not get best KBlock")
 	}
 	bestBlock := r.chain.BestBlock()
-	bestIsKBlock := (bestBlock.Header().BlockType() == block.KBlockType) || bestBlock.Header().Number() == 0
-	kBlockHeight := bestKBlock.Header().Number()
+	bestIsKBlock := bestBlock.IsKBlock() || bestBlock.Header().Number() == 0
 
-	epoch := uint64(0)
-	if kBlockHeight == 0 {
-		nonce = genesis.GenesisNonce
-		info = powpool.GetPowGenesisBlockInfo()
-	} else {
-		nonce = bestKBlock.KBlockData.Nonce
-		info = powpool.NewPowBlockInfoFromPosKBlock(bestKBlock)
-		epoch = bestKBlock.GetBlockEpoch() + 1
+	updated, err := r.UpdateCurEpoch()
+	if err != nil {
+		return err
 	}
+	r.logger.Info("prepare env for pacemaker", "nonce", r.curNonce, "bestK", bestKBlock.Number(), "bestIsKBlock", bestIsKBlock, "epoch", r.curEpoch)
 
-	if r.curNonce == nonce {
-		r.logger.Info("committee initialized already", "nonce", nonce, "kBlock", kBlockHeight, "bestIsKBlock", bestIsKBlock, "epoch", epoch)
-		return nil
-	}
-
-	r.logger.Info("prepare env for pacemaker", "nonce", nonce, "kBlock", kBlockHeight, "bestIsKBlock", bestIsKBlock, "epoch", epoch)
-
-	//initialize Delegates
-	r.UpdateCurDelegates()
-
-	// notice: this will panic if ECDSA key matches but BLS doesn't
-	r.VerifyBothPubKey()
-
-	r.curNonce = nonce
-	inCommittee := r.UpdateCurCommitteeByNonce(nonce)
-	r.inCommittee = inCommittee
-
-	r.lastKBlockHeight = kBlockHeight
-	lastKBlockHeightGauge.Set(float64(r.lastKBlockHeight))
-	r.updateCurEpoch(epoch)
-	r.UpdateActualCommittee()
-
-	r.logger.Info("Powpool prepare to add kframe, and notify PoW chain to pick head", "powHeight", info.PowHeight, "powRawBlock", hex.EncodeToString(info.PowRaw))
-	pool := powpool.GetGlobPowPoolInst()
-	// pool.Wash()
-	pool.InitialAddKframe(info)
-	r.logger.Debug("Powpool initial added kframe", "bestKblock", kBlockHeight, "powHeight", info.PowHeight)
-
-	if inCommittee {
-		r.logger.Info("I am in committee!!!")
-		if bestIsKBlock {
+	if updated {
+		var info *powpool.PowBlockInfo
+		if bestKBlock.Number() == 0 {
+			info = powpool.GetPowGenesisBlockInfo()
+		} else {
+			info = powpool.NewPowBlockInfoFromPosKBlock(bestKBlock)
+		}
+		// r.logger.Info("Powpool prepare to add kframe, and notify PoW chain to pick head", "powHeight", info.PowHeight, "powRawBlock", hex.EncodeToString(info.PowRaw))
+		pool := powpool.GetGlobPowPoolInst()
+		pool.Wash()
+		pool.InitialAddKframe(info)
+		r.logger.Info("Powpool initial added kframe", "bestK", bestKBlock.Number(), "powHeight", info.PowHeight)
+		if r.inCommittee && bestIsKBlock {
 			//kblock is already added to pool, should start with next one
 			startHeight := info.PowHeight + 1
 			r.logger.Info("Replay pow blocks", "fromHeight", startHeight)
 			pool.ReplayFrom(int32(startHeight))
 		}
-		r.inCommittee = true
-		inCommitteeGauge.Set(1)
+	}
 
-		// verify in committee status with consent block (1st mblock in epoch)
-		// if delegates are obtained from staking
-		if !r.config.InitCfgdDelegates && !bestIsKBlock {
-			consentBlock, err := r.chain.GetTrunkBlock(kBlockHeight + 1)
-			if err != nil {
-				fmt.Println("could not get committee info:", err)
-				return errors.New("could not get committee info for status check")
-			}
-			// recover actual committee from consent block
-			committeeInfo := consentBlock.CommitteeInfos
-			// leaderIndex := committeeInfo.CommitteeInfo[0].CSIndex
-			r.UpdateActualCommittee()
+	return nil
+}
 
-			myself := r.committee[r.committeeIndex]
-			myEcdsaPKBytes := crypto.FromECDSAPub(&myself.PubKey)
-			inCommitteeVerified := false
-			for _, v := range committeeInfo.CommitteeInfo {
-				if bytes.Equal(v.PubKey, myEcdsaPKBytes) {
-					inCommitteeVerified = true
-					break
-				}
-			}
-			if !inCommitteeVerified {
-				r.logger.Error("committee info in consent block doesn't contain myself as a member, stop right now")
-				return errors.New("committee info in consent block doesnt match myself")
+func (r *Reactor) verifyInCommittee() bool {
+	best := r.chain.BestBlock()
+	if r.config.InitCfgdDelegates {
+		return true
+	}
+
+	if !r.config.InitCfgdDelegates && !best.IsKBlock() && best.Number() != 0 {
+		consentBlock, err := r.chain.GetTrunkBlock(best.LastKBlockHeight() + 1)
+		if err != nil {
+			fmt.Println("could not get committee info:", err)
+			return false
+		}
+		// recover actual committee from consent block
+		committeeInfo := consentBlock.CommitteeInfos
+
+		myself := r.committee[r.committeeIndex]
+		myEcdsaPKBytes := crypto.FromECDSAPub(&myself.PubKey)
+		inCommitteeVerified := false
+		for _, v := range committeeInfo.CommitteeInfo {
+			if bytes.Equal(v.PubKey, myEcdsaPKBytes) {
+				inCommitteeVerified = true
+				break
 			}
 		}
-
-	} else {
-		r.inCommittee = false
-		inCommitteeGauge.Set(0)
-		r.logger.Info("I am NOT in committee!!!", "nonce", nonce)
+		return inCommitteeVerified
 	}
-	return nil
+	return false
 }
 
 func (r *Reactor) splitPubKey(comboPub string) (*ecdsa.PublicKey, *bls.PublicKey) {
@@ -591,13 +466,57 @@ func (r *Reactor) GetDelegateNameByIP(ip net.IP) string {
 	return ""
 }
 
-func (r *Reactor) updateCurEpoch(epoch uint64) {
-	if epoch > r.curEpoch {
-		oldVal := r.curEpoch
+func (r *Reactor) UpdateCurEpoch() (bool, error) {
+	bestK, err := r.chain.BestKBlock()
+	if err != nil {
+		return false, errors.New("could not get best KBlock")
+	}
+
+	var nonce uint64
+	epoch := uint64(0)
+	if bestK.Number() == 0 {
+		nonce = genesis.GenesisNonce
+	} else {
+		nonce = bestK.KBlockData.Nonce
+		epoch = bestK.GetBlockEpoch() + 1
+	}
+
+	if epoch > r.curEpoch && r.curNonce != nonce {
+		//initialize Delegates
+		delegates, delegateSize, committeeSize := r.GetConsensusDelegates()
+		r.allDelegates = delegates
+		r.curDelegates = delegates[:delegateSize]
+		r.delegateSize = delegateSize
+		r.committeeSize = uint32(committeeSize)
+
+		// notice: this will panic if ECDSA key matches but BLS doesn't
+		r.VerifyBothPubKey()
+
+		// update nonce
+		r.curNonce = nonce
+		r.inCommittee = r.UpdateCurCommitteeByNonce(nonce)
+		if r.inCommittee {
+			r.logger.Info("I am in committee!!!")
+			inCommitteeGauge.Set(1)
+			verified := r.verifyInCommittee()
+			if !verified {
+				r.logger.Error("committee info in consent block doesn't contain myself as a member, stop right now")
+				return false, errors.New("in committee but not verified")
+			}
+		} else {
+			r.logger.Info("I'm NOT in committee")
+			inCommitteeGauge.Set(0)
+		}
+		r.lastKBlockHeight = bestK.Number()
+		lastKBlockHeightGauge.Set(float64(bestK.Number()))
+
+		lastEpoch := r.curEpoch
 		r.curEpoch = epoch
 		curEpochGauge.Set(float64(r.curEpoch))
-		r.logger.Info("Epoch updated", "from", oldVal, "to", r.curEpoch)
+		r.logger.Info("Epoch updated", "from", lastEpoch, "to", r.curEpoch)
+		return true, nil
 	}
+	return false, nil
 }
 
 // ------------------------------------

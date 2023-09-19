@@ -26,7 +26,7 @@ type PMProbeResult struct {
 func (p *Pacemaker) Probe() *PMProbeResult {
 	result := &PMProbeResult{
 		CurRound:         p.currentRound,
-		MyCommitteeIndex: p.reactor.GetMyActualCommitteeIndex(),
+		MyCommitteeIndex: int(p.reactor.committeeIndex),
 
 		LastVotingHeight: p.lastVotingHeight,
 		LastOnBeatRound:  uint32(p.lastOnBeatRound),

@@ -52,7 +52,7 @@ func initCommServer(t *testing.T) {
 		MaxLifetime:     10 * time.Minute,
 	}), nil, "main", [4]byte{1, 2, 3, 4})
 	router := mux.NewRouter()
-	node.New(comm, "pubkey").Mount(router, "/node")
+	node.New(comm, nil, "pubkey").Mount(router, "/node")
 	ts = httptest.NewServer(router)
 }
 

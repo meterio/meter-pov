@@ -14,7 +14,6 @@ import (
 	"github.com/meterio/meter-pov/block"
 	bls "github.com/meterio/meter-pov/crypto/multi_sig"
 	"github.com/meterio/meter-pov/tx"
-	"github.com/meterio/meter-pov/txpool"
 )
 
 // This is part of pacemaker that in charge of:
@@ -65,7 +64,7 @@ func (p *Pacemaker) ValidateProposal(b *draftBlock) error {
 		return errDecodeParentFailed
 	}
 
-	pool := txpool.GetGlobTxPoolInst()
+	pool := p.reactor.txpool
 	if pool == nil {
 		p.logger.Error("get tx pool failed ...")
 		panic("get tx pool failed ...")

@@ -30,8 +30,7 @@ import (
 )
 
 var (
-	log          = log15.New("pkg", "comm")
-	GlobCommInst *Communicator
+	log = log15.New("pkg", "comm")
 )
 
 // Communicator communicates with remote p2p peers to exchange blocks and txs, etc.
@@ -54,17 +53,9 @@ type Communicator struct {
 	magic [4]byte
 }
 
-func SetGlobCommInst(c *Communicator) {
-	GlobCommInst = c
-}
-
-func GetGlobCommInst() *Communicator {
-	return GlobCommInst
-}
-
 // New create a new Communicator instance.
 func New(ctx context.Context, chain *chain.Chain, txPool *txpool.TxPool, powPool *powpool.PowPool, configTopic string, magic [4]byte) *Communicator {
-	c := &Communicator{
+	return &Communicator{
 		chain:   chain,
 		txPool:  txPool,
 		powPool: powPool,
@@ -76,9 +67,6 @@ func New(ctx context.Context, chain *chain.Chain, txPool *txpool.TxPool, powPool
 		configTopic:    configTopic,
 		magic:          magic,
 	}
-
-	SetGlobCommInst(c)
-	return c
 }
 
 // Synced returns a channel indicates if synchronization process passed.

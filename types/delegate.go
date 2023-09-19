@@ -6,11 +6,9 @@
 package types
 
 import (
-	"bytes"
 	"crypto/ecdsa"
 	"encoding/base64"
 	"fmt"
-	"strings"
 
 	"github.com/ethereum/go-ethereum/crypto"
 	bls "github.com/meterio/meter-pov/crypto/multi_sig"
@@ -57,7 +55,6 @@ func (v *Delegate) Copy() *Delegate {
 
 func (v *Delegate) SetInternCombinePublicKey(rawPublicKey string) {
 	v.internCombinePublicKey = rawPublicKey
-	return
 }
 
 func (v *Delegate) GetInternCombinePubKey() string {
@@ -76,23 +73,6 @@ func (v *Delegate) String() string {
 		string(v.Name), v.Address, v.VotingPower, v.Commission/1e7, len(v.DistList), pubKeyAbbr)
 }
 
-// DelegateSet represent a set of *Delegate at a given height.
-// The Delegates can be fetched by address or index.
-// The index is in order of .Address, so the indices are fixed
-// for all rounds of a given blockchain height.
-// On the other hand, the .AccumPower of each Delegate and
-// the designated .GetProposer() of a set changes every round,
-// upon calling .IncrementAccum().
-// NOTE: Not goroutine-safe.
-// NOTE: All get/set to Delegates should copy the value for safety.
-type DelegateSet struct {
-	// NOTE: persisted via reflect, must be exported.
-	Delegates []*Delegate `json:"Delegates"`
-
-	// cached (unexported)
-	totalVotingPower int64
-}
-
 // =================================
 // commission rate 1% presents 1e07, unit is shannon (1e09)
 const (
@@ -100,164 +80,3 @@ const (
 	COMMISSION_RATE_MIN     = uint64(1 * 1e07)   // 1%
 	COMMISSION_RATE_DEFAULT = uint64(10 * 1e07)  // 10%
 )
-
-func NewDelegateSet(vals []*Delegate) *DelegateSet {
-	Delegates := make([]*Delegate, len(vals))
-	for i, val := range vals {
-		Delegates[i] = val.Copy()
-	}
-
-	vs := &DelegateSet{
-		Delegates: Delegates,
-	}
-
-	return vs
-}
-
-// Copy each Delegate into a new DelegateSet
-func (valSet *DelegateSet) Copy() *DelegateSet {
-	Delegates := make([]*Delegate, len(valSet.Delegates))
-	for i, val := range valSet.Delegates {
-		// NOTE: must copy, since IncrementAccum updates in place.
-		Delegates[i] = val.Copy()
-	}
-	return &DelegateSet{
-		Delegates:        Delegates,
-		totalVotingPower: valSet.totalVotingPower,
-	}
-}
-
-// HasAddress returns true if address given is in the Delegate set, false -
-// otherwise.
-// DelegateSet is not sorted
-func (valSet *DelegateSet) HasAddress(address []byte) bool {
-	for idx, _ := range valSet.Delegates {
-		if idx < len(valSet.Delegates) &&
-			bytes.Equal(valSet.Delegates[idx].Address.Bytes(), address) {
-			return true
-		}
-	}
-	return false
-}
-
-// GetByAddress returns an index of the Delegate with address and Delegate
-// itself if found. Otherwise, -1 and nil are returned.
-func (valSet *DelegateSet) GetByAddress(address []byte) (index int, val *Delegate) {
-	for idx, _ := range valSet.Delegates {
-		if idx < len(valSet.Delegates) &&
-			bytes.Equal(valSet.Delegates[idx].Address.Bytes(), address) {
-			return idx, valSet.Delegates[idx].Copy()
-		}
-	}
-	return -1, nil
-}
-
-// GetByIndex returns the Delegate's address and Delegate itself by index.
-// It returns nil values if index is less than 0 or greater or equal to
-// len(DelegateSet.Delegates).
-func (valSet *DelegateSet) GetByIndex(index int) (address []byte, val *Delegate) {
-	if index < 0 || index >= len(valSet.Delegates) {
-		return nil, nil
-	}
-	val = valSet.Delegates[index]
-	return val.Address.Bytes(), val.Copy()
-}
-
-// Size returns the length of the Delegate set.
-func (valSet *DelegateSet) Size() int {
-	return len(valSet.Delegates)
-}
-
-// TotalVotingPower returns the sum of the voting powers of all Delegates.
-func (valSet *DelegateSet) TotalVotingPower() int64 {
-	if valSet.totalVotingPower == 0 {
-		for _, val := range valSet.Delegates {
-			// mind overflow
-			valSet.totalVotingPower = safeAddClip(valSet.totalVotingPower, val.VotingPower)
-		}
-	}
-	return valSet.totalVotingPower
-}
-
-// Add adds val to the Delegate set and returns true. It returns false if val
-// is already in the set.
-func (valSet *DelegateSet) Add(val *Delegate) (added bool) {
-	val = val.Copy()
-	idx, _ := valSet.GetByAddress(val.Address.Bytes())
-
-	if idx == -1 {
-		valSet.Delegates = append(valSet.Delegates, val)
-
-		valSet.totalVotingPower = 0
-		return true
-	} else {
-		return false
-	}
-}
-
-// Update updates val and returns true. It returns false if val is not present
-// in the set.
-func (valSet *DelegateSet) Update(val *Delegate) (updated bool) {
-	index, _ := valSet.GetByAddress(val.Address.Bytes())
-	if index == -1 {
-		return false
-	}
-	valSet.Delegates[index] = val.Copy()
-	// Invalidate cache
-	valSet.totalVotingPower = 0
-	return true
-}
-
-// Remove deletes the Delegate with address. It returns the Delegate removed
-// and true. If returns nil and false if Delegate is not present in the set.
-func (valSet *DelegateSet) Remove(address []byte) (removedVal *Delegate, removed bool) {
-
-	idx, _ := valSet.GetByAddress(address)
-	if idx == -1 {
-		return nil, false
-	} else {
-		removedVal := valSet.Delegates[idx]
-		newDelegates := valSet.Delegates[:idx]
-		if idx+1 < len(valSet.Delegates) {
-			newDelegates = append(newDelegates, valSet.Delegates[idx+1:]...)
-		}
-		valSet.Delegates = newDelegates
-		// Invalidate cache
-		valSet.totalVotingPower = 0
-		return removedVal, true
-	}
-
-}
-
-// Iterate will run the given function over the set.
-func (valSet *DelegateSet) Iterate(fn func(index int, val *Delegate) bool) {
-	for i, val := range valSet.Delegates {
-		stop := fn(i, val.Copy())
-		if stop {
-			break
-		}
-	}
-}
-
-func (valSet *DelegateSet) String() string {
-	return valSet.StringIndented("")
-}
-
-// String
-func (valSet *DelegateSet) StringIndented(indent string) string {
-	if valSet == nil {
-		return "nil-DelegateSet"
-	}
-	valStrings := []string{}
-	valSet.Iterate(func(index int, val *Delegate) bool {
-		valStrings = append(valStrings, val.String())
-		return false
-	})
-	return fmt.Sprintf(`DelegateSet{
-%s  Delegates:
-%s    %v
-%s}`,
-		indent,
-		indent, strings.Join(valStrings, "\n"+indent+"  "),
-		indent)
-}
