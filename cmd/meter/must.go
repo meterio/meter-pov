@@ -76,7 +76,7 @@ func selectGenesis(ctx *cli.Context) *genesis.Genesis {
 	case "main":
 		return genesis.NewMainnet()
 	case "staging":
-		return genesis.NewDevnet()
+		return genesis.NewMainnet()
 	default:
 		cli.ShowAppHelp(ctx)
 		if network == "" {

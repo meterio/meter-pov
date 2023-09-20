@@ -150,8 +150,8 @@ func (b *Block) VerifyQC(escortQC *QuorumCert, blsCommon *types.BlsCommon, commi
 		return false, errors.New("block empty")
 	}
 
-	// genesis does not have qc
-	if b.Number() == 0 && escortQC.QCHeight == 0 {
+	// genesis/first block does not have qc
+	if b.Number() == escortQC.QCHeight && (b.Number() == 0 || b.Number() == 1) {
 		return true, nil
 	}
 

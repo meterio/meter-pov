@@ -148,14 +148,14 @@ func NewConsensusReactor(ctx *cli.Context, chain *chain.Chain, logDB *logdb.LogD
 	// initialize consensus common
 	r.logger.Info("my keys", "pubkey", b64.RawStdEncoding.EncodeToString(crypto.FromECDSAPub(pubKey)), "privkey", b64.RawStdEncoding.EncodeToString(crypto.FromECDSA(privKey)))
 
+	r.bootstrapCommittee11 = r.bootstrapCommitteeSize11()
+	r.bootstrapCommittee5 = r.bootstrapCommitteeSize5()
+
 	// committee info is stored in the first of Mblock after Kblock
 	r.UpdateCurEpoch()
 
 	// initialize pacemaker
 	r.pacemaker = NewPacemaker(r)
-
-	r.bootstrapCommittee11 = r.bootstrapCommitteeSize11()
-	r.bootstrapCommittee5 = r.bootstrapCommitteeSize5()
 
 	return r
 }
@@ -217,13 +217,35 @@ func (r *Reactor) VerifyBothPubKey() {
 	}
 }
 
+func (r *Reactor) sortBootstrapCommitteeByNonce(nonce uint64) {
+	buf := make([]byte, binary.MaxVarintLen64)
+	binary.PutUvarint(buf, nonce)
+
+	r.logger.Info("sort bootstrap committee", "nonce", nonce)
+	// sort bootstrap committee size of 11
+	for _, v := range r.bootstrapCommittee11 {
+		v.SortKey = crypto.Keccak256(append(crypto.FromECDSAPub(&v.PubKey), buf...))
+	}
+	sort.SliceStable(r.bootstrapCommittee11, func(i, j int) bool {
+		return (bytes.Compare(r.bootstrapCommittee11[i].SortKey, r.bootstrapCommittee11[j].SortKey) <= 0)
+	})
+
+	// sort bootstrap committee size of 5
+	for _, v := range r.bootstrapCommittee5 {
+		v.SortKey = crypto.Keccak256(append(crypto.FromECDSAPub(&v.PubKey), buf...))
+	}
+	sort.SliceStable(r.bootstrapCommittee5, func(i, j int) bool {
+		return (bytes.Compare(r.bootstrapCommittee5[i].SortKey, r.bootstrapCommittee5[j].SortKey) <= 0)
+	})
+}
+
 // it is used for temp calculate committee set by a given nonce in the fly.
 // also return the committee
 func (r *Reactor) calcCommitteeByNonce(nonce uint64) ([]*types.Validator, int, bool) {
 	buf := make([]byte, binary.MaxVarintLen64)
 	binary.PutUvarint(buf, nonce)
 
-	vals := make([]*types.Validator, 0)
+	validators := make([]*types.Validator, 0)
 	for _, d := range r.curDelegates {
 		v := &types.Validator{
 			Name:           string(d.Name),
@@ -236,29 +258,29 @@ func (r *Reactor) calcCommitteeByNonce(nonce uint64) ([]*types.Validator, int, b
 			NetAddr:        d.NetAddr,
 			SortKey:        crypto.Keccak256(append(crypto.FromECDSAPub(&d.PubKey), buf...)),
 		}
-		vals = append(vals, v)
+		validators = append(validators, v)
 	}
-	r.logger.Info("cal committee", "delegates", len(r.curDelegates), "committeeSize", r.committeeSize, "vals", len(vals))
+	r.logger.Info("cal committee", "delegates", len(r.curDelegates), "committeeSize", r.committeeSize, "validators", len(validators), "nonce", nonce)
 
-	sort.SliceStable(vals, func(i, j int) bool {
-		return (bytes.Compare(vals[i].SortKey, vals[j].SortKey) <= 0)
+	sort.SliceStable(validators, func(i, j int) bool {
+		return (bytes.Compare(validators[i].SortKey, validators[j].SortKey) <= 0)
 	})
 
-	vals = vals[:r.committeeSize]
+	committee := validators[:r.committeeSize]
 	// the full list is stored in currCommittee, sorted.
 	// To become a validator (real member in committee), must repond the leader's
 	// announce. Validators are stored in r.conS.Vlidators
-	if len(vals) > 0 {
-		for i, val := range vals {
+	if len(committee) > 0 {
+		for i, val := range committee {
 			if bytes.Equal(crypto.FromECDSAPub(&val.PubKey), crypto.FromECDSAPub(&r.myPubKey)) {
 
-				return vals, i, true
+				return committee, i, true
 			}
 		}
 	}
 
 	r.logger.Error("VALIDATOR SET is empty, potential error config with delegates.json", "delegates", len(r.curDelegates))
-	return vals, 0, false
+	return committee, 0, false
 }
 
 func (r *Reactor) GetMyNetAddr() types.NetAddress {
@@ -458,6 +480,7 @@ func (r *Reactor) UpdateCurEpoch() (bool, error) {
 		// update nonce
 		r.curNonce = nonce
 
+		r.sortBootstrapCommitteeByNonce(nonce)
 		committee, index, inCommittee := r.calcCommitteeByNonce(nonce)
 		r.committee = committee
 		r.committeeIndex = uint32(index)
@@ -589,6 +612,7 @@ func (r *Reactor) ValidateQC(b *block.Block, escortQC *block.QuorumCert) bool {
 		r.logger.Error("QC validate failed", "err", err)
 	}
 
+	fmt.Println("escortQC size", escortQC.VoterBitArray().Size())
 	if escortQC.VoterBitArray().Size() == 11 {
 		// validate with bootstrap committee of size 11
 		valid, err = b.VerifyQC(escortQC, r.blsCommon, 11, r.bootstrapCommittee11)
@@ -623,5 +647,11 @@ func (r *Reactor) PrintCommittee() {
 		}
 	}
 
-	fmt.Println("Current Committee:", strings.Join(s, "\n"))
+	fmt.Println("Current Committee:\n" + strings.Join(s, "\n"))
+
+	bs := make([]string, 0)
+	for _, v := range r.bootstrapCommittee11 {
+		bs = append(bs, v.String())
+	}
+	fmt.Println("Bootstrap Committee:\n" + strings.Join(bs, "\n"))
 }
