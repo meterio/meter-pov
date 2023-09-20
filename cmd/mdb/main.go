@@ -922,7 +922,7 @@ func syncVerifyAction(ctx *cli.Context) error {
 	script.NewScriptEngine(meterChain, stateCreator)
 
 	start := time.Now()
-	initDelegates := loadDelegates(ctx, blsCommon)
+	initDelegates := types.LoadDelegatesFile(ctx, blsCommon)
 	pker := packer.New(meterChain, stateCreator, meter.Address{}, &meter.Address{})
 	cons := consensus.NewConsensusReactor(ctx, meterChain, logDB, nil /* empty communicator */, nil /* empty txpool */, pker, stateCreator, ecdsaPrivKey, ecdsaPubKey, [4]byte{0x0, 0x0, 0x0, 0x0}, blsCommon, initDelegates)
 

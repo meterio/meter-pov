@@ -142,8 +142,8 @@ func MajorityTwoThird(voterNum, committeeSize uint32) bool {
 	return float64(voterNum) >= twoThirds
 }
 
-func (b *Block) VerifyQC(escortQC *QuorumCert, blsCommon *types.BlsCommon, committeeSize uint32, committee []*types.Validator) (bool, error) {
-
+func (b *Block) VerifyQC(escortQC *QuorumCert, blsCommon *types.BlsCommon, committee []*types.Validator) (bool, error) {
+	committeeSize := uint32(len(committee))
 	if b == nil {
 		// decode block to get qc
 		// fmt.Println("can not decode block", err)

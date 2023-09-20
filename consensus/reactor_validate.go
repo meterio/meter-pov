@@ -509,7 +509,7 @@ func (r *Reactor) buildKBlockTxs(parentBlock *block.Block, rewards []powpool.Pow
 
 		// exception for staging and testnet env
 		// otherwise (mainnet), build governing && autobid tx only when staking delegates is used
-		if meter.IsStaging() || meter.IsTestNet() || r.sourceDelegates != fromDelegatesFile {
+		if meter.IsStaging() || meter.IsTestNet() || r.delegateSource != fromDelegatesFile {
 			benefitRatio := governor.GetValidatorBenefitRatio(state)
 			validatorBaseReward := governor.GetValidatorBaseRewards(state)
 			epochBaseReward := governor.ComputeEpochBaseReward(validatorBaseReward)
@@ -531,7 +531,7 @@ func (r *Reactor) buildKBlockTxs(parentBlock *block.Block, rewards []powpool.Pow
 				// and then rewardMap is always 0
 				// now it won't build governing tx, and delegates never get re-calced
 				// then it's locked
-				if meter.IsStaging() || (meter.IsTestNet() && r.sourceDelegates == fromDelegatesFile) {
+				if meter.IsStaging() || (meter.IsTestNet() && r.delegateSource == fromDelegatesFile) {
 					// use staking delegates for calculation during staging
 					delegates, _ := r.getDelegatesFromStaking()
 					if err != nil {

@@ -8,11 +8,17 @@ package types
 import (
 	"crypto/ecdsa"
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
+	"io/ioutil"
+	"os"
+	"path"
 
 	"github.com/ethereum/go-ethereum/crypto"
 	bls "github.com/meterio/meter-pov/crypto/multi_sig"
 	"github.com/meterio/meter-pov/meter"
+	"github.com/meterio/meter-pov/preset"
+	"gopkg.in/urfave/cli.v1"
 )
 
 type Distributor struct {
@@ -78,3 +84,56 @@ const (
 	COMMISSION_RATE_MIN     = uint64(1 * 1e07)   // 1%
 	COMMISSION_RATE_DEFAULT = uint64(10 * 1e07)  // 10%
 )
+
+func LoadDelegatesFile(ctx *cli.Context, blsCommon *BlsCommon) []*Delegate {
+	delegates1 := make([]*DelegateDef, 0)
+
+	// load delegates from presets
+	var content []byte
+	if ctx.String("network") == "warringstakes" {
+		content = preset.MustAsset("shoal/delegates.json")
+	} else if ctx.String("network") == "main" {
+		content = preset.MustAsset("mainnet/delegates.json")
+	} else {
+		// load delegates from file system
+		dataDir := ctx.String("data-dir")
+		filePath := path.Join(dataDir, "delegates.json")
+		file, err := ioutil.ReadFile(filePath)
+		content = file
+		if err != nil {
+			fmt.Println("Unable load delegate file at", filePath, "error", err)
+			os.Exit(1)
+			return nil
+		}
+	}
+	err := json.Unmarshal(content, &delegates1)
+	if err != nil {
+		fmt.Println("Unable unmarshal delegate file, please check your config", "error", err)
+		os.Exit(1)
+		return nil
+	}
+
+	delegates := make([]*Delegate, 0)
+	for _, d := range delegates1 {
+		// first part is ecdsa public, 2nd part is bls public key
+		pubKey, blsPub := blsCommon.SplitPubKey(string(d.PubKey))
+
+		var addr meter.Address
+		if len(d.Address) != 0 {
+			addr, err = meter.ParseAddress(d.Address)
+			if err != nil {
+				fmt.Println("can't read address of delegates:", d.String(), "error", err)
+				os.Exit(1)
+				return nil
+			}
+		} else {
+			// derive from public key
+			fmt.Println("Warning: address for delegate is not set, so use address derived from public key as default")
+			addr = meter.Address(crypto.PubkeyToAddress(*pubKey))
+		}
+
+		dd := NewDelegate([]byte(d.Name), addr, *pubKey, *blsPub, d.PubKey, d.VotingPower, COMMISSION_RATE_DEFAULT, d.NetAddr)
+		delegates = append(delegates, dd)
+	}
+	return delegates
+}

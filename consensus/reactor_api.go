@@ -21,10 +21,10 @@ func (r *Reactor) InCommittee() bool {
 }
 
 func (r *Reactor) GetDelegatesSource() string {
-	if r.sourceDelegates == fromStaking {
+	if r.delegateSource == fromStaking {
 		return "staking"
 	}
-	if r.sourceDelegates == fromDelegatesFile {
+	if r.delegateSource == fromDelegatesFile {
 		return "localFile"
 	}
 	return ""

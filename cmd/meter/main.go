@@ -46,6 +46,7 @@ import (
 	"github.com/meterio/meter-pov/state"
 	"github.com/meterio/meter-pov/trie"
 	"github.com/meterio/meter-pov/txpool"
+	"github.com/meterio/meter-pov/types"
 	"github.com/pkg/errors"
 	cli "gopkg.in/urfave/cli.v1"
 )
@@ -259,13 +260,11 @@ func defaultAction(ctx *cli.Context) error {
 		ctx.Set("delegate-max-size", strconv.Itoa(config.DelegateMaxSize))
 		ctx.Set("disco-topic", config.DiscoTopic)
 		ctx.Set("disco-server", config.DiscoServer)
-	} else if "main" == ctx.String(networkFlag.Name) {
+	} else if "main" == ctx.String(networkFlag.Name) || "staging" == ctx.String(networkFlag.Name) {
 		config := preset.MainPresetConfig
 		ctx.Set("committee-min-size", strconv.Itoa(config.CommitteeMinSize))
 		ctx.Set("committee-max-size", strconv.Itoa(config.CommitteeMaxSize))
 		ctx.Set("delegate-max-size", strconv.Itoa(config.DelegateMaxSize))
-		ctx.Set("disco-topic", config.DiscoTopic)
-		ctx.Set("disco-server", config.DiscoServer)
 	}
 
 	// set magic
@@ -278,7 +277,7 @@ func defaultAction(ctx *cli.Context) error {
 	copy(consensusMagic[:], sum[:4])
 
 	// load delegates (from binary or from file)
-	initDelegates := loadDelegates(ctx, blsCommon)
+	initDelegates := types.LoadDelegatesFile(ctx, blsCommon)
 	printDelegates(initDelegates)
 
 	txPool := txpool.New(chain, state.NewCreator(mainDB), defaultTxPoolOptions)

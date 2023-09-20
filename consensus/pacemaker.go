@@ -703,6 +703,9 @@ func (p *Pacemaker) enterRound(round uint32, rtype roundType) bool {
 		p.logger.Warn(fmt.Sprintf("update round skipped %d->%d", p.currentRound, round))
 		return false
 	}
+	if !p.reactor.inCommittee {
+		return false
+	}
 	var interval time.Duration
 	switch rtype {
 	case RegularRound:

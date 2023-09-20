@@ -79,19 +79,21 @@ type Reactor struct {
 
 	// still references above consensuStae, reactor if this node is
 	// involved the consensus
-	delegateSize         int // global constant, current available delegate size.
-	committeeSize        uint32
-	allDelegates         []*types.Delegate
-	curDelegates         []*types.Delegate  // current delegates list
-	committee            []*types.Validator // Real committee, should be subset of curCommittee if someone is offline.
-	bootstrapCommittee11 []*types.Validator
-	bootstrapCommittee5  []*types.Validator
-	committeeIndex       uint32
-	inCommittee          bool
-	sourceDelegates      int
-	lastKBlockHeight     uint32
-	curNonce             uint64
-	curEpoch             uint64
+	committeeSize uint32
+	knownIPs      map[string]string
+	curDelegates  []*types.Delegate // current delegates list
+
+	committee            []*types.Validator // current committee that I start meter into
+	hardCommittee        []*types.Validator // committee that was supposed to issue the QC
+	bootstrapCommittee11 []*types.Validator // bootstrap committee of size 11
+	bootstrapCommittee5  []*types.Validator // bootstrap committee of size 5
+
+	committeeIndex   uint32
+	inCommittee      bool
+	delegateSource   int
+	lastKBlockHeight uint32
+	curNonce         uint64
+	curEpoch         uint64
 
 	blsCommon *types.BlsCommon //this must be allocated as validator
 	pacemaker *Pacemaker
@@ -124,6 +126,7 @@ func NewConsensusReactor(ctx *cli.Context, chain *chain.Chain, logDB *logdb.LogD
 		SyncDone:     false,
 		magic:        magic,
 		inCommittee:  false,
+		knownIPs:     make(map[string]string),
 
 		inQueue:    NewIncomingQueue(),
 		outQueue:   NewOutgoingQueue(),
@@ -196,13 +199,13 @@ func (r *Reactor) amIRoundProproser(round uint32) bool {
 	return bytes.Equal(p.PubKeyBytes, crypto.FromECDSAPub(&r.myPubKey))
 }
 
-func (r *Reactor) VerifyBothPubKey() {
-	for _, d := range r.allDelegates {
+func (r *Reactor) VerifyComboPubKey(delegates []*types.Delegate) {
+	for _, d := range delegates {
 		if bytes.Equal(crypto.FromECDSAPub(&d.PubKey), crypto.FromECDSAPub(&r.myPubKey)) {
 			if r.GetComboPubKey() != d.GetComboPubkey() {
 				fmt.Println("My Combo PubKey: ", r.GetComboPubKey())
 				fmt.Println("Combo PubKey in delegate list:", d.GetComboPubkey())
-				panic("ECDSA key found in delegate list, but combinePubKey mismatch")
+				panic("ECDSA key found in delegate list, but comboPubKey mismatch")
 			}
 
 			blsCommonSystem := r.blsCommon.GetSystem()
@@ -211,7 +214,7 @@ func (r *Reactor) VerifyBothPubKey() {
 			delegateBlsPubKey := blsCommonSystem.PubKeyToBytes(d.BlsPubKey)
 
 			if !bytes.Equal(myBlsPubKey, delegateBlsPubKey) {
-				panic("ECDSA key found in delegate list, but related BLS key mismatch with delegate, probably wrong info in candidate")
+				panic("ECDSA key found in delegate list, but BLS key mismatch, probably wrong info registered in candidate")
 			}
 		}
 	}
@@ -241,12 +244,15 @@ func (r *Reactor) sortBootstrapCommitteeByNonce(nonce uint64) {
 
 // it is used for temp calculate committee set by a given nonce in the fly.
 // also return the committee
-func (r *Reactor) calcCommitteeByNonce(nonce uint64) ([]*types.Validator, int, bool) {
+func (r *Reactor) calcCommitteeByNonce(delegates []*types.Delegate, nonce uint64) ([]*types.Delegate, []*types.Validator, uint32, bool) {
+	delegateSize, committeeSize := calcCommitteeSize(len(delegates), r.config)
+	actualDelegates := delegates[:delegateSize]
+
 	buf := make([]byte, binary.MaxVarintLen64)
 	binary.PutUvarint(buf, nonce)
 
 	validators := make([]*types.Validator, 0)
-	for _, d := range r.curDelegates {
+	for _, d := range actualDelegates {
 		v := &types.Validator{
 			Name:           string(d.Name),
 			Address:        d.Address,
@@ -260,13 +266,13 @@ func (r *Reactor) calcCommitteeByNonce(nonce uint64) ([]*types.Validator, int, b
 		}
 		validators = append(validators, v)
 	}
-	r.logger.Info("cal committee", "delegates", len(r.curDelegates), "committeeSize", r.committeeSize, "validators", len(validators), "nonce", nonce)
+	r.logger.Info("cal committee", "delegates", len(actualDelegates), "committeeSize", committeeSize, "validators", len(validators), "nonce", nonce)
 
 	sort.SliceStable(validators, func(i, j int) bool {
 		return (bytes.Compare(validators[i].SortKey, validators[j].SortKey) <= 0)
 	})
 
-	committee := validators[:r.committeeSize]
+	committee := validators[:committeeSize]
 	// the full list is stored in currCommittee, sorted.
 	// To become a validator (real member in committee), must repond the leader's
 	// announce. Validators are stored in r.conS.Vlidators
@@ -274,13 +280,13 @@ func (r *Reactor) calcCommitteeByNonce(nonce uint64) ([]*types.Validator, int, b
 		for i, val := range committee {
 			if bytes.Equal(crypto.FromECDSAPub(&val.PubKey), crypto.FromECDSAPub(&r.myPubKey)) {
 
-				return committee, i, true
+				return actualDelegates, committee, uint32(i), true
 			}
 		}
 	}
 
-	r.logger.Error("VALIDATOR SET is empty, potential error config with delegates.json", "delegates", len(r.curDelegates))
-	return committee, 0, false
+	r.logger.Error("VALIDATOR SET is empty, potential error config with delegates.json", "delegates", len(delegates))
+	return actualDelegates, committee, 0, false
 }
 
 func (r *Reactor) GetMyNetAddr() types.NetAddress {
@@ -338,11 +344,11 @@ func (r *Reactor) PrepareEnvForPacemaker() error {
 
 func (r *Reactor) verifyInCommittee() bool {
 	best := r.chain.BestBlock()
-	if r.config.InitCfgdDelegates {
+	if r.delegateSource == fromDelegatesFile {
 		return true
 	}
 
-	if !r.config.InitCfgdDelegates && !best.IsKBlock() && best.Number() != 0 {
+	if !best.IsKBlock() && best.Number() != 0 {
 		consentBlock, err := r.chain.GetTrunkBlock(best.LastKBlockHeight() + 1)
 		if err != nil {
 			fmt.Println("could not get committee info:", err)
@@ -394,57 +400,51 @@ func calcCommitteeSize(delegateSize int, config ReactorConfig) (int, int) {
 // entry point for each committee
 // return with delegates list, delegateSize, committeeSize
 // maxDelegateSize >= maxCommiteeSize >= minCommitteeSize
-func (r *Reactor) GetConsensusDelegates() ([]*types.Delegate, int, int) {
+func (r *Reactor) GetConsensusDelegates() ([]*types.Delegate, []*types.Delegate) {
 	forceDelegates := r.config.InitCfgdDelegates
 
 	// special handle for flag --init-configured-delegates
 	var delegates []*types.Delegate
 	var err error
-	hint := ""
 	if forceDelegates {
 		delegates = r.config.InitDelegates
-		r.sourceDelegates = fromDelegatesFile
-		hint = "Loaded delegates from delegates.json"
+		r.delegateSource = fromDelegatesFile
+		r.peakFirst3Delegates("Loaded delegates from file", delegates)
 	} else {
 		delegates, err = r.getDelegatesFromStaking()
-		hint = "Loaded delegates from staking"
-		r.sourceDelegates = fromStaking
+		r.delegateSource = fromStaking
+		r.peakFirst3Delegates("Loaded delegates from staking", delegates)
 		if err != nil || len(delegates) < r.config.MinCommitteeSize {
 			delegates = r.config.InitDelegates
-			hint = "Loaded delegates from delegates.json as fallback, error loading staking candiates"
-			r.sourceDelegates = fromDelegatesFile
+			r.delegateSource = fromDelegatesFile
+			r.peakFirst3Delegates("Loaded delegates from file as fallback", delegates)
 		}
 	}
 
+	for _, d := range delegates {
+		r.knownIPs[d.NetAddr.IP.String()] = string(d.Name)
+	}
+	stakingDelegates, _ := r.getDelegatesFromStaking()
+
+	return delegates, stakingDelegates
+}
+
+func (r *Reactor) peakFirst3Delegates(hint string, delegates []*types.Delegate) {
 	delegateSize, committeeSize := calcCommitteeSize(len(delegates), r.config)
-	r.allDelegates = delegates
-
 	first3Names := make([]string, 0)
-	if len(delegates) > 3 {
-		for _, d := range delegates[:3] {
-			name := string(d.Name)
-			first3Names = append(first3Names, name)
-		}
-	} else {
-		for _, d := range delegates {
-			name := string(d.Name)
-			first3Names = append(first3Names, name)
-		}
-
+	for i := 0; i < len(delegates) && i < 3; i++ {
+		d := delegates[i]
+		name := string(d.Name)
+		first3Names = append(first3Names, name)
 	}
 
 	r.logger.Info(hint, "delegateSize", delegateSize, "committeeSize", committeeSize, "first3", strings.Join(first3Names, ","))
-	// PrintDelegates(delegates[:delegateSize])
-	return delegates, delegateSize, committeeSize
 }
 
-func (r *Reactor) GetDelegateNameByIP(ip net.IP) string {
-	for _, d := range r.allDelegates {
-		if d.NetAddr.IP.String() == ip.String() {
-			return string(d.Name)
-		}
+func (r *Reactor) getNameByIP(ip net.IP) string {
+	if name, exist := r.knownIPs[ip.String()]; exist {
+		return name
 	}
-
 	return ""
 }
 
@@ -467,29 +467,24 @@ func (r *Reactor) UpdateCurEpoch() (bool, error) {
 		r.logger.Info("---------------------------------------------------------")
 		r.logger.Info(fmt.Sprintf(" Enter epoch %v", epoch), "lastEpoch", r.curEpoch)
 		r.logger.Info("---------------------------------------------------------")
+
 		//initialize Delegates
-		delegates, delegateSize, committeeSize := r.GetConsensusDelegates()
-		r.allDelegates = delegates
-		r.curDelegates = delegates[:delegateSize]
-		r.delegateSize = delegateSize
-		r.committeeSize = uint32(committeeSize)
+		delegates, stakingDelegates := r.GetConsensusDelegates()
 
 		// notice: this will panic if ECDSA key matches but BLS doesn't
-		r.VerifyBothPubKey()
+		r.VerifyComboPubKey(delegates)
+
+		r.curDelegates, r.committee, r.committeeIndex, r.inCommittee = r.calcCommitteeByNonce(delegates, nonce)
+		_, r.hardCommittee, _, _ = r.calcCommitteeByNonce(stakingDelegates, nonce)
+		r.sortBootstrapCommitteeByNonce(nonce)
+		r.PrintCommittee()
 
 		// update nonce
 		r.curNonce = nonce
 
-		r.sortBootstrapCommitteeByNonce(nonce)
-		committee, index, inCommittee := r.calcCommitteeByNonce(nonce)
-		r.committee = committee
-		r.committeeIndex = uint32(index)
-		r.inCommittee = inCommittee
-		r.PrintCommittee()
-
 		if r.inCommittee {
-			myAddr := committee[index].NetAddr
-			myName := committee[index].Name
+			myAddr := r.committee[r.committeeIndex].NetAddr
+			myName := r.committee[r.committeeIndex].Name
 
 			r.logger.Info("I'm IN committee !!!", "myName", myName, "myIP", myAddr.IP.String())
 			inCommitteeGauge.Set(1)
@@ -607,22 +602,33 @@ func (r *Reactor) OnReceiveMsg(w http.ResponseWriter, req *http.Request) {
 
 func (r *Reactor) ValidateQC(b *block.Block, escortQC *block.QuorumCert) bool {
 	// validate with current committee
-	valid, err := b.VerifyQC(escortQC, r.blsCommon, r.committeeSize, r.committee)
+	valid, err := b.VerifyQC(escortQC, r.blsCommon, r.committee)
 	if err != nil {
 		r.logger.Error("QC validate failed", "err", err)
 	}
 
-	fmt.Println("escortQC size", escortQC.VoterBitArray().Size())
-	if escortQC.VoterBitArray().Size() == 11 {
+	if r.delegateSource != fromStaking && escortQC.VoterBitArray().Size() == len(r.hardCommittee) {
+		// validate with hard committee
+		r.logger.Info("Validate QC with hard committee", "committeeSize", len(r.hardCommittee))
+		valid, err = b.VerifyQC(escortQC, r.blsCommon, r.hardCommittee)
+		if err != nil {
+			r.logger.Error("QC validate failed with hard committee", "err", err)
+		}
+
+	}
+
+	if escortQC.VoterBitArray().Size() == len(r.bootstrapCommittee11) {
 		// validate with bootstrap committee of size 11
-		valid, err = b.VerifyQC(escortQC, r.blsCommon, 11, r.bootstrapCommittee11)
+		r.logger.Info("Validate QC with bootstrap committee size 11")
+		valid, err = b.VerifyQC(escortQC, r.blsCommon, r.bootstrapCommittee11)
 		if err != nil {
 			r.logger.Error("QC validate failed with bootstrap committee size 11", "err", err)
 		}
 
-	} else if escortQC.VoterBitArray().Size() == 5 {
+	} else if escortQC.VoterBitArray().Size() == len(r.bootstrapCommittee5) {
 		// validate with bootstrap committee of size 5
-		valid, err = b.VerifyQC(escortQC, r.blsCommon, 5, r.bootstrapCommittee5)
+		r.logger.Info("Validate QC with bootstrap committee size 5")
+		valid, err = b.VerifyQC(escortQC, r.blsCommon, r.bootstrapCommittee5)
 		if err != nil {
 			r.logger.Error("QC validate failed with bootstrap committee size 5", "err", err)
 		}
@@ -631,27 +637,30 @@ func (r *Reactor) ValidateQC(b *block.Block, escortQC *block.QuorumCert) bool {
 	return valid
 }
 
-func (r *Reactor) PrintCommittee() {
+func (r *Reactor) peakCommittee(committee []*types.Validator) string {
 	s := make([]string, 0)
-	if len(r.committee) > 6 {
-		for index, val := range r.committee[:3] {
+	if len(committee) > 6 {
+		for index, val := range committee[:3] {
 			s = append(s, fmt.Sprintf("#%-4v %v", index, val.String()))
 		}
 		s = append(s, "...")
-		for index, val := range r.committee[len(r.committee)-3:] {
-			s = append(s, fmt.Sprintf("#%-4v %v", index+len(r.committee)-3, val.String()))
+		for index, val := range committee[len(committee)-3:] {
+			s = append(s, fmt.Sprintf("#%-4v %v", index+len(committee)-3, val.String()))
 		}
 	} else {
-		for index, val := range r.committee {
+		for index, val := range committee {
 			s = append(s, fmt.Sprintf("#%-2v %v", index, val.String()))
 		}
 	}
+	return strings.Join(s, "\n")
+}
 
-	fmt.Println("Current Committee:\n" + strings.Join(s, "\n"))
+func (r *Reactor) PrintCommittee() {
+	fmt.Println("Current Committee:\n" + r.peakCommittee(r.committee))
 
-	bs := make([]string, 0)
-	for _, v := range r.bootstrapCommittee11 {
-		bs = append(bs, v.String())
+	if r.delegateSource != fromStaking {
+		fmt.Println("Hard Committee:\n" + r.peakCommittee(r.hardCommittee))
 	}
-	fmt.Println("Bootstrap Committee:\n" + strings.Join(bs, "\n"))
+
+	fmt.Println("Bootstrap11 Committee:\n" + r.peakCommittee(r.bootstrapCommittee11))
 }
