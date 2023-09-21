@@ -19,6 +19,7 @@ import (
 	"net/http"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
 	cli "gopkg.in/urfave/cli.v1"
@@ -31,6 +32,7 @@ import (
 	bls "github.com/meterio/meter-pov/crypto/multi_sig"
 	"github.com/meterio/meter-pov/genesis"
 	"github.com/meterio/meter-pov/logdb"
+	"github.com/meterio/meter-pov/meter"
 	"github.com/meterio/meter-pov/packer"
 	"github.com/meterio/meter-pov/powpool"
 	"github.com/meterio/meter-pov/state"
@@ -601,39 +603,52 @@ func (r *Reactor) OnReceiveMsg(w http.ResponseWriter, req *http.Request) {
 }
 
 func (r *Reactor) ValidateQC(b *block.Block, escortQC *block.QuorumCert) bool {
-	// validate with current committee
-	valid, err := b.VerifyQC(escortQC, r.blsCommon, r.committee)
-	if err != nil {
-		r.logger.Error("QC validate failed", "err", err)
-	}
-
-	if r.delegateSource != fromStaking && escortQC.VoterBitArray().Size() == len(r.hardCommittee) {
-		// validate with hard committee
-		r.logger.Info("Validate QC with hard committee", "committeeSize", len(r.hardCommittee))
-		valid, err = b.VerifyQC(escortQC, r.blsCommon, r.hardCommittee)
-		if err != nil {
-			r.logger.Error("QC validate failed with hard committee", "err", err)
-		}
-
-	}
-
+	var valid bool
+	var err error
 	if escortQC.VoterBitArray().Size() == len(r.bootstrapCommittee11) {
 		// validate with bootstrap committee of size 11
-		r.logger.Info("Validate QC with bootstrap committee size 11")
+		start := time.Now()
 		valid, err = b.VerifyQC(escortQC, r.blsCommon, r.bootstrapCommittee11)
 		if err != nil {
 			r.logger.Error("QC validate failed with bootstrap committee size 11", "err", err)
 		}
-
+		r.logger.Info("Validate QC with bootstrap committee size 11", "valid", valid, "elapsed", meter.PrettyDuration(time.Since(start)))
+		if valid {
+			return true
+		}
 	} else if escortQC.VoterBitArray().Size() == len(r.bootstrapCommittee5) {
 		// validate with bootstrap committee of size 5
-		r.logger.Info("Validate QC with bootstrap committee size 5")
+		start := time.Now()
 		valid, err = b.VerifyQC(escortQC, r.blsCommon, r.bootstrapCommittee5)
 		if err != nil {
 			r.logger.Error("QC validate failed with bootstrap committee size 5", "err", err)
 		}
+		r.logger.Info("Validate QC with bootstrap committee size 5", "valid", valid, "elapsed", meter.PrettyDuration(time.Since(start)))
+		if valid {
+			return true
+		}
+	}
+	if r.delegateSource != fromStaking && escortQC.VoterBitArray().Size() == len(r.hardCommittee) {
+		// validate with hard committee
+		start := time.Now()
+		valid, err = b.VerifyQC(escortQC, r.blsCommon, r.hardCommittee)
+		if err != nil {
+			r.logger.Error("QC validate failed with hard committee", "err", err)
+		}
+		if valid {
+			return true
+		}
+		r.logger.Info("Validate QC with hard committee", "committeeSize", len(r.hardCommittee), "valid", valid, "elapsed", meter.PrettyDuration(time.Since(start)))
 	}
 
+	// validate with current committee
+	start := time.Now()
+	valid, err = b.VerifyQC(escortQC, r.blsCommon, r.committee)
+	if err != nil {
+		r.logger.Error("QC validate failed", "err", err)
+	}
+
+	r.logger.Info("Validate QC with current committee", "valid", valid, "elapsed", meter.PrettyDuration(time.Since(start)))
 	return valid
 }
 
