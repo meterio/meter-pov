@@ -916,6 +916,14 @@ func (rt *Runtime) ExecuteTransaction(tx *tx.Transaction) (receipt *tx.Receipt, 
 			return nil, err
 		}
 	}
+
+	// This is a hack for slow rlp.Encode/rlp.Decode
+	// originally, autobid was called by a tx with multiple clauses
+	// and each clause will read the auctionCB and save it back to db, and the rlp slows down the whole process
+	// now that we hack the state to only cache the updated auctionCB in memory
+	// and save it back to DB before it wraps up the whole tx execution
+	// and this boosts the performance for syncing and validating KBlock with autobids clauses by at least 10x
+	rt.state.CommitScriptEngineChanges()
 	return executor.Finalize()
 }
 
@@ -983,11 +991,10 @@ func (rt *Runtime) PrepareTransaction(tx *tx.Transaction) (*TransactionExecutor,
 				// vm exception here
 				// revert all executed clauses
 				// fmt.Println(output.Data)
-				fmt.Println("output Error:", output.VMErr, "for: ", txCtx.ID)
 				if reason, e := ethabi.UnpackRevert(output.Data); e == nil {
-					fmt.Println("Caused by: ", reason)
+					fmt.Println(txCtx.ID, "reverted with:", reason)
 				} else {
-					fmt.Println("unpackRevert err: ", e)
+					fmt.Println(txCtx.ID, "reverted err:", output.VMErr)
 				}
 				rt.state.RevertTo(checkpoint)
 				reverted = true
