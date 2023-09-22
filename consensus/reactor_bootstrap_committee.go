@@ -41,7 +41,7 @@ func (r *Reactor) bootstrapCommitteeSize5() []*types.Validator {
 	committee := make([]*types.Validator, 0)
 	for index, comboPubkey := range keys {
 		pubkey, blsPubkey := r.blsCommon.SplitPubKey(comboPubkey)
-		v := types.NewValidator("m0"+strconv.Itoa(index+1), meter.Address{}, *pubkey, *blsPubkey, 0)
+		v := types.NewValidator("m"+strconv.Itoa(index+1), meter.Address{}, *pubkey, *blsPubkey, 0)
 		committee = append(committee, v)
 	}
 	return committee

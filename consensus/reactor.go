@@ -226,7 +226,7 @@ func (r *Reactor) sortBootstrapCommitteeByNonce(nonce uint64) {
 	buf := make([]byte, binary.MaxVarintLen64)
 	binary.PutUvarint(buf, nonce)
 
-	r.logger.Info("sort bootstrap committee", "nonce", nonce)
+	r.logger.Info("cal bootstrap committee", "nonce", nonce)
 	// sort bootstrap committee size of 11
 	for _, v := range r.bootstrapCommittee11 {
 		v.SortKey = crypto.Keccak256(append(crypto.FromECDSAPub(&v.PubKey), buf...))
@@ -246,7 +246,7 @@ func (r *Reactor) sortBootstrapCommitteeByNonce(nonce uint64) {
 
 // it is used for temp calculate committee set by a given nonce in the fly.
 // also return the committee
-func (r *Reactor) calcCommitteeByNonce(delegates []*types.Delegate, nonce uint64) ([]*types.Delegate, []*types.Validator, uint32, bool) {
+func (r *Reactor) calcCommitteeByNonce(name string, delegates []*types.Delegate, nonce uint64) ([]*types.Delegate, []*types.Validator, uint32, bool) {
 	delegateSize, committeeSize := calcCommitteeSize(len(delegates), r.config)
 	actualDelegates := delegates[:delegateSize]
 
@@ -268,7 +268,7 @@ func (r *Reactor) calcCommitteeByNonce(delegates []*types.Delegate, nonce uint64
 		}
 		validators = append(validators, v)
 	}
-	r.logger.Info("cal committee", "delegates", len(actualDelegates), "committeeSize", committeeSize, "validators", len(validators), "nonce", nonce)
+	r.logger.Info(fmt.Sprintf("cal %s committee", name), "delegateSize", len(actualDelegates), "committeeSize", committeeSize, "nonce", nonce)
 
 	sort.SliceStable(validators, func(i, j int) bool {
 		return (bytes.Compare(validators[i].SortKey, validators[j].SortKey) <= 0)
@@ -285,9 +285,10 @@ func (r *Reactor) calcCommitteeByNonce(delegates []*types.Delegate, nonce uint64
 				return actualDelegates, committee, uint32(i), true
 			}
 		}
+	} else {
+		r.logger.Error("committee is empty, potential error config with delegates.json", "delegates", len(delegates))
 	}
 
-	r.logger.Error("VALIDATOR SET is empty, potential error config with delegates.json", "delegates", len(delegates))
 	return actualDelegates, committee, 0, false
 }
 
@@ -432,7 +433,6 @@ func (r *Reactor) GetConsensusDelegates() ([]*types.Delegate, []*types.Delegate)
 }
 
 func (r *Reactor) peakFirst3Delegates(hint string, delegates []*types.Delegate) {
-	delegateSize, committeeSize := calcCommitteeSize(len(delegates), r.config)
 	first3Names := make([]string, 0)
 	for i := 0; i < len(delegates) && i < 3; i++ {
 		d := delegates[i]
@@ -440,7 +440,7 @@ func (r *Reactor) peakFirst3Delegates(hint string, delegates []*types.Delegate) 
 		first3Names = append(first3Names, name)
 	}
 
-	r.logger.Info(hint, "delegateSize", delegateSize, "committeeSize", committeeSize, "first3", strings.Join(first3Names, ","))
+	r.logger.Info(hint, "first3", strings.Join(first3Names, ","))
 }
 
 func (r *Reactor) getNameByIP(ip net.IP) string {
@@ -466,8 +466,7 @@ func (r *Reactor) UpdateCurEpoch() (bool, error) {
 		epoch = bestK.GetBlockEpoch() + 1
 	}
 	if epoch >= r.curEpoch && r.curNonce != nonce {
-		r.logger.Info("---------------------------------------------------------")
-		r.logger.Info(fmt.Sprintf(" Enter epoch %v", epoch), "lastEpoch", r.curEpoch)
+		r.logger.Info(fmt.Sprintf("Entering epoch %v", epoch), "lastEpoch", r.curEpoch)
 		r.logger.Info("---------------------------------------------------------")
 
 		//initialize Delegates
@@ -476,8 +475,12 @@ func (r *Reactor) UpdateCurEpoch() (bool, error) {
 		// notice: this will panic if ECDSA key matches but BLS doesn't
 		r.VerifyComboPubKey(delegates)
 
-		r.curDelegates, r.committee, r.committeeIndex, r.inCommittee = r.calcCommitteeByNonce(delegates, nonce)
-		_, r.hardCommittee, _, _ = r.calcCommitteeByNonce(stakingDelegates, nonce)
+		r.curDelegates, r.committee, r.committeeIndex, r.inCommittee = r.calcCommitteeByNonce("current", delegates, nonce)
+		if r.delegateSource == fromStaking {
+			r.hardCommittee = r.committee
+		} else {
+			_, r.hardCommittee, _, _ = r.calcCommitteeByNonce("hard", stakingDelegates, nonce)
+		}
 		r.sortBootstrapCommitteeByNonce(nonce)
 		r.PrintCommittee()
 
@@ -506,6 +509,7 @@ func (r *Reactor) UpdateCurEpoch() (bool, error) {
 		lastEpoch := r.curEpoch
 		r.curEpoch = epoch
 		curEpochGauge.Set(float64(r.curEpoch))
+		r.logger.Info("---------------------------------------------------------")
 		r.logger.Info(fmt.Sprintf("Entered epoch %d", r.curEpoch), "lastEpoch", lastEpoch)
 		r.logger.Info("---------------------------------------------------------")
 		return true, nil
@@ -671,11 +675,11 @@ func (r *Reactor) peakCommittee(committee []*types.Validator) string {
 }
 
 func (r *Reactor) PrintCommittee() {
-	fmt.Println("Current Committee:\n" + r.peakCommittee(r.committee))
+	fmt.Printf("Current Committee (%d):\n%s\n", len(r.committee), r.peakCommittee(r.committee))
 
 	if r.delegateSource != fromStaking {
-		fmt.Println("Hard Committee:\n" + r.peakCommittee(r.hardCommittee))
+		fmt.Printf("Hard Committee (%d):\n%s\n", len(r.hardCommittee), r.peakCommittee(r.hardCommittee))
 	}
 
-	fmt.Println("Bootstrap11 Committee:\n" + r.peakCommittee(r.bootstrapCommittee11))
+	// fmt.Println("Bootstrap11 Committee:\n" + r.peakCommittee(r.bootstrapCommittee11))
 }

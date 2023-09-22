@@ -15,6 +15,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"math/big"
+	"time"
 
 	"github.com/inconshreveable/log15"
 
@@ -204,11 +205,13 @@ func (c *Reactor) validateBlockBody(blk *block.Block, parent *block.Block, force
 		proposalKBlock, powResults := powpool.GetGlobPowPoolInst().GetPowDecision()
 		if proposalKBlock && forceValidate {
 			rewards := powResults.Rewards
+			start := time.Now()
 			fmt.Println("---------------- Local Build KBlock Txs for validation ----------------")
 			kblockTxs := c.buildKBlockTxs(parent, rewards, chainTag, bestNum, curEpoch, best, state)
 			// for _, tx := range kblockTxs {
 			// 	fmt.Println("tx=", tx.ID(), ", uniteHash=", tx.UniteHash(), "gas", tx.Gas())
 			// }
+			fmt.Printf(" Elapsed: %s", meter.PrettyDuration(time.Since(start)))
 			fmt.Printf("---------------- End of Local Build %d KBlock Txs ----------------\n", len(kblockTxs))
 
 			// Decode.
