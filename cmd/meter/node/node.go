@@ -311,7 +311,7 @@ func (n *Node) processBlock(blk *block.Block, escortQC *block.QuorumCert, stats 
 	// shortcut to refresh epoch
 	n.reactor.UpdateCurEpoch()
 
-	if blk.IsKBlock() && !n.reactor.SyncDone {
+	if blk.IsKBlock() && n.reactor.SyncDone {
 		data, _ := blk.GetKBlockData()
 		info := consensus.EpochEndInfo{
 			Height:           blk.Number(),
