@@ -8,11 +8,13 @@ package comm
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/meterio/meter-pov/block"
 	"github.com/meterio/meter-pov/co"
 	"github.com/meterio/meter-pov/comm/proto"
+	"github.com/meterio/meter-pov/meter"
 	"github.com/pkg/errors"
 )
 
@@ -30,7 +32,7 @@ func (c *Communicator) download(peer *Peer, fromNum uint32, handler HandleBlockS
 	errCh := make(chan error, 2)
 
 	ctx, cancel := context.WithCancel(c.ctx)
-	blockCh := make(chan *block.EscortedBlock, 2048)
+	blockCh := make(chan *block.EscortedBlock, 4096)
 
 	var goes co.Goes
 	goes.Go(func() {
@@ -43,13 +45,14 @@ func (c *Communicator) download(peer *Peer, fromNum uint32, handler HandleBlockS
 		defer close(blockCh)
 		var blocks []*block.EscortedBlock
 		for {
+			start := time.Now()
 			result, err := proto.GetBlocksFromNumber(ctx, peer, fromNum)
 			if err != nil {
 				errCh <- err
 				return
 			}
 			if len(result) > 0 {
-				log.Info("Got Block", "len", len(result), "fromBlock", fromNum, "peer", peer.RemoteAddr().String())
+				log.Info("Got Block", "len", len(result), "fromBlock", fromNum, "peer", peer.RemoteAddr().String(), "elapsed", meter.PrettyDuration(time.Since(start)))
 			}
 			if len(result) == 0 {
 				return
@@ -94,6 +97,7 @@ func (c *Communicator) download(peer *Peer, fromNum uint32, handler HandleBlockS
 				case <-ctx.Done():
 					return
 				case blockCh <- blk:
+					// log.Info("Put in block chan", "blk", blk.Block.Number(), "len", len(blockCh), "cap", cap(blockCh))
 				}
 			}
 		}

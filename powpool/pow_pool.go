@@ -260,18 +260,18 @@ func NewPowResult(nonce uint32) *PowResult {
 
 // consensus APIs
 func (p *PowPool) GetPowDecision() (bool, *PowResult) {
-	var mostDifficaultResult *PowResult = nil
+	var mostDifficultResult *PowResult = nil
 
 	// cases can not be decided
 	if !p.all.isKframeInitialAdded() {
-		log.Info("GetPowDecision false: kframe is not initially added")
+		log.Info("Not ready for KBlock: first kframe in epoch is missing")
 		return false, nil
 	}
 	latestHeight := p.all.GetLatestHeight()
 	lastKframeHeight := p.all.lastKframePowObj.Height()
 	if (latestHeight < lastKframeHeight) ||
 		((latestHeight - lastKframeHeight) < meter.NPowBlockPerEpoch) {
-		log.Info("GetPowDecision false", "latestHeight", latestHeight, "lastKframeHeight", lastKframeHeight)
+		log.Info("Not ready for KBlock (my POW height is too low or not enough powblocks in this epoch)", "latestHeight", latestHeight, "lastKframeHeight", lastKframeHeight)
 		return false, nil
 	}
 
@@ -286,21 +286,21 @@ func (p *PowPool) GetPowDecision() (bool, *PowResult) {
 			continue
 		}
 
-		if mostDifficaultResult == nil {
-			mostDifficaultResult = result
+		if mostDifficultResult == nil {
+			mostDifficultResult = result
 		} else {
-			if result.Difficaulties.Cmp(mostDifficaultResult.Difficaulties) == 1 {
-				mostDifficaultResult = result
+			if result.Difficaulties.Cmp(mostDifficultResult.Difficaulties) == 1 {
+				mostDifficultResult = result
 			}
 		}
 	}
 
-	if mostDifficaultResult == nil {
-		log.Info("GetPowDecision false: not result")
+	if mostDifficultResult == nil {
+		log.Info("Not ready for KBlock : no result for most difficult chain")
 		return false, nil
 	} else {
-		log.Info("GetPowDecision true", "latestHeight", latestHeight, "lastKframeHeight", lastKframeHeight)
-		return true, mostDifficaultResult
+		log.Info("Ready for KBlock", "latestHeight", latestHeight, "lastKframeHeight", lastKframeHeight)
+		return true, mostDifficultResult
 	}
 }
 
