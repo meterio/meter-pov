@@ -9,7 +9,6 @@ import (
 	"context"
 	"fmt"
 	"sort"
-	"sync"
 	"time"
 
 	"github.com/beevik/ntp"
@@ -51,7 +50,6 @@ type Node struct {
 	txStashPath string
 	comm        *comm.Communicator
 	script      *script.ScriptEngine
-	commitLock  sync.Mutex
 }
 
 func SetGlobNode(node *Node) bool {
@@ -107,8 +105,8 @@ func (n *Node) handleBlockStream(ctx context.Context, stream <-chan *block.Escor
 	var stats blockStats
 	startTime := mclock.Now()
 
-	report := func(block *block.Block) {
-		log.Info(fmt.Sprintf("imported blocks (%v) ", stats.processed), stats.LogContext(block.Header())...)
+	report := func(block *block.Block, pending int) {
+		log.Info(fmt.Sprintf("imported blocks (%v) ", stats.processed), stats.LogContext(block.Header(), pending)...)
 		stats = blockStats{}
 		startTime = mclock.Now()
 	}
@@ -128,7 +126,7 @@ func (n *Node) handleBlockStream(ctx context.Context, stream <-chan *block.Escor
 
 		if stats.processed > 0 &&
 			mclock.Now()-startTime > mclock.AbsTime(time.Second*2) {
-			report(blk.Block)
+			report(blk.Block, len(stream))
 		}
 
 		select {
@@ -138,7 +136,7 @@ func (n *Node) handleBlockStream(ctx context.Context, stream <-chan *block.Escor
 		}
 	}
 	if blk != nil && stats.processed > 0 {
-		report(blk.Block)
+		report(blk.Block, len(stream))
 	}
 	return nil
 }
@@ -264,11 +262,18 @@ func (n *Node) processBlock(blk *block.Block, escortQC *block.QuorumCert, stats 
 	startTime := mclock.Now()
 	now := uint64(time.Now().Unix())
 
-	QCValid := n.reactor.ValidateQC(blk, escortQC)
-	if !QCValid {
-		return false, errors.New(fmt.Sprintf("invalid %s on Block %s", escortQC.String(), blk.ID().ToBlockShortID()))
+	if blk.Timestamp()+meter.BlockInterval > now {
+		QCValid := n.reactor.ValidateQC(blk, escortQC)
+		if !QCValid {
+			return false, errors.New(fmt.Sprintf("invalid %s on Block %s", escortQC.String(), blk.ID().ToBlockShortID()))
+		}
 	}
+	start := time.Now()
 	stage, receipts, err := n.reactor.ProcessSyncedBlock(blk, now)
+	if time.Since(start) > time.Millisecond*500 {
+		log.Info("slow processed block", "blk", blk.Number(), "elapsed", meter.PrettyDuration(time.Since(start)))
+	}
+
 	if err != nil {
 		switch {
 		case consensus.IsKnownBlock(err):
@@ -332,15 +337,12 @@ func (n *Node) processBlock(blk *block.Block, escortQC *block.QuorumCert, stats 
 }
 
 func (n *Node) commitBlock(newBlock *block.Block, escortQC *block.QuorumCert, receipts tx.Receipts) (*chain.Fork, error) {
-	n.commitLock.Lock()
-	defer n.commitLock.Unlock()
 	start := time.Now()
 	// fmt.Println("Calling AddBlock from node.commitBlock, newBlock=", newBlock.ID())
 	fork, err := n.chain.AddBlock(newBlock, escortQC, receipts)
 	if err != nil {
 		return nil, err
 	}
-	log.Info(fmt.Sprintf("synced %v", newBlock.ShortID()), "txs", len(newBlock.Txs), "epoch", newBlock.GetBlockEpoch(), "elapsed", meter.PrettyDuration(time.Since(start)))
 
 	if meter.IsMainNet() {
 		if newBlock.Number() == meter.TeslaMainnetStartNum {
@@ -348,22 +350,29 @@ func (n *Node) commitBlock(newBlock *block.Block, escortQC *block.QuorumCert, re
 		}
 	}
 
-	forkIDs := make([]meter.Bytes32, 0, len(fork.Branch))
-	for _, header := range fork.Branch {
-		forkIDs = append(forkIDs, header.ID())
-	}
+	// skip logdb access if no txs
+	if len(newBlock.Transactions()) > 0 {
+		forkIDs := make([]meter.Bytes32, 0, len(fork.Branch))
+		for _, header := range fork.Branch {
+			forkIDs = append(forkIDs, header.ID())
+		}
 
-	batch := n.logDB.Prepare(newBlock.Header())
-	for i, tx := range newBlock.Transactions() {
-		origin, _ := tx.Signer()
-		txBatch := batch.ForTransaction(tx.ID(), origin)
-		for _, output := range receipts[i].Outputs {
-			txBatch.Insert(output.Events, output.Transfers)
+		batch := n.logDB.Prepare(newBlock.Header())
+		for i, tx := range newBlock.Transactions() {
+			origin, _ := tx.Signer()
+			txBatch := batch.ForTransaction(tx.ID(), origin)
+			for _, output := range receipts[i].Outputs {
+				txBatch.Insert(output.Events, output.Transfers)
+			}
+		}
+
+		if err := batch.Commit(forkIDs...); err != nil {
+			return nil, errors.Wrap(err, "commit logs")
 		}
 	}
 
-	if err := batch.Commit(forkIDs...); err != nil {
-		return nil, errors.Wrap(err, "commit logs")
+	if time.Since(start) > time.Millisecond*500 {
+		log.Info(fmt.Sprintf("slow synced %v", newBlock.ShortID()), "txs", len(newBlock.Txs), "epoch", newBlock.GetBlockEpoch(), "elapsed", meter.PrettyDuration(time.Since(start)))
 	}
 	return fork, nil
 }
