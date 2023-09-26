@@ -4,6 +4,10 @@ VERSION=$(cat cmd/meter/VERSION)
 
 docker pull meterio/mainnet-pow:latest
 
+# get ready for a fallback
+docker pull meterio/mainnet:latest
+docker tag meterio/mainnet:latest meterio/mainnet:fallback
+
 # NOTICE: enable these lines if you need to upgrade gear version
 # echo "Building run-env image with tag: latest"
 # docker build -f _docker/run-env.Dockerfile -t meterio/run-env:latest .
