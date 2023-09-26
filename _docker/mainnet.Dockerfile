@@ -1,39 +1,15 @@
-FROM meterio/mainnet-pos:22.04 AS pos
-FROM meterio/mainnet-pow:22.04 AS pow
+FROM meterio/mainnet-pow:latest AS pow
 FROM meterio/bitcoind-exporter:latest as be
 
-FROM ubuntu:22.04
+# Build PoS with golang 1.19
+FROM meterio/build-env:latest as pos
+RUN go version
+WORKDIR  /meter
+COPY . .
+RUN make all
 
-ARG DEBIAN_FRONTEND=noninteractive
 
-# install necessary packages
-RUN apt-get -y update && apt-get install -y software-properties-common && rm -rf /var/lib/apt/lists/*
-RUN add-apt-repository -y ppa:deadsnakes/ppa 
-RUN apt-get update && apt-get install -y \
-  python3.9 \
-  python3.9-distutils \
-  python3-pip \
-  python3-setuptools \
-  python3-wheel \
-  supervisor \
-  rsyslog \
-  rsyslog-relp \
-  vim-tiny \
-  libgssapi-krb5-2 \
-  && rm -rf /var/lib/apt/lists/*
-RUN python3.9 -m pip install --no-cache-dir meter-gear==1.2.66
-
-# copy PoS binary
-COPY --from=pos /usr/bin/meter /usr/bin/
-COPY --from=pos /usr/bin/disco /usr/bin/
-COPY --from=pos /usr/bin/mdb /usr/bin/
-ENV MDB_NETWORK=main
-ENV MDB_DATA_DIR=/pos
-
-# copy PoS dependencies
-COPY --from=pos /usr/lib/libpbc.so* /usr/lib/
-ENV LD_LIBRARY_PATH=/usr/lib:/usr/local/lib
-
+FROM meterio/run-env:latest
 # copy PoW binary
 COPY --from=pow /usr/local/bin/bitcoind /usr/bin/
 COPY --from=pow /usr/local/bin/bitcoin-cli /usr/bin/
@@ -85,6 +61,19 @@ RUN touch /var/log/supervisor/pos.log
 RUN touch /var/log/supervisor/pow.log
 RUN touch /var/log/supervisor/gear.log
 RUN touch /var/log/supervisor/bitcoind_exporter.log
+
+
+
+# copy PoS binary
+COPY --from=pos /meter/bin/meter /usr/bin/
+COPY --from=pos /meter/bin/disco /usr/bin/
+COPY --from=pos /meter/bin/mdb /usr/bin/
+ENV MDB_NETWORK=main
+ENV MDB_DATA_DIR=/pos
+
+# copy PoS dependencies
+COPY --from=pos /meter/crypto/multi_sig/libpbc.so* /usr/lib/
+ENV LD_LIBRARY_PATH=/usr/lib:/usr/local/lib
 
 EXPOSE 8668 8669 8670 11235 11235/udp 55555/udp 8332 9209 8545 8333
 ENTRYPOINT [ "/usr/bin/supervisord" ]
