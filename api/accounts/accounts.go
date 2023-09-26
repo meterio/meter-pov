@@ -9,6 +9,7 @@ import (
 	"context"
 	"fmt"
 	"math/big"
+	"math/rand"
 	"net/http"
 	"strconv"
 
@@ -235,6 +236,7 @@ func (a *Accounts) batchCall(ctx context.Context, batchCallData *BatchCallData, 
 			Origin:     *caller,
 			GasPrice:   gasPrice,
 			BlockRef:   blockRef,
+			Nonce:      rand.Uint64(),
 			ProvedWork: &big.Int{}})
 		go func() {
 			out, _ := exec()
