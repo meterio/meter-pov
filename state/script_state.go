@@ -91,7 +91,8 @@ func (s *State) GetSummaryList() (result *meter.AuctionSummaryList) {
 	cached := s.seCache.GetAuctionSummaryList()
 	if cached != nil {
 		result = cached
-		return nil
+		// fmt.Println("Load summary list from cache", len(result.Summaries))
+		return
 	}
 	s.DecodeStorage(meter.AuctionModuleAddr, meter.AuctionSummaryListKey, func(raw []byte) error {
 		summaries := make([]*meter.AuctionSummary, 0)
@@ -109,6 +110,7 @@ func (s *State) GetSummaryList() (result *meter.AuctionSummaryList) {
 
 		}
 
+		// fmt.Println("Load summary list from storage", len(summaries))
 		result = meter.NewAuctionSummaryList(summaries)
 		s.seCache.SetAuctionSummaryList(result)
 		return nil
