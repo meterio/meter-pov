@@ -12,6 +12,7 @@ import (
 	"encoding/base64"
 	b64 "encoding/base64"
 	"encoding/binary"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -316,30 +317,28 @@ func (r *Reactor) PrepareEnvForPacemaker() error {
 	bestBlock := r.chain.BestBlock()
 	bestIsKBlock := bestBlock.IsKBlock() || bestBlock.Header().Number() == 0
 
-	updated, err := r.UpdateCurEpoch()
+	_, err = r.UpdateCurEpoch()
 	if err != nil {
 		return err
 	}
 	r.logger.Info("prepare env for pacemaker", "nonce", r.curNonce, "bestK", bestKBlock.Number(), "bestIsKBlock", bestIsKBlock, "epoch", r.curEpoch)
 
-	if updated {
-		var info *powpool.PowBlockInfo
-		if bestKBlock.Number() == 0 {
-			info = powpool.GetPowGenesisBlockInfo()
-		} else {
-			info = powpool.NewPowBlockInfoFromPosKBlock(bestKBlock)
-		}
-		// r.logger.Info("Powpool prepare to add kframe, and notify PoW chain to pick head", "powHeight", info.PowHeight, "powRawBlock", hex.EncodeToString(info.PowRaw))
-		pool := powpool.GetGlobPowPoolInst()
-		pool.Wash()
-		pool.InitialAddKframe(info)
-		r.logger.Info("Powpool initial added kframe", "bestK", bestKBlock.Number(), "powHeight", info.PowHeight)
-		if r.inCommittee && bestIsKBlock {
-			//kblock is already added to pool, should start with next one
-			startHeight := info.PowHeight + 1
-			r.logger.Info("Replay pow blocks", "fromHeight", startHeight)
-			pool.ReplayFrom(int32(startHeight))
-		}
+	var info *powpool.PowBlockInfo
+	if bestKBlock.Number() == 0 {
+		info = powpool.GetPowGenesisBlockInfo()
+	} else {
+		info = powpool.NewPowBlockInfoFromPosKBlock(bestKBlock)
+	}
+	r.logger.Info("Powpool prepare to add kframe, and notify PoW chain to pick head", "powHeight", info.PowHeight, "powRawBlock", hex.EncodeToString(info.PowRaw))
+	pool := powpool.GetGlobPowPoolInst()
+	// pool.Wash()
+	pool.InitialAddKframe(info)
+	r.logger.Info("Powpool initial added kframe", "bestK", bestKBlock.Number(), "powHeight", info.PowHeight)
+	if r.inCommittee {
+		//kblock is already added to pool, should start with next one
+		startHeight := info.PowHeight + 1
+		r.logger.Info("Replay pow blocks", "fromHeight", startHeight)
+		pool.ReplayFrom(int32(startHeight))
 	}
 
 	return nil
@@ -476,6 +475,7 @@ func (r *Reactor) UpdateCurEpoch() (bool, error) {
 		r.VerifyComboPubKey(delegates)
 
 		r.curDelegates, r.committee, r.committeeIndex, r.inCommittee = r.calcCommitteeByNonce("current", delegates, nonce)
+		r.committeeSize = uint32(len(r.committee))
 		if r.delegateSource == fromStaking {
 			r.hardCommittee = r.committee
 		} else {

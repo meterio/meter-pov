@@ -278,7 +278,7 @@ func (c *Reactor) validateBlockBody(blk *block.Block, parent *block.Block, force
 			}
 
 			if forceValidate {
-				log.Info("validating tx", "tx", tx.ID().String(), "uhash", tx.UniteHash().String(), "gas", tx.Gas())
+				log.Info("validating kblock tx", "tx", tx.ID().String(), "uhash", tx.UniteHash().String(), "gas", tx.Gas())
 
 				// Validate.
 				txUH := tx.UniteHash()
