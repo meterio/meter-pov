@@ -1,39 +1,19 @@
 #!/bin/bash
 
-# this script build docker image for these repo:
-# pos-only image: meterio/pos
-# full image: meterio/mainnet
-# with two tags (latest & $version)
-
 VERSION=$(cat cmd/meter/VERSION)
-POS_DOCKER_REPO=meterio/mainnet-pos
-POW_DOCKER_RPEO=meterio/mainnet-pow
-POW_STATIC_TAG=$POW_DOCKER_RPEO:22.04
 
-POS_DOCKERFILE=_docker/pos.Dockerfile
-POS_VERSION_TAG=$POS_DOCKER_REPO:$VERSION
-POS_STATIC_TAG=$POS_DOCKER_REPO:22.04
+docker pull meterio/mainnet-pow:latest
 
-FULL_DOCKER_REPO=meterio/mainnet
-FULL_DOCKERFILE=_docker/mainnet.Dockerfile
-FULL_VERSION_TAG=$FULL_DOCKER_REPO:tesla
-FULL_STATIC_TAG=$FULL_DOCKER_REPO:latest
+# NOTICE: enable these lines if you need to upgrade gear version
+# echo "Building run-env image with tag: latest"
+# docker build -f _docker/run-env.Dockerfile -t meterio/run-env:latest .
+# docker push meterio/run-env:latest
 
-echo "Building docker image $POS_VERSION_TAG & $POS_STATIC_TAG"
-docker build -f $POS_DOCKERFILE -t $POS_VERSION_TAG .
-docker tag $POS_VERSION_TAG $POS_STATIC_TAG
+echo "Building mainnet image with tags: tesla and latest"
+docker build -f _docker/mainnet.Dockerfile -t meterio/mainnet:tesla .
+docker tag meterio/mainnet:tesla meterio/mainnet:latest
 
-echo "Push to DockerHub with tags: $POS_VERSION_TAG & $POS_STATIC_TAG"
-docker push $POS_VERSION_TAG
-docker push $POS_STATIC_TAG
+docker push meterio/mainnet:tesla
 
-echo "Pull latest docker image with tags: $POS_STATIC_TAG & $POW_STATIC_TAG"
-docker pull $POS_STATIC_TAG
-docker pull $POW_STATIC_TAG
-
-echo "Building docker image: $FULL_VERSION_TAG $FULL_STATIC_TAG"
-docker build -f $FULL_DOCKERFILE -t $FULL_VERSION_TAG .
-docker tag $FULL_VERSION_TAG $FULL_STATIC_TAG
-
-#docker push $FULL_STATIC_TAG
-#docker push $FULL_VERSION_TAG
+# USE WITH CAUTION: this will trigger a full network reboot
+# docker push meterio/mainnet:latest
