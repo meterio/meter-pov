@@ -130,6 +130,9 @@ func (c *Communicator) handleRPC(peer *Peer, msg *p2p.Msg, write func(interface{
 		result := make([]rlp.RawValue, 0, maxBlocks)
 		var size metric.StorageSize
 		for size < maxSize && len(result) < maxBlocks {
+			if num > c.chain.BestBlock().Number() {
+				break
+			}
 			blk, err := c.chain.GetTrunkBlock(num)
 			if err != nil {
 				if !c.chain.IsNotFound(err) {

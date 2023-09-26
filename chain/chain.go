@@ -355,6 +355,7 @@ func (c *Chain) AddBlock(newBlock *block.Block, escortQC *block.QuorumCert, rece
 
 	var fork *Fork
 	isTrunk := c.isTrunk(newBlock.Header())
+	// log.Info("isTrunk", "blk", newBlock.Number(), "isTrunk", isTrunk)
 	if isTrunk {
 		if fork, err = c.buildFork(newBlock.Header(), c.bestBlock.Header()); err != nil {
 			return nil, err
@@ -365,7 +366,7 @@ func (c *Chain) AddBlock(newBlock *block.Block, escortQC *block.QuorumCert, rece
 		}
 		c.bestBlock = newBlock
 		bestHeightGauge.Set(float64(c.bestBlock.Number()))
-		log.Debug("Update Best Block", "bestBlock", newBlock.ID())
+		log.Debug("saved best block", "blk", newBlock.ID())
 
 		if escortQC == nil {
 			return nil, errors.New("escort QC is nil")
@@ -374,6 +375,7 @@ func (c *Chain) AddBlock(newBlock *block.Block, escortQC *block.QuorumCert, rece
 		if err != nil {
 			fmt.Println("Error during update QC: ", err)
 		}
+		log.Debug("saved best qc")
 		c.bestQC = escortQC
 
 	} else {
