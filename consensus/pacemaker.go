@@ -81,7 +81,6 @@ func NewPacemaker(r *Reactor) *Pacemaker {
 }
 
 func (p *Pacemaker) CreateLeaf(parent *draftBlock, justify *draftQC, round uint32) (error, *draftBlock) {
-	p.logger.Info(fmt.Sprintf("CreateLeaf on round:%v with QCHigh(H:%v,R:%v), Parent(H:%v,R:%v,Block:%v)", round, justify.QC.QCHeight, justify.QC.QCRound, parent.Height, parent.Round, parent.ProposedBlock.ID().ToBlockShortID()))
 	timeout := p.TCHigh != nil
 	parentBlock := parent.ProposedBlock
 	if parentBlock == nil {
@@ -97,10 +96,12 @@ func (p *Pacemaker) CreateLeaf(parent *draftBlock, justify *draftQC, round uint3
 
 	// propose appropriate block info
 	if proposeStopCommitteeBlock {
+		p.logger.Info(fmt.Sprintf("proposing SBlock on round:%v with QCHigh(H:%v,R:%v), Parent(H:%v,R:%v,Block:%v)", round, justify.QC.QCHeight, justify.QC.QCRound, parent.Height, parent.Round, parent.ProposedBlock.ID().ToBlockShortID()))
 		return p.buildStopCommitteeBlock(parent, justify, round)
 	} else if proposeKBlock {
 		kblockData := &block.KBlockData{Nonce: uint64(powResults.Nonce), Data: powResults.Raw}
 		rewards := powResults.Rewards
+		p.logger.Info(fmt.Sprintf("proposing KBlock on round:%v with QCHigh(H:%v,R:%v), Parent(H:%v,R:%v,Block:%v)", round, justify.QC.QCHeight, justify.QC.QCRound, parent.Height, parent.Round, parent.ProposedBlock.ID().ToBlockShortID()))
 		return p.buildKBlock(parent, justify, round, kblockData, rewards)
 	} else {
 		if p.reactor.curEpoch != 0 && round != 0 && round <= justify.QC.QCRound {
@@ -111,6 +112,7 @@ func (p *Pacemaker) CreateLeaf(parent *draftBlock, justify *draftQC, round uint3
 			p.logger.Warn("Invalid round to propose", "round", round, "parentRound", parent.Round)
 			return ErrInvalidRound, nil
 		}
+		p.logger.Info(fmt.Sprintf("proposing MBlock on round:%v with QCHigh(H:%v,R:%v), Parent(H:%v,R:%v,Block:%v)", round, justify.QC.QCHeight, justify.QC.QCRound, parent.Height, parent.Round, parent.ProposedBlock.ID().ToBlockShortID()))
 		return p.buildMBlock(parent, justify, round)
 	}
 }
@@ -273,7 +275,7 @@ func (p *Pacemaker) OnReceiveProposal(mi *IncomingMsg) {
 
 	// check QC with parent
 	if match := p.reactor.ValidateQC(parent.ProposedBlock, qc); !match {
-		p.logger.Error("parent doesn't match qc in proposal ...", "qcHeight", qc.QCHeight, "qcRound", qc.QCRound, "parent", parent.ProposedBlock.ID().ToBlockShortID())
+		p.logger.Error("validate QC failed ...", "qc", qc.String(), "parent", parent.ProposedBlock.ID().ToBlockShortID())
 		// Theoratically, this should not be worrisome anymore, since the parent is addressed by blockID
 		// instead of addressing proposal by height, we already supported the fork in proposal space
 		// so if the qc doesn't match parent proposal known to me, cases are:
@@ -386,7 +388,7 @@ func (p *Pacemaker) OnReceiveVote(mi *IncomingMsg) {
 	changed := p.UpdateQCHigh(newDraftQC)
 	if changed {
 		// if QC is updated, schedule onbeat now
-		p.ScheduleOnBeat(p.reactor.curEpoch, round+1, 1000*time.Millisecond)
+		p.ScheduleOnBeat(p.reactor.curEpoch, round+1, 2000*time.Millisecond)
 	}
 }
 
@@ -403,6 +405,7 @@ func (p *Pacemaker) OnPropose(qc *draftQC, round uint32) {
 		p.logger.Error("proposed block refers to an invalid qc", "proposedQC", qc.QC.QCHeight, "proposedHeight", bnew.Height)
 		return
 	}
+	p.logger.Info(fmt.Sprintf("proposed %s", bnew.ProposedBlock.Oneliner()))
 
 	msg, err := p.BuildProposalMessage(bnew.Height, bnew.Round, bnew, p.TCHigh)
 	if err != nil {
@@ -721,7 +724,7 @@ func (p *Pacemaker) enterRound(round uint32, rtype roundType) bool {
 	oldRound := p.currentRound
 	p.currentRound = round
 	proposer := p.reactor.getRoundProposer(round)
-	p.logger.Info(fmt.Sprintf("round %d->%d, timer started", oldRound, p.currentRound), "type", rtype.String(), "proposer", proposer.NameAndIP(), "interval", meter.PrettyDuration(interval))
+	p.logger.Info(fmt.Sprintf("round %d started", p.currentRound), "lastRound", oldRound, "type", rtype.String(), "proposer", proposer.NameAndIP(), "interval", meter.PrettyDuration(interval))
 	pmRoundGauge.Set(float64(p.currentRound))
 	return true
 }

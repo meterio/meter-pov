@@ -105,9 +105,15 @@ func (p *Pacemaker) ValidateProposal(b *draftBlock) error {
 	now := uint64(time.Now().Unix())
 	stage, receipts, err := p.reactor.ProcessProposedBlock(parentBlock, blk, now)
 	if err != nil && err != errKnownBlock {
-		p.logger.Error("process block failed", "proposed", blk.Oneliner(), "err", err)
+		p.logger.Error("process proposed failed", "proposed", blk.Oneliner(), "err", err)
 		b.SuccessProcessed = false
 		b.ProcessError = err
+		return err
+	}
+
+	if stage == nil {
+		p.logger.Warn("Empty stage !!!")
+	} else if _, err := stage.Commit(); err != nil {
 		return err
 	}
 

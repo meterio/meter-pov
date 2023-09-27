@@ -116,10 +116,17 @@ func (p *ProposalMap) Prune(lastCommitted *draftBlock) {
 			delete(p.proposals, draftBlk.ProposedBlock.ID())
 		}
 		if draftBlk.ProposedBlock.Number() == lastCommitted.Height {
+			// clean up not-finalized block
+			// return tx to txpool
 			if !draftBlk.ProposedBlock.ID().Equal(lastCommitted.ProposedBlock.ID()) {
-				// TODO: return txs to txpool
 				draftBlk.txsToReturned()
 			}
+			//FIXME: should prune this state trie in database
+			// state, err := stateC.NewState(draftBlk.ProposedBlock.StateRoot())
+			// if err == nil {
+			// 	state.RevertTo(draftBlk.CheckPoint)
+			// }
+			// delete from proposal map
 			delete(p.proposals, draftBlk.ProposedBlock.ID())
 		}
 	}
