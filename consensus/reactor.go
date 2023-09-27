@@ -87,6 +87,7 @@ type Reactor struct {
 	curDelegates  []*types.Delegate // current delegates list
 
 	committee            []*types.Validator // current committee that I start meter into
+	lastCommittee        []*types.Validator
 	hardCommittee        []*types.Validator // committee that was supposed to issue the QC
 	bootstrapCommittee11 []*types.Validator // bootstrap committee of size 11
 	bootstrapCommittee5  []*types.Validator // bootstrap committee of size 5
@@ -125,7 +126,7 @@ func NewConsensusReactor(ctx *cli.Context, chain *chain.Chain, logDB *logdb.LogD
 		chain:        chain,
 		logDB:        logDB,
 		stateCreator: state,
-		logger:       log15.New("pkg", "reactor"),
+		logger:       log15.New("pkg", "r"),
 		SyncDone:     false,
 		magic:        magic,
 		inCommittee:  false,
@@ -336,9 +337,10 @@ func (r *Reactor) PrepareEnvForPacemaker() error {
 	r.logger.Info("Powpool initial added kframe", "bestK", bestKBlock.Number(), "powHeight", info.PowHeight)
 	if r.inCommittee {
 		//kblock is already added to pool, should start with next one
-		startHeight := info.PowHeight + 1
-		r.logger.Info("Replay pow blocks", "fromHeight", startHeight)
-		pool.ReplayFrom(int32(startHeight))
+		// startHeight := info.PowHeight + 1
+		// r.logger.Info("Replay pow blocks", "fromHeight", startHeight)
+		// pool.ReplayFrom(int32(startHeight))
+		pool.WaitForSync()
 	}
 
 	return nil
@@ -413,7 +415,8 @@ func (r *Reactor) GetConsensusDelegates() ([]*types.Delegate, []*types.Delegate)
 		r.delegateSource = fromDelegatesFile
 		r.peakFirst3Delegates("Loaded delegates from file", delegates)
 	} else {
-		delegates, err = r.getDelegatesFromStaking()
+		best := r.chain.BestBlock()
+		delegates, err = r.getDelegatesFromStaking(best)
 		r.delegateSource = fromStaking
 		r.peakFirst3Delegates("Loaded delegates from staking", delegates)
 		if err != nil || len(delegates) < r.config.MinCommitteeSize {
@@ -426,7 +429,8 @@ func (r *Reactor) GetConsensusDelegates() ([]*types.Delegate, []*types.Delegate)
 	for _, d := range delegates {
 		r.knownIPs[d.NetAddr.IP.String()] = string(d.Name)
 	}
-	stakingDelegates, _ := r.getDelegatesFromStaking()
+	best := r.chain.BestBlock()
+	stakingDelegates, _ := r.getDelegatesFromStaking(best)
 
 	return delegates, stakingDelegates
 }
@@ -474,6 +478,30 @@ func (r *Reactor) UpdateCurEpoch() (bool, error) {
 		// notice: this will panic if ECDSA key matches but BLS doesn't
 		r.VerifyComboPubKey(delegates)
 
+		if len(r.committee) > 0 {
+			r.lastCommittee = r.committee
+		} else {
+			lastBestKHeight := bestK.LastKBlockHeight()
+			var lastNonce uint64
+			if lastBestKHeight == 0 {
+				lastNonce = 0
+			} else {
+				lastBestK, err := r.chain.GetTrunkBlock(lastBestKHeight)
+				if err != nil {
+					r.logger.Error("could not get trunk block", "err", err)
+				} else {
+					lastNonce = lastBestK.KBlockData.Nonce
+				}
+			}
+			lastBestK, _ := r.chain.GetTrunkBlock(lastBestKHeight)
+			lastDelegates, err := r.getDelegatesFromStaking(lastBestK)
+			if err != nil {
+				r.logger.Error("could not get delegates from staking", "err", err)
+			} else {
+				_, r.lastCommittee, _, _ = r.calcCommitteeByNonce("last", lastDelegates, lastNonce)
+			}
+
+		}
 		r.curDelegates, r.committee, r.committeeIndex, r.inCommittee = r.calcCommitteeByNonce("current", delegates, nonce)
 		r.committeeSize = uint32(len(r.committee))
 		if r.delegateSource == fromStaking {
@@ -609,15 +637,28 @@ func (r *Reactor) OnReceiveMsg(w http.ResponseWriter, req *http.Request) {
 func (r *Reactor) ValidateQC(b *block.Block, escortQC *block.QuorumCert) bool {
 	var valid bool
 	var err error
+
+	// KBlock should be verified with last committee
+	if b.IsKBlock() && b.Number() > 0 && b.Number() < r.chain.BestBlock().Number() {
+		start := time.Now()
+		valid, err = b.VerifyQC(escortQC, r.blsCommon, r.lastCommittee)
+		if err != nil {
+			r.logger.Error("validate QC with last committee FAILED", "size", len(r.lastCommittee), "err", err)
+		}
+		if valid {
+			r.logger.Info("validated QC with last committee", "elapsed", meter.PrettyDuration(time.Since(start)))
+			return true
+		}
+	}
 	if escortQC.VoterBitArray().Size() == len(r.bootstrapCommittee11) {
 		// validate with bootstrap committee of size 11
 		start := time.Now()
 		valid, err = b.VerifyQC(escortQC, r.blsCommon, r.bootstrapCommittee11)
 		if err != nil {
-			r.logger.Error("QC validate failed with bootstrap committee size 11", "err", err)
+			r.logger.Error("validate QC with bootstrap committee size 11 FAILED", "err", err)
 		}
-		r.logger.Info("Validate QC with bootstrap committee size 11", "valid", valid, "elapsed", meter.PrettyDuration(time.Since(start)))
 		if valid {
+			r.logger.Info("validated QC with bootstrap committee size 11", "elapsed", meter.PrettyDuration(time.Since(start)))
 			return true
 		}
 	} else if escortQC.VoterBitArray().Size() == len(r.bootstrapCommittee5) {
@@ -625,10 +666,10 @@ func (r *Reactor) ValidateQC(b *block.Block, escortQC *block.QuorumCert) bool {
 		start := time.Now()
 		valid, err = b.VerifyQC(escortQC, r.blsCommon, r.bootstrapCommittee5)
 		if err != nil {
-			r.logger.Error("QC validate failed with bootstrap committee size 5", "err", err)
+			r.logger.Error("validate QC with bootstrap committee size 5 FAILED", "err", err)
 		}
-		r.logger.Info("Validate QC with bootstrap committee size 5", "valid", valid, "elapsed", meter.PrettyDuration(time.Since(start)))
 		if valid {
+			r.logger.Info("validated QC with bootstrap committee size 5", "elapsed", meter.PrettyDuration(time.Since(start)))
 			return true
 		}
 	}
@@ -637,22 +678,24 @@ func (r *Reactor) ValidateQC(b *block.Block, escortQC *block.QuorumCert) bool {
 		start := time.Now()
 		valid, err = b.VerifyQC(escortQC, r.blsCommon, r.hardCommittee)
 		if err != nil {
-			r.logger.Error("QC validate failed with hard committee", "err", err)
+			r.logger.Error("validate QC with hard committee FAILED", "err", err)
 		}
 		if valid {
+			r.logger.Info("validated QC with hard committee", "committeeSize", len(r.hardCommittee), "elapsed", meter.PrettyDuration(time.Since(start)))
 			return true
 		}
-		r.logger.Info("Validate QC with hard committee", "committeeSize", len(r.hardCommittee), "valid", valid, "elapsed", meter.PrettyDuration(time.Since(start)))
 	}
 
 	// validate with current committee
 	start := time.Now()
 	valid, err = b.VerifyQC(escortQC, r.blsCommon, r.committee)
 	if err != nil {
-		r.logger.Error("QC validate failed", "err", err)
+		r.logger.Error("validate QC failed", "err", err)
 	}
 
-	r.logger.Info("Validate QC with current committee", "valid", valid, "elapsed", meter.PrettyDuration(time.Since(start)))
+	if valid {
+		r.logger.Info(fmt.Sprintf("validated %s", escortQC.CompactString()), "elapsed", meter.PrettyDuration(time.Since(start)))
+	}
 	return valid
 }
 

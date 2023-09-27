@@ -34,11 +34,10 @@ func convertDistList(dist []*meter.Distributor) []*types.Distributor {
 	return list
 }
 
-func (r *Reactor) getDelegatesFromStaking() ([]*types.Delegate, error) {
+func (r *Reactor) getDelegatesFromStaking(revision *block.Block) ([]*types.Delegate, error) {
 	delegateList := []*types.Delegate{}
 
-	best := r.chain.BestBlock()
-	state, err := r.stateCreator.NewState(best.Header().StateRoot())
+	state, err := r.stateCreator.NewState(revision.StateRoot())
 	if err != nil {
 		return delegateList, err
 	}
