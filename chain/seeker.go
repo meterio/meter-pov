@@ -6,6 +6,8 @@
 package chain
 
 import (
+	"fmt"
+
 	"github.com/meterio/meter-pov/block"
 	"github.com/meterio/meter-pov/meter"
 )
@@ -41,6 +43,9 @@ func (s *Seeker) GetID(num uint32) meter.Bytes32 {
 		panic("num exceeds head block")
 	}
 	id, err := s.chain.GetAncestorBlockID(s.headBlockID, num)
+	if err != nil {
+		fmt.Println("GetAncestorBlockID error in seeker.GetID", "headBlockID", s.headBlockID, "num", num)
+	}
 	s.setError(err)
 	return id
 }
@@ -49,6 +54,7 @@ func (s *Seeker) GetID(num uint32) meter.Bytes32 {
 func (s *Seeker) GetHeader(id meter.Bytes32) *block.Header {
 	header, err := s.chain.GetBlockHeader(id)
 	if err != nil {
+		fmt.Println("chain.GetBlockHeaer error in seeker.GetHeader", "id", id)
 		s.setError(err)
 		return &block.Header{}
 	}

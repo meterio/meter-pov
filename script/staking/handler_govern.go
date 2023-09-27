@@ -343,7 +343,7 @@ func (s *Staking) GoverningHandler(env *setypes.ScriptEnv, sb *StakingBody, gas 
 			ret = []byte(err.Error())
 		}
 		env.SetReturnData(ret)
-		s.logger.Info("Govern completed", "elapsed", meter.PrettyDuration(time.Since(start)))
+		s.logger.Debug("Govern completed", "elapsed", meter.PrettyDuration(time.Since(start)))
 	}()
 	state := env.GetState()
 	candidateList := state.GetCandidateList()
@@ -387,7 +387,7 @@ func (s *Staking) GoverningHandler(env *setypes.ScriptEnv, sb *StakingBody, gas 
 	}
 
 	if meter.IsStaging() && time.Unix(int64(env.GetBlockCtx().Time), 0).Add(time.Duration(meter.BlockInterval)*time.Second).After(time.Now()) {
-		s.logger.Info("Skip delegate calculation in staging")
+		s.logger.Debug("skip delegate calculation in staging")
 	} else {
 		s.calcDelegates(env, bucketList, candidateList, inJailList)
 	}

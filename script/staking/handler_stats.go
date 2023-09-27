@@ -15,7 +15,7 @@ func (s *Staking) DelegateStatHandler(env *setypes.ScriptEnv, sb *StakingBody, g
 			ret = []byte(err.Error())
 		}
 		env.SetReturnData(ret)
-		s.logger.Info("Stats completed", "elapsed", meter.PrettyDuration(time.Since(start)))
+		s.logger.Debug("Stats completed", "elapsed", meter.PrettyDuration(time.Since(start)))
 	}()
 
 	if gas < meter.ClauseGas {

@@ -53,7 +53,7 @@ func (b Bytes32) IsZero() bool {
 func (b Bytes32) ToBlockShortID() string {
 	num := binary.BigEndian.Uint32(b[:])
 	// first 4 bytes are over written by block number (big endian).
-	return fmt.Sprintf("[#%v..%x]", num, b[28:])
+	return fmt.Sprintf("#%v..%x", num, b[28:])
 }
 
 // MarshalJSON implements json.Marshaler.

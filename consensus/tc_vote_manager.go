@@ -50,7 +50,6 @@ func (m *TCVoteManager) AddVote(index uint32, epoch uint64, round uint32, sig []
 	m.votes[key][index] = &vote{Signature: sig, Hash: hash, BlsSig: blsSig}
 
 	voteCount := uint32(len(m.votes[key]))
-	m.logger.Info("TC vote", "count", voteCount, "committeeSize", m.committeeSize)
 	if block.MajorityTwoThird(voteCount, m.committeeSize) {
 		m.seal(epoch, round)
 		tc := m.Aggregate(epoch, round)
@@ -59,7 +58,7 @@ func (m *TCVoteManager) AddVote(index uint32, epoch uint64, round uint32, sig []
 
 		return tc
 	} else {
-		m.logger.Debug("tc vote counted")
+		m.logger.Info(fmt.Sprintf("TC vote (E:%d, R:%d) counted %d/%d", key.Epoch, key.Round, voteCount, m.committeeSize))
 	}
 	return nil
 }

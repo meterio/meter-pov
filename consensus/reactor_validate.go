@@ -32,7 +32,7 @@ import (
 	"github.com/meterio/meter-pov/xenv"
 )
 
-var log = log15.New("pkg", "reactor")
+var log = log15.New("pkg", "r")
 
 // Process process a block.
 func (c *Reactor) ProcessSyncedBlock(blk *block.Block, nowTimestamp uint64) (*state.Stage, tx.Receipts, error) {
@@ -73,27 +73,30 @@ func (c *Reactor) ProcessSyncedBlock(blk *block.Block, nowTimestamp uint64) (*st
 }
 
 func (c *Reactor) ProcessProposedBlock(parent *block.Block, blk *block.Block, nowTimestamp uint64) (*state.Stage, tx.Receipts, error) {
-	header := blk.Header()
-
-	if _, err := c.chain.GetBlockHeader(header.ID()); err != nil {
+	if _, err := c.chain.GetBlockHeader(blk.ID()); err != nil {
 		if !c.chain.IsNotFound(err) {
+			c.logger.Info("get block header error", "blk", blk.ShortID(), "err", err)
 			return nil, nil, err
 		}
 	} else {
+		c.logger.Info("known block", "blk", blk.ShortID())
 		return nil, nil, errKnownBlock
 	}
 
 	if parent == nil {
+		c.logger.Info("parent missing", "blk", blk.ShortID())
 		return nil, nil, errParentHeaderMissing
 	}
 
 	state, err := c.stateCreator.NewState(parent.StateRoot())
 	if err != nil {
+		c.logger.Info("new state error", "blk", blk.ShortID(), "err", err)
 		return nil, nil, err
 	}
 
 	stage, receipts, err := c.Validate(state, blk, parent, nowTimestamp, true)
 	if err != nil {
+		c.logger.Info("validate error", "blk", blk.ShortID(), "err", err)
 		return nil, nil, err
 	}
 
@@ -108,23 +111,26 @@ func (c *Reactor) Validate(
 	forceValidate bool,
 ) (*state.Stage, tx.Receipts, error) {
 	header := block.Header()
-
 	epoch := block.GetBlockEpoch()
 
 	if err := c.validateBlockHeader(header, parent.Header(), nowTimestamp, forceValidate, epoch); err != nil {
+		c.logger.Info("validate header error", "blk", block.ID().ToBlockShortID(), "err", err)
 		return nil, nil, err
 	}
 
 	if err := c.validateProposer(header, parent.Header(), state); err != nil {
+		c.logger.Info("validate proposer error", "blk", block.ID().ToBlockShortID(), "err", err)
 		return nil, nil, err
 	}
 
 	if err := c.validateBlockBody(block, parent, forceValidate); err != nil {
+		c.logger.Info("validate body error", "blk", block.ID().ToBlockShortID(), "err", err)
 		return nil, nil, err
 	}
 
 	stage, receipts, err := c.verifyBlock(block, state, forceValidate)
 	if err != nil {
+		c.logger.Info("validate block error", "blk", block.ID().ToBlockShortID(), "err", err)
 		return nil, nil, err
 	}
 
@@ -438,6 +444,7 @@ func (c *Reactor) verifyBlock(blk *block.Block, state *state.State, forceValidat
 
 		receipt, err := rt.ExecuteTransaction(tx)
 		if err != nil {
+			c.logger.Info("exe tx error", "err", err)
 			return nil, nil, err
 		}
 
@@ -536,7 +543,8 @@ func (r *Reactor) buildKBlockTxs(parentBlock *block.Block, rewards []powpool.Pow
 				// then it's locked
 				if meter.IsStaging() || (meter.IsTestNet() && r.delegateSource == fromDelegatesFile) {
 					// use staking delegates for calculation during staging
-					delegates, _ := r.getDelegatesFromStaking()
+					best := r.chain.BestBlock()
+					delegates, _ := r.getDelegatesFromStaking(best)
 					if err != nil {
 						fmt.Println("could not get delegates from staking")
 					}
@@ -551,11 +559,13 @@ func (r *Reactor) buildKBlockTxs(parentBlock *block.Block, rewards []powpool.Pow
 				rewardMap, err = governor.ComputeRewardMapV2(epochBaseReward, epochTotalReward, r.curDelegates, r.committee)
 			}
 
-			fmt.Println("*** Reward Map ***")
-			_, _, rewardList := rewardMap.ToList()
-			for _, r := range rewardList {
-				fmt.Println(r.String())
-			}
+			/*
+				fmt.Println("*** Reward Map ***")
+				_, _, rewardList := rewardMap.ToList()
+				for _, r := range rewardList {
+					fmt.Println(r.String())
+				}
+			*/
 			if err == nil && len(rewardMap) > 0 {
 				distTotal := big.NewInt(0)
 				autobidTotal := big.NewInt(0)

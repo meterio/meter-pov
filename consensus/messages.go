@@ -138,7 +138,7 @@ func (m *PMProposalMessage) String() string {
 		tcStr = "TC:" + m.TimeoutCert.String()
 	}
 	blkStr := blk.Oneliner()
-	return fmt.Sprintf("Proposal R:%v %v %v", m.Round, blkStr, tcStr)
+	return fmt.Sprintf("Proposal(R:%v) %v %v", m.Round, blkStr, tcStr)
 }
 
 func (m *PMProposalMessage) SetMsgSignature(msgSignature []byte) {
@@ -198,7 +198,7 @@ func (m *PMVoteMessage) GetMsgHash() (hash meter.Bytes32) {
 
 // String returns a string representation.
 func (m *PMVoteMessage) String() string {
-	return fmt.Sprintf("Vote R:%v Block:%v",
+	return fmt.Sprintf("Vote(R:%d) %v",
 		m.VoteRound, m.VoteBlockID.ToBlockShortID())
 }
 
@@ -285,8 +285,14 @@ func (m *PMTimeoutMessage) DecodeQCHigh() *block.QuorumCert {
 // String returns a string representation.
 func (m *PMTimeoutMessage) String() string {
 	qcHigh := m.DecodeQCHigh()
-	return fmt.Sprintf("Timeout E:%v,R:%d QCHigh(#%d,R:%d) LastVote(R:%d,Block:%v)",
-		m.Epoch, m.WishRound, qcHigh.QCHeight, qcHigh.QCRound, m.LastVoteRound, m.LastVoteBlockID.ToBlockShortID())
+	s := fmt.Sprintf("Timeout(E:%v,WR:%d)", m.Epoch, m.WishRound)
+	if qcHigh != nil {
+		s = s + " " + fmt.Sprintf("QCHigh(#%d,R:%d)", qcHigh.QCHeight, qcHigh.QCRound)
+	}
+	if len(m.LastVoteSignature) > 0 {
+		s = s + " " + fmt.Sprintf("LastVote(R:%d, %v)", m.LastVoteRound, m.LastVoteBlockID.ToBlockShortID())
+	}
+	return s
 }
 
 func (m *PMTimeoutMessage) SetMsgSignature(msgSignature []byte) {

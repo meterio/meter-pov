@@ -151,7 +151,6 @@ func (p *Pacemaker) buildKBlock(parent *draftBlock, justify *draftQC, round uint
 	best := parentBlock
 	now := uint64(time.Now().Unix())
 
-	p.logger.Info("Start to build KBlock", "nonce", kblockData.Nonce)
 	// startTime := time.Now()
 
 	chainTag := p.reactor.chain.Tag()

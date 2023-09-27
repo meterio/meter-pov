@@ -178,7 +178,7 @@ func ComputeMissingVoter(validators []*types.Validator, blocks []*block.Block) (
 func ComputeDoubleSigner(common *types.BlsCommon, blocks []*block.Block, curEpoch uint32) ([]*doubleSignerInfo, error) {
 	result := make([]*doubleSignerInfo, 0)
 	if len(blocks) < 1 {
-		return make([]*doubleSignerInfo, 0), errors.New("could not find committee info")
+		return make([]*doubleSignerInfo, 0), errors.New("not enough blocks")
 	}
 	committeeInfo := blocks[0].CommitteeInfos.CommitteeInfo
 	if len(committeeInfo) <= 0 {
@@ -357,7 +357,7 @@ func ComputeStatistics(lastKBlockHeight, height uint32, chain *chain.Chain, comm
 		}
 
 	} else {
-		log.Warn("skip missing proposer calculation", "calcStatsTx", calcStatsTx)
+		log.Debug("skip missing proposer calculation", "calcStatsTx", calcStatsTx)
 	}
 
 	// calculate missing voter

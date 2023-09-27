@@ -210,7 +210,7 @@ func ComputeRewardMap(baseReward, totalRewards *big.Int, delegates []*types.Dele
 
 func ComputeEpochBaseReward(validatorBaseReward *big.Int) *big.Int {
 	epochBaseReward := new(big.Int).Div(validatorBaseReward, big.NewInt(int64(meter.NEpochPerDay)))
-	log.Info("compute epoch base reward ", "NEpochPerDay", meter.NEpochPerDay, "epochBaseReward", epochBaseReward)
+	// log.Info("compute epoch base reward ", "NEpochPerDay", meter.NEpochPerDay, "epochBaseReward", epochBaseReward)
 	return epochBaseReward
 }
 
