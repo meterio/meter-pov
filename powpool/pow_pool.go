@@ -174,14 +174,14 @@ func (p *PowPool) submitPosKblock(powHex, posHex string) (string, string) {
 	}
 	b, err := json.Marshal(data)
 	if err != nil {
-		fmt.Println("could not marshal json, error:", err)
+		log.Error("could not marshal json, error:", "err", err)
 		return "", ""
 	}
 
 	url := fmt.Sprintf("http://%v:%v", p.options.Node, p.options.Port)
 	req, err := http.NewRequest("POST", url, bytes.NewReader(b))
 	if err != nil {
-		fmt.Println("could not create request, error:", err)
+		log.Error("could not create request", "err", err)
 		return "", ""
 	}
 
@@ -227,7 +227,7 @@ func (p *PowPool) Add(newPowBlockInfo *PowBlockInfo) error {
 	// fetch the block immediately in a coroutine
 	// Here err is set ONLY kframe is not added (not in committee).
 	// a fat chance --- the powObj is already in chain, the parent block fetch is still sent.
-	if err == nil && p.all.isKframeInitialAdded() && powObj.Height() >= p.all.lastKframePowObj.Height() && !p.all.Contains(powObj.blockInfo.HashPrevBlock) {
+	if err == nil && p.all.isKframeInitialAdded() && powObj.Height() > p.all.lastKframePowObj.Height() && !p.all.Contains(powObj.blockInfo.HashPrevBlock) {
 		// go p.FetchPowBlock(powObj.Height() - uint32(1))
 		p.ReplayFrom(int32(p.all.lastKframePowObj.Height()) + 1)
 	}
@@ -264,14 +264,14 @@ func (p *PowPool) GetPowDecision() (bool, *PowResult) {
 
 	// cases can not be decided
 	if !p.all.isKframeInitialAdded() {
-		log.Info("Not ready for KBlock: first kframe in epoch is missing")
+		log.Debug("Not ready for KBlock: first kframe in epoch is missing")
 		return false, nil
 	}
 	latestHeight := p.all.GetLatestHeight()
 	lastKframeHeight := p.all.lastKframePowObj.Height()
 	if (latestHeight < lastKframeHeight) ||
 		((latestHeight - lastKframeHeight) < meter.NPowBlockPerEpoch) {
-		log.Info("Not ready for KBlock (my POW height is too low or not enough powblocks in this epoch)", "latestHeight", latestHeight, "lastKframeHeight", lastKframeHeight)
+		log.Debug("Not ready for KBlock (my POW height is too low or not enough powblocks in this epoch)", "latestHeight", latestHeight, "lastKframeHeight", lastKframeHeight)
 		return false, nil
 	}
 
@@ -296,10 +296,10 @@ func (p *PowPool) GetPowDecision() (bool, *PowResult) {
 	}
 
 	if mostDifficultResult == nil {
-		log.Info("Not ready for KBlock : no result for most difficult chain")
+		log.Debug("Not ready for KBlock : no result for most difficult chain")
 		return false, nil
 	} else {
-		log.Info("Ready for KBlock", "latestHeight", latestHeight, "lastKframeHeight", lastKframeHeight)
+		log.Info("Ready to propose KBlock", "latestHeight", latestHeight, "lastKframeHeight", lastKframeHeight)
 		return true, mostDifficultResult
 	}
 }
@@ -397,6 +397,34 @@ func (p *PowPool) initRpcClient() {
 	p.rpcClient = client
 }
 
+func (p *PowPool) WaitForSync() error {
+	if p.rpcClient == nil {
+		p.initRpcClient()
+	}
+
+	hash, err := p.rpcClient.GetBestBlockHash()
+	if err != nil {
+		log.Error("error occured during getbestblockhash", "err", err)
+		p.initRpcClient()
+		return err
+	}
+
+	headerVerbose, err := p.rpcClient.GetBlockHeaderVerbose(hash)
+	if err != nil {
+		log.Error("error occured during getblockheaderverbose", "err", err)
+		p.initRpcClient()
+		return err
+	}
+	pool := GetGlobPowPoolInst()
+
+	for int32(pool.all.GetLatestHeight()) < headerVerbose.Height {
+		time.Sleep(time.Second * 2)
+		log.Info("still waiting for sync", "to", headerVerbose.Height, "current", pool.all.GetLatestHeight())
+	}
+	log.Info("Powpool is synced", "latest", headerVerbose.Height)
+	return nil
+}
+
 func (p *PowPool) ReplayFrom(startHeight int32) error {
 	if p.replaying {
 		return nil
@@ -435,6 +463,10 @@ func (p *PowPool) ReplayFrom(startHeight int32) error {
 			log.Error("error getting block hash", "err", err)
 			p.initRpcClient()
 			return err
+		}
+		if p.all.Contains(meter.BytesToBytes32(hash.CloneBytes())) {
+			height++
+			continue
 		}
 		blk, err := p.rpcClient.GetBlock(hash)
 		if err != nil {
