@@ -229,7 +229,8 @@ func (p *PowPool) Add(newPowBlockInfo *PowBlockInfo) error {
 	// a fat chance --- the powObj is already in chain, the parent block fetch is still sent.
 	if err == nil && p.all.isKframeInitialAdded() && powObj.Height() > p.all.lastKframePowObj.Height() && !p.all.Contains(powObj.blockInfo.HashPrevBlock) {
 		// go p.FetchPowBlock(powObj.Height() - uint32(1))
-		p.ReplayFrom(int32(p.all.lastKframePowObj.Height()) + 1)
+		log.Info("Replay POW due to", "kframeAdded", p.all.isKframeInitialAdded(), "powObjHeight", powObj.Height(), "lastKframeHeight", p.all.lastKframePowObj.Height(), "containHashPrevBlock", p.all.Contains(powObj.blockInfo.HashPrevBlock))
+		p.FetchBlock(powObj.Height() - 1)
 	}
 
 	return err
@@ -425,6 +426,37 @@ func (p *PowPool) WaitForSync() error {
 	return nil
 }
 
+func (p *PowPool) FetchBlock(height uint32) error {
+	if p.rpcClient == nil {
+		p.initRpcClient()
+	}
+	hash, err := p.rpcClient.GetBlockHash(int64(height))
+	if err != nil {
+		log.Error("error getting block hash", "err", err)
+		p.initRpcClient()
+		return err
+	}
+	if p.all.Contains(meter.BytesToBytes32(hash.CloneBytes())) {
+		log.Info("skip hash", height, hex.EncodeToString(hash[:]))
+		height++
+		return nil
+	}
+	blk, err := p.rpcClient.GetBlock(hash)
+	if err != nil {
+		log.Error("error getting block", "err", err)
+		p.initRpcClient()
+		return err
+	}
+	log.Info("get block", height)
+	info := NewPowBlockInfoFromPowBlock(blk)
+	err = p.Add(info)
+	if err != nil {
+		log.Error("add to pool failed", "err", err)
+		return err
+	}
+	return nil
+}
+
 func (p *PowPool) ReplayFrom(startHeight int32) error {
 	if p.replaying {
 		return nil
@@ -458,6 +490,11 @@ func (p *PowPool) ReplayFrom(startHeight int32) error {
 		log.Info("Pow replay started", "start", startHeight, "end", headerVerbose.Height)
 	}
 	for height <= headerVerbose.Height {
+		if height < int32(p.all.GetLatestHeight()) {
+			log.Info("skip height", height)
+			height++
+			continue
+		}
 		hash, err := p.rpcClient.GetBlockHash(int64(height))
 		if err != nil {
 			log.Error("error getting block hash", "err", err)
@@ -465,6 +502,7 @@ func (p *PowPool) ReplayFrom(startHeight int32) error {
 			return err
 		}
 		if p.all.Contains(meter.BytesToBytes32(hash.CloneBytes())) {
+			log.Info("skip hash", height, hex.EncodeToString(hash[:]))
 			height++
 			continue
 		}
@@ -474,6 +512,7 @@ func (p *PowPool) ReplayFrom(startHeight int32) error {
 			p.initRpcClient()
 			return err
 		}
+		log.Info("get block", height)
 		info := NewPowBlockInfoFromPowBlock(blk)
 		Err := pool.Add(info)
 		if Err != nil {
