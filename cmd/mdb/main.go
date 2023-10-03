@@ -709,7 +709,7 @@ func unsafeSetRawAction(ctx *cli.Context) error {
 }
 
 func unsafeResetAction(ctx *cli.Context) error {
-	mainDB, _ := openMainDB(ctx)
+	mainDB, gene := openMainDB(ctx)
 	defer func() { log.Info("closing main database..."); mainDB.Close() }()
 
 	var (
@@ -735,19 +735,44 @@ func unsafeResetAction(ctx *cli.Context) error {
 		panic(fmt.Sprintf("not supported network: %v", network))
 	}
 
+	localFix := false
 	err = getJson(myClient, fmt.Sprintf("http://%v/blocks/%v", domain, height), &blkInfo)
 	if err != nil {
-		panic(fmt.Sprintf("could not get block info: %v", height))
+		localFix = true
+		fmt.Printf("could not get block info: %v\n", height)
 	}
 
 	err = getJson(myClient, fmt.Sprintf("http://%v/blocks/qc/%v", domain, height+1), &qcInfo)
 	if err != nil {
-		panic(fmt.Sprintf("could not get qc info: %v", height+1))
+		localFix = true
+		fmt.Printf("could not get qc info: %v\n", height+1)
 	}
 
 	// Read/Decode/Display Block
+<<<<<<< Updated upstream
 	fromHash := strings.Replace(blkInfo.Id, "0x", "", 1)
 	bestQC := qcInfo.Raw
+=======
+	var newBestHash, newBestQC string
+	if localFix {
+		meterChain := initChain(ctx, gene, mainDB)
+		cur, err := meterChain.GetTrunkBlock(uint32(height))
+		if err != nil {
+			panic("could not load block")
+		}
+		newBestHash = strings.Replace(cur.ID().String(), "0x", "", 1)
+		nxt, err := meterChain.GetTrunkBlock(uint32(height + 1))
+		if err != nil {
+			panic("could not load block")
+		}
+		b := new(bytes.Buffer)
+		rlp.Encode(b, nxt.QC)
+		newBestQC = hex.EncodeToString(b.Bytes())
+	} else {
+		newBestHash = strings.Replace(blkInfo.Id, "0x", "", 1)
+		newBestQC = qcInfo.Raw
+	}
+>>>>>>> Stashed changes
 	fmt.Println("------------ Reset ------------")
 	fmt.Println("Datadir: ", datadir)
 	fmt.Println("Network: ", network)
