@@ -20,6 +20,7 @@ var (
 	networkFlag  = cli.StringFlag{Name: "network", Usage: "the network to join (main|test)", EnvVar: "MDB_NETWORK"}
 	heightFlag   = cli.Int64Flag{Name: "height", Usage: "the height for target block"}
 	revisionFlag = cli.StringFlag{Name: "revision", Usage: "the revision for target block", Value: "best"}
+	rawFlag      = cli.StringFlag{Name: "raw", Usage: "raw hex for block", Value: ""}
 	rootFlag     = cli.StringFlag{Name: "root", Usage: "the root for trie"}
 	beforeFlag   = cli.StringFlag{Name: "before", Usage: "the revision for to block"}
 	addressFlag  = cli.StringFlag{Name: "address", Usage: "address"}

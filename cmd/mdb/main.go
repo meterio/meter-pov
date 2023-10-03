@@ -15,6 +15,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/inconshreveable/log15"
+	"github.com/meterio/meter-pov/block"
 	"github.com/meterio/meter-pov/chain"
 	"github.com/meterio/meter-pov/consensus"
 	"github.com/meterio/meter-pov/meter"
@@ -188,6 +189,12 @@ func main() {
 				Usage:  "Revisit local blocks and validate with current code",
 				Flags:  []cli.Flag{networkFlag, dataDirFlag, fromFlag, toFlag},
 				Action: syncVerifyAction,
+			},
+			{
+				Name:   "verify-block",
+				Usage:  "Verify local block",
+				Flags:  []cli.Flag{networkFlag, dataDirFlag, revisionFlag, rawFlag},
+				Action: verifyBlockAction,
 			},
 		},
 	}
@@ -747,26 +754,38 @@ func unsafeResetAction(ctx *cli.Context) error {
 	}
 
 	// Read/Decode/Display Block
-	fromHash := strings.Replace(blkInfo.Id, "0x", "", 1)
-	bestQC := qcInfo.Raw
+	newBestHash := strings.Replace(blkInfo.Id, "0x", "", 1)
+	newBestQC := qcInfo.Raw
 	fmt.Println("------------ Reset ------------")
 	fmt.Println("Datadir: ", datadir)
 	fmt.Println("Network: ", network)
 	fmt.Println("Forceful: ", force)
 	fmt.Println("Height: ", height)
-	fmt.Println("Best Hash:", fromHash)
-	fmt.Println("BestQC: ", bestQC)
+
+	fmt.Println("New Best Hash:", newBestHash)
+	fmt.Println("New BestQC: ", newBestQC)
 	fmt.Println("-------------------------------")
 	// fromHash := BestBlockHash
 
+	// Update Best
+	updateBest(mainDB, newBestHash, dryrun)
 	// Update Best QC
-	updateBestQC(mainDB, bestQC, dryrun)
+	updateBestQC(mainDB, newBestQC, dryrun)
 	if !dryrun {
+		best, err := readBest(mainDB)
+		if err != nil {
+			panic(err)
+		}
+		if strings.Compare(best, newBestHash) == 0 {
+			fmt.Println("best VERIFIED.")
+		} else {
+			panic("best verify failed.")
+		}
 		val, err := readBestQC(mainDB)
 		if err != nil {
 			panic(fmt.Sprintf("could not read best qc: %v", err))
 		}
-		if strings.Compare(val, bestQC) == 0 {
+		if strings.Compare(val, newBestQC) == 0 {
 			fmt.Println("best-qc VERIFIED.")
 		} else {
 			panic("best-qc verify failed.")
@@ -957,6 +976,69 @@ func syncVerifyAction(ctx *cli.Context) error {
 		}
 	}
 	log.Info("Sync verify complete", "elapsed", meter.PrettyDuration(time.Since(start)), "from", fromNum, "to", toNum)
+	return nil
+}
+
+func verifyBlockAction(ctx *cli.Context) error {
+	mainDB, gene := openMainDB(ctx)
+	defer func() { log.Info("closing main database..."); mainDB.Close() }()
+
+	logDB := openLogDB(ctx)
+	defer func() { log.Info("closing log database..."); logDB.Close() }()
+
+	meterChain := initChain(ctx, gene, mainDB)
+	stateCreator := state.NewCreator(mainDB)
+
+	ecdsaPubKey, ecdsaPrivKey, _ := GenECDSAKeys()
+	blsCommon := types.NewBlsCommon()
+	defaultPowPoolOptions := powpool.Options{
+		Node:            "localhost",
+		Port:            8332,
+		Limit:           10000,
+		LimitPerAccount: 16,
+		MaxLifetime:     20 * time.Minute,
+	}
+	// init powpool for kblock query
+	powpool.New(defaultPowPoolOptions, meterChain, stateCreator)
+	// init scriptengine
+	script.NewScriptEngine(meterChain, stateCreator)
+	// se.StartTeslaForkModules()
+
+	start := time.Now()
+	initDelegates := types.LoadDelegatesFile(ctx, blsCommon)
+	pker := packer.New(meterChain, stateCreator, meter.Address{}, &meter.Address{})
+	reactor := consensus.NewConsensusReactor(ctx, meterChain, logDB, nil /* empty communicator */, nil /* empty txpool */, pker, stateCreator, ecdsaPrivKey, ecdsaPubKey, [4]byte{0x0, 0x0, 0x0, 0x0}, blsCommon, initDelegates)
+
+	var blk *block.Block
+	var err error
+	if ctx.String(rawFlag.Name) != "" {
+		b, err := hex.DecodeString(ctx.String(rawFlag.Name))
+		if err != nil {
+			panic("could not decode raw")
+		}
+		err = rlp.DecodeBytes(b, &blk)
+		if err != nil {
+			panic("could not decode block")
+		}
+	} else {
+		blk, err = loadBlockByRevision(meterChain, ctx.String(revisionFlag.Name))
+		if err != nil {
+			panic("could not load block")
+		}
+	}
+	parent, err := loadBlockByRevision(meterChain, blk.ParentID().String())
+	if err != nil {
+		panic("could not load parent")
+	}
+
+	state, err := stateCreator.NewState(parent.StateRoot())
+	if err != nil {
+		panic("could not new state")
+	}
+
+	_, _, err = reactor.VerifyBlock(blk, state, true)
+
+	log.Info("Verify block complete", "elapsed", meter.PrettyDuration(time.Since(start)), "err", err)
 	return nil
 }
 
