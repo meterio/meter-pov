@@ -5,7 +5,6 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"net"
 	"strconv"
 	"strings"
@@ -15,7 +14,7 @@ func (r *Reactor) UnmarshalMsg(rawData []byte) (*IncomingMsg, error) {
 	var params map[string]string
 	err := json.NewDecoder(bytes.NewReader(rawData)).Decode(&params)
 	if err != nil {
-		fmt.Println(err)
+		r.logger.Error("json decode error", "err", err)
 		return nil, ErrUnrecognizedPayload
 	}
 	if strings.Compare(params["magic"], hex.EncodeToString(r.magic[:])) != 0 {
@@ -24,21 +23,20 @@ func (r *Reactor) UnmarshalMsg(rawData []byte) (*IncomingMsg, error) {
 	peerIP := net.ParseIP(params["peer_ip"])
 	peerPort, err := strconv.ParseUint(params["peer_port"], 10, 16)
 	if err != nil {
-		fmt.Println("Unrecognized Payload: ", err)
+		r.logger.Error("unrecognized payload", "err", err)
 		return nil, ErrUnrecognizedPayload
 	}
 	peerName := r.getNameByIP(peerIP)
 	peer := newConsensusPeer(peerName, peerIP, uint16(peerPort))
 	rawMsg, err := hex.DecodeString(params["message"])
 	if err != nil {
-		fmt.Println("could not decode string: ", params["message"])
+		r.logger.Error("could not decode message", "msg", params["message"], "err", err)
 		return nil, ErrMalformattedMsg
 	}
 	msg, err := decodeMsg(rawMsg)
 	if err != nil {
-		fmt.Println("Malformatted Msg: ", msg)
+		r.logger.Error("malformatted msg", "msg", msg, "err", err)
 		return nil, ErrMalformattedMsg
-		// r.logger.Error("Malformated message, error decoding", "peer", peerName, "ip", peerIP, "msg", msg, "err", err)
 	}
 
 	msgInfo := newIncomingMsg(msg, peer, rawData)

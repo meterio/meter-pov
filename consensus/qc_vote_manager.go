@@ -49,6 +49,9 @@ func (m *QCVoteManager) AddVote(index uint32, epoch uint64, round uint32, blockI
 		return nil
 	}
 
+	if len(sig) <= 0 {
+		return nil
+	}
 	blsSig, err := m.system.SigFromBytes(sig)
 	if err != nil {
 		m.logger.Error("load qc signature failed", "err", err)

@@ -308,6 +308,14 @@ func (r *Reactor) GetMyName() string {
 	return "unknown"
 }
 
+func (r *Reactor) IsMe(peer *ConsensusPeer) bool {
+	if r.committee != nil && len(r.committee) > 0 {
+		myAddr := r.committee[r.committeeIndex].NetAddr
+		return strings.EqualFold(peer.IP, myAddr.String())
+	}
+	return false
+}
+
 func (r *Reactor) PrepareEnvForPacemaker() error {
 
 	bestKBlock, err := r.chain.BestKBlock()
@@ -355,7 +363,7 @@ func (r *Reactor) verifyInCommittee() bool {
 	if !best.IsKBlock() && best.Number() != 0 {
 		consentBlock, err := r.chain.GetTrunkBlock(best.LastKBlockHeight() + 1)
 		if err != nil {
-			fmt.Println("could not get committee info:", err)
+			r.logger.Error("could not get committee info", "err", err)
 			return false
 		}
 		// recover actual committee from consent block
@@ -642,61 +650,64 @@ func (r *Reactor) ValidateQC(b *block.Block, escortQC *block.QuorumCert) bool {
 	if b.IsKBlock() && b.Number() > 0 && b.Number() < r.chain.BestBlock().Number() {
 		start := time.Now()
 		valid, err = b.VerifyQC(escortQC, r.blsCommon, r.lastCommittee)
-		if err != nil {
-			r.logger.Error("validate QC with last committee FAILED", "size", len(r.lastCommittee), "err", err)
-		}
-		if valid {
-			r.logger.Info("validated QC with last committee", "elapsed", meter.PrettyDuration(time.Since(start)))
+		if valid && err == nil {
+			r.logger.Debug("validated QC with last committee", "elapsed", meter.PrettyDuration(time.Since(start)))
 			return true
 		}
+		r.logger.Error(fmt.Sprintf("validate %s with last committee FAILED", escortQC.CompactString()), "size", len(r.lastCommittee), "err", err)
+
+	}
+	if b.IsKBlock() && b.Number() > 0 && b.Number() >= r.chain.BestBlock().Number() && meter.IsStaging() {
+		bestK, _ := r.chain.BestKBlock()
+		lastBestK, _ := r.chain.GetTrunkBlock(bestK.LastKBlockHeight())
+		_, lastStagingCommitee, _, _ := r.calcCommitteeByNonce("lastStaging", r.curDelegates, lastBestK.KBlockData.Nonce)
+		valid, err = b.VerifyQC(escortQC, r.blsCommon, lastStagingCommitee)
+		if valid && err == nil {
+			return true
+		}
+		r.logger.Error(fmt.Sprintf("validate %s with last staging committee FAILED", escortQC.CompactString()), "size", len(r.lastCommittee), "err", err)
 	}
 	if escortQC.VoterBitArray().Size() == len(r.bootstrapCommittee11) {
 		// validate with bootstrap committee of size 11
 		start := time.Now()
 		valid, err = b.VerifyQC(escortQC, r.blsCommon, r.bootstrapCommittee11)
-		if err != nil {
-			r.logger.Error("validate QC with bootstrap committee size 11 FAILED", "err", err)
-		}
-		if valid {
-			r.logger.Info("validated QC with bootstrap committee size 11", "elapsed", meter.PrettyDuration(time.Since(start)))
+		if valid && err == nil {
+			r.logger.Debug("validated QC with bootstrap committee size 11", "elapsed", meter.PrettyDuration(time.Since(start)))
 			return true
 		}
-	} else if escortQC.VoterBitArray().Size() == len(r.bootstrapCommittee5) {
+		r.logger.Error(fmt.Sprintf("validate %s with bootstrap committee size 11 FAILED", escortQC.CompactString()), "err", err)
+	}
+	if escortQC.VoterBitArray().Size() == len(r.bootstrapCommittee5) {
 		// validate with bootstrap committee of size 5
 		start := time.Now()
 		valid, err = b.VerifyQC(escortQC, r.blsCommon, r.bootstrapCommittee5)
-		if err != nil {
-			r.logger.Error("validate QC with bootstrap committee size 5 FAILED", "err", err)
-		}
-		if valid {
-			r.logger.Info("validated QC with bootstrap committee size 5", "elapsed", meter.PrettyDuration(time.Since(start)))
+		if valid && err == nil {
+			r.logger.Debug("validated QC with bootstrap committee size 5", "elapsed", meter.PrettyDuration(time.Since(start)))
 			return true
 		}
+		r.logger.Error(fmt.Sprintf("validate %s with bootstrap committee size 5 FAILED", escortQC.CompactString()), "err", err)
 	}
+
 	if r.delegateSource != fromStaking && escortQC.VoterBitArray().Size() == len(r.hardCommittee) {
 		// validate with hard committee
 		start := time.Now()
 		valid, err = b.VerifyQC(escortQC, r.blsCommon, r.hardCommittee)
-		if err != nil {
-			r.logger.Error("validate QC with hard committee FAILED", "err", err)
-		}
-		if valid {
-			r.logger.Info("validated QC with hard committee", "committeeSize", len(r.hardCommittee), "elapsed", meter.PrettyDuration(time.Since(start)))
+		if valid && err == nil {
+			r.logger.Debug("validated QC with hard committee", "committeeSize", len(r.hardCommittee), "elapsed", meter.PrettyDuration(time.Since(start)))
 			return true
 		}
+		r.logger.Error(fmt.Sprintf("validate %s with hard committee FAILED", escortQC.CompactString()), "err", err)
 	}
 
 	// validate with current committee
 	start := time.Now()
 	valid, err = b.VerifyQC(escortQC, r.blsCommon, r.committee)
-	if err != nil {
-		r.logger.Error("validate QC failed", "err", err)
-	}
-
-	if valid {
+	if valid && err == nil {
 		r.logger.Info(fmt.Sprintf("validated %s", escortQC.CompactString()), "elapsed", meter.PrettyDuration(time.Since(start)))
+		return true
 	}
-	return valid
+	r.logger.Error(fmt.Sprintf("validate %s FAILED", escortQC.CompactString()), "err", err, "committeeSize", len(r.committee))
+	return false
 }
 
 func (r *Reactor) peakCommittee(committee []*types.Validator) string {

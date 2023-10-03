@@ -44,7 +44,7 @@ func (s *Seeker) GetID(num uint32) meter.Bytes32 {
 	}
 	id, err := s.chain.GetAncestorBlockID(s.headBlockID, num)
 	if err != nil {
-		fmt.Println("GetAncestorBlockID error in seeker.GetID", "headBlockID", s.headBlockID, "num", num)
+		fmt.Println("GetAncestorBlockID error in seeker.GetID", "headBlockID", s.headBlockID, "num", num, "err", err)
 	}
 	s.setError(err)
 	return id
@@ -54,7 +54,7 @@ func (s *Seeker) GetID(num uint32) meter.Bytes32 {
 func (s *Seeker) GetHeader(id meter.Bytes32) *block.Header {
 	header, err := s.chain.GetBlockHeader(id)
 	if err != nil {
-		fmt.Println("chain.GetBlockHeaer error in seeker.GetHeader", "id", id)
+		fmt.Println("chain.GetBlockHeaer error in seeker.GetHeader", "id", id, "err", err)
 		s.setError(err)
 		return &block.Header{}
 	}

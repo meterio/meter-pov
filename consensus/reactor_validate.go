@@ -128,7 +128,7 @@ func (c *Reactor) Validate(
 		return nil, nil, err
 	}
 
-	stage, receipts, err := c.verifyBlock(block, state, forceValidate)
+	stage, receipts, err := c.VerifyBlock(block, state, forceValidate)
 	if err != nil {
 		c.logger.Info("validate block error", "blk", block.ID().ToBlockShortID(), "err", err)
 		return nil, nil, err
@@ -365,7 +365,7 @@ func (c *Reactor) validateBlockBody(blk *block.Block, parent *block.Block, force
 	return nil
 }
 
-func (c *Reactor) verifyBlock(blk *block.Block, state *state.State, forceValidate bool) (*state.Stage, tx.Receipts, error) {
+func (c *Reactor) VerifyBlock(blk *block.Block, state *state.State, forceValidate bool) (*state.Stage, tx.Receipts, error) {
 	var totalGasUsed uint64
 	txs := blk.Transactions()
 	receipts := make(tx.Receipts, 0, len(txs))
@@ -502,14 +502,14 @@ func (r *Reactor) buildKBlockTxs(parentBlock *block.Block, rewards []powpool.Pow
 		stats, err := governor.ComputeStatistics(lastKBlockHeight, parentBlock.Number(), r.chain, r.committee, r.blsCommon, !r.config.InitCfgdDelegates, uint32(r.curEpoch))
 		if err != nil {
 			// TODO: do something about this
-			r.logger.Info("no slash statistics need to info", "error", err)
+			r.logger.Error("compute stats error", "err", err)
 		}
-		if len(stats) != 0 {
+		if len(stats) > 0 {
 			statsTx := governor.BuildStatisticsTx(stats, chainTag, bestNum, curEpoch)
 			r.logger.Info(fmt.Sprintf("Built stats tx: %s", statsTx.ID().String()), "clauses", len(statsTx.Clauses()), "uhash", statsTx.UniteHash())
 			txs = append(txs, statsTx)
 		} else {
-			r.logger.Info("no stats needed")
+			r.logger.Info("stats is empty, skip building stats tx")
 		}
 		state, err := r.stateCreator.NewState(parentBlock.Header().StateRoot())
 		if tx := governor.BuildAuctionControlTx(uint64(best.Number()+1), uint64(best.GetBlockEpoch()+1), chainTag, bestNum, state, r.chain); tx != nil {
@@ -534,7 +534,6 @@ func (r *Reactor) buildKBlockTxs(parentBlock *block.Block, rewards []powpool.Pow
 			}
 			var rewardMap governor.RewardMap
 			if meter.IsTeslaFork2(parentBlock.Number()) {
-				fmt.Println("Compute reward map V3")
 				// if staging or "locked" testnet
 				// "locked" testnet means when minimum delegates is not met, testnet will have to load delegates from file
 				// and this means all distributor lists of delegate is empty
@@ -546,16 +545,18 @@ func (r *Reactor) buildKBlockTxs(parentBlock *block.Block, rewards []powpool.Pow
 					best := r.chain.BestBlock()
 					delegates, _ := r.getDelegatesFromStaking(best)
 					if err != nil {
-						fmt.Println("could not get delegates from staking")
+						r.logger.Error("get delegates from staking FAILED", "err", err)
 					}
 					r.logger.Info("Loaded delegateList from staking for staging only", "len", len(delegates))
 					// skip member check for delegates in ComputeRewardMapV3
+					r.logger.Info("Compute reward map")
 					rewardMap, err = governor.ComputeRewardMap(epochBaseReward, epochTotalReward, delegates, true)
 				} else {
+					r.logger.Info("Compute reward map V3")
 					rewardMap, err = governor.ComputeRewardMapV3(epochBaseReward, epochTotalReward, r.curDelegates, r.committee)
 				}
 			} else {
-				fmt.Println("Compute reward map v2")
+				r.logger.Info("Compute reward map v2")
 				rewardMap, err = governor.ComputeRewardMapV2(epochBaseReward, epochTotalReward, r.curDelegates, r.committee)
 			}
 
@@ -611,7 +612,7 @@ func (r *Reactor) buildKBlockTxs(parentBlock *block.Block, rewards []powpool.Pow
 					}
 				}
 			} else {
-				r.logger.Info("Reward Map is empty, skip building govern & autobid tx")
+				r.logger.Info("reward map is empty, skip building govern & autobid tx")
 			}
 		}
 	}

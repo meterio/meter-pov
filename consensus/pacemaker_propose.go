@@ -209,7 +209,7 @@ func (p *Pacemaker) buildKBlock(parent *draftBlock, justify *draftQC, round uint
 			}
 			p.logger.Warn("kBlock flow.Adopt(tx) failed...", "txid", tx.ID(), "elapsed", meter.PrettyDuration(time.Since(start)), "error", err)
 		}
-		p.logger.Info("adopted tx", "tx", tx.ID(), "elapsed", meter.PrettyDuration(time.Since(start)))
+		p.logger.Debug("adopted tx", "tx", tx.ID(), "elapsed", meter.PrettyDuration(time.Since(start)))
 	}
 
 	newBlock, stage, receipts, err := flow.Pack(&p.reactor.myPrivKey, block.KBlockType, p.reactor.lastKBlockHeight)

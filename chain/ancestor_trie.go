@@ -46,6 +46,8 @@ func (at *ancestorTrie) Update(w kv.Putter, num uint32, id, parentID meter.Bytes
 	err := at.hashCache.put(num, id)
 	if err == nil {
 		return nil
+	} else {
+		log.Error("could not load block hash from flattern schema", "err", err)
 	}
 
 	// optional
@@ -91,6 +93,7 @@ func (at *ancestorTrie) GetAncestor(descendantID meter.Bytes32, ancestorNum uint
 
 	// optional
 	if ancestorNum > block.Number(descendantID) {
+		log.Info(fmt.Sprintf("ancestor(%d) > descendant(%d)", ancestorNum, block.Number(descendantID)))
 		return meter.Bytes32{}, ErrNotFound
 	}
 	if ancestorNum == block.Number(descendantID) {

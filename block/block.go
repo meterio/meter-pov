@@ -164,7 +164,7 @@ func (b *Block) VerifyQC(escortQC *QuorumCert, blsCommon *types.BlsCommon, commi
 	// check vote count
 	voteCount := escortQC.VoterBitArray().Count()
 	if !MajorityTwoThird(uint32(voteCount), committeeSize) {
-		return false, fmt.Errorf("not enough votes (%d/%d) in QC", voteCount, committeeSize)
+		return false, fmt.Errorf("not enough votes (%d/%d)", voteCount, committeeSize)
 	}
 
 	pubkeys := make([]bls.PublicKey, 0)
@@ -175,13 +175,9 @@ func (b *Block) VerifyQC(escortQC *QuorumCert, blsCommon *types.BlsCommon, commi
 	}
 	sig, err := blsCommon.System.SigFromBytes(escortQC.VoterAggSig)
 	if err != nil {
-		return false, errors.New("invalid aggregate signature")
+		return false, errors.New("invalid aggregate signature:" + err.Error())
 	}
-	validSig, err := blsCommon.AggregateVerify(sig, escortQC.VoterMsgHash, pubkeys)
-	if err != nil {
-		return false, errors.New("invalid aggregate signature")
-	}
-	return validSig, nil
+	return blsCommon.AggregateVerify(sig, escortQC.VoterMsgHash, pubkeys)
 }
 
 // WithSignature create a new block object with signature set.

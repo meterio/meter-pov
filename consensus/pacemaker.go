@@ -92,7 +92,8 @@ func (p *Pacemaker) CreateLeaf(parent *draftBlock, justify *draftQC, round uint3
 		proposeKBlock, powResults = powpool.GetGlobPowPoolInst().GetPowDecision()
 	}
 
-	proposeStopCommitteeBlock := (parentBlock.BlockType() == block.KBlockType)
+	// propose SBlock only if I'm still in the epoch
+	proposeStopCommitteeBlock := (parentBlock.BlockType() == block.KBlockType) && p.reactor.curEpoch == parentBlock.QC.EpochID
 
 	// propose appropriate block info
 	if proposeStopCommitteeBlock {
@@ -104,13 +105,15 @@ func (p *Pacemaker) CreateLeaf(parent *draftBlock, justify *draftQC, round uint3
 		p.logger.Info(fmt.Sprintf("proposing KBlock on round:%v with QCHigh(H:%v,R:%v), Parent(H:%v,R:%v,Block:%v)", round, justify.QC.QCHeight, justify.QC.QCRound, parent.Height, parent.Round, parent.ProposedBlock.ID().ToBlockShortID()))
 		return p.buildKBlock(parent, justify, round, kblockData, rewards)
 	} else {
-		if p.reactor.curEpoch != 0 && round != 0 && round <= justify.QC.QCRound {
-			p.logger.Warn("Invalid round to propose", "round", round, "qcRound", justify.QC.QCRound)
-			return ErrInvalidRound, nil
-		}
-		if p.reactor.curEpoch != 0 && round != 0 && round <= parent.Round {
-			p.logger.Warn("Invalid round to propose", "round", round, "parentRound", parent.Round)
-			return ErrInvalidRound, nil
+		if !parent.ProposedBlock.IsKBlock() { // only check round if parent is not KBlock
+			if p.reactor.curEpoch != 0 && round != 0 && round <= justify.QC.QCRound {
+				p.logger.Warn("Invalid round to propose", "round", round, "qcRound", justify.QC.QCRound)
+				return ErrInvalidRound, nil
+			}
+			if p.reactor.curEpoch != 0 && round != 0 && round <= parent.Round {
+				p.logger.Warn("Invalid round to propose", "round", round, "parentRound", parent.Round)
+				return ErrInvalidRound, nil
+			}
 		}
 		p.logger.Info(fmt.Sprintf("proposing MBlock on round:%v with QCHigh(H:%v,R:%v), Parent(H:%v,R:%v,Block:%v)", round, justify.QC.QCHeight, justify.QC.QCRound, parent.Height, parent.Round, parent.ProposedBlock.ID().ToBlockShortID()))
 		return p.buildMBlock(parent, justify, round)
@@ -210,7 +213,7 @@ func (p *Pacemaker) OnCommit(commitReady []commitReadyBlock) {
 		}
 
 		if blk.ProposedBlock.IsKBlock() {
-			p.logger.Info("committed a kblock, stop pacemaker", "height", blk.Height, "round", blk.Round)
+			p.logger.Info("committed a kblock, regulate pacemaker", "height", blk.Height, "round", blk.Round)
 			p.SendEpochEndInfo(blk)
 			// p.Stop()
 		}
@@ -252,19 +255,33 @@ func (p *Pacemaker) OnReceiveProposal(mi *IncomingMsg) {
 				if err != nil {
 					p.logger.Error("could not build query message")
 				}
+				peers := make([]*ConsensusPeer, 0)
 				// query the replica that forwards this msg
-				p.reactor.Send(query, mi.Peer)
+				peers = append(peers, mi.Peer)
 
 				// query the proposer
 				signerPeer := newConsensusPeer(mi.Signer.Name, mi.Signer.NetAddr.IP, 8670)
-				p.reactor.Send(query, signerPeer)
+				peers = append(peers, signerPeer)
 
 				// query the next proposer
 				nxtPeer := p.getProposerByRound(round + 1)
-				p.reactor.Send(query, nxtPeer)
+				peers = append(peers, nxtPeer)
 
-				p.logger.Info(`query proposals`, "peer", mi.Peer, "signer", signerPeer, "nxtProposer", nxtPeer)
+				distinctPeers := make([]*ConsensusPeer, 0)
+				visited := make(map[string]bool)
+				for _, peer := range peers {
+					if _, exist := visited[peer.IP]; exist {
+						continue
+					}
+					visited[peer.IP] = true
+					if !p.reactor.IsMe(peer) {
+						distinctPeers = append(distinctPeers, peer)
+					}
+				}
+				p.reactor.Send(query, distinctPeers...)
+				p.logger.Info(`query proposals`, "distinctPeers", len(distinctPeers))
 			}
+
 			p.logger.Error("cant load parent for future proposal, throw it back in queue", "parent", blk.ParentID().ToBlockShortID())
 			p.reactor.inQueue.DelayedAdd(mi)
 		} else {
@@ -298,7 +315,7 @@ func (p *Pacemaker) OnReceiveProposal(mi *IncomingMsg) {
 		if !validTC {
 			p.logger.Error("round jump without valid TC", "parentRound", parent.Round, "round", round)
 			return
-		} else if parent.Round >= round {
+		} else if !parent.ProposedBlock.IsKBlock() && parent.Round >= round {
 			p.logger.Error("invalid round", "parentRound", parent.Round, "round", round)
 			return
 		}
@@ -369,7 +386,7 @@ func (p *Pacemaker) OnReceiveVote(mi *IncomingMsg) {
 
 	b := p.proposalMap.Get(msg.VoteBlockID)
 	if b == nil {
-		p.logger.Warn("can not get proposed block")
+		p.logger.Warn("can not get proposed block", "blk", msg.VoteBlockID.ToBlockShortID())
 		p.reactor.inQueue.DelayedAdd(mi)
 		// return errors.New("can not address block")
 		return
@@ -676,8 +693,6 @@ func (p *Pacemaker) SendEpochEndInfo(b *draftBlock) {
 			Epoch:            blk.QC.EpochID,
 		}
 		p.reactor.EpochEndCh <- info
-
-		p.logger.Info("sent kblock info to reactor", "nonce", info.Nonce, "height", info.Height)
 	}
 }
 
