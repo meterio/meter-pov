@@ -41,6 +41,14 @@ func (at *ancestorTrie) PurgeCache() {
 	at.trieCache.cache.Purge()
 }
 
+// CacheUpdate only updates cache
+// all the data is NOT finalized into database
+func (at *ancestorTrie) CacheUpdate(num uint32, id meter.Bytes32) error {
+	// save with flattern schema
+	at.hashCache.cache.Add(num, id)
+	return nil
+}
+
 func (at *ancestorTrie) Update(w kv.Putter, num uint32, id, parentID meter.Bytes32) error {
 	// save with flattern schema
 	err := at.hashCache.put(num, id)

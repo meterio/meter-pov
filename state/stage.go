@@ -123,3 +123,26 @@ func (s *Stage) Commit() (meter.Bytes32, error) {
 
 	return root, nil
 }
+
+// CacheCommit commits all changes into cache.
+func (s *Stage) CacheCommit() (meter.Bytes32, error) {
+	if s.err != nil {
+		return meter.Bytes32{}, s.err
+	}
+	// write codes to cache
+	for _, code := range s.codes {
+		codeCache.Put(code.hash, code.code)
+	}
+
+	// commit storage tries to cache
+	for _, strie := range s.storageTries {
+		root := strie.Hash()
+		trCache.Add(root, strie, s.kv)
+	}
+
+	// commit accounts trie to cache
+	root := s.accountTrie.Hash()
+	trCache.Add(root, s.accountTrie, s.kv)
+
+	return root, nil
+}

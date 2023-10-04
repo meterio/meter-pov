@@ -79,6 +79,12 @@ func (co *cachedObject) GetCode() ([]byte, error) {
 	}
 
 	if len(co.data.CodeHash) > 0 {
+		// read from global codeCache
+		if globalCachedCode, err := codeCache.Get(co.data.CodeHash); err != nil && len(globalCachedCode) > 0 {
+			cache.code = globalCachedCode
+			return globalCachedCode, nil
+		}
+
 		// do have code
 		code, err := co.kv.Get(co.data.CodeHash)
 		if err != nil {

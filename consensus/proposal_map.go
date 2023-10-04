@@ -46,6 +46,14 @@ func (p *ProposalMap) GetProposalsUpTo(committedBlkID meter.Bytes32, qcHigh *blo
 	return make([]*draftBlock, 0)
 }
 
+func (p *ProposalMap) Has(blkID meter.Bytes32) bool {
+	blk, ok := p.proposals[blkID]
+	if ok && blk != nil {
+		return true
+	}
+	return false
+}
+
 func (p *ProposalMap) Get(blkID meter.Bytes32) *draftBlock {
 	blk, ok := p.proposals[blkID]
 	if ok {
@@ -55,10 +63,10 @@ func (p *ProposalMap) Get(blkID meter.Bytes32) *draftBlock {
 	// load from database
 	blkInDB, err := p.chain.GetBlock(blkID)
 	if err == nil {
-		p.logger.Debug("load block from DB", "num", blkInDB.Number(), "id", blkInDB.ShortID())
+		p.logger.Info("load block from DB", "num", blkInDB.Number(), "id", blkInDB.ShortID())
 		return &draftBlock{
 			Height:        blkInDB.Number(),
-			Round:         blkInDB.QC.QCRound + 1, // TODO: might have better ways doing this
+			Round:         blkInDB.QC.QCRound + 1, // FIXME: might be wrong for the block after kblock
 			Parent:        nil,
 			Justify:       nil,
 			Committed:     true,

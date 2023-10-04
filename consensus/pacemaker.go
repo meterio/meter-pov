@@ -339,7 +339,7 @@ func (p *Pacemaker) OnReceiveProposal(mi *IncomingMsg) {
 	}
 
 	// place the current proposal in proposal space
-	if p.proposalMap.Get(blk.ID()) == nil {
+	if !p.proposalMap.Has(blk.ID()) {
 		p.proposalMap.Add(bnew)
 	}
 
@@ -392,7 +392,7 @@ func (p *Pacemaker) OnReceiveVote(mi *IncomingMsg) {
 		return
 	}
 	if b.Round != round {
-		p.logger.Info("proposal round mismatch", "voteRound", round, "proposalRound", b.Round)
+		p.logger.Info("proposal round mismatch", "voteRound", round, "proposalRound", b.Round, "id", b.ProposedBlock.ID().ToBlockShortID())
 		return
 	}
 

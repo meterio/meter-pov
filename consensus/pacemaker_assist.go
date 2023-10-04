@@ -112,9 +112,14 @@ func (p *Pacemaker) ValidateProposal(b *draftBlock) error {
 	}
 
 	if stage == nil {
+		// FIXME: probably should not handle this proposal any more
 		p.logger.Warn("Empty stage !!!")
-	} else if _, err := stage.Commit(); err != nil {
+	} else if _, err := stage.CacheCommit(); err != nil {
 		return err
+	}
+	err = p.chain.CacheBlock(blk, receipts)
+	if err != nil {
+		p.logger.Warn("cache block failed: ", "err", err)
 	}
 
 	b.Stage = stage
@@ -125,7 +130,7 @@ func (p *Pacemaker) ValidateProposal(b *draftBlock) error {
 	b.SuccessProcessed = true
 	b.ProcessError = err
 
-	p.logger.Info(fmt.Sprintf("validated proposal %v", blk.ShortID()))
+	p.logger.Info(fmt.Sprintf("validated proposal R:%v, %v", b.Round, blk.ShortID()))
 	return nil
 }
 
