@@ -371,8 +371,12 @@ func (n *Node) commitBlock(newBlock *block.Block, escortQC *block.QuorumCert, re
 		}
 	}
 
-	if time.Since(start) > time.Millisecond*500 {
-		log.Info(fmt.Sprintf("slow synced %v", newBlock.ShortID()), "txs", len(newBlock.Txs), "epoch", newBlock.GetBlockEpoch(), "elapsed", meter.PrettyDuration(time.Since(start)))
+	if n.reactor.SyncDone {
+		log.Info(fmt.Sprintf("synced %v", newBlock.ShortID()), "txs", len(newBlock.Txs), "epoch", newBlock.GetBlockEpoch(), "elapsed", meter.PrettyDuration(time.Since(start)))
+	} else {
+		if time.Since(start) > time.Millisecond*500 {
+			log.Info(fmt.Sprintf("slow synced %v", newBlock.ShortID()), "txs", len(newBlock.Txs), "epoch", newBlock.GetBlockEpoch(), "elapsed", meter.PrettyDuration(time.Since(start)))
+		}
 	}
 	return fork, nil
 }

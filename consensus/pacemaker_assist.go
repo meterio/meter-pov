@@ -103,6 +103,18 @@ func (p *Pacemaker) ValidateProposal(b *draftBlock) error {
 	checkPoint := state.NewCheckpoint()
 
 	now := uint64(time.Now().Unix())
+	if len(blk.Transactions()) > 0 {
+		for parent != nil && !parent.Committed {
+			for _, knownTx := range parent.ProposedBlock.Transactions() {
+				for _, tx := range blk.Transactions() {
+					if knownTx.ID() == tx.ID() {
+						p.logger.Error("tx already existed in cache", "id", tx.ID())
+					}
+				}
+			}
+			parent = p.proposalMap.Get(parent.ProposedBlock.ParentID())
+		}
+	}
 	stage, receipts, err := p.reactor.ProcessProposedBlock(parentBlock, blk, now)
 	if err != nil && err != errKnownBlock {
 		p.logger.Error("process proposed failed", "proposed", blk.Oneliner(), "err", err)
@@ -115,12 +127,19 @@ func (p *Pacemaker) ValidateProposal(b *draftBlock) error {
 		// FIXME: probably should not handle this proposal any more
 		p.logger.Warn("Empty stage !!!")
 	} else if _, err := stage.CacheCommit(); err != nil {
+		p.logger.Warn("cache stage failed: ", "err", err)
+		b.SuccessProcessed = false
+		b.ProcessError = err
 		return err
 	}
 	err = p.chain.CacheBlock(blk, receipts)
 	if err != nil {
 		p.logger.Warn("cache block failed: ", "err", err)
+		b.SuccessProcessed = false
+		b.ProcessError = err
+		return err
 	}
+	p.logger.Info(fmt.Sprintf("cached %s", blk.ID().ToBlockShortID()))
 
 	b.Stage = stage
 	b.Receipts = &receipts
@@ -129,6 +148,8 @@ func (p *Pacemaker) ValidateProposal(b *draftBlock) error {
 	b.txsToReturned = txsToReturned
 	b.SuccessProcessed = true
 	b.ProcessError = err
+
+	txsToRemoved()
 
 	p.logger.Info(fmt.Sprintf("validated proposal R:%v, %v", b.Round, blk.ShortID()))
 	return nil
