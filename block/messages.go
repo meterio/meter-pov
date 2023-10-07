@@ -3,19 +3,28 @@
 
 // file LICENSE or <https://www.gnu.org/licenses/lgpl-3.0.html>
 
-package consensus
+package block
 
 import (
 	"bytes"
 	"crypto/ecdsa"
+	"encoding/hex"
+	"errors"
 	"fmt"
 	"time"
 
 	crypto "github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/rlp"
-	"github.com/meterio/meter-pov/block"
 	"github.com/meterio/meter-pov/meter"
+	"github.com/meterio/meter-pov/types"
 	amino "github.com/tendermint/go-amino"
+)
+
+const (
+	//maxMsgSize = 1048576 // 1MB;
+	// set as 1184 * 1024
+	maxMsgSize = 1300000 // gasLimit 20000000 generate, 1024+1024 (1048576) + sizeof(QC) + sizeof(committee)...
+
 )
 
 // ConsensusMessage is a message that can be sent and received on the Reactor
@@ -46,16 +55,27 @@ var (
 
 func init() {
 	RegisterConsensusMessages(cdc)
-	//    RegisterWALMessages(cdc)
-	//    types.RegisterBlockAmino(cdc)
 }
 
-func decodeMsg(bz []byte) (msg ConsensusMessage, err error) {
-	if len(bz) > maxMsgSize {
-		return msg, fmt.Errorf("Msg exceeds max size (%d > %d)", len(bz), maxMsgSize)
+func DecodeMsg(rawHex string) (ConsensusMessage, error) {
+	var msg ConsensusMessage
+	b, err := hex.DecodeString(rawHex)
+	if err != nil {
+		return nil, err
 	}
-	err = cdc.UnmarshalBinaryBare(bz, &msg)
-	return
+	if len(b) > maxMsgSize {
+		return msg, fmt.Errorf("msg exceeds max size (%d > %d)", len(b), maxMsgSize)
+	}
+	err = cdc.UnmarshalBinaryBare(b, &msg)
+	return msg, err
+}
+
+func EncodeMsg(msg ConsensusMessage) (string, error) {
+	raw := cdc.MustMarshalBinaryBare(msg)
+	if len(raw) > maxMsgSize {
+		return "", errors.New("msg exceeds max size")
+	}
+	return hex.EncodeToString(raw), nil
 }
 
 func verifyMsgSignature(pubkey *ecdsa.PublicKey, msgHash meter.Bytes32, signature []byte) bool {
@@ -72,18 +92,18 @@ type PMProposalMessage struct {
 	Epoch       uint64
 	SignerIndex uint32
 
-	// Height       uint32 // inherit from decodedBlock.ID
+	// Height       uint32 // inherit from decodedID
 	Round uint32
-	// ParentHeight uint32 // inherit from decodedBlock.ParentID
-	// ParentRound uint32 // inherit from decodedBlock.QC.QCRound
+	// ParentHeight uint32 // inherit from decodedParentID
+	// ParentRound uint32 // inherit from decodedQC.QCRound
 	RawBlock []byte
 
-	TimeoutCert *TimeoutCert
+	TimeoutCert *types.TimeoutCert
 
 	MsgSignature []byte
 
 	// cached
-	decodedBlock *block.Block
+	decodedBlock *Block
 }
 
 func (m *PMProposalMessage) GetEpoch() uint64 {
@@ -117,11 +137,11 @@ func (m *PMProposalMessage) GetMsgHash() (hash meter.Bytes32) {
 	return
 }
 
-func (m *PMProposalMessage) DecodeBlock() *block.Block {
+func (m *PMProposalMessage) DecodeBlock() *Block {
 	if m.decodedBlock != nil {
 		return m.decodedBlock
 	}
-	blk, err := block.BlockDecodeFromBytes(m.RawBlock)
+	blk, err := BlockDecodeFromBytes(m.RawBlock)
 	if err != nil {
 		m.decodedBlock = nil
 		return nil
@@ -234,7 +254,7 @@ type PMTimeoutMessage struct {
 	MsgSignature []byte
 
 	// cached
-	decodedQCHigh *block.QuorumCert
+	decodedQCHigh *QuorumCert
 }
 
 func (m *PMTimeoutMessage) GetSignerIndex() uint32 {
@@ -269,11 +289,11 @@ func (m *PMTimeoutMessage) GetMsgHash() (hash meter.Bytes32) {
 	return
 }
 
-func (m *PMTimeoutMessage) DecodeQCHigh() *block.QuorumCert {
+func (m *PMTimeoutMessage) DecodeQCHigh() *QuorumCert {
 	if m.decodedQCHigh != nil {
 		return m.decodedQCHigh
 	}
-	qcHigh, err := block.QCDecodeFromBytes(m.QCHigh)
+	qcHigh, err := QCDecodeFromBytes(m.QCHigh)
 	if err != nil {
 		m.decodedQCHigh = nil
 		return nil
