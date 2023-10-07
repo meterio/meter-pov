@@ -196,6 +196,12 @@ func main() {
 				Flags:  []cli.Flag{networkFlag, dataDirFlag, revisionFlag, rawFlag},
 				Action: verifyBlockAction,
 			},
+			{
+				Name:   "run-block",
+				Usage:  "Run local block again",
+				Flags:  []cli.Flag{networkFlag, dataDirFlag, revisionFlag, rawFlag},
+				Action: runLocalBlockAction,
+			},
 		},
 	}
 
@@ -236,15 +242,20 @@ func traverseStateAction(ctx *cli.Context) error {
 	for iter.Next(true) {
 		nodes += 1
 		if iter.Leaf() {
-			raw, _ := mainDB.Get(iter.LeafKey())
-			log.Info("Account Leaf", "key", hex.EncodeToString(iter.LeafKey()), "val", hex.EncodeToString(iter.LeafBlob()), "raw", hex.EncodeToString(raw), "parent", iter.Parent(), "path", hex.EncodeToString(iter.Path()))
+			raw, err := mainDB.Get(iter.LeafKey())
+			if err != nil {
+				log.Error("Failed to load account leaf", "root", iter.LeafKey(), "err", err)
+				return err
+			}
+
+			// log.Info("Account Leaf", "key", hex.EncodeToString(iter.LeafKey()), "val", hex.EncodeToString(iter.LeafBlob()), "raw", hex.EncodeToString(raw), "parent", iter.Parent(), "path", hex.EncodeToString(iter.Path()))
 			var acc state.Account
 			if err := rlp.DecodeBytes(iter.LeafBlob(), &acc); err != nil {
 				log.Error("Invalid account encountered during traversal", "err", err)
 				return err
 			}
 			addr := meter.BytesToAddress(raw)
-			// log.Info("Visit account", "address", addr, "raw", hex.EncodeToString(raw), "key", hex.EncodeToString(accIter.Key))
+			log.Info("Visit account", "addr", addr, "raw", hex.EncodeToString(raw))
 			if !bytes.Equal(acc.StorageRoot, []byte{}) {
 				storageTrie, err := trie.New(meter.BytesToBytes32(acc.StorageRoot), mainDB)
 				if err != nil {
@@ -257,11 +268,22 @@ func traverseStateAction(ctx *cli.Context) error {
 					snodes += 1
 					if storageIter.Leaf() {
 						slots += 1
-						raw, _ := mainDB.Get(storageIter.LeafKey())
-						log.Info("Storage Leaf", "addr", addr, "key", hex.EncodeToString(storageIter.LeafKey()), "parent", storageIter.Parent(), "val", hex.EncodeToString(storageIter.LeafBlob()), "raw", hex.EncodeToString(raw))
+						_, err := mainDB.Get(storageIter.LeafKey())
+						if err != nil {
+							log.Error("Failed to read storage leaf", "hash", storageIter.Hash(), "err", err)
+							return err
+						}
+						// log.Info("Storage Leaf", "addr", addr, "key", hex.EncodeToString(storageIter.LeafKey()), "parent", storageIter.Parent(), "val", hex.EncodeToString(storageIter.LeafBlob()), "raw", hex.EncodeToString(raw))
+
 					} else {
-						raw, _ := mainDB.Get(storageIter.Hash().Bytes())
-						log.Info("Storage Branch", "addr", addr, "hash", storageIter.Hash(), "val", hex.EncodeToString(raw), "parent", storageIter.Parent())
+						_, err := mainDB.Get(storageIter.Hash().Bytes())
+						if err != nil {
+							if storageIter.Hash().String() != "0x0000000000000000000000000000000000000000000000000000000000000000" {
+								log.Error("Failed to read storage branch", "hash", storageIter.Hash(), "err", err)
+								return err
+							}
+						}
+						// log.Info("Storage Branch", "addr", addr, "hash", storageIter.Hash(), "val", hex.EncodeToString(raw), "parent", storageIter.Parent())
 					}
 				}
 				if storageIter.Error() != nil {
@@ -1095,5 +1117,81 @@ func safeResetAction(ctx *cli.Context) error {
 	updateBest(mainDB, hex.EncodeToString(localBest.ID().Bytes()), false)
 	rawQC, _ := rlp.EncodeToBytes(localBest.QC)
 	updateBestQC(mainDB, hex.EncodeToString(rawQC), false)
+	return nil
+}
+
+func runLocalBlockAction(ctx *cli.Context) error {
+	mainDB, gene := openMainDB(ctx)
+	defer func() { log.Info("closing main database..."); mainDB.Close() }()
+
+	logDB := openLogDB(ctx)
+	defer func() { log.Info("closing log database..."); logDB.Close() }()
+
+	meterChain := initChain(ctx, gene, mainDB)
+	stateCreator := state.NewCreator(mainDB)
+
+	ecdsaPubKey, ecdsaPrivKey, _ := GenECDSAKeys()
+	blsCommon := types.NewBlsCommon()
+	defaultPowPoolOptions := powpool.Options{
+		Node:            "localhost",
+		Port:            8332,
+		Limit:           10000,
+		LimitPerAccount: 16,
+		MaxLifetime:     20 * time.Minute,
+	}
+	// init powpool for kblock query
+	powpool.New(defaultPowPoolOptions, meterChain, stateCreator)
+	// init scriptengine
+	script.NewScriptEngine(meterChain, stateCreator)
+	// se.StartTeslaForkModules()
+
+	start := time.Now()
+	initDelegates := types.LoadDelegatesFile(ctx, blsCommon)
+	pker := packer.New(meterChain, stateCreator, meter.Address{}, &meter.Address{})
+	reactor := consensus.NewConsensusReactor(ctx, meterChain, logDB, nil /* empty communicator */, nil /* empty txpool */, pker, stateCreator, ecdsaPrivKey, ecdsaPubKey, [4]byte{0x0, 0x0, 0x0, 0x0}, blsCommon, initDelegates)
+
+	var blk *block.Block
+	var err error
+	if ctx.String(rawFlag.Name) != "" {
+		b, err := hex.DecodeString(ctx.String(rawFlag.Name))
+		if err != nil {
+			panic("could not decode raw")
+		}
+		err = rlp.DecodeBytes(b, &blk)
+		if err != nil {
+			panic("could not decode block")
+		}
+	} else {
+		blk, err = loadBlockByRevision(meterChain, ctx.String(revisionFlag.Name))
+		if err != nil {
+			panic("could not load block")
+		}
+	}
+	parent, err := loadBlockByRevision(meterChain, blk.ParentID().String())
+	if err != nil {
+		panic("could not load parent")
+	}
+
+	state, err := stateCreator.NewState(parent.StateRoot())
+	if err != nil {
+		panic("could not new state")
+	}
+
+	stage, _, err := reactor.VerifyBlock(blk, state, true)
+
+	hash, _ := stage.Hash()
+	log.Info("Verify block complete", "elapsed", meter.PrettyDuration(time.Since(start)), "err", err, "stage", hash, "stateRoot", blk.StateRoot())
+
+	stage.Commit()
+	log.Info("commited stage")
+
+	// atrie := stage.GetAccountTrie()
+	// atrie.CommitTo(store)
+	// log.Info("committed account trie")
+
+	for _, k := range stage.Keys() {
+		log.Info("stored key", "key", k)
+	}
+
 	return nil
 }
