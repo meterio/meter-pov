@@ -41,14 +41,6 @@ func (at *ancestorTrie) PurgeCache() {
 	at.trieCache.cache.Purge()
 }
 
-// CacheUpdate only updates cache
-// all the data is NOT finalized into database
-func (at *ancestorTrie) CacheUpdate(num uint32, id meter.Bytes32) error {
-	// save with flattern schema
-	at.hashCache.cache.Add(num, id)
-	return nil
-}
-
 func (at *ancestorTrie) Update(w kv.Putter, num uint32, id, parentID meter.Bytes32) error {
 	// save with flattern schema
 	err := at.hashCache.put(num, id)
@@ -93,6 +85,7 @@ func (at *ancestorTrie) Update(w kv.Putter, num uint32, id, parentID meter.Bytes
 
 func (at *ancestorTrie) GetAncestor(descendantID meter.Bytes32, ancestorNum uint32) (meter.Bytes32, error) {
 	// load from cache or flattern schema
+	// log.Info("GetAncestor", "descendantID", descendantID.ToBlockShortID(), "ancestor", ancestorNum)
 	blockID, err := at.hashCache.loadOrGet(ancestorNum)
 	if err == nil {
 		// update cache
@@ -136,6 +129,7 @@ func newBlockHashCache(size int, kv kv.GetPutter) *blockHashCache {
 }
 
 func (bc *blockHashCache) loadOrGet(num uint32) (meter.Bytes32, error) {
+	// log.Info("bc.cache.Len", "len", bc.cache.Len())
 	if blockID, ok := bc.cache.Get(num); ok {
 		return blockID.(meter.Bytes32), nil
 	}

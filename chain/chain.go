@@ -26,7 +26,6 @@ import (
 const (
 	blockCacheLimit    = 512
 	receiptsCacheLimit = 512
-	txmetaCacheLimit   = 512
 )
 
 var (
@@ -61,12 +60,12 @@ type Chain struct {
 	tick         co.Signal
 
 	bestBlockBeforeIndexFlattern *block.Block
+	proposalMap                  *ProposalMap
 }
 
 type caches struct {
 	rawBlocks *cache
 	receipts  *cache
-	txmetas   *cache
 }
 
 // New create an instance of Chain.
@@ -149,10 +148,6 @@ func New(kv kv.GetPutter, genesisBlock *block.Block, verbose bool) (*Chain, erro
 		return loadBlockReceipts(kv, key.(meter.Bytes32))
 	})
 
-	txmetasCache := newCache(txmetaCacheLimit, func(key interface{}) (interface{}, error) {
-		return loadTxMeta(kv, key.(meter.Bytes32))
-	})
-
 	bestIDBeforeFlattern, err := loadBestBlockIDBeforeFlattern(kv)
 	var bestBlockBeforeFlattern *block.Block
 	if !bytes.Equal(bestIDBeforeFlattern.Bytes(), meter.Bytes32{}.Bytes()) || err == nil {
@@ -201,12 +196,12 @@ func New(kv kv.GetPutter, genesisBlock *block.Block, verbose bool) (*Chain, erro
 		caches: caches{
 			rawBlocks: rawBlocksCache,
 			receipts:  receiptsCache,
-			txmetas:   txmetasCache,
 		},
 
 		bestBlockBeforeIndexFlattern: bestBlockBeforeFlattern,
 	}
 
+	c.proposalMap = NewProposalMap(c)
 	go c.houseKeeping(time.Minute * 10)
 	return c, nil
 }
@@ -846,76 +841,47 @@ func (c *Chain) UpdateStateSnapshotNum(num uint32) error {
 	return saveStateSnapshotNum(c.kv, num)
 }
 
-// Cache add a new block into block chain cache without actually saving it to database
-func (c *Chain) CacheBlock(newBlock *block.Block, receipts tx.Receipts) error {
-	c.rw.Lock()
-	defer c.rw.Unlock()
+func (c *Chain) AddDraft(b *block.DraftBlock) {
+	c.proposalMap.Add(b)
+}
 
-	newBlockID := newBlock.ID()
+func (c *Chain) HasDraft(blkID meter.Bytes32) bool {
+	return c.proposalMap.Has(blkID)
+}
 
-	if header, err := c.getBlockHeader(newBlockID); err != nil {
-		if !c.IsNotFound(err) {
-			return err
-		}
-	} else {
-		parentFinalized := c.IsBlockFinalized(header.ParentID())
+func (c *Chain) GetDraft(blkID meter.Bytes32) *block.DraftBlock {
+	return c.proposalMap.Get(blkID)
+}
 
-		// block already there
-		newHeader := newBlock.Header()
-		if header.Number() == newHeader.Number() &&
-			header.ParentID() == newHeader.ParentID() &&
-			string(header.Signature()) == string(newHeader.Signature()) &&
-			header.ReceiptsRoot() == newHeader.ReceiptsRoot() &&
-			header.Timestamp() == newHeader.Timestamp() &&
-			parentFinalized {
-			// if the current block is the finalized version of saved block, update it accordingly
-			// do nothing
-			selfFinalized := c.IsBlockFinalized(newHeader.ID())
-			if selfFinalized {
-				// if the new block has already been finalized, return directly
-				return ErrBlockExist
-			}
-		} else {
-			return ErrBlockExist
-		}
-	}
-
-	// newBlock.Header().Finalized = finalize
-	_, err := c.getBlockHeader(newBlock.Header().ParentID())
-	if err != nil {
-		if c.IsNotFound(err) {
-			return errors.New("parent missing")
-		}
-		return err
-	}
-
-	// finalized block need to have a finalized parent block
-	raw := block.BlockEncodeBytes(newBlock)
-
-	if err := c.ancestorTrie.CacheUpdate(newBlock.Number(), newBlockID); err != nil {
-		return err
-	}
-
-	for i, tx := range newBlock.Transactions() {
-		meta, err := c.caches.txmetas.GetOrLoad(tx.ID())
-		if err != nil {
-			if !c.IsNotFound(err) {
-				return err
+func (c *Chain) GetDraftByNum(num uint32) *block.DraftBlock {
+	proposals := c.proposalMap.GetDraftByNum(num)
+	if len(proposals) > 0 {
+		latest := proposals[0]
+		for _, prop := range proposals[1:] {
+			if prop.Round > latest.Round {
+				latest = prop
 			}
 		}
-		metas := make([]TxMeta, 0)
-		if meta != nil {
-			metas = meta.([]TxMeta)
-		}
-		metas = append(metas, TxMeta{
-			BlockID:  newBlockID,
-			Index:    uint64(i),
-			Reverted: receipts[i].Reverted,
-		})
-		c.caches.txmetas.Add(tx.ID(), metas)
+		return latest
 	}
-	c.caches.rawBlocks.Add(newBlockID, newRawBlock(raw, newBlock))
-	c.caches.receipts.Add(newBlockID, receipts)
-
 	return nil
+}
+
+func (c *Chain) GetDraftByEscortQC(qc *block.QuorumCert) *block.DraftBlock {
+	return c.proposalMap.GetOneByEscortQC(qc)
+}
+
+func (c *Chain) DraftLen() int {
+	if c.proposalMap != nil {
+		return c.proposalMap.Len()
+	}
+	return 0
+}
+
+func (c *Chain) PruneDraftsUpTo(lastCommitted *block.DraftBlock) {
+	c.proposalMap.PruneUpTo(lastCommitted)
+}
+
+func (c *Chain) GetDraftsUpTo(commitedBlkID meter.Bytes32, qcHigh *block.QuorumCert) []*block.DraftBlock {
+	return c.proposalMap.GetProposalsUpTo(commitedBlkID, qcHigh)
 }

@@ -10,7 +10,7 @@ import (
 )
 
 // finalize the block with its own QC
-func (p *Pacemaker) commitBlock(draftBlk *draftBlock, escortQC *block.QuorumCert) error {
+func (p *Pacemaker) commitBlock(draftBlk *block.DraftBlock, escortQC *block.QuorumCert) error {
 	blk := draftBlk.ProposedBlock
 	//stage := blkInfo.Stage
 	receipts := draftBlk.Receipts

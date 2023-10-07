@@ -7,6 +7,7 @@ import (
 	"github.com/meterio/meter-pov/block"
 	bls "github.com/meterio/meter-pov/crypto/multi_sig"
 	cmn "github.com/meterio/meter-pov/libs/common"
+	"github.com/meterio/meter-pov/types"
 )
 
 type timeoutVoteKey struct {
@@ -32,7 +33,7 @@ func NewTCVoteManager(system bls.System, committeeSize uint32) *TCVoteManager {
 	}
 }
 
-func (m *TCVoteManager) AddVote(index uint32, epoch uint64, round uint32, sig []byte, hash [32]byte) *TimeoutCert {
+func (m *TCVoteManager) AddVote(index uint32, epoch uint64, round uint32, sig []byte, hash [32]byte) *types.TimeoutCert {
 	key := timeoutVoteKey{Epoch: epoch, Round: round}
 	if _, existed := m.votes[key]; !existed {
 		m.votes[key] = make(map[uint32]*vote)
@@ -54,11 +55,11 @@ func (m *TCVoteManager) AddVote(index uint32, epoch uint64, round uint32, sig []
 		m.seal(epoch, round)
 		tc := m.Aggregate(epoch, round)
 		m.logger.Info(
-			fmt.Sprintf("TC formed on (E:%d,R:%d), future votes will be ignored.", epoch, round), "voted", fmt.Sprintf("%d/%d", voteCount, m.committeeSize))
+			fmt.Sprintf("%d/%d voted on E:%d, R:%d, TC formed.", voteCount, m.committeeSize, epoch, round))
 
 		return tc
 	} else {
-		m.logger.Info(fmt.Sprintf("TC vote (E:%d, R:%d) counted %d/%d", key.Epoch, key.Round, voteCount, m.committeeSize))
+		m.logger.Info(fmt.Sprintf("%d/%d voted on E:%d, R:%d ", voteCount, m.committeeSize, key.Epoch, key.Round))
 	}
 	return nil
 }
@@ -73,7 +74,7 @@ func (m *TCVoteManager) seal(epoch uint64, round uint32) {
 	m.sealed[key] = true
 }
 
-func (m *TCVoteManager) Aggregate(epoch uint64, round uint32) *TimeoutCert {
+func (m *TCVoteManager) Aggregate(epoch uint64, round uint32) *types.TimeoutCert {
 	m.seal(epoch, round)
 	sigs := make([]bls.Signature, 0)
 	key := timeoutVoteKey{Epoch: epoch, Round: round}
@@ -91,7 +92,7 @@ func (m *TCVoteManager) Aggregate(epoch uint64, round uint32) *TimeoutCert {
 	}
 	aggSigBytes := m.system.SigToBytes(sigAgg)
 
-	return &TimeoutCert{
+	return &types.TimeoutCert{
 		Epoch:    epoch,
 		Round:    round,
 		BitArray: bitArray,

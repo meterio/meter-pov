@@ -9,6 +9,7 @@ import (
 
 	lru "github.com/hashicorp/golang-lru"
 	"github.com/inconshreveable/log15"
+	"github.com/meterio/meter-pov/block"
 	"github.com/meterio/meter-pov/types"
 )
 
@@ -17,8 +18,8 @@ const (
 )
 
 type IncomingMsg struct {
-	//Msg    ConsensusMessage
-	Msg          ConsensusMessage
+	//Msg    block.ConsensusMessage
+	Msg          block.ConsensusMessage
 	Peer         *ConsensusPeer
 	RawData      []byte
 	Hash         [32]byte
@@ -32,7 +33,7 @@ type IncomingMsg struct {
 	ProcessCount uint32
 }
 
-func newIncomingMsg(msg ConsensusMessage, peer *ConsensusPeer, rawData []byte) *IncomingMsg {
+func newIncomingMsg(msg block.ConsensusMessage, peer *ConsensusPeer, rawData []byte) *IncomingMsg {
 	msgHash := sha256.Sum256(rawData)
 	shortMsgHash := hex.EncodeToString(msgHash[:])[:8]
 	return &IncomingMsg{
@@ -64,7 +65,7 @@ func NewIncomingQueue() *IncomingQueue {
 		panic("could not create cache")
 	}
 	return &IncomingQueue{
-		logger: log15.New("pkg", "in"),
+		logger: log15.New(), // log15.New("pkg", "in"),
 		queue:  make(chan (*IncomingMsg), 2048),
 		cache:  cache,
 	}

@@ -35,7 +35,7 @@ func (p *Pacemaker) packCommitteeInfo(blk *block.Block) {
 }
 
 // Build MBlock
-func (p *Pacemaker) buildMBlock(parent *draftBlock, justify *draftQC, round uint32) (error, *draftBlock) {
+func (p *Pacemaker) buildMBlock(parent *block.DraftBlock, justify *block.DraftQC, round uint32) (error, *block.DraftBlock) {
 	parentBlock := parent.ProposedBlock
 	best := parentBlock
 	qc := justify.QC
@@ -124,19 +124,17 @@ func (p *Pacemaker) buildMBlock(parent *draftBlock, justify *draftQC, round uint
 		p.packCommitteeInfo(newBlock)
 	}
 
-	rawBlock := block.BlockEncodeBytes(newBlock)
-	proposed := &draftBlock{
+	proposed := &block.DraftBlock{
 		Height:        newBlock.Number(),
 		Round:         round,
 		Parent:        parent,
 		Justify:       justify,
 		ProposedBlock: newBlock,
-		RawBlock:      rawBlock,
 
 		Stage:            stage,
 		Receipts:         &receipts,
-		txsToRemoved:     txsToRemoved,
-		txsToReturned:    txsToReturned,
+		TxsToRemoved:     txsToRemoved,
+		TxsToReturned:    txsToReturned,
 		CheckPoint:       checkPoint,
 		SuccessProcessed: true,
 		ProcessError:     nil,
@@ -145,7 +143,7 @@ func (p *Pacemaker) buildMBlock(parent *draftBlock, justify *draftQC, round uint
 	return nil, proposed
 }
 
-func (p *Pacemaker) buildKBlock(parent *draftBlock, justify *draftQC, round uint32, kblockData *block.KBlockData, rewards []powpool.PowReward) (error, *draftBlock) {
+func (p *Pacemaker) buildKBlock(parent *block.DraftBlock, justify *block.DraftQC, round uint32, kblockData *block.KBlockData, rewards []powpool.PowReward) (error, *block.DraftBlock) {
 	parentBlock := parent.ProposedBlock
 	qc := justify.QC
 	best := parentBlock
@@ -225,19 +223,17 @@ func (p *Pacemaker) buildKBlock(parent *draftBlock, justify *draftQC, round uint
 
 	// p.logger.Info("Built KBlock", "num", newBlock.Number(), "id", newBlock.ID(), "txs", len(newBlock.Txs), "elapsed", meter.PrettyDuration(time.Since(startTime)))
 
-	rawBlock := block.BlockEncodeBytes(newBlock)
-	proposed := &draftBlock{
+	proposed := &block.DraftBlock{
 		Height:        newBlock.Number(),
 		Round:         round,
 		Parent:        parent,
 		Justify:       justify,
 		ProposedBlock: newBlock,
-		RawBlock:      rawBlock,
 
 		Stage:            stage,
 		Receipts:         &receipts,
-		txsToRemoved:     txsToRemoved,
-		txsToReturned:    txsToReturned,
+		TxsToRemoved:     txsToRemoved,
+		TxsToReturned:    txsToReturned,
 		CheckPoint:       checkPoint,
 		SuccessProcessed: true,
 		ProcessError:     nil,
@@ -245,7 +241,7 @@ func (p *Pacemaker) buildKBlock(parent *draftBlock, justify *draftQC, round uint
 	return nil, proposed
 }
 
-func (p *Pacemaker) buildStopCommitteeBlock(parent *draftBlock, justify *draftQC, round uint32) (error, *draftBlock) {
+func (p *Pacemaker) buildStopCommitteeBlock(parent *block.DraftBlock, justify *block.DraftQC, round uint32) (error, *block.DraftBlock) {
 	parentBlock := parent.ProposedBlock
 	qc := justify.QC
 	best := parentBlock
@@ -277,19 +273,17 @@ func (p *Pacemaker) buildStopCommitteeBlock(parent *draftBlock, justify *draftQC
 	newBlock.SetQC(qc)
 
 	// p.logger.Info("Built SBlock", "num", newBlock.Number(), "elapsed", meter.PrettyDuration(time.Since(startTime)))
-	rawBlock := block.BlockEncodeBytes(newBlock)
-	proposed := &draftBlock{
+	proposed := &block.DraftBlock{
 		Height:        newBlock.Number(),
 		Round:         round,
 		Parent:        parent,
 		Justify:       justify,
 		ProposedBlock: newBlock,
-		RawBlock:      rawBlock,
 
 		Stage:            stage,
 		Receipts:         &receipts,
-		txsToRemoved:     txsToRemoved,
-		txsToReturned:    txsToReturned,
+		TxsToRemoved:     txsToRemoved,
+		TxsToReturned:    txsToReturned,
 		CheckPoint:       0,
 		SuccessProcessed: true,
 		ProcessError:     nil,

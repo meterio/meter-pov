@@ -42,9 +42,17 @@ func (s *Seeker) GetID(num uint32) meter.Bytes32 {
 	if num > block.Number(s.headBlockID) {
 		panic("num exceeds head block")
 	}
+
+	// query draft space
+	draft := s.chain.GetDraftByNum(num)
+	if draft != nil {
+		return draft.ProposedBlock.ID()
+	}
+
 	id, err := s.chain.GetAncestorBlockID(s.headBlockID, num)
 	if err != nil {
 		fmt.Println("GetAncestorBlockID error in seeker.GetID", "headBlockID", s.headBlockID, "num", num, "err", err)
+		panic(err)
 	}
 	s.setError(err)
 	return id

@@ -10,19 +10,18 @@ package consensus
 // 2. send messages to peer
 
 import (
-	"bytes"
 	sha256 "crypto/sha256"
 	"encoding/hex"
 	"fmt"
 	"time"
 
-	"github.com/ethereum/go-ethereum/rlp"
-
 	crypto "github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/meterio/meter-pov/block"
+	"github.com/meterio/meter-pov/types"
 )
 
-func (p *Pacemaker) sendMsg(msg ConsensusMessage, copyMyself bool) bool {
+func (p *Pacemaker) sendMsg(msg block.ConsensusMessage, copyMyself bool) bool {
 	myNetAddr := p.reactor.GetMyNetAddr()
 	myName := p.reactor.GetMyName()
 	myself := newConsensusPeer(myName, myNetAddr.IP, myNetAddr.Port)
@@ -31,12 +30,12 @@ func (p *Pacemaker) sendMsg(msg ConsensusMessage, copyMyself bool) bool {
 
 	peers := make([]*ConsensusPeer, 0)
 	switch msg.(type) {
-	case *PMProposalMessage:
+	case *block.PMProposalMessage:
 		peers = p.reactor.GetRelayPeers(round)
-	case *PMVoteMessage:
+	case *block.PMVoteMessage:
 		nxtProposer := p.getProposerByRound(round + 1)
 		peers = append(peers, nxtProposer)
-	case *PMTimeoutMessage:
+	case *block.PMTimeoutMessage:
 		nxtProposer := p.getProposerByRound(round)
 		peers = append(peers, nxtProposer)
 	}
@@ -57,15 +56,19 @@ func (p *Pacemaker) sendMsg(msg ConsensusMessage, copyMyself bool) bool {
 	return true
 }
 
-func (p *Pacemaker) BuildProposalMessage(height, round uint32, bnew *draftBlock, tc *TimeoutCert) (*PMProposalMessage, error) {
-	msg := &PMProposalMessage{
+func (p *Pacemaker) BuildProposalMessage(height, round uint32, bnew *block.DraftBlock, tc *types.TimeoutCert) (*block.PMProposalMessage, error) {
+	raw, err := rlp.EncodeToBytes(bnew.ProposedBlock)
+	if err != nil {
+		return nil, err
+	}
+	msg := &block.PMProposalMessage{
 		// Sender:    crypto.FromECDSAPub(&p.reactor.myPubKey),
 		Timestamp:   time.Now(),
 		Epoch:       p.reactor.curEpoch,
 		SignerIndex: uint32(p.reactor.committeeIndex),
 
 		Round:       round,
-		RawBlock:    bnew.RawBlock,
+		RawBlock:    raw,
 		TimeoutCert: tc,
 	}
 
@@ -83,14 +86,14 @@ func (p *Pacemaker) BuildProposalMessage(height, round uint32, bnew *draftBlock,
 
 // BuildVoteMsg build VFP message for proposal
 // txRoot, stateRoot is decoded from proposalMsg.ProposedBlock, carry in cos already decoded outside
-func (p *Pacemaker) BuildVoteMessage(proposalMsg *PMProposalMessage) (*PMVoteMessage, error) {
+func (p *Pacemaker) BuildVoteMessage(proposalMsg *block.PMProposalMessage) (*block.PMVoteMessage, error) {
 
 	proposedBlock := proposalMsg.DecodeBlock()
 	voteHash := proposedBlock.VotingHash()
 	voteSig := p.reactor.blsCommon.SignHash(voteHash)
 	// p.logger.Debug("Built PMVoteMessage", "signMsg", signMsg)
 
-	msg := &PMVoteMessage{
+	msg := &block.PMVoteMessage{
 		Timestamp:   time.Now(),
 		Epoch:       p.reactor.curEpoch,
 		SignerIndex: uint32(p.reactor.committeeIndex),
@@ -120,25 +123,24 @@ func BuildTimeoutVotingHash(epoch uint64, round uint32) [32]byte {
 }
 
 // BuildVoteForProposalMsg build VFP message for proposal
-func (p *Pacemaker) BuildTimeoutMessage(qcHigh *draftQC, ti *PMRoundTimeoutInfo, lastVoteMsg *PMVoteMessage) (*PMTimeoutMessage, error) {
+func (p *Pacemaker) BuildTimeoutMessage(qcHigh *block.DraftQC, ti *PMRoundTimeoutInfo, lastVoteMsg *block.PMVoteMessage) (*block.PMTimeoutMessage, error) {
 
 	// TODO: changed from nextHeight/nextRound to ti.height/ti.round, not sure if this is correct
 	wishVoteHash := BuildTimeoutVotingHash(p.reactor.curEpoch, ti.round)
 	wishVoteSig := p.reactor.blsCommon.SignHash(wishVoteHash)
 
-	qcBytes, err := rlp.EncodeToBytes(qcHigh.QC)
+	rawQC, err := rlp.EncodeToBytes(qcHigh.QC)
 	if err != nil {
-		p.logger.Error("Error encode qc", "err", err)
 		return nil, err
 	}
-	msg := &PMTimeoutMessage{
+	msg := &block.PMTimeoutMessage{
 		Timestamp:   time.Now(),
 		Epoch:       p.reactor.curEpoch,
 		SignerIndex: uint32(p.reactor.committeeIndex),
 
 		WishRound: ti.round,
 
-		QCHigh: qcBytes,
+		QCHigh: rawQC,
 
 		WishVoteHash: wishVoteHash,
 		WishVoteSig:  wishVoteSig,
@@ -169,30 +171,9 @@ func (p *Pacemaker) BuildTimeoutMessage(qcHigh *draftQC, ti *PMRoundTimeoutInfo,
 	return msg, nil
 }
 
-// qc is for that block?
-// blk is derived from draftBlock message. pass it in if already decoded
-func BlockMatchDraftQC(b *draftBlock, escortQC *block.QuorumCert) bool {
-
-	if b == nil {
-		// decode block to get qc
-		// fmt.Println("can not decode block", err)
-		return false
-	}
-
-	// genesis does not have qc
-	if b.Height == 0 && escortQC.QCHeight == 0 {
-		return true
-	}
-
-	blk := b.ProposedBlock
-
-	votingHash := blk.VotingHash()
-	return bytes.Equal(escortQC.VoterMsgHash[:], votingHash[:])
-}
-
 // BuildQueryMessage
-func (p *Pacemaker) BuildQueryMessage() (*PMQueryMessage, error) {
-	msg := &PMQueryMessage{
+func (p *Pacemaker) BuildQueryMessage() (*block.PMQueryMessage, error) {
+	msg := &block.PMQueryMessage{
 		Timestamp:   time.Now(),
 		Epoch:       p.reactor.curEpoch,
 		SignerIndex: uint32(p.reactor.committeeIndex),

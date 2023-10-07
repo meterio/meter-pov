@@ -4,10 +4,11 @@ import (
 	"bytes"
 	"encoding/hex"
 	"encoding/json"
-	"errors"
 	"net"
 	"strconv"
 	"strings"
+
+	"github.com/meterio/meter-pov/block"
 )
 
 func (r *Reactor) UnmarshalMsg(rawData []byte) (*IncomingMsg, error) {
@@ -28,12 +29,8 @@ func (r *Reactor) UnmarshalMsg(rawData []byte) (*IncomingMsg, error) {
 	}
 	peerName := r.getNameByIP(peerIP)
 	peer := newConsensusPeer(peerName, peerIP, uint16(peerPort))
-	rawMsg, err := hex.DecodeString(params["message"])
-	if err != nil {
-		r.logger.Error("could not decode message", "msg", params["message"], "err", err)
-		return nil, ErrMalformattedMsg
-	}
-	msg, err := decodeMsg(rawMsg)
+
+	msg, err := block.DecodeMsg(params["message"])
 	if err != nil {
 		r.logger.Error("malformatted msg", "msg", msg, "err", err)
 		return nil, ErrMalformattedMsg
@@ -43,17 +40,16 @@ func (r *Reactor) UnmarshalMsg(rawData []byte) (*IncomingMsg, error) {
 	return msgInfo, nil
 }
 
-func (r *Reactor) MarshalMsg(msg *ConsensusMessage) ([]byte, error) {
-	rawMsg := cdc.MustMarshalBinaryBare(msg)
-	if len(rawMsg) > maxMsgSize {
-		r.logger.Error("Msg exceeds max size", "rawMsg", len(rawMsg), "maxMsgSize", maxMsgSize)
-		return make([]byte, 0), errors.New("Msg exceeds max size")
+func (r *Reactor) MarshalMsg(msg block.ConsensusMessage) ([]byte, error) {
+	rawHex, err := block.EncodeMsg(msg)
+	if err != nil {
+		return make([]byte, 0), err
 	}
 
 	magicHex := hex.EncodeToString(r.magic[:])
 	myNetAddr := r.GetMyNetAddr()
 	payload := map[string]interface{}{
-		"message":   hex.EncodeToString(rawMsg),
+		"message":   rawHex,
 		"peer_ip":   myNetAddr.IP.String(),
 		"peer_port": strconv.Itoa(int(myNetAddr.Port)),
 		"magic":     magicHex,

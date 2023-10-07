@@ -42,10 +42,6 @@ import (
 )
 
 const (
-	//maxMsgSize = 1048576 // 1MB;
-	// set as 1184 * 1024
-	maxMsgSize = 1300000 // gasLimit 20000000 generate, 1024+1024 (1048576) + sizeof(QC) + sizeof(committee)...
-
 	CHAN_DEFAULT_BUF_SIZE = 100
 )
 
@@ -600,14 +596,14 @@ func (r *Reactor) OnReceiveMsg(w http.ResponseWriter, req *http.Request) {
 
 	// sanity check for messages
 	switch m := msg.(type) {
-	case *PMProposalMessage:
+	case *block.PMProposalMessage:
 		blk := m.DecodeBlock()
 		if blk == nil {
 			r.logger.Error("Invalid PMProposal: could not decode proposed block")
 			return
 		}
 
-	case *PMTimeoutMessage:
+	case *block.PMTimeoutMessage:
 		qcHigh := m.DecodeQCHigh()
 		if qcHigh == nil {
 			r.logger.Error("Invalid QCHigh: could not decode qcHigh")
@@ -703,7 +699,7 @@ func (r *Reactor) ValidateQC(b *block.Block, escortQC *block.QuorumCert) bool {
 	start := time.Now()
 	valid, err = b.VerifyQC(escortQC, r.blsCommon, r.committee)
 	if valid && err == nil {
-		r.logger.Info(fmt.Sprintf("validated %s", escortQC.CompactString()), "elapsed", meter.PrettyDuration(time.Since(start)))
+		r.logger.Debug(fmt.Sprintf("validated %s", escortQC.CompactString()), "elapsed", meter.PrettyDuration(time.Since(start)))
 		return true
 	}
 	r.logger.Error(fmt.Sprintf("validate %s FAILED", escortQC.CompactString()), "err", err, "committeeSize", len(r.committee))

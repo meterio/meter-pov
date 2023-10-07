@@ -14,14 +14,15 @@ import (
 	"github.com/meterio/meter-pov/block"
 	bls "github.com/meterio/meter-pov/crypto/multi_sig"
 	"github.com/meterio/meter-pov/tx"
+	"github.com/meterio/meter-pov/types"
 )
 
 // This is part of pacemaker that in charge of:
 // 1. pending proposal/newView
 // 2. timeout cert management
 
-// check a draftBlock is the extension of b_locked, max 10 hops
-func (p *Pacemaker) ExtendedFromLastCommitted(b *draftBlock) bool {
+// check a DraftBlock is the extension of b_locked, max 10 hops
+func (p *Pacemaker) ExtendedFromLastCommitted(b *block.DraftBlock) bool {
 
 	i := int(0)
 	tmp := b
@@ -37,13 +38,13 @@ func (p *Pacemaker) ExtendedFromLastCommitted(b *draftBlock) bool {
 	return false
 }
 
-func (p *Pacemaker) ValidateProposal(b *draftBlock) error {
+func (p *Pacemaker) ValidateProposal(b *block.DraftBlock) error {
 	blk := b.ProposedBlock
 
 	// special valiadte StopCommitteeType
 	// possible 2 rounds of stop messagB
 	if blk.IsSBlock() {
-		parent := p.proposalMap.Get(b.ProposedBlock.ParentID())
+		parent := p.chain.GetDraft(b.ProposedBlock.ParentID())
 		if !parent.ProposedBlock.IsKBlock() && !parent.ProposedBlock.IsSBlock() {
 			p.logger.Info(fmt.Sprintf("proposal [%d] is the first stop committee block", b.Height))
 			return errors.New("sBlock should have kBlock/sBlock parent")
@@ -112,7 +113,7 @@ func (p *Pacemaker) ValidateProposal(b *draftBlock) error {
 					}
 				}
 			}
-			parent = p.proposalMap.Get(parent.ProposedBlock.ParentID())
+			parent = p.chain.GetDraft(parent.ProposedBlock.ParentID())
 		}
 	}
 	stage, receipts, err := p.reactor.ProcessProposedBlock(parentBlock, blk, now)
@@ -126,26 +127,20 @@ func (p *Pacemaker) ValidateProposal(b *draftBlock) error {
 	if stage == nil {
 		// FIXME: probably should not handle this proposal any more
 		p.logger.Warn("Empty stage !!!")
-	} else if _, err := stage.CacheCommit(); err != nil {
-		p.logger.Warn("cache stage failed: ", "err", err)
+	} else if _, err := stage.Commit(); err != nil {
+		p.logger.Warn("commit stage failed: ", "err", err)
 		b.SuccessProcessed = false
 		b.ProcessError = err
 		return err
 	}
-	err = p.chain.CacheBlock(blk, receipts)
-	if err != nil {
-		p.logger.Warn("cache block failed: ", "err", err)
-		b.SuccessProcessed = false
-		b.ProcessError = err
-		return err
-	}
-	p.logger.Info(fmt.Sprintf("cached %s", blk.ID().ToBlockShortID()))
+
+	// p.logger.Info(fmt.Sprintf("cached %s", blk.ID().ToBlockShortID()))
 
 	b.Stage = stage
 	b.Receipts = &receipts
 	b.CheckPoint = checkPoint
-	b.txsToRemoved = txsToRemoved
-	b.txsToReturned = txsToReturned
+	b.TxsToRemoved = txsToRemoved
+	b.TxsToReturned = txsToReturned
 	b.SuccessProcessed = true
 	b.ProcessError = err
 
@@ -160,7 +155,7 @@ func (p *Pacemaker) getProposerByRound(round uint32) *ConsensusPeer {
 	return newConsensusPeer(proposer.Name, proposer.NetAddr.IP, 8670)
 }
 
-func (p *Pacemaker) verifyTC(tc *TimeoutCert, round uint32) bool {
+func (p *Pacemaker) verifyTC(tc *types.TimeoutCert, round uint32) bool {
 	if tc != nil {
 		voteHash := BuildTimeoutVotingHash(tc.Epoch, tc.Round)
 		pubkeys := make([]bls.PublicKey, 0)

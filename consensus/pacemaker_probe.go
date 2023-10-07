@@ -3,13 +3,17 @@ package consensus
 // This is part of pacemaker that in charge of:
 // 1. provide probe for debug
 
-import "github.com/meterio/meter-pov/block"
+import (
+	"github.com/ethereum/go-ethereum/rlp"
+	"github.com/meterio/meter-pov/block"
+	"github.com/meterio/meter-pov/meter"
+)
 
 type BlockProbe struct {
 	Height uint32
 	Round  uint32
 	Type   block.BlockType
-	Raw    []byte
+	ID     meter.Bytes32
 }
 type PMProbeResult struct {
 	CurRound       uint32
@@ -40,11 +44,10 @@ func (p *Pacemaker) Probe() *PMProbeResult {
 		result.QCHigh = p.QCHigh.QC
 	}
 	if p.lastCommitted != nil {
-		result.LastCommitted = &BlockProbe{Height: p.lastCommitted.Height, Round: p.lastCommitted.Round, Type: p.lastCommitted.ProposedBlock.BlockType(), Raw: p.lastCommitted.RawBlock}
+		rlp.EncodeToBytes(p.lastCommitted)
+		result.LastCommitted = &BlockProbe{Height: p.lastCommitted.Height, Round: p.lastCommitted.Round, Type: p.lastCommitted.ProposedBlock.BlockType(), ID: p.lastCommitted.ProposedBlock.ID()}
 	}
-	if p.proposalMap != nil {
-		result.ProposalCount = p.proposalMap.Len()
-	}
+	result.ProposalCount = p.chain.DraftLen()
 
 	return result
 

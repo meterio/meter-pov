@@ -64,11 +64,11 @@ func (m *QCVoteManager) AddVote(index uint32, epoch uint64, round uint32, blockI
 		m.seal(round, blockID)
 		qc := m.Aggregate(round, blockID, epoch)
 		m.logger.Info(
-			fmt.Sprintf("QC formed on Proposal(%s, R:%d), future votes will be ignored.", blockID.ToBlockShortID(), round), "voted", fmt.Sprintf("%d/%d", voteCount, m.committeeSize))
+			fmt.Sprintf("%d/%d voted on %s, R:%d, QC formed.", voteCount, m.committeeSize, blockID.ToBlockShortID(), round))
 		return qc
 
 	}
-	m.logger.Info(fmt.Sprintf("QC vote (%s, R:%d) counted %d/%d", key.BlockID.ToBlockShortID(), key.Round, voteCount, m.committeeSize))
+	m.logger.Info(fmt.Sprintf("%d/%d voted on %s, R:%d", voteCount, m.committeeSize, key.BlockID.ToBlockShortID(), key.Round))
 	return nil
 }
 

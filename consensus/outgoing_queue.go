@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/inconshreveable/log15"
+	"github.com/meterio/meter-pov/block"
 )
 
 const (
@@ -21,7 +22,7 @@ const (
 
 type OutgoingParcel struct {
 	to        *ConsensusPeer
-	msg       ConsensusMessage
+	msg       block.ConsensusMessage
 	rawMsg    []byte
 	relay     bool
 	enqueueAt time.Time
@@ -47,7 +48,7 @@ func NewOutgoingQueue() *OutgoingQueue {
 	}
 }
 
-func (q *OutgoingQueue) Add(to *ConsensusPeer, msg ConsensusMessage, rawMsg []byte, relay bool) {
+func (q *OutgoingQueue) Add(to *ConsensusPeer, msg block.ConsensusMessage, rawMsg []byte, relay bool) {
 	q.logger.Debug(fmt.Sprintf("add %s msg to out queue", msg.GetType()), "to", to, "len", len(q.queue), "cap", cap(q.queue))
 	for len(q.queue) >= cap(q.queue) {
 		p := <-q.queue
@@ -76,7 +77,7 @@ type outgoingWorker struct {
 
 func NewOutgoingWorker(num int) *outgoingWorker {
 	return &outgoingWorker{
-		logger:  log15.New("pkg", fmt.Sprintf("w%d", num)),
+		logger:  log15.New(), //log15.New("pkg", fmt.Sprintf("w%d", num)),
 		clients: make(map[string]*http.Client),
 	}
 }

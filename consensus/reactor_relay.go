@@ -3,6 +3,8 @@ package consensus
 import (
 	"fmt"
 	"math"
+
+	"github.com/meterio/meter-pov/block"
 )
 
 // Assumptions to use this:
@@ -79,9 +81,9 @@ func (r *Reactor) GetRelayPeers(round uint32) []*ConsensusPeer {
 	return peers
 }
 
-func (r *Reactor) Relay(msg ConsensusMessage, rawMsg []byte) {
+func (r *Reactor) Relay(msg block.ConsensusMessage, rawMsg []byte) {
 	// only relay proposal message
-	if proposalMsg, ok := msg.(*PMProposalMessage); ok {
+	if proposalMsg, ok := msg.(*block.PMProposalMessage); ok {
 		round := proposalMsg.Round
 		peers := r.GetRelayPeers(round)
 		if len(peers) > 0 {
@@ -93,8 +95,8 @@ func (r *Reactor) Relay(msg ConsensusMessage, rawMsg []byte) {
 
 }
 
-func (r *Reactor) Send(msg ConsensusMessage, peers ...*ConsensusPeer) {
-	rawMsg, err := r.MarshalMsg(&msg)
+func (r *Reactor) Send(msg block.ConsensusMessage, peers ...*ConsensusPeer) {
+	rawMsg, err := r.MarshalMsg(msg)
 	if err != nil {
 		r.logger.Warn("could not marshal msg")
 		return

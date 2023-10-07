@@ -16,6 +16,7 @@ import (
 	"github.com/meterio/meter-pov/chain"
 	"github.com/meterio/meter-pov/meter"
 	"github.com/meterio/meter-pov/powpool"
+	"github.com/meterio/meter-pov/types"
 )
 
 const (
@@ -27,10 +28,9 @@ const (
 )
 
 type Pacemaker struct {
-	reactor     *Reactor //global reactor info
-	proposalMap *ProposalMap
-	logger      log15.Logger
-	chain       *chain.Chain
+	reactor *Reactor //global reactor info
+	logger  log15.Logger
+	chain   *chain.Chain
 
 	// Current round (current_round - highest_qc_round determines the timeout).
 	// Current round is basically max(highest_qc_round, highest_received_tc, highest_local_tc) + 1
@@ -46,9 +46,9 @@ type Pacemaker struct {
 
 	// HotStuff fields
 	lastVotingHeight uint32
-	lastVoteMsg      *PMVoteMessage
-	QCHigh           *draftQC
-	lastCommitted    *draftBlock
+	lastVoteMsg      *block.PMVoteMessage
+	QCHigh           *block.DraftQC
+	lastCommitted    *block.DraftBlock
 
 	lastOnBeatRound int32
 
@@ -59,7 +59,7 @@ type Pacemaker struct {
 
 	// Timeout
 	roundTimer     *time.Timer
-	TCHigh         *TimeoutCert
+	TCHigh         *types.TimeoutCert
 	timeoutCounter uint64
 }
 
@@ -69,18 +69,18 @@ func NewPacemaker(r *Reactor) *Pacemaker {
 		logger:  log15.New("pkg", "pm"),
 		chain:   r.chain,
 
-		cmdCh:           make(chan PMCmd, 2),
-		beatCh:          make(chan PMBeatInfo, 2),
-		roundTimeoutCh:  make(chan PMRoundTimeoutInfo, 2),
-		roundTimer:      nil,
-		proposalMap:     NewProposalMap(r.chain),
+		cmdCh:          make(chan PMCmd, 2),
+		beatCh:         make(chan PMBeatInfo, 2),
+		roundTimeoutCh: make(chan PMRoundTimeoutInfo, 2),
+		roundTimer:     nil,
+
 		timeoutCounter:  0,
 		lastOnBeatRound: -1,
 	}
 	return p
 }
 
-func (p *Pacemaker) CreateLeaf(parent *draftBlock, justify *draftQC, round uint32) (error, *draftBlock) {
+func (p *Pacemaker) CreateLeaf(parent *block.DraftBlock, justify *block.DraftQC, round uint32) (error, *block.DraftBlock) {
 	timeout := p.TCHigh != nil
 	parentBlock := parent.ProposedBlock
 	if parentBlock == nil {
@@ -97,12 +97,12 @@ func (p *Pacemaker) CreateLeaf(parent *draftBlock, justify *draftQC, round uint3
 
 	// propose appropriate block info
 	if proposeStopCommitteeBlock {
-		p.logger.Info(fmt.Sprintf("proposing SBlock on round:%v with QCHigh(H:%v,R:%v), Parent(H:%v,R:%v,Block:%v)", round, justify.QC.QCHeight, justify.QC.QCRound, parent.Height, parent.Round, parent.ProposedBlock.ID().ToBlockShortID()))
+		p.logger.Info(fmt.Sprintf("proposing SBlock on R:%v with QCHigh(#%v,R:%v), Parent(R:%v,Block:%v)", round, justify.QC.QCHeight, justify.QC.QCRound, parent.Round, parent.ProposedBlock.ID().ToBlockShortID()))
 		return p.buildStopCommitteeBlock(parent, justify, round)
 	} else if proposeKBlock {
 		kblockData := &block.KBlockData{Nonce: uint64(powResults.Nonce), Data: powResults.Raw}
 		rewards := powResults.Rewards
-		p.logger.Info(fmt.Sprintf("proposing KBlock on round:%v with QCHigh(H:%v,R:%v), Parent(H:%v,R:%v,Block:%v)", round, justify.QC.QCHeight, justify.QC.QCRound, parent.Height, parent.Round, parent.ProposedBlock.ID().ToBlockShortID()))
+		p.logger.Info(fmt.Sprintf("proposing KBlock on R:%v with QCHigh(#%v,R:%v), Parent(R:%v,Block:%v)", round, justify.QC.QCHeight, justify.QC.QCRound, parent.Round, parent.ProposedBlock.ID().ToBlockShortID()))
 		return p.buildKBlock(parent, justify, round, kblockData, rewards)
 	} else {
 		if !parent.ProposedBlock.IsKBlock() { // only check round if parent is not KBlock
@@ -115,15 +115,15 @@ func (p *Pacemaker) CreateLeaf(parent *draftBlock, justify *draftQC, round uint3
 				return ErrInvalidRound, nil
 			}
 		}
-		p.logger.Info(fmt.Sprintf("proposing MBlock on round:%v with QCHigh(H:%v,R:%v), Parent(H:%v,R:%v,Block:%v)", round, justify.QC.QCHeight, justify.QC.QCRound, parent.Height, parent.Round, parent.ProposedBlock.ID().ToBlockShortID()))
+		p.logger.Info(fmt.Sprintf("proposing MBlock on R:%v with QCHigh(#%v,R:%v), Parent(R:%v,Block:%v)", round, justify.QC.QCHeight, justify.QC.QCRound, parent.Round, parent.ProposedBlock.ID().ToBlockShortID()))
 		return p.buildMBlock(parent, justify, round)
 	}
 }
 
 // b_exec <- b_lock <- b <- b' <- bnew*
-func (p *Pacemaker) Update(bnew *draftBlock) {
+func (p *Pacemaker) Update(bnew *block.DraftBlock) {
 
-	var block, blockPrime *draftBlock
+	var block, blockPrime *block.DraftBlock
 	//now pipeline full, roll this pipeline first
 	blockPrime = bnew.Justify.QCNode
 	if blockPrime == nil {
@@ -221,14 +221,14 @@ func (p *Pacemaker) OnCommit(commitReady []commitReadyBlock) {
 		// BUG FIX: normally proposal message are cleaned once it is committed. It is ok because this proposal
 		// is not needed any more. Only in one case, if somebody queries the more old message, we can not give.
 		// so proposals are kept in this committee and clean all of them at the stopping of pacemaker.
-		// remove this draftBlock from map.
+		// remove this DraftBlock from map.
 		//delete(p.proposalMap, b.Height)
-		p.proposalMap.Prune(blk)
+		p.chain.PruneDraftsUpTo(blk)
 	}
 }
 
 func (p *Pacemaker) OnReceiveProposal(mi *IncomingMsg) {
-	msg := mi.Msg.(*PMProposalMessage)
+	msg := mi.Msg.(*block.PMProposalMessage)
 	height := msg.DecodeBlock().Number()
 	round := msg.Round
 
@@ -243,7 +243,7 @@ func (p *Pacemaker) OnReceiveProposal(mi *IncomingMsg) {
 	p.logger.Debug(fmt.Sprintf("Handling %s", msg.GetType()), "blk", blk.ID().ToBlockShortID())
 
 	// load parent
-	parent := p.proposalMap.Get(blk.ParentID())
+	parent := p.chain.GetDraft(blk.ParentID())
 	if parent == nil {
 		if blk.Number() > p.QCHigh.QC.QCHeight {
 			// future propsal, throw it back in queue with extended expire
@@ -321,15 +321,14 @@ func (p *Pacemaker) OnReceiveProposal(mi *IncomingMsg) {
 		}
 	}
 
-	justify := newDraftQC(qc, parent)
-	bnew := &draftBlock{
+	justify := block.NewDraftQC(qc, parent)
+	bnew := &block.DraftBlock{
 		Msg:           msg,
 		Height:        height,
 		Round:         round,
 		Parent:        parent,
 		Justify:       justify,
 		ProposedBlock: blk,
-		RawBlock:      block.BlockEncodeBytes(blk),
 	}
 
 	// validate proposal
@@ -339,8 +338,8 @@ func (p *Pacemaker) OnReceiveProposal(mi *IncomingMsg) {
 	}
 
 	// place the current proposal in proposal space
-	if !p.proposalMap.Has(blk.ID()) {
-		p.proposalMap.Add(bnew)
+	if !p.chain.HasDraft(blk.ID()) {
+		p.chain.AddDraft(bnew)
 	}
 
 	if bnew.Height >= p.lastVotingHeight && p.ExtendedFromLastCommitted(bnew) {
@@ -369,7 +368,7 @@ func (p *Pacemaker) OnReceiveProposal(mi *IncomingMsg) {
 }
 
 func (p *Pacemaker) OnReceiveVote(mi *IncomingMsg) {
-	msg := mi.Msg.(*PMVoteMessage)
+	msg := mi.Msg.(*block.PMVoteMessage)
 	p.logger.Debug(fmt.Sprintf("Handling %s", msg.GetType()), "blk", msg.VoteBlockID.ToBlockShortID())
 
 	round := msg.VoteRound
@@ -384,7 +383,7 @@ func (p *Pacemaker) OnReceiveVote(mi *IncomingMsg) {
 		return
 	}
 
-	b := p.proposalMap.Get(msg.VoteBlockID)
+	b := p.chain.GetDraft(msg.VoteBlockID)
 	if b == nil {
 		p.logger.Warn("can not get proposed block", "blk", msg.VoteBlockID.ToBlockShortID())
 		p.reactor.inQueue.DelayedAdd(mi)
@@ -401,7 +400,7 @@ func (p *Pacemaker) OnReceiveVote(mi *IncomingMsg) {
 		p.logger.Debug("no qc formed")
 		return
 	}
-	newDraftQC := &draftQC{QCNode: b, QC: qc}
+	newDraftQC := &block.DraftQC{QCNode: b, QC: qc}
 	changed := p.UpdateQCHigh(newDraftQC)
 	if changed {
 		// if QC is updated, schedule onbeat now
@@ -409,8 +408,8 @@ func (p *Pacemaker) OnReceiveVote(mi *IncomingMsg) {
 	}
 }
 
-func (p *Pacemaker) OnPropose(qc *draftQC, round uint32) {
-	parent := p.proposalMap.GetOneByEscortQC(qc.QC)
+func (p *Pacemaker) OnPropose(qc *block.DraftQC, round uint32) {
+	parent := p.chain.GetDraftByEscortQC(qc.QC)
 	err, bnew := p.CreateLeaf(parent, qc, round)
 	if err != nil {
 		p.logger.Error("could not create leaf", "err", err)
@@ -432,7 +431,7 @@ func (p *Pacemaker) OnPropose(qc *draftQC, round uint32) {
 
 	bnew.Msg = msg
 	// create slot in proposalMap directly, instead of sendmsg to self.
-	p.proposalMap.Add(bnew)
+	p.chain.AddDraft(bnew)
 
 	p.TCHigh = nil
 
@@ -440,7 +439,7 @@ func (p *Pacemaker) OnPropose(qc *draftQC, round uint32) {
 	p.sendMsg(msg, true)
 }
 
-func (p *Pacemaker) UpdateQCHigh(qc *draftQC) bool {
+func (p *Pacemaker) UpdateQCHigh(qc *block.DraftQC) bool {
 	updated := false
 	oqc := p.QCHigh
 	// update local qcHigh if
@@ -449,7 +448,7 @@ func (p *Pacemaker) UpdateQCHigh(qc *draftQC) bool {
 	if qc.QCNode != nil && qc.QC.QCHeight > p.QCHigh.QC.QCHeight || (qc.QC.QCHeight == p.QCHigh.QCNode.Height && qc.QC.QCRound > p.QCHigh.QCNode.Round) {
 		p.QCHigh = qc
 		updated = true
-		p.logger.Info("QCHigh updated", "from", oqc.ToString(), "to", p.QCHigh.ToString())
+		p.logger.Info(fmt.Sprintf("QCHigh update to %s", p.QCHigh.ToString()), "from", oqc.ToString())
 	}
 
 	return updated
@@ -478,7 +477,7 @@ func (p *Pacemaker) OnBeat(epoch uint64, round uint32) {
 	// parent already got QC, pre-commit it
 
 	//b := p.QCHigh.QCNode
-	b := p.proposalMap.GetOneByEscortQC(p.QCHigh.QC)
+	b := p.chain.GetDraftByEscortQC(p.QCHigh.QC)
 	if b == nil {
 		return
 	}
@@ -490,7 +489,7 @@ func (p *Pacemaker) OnBeat(epoch uint64, round uint32) {
 }
 
 func (p *Pacemaker) OnReceiveTimeout(mi *IncomingMsg) {
-	msg := mi.Msg.(*PMTimeoutMessage)
+	msg := mi.Msg.(*block.PMTimeoutMessage)
 	p.logger.Debug(fmt.Sprintf("Handling %s", msg.GetType()), "epoch", msg.Epoch, "wishRound", msg.WishRound, "lastVoteSig", hex.EncodeToString(msg.LastVoteSignature))
 
 	// drop invalid msg
@@ -502,13 +501,13 @@ func (p *Pacemaker) OnReceiveTimeout(mi *IncomingMsg) {
 	// collect vote and see if QC is formed
 	newQC := p.qcVoteManager.AddVote(msg.SignerIndex, p.reactor.curEpoch, msg.LastVoteRound, msg.LastVoteBlockID, msg.LastVoteSignature, msg.LastVoteHash)
 	if newQC != nil {
-		escortQCNode := p.proposalMap.GetOneByEscortQC(newQC)
-		p.UpdateQCHigh(&draftQC{QCNode: escortQCNode, QC: newQC})
+		escortQCNode := p.chain.GetDraftByEscortQC(newQC)
+		p.UpdateQCHigh(&block.DraftQC{QCNode: escortQCNode, QC: newQC})
 	}
 
 	qc := msg.DecodeQCHigh()
-	qcNode := p.proposalMap.GetOneByEscortQC(qc)
-	p.UpdateQCHigh(&draftQC{QCNode: qcNode, QC: qc})
+	qcNode := p.chain.GetDraftByEscortQC(qc)
+	p.UpdateQCHigh(&block.DraftQC{QCNode: qcNode, QC: qc})
 
 	// collect wish vote to see if TC is formed
 	tc := p.tcVoteManager.AddVote(msg.SignerIndex, msg.Epoch, msg.WishRound, msg.WishVoteSig, msg.WishVoteHash)
@@ -519,8 +518,8 @@ func (p *Pacemaker) OnReceiveTimeout(mi *IncomingMsg) {
 }
 
 func (p *Pacemaker) OnReceiveQuery(mi *IncomingMsg) {
-	msg := mi.Msg.(*PMQueryMessage)
-	proposals := p.proposalMap.GetProposalsUpTo(msg.LastCommitted, p.QCHigh.QC)
+	msg := mi.Msg.(*block.PMQueryMessage)
+	proposals := p.chain.GetDraftsUpTo(msg.LastCommitted, p.QCHigh.QC)
 	p.logger.Info(`received query`, "lastCommitted", msg.LastCommitted.ToBlockShortID(), "from", mi.Peer)
 	for _, proposal := range proposals {
 		p.logger.Info(`forward proposal`, "id", proposal.ProposedBlock.ID().ToBlockShortID(), "to", mi.Peer)
@@ -572,18 +571,18 @@ func (p *Pacemaker) Regulate() {
 		}
 	}
 
-	bestNode := p.proposalMap.GetOneByEscortQC(bestQC)
+	bestNode := p.chain.GetDraftByEscortQC(bestQC)
 	if bestNode == nil {
 		p.logger.Debug("started with empty qcNode")
 	}
-	qcInit := newDraftQC(bestQC, bestNode)
+	qcInit := block.NewDraftQC(bestQC, bestNode)
 
 	// now assign b_lock b_exec, b_leaf qc_high
 	p.lastCommitted = bestNode
 	p.lastVotingHeight = 0
 	p.lastVoteMsg = nil
 	p.QCHigh = qcInit
-	p.proposalMap.Add(bestNode)
+	p.chain.AddDraft(bestNode)
 
 	pmRunningGauge.Set(1)
 
@@ -660,13 +659,13 @@ func (p *Pacemaker) mainLoop() {
 				continue
 			}
 			switch m.Msg.(type) {
-			case *PMProposalMessage:
+			case *block.PMProposalMessage:
 				p.OnReceiveProposal(m)
-			case *PMVoteMessage:
+			case *block.PMVoteMessage:
 				p.OnReceiveVote(m)
-			case *PMTimeoutMessage:
+			case *block.PMTimeoutMessage:
 				p.OnReceiveTimeout(m)
-			case *PMQueryMessage:
+			case *block.PMQueryMessage:
 				p.OnReceiveQuery(m)
 			default:
 				p.logger.Warn("received an message in unknown type")
@@ -681,7 +680,7 @@ func (p *Pacemaker) mainLoop() {
 	}
 }
 
-func (p *Pacemaker) SendEpochEndInfo(b *draftBlock) {
+func (p *Pacemaker) SendEpochEndInfo(b *block.DraftBlock) {
 	// clean off chain for next committee.
 	blk := b.ProposedBlock
 	if blk.IsKBlock() {
