@@ -447,7 +447,7 @@ func (p *PowPool) FetchBlock(height uint32) error {
 		p.initRpcClient()
 		return err
 	}
-	log.Info("get block", height)
+	log.Info("get pow block", "height", height)
 	info := NewPowBlockInfoFromPowBlock(blk)
 	err = p.Add(info)
 	if err != nil {
@@ -512,7 +512,7 @@ func (p *PowPool) ReplayFrom(startHeight int32) error {
 			p.initRpcClient()
 			return err
 		}
-		log.Info("get block", height)
+		log.Info("get pow block", "height", height)
 		info := NewPowBlockInfoFromPowBlock(blk)
 		Err := pool.Add(info)
 		if Err != nil {

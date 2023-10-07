@@ -6,11 +6,13 @@
 package state
 
 import (
+	"encoding/hex"
 	"fmt"
 
 	"github.com/meterio/meter-pov/kv"
 	"github.com/meterio/meter-pov/meter"
 	"github.com/meterio/meter-pov/trie"
+	"github.com/meterio/meter-pov/types"
 )
 
 // Stage abstracts changes on the main accounts trie.
@@ -21,6 +23,8 @@ type Stage struct {
 	accountTrie  *trie.SecureTrie
 	storageTries []*trie.SecureTrie
 	codes        []codeWithHash
+
+	store *types.MemStore
 }
 
 type codeWithHash struct {
@@ -76,6 +80,7 @@ func newStage(root meter.Bytes32, kv kv.GetPutter, changes map[meter.Address]*ch
 		accountTrie:  accountTrie,
 		storageTries: storageTries,
 		codes:        codes,
+		store:        types.NewMemStore(),
 	}
 }
 
@@ -102,18 +107,23 @@ func (s *Stage) Commit() (meter.Bytes32, error) {
 
 	// commit storage tries
 	for _, strie := range s.storageTries {
+		strieClone := strie.Copy()
 		root, err := strie.CommitTo(batch)
 		if err != nil {
 			return meter.Bytes32{}, err
 		}
 		trCache.Add(root, strie, s.kv)
+
+		strieClone.CommitTo(s.store)
 	}
 
 	// commit accounts trie
+	atrieClone := s.accountTrie.Copy()
 	root, err := s.accountTrie.CommitTo(batch)
 	if err != nil {
 		return meter.Bytes32{}, err
 	}
+	atrieClone.CommitTo(s.store)
 
 	if err := batch.Write(); err != nil {
 		return meter.Bytes32{}, err
@@ -125,24 +135,34 @@ func (s *Stage) Commit() (meter.Bytes32, error) {
 }
 
 // CacheCommit commits all changes into cache.
-func (s *Stage) CacheCommit() (meter.Bytes32, error) {
+func (s *Stage) Revert() error {
 	if s.err != nil {
-		return meter.Bytes32{}, s.err
-	}
-	// write codes to cache
-	for _, code := range s.codes {
-		codeCache.Put(code.hash, code.code)
+		return s.err
 	}
 
+	batch := s.kv.NewBatch()
 	// commit storage tries to cache
 	for _, strie := range s.storageTries {
 		root := strie.Hash()
-		trCache.Add(root, strie, s.kv)
+		trCache.cache.Remove(root)
 	}
 
 	// commit accounts trie to cache
 	root := s.accountTrie.Hash()
-	trCache.Add(root, s.accountTrie, s.kv)
+	trCache.cache.Remove(root)
 
-	return root, nil
+	for _, key := range s.store.Keys() {
+		k, _ := hex.DecodeString(key)
+		batch.Delete(k)
+	}
+
+	if err := batch.Write(); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (s *Stage) Keys() []string {
+	return s.store.Keys()
 }
