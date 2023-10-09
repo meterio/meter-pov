@@ -242,7 +242,6 @@ func findInActualCommittee(actualCommittee []*types.Validator, addr meter.Addres
 }
 
 func ComputeStatistics(lastKBlockHeight, height uint32, chain *chain.Chain, committee []*types.Validator, blsCommon *types.BlsCommon, calcStatsTx bool, curEpoch uint32) ([]*StatEntry, error) {
-	log.Info("compute stats", "from", lastKBlockHeight, "to", height)
 	if len(committee) == 0 {
 		return nil, errors.New("committee is empty")
 	}

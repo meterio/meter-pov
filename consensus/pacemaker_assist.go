@@ -146,7 +146,7 @@ func (p *Pacemaker) ValidateProposal(b *block.DraftBlock) error {
 
 	txsToRemoved()
 
-	p.logger.Info(fmt.Sprintf("validated proposal R:%v, %v", b.Round, blk.ShortID()))
+	p.logger.Info(fmt.Sprintf("validated proposal %s R:%v, %v", b.ProposedBlock.GetCanonicalName(), b.Round, blk.ShortID()))
 	return nil
 }
 

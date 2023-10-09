@@ -56,7 +56,7 @@ func (p *Pacemaker) commitBlock(draftBlk *block.DraftBlock, escortQC *block.Quor
 		}
 	}
 
-	p.logger.Info(fmt.Sprintf("committed %v", blk.ShortID()), "txs", len(blk.Txs), "epoch", blk.GetBlockEpoch())
+	p.logger.Info(fmt.Sprintf("* committed %v", blk.ShortID()), "txs", len(blk.Txs), "epoch", blk.GetBlockEpoch())
 
 	if meter.IsMainNet() {
 		if blk.Number() == meter.TeslaMainnetStartNum {

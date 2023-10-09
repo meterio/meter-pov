@@ -467,13 +467,12 @@ func (p *Pacemaker) OnBeat(epoch uint64, round uint32) {
 	}
 	if !p.reactor.amIRoundProproser(round) {
 		pmRoleGauge.Set(1) // validator
-		p.logger.Info("I am NOT round proposer", "round", round)
+		p.logger.Info("I am NOT round proposer, skip OnBeat", "round", round)
 		return
 	}
 	p.lastOnBeatRound = int32(round)
-	p.logger.Info("--------------------------------------------------")
+	p.logger.Info("==================================================")
 	p.logger.Info(fmt.Sprintf("OnBeat Epoch:%v, Round:%v", epoch, round))
-	p.logger.Info("--------------------------------------------------")
 	// parent already got QC, pre-commit it
 
 	//b := p.QCHigh.QCNode
@@ -696,7 +695,8 @@ func (p *Pacemaker) SendEpochEndInfo(b *block.DraftBlock) {
 }
 
 func (p *Pacemaker) OnRoundTimeout(ti PMRoundTimeoutInfo) {
-	p.logger.Warn(fmt.Sprintf("round %d timeout", ti.round), "counter", p.timeoutCounter)
+	p.logger.Warn(fmt.Sprintf("R:%d timeout", ti.round), "counter", p.timeoutCounter)
+	p.logger.Info("---------------------------------------------------------")
 
 	p.enterRound(ti.round+1, TimeoutRound)
 	newTi := &PMRoundTimeoutInfo{
@@ -738,7 +738,8 @@ func (p *Pacemaker) enterRound(round uint32, rtype roundType) bool {
 	oldRound := p.currentRound
 	p.currentRound = round
 	proposer := p.reactor.getRoundProposer(round)
-	p.logger.Info(fmt.Sprintf("round %d started", p.currentRound), "lastRound", oldRound, "type", rtype.String(), "proposer", proposer.NameAndIP(), "interval", meter.PrettyDuration(interval))
+	p.logger.Info("---------------------------------------------------------")
+	p.logger.Info(fmt.Sprintf("R:%d start", p.currentRound), "lastRound", oldRound, "type", rtype.String(), "proposer", proposer.NameAndIP(), "interval", meter.PrettyDuration(interval))
 	pmRoundGauge.Set(float64(p.currentRound))
 	return true
 }

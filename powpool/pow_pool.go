@@ -300,7 +300,7 @@ func (p *PowPool) GetPowDecision() (bool, *PowResult) {
 		log.Debug("Not ready for KBlock : no result for most difficult chain")
 		return false, nil
 	} else {
-		log.Info("Ready to propose KBlock", "latestHeight", latestHeight, "lastKframeHeight", lastKframeHeight)
+		log.Debug("Ready to propose KBlock", "latestHeight", latestHeight, "lastKframeHeight", lastKframeHeight)
 		return true, mostDifficultResult
 	}
 }

@@ -63,7 +63,7 @@ func buildMinerRewardTx(rewards []powpool.PowReward, chainTag byte, bestNum uint
 		log.Debug("Reward:", "rewarder", reward.Rewarder, "value", reward.Value)
 		sum = sum.Add(sum, &reward.Value)
 	}
-	log.Info("miner reward in epoch", "kBlock", bestNum+1, "sum", sum)
+	log.Debug("miner reward in epoch", "kBlock", bestNum+1, "sum", sum)
 
 	builder.Build().IntrinsicGas()
 	return builder.Build()

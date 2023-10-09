@@ -212,13 +212,12 @@ func (c *Reactor) validateBlockBody(blk *block.Block, parent *block.Block, force
 		if proposalKBlock && forceValidate {
 			rewards := powResults.Rewards
 			start := time.Now()
-			fmt.Println("---------------- Local Build KBlock Txs for validation ----------------")
+			c.logger.Info("< Begin locally build KBlock txs for validation ")
 			kblockTxs := c.buildKBlockTxs(parent, rewards, chainTag, bestNum, curEpoch, best, state)
 			// for _, tx := range kblockTxs {
 			// 	fmt.Println("tx=", tx.ID(), ", uniteHash=", tx.UniteHash(), "gas", tx.Gas())
 			// }
-			fmt.Printf(" Elapsed: %s", meter.PrettyDuration(time.Since(start)))
-			fmt.Printf("---------------- End of Local Build %d KBlock Txs ----------------\n", len(kblockTxs))
+			c.logger.Info("> End locally build KBlock with %d txs \n", len(kblockTxs), "elapsed", meter.PrettyDuration(time.Since(start)))
 
 			// Decode.
 			for _, kblockTx := range kblockTxs {
@@ -509,7 +508,7 @@ func (r *Reactor) buildKBlockTxs(parentBlock *block.Block, rewards []powpool.Pow
 			r.logger.Info(fmt.Sprintf("Built stats tx: %s", statsTx.ID().String()), "clauses", len(statsTx.Clauses()), "uhash", statsTx.UniteHash())
 			txs = append(txs, statsTx)
 		} else {
-			r.logger.Info("stats is empty, skip building stats tx")
+			r.logger.Info("Stats empty, skip building stats tx", "from", lastKBlockHeight, "to", parentBlock.Number())
 		}
 		state, err := r.stateCreator.NewState(parentBlock.Header().StateRoot())
 		if tx := governor.BuildAuctionControlTx(uint64(best.Number()+1), uint64(best.GetBlockEpoch()+1), chainTag, bestNum, state, r.chain); tx != nil {
@@ -547,7 +546,7 @@ func (r *Reactor) buildKBlockTxs(parentBlock *block.Block, rewards []powpool.Pow
 					if err != nil {
 						r.logger.Error("get delegates from staking FAILED", "err", err)
 					}
-					r.logger.Info("Loaded delegateList from staking for staging only", "len", len(delegates))
+					r.logger.Info("Loaded delegateList from staking for staging/testnet only", "len", len(delegates))
 					// skip member check for delegates in ComputeRewardMapV3
 					r.logger.Info("Compute reward map")
 					rewardMap, err = governor.ComputeRewardMap(epochBaseReward, epochTotalReward, delegates, true)
@@ -621,6 +620,6 @@ func (r *Reactor) buildKBlockTxs(parentBlock *block.Block, rewards []powpool.Pow
 		txs = append(txs, tx)
 		r.logger.Info(fmt.Sprintf("Built account lock tx: %s", tx.ID().String()), "clauses", len(tx.Clauses()), "uhash", tx.UniteHash())
 	}
-	r.logger.Info(fmt.Sprintf("Built %d KBlock Governor Txs", len(txs)))
+	r.logger.Info(fmt.Sprintf("Built KBlock with %d txs", len(txs)))
 	return txs
 }
