@@ -93,7 +93,7 @@ func (p *Pacemaker) CreateLeaf(parent *block.DraftBlock, justify *block.DraftQC,
 	}
 
 	// propose SBlock only if I'm still in the epoch
-	proposeStopCommitteeBlock := (parentBlock.BlockType() == block.KBlockType) && p.reactor.curEpoch == parentBlock.QC.EpochID
+	proposeStopCommitteeBlock := (parentBlock.IsKBlock() || parentBlock.IsSBlock()) && p.reactor.curEpoch == parentBlock.QC.EpochID
 
 	// propose appropriate block info
 	if proposeStopCommitteeBlock {
