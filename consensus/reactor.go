@@ -643,7 +643,7 @@ func (r *Reactor) ValidateQC(b *block.Block, escortQC *block.QuorumCert) bool {
 	var err error
 
 	// KBlock should be verified with last committee
-	if b.IsKBlock() && b.Number() > 0 && b.Number() < r.chain.BestBlock().Number() {
+	if b.IsKBlock() && b.Number() > 0 && b.Number() <= r.chain.BestBlock().Number() {
 		start := time.Now()
 		valid, err = b.VerifyQC(escortQC, r.blsCommon, r.lastCommittee)
 		if valid && err == nil {
