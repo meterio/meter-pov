@@ -42,10 +42,6 @@ import (
 )
 
 const (
-	CHAN_DEFAULT_BUF_SIZE = 100
-)
-
-const (
 	fromDelegatesFile = iota
 	fromStaking
 )
@@ -98,8 +94,6 @@ type Reactor struct {
 	blsCommon *types.BlsCommon //this must be allocated as validator
 	pacemaker *Pacemaker
 
-	EpochEndCh chan EpochEndInfo // this channel for kblock notify from node module.
-
 	magic [4]byte
 
 	inQueue  *IncomingQueue
@@ -128,9 +122,8 @@ func NewConsensusReactor(ctx *cli.Context, chain *chain.Chain, logDB *logdb.LogD
 		inCommittee:  false,
 		knownIPs:     make(map[string]string),
 
-		inQueue:    NewIncomingQueue(),
-		outQueue:   NewOutgoingQueue(),
-		EpochEndCh: make(chan EpochEndInfo, CHAN_DEFAULT_BUF_SIZE),
+		inQueue:  NewIncomingQueue(),
+		outQueue: NewOutgoingQueue(),
 
 		blsCommon: blsCommon,
 		myPrivKey: *privKey,
@@ -174,6 +167,7 @@ func (r *Reactor) OnStart(ctx context.Context) error {
 		r.logger.Warn("stop reactor due to context end")
 		return nil
 	case <-r.comm.Synced():
+		r.SyncDone = true
 		r.logger.Info("sync is done, start pacemaker ...")
 		r.pacemaker.Regulate()
 	}
@@ -310,6 +304,10 @@ func (r *Reactor) IsMe(peer *ConsensusPeer) bool {
 		return strings.EqualFold(peer.IP, myAddr.String())
 	}
 	return false
+}
+
+func (r *Reactor) SchedulePacemakerRegulate() {
+	r.pacemaker.scheduleRegulate()
 }
 
 func (r *Reactor) PrepareEnvForPacemaker() error {

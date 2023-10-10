@@ -213,8 +213,12 @@ func (p *Pacemaker) OnCommit(commitReady []commitReadyBlock) {
 		}
 
 		if blk.ProposedBlock.IsKBlock() {
-			p.logger.Info("committed a kblock, regulate pacemaker", "height", blk.Height, "round", blk.Round)
-			p.SendEpochEndInfo(blk)
+			if blk.ProposedBlock.QC.EpochID >= p.reactor.curEpoch && blk.ProposedBlock.KBlockData.Nonce != p.reactor.curNonce {
+				p.logger.Info("committed a kblock, regulate pacemaker", "height", blk.Height, "round", blk.Round)
+				p.scheduleRegulate()
+			} else {
+				p.logger.Info("committed a kblock, but it's been processed, skip regulate")
+			}
 			// p.Stop()
 		}
 
@@ -628,13 +632,6 @@ func (p *Pacemaker) mainLoop() {
 			p.scheduleRegulate()
 		}
 		select {
-		case ee := <-p.reactor.EpochEndCh:
-			if ee.Height < p.reactor.lastKBlockHeight || ee.Nonce == p.reactor.curNonce {
-				p.logger.Info("epochEnd handled already, skip for now ...", "height", ee.Height, "nonce", ee.Nonce)
-				continue
-			}
-			p.logger.Info("handle epoch end", "epoch", ee.Epoch, "height", ee.Height, "nonce", ee.Nonce)
-			p.scheduleRegulate()
 		case cmd := <-p.cmdCh:
 			if cmd == PMCmdRegulate {
 				p.Regulate()
@@ -676,21 +673,6 @@ func (p *Pacemaker) mainLoop() {
 			return
 
 		}
-	}
-}
-
-func (p *Pacemaker) SendEpochEndInfo(b *block.DraftBlock) {
-	// clean off chain for next committee.
-	blk := b.ProposedBlock
-	if blk.IsKBlock() {
-		data, _ := blk.GetKBlockData()
-		info := EpochEndInfo{
-			Height:           blk.Number(),
-			LastKBlockHeight: blk.LastKBlockHeight(),
-			Nonce:            data.Nonce,
-			Epoch:            blk.QC.EpochID,
-		}
-		p.reactor.EpochEndCh <- info
 	}
 }
 

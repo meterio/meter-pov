@@ -309,28 +309,10 @@ func (n *Node) processBlock(blk *block.Block, escortQC *block.QuorumCert, stats 
 	n.processFork(fork)
 
 	// shortcut to refresh epoch
-	n.reactor.UpdateCurEpoch()
+	updated, _ := n.reactor.UpdateCurEpoch()
 
-	if blk.IsKBlock() && n.reactor.SyncDone {
-		data, _ := blk.GetKBlockData()
-		info := consensus.EpochEndInfo{
-			Height:           blk.Number(),
-			LastKBlockHeight: n.reactor.GetLastKBlockHeight(),
-			Nonce:            data.Nonce,
-			Epoch:            blk.QC.EpochID,
-		}
-		log.Info("received kblock from block sync...", "nonce", info.Nonce, "height", info.Height)
-		// this chan is initialized as 100, we should clean up if it is almost full.
-		// only the last one is processed.
-		chanLength := len(n.reactor.EpochEndCh)
-		chanCap := cap(n.reactor.EpochEndCh)
-		if chanLength >= (chanCap / 10 * 9) {
-			for i := int(0); i < chanLength; i++ {
-				<-n.reactor.EpochEndCh
-			}
-			log.Info("garbaged all kblock info ...")
-		}
-		n.reactor.EpochEndCh <- info
+	if blk.IsKBlock() && n.reactor.SyncDone && updated {
+		n.reactor.SchedulePacemakerRegulate()
 	}
 	// end of shortcut
 	return len(fork.Trunk) > 0, nil
