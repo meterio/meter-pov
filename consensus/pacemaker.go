@@ -37,6 +37,7 @@ type Pacemaker struct {
 	// update_current_round take care of updating current_round and sending new round event if
 	// it changes
 	currentRound    uint32
+	roundStartedAt  time.Time
 	mainLoopStarted bool
 	minMBlocks      uint32
 
@@ -353,20 +354,31 @@ func (p *Pacemaker) OnReceiveProposal(mi *IncomingMsg) {
 			return
 		}
 
-		// send vote message to next proposer
-		p.sendMsg(vote, false)
-		p.lastVotingHeight = bnew.Height
-		p.lastVoteMsg = vote
-
 		p.Update(bnew)
 
-		// enter round and reset timer
-		if msg.DecodeBlock().IsKBlock() {
-			// if proposed block is KBlock, reset the timer with extra time cushion
-			p.enterRound(bnew.Round+1, KBlockRound)
+		roundElapsed := time.Since(p.roundStartedAt)
+		wait := RoundInterval
+		if roundElapsed < RoundInterval {
+			wait = RoundInterval - roundElapsed
 		} else {
-			p.enterRound(bnew.Round+1, RegularRound)
+			wait = 10 * time.Millisecond // delay 0.01s
 		}
+		p.logger.Info("ready to vote after global sync", "interval", meter.PrettyDuration(wait))
+
+		time.AfterFunc(wait, func() {
+			// send vote message to next proposer
+			p.sendMsg(vote, false)
+			p.lastVotingHeight = bnew.Height
+			p.lastVoteMsg = vote
+
+			// enter round and reset timer
+			if msg.DecodeBlock().IsKBlock() {
+				// if proposed block is KBlock, reset the timer with extra time cushion
+				p.enterRound(bnew.Round+1, KBlockRound)
+			} else {
+				p.enterRound(bnew.Round+1, RegularRound)
+			}
+		})
 	}
 
 }
@@ -453,7 +465,6 @@ func (p *Pacemaker) UpdateQCHigh(qc *block.DraftQC) bool {
 }
 
 func (p *Pacemaker) OnBeat(epoch uint64, round uint32) {
-	start := time.Now()
 	// avoid leftover onbeat
 	if epoch < p.reactor.curEpoch {
 		p.logger.Warn(fmt.Sprintf("outdated onBeat (epoch(%v) < local epoch(%v)), skip ...", epoch, p.reactor.curEpoch))
@@ -482,23 +493,17 @@ func (p *Pacemaker) OnBeat(epoch uint64, round uint32) {
 	pmRoleGauge.Set(2) // leader
 	// p.logger.Info("I AM round proposer", "round", round)
 
-	elapsed := time.Since(start)
-	wait := RoundInterval
-	if elapsed < wait {
-		wait = wait - elapsed
-	}
 	bnew := p.OnPropose(p.QCHigh, round)
 	if bnew != nil {
-		p.logger.Info(fmt.Sprintf("proposed %s", bnew.ProposedBlock.Oneliner()), "elapsed", meter.PrettyDuration(elapsed), "wait", meter.PrettyDuration(wait))
-		time.AfterFunc(wait, func() {
-			// create slot in proposalMap directly, instead of sendmsg to self.
-			p.chain.AddDraft(bnew)
+		p.logger.Info(fmt.Sprintf("proposed %s", bnew.ProposedBlock.Oneliner()))
 
-			p.TCHigh = nil
+		// create slot in proposalMap directly, instead of sendmsg to self.
+		p.chain.AddDraft(bnew)
 
-			//send proposal to every committee members including myself
-			p.sendMsg(bnew.Msg, true)
-		})
+		p.TCHigh = nil
+
+		//send proposal to every committee members including myself
+		p.sendMsg(bnew.Msg, true)
 	}
 }
 
@@ -737,6 +742,7 @@ func (p *Pacemaker) enterRound(round uint32, rtype roundType) bool {
 
 	oldRound := p.currentRound
 	p.currentRound = round
+	p.roundStartedAt = time.Now()
 	proposer := p.reactor.getRoundProposer(round)
 	p.logger.Info("---------------------------------------------------------")
 	p.logger.Info(fmt.Sprintf("R:%d start", p.currentRound), "lastRound", oldRound, "type", rtype.String(), "proposer", proposer.NameAndIP(), "interval", meter.PrettyDuration(interval))
