@@ -110,6 +110,7 @@ func (p *Pacemaker) ValidateProposal(b *block.DraftBlock) error {
 				for _, tx := range blk.Transactions() {
 					if knownTx.ID() == tx.ID() {
 						p.logger.Error("tx already existed in cache", "id", tx.ID())
+						return errors.New("tx already existed in cache")
 					}
 				}
 			}

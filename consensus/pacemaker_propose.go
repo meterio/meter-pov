@@ -36,6 +36,8 @@ func (p *Pacemaker) packCommitteeInfo(blk *block.Block) {
 
 // Build MBlock
 func (p *Pacemaker) buildMBlock(parent *block.DraftBlock, justify *block.DraftQC, round uint32) (error, *block.DraftBlock) {
+	p.reactor.txpool.UpdateExecutables()
+
 	parentBlock := parent.ProposedBlock
 	best := parentBlock
 	qc := justify.QC

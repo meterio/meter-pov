@@ -131,6 +131,27 @@ func (p *TxPool) housekeeping() {
 	}
 }
 
+func (p *TxPool) UpdateExecutables() {
+	atomic.StoreUint32(&p.addedAfterWash, 0)
+	poolLen := p.all.Len()
+
+	headBlock := p.chain.BestBlock().Header()
+	startTime := mclock.Now()
+	executables, removed, err := p.wash(headBlock)
+	elapsed := mclock.Now() - startTime
+
+	ctx := []interface{}{
+		"len", poolLen,
+		"removed", removed,
+		"elapsed", meter.PrettyDuration(elapsed),
+	}
+	if err != nil {
+		ctx = append(ctx, "err", err)
+	} else {
+		p.executables.Store(executables)
+	}
+}
+
 // Close cleanup inner go routines.
 func (p *TxPool) Close() {
 	close(p.done)
