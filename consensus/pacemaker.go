@@ -97,12 +97,12 @@ func (p *Pacemaker) CreateLeaf(parent *block.DraftBlock, justify *block.DraftQC,
 
 	// propose appropriate block info
 	if proposeStopCommitteeBlock {
-		p.logger.Info(fmt.Sprintf("proposing SBlock on R:%v with QCHigh(#%v,R:%v), Parent(R:%v,Block:%v)", round, justify.QC.QCHeight, justify.QC.QCRound, parent.Round, parent.ProposedBlock.ID().ToBlockShortID()))
+		p.logger.Info(fmt.Sprintf("proposing SBlock on R:%v with QCHigh(#%v,R:%v), Parent(%v,R:%v)", round, justify.QC.QCHeight, justify.QC.QCRound, parent.ProposedBlock.ID().ToBlockShortID(), parent.Round))
 		return p.buildStopCommitteeBlock(parent, justify, round)
 	} else if proposeKBlock {
 		kblockData := &block.KBlockData{Nonce: uint64(powResults.Nonce), Data: powResults.Raw}
 		rewards := powResults.Rewards
-		p.logger.Info(fmt.Sprintf("proposing KBlock on R:%v with QCHigh(#%v,R:%v), Parent(R:%v,Block:%v)", round, justify.QC.QCHeight, justify.QC.QCRound, parent.Round, parent.ProposedBlock.ID().ToBlockShortID()))
+		p.logger.Info(fmt.Sprintf("proposing KBlock on R:%v with QCHigh(#%v,R:%v), Parent(%v,R:%v)", round, justify.QC.QCHeight, justify.QC.QCRound, parent.ProposedBlock.ID().ToBlockShortID(), parent.Round))
 		return p.buildKBlock(parent, justify, round, kblockData, rewards)
 	} else {
 		if !parent.ProposedBlock.IsKBlock() { // only check round if parent is not KBlock
@@ -115,7 +115,7 @@ func (p *Pacemaker) CreateLeaf(parent *block.DraftBlock, justify *block.DraftQC,
 				return ErrInvalidRound, nil
 			}
 		}
-		p.logger.Info(fmt.Sprintf("proposing MBlock on R:%v with QCHigh(#%v,R:%v), Parent(R:%v,Block:%v)", round, justify.QC.QCHeight, justify.QC.QCRound, parent.Round, parent.ProposedBlock.ID().ToBlockShortID()))
+		p.logger.Info(fmt.Sprintf("proposing MBlock on R:%v with QCHigh(#%v,R:%v), Parent(%v,R:%v)", round, justify.QC.QCHeight, justify.QC.QCRound, parent.ProposedBlock.ID().ToBlockShortID(), parent.Round))
 		return p.buildMBlock(parent, justify, round)
 	}
 }
@@ -408,39 +408,33 @@ func (p *Pacemaker) OnReceiveVote(mi *IncomingMsg) {
 	changed := p.UpdateQCHigh(newDraftQC)
 	if changed {
 		// if QC is updated, schedule onbeat now
-		p.ScheduleOnBeat(p.reactor.curEpoch, round+1, 2000*time.Millisecond)
+		p.ScheduleOnBeat(p.reactor.curEpoch, round+1, 10*time.Millisecond) // delay 0.01s
 	}
 }
 
-func (p *Pacemaker) OnPropose(qc *block.DraftQC, round uint32) {
+func (p *Pacemaker) OnPropose(qc *block.DraftQC, round uint32) *block.DraftBlock {
 	parent := p.chain.GetDraftByEscortQC(qc.QC)
 	err, bnew := p.CreateLeaf(parent, qc, round)
 	if err != nil {
 		p.logger.Error("could not create leaf", "err", err)
-		return
+		return nil
 	}
 	// proposedBlk := bnew.ProposedBlockInfo.ProposedBlock
 
 	if bnew.Height <= qc.QC.QCHeight {
 		p.logger.Error("proposed block refers to an invalid qc", "proposedQC", qc.QC.QCHeight, "proposedHeight", bnew.Height)
-		return
+		return nil
 	}
-	p.logger.Info(fmt.Sprintf("proposed %s", bnew.ProposedBlock.Oneliner()))
 
 	msg, err := p.BuildProposalMessage(bnew.Height, bnew.Round, bnew, p.TCHigh)
 	if err != nil {
 		p.logger.Error("could not build proposal message", "err", err)
-		return
+		return nil
 	}
 
 	bnew.Msg = msg
-	// create slot in proposalMap directly, instead of sendmsg to self.
-	p.chain.AddDraft(bnew)
+	return bnew
 
-	p.TCHigh = nil
-
-	//send proposal to every committee members including myself
-	p.sendMsg(msg, true)
 }
 
 func (p *Pacemaker) UpdateQCHigh(qc *block.DraftQC) bool {
@@ -459,6 +453,7 @@ func (p *Pacemaker) UpdateQCHigh(qc *block.DraftQC) bool {
 }
 
 func (p *Pacemaker) OnBeat(epoch uint64, round uint32) {
+	start := time.Now()
 	// avoid leftover onbeat
 	if epoch < p.reactor.curEpoch {
 		p.logger.Warn(fmt.Sprintf("outdated onBeat (epoch(%v) < local epoch(%v)), skip ...", epoch, p.reactor.curEpoch))
@@ -471,12 +466,11 @@ func (p *Pacemaker) OnBeat(epoch uint64, round uint32) {
 	}
 	if !p.reactor.amIRoundProproser(round) {
 		pmRoleGauge.Set(1) // validator
-		p.logger.Info("I am NOT round proposer, skip OnBeat", "round", round)
+		p.logger.Info("I'm NOT round proposer, skip OnBeat", "round", round)
 		return
 	}
 	p.lastOnBeatRound = int32(round)
-	p.logger.Info("==================================================")
-	p.logger.Info(fmt.Sprintf("OnBeat Epoch:%v, Round:%v", epoch, round))
+	p.logger.Info(fmt.Sprintf("== OnBeat Epoch:%v, Round:%v ==", epoch, round))
 	// parent already got QC, pre-commit it
 
 	//b := p.QCHigh.QCNode
@@ -486,9 +480,26 @@ func (p *Pacemaker) OnBeat(epoch uint64, round uint32) {
 	}
 
 	pmRoleGauge.Set(2) // leader
-	p.logger.Info("I AM round proposer", "round", round)
+	// p.logger.Info("I AM round proposer", "round", round)
 
-	p.OnPropose(p.QCHigh, round)
+	elapsed := time.Since(start)
+	wait := RoundInterval
+	if elapsed < wait {
+		wait = wait - elapsed
+	}
+	bnew := p.OnPropose(p.QCHigh, round)
+	if bnew != nil {
+		p.logger.Info(fmt.Sprintf("proposed %s", bnew.ProposedBlock.Oneliner()), "elapsed", meter.PrettyDuration(elapsed), "wait", meter.PrettyDuration(wait))
+		time.AfterFunc(wait, func() {
+			// create slot in proposalMap directly, instead of sendmsg to self.
+			p.chain.AddDraft(bnew)
+
+			p.TCHigh = nil
+
+			//send proposal to every committee members including myself
+			p.sendMsg(bnew.Msg, true)
+		})
+	}
 }
 
 func (p *Pacemaker) OnReceiveTimeout(mi *IncomingMsg) {
@@ -516,7 +527,7 @@ func (p *Pacemaker) OnReceiveTimeout(mi *IncomingMsg) {
 	tc := p.tcVoteManager.AddVote(msg.SignerIndex, msg.Epoch, msg.WishRound, msg.WishVoteSig, msg.WishVoteHash)
 	if tc != nil {
 		p.TCHigh = tc
-		p.ScheduleOnBeat(p.reactor.curEpoch, p.TCHigh.Round, 100*time.Millisecond)
+		p.ScheduleOnBeat(p.reactor.curEpoch, p.TCHigh.Round, 10*time.Millisecond) // delay 0.01s
 	}
 }
 
@@ -595,12 +606,20 @@ func (p *Pacemaker) Regulate() {
 
 	p.currentRound = 0
 	p.enterRound(actualRound, RegularRound)
-	p.ScheduleOnBeat(p.reactor.curEpoch, actualRound, 100*time.Microsecond) //delay 0.1s
+	p.ScheduleOnBeat(p.reactor.curEpoch, actualRound, 10*time.Millisecond) //delay 0.01 s
 }
 
 func (p *Pacemaker) ScheduleOnBeat(epoch uint64, round uint32, d time.Duration) {
 	// p.enterRound(round, IncRoundOnBeat)
 	time.AfterFunc(d, func() {
+	CleanBeatCh:
+		for {
+			select {
+			case <-p.beatCh:
+			default:
+				break CleanBeatCh
+			}
+		}
 		p.beatCh <- PMBeatInfo{epoch, round}
 	})
 }
@@ -608,12 +627,12 @@ func (p *Pacemaker) ScheduleOnBeat(epoch uint64, round uint32, d time.Duration) 
 func (p *Pacemaker) scheduleRegulate() {
 	// schedule Regulate
 	// make sure this Regulate cmd is the very next cmd
-Regulate:
+CleanCMDCh:
 	for {
 		select {
 		case <-p.cmdCh:
 		default:
-			break Regulate
+			break CleanCMDCh
 		}
 	}
 
@@ -678,7 +697,6 @@ func (p *Pacemaker) mainLoop() {
 
 func (p *Pacemaker) OnRoundTimeout(ti PMRoundTimeoutInfo) {
 	p.logger.Warn(fmt.Sprintf("R:%d timeout", ti.round), "counter", p.timeoutCounter)
-	p.logger.Info("---------------------------------------------------------")
 
 	p.enterRound(ti.round+1, TimeoutRound)
 	newTi := &PMRoundTimeoutInfo{
