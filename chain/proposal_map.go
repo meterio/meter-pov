@@ -150,12 +150,12 @@ func (p *ProposalMap) PruneUpTo(lastCommitted *block.DraftBlock) {
 			// return tx to txpool
 			if !draftBlk.ProposedBlock.ID().Equal(lastCommitted.ProposedBlock.ID()) {
 				draftBlk.TxsToReturned()
-				draftBlk.Stage.Revert()
-				//FIXME: should prune this state trie in database
-				// state, err := stateC.NewState(draftBlk.ProposedBlock.StateRoot())
-				// if err == nil {
-				// 	state.RevertTo(draftBlk.CheckPoint)
-				// }
+
+				// only prune state trie if it's not the same as the committed one
+				if !draftBlk.ProposedBlock.StateRoot().Equal(lastCommitted.ProposedBlock.StateRoot()) {
+					draftBlk.Stage.Revert()
+				}
+
 				// delete from proposal map
 				delete(p.proposals, draftBlk.ProposedBlock.ID())
 			}

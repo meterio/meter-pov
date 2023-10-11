@@ -89,7 +89,11 @@ func (p *Pacemaker) ValidateProposal(b *block.DraftBlock) error {
 		}
 		txsToReturned = func() bool {
 			for _, tx := range txsInBlk {
-				pool.Add(tx)
+				// only return txs if they are not in database
+				meta, err := p.chain.GetTrunkTransactionMeta(tx.ID())
+				if meta == nil || err != nil {
+					pool.Add(tx)
+				}
 			}
 			return true
 		}

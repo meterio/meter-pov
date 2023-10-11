@@ -73,6 +73,8 @@ func (c *Communicator) download(peer *Peer, fromNum uint32, handler HandleBlockS
 				// only append non-sblock
 				if !blk.Block.IsSBlock() {
 					blocks = append(blocks, &blk)
+				} else {
+					log.Warn("got sblock", "num", blk.Block.Number(), "id", blk.Block.ID())
 				}
 			}
 

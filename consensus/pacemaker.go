@@ -213,14 +213,16 @@ func (p *Pacemaker) OnCommit(commitReady []commitReadyBlock) {
 			}
 		}
 
-		if blk.ProposedBlock.IsKBlock() {
-			if blk.ProposedBlock.QC.EpochID >= p.reactor.curEpoch && blk.ProposedBlock.KBlockData.Nonce != p.reactor.curNonce {
-				p.logger.Info("committed a kblock, regulate pacemaker", "height", blk.Height, "round", blk.Round)
-				p.scheduleRegulate()
-			} else {
-				p.logger.Info("committed a kblock, but it's been processed, skip regulate")
+		if err != chain.ErrBlockExist && err != errKnownBlock {
+			if blk.ProposedBlock.IsKBlock() {
+				if blk.ProposedBlock.QC.EpochID >= p.reactor.curEpoch && blk.ProposedBlock.KBlockData.Nonce != p.reactor.curNonce {
+					p.logger.Info("committed a kblock, schedule regulate", "height", blk.Height, "round", blk.Round)
+					p.scheduleRegulate()
+				} else {
+					p.logger.Info("committed a kblock, but it's been processed, skip regulate")
+				}
+				// p.Stop()
 			}
-			// p.Stop()
 		}
 
 		// BUG FIX: normally proposal message are cleaned once it is committed. It is ok because this proposal
@@ -357,28 +359,27 @@ func (p *Pacemaker) OnReceiveProposal(mi *IncomingMsg) {
 		p.Update(bnew)
 
 		roundElapsed := time.Since(p.roundStartedAt)
-		wait := RoundInterval
-		if roundElapsed < RoundInterval {
-			wait = RoundInterval - roundElapsed
-		} else {
-			wait = 10 * time.Millisecond // delay 0.01s
+		roundWait := RoundInterval - 200*time.Millisecond - roundElapsed
+		if roundWait < 0 {
+			roundWait = 0
 		}
-		p.logger.Info("ready to vote after global sync", "interval", meter.PrettyDuration(wait))
+		if roundWait > 0 {
+			p.logger.Info("ready to vote with wait", "interval", meter.PrettyDuration(roundWait))
+			time.Sleep(roundWait)
+		}
 
-		time.AfterFunc(wait, func() {
-			// send vote message to next proposer
-			p.sendMsg(vote, false)
-			p.lastVotingHeight = bnew.Height
-			p.lastVoteMsg = vote
+		// send vote message to next proposer
+		p.sendMsg(vote, false)
+		p.lastVotingHeight = bnew.Height
+		p.lastVoteMsg = vote
 
-			// enter round and reset timer
-			if msg.DecodeBlock().IsKBlock() {
-				// if proposed block is KBlock, reset the timer with extra time cushion
-				p.enterRound(bnew.Round+1, KBlockRound)
-			} else {
-				p.enterRound(bnew.Round+1, RegularRound)
-			}
-		})
+		// enter round and reset timer
+		if msg.DecodeBlock().IsKBlock() {
+			// if proposed block is KBlock, reset the timer with extra time cushion
+			p.enterRound(bnew.Round+1, KBlockRound)
+		} else {
+			p.enterRound(bnew.Round+1, RegularRound)
+		}
 	}
 
 }
@@ -653,6 +654,7 @@ func (p *Pacemaker) mainLoop() {
 	for {
 		bestBlock := p.chain.BestBlock()
 		if bestBlock.Number() > p.QCHigh.QC.QCHeight {
+			p.logger.Info("bestBlock > QCHigh, schedule regulate", "best", bestBlock.Number(), "qcHigh", p.QCHigh.QC.QCHeight)
 			p.scheduleRegulate()
 		}
 		select {

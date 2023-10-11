@@ -312,6 +312,7 @@ func (n *Node) processBlock(blk *block.Block, escortQC *block.QuorumCert, stats 
 	updated, _ := n.reactor.UpdateCurEpoch()
 
 	if blk.IsKBlock() && n.reactor.SyncDone && updated {
+		log.Info("synced a kblock, schedule regulate", "num", blk.Number(), "id", blk.ID())
 		n.reactor.SchedulePacemakerRegulate()
 	}
 	// end of shortcut

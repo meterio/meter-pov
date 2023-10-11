@@ -1182,8 +1182,8 @@ func runLocalBlockAction(ctx *cli.Context) error {
 	hash, _ := stage.Hash()
 	log.Info("Verify block complete", "elapsed", meter.PrettyDuration(time.Since(start)), "err", err, "stage", hash, "stateRoot", blk.StateRoot())
 
-	stage.Commit()
-	log.Info("commited stage")
+	root, err := stage.Commit()
+	log.Info("commited stage", "root", root, "err", err)
 
 	// atrie := stage.GetAccountTrie()
 	// atrie.CommitTo(store)
