@@ -47,6 +47,10 @@ type PMBeatInfo struct {
 	round uint32
 }
 
+type PMVoteInfo struct {
+	voteMsg *block.PMVoteMessage
+}
+
 // enum roundUpdateReason
 type roundType int32
 

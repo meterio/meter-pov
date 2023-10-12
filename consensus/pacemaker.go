@@ -9,6 +9,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"os"
+	"sync"
 	"time"
 
 	"github.com/inconshreveable/log15"
@@ -55,8 +56,10 @@ type Pacemaker struct {
 
 	// Channels
 	roundTimeoutCh chan PMRoundTimeoutInfo
+	roundMutex     sync.Mutex
 	cmdCh          chan PMCmd
 	beatCh         chan PMBeatInfo
+	voteCh         chan PMVoteInfo
 
 	// Timeout
 	roundTimer     *time.Timer
@@ -74,6 +77,8 @@ func NewPacemaker(r *Reactor) *Pacemaker {
 		beatCh:         make(chan PMBeatInfo, 2),
 		roundTimeoutCh: make(chan PMRoundTimeoutInfo, 2),
 		roundTimer:     nil,
+		roundMutex:     sync.Mutex{},
+		voteCh:         make(chan PMVoteInfo, 4),
 
 		timeoutCounter:  0,
 		lastOnBeatRound: -1,
@@ -359,7 +364,7 @@ func (p *Pacemaker) OnReceiveProposal(mi *IncomingMsg) {
 		p.Update(bnew)
 
 		roundElapsed := time.Since(p.roundStartedAt)
-		roundWait := RoundInterval - 10*time.Millisecond - roundElapsed
+		roundWait := RoundInterval - 300*time.Millisecond - roundElapsed
 		if roundWait < 0 {
 			roundWait = 0
 		}
@@ -369,17 +374,7 @@ func (p *Pacemaker) OnReceiveProposal(mi *IncomingMsg) {
 		}
 
 		// send vote message to next proposer
-		p.sendMsg(vote, false)
-		p.lastVotingHeight = bnew.Height
-		p.lastVoteMsg = vote
-
-		// enter round and reset timer
-		if msg.DecodeBlock().IsKBlock() {
-			// if proposed block is KBlock, reset the timer with extra time cushion
-			p.enterRound(bnew.Round+1, KBlockRound)
-		} else {
-			p.enterRound(bnew.Round+1, RegularRound)
-		}
+		p.scheduleVote(vote, roundWait)
 	}
 
 }
@@ -421,7 +416,7 @@ func (p *Pacemaker) OnReceiveVote(mi *IncomingMsg) {
 	changed := p.UpdateQCHigh(newDraftQC)
 	if changed {
 		// if QC is updated, schedule onbeat now
-		p.ScheduleOnBeat(p.reactor.curEpoch, round+1, 10*time.Millisecond) // delay 0.01s
+		p.scheduleOnBeat(p.reactor.curEpoch, round+1, 10*time.Millisecond) // delay 0.01s
 	}
 }
 
@@ -533,7 +528,7 @@ func (p *Pacemaker) OnReceiveTimeout(mi *IncomingMsg) {
 	tc := p.tcVoteManager.AddVote(msg.SignerIndex, msg.Epoch, msg.WishRound, msg.WishVoteSig, msg.WishVoteHash)
 	if tc != nil {
 		p.TCHigh = tc
-		p.ScheduleOnBeat(p.reactor.curEpoch, p.TCHigh.Round, 10*time.Millisecond) // delay 0.01s
+		p.scheduleOnBeat(p.reactor.curEpoch, p.TCHigh.Round, 10*time.Millisecond) // delay 0.01s
 	}
 }
 
@@ -612,10 +607,50 @@ func (p *Pacemaker) Regulate() {
 
 	p.currentRound = 0
 	p.enterRound(actualRound, RegularRound)
-	p.ScheduleOnBeat(p.reactor.curEpoch, actualRound, 10*time.Millisecond) //delay 0.01 s
+	p.scheduleOnBeat(p.reactor.curEpoch, actualRound, 10*time.Millisecond) //delay 0.01 s
 }
 
-func (p *Pacemaker) ScheduleOnBeat(epoch uint64, round uint32, d time.Duration) {
+func (p *Pacemaker) scheduleVote(voteMsg *block.PMVoteMessage, d time.Duration) {
+	time.AfterFunc(d, func() {
+	CleanVoteCh:
+		for {
+			select {
+			case <-p.voteCh:
+			default:
+				break CleanVoteCh
+			}
+		}
+		p.voteCh <- PMVoteInfo{voteMsg}
+	})
+}
+
+func (p *Pacemaker) OnSendingVote(voteMsg *block.PMVoteMessage) {
+	num := block.Number(voteMsg.VoteBlockID)
+	draft := p.chain.GetDraft(voteMsg.VoteBlockID)
+	if draft == nil || draft.ProposedBlock == nil {
+		p.logger.Info("could not load draft block, skip voting ...", "id", voteMsg.VoteBlockID.ToBlockShortID())
+		return
+	}
+
+	if voteMsg.Epoch < p.reactor.curEpoch {
+		p.logger.Info(fmt.Sprintf("vote epoch %d < curEpoch %d , skip voting ...", voteMsg.Epoch, p.reactor.curEpoch))
+		return
+	}
+
+	p.sendMsg(voteMsg, false)
+	p.lastVotingHeight = num
+	p.lastVoteMsg = voteMsg
+
+	// enter round and reset timer
+	if draft.ProposedBlock.IsKBlock() {
+		// if proposed block is KBlock, reset the timer with extra time cushion
+		p.enterRound(voteMsg.VoteRound+1, KBlockRound)
+	} else {
+		p.enterRound(voteMsg.VoteRound+1, RegularRound)
+	}
+}
+
+func (p *Pacemaker) scheduleOnBeat(epoch uint64, round uint32, d time.Duration) {
 	// p.enterRound(round, IncRoundOnBeat)
 	time.AfterFunc(d, func() {
 	CleanBeatCh:
@@ -658,6 +693,8 @@ func (p *Pacemaker) mainLoop() {
 			p.scheduleRegulate()
 		}
 		select {
+		case vi := <-p.voteCh:
+			p.OnSendingVote(vi.voteMsg)
 		case cmd := <-p.cmdCh:
 			if cmd == PMCmdRegulate {
 				p.Regulate()
@@ -753,6 +790,8 @@ func (p *Pacemaker) enterRound(round uint32, rtype roundType) bool {
 }
 
 func (p *Pacemaker) resetRoundTimer(round uint32, rtype roundType) time.Duration {
+	p.roundMutex.Lock()
+	defer p.roundMutex.Unlock()
 	// stop existing round timer
 	if p.roundTimer != nil {
 		p.logger.Debug(fmt.Sprintf("stop timer for round %d", p.currentRound))

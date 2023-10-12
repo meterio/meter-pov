@@ -575,22 +575,33 @@ func (r *Reactor) OnReceiveMsg(w http.ResponseWriter, req *http.Request) {
 		r.logger.Error("Unmarshal error", "err", err)
 		return
 	}
+	r.AddIncoming(mi, data)
 
+}
+
+func (r *Reactor) AddIncoming(mi *IncomingMsg, data []byte) {
 	msg, peer := mi.Msg, mi.Peer
 	typeName := mi.Msg.GetType()
 
-	signerIndex := msg.GetSignerIndex()
-	if int(signerIndex) >= len(r.committee) {
-		r.logger.Warn("actual committee not initialized, skip relay ...", "msg", msg.GetType())
+	if msg.GetEpoch() < r.curEpoch {
+		r.logger.Info(fmt.Sprintf("outdated %s, dropped ...", msg.String()), "peer", peer.String())
 		return
 	}
-	signer := r.committee[signerIndex]
 
-	if !msg.VerifyMsgSignature(&signer.PubKey) {
-		r.logger.Error("invalid signature, dropped ...", "peer", peer, "msg", msg.String(), "signer", signer.Name)
-		return
+	if msg.GetEpoch() == r.curEpoch {
+		signerIndex := msg.GetSignerIndex()
+		if int(signerIndex) >= len(r.committee) {
+			r.logger.Warn("index out of range for signer, dropped ...", "peer", peer, "msg", msg.GetType())
+			return
+		}
+		signer := r.committee[signerIndex]
+
+		if !msg.VerifyMsgSignature(&signer.PubKey) {
+			r.logger.Error("invalid signature, dropped ...", "peer", peer, "msg", msg.String(), "signer", signer.Name)
+			return
+		}
+		mi.Signer = signer
 	}
-	mi.Signer = signer
 
 	// sanity check for messages
 	switch m := msg.(type) {
@@ -609,30 +620,24 @@ func (r *Reactor) OnReceiveMsg(w http.ResponseWriter, req *http.Request) {
 	}
 
 	fromMyself := peer.IP == r.GetMyNetAddr().IP.String()
-	suffix := ""
-	if fromMyself {
-		suffix = " (myself)"
-	}
 
-	if msg.GetEpoch() < r.curEpoch {
-		r.logger.Info(fmt.Sprintf("recv outdated %s", msg.String()), "peer", peer.String()+suffix)
-		return
-	}
+	if msg.GetEpoch() == r.curEpoch {
+		err := r.inQueue.Add(mi)
+		if err != nil {
+			return
+		}
 
-	if r.pacemaker == nil {
-		r.logger.Warn("pacemaker is not initialized, dropped message")
-		return
-	}
-	err = r.inQueue.Add(mi)
-	if err != nil {
-		return
-	}
-
-	// relay the message if these two conditions are met:
-	// 1. the original message is not sent by myself
-	// 2. it's a proposal message
-	if !fromMyself && typeName == "PMProposal" {
-		r.Relay(mi.Msg, data)
+		// relay the message if these two conditions are met:
+		// 1. the original message is not sent by myself
+		// 2. it's a proposal message
+		if !fromMyself && typeName == "PMProposal" {
+			r.Relay(mi.Msg, data)
+		}
+	} else {
+		time.AfterFunc(time.Second, func() {
+			r.logger.Info(fmt.Sprintf("future message %s in epoch %d, process after 1s ...", msg.GetType(), msg.GetEpoch()), "curEpoch", r.curEpoch)
+			r.AddIncoming(mi, data)
+		})
 	}
 }
 
