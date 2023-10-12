@@ -359,7 +359,7 @@ func (p *Pacemaker) OnReceiveProposal(mi *IncomingMsg) {
 		p.Update(bnew)
 
 		roundElapsed := time.Since(p.roundStartedAt)
-		roundWait := RoundInterval - 200*time.Millisecond - roundElapsed
+		roundWait := RoundInterval - 10*time.Millisecond - roundElapsed
 		if roundWait < 0 {
 			roundWait = 0
 		}

@@ -842,18 +842,26 @@ func (c *Chain) UpdateStateSnapshotNum(num uint32) error {
 }
 
 func (c *Chain) AddDraft(b *block.DraftBlock) {
+	c.rw.Lock()
+	defer c.rw.Unlock()
 	c.proposalMap.Add(b)
 }
 
 func (c *Chain) HasDraft(blkID meter.Bytes32) bool {
+	c.rw.RLock()
+	defer c.rw.RUnlock()
 	return c.proposalMap.Has(blkID)
 }
 
 func (c *Chain) GetDraft(blkID meter.Bytes32) *block.DraftBlock {
+	c.rw.RLock()
+	defer c.rw.RUnlock()
 	return c.proposalMap.Get(blkID)
 }
 
 func (c *Chain) GetDraftByNum(num uint32) *block.DraftBlock {
+	c.rw.RLock()
+	defer c.rw.RUnlock()
 	proposals := c.proposalMap.GetDraftByNum(num)
 	if len(proposals) > 0 {
 		latest := proposals[0]
@@ -868,10 +876,14 @@ func (c *Chain) GetDraftByNum(num uint32) *block.DraftBlock {
 }
 
 func (c *Chain) GetDraftByEscortQC(qc *block.QuorumCert) *block.DraftBlock {
+	c.rw.RLock()
+	defer c.rw.RUnlock()
 	return c.proposalMap.GetOneByEscortQC(qc)
 }
 
 func (c *Chain) DraftLen() int {
+	c.rw.RLock()
+	defer c.rw.RUnlock()
 	if c.proposalMap != nil {
 		return c.proposalMap.Len()
 	}
@@ -879,9 +891,13 @@ func (c *Chain) DraftLen() int {
 }
 
 func (c *Chain) PruneDraftsUpTo(lastCommitted *block.DraftBlock) {
+	c.rw.Lock()
+	defer c.rw.Unlock()
 	c.proposalMap.PruneUpTo(lastCommitted)
 }
 
 func (c *Chain) GetDraftsUpTo(commitedBlkID meter.Bytes32, qcHigh *block.QuorumCert) []*block.DraftBlock {
+	c.rw.RLock()
+	defer c.rw.RUnlock()
 	return c.proposalMap.GetProposalsUpTo(commitedBlkID, qcHigh)
 }
