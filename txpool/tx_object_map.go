@@ -48,7 +48,7 @@ func (m *txObjectMap) Add(txObj *txObject, limitPerAccount int) error {
 
 	m.quota[txObj.Origin()]++
 	m.txObjMap[txObj.ID()] = txObj
-	log.Info("added tx", "ID", txObj.ID(), "mapSize", len(m.txObjMap))
+	log.Info("added tx", "id", txObj.ID(), "mapSize", len(m.txObjMap))
 	return nil
 }
 

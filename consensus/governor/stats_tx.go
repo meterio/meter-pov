@@ -45,9 +45,6 @@ func BuildStatisticsTx(entries []*StatEntry, chainTag byte, bestNum uint32, curE
 	gas := meter.TxGas + meter.ClauseGas*uint64(len(entries)) + meter.BaseTxGas /* buffer */
 
 	//now build Clauses
-	fmt.Println("*****************************************************")
-	fmt.Println("** Statistics Txs **")
-	fmt.Println("*****************************************************")
 	for _, entry := range entries {
 		data := buildStatisticsData(entry, curEpoch)
 		gas += uint64(len(data)) * params.TxDataNonZeroGas
@@ -57,7 +54,7 @@ func BuildStatisticsTx(entries []*StatEntry, chainTag byte, bestNum uint32, curE
 				WithToken(meter.MTRG).
 				WithData(data))
 		log.Debug("Statistic entry", "entry", entry.String())
-		fmt.Println(entry.Name, entry.Address, ":", entry.Infraction.String())
+		log.Info(fmt.Sprintf("Stats entry in tx on %s", entry.Name), "addr", entry.Address, "infraction", entry.Infraction.String())
 	}
 	builder.Gas(gas)
 
@@ -334,10 +331,10 @@ func ComputeStatistics(lastKBlockHeight, height uint32, chain *chain.Chain, comm
 
 			// if length > 1, append infractions except for the first missing proposer
 			if length > 1 {
-				fmt.Println("exempt missing proposer: ", m.Address, "epoch:", m.Info.Epoch, "height:", m.Info.Height)
+				log.Debug("exempt missing proposer", "addr", m.Address, "epoch", m.Info.Epoch, "height", m.Info.Height)
 				for k := i + 1; k < j; k++ {
 					mk := missedProposer[k]
-					fmt.Println("followed by:", mk.Address, "epoch:", mk.Info.Epoch, "height:", mk.Info.Height)
+					log.Debug("followed by", "addr", mk.Address, "epoch", mk.Info.Epoch, "height", mk.Info.Height)
 					inf := &stats[mk.Address].Infraction
 					inf.MissingProposers.Counter++
 					minfo := &m.Info

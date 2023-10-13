@@ -21,6 +21,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/rlp"
+	"github.com/inconshreveable/log15"
 	"github.com/meterio/meter-pov/meter"
 	"github.com/meterio/meter-pov/metric"
 	"github.com/meterio/meter-pov/params"
@@ -29,6 +30,7 @@ import (
 var (
 	errIntrinsicGasOverflow = errors.New("intrinsic gas overflow")
 	RESERVED_PREFIX         = []byte{0xee, 0xff}
+	log                     = log15.New("pkg", "tx")
 )
 
 // reference to github.com/ethereum/go-ethereum/
@@ -209,15 +211,16 @@ func NewTransactionFromEthTx(ethTx *types.Transaction, chainTag byte, blockRef B
 	}
 	// tx.cache.signer.Store(from)
 	if verbose {
-		fmt.Println("new nativeTx from ethTx:", tx.ID(), tx.IsEthTx(),
-			"\n  from:", msg.From().Hex(), "to:", to.String(),
-			"\n  value:", msg.Value().String(),
-			"  nonce:", msg.Nonce(),
-			"  chainID:", fmt.Sprintf("0x%x", ethTx.ChainId()),
-			"\n  r:", fmt.Sprintf("0x%x", rBytes),
-			"\n  s:", fmt.Sprintf("0x%x", sBytes),
-			"\n  v:", fmt.Sprintf("0x%x", V.Bytes()),
-		)
+		log.Info("new nativeTx from ethTx", "id", tx.ID(), "from", msg.From().Hex(), "to", to.String())
+		// fmt.Println("new nativeTx from ethTx:", tx.ID(), tx.IsEthTx(),
+		// 	"\n  from:", msg.From().Hex(), "to:", to.String(),
+		// 	"\n  value:", msg.Value().String(),
+		// 	"  nonce:", msg.Nonce(),
+		// 	"  chainID:", fmt.Sprintf("0x%x", ethTx.ChainId()),
+		// 	"\n  r:", fmt.Sprintf("0x%x", rBytes),
+		// 	"\n  s:", fmt.Sprintf("0x%x", sBytes),
+		// 	"\n  v:", fmt.Sprintf("0x%x", V.Bytes()),
+		// )
 	}
 	return tx, nil
 }

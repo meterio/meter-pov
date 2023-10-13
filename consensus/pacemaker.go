@@ -364,15 +364,7 @@ func (p *Pacemaker) OnReceiveProposal(mi *IncomingMsg) {
 		p.Update(bnew)
 
 		roundElapsed := time.Since(p.roundStartedAt)
-		roundWait := RoundInterval - 300*time.Millisecond - roundElapsed
-		if roundWait < 0 {
-			roundWait = 0
-		}
-		if roundWait > 0 {
-			p.logger.Info("ready to vote with wait", "interval", meter.PrettyDuration(roundWait))
-			time.Sleep(roundWait)
-		}
-
+		roundWait := RoundInterval - 200*time.Millisecond - roundElapsed
 		// send vote message to next proposer
 		p.scheduleVote(vote, roundWait)
 	}
@@ -416,7 +408,7 @@ func (p *Pacemaker) OnReceiveVote(mi *IncomingMsg) {
 	changed := p.UpdateQCHigh(newDraftQC)
 	if changed {
 		// if QC is updated, schedule onbeat now
-		p.scheduleOnBeat(p.reactor.curEpoch, round+1, 10*time.Millisecond) // delay 0.01s
+		p.scheduleOnBeat(p.reactor.curEpoch, round+1)
 	}
 }
 
@@ -528,7 +520,7 @@ func (p *Pacemaker) OnReceiveTimeout(mi *IncomingMsg) {
 	tc := p.tcVoteManager.AddVote(msg.SignerIndex, msg.Epoch, msg.WishRound, msg.WishVoteSig, msg.WishVoteHash)
 	if tc != nil {
 		p.TCHigh = tc
-		p.scheduleOnBeat(p.reactor.curEpoch, p.TCHigh.Round, 10*time.Millisecond) // delay 0.01s
+		p.scheduleOnBeat(p.reactor.curEpoch, p.TCHigh.Round)
 	}
 }
 
@@ -607,11 +599,11 @@ func (p *Pacemaker) Regulate() {
 
 	p.currentRound = 0
 	p.enterRound(actualRound, RegularRound)
-	p.scheduleOnBeat(p.reactor.curEpoch, actualRound, 10*time.Millisecond) //delay 0.01 s
+	p.scheduleOnBeat(p.reactor.curEpoch, actualRound)
 }
 
 func (p *Pacemaker) scheduleVote(voteMsg *block.PMVoteMessage, d time.Duration) {
-	time.AfterFunc(d, func() {
+	scheduleFunc := func() {
 	CleanVoteCh:
 		for {
 			select {
@@ -621,7 +613,15 @@ func (p *Pacemaker) scheduleVote(voteMsg *block.PMVoteMessage, d time.Duration) 
 			}
 		}
 		p.voteCh <- PMVoteInfo{voteMsg}
-	})
+	}
+
+	if d <= 0 || d >= RoundInterval-200*time.Millisecond {
+		p.logger.Info(fmt.Sprintf("schedule vote for %s with no delay", voteMsg.VoteBlockID.ToBlockShortID()))
+		scheduleFunc()
+	} else {
+		p.logger.Info(fmt.Sprintf("schedule vote for %s after %s", voteMsg.VoteBlockID.ToBlockShortID(), meter.PrettyDuration(d)))
+		time.AfterFunc(d, scheduleFunc)
+	}
 }
 
 func (p *Pacemaker) OnSendingVote(voteMsg *block.PMVoteMessage) {
@@ -650,19 +650,17 @@ func (p *Pacemaker) OnSendingVote(voteMsg *block.PMVoteMessage) {
 	}
 }
 
-func (p *Pacemaker) scheduleOnBeat(epoch uint64, round uint32, d time.Duration) {
+func (p *Pacemaker) scheduleOnBeat(epoch uint64, round uint32) {
 	// p.enterRound(round, IncRoundOnBeat)
-	time.AfterFunc(d, func() {
-	CleanBeatCh:
-		for {
-			select {
-			case <-p.beatCh:
-			default:
-				break CleanBeatCh
-			}
+CleanBeatCh:
+	for {
+		select {
+		case <-p.beatCh:
+		default:
+			break CleanBeatCh
 		}
-		p.beatCh <- PMBeatInfo{epoch, round}
-	})
+	}
+	p.beatCh <- PMBeatInfo{epoch, round}
 }
 
 func (p *Pacemaker) scheduleRegulate() {
@@ -677,8 +675,8 @@ CleanCMDCh:
 		}
 	}
 
-	p.logger.Info("Pacemaker regulate scheduled")
 	p.cmdCh <- PMCmdRegulate
+	p.logger.Info("regulate scheduled")
 }
 
 func (p *Pacemaker) mainLoop() {

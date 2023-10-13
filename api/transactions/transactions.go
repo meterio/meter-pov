@@ -168,8 +168,8 @@ func (t *Transactions) handleSendEthRawTransaction(w http.ResponseWriter, req *h
 
 	var sendTx = func(tx *tx.Transaction) error {
 		signer, _ := tx.Signer()
-		fmt.Println("tx from black listed address, skip adding this to txpool")
 		if strings.ToLower(signer.String()) == "0x0e369a2e02912dba872e72d6c0b661e9617e0d9c" {
+			fmt.Println("tx from black listed address, skip adding this to txpool")
 			return errors.New("blacklisted address, not allowed in txpool")
 		}
 		if err := t.pool.Add(tx); err != nil {
