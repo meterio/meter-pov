@@ -9,17 +9,21 @@ import (
 	"bytes"
 	"encoding/base64"
 	"encoding/hex"
-	"fmt"
 	"math/big"
 
 	"github.com/btcsuite/btcd/wire"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/common/math"
+	"github.com/inconshreveable/log15"
 	"github.com/meterio/meter-pov/block"
 	"github.com/meterio/meter-pov/meter"
 	"github.com/meterio/meter-pov/powpool"
 	"github.com/meterio/meter-pov/tx"
+)
+
+var (
+	log = log15.New("api", "blk")
 )
 
 type JSONBlockSummary struct {
@@ -123,7 +127,7 @@ func buildJSONPowBlock(powRaw []byte) *JSONPowBlock {
 	powBlock := wire.MsgBlock{}
 	err := powBlock.Deserialize(bytes.NewReader(powRaw))
 	if err != nil {
-		fmt.Println("could not deserialize msgBlock, error:", err)
+		log.Error("could not deserialize msgBlock", "err", err)
 		return nil
 	}
 
@@ -364,7 +368,7 @@ func convertKBlockData(kdata *block.KBlockData) {
 		blk := wire.MsgBlock{}
 		err := blk.BtcDecode(bytes.NewReader(raw), 0, wire.BaseEncoding)
 		if err != nil {
-			fmt.Println("error: ", err)
+			log.Error("btc decode failed", "err", err)
 		}
 
 	}

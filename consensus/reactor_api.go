@@ -62,7 +62,6 @@ func (r *Reactor) GetLatestCommitteeList() ([]*ApiCommitteeMember, error) {
 			CsIndex:     index,
 			InCommittee: true,
 		}
-		// fmt.Println(fmt.Sprintf("set %d to true, with index = %d ", i, cm.CSIndex))
 		committeeMembers = append(committeeMembers, apiCm)
 		inCommittee[index] = true
 	}

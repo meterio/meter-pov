@@ -143,20 +143,20 @@ func (a *Accounts) handleGetStorage(w http.ResponseWriter, req *http.Request) er
 func (a *Accounts) handleCallContract(w http.ResponseWriter, req *http.Request) error {
 	callData := &CallData{}
 	if err := utils.ParseJSON(req.Body, &callData); err != nil {
-		fmt.Println("Parse error:", err)
+		log.Error("parse json failed", "err", err)
 		return utils.BadRequest(errors.WithMessage(err, "body"))
 	}
 
 	h, err := a.handleRevision(req.URL.Query().Get("revision"))
 	if err != nil {
-		fmt.Println("Error in handleRevision:", err)
+		log.Error("handleRevision failed", "err", err)
 		return err
 	}
 	var addr *meter.Address
 	if mux.Vars(req)["address"] != "" && mux.Vars(req)["address"] != "0x" {
 		address, err := meter.ParseAddress(mux.Vars(req)["address"])
 		if err != nil {
-			fmt.Printf("Error in address:%s, %s\n", mux.Vars(req)["address"], err)
+			log.Error("parse address failed", "addr", mux.Vars(req)["address"], "err", err)
 			return utils.BadRequest(errors.WithMessage(err, "address"))
 		}
 		addr = &address
@@ -178,16 +178,10 @@ func (a *Accounts) handleCallContract(w http.ResponseWriter, req *http.Request) 
 	}
 	results, err := a.batchCall(req.Context(), batchCallData, h)
 	if err != nil {
-		fmt.Println("Error in eth_call: ", err)
-		fmt.Println("Called with data:")
-		fmt.Println("  Caller: ", callData.Caller)
-		fmt.Println("  Value: ", callData.Value, ", Token:", callData.Token)
-		fmt.Println("  Data: ", callData.Data)
-		fmt.Println("  Gas:", callData.Gas, ", GasPrice:", callData.GasPrice)
-		fmt.Println("  Sender: ", mux.Vars(req)["address"])
+		log.Error("eth_call failed", "err", err, "caller", callData.Caller, "value", callData.Value, "token", callData.Token, "data", callData.Data, "gas", callData.Gas, "gasPrice", callData.GasPrice, "sender", mux.Vars(req)["address"])
 		return err
 	}
-	// fmt.Println("handleCallContract Results:", results)
+	// log.Debug("handleCallContract Results:", results)
 	return utils.WriteJSON(w, results[0])
 }
 
@@ -202,7 +196,7 @@ func (a *Accounts) handleCallBatchCode(w http.ResponseWriter, req *http.Request)
 	}
 	results, err := a.batchCall(req.Context(), batchCallData, h)
 	if err != nil {
-		fmt.Println("batchCall error: ", err)
+		log.Error("batchCall failed", "err", err)
 		return err
 	}
 	return utils.WriteJSON(w, results)
@@ -231,7 +225,6 @@ func (a *Accounts) batchCall(ctx context.Context, batchCallData *BatchCallData, 
 	best := a.chain.BestBlock()
 	blockRef := tx.NewBlockRefFromID(best.ID())
 	for i, clause := range clauses {
-		// fmt.Println("Clause: ", clause.String())
 		exec, interrupt := rt.PrepareClause(clause, uint32(i), gas, &xenv.TransactionContext{
 			Origin:     *caller,
 			GasPrice:   gasPrice,
@@ -248,16 +241,16 @@ func (a *Accounts) batchCall(ctx context.Context, batchCallData *BatchCallData, 
 			return nil, ctx.Err()
 		case out := <-vmout:
 			if err := rt.Seeker().Err(); err != nil {
-				fmt.Println("Seeker Error: ", err)
+				log.Error("seeker error", "err", err)
 				return nil, err
 			}
 			if err := state.Err(); err != nil {
-				fmt.Println("State Error: ", err)
+				log.Error("state error", "err", err)
 				return nil, err
 			}
 			results = append(results, convertCallResultWithInputGas(out, gas))
 			if out.VMErr != nil {
-				fmt.Println("VM Error: ", out.VMErr)
+				log.Error("vm error: ", "vmerr", out.VMErr)
 				return results, nil
 			}
 			gas = out.LeftOverGas

@@ -19,6 +19,7 @@ import (
 	"sync/atomic"
 
 	"github.com/ethereum/go-ethereum/rlp"
+	"github.com/inconshreveable/log15"
 	bls "github.com/meterio/meter-pov/crypto/multi_sig"
 	"github.com/meterio/meter-pov/meter"
 	"github.com/meterio/meter-pov/metric"
@@ -32,6 +33,7 @@ const (
 
 var (
 	BlockMagicVersion1 [4]byte = [4]byte{0x76, 0x01, 0x00, 0x00} // version v.1.0.0
+	log                        = log15.New("pkg", "blk")
 )
 
 type Violation struct {
@@ -146,7 +148,7 @@ func (b *Block) VerifyQC(escortQC *QuorumCert, blsCommon *types.BlsCommon, commi
 	committeeSize := uint32(len(committee))
 	if b == nil {
 		// decode block to get qc
-		// fmt.Println("can not decode block", err)
+		// log.Error("can not decode block", err)
 		return false, errors.New("block empty")
 	}
 
@@ -311,7 +313,7 @@ func (b *Block) EncodeRLP(w io.Writer) error {
 func (b *Block) DecodeRLP(s *rlp.Stream) error {
 	_, size, err := s.Kind()
 	if err != nil {
-		fmt.Println("decode rlp error:", err)
+		log.Error("decode rlp error", "err", err)
 	}
 
 	payload := struct {
@@ -347,7 +349,7 @@ func (b *Block) Size() metric.StorageSize {
 	var size metric.StorageSize
 	err := rlp.Encode(&size, b)
 	if err != nil {
-		fmt.Println("block size error:", err)
+		log.Error("block size error", "err", err)
 	}
 
 	b.cache.size.Store(size)
@@ -484,7 +486,7 @@ func (b *Block) SetCommitteeInfo(info []CommitteeInfo) {
 func (b *Block) ToBytes() []byte {
 	bytes, err := rlp.EncodeToBytes(b)
 	if err != nil {
-		fmt.Println("tobytes error:", err)
+		log.Error("tobytes error", "err", err)
 	}
 
 	return bytes
@@ -500,7 +502,7 @@ func (b *Block) SetBlockSignature(sig []byte) error {
 func BlockEncodeBytes(blk *Block) []byte {
 	blockBytes, err := rlp.EncodeToBytes(blk)
 	if err != nil {
-		fmt.Println("block encode error: ", err)
+		log.Error("block encode error", "err", err)
 		return make([]byte, 0)
 	}
 
@@ -510,7 +512,7 @@ func BlockEncodeBytes(blk *Block) []byte {
 func BlockDecodeFromBytes(bytes []byte) (*Block, error) {
 	blk := Block{}
 	err := rlp.DecodeBytes(bytes, &blk)
-	//fmt.Println("decode failed", err)
+	//log.Error("decode failed", err)
 	return &blk, err
 }
 

@@ -169,7 +169,7 @@ func (h *Header) SigningHash() (hash meter.Bytes32) {
 		h.Body.EvidenceDataRoot,
 	})
 	if err != nil {
-		fmt.Println("could not calculate signing hash:", err)
+		log.Error("could not calculate signing hash", "err", err)
 	}
 	hw.Sum(hash[:0])
 	return

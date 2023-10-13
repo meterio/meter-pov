@@ -3,10 +3,15 @@ package debug
 import (
 	"fmt"
 
+	"github.com/inconshreveable/log15"
 	"github.com/meterio/meter-pov/meter"
 
 	"github.com/ethereum/go-ethereum/common/math"
 	"github.com/meterio/meter-pov/vm"
+)
+
+var (
+	log = log15.New("api", "dbug")
 )
 
 type TracerOption struct {

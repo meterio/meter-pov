@@ -9,7 +9,6 @@ import (
 	"bytes"
 	"encoding/hex"
 	"encoding/json"
-	"fmt"
 	"io/ioutil"
 	"net/http"
 	"strings"
@@ -169,11 +168,11 @@ func (t *Transactions) handleSendEthRawTransaction(w http.ResponseWriter, req *h
 	var sendTx = func(tx *tx.Transaction) error {
 		signer, _ := tx.Signer()
 		if strings.ToLower(signer.String()) == "0x0e369a2e02912dba872e72d6c0b661e9617e0d9c" {
-			fmt.Println("tx from black listed address, skip adding this to txpool")
+			log.Warn("tx from black listed address, skip adding this to txpool")
 			return errors.New("blacklisted address, not allowed in txpool")
 		}
 		if err := t.pool.Add(tx); err != nil {
-			fmt.Println("txpool failed to add tx, error: ", err)
+			log.Warn("failed to add tx, error: ", err)
 			if txpool.IsBadTx(err) {
 				return utils.BadRequest(err)
 			}
@@ -193,7 +192,7 @@ func (t *Transactions) handleSendEthRawTransaction(w http.ResponseWriter, req *h
 		ethTx := types.Transaction{}
 		err := ethTx.UnmarshalBinary(rawBytes)
 		if err != nil {
-			fmt.Println("raw tx ERR: ", err)
+			log.Error("unmarshal raw failed", "err", err)
 			return utils.BadRequest(err)
 		}
 		bestBlock := t.chain.BestBlock()
@@ -230,12 +229,12 @@ func (t *Transactions) handleSendTransaction(w http.ResponseWriter, req *http.Re
 			}
 			if txpool.IsTxRejected(err) {
 				if tx != nil {
-					fmt.Println(err, tx.String())
+					log.Warn("tx rejected", "id", tx.ID(), "err", err)
 				}
 				return utils.Forbidden(err)
 			}
 			if tx != nil {
-				fmt.Println(err, tx.String())
+				log.Warn("txpool failed to add tx", "id", tx.ID(), "err", err)
 			}
 			return utils.HTTPError(err, 500)
 		}

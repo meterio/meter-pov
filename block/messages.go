@@ -131,7 +131,7 @@ func (m *PMProposalMessage) GetMsgHash() (hash meter.Bytes32) {
 	}
 	err := rlp.Encode(hw, data)
 	if err != nil {
-		fmt.Println("RLP Encode Error: ", err)
+		log.Error("RLP Encode Error", "err", err)
 	}
 	hw.Sum(hash[:0])
 	return
@@ -210,7 +210,7 @@ func (m *PMVoteMessage) GetMsgHash() (hash meter.Bytes32) {
 	}
 	err := rlp.Encode(hw, data)
 	if err != nil {
-		fmt.Println("RLP Encode Error: ", err)
+		log.Error("RLP Encode Error", "err", err)
 	}
 	hw.Sum(hash[:0])
 	return
@@ -283,7 +283,7 @@ func (m *PMTimeoutMessage) GetMsgHash() (hash meter.Bytes32) {
 	}
 	err := rlp.Encode(hw, data)
 	if err != nil {
-		fmt.Println("RLP Encode Error: ", err)
+		log.Error("RLP Encode Error", "err", err)
 	}
 	hw.Sum(hash[:0])
 	return
@@ -355,7 +355,7 @@ func (m *PMQueryMessage) GetMsgHash() (hash meter.Bytes32) {
 	data := []interface{}{m.Timestamp, m.Epoch, m.SignerIndex, m.LastCommitted}
 	err := rlp.Encode(hw, data)
 	if err != nil {
-		fmt.Println("RLP Encode Error: ", err)
+		log.Error("RLP Encode Error", "err", err)
 	}
 	hw.Sum(hash[:0])
 	return
