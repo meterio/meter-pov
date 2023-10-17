@@ -158,6 +158,8 @@ func (p *ProposalMap) PruneUpTo(lastCommitted *block.DraftBlock) {
 
 				// delete from proposal map
 				delete(p.proposals, draftBlk.ProposedBlock.ID())
+			} else {
+				draftBlk.Committed = true
 			}
 		}
 	}
