@@ -152,9 +152,9 @@ func (p *ProposalMap) PruneUpTo(lastCommitted *block.DraftBlock) {
 				draftBlk.TxsToReturned()
 
 				// only prune state trie if it's not the same as the committed one
-				if !draftBlk.ProposedBlock.StateRoot().Equal(lastCommitted.ProposedBlock.StateRoot()) {
-					draftBlk.Stage.Revert()
-				}
+				// if !draftBlk.ProposedBlock.StateRoot().Equal(lastCommitted.ProposedBlock.StateRoot()) {
+				// draftBlk.Stage.Revert()
+				// }
 
 				// delete from proposal map
 				delete(p.proposals, draftBlk.ProposedBlock.ID())
