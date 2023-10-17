@@ -73,6 +73,7 @@ func DecodeMsg(rawHex string) (ConsensusMessage, error) {
 func EncodeMsg(msg ConsensusMessage) (string, error) {
 	raw := cdc.MustMarshalBinaryBare(msg)
 	if len(raw) > maxMsgSize {
+		log.Error("consensus msg exceeds max size", "raw", len(raw), "maxSize", maxMsgSize)
 		return "", errors.New("msg exceeds max size")
 	}
 	return hex.EncodeToString(raw), nil
