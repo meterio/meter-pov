@@ -432,7 +432,10 @@ func (r *Reactor) GetConsensusDelegates() ([]*types.Delegate, []*types.Delegate)
 		r.knownIPs[d.NetAddr.IP.String()] = string(d.Name)
 	}
 	best := r.chain.BestBlock()
-	stakingDelegates, _ := r.getDelegatesFromStaking(best)
+	stakingDelegates, err := r.getDelegatesFromStaking(best)
+	if err != nil {
+		log.Error("could not get delegate from staking", "best", best.Number())
+	}
 
 	return delegates, stakingDelegates
 }
@@ -485,23 +488,25 @@ func (r *Reactor) UpdateCurEpoch() (bool, error) {
 		} else {
 			lastBestKHeight := bestK.LastKBlockHeight()
 			var lastNonce uint64
+			var lastBestK *block.Block
 			if lastBestKHeight == 0 {
 				lastNonce = 0
 			} else {
-				lastBestK, err := r.chain.GetTrunkBlock(lastBestKHeight)
+				lastBestK, err = r.chain.GetTrunkBlock(lastBestKHeight)
 				if err != nil {
 					r.logger.Error("could not get trunk block", "err", err)
 				} else {
 					lastNonce = lastBestK.KBlockData.Nonce
 				}
 			}
-			lastBestK, _ := r.chain.GetTrunkBlock(lastBestKHeight)
+
 			lastDelegates, err := r.getDelegatesFromStaking(lastBestK)
-			if err != nil {
-				r.logger.Error("could not get delegates from staking", "err", err)
-			} else {
-				_, r.lastCommittee, _, _ = r.calcCommitteeByNonce("last", lastDelegates, lastNonce)
+			if err != nil || len(lastDelegates) < r.config.MinCommitteeSize {
+				lastDelegates = r.config.InitDelegates
+				r.peakFirst3Delegates("Loaded delegates from file as fallback", delegates)
 			}
+
+			_, r.lastCommittee, _, _ = r.calcCommitteeByNonce("last", lastDelegates, lastNonce)
 
 		}
 		r.curDelegates, r.committee, r.committeeIndex, r.inCommittee = r.calcCommitteeByNonce("current", delegates, nonce)
@@ -509,8 +514,13 @@ func (r *Reactor) UpdateCurEpoch() (bool, error) {
 		if r.delegateSource == fromStaking {
 			r.hardCommittee = r.committee
 		} else {
+			if len(stakingDelegates) < r.config.MinCommitteeSize {
+				stakingDelegates = r.config.InitDelegates
+				r.peakFirst3Delegates("Loaded delegates from file as fallback", delegates)
+			}
 			_, r.hardCommittee, _, _ = r.calcCommitteeByNonce("hard", stakingDelegates, nonce)
 		}
+		r.PrintCommittee()
 		r.sortBootstrapCommitteeByNonce(nonce)
 		r.PrintCommittee()
 
@@ -646,7 +656,9 @@ func (r *Reactor) ValidateQC(b *block.Block, escortQC *block.QuorumCert) bool {
 	var err error
 
 	// KBlock should be verified with last committee
+	r.logger.Debug("validate qc", "iskblock", b.IsKBlock(), "number", b.Number(), "best", r.chain.BestBlock().Number())
 	if b.IsKBlock() && b.Number() > 0 && b.Number() <= r.chain.BestBlock().Number() {
+		r.logger.Info("verifying with last committee")
 		start := time.Now()
 		valid, err = b.VerifyQC(escortQC, r.blsCommon, r.lastCommittee)
 		if valid && err == nil {
@@ -733,6 +745,8 @@ func (r *Reactor) PrintCommittee() {
 	if r.delegateSource != fromStaking {
 		fmt.Printf("Hard Committee (%d):\n%s\n", len(r.hardCommittee), r.peakCommittee(r.hardCommittee))
 	}
+
+	fmt.Printf("Last Committee (%d):\n%s\n", len(r.lastCommittee), r.peakCommittee(r.lastCommittee))
 
 	// fmt.Println("Bootstrap11 Committee:\n" + r.peakCommittee(r.bootstrapCommittee11))
 }

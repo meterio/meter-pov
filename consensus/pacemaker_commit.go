@@ -2,6 +2,7 @@ package consensus
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/meterio/meter-pov/block"
 	"github.com/meterio/meter-pov/chain"
@@ -11,6 +12,7 @@ import (
 
 // finalize the block with its own QC
 func (p *Pacemaker) commitBlock(draftBlk *block.DraftBlock, escortQC *block.QuorumCert) error {
+	start := time.Now()
 	blk := draftBlk.ProposedBlock
 	//stage := blkInfo.Stage
 	receipts := draftBlk.Receipts
@@ -56,7 +58,7 @@ func (p *Pacemaker) commitBlock(draftBlk *block.DraftBlock, escortQC *block.Quor
 		}
 	}
 
-	p.logger.Info(fmt.Sprintf("* committed %v", blk.ShortID()), "txs", len(blk.Txs), "epoch", blk.GetBlockEpoch())
+	p.logger.Info(fmt.Sprintf("* committed %v", blk.ShortID()), "txs", len(blk.Txs), "epoch", blk.GetBlockEpoch(), "elapsed", meter.PrettyDuration(time.Since(start)))
 
 	if meter.IsMainNet() {
 		if blk.Number() == meter.TeslaMainnetStartNum {

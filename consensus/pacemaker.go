@@ -65,6 +65,9 @@ type Pacemaker struct {
 	roundTimer     *time.Timer
 	TCHigh         *types.TimeoutCert
 	timeoutCounter uint64
+
+	// vote timer
+	voteTimer *time.Timer
 }
 
 func NewPacemaker(r *Reactor) *Pacemaker {
@@ -92,20 +95,27 @@ func (p *Pacemaker) CreateLeaf(parent *block.DraftBlock, justify *block.DraftQC,
 	if parentBlock == nil {
 		return ErrParentBlockEmpty, nil
 	}
-	proposeKBlock := false
-	var powResults *powpool.PowResult
-	if (parentBlock.Number()+1-parentBlock.LastKBlockHeight()) >= p.minMBlocks && !timeout {
-		proposeKBlock, powResults = powpool.GetGlobPowPoolInst().GetPowDecision()
+
+	targetTime := time.Unix(int64(parentBlock.Timestamp()+1), 0)
+	if time.Now().Before(targetTime) {
+		p.logger.Info("sleep until", "targetTime", targetTime)
+		time.Sleep(time.Until(targetTime))
 	}
 
 	// propose SBlock only if I'm still in the epoch
 	proposeStopCommitteeBlock := (parentBlock.IsKBlock() || parentBlock.IsSBlock()) && p.reactor.curEpoch == parentBlock.QC.EpochID
-
-	// propose appropriate block info
 	if proposeStopCommitteeBlock {
 		p.logger.Info(fmt.Sprintf("proposing SBlock on R:%v with QCHigh(#%v,R:%v), Parent(%v,R:%v)", round, justify.QC.QCHeight, justify.QC.QCRound, parent.ProposedBlock.ID().ToBlockShortID(), parent.Round))
 		return p.buildStopCommitteeBlock(parent, justify, round)
-	} else if proposeKBlock {
+	}
+
+	proposeKBlock := false
+	var powResults *powpool.PowResult
+	if !parentBlock.IsKBlock() && (parentBlock.Number()+1-parentBlock.LastKBlockHeight()) >= p.minMBlocks && !timeout {
+		proposeKBlock, powResults = powpool.GetGlobPowPoolInst().GetPowDecision()
+	}
+	// propose appropriate block info
+	if proposeKBlock {
 		kblockData := &block.KBlockData{Nonce: uint64(powResults.Nonce), Data: powResults.Raw}
 		rewards := powResults.Rewards
 		p.logger.Info(fmt.Sprintf("proposing KBlock on R:%v with QCHigh(#%v,R:%v), Parent(%v,R:%v)", round, justify.QC.QCHeight, justify.QC.QCRound, parent.ProposedBlock.ID().ToBlockShortID(), parent.Round))
@@ -366,7 +376,10 @@ func (p *Pacemaker) OnReceiveProposal(mi *IncomingMsg) {
 		roundElapsed := time.Since(p.roundStartedAt)
 		roundWait := RoundInterval - 200*time.Millisecond - roundElapsed
 		// send vote message to next proposer
+		p.logger.Info("schedule vote with wait", "wait", roundWait)
 		p.scheduleVote(vote, roundWait)
+	} else {
+		p.logger.Warn("skip voting", "bnew.height", bnew.Height, "lastVoting", p.lastVotingHeight, "extended", p.ExtendedFromLastCommitted(bnew), "bnew", bnew.ProposedBlock.ID().ToBlockShortID(), "lastCommitted", p.lastCommitted.ProposedBlock.ID().ToBlockShortID())
 	}
 
 }
@@ -378,7 +391,7 @@ func (p *Pacemaker) OnReceiveVote(mi *IncomingMsg) {
 	round := msg.VoteRound
 
 	// drop outdated vote
-	if round < p.currentRound-1 {
+	if !(round == p.currentRound && round == 0) && round < p.currentRound-1 {
 		p.logger.Info("outdated vote, dropped ...", "currentRound", p.currentRound, "voteRound", round)
 		return
 	}
@@ -408,7 +421,9 @@ func (p *Pacemaker) OnReceiveVote(mi *IncomingMsg) {
 	changed := p.UpdateQCHigh(newDraftQC)
 	if changed {
 		// if QC is updated, schedule onbeat now
+		p.cancelAllPendingVotes()
 		p.scheduleOnBeat(p.reactor.curEpoch, round+1)
+		p.enterRound(round+1, RegularRound)
 	}
 }
 
@@ -481,9 +496,10 @@ func (p *Pacemaker) OnBeat(epoch uint64, round uint32) {
 	pmRoleGauge.Set(2) // leader
 	// p.logger.Info("I AM round proposer", "round", round)
 
+	pStart := time.Now()
 	bnew := p.OnPropose(p.QCHigh, round)
 	if bnew != nil {
-		p.logger.Info(fmt.Sprintf("proposed %s", bnew.ProposedBlock.Oneliner()))
+		p.logger.Info(fmt.Sprintf("proposed %s", bnew.ProposedBlock.Oneliner()), "elapsed", meter.PrettyDuration(time.Since(pStart)))
 
 		// create slot in proposalMap directly, instead of sendmsg to self.
 		p.chain.AddDraft(bnew)
@@ -615,17 +631,36 @@ func (p *Pacemaker) scheduleVote(voteMsg *block.PMVoteMessage, d time.Duration) 
 		p.voteCh <- PMVoteInfo{voteMsg}
 	}
 
+	p.cancelAllPendingVotes()
+	// p.lastVotingHeight = block.Number(voteMsg.VoteBlockID)
+	// p.lastVoteMsg = voteMsg
 	if d <= 0 || d >= RoundInterval-200*time.Millisecond {
-		p.logger.Info(fmt.Sprintf("schedule vote for %s with no delay", voteMsg.VoteBlockID.ToBlockShortID()))
+		p.logger.Info(fmt.Sprintf("schedule vote for %s(E:%d) with no delay", voteMsg.VoteBlockID.ToBlockShortID(), voteMsg.Epoch))
 		scheduleFunc()
 	} else {
-		p.logger.Info(fmt.Sprintf("schedule vote for %s after %s", voteMsg.VoteBlockID.ToBlockShortID(), meter.PrettyDuration(d)))
-		time.AfterFunc(d, scheduleFunc)
+		p.logger.Info(fmt.Sprintf("schedule vote for %s(E:%d) after %s", voteMsg.VoteBlockID.ToBlockShortID(), voteMsg.Epoch, meter.PrettyDuration(d)))
+		p.voteTimer = time.AfterFunc(d, scheduleFunc)
+	}
+}
+
+func (p *Pacemaker) cancelAllPendingVotes() {
+	p.logger.Warn("cancel all pending votes")
+	// stop voteTimer if not nil
+	if p.voteTimer != nil {
+		p.voteTimer.Stop()
+	}
+	// clean msg from voteCh
+CleanVoteCh:
+	for {
+		select {
+		case <-p.voteCh:
+		default:
+			break CleanVoteCh
+		}
 	}
 }
 
 func (p *Pacemaker) OnSendingVote(voteMsg *block.PMVoteMessage) {
-	num := block.Number(voteMsg.VoteBlockID)
 	draft := p.chain.GetDraft(voteMsg.VoteBlockID)
 	if draft == nil || draft.ProposedBlock == nil {
 		p.logger.Info("could not load draft block, skip voting ...", "id", voteMsg.VoteBlockID.ToBlockShortID())
@@ -638,8 +673,8 @@ func (p *Pacemaker) OnSendingVote(voteMsg *block.PMVoteMessage) {
 	}
 
 	p.sendMsg(voteMsg, false)
-	p.lastVotingHeight = num
 	p.lastVoteMsg = voteMsg
+	p.lastVotingHeight = block.Number(voteMsg.VoteBlockID)
 
 	// enter round and reset timer
 	if draft.ProposedBlock.IsKBlock() {

@@ -11,7 +11,6 @@ package consensus
 
 import (
 	sha256 "crypto/sha256"
-	"encoding/hex"
 	"fmt"
 	"time"
 
@@ -148,7 +147,7 @@ func (p *Pacemaker) BuildTimeoutMessage(qcHigh *block.DraftQC, ti *PMRoundTimeou
 
 	// attach last vote
 	if lastVoteMsg != nil {
-		p.logger.Info("attached last vote", "votSig", hex.EncodeToString(lastVoteMsg.VoteSignature))
+		p.logger.Info(fmt.Sprintf("attached last vote on R:%d", lastVoteMsg.VoteRound), "blk", lastVoteMsg.VoteBlockID.ToBlockShortID())
 		msg.LastVoteRound = lastVoteMsg.VoteRound
 		msg.LastVoteBlockID = lastVoteMsg.VoteBlockID
 		msg.LastVoteHash = lastVoteMsg.VoteHash

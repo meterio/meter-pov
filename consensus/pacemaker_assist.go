@@ -13,6 +13,7 @@ import (
 
 	"github.com/meterio/meter-pov/block"
 	bls "github.com/meterio/meter-pov/crypto/multi_sig"
+	"github.com/meterio/meter-pov/meter"
 	"github.com/meterio/meter-pov/tx"
 	"github.com/meterio/meter-pov/types"
 )
@@ -39,6 +40,7 @@ func (p *Pacemaker) ExtendedFromLastCommitted(b *block.DraftBlock) bool {
 }
 
 func (p *Pacemaker) ValidateProposal(b *block.DraftBlock) error {
+	start := time.Now()
 	blk := b.ProposedBlock
 
 	// special valiadte StopCommitteeType
@@ -99,6 +101,7 @@ func (p *Pacemaker) ValidateProposal(b *block.DraftBlock) error {
 		}
 	}
 
+	checkpointStart := time.Now()
 	//create checkPoint before validate block
 	state, err := p.reactor.stateCreator.NewState(p.reactor.chain.BestBlock().Header().StateRoot())
 	if err != nil {
@@ -106,21 +109,29 @@ func (p *Pacemaker) ValidateProposal(b *block.DraftBlock) error {
 		return nil
 	}
 	checkPoint := state.NewCheckpoint()
+	checkpointElapsed := time.Since(checkpointStart)
 
-	now := uint64(time.Now().Unix())
+	// make sure tx does not exist in draft cache
 	if len(blk.Transactions()) > 0 {
-		for parent != nil && !parent.Committed {
-			for _, knownTx := range parent.ProposedBlock.Transactions() {
-				for _, tx := range blk.Transactions() {
-					if knownTx.ID() == tx.ID() {
-						p.logger.Error("tx already existed in cache", "id", tx.ID())
-						return errors.New("tx already existed in cache")
-					}
-				}
+		txsInCache := make(map[string]bool)
+		tmp := parent
+		for tmp != nil && !tmp.Committed {
+			for _, knownTx := range tmp.ProposedBlock.Transactions() {
+				txsInCache[knownTx.ID().String()] = true
 			}
-			parent = p.chain.GetDraft(parent.ProposedBlock.ParentID())
+			tmp = p.chain.GetDraft(tmp.ProposedBlock.ParentID())
+		}
+		for _, tx := range blk.Transactions() {
+			if _, existed := txsInCache[tx.ID().String()]; existed {
+				p.logger.Error("tx already existed in cache", "id", tx.ID(), "containedInBlock", parent.ProposedBlock.ID())
+				return errors.New("tx already existed in cache")
+
+			}
 		}
 	}
+
+	processStart := time.Now()
+	now := uint64(time.Now().Unix())
 	stage, receipts, err := p.reactor.ProcessProposedBlock(parentBlock, blk, now)
 	if err != nil && err != errKnownBlock {
 		p.logger.Error("process proposed failed", "proposed", blk.Oneliner(), "err", err)
@@ -128,7 +139,9 @@ func (p *Pacemaker) ValidateProposal(b *block.DraftBlock) error {
 		b.ProcessError = err
 		return err
 	}
+	processElapsed := time.Since(processStart)
 
+	stageCommitStart := time.Now()
 	if stage == nil {
 		// FIXME: probably should not handle this proposal any more
 		p.logger.Warn("Empty stage !!!")
@@ -138,6 +151,7 @@ func (p *Pacemaker) ValidateProposal(b *block.DraftBlock) error {
 		b.ProcessError = err
 		return err
 	}
+	stageCommitElapsed := time.Since(stageCommitStart)
 
 	// p.logger.Info(fmt.Sprintf("cached %s", blk.ID().ToBlockShortID()))
 
@@ -149,9 +163,11 @@ func (p *Pacemaker) ValidateProposal(b *block.DraftBlock) error {
 	b.SuccessProcessed = true
 	b.ProcessError = err
 
+	txRemoveStart := time.Now()
 	txsToRemoved()
+	txRemoveElapsed := time.Since(txRemoveStart)
 
-	p.logger.Info(fmt.Sprintf("validated proposal %s R:%v, %v", b.ProposedBlock.GetCanonicalName(), b.Round, blk.ShortID()))
+	p.logger.Info(fmt.Sprintf("validated proposal %s R:%v, %v, txs:%d", b.ProposedBlock.GetCanonicalName(), b.Round, blk.ShortID(), len(b.ProposedBlock.Transactions())), "elapsed", meter.PrettyDuration(time.Since(start)), "checkpointElapsed", meter.PrettyDuration(checkpointElapsed), "processElapsed", meter.PrettyDuration(processElapsed), "stageCommitElapsed", meter.PrettyDuration(stageCommitElapsed), "txRemoveElapsed", meter.PrettyDuration(txRemoveElapsed))
 	return nil
 }
 

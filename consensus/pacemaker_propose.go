@@ -36,7 +36,7 @@ func (p *Pacemaker) packCommitteeInfo(blk *block.Block) {
 
 // Build MBlock
 func (p *Pacemaker) buildMBlock(parent *block.DraftBlock, justify *block.DraftQC, round uint32) (error, *block.DraftBlock) {
-	p.reactor.txpool.UpdateExecutables()
+	washTimeLimit := RoundInterval/2 - time.Since(p.roundStartedAt)
 
 	parentBlock := parent.ProposedBlock
 	best := parentBlock
@@ -50,8 +50,12 @@ func (p *Pacemaker) buildMBlock(parent *block.DraftBlock, justify *block.DraftQC
 		// panic("get tx pool failed ...")
 		return errors.New("tx pool not ready"), nil
 	}
+	txs := make([]*tx.Transaction, 0)
+	if washTimeLimit > 100*time.Millisecond {
+		p.reactor.txpool.UpdateExecutables(washTimeLimit)
+		txs = pool.Executables()
+	}
 
-	txs := pool.Executables()
 	p.logger.Debug("get the executables from txpool", "size", len(txs))
 	var txsInBlk []*tx.Transaction
 	txsToRemoved := func() bool {
@@ -90,7 +94,21 @@ func (p *Pacemaker) buildMBlock(parent *block.DraftBlock, justify *block.DraftQC
 	}
 	checkPoint := state.NewCheckpoint()
 
+	// collect all the txs in cache
+	txsInCache := make(map[string]bool)
+	tmp := parent
+	for tmp != nil && !tmp.Committed {
+		for _, knownTx := range tmp.ProposedBlock.Transactions() {
+			txsInCache[knownTx.ID().String()] = true
+		}
+		tmp = p.chain.GetDraft(tmp.ProposedBlock.ParentID())
+	}
+
 	for _, tx := range txs {
+		// prevent to include txs already in previous drafts
+		if _, existed := txsInCache[tx.ID().String()]; existed {
+			continue
+		}
 		resolvedTx, _ := runtime.ResolveTransaction(tx)
 		if strings.ToLower(resolvedTx.Origin.String()) == "0x0e369a2e02912dba872e72d6c0b661e9617e0d9c" {
 			p.logger.Warn("blacklisted address: ", resolvedTx.Origin.String())
@@ -106,6 +124,10 @@ func (p *Pacemaker) buildMBlock(parent *block.DraftBlock, justify *block.DraftQC
 			p.logger.Warn("mBlock flow.Adopt(tx) failed...", "txid", tx.ID(), "error", err)
 		} else {
 			txsInBlk = append(txsInBlk, tx)
+		}
+		if time.Since(p.roundStartedAt) > RoundInterval*3/4 {
+			p.logger.Warn("stop adopting txs due to time limit", "adopted", len(txsInBlk), "limit", meter.PrettyDuration(RoundInterval*2/3))
+			break
 		}
 	}
 

@@ -113,26 +113,35 @@ func (c *Reactor) Validate(
 	header := block.Header()
 	epoch := block.GetBlockEpoch()
 
+	vHeaderStart := time.Now()
 	if err := c.validateBlockHeader(header, parent.Header(), nowTimestamp, forceValidate, epoch); err != nil {
 		c.logger.Info("validate header error", "blk", block.ID().ToBlockShortID(), "err", err)
 		return nil, nil, err
 	}
+	vHeaderElapsed := time.Since(vHeaderStart)
 
+	vProposerStart := time.Now()
 	if err := c.validateProposer(header, parent.Header(), state); err != nil {
 		c.logger.Info("validate proposer error", "blk", block.ID().ToBlockShortID(), "err", err)
 		return nil, nil, err
 	}
+	vProposerElapsed := time.Since(vProposerStart)
 
+	vBodyStart := time.Now()
 	if err := c.validateBlockBody(block, parent, forceValidate); err != nil {
 		c.logger.Info("validate body error", "blk", block.ID().ToBlockShortID(), "err", err)
 		return nil, nil, err
 	}
+	vBodyElapsed := time.Since(vBodyStart)
 
+	verifyBlockStart := time.Now()
 	stage, receipts, err := c.VerifyBlock(block, state, forceValidate)
 	if err != nil {
 		c.logger.Info("validate block error", "blk", block.ID().ToBlockShortID(), "err", err)
 		return nil, nil, err
 	}
+	verifyBlockElapsed := time.Since(verifyBlockStart)
+	c.logger.Info("validated!", "id", block.ShortID(), "validateHeadElapsed", meter.PrettyDuration(vHeaderElapsed), "validateProposerElapsed", meter.PrettyDuration(vProposerElapsed), "validateBodyElapsed", meter.PrettyDuration(vBodyElapsed), "verifyBlockElapsed", meter.PrettyDuration(verifyBlockElapsed))
 
 	return stage, receipts, nil
 }

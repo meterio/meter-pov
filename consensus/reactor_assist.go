@@ -43,7 +43,7 @@ func (r *Reactor) getDelegatesFromStaking(revision *block.Block) ([]*types.Deleg
 	}
 
 	list := state.GetDelegateList()
-	r.logger.Debug("Loaded delegateList from staking", "len", len(list.Delegates))
+	r.logger.Info("Loaded delegateList from staking", "len", len(list.Delegates))
 	for _, s := range list.Delegates {
 		pubKey, blsPub := r.blsCommon.SplitPubKey(string(s.PubKey))
 

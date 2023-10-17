@@ -98,7 +98,7 @@ func (r *Reactor) Relay(msg block.ConsensusMessage, rawMsg []byte) {
 func (r *Reactor) Send(msg block.ConsensusMessage, peers ...*ConsensusPeer) {
 	rawMsg, err := r.MarshalMsg(msg)
 	if err != nil {
-		r.logger.Warn("could not marshal msg")
+		r.logger.Warn("could not marshal msg", "err", err)
 		return
 	}
 
