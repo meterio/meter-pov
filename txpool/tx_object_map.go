@@ -7,6 +7,7 @@ package txpool
 
 import (
 	"errors"
+	"fmt"
 	"sync"
 
 	"github.com/meterio/meter-pov/meter"
@@ -48,7 +49,7 @@ func (m *txObjectMap) Add(txObj *txObject, limitPerAccount int) error {
 
 	m.quota[txObj.Origin()]++
 	m.txObjMap[txObj.ID()] = txObj
-	log.Info("added tx", "id", txObj.ID(), "mapSize", len(m.txObjMap))
+	log.Info(fmt.Sprintf("added tx %s to txpool", txObj.ID()), "mapSize", len(m.txObjMap))
 	return nil
 }
 

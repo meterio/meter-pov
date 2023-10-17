@@ -78,7 +78,8 @@ func (p *TxPool) housekeeping() {
 	log.Debug("enter housekeeping")
 	defer log.Debug("leave housekeeping")
 
-	ticker := time.NewTicker(time.Second * 1)
+	washInterval := time.Second
+	ticker := time.NewTicker(washInterval)
 	defer ticker.Stop()
 
 	// Hotstuff: Should change to after seem new proposal and do wash txs.
@@ -111,7 +112,7 @@ func (p *TxPool) housekeeping() {
 				atomic.StoreUint32(&p.addedAfterWash, 0)
 
 				startTime := mclock.Now()
-				executables, removed, err := p.wash(headBlock)
+				executables, removed, err := p.wash(headBlock, washInterval)
 				elapsed := mclock.Now() - startTime
 
 				ctx := []interface{}{
@@ -131,13 +132,14 @@ func (p *TxPool) housekeeping() {
 	}
 }
 
-func (p *TxPool) UpdateExecutables() {
+func (p *TxPool) UpdateExecutables(timeLimit time.Duration) {
+	log.Info("update executables with time limit", "limit", meter.PrettyDuration(timeLimit))
 	atomic.StoreUint32(&p.addedAfterWash, 0)
 	poolLen := p.all.Len()
 
 	headBlock := p.chain.BestBlock().Header()
 	startTime := mclock.Now()
-	executables, removed, err := p.wash(headBlock)
+	executables, removed, err := p.wash(headBlock, timeLimit)
 	elapsed := mclock.Now() - startTime
 
 	ctx := []interface{}{
@@ -148,6 +150,7 @@ func (p *TxPool) UpdateExecutables() {
 	if err != nil {
 		ctx = append(ctx, "err", err)
 	} else {
+		log.Info("txpool washed, executables updated", "elapsed", meter.PrettyDuration(elapsed))
 		p.executables.Store(executables)
 	}
 }
@@ -294,7 +297,7 @@ func (p *TxPool) Dump() tx.Transactions {
 
 // wash to evict txs that are over limit, out of lifetime, out of energy, settled, expired or dep broken.
 // this method should only be called in housekeeping go routine
-func (p *TxPool) wash(headBlock *block.Header) (executables tx.Transactions, removed int, err error) {
+func (p *TxPool) wash(headBlock *block.Header, timeLimit time.Duration) (executables tx.Transactions, removed int, err error) {
 	all := p.all.ToTxObjects()
 	var toRemove []meter.Bytes32
 	defer func() {
@@ -314,7 +317,7 @@ func (p *TxPool) wash(headBlock *block.Header) (executables tx.Transactions, rem
 			removed = len(toRemove)
 		}
 	}()
-
+	start := time.Now()
 	state, err := p.stateCreator.NewState(headBlock.StateRoot())
 	if err != nil {
 		return nil, 0, errors.WithMessage(err, "new state")
@@ -349,6 +352,10 @@ func (p *TxPool) wash(headBlock *block.Header) (executables tx.Transactions, rem
 			executableObjs = append(executableObjs, txObj)
 		} else {
 			nonExecutableObjs = append(nonExecutableObjs, txObj)
+		}
+		if time.Since(start) > timeLimit {
+			log.Info("tx wash ended early due to time limit", "elapsed", meter.PrettyDuration(time.Since(start)), "execs", len(executableObjs))
+			break
 		}
 	}
 
