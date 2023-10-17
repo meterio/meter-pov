@@ -11,6 +11,7 @@ import (
 	"math/big"
 	"strings"
 	"sync/atomic"
+	"time"
 
 	ethabi "github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
@@ -906,16 +907,21 @@ func (rt *Runtime) PrepareClause(
 // ExecuteTransaction executes a transaction.
 // If some clause failed, receipt.Outputs will be nil and vmOutputs may shorter than clause count.
 func (rt *Runtime) ExecuteTransaction(tx *tx.Transaction) (receipt *tx.Receipt, err error) {
+	start := time.Now()
+	prepareStart := time.Now()
 	executor, err := rt.PrepareTransaction(tx)
 	if err != nil {
 		return nil, err
 	}
+	prepareElapsed := time.Since(prepareStart)
 
+	execStart := time.Now()
 	for executor.HasNextClause() {
 		if _, _, err := executor.NextClause(); err != nil {
 			return nil, err
 		}
 	}
+	execElapsed := time.Since(execStart)
 
 	// This is a hack for slow rlp.Encode/rlp.Decode
 	// originally, autobid was called by a tx with multiple clauses
@@ -923,8 +929,15 @@ func (rt *Runtime) ExecuteTransaction(tx *tx.Transaction) (receipt *tx.Receipt, 
 	// now that we hack the state to only cache the updated auctionCB in memory
 	// and save it back to DB before it wraps up the whole tx execution
 	// and this boosts the performance for syncing and validating KBlock with autobids clauses by at least 10x
+	seChangeStart := time.Now()
 	rt.state.CommitScriptEngineChanges()
-	return executor.Finalize()
+	seChangeElapsed := time.Since(seChangeStart)
+
+	finalizeStart := time.Now()
+	receipt, err = executor.Finalize()
+	finalizeElapsed := time.Since(finalizeStart)
+	log.Info(fmt.Sprintf("executed tx %s", tx.ID()), "elapsed", meter.PrettyDuration(time.Since(start)), "prepareElapsed", meter.PrettyDuration(prepareElapsed), "execElapsed", meter.PrettyDuration(execElapsed), "seChangeElapsed", meter.PrettyDuration(seChangeElapsed), "finalizeElapsed", meter.PrettyDuration(finalizeElapsed))
+	return
 }
 
 // PrepareTransaction prepare to execute tx.

@@ -13,10 +13,15 @@ import (
 
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/rlp"
+	"github.com/inconshreveable/log15"
 	"github.com/meterio/meter-pov/kv"
 	"github.com/meterio/meter-pov/meter"
 	"github.com/meterio/meter-pov/stackedmap"
 	"github.com/meterio/meter-pov/trie"
+)
+
+var (
+	log = log15.New("pkg", "s")
 )
 
 // State manages the main accounts trie.

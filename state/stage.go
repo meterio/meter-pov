@@ -8,6 +8,7 @@ package state
 import (
 	"encoding/hex"
 	"fmt"
+	"time"
 
 	"github.com/meterio/meter-pov/kv"
 	"github.com/meterio/meter-pov/meter"
@@ -97,6 +98,7 @@ func (s *Stage) Commit() (meter.Bytes32, error) {
 	if s.err != nil {
 		return meter.Bytes32{}, s.err
 	}
+	start := time.Now()
 	batch := s.kv.NewBatch()
 	// write codes
 	for _, code := range s.codes {
@@ -106,31 +108,35 @@ func (s *Stage) Commit() (meter.Bytes32, error) {
 	}
 
 	// commit storage tries
+	strieStart := time.Now()
 	for _, strie := range s.storageTries {
-		strieClone := strie.Copy()
+		// strieClone := strie.Copy()
 		root, err := strie.CommitTo(batch)
 		if err != nil {
 			return meter.Bytes32{}, err
 		}
 		trCache.Add(root, strie, s.kv)
 
-		strieClone.CommitTo(s.store)
+		// strieClone.CommitTo(s.store)
 	}
+	strieElapsed := time.Since(strieStart)
 
 	// commit accounts trie
-	atrieClone := s.accountTrie.Copy()
+	// atrieClone := s.accountTrie.Copy()
+	atrieStart := time.Now()
 	root, err := s.accountTrie.CommitTo(batch)
 	if err != nil {
 		return meter.Bytes32{}, err
 	}
-	atrieClone.CommitTo(s.store)
+	// atrieClone.CommitTo(s.store)
 
 	if err := batch.Write(); err != nil {
 		return meter.Bytes32{}, err
 	}
-
 	trCache.Add(root, s.accountTrie, s.kv)
+	atrieElapsed := time.Since(atrieStart)
 
+	log.Info("commited stage", "root", root, "strieElapsed", meter.PrettyDuration(strieElapsed), "atrieElapsed", meter.PrettyDuration(atrieElapsed), "elapsed", meter.PrettyDuration(time.Since(start)))
 	return root, nil
 }
 
@@ -140,6 +146,8 @@ func (s *Stage) Revert() error {
 		return s.err
 	}
 
+	hash, _ := s.Hash()
+	log.Info("revert stage", "hash", hash, "storageTries", len(s.storageTries), "keys", len(s.store.Keys()))
 	batch := s.kv.NewBatch()
 	// commit storage tries to cache
 	for _, strie := range s.storageTries {

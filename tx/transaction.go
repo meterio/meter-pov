@@ -211,7 +211,7 @@ func NewTransactionFromEthTx(ethTx *types.Transaction, chainTag byte, blockRef B
 	}
 	// tx.cache.signer.Store(from)
 	if verbose {
-		log.Info("new nativeTx from ethTx", "id", tx.ID(), "from", msg.From().Hex(), "to", to.String())
+		log.Debug("new nativeTx from ethTx", "id", tx.ID(), "from", msg.From().Hex(), "to", to.String())
 		// fmt.Println("new nativeTx from ethTx:", tx.ID(), tx.IsEthTx(),
 		// 	"\n  from:", msg.From().Hex(), "to:", to.String(),
 		// 	"\n  value:", msg.Value().String(),

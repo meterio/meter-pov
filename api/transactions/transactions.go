@@ -172,7 +172,7 @@ func (t *Transactions) handleSendEthRawTransaction(w http.ResponseWriter, req *h
 			return errors.New("blacklisted address, not allowed in txpool")
 		}
 		if err := t.pool.Add(tx); err != nil {
-			log.Warn("failed to add tx, error: ", err)
+			log.Warn("failed to add tx", "err", err)
 			if txpool.IsBadTx(err) {
 				return utils.BadRequest(err)
 			}
