@@ -894,9 +894,9 @@ func (c *Chain) DraftLen() int {
 func (c *Chain) PruneDraftsUpTo(lastCommitted *block.DraftBlock) {
 	c.drw.Lock()
 	defer c.drw.Unlock()
-	log.Info("start to prune drafts up to", "lastCommitted", lastCommitted.ProposedBlock.Number(), "draftSize", c.proposalMap.Len())
+	log.Debug("start to prune drafts up to", "lastCommitted", lastCommitted.ProposedBlock.Number(), "draftSize", c.proposalMap.Len())
 	c.proposalMap.PruneUpTo(lastCommitted)
-	log.Info("ended prune drafts")
+	log.Debug("ended prune drafts")
 }
 
 func (c *Chain) GetDraftsUpTo(commitedBlkID meter.Bytes32, qcHigh *block.QuorumCert) []*block.DraftBlock {

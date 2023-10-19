@@ -936,7 +936,9 @@ func (rt *Runtime) ExecuteTransaction(tx *tx.Transaction) (receipt *tx.Receipt, 
 	finalizeStart := time.Now()
 	receipt, err = executor.Finalize()
 	finalizeElapsed := time.Since(finalizeStart)
-	log.Info(fmt.Sprintf("executed tx %s", tx.ID()), "elapsed", meter.PrettyDuration(time.Since(start)), "prepareElapsed", meter.PrettyDuration(prepareElapsed), "execElapsed", meter.PrettyDuration(execElapsed), "seChangeElapsed", meter.PrettyDuration(seChangeElapsed), "finalizeElapsed", meter.PrettyDuration(finalizeElapsed))
+	if time.Since(start) > time.Millisecond {
+		log.Info(fmt.Sprintf("slow executed tx %s", tx.ID()), "elapsed", meter.PrettyDuration(time.Since(start)), "prepareElapsed", meter.PrettyDuration(prepareElapsed), "execElapsed", meter.PrettyDuration(execElapsed), "seChangeElapsed", meter.PrettyDuration(seChangeElapsed), "finalizeElapsed", meter.PrettyDuration(finalizeElapsed))
+	}
 	return
 }
 
@@ -954,24 +956,33 @@ func (rt *Runtime) PrepareTransaction(tx *tx.Transaction) (*TransactionExecutor,
 	// 		}
 	// 	}
 	// }
+	resolveStart := time.Now()
 	resolvedTx, err := ResolveTransaction(tx)
 	if err != nil {
 		return nil, err
 	}
+	resolveElapsed := time.Since(resolveStart)
 
+	buyGasStart := time.Now()
 	baseGasPrice, gasPrice, payer, returnGas, err := resolvedTx.BuyGas(rt.state, rt.ctx.Time)
 	if err != nil {
 		return nil, err
 	}
+	buyGasElapsed := time.Since(buyGasStart)
 
+	ckpointStart := time.Now()
 	// ResolveTransaction has checked that tx.Gas() >= IntrinsicGas
 	leftOverGas := tx.Gas() - resolvedTx.IntrinsicGas
 
 	// checkpoint to be reverted when clause failure.
 	checkpoint := rt.state.NewCheckpoint()
+	ckpointElapsed := time.Since(ckpointStart)
 
+	toContextStart := time.Now()
 	txCtx := resolvedTx.ToContext(gasPrice, rt.ctx.Number, rt.seeker.GetID)
+	toContextElapsed := time.Since(toContextStart)
 
+	executorStart := time.Now()
 	txOutputs := make([]*Tx.Output, 0, len(resolvedTx.Clauses))
 	reverted := false
 	finalized := false
@@ -980,7 +991,7 @@ func (rt *Runtime) PrepareTransaction(tx *tx.Transaction) (*TransactionExecutor,
 		return !reverted && len(txOutputs) < len(resolvedTx.Clauses)
 	}
 
-	return &TransactionExecutor{
+	executor := &TransactionExecutor{
 		HasNextClause: hasNext,
 		NextClause: func() (gasUsed uint64, output *Output, err error) {
 			if !hasNext() {
@@ -1066,5 +1077,10 @@ func (rt *Runtime) PrepareTransaction(tx *tx.Transaction) (*TransactionExecutor,
 			receipt.Reward = reward
 			return receipt, nil
 		},
-	}, nil
+	}
+	executorElapsed := time.Since(executorStart)
+	if (resolveElapsed + buyGasElapsed + ckpointElapsed + toContextElapsed + executorElapsed) > time.Millisecond {
+		log.Info("slow prepare", "tx", tx.ID(), "elasped", meter.PrettyDuration(resolveElapsed+buyGasElapsed+ckpointElapsed+toContextElapsed+executorElapsed), "resolveElapsed", meter.PrettyDuration(resolveElapsed), "buyGasElapsed", meter.PrettyDuration(buyGasElapsed), "ckpointElapsed", meter.PrettyDuration(ckpointElapsed), "toContextElapsed", meter.PrettyDuration(toContextElapsed), "executorElasped", meter.PrettyDuration(executorElapsed))
+	}
+	return executor, nil
 }

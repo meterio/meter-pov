@@ -419,3 +419,7 @@ func isChainSynced(nowTimestamp, blockTimestamp uint64) bool {
 	}
 	return timeDiff < meter.BlockInterval*6
 }
+
+func (p *TxPool) All() []*txObject {
+	return p.all.ToTxObjects()
+}

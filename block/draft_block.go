@@ -21,11 +21,10 @@ type DraftBlock struct {
 	// states. If states are match proposer, then vote, otherwise decline.
 
 	// executed results
-	Stage         *state.Stage
-	Receipts      *tx.Receipts
-	TxsToRemoved  func() bool
-	TxsToReturned func() bool
-	CheckPoint    int
+	Stage           *state.Stage
+	Receipts        *tx.Receipts
+	ReturnTxsToPool func()
+	CheckPoint      int
 
 	SuccessProcessed bool
 	ProcessError     error

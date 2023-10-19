@@ -7,6 +7,7 @@ package consensus
 
 import (
 	"errors"
+	"fmt"
 	"strings"
 	"time"
 
@@ -35,13 +36,10 @@ func (p *Pacemaker) packCommitteeInfo(blk *block.Block) {
 }
 
 // Build MBlock
-func (p *Pacemaker) buildMBlock(parent *block.DraftBlock, justify *block.DraftQC, round uint32) (error, *block.DraftBlock) {
-	washTimeLimit := RoundInterval/2 - time.Since(p.roundStartedAt)
-
+func (p *Pacemaker) buildMBlock(ts uint64, parent *block.DraftBlock, justify *block.DraftQC, round uint32) (error, *block.DraftBlock) {
 	parentBlock := parent.ProposedBlock
 	best := parentBlock
 	qc := justify.QC
-	now := uint64(time.Now().Unix())
 
 	// start := time.Now()
 	pool := p.reactor.txpool
@@ -50,25 +48,12 @@ func (p *Pacemaker) buildMBlock(parent *block.DraftBlock, justify *block.DraftQC
 		// panic("get tx pool failed ...")
 		return errors.New("tx pool not ready"), nil
 	}
-	txs := make([]*tx.Transaction, 0)
-	if washTimeLimit > 100*time.Millisecond {
-		p.reactor.txpool.UpdateExecutables(washTimeLimit)
-		txs = pool.Executables()
-	}
 
-	p.logger.Debug("get the executables from txpool", "size", len(txs))
 	var txsInBlk []*tx.Transaction
-	txsToRemoved := func() bool {
-		for _, tx := range txsInBlk {
-			pool.Remove(tx.ID())
-		}
-		return true
-	}
-	txsToReturned := func() bool {
+	returnTxsToPool := func() {
 		for _, tx := range txsInBlk {
 			pool.Add(tx)
 		}
-		return true
 	}
 
 	pker := p.reactor.packer
@@ -80,14 +65,14 @@ func (p *Pacemaker) buildMBlock(parent *block.DraftBlock, justify *block.DraftQC
 
 	candAddr := p.reactor.committee[p.reactor.committeeIndex].Address
 	gasLimit := pker.GasLimit(best.GasLimit())
-	flow, err := pker.Mock(best.Header(), now, gasLimit, &candAddr)
+	flow, err := pker.Mock(best.Header(), ts, gasLimit, &candAddr)
 	if err != nil {
 		p.logger.Error("mock packer", "error", err)
 		return ErrFlowEmpty, nil
 	}
 
 	//create checkPoint before build block
-	state, err := p.reactor.stateCreator.NewState(best.Header().StateRoot())
+	state, err := p.reactor.stateCreator.NewState(parentBlock.StateRoot())
 	if err != nil {
 		p.logger.Error("revert state failed ...", "error", err)
 		return ErrStateCreaterNotReady, nil
@@ -104,11 +89,18 @@ func (p *Pacemaker) buildMBlock(parent *block.DraftBlock, justify *block.DraftQC
 		tmp = p.chain.GetDraft(tmp.ProposedBlock.ParentID())
 	}
 
-	for _, tx := range txs {
+	for _, txObj := range p.reactor.txpool.All() {
+		id := txObj.ID()
 		// prevent to include txs already in previous drafts
-		if _, existed := txsInCache[tx.ID().String()]; existed {
+		if _, existed := txsInCache[id.String()]; existed {
 			continue
 		}
+		executable, err := txObj.Executable(p.chain, state, parentBlock.BlockHeader)
+		if err != nil || !executable {
+			p.logger.Warn(fmt.Sprintf("tx %s not executable", id), "err", err)
+			continue
+		}
+		tx := txObj.Transaction
 		resolvedTx, _ := runtime.ResolveTransaction(tx)
 		if strings.ToLower(resolvedTx.Origin.String()) == "0x0e369a2e02912dba872e72d6c0b661e9617e0d9c" {
 			p.logger.Warn("blacklisted address: ", resolvedTx.Origin.String())
@@ -125,12 +117,11 @@ func (p *Pacemaker) buildMBlock(parent *block.DraftBlock, justify *block.DraftQC
 		} else {
 			txsInBlk = append(txsInBlk, tx)
 		}
-		if time.Since(p.roundStartedAt) > RoundInterval*3/4 {
-			p.logger.Warn("stop adopting txs due to time limit", "adopted", len(txsInBlk), "limit", meter.PrettyDuration(RoundInterval*2/3))
+		if time.Since(p.roundStartedAt) > ProposeTimeLimit {
+			p.logger.Warn("stop adopting txs due to time limit", "adopted", len(txsInBlk), "limit", meter.PrettyDuration(ProposeTimeLimit))
 			break
 		}
 	}
-
 	newBlock, stage, receipts, err := flow.Pack(&p.reactor.myPrivKey, block.MBlockType, p.reactor.lastKBlockHeight)
 	if err != nil {
 		p.logger.Error("build block failed", "error", err)
@@ -149,16 +140,14 @@ func (p *Pacemaker) buildMBlock(parent *block.DraftBlock, justify *block.DraftQC
 	}
 
 	proposed := &block.DraftBlock{
-		Height:        newBlock.Number(),
-		Round:         round,
-		Parent:        parent,
-		Justify:       justify,
-		ProposedBlock: newBlock,
-
+		Height:           newBlock.Number(),
+		Round:            round,
+		Parent:           parent,
+		Justify:          justify,
+		ProposedBlock:    newBlock,
 		Stage:            stage,
 		Receipts:         &receipts,
-		TxsToRemoved:     txsToRemoved,
-		TxsToReturned:    txsToReturned,
+		ReturnTxsToPool:  returnTxsToPool,
 		CheckPoint:       checkPoint,
 		SuccessProcessed: true,
 		ProcessError:     nil,
@@ -167,11 +156,10 @@ func (p *Pacemaker) buildMBlock(parent *block.DraftBlock, justify *block.DraftQC
 	return nil, proposed
 }
 
-func (p *Pacemaker) buildKBlock(parent *block.DraftBlock, justify *block.DraftQC, round uint32, kblockData *block.KBlockData, rewards []powpool.PowReward) (error, *block.DraftBlock) {
+func (p *Pacemaker) buildKBlock(ts uint64, parent *block.DraftBlock, justify *block.DraftQC, round uint32, kblockData *block.KBlockData, rewards []powpool.PowReward) (error, *block.DraftBlock) {
 	parentBlock := parent.ProposedBlock
 	qc := justify.QC
 	best := parentBlock
-	now := uint64(time.Now().Unix())
 
 	// startTime := time.Now()
 
@@ -187,19 +175,6 @@ func (p *Pacemaker) buildKBlock(parent *block.DraftBlock, justify *block.DraftQC
 
 	txs := p.reactor.buildKBlockTxs(parentBlock, rewards, chainTag, bestNum, curEpoch, best, state)
 
-	pool := p.reactor.txpool
-	if pool == nil {
-		p.logger.Error("get tx pool failed ...")
-		// panic("get tx pool failed ...")
-		return errors.New("tx pool not ready"), nil
-	}
-	txsToRemoved := func() bool {
-		return true
-	}
-	txsToReturned := func() bool {
-		return true
-	}
-
 	pker := p.reactor.packer
 	if pker == nil {
 		p.logger.Warn("get packer failed ...")
@@ -209,7 +184,7 @@ func (p *Pacemaker) buildKBlock(parent *block.DraftBlock, justify *block.DraftQC
 
 	candAddr := p.reactor.committee[p.reactor.committeeIndex].Address
 	gasLimit := pker.GasLimit(best.GasLimit())
-	flow, err := pker.Mock(best.Header(), now, gasLimit, &candAddr)
+	flow, err := pker.Mock(best.Header(), ts, gasLimit, &candAddr)
 	if err != nil {
 		p.logger.Warn("mock packer", "error", err)
 		return ErrFlowEmpty, nil
@@ -256,8 +231,7 @@ func (p *Pacemaker) buildKBlock(parent *block.DraftBlock, justify *block.DraftQC
 
 		Stage:            stage,
 		Receipts:         &receipts,
-		TxsToRemoved:     txsToRemoved,
-		TxsToReturned:    txsToReturned,
+		ReturnTxsToPool:  func() {},
 		CheckPoint:       checkPoint,
 		SuccessProcessed: true,
 		ProcessError:     nil,
@@ -265,11 +239,10 @@ func (p *Pacemaker) buildKBlock(parent *block.DraftBlock, justify *block.DraftQC
 	return nil, proposed
 }
 
-func (p *Pacemaker) buildStopCommitteeBlock(parent *block.DraftBlock, justify *block.DraftQC, round uint32) (error, *block.DraftBlock) {
+func (p *Pacemaker) buildStopCommitteeBlock(ts uint64, parent *block.DraftBlock, justify *block.DraftQC, round uint32) (error, *block.DraftBlock) {
 	parentBlock := parent.ProposedBlock
 	qc := justify.QC
 	best := parentBlock
-	now := uint64(time.Now().Unix())
 
 	pker := p.reactor.packer
 	if pker == nil {
@@ -277,12 +250,9 @@ func (p *Pacemaker) buildStopCommitteeBlock(parent *block.DraftBlock, justify *b
 		return ErrPackerEmpty, nil
 	}
 
-	txsToRemoved := func() bool { return true }
-	txsToReturned := func() bool { return true }
-
 	candAddr := p.reactor.committee[p.reactor.committeeIndex].Address
 	gasLimit := pker.GasLimit(best.GasLimit())
-	flow, err := pker.Mock(best.Header(), now, gasLimit, &candAddr)
+	flow, err := pker.Mock(best.Header(), ts, gasLimit, &candAddr)
 	if err != nil {
 		p.logger.Error("mock packer", "error", err)
 		return ErrFlowEmpty, nil
@@ -306,8 +276,7 @@ func (p *Pacemaker) buildStopCommitteeBlock(parent *block.DraftBlock, justify *b
 
 		Stage:            stage,
 		Receipts:         &receipts,
-		TxsToRemoved:     txsToRemoved,
-		TxsToReturned:    txsToReturned,
+		ReturnTxsToPool:  func() {},
 		CheckPoint:       0,
 		SuccessProcessed: true,
 		ProcessError:     nil,

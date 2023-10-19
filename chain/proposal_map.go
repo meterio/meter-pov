@@ -149,7 +149,7 @@ func (p *ProposalMap) PruneUpTo(lastCommitted *block.DraftBlock) {
 			// clean up not-finalized block
 			// return tx to txpool
 			if !draftBlk.ProposedBlock.ID().Equal(lastCommitted.ProposedBlock.ID()) {
-				draftBlk.TxsToReturned()
+				draftBlk.ReturnTxsToPool()
 
 				// only prune state trie if it's not the same as the committed one
 				// if !draftBlk.ProposedBlock.StateRoot().Equal(lastCommitted.ProposedBlock.StateRoot()) {

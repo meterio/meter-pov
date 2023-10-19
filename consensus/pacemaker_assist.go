@@ -78,18 +78,17 @@ func (p *Pacemaker) ValidateProposal(b *block.DraftBlock) error {
 	for _, tx := range blk.Transactions() {
 		txsInBlk = append(txsInBlk, tx)
 	}
-	var txsToRemoved, txsToReturned func() bool
+	var txsToRemoved, returnTxsToPool func()
 	if b.ProposedBlock.IsKBlock() {
-		txsToRemoved = func() bool { return true }
-		txsToReturned = func() bool { return true }
+		txsToRemoved = func() {}
+		returnTxsToPool = func() {}
 	} else {
-		txsToRemoved = func() bool {
+		txsToRemoved = func() {
 			for _, tx := range txsInBlk {
 				pool.Remove(tx.ID())
 			}
-			return true
 		}
-		txsToReturned = func() bool {
+		returnTxsToPool = func() {
 			for _, tx := range txsInBlk {
 				// only return txs if they are not in database
 				meta, err := p.chain.GetTrunkTransactionMeta(tx.ID())
@@ -97,7 +96,6 @@ func (p *Pacemaker) ValidateProposal(b *block.DraftBlock) error {
 					pool.Add(tx)
 				}
 			}
-			return true
 		}
 	}
 
@@ -158,8 +156,7 @@ func (p *Pacemaker) ValidateProposal(b *block.DraftBlock) error {
 	b.Stage = stage
 	b.Receipts = &receipts
 	b.CheckPoint = checkPoint
-	b.TxsToRemoved = txsToRemoved
-	b.TxsToReturned = txsToReturned
+	b.ReturnTxsToPool = returnTxsToPool
 	b.SuccessProcessed = true
 	b.ProcessError = err
 
