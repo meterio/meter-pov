@@ -256,6 +256,13 @@ func (p *TxPool) Get(id meter.Bytes32) *tx.Transaction {
 	return nil
 }
 
+func (p *TxPool) GetTxObj(id meter.Bytes32) *txObject {
+	if txObj := p.all.GetByID(id); txObj != nil {
+		return txObj
+	}
+	return nil
+}
+
 // StrictlyAdd add new tx into pool. A rejection error will be returned, if tx is not executable at this time.
 func (p *TxPool) StrictlyAdd(newTx *tx.Transaction) error {
 	return p.add(newTx, true)

@@ -16,7 +16,9 @@ import (
 	"github.com/meterio/meter-pov/block"
 	"github.com/meterio/meter-pov/chain"
 	"github.com/meterio/meter-pov/meter"
+	"github.com/meterio/meter-pov/packer"
 	"github.com/meterio/meter-pov/powpool"
+	"github.com/meterio/meter-pov/txpool"
 	"github.com/meterio/meter-pov/types"
 )
 
@@ -26,8 +28,7 @@ const (
 	RoundTimeoutLongInterval = 40 * time.Second
 	ProposeTimeLimit         = RoundInterval * 6 / 10
 	BroadcastTimeLimit       = RoundInterval * 7 / 10
-
-	MIN_MBLOCKS_AN_EPOCH = uint32(4)
+	MIN_MBLOCKS_AN_EPOCH     = uint32(4)
 )
 
 type Pacemaker struct {
@@ -70,6 +71,12 @@ type Pacemaker struct {
 	// broadcast timer
 	broadcastCh    chan *block.PMProposalMessage
 	broadcastTimer *time.Timer
+
+	//
+	newTxCh              chan *txpool.TxEvent
+	curProposal          *block.DraftBlock
+	curFlow              *packer.Flow
+	txsAddedAfterPropose int
 }
 
 func NewPacemaker(r *Reactor) *Pacemaker {
@@ -84,6 +91,7 @@ func NewPacemaker(r *Reactor) *Pacemaker {
 		roundTimer:     nil,
 		roundMutex:     sync.Mutex{},
 		broadcastCh:    make(chan *block.PMProposalMessage, 4),
+		newTxCh:        make(chan *txpool.TxEvent, 1024),
 
 		timeoutCounter:  0,
 		lastOnBeatRound: -1,
@@ -461,6 +469,7 @@ func (p *Pacemaker) OnPropose(qc *block.DraftQC, round uint32) *block.DraftBlock
 	}
 
 	bnew.Msg = msg
+	p.curProposal = bnew
 	return bnew
 
 }
@@ -681,7 +690,19 @@ CleanBroadcastCh:
 	}
 }
 
-func (p *Pacemaker) OnBroadcastProposal(proposalMsg *block.PMProposalMessage) {
+func (p *Pacemaker) OnBroadcastProposal() {
+	if p.txsAddedAfterPropose > 0 {
+		p.packMBlock()
+	}
+	if p.curProposal == nil {
+		p.logger.Warn("proposal is empty, skip broadcasting ...")
+		return
+	}
+	proposalMsg := p.curProposal.Msg.(*block.PMProposalMessage)
+	if proposalMsg == nil {
+		p.logger.Warn("empty proposal message")
+		return
+	}
 	blk := proposalMsg.DecodeBlock()
 
 	if blk.GetBlockEpoch() < p.reactor.curEpoch {
@@ -726,6 +747,8 @@ func (p *Pacemaker) mainLoop() {
 	p.mainLoopStarted = true
 	// signal.Notify(interruptCh, syscall.SIGINT, syscall.SIGTERM)
 
+	p.reactor.txpool.SubscribeTxEvent(p.newTxCh)
+
 	for {
 		bestBlock := p.chain.BestBlock()
 		if bestBlock.Number() > p.QCHigh.QC.QCHeight {
@@ -740,8 +763,14 @@ func (p *Pacemaker) mainLoop() {
 			}
 		case ti := <-p.roundTimeoutCh:
 			p.OnRoundTimeout(ti)
-		case proposalMsg := <-p.broadcastCh:
-			p.OnBroadcastProposal(proposalMsg)
+		case txEvt := <-p.newTxCh:
+			if p.reactor.inCommittee && p.reactor.amIRoundProproser(p.currentRound) && p.curFlow != nil && p.curProposal != nil && p.curProposal.ProposedBlock != nil && p.curProposal.ProposedBlock.BlockHeader != nil && p.curProposal.Round == p.currentRound {
+				if time.Since(p.roundStartedAt) < ProposeTimeLimit {
+					p.AddTxToCurProposal(txEvt.Tx)
+				}
+			}
+		case <-p.broadcastCh:
+			p.OnBroadcastProposal()
 		case b := <-p.beatCh:
 			p.OnBeat(b.epoch, b.round)
 		case m := <-p.reactor.inQueue.queue:

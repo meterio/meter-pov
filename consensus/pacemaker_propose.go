@@ -23,6 +23,7 @@ var (
 	ErrParentBlockEmpty     = errors.New("parent block empty")
 	ErrPackerEmpty          = errors.New("packer is empty")
 	ErrFlowEmpty            = errors.New("flow is empty")
+	ErrProposalEmpty        = errors.New("proposal is empty")
 	ErrStateCreaterNotReady = errors.New("state creater not ready")
 	ErrInvalidRound         = errors.New("invalid round")
 )
@@ -152,8 +153,127 @@ func (p *Pacemaker) buildMBlock(ts uint64, parent *block.DraftBlock, justify *bl
 		SuccessProcessed: true,
 		ProcessError:     nil,
 	}
+	p.curFlow = flow
 
 	return nil, proposed
+}
+
+// Build MBlock
+func (p *Pacemaker) AddTxToCurProposal(newTx *tx.Transaction) error {
+	if p.curFlow == nil {
+		return ErrFlowEmpty
+	}
+	if p.curProposal == nil {
+		return ErrProposalEmpty
+	}
+	p.logger.Info("add tx to cur proposal", "tx", newTx.ID(), "proposed", p.curProposal.ProposedBlock.ShortID())
+	parentBlock := p.curProposal.Parent.ProposedBlock
+	//create checkPoint before build block
+	state, err := p.reactor.stateCreator.NewState(parentBlock.StateRoot())
+	if err != nil {
+		p.logger.Error("revert state failed ...", "error", err)
+		return ErrStateCreaterNotReady
+	}
+
+	// collect all the txs in cache
+	txsInCache := make(map[string]bool)
+	tmp := p.curProposal.Parent
+	for tmp != nil && !tmp.Committed {
+		for _, knownTx := range tmp.ProposedBlock.Transactions() {
+			txsInCache[knownTx.ID().String()] = true
+		}
+		tmp = p.chain.GetDraft(tmp.ProposedBlock.ParentID())
+	}
+
+	id := newTx.ID()
+	// prevent to include txs already in previous drafts
+	if _, existed := txsInCache[id.String()]; existed {
+		return errors.New("tx already in cache")
+	}
+	txObj := p.reactor.txpool.GetTxObj(id)
+	executable, err := txObj.Executable(p.chain, state, parentBlock.BlockHeader)
+	if err != nil || !executable {
+		p.logger.Warn(fmt.Sprintf("tx %s not executable", id), "err", err)
+		return err
+	}
+	tx := txObj.Transaction
+	resolvedTx, _ := runtime.ResolveTransaction(tx)
+	if strings.ToLower(resolvedTx.Origin.String()) == "0x0e369a2e02912dba872e72d6c0b661e9617e0d9c" {
+		p.logger.Warn("blacklisted address: ", resolvedTx.Origin.String())
+		return errors.New("blacklisted address")
+	}
+	if err := p.curFlow.Adopt(tx); err != nil {
+		if packer.IsGasLimitReached(err) {
+			return err
+		}
+		if packer.IsTxNotAdoptableNow(err) {
+			return err
+		}
+		p.logger.Warn("mBlock flow.Adopt(tx) failed...", "txid", tx.ID(), "error", err)
+	}
+	p.logger.Info("added tx to cur proposal", "tx", newTx.ID())
+	return nil
+}
+
+// Build MBlock
+func (p *Pacemaker) packMBlock() error {
+	p.logger.Info("packed MBlock")
+	if p.curFlow == nil {
+		return ErrFlowEmpty
+	}
+	newBlock, stage, receipts, err := p.curFlow.Pack(&p.reactor.myPrivKey, block.MBlockType, p.reactor.lastKBlockHeight)
+	if err != nil {
+		p.logger.Error("build block failed", "error", err)
+		return err
+	}
+	prevProposedBlock := p.curProposal.ProposedBlock
+	newBlock.SetMagic(block.BlockMagicVersion1)
+	newBlock.SetQC(prevProposedBlock.QC)
+
+	// p.logger.Info("Built MBlock", "num", newBlock.Number(), "id", newBlock.ID(), "txs", len(newBlock.Txs), "elapsed", meter.PrettyDuration(time.Since(start)))
+
+	lastKBlockHeight := newBlock.LastKBlockHeight()
+	blockNumber := newBlock.Number()
+	if p.curProposal.Round == 0 || blockNumber == lastKBlockHeight+1 {
+		// set committee info
+		p.packCommitteeInfo(newBlock)
+	}
+
+	txsInBlk := make([]*tx.Transaction, 0)
+	for _, tx := range newBlock.Txs {
+		txsInBlk = append(txsInBlk, tx)
+	}
+	pool := p.reactor.txpool
+
+	proposed := &block.DraftBlock{
+		Height:        newBlock.Number(),
+		Round:         p.curProposal.Round,
+		Parent:        p.curProposal.Parent,
+		Justify:       p.curProposal.Justify,
+		ProposedBlock: newBlock,
+		Stage:         stage,
+		Receipts:      &receipts,
+		ReturnTxsToPool: func() {
+			for _, tx := range txsInBlk {
+				pool.Add(tx)
+			}
+		},
+		CheckPoint:       p.curProposal.CheckPoint,
+		SuccessProcessed: true,
+		ProcessError:     nil,
+	}
+
+	msg, err := p.BuildProposalMessage(proposed.Height, proposed.Round, proposed, p.curProposal.Msg.(*block.PMProposalMessage).TimeoutCert)
+	if err != nil {
+		p.logger.Error("could not build proposal message", "err", err)
+		return nil
+	}
+	proposed.Msg = msg
+
+	p.curProposal = proposed
+	p.curFlow = nil
+
+	return nil
 }
 
 func (p *Pacemaker) buildKBlock(ts uint64, parent *block.DraftBlock, justify *block.DraftQC, round uint32, kblockData *block.KBlockData, rewards []powpool.PowReward) (error, *block.DraftBlock) {
