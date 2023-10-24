@@ -2,10 +2,13 @@ package main
 
 import (
 	"bytes"
+	"crypto/ecdsa"
 	"encoding/hex"
 	"errors"
 	"fmt"
 	"math"
+	"math/big"
+	"math/rand"
 	"net/http"
 	"os"
 	"strings"
@@ -13,6 +16,9 @@ import (
 
 	_ "net/http/pprof"
 
+	"github.com/ethereum/go-ethereum/common"
+	etypes "github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/inconshreveable/log15"
 	"github.com/meterio/meter-pov/block"
@@ -24,6 +30,7 @@ import (
 	"github.com/meterio/meter-pov/script"
 	"github.com/meterio/meter-pov/state"
 	"github.com/meterio/meter-pov/trie"
+	"github.com/meterio/meter-pov/tx"
 	"github.com/meterio/meter-pov/types"
 	"gopkg.in/urfave/cli.v1"
 )
@@ -201,6 +208,12 @@ func main() {
 				Usage:  "Run local block again",
 				Flags:  []cli.Flag{networkFlag, dataDirFlag, revisionFlag, rawFlag},
 				Action: runLocalBlockAction,
+			},
+			{
+				Name:   "propose-block",
+				Usage:  "Local propose block",
+				Flags:  []cli.Flag{networkFlag, dataDirFlag, parentFlag, ntxsFlag, pkFileFlag},
+				Action: runProposeBlockAction,
 			},
 		},
 	}
@@ -1192,6 +1205,111 @@ func runLocalBlockAction(ctx *cli.Context) error {
 	for _, k := range stage.Keys() {
 		log.Info("stored key", "key", k)
 	}
+
+	return nil
+}
+
+type Account struct {
+	pk   *ecdsa.PrivateKey
+	addr common.Address
+}
+
+func runProposeBlockAction(ctx *cli.Context) error {
+	mainDB, gene := openMainDB(ctx)
+	defer func() { log.Info("closing main database..."); mainDB.Close() }()
+
+	logDB := openLogDB(ctx)
+	defer func() { log.Info("closing log database..."); logDB.Close() }()
+
+	pkFile := ctx.String(pkFileFlag.Name)
+	dat, err := os.ReadFile(pkFile)
+	if err != nil {
+		fmt.Println("could not read private key file")
+		return err
+	}
+
+	accts := make([]*Account, 0)
+	for _, pkstr := range strings.Split(string(dat), "\n") {
+		pkHex := strings.ReplaceAll(pkstr, "0x", "")
+		pk, err := crypto.HexToECDSA(pkHex)
+		if err != nil {
+			continue
+		}
+		addr := common.HexToAddress(pkHex)
+		accts = append(accts, &Account{pk: pk, addr: addr})
+	}
+	fmt.Sprintf("Initialized %d accounts", len(accts))
+
+	meterChain := initChain(ctx, gene, mainDB)
+	stateCreator := state.NewCreator(mainDB)
+
+	parent, err := loadBlockByRevision(meterChain, ctx.String(parentFlag.Name))
+	if err != nil {
+		fmt.Println("could not load parent")
+	}
+
+	start := time.Now()
+	ntxs := ctx.Uint64(ntxsFlag.Name)
+	txs := make([]*tx.Transaction, 0)
+	gasPrice := new(big.Int).Mul(big.NewInt(500), big.NewInt(1e18))
+	value := big.NewInt(1)
+	for i := 0; i < int(ntxs); i++ {
+		acct := accts[i%len(accts)]
+		nonce := rand.Int63()
+		ethtx := etypes.NewTransaction(uint64(nonce), acct.addr, value, 21000, gasPrice, make([]byte, 0))
+		signedTx, err := etypes.SignTx(ethtx, etypes.NewEIP155Signer(big.NewInt(83)), acct.pk)
+		if err != nil {
+			fmt.Println("could not sign tx", err)
+			continue
+		}
+
+		ntx, err := tx.NewTransactionFromEthTx(signedTx, byte(101), tx.NewBlockRef(block.Number(parent.ID())), false)
+		if err != nil {
+			fmt.Println("could not translate eth to tx", err)
+			continue
+		}
+		txs = append(txs, ntx)
+	}
+	log.Info("built txs", "len", len(txs), "elapsed", meter.PrettyDuration(time.Since(start)))
+
+	defaultPowPoolOptions := powpool.Options{
+		Node:            "localhost",
+		Port:            8332,
+		Limit:           10000,
+		LimitPerAccount: 16,
+		MaxLifetime:     20 * time.Minute,
+	}
+	// init powpool for kblock query
+	powpool.New(defaultPowPoolOptions, meterChain, stateCreator)
+	// init scriptengine
+	script.NewScriptEngine(meterChain, stateCreator)
+	// se.StartTeslaForkModules()
+
+	start = time.Now()
+	nodeMaster := meter.Address(crypto.PubkeyToAddress(accts[0].pk.PublicKey))
+	pker := packer.New(meterChain, stateCreator, nodeMaster, &meter.Address{})
+	flow, err := pker.Mock(parent.Header(), uint64(time.Now().Unix()), parent.GasLimit(), &meter.ZeroAddress)
+	if err != nil {
+		log.Error("mock error", "err", err)
+		return err
+	}
+
+	for _, t := range txs {
+		err := flow.Adopt(t)
+		if err != nil {
+			log.Error("could not adopt tx", "err", err)
+			continue
+		}
+	}
+	log.Info("adopted txs", "len", len(txs), "elapsed", meter.PrettyDuration(time.Since(start)))
+
+	start = time.Now()
+	blk, _, _, err := flow.Pack(accts[0].pk, block.MBlockType, parent.LastKBlockHeight())
+	if err != nil {
+		fmt.Println("pack error", "err", err)
+		return err
+	}
+	log.Info("built mblock", "id", blk.ID(), "err", err, "elapsed", meter.PrettyDuration(time.Since(start)))
 
 	return nil
 }

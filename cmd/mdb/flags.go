@@ -31,6 +31,9 @@ var (
 	commitFlag   = cli.BoolFlag{Name: "commit", Usage: "Commit stateDB"}
 	fromFlag     = cli.Int64Flag{Name: "from", Usage: "define the range from", Value: 0}
 	toFlag       = cli.Int64Flag{Name: "to", Usage: "define the range to", Value: 0}
+	parentFlag   = cli.StringFlag{Name: "parent", Usage: "the revision for parent block", Value: "best"}
+	ntxsFlag     = cli.Int64Flag{Name: "ntxs", Usage: "the txs to include in proposed block", Value: 200}
+	pkFileFlag   = cli.StringFlag{Name: "pkFile", Usage: "private key file", Value: "/tmp/accounts.txt"}
 )
 
 // copy from go-ethereum
