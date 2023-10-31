@@ -20,6 +20,7 @@ import (
 	"net/http"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -75,6 +76,7 @@ type Reactor struct {
 	// still references above consensuStae, reactor if this node is
 	// involved the consensus
 	committeeSize uint32
+	mapMutex      sync.RWMutex
 	knownIPs      map[string]string
 	curDelegates  []*types.Delegate // current delegates list
 
@@ -428,6 +430,8 @@ func (r *Reactor) GetConsensusDelegates() ([]*types.Delegate, []*types.Delegate)
 		}
 	}
 
+	defer r.mapMutex.Unlock()
+	r.mapMutex.Lock()
 	for _, d := range delegates {
 		r.knownIPs[d.NetAddr.IP.String()] = string(d.Name)
 	}
@@ -452,6 +456,8 @@ func (r *Reactor) peakFirst3Delegates(hint string, delegates []*types.Delegate) 
 }
 
 func (r *Reactor) getNameByIP(ip net.IP) string {
+	defer r.mapMutex.RUnlock()
+	r.mapMutex.RLock()
 	if name, exist := r.knownIPs[ip.String()]; exist {
 		return name
 	}
