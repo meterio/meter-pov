@@ -39,6 +39,10 @@ func NewQCVoteManager(system bls.System, committeeSize uint32) *QCVoteManager {
 	}
 }
 
+func (m *QCVoteManager) Size() uint32 {
+	return m.committeeSize
+}
+
 func (m *QCVoteManager) AddVote(index uint32, epoch uint64, round uint32, blockID meter.Bytes32, sig []byte, hash [32]byte) *block.QuorumCert {
 	key := voteKey{Round: round, BlockID: blockID}
 	if _, existed := m.votes[key]; !existed {

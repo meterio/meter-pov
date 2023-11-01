@@ -584,10 +584,10 @@ func (p *Pacemaker) OnReceiveQuery(mi *IncomingMsg) {
 func (p *Pacemaker) Regulate() {
 	p.logger.Info("!!! Pacemaker Regulate")
 	p.reactor.PrepareEnvForPacemaker()
-	if p.qcVoteManager == nil {
+	if p.qcVoteManager == nil || p.qcVoteManager.Size() != p.reactor.committeeSize {
 		p.qcVoteManager = NewQCVoteManager(p.reactor.blsCommon.System, p.reactor.committeeSize)
 	}
-	if p.tcVoteManager == nil {
+	if p.tcVoteManager == nil || p.tcVoteManager.Size() != p.reactor.committeeSize {
 		p.tcVoteManager = NewTCVoteManager(p.reactor.blsCommon.System, p.reactor.committeeSize)
 	}
 

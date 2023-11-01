@@ -362,6 +362,7 @@ func (r *Reactor) verifyInCommittee() bool {
 			r.logger.Error("could not get committee info", "err", err)
 			return false
 		}
+		r.logger.Info("got committee info", "len", len(consentBlock.CommitteeInfos.CommitteeInfo))
 		// recover actual committee from consent block
 		committeeInfo := consentBlock.CommitteeInfos
 
@@ -369,6 +370,7 @@ func (r *Reactor) verifyInCommittee() bool {
 		myEcdsaPKBytes := crypto.FromECDSAPub(&myself.PubKey)
 		inCommitteeVerified := false
 		for _, v := range committeeInfo.CommitteeInfo {
+			r.logger.Info("committee info pubkey", "str", base64.StdEncoding.EncodeToString(v.PubKey), "mine", base64.StdEncoding.EncodeToString(myEcdsaPKBytes))
 			if bytes.Equal(v.PubKey, myEcdsaPKBytes) {
 				inCommitteeVerified = true
 				break
@@ -376,7 +378,7 @@ func (r *Reactor) verifyInCommittee() bool {
 		}
 		return inCommitteeVerified
 	}
-	return false
+	return true
 }
 
 func (r *Reactor) combinePubKey(ecdsaPub *ecdsa.PublicKey, blsPub *bls.PublicKey) string {
@@ -528,7 +530,7 @@ func (r *Reactor) UpdateCurEpoch() (bool, error) {
 		}
 		r.PrintCommittee()
 		r.sortBootstrapCommitteeByNonce(nonce)
-		r.PrintCommittee()
+		// r.PrintCommittee()
 
 		// update nonce
 		r.curNonce = nonce

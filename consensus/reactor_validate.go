@@ -141,7 +141,7 @@ func (c *Reactor) Validate(
 		return nil, nil, err
 	}
 	verifyBlockElapsed := time.Since(verifyBlockStart)
-	c.logger.Info("validated!", "id", block.ShortID(), "validateHeadElapsed", meter.PrettyDuration(vHeaderElapsed), "validateProposerElapsed", meter.PrettyDuration(vProposerElapsed), "validateBodyElapsed", meter.PrettyDuration(vBodyElapsed), "verifyBlockElapsed", meter.PrettyDuration(verifyBlockElapsed))
+	c.logger.Debug("validated!", "id", block.ShortID(), "validateHeadElapsed", meter.PrettyDuration(vHeaderElapsed), "validateProposerElapsed", meter.PrettyDuration(vProposerElapsed), "validateBodyElapsed", meter.PrettyDuration(vBodyElapsed), "verifyBlockElapsed", meter.PrettyDuration(verifyBlockElapsed))
 
 	return stage, receipts, nil
 }
@@ -555,7 +555,12 @@ func (r *Reactor) buildKBlockTxs(parentBlock *block.Block, rewards []powpool.Pow
 					if err != nil {
 						r.logger.Error("get delegates from staking FAILED", "err", err)
 					}
+
 					r.logger.Info("Loaded delegateList from staking for staging/testnet only", "len", len(delegates))
+					if len(delegates) < r.config.MinCommitteeSize {
+						delegates = r.config.InitDelegates
+						r.logger.Info("Loaded delegateList from init for staging/testnet only", "len", len(delegates))
+					}
 					// skip member check for delegates in ComputeRewardMapV3
 					r.logger.Info("Compute reward map")
 					rewardMap, err = governor.ComputeRewardMap(epochBaseReward, epochTotalReward, delegates, true)

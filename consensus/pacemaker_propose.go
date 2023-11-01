@@ -98,7 +98,7 @@ func (p *Pacemaker) buildMBlock(ts uint64, parent *block.DraftBlock, justify *bl
 		}
 		executable, err := txObj.Executable(p.chain, state, parentBlock.BlockHeader)
 		if err != nil || !executable {
-			p.logger.Warn(fmt.Sprintf("tx %s not executable", id), "err", err)
+			p.logger.Debug(fmt.Sprintf("tx %s not executable", id), "err", err)
 			continue
 		}
 		tx := txObj.Transaction

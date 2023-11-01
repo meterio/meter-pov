@@ -33,6 +33,10 @@ func NewTCVoteManager(system bls.System, committeeSize uint32) *TCVoteManager {
 	}
 }
 
+func (m *TCVoteManager) Size() uint32 {
+	return m.committeeSize
+}
+
 func (m *TCVoteManager) AddVote(index uint32, epoch uint64, round uint32, sig []byte, hash [32]byte) *types.TimeoutCert {
 	key := timeoutVoteKey{Epoch: epoch, Round: round}
 	if _, existed := m.votes[key]; !existed {
