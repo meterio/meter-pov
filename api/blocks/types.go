@@ -42,7 +42,7 @@ type JSONBlockSummary struct {
 	ReceiptsRoot     meter.Bytes32      `json:"receiptsRoot"`
 	Signer           meter.Address      `json:"signer"`
 	IsTrunk          bool               `json:"isTrunk"`
-	IsKBlock         bool               `json:"isKBlock"`
+	BlockType        string             `json:"blockType"`
 	LastKBlockHeight uint32             `json:"lastKBlockHeight"`
 	CommitteeInfo    []*CommitteeMember `json:"committee"`
 	QC               *QC                `json:"qc"`
@@ -174,6 +174,14 @@ func buildJSONBlockSummary(blk *block.Block, isTrunk bool, logsBloom string, bas
 	signer, _ := header.Signer()
 
 	var epoch uint64
+	blockType := ""
+	if blk.IsKBlock() {
+		blockType = "KBlock"
+	} else if blk.IsMBlock() {
+		blockType = "MBlock"
+	} else if blk.IsSBlock() {
+		blockType = "SBlock"
+	}
 	isKBlock := header.BlockType() == block.KBlockType
 	if isTrunk && isKBlock {
 		epoch = blk.QC.EpochID
@@ -197,7 +205,7 @@ func buildJSONBlockSummary(blk *block.Block, isTrunk bool, logsBloom string, bas
 		ReceiptsRoot:     header.ReceiptsRoot(),
 		TxsRoot:          header.TxsRoot(),
 		IsTrunk:          isTrunk,
-		IsKBlock:         isKBlock,
+		BlockType:        blockType,
 		LastKBlockHeight: header.LastKBlockHeight(),
 		Epoch:            epoch,
 		KblockData:       make([]string, 0),
