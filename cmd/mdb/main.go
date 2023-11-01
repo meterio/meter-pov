@@ -209,12 +209,8 @@ func main() {
 				Flags:  []cli.Flag{networkFlag, dataDirFlag, revisionFlag, rawFlag},
 				Action: runLocalBlockAction,
 			},
-			{
-				Name:   "propose-block",
-				Usage:  "Local propose block",
-				Flags:  []cli.Flag{networkFlag, dataDirFlag, parentFlag, ntxsFlag, pkFileFlag},
-				Action: runProposeBlockAction,
-			},
+			{Name: "delete-block", Usage: "delete blocks", Flags: []cli.Flag{networkFlag, dataDirFlag, fromFlag, toFlag}, Action: runDeleteBlockAction},
+			{Name: "propose-block", Usage: "Local propose block", Flags: []cli.Flag{networkFlag, dataDirFlag, parentFlag, ntxsFlag, pkFileFlag}, Action: runProposeBlockAction},
 		},
 	}
 
@@ -1133,6 +1129,25 @@ func safeResetAction(ctx *cli.Context) error {
 	return nil
 }
 
+func runDeleteBlockAction(ctx *cli.Context) error {
+	mainDB, _ := openMainDB(ctx)
+	defer func() { log.Info("closing main database..."); mainDB.Close() }()
+
+	logDB := openLogDB(ctx)
+	defer func() { log.Info("closing log database..."); logDB.Close() }()
+
+	from := ctx.Uint64(fromFlag.Name)
+	to := ctx.Uint64(toFlag.Name)
+	for i := uint32(from); i <= uint32(to); i++ {
+		numKey := numberAsKey(i)
+
+		err := mainDB.Delete(append(hashKeyPrefix, numKey...))
+		log.Info("delete block", "num", i, "err", err)
+	}
+
+	return nil
+}
+
 func runLocalBlockAction(ctx *cli.Context) error {
 	mainDB, gene := openMainDB(ctx)
 	defer func() { log.Info("closing main database..."); mainDB.Close() }()
@@ -1196,7 +1211,7 @@ func runLocalBlockAction(ctx *cli.Context) error {
 	log.Info("Verify block complete", "elapsed", meter.PrettyDuration(time.Since(start)), "err", err, "stage", hash, "stateRoot", blk.StateRoot())
 
 	root, err := stage.Commit()
-	log.Info("commited stage", "root", root, "err", err)
+	log.Debug("commited stage", "root", root, "err", err)
 
 	// atrie := stage.GetAccountTrie()
 	// atrie.CommitTo(store)

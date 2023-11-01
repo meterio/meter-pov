@@ -78,6 +78,11 @@ func saveBestBlockID(w kv.Putter, id meter.Bytes32) error {
 	return w.Put(bestBlockKey, id[:])
 }
 
+func deleteBlockHash(w kv.Putter, num uint32) error {
+	numKey := numberAsKey(num)
+	return w.Delete(append(hashKeyPrefix, numKey...))
+}
+
 // loadBlockHash returns the block hash on trunk with num.
 func loadBlockHash(r kv.Getter, num uint32) (meter.Bytes32, error) {
 	numKey := numberAsKey(num)
