@@ -7,6 +7,7 @@ package consensus
 
 import (
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"os"
 	"sync"
@@ -115,6 +116,14 @@ func (p *Pacemaker) CreateLeaf(parent *block.DraftBlock, justify *block.DraftQC,
 	// propose SBlock only if I'm still in the epoch
 	proposeStopCommitteeBlock := (parentBlock.IsKBlock() || parentBlock.IsSBlock()) && p.reactor.curEpoch == parentBlock.QC.EpochID
 	if proposeStopCommitteeBlock {
+		grandFather := p.chain.GetDraftByEscortQC(parentBlock.QC)
+		if grandFather != nil {
+			grandGrandFather := p.chain.GetDraftByEscortQC(grandFather.ProposedBlock.QC)
+			if grandGrandFather != nil && grandGrandFather.ProposedBlock.IsKBlock() {
+				p.logger.Info(fmt.Sprintf("skip proposing SBlock on R:%v due to grand grand father is KBlock", round))
+				return errors.New("skip proposing SBlock due to grand grand father is kblock"), nil
+			}
+		}
 		p.logger.Info(fmt.Sprintf("proposing SBlock on R:%v with QCHigh(#%v,R:%v), Parent(%v,R:%v)", round, justify.QC.QCHeight, justify.QC.QCRound, parent.ProposedBlock.ID().ToBlockShortID(), parent.Round))
 		return p.buildStopCommitteeBlock(uint64(targetTime.Unix()), parent, justify, round)
 	}
