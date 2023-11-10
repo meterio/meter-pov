@@ -159,14 +159,14 @@ func (p *Pacemaker) buildMBlock(ts uint64, parent *block.DraftBlock, justify *bl
 }
 
 // Build MBlock
-func (p *Pacemaker) AddTxToCurProposal(newTx *tx.Transaction) error {
+func (p *Pacemaker) AddTxToCurProposal(newTxID meter.Bytes32) error {
 	if p.curFlow == nil {
 		return ErrFlowEmpty
 	}
 	if p.curProposal == nil {
 		return ErrProposalEmpty
 	}
-	p.logger.Info("add tx to cur proposal", "tx", newTx.ID(), "proposed", p.curProposal.ProposedBlock.ShortID())
+	p.logger.Info("add tx to cur proposal", "tx", newTxID, "proposed", p.curProposal.ProposedBlock.ShortID())
 	parentBlock := p.curProposal.Parent.ProposedBlock
 	//create checkPoint before build block
 	state, err := p.reactor.stateCreator.NewState(parentBlock.StateRoot())
@@ -185,12 +185,16 @@ func (p *Pacemaker) AddTxToCurProposal(newTx *tx.Transaction) error {
 		tmp = p.chain.GetDraft(tmp.ProposedBlock.ParentID())
 	}
 
-	id := newTx.ID()
+	id := newTxID
 	// prevent to include txs already in previous drafts
 	if _, existed := txsInCache[id.String()]; existed {
 		return errors.New("tx already in cache")
 	}
 	txObj := p.reactor.txpool.GetTxObj(id)
+	if txObj == nil {
+		p.logger.Error("tx obj is nil", "id", id)
+		return errors.New("tx obj is nil")
+	}
 	executable, err := txObj.Executable(p.chain, state, parentBlock.BlockHeader)
 	if err != nil || !executable {
 		p.logger.Warn(fmt.Sprintf("tx %s not executable", id), "err", err)
@@ -211,7 +215,7 @@ func (p *Pacemaker) AddTxToCurProposal(newTx *tx.Transaction) error {
 		}
 		p.logger.Warn("mBlock flow.Adopt(tx) failed...", "txid", tx.ID(), "error", err)
 	}
-	p.logger.Info("added tx to cur proposal", "tx", newTx.ID())
+	p.logger.Info("added tx to cur proposal", "tx", newTxID)
 	return nil
 }
 

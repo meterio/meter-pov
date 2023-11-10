@@ -19,7 +19,6 @@ import (
 	"github.com/meterio/meter-pov/meter"
 	"github.com/meterio/meter-pov/packer"
 	"github.com/meterio/meter-pov/powpool"
-	"github.com/meterio/meter-pov/txpool"
 	"github.com/meterio/meter-pov/types"
 )
 
@@ -27,8 +26,8 @@ const (
 	RoundInterval            = 2 * time.Second
 	RoundTimeoutInterval     = 16 * time.Second // move the timeout from 20 to 16 secs.
 	RoundTimeoutLongInterval = 40 * time.Second
-	ProposeTimeLimit         = RoundInterval * 6 / 10
-	BroadcastTimeLimit       = RoundInterval * 7 / 10
+	ProposeTimeLimit         = 1300 * time.Millisecond
+	BroadcastTimeLimit       = 1400 * time.Millisecond
 	MIN_MBLOCKS_AN_EPOCH     = uint32(4)
 )
 
@@ -74,7 +73,7 @@ type Pacemaker struct {
 	broadcastTimer *time.Timer
 
 	//
-	newTxCh              chan *txpool.TxEvent
+	newTxCh              chan meter.Bytes32
 	curProposal          *block.DraftBlock
 	curFlow              *packer.Flow
 	txsAddedAfterPropose int
@@ -92,7 +91,7 @@ func NewPacemaker(r *Reactor) *Pacemaker {
 		roundTimer:     nil,
 		roundMutex:     sync.Mutex{},
 		broadcastCh:    make(chan *block.PMProposalMessage, 4),
-		newTxCh:        make(chan *txpool.TxEvent, 1024),
+		newTxCh:        r.txpool.GetNewTxFeed(),
 
 		timeoutCounter:  0,
 		lastOnBeatRound: -1,
@@ -756,8 +755,6 @@ func (p *Pacemaker) mainLoop() {
 	p.mainLoopStarted = true
 	// signal.Notify(interruptCh, syscall.SIGINT, syscall.SIGTERM)
 
-	p.reactor.txpool.SubscribeTxEvent(p.newTxCh)
-
 	for {
 		bestBlock := p.chain.BestBlock()
 		if bestBlock.Number() > p.QCHigh.QC.QCHeight {
@@ -772,10 +769,10 @@ func (p *Pacemaker) mainLoop() {
 			}
 		case ti := <-p.roundTimeoutCh:
 			p.OnRoundTimeout(ti)
-		case txEvt := <-p.newTxCh:
+		case newTxID := <-p.newTxCh:
 			if p.reactor.inCommittee && p.reactor.amIRoundProproser(p.currentRound) && p.curFlow != nil && p.curProposal != nil && p.curProposal.ProposedBlock != nil && p.curProposal.ProposedBlock.BlockHeader != nil && p.curProposal.Round == p.currentRound {
 				if time.Since(p.roundStartedAt) < ProposeTimeLimit {
-					p.AddTxToCurProposal(txEvt.Tx)
+					p.AddTxToCurProposal(newTxID)
 				}
 			}
 		case <-p.broadcastCh:

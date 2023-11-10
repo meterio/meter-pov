@@ -46,6 +46,10 @@ func (o *txObject) Origin() meter.Address {
 }
 
 func (o *txObject) Executable(chain *chain.Chain, state *state.State, headBlock *block.Header) (bool, error) {
+	if o == nil {
+		log.Error("tx object is nil")
+		return false, errors.New("txobject is null")
+	}
 	switch {
 	case o.Gas() > headBlock.GasLimit():
 		return false, errors.New("gas too large")

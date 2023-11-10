@@ -70,9 +70,9 @@ func (m *txObjectMap) Remove(txID meter.Bytes32) bool {
 			delete(m.quota, txObj.Origin())
 		}
 		delete(m.txObjMap, txID)
+		log.Info("removed tx", "id", txID, "mapSize", len(m.txObjMap))
 		return true
 	}
-	log.Info("removed tx", "id", txID, "mapSize", len(m.txObjMap))
 	return false
 }
 

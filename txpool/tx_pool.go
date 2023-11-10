@@ -58,6 +58,8 @@ type TxPool struct {
 	txFeed event.Feed
 	scope  event.SubscriptionScope
 	goes   co.Goes
+
+	newTxFeed chan meter.Bytes32
 }
 
 // New create a new TxPool instance.
@@ -69,6 +71,8 @@ func New(chain *chain.Chain, stateCreator *state.Creator, options Options) *TxPo
 		stateCreator: stateCreator,
 		all:          newTxObjectMap(),
 		done:         make(chan struct{}),
+
+		newTxFeed: make(chan meter.Bytes32, options.Limit),
 	}
 	pool.goes.Go(pool.housekeeping)
 	return pool
@@ -129,29 +133,6 @@ func (p *TxPool) housekeeping() {
 				log.Debug("wash done", ctx...)
 			}
 		}
-	}
-}
-
-func (p *TxPool) UpdateExecutables(timeLimit time.Duration) {
-	log.Info("update executables with time limit", "limit", meter.PrettyDuration(timeLimit))
-	atomic.StoreUint32(&p.addedAfterWash, 0)
-	poolLen := p.all.Len()
-
-	headBlock := p.chain.BestBlock().Header()
-	startTime := mclock.Now()
-	executables, removed, err := p.wash(headBlock, timeLimit)
-	elapsed := mclock.Now() - startTime
-
-	ctx := []interface{}{
-		"len", poolLen,
-		"removed", removed,
-		"elapsed", meter.PrettyDuration(elapsed),
-	}
-	if err != nil {
-		ctx = append(ctx, "err", err)
-	} else {
-		log.Info("txpool washed, executables updated", "elapsed", meter.PrettyDuration(elapsed))
-		p.executables.Store(executables)
 	}
 }
 
@@ -224,7 +205,6 @@ func (p *TxPool) add(newTx *tx.Transaction, rejectNonexecutable bool) error {
 		p.goes.Go(func() {
 			p.txFeed.Send(&TxEvent{newTx, &executable})
 		})
-		log.Debug("tx added", "id", newTx.ID(), "executable", executable)
 	} else {
 		// we skip steps that rely on head block when chain is not synced,
 		// but check the pool's limit
@@ -237,10 +217,27 @@ func (p *TxPool) add(newTx *tx.Transaction, rejectNonexecutable bool) error {
 		}
 		log.Debug("tx added, chain is not synced", "id", newTx.ID(), "pool size", p.all.Len())
 		p.txFeed.Send(&TxEvent{newTx, nil})
-		log.Debug("tx added", "id", newTx.ID())
+	}
+	log.Debug("tx added to pool", "id", newTx.ID())
+
+	if len(p.newTxFeed) < cap(p.newTxFeed) {
+		p.newTxFeed <- newTx.ID()
+		log.Info("new tx feed: ", "id", newTx.ID())
+	} else {
+		select {
+		case <-p.newTxFeed:
+		default:
+			break
+		}
+		p.newTxFeed <- newTx.ID()
+		log.Info("new tx feed: ", "id", newTx.ID())
 	}
 	atomic.AddUint32(&p.addedAfterWash, 1)
 	return nil
+}
+
+func (p *TxPool) GetNewTxFeed() chan meter.Bytes32 {
+	return p.newTxFeed
 }
 
 // Add add new tx into pool.
@@ -375,7 +372,7 @@ func (p *TxPool) wash(headBlock *block.Header, timeLimit time.Duration) (executa
 	}
 
 	// sort objs by price from high to low
-	sortTxObjsByOverallGasPriceDesc(executableObjs)
+	// sortTxObjsByOverallGasPriceDesc(executableObjs)
 
 	limit := p.options.Limit
 
