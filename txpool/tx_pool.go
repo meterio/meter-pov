@@ -24,7 +24,7 @@ import (
 
 const (
 	// max size of tx allowed
-	maxTxSize = 64 * 1024
+	maxTxSize = 64 * 1024 * 2
 )
 
 var (
