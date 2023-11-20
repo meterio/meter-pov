@@ -173,6 +173,23 @@ func New(kv kv.GetPutter, genesisBlock *block.Block, verbose bool) (*Chain, erro
 		bestQC = block.GenesisEscortQC(genesisBlock)
 		bestQCHeightGauge.Set(float64(bestQC.QCHeight))
 	}
+
+	if bestBlock.Number() > bestQC.QCHeight {
+		log.Warn("best block > best QC, start to correct best block", "bestBlock", bestBlock.Number(), "bestQC", bestQC.QCHeight)
+		matchBestBlockID, err := ancestorTrie.GetAncestor(bestBlock.ID(), bestQC.QCHeight)
+		if err != nil {
+			log.Error("could not load match best block", "err", err)
+		} else {
+			matchBestBlockRaw, err := loadBlockRaw(kv, matchBestBlockID)
+			if err != nil {
+				fmt.Println("could not load raw for bestBlockBeforeFlattern: ", err)
+			} else {
+				bestBlock, _ = (&rawBlock{raw: matchBestBlockRaw}).Block()
+				saveBestBlockIDBeforeFlattern(kv, matchBestBlockID)
+			}
+		}
+	}
+
 	bestHeightGauge.Set(float64(bestBlock.Number()))
 	bestQCHeightGauge.Set(float64(bestQC.QCHeight))
 
