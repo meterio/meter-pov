@@ -31,6 +31,7 @@ import (
 	"github.com/meterio/meter-pov/state"
 	"github.com/meterio/meter-pov/trie"
 	"github.com/meterio/meter-pov/tx"
+	"github.com/meterio/meter-pov/txpool"
 	"github.com/meterio/meter-pov/types"
 	"gopkg.in/urfave/cli.v1"
 )
@@ -54,6 +55,12 @@ var (
 	gitTag    string
 	log       = log15.New()
 	flags     = []cli.Flag{dataDirFlag, networkFlag, revisionFlag}
+
+	defaultTxPoolOptions = txpool.Options{
+		Limit:           200000,
+		LimitPerAccount: 1024, /*16,*/ //XXX: increase to 1024 from 16 during the testing
+		MaxLifetime:     20 * time.Minute,
+	}
 )
 
 const (
@@ -995,10 +1002,14 @@ func syncVerifyAction(ctx *cli.Context) error {
 	start := time.Now()
 	initDelegates := types.LoadDelegatesFile(ctx, blsCommon)
 	pker := packer.New(meterChain, stateCreator, meter.Address{}, &meter.Address{})
-	cons := consensus.NewConsensusReactor(ctx, meterChain, logDB, nil /* empty communicator */, nil /* empty txpool */, pker, stateCreator, ecdsaPrivKey, ecdsaPubKey, [4]byte{0x0, 0x0, 0x0, 0x0}, blsCommon, initDelegates)
+	txPool := txpool.New(meterChain, state.NewCreator(mainDB), defaultTxPoolOptions)
+	defer func() { log.Info("closing tx pool..."); txPool.Close() }()
+
+	cons := consensus.NewConsensusReactor(ctx, meterChain, logDB, nil /* empty communicator */, txPool, pker, stateCreator, ecdsaPrivKey, ecdsaPubKey, [4]byte{0x0, 0x0, 0x0, 0x0}, blsCommon, initDelegates)
 
 	for i := uint32(fromNum); i < uint32(toNum); i++ {
 		b, _ := meterChain.GetTrunkBlock(i)
+		nb, _ := meterChain.GetTrunkBlock(i + 1)
 		// cons.ResetToHeight(b)
 		now := uint64(time.Now().Unix())
 		parentBlk, err := meterChain.GetBlock(b.ParentID())
@@ -1019,7 +1030,9 @@ func syncVerifyAction(ctx *cli.Context) error {
 			log.Error(err.Error())
 			return err
 		}
-		_, err = meterChain.AddBlock(parentBlk, b.QC, receipts)
+
+		log.Info("block brief", "txs", len(b.Transactions()), "receipts", len(receipts))
+		_, err = meterChain.AddBlock(b, nb.QC, receipts)
 		if err != nil {
 			if err != chain.ErrBlockExist {
 				log.Error(err.Error())
