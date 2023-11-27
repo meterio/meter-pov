@@ -106,22 +106,6 @@ func getValue(ldb *lvldb.LevelDB, key []byte) (string, error) {
 	return hex.EncodeToString(val), err
 }
 
-func updateLeaf(ldb *lvldb.LevelDB, hexVal string, dryRun bool) error {
-	v, _ := hex.DecodeString(hexVal)
-	if !dryRun {
-		ldb.Put(leafBlockKey, v)
-		fmt.Println("leaf updated:", hexVal)
-	} else {
-		fmt.Println("leaf will be:", hexVal)
-	}
-	return nil
-}
-
-func readLeaf(ldb *lvldb.LevelDB) (string, error) {
-	val, err := getValue(ldb, leafBlockKey)
-	return val, err
-}
-
 func updateBestQC(ldb *lvldb.LevelDB, hexVal string, dryRun bool) error {
 	v, _ := hex.DecodeString(hexVal)
 	if !dryRun {

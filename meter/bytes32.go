@@ -6,6 +6,8 @@
 package meter
 
 import (
+	"bytes"
+	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -38,9 +40,20 @@ func (b Bytes32) Bytes() []byte {
 	return b[:]
 }
 
+func (b Bytes32) Equal(a Bytes32) bool {
+	return bytes.Equal(a[:], b[:])
+}
+
 // IsZero returns if Bytes32 has all zero bytes.
 func (b Bytes32) IsZero() bool {
 	return b == Bytes32{}
+}
+
+// Number extract block number from block id.
+func (b Bytes32) ToBlockShortID() string {
+	num := binary.BigEndian.Uint32(b[:])
+	// first 4 bytes are over written by block number (big endian).
+	return fmt.Sprintf("#%v..%x", num, b[28:])
 }
 
 // MarshalJSON implements json.Marshaler.

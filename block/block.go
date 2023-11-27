@@ -6,15 +6,21 @@
 package block
 
 import (
+	"bytes"
+	"crypto/sha256"
 	"encoding/base64"
+	"encoding/binary"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"io"
+	"math"
 	"strings"
 	"sync/atomic"
 
 	"github.com/ethereum/go-ethereum/rlp"
-	cmn "github.com/meterio/meter-pov/libs/common"
+	"github.com/inconshreveable/log15"
+	bls "github.com/meterio/meter-pov/crypto/multi_sig"
 	"github.com/meterio/meter-pov/meter"
 	"github.com/meterio/meter-pov/metric"
 	"github.com/meterio/meter-pov/tx"
@@ -27,6 +33,7 @@ const (
 
 var (
 	BlockMagicVersion1 [4]byte = [4]byte{0x76, 0x01, 0x00, 0x00} // version v.1.0.0
+	log                        = log15.New("pkg", "blk")
 )
 
 type Violation struct {
@@ -36,21 +43,6 @@ type Violation struct {
 	MsgHash    [32]byte
 	Signature1 []byte
 	Signature2 []byte
-}
-
-// NewEvidence records the voting/notarization aggregated signatures and bitmap
-// of validators.
-// Validators info can get from 1st proposaed block meta data
-type Evidence struct {
-	VotingSig       []byte //serialized bls signature
-	VotingMsgHash   []byte //[][32]byte
-	VotingBitArray  cmn.BitArray
-	VotingViolation []*Violation
-
-	NotarizeSig       []byte
-	NotarizeMsgHash   []byte //[][32]byte
-	NotarizeBitArray  cmn.BitArray
-	NotarizeViolation []*Violation
 }
 
 type PowRawBlock []byte
@@ -116,19 +108,6 @@ type Body struct {
 	Txs tx.Transactions
 }
 
-// Create new Evidence
-func NewEvidence(votingSig []byte, votingMsgHash [][32]byte, votingBA cmn.BitArray,
-	notarizeSig []byte, notarizeMsgHash [][32]byte, notarizeBA cmn.BitArray) *Evidence {
-	return &Evidence{
-		VotingSig:        votingSig,
-		VotingMsgHash:    cmn.Byte32ToByteSlice(votingMsgHash),
-		VotingBitArray:   votingBA,
-		NotarizeSig:      notarizeSig,
-		NotarizeMsgHash:  cmn.Byte32ToByteSlice(notarizeMsgHash),
-		NotarizeBitArray: notarizeBA,
-	}
-}
-
 // Create new committee Info
 func NewCommitteeInfo(name string, pubKey []byte, netAddr types.NetAddress, csPubKey []byte, csIndex uint32) *CommitteeInfo {
 	return &CommitteeInfo{
@@ -148,6 +127,59 @@ func Compose(header *Header, txs tx.Transactions) *Block {
 		BlockHeader: header,
 		Txs:         append(tx.Transactions(nil), txs...),
 	}
+}
+
+func MajorityTwoThird(voterNum, committeeSize uint32) bool {
+	if committeeSize < 1 {
+		return false
+	}
+	// Examples
+	// committeeSize= 1 twoThirds= 1
+	// committeeSize= 2 twoThirds= 2
+	// committeeSize= 3 twoThirds= 2
+	// committeeSize= 4 twoThirds= 3
+	// committeeSize= 5 twoThirds= 4
+	// committeeSize= 6 twoThirds= 4
+	twoThirds := math.Ceil(float64(committeeSize) * 2 / 3)
+	return float64(voterNum) >= twoThirds
+}
+
+func (b *Block) VerifyQC(escortQC *QuorumCert, blsCommon *types.BlsCommon, committee []*types.Validator) (bool, error) {
+	committeeSize := uint32(len(committee))
+	if b == nil {
+		// decode block to get qc
+		// log.Error("can not decode block", err)
+		return false, errors.New("block empty")
+	}
+
+	// genesis/first block does not have qc
+	if b.Number() == escortQC.QCHeight && (b.Number() == 0 || b.Number() == 1) {
+		return true, nil
+	}
+
+	// check voting hash
+	voteHash := b.VotingHash()
+	if !bytes.Equal(escortQC.VoterMsgHash[:], voteHash[:]) {
+		return false, errors.New("voting hash mismatch")
+	}
+
+	// check vote count
+	voteCount := escortQC.VoterBitArray().Count()
+	if !MajorityTwoThird(uint32(voteCount), committeeSize) {
+		return false, fmt.Errorf("not enough votes (%d/%d)", voteCount, committeeSize)
+	}
+
+	pubkeys := make([]bls.PublicKey, 0)
+	for index, v := range committee {
+		if escortQC.VoterBitArray().GetIndex(index) {
+			pubkeys = append(pubkeys, v.BlsPubKey)
+		}
+	}
+	sig, err := blsCommon.System.SigFromBytes(escortQC.VoterAggSig)
+	if err != nil {
+		return false, errors.New("invalid aggregate signature:" + err.Error())
+	}
+	return blsCommon.AggregateVerify(sig, escortQC.VoterMsgHash, pubkeys)
 }
 
 // WithSignature create a new block object with signature set.
@@ -196,16 +228,20 @@ func (b *Block) Timestamp() uint64 {
 }
 
 // BlockType returns block type of this block.
-func (b *Block) BlockType() uint32 {
+func (b *Block) BlockType() BlockType {
 	return b.BlockHeader.BlockType()
 }
 
 func (b *Block) IsKBlock() bool {
-	return b.BlockHeader.BlockType() == BLOCK_TYPE_K_BLOCK
+	return b.BlockHeader.BlockType() == KBlockType
 }
 
 func (b *Block) IsSBlock() bool {
-	return b.BlockHeader.BlockType() == BLOCK_TYPE_S_BLOCK
+	return b.BlockHeader.BlockType() == SBlockType
+}
+
+func (b *Block) IsMBlock() bool {
+	return b.BlockHeader.BlockType() == MBlockType
 }
 
 // TotalScore returns total score that cumulated from genesis block to this one.
@@ -243,11 +279,6 @@ func (b *Block) ReceiptsRoot() meter.Bytes32 {
 	return b.BlockHeader.ReceiptsRoot()
 }
 
-// EvidenceDataRoot returns merkle root of tx receipts.
-func (b *Block) EvidenceDataRoot() meter.Bytes32 {
-	return b.BlockHeader.EvidenceDataRoot()
-}
-
 func (b *Block) Signer() (signer meter.Address, err error) {
 	return b.BlockHeader.Signer()
 }
@@ -282,7 +313,7 @@ func (b *Block) EncodeRLP(w io.Writer) error {
 func (b *Block) DecodeRLP(s *rlp.Stream) error {
 	_, size, err := s.Kind()
 	if err != nil {
-		fmt.Println("decode rlp error:", err)
+		log.Error("decode rlp error", "err", err)
 	}
 
 	payload := struct {
@@ -318,7 +349,7 @@ func (b *Block) Size() metric.StorageSize {
 	var size metric.StorageSize
 	err := rlp.Encode(&size, b)
 	if err != nil {
-		fmt.Println("block size error:", err)
+		log.Error("block size error", "err", err)
 	}
 
 	b.cache.size.Store(size)
@@ -367,11 +398,11 @@ func (b *Block) GetCanonicalName() string {
 		return ""
 	}
 	switch b.BlockHeader.BlockType() {
-	case BLOCK_TYPE_K_BLOCK:
+	case KBlockType:
 		return "KBlock"
-	case BLOCK_TYPE_M_BLOCK:
+	case MBlockType:
 		return "MBlock"
-	case BLOCK_TYPE_S_BLOCK:
+	case SBlockType:
 		return "SBlock"
 	default:
 		return "Block"
@@ -380,13 +411,13 @@ func (b *Block) GetCanonicalName() string {
 func (b *Block) Oneliner() string {
 	header := b.BlockHeader
 	hasCommittee := len(b.CommitteeInfos.CommitteeInfo) > 0
-	ci := "no"
+	ci := ""
 	if hasCommittee {
-		ci = "YES"
+		ci = ",committee"
 	}
 	canonicalName := b.GetCanonicalName()
-	return fmt.Sprintf("%v(%v) %v, #txs:%v, ci:%v, parent:%v ", canonicalName,
-		b.ShortID(), b.QC.CompactString(), len(b.Transactions()), ci, header.ParentID().AbbrevString())
+	return fmt.Sprintf("%v[%v,%v,txs:%v%v] -> %v", canonicalName,
+		b.ShortID(), b.QC.CompactString(), len(b.Transactions()), ci, header.ParentID().ToBlockShortID())
 }
 
 // -----------------
@@ -441,7 +472,12 @@ func (b *Block) GetBlockEpoch() (epoch uint64) {
 	if height > lastKBlockHeight+1 {
 		epoch = b.QC.EpochID
 	} else if height == lastKBlockHeight+1 {
-		epoch = b.GetCommitteeEpoch()
+		if b.IsKBlock() {
+			// handling cases where two KBlock are back-to-back
+			epoch = b.QC.EpochID + 1
+		} else {
+			epoch = b.GetCommitteeEpoch()
+		}
 	} else {
 		panic("Block error: lastKBlockHeight great than height")
 	}
@@ -455,34 +491,10 @@ func (b *Block) SetCommitteeInfo(info []CommitteeInfo) {
 func (b *Block) ToBytes() []byte {
 	bytes, err := rlp.EncodeToBytes(b)
 	if err != nil {
-		fmt.Println("tobytes error:", err)
+		log.Error("tobytes error", "err", err)
 	}
 
 	return bytes
-}
-
-func (b *Block) EvidenceDataHash() (hash meter.Bytes32) {
-	hw := meter.NewBlake2b()
-	err := rlp.Encode(hw, []interface{}{
-		b.QC.QCHeight,
-		b.QC.QCRound,
-		// b.QC.VotingBitArray,
-		b.QC.VoterMsgHash,
-		b.QC.VoterAggSig,
-		b.CommitteeInfos,
-		b.KBlockData,
-	})
-	if err != nil {
-		fmt.Println("error:", err)
-	}
-
-	hw.Sum(hash[:0])
-	return
-}
-
-func (b *Block) SetEvidenceDataHash(hash meter.Bytes32) error {
-	b.BlockHeader.Body.EvidenceDataRoot = hash
-	return nil
 }
 
 func (b *Block) SetBlockSignature(sig []byte) error {
@@ -495,7 +507,7 @@ func (b *Block) SetBlockSignature(sig []byte) error {
 func BlockEncodeBytes(blk *Block) []byte {
 	blockBytes, err := rlp.EncodeToBytes(blk)
 	if err != nil {
-		fmt.Println("block encode error: ", err)
+		log.Error("block encode error", "err", err)
 		return make([]byte, 0)
 	}
 
@@ -505,6 +517,24 @@ func BlockEncodeBytes(blk *Block) []byte {
 func BlockDecodeFromBytes(bytes []byte) (*Block, error) {
 	blk := Block{}
 	err := rlp.DecodeBytes(bytes, &blk)
-	//fmt.Println("decode failed", err)
+	//log.Error("decode failed", err)
 	return &blk, err
+}
+
+// Vote Message Hash
+// "Proposal Block Message: BlockType <8 bytes> Height <16 (8x2) bytes> Round <8 (4x2) bytes>
+func (b *Block) VotingHash() [32]byte {
+	c := make([]byte, binary.MaxVarintLen32)
+	binary.BigEndian.PutUint32(c, uint32(b.BlockType()))
+
+	h := make([]byte, binary.MaxVarintLen64)
+	binary.BigEndian.PutUint64(h, uint64(b.Number()))
+
+	msg := fmt.Sprintf("%s %s %s %s %s %s %s %s %s %s",
+		"BlockType", hex.EncodeToString(c),
+		"Height", hex.EncodeToString(h),
+		"BlockID", b.ID().String(),
+		"TxRoot", b.TxsRoot().String(),
+		"StateRoot", b.StateRoot().String())
+	return sha256.Sum256([]byte(msg))
 }

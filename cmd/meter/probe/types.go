@@ -14,7 +14,7 @@ import (
 	"github.com/meterio/meter-pov/meter"
 )
 
-//Block block
+// Block block
 type Block struct {
 	Number           uint32        `json:"number"`
 	ID               meter.Bytes32 `json:"id"`
@@ -42,22 +42,14 @@ type BlockProbe struct {
 }
 
 type PacemakerProbe struct {
-	Mode             string `json:"mode"`
-	StartHeight      uint32 `json:"startHeight"`
-	StartRound       uint32 `json:"startRound"`
-	CurRound         uint32 `json:"curRound"`
-	MyCommitteeIndex int    `json:"myCommitteeIndex"`
+	CurRound uint32 `json:"curRound"`
 
 	LastVotingHeight uint32 `json:"lastVotingHeight"`
 	LastOnBeatRound  uint32 `json:"lastOnBeatRound"`
 	ProposalCount    int    `json:"proposalCount"`
-	PendingCount     int    `json:"pendingCount"`
-	PendingLowest    uint32 `json:"pendingLowest"`
 
 	QCHigh        *QC         `json:"qcHigh"`
-	BlockExecuted *BlockProbe `json:"blockExecuted"`
-	BlockLocked   *BlockProbe `json:"blockLocked"`
-	BlockLeaf     *BlockProbe `json:"blockLeaf"`
+	LastCommitted *BlockProbe `json:"lastCommitted"`
 }
 
 type PowProbe struct {
@@ -68,9 +60,8 @@ type PowProbe struct {
 }
 
 type ChainProbe struct {
-	BestBlock       *Block `json:"bestBlock"`
-	BestQC          *QC    `json:"bestQC"`
-	BestQCCandidate *QC    `json:"bestQCCandidate"`
+	BestBlock *Block `json:"bestBlock"`
+	BestQC    *QC    `json:"bestQC"`
 }
 
 func convertQC(qc *block.QuorumCert) (*QC, error) {
@@ -92,11 +83,11 @@ func convertBlock(b *block.Block) (*Block, error) {
 	header := b.Header()
 	blockType := "unknown"
 	switch header.BlockType() {
-	case block.BLOCK_TYPE_K_BLOCK:
+	case block.KBlockType:
 		blockType = "kBlock"
-	case block.BLOCK_TYPE_S_BLOCK:
+	case block.SBlockType:
 		blockType = "sBlock"
-	case block.BLOCK_TYPE_M_BLOCK:
+	case block.MBlockType:
 		blockType = "mBlock"
 	}
 
@@ -128,10 +119,11 @@ type ProbeResult struct {
 	PubKeyValid bool   `json:"pubkeyValid"`
 	Version     string `json:"version"`
 
-	DelegatesSource    string `json:"delegatesSource"`
-	IsCommitteeMember  bool   `json:"isCommitteeMember"`
-	IsPacemakerRunning bool   `json:"isPacemakerRunning"`
-	InDelegateList     bool   `json:"inDelegateList"`
+	DelegatesSource string `json:"delegatesSource"`
+	InCommittee     bool   `json:"inCommittee"`
+	InDelegateList  bool   `json:"inDelegateList"`
+	CommitteeIndex  uint32 `json:"committeeIndex"`
+	CommitteeSize   uint32 `json:"committeeSize"`
 
 	BestQC    uint32 `json:"bestQC"`
 	BestBlock uint32 `json:"bestBlock"`
@@ -176,13 +168,13 @@ func ConvertPeersStats(ss []*comm.PeerStats) []*PeerStats {
 func convertBlockProbe(p *consensus.BlockProbe) (*BlockProbe, error) {
 	if p != nil {
 		typeStr := ""
-		if p.Type == block.BLOCK_TYPE_K_BLOCK {
+		if p.Type == block.KBlockType {
 			typeStr = "KBlock"
 		}
-		if p.Type == block.BLOCK_TYPE_M_BLOCK {
+		if p.Type == block.MBlockType {
 			typeStr = "mBlock"
 		}
-		if p.Type == block.BLOCK_TYPE_S_BLOCK {
+		if p.Type == block.SBlockType {
 			typeStr = "sBlock"
 		}
 		return &BlockProbe{
@@ -197,24 +189,16 @@ func convertBlockProbe(p *consensus.BlockProbe) (*BlockProbe, error) {
 func convertPacemakerProbe(r *consensus.PMProbeResult) (*PacemakerProbe, error) {
 	if r != nil {
 		probe := &PacemakerProbe{
-			Mode:             r.Mode,
-			StartHeight:      r.StartHeight,
-			StartRound:       r.StartRound,
-			CurRound:         r.CurRound,
-			MyCommitteeIndex: r.MyCommitteeIndex,
+			CurRound: r.CurRound,
 
 			LastVotingHeight: r.LastVotingHeight,
 			LastOnBeatRound:  r.LastOnBeatRound,
 			ProposalCount:    r.ProposalCount,
-			PendingCount:     r.PendingCount,
-			PendingLowest:    r.PendingLowest,
 		}
 		if r.QCHigh != nil {
 			probe.QCHigh, _ = convertQC(r.QCHigh)
 		}
-		probe.BlockLeaf, _ = convertBlockProbe(r.BlockLeaf)
-		probe.BlockLocked, _ = convertBlockProbe(r.BlockLocked)
-		probe.BlockExecuted, _ = convertBlockProbe(r.BlockExecuted)
+		probe.LastCommitted, _ = convertBlockProbe(r.LastCommitted)
 		return probe, nil
 	}
 	return nil, nil

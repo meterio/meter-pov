@@ -6,7 +6,6 @@
 package node
 
 import (
-	"errors"
 	"net/http"
 
 	"github.com/gorilla/mux"
@@ -17,13 +16,15 @@ import (
 )
 
 type Node struct {
-	nw     Network
-	pubKey string
+	nw      Network
+	reactor *consensus.Reactor
+	pubKey  string
 }
 
-func New(nw Network, pubKey string) *Node {
+func New(nw Network, reactor *consensus.Reactor, pubKey string) *Node {
 	return &Node{
 		nw,
+		reactor,
 		pubKey,
 	}
 }
@@ -37,12 +38,7 @@ func (n *Node) handleNetwork(w http.ResponseWriter, req *http.Request) error {
 }
 
 func (n *Node) handleCommittee(w http.ResponseWriter, req *http.Request) error {
-	consensusInst := consensus.GetConsensusGlobInst()
-	if consensusInst == nil {
-		return errors.New("consensus is not initialized...")
-	}
-
-	list, err := consensusInst.GetLatestCommitteeList()
+	list, err := n.reactor.GetLatestCommitteeList()
 	if err != nil {
 		return err
 	}

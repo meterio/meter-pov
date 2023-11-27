@@ -31,7 +31,7 @@ func (qc *QuorumCert) String() string {
 		// bitArray := strings.ReplaceAll(qc.VoterBitArrayStr, "\"", "")
 		voted := strings.Count(qc.VoterBitArrayStr, "x")
 		unvoted := strings.Count(qc.VoterBitArrayStr, "_")
-		return fmt.Sprintf("QC(Height:%v, Round:%v, Epoch:%v, BitArray:(%v/%v), AggSig:len(%v))",
+		return fmt.Sprintf("QC(#%v, R:%v, E:%v, BitArray:(%v/%v), AggSig:len(%v))",
 			qc.QCHeight, qc.QCRound, qc.EpochID, voted, (voted + unvoted), len(qc.VoterAggSig))
 	}
 	return "QC(nil)"
@@ -39,7 +39,7 @@ func (qc *QuorumCert) String() string {
 
 func (qc *QuorumCert) CompactString() string {
 	if qc != nil {
-		return fmt.Sprintf("QC(H:%v,R:%v,E:%v)",
+		return fmt.Sprintf("QC(#%v,R:%v,E:%v)",
 			qc.QCHeight, qc.QCRound, qc.EpochID)
 	}
 	return "QC(nil)"
@@ -48,7 +48,7 @@ func (qc *QuorumCert) CompactString() string {
 func (qc *QuorumCert) ToBytes() []byte {
 	bytes, err := rlp.EncodeToBytes(qc)
 	if err != nil {
-		fmt.Println("qc to bytes error: ", err)
+		log.Error("qc to bytes error", "err", err)
 	}
 	return bytes
 }
@@ -106,7 +106,7 @@ func (qc *QuorumCert) VoterBitArray() *cmn.BitArray {
 
 	err := bitArray.UnmarshalJSON([]byte("\"" + strs[1] + "\""))
 	if err != nil {
-		fmt.Println("unmarshal error", err.Error())
+		log.Error("unmarshal json failed", "err", err.Error())
 		return nil
 	}
 	return bitArray
@@ -118,6 +118,10 @@ func (qc *QuorumCert) GetViolation() []*Violation {
 
 func GenesisQC() *QuorumCert {
 	return &QuorumCert{QCHeight: 0, QCRound: 0, EpochID: 0}
+}
+
+func GenesisEscortQC(b *Block) *QuorumCert {
+	return &QuorumCert{QCHeight: 0, QCRound: 0, EpochID: 0, VoterMsgHash: b.VotingHash()}
 }
 
 // --------------

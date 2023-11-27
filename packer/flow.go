@@ -128,7 +128,7 @@ func (f *Flow) Adopt(tx *tx.Transaction) error {
 }
 
 // Pack build and sign the new block.
-func (f *Flow) Pack(privateKey *ecdsa.PrivateKey, blockType uint32, lastKBlock uint32) (*block.Block, *state.Stage, tx.Receipts, error) {
+func (f *Flow) Pack(privateKey *ecdsa.PrivateKey, blockType block.BlockType, lastKBlock uint32) (*block.Block, *state.Stage, tx.Receipts, error) {
 	if f.packer.nodeMaster != meter.Address(crypto.PubkeyToAddress(privateKey.PublicKey)) {
 		fmt.Println("FATAL! pack error from private key mismatch")
 		return nil, nil, nil, errors.New("private key mismatch")
@@ -159,7 +159,7 @@ func (f *Flow) Pack(privateKey *ecdsa.PrivateKey, blockType uint32, lastKBlock u
 		LastKBlockHeight(lastKBlock)
 
 	// skip txs for sblock
-	if blockType != block.BLOCK_TYPE_S_BLOCK {
+	if blockType != block.SBlockType {
 		for _, tx := range f.txs {
 			builder.Transaction(tx)
 		}

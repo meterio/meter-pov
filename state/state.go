@@ -10,13 +10,19 @@ import (
 	"encoding/hex"
 	"fmt"
 	"math/big"
+	"time"
 
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/rlp"
+	"github.com/inconshreveable/log15"
 	"github.com/meterio/meter-pov/kv"
 	"github.com/meterio/meter-pov/meter"
 	"github.com/meterio/meter-pov/stackedmap"
 	"github.com/meterio/meter-pov/trie"
+)
+
+var (
+	log = log15.New("pkg", "s")
 )
 
 // State manages the main accounts trie.
@@ -35,6 +41,7 @@ type State struct {
 // to constrain ability of trie
 type trieReader interface {
 	TryGet(key []byte) ([]byte, error)
+	CacheMisses() int64
 }
 
 // to constrain ability of trie
@@ -284,12 +291,20 @@ func (s *State) SubEnergy(addr meter.Address, amount *big.Int) bool {
 	if amount.Sign() == 0 {
 		return true
 	}
+	getStart := time.Now()
 	balance := s.GetEnergy(meter.Address(addr))
 	if balance.Cmp(amount) < 0 {
 		return false
 	}
+	getElapsed := time.Since(getStart)
 
+	setStart := time.Now()
 	s.SetEnergy(meter.Address(addr), new(big.Int).Sub(balance, amount))
+	setElapsed := time.Since(setStart)
+	cacheMisses := s.trie.CacheMisses()
+	if (getElapsed + setElapsed) > time.Millisecond {
+		log.Info("slow sub", "addr", addr, "cacheMisses", cacheMisses, "elapsed", meter.PrettyDuration(getElapsed+setElapsed), "getElapsed", meter.PrettyDuration(getElapsed), "setElapsed", meter.PrettyDuration(setElapsed))
+	}
 	return true
 }
 

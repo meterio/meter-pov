@@ -150,7 +150,7 @@ var (
 	}
 	initCfgdDelegatesFlag = cli.BoolFlag{
 		Name:  "init-configured-delegates",
-		Usage: "initial run with configured delegates",
+		Usage: "run with configured delegates from presets or local file",
 	}
 	epochBlockCountFlag = cli.Int64Flag{
 		Name:  "epoch-mblock-count",

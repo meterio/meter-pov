@@ -5,6 +5,7 @@
 package node_test
 
 import (
+	"context"
 	"encoding/json"
 	"io/ioutil"
 	"net/http"
@@ -45,13 +46,13 @@ func initCommServer(t *testing.T) {
 		t.Fatal(err)
 	}
 	chain, _ := chain.New(db, b, false)
-	comm := comm.New(chain, txpool.New(chain, stateC, txpool.Options{
+	comm := comm.New(context.Background(), chain, txpool.New(chain, stateC, txpool.Options{
 		Limit:           10000,
 		LimitPerAccount: 16,
 		MaxLifetime:     10 * time.Minute,
 	}), nil, "main", [4]byte{1, 2, 3, 4})
 	router := mux.NewRouter()
-	node.New(comm, "pubkey").Mount(router, "/node")
+	node.New(comm, nil, "pubkey").Mount(router, "/node")
 	ts = httptest.NewServer(router)
 }
 

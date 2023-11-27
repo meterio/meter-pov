@@ -33,7 +33,6 @@ func BuildAuctionControlTx(height, epoch uint64, chainTag byte, bestNum uint32, 
 	fr := new(big.Float).SetInt(r)
 	initialRelease, accuracy := fr.Float64()
 	initialRelease = initialRelease / (1e09)
-	log.Info("get auction constants", "rsvdPrice", reservedPrice, "initialRelease", initialRelease, "accuracy", accuracy)
 
 	// now start a new auction
 	var lastEndHeight, lastEndEpoch, lastSequence uint64
@@ -67,10 +66,10 @@ func BuildAuctionControlTx(height, epoch uint64, chainTag byte, bestNum uint32, 
 	}
 
 	if shouldAuctionStart(epoch, lastEndEpoch) == false {
-		log.Info("no auction control txs needed", "height", height, "epoch", epoch, "lastEndEpoch", lastEndEpoch)
+		log.Debug("no auction control txs needed", "height", height, "epoch", epoch, "lastEndEpoch", lastEndEpoch)
 		return nil
 	} else {
-		fmt.Println("build auction control txs", "epoch", epoch, "lastEndEpoch", lastEndEpoch)
+		log.Info("build auction control txs", "epoch", epoch, "lastEndEpoch", lastEndEpoch, "rsvdPrice", reservedPrice, "initialRelease", initialRelease, "accuracy", accuracy)
 	}
 
 	builder := new(tx.Builder)

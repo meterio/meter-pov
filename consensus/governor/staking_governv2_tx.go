@@ -45,7 +45,7 @@ func buildStakingGoverningV2Data(rewardInfoV2s []*meter.RewardInfoV2, curEpoch u
 		return bytes.Compare(rewardInfoV2s[i].Address[:], rewardInfoV2s[j].Address[:]) <= 0
 	})
 
-	// XXX: 52 bytes for each rewardInfo, Tx can accommodate about 1000 rewardinfo
+	// 52 bytes for each rewardInfo, Tx can accommodate about 1000 rewardinfo
 	extraBytes, err := rlp.EncodeToBytes(rewardInfoV2s)
 	if err != nil {
 		log.Info("encode validators failed", "error", err.Error())

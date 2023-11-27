@@ -93,14 +93,15 @@ func TestP(t *testing.T) {
 			flow.Adopt(tx)
 		}
 
-		blk, stage, receipts, err := flow.Pack(genesis.DevAccounts()[0].PrivateKey, block.BLOCK_TYPE_M_BLOCK, 0)
+		blk, stage, receipts, err := flow.Pack(genesis.DevAccounts()[0].PrivateKey, block.MBlockType, 0)
 		root, _ := stage.Commit()
 		assert.Equal(t, root, blk.Header().StateRoot())
 		// fmt.Println(consensus.New(c, stateCreator).Process(blk, uint64(time.Now().Unix()*2)))
 		qc := block.QuorumCert{QCHeight: best.QC.QCHeight + 1, QCRound: best.QC.QCHeight + 1, EpochID: best.QC.EpochID}
 		blk.SetQC(&qc)
 
-		if _, err := c.AddBlock(blk, receipts, true); err != nil {
+		escortQC := &block.QuorumCert{QCHeight: blk.Number(), QCRound: blk.QC.QCRound + 1, EpochID: blk.QC.EpochID, VoterMsgHash: blk.VotingHash()}
+		if _, err := c.AddBlock(blk, escortQC, receipts); err != nil {
 			t.Fatal(err)
 		}
 

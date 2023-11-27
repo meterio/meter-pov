@@ -31,38 +31,41 @@ func initChain() *chain.Chain {
 
 var privateKey, _ = crypto.GenerateKey()
 
-func newBlock(parent *block.Block, score uint64) *block.Block {
+func newBlock(parent *block.Block, score uint64) (*block.Block, *block.QuorumCert) {
 	b := new(block.Builder).ParentID(parent.Header().ID()).TotalScore(parent.Header().TotalScore() + score).Build()
 	qc := block.QuorumCert{QCHeight: uint32(score), QCRound: uint32(score), EpochID: 0}
 	b.SetQC(&qc)
 	sig, _ := crypto.Sign(b.Header().SigningHash().Bytes(), privateKey)
 	b.WithSignature(sig)
-	return b
+	escortQC := &block.QuorumCert{QCHeight: b.Number(), QCRound: b.QC.QCRound + 1, EpochID: b.QC.EpochID, VoterMsgHash: b.VotingHash()}
+
+	return b, escortQC
 }
 
 func TestAdd(t *testing.T) {
 	ch := initChain()
 	b0 := ch.GenesisBlock()
-	b1 := newBlock(b0, 1)
-	b2 := newBlock(b1, 2)
-	b3 := newBlock(b2, 3)
-	b4 := newBlock(b3, 4)
-	b4x := newBlock(b3, 4)
+	b1, q1 := newBlock(b0, 1)
+	b2, q2 := newBlock(b1, 2)
+	b3, q3 := newBlock(b2, 3)
+	b4, q4 := newBlock(b3, 4)
+	b4x, q4x := newBlock(b3, 4)
 
 	tests := []struct {
 		newBlock *block.Block
+		escortQC *block.QuorumCert
 		fork     *chain.Fork
 		best     *block.Header
 	}{
-		{b1, &chain.Fork{Ancestor: b0.Header(), Trunk: []*block.Header{b1.Header()}}, b1.Header()},
-		{b2, &chain.Fork{Ancestor: b1.Header(), Trunk: []*block.Header{b2.Header()}}, b2.Header()},
-		{b3, &chain.Fork{Ancestor: b2.Header(), Trunk: []*block.Header{b3.Header()}}, b3.Header()},
-		{b4, &chain.Fork{Ancestor: b3.Header(), Trunk: []*block.Header{b4.Header()}}, b4.Header()},
-		{b4x, &chain.Fork{Ancestor: b3.Header(), Trunk: []*block.Header{b4x.Header()}, Branch: []*block.Header{b4.Header()}}, b4x.Header()},
+		{b1, q1, &chain.Fork{Ancestor: b0.Header(), Trunk: []*block.Header{b1.Header()}}, b1.Header()},
+		{b2, q2, &chain.Fork{Ancestor: b1.Header(), Trunk: []*block.Header{b2.Header()}}, b2.Header()},
+		{b3, q3, &chain.Fork{Ancestor: b2.Header(), Trunk: []*block.Header{b3.Header()}}, b3.Header()},
+		{b4, q4, &chain.Fork{Ancestor: b3.Header(), Trunk: []*block.Header{b4.Header()}}, b4.Header()},
+		{b4x, q4x, &chain.Fork{Ancestor: b3.Header(), Trunk: []*block.Header{b4x.Header()}, Branch: []*block.Header{b4.Header()}}, b4x.Header()},
 	}
 
 	for i, tt := range tests {
-		fork, err := ch.AddBlock(tt.newBlock, nil, true)
+		fork, err := ch.AddBlock(tt.newBlock, tt.escortQC, nil)
 		if i != 4 {
 			assert.Nil(t, err)
 			// assert.Equal(t, tt.fork.Ancestor.ID(), fork.Ancestor.ID())

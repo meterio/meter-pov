@@ -6,37 +6,29 @@
 package consensus
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"time"
 
 	"github.com/meterio/meter-pov/block"
+	bls "github.com/meterio/meter-pov/crypto/multi_sig"
+	"github.com/meterio/meter-pov/meter"
 	"github.com/meterio/meter-pov/tx"
-	"github.com/meterio/meter-pov/txpool"
+	"github.com/meterio/meter-pov/types"
 )
 
 // This is part of pacemaker that in charge of:
 // 1. pending proposal/newView
 // 2. timeout cert management
 
-const (
-	MSG_KEEP_HEIGHT = 80
-)
-
-type BlockProbe struct {
-	Height uint32
-	Round  uint32
-	Type   uint32
-	Raw    []byte
-}
-
-// check a pmBlock is the extension of b_locked, max 10 hops
-func (p *Pacemaker) IsExtendedFromBLocked(b *pmBlock) bool {
+// check a DraftBlock is the extension of b_locked, max 10 hops
+func (p *Pacemaker) ExtendedFromLastCommitted(b *block.DraftBlock) bool {
 
 	i := int(0)
 	tmp := b
 	for i < 10 {
-		if tmp == p.blockLocked {
+		if tmp == p.lastCommitted {
 			return true
 		}
 		if tmp = tmp.Parent; tmp == nil {
@@ -47,62 +39,35 @@ func (p *Pacemaker) IsExtendedFromBLocked(b *pmBlock) bool {
 	return false
 }
 
-// find out b b' b"
-func (p *Pacemaker) AddressBlock(height uint32) *pmBlock {
-	blk := p.proposalMap.Get(height)
-	if blk != nil && blk.Height == height {
-		//p.logger.Debug("Addressed block", "height", height, "round", round)
-		return blk
-	}
-
-	p.logger.Debug("can not address block", "height", height)
-	return nil
-}
-
-func (p *Pacemaker) ValidateProposal(b *pmBlock) error {
-	blockBytes := b.ProposedBlock
-	blk, err := block.BlockDecodeFromBytes(blockBytes)
-	if err != nil {
-		p.logger.Error("Decode block failed", "err", err)
-		return err
-	}
+func (p *Pacemaker) ValidateProposal(b *block.DraftBlock) error {
+	start := time.Now()
+	blk := b.ProposedBlock
 
 	// special valiadte StopCommitteeType
 	// possible 2 rounds of stop messagB
-	if b.ProposedBlockType == StopCommitteeType {
-
-		parent := p.proposalMap.Get(b.Height - 1)
-		if parent.ProposedBlockType == KBlockType {
+	if blk.IsSBlock() {
+		parent := p.chain.GetDraft(b.ProposedBlock.ParentID())
+		if !parent.ProposedBlock.IsKBlock() && !parent.ProposedBlock.IsSBlock() {
 			p.logger.Info(fmt.Sprintf("proposal [%d] is the first stop committee block", b.Height))
-		} else if parent.ProposedBlockType == StopCommitteeType {
-			grandParent := p.proposalMap.Get(b.Height - 2)
-			if grandParent.ProposedBlockType == KBlockType {
-				p.logger.Info(fmt.Sprintf("proposal [%d] is the second stop committee block", b.Height))
-
-			}
+			return errors.New("sBlock should have kBlock/sBlock parent")
 		}
 	}
 
-	/*
-		if b.ProposedBlockInfo != nil {
-			// if this proposal is proposed by myself, don't execute it again
-			p.logger.Debug("this proposal is created by myself, skip the validation...")
-			b.SuccessProcessed = true
-			return nil
-		}
-	*/
+	// avoid duplicate validation
+	if b.SuccessProcessed && b.ProcessError == nil {
+		return nil
+	}
 
-	parentPMBlock := b.Parent
-	if parentPMBlock == nil || parentPMBlock.ProposedBlock == nil {
+	parent := b.Parent
+	if parent == nil || parent.ProposedBlock == nil {
 		return errParentMissing
 	}
-	parentBlock, err := block.BlockDecodeFromBytes(parentPMBlock.ProposedBlock)
-	if err != nil {
+	parentBlock := parent.ProposedBlock
+	if parentBlock == nil {
 		return errDecodeParentFailed
 	}
-	parentHeader := parentBlock.Header()
 
-	pool := txpool.GetGlobTxPoolInst()
+	pool := p.reactor.txpool
 	if pool == nil {
 		p.logger.Error("get tx pool failed ...")
 		panic("get tx pool failed ...")
@@ -113,179 +78,139 @@ func (p *Pacemaker) ValidateProposal(b *pmBlock) error {
 	for _, tx := range blk.Transactions() {
 		txsInBlk = append(txsInBlk, tx)
 	}
-	var txsToRemoved, txsToReturned func() bool
-	if b.ProposedBlockType == KBlockType {
-		txsToRemoved = func() bool { return true }
-		txsToReturned = func() bool { return true }
+	var txsToRemoved, returnTxsToPool func()
+	if b.ProposedBlock.IsKBlock() {
+		txsToRemoved = func() {}
+		returnTxsToPool = func() {}
 	} else {
-		txsToRemoved = func() bool {
+		txsToRemoved = func() {
 			for _, tx := range txsInBlk {
 				pool.Remove(tx.ID())
 			}
-			return true
 		}
-		txsToReturned = func() bool {
+		returnTxsToPool = func() {
 			for _, tx := range txsInBlk {
-				pool.Add(tx)
+				// only return txs if they are not in database
+				meta, err := p.chain.GetTrunkTransactionMeta(tx.ID())
+				if meta == nil || err != nil {
+					pool.Add(tx)
+				}
 			}
-			return true
 		}
 	}
 
+	checkpointStart := time.Now()
 	//create checkPoint before validate block
-	state, err := p.csReactor.stateCreator.NewState(p.csReactor.chain.BestBlock().Header().StateRoot())
+	state, err := p.reactor.stateCreator.NewState(p.reactor.chain.BestBlock().Header().StateRoot())
 	if err != nil {
 		p.logger.Error("revert state failed ...", "height", blk.Number(), "id", blk.ID(), "error", err)
 		return nil
 	}
 	checkPoint := state.NewCheckpoint()
+	checkpointElapsed := time.Since(checkpointStart)
 
+	// make sure tx does not exist in draft cache
+	if len(blk.Transactions()) > 0 {
+		txsInCache := make(map[string]bool)
+		tmp := parent
+		for tmp != nil && !tmp.Committed {
+			for _, knownTx := range tmp.ProposedBlock.Transactions() {
+				txsInCache[knownTx.ID().String()] = true
+			}
+			tmp = p.chain.GetDraft(tmp.ProposedBlock.ParentID())
+		}
+		for _, tx := range blk.Transactions() {
+			if _, existed := txsInCache[tx.ID().String()]; existed {
+				p.logger.Error("tx already existed in cache", "id", tx.ID(), "containedInBlock", parent.ProposedBlock.ID())
+				return errors.New("tx already existed in cache")
+
+			}
+		}
+	}
+
+	processStart := time.Now()
 	now := uint64(time.Now().Unix())
-	stage, receipts, err := p.csReactor.ProcessProposedBlock(parentHeader, blk, now)
+	stage, receipts, err := p.reactor.ProcessProposedBlock(parentBlock, blk, now)
 	if err != nil && err != errKnownBlock {
-		p.logger.Error("process block failed", "proposed", blk.Oneliner(), "err", err)
+		p.logger.Error("process proposed failed", "proposed", blk.Oneliner(), "err", err)
 		b.SuccessProcessed = false
 		b.ProcessError = err
 		return err
 	}
+	processElapsed := time.Since(processStart)
 
-	b.ProposedBlockInfo = &ProposedBlockInfo{
-		BlockType:     b.ProposedBlockType,
-		ProposedBlock: blk,
-		Stage:         stage,
-		Receipts:      &receipts,
-		CheckPoint:    checkPoint,
-		txsToRemoved:  txsToRemoved,
-		txsToReturned: txsToReturned,
+	stageCommitStart := time.Now()
+	if stage == nil {
+		// FIXME: probably should not handle this proposal any more
+		p.logger.Warn("Empty stage !!!")
+	} else if _, err := stage.Commit(); err != nil {
+		p.logger.Warn("commit stage failed: ", "err", err)
+		b.SuccessProcessed = false
+		b.ProcessError = err
+		return err
 	}
+	stageCommitElapsed := time.Since(stageCommitStart)
 
+	// p.logger.Info(fmt.Sprintf("cached %s", blk.ID().ToBlockShortID()))
+
+	b.Stage = stage
+	b.Receipts = &receipts
+	b.CheckPoint = checkPoint
+	b.ReturnTxsToPool = returnTxsToPool
 	b.SuccessProcessed = true
 	b.ProcessError = err
 
-	p.logger.Info(fmt.Sprintf("validated proposal %v", blk.ShortID()))
+	txRemoveStart := time.Now()
+	txsToRemoved()
+	txRemoveElapsed := time.Since(txRemoveStart)
+
+	p.logger.Info(fmt.Sprintf("validated proposal %s R:%v, %v, txs:%d", b.ProposedBlock.GetCanonicalName(), b.Round, blk.ShortID(), len(b.ProposedBlock.Transactions())), "elapsed", meter.PrettyDuration(time.Since(start)), "checkpointElapsed", meter.PrettyDuration(checkpointElapsed), "processElapsed", meter.PrettyDuration(processElapsed), "stageCommitElapsed", meter.PrettyDuration(stageCommitElapsed), "txRemoveElapsed", meter.PrettyDuration(txRemoveElapsed))
 	return nil
 }
 
 func (p *Pacemaker) getProposerByRound(round uint32) *ConsensusPeer {
-	proposer := p.csReactor.getRoundProposer(round)
-	return newConsensusPeer(proposer.Name, proposer.NetAddr.IP, 8080, p.csReactor.magic)
+	proposer := p.reactor.getRoundProposer(round)
+	return newConsensusPeer(proposer.Name, proposer.NetAddr.IP, 8670)
 }
 
-func (p *Pacemaker) verifyTimeoutCert(tc *PMTimeoutCert, height, round uint32) bool {
+func (p *Pacemaker) verifyTC(tc *types.TimeoutCert, round uint32) bool {
 	if tc != nil {
-		//FIXME: check timeout cert
-		valid := tc.TimeoutHeight <= height && tc.TimeoutRound == round
+		voteHash := BuildTimeoutVotingHash(tc.Epoch, tc.Round)
+		pubkeys := make([]bls.PublicKey, 0)
+
+		// check epoch and round
+		if tc.Epoch != p.reactor.curEpoch || tc.Round != round {
+			return false
+
+		}
+		// check hash
+		if !bytes.Equal(tc.MsgHash[:], voteHash[:]) {
+			return false
+		}
+		// check vote count
+		voteCount := tc.BitArray.Count()
+		if !block.MajorityTwoThird(uint32(voteCount), p.reactor.committeeSize) {
+			return false
+		}
+
+		// check signature
+		for index, v := range p.reactor.committee {
+			if tc.BitArray.GetIndex(index) {
+				pubkeys = append(pubkeys, v.BlsPubKey)
+			}
+		}
+		sig, err := p.reactor.blsCommon.System.SigFromBytes(tc.AggSig)
+		if err != nil {
+			return false
+		}
+		valid, err := p.reactor.blsCommon.AggregateVerify(sig, tc.MsgHash, pubkeys)
+		if err != nil {
+			return false
+		}
 		if !valid {
-			p.logger.Warn("Invalid Timeout Cert", "expected", fmt.Sprintf("H:%v,R:%v", tc.TimeoutHeight, tc.TimeoutRound), "proposal", fmt.Sprintf("H:%v,R:%v", height, round))
+			p.logger.Warn("Invalid TC", "expected", fmt.Sprintf("E:%v,R:%v", tc.Epoch, tc.Round), "proposal", fmt.Sprintf("E:%v,R:%v", p.reactor.curEpoch, round))
 		}
 		return valid
 	}
 	return false
-}
-
-// for proposals which can not be addressed parent and QC node should
-// put it to pending list and query the parent node
-func (p *Pacemaker) sendQueryProposalMsg(fromHeight, toHeight, queryRound uint32, EpochID uint64, peer *ConsensusPeer) error {
-	if fromHeight > toHeight && toHeight != 0 {
-		p.logger.Info(fmt.Sprintf("skip query %v->%v, not necessary ", fromHeight, toHeight))
-		return nil
-	}
-	key := QueryKey{From: fromHeight, To: toHeight}
-	if count, exist := p.queryCount[key]; !exist {
-		p.queryCount[key] = 1
-	} else {
-		p.queryCount[key] = count + 1
-	}
-	if p.queryCount[key] > 3 {
-		p.logger.Info(fmt.Sprintf("skip query %v->%v, already %v queries sent", fromHeight, toHeight, p.queryCount[key]))
-		return nil
-	}
-	// put this proposal to pending list, and sent out query
-	myNetAddr := p.csReactor.curCommittee.Validators[p.csReactor.curCommitteeIndex].NetAddr
-
-	// sometimes we find out addr is my self, protection is added here
-	if myNetAddr.IP.Equal(peer.netAddr.IP) == true {
-		for _, cm := range p.csReactor.curActualCommittee {
-			if myNetAddr.IP.Equal(cm.NetAddr.IP) == false {
-				p.logger.Warn("Query PMProposal with new node", "NetAddr", cm.NetAddr)
-				peer = newConsensusPeer(cm.Name, cm.NetAddr.IP, cm.NetAddr.Port, p.csReactor.magic)
-				break
-			}
-		}
-	}
-
-	// fromHeight must be less than or equal to toHeight, except when toHeight is 0
-	// in this case, 0 is interpreted as infinity (or local qcHigh)
-	if fromHeight > toHeight && toHeight != 0 {
-		p.logger.Info("query not necessary", "fromHeight", fromHeight, "toHeight", toHeight)
-		return nil
-	}
-
-	queryMsg, err := p.BuildQueryProposalMessage(fromHeight, toHeight, queryRound, EpochID, myNetAddr)
-	if err != nil {
-		p.logger.Warn("failed to generate PMQueryProposal message", "err", err)
-		return errors.New("failed to generate PMQueryProposal message")
-	}
-	p.sendMsgToPeer(queryMsg, false, peer)
-	return nil
-}
-
-func (p *Pacemaker) pendingProposal(queryHeight, queryRound uint32, epochID uint64, mi *consensusMsgInfo) error {
-	fromHeight := p.lastVotingHeight
-	if p.QCHigh != nil && p.QCHigh.QCNode != nil && fromHeight < p.QCHigh.QCNode.Height {
-		fromHeight = p.QCHigh.QCNode.Height
-	}
-	if err := p.sendQueryProposalMsg(fromHeight, queryHeight, queryRound, epochID, mi.Peer); err != nil {
-		p.logger.Warn("send PMQueryProposal message failed", "err", err)
-	}
-
-	p.pendingList.Add(mi)
-	return nil
-}
-
-// put it to pending list and query the parent node
-func (p *Pacemaker) pendingNewView(queryHeight, queryRound uint32, epochID uint64, mi *consensusMsgInfo) error {
-	bestQC := p.csReactor.chain.BestQC()
-	fromHeight := p.lastVotingHeight
-	if p.QCHigh != nil && p.QCHigh.QCNode != nil && fromHeight < p.QCHigh.QCNode.Height {
-		fromHeight = bestQC.QCHeight
-	}
-	if err := p.sendQueryProposalMsg(fromHeight, queryHeight, queryRound, epochID, mi.Peer); err != nil {
-		p.logger.Warn("send PMQueryProposal message failed", "err", err)
-	}
-
-	p.pendingList.Add(mi)
-	return nil
-}
-
-func (p *Pacemaker) checkPendingMessages(curHeight uint32) error {
-	height := curHeight
-	count := 0
-	if pendingMsg, ok := p.pendingList.messages[height]; ok {
-		count++
-		// height++ //move higher
-		capacity := cap(p.pacemakerMsgCh)
-		msgs := make([]consensusMsgInfo, 0)
-		for len(p.pacemakerMsgCh) > 0 {
-			msgs = append(msgs, <-p.pacemakerMsgCh)
-		}
-
-		// promote pending msg to the very next
-		p.pacemakerMsgCh <- pendingMsg
-
-		for _, msg := range msgs {
-			if len(p.pacemakerMsgCh) < capacity {
-				p.pacemakerMsgCh <- msg
-			}
-		}
-	}
-	if count > 0 {
-		p.logger.Info("Found pending message", "height", height)
-	}
-
-	lowest := p.pendingList.GetLowestHeight()
-	if (height > lowest) && (height-lowest) >= 3*MSG_KEEP_HEIGHT {
-		p.pendingList.CleanUpTo(height - MSG_KEEP_HEIGHT)
-	}
-	return nil
 }

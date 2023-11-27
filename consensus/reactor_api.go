@@ -11,29 +11,20 @@ import (
 // ------------------------------------
 // USED FOR PROBE ONLY
 // ------------------------------------
-func (conR *ConsensusReactor) IsPacemakerRunning() bool {
-	if conR.csPacemaker == nil {
-		return false
-	}
-	return !conR.csPacemaker.IsStopped()
+
+func (r *Reactor) PacemakerProbe() *PMProbeResult {
+	return r.pacemaker.Probe()
 }
 
-func (conR *ConsensusReactor) PacemakerProbe() *PMProbeResult {
-	if conR.IsPacemakerRunning() {
-		return conR.csPacemaker.Probe()
-	}
-	return nil
+func (r *Reactor) InCommittee() bool {
+	return r.inCommittee
 }
 
-func (conR *ConsensusReactor) IsCommitteeMember() bool {
-	return conR.inCommittee
-}
-
-func (conR *ConsensusReactor) GetDelegatesSource() string {
-	if conR.sourceDelegates == fromStaking {
+func (r *Reactor) GetDelegatesSource() string {
+	if r.delegateSource == fromStaking {
 		return "staking"
 	}
-	if conR.sourceDelegates == fromDelegatesFile {
+	if r.delegateSource == fromDelegatesFile {
 		return "localFile"
 	}
 	return ""
@@ -53,32 +44,30 @@ type ApiCommitteeMember struct {
 	InCommittee bool
 }
 
-func (conR *ConsensusReactor) GetLatestCommitteeList() ([]*ApiCommitteeMember, error) {
+func (r *Reactor) GetLatestCommitteeList() ([]*ApiCommitteeMember, error) {
 	var committeeMembers []*ApiCommitteeMember
-	inCommittee := make([]bool, len(conR.curCommittee.Validators))
+	inCommittee := make([]bool, len(r.committee))
 	for i := range inCommittee {
 		inCommittee[i] = false
 	}
 
-	for _, cm := range conR.curActualCommittee {
-		v := conR.curCommittee.Validators[cm.CSIndex]
+	for index, v := range r.committee {
 		apiCm := &ApiCommitteeMember{
 			Name:        v.Name,
 			Address:     v.Address,
-			PubKey:      b64.StdEncoding.EncodeToString(crypto.FromECDSAPub(&cm.PubKey)),
+			PubKey:      b64.StdEncoding.EncodeToString(v.PubKeyBytes),
 			VotingPower: v.VotingPower,
-			NetAddr:     cm.NetAddr.String(),
-			CsPubKey:    hex.EncodeToString(conR.csCommon.GetSystem().PubKeyToBytes(cm.CSPubKey)),
-			CsIndex:     cm.CSIndex,
+			NetAddr:     v.NetAddr.String(),
+			CsPubKey:    hex.EncodeToString(v.BlsPubKeyBytes),
+			CsIndex:     index,
 			InCommittee: true,
 		}
-		// fmt.Println(fmt.Sprintf("set %d to true, with index = %d ", i, cm.CSIndex))
 		committeeMembers = append(committeeMembers, apiCm)
-		inCommittee[cm.CSIndex] = true
+		inCommittee[index] = true
 	}
 	for i, val := range inCommittee {
 		if val == false {
-			v := conR.curCommittee.Validators[i]
+			v := r.committee[i]
 			apiCm := &ApiCommitteeMember{
 				Name:        v.Name,
 				Address:     v.Address,

@@ -15,10 +15,6 @@ import (
 	"github.com/pkg/errors"
 )
 
-var (
-	GlobPackerInst *Packer
-)
-
 // Packer to pack txs and build new blocks.
 type Packer struct {
 	chain          *chain.Chain
@@ -26,15 +22,6 @@ type Packer struct {
 	nodeMaster     meter.Address
 	beneficiary    *meter.Address
 	targetGasLimit uint64
-}
-
-func GetGlobPackerInst() *Packer {
-	return GlobPackerInst
-}
-
-func SetGlobPackerInst(p *Packer) bool {
-	GlobPackerInst = p
-	return true
 }
 
 // New create a new Packer instance.
@@ -45,16 +32,13 @@ func New(
 	nodeMaster meter.Address,
 	beneficiary *meter.Address) *Packer {
 
-	p := &Packer{
+	return &Packer{
 		chain,
 		stateCreator,
 		nodeMaster,
 		beneficiary,
 		0,
 	}
-
-	SetGlobPackerInst(p)
-	return p
 }
 
 // Mock create a packing flow upon given parent, but with a designated timestamp.

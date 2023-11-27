@@ -24,12 +24,11 @@ import (
 
 const (
 	// max size of tx allowed
-	maxTxSize = 64 * 1024
+	maxTxSize = 64 * 1024 * 2
 )
 
 var (
-	log            = log15.New("pkg", "txpool")
-	GlobTxPoolInst *TxPool
+	log = log15.New("pkg", "txpool")
 )
 
 // Options options for tx pool.
@@ -59,15 +58,8 @@ type TxPool struct {
 	txFeed event.Feed
 	scope  event.SubscriptionScope
 	goes   co.Goes
-}
 
-func SetGlobTxPoolInst(pool *TxPool) bool {
-	GlobTxPoolInst = pool
-	return true
-}
-
-func GetGlobTxPoolInst() *TxPool {
-	return GlobTxPoolInst
+	newTxFeed chan meter.Bytes32
 }
 
 // New create a new TxPool instance.
@@ -79,9 +71,10 @@ func New(chain *chain.Chain, stateCreator *state.Creator, options Options) *TxPo
 		stateCreator: stateCreator,
 		all:          newTxObjectMap(),
 		done:         make(chan struct{}),
+
+		newTxFeed: make(chan meter.Bytes32, options.Limit),
 	}
 	pool.goes.Go(pool.housekeeping)
-	SetGlobTxPoolInst(pool)
 	return pool
 }
 
@@ -89,7 +82,8 @@ func (p *TxPool) housekeeping() {
 	log.Debug("enter housekeeping")
 	defer log.Debug("leave housekeeping")
 
-	ticker := time.NewTicker(time.Second * 1)
+	washInterval := time.Second
+	ticker := time.NewTicker(washInterval)
 	defer ticker.Stop()
 
 	// Hotstuff: Should change to after seem new proposal and do wash txs.
@@ -122,7 +116,7 @@ func (p *TxPool) housekeeping() {
 				atomic.StoreUint32(&p.addedAfterWash, 0)
 
 				startTime := mclock.Now()
-				executables, removed, err := p.wash(headBlock)
+				executables, removed, err := p.wash(headBlock, washInterval)
 				elapsed := mclock.Now() - startTime
 
 				ctx := []interface{}{
@@ -211,7 +205,6 @@ func (p *TxPool) add(newTx *tx.Transaction, rejectNonexecutable bool) error {
 		p.goes.Go(func() {
 			p.txFeed.Send(&TxEvent{newTx, &executable})
 		})
-		log.Debug("tx added", "id", newTx.ID(), "executable", executable)
 	} else {
 		// we skip steps that rely on head block when chain is not synced,
 		// but check the pool's limit
@@ -224,10 +217,27 @@ func (p *TxPool) add(newTx *tx.Transaction, rejectNonexecutable bool) error {
 		}
 		log.Debug("tx added, chain is not synced", "id", newTx.ID(), "pool size", p.all.Len())
 		p.txFeed.Send(&TxEvent{newTx, nil})
-		log.Debug("tx added", "id", newTx.ID())
+	}
+	log.Debug("tx added to pool", "id", newTx.ID())
+
+	if len(p.newTxFeed) < cap(p.newTxFeed) {
+		p.newTxFeed <- newTx.ID()
+		log.Info("new tx feed: ", "id", newTx.ID())
+	} else {
+		select {
+		case <-p.newTxFeed:
+		default:
+			break
+		}
+		p.newTxFeed <- newTx.ID()
+		log.Info("new tx feed: ", "id", newTx.ID())
 	}
 	atomic.AddUint32(&p.addedAfterWash, 1)
 	return nil
+}
+
+func (p *TxPool) GetNewTxFeed() chan meter.Bytes32 {
+	return p.newTxFeed
 }
 
 // Add add new tx into pool.
@@ -239,6 +249,13 @@ func (p *TxPool) Add(newTx *tx.Transaction) error {
 func (p *TxPool) Get(id meter.Bytes32) *tx.Transaction {
 	if txObj := p.all.GetByID(id); txObj != nil {
 		return txObj.Transaction
+	}
+	return nil
+}
+
+func (p *TxPool) GetTxObj(id meter.Bytes32) *txObject {
+	if txObj := p.all.GetByID(id); txObj != nil {
+		return txObj
 	}
 	return nil
 }
@@ -284,7 +301,7 @@ func (p *TxPool) Dump() tx.Transactions {
 
 // wash to evict txs that are over limit, out of lifetime, out of energy, settled, expired or dep broken.
 // this method should only be called in housekeeping go routine
-func (p *TxPool) wash(headBlock *block.Header) (executables tx.Transactions, removed int, err error) {
+func (p *TxPool) wash(headBlock *block.Header, timeLimit time.Duration) (executables tx.Transactions, removed int, err error) {
 	all := p.all.ToTxObjects()
 	var toRemove []meter.Bytes32
 	defer func() {
@@ -304,7 +321,7 @@ func (p *TxPool) wash(headBlock *block.Header) (executables tx.Transactions, rem
 			removed = len(toRemove)
 		}
 	}()
-
+	start := time.Now()
 	state, err := p.stateCreator.NewState(headBlock.StateRoot())
 	if err != nil {
 		return nil, 0, errors.WithMessage(err, "new state")
@@ -340,6 +357,10 @@ func (p *TxPool) wash(headBlock *block.Header) (executables tx.Transactions, rem
 		} else {
 			nonExecutableObjs = append(nonExecutableObjs, txObj)
 		}
+		if time.Since(start) > timeLimit {
+			log.Info("tx wash ended early due to time limit", "elapsed", meter.PrettyDuration(time.Since(start)), "execs", len(executableObjs))
+			break
+		}
 	}
 
 	if err := state.Err(); err != nil {
@@ -351,7 +372,7 @@ func (p *TxPool) wash(headBlock *block.Header) (executables tx.Transactions, rem
 	}
 
 	// sort objs by price from high to low
-	sortTxObjsByOverallGasPriceDesc(executableObjs)
+	// sortTxObjsByOverallGasPriceDesc(executableObjs)
 
 	limit := p.options.Limit
 
@@ -401,4 +422,8 @@ func isChainSynced(nowTimestamp, blockTimestamp uint64) bool {
 		timeDiff = blockTimestamp - nowTimestamp
 	}
 	return timeDiff < meter.BlockInterval*6
+}
+
+func (p *TxPool) All() []*txObject {
+	return p.all.ToTxObjects()
 }

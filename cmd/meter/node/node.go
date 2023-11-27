@@ -9,7 +9,6 @@ import (
 	"context"
 	"fmt"
 	"sort"
-	"sync"
 	"time"
 
 	"github.com/beevik/ntp"
@@ -40,9 +39,9 @@ var (
 )
 
 type Node struct {
-	goes   co.Goes
-	packer *packer.Packer
-	cons   *consensus.ConsensusReactor
+	goes    co.Goes
+	packer  *packer.Packer
+	reactor *consensus.Reactor
 
 	master      *Master
 	chain       *chain.Chain
@@ -51,7 +50,6 @@ type Node struct {
 	txStashPath string
 	comm        *comm.Communicator
 	script      *script.ScriptEngine
-	commitLock  sync.Mutex
 }
 
 func SetGlobNode(node *Node) bool {
@@ -64,6 +62,7 @@ func GetGlobNode() *Node {
 }
 
 func New(
+	reactor *consensus.Reactor,
 	master *Master,
 	chain *chain.Chain,
 	stateCreator *state.Creator,
@@ -71,12 +70,11 @@ func New(
 	txPool *txpool.TxPool,
 	txStashPath string,
 	comm *comm.Communicator,
-	cons *consensus.ConsensusReactor,
 	script *script.ScriptEngine,
 ) *Node {
 	node := &Node{
+		reactor:     reactor,
 		packer:      packer.New(chain, stateCreator, master.Address(), master.Beneficiary),
-		cons:        cons,
 		master:      master,
 		chain:       chain,
 		logDB:       logDB,
@@ -90,52 +88,45 @@ func New(
 }
 
 func (n *Node) Run(ctx context.Context) error {
-	n.comm.Sync(n.handleBlockStream, n.handleQC)
+	n.comm.Sync(n.handleBlockStream)
 
 	n.goes.Go(func() { n.houseKeeping(ctx) })
 	n.goes.Go(func() { n.txStashLoop(ctx) })
 
-	n.goes.Go(func() { n.cons.OnStart() })
+	n.goes.Go(func() { n.reactor.OnStart(ctx) })
 
 	n.goes.Wait()
 	return nil
 }
 
-func (n *Node) handleQC(ctx context.Context, qc *block.QuorumCert) (updated bool, err error) {
-	log.Debug("start to handle received qc")
-	defer log.Debug("handle qc done", "err", err)
-
-	//log.Debug("handle QC, SetBestQCCandidate", "QC", qc.String())
-	return n.chain.SetBestQCCandidateWithChainLock(qc), nil
-}
-
-func (n *Node) handleBlockStream(ctx context.Context, stream <-chan *block.Block) (err error) {
+func (n *Node) handleBlockStream(ctx context.Context, stream <-chan *block.EscortedBlock) (err error) {
 	log.Debug("start to process block stream")
 	defer log.Debug("process block stream done", "err", err)
 	var stats blockStats
 	startTime := mclock.Now()
 
-	report := func(block *block.Block) {
-		// log.Info(fmt.Sprintf("imported blocks (%v) ", stats.processed), stats.LogContext(block.Header())...)
+	report := func(block *block.Block, pending int) {
+		log.Info(fmt.Sprintf("imported blocks (%v) ", stats.processed), stats.LogContext(block.Header(), pending)...)
 		stats = blockStats{}
 		startTime = mclock.Now()
 	}
 
-	var blk *block.Block
+	var blk *block.EscortedBlock
 	for blk = range stream {
-		log.Debug("handle block", "block", blk)
-		if isTrunk, err := n.processBlock(blk, &stats); err != nil {
+		log.Debug("handle block", "block", blk.Block.ID().ToBlockShortID())
+		if isTrunk, err := n.processBlock(blk.Block, blk.EscortQC, &stats); err != nil {
+			log.Error("process block failed", "id", blk.Block.ID(), "err", err)
 			return err
 		} else if isTrunk {
 			// this processBlock happens after consensus SyncDone, need to broadcast
-			if n.cons.SyncDone {
+			if n.reactor.SyncDone {
 				n.comm.BroadcastBlock(blk)
 			}
 		}
 
 		if stats.processed > 0 &&
 			mclock.Now()-startTime > mclock.AbsTime(time.Second*2) {
-			report(blk)
+			report(blk.Block, len(stream))
 		}
 
 		select {
@@ -145,7 +136,7 @@ func (n *Node) handleBlockStream(ctx context.Context, stream <-chan *block.Block
 		}
 	}
 	if blk != nil && stats.processed > 0 {
-		report(blk)
+		report(blk.Block, len(stream))
 	}
 	return nil
 }
@@ -176,31 +167,31 @@ func (n *Node) houseKeeping(ctx context.Context) {
 			return
 		case newBlock := <-newBlockCh:
 			var stats blockStats
-			if isTrunk, err := n.processBlock(newBlock.Block, &stats); err != nil {
+			if isTrunk, err := n.processBlock(newBlock.Block, newBlock.EscortQC, &stats); err != nil {
 				if consensus.IsFutureBlock(err) ||
-					(consensus.IsParentMissing(err) && futureBlocks.Contains(newBlock.Header().ParentID())) {
-					log.Debug("future block added", "id", newBlock.ID())
-					futureBlocks.Set(newBlock.ID(), newBlock.Block)
+					(consensus.IsParentMissing(err) && futureBlocks.Contains(newBlock.Block.Header().ParentID())) {
+					log.Debug("future block added", "id", newBlock.Block.ID())
+					futureBlocks.Set(newBlock.Block.ID(), newBlock)
 				}
 			} else if isTrunk {
-				n.comm.BroadcastBlock(newBlock.Block)
+				n.comm.BroadcastBlock(newBlock.EscortedBlock)
 				// log.Info(fmt.Sprintf("imported blocks (%v)", stats.processed), stats.LogContext(newBlock.Block.Header())...)
 			}
 		case <-futureTicker.C:
 			// process future blocks
-			var blocks []*block.Block
+			var blocks []*block.EscortedBlock
 			futureBlocks.ForEach(func(ent *cache.Entry) bool {
-				blocks = append(blocks, ent.Value.(*block.Block))
+				blocks = append(blocks, ent.Value.(*block.EscortedBlock))
 				return true
 			})
 			sort.Slice(blocks, func(i, j int) bool {
-				return blocks[i].Number() < blocks[j].Number()
+				return blocks[i].Block.Number() < blocks[j].Block.Number()
 			})
 			var stats blockStats
 			for i, block := range blocks {
-				if isTrunk, err := n.processBlock(block, &stats); err == nil || consensus.IsKnownBlock(err) {
-					log.Debug("future block consumed", "id", block.ID())
-					futureBlocks.Remove(block.ID())
+				if isTrunk, err := n.processBlock(block.Block, block.EscortQC, &stats); err == nil || consensus.IsKnownBlock(err) {
+					log.Debug("future block consumed", "id", block.Block.ID())
+					futureBlocks.Remove(block.Block.ID())
 					if isTrunk {
 						n.comm.BroadcastBlock(block)
 					}
@@ -267,10 +258,22 @@ func (n *Node) txStashLoop(ctx context.Context) {
 	}
 }
 
-func (n *Node) processBlock(blk *block.Block, stats *blockStats) (bool, error) {
+func (n *Node) processBlock(blk *block.Block, escortQC *block.QuorumCert, stats *blockStats) (bool, error) {
 	startTime := mclock.Now()
 	now := uint64(time.Now().Unix())
-	stage, receipts, err := n.cons.ProcessSyncedBlock(blk, now)
+
+	if blk.Timestamp()+meter.BlockInterval > now {
+		QCValid := n.reactor.ValidateQC(blk, escortQC)
+		if !QCValid {
+			return false, errors.New(fmt.Sprintf("invalid %s on Block %s", escortQC.String(), blk.ID().ToBlockShortID()))
+		}
+	}
+	start := time.Now()
+	stage, receipts, err := n.reactor.ProcessSyncedBlock(blk, now)
+	if time.Since(start) > time.Millisecond*500 {
+		log.Info("slow processed block", "blk", blk.Number(), "elapsed", meter.PrettyDuration(time.Since(start)))
+	}
+
 	if err != nil {
 		switch {
 		case consensus.IsKnownBlock(err):
@@ -294,7 +297,7 @@ func (n *Node) processBlock(blk *block.Block, stats *blockStats) (bool, error) {
 		return false, err
 	}
 
-	fork, err := n.commitBlock(blk, receipts)
+	fork, err := n.commitBlock(blk, escortQC, receipts)
 	if err != nil {
 		if !n.chain.IsBlockExist(err) {
 			log.Error("failed to commit block", "err", err)
@@ -305,43 +308,24 @@ func (n *Node) processBlock(blk *block.Block, stats *blockStats) (bool, error) {
 	stats.UpdateProcessed(1, len(receipts), execElapsed, commitElapsed, blk.Header().GasUsed())
 	n.processFork(fork)
 
-	// shortcut to refresh height
-	n.cons.RefreshCurHeight()
-	if blk.IsKBlock() {
-		data, _ := blk.GetKBlockData()
-		info := consensus.RecvKBlockInfo{
-			Height:           blk.Number(),
-			LastKBlockHeight: n.cons.GetLastKBlockHeight(),
-			Nonce:            data.Nonce,
-			Epoch:            blk.QC.EpochID,
-		}
-		log.Info("received kblock from block sync...", "nonce", info.Nonce, "height", info.Height)
-		// this chan is initialized as 100, we should clean up if it is almost full.
-		// only the last one is processed.
-		chanLength := len(n.cons.RcvKBlockInfoQueue)
-		chanCap := cap(n.cons.RcvKBlockInfoQueue)
-		if chanLength >= (chanCap / 10 * 9) {
-			for i := int(0); i < chanLength; i++ {
-				<-n.cons.RcvKBlockInfoQueue
-			}
-			log.Info("garbaged all kblock infoi ...")
-		}
-		n.cons.RcvKBlockInfoQueue <- info
+	// shortcut to refresh epoch
+	updated, _ := n.reactor.UpdateCurEpoch()
+
+	if blk.IsKBlock() && n.reactor.SyncDone && updated {
+		log.Info("synced a kblock, schedule regulate", "num", blk.Number(), "id", blk.ID())
+		n.reactor.SchedulePacemakerRegulate()
 	}
 	// end of shortcut
 	return len(fork.Trunk) > 0, nil
 }
 
-func (n *Node) commitBlock(newBlock *block.Block, receipts tx.Receipts) (*chain.Fork, error) {
-	n.commitLock.Lock()
-	defer n.commitLock.Unlock()
+func (n *Node) commitBlock(newBlock *block.Block, escortQC *block.QuorumCert, receipts tx.Receipts) (*chain.Fork, error) {
 	start := time.Now()
 	// fmt.Println("Calling AddBlock from node.commitBlock, newBlock=", newBlock.ID())
-	fork, err := n.chain.AddBlock(newBlock, receipts, true)
+	fork, err := n.chain.AddBlock(newBlock, escortQC, receipts)
 	if err != nil {
 		return nil, err
 	}
-	log.Info(fmt.Sprintf("synced %v", newBlock.ShortID()), "txs", len(newBlock.Txs), "epoch", newBlock.GetBlockEpoch(), "elapsed", meter.PrettyDuration(time.Since(start)))
 
 	if meter.IsMainNet() {
 		if newBlock.Number() == meter.TeslaMainnetStartNum {
@@ -349,22 +333,33 @@ func (n *Node) commitBlock(newBlock *block.Block, receipts tx.Receipts) (*chain.
 		}
 	}
 
-	forkIDs := make([]meter.Bytes32, 0, len(fork.Branch))
-	for _, header := range fork.Branch {
-		forkIDs = append(forkIDs, header.ID())
-	}
+	// skip logdb access if no txs
+	if len(newBlock.Transactions()) > 0 {
+		forkIDs := make([]meter.Bytes32, 0, len(fork.Branch))
+		for _, header := range fork.Branch {
+			forkIDs = append(forkIDs, header.ID())
+		}
 
-	batch := n.logDB.Prepare(newBlock.Header())
-	for i, tx := range newBlock.Transactions() {
-		origin, _ := tx.Signer()
-		txBatch := batch.ForTransaction(tx.ID(), origin)
-		for _, output := range receipts[i].Outputs {
-			txBatch.Insert(output.Events, output.Transfers)
+		batch := n.logDB.Prepare(newBlock.Header())
+		for i, tx := range newBlock.Transactions() {
+			origin, _ := tx.Signer()
+			txBatch := batch.ForTransaction(tx.ID(), origin)
+			for _, output := range receipts[i].Outputs {
+				txBatch.Insert(output.Events, output.Transfers)
+			}
+		}
+
+		if err := batch.Commit(forkIDs...); err != nil {
+			return nil, errors.Wrap(err, "commit logs")
 		}
 	}
 
-	if err := batch.Commit(forkIDs...); err != nil {
-		return nil, errors.Wrap(err, "commit logs")
+	if n.reactor.SyncDone {
+		log.Info(fmt.Sprintf("* synced %v", newBlock.ShortID()), "txs", len(newBlock.Txs), "epoch", newBlock.GetBlockEpoch(), "elapsed", meter.PrettyDuration(time.Since(start)))
+	} else {
+		if time.Since(start) > time.Millisecond*500 {
+			log.Info(fmt.Sprintf("* slow synced %v", newBlock.ShortID()), "txs", len(newBlock.Txs), "epoch", newBlock.GetBlockEpoch(), "elapsed", meter.PrettyDuration(time.Since(start)))
+		}
 	}
 	return fork, nil
 }

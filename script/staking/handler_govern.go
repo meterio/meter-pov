@@ -156,7 +156,7 @@ func (s *Staking) calcDelegates(env *setypes.ScriptEnv, bucketList *meter.Bucket
 		}
 		// delegate must not in jail
 		if jailed := inJailList.Exist(delegate.Address); jailed == true {
-			s.logger.Info("skip injail delegate ...", "name", string(delegate.Name), "addr", delegate.Address)
+			s.logger.Debug("skip injail delegate ...", "name", string(delegate.Name), "addr", delegate.Address)
 			continue
 		}
 
@@ -343,7 +343,7 @@ func (s *Staking) GoverningHandler(env *setypes.ScriptEnv, sb *StakingBody, gas 
 			ret = []byte(err.Error())
 		}
 		env.SetReturnData(ret)
-		s.logger.Info("Govern completed", "elapsed", meter.PrettyDuration(time.Since(start)))
+		s.logger.Debug("Govern completed", "elapsed", meter.PrettyDuration(time.Since(start)))
 	}()
 	state := env.GetState()
 	candidateList := state.GetCandidateList()
@@ -387,7 +387,7 @@ func (s *Staking) GoverningHandler(env *setypes.ScriptEnv, sb *StakingBody, gas 
 	}
 
 	if meter.IsStaging() {
-		s.logger.Info("Skip delegate calculation in staging")
+		s.logger.Info("skip delegate calculation in staging")
 	} else {
 		s.calcDelegates(env, bucketList, candidateList, inJailList)
 	}

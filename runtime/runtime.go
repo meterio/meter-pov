@@ -11,11 +11,11 @@ import (
 	"math/big"
 	"strings"
 	"sync/atomic"
+	"time"
 
 	ethabi "github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/log"
 	"github.com/inconshreveable/log15"
 	"github.com/meterio/meter-pov/abi"
 	"github.com/meterio/meter-pov/builtin"
@@ -44,6 +44,7 @@ var (
 	MinScriptEngDataLen           int    = 16 //script engine data min size
 
 	EmptyRuntimeBytecode = []byte{0x60, 0x60, 0x60, 0x40, 0x52, 0x60, 0x02, 0x56}
+	log                  = log15.New("pkg", "rt")
 )
 
 func init() {
@@ -545,7 +546,7 @@ func (rt *Runtime) newEVM(stateDB *statedb.StateDB, clauseIndex uint32, txCtx *x
 			}
 			// touch energy balance when token balance changed
 			// SHOULD be performed before transfer
-			// XXX: with no interest of engery, the following touch is meaningless.
+			// with no interest of engery, the following touch is meaningless.
 			/**************
 			rt.state.SetEnergy(meter.Address(sender),
 				rt.state.GetEnergy(meter.Address(sender), rt.ctx.Time), rt.ctx.Time)
@@ -603,29 +604,29 @@ func (rt *Runtime) newEVM(stateDB *statedb.StateDB, clauseIndex uint32, txCtx *x
 			if meter.IsTesla(number) {
 				if meter.IsTeslaFork3(number) {
 					if stateDB.GetCodeHash(caller) == (common.Hash{}) || stateDB.GetCodeHash(caller) == vm.EmptyCodeHash {
-						fmt.Println("Condition A: after Tesla fork3, caller is contract, eth compatible")
+						log.Info("Condition A: after Tesla fork3, caller is contract, eth compatible")
 						addr = common.Address(meter.EthCreateContractAddress(caller, uint32(txCtx.Nonce)+clauseIndex))
 					} else {
 						if meter.IsTeslaFork4(number) {
-							fmt.Println("Condition B1: after Tesla fork4, caller is external, meter specific")
+							log.Info("Condition B1: after Tesla fork4, caller is external, meter specific")
 							addr = common.Address(meter.CreateContractAddress(txCtx.ID, clauseIndex, counter))
 						} else {
-							fmt.Println("Condition B2: after Tesla fork4, caller is external, counter related")
+							log.Info("Condition B2: after Tesla fork4, caller is external, counter related")
 							addr = common.Address(meter.EthCreateContractAddress(caller, counter))
 						}
 					}
 				} else {
-					fmt.Println("Condition C: before Tesla fork3, eth compatible")
-					fmt.Println("tx origin: ", txCtx.Origin, ", nonce:", txCtx.Nonce, ", clauseIndex:", clauseIndex)
+					log.Info("Condition C: before Tesla fork3, eth compatible")
+					log.Info("tx origin: ", txCtx.Origin, ", nonce:", txCtx.Nonce, ", clauseIndex:", clauseIndex)
 
 					//return common.Address(meter.EthCreateContractAddress(caller, uint32(txCtx.Nonce)+clauseIndex))
 					addr = common.Address(meter.EthCreateContractAddress(common.Address(txCtx.Origin), uint32(txCtx.Nonce)+clauseIndex))
 				}
 			} else {
-				fmt.Println("Condition D: before Tesla, meter specific")
+				log.Info("Condition D: before Tesla, meter specific")
 				addr = common.Address(meter.CreateContractAddress(txCtx.ID, clauseIndex, counter))
 			}
-			fmt.Println("New contract address: ", addr.String())
+			log.Info("New contract address: ", addr.String())
 			return addr
 		},
 		InterceptContractCall: func(evm *vm.EVM, contract *vm.Contract, readonly bool) ([]byte, error, bool) {
@@ -690,7 +691,7 @@ func (rt *Runtime) newEVM(stateDB *statedb.StateDB, clauseIndex uint32, txCtx *x
 
 			// fmt.Println("after contract.Gas", contract.Gas, "lastNonNativeCallGas", lastNonNativeCallGas)
 			if contract.Gas > lastNonNativeCallGas {
-				fmt.Println("serious bug: native call returned gas over consumed")
+				log.Error("serious bug: native call returned gas over consumed")
 				return nil, errExecutionReverted, true
 				// panic("serious bug: native call returned gas over consumed")
 			}
@@ -805,7 +806,7 @@ func (rt *Runtime) PrepareClause(
 		if (clause.Value().Sign() == 0) && (len(clause.Data()) > MinScriptEngDataLen) && rt.ScriptEngineCheck(clause.Data()) {
 			se := script.GetScriptGlobInst()
 			if se == nil {
-				fmt.Println("script engine is not initialized")
+				log.Error("script engine is not initialized")
 				return nil, true
 			}
 			// exclude 4 bytes of clause data
@@ -831,7 +832,7 @@ func (rt *Runtime) PrepareClause(
 				output.Transfers = seOutput.GetTransfers()
 			}
 			if output.VMErr != nil {
-				fmt.Println("Output from script engine:", output)
+				log.Info("Output with vmerr from script engine:", "vmerr", output.VMErr.Error())
 			}
 			return output, interrupted
 		}
@@ -906,17 +907,39 @@ func (rt *Runtime) PrepareClause(
 // ExecuteTransaction executes a transaction.
 // If some clause failed, receipt.Outputs will be nil and vmOutputs may shorter than clause count.
 func (rt *Runtime) ExecuteTransaction(tx *tx.Transaction) (receipt *tx.Receipt, err error) {
+	start := time.Now()
+	prepareStart := time.Now()
 	executor, err := rt.PrepareTransaction(tx)
 	if err != nil {
 		return nil, err
 	}
+	prepareElapsed := time.Since(prepareStart)
 
+	execStart := time.Now()
 	for executor.HasNextClause() {
 		if _, _, err := executor.NextClause(); err != nil {
 			return nil, err
 		}
 	}
-	return executor.Finalize()
+	execElapsed := time.Since(execStart)
+
+	// This is a hack for slow rlp.Encode/rlp.Decode
+	// originally, autobid was called by a tx with multiple clauses
+	// and each clause will read the auctionCB and save it back to db, and the rlp slows down the whole process
+	// now that we hack the state to only cache the updated auctionCB in memory
+	// and save it back to DB before it wraps up the whole tx execution
+	// and this boosts the performance for syncing and validating KBlock with autobids clauses by at least 10x
+	seChangeStart := time.Now()
+	rt.state.CommitScriptEngineChanges()
+	seChangeElapsed := time.Since(seChangeStart)
+
+	finalizeStart := time.Now()
+	receipt, err = executor.Finalize()
+	finalizeElapsed := time.Since(finalizeStart)
+	if time.Since(start) > time.Millisecond {
+		log.Info(fmt.Sprintf("slow executed tx %s", tx.ID()), "elapsed", meter.PrettyDuration(time.Since(start)), "prepareElapsed", meter.PrettyDuration(prepareElapsed), "execElapsed", meter.PrettyDuration(execElapsed), "seChangeElapsed", meter.PrettyDuration(seChangeElapsed), "finalizeElapsed", meter.PrettyDuration(finalizeElapsed))
+	}
+	return
 }
 
 // PrepareTransaction prepare to execute tx.
@@ -933,24 +956,33 @@ func (rt *Runtime) PrepareTransaction(tx *tx.Transaction) (*TransactionExecutor,
 	// 		}
 	// 	}
 	// }
+	resolveStart := time.Now()
 	resolvedTx, err := ResolveTransaction(tx)
 	if err != nil {
 		return nil, err
 	}
+	resolveElapsed := time.Since(resolveStart)
 
+	buyGasStart := time.Now()
 	baseGasPrice, gasPrice, payer, returnGas, err := resolvedTx.BuyGas(rt.state, rt.ctx.Time)
 	if err != nil {
 		return nil, err
 	}
+	buyGasElapsed := time.Since(buyGasStart)
 
+	ckpointStart := time.Now()
 	// ResolveTransaction has checked that tx.Gas() >= IntrinsicGas
 	leftOverGas := tx.Gas() - resolvedTx.IntrinsicGas
 
 	// checkpoint to be reverted when clause failure.
 	checkpoint := rt.state.NewCheckpoint()
+	ckpointElapsed := time.Since(ckpointStart)
 
+	toContextStart := time.Now()
 	txCtx := resolvedTx.ToContext(gasPrice, rt.ctx.Number, rt.seeker.GetID)
+	toContextElapsed := time.Since(toContextStart)
 
+	executorStart := time.Now()
 	txOutputs := make([]*Tx.Output, 0, len(resolvedTx.Clauses))
 	reverted := false
 	finalized := false
@@ -959,7 +991,7 @@ func (rt *Runtime) PrepareTransaction(tx *tx.Transaction) (*TransactionExecutor,
 		return !reverted && len(txOutputs) < len(resolvedTx.Clauses)
 	}
 
-	return &TransactionExecutor{
+	executor := &TransactionExecutor{
 		HasNextClause: hasNext,
 		NextClause: func() (gasUsed uint64, output *Output, err error) {
 			if !hasNext() {
@@ -982,12 +1014,10 @@ func (rt *Runtime) PrepareTransaction(tx *tx.Transaction) (*TransactionExecutor,
 			if output.VMErr != nil {
 				// vm exception here
 				// revert all executed clauses
-				// fmt.Println(output.Data)
-				fmt.Println("output Error:", output.VMErr, "for: ", txCtx.ID)
 				if reason, e := ethabi.UnpackRevert(output.Data); e == nil {
-					fmt.Println("Caused by: ", reason)
+					log.Info("tx reverted", "id", txCtx.ID, "reason", reason)
 				} else {
-					fmt.Println("unpackRevert err: ", e)
+					log.Info("tx reverted", "id", txCtx.ID, "vmerr", output.VMErr)
 				}
 				rt.state.RevertTo(checkpoint)
 				reverted = true
@@ -1047,5 +1077,10 @@ func (rt *Runtime) PrepareTransaction(tx *tx.Transaction) (*TransactionExecutor,
 			receipt.Reward = reward
 			return receipt, nil
 		},
-	}, nil
+	}
+	executorElapsed := time.Since(executorStart)
+	if (resolveElapsed + buyGasElapsed + ckpointElapsed + toContextElapsed + executorElapsed) > time.Millisecond {
+		log.Info("slow prepare", "tx", tx.ID(), "elasped", meter.PrettyDuration(resolveElapsed+buyGasElapsed+ckpointElapsed+toContextElapsed+executorElapsed), "resolveElapsed", meter.PrettyDuration(resolveElapsed), "buyGasElapsed", meter.PrettyDuration(buyGasElapsed), "ckpointElapsed", meter.PrettyDuration(ckpointElapsed), "toContextElapsed", meter.PrettyDuration(toContextElapsed), "executorElasped", meter.PrettyDuration(executorElapsed))
+	}
+	return executor, nil
 }

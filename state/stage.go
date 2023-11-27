@@ -6,11 +6,14 @@
 package state
 
 import (
+	"encoding/hex"
 	"fmt"
+	"time"
 
 	"github.com/meterio/meter-pov/kv"
 	"github.com/meterio/meter-pov/meter"
 	"github.com/meterio/meter-pov/trie"
+	"github.com/meterio/meter-pov/types"
 )
 
 // Stage abstracts changes on the main accounts trie.
@@ -21,6 +24,8 @@ type Stage struct {
 	accountTrie  *trie.SecureTrie
 	storageTries []*trie.SecureTrie
 	codes        []codeWithHash
+
+	store *types.MemStore
 }
 
 type codeWithHash struct {
@@ -76,6 +81,7 @@ func newStage(root meter.Bytes32, kv kv.GetPutter, changes map[meter.Address]*ch
 		accountTrie:  accountTrie,
 		storageTries: storageTries,
 		codes:        codes,
+		store:        types.NewMemStore(),
 	}
 }
 
@@ -92,6 +98,7 @@ func (s *Stage) Commit() (meter.Bytes32, error) {
 	if s.err != nil {
 		return meter.Bytes32{}, s.err
 	}
+	start := time.Now()
 	batch := s.kv.NewBatch()
 	// write codes
 	for _, code := range s.codes {
@@ -101,25 +108,69 @@ func (s *Stage) Commit() (meter.Bytes32, error) {
 	}
 
 	// commit storage tries
+	strieStart := time.Now()
 	for _, strie := range s.storageTries {
+		// strieClone := strie.Copy()
 		root, err := strie.CommitTo(batch)
 		if err != nil {
 			return meter.Bytes32{}, err
 		}
 		trCache.Add(root, strie, s.kv)
+
+		// strieClone.CommitTo(s.store)
 	}
+	strieElapsed := time.Since(strieStart)
 
 	// commit accounts trie
+	// atrieClone := s.accountTrie.Copy()
+	atrieStart := time.Now()
 	root, err := s.accountTrie.CommitTo(batch)
 	if err != nil {
 		return meter.Bytes32{}, err
 	}
+	// atrieClone.CommitTo(s.store)
 
 	if err := batch.Write(); err != nil {
 		return meter.Bytes32{}, err
 	}
-
 	trCache.Add(root, s.accountTrie, s.kv)
+	atrieElapsed := time.Since(atrieStart)
 
+	log.Info("commited stage", "root", root, "strieElapsed", meter.PrettyDuration(strieElapsed), "atrieElapsed", meter.PrettyDuration(atrieElapsed), "elapsed", meter.PrettyDuration(time.Since(start)))
 	return root, nil
+}
+
+// CacheCommit commits all changes into cache.
+func (s *Stage) Revert() error {
+	if s.err != nil {
+		return s.err
+	}
+
+	hash, _ := s.Hash()
+	log.Info("revert stage", "hash", hash, "storageTries", len(s.storageTries), "keys", len(s.store.Keys()))
+	batch := s.kv.NewBatch()
+	// commit storage tries to cache
+	for _, strie := range s.storageTries {
+		root := strie.Hash()
+		trCache.cache.Remove(root)
+	}
+
+	// commit accounts trie to cache
+	root := s.accountTrie.Hash()
+	trCache.cache.Remove(root)
+
+	for _, key := range s.store.Keys() {
+		k, _ := hex.DecodeString(key)
+		batch.Delete(k)
+	}
+
+	if err := batch.Write(); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (s *Stage) Keys() []string {
+	return s.store.Keys()
 }

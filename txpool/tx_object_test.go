@@ -84,7 +84,8 @@ func TestExecutable(t *testing.T) {
 	b1 := new(block.Builder).ParentID(b0.Header().ID()).GasLimit(10000000).TotalScore(100).Build()
 	qc1 := block.QuorumCert{QCHeight: 1, QCRound: 1, EpochID: 0}
 	b1.SetQC(&qc1)
-	chain.AddBlock(b1, nil, true)
+	escortQC := &block.QuorumCert{QCHeight: b1.Number(), QCRound: b1.QC.QCRound + 1, EpochID: b1.QC.EpochID, VoterMsgHash: b1.VotingHash()}
+	chain.AddBlock(b1, escortQC, nil)
 	st, _ := state.New(chain.GenesisBlock().Header().StateRoot(), kv)
 
 	tests := []struct {

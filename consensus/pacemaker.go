@@ -10,1046 +10,744 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"sync"
 	"time"
-
-	"github.com/ethereum/go-ethereum/rlp"
 
 	"github.com/inconshreveable/log15"
 	"github.com/meterio/meter-pov/block"
 	"github.com/meterio/meter-pov/chain"
 	"github.com/meterio/meter-pov/meter"
+	"github.com/meterio/meter-pov/packer"
+	"github.com/meterio/meter-pov/powpool"
+	"github.com/meterio/meter-pov/types"
 )
 
 const (
-	RoundInterval            = 1500 * time.Millisecond
-	RoundTimeoutInterval     = 12 * time.Second // update timeout from 16 to 12 secs.
-	RoundTimeoutLongInterval = 21 * time.Second // update timeout from 40 to 21 secs
-
-	MIN_MBLOCKS_AN_EPOCH = uint32(4)
-
-	CATCH_UP_THRESHOLD = 5 //
-
-	TIMEOUT_THRESHOLD_FOR_REBOOT = 5 // defines how many continuous timeouts will trigger a pacemaker reboot
+	RoundInterval            = 2 * time.Second
+	RoundTimeoutInterval     = 16 * time.Second // move the timeout from 20 to 16 secs.
+	RoundTimeoutLongInterval = 40 * time.Second
+	ProposeTimeLimit         = 1300 * time.Millisecond
+	BroadcastTimeLimit       = 1400 * time.Millisecond
+	MIN_MBLOCKS_AN_EPOCH     = uint32(4)
 )
-
-type PMMode uint32
-
-const (
-	PMModeNormal  PMMode = 1
-	PMModeCatchUp        = 2
-	PMModeObserve        = 3
-)
-
-func (m PMMode) String() string {
-	switch m {
-	case PMModeNormal:
-		return "Normal"
-	case PMModeCatchUp:
-		return "CatchUp"
-	case PMModeObserve:
-		return "Observe"
-	}
-	return ""
-}
 
 type Pacemaker struct {
-	csReactor   *ConsensusReactor //global reactor info
-	proposalMap *ProposalMap
-	logger      log15.Logger
+	reactor *Reactor //global reactor info
+	logger  log15.Logger
+	chain   *chain.Chain
 
 	// Current round (current_round - highest_qc_round determines the timeout).
 	// Current round is basically max(highest_qc_round, highest_received_tc, highest_local_tc) + 1
 	// update_current_round take care of updating current_round and sending new round event if
 	// it changes
-	currentRound           uint32
-	stopped                bool
-	mainLoopStarted        bool
-	myActualCommitteeIndex int //record my index in actualcommittee
-	minMBlocks             uint32
-	startHeight            uint32
-	startRound             uint32
+	currentRound    uint32
+	roundStartedAt  time.Time
+	mainLoopStarted bool
+	minMBlocks      uint32
 
 	// Utility data structures
-	calcStatsTx   bool // calculate statistics tx
-	mode          PMMode
-	msgCache      *MsgCache
-	sigAggregator *SignatureAggregator
-	pendingList   *PendingList
+	qcVoteManager *QCVoteManager
+	tcVoteManager *TCVoteManager
 
 	// HotStuff fields
 	lastVotingHeight uint32
-	QCHigh           *pmQuorumCert
-	blockLeaf        *pmBlock
-	blockExecuted    *pmBlock
-	blockLocked      *pmBlock
+	lastVoteMsg      *block.PMVoteMessage
+	QCHigh           *block.DraftQC
+	lastCommitted    *block.DraftBlock
 
 	lastOnBeatRound int32
 
 	// Channels
-	pacemakerMsgCh chan consensusMsgInfo
 	roundTimeoutCh chan PMRoundTimeoutInfo
-	cmdCh          chan *PMCmdInfo
-	beatCh         chan *PMBeatInfo
+	roundMutex     sync.Mutex
+	cmdCh          chan PMCmd
+	beatCh         chan PMBeatInfo
 
 	// Timeout
-	roundTimer         *time.Timer
-	timeoutCertManager *PMTimeoutCertManager
-	timeoutCert        *PMTimeoutCert
-	timeoutCounter     uint64
+	roundTimer     *time.Timer
+	TCHigh         *types.TimeoutCert
+	timeoutCounter uint64
 
-	queryCount map[QueryKey]int
+	// broadcast timer
+	broadcastCh    chan *block.PMProposalMessage
+	broadcastTimer *time.Timer
+
+	//
+	newTxCh              chan meter.Bytes32
+	curProposal          *block.DraftBlock
+	curFlow              *packer.Flow
+	txsAddedAfterPropose int
 }
 
-type QueryKey struct {
-	From uint32
-	To   uint32
-}
-
-func NewPaceMaker(conR *ConsensusReactor) *Pacemaker {
+func NewPacemaker(r *Reactor) *Pacemaker {
 	p := &Pacemaker{
-		csReactor: conR,
-		logger:    log15.New("pkg", "pacer"),
-		mode:      PMModeNormal,
+		reactor: r,
+		logger:  log15.New("pkg", "pm"),
+		chain:   r.chain,
 
-		msgCache:        NewMsgCache(2048),
-		pacemakerMsgCh:  make(chan consensusMsgInfo, 1024),
-		cmdCh:           make(chan *PMCmdInfo, 2),
-		beatCh:          make(chan *PMBeatInfo, 2),
-		roundTimeoutCh:  make(chan PMRoundTimeoutInfo, 2),
-		roundTimer:      nil,
-		proposalMap:     NewProposalMap(),
-		pendingList:     NewPendingList(),
+		cmdCh:          make(chan PMCmd, 2),
+		beatCh:         make(chan PMBeatInfo, 2),
+		roundTimeoutCh: make(chan PMRoundTimeoutInfo, 2),
+		roundTimer:     nil,
+		roundMutex:     sync.Mutex{},
+		broadcastCh:    make(chan *block.PMProposalMessage, 4),
+		newTxCh:        r.txpool.GetNewTxFeed(),
+
 		timeoutCounter:  0,
-		stopped:         true,
 		lastOnBeatRound: -1,
-
-		queryCount: make(map[QueryKey]int),
 	}
-	p.timeoutCertManager = newPMTimeoutCertManager(p)
-	// p.stopCleanup()
 	return p
 }
 
-func (p *Pacemaker) CreateLeaf(parent *pmBlock, qc *pmQuorumCert, round uint32) *pmBlock {
-	parentBlock, err := block.BlockDecodeFromBytes(parent.ProposedBlock)
-	if err != nil {
-
-		panic("Error decode the parent block")
-	}
+func (p *Pacemaker) CreateLeaf(parent *block.DraftBlock, justify *block.DraftQC, round uint32) (error, *block.DraftBlock) {
+	timeout := p.TCHigh != nil
+	parentBlock := parent.ProposedBlock
 	if parentBlock == nil {
-		p.logger.Error("parent block is nil")
-		return nil
+		return ErrParentBlockEmpty, nil
 	}
-	p.logger.Info(fmt.Sprintf("CreateLeaf: round=%v, QC(Height:%v,Round:%v), Parent(Height:%v,Round:%v)", round, qc.QC.QCHeight, qc.QC.QCRound, parent.Height, parent.Round))
-	// after kblock is proposed, we should propose 2 rounds of stopcommitteetype block
-	// to finish the pipeline. This mechnism guranttee kblock get into block server.
 
-	// resend the previous kblock as special type to get vote stop message to get vote
-	// This proposal will not get into block database
-	if parent.ProposedBlockType == KBlockType || parent.ProposedBlockType == StopCommitteeType {
-		info, blockBytes := p.proposeStopCommitteeBlock(parentBlock, qc)
-		if info == nil {
-			p.logger.Warn("HELP! could not propose stop committee block")
-			return nil
+	targetTime := time.Unix(int64(parentBlock.Timestamp()+1), 0)
+	now := time.Now()
+	if now.After(targetTime) {
+		targetTime = now
+	}
+
+	// propose SBlock only if I'm still in the epoch
+	proposeStopCommitteeBlock := (parentBlock.IsKBlock() || parentBlock.IsSBlock()) && p.reactor.curEpoch == parentBlock.QC.EpochID
+	if proposeStopCommitteeBlock {
+		grandFather := p.chain.GetDraftByEscortQC(parentBlock.QC)
+		if grandFather != nil {
+			grandGrandFather := p.chain.GetDraftByEscortQC(grandFather.ProposedBlock.QC)
+			if grandGrandFather != nil && grandGrandFather.ProposedBlock.IsKBlock() {
+				p.logger.Info(fmt.Sprintf("skip proposing SBlock on R:%v due to grand grand father is KBlock", round))
+				return errors.New("skip proposing SBlock due to grand grand father is kblock"), nil
+			}
 		}
-		b := &pmBlock{
-			Height:  info.ProposedBlock.Number(),
-			Round:   round,
-			Parent:  parent,
-			Justify: qc,
+		p.logger.Info(fmt.Sprintf("proposing SBlock on R:%v with QCHigh(#%v,R:%v), Parent(%v,R:%v)", round, justify.QC.QCHeight, justify.QC.QCRound, parent.ProposedBlock.ID().ToBlockShortID(), parent.Round))
+		return p.buildStopCommitteeBlock(uint64(targetTime.Unix()), parent, justify, round)
+	}
 
-			ProposedBlockInfo: info,
-			SuccessProcessed:  true,
-			ProcessError:      nil,
-			ProposedBlock:     blockBytes,
-			ProposedBlockType: info.BlockType,
+	proposeKBlock := false
+	var powResults *powpool.PowResult
+	if !parentBlock.IsKBlock() && (parentBlock.Number()+1-parentBlock.LastKBlockHeight()) >= p.minMBlocks && !timeout {
+		proposeKBlock, powResults = powpool.GetGlobPowPoolInst().GetPowDecision()
+	}
+	// propose appropriate block info
+	if proposeKBlock {
+		kblockData := &block.KBlockData{Nonce: uint64(powResults.Nonce), Data: powResults.Raw}
+		rewards := powResults.Rewards
+		p.logger.Info(fmt.Sprintf("proposing KBlock on R:%v with QCHigh(#%v,R:%v), Parent(%v,R:%v)", round, justify.QC.QCHeight, justify.QC.QCRound, parent.ProposedBlock.ID().ToBlockShortID(), parent.Round))
+		return p.buildKBlock(uint64(targetTime.Unix()), parent, justify, round, kblockData, rewards)
+	} else {
+		if !parent.ProposedBlock.IsKBlock() { // only check round if parent is not KBlock
+			if p.reactor.curEpoch != 0 && round != 0 && round <= justify.QC.QCRound {
+				p.logger.Warn("Invalid round to propose", "round", round, "qcRound", justify.QC.QCRound)
+				return ErrInvalidRound, nil
+			}
+			if p.reactor.curEpoch != 0 && round != 0 && round <= parent.Round {
+				p.logger.Warn("Invalid round to propose", "round", round, "parentRound", parent.Round)
+				return ErrInvalidRound, nil
+			}
 		}
-		// fmt.Print(b.ToString())
-		return b
-	}
-
-	// Validate round before propose
-	// round must be strictly larger than qcRound and parentRound within one epoch
-	parentIsKBlock := parentBlock.BlockType() == block.BLOCK_TYPE_K_BLOCK
-	if !parentIsKBlock {
-		if round <= qc.QC.QCRound {
-			p.logger.Warn("Invalid round to propose", "round", round, "qcRound", qc.QC.QCRound)
-			return nil
+		p.logger.Info(fmt.Sprintf("proposing MBlock on R:%v with QCHigh(#%v,R:%v), Parent(%v,R:%v)", round, justify.QC.QCHeight, justify.QC.QCRound, parent.ProposedBlock.ID().ToBlockShortID(), parent.Round))
+		err, draftBlock := p.buildMBlock(uint64(targetTime.Unix()), parent, justify, round)
+		if time.Now().Before(targetTime) {
+			d := time.Until(targetTime)
+			p.logger.Info("sleep until", "targetTime", targetTime, "for", meter.PrettyDuration(d))
+			time.Sleep(time.Until(targetTime))
 		}
-		if round <= parent.Round {
-			p.logger.Warn("Invalid round to propose", "round", round, "parentRound", parent.Round)
-			return nil
-		}
+		return err, draftBlock
 	}
-
-	start := time.Now()
-	info, blockBytes := p.proposeBlock(parentBlock, round, qc, (p.timeoutCert != nil))
-	if info == nil {
-		p.logger.Warn("HELP! Could not propose block! ")
-		return nil
-	}
-	p.logger.Info(fmt.Sprintf("Proposed: %v", info.ProposedBlock.Oneliner()), "magic", hex.EncodeToString(info.ProposedBlock.Magic[:]), "size", info.ProposedBlock.Size(), "elapsed", meter.PrettyDuration(time.Since(start)))
-
-	b := &pmBlock{
-		Height:  info.ProposedBlock.Number(),
-		Round:   round,
-		Parent:  parent,
-		Justify: qc,
-
-		ProposedBlockInfo: info, //save to local
-		SuccessProcessed:  true,
-		ProcessError:      nil,
-		ProposedBlock:     blockBytes,
-		ProposedBlockType: info.BlockType,
-	}
-
-	// fmt.Print(b.ToString())
-	return b
 }
 
-// b_exec  b_lock   b <- b' <- b"  b*
-func (p *Pacemaker) Update(bnew *pmBlock) error {
+// b_exec <- b_lock <- b <- b' <- bnew*
+func (p *Pacemaker) Update(qc *block.QuorumCert) {
 
-	var block, blockPrime, blockPrimePrime *pmBlock
+	var b, bPrime *block.DraftBlock
 	//now pipeline full, roll this pipeline first
-	blockPrimePrime = bnew.Justify.QCNode
-	if blockPrimePrime == nil {
-		p.logger.Warn("blockPrimePrime is empty, early termination of Update")
-		return nil
-	}
-	blockPrime = blockPrimePrime.Justify.QCNode
-	if blockPrime == nil {
+	bPrime = p.chain.GetDraftByEscortQC(qc)
+	if bPrime == nil {
 		p.logger.Warn("blockPrime is empty, early termination of Update")
-		return nil
+		return
 	}
-	block = blockPrime.Justify.QCNode
-	if block == nil {
+	if bPrime.Committed {
+		p.logger.Warn("b' is commited", "b'", bPrime.ProposedBlock.ShortID())
+		return
+	}
+	b = bPrime.Justify.QCNode
+	if b.Committed {
+		p.logger.Warn("b is committed", "b", b.ProposedBlock.ShortID())
+	}
+	if b == nil {
 		//bnew Justify is already higher than current QCHigh
-		p.UpdateQCHigh(bnew.Justify)
+		p.UpdateQCHigh(&block.DraftQC{QC: qc, QCNode: bPrime})
 		p.logger.Warn("block is empty, early termination of Update")
-		return nil
+		return
 	}
 
-	p.logger.Debug(fmt.Sprintf("bnew = %v", bnew.ToString()))
-	p.logger.Debug(fmt.Sprintf("b\"   = %v", blockPrimePrime.ToString()))
-	p.logger.Debug(fmt.Sprintf("b'   = %v", blockPrime.ToString()))
-	p.logger.Debug(fmt.Sprintf("b    = %v", block.ToString()))
+	p.logger.Debug(fmt.Sprintf("qc   = %v", qc.String()))
+	p.logger.Debug(fmt.Sprintf("b'   = %v", bPrime.ToString()))
+	p.logger.Debug(fmt.Sprintf("b    = %v", b.ToString()))
 
 	// pre-commit phase on b"
-	p.UpdateQCHigh(bnew.Justify)
-
-	if blockPrime.Height > p.blockLocked.Height {
-		p.blockLocked = blockPrime // commit phase on b'
-	}
+	p.UpdateQCHigh(&block.DraftQC{QC: qc, QCNode: bPrime})
 
 	/* commit requires direct parent */
-	if (blockPrimePrime.Parent != blockPrime) ||
-		(blockPrime.Parent != block) {
-		return nil
+	if bPrime.Parent != b {
+		return
 	}
 
-	commitReady := []*pmBlock{}
-	for b := block; b.Height > p.blockExecuted.Height; b = b.Parent {
-		// XXX: b must be prepended the slice, so we can commit blocks in order
-		commitReady = append([]*pmBlock{b}, commitReady...)
+	commitReady := []commitReadyBlock{}
+	for tmp := bPrime; tmp.Parent.Height > p.lastCommitted.Height; tmp = tmp.Parent {
+		// Notice: b must be prepended the slice, so we can commit blocks in order
+		commitReady = append([]commitReadyBlock{{block: tmp.Parent, escortQC: tmp.ProposedBlock.QC}}, commitReady...)
 	}
 	p.OnCommit(commitReady)
 
-	p.blockExecuted = block // decide phase on b
-	return nil
+	p.lastCommitted = b // commit phase on b
 }
 
-// TBD: how to emboy b.cmd
-func (p *Pacemaker) Execute(b *pmBlock) {
-	// p.logger.Info("Exec cmd:", "height", b.Height, "round", b.Round)
-}
-
-func (p *Pacemaker) OnCommit(commitReady []*pmBlock) {
+func (p *Pacemaker) OnCommit(commitReady []commitReadyBlock) {
 	for _, b := range commitReady {
 
+		blk := b.block
+		escortQC := b.escortQC
+
+		if blk == nil {
+			p.logger.Warn("skip commit empty block")
+			continue
+		}
+
 		// TBD: how to handle this case???
-		if !b.SuccessProcessed {
-			p.logger.Error("process this proposal failed, possible my states are wrong", "height", b.Height, "round", b.Round, "action", "commit", "err", b.ProcessError)
+		if !blk.SuccessProcessed {
+			p.logger.Error("process this proposal failed, possible my states are wrong", "height", blk.Height, "round", blk.Round, "action", "commit", "err", blk.ProcessError)
 			continue
 		}
-		if b.ProcessError == errKnownBlock {
-			p.logger.Warn("skip commit known block", "height", b.Height, "round", b.Round)
-			continue
-		}
-		if b.ProposedBlockInfo == nil {
-			p.logger.Warn("skip commit empty block", "height", b.Height, "round", b.Round)
+		if blk.ProcessError == errKnownBlock {
+			p.logger.Warn("skip commit known block", "height", blk.Height, "round", blk.Round)
 			continue
 		}
 		// commit the approved block
-		bestQC := p.proposalMap.Get(b.Height + 1).Justify.QC
-		err := p.commitBlock(b.ProposedBlockInfo, bestQC)
+		err := p.commitBlock(blk, escortQC)
 		if err != nil {
 			if err != chain.ErrBlockExist && err != errKnownBlock {
-				if b.ProposedBlockInfo.ProposedBlock != nil {
-					p.logger.Warn("commit failed !!!", "err", err, "blk", b.ProposedBlockInfo.ProposedBlock.CompactString())
+				if blk != nil {
+					p.logger.Warn("commit failed !!!", "err", err, "blk", blk.ProposedBlock.CompactString())
 				} else {
 					p.logger.Warn("commit failed !!!", "err", err)
 				}
 				//revert to checkpoint
-				best := p.csReactor.chain.BestBlock()
-				state, err := p.csReactor.stateCreator.NewState(best.Header().StateRoot())
+				best := p.reactor.chain.BestBlock()
+				state, err := p.reactor.stateCreator.NewState(best.Header().StateRoot())
 				if err != nil {
 					panic(fmt.Sprintf("revert the state faild ... %v", err))
 				}
-				state.RevertTo(b.ProposedBlockInfo.CheckPoint)
+				state.RevertTo(blk.CheckPoint)
 			} else {
-				if b.ProposedBlockInfo != nil && b.ProposedBlockInfo.ProposedBlock != nil {
-					p.logger.Debug(fmt.Sprintf("block %d already in chain", b.ProposedBlockInfo.ProposedBlock.Number()), "id", b.ProposedBlockInfo.ProposedBlock.ID())
+				if blk != nil && blk.ProposedBlock != nil {
+					p.logger.Debug(fmt.Sprintf("block %d already in chain", blk.ProposedBlock.Number()), "id", blk.ProposedBlock.ShortID())
 				} else {
 					p.logger.Info("block alreday in chain")
 				}
 			}
 		}
 
-		p.Execute(b) //b.cmd
-
-		if b.ProposedBlockType == KBlockType {
-			p.logger.Info("committed a kblock, stop pacemaker", "height", b.Height, "round", b.Round)
-			p.SendKblockInfo(b)
-			// p.Stop()
+		if err != chain.ErrBlockExist && err != errKnownBlock {
+			if blk.ProposedBlock.IsKBlock() {
+				if blk.ProposedBlock.QC.EpochID >= p.reactor.curEpoch && blk.ProposedBlock.KBlockData.Nonce != p.reactor.curNonce {
+					p.logger.Info("committed a kblock, schedule regulate", "height", blk.Height, "round", blk.Round)
+					p.scheduleRegulate()
+				} else {
+					p.logger.Info("committed a kblock, but it's been processed, skip regulate")
+				}
+				// p.Stop()
+			}
 		}
 
 		// BUG FIX: normally proposal message are cleaned once it is committed. It is ok because this proposal
 		// is not needed any more. Only in one case, if somebody queries the more old message, we can not give.
 		// so proposals are kept in this committee and clean all of them at the stopping of pacemaker.
-		// remove this pmBlock from map.
+		// remove this DraftBlock from map.
 		//delete(p.proposalMap, b.Height)
+		p.chain.PruneDraftsUpTo(blk)
 	}
 }
 
-func (p *Pacemaker) OnPreCommitBlock(b *pmBlock) error {
-	// This is the situation: 2/3 of committee agree the proposal while I disagree.
-	// posslible my state is deviated from the majority of committee, resatart pacemaker.
-	if !b.SuccessProcessed {
-		p.logger.Error("process this proposal failed, possible my states are wrong, restart pacemaker", "height", b.Height, "round", b.Round, "action", "precommit", "err", b.ProcessError)
-		return errRestartPaceMakerRequired
-	}
-	if b.ProcessError == errKnownBlock {
-		p.logger.Warn("skip precommit known block", "height", b.Height, "round", b.Round)
-		return nil
-	}
-	if b.ProposedBlockInfo == nil {
-		p.logger.Warn("skip precommit empty block", "height", b.Height, "round", b.Round)
-		return nil
-	}
-	p.logger.Info("try to pre-commit", "height", b.Height)
-	err := p.precommitBlock(b.ProposedBlockInfo)
+func (p *Pacemaker) OnReceiveProposal(mi *IncomingMsg) {
+	msg := mi.Msg.(*block.PMProposalMessage)
+	height := msg.DecodeBlock().Number()
+	round := msg.Round
 
-	if err != nil && err != chain.ErrBlockExist {
-		if b.ProposedBlockInfo.ProposedBlock != nil {
-			p.logger.Warn("precommit failed !!!", "err", err, "blk", b.ProposedBlockInfo.ProposedBlock.CompactString())
-		} else {
-			p.logger.Warn("precommit failed !!!", "err", err)
-		}
-		return err
-	}
-	return nil
-}
-
-func (p *Pacemaker) OnReceiveProposal(mi *consensusMsgInfo) error {
-	proposalMsg, _ := mi.Msg.(*PMProposalMessage), mi.Peer
-	msgHeader := proposalMsg.CSMsgCommonHeader
-	height := msgHeader.Height
-	round := msgHeader.Round
-
-	if p.blockLocked == nil {
-		p.logger.Info("blockLocked is nil", "height", height)
-		return errParentMissing
+	// drop outdated proposal
+	if height < p.lastCommitted.Height {
+		p.logger.Info("outdated proposal (height <= bLocked.height), dropped ...", "height", height, "bLocked.height", p.lastCommitted.Height)
+		return
 	}
 
-	if height < p.blockLocked.Height {
-		p.logger.Info("recved proposal with height <= bLocked.height, ignore ...", "height", height, "bLocked.height", p.blockLocked.Height)
-		return nil
-	}
-
-	// decode block to get qc
-	blk, err := block.BlockDecodeFromBytes(proposalMsg.ProposedBlock)
-	if err != nil {
-		return errors.New("can not decode proposed block")
-	}
-
-	// skip invalid proposal
-	if blk.Number() != uint32(height) {
-		p.logger.Error("invalid proposal: height mismatch", "proposalHeight", height, "proposedBlockHeight", blk.Number())
-		return errors.New("invalid proposal: height mismatch")
-	}
-
+	blk := msg.DecodeBlock()
 	qc := blk.QC
-	p.logger.Debug("start to handle received block proposal ", "block", blk.Oneliner())
+	p.logger.Debug(fmt.Sprintf("Handling %s", msg.GetType()), "blk", blk.ID().ToBlockShortID())
 
-	// address parent
-	parent := p.AddressBlock(proposalMsg.ParentHeight)
+	// load parent
+	parent := p.chain.GetDraft(blk.ParentID())
 	if parent == nil {
-		// put this proposal to pending list, and sent out query
-		if err := p.pendingProposal(proposalMsg.ParentHeight, proposalMsg.ParentRound, proposalMsg.CSMsgCommonHeader.EpochID, mi); err != nil {
-			p.logger.Error("handle pending proposal failed", "error", err)
+		if blk.Number() > p.QCHigh.QC.QCHeight {
+			// future propsal, throw it back in queue with extended expire
+			// if mi.ExpireAt.Add(time.Second * (-2)).After(time.Now()) {
+			// 	mi.ExpireAt = mi.ExpireAt.Add(time.Second + 5)
+			// }
+			if mi.ProcessCount%2 == 0 {
+				query, err := p.BuildQueryMessage()
+				if err != nil {
+					p.logger.Error("could not build query message")
+				}
+				peers := make([]*ConsensusPeer, 0)
+				// query the replica that forwards this msg
+				peers = append(peers, mi.Peer)
+
+				// query the proposer
+				signerPeer := newConsensusPeer(mi.Signer.Name, mi.Signer.NetAddr.IP, 8670)
+				peers = append(peers, signerPeer)
+
+				// query the next proposer
+				nxtPeer := p.getProposerByRound(round + 1)
+				peers = append(peers, nxtPeer)
+
+				distinctPeers := make([]*ConsensusPeer, 0)
+				visited := make(map[string]bool)
+				for _, peer := range peers {
+					if _, exist := visited[peer.IP]; exist {
+						continue
+					}
+					visited[peer.IP] = true
+					if !p.reactor.IsMe(peer) {
+						distinctPeers = append(distinctPeers, peer)
+					}
+				}
+				p.reactor.Send(query, distinctPeers...)
+				p.logger.Info(`query proposals`, "distinctPeers", len(distinctPeers))
+			}
+
+			p.logger.Error("cant load parent for future proposal, throw it back in queue", "parent", blk.ParentID().ToBlockShortID())
+			p.reactor.inQueue.DelayedAdd(mi)
+		} else {
+			p.logger.Warn("cant load parent, dropped ...", "parent", blk.ParentID().ToBlockShortID())
 		}
-		p.logger.Error("could not address parent block", "parent", proposalMsg.ParentHeight)
-		return errParentMissing
+		return
 	}
 
-	// address qcNode
-	// TODO: qc should be verified before it is used
-	qcNode := p.AddressBlock(qc.QCHeight)
-	if qcNode == nil {
-		p.logger.Warn("OnReceiveProposal: can not address qcNode")
+	// check QC with parent
+	if match := p.reactor.ValidateQC(parent.ProposedBlock, qc); !match {
+		p.logger.Error("validate QC failed ...", "qc", qc.String(), "parent", parent.ProposedBlock.ID().ToBlockShortID())
+		// Theoratically, this should not be worrisome anymore, since the parent is addressed by blockID
+		// instead of addressing proposal by height, we already supported the fork in proposal space
+		// so if the qc doesn't match parent proposal known to me, cases are:
+		// 1. I don't have the correct parent, I will assume that others to commit to the right one and i'll do nothing
+		// 2. The current proposal is invalid and I should not vote
+		// in both cases, I should wait instead of sending messages to confuse peers
 
-		// put this proposal to pending list, and sent out query
-		if err := p.pendingProposal(qc.QCHeight, qc.QCRound, proposalMsg.CSMsgCommonHeader.EpochID, mi); err != nil {
-			p.logger.Error("handle pending proposal failed", "error", err)
-		}
-		return errQCNodeMissing
+		return
 	}
 
-	// we have qcNode, need to check qcNode and blk.QC is referenced the same
-	if match, err := p.BlockMatchQC(qcNode, qc); match == true && err == nil {
-		p.logger.Debug("addressed qcNode ...", "qcHeight", qc.QCHeight, "qcRound", qc.QCRound)
+	// check round
+	// round 0 must be the first after a KBlock
+	if round == 0 && !parent.ProposedBlock.IsKBlock() {
+		p.logger.Error("round(0) must have a direct KBlock parent")
+		return
+	}
+	// otherwise round must = parent round + 1 without TC
+	if round > 0 && parent.Round+1 != round {
+		validTC := p.verifyTC(msg.TimeoutCert, msg.Round)
+		if !validTC {
+			p.logger.Error("round jump without valid TC", "parentRound", parent.Round, "round", round)
+			return
+		} else if !parent.ProposedBlock.IsKBlock() && parent.Round >= round {
+			p.logger.Error("invalid round", "parentRound", parent.Round, "round", round)
+			return
+		}
+	}
+
+	justify := block.NewDraftQC(qc, parent)
+	bnew := &block.DraftBlock{
+		Msg:           msg,
+		Height:        height,
+		Round:         round,
+		Parent:        parent,
+		Justify:       justify,
+		ProposedBlock: blk,
+	}
+
+	// validate proposal
+	if err := p.ValidateProposal(bnew); err != nil {
+		p.logger.Error("validate proposal failed", "err", err)
+		return
+	}
+
+	// place the current proposal in proposal space
+	if !p.chain.HasDraft(blk.ID()) {
+		p.chain.AddDraft(bnew)
+	}
+
+	if bnew.Height >= p.lastVotingHeight && p.ExtendedFromLastCommitted(bnew) {
+		voteMsg, err := p.BuildVoteMessage(msg)
+		if err != nil {
+			p.logger.Error("could not build vote message", "err", err)
+			return
+		}
+
+		p.Update(bnew.Justify.QC)
+		p.sendMsg(voteMsg, false)
+		p.lastVoteMsg = voteMsg
+		p.lastVotingHeight = block.Number(voteMsg.VoteBlockID)
+
+		// enter round and reset timer
+		if bnew.ProposedBlock.IsKBlock() {
+			// if proposed block is KBlock, reset the timer with extra time cushion
+			p.enterRound(voteMsg.VoteRound+1, KBlockRound)
+		} else {
+			p.enterRound(voteMsg.VoteRound+1, RegularRound)
+		}
 	} else {
-		// possible fork !!! TODO: handle?
-		p.logger.Error("qcNode doesn't match qc from proposal, potential fork happens...", "qcHeight", qc.QCHeight, "qcRound", qc.QCRound)
-
-		// TBD: How to handle this??
-		// if this block does not have Qc yet, revertTo previous
-		// if this block has QC, The real one need to be replaced
-		// anyway, get the new one.
-		// put this proposal to pending list, and sent out query
-		if err := p.pendingProposal(qc.QCHeight, qc.QCRound, proposalMsg.CSMsgCommonHeader.EpochID, mi); err != nil {
-			p.logger.Error("handle pending proposal failed", "error", err)
-		}
-		return errors.New("qcNode doesn't match qc from proposal, potential fork ")
+		p.logger.Warn("skip voting", "bnew.height", bnew.Height, "lastVoting", p.lastVotingHeight, "extended", p.ExtendedFromLastCommitted(bnew), "bnew", bnew.ProposedBlock.ID().ToBlockShortID(), "lastCommitted", p.lastCommitted.ProposedBlock.ID().ToBlockShortID())
 	}
 
-	// create justify node
-	justify := newPMQuorumCert(qc, qcNode)
-
-	// revert the proposals if I'm not the round proposer and I received a proposal with a valid TC
-	validTimeout := p.verifyTimeoutCert(proposalMsg.TimeoutCert, height, round)
-	if p.blockExecuted != nil && round < p.blockExecuted.Round {
-		p.logger.Warn("proposal has a round < blockExecuted.Round, set it as invalid", "round", round, "execRound", p.blockExecuted.Round)
-		return errors.New("proposal has round < blockExecuted.Round, skip processing")
-	}
-
-	if validTimeout {
-		p.logger.Info("proposal with tc, check rounds", "round", round, "currentRound", p.currentRound)
-		if round < p.currentRound {
-			p.logger.Warn("proposal with tc has round < p.currentRound, skip processing", "round", round, "currentRound", p.currentRound)
-			return errors.New("proposal with tc has round < p.currentRound, skip processing")
-		}
-		pivot := p.proposalMap.Get(height)
-		if pivot != nil && pivot.Justify != nil {
-			qcHighAfterRevert := pivot.Justify.QC
-			// only allow revert when
-			// qcHigh after revert is the same as qc in proposal
-			if qcHighAfterRevert.QCHeight == qc.QCHeight && qcHighAfterRevert.QCRound == qc.QCRound && qcHighAfterRevert.EpochID == qc.EpochID {
-				p.revertTo(height)
-			} else {
-				p.logger.Warn("qcHigh after revert != proposal.qc, skip processing", "qcHighAfterRevert", qcHighAfterRevert.String(), "proposal.qc", qc.String())
-				return errors.New("qcHigh after revert != proposal.qc, skip processing")
-			}
-		}
-	}
-
-	// update the proposalMap if current proposal was not tracked before
-	if p.proposalMap.Get(height) == nil {
-		p.proposalMap.Add(&pmBlock{
-			ProposalMessage:   proposalMsg,
-			Height:            height,
-			Round:             round,
-			Parent:            parent,
-			Justify:           justify,
-			ProposedBlock:     proposalMsg.ProposedBlock,
-			ProposedBlockType: proposalMsg.ProposedBlockType,
-		})
-	}
-
-	bestBlock := p.csReactor.chain.BestBlock()
-	if bestBlock != nil && height <= bestBlock.Number() {
-		p.logger.Info("recved proposal with height <= bestBlock.height, skip processing ...")
-		return nil
-	}
-
-	bnew := p.proposalMap.Get(height)
-	if ((bnew.Height > p.lastVotingHeight) &&
-		(p.IsExtendedFromBLocked(bnew) || bnew.Justify.QC.QCHeight > p.blockLocked.Height)) || validTimeout {
-
-		if validTimeout {
-			p.updateCurrentRound(bnew.Round, UpdateOnTimeoutCertProposal)
-		} else {
-			if proposalMsg.ProposedBlockType == KBlockType {
-				// if proposed block is KBlock, reset the timer with extra time cushion
-				p.updateCurrentRound(bnew.Round, UpdateOnKBlockProposal)
-			} else {
-				p.updateCurrentRound(bnew.Round, UpdateOnRegularProposal)
-			}
-		}
-
-		// parent got QC, pre-commit
-		justify := p.proposalMap.Get(bnew.Justify.QC.QCHeight) //Justify.QCNode
-		if (justify != nil) && (justify.Height > p.blockLocked.Height) {
-			err := p.OnPreCommitBlock(justify)
-			if err != nil {
-				return err
-			}
-		}
-
-		// parent round must strictly < bnew round
-		// justify round must strictly < bnew round
-		if justify != nil && bnew != nil && bnew.Justify != nil && bnew.Justify.QC != nil {
-			justifyRound := justify.Round
-			parentRound := bnew.Justify.QC.QCRound
-			p.logger.Debug("check round for proposal", "parentRound", parentRound, "justifyRound", justifyRound, "bnewRound", bnew.Round)
-			if parentRound > 0 && justifyRound > 0 {
-				if parentRound >= bnew.Round {
-					p.logger.Error("parent round must strictly < bnew round")
-					return errors.New("parent round must strictly < bnew round")
-				}
-				if justifyRound >= bnew.Round {
-					p.logger.Error("justify round must strictly < bnew round")
-					return errors.New("justify round must strictly < bnew round")
-				}
-			}
-		}
-
-		if err := p.ValidateProposal(bnew); err != nil {
-			p.logger.Error("HELP: Validate Proposal failed", "error", err)
-			return err
-		}
-
-		if p.mode == PMModeCatchUp && p.proposalMap.Len() > CATCH_UP_THRESHOLD-1 {
-			p.logger.Info("I'm ready to vote, switch back to normal mode")
-			p.mode = PMModeNormal
-		}
-
-		// vote back only if not in catch-up mode
-		if p.mode != PMModeCatchUp {
-			msg, err := p.BuildVoteForProposalMessage(proposalMsg, blk.ID(), blk.Header().TxsRoot(), blk.Header().StateRoot())
-			if err != nil {
-				return err
-			}
-			// send vote message to leader
-			p.sendMsg(proposalMsg.CSMsgCommonHeader.Round, msg, false)
-			p.lastVotingHeight = bnew.Height
-		} else {
-			p.logger.Info("no voting due to catch-up mode")
-		}
-	}
-
-	return p.Update(bnew)
 }
 
-func (p *Pacemaker) OnReceiveVote(mi *consensusMsgInfo) error {
-	if p.mode == PMModeCatchUp {
-		p.logger.Info("ignored vote due to catch-up mode")
-		return nil
-	}
-	voteMsg := mi.Msg.(*PMVoteMessage)
-	msgHeader := voteMsg.CSMsgCommonHeader
+func (p *Pacemaker) OnReceiveVote(mi *IncomingMsg) {
+	msg := mi.Msg.(*block.PMVoteMessage)
+	p.logger.Debug(fmt.Sprintf("Handling %s", msg.GetType()), "blk", msg.VoteBlockID.ToBlockShortID())
 
-	height := msgHeader.Height
-	round := msgHeader.Round
-	if round < p.currentRound {
-		p.logger.Info("expired vote, dropped ...", "currentRound", p.currentRound, "voteRound", round)
-		return nil
+	round := msg.VoteRound
+
+	// drop outdated vote
+	if !(round == p.currentRound && round == 0) && round < p.currentRound-1 {
+		p.logger.Info("outdated vote, dropped ...", "currentRound", p.currentRound, "voteRound", round)
+		return
+	}
+	if !p.reactor.amIRoundProproser(round + 1) {
+		p.logger.Info("invalid vote, I'm not the expected next proposer ...", "round", round)
+		return
 	}
 
-	b := p.AddressBlock(height)
+	b := p.chain.GetDraft(msg.VoteBlockID)
 	if b == nil {
-		return errors.New("can not address block")
+		p.logger.Warn("can not get proposed block", "blk", msg.VoteBlockID.ToBlockShortID())
+		p.reactor.inQueue.DelayedAdd(mi)
+		// return errors.New("can not address block")
+		return
+	}
+	if b.Round != round {
+		p.logger.Info("proposal round mismatch", "voteRound", round, "proposalRound", b.Round, "id", b.ProposedBlock.ID().ToBlockShortID())
+		return
 	}
 
-	err := p.collectVoteSignature(voteMsg)
-	if err != nil {
-		return err
+	qc := p.qcVoteManager.AddVote(msg.GetSignerIndex(), p.reactor.curEpoch, round, msg.VoteBlockID, msg.VoteSignature, msg.VoteHash)
+	if qc == nil {
+		p.logger.Debug("no qc formed")
+		return
 	}
-	voteCount := p.sigAggregator.Count()
-	if MajorityTwoThird(voteCount, p.csReactor.committeeSize) == false {
-		// if voteCount < p.csReactor.committeeSize {
-		// not reach 2/3
-		p.logger.Debug("vote counted", "committeeSize", p.csReactor.committeeSize, "count", voteCount)
-		return nil
-	} else {
-		p.logger.Info(
-			fmt.Sprintf("QC formed on proposal(H:%d,R:%d), future votes will be ignored.", height, round), "voted", fmt.Sprintf("%d/%d", voteCount, p.csReactor.committeeSize))
+	newDraftQC := &block.DraftQC{QCNode: b, QC: qc}
+	changed := p.UpdateQCHigh(newDraftQC)
+	if changed {
+		// if QC is updated, schedule onbeat now
+		p.Update(qc)
+		p.scheduleOnBeat(p.reactor.curEpoch, round+1)
+		p.enterRound(round+1, RegularRound)
 	}
-
-	// seal the signature, avoid re-trigger
-	p.sigAggregator.Seal()
-
-	//reach 2/3 majority, trigger the pipeline cmd
-	qc, err := p.generateNewQCNode(b)
-	if err != nil {
-		return err
-	}
-
-	changed := p.UpdateQCHigh(qc)
-
-	if changed == true {
-		// if QC is updated, relay it to the next proposer
-		p.OnNextSyncView(qc.QC.QCHeight+1, qc.QC.QCRound+1, HigherQCSeen, nil)
-
-	}
-	return nil
 }
 
-func (p *Pacemaker) OnPropose(parent *pmBlock, qc *pmQuorumCert, round uint32) (*pmBlock, error) {
-	// clean signature cache
-	// p.voterBitArray = cmn.NewBitArray(p.csReactor.committeeSize)
-	// p.voteSigs = make([]*PMSignature, 0)
-	bnew := p.CreateLeaf(parent, qc, round)
-	if bnew == nil {
-		return nil, errors.New("could not propose block")
+func (p *Pacemaker) OnPropose(qc *block.DraftQC, round uint32) *block.DraftBlock {
+	parent := p.chain.GetDraftByEscortQC(qc.QC)
+	err, bnew := p.CreateLeaf(parent, qc, round)
+	if err != nil {
+		p.logger.Error("could not create leaf", "err", err)
+		return nil
 	}
 	// proposedBlk := bnew.ProposedBlockInfo.ProposedBlock
-	proposedQC := bnew.ProposedBlockInfo.ProposedBlock.QC
-	// if bnew.Height != height || height != proposedBlk.Number() {
-	// 	p.logger.Error("proposed height mismatch", "expectedHeight", height, "proposedHeight", bnew.Height, "proposedBlockHeight", proposedBlk.Number())
-	// 	return nil, errors.New("proposed height mismatch")
-	// }
 
-	if bnew.Height <= proposedQC.QCHeight {
-		p.logger.Error("proposed block refers to an invalid qc", "proposedQC", proposedQC.QCHeight, "proposedHeight", bnew.Height)
-		return nil, errors.New("proposed block referes to an invalid qc")
+	if bnew.Height <= qc.QC.QCHeight {
+		p.logger.Error("proposed block refers to an invalid qc", "proposedQC", qc.QC.QCHeight, "proposedHeight", bnew.Height)
+		return nil
 	}
 
-	msg, err := p.BuildProposalMessage(bnew.Height, bnew.Round, bnew, p.timeoutCert)
+	msg, err := p.BuildProposalMessage(bnew.Height, bnew.Round, bnew, p.TCHigh)
 	if err != nil {
 		p.logger.Error("could not build proposal message", "err", err)
-		return nil, err
+		return nil
 	}
-	p.timeoutCert = nil
 
-	// pre-compute msgHash and store it in signature aggregator
-	info := bnew.ProposedBlockInfo
-	blk := info.ProposedBlock
-	id := blk.ID()
-	txsRoot := blk.Header().TxsRoot()
-	stateRoot := blk.Header().StateRoot()
-	signMsg := p.csReactor.BuildProposalBlockSignMsg(uint32(info.BlockType), uint64(blk.Number()), &id, &txsRoot, &stateRoot)
-	msgHash := p.csReactor.csCommon.Hash256Msg([]byte(signMsg))
-	p.sigAggregator = newSignatureAggregator(p.csReactor.committeeSize, *p.csReactor.csCommon.GetSystem(), msgHash, p.csReactor.curCommittee.Validators)
+	bnew.Msg = msg
+	p.curProposal = bnew
+	return bnew
 
-	// create slot in proposalMap directly, instead of sendmsg to self.
-	bnew.ProposalMessage = msg
-	p.proposalMap.Add(bnew)
-
-	//send proposal to all include myself
-	p.sendMsg(round, msg, true)
-
-	return bnew, nil
 }
 
-func (p *Pacemaker) UpdateQCHigh(qc *pmQuorumCert) bool {
+func (p *Pacemaker) UpdateQCHigh(qc *block.DraftQC) bool {
 	updated := false
 	oqc := p.QCHigh
-	if qc.QC.QCHeight > p.QCHigh.QC.QCHeight {
+	// update local qcHigh if
+	// newQC.height > qcHigh.height
+	// or newQC.height = qcHigh.height && newQC.round > qcHigh.round
+	if qc.QCNode != nil && qc.QC.QCHeight > p.QCHigh.QC.QCHeight || (qc.QC.QCHeight == p.QCHigh.QCNode.Height && qc.QC.QCRound > p.QCHigh.QCNode.Round) {
 		p.QCHigh = qc
-		p.blockLeaf = p.QCHigh.QCNode
 		updated = true
+		p.logger.Info(fmt.Sprintf("QCHigh update to %s", p.QCHigh.ToString()), "from", oqc.ToString())
 	}
-	p.logger.Debug("after update QCHigh", "updated", updated, "from", oqc.ToString(), "to", p.QCHigh.ToString())
 
 	return updated
 }
 
-func (p *Pacemaker) OnBeat(epoch uint64, round uint32, reason beatReason) error {
-	if int32(round) <= p.lastOnBeatRound {
-		p.logger.Warn(fmt.Sprintf("round(%v) <= lastOnBeatRound(%v), skip this OnBeat", round, p.lastOnBeatRound))
-		return nil
+func (p *Pacemaker) OnBeat(epoch uint64, round uint32) {
+	// avoid leftover onbeat
+	if epoch < p.reactor.curEpoch {
+		p.logger.Warn(fmt.Sprintf("outdated onBeat (epoch(%v) < local epoch(%v)), skip ...", epoch, p.reactor.curEpoch))
+		return
 	}
-	if epoch < p.csReactor.curEpoch {
-		p.logger.Warn(fmt.Sprintf("epoch(%v) < local epoch(%v), skip this OnBeat", epoch, p.csReactor.curEpoch))
-		return nil
+	// avoid duplicate onbeat
+	if epoch == p.reactor.curEpoch && int32(round) <= p.lastOnBeatRound {
+		p.logger.Warn(fmt.Sprintf("outdated onBeat (round(%v) <= lastOnBeatRound(%v)), skip ...", round, p.lastOnBeatRound))
+		return
+	}
+	if !p.reactor.amIRoundProproser(round) {
+		pmRoleGauge.Set(1) // validator
+		p.logger.Info("I'm NOT round proposer, skip OnBeat", "round", round)
+		return
 	}
 	p.lastOnBeatRound = int32(round)
-	if reason == BeatOnTimeout && p.QCHigh != nil && p.QCHigh.QC != nil {
-		return p.onTimeoutBeat(epoch, round, reason)
-	}
-
-	return p.onNormalBeat(epoch, round, reason)
-}
-
-func (p *Pacemaker) onNormalBeat(epoch uint64, round uint32, reason beatReason) error {
-	p.logger.Info("--------------------------------------------------")
-	p.logger.Info(fmt.Sprintf("OnBeat Epoch:%v, Round:%v, Reason:%v ", epoch, round, reason.String()))
-	p.logger.Info("--------------------------------------------------")
+	p.logger.Info(fmt.Sprintf("== OnBeat Epoch:%v, Round:%v ==", epoch, round))
 	// parent already got QC, pre-commit it
+
 	//b := p.QCHigh.QCNode
-	b := p.proposalMap.Get(p.QCHigh.QC.QCHeight)
-
-	if b.Height > p.blockLocked.Height {
-		err := p.OnPreCommitBlock(b)
-		if err != nil {
-			p.logger.Error("precommit block failed", "height", b.Height, "error", err)
-			return err
-		}
+	b := p.chain.GetDraftByEscortQC(p.QCHigh.QC)
+	if b == nil {
+		return
 	}
 
-	if reason == BeatOnInit {
-		// only reset the round timer at initialization
-		p.resetRoundTimer(round, TimerInit)
-	}
-
-	if !p.csReactor.amIRoundProproser(round) {
-		p.logger.Info("I am NOT round proposer", "round", round)
-		return nil
-	}
-
-	p.updateCurrentRound(round, UpdateOnBeat)
 	pmRoleGauge.Set(2) // leader
-	p.logger.Info("I AM round proposer", "round", round)
+	// p.logger.Info("I AM round proposer", "round", round)
 
-	bleaf, err := p.OnPropose(p.blockLeaf, p.QCHigh, round)
-	if err != nil {
-		return err
-	}
-	if bleaf == nil {
-		return errors.New("propose failed")
-	}
+	pStart := time.Now()
+	bnew := p.OnPropose(p.QCHigh, round)
+	if bnew != nil {
+		p.logger.Info(fmt.Sprintf("proposed %s", bnew.ProposedBlock.Oneliner()), "elapsed", meter.PrettyDuration(time.Since(pStart)))
 
-	p.blockLeaf = bleaf
-	return nil
-}
+		// create slot in proposalMap directly, instead of sendmsg to self.
+		p.chain.AddDraft(bnew)
 
-func (p *Pacemaker) onTimeoutBeat(epoch uint64, round uint32, reason beatReason) error {
-	p.logger.Info("--------------------------------------------------")
-	p.logger.Info(fmt.Sprintf("OnTimeoutBeat Epoch:%v, Round:%v, Reason:%v", epoch, round, reason.String()))
-	p.logger.Info("--------------------------------------------------")
-	// parent already got QC, pre-commit it
-	//b := p.QCHigh.QCNode
-	height := p.QCHigh.QC.QCHeight + 1
-	parent := p.proposalMap.Get(p.QCHigh.QC.QCHeight)
-	replaced := p.proposalMap.Get(height)
-	if parent == nil {
-		p.logger.Error("missing parent proposal", "parentHeight", height-1, "round", round)
-		return errors.New("missing parent proposal")
-	}
+		p.TCHigh = nil
 
-	var parentQC *pmQuorumCert
-	// in most of timeout case, proposal of height is alway there. only for the 1st round timeout, it is not there.
-	// in this case, p.QCHigh is for it.
-	if replaced == nil {
-		if p.QCHigh.QC.QCHeight == (height - 1) {
-			parentQC = p.QCHigh
-		} else {
-			p.logger.Error("missing qc for proposal", "parentHeight", height-1, "round", round)
-			return errors.New("missing qc for proposal")
-		}
-	} else {
-		parentQC = replaced.Justify
-	}
+		//send proposal to every committee members including myself
+		// p.sendMsg(bnew.Msg, true)
 
-	if reason == BeatOnInit {
-		// only reset the round timer at initialization
-		p.resetRoundTimer(round, TimerInit)
-	}
-	if p.csReactor.amIRoundProproser(round) {
-		pmRoleGauge.Set(2) // leader
-		p.logger.Info("I AM round proposer", "round", round)
-
-		bleaf, err := p.OnPropose(parent, parentQC, round)
-		if err != nil {
-			return err
-		}
-		if bleaf == nil {
-			return errors.New("propose failed")
-		}
-	} else {
-		pmRoleGauge.Set(1) // validator
-		p.logger.Info("I am NOT round proposer", "round", round)
-	}
-	return nil
-}
-
-func (p *Pacemaker) OnNextSyncView(nextHeight, nextRound uint32, reason NewViewReason, ti *PMRoundTimeoutInfo) {
-	// set role back to validator
-	pmRoleGauge.Set(1) // validator
-
-	// send new round msg to next round proposer
-	msg, err := p.BuildNewViewMessage(nextHeight, nextRound, p.QCHigh, reason, ti)
-	if err != nil {
-		p.logger.Error("could not build new view message", "err", err)
-	} else {
-		p.sendMsg(nextRound, msg, false)
+		roundElapsed := time.Since(p.roundStartedAt)
+		roundWait := BroadcastTimeLimit - roundElapsed
+		// send vote message to next proposer
+		p.logger.Debug("schedule broadcast with wait", "wait", roundWait)
+		p.scheduleBroadcast(bnew.Msg.(*block.PMProposalMessage), roundWait)
 	}
 }
 
-func (p *Pacemaker) OnReceiveNewView(mi *consensusMsgInfo) error {
-	if p.mode == PMModeCatchUp {
-		p.logger.Info("ignored newView due to catch-up mode")
-		return nil
-	}
-	newViewMsg, peer := mi.Msg.(*PMNewViewMessage), mi.Peer
-	header := newViewMsg.CSMsgCommonHeader
+func (p *Pacemaker) OnReceiveTimeout(mi *IncomingMsg) {
+	msg := mi.Msg.(*block.PMTimeoutMessage)
+	p.logger.Debug(fmt.Sprintf("Handling %s", msg.GetType()), "epoch", msg.Epoch, "wishRound", msg.WishRound, "lastVoteSig", hex.EncodeToString(msg.LastVoteSignature))
 
-	qc := block.QuorumCert{}
-	err := rlp.DecodeBytes(newViewMsg.QCHigh, &qc)
-	if err != nil {
-		p.logger.Error("can not decode qc from new view message", "err", err)
-		return nil
+	// drop invalid msg
+	if !p.reactor.amIRoundProproser(msg.WishRound) {
+		p.logger.Debug("invalid timeout msg, I'm not the expected proposer", "epoch", msg.Epoch, "wishRound", msg.WishRound)
+		return
 	}
 
-	// drop newview if it is old
-	if qc.QCHeight < p.csReactor.curHeight {
-		p.logger.Error("old newview message, dropped ...", "QCheight", qc.QCHeight)
-		return nil
+	// collect vote and see if QC is formed
+	newQC := p.qcVoteManager.AddVote(msg.SignerIndex, p.reactor.curEpoch, msg.LastVoteRound, msg.LastVoteBlockID, msg.LastVoteSignature, msg.LastVoteHash)
+	if newQC != nil {
+		escortQCNode := p.chain.GetDraftByEscortQC(newQC)
+		p.UpdateQCHigh(&block.DraftQC{QCNode: escortQCNode, QC: newQC})
+		p.Update(newQC)
 	}
 
-	qcNode := p.AddressBlock(qc.QCHeight)
-	if qcNode == nil {
-		p.logger.Error("can not address qcNode", "height", qc.QCHeight, "round", qc.QCRound)
-		// put this newView to pending list, and sent out query
-		if err := p.pendingNewView(qc.QCHeight, qc.QCRound, newViewMsg.CSMsgCommonHeader.EpochID, mi); err != nil {
-			p.logger.Error("handle pending newViewMsg failed", "error", err)
-		}
-		return nil
+	qc := msg.DecodeQCHigh()
+	qcNode := p.chain.GetDraftByEscortQC(qc)
+	p.UpdateQCHigh(&block.DraftQC{QCNode: qcNode, QC: qc})
+
+	// collect wish vote to see if TC is formed
+	tc := p.tcVoteManager.AddVote(msg.SignerIndex, msg.Epoch, msg.WishRound, msg.WishVoteSig, msg.WishVoteHash)
+	if tc != nil {
+		p.TCHigh = tc
+		p.scheduleOnBeat(p.reactor.curEpoch, p.TCHigh.Round)
 	}
-
-	// now have qcNode, check qcNode and blk.QC is referenced the same
-	if match, err := p.BlockMatchQC(qcNode, &qc); match == true && err == nil {
-		p.logger.Debug("addressed qcNode ...", "qcHeight", qc.QCHeight, "qcRound", qc.QCRound)
-	} else {
-		// possible fork !!! TODO: handle?
-		p.logger.Error("qcNode does not match qc from proposal, potential fork happens...", "qcHeight", qc.QCHeight, "qcRound", qc.QCRound)
-
-		// TBD: How to handle this case??
-		// if this block does not have Qc yet, revertTo previous
-		// if this block has QC, the real one need to be replaced
-		// anyway, get the new one.
-		// put this newView to pending list, and sent out query
-		if err := p.pendingNewView(qc.QCHeight, qc.QCRound, newViewMsg.CSMsgCommonHeader.EpochID, mi); err != nil {
-			p.logger.Error("handle pending newViewMsg failed", "error", err)
-		}
-		return nil
-	}
-
-	p.OnPreCommitBlock(qcNode)
-
-	pmQC := newPMQuorumCert(&qc, qcNode)
-
-	switch newViewMsg.Reason {
-	case RoundTimeout:
-		return p.newViewRoundTimeout(header, qc, peer, newViewMsg)
-	case HigherQCSeen:
-		return p.newViewHigherQCSeen(header, pmQC, qc)
-	}
-	return nil
 }
 
-func (p *Pacemaker) newViewHigherQCSeen(header ConsensusMsgCommonHeader, pmQC *pmQuorumCert, qc block.QuorumCert) error {
-	if header.Round <= p.currentRound {
-		p.logger.Info("expired newview, dropped ... ", "currentRound", p.currentRound, "newViewNxtRound", header.Round)
-		return nil
+func (p *Pacemaker) OnReceiveQuery(mi *IncomingMsg) {
+	msg := mi.Msg.(*block.PMQueryMessage)
+	proposals := p.chain.GetDraftsUpTo(msg.LastCommitted, p.QCHigh.QC)
+	p.logger.Info(`received query`, "lastCommitted", msg.LastCommitted.ToBlockShortID(), "from", mi.Peer)
+	for _, proposal := range proposals {
+		p.logger.Info(`forward proposal`, "id", proposal.ProposedBlock.ID().ToBlockShortID(), "to", mi.Peer)
+		p.sendMsg(proposal.Msg, false)
+		p.reactor.Send(proposal.Msg, mi.Peer)
 	}
-	changed := p.UpdateQCHigh(pmQC)
-
-	if !p.csReactor.amIRoundProproser(header.Round) {
-		p.logger.Debug("not round proposer, drops newview", "height", header.Height, "round", header.Round)
-		return nil
-	}
-
-	if changed {
-		if qc.QCHeight >= p.blockLocked.Height {
-			// Schedule OnBeat due to New QC
-			p.logger.Info("rcvd higher QC, schedule OnBeat now", "qcHeight", qc.QCHeight, "qcRound", qc.QCRound, "onBeatHeight", qc.QCHeight+1, "onBeatRound", qc.QCRound+1)
-			p.ScheduleOnBeat(header.EpochID, qc.QCRound+1, BeatOnHigherQC, RoundInterval)
-		}
-	}
-	return nil
-}
-
-func (p *Pacemaker) newViewRoundTimeout(header ConsensusMsgCommonHeader, qc block.QuorumCert, peer *ConsensusPeer, newViewMsg *PMNewViewMessage) error {
-	round := header.Round
-	epoch := header.EpochID
-	if !p.csReactor.amIRoundProproser(round) {
-		p.logger.Debug("not round proposer, drops the timeout newView ...", "round", round, "epoch", epoch)
-		return nil
-	}
-
-	qcHeight := qc.QCHeight
-	qcRound := qc.QCRound
-	qcEpoch := qc.EpochID
-
-	// if I don't have the proposal at specified height, query my peer
-	if p.proposalMap.Get(qcHeight) == nil {
-		p.logger.Info("Send PMQueryProposal", "height", qcHeight, "round", qcRound, "epoch", qcEpoch)
-		fromHeight := p.lastVotingHeight
-		bestQC := p.csReactor.chain.BestQC()
-		if fromHeight < bestQC.QCHeight {
-			fromHeight = bestQC.QCHeight
-		}
-		if err := p.sendQueryProposalMsg(fromHeight, qcHeight, qcRound, qcEpoch, peer); err != nil {
-			p.logger.Warn("send PMQueryProposal message failed", "err", err)
-		}
-	}
-
-	// if peer's height is lower than me, forward all available proposals to fill the gap
-	if qcHeight < p.lastVotingHeight && peer.netAddr.IP.String() != p.csReactor.GetMyNetAddr().IP.String() {
-		// forward missing proposals to peers who just sent new view message with lower expected height
-		tmpHeight := qcHeight + 1
-		var proposal *pmBlock
-		missed := make([]*pmBlock, 0)
-		for {
-			if tmpHeight > p.QCHigh.QC.QCHeight {
-				break
-			}
-			proposal = p.proposalMap.Get(tmpHeight)
-			if proposal == nil {
-				break
-			}
-			tmpHeight++
-			missed = append(missed, proposal)
-		}
-		if round < p.currentRound && len(missed) > 0 {
-			// forward proposal only if I'm not the expected proposer for the very next block
-			p.logger.Info(fmt.Sprintf("peer missed %v proposal, forward to it ... ", len(missed)), "fromHeight", qcHeight+1, "name", peer.name, "ip", peer.netAddr.IP.String())
-			for _, pmp := range missed {
-				p.logger.Debug("forwarding proposal", "height", pmp.Height, "name", peer.name, "ip", peer.netAddr.IP.String())
-				p.sendMsgToPeer(pmp.ProposalMessage, false, peer)
-			}
-		}
-	}
-
-	// now count the timeout
-	p.timeoutCertManager.collectSignature(newViewMsg)
-	timeoutCount := p.timeoutCertManager.count(newViewMsg.TimeoutHeight, newViewMsg.TimeoutRound)
-	if MajorityTwoThird(uint32(timeoutCount), p.csReactor.committeeSize) == false {
-		p.logger.Info(fmt.Sprintf("timeout(H:%v,R:%v) counted, vote rate: %d/%d", newViewMsg.TimeoutHeight, newViewMsg.TimeoutRound, timeoutCount, p.csReactor.committeeSize))
-	} else {
-		p.logger.Info(fmt.Sprintf("TC formed on timeout(H:%d,R:%d)", newViewMsg.TimeoutHeight, newViewMsg.TimeoutRound), "voted", fmt.Sprintf("%d/%d", timeoutCount, p.csReactor.committeeSize))
-		p.timeoutCert = p.timeoutCertManager.getTimeoutCert(newViewMsg.TimeoutHeight, newViewMsg.TimeoutRound)
-		p.timeoutCertManager.cleanup(newViewMsg.TimeoutHeight, newViewMsg.TimeoutRound)
-
-		// Now reach timeout consensus on height/round, check myself states
-		if (p.QCHigh.QC.QCHeight + 1) < header.Height {
-			p.logger.Info(fmt.Sprintf("QCHigh.QCHeight(%v)+1 < header.Height(%v), skip OnBeat ...", p.QCHigh.QC.QCHeight, header.Height))
-			return nil
-		}
-
-		// should not schedule if timeout is too old. <= p.blocked
-		if header.Height < p.blockLocked.Height {
-			p.logger.Info(fmt.Sprintf("header.Height(%v) < bLocked.Height(%v), skip OnBeat ...", header.Height, p.blockLocked.Height))
-			return nil
-		}
-
-		// Schedule OnBeat due to timeout
-		p.logger.Info("rcvd TC, schedule OnBeat now", "height", header.Height, "round", header.Round)
-
-		p.ScheduleOnBeat(header.EpochID, header.Round, BeatOnTimeout, 500*time.Microsecond)
-	}
-	return nil
 }
 
 // Committee Leader triggers
-func (p *Pacemaker) Start(mode PMMode, calcStatsTx bool) {
-	p.mode = mode
-	p.reset()
-	p.csReactor.chain.UpdateBestQC(nil, chain.None)
-	p.csReactor.chain.UpdateLeafBlock()
+func (p *Pacemaker) Regulate() {
+	p.logger.Info("!!! Pacemaker Regulate")
+	p.reactor.PrepareEnvForPacemaker()
+	if p.qcVoteManager == nil || p.qcVoteManager.Size() != p.reactor.committeeSize {
+		p.qcVoteManager = NewQCVoteManager(p.reactor.blsCommon.System, p.reactor.committeeSize)
+	}
+	if p.tcVoteManager == nil || p.tcVoteManager.Size() != p.reactor.committeeSize {
+		p.tcVoteManager = NewTCVoteManager(p.reactor.blsCommon.System, p.reactor.committeeSize)
+	}
 
-	bestQC := p.csReactor.chain.BestQC()
-
-	p.calcStatsTx = calcStatsTx
-	height := bestQC.QCHeight
-	blk, err := p.csReactor.chain.GetTrunkBlock(height)
+	bestQC := p.reactor.chain.BestQC()
+	bestBlk, err := p.reactor.chain.GetTrunkBlock(bestQC.QCHeight)
 	if err != nil {
-		p.logger.Error("could not get block with bestQC")
+		p.logger.Error("could not get bestBlock with bestQC")
+		panic("could not get bestBlock with bestQC")
 	}
 
 	round := bestQC.QCRound
 	actualRound := round + 1
-	if blk.BlockType() == block.BLOCK_TYPE_K_BLOCK || blk.Number() == 0 {
+	if bestBlk.IsKBlock() || bestBlk.Number() == 0 {
+		// started with KBlock or Genesis
 		round = uint32(0)
 		actualRound = 0
 	}
 
-	p.logger.Info(fmt.Sprintf("*** Pacemaker start with height %v, round %v", height, actualRound), "qc", bestQC.CompactString(), "calcStatsTx", calcStatsTx, "mode", mode.String())
-	p.startHeight = height
-	p.startRound = round
-	p.lastOnBeatRound = int32(round) - 1
+	p.logger.Info(fmt.Sprintf("*** Pacemaker start with QC %v", bestQC.CompactString()))
+	p.lastOnBeatRound = int32(actualRound) - 1
 	pmRoleGauge.Set(1) // validator
-	// Hack here. We do not know it is the first pacemaker from beginning
-	// But it is not harmful, the worst case only misses one opportunity to propose kblock.
-	if p.csReactor.config.InitCfgdDelegates == false {
+
+	// if InitCfgDelegates is set, pacemaker in bootstrap mode
+	if !p.reactor.config.InitCfgdDelegates {
 		p.minMBlocks = MIN_MBLOCKS_AN_EPOCH
 	} else {
-		p.minMBlocks = p.csReactor.config.EpochMBlockCount
+		p.minMBlocks = p.reactor.config.EpochMBlockCount
 		if meter.IsStaging() {
 			log.Info("skip setting InitCfgdDelegates to false in staging")
 		} else {
-			p.csReactor.config.InitCfgdDelegates = false // clean off InitCfgdDelegates
+			// toggle it off so it will switch to normal mode next epoch
+			p.reactor.config.InitCfgdDelegates = false
 		}
 	}
 
-	qcNode := p.AddressBlock(height)
-	if qcNode == nil {
+	bestNode := p.chain.GetDraftByEscortQC(bestQC)
+	if bestNode == nil {
 		p.logger.Debug("started with empty qcNode")
 	}
-	qcInit := newPMQuorumCert(bestQC, qcNode)
-	bInit := &pmBlock{
-		Height:        height,
-		Round:         round,
-		Parent:        nil,
-		Justify:       qcInit,
-		ProposedBlock: p.csReactor.LoadBlockBytes(uint32(height)),
-	}
+	qcInit := block.NewDraftQC(bestQC, bestNode)
 
 	// now assign b_lock b_exec, b_leaf qc_high
-	p.blockLocked = bInit
-	p.blockExecuted = bInit
-	p.blockLeaf = bInit
-	p.proposalMap.Add(bInit)
-	if qcInit.QCNode == nil {
-		qcInit.QCNode = bInit
-	}
+	p.lastCommitted = bestNode
+	p.lastVotingHeight = 0
+	p.lastVoteMsg = nil
 	p.QCHigh = qcInit
+	p.chain.AddDraft(bestNode)
 
-	p.stopped = false
 	pmRunningGauge.Set(1)
-	if p.mainLoopStarted == false {
+
+	if !p.mainLoopStarted {
 		go p.mainLoop()
 	}
 
-	switch p.mode {
-	case PMModeNormal:
-		if round == 0 {
-			p.ScheduleOnBeat(p.csReactor.curEpoch, round, BeatOnInit, 500*time.Microsecond) //delay 1s
-		} else {
-			p.ScheduleOnBeat(p.csReactor.curEpoch, round+1, BeatOnInit, 500*time.Microsecond) //delay 0.5s
+	p.currentRound = 0
+	p.enterRound(actualRound, RegularRound)
+	p.scheduleOnBeat(p.reactor.curEpoch, actualRound)
+}
+
+func (p *Pacemaker) scheduleBroadcast(proposalMsg *block.PMProposalMessage, d time.Duration) {
+	scheduleFunc := func() {
+	CleanBroadcastCh:
+		for {
+			select {
+			case <-p.broadcastCh:
+			default:
+				break CleanBroadcastCh
+			}
 		}
-	case PMModeCatchUp:
-		p.SendCatchUpQuery()
-	case PMModeObserve:
-		// do nothing
+		p.broadcastCh <- proposalMsg
+	}
+
+	p.cancelAllPendingBroadcast()
+	// p.lastVotingHeight = block.Number(voteMsg.VoteBlockID)
+	// p.lastVoteMsg = voteMsg
+	blk := proposalMsg.DecodeBlock()
+	if d <= 0 || d >= BroadcastTimeLimit {
+		p.logger.Info(fmt.Sprintf("schedule broadcast for %s(E:%d) with no delay", blk.ShortID(), proposalMsg.GetEpoch()))
+		scheduleFunc()
+	} else {
+		p.logger.Info(fmt.Sprintf("schedule broadcast for %s(E:%d) after %s", blk.ShortID(), proposalMsg.GetEpoch(), meter.PrettyDuration(d)))
+		p.broadcastTimer = time.AfterFunc(d, scheduleFunc)
 	}
 }
 
-func (p *Pacemaker) SendCatchUpQuery() {
-	bestQC := p.csReactor.chain.BestQC()
-	curProposer := p.getProposerByRound(p.currentRound)
-	err := p.sendQueryProposalMsg(p.blockLocked.Height, 0, p.currentRound, bestQC.EpochID, curProposer)
-	if err != nil {
-		fmt.Println("could not send query proposal, error:", err)
+func (p *Pacemaker) cancelAllPendingBroadcast() {
+	p.logger.Debug("cancel all pending broadcast")
+	// stop voteTimer if not nil
+	if p.broadcastTimer != nil {
+		p.broadcastTimer.Stop()
 	}
-
-	leader := p.csReactor.curCommittee.Validators[0]
-	leaderPeer := newConsensusPeer(leader.Name, leader.NetAddr.IP, leader.NetAddr.Port, p.csReactor.magic)
-	err = p.sendQueryProposalMsg(p.blockLocked.Height, 0, p.currentRound, bestQC.EpochID, leaderPeer)
-	if err != nil {
-		fmt.Println("could not send query proposal, error:", err)
+	// clean msg from voteCh
+CleanBroadcastCh:
+	for {
+		select {
+		case <-p.broadcastCh:
+		default:
+			break CleanBroadcastCh
+		}
 	}
 }
 
-func (p *Pacemaker) ScheduleOnBeat(epoch uint64, round uint32, reason beatReason, d time.Duration) bool {
-	// p.updateCurrentRound(round, IncRoundOnBeat)
-	time.AfterFunc(d, func() {
-		p.beatCh <- &PMBeatInfo{epoch, round, reason}
-	})
-	return true
+func (p *Pacemaker) OnBroadcastProposal() {
+	if p.txsAddedAfterPropose > 0 {
+		p.packMBlock()
+	}
+	if p.curProposal == nil {
+		p.logger.Warn("proposal is empty, skip broadcasting ...")
+		return
+	}
+	proposalMsg := p.curProposal.Msg.(*block.PMProposalMessage)
+	if proposalMsg == nil {
+		p.logger.Warn("empty proposal message")
+		return
+	}
+	blk := proposalMsg.DecodeBlock()
+
+	if blk.GetBlockEpoch() < p.reactor.curEpoch {
+		p.logger.Info(fmt.Sprintf("proposal epoch %d < curEpoch %d , skip broadcast ...", blk.GetBlockEpoch(), p.reactor.curEpoch))
+		return
+	}
+
+	p.sendMsg(proposalMsg, true)
+}
+
+func (p *Pacemaker) scheduleOnBeat(epoch uint64, round uint32) {
+	// p.enterRound(round, IncRoundOnBeat)
+CleanBeatCh:
+	for {
+		select {
+		case <-p.beatCh:
+		default:
+			break CleanBeatCh
+		}
+	}
+	p.beatCh <- PMBeatInfo{epoch, round}
+}
+
+func (p *Pacemaker) scheduleRegulate() {
+	// schedule Regulate
+	// make sure this Regulate cmd is the very next cmd
+CleanCMDCh:
+	for {
+		select {
+		case <-p.cmdCh:
+		default:
+			break CleanCMDCh
+		}
+	}
+
+	p.cmdCh <- PMCmdRegulate
+	p.logger.Info("regulate scheduled")
 }
 
 func (p *Pacemaker) mainLoop() {
@@ -1058,132 +756,56 @@ func (p *Pacemaker) mainLoop() {
 	// signal.Notify(interruptCh, syscall.SIGINT, syscall.SIGTERM)
 
 	for {
-		var err error
+		bestBlock := p.chain.BestBlock()
+		if bestBlock.Number() > p.QCHigh.QC.QCHeight {
+			p.logger.Info("bestBlock > QCHigh, schedule regulate", "best", bestBlock.Number(), "qcHigh", p.QCHigh.QC.QCHeight)
+			p.scheduleRegulate()
+		}
 		select {
-		case kinfo := <-p.csReactor.RcvKBlockInfoQueue:
-			if kinfo.Height < p.csReactor.lastKBlockHeight || kinfo.Nonce == p.csReactor.curNonce {
-				p.logger.Info("kblock info handled already, skip for now ...", "height", kinfo.Height, "nonce", kinfo.Nonce)
-				continue
-			}
-			p.logger.Info("hanlde kblock info", "height", kinfo.Height, "nonce", kinfo.Nonce)
-			p.stopCleanup()
-			p.csReactor.PrepareEnvForPacemaker()
-			if p.csReactor.inCommittee {
-				p.scheduleReboot(PMModeNormal)
-			} else {
-				p.scheduleReboot(PMModeObserve)
-			}
-		case si := <-p.cmdCh:
-			p.logger.Info("start to execute cmd", "cmd", si.cmd.String())
-			switch si.cmd {
-			case PMCmdStop:
-				p.stopCleanup()
-				p.logger.Info("--- Pacemaker stopped successfully")
 
-			case PMCmdRestart:
-				bestQC := p.csReactor.chain.BestQC()
-				height := bestQC.QCHeight
-				round := bestQC.QCRound
-				if p.startHeight == height && p.startRound == round {
-					p.logger.Info("*** Pacemaker restart cancelled, start height/round is the same, probably a duplicate cmd", "height", height, "round", round)
-					continue
-				}
-
-				p.csReactor.PrepareEnvForPacemaker()
-
-				// restart will keep calcStatsTx as is
-				p.stopCleanup()
-				p.logger.Info("--- Pacemaker stopped successfully, restart now")
-				p.Start(si.mode, p.calcStatsTx)
-
-			case PMCmdReboot:
-				// reboot will set calcStatsTx=true
-				bestQC := p.csReactor.chain.BestQC()
-				height := bestQC.QCHeight
-				round := bestQC.QCRound
-				if p.startHeight == height && p.startRound == round {
-					p.logger.Info("*** Pacemaker REBOOT cancelled, start height/round is the same, probably a duplicate cmd", "height", height, "round", round)
-					continue
-				}
-
-				p.stopCleanup()
-				verified := p.csReactor.verifyBestQCAndBestBlockBeforeStart()
-				if verified {
-					p.logger.Info("--- Pacemaker stopped successfully, REBOOT now")
-					p.Start(si.mode, true)
-				} else {
-					p.logger.Warn("--- Pacemaker stopped successfully, REBOOT now into CatchUp mode due to bestQC/bestBlock mismatch")
-					p.Start(PMModeCatchUp, true)
-				}
-
+		case cmd := <-p.cmdCh:
+			if cmd == PMCmdRegulate {
+				p.Regulate()
 			}
 		case ti := <-p.roundTimeoutCh:
-			if p.stopped {
-				p.logger.Info("pacemaker stopped, skip handling roundTimeout")
-				continue
-			}
 			p.OnRoundTimeout(ti)
-		case b := <-p.beatCh:
-			if p.stopped {
-				p.logger.Info("pacemaker stopped, skip handling onbeat")
-				continue
-			}
-			err = p.OnBeat(b.epoch, b.round, b.reason)
-		case m := <-p.pacemakerMsgCh:
-			if p.stopped {
-				p.logger.Info("pacemaker stopped, skip handling msg", "type", getConcreteName(m.Msg))
-				continue
-			}
-			// if in observe mode, ignore any incoming message
-			if p.mode == PMModeObserve {
-				p.logger.Info("pacemaker observe mode, skip handling msg", "type", getConcreteName(m.Msg))
-				continue
-			}
-			if m.Msg.EpochID() != p.csReactor.curEpoch {
-				p.logger.Info("receives message w/ mismatched epoch ID", "epoch", m.Msg.EpochID(), "myEpoch", p.csReactor.curEpoch, "type", getConcreteName(m.Msg))
-				break
-			}
-			switch msg := m.Msg.(type) {
-			case *PMProposalMessage:
-				err = p.OnReceiveProposal(&m)
-				if err != nil {
-					// 2 errors indicate linking message to pending list for the first time, does not need to check pending
-					if err == errKnownBlock {
-						// do nothing in this case
-						log.Debug("known block", "block", m.Msg.String())
-					} else if err != errParentMissing && err != errQCNodeMissing && err != errRestartPaceMakerRequired {
-						err = p.checkPendingMessages(msg.CSMsgCommonHeader.Height)
-					} else {
-						// qcHigh was supposed to be higher than bestQC at all times
-						// however sometimes, due to message transmission, proposals were lost, so the qcHigh is less than bestQC
-						// Usually, we'll use pending proposal to recover, but if the gap is too big between qcHigh and bestQC
-						// we'll have to restart the pacemaker in catch-up mode to "jump" the pacemaker ahead in order to
-						// process future proposals in time.
-						if (err == errRestartPaceMakerRequired) || (p.QCHigh != nil && p.QCHigh.QCNode != nil && p.QCHigh.QCNode.Height+CATCH_UP_THRESHOLD < p.csReactor.chain.BestQC().QCHeight) {
-							log.Warn("Pacemaker restart requested", "qcHigh", p.QCHigh.ToString(), "qcHigh.QCNode", p.QCHigh.QCNode.Height, "err", err)
-							p.scheduleRestart(PMModeCatchUp)
-						}
-					}
-				} else {
-					err = p.checkPendingMessages(msg.CSMsgCommonHeader.Height)
+		case newTxID := <-p.newTxCh:
+			if p.reactor.inCommittee && p.reactor.amIRoundProproser(p.currentRound) && p.curFlow != nil && p.curProposal != nil && p.curProposal.ProposedBlock != nil && p.curProposal.ProposedBlock.BlockHeader != nil && p.curProposal.Round == p.currentRound {
+				if time.Since(p.roundStartedAt) < ProposeTimeLimit {
+					p.AddTxToCurProposal(newTxID)
 				}
-			case *PMVoteMessage:
-				err = p.OnReceiveVote(&m)
-			case *PMNewViewMessage:
-				err = p.OnReceiveNewView(&m)
-			case *PMQueryProposalMessage:
-				err = p.OnReceiveQueryProposal(&m)
+			}
+		case <-p.broadcastCh:
+			p.OnBroadcastProposal()
+		case b := <-p.beatCh:
+			p.OnBeat(b.epoch, b.round)
+		case m := <-p.reactor.inQueue.queue:
+			// if not in committee, skip rcvd messages
+			if !p.reactor.inCommittee {
+				p.logger.Info("skip handling msg bcuz I'm not in committee", "type", m.Msg.GetType())
+				continue
+			}
+			if m.Msg.GetEpoch() != p.reactor.curEpoch {
+				p.logger.Info("rcvd message w/ mismatched epoch ", "epoch", m.Msg.GetEpoch(), "myEpoch", p.reactor.curEpoch, "type", m.Msg.GetType())
+				continue
+			}
+			if m.Expired() {
+				p.logger.Info(fmt.Sprintf("incoming %s msg expired, dropped ...", m.Msg.GetType()))
+				continue
+			}
+			switch m.Msg.(type) {
+			case *block.PMProposalMessage:
+				p.OnReceiveProposal(m)
+			case *block.PMVoteMessage:
+				p.OnReceiveVote(m)
+			case *block.PMTimeoutMessage:
+				p.OnReceiveTimeout(m)
+			case *block.PMQueryMessage:
+				p.OnReceiveQuery(m)
 			default:
 				p.logger.Warn("received an message in unknown type")
 			}
-			if err != nil {
-				typeName := getConcreteName(m.Msg)
-				if err == errParentMissing || err == errQCNodeMissing || err == errKnownBlock {
-					p.logger.Warn(fmt.Sprintf("process %v failed", typeName), "err", err)
-				} else {
-					p.logger.Error(fmt.Sprintf("process %v failed", typeName), "err", err)
-				}
-			}
+
 		case <-interruptCh:
 			p.logger.Warn("interrupt by user, exit now")
 			p.mainLoopStarted = false
@@ -1193,196 +815,82 @@ func (p *Pacemaker) mainLoop() {
 	}
 }
 
-func (p *Pacemaker) SendKblockInfo(b *pmBlock) {
-	// clean off chain for next committee.
-	blk := b.ProposedBlockInfo.ProposedBlock
-	if blk.IsKBlock() {
-		data, _ := blk.GetKBlockData()
-		info := RecvKBlockInfo{
-			Height:           blk.Number(),
-			LastKBlockHeight: blk.LastKBlockHeight(),
-			Nonce:            data.Nonce,
-			Epoch:            blk.QC.EpochID,
-		}
-		p.csReactor.RcvKBlockInfoQueue <- info
-
-		p.logger.Info("sent kblock info to reactor", "nonce", info.Nonce, "height", info.Height)
-	}
-}
-
-func (p *Pacemaker) reset() {
-	pmRoleGauge.Set(0) // init
-	p.lastVotingHeight = 0
-	p.lastOnBeatRound = -1
-	p.QCHigh = nil
-	p.blockLeaf = nil
-	p.blockExecuted = nil
-	p.blockLocked = nil
-
-	p.startHeight = 0
-	p.startRound = 0
-
-	p.queryCount = make(map[QueryKey]int)
-
-	// clean up proposal map
-	p.proposalMap.Reset()
-
-	// drain all messages in the channels
-	for len(p.pacemakerMsgCh) > 0 {
-		<-p.pacemakerMsgCh
-	}
-	for len(p.roundTimeoutCh) > 0 {
-		<-p.roundTimeoutCh
-	}
-	for len(p.beatCh) > 0 {
-		<-p.beatCh
-	}
-	for len(p.cmdCh) > 0 {
-		<-p.cmdCh
-	}
-
-	// clean msg cache and pending list
-	p.msgCache.CleanAll()
-	p.pendingList.CleanAll()
-}
-
-func (p *Pacemaker) stopCleanup() {
-	pmRunningGauge.Set(0)
-
-	p.stopRoundTimer()
-	pmRoleGauge.Set(0) // init
-
-	p.currentRound = 0
-	p.reset()
-	p.stopped = true
-}
-
-func (p *Pacemaker) IsStopped() bool {
-	return p.stopped
-	// return p.QCHigh == nil && p.blockExecuted == nil && p.blockLocked == nil
-}
-
-// actions of commites/receives kblock, stop pacemake to next committee
-// all proposal txs need to be reclaimed before stop
-func (p *Pacemaker) Stop() {
-	chain := p.csReactor.chain
-	fmt.Println(fmt.Sprintf("Pacemaker stop requested. \n  Current BestBlock: %v \n  LeafBlock: %v\n  BestQC: %v\n", chain.BestBlock().Oneliner(), chain.LeafBlock().Oneliner(), chain.BestQC().String()))
-
-	// suicide
-	// make sure this stop cmd is the very next cmd
-L:
-	for {
-		select {
-		case <-p.cmdCh:
-		default:
-			break L
-		}
-	}
-	p.cmdCh <- &PMCmdInfo{cmd: PMCmdStop}
-}
-
-func (p *Pacemaker) scheduleRestart(mode PMMode) {
-	// schedule the restart
-	// make sure this restart cmd is the very next cmd
-R:
-	for {
-		select {
-		case <-p.cmdCh:
-		default:
-			break R
-		}
-	}
-
-	p.cmdCh <- &PMCmdInfo{cmd: PMCmdRestart, mode: mode}
-}
-
-func (p *Pacemaker) scheduleReboot(mode PMMode) {
-	// schedule the reboot
-	// make sure this reboot cmd is the very next cmd
-REBOOT:
-	for {
-		select {
-		case <-p.cmdCh:
-		default:
-			break REBOOT
-		}
-	}
-
-	p.cmdCh <- &PMCmdInfo{cmd: PMCmdReboot, mode: mode}
-}
-
 func (p *Pacemaker) OnRoundTimeout(ti PMRoundTimeoutInfo) {
-	p.logger.Warn(fmt.Sprintf("round %d timeout", ti.round), "counter", p.timeoutCounter)
+	p.logger.Warn(fmt.Sprintf("R:%d timeout", ti.round), "counter", p.timeoutCounter)
 
-	updated := p.updateCurrentRound(ti.round+1, UpdateOnTimeout)
+	p.enterRound(ti.round+1, TimeoutRound)
 	newTi := &PMRoundTimeoutInfo{
 		height:  p.QCHigh.QC.QCHeight + 1,
 		round:   p.currentRound,
 		counter: p.timeoutCounter + 1,
 	}
-	bestNum := p.csReactor.chain.BestBlock().Number()
-	if updated {
-		p.OnNextSyncView( /*p.QCHigh.QC.QCHeight+1*/ bestNum+1, p.currentRound, RoundTimeout, newTi)
+	pmRoleGauge.Set(1) // validator
+
+	// send new round msg to next round proposer
+	msg, err := p.BuildTimeoutMessage(p.QCHigh, newTi, p.lastVoteMsg)
+	if err != nil {
+		p.logger.Error("could not build timeout message", "err", err)
+	} else {
+		p.sendMsg(msg, false)
 	}
-	if p.timeoutCounter >= TIMEOUT_THRESHOLD_FOR_REBOOT {
-		p.logger.Warn("continuous timeout, revert pacemaker to", "height", bestNum+1)
-		p.revertTo(bestNum + 1)
-		p.logger.Warn("reset pacemaker timeoutCounter to 0")
-		p.timeoutCounter = 0
-	}
-	// p.startRoundTimer(ti.height, ti.round+1, ti.counter+1)
 }
 
-func (p *Pacemaker) updateCurrentRound(round uint32, reason roundUpdateReason) bool {
-	updated := (p.currentRound != round)
-	switch reason {
-	case UpdateOnBeat:
+func (p *Pacemaker) enterRound(round uint32, rtype roundType) bool {
+	if round > 0 && round < p.currentRound {
+		p.logger.Warn(fmt.Sprintf("update round skipped %d->%d", p.currentRound, round))
+		return false
+	}
+	if !p.reactor.inCommittee {
+		return false
+	}
+	var interval time.Duration
+	switch rtype {
+	case RegularRound:
 		fallthrough
-	case UpdateOnRegularProposal:
-		if round > p.currentRound {
-			updated = true
-			p.resetRoundTimer(round, TimerInit)
-		} else if round == p.currentRound && p.csReactor.amIRoundProproser(round) {
-			// proposer reset timer when recv proposal
-			updated = false
-			p.resetRoundTimer(round, TimerInit)
-		}
-	case UpdateOnKBlockProposal:
-		if round > p.currentRound {
-			updated = true
-			p.resetRoundTimer(round, TimerInitLong)
-		} else if round == p.currentRound && p.csReactor.amIRoundProproser(round) {
-			// proposer reset timer when recv proposal
-			updated = false
-			p.resetRoundTimer(round, TimerInitLong)
-		}
-	case UpdateOnTimeoutCertProposal:
-		p.resetRoundTimer(round, TimerInit)
-	case UpdateOnTimeout:
-		p.resetRoundTimer(round, TimerInc)
+	case KBlockRound:
+		fallthrough
+	case TimeoutRound:
+		interval = p.resetRoundTimer(round, rtype)
+	default:
+		return false
 	}
 
-	if updated {
-		oldRound := p.currentRound
-		p.currentRound = round
-		proposer := p.csReactor.getRoundProposer(round)
-		p.logger.Info(fmt.Sprintf("update round %d->%d", oldRound, p.currentRound), "reason", reason.String(), "proposer", proposer.NameWithIP())
-		pmRoundGauge.Set(float64(p.currentRound))
-		return true
+	restart := (round == p.currentRound)
+	oldRound := p.currentRound
+	p.currentRound = round
+	p.roundStartedAt = time.Now()
+	proposer := p.reactor.getRoundProposer(round)
+
+	if restart {
+		p.logger.Info("---------------------------------------------------------")
+		p.logger.Info(fmt.Sprintf("R:%d restart", p.currentRound), "lastRound", oldRound, "type", rtype.String(), "proposer", proposer.NameAndIP(), "interval", meter.PrettyDuration(interval))
+	} else {
+		p.logger.Info("---------------------------------------------------------")
+		p.logger.Info(fmt.Sprintf("R:%d start", p.currentRound), "lastRound", oldRound, "type", rtype.String(), "proposer", proposer.NameAndIP(), "interval", meter.PrettyDuration(interval))
 	}
-	return false
+	pmRoundGauge.Set(float64(p.currentRound))
+	return true
 }
 
-func (p *Pacemaker) startRoundTimer(round uint32, reason roundTimerUpdateReason) {
+func (p *Pacemaker) resetRoundTimer(round uint32, rtype roundType) time.Duration {
+	p.roundMutex.Lock()
+	defer p.roundMutex.Unlock()
+	// stop existing round timer
+	if p.roundTimer != nil {
+		p.logger.Debug(fmt.Sprintf("stop timer for round %d", p.currentRound))
+		p.roundTimer.Stop()
+		p.roundTimer = nil
+	}
+	// start round timer
 	if p.roundTimer == nil {
 		baseInterval := RoundTimeoutInterval
-		switch reason {
-		case TimerInitLong:
+		switch rtype {
+		case KBlockRound:
 			baseInterval = RoundTimeoutLongInterval
 			p.timeoutCounter = 0
-		case TimerInit:
+		case RegularRound:
 			p.timeoutCounter = 0
-		case TimerInc:
+		case TimeoutRound:
 			p.timeoutCounter++
 		}
 		var power uint64 = 0
@@ -1390,168 +898,11 @@ func (p *Pacemaker) startRoundTimer(round uint32, reason roundTimerUpdateReason)
 			power = p.timeoutCounter - 1
 		}
 		timeoutInterval := baseInterval * (1 << power)
-		p.logger.Info(fmt.Sprintf("> start round %d timer", round), "interval", int64(timeoutInterval/time.Second), "timeoutCount", p.timeoutCounter)
+		// p.logger.Debug(fmt.Sprintf("> start round %d timer", round), "interval", int64(timeoutInterval/time.Second), "timeoutCount", p.timeoutCounter)
 		p.roundTimer = time.AfterFunc(timeoutInterval, func() {
 			p.roundTimeoutCh <- PMRoundTimeoutInfo{round: round, counter: p.timeoutCounter}
 		})
+		return timeoutInterval
 	}
-}
-
-func (p *Pacemaker) stopRoundTimer() bool {
-	if p.roundTimer != nil {
-		p.logger.Debug(fmt.Sprintf("stop timer for round %d", p.currentRound))
-		p.roundTimer.Stop()
-		p.roundTimer = nil
-	}
-	return true
-}
-
-func (p *Pacemaker) resetRoundTimer(round uint32, reason roundTimerUpdateReason) {
-	p.stopRoundTimer()
-	p.startRoundTimer(round, reason)
-}
-
-func (p *Pacemaker) revertTo(revertHeight uint32) {
-	p.logger.Info("Start revert", "revertHeight", revertHeight, "currentBLeaf", p.blockLeaf.ToString(), "currentQCHigh", p.QCHigh.ToString())
-	pivot := p.proposalMap.Get(revertHeight)
-	if pivot == nil {
-		return
-	}
-	pivotParent := pivot.Parent
-	pivotJustify := pivot.Justify
-	height := revertHeight
-	for {
-		proposal := p.proposalMap.Get(height)
-		if proposal == nil {
-			break
-		}
-		info := proposal.ProposedBlockInfo
-		if info == nil {
-			p.logger.Warn("Empty block info, skip reverting", "height", height)
-		} else {
-			// return the txs in precommitted blocks
-			info.txsToReturned()
-			best := p.csReactor.chain.BestBlock()
-			state, err := p.csReactor.stateCreator.NewState(best.Header().StateRoot())
-			if err != nil {
-				p.logger.Error("revert the state faild ...", "err", err)
-			}
-			state.RevertTo(info.CheckPoint)
-			p.logger.Warn("revert states on", "height", height, "block", proposal.ToString())
-		}
-		height++
-	}
-
-	p.proposalMap.RevertTo(revertHeight)
-
-	if pivot != nil {
-		if p.blockLeaf.Height >= pivot.Height && pivotParent != nil {
-			p.blockLeaf = pivotParent
-			p.logger.Info("move blockLeaf to ", "height", pivotParent.Height)
-		}
-		if p.QCHigh != nil && p.QCHigh.QCNode != nil && p.QCHigh.QCNode.Height >= pivot.Height && pivotJustify != nil {
-			p.logger.Info("move QCHigh to ", "height", pivotJustify.QC.QCHeight)
-			p.QCHigh = pivotJustify
-		}
-		if p.blockLocked.Height >= pivot.Height && pivotParent != nil {
-			p.blockLocked = pivotParent
-			p.logger.Info("move blockLocked to ", "height", pivotParent.Height)
-		}
-		if p.blockExecuted.Height >= pivot.Height && pivotParent != nil {
-			p.blockExecuted = pivotParent
-			p.logger.Info("move blockExecuted to ", "height", pivotParent.Height)
-		}
-	}
-
-	p.pendingList.CleanFrom(revertHeight)
-	if p.blockLeaf != nil {
-		p.lastVotingHeight = p.blockLeaf.Height
-	}
-	// First senario : pivot height < b-leaf height
-	//           pivot b-leaf                           b-leaf
-	//             v     v                                v
-	// A --- B --- C --- D     == revert result =>  A --- B
-	//  \   / \   / \   /                            \   / \
-	//   qcA   qcB   qcC                              qcA  qcB
-	//                ^                                     ^
-	//              QCHigh                                QCHigh
-
-	// Second senario : pivot height >= b-leaf height, and new QC is not ready
-	//                 pivot
-	//                 b-leaf                                 b-leaf
-	//                   v                                      v
-	// A --- B --- C --- D     == revert result =>  A --- B --- C
-	//  \   / \   / \   /                            \   / \   / \
-	//   qcA   qcB   qcC                              qcA   qcB   qcC
-	//                ^                                            ^
-	//              QCHigh                                        QCHigh
-
-	// Third senario : pivot height >= b-leaf height, and new QC already established
-	//                 pivot
-	//                 b-leaf                                 b-leaf
-	//                   v                                      v
-	// A --- B --- C --- D     == revert result =>  A --- B --- C
-	//  \   / \   / \   / \       QCHigh reset       \   / \   /  \
-	//   qcA   qcB   qcC  qcD                         qcA   qcB  qcC
-	//                     ^                                      ^
-	//                   QCHigh                                 QCHigh
-	/*
-		for h > p.blockLocked.Height {
-			p.logger.Info("Revert loop", "block-leaf", p.blockLeaf.ToString(), "parent", p.blockLeaf.Parent.ToString())
-			blockHeight := p.blockLeaf.Height
-			if h < p.blockLeaf.Height {
-				p.blockLeaf
-			}
-			p.blockLeaf = p.blockLeaf.Parent
-			p.logger.Warn("Deleted from proposalMap:", "height", blockHeight, "block", p.proposalMap[blockHeight].ToString())
-			delete(p.proposalMap, blockHeight)
-			// FIXME: remove precommited block and release tx
-		}
-	*/
-	p.logger.Info("Reverted !!!", "leaf", p.blockLeaf.ToString(), "qcHigh", p.QCHigh.ToString())
-}
-
-func (p *Pacemaker) OnReceiveQueryProposal(mi *consensusMsgInfo) error {
-	if p.mode == PMModeCatchUp {
-		p.logger.Info("ignored query due to catch-up mode")
-		return nil
-	}
-	queryMsg := mi.Msg.(*PMQueryProposalMessage)
-	fromHeight := queryMsg.FromHeight
-	toHeight := queryMsg.ToHeight
-	queryRound := queryMsg.Round
-	returnAddr := queryMsg.ReturnAddr
-	p.logger.Info("receives query", "fromHeight", fromHeight, "toHeight", toHeight, "round", queryRound, "returnAddr", returnAddr)
-
-	bestHeight := p.csReactor.chain.BestBlock().Number()
-	lastKBlockHeight := p.csReactor.chain.BestBlock().LastKBlockHeight() + 1
-	if toHeight <= bestHeight && toHeight > 0 {
-		// toHeight == 0 is considered as infinity
-		p.logger.Error("query too old", "fromHeight", fromHeight, "toHeight", toHeight, "round", queryRound)
-		return errors.New("query too old")
-	}
-	if fromHeight < lastKBlockHeight {
-		fromHeight = lastKBlockHeight
-	}
-
-	queryHeight := fromHeight + 1
-	for queryHeight <= p.lastVotingHeight {
-		result := p.proposalMap.Get(queryHeight)
-		if result == nil {
-			// Oooop!, I do not have it
-			p.logger.Error("dont have the specific proposal", "height", queryHeight, "round", queryRound)
-			return fmt.Errorf("dont have the specific proposal on height %v", queryHeight)
-		}
-
-		if result.ProposalMessage == nil {
-			p.logger.Error("could not find raw proposal message", "height", queryHeight, "round", queryRound)
-			return errors.New("could not find raw proposal message")
-		}
-
-		//send
-		p.sendMsgToPeer(result.ProposalMessage, false, mi.Peer)
-
-		queryHeight++
-	}
-	return nil
+	return time.Second
 }

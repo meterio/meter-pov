@@ -27,7 +27,7 @@ func (r Raw) DecodeBody() (*Body, error) {
 	return blk.Body(), nil
 }
 
-// XXX: Decode Evidence, CommitteeInfo, KBlockData
+//  Decode CommitteeInfo, KBlockData
 
 // DecodeBlockBody decode block header & tx part.
 func (r Raw) DecodeBlockBody() (*Block, error) {

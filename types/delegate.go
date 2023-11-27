@@ -6,15 +6,19 @@
 package types
 
 import (
-	"bytes"
 	"crypto/ecdsa"
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
-	"strings"
+	"io/ioutil"
+	"os"
+	"path"
 
 	"github.com/ethereum/go-ethereum/crypto"
 	bls "github.com/meterio/meter-pov/crypto/multi_sig"
 	"github.com/meterio/meter-pov/meter"
+	"github.com/meterio/meter-pov/preset"
+	"gopkg.in/urfave/cli.v1"
 )
 
 type Distributor struct {
@@ -34,17 +38,19 @@ type Delegate struct {
 	Commission  uint64          `json:"commission"`
 	DistList    []*Distributor  `json:"distibutor_list"`
 
-	internCombinePublicKey string
+	comboPubKeyStr string
 }
 
-func NewDelegate(name []byte, addr meter.Address, pubKey ecdsa.PublicKey, blsPub bls.PublicKey, votingPower int64, commission uint64) *Delegate {
+func NewDelegate(name []byte, addr meter.Address, pubKey ecdsa.PublicKey, blsPub bls.PublicKey, comboPubKeyStr string, votingPower int64, commission uint64, netAddr NetAddress) *Delegate {
 	return &Delegate{
-		Name:        name,
-		Address:     addr,
-		PubKey:      pubKey,
-		BlsPubKey:   blsPub,
-		VotingPower: votingPower,
-		Commission:  commission,
+		Name:           name,
+		Address:        addr,
+		PubKey:         pubKey,
+		BlsPubKey:      blsPub,
+		comboPubKeyStr: comboPubKeyStr,
+		VotingPower:    votingPower,
+		Commission:     commission,
+		NetAddr:        netAddr,
 	}
 }
 
@@ -55,13 +61,8 @@ func (v *Delegate) Copy() *Delegate {
 	return &vCopy
 }
 
-func (v *Delegate) SetInternCombinePublicKey(rawPublicKey string) {
-	v.internCombinePublicKey = rawPublicKey
-	return
-}
-
-func (v *Delegate) GetInternCombinePubKey() string {
-	return v.internCombinePublicKey
+func (v *Delegate) GetComboPubkey() string {
+	return v.comboPubKeyStr
 }
 
 func (v *Delegate) String() string {
@@ -76,23 +77,6 @@ func (v *Delegate) String() string {
 		string(v.Name), v.Address, v.VotingPower, v.Commission/1e7, len(v.DistList), pubKeyAbbr)
 }
 
-// DelegateSet represent a set of *Delegate at a given height.
-// The Delegates can be fetched by address or index.
-// The index is in order of .Address, so the indices are fixed
-// for all rounds of a given blockchain height.
-// On the other hand, the .AccumPower of each Delegate and
-// the designated .GetProposer() of a set changes every round,
-// upon calling .IncrementAccum().
-// NOTE: Not goroutine-safe.
-// NOTE: All get/set to Delegates should copy the value for safety.
-type DelegateSet struct {
-	// NOTE: persisted via reflect, must be exported.
-	Delegates []*Delegate `json:"Delegates"`
-
-	// cached (unexported)
-	totalVotingPower int64
-}
-
 // =================================
 // commission rate 1% presents 1e07, unit is shannon (1e09)
 const (
@@ -101,163 +85,55 @@ const (
 	COMMISSION_RATE_DEFAULT = uint64(10 * 1e07)  // 10%
 )
 
-func NewDelegateSet(vals []*Delegate) *DelegateSet {
-	Delegates := make([]*Delegate, len(vals))
-	for i, val := range vals {
-		Delegates[i] = val.Copy()
-	}
+func LoadDelegatesFile(ctx *cli.Context, blsCommon *BlsCommon) []*Delegate {
+	delegates1 := make([]*DelegateDef, 0)
 
-	vs := &DelegateSet{
-		Delegates: Delegates,
-	}
-
-	return vs
-}
-
-// Copy each Delegate into a new DelegateSet
-func (valSet *DelegateSet) Copy() *DelegateSet {
-	Delegates := make([]*Delegate, len(valSet.Delegates))
-	for i, val := range valSet.Delegates {
-		// NOTE: must copy, since IncrementAccum updates in place.
-		Delegates[i] = val.Copy()
-	}
-	return &DelegateSet{
-		Delegates:        Delegates,
-		totalVotingPower: valSet.totalVotingPower,
-	}
-}
-
-// HasAddress returns true if address given is in the Delegate set, false -
-// otherwise.
-// DelegateSet is not sorted
-func (valSet *DelegateSet) HasAddress(address []byte) bool {
-	for idx, _ := range valSet.Delegates {
-		if idx < len(valSet.Delegates) &&
-			bytes.Equal(valSet.Delegates[idx].Address.Bytes(), address) {
-			return true
-		}
-	}
-	return false
-}
-
-// GetByAddress returns an index of the Delegate with address and Delegate
-// itself if found. Otherwise, -1 and nil are returned.
-func (valSet *DelegateSet) GetByAddress(address []byte) (index int, val *Delegate) {
-	for idx, _ := range valSet.Delegates {
-		if idx < len(valSet.Delegates) &&
-			bytes.Equal(valSet.Delegates[idx].Address.Bytes(), address) {
-			return idx, valSet.Delegates[idx].Copy()
-		}
-	}
-	return -1, nil
-}
-
-// GetByIndex returns the Delegate's address and Delegate itself by index.
-// It returns nil values if index is less than 0 or greater or equal to
-// len(DelegateSet.Delegates).
-func (valSet *DelegateSet) GetByIndex(index int) (address []byte, val *Delegate) {
-	if index < 0 || index >= len(valSet.Delegates) {
-		return nil, nil
-	}
-	val = valSet.Delegates[index]
-	return val.Address.Bytes(), val.Copy()
-}
-
-// Size returns the length of the Delegate set.
-func (valSet *DelegateSet) Size() int {
-	return len(valSet.Delegates)
-}
-
-// TotalVotingPower returns the sum of the voting powers of all Delegates.
-func (valSet *DelegateSet) TotalVotingPower() int64 {
-	if valSet.totalVotingPower == 0 {
-		for _, val := range valSet.Delegates {
-			// mind overflow
-			valSet.totalVotingPower = safeAddClip(valSet.totalVotingPower, val.VotingPower)
-		}
-	}
-	return valSet.totalVotingPower
-}
-
-// Add adds val to the Delegate set and returns true. It returns false if val
-// is already in the set.
-func (valSet *DelegateSet) Add(val *Delegate) (added bool) {
-	val = val.Copy()
-	idx, _ := valSet.GetByAddress(val.Address.Bytes())
-
-	if idx == -1 {
-		valSet.Delegates = append(valSet.Delegates, val)
-
-		valSet.totalVotingPower = 0
-		return true
+	// load delegates from presets
+	var content []byte
+	if ctx.String("network") == "warringstakes" {
+		content = preset.MustAsset("shoal/delegates.json")
+	} else if ctx.String("network") == "main" {
+		content = preset.MustAsset("mainnet/delegates.json")
 	} else {
-		return false
-	}
-}
-
-// Update updates val and returns true. It returns false if val is not present
-// in the set.
-func (valSet *DelegateSet) Update(val *Delegate) (updated bool) {
-	index, _ := valSet.GetByAddress(val.Address.Bytes())
-	if index == -1 {
-		return false
-	}
-	valSet.Delegates[index] = val.Copy()
-	// Invalidate cache
-	valSet.totalVotingPower = 0
-	return true
-}
-
-// Remove deletes the Delegate with address. It returns the Delegate removed
-// and true. If returns nil and false if Delegate is not present in the set.
-func (valSet *DelegateSet) Remove(address []byte) (removedVal *Delegate, removed bool) {
-
-	idx, _ := valSet.GetByAddress(address)
-	if idx == -1 {
-		return nil, false
-	} else {
-		removedVal := valSet.Delegates[idx]
-		newDelegates := valSet.Delegates[:idx]
-		if idx+1 < len(valSet.Delegates) {
-			newDelegates = append(newDelegates, valSet.Delegates[idx+1:]...)
-		}
-		valSet.Delegates = newDelegates
-		// Invalidate cache
-		valSet.totalVotingPower = 0
-		return removedVal, true
-	}
-
-}
-
-// Iterate will run the given function over the set.
-func (valSet *DelegateSet) Iterate(fn func(index int, val *Delegate) bool) {
-	for i, val := range valSet.Delegates {
-		stop := fn(i, val.Copy())
-		if stop {
-			break
+		// load delegates from file system
+		dataDir := ctx.String("data-dir")
+		filePath := path.Join(dataDir, "delegates.json")
+		file, err := ioutil.ReadFile(filePath)
+		content = file
+		if err != nil {
+			fmt.Println("Unable load delegate file at", filePath, "error", err)
+			os.Exit(1)
+			return nil
 		}
 	}
-}
-
-func (valSet *DelegateSet) String() string {
-	return valSet.StringIndented("")
-}
-
-// String
-func (valSet *DelegateSet) StringIndented(indent string) string {
-	if valSet == nil {
-		return "nil-DelegateSet"
+	err := json.Unmarshal(content, &delegates1)
+	if err != nil {
+		fmt.Println("Unable unmarshal delegate file, please check your config", "error", err)
+		os.Exit(1)
+		return nil
 	}
-	valStrings := []string{}
-	valSet.Iterate(func(index int, val *Delegate) bool {
-		valStrings = append(valStrings, val.String())
-		return false
-	})
-	return fmt.Sprintf(`DelegateSet{
-%s  Delegates:
-%s    %v
-%s}`,
-		indent,
-		indent, strings.Join(valStrings, "\n"+indent+"  "),
-		indent)
+
+	delegates := make([]*Delegate, 0)
+	for _, d := range delegates1 {
+		// first part is ecdsa public, 2nd part is bls public key
+		pubKey, blsPub := blsCommon.SplitPubKey(string(d.PubKey))
+
+		var addr meter.Address
+		if len(d.Address) != 0 {
+			addr, err = meter.ParseAddress(d.Address)
+			if err != nil {
+				fmt.Println("can't read address of delegates:", d.String(), "error", err)
+				os.Exit(1)
+				return nil
+			}
+		} else {
+			// derive from public key
+			fmt.Println("Warning: address for delegate is not set, so use address derived from public key as default")
+			addr = meter.Address(crypto.PubkeyToAddress(*pubKey))
+		}
+
+		dd := NewDelegate([]byte(d.Name), addr, *pubKey, *blsPub, d.PubKey, d.VotingPower, COMMISSION_RATE_DEFAULT, d.NetAddr)
+		delegates = append(delegates, dd)
+	}
+	return delegates
 }

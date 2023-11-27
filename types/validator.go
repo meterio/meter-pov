@@ -19,13 +19,15 @@ import (
 // NOTE: The Accum is not included in Validator.Hash();
 // make sure to update that method if changes are made here
 type Validator struct {
-	Name        string
-	Address     meter.Address
-	PubKey      ecdsa.PublicKey
-	BlsPubKey   bls.PublicKey
-	VotingPower int64
-	NetAddr     NetAddress
-	CommitKey   []byte
+	Name           string
+	Address        meter.Address
+	PubKey         ecdsa.PublicKey
+	PubKeyBytes    []byte
+	BlsPubKey      bls.PublicKey
+	BlsPubKeyBytes []byte
+	VotingPower    int64
+	NetAddr        NetAddress
+	SortKey        []byte
 }
 
 func NewValidator(name string, address meter.Address, pubKey ecdsa.PublicKey, blsPub bls.PublicKey, votingPower int64) *Validator {
@@ -60,4 +62,8 @@ func (v *Validator) String() string {
 		v.NetAddr.IP.String(),
 		pubkey,
 	)
+}
+
+func (v *Validator) NameAndIP() string {
+	return fmt.Sprintf("%s(%s)", v.Name, v.NetAddr.IP)
 }

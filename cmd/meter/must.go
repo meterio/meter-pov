@@ -6,18 +6,16 @@
 package main
 
 import (
-	"crypto/ecdsa"
+	"context"
 	"crypto/tls"
 	b64 "encoding/base64"
 	"encoding/hex"
-	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"math/rand"
 	"net"
 	"net/http"
 	"os"
-	"path"
 	"path/filepath"
 	"strings"
 	"time"
@@ -37,14 +35,12 @@ import (
 	"github.com/meterio/meter-pov/co"
 	"github.com/meterio/meter-pov/comm"
 	"github.com/meterio/meter-pov/consensus"
-	bls "github.com/meterio/meter-pov/crypto/multi_sig"
 	"github.com/meterio/meter-pov/genesis"
 	"github.com/meterio/meter-pov/logdb"
 	"github.com/meterio/meter-pov/lvldb"
 	"github.com/meterio/meter-pov/meter"
 	"github.com/meterio/meter-pov/p2psrv"
 	"github.com/meterio/meter-pov/powpool"
-	"github.com/meterio/meter-pov/preset"
 	"github.com/meterio/meter-pov/state"
 	"github.com/meterio/meter-pov/txpool"
 	"github.com/meterio/meter-pov/types"
@@ -90,103 +86,10 @@ func selectGenesis(ctx *cli.Context) *genesis.Genesis {
 	}
 }
 
-type Delegate1 struct {
-	Name        string           `json:"name"`
-	Address     string           `json:"address"`
-	PubKey      string           `json:"pub_key"`
-	VotingPower int64            `json:"voting_power"`
-	NetAddr     types.NetAddress `json:"network_addr"`
-}
-
-func (d Delegate1) String() string {
-	return fmt.Sprintf("Name:%v, Address:%v, PubKey:%v, VotingPower:%v, NetAddr:%v", d.Name, d.Address, d.PubKey, d.VotingPower, d.NetAddr.String())
-}
-
-func loadDelegates(ctx *cli.Context, blsCommon *consensus.BlsCommon) []*types.Delegate {
-	delegates1 := make([]*Delegate1, 0)
-
-	// Hack for compile
-	// TODO: move these hard-coded filepath to config
-	var content []byte
-	if ctx.String(networkFlag.Name) == "warringstakes" {
-		content = preset.MustAsset("shoal/delegates.json")
-	} else if ctx.String(networkFlag.Name) == "main" {
-		content = preset.MustAsset("mainnet/delegates.json")
-	} else {
-		dataDir := ctx.String("data-dir")
-		filePath := path.Join(dataDir, "delegates.json")
-		file, err := ioutil.ReadFile(filePath)
-		content = file
-		if err != nil {
-			fmt.Println("Unable load delegate file at", filePath, "error", err)
-			os.Exit(1)
-			return nil
-		}
-	}
-	err := json.Unmarshal(content, &delegates1)
-	if err != nil {
-		fmt.Println("Unable unmarshal delegate file, please check your config", "error", err)
-		os.Exit(1)
-		return nil
-	}
-
-	delegates := make([]*types.Delegate, 0)
-	for _, d := range delegates1 {
-		// first part is ecdsa public, 2nd part is bls public key
-		pubKey, blsPub := splitPubKey(string(d.PubKey), blsCommon)
-
-		var addr meter.Address
-		if len(d.Address) != 0 {
-			addr, err = meter.ParseAddress(d.Address)
-			if err != nil {
-				fmt.Println("can't read address of delegates:", d.String(), "error", err)
-				os.Exit(1)
-				return nil
-			}
-		} else {
-			// derive from public key
-			fmt.Println("Warning: address for delegate is not set, so use address derived from public key as default")
-			addr = meter.Address(crypto.PubkeyToAddress(*pubKey))
-		}
-
-		dd := types.NewDelegate([]byte(d.Name), addr, *pubKey, *blsPub, d.VotingPower, types.COMMISSION_RATE_DEFAULT)
-		dd.SetInternCombinePublicKey(string(d.PubKey))
-		dd.NetAddr = d.NetAddr
-		delegates = append(delegates, dd)
-	}
-	return delegates
-}
-
-func splitPubKey(comboPub string, blsCommon *consensus.BlsCommon) (*ecdsa.PublicKey, *bls.PublicKey) {
-	// first part is ecdsa public, 2nd part is bls public key
-	trimmed := strings.TrimSuffix(comboPub, "\n")
-	split := strings.Split(trimmed, ":::")
-	// fmt.Println("ecdsa PubKey", split[0], "Bls PubKey", split[1])
-	pubKeyBytes, err := b64.StdEncoding.DecodeString(split[0])
-	if err != nil {
-		panic(fmt.Sprintf("read public key of delegate failed, %v", err))
-	}
-	pubKey, err := crypto.UnmarshalPubkey(pubKeyBytes)
-	if err != nil {
-		panic(fmt.Sprintf("read public key of delegate failed, %v", err))
-	}
-
-	blsPubBytes, err := b64.StdEncoding.DecodeString(split[1])
-	if err != nil {
-		panic(fmt.Sprintf("read Bls public key of delegate failed, %v", err))
-	}
-	blsPub, err := blsCommon.GetSystem().PubKeyFromBytes(blsPubBytes)
-	if err != nil {
-		panic(fmt.Sprintf("read Bls public key of delegate failed, %v", err))
-	}
-
-	return pubKey, &blsPub
-}
-
 func printDelegates(delegates []*types.Delegate) {
-	fmt.Println("--------------------------------------------------")
-	fmt.Println(fmt.Sprintf("         DELEGATES INITIALIZED (size:%d)        ", len(delegates)))
-	fmt.Println("--------------------------------------------------")
+	// fmt.Println("--------------------------------------------------")
+	fmt.Printf("Delegates Initialized (size:%d)\n", len(delegates))
+	// fmt.Println(------------------------------------------------")
 
 	// for i, d := range delegates {
 	// 	fmt.Printf("#%d: %s\n", i+1, d.String())
@@ -327,7 +230,7 @@ func discoServerParse(ctx *cli.Context) ([]*enode.Node, bool, error) {
 	return nodes, true, nil
 }
 
-func loadNodeMaster(ctx *cli.Context) (*node.Master, *consensus.BlsCommon) {
+func loadNodeMaster(ctx *cli.Context) (*node.Master, *types.BlsCommon) {
 	if ctx.String(networkFlag.Name) == "dev" {
 		i := rand.Intn(len(genesis.DevAccounts()))
 		acc := genesis.DevAccounts()[i]
@@ -348,11 +251,11 @@ func loadNodeMaster(ctx *cli.Context) (*node.Master, *consensus.BlsCommon) {
 	return master, blsCommon
 }
 
-func getNodeComplexPubKey(master *node.Master, blsCommon *consensus.BlsCommon) (string, error) {
+func getNodeComplexPubKey(master *node.Master, blsCommon *types.BlsCommon) (string, error) {
 	ecdsaPubBytes := crypto.FromECDSAPub(master.PublicKey)
 	ecdsaPubB64 := b64.StdEncoding.EncodeToString(ecdsaPubBytes)
 
-	blsPubBytes := blsCommon.GetSystem().PubKeyToBytes(*blsCommon.GetPubKey())
+	blsPubBytes := blsCommon.GetSystem().PubKeyToBytes(*blsCommon.GetPublicKey())
 	blsPubB64 := b64.StdEncoding.EncodeToString(blsPubBytes)
 
 	pub := strings.Join([]string{ecdsaPubB64, blsPubB64}, ":::")
@@ -365,22 +268,22 @@ type p2pComm struct {
 	peersCachePath string
 }
 
-func newP2PComm(ctx *cli.Context, chain *chain.Chain, txPool *txpool.TxPool, instanceDir string, powPool *powpool.PowPool, magic [4]byte) *p2pComm {
-	key, err := loadOrGeneratePrivateKey(filepath.Join(ctx.String("data-dir"), "p2p.key"))
+func newP2PComm(cliCtx *cli.Context, ctx context.Context, chain *chain.Chain, txPool *txpool.TxPool, instanceDir string, powPool *powpool.PowPool, magic [4]byte) *p2pComm {
+	key, err := loadOrGeneratePrivateKey(filepath.Join(cliCtx.String("data-dir"), "p2p.key"))
 	if err != nil {
 		fatal("load or generate P2P key:", err)
 	}
 
-	nat, err := nat.Parse(ctx.String(natFlag.Name))
+	nat, err := nat.Parse(cliCtx.String(natFlag.Name))
 	if err != nil {
-		cli.ShowAppHelp(ctx)
+		cli.ShowAppHelp(cliCtx)
 		fmt.Println("parse -nat flag:", err)
 		os.Exit(1)
 	}
 
-	discoSvr, overrided, err := discoServerParse(ctx)
+	discoSvr, overrided, err := discoServerParse(cliCtx)
 	if err != nil {
-		cli.ShowAppHelp(ctx)
+		cli.ShowAppHelp(cliCtx)
 		fmt.Println("parse bootstrap nodes failed:", err)
 		os.Exit(1)
 	}
@@ -396,11 +299,11 @@ func newP2PComm(ctx *cli.Context, chain *chain.Chain, txPool *txpool.TxPool, ins
 	opts := &p2psrv.Options{
 		Name:           common.MakeName("meter", fullVersion()),
 		PrivateKey:     key,
-		MaxPeers:       ctx.Int(maxPeersFlag.Name),
-		ListenAddr:     fmt.Sprintf(":%v", ctx.Int(p2pPortFlag.Name)),
+		MaxPeers:       cliCtx.Int(maxPeersFlag.Name),
+		ListenAddr:     fmt.Sprintf(":%v", cliCtx.Int(p2pPortFlag.Name)),
 		BootstrapNodes: BootstrapNodes,
 		NAT:            nat,
-		NoDiscovery:    ctx.Bool("no-discover"),
+		NoDiscovery:    cliCtx.Bool("no-discover"),
 	}
 
 	peersCachePath := filepath.Join(instanceDir, "peers.cache")
@@ -426,7 +329,7 @@ func newP2PComm(ctx *cli.Context, chain *chain.Chain, txPool *txpool.TxPool, ins
 	}
 
 	// load peers from cli flags
-	inputPeers := ctx.StringSlice("peers")
+	inputPeers := cliCtx.StringSlice("peers")
 	for _, p := range inputPeers {
 		node, err := enode.ParseV4(p)
 		if err == nil {
@@ -436,21 +339,24 @@ func newP2PComm(ctx *cli.Context, chain *chain.Chain, txPool *txpool.TxPool, ins
 		}
 	}
 
-	topic := ctx.String("disco-topic")
+	topic := cliCtx.String("disco-topic")
 
 	return &p2pComm{
-		comm:           comm.New(chain, txPool, powPool, topic, magic),
+		comm:           comm.New(ctx, chain, txPool, powPool, topic, magic),
 		p2pSrv:         p2psrv.New(opts),
 		peersCachePath: peersCachePath,
 	}
 }
 
 func (p *p2pComm) Start() {
-	log.Info("starting P2P networking")
+	start := time.Now()
 	if err := p.p2pSrv.Start(p.comm.Protocols()); err != nil {
 		fatal("start P2P server:", err)
 	}
+	log.Info("P2P server started", "elapsed", meter.PrettyDuration(time.Since(start)))
+	start = time.Now()
 	p.comm.Start()
+	log.Info("communicator started", "elapsed", meter.PrettyDuration(time.Since(start)))
 }
 
 func (p *p2pComm) Stop() {
@@ -478,9 +384,9 @@ func pubkeyHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 type Dispatcher struct {
-	cons          *consensus.ConsensusReactor
-	complexPubkey string
-	nw            api_node.Network
+	cons        *consensus.Reactor
+	comboPubkey string
+	nw          api_node.Network
 }
 
 func handleVersion(w http.ResponseWriter, r *http.Request) {
@@ -493,13 +399,13 @@ func (d *Dispatcher) handlePeers(w http.ResponseWriter, r *http.Request) {
 	api_utils.WriteJSON(w, d.nw.PeersStats())
 }
 
-func startObserveServer(ctx *cli.Context, cons *consensus.ConsensusReactor, complexPubkey string, nw probe.Network, chain *chain.Chain, stateCreator *state.Creator) (string, func()) {
+func startObserveServer(ctx *cli.Context, cons *consensus.Reactor, comboPubkey string, nw probe.Network, chain *chain.Chain, stateCreator *state.Creator) (string, func()) {
 	addr := ":8670"
 	listener, err := net.Listen("tcp", addr)
 	if err != nil {
 		fatal(fmt.Sprintf("listen observe addr [%v]: %v", addr, err))
 	}
-	probe := &probe.Probe{cons, complexPubkey, chain, fullVersion(), nw, stateCreator}
+	probe := &probe.Probe{cons, comboPubkey, chain, fullVersion(), nw, stateCreator}
 	mux := http.NewServeMux()
 	mux.Handle("/metrics", promhttp.Handler())
 	mux.HandleFunc("/probe", probe.HandleProbe)
@@ -509,7 +415,7 @@ func startObserveServer(ctx *cli.Context, cons *consensus.ConsensusReactor, comp
 	mux.HandleFunc("/probe/peers", probe.HandlePeers)
 
 	// dispatch the msg to reactor/pacemaker
-	mux.HandleFunc("/pacemaker", cons.OnReceivePacemakerMsg)
+	mux.HandleFunc("/pacemaker", cons.OnReceiveMsg)
 
 	srv := &http.Server{
 		Handler:      mux,
@@ -560,10 +466,8 @@ func startAPIServer(ctx *cli.Context, handler http.Handler, genesisID meter.Byte
 	goes.Go(func() {
 		err := srv.Serve(listener)
 		if err != nil {
-			fmt.Println("could not start API service, error:", err)
-			panic("could not start API service")
+			log.Warn(err.Error())
 		}
-
 	})
 
 	returnStr := "http://" + listener.Addr().String() + "/"
@@ -639,10 +543,7 @@ func startPowAPIServer(ctx *cli.Context, handler http.Handler) (string, func()) 
 	var goes co.Goes
 	goes.Go(func() {
 		err := srv.Serve(listener)
-		if err != nil {
-			fmt.Println("could not start powpool service, error:", err)
-			panic("could not start powpool service")
-		}
+		log.Warn(err.Error())
 
 	})
 	return "http://" + listener.Addr().String() + "/", func() {
@@ -669,8 +570,7 @@ func printStartupMessage(
 
 	fmt.Printf(`Starting %v
     Discover Topic  [ %v ]
-    P2PMagic        [ %v ]
-    ConsensusMagic  [ %v ]
+    Magic           [ %v p2p & consensus ]
     Network         [ %v %v ]    
     Best block      [ %v #%v @%v ]
     Forks           [ %v ]
@@ -684,7 +584,6 @@ func printStartupMessage(
 		common.MakeName("Meter", fullVersion()),
 		topic,
 		hex.EncodeToString(p2pMagic[:]),
-		hex.EncodeToString(consensusMagic[:]),
 		gene.ID(), gene.Name(),
 		bestBlock.ID(), bestBlock.Number(), time.Unix(int64(bestBlock.Timestamp()), 0),
 		meter.GetForkConfig(gene.ID()),

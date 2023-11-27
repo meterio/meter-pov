@@ -9,17 +9,21 @@ import (
 	"bytes"
 	"encoding/base64"
 	"encoding/hex"
-	"fmt"
 	"math/big"
 
 	"github.com/btcsuite/btcd/wire"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/common/math"
+	"github.com/inconshreveable/log15"
 	"github.com/meterio/meter-pov/block"
 	"github.com/meterio/meter-pov/meter"
 	"github.com/meterio/meter-pov/powpool"
 	"github.com/meterio/meter-pov/tx"
+)
+
+var (
+	log = log15.New("api", "blk")
 )
 
 type JSONBlockSummary struct {
@@ -38,7 +42,7 @@ type JSONBlockSummary struct {
 	ReceiptsRoot     meter.Bytes32      `json:"receiptsRoot"`
 	Signer           meter.Address      `json:"signer"`
 	IsTrunk          bool               `json:"isTrunk"`
-	IsKBlock         bool               `json:"isKBlock"`
+	BlockType        string             `json:"blockType"`
 	LastKBlockHeight uint32             `json:"lastKBlockHeight"`
 	CommitteeInfo    []*CommitteeMember `json:"committee"`
 	QC               *QC                `json:"qc"`
@@ -123,7 +127,7 @@ func buildJSONPowBlock(powRaw []byte) *JSONPowBlock {
 	powBlock := wire.MsgBlock{}
 	err := powBlock.Deserialize(bytes.NewReader(powRaw))
 	if err != nil {
-		fmt.Println("could not deserialize msgBlock, error:", err)
+		log.Error("could not deserialize msgBlock", "err", err)
 		return nil
 	}
 
@@ -170,7 +174,15 @@ func buildJSONBlockSummary(blk *block.Block, isTrunk bool, logsBloom string, bas
 	signer, _ := header.Signer()
 
 	var epoch uint64
-	isKBlock := header.BlockType() == block.BLOCK_TYPE_K_BLOCK
+	blockType := ""
+	if blk.IsKBlock() {
+		blockType = "KBlock"
+	} else if blk.IsMBlock() {
+		blockType = "MBlock"
+	} else if blk.IsSBlock() {
+		blockType = "SBlock"
+	}
+	isKBlock := header.BlockType() == block.KBlockType
 	if isTrunk && isKBlock {
 		epoch = blk.QC.EpochID
 	} else if len(blk.CommitteeInfos.CommitteeInfo) > 0 {
@@ -193,7 +205,7 @@ func buildJSONBlockSummary(blk *block.Block, isTrunk bool, logsBloom string, bas
 		ReceiptsRoot:     header.ReceiptsRoot(),
 		TxsRoot:          header.TxsRoot(),
 		IsTrunk:          isTrunk,
-		IsKBlock:         isKBlock,
+		BlockType:        blockType,
 		LastKBlockHeight: header.LastKBlockHeight(),
 		Epoch:            epoch,
 		KblockData:       make([]string, 0),
@@ -364,7 +376,7 @@ func convertKBlockData(kdata *block.KBlockData) {
 		blk := wire.MsgBlock{}
 		err := blk.BtcDecode(bytes.NewReader(raw), 0, wire.BaseEncoding)
 		if err != nil {
-			fmt.Println("error: ", err)
+			log.Error("btc decode failed", "err", err)
 		}
 
 	}

@@ -110,12 +110,13 @@ func initRuntimeAfterFork9() *tests.TestEnv {
 		panic(err)
 	}
 
-	b, stage, receipts, err := flow.Pack(genesis.DevAccounts()[0].PrivateKey, block.BLOCK_TYPE_M_BLOCK, 0)
+	b, stage, receipts, err := flow.Pack(genesis.DevAccounts()[0].PrivateKey, block.MBlockType, 0)
 	if _, err := stage.Commit(); err != nil {
 		panic(err)
 	}
 	b.SetQC(&block.QuorumCert{QCHeight: 1, QCRound: 1, EpochID: 1, VoterBitArrayStr: "X_XXX", VoterMsgHash: meter.BytesToBytes32([]byte("hello")), VoterAggSig: []byte("voteraggr")})
-	if _, err = c.AddBlock(b, receipts, false); err != nil {
+	escortQC := &block.QuorumCert{QCHeight: b.Number(), QCRound: b.QC.QCRound + 1, EpochID: b.QC.EpochID, VoterMsgHash: b.VotingHash()}
+	if _, err = c.AddBlock(b, escortQC, receipts); err != nil {
 		panic(err)
 	}
 	st, _ := state.New(b.Header().StateRoot(), kv)

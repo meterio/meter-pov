@@ -80,15 +80,13 @@ func ComputeRewardMap(baseReward, totalRewards *big.Int, delegates []*types.Dele
 	size := len(delegates)
 	baseRewards := new(big.Int).Mul(baseReward, big.NewInt(int64(size)))
 
-	fmt.Println("-----------------------------------------------------------------------")
-	fmt.Println(fmt.Sprintf("Calculate Dist/Autobid Reward Map, baseRewards:%v, totalRewards:%v (for this epoch)", baseRewards, totalRewards))
-	fmt.Println(fmt.Sprintf("baseReward per member:%v, size:%v", baseReward, size))
-	fmt.Println("-----------------------------------------------------------------------")
-
 	if size <= 0 {
-		fmt.Println("size is 0, skip calculating")
+		log.Warn("delegate size is 0, skip calculating reward map")
 		return rewardMap, nil
 	}
+	log.Info(fmt.Sprintf("calculate Dist/Autobid Reward Map, baseRewards:%v, totalRewards:%v (for this epoch)", baseRewards, totalRewards))
+	log.Info(fmt.Sprintf("baseReward per member:%v, size:%v", baseReward, size))
+
 	var i int
 	baseRewardsOnly := false
 
@@ -210,7 +208,7 @@ func ComputeRewardMap(baseReward, totalRewards *big.Int, delegates []*types.Dele
 
 func ComputeEpochBaseReward(validatorBaseReward *big.Int) *big.Int {
 	epochBaseReward := new(big.Int).Div(validatorBaseReward, big.NewInt(int64(meter.NEpochPerDay)))
-	log.Info("compute epoch base reward ", "NEpochPerDay", meter.NEpochPerDay, "epochBaseReward", epochBaseReward)
+	// log.Info("compute epoch base reward ", "NEpochPerDay", meter.NEpochPerDay, "epochBaseReward", epochBaseReward)
 	return epochBaseReward
 }
 

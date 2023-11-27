@@ -12,6 +12,7 @@ import (
 	"math/big"
 	"strings"
 
+	"github.com/inconshreveable/log15"
 	"github.com/pkg/errors"
 
 	"github.com/meterio/meter-pov/block"
@@ -22,6 +23,10 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/common/math"
 	"github.com/ethereum/go-ethereum/rlp"
+)
+
+var (
+	log = log15.New("api", "tx")
 )
 
 // Clause for json marshal
@@ -195,12 +200,13 @@ func convertTransaction(tx *tx.Transaction, header *block.Header, txIndex uint64
 		if err == nil {
 			ethTxJSON, err := ethTx.MarshalJSON()
 			if err != nil {
-				fmt.Println("could not marshal ethereum tx")
+				log.Error("could not marshal ethereum tx", "err", err)
 			}
 			etx := EthTx{}
 			err = json.Unmarshal(ethTxJSON, &etx)
 			if err != nil {
-				fmt.Println("could not unmarshal ethTx", err, string(ethTxJSON))
+				// ignore due to type convert error
+				// fmt.Println("could not unmarshal ethTx", err, string(ethTxJSON))
 			}
 			convertedEthTx = &etx
 			convertedEthTx.Type = ethTx.Type()

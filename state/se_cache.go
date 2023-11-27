@@ -1,7 +1,6 @@
 package state
 
 import (
-	"bytes"
 	"crypto/sha256"
 
 	"github.com/meterio/meter-pov/meter"
@@ -17,14 +16,14 @@ func NewSECacheEntry() *SECacheEntry {
 }
 
 type SECache struct {
-	auctionCB          *SECacheEntry
-	auctionSummaryList *SECacheEntry
+	auctionCB          *meter.AuctionCB
+	auctionSummaryList *meter.AuctionSummaryList
 }
 
 func NewSECache() *SECache {
 	return &SECache{
-		auctionCB:          NewSECacheEntry(),
-		auctionSummaryList: NewSECacheEntry(),
+		auctionCB:          nil,
+		auctionSummaryList: nil,
 	}
 }
 
@@ -34,36 +33,18 @@ func (se *SECache) sha256Hash(raw []byte) []byte {
 	return h.Sum(nil)
 }
 
-func (se *SECache) GetAuctionCB(raw []byte) *meter.AuctionCB {
-	hash := se.sha256Hash(raw)
-	target := se.auctionCB
-	if bytes.Equal(hash, target.hash) {
-		return target.val.(*meter.AuctionCB)
-	}
-	return nil
+func (se *SECache) GetAuctionCB() *meter.AuctionCB {
+	return se.auctionCB
 }
 
-func (se *SECache) SetAuctionCB(raw []byte, val *meter.AuctionCB) {
-	hash := se.sha256Hash(raw)
-	target := se.auctionCB
-
-	target.hash = hash
-	target.val = val
+func (se *SECache) SetAuctionCB(val *meter.AuctionCB) {
+	se.auctionCB = val
 }
 
-func (se *SECache) GetAuctionSummaryList(raw []byte) *meter.AuctionSummaryList {
-	hash := se.sha256Hash(raw)
-	target := se.auctionSummaryList
-	if bytes.Equal(hash, target.hash) {
-		return target.val.(*meter.AuctionSummaryList)
-	}
-	return nil
+func (se *SECache) GetAuctionSummaryList() *meter.AuctionSummaryList {
+	return se.auctionSummaryList
 }
 
-func (se *SECache) SetAuctionSummaryList(raw []byte, val *meter.AuctionSummaryList) {
-	hash := se.sha256Hash(raw)
-	target := se.auctionSummaryList
-
-	target.hash = hash
-	target.val = val
+func (se *SECache) SetAuctionSummaryList(val *meter.AuctionSummaryList) {
+	se.auctionSummaryList = val
 }

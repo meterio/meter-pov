@@ -50,15 +50,15 @@ func (s *State) SetProfileList(lockList *meter.ProfileList) {
 
 // Auction List
 func (s *State) GetAuctionCB() (result *meter.AuctionCB) {
+	cached := s.seCache.GetAuctionCB()
+	if cached != nil {
+		result = cached
+		return
+	}
 	s.DecodeStorage(meter.AuctionModuleAddr, meter.AuctionCBKey, func(raw []byte) error {
 		auctionCB := &meter.AuctionCB{}
 
 		if len(strings.TrimSpace(string(raw))) >= 0 {
-			cached := s.seCache.GetAuctionCB(raw)
-			if cached != nil {
-				result = cached
-				return nil
-			}
 			err := rlp.Decode(bytes.NewReader(raw), auctionCB)
 			if err != nil {
 				if err.Error() == "EOF" && len(raw) == 0 {
@@ -69,7 +69,7 @@ func (s *State) GetAuctionCB() (result *meter.AuctionCB) {
 				}
 			}
 
-			s.seCache.SetAuctionCB(raw, auctionCB)
+			s.seCache.SetAuctionCB(auctionCB)
 		}
 
 		result = auctionCB
@@ -79,24 +79,25 @@ func (s *State) GetAuctionCB() (result *meter.AuctionCB) {
 }
 
 func (s *State) SetAuctionCB(auctionCB *meter.AuctionCB) {
-	s.EncodeStorage(meter.AuctionModuleAddr, meter.AuctionCBKey, func() ([]byte, error) {
-		b, err := rlp.EncodeToBytes(auctionCB)
-		s.seCache.SetAuctionCB(b, auctionCB)
-		return b, err
-	})
+	s.seCache.SetAuctionCB(auctionCB)
+	// s.EncodeStorage(meter.AuctionModuleAddr, meter.AuctionCBKey, func() ([]byte, error) {
+	// 	b, err := rlp.EncodeToBytes(auctionCB)
+	// 	return b, err
+	// })
 }
 
 // summary List
 func (s *State) GetSummaryList() (result *meter.AuctionSummaryList) {
+	cached := s.seCache.GetAuctionSummaryList()
+	if cached != nil {
+		result = cached
+		// fmt.Println("Load summary list from cache", len(result.Summaries))
+		return
+	}
 	s.DecodeStorage(meter.AuctionModuleAddr, meter.AuctionSummaryListKey, func(raw []byte) error {
 		summaries := make([]*meter.AuctionSummary, 0)
 
 		if len(strings.TrimSpace(string(raw))) >= 0 {
-			cached := s.seCache.GetAuctionSummaryList(raw)
-			if cached != nil {
-				result = cached
-				return nil
-			}
 			err := rlp.Decode(bytes.NewReader(raw), &summaries)
 			if err != nil {
 				if err.Error() == "EOF" && len(raw) == 0 {
@@ -107,10 +108,11 @@ func (s *State) GetSummaryList() (result *meter.AuctionSummaryList) {
 				}
 			}
 
-			s.seCache.SetAuctionSummaryList(raw, meter.NewAuctionSummaryList(summaries))
 		}
 
+		// fmt.Println("Load summary list from storage", len(summaries))
 		result = meter.NewAuctionSummaryList(summaries)
+		s.seCache.SetAuctionSummaryList(result)
 		return nil
 	})
 	return
@@ -122,11 +124,29 @@ func (s *State) SetSummaryList(summaryList *meter.AuctionSummaryList) {
 		return bytes.Compare(summaryList.Summaries[i].AuctionID.Bytes(), summaryList.Summaries[j].AuctionID.Bytes()) <= 0
 	})
 	****/
-	s.EncodeStorage(meter.AuctionModuleAddr, meter.AuctionSummaryListKey, func() ([]byte, error) {
-		b, err := rlp.EncodeToBytes(summaryList.Summaries)
-		s.seCache.SetAuctionSummaryList(b, summaryList)
-		return b, err
-	})
+	s.seCache.SetAuctionSummaryList(summaryList)
+	// s.EncodeStorage(meter.AuctionModuleAddr, meter.AuctionSummaryListKey, func() ([]byte, error) {
+	// 	b, err := rlp.EncodeToBytes(summaryList.Summaries)
+	// 	return b, err
+	// })
+}
+
+func (s *State) CommitScriptEngineChanges() {
+	cachedCB := s.seCache.GetAuctionCB()
+	if cachedCB != nil {
+		s.EncodeStorage(meter.AuctionModuleAddr, meter.AuctionCBKey, func() ([]byte, error) {
+			b, err := rlp.EncodeToBytes(cachedCB)
+			return b, err
+		})
+	}
+
+	cachedSummaryList := s.seCache.GetAuctionSummaryList()
+	if cachedSummaryList != nil {
+		s.EncodeStorage(meter.AuctionModuleAddr, meter.AuctionSummaryListKey, func() ([]byte, error) {
+			b, err := rlp.EncodeToBytes(cachedSummaryList.Summaries)
+			return b, err
+		})
+	}
 }
 
 // Candidate List

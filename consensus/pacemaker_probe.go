@@ -3,34 +3,38 @@ package consensus
 // This is part of pacemaker that in charge of:
 // 1. provide probe for debug
 
-import "github.com/meterio/meter-pov/block"
+import (
+	"github.com/ethereum/go-ethereum/rlp"
+	"github.com/meterio/meter-pov/block"
+	"github.com/meterio/meter-pov/meter"
+)
 
+type BlockProbe struct {
+	Height uint32
+	Round  uint32
+	Type   block.BlockType
+	ID     meter.Bytes32
+}
 type PMProbeResult struct {
-	Mode             string
-	StartHeight      uint32
-	StartRound       uint32
-	CurRound         uint32
-	MyCommitteeIndex int
+	CurRound       uint32
+	InCommittee    bool
+	CommitteeIndex int
+	CommitteeSize  int
 
 	LastVotingHeight uint32
 	LastOnBeatRound  uint32
 	QCHigh           *block.QuorumCert
-	BlockLeaf        *BlockProbe
-	BlockExecuted    *BlockProbe
-	BlockLocked      *BlockProbe
+	LastCommitted    *BlockProbe
 
 	ProposalCount int
-	PendingCount  int
-	PendingLowest uint32
 }
 
 func (p *Pacemaker) Probe() *PMProbeResult {
 	result := &PMProbeResult{
-		Mode:             p.mode.String(),
-		StartHeight:      p.startHeight,
-		StartRound:       p.startRound,
-		CurRound:         p.currentRound,
-		MyCommitteeIndex: p.myActualCommitteeIndex,
+		CurRound:       p.currentRound,
+		InCommittee:    p.reactor.inCommittee,
+		CommitteeIndex: int(p.reactor.committeeIndex),
+		CommitteeSize:  int(p.reactor.committeeSize),
 
 		LastVotingHeight: p.lastVotingHeight,
 		LastOnBeatRound:  uint32(p.lastOnBeatRound),
@@ -39,22 +43,12 @@ func (p *Pacemaker) Probe() *PMProbeResult {
 	if p.QCHigh != nil && p.QCHigh.QC != nil {
 		result.QCHigh = p.QCHigh.QC
 	}
-	if p.blockLeaf != nil {
-		result.BlockLeaf = &BlockProbe{Height: p.blockLeaf.Height, Round: p.blockLeaf.Round, Type: uint32(p.blockLeaf.ProposedBlockType), Raw: p.blockLeaf.ProposedBlock}
+	if p.lastCommitted != nil {
+		rlp.EncodeToBytes(p.lastCommitted)
+		result.LastCommitted = &BlockProbe{Height: p.lastCommitted.Height, Round: p.lastCommitted.Round, Type: p.lastCommitted.ProposedBlock.BlockType(), ID: p.lastCommitted.ProposedBlock.ID()}
 	}
-	if p.blockExecuted != nil {
-		result.BlockExecuted = &BlockProbe{Height: p.blockExecuted.Height, Round: p.blockExecuted.Round, Type: uint32(p.blockExecuted.ProposedBlockType), Raw: p.blockExecuted.ProposedBlock}
-	}
-	if p.blockLocked != nil {
-		result.BlockLocked = &BlockProbe{Height: p.blockLocked.Height, Round: p.blockLocked.Round, Type: uint32(p.blockLocked.ProposedBlockType), Raw: p.blockLocked.ProposedBlock}
-	}
-	if p.proposalMap != nil {
-		result.ProposalCount = p.proposalMap.Len()
-	}
-	if p.pendingList != nil {
-		result.PendingCount = p.pendingList.Len()
-		result.PendingLowest = p.pendingList.GetLowestHeight()
-	}
+	result.ProposalCount = p.chain.DraftLen()
+
 	return result
 
 }

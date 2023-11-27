@@ -30,16 +30,15 @@ import (
 )
 
 var (
-	log          = log15.New("pkg", "comm")
-	GlobCommInst *Communicator
+	log = log15.New("pkg", "comm")
 )
 
 // Communicator communicates with remote p2p peers to exchange blocks and txs, etc.
 type Communicator struct {
-	chain          *chain.Chain
-	txPool         *txpool.TxPool
-	ctx            context.Context
-	cancel         context.CancelFunc
+	chain  *chain.Chain
+	txPool *txpool.TxPool
+	ctx    context.Context
+	// cancel         context.CancelFunc
 	peerSet        *PeerSet
 	syncedCh       chan struct{}
 	newBlockFeed   event.Feed
@@ -50,38 +49,24 @@ type Communicator struct {
 
 	powPool     *powpool.PowPool
 	configTopic string
-	syncTrigCh  chan bool
 
 	magic [4]byte
 }
 
-func SetGlobCommInst(c *Communicator) {
-	GlobCommInst = c
-}
-
-func GetGlobCommInst() *Communicator {
-	return GlobCommInst
-}
-
 // New create a new Communicator instance.
-func New(chain *chain.Chain, txPool *txpool.TxPool, powPool *powpool.PowPool, configTopic string, magic [4]byte) *Communicator {
-	ctx, cancel := context.WithCancel(context.Background())
-	c := &Communicator{
-		chain:          chain,
-		txPool:         txPool,
-		powPool:        powPool,
-		ctx:            ctx,
-		cancel:         cancel,
+func New(ctx context.Context, chain *chain.Chain, txPool *txpool.TxPool, powPool *powpool.PowPool, configTopic string, magic [4]byte) *Communicator {
+	return &Communicator{
+		chain:   chain,
+		txPool:  txPool,
+		powPool: powPool,
+		ctx:     ctx,
+		// cancel:         cancel,
 		peerSet:        newPeerSet(),
 		syncedCh:       make(chan struct{}),
 		announcementCh: make(chan *announcement),
 		configTopic:    configTopic,
-		syncTrigCh:     make(chan bool),
 		magic:          magic,
 	}
-
-	SetGlobCommInst(c)
-	return c
 }
 
 // Synced returns a channel indicates if synchronization process passed.
@@ -89,15 +74,10 @@ func (c *Communicator) Synced() <-chan struct{} {
 	return c.syncedCh
 }
 
-// trigger a manual sync
-func (c *Communicator) TriggerSync() {
-	c.syncTrigCh <- true
-}
-
 // Sync start synchronization process.
-func (c *Communicator) Sync(handler HandleBlockStream, qcHandler HandleQC) {
-	const initSyncInterval = 1500 * time.Microsecond
-	const syncInterval = 20 * time.Second
+func (c *Communicator) Sync(handler HandleBlockStream) {
+	const initSyncInterval = 500 * time.Millisecond
+	const syncInterval = 6 * time.Second
 
 	c.goes.Go(func() {
 		timer := time.NewTimer(0)
@@ -124,24 +104,8 @@ func (c *Communicator) Sync(handler HandleBlockStream, qcHandler HandleQC) {
 			timer = time.NewTimer(delay)
 			select {
 			case <-c.ctx.Done():
+				log.Warn("stop communicator due to context end")
 				return
-			case <-c.syncTrigCh:
-				log.Info("Triggered synchronization start")
-
-				best := c.chain.BestBlock().Header()
-				// choose peer which has the head block with higher total score
-				peer := c.peerSet.Slice().Find(func(peer *Peer) bool {
-					_, totalScore := peer.Head()
-					return totalScore >= best.TotalScore()
-				})
-				if peer != nil {
-					log.Info("trigger sync with peer", "peer", peer.RemoteAddr().String())
-					if err := c.sync(peer, best.Number(), handler, qcHandler); err != nil {
-						peer.logger.Info("synchronization failed", "err", err)
-					}
-					log.Info("triggered synchronization done", "bestQC", c.chain.BestQC().QCHeight, "bestBlock", c.chain.BestBlock().Number())
-				}
-				syncCount++
 			case <-timer.C:
 				log.Debug("synchronization start")
 
@@ -152,7 +116,7 @@ func (c *Communicator) Sync(handler HandleBlockStream, qcHandler HandleQC) {
 					return totalScore >= best.TotalScore()
 				})
 				if peer == nil {
-					// XXX: original setting was 3, changed to 1 for cold start
+					// original setting was 3, changed to 1 for cold start
 					if c.peerSet.Len() < 1 {
 						log.Debug("no suitable peer to sync")
 						break
@@ -160,7 +124,7 @@ func (c *Communicator) Sync(handler HandleBlockStream, qcHandler HandleQC) {
 					// if more than 3 peers connected, we are assumed to be the best
 					log.Debug("synchronization done, best assumed")
 				} else {
-					if err := c.sync(peer, best.Number(), handler, qcHandler); err != nil {
+					if err := c.sync(peer, best.Number(), handler); err != nil {
 						peer.logger.Debug("synchronization failed", "err", err)
 						break
 					}
@@ -198,13 +162,13 @@ func (c *Communicator) Protocols() []*p2psrv.Protocol {
 func (c *Communicator) Start() {
 	c.goes.Go(c.txsLoop)
 	c.goes.Go(c.announcementLoop)
-	// XXX: disable powpool gossip
+	// disable powpool gossip
 	//c.goes.Go(c.powsLoop)
 }
 
 // Stop stop the communicator.
 func (c *Communicator) Stop() {
-	c.cancel()
+	// c.cancel()
 	c.feedScope.Close()
 	c.goes.Wait()
 }
@@ -276,7 +240,7 @@ func (c *Communicator) runPeer(peer *Peer, dir string) {
 
 	peer.UpdateHead(status.BestBlockID, status.TotalScore)
 	c.peerSet.Add(peer, dir)
-	peer.logger.Debug(fmt.Sprintf("peer added (%v)", c.peerSet.Len()))
+	peer.logger.Info(fmt.Sprintf("peer added (%v)", c.peerSet.Len()))
 
 	defer func() {
 		c.peerSet.Remove(peer.ID())
@@ -301,17 +265,17 @@ func (c *Communicator) SubscribeBlock(ch chan *NewBlockEvent) event.Subscription
 }
 
 // BroadcastBlock broadcast a block to remote peers.
-func (c *Communicator) BroadcastBlock(blk *block.Block) {
-	h := blk.Header()
-	bestQC := c.chain.BestQCOrCandidate()
+func (c *Communicator) BroadcastBlock(blk *block.EscortedBlock) {
+	h := blk.Block.Header()
+	qc := blk.EscortQC
 	log.Debug("Broadcast block and qc",
 		"height", h.Number(),
 		"id", h.ID(),
 		"lastKblock", h.LastKBlockHeight(),
-		"bestQC", bestQC.String())
+		"escortQC", qc.String())
 
 	peers := c.peerSet.Slice().Filter(func(p *Peer) bool {
-		return !p.IsBlockKnown(blk.ID())
+		return !p.IsBlockKnown(blk.Block.ID())
 	})
 
 	p := int(math.Sqrt(float64(len(peers))))
@@ -320,12 +284,9 @@ func (c *Communicator) BroadcastBlock(blk *block.Block) {
 
 	for _, peer := range toPropagate {
 		peer := peer
-		peer.MarkBlock(blk.ID())
+		peer.MarkBlock(blk.Block.ID())
 		c.goes.Go(func() {
 			log.Debug("Sent BestQC/NewBlock to peer", "peer", peer.Peer.RemoteAddr().String())
-			if err := proto.NotifyNewBestQC(c.ctx, peer, bestQC); err != nil {
-				peer.logger.Debug("failed to broadcast new bestQC", "err", err)
-			}
 			if err := proto.NotifyNewBlock(c.ctx, peer, blk); err != nil {
 				peer.logger.Debug("failed to broadcast new block", "err", err)
 			}
@@ -334,13 +295,10 @@ func (c *Communicator) BroadcastBlock(blk *block.Block) {
 
 	for _, peer := range toAnnounce {
 		peer := peer
-		peer.MarkBlock(blk.ID())
+		peer.MarkBlock(blk.Block.ID())
 		c.goes.Go(func() {
 			log.Debug("Broadcast BestQC to peer", "peer", peer.Peer.RemoteAddr().String())
-			if err := proto.NotifyNewBestQC(c.ctx, peer, bestQC); err != nil {
-				peer.logger.Debug("failed to broadcast new bestQC", "err", err)
-			}
-			if err := proto.NotifyNewBlockID(c.ctx, peer, blk.ID()); err != nil {
+			if err := proto.NotifyNewBlockID(c.ctx, peer, blk.Block.ID()); err != nil {
 				peer.logger.Debug("failed to broadcast new block id", "err", err)
 			}
 		})

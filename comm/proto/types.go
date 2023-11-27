@@ -7,14 +7,12 @@ package proto
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/meterio/meter-pov/block"
 	"github.com/meterio/meter-pov/meter"
 	"github.com/meterio/meter-pov/powpool"
 	"github.com/meterio/meter-pov/tx"
-	"github.com/pkg/errors"
 )
 
 type (
@@ -53,7 +51,7 @@ func NotifyNewBlockID(ctx context.Context, rpc RPC, id meter.Bytes32) error {
 }
 
 // NotifyNewBlock notify new block to remote peer.
-func NotifyNewBlock(ctx context.Context, rpc RPC, block *block.Block) error {
+func NotifyNewBlock(ctx context.Context, rpc RPC, block *block.EscortedBlock) error {
 	return rpc.Notify(ctx, MsgNewBlock, block)
 }
 
@@ -65,10 +63,6 @@ func NotifyNewTx(ctx context.Context, rpc RPC, tx *tx.Transaction) error {
 // NotifyNewPow notify new pow block to remote peer.
 func NotifyNewPowBlock(ctx context.Context, rpc RPC, powBlockInfo *powpool.PowBlockInfo) error {
 	return rpc.Notify(ctx, MsgNewPowBlock, powBlockInfo)
-}
-
-func NotifyNewBestQC(ctx context.Context, rpc RPC, qc *block.QuorumCert) error {
-	return rpc.Notify(ctx, MsgNewBestQC, &WireQC{block.BlockMagicVersion1, qc})
 }
 
 // GetBlockByID query block from remote peer by given block ID.
@@ -100,19 +94,6 @@ func GetBlocksFromNumber(ctx context.Context, rpc RPC, num uint32) ([]rlp.RawVal
 		return nil, err
 	}
 	return blocks, nil
-}
-
-func GetBestQC(ctx context.Context, rpc RPC) (*block.QuorumCert, error) {
-	var wireQC WireQC
-	if err := rpc.Call(ctx, MsgGetBestQC, nil, &wireQC); err != nil {
-		return nil, err
-	}
-	if wireQC.Magic != block.BlockMagicVersion1 {
-		str := fmt.Sprintf("QC magic mismatch, has %v, expect %v", wireQC.Magic, block.BlockMagicVersion1)
-		fmt.Printf("%s, QC: %s", str, wireQC.QC.String())
-		return nil, errors.New(str)
-	}
-	return wireQC.QC, nil
 }
 
 // GetTxs get txs from remote peer.

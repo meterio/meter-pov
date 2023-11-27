@@ -51,7 +51,7 @@ func TestSubscribeNewTx(t *testing.T) {
 		Build()
 	qc := block.QuorumCert{QCHeight: 1, QCRound: 1, EpochID: 0}
 	b1.SetQC(&qc)
-	pool.chain.AddBlock(b1, nil, true)
+	pool.chain.AddBlock(b1, nil, nil)
 
 	txCh := make(chan *TxEvent)
 
@@ -67,7 +67,7 @@ func TestSubscribeNewTx(t *testing.T) {
 func TestWashTxs(t *testing.T) {
 	pool := newPool()
 	defer pool.Close()
-	txs, _, err := pool.wash(pool.chain.BestBlock().Header())
+	txs, _, err := pool.wash(pool.chain.BestBlock().Header(), time.Second*10)
 	assert.Nil(t, err)
 	assert.Zero(t, len(txs))
 	assert.Zero(t, len(pool.Executables()))
@@ -75,7 +75,7 @@ func TestWashTxs(t *testing.T) {
 	tx := newTx(pool.chain.Tag(), nil, 21000, tx.BlockRef{}, 100, nil, genesis.DevAccounts()[0])
 	assert.Nil(t, pool.Add(tx))
 
-	txs, _, err = pool.wash(pool.chain.BestBlock().Header())
+	txs, _, err = pool.wash(pool.chain.BestBlock().Header(), time.Second*10)
 	assert.Nil(t, err)
 	assert.Equal(t, Tx.Transactions{tx}, txs)
 
@@ -88,9 +88,9 @@ func TestWashTxs(t *testing.T) {
 		Build()
 	qc := block.QuorumCert{QCHeight: 1, QCRound: 1, EpochID: 0}
 	b1.SetQC(&qc)
-	pool.chain.AddBlock(b1, nil, true)
+	pool.chain.AddBlock(b1, nil, nil)
 
-	txs, _, err = pool.wash(pool.chain.BestBlock().Header())
+	txs, _, err = pool.wash(pool.chain.BestBlock().Header(), time.Second*10)
 	assert.Nil(t, err)
 	assert.Equal(t, Tx.Transactions{tx}, txs)
 }
@@ -107,7 +107,7 @@ func TestAdd(t *testing.T) {
 		Build()
 	qc := block.QuorumCert{QCHeight: 1, QCRound: 1, EpochID: 0}
 	b1.SetQC(&qc)
-	pool.chain.AddBlock(b1, nil, true)
+	pool.chain.AddBlock(b1, nil, nil)
 	acc := genesis.DevAccounts()[0]
 
 	dupTx := newTx(pool.chain.Tag(), nil, 21000, tx.BlockRef{}, 100, nil, acc)

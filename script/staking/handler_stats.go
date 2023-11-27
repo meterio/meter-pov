@@ -15,7 +15,7 @@ func (s *Staking) DelegateStatHandler(env *setypes.ScriptEnv, sb *StakingBody, g
 			ret = []byte(err.Error())
 		}
 		env.SetReturnData(ret)
-		s.logger.Info("Stats completed", "elapsed", meter.PrettyDuration(time.Since(start)))
+		s.logger.Debug("Stats completed", "elapsed", meter.PrettyDuration(time.Since(start)))
 	}()
 
 	if gas < meter.ClauseGas {
@@ -74,7 +74,7 @@ func (s *Staking) DelegateStatHandler(env *setypes.ScriptEnv, sb *StakingBody, g
 	}
 	s.logger.Info("Receives stats", "address", sb.CandAddr, "name", string(sb.CandName), "epoch", epoch, "infraction", IncrInfraction)
 
-	var jail bool
+	var shouldPutInJail bool
 	stats := statisticsList.Get(sb.CandAddr)
 	if stats == nil {
 		stats = meter.NewDelegateStat(sb.CandAddr, sb.CandName, sb.CandPubKey)
@@ -87,12 +87,12 @@ func (s *Staking) DelegateStatHandler(env *setypes.ScriptEnv, sb *StakingBody, g
 	proposerViolation := stats.CountMissingProposerViolation(epoch)
 	leaderViolation := stats.CountMissingLeaderViolation(epoch)
 	doubleSignViolation := stats.CountDoubleSignViolation(epoch)
-	jail = proposerViolation >= meter.JailCriteria_MissingProposerViolation || leaderViolation >= meter.JailCriteria_MissingLeaderViolation || doubleSignViolation >= meter.JailCriteria_DoubleSignViolation || (proposerViolation >= 1 && leaderViolation >= 1)
-	s.logger.Info("stat", "missProposer", proposerViolation, "missLeader", leaderViolation, "doubleSign", doubleSignViolation, "jail", jail)
+	shouldPutInJail = proposerViolation >= meter.JailCriteria_MissingProposerViolation || leaderViolation >= meter.JailCriteria_MissingLeaderViolation || doubleSignViolation >= meter.JailCriteria_DoubleSignViolation || (proposerViolation >= 1 && leaderViolation >= 1)
+	s.logger.Info("stat hearing result", "proposerViolation", proposerViolation, "leaderViolation", leaderViolation, "doubleSignViolation", doubleSignViolation, "shouldPutInJail", shouldPutInJail)
 
 	blockNum := env.GetBlockNum()
-	if jail == true {
-		s.logger.Warn("delegate JAILED", "address", stats.Addr, "name", string(stats.Name), "epoch", epoch, "totalPts", stats.TotalPts)
+	if shouldPutInJail {
+		s.logger.Warn("validator JAILED", "address", stats.Addr, "name", string(stats.Name), "epoch", epoch, "totalPts", stats.TotalPts)
 
 		// if this candidate already uncandidate, forgive it
 		if cand := candidateList.Get(stats.Addr); cand != nil {
@@ -103,7 +103,7 @@ func (s *Staking) DelegateStatHandler(env *setypes.ScriptEnv, sb *StakingBody, g
 				inJailList.Add(meter.NewInJail(stats.Addr, stats.Name, stats.PubKey, stats.TotalPts, &stats.Infractions, bail, sb.Timestamp))
 			}
 		} else {
-			s.logger.Warn("delegate already uncandidated, skip ...", "address", stats.Addr, "name", string(stats.Name))
+			s.logger.Warn("validator already uncandidated, skip ...", "address", stats.Addr, "name", string(stats.Name))
 		}
 	}
 

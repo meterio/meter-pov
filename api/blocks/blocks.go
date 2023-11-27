@@ -7,7 +7,6 @@ package blocks
 
 import (
 	"encoding/hex"
-	"fmt"
 	"net/http"
 	"strconv"
 
@@ -33,15 +32,6 @@ func New(chain *chain.Chain, stateC *state.Creator) *Blocks {
 		chain,
 		stateC,
 	}
-}
-
-func (b *Blocks) handleGetBestQC(w http.ResponseWriter, req *http.Request) error {
-	quorumCert := b.chain.BestQCOrCandidate()
-	qc, err := convertQC(quorumCert)
-	if err != nil {
-		return err
-	}
-	return utils.WriteJSON(w, qc)
 }
 
 func (b *Blocks) handleGetBlock(w http.ResponseWriter, req *http.Request) error {
@@ -116,9 +106,6 @@ func (b *Blocks) parseRevision(revision string) (interface{}, error) {
 	if revision == "" || revision == "best" {
 		return nil, nil
 	}
-	if revision == "leaf" {
-		return "", nil
-	}
 	if len(revision) == 66 || len(revision) == 64 {
 		blockID, err := meter.ParseBytes32(revision)
 		if err != nil {
@@ -165,8 +152,6 @@ func (b *Blocks) getBlock(revision interface{}) (*block.Block, error) {
 			return nil, chain.ErrNotFound
 		}
 		return b.chain.GetTrunkBlock(revision.(uint32))
-	case string:
-		return b.chain.LeafBlock(), nil
 	default:
 		return b.chain.BestBlock(), nil
 	}
@@ -176,11 +161,11 @@ func (b *Blocks) getKBlockByEpoch(epoch uint64) (*block.Block, error) {
 	best := b.chain.BestBlock()
 	curEpoch := best.GetBlockEpoch()
 	if epoch > curEpoch {
-		fmt.Println("requested epoch is too new", "epoch:", epoch)
+		log.Warn("requested epoch is too new", "epoch", epoch)
 		return nil, errors.New("requested epoch is too new")
 	}
 
-	//fmt.Println("getKBlockByEpoch", "epoch", epoch, "curEpoch", curEpoch)
+	//log.Info("getKBlockByEpoch", "epoch", epoch, "curEpoch", curEpoch)
 	delta := uint64(best.Number()) / curEpoch
 
 	var blk *block.Block
@@ -194,7 +179,7 @@ func (b *Blocks) getKBlockByEpoch(epoch uint64) (*block.Block, error) {
 		ht := delta * (epoch + 4)
 		blk, err = b.chain.GetTrunkBlock(uint32(ht))
 		if err != nil {
-			fmt.Println("get the kblock failed", "epoch", epoch, "error", err)
+			log.Error("get kblock failed", "epoch", epoch, "err", err)
 			return nil, err
 		}
 
@@ -210,27 +195,27 @@ func (b *Blocks) getKBlockByEpoch(epoch uint64) (*block.Block, error) {
 
 			blk, err = b.chain.GetTrunkBlock(uint32(ht) + uint32(5*delta))
 			if err != nil {
-				fmt.Println("get the kblock failed", "epoch", epoch, "error", err)
+				log.Error("get kblock failed", "epoch", epoch, "err", err)
 				return nil, err
 			}
 			ep = blk.GetBlockEpoch()
-			//fmt.Println("... height:", blk.Number(), "epoch", ep)
+			//log.Info("... height:", blk.Number(), "epoch", ep)
 		}
 	}
 
 	// find out the close enough search point
-	// fmt.Println("start to search kblock", "height:", blk.Number(), "epoch", ep, "target epoch", epoch)
+	// log.Info("start to search kblock", "height:", blk.Number(), "epoch", ep, "target epoch", epoch)
 	for ep > epoch {
 		blk, err = b.chain.GetTrunkBlock(blk.LastKBlockHeight())
 		if err != nil {
-			fmt.Println("get the TrunkBlock failed", "epoch", epoch, "error", err)
+			log.Error("getTrunkBlock failed", "epoch", epoch, "err", err)
 			return nil, err
 		}
 		ep = blk.GetBlockEpoch()
-		//fmt.Println("...searching height:", blk.Number(), "epoch", ep)
+		//log.Info("...searching height:", blk.Number(), "epoch", ep)
 	}
 
-	//fmt.Println("get the kblock", "height:", blk.Number(), "epoch", ep)
+	//log.Info("get the kblock", "height:", blk.Number(), "epoch", ep)
 	if ep == epoch {
 		return blk, nil
 	}
@@ -241,7 +226,7 @@ func (b *Blocks) getKBlockByEpoch(epoch uint64) (*block.Block, error) {
 	for {
 		blk, err = b.chain.GetTrunkBlock(uint32(ht))
 		if err != nil {
-			fmt.Println("get the TrunkBlock failed", "epoch", epoch, "error", err)
+			log.Error("getTrunkBlock failed", "epoch", epoch, "err", err)
 			return nil, err
 		}
 		ep = blk.GetBlockEpoch()
@@ -257,7 +242,7 @@ func (b *Blocks) getKBlockByEpoch(epoch uint64) (*block.Block, error) {
 		if count >= 2000 {
 			return nil, errors.New("can not find the kblock")
 		}
-		//fmt.Println("...final search. height:", ht, "epoch", ep)
+		//log.Info("...final search. height:", ht, "epoch", ep)
 	}
 }
 

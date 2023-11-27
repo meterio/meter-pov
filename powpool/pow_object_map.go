@@ -76,7 +76,6 @@ func (m *powObjectMap) _add(powObj *powObject) error {
 	m.latestHeightMkr.update(powObj)
 	log.Debug("Added to powObjectMap", "powBlock", powObj.blockInfo.ToString(), "powpoolSize", m.Size())
 	// fmt.Println("Added to powObjectMap: ", powObj.blockInfo.ToString(), "poolSize: ", m.Size())
-	fmt.Println("add print for update")
 	return nil
 }
 

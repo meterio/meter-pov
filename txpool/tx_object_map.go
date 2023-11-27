@@ -7,6 +7,7 @@ package txpool
 
 import (
 	"errors"
+	"fmt"
 	"sync"
 
 	"github.com/meterio/meter-pov/meter"
@@ -48,7 +49,7 @@ func (m *txObjectMap) Add(txObj *txObject, limitPerAccount int) error {
 
 	m.quota[txObj.Origin()]++
 	m.txObjMap[txObj.ID()] = txObj
-	log.Info("added tx", "ID", txObj.ID(), "mapSize", len(m.txObjMap))
+	log.Info(fmt.Sprintf("added tx %s", txObj.ID()), "poolSize", len(m.txObjMap))
 	return nil
 }
 
@@ -69,9 +70,9 @@ func (m *txObjectMap) Remove(txID meter.Bytes32) bool {
 			delete(m.quota, txObj.Origin())
 		}
 		delete(m.txObjMap, txID)
+		log.Info("removed tx", "id", txID, "mapSize", len(m.txObjMap))
 		return true
 	}
-	log.Info("removed tx", "id", txID, "mapSize", len(m.txObjMap))
 	return false
 }
 

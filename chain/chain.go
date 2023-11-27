@@ -9,7 +9,6 @@ import (
 	"bytes"
 	"fmt"
 	"runtime"
-	"sort"
 	"sync"
 	"time"
 
@@ -50,19 +49,19 @@ var (
 // Chain describes a persistent block chain.
 // It's thread-safe.
 type Chain struct {
-	kv              kv.GetPutter
-	ancestorTrie    *ancestorTrie
-	genesisBlock    *block.Block
-	bestBlock       *block.Block
-	leafBlock       *block.Block
-	bestQC          *block.QuorumCert
-	tag             byte
-	caches          caches
-	rw              sync.RWMutex
-	tick            co.Signal
-	bestQCCandidate *block.QuorumCert
+	kv           kv.GetPutter
+	ancestorTrie *ancestorTrie
+	genesisBlock *block.Block
+	bestBlock    *block.Block
+	bestQC       *block.QuorumCert
+	tag          byte
+	caches       caches
+	rw           sync.RWMutex
+	tick         co.Signal
 
 	bestBlockBeforeIndexFlattern *block.Block
+	proposalMap                  *ProposalMap
+	drw                          sync.RWMutex
 }
 
 type caches struct {
@@ -82,7 +81,7 @@ func New(kv kv.GetPutter, genesisBlock *block.Block, verbose bool) (*Chain, erro
 		return nil, errors.New("genesis block should not have transactions")
 	}
 	ancestorTrie := newAncestorTrie(kv)
-	var bestBlock, leafBlock *block.Block
+	var bestBlock *block.Block
 
 	genesisID := genesisBlock.ID()
 	if bestBlockID, err := loadBestBlockID(kv); err != nil {
@@ -133,19 +132,9 @@ func New(kv kv.GetPutter, genesisBlock *block.Block, verbose bool) (*Chain, erro
 		if bestBlock.Number() == 0 && bestBlock.QC == nil {
 			log.Info("QC of best block is empty, set it to genesis QC")
 			bestBlock.QC = block.GenesisQC()
+			saveBestQC(kv, block.GenesisEscortQC(bestBlock))
 		}
 
-		// Load leaf block
-		if leafBlockID, err := loadLeafBlockID(kv); err == nil {
-			leafBlockRaw, err := loadBlockRaw(kv, leafBlockID)
-			if err != nil {
-				return nil, err
-			}
-			leafBlock, err = (&rawBlock{raw: leafBlockRaw}).Block()
-			if err != nil {
-				return nil, err
-			}
-		}
 	}
 
 	rawBlocksCache := newCache(blockCacheLimit, func(key interface{}) (interface{}, error) {
@@ -178,47 +167,29 @@ func New(kv kv.GetPutter, genesisBlock *block.Block, verbose bool) (*Chain, erro
 		panic("Best Block Before Flattern initialize failed")
 	}
 
-	if leafBlock == nil {
-		log.Debug("LeafBlock is empty, set it to genesis ")
-		leafBlock = bestBlock
-	} else {
-		// fmt.Println("Leaf Block", leafBlock.CompactString())
-		// remove all leaf blocks that are not finalized
-		for leafBlock.IsSBlock() || leafBlock.TotalScore() > bestBlock.TotalScore() {
-			fmt.Println("Pruning leaf blocks")
-			parentID, err := ancestorTrie.GetAncestor(bestBlockBeforeFlattern.ID(), leafBlock.Number()-1)
-			if err != nil {
-				break
-			}
-			deletedBlock, err := deleteBlock(kv, leafBlock.ID())
-			if err != nil {
-				fmt.Println("Error delete block: ", err)
-				break
-			}
-			fmt.Println("Deleted block:", deletedBlock.CompactString())
-			parentRaw, err := loadBlockRaw(kv, parentID)
-			if err != nil {
-				fmt.Println("Error load parent", err)
-			}
-			parentBlk, _ := (&rawBlock{raw: parentRaw}).Block()
-			leafBlock = parentBlk
-		}
-
-		if leafBlock.TotalScore() < bestBlock.TotalScore() {
-			leafBlock = bestBlock
-		}
-		err := saveLeafBlockID(kv, leafBlock.ID())
-		if err != nil {
-			fmt.Println("could not save leaf block, error: ", err)
-		}
-	}
-
 	bestQC, err := loadBestQC(kv)
 	if err != nil {
-		log.Debug("BestQC is empty, set it to use genesisQC")
-		bestQC = block.GenesisQC()
+		log.Debug("BestQC is empty, set it to use genesisEscortQC")
+		bestQC = block.GenesisEscortQC(genesisBlock)
 		bestQCHeightGauge.Set(float64(bestQC.QCHeight))
 	}
+
+	if bestBlock.Number() > bestQC.QCHeight {
+		log.Warn("best block > best QC, start to correct best block", "bestBlock", bestBlock.Number(), "bestQC", bestQC.QCHeight)
+		matchBestBlockID, err := ancestorTrie.GetAncestor(bestBlock.ID(), bestQC.QCHeight)
+		if err != nil {
+			log.Error("could not load match best block", "err", err)
+		} else {
+			matchBestBlockRaw, err := loadBlockRaw(kv, matchBestBlockID)
+			if err != nil {
+				fmt.Println("could not load raw for bestBlockBeforeFlattern: ", err)
+			} else {
+				bestBlock, _ = (&rawBlock{raw: matchBestBlockRaw}).Block()
+				saveBestBlockIDBeforeFlattern(kv, matchBestBlockID)
+			}
+		}
+	}
+
 	bestHeightGauge.Set(float64(bestBlock.Number()))
 	bestQCHeightGauge.Set(float64(bestQC.QCHeight))
 
@@ -228,7 +199,6 @@ func New(kv kv.GetPutter, genesisBlock *block.Block, verbose bool) (*Chain, erro
 		fmt.Println("---------------------------------------------------------")
 		fmt.Println("Config:  ", meter.BlockChainConfig.ToString())
 		fmt.Println("Genesis: ", genesisBlock.ID())
-		fmt.Println("Leaf:    ", leafBlock.CompactString())
 		fmt.Println("Best:    ", bestBlock.CompactString())
 		fmt.Println("Best QC: ", bestQC.String())
 		fmt.Println("Best Before Flattern:", bestBlockBeforeFlattern.CompactString())
@@ -239,18 +209,17 @@ func New(kv kv.GetPutter, genesisBlock *block.Block, verbose bool) (*Chain, erro
 		ancestorTrie: ancestorTrie,
 		genesisBlock: genesisBlock,
 		bestBlock:    bestBlock,
-		leafBlock:    leafBlock,
 		bestQC:       bestQC,
 		tag:          genesisBlock.ID()[31],
 		caches: caches{
 			rawBlocks: rawBlocksCache,
 			receipts:  receiptsCache,
 		},
-		bestQCCandidate: bestQC,
 
 		bestBlockBeforeIndexFlattern: bestBlockBeforeFlattern,
 	}
 
+	c.proposalMap = NewProposalMap(c)
 	go c.houseKeeping(time.Minute * 10)
 	return c, nil
 }
@@ -310,30 +279,6 @@ func (c *Chain) BestQC() *block.QuorumCert {
 	return c.bestQC
 }
 
-func (c *Chain) BestQCCandidate() *block.QuorumCert {
-	c.rw.RLock()
-	defer c.rw.RUnlock()
-	return c.bestQCCandidate
-}
-
-func (c *Chain) BestQCOrCandidate() *block.QuorumCert {
-	c.rw.RLock()
-	defer c.rw.RUnlock()
-	bestQCHeight := uint32(0)
-	if c.bestQC != nil {
-		bestQCHeight = c.bestQC.QCHeight
-	}
-	bestCandidateHeight := uint32(0)
-	if c.bestQCCandidate != nil {
-		bestCandidateHeight = c.bestQCCandidate.QCHeight
-	}
-
-	if bestQCHeight > bestCandidateHeight {
-		return c.bestQC
-	}
-	return c.bestQCCandidate
-}
-
 func (c *Chain) RemoveBlock(blockID meter.Bytes32) error {
 	c.rw.Lock()
 	defer c.rw.Unlock()
@@ -353,7 +298,7 @@ func (c *Chain) RemoveBlock(blockID meter.Bytes32) error {
 // AddBlock add a new block into block chain.
 // Once reorg happened (len(Trunk) > 0 && len(Branch) >0), Fork.Branch will be the chain transitted from trunk to branch.
 // Reorg happens when isTrunk is true.
-func (c *Chain) AddBlock(newBlock *block.Block, receipts tx.Receipts, finalize bool) (*Fork, error) {
+func (c *Chain) AddBlock(newBlock *block.Block, escortQC *block.QuorumCert, receipts tx.Receipts) (*Fork, error) {
 	c.rw.Lock()
 	defer c.rw.Unlock()
 
@@ -373,12 +318,11 @@ func (c *Chain) AddBlock(newBlock *block.Block, receipts tx.Receipts, finalize b
 			string(header.Signature()) == string(newHeader.Signature()) &&
 			header.ReceiptsRoot() == newHeader.ReceiptsRoot() &&
 			header.Timestamp() == newHeader.Timestamp() &&
-			parentFinalized == true &&
-			finalize == true {
+			parentFinalized {
 			// if the current block is the finalized version of saved block, update it accordingly
 			// do nothing
 			selfFinalized := c.IsBlockFinalized(newHeader.ID())
-			if selfFinalized == true {
+			if selfFinalized {
 				// if the new block has already been finalized, return directly
 				return nil, ErrBlockExist
 			}
@@ -413,6 +357,7 @@ func (c *Chain) AddBlock(newBlock *block.Block, receipts tx.Receipts, finalize b
 	}
 
 	for i, tx := range newBlock.Transactions() {
+		log.Info("saving tx meta for ", "block", newBlock.Number(), "tx", tx.ID())
 		meta, err := loadTxMeta(c.kv, tx.ID())
 		if err != nil {
 			if !c.IsNotFound(err) {
@@ -431,37 +376,29 @@ func (c *Chain) AddBlock(newBlock *block.Block, receipts tx.Receipts, finalize b
 
 	var fork *Fork
 	isTrunk := c.isTrunk(newBlock.Header())
+	// log.Info("isTrunk", "blk", newBlock.Number(), "isTrunk", isTrunk)
 	if isTrunk {
 		if fork, err = c.buildFork(newBlock.Header(), c.bestBlock.Header()); err != nil {
 			return nil, err
 		}
-		if finalize == true {
-			if err := saveBestBlockID(batch, newBlockID); err != nil {
-				return nil, err
-			}
-			c.bestBlock = newBlock
-			bestHeightGauge.Set(float64(c.bestBlock.Number()))
-			log.Debug("Update Best Block", "bestBlock", newBlock.ID())
-			if newBlock.TotalScore() > c.leafBlock.TotalScore() {
-				if err := saveLeafBlockID(batch, newBlockID); err != nil {
-					return nil, err
-				}
 
-				c.leafBlock = newBlock
-			}
-			_, err := c.UpdateBestQC(nil, None)
-			if err != nil {
-				fmt.Println("Error during update QC: ", err)
-			}
-		} else {
-			if newBlock.TotalScore() > c.leafBlock.TotalScore() {
-				if err := saveLeafBlockID(batch, newBlockID); err != nil {
-					return nil, err
-				}
-
-				c.leafBlock = newBlock
-			}
+		if err := saveBestBlockID(batch, newBlockID); err != nil {
+			return nil, err
 		}
+		c.bestBlock = newBlock
+		bestHeightGauge.Set(float64(c.bestBlock.Number()))
+		log.Debug("saved best block", "blk", newBlock.ID())
+
+		if escortQC == nil {
+			return nil, errors.New("escort QC is nil")
+		}
+		err = saveBestQC(batch, escortQC)
+		if err != nil {
+			fmt.Println("Error during update QC: ", err)
+		}
+		log.Debug("saved best qc")
+		c.bestQC = escortQC
+
 	} else {
 		fork = &Fork{Ancestor: parent, Branch: []*block.Header{newBlock.Header()}}
 	}
@@ -478,10 +415,7 @@ func (c *Chain) AddBlock(newBlock *block.Block, receipts tx.Receipts, finalize b
 }
 
 func (c *Chain) IsBlockFinalized(id meter.Bytes32) bool {
-	if block.Number(id) <= c.bestBlock.Number() {
-		return true
-	}
-	return false
+	return block.Number(id) <= c.bestBlock.Number()
 }
 
 // GetBlockHeader get block header by block id.
@@ -879,236 +813,6 @@ func (c *Chain) nextBlock(descendantID meter.Bytes32, num uint32) (*block.Block,
 	return c.getBlock(next)
 }
 
-func (c *Chain) LeafBlock() *block.Block {
-	return c.leafBlock
-}
-
-func (c *Chain) UpdateLeafBlock() error {
-	if c.leafBlock.Number() < c.bestBlock.Number() {
-		c.leafBlock = c.bestBlock
-		fmt.Println("!!! Move Leaf Block to: ", c.leafBlock.String())
-	}
-	return nil
-}
-
-type QCSource int
-
-const (
-	None           QCSource = 0
-	RcvedQC        QCSource = 1
-	LocalCommit    QCSource = 2
-	LocalBestQC    QCSource = 3
-	LocalBestBlock QCSource = 4
-	LocalCandidate QCSource = 5
-)
-
-func (s QCSource) String() string {
-	switch s {
-	case RcvedQC:
-		return "RcvedQC"
-	case LocalCommit:
-		return "LocalCommit"
-	case LocalBestQC:
-		return "LocalBestQC"
-	case LocalBestBlock:
-		return "LocalBestBlock"
-	case LocalCandidate:
-		return "LocalCandidate"
-	}
-	return ""
-}
-
-type QCWrap struct {
-	source QCSource
-	qc     *block.QuorumCert
-}
-
-func (c *Chain) UpdateBestQC(qc *block.QuorumCert, source QCSource) (bool, error) {
-	// log.Info("update best qc", "qc", qc.String(), "source", source)
-	qcs := make([]*QCWrap, 0)
-
-	if c.bestQC != nil {
-		qcs = append(qcs, &QCWrap{source: LocalBestQC, qc: c.bestQC})
-	}
-
-	if c.bestBlock.QC != nil {
-		qcs = append(qcs, &QCWrap{source: LocalBestBlock, qc: c.bestBlock.QC})
-	}
-
-	if c.bestQCCandidate != nil {
-		qcs = append(qcs, &QCWrap{source: LocalCandidate, qc: c.bestQCCandidate})
-	}
-
-	/*
-		log.Info("LocalBestQC", "qc", c.bestQC.String())
-		log.Info("LocalBestBlock.QC", "qc", c.bestBlock.QC.String())
-		log.Info("CandidateQC", "qc", c.bestQCCandidate.String())
-		log.Info("InputQC", "qc", qc)
-	*/
-
-	if qc != nil {
-		qcs = append(qcs, &QCWrap{source: source, qc: qc})
-	}
-
-	sort.SliceStable(qcs, func(i, j int) bool {
-		return qcs[i].qc.QCHeight > qcs[j].qc.QCHeight
-	})
-
-	bestQCAvailable := qcs[0].qc
-	bestQCSource := qcs[0].source
-	if bestQCAvailable.QCHeight > c.bestQCCandidate.QCHeight {
-		c.bestQCCandidate = bestQCAvailable
-	}
-
-	// under these two circumstance:
-	// A -- B -- C          or          A -- B -- C
-	//           ^                           ^    ^
-	//          leaf                       leaf
-	//          best                             best
-	// and bestQCAvailable justifies bestBlock, update it without check
-	if bestQCAvailable.QCHeight == c.bestBlock.Number() && c.leafBlock.Number() <= c.bestBlock.Number() {
-		if bestQCAvailable.QCHeight > c.bestQC.QCHeight {
-			log.Debug("Update bestQC when it justifies bestBlock", "from", c.bestQC.CompactString(), "to", bestQCAvailable.CompactString(), "source", bestQCSource.String(), "condition", "leaf<=best")
-			c.bestQC = bestQCAvailable
-			return true, saveBestQC(c.kv, c.bestQC)
-		} else {
-			log.Debug("No change to bestQC, skip updating ...", "condition", "leaf<=best")
-			return false, nil
-		}
-	}
-
-	// otherwise, update bestQC from local database:
-	// 1. from bestBlock's descedant
-	// 2. or from bestBlock itself
-	// A -- B -- C         or          A -- B -- C -- D
-	//      ^    ^                               ^    ^
-	//     leaf                                      leaf
-	//         best                             best
-	var blk *block.Block
-	var err error
-	id, err := c.ancestorTrie.GetAncestor(c.bestBlockBeforeIndexFlattern.ID(), c.bestBlock.Number()+1)
-	// id, err := c.ancestorTrie.GetAncestor(c.leafBlock.ID(), c.bestBlock.Number()+1)
-	if err != nil {
-		blk = c.bestBlock
-	} else {
-		raw, err := loadBlockRaw(c.kv, id)
-		if err != nil {
-			return false, err
-		}
-		blk, err = raw.DecodeBlockBody()
-		if err != nil {
-			return false, err
-		}
-		if blk.ParentID().String() != c.bestBlock.ID().String() {
-			log.Warn("parent mismatch", "descendantParentID", blk.ParentID().String(), "bestBlockID", c.bestBlock.ID().String(), "bestBlockHeight", c.bestBlock.Number())
-			return false, errors.New("parent mismatch ")
-		}
-	}
-
-	// fmt.Println("best qc: ", c.bestQC)
-	// fmt.Println("best qc height: ", c.bestQC.QCHeight)
-	// fmt.Println("best block: ", blk)
-	// fmt.Println("blk.QC", blk.QC)
-	// fmt.Println("blk.QC.QCHeight: ", blk.QC.QCHeight)
-	if c.bestQC == nil || (blk.QC != nil && blk.QC.QCHeight > c.bestQC.QCHeight) {
-		log.Debug("Update bestQC from bestBlock descendant", "from", c.bestQC.CompactString(), "to", blk.QC.CompactString())
-		c.bestQC = blk.QC
-		return true, saveBestQC(c.kv, c.bestQC)
-	}
-	log.Debug("No changes to bestQC, skip updating ...")
-	return false, nil
-}
-
-/*
-func (c *Chain) UpdateBestQC() (bool, error) {
-	if c.leafBlock.ID().String() == c.bestBlock.ID().String() {
-		// when leaf is the same with best, usually this is during initialization (before pacemaker) or after pacemaker
-		if c.bestQCCandidate != nil && c.bestQCCandidate.QCHeight > c.bestQC.QCHeight && c.bestQCCandidate.QCHeight <= c.bestBlock.Number() {
-			// bestQC < QCCandidate <= bestBlock, update bestQC with QCCandidate
-			c.bestQC = c.bestQCCandidate
-			c.bestQCCandidate = nil
-			log.Info("Update bestQC", "to", c.bestQC.CompactString(), "condition", "leaf_is_best")
-		} else if c.bestQC.QCHeight <= c.bestBlock.QC.QCHeight {
-			// bestQC < bestBlock
-			// bestBlock synced via gossip, update bestQC with it
-			c.bestQC = c.bestBlock.QC
-			log.Info("Update bestQC", "to", c.bestQC.CompactString(), "condition", "leaf_is_best")
-		} else {
-			return false, nil
-		}
-		return true, saveBestQC(c.kv, c.bestQC)
-	}
-	if c.bestQCCandidate != nil && c.bestQCCandidate.QCHeight == c.bestBlock.Number() &&
-		c.bestQCCandidate.QCHeight > c.bestQC.QCHeight {
-		// bestQC < QCCandidate == bestBlock
-		c.bestQC = c.bestQCCandidate
-		c.bestQCCandidate = nil
-		log.Info("Update bestQC", "to", c.bestQC.CompactString())
-		return true, saveBestQC(c.kv, c.bestQC)
-	}
-	id, err := c.ancestorTrie.GetAncestor(c.leafBlock.ID(), c.bestBlock.Number()+1)
-	if err != nil {
-		return false, err
-	}
-	raw, err := loadBlockRaw(c.kv, id)
-	if err != nil {
-		return false, err
-	}
-	blk, err := raw.DecodeBlockBody()
-	if err != nil {
-		return false, err
-	}
-	if blk.ParentID().String() != c.bestBlock.ID().String() {
-		return false, errors.New("parent mismatch ")
-	}
-	if c.bestQC.QCHeight != blk.QC.QCHeight && c.bestQC.QCRound != blk.QC.QCRound {
-		c.bestQC = blk.QC
-		log.Info("Update bestQC", "to", c.bestQC.CompactString())
-		return true, saveBestQC(c.kv, c.bestQC)
-	}
-	return false, nil
-}
-***/
-
-func (c *Chain) SetBestQCCandidate(qc *block.QuorumCert) bool {
-	if qc == nil {
-		return false
-	}
-	if qc.QCHeight < c.bestBlock.Number() {
-		// if qc is lower than best block, ignore
-		log.Debug(fmt.Sprintf("qc height (%d) is lower than best block height (%d), ignored", qc.QCHeight, c.bestBlock.Number()))
-		return false
-	}
-	if c.bestQCCandidate != nil && qc.QCHeight < c.bestQCCandidate.QCHeight {
-		// if qc is lower than best qc candidate, ignore
-		log.Debug(fmt.Sprintf("qc height (%d) is lower than best qc candidate height (%d), ignored", qc.QCHeight, c.bestQCCandidate.QCHeight))
-		return false
-	}
-	if c.bestQCCandidate != nil && qc.QCHeight == c.bestQCCandidate.QCHeight && qc.QCRound == c.bestQCCandidate.QCRound && qc.EpochID == c.bestQCCandidate.EpochID {
-		// if qc is the same as candidate, ignore
-		return false
-	}
-	c.bestQCCandidate = qc
-	log.Debug("Update QC Candidate", "qc", c.bestQCCandidate.CompactString())
-	return true
-}
-
-func (c *Chain) GetBestQCCandidate() *block.QuorumCert {
-	return c.bestQCCandidate
-}
-
-func (c *Chain) UpdateBestQCWithChainLock(qc *block.QuorumCert, source QCSource) (bool, error) {
-	c.rw.Lock()
-	defer c.rw.Unlock()
-	return c.UpdateBestQC(qc, source)
-}
-
-func (c *Chain) SetBestQCCandidateWithChainLock(qc *block.QuorumCert) bool {
-	c.rw.Lock()
-	defer c.rw.Unlock()
-	return c.SetBestQCCandidate(qc)
-}
-
 func (c *Chain) FindEpochOnBlock(num uint32) (uint64, error) {
 	bestBlock := c.BestBlock()
 	curEpoch := bestBlock.QC.EpochID
@@ -1154,4 +858,67 @@ func (c *Chain) GetStateSnapshotNum() (uint32, error) {
 
 func (c *Chain) UpdateStateSnapshotNum(num uint32) error {
 	return saveStateSnapshotNum(c.kv, num)
+}
+
+func (c *Chain) AddDraft(b *block.DraftBlock) {
+	c.drw.Lock()
+	defer c.drw.Unlock()
+	c.proposalMap.Add(b)
+}
+
+func (c *Chain) HasDraft(blkID meter.Bytes32) bool {
+	c.drw.RLock()
+	defer c.drw.RUnlock()
+	return c.proposalMap.Has(blkID)
+}
+
+func (c *Chain) GetDraft(blkID meter.Bytes32) *block.DraftBlock {
+	c.drw.RLock()
+	defer c.drw.RUnlock()
+	return c.proposalMap.Get(blkID)
+}
+
+func (c *Chain) GetDraftByNum(num uint32) *block.DraftBlock {
+	c.drw.RLock()
+	defer c.drw.RUnlock()
+	proposals := c.proposalMap.GetDraftByNum(num)
+	if len(proposals) > 0 {
+		latest := proposals[0]
+		for _, prop := range proposals[1:] {
+			if prop.Round > latest.Round {
+				latest = prop
+			}
+		}
+		return latest
+	}
+	return nil
+}
+
+func (c *Chain) GetDraftByEscortQC(qc *block.QuorumCert) *block.DraftBlock {
+	c.drw.RLock()
+	defer c.drw.RUnlock()
+	return c.proposalMap.GetOneByEscortQC(qc)
+}
+
+func (c *Chain) DraftLen() int {
+	c.drw.RLock()
+	defer c.drw.RUnlock()
+	if c.proposalMap != nil {
+		return c.proposalMap.Len()
+	}
+	return 0
+}
+
+func (c *Chain) PruneDraftsUpTo(lastCommitted *block.DraftBlock) {
+	c.drw.Lock()
+	defer c.drw.Unlock()
+	log.Debug("start to prune drafts up to", "lastCommitted", lastCommitted.ProposedBlock.Number(), "draftSize", c.proposalMap.Len())
+	c.proposalMap.PruneUpTo(lastCommitted)
+	log.Debug("ended prune drafts")
+}
+
+func (c *Chain) GetDraftsUpTo(commitedBlkID meter.Bytes32, qcHigh *block.QuorumCert) []*block.DraftBlock {
+	c.drw.RLock()
+	defer c.drw.RUnlock()
+	return c.proposalMap.GetProposalsUpTo(commitedBlkID, qcHigh)
 }

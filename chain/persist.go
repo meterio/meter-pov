@@ -22,7 +22,6 @@ var (
 	indexTrieRootPrefix = []byte("i") // (prefix, block id) -> trie root
 
 	bestBlockKey = []byte("best")    // best block hash
-	leafBlockKey = []byte("leaf")    // leaf block hash
 	bestQCKey    = []byte("best-qc") // best qc raw
 
 	// added for new flattern index schema
@@ -79,6 +78,11 @@ func saveBestBlockID(w kv.Putter, id meter.Bytes32) error {
 	return w.Put(bestBlockKey, id[:])
 }
 
+func deleteBlockHash(w kv.Putter, num uint32) error {
+	numKey := numberAsKey(num)
+	return w.Delete(append(hashKeyPrefix, numKey...))
+}
+
 // loadBlockHash returns the block hash on trunk with num.
 func loadBlockHash(r kv.Getter, num uint32) (meter.Bytes32, error) {
 	numKey := numberAsKey(num)
@@ -93,18 +97,6 @@ func loadBlockHash(r kv.Getter, num uint32) (meter.Bytes32, error) {
 func saveBlockHash(w kv.Putter, num uint32, id meter.Bytes32) error {
 	numKey := numberAsKey(num)
 	return w.Put(append(hashKeyPrefix, numKey...), id[:])
-}
-
-func loadLeafBlockID(r kv.Getter) (meter.Bytes32, error) {
-	data, err := r.Get(leafBlockKey)
-	if err != nil {
-		return meter.Bytes32{}, err
-	}
-	return meter.BytesToBytes32(data), nil
-}
-
-func saveLeafBlockID(w kv.Putter, id meter.Bytes32) error {
-	return w.Put(leafBlockKey, id[:])
 }
 
 // loadBlockRaw load rlp encoded block raw data.

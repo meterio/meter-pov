@@ -83,7 +83,7 @@ func convertFilter(filter *FilterLegacy) *logdb.EventFilter {
 	f.CriteriaSet = criterias
 	/***
 	for _, c := range f.CriteriaSet {
-		fmt.Println("*criteria", *c)
+		log.Debug("*criteria", *c)
 	}
 	***/
 	return f
@@ -98,7 +98,7 @@ type FilteredEvent struct {
 	Meta     transactions.LogMeta `json:"meta"`
 }
 
-//convert a logdb.Event into a json format Event
+// convert a logdb.Event into a json format Event
 func convertEvent(event *logdb.Event) *FilteredEvent {
 	fe := FilteredEvent{
 		Address:  event.Address,
