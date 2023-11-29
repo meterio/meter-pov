@@ -144,6 +144,17 @@ func (cc *BlsCommon) AggregateVerify(sig bls.Signature, hash [32]byte, pubKeys [
 	return bls.AggregateVerify(sig, hashes, pubKeys)
 }
 
+// all voter sign the same msg, so we could aggregate pubkeys together
+// and use verify them all
+func (cc *BlsCommon) ThresholdVerify(sig bls.Signature, hash [32]byte, pubKeys []bls.PublicKey) (bool, error) {
+	aggregatedPubkeys, err := bls.AggregatePubkeys(pubKeys, cc.System)
+	if err != nil {
+		return false, err
+	}
+	valid := bls.Verify(sig, hash, aggregatedPubkeys)
+	return valid, nil
+}
+
 func (cc *BlsCommon) SplitPubKey(comboPubKey string) (*ecdsa.PublicKey, *bls.PublicKey) {
 	// first part is ecdsa public, 2nd part is bls public key
 	split := strings.Split(comboPubKey, ":::")

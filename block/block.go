@@ -17,6 +17,7 @@ import (
 	"math"
 	"strings"
 	"sync/atomic"
+	"time"
 
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/inconshreveable/log15"
@@ -179,7 +180,11 @@ func (b *Block) VerifyQC(escortQC *QuorumCert, blsCommon *types.BlsCommon, commi
 	if err != nil {
 		return false, errors.New("invalid aggregate signature:" + err.Error())
 	}
-	return blsCommon.AggregateVerify(sig, escortQC.VoterMsgHash, pubkeys)
+	start := time.Now()
+	valid, err := blsCommon.ThresholdVerify(sig, escortQC.VoterMsgHash, pubkeys)
+	log.Debug("verified QC", "elapsed", meter.PrettyDuration(time.Since(start)))
+
+	return valid, err
 }
 
 // WithSignature create a new block object with signature set.

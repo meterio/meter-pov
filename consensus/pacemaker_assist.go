@@ -203,7 +203,7 @@ func (p *Pacemaker) verifyTC(tc *types.TimeoutCert, round uint32) bool {
 		if err != nil {
 			return false
 		}
-		valid, err := p.reactor.blsCommon.AggregateVerify(sig, tc.MsgHash, pubkeys)
+		valid, err := p.reactor.blsCommon.ThresholdVerify(sig, tc.MsgHash, pubkeys)
 		if err != nil {
 			return false
 		}

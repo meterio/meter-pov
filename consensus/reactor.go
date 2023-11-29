@@ -722,7 +722,7 @@ func (r *Reactor) ValidateQC(b *block.Block, escortQC *block.QuorumCert) bool {
 	start := time.Now()
 	valid, err = b.VerifyQC(escortQC, r.blsCommon, r.committee)
 	if valid && err == nil {
-		r.logger.Debug(fmt.Sprintf("validated %s", escortQC.CompactString()), "elapsed", meter.PrettyDuration(time.Since(start)))
+		r.logger.Info(fmt.Sprintf("validated %s", escortQC.CompactString()), "elapsed", meter.PrettyDuration(time.Since(start)))
 		return true
 	}
 	r.logger.Error(fmt.Sprintf("validate %s FAILED", escortQC.CompactString()), "err", err, "committeeSize", len(r.committee))

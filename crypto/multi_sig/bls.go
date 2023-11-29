@@ -397,6 +397,31 @@ func Aggregate(signatures []Signature, system System) (Signature, error) {
 
 }
 
+func AggregatePubkeys(pubkeys []PublicKey, system System) (PublicKey, error) {
+
+	// Check the list length.
+	if len(pubkeys) == 0 {
+		return PublicKey{system, Element{}}, errors.New("bls.Aggregate: Empty list.")
+	}
+
+	// Calculate sigma.
+	sigma := (*C.struct_element_s)(C.malloc(sizeOfElement))
+	C.element_init_G2(sigma, system.pairing.get)
+	C.element_set(sigma, pubkeys[0].gx.get)
+	t := (*C.struct_element_s)(C.malloc(sizeOfElement))
+	C.element_init_G2(t, system.pairing.get)
+	for i := 1; i < len(pubkeys); i++ {
+		C.element_mul(sigma, sigma, pubkeys[i].gx.get)
+	}
+
+	// Clean up.
+	C.element_clear(t)
+
+	// Return the aggregate signature.
+	return PublicKey{system, Element{sigma}}, nil
+
+}
+
 // Verify an aggregate signature on the message digests using the public keys of
 // the signers.
 func AggregateVerify(signature Signature, hashes [][sha256.Size]byte, keys []PublicKey) (bool, error) {
