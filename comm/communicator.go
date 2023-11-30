@@ -113,6 +113,7 @@ func (c *Communicator) Sync(handler HandleBlockStream) {
 				// choose peer which has the head block with higher total score
 				peer := c.peerSet.Slice().Find(func(peer *Peer) bool {
 					_, totalScore := peer.Head()
+					log.Debug("compare score from peer", "myScore", best.TotalScore(), "peerScore", totalScore, "peer", peer.Node().IP())
 					return totalScore >= best.TotalScore()
 				})
 				if peer == nil {
