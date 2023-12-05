@@ -77,7 +77,7 @@ func (c *Communicator) Synced() <-chan struct{} {
 // Sync start synchronization process.
 func (c *Communicator) Sync(handler HandleBlockStream) {
 	const initSyncInterval = 500 * time.Millisecond
-	const syncInterval = 6 * time.Second
+	const syncInterval = 2 * time.Second
 
 	c.goes.Go(func() {
 		timer := time.NewTimer(0)
