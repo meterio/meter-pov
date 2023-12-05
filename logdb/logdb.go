@@ -10,11 +10,17 @@ import (
 	"database/sql"
 	"fmt"
 	"math/big"
+	"time"
 
+	"github.com/inconshreveable/log15"
 	sqlite3 "github.com/mattn/go-sqlite3"
 	"github.com/meterio/meter-pov/block"
 	"github.com/meterio/meter-pov/meter"
 	"github.com/meterio/meter-pov/tx"
+)
+
+var (
+	log = log15.New("pkg", "logdb")
 )
 
 type LogDB struct {
@@ -134,7 +140,12 @@ func (db *LogDB) FilterEvents(ctx context.Context, filter *EventFilter) ([]*Even
 		stmt += " limit ?, ? "
 		args = append(args, filter.Options.Offset, filter.Options.Limit)
 	}
-	return db.queryEvents(ctx, stmt, args...)
+	start := time.Now()
+	res, err := db.queryEvents(ctx, stmt, args...)
+	if time.Since(start) > time.Second {
+		log.Info("slow query events ", "query", stmt, "elapsed", meter.PrettyDuration(time.Since(start)))
+	}
+	return res, err
 }
 
 func (db *LogDB) FilterTransfers(ctx context.Context, filter *TransferFilter) ([]*Transfer, error) {
@@ -199,7 +210,10 @@ func (db *LogDB) FilterTransfers(ctx context.Context, filter *TransferFilter) ([
 }
 
 func (db *LogDB) queryEvents(ctx context.Context, stmt string, args ...interface{}) ([]*Event, error) {
+	start := time.Now()
 	rows, err := db.db.QueryContext(ctx, stmt, args...)
+	elapsed := meter.PrettyDuration(time.Since(start))
+	log.Info("query events", "elapsed", elapsed)
 	if err != nil {
 		return nil, err
 	}

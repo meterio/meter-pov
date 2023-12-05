@@ -28,6 +28,8 @@ CREATE UNIQUE INDEX IF NOT EXISTS prim ON event(blockID, eventIndex);
 CREATE INDEX IF NOT EXISTS blockNumberIndex ON event(blockNumber);
 CREATE INDEX IF NOT EXISTS blockTimeIndex ON event(blockTime);
 CREATE INDEX IF NOT EXISTS addressIndex ON event(address);
+CREATE INDEX IF NOT EXISTS eventIndex ON event(eventIndex);
+CREATE INDEX IF NOT EXISTS addressAndTopic0Index ON event(address, topic0);
 CREATE INDEX IF NOT EXISTS topicIndex0 ON event(topic0);
 CREATE INDEX IF NOT EXISTS topicIndex1 ON event(topic1);
 CREATE INDEX IF NOT EXISTS topicIndex2 ON event(topic2);
@@ -53,5 +55,6 @@ CREATE UNIQUE INDEX IF NOT EXISTS prim ON transfer(blockID, transferIndex);
 CREATE INDEX IF NOT EXISTS blockNumberIndex ON transfer(blockNumber);
 CREATE INDEX IF NOT EXISTS blockTimeIndex ON transfer(blockTime);
 CREATE INDEX IF NOT EXISTS senderIndex ON transfer(sender);
-CREATE INDEX IF NOT EXISTS recipientIndex ON transfer(recipient);`
+CREATE INDEX IF NOT EXISTS recipientIndex ON transfer(recipient);
+CREATE INDEX IF NOT EXISTS transferIndex ON transfer(transferIndex);`
 )
