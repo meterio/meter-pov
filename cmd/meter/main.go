@@ -24,6 +24,7 @@ import (
 	"net/http"
 	_ "net/http/pprof"
 
+	"github.com/coreos/go-semver/semver"
 	"github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/p2p/enode"
@@ -277,7 +278,9 @@ func defaultAction(ctx *cli.Context) error {
 	// set magic
 	topic := ctx.String("disco-topic")
 	version := doc.Version()
-	sum := sha256.Sum256([]byte(fmt.Sprintf("%v %v", version, topic)))
+	maskedVersion := semver.MajorMinor(version) + ".0"
+	log.Info("Version", "majorMinor", maskedVersion)
+	sum := sha256.Sum256([]byte(fmt.Sprintf("%v %v", maskedVersion, topic)))
 
 	// Split magic to p2p_magic and consensus_magic
 	copy(p2pMagic[:], sum[:4])
@@ -470,6 +473,7 @@ func pruneIndexTrie(ctx *cli.Context, mainDB *lvldb.LevelDB, meterChain *chain.C
 		}
 
 	}
+	meterChain.UpdatePruneIndexHead(toBlk.Number())
 	log.Info("Prune index trie completed", "elapsed", meter.PrettyDuration(time.Since(start)), "head", toBlk.Number(), "prunedNodes", prunedNodes, "prunedBytes", prunedBytes)
 }
 
