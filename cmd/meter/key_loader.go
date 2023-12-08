@@ -7,10 +7,13 @@ package main
 
 import (
 	"crypto/ecdsa"
+	"crypto/md5"
+	"crypto/rand"
 	"crypto/sha256"
 	b64 "encoding/base64"
 	"encoding/hex"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"os"
 	"strings"
@@ -33,7 +36,14 @@ func fileExists(filename string) bool {
 
 func verifyECDSA(privKey *ecdsa.PrivateKey, pubKey *ecdsa.PublicKey) bool {
 	hash := []byte("testing")
-	r, s, err := ecdsa.Sign(strings.NewReader("test-plain-text-some-thing"), privKey, hash)
+	h := md5.New()
+
+	_, err := io.WriteString(h, "This is a message to be signed and verified by ECDSA!")
+	if err != nil {
+		return false
+	}
+	signhash := h.Sum(nil)
+	r, s, err := ecdsa.Sign(rand.Reader, privKey, signhash)
 	if err != nil {
 		fmt.Println("Error during sign: ", err)
 		return false
