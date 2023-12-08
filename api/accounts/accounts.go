@@ -250,7 +250,7 @@ func (a *Accounts) batchCall(ctx context.Context, batchCallData *BatchCallData, 
 			}
 			results = append(results, convertCallResultWithInputGas(out, gas))
 			if out.VMErr != nil {
-				log.Error("vm error: ", "vmerr", out.VMErr)
+				log.Warn("call failed", "vmerr", out.VMErr)
 				return results, nil
 			}
 			gas = out.LeftOverGas

@@ -12,15 +12,10 @@ import (
 	"time"
 
 	"github.com/gorilla/mux"
-	"github.com/inconshreveable/log15"
 	"github.com/meterio/meter-pov/api/utils"
 	"github.com/meterio/meter-pov/logdb"
 	"github.com/meterio/meter-pov/meter"
 	"github.com/pkg/errors"
-)
-
-var (
-	log = log15.New("pkg", "evtlgyapi")
 )
 
 type EventsLegacy struct {

@@ -9,9 +9,14 @@ import (
 	"fmt"
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/inconshreveable/log15"
 	"github.com/meterio/meter-pov/api/transactions"
 	"github.com/meterio/meter-pov/logdb"
 	"github.com/meterio/meter-pov/meter"
+)
+
+var (
+	log = log15.New("api", "evt")
 )
 
 type TopicSet struct {
@@ -31,7 +36,7 @@ type FilteredEvent struct {
 	Meta     transactions.LogMeta `json:"meta"`
 }
 
-//convert a logdb.Event into a json format Event
+// convert a logdb.Event into a json format Event
 func convertEvent(event *logdb.Event) *FilteredEvent {
 	fe := FilteredEvent{
 		Address:  event.Address,
