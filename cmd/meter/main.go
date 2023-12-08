@@ -24,7 +24,6 @@ import (
 	"net/http"
 	_ "net/http/pprof"
 
-	"github.com/coreos/go-semver/semver"
 	"github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/p2p/enode"
@@ -49,6 +48,7 @@ import (
 	"github.com/meterio/meter-pov/txpool"
 	"github.com/meterio/meter-pov/types"
 	"github.com/pkg/errors"
+	"golang.org/x/mod/semver"
 	cli "gopkg.in/urfave/cli.v1"
 )
 
