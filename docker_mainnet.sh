@@ -1,6 +1,17 @@
 #!/bin/bash
 
 VERSION=$(cat cmd/meter/VERSION)
+GIT_COMMIT=$(shell git --no-pager log --pretty="%h" -n 1)
+GIT_TAG=$(shell git tag -l --points-at HEAD)
+
+if [ -z $GIT_TAG ]
+then
+    FULL_VERSION=${VERSION}-${GIT_COMMIT}-dev
+else
+    FULL_VERSION=${VERSION}-${GIT_COMMIT}-release
+fi
+
+echo "Full version is ${FULL_VERSION}"
 
 docker pull meterio/mainnet-pow:latest
 
@@ -16,6 +27,7 @@ docker tag meterio/mainnet:latest meterio/mainnet:fallback
 echo "Building mainnet image with tags: tesla and latest"
 docker build -f _docker/mainnet.Dockerfile -t meterio/mainnet:tesla .
 docker tag meterio/mainnet:tesla meterio/mainnet:latest
+docker tag meterio/mainnet:tesla meterio/mainnet:${FULL_VERSION}
 
 docker push meterio/mainnet:tesla
 
