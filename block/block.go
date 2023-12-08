@@ -177,6 +177,7 @@ func (b *Block) VerifyQC(escortQC *QuorumCert, blsCommon *types.BlsCommon, commi
 		}
 	}
 	sig, err := blsCommon.System.SigFromBytes(escortQC.VoterAggSig)
+	defer sig.Free()
 	if err != nil {
 		return false, errors.New("invalid aggregate signature:" + err.Error())
 	}

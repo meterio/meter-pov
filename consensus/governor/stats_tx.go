@@ -188,14 +188,17 @@ func ComputeDoubleSigner(common *types.BlsCommon, blocks []*block.Block, curEpoc
 			if v.Index < len(committeeInfo) {
 				blsPKBytes := committeeInfo[v.Index].CSPubKey
 				blsPK, err := common.GetSystem().PubKeyFromBytes(blsPKBytes)
+				defer blsPK.Free()
 				if err != nil {
 					break
 				}
 				sig1, err := common.GetSystem().SigFromBytes(v.Signature1)
+				defer sig1.Free()
 				if err != nil {
 					break
 				}
 				sig2, err := common.GetSystem().SigFromBytes(v.Signature2)
+				defer sig2.Free()
 				if err != nil {
 					break
 				}
