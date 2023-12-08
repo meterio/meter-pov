@@ -283,11 +283,17 @@ func (p *TxPool) Executables() tx.Transactions {
 }
 
 // Fill fills txs into pool.
-func (p *TxPool) Fill(txs tx.Transactions) {
+func (p *TxPool) Fill(txs tx.Transactions, executed func(txID meter.Bytes32) bool) {
 	txObjs := make([]*txObject, 0, len(txs))
 	for _, tx := range txs {
 		// here we ignore errors
 		if txObj, err := resolveTx(tx); err == nil {
+			// skip executed
+			if executed(tx.ID()) {
+				log.Debug("tx skipped", "id", txObj.ID(), "err", "executed")
+				continue
+			}
+
 			txObjs = append(txObjs, txObj)
 		}
 	}

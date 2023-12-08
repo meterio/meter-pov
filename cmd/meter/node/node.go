@@ -230,7 +230,14 @@ func (n *Node) txStashLoop(ctx context.Context) {
 
 	{
 		txs := stash.LoadAll()
-		n.txPool.Fill(txs)
+		bestBlock := n.chain.BestBlock()
+		n.txPool.Fill(txs, func(txID meter.Bytes32) bool {
+			if _, err := n.chain.GetTransactionMeta(txID, bestBlock.ID()); err != nil {
+				return false
+			} else {
+				return true
+			}
+		})
 		log.Debug("loaded txs from stash", "count", len(txs))
 	}
 
