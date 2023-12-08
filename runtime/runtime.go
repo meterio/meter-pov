@@ -1080,7 +1080,7 @@ func (rt *Runtime) PrepareTransaction(tx *tx.Transaction) (*TransactionExecutor,
 	}
 	executorElapsed := time.Since(executorStart)
 	if (resolveElapsed + buyGasElapsed + ckpointElapsed + toContextElapsed + executorElapsed) > time.Millisecond {
-		log.Info("slow prepare", "tx", tx.ID(), "elasped", meter.PrettyDuration(resolveElapsed+buyGasElapsed+ckpointElapsed+toContextElapsed+executorElapsed), "resolveElapsed", meter.PrettyDuration(resolveElapsed), "buyGasElapsed", meter.PrettyDuration(buyGasElapsed), "ckpointElapsed", meter.PrettyDuration(ckpointElapsed), "toContextElapsed", meter.PrettyDuration(toContextElapsed), "executorElasped", meter.PrettyDuration(executorElapsed))
+		log.Debug("slow prepare", "tx", tx.ID(), "elasped", meter.PrettyDuration(resolveElapsed+buyGasElapsed+ckpointElapsed+toContextElapsed+executorElapsed), "resolveElapsed", meter.PrettyDuration(resolveElapsed), "buyGasElapsed", meter.PrettyDuration(buyGasElapsed), "ckpointElapsed", meter.PrettyDuration(ckpointElapsed), "toContextElapsed", meter.PrettyDuration(toContextElapsed), "executorElasped", meter.PrettyDuration(executorElapsed))
 	}
 	return executor, nil
 }

@@ -30,6 +30,7 @@ CREATE INDEX IF NOT EXISTS blockTimeIndex ON event(blockTime);
 CREATE INDEX IF NOT EXISTS addressIndex ON event(address);
 CREATE INDEX IF NOT EXISTS eventIndex ON event(eventIndex);
 CREATE INDEX IF NOT EXISTS addressAndTopic0Index ON event(address, topic0);
+CREATE INDEX IF NOT EXISTS addressAndTopic0Index ON event(blockNumber, topic0);
 CREATE INDEX IF NOT EXISTS topicIndex0 ON event(topic0);
 CREATE INDEX IF NOT EXISTS topicIndex1 ON event(topic1);
 CREATE INDEX IF NOT EXISTS topicIndex2 ON event(topic2);
