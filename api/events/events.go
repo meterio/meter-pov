@@ -7,12 +7,20 @@ package events
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
+	"time"
 
 	"github.com/gorilla/mux"
+	"github.com/inconshreveable/log15"
 	"github.com/meterio/meter-pov/api/utils"
 	"github.com/meterio/meter-pov/logdb"
+	"github.com/meterio/meter-pov/meter"
 	"github.com/pkg/errors"
+)
+
+var (
+	log = log15.New("pkg", "evtapi")
 )
 
 type Events struct {
@@ -25,7 +33,7 @@ func New(db *logdb.LogDB) *Events {
 	}
 }
 
-//Filter query events with option
+// Filter query events with option
 func (e *Events) filter(ctx context.Context, ef *EventFilter) ([]*FilteredEvent, error) {
 	events, err := e.db.FilterEvents(ctx, convertEventFilter(ef))
 	if err != nil {
@@ -39,6 +47,7 @@ func (e *Events) filter(ctx context.Context, ef *EventFilter) ([]*FilteredEvent,
 }
 
 func (e *Events) handleFilter(w http.ResponseWriter, req *http.Request) error {
+	start := time.Now()
 	var filter EventFilter
 	if err := utils.ParseJSON(req.Body, &filter); err != nil {
 		return utils.BadRequest(errors.WithMessage(err, "body"))
@@ -47,7 +56,13 @@ func (e *Events) handleFilter(w http.ResponseWriter, req *http.Request) error {
 	if err != nil {
 		return err
 	}
-	return utils.WriteJSON(w, fes)
+	filterStr, err := json.Marshal(filter)
+	err = utils.WriteJSON(w, fes)
+
+	if time.Since(start) > time.Second {
+		log.Info("slow handled event query", "query", string(filterStr), "elapsed", meter.PrettyDuration(time.Since(start)))
+	}
+	return err
 }
 
 func (e *Events) Mount(root *mux.Router, pathPrefix string) {

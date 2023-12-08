@@ -7,13 +7,20 @@ package eventslegacy
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
+	"time"
 
 	"github.com/gorilla/mux"
+	"github.com/inconshreveable/log15"
 	"github.com/meterio/meter-pov/api/utils"
 	"github.com/meterio/meter-pov/logdb"
 	"github.com/meterio/meter-pov/meter"
 	"github.com/pkg/errors"
+)
+
+var (
+	log = log15.New("pkg", "evtlgyapi")
 )
 
 type EventsLegacy struct {
@@ -26,8 +33,9 @@ func New(db *logdb.LogDB) *EventsLegacy {
 	}
 }
 
-//Filter query events with option
+// Filter query events with option
 func (e *EventsLegacy) filter(ctx context.Context, filter *FilterLegacy) ([]*FilteredEvent, error) {
+	start := time.Now()
 	f := convertFilter(filter)
 	events, err := e.db.FilterEvents(ctx, f)
 	if err != nil {
@@ -37,11 +45,15 @@ func (e *EventsLegacy) filter(ctx context.Context, filter *FilterLegacy) ([]*Fil
 	for i, e := range events {
 		fes[i] = convertEvent(e)
 	}
+	if time.Since(start) > time.Second {
+		log.Info("slow filter event legacy ", "elapsed", meter.PrettyDuration(time.Since(start)))
+	}
 	return fes, nil
 }
 
 func (e *EventsLegacy) handleFilter(w http.ResponseWriter, req *http.Request) error {
 	var filter FilterLegacy
+	start := time.Now()
 	if err := utils.ParseJSON(req.Body, &filter); err != nil {
 		return utils.BadRequest(errors.WithMessage(err, "body"))
 	}
@@ -69,7 +81,12 @@ func (e *EventsLegacy) handleFilter(w http.ResponseWriter, req *http.Request) er
 	if err != nil {
 		return err
 	}
-	return utils.WriteJSON(w, fes)
+	filterStr, err := json.Marshal(filter)
+	err = utils.WriteJSON(w, fes)
+	if time.Since(start) > time.Second {
+		log.Info("handle event legacy", "filter", string(filterStr), "elapsed", meter.PrettyDuration(time.Since(start)))
+	}
+	return err
 }
 
 func (e *EventsLegacy) Mount(root *mux.Router, pathPrefix string) {
