@@ -38,7 +38,7 @@ func (cmd PMCmd) String() string {
 
 // struct
 type PMRoundTimeoutInfo struct {
-	height  uint32
+	epoch   uint64
 	round   uint32
 	counter uint64
 }

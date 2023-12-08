@@ -768,6 +768,9 @@ func (p *Pacemaker) mainLoop() {
 				p.Regulate()
 			}
 		case ti := <-p.roundTimeoutCh:
+			if ti.epoch < p.reactor.curEpoch {
+				p.logger.Info("skip timeout handling due to epoch mismatch", "timeoutRound", ti.round, "timeoutEpoch", ti.epoch, "myEpoch", p.reactor.curEpoch)
+			}
 			p.OnRoundTimeout(ti)
 		case newTxID := <-p.newTxCh:
 			if p.reactor.inCommittee && p.reactor.amIRoundProproser(p.currentRound) && p.curFlow != nil && p.curProposal != nil && p.curProposal.ProposedBlock != nil && p.curProposal.ProposedBlock.BlockHeader != nil && p.curProposal.Round == p.currentRound {
@@ -820,7 +823,8 @@ func (p *Pacemaker) OnRoundTimeout(ti PMRoundTimeoutInfo) {
 
 	p.enterRound(ti.round+1, TimeoutRound)
 	newTi := &PMRoundTimeoutInfo{
-		height:  p.QCHigh.QC.QCHeight + 1,
+		epoch: p.reactor.curEpoch,
+		// height:  p.QCHigh.QC.QCHeight + 1,
 		round:   p.currentRound,
 		counter: p.timeoutCounter + 1,
 	}
@@ -900,7 +904,7 @@ func (p *Pacemaker) resetRoundTimer(round uint32, rtype roundType) time.Duration
 		timeoutInterval := baseInterval * (1 << power)
 		// p.logger.Debug(fmt.Sprintf("> start round %d timer", round), "interval", int64(timeoutInterval/time.Second), "timeoutCount", p.timeoutCounter)
 		p.roundTimer = time.AfterFunc(timeoutInterval, func() {
-			p.roundTimeoutCh <- PMRoundTimeoutInfo{round: round, counter: p.timeoutCounter}
+			p.roundTimeoutCh <- PMRoundTimeoutInfo{epoch: p.reactor.curEpoch, round: round, counter: p.timeoutCounter}
 		})
 		return timeoutInterval
 	}

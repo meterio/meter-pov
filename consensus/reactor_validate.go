@@ -226,7 +226,7 @@ func (c *Reactor) validateBlockBody(blk *block.Block, parent *block.Block, force
 			// for _, tx := range kblockTxs {
 			// 	fmt.Println("tx=", tx.ID(), ", uniteHash=", tx.UniteHash(), "gas", tx.Gas())
 			// }
-			c.logger.Info("> End locally build KBlock with %d txs \n", len(kblockTxs), "elapsed", meter.PrettyDuration(time.Since(start)))
+			c.logger.Info("> End locally build KBlock with %d txs", "txs", len(kblockTxs), "elapsed", meter.PrettyDuration(time.Since(start)))
 
 			// Decode.
 			for _, kblockTx := range kblockTxs {

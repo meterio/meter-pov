@@ -370,7 +370,7 @@ func (r *Reactor) verifyInCommittee() bool {
 		myEcdsaPKBytes := crypto.FromECDSAPub(&myself.PubKey)
 		inCommitteeVerified := false
 		for _, v := range committeeInfo.CommitteeInfo {
-			r.logger.Info("committee info pubkey", "str", base64.StdEncoding.EncodeToString(v.PubKey), "mine", base64.StdEncoding.EncodeToString(myEcdsaPKBytes))
+			r.logger.Debug("committee info pubkey", "str", base64.StdEncoding.EncodeToString(v.PubKey), "mine", base64.StdEncoding.EncodeToString(myEcdsaPKBytes))
 			if bytes.Equal(v.PubKey, myEcdsaPKBytes) {
 				inCommitteeVerified = true
 				break
@@ -590,7 +590,7 @@ func (r *Reactor) OnReceiveMsg(w http.ResponseWriter, req *http.Request) {
 	}
 	mi, err := r.UnmarshalMsg(data)
 	if err != nil {
-		r.logger.Error("Unmarshal error", "err", err)
+		r.logger.Error("Unmarshal error", "err", err, "from", req.RemoteAddr)
 		return
 	}
 	r.AddIncoming(mi, data)
