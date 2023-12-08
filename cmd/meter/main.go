@@ -48,7 +48,6 @@ import (
 	"github.com/meterio/meter-pov/txpool"
 	"github.com/meterio/meter-pov/types"
 	"github.com/pkg/errors"
-	"golang.org/x/mod/semver"
 	cli "gopkg.in/urfave/cli.v1"
 )
 
@@ -278,8 +277,12 @@ func defaultAction(ctx *cli.Context) error {
 	// set magic
 	topic := ctx.String("disco-topic")
 	version := doc.Version()
-	maskedVersion := semver.MajorMinor(version) + ".0"
-	log.Info("Version", "majorMinor", maskedVersion)
+	versionItems := strings.Split(version, ".")
+	maskedVersion := version
+	if len(versionItems) > 1 {
+		maskedVersion = strings.Join(versionItems[:len(versionItems)-1], ".") + ".0"
+	}
+	log.Info("Version", "maskedVersion", maskedVersion, "version", version)
 	sum := sha256.Sum256([]byte(fmt.Sprintf("%v %v", maskedVersion, topic)))
 
 	// Split magic to p2p_magic and consensus_magic
