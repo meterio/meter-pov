@@ -115,3 +115,21 @@ func (m *QCVoteManager) Aggregate(round uint32, blockID meter.Bytes32, epoch uin
 		VoterViolation:   make([]*block.Violation, 0), // TODO: think about how to check double sign
 	}
 }
+
+func (m *QCVoteManager) CleanUpTo(blockNum uint32) {
+	m.logger.Info(fmt.Sprintf("clean qc votes up to block %v", blockNum), "len", len(m.votes))
+	for key, voteMap := range m.votes {
+		num := block.Number(key.BlockID)
+		if num < blockNum {
+			for index, vote := range voteMap {
+				vote.BlsSig.Free()
+				delete(voteMap, index)
+			}
+			delete(m.votes, key)
+			if _, exist := m.sealed[key]; exist {
+				delete(m.sealed, key)
+			}
+		}
+	}
+	m.logger.Info(fmt.Sprintf("after clean qc votes up to block %v", blockNum), "len", len(m.votes))
+}

@@ -114,18 +114,18 @@ func (cc *BlsCommon) VerifySignature(signature, msgHash, blsPK []byte) bool {
 	var fixedMsgHash [32]byte
 	copy(fixedMsgHash[:], msgHash[32:])
 	pubkey, err := cc.System.PubKeyFromBytes(blsPK)
+	defer pubkey.Free()
 	if err != nil {
 		fmt.Println("pubkey unmarshal failed")
 		return false
 	}
-	defer pubkey.Free()
 
 	sig, err := cc.System.SigFromBytes(signature)
+	defer sig.Free()
 	if err != nil {
 		fmt.Println("signature unmarshal failed")
 		return false
 	}
-	defer sig.Free()
 	return bls.Verify(sig, fixedMsgHash, pubkey)
 }
 
@@ -150,11 +150,11 @@ func (cc *BlsCommon) AggregateVerify(sig bls.Signature, hash [32]byte, pubKeys [
 // and use verify them all
 func (cc *BlsCommon) ThresholdVerify(sig bls.Signature, hash [32]byte, pubKeys []bls.PublicKey) (bool, error) {
 	aggregatedPubkeys, err := bls.AggregatePubkeys(pubKeys, cc.System)
+	defer aggregatedPubkeys.Free()
 	if err != nil {
 		return false, err
 	}
 	valid := bls.Verify(sig, hash, aggregatedPubkeys)
-	aggregatedPubkeys.Free()
 	return valid, nil
 }
 

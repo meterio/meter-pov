@@ -104,3 +104,20 @@ func (m *TCVoteManager) Aggregate(epoch uint64, round uint32) *types.TimeoutCert
 		AggSig:   aggSigBytes,
 	}
 }
+
+func (m *TCVoteManager) CleanUpTo(epoch uint64) {
+	m.logger.Info(fmt.Sprintf("clean tc votes up to epoch %v", epoch), "len", len(m.votes))
+	for key, voteMap := range m.votes {
+		if key.Epoch < epoch {
+			for index, vote := range voteMap {
+				vote.BlsSig.Free()
+				delete(voteMap, index)
+			}
+			delete(m.votes, key)
+			if _, exist := m.sealed[key]; exist {
+				delete(m.sealed, key)
+			}
+		}
+	}
+	m.logger.Info(fmt.Sprintf("after clean tc votes up to epoch %v", epoch), "len", len(m.votes))
+}

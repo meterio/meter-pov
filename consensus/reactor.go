@@ -492,6 +492,12 @@ func (r *Reactor) UpdateCurEpoch() (bool, error) {
 		r.VerifyComboPubKey(delegates)
 
 		if len(r.committee) > 0 {
+			if r.lastCommittee != nil {
+				for _, v := range r.lastCommittee {
+					v.BlsPubKey.Free()
+				}
+				r.lastCommittee = make([]*types.Validator, 0)
+			}
 			r.lastCommittee = r.committee
 		} else {
 			lastBestKHeight := bestK.LastKBlockHeight()

@@ -594,9 +594,13 @@ func (p *Pacemaker) Regulate() {
 	p.reactor.PrepareEnvForPacemaker()
 	if p.qcVoteManager == nil || p.qcVoteManager.Size() != p.reactor.committeeSize {
 		p.qcVoteManager = NewQCVoteManager(p.reactor.blsCommon.System, p.reactor.committeeSize)
+	} else {
+		p.qcVoteManager.CleanUpTo(p.reactor.chain.BestQC().QCHeight)
 	}
 	if p.tcVoteManager == nil || p.tcVoteManager.Size() != p.reactor.committeeSize {
 		p.tcVoteManager = NewTCVoteManager(p.reactor.blsCommon.System, p.reactor.committeeSize)
+	} else {
+		p.tcVoteManager.CleanUpTo(p.reactor.curEpoch)
 	}
 
 	bestQC := p.reactor.chain.BestQC()
