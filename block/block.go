@@ -277,7 +277,10 @@ func (b *Block) TxsRoot() meter.Bytes32 {
 
 // StateRoot returns account state merkle root just afert this block being applied.
 func (b *Block) StateRoot() meter.Bytes32 {
-	return b.BlockHeader.StateRoot()
+	if b != nil && b.BlockHeader != nil {
+		return b.BlockHeader.StateRoot()
+	}
+	return meter.Bytes32{}
 }
 
 // ReceiptsRoot returns merkle root of tx receipts.
