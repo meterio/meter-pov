@@ -38,7 +38,6 @@ func (p *Pacemaker) Probe() *PMProbeResult {
 
 		LastVotingHeight: p.lastVotingHeight,
 		LastOnBeatRound:  uint32(p.lastOnBeatRound),
-		QCHigh:           p.QCHigh.QC,
 	}
 	if p.QCHigh != nil && p.QCHigh.QC != nil {
 		result.QCHigh = p.QCHigh.QC
