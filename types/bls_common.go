@@ -13,6 +13,7 @@ import (
 	"strings"
 
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/log"
 	bls "github.com/meterio/meter-pov/crypto/multi_sig"
 )
 
@@ -152,6 +153,7 @@ func (cc *BlsCommon) ThresholdVerify(sig bls.Signature, hash [32]byte, pubKeys [
 	aggregatedPubkeys, err := bls.AggregatePubkeys(pubKeys, cc.System)
 	defer aggregatedPubkeys.Free()
 	if err != nil {
+		log.Error("threshold verify failed", "err", err)
 		return false, err
 	}
 	valid := bls.Verify(sig, hash, aggregatedPubkeys)

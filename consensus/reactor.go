@@ -249,6 +249,7 @@ func (r *Reactor) calcCommitteeByNonce(name string, delegates []*types.Delegate,
 
 	validators := make([]*types.Validator, 0)
 	for _, d := range actualDelegates {
+		r.logger.Info("load bls key from delegate", "name", string(d.Name))
 		v := &types.Validator{
 			Name:           string(d.Name),
 			Address:        d.Address,
@@ -492,12 +493,16 @@ func (r *Reactor) UpdateCurEpoch() (bool, error) {
 		r.VerifyComboPubKey(delegates)
 
 		if len(r.committee) > 0 {
-			// if r.lastCommittee != nil {
-			// 	for _, v := range r.lastCommittee {
-			// 		v.BlsPubKey.Free()
-			// 	}
-			// 	r.lastCommittee = make([]*types.Validator, 0)
-			// }
+			if r.delegateSource != fromDelegatesFile {
+				// clean up bls pubkey only if delegates are not from InitDelegates
+				if r.lastCommittee != nil {
+					for _, v := range r.lastCommittee {
+						r.logger.Debug(fmt.Sprintf("clean bls pubkey for %s", v.NameAndIP()))
+						v.BlsPubKey.Free()
+					}
+					r.lastCommittee = make([]*types.Validator, 0)
+				}
+			}
 			r.lastCommittee = r.committee
 		} else {
 			lastBestKHeight := bestK.LastKBlockHeight()
