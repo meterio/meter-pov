@@ -79,7 +79,7 @@ func (e *EventsLegacy) handleFilter(w http.ResponseWriter, req *http.Request) er
 	filterStr, err := json.Marshal(filter)
 	err = utils.WriteJSON(w, fes)
 	if time.Since(start) > time.Second {
-		log.Info("handle event legacy", "filter", string(filterStr), "elapsed", meter.PrettyDuration(time.Since(start)))
+		log.Info("slow handle event legacy", "filter", string(filterStr), "elapsed", meter.PrettyDuration(time.Since(start)))
 	}
 	return err
 }

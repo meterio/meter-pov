@@ -210,10 +210,7 @@ func (db *LogDB) FilterTransfers(ctx context.Context, filter *TransferFilter) ([
 }
 
 func (db *LogDB) queryEvents(ctx context.Context, stmt string, args ...interface{}) ([]*Event, error) {
-	start := time.Now()
 	rows, err := db.db.QueryContext(ctx, stmt, args...)
-	elapsed := meter.PrettyDuration(time.Since(start))
-	log.Info("query events", "elapsed", elapsed)
 	if err != nil {
 		return nil, err
 	}

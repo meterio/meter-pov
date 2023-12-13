@@ -1,8 +1,8 @@
 #!/bin/bash
 
 VERSION=$(cat cmd/meter/VERSION)
-GIT_COMMIT=$(shell git --no-pager log --pretty="%h" -n 1)
-GIT_TAG=$(shell git tag -l --points-at HEAD)
+GIT_COMMIT=$(git --no-pager log --pretty="%h" -n 1)
+GIT_TAG=$(git tag -l --points-at HEAD)
 
 if [ -z $GIT_TAG ]
 then
