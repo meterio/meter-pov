@@ -116,3 +116,7 @@ func (w *outgoingWorker) Run(ctx context.Context, queue chan *OutgoingParcel, wg
 		res.Body.Close()
 	}
 }
+
+func (q *OutgoingQueue) Len() int {
+	return len(q.queue)
+}

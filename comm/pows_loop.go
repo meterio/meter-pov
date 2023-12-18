@@ -5,36 +5,31 @@
 
 package comm
 
-import (
-	"github.com/meterio/meter-pov/comm/proto"
-	"github.com/meterio/meter-pov/powpool"
-)
+// func (c *Communicator) powsLoop() {
 
-func (c *Communicator) powsLoop() {
+// 	powBlockEvCh := make(chan *powpool.PowBlockEvent, 10)
+// 	sub := c.powPool.SubscribePowBlockEvent(powBlockEvCh)
+// 	defer sub.Unsubscribe()
 
-	powBlockEvCh := make(chan *powpool.PowBlockEvent, 10)
-	sub := c.powPool.SubscribePowBlockEvent(powBlockEvCh)
-	defer sub.Unsubscribe()
+// 	for {
+// 		select {
+// 		case <-c.ctx.Done():
+// 			return
+// 		case powBlockEv := <-powBlockEvCh:
+// 			powBlockInfo := powBlockEv.BlockInfo
 
-	for {
-		select {
-		case <-c.ctx.Done():
-			return
-		case powBlockEv := <-powBlockEvCh:
-			powBlockInfo := powBlockEv.BlockInfo
-
-			powID := powBlockInfo.HeaderHash
-			peers := c.peerSet.Slice().Filter(func(p *Peer) bool {
-				return !p.IsPowBlockKnown(powID)
-			})
-			for _, peer := range peers {
-				peer.MarkPowBlock(powID)
-				c.goes.Go(func() {
-					if err := proto.NotifyNewPowBlock(c.ctx, peer, powBlockInfo); err != nil {
-						peer.logger.Error("failed to broadcast block info", "err", err)
-					}
-				})
-			}
-		}
-	}
-}
+// 			powID := powBlockInfo.HeaderHash
+// 			peers := c.peerSet.Slice().Filter(func(p *Peer) bool {
+// 				return !p.IsPowBlockKnown(powID)
+// 			})
+// 			for _, peer := range peers {
+// 				peer.MarkPowBlock(powID)
+// 				c.goes.Go(func() {
+// 					if err := proto.NotifyNewPowBlock(c.ctx, peer, powBlockInfo); err != nil {
+// 						peer.logger.Error("failed to broadcast block info", "err", err)
+// 					}
+// 				})
+// 			}
+// 		}
+// 	}
+// }

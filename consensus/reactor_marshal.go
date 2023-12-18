@@ -28,7 +28,7 @@ func (r *Reactor) UnmarshalMsg(rawData []byte) (*IncomingMsg, error) {
 		return nil, ErrUnrecognizedPayload
 	}
 	peerName := r.getNameByIP(peerIP)
-	peer := newConsensusPeer(peerName, peerIP, uint16(peerPort))
+	peer := newConsensusPeer(peerName, peerIP.String(), uint16(peerPort))
 
 	msg, err := block.DecodeMsg(params["message"])
 	if err != nil {

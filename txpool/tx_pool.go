@@ -433,3 +433,7 @@ func isChainSynced(nowTimestamp, blockTimestamp uint64) bool {
 func (p *TxPool) All() []*txObject {
 	return p.all.ToTxObjects()
 }
+
+func (p *TxPool) Len() int {
+	return p.all.Len()
+}

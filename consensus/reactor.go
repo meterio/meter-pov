@@ -629,7 +629,8 @@ func (r *Reactor) AddIncoming(mi *IncomingMsg, data []byte) {
 			r.logger.Error("invalid signature, dropped ...", "peer", peer, "msg", msg.String(), "signer", signer.Name)
 			return
 		}
-		mi.Signer = signer
+		mi.Signer.IP = string(signer.NetAddr.IP)
+		mi.Signer.Name = signer.Name
 	}
 
 	// sanity check for messages
@@ -768,4 +769,12 @@ func (r *Reactor) PrintCommittee() {
 	fmt.Printf("Last Committee (%d):\n%s\n", len(r.lastCommittee), r.peakCommittee(r.lastCommittee))
 
 	// fmt.Println("Bootstrap11 Committee:\n" + r.peakCommittee(r.bootstrapCommittee11))
+}
+
+func (r *Reactor) IncomingQueueLen() int {
+	return r.inQueue.Len()
+}
+
+func (r *Reactor) OutgoingQueueLen() int {
+	return r.outQueue.Len()
 }

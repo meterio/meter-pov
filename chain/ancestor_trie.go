@@ -17,8 +17,8 @@ import (
 )
 
 const (
-	rootCacheLimit = 1024
-	hashCacheLimit = 1024
+	rootCacheLimit = 512
+	hashCacheLimit = 512
 )
 
 type ancestorTrie struct {

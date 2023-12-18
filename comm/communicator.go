@@ -220,11 +220,11 @@ func (c *Communicator) runPeer(peer *Peer, dir string) {
 
 	status, err := proto.GetStatus(ctx, peer)
 	if err != nil {
-		peer.logger.Debug("failed to get status", "err", err)
+		peer.logger.Error("Failed to get status", "err", err)
 		return
 	}
 	if status.GenesisBlockID != c.chain.GenesisBlock().ID() {
-		peer.logger.Debug("failed to handshake", "err", "genesis id mismatch")
+		peer.logger.Error("Failed to handshake", "err", "genesis id mismatch")
 		return
 	}
 	localClock := uint64(time.Now().Unix())
@@ -235,7 +235,7 @@ func (c *Communicator) runPeer(peer *Peer, dir string) {
 		diff = remoteClock - localClock
 	}
 	if diff > meter.BlockInterval*2 {
-		peer.logger.Debug("failed to handshake", "err", "sys time diff too large")
+		peer.logger.Error("Failed to handshake", "err", "sys time diff too large")
 		return
 	}
 
@@ -245,7 +245,7 @@ func (c *Communicator) runPeer(peer *Peer, dir string) {
 
 	defer func() {
 		c.peerSet.Remove(peer.ID())
-		peer.logger.Debug(fmt.Sprintf("peer removed (%v)", c.peerSet.Len()))
+		peer.logger.Info(fmt.Sprintf("peer removed (%v)", c.peerSet.Len()))
 	}()
 
 	select {
@@ -284,23 +284,29 @@ func (c *Communicator) BroadcastBlock(blk *block.EscortedBlock) {
 	toAnnounce := peers[p:]
 
 	for _, peer := range toPropagate {
-		peer := peer
+		if peer.IsBlockKnown(blk.Block.ID()) {
+			log.Info("Skip propagate new block to peer", "peer", peer.Peer.RemoteAddr().String(), "blk", blk.Block.ShortID())
+			continue
+		}
 		peer.MarkBlock(blk.Block.ID())
 		c.goes.Go(func() {
-			log.Debug("Sent BestQC/NewBlock to peer", "peer", peer.Peer.RemoteAddr().String())
+			log.Info("Propagate new block to peer", "peer", peer.Peer.RemoteAddr().String(), "blk", blk.Block.ShortID())
 			if err := proto.NotifyNewBlock(c.ctx, peer, blk); err != nil {
-				peer.logger.Debug("failed to broadcast new block", "err", err)
+				peer.logger.Error("Failed to propagate new block", "err", err)
 			}
 		})
 	}
 
 	for _, peer := range toAnnounce {
-		peer := peer
+		if peer.IsBlockKnown(blk.Block.ID()) {
+			log.Info("Skip announce new block to peer", "peer", peer.Peer.RemoteAddr(), "blk", blk.Block.ShortID())
+			continue
+		}
 		peer.MarkBlock(blk.Block.ID())
 		c.goes.Go(func() {
-			log.Debug("Broadcast BestQC to peer", "peer", peer.Peer.RemoteAddr().String())
+			log.Info("Announce new block to peer", "peer", peer.Peer.RemoteAddr().String(), "blk", blk.Block.ShortID())
 			if err := proto.NotifyNewBlockID(c.ctx, peer, blk.Block.ID()); err != nil {
-				peer.logger.Debug("failed to broadcast new block id", "err", err)
+				peer.logger.Error("Failed to announce new block", "err", err)
 			}
 		})
 	}
@@ -330,4 +336,8 @@ func (c *Communicator) PeersStats() []*PeerStats {
 		return stats[i].Duration < stats[j].Duration
 	})
 	return stats
+}
+
+func (c *Communicator) PowPoolLen() int {
+	return c.powPool.Len()
 }

@@ -559,3 +559,7 @@ func (pool *PowPool) GetCurCoef() (curCoef int64) {
 	log.Debug("Current Coef:", "curCoef", curCoef)
 	return curCoef
 }
+
+func (p *PowPool) Len() int {
+	return p.all.Len()
+}

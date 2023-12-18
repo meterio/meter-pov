@@ -10,13 +10,16 @@ import (
 	lru "github.com/hashicorp/golang-lru"
 	"github.com/inconshreveable/log15"
 	"github.com/meterio/meter-pov/block"
-	"github.com/meterio/meter-pov/types"
 )
 
 const (
 	IN_QUEUE_TTL = time.Second * 5
 )
 
+type IncomingMsgSigner struct {
+	Name string
+	IP   string
+}
 type IncomingMsg struct {
 	//Msg    block.ConsensusMessage
 	Msg          block.ConsensusMessage
@@ -25,7 +28,8 @@ type IncomingMsg struct {
 	Hash         [32]byte
 	ShortHashStr string
 
-	Signer *types.Validator
+	// Signer *types.Validator
+	Signer IncomingMsgSigner
 
 	EnqueueAt time.Time
 	ExpireAt  time.Time
@@ -60,13 +64,13 @@ type IncomingQueue struct {
 }
 
 func NewIncomingQueue() *IncomingQueue {
-	cache, err := lru.NewARC(2048)
+	cache, err := lru.NewARC(1024)
 	if err != nil {
 		panic("could not create cache")
 	}
 	return &IncomingQueue{
 		logger: log15.New(), // log15.New("pkg", "in"),
-		queue:  make(chan (*IncomingMsg), 2048),
+		queue:  make(chan (*IncomingMsg), 1024),
 		cache:  cache,
 	}
 }
@@ -121,4 +125,8 @@ func (q *IncomingQueue) drain() {
 
 func (q *IncomingQueue) Queue() chan (*IncomingMsg) {
 	return q.queue
+}
+
+func (q *IncomingQueue) Len() int {
+	return len(q.queue)
 }

@@ -94,9 +94,20 @@ func (n *Node) Run(ctx context.Context) error {
 	n.goes.Go(func() { n.txStashLoop(ctx) })
 
 	n.goes.Go(func() { n.reactor.OnStart(ctx) })
+	go n.printStats(time.Minute * 2)
 
 	n.goes.Wait()
 	return nil
+}
+
+func (n *Node) printStats(duration time.Duration) {
+	ticker := time.NewTicker(duration)
+	for true {
+		select {
+		case <-ticker.C:
+			log.Info("< Stats >", "rawBlocksCache", n.chain.RawBlocksCacheLen(), "receiptsCache", n.chain.ReceiptsCacheLen(), "stateCache", state.CacheLen(), "inQueue", n.reactor.IncomingQueueLen(), "outQueue", n.reactor.OutgoingQueueLen(), "txPool", n.txPool.Len(), "powPool", n.comm.PowPoolLen())
+		}
+	}
 }
 
 func (n *Node) handleBlockStream(ctx context.Context, stream <-chan *block.EscortedBlock) (err error) {

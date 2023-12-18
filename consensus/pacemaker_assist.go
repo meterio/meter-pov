@@ -170,7 +170,7 @@ func (p *Pacemaker) ValidateProposal(b *block.DraftBlock) error {
 
 func (p *Pacemaker) getProposerByRound(round uint32) *ConsensusPeer {
 	proposer := p.reactor.getRoundProposer(round)
-	return newConsensusPeer(proposer.Name, proposer.NetAddr.IP, 8670)
+	return newConsensusPeer(proposer.Name, proposer.NetAddr.IP.String(), 8670)
 }
 
 func (p *Pacemaker) verifyTC(tc *types.TimeoutCert, round uint32) bool {

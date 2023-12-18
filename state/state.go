@@ -76,6 +76,10 @@ func New(root meter.Bytes32, kv kv.GetPutter) (*State, error) {
 	return &state, nil
 }
 
+func CacheLen() int {
+	return trCache.cache.Len()
+}
+
 // Spawn create a new state object shares current state's underlying db.
 // Also errors will be reported to current state.
 func (s *State) Spawn(root meter.Bytes32) *State {

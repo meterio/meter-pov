@@ -22,9 +22,9 @@ import (
 )
 
 const (
-	maxKnownTxs       = 32768 // Maximum transactions IDs to keep in the known list (prevent DOS)
-	maxKnownBlocks    = 1024  // Maximum block IDs to keep in the known list (prevent DOS)
-	maxKnownPowBlocks = 1024
+	maxKnownTxs    = 32768 // Maximum transactions IDs to keep in the known list (prevent DOS)
+	maxKnownBlocks = 1024  // Maximum block IDs to keep in the known list (prevent DOS)
+	// maxKnownPowBlocks = 1024
 )
 
 func randint64() (int64, error) {
@@ -49,11 +49,11 @@ type Peer struct {
 	*rpc.RPC
 	logger log15.Logger
 
-	createdTime    mclock.AbsTime
-	knownTxs       *lru.Cache
-	knownBlocks    *lru.Cache
-	knownPowBlocks *lru.Cache
-	head           struct {
+	createdTime mclock.AbsTime
+	knownTxs    *lru.Cache
+	knownBlocks *lru.Cache
+	// knownPowBlocks *lru.Cache
+	head struct {
 		sync.Mutex
 		id         meter.Bytes32
 		totalScore uint64
@@ -66,7 +66,7 @@ func newPeer(peer *p2p.Peer, rw p2p.MsgReadWriter, magic [4]byte) (*Peer, string
 		dir = "inbound"
 	}
 	ctx := []interface{}{
-		"peer", peer,
+		"peer", peer.RemoteAddr().String(),
 		"dir", dir,
 	}
 	knownTxs, err := lru.New(maxKnownTxs)
@@ -79,19 +79,19 @@ func newPeer(peer *p2p.Peer, rw p2p.MsgReadWriter, magic [4]byte) (*Peer, string
 		fmt.Println("known blocks init error:", err)
 	}
 
-	knownPowBlocks, err := lru.New(maxKnownPowBlocks)
-	if err != nil {
-		fmt.Println("known pow blocks init error:", err)
-	}
+	// knownPowBlocks, err := lru.New(maxKnownPowBlocks)
+	// if err != nil {
+	// 	fmt.Println("known pow blocks init error:", err)
+	// }
 
 	return &Peer{
-		Peer:           peer,
-		RPC:            rpc.New(peer, rw, magic),
-		logger:         log.New(ctx...),
-		createdTime:    mclock.Now(),
-		knownTxs:       knownTxs,
-		knownBlocks:    knownBlocks,
-		knownPowBlocks: knownPowBlocks,
+		Peer:        peer,
+		RPC:         rpc.New(peer, rw, magic),
+		logger:      log.New(ctx...),
+		createdTime: mclock.Now(),
+		knownTxs:    knownTxs,
+		knownBlocks: knownBlocks,
+		// knownPowBlocks: knownPowBlocks,
 	}, dir
 }
 
@@ -116,9 +116,9 @@ func (p *Peer) MarkTransaction(id meter.Bytes32) {
 	p.knownTxs.Add(id, struct{}{})
 }
 
-func (p *Peer) MarkPowBlock(id meter.Bytes32) {
-	p.knownPowBlocks.Add(id, struct{}{})
-}
+// func (p *Peer) MarkPowBlock(id meter.Bytes32) {
+// 	p.knownPowBlocks.Add(id, struct{}{})
+// }
 
 // MarkBlock marks a block to known.
 func (p *Peer) MarkBlock(id meter.Bytes32) {
@@ -130,9 +130,9 @@ func (p *Peer) IsTransactionKnown(id meter.Bytes32) bool {
 	return p.knownTxs.Contains(id)
 }
 
-func (p *Peer) IsPowBlockKnown(id meter.Bytes32) bool {
-	return p.knownPowBlocks.Contains(id)
-}
+// func (p *Peer) IsPowBlockKnown(id meter.Bytes32) bool {
+// 	return p.knownPowBlocks.Contains(id)
+// }
 
 // IsBlockKnown returns if the block is known.
 func (p *Peer) IsBlockKnown(id meter.Bytes32) bool {

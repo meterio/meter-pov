@@ -306,7 +306,7 @@ func (p *Pacemaker) OnReceiveProposal(mi *IncomingMsg) {
 				peers = append(peers, mi.Peer)
 
 				// query the proposer
-				signerPeer := newConsensusPeer(mi.Signer.Name, mi.Signer.NetAddr.IP, 8670)
+				signerPeer := newConsensusPeer(mi.Signer.Name, mi.Signer.IP, 8670)
 				peers = append(peers, signerPeer)
 
 				// query the next proposer

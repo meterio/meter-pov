@@ -922,3 +922,11 @@ func (c *Chain) GetDraftsUpTo(commitedBlkID meter.Bytes32, qcHigh *block.QuorumC
 	defer c.drw.RUnlock()
 	return c.proposalMap.GetProposalsUpTo(commitedBlkID, qcHigh)
 }
+
+func (c *Chain) RawBlocksCacheLen() int {
+	return c.caches.rawBlocks.Len()
+}
+
+func (c *Chain) ReceiptsCacheLen() int {
+	return c.caches.receipts.Len()
+}

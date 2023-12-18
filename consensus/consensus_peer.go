@@ -7,7 +7,6 @@ package consensus
 
 import (
 	"fmt"
-	"net"
 )
 
 // Consensus Topology Peer
@@ -17,10 +16,10 @@ type ConsensusPeer struct {
 	port uint16
 }
 
-func newConsensusPeer(name string, ip net.IP, port uint16) *ConsensusPeer {
+func newConsensusPeer(name string, ip string, port uint16) *ConsensusPeer {
 	return &ConsensusPeer{
 		name: name,
-		IP:   ip.String(),
+		IP:   ip,
 		port: port,
 	}
 }
