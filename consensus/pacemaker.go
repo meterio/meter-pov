@@ -761,9 +761,11 @@ func (p *Pacemaker) mainLoop() {
 
 	for {
 		bestBlock := p.chain.BestBlock()
-		if bestBlock.Number() > p.QCHigh.QC.QCHeight {
+		if bestBlock.Number() > p.QCHigh.QC.QCHeight && p.reactor.inCommittee {
 			p.logger.Info("bestBlock > QCHigh, schedule regulate", "best", bestBlock.Number(), "qcHigh", p.QCHigh.QC.QCHeight)
 			p.scheduleRegulate()
+		} else {
+			p.logger.Info("bestBlock > QCHigh, but I'm not in committee, continue ...", "best", bestBlock.Number(), "qcHigh", p.QCHigh.QC.QCHeight)
 		}
 		select {
 

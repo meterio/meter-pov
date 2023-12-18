@@ -77,7 +77,7 @@ func (c *Communicator) Synced() <-chan struct{} {
 // Sync start synchronization process.
 func (c *Communicator) Sync(handler HandleBlockStream) {
 	const initSyncInterval = 500 * time.Millisecond
-	const syncInterval = 2 * time.Second
+	const syncInterval = 6 * time.Second
 
 	c.goes.Go(func() {
 		timer := time.NewTimer(0)
@@ -284,29 +284,23 @@ func (c *Communicator) BroadcastBlock(blk *block.EscortedBlock) {
 	toAnnounce := peers[p:]
 
 	for _, peer := range toPropagate {
-		if peer.IsBlockKnown(blk.Block.ID()) {
-			log.Info("Skip propagate new block to peer", "peer", peer.Peer.RemoteAddr().String(), "blk", blk.Block.ShortID())
-			continue
-		}
+		peer := peer
 		peer.MarkBlock(blk.Block.ID())
 		c.goes.Go(func() {
-			log.Info("Propagate new block to peer", "peer", peer.Peer.RemoteAddr().String(), "blk", blk.Block.ShortID())
+			log.Info(fmt.Sprintf("propagate %s to %s", blk.Block.ShortID(), meter.Addr2IP(peer.RemoteAddr())))
 			if err := proto.NotifyNewBlock(c.ctx, peer, blk); err != nil {
-				peer.logger.Error("Failed to propagate new block", "err", err)
+				peer.logger.Error(fmt.Sprintf("Failed to propagate %s", blk.Block.ShortID()), "err", err)
 			}
 		})
 	}
 
 	for _, peer := range toAnnounce {
-		if peer.IsBlockKnown(blk.Block.ID()) {
-			log.Info("Skip announce new block to peer", "peer", peer.Peer.RemoteAddr(), "blk", blk.Block.ShortID())
-			continue
-		}
+		peer := peer
 		peer.MarkBlock(blk.Block.ID())
 		c.goes.Go(func() {
-			log.Info("Announce new block to peer", "peer", peer.Peer.RemoteAddr().String(), "blk", blk.Block.ShortID())
+			log.Info(fmt.Sprintf("announce %s to %s", blk.Block.ShortID(), meter.Addr2IP(peer.RemoteAddr())))
 			if err := proto.NotifyNewBlockID(c.ctx, peer, blk.Block.ID()); err != nil {
-				peer.logger.Error("Failed to announce new block", "err", err)
+				peer.logger.Error(fmt.Sprintf("Failed to announce %s", blk.Block.ShortID()), "err", err)
 			}
 		})
 	}

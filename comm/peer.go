@@ -66,7 +66,7 @@ func newPeer(peer *p2p.Peer, rw p2p.MsgReadWriter, magic [4]byte) (*Peer, string
 		dir = "inbound"
 	}
 	ctx := []interface{}{
-		"peer", peer.RemoteAddr().String(),
+		"peer", meter.Addr2IP(peer.RemoteAddr()),
 		"dir", dir,
 	}
 	knownTxs, err := lru.New(maxKnownTxs)

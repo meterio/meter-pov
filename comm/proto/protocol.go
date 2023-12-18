@@ -5,6 +5,8 @@
 
 package proto
 
+import "fmt"
+
 // Constants
 const (
 	Name              = "meter"
@@ -25,3 +27,29 @@ const (
 	MsgGetTxs
 	MsgNewPowBlock
 )
+
+// MsgName convert msg code to string.
+func MsgName(msgCode uint64) string {
+	switch msgCode {
+	case MsgGetStatus:
+		return "GetStatus"
+	case MsgNewBlockID:
+		return "NewBlockID"
+	case MsgNewBlock:
+		return "NewBlock"
+	case MsgNewTx:
+		return "NewTx"
+	case MsgGetBlockByID:
+		return "GetBlockByID"
+	case MsgGetBlockIDByNumber:
+		return "GetBlockIDByNumber"
+	case MsgGetBlocksFromNumber:
+		return "GetBlocksFromNumber"
+	case MsgGetTxs:
+		return "GetTxs"
+	case MsgNewPowBlock:
+		return "NewPowBlock"
+	default:
+		return fmt.Sprintf("unknown msg code(%v)", msgCode)
+	}
+}

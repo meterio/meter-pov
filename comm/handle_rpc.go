@@ -36,7 +36,7 @@ func (c *Communicator) handleRPC(peer *Peer, msg *p2p.Msg, write func(interface{
 			return errors.WithMessage(err, "decode msg")
 		}
 
-		peer.logger.Info(`rpc call: GetStatus`)
+		// peer.logger.Info(`call in: GetStatus`)
 		best := c.chain.BestBlock().Header()
 		write(&proto.Status{
 			GenesisBlockID: c.chain.GenesisBlock().ID(),
@@ -50,7 +50,7 @@ func (c *Communicator) handleRPC(peer *Peer, msg *p2p.Msg, write func(interface{
 			return errors.WithMessage(err, "decode msg")
 		}
 
-		peer.logger.Info(fmt.Sprintf(`rpc call: NewBlock(%s)`, newBlock.Block.ShortID()))
+		log.Info(fmt.Sprintf(`notify in: NewBlock(%s) from %s`, newBlock.Block.ShortID(), meter.Addr2IP(peer.RemoteAddr())))
 		peer.MarkBlock(newBlock.Block.ID())
 		peer.UpdateHead(newBlock.Block.ID(), newBlock.Block.TotalScore())
 		c.newBlockFeed.Send(&NewBlockEvent{EscortedBlock: newBlock})
@@ -61,7 +61,7 @@ func (c *Communicator) handleRPC(peer *Peer, msg *p2p.Msg, write func(interface{
 			return errors.WithMessage(err, "decode msg")
 		}
 
-		peer.logger.Info(fmt.Sprintf(`rpc call: NewBlockID(%s)`, newBlockID.ToBlockShortID()))
+		log.Info(fmt.Sprintf(`notify in: NewBlockID(%s) from %s`, newBlockID.ToBlockShortID(), meter.Addr2IP(peer.RemoteAddr())))
 		peer.MarkBlock(newBlockID)
 		select {
 		case <-c.ctx.Done():
@@ -73,7 +73,7 @@ func (c *Communicator) handleRPC(peer *Peer, msg *p2p.Msg, write func(interface{
 		if err := msg.Decode(&newTx); err != nil {
 			return errors.WithMessage(err, "decode msg")
 		}
-		peer.logger.Info(fmt.Sprintf(`rpc call: NewTx(%s)`, newTx.ID()))
+		log.Info(fmt.Sprintf(`notify in: NewTx(%s) from %s`, newTx.ID(), meter.Addr2IP(peer.RemoteAddr())))
 		peer.MarkTransaction(newTx.ID())
 		c.txPool.StrictlyAdd(newTx)
 		write(&struct{}{})
@@ -84,7 +84,7 @@ func (c *Communicator) handleRPC(peer *Peer, msg *p2p.Msg, write func(interface{
 		}
 		var result []rlp.RawValue
 
-		peer.logger.Info(fmt.Sprintf(`rpc call: GetBlockByID(%s)`, blockID.ToBlockShortID()))
+		log.Info(fmt.Sprintf(`call in: GetBlockByID(%s) from %s`, blockID.ToBlockShortID(), meter.Addr2IP(peer.RemoteAddr())))
 		blk, err := c.chain.GetBlock(blockID)
 		if err != nil {
 			if !c.chain.IsNotFound(err) {
@@ -108,7 +108,7 @@ func (c *Communicator) handleRPC(peer *Peer, msg *p2p.Msg, write func(interface{
 			}
 
 		}
-		peer.logger.Info(fmt.Sprintf(`rpc call result: GetBlockByID(%s)`, blockID.ToBlockShortID()), "len", len(result))
+		// peer.logger.Info(fmt.Sprintf(`call in result: GetBlockByID(%s)`, blockID.ToBlockShortID()), "len", len(result))
 		write(result)
 	case proto.MsgGetBlockIDByNumber:
 		var num uint32
@@ -116,16 +116,16 @@ func (c *Communicator) handleRPC(peer *Peer, msg *p2p.Msg, write func(interface{
 			return errors.WithMessage(err, "decode msg")
 		}
 
-		peer.logger.Info(fmt.Sprintf(`rpc call: GetBlockIDByNumber(%v)`, num))
+		log.Info(fmt.Sprintf(`call in: GetBlockIDByNumber(%v) from %s`, num, meter.Addr2IP(peer.RemoteAddr())))
 		id, err := c.chain.GetTrunkBlockID(num)
 		if err != nil {
 			if !c.chain.IsNotFound(err) {
 				log.Error("failed to get block id by number", "err", err)
 			}
-			peer.logger.Info(fmt.Sprintf(`rpc call result: GetBlockIDByNumber(%v)`, num), "id", meter.Bytes32{}.ToBlockShortID())
+			log.Info(fmt.Sprintf(`call in NO RESULT: GetBlockIDByNumber(%v) from %s`, num, meter.Addr2IP(peer.RemoteAddr())))
 			write(meter.Bytes32{})
 		} else {
-			peer.logger.Info(fmt.Sprintf(`rpc call result: GetBlockIDByNumber(%v)`, num), "id", id.ToBlockShortID())
+			// peer.logger.Info(fmt.Sprintf(`call in result: GetBlockIDByNumber(%v)`, num), "id", id.ToBlockShortID())
 			write(id)
 		}
 	case proto.MsgGetBlocksFromNumber:
@@ -134,7 +134,7 @@ func (c *Communicator) handleRPC(peer *Peer, msg *p2p.Msg, write func(interface{
 			return errors.WithMessage(err, "decode msg")
 		}
 
-		peer.logger.Info(fmt.Sprintf(`rpc call: GetBlocksFromNumber(%v)`, num))
+		log.Info(fmt.Sprintf(`call in: GetBlocksFromNumber(%v) from %s`, num, meter.Addr2IP(peer.RemoteAddr())))
 		const maxBlocks = 1024
 		const maxSize = 512 * 1024
 		result := make([]rlp.RawValue, 0, maxBlocks)
@@ -171,7 +171,6 @@ func (c *Communicator) handleRPC(peer *Peer, msg *p2p.Msg, write func(interface{
 			num++
 			size += metric.StorageSize(len(raw))
 		}
-		peer.logger.Info(fmt.Sprintf(`rpc call result: GetBlocksFromNumber(%v)`, num), "len", len(result))
 		write(result)
 	case proto.MsgGetTxs:
 		const maxTxSyncSize = 100 * 1024
@@ -179,9 +178,9 @@ func (c *Communicator) handleRPC(peer *Peer, msg *p2p.Msg, write func(interface{
 			return errors.WithMessage(err, "decode msg")
 		}
 
-		peer.logger.Info(`rpc call: GetTxs`)
+		log.Info(fmt.Sprintf(`call in: GetTxs from %s`, meter.Addr2IP(peer.RemoteAddr())))
 		if txsToSync.synced {
-			peer.logger.Info(`rpc call result: GetTxs`, "len", 0)
+			peer.logger.Info(`call in NO RESULT: GetTxs`, "len", 0)
 			write(tx.Transactions(nil))
 		} else {
 			if len(txsToSync.txs) == 0 {
@@ -212,11 +211,10 @@ func (c *Communicator) handleRPC(peer *Peer, msg *p2p.Msg, write func(interface{
 				txsToSync.txs = nil
 				txsToSync.synced = true
 			}
-			peer.logger.Info(`rpc call result: GetTxs`, "len", len(toSend))
 			write(toSend)
 		}
 	case proto.MsgNewPowBlock:
-		peer.logger.Info(`rpc call: NewPowBlock`)
+		peer.logger.Info(`call in: NewPowBlock`)
 		// Disable the powpool gossip.
 		// comment out here for safe
 		//var newPowBlockInfo *powpool.PowBlockInfo

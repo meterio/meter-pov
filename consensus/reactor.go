@@ -9,6 +9,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/ecdsa"
+	sha256 "crypto/sha256"
 	"encoding/base64"
 	b64 "encoding/base64"
 	"encoding/binary"
@@ -27,6 +28,7 @@ import (
 	cli "gopkg.in/urfave/cli.v1"
 
 	crypto "github.com/ethereum/go-ethereum/crypto"
+	lru "github.com/hashicorp/golang-lru"
 	"github.com/inconshreveable/log15"
 	"github.com/meterio/meter-pov/block"
 	"github.com/meterio/meter-pov/chain"
@@ -40,6 +42,10 @@ import (
 	"github.com/meterio/meter-pov/state"
 	"github.com/meterio/meter-pov/txpool"
 	"github.com/meterio/meter-pov/types"
+)
+
+var (
+	validQCs, _ = lru.New(256)
 )
 
 const (
@@ -675,6 +681,12 @@ func (r *Reactor) ValidateQC(b *block.Block, escortQC *block.QuorumCert) bool {
 	var valid bool
 	var err error
 
+	h := sha256.New()
+	h.Write(escortQC.ToBytes())
+	qcID := base64.StdEncoding.EncodeToString(h.Sum(nil))
+	if validQCs.Contains(qcID) {
+		return true
+	}
 	// KBlock should be verified with last committee
 	r.logger.Debug("validate qc", "iskblock", b.IsKBlock(), "number", b.Number(), "best", r.chain.BestBlock().Number())
 	if b.IsKBlock() && b.Number() > 0 && b.Number() <= r.chain.BestBlock().Number() {
@@ -683,6 +695,7 @@ func (r *Reactor) ValidateQC(b *block.Block, escortQC *block.QuorumCert) bool {
 		valid, err = b.VerifyQC(escortQC, r.blsCommon, r.lastCommittee)
 		if valid && err == nil {
 			r.logger.Debug("validated QC with last committee", "elapsed", meter.PrettyDuration(time.Since(start)))
+			validQCs.Add(qcID, true)
 			return true
 		}
 		r.logger.Error(fmt.Sprintf("validate %s with last committee FAILED", escortQC.CompactString()), "size", len(r.lastCommittee), "err", err)
@@ -694,6 +707,7 @@ func (r *Reactor) ValidateQC(b *block.Block, escortQC *block.QuorumCert) bool {
 		_, lastStagingCommitee, _, _ := r.calcCommitteeByNonce("lastStaging", r.curDelegates, lastBestK.KBlockData.Nonce)
 		valid, err = b.VerifyQC(escortQC, r.blsCommon, lastStagingCommitee)
 		if valid && err == nil {
+			validQCs.Add(qcID, true)
 			return true
 		}
 		r.logger.Error(fmt.Sprintf("validate %s with last staging committee FAILED", escortQC.CompactString()), "size", len(r.lastCommittee), "err", err)
@@ -704,6 +718,7 @@ func (r *Reactor) ValidateQC(b *block.Block, escortQC *block.QuorumCert) bool {
 		valid, err = b.VerifyQC(escortQC, r.blsCommon, r.bootstrapCommittee11)
 		if valid && err == nil {
 			r.logger.Debug("validated QC with bootstrap committee size 11", "elapsed", meter.PrettyDuration(time.Since(start)))
+			validQCs.Add(qcID, true)
 			return true
 		}
 		r.logger.Error(fmt.Sprintf("validate %s with bootstrap committee size 11 FAILED", escortQC.CompactString()), "err", err)
@@ -714,6 +729,7 @@ func (r *Reactor) ValidateQC(b *block.Block, escortQC *block.QuorumCert) bool {
 		valid, err = b.VerifyQC(escortQC, r.blsCommon, r.bootstrapCommittee5)
 		if valid && err == nil {
 			r.logger.Debug("validated QC with bootstrap committee size 5", "elapsed", meter.PrettyDuration(time.Since(start)))
+			validQCs.Add(qcID, true)
 			return true
 		}
 		r.logger.Error(fmt.Sprintf("validate %s with bootstrap committee size 5 FAILED", escortQC.CompactString()), "err", err)
@@ -725,6 +741,7 @@ func (r *Reactor) ValidateQC(b *block.Block, escortQC *block.QuorumCert) bool {
 		valid, err = b.VerifyQC(escortQC, r.blsCommon, r.hardCommittee)
 		if valid && err == nil {
 			r.logger.Debug("validated QC with hard committee", "committeeSize", len(r.hardCommittee), "elapsed", meter.PrettyDuration(time.Since(start)))
+			validQCs.Add(qcID, true)
 			return true
 		}
 		r.logger.Error(fmt.Sprintf("validate %s with hard committee FAILED", escortQC.CompactString()), "err", err)
@@ -735,6 +752,7 @@ func (r *Reactor) ValidateQC(b *block.Block, escortQC *block.QuorumCert) bool {
 	valid, err = b.VerifyQC(escortQC, r.blsCommon, r.committee)
 	if valid && err == nil {
 		r.logger.Info(fmt.Sprintf("validated %s", escortQC.CompactString()), "elapsed", meter.PrettyDuration(time.Since(start)))
+		validQCs.Add(qcID, true)
 		return true
 	}
 	r.logger.Error(fmt.Sprintf("validate %s FAILED", escortQC.CompactString()), "err", err, "committeeSize", len(r.committee))
