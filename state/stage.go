@@ -137,7 +137,7 @@ func (s *Stage) Commit() (meter.Bytes32, error) {
 	atrieElapsed := time.Since(atrieStart)
 
 	if time.Since(start) > time.Millisecond {
-		log.Info("slow commited stage", "root", root, "strieElapsed", meter.PrettyDuration(strieElapsed), "atrieElapsed", meter.PrettyDuration(atrieElapsed), "elapsed", meter.PrettyDuration(time.Since(start)))
+		log.Info("slow commited stage", "root", root, "strie", meter.PrettyDuration(strieElapsed), "atrie", meter.PrettyDuration(atrieElapsed), "totalElapsed", meter.PrettyDuration(time.Since(start)))
 	}
 	return root, nil
 }

@@ -19,6 +19,7 @@ import (
 	"io/ioutil"
 	"net"
 	"net/http"
+	"runtime"
 	"sort"
 	"strings"
 	"sync"
@@ -255,7 +256,7 @@ func (r *Reactor) calcCommitteeByNonce(name string, delegates []*types.Delegate,
 
 	validators := make([]*types.Validator, 0)
 	for _, d := range actualDelegates {
-		r.logger.Info("load bls key from delegate", "name", string(d.Name))
+		r.logger.Debug("load bls key from delegate", "name", string(d.Name))
 		v := &types.Validator{
 			Name:           string(d.Name),
 			Address:        d.Address,
@@ -599,6 +600,14 @@ func PrintDelegates(delegates []*types.Delegate) {
 
 func (r *Reactor) OnReceiveMsg(w http.ResponseWriter, req *http.Request) {
 	defer req.Body.Close()
+	defer func() {
+		var m runtime.MemStats
+		runtime.ReadMemStats(&m)
+		r.logger.Info("after receive", "alloc", m.Alloc, "sys", m.Sys)
+	}()
+	var m runtime.MemStats
+	runtime.ReadMemStats(&m)
+	r.logger.Info("before receive", "alloc", m.Alloc, "sys", m.Sys)
 
 	data, err := ioutil.ReadAll(req.Body)
 	if err != nil {

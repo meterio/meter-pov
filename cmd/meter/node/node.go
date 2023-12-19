@@ -8,6 +8,7 @@ package node
 import (
 	"context"
 	"fmt"
+	"runtime"
 	"sort"
 	"time"
 
@@ -100,12 +101,21 @@ func (n *Node) Run(ctx context.Context) error {
 	return nil
 }
 
+func bToMb(b uint64) uint64 {
+	return b / 1024 / 1024
+}
+
 func (n *Node) printStats(duration time.Duration) {
 	ticker := time.NewTicker(duration)
 	for true {
 		select {
 		case <-ticker.C:
-			log.Info("< Stats >", "peerSet", n.comm.PeerCount(), "rawBlocksCache", n.chain.RawBlocksCacheLen(), "receiptsCache", n.chain.ReceiptsCacheLen(), "stateCache", state.CacheLen(), "inQueue", n.reactor.IncomingQueueLen(), "outQueue", n.reactor.OutgoingQueueLen(), "txPool", n.txPool.Len(), "powPool", n.comm.PowPoolLen())
+			var m runtime.MemStats
+			runtime.ReadMemStats(&m)
+			// For info on each, see: https://golang.org/pkg/runtime/#MemStats
+			log.Info("<Stats>", "peerSet", n.comm.PeerCount(), "rawBlocksCache", n.chain.RawBlocksCacheLen(), "receiptsCache", n.chain.ReceiptsCacheLen(), "stateCache", state.CacheLen(), "inQueue", n.reactor.IncomingQueueLen(), "outQueue", n.reactor.OutgoingQueueLen(), "txPool", n.txPool.Len(), "powPool", n.comm.PowPoolLen())
+			log.Info("<Memory>", "alloc", bToMb(m.Alloc), "sys", bToMb(m.Sys), "numGC", m.NumGC)
+			runtime.GC()
 		}
 	}
 }

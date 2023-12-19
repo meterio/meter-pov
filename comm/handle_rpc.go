@@ -50,7 +50,7 @@ func (c *Communicator) handleRPC(peer *Peer, msg *p2p.Msg, write func(interface{
 			return errors.WithMessage(err, "decode msg")
 		}
 
-		log.Info(fmt.Sprintf(`notify in: NewBlock(%s) from %s`, newBlock.Block.ShortID(), meter.Addr2IP(peer.RemoteAddr())))
+		log.Debug(fmt.Sprintf(`notify in: NewBlock(%s) from %s`, newBlock.Block.ShortID(), meter.Addr2IP(peer.RemoteAddr())))
 		peer.MarkBlock(newBlock.Block.ID())
 		peer.UpdateHead(newBlock.Block.ID(), newBlock.Block.TotalScore())
 		c.newBlockFeed.Send(&NewBlockEvent{EscortedBlock: newBlock})
@@ -61,7 +61,7 @@ func (c *Communicator) handleRPC(peer *Peer, msg *p2p.Msg, write func(interface{
 			return errors.WithMessage(err, "decode msg")
 		}
 
-		log.Info(fmt.Sprintf(`notify in: NewBlockID(%s) from %s`, newBlockID.ToBlockShortID(), meter.Addr2IP(peer.RemoteAddr())))
+		log.Debug(fmt.Sprintf(`notify in: NewBlockID(%s) from %s`, newBlockID.ToBlockShortID(), meter.Addr2IP(peer.RemoteAddr())))
 		peer.MarkBlock(newBlockID)
 		select {
 		case <-c.ctx.Done():
@@ -73,7 +73,7 @@ func (c *Communicator) handleRPC(peer *Peer, msg *p2p.Msg, write func(interface{
 		if err := msg.Decode(&newTx); err != nil {
 			return errors.WithMessage(err, "decode msg")
 		}
-		log.Info(fmt.Sprintf(`notify in: NewTx(%s) from %s`, newTx.ID(), meter.Addr2IP(peer.RemoteAddr())))
+		log.Debug(fmt.Sprintf(`notify in: NewTx(%s) from %s`, newTx.ID(), meter.Addr2IP(peer.RemoteAddr())))
 		peer.MarkTransaction(newTx.ID())
 		c.txPool.StrictlyAdd(newTx)
 		write(&struct{}{})

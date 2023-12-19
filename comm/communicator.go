@@ -27,10 +27,15 @@ import (
 	"github.com/meterio/meter-pov/tx"
 	"github.com/meterio/meter-pov/txpool"
 	"github.com/pkg/errors"
+	"github.com/prometheus/client_golang/prometheus"
 )
 
 var (
-	log = log15.New("pkg", "comm")
+	log             = log15.New("pkg", "comm")
+	peersCountGauge = prometheus.NewGauge(prometheus.GaugeOpts{
+		Name: "peers_count",
+		Help: "Count of connected peers",
+	})
 )
 
 // Communicator communicates with remote p2p peers to exchange blocks and txs, etc.
@@ -241,10 +246,12 @@ func (c *Communicator) runPeer(peer *Peer, dir string) {
 
 	peer.UpdateHead(status.BestBlockID, status.TotalScore)
 	c.peerSet.Add(peer, dir)
+	peersCountGauge.Set(float64(c.peerSet.Len()))
 	peer.logger.Info(fmt.Sprintf("peer added (%v)", c.peerSet.Len()))
 
 	defer func() {
 		c.peerSet.Remove(peer.ID())
+		peersCountGauge.Set(float64(c.peerSet.Len()))
 		peer.logger.Info(fmt.Sprintf("peer removed (%v)", c.peerSet.Len()))
 	}()
 

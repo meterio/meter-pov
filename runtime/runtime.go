@@ -937,7 +937,7 @@ func (rt *Runtime) ExecuteTransaction(tx *tx.Transaction) (receipt *tx.Receipt, 
 	receipt, err = executor.Finalize()
 	finalizeElapsed := time.Since(finalizeStart)
 	if time.Since(start) > time.Millisecond {
-		log.Info(fmt.Sprintf("slow executed tx %s", tx.ID()), "elapsed", meter.PrettyDuration(time.Since(start)), "prepareElapsed", meter.PrettyDuration(prepareElapsed), "execElapsed", meter.PrettyDuration(execElapsed), "seChangeElapsed", meter.PrettyDuration(seChangeElapsed), "finalizeElapsed", meter.PrettyDuration(finalizeElapsed))
+		log.Info(fmt.Sprintf("slow executed tx %s", tx.ID()), "totalElapsed", meter.PrettyDuration(time.Since(start)), "prepare", meter.PrettyDuration(prepareElapsed), "exec", meter.PrettyDuration(execElapsed), "seChange", meter.PrettyDuration(seChangeElapsed), "finalize", meter.PrettyDuration(finalizeElapsed))
 	}
 	return
 }
@@ -1080,7 +1080,7 @@ func (rt *Runtime) PrepareTransaction(tx *tx.Transaction) (*TransactionExecutor,
 	}
 	executorElapsed := time.Since(executorStart)
 	if (resolveElapsed + buyGasElapsed + ckpointElapsed + toContextElapsed + executorElapsed) > time.Millisecond {
-		log.Debug("slow prepare", "tx", tx.ID(), "elasped", meter.PrettyDuration(resolveElapsed+buyGasElapsed+ckpointElapsed+toContextElapsed+executorElapsed), "resolveElapsed", meter.PrettyDuration(resolveElapsed), "buyGasElapsed", meter.PrettyDuration(buyGasElapsed), "ckpointElapsed", meter.PrettyDuration(ckpointElapsed), "toContextElapsed", meter.PrettyDuration(toContextElapsed), "executorElasped", meter.PrettyDuration(executorElapsed))
+		log.Debug("slow prepare", "tx", tx.ID(), "totalElasped", meter.PrettyDuration(resolveElapsed+buyGasElapsed+ckpointElapsed+toContextElapsed+executorElapsed), "resolve", meter.PrettyDuration(resolveElapsed), "buyGas", meter.PrettyDuration(buyGasElapsed), "ckpoint", meter.PrettyDuration(ckpointElapsed), "toContext", meter.PrettyDuration(toContextElapsed), "executor", meter.PrettyDuration(executorElapsed))
 	}
 	return executor, nil
 }

@@ -17,6 +17,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"runtime/debug"
 	"strconv"
 	"strings"
 	"time"
@@ -203,6 +204,7 @@ func peersAction(ctx *cli.Context) error {
 
 func defaultAction(ctx *cli.Context) error {
 	exitSignal := handleExitSignal()
+	debug.SetMemoryLimit(4 * 1024 * 1024 * 1024) // 4GB
 
 	defer func() { log.Info("exited") }()
 
