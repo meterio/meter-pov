@@ -600,13 +600,16 @@ func PrintDelegates(delegates []*types.Delegate) {
 
 func (r *Reactor) OnReceiveMsg(w http.ResponseWriter, req *http.Request) {
 	defer req.Body.Close()
-	defer func() {
-		var m runtime.MemStats
-		runtime.ReadMemStats(&m)
-		r.logger.Info("after receive", "alloc", m.Alloc, "sys", m.Sys)
-	}()
+
 	var m runtime.MemStats
 	runtime.ReadMemStats(&m)
+
+	defer func() {
+		var ma runtime.MemStats
+		runtime.ReadMemStats(&ma)
+		r.logger.Info("after receive", "allocDiff(KB)", (ma.Alloc-m.Alloc)/1024, "sysDiff(KB)", (ma.Sys-m.Sys)/1024)
+	}()
+
 	r.logger.Info("before receive", "alloc", m.Alloc, "sys", m.Sys)
 
 	data, err := ioutil.ReadAll(req.Body)

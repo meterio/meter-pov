@@ -222,7 +222,7 @@ func (p *TxPool) add(newTx *tx.Transaction, rejectNonexecutable bool) error {
 
 	if len(p.newTxFeed) < cap(p.newTxFeed) {
 		p.newTxFeed <- newTx.ID()
-		log.Info("new tx feed: ", "id", newTx.ID())
+		log.Debug("new tx feed: ", "id", newTx.ID())
 	} else {
 		select {
 		case <-p.newTxFeed:
@@ -230,7 +230,7 @@ func (p *TxPool) add(newTx *tx.Transaction, rejectNonexecutable bool) error {
 			break
 		}
 		p.newTxFeed <- newTx.ID()
-		log.Info("new tx feed: ", "id", newTx.ID())
+		log.Debug("new tx feed: ", "id", newTx.ID())
 	}
 	atomic.AddUint32(&p.addedAfterWash, 1)
 	return nil

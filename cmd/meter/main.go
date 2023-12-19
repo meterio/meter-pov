@@ -204,7 +204,7 @@ func peersAction(ctx *cli.Context) error {
 
 func defaultAction(ctx *cli.Context) error {
 	exitSignal := handleExitSignal()
-	debug.SetMemoryLimit(4 * 1024 * 1024 * 1024) // 4GB
+	debug.SetMemoryLimit(5 * 1024 * 1024 * 1024) // 5GB
 
 	defer func() { log.Info("exited") }()
 

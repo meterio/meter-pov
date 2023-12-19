@@ -357,7 +357,7 @@ func (c *Chain) AddBlock(newBlock *block.Block, escortQC *block.QuorumCert, rece
 	}
 
 	for i, tx := range newBlock.Transactions() {
-		log.Info("saving tx meta for ", "block", newBlock.Number(), "tx", tx.ID())
+		log.Debug(fmt.Sprintf("saving tx meta for %s", tx.ID()), "block", newBlock.Number())
 		meta, err := loadTxMeta(c.kv, tx.ID())
 		if err != nil {
 			if !c.IsNotFound(err) {

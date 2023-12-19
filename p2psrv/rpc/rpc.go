@@ -227,7 +227,7 @@ func (r *RPC) Call(ctx context.Context, msgCode uint64, arg interface{}, result 
 	id := r.prepareCall(msgCode, func(msg *p2p.Msg) error {
 		// msg should decode here, or its payload will be discarded by msg loop
 		err := msg.Decode(result)
-		log.Info(fmt.Sprintf("call out: %s to %s", proto.MsgName(msgCode), meter.Addr2IP(r.peer.RemoteAddr())))
+		log.Debug(fmt.Sprintf("call out: %s to %s", proto.MsgName(msgCode), meter.Addr2IP(r.peer.RemoteAddr())))
 		if err != nil {
 			err = errors.WithMessage(err, "decode result")
 		}

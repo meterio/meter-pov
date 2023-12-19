@@ -178,7 +178,7 @@ func (c *Communicator) handleRPC(peer *Peer, msg *p2p.Msg, write func(interface{
 			return errors.WithMessage(err, "decode msg")
 		}
 
-		log.Info(fmt.Sprintf(`call in: GetTxs from %s`, meter.Addr2IP(peer.RemoteAddr())))
+		log.Debug(fmt.Sprintf(`call in: GetTxs from %s`, meter.Addr2IP(peer.RemoteAddr())))
 		if txsToSync.synced {
 			peer.logger.Info(`call in NO RESULT: GetTxs`, "len", 0)
 			write(tx.Transactions(nil))
@@ -214,7 +214,7 @@ func (c *Communicator) handleRPC(peer *Peer, msg *p2p.Msg, write func(interface{
 			write(toSend)
 		}
 	case proto.MsgNewPowBlock:
-		peer.logger.Info(`call in: NewPowBlock`)
+		peer.logger.Debug(`call in: NewPowBlock`)
 		// Disable the powpool gossip.
 		// comment out here for safe
 		//var newPowBlockInfo *powpool.PowBlockInfo
