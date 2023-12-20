@@ -473,6 +473,13 @@ func (c *Chain) GetTransactionMeta(txID meter.Bytes32, headBlockID meter.Bytes32
 	return c.getTransactionMeta(txID, headBlockID)
 }
 
+// GetTransactionMeta get transaction meta info, on the chain defined by head block ID.
+func (c *Chain) HasTransactionMeta(txID meter.Bytes32) (bool, error) {
+	c.rw.RLock()
+	defer c.rw.RUnlock()
+	return c.hasTransactionMeta(txID)
+}
+
 // GetTransaction get transaction for given block and index.
 func (c *Chain) GetTransaction(blockID meter.Bytes32, index uint64) (*tx.Transaction, error) {
 	c.rw.RLock()
@@ -687,6 +694,10 @@ func (c *Chain) getBlockReceipts(blockID meter.Bytes32) (tx.Receipts, error) {
 		return nil, err
 	}
 	return receipts.(tx.Receipts), nil
+}
+
+func (c *Chain) hasTransactionMeta(txID meter.Bytes32) (bool, error) {
+	return c.kv.Has(txID[:])
 }
 
 func (c *Chain) getTransactionMeta(txID meter.Bytes32, headBlockID meter.Bytes32) (*TxMeta, error) {

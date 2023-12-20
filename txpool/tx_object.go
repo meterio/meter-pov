@@ -59,11 +59,9 @@ func (o *txObject) Executable(chain *chain.Chain, state *state.State, headBlock 
 		return false, errors.New("block ref out of schedule")
 	}
 
-	if _, err := chain.GetTransactionMeta(o.ID(), headBlock.ID()); err != nil {
-		if !chain.IsNotFound(err) {
-			return false, err
-		}
-	} else {
+	if has, err := chain.HasTransactionMeta(o.ID()); err != nil {
+		return false, err
+	} else if has {
 		return false, errors.New("known tx")
 	}
 

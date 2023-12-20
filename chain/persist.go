@@ -141,6 +141,11 @@ func deleteTxMeta(w kv.Putter, txID meter.Bytes32) error {
 }
 
 // loadTxMeta load tx meta info by tx id.
+func hasTxMeta(r kv.Getter, txID meter.Bytes32) (bool, error) {
+	return r.Has(append(txMetaPrefix, txID[:]...))
+}
+
+// loadTxMeta load tx meta info by tx id.
 func loadTxMeta(r kv.Getter, txID meter.Bytes32) ([]TxMeta, error) {
 	var meta []TxMeta
 	if err := loadRLP(r, append(txMetaPrefix, txID[:]...), &meta); err != nil {
