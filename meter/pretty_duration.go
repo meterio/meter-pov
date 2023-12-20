@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/meterio/meter-pov/metric"
-	"go.opentelemetry.io/otel/metric"
 )
 
 // PrettyDuration is a pretty printed version of a time.Duration value that cuts
