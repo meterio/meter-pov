@@ -307,7 +307,7 @@ func (s *State) SubEnergy(addr meter.Address, amount *big.Int) bool {
 	setElapsed := time.Since(setStart)
 	cacheMisses := s.trie.CacheMisses()
 	if (getElapsed + setElapsed) > time.Millisecond {
-		log.Info("slow sub", "addr", addr, "cacheMisses", cacheMisses, "elapsed", meter.PrettyDuration(getElapsed+setElapsed), "get", meter.PrettyDuration(getElapsed), "set", meter.PrettyDuration(setElapsed))
+		log.Debug("slow sub", "addr", addr, "cacheMisses", cacheMisses, "elapsed", meter.PrettyDuration(getElapsed+setElapsed), "get", meter.PrettyDuration(getElapsed), "set", meter.PrettyDuration(setElapsed))
 	}
 	return true
 }
