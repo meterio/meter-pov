@@ -95,18 +95,15 @@ func (n *Node) Run(ctx context.Context) error {
 	n.goes.Go(func() { n.txStashLoop(ctx) })
 
 	n.goes.Go(func() { n.reactor.OnStart(ctx) })
-	go n.printStats(time.Minute * 2)
+	go n.printStats(time.Minute)
 
 	n.goes.Wait()
 	return nil
 }
 
-func bToMb(b uint64) uint64 {
-	return b / 1024 / 1024
-}
-
 func (n *Node) printStats(duration time.Duration) {
 	ticker := time.NewTicker(duration)
+	counter := 0
 	for true {
 		select {
 		case <-ticker.C:
@@ -114,8 +111,10 @@ func (n *Node) printStats(duration time.Duration) {
 			runtime.ReadMemStats(&m)
 			// For info on each, see: https://golang.org/pkg/runtime/#MemStats
 			log.Info("<Stats>", "peerSet", n.comm.PeerCount(), "rawBlocksCache", n.chain.RawBlocksCacheLen(), "receiptsCache", n.chain.ReceiptsCacheLen(), "stateCache", state.CacheLen(), "inQueue", n.reactor.IncomingQueueLen(), "outQueue", n.reactor.OutgoingQueueLen(), "txPool", n.txPool.Len(), "powPool", n.comm.PowPoolLen())
-			log.Info("<Memory>", "alloc", bToMb(m.Alloc), "sys", bToMb(m.Sys), "numGC", m.NumGC)
-			runtime.GC()
+			log.Info("<Memory>", "alloc", meter.PrettyStorage(m.Alloc), "sys", meter.PrettyStorage(m.Sys), "numGC", m.NumGC)
+			if counter%10 == 0 {
+				runtime.GC()
+			}
 		}
 	}
 }

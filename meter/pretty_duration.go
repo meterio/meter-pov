@@ -4,6 +4,9 @@ import (
 	"regexp"
 	"strings"
 	"time"
+
+	"github.com/meterio/meter-pov/metric"
+	"go.opentelemetry.io/otel/metric"
 )
 
 // PrettyDuration is a pretty printed version of a time.Duration value that cuts
@@ -20,4 +23,8 @@ func (d PrettyDuration) String() string {
 		label = strings.Replace(label, match, match[:4], 1)
 	}
 	return label
+}
+
+func PrettyStorage(storage uint64) string {
+	return metric.StorageSize(int64(storage)).String()
 }
