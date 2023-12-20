@@ -273,7 +273,7 @@ func (p *Pacemaker) OnCommit(commitReady []commitReadyBlock) {
 	}
 }
 
-func (p *Pacemaker) OnReceiveProposal(mi *IncomingMsg) {
+func (p *Pacemaker) OnReceiveProposal(mi IncomingMsg) {
 	msg := mi.Msg.(*block.PMProposalMessage)
 	height := msg.DecodeBlock().Number()
 	round := msg.Round
@@ -303,10 +303,10 @@ func (p *Pacemaker) OnReceiveProposal(mi *IncomingMsg) {
 				}
 				peers := make([]*ConsensusPeer, 0)
 				// query the replica that forwards this msg
-				peers = append(peers, mi.Peer)
+				peers = append(peers, NewConsensusPeer(mi.Peer.Name, mi.Peer.IP))
 
 				// query the proposer
-				signerPeer := newConsensusPeer(mi.Signer.Name, mi.Signer.IP, 8670)
+				signerPeer := NewConsensusPeer(mi.Signer.Name, mi.Signer.IP)
 				peers = append(peers, signerPeer)
 
 				// query the next proposer
@@ -413,7 +413,7 @@ func (p *Pacemaker) OnReceiveProposal(mi *IncomingMsg) {
 
 }
 
-func (p *Pacemaker) OnReceiveVote(mi *IncomingMsg) {
+func (p *Pacemaker) OnReceiveVote(mi IncomingMsg) {
 	msg := mi.Msg.(*block.PMVoteMessage)
 	p.logger.Debug(fmt.Sprintf("Handling %s", msg.GetType()), "blk", msg.VoteBlockID.ToBlockShortID())
 
@@ -547,7 +547,7 @@ func (p *Pacemaker) OnBeat(epoch uint64, round uint32) {
 	}
 }
 
-func (p *Pacemaker) OnReceiveTimeout(mi *IncomingMsg) {
+func (p *Pacemaker) OnReceiveTimeout(mi IncomingMsg) {
 	msg := mi.Msg.(*block.PMTimeoutMessage)
 	p.logger.Debug(fmt.Sprintf("Handling %s", msg.GetType()), "epoch", msg.Epoch, "wishRound", msg.WishRound, "lastVoteSig", hex.EncodeToString(msg.LastVoteSignature))
 
@@ -577,14 +577,14 @@ func (p *Pacemaker) OnReceiveTimeout(mi *IncomingMsg) {
 	}
 }
 
-func (p *Pacemaker) OnReceiveQuery(mi *IncomingMsg) {
+func (p *Pacemaker) OnReceiveQuery(mi IncomingMsg) {
 	msg := mi.Msg.(*block.PMQueryMessage)
 	proposals := p.chain.GetDraftsUpTo(msg.LastCommitted, p.QCHigh.QC)
 	p.logger.Info(`received query`, "lastCommitted", msg.LastCommitted.ToBlockShortID(), "from", mi.Peer)
 	for _, proposal := range proposals {
 		p.logger.Info(`forward proposal`, "id", proposal.ProposedBlock.ID().ToBlockShortID(), "to", mi.Peer)
 		p.sendMsg(proposal.Msg, false)
-		p.reactor.Send(proposal.Msg, mi.Peer)
+		p.reactor.Send(proposal.Msg, NewConsensusPeer(mi.Peer.Name, mi.Peer.IP))
 	}
 }
 
@@ -764,9 +764,10 @@ func (p *Pacemaker) mainLoop() {
 		if bestBlock.Number() > p.QCHigh.QC.QCHeight && p.reactor.inCommittee {
 			p.logger.Info("bestBlock > QCHigh, schedule regulate", "best", bestBlock.Number(), "qcHigh", p.QCHigh.QC.QCHeight)
 			p.scheduleRegulate()
-		} else if bestBlock.Number() > p.QCHigh.QC.QCHeight && !p.reactor.inCommittee {
-			p.logger.Info("bestBlock > QCHigh, but I'm not in committee, continue ...", "best", bestBlock.Number(), "qcHigh", p.QCHigh.QC.QCHeight)
 		}
+		// else if bestBlock.Number() > p.QCHigh.QC.QCHeight && !p.reactor.inCommittee {
+		// p.logger.Info("bestBlock > QCHigh, but I'm not in committee, continue ...", "best", bestBlock.Number(), "qcHigh", p.QCHigh.QC.QCHeight)
+		// }
 		select {
 
 		case cmd := <-p.cmdCh:

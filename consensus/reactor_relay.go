@@ -75,7 +75,7 @@ func (r *Reactor) GetRelayPeers(round uint32) []*ConsensusPeer {
 		}
 		member := r.committee[index]
 		name := r.getNameByIP(member.NetAddr.IP)
-		peers = append(peers, newConsensusPeer(name, member.NetAddr.IP.String(), member.NetAddr.Port))
+		peers = append(peers, NewConsensusPeer(name, member.NetAddr.IP.String()))
 	}
 	log.Debug("get relay peers result", "myIndex", myIndex, "committeeSize", size, "round", round, "indexes", indexes)
 	return peers
@@ -88,7 +88,7 @@ func (r *Reactor) Relay(msg block.ConsensusMessage, rawMsg []byte) {
 		peers := r.GetRelayPeers(round)
 		if len(peers) > 0 {
 			for _, peer := range peers {
-				r.outQueue.Add(peer, msg, rawMsg, true)
+				r.outQueue.Add(*peer, msg, rawMsg, true)
 			}
 		}
 	}
@@ -104,7 +104,7 @@ func (r *Reactor) Send(msg block.ConsensusMessage, peers ...*ConsensusPeer) {
 
 	if len(peers) > 0 {
 		for _, peer := range peers {
-			r.outQueue.Add(peer, msg, rawMsg, false)
+			r.outQueue.Add(*peer, msg, rawMsg, false)
 		}
 	}
 }

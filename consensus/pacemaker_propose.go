@@ -215,7 +215,7 @@ func (p *Pacemaker) AddTxToCurProposal(newTxID meter.Bytes32) error {
 		}
 		p.logger.Warn("mBlock flow.Adopt(tx) failed...", "txid", tx.ID(), "error", err)
 	}
-	p.logger.Info("added tx to cur proposal", "tx", newTxID)
+	p.logger.Debug("added tx to cur proposal", "tx", newTxID)
 	return nil
 }
 

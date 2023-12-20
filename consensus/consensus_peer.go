@@ -11,19 +11,17 @@ import (
 
 // Consensus Topology Peer
 type ConsensusPeer struct {
-	name string
+	Name string
 	IP   string
-	port uint16
 }
 
-func newConsensusPeer(name string, ip string, port uint16) *ConsensusPeer {
+func NewConsensusPeer(name string, ip string) *ConsensusPeer {
 	return &ConsensusPeer{
-		name: name,
+		Name: name,
 		IP:   ip,
-		port: port,
 	}
 }
 
 func (cp *ConsensusPeer) String() string {
-	return fmt.Sprintf("%s(%s)", cp.name, cp.IP)
+	return fmt.Sprintf("%s(%s)", cp.Name, cp.IP)
 }

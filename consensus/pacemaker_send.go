@@ -23,7 +23,7 @@ import (
 func (p *Pacemaker) sendMsg(msg block.ConsensusMessage, copyMyself bool) bool {
 	myNetAddr := p.reactor.GetMyNetAddr()
 	myName := p.reactor.GetMyName()
-	myself := newConsensusPeer(myName, myNetAddr.IP.String(), myNetAddr.Port)
+	myself := NewConsensusPeer(myName, myNetAddr.IP.String())
 
 	round := msg.GetRound()
 

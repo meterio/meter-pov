@@ -16,20 +16,16 @@ const (
 	IN_QUEUE_TTL = time.Second * 5
 )
 
-type IncomingMsgSigner struct {
-	Name string
-	IP   string
-}
 type IncomingMsg struct {
 	//Msg    block.ConsensusMessage
 	Msg          block.ConsensusMessage
-	Peer         *ConsensusPeer
+	Peer         ConsensusPeer
 	RawData      []byte
 	Hash         [32]byte
 	ShortHashStr string
 
 	// Signer *types.Validator
-	Signer IncomingMsgSigner
+	Signer ConsensusPeer
 
 	EnqueueAt time.Time
 	ExpireAt  time.Time
@@ -37,7 +33,7 @@ type IncomingMsg struct {
 	ProcessCount uint32
 }
 
-func newIncomingMsg(msg block.ConsensusMessage, peer *ConsensusPeer, rawData []byte) *IncomingMsg {
+func newIncomingMsg(msg block.ConsensusMessage, peer ConsensusPeer, rawData []byte) *IncomingMsg {
 	msgHash := sha256.Sum256(rawData)
 	shortMsgHash := hex.EncodeToString(msgHash[:])[:8]
 	return &IncomingMsg{
@@ -59,7 +55,7 @@ func (m *IncomingMsg) Expired() bool {
 type IncomingQueue struct {
 	sync.Mutex
 	logger log15.Logger
-	queue  chan (*IncomingMsg)
+	queue  chan (IncomingMsg)
 	cache  *lru.ARCCache
 }
 
@@ -70,31 +66,31 @@ func NewIncomingQueue() *IncomingQueue {
 	}
 	return &IncomingQueue{
 		logger: log15.New(), // log15.New("pkg", "in"),
-		queue:  make(chan (*IncomingMsg), 1024),
+		queue:  make(chan (IncomingMsg), 1024),
 		cache:  cache,
 	}
 }
 
-func (q *IncomingQueue) forceAdd(mi *IncomingMsg) {
+func (q *IncomingQueue) forceAdd(mi IncomingMsg) {
 	defer q.Mutex.Unlock()
 	q.Mutex.Lock()
 
 	for len(q.queue) >= cap(q.queue) {
 		dropped := <-q.queue
-		q.logger.Warn(fmt.Sprintf("dropped %s due to cap", dropped.Msg.String()), "from", dropped.Peer)
+		q.logger.Warn(fmt.Sprintf("dropped %s due to cap", dropped.Msg.String())) //, "from", dropped.Peer)
 	}
 
 	q.queue <- mi
 }
 
-func (q *IncomingQueue) DelayedAdd(mi *IncomingMsg) {
+func (q *IncomingQueue) DelayedAdd(mi IncomingMsg) {
 	mi.ProcessCount = mi.ProcessCount + 1
 	time.AfterFunc(time.Second, func() {
 		q.forceAdd(mi)
 	})
 }
 
-func (q *IncomingQueue) Add(mi *IncomingMsg) error {
+func (q *IncomingQueue) Add(mi IncomingMsg) error {
 	defer q.Mutex.Unlock()
 	q.Mutex.Lock()
 	if q.cache.Contains(mi.Hash) {
@@ -105,10 +101,10 @@ func (q *IncomingQueue) Add(mi *IncomingMsg) error {
 	// instead of drop the latest message, drop the oldest one in front of queue
 	for len(q.queue) >= cap(q.queue) {
 		dropped := <-q.queue
-		q.logger.Warn(fmt.Sprintf("dropped %s due to cap", dropped.Msg.String()), "from", dropped.Peer)
+		q.logger.Warn(fmt.Sprintf("dropped %s due to cap", dropped.Msg.String())) // , "from", dropped.Peer)
 	}
 
-	q.logger.Info(fmt.Sprintf("recv %s", mi.Msg.String()), "from", mi.Peer)
+	q.logger.Info(fmt.Sprintf("recv %s", mi.Msg.String())) // "from", mi.Peer)
 	mi.EnqueueAt = time.Now()
 	mi.ExpireAt = time.Now().Add(IN_QUEUE_TTL)
 	q.queue <- mi
@@ -123,7 +119,7 @@ func (q *IncomingQueue) drain() {
 	}
 }
 
-func (q *IncomingQueue) Queue() chan (*IncomingMsg) {
+func (q *IncomingQueue) Queue() chan (IncomingMsg) {
 	return q.queue
 }
 

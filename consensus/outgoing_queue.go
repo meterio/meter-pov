@@ -21,12 +21,13 @@ const (
 )
 
 type OutgoingParcel struct {
-	to        *ConsensusPeer
-	msg       block.ConsensusMessage
-	rawMsg    []byte
-	relay     bool
-	enqueueAt time.Time
-	expireAt  time.Time
+	to         ConsensusPeer
+	msgType    string
+	msgSummary string
+	rawMsg     []byte
+	relay      bool
+	enqueueAt  time.Time
+	expireAt   time.Time
 }
 
 func (p *OutgoingParcel) Expired() bool {
@@ -36,25 +37,25 @@ func (p *OutgoingParcel) Expired() bool {
 type OutgoingQueue struct {
 	sync.WaitGroup
 	logger  log15.Logger
-	queue   chan (*OutgoingParcel)
+	queue   chan (OutgoingParcel)
 	clients map[string]*http.Client
 }
 
 func NewOutgoingQueue() *OutgoingQueue {
 	return &OutgoingQueue{
 		logger:  log15.New("pkg", "out"),
-		queue:   make(chan (*OutgoingParcel), 2048),
+		queue:   make(chan (OutgoingParcel), 2048),
 		clients: make(map[string]*http.Client),
 	}
 }
 
-func (q *OutgoingQueue) Add(to *ConsensusPeer, msg block.ConsensusMessage, rawMsg []byte, relay bool) {
+func (q *OutgoingQueue) Add(to ConsensusPeer, msg block.ConsensusMessage, rawMsg []byte, relay bool) {
 	q.logger.Debug(fmt.Sprintf("add %s msg to out queue", msg.GetType()), "to", to, "len", len(q.queue), "cap", cap(q.queue))
 	for len(q.queue) >= cap(q.queue) {
 		p := <-q.queue
-		q.logger.Info(fmt.Sprintf(`%s msg dropped due to cap ...`, p.msg.GetType()))
+		q.logger.Info(fmt.Sprintf(`%s msg dropped due to cap ...`, p.msgType))
 	}
-	q.queue <- &OutgoingParcel{to: to, msg: msg, rawMsg: rawMsg, relay: relay, enqueueAt: time.Now(), expireAt: time.Now().Add(OUT_QUEUE_TTL)}
+	q.queue <- OutgoingParcel{to: to, msgType: msg.GetType(), msgSummary: msg.String(), rawMsg: rawMsg, relay: relay, enqueueAt: time.Now(), expireAt: time.Now().Add(OUT_QUEUE_TTL)}
 }
 
 func (q *OutgoingQueue) Start(ctx context.Context) {
@@ -82,12 +83,12 @@ func NewOutgoingWorker(num int) *outgoingWorker {
 	}
 }
 
-func (w *outgoingWorker) Run(ctx context.Context, queue chan *OutgoingParcel, wg *sync.WaitGroup) {
+func (w *outgoingWorker) Run(ctx context.Context, queue chan OutgoingParcel, wg *sync.WaitGroup) {
 	defer wg.Done()
 
 	for parcel := range queue {
 		if parcel.Expired() {
-			w.logger.Info(fmt.Sprintf(`outgoing %s msg expired, dropped ...`, parcel.msg.GetType()))
+			w.logger.Info(fmt.Sprintf(`outgoing %s msg expired, dropped ...`, parcel.msgType))
 			continue
 		}
 		ipAddr := parcel.to.IP
@@ -98,16 +99,16 @@ func (w *outgoingWorker) Run(ctx context.Context, queue chan *OutgoingParcel, wg
 		url := "http://" + parcel.to.IP + ":8670/pacemaker"
 
 		if parcel.relay {
-			w.logger.Debug(fmt.Sprintf(`relay %s`, parcel.msg.GetType()), "to", parcel.to)
+			w.logger.Debug(fmt.Sprintf(`relay %s`, parcel.msgType), "to", parcel.to)
 		} else {
-			w.logger.Info(fmt.Sprintf(`send %s`, parcel.msg.String()), "to", parcel.to)
+			w.logger.Info(fmt.Sprintf(`send %s`, parcel.msgSummary), "to", parcel.to)
 
 		}
 		res, err := client.Post(url, "application/json", bytes.NewBuffer(parcel.rawMsg))
 
 		// TODO: print response
 		if err != nil {
-			w.logger.Error(fmt.Sprintf("send msg %s failed", parcel.msg.GetType()), "to", parcel.to, "err", err)
+			w.logger.Error(fmt.Sprintf("send msg %s failed", parcel.msgType), "to", parcel.to, "err", err)
 			w.clients[ipAddr] = &http.Client{Timeout: REQ_TIMEOUT}
 			continue
 		}

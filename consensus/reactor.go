@@ -604,12 +604,6 @@ func (r *Reactor) OnReceiveMsg(w http.ResponseWriter, req *http.Request) {
 	var m runtime.MemStats
 	runtime.ReadMemStats(&m)
 
-	defer func() {
-		var ma runtime.MemStats
-		runtime.ReadMemStats(&ma)
-		r.logger.Info("after receive", "allocDiff(KB)", (ma.Alloc-m.Alloc)/1024, "sysDiff(KB)", (ma.Sys-m.Sys)/1024)
-	}()
-
 	r.logger.Info("before receive", "alloc", m.Alloc, "sys", m.Sys)
 
 	data, err := ioutil.ReadAll(req.Body)
@@ -622,11 +616,17 @@ func (r *Reactor) OnReceiveMsg(w http.ResponseWriter, req *http.Request) {
 		r.logger.Error("Unmarshal error", "err", err, "from", req.RemoteAddr)
 		return
 	}
-	r.AddIncoming(mi, data)
+	defer func() {
+		var ma runtime.MemStats
+		runtime.ReadMemStats(&ma)
+		r.logger.Info(fmt.Sprintf("after receive %s", mi.Msg.String()), "allocDiff(KB)", (ma.Alloc-m.Alloc)/1024, "sysDiff(KB)", (ma.Sys-m.Sys)/1024)
+	}()
+
+	r.AddIncoming(*mi, data)
 
 }
 
-func (r *Reactor) AddIncoming(mi *IncomingMsg, data []byte) {
+func (r *Reactor) AddIncoming(mi IncomingMsg, data []byte) {
 	msg, peer := mi.Msg, mi.Peer
 	typeName := mi.Msg.GetType()
 

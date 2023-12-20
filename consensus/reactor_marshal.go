@@ -22,13 +22,13 @@ func (r *Reactor) UnmarshalMsg(rawData []byte) (*IncomingMsg, error) {
 		return nil, ErrMagicMismatch
 	}
 	peerIP := net.ParseIP(params["peer_ip"])
-	peerPort, err := strconv.ParseUint(params["peer_port"], 10, 16)
-	if err != nil {
-		r.logger.Error("unrecognized payload", "err", err)
-		return nil, ErrUnrecognizedPayload
-	}
+	// peerPort, err := strconv.ParseUint(params["peer_port"], 10, 16)
+	// if err != nil {
+	// 	r.logger.Error("unrecognized payload", "err", err)
+	// 	return nil, ErrUnrecognizedPayload
+	// }
 	peerName := r.getNameByIP(peerIP)
-	peer := newConsensusPeer(peerName, peerIP.String(), uint16(peerPort))
+	peer := NewConsensusPeer(peerName, peerIP.String())
 
 	msg, err := block.DecodeMsg(params["message"])
 	if err != nil {
@@ -36,7 +36,7 @@ func (r *Reactor) UnmarshalMsg(rawData []byte) (*IncomingMsg, error) {
 		return nil, ErrMalformattedMsg
 	}
 
-	msgInfo := newIncomingMsg(msg, peer, rawData)
+	msgInfo := newIncomingMsg(msg, *peer, rawData)
 	return msgInfo, nil
 }
 
