@@ -76,4 +76,4 @@ require (
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
 
-// replace github.com/syndtr/goleveldb => github.com/vechain/goleveldb v1.0.1-0.20220107084823-eb292ce39601
+replace github.com/syndtr/goleveldb => github.com/vechain/goleveldb v1.0.1-0.20220107084823-eb292ce39601
