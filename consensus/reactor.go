@@ -107,6 +107,7 @@ type Reactor struct {
 
 	inQueue  *IncomingQueue
 	outQueue *OutgoingQueue
+	inCache  *lru.Cache
 }
 
 // NewConsensusReactor returns a new Reactor with config
@@ -118,6 +119,7 @@ func NewConsensusReactor(ctx *cli.Context, chain *chain.Chain, logDB *logdb.LogD
 	prometheus.Register(inCommitteeGauge)
 	prometheus.Register(pmRoleGauge)
 
+	inCache, _ := lru.New(1024)
 	r := &Reactor{
 		comm:         comm,
 		txpool:       txpool,
@@ -133,6 +135,7 @@ func NewConsensusReactor(ctx *cli.Context, chain *chain.Chain, logDB *logdb.LogD
 
 		inQueue:  NewIncomingQueue(),
 		outQueue: NewOutgoingQueue(),
+		inCache:  inCache,
 
 		blsCommon: blsCommon,
 		myPrivKey: *privKey,
@@ -182,10 +185,6 @@ func (r *Reactor) OnStart(ctx context.Context) error {
 	}
 
 	return nil
-}
-
-func (r *Reactor) GetLastKBlockHeight() uint32 {
-	return r.lastKBlockHeight
 }
 
 // get the specific round proposer
@@ -622,7 +621,11 @@ func (r *Reactor) OnReceiveMsg(w http.ResponseWriter, req *http.Request) {
 		r.logger.Info(fmt.Sprintf("after receive %s", mi.Msg.GetType()), "allocDiff", meter.PrettyStorage(ma.Alloc-m.Alloc), "sysDiff(KB)", meter.PrettyStorage(ma.Sys-m.Sys))
 	}()
 
+	if r.inCache.Contains(mi.ID) {
+		return
+	}
 	r.AddIncoming(*mi, data)
+	r.inCache.Add(mi.ID, true)
 
 }
 

@@ -8,7 +8,6 @@ package block
 import (
 	"bytes"
 	"crypto/ecdsa"
-	"encoding/hex"
 	"errors"
 	"fmt"
 	"time"
@@ -57,26 +56,22 @@ func init() {
 	RegisterConsensusMessages(cdc)
 }
 
-func DecodeMsg(rawHex string) (ConsensusMessage, error) {
+func DecodeMsg(raw []byte) (ConsensusMessage, error) {
 	var msg ConsensusMessage
-	b, err := hex.DecodeString(rawHex)
-	if err != nil {
-		return nil, err
+	if len(raw) > maxMsgSize {
+		return msg, fmt.Errorf("msg exceeds max size (%d > %d)", len(raw), maxMsgSize)
 	}
-	if len(b) > maxMsgSize {
-		return msg, fmt.Errorf("msg exceeds max size (%d > %d)", len(b), maxMsgSize)
-	}
-	err = cdc.UnmarshalBinaryBare(b, &msg)
+	err := cdc.UnmarshalBinaryBare(raw, &msg)
 	return msg, err
 }
 
-func EncodeMsg(msg ConsensusMessage) (string, error) {
+func EncodeMsg(msg ConsensusMessage) ([]byte, error) {
 	raw := cdc.MustMarshalBinaryBare(msg)
 	if len(raw) > maxMsgSize {
 		log.Error("consensus msg exceeds max size", "raw", len(raw), "maxSize", maxMsgSize)
-		return "", errors.New("msg exceeds max size")
+		return make([]byte, 0), errors.New("msg exceeds max size")
 	}
-	return hex.EncodeToString(raw), nil
+	return raw, nil
 }
 
 func verifyMsgSignature(pubkey *ecdsa.PublicKey, msgHash meter.Bytes32, signature []byte) bool {

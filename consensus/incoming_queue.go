@@ -2,7 +2,6 @@ package consensus
 
 import (
 	sha256 "crypto/sha256"
-	"encoding/hex"
 	"fmt"
 	"sync"
 	"time"
@@ -18,11 +17,10 @@ const (
 
 type IncomingMsg struct {
 	//Msg    block.ConsensusMessage
-	Msg          block.ConsensusMessage
-	Peer         ConsensusPeer
-	RawData      []byte
-	Hash         [32]byte
-	ShortHashStr string
+	Msg     block.ConsensusMessage
+	Peer    ConsensusPeer
+	RawData []byte
+	ID      [32]byte
 
 	// Signer *types.Validator
 	Signer ConsensusPeer
@@ -34,14 +32,14 @@ type IncomingMsg struct {
 }
 
 func newIncomingMsg(msg block.ConsensusMessage, peer ConsensusPeer, rawData []byte) *IncomingMsg {
-	msgHash := sha256.Sum256(rawData)
-	shortMsgHash := hex.EncodeToString(msgHash[:])[:8]
+	msgID := sha256.Sum256(rawData)
+	// shortMsgHash := hex.EncodeToString(msgHash[:])[:8]
 	return &IncomingMsg{
-		Msg:          msg,
-		Peer:         peer,
-		RawData:      rawData,
-		Hash:         msgHash,
-		ShortHashStr: shortMsgHash,
+		Msg:     msg,
+		Peer:    peer,
+		RawData: rawData,
+		ID:      msgID,
+		// ShortHashStr: shortMsgHash,
 
 		ProcessCount: 0,
 	}
@@ -93,10 +91,10 @@ func (q *IncomingQueue) DelayedAdd(mi IncomingMsg) {
 func (q *IncomingQueue) Add(mi IncomingMsg) error {
 	defer q.Mutex.Unlock()
 	q.Mutex.Lock()
-	if q.cache.Contains(mi.Hash) {
+	if q.cache.Contains(mi.ID) {
 		return ErrKnownMsg
 	}
-	q.cache.Add(mi.Hash, true)
+	q.cache.Add(mi.ID, true)
 
 	// instead of drop the latest message, drop the oldest one in front of queue
 	for len(q.queue) >= cap(q.queue) {
