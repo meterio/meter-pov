@@ -1,6 +1,6 @@
 module github.com/meterio/meter-pov
 
-go 1.18
+go 1.20
 
 require (
 	github.com/beevik/ntp v0.2.0
