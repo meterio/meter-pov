@@ -27,9 +27,9 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/p2p/enode"
 	"github.com/google/uuid"
-	"github.com/inconshreveable/log15"
 	isatty "github.com/mattn/go-isatty"
 	"github.com/meterio/meter-pov/api"
 	"github.com/meterio/meter-pov/api/doc"
@@ -56,7 +56,6 @@ var (
 	version   string
 	gitCommit string
 	gitTag    string
-	log       = log15.New()
 	keyStr    string
 
 	hashKeyPrefix = []byte("hash") // (prefix, block num) -> block hash

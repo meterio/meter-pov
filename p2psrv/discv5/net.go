@@ -427,10 +427,7 @@ loop:
 			if err := net.handle(n, pkt.ev, &pkt); err != nil {
 				status = err.Error()
 			}
-			log.Trace("", "msg", log.Lazy{Fn: func() string {
-				return fmt.Sprintf("<<< (%d) %v from %x@%v: %v -> %v (%v)",
-					net.tab.count, pkt.ev, pkt.remoteID[:8], pkt.remoteAddr, prestate, n.state, status)
-			}})
+			log.Trace("", "msg", fmt.Sprintf("<<< (%d) %v from %x@%v: %v -> %v (%v)", net.tab.count, pkt.ev, pkt.remoteID[:8], pkt.remoteAddr, prestate, n.state, status))
 			// TODO: persist state if n.state goes >= known, delete if it goes <= known
 
 		// State transition timeouts.
@@ -446,10 +443,7 @@ loop:
 			if err := net.handle(timeout.node, timeout.ev, nil); err != nil {
 				status = err.Error()
 			}
-			log.Trace("", "msg", log.Lazy{Fn: func() string {
-				return fmt.Sprintf("--- (%d) %v for %x@%v: %v -> %v (%v)",
-					net.tab.count, timeout.ev, timeout.node.ID[:8], timeout.node.addr(), prestate, timeout.node.state, status)
-			}})
+			log.Trace("", "msg", fmt.Sprintf("--- (%d) %v for %x@%v: %v -> %v (%v)", net.tab.count, timeout.ev, timeout.node.ID[:8], timeout.node.addr(), prestate, timeout.node.state, status))
 
 		// Querying.
 		case q := <-net.queryReq:
@@ -682,15 +676,13 @@ func (net *Network) refresh(done chan<- struct{}) {
 		return
 	}
 	for _, n := range seeds {
-		log.Debug("", "msg", log.Lazy{Fn: func() string {
-			var age string
-			if net.db != nil {
-				age = time.Since(net.db.lastPong(n.ID)).String()
-			} else {
-				age = "unknown"
-			}
-			return fmt.Sprintf("seed node (age %s): %v", age, n)
-		}})
+		var age string
+		if net.db != nil {
+			age = time.Since(net.db.lastPong(n.ID)).String()
+		} else {
+			age = "unknown"
+		}
+		log.Debug("", "msg", fmt.Sprintf("seed node (age %s): %v", age, n))
 		n = net.internNodeFromDB(n)
 		if n.state == unknown {
 			net.transition(n, verifyinit)

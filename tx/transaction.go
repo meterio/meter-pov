@@ -118,12 +118,9 @@ type body struct {
 
 func NewTransactionFromEthTx(ethTx *types.Transaction, chainTag byte, blockRef BlockRef, verbose bool) (*Transaction, error) {
 	signer := types.NewLondonSigner(ethTx.ChainId())
-	msg, err := ethTx.AsMessage(signer, big.NewInt(500e9))
-	if err != nil {
-		return nil, err
-	}
 
-	from, err := meter.ParseAddress(msg.From().Hex())
+	ethFrom, err := types.Sender(signer, ethTx)
+	from, err := meter.ParseAddress(ethFrom.Hex())
 	if err != nil {
 		return nil, err
 	}
@@ -131,8 +128,8 @@ func NewTransactionFromEthTx(ethTx *types.Transaction, chainTag byte, blockRef B
 		return nil, errors.New("blacklisted address, not allowed")
 	}
 	to := meter.Address{}
-	if msg.To() != nil {
-		to, err = meter.ParseAddress(msg.To().Hex())
+	if ethTx.To() != nil {
+		to, err = meter.ParseAddress(ethTx.To().Hex())
 		if err != nil {
 			return nil, err
 		}
@@ -171,7 +168,7 @@ func NewTransactionFromEthTx(ethTx *types.Transaction, chainTag byte, blockRef B
 	rBytes = append(rBytes, R.Bytes()...)
 
 	ethSignature := append(append(rBytes, sBytes...), V.Bytes()...)
-	value := msg.Value()
+	value := ethTx.Value()
 	// fmt.Println("eth tx msgHash:", hex.EncodeToString(msgHash[:]))
 
 	sender, err := signer.Sender(ethTx)
@@ -198,10 +195,10 @@ func NewTransactionFromEthTx(ethTx *types.Transaction, chainTag byte, blockRef B
 			Expiration:   320,
 			Clauses:      []*Clause{&Clause{body: clauseBody{To: actualTo, Value: value, Token: meter.MTR, Data: ethTx.Data()}}},
 			GasPriceCoef: 0,
-			Gas:          msg.Gas(),
+			Gas:          ethTx.Gas(),
 			DependsOn:    nil,
-			Nonce:        msg.Nonce(),
-			Reserved:     []interface{}{RESERVED_PREFIX, msg.From().Bytes(), raw},
+			Nonce:        ethTx.Nonce(),
+			Reserved:     []interface{}{RESERVED_PREFIX, ethFrom.Bytes(), raw},
 			Signature:    ethSignature,
 		},
 	}
@@ -211,7 +208,7 @@ func NewTransactionFromEthTx(ethTx *types.Transaction, chainTag byte, blockRef B
 	}
 	// tx.cache.signer.Store(from)
 	if verbose {
-		log.Debug("new nativeTx from ethTx", "id", tx.ID(), "from", msg.From().Hex(), "to", to.String())
+		log.Debug("new nativeTx from ethTx", "id", tx.ID(), "from", ethFrom.Hex(), "to", to.String())
 		// fmt.Println("new nativeTx from ethTx:", tx.ID(), tx.IsEthTx(),
 		// 	"\n  from:", msg.From().Hex(), "to:", to.String(),
 		// 	"\n  value:", msg.Value().String(),

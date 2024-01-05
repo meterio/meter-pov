@@ -20,10 +20,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/fdlimit"
 	"github.com/ethereum/go-ethereum/crypto"
-	ethlog "github.com/ethereum/go-ethereum/log"
+	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/p2p/enode"
 	"github.com/ethereum/go-ethereum/p2p/nat"
 	"github.com/inconshreveable/log15"
@@ -58,9 +57,9 @@ func initLogger(ctx *cli.Context) {
 	logLevel := ctx.Int(verbosityFlag.Name)
 	log15.Root().SetHandler(log15.LvlFilterHandler(log15.Lvl(logLevel), log15.StderrHandler))
 	// set go-ethereum log lvl to Warn
-	ethLogHandler := ethlog.NewGlogHandler(ethlog.StreamHandler(os.Stderr, ethlog.TerminalFormat(true)))
-	ethLogHandler.Verbosity(ethlog.LvlWarn)
-	ethlog.Root().SetHandler(ethLogHandler)
+	// ethLogHandler := ethlog.NewGlogHandler(ethlog.StreamHandler(os.Stderr, ethlog.TerminalFormat(true)))
+	// ethLogHandler.Verbosity(ethlog.LvlWarn)
+	// ethlog.Root().SetHandler(ethLogHandler)
 }
 
 func selectGenesis(ctx *cli.Context) *genesis.Genesis {
@@ -300,7 +299,7 @@ func newP2PComm(cliCtx *cli.Context, ctx context.Context, chain *chain.Chain, tx
 	}
 
 	opts := &p2psrv.Options{
-		Name:           common.MakeName("meter", fullVersion()),
+		Name:           meter.MakeName("meter", fullVersion()),
 		PrivateKey:     key,
 		MaxPeers:       cliCtx.Int(maxPeersFlag.Name),
 		ListenAddr:     fmt.Sprintf(":%v", cliCtx.Int(p2pPortFlag.Name)),
@@ -584,7 +583,7 @@ func printStartupMessage(
     POW API portal  [ %v ]
     Observe service [ %v ]
 `,
-		common.MakeName("Meter", fullVersion()),
+		meter.MakeName("Meter", fullVersion()),
 		topic,
 		hex.EncodeToString(p2pMagic[:]),
 		gene.ID(), gene.Name(),

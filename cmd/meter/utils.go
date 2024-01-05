@@ -26,6 +26,7 @@ import (
 	"encoding/hex"
 
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/log"
 	tty "github.com/mattn/go-tty"
 	"github.com/meterio/meter-pov/api/doc"
 	bls "github.com/meterio/meter-pov/crypto/multi_sig"
