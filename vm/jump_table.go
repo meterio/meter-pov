@@ -60,6 +60,37 @@ var (
 	parisInstructionSet          = newParisInstructionSet()
 )
 
+func newCancunInstructionSet() [256]operation {
+	instructionSet := newParisInstructionSet()
+	// ##### Cancun updates #####
+	// enables EIP-5656 (MCOPY opcode)
+	// https://eips.ethereum.org/EIPS/eip-5656
+	instructionSet[MCOPY] = operation{
+		execute:       opMcopy,
+		gasCost:       constGasFunc(GasFastestStep),
+		validateStack: makeStackFunc(3, 0),
+		valid:         true,
+	}
+	// applies EIP-1153 "Transient Storage"
+	// - Adds TLOAD that reads from transient storage
+	// - Adds TSTORE that writes to transient storage
+	instructionSet[TLOAD] = operation{
+		execute:       opTload,
+		gasCost:       constGasFunc(params.WarmStorageReadCostEIP2929),
+		validateStack: makeStackFunc(1, 1),
+		valid:         true,
+	}
+	instructionSet[TSTORE] = operation{
+		execute:       opTstore,
+		gasCost:       constGasFunc(params.WarmStorageReadCostEIP2929),
+		validateStack: makeStackFunc(2, 0),
+		valid:         true,
+	}
+	// these two opCodes are for L2, skip implementing it
+	// applies EIP-7516 (BLOBBASEFEE opcode) (NOT DONE)
+	// applies EIP-4844 (BLOBHASH opcode) (NOT DONE)
+	// End of ##### Cancun updates #####
+}
 func newParisInstructionSet() [256]operation {
 	instructionSet := NewLondonInstructionSet()
 
