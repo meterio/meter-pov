@@ -65,6 +65,9 @@ type StateDB interface {
 	AddLog(*types.Log)
 	AddPreimage(common.Hash, []byte)
 
+	GetTransientState(addr common.Address, key common.Hash) common.Hash
+	SetTransientState(addr common.Address, key, value common.Hash)
+
 	// ForEachStorage(common.Address, func(common.Hash, common.Hash) bool)
 }
 

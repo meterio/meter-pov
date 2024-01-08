@@ -75,6 +75,8 @@ var chainConfig = vm.ChainConfig{
 	},
 	IstanbulBlock: big.NewInt(0),
 	LondonBlock:   big.NewInt(0),
+	ParisBlock:    big.NewInt(0),
+	LastPowNonce:  uint64(0),
 }
 
 // Output output of clause execution.
@@ -119,14 +121,21 @@ func New(
 ) *Runtime {
 	// currentChainConfig := chainConfig
 	// chainConfig.ConstantinopleBlock = big.NewInt(int64(meter.Tesla1_1MainnetStartNum))
+	var err error
+	chainConfig.LastPowNonce, err = seeker.LastPowNonce()
+	if err != nil {
+		panic(err)
+	}
 	if meter.IsMainNet() == true {
 		chainConfig.ChainID = new(big.Int).SetUint64(meter.MainnetChainID)
 		chainConfig.IstanbulBlock = big.NewInt(int64(meter.TeslaFork3_MainnetStartNum))
 		chainConfig.LondonBlock = big.NewInt(int64(meter.TeslaFork9_MainnetStartNum))
+		chainConfig.ParisBlock = big.NewInt(int64(meter.TeslaFork11_MainnetStartNum))
 	} else {
 		chainConfig.ChainID = new(big.Int).SetUint64(meter.TestnetChainID)
 		chainConfig.IstanbulBlock = big.NewInt(int64(meter.TeslaFork3_TestnetStartNum))
 		chainConfig.LondonBlock = big.NewInt(int64(meter.TeslaFork9_TestnetStartNum))
+		chainConfig.ParisBlock = big.NewInt(int64(meter.TeslaFork11_TestnetStartNum))
 	}
 
 	// alloc precompiled contracts at the begining of Istanbul

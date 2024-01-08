@@ -62,6 +62,8 @@ func NewInterpreter(evm *EVM, cfg Config) *Interpreter {
 	// we'll set the default jump table.
 	if !cfg.JumpTable[STOP].valid {
 		switch {
+		case evm.ChainConfig().IsParis(evm.BlockNumber):
+			cfg.JumpTable = parisInstructionSet
 		case evm.ChainConfig().IsLondon(evm.BlockNumber):
 			cfg.JumpTable = londonInstructionSet
 		case evm.ChainConfig().IsIstanbul(evm.BlockNumber):
@@ -93,7 +95,7 @@ func (in *Interpreter) enforceRestrictions(op OpCode, operation operation, stack
 			// for a call operation is the value. Transferring value from one
 			// account to the others means the state is modified and should also
 			// return with an error.
-			if operation.writes || (op == CALL && stack.Back(2).BitLen() > 0) {
+			if op == TSTORE || operation.writes || (op == CALL && stack.Back(2).BitLen() > 0) {
 				return errWriteProtection
 			}
 		}

@@ -24,6 +24,8 @@ type ChainConfig struct {
 	params.ChainConfig
 	IstanbulBlock *big.Int `json:"istanbulBlock,omitempty"` // Istanbul switch block (nil = no fork, 0 = already on istanbul)
 	LondonBlock   *big.Int `json:"londonBlock,omitempty"`   // London switch block (nil = no fork, 0 = already on london)
+	ParisBlock    *big.Int `json:"parisBlock,omitempty"`    //  Paris switch block (nil = no fork, 0 = already on paris)
+	LastPowNonce  uint64   `json:"lastPowNonce,omitempty"`  // Last Pow Nonce for randomness
 }
 
 // IsIstanbul returns whether num is either equal to the Istanbul fork block or greater.
@@ -31,7 +33,12 @@ func (c *ChainConfig) IsIstanbul(num *big.Int) bool {
 	return isForked(c.IstanbulBlock, num)
 }
 
-// London returns whether num is either equal to the Istanbul fork block or greater.
+// London returns whether num is either equal to the London fork block or greater.
 func (c *ChainConfig) IsLondon(num *big.Int) bool {
 	return isForked(c.LondonBlock, num)
+}
+
+// London returns whether num is either equal to the Paris fork block or greater.
+func (c *ChainConfig) IsParis(num *big.Int) bool {
+	return isForked(c.ParisBlock, num)
 }

@@ -43,6 +43,8 @@ const (
 	SstoreClearGas  uint64 = 5000  // Once per SSTORE operation if the zeroness doesn't change.
 	SstoreRefundGas uint64 = 15000 // Once per SSTORE operation if the zeroness changes to zero.
 
+	InitCodeWordGas uint64 = 2 // Once per word of the init code when creating a contract.
+
 	NetSstoreNoopGas  uint64 = 200   // Once per SSTORE operation if the value doesn't change.
 	NetSstoreInitGas  uint64 = 20000 // Once per SSTORE operation from clean zero.
 	NetSstoreCleanGas uint64 = 5000  // Once per SSTORE operation from clean non-zero.
@@ -52,24 +54,31 @@ const (
 	NetSstoreResetRefund      uint64 = 4800  // Once per SSTORE operation for resetting to the original non-zero value
 	NetSstoreResetClearRefund uint64 = 19800 // Once per SSTORE operation for resetting to the original zero value
 
-	JumpdestGas      uint64 = 1     // Once per JUMPDEST operation.
-	EpochDuration    uint64 = 30000 // Duration between proof-of-work epochs.
-	CallGas          uint64 = 40    // Once per CALL operation & message call transaction.
-	CreateDataGas    uint64 = 200   //
-	CallCreateDepth  uint64 = 1024  // Maximum depth of call/create stack.
-	ExpGas           uint64 = 10    // Once per EXP instruction
-	LogGas           uint64 = 375   // Per LOG* operation.
-	CopyGas          uint64 = 3     //
-	StackLimit       uint64 = 1024  // Maximum size of VM stack allowed.
-	TierStepGas      uint64 = 0     // Once per operation, for a selection of them.
-	LogTopicGas      uint64 = 375   // Multiplied by the * of the LOG*, per LOG transaction. e.g. LOG0 incurs 0 * c_txLogTopicGas, LOG4 incurs 4 * c_txLogTopicGas.
-	CreateGas        uint64 = 32000 // Once per CREATE operation & contract-creation transaction.
-	Create2Gas       uint64 = 32000 // Once per CREATE2 operation
-	SuicideRefundGas uint64 = 24000 // Refunded following a suicide operation.
-	MemoryGas        uint64 = 3     // Times the address of the (highest referenced byte in memory + 1). NOTE: referencing happens on read, write and in instructions such as RETURN and CALL.
-	TxDataNonZeroGas uint64 = 68    // Per byte of data attached to a transaction that is not equal to zero. NOTE: Not payable on data of calls between transactions.
+	WarmStorageReadCostEIP2929 = uint64(100) // WARM_STORAGE_READ_COST
 
-	MaxCodeSize = 24576 // Maximum bytecode to permit for a contract
+	JumpdestGas             uint64 = 1     // Once per JUMPDEST operation.
+	EpochDuration           uint64 = 30000 // Duration between proof-of-work epochs.
+	CallGas                 uint64 = 40    // Once per CALL operation & message call transaction.
+	CreateDataGas           uint64 = 200   //
+	CallCreateDepth         uint64 = 1024  // Maximum depth of call/create stack.
+	ExpGas                  uint64 = 10    // Once per EXP instruction
+	LogGas                  uint64 = 375   // Per LOG* operation.
+	CopyGas                 uint64 = 3     //
+	StackLimit              uint64 = 1024  // Maximum size of VM stack allowed.
+	TierStepGas             uint64 = 0     // Once per operation, for a selection of them.
+	LogTopicGas             uint64 = 375   // Multiplied by the * of the LOG*, per LOG transaction. e.g. LOG0 incurs 0 * c_txLogTopicGas, LOG4 incurs 4 * c_txLogTopicGas.
+	CreateGas               uint64 = 32000 // Once per CREATE operation & contract-creation transaction.
+	Create2Gas              uint64 = 32000 // Once per CREATE2 operation
+	SuicideRefundGas        uint64 = 24000 // Refunded following a suicide operation.
+	MemoryGas               uint64 = 3     // Times the address of the (highest referenced byte in memory + 1). NOTE: referencing happens on read, write and in instructions such as RETURN and CALL.
+	TxDataNonZeroGas        uint64 = 68    // Per byte of data attached to a transaction that is not equal to zero. NOTE: Not payable on data of calls between transactions.
+	TxDataNonZeroGasEIP2028 uint64 = 16    // Per byte of non zero data attached to a transaction after EIP 2028 (part in Istanbul)
+
+	MaxCodeSize     = 24576           // Maximum bytecode to permit for a contract
+	MaxInitCodeSize = 2 * MaxCodeSize // Maximum initcode to permit in a creation transaction and create instructions
+
+	Keccak256Gas     uint64 = 30 // Once per KECCAK256 operation.
+	Keccak256WordGas uint64 = 6  // Once per word of the KECCAK256 operation's data.
 
 	// Precompiled contract gas prices
 

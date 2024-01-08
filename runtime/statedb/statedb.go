@@ -16,7 +16,7 @@ import (
 	"github.com/meterio/meter-pov/builtin/metertracker"
 	"github.com/meterio/meter-pov/meter"
 	"github.com/meterio/meter-pov/stackedmap"
-	"github.com/meterio/meter-pov/state"
+	_state "github.com/meterio/meter-pov/state"
 	"github.com/meterio/meter-pov/tx"
 )
 
@@ -24,8 +24,11 @@ var codeSizeCache, _ = lru.New(32 * 1024)
 
 // StateDB implements evm.StateDB, only adapt to evm.
 type StateDB struct {
-	state *state.State
+	state *_state.State
 	repo  *stackedmap.StackedMap
+
+	// Transient storage
+	transientStorage _state.TransientStorage
 }
 
 type (
@@ -38,7 +41,7 @@ type (
 )
 
 // New create a statedb object.
-func New(state *state.State) *StateDB {
+func New(state *_state.State) *StateDB {
 	getter := func(k interface{}) (interface{}, bool) {
 		switch k.(type) {
 		case suicideFlagKey:
@@ -53,6 +56,7 @@ func New(state *state.State) *StateDB {
 	return &StateDB{
 		state,
 		repo,
+		_state.NewTransientStorage(),
 	}
 }
 
@@ -310,4 +314,31 @@ func ethlogToEvent(ethlog *types.Log) *tx.Event {
 		topics,
 		ethlog.Data,
 	}
+}
+
+// SetTransientState sets transient storage for a given account. It
+// adds the change to the journal so that it can be rolled back
+// to its previous value if there is a revert.
+func (s *StateDB) SetTransientState(addr common.Address, key, value common.Hash) {
+	prev := s.GetTransientState(addr, key)
+	if prev == value {
+		return
+	}
+	// s.journal.append(transientStorageChange{
+	// 	account:  &addr,
+	// 	key:      key,
+	// 	prevalue: prev,
+	// })
+	s.setTransientState(addr, key, value)
+}
+
+// setTransientState is a lower level setter for transient storage. It
+// is called during a revert to prevent modifications to the journal.
+func (s *StateDB) setTransientState(addr common.Address, key, value common.Hash) {
+	s.transientStorage.Set(addr, key, value)
+}
+
+// GetTransientState gets transient storage for a given account.
+func (s *StateDB) GetTransientState(addr common.Address, key common.Hash) common.Hash {
+	return s.transientStorage.Get(addr, key)
 }

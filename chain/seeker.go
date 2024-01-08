@@ -37,6 +37,14 @@ func (s *Seeker) Err() error {
 	return s.err
 }
 
+func (s *Seeker) LastPowNonce() (uint64, error) {
+	bestK, err := s.chain.BestKBlock()
+	if err != nil {
+		return uint64(0), err
+	}
+	return bestK.KBlockData.Nonce, nil
+}
+
 // GetID returns block ID by the given number.
 func (s *Seeker) GetID(num uint32) meter.Bytes32 {
 	if num > block.Number(s.headBlockID) {

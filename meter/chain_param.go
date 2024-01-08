@@ -180,6 +180,13 @@ const (
 	TeslaFork10_TestnetStartNum = 36782600 // around 6/17/2023 12:00 AM (PDT)
 )
 
+// fork 11 fixes includes:
+// 1. implement opcode `PREVRANDAO` from the Merge (Paris)
+const (
+	TeslaFork11_MainnetStartNum = 99999999 // TBD
+	TeslaFork11_TestnetStartNum = 99999999 // TBD
+)
+
 var (
 	// Genesis hashes to enforce below configs on.
 	log = log15.New("pkg", "meter")
@@ -322,4 +329,8 @@ func IsTeslaFork9(blockNum uint32) bool {
 
 func IsTeslaFork10(blockNum uint32) bool {
 	return (BlockChainConfig.IsMainnet() && blockNum > TeslaFork10_MainnetStartNum) || (BlockChainConfig.IsTestnet() && blockNum > TeslaFork10_TestnetStartNum)
+}
+
+func IsTeslaFork11(blockNum uint32) bool {
+	return (BlockChainConfig.IsMainnet() && blockNum > TeslaFork11_MainnetStartNum) || (BlockChainConfig.IsTestnet() && blockNum > TeslaFork11_TestnetStartNum)
 }

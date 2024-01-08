@@ -316,6 +316,40 @@ func gasCreate2(gt params.GasTable, evm *EVM, contract *Contract, stack *Stack, 
 	return gas, nil
 }
 
+func gasCreateEip3860(gt params.GasTable, evm *EVM, contract *Contract, stack *Stack, mem *Memory, memorySize uint64) (uint64, error) {
+	gas, err := memoryGasCost(mem, memorySize)
+	if err != nil {
+		return 0, err
+	}
+	size, overflow := bigUint64(stack.Back(2))
+	if overflow || size > params.MaxInitCodeSize {
+		return 0, errGasUintOverflow
+	}
+	// Since size <= params.MaxInitCodeSize, these multiplication cannot overflow
+	moreGas := params.InitCodeWordGas * ((size + 31) / 32)
+	if gas, overflow = math.SafeAdd(gas, moreGas); overflow {
+		return 0, errGasUintOverflow
+	}
+	return gas, nil
+}
+
+func gasCreate2Eip3860(gt params.GasTable, evm *EVM, contract *Contract, stack *Stack, mem *Memory, memorySize uint64) (uint64, error) {
+	gas, err := memoryGasCost(mem, memorySize)
+	if err != nil {
+		return 0, err
+	}
+	size, overflow := bigUint64(stack.Back(2))
+	if overflow || size > params.MaxInitCodeSize {
+		return 0, errGasUintOverflow
+	}
+	// Since size <= params.MaxInitCodeSize, these multiplication cannot overflow
+	moreGas := (params.InitCodeWordGas + params.Keccak256WordGas) * ((size + 31) / 32)
+	if gas, overflow = math.SafeAdd(gas, moreGas); overflow {
+		return 0, errGasUintOverflow
+	}
+	return gas, nil
+}
+
 func gasBalance(gt params.GasTable, evm *EVM, contract *Contract, stack *Stack, mem *Memory, memorySize uint64) (uint64, error) {
 	return gt.Balance, nil
 }
@@ -432,6 +466,32 @@ func gasSuicide(gt params.GasTable, evm *EVM, contract *Contract, stack *Stack, 
 	if !evm.StateDB.HasSuicided(contract.Address()) {
 		evm.StateDB.AddRefund(params.SuicideRefundGas)
 	}
+	return gas, nil
+}
+
+func gasSuicideEIP3529(gt params.GasTable, evm *EVM, contract *Contract, stack *Stack, mem *Memory, memorySize uint64) (uint64, error) {
+	var gas uint64
+	// EIP150 homestead gas reprice fork:
+	if evm.ChainConfig().IsEIP150(evm.BlockNumber) {
+		gas = gt.Suicide
+		var (
+			address = common.BigToAddress(stack.Back(0))
+			eip158  = evm.ChainConfig().IsEIP158(evm.BlockNumber)
+		)
+
+		if eip158 {
+			// if empty and transfers value
+			if evm.StateDB.Empty(address) && evm.StateDB.GetBalance(contract.Address()).Sign() != 0 {
+				gas += gt.CreateBySuicide
+			}
+		} else if !evm.StateDB.Exist(address) {
+			gas += gt.CreateBySuicide
+		}
+	}
+
+	// if !evm.StateDB.HasSuicided(contract.Address()) {
+	// 	evm.StateDB.AddRefund(params.SuicideRefundGas)
+	// }
 	return gas, nil
 }
 

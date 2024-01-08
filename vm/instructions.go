@@ -36,6 +36,7 @@ var (
 	errReturnDataOutOfBounds = errors.New("evm: return data out of bounds")
 	errExecutionReverted     = errors.New("evm: execution reverted")
 	errMaxCodeSizeExceeded   = errors.New("evm: max code size exceeded")
+	ErrWriteProtection       = errors.New("write protection")
 )
 
 func opAdd(pc *uint64, evm *EVM, contract *Contract, memory *Memory, stack *Stack) ([]byte, error) {
@@ -968,5 +969,51 @@ func makeSwap(size int64) executionFunc {
 func opBaseFee(pc *uint64, evm *EVM, contract *Contract, memory *Memory, stack *Stack) ([]byte, error) {
 	baseFee := big.NewInt(500e9)
 	stack.push(evm.interpreter.intPool.get().Set(baseFee))
+	return nil, nil
+}
+
+// opRandom implements PREVRANDAO opcode
+func opRandom(pc *uint64, evm *EVM, contract *Contract, memory *Memory, stack *Stack) ([]byte, error) {
+	v := big.NewInt(int64(evm.chainConfig.LastPowNonce))
+	stack.push(evm.interpreter.intPool.get().Set(v))
+	return nil, nil
+}
+
+// opPush0 implements the PUSH0 opcode
+func opPush0(pc *uint64, evm *EVM, contract *Contract, memory *Memory, stack *Stack) ([]byte, error) {
+	stack.push(new(big.Int))
+	return nil, nil
+}
+
+// opMcopy implements the MCOPY opcode (https://eips.ethereum.org/EIPS/eip-5656)
+func opMcopy(pc *uint64, evm *EVM, contract *Contract, memory *Memory, stack *Stack) ([]byte, error) {
+	var (
+		dst    = stack.pop()
+		src    = stack.pop()
+		length = stack.pop()
+	)
+	// These values are checked for overflow during memory expansion calculation
+	// (the memorySize function on the opcode).
+	memory.Copy(dst.Uint64(), src.Uint64(), length.Uint64())
+	return nil, nil
+}
+
+// opTload implements TLOAD opcode
+func opTload(pc *uint64, evm *EVM, contract *Contract, memory *Memory, stack *Stack) ([]byte, error) {
+	loc := stack.peek()
+
+	hash := common.BigToHash(loc)
+	val := evm.StateDB.GetTransientState(contract.Address(), hash)
+	loc.SetBytes(val.Bytes())
+	return nil, nil
+}
+
+// opTstore implements TSTORE opcode
+func opTstore(pc *uint64, evm *EVM, contract *Contract, memory *Memory, stack *Stack) ([]byte, error) {
+	loc := stack.pop()
+	val := stack.pop()
+	locHash := common.BigToHash(loc)
+	valHash := common.BigToHash(val)
+	evm.StateDB.SetTransientState(contract.Address(), locHash, valHash)
 	return nil, nil
 }

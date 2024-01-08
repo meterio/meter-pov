@@ -574,11 +574,14 @@ func (t *Transaction) IntrinsicGas() (uint64, error) {
 	if cached := t.cache.intrinsicGas.Load(); cached != nil {
 		return cached.(uint64), nil
 	}
+	isEIP2028 := meter.IsTeslaFork11(t.BlockRef().Number())
+	isEIP3860 := meter.IsTeslaFork11(t.BlockRef().Number())
 
-	gas, err := IntrinsicGas(t.body.Clauses...)
+	gas, err := IntrinsicGas(isEIP2028, isEIP3860, t.body.Clauses...)
 	if err != nil {
 		return 0, err
 	}
+
 	t.cache.intrinsicGas.Store(gas)
 	return gas, nil
 }
@@ -673,8 +676,17 @@ Tx %v %v %v %v:
 		t.body.ChainTag, t.body.Nonce, br.Number(), br[4:], t.body.Expiration, t.body.Signature)
 }
 
+// toWordSize returns the ceiled word size required for init code payment calculation.
+func toWordSize(size uint64) uint64 {
+	if size > math.MaxUint64-31 {
+		return math.MaxUint64/32 + 1
+	}
+
+	return (size + 31) / 32
+}
+
 // IntrinsicGas calculate intrinsic gas cost for tx with such clauses.
-func IntrinsicGas(clauses ...*Clause) (uint64, error) {
+func IntrinsicGas(isEIP2028 bool, isEIP3860 bool, clauses ...*Clause) (uint64, error) {
 	if len(clauses) == 0 {
 		return meter.TxGas + meter.ClauseGas, nil
 	}
@@ -682,7 +694,7 @@ func IntrinsicGas(clauses ...*Clause) (uint64, error) {
 	var total = meter.TxGas
 	var overflow bool
 	for _, c := range clauses {
-		gas, err := dataGas(c.body.Data)
+		gas, err := dataGas(c.body.Data, isEIP2028)
 		if err != nil {
 			return 0, err
 		}
@@ -692,7 +704,8 @@ func IntrinsicGas(clauses ...*Clause) (uint64, error) {
 		}
 
 		var cgas uint64
-		if c.IsCreatingContract() {
+		isCreatingContract := c.IsCreatingContract()
+		if isCreatingContract {
 			// contract creation
 			cgas = meter.ClauseGasContractCreation
 		} else {
@@ -703,12 +716,21 @@ func IntrinsicGas(clauses ...*Clause) (uint64, error) {
 		if overflow {
 			return 0, errIntrinsicGasOverflow
 		}
+
+		if isCreatingContract && isEIP3860 {
+			lenWords := toWordSize(uint64(len(c.Data())))
+			if (math.MaxUint64-gas)/params.InitCodeWordGas < lenWords {
+				return 0, errIntrinsicGasOverflow
+			}
+			gas += lenWords * params.InitCodeWordGas
+		}
+
 	}
 	return total, nil
 }
 
 // see core.IntrinsicGas
-func dataGas(data []byte) (uint64, error) {
+func dataGas(data []byte, isEIP2028 bool) (uint64, error) {
 	if len(data) == 0 {
 		return 0, nil
 	}
@@ -724,7 +746,11 @@ func dataGas(data []byte) (uint64, error) {
 	if overflow {
 		return 0, errIntrinsicGasOverflow
 	}
-	nzgas, overflow := math.SafeMul(params.TxDataNonZeroGas, nz)
+	nonZeroGas := params.TxDataNonZeroGas
+	if isEIP2028 {
+		nonZeroGas = params.TxDataNonZeroGasEIP2028
+	}
+	nzgas, overflow := math.SafeMul(nonZeroGas, nz)
 	if overflow {
 		return 0, errIntrinsicGasOverflow
 	}

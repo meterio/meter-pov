@@ -57,7 +57,51 @@ var (
 	constantinopleInstructionSet = NewConstantinopleInstructionSet()
 	istanbulInstructionSet       = NewIstanbulInstructionSet()
 	londonInstructionSet         = NewLondonInstructionSet()
+	parisInstructionSet          = newParisInstructionSet()
 )
+
+func newParisInstructionSet() [256]operation {
+	instructionSet := NewLondonInstructionSet()
+
+	// ##### Berlin #####
+	// EIP-2929
+	// End of ##### Berlin #####
+
+	// ##### London updates #####
+	// EIP-3529: Reduction in refunds https://eips.ethereum.org/EIPS/eip-3529
+	// enabled "EIP-3529: Reduction in refunds":
+	// - Removes refunds for selfdestructs
+	// *- Reduces refunds for SSTORE (not yet)
+	// *- Reduces max refunds to 20% gas (not yet)
+	instructionSet[SELFDESTRUCT].gasCost = gasSuicideEIP3529
+	// End of ##### London updates #####
+
+	// ##### Merge updates #####
+	// enables opCode PREVRANDAO
+	instructionSet[PREVRANDAO] = operation{
+		execute:       opRandom,
+		gasCost:       constGasFunc(GasFastStep),
+		validateStack: makeStackFunc(0, 1),
+		valid:         true,
+	}
+	// End of ##### Merge updates #####
+
+	// ##### Shanghai updates #####
+	//  applies EIP-3855 (PUSH0 opcode)
+	instructionSet[PUSH0] = operation{
+		execute:       opPush0,
+		gasCost:       constGasFunc(GasQuickStep),
+		validateStack: makeStackFunc(0, 1),
+		valid:         true,
+	}
+	// enables "EIP-3860: Limit and meter initcode"
+	// https://eips.ethereum.org/EIPS/eip-3860
+	instructionSet[CREATE].gasCost = gasCreateEip3860
+	instructionSet[CREATE2].gasCost = gasCreate2Eip3860
+	// End of ##### Shanghai updates #####
+
+	return instructionSet
+}
 
 func NewLondonInstructionSet() [256]operation {
 	instructionSet := NewIstanbulInstructionSet()
