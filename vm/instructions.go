@@ -1017,3 +1017,10 @@ func opTstore(pc *uint64, evm *EVM, contract *Contract, memory *Memory, stack *S
 	evm.StateDB.SetTransientState(contract.Address(), locHash, valHash)
 	return nil, nil
 }
+
+// opBaseFee implements BASEFEE opcode
+func opBaseFeeDynamic(pc *uint64, evm *EVM, contract *Contract, memory *Memory, stack *Stack) ([]byte, error) {
+	baseFee := evm.ChainConfig().BaseFee
+	stack.push(evm.interpreter.intPool.get().Set(baseFee))
+	return nil, nil
+}

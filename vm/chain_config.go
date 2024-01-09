@@ -26,6 +26,7 @@ type ChainConfig struct {
 	LondonBlock   *big.Int `json:"londonBlock,omitempty"`   // London switch block (nil = no fork, 0 = already on london)
 	ParisBlock    *big.Int `json:"parisBlock,omitempty"`    //  Paris switch block (nil = no fork, 0 = already on paris)
 	LastPowNonce  uint64   `json:"lastPowNonce,omitempty"`  // Last Pow Nonce for randomness
+	BaseFee       *big.Int `json:"baseFee"`
 }
 
 // IsIstanbul returns whether num is either equal to the Istanbul fork block or greater.

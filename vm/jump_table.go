@@ -90,7 +90,9 @@ func newCancunInstructionSet() [256]operation {
 	// applies EIP-7516 (BLOBBASEFEE opcode) (NOT DONE)
 	// applies EIP-4844 (BLOBHASH opcode) (NOT DONE)
 	// End of ##### Cancun updates #####
+	return instructionSet
 }
+
 func newParisInstructionSet() [256]operation {
 	instructionSet := NewLondonInstructionSet()
 
@@ -130,6 +132,9 @@ func newParisInstructionSet() [256]operation {
 	instructionSet[CREATE].gasCost = gasCreateEip3860
 	instructionSet[CREATE2].gasCost = gasCreate2Eip3860
 	// End of ##### Shanghai updates #####
+
+	// Dynamic BASEFEE
+	instructionSet[BASEFEE].execute = opBaseFeeDynamic
 
 	return instructionSet
 }

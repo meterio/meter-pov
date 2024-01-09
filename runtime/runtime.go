@@ -8,6 +8,7 @@ package runtime
 import (
 	"encoding/hex"
 	"fmt"
+	"math"
 	"math/big"
 	"strings"
 	"sync/atomic"
@@ -113,6 +114,14 @@ type Runtime struct {
 	forkConfig meter.ForkConfig
 }
 
+// copied over from transaction.go:GasPrice
+func GasPrice(baseGasPrice *big.Int) *big.Int {
+	x := big.NewInt(0) // default coef is 0 //int64(t.body.GasPriceCoef))
+	x.Mul(x, baseGasPrice)
+	x.Div(x, big.NewInt(math.MaxUint8))
+	return x.Add(x, baseGasPrice)
+}
+
 // New create a Runtime object.
 func New(
 	seeker *chain.Seeker,
@@ -123,9 +132,13 @@ func New(
 	// chainConfig.ConstantinopleBlock = big.NewInt(int64(meter.Tesla1_1MainnetStartNum))
 	var err error
 	chainConfig.LastPowNonce, err = seeker.LastPowNonce()
+	baseGasPrice := builtin.Params.Native(state).Get(meter.KeyBaseGasPrice)
+	baseFee := GasPrice(baseGasPrice)
+
 	if err != nil {
 		panic(err)
 	}
+	chainConfig.BaseFee = baseFee
 	if meter.IsMainNet() == true {
 		chainConfig.ChainID = new(big.Int).SetUint64(meter.MainnetChainID)
 		chainConfig.IstanbulBlock = big.NewInt(int64(meter.TeslaFork3_MainnetStartNum))
