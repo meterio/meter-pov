@@ -489,6 +489,37 @@ func (rt *Runtime) EnforceTeslaFork10_Corrections(stateDB *statedb.StateDB, bloc
 	}
 }
 
+func (rt *Runtime) EnforceTeslaFork11_Corrections(stateDB *statedb.StateDB, blockNum *big.Int) {
+	blockNumber := rt.Context().Number
+	log := log15.New("pkg", "fork11")
+	if blockNumber > 0 {
+		// flag is nil or 0, is not do. 1 meas done.
+		enforceFlag := builtin.Params.Native(rt.State()).Get(meter.KeyEnforceTesla_Fork11_Correction)
+
+		if meter.IsMainNet() && meter.IsTeslaFork11(blockNumber) && (enforceFlag == nil || enforceFlag.Sign() == 0) {
+			log.Info("Start fork11 correction")
+
+			// update USDC.eth with ERC20MinterBurnerPauserPermit
+			usdcAddr := meter.MustParseAddress("0xd86e243fc0007e6226b07c9a50c9d70d78299eb5")
+			rt.state.SetCode(usdcAddr, builtin.ERC20MinterBurnerPauserPermit_DeployedBytecode)
+			log.Info("Overriden USDC.eth with ERC20MinterBurnerPauserPermit bytecode", "addr", usdcAddr.String())
+
+			// update USDT.eth with ERC20MinterBurnerPauserPermit
+			usdtAddr := meter.MustParseAddress("0x5fa41671c48e3c951afc30816947126ccc8c162e")
+			rt.state.SetCode(usdtAddr, builtin.ERC20MinterBurnerPauserPermit_DeployedBytecode)
+			log.Info("Overriden USDT.eth with ERC20MinterBurnerPauserPermit bytecode", "addr", usdtAddr.String())
+
+			// update WBTC.eth with ERC20MinterBurnerPauserPermit
+			wbtcAddr := meter.MustParseAddress("0xc1f6c86abee8e2e0b6fd5bd80f0b51fef783635c")
+			rt.state.SetCode(wbtcAddr, builtin.ERC20MinterBurnerPauserPermit_DeployedBytecode)
+			log.Info("Overriden WBTC.eth with ERC20MinterBurnerPauserPermit bytecode", "addr", wbtcAddr.String())
+
+			builtin.Params.Native(rt.State()).Set(meter.KeyEnforceTesla_Fork11_Correction, big.NewInt(1))
+			log.Info("Finished fork11 correction")
+		}
+	}
+}
+
 func (rt *Runtime) FromNativeContract(caller meter.Address) bool {
 
 	nativeMtrERC20 := builtin.Params.Native(rt.State()).GetAddress(meter.KeyNativeMtrERC20Address)
@@ -883,6 +914,9 @@ func (rt *Runtime) PrepareClause(
 
 		// tesla fork10
 		rt.EnforceTeslaFork10_Corrections(stateDB, evm.BlockNumber)
+
+		// tesla fork11
+		rt.EnforceTeslaFork11_Corrections(stateDB, evm.BlockNumber)
 
 		// check the restriction of transfer.
 		if rt.restrictTransfer(stateDB, txCtx.Origin, clause.Value(), clause.Token(), rt.ctx.Number) == true {
