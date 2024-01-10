@@ -125,7 +125,7 @@ func BuildTimeoutVotingHash(epoch uint64, round uint32) [32]byte {
 func (p *Pacemaker) BuildTimeoutMessage(qcHigh *block.DraftQC, ti *PMRoundTimeoutInfo, lastVoteMsg *block.PMVoteMessage) (*block.PMTimeoutMessage, error) {
 
 	// TODO: changed from nextHeight/nextRound to ti.height/ti.round, not sure if this is correct
-	wishVoteHash := BuildTimeoutVotingHash(p.reactor.curEpoch, ti.round)
+	wishVoteHash := BuildTimeoutVotingHash(ti.epoch, ti.round)
 	wishVoteSig := p.reactor.blsCommon.SignHash(wishVoteHash)
 
 	rawQC, err := rlp.EncodeToBytes(qcHigh.QC)
@@ -134,7 +134,7 @@ func (p *Pacemaker) BuildTimeoutMessage(qcHigh *block.DraftQC, ti *PMRoundTimeou
 	}
 	msg := &block.PMTimeoutMessage{
 		Timestamp:   time.Now(),
-		Epoch:       p.reactor.curEpoch,
+		Epoch:       ti.epoch,
 		SignerIndex: uint32(p.reactor.committeeIndex),
 
 		WishRound: ti.round,

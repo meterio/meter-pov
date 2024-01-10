@@ -826,19 +826,17 @@ func (p *Pacemaker) mainLoop() {
 }
 
 func (p *Pacemaker) OnRoundTimeout(ti PMRoundTimeoutInfo) {
-	p.logger.Warn(fmt.Sprintf("R:%d timeout", ti.round), "counter", p.timeoutCounter)
+	if ti.epoch < p.reactor.curEpoch {
+		p.logger.Warn(fmt.Sprintf("E:%d,R:%d timeout, but epoch mismatch, ignored ...", ti.epoch, ti.round), "curEpoch", p.reactor.curEpoch)
+	}
+	p.logger.Warn(fmt.Sprintf("E:%d,R:%d timeout", ti.epoch, ti.round), "counter", p.timeoutCounter)
 
 	p.enterRound(ti.round+1, TimeoutRound)
-	newTi := &PMRoundTimeoutInfo{
-		epoch: p.reactor.curEpoch,
-		// height:  p.QCHigh.QC.QCHeight + 1,
-		round:   p.currentRound,
-		counter: p.timeoutCounter + 1,
-	}
+
 	pmRoleGauge.Set(1) // validator
 
 	// send new round msg to next round proposer
-	msg, err := p.BuildTimeoutMessage(p.QCHigh, newTi, p.lastVoteMsg)
+	msg, err := p.BuildTimeoutMessage(p.QCHigh, &ti, p.lastVoteMsg)
 	if err != nil {
 		p.logger.Error("could not build timeout message", "err", err)
 	} else {
@@ -910,8 +908,9 @@ func (p *Pacemaker) resetRoundTimer(round uint32, rtype roundType) time.Duration
 		}
 		timeoutInterval := baseInterval * (1 << power)
 		// p.logger.Debug(fmt.Sprintf("> start round %d timer", round), "interval", int64(timeoutInterval/time.Second), "timeoutCount", p.timeoutCounter)
+		epoch := p.reactor.curEpoch
 		p.roundTimer = time.AfterFunc(timeoutInterval, func() {
-			p.roundTimeoutCh <- PMRoundTimeoutInfo{epoch: p.reactor.curEpoch, round: round, counter: p.timeoutCounter}
+			p.roundTimeoutCh <- PMRoundTimeoutInfo{epoch: epoch, round: round, counter: p.timeoutCounter}
 		})
 		return timeoutInterval
 	}
