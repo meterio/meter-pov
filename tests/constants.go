@@ -89,3 +89,7 @@ func InitLogger() {
 func BuildAmount(amount int) *big.Int {
 	return new(big.Int).Mul(big.NewInt(int64(amount)), big.NewInt(1e18))
 }
+
+func BuildAmountWithDecimals(amount int, decimals int) *big.Int {
+	return new(big.Int).Mul(big.NewInt(int64(amount)), big.NewInt(10).Exp(big.NewInt(10), big.NewInt(int64(decimals)), nil))
+}
