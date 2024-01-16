@@ -6,7 +6,9 @@
 package governor
 
 import (
+	"errors"
 	"fmt"
+	"math"
 	"math/big"
 
 	"github.com/meterio/meter-pov/builtin"
@@ -26,13 +28,15 @@ func BuildAuctionControlTx(height, epoch uint64, chainTag byte, bestNum uint32, 
 	if auctionCB.IsActive() {
 		currentActive = true
 	}
-	reservedPrice := builtin.Params.Native(s).Get(meter.KeyAuctionReservedPrice)
+	// reservedPrice := builtin.Params.Native(s).Get(meter.KeyAuctionReservedPrice)
 
-	r := builtin.Params.Native(s).Get(meter.KeyAuctionInitRelease)
-	r = r.Div(r, big.NewInt(1e09))
-	fr := new(big.Float).SetInt(r)
-	initialRelease, accuracy := fr.Float64()
-	initialRelease = initialRelease / (1e09)
+	// r := builtin.Params.Native(s).Get(meter.KeyAuctionInitRelease)
+	// r = r.Div(r, big.NewInt(1e09))
+	// fr := new(big.Float).SetInt(r)
+	// initialRelease, accuracy := fr.Float64()
+	// initialRelease = initialRelease / (1e09)
+
+	baseSequence := builtin.Params.Native(s).Get(meter.KeyBaseSequence_AfterFork11)
 
 	// now start a new auction
 	var lastEndHeight, lastEndEpoch, lastSequence uint64
@@ -69,7 +73,7 @@ func BuildAuctionControlTx(height, epoch uint64, chainTag byte, bestNum uint32, 
 		log.Debug("no auction control txs needed", "height", height, "epoch", epoch, "lastEndEpoch", lastEndEpoch)
 		return nil
 	} else {
-		log.Info("build auction control txs", "epoch", epoch, "lastEndEpoch", lastEndEpoch, "rsvdPrice", reservedPrice, "initialRelease", initialRelease, "accuracy", accuracy)
+		log.Info("build auction control txs", "epoch", epoch, "lastEndEpoch", lastEndEpoch)
 	}
 
 	builder := new(tx.Builder)
@@ -89,11 +93,18 @@ func BuildAuctionControlTx(height, epoch uint64, chainTag byte, bestNum uint32, 
 				WithData(buildAuctionStopData(auctionCB.StartHeight, auctionCB.StartEpoch, auctionCB.EndHeight, auctionCB.EndEpoch, auctionCB.Sequence, &auctionCB.AuctionID)))
 	}
 
-	builder.Clause(
-		tx.NewClause(&meter.AuctionModuleAddr).
-			WithValue(big.NewInt(0)).
-			WithToken(meter.MTRG).
-			WithData(buildAuctionStartData(lastEndHeight+1, lastEndEpoch+1, height, epoch, lastSequence+1, initialRelease, reservedPrice, auctionCB)))
+	startData := make([]byte, 0)
+	if meter.IsTeslaFork11(uint32(height)) && lastSequence+1 > baseSequence.Uint64() {
+		log.Info("Build Auction Start Data with Emission Curve")
+		startData = buildAuctionStartDataAfterFork11(lastEndHeight+1, lastEndEpoch+1, height, epoch, lastSequence+1, auctionCB, baseSequence)
+	}
+
+	if len(startData) <= 0 {
+		log.Info("Build Auction Start Data with Inflation")
+		startData = buildAuctionStartData(lastEndHeight+1, lastEndEpoch+1, height, epoch, lastSequence+1, auctionCB)
+	}
+
+	builder.Clause(tx.NewClause(&meter.AuctionModuleAddr).WithValue(big.NewInt(0)).WithToken(meter.MTRG).WithData(startData))
 
 	return builder.Build()
 }
@@ -101,69 +112,47 @@ func BuildAuctionControlTx(height, epoch uint64, chainTag byte, bestNum uint32, 
 /*
 **************
 clear;
-Year = 500;
+N =30;
+Year = 100;
 Len = Year*365;
-Halving = 15*365;
+Halving = 4*365;
+AuctionPrice=zeros(1,Len);
 DailyReward=zeros(1,Len);
+ActualReward=zeros(1,Len);
 Annual=zeros(1,Year);
 Total = 0;
+WeightedAvgPrice=zeros(1,Len);
 for i=1:Len
-
-	DailyReward(i) = 400000000/Halving*log(1/0.8)*0.8^(i/Halving);
-	Total=Total+DailyReward(i);
-	n = idivide(i-1,int32(365))+1;
-	Annual(n)=Annual(n)+DailyReward(i);
-
+    DailyReward(i) = 40000000/Halving*ln(1/0.8)*0.8^(i/Halving);
+    Total=Total+DailyReward(i);
+    n = idivide(i-1,int32(365))+1;
+    Annual(n)=Annual(n)+DailyReward(i);
 end
 figure(1);
+hold on;
 plot(DailyReward);
+hold off;
 figure(2);
+hold on;
 plot(Annual);
+hold off;
 ****************
 */
 
-// deprecated
-// func getHistoryPrices(reservedPrice *big.Int, list *meter.AuctionSummaryList) *[N]float64 {
-// 	var i int
-// 	history := [N]float64{}
+// DailyReward(i) = ln(1/0.8)*0.8^(i/Halving)*40000000/Halving
+func DailyReward(i uint64) float64 {
+	return math.Log(1/fadeRate) * math.Pow(fadeRate, (float64(i)/float64(halvingDays))) * 40000000 / halvingDays
+}
 
-// 	list, err := auction.GetAuctionSummaryList()
-// 	if err != nil {
-// 		panic("get auction summary failed")
-// 	}
-// 	size := len(list.Summaries)
-// 	fmt.Println("getHistoryPrices", "history size", size)
-
-// 	var price *big.Int
-// 	for i = 0; i < N; i++ {
-// 		if size >= N {
-// 			price = list.Summaries[size-1-i].RsvdPrice
-// 		} else {
-// 			// not enough history, fill partially
-// 			if i < N-size {
-// 				price = reservedPrice
-// 			} else {
-// 				price = list.Summaries[i-(N-size)].RsvdPrice
-// 			}
-// 		}
-// 		price = new(big.Int).Div(price, big.NewInt(1e6))
-// 		history[N-1-i] = float64(price.Int64()) / 1e12
-// 	}
-// 	fmt.Println("history price", history)
-// 	return &history
-// }
-
-// func calcWeightedAvgPrice(history *[N]float64) float64 {
-// 	var i int
-// 	var denominator float64 = float64((N + 1) * N / 2)
-// 	var WeightedAvgPrice float64
-
-// 	for i = 1; i <= N; i++ {
-// 		price := history[i-1] * float64(i) / denominator
-// 		WeightedAvgPrice = WeightedAvgPrice + price
-// 	}
-// 	return WeightedAvgPrice
-// }
+func ComputeEpochReleaseWithEmissionCurve(sequence uint64, baseSequence uint64) (*big.Int, error) {
+	i := sequence - baseSequence
+	if i > 0 {
+		result, _ := big.NewFloat(DailyReward(i)).Int(big.NewInt(0))
+		return result, nil
+	} else {
+		return big.NewInt(0), errors.New("sequence < baseSequence, not valid for emission curve")
+	}
+}
 
 // calEpochReleaseWithInflation returns the release of MTRG for current epoch, it returns a 0 if curEpoch is less than startEpoch
 // epochRelease = lastEpochRelease + lastEpochRelease * deltaRate
@@ -220,48 +209,7 @@ func ComputeEpochReleaseWithInflation(sequence uint64, lastAuction *meter.Auctio
 	return curRelease, nil
 }
 
-// released MTRG for a speciefic range
-// func calcRewardEpochRange(startEpoch, endEpoch uint64, initialRelease float64, reservedPrice *big.Int) (totalReward float64, totalUnrelease float64, epochRewards []float64, err error) {
-// 	fmt.Println("Compute MTRG release (old)")
-// 	var epoch uint64
-// 	var epochReward float64
-
-// 	rp := new(big.Int).Div(reservedPrice, big.NewInt(1e6))
-// 	convertedRP := float64(rp.Int64()) / 1e12
-
-// 	initReleasePerEpoch := float64(initialRelease / 24)
-
-// 	epochRewards = make([]float64, 0)
-// 	halving := fadeYears * 365 * 24
-// 	err = nil
-
-// 	history := getHistoryPrices(reservedPrice)
-// 	weightedAvgPrice := calcWeightedAvgPrice(history)
-
-// 	totalReserve := float64(0)
-// 	for epoch = startEpoch; epoch <= endEpoch; epoch++ {
-// 		releaseLimit := initReleasePerEpoch + initReleasePerEpoch*(weightedAvgPrice-convertedRP)/convertedRP
-
-// 		reward := float64(totoalRelease) / float64(halving)
-// 		reward = reward * math.Log(1/fadeRate) * math.Pow(fadeRate, (float64(epoch)/float64(halving)))
-// 		reserve := float64(0)
-// 		if reward > releaseLimit {
-// 			epochReward = releaseLimit
-// 			reserve = reward - releaseLimit
-// 		} else {
-// 			epochReward = reward
-// 		}
-
-// 		totalReward = totalReward + epochReward
-// 		epochRewards = append(epochRewards, epochReward)
-// 		totalReserve = totalReserve + reserve
-// 	}
-
-// 	fmt.Println("meter gov released", "amount", totalReward, "reserve", totalReserve, "startEpoch", startEpoch, "endEpoch", endEpoch)
-// 	return
-// }
-
-func buildAuctionStartData(start, startEpoch, end, endEpoch, sequence uint64, initialRelease float64, reservedPrice *big.Int, auctionCB *meter.AuctionCB) (ret []byte) {
+func buildAuctionStartData(start, startEpoch, end, endEpoch, sequence uint64, auctionCB *meter.AuctionCB) (ret []byte) {
 	var releaseBigInt *big.Int
 	reserveBigInt := big.NewInt(0)
 	release, err := ComputeEpochReleaseWithInflation(sequence, auctionCB)
@@ -269,13 +217,34 @@ func buildAuctionStartData(start, startEpoch, end, endEpoch, sequence uint64, in
 	if err != nil {
 		panic("calculate reward with inflation failed" + err.Error())
 	}
-	// release, reserve, _, err := calcRewardEpochRange(startEpoch, endEpoch, initialRelease, reservedPrice)
-	// if err != nil {
-	// 	panic("calculate reward failed" + err.Error())
-	// }
 
-	// releaseBigInt = FloatToBigInt(release)
-	// reserveBigInt = FloatToBigInt(reserve)
+	body := &auction.AuctionBody{
+		Opcode:        meter.OP_START,
+		Version:       uint32(0),
+		StartHeight:   start,
+		StartEpoch:    startEpoch,
+		EndHeight:     end,
+		EndEpoch:      endEpoch,
+		Sequence:      sequence,
+		Amount:        releaseBigInt,
+		ReserveAmount: reserveBigInt,
+		Timestamp:     0,
+		Nonce:         0,
+	}
+	ret, _ = script.EncodeScriptData(body)
+	return
+}
+
+func buildAuctionStartDataAfterFork11(start, startEpoch, end, endEpoch, sequence uint64, auctionCB *meter.AuctionCB, baseSequence *big.Int) (ret []byte) {
+	var releaseBigInt *big.Int
+	reserveBigInt := big.NewInt(0)
+
+	release, err := ComputeEpochReleaseWithEmissionCurve(sequence, baseSequence.Uint64())
+	releaseBigInt = release
+	if err != nil {
+		log.Error("calculate reward with emission curve failed", "err", err)
+		return nil
+	}
 
 	body := &auction.AuctionBody{
 		Opcode:        meter.OP_START,
@@ -319,3 +288,87 @@ func shouldAuctionStart(curEpoch, lastEpoch uint64) bool {
 	}
 	return false
 }
+
+// deprecated
+// func getHistoryPrices(reservedPrice *big.Int, list *meter.AuctionSummaryList) *[N]float64 {
+// 	var i int
+// 	history := [N]float64{}
+
+// 	list, err := auction.GetAuctionSummaryList()
+// 	if err != nil {
+// 		panic("get auction summary failed")
+// 	}
+// 	size := len(list.Summaries)
+// 	fmt.Println("getHistoryPrices", "history size", size)
+
+// 	var price *big.Int
+// 	for i = 0; i < N; i++ {
+// 		if size >= N {
+// 			price = list.Summaries[size-1-i].RsvdPrice
+// 		} else {
+// 			// not enough history, fill partially
+// 			if i < N-size {
+// 				price = reservedPrice
+// 			} else {
+// 				price = list.Summaries[i-(N-size)].RsvdPrice
+// 			}
+// 		}
+// 		price = new(big.Int).Div(price, big.NewInt(1e6))
+// 		history[N-1-i] = float64(price.Int64()) / 1e12
+// 	}
+// 	fmt.Println("history price", history)
+// 	return &history
+// }
+
+// func calcWeightedAvgPrice(history *[N]float64) float64 {
+// 	var i int
+// 	var denominator float64 = float64((N + 1) * N / 2)
+// 	var WeightedAvgPrice float64
+
+// 	for i = 1; i <= N; i++ {
+// 		price := history[i-1] * float64(i) / denominator
+// 		WeightedAvgPrice = WeightedAvgPrice + price
+// 	}
+// 	return WeightedAvgPrice
+// }
+
+// released MTRG for a speciefic range
+// func calcRewardEpochRange(startEpoch, endEpoch uint64, initialRelease float64, reservedPrice *big.Int) (totalReward float64, totalUnrelease float64, epochRewards []float64, err error) {
+// 	fmt.Println("Compute MTRG release (old)")
+// 	var epoch uint64
+// 	var epochReward float64
+
+// 	rp := new(big.Int).Div(reservedPrice, big.NewInt(1e6))
+// 	convertedRP := float64(rp.Int64()) / 1e12
+
+// 	initReleasePerEpoch := float64(initialRelease / 24)
+
+// 	epochRewards = make([]float64, 0)
+// 	halving := fadeYears * 365 * 24
+// 	err = nil
+
+// 	history := getHistoryPrices(reservedPrice)
+// 	weightedAvgPrice := calcWeightedAvgPrice(history)
+
+// 	totalReserve := float64(0)
+// 	for epoch = startEpoch; epoch <= endEpoch; epoch++ {
+// 		releaseLimit := initReleasePerEpoch + initReleasePerEpoch*(weightedAvgPrice-convertedRP)/convertedRP
+
+// 		reward := float64(totoalRelease) / float64(halving)
+// 		reward = reward * math.Log(1/fadeRate) * math.Pow(fadeRate, (float64(epoch)/float64(halving)))
+// 		reserve := float64(0)
+// 		if reward > releaseLimit {
+// 			epochReward = releaseLimit
+// 			reserve = reward - releaseLimit
+// 		} else {
+// 			epochReward = reward
+// 		}
+
+// 		totalReward = totalReward + epochReward
+// 		epochRewards = append(epochRewards, epochReward)
+// 		totalReserve = totalReserve + reserve
+// 	}
+
+// 	fmt.Println("meter gov released", "amount", totalReward, "reserve", totalReserve, "startEpoch", startEpoch, "endEpoch", endEpoch)
+// 	return
+// }

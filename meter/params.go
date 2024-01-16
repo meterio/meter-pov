@@ -150,7 +150,8 @@ var (
 
 	KeyEnforceTesla_Fork10_Correction = BytesToBytes32([]byte("Tesla_Fork10_Correction")) // unset or 0 is not do yet, 1 is done
 
-	KeyEnforceTesla_Fork11_Correction = BytesToBytes32([]byte("Tesla_Fork11_Correction")) // unset or 0 is not do yet, 1 is done
+	KeyEnforceTesla_Fork11_Correction = BytesToBytes32([]byte("Tesla_Fork11_Correction"))  // unset or 0 is not do yet, 1 is done
+	KeyBaseSequence_AfterFork11       = BytesToBytes32([]byte("BaseSequence_AfterFork11")) // base sequence after fork11
 	// key set transaction fee address
 	// 0x6e73616374696f6e2d6665652d62656e65666963696172792d61646472657373
 	KeyTransactionFeeAddress = BytesToBytes32([]byte("transaction-fee-beneficiary-address"))
