@@ -13,7 +13,6 @@ import (
 	"os"
 
 	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/p2p/nat"
 	"github.com/ethereum/go-ethereum/p2p/netutil"
 	"github.com/meterio/meter-pov/p2psrv/discv5"
@@ -52,16 +51,16 @@ var (
 		},
 		cli.IntFlag{
 			Name:  "verbosity",
-			Value: int(log.LvlWarn),
+			Value: int(0),
 			Usage: "log verbosity (0-9)",
 		},
 	}
 )
 
 func run(ctx *cli.Context) error {
-	logHandler := log.NewGlogHandler(log.StreamHandler(os.Stderr, log.TerminalFormat(true)))
-	logHandler.Verbosity(log.Lvl(ctx.Int("verbosity")))
-	log.Root().SetHandler(logHandler)
+	// logHandler := log.NewGlogHandler(log.StreamHandler(os.Stderr, log.TerminalFormat(true)))
+	// logHandler.Verbosity(log.Lvl(ctx.Int("verbosity")))
+	// log.Root().SetHandler(logHandler)
 
 	natm, err := nat.Parse(ctx.String("nat"))
 	if err != nil {
