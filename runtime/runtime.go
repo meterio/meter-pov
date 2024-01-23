@@ -658,35 +658,35 @@ func (rt *Runtime) newEVM(stateDB *statedb.StateDB, clauseIndex uint32, txCtx *x
 			return common.Hash(rt.seeker.GetID(uint32(num)))
 		},
 		NewContractAddress: func(caller common.Address, counter uint32) common.Address {
-			log.Info("create new contract address", "origin", txCtx.Origin.String(), "caller", caller.String(), "clauseIndex", clauseIndex, "counter", counter, "nonce", txCtx.Nonce)
+			log.Info("calc new contract address", "origin", txCtx.Origin.String(), "caller", caller.String(), "clauseIndex", clauseIndex, "counter", counter, "nonce", txCtx.Nonce)
 			var addr common.Address
 			number := rt.ctx.Number
+			formula := ""
 			if meter.IsTesla(number) {
 				if meter.IsTeslaFork3(number) {
 					if stateDB.GetCodeHash(caller) == (common.Hash{}) || stateDB.GetCodeHash(caller) == vm.EmptyCodeHash {
-						log.Info("Condition A: after Tesla fork3, caller is contract, eth compatible")
+						formula = "> fork3 EthAddress(caller, txNonce+clauseIndex)"
+						// log.Info("Condition A: after Tesla fork3, caller is contract, eth compatible")
 						addr = common.Address(meter.EthCreateContractAddress(caller, uint32(txCtx.Nonce)+clauseIndex))
 					} else {
 						if meter.IsTeslaFork4(number) {
-							log.Info("Condition B1: after Tesla fork4, caller is external, meter specific")
+							formula = "> fork4 MeterContract(txID, clauseIndex, counter)"
 							addr = common.Address(meter.CreateContractAddress(txCtx.ID, clauseIndex, counter))
 						} else {
-							log.Info("Condition B2: after Tesla fork4, caller is external, counter related")
+							formula = "fork3 <-> fork4 MeterContract(txID, clauseIndex, counter)"
 							addr = common.Address(meter.EthCreateContractAddress(caller, counter))
 						}
 					}
 				} else {
-					log.Info("Condition C: before Tesla fork3, eth compatible")
-					log.Info("tx origin: ", txCtx.Origin, ", nonce:", txCtx.Nonce, ", clauseIndex:", clauseIndex)
-
+					formula = "< fork3 EthContract(txOrigin, txNonce+clauseIndex)"
 					//return common.Address(meter.EthCreateContractAddress(caller, uint32(txCtx.Nonce)+clauseIndex))
 					addr = common.Address(meter.EthCreateContractAddress(common.Address(txCtx.Origin), uint32(txCtx.Nonce)+clauseIndex))
 				}
 			} else {
-				log.Info("Condition D: before Tesla, meter specific")
+				formula = "< tesla, MeterContract(txID, clauseIndex, counter)"
 				addr = common.Address(meter.CreateContractAddress(txCtx.ID, clauseIndex, counter))
 			}
-			log.Info("New contract", "addr", addr.String())
+			log.Info("new contract address calculated", "addr", addr.String(), "formula", formula)
 			return addr
 		},
 		InterceptContractCall: func(evm *vm.EVM, contract *vm.Contract, readonly bool) ([]byte, error, bool) {

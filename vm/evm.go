@@ -394,11 +394,6 @@ func (evm *EVM) create(caller ContractRef, code []byte, gas uint64, value *big.I
 		evm.StateDB.SetNonce(contractAddr, 1)
 	}
 
-	if evm.OnCreateContract != nil {
-		// should callback after snapshot
-		evm.OnCreateContract(evm, contractAddr, caller.Address())
-	}
-
 	evm.Transfer(evm.StateDB, caller.Address(), contractAddr, value, token)
 
 	// initialise a new contract and set the code that is to be used by the
@@ -423,6 +418,11 @@ func (evm *EVM) create(caller ContractRef, code []byte, gas uint64, value *big.I
 		createDataGas := uint64(len(ret)) * params.CreateDataGas
 		if contract.UseGas(createDataGas) {
 			evm.StateDB.SetCode(contractAddr, ret)
+
+			if evm.OnCreateContract != nil && len(ret) > 0 {
+				// should callback after snapshot
+				evm.OnCreateContract(evm, contractAddr, caller.Address())
+			}
 		} else {
 			err = ErrCodeStoreOutOfGas
 		}
