@@ -1071,7 +1071,9 @@ func verifyBlockAction(ctx *cli.Context) error {
 	start := time.Now()
 	initDelegates := types.LoadDelegatesFile(ctx, blsCommon)
 	pker := packer.New(meterChain, stateCreator, meter.Address{}, &meter.Address{})
-	reactor := consensus.NewConsensusReactor(ctx, meterChain, logDB, nil /* empty communicator */, nil /* empty txpool */, pker, stateCreator, ecdsaPrivKey, ecdsaPubKey, [4]byte{0x0, 0x0, 0x0, 0x0}, blsCommon, initDelegates)
+	txPool := txpool.New(meterChain, state.NewCreator(mainDB), defaultTxPoolOptions)
+	defer func() { log.Info("closing tx pool..."); txPool.Close() }()
+	reactor := consensus.NewConsensusReactor(ctx, meterChain, logDB, nil /* empty communicator */, txPool, pker, stateCreator, ecdsaPrivKey, ecdsaPubKey, [4]byte{0x0, 0x0, 0x0, 0x0}, blsCommon, initDelegates)
 
 	var blk *block.Block
 	var err error
@@ -1188,7 +1190,9 @@ func runLocalBlockAction(ctx *cli.Context) error {
 	start := time.Now()
 	initDelegates := types.LoadDelegatesFile(ctx, blsCommon)
 	pker := packer.New(meterChain, stateCreator, meter.Address{}, &meter.Address{})
-	reactor := consensus.NewConsensusReactor(ctx, meterChain, logDB, nil /* empty communicator */, nil /* empty txpool */, pker, stateCreator, ecdsaPrivKey, ecdsaPubKey, [4]byte{0x0, 0x0, 0x0, 0x0}, blsCommon, initDelegates)
+	txPool := txpool.New(meterChain, state.NewCreator(mainDB), defaultTxPoolOptions)
+	defer func() { log.Info("closing tx pool..."); txPool.Close() }()
+	reactor := consensus.NewConsensusReactor(ctx, meterChain, logDB, nil /* empty communicator */, txPool, pker, stateCreator, ecdsaPrivKey, ecdsaPubKey, [4]byte{0x0, 0x0, 0x0, 0x0}, blsCommon, initDelegates)
 
 	var blk *block.Block
 	var err error
