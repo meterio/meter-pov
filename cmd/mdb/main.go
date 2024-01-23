@@ -1223,6 +1223,10 @@ func runLocalBlockAction(ctx *cli.Context) error {
 
 	stage, _, err := reactor.VerifyBlock(blk, state, true)
 
+	if err != nil {
+		log.Error("could not verify block", "err", err)
+		return err
+	}
 	hash, _ := stage.Hash()
 	log.Info("Verify block complete", "elapsed", meter.PrettyDuration(time.Since(start)), "err", err, "stage", hash, "stateRoot", blk.StateRoot())
 
