@@ -226,7 +226,19 @@ func initRuntimeAfterFork11() *tests.TestEnv {
 
 	rt.EnforceTeslaFork8_LiquidStaking(sdb, big.NewInt(0))
 	rt.EnforceTeslaFork10_Corrections(sdb, big.NewInt(0))
-	rt.EnforceTeslaFork11_Corrections(sdb, big.NewInt(0), USDCAddr, USDTAddr, WBTCAddr)
+	meter.USDC_eth_Address = USDCAddr
+	meter.USDT_eth_Address = USDTAddr
+	meter.WBTC_eth_Address = WBTCAddr
+	transferAfterFork := tests.BuildTransferTx(c.Tag(), 1, tests.HolderAddr, big.NewInt(1), tests.VoterKey)
+	receipt, err := rt.ExecuteTransaction(transferAfterFork)
+	if err != nil {
+		panic(err)
+	}
+	if receipt.Reverted {
+		panic("could not execute after fork11")
+	}
+
+	// rt.EnforceTeslaFork11_Corrections(sdb, big.NewInt(0), evm, USDCAddr, USDTAddr, WBTCAddr)
 	return &tests.TestEnv{Runtime: rt, State: st, BktCreateTS: 0, CurrentTS: currentTs, ChainTag: c.Tag()}
 }
 

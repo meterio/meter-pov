@@ -85,6 +85,25 @@ func BuildVoteTx(chainTag byte, voterKey *ecdsa.PrivateKey, voterAddr meter.Addr
 	return BuildStakingTx(chainTag, 0, body, voterKey, 0)
 }
 
+func BuildTransferTx(chainTag byte, bestRef uint32, to meter.Address, amount *big.Int, signerKey *ecdsa.PrivateKey) *tx.Transaction {
+	builder := new(tx.Builder)
+	builder.ChainTag(chainTag).
+		BlockRef(tx.NewBlockRef(bestRef)).
+		Expiration(720).
+		GasPriceCoef(0).
+		Gas(meter.BaseTxGas * 2).
+		DependsOn(nil).
+		Nonce(uint64(rand.Intn(9999)))
+
+	builder.Clause(
+		tx.NewClause(&to).WithValue(amount).WithToken(meter.MTRG).WithData(make([]byte, 0)),
+	)
+	trx := builder.Build()
+	sig, _ := crypto.Sign(trx.SigningHash().Bytes(), signerKey)
+	trx = trx.WithSignature(sig)
+	return trx
+}
+
 func BuildContractCallTx(chainTag byte, bestRef uint32, to meter.Address, data []byte, signerKey *ecdsa.PrivateKey) *tx.Transaction {
 	builder := new(tx.Builder)
 	builder.ChainTag(chainTag).

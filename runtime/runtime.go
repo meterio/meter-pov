@@ -489,7 +489,7 @@ func (rt *Runtime) EnforceTeslaFork10_Corrections(stateDB *statedb.StateDB, bloc
 	}
 }
 
-func (rt *Runtime) EnforceTeslaFork11_Corrections(stateDB *statedb.StateDB, blockNum *big.Int, USDCAddr, USDTAddr, WBTCAddr meter.Address) {
+func (rt *Runtime) EnforceTeslaFork11_Corrections(stateDB *statedb.StateDB, blockNum *big.Int, evm *vm.EVM) {
 	blockNumber := rt.Context().Number
 	log := log15.New("pkg", "fork11")
 	if blockNumber > 0 {
@@ -499,17 +499,40 @@ func (rt *Runtime) EnforceTeslaFork11_Corrections(stateDB *statedb.StateDB, bloc
 		if meter.IsMainNet() && meter.IsTeslaFork11(blockNumber) && (enforceFlag == nil || enforceFlag.Sign() == 0) {
 			log.Info("Start fork11 correction")
 
+			initializeSelector, _ := hex.DecodeString("8129fc1c") // initialize
+
 			// update USDC.eth with ERC20MinterBurnerPauserPermit
-			rt.state.SetCode(USDCAddr, builtin.ERC20MinterBurnerPauserPermit_DeployedBytecode)
-			log.Info("Overriden USDC.eth with ERC20MinterBurnerPauserPermit bytecode", "addr", USDCAddr.String())
+			USDCAddress := meter.USDCAddress()
+			rt.state.SetCode(USDCAddress, builtin.ERC20MinterBurnerPauserPermitForReplacement_DeployedBytecode)
+			log.Info("Overriden USDC.eth with ERC20MinterBurnerPauserPermit bytecode", "addr", USDCAddress)
+			ret, leftOverGas, vmErr := evm.Call(vm.AccountRef(meter.ZeroAddress), common.Address(USDCAddress), initializeSelector, 350000, big.NewInt(0), 0)
+			if vmErr != nil {
+				log.Error("could not call initialize() on USDC.eth", "vmErr", vmErr, "ret", hex.EncodeToString(ret), "leftoverGas", leftOverGas)
+			} else {
+				log.Info("Called initialize() on USDC.eth")
+			}
 
 			// update USDT.eth with ERC20MinterBurnerPauserPermit
-			rt.state.SetCode(USDTAddr, builtin.ERC20MinterBurnerPauserPermit_DeployedBytecode)
-			log.Info("Overriden USDT.eth with ERC20MinterBurnerPauserPermit bytecode", "addr", USDTAddr.String())
+			USDTAddress := meter.USDTAddress()
+			rt.state.SetCode(USDTAddress, builtin.ERC20MinterBurnerPauserPermitForReplacement_DeployedBytecode)
+			log.Info("Overriden USDT.eth with ERC20MinterBurnerPauserPermit bytecode", "addr", USDTAddress)
+			ret, leftOverGas, vmErr = evm.Call(vm.AccountRef(meter.ZeroAddress), common.Address(USDTAddress), initializeSelector, 350000, big.NewInt(0), 0)
+			if vmErr != nil {
+				log.Error("could not call initialize() on USDT.eth", "vmErr", vmErr, "ret", hex.EncodeToString(ret), "leftoverGas", leftOverGas)
+			} else {
+				log.Info("Called initialize() on USDT.eth")
+			}
 
 			// update WBTC.eth with ERC20MinterBurnerPauserPermit
-			rt.state.SetCode(WBTCAddr, builtin.ERC20MinterBurnerPauserPermit_DeployedBytecode)
-			log.Info("Overriden WBTC.eth with ERC20MinterBurnerPauserPermit bytecode", "addr", WBTCAddr.String())
+			WBTCAddress := meter.WBTCAddress()
+			rt.state.SetCode(WBTCAddress, builtin.ERC20MinterBurnerPauserPermitForReplacement_DeployedBytecode)
+			log.Info("Overriden WBTC.eth with ERC20MinterBurnerPauserPermit bytecode", "addr", WBTCAddress)
+			ret, leftOverGas, vmErr = evm.Call(vm.AccountRef(meter.ZeroAddress), common.Address(WBTCAddress), initializeSelector, 350000, big.NewInt(0), 0)
+			if vmErr != nil {
+				log.Error("could not call initialize() on WBTC.eth", "vmErr", vmErr, "ret", hex.EncodeToString(ret), "leftoverGas", leftOverGas)
+			} else {
+				log.Info("Called initialize() on WBTC.eth")
+			}
 
 			// update baseSequenceAfterFork11
 			auctionCB := rt.state.GetAuctionCB()
@@ -919,7 +942,7 @@ func (rt *Runtime) PrepareClause(
 		rt.EnforceTeslaFork10_Corrections(stateDB, evm.BlockNumber)
 
 		// tesla fork11
-		rt.EnforceTeslaFork11_Corrections(stateDB, evm.BlockNumber, meter.MustParseAddress("0xd86e243fc0007e6226b07c9a50c9d70d78299eb5"), meter.MustParseAddress("0x5fa41671c48e3c951afc30816947126ccc8c162e"), meter.MustParseAddress("0xc1f6c86abee8e2e0b6fd5bd80f0b51fef783635c"))
+		rt.EnforceTeslaFork11_Corrections(stateDB, evm.BlockNumber, evm)
 
 		// check the restriction of transfer.
 		if rt.restrictTransfer(stateDB, txCtx.Origin, clause.Value(), clause.Token(), rt.ctx.Number) == true {

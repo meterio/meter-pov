@@ -199,4 +199,23 @@ var (
 	TeslaValidatorBenefitRatio = big.NewInt(1e18)
 
 	NewViewPeersLimit = 8
+
+	// in order to provide different addresses during testing and mainnet
+	// so defined all these vairables here
+	// will be different values during testing
+	USDC_eth_Address = MustParseAddress("0xd86e243fc0007e6226b07c9a50c9d70d78299eb5")
+	USDT_eth_Address = MustParseAddress("0x5fa41671c48e3c951afc30816947126ccc8c162e")
+	WBTC_eth_Address = MustParseAddress("0xc1f6c86abee8e2e0b6fd5bd80f0b51fef783635c")
 )
+
+func USDCAddress() Address {
+	return USDC_eth_Address
+}
+
+func USDTAddress() Address {
+	return USDT_eth_Address
+}
+
+func WBTCAddress() Address {
+	return WBTC_eth_Address
+}
