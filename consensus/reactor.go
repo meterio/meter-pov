@@ -764,6 +764,10 @@ func (r *Reactor) ValidateQC(b *block.Block, escortQC *block.QuorumCert) bool {
 
 	// validate with current committee
 	start := time.Now()
+	if len(r.committee) <= 0 {
+		fmt.Println("verify QC with empty r.committee")
+		return false
+	}
 	valid, err = b.VerifyQC(escortQC, r.blsCommon, r.committee)
 	if valid && err == nil {
 		r.logger.Info(fmt.Sprintf("validated %s", escortQC.CompactString()), "elapsed", meter.PrettyDuration(time.Since(start)))

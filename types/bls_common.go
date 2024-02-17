@@ -9,6 +9,7 @@ import (
 	"crypto/ecdsa"
 	sha256 "crypto/sha256"
 	b64 "encoding/base64"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -150,6 +151,9 @@ func (cc *BlsCommon) AggregateVerify(sig bls.Signature, hash [32]byte, pubKeys [
 // all voter sign the same msg, so we could aggregate pubkeys together
 // and use verify them all
 func (cc *BlsCommon) ThresholdVerify(sig bls.Signature, hash [32]byte, pubKeys []bls.PublicKey) (bool, error) {
+	if len(pubKeys) <= 0 {
+		return false, errors.New("pubkeys are empty")
+	}
 	aggregatedPubkeys, err := bls.AggregatePubkeys(pubKeys, cc.System)
 	defer aggregatedPubkeys.Free()
 	if err != nil {

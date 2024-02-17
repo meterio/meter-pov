@@ -183,13 +183,14 @@ const (
 // Fork 11 fixes includes:
 //  1. Port changes from Ethereum recent forks
 //     1.1 Istanbul fork: TxDataNonZeroGas is down from 68 to 16 (EIP-2028)
-//     1.1 London fork: opcode `SELFDESTRUCT` has no refund
+//     1.1 London fork: opcode `SELFDESTRUCT` now has no refund
 //     1.2 Shanghai fork:
 //     1.2.1 implement opcode `PUSH0`
 //     1.2.2 extra fee for initdata in opcode `CREATE` and `CREATE2` (EIP-3860)
 //     1.3 the Merge (Paris fork): implement opcode `PREVRANDAO`
 //  2. opcode `BASEFEE` calculates dynamic fee instead of hardcoded value
 //  3. upgrade USDC.eth/USDT.eth/WBTC.eth to support EIP-712 permit function
+//  4. emission curve formula change
 const (
 	TeslaFork11_MainnetStartNum = 99999999 // TBD
 	TeslaFork11_TestnetStartNum = 99999999 // TBD
