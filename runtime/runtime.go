@@ -133,15 +133,18 @@ func New(
 	var err error
 	if seeker != nil {
 		chainConfig.LastPowNonce, err = seeker.LastPowNonce()
+		if err != nil {
+			chainConfig.LastPowNonce = uint64(100) /* fallback to Genesis Nonce */
+		}
 	} else {
 		chainConfig.LastPowNonce = uint64(100) /* Genesis Nonce */
 	}
 	baseGasPrice := builtin.Params.Native(state).Get(meter.KeyBaseGasPrice)
 	baseFee := GasPrice(baseGasPrice)
 
-	if err != nil {
-		panic(err)
-	}
+	// if err != nil {
+	// 	panic(err)
+	// }
 	chainConfig.BaseFee = baseFee
 	if meter.IsMainNet() == true {
 		chainConfig.ChainID = new(big.Int).SetUint64(meter.MainnetChainID)
@@ -1021,6 +1024,13 @@ func (rt *Runtime) ExecuteTransaction(tx *tx.Transaction) (receipt *tx.Receipt, 
 
 	finalizeStart := time.Now()
 	receipt, err = executor.Finalize()
+	// fmt.Println("receipt: \n", "GasUsed:", receipt.GasUsed, "Paid:", receipt.Paid, "Reward:", receipt.Reward)
+	// for i, o := range receipt.Outputs {
+	// 	fmt.Println("Output ", i)
+	// 	fmt.Println("Events:", o.Events)
+	// 	fmt.Println("Transfers", o.Transfers)
+	// }
+	// fmt.Println("RECEIPT: ", receipt)
 	finalizeElapsed := time.Since(finalizeStart)
 	if time.Since(start) > time.Millisecond {
 		log.Info(fmt.Sprintf("slow executed tx %s", tx.ID()), "totalElapsed", meter.PrettyDuration(time.Since(start)), "prepare", meter.PrettyDuration(prepareElapsed), "exec", meter.PrettyDuration(execElapsed), "seChange", meter.PrettyDuration(seChangeElapsed), "finalize", meter.PrettyDuration(finalizeElapsed))

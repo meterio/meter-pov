@@ -5,6 +5,7 @@ import (
 	"math/big"
 	"math/rand"
 	"strconv"
+	"testing"
 	"time"
 
 	"github.com/inconshreveable/log15"
@@ -210,4 +211,11 @@ func initRuntimeAfterFork6() *runtime.Runtime {
 		Number: meter.TeslaFork6_MainnetStartNum + 1})
 
 	return rt
+}
+
+func TestDailyReward(t *testing.T) {
+	for i := 0; i < 30; i++ {
+		reward := governor.DailyReward(uint64(i))
+		fmt.Println("Daily Reward", i, reward)
+	}
 }

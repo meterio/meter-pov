@@ -140,15 +140,16 @@ hold off;
 */
 
 // DailyReward(i) = ln(1/0.8)*0.8^(i/Halving)*40000000/Halving
-func DailyReward(i uint64) float64 {
-	return math.Log(1/fadeRate) * math.Pow(fadeRate, (float64(i)/float64(halvingDays))) * 40000000 / halvingDays
+func DailyReward(i uint64) *big.Int {
+	rewardFloat64 := math.Log(1/fadeRate) * math.Pow(fadeRate, (float64(i)/float64(halvingDays))) * 40000000 / halvingDays
+	rewardBigInt, _ := big.NewFloat(0).Mul(big.NewFloat(rewardFloat64), big.NewFloat(1e18)).Int(big.NewInt(0))
+	return rewardBigInt
 }
 
 func ComputeEpochReleaseWithEmissionCurve(sequence uint64, baseSequence uint64) (*big.Int, error) {
 	i := sequence - baseSequence
 	if i > 0 {
-		result, _ := big.NewFloat(DailyReward(i)).Int(big.NewInt(0))
-		return result, nil
+		return DailyReward(i), nil
 	} else {
 		return big.NewInt(0), errors.New("sequence < baseSequence, not valid for emission curve")
 	}

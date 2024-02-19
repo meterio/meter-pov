@@ -75,7 +75,8 @@ func (rb *rawBlock) Block() (*block.Block, error) {
 	// } else {
 	blk, err := block.BlockDecodeFromBytes(rb.raw)
 	if err != nil {
-		panic("load block failed.")
+		return nil, err
+		// panic("load block failed" + err.Error())
 	}
 	rb.block.Store(blk)
 	rb.header.Store(blk.Header())
