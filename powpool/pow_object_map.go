@@ -106,7 +106,7 @@ func (m *powObjectMap) InitialAddKframe(powObj *powObject) error {
 		return fmt.Errorf("Kframe already added, flush object map first")
 	}
 
-	log.Info("initial added kframe", "powHeight", powObj.Height())
+	log.Debug("initial added kframe", "powHeight", powObj.Height())
 
 	err := m._add(powObj)
 	if err != nil {

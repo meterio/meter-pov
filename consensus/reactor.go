@@ -603,7 +603,7 @@ func (r *Reactor) OnReceiveMsg(w http.ResponseWriter, req *http.Request) {
 	var m runtime.MemStats
 	runtime.ReadMemStats(&m)
 
-	r.logger.Info("before receive", "alloc", meter.PrettyStorage(m.Alloc), "sys", meter.PrettyStorage(m.Sys))
+	r.logger.Debug("before receive", "alloc", meter.PrettyStorage(m.Alloc), "sys", meter.PrettyStorage(m.Sys))
 
 	data, err := ioutil.ReadAll(req.Body)
 	if err != nil {
@@ -618,7 +618,7 @@ func (r *Reactor) OnReceiveMsg(w http.ResponseWriter, req *http.Request) {
 	defer func() {
 		var ma runtime.MemStats
 		runtime.ReadMemStats(&ma)
-		r.logger.Info(fmt.Sprintf("after receive %s", mi.Msg.GetType()), "allocDiff", meter.PrettyStorage(ma.Alloc-m.Alloc), "sysDiff(KB)", meter.PrettyStorage(ma.Sys-m.Sys))
+		r.logger.Debug(fmt.Sprintf("after receive %s", mi.Msg.GetType()), "allocDiff", meter.PrettyStorage(ma.Alloc-m.Alloc), "sysDiff(KB)", meter.PrettyStorage(ma.Sys-m.Sys))
 	}()
 
 	if r.inCache.Contains(mi.ID) {

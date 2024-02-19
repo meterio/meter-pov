@@ -119,5 +119,5 @@ func (m *TCVoteManager) CleanUpTo(epoch uint64) {
 			}
 		}
 	}
-	m.logger.Info(fmt.Sprintf("after clean tc votes up to epoch %v", epoch), "len", len(m.votes))
+	m.logger.Debug(fmt.Sprintf("after clean tc votes up to epoch %v", epoch), "len", len(m.votes))
 }

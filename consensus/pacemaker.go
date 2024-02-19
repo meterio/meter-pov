@@ -618,7 +618,7 @@ func (p *Pacemaker) Regulate() {
 		actualRound = 0
 	}
 
-	p.logger.Info(fmt.Sprintf("*** Pacemaker start with QC %v", bestQC.CompactString()))
+	p.logger.Info(fmt.Sprintf("*** Pacemaker start with bestQC %v", bestQC.CompactString()))
 	p.lastOnBeatRound = int32(actualRound) - 1
 	pmRoleGauge.Set(1) // validator
 

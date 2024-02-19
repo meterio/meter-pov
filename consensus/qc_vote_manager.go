@@ -131,5 +131,5 @@ func (m *QCVoteManager) CleanUpTo(blockNum uint32) {
 			}
 		}
 	}
-	m.logger.Info(fmt.Sprintf("after clean qc votes up to block %v", blockNum), "len", len(m.votes))
+	m.logger.Debug(fmt.Sprintf("after clean qc votes up to block %v", blockNum), "len", len(m.votes))
 }
