@@ -147,9 +147,12 @@ func DailyReward(i uint64) *big.Int {
 }
 
 func ComputeEpochReleaseWithEmissionCurve(sequence uint64, baseSequence uint64) (*big.Int, error) {
+	log.Info("Computer epoch release with emission curve", "sequence", sequence, "baseSequence", baseSequence)
 	i := sequence - baseSequence
 	if i > 0 {
-		return DailyReward(i), nil
+		reward := DailyReward(i)
+		log.Info("Daily Reward", "i", i, "reward", reward)
+		return reward, nil
 	} else {
 		return big.NewInt(0), errors.New("sequence < baseSequence, not valid for emission curve")
 	}
