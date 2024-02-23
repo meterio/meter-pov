@@ -90,21 +90,24 @@ type EthTx struct {
 
 // Transaction transaction
 type Transaction struct {
-	ID           meter.Bytes32       `json:"id"`
-	ChainTag     byte                `json:"chainTag"`
-	BlockRef     string              `json:"blockRef"`
-	Expiration   uint32              `json:"expiration"`
-	Clauses      Clauses             `json:"clauses"`
-	GasPriceCoef uint8               `json:"gasPriceCoef"`
-	GasPrice     uint64              `json:"gasPrice"`
-	Gas          uint64              `json:"gas"`
-	Origin       meter.Address       `json:"origin"`
-	Nonce        math.HexOrDecimal64 `json:"nonce"`
-	DependsOn    *meter.Bytes32      `json:"dependsOn"`
-	Size         uint32              `json:"size"`
-	Meta         TxMeta              `json:"meta"`
-	EthTx        *EthTx              `json:"ethTx"`
-	Reserved     []string            `json:"reserved"`
+	ID           meter.Bytes32         `json:"id"`
+	ChainTag     byte                  `json:"chainTag"`
+	BlockRef     string                `json:"blockRef"`
+	Expiration   uint32                `json:"expiration"`
+	Clauses      Clauses               `json:"clauses"`
+	GasPriceCoef uint8                 `json:"gasPriceCoef"`
+	GasPrice     uint64                `json:"gasPrice"`
+	Gas          uint64                `json:"gas"`
+	Origin       meter.Address         `json:"origin"`
+	Nonce        math.HexOrDecimal64   `json:"nonce"`
+	DependsOn    *meter.Bytes32        `json:"dependsOn"`
+	Size         uint32                `json:"size"`
+	Meta         TxMeta                `json:"meta"`
+	EthTx        *EthTx                `json:"ethTx"`
+	Reserved     []string              `json:"reserved"`
+	V            *math.HexOrDecimal256 `json:"v"`
+	R            *math.HexOrDecimal256 `json:"r"`
+	S            *math.HexOrDecimal256 `json:"s"`
 }
 type UnSignedTx struct {
 	ChainTag     uint8               `json:"chainTag"`
@@ -221,6 +224,18 @@ func convertTransaction(tx *tx.Transaction, header *block.Header, txIndex uint64
 			}
 		}
 	}
+	var v, r, s *big.Int
+	if tx.IsEthTx() {
+		ethTx, _ := tx.GetEthTx()
+		v, r, s = ethTx.RawSignatureValues()
+	} else {
+		sig := tx.Signature()
+		if len(sig) >= 65 {
+			r.SetBytes(sig[:32])
+			s.SetBytes(sig[32:64])
+			v.SetBytes(sig[64:65])
+		}
+	}
 	t := &Transaction{
 		ChainTag:     tx.ChainTag(),
 		ID:           tx.ID(),
@@ -241,6 +256,9 @@ func convertTransaction(tx *tx.Transaction, header *block.Header, txIndex uint64
 		},
 		Reserved: Reserved,
 		EthTx:    convertedEthTx,
+		V:        (*math.HexOrDecimal256)(v),
+		R:        (*math.HexOrDecimal256)(r),
+		S:        (*math.HexOrDecimal256)(s),
 	}
 	return t, nil
 }

@@ -107,6 +107,9 @@ type JSONEmbeddedTx struct {
 	Reward   *math.HexOrDecimal256 `json:"reward"`
 	Reverted bool                  `json:"reverted"`
 	Outputs  []*JSONOutput         `json:"outputs"`
+	V        *math.HexOrDecimal256 `json:"v"`
+	R        *math.HexOrDecimal256 `json:"r"`
+	S        *math.HexOrDecimal256 `json:"s"`
 }
 
 type JSONPowBlock struct {
@@ -304,6 +307,18 @@ func buildJSONEmbeddedTxs(txs tx.Transactions, receipts tx.Receipts, baseGasFee 
 			}
 		}
 
+		var v, r, s *big.Int
+		if tx.IsEthTx() {
+			ethTx, _ := tx.GetEthTx()
+			v, r, s = ethTx.RawSignatureValues()
+		} else {
+			sig := tx.Signature()
+			if len(sig) >= 65 {
+				r.SetBytes(sig[:32])
+				s.SetBytes(sig[32:64])
+				v.SetBytes(sig[64:65])
+			}
+		}
 		jTxs = append(jTxs, &JSONEmbeddedTx{
 			ID:           tx.ID(),
 			ChainTag:     tx.ChainTag(),
@@ -324,6 +339,9 @@ func buildJSONEmbeddedTxs(txs tx.Transactions, receipts tx.Receipts, baseGasFee 
 			Reward:   (*math.HexOrDecimal256)(receipt.Reward),
 			Reverted: receipt.Reverted,
 			Outputs:  jos,
+			V:        (*math.HexOrDecimal256)(v),
+			R:        (*math.HexOrDecimal256)(r),
+			S:        (*math.HexOrDecimal256)(s),
 		})
 	}
 	return jTxs
