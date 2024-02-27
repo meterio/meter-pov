@@ -691,9 +691,9 @@ func (rt *Runtime) newEVM(stateDB *statedb.StateDB, clauseIndex uint32, txCtx *x
 			if meter.IsTesla(number) {
 				if meter.IsTeslaFork3(number) {
 					if stateDB.GetCodeHash(caller) == (common.Hash{}) || stateDB.GetCodeHash(caller) == vm.EmptyCodeHash {
-						formula = "> fork3 EthAddress(caller, txNonce+clauseIndex)"
+						formula = "> fork3 EthAddress(caller, txNonce+clauseIndex+counter)"
 						// log.Info("Condition A: after Tesla fork3, caller is contract, eth compatible")
-						addr = common.Address(meter.EthCreateContractAddress(caller, uint32(txCtx.Nonce)+clauseIndex))
+						addr = common.Address(meter.EthCreateContractAddress(caller, uint32(txCtx.Nonce)+clauseIndex+counter))
 					} else {
 						if meter.IsTeslaFork4(number) {
 							formula = "> fork4 MeterContract(txID, clauseIndex, counter)"
