@@ -90,6 +90,7 @@ func (c *Communicator) handleRPC(peer *Peer, msg *p2p.Msg, write func(interface{
 			if !c.chain.IsNotFound(err) {
 				log.Error("failed to get block", "err", err)
 			}
+			log.Error("GetBlockByID failed", "err", err)
 		} else {
 			num := blk.Number()
 			var escortQC *block.QuorumCert
@@ -104,7 +105,8 @@ func (c *Communicator) handleRPC(peer *Peer, msg *p2p.Msg, write func(interface{
 				}
 			}
 			if escortQC != nil && blk != nil {
-				rlp.EncodeToBytes(&block.EscortedBlock{Block: blk, EscortQC: escortQC})
+				bbytes, _ := rlp.EncodeToBytes(&block.EscortedBlock{Block: blk, EscortQC: escortQC})
+				result = append(result, rlp.RawValue(bbytes))
 			}
 
 		}
