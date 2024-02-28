@@ -224,7 +224,9 @@ func convertTransaction(tx *tx.Transaction, header *block.Header, txIndex uint64
 			}
 		}
 	}
-	var v, r, s *big.Int
+	v := big.NewInt(0)
+	r := big.NewInt(0)
+	s := big.NewInt(0)
 	if tx.IsEthTx() {
 		ethTx, _ := tx.GetEthTx()
 		v, r, s = ethTx.RawSignatureValues()
