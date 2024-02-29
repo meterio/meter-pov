@@ -688,31 +688,72 @@ func (rt *Runtime) newEVM(stateDB *statedb.StateDB, clauseIndex uint32, txCtx *x
 			var addr common.Address
 			number := rt.ctx.Number
 			formula := ""
+			condition := ""
+			logInfo := make([]string, 0)
 			if meter.IsTesla(number) {
 				if meter.IsTeslaFork3(number) {
 					if stateDB.GetCodeHash(caller) == (common.Hash{}) || stateDB.GetCodeHash(caller) == vm.EmptyCodeHash {
-						formula = "> fork3 EthAddress(caller, txNonce+clauseIndex+counter)"
-						// log.Info("Condition A: after Tesla fork3, caller is contract, eth compatible")
-						addr = common.Address(meter.EthCreateContractAddress(caller, uint32(txCtx.Nonce)+clauseIndex+counter))
+						// caller is EOA
+						if meter.IsTeslaFork10(number) {
+							condition = "> fork10 from EOA caller"
+							formula = "EthCompatible(caller, txNonce+clauseIndex+counter)"
+							logInfo = append(logInfo, "caller", "txNonce", "clauseIndex", "counter")
+							addr = common.Address(meter.EthCreateContractAddress(caller, uint32(txCtx.Nonce)+clauseIndex+counter))
+						} else {
+							condition = "> fork3 from EOA caller"
+							formula = "EthCompatible(caller, txNonce+clauseIndex)"
+							logInfo = append(logInfo, "caller", "txNonce", "clauseIndex")
+							addr = common.Address(meter.EthCreateContractAddress(caller, uint32(txCtx.Nonce)+clauseIndex))
+						}
 					} else {
+						// caller is contract
 						if meter.IsTeslaFork4(number) {
-							formula = "> fork4 MeterContract(txID, clauseIndex, counter)"
+							condition = "> fork4 from contract caller"
+							formula = "MeterContract(txID, clauseIndex, counter)"
+							logInfo = append(logInfo, "txID", "clauseIndex", "counter")
 							addr = common.Address(meter.CreateContractAddress(txCtx.ID, clauseIndex, counter))
 						} else {
-							formula = "fork3 <-> fork4 MeterContract(txID, clauseIndex, counter)"
+							condition = "fork3 <-> fork4 from contract caller"
+							formula = "EthCompatible(txID, clauseIndex, counter) contract caller"
+							logInfo = append(logInfo, "txID", "clauseIndex", "counter")
 							addr = common.Address(meter.EthCreateContractAddress(caller, counter))
 						}
 					}
 				} else {
-					formula = "< fork3 EthContract(txOrigin, txNonce+clauseIndex)"
+					condition = "tesla <-> fork3"
+					formula = "EthCompatible(txOrigin, txNonce+clauseIndex)"
+					logInfo = append(logInfo, "txOrigin", "txNonce", "clauseIndex")
 					//return common.Address(meter.EthCreateContractAddress(caller, uint32(txCtx.Nonce)+clauseIndex))
 					addr = common.Address(meter.EthCreateContractAddress(common.Address(txCtx.Origin), uint32(txCtx.Nonce)+clauseIndex))
 				}
 			} else {
-				formula = "< tesla, MeterContract(txID, clauseIndex, counter)"
+				condition = "< tesla"
+				formula = "MeterContract(txID, clauseIndex, counter)"
+				logInfo = append(logInfo, "txID", "clauseIndex", "counter")
 				addr = common.Address(meter.CreateContractAddress(txCtx.ID, clauseIndex, counter))
 			}
-			log.Info("new contract address calculated", "addr", addr.String(), "formula", formula)
+			logMetrics := make([]interface{}, 0)
+			logMetrics = append(logMetrics, "condition", condition, "formula", formula)
+			for _, key := range logInfo {
+				logMetrics = append(logMetrics, key)
+				switch key {
+				case "txOrigin":
+					logMetrics = append(logMetrics, txCtx.Origin)
+				case "txID":
+					logMetrics = append(logMetrics, txCtx.ID)
+				case "txNonce":
+					logMetrics = append(logMetrics, txCtx.Nonce)
+				case "clauseIndex":
+					logMetrics = append(logMetrics, clauseIndex)
+				case "caller":
+					logMetrics = append(logMetrics, caller)
+				case "counter":
+					logMetrics = append(logMetrics, counter)
+				default:
+					logMetrics = append(logMetrics, "-")
+				}
+			}
+			log.Info(fmt.Sprintf("new contract address: %s", addr.String()), logMetrics...)
 			return addr
 		},
 		InterceptContractCall: func(evm *vm.EVM, contract *vm.Contract, readonly bool) ([]byte, error, bool) {
