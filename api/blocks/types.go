@@ -110,6 +110,12 @@ type JSONEmbeddedTx struct {
 	V        *math.HexOrDecimal256 `json:"v"`
 	R        *math.HexOrDecimal256 `json:"r"`
 	S        *math.HexOrDecimal256 `json:"s"`
+
+	Type byte `json:"type"`
+	// only exist on type-2 tx
+	ChainId              *math.HexOrDecimal256 `json:"chainId"`
+	MaxFeePerGas         *math.HexOrDecimal256 `json:"maxFeePerGas"`
+	MaxPriorityFeePerGas *math.HexOrDecimal256 `json:"maxPriorityFeePerGas"`
 }
 
 type JSONPowBlock struct {
@@ -310,9 +316,23 @@ func buildJSONEmbeddedTxs(txs tx.Transactions, receipts tx.Receipts, baseGasFee 
 		v := big.NewInt(0)
 		r := big.NewInt(0)
 		s := big.NewInt(0)
+		chainId := big.NewInt(0)
+		if meter.IsMainNet() {
+			chainId = big.NewInt(82) // mainnet
+		} else {
+			chainId = big.NewInt(83) // testnet
+		}
+		maxFeePerGas := big.NewInt(0)
+		maxPriorityFeePerGas := big.NewInt(0)
 		if tx.IsEthTx() {
 			ethTx, _ := tx.GetEthTx()
 			v, r, s = ethTx.RawSignatureValues()
+			chainId = ethTx.ChainId()
+			if ethTx.Type() == uint8(2) {
+				maxFeePerGas = ethTx.GasFeeCap()
+				maxPriorityFeePerGas = ethTx.GasTipCap()
+			}
+
 		} else {
 			sig := tx.Signature()
 			if len(sig) >= 65 {
@@ -323,6 +343,8 @@ func buildJSONEmbeddedTxs(txs tx.Transactions, receipts tx.Receipts, baseGasFee 
 		}
 		jTxs = append(jTxs, &JSONEmbeddedTx{
 			ID:           tx.ID(),
+			Type:         tx.Type(),
+			ChainId:      (*math.HexOrDecimal256)(chainId),
 			ChainTag:     tx.ChainTag(),
 			BlockRef:     hexutil.Encode(blockRef[:]),
 			Expiration:   tx.Expiration(),
@@ -335,15 +357,17 @@ func buildJSONEmbeddedTxs(txs tx.Transactions, receipts tx.Receipts, baseGasFee 
 			DependsOn:    tx.DependsOn(),
 			Size:         uint32(tx.Size()),
 
-			GasUsed:  receipt.GasUsed,
-			GasPayer: receipt.GasPayer,
-			Paid:     (*math.HexOrDecimal256)(receipt.Paid),
-			Reward:   (*math.HexOrDecimal256)(receipt.Reward),
-			Reverted: receipt.Reverted,
-			Outputs:  jos,
-			V:        (*math.HexOrDecimal256)(v),
-			R:        (*math.HexOrDecimal256)(r),
-			S:        (*math.HexOrDecimal256)(s),
+			GasUsed:              receipt.GasUsed,
+			GasPayer:             receipt.GasPayer,
+			Paid:                 (*math.HexOrDecimal256)(receipt.Paid),
+			Reward:               (*math.HexOrDecimal256)(receipt.Reward),
+			Reverted:             receipt.Reverted,
+			Outputs:              jos,
+			V:                    (*math.HexOrDecimal256)(v),
+			R:                    (*math.HexOrDecimal256)(r),
+			S:                    (*math.HexOrDecimal256)(s),
+			MaxFeePerGas:         (*math.HexOrDecimal256)(maxFeePerGas),
+			MaxPriorityFeePerGas: (*math.HexOrDecimal256)(maxPriorityFeePerGas),
 		})
 	}
 	return jTxs

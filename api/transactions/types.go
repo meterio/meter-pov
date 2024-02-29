@@ -91,6 +91,8 @@ type EthTx struct {
 // Transaction transaction
 type Transaction struct {
 	ID           meter.Bytes32         `json:"id"`
+	Type         byte                  `json:"type"`
+	ChainId      *math.HexOrDecimal256 `json:"chainId"`
 	ChainTag     byte                  `json:"chainTag"`
 	BlockRef     string                `json:"blockRef"`
 	Expiration   uint32                `json:"expiration"`
@@ -227,9 +229,16 @@ func convertTransaction(tx *tx.Transaction, header *block.Header, txIndex uint64
 	v := big.NewInt(0)
 	r := big.NewInt(0)
 	s := big.NewInt(0)
+	chainId := big.NewInt(0)
+	if meter.IsMainNet() {
+		chainId = big.NewInt(82) // mainnet
+	} else {
+		chainId = big.NewInt(83) // testnet
+	}
 	if tx.IsEthTx() {
 		ethTx, _ := tx.GetEthTx()
 		v, r, s = ethTx.RawSignatureValues()
+		chainId = ethTx.ChainId()
 	} else {
 		sig := tx.Signature()
 		if len(sig) >= 65 {
@@ -241,6 +250,8 @@ func convertTransaction(tx *tx.Transaction, header *block.Header, txIndex uint64
 	t := &Transaction{
 		ChainTag:     tx.ChainTag(),
 		ID:           tx.ID(),
+		ChainId:      (*math.HexOrDecimal256)(chainId),
+		Type:         tx.Type(),
 		Origin:       signer,
 		BlockRef:     hexutil.Encode(br[:]),
 		Expiration:   tx.Expiration(),

@@ -250,6 +250,18 @@ func (t *Transaction) GetEthTx() (*types.Transaction, error) {
 	return &ethTx, nil
 }
 
+func (t *Transaction) Type() byte {
+	if t.IsEthTx() && len(t.body.Reserved) >= 3 {
+		rawEthTx := t.body.Reserved[2].([]byte)
+		if rawEthTx[0] == byte(1) {
+			return byte(1)
+		} else if rawEthTx[0] == byte(2) {
+			return byte(2)
+		}
+	}
+	return byte(0)
+}
+
 // ChainTag returns chain tag.
 func (t *Transaction) ChainTag() byte {
 	return t.body.ChainTag
