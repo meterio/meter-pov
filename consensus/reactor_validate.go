@@ -14,7 +14,6 @@ import (
 	"bytes"
 	"encoding/hex"
 	"fmt"
-	"log/slog"
 	"math/big"
 	"time"
 
@@ -30,8 +29,6 @@ import (
 	"github.com/meterio/meter-pov/tx"
 	"github.com/meterio/meter-pov/xenv"
 )
-
-var log = slog.Default().With("pkg", "r")
 
 // Process process a block.
 func (c *Reactor) ProcessSyncedBlock(blk *block.Block, nowTimestamp uint64) (*state.Stage, tx.Receipts, error) {
@@ -291,7 +288,7 @@ func (c *Reactor) validateBlockBody(blk *block.Block, parent *block.Block, force
 			}
 
 			if forceValidate {
-				log.Info("validating kblock tx", "tx", tx.ID().String(), "uhash", tx.UniteHash().String(), "gas", tx.Gas())
+				c.logger.Info("validating kblock tx", "tx", tx.ID().String(), "uhash", tx.UniteHash().String(), "gas", tx.Gas())
 
 				// Validate.
 				txUH := tx.UniteHash()

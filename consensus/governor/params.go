@@ -1,7 +1,6 @@
 package governor
 
 import (
-	"log/slog"
 	"math/big"
 
 	"github.com/meterio/meter-pov/builtin"
@@ -26,8 +25,6 @@ var (
 	UnitKWei = big.NewInt(1e15)
 	UnitMWei = big.NewInt(1e12)
 	UnitGWei = big.NewInt(1e9)
-
-	log = slog.Default().With("pkg", "govern")
 )
 
 func GetValidatorBenefitRatio(state *state.State) *big.Int {

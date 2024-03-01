@@ -22,11 +22,11 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io/ioutil"
+	"log/slog"
 	"math/big"
 	"strings"
 	"time"
 
-	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/meterio/meter-pov/meter"
 )
@@ -152,7 +152,7 @@ func (ts *TrieSnapshot) AddTrie(root meter.Bytes32, db Database) {
 		storageTrieSize = 0
 		codeSize        = 0
 	)
-	log.Info("Start generating snapshot", "root", root)
+	slog.Info("Start generating snapshot", "root", root)
 	for iter.Next(true) {
 		hash := iter.Hash()
 		if !iter.Leaf() {
@@ -161,7 +161,7 @@ func (ts *TrieSnapshot) AddTrie(root meter.Bytes32, db Database) {
 			stateTrieSize += len(hash)
 			val, err := db.Get(hash[:])
 			if err != nil {
-				log.Error("could not load hash", "hash", hash, "err", err)
+				slog.Error("could not load hash", "hash", hash, "err", err)
 			}
 			stateTrieSize += len(val)
 			continue
@@ -179,7 +179,7 @@ func (ts *TrieSnapshot) AddTrie(root meter.Bytes32, db Database) {
 		if !bytes.Equal(stateAcc.CodeHash, []byte{}) {
 			codeBytes, err := db.Get(stateAcc.CodeHash)
 			if err != nil {
-				log.Error("could not load code", "hash", hash, "err", err)
+				slog.Error("could not load code", "hash", hash, "err", err)
 			}
 			acc.Code = codeBytes
 			codeSize += len(codeBytes)
@@ -216,7 +216,7 @@ func (ts *TrieSnapshot) AddTrie(root meter.Bytes32, db Database) {
 					ts.add(shash)
 					sval, err := db.Get(shash[:])
 					if err != nil {
-						log.Error("could not load storage", "hash", shash, "err", err)
+						slog.Error("could not load storage", "hash", shash, "err", err)
 					}
 					storageTrieSize += len(sval)
 				} else {
@@ -228,18 +228,18 @@ func (ts *TrieSnapshot) AddTrie(root meter.Bytes32, db Database) {
 			}
 		}
 		if time.Since(lastReport) > time.Second*8 {
-			log.Info("Still generating snapshot", "nodes", nodes, "accounts", accounts, "slots", slots, "elapsed", meter.PrettyDuration(time.Since(start)))
+			slog.Info("Still generating snapshot", "nodes", nodes, "accounts", accounts, "slots", slots, "elapsed", meter.PrettyDuration(time.Since(start)))
 			lastReport = time.Now()
 		}
 	}
-	log.Info("Snapshot completed", "root", root, "stateTrieSize", stateTrieSize, "storageTrieSize", storageTrieSize, "nodes", nodes, "accounts", accounts, "slots", slots, "codeSize", codeSize, "elapsed", meter.PrettyDuration(time.Since(start)))
+	slog.Info("Snapshot completed", "root", root, "stateTrieSize", stateTrieSize, "storageTrieSize", storageTrieSize, "nodes", nodes, "accounts", accounts, "slots", slots, "codeSize", codeSize, "elapsed", meter.PrettyDuration(time.Since(start)))
 }
 
 func (ts *StateSnapshot) AddStateTrie(root meter.Bytes32, db Database) {
 	stateTrie, _ := New(root, db)
 	iter := stateTrie.NodeIterator(nil)
 
-	log.Info("Start generating snapshot", "root", root)
+	slog.Info("Start generating snapshot", "root", root)
 	for iter.Next(true) {
 		if !iter.Leaf() {
 			continue
@@ -331,7 +331,7 @@ func (ts *StateSnapshot) SaveStateToFile(prefix string) bool {
 	}
 
 	path := prefix + ".db"
-	log.Info("Saved state snapshot", "path", path)
+	slog.Info("Saved state snapshot", "path", path)
 
 	return true
 }

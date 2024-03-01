@@ -21,12 +21,11 @@ package discv5
 
 import (
 	"fmt"
+	"log/slog"
 	"net"
 	"sort"
 	"strings"
 	"time"
-
-	"github.com/ethereum/go-ethereum/log"
 )
 
 const (
@@ -54,12 +53,12 @@ func checkClockDrift() {
 		howtofix := fmt.Sprintf("Please enable network time synchronisation in system settings")
 		separator := strings.Repeat("-", len(warning))
 
-		log.Warn(separator)
-		log.Warn(warning)
-		log.Warn(howtofix)
-		log.Warn(separator)
+		slog.Warn(separator)
+		slog.Warn(warning)
+		slog.Warn(howtofix)
+		slog.Warn(separator)
 	} else {
-		log.Debug(fmt.Sprintf("Sanity NTP check reported %v drift, all ok", drift))
+		slog.Debug(fmt.Sprintf("Sanity NTP check reported %v drift, all ok", drift))
 	}
 }
 

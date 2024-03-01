@@ -7,6 +7,7 @@ package node
 
 import (
 	"container/list"
+	"log/slog"
 
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/meterio/meter-pov/kv"
@@ -59,9 +60,9 @@ func (ts *txStash) LoadAll() tx.Transactions {
 	for iter.Next() {
 		var tx tx.Transaction
 		if err := rlp.DecodeBytes(iter.Value(), &tx); err != nil {
-			log.Warn("decode stashed tx", "err", err)
+			slog.Warn("decode stashed tx", "err", err)
 			if err := ts.kv.Delete(iter.Key()); err != nil {
-				log.Warn("delete corrupted stashed tx", "err", err)
+				slog.Warn("delete corrupted stashed tx", "err", err)
 			}
 		} else {
 			txs = append(txs, &tx)

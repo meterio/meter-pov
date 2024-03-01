@@ -7,6 +7,7 @@ package chain
 
 import (
 	"fmt"
+	"log/slog"
 
 	lru "github.com/hashicorp/golang-lru"
 	"github.com/meterio/meter-pov/block"
@@ -47,7 +48,7 @@ func (at *ancestorTrie) Update(w kv.Putter, num uint32, id, parentID meter.Bytes
 	if err == nil {
 		return nil
 	} else {
-		log.Error("could not load block hash from flattern schema", "err", err)
+		slog.Error("could not load block hash from flattern schema", "err", err)
 	}
 
 	// optional
@@ -85,7 +86,7 @@ func (at *ancestorTrie) Update(w kv.Putter, num uint32, id, parentID meter.Bytes
 
 func (at *ancestorTrie) GetAncestor(descendantID meter.Bytes32, ancestorNum uint32) (meter.Bytes32, error) {
 	// load from cache or flattern schema
-	// log.Info("GetAncestor", "descendantID", descendantID.ToBlockShortID(), "ancestor", ancestorNum)
+	// slog.Info("GetAncestor", "descendantID", descendantID.ToBlockShortID(), "ancestor", ancestorNum)
 	blockID, err := at.hashCache.loadOrGet(ancestorNum)
 	if err == nil {
 		// update cache
@@ -94,7 +95,7 @@ func (at *ancestorTrie) GetAncestor(descendantID meter.Bytes32, ancestorNum uint
 
 	// optional
 	if ancestorNum > block.Number(descendantID) {
-		log.Info(fmt.Sprintf("ancestor(%d) > descendant(%d)", ancestorNum, block.Number(descendantID)))
+		slog.Info(fmt.Sprintf("ancestor(%d) > descendant(%d)", ancestorNum, block.Number(descendantID)))
 		return meter.Bytes32{}, ErrNotFound
 	}
 	if ancestorNum == block.Number(descendantID) {
@@ -129,7 +130,7 @@ func newBlockHashCache(size int, kv kv.GetPutter) *blockHashCache {
 }
 
 func (bc *blockHashCache) loadOrGet(num uint32) (meter.Bytes32, error) {
-	// log.Info("bc.cache.Len", "len", bc.cache.Len())
+	// slog.Info("bc.cache.Len", "len", bc.cache.Len())
 	if blockID, ok := bc.cache.Get(num); ok {
 		return blockID.(meter.Bytes32), nil
 	}

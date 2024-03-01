@@ -31,7 +31,6 @@ import (
 )
 
 var (
-	log             = slog.Default().With("pkg", "comm")
 	peersCountGauge = prometheus.NewGauge(prometheus.GaugeOpts{
 		Name: "peers_count",
 		Help: "Count of connected peers",
@@ -55,7 +54,8 @@ type Communicator struct {
 	powPool     *powpool.PowPool
 	configTopic string
 
-	magic [4]byte
+	magic  [4]byte
+	logger *slog.Logger
 }
 
 // New create a new Communicator instance.
@@ -71,6 +71,7 @@ func New(ctx context.Context, chain *chain.Chain, txPool *txpool.TxPool, powPool
 		announcementCh: make(chan *announcement),
 		configTopic:    configTopic,
 		magic:          magic,
+		logger:         slog.With("pkg", "comm"),
 	}
 }
 
@@ -109,26 +110,26 @@ func (c *Communicator) Sync(handler HandleBlockStream) {
 			timer = time.NewTimer(delay)
 			select {
 			case <-c.ctx.Done():
-				log.Warn("stop communicator due to context end")
+				c.logger.Warn("stop communicator due to context end")
 				return
 			case <-timer.C:
-				log.Debug("synchronization start")
+				c.logger.Debug("synchronization start")
 
 				best := c.chain.BestBlock().Header()
 				// choose peer which has the head block with higher total score
 				peer := c.peerSet.Slice().Find(func(peer *Peer) bool {
 					_, totalScore := peer.Head()
-					log.Debug("compare score from peer", "myScore", best.TotalScore(), "peerScore", totalScore, "peer", peer.Node().IP())
+					c.logger.Debug("compare score from peer", "myScore", best.TotalScore(), "peerScore", totalScore, "peer", peer.Node().IP())
 					return totalScore >= best.TotalScore()
 				})
 				if peer == nil {
 					// original setting was 3, changed to 1 for cold start
 					if c.peerSet.Len() < 1 {
-						log.Debug("no suitable peer to sync")
+						c.logger.Debug("no suitable peer to sync")
 						break
 					}
 					// if more than 3 peers connected, we are assumed to be the best
-					log.Debug("synchronization done, best assumed")
+					c.logger.Debug("synchronization done, best assumed")
 				} else {
 					if err := c.sync(peer, best.Number(), handler); err != nil {
 						peer.logger.Debug("synchronization failed", "err", err)
@@ -276,7 +277,7 @@ func (c *Communicator) SubscribeBlock(ch chan *NewBlockEvent) event.Subscription
 func (c *Communicator) BroadcastBlock(blk *block.EscortedBlock) {
 	h := blk.Block.Header()
 	qc := blk.EscortQC
-	log.Debug("Broadcast block and qc",
+	c.logger.Debug("Broadcast block and qc",
 		"height", h.Number(),
 		"id", h.ID(),
 		"lastKblock", h.LastKBlockHeight(),
@@ -294,7 +295,7 @@ func (c *Communicator) BroadcastBlock(blk *block.EscortedBlock) {
 		peer := peer
 		peer.MarkBlock(blk.Block.ID())
 		c.goes.Go(func() {
-			log.Info(fmt.Sprintf("propagate %s to %s", blk.Block.ShortID(), meter.Addr2IP(peer.RemoteAddr())))
+			c.logger.Info(fmt.Sprintf("propagate %s to %s", blk.Block.ShortID(), meter.Addr2IP(peer.RemoteAddr())))
 			if err := proto.NotifyNewBlock(c.ctx, peer, blk); err != nil {
 				peer.logger.Error(fmt.Sprintf("Failed to propagate %s", blk.Block.ShortID()), "err", err)
 			}
@@ -305,7 +306,7 @@ func (c *Communicator) BroadcastBlock(blk *block.EscortedBlock) {
 		peer := peer
 		peer.MarkBlock(blk.Block.ID())
 		c.goes.Go(func() {
-			log.Info(fmt.Sprintf("announce %s to %s", blk.Block.ShortID(), meter.Addr2IP(peer.RemoteAddr())))
+			c.logger.Info(fmt.Sprintf("announce %s to %s", blk.Block.ShortID(), meter.Addr2IP(peer.RemoteAddr())))
 			if err := proto.NotifyNewBlockID(c.ctx, peer, blk.Block.ID()); err != nil {
 				peer.logger.Error(fmt.Sprintf("Failed to announce %s", blk.Block.ShortID()), "err", err)
 			}

@@ -51,7 +51,7 @@ type OutgoingQueue struct {
 func NewOutgoingQueue() *OutgoingQueue {
 	outCache, _ := lru.New(1024)
 	return &OutgoingQueue{
-		logger:   slog.Default().With("pkg", "out"),
+		logger:   slog.With("pkg", "out"),
 		queue:    make(chan (OutgoingParcel), 2048),
 		clients:  make(map[string]*http.Client),
 		outCache: outCache,
@@ -95,7 +95,7 @@ type outgoingWorker struct {
 
 func NewOutgoingWorker(num int, cache *lru.Cache) *outgoingWorker {
 	return &outgoingWorker{
-		logger:  slog.Default(), //slog.Default().With("pkg", fmt.Sprintf("w%d", num)),
+		logger:  slog.With("pkg", fmt.Sprintf("w%d", num)),
 		clients: make(map[string]*http.Client),
 		cache:   cache,
 	}

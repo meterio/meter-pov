@@ -10,6 +10,7 @@ import (
 	"crypto/ecdsa"
 	"errors"
 	"fmt"
+	"log/slog"
 	"time"
 
 	crypto "github.com/ethereum/go-ethereum/crypto"
@@ -68,7 +69,7 @@ func DecodeMsg(raw []byte) (ConsensusMessage, error) {
 func EncodeMsg(msg ConsensusMessage) ([]byte, error) {
 	raw := cdc.MustMarshalBinaryBare(msg)
 	if len(raw) > maxMsgSize {
-		log.Error("consensus msg exceeds max size", "raw", len(raw), "maxSize", maxMsgSize)
+		slog.Error("consensus msg exceeds max size", "raw", len(raw), "maxSize", maxMsgSize)
 		return make([]byte, 0), errors.New("msg exceeds max size")
 	}
 	return raw, nil
@@ -127,7 +128,7 @@ func (m *PMProposalMessage) GetMsgHash() (hash meter.Bytes32) {
 	}
 	err := rlp.Encode(hw, data)
 	if err != nil {
-		log.Error("RLP Encode Error", "err", err)
+		slog.Error("RLP Encode Error", "err", err)
 	}
 	hw.Sum(hash[:0])
 	return
@@ -206,7 +207,7 @@ func (m *PMVoteMessage) GetMsgHash() (hash meter.Bytes32) {
 	}
 	err := rlp.Encode(hw, data)
 	if err != nil {
-		log.Error("RLP Encode Error", "err", err)
+		slog.Error("RLP Encode Error", "err", err)
 	}
 	hw.Sum(hash[:0])
 	return
@@ -279,7 +280,7 @@ func (m *PMTimeoutMessage) GetMsgHash() (hash meter.Bytes32) {
 	}
 	err := rlp.Encode(hw, data)
 	if err != nil {
-		log.Error("RLP Encode Error", "err", err)
+		slog.Error("RLP Encode Error", "err", err)
 	}
 	hw.Sum(hash[:0])
 	return
@@ -351,7 +352,7 @@ func (m *PMQueryMessage) GetMsgHash() (hash meter.Bytes32) {
 	data := []interface{}{m.Timestamp, m.Epoch, m.SignerIndex, m.LastCommitted}
 	err := rlp.Encode(hw, data)
 	if err != nil {
-		log.Error("RLP Encode Error", "err", err)
+		slog.Error("RLP Encode Error", "err", err)
 	}
 	hw.Sum(hash[:0])
 	return

@@ -2,16 +2,11 @@ package debug
 
 import (
 	"fmt"
-	"log/slog"
 
 	"github.com/meterio/meter-pov/meter"
 
 	"github.com/ethereum/go-ethereum/common/math"
 	"github.com/meterio/meter-pov/vm"
-)
-
-var (
-	log = slog.Default().With("api", "debug")
 )
 
 type TracerOption struct {

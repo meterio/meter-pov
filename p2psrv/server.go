@@ -21,8 +21,6 @@ import (
 	"github.com/meterio/meter-pov/p2psrv/discv5"
 )
 
-var log = slog.Default().With("pkg", "p2psrv")
-
 // Server p2p server wraps ethereum's p2p.Server, and handles discovery v5 stuff.
 type Server struct {
 	opts            Options
@@ -33,6 +31,7 @@ type Server struct {
 	knownNodes      *cache.PrioCache
 	discoveredNodes *cache.RandCache
 	dialingNodes    *nodeMap
+	logger          *slog.Logger
 }
 
 // New create a p2p server.
@@ -64,6 +63,7 @@ func New(opts *Options) *Server {
 		knownNodes:      knownNodes,
 		discoveredNodes: discoveredNodes,
 		dialingNodes:    newNodeMap(),
+		logger:          slog.With("pkg", "p2p"),
 	}
 }
 
@@ -83,7 +83,7 @@ func (s *Server) Start(protocols []*Protocol) error {
 			if peer.Inbound() {
 				dir = "inbound"
 			}
-			log := log.With("peer", peer, "dir", dir)
+			log := s.logger.With("peer", peer, "dir", dir)
 
 			log.Debug("peer connected")
 			startTime := mclock.Now()
@@ -110,19 +110,19 @@ func (s *Server) Start(protocols []*Protocol) error {
 		}
 		for _, proto := range protocols {
 			topicToRegister := discv5.Topic(proto.DiscTopic)
-			log.Debug("registering topic", "topic", topicToRegister)
+			s.logger.Debug("registering topic", "topic", topicToRegister)
 			s.goes.Go(func() {
 				s.discv5.RegisterTopic(topicToRegister, s.done)
 			})
 		}
 		if len(protocols) > 0 {
 			topicToSearch := discv5.Topic(protocols[len(protocols)-1].DiscTopic)
-			log.Debug("searching topic", "topic", topicToSearch)
+			s.logger.Debug("searching topic", "topic", topicToSearch)
 			s.goes.Go(func() { s.discoverLoop(topicToSearch) })
 		}
 	}
 
-	log.Info("p2psrv start up", "self", s.Self().URLv4())
+	s.logger.Info("p2psrv start up", "self", s.Self().URLv4())
 
 	s.goes.Go(s.dialLoop)
 	return nil
@@ -250,7 +250,7 @@ func (s *Server) discoverLoop(topic discv5.Topic) {
 			node := enode.MustParseV4(v5node.String())
 			if _, found := s.discoveredNodes.Get(node.ID()); !found {
 				s.discoveredNodes.Set(node.ID(), node)
-				log.Debug("discovered node", "node", node)
+				s.logger.Debug("discovered node", "node", node)
 			}
 		case <-s.done:
 			close(setPeriod)
@@ -290,7 +290,7 @@ func (s *Server) dialLoop() {
 				continue
 			}
 
-			log := log.With("node", node)
+			log := s.logger.With("node", node)
 			log.Debug("try to dial node")
 			s.dialingNodes.Add(node)
 			// don't use goes.Go, since the dial process can't be interrupted

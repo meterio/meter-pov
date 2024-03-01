@@ -7,7 +7,6 @@ package types
 
 import (
 	"fmt"
-	"log/slog"
 	"math/big"
 
 	"github.com/meterio/meter-pov/meter"
@@ -17,7 +16,6 @@ import (
 )
 
 var (
-	log                                 = slog.Default().With("pkg", "staking")
 	boundEvent, _                       = ScriptEngine.ABI.EventByName("Bound")
 	unboundEvent, _                     = ScriptEngine.Events().EventByName("Unbound")
 	nativeBucketOpenEvent, _            = ScriptEngine.ABI.EventByName("NativeBucketOpen")

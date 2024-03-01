@@ -23,9 +23,9 @@ import (
 
 	"github.com/ethereum/go-ethereum/common/fdlimit"
 	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/p2p/enode"
 	"github.com/ethereum/go-ethereum/p2p/nat"
+	"github.com/lmittmann/tint"
 	api_node "github.com/meterio/meter-pov/api/node"
 	api_utils "github.com/meterio/meter-pov/api/utils"
 	"github.com/meterio/meter-pov/chain"
@@ -67,10 +67,21 @@ func (l *Leveler) Level() slog.Level {
 
 func initLogger(ctx *cli.Context) {
 	logLevel := ctx.Int(verbosityFlag.Name)
-	h := slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{
-		Level: NewLeveler(logLevel),
-	})
-	slog.SetDefault(slog.New(h))
+	fmt.Println("logLevel: ", logLevel)
+	fmt.Println("slog: ", slog.Level(logLevel))
+	// set global logger with custom options
+	w := os.Stderr
+
+	// create a new logger
+	// logger := slog.New(tint.NewHandler(w, nil))
+
+	// set global logger with custom options
+	slog.SetDefault(slog.New(
+		tint.NewHandler(w, &tint.Options{
+			Level:      slog.Level(logLevel),
+			TimeFormat: time.DateTime,
+		}),
+	))
 }
 
 func selectGenesis(ctx *cli.Context) *genesis.Genesis {
@@ -147,9 +158,9 @@ func openMainDB(ctx *cli.Context, dataDir string) *lvldb.LevelDB {
 		fatal("failed to get fd limit:", err)
 	}
 	if limit <= 1024 {
-		log.Warn("low fd limit, increase it if possible", "limit", limit)
+		slog.Warn("low fd limit, increase it if possible", "limit", limit)
 	} else {
-		log.Info("fd limit", "limit", limit)
+		slog.Info("fd limit", "limit", limit)
 	}
 
 	fileCache := limit / 2
@@ -324,7 +335,7 @@ func newP2PComm(cliCtx *cli.Context, ctx context.Context, chain *chain.Chain, tx
 	cachedPeers := make([]string, 0)
 	if data, err := ioutil.ReadFile(peersCachePath); err != nil {
 		if !os.IsNotExist(err) {
-			log.Warn("failed to load peers cache", "err", err)
+			slog.Warn("failed to load peers cache", "err", err)
 		}
 	} else {
 		cachedPeers = strings.Split(string(data), "\n")
@@ -335,9 +346,9 @@ func newP2PComm(cliCtx *cli.Context, ctx context.Context, chain *chain.Chain, tx
 		node, err := enode.ParseV4(p)
 		if err == nil {
 			opts.BootstrapNodes = append(opts.BootstrapNodes, node)
-			log.Info("load peer from cache", "peer", node.String())
+			slog.Info("load peer from cache", "peer", node.String())
 		} else {
-			log.Warn("cant parse peer from cache", "peer", p)
+			slog.Warn("cant parse peer from cache", "peer", p)
 		}
 	}
 
@@ -366,28 +377,28 @@ func (p *p2pComm) Start() {
 	if err := p.p2pSrv.Start(p.comm.Protocols()); err != nil {
 		fatal("start P2P server:", err)
 	}
-	log.Info("P2P server started", "elapsed", meter.PrettyDuration(time.Since(start)))
+	slog.Info("P2P server started", "elapsed", meter.PrettyDuration(time.Since(start)))
 	start = time.Now()
 	p.comm.Start()
-	log.Info("communicator started", "elapsed", meter.PrettyDuration(time.Since(start)))
+	slog.Info("communicator started", "elapsed", meter.PrettyDuration(time.Since(start)))
 }
 
 func (p *p2pComm) Stop() {
-	log.Info("stopping communicator...")
+	slog.Info("stopping communicator...")
 	p.comm.Stop()
 
-	log.Info("stopping P2P server...")
+	slog.Info("stopping P2P server...")
 	p.p2pSrv.Stop()
 
 	nodes := p.p2pSrv.KnownNodes()
-	log.Info("saving peers cache...", "#peers", len(nodes))
+	slog.Info("saving peers cache...", "#peers", len(nodes))
 	strs := make([]string, 0)
 	for _, n := range nodes {
 		strs = append(strs, n.String())
 	}
 	data := strings.Join(strs, "\n")
 	if err := ioutil.WriteFile(p.peersCachePath, []byte(data), 0600); err != nil {
-		log.Warn("failed to write peers cache", "err", err)
+		slog.Warn("failed to write peers cache", "err", err)
 	}
 }
 
@@ -479,7 +490,7 @@ func startAPIServer(ctx *cli.Context, handler http.Handler, genesisID meter.Byte
 	goes.Go(func() {
 		err := srv.Serve(listener)
 		if err != nil {
-			log.Warn(err.Error())
+			slog.Warn(err.Error())
 		}
 	})
 
@@ -556,7 +567,7 @@ func startPowAPIServer(ctx *cli.Context, handler http.Handler) (string, func()) 
 	var goes co.Goes
 	goes.Go(func() {
 		err := srv.Serve(listener)
-		log.Warn(err.Error())
+		slog.Warn(err.Error())
 
 	})
 	return "http://" + listener.Addr().String() + "/", func() {

@@ -52,7 +52,7 @@ func (c *Communicator) download(peer *Peer, fromNum uint32, handler HandleBlockS
 				return
 			}
 			if len(result) > 0 {
-				log.Info("Got Block", "len", len(result), "fromBlock", fromNum, "peer", peer.RemoteAddr().String(), "elapsed", meter.PrettyDuration(time.Since(start)))
+				c.logger.Info("Got Block", "len", len(result), "fromBlock", fromNum, "peer", peer.RemoteAddr().String(), "elapsed", meter.PrettyDuration(time.Since(start)))
 			}
 			if len(result) == 0 {
 				return
@@ -74,7 +74,7 @@ func (c *Communicator) download(peer *Peer, fromNum uint32, handler HandleBlockS
 				if !blk.Block.IsSBlock() {
 					blocks = append(blocks, &blk)
 				} else {
-					log.Warn("got sblock", "num", blk.Block.Number(), "id", blk.Block.ID())
+					c.logger.Warn("got sblock", "num", blk.Block.Number(), "id", blk.Block.ID())
 				}
 			}
 

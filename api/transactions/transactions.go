@@ -10,6 +10,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"io/ioutil"
+	"log/slog"
 	"net/http"
 	"strings"
 
@@ -35,6 +36,7 @@ type Transactions struct {
 	chain        *chain.Chain
 	stateCreator *state.Creator
 	pool         *txpool.TxPool
+	logger       *slog.Logger
 }
 
 func New(chain *chain.Chain, stateCreator *state.Creator, pool *txpool.TxPool) *Transactions {
@@ -42,6 +44,7 @@ func New(chain *chain.Chain, stateCreator *state.Creator, pool *txpool.TxPool) *
 		chain,
 		stateCreator,
 		pool,
+		slog.With("api", "tx"),
 	}
 }
 
@@ -168,11 +171,11 @@ func (t *Transactions) handleSendEthRawTransaction(w http.ResponseWriter, req *h
 	var sendTx = func(tx *tx.Transaction) error {
 		signer, _ := tx.Signer()
 		if strings.ToLower(signer.String()) == "0x0e369a2e02912dba872e72d6c0b661e9617e0d9c" {
-			log.Warn("tx from black listed address, skip adding this to txpool")
+			t.logger.Warn("tx from black listed address, skip adding this to txpool")
 			return errors.New("blacklisted address, not allowed in txpool")
 		}
 		if err := t.pool.Add(tx); err != nil {
-			log.Warn("failed to add tx", "err", err)
+			t.logger.Warn("failed to add tx", "err", err)
 			if txpool.IsBadTx(err) {
 				return utils.BadRequest(err)
 			}
@@ -192,7 +195,7 @@ func (t *Transactions) handleSendEthRawTransaction(w http.ResponseWriter, req *h
 		ethTx := types.Transaction{}
 		err := ethTx.UnmarshalBinary(rawBytes)
 		if err != nil {
-			log.Error("unmarshal raw failed", "err", err)
+			t.logger.Error("unmarshal raw failed", "err", err)
 			return utils.BadRequest(err)
 		}
 		bestBlock := t.chain.BestBlock()
@@ -229,12 +232,12 @@ func (t *Transactions) handleSendTransaction(w http.ResponseWriter, req *http.Re
 			}
 			if txpool.IsTxRejected(err) {
 				if tx != nil {
-					log.Warn("tx rejected", "id", tx.ID(), "err", err)
+					t.logger.Warn("tx rejected", "id", tx.ID(), "err", err)
 				}
 				return utils.Forbidden(err)
 			}
 			if tx != nil {
-				log.Warn("txpool failed to add tx", "id", tx.ID(), "err", err)
+				t.logger.Warn("txpool failed to add tx", "id", tx.ID(), "err", err)
 			}
 			return utils.HTTPError(err, 500)
 		}

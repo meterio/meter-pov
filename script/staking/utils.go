@@ -49,8 +49,6 @@ var (
 	errCandidateListedWithDiffInfo = errors.New("candidate address already listed with different infomation (pubkey, ip, port)")
 	errCandidateNotChanged         = errors.New("candidate not changed")
 	errCandidateNotEnoughSelfVotes = errors.New("candidate's accumulated votes > 100x candidate's own vote")
-
-	log = slog.Default().With("pkg", "staking")
 )
 
 // get the bucket that candidate initialized
@@ -138,7 +136,7 @@ func CheckCandEnoughSelfVotes(newVotes *big.Int, c *meter.Candidate, bl *meter.B
 	// Remove this check now
 	bkts, err := GetCandidateSelfBuckets(c, bl)
 	if err != nil {
-		log.Error("Get candidate self bucket failed", "candidate", c.Addr.String(), "error", err)
+		slog.Error("Get candidate self bucket failed", "candidate", c.Addr.String(), "error", err)
 		return false
 	}
 
@@ -160,7 +158,7 @@ func CheckCandEnoughSelfVotes(newVotes *big.Int, c *meter.Candidate, bl *meter.B
 func CheckEnoughSelfVotes(subVotes *big.Int, c *meter.Candidate, bl *meter.BucketList, selfVoteRatio int64) bool {
 	bkts, err := GetCandidateSelfBuckets(c, bl)
 	if err != nil {
-		log.Error("Get candidate self bucket failed", "candidate", c.Addr.String(), "error", err)
+		slog.Error("Get candidate self bucket failed", "candidate", c.Addr.String(), "error", err)
 		return false
 	}
 
@@ -188,7 +186,7 @@ func TouchBucketBonus(ts uint64, bucket *meter.Bucket) *big.Int {
 	}
 
 	bonusDelta := CalcBonus(bucket.CalcLastTime, ts, bucket.Rate, bucket.Value)
-	log.Debug("calclate the bonus", "bonus votes", bonusDelta.Uint64(), "ts", ts, "last time", bucket.CalcLastTime)
+	slog.Debug("calclate the bonus", "bonus votes", bonusDelta.Uint64(), "ts", ts, "last time", bucket.CalcLastTime)
 
 	// update bucket
 	bucket.BonusVotes += bonusDelta.Uint64()

@@ -48,7 +48,6 @@ const (
 var (
 	errPeerDisconnected = errors.New("peer disconnected")
 	errMsgTooLarge      = errors.New("msg too large")
-	log                 = slog.Default().With("pkg", "rpc")
 )
 
 // HandleFunc to handle received messages from peer.
@@ -80,7 +79,7 @@ func New(peer *p2p.Peer, rw p2p.MsgReadWriter, magic [4]byte) *RPC {
 		rw:       rw,
 		doneCh:   make(chan struct{}),
 		pendings: make(map[uint32]*resultListener),
-		logger:   log.With(ctx...),
+		logger:   slog.With(ctx...),
 		magic:    magic,
 	}
 }
@@ -227,7 +226,7 @@ func (r *RPC) Call(ctx context.Context, msgCode uint64, arg interface{}, result 
 	id := r.prepareCall(msgCode, func(msg *p2p.Msg) error {
 		// msg should decode here, or its payload will be discarded by msg loop
 		err := msg.Decode(result)
-		log.Debug(fmt.Sprintf("call out: %s to %s", proto.MsgName(msgCode), meter.Addr2IP(r.peer.RemoteAddr())))
+		r.logger.Debug(fmt.Sprintf("call out: %s to %s", proto.MsgName(msgCode), meter.Addr2IP(r.peer.RemoteAddr())))
 		if err != nil {
 			err = errors.WithMessage(err, "decode result")
 		}
@@ -248,4 +247,20 @@ func (r *RPC) Call(ctx context.Context, msgCode uint64, arg interface{}, result 
 	case err := <-errCh:
 		return err
 	}
+}
+
+func (r *RPC) Debug(msg string, ctx ...interface{}) {
+	r.logger.Debug(msg, ctx...)
+}
+
+func (r *RPC) Info(msg string, ctx ...interface{}) {
+	r.logger.Info(msg, ctx...)
+}
+
+func (r *RPC) Error(msg string, ctx ...interface{}) {
+	r.logger.Error(msg, ctx...)
+}
+
+func (r *RPC) Warn(msg string, ctx ...interface{}) {
+	r.logger.Warn(msg, ctx...)
 }

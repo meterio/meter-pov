@@ -8,6 +8,7 @@ package block
 import (
 	"fmt"
 	"io"
+	"log/slog"
 	"strings"
 
 	"github.com/ethereum/go-ethereum/rlp"
@@ -48,7 +49,7 @@ func (qc *QuorumCert) CompactString() string {
 func (qc *QuorumCert) ToBytes() []byte {
 	bytes, err := rlp.EncodeToBytes(qc)
 	if err != nil {
-		log.Error("qc to bytes error", "err", err)
+		slog.Error("qc to bytes error", "err", err)
 	}
 	return bytes
 }
@@ -106,7 +107,7 @@ func (qc *QuorumCert) VoterBitArray() *cmn.BitArray {
 
 	err := bitArray.UnmarshalJSON([]byte("\"" + strs[1] + "\""))
 	if err != nil {
-		log.Error("unmarshal json failed", "err", err.Error())
+		slog.Error("unmarshal json failed", "err", err.Error())
 		return nil
 	}
 	return bitArray

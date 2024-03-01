@@ -8,18 +8,12 @@ package accounts
 import (
 	"math/big"
 
-	"log/slog"
-
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/common/math"
 
 	"github.com/meterio/meter-pov/api/transactions"
 	"github.com/meterio/meter-pov/meter"
 	"github.com/meterio/meter-pov/runtime"
-)
-
-var (
-	log = slog.Default().With("api", "account")
 )
 
 // Account for marshal account

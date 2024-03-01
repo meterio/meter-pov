@@ -17,7 +17,6 @@ import (
 )
 
 var (
-	log                           = slog.Default().With("pkg", "powpool")
 	ErrIncompletePowBlocksInEpoch = errors.New("incomplete pow blocks in epoch")
 )
 
@@ -74,7 +73,7 @@ func (m *powObjectMap) _add(powObj *powObject) error {
 
 	m.powObjMap[powID] = powObj
 	m.latestHeightMkr.update(powObj)
-	log.Debug("Added to powObjectMap", "powBlock", powObj.blockInfo.ToString(), "powpoolSize", m.Size())
+	slog.Debug("Added to powObjectMap", "powBlock", powObj.blockInfo.ToString(), "powpoolSize", m.Size())
 	// fmt.Println("Added to powObjectMap: ", powObj.blockInfo.ToString(), "poolSize: ", m.Size())
 	return nil
 }
@@ -93,20 +92,20 @@ func (m *powObjectMap) Contains(powID meter.Bytes32) bool {
 
 func (m *powObjectMap) InitialAddKframe(powObj *powObject) error {
 	// if powObj.blockInfo.Version != powKframeBlockVersion {
-	// 	log.Error("InitialAddKframe: Invalid version", "verson", powObj.blockInfo.Version)
+	// 	slog.Error("InitialAddKframe: Invalid version", "verson", powObj.blockInfo.Version)
 	// 	return fmt.Errorf("InitialAddKframe: Invalid version (%v)", powObj.blockInfo.Version)
 	// }
 	if powObj == nil {
-		log.Warn("pow object is empty")
+		slog.Warn("pow object is empty")
 		return errors.New("pow object is empty")
 	}
 
 	if m.isKframeInitialAdded() {
-		log.Warn("kframe already added")
+		slog.Warn("kframe already added")
 		return fmt.Errorf("Kframe already added, flush object map first")
 	}
 
-	log.Debug("initial added kframe", "powHeight", powObj.Height())
+	slog.Debug("initial added kframe", "powHeight", powObj.Height())
 
 	err := m._add(powObj)
 	if err != nil {
@@ -121,12 +120,12 @@ func (m *powObjectMap) InitialAddKframe(powObj *powObject) error {
 
 func (m *powObjectMap) Add(powObj *powObject) error {
 	if !m.isKframeInitialAdded() {
-		log.Warn("kframe is not added")
+		slog.Warn("kframe is not added")
 		return fmt.Errorf("Kframe is not added")
 	}
 
 	if m.Contains(powObj.HashID()) {
-		log.Error("Hash ID existed")
+		slog.Error("Hash ID existed")
 		return nil
 	}
 
@@ -143,7 +142,7 @@ func (m *powObjectMap) Add(powObj *powObject) error {
 	// fmt.Println("Added to powpool: ", powObj.blockInfo.ToString(), "poolSize: ", m.Size())
 	err := m._add(powObj)
 
-	log.Info(fmt.Sprintf("added powblock %v", powObj.blockInfo.PowHeight), "hash", powObj.blockInfo.HeaderHash, "poolSize", m.Size())
+	slog.Info(fmt.Sprintf("added powblock %v", powObj.blockInfo.PowHeight), "hash", powObj.blockInfo.HeaderHash, "poolSize", m.Size())
 	return err
 }
 
@@ -241,7 +240,7 @@ func (m *powObjectMap) FillLatestObjChain(obj *powObject) (*PowResult, error) {
 		breakHeight = cur.Height()
 	}
 
-	log.Error("incomplete pow block in epoch",
+	slog.Error("incomplete pow block in epoch",
 		"expected", fmt.Sprintf("[%d, %d]", startHeight, endHeight),
 		"actual", fmt.Sprintf("[%d, %d]", breakHeight, endHeight))
 	return result, ErrIncompletePowBlocksInEpoch

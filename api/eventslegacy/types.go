@@ -7,16 +7,11 @@ package eventslegacy
 
 import (
 	"fmt"
-	"log/slog"
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/meterio/meter-pov/api/transactions"
 	"github.com/meterio/meter-pov/logdb"
 	"github.com/meterio/meter-pov/meter"
-)
-
-var (
-	log = slog.Default().With("api", "evtlgcy")
 )
 
 type TopicSet struct {

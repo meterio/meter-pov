@@ -21,10 +21,6 @@ import (
 	"github.com/meterio/meter-pov/trie"
 )
 
-var (
-	log = slog.Default().With("pkg", "state")
-)
-
 // State manages the main accounts trie.
 type State struct {
 	root     meter.Bytes32 // root of initial accounts trie
@@ -307,7 +303,7 @@ func (s *State) SubEnergy(addr meter.Address, amount *big.Int) bool {
 	setElapsed := time.Since(setStart)
 	cacheMisses := s.trie.CacheMisses()
 	if (getElapsed + setElapsed) > time.Millisecond {
-		log.Debug("slow sub", "addr", addr, "cacheMisses", cacheMisses, "elapsed", meter.PrettyDuration(getElapsed+setElapsed), "get", meter.PrettyDuration(getElapsed), "set", meter.PrettyDuration(setElapsed))
+		slog.Debug("slow sub", "addr", addr, "cacheMisses", cacheMisses, "elapsed", meter.PrettyDuration(getElapsed+setElapsed), "get", meter.PrettyDuration(getElapsed), "set", meter.PrettyDuration(setElapsed))
 	}
 	return true
 }

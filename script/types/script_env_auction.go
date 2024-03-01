@@ -8,6 +8,7 @@ package types
 import (
 	"errors"
 	"fmt"
+	"log/slog"
 	"math/big"
 
 	"github.com/meterio/meter-pov/meter"
@@ -45,7 +46,7 @@ func (env *ScriptEnv) TransferMTRToAuction(addr meter.Address, amount *big.Int) 
 		return errors.New("not enough meter")
 	}
 
-	log.Info("transfer userbid MTR", "bidder", addr, "amount", amount)
+	slog.Info("transfer userbid MTR", "bidder", addr, "amount", amount)
 	state.SubEnergy(addr, amount)
 	state.AddEnergy(meter.AuctionModuleAddr, amount)
 	env.AddTransfer(addr, meter.AuctionModuleAddr, amount, meter.MTR)

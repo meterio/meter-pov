@@ -18,7 +18,7 @@ func NewProposalMap(c *Chain) *ProposalMap {
 	return &ProposalMap{
 		proposals: make(map[meter.Bytes32]*block.DraftBlock),
 		chain:     c,
-		logger:    *slog.Default().With("pkg", "pmap"),
+		logger:    *slog.With("pkg", "pmap"),
 	}
 }
 

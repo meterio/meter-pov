@@ -11,6 +11,7 @@ import (
 	b64 "encoding/base64"
 	"errors"
 	"fmt"
+	"log/slog"
 	"math/big"
 	"sort"
 	"strings"
@@ -53,8 +54,8 @@ func BuildStatisticsTx(entries []*StatEntry, chainTag byte, bestNum uint32, curE
 				WithValue(big.NewInt(0)).
 				WithToken(meter.MTRG).
 				WithData(data))
-		log.Debug("Statistic entry", "entry", entry.String())
-		log.Info(fmt.Sprintf("Stats entry in tx on %s", entry.Name), "addr", entry.Address, "infraction", entry.Infraction.String())
+		slog.Debug("Statistic entry", "entry", entry.String())
+		slog.Info(fmt.Sprintf("Stats entry in tx on %s", entry.Name), "addr", entry.Address, "infraction", entry.Infraction.String())
 	}
 	builder.Gas(gas)
 
@@ -65,7 +66,7 @@ func BuildStatisticsTx(entries []*StatEntry, chainTag byte, bestNum uint32, curE
 func buildStatisticsData(entry *StatEntry, curEpoch uint32) (ret []byte) {
 	extra, err := meter.PackInfractionToBytes(&entry.Infraction)
 	if err != nil {
-		log.Error("packing infraction failed", "error", err.Error())
+		slog.Error("packing infraction failed", "error", err.Error())
 		return
 	}
 	body := &staking.StakingBody{
@@ -107,7 +108,7 @@ func ComputeMissingProposer(validators []*types.Validator, blocks []*block.Block
 				},
 			}
 			result = append(result, info)
-			log.Debug("missingPropopser", "height", info.Info.Height, "expectedSigner", expectedSigner, "actualSigner", actualSigner)
+			slog.Debug("missingPropopser", "height", info.Info.Height, "expectedSigner", expectedSigner, "actualSigner", actualSigner)
 			index++
 			// prevent the deadlock if actual proposer does not exist in actual committee
 			if index-origIndex >= len(validators) {
@@ -134,7 +135,7 @@ func ComputeMissingLeader(validators []*types.Validator, curEpoch uint32) ([]*mi
 			},
 		}
 		result = append(result, info)
-		log.Debug("missingLeader", "address", info.Address, "epoch", info.Info.Epoch)
+		slog.Debug("missingLeader", "address", info.Address, "epoch", info.Info.Epoch)
 		index++
 	}
 	return result, nil
@@ -151,7 +152,7 @@ func ComputeMissingVoter(validators []*types.Validator, blocks []*block.Block) (
 
 		voterBitArray := blk.QC.VoterBitArray()
 		if voterBitArray == nil {
-			log.Warn("voterBitArray is nil")
+			slog.Warn("voterBitArray is nil")
 		}
 		for index, _ := range validators {
 			if voterBitArray.GetIndex(index) == false {
@@ -163,12 +164,12 @@ func ComputeMissingVoter(validators []*types.Validator, blocks []*block.Block) (
 					},
 				}
 				result = append(result, info)
-				log.Debug("calc missingVoter", "height", info.Info.Height, "address", info.Address)
+				slog.Debug("calc missingVoter", "height", info.Info.Height, "address", info.Address)
 			}
 		}
 	}
 
-	log.Debug("calcMissingVoter", "result", result)
+	slog.Debug("calcMissingVoter", "result", result)
 	return result, nil
 }
 
@@ -213,7 +214,7 @@ func ComputeDoubleSigner(common *types.BlsCommon, blocks []*block.Block, curEpoc
 					},
 				}
 				result = append(result, info)
-				log.Debug("doubleSigner", "height", info.Info.Height, "signature1", sig1, "signature2", sig2)
+				slog.Debug("doubleSigner", "height", info.Info.Height, "signature1", sig1, "signature2", sig2)
 			}
 		}
 	}
@@ -263,7 +264,7 @@ func ComputeStatistics(lastKBlockHeight, height uint32, chain *chain.Chain, comm
 	// calculate missing leader
 	missedLeader, err := ComputeMissingLeader(committee, curEpoch)
 	if err != nil {
-		log.Warn("Error during missing leader calculation:", "err", err)
+		slog.Warn("Error during missing leader calculation:", "err", err)
 	}
 	for _, m := range missedLeader {
 		inf := &stats[m.Address].Infraction
@@ -290,7 +291,7 @@ func ComputeStatistics(lastKBlockHeight, height uint32, chain *chain.Chain, comm
 	// the last 2 blocks from pacemaker's proposalMap
 
 	// calculate missing proposer
-	log.Debug("missing proposer:", "epoch", curEpoch, "calcStatsTx", calcStatsTx)
+	slog.Debug("missing proposer:", "epoch", curEpoch, "calcStatsTx", calcStatsTx)
 	// fmt.Println("cur Actual Committee: ", len(committee))
 	// for _, m := range committee {
 	// 	fmt.Println("Member: ", m.CSIndex, m.Name, m.NetAddr.String())
@@ -298,7 +299,7 @@ func ComputeStatistics(lastKBlockHeight, height uint32, chain *chain.Chain, comm
 	if calcStatsTx == true {
 		missedProposer, err := ComputeMissingProposer(committee, blocks, curEpoch)
 		if err != nil {
-			log.Warn("Error during missing proposer calculation:", "err", err)
+			slog.Warn("Error during missing proposer calculation:", "err", err)
 		}
 		// sort all missed proposer infraction in this order
 		// epoch ascend, height ascend, actual committee index ascend
@@ -334,10 +335,10 @@ func ComputeStatistics(lastKBlockHeight, height uint32, chain *chain.Chain, comm
 
 			// if length > 1, append infractions except for the first missing proposer
 			if length > 1 {
-				log.Debug("exempt missing proposer", "addr", m.Address, "epoch", m.Info.Epoch, "height", m.Info.Height)
+				slog.Debug("exempt missing proposer", "addr", m.Address, "epoch", m.Info.Epoch, "height", m.Info.Height)
 				for k := i + 1; k < j; k++ {
 					mk := missedProposer[k]
-					log.Debug("followed by", "addr", mk.Address, "epoch", mk.Info.Epoch, "height", mk.Info.Height)
+					slog.Debug("followed by", "addr", mk.Address, "epoch", mk.Info.Epoch, "height", mk.Info.Height)
 					inf := &stats[mk.Address].Infraction
 					inf.MissingProposers.Counter++
 					minfo := &m.Info
@@ -356,7 +357,7 @@ func ComputeStatistics(lastKBlockHeight, height uint32, chain *chain.Chain, comm
 		}
 
 	} else {
-		log.Debug("skip missing proposer calculation", "calcStatsTx", calcStatsTx)
+		slog.Debug("skip missing proposer calculation", "calcStatsTx", calcStatsTx)
 	}
 
 	// calculate missing voter
@@ -365,7 +366,7 @@ func ComputeStatistics(lastKBlockHeight, height uint32, chain *chain.Chain, comm
 	/****
 	missedVoter, err := r.calcMissingVoter(r.committee, r.committee, blocks)
 	if err != nil {
-		log.Warn("Error during missing voter calculation", "err", err)
+		slog.Warn("Error during missing voter calculation", "err", err)
 	} else {
 		for _, m := range missedVoter {
 			inf := &stats[m.Address].Infraction
@@ -378,7 +379,7 @@ func ComputeStatistics(lastKBlockHeight, height uint32, chain *chain.Chain, comm
 
 	doubleSigner, err := ComputeDoubleSigner(blsCommon, blocks, curEpoch)
 	if err != nil {
-		log.Warn("Error during missing voter calculation", "err", err)
+		slog.Warn("Error during missing voter calculation", "err", err)
 	} else {
 		for _, m := range doubleSigner {
 			inf := &stats[m.Address].Infraction
@@ -398,6 +399,6 @@ func ComputeStatistics(lastKBlockHeight, height uint32, chain *chain.Chain, comm
 		result = append(result, stats[signer])
 	}
 
-	// log.Info("calc statistics results", "result", result)
+	// slog.Info("calc statistics results", "result", result)
 	return result, nil
 }

@@ -6,6 +6,7 @@
 package txpool
 
 import (
+	"log/slog"
 	"math/big"
 	"sort"
 	"time"
@@ -47,7 +48,7 @@ func (o *txObject) Origin() meter.Address {
 
 func (o *txObject) Executable(chain *chain.Chain, state *state.State, headBlock *block.Header) (bool, error) {
 	if o == nil {
-		log.Error("tx object is nil")
+		slog.Error("tx object is nil")
 		return false, errors.New("txobject is null")
 	}
 	switch {

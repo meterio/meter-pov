@@ -22,10 +22,6 @@ import (
 	"github.com/meterio/meter-pov/tx"
 )
 
-var (
-	log = slog.Default().With("api", "block")
-)
-
 type JSONBlockSummary struct {
 	Number           uint32             `json:"number"`
 	ID               meter.Bytes32      `json:"id"`
@@ -136,7 +132,7 @@ func buildJSONPowBlock(powRaw []byte) *JSONPowBlock {
 	powBlock := wire.MsgBlock{}
 	err := powBlock.Deserialize(bytes.NewReader(powRaw))
 	if err != nil {
-		log.Error("could not deserialize msgBlock", "err", err)
+		slog.Error("could not deserialize msgBlock", "err", err)
 		return nil
 	}
 
@@ -420,7 +416,7 @@ func convertKBlockData(kdata *block.KBlockData) {
 		blk := wire.MsgBlock{}
 		err := blk.BtcDecode(bytes.NewReader(raw), 0, wire.BaseEncoding)
 		if err != nil {
-			log.Error("btc decode failed", "err", err)
+			slog.Error("btc decode failed", "err", err)
 		}
 
 	}

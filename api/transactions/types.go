@@ -25,10 +25,6 @@ import (
 	"github.com/ethereum/go-ethereum/rlp"
 )
 
-var (
-	log = slog.Default().With("api", "tx")
-)
-
 // Clause for json marshal
 type Clause struct {
 	To    *meter.Address       `json:"to"`
@@ -205,7 +201,7 @@ func convertTransaction(tx *tx.Transaction, header *block.Header, txIndex uint64
 		if err == nil {
 			ethTxJSON, err := ethTx.MarshalJSON()
 			if err != nil {
-				log.Error("could not marshal ethereum tx", "err", err)
+				slog.Error("could not marshal ethereum tx", "err", err)
 			}
 			etx := EthTx{}
 			err = json.Unmarshal(ethTxJSON, &etx)
@@ -315,7 +311,7 @@ type Event struct {
 	Data    string          `json:"data"`
 }
 
-// Transfer transfer log.
+// Transfer transfer slog.
 type Transfer struct {
 	Sender    meter.Address         `json:"sender"`
 	Recipient meter.Address         `json:"recipient"`

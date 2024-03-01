@@ -6,6 +6,7 @@
 package powpool
 
 import (
+	"log/slog"
 	"math"
 )
 
@@ -28,6 +29,6 @@ func calcPowCoef(startEpoch, curEpoch uint64, startCoef int64, fadeDays float64,
 	coef = math.Pow(fadeRate, (float64(curEpoch-startEpoch) / 24 / float64(Halving)))
 	retCoef = int64(float64(startCoef) * coef)
 
-	log.Debug("calculated pow-coef", "coef", retCoef, "curEpoch", curEpoch)
+	slog.Debug("calculated pow-coef", "coef", retCoef, "curEpoch", curEpoch)
 	return
 }

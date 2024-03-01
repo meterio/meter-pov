@@ -8,6 +8,7 @@ package eventslegacy
 import (
 	"context"
 	"encoding/json"
+	"log/slog"
 	"net/http"
 	"time"
 
@@ -41,7 +42,7 @@ func (e *EventsLegacy) filter(ctx context.Context, filter *FilterLegacy) ([]*Fil
 		fes[i] = convertEvent(e)
 	}
 	if time.Since(start) > time.Second {
-		log.Info("slow filter event legacy ", "elapsed", meter.PrettyDuration(time.Since(start)))
+		slog.Info("slow filter event legacy ", "elapsed", meter.PrettyDuration(time.Since(start)))
 	}
 	return fes, nil
 }
@@ -79,7 +80,7 @@ func (e *EventsLegacy) handleFilter(w http.ResponseWriter, req *http.Request) er
 	filterStr, err := json.Marshal(filter)
 	err = utils.WriteJSON(w, fes)
 	if time.Since(start) > time.Second {
-		log.Info("slow handle event legacy", "filter", string(filterStr), "elapsed", meter.PrettyDuration(time.Since(start)))
+		slog.Info("slow handle event legacy", "filter", string(filterStr), "elapsed", meter.PrettyDuration(time.Since(start)))
 	}
 	return err
 }

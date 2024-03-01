@@ -9,6 +9,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"log/slog"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/crypto"
@@ -81,11 +82,11 @@ func ComputeRewardMap(baseReward, totalRewards *big.Int, delegates []*types.Dele
 	baseRewards := new(big.Int).Mul(baseReward, big.NewInt(int64(size)))
 
 	if size <= 0 {
-		log.Warn("delegate size is 0, skip calculating reward map")
+		slog.Warn("delegate size is 0, skip calculating reward map")
 		return rewardMap, nil
 	}
-	log.Info(fmt.Sprintf("calculate Dist/Autobid Reward Map, baseRewards:%v, totalRewards:%v (for this epoch)", baseRewards, totalRewards))
-	log.Info(fmt.Sprintf("baseReward per member:%v, size:%v", baseReward, size))
+	slog.Info(fmt.Sprintf("calculate Dist/Autobid Reward Map, baseRewards:%v, totalRewards:%v (for this epoch)", baseRewards, totalRewards))
+	slog.Info(fmt.Sprintf("baseReward per member:%v, size:%v", baseReward, size))
 
 	var i int
 	baseRewardsOnly := false
@@ -108,7 +109,7 @@ func ComputeRewardMap(baseReward, totalRewards *big.Int, delegates []*types.Dele
 				d, err = getSelfDistributor(delegates[i])
 			}
 			if err != nil {
-				log.Error("get self-distributor failed, treat as 0", "error", err)
+				slog.Error("get self-distributor failed, treat as 0", "error", err)
 				rewardMap.Add(baseReward, big.NewInt(0), delegates[i].Address)
 			} else {
 				// autobidAmount = baseReward * Autobid / 100
@@ -161,7 +162,7 @@ func ComputeRewardMap(baseReward, totalRewards *big.Int, delegates []*types.Dele
 			d, err = getSelfDistributor(delegates[i])
 		}
 		if err != nil {
-			log.Error("get the autobid param failed, treat as 0", "error", err)
+			slog.Error("get the autobid param failed, treat as 0", "error", err)
 		} else {
 			// delegate's proportion
 			// selfPortion = actualReward * Shares / 1e09
@@ -201,14 +202,14 @@ func ComputeRewardMap(baseReward, totalRewards *big.Int, delegates []*types.Dele
 			rewardMap.Add(distReward, autobidReward, dist.Address)
 		}
 	}
-	log.Debug("validators rewards in epoch", "sum", totalRewards.String())
+	slog.Debug("validators rewards in epoch", "sum", totalRewards.String())
 
 	return rewardMap, nil
 }
 
 func ComputeEpochBaseReward(validatorBaseReward *big.Int) *big.Int {
 	epochBaseReward := new(big.Int).Div(validatorBaseReward, big.NewInt(int64(meter.NEpochPerDay)))
-	// log.Info("compute epoch base reward ", "NEpochPerDay", meter.NEpochPerDay, "epochBaseReward", epochBaseReward)
+	// slog.Info("compute epoch base reward ", "NEpochPerDay", meter.NEpochPerDay, "epochBaseReward", epochBaseReward)
 	return epochBaseReward
 }
 
@@ -237,7 +238,7 @@ func ComputeEpochTotalReward(benefitRatio *big.Int, nDays int, nAuctionPerDay in
 	epochTotalRewards.Div(epochTotalRewards, big.NewInt(int64(meter.NEpochPerDay)))
 	epochTotalRewards.Div(epochTotalRewards, big.NewInt(1e18))
 
-	log.Info("compute epoch total reward", "sumReward", sumReward.String(), "benefitRatio", benefitRatio, "epochTotalRewards", epochTotalRewards)
+	slog.Info("compute epoch total reward", "sumReward", sumReward.String(), "benefitRatio", benefitRatio, "epochTotalRewards", epochTotalRewards)
 	return epochTotalRewards, nil
 }
 

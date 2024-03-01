@@ -25,18 +25,16 @@ type Subscriptions struct {
 	upgrader       *websocket.Upgrader
 	done           chan struct{}
 	wg             sync.WaitGroup
+	logger         *slog.Logger
 }
 
 type msgReader interface {
 	Read() (msgs []interface{}, hasMore bool, err error)
 }
 
-var (
-	log = slog.Default().With("api", "sub")
-)
-
 func New(chain *chain.Chain, allowedOrigins []string, backtraceLimit uint32) *Subscriptions {
 	return &Subscriptions{
+		logger:         slog.With("api", "sub"),
 		backtraceLimit: backtraceLimit,
 		chain:          chain,
 		upgrader: &websocket.Upgrader{
@@ -171,13 +169,13 @@ func (s *Subscriptions) handleSubject(w http.ResponseWriter, req *http.Request) 
 	conn, err := s.upgrader.Upgrade(w, req, nil)
 	// since the conn is hijacked here, no error should be returned in lines below
 	if err != nil {
-		log.Debug("upgrade to websocket", "err", err)
+		s.logger.Debug("upgrade to websocket", "err", err)
 		return nil
 	}
 
 	defer func() {
 		if err := conn.Close(); err != nil {
-			log.Debug("close websocket", "err", err)
+			s.logger.Debug("close websocket", "err", err)
 		}
 	}()
 
@@ -189,7 +187,7 @@ func (s *Subscriptions) handleSubject(w http.ResponseWriter, req *http.Request) 
 	}
 
 	if err := conn.WriteMessage(websocket.CloseMessage, closeMsg); err != nil {
-		log.Debug("write close message", "err", err)
+		s.logger.Debug("write close message", "err", err)
 	}
 	return nil
 }
@@ -202,7 +200,7 @@ func (s *Subscriptions) pipe(conn *websocket.Conn, reader msgReader) error {
 		defer s.wg.Done()
 		for {
 			if _, _, err := conn.ReadMessage(); err != nil {
-				log.Debug("websocket read err", "err", err)
+				s.logger.Debug("websocket read err", "err", err)
 				close(closed)
 				break
 			}

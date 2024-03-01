@@ -8,6 +8,7 @@ package block
 import (
 	"encoding/binary"
 	"fmt"
+	"log/slog"
 
 	// "io"
 	"sync/atomic"
@@ -169,7 +170,7 @@ func (h *Header) SigningHash() (hash meter.Bytes32) {
 		h.Body.EvidenceDataRoot,
 	})
 	if err != nil {
-		log.Error("could not calculate signing hash", "err", err)
+		slog.Error("could not calculate signing hash", "err", err)
 	}
 	hw.Sum(hash[:0])
 	return

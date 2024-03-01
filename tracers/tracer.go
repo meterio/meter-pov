@@ -20,6 +20,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"math/big"
 	"sync/atomic"
 	"time"
@@ -28,7 +29,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/ethereum/go-ethereum/log"
 	"github.com/meterio/meter-pov/vm"
 	duktape "gopkg.in/olebedev/go-duktape.v3"
 )
@@ -96,7 +96,7 @@ func (mw *memoryWrapper) slice(begin, end int64) []byte {
 	if mw.memory.Len() < int(end) {
 		// TODO(karalabe): We can't js-throw from Go inside duktape inside Go. The Go
 		// runtime goes belly up https://github.com/golang/go/issues/15639.
-		log.Warn("Tracer accessed out of bound memory", "available", mw.memory.Len(), "offset", begin, "size", end-begin)
+		slog.Warn("Tracer accessed out of bound memory", "available", mw.memory.Len(), "offset", begin, "size", end-begin)
 		return nil
 	}
 	return mw.memory.Get(begin, end-begin)
@@ -107,7 +107,7 @@ func (mw *memoryWrapper) getUint(addr int64) *big.Int {
 	if mw.memory.Len() < int(addr)+32 {
 		// TODO(karalabe): We can't js-throw from Go inside duktape inside Go. The Go
 		// runtime goes belly up https://github.com/golang/go/issues/15639.
-		log.Warn("Tracer accessed out of bound memory", "available", mw.memory.Len(), "offset", addr, "size", 32)
+		slog.Warn("Tracer accessed out of bound memory", "available", mw.memory.Len(), "offset", addr, "size", 32)
 		return new(big.Int)
 	}
 	return new(big.Int).SetBytes(mw.memory.GetPtr(addr, 32))
@@ -150,7 +150,7 @@ func (sw *stackWrapper) peek(idx int) *big.Int {
 	if len(sw.stack.Data()) <= idx {
 		// TODO(karalabe): We can't js-throw from Go inside duktape inside Go. The Go
 		// runtime goes belly up https://github.com/golang/go/issues/15639.
-		log.Warn("Tracer accessed out of bound stack", "size", len(sw.stack.Data()), "index", idx)
+		slog.Warn("Tracer accessed out of bound stack", "size", len(sw.stack.Data()), "index", idx)
 		return new(big.Int)
 	}
 	return sw.stack.Data()[len(sw.stack.Data())-idx-1]
@@ -407,7 +407,7 @@ func New(code string) (*Tracer, error) {
 		if start < 0 || start > end || end > len(blob) {
 			// TODO(karalabe): We can't js-throw from Go inside duktape inside Go. The Go
 			// runtime goes belly up https://github.com/golang/go/issues/15639.
-			log.Warn("Tracer accessed out of bound memory", "available", len(blob), "offset", start, "size", size)
+			slog.Warn("Tracer accessed out of bound memory", "available", len(blob), "offset", start, "size", size)
 			ctx.PushFixedBuffer(0)
 			return 1
 		}
@@ -416,7 +416,7 @@ func New(code string) (*Tracer, error) {
 	})
 	// Push the JavaScript tracer as object #0 onto the JSVM stack and validate it
 	if err := tracer.vm.PevalString("(" + code + ")"); err != nil {
-		log.Warn("Failed to compile tracer", "err", err)
+		slog.Warn("Failed to compile tracer", "err", err)
 		return nil, err
 	}
 	tracer.tracerObject = 0 // yeah, nice, eval can't return the index itself

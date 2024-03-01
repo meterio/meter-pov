@@ -2,6 +2,7 @@ package governor
 
 import (
 	"fmt"
+	"log/slog"
 	"math/big"
 	"math/rand"
 	"time"
@@ -47,7 +48,7 @@ func buildStakingGoverningData(distList []*meter.RewardInfo, curEpoch uint32) (r
 	// 52 bytes for each rewardInfo, Tx can accommodate about 1000 rewardinfo
 	extraBytes, err := rlp.EncodeToBytes(distList)
 	if err != nil {
-		log.Info("encode validators failed", "error", err.Error())
+		slog.Info("encode validators failed", "error", err.Error())
 		return
 	}
 

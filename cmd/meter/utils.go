@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"log/slog"
 	"net/http"
 	"os"
 	"os/signal"
@@ -26,7 +27,6 @@ import (
 	"encoding/hex"
 
 	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/ethereum/go-ethereum/log"
 	tty "github.com/mattn/go-tty"
 	"github.com/meterio/meter-pov/api/doc"
 	bls "github.com/meterio/meter-pov/crypto/multi_sig"
@@ -130,7 +130,7 @@ func handleExitSignal() context.Context {
 
 		select {
 		case sig := <-exitSignalCh:
-			log.Info("exit signal received", "signal", sig)
+			slog.Info("exit signal received", "signal", sig)
 			cancel()
 		}
 	}()

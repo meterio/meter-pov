@@ -19,10 +19,6 @@ import (
 	"github.com/meterio/meter-pov/tx"
 )
 
-var (
-	log = slog.Default().With("pkg", "logdb")
-)
-
 type LogDB struct {
 	path          string
 	db            *sql.DB
@@ -143,7 +139,7 @@ func (db *LogDB) FilterEvents(ctx context.Context, filter *EventFilter) ([]*Even
 	start := time.Now()
 	res, err := db.queryEvents(ctx, stmt, args...)
 	if time.Since(start) > time.Second {
-		log.Info("slow query events ", "query", stmt, "elapsed", meter.PrettyDuration(time.Since(start)))
+		slog.Info("slow query events ", "query", stmt, "elapsed", meter.PrettyDuration(time.Since(start)))
 	}
 	return res, err
 }

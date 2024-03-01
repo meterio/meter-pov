@@ -27,10 +27,6 @@ const (
 	maxTxSize = 64 * 1024 * 2
 )
 
-var (
-	log = slog.Default().With("pkg", "txpool")
-)
-
 // Options options for tx pool.
 type Options struct {
 	Limit           int
@@ -60,6 +56,7 @@ type TxPool struct {
 	goes   co.Goes
 
 	newTxFeed chan meter.Bytes32
+	logger    *slog.Logger
 }
 
 // New create a new TxPool instance.
@@ -73,14 +70,15 @@ func New(chain *chain.Chain, stateCreator *state.Creator, options Options) *TxPo
 		done:         make(chan struct{}),
 
 		newTxFeed: make(chan meter.Bytes32, options.Limit),
+		logger:    slog.With("pkg", "txpool"),
 	}
 	pool.goes.Go(pool.housekeeping)
 	return pool
 }
 
 func (p *TxPool) housekeeping() {
-	log.Debug("enter housekeeping")
-	defer log.Debug("leave housekeeping")
+	p.logger.Debug("enter housekeeping")
+	defer p.logger.Debug("leave housekeeping")
 
 	washInterval := time.Second
 	ticker := time.NewTicker(washInterval)
@@ -104,7 +102,7 @@ func (p *TxPool) housekeeping() {
 				continue
 			}
 			poolLen := p.all.Len()
-			log.Debug("wash start", "poolLen", poolLen)
+			p.logger.Debug("wash start", "poolLen", poolLen)
 			// do wash on
 			// 1. head block changed
 			// 2. pool size exceeds limit
@@ -130,7 +128,7 @@ func (p *TxPool) housekeeping() {
 					p.executables.Store(executables)
 				}
 
-				log.Debug("wash done", ctx...)
+				p.logger.Debug("wash done", ctx...)
 			}
 		}
 	}
@@ -141,7 +139,7 @@ func (p *TxPool) Close() {
 	close(p.done)
 	p.scope.Close()
 	p.goes.Wait()
-	log.Debug("closed")
+	p.logger.Debug("closed")
 }
 
 // SubscribeTxEvent receivers will receive a tx
@@ -200,7 +198,7 @@ func (p *TxPool) add(newTx *tx.Transaction, rejectNonexecutable bool) error {
 		if err := p.all.Add(txObj, p.options.LimitPerAccount); err != nil {
 			return txRejectedError{err.Error()}
 		}
-		log.Debug("tx added, chain is synced", "id", newTx.ID(), "pool size", p.all.Len())
+		p.logger.Debug("tx added, chain is synced", "id", newTx.ID(), "pool size", p.all.Len())
 		txObj.executable = executable
 		p.goes.Go(func() {
 			p.txFeed.Send(&TxEvent{newTx, &executable})
@@ -215,14 +213,14 @@ func (p *TxPool) add(newTx *tx.Transaction, rejectNonexecutable bool) error {
 		if err := p.all.Add(txObj, p.options.LimitPerAccount); err != nil {
 			return txRejectedError{err.Error()}
 		}
-		log.Debug("tx added, chain is not synced", "id", newTx.ID(), "pool size", p.all.Len())
+		p.logger.Debug("tx added, chain is not synced", "id", newTx.ID(), "pool size", p.all.Len())
 		p.txFeed.Send(&TxEvent{newTx, nil})
 	}
-	log.Debug("tx added to pool", "id", newTx.ID())
+	p.logger.Debug("tx added to pool", "id", newTx.ID())
 
 	if len(p.newTxFeed) < cap(p.newTxFeed) {
 		p.newTxFeed <- newTx.ID()
-		log.Debug("new tx feed: ", "id", newTx.ID())
+		p.logger.Debug("new tx feed: ", "id", newTx.ID())
 	} else {
 		select {
 		case <-p.newTxFeed:
@@ -230,7 +228,7 @@ func (p *TxPool) add(newTx *tx.Transaction, rejectNonexecutable bool) error {
 			break
 		}
 		p.newTxFeed <- newTx.ID()
-		log.Debug("new tx feed: ", "id", newTx.ID())
+		p.logger.Debug("new tx feed: ", "id", newTx.ID())
 	}
 	atomic.AddUint32(&p.addedAfterWash, 1)
 	return nil
@@ -268,7 +266,7 @@ func (p *TxPool) StrictlyAdd(newTx *tx.Transaction) error {
 // Remove removes tx from pool by its ID.
 func (p *TxPool) Remove(txID meter.Bytes32) bool {
 	if p.all.Remove(txID) {
-		log.Debug("tx removed", "id", txID)
+		p.logger.Debug("tx removed", "id", txID)
 		return true
 	}
 	return false
@@ -290,7 +288,7 @@ func (p *TxPool) Fill(txs tx.Transactions, executed func(txID meter.Bytes32) boo
 		if txObj, err := resolveTx(tx); err == nil {
 			// skip executed
 			if executed(tx.ID()) {
-				log.Debug("tx skipped", "id", txObj.ID(), "err", "executed")
+				p.logger.Debug("tx skipped", "id", txObj.ID(), "err", "executed")
 				continue
 			}
 
@@ -343,14 +341,14 @@ func (p *TxPool) wash(headBlock *block.Header, timeLimit time.Duration) (executa
 		// out of lifetime
 		if now > txObj.timeAdded+int64(p.options.MaxLifetime) {
 			toRemove = append(toRemove, txObj.ID())
-			log.Debug("tx washed out", "id", txObj.ID(), "err", "out of lifetime")
+			p.logger.Debug("tx washed out", "id", txObj.ID(), "err", "out of lifetime")
 			continue
 		}
 		// settled, out of energy or dep broken
 		executable, err := txObj.Executable(p.chain, state, headBlock)
 		if err != nil {
 			toRemove = append(toRemove, txObj.ID())
-			log.Debug("tx washed out", "id", txObj.ID(), "err", err)
+			p.logger.Debug("tx washed out", "id", txObj.ID(), "err", err)
 			continue
 		}
 
@@ -364,7 +362,7 @@ func (p *TxPool) wash(headBlock *block.Header, timeLimit time.Duration) (executa
 			nonExecutableObjs = append(nonExecutableObjs, txObj)
 		}
 		if time.Since(start) > timeLimit {
-			log.Info("tx wash ended early due to time limit", "elapsed", meter.PrettyDuration(time.Since(start)), "execs", len(executableObjs))
+			p.logger.Info("tx wash ended early due to time limit", "elapsed", meter.PrettyDuration(time.Since(start)), "execs", len(executableObjs))
 			break
 		}
 	}
@@ -386,18 +384,18 @@ func (p *TxPool) wash(headBlock *block.Header, timeLimit time.Duration) (executa
 	if len(executableObjs) > limit {
 		for _, txObj := range nonExecutableObjs {
 			toRemove = append(toRemove, txObj.ID())
-			log.Debug("non-executable tx washed out due to pool limit", "id", txObj.ID())
+			p.logger.Debug("non-executable tx washed out due to pool limit", "id", txObj.ID())
 		}
 		for _, txObj := range executableObjs[limit:] {
 			toRemove = append(toRemove, txObj.ID())
-			log.Debug("executable tx washed out due to pool limit", "id", txObj.ID())
+			p.logger.Debug("executable tx washed out due to pool limit", "id", txObj.ID())
 		}
 		executableObjs = executableObjs[:limit]
 	} else if len(executableObjs)+len(nonExecutableObjs) > limit {
 		// executableObjs + nonExecutableObjs over pool limit
 		for _, txObj := range nonExecutableObjs[limit-len(executableObjs):] {
 			toRemove = append(toRemove, txObj.ID())
-			log.Debug("non-executable tx washed out due to pool limit", "id", txObj.ID())
+			p.logger.Debug("non-executable tx washed out due to pool limit", "id", txObj.ID())
 		}
 	}
 
@@ -418,7 +416,7 @@ func (p *TxPool) wash(headBlock *block.Header, timeLimit time.Duration) (executa
 			p.txFeed.Send(&TxEvent{tx, &executable})
 		}
 	})
-	log.Debug("in wash", "executables size", len(executables), "non-executables size", len(nonExecutableObjs))
+	p.logger.Debug("in wash", "executables size", len(executables), "non-executables size", len(nonExecutableObjs))
 	return executables, 0, nil
 }
 

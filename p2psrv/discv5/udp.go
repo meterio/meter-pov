@@ -21,12 +21,12 @@ import (
 	"crypto/ecdsa"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/p2p/nat"
 	"github.com/ethereum/go-ethereum/p2p/netutil"
 	"github.com/ethereum/go-ethereum/rlp"
@@ -239,7 +239,7 @@ func ListenUDP(priv *ecdsa.PrivateKey, conn conn, realaddr *net.UDPAddr, nodeDBP
 	if err != nil {
 		return nil, err
 	}
-	log.Info("UDP listener up", "net", net.tab.self)
+	slog.Info("UDP listener up", "net", net.tab.self)
 	transport.net = net
 	go transport.readLoop()
 	return net, nil
@@ -333,9 +333,9 @@ func (t *udp) sendPacket(toid NodeID, toaddr *net.UDPAddr, ptype byte, req inter
 		//fmt.Println(err)
 		return hash, err
 	}
-	log.Trace(fmt.Sprintf(">>> %v to %x@%v", nodeEvent(ptype), toid[:8], toaddr))
+	slog.Debug(fmt.Sprintf(">>> %v to %x@%v", nodeEvent(ptype), toid[:8], toaddr))
 	if nbytes, err := t.conn.WriteToUDP(packet, toaddr); err != nil {
-		log.Trace(fmt.Sprint("UDP send failed:", err))
+		slog.Debug(fmt.Sprint("UDP send failed:", err))
 	} else {
 		egressTrafficMeter.Mark(int64(nbytes))
 	}
@@ -351,13 +351,13 @@ func encodePacket(priv *ecdsa.PrivateKey, ptype byte, req interface{}) (p, hash 
 	b.Write(headSpace)
 	b.WriteByte(ptype)
 	if err := rlp.Encode(b, req); err != nil {
-		log.Error(fmt.Sprint("error encoding packet:", err))
+		slog.Error(fmt.Sprint("error encoding packet:", err))
 		return nil, nil, err
 	}
 	packet := b.Bytes()
 	sig, err := crypto.Sign(crypto.Keccak256(packet[headSize:]), priv)
 	if err != nil {
-		log.Error(fmt.Sprint("could not sign packet:", err))
+		slog.Error(fmt.Sprint("could not sign packet:", err))
 		return nil, nil, err
 	}
 	copy(packet, versionPrefix)
@@ -379,11 +379,11 @@ func (t *udp) readLoop() {
 		ingressTrafficMeter.Mark(int64(nbytes))
 		if netutil.IsTemporaryError(err) {
 			// Ignore temporary read errors.
-			log.Debug(fmt.Sprintf("Temporary read error: %v", err))
+			slog.Debug(fmt.Sprintf("Temporary read error: %v", err))
 			continue
 		} else if err != nil {
 			// Shut down the loop for permament errors.
-			log.Debug(fmt.Sprintf("Read error: %v", err))
+			slog.Debug(fmt.Sprintf("Read error: %v", err))
 			return
 		}
 		t.handlePacket(from, buf[:nbytes])
@@ -393,7 +393,7 @@ func (t *udp) readLoop() {
 func (t *udp) handlePacket(from *net.UDPAddr, buf []byte) error {
 	pkt := ingressPacket{remoteAddr: from}
 	if err := decodePacket(buf, &pkt); err != nil {
-		log.Debug(fmt.Sprintf("Bad packet from %v: %v", from, err))
+		slog.Debug(fmt.Sprintf("Bad packet from %v: %v", from, err))
 		//fmt.Println("bad packet", err)
 		return err
 	}

@@ -17,7 +17,6 @@ import (
 
 var (
 	AccountLockGlobInst *AccountLock
-	log                 = slog.Default().With("pkg", "acctlock")
 )
 
 // Candidate indicates the structure of a candidate
@@ -39,7 +38,7 @@ func NewAccountLock(ch *chain.Chain, sc *state.Creator) *AccountLock {
 	AccountLock := &AccountLock{
 		chain:        ch,
 		stateCreator: sc,
-		logger:       slog.Default().With("pkg", "accountlock"),
+		logger:       slog.With("pkg", "accountlock"),
 	}
 	SetAccountLockGlobInst(AccountLock)
 	return AccountLock

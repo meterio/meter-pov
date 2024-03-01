@@ -87,7 +87,7 @@ func newPeer(peer *p2p.Peer, rw p2p.MsgReadWriter, magic [4]byte) (*Peer, string
 	return &Peer{
 		Peer:        peer,
 		RPC:         rpc.New(peer, rw, magic),
-		logger:      slog.Default().With(ctx...),
+		logger:      slog.With(ctx...),
 		createdTime: mclock.Now(),
 		knownTxs:    knownTxs,
 		knownBlocks: knownBlocks,
@@ -146,6 +146,22 @@ func (p *Peer) Duration() mclock.AbsTime {
 
 func (p *Peer) String() string {
 	return fmt.Sprintf("%s(%d)", p.head.id.String(), p.head.totalScore)
+}
+
+func (p *Peer) Debug(msg string, ctx ...interface{}) {
+	p.logger.Debug(msg, ctx...)
+}
+
+func (p *Peer) Info(msg string, ctx ...interface{}) {
+	p.logger.Info(msg, ctx...)
+}
+
+func (p *Peer) Error(msg string, ctx ...interface{}) {
+	p.logger.Error(msg, ctx...)
+}
+
+func (p *Peer) Warn(msg string, ctx ...interface{}) {
+	p.logger.Warn(msg, ctx...)
 }
 
 // Peers slice of peers

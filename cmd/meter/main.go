@@ -12,6 +12,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"log/slog"
 	"math"
 	"net"
 	"os"
@@ -27,7 +28,6 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/p2p/enode"
 	"github.com/google/uuid"
 	isatty "github.com/mattn/go-isatty"
@@ -205,7 +205,7 @@ func defaultAction(ctx *cli.Context) error {
 	exitSignal := handleExitSignal()
 	debug.SetMemoryLimit(5 * 1024 * 1024 * 1024) // 5GB
 
-	defer func() { log.Info("exited") }()
+	defer func() { slog.Info("exited") }()
 
 	initLogger(ctx)
 
@@ -216,12 +216,12 @@ func defaultAction(ctx *cli.Context) error {
 	instanceDir := makeInstanceDir(ctx, gene)
 	makeSnapshotDir(ctx)
 
-	log.Info("Meter Start ...")
+	slog.Info("Meter Start ...")
 	mainDB := openMainDB(ctx, instanceDir)
-	defer func() { log.Info("closing main database..."); mainDB.Close() }()
+	defer func() { slog.Info("closing main database..."); mainDB.Close() }()
 
 	logDB := openLogDB(ctx, instanceDir)
-	defer func() { log.Info("closing log database..."); logDB.Close() }()
+	defer func() { slog.Info("closing log database..."); logDB.Close() }()
 
 	chain := initChain(gene, mainDB, logDB)
 
@@ -283,7 +283,7 @@ func defaultAction(ctx *cli.Context) error {
 	if len(versionItems) > 1 {
 		maskedVersion = strings.Join(versionItems[:len(versionItems)-1], ".") + ".0"
 	}
-	log.Info("Version", "maskedVersion", maskedVersion, "version", version)
+	slog.Info("Version", "maskedVersion", maskedVersion, "version", version)
 	sum := sha256.Sum256([]byte(fmt.Sprintf("%v %v", maskedVersion, topic)))
 
 	// Split magic to p2p_magic and consensus_magic
@@ -295,7 +295,7 @@ func defaultAction(ctx *cli.Context) error {
 	printDelegates(initDelegates)
 
 	txPool := txpool.New(chain, state.NewCreator(mainDB), defaultTxPoolOptions)
-	defer func() { log.Info("closing tx pool..."); txPool.Close() }()
+	defer func() { slog.Info("closing tx pool..."); txPool.Close() }()
 
 	defaultPowPoolOptions.Node = ctx.String("pow-node")
 	defaultPowPoolOptions.Port = ctx.Int("pow-port")
@@ -304,15 +304,15 @@ func defaultAction(ctx *cli.Context) error {
 	// fmt.Println(defaultPowPoolOptions)
 
 	powPool := powpool.New(defaultPowPoolOptions, chain, state.NewCreator(mainDB))
-	defer func() { log.Info("closing pow pool..."); powPool.Close() }()
+	defer func() { slog.Info("closing pow pool..."); powPool.Close() }()
 
 	p2pcom := newP2PComm(ctx, exitSignal, chain, txPool, instanceDir, powPool, p2pMagic)
 
 	powApiHandler, powApiCloser := pow_api.New(powPool)
-	defer func() { log.Info("closing Pow Pool API..."); powApiCloser() }()
+	defer func() { slog.Info("closing Pow Pool API..."); powApiCloser() }()
 
 	powApiURL, powSrvCloser := startPowAPIServer(ctx, powApiHandler)
-	defer func() { log.Info("stopping Pow API server..."); powSrvCloser() }()
+	defer func() { slog.Info("stopping Pow API server..."); powSrvCloser() }()
 
 	stateCreator := state.NewCreator(mainDB)
 	sc := script.NewScriptEngine(chain, stateCreator)
@@ -321,13 +321,13 @@ func defaultAction(ctx *cli.Context) error {
 	// calculate committee so that relay is not an issue
 
 	apiHandler, apiCloser := api.New(reactor, chain, state.NewCreator(mainDB), txPool, logDB, p2pcom.comm, ctx.String(apiCorsFlag.Name), uint32(ctx.Int(apiBacktraceLimitFlag.Name)), uint64(ctx.Int(apiCallGasLimitFlag.Name)), p2pcom.p2pSrv, pubkey)
-	defer func() { log.Info("closing API..."); apiCloser() }()
+	defer func() { slog.Info("closing API..."); apiCloser() }()
 
 	apiURL, srvCloser := startAPIServer(ctx, apiHandler, chain.GenesisBlock().ID())
-	defer func() { log.Info("stopping API server..."); srvCloser() }()
+	defer func() { slog.Info("stopping API server..."); srvCloser() }()
 
 	observeURL, observeSrvCloser := startObserveServer(ctx, reactor, pubkey, p2pcom.comm, chain, stateCreator)
-	defer func() { log.Info("closing Observe Server ..."); observeSrvCloser() }()
+	defer func() { slog.Info("closing Observe Server ..."); observeSrvCloser() }()
 
 	//also create the POW components
 	// powR := pow.NewPowpoolReactor(chain, stateCreator, powpool)
@@ -431,7 +431,7 @@ func masterKeyAction(ctx *cli.Context) error {
 
 func pruneIndexTrie(ctx *cli.Context, mainDB *lvldb.LevelDB, meterChain *chain.Chain) {
 	toBlk := meterChain.BestBlockBeforeIndexFlattern()
-	log.Info("Start to prune index trie", "to", toBlk.Number())
+	slog.Info("Start to prune index trie", "to", toBlk.Number())
 
 	pruner := trie.NewPruner(mainDB, ctx.String(dataDirFlag.Name))
 
@@ -444,32 +444,32 @@ func pruneIndexTrie(ctx *cli.Context, mainDB *lvldb.LevelDB, meterChain *chain.C
 
 	head, err := meterChain.GetPruneIndexHead()
 	if err != nil {
-		log.Error("could not get prune index head", "err", err)
+		slog.Error("could not get prune index head", "err", err)
 	}
 	batch := mainDB.NewBatch()
 	for i := head; i < toBlk.Number(); i++ {
 		b, err := meterChain.GetTrunkBlock(i)
 		if err != nil {
-			log.Warn("could not load trunk block", "height", i, "err", err)
+			slog.Warn("could not load trunk block", "height", i, "err", err)
 			continue
 		}
 		// pruneStart := time.Now()
 		stat := pruner.PruneIndexTrie(b.Number(), b.ID(), batch)
 		prunedNodes += stat.Nodes
 		prunedBytes += stat.PrunedNodeBytes
-		// log.Info(fmt.Sprintf("Pruned block %v", i), "prunedNodes", stat.Nodes, "prunedBytes", stat.PrunedNodeBytes, "elapsed", meter.PrettyDuration(time.Since(pruneStart)))
+		// slog.Info(fmt.Sprintf("Pruned block %v", i), "prunedNodes", stat.Nodes, "prunedBytes", stat.PrunedNodeBytes, "elapsed", meter.PrettyDuration(time.Since(pruneStart)))
 		// time.Sleep(time.Millisecond * 300)
 
 		if time.Since(lastReport) > time.Second*20 {
-			log.Info("Still pruning index trie", "elapsed", meter.PrettyDuration(time.Since(start)), "head", i, "prunedNodes", prunedNodes, "prunedBytes", prunedBytes)
+			slog.Info("Still pruning index trie", "elapsed", meter.PrettyDuration(time.Since(start)), "head", i, "prunedNodes", prunedNodes, "prunedBytes", prunedBytes)
 			lastReport = time.Now()
 		}
 
 		if batch.Len() >= indexPruningBatch || i == toBlk.Number() {
 			if err := batch.Write(); err != nil {
-				log.Error("Error flushing", "err", err)
+				slog.Error("Error flushing", "err", err)
 			}
-			log.Debug("Comitted batch for index trie pruning", "len", batch.Len(), "head", i)
+			slog.Debug("Comitted batch for index trie pruning", "len", batch.Len(), "head", i)
 
 			batch = mainDB.NewBatch()
 			meterChain.UpdatePruneIndexHead(i)
@@ -478,7 +478,7 @@ func pruneIndexTrie(ctx *cli.Context, mainDB *lvldb.LevelDB, meterChain *chain.C
 
 	}
 	meterChain.UpdatePruneIndexHead(toBlk.Number())
-	log.Info("Prune index trie completed", "elapsed", meter.PrettyDuration(time.Since(start)), "head", toBlk.Number(), "prunedNodes", prunedNodes, "prunedBytes", prunedBytes)
+	slog.Info("Prune index trie completed", "elapsed", meter.PrettyDuration(time.Since(start)), "head", toBlk.Number(), "prunedNodes", prunedNodes, "prunedBytes", prunedBytes)
 }
 
 func pruneStateTrie(ctx *cli.Context, gene *genesis.Genesis, mainDB *lvldb.LevelDB, meterChain *chain.Chain) {
@@ -535,23 +535,23 @@ func pruneStateTrie(ctx *cli.Context, gene *genesis.Genesis, mainDB *lvldb.Level
 			stat := pruner.Prune(root, batch)
 			prunedNodes += stat.PrunedNodes + stat.PrunedStorageNodes
 			prunedBytes += stat.PrunedNodeBytes + stat.PrunedStorageBytes
-			// log.Info(fmt.Sprintf("Pruned block %v", i), "prunedNodes", stat.PrunedNodes+stat.PrunedStorageNodes, "prunedBytes", stat.PrunedNodeBytes+stat.PrunedStorageBytes, "elapsed", meter.PrettyDuration(time.Since(pruneStart)))
+			// slog.Info(fmt.Sprintf("Pruned block %v", i), "prunedNodes", stat.PrunedNodes+stat.PrunedStorageNodes, "prunedBytes", stat.PrunedNodeBytes+stat.PrunedStorageBytes, "elapsed", meter.PrettyDuration(time.Since(pruneStart)))
 			if time.Since(lastReport) > time.Second*8 {
-				log.Info("Still pruning state trie", "elapsed", meter.PrettyDuration(time.Since(start)), "prunedNodes", prunedNodes, "prunedBytes", prunedBytes)
+				slog.Info("Still pruning state trie", "elapsed", meter.PrettyDuration(time.Since(start)), "prunedNodes", prunedNodes, "prunedBytes", prunedBytes)
 				lastReport = time.Now()
 			}
 			if batch.Len() >= statePruningBatch || i == snapNum {
 				if err := batch.Write(); err != nil {
-					log.Error("Error flushing", "err", err)
+					slog.Error("Error flushing", "err", err)
 				}
-				log.Info("Commited batch for state pruning", "len", batch.Len(), "head", i)
+				slog.Info("Commited batch for state pruning", "len", batch.Len(), "head", i)
 
 				batch = mainDB.NewBatch()
 				meterChain.UpdatePruneStateHead(i)
 			}
 
 		}
-		log.Info("Prune state trie completed", "elapsed", meter.PrettyDuration(time.Since(start)), "prunedNodes", prunedNodes, "prunedBytes", prunedBytes)
+		slog.Info("Prune state trie completed", "elapsed", meter.PrettyDuration(time.Since(start)), "prunedNodes", prunedNodes, "prunedBytes", prunedBytes)
 		time.Sleep(8 * time.Hour)
 	}
 }

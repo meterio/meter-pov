@@ -15,10 +15,6 @@ import (
 	"github.com/meterio/meter-pov/state"
 )
 
-var (
-	log = slog.Default().With("pkg", "auction")
-)
-
 // Candidate indicates the structure of a candidate
 type Auction struct {
 	chain        *chain.Chain
@@ -30,7 +26,7 @@ func NewAuction(ch *chain.Chain, sc *state.Creator) *Auction {
 	auction := &Auction{
 		chain:        ch,
 		stateCreator: sc,
-		logger:       slog.Default().With("pkg", "auction"),
+		logger:       slog.With("pkg", "auction"),
 	}
 	return auction
 }
@@ -39,7 +35,7 @@ func (a *Auction) Handle(senv *setypes.ScriptEnv, payload []byte, to *meter.Addr
 
 	ab, err := DecodeFromBytes(payload)
 	if err != nil {
-		log.Error("Decode script message failed", "error", err)
+		a.logger.Error("Decode script message failed", "error", err)
 		return nil, gas, err
 	}
 
@@ -47,8 +43,8 @@ func (a *Auction) Handle(senv *setypes.ScriptEnv, payload []byte, to *meter.Addr
 		panic("create auction enviroment failed")
 	}
 
-	log.Debug("received auction", "body", ab.ToString())
-	log.Debug("Entering auction handler "+ab.GetOpName(ab.Opcode), "tx", senv.GetTxHash())
+	a.logger.Debug("received auction", "body", ab.ToString())
+	a.logger.Debug("Entering auction handler "+ab.GetOpName(ab.Opcode), "tx", senv.GetTxHash())
 	switch ab.Opcode {
 	case meter.OP_START:
 		if senv.GetTxOrigin().IsZero() == false {
@@ -76,10 +72,10 @@ func (a *Auction) Handle(senv *setypes.ScriptEnv, payload []byte, to *meter.Addr
 		leftOverGas, err = a.HandleAuctionTx(senv, ab, gas)
 
 	default:
-		log.Error("unknown Opcode", "Opcode", ab.Opcode)
+		a.logger.Error("unknown Opcode", "Opcode", ab.Opcode)
 		return nil, gas, errors.New("unknow auction opcode")
 	}
 	seOutput = senv.GetOutput()
-	log.Debug("Leaving script handler for operation", "op", ab.GetOpName(ab.Opcode))
+	a.logger.Debug("Leaving script handler for operation", "op", ab.GetOpName(ab.Opcode))
 	return
 }

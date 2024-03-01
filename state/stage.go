@@ -8,6 +8,7 @@ package state
 import (
 	"encoding/hex"
 	"fmt"
+	"log/slog"
 	"time"
 
 	"github.com/meterio/meter-pov/kv"
@@ -136,9 +137,9 @@ func (s *Stage) Commit() (meter.Bytes32, error) {
 	trCache.Add(root, s.accountTrie, s.kv)
 	atrieElapsed := time.Since(atrieStart)
 
-	log.Debug("commit stage", "root", root, "len", batch.Len(), "strie", meter.PrettyDuration(strieElapsed), "atrie", meter.PrettyDuration(atrieElapsed), "totalElapsed", meter.PrettyDuration(time.Since(start)))
+	slog.Debug("commit stage", "root", root, "len", batch.Len(), "strie", meter.PrettyDuration(strieElapsed), "atrie", meter.PrettyDuration(atrieElapsed), "totalElapsed", meter.PrettyDuration(time.Since(start)))
 	if time.Since(start) > time.Millisecond {
-		log.Info("slow commited stage", "root", root, "strie", meter.PrettyDuration(strieElapsed), "atrie", meter.PrettyDuration(atrieElapsed), "totalElapsed", meter.PrettyDuration(time.Since(start)))
+		slog.Info("slow commited stage", "root", root, "strie", meter.PrettyDuration(strieElapsed), "atrie", meter.PrettyDuration(atrieElapsed), "totalElapsed", meter.PrettyDuration(time.Since(start)))
 	}
 	return root, nil
 }
@@ -150,7 +151,7 @@ func (s *Stage) Revert() error {
 	}
 
 	hash, _ := s.Hash()
-	log.Info("revert stage", "hash", hash, "storageTries", len(s.storageTries), "keys", len(s.store.Keys()))
+	slog.Info("revert stage", "hash", hash, "storageTries", len(s.storageTries), "keys", len(s.store.Keys()))
 	batch := s.kv.NewBatch()
 	// commit storage tries to cache
 	for _, strie := range s.storageTries {

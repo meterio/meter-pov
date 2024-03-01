@@ -63,7 +63,7 @@ func NewIncomingQueue() *IncomingQueue {
 		panic("could not create cache")
 	}
 	return &IncomingQueue{
-		logger: slog.Default(), // slog.Default().With("pkg", "in"),
+		logger: slog.With("pkg", "in"),
 		queue:  make(chan (IncomingMsg), 1024),
 		cache:  cache,
 	}

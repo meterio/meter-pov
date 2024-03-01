@@ -16,10 +16,6 @@ import (
 	"github.com/meterio/meter-pov/tx"
 )
 
-var (
-	log = slog.Default().With("pkg", "proto")
-)
-
 type (
 	// Status result of MsgGetStatus.
 	Status struct {
@@ -40,6 +36,9 @@ type RPC interface {
 	Notify(ctx context.Context, msgCode uint64, arg interface{}) error
 	Call(ctx context.Context, msgCode uint64, arg interface{}, result interface{}) error
 	String() string
+	Info(msg string, ctx ...interface{})
+	Debug(msg string, ctx ...interface{})
+	Warn(msg string, ctx ...interface{})
 }
 
 // GetStatus get status of remote peer.
@@ -77,14 +76,14 @@ func GetBlockByID(ctx context.Context, rpc RPC, id meter.Bytes32) (rlp.RawValue,
 	var result []rlp.RawValue
 	if err := rpc.Call(ctx, MsgGetBlockByID, id, &result); err != nil {
 
-		log.Warn("GetBlockByID failed", "from", rpc.String(), "id", id, "err", err)
+		slog.Warn("GetBlockByID failed", "from", rpc.String(), "id", id, "err", err)
 		return nil, err
 	}
 	if len(result) == 0 {
-		log.Warn("GetBlockByID empty", "from", rpc.String(), "id", id)
+		slog.Warn("GetBlockByID empty", "from", rpc.String(), "id", id)
 		return nil, nil
 	}
-	log.Debug("GetBlockByID success", "from", rpc.String(), "id", id)
+	slog.Debug("GetBlockByID success", "from", rpc.String(), "id", id)
 	return result[0], nil
 }
 
@@ -92,10 +91,10 @@ func GetBlockByID(ctx context.Context, rpc RPC, id meter.Bytes32) (rlp.RawValue,
 func GetBlockIDByNumber(ctx context.Context, rpc RPC, num uint32) (meter.Bytes32, error) {
 	var id meter.Bytes32
 	if err := rpc.Call(ctx, MsgGetBlockIDByNumber, num, &id); err != nil {
-		log.Warn("GetBlockIDByNumber failed", "from", rpc.String(), "err", err)
+		slog.Warn("GetBlockIDByNumber failed", "from", rpc.String(), "err", err)
 		return meter.Bytes32{}, err
 	}
-	log.Debug("GetBlockIDByNumber success", "from", rpc.String(), "id", id)
+	slog.Debug("GetBlockIDByNumber success", "from", rpc.String(), "id", id)
 	return id, nil
 }
 
@@ -103,10 +102,10 @@ func GetBlockIDByNumber(ctx context.Context, rpc RPC, num uint32) (meter.Bytes32
 func GetBlocksFromNumber(ctx context.Context, rpc RPC, num uint32) ([]rlp.RawValue, error) {
 	var blocks []rlp.RawValue
 	if err := rpc.Call(ctx, MsgGetBlocksFromNumber, num, &blocks); err != nil {
-		log.Warn("GetBlocksFromNumber failed", "num", num, "from", rpc.String(), "err", err)
+		slog.Warn("GetBlocksFromNumber failed", "num", num, "from", rpc.String(), "err", err)
 		return nil, err
 	}
-	log.Debug("GetBlocksFromNumber success", "num", num, "from", rpc.String(), "len", len(blocks))
+	slog.Debug("GetBlocksFromNumber success", "num", num, "from", rpc.String(), "len", len(blocks))
 	return blocks, nil
 }
 

@@ -6,7 +6,6 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"log/slog"
 	"math"
 	"math/big"
 	"math/rand"
@@ -53,7 +52,7 @@ var (
 	version   string
 	gitCommit string
 	gitTag    string
-	log       = slog.Default()
+	log       = slog
 	flags     = []cli.Flag{dataDirFlag, networkFlag, revisionFlag}
 
 	defaultTxPoolOptions = txpool.Options{

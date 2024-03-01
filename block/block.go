@@ -34,7 +34,6 @@ const (
 
 var (
 	BlockMagicVersion1 [4]byte = [4]byte{0x76, 0x01, 0x00, 0x00} // version v.1.0.0
-	log                        = slog.Default().With("pkb", "blk")
 )
 
 type Violation struct {
@@ -149,7 +148,7 @@ func (b *Block) VerifyQC(escortQC *QuorumCert, blsCommon *types.BlsCommon, commi
 	committeeSize := uint32(len(committee))
 	if b == nil {
 		// decode block to get qc
-		// log.Error("can not decode block", err)
+		// slog.Error("can not decode block", err)
 		return false, errors.New("block empty")
 	}
 
@@ -183,7 +182,7 @@ func (b *Block) VerifyQC(escortQC *QuorumCert, blsCommon *types.BlsCommon, commi
 	}
 	start := time.Now()
 	valid, err := blsCommon.ThresholdVerify(sig, escortQC.VoterMsgHash, pubkeys)
-	log.Debug("verified QC", "elapsed", meter.PrettyDuration(time.Since(start)))
+	slog.Debug("verified QC", "elapsed", meter.PrettyDuration(time.Since(start)))
 
 	return valid, err
 }
@@ -322,7 +321,7 @@ func (b *Block) EncodeRLP(w io.Writer) error {
 func (b *Block) DecodeRLP(s *rlp.Stream) error {
 	_, size, err := s.Kind()
 	if err != nil {
-		log.Error("decode rlp error", "err", err)
+		slog.Error("decode rlp error", "err", err)
 	}
 
 	payload := struct {
@@ -358,7 +357,7 @@ func (b *Block) Size() metric.StorageSize {
 	var size metric.StorageSize
 	err := rlp.Encode(&size, b)
 	if err != nil {
-		log.Error("block size error", "err", err)
+		slog.Error("block size error", "err", err)
 	}
 
 	b.cache.size.Store(size)
@@ -500,7 +499,7 @@ func (b *Block) SetCommitteeInfo(info []CommitteeInfo) {
 func (b *Block) ToBytes() []byte {
 	bytes, err := rlp.EncodeToBytes(b)
 	if err != nil {
-		log.Error("tobytes error", "err", err)
+		slog.Error("tobytes error", "err", err)
 	}
 
 	return bytes
@@ -516,7 +515,7 @@ func (b *Block) SetBlockSignature(sig []byte) error {
 func BlockEncodeBytes(blk *Block) []byte {
 	blockBytes, err := rlp.EncodeToBytes(blk)
 	if err != nil {
-		log.Error("block encode error", "err", err)
+		slog.Error("block encode error", "err", err)
 		return make([]byte, 0)
 	}
 
@@ -526,7 +525,7 @@ func BlockEncodeBytes(blk *Block) []byte {
 func BlockDecodeFromBytes(bytes []byte) (*Block, error) {
 	blk := Block{}
 	err := rlp.DecodeBytes(bytes, &blk)
-	//log.Error("decode failed", err)
+	//slog.Error("decode failed", err)
 	return &blk, err
 }
 

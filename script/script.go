@@ -47,7 +47,7 @@ func NewScriptEngine(chain *chain.Chain, state *state.Creator) *ScriptEngine {
 	se := &ScriptEngine{
 		chain:        chain,
 		stateCreator: state,
-		logger:       slog.Default().With("pkg", "se"),
+		logger:       slog.With("pkg", "se"),
 	}
 	SetScriptGlobInst(se)
 

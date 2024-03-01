@@ -6,15 +6,10 @@
 package api
 
 import (
-	"log/slog"
 	"net/http"
 
 	"github.com/gorilla/mux"
 	"github.com/meterio/meter-pov/powpool"
-)
-
-var (
-	log = slog.Default().With("pkg", "powpool/api")
 )
 
 // New return api router

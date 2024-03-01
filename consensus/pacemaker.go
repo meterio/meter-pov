@@ -82,7 +82,7 @@ type Pacemaker struct {
 func NewPacemaker(r *Reactor) *Pacemaker {
 	p := &Pacemaker{
 		reactor: r,
-		logger:  slog.Default().With("pkg", "pm"),
+		logger:  slog.With("pkg", "pm"),
 		chain:   r.chain,
 
 		cmdCh:          make(chan PMCmd, 2),
@@ -628,7 +628,7 @@ func (p *Pacemaker) Regulate() {
 	} else {
 		p.minMBlocks = p.reactor.config.EpochMBlockCount
 		if meter.IsStaging() {
-			log.Info("skip setting InitCfgdDelegates to false in staging")
+			p.logger.Info("skip setting InitCfgdDelegates to false in staging")
 		} else {
 			// toggle it off so it will switch to normal mode next epoch
 			p.reactor.config.InitCfgdDelegates = false

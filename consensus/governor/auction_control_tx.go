@@ -8,6 +8,7 @@ package governor
 import (
 	"errors"
 	"fmt"
+	"log/slog"
 	"math"
 	"math/big"
 
@@ -70,10 +71,10 @@ func BuildAuctionControlTx(height, epoch uint64, chainTag byte, bestNum uint32, 
 	}
 
 	if shouldAuctionStart(epoch, lastEndEpoch) == false {
-		log.Debug("no auction control txs needed", "height", height, "epoch", epoch, "lastEndEpoch", lastEndEpoch)
+		slog.Debug("no auction control txs needed", "height", height, "epoch", epoch, "lastEndEpoch", lastEndEpoch)
 		return nil
 	} else {
-		log.Info("build auction control txs", "epoch", epoch, "lastEndEpoch", lastEndEpoch)
+		slog.Info("build auction control txs", "epoch", epoch, "lastEndEpoch", lastEndEpoch)
 	}
 
 	builder := new(tx.Builder)
@@ -95,12 +96,12 @@ func BuildAuctionControlTx(height, epoch uint64, chainTag byte, bestNum uint32, 
 
 	startData := make([]byte, 0)
 	if meter.IsTeslaFork11(uint32(height)) && lastSequence+1 > baseSequence.Uint64() {
-		log.Info("Build Auction Start Data with Emission Curve")
+		slog.Info("Build Auction Start Data with Emission Curve")
 		startData = buildAuctionStartDataAfterFork11(lastEndHeight+1, lastEndEpoch+1, height, epoch, lastSequence+1, auctionCB, baseSequence)
 	}
 
 	if len(startData) <= 0 {
-		log.Info("Build Auction Start Data with Inflation")
+		slog.Info("Build Auction Start Data with Inflation")
 		startData = buildAuctionStartData(lastEndHeight+1, lastEndEpoch+1, height, epoch, lastSequence+1, auctionCB)
 	}
 
@@ -147,11 +148,11 @@ func DailyReward(i uint64) *big.Int {
 }
 
 func ComputeEpochReleaseWithEmissionCurve(sequence uint64, baseSequence uint64) (*big.Int, error) {
-	log.Info("Computer epoch release with emission curve", "sequence", sequence, "baseSequence", baseSequence)
+	slog.Info("Computer epoch release with emission curve", "sequence", sequence, "baseSequence", baseSequence)
 	i := sequence - baseSequence
 	if i > 0 {
 		reward := DailyReward(i)
-		log.Info("Daily Reward", "i", i, "reward", reward)
+		slog.Info("Daily Reward", "i", i, "reward", reward)
 		return reward, nil
 	} else {
 		return big.NewInt(0), errors.New("sequence < baseSequence, not valid for emission curve")
@@ -246,7 +247,7 @@ func buildAuctionStartDataAfterFork11(start, startEpoch, end, endEpoch, sequence
 	release, err := ComputeEpochReleaseWithEmissionCurve(sequence, baseSequence.Uint64())
 	releaseBigInt = release
 	if err != nil {
-		log.Error("calculate reward with emission curve failed", "err", err)
+		slog.Error("calculate reward with emission curve failed", "err", err)
 		return nil
 	}
 

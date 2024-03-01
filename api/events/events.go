@@ -8,6 +8,7 @@ package events
 import (
 	"context"
 	"encoding/json"
+	"log/slog"
 	"net/http"
 	"time"
 
@@ -55,7 +56,7 @@ func (e *Events) handleFilter(w http.ResponseWriter, req *http.Request) error {
 	err = utils.WriteJSON(w, fes)
 
 	if time.Since(start) > time.Second {
-		log.Info("slow handled event query", "query", string(filterStr), "elapsed", meter.PrettyDuration(time.Since(start)))
+		slog.Info("slow handled event query", "query", string(filterStr), "elapsed", meter.PrettyDuration(time.Since(start)))
 	}
 	return err
 }

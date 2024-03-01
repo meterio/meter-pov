@@ -9,6 +9,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"log/slog"
 	"math/big"
 	"sort"
 
@@ -93,7 +94,7 @@ func (sb *StakingBody) UniteHash() (hash meter.Bytes32) {
 			err = rlp.DecodeBytes(sb.ExtraData, &infos)
 
 			if err != nil {
-				log.Warn("could not decode govern extra data, use data directly for unite hash")
+				slog.Warn("could not decode govern extra data, use data directly for unite hash")
 				data = append(data, sb.ExtraData)
 			} else {
 				// sort with address

@@ -8,6 +8,7 @@ package types
 import (
 	"errors"
 	"fmt"
+	"log/slog"
 	"math/big"
 
 	"github.com/meterio/meter-pov/meter"
@@ -24,7 +25,7 @@ func (env *ScriptEnv) BoundAccountMeter(addr meter.Address, amount *big.Int) err
 
 	// meterBalance should >= amount
 	if meterBalance.Cmp(amount) == -1 {
-		log.Error("not enough meter balance", "account", addr, "bound amount", amount)
+		slog.Error("not enough meter balance", "account", addr, "bound amount", amount)
 		return errors.New("not enough meter balance")
 	}
 
@@ -54,7 +55,7 @@ func (env *ScriptEnv) UnboundAccountMeter(addr meter.Address, amount *big.Int) e
 
 	// meterBoundedBalance should >= amount
 	if meterBoundedBalance.Cmp(amount) < 0 {
-		log.Error("not enough bounded balance", "account", addr, "unbound amount", amount)
+		slog.Error("not enough bounded balance", "account", addr, "unbound amount", amount)
 		return errors.New("not enough bounded meter balance")
 	}
 
@@ -88,7 +89,7 @@ func (env *ScriptEnv) BoundAccountMeterGov(addr meter.Address, amount *big.Int) 
 
 	// meterGov should >= amount
 	if meterGov.Cmp(amount) == -1 {
-		log.Error("not enough meter-gov balance", "account", addr, "bound amount", amount)
+		slog.Error("not enough meter-gov balance", "account", addr, "bound amount", amount)
 		return errors.New("not enough meter-gov balance")
 	}
 
@@ -117,17 +118,17 @@ func (env *ScriptEnv) UnboundAccountMeterGov(addr meter.Address, amount *big.Int
 
 	meterGov := state.GetBalance(addr)
 	meterGovBounded := state.GetBoundedBalance(addr)
-	log.Debug("before unbound", "address", addr.String(), "amount", amount.String(), "boundedBalance", meterGovBounded.String())
+	slog.Debug("before unbound", "address", addr.String(), "amount", amount.String(), "boundedBalance", meterGovBounded.String())
 
 	// meterGovBounded should >= amount
 	if meterGovBounded.Cmp(amount) < 0 {
-		log.Error("not enough bounded meter-gov balance", "account", addr, "unbound amount", amount, "boundedBalance", meterGovBounded)
+		slog.Error("not enough bounded meter-gov balance", "account", addr, "unbound amount", amount, "boundedBalance", meterGovBounded)
 		return errors.New("not enough bounded meter-gov balance")
 	}
 
 	state.SetBalance(addr, new(big.Int).Add(meterGov, amount))
 	state.SetBoundedBalance(addr, new(big.Int).Sub(meterGovBounded, amount))
-	log.Debug("after unbounded", "address", addr.String(), "balance", new(big.Int).Add(meterGov, amount), "boundedBalance", new(big.Int).Sub(meterGovBounded, amount))
+	slog.Debug("after unbounded", "address", addr.String(), "balance", new(big.Int).Add(meterGov, amount), "boundedBalance", new(big.Int).Sub(meterGovBounded, amount))
 
 	topics := []meter.Bytes32{
 		meter.Bytes32(unboundEvent.ID()),
@@ -151,7 +152,7 @@ func (env *ScriptEnv) CollectBailMeterGov(addr meter.Address, amount *big.Int) e
 	state := env.GetState()
 	meterGov := state.GetBalance(addr)
 	if meterGov.Cmp(amount) < 0 {
-		log.Error("not enough bounded meter-gov balance", "account", addr)
+		slog.Error("not enough bounded meter-gov balance", "account", addr)
 		return errors.New("not enough meter-gov balance")
 	}
 
@@ -186,6 +187,6 @@ func (env *ScriptEnv) DistValidatorRewards(rinfo []*meter.RewardInfo) (*big.Int,
 		sum = sum.Add(sum, r.Amount)
 	}
 
-	log.Info("distriubted validators MTR rewards", "total", sum.String())
+	slog.Info("distriubted validators MTR rewards", "total", sum.String())
 	return sum, nil
 }

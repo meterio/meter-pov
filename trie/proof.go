@@ -19,8 +19,8 @@ package trie
 import (
 	"bytes"
 	"fmt"
+	"log/slog"
 
-	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/meterio/meter-pov/meter"
 )
@@ -58,7 +58,7 @@ func (t *Trie) Prove(key []byte, fromLevel uint, proofDb DatabaseWriter) error {
 			var err error
 			tn, err = t.resolveHash(n, nil)
 			if err != nil {
-				log.Error(fmt.Sprintf("Unhandled trie error: %v", err))
+				slog.Error(fmt.Sprintf("Unhandled trie error: %v", err))
 				return err
 			}
 		default:
@@ -71,13 +71,13 @@ func (t *Trie) Prove(key []byte, fromLevel uint, proofDb DatabaseWriter) error {
 		// if encoding doesn't work and we're not writing to any database.
 		n, _, err := hasher.hashChildren(n, nil)
 		if err != nil {
-			log.Error("get node children failed", "error", err)
+			slog.Error("get node children failed", "error", err)
 			continue
 		}
 
 		hn, err := hasher.store(n, nil, false)
 		if err != nil {
-			log.Error("store failed", "error", err)
+			slog.Error("store failed", "error", err)
 			continue
 		}
 		if hash, ok := hn.(hashNode); ok || i == 0 {
@@ -88,7 +88,7 @@ func (t *Trie) Prove(key []byte, fromLevel uint, proofDb DatabaseWriter) error {
 			} else {
 				enc, err := rlp.EncodeToBytes(n)
 				if err != nil {
-					log.Error("rlp encode error", "error", err)
+					slog.Error("rlp encode error", "error", err)
 					continue
 				}
 
@@ -96,7 +96,7 @@ func (t *Trie) Prove(key []byte, fromLevel uint, proofDb DatabaseWriter) error {
 					hash = meter.Blake2b(enc).Bytes()
 				}
 				if err := proofDb.Put(hash, enc); err != nil {
-					log.Error("DB put failed", "error", err)
+					slog.Error("DB put failed", "error", err)
 					continue
 				}
 			}

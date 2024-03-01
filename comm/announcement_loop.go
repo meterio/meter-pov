@@ -52,7 +52,7 @@ func (c *Communicator) announcementLoop() {
 					c.fetchBlockByID(ann.peer, ann.newBlockID)
 				})
 			} else {
-				ann.peer.logger.Debug("skip new block ID announcement")
+				ann.peer.Debug("skip new block ID announcement")
 			}
 		}
 	}
@@ -61,7 +61,7 @@ func (c *Communicator) announcementLoop() {
 func (c *Communicator) fetchBlockByID(peer *Peer, newBlockID meter.Bytes32) {
 	if _, err := c.chain.GetBlockHeader(newBlockID); err != nil {
 		if !c.chain.IsNotFound(err) {
-			peer.logger.Error("failed to get block header", "err", err)
+			peer.Error("failed to get block header", "err", err)
 		}
 	} else {
 		// already in chain
@@ -70,17 +70,17 @@ func (c *Communicator) fetchBlockByID(peer *Peer, newBlockID meter.Bytes32) {
 
 	result, err := proto.GetBlockByID(c.ctx, peer, newBlockID)
 	if err != nil {
-		peer.logger.Debug("failed to get block by id", "err", err)
+		peer.Debug("failed to get block by id", "err", err)
 		return
 	}
 	if len(result) == 0 {
-		peer.logger.Debug("get nil block by id")
+		peer.Debug("get nil block by id")
 		return
 	}
 
 	var blk block.EscortedBlock
 	if err := rlp.DecodeBytes(result, &blk); err != nil {
-		peer.logger.Debug("failed to decode block got by id", "err", err)
+		peer.Debug("failed to decode block got by id", "err", err)
 		return
 	}
 

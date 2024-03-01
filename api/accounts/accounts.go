@@ -8,6 +8,7 @@ package accounts
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"math/big"
 	"math/rand"
 	"net/http"
@@ -31,6 +32,7 @@ type Accounts struct {
 	chain        *chain.Chain
 	stateCreator *state.Creator
 	callGasLimit uint64
+	logger       *slog.Logger
 }
 
 func New(chain *chain.Chain, stateCreator *state.Creator, callGasLimit uint64) *Accounts {
@@ -38,6 +40,7 @@ func New(chain *chain.Chain, stateCreator *state.Creator, callGasLimit uint64) *
 		chain,
 		stateCreator,
 		callGasLimit,
+		slog.With("api", "acct"),
 	}
 }
 
@@ -143,20 +146,20 @@ func (a *Accounts) handleGetStorage(w http.ResponseWriter, req *http.Request) er
 func (a *Accounts) handleCallContract(w http.ResponseWriter, req *http.Request) error {
 	callData := &CallData{}
 	if err := utils.ParseJSON(req.Body, &callData); err != nil {
-		log.Error("parse json failed", "err", err)
+		a.logger.Error("parse json failed", "err", err)
 		return utils.BadRequest(errors.WithMessage(err, "body"))
 	}
 
 	h, err := a.handleRevision(req.URL.Query().Get("revision"))
 	if err != nil {
-		log.Error("handleRevision failed", "err", err)
+		a.logger.Error("handleRevision failed", "err", err)
 		return err
 	}
 	var addr *meter.Address
 	if mux.Vars(req)["address"] != "" && mux.Vars(req)["address"] != "0x" {
 		address, err := meter.ParseAddress(mux.Vars(req)["address"])
 		if err != nil {
-			log.Error("parse address failed", "addr", mux.Vars(req)["address"], "err", err)
+			a.logger.Error("parse address failed", "addr", mux.Vars(req)["address"], "err", err)
 			return utils.BadRequest(errors.WithMessage(err, "address"))
 		}
 		addr = &address
@@ -178,10 +181,10 @@ func (a *Accounts) handleCallContract(w http.ResponseWriter, req *http.Request) 
 	}
 	results, err := a.batchCall(req.Context(), batchCallData, h)
 	if err != nil {
-		log.Error("eth_call failed", "err", err, "caller", callData.Caller, "value", callData.Value, "token", callData.Token, "data", callData.Data, "gas", callData.Gas, "gasPrice", callData.GasPrice, "sender", mux.Vars(req)["address"])
+		a.logger.Error("eth_call failed", "err", err, "caller", callData.Caller, "value", callData.Value, "token", callData.Token, "data", callData.Data, "gas", callData.Gas, "gasPrice", callData.GasPrice, "sender", mux.Vars(req)["address"])
 		return err
 	}
-	// log.Debug("handleCallContract Results:", results)
+	// a.logger.Debug("handleCallContract Results:", results)
 	return utils.WriteJSON(w, results[0])
 }
 
@@ -196,7 +199,7 @@ func (a *Accounts) handleCallBatchCode(w http.ResponseWriter, req *http.Request)
 	}
 	results, err := a.batchCall(req.Context(), batchCallData, h)
 	if err != nil {
-		log.Error("batchCall failed", "err", err)
+		a.logger.Error("batchCall failed", "err", err)
 		return err
 	}
 	return utils.WriteJSON(w, results)
@@ -241,16 +244,16 @@ func (a *Accounts) batchCall(ctx context.Context, batchCallData *BatchCallData, 
 			return nil, ctx.Err()
 		case out := <-vmout:
 			if err := rt.Seeker().Err(); err != nil {
-				log.Error("seeker error", "err", err)
+				a.logger.Error("seeker error", "err", err)
 				return nil, err
 			}
 			if err := state.Err(); err != nil {
-				log.Error("state error", "err", err)
+				a.logger.Error("state error", "err", err)
 				return nil, err
 			}
 			results = append(results, convertCallResultWithInputGas(out, gas))
 			if out.VMErr != nil {
-				log.Warn("call failed", "vmerr", out.VMErr)
+				a.logger.Warn("call failed", "vmerr", out.VMErr)
 				return results, nil
 			}
 			gas = out.LeftOverGas

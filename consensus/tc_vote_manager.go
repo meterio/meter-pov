@@ -29,7 +29,7 @@ func NewTCVoteManager(system bls.System, committeeSize uint32) *TCVoteManager {
 		votes:         make(map[timeoutVoteKey]map[uint32]*vote),
 		sealed:        make(map[timeoutVoteKey]bool), // sealed indicator
 		committeeSize: committeeSize,
-		logger:        slog.Default().With("pkg", "tcman"),
+		logger:        slog.With("pkg", "tcman"),
 	}
 }
 

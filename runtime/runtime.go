@@ -112,6 +112,7 @@ type Runtime struct {
 	state      *state.State
 	ctx        *xenv.BlockContext
 	forkConfig meter.ForkConfig
+	logger     *slog.Logger
 }
 
 // copied over from transaction.go:GasPrice
@@ -173,6 +174,7 @@ func New(
 		seeker: seeker,
 		state:  state,
 		ctx:    ctx,
+		logger: slog.With("pkg", "runtime"),
 	}
 	if seeker != nil {
 		rt.forkConfig = meter.GetForkConfig(seeker.GenesisID())
@@ -198,7 +200,7 @@ func (rt *Runtime) LoadERC20NativeCotract() {
 	blockNum := rt.Context().Number
 	addr := builtin.MeterTracker.Address
 	execAddr := builtin.Executor.Address
-	log := slog.Default().With("pkg", "forkNative")
+	log := slog.With("pkg", "forkNative")
 	if meter.IsSysContractEnabled(blockNum) && len(rt.State().GetCode(addr)) == 0 {
 		rt.State().SetCode(addr, builtin.NewMeterNative_BinRuntime)
 		rt.State().SetCode(execAddr, []byte{})
@@ -208,7 +210,7 @@ func (rt *Runtime) LoadERC20NativeCotract() {
 
 func (rt *Runtime) EnforceTelsaFork1_Corrections() {
 	blockNumber := rt.Context().Number
-	log := slog.Default().With("pkg", "fork1")
+	log := slog.With("pkg", "fork1")
 	if blockNumber > 0 && meter.IsMainNet() {
 		// flag is nil or 0, is not do. 1 meas done.
 		enforceFlag := builtin.Params.Native(rt.State()).Get(meter.KeyEnforceTesla1_Correction)
@@ -227,7 +229,7 @@ func (rt *Runtime) EnforceTelsaFork1_Corrections() {
 
 func (rt *Runtime) EnforceTeslaFork5_Corrections() {
 	blockNumber := rt.Context().Number
-	log := slog.Default().With("pkg", "fork5")
+	log := slog.With("pkg", "fork5")
 	if blockNumber > 0 && meter.IsMainNet() {
 		// flag is nil or 0, is not do. 1 meas done.
 		enforceFlag := builtin.Params.Native(rt.State()).Get(meter.KeyEnforceTesla5_Correction)
@@ -262,7 +264,7 @@ func (rt *Runtime) EnforceTeslaFork5_Corrections() {
 
 func (rt *Runtime) EnforceTeslaFork6_Corrections() {
 	blockNumber := rt.Context().Number
-	log := slog.Default().With("pkg", "fork6")
+	log := slog.With("pkg", "fork6")
 	if blockNumber > 0 && meter.IsMainNet() {
 		// flag is nil or 0, is not do. 1 meas done.
 		enforceFlag := builtin.Params.Native(rt.State()).Get(meter.KeyEnforceTesla_Fork6_Correction)
@@ -280,7 +282,7 @@ func (rt *Runtime) EnforceTeslaFork6_Corrections() {
 
 func (rt *Runtime) EnforceTeslaFork8_LiquidStaking(stateDB *statedb.StateDB, blockNum *big.Int) {
 	blockNumber := rt.Context().Number
-	log := slog.Default().With("pkg", "fork8")
+	log := slog.With("pkg", "fork8")
 	if blockNumber > 0 {
 		// flag is nil or 0, is not do. 1 meas done.
 		enforceFlag := builtin.Params.Native(rt.State()).Get(meter.KeyEnforceTesla_Fork8_Correction)
@@ -387,7 +389,7 @@ func (rt *Runtime) EnforceTeslaFork8_LiquidStaking(stateDB *statedb.StateDB, blo
 
 func (rt *Runtime) EnforceTeslaFork9_Corrections(stateDB *statedb.StateDB, blockNum *big.Int) {
 	blockNumber := rt.Context().Number
-	log := slog.Default().With("pkg", "fork9")
+	log := slog.With("pkg", "fork9")
 	if blockNumber > 0 {
 		// flag is nil or 0, is not do. 1 meas done.
 		enforceFlag := builtin.Params.Native(rt.State()).Get(meter.KeyEnforceTesla_Fork9_Correction)
@@ -424,7 +426,7 @@ func (rt *Runtime) EnforceTeslaFork9_Corrections(stateDB *statedb.StateDB, block
 
 func (rt *Runtime) EnforceTeslaFork10_Corrections(stateDB *statedb.StateDB, blockNum *big.Int) {
 	blockNumber := rt.Context().Number
-	log := slog.Default().With("pkg", "fork10")
+	log := slog.With("pkg", "fork10")
 	if blockNumber > 0 {
 		// flag is nil or 0, is not do. 1 meas done.
 		enforceFlag := builtin.Params.Native(rt.State()).Get(meter.KeyEnforceTesla_Fork10_Correction)
@@ -494,7 +496,7 @@ func (rt *Runtime) EnforceTeslaFork10_Corrections(stateDB *statedb.StateDB, bloc
 
 func (rt *Runtime) EnforceTeslaFork11_Corrections(stateDB *statedb.StateDB, blockNum *big.Int, evm *vm.EVM) {
 	blockNumber := rt.Context().Number
-	log := slog.Default().With("pkg", "fork11")
+	log := slog.With("pkg", "fork11")
 	if blockNumber > 0 {
 		// flag is nil or 0, is not do. 1 meas done.
 		enforceFlag := builtin.Params.Native(rt.State()).Get(meter.KeyEnforceTesla_Fork11_Correction)
@@ -612,6 +614,7 @@ func (rt *Runtime) SetVMConfig(config vm.Config) *Runtime {
 
 func (rt *Runtime) newEVM(stateDB *statedb.StateDB, clauseIndex uint32, txCtx *xenv.TransactionContext, blkCtx *xenv.BlockContext) *vm.EVM {
 	var lastNonNativeCallGas uint64
+	log := rt.logger
 	return vm.NewEVM(vm.Context{
 		CanTransfer: func(_ vm.StateDB, addr common.Address, amount *big.Int, token byte) bool {
 			if !meter.Address(addr).IsZero() {
@@ -818,7 +821,7 @@ func (rt *Runtime) newEVM(stateDB *statedb.StateDB, clauseIndex uint32, txCtx *x
 
 			// fmt.Println("after contract.Gas", contract.Gas, "lastNonNativeCallGas", lastNonNativeCallGas)
 			if contract.Gas > lastNonNativeCallGas {
-				log.Error("serious bug: native call returned gas over consumed")
+				rt.logger.Error("serious bug: native call returned gas over consumed")
 				return nil, errExecutionReverted, true
 				// panic("serious bug: native call returned gas over consumed")
 			}
@@ -928,6 +931,7 @@ func (rt *Runtime) PrepareClause(
 		seOutput      *setypes.ScriptEngineOutput
 	)
 
+	log := rt.logger
 	exec = func() (*Output, bool) {
 		// does not handle any transfer, it is a pure script running engine
 		if (clause.Value().Sign() == 0) && (len(clause.Data()) > MinScriptEngDataLen) && rt.ScriptEngineCheck(clause.Data()) {
@@ -1074,7 +1078,7 @@ func (rt *Runtime) ExecuteTransaction(tx *tx.Transaction) (receipt *tx.Receipt, 
 	// fmt.Println("RECEIPT: ", receipt)
 	finalizeElapsed := time.Since(finalizeStart)
 	if time.Since(start) > time.Millisecond {
-		log.Info(fmt.Sprintf("slow executed tx %s", tx.ID()), "totalElapsed", meter.PrettyDuration(time.Since(start)), "prepare", meter.PrettyDuration(prepareElapsed), "exec", meter.PrettyDuration(execElapsed), "seChange", meter.PrettyDuration(seChangeElapsed), "finalize", meter.PrettyDuration(finalizeElapsed))
+		rt.logger.Info(fmt.Sprintf("slow executed tx %s", tx.ID()), "totalElapsed", meter.PrettyDuration(time.Since(start)), "prepare", meter.PrettyDuration(prepareElapsed), "exec", meter.PrettyDuration(execElapsed), "seChange", meter.PrettyDuration(seChangeElapsed), "finalize", meter.PrettyDuration(finalizeElapsed))
 	}
 	return
 }
@@ -1152,9 +1156,9 @@ func (rt *Runtime) PrepareTransaction(tx *tx.Transaction) (*TransactionExecutor,
 				// vm exception here
 				// revert all executed clauses
 				if reason, e := ethabi.UnpackRevert(output.Data); e == nil {
-					log.Info("tx reverted", "id", txCtx.ID, "reason", reason)
+					rt.logger.Info("tx reverted", "id", txCtx.ID, "reason", reason)
 				} else {
-					log.Info("tx reverted", "id", txCtx.ID, "vmerr", output.VMErr)
+					rt.logger.Info("tx reverted", "id", txCtx.ID, "vmerr", output.VMErr)
 				}
 				rt.state.RevertTo(checkpoint)
 				reverted = true
@@ -1217,7 +1221,7 @@ func (rt *Runtime) PrepareTransaction(tx *tx.Transaction) (*TransactionExecutor,
 	}
 	executorElapsed := time.Since(executorStart)
 	if (resolveElapsed + buyGasElapsed + ckpointElapsed + toContextElapsed + executorElapsed) > time.Millisecond {
-		log.Debug("slow prepare", "tx", tx.ID(), "totalElasped", meter.PrettyDuration(resolveElapsed+buyGasElapsed+ckpointElapsed+toContextElapsed+executorElapsed), "resolve", meter.PrettyDuration(resolveElapsed), "buyGas", meter.PrettyDuration(buyGasElapsed), "ckpoint", meter.PrettyDuration(ckpointElapsed), "toContext", meter.PrettyDuration(toContextElapsed), "executor", meter.PrettyDuration(executorElapsed))
+		rt.logger.Debug("slow prepare", "tx", tx.ID(), "totalElasped", meter.PrettyDuration(resolveElapsed+buyGasElapsed+ckpointElapsed+toContextElapsed+executorElapsed), "resolve", meter.PrettyDuration(resolveElapsed), "buyGas", meter.PrettyDuration(buyGasElapsed), "ckpoint", meter.PrettyDuration(ckpointElapsed), "toContext", meter.PrettyDuration(toContextElapsed), "executor", meter.PrettyDuration(executorElapsed))
 	}
 	return executor, nil
 }

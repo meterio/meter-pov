@@ -127,7 +127,7 @@ func NewConsensusReactor(ctx *cli.Context, chain *chain.Chain, logDB *logdb.LogD
 		chain:        chain,
 		logDB:        logDB,
 		stateCreator: state,
-		logger:       slog.Default().With("pkg", "r"),
+		logger:       slog.With("pkg", "r"),
 		SyncDone:     false,
 		magic:        magic,
 		inCommittee:  false,

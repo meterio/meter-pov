@@ -58,7 +58,7 @@ func NewStaking(ch *chain.Chain, sc *state.Creator) *Staking {
 	staking := &Staking{
 		chain:        ch,
 		stateCreator: sc,
-		logger:       slog.Default().With("pkg", "staking"),
+		logger:       slog.With("pkg", "staking"),
 	}
 	return staking
 }

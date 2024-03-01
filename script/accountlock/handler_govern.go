@@ -1,6 +1,7 @@
 package accountlock
 
 import (
+	"log/slog"
 	"math/big"
 
 	"github.com/meterio/meter-pov/meter"
@@ -51,7 +52,7 @@ func RestrictByAccountLock(addr meter.Address, state *state.State) (bool, *big.I
 
 	list := state.GetProfileList()
 	if list == nil {
-		log.Warn("get the accountlock profile failed")
+		slog.Warn("get the accountlock profile failed")
 		return false, nil, nil
 	}
 
@@ -64,7 +65,7 @@ func RestrictByAccountLock(addr meter.Address, state *state.State) (bool, *big.I
 		return false, nil, nil
 	}
 
-	log.Debug("the Address is not allowed to do transfer", "address", addr,
+	slog.Debug("the Address is not allowed to do transfer", "address", addr,
 		"meter", p.MeterAmount.String(), "meterGov", p.MeterGovAmount.String())
 	return true, p.MeterAmount, p.MeterGovAmount
 }

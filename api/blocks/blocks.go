@@ -7,6 +7,7 @@ package blocks
 
 import (
 	"encoding/hex"
+	"log/slog"
 	"net/http"
 	"strconv"
 
@@ -25,12 +26,14 @@ import (
 type Blocks struct {
 	chain  *chain.Chain
 	stateC *state.Creator
+	logger *slog.Logger
 }
 
 func New(chain *chain.Chain, stateC *state.Creator) *Blocks {
 	return &Blocks{
 		chain,
 		stateC,
+		slog.With("api", "blk"),
 	}
 }
 
@@ -161,11 +164,11 @@ func (b *Blocks) getKBlockByEpoch(epoch uint64) (*block.Block, error) {
 	best := b.chain.BestBlock()
 	curEpoch := best.GetBlockEpoch()
 	if epoch > curEpoch {
-		log.Warn("requested epoch is too new", "epoch", epoch)
+		b.logger.Warn("requested epoch is too new", "epoch", epoch)
 		return nil, errors.New("requested epoch is too new")
 	}
 
-	//log.Info("getKBlockByEpoch", "epoch", epoch, "curEpoch", curEpoch)
+	//b.logger.Info("getKBlockByEpoch", "epoch", epoch, "curEpoch", curEpoch)
 	delta := uint64(best.Number()) / curEpoch
 
 	var blk *block.Block
@@ -179,7 +182,7 @@ func (b *Blocks) getKBlockByEpoch(epoch uint64) (*block.Block, error) {
 		ht := delta * (epoch + 4)
 		blk, err = b.chain.GetTrunkBlock(uint32(ht))
 		if err != nil {
-			log.Error("get kblock failed", "epoch", epoch, "err", err)
+			b.logger.Error("get kblock failed", "epoch", epoch, "err", err)
 			return nil, err
 		}
 
@@ -195,27 +198,27 @@ func (b *Blocks) getKBlockByEpoch(epoch uint64) (*block.Block, error) {
 
 			blk, err = b.chain.GetTrunkBlock(uint32(ht) + uint32(5*delta))
 			if err != nil {
-				log.Error("get kblock failed", "epoch", epoch, "err", err)
+				b.logger.Error("get kblock failed", "epoch", epoch, "err", err)
 				return nil, err
 			}
 			ep = blk.GetBlockEpoch()
-			//log.Info("... height:", blk.Number(), "epoch", ep)
+			//b.logger.Info("... height:", blk.Number(), "epoch", ep)
 		}
 	}
 
 	// find out the close enough search point
-	// log.Info("start to search kblock", "height:", blk.Number(), "epoch", ep, "target epoch", epoch)
+	// b.logger.Info("start to search kblock", "height:", blk.Number(), "epoch", ep, "target epoch", epoch)
 	for ep > epoch {
 		blk, err = b.chain.GetTrunkBlock(blk.LastKBlockHeight())
 		if err != nil {
-			log.Error("getTrunkBlock failed", "epoch", epoch, "err", err)
+			b.logger.Error("getTrunkBlock failed", "epoch", epoch, "err", err)
 			return nil, err
 		}
 		ep = blk.GetBlockEpoch()
-		//log.Info("...searching height:", blk.Number(), "epoch", ep)
+		//b.logger.Info("...searching height:", blk.Number(), "epoch", ep)
 	}
 
-	//log.Info("get the kblock", "height:", blk.Number(), "epoch", ep)
+	//b.logger.Info("get the kblock", "height:", blk.Number(), "epoch", ep)
 	if ep == epoch {
 		return blk, nil
 	}
@@ -226,7 +229,7 @@ func (b *Blocks) getKBlockByEpoch(epoch uint64) (*block.Block, error) {
 	for {
 		blk, err = b.chain.GetTrunkBlock(uint32(ht))
 		if err != nil {
-			log.Error("getTrunkBlock failed", "epoch", epoch, "err", err)
+			b.logger.Error("getTrunkBlock failed", "epoch", epoch, "err", err)
 			return nil, err
 		}
 		ep = blk.GetBlockEpoch()
@@ -242,7 +245,7 @@ func (b *Blocks) getKBlockByEpoch(epoch uint64) (*block.Block, error) {
 		if count >= 2000 {
 			return nil, errors.New("can not find the kblock")
 		}
-		//log.Info("...final search. height:", ht, "epoch", ep)
+		//b.logger.Info("...final search. height:", ht, "epoch", ep)
 	}
 }
 

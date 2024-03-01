@@ -21,10 +21,6 @@ import (
 	"github.com/meterio/meter-pov/state"
 )
 
-var (
-	log = slog.Default().With("pkg", "genesis")
-)
-
 // "address", "meter amount", "mterGov amount", "memo", "release epoch"
 var profiles [][5]string = [][5]string{
 
@@ -74,23 +70,23 @@ func LoadVestProfile() []*meter.Profile {
 		address := meter.MustParseAddress(p[0])
 		mtr, err := strconv.ParseFloat(p[1], 64)
 		if err != nil {
-			log.Error("parse meter value failed", "error", err)
+			slog.Error("parse meter value failed", "error", err)
 			continue
 		}
 		mtrg, err := strconv.ParseFloat(p[2], 64)
 		if err != nil {
-			log.Error("parse meterGov value failed", "error", err)
+			slog.Error("parse meterGov value failed", "error", err)
 			continue
 		}
 		epoch, err := strconv.ParseUint(p[4], 10, 64)
 		if err != nil {
-			log.Error("parse release block epoch failed", "error", err)
+			slog.Error("parse release block epoch failed", "error", err)
 			continue
 		}
 		memo := []byte(p[3])
 
 		pp := meter.NewProfile(address, memo, 0, uint32(epoch), FloatToBigInt(mtr), FloatToBigInt(mtrg))
-		log.Debug("new profile created", "profile", pp.ToString())
+		slog.Debug("new profile created", "profile", pp.ToString())
 
 		plans = append(plans, pp)
 	}

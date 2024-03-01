@@ -23,7 +23,6 @@ var (
 	nativeBucketOpenEvent, _         = MeterNative_V4_ABI.EventByName("NativeBucketOpen")
 	nativeBucketCloseEvent, _        = MeterNative_V4_ABI.EventByName("NativeBucketClose")
 	nativeBucketTransferFundEvent, _ = MeterNative_V4_ABI.EventByName("NativeBucketTransferFund")
-	log                              = slog.Default().With("pkg", "tracker")
 )
 
 func init() {
@@ -246,7 +245,7 @@ func init() {
 				Amount        *big.Int
 			}
 			env.ParseArgs(&args)
-			log.Info("native_bucket_open", "owner", args.Owner, "candidateAddr", args.CandidateAddr, "amount", args.Amount)
+			slog.Info("native_bucket_open", "owner", args.Owner, "candidateAddr", args.CandidateAddr, "amount", args.Amount)
 			if args.Amount.Sign() == 0 {
 				return []interface{}{meter.Bytes32{}, "amount is 0"}
 			}
@@ -256,10 +255,10 @@ func init() {
 			ts := env.BlockContext().Time
 			bktID, err := MeterTracker.Native(env.State()).BucketOpen(args.Owner, args.CandidateAddr, args.Amount, ts, nonce)
 			if err != nil {
-				log.Error("native_bucket_open failed", "err", err)
+				slog.Error("native_bucket_open failed", "err", err)
 				return []interface{}{bktID, err.Error()}
 			}
-			log.Info("native_bucket_open success", "bktID", bktID)
+			slog.Info("native_bucket_open success", "bktID", bktID)
 
 			env.TransactionContext().Inc()
 
@@ -279,14 +278,14 @@ func init() {
 				BucketID meter.Bytes32
 			}
 			env.ParseArgs(&args)
-			log.Info("native_bucket_close", "owner", args.Owner, "bucketID", args.BucketID)
+			slog.Info("native_bucket_close", "owner", args.Owner, "bucketID", args.BucketID)
 			env.UseGas(meter.GetBalanceGas)
 			err := MeterTracker.Native(env.State()).BucketClose(args.Owner, args.BucketID, env.BlockContext().Time)
 			if err != nil {
-				log.Error("native_bucket_close failed", "err", err)
+				slog.Error("native_bucket_close failed", "err", err)
 				return []interface{}{err.Error()}
 			}
-			log.Info("native_bucket_close success")
+			slog.Info("native_bucket_close success")
 
 			topics := []meter.Bytes32{meter.BytesToBytes32(args.Owner[:])}
 			// emit NativeBucketClose
@@ -302,14 +301,14 @@ func init() {
 				Amount   *big.Int
 			}
 			env.ParseArgs(&args)
-			log.Info("native_bucket_deposit", "owner", args.Owner, "bucketID", args.BucketID, "amount", args.Amount)
+			slog.Info("native_bucket_deposit", "owner", args.Owner, "bucketID", args.BucketID, "amount", args.Amount)
 			env.UseGas(meter.GetBalanceGas)
 			err := MeterTracker.Native(env.State()).BucketDeposit(args.Owner, args.BucketID, args.Amount)
 			if err != nil {
-				log.Error("native_bucket_deposit failed", "err", err)
+				slog.Error("native_bucket_deposit failed", "err", err)
 				return []interface{}{err.Error()}
 			}
-			log.Info("native_bucket_deposit success")
+			slog.Info("native_bucket_deposit success")
 
 			topics := []meter.Bytes32{meter.BytesToBytes32(args.Owner[:])}
 			// emit Bound event
@@ -329,16 +328,16 @@ func init() {
 				Recipient meter.Address
 			}
 			env.ParseArgs(&args)
-			log.Info("native_bucket_withdraw", "owner", args.Owner, "bucketID", args.BucketID, "amount", args.Amount, "recipient", args.Recipient)
+			slog.Info("native_bucket_withdraw", "owner", args.Owner, "bucketID", args.BucketID, "amount", args.Amount, "recipient", args.Recipient)
 			env.UseGas(meter.GetBalanceGas)
 			nonce := env.TransactionContext().Nonce + uint64(env.ClauseIndex()) + env.TransactionContext().Counter
 			ts := env.BlockContext().Time
 			bktID, err := MeterTracker.Native(env.State()).BucketWithdraw(args.Owner, args.BucketID, args.Amount, args.Recipient, ts, nonce)
 			if err != nil {
-				log.Error("native_bucket_withdraw failed", "err", err)
+				slog.Error("native_bucket_withdraw failed", "err", err)
 				return []interface{}{bktID, err.Error()}
 			}
-			log.Info("native_bucket_withdraw success", "bktID", bktID)
+			slog.Info("native_bucket_withdraw success", "bktID", bktID)
 
 			env.TransactionContext().Inc()
 
@@ -355,14 +354,14 @@ func init() {
 				NewCandidateAddr meter.Address
 			}
 			env.ParseArgs(&args)
-			log.Info("native_bucket_update_candidate", "owner", args.Owner, "bucketID", args.BucketID, "newCandidateAddr", args.NewCandidateAddr)
+			slog.Info("native_bucket_update_candidate", "owner", args.Owner, "bucketID", args.BucketID, "newCandidateAddr", args.NewCandidateAddr)
 			env.UseGas(meter.GetBalanceGas)
 			err := MeterTracker.Native(env.State()).BucketUpdateCandidate(args.Owner, args.BucketID, args.NewCandidateAddr)
 			if err != nil {
-				log.Error("native_bucket_update_candidate failed", "err", err)
+				slog.Error("native_bucket_update_candidate failed", "err", err)
 				return []interface{}{err.Error()}
 			}
-			log.Info("native_bucket_update_candidate success")
+			slog.Info("native_bucket_update_candidate success")
 
 			return []interface{}{""}
 		}},
@@ -374,14 +373,14 @@ func init() {
 				Amount       *big.Int
 			}
 			env.ParseArgs(&args)
-			log.Info("native_bucket_transfer_fund", "fromBucketID", args.FromBucketID, "toBucketID", args.ToBucketID, "amount", args.Amount)
+			slog.Info("native_bucket_transfer_fund", "fromBucketID", args.FromBucketID, "toBucketID", args.ToBucketID, "amount", args.Amount)
 			env.UseGas(meter.GetBalanceGas)
 			err := MeterTracker.Native(env.State()).BucketTransferFund(args.Owner, args.FromBucketID, args.ToBucketID, args.Amount)
 			if err != nil {
-				log.Error("native_bucket_transfer_fund failed", "err", err)
+				slog.Error("native_bucket_transfer_fund failed", "err", err)
 				return []interface{}{err.Error()}
 			}
-			log.Info("native_bucket_transfer_fund success")
+			slog.Info("native_bucket_transfer_fund success")
 
 			topics := []meter.Bytes32{meter.BytesToBytes32(args.Owner[:])}
 			// emit NativeBucketTransferFund
@@ -395,14 +394,14 @@ func init() {
 				ToBucketID   meter.Bytes32
 			}
 			env.ParseArgs(&args)
-			log.Info("native_bucket_merge", "fromBucketID", args.FromBucketID, "toBucketID", args.ToBucketID)
+			slog.Info("native_bucket_merge", "fromBucketID", args.FromBucketID, "toBucketID", args.ToBucketID)
 			env.UseGas(meter.GetBalanceGas)
 			err := MeterTracker.Native(env.State()).BucketMerge(args.Owner, args.FromBucketID, args.ToBucketID)
 			if err != nil {
-				log.Error("native_bucket_merge failed", "err", err)
+				slog.Error("native_bucket_merge failed", "err", err)
 				return []interface{}{err.Error()}
 			}
-			log.Info(("native_bucket_merge success"))
+			slog.Info(("native_bucket_merge success"))
 
 			topics := []meter.Bytes32{meter.BytesToBytes32(args.Owner[:])}
 			// emit NativeBucketMerge
@@ -415,7 +414,7 @@ func init() {
 				BucketID meter.Bytes32
 			}
 			env.ParseArgs(&args)
-			log.Info("native_bucket_value", "bucketID", args.BucketID)
+			slog.Info("native_bucket_value", "bucketID", args.BucketID)
 			env.UseGas(meter.GetBalanceGas)
 			val, _ := MeterTracker.Native(env.State()).BucketValue(args.BucketID)
 			return []interface{}{val}
@@ -425,14 +424,14 @@ func init() {
 				BucketID meter.Bytes32
 			}
 			env.ParseArgs(&args)
-			log.Info("native_bucket_exists", "bucketID", args.BucketID)
+			slog.Info("native_bucket_exists", "bucketID", args.BucketID)
 			bucketList := env.State().GetBucketList()
 			bkt := bucketList.Get(args.BucketID)
 			if bkt != nil && strings.EqualFold(bkt.ID().String(), args.BucketID.String()) {
-				log.Info("native_bucket_exists true")
+				slog.Info("native_bucket_exists true")
 				return []interface{}{true}
 			}
-			log.Info("native_bucket_exists false")
+			slog.Info("native_bucket_exists false")
 			return []interface{}{false}
 		}},
 	}
