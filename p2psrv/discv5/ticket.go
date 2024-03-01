@@ -554,7 +554,6 @@ func (s *ticketStore) addTicket(localTime mclock.AbsTime, pingHash []byte, ticke
 		}
 		if float64(wait) < float64(keepTicketConst)+float64(keepTicketExp)*rnd {
 			// use the ticket to register this topic
-			//fmt.Println("addTicket", ticket.node.ID[:8], ticket.node.addr().String(), ticket.serial, ticket.pong)
 			s.addTicketRef(ticketRef{ticket, topicIdx})
 		}
 	}
@@ -618,7 +617,6 @@ func (s *ticketStore) cleanupTopicQueries(now mclock.AbsTime) {
 
 func (s *ticketStore) gotTopicNodes(from *Node, hash common.Hash, nodes []rpcNode) (timeout bool) {
 	now := mclock.Now()
-	//fmt.Println("got", from.addr().String(), hash, len(nodes))
 	qq := s.queriesSent[from]
 	if qq == nil {
 		return true
@@ -634,7 +632,6 @@ func (s *ticketStore) gotTopicNodes(from *Node, hash common.Hash, nodes []rpcNod
 	s.radius[q.lookup.topic].adjust(now, q.lookup.target, from.sha, inside)
 	chn := s.searchTopicMap[q.lookup.topic].foundChn
 	if chn == nil {
-		//fmt.Println("no channel")
 		return false
 	}
 	for _, node := range nodes {
@@ -834,9 +831,7 @@ func (r *topicRadius) recalcRadius() (radius uint64, radiusLookup int) {
 		r.buckets[i].update(now)
 		v += r.buckets[i].weights[trOutside] - r.buckets[i].weights[trInside]
 		r.buckets[i].value = v
-		//fmt.Printf("%v %v | ", v, r.buckets[i].weights[trNoAdjust])
 	}
-	//fmt.Println()
 	slopeCross := -1
 	for i, b := range r.buckets {
 		v := b.value
@@ -883,8 +878,6 @@ func (r *topicRadius) recalcRadius() (radius uint64, radiusLookup int) {
 			}
 		}
 	}
-
-	//fmt.Println("mb", maxBucket, "sc", slopeCross, "mrb", minRadBucket, "ll", lookupLeft, "lr", lookupRight, "mv", maxValue)
 
 	if radiusLookup == -1 {
 		// no more radius lookups needed at the moment, return a radius
@@ -945,7 +938,6 @@ func (r *topicRadius) adjustWithTicket(now mclock.AbsTime, targetHash common.Has
 
 func (r *topicRadius) adjust(now mclock.AbsTime, targetHash, addrHash common.Hash, inside float64) {
 	bucket := r.getBucketIdx(addrHash)
-	//fmt.Println("adjust", bucket, len(r.buckets), inside)
 	if bucket >= len(r.buckets) {
 		return
 	}

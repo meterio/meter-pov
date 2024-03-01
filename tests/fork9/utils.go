@@ -84,7 +84,7 @@ func initRuntimeAfterFork9() *tests.TestEnv {
 		return nil
 	})
 	b0.SetQC(&block.QuorumCert{QCHeight: 0, QCRound: 0, EpochID: 0, VoterBitArrayStr: "X_XXX", VoterMsgHash: meter.BytesToBytes32([]byte("hello")), VoterAggSig: []byte("voteraggr")})
-	fmt.Println(b0.ID())
+	// fmt.Println(b0.ID())
 	c, _ := chain.New(kv, b0, false)
 	seeker := c.NewSeeker(b0.ID())
 	sc := state.NewCreator(kv)

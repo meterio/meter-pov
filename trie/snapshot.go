@@ -132,7 +132,6 @@ func (ts *TrieSnapshot) Has(key meter.Bytes32) bool {
 }
 
 func (ts *TrieSnapshot) add(key meter.Bytes32) {
-	// fmt.Println("Add key to snapshot:", key)
 	ts.Bloom.Put(key[:])
 }
 

@@ -31,7 +31,6 @@ func TestBound(t *testing.T) {
 	txNonce := rand.Uint64()
 	trx := tests.BuildStakingTx(tenv.ChainTag, 0, body, tests.VoterKey, txNonce)
 
-	fmt.Println("LLLLLLLLLLLLLLLLl")
 	receipt, err := tenv.Runtime.ExecuteTransaction(trx)
 	assert.Nil(t, err)
 	assert.False(t, receipt.Reverted)

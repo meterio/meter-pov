@@ -7,7 +7,6 @@ package proto
 
 import (
 	"context"
-	"log/slog"
 
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/meterio/meter-pov/block"
@@ -76,14 +75,14 @@ func GetBlockByID(ctx context.Context, rpc RPC, id meter.Bytes32) (rlp.RawValue,
 	var result []rlp.RawValue
 	if err := rpc.Call(ctx, MsgGetBlockByID, id, &result); err != nil {
 
-		slog.Warn("GetBlockByID failed", "from", rpc.String(), "id", id, "err", err)
+		rpc.Warn("GetBlockByID failed", "id", id, "err", err)
 		return nil, err
 	}
 	if len(result) == 0 {
-		slog.Warn("GetBlockByID empty", "from", rpc.String(), "id", id)
+		rpc.Warn("GetBlockByID empty", "id", id)
 		return nil, nil
 	}
-	slog.Debug("GetBlockByID success", "from", rpc.String(), "id", id)
+	rpc.Debug("GetBlockByID success", "id", id)
 	return result[0], nil
 }
 
@@ -91,10 +90,10 @@ func GetBlockByID(ctx context.Context, rpc RPC, id meter.Bytes32) (rlp.RawValue,
 func GetBlockIDByNumber(ctx context.Context, rpc RPC, num uint32) (meter.Bytes32, error) {
 	var id meter.Bytes32
 	if err := rpc.Call(ctx, MsgGetBlockIDByNumber, num, &id); err != nil {
-		slog.Warn("GetBlockIDByNumber failed", "from", rpc.String(), "err", err)
+		rpc.Warn("GetBlockIDByNumber failed", "err", err)
 		return meter.Bytes32{}, err
 	}
-	slog.Debug("GetBlockIDByNumber success", "from", rpc.String(), "id", id)
+	rpc.Debug("GetBlockIDByNumber success", "id", id)
 	return id, nil
 }
 
@@ -102,10 +101,10 @@ func GetBlockIDByNumber(ctx context.Context, rpc RPC, num uint32) (meter.Bytes32
 func GetBlocksFromNumber(ctx context.Context, rpc RPC, num uint32) ([]rlp.RawValue, error) {
 	var blocks []rlp.RawValue
 	if err := rpc.Call(ctx, MsgGetBlocksFromNumber, num, &blocks); err != nil {
-		slog.Warn("GetBlocksFromNumber failed", "num", num, "from", rpc.String(), "err", err)
+		rpc.Warn("GetBlocksFromNumber failed", "num", num, "err", err)
 		return nil, err
 	}
-	slog.Debug("GetBlocksFromNumber success", "num", num, "from", rpc.String(), "len", len(blocks))
+	rpc.Debug("GetBlocksFromNumber success", "num", num, "len", len(blocks))
 	return blocks, nil
 }
 

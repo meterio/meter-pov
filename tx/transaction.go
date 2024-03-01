@@ -141,7 +141,6 @@ func NewTransactionFromEthTx(ethTx *types.Transaction, chainTag byte, blockRef B
 
 	// collect signature from ethereum tx
 	V, R, S := ethTx.RawSignatureValues()
-	// fmt.Println("eth tx msgHash:", hex.EncodeToString(msgHash[:]))
 	var rawEthTx bytes.Buffer
 	err = ethTx.EncodeRLP(&rawEthTx)
 	if err != nil {
@@ -168,7 +167,6 @@ func NewTransactionFromEthTx(ethTx *types.Transaction, chainTag byte, blockRef B
 
 	ethSignature := append(append(rBytes, sBytes...), V.Bytes()...)
 	value := ethTx.Value()
-	// fmt.Println("eth tx msgHash:", hex.EncodeToString(msgHash[:]))
 
 	sender, err := signer.Sender(ethTx)
 	if err != nil {
@@ -205,18 +203,8 @@ func NewTransactionFromEthTx(ethTx *types.Transaction, chainTag byte, blockRef B
 	if !strings.EqualFold(tx.ID().String(), ethTx.Hash().Hex()) {
 		return nil, errors.New("tx.id not matching ethTx.Hash")
 	}
-	// tx.cache.signer.Store(from)
 	if verbose {
 		slog.Debug("new nativeTx from ethTx", "id", tx.ID(), "from", ethFrom.Hex(), "to", to.String())
-		// fmt.Println("new nativeTx from ethTx:", tx.ID(), tx.IsEthTx(),
-		// 	"\n  from:", msg.From().Hex(), "to:", to.String(),
-		// 	"\n  value:", msg.Value().String(),
-		// 	"  nonce:", msg.Nonce(),
-		// 	"  chainID:", fmt.Sprintf("0x%x", ethTx.ChainId()),
-		// 	"\n  r:", fmt.Sprintf("0x%x", rBytes),
-		// 	"\n  s:", fmt.Sprintf("0x%x", sBytes),
-		// 	"\n  v:", fmt.Sprintf("0x%x", V.Bytes()),
-		// )
 	}
 	return tx, nil
 }
@@ -506,7 +494,6 @@ func (t *Transaction) Signer() (signer meter.Address, err error) {
 	if t.IsEthTx() {
 		// ethereum translated tx
 		from := "0x" + hex.EncodeToString(t.body.Reserved[1].([]byte))
-		// fmt.Println("Signer for ETH translated TX:", from)
 		addr, err := meter.ParseAddress(from)
 		return addr, err
 	}

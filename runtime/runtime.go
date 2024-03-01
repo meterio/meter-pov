@@ -687,7 +687,7 @@ func (rt *Runtime) newEVM(stateDB *statedb.StateDB, clauseIndex uint32, txCtx *x
 			return common.Hash(rt.seeker.GetID(uint32(num)))
 		},
 		NewContractAddress: func(caller common.Address, counter uint32) common.Address {
-			log.Info("calc new contract address", "origin", txCtx.Origin.String(), "caller", caller.String(), "clauseIndex", clauseIndex, "counter", counter, "nonce", txCtx.Nonce)
+			// log.Info("calc new contract address", "origin", txCtx.Origin.String(), "caller", caller.String(), "clauseIndex", clauseIndex, "counter", counter, "nonce", txCtx.Nonce)
 			var addr common.Address
 			number := rt.ctx.Number
 			formula := ""
@@ -697,8 +697,8 @@ func (rt *Runtime) newEVM(stateDB *statedb.StateDB, clauseIndex uint32, txCtx *x
 				if meter.IsTeslaFork3(number) {
 					if stateDB.GetCodeHash(caller) == (common.Hash{}) || stateDB.GetCodeHash(caller) == vm.EmptyCodeHash {
 						// caller is EOA
-						if meter.IsTeslaFork10(number) {
-							condition = "> fork10 from EOA caller"
+						if meter.IsTeslaFork11(number) {
+							condition = "> fork11 from EOA caller"
 							formula = "EthCompatible(caller, txNonce+clauseIndex+counter)"
 							logInfo = append(logInfo, "caller", "txNonce", "clauseIndex", "counter")
 							addr = common.Address(meter.EthCreateContractAddress(caller, uint32(txCtx.Nonce)+clauseIndex+counter))

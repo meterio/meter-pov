@@ -145,7 +145,8 @@ func (p *Peer) Duration() mclock.AbsTime {
 }
 
 func (p *Peer) String() string {
-	return fmt.Sprintf("%s(%d)", p.head.id.String(), p.head.totalScore)
+	return meter.Addr2IP(p.Peer.RemoteAddr())
+	// return fmt.Sprintf("%s(%d)", p.head.id.String(), p.head.totalScore)
 }
 
 func (p *Peer) Debug(msg string, ctx ...interface{}) {

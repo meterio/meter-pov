@@ -176,10 +176,8 @@ func (l *BucketList) Add(b *Bucket) {
 }
 
 func (l *BucketList) Remove(id Bytes32) {
-	// fmt.Println("try to remove: ", id.String())
 
 	index, _ := l.indexOf(id)
-	// fmt.Println("INDEX: ", index)
 	if index >= 0 {
 		l.Buckets = append(l.Buckets[:index], l.Buckets[index+1:]...)
 	}

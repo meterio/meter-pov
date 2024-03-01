@@ -133,7 +133,7 @@ func (c *Reactor) Validate(
 	verifyBlockStart := time.Now()
 	stage, receipts, err := c.VerifyBlock(block, state, forceValidate)
 	if err != nil {
-		c.logger.Info("validate block error", "blk", block.ID().ToBlockShortID(), "err", err)
+		c.logger.Error("validate block error", "blk", block.ID().ToBlockShortID(), "err", err)
 		return nil, nil, err
 	}
 	verifyBlockElapsed := time.Since(verifyBlockStart)
