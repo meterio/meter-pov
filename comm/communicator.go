@@ -8,6 +8,7 @@ package comm
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"math"
 	"sort"
 	"strings"
@@ -16,7 +17,6 @@ import (
 
 	"github.com/ethereum/go-ethereum/event"
 	"github.com/ethereum/go-ethereum/p2p"
-	"github.com/inconshreveable/log15"
 	"github.com/meterio/meter-pov/block"
 	"github.com/meterio/meter-pov/chain"
 	"github.com/meterio/meter-pov/co"
@@ -31,7 +31,7 @@ import (
 )
 
 var (
-	log             = log15.New("pkg", "comm")
+	log             = slog.Default().With("pkg", "comm")
 	peersCountGauge = prometheus.NewGauge(prometheus.GaugeOpts{
 		Name: "peers_count",
 		Help: "Count of connected peers",

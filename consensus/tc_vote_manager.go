@@ -2,8 +2,8 @@ package consensus
 
 import (
 	"fmt"
+	"log/slog"
 
-	"github.com/inconshreveable/log15"
 	"github.com/meterio/meter-pov/block"
 	bls "github.com/meterio/meter-pov/crypto/multi_sig"
 	cmn "github.com/meterio/meter-pov/libs/common"
@@ -20,7 +20,7 @@ type TCVoteManager struct {
 	votes         map[timeoutVoteKey]map[uint32]*vote
 	sealed        map[timeoutVoteKey]bool
 	committeeSize uint32
-	logger        log15.Logger
+	logger        *slog.Logger
 }
 
 func NewTCVoteManager(system bls.System, committeeSize uint32) *TCVoteManager {
@@ -29,7 +29,7 @@ func NewTCVoteManager(system bls.System, committeeSize uint32) *TCVoteManager {
 		votes:         make(map[timeoutVoteKey]map[uint32]*vote),
 		sealed:        make(map[timeoutVoteKey]bool), // sealed indicator
 		committeeSize: committeeSize,
-		logger:        log15.New("pkg", "tcman"),
+		logger:        slog.Default().With("pkg", "tcman"),
 	}
 }
 

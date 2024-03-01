@@ -9,6 +9,7 @@ import (
 	crand "crypto/rand"
 	"encoding/binary"
 	"fmt"
+	"log/slog"
 	"math/rand"
 	"sync"
 
@@ -16,7 +17,6 @@ import (
 	"github.com/ethereum/go-ethereum/p2p"
 	"github.com/ethereum/go-ethereum/p2p/enode"
 	lru "github.com/hashicorp/golang-lru"
-	"github.com/inconshreveable/log15"
 	"github.com/meterio/meter-pov/meter"
 	"github.com/meterio/meter-pov/p2psrv/rpc"
 )
@@ -47,7 +47,7 @@ func init() {
 type Peer struct {
 	*p2p.Peer
 	*rpc.RPC
-	logger log15.Logger
+	logger *slog.Logger
 
 	createdTime mclock.AbsTime
 	knownTxs    *lru.Cache
@@ -87,7 +87,7 @@ func newPeer(peer *p2p.Peer, rw p2p.MsgReadWriter, magic [4]byte) (*Peer, string
 	return &Peer{
 		Peer:        peer,
 		RPC:         rpc.New(peer, rw, magic),
-		logger:      log.New(ctx...),
+		logger:      slog.Default().With(ctx...),
 		createdTime: mclock.Now(),
 		knownTxs:    knownTxs,
 		knownBlocks: knownBlocks,

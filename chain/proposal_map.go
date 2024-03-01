@@ -2,8 +2,8 @@ package chain
 
 import (
 	"bytes"
+	"log/slog"
 
-	"github.com/inconshreveable/log15"
 	"github.com/meterio/meter-pov/block"
 	"github.com/meterio/meter-pov/meter"
 )
@@ -11,14 +11,14 @@ import (
 type ProposalMap struct {
 	proposals map[meter.Bytes32]*block.DraftBlock
 	chain     *Chain
-	logger    log15.Logger
+	logger    slog.Logger
 }
 
 func NewProposalMap(c *Chain) *ProposalMap {
 	return &ProposalMap{
 		proposals: make(map[meter.Bytes32]*block.DraftBlock),
 		chain:     c,
-		logger:    log15.New("pkg", "pmap"),
+		logger:    *slog.Default().With("pkg", "pmap"),
 	}
 }
 

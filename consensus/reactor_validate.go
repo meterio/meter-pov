@@ -14,10 +14,9 @@ import (
 	"bytes"
 	"encoding/hex"
 	"fmt"
+	"log/slog"
 	"math/big"
 	"time"
-
-	"github.com/inconshreveable/log15"
 
 	"github.com/pkg/errors"
 
@@ -32,7 +31,7 @@ import (
 	"github.com/meterio/meter-pov/xenv"
 )
 
-var log = log15.New("pkg", "r")
+var log = slog.Default().With("pkg", "r")
 
 // Process process a block.
 func (c *Reactor) ProcessSyncedBlock(blk *block.Block, nowTimestamp uint64) (*state.Stage, tx.Receipts, error) {

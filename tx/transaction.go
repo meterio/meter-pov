@@ -12,6 +12,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"math/big"
 	"strings"
 	"sync/atomic"
@@ -21,7 +22,6 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/rlp"
-	"github.com/inconshreveable/log15"
 	"github.com/meterio/meter-pov/meter"
 	"github.com/meterio/meter-pov/metric"
 	"github.com/meterio/meter-pov/params"
@@ -30,7 +30,7 @@ import (
 var (
 	errIntrinsicGasOverflow = errors.New("intrinsic gas overflow")
 	RESERVED_PREFIX         = []byte{0xee, 0xff}
-	log                     = log15.New("pkg", "tx")
+	log                     = slog.Default().With("test", "tx")
 )
 
 // reference to github.com/ethereum/go-ethereum/

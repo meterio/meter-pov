@@ -9,10 +9,10 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"log/slog"
 	"math/big"
 	"time"
 
-	"github.com/inconshreveable/log15"
 	sqlite3 "github.com/mattn/go-sqlite3"
 	"github.com/meterio/meter-pov/block"
 	"github.com/meterio/meter-pov/meter"
@@ -20,7 +20,7 @@ import (
 )
 
 var (
-	log = log15.New("pkg", "logdb")
+	log = slog.Default().With("pkg", "logdb")
 )
 
 type LogDB struct {

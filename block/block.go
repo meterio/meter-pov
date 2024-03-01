@@ -14,13 +14,13 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"math"
 	"strings"
 	"sync/atomic"
 	"time"
 
 	"github.com/ethereum/go-ethereum/rlp"
-	"github.com/inconshreveable/log15"
 	bls "github.com/meterio/meter-pov/crypto/multi_sig"
 	"github.com/meterio/meter-pov/meter"
 	"github.com/meterio/meter-pov/metric"
@@ -34,7 +34,7 @@ const (
 
 var (
 	BlockMagicVersion1 [4]byte = [4]byte{0x76, 0x01, 0x00, 0x00} // version v.1.0.0
-	log                        = log15.New("pkg", "blk")
+	log                        = slog.Default().With("pkb", "blk")
 )
 
 type Violation struct {

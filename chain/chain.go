@@ -8,12 +8,12 @@ package chain
 import (
 	"bytes"
 	"fmt"
+	"log/slog"
 	"runtime"
 	"sync"
 	"time"
 
 	"github.com/ethereum/go-ethereum/rlp"
-	"github.com/inconshreveable/log15"
 	"github.com/meterio/meter-pov/block"
 	"github.com/meterio/meter-pov/co"
 	"github.com/meterio/meter-pov/kv"
@@ -29,7 +29,7 @@ const (
 )
 
 var (
-	log = log15.New("pkg", "chain")
+	log = slog.Default().With("pkg", "chain")
 )
 
 var ErrNotFound = errors.New("not found")

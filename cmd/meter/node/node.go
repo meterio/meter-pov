@@ -8,6 +8,7 @@ package node
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"runtime"
 	"sort"
 	"time"
@@ -15,7 +16,6 @@ import (
 	"github.com/beevik/ntp"
 	"github.com/ethereum/go-ethereum/common/mclock"
 	"github.com/ethereum/go-ethereum/event"
-	"github.com/inconshreveable/log15"
 	"github.com/meterio/meter-pov/block"
 	"github.com/meterio/meter-pov/cache"
 	"github.com/meterio/meter-pov/chain"
@@ -33,9 +33,8 @@ import (
 	"github.com/pkg/errors"
 )
 
-var log = log15.New("pkg", "node")
-
 var (
+	log          = slog.Default().With("pkg", "node")
 	GlobNodeInst *Node
 )
 

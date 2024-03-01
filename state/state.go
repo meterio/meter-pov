@@ -9,12 +9,12 @@ import (
 	"bytes"
 	"encoding/hex"
 	"fmt"
+	"log/slog"
 	"math/big"
 	"time"
 
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/rlp"
-	"github.com/inconshreveable/log15"
 	"github.com/meterio/meter-pov/kv"
 	"github.com/meterio/meter-pov/meter"
 	"github.com/meterio/meter-pov/stackedmap"
@@ -22,7 +22,7 @@ import (
 )
 
 var (
-	log = log15.New("pkg", "s")
+	log = slog.Default().With("pkg", "state")
 )
 
 // State manages the main accounts trie.

@@ -7,6 +7,7 @@ package p2psrv
 
 import (
 	"fmt"
+	"log/slog"
 	"math"
 	"net"
 	"time"
@@ -15,13 +16,12 @@ import (
 	"github.com/ethereum/go-ethereum/p2p"
 	"github.com/ethereum/go-ethereum/p2p/enode"
 	"github.com/ethereum/go-ethereum/p2p/nat"
-	"github.com/inconshreveable/log15"
 	"github.com/meterio/meter-pov/cache"
 	"github.com/meterio/meter-pov/co"
 	"github.com/meterio/meter-pov/p2psrv/discv5"
 )
 
-var log = log15.New("pkg", "p2psrv")
+var log = slog.Default().With("pkg", "p2psrv")
 
 // Server p2p server wraps ethereum's p2p.Server, and handles discovery v5 stuff.
 type Server struct {
@@ -83,7 +83,7 @@ func (s *Server) Start(protocols []*Protocol) error {
 			if peer.Inbound() {
 				dir = "inbound"
 			}
-			log := log.New("peer", peer, "dir", dir)
+			log := log.With("peer", peer, "dir", dir)
 
 			log.Debug("peer connected")
 			startTime := mclock.Now()
@@ -290,7 +290,7 @@ func (s *Server) dialLoop() {
 				continue
 			}
 
-			log := log.New("node", node)
+			log := log.With("node", node)
 			log.Debug("try to dial node")
 			s.dialingNodes.Add(node)
 			// don't use goes.Go, since the dial process can't be interrupted

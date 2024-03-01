@@ -2,8 +2,8 @@ package debug
 
 import (
 	"fmt"
+	"log/slog"
 
-	"github.com/inconshreveable/log15"
 	"github.com/meterio/meter-pov/meter"
 
 	"github.com/ethereum/go-ethereum/common/math"
@@ -11,7 +11,7 @@ import (
 )
 
 var (
-	log = log15.New("api", "dbug")
+	log = slog.Default().With("api", "debug")
 )
 
 type TracerOption struct {

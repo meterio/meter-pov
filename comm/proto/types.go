@@ -7,9 +7,9 @@ package proto
 
 import (
 	"context"
+	"log/slog"
 
 	"github.com/ethereum/go-ethereum/rlp"
-	"github.com/inconshreveable/log15"
 	"github.com/meterio/meter-pov/block"
 	"github.com/meterio/meter-pov/meter"
 	"github.com/meterio/meter-pov/powpool"
@@ -17,7 +17,7 @@ import (
 )
 
 var (
-	log = log15.New("pkg", "proto")
+	log = slog.Default().With("pkg", "proto")
 )
 
 type (

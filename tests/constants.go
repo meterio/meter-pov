@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/rlp"
-	"github.com/inconshreveable/log15"
 	"github.com/meterio/meter-pov/abi"
 	"github.com/meterio/meter-pov/block"
 	"github.com/meterio/meter-pov/genesis"
@@ -83,7 +82,6 @@ func BuildGenesis(kv kv.GetPutter, proc func(state *state.State) error) *block.B
 }
 
 func InitLogger() {
-	log15.Root().SetHandler(log15.LvlFilterHandler(log15.Lvl(3), log15.StderrHandler))
 }
 
 func BuildAmount(amount int) *big.Int {

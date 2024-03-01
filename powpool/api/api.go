@@ -6,18 +6,18 @@
 package api
 
 import (
+	"log/slog"
 	"net/http"
 
 	"github.com/gorilla/mux"
-	"github.com/inconshreveable/log15"
 	"github.com/meterio/meter-pov/powpool"
 )
 
 var (
-	log = log15.New("pkg", "powpool/api")
+	log = slog.Default().With("pkg", "powpool/api")
 )
 
-//New return api router
+// New return api router
 func New(powPool *powpool.PowPool) (http.HandlerFunc, func()) {
 	router := mux.NewRouter()
 

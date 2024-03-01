@@ -8,10 +8,10 @@ package staking
 import (
 	"errors"
 	"fmt"
+	"log/slog"
 	"math/big"
 	"strings"
 
-	"github.com/inconshreveable/log15"
 	"github.com/meterio/meter-pov/meter"
 	"github.com/meterio/meter-pov/state"
 )
@@ -50,7 +50,7 @@ var (
 	errCandidateNotChanged         = errors.New("candidate not changed")
 	errCandidateNotEnoughSelfVotes = errors.New("candidate's accumulated votes > 100x candidate's own vote")
 
-	log = log15.New("pkg", "staking")
+	log = slog.Default().With("pkg", "staking")
 )
 
 // get the bucket that candidate initialized

@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"log/slog"
 	"math"
 	"math/big"
 	"math/rand"
@@ -20,7 +21,6 @@ import (
 	etypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/rlp"
-	"github.com/inconshreveable/log15"
 	"github.com/meterio/meter-pov/block"
 	"github.com/meterio/meter-pov/chain"
 	"github.com/meterio/meter-pov/consensus"
@@ -53,7 +53,7 @@ var (
 	version   string
 	gitCommit string
 	gitTag    string
-	log       = log15.New()
+	log       = slog.Default()
 	flags     = []cli.Flag{dataDirFlag, networkFlag, revisionFlag}
 
 	defaultTxPoolOptions = txpool.Options{

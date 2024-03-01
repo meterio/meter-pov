@@ -7,12 +7,12 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"log/slog"
 	"net/http"
 	"sync"
 	"time"
 
 	lru "github.com/hashicorp/golang-lru"
-	"github.com/inconshreveable/log15"
 	"github.com/meterio/meter-pov/block"
 )
 
@@ -42,7 +42,7 @@ var (
 
 type OutgoingQueue struct {
 	sync.WaitGroup
-	logger   log15.Logger
+	logger   *slog.Logger
 	queue    chan (OutgoingParcel)
 	clients  map[string]*http.Client
 	outCache *lru.Cache
@@ -51,7 +51,7 @@ type OutgoingQueue struct {
 func NewOutgoingQueue() *OutgoingQueue {
 	outCache, _ := lru.New(1024)
 	return &OutgoingQueue{
-		logger:   log15.New("pkg", "out"),
+		logger:   slog.Default().With("pkg", "out"),
 		queue:    make(chan (OutgoingParcel), 2048),
 		clients:  make(map[string]*http.Client),
 		outCache: outCache,
@@ -88,14 +88,14 @@ func (q *OutgoingQueue) Start(ctx context.Context) {
 }
 
 type outgoingWorker struct {
-	logger  log15.Logger
+	logger  *slog.Logger
 	clients map[string]*http.Client
 	cache   *lru.Cache
 }
 
 func NewOutgoingWorker(num int, cache *lru.Cache) *outgoingWorker {
 	return &outgoingWorker{
-		logger:  log15.New(), //log15.New("pkg", fmt.Sprintf("w%d", num)),
+		logger:  slog.Default(), //slog.Default().With("pkg", fmt.Sprintf("w%d", num)),
 		clients: make(map[string]*http.Client),
 		cache:   cache,
 	}

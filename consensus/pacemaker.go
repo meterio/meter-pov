@@ -9,11 +9,11 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"log/slog"
 	"os"
 	"sync"
 	"time"
 
-	"github.com/inconshreveable/log15"
 	"github.com/meterio/meter-pov/block"
 	"github.com/meterio/meter-pov/chain"
 	"github.com/meterio/meter-pov/meter"
@@ -33,7 +33,7 @@ const (
 
 type Pacemaker struct {
 	reactor *Reactor //global reactor info
-	logger  log15.Logger
+	logger  *slog.Logger
 	chain   *chain.Chain
 
 	// Current round (current_round - highest_qc_round determines the timeout).
@@ -82,7 +82,7 @@ type Pacemaker struct {
 func NewPacemaker(r *Reactor) *Pacemaker {
 	p := &Pacemaker{
 		reactor: r,
-		logger:  log15.New("pkg", "pm"),
+		logger:  slog.Default().With("pkg", "pm"),
 		chain:   r.chain,
 
 		cmdCh:          make(chan PMCmd, 2),

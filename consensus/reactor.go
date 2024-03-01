@@ -17,6 +17,7 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"log/slog"
 	"net"
 	"net/http"
 	"runtime"
@@ -30,7 +31,6 @@ import (
 
 	crypto "github.com/ethereum/go-ethereum/crypto"
 	lru "github.com/hashicorp/golang-lru"
-	"github.com/inconshreveable/log15"
 	"github.com/meterio/meter-pov/block"
 	"github.com/meterio/meter-pov/chain"
 	"github.com/meterio/meter-pov/comm"
@@ -72,7 +72,7 @@ type Reactor struct {
 	chain        *chain.Chain
 	logDB        *logdb.LogDB
 	stateCreator *state.Creator
-	logger       log15.Logger
+	logger       *slog.Logger
 	config       ReactorConfig
 	SyncDone     bool
 
@@ -127,7 +127,7 @@ func NewConsensusReactor(ctx *cli.Context, chain *chain.Chain, logDB *logdb.LogD
 		chain:        chain,
 		logDB:        logDB,
 		stateCreator: state,
-		logger:       log15.New("pkg", "r"),
+		logger:       slog.Default().With("pkg", "r"),
 		SyncDone:     false,
 		magic:        magic,
 		inCommittee:  false,
@@ -247,6 +247,7 @@ func (r *Reactor) sortBootstrapCommitteeByNonce(nonce uint64) {
 // it is used for temp calculate committee set by a given nonce in the fly.
 // also return the committee
 func (r *Reactor) calcCommitteeByNonce(name string, delegates []*types.Delegate, nonce uint64) ([]*types.Delegate, []*types.Validator, uint32, bool) {
+	fmt.Println("calc committee by nonce", name)
 	delegateSize, committeeSize := calcCommitteeSize(len(delegates), r.config)
 	actualDelegates := delegates[:delegateSize]
 
@@ -256,6 +257,7 @@ func (r *Reactor) calcCommitteeByNonce(name string, delegates []*types.Delegate,
 	validators := make([]*types.Validator, 0)
 	for _, d := range actualDelegates {
 		r.logger.Debug("load bls key from delegate", "name", string(d.Name))
+		fmt.Println("checking validator", string(d.Name), d.Address, d.BlsPubKey)
 		v := &types.Validator{
 			Name:           string(d.Name),
 			Address:        d.Address,
@@ -447,7 +449,7 @@ func (r *Reactor) GetConsensusDelegates() ([]*types.Delegate, []*types.Delegate)
 	best := r.chain.BestBlock()
 	stakingDelegates, err := r.getDelegatesFromStaking(best)
 	if err != nil {
-		log.Error("could not get delegate from staking", "best", best.Number())
+		r.logger.Error("could not get delegate from staking", "best", best.Number())
 	}
 
 	return delegates, stakingDelegates

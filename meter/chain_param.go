@@ -7,8 +7,7 @@ package meter
 
 import (
 	"fmt"
-
-	"github.com/inconshreveable/log15"
+	"log/slog"
 )
 
 // chainID
@@ -198,7 +197,7 @@ const (
 
 var (
 	// Genesis hashes to enforce below configs on.
-	log = log15.New("pkg", "meter")
+	log = slog.Default().With("pkg", "meter")
 )
 
 var (

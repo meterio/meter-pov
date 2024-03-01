@@ -6,12 +6,12 @@
 package txpool
 
 import (
+	"log/slog"
 	"sync/atomic"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common/mclock"
 	"github.com/ethereum/go-ethereum/event"
-	"github.com/inconshreveable/log15"
 	"github.com/meterio/meter-pov/block"
 	"github.com/meterio/meter-pov/builtin"
 	"github.com/meterio/meter-pov/chain"
@@ -28,7 +28,7 @@ const (
 )
 
 var (
-	log = log15.New("pkg", "txpool")
+	log = slog.Default().With("pkg", "txpool")
 )
 
 // Options options for tx pool.

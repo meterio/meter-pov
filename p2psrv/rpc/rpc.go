@@ -12,13 +12,13 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 	"fmt"
+	"log/slog"
 	"math/rand"
 	"sync"
 	"time"
 
 	"github.com/ethereum/go-ethereum/p2p"
 	"github.com/ethereum/go-ethereum/rlp"
-	"github.com/inconshreveable/log15"
 	"github.com/meterio/meter-pov/comm/proto"
 	"github.com/meterio/meter-pov/meter"
 	"github.com/pkg/errors"
@@ -48,7 +48,7 @@ const (
 var (
 	errPeerDisconnected = errors.New("peer disconnected")
 	errMsgTooLarge      = errors.New("msg too large")
-	log                 = log15.New("pkg", "rpc")
+	log                 = slog.Default().With("pkg", "rpc")
 )
 
 // HandleFunc to handle received messages from peer.
@@ -61,7 +61,7 @@ type RPC struct {
 	doneCh   chan struct{}
 	pendings map[uint32]*resultListener
 	lock     sync.Mutex
-	logger   log15.Logger
+	logger   *slog.Logger
 	magic    [4]byte
 }
 
@@ -80,7 +80,7 @@ func New(peer *p2p.Peer, rw p2p.MsgReadWriter, magic [4]byte) *RPC {
 		rw:       rw,
 		doneCh:   make(chan struct{}),
 		pendings: make(map[uint32]*resultListener),
-		logger:   log.New(ctx...),
+		logger:   log.With(ctx...),
 		magic:    magic,
 	}
 }

@@ -10,20 +10,19 @@ package genesis
 
 import (
 	"bytes"
+	"log/slog"
 	"math/big"
 	"sort"
 	"strconv"
 
 	"github.com/ethereum/go-ethereum/rlp"
 
-	"github.com/inconshreveable/log15"
-
 	"github.com/meterio/meter-pov/meter"
 	"github.com/meterio/meter-pov/state"
 )
 
 var (
-	log = log15.New("pkg", "genesis")
+	log = slog.Default().With("pkg", "genesis")
 )
 
 // "address", "meter amount", "mterGov amount", "memo", "release epoch"

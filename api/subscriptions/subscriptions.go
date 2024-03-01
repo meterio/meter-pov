@@ -6,16 +6,16 @@
 package subscriptions
 
 import (
+	"log/slog"
 	"net/http"
 	"sync"
 
+	"github.com/gorilla/mux"
+	"github.com/gorilla/websocket"
 	"github.com/meterio/meter-pov/api/utils"
 	"github.com/meterio/meter-pov/block"
 	"github.com/meterio/meter-pov/chain"
 	"github.com/meterio/meter-pov/meter"
-	"github.com/gorilla/mux"
-	"github.com/gorilla/websocket"
-	"github.com/inconshreveable/log15"
 	"github.com/pkg/errors"
 )
 
@@ -32,7 +32,7 @@ type msgReader interface {
 }
 
 var (
-	log = log15.New("pkg", "subscriptions")
+	log = slog.Default().With("api", "sub")
 )
 
 func New(chain *chain.Chain, allowedOrigins []string, backtraceLimit uint32) *Subscriptions {

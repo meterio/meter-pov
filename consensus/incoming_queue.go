@@ -3,11 +3,11 @@ package consensus
 import (
 	sha256 "crypto/sha256"
 	"fmt"
+	"log/slog"
 	"sync"
 	"time"
 
 	lru "github.com/hashicorp/golang-lru"
-	"github.com/inconshreveable/log15"
 	"github.com/meterio/meter-pov/block"
 )
 
@@ -52,7 +52,7 @@ func (m *IncomingMsg) Expired() bool {
 
 type IncomingQueue struct {
 	sync.Mutex
-	logger log15.Logger
+	logger *slog.Logger
 	queue  chan (IncomingMsg)
 	cache  *lru.ARCCache
 }
@@ -63,7 +63,7 @@ func NewIncomingQueue() *IncomingQueue {
 		panic("could not create cache")
 	}
 	return &IncomingQueue{
-		logger: log15.New(), // log15.New("pkg", "in"),
+		logger: slog.Default(), // slog.Default().With("pkg", "in"),
 		queue:  make(chan (IncomingMsg), 1024),
 		cache:  cache,
 	}

@@ -9,7 +9,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/inconshreveable/log15"
 	"github.com/meterio/meter-pov/block"
 	"github.com/meterio/meter-pov/genesis"
 	"github.com/meterio/meter-pov/lvldb"
@@ -21,7 +20,6 @@ import (
 )
 
 func init() {
-	log15.Root().SetHandler(log15.DiscardHandler())
 }
 
 func newPool() *TxPool {

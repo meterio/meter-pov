@@ -10,7 +10,6 @@ import (
 	"strconv"
 
 	"github.com/ethereum/go-ethereum/common/fdlimit"
-	"github.com/inconshreveable/log15"
 	"github.com/meterio/meter-pov/block"
 	"github.com/meterio/meter-pov/chain"
 	"github.com/meterio/meter-pov/genesis"
@@ -22,11 +21,7 @@ import (
 )
 
 func initLogger() {
-	log15.Root().SetHandler(log15.LvlFilterHandler(log15.Lvl(3), log15.StderrHandler))
-	// set go-ethereum log lvl to Info
-	// ethLogHandler := ethlog.NewGlogHandler(ethlog.StreamHandler(os.Stderr, ethlog.TerminalFormat(true)))
-	// ethLogHandler.Verbosity(ethlog.LvlInfo)
-	// ethlog.Root().SetHandler(ethLogHandler)
+
 }
 
 func openLogDB(ctx *cli.Context) *logdb.LogDB {

@@ -6,7 +6,8 @@
 package main
 
 import (
-	"github.com/inconshreveable/log15"
+	"log/slog"
+
 	cli "gopkg.in/urfave/cli.v1"
 )
 
@@ -57,7 +58,7 @@ var (
 	}
 	verbosityFlag = cli.IntFlag{
 		Name:  "verbosity",
-		Value: int(log15.LvlInfo),
+		Value: int(slog.LevelInfo),
 		Usage: "log verbosity (0-9)",
 	}
 	peersFlag = cli.StringSliceFlag{

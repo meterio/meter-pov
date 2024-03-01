@@ -7,8 +7,8 @@ package auction
 
 import (
 	"errors"
+	"log/slog"
 
-	"github.com/inconshreveable/log15"
 	"github.com/meterio/meter-pov/chain"
 	"github.com/meterio/meter-pov/meter"
 	setypes "github.com/meterio/meter-pov/script/types"
@@ -16,21 +16,21 @@ import (
 )
 
 var (
-	log = log15.New("pkg", "auction")
+	log = slog.Default().With("pkg", "auction")
 )
 
 // Candidate indicates the structure of a candidate
 type Auction struct {
 	chain        *chain.Chain
 	stateCreator *state.Creator
-	logger       log15.Logger
+	logger       *slog.Logger
 }
 
 func NewAuction(ch *chain.Chain, sc *state.Creator) *Auction {
 	auction := &Auction{
 		chain:        ch,
 		stateCreator: sc,
-		logger:       log15.New("pkg", "auction"),
+		logger:       slog.Default().With("pkg", "auction"),
 	}
 	return auction
 }

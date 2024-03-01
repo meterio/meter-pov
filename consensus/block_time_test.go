@@ -7,7 +7,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/inconshreveable/log15"
 	"github.com/meterio/meter-pov/block"
 	"github.com/meterio/meter-pov/builtin"
 	"github.com/meterio/meter-pov/chain"
@@ -26,7 +25,6 @@ var (
 )
 
 func initLogger() {
-	log15.Root().SetHandler(log15.LvlFilterHandler(log15.Lvl(3), log15.StderrHandler))
 }
 
 func buildGenesis(kv kv.GetPutter, proc func(state *state.State) error) *block.Block {

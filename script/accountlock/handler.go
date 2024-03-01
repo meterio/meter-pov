@@ -7,8 +7,8 @@ package accountlock
 
 import (
 	"errors"
+	"log/slog"
 
-	"github.com/inconshreveable/log15"
 	"github.com/meterio/meter-pov/chain"
 	"github.com/meterio/meter-pov/meter"
 	setypes "github.com/meterio/meter-pov/script/types"
@@ -17,14 +17,14 @@ import (
 
 var (
 	AccountLockGlobInst *AccountLock
-	log                 = log15.New("pkg", "acctlock")
+	log                 = slog.Default().With("pkg", "acctlock")
 )
 
 // Candidate indicates the structure of a candidate
 type AccountLock struct {
 	chain        *chain.Chain
 	stateCreator *state.Creator
-	logger       log15.Logger
+	logger       *slog.Logger
 }
 
 func GetAccountLockGlobInst() *AccountLock {
@@ -39,7 +39,7 @@ func NewAccountLock(ch *chain.Chain, sc *state.Creator) *AccountLock {
 	AccountLock := &AccountLock{
 		chain:        ch,
 		stateCreator: sc,
-		logger:       log15.New("pkg", "acctlock"),
+		logger:       slog.Default().With("pkg", "accountlock"),
 	}
 	SetAccountLockGlobInst(AccountLock)
 	return AccountLock

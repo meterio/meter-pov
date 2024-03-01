@@ -6,11 +6,11 @@
 package builtin
 
 import (
+	"log/slog"
 	"math/big"
 	"strings"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/inconshreveable/log15"
 	"github.com/meterio/meter-pov/meter"
 	"github.com/meterio/meter-pov/xenv"
 )
@@ -23,7 +23,7 @@ var (
 	nativeBucketOpenEvent, _         = MeterNative_V4_ABI.EventByName("NativeBucketOpen")
 	nativeBucketCloseEvent, _        = MeterNative_V4_ABI.EventByName("NativeBucketClose")
 	nativeBucketTransferFundEvent, _ = MeterNative_V4_ABI.EventByName("NativeBucketTransferFund")
-	log                              = log15.New("pkt", "tracker")
+	log                              = slog.Default().With("pkg", "tracker")
 )
 
 func init() {

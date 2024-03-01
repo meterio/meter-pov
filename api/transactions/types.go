@@ -9,10 +9,10 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"math/big"
 	"strings"
 
-	"github.com/inconshreveable/log15"
 	"github.com/pkg/errors"
 
 	"github.com/meterio/meter-pov/block"
@@ -26,7 +26,7 @@ import (
 )
 
 var (
-	log = log15.New("api", "tx")
+	log = slog.Default().With("api", "tx")
 )
 
 // Clause for json marshal

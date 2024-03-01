@@ -10,9 +10,9 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"log/slog"
 
 	"github.com/ethereum/go-ethereum/rlp"
-	"github.com/inconshreveable/log15"
 	"github.com/meterio/meter-pov/chain"
 	"github.com/meterio/meter-pov/meter"
 	"github.com/meterio/meter-pov/script/accountlock"
@@ -30,7 +30,7 @@ var (
 type ScriptEngine struct {
 	chain        *chain.Chain
 	stateCreator *state.Creator
-	logger       log15.Logger
+	logger       *slog.Logger
 	modReg       Registry
 }
 
@@ -47,7 +47,7 @@ func NewScriptEngine(chain *chain.Chain, state *state.Creator) *ScriptEngine {
 	se := &ScriptEngine{
 		chain:        chain,
 		stateCreator: state,
-		logger:       log15.New("pkg", "script"),
+		logger:       slog.Default().With("pkg", "se"),
 	}
 	SetScriptGlobInst(se)
 

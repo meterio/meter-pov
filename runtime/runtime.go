@@ -8,6 +8,7 @@ package runtime
 import (
 	"encoding/hex"
 	"fmt"
+	"log/slog"
 	"math"
 	"math/big"
 	"strings"
@@ -17,7 +18,6 @@ import (
 	ethabi "github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/inconshreveable/log15"
 	"github.com/meterio/meter-pov/abi"
 	"github.com/meterio/meter-pov/builtin"
 	"github.com/meterio/meter-pov/builtin/metertracker"
@@ -45,7 +45,7 @@ var (
 	MinScriptEngDataLen           int    = 16 //script engine data min size
 
 	EmptyRuntimeBytecode = []byte{0x60, 0x60, 0x60, 0x40, 0x52, 0x60, 0x02, 0x56}
-	log                  = log15.New("pkg", "rt")
+	log                  = slog.Default().With("pkg", "rt")
 )
 
 func init() {
@@ -198,7 +198,7 @@ func (rt *Runtime) LoadERC20NativeCotract() {
 	blockNum := rt.Context().Number
 	addr := builtin.MeterTracker.Address
 	execAddr := builtin.Executor.Address
-	log := log15.New("pkg", "forkNative")
+	log := slog.Default().With("pkg", "forkNative")
 	if meter.IsSysContractEnabled(blockNum) && len(rt.State().GetCode(addr)) == 0 {
 		rt.State().SetCode(addr, builtin.NewMeterNative_BinRuntime)
 		rt.State().SetCode(execAddr, []byte{})
@@ -208,7 +208,7 @@ func (rt *Runtime) LoadERC20NativeCotract() {
 
 func (rt *Runtime) EnforceTelsaFork1_Corrections() {
 	blockNumber := rt.Context().Number
-	log := log15.New("pkg", "fork1")
+	log := slog.Default().With("pkg", "fork1")
 	if blockNumber > 0 && meter.IsMainNet() {
 		// flag is nil or 0, is not do. 1 meas done.
 		enforceFlag := builtin.Params.Native(rt.State()).Get(meter.KeyEnforceTesla1_Correction)
@@ -227,7 +227,7 @@ func (rt *Runtime) EnforceTelsaFork1_Corrections() {
 
 func (rt *Runtime) EnforceTeslaFork5_Corrections() {
 	blockNumber := rt.Context().Number
-	log := log15.New("pkg", "fork5")
+	log := slog.Default().With("pkg", "fork5")
 	if blockNumber > 0 && meter.IsMainNet() {
 		// flag is nil or 0, is not do. 1 meas done.
 		enforceFlag := builtin.Params.Native(rt.State()).Get(meter.KeyEnforceTesla5_Correction)
@@ -262,7 +262,7 @@ func (rt *Runtime) EnforceTeslaFork5_Corrections() {
 
 func (rt *Runtime) EnforceTeslaFork6_Corrections() {
 	blockNumber := rt.Context().Number
-	log := log15.New("pkg", "fork6")
+	log := slog.Default().With("pkg", "fork6")
 	if blockNumber > 0 && meter.IsMainNet() {
 		// flag is nil or 0, is not do. 1 meas done.
 		enforceFlag := builtin.Params.Native(rt.State()).Get(meter.KeyEnforceTesla_Fork6_Correction)
@@ -280,7 +280,7 @@ func (rt *Runtime) EnforceTeslaFork6_Corrections() {
 
 func (rt *Runtime) EnforceTeslaFork8_LiquidStaking(stateDB *statedb.StateDB, blockNum *big.Int) {
 	blockNumber := rt.Context().Number
-	log := log15.New("pkg", "fork8")
+	log := slog.Default().With("pkg", "fork8")
 	if blockNumber > 0 {
 		// flag is nil or 0, is not do. 1 meas done.
 		enforceFlag := builtin.Params.Native(rt.State()).Get(meter.KeyEnforceTesla_Fork8_Correction)
@@ -387,7 +387,7 @@ func (rt *Runtime) EnforceTeslaFork8_LiquidStaking(stateDB *statedb.StateDB, blo
 
 func (rt *Runtime) EnforceTeslaFork9_Corrections(stateDB *statedb.StateDB, blockNum *big.Int) {
 	blockNumber := rt.Context().Number
-	log := log15.New("pkg", "fork9")
+	log := slog.Default().With("pkg", "fork9")
 	if blockNumber > 0 {
 		// flag is nil or 0, is not do. 1 meas done.
 		enforceFlag := builtin.Params.Native(rt.State()).Get(meter.KeyEnforceTesla_Fork9_Correction)
@@ -424,7 +424,7 @@ func (rt *Runtime) EnforceTeslaFork9_Corrections(stateDB *statedb.StateDB, block
 
 func (rt *Runtime) EnforceTeslaFork10_Corrections(stateDB *statedb.StateDB, blockNum *big.Int) {
 	blockNumber := rt.Context().Number
-	log := log15.New("pkg", "fork10")
+	log := slog.Default().With("pkg", "fork10")
 	if blockNumber > 0 {
 		// flag is nil or 0, is not do. 1 meas done.
 		enforceFlag := builtin.Params.Native(rt.State()).Get(meter.KeyEnforceTesla_Fork10_Correction)
@@ -494,7 +494,7 @@ func (rt *Runtime) EnforceTeslaFork10_Corrections(stateDB *statedb.StateDB, bloc
 
 func (rt *Runtime) EnforceTeslaFork11_Corrections(stateDB *statedb.StateDB, blockNum *big.Int, evm *vm.EVM) {
 	blockNumber := rt.Context().Number
-	log := log15.New("pkg", "fork11")
+	log := slog.Default().With("pkg", "fork11")
 	if blockNumber > 0 {
 		// flag is nil or 0, is not do. 1 meas done.
 		enforceFlag := builtin.Params.Native(rt.State()).Get(meter.KeyEnforceTesla_Fork11_Correction)

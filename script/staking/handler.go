@@ -8,10 +8,10 @@ package staking
 import (
 	"encoding/base64"
 	"errors"
+	"log/slog"
 	"strings"
 
 	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/inconshreveable/log15"
 	"github.com/meterio/meter-pov/abi"
 	"github.com/meterio/meter-pov/builtin"
 	"github.com/meterio/meter-pov/chain"
@@ -29,7 +29,7 @@ var (
 type Staking struct {
 	chain        *chain.Chain
 	stateCreator *state.Creator
-	logger       log15.Logger
+	logger       *slog.Logger
 }
 
 func InTimeSpan(ts, now, span uint64) bool {
@@ -58,7 +58,7 @@ func NewStaking(ch *chain.Chain, sc *state.Creator) *Staking {
 	staking := &Staking{
 		chain:        ch,
 		stateCreator: sc,
-		logger:       log15.New("pkg", "staking"),
+		logger:       slog.Default().With("pkg", "staking"),
 	}
 	return staking
 }

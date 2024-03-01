@@ -7,16 +7,15 @@ package vesting
 
 import (
 	"fmt"
+	"log/slog"
 	"math/big"
-
-	"github.com/inconshreveable/log15"
 
 	"github.com/meterio/meter-pov/meter"
 )
 
 var (
 	VestPlanMap *planMap
-	log         = log15.New("pkg", "vesting")
+	log         = slog.Default().With("pkg", "vesting")
 )
 
 type VestPlan struct {

@@ -12,6 +12,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io/ioutil"
+	"log/slog"
 	"math/rand"
 	"net"
 	"net/http"
@@ -25,7 +26,6 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/p2p/enode"
 	"github.com/ethereum/go-ethereum/p2p/nat"
-	"github.com/inconshreveable/log15"
 	api_node "github.com/meterio/meter-pov/api/node"
 	api_utils "github.com/meterio/meter-pov/api/utils"
 	"github.com/meterio/meter-pov/chain"
@@ -53,13 +53,24 @@ var (
 	consensusMagic [4]byte
 )
 
+type Leveler struct {
+	level slog.Level
+}
+
+func NewLeveler(level int) *Leveler {
+	return &Leveler{level: slog.Level(level)}
+}
+
+func (l *Leveler) Level() slog.Level {
+	return l.level
+}
+
 func initLogger(ctx *cli.Context) {
 	logLevel := ctx.Int(verbosityFlag.Name)
-	log15.Root().SetHandler(log15.LvlFilterHandler(log15.Lvl(logLevel), log15.StderrHandler))
-	// set go-ethereum log lvl to Warn
-	// ethLogHandler := ethlog.NewGlogHandler(ethlog.StreamHandler(os.Stderr, ethlog.TerminalFormat(true)))
-	// ethLogHandler.Verbosity(ethlog.LvlWarn)
-	// ethlog.Root().SetHandler(ethLogHandler)
+	h := slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{
+		Level: NewLeveler(logLevel),
+	})
+	slog.SetDefault(slog.New(h))
 }
 
 func selectGenesis(ctx *cli.Context) *genesis.Genesis {

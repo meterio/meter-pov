@@ -9,13 +9,13 @@ import (
 	"bytes"
 	"encoding/base64"
 	"encoding/hex"
+	"log/slog"
 	"math/big"
 
 	"github.com/btcsuite/btcd/wire"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/common/math"
-	"github.com/inconshreveable/log15"
 	"github.com/meterio/meter-pov/block"
 	"github.com/meterio/meter-pov/meter"
 	"github.com/meterio/meter-pov/powpool"
@@ -23,7 +23,7 @@ import (
 )
 
 var (
-	log = log15.New("api", "blk")
+	log = slog.Default().With("api", "block")
 )
 
 type JSONBlockSummary struct {

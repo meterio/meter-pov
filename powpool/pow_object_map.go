@@ -8,16 +8,16 @@ package powpool
 import (
 	"errors"
 	"fmt"
+	"log/slog"
 	"math/big"
 	"sync"
 
 	"github.com/btcsuite/btcd/blockchain"
-	"github.com/inconshreveable/log15"
 	"github.com/meterio/meter-pov/meter"
 )
 
 var (
-	log                           = log15.New("pkg", "powpool")
+	log                           = slog.Default().With("pkg", "powpool")
 	ErrIncompletePowBlocksInEpoch = errors.New("incomplete pow blocks in epoch")
 )
 
