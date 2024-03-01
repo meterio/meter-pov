@@ -1078,7 +1078,7 @@ func (rt *Runtime) ExecuteTransaction(tx *tx.Transaction) (receipt *tx.Receipt, 
 	// fmt.Println("RECEIPT: ", receipt)
 	finalizeElapsed := time.Since(finalizeStart)
 	if time.Since(start) > time.Millisecond {
-		rt.logger.Info(fmt.Sprintf("slow executed tx %s", tx.ID()), "totalElapsed", meter.PrettyDuration(time.Since(start)), "prepare", meter.PrettyDuration(prepareElapsed), "exec", meter.PrettyDuration(execElapsed), "seChange", meter.PrettyDuration(seChangeElapsed), "finalize", meter.PrettyDuration(finalizeElapsed))
+		rt.logger.Debug(fmt.Sprintf("slow executed tx %s", tx.ID()), "totalElapsed", meter.PrettyDuration(time.Since(start)), "prepare", meter.PrettyDuration(prepareElapsed), "exec", meter.PrettyDuration(execElapsed), "seChange", meter.PrettyDuration(seChangeElapsed), "finalize", meter.PrettyDuration(finalizeElapsed))
 	}
 	return
 }

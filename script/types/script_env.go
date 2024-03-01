@@ -158,18 +158,18 @@ func (env *ScriptEnv) AddNativeBucketCloseEvent(owner meter.Address, bucketID me
 
 func (env *ScriptEnv) AddNativeBucketDepositEvent(owner meter.Address, bucketID meter.Bytes32, amount *big.Int, token byte) {
 
-	fmt.Println("Pack NativeBucketDeposit event")
+	// fmt.Println("Pack NativeBucketDeposit event")
 	evt := nativeBucketDepositEvent
 	topics := []meter.Bytes32{evt.ID(), meter.BytesToBytes32(owner[:])}
 
 	tokenInt := big.NewInt(int64(token))
-	fmt.Printf("topics: %x %x\n", topics[0], topics[1])
-	fmt.Println("bucketID: ", bucketID)
-	fmt.Println("amount: ", amount)
-	fmt.Println("token: ", tokenInt)
+	// fmt.Printf("topics: %x %x\n", topics[0], topics[1])
+	// fmt.Println("bucketID: ", bucketID)
+	// fmt.Println("amount: ", amount)
+	// fmt.Println("token: ", tokenInt)
 
 	data, err := evt.Encode(bucketID, amount, tokenInt)
-	fmt.Println("data: %x \n", data)
+	// fmt.Println("data: %x \n", data)
 	if err != nil {
 		fmt.Println("could not encode data for:", evt.Name(), err)
 	}

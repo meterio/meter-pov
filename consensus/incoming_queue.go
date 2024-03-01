@@ -99,10 +99,10 @@ func (q *IncomingQueue) Add(mi IncomingMsg) error {
 	// instead of drop the latest message, drop the oldest one in front of queue
 	for len(q.queue) >= cap(q.queue) {
 		dropped := <-q.queue
-		q.logger.Warn(fmt.Sprintf("dropped %s due to cap", dropped.Msg.String())) // , "from", dropped.Peer)
+		q.logger.Warn(fmt.Sprintf("dropped %s due to cap", dropped.Msg.String()), "from", dropped.Peer.String())
 	}
 
-	q.logger.Info(fmt.Sprintf("recv %s", mi.Msg.String())) // "from", mi.Peer)
+	q.logger.Info(fmt.Sprintf("recv %s", mi.Msg.String()), "from", mi.Peer.String())
 	mi.EnqueueAt = time.Now()
 	mi.ExpireAt = time.Now().Add(IN_QUEUE_TTL)
 	q.queue <- mi

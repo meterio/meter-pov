@@ -6,6 +6,7 @@
 package node
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"log/slog"
@@ -135,7 +136,7 @@ func (n *Node) handleBlockStream(ctx context.Context, stream <-chan *block.Escor
 	for blk = range stream {
 		n.logger.Debug("handle block", "block", blk.Block.ID().ToBlockShortID())
 		if isTrunk, err := n.processBlock(blk.Block, blk.EscortQC, &stats); err != nil {
-			n.logger.Error("process block failed", "id", blk.Block.ID(), "err", err)
+			n.logger.Error("process block failed", "id", blk.Block.ID(), "err", err.Error())
 			return err
 		} else if isTrunk {
 			// this processBlock happens after consensus SyncDone, need to broadcast
@@ -289,6 +290,10 @@ func (n *Node) processBlock(blk *block.Block, escortQC *block.QuorumCert, stats 
 	startTime := mclock.Now()
 	now := uint64(time.Now().Unix())
 
+	best := n.chain.BestBlock()
+	if !bytes.Equal(best.ID().Bytes(), blk.ParentID().Bytes()) {
+		return false, errors.New("could not extend best block")
+	}
 	if blk.Timestamp()+meter.BlockInterval > now {
 		QCValid := n.reactor.ValidateQC(blk, escortQC)
 		if !QCValid {
@@ -298,7 +303,7 @@ func (n *Node) processBlock(blk *block.Block, escortQC *block.QuorumCert, stats 
 	start := time.Now()
 	stage, receipts, err := n.reactor.ProcessSyncedBlock(blk, now)
 	if time.Since(start) > time.Millisecond*500 {
-		n.logger.Info("slow processed block", "blk", blk.Number(), "elapsed", meter.PrettyDuration(time.Since(start)))
+		n.logger.Debug("slow processed block", "blk", blk.Number(), "elapsed", meter.PrettyDuration(time.Since(start)))
 	}
 
 	if err != nil {

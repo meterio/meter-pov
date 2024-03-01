@@ -84,7 +84,7 @@ func (c *Communicator) handleRPC(peer *Peer, msg *p2p.Msg, write func(interface{
 		}
 		var result []rlp.RawValue
 
-		c.logger.Info(fmt.Sprintf(`call in: GetBlockByID(%s) from %s`, blockID.ToBlockShortID(), meter.Addr2IP(peer.RemoteAddr())))
+		c.logger.Debug(fmt.Sprintf(`call in: GetBlockByID(%s) from %s`, blockID.ToBlockShortID(), meter.Addr2IP(peer.RemoteAddr())))
 		blk, err := c.chain.GetBlock(blockID)
 		if err != nil {
 			if !c.chain.IsNotFound(err) {
@@ -118,7 +118,7 @@ func (c *Communicator) handleRPC(peer *Peer, msg *p2p.Msg, write func(interface{
 			return errors.WithMessage(err, "decode msg")
 		}
 
-		c.logger.Info(fmt.Sprintf(`call in: GetBlockIDByNumber(%v) from %s`, num, meter.Addr2IP(peer.RemoteAddr())))
+		c.logger.Debug(fmt.Sprintf(`call in: GetBlockIDByNumber(%v) from %s`, num, meter.Addr2IP(peer.RemoteAddr())))
 		id, err := c.chain.GetTrunkBlockID(num)
 		if err != nil {
 			if !c.chain.IsNotFound(err) {
@@ -136,7 +136,7 @@ func (c *Communicator) handleRPC(peer *Peer, msg *p2p.Msg, write func(interface{
 			return errors.WithMessage(err, "decode msg")
 		}
 
-		c.logger.Info(fmt.Sprintf(`call in: GetBlocksFromNumber(%v) from %s`, num, meter.Addr2IP(peer.RemoteAddr())))
+		c.logger.Debug(fmt.Sprintf(`call in: GetBlocksFromNumber(%v) from %s`, num, meter.Addr2IP(peer.RemoteAddr())))
 		const maxBlocks = 1024
 		const maxSize = 512 * 1024
 		result := make([]rlp.RawValue, 0, maxBlocks)

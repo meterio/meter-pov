@@ -75,11 +75,11 @@ func GetBlockByID(ctx context.Context, rpc RPC, id meter.Bytes32) (rlp.RawValue,
 	var result []rlp.RawValue
 	if err := rpc.Call(ctx, MsgGetBlockByID, id, &result); err != nil {
 
-		rpc.Warn("GetBlockByID failed", "id", id, "err", err)
+		rpc.Debug("GetBlockByID failed", "id", id, "err", err)
 		return nil, err
 	}
 	if len(result) == 0 {
-		rpc.Warn("GetBlockByID empty", "id", id)
+		rpc.Debug("GetBlockByID empty", "id", id)
 		return nil, nil
 	}
 	rpc.Debug("GetBlockByID success", "id", id)
@@ -90,7 +90,7 @@ func GetBlockByID(ctx context.Context, rpc RPC, id meter.Bytes32) (rlp.RawValue,
 func GetBlockIDByNumber(ctx context.Context, rpc RPC, num uint32) (meter.Bytes32, error) {
 	var id meter.Bytes32
 	if err := rpc.Call(ctx, MsgGetBlockIDByNumber, num, &id); err != nil {
-		rpc.Warn("GetBlockIDByNumber failed", "err", err)
+		rpc.Debug("GetBlockIDByNumber failed", "err", err)
 		return meter.Bytes32{}, err
 	}
 	rpc.Debug("GetBlockIDByNumber success", "id", id)

@@ -52,7 +52,7 @@ func (c *Communicator) download(peer *Peer, fromNum uint32, handler HandleBlockS
 				return
 			}
 			if len(result) > 0 {
-				c.logger.Info("Got Block", "len", len(result), "fromBlock", fromNum, "peer", peer.RemoteAddr().String(), "elapsed", meter.PrettyDuration(time.Since(start)))
+				c.logger.Info(fmt.Sprintf("downloaded blocks(%d) from %d", len(result), fromNum), "peer", peer.String(), "elapsed", meter.PrettyDuration(time.Since(start)))
 			}
 			if len(result) == 0 {
 				return

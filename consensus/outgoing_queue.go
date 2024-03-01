@@ -66,7 +66,7 @@ func (q *OutgoingQueue) Add(to ConsensusPeer, msg block.ConsensusMessage, rawMsg
 		return
 	}
 
-	q.logger.Debug(fmt.Sprintf("add %s msg to out queue", msg.GetType()), "to", to, "len", len(q.queue), "cap", cap(q.queue))
+	q.logger.Debug(fmt.Sprintf("add %s msg to out queue", msg.GetType()), "to", to.String(), "len", len(q.queue), "cap", cap(q.queue))
 	for len(q.queue) >= cap(q.queue) {
 		p := <-q.queue
 		q.logger.Info(fmt.Sprintf(`%s msg dropped due to cap ...`, p.msgType))

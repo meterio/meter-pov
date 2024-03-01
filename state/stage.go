@@ -137,9 +137,10 @@ func (s *Stage) Commit() (meter.Bytes32, error) {
 	trCache.Add(root, s.accountTrie, s.kv)
 	atrieElapsed := time.Since(atrieStart)
 
-	slog.Debug("commit stage", "root", root, "len", batch.Len(), "strie", meter.PrettyDuration(strieElapsed), "atrie", meter.PrettyDuration(atrieElapsed), "totalElapsed", meter.PrettyDuration(time.Since(start)))
 	if time.Since(start) > time.Millisecond {
-		slog.Info("slow commited stage", "root", root, "strie", meter.PrettyDuration(strieElapsed), "atrie", meter.PrettyDuration(atrieElapsed), "totalElapsed", meter.PrettyDuration(time.Since(start)))
+		slog.Debug("slow commited stage", "root", root, "strie", meter.PrettyDuration(strieElapsed), "atrie", meter.PrettyDuration(atrieElapsed), "totalElapsed", meter.PrettyDuration(time.Since(start)))
+	} else {
+		slog.Debug("commit stage", "root", root, "len", batch.Len(), "strie", meter.PrettyDuration(strieElapsed), "atrie", meter.PrettyDuration(atrieElapsed), "totalElapsed", meter.PrettyDuration(time.Since(start)))
 	}
 	return root, nil
 }

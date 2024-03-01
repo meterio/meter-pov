@@ -257,7 +257,7 @@ func (r *Reactor) calcCommitteeByNonce(name string, delegates []*types.Delegate,
 	validators := make([]*types.Validator, 0)
 	for _, d := range actualDelegates {
 		r.logger.Debug("load bls key from delegate", "name", string(d.Name))
-		fmt.Println("checking validator", string(d.Name), d.Address, d.BlsPubKey)
+		// fmt.Println("checking validator", string(d.Name), d.Address, d.BlsPubKey)
 		v := &types.Validator{
 			Name:           string(d.Name),
 			Address:        d.Address,
@@ -715,7 +715,7 @@ func (r *Reactor) ValidateQC(b *block.Block, escortQC *block.QuorumCert) bool {
 			validQCs.Add(qcID, true)
 			return true
 		}
-		r.logger.Error(fmt.Sprintf("validate %s with last committee FAILED", escortQC.CompactString()), "size", len(r.lastCommittee), "err", err)
+		r.logger.Warn(fmt.Sprintf("validate %s with last committee FAILED", escortQC.CompactString()), "size", len(r.lastCommittee), "err", err)
 
 	}
 	if b.IsKBlock() && b.Number() > 0 && b.Number() >= r.chain.BestBlock().Number() && meter.IsStaging() {
@@ -727,7 +727,7 @@ func (r *Reactor) ValidateQC(b *block.Block, escortQC *block.QuorumCert) bool {
 			validQCs.Add(qcID, true)
 			return true
 		}
-		r.logger.Error(fmt.Sprintf("validate %s with last staging committee FAILED", escortQC.CompactString()), "size", len(r.lastCommittee), "err", err)
+		r.logger.Warn(fmt.Sprintf("validate %s with last staging committee FAILED", escortQC.CompactString()), "size", len(r.lastCommittee), "err", err)
 	}
 	if escortQC.VoterBitArray().Size() == len(r.bootstrapCommittee11) {
 		// validate with bootstrap committee of size 11
@@ -738,7 +738,7 @@ func (r *Reactor) ValidateQC(b *block.Block, escortQC *block.QuorumCert) bool {
 			validQCs.Add(qcID, true)
 			return true
 		}
-		r.logger.Error(fmt.Sprintf("validate %s with bootstrap committee size 11 FAILED", escortQC.CompactString()), "err", err)
+		r.logger.Warn(fmt.Sprintf("validate %s with bootstrap committee size 11 FAILED", escortQC.CompactString()), "err", err)
 	}
 	if escortQC.VoterBitArray().Size() == len(r.bootstrapCommittee5) {
 		// validate with bootstrap committee of size 5
@@ -749,7 +749,7 @@ func (r *Reactor) ValidateQC(b *block.Block, escortQC *block.QuorumCert) bool {
 			validQCs.Add(qcID, true)
 			return true
 		}
-		r.logger.Error(fmt.Sprintf("validate %s with bootstrap committee size 5 FAILED", escortQC.CompactString()), "err", err)
+		r.logger.Warn(fmt.Sprintf("validate %s with bootstrap committee size 5 FAILED", escortQC.CompactString()), "err", err)
 	}
 
 	if r.delegateSource != fromStaking && escortQC.VoterBitArray().Size() == len(r.hardCommittee) {
@@ -761,7 +761,7 @@ func (r *Reactor) ValidateQC(b *block.Block, escortQC *block.QuorumCert) bool {
 			validQCs.Add(qcID, true)
 			return true
 		}
-		r.logger.Error(fmt.Sprintf("validate %s with hard committee FAILED", escortQC.CompactString()), "err", err)
+		r.logger.Warn(fmt.Sprintf("validate %s with hard committee FAILED", escortQC.CompactString()), "err", err)
 	}
 
 	// validate with current committee
@@ -776,7 +776,7 @@ func (r *Reactor) ValidateQC(b *block.Block, escortQC *block.QuorumCert) bool {
 		validQCs.Add(qcID, true)
 		return true
 	}
-	r.logger.Error(fmt.Sprintf("validate %s FAILED", escortQC.CompactString()), "err", err, "committeeSize", len(r.committee))
+	r.logger.Warn(fmt.Sprintf("validate %s FAILED", escortQC.CompactString()), "err", err, "committeeSize", len(r.committee))
 	return false
 }
 
@@ -799,13 +799,13 @@ func (r *Reactor) peakCommittee(committee []*types.Validator) string {
 }
 
 func (r *Reactor) PrintCommittee() {
-	fmt.Printf("Current Committee (%d):\n%s\n", len(r.committee), r.peakCommittee(r.committee))
+	fmt.Printf("* Current Committee (%d):\n%s\n\n", len(r.committee), r.peakCommittee(r.committee))
 
 	if r.delegateSource != fromStaking {
-		fmt.Printf("Hard Committee (%d):\n%s\n", len(r.hardCommittee), r.peakCommittee(r.hardCommittee))
+		fmt.Printf("Hard Committee (%d):\n%s\n\n", len(r.hardCommittee), r.peakCommittee(r.hardCommittee))
 	}
 
-	fmt.Printf("Last Committee (%d):\n%s\n", len(r.lastCommittee), r.peakCommittee(r.lastCommittee))
+	fmt.Printf("Last Committee (%d):\n%s\n\n", len(r.lastCommittee), r.peakCommittee(r.lastCommittee))
 
 	// fmt.Println("Bootstrap11 Committee:\n" + r.peakCommittee(r.bootstrapCommittee11))
 }
