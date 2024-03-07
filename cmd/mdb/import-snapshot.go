@@ -5,18 +5,20 @@ import (
 	"encoding/gob"
 	"encoding/hex"
 	"fmt"
+	"log/slog"
+	"os"
+
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/meterio/meter-pov/meter"
 	"github.com/meterio/meter-pov/trie"
 	"gopkg.in/urfave/cli.v1"
-	"os"
 )
 
 func importSnapshotAction(ctx *cli.Context) error {
 	initLogger()
 
 	mainDB, gene := openMainDB(ctx)
-	defer func() { log.Info("closing main database..."); mainDB.Close() }()
+	defer func() { slog.Info("closing main database..."); mainDB.Close() }()
 
 	meterChain := initChain(ctx, gene, mainDB)
 
@@ -34,7 +36,7 @@ func importSnapshotAction(ctx *cli.Context) error {
 	// -----------------------------------------
 	dat, err := os.ReadFile(prefix + ".db")
 	if err != nil {
-		log.Error("os ReadFile", "err", err)
+		slog.Error("os ReadFile", "err", err)
 		return err
 	}
 	buf := bytes.NewBuffer(dat)
@@ -43,13 +45,13 @@ func importSnapshotAction(ctx *cli.Context) error {
 	ss := &trie.StateSnapshot{}
 	err = dec.Decode(&ss)
 	if err != nil {
-		log.Error("gob Decoder Decode", "err", err)
+		slog.Error("gob Decoder Decode", "err", err)
 		return err
 	}
 
 	accountTrie, err := trie.New(meter.Bytes32{}, mainDB)
 	if err != nil {
-		log.Error("build accountTrie", "err", err)
+		slog.Error("build accountTrie", "err", err)
 		return err
 	}
 
@@ -73,23 +75,23 @@ func importSnapshotAction(ctx *cli.Context) error {
 			}
 
 			storageTrieHash := storageTrie.Hash()
-			log.Info("StorageRoot diff", "build", storageTrieHash, "snap", meter.BytesToBytes32(stateAcc.StorageRoot))
+			slog.Info("StorageRoot diff", "build", storageTrieHash, "snap", meter.BytesToBytes32(stateAcc.StorageRoot))
 
 			if commit {
 				_, err = storageTrie.Commit()
 				if err != nil {
-					log.Error("StorageTrie Commit", "err", err)
+					slog.Error("StorageTrie Commit", "err", err)
 				}
 			}
 		}
 	}
 
 	accountTrieHash := accountTrie.Hash()
-	log.Info("StateRoot diff", "blkNumber", blkNumber, "local", blk.StateRoot(), "snap", accountTrieHash)
+	slog.Info("StateRoot diff", "blkNumber", blkNumber, "local", blk.StateRoot(), "snap", accountTrieHash)
 	if commit {
 		_, err = accountTrie.Commit()
 		if err != nil {
-			log.Error("AccountTrie Commit", "err", err)
+			slog.Error("AccountTrie Commit", "err", err)
 		}
 	}
 

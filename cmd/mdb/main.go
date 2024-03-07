@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"log/slog"
 	"math"
 	"math/big"
 	"math/rand"
@@ -52,7 +53,6 @@ var (
 	version   string
 	gitCommit string
 	gitTag    string
-	log       = slog
 	flags     = []cli.Flag{dataDirFlag, networkFlag, revisionFlag}
 
 	defaultTxPoolOptions = txpool.Options{
@@ -234,7 +234,7 @@ func defaultAction(ctx *cli.Context) error {
 
 func traverseStateAction(ctx *cli.Context) error {
 	mainDB, gene := openMainDB(ctx)
-	defer func() { log.Info("closing main database..."); mainDB.Close() }()
+	defer func() { slog.Info("closing main database..."); mainDB.Close() }()
 
 	meterChain := initChain(ctx, gene, mainDB)
 
@@ -252,29 +252,29 @@ func traverseStateAction(ctx *cli.Context) error {
 		start      = time.Now()
 		t, _       = trie.New(blk.StateRoot(), mainDB)
 	)
-	log.Info("Start to traverse trie", "block", blk.Number(), "stateRoot", blk.StateRoot())
+	slog.Info("Start to traverse trie", "block", blk.Number(), "stateRoot", blk.StateRoot())
 	iter := t.NodeIterator(nil)
 	for iter.Next(true) {
 		nodes += 1
 		if iter.Leaf() {
 			raw, err := mainDB.Get(iter.LeafKey())
 			if err != nil {
-				log.Error("Failed to load account leaf", "root", iter.LeafKey(), "err", err)
+				slog.Error("Failed to load account leaf", "root", iter.LeafKey(), "err", err)
 				return err
 			}
 
-			// log.Info("Account Leaf", "key", hex.EncodeToString(iter.LeafKey()), "val", hex.EncodeToString(iter.LeafBlob()), "raw", hex.EncodeToString(raw), "parent", iter.Parent(), "path", hex.EncodeToString(iter.Path()))
+			// slog.Info("Account Leaf", "key", hex.EncodeToString(iter.LeafKey()), "val", hex.EncodeToString(iter.LeafBlob()), "raw", hex.EncodeToString(raw), "parent", iter.Parent(), "path", hex.EncodeToString(iter.Path()))
 			var acc state.Account
 			if err := rlp.DecodeBytes(iter.LeafBlob(), &acc); err != nil {
-				log.Error("Invalid account encountered during traversal", "err", err)
+				slog.Error("Invalid account encountered during traversal", "err", err)
 				return err
 			}
 			addr := meter.BytesToAddress(raw)
-			log.Info("Visit account", "addr", addr, "raw", hex.EncodeToString(raw))
+			slog.Info("Visit account", "addr", addr, "raw", hex.EncodeToString(raw))
 			if !bytes.Equal(acc.StorageRoot, []byte{}) {
 				storageTrie, err := trie.New(meter.BytesToBytes32(acc.StorageRoot), mainDB)
 				if err != nil {
-					log.Error("Failed to open storage trie", "root", acc.StorageRoot, "err", err)
+					slog.Error("Failed to open storage trie", "root", acc.StorageRoot, "err", err)
 					return err
 				}
 				storageIter := storageTrie.NodeIterator(nil)
@@ -285,54 +285,54 @@ func traverseStateAction(ctx *cli.Context) error {
 						slots += 1
 						_, err := mainDB.Get(storageIter.LeafKey())
 						if err != nil {
-							log.Error("Failed to read storage leaf", "hash", storageIter.Hash(), "err", err)
+							slog.Error("Failed to read storage leaf", "hash", storageIter.Hash(), "err", err)
 							return err
 						}
-						// log.Info("Storage Leaf", "addr", addr, "key", hex.EncodeToString(storageIter.LeafKey()), "parent", storageIter.Parent(), "val", hex.EncodeToString(storageIter.LeafBlob()), "raw", hex.EncodeToString(raw))
+						// slog.Info("Storage Leaf", "addr", addr, "key", hex.EncodeToString(storageIter.LeafKey()), "parent", storageIter.Parent(), "val", hex.EncodeToString(storageIter.LeafBlob()), "raw", hex.EncodeToString(raw))
 
 					} else {
 						_, err := mainDB.Get(storageIter.Hash().Bytes())
 						if err != nil {
 							if storageIter.Hash().String() != "0x0000000000000000000000000000000000000000000000000000000000000000" {
-								log.Error("Failed to read storage branch", "hash", storageIter.Hash(), "err", err)
+								slog.Error("Failed to read storage branch", "hash", storageIter.Hash(), "err", err)
 								return err
 							}
 						}
-						// log.Info("Storage Branch", "addr", addr, "hash", storageIter.Hash(), "val", hex.EncodeToString(raw), "parent", storageIter.Parent())
+						// slog.Info("Storage Branch", "addr", addr, "hash", storageIter.Hash(), "val", hex.EncodeToString(raw), "parent", storageIter.Parent())
 					}
 				}
 				if storageIter.Error() != nil {
-					log.Error("Failed to traverse storage trie", "root", acc.StorageRoot, "err", storageIter.Error())
+					slog.Error("Failed to traverse storage trie", "root", acc.StorageRoot, "err", storageIter.Error())
 					return storageIter.Error()
 				}
 			}
 			if !bytes.Equal(acc.CodeHash, []byte{}) {
 				if !HasCode(mainDB, meter.BytesToBytes32(acc.CodeHash)) {
-					log.Error("Code is missing", "hash", meter.BytesToBytes32(acc.CodeHash))
+					slog.Error("Code is missing", "hash", meter.BytesToBytes32(acc.CodeHash))
 					return errors.New("missing code")
 				}
 				codes += 1
 			}
 		} else {
 			raw, _ := mainDB.Get(iter.Hash().Bytes())
-			log.Info("Branch Node", "hash", iter.Hash(), "val", hex.EncodeToString(raw), "parent", iter.Parent())
+			slog.Info("Branch Node", "hash", iter.Hash(), "val", hex.EncodeToString(raw), "parent", iter.Parent())
 		}
 		if time.Since(lastReport) > time.Second*8 {
-			log.Info("Still traversing", "nodes", nodes, "accounts", accounts, "snodes", snodes, "slots", slots, "codes", codes, "elapsed", meter.PrettyDuration(time.Since(start)))
+			slog.Info("Still traversing", "nodes", nodes, "accounts", accounts, "snodes", snodes, "slots", slots, "codes", codes, "elapsed", meter.PrettyDuration(time.Since(start)))
 			lastReport = time.Now()
 		}
 	}
 	if iter.Error() != nil {
-		log.Error("Failed to traverse state trie", "root", blk.StateRoot(), "err", iter.Error())
+		slog.Error("Failed to traverse state trie", "root", blk.StateRoot(), "err", iter.Error())
 		return iter.Error()
 	}
-	log.Info("Traverse completed", "nodes", nodes, "accounts", accounts, "snodes", snodes, "slots", slots, "codes", codes, "elapsed", meter.PrettyDuration(time.Since(start)))
+	slog.Info("Traverse completed", "nodes", nodes, "accounts", accounts, "snodes", snodes, "slots", slots, "codes", codes, "elapsed", meter.PrettyDuration(time.Since(start)))
 	return nil
 }
 
 func traverseIndexAction(ctx *cli.Context) error {
 	mainDB, _ := openMainDB(ctx)
-	defer func() { log.Info("closing main database..."); mainDB.Close() }()
+	defer func() { slog.Info("closing main database..."); mainDB.Close() }()
 
 	root := meter.MustParseBytes32(ctx.String(rootFlag.Name))
 
@@ -349,35 +349,35 @@ func traverseIndexAction(ctx *cli.Context) error {
 		lastReport time.Time
 		start      = time.Now()
 	)
-	log.Info("Start to traverse trie", "root", root)
+	slog.Info("Start to traverse trie", "root", root)
 	iter := trieRoot.NodeIterator(nil)
 	for iter.Next(true) {
 		nodes += 1
 		if iter.Leaf() {
 			leafs += 1
 			// key := ReadTrieNode(mainDB, meter.BytesToBytes32(iter.LeafKey()))
-			// log.Info("Storage Leaf", "keyHash", hex.EncodeToString(iter.LeafKey()), "key", hex.EncodeToString(key), "hash", iter.Hash().String(), "val", hex.EncodeToString(iter.LeafBlob()), "parent", iter.Parent(), "path", hex.EncodeToString(iter.Path()))
+			// slog.Info("Storage Leaf", "keyHash", hex.EncodeToString(iter.LeafKey()), "key", hex.EncodeToString(key), "hash", iter.Hash().String(), "val", hex.EncodeToString(iter.LeafBlob()), "parent", iter.Parent(), "path", hex.EncodeToString(iter.Path()))
 		} else {
 			raw, _ := mainDB.Get(iter.Hash().Bytes())
-			// log.Info("Storage Branch", "hash", iter.Hash().String(), "val", hex.EncodeToString(raw), "parent", iter.Parent())
+			// slog.Info("Storage Branch", "hash", iter.Hash().String(), "val", hex.EncodeToString(raw), "parent", iter.Parent())
 			size += len(raw) + 32
 		}
 		if time.Since(lastReport) > time.Second*8 {
-			log.Info("Still traversing", "nodes", nodes, "leafs", leafs, "size", size, "elapsed", meter.PrettyDuration(time.Since(start)))
+			slog.Info("Still traversing", "nodes", nodes, "leafs", leafs, "size", size, "elapsed", meter.PrettyDuration(time.Since(start)))
 			lastReport = time.Now()
 		}
 	}
 	if iter.Error() != nil {
-		log.Error("Failed to traverse state trie", "root", root, "err", iter.Error())
+		slog.Error("Failed to traverse state trie", "root", root, "err", iter.Error())
 		return iter.Error()
 	}
-	log.Info("Traverse complete", "nodes", nodes, "leafs", leafs, "size", size, "elapsed", meter.PrettyDuration(time.Since(start)))
+	slog.Info("Traverse complete", "nodes", nodes, "leafs", leafs, "size", size, "elapsed", meter.PrettyDuration(time.Since(start)))
 	return nil
 }
 
 func traverseStorageAction(ctx *cli.Context) error {
 	mainDB, _ := openMainDB(ctx)
-	defer func() { log.Info("closing main database..."); mainDB.Close() }()
+	defer func() { slog.Info("closing main database..."); mainDB.Close() }()
 
 	root := meter.MustParseBytes32(ctx.String(rootFlag.Name))
 
@@ -393,34 +393,34 @@ func traverseStorageAction(ctx *cli.Context) error {
 		lastReport time.Time
 		start      = time.Now()
 	)
-	log.Info("Start to traverse storage trie", "stateRoot", root)
+	slog.Info("Start to traverse storage trie", "stateRoot", root)
 	iter := storageTrie.NodeIterator(nil)
 	for iter.Next(true) {
 		nodes += 1
 		if iter.Leaf() {
 			slots += 1
 			key, _ := mainDB.Get(iter.LeafKey())
-			log.Info("Storage Leaf", "keyHash", hex.EncodeToString(iter.LeafKey()), "key", hex.EncodeToString(key), "hash", iter.Hash().String(), "val", len(iter.LeafBlob()), "parent", iter.Parent(), "path", hex.EncodeToString(iter.Path()))
+			slog.Info("Storage Leaf", "keyHash", hex.EncodeToString(iter.LeafKey()), "key", hex.EncodeToString(key), "hash", iter.Hash().String(), "val", len(iter.LeafBlob()), "parent", iter.Parent(), "path", hex.EncodeToString(iter.Path()))
 		} else {
 			// raw := ReadTrieNode(mainDB, iter.Hash())
-			// log.Info("Storage Branch", "hash", iter.Hash().String(), "val", hex.EncodeToString(raw), "parent", iter.Parent())
+			// slog.Info("Storage Branch", "hash", iter.Hash().String(), "val", hex.EncodeToString(raw), "parent", iter.Parent())
 		}
 		if time.Since(lastReport) > time.Second*8 {
-			log.Info("Still traversing", "nodes", nodes, "slots", slots, "elapsed", meter.PrettyDuration(time.Since(start)))
+			slog.Info("Still traversing", "nodes", nodes, "slots", slots, "elapsed", meter.PrettyDuration(time.Since(start)))
 			lastReport = time.Now()
 		}
 	}
 	if iter.Error() != nil {
-		log.Error("Failed to traverse state trie", "root", root, "err", iter.Error())
+		slog.Error("Failed to traverse state trie", "root", root, "err", iter.Error())
 		return iter.Error()
 	}
-	log.Info("Traverse complete", "nodes", nodes, "slots", slots, "elapsed", meter.PrettyDuration(time.Since(start)))
+	slog.Info("Traverse complete", "nodes", nodes, "slots", slots, "elapsed", meter.PrettyDuration(time.Since(start)))
 	return nil
 }
 
 func pruneStateAction(ctx *cli.Context) error {
 	mainDB, gene := openMainDB(ctx)
-	defer func() { log.Info("closing main database..."); mainDB.Close() }()
+	defer func() { slog.Info("closing main database..."); mainDB.Close() }()
 
 	meterChain := initChain(ctx, gene, mainDB)
 	toBlk, err := loadBlockByRevision(meterChain, ctx.String(beforeFlag.Name))
@@ -452,16 +452,16 @@ func pruneStateAction(ctx *cli.Context) error {
 		stat := pruner.Prune(root, batch)
 		prunedNodes += stat.PrunedNodes + stat.PrunedStorageNodes
 		prunedBytes += stat.PrunedNodeBytes + stat.PrunedStorageBytes
-		log.Info(fmt.Sprintf("Pruned block %v", i), "prunedNodes", stat.PrunedNodes+stat.PrunedStorageNodes, "prunedBytes", stat.PrunedNodeBytes+stat.PrunedStorageBytes, "elapsed", meter.PrettyDuration(time.Since(pruneStart)))
+		slog.Info(fmt.Sprintf("Pruned block %v", i), "prunedNodes", stat.PrunedNodes+stat.PrunedStorageNodes, "prunedBytes", stat.PrunedNodeBytes+stat.PrunedStorageBytes, "elapsed", meter.PrettyDuration(time.Since(pruneStart)))
 		if time.Since(lastReport) > time.Second*8 {
-			log.Info("Still pruning", "elapsed", meter.PrettyDuration(time.Since(start)), "prunedNodes", prunedNodes, "prunedBytes", prunedBytes)
+			slog.Info("Still pruning", "elapsed", meter.PrettyDuration(time.Since(start)), "prunedNodes", prunedNodes, "prunedBytes", prunedBytes)
 			lastReport = time.Now()
 		}
 		if batch.Len() >= statePruningBatch || i == toBlk.Number() {
 			if err := batch.Write(); err != nil {
-				log.Error("Error flushing", "err", err)
+				slog.Error("Error flushing", "err", err)
 			}
-			log.Info("commited deletion batch", "len", batch.Len())
+			slog.Info("commited deletion batch", "len", batch.Len())
 
 			batch = mainDB.NewBatch()
 
@@ -475,13 +475,13 @@ func pruneStateAction(ctx *cli.Context) error {
 		// }
 	}
 	// pruner.Compact()
-	log.Info("Prune complete", "elapsed", meter.PrettyDuration(time.Since(start)), "prunedNodes", prunedNodes, "prunedBytes", prunedBytes)
+	slog.Info("Prune complete", "elapsed", meter.PrettyDuration(time.Since(start)), "prunedNodes", prunedNodes, "prunedBytes", prunedBytes)
 	return nil
 }
 
 func pruneIndexAction(ctx *cli.Context) error {
 	mainDB, gene := openMainDB(ctx)
-	defer func() { log.Info("closing main database..."); mainDB.Close() }()
+	defer func() { slog.Info("closing main database..."); mainDB.Close() }()
 
 	meterChain := initChain(ctx, gene, mainDB)
 	toBlk, err := loadBlockByRevision(meterChain, ctx.String(beforeFlag.Name))
@@ -505,16 +505,16 @@ func pruneIndexAction(ctx *cli.Context) error {
 		stat := pruner.PruneIndexTrie(b.Number(), b.ID(), batch)
 		prunedNodes += stat.Nodes
 		prunedBytes += stat.PrunedNodeBytes
-		log.Info(fmt.Sprintf("Pruned block %v", i), "prunedNodes", stat.Nodes, "prunedBytes", stat.PrunedNodeBytes, "elapsed", meter.PrettyDuration(time.Since(pruneStart)))
+		slog.Info(fmt.Sprintf("Pruned block %v", i), "prunedNodes", stat.Nodes, "prunedBytes", stat.PrunedNodeBytes, "elapsed", meter.PrettyDuration(time.Since(pruneStart)))
 		if time.Since(lastReport) > time.Second*8 {
-			log.Info("Still pruning", "elapsed", meter.PrettyDuration(time.Since(start)), "prunedNodes", prunedNodes, "prunedBytes", prunedBytes)
+			slog.Info("Still pruning", "elapsed", meter.PrettyDuration(time.Since(start)), "prunedNodes", prunedNodes, "prunedBytes", prunedBytes)
 			lastReport = time.Now()
 		}
 		if batch.Len() >= indexPruningBatch || i == toBlk.Number() {
 			if err := batch.Write(); err != nil {
-				log.Error("Error flushing", "err", err)
+				slog.Error("Error flushing", "err", err)
 			}
-			log.Info("commited deletion batch", "len", batch.Len())
+			slog.Info("commited deletion batch", "len", batch.Len())
 
 			batch = mainDB.NewBatch()
 		}
@@ -527,13 +527,13 @@ func pruneIndexAction(ctx *cli.Context) error {
 		// }
 	}
 	// pruner.Compact()
-	log.Info("Prune complete", "elapsed", meter.PrettyDuration(time.Since(start)), "prunedNodes", prunedNodes, "prunedBytes", prunedBytes)
+	slog.Info("Prune complete", "elapsed", meter.PrettyDuration(time.Since(start)), "prunedNodes", prunedNodes, "prunedBytes", prunedBytes)
 	return nil
 }
 
 func compactAction(ctx *cli.Context) error {
 	mainDB, _ := openMainDB(ctx)
-	defer func() { log.Info("closing main database..."); mainDB.Close() }()
+	defer func() { slog.Info("closing main database..."); mainDB.Close() }()
 
 	pruner := trie.NewPruner(mainDB, ctx.String(dataDirFlag.Name))
 	pruner.Compact()
@@ -542,7 +542,7 @@ func compactAction(ctx *cli.Context) error {
 
 func statAction(ctx *cli.Context) error {
 	mainDB, _ := openMainDB(ctx)
-	defer func() { log.Info("closing main database..."); mainDB.Close() }()
+	defer func() { slog.Info("closing main database..."); mainDB.Close() }()
 
 	pruner := trie.NewPruner(mainDB, ctx.String(dataDirFlag.Name))
 	pruner.PrintStats()
@@ -551,7 +551,7 @@ func statAction(ctx *cli.Context) error {
 
 func snapshotAction(ctx *cli.Context) error {
 	mainDB, gene := openMainDB(ctx)
-	defer func() { log.Info("closing main database..."); mainDB.Close() }()
+	defer func() { slog.Info("closing main database..."); mainDB.Close() }()
 
 	meterChain := initChain(ctx, gene, mainDB)
 
@@ -567,7 +567,7 @@ func snapshotAction(ctx *cli.Context) error {
 	prefix := fmt.Sprintf("%v/snap-%v", dbDir, blk.Number())
 	loaded := snap.LoadFromFile(fmt.Sprintf("snap-%v", blk.Number()))
 	if loaded {
-		log.Info("loaded snapshot from file", "prefix", prefix)
+		slog.Info("loaded snapshot from file", "prefix", prefix)
 	} else {
 		snap.AddTrie(geneBlk.StateRoot(), mainDB)
 		snap.AddTrie(blk.StateRoot(), mainDB)
@@ -587,7 +587,7 @@ func snapshotAction(ctx *cli.Context) error {
 // but it will check each trie node.
 func traverseRawStateAction(ctx *cli.Context) error {
 	mainDB, gene := openMainDB(ctx)
-	defer func() { log.Info("closing main database..."); mainDB.Close() }()
+	defer func() { slog.Info("closing main database..."); mainDB.Close() }()
 
 	meterChain := initChain(ctx, gene, mainDB)
 
@@ -607,9 +607,9 @@ func traverseRawStateAction(ctx *cli.Context) error {
 	)
 	t, err := trie.New(blk.StateRoot(), mainDB)
 	if err != nil {
-		log.Error("could not load state", "err", err)
+		slog.Error("could not load state", "err", err)
 	}
-	log.Info("Start to traverse trie", "block", blk.Number(), "stateRoot", blk.StateRoot())
+	slog.Info("Start to traverse trie", "block", blk.Number(), "stateRoot", blk.StateRoot())
 	accIter := t.NodeIterator(nil)
 	for accIter.Next(true) {
 		nodes += 1
@@ -620,7 +620,7 @@ func traverseRawStateAction(ctx *cli.Context) error {
 		if node != (meter.Bytes32{}) {
 			blob, err := mainDB.Get(node.Bytes())
 			if err != nil || len(blob) == 0 {
-				log.Error("Missing trie node(account)", "hash", node, "err", err)
+				slog.Error("Missing trie node(account)", "hash", node, "err", err)
 				return errors.New("missing account")
 			}
 			// hasher.Reset()
@@ -637,13 +637,13 @@ func traverseRawStateAction(ctx *cli.Context) error {
 			accounts += 1
 			var acc state.Account
 			if err := rlp.DecodeBytes(accIter.LeafBlob(), &acc); err != nil {
-				log.Error("Invalid account encountered during traversal", "err", err)
+				slog.Error("Invalid account encountered during traversal", "err", err)
 				return errors.New("invalid account")
 			}
 			if !bytes.Equal(acc.StorageRoot, []byte{}) {
 				storageTrie, err := trie.New(meter.BytesToBytes32(acc.StorageRoot), mainDB)
 				if err != nil {
-					log.Error("Failed to open storage trie", "root", acc.StorageRoot, "err", err)
+					slog.Error("Failed to open storage trie", "root", acc.StorageRoot, "err", err)
 					return errors.New("missing storage trie")
 				}
 				storageIter := storageTrie.NodeIterator(nil)
@@ -656,14 +656,14 @@ func traverseRawStateAction(ctx *cli.Context) error {
 					if node != (meter.Bytes32{}) {
 						blob, err := mainDB.Get(node.Bytes())
 						if err != nil || len(blob) == 0 {
-							log.Error("Missing trie node(storage)", "hash", node, "err", err)
+							slog.Error("Missing trie node(storage)", "hash", node, "err", err)
 							return errors.New("missing storage")
 						}
 						// hasher.Reset()
 						// hasher.Write(blob)
 						// hasher.Read(got)
 						// if !bytes.Equal(got, node.Bytes()) {
-						// 	log.Error("Invalid trie node(storage)", "hash", node, "value", blob)
+						// 	slog.Error("Invalid trie node(storage)", "hash", node, "value", blob)
 						// 	return errors.New("invalid storage node")
 						// }
 					}
@@ -673,28 +673,28 @@ func traverseRawStateAction(ctx *cli.Context) error {
 					}
 				}
 				if storageIter.Error() != nil {
-					log.Error("Failed to traverse storage trie", "root", hex.EncodeToString(acc.StorageRoot), "err", storageIter.Error())
+					slog.Error("Failed to traverse storage trie", "root", hex.EncodeToString(acc.StorageRoot), "err", storageIter.Error())
 					return storageIter.Error()
 				}
 			}
 			if !bytes.Equal(acc.CodeHash, []byte{}) {
 				if !HasCode(mainDB, meter.BytesToBytes32(acc.CodeHash)) {
-					log.Error("Code is missing", "account", meter.BytesToBytes32(accIter.LeafKey()))
+					slog.Error("Code is missing", "account", meter.BytesToBytes32(accIter.LeafKey()))
 					return errors.New("missing code")
 				}
 				codes += 1
 			}
 			if time.Since(lastReport) > time.Second*8 {
-				log.Info("Still traversing", "nodes", nodes, "accounts", accounts, "slots", slots, "elapsed", meter.PrettyDuration(time.Since(start)))
+				slog.Info("Still traversing", "nodes", nodes, "accounts", accounts, "slots", slots, "elapsed", meter.PrettyDuration(time.Since(start)))
 				lastReport = time.Now()
 			}
 		}
 	}
 	if accIter.Error() != nil {
-		log.Error("Failed to traverse state trie", "root", blk.StateRoot(), "err", accIter.Error())
+		slog.Error("Failed to traverse state trie", "root", blk.StateRoot(), "err", accIter.Error())
 		return accIter.Error()
 	}
-	log.Info("State is complete", "nodes", nodes, "accounts", accounts, "slots", slots, "codes", codes, "elapsed", meter.PrettyDuration(time.Since(start)))
+	slog.Info("State is complete", "nodes", nodes, "accounts", accounts, "slots", slots, "codes", codes, "elapsed", meter.PrettyDuration(time.Since(start)))
 	return nil
 }
 
@@ -712,20 +712,20 @@ func unsafeDeleteRawAction(ctx *cli.Context) error {
 	initLogger()
 
 	mainDB, _ := openMainDB(ctx)
-	defer func() { log.Info("closing main database..."); mainDB.Close() }()
+	defer func() { slog.Info("closing main database..."); mainDB.Close() }()
 
 	key := ctx.String(keyFlag.Name)
 	parsedKey, err := hex.DecodeString(strings.Replace(key, "0x", "", 1))
 	if err != nil {
-		log.Error("could not decode hex key", "err", err)
+		slog.Error("could not decode hex key", "err", err)
 		return nil
 	}
 	err = mainDB.Delete(parsedKey)
 	if err != nil {
-		log.Error("could not delete key in database", "err", err, "key", key)
+		slog.Error("could not delete key in database", "err", err, "key", key)
 		return nil
 	}
-	log.Info("Deleted key from db", "key", hex.EncodeToString(parsedKey))
+	slog.Info("Deleted key from db", "key", hex.EncodeToString(parsedKey))
 	return nil
 }
 
@@ -733,12 +733,12 @@ func unsafeSetRawAction(ctx *cli.Context) error {
 	initLogger()
 
 	mainDB, _ := openMainDB(ctx)
-	defer func() { log.Info("closing main database..."); mainDB.Close() }()
+	defer func() { slog.Info("closing main database..."); mainDB.Close() }()
 
 	key := ctx.String(keyFlag.Name)
 	parsedKey, err := hex.DecodeString(strings.Replace(key, "0x", "", 1))
 	if err != nil {
-		log.Error("could not decode hex key", "err", err)
+		slog.Error("could not decode hex key", "err", err)
 		return nil
 	}
 	val := ctx.String(valueFlag.Name)
@@ -746,16 +746,16 @@ func unsafeSetRawAction(ctx *cli.Context) error {
 
 	err = mainDB.Put(parsedKey, parsedVal)
 	if err != nil {
-		log.Error("could not set key in database", "err", err, "key", key)
+		slog.Error("could not set key in database", "err", err, "key", key)
 		return nil
 	}
-	log.Info("Set key/value in db", "key", hex.EncodeToString(parsedKey), "value", hex.EncodeToString(parsedVal))
+	slog.Info("Set key/value in db", "key", hex.EncodeToString(parsedKey), "value", hex.EncodeToString(parsedVal))
 	return nil
 }
 
 func unsafeResetAction(ctx *cli.Context) error {
 	mainDB, gene := openMainDB(ctx)
-	defer func() { log.Info("closing main database..."); mainDB.Close() }()
+	defer func() { slog.Info("closing main database..."); mainDB.Close() }()
 
 	var (
 		myClient = &http.Client{Timeout: 5 * time.Second}
@@ -856,7 +856,7 @@ func unsafeResetAction(ctx *cli.Context) error {
 
 func reportIndexAction(ctx *cli.Context) error {
 	mainDB, gene := openMainDB(ctx)
-	defer func() { log.Info("closing main database..."); mainDB.Close() }()
+	defer func() { slog.Info("closing main database..."); mainDB.Close() }()
 
 	meterChain := initChain(ctx, gene, mainDB)
 	bestBlock := meterChain.BestBlock()
@@ -875,9 +875,9 @@ func reportIndexAction(ctx *cli.Context) error {
 		delta := pruner.ScanIndexTrie(b.ID())
 		totalNodes += delta.Nodes
 		totalBytes += delta.Bytes
-		log.Info(fmt.Sprintf("Scanned block %v", i), "nodes", totalNodes, "bytes", totalBytes)
+		slog.Info(fmt.Sprintf("Scanned block %v", i), "nodes", totalNodes, "bytes", totalBytes)
 		if time.Since(lastReport) > time.Second*8 {
-			log.Info("Still scanning", "elapsed", meter.PrettyDuration(time.Since(scanStart)), "nodes", totalNodes, "bytes", totalBytes)
+			slog.Info("Still scanning", "elapsed", meter.PrettyDuration(time.Since(scanStart)), "nodes", totalNodes, "bytes", totalBytes)
 			lastReport = time.Now()
 		}
 
@@ -888,13 +888,13 @@ func reportIndexAction(ctx *cli.Context) error {
 		// }
 	}
 	// pruner.Compact()
-	log.Info("Scan complete", "elapsed", meter.PrettyDuration(time.Since(start)), "nodes", totalNodes, "bytes", totalBytes)
+	slog.Info("Scan complete", "elapsed", meter.PrettyDuration(time.Since(start)), "nodes", totalNodes, "bytes", totalBytes)
 	return nil
 }
 
 func reportStateAction(ctx *cli.Context) error {
 	mainDB, gene := openMainDB(ctx)
-	defer func() { log.Info("closing main database..."); mainDB.Close() }()
+	defer func() { slog.Info("closing main database..."); mainDB.Close() }()
 
 	meterChain := initChain(ctx, gene, mainDB)
 	bestBlock := meterChain.BestBlock()
@@ -921,9 +921,9 @@ func reportStateAction(ctx *cli.Context) error {
 		delta := pruner.Scan(root)
 		totalNodes += delta.Nodes + delta.StorageNodes
 		totalBytes += delta.Bytes + delta.StorageBytes + delta.CodeBytes
-		log.Info(fmt.Sprintf("Scanned block %v", i), "nodes", totalNodes, "bytes", totalBytes)
+		slog.Info(fmt.Sprintf("Scanned block %v", i), "nodes", totalNodes, "bytes", totalBytes)
 		if time.Since(lastReport) > time.Second*8 {
-			log.Info("Still scanning", "elapsed", meter.PrettyDuration(time.Since(scanStart)), "nodes", totalNodes, "bytes", totalBytes)
+			slog.Info("Still scanning", "elapsed", meter.PrettyDuration(time.Since(scanStart)), "nodes", totalNodes, "bytes", totalBytes)
 			lastReport = time.Now()
 		}
 
@@ -933,16 +933,16 @@ func reportStateAction(ctx *cli.Context) error {
 		// 	runtime.GC()
 		// }
 	}
-	log.Info("Scan complete", "elapsed", meter.PrettyDuration(time.Since(start)), "nodes", totalNodes, "bytes", totalBytes, "roots", roots)
+	slog.Info("Scan complete", "elapsed", meter.PrettyDuration(time.Since(start)), "nodes", totalNodes, "bytes", totalBytes, "roots", roots)
 	return nil
 }
 
 func syncVerifyAction(ctx *cli.Context) error {
 	mainDB, gene := openMainDB(ctx)
-	defer func() { log.Info("closing main database..."); mainDB.Close() }()
+	defer func() { slog.Info("closing main database..."); mainDB.Close() }()
 
 	logDB := openLogDB(ctx)
-	defer func() { log.Info("closing log database..."); logDB.Close() }()
+	defer func() { slog.Info("closing log database..."); logDB.Close() }()
 
 	fromNum := ctx.Int(fromFlag.Name)
 	toNum := ctx.Int64(toFlag.Name)
@@ -952,26 +952,26 @@ func syncVerifyAction(ctx *cli.Context) error {
 		toNum = int64(localBest.Number())
 	}
 	if _, err := localChain.GetTrunkBlock(uint32(toNum)); err != nil {
-		log.Error("could not load to block")
-		log.Error(err.Error())
+		slog.Error("could not load to block")
+		slog.Error(err.Error())
 		return err
 	}
 	if _, err := localChain.GetTrunkBlock(uint32(fromNum)); err != nil {
-		log.Error("could not load from block")
-		log.Error(err.Error())
+		slog.Error("could not load from block")
+		slog.Error(err.Error())
 		return err
 	}
 	parentBlk, err := localChain.GetTrunkBlock(uint32(fromNum))
 	if err != nil {
-		log.Error("could not load parent block")
-		log.Error(err.Error())
+		slog.Error("could not load parent block")
+		slog.Error(err.Error())
 		return nil
 	}
 
 	parentQCRaw, err := rlp.EncodeToBytes(parentBlk.QC)
 	if err != nil {
-		log.Error("could not encode parent QC")
-		log.Error(err.Error())
+		slog.Error("could not encode parent QC")
+		slog.Error(err.Error())
 		return nil
 	}
 	updateBest(mainDB, hex.EncodeToString(parentBlk.ID().Bytes()), false)
@@ -1001,7 +1001,7 @@ func syncVerifyAction(ctx *cli.Context) error {
 	initDelegates := types.LoadDelegatesFile(ctx, blsCommon)
 	pker := packer.New(meterChain, stateCreator, meter.Address{}, &meter.Address{})
 	txPool := txpool.New(meterChain, state.NewCreator(mainDB), defaultTxPoolOptions)
-	defer func() { log.Info("closing tx pool..."); txPool.Close() }()
+	defer func() { slog.Info("closing tx pool..."); txPool.Close() }()
 
 	cons := consensus.NewConsensusReactor(ctx, meterChain, logDB, nil /* empty communicator */, txPool, pker, stateCreator, ecdsaPrivKey, ecdsaPubKey, [4]byte{0x0, 0x0, 0x0, 0x0}, blsCommon, initDelegates)
 
@@ -1012,42 +1012,42 @@ func syncVerifyAction(ctx *cli.Context) error {
 		now := uint64(time.Now().Unix())
 		parentBlk, err := meterChain.GetBlock(b.ParentID())
 		if err != nil {
-			log.Error("could not load parent block")
-			log.Error(err.Error())
+			slog.Error("could not load parent block")
+			slog.Error(err.Error())
 			return nil
 		}
 		parentState, err := stateCreator.NewState(parentBlk.StateRoot())
 		if err != nil {
-			log.Error("could not load parent state")
-			log.Error(err.Error())
+			slog.Error("could not load parent state")
+			slog.Error(err.Error())
 			return nil
 		}
-		log.Info("validate block", "num", b.Number())
+		slog.Info("validate block", "num", b.Number())
 		_, receipts, err := cons.Validate(parentState, b, parentBlk, now, false)
 		if err != nil {
-			log.Error(err.Error())
+			slog.Error(err.Error())
 			return err
 		}
 
-		log.Info("block brief", "txs", len(b.Transactions()), "receipts", len(receipts))
+		slog.Info("block brief", "txs", len(b.Transactions()), "receipts", len(receipts))
 		_, err = meterChain.AddBlock(b, nb.QC, receipts)
 		if err != nil {
 			if err != chain.ErrBlockExist {
-				log.Error(err.Error())
+				slog.Error(err.Error())
 				return err
 			}
 		}
 	}
-	log.Info("Sync verify complete", "elapsed", meter.PrettyDuration(time.Since(start)), "from", fromNum, "to", toNum)
+	slog.Info("Sync verify complete", "elapsed", meter.PrettyDuration(time.Since(start)), "from", fromNum, "to", toNum)
 	return nil
 }
 
 func verifyBlockAction(ctx *cli.Context) error {
 	mainDB, gene := openMainDB(ctx)
-	defer func() { log.Info("closing main database..."); mainDB.Close() }()
+	defer func() { slog.Info("closing main database..."); mainDB.Close() }()
 
 	logDB := openLogDB(ctx)
-	defer func() { log.Info("closing log database..."); logDB.Close() }()
+	defer func() { slog.Info("closing log database..."); logDB.Close() }()
 
 	meterChain := initChain(ctx, gene, mainDB)
 	stateCreator := state.NewCreator(mainDB)
@@ -1071,7 +1071,7 @@ func verifyBlockAction(ctx *cli.Context) error {
 	initDelegates := types.LoadDelegatesFile(ctx, blsCommon)
 	pker := packer.New(meterChain, stateCreator, meter.Address{}, &meter.Address{})
 	txPool := txpool.New(meterChain, state.NewCreator(mainDB), defaultTxPoolOptions)
-	defer func() { log.Info("closing tx pool..."); txPool.Close() }()
+	defer func() { slog.Info("closing tx pool..."); txPool.Close() }()
 	reactor := consensus.NewConsensusReactor(ctx, meterChain, logDB, nil /* empty communicator */, txPool, pker, stateCreator, ecdsaPrivKey, ecdsaPubKey, [4]byte{0x0, 0x0, 0x0, 0x0}, blsCommon, initDelegates)
 
 	var blk *block.Block
@@ -1103,13 +1103,13 @@ func verifyBlockAction(ctx *cli.Context) error {
 
 	_, _, err = reactor.VerifyBlock(blk, state, true)
 
-	log.Info("Verify block complete", "elapsed", meter.PrettyDuration(time.Since(start)), "err", err)
+	slog.Info("Verify block complete", "elapsed", meter.PrettyDuration(time.Since(start)), "err", err)
 	return nil
 }
 
 func safeResetAction(ctx *cli.Context) error {
 	mainDB, gene := openMainDB(ctx)
-	defer func() { log.Info("closing main database..."); mainDB.Close() }()
+	defer func() { slog.Info("closing main database..."); mainDB.Close() }()
 
 	meterChain := initChain(ctx, gene, mainDB)
 
@@ -1122,20 +1122,20 @@ func safeResetAction(ctx *cli.Context) error {
 		b, err := meterChain.GetTrunkBlock(cur + uint32(step))
 		if err != nil {
 			step = int(math.Floor(float64(step) / 2))
-			log.Info("block not exist, cut step", "num", cur+uint32(step), "newStep", step)
+			slog.Info("block not exist, cut step", "num", cur+uint32(step), "newStep", step)
 		} else {
 			cur = b.Number()
-			log.Info("block exists, move cur", "num", cur)
+			slog.Info("block exists, move cur", "num", cur)
 		}
 	}
-	log.Info("Local Best Block Number:", "num", cur)
+	slog.Info("Local Best Block Number:", "num", cur)
 	localBest, err := meterChain.GetTrunkBlock(cur)
 	if err != nil {
-		log.Error("could not load local best block")
-		log.Error(err.Error())
+		slog.Error("could not load local best block")
+		slog.Error(err.Error())
 		return err
 	}
-	log.Info("Local Best Block ", "num", localBest.Number(), "id", localBest.ID())
+	slog.Info("Local Best Block ", "num", localBest.Number(), "id", localBest.ID())
 	updateBest(mainDB, hex.EncodeToString(localBest.ID().Bytes()), false)
 	rawQC, _ := rlp.EncodeToBytes(localBest.QC)
 	updateBestQC(mainDB, hex.EncodeToString(rawQC), false)
@@ -1144,10 +1144,10 @@ func safeResetAction(ctx *cli.Context) error {
 
 func runDeleteBlockAction(ctx *cli.Context) error {
 	mainDB, _ := openMainDB(ctx)
-	defer func() { log.Info("closing main database..."); mainDB.Close() }()
+	defer func() { slog.Info("closing main database..."); mainDB.Close() }()
 
 	logDB := openLogDB(ctx)
-	defer func() { log.Info("closing log database..."); logDB.Close() }()
+	defer func() { slog.Info("closing log database..."); logDB.Close() }()
 
 	from := ctx.Uint64(fromFlag.Name)
 	to := ctx.Uint64(toFlag.Name)
@@ -1155,7 +1155,7 @@ func runDeleteBlockAction(ctx *cli.Context) error {
 		numKey := numberAsKey(i)
 
 		err := mainDB.Delete(append(hashKeyPrefix, numKey...))
-		log.Info("delete block", "num", i, "err", err)
+		slog.Info("delete block", "num", i, "err", err)
 	}
 
 	return nil
@@ -1163,10 +1163,10 @@ func runDeleteBlockAction(ctx *cli.Context) error {
 
 func runLocalBlockAction(ctx *cli.Context) error {
 	mainDB, gene := openMainDB(ctx)
-	defer func() { log.Info("closing main database..."); mainDB.Close() }()
+	defer func() { slog.Info("closing main database..."); mainDB.Close() }()
 
 	logDB := openLogDB(ctx)
-	defer func() { log.Info("closing log database..."); logDB.Close() }()
+	defer func() { slog.Info("closing log database..."); logDB.Close() }()
 
 	meterChain := initChain(ctx, gene, mainDB)
 	stateCreator := state.NewCreator(mainDB)
@@ -1190,7 +1190,7 @@ func runLocalBlockAction(ctx *cli.Context) error {
 	initDelegates := types.LoadDelegatesFile(ctx, blsCommon)
 	pker := packer.New(meterChain, stateCreator, meter.Address{}, &meter.Address{})
 	txPool := txpool.New(meterChain, state.NewCreator(mainDB), defaultTxPoolOptions)
-	defer func() { log.Info("closing tx pool..."); txPool.Close() }()
+	defer func() { slog.Info("closing tx pool..."); txPool.Close() }()
 	reactor := consensus.NewConsensusReactor(ctx, meterChain, logDB, nil /* empty communicator */, txPool, pker, stateCreator, ecdsaPrivKey, ecdsaPubKey, [4]byte{0x0, 0x0, 0x0, 0x0}, blsCommon, initDelegates)
 
 	var blk *block.Block
@@ -1223,21 +1223,21 @@ func runLocalBlockAction(ctx *cli.Context) error {
 	stage, _, err := reactor.VerifyBlock(blk, state, true)
 
 	if err != nil {
-		log.Error("could not verify block", "err", err)
+		slog.Error("could not verify block", "err", err)
 		return err
 	}
 	hash, _ := stage.Hash()
-	log.Info("Verify block complete", "elapsed", meter.PrettyDuration(time.Since(start)), "err", err, "stage", hash, "stateRoot", blk.StateRoot())
+	slog.Info("Verify block complete", "elapsed", meter.PrettyDuration(time.Since(start)), "err", err, "stage", hash, "stateRoot", blk.StateRoot())
 
 	root, err := stage.Commit()
-	log.Debug("commited stage", "root", root, "err", err)
+	slog.Debug("commited stage", "root", root, "err", err)
 
 	// atrie := stage.GetAccountTrie()
 	// atrie.CommitTo(store)
-	// log.Info("committed account trie")
+	// slog.Info("committed account trie")
 
 	for _, k := range stage.Keys() {
-		log.Info("stored key", "key", k)
+		slog.Info("stored key", "key", k)
 	}
 
 	return nil
@@ -1250,10 +1250,10 @@ type Account struct {
 
 func runProposeBlockAction(ctx *cli.Context) error {
 	mainDB, gene := openMainDB(ctx)
-	defer func() { log.Info("closing main database..."); mainDB.Close() }()
+	defer func() { slog.Info("closing main database..."); mainDB.Close() }()
 
 	logDB := openLogDB(ctx)
-	defer func() { log.Info("closing log database..."); logDB.Close() }()
+	defer func() { slog.Info("closing log database..."); logDB.Close() }()
 
 	pkFile := ctx.String(pkFileFlag.Name)
 	dat, err := os.ReadFile(pkFile)
@@ -1304,7 +1304,7 @@ func runProposeBlockAction(ctx *cli.Context) error {
 		}
 		txs = append(txs, ntx)
 	}
-	log.Info("built txs", "len", len(txs), "elapsed", meter.PrettyDuration(time.Since(start)))
+	slog.Info("built txs", "len", len(txs), "elapsed", meter.PrettyDuration(time.Since(start)))
 
 	defaultPowPoolOptions := powpool.Options{
 		Node:            "localhost",
@@ -1324,18 +1324,18 @@ func runProposeBlockAction(ctx *cli.Context) error {
 	pker := packer.New(meterChain, stateCreator, nodeMaster, &meter.Address{})
 	flow, err := pker.Mock(parent.Header(), uint64(time.Now().Unix()), parent.GasLimit(), &meter.ZeroAddress)
 	if err != nil {
-		log.Error("mock error", "err", err)
+		slog.Error("mock error", "err", err)
 		return err
 	}
 
 	for _, t := range txs {
 		err := flow.Adopt(t)
 		if err != nil {
-			log.Error("could not adopt tx", "err", err)
+			slog.Error("could not adopt tx", "err", err)
 			continue
 		}
 	}
-	log.Info("adopted txs", "len", len(txs), "elapsed", meter.PrettyDuration(time.Since(start)))
+	slog.Info("adopted txs", "len", len(txs), "elapsed", meter.PrettyDuration(time.Since(start)))
 
 	start = time.Now()
 	blk, _, _, err := flow.Pack(accts[0].pk, block.MBlockType, parent.LastKBlockHeight())
@@ -1343,7 +1343,7 @@ func runProposeBlockAction(ctx *cli.Context) error {
 		fmt.Println("pack error", "err", err)
 		return err
 	}
-	log.Info("built mblock", "id", blk.ID(), "err", err, "elapsed", meter.PrettyDuration(time.Since(start)))
+	slog.Info("built mblock", "id", blk.ID(), "err", err, "elapsed", meter.PrettyDuration(time.Since(start)))
 
 	return nil
 }

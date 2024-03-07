@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/hex"
 	"fmt"
+	"log/slog"
 	"path"
 	"strings"
 	"time"
@@ -23,7 +24,7 @@ func loadStashAction(ctx *cli.Context) error {
 	stashDir := path.Join(dataDir, "tx.stash")
 	db, err := lvldb.New(stashDir, lvldb.Options{})
 	if err != nil {
-		log.Error("create tx stash", "err", err)
+		slog.Error("create tx stash", "err", err)
 		return nil
 	}
 	defer db.Close()
@@ -32,14 +33,14 @@ func loadStashAction(ctx *cli.Context) error {
 	for iter.Next() {
 		var tx tx.Transaction
 		if err := rlp.DecodeBytes(iter.Value(), &tx); err != nil {
-			log.Warn("decode stashed tx", "err", err)
+			slog.Warn("decode stashed tx", "err", err)
 			if err := db.Delete(iter.Key()); err != nil {
-				log.Warn("delete corrupted stashed tx", "err", err)
+				slog.Warn("delete corrupted stashed tx", "err", err)
 			}
 		} else {
 			var raw bytes.Buffer
 			tx.EncodeRLP(&raw)
-			log.Info("found tx: ", "id", tx.ID(), "raw", hex.EncodeToString(raw.Bytes()))
+			slog.Info("found tx: ", "id", tx.ID(), "raw", hex.EncodeToString(raw.Bytes()))
 		}
 	}
 	return nil
@@ -49,26 +50,26 @@ func loadRawAction(ctx *cli.Context) error {
 	initLogger()
 
 	mainDB, _ := openMainDB(ctx)
-	defer func() { log.Info("closing main database..."); mainDB.Close() }()
+	defer func() { slog.Info("closing main database..."); mainDB.Close() }()
 
 	key := ctx.String(keyFlag.Name)
 	parsedKey, err := hex.DecodeString(strings.Replace(key, "0x", "", 1))
 	if err != nil {
-		log.Error("could not decode hex key", "err", err)
+		slog.Error("could not decode hex key", "err", err)
 		return nil
 	}
 	raw, err := mainDB.Get(parsedKey)
 	if err != nil {
-		log.Error("could not find key in database", "err", err, "key", key)
+		slog.Error("could not find key in database", "err", err, "key", key)
 		return nil
 	}
-	log.Info("Loaded key from db", "key", parsedKey, "val", hex.EncodeToString(raw))
+	slog.Info("Loaded key from db", "key", parsedKey, "val", hex.EncodeToString(raw))
 	return nil
 }
 
 func loadBlockAction(ctx *cli.Context) error {
 	mainDB, gene := openMainDB(ctx)
-	defer func() { log.Info("closing main database..."); mainDB.Close() }()
+	defer func() { slog.Info("closing main database..."); mainDB.Close() }()
 
 	meterChain := initChain(ctx, gene, mainDB)
 
@@ -80,17 +81,17 @@ func loadBlockAction(ctx *cli.Context) error {
 	if err != nil {
 		panic("could not load block raw")
 	}
-	log.Info("Loaded Block", "revision", ctx.String(revisionFlag.Name))
+	slog.Info("Loaded Block", "revision", ctx.String(revisionFlag.Name))
 	fmt.Println(blk.String())
 	rawQC := hex.EncodeToString(blk.QC.ToBytes())
-	log.Info("Raw QC", "hex", rawQC)
-	log.Info("Raw", "hex", hex.EncodeToString(rawBlk))
+	slog.Info("Raw QC", "hex", rawQC)
+	slog.Info("Raw", "hex", hex.EncodeToString(rawBlk))
 	return nil
 }
 
 func loadAccountAction(ctx *cli.Context) error {
 	mainDB, gene := openMainDB(ctx)
-	defer func() { log.Info("closing main database..."); mainDB.Close() }()
+	defer func() { slog.Info("closing main database..."); mainDB.Close() }()
 
 	meterChain := initChain(ctx, gene, mainDB)
 
@@ -125,7 +126,7 @@ func loadAccountAction(ctx *cli.Context) error {
 
 func loadStorageAction(ctx *cli.Context) error {
 	mainDB, gene := openMainDB(ctx)
-	defer func() { log.Info("closing main database..."); mainDB.Close() }()
+	defer func() { slog.Info("closing main database..."); mainDB.Close() }()
 
 	meterChain := initChain(ctx, gene, mainDB)
 
@@ -170,7 +171,7 @@ func loadStorageAction(ctx *cli.Context) error {
 
 func loadIndexTrieRootAction(ctx *cli.Context) error {
 	mainDB, gene := openMainDB(ctx)
-	defer func() { log.Info("closing main database..."); mainDB.Close() }()
+	defer func() { slog.Info("closing main database..."); mainDB.Close() }()
 
 	meterChain := initChain(ctx, gene, mainDB)
 	blk, err := loadBlockByRevision(meterChain, ctx.String(revisionFlag.Name))
@@ -187,7 +188,7 @@ func loadIndexTrieRootAction(ctx *cli.Context) error {
 
 func loadHashAction(ctx *cli.Context) error {
 	mainDB, _ := openMainDB(ctx)
-	defer func() { log.Info("closing main database..."); mainDB.Close() }()
+	defer func() { slog.Info("closing main database..."); mainDB.Close() }()
 
 	num := uint32(ctx.Int(heightFlag.Name))
 	numKey := numberAsKey(num)
@@ -201,7 +202,7 @@ func loadHashAction(ctx *cli.Context) error {
 
 func peekAction(ctx *cli.Context) error {
 	mainDB, gene := openMainDB(ctx)
-	defer func() { log.Info("closing main database..."); mainDB.Close() }()
+	defer func() { slog.Info("closing main database..."); mainDB.Close() }()
 
 	meterChain := initChain(ctx, gene, mainDB)
 

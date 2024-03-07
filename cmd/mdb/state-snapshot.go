@@ -2,16 +2,18 @@ package main
 
 import (
 	"fmt"
+	"log/slog"
+	"os"
+
 	"github.com/meterio/meter-pov/trie"
 	"gopkg.in/urfave/cli.v1"
-	"os"
 )
 
 func stateSnapshotAction(ctx *cli.Context) error {
 	initLogger()
 
 	mainDB, gene := openMainDB(ctx)
-	defer func() { log.Info("closing main database..."); mainDB.Close() }()
+	defer func() { slog.Info("closing main database..."); mainDB.Close() }()
 
 	meterChain := initChain(ctx, gene, mainDB)
 
