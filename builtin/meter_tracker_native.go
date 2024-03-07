@@ -16,13 +16,14 @@ import (
 )
 
 var (
-	boundEvent, _                    = MeterNative_V3_ABI.EventByName("Bound")
-	nativeBucketDepositEvent, _      = MeterNative_V4_ABI.EventByName("NativeBucketDeposit")
-	nativeBucketWithdrawEvent, _     = MeterNative_V4_ABI.EventByName("NativeBucketWithdraw")
-	nativeBucketMergeEvent, _        = MeterNative_V4_ABI.EventByName("NativeBucketMerge")
-	nativeBucketOpenEvent, _         = MeterNative_V4_ABI.EventByName("NativeBucketOpen")
-	nativeBucketCloseEvent, _        = MeterNative_V4_ABI.EventByName("NativeBucketClose")
-	nativeBucketTransferFundEvent, _ = MeterNative_V4_ABI.EventByName("NativeBucketTransferFund")
+	boundEvent, _                       = MeterNative_V3_ABI.EventByName("Bound")
+	nativeBucketDepositEvent, _         = MeterNative_V4_ABI.EventByName("NativeBucketDeposit")
+	nativeBucketWithdrawEvent, _        = MeterNative_V4_ABI.EventByName("NativeBucketWithdraw")
+	nativeBucketMergeEvent, _           = MeterNative_V4_ABI.EventByName("NativeBucketMerge")
+	nativeBucketOpenEvent, _            = MeterNative_V4_ABI.EventByName("NativeBucketOpen")
+	nativeBucketCloseEvent, _           = MeterNative_V4_ABI.EventByName("NativeBucketClose")
+	nativeBucketTransferFundEvent, _    = MeterNative_V4_ABI.EventByName("NativeBucketTransferFund")
+	nativeBucketUpdateCandidateEvent, _ = MeterNative_V4_ABI.EventByName("NativeBucketUpdateCandidate")
 )
 
 func init() {
@@ -434,9 +435,101 @@ func init() {
 			slog.Info("native_bucket_exists false")
 			return []interface{}{false}
 		}},
+		{"native_list_as_candidate", func(env *xenv.Environment) []interface{} {
+			var args struct {
+				Owner       meter.Address
+				Name        []byte
+				Description []byte
+				Pubkey      []byte
+				Ip          []byte
+				Port        uint16
+				Amount      *big.Int
+				Autobid     uint8
+				Commission  uint32
+			}
+			env.ParseArgs(&args)
+			slog.Info("native_list_as_candidate", "owner", args.Owner, "name", string(args.Name), "desc", string(args.Description), "pubkey", string(args.Pubkey), "ip", string(args.Ip), "port", args.Port, "amount", args.Amount, "autobid", args.Autobid, "commission", args.Commission)
+			if args.Amount.Sign() == 0 {
+				return []interface{}{meter.Bytes32{}, "amount is 0"}
+			}
+
+			env.UseGas(meter.GetBalanceGas)
+			nonce := env.TransactionContext().Nonce + uint64(env.ClauseIndex()) + env.TransactionContext().Counter
+			ts := env.BlockContext().Time
+			bktID, err := MeterTracker.Native(env.State()).ListAsCandidate(args.Owner, args.Name, args.Description, args.Pubkey, args.Ip, args.Port, args.Amount, args.Autobid, args.Commission, ts, nonce)
+			if err != nil {
+				slog.Error("native_list_as_candidate failed", "err", err)
+				return []interface{}{bktID, err.Error()}
+			}
+			slog.Info("native_list_as_candidate success", "bktID", bktID)
+
+			env.TransactionContext().Inc()
+
+			topics := []meter.Bytes32{meter.BytesToBytes32(args.Owner[:])}
+			// emit Bound event
+			env.Log(boundEvent, meter.StakingModuleAddr, topics, args.Amount, big.NewInt(int64(meter.MTRG)))
+
+			// emit NativeBucketOpen event
+			env.Log(nativeBucketOpenEvent, meter.StakingModuleAddr, topics, bktID, args.Amount, big.NewInt(int64(meter.MTRG)))
+
+			// env.UseGas(meter.SstoreSetGas)
+			return []interface{}{bktID, ""}
+		}},
+		{"native_candidate_update", func(env *xenv.Environment) []interface{} {
+			var args struct {
+				Owner       meter.Address
+				Name        []byte
+				Description []byte
+				Pubkey      []byte
+				Ip          []byte
+				Port        uint16
+				Autobid     uint8
+				Commission  uint32
+			}
+			env.ParseArgs(&args)
+			slog.Info("native_candidate_update", "owner", args.Owner, "name", string(args.Name), "desc", string(args.Description), "ip", string(args.Ip), "port", args.Port, "autobid", args.Autobid, "commission", args.Commission)
+
+			env.UseGas(meter.GetBalanceGas)
+			ts := env.BlockContext().Time
+			err := MeterTracker.Native(env.State()).CandidateUpdate(args.Owner, args.Name, args.Description, args.Pubkey, args.Ip, args.Port, args.Autobid, args.Commission, ts)
+			if err != nil {
+				slog.Error("native_candidate_update failed", "err", err)
+				return []interface{}{err.Error()}
+			}
+			slog.Info("native_candidate_update success")
+
+			env.TransactionContext().Inc()
+
+			// env.UseGas(meter.SstoreSetGas)
+			return []interface{}{""}
+		}},
+		{"native_uncandidate", func(env *xenv.Environment) []interface{} {
+			var args struct {
+				Owner meter.Address
+			}
+			env.ParseArgs(&args)
+			slog.Info("native_uncandidate", "owner", args.Owner)
+
+			env.UseGas(meter.GetBalanceGas)
+			bktID, err := MeterTracker.Native(env.State()).UnCandidate(args.Owner)
+			if err != nil {
+				slog.Error("native_uncandidate failed", "err", err)
+				return []interface{}{bktID, err.Error()}
+			}
+			slog.Info("native_uncandidate success")
+
+			topics := []meter.Bytes32{meter.BytesToBytes32(args.Owner[:])}
+			// emit NativeBucketUpdateCandidate
+			env.Log(nativeBucketUpdateCandidateEvent, meter.StakingModuleAddr, topics, bktID, args.Owner, meter.Address{})
+
+			// emit NativeBucketClose
+			env.Log(nativeBucketCloseEvent, meter.StakingModuleAddr, topics, bktID)
+
+			return []interface{}{bktID, ""}
+		}},
 	}
 	//abi := GetContractABI("NewMeterNative")
-	abi := MeterNative_V4_ABI
+	abi := MeterNative_V5_ABI
 	for _, def := range defines {
 		if method, found := abi.MethodByName(def.name); found {
 			nativeMethods[methodKey{MeterTracker.Address, method.ID()}] = &nativeMethod{

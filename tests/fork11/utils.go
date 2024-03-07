@@ -70,6 +70,7 @@ func initRuntimeAfterFork11() *tests.TestEnv {
 	balMap = make(map[balanceKey]*big.Int)
 	allowanceMap = make(map[allowanceKey]*big.Int)
 
+	ts := uint64(time.Now().Unix())
 	b0 := tests.BuildGenesis(kv, func(state *state.State) error {
 		state.SetCode(builtin.Prototype.Address, builtin.Prototype.RuntimeBytecodes())
 		state.SetCode(builtin.Executor.Address, builtin.Executor.RuntimeBytecodes())
@@ -85,8 +86,15 @@ func initRuntimeAfterFork11() *tests.TestEnv {
 		// MeterTracker / ScriptEngine will be initialized on fork11
 
 		// testing env set up like this:
-		// 2 candidates: Cand, Cand2
-		// 3 votes: Cand->Cand(self, Cand2->Cand2(self), Voter2->Cand
+		// self bucket
+		selfBkt := meter.NewBucket(tests.Cand2Addr, tests.Cand2Addr, tests.BuildAmount(2000), meter.MTRG, meter.FOREVER_LOCK, meter.FOREVER_LOCK_RATE, 100, 0, 0)
+		state.SetBoundedBalance(tests.Cand2Addr, tests.BuildAmount(2000)) // for unbound
+		state.SetBucketList(meter.NewBucketList([]*meter.Bucket{selfBkt}))
+
+		// init candidate (updateable)
+		cand := meter.NewCandidate(tests.Cand2Addr, tests.Cand2Name, tests.Cand2Desc, tests.Cand2PubKey, tests.Cand2IP, tests.Cand2Port, 5e9, ts-meter.MIN_CANDIDATE_UPDATE_INTV-10)
+		cand.AddBucket(selfBkt)
+		state.SetCandidateList(meter.NewCandidateList([]*meter.Candidate{cand}))
 
 		sdb := statedb.New(state)
 

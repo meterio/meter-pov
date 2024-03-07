@@ -1,32 +1,50 @@
 package metertracker
 
 import (
+	"bytes"
+	"encoding/base64"
 	"errors"
 	"log/slog"
 	"math/big"
+	"regexp"
 	"strings"
 
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/meterio/meter-pov/meter"
 )
 
 var (
-	errLessThanMinBoundBalance     = errors.New("bound amount < minimal " + new(big.Int).Div(meter.MIN_BOUND_BALANCE, big.NewInt(1e18)).String() + " MTRG")
-	errZeroAmount                  = errors.New("zero amount")
-	errEmptyCandidate              = errors.New("empty candidate address")
-	errCandidateNotListed          = errors.New("candidate not listed")
-	errNotEnoughBalance            = errors.New("not enough balance")
-	errNotEnoughBoundedBalance     = errors.New("not enough bounded balance")
-	errSelfVoteNotAllowed          = errors.New("self vote not allowed")
-	errNotEnoughVotes              = errors.New("not enough votes")
-	errCandidateNotEnoughSelfVotes = errors.New("candidate's accumulated votes > 100x candidate's own vote")
-	errCandidateJailed             = errors.New("candidate is jailed")
+	errLessThanMinBoundBalance         = errors.New("bound amount < minimal " + new(big.Int).Div(meter.MIN_BOUND_BALANCE, big.NewInt(1e18)).String() + " MTRG")
+	errLessThanMinCandidateRequirement = errors.New("bound amount < minimal candidate require")
+	errZeroAmount                      = errors.New("zero amount")
+	errEmptyCandidate                  = errors.New("empty candidate address")
+	errCandidateNotListed              = errors.New("candidate not listed")
+	errNotEnoughBalance                = errors.New("not enough balance")
+	errNotEnoughBoundedBalance         = errors.New("not enough bounded balance")
+	errSelfVoteNotAllowed              = errors.New("self vote not allowed")
+	errNotEnoughVotes                  = errors.New("not enough votes")
+	errCandidateNotEnoughSelfVotes     = errors.New("candidate's accumulated votes > 100x candidate's own vote")
+	errCandidateJailed                 = errors.New("candidate is jailed")
 
+	errInvalidAutobid                 = errors.New("invalid autobid")
+	errInvalidCommission              = errors.New("invalid commission")
+	errInvalidPubkey                  = errors.New("invalid pubkey")
+	errCandidateInJail                = errors.New("candidate in jail")
+	errInvalidIP                      = errors.New("invalid IP")
+	errInvalidPort                    = errors.New("invalid port")
+	errPubkeyListed                   = errors.New("pubkey listed")
+	errNameListed                     = errors.New("name listed")
+	errIPListed                       = errors.New("ip listed")
+	errCandidateListed                = errors.New("candidate listed")
+	errCandidateListedWithDiffInfo    = errors.New("candidate listed with diff info")
 	errBucketNotListed                = errors.New("bucket not listed")
 	errBucketNotOwned                 = errors.New("bucket not owned")
 	errNoUpdateAllowedOnForeverBucket = errors.New("no update allowed on forever bucket")
 	errBucketAlreadyUnbounded         = errors.New("bucket already unbounded")
 	errBucketNotEnoughValue           = errors.New("not enough value")
 	errBucketNotMergableToItself      = errors.New("bucket not mergable to itself")
+	errUpdateTooFrequent              = errors.New("candidate update too frequent")
+	errCandidateNotChanged            = errors.New("candidate not changed")
 )
 
 func (e *MeterTracker) BoundMeterGov(addr meter.Address, amount *big.Int) error {
@@ -555,4 +573,132 @@ func (e *MeterTracker) BucketValue(id meter.Bytes32) (*big.Int, error) {
 		return new(big.Int), errBucketNotListed
 	}
 	return b.Value, nil
+}
+
+func (e *MeterTracker) validatePubKey(comboPubKey []byte) ([]byte, error) {
+	pubKey := strings.TrimSuffix(string(comboPubKey), "\n")
+	pubKey = strings.TrimSuffix(pubKey, " ")
+	split := strings.Split(pubKey, ":::")
+	if len(split) != 2 {
+		e.logger.Error("invalid public keys for split")
+		return nil, errInvalidPubkey
+	}
+
+	// validate ECDSA pubkey
+	decoded, err := base64.StdEncoding.DecodeString(split[0])
+	if err != nil {
+		e.logger.Error("could not decode ECDSA public key")
+		return nil, errInvalidPubkey
+	}
+	_, err = crypto.UnmarshalPubkey(decoded)
+	if err != nil {
+		e.logger.Error("could not unmarshal ECDSA public key")
+		return nil, errInvalidPubkey
+	}
+
+	// validate BLS key
+	_, err = base64.StdEncoding.DecodeString(split[1])
+	if err != nil {
+		e.logger.Error("could not decode BLS public key")
+		return nil, errInvalidPubkey
+	}
+	// TODO: validate BLS key with bls common
+
+	return []byte(pubKey), nil
+}
+
+func (e *MeterTracker) ListAsCandidate(owner meter.Address, name []byte, description []byte, pubkey []byte, ip []byte, port uint16, amount *big.Int, autobid uint8, commissionRate uint32, timestamp uint64, nonce uint64) (meter.Bytes32, error) {
+	emptyBucketID := meter.Bytes32{}
+	candidateList := e.state.GetCandidateList()
+	bucketList := e.state.GetBucketList()
+	stakeholderList := e.state.GetStakeHolderList()
+
+	// candidate should meet the stake minmial requirement
+	// current it is 300 MTRGov
+	if amount.Cmp(meter.MIN_REQUIRED_BY_DELEGATE) < 0 {
+		return emptyBucketID, errLessThanMinCandidateRequirement
+	}
+
+	if autobid > 100 {
+		return emptyBucketID, errInvalidAutobid
+	}
+
+	candidatePubKey, err := e.validatePubKey(pubkey)
+	if err != nil {
+		return emptyBucketID, err
+	}
+
+	if port < 1 || port > 65535 {
+		return emptyBucketID, errInvalidPort
+	}
+
+	ipPattern, _ := regexp.Compile("^\\d+[.]\\d+[.]\\d+[.]\\d+$")
+	if !ipPattern.MatchString(string(ip)) {
+		return emptyBucketID, errInvalidIP
+	}
+
+	for _, record := range candidateList.Candidates {
+		pkListed := bytes.Equal(record.PubKey, []byte(candidatePubKey))
+		ipListed := bytes.Equal(record.IPAddr, ip)
+		nameListed := bytes.Equal(record.Name, name)
+
+		if pkListed {
+			return emptyBucketID, errPubkeyListed
+		}
+		if ipListed {
+			return emptyBucketID, errIPListed
+		}
+		if nameListed {
+			return emptyBucketID, errNameListed
+		}
+	}
+
+	// domainPattern, err := regexp.Compile("^([0-9a-zA-Z-_]+[.]*)+$")
+	// if the candidate already exists return error without paying gas
+	if record := candidateList.Get(owner); record != nil {
+		if bytes.Equal(record.PubKey, []byte(pubkey)) && bytes.Equal(record.IPAddr, ip) && record.Port == port {
+			// exact same candidate
+			// s.logger.Info("Record: ", record.ToString())
+			// s.logger.Info("sb:", sb.ToString())
+			return emptyBucketID, errCandidateListed
+		} else {
+			return emptyBucketID, errCandidateListedWithDiffInfo
+		}
+	}
+
+	// now staking the amount, force to forever lock
+	opt, rate, locktime := meter.GetBoundLockOption(meter.FOREVER_LOCK)
+	commission := meter.GetCommissionRate(commissionRate)
+	e.logger.Debug("get lock option in candidate", "option", opt, "rate", rate, "locktime", locktime, "commission", commission)
+
+	// bucket owner is candidate
+	// ts = env.GetBlockCtx().Time
+	// nonce = env.GetTxCtx().Nonce + uint64(env.GetClauseIndex()) + env.GetTxCtx().Counter
+
+	bucket := meter.NewBucket(owner, owner, amount, uint8(meter.MTRG), opt, rate, autobid, uint64(timestamp), nonce)
+	bucketList.Add(bucket)
+
+	candidate := meter.NewCandidate(owner, name, description, []byte(candidatePubKey), ip, port, commission, timestamp)
+	candidate.AddBucket(bucket)
+	candidateList.Add(candidate)
+
+	stakeholder := stakeholderList.Get(owner)
+	if stakeholder == nil {
+		stakeholder = meter.NewStakeholder(owner)
+		stakeholder.AddBucket(bucket)
+		stakeholderList.Add(stakeholder)
+	} else {
+		stakeholder.AddBucket(bucket)
+	}
+
+	err = e.BoundMeterGov(owner, amount)
+	if err != nil {
+		return emptyBucketID, err
+	}
+
+	e.state.SetCandidateList(candidateList)
+	e.state.SetBucketList(bucketList)
+	e.state.SetStakeHolderList(stakeholderList)
+
+	return bucket.BucketID, nil
 }

@@ -506,6 +506,14 @@ func (rt *Runtime) EnforceTeslaFork11_Corrections(stateDB *statedb.StateDB, bloc
 
 			initializeSelector, _ := hex.DecodeString("8129fc1c") // initialize
 
+			// update MeterNative with V4
+			rt.state.SetCode(builtin.MeterTracker.Address, builtin.MeterNative_V5_DeployedBytecode)
+			log.Info("Overriden MeterNative with V5 bytecode", "addr", builtin.MeterTracker.Address)
+
+			// update ScriptEngine with V3
+			rt.state.SetCode(meter.ScriptEngineSysContractAddr, builtin.ScriptEngine_V3_DeployedBytecode)
+			log.Info("Overriden ScriptEngine with V3 bytecode", "addr", meter.ScriptEngineSysContractAddr)
+
 			// update USDC.eth with ERC20MinterBurnerPauserPermit
 			USDCAddress := meter.USDCAddress()
 			rt.state.SetCode(USDCAddress, builtin.ERC20MinterBurnerPauserPermitForReplacement_DeployedBytecode)

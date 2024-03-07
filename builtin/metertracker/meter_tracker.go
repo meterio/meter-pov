@@ -6,6 +6,7 @@
 package metertracker
 
 import (
+	"log/slog"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/rlp"
@@ -22,13 +23,14 @@ var (
 
 // MeterTracker implementations
 type MeterTracker struct {
-	addr  meter.Address
-	state *state.State
+	addr   meter.Address
+	state  *state.State
+	logger *slog.Logger
 }
 
 // New creates a new energy instance.
 func New(addr meter.Address, state *state.State) *MeterTracker {
-	return &MeterTracker{addr, state}
+	return &MeterTracker{addr, state, slog.With("pkg", "tracker")}
 }
 
 // GetInitialSupply
