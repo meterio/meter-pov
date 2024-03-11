@@ -8,18 +8,18 @@ package transferslegacy_test
 import (
 	"bytes"
 	"encoding/json"
-	"io/ioutil"
+	"io"
 	"math/big"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
+	"github.com/gorilla/mux"
 	"github.com/meterio/meter-pov/api/transferslegacy"
 	"github.com/meterio/meter-pov/block"
 	"github.com/meterio/meter-pov/logdb"
 	"github.com/meterio/meter-pov/meter"
 	"github.com/meterio/meter-pov/tx"
-	"github.com/gorilla/mux"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -99,7 +99,7 @@ func httpPost(t *testing.T, url string, obj interface{}) []byte {
 	if err != nil {
 		t.Fatal(err)
 	}
-	r, err := ioutil.ReadAll(res.Body)
+	r, err := io.ReadAll(res.Body)
 	res.Body.Close()
 	if err != nil {
 		t.Fatal(err)

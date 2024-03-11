@@ -16,7 +16,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"log/slog"
 	"net"
 	"net/http"
@@ -608,7 +608,7 @@ func (r *Reactor) OnReceiveMsg(w http.ResponseWriter, req *http.Request) {
 
 	r.logger.Debug("before receive", "alloc", meter.PrettyStorage(m.Alloc), "sys", meter.PrettyStorage(m.Sys))
 
-	data, err := ioutil.ReadAll(req.Body)
+	data, err := io.ReadAll(req.Body)
 	if err != nil {
 		r.logger.Error("Unrecognized payload", "err", err)
 		return

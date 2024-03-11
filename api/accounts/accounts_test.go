@@ -8,7 +8,7 @@ package accounts_test
 import (
 	"bytes"
 	"encoding/json"
-	"io/ioutil"
+	"io"
 	"math/big"
 	"net/http"
 	"net/http/httptest"
@@ -385,7 +385,7 @@ func httpPost(t *testing.T, url string, body interface{}) ([]byte, int) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	r, err := ioutil.ReadAll(res.Body)
+	r, err := io.ReadAll(res.Body)
 	res.Body.Close()
 	if err != nil {
 		t.Fatal(err)
@@ -398,7 +398,7 @@ func httpGet(t *testing.T, url string) ([]byte, int) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	r, err := ioutil.ReadAll(res.Body)
+	r, err := io.ReadAll(res.Body)
 	res.Body.Close()
 	if err != nil {
 		t.Fatal(err)

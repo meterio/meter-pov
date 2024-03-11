@@ -9,7 +9,7 @@ import (
 	"bytes"
 	"encoding/hex"
 	"encoding/json"
-	"io/ioutil"
+	"io"
 	"log/slog"
 	"net/http"
 	"strings"
@@ -156,7 +156,7 @@ func (t *Transactions) getTransactionReceiptByID(txID meter.Bytes32, blockID met
 }
 
 func (t *Transactions) handleSendEthRawTransaction(w http.ResponseWriter, req *http.Request) error {
-	data, err := ioutil.ReadAll(req.Body)
+	data, err := io.ReadAll(req.Body)
 	if err != nil {
 		return err
 	}
@@ -214,7 +214,7 @@ func (t *Transactions) handleSendEthRawTransaction(w http.ResponseWriter, req *h
 }
 
 func (t *Transactions) handleSendTransaction(w http.ResponseWriter, req *http.Request) error {
-	data, err := ioutil.ReadAll(req.Body)
+	data, err := io.ReadAll(req.Body)
 	if err != nil {
 		return err
 	}

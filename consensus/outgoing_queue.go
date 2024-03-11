@@ -5,7 +5,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"log/slog"
 	"net/http"
 	"sync"
@@ -113,7 +112,7 @@ func (w *outgoingWorker) Run(ctx context.Context, queue chan OutgoingParcel, wg 
 			continue
 		}
 		// defer res.Body.Close()
-		io.Copy(ioutil.Discard, res.Body)
+		io.Copy(io.Discard, res.Body)
 		res.Body.Close()
 	}
 }

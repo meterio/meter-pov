@@ -12,7 +12,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"log/slog"
 	"math"
 	"net"
@@ -186,7 +186,7 @@ func peersAction(ctx *cli.Context) error {
 	instanceDir := makeInstanceDir(ctx, gene)
 	peersCachePath := path.Join(instanceDir, "peers.cache")
 	nodes := make([]string, 0)
-	if data, err := ioutil.ReadFile(peersCachePath); err != nil {
+	if data, err := os.ReadFile(peersCachePath); err != nil {
 		if !os.IsNotExist(err) {
 			fmt.Println("failed to load peers cache", "err", err)
 			return err
@@ -366,7 +366,7 @@ func masterKeyAction(ctx *cli.Context) error {
 		if isatty.IsTerminal(os.Stdin.Fd()) {
 			fmt.Println("Input JSON keystore (end with ^d):")
 		}
-		keyjson, err := ioutil.ReadAll(os.Stdin)
+		keyjson, err := io.ReadAll(os.Stdin)
 		if err != nil {
 			return err
 		}

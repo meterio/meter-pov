@@ -10,7 +10,6 @@ import (
 	"crypto/ecdsa"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"log/slog"
 	"net/http"
 	"os"
@@ -153,7 +152,7 @@ func handleXGenesisID(h http.Handler, genesisID meter.Bytes32) http.Handler {
 		actualID := r.Header.Get(headerKey)
 		w.Header().Set(headerKey, expectedID)
 		if actualID != "" && actualID != expectedID {
-			_, err := io.Copy(ioutil.Discard, r.Body)
+			_, err := io.Copy(io.Discard, r.Body)
 			if err != nil {
 				fmt.Println("could not copy x-genesis-id, error:", err)
 			}
@@ -215,7 +214,7 @@ func writeOutKeys(system bls.System, path string) (bls.PublicKey, bls.PrivateKey
 	content = append(content, isolator...)
 	content = append(content, privBytes...)
 
-	err = ioutil.WriteFile(path, []byte(hex.EncodeToString(content)), 0644)
+	err = os.WriteFile(path, []byte(hex.EncodeToString(content)), 0644)
 	if err != nil {
 		fmt.Println("could not write out keys, error:", err)
 	}

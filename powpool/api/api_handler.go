@@ -7,10 +7,11 @@ package api
 
 import (
 	"bytes"
+	"io"
 	"log/slog"
+
 	// "strings"
 	"encoding/hex"
-	"io/ioutil"
 	"net/http"
 
 	"github.com/btcsuite/btcd/wire"
@@ -34,7 +35,7 @@ func NewApiHandler(powPool *powpool.PowPool) *ApiHandler {
 }
 
 func (h *ApiHandler) handleRecvPowMessage(w http.ResponseWriter, req *http.Request) error {
-	hexBytes, err := ioutil.ReadAll(req.Body)
+	hexBytes, err := io.ReadAll(req.Body)
 	if err != nil {
 		slog.Error("could not read recved pow message, error:", err)
 		return err

@@ -10,7 +10,6 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path"
 
@@ -98,7 +97,7 @@ func LoadDelegatesFile(ctx *cli.Context, blsCommon *BlsCommon) []*Delegate {
 		// load delegates from file system
 		dataDir := ctx.String("data-dir")
 		filePath := path.Join(dataDir, "delegates.json")
-		file, err := ioutil.ReadFile(filePath)
+		file, err := os.ReadFile(filePath)
 		content = file
 		if err != nil {
 			fmt.Println("Unable load delegate file at", filePath, "error", err)

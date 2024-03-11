@@ -21,7 +21,6 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"math/big"
 	"math/rand"
 	"reflect"
@@ -588,7 +587,7 @@ func BenchmarkHash(b *testing.B) {
 }
 
 func tempDB() (string, Database) {
-	dir, err := ioutil.TempDir("", "trie-bench")
+	dir, err := io.TempDir("", "trie-bench")
 	if err != nil {
 		panic(fmt.Sprintf("can't create temporary directory: %v", err))
 	}

@@ -14,7 +14,6 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"strings"
 
@@ -77,11 +76,11 @@ func NewKeyLoader(ctx *cli.Context) *KeyLoader {
 	publicPath := publicKeyPath(ctx)
 	var masterBytes, publicBytes []byte
 	if fileExists(masterPath) {
-		masterBytes, _ = ioutil.ReadFile(masterPath)
+		masterBytes, _ = os.ReadFile(masterPath)
 		masterBytes = []byte(strings.TrimSuffix(string(masterBytes), "\n"))
 	}
 	if fileExists(publicPath) {
-		publicBytes, _ = ioutil.ReadFile(publicPath)
+		publicBytes, _ = os.ReadFile(publicPath)
 		publicBytes = []byte(strings.TrimSuffix(string(publicBytes), "\n"))
 	}
 	return &KeyLoader{
@@ -200,11 +199,11 @@ func (k *KeyLoader) saveKeys(system bls.System) error {
 	pub := strings.Join([]string{ecdsaPubB64, blsPubB64}, ":::")
 	k.masterBytes = []byte(priv)
 	k.publicBytes = []byte(pub)
-	err := ioutil.WriteFile(k.masterPath, []byte(priv+"\n"), 0600)
+	err := os.WriteFile(k.masterPath, []byte(priv+"\n"), 0600)
 	if err != nil {
 		return err
 	}
-	err = ioutil.WriteFile(k.publicPath, []byte(pub+"\n"), 0600)
+	err = os.WriteFile(k.publicPath, []byte(pub+"\n"), 0600)
 	return err
 }
 

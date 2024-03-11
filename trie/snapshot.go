@@ -21,9 +21,9 @@ import (
 	"encoding/gob"
 	"encoding/hex"
 	"fmt"
-	"io/ioutil"
 	"log/slog"
 	"math/big"
+	"os"
 	"strings"
 	"time"
 
@@ -305,7 +305,7 @@ func (ts *TrieSnapshot) SaveToFile(prefix string) bool {
 		fmt.Println("error encode:", err)
 		return false
 	}
-	err = ioutil.WriteFile(prefix+".accounts", buf.Bytes(), 0744)
+	err = os.WriteFile(prefix+".accounts", buf.Bytes(), 0744)
 	if err != nil {
 		fmt.Println("could not write .accounts file: ", err)
 		return false
@@ -323,7 +323,7 @@ func (ts *StateSnapshot) SaveStateToFile(prefix string) bool {
 		return false
 	}
 
-	err = ioutil.WriteFile(prefix+".db", buf.Bytes(), 0744)
+	err = os.WriteFile(prefix+".db", buf.Bytes(), 0744)
 	if err != nil {
 		fmt.Println("could not write nodes file: ", err)
 		return false
@@ -343,7 +343,7 @@ func (ts *TrieSnapshot) LoadFromFile(prefix string) bool {
 	}
 	ts.Bloom = filter
 
-	buf, err := ioutil.ReadFile(prefix + ".accounts")
+	buf, err := os.ReadFile(prefix + ".accounts")
 	if err != nil {
 		fmt.Println("could not read .accounts file: ", err)
 		return false

@@ -11,7 +11,6 @@ import (
 	b64 "encoding/base64"
 	"encoding/hex"
 	"fmt"
-	"io/ioutil"
 	"log/slog"
 	"math/rand"
 	"net"
@@ -333,7 +332,7 @@ func newP2PComm(cliCtx *cli.Context, ctx context.Context, chain *chain.Chain, tx
 	peersCachePath := filepath.Join(instanceDir, "peers.cache")
 
 	cachedPeers := make([]string, 0)
-	if data, err := ioutil.ReadFile(peersCachePath); err != nil {
+	if data, err := os.ReadFile(peersCachePath); err != nil {
 		if !os.IsNotExist(err) {
 			slog.Warn("failed to load peers cache", "err", err)
 		}
@@ -397,7 +396,7 @@ func (p *p2pComm) Stop() {
 		strs = append(strs, n.String())
 	}
 	data := strings.Join(strs, "\n")
-	if err := ioutil.WriteFile(p.peersCachePath, []byte(data), 0600); err != nil {
+	if err := os.WriteFile(p.peersCachePath, []byte(data), 0600); err != nil {
 		slog.Warn("failed to write peers cache", "err", err)
 	}
 }
