@@ -3,7 +3,6 @@ package consensus
 import (
 	"bytes"
 	"context"
-	sha256 "crypto/sha256"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -12,7 +11,6 @@ import (
 	"sync"
 	"time"
 
-	lru "github.com/hashicorp/golang-lru"
 	"github.com/meterio/meter-pov/block"
 )
 
@@ -36,37 +34,23 @@ func (p *OutgoingParcel) Expired() bool {
 	return time.Now().After(p.expireAt)
 }
 
-var (
-	outMutex sync.RWMutex
-)
-
 type OutgoingQueue struct {
 	sync.WaitGroup
-	logger   *slog.Logger
-	queue    chan (OutgoingParcel)
-	clients  map[string]*http.Client
-	outCache *lru.Cache
+	logger  *slog.Logger
+	queue   chan (OutgoingParcel)
+	clients map[string]*http.Client
 }
 
 func NewOutgoingQueue() *OutgoingQueue {
-	outCache, _ := lru.New(1024)
 	return &OutgoingQueue{
-		logger:   slog.With("pkg", "out"),
-		queue:    make(chan (OutgoingParcel), 2048),
-		clients:  make(map[string]*http.Client),
-		outCache: outCache,
+		logger:  slog.With("pkg", "out"),
+		queue:   make(chan (OutgoingParcel), 2048),
+		clients: make(map[string]*http.Client),
 	}
 }
 
 func (q *OutgoingQueue) Add(to ConsensusPeer, msg block.ConsensusMessage, rawMsg []byte, relay bool) {
-	key := sha256.Sum256(append([]byte(to.IP), rawMsg...))
-	defer outMutex.RUnlock()
-	outMutex.RLock()
-	if q.outCache.Contains(key) {
-		return
-	}
-
-	q.logger.Debug(fmt.Sprintf("add %s msg to out queue", msg.GetType()), "to", to.String(), "len", len(q.queue), "cap", cap(q.queue))
+	q.logger.Debug(fmt.Sprintf("add %s msg to out queue", msg.GetType()), "to", to, "len", len(q.queue), "cap", cap(q.queue))
 	for len(q.queue) >= cap(q.queue) {
 		p := <-q.queue
 		q.logger.Info(fmt.Sprintf(`%s msg dropped due to cap ...`, p.msgType))
@@ -78,7 +62,7 @@ func (q *OutgoingQueue) Start(ctx context.Context) {
 	q.logger.Info(`outgoing queue started`)
 
 	for i := 1; i <= WORKER_CONCURRENCY; i++ {
-		worker := NewOutgoingWorker(i, q.outCache)
+		worker := NewOutgoingWorker(i)
 		q.WaitGroup.Add(1)
 		go worker.Run(ctx, q.queue, &q.WaitGroup)
 	}
@@ -90,14 +74,12 @@ func (q *OutgoingQueue) Start(ctx context.Context) {
 type outgoingWorker struct {
 	logger  *slog.Logger
 	clients map[string]*http.Client
-	cache   *lru.Cache
 }
 
-func NewOutgoingWorker(num int, cache *lru.Cache) *outgoingWorker {
+func NewOutgoingWorker(num int) *outgoingWorker {
 	return &outgoingWorker{
 		logger:  slog.With("pkg", fmt.Sprintf("w%d", num)),
 		clients: make(map[string]*http.Client),
-		cache:   cache,
 	}
 }
 
@@ -109,15 +91,6 @@ func (w *outgoingWorker) Run(ctx context.Context, queue chan OutgoingParcel, wg 
 			w.logger.Info(fmt.Sprintf(`outgoing %s msg expired, dropped ...`, parcel.msgType))
 			continue
 		}
-		key := sha256.Sum256(append([]byte(parcel.to.IP), parcel.rawMsg...))
-		outMutex.RLock()
-		if w.cache.Contains(key) {
-			outMutex.RUnlock()
-			w.logger.Info(fmt.Sprintf(`outgoing %s msg already sent, dropped ...`, parcel.msgType))
-			continue
-		}
-		outMutex.RUnlock()
-
 		ipAddr := parcel.to.IP
 		if _, known := w.clients[ipAddr]; !known {
 			w.clients[ipAddr] = &http.Client{Timeout: REQ_TIMEOUT}
@@ -139,10 +112,6 @@ func (w *outgoingWorker) Run(ctx context.Context, queue chan OutgoingParcel, wg 
 			w.clients[ipAddr] = &http.Client{Timeout: REQ_TIMEOUT}
 			continue
 		}
-		outMutex.Lock()
-		w.cache.Add(key, true)
-		outMutex.Unlock()
-
 		// defer res.Body.Close()
 		io.Copy(ioutil.Discard, res.Body)
 		res.Body.Close()

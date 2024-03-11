@@ -584,7 +584,7 @@ func (p *Pacemaker) OnReceiveQuery(mi IncomingMsg) {
 	for _, proposal := range proposals {
 		p.logger.Info(`forward proposal`, "id", proposal.ProposedBlock.ID().ToBlockShortID(), "to", mi.Peer)
 		p.sendMsg(proposal.Msg, false)
-		p.reactor.Send(proposal.Msg, &mi.Peer)
+		p.reactor.Send(proposal.Msg, NewConsensusPeer(mi.Peer.Name, mi.Peer.IP))
 	}
 }
 

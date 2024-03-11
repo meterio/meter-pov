@@ -114,7 +114,7 @@ func (n *Node) printStats(duration time.Duration) {
 			n.logger.Info("<Stats>", "peerSet", n.comm.PeerCount(), "rawBlocksCache", n.chain.RawBlocksCacheLen(), "receiptsCache", n.chain.ReceiptsCacheLen(), "stateCache", state.CacheLen(), "inQueue", n.reactor.IncomingQueueLen(), "outQueue", n.reactor.OutgoingQueueLen(), "txPool", n.txPool.Len(), "powPool", n.comm.PowPoolLen())
 			n.logger.Info("<Memory>", "alloc", meter.PrettyStorage(m.Alloc), "sys", meter.PrettyStorage(m.Sys), "numGC", m.NumGC)
 			if counter%10 == 0 {
-				// runtime.GC()
+				runtime.GC()
 			}
 		}
 	}

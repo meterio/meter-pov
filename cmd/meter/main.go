@@ -9,6 +9,7 @@ import (
 	"bytes"
 	"crypto/sha256"
 	"encoding/binary"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -283,8 +284,8 @@ func defaultAction(ctx *cli.Context) error {
 	if len(versionItems) > 1 {
 		maskedVersion = strings.Join(versionItems[:len(versionItems)-1], ".") + ".0"
 	}
-	slog.Info("Version", "maskedVersion", maskedVersion, "version", version)
 	sum := sha256.Sum256([]byte(fmt.Sprintf("%v %v", maskedVersion, topic)))
+	slog.Info("Version", "maskedVersion", maskedVersion, "version", version, "topic", topic, "sum", hex.EncodeToString(sum[:]), "magic", hex.EncodeToString(sum[:4]))
 
 	// Split magic to p2p_magic and consensus_magic
 	copy(p2pMagic[:], sum[:4])
