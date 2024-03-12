@@ -1,8 +1,8 @@
 FROM meterio/mainnet-pow:latest AS pow
 FROM meterio/bitcoind-exporter:latest as be
 
-# Build PoS with golang 1.19
-FROM meterio/build-env:latest as pos
+# Build PoS with golang 1.22
+FROM meterio/build-env:go1.22 as pos
 RUN go version
 WORKDIR  /meter
 COPY . .
