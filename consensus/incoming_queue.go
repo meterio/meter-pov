@@ -56,11 +56,11 @@ type IncomingQueue struct {
 	sync.Mutex
 	logger *slog.Logger
 	queue  chan (IncomingMsg)
-	cache  *lru.ARCCache
+	cache  *lru.Cache
 }
 
 func NewIncomingQueue() *IncomingQueue {
-	cache, err := lru.NewARC(1024)
+	cache, err := lru.New(1024)
 	if err != nil {
 		panic("could not create cache")
 	}
@@ -104,7 +104,7 @@ func (q *IncomingQueue) Add(mi IncomingMsg) error {
 		q.logger.Warn(fmt.Sprintf("dropped %s due to cap", dropped.Msg.String()), "from", dropped.Peer.String())
 	}
 
-	q.logger.Info(fmt.Sprintf("recv %s", mi.Msg.String()), "from", mi.Peer.String())
+	q.logger.Info(fmt.Sprintf("recv %s", mi.Msg.String()), "from", mi.Peer.String(), "qlen", len(q.queue))
 	mi.EnqueueAt = time.Now()
 	mi.ExpireAt = time.Now().Add(IN_QUEUE_TTL)
 	q.queue <- mi

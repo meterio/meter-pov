@@ -13,12 +13,12 @@ import (
 
 type MsgCache struct {
 	sync.RWMutex
-	cache *lru.ARCCache
+	cache *lru.Cache
 }
 
 // NewMsgCache creates the msg cache instance
 func NewMsgCache(size int) *MsgCache {
-	cache, err := lru.NewARC(size)
+	cache, err := lru.New(size)
 	if err != nil {
 		panic("could not create cache")
 	}
