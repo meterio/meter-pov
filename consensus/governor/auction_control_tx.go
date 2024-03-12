@@ -12,7 +12,6 @@ import (
 	"math"
 	"math/big"
 
-	"github.com/meterio/meter-pov/builtin"
 	"github.com/meterio/meter-pov/chain"
 	"github.com/meterio/meter-pov/meter"
 	"github.com/meterio/meter-pov/script"
@@ -37,7 +36,7 @@ func BuildAuctionControlTx(height, epoch uint64, chainTag byte, bestNum uint32, 
 	// initialRelease, accuracy := fr.Float64()
 	// initialRelease = initialRelease / (1e09)
 
-	baseSequence := builtin.Params.Native(s).Get(meter.KeyBaseSequence_AfterFork11)
+	// baseSequence := builtin.Params.Native(s).Get(meter.KeyBaseSequence_AfterFork11)
 
 	// now start a new auction
 	var lastEndHeight, lastEndEpoch, lastSequence uint64
@@ -95,10 +94,10 @@ func BuildAuctionControlTx(height, epoch uint64, chainTag byte, bestNum uint32, 
 	}
 
 	startData := make([]byte, 0)
-	if meter.IsTeslaFork11(uint32(height)) && lastSequence+1 > baseSequence.Uint64() {
-		slog.Info("Build Auction Start Data with Emission Curve")
-		startData = buildAuctionStartDataAfterFork11(lastEndHeight+1, lastEndEpoch+1, height, epoch, lastSequence+1, auctionCB, baseSequence)
-	}
+	// if meter.IsTeslaFork11(uint32(height)) && lastSequence+1 > baseSequence.Uint64() {
+	// 	slog.Info("Build Auction Start Data with Emission Curve")
+	// 	startData = buildAuctionStartDataAfterFork11(lastEndHeight+1, lastEndEpoch+1, height, epoch, lastSequence+1, auctionCB, baseSequence)
+	// }
 
 	if len(startData) <= 0 {
 		slog.Info("Build Auction Start Data with Inflation")
@@ -240,33 +239,34 @@ func buildAuctionStartData(start, startEpoch, end, endEpoch, sequence uint64, au
 	return
 }
 
-func buildAuctionStartDataAfterFork11(start, startEpoch, end, endEpoch, sequence uint64, auctionCB *meter.AuctionCB, baseSequence *big.Int) (ret []byte) {
-	var releaseBigInt *big.Int
-	reserveBigInt := big.NewInt(0)
+// not included in fork11
+// func buildAuctionStartDataAfterFork11(start, startEpoch, end, endEpoch, sequence uint64, auctionCB *meter.AuctionCB, baseSequence *big.Int) (ret []byte) {
+// 	var releaseBigInt *big.Int
+// 	reserveBigInt := big.NewInt(0)
 
-	release, err := ComputeEpochReleaseWithEmissionCurve(sequence, baseSequence.Uint64())
-	releaseBigInt = release
-	if err != nil {
-		slog.Error("calculate reward with emission curve failed", "err", err)
-		return nil
-	}
+// 	release, err := ComputeEpochReleaseWithEmissionCurve(sequence, baseSequence.Uint64())
+// 	releaseBigInt = release
+// 	if err != nil {
+// 		slog.Error("calculate reward with emission curve failed", "err", err)
+// 		return nil
+// 	}
 
-	body := &auction.AuctionBody{
-		Opcode:        meter.OP_START,
-		Version:       uint32(0),
-		StartHeight:   start,
-		StartEpoch:    startEpoch,
-		EndHeight:     end,
-		EndEpoch:      endEpoch,
-		Sequence:      sequence,
-		Amount:        releaseBigInt,
-		ReserveAmount: reserveBigInt,
-		Timestamp:     0,
-		Nonce:         0,
-	}
-	ret, _ = script.EncodeScriptData(body)
-	return
-}
+// 	body := &auction.AuctionBody{
+// 		Opcode:        meter.OP_START,
+// 		Version:       uint32(0),
+// 		StartHeight:   start,
+// 		StartEpoch:    startEpoch,
+// 		EndHeight:     end,
+// 		EndEpoch:      endEpoch,
+// 		Sequence:      sequence,
+// 		Amount:        releaseBigInt,
+// 		ReserveAmount: reserveBigInt,
+// 		Timestamp:     0,
+// 		Nonce:         0,
+// 	}
+// 	ret, _ = script.EncodeScriptData(body)
+// 	return
+// }
 
 func buildAuctionStopData(start, startEpoch, end, endEpoch, sequence uint64, id *meter.Bytes32) (ret []byte) {
 	body := &auction.AuctionBody{

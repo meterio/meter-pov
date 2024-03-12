@@ -548,10 +548,10 @@ func (rt *Runtime) EnforceTeslaFork11_Corrections(stateDB *statedb.StateDB, bloc
 			}
 
 			// update baseSequenceAfterFork11
-			auctionCB := rt.state.GetAuctionCB()
-			curSequence := auctionCB.Sequence
-			builtin.Params.Native(rt.State()).Set(meter.KeyBaseSequence_AfterFork11, big.NewInt(int64(curSequence)))
-			log.Info("Update base sequnce", "curSequence", curSequence)
+			// auctionCB := rt.state.GetAuctionCB()
+			// curSequence := auctionCB.Sequence
+			// builtin.Params.Native(rt.State()).Set(meter.KeyBaseSequence_AfterFork11, big.NewInt(int64(curSequence)))
+			// log.Info("Update base sequence", "curSequence", curSequence)
 
 			builtin.Params.Native(rt.State()).Set(meter.KeyEnforceTesla_Fork11_Correction, big.NewInt(1))
 			log.Info("Finished fork11 correction")

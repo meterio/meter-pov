@@ -189,7 +189,6 @@ const (
 //     1.3 the Merge (Paris fork): implement opcode `PREVRANDAO`
 //  2. opcode `BASEFEE` calculates dynamic fee instead of hardcoded value
 //  3. upgrade USDC.eth/USDT.eth/WBTC.eth to support EIP-712 permit function
-//  4. emission curve formula change
 const (
 	TeslaFork11_MainnetStartNum = 99999999 // TBD
 	TeslaFork11_TestnetStartNum = 99999999 // TBD
