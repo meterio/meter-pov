@@ -38,14 +38,11 @@ func (s *Seeker) Err() error {
 }
 
 func (s *Seeker) LastPowNonce() (uint64, error) {
-	if s.chain == nil {
+	if s == nil || s.chain == nil {
 		return uint64(1001) /*Genesis Nonce*/, nil
 	}
-	bestK, err := s.chain.BestKBlock()
-	if err != nil {
-		return uint64(0), err
-	}
-	return bestK.KBlockData.Nonce, nil
+
+	return s.chain.BestPowNonce(), nil
 }
 
 // GetID returns block ID by the given number.

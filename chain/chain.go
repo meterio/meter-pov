@@ -59,6 +59,7 @@ type Chain struct {
 	proposalMap                  *ProposalMap
 	drw                          sync.RWMutex
 	logger                       *slog.Logger
+	bestPowNonce                 uint64
 }
 
 type caches struct {
@@ -81,6 +82,8 @@ func New(kv kv.GetPutter, genesisBlock *block.Block, verbose bool) (*Chain, erro
 	var bestBlock *block.Block
 
 	genesisID := genesisBlock.ID()
+	bestPowNonce, _ := loadBestPowNonce(kv)
+
 	if bestBlockID, err := loadBestBlockID(kv); err != nil {
 		if !kv.IsNotFound(err) {
 			return nil, err
@@ -199,6 +202,7 @@ func New(kv kv.GetPutter, genesisBlock *block.Block, verbose bool) (*Chain, erro
 		fmt.Println("Best:    ", bestBlock.CompactString())
 		fmt.Println("Best QC: ", bestQC.String())
 		fmt.Println("Best Before Flattern:", bestBlockBeforeFlattern.CompactString())
+		fmt.Println("Best Pow Nonce:", bestPowNonce)
 		fmt.Println("---------------------------------------------------------")
 	}
 	c := &Chain{
@@ -215,6 +219,7 @@ func New(kv kv.GetPutter, genesisBlock *block.Block, verbose bool) (*Chain, erro
 
 		bestBlockBeforeIndexFlattern: bestBlockBeforeFlattern,
 		logger:                       slog.With("pkg", "chain"),
+		bestPowNonce:                 bestPowNonce,
 	}
 
 	c.proposalMap = NewProposalMap(c)
@@ -254,6 +259,12 @@ func (c *Chain) BestBlock() *block.Block {
 	c.rw.RLock()
 	defer c.rw.RUnlock()
 	return c.bestBlock
+}
+
+func (c *Chain) BestPowNonce() uint64 {
+	c.rw.RLock()
+	defer c.rw.RUnlock()
+	return c.bestPowNonce
 }
 
 func (c *Chain) BestKBlock() (*block.Block, error) {
@@ -396,6 +407,15 @@ func (c *Chain) AddBlock(newBlock *block.Block, escortQC *block.QuorumCert, rece
 		}
 		c.logger.Debug("saved best qc")
 		c.bestQC = escortQC
+
+		if newBlock.IsKBlock() {
+			err = saveBestPowNonce(batch, newBlock.KBlockData.Nonce)
+			if err != nil {
+				fmt.Println("Error during update pow nonce:", err)
+			}
+			c.logger.Info("saved best pow nonce", "powNonce", newBlock.KBlockData.Nonce)
+			c.bestPowNonce = newBlock.KBlockData.Nonce
+		}
 
 	} else {
 		fork = &Fork{Ancestor: parent, Branch: []*block.Header{newBlock.Header()}}
