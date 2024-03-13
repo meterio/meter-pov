@@ -131,15 +131,13 @@ func New(
 ) *Runtime {
 	// currentChainConfig := chainConfig
 	// chainConfig.ConstantinopleBlock = big.NewInt(int64(meter.Tesla1_1MainnetStartNum))
-	var err error
 	if seeker != nil {
-		chainConfig.LastPowNonce, err = seeker.LastPowNonce()
-		if err != nil {
-			chainConfig.LastPowNonce = uint64(100) /* fallback to Genesis Nonce */
-		}
-	} else {
-		chainConfig.LastPowNonce = uint64(100) /* Genesis Nonce */
+		chainConfig.LastPowNonce, _ = seeker.LastPowNonce()
 	}
+	if chainConfig.LastPowNonce == 0 {
+		chainConfig.LastPowNonce = uint64(1001) /* fall back to genesis nonce */
+	}
+
 	baseGasPrice := builtin.Params.Native(state).Get(meter.KeyBaseGasPrice)
 	baseFee := GasPrice(baseGasPrice)
 
