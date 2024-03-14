@@ -135,6 +135,25 @@ func New(kv kv.GetPutter, genesisBlock *block.Block, verbose bool) (*Chain, erro
 			saveBestQC(kv, block.GenesisEscortQC(bestBlock))
 		}
 
+		if bestBlock.IsSBlock() {
+			slog.Info("Start fixing because best block is SBlock")
+			lastBestBlock := bestBlock
+			for bestBlock.IsSBlock() {
+				// Error happend
+				slog.Info("Load best block parent: ", bestBlock.ParentID())
+				rawParent, err := loadBlockRaw(kv, bestBlock.ParentID())
+				if err != nil {
+					return nil, err
+				}
+				lastBestBlock = bestBlock
+				bestBlock, _ = (&rawBlock{raw: rawParent}).Block()
+			}
+			slog.Info("save best qc", "blk", lastBestBlock.Number(), "qc", lastBestBlock.QC)
+			saveBestQC(kv, lastBestBlock.QC)
+			slog.Info("save best block", "num", bestBlock.Number(), "id", bestBlock.ID())
+			saveBestBlockID(kv, bestBlock.ID())
+		}
+
 	}
 
 	rawBlocksCache := newCache(blockCacheLimit, func(key interface{}) (interface{}, error) {
