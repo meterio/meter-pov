@@ -227,6 +227,10 @@ func (p *Pacemaker) OnCommit(commitReady []commitReadyBlock) {
 			p.logger.Warn("skip commit known block", "height", blk.Height, "round", blk.Round)
 			continue
 		}
+		if blk.ProposedBlock.IsSBlock() {
+			p.logger.Warn("trying to commit sblock", "num", blk.ProposedBlock.Number(), "id", blk.ProposedBlock.ID().ToBlockShortID())
+			continue
+		}
 		// commit the approved block
 		err := p.commitBlock(blk, escortQC)
 		if err != nil {

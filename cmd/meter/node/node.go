@@ -188,15 +188,19 @@ func (n *Node) houseKeeping(ctx context.Context) {
 			return
 		case newBlock := <-newBlockCh:
 			var stats blockStats
-			if isTrunk, err := n.processBlock(newBlock.Block, newBlock.EscortQC, &stats); err != nil {
-				if consensus.IsFutureBlock(err) ||
-					(consensus.IsParentMissing(err) && futureBlocks.Contains(newBlock.Block.Header().ParentID())) {
-					n.logger.Debug("future block added", "id", newBlock.Block.ID())
-					futureBlocks.Set(newBlock.Block.ID(), newBlock)
+			if newBlock.Block.IsSBlock() {
+				n.logger.Warn("got new sblock", "num", newBlock.Block.Number(), "id", newBlock.Block.ID().ToBlockShortID())
+			} else {
+				if isTrunk, err := n.processBlock(newBlock.Block, newBlock.EscortQC, &stats); err != nil {
+					if consensus.IsFutureBlock(err) ||
+						(consensus.IsParentMissing(err) && futureBlocks.Contains(newBlock.Block.Header().ParentID())) {
+						n.logger.Debug("future block added", "id", newBlock.Block.ID())
+						futureBlocks.Set(newBlock.Block.ID(), newBlock)
+					}
+				} else if isTrunk {
+					n.comm.BroadcastBlock(newBlock.EscortedBlock)
+					// n.logger.Info(fmt.Sprintf("imported blocks (%v)", stats.processed), stats.LogContext(newBlock.Block.Header())...)
 				}
-			} else if isTrunk {
-				n.comm.BroadcastBlock(newBlock.EscortedBlock)
-				// n.logger.Info(fmt.Sprintf("imported blocks (%v)", stats.processed), stats.LogContext(newBlock.Block.Header())...)
 			}
 		case <-futureTicker.C:
 			// process future blocks
@@ -210,6 +214,10 @@ func (n *Node) houseKeeping(ctx context.Context) {
 			})
 			var stats blockStats
 			for i, block := range blocks {
+				if block.Block.IsSBlock() {
+					n.logger.Warn("got future sblock", "num", block.Block.Number(), "id", block.Block.ID().ToBlockShortID())
+					continue
+				}
 				if isTrunk, err := n.processBlock(block.Block, block.EscortQC, &stats); err == nil || consensus.IsKnownBlock(err) {
 					n.logger.Debug("future block consumed", "id", block.Block.ID())
 					futureBlocks.Remove(block.Block.ID())
