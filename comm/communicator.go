@@ -226,7 +226,7 @@ func (c *Communicator) runPeer(peer *Peer, dir string) {
 
 	status, err := proto.GetStatus(ctx, peer)
 	if err != nil {
-		peer.logger.Error("Failed to get status", "err", err)
+		peer.logger.Error("Failed to get status", "err", err.Error())
 		return
 	}
 	if status.GenesisBlockID != c.chain.GenesisBlock().ID() {

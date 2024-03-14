@@ -114,7 +114,7 @@ func (p *Pacemaker) buildMBlock(ts uint64, parent *block.DraftBlock, justify *bl
 			if packer.IsTxNotAdoptableNow(err) {
 				continue
 			}
-			p.logger.Warn("mBlock flow.Adopt(tx) failed...", "txid", tx.ID(), "error", err)
+			p.logger.Warn("mBlock flow.Adopt(tx) failed...", "txid", tx.ID(), "err", err.Error())
 		} else {
 			txsInBlk = append(txsInBlk, tx)
 		}
@@ -203,7 +203,7 @@ func (p *Pacemaker) AddTxToCurProposal(newTxID meter.Bytes32) error {
 	tx := txObj.Transaction
 	resolvedTx, _ := runtime.ResolveTransaction(tx)
 	if strings.ToLower(resolvedTx.Origin.String()) == "0x0e369a2e02912dba872e72d6c0b661e9617e0d9c" {
-		p.logger.Warn("blacklisted address: ", resolvedTx.Origin.String())
+		p.logger.Warn("blacklisted address: ", "origin", resolvedTx.Origin.String())
 		return errors.New("blacklisted address")
 	}
 	if err := p.curFlow.Adopt(tx); err != nil {
@@ -213,7 +213,7 @@ func (p *Pacemaker) AddTxToCurProposal(newTxID meter.Bytes32) error {
 		if packer.IsTxNotAdoptableNow(err) {
 			return err
 		}
-		p.logger.Warn("mBlock flow.Adopt(tx) failed...", "txid", tx.ID(), "error", err)
+		p.logger.Warn("mBlock flow.Adopt(tx) failed...", "txid", tx.ID(), "err", err.Error())
 	}
 	p.logger.Debug("added tx to cur proposal", "tx", newTxID)
 	return nil
