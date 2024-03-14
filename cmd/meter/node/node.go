@@ -35,7 +35,8 @@ import (
 )
 
 var (
-	GlobNodeInst *Node
+	GlobNodeInst           *Node
+	errCantExtendBestBlock = errors.New("can't extend best block")
 )
 
 type Node struct {
@@ -136,7 +137,12 @@ func (n *Node) handleBlockStream(ctx context.Context, stream <-chan *block.Escor
 	for blk = range stream {
 		n.logger.Debug("handle block", "block", blk.Block.ID().ToBlockShortID())
 		if isTrunk, err := n.processBlock(blk.Block, blk.EscortQC, &stats); err != nil {
-			n.logger.Error("process block failed", "id", blk.Block.ID(), "err", err.Error())
+			if err == errCantExtendBestBlock {
+				best := n.chain.BestBlock()
+				n.logger.Warn("process block failed", "num", blk.Block.Number(), "id", blk.Block.ID(), "best", best.Number(), "err", err.Error())
+			} else {
+				n.logger.Error("process block failed", "num", blk.Block.Number(), "id", blk.Block.ID(), "err", err.Error())
+			}
 			return err
 		} else if isTrunk {
 			// this processBlock happens after consensus SyncDone, need to broadcast
@@ -300,7 +306,7 @@ func (n *Node) processBlock(blk *block.Block, escortQC *block.QuorumCert, stats 
 
 	best := n.chain.BestBlock()
 	if !bytes.Equal(best.ID().Bytes(), blk.ParentID().Bytes()) {
-		return false, errors.New("could not extend best block")
+		return false, errCantExtendBestBlock
 	}
 	if blk.Timestamp()+meter.BlockInterval > now {
 		QCValid := n.reactor.ValidateQC(blk, escortQC)

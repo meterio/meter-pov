@@ -7,6 +7,7 @@ package accounts
 
 import (
 	"context"
+	"encoding/hex"
 	"fmt"
 	"log/slog"
 	"math/big"
@@ -253,7 +254,12 @@ func (a *Accounts) batchCall(ctx context.Context, batchCallData *BatchCallData, 
 			}
 			results = append(results, convertCallResultWithInputGas(out, gas))
 			if out.VMErr != nil {
-				a.logger.Warn("call failed", "vmerr", out.VMErr)
+				if len(clauses) > 0 {
+					a.logger.Warn("call failed", "caller", caller, "to", clauses[0].To(), "data", hex.EncodeToString(clauses[0].Data()), "vmerr", out.VMErr)
+				} else {
+					a.logger.Warn("call failed", "caller", caller, "vmerr", out.VMErr)
+
+				}
 				return results, nil
 			}
 			gas = out.LeftOverGas
