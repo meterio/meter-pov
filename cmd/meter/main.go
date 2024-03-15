@@ -135,6 +135,7 @@ func main() {
 			httpsCertFlag,
 			httpsKeyFlag,
 			enableStatePruneFlag,
+			preserveBlocksFlag,
 		},
 		Action: defaultAction,
 		Commands: []cli.Command{
@@ -240,8 +241,9 @@ func defaultAction(ctx *cli.Context) error {
 
 	enableStatePruning := ctx.Bool(enableStatePruneFlag.Name)
 	if enableStatePruning {
-		fmt.Println("!!! State Trie Pruning ENABLED !!!")
-		go pruneStateTrie(ctx, gene, mainDB, chain)
+		preserveBlocks := ctx.Int(preserveBlocksFlag.Name)
+		fmt.Println("!!! State Trie Pruning ENABLED !!!", "preserveBlocks", preserveBlocks)
+		go pruneStateTrie(ctx, gene, mainDB, chain, preserveBlocks)
 	}
 
 	master, blsCommon := loadNodeMaster(ctx)
@@ -482,26 +484,35 @@ func pruneIndexTrie(ctx *cli.Context, mainDB *lvldb.LevelDB, meterChain *chain.C
 	slog.Info("Prune index trie completed", "elapsed", meter.PrettyDuration(time.Since(start)), "head", toBlk.Number(), "prunedNodes", prunedNodes, "prunedBytes", prunedBytes)
 }
 
-func pruneStateTrie(ctx *cli.Context, gene *genesis.Genesis, mainDB *lvldb.LevelDB, meterChain *chain.Chain) {
+func pruneStateTrie(ctx *cli.Context, gene *genesis.Genesis, mainDB *lvldb.LevelDB, meterChain *chain.Chain, preserveBlocks int) {
 	creator := state.NewCreator(mainDB)
 	geneBlk, _, _ := gene.Build(creator)
-	fmt.Println("!!! State Trie Puring Routine Started !!!")
+	logger := slog.With("prune", "state")
+	logger.Info("!!! State Trie Puring Routine Started !!!")
 	for {
 		bestNum := meterChain.BestBlock().Number()
 		snapNum, _ := meterChain.GetStateSnapshotNum() // ignore err, default is 0
-		targetNum := bestNum - 13500000
-		fmt.Println("!!! State Trie Pruning Check !!!")
-		fmt.Printf("Snapshot: %v, Best: %v, Target: %v\n", snapNum, bestNum, targetNum)
+		if bestNum < uint32(preserveBlocks) {
+			logger.Info("Best < PreserveBlocks, skip pruning for now", "best", bestNum, "preserveBlocks", preserveBlocks)
+			time.Sleep(8 * time.Hour)
+			continue
+		}
+		targetNum := bestNum - uint32(preserveBlocks)
+		logger.Info("!!! State Trie Pruning Check !!!", "snap", snapNum, "best", bestNum, "target", targetNum)
 		if snapNum >= targetNum {
-			fmt.Println("Snapshot >= Target, skip pruning for now")
+			logger.Info("Snapshot >= Target, skip pruning for now", "snap", snapNum, "target", targetNum)
 			time.Sleep(8 * time.Hour)
 			continue
 		}
 		snapNum = targetNum
 		pruneStateHead, _ := meterChain.GetPruneStateHead() // ignore err, default is 0
-		fmt.Printf("Prune State Head: %v\n", pruneStateHead)
-		if snapNum-pruneStateHead < 8000000 {
-			fmt.Println("Not enough for pruning, skip pruning for now")
+		if snapNum < pruneStateHead {
+			logger.Info("Snapshot < pruneStateHead, skip pruning for now", "snap", snapNum, "pruneHead", pruneStateHead)
+			time.Sleep(8 * time.Hour)
+			continue
+		}
+		if snapNum-pruneStateHead < uint32(math.Ceil(8*3600/1.77)) {
+			logger.Info("Not enough for pruning, skip pruning for now")
 			time.Sleep(8 * time.Hour)
 			continue
 		}
@@ -509,12 +520,12 @@ func pruneStateTrie(ctx *cli.Context, gene *genesis.Genesis, mainDB *lvldb.Level
 		snapBlk, _ := meterChain.GetTrunkBlock(targetNum)
 
 		pruner := trie.NewPruner(mainDB, ctx.String(dataDirFlag.Name))
-		fmt.Println("Load/Generate Snapshot Bloom")
+		logger.Info("Load/Generate Snapshot Bloom")
 		pruner.InitForStatePruning(geneBlk.StateRoot(), snapBlk.StateRoot(), snapBlk.Number())
-		fmt.Println("Snapshot Bloom Loaded.")
+		logger.Info("Snapshot Bloom Loaded.")
 
 		meterChain.UpdateStateSnapshotNum(snapNum)
-		fmt.Println("Snapshot Num updated to", snapNum)
+		logger.Info("Snapshot Num updated", "snap", snapNum)
 
 		var (
 			lastRoot    = meter.Bytes32{}
@@ -538,21 +549,21 @@ func pruneStateTrie(ctx *cli.Context, gene *genesis.Genesis, mainDB *lvldb.Level
 			prunedBytes += stat.PrunedNodeBytes + stat.PrunedStorageBytes
 			// slog.Info(fmt.Sprintf("Pruned block %v", i), "prunedNodes", stat.PrunedNodes+stat.PrunedStorageNodes, "prunedBytes", stat.PrunedNodeBytes+stat.PrunedStorageBytes, "elapsed", meter.PrettyDuration(time.Since(pruneStart)))
 			if time.Since(lastReport) > time.Second*8 {
-				slog.Info("Still pruning state trie", "elapsed", meter.PrettyDuration(time.Since(start)), "prunedNodes", prunedNodes, "prunedBytes", prunedBytes)
+				logger.Info("Still pruning state trie", "elapsed", meter.PrettyDuration(time.Since(start)), "prunedNodes", prunedNodes, "prunedBytes", prunedBytes)
 				lastReport = time.Now()
 			}
 			if batch.Len() >= statePruningBatch || i == snapNum {
 				if err := batch.Write(); err != nil {
-					slog.Error("Error flushing", "err", err)
+					logger.Error("Error flushing", "err", err)
 				}
-				slog.Info("Commited batch for state pruning", "len", batch.Len(), "head", i)
+				logger.Info("Commited batch for state pruning", "len", batch.Len(), "head", i)
 
 				batch = mainDB.NewBatch()
 				meterChain.UpdatePruneStateHead(i)
 			}
 
 		}
-		slog.Info("Prune state trie completed", "elapsed", meter.PrettyDuration(time.Since(start)), "prunedNodes", prunedNodes, "prunedBytes", prunedBytes)
+		logger.Info("Prune state trie completed", "elapsed", meter.PrettyDuration(time.Since(start)), "prunedNodes", prunedNodes, "prunedBytes", prunedBytes)
 		time.Sleep(8 * time.Hour)
 	}
 }

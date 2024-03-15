@@ -7,6 +7,7 @@ package main
 
 import (
 	"log/slog"
+	"math"
 
 	cli "gopkg.in/urfave/cli.v1"
 )
@@ -26,6 +27,11 @@ var (
 	enableStatePruneFlag = cli.BoolFlag{
 		Name:  "enable-state-pruning",
 		Usage: "enable state pruning (default will leave the last 13500000 state untouched and prune the rest)",
+	}
+	preserveBlocksFlag = cli.IntFlag{
+		Name:  "preserve-blocks",
+		Usage: "state pruning will preserve the last n blocks",
+		Value: int(math.Ceil(365 * 24 * 3600 / 1.77)),
 	}
 	beneficiaryFlag = cli.StringFlag{
 		Name:  "beneficiary",
