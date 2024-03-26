@@ -191,7 +191,7 @@ const (
 //  3. upgrade USDC.eth/USDT.eth/WBTC.eth to support EIP-712 permit function
 const (
 	TeslaFork11_MainnetStartNum = 51786600 // around 3/21/2024 9:00 AM (PDT)
-	TeslaFork11_TestnetStartNum = 99999999 // TBD
+	TeslaFork11_TestnetStartNum = 55245500 // around 4/26/2024 9:30 AM (PDT)
 )
 
 var (
