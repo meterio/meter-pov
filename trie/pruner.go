@@ -675,7 +675,7 @@ func (pit *pruneIterator) peek(descend bool) (*pruneIteratorState, *int, []byte,
 		// p.logger.Info("peek", "path", hex.EncodeToString(path), "ok", ok)
 		if ok {
 			if err := state.resolve(pit, path); err != nil {
-				p.logger.Error("could not resolve path:", "parent", ancestor, "path", hex.EncodeToString(path))
+				slog.Error("could not resolve path:", "parent", ancestor, "path", hex.EncodeToString(path))
 				return parent, &parent.index, path, err
 			}
 			return state, &parent.index, path, nil

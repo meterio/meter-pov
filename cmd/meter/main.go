@@ -506,6 +506,29 @@ func pruneStateTrie(ctx *cli.Context, gene *genesis.Genesis, mainDB *lvldb.Level
 		}
 		snapNum = targetNum
 		pruneStateHead, _ := meterChain.GetPruneStateHead() // ignore err, default is 0
+		pruneStateHeadBefore := pruneStateHead
+
+		for pruneStateHead < bestNum && pruneStateHead < snapNum {
+			cur, err := meterChain.GetTrunkBlock(pruneStateHead)
+			if err != nil {
+				logger.Error("could not get current block", "num", pruneStateHead, "err", err)
+				break
+			}
+			nxt, err := meterChain.GetTrunkBlock(pruneStateHead + 1)
+			if err != nil {
+				logger.Error("could not get next block", "num", pruneStateHead, "err", err)
+				break
+			}
+
+			if bytes.Equal(cur.StateRoot().Bytes(), nxt.StateRoot().Bytes()) {
+				pruneStateHead++
+			} else {
+				pruneStateHead = nxt.Number()
+				break
+			}
+		}
+
+		logger.Info("Prune head check", "pruneStateHead", pruneStateHead, "pruneStateHeadBefore", pruneStateHeadBefore, "snap", snapNum)
 		if snapNum < pruneStateHead {
 			logger.Info("Snapshot < pruneStateHead, skip pruning for now", "snap", snapNum, "pruneHead", pruneStateHead)
 			time.Sleep(8 * time.Hour)
@@ -564,6 +587,7 @@ func pruneStateTrie(ctx *cli.Context, gene *genesis.Genesis, mainDB *lvldb.Level
 
 		}
 		logger.Info("Prune state trie completed", "elapsed", meter.PrettyDuration(time.Since(start)), "prunedNodes", prunedNodes, "prunedBytes", prunedBytes)
+		meterChain.UpdatePruneStateHead(snapNum)
 		time.Sleep(8 * time.Hour)
 	}
 }
