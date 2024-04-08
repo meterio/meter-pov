@@ -123,7 +123,7 @@ func NewPruner(db KeyValueStore, dataDir string) *Pruner {
 		dataDir:      dataDir,
 		visitedBloom: visitedBloom,
 		cache:        cache,
-		logger:       slog.Default().With("pruner", "trie"),
+		logger:       slog.Default().With("prune", "trie"),
 	}
 
 	return p
@@ -292,7 +292,7 @@ func (p *Pruner) mark(key []byte) {
 
 // prune the trie at block height
 func (p *Pruner) Prune(root meter.Bytes32, batch kv.Batch) *PruneStat {
-	p.logger.Info("Start pruning", "root", root)
+	// p.logger.Info("start pruning trie", "root", root)
 	t, _ := New(root, p.db)
 	p.iter = newPruneIterator(t, p.canSkip, p.mark, p.loadOrGet)
 	stat := &PruneStat{}
@@ -313,7 +313,7 @@ func (p *Pruner) Prune(root meter.Bytes32, batch kv.Batch) *PruneStat {
 			}
 			storageTrie, err := New(meter.BytesToBytes32(acc.StorageRoot), p.db)
 			if err != nil {
-				p.logger.Error("Could not get storage trie", "err", err)
+				p.logger.Warn("Could not get storage trie", "err", err)
 				continue
 			}
 			storageIter := newPruneIterator(storageTrie, p.canSkip, p.mark, p.loadOrGet)
@@ -329,9 +329,9 @@ func (p *Pruner) Prune(root meter.Bytes32, batch kv.Batch) *PruneStat {
 					stat.PrunedStorageNodes++
 					err := batch.Delete(shash[:])
 					if err != nil {
-						p.logger.Error("Error deleteing", "err", err)
+						p.logger.Error("error deleteing storage node", "err", err)
 					}
-					p.logger.Info("Prune storage", "hash", shash, "len", len(loaded)+len(shash), "prunedNodes", stat.PrunedStorageNodes)
+					p.logger.Debug("pruned storage node", "hash", shash, "len", len(loaded)+len(shash), "prunedNodes", stat.PrunedStorageNodes)
 				}
 			}
 		} else {
@@ -342,13 +342,13 @@ func (p *Pruner) Prune(root meter.Bytes32, batch kv.Batch) *PruneStat {
 				stat.PrunedNodes++
 				err := batch.Delete(hash[:])
 				if err != nil {
-					p.logger.Error("Error deleteing", "err", err)
+					p.logger.Error("error deleteing state node", "err", err)
 				}
-				p.logger.Info("Prune node", "hash", hash, "len", len(loaded)+len(hash), "prunedNodes", stat.PrunedNodes)
+				p.logger.Debug("pruned state node", "hash", hash, "len", len(loaded)+len(hash), "prunedNodes", stat.PrunedNodes)
 			}
 		}
 	}
-	p.logger.Info("Pruned trie", "root", root, "batch", batch.Len(), "prunedNodes", stat.PrunedNodes+stat.PrunedStorageNodes, "prunedBytes", stat.PrunedNodeBytes+stat.PrunedStorageBytes)
+	p.logger.Info("pruned trie", "root", root, "batch", batch.Len(), "prunedNodes", stat.PrunedNodes+stat.PrunedStorageNodes, "prunedBytes", stat.PrunedNodeBytes+stat.PrunedStorageBytes)
 	// if batch.Len() > 0 {
 	// 	if err := batch.Write(); err != nil {
 	// 		p.logger.Error("Error flushing", "err", err)
