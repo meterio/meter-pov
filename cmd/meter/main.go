@@ -540,15 +540,15 @@ func pruneStateTrie(ctx *cli.Context, gene *genesis.Genesis, mainDB *lvldb.Level
 			continue
 		}
 
-		snapBlk, _ := meterChain.GetTrunkBlock(targetNum)
+		snapBlk, _ := meterChain.GetTrunkBlock(snapNum)
 
 		pruner := trie.NewPruner(mainDB, ctx.String(dataDirFlag.Name))
-		logger.Info("Load/Generate Snapshot Bloom")
+		logger.Info("Generate snapshot bloom", "num", snapNum)
 		pruner.InitForStatePruning(geneBlk.StateRoot(), snapBlk.StateRoot(), snapBlk.Number())
-		logger.Info("Snapshot Bloom Loaded.")
+		logger.Info("Generated snapshot bloom.", "num", snapNum)
 
 		meterChain.UpdateStateSnapshotNum(snapNum)
-		logger.Info("Snapshot Num updated", "snap", snapNum)
+		logger.Info("Updated snapshot num", "snap", snapNum)
 
 		var (
 			lastRoot    = meter.Bytes32{}
@@ -567,6 +567,7 @@ func pruneStateTrie(ctx *cli.Context, gene *genesis.Genesis, mainDB *lvldb.Level
 			}
 			lastRoot = root
 			// pruneStart := time.Now()
+			logger.Info("Call prune", "num", i, "blk", b.ID().ToBlockShortID(), "stateRoot", b.StateRoot())
 			stat := pruner.Prune(root, batch)
 			prunedNodes += stat.PrunedNodes + stat.PrunedStorageNodes
 			prunedBytes += stat.PrunedNodeBytes + stat.PrunedStorageBytes
@@ -575,7 +576,7 @@ func pruneStateTrie(ctx *cli.Context, gene *genesis.Genesis, mainDB *lvldb.Level
 				logger.Info("Still pruning state trie", "elapsed", meter.PrettyDuration(time.Since(start)), "prunedNodes", prunedNodes, "prunedBytes", prunedBytes)
 				lastReport = time.Now()
 			}
-			if batch.Len() >= statePruningBatch || i == snapNum {
+			if batch.Len() >= statePruningBatch || i == snapNum-1 {
 				if err := batch.Write(); err != nil {
 					logger.Error("Error flushing", "err", err)
 				}
@@ -587,7 +588,6 @@ func pruneStateTrie(ctx *cli.Context, gene *genesis.Genesis, mainDB *lvldb.Level
 
 		}
 		logger.Info("Prune state trie completed", "elapsed", meter.PrettyDuration(time.Since(start)), "prunedNodes", prunedNodes, "prunedBytes", prunedBytes)
-		meterChain.UpdatePruneStateHead(snapNum)
 		time.Sleep(8 * time.Hour)
 	}
 }
