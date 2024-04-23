@@ -217,6 +217,12 @@ func main() {
 			},
 			{Name: "delete-block", Usage: "delete blocks", Flags: []cli.Flag{networkFlag, dataDirFlag, fromFlag, toFlag}, Action: runDeleteBlockAction},
 			{Name: "propose-block", Usage: "Local propose block", Flags: []cli.Flag{networkFlag, dataDirFlag, parentFlag, ntxsFlag, pkFileFlag}, Action: runProposeBlockAction},
+			{
+				Name:   "accumulated-receipt-size",
+				Usage:  "Get accumulated block receipt size in range [from,to]",
+				Flags:  []cli.Flag{networkFlag, dataDirFlag, fromFlag, toFlag},
+				Action: runAccumulatedReceiptSize,
+			},
 		},
 	}
 
@@ -254,6 +260,8 @@ func traverseStateAction(ctx *cli.Context) error {
 	)
 	slog.Info("Start to traverse trie", "block", blk.Number(), "stateRoot", blk.StateRoot())
 	iter := t.NodeIterator(nil)
+	leafSize := 0
+	branchSize := 0
 	for iter.Next(true) {
 		nodes += 1
 		if iter.Leaf() {
@@ -271,6 +279,8 @@ func traverseStateAction(ctx *cli.Context) error {
 			}
 			addr := meter.BytesToAddress(raw)
 			slog.Info("Visit account", "addr", addr, "raw", hex.EncodeToString(raw))
+			slog.Info("Leaf node", "hash", iter.Hash(), "key", hex.EncodeToString(iter.LeafKey()), "parent", iter.Parent(), "len", len(iter.LeafKey())+len(raw))
+			leafSize += len(iter.LeafKey()) + len(raw)
 			if !bytes.Equal(acc.StorageRoot, []byte{}) {
 				storageTrie, err := trie.New(meter.BytesToBytes32(acc.StorageRoot), mainDB)
 				if err != nil {
@@ -315,7 +325,8 @@ func traverseStateAction(ctx *cli.Context) error {
 			}
 		} else {
 			raw, _ := mainDB.Get(iter.Hash().Bytes())
-			slog.Info("Branch Node", "hash", iter.Hash(), "val", hex.EncodeToString(raw), "parent", iter.Parent())
+			slog.Info("Branch Node", "hash", iter.Hash(), "val", hex.EncodeToString(raw), "parent", iter.Parent(), "len", len(iter.Hash())+len(raw))
+			branchSize += len(iter.Hash()) + len(raw)
 		}
 		if time.Since(lastReport) > time.Second*8 {
 			slog.Info("Still traversing", "nodes", nodes, "accounts", accounts, "snodes", snodes, "slots", slots, "codes", codes, "elapsed", meter.PrettyDuration(time.Since(start)))
@@ -326,7 +337,7 @@ func traverseStateAction(ctx *cli.Context) error {
 		slog.Error("Failed to traverse state trie", "root", blk.StateRoot(), "err", iter.Error())
 		return iter.Error()
 	}
-	slog.Info("Traverse completed", "nodes", nodes, "accounts", accounts, "snodes", snodes, "slots", slots, "codes", codes, "elapsed", meter.PrettyDuration(time.Since(start)))
+	slog.Info("Traverse completed", "nodes", nodes, "accounts", accounts, "snodes", snodes, "slots", slots, "codes", codes, "branchSize", branchSize, "leafSize", leafSize, "elapsed", meter.PrettyDuration(time.Since(start)))
 	return nil
 }
 
@@ -1344,6 +1355,42 @@ func runProposeBlockAction(ctx *cli.Context) error {
 		return err
 	}
 	slog.Info("built mblock", "id", blk.ID(), "err", err, "elapsed", meter.PrettyDuration(time.Since(start)))
+
+	return nil
+}
+
+func runAccumulatedReceiptSize(ctx *cli.Context) error {
+	mainDB, _ := openMainDB(ctx)
+	defer func() { slog.Info("closing main database..."); mainDB.Close() }()
+
+	logDB := openLogDB(ctx)
+	defer func() { slog.Info("closing log database..."); logDB.Close() }()
+
+	from := ctx.Uint64(fromFlag.Name)
+	to := ctx.Uint64(toFlag.Name)
+	receiptSize := uint64(0)
+	hashSize := uint64(0)
+	for i := uint32(from); i <= uint32(to); i++ {
+		numKey := numberAsKey(i)
+
+		blockHash, err := mainDB.Get(append(hashKeyPrefix, numKey...))
+		if err != nil {
+			fmt.Println("could not get hash for ", i)
+			continue
+		}
+		hashSize += uint64(len(numKey) + len(hashKeyPrefix) + len(blockHash))
+		receiptRaw, err := mainDB.Get(append(blockReceiptsPrefix, blockHash...))
+		if err != nil {
+			fmt.Println("could not get receipt for ", i)
+			continue
+		}
+		receiptSize += uint64(len(blockHash) + len(blockReceiptsPrefix) + len(receiptRaw))
+		if i%100000 == 0 {
+			slog.Info("still calculating accumulated receipt size", "totalReceiptSize", receiptSize, "totalHashSize", hashSize, "from", from, "i", i)
+		}
+	}
+
+	slog.Info("Finished calculating accumulated receipt size", "totalReceiptSize", receiptSize, "totalHashSize", hashSize, "from", from, "to", to)
 
 	return nil
 }
