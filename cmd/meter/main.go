@@ -259,23 +259,85 @@ func defaultAction(ctx *cli.Context) error {
 	// load preset config
 	if "warringstakes" == ctx.String(networkFlag.Name) {
 		config := preset.TestnetPresetConfig
-		ctx.Set("committee-min-size", strconv.Itoa(config.CommitteeMinSize))
-		ctx.Set("committee-max-size", strconv.Itoa(config.CommitteeMaxSize))
-		ctx.Set("delegate-max-size", strconv.Itoa(config.DelegateMaxSize))
-		ctx.Set("disco-topic", config.DiscoTopic)
-		ctx.Set("disco-server", config.DiscoServer)
+		if ctx.IsSet("committee-min-size") {
+			config.CommitteeMinSize = ctx.Int("committee-min-size")
+		} else {
+			ctx.Set("committee-min-size", strconv.Itoa(config.CommitteeMinSize))
+		}
+
+		if ctx.IsSet("committee-max-size") {
+			config.CommitteeMaxSize = ctx.Int("committee-max-size")
+		} else {
+			ctx.Set("committee-max-size", strconv.Itoa(config.CommitteeMaxSize))
+		}
+
+		if ctx.IsSet("delegate-max-size") {
+			config.DelegateMaxSize = ctx.Int("committee-max-size")
+		} else {
+			ctx.Set("delegate-max-size", strconv.Itoa(config.DelegateMaxSize))
+		}
+
+		if ctx.IsSet("disco-topic") {
+			config.DiscoTopic = ctx.String("disco-topic")
+		} else {
+			ctx.Set("disco-topic", config.DiscoTopic)
+		}
+
+		if ctx.IsSet("disco-server") {
+			config.DiscoServer = ctx.String("disco-server")
+		} else {
+			ctx.Set("disco-server", config.DiscoServer)
+		}
 	} else if "main" == ctx.String(networkFlag.Name) {
 		config := preset.MainnetPresetConfig
-		ctx.Set("committee-min-size", strconv.Itoa(config.CommitteeMinSize))
-		ctx.Set("committee-max-size", strconv.Itoa(config.CommitteeMaxSize))
-		ctx.Set("delegate-max-size", strconv.Itoa(config.DelegateMaxSize))
-		ctx.Set("disco-topic", config.DiscoTopic)
-		ctx.Set("disco-server", config.DiscoServer)
+		if ctx.IsSet("committee-min-size") {
+			config.CommitteeMinSize = ctx.Int("committee-min-size")
+		} else {
+			ctx.Set("committee-min-size", strconv.Itoa(config.CommitteeMinSize))
+		}
+
+		if ctx.IsSet("committee-max-size") {
+			config.CommitteeMaxSize = ctx.Int("committee-max-size")
+		} else {
+			ctx.Set("committee-max-size", strconv.Itoa(config.CommitteeMaxSize))
+		}
+
+		if ctx.IsSet("delegate-max-size") {
+			config.DelegateMaxSize = ctx.Int("committee-max-size")
+		} else {
+			ctx.Set("delegate-max-size", strconv.Itoa(config.DelegateMaxSize))
+		}
+
+		if ctx.IsSet("disco-topic") {
+			config.DiscoTopic = ctx.String("disco-topic")
+		} else {
+			ctx.Set("disco-topic", config.DiscoTopic)
+		}
+
+		if ctx.IsSet("disco-server") {
+			config.DiscoServer = ctx.String("disco-server")
+		} else {
+			ctx.Set("disco-server", config.DiscoServer)
+		}
 	} else if "staging" == ctx.String(networkFlag.Name) {
 		config := preset.MainnetPresetConfig
-		ctx.Set("committee-min-size", strconv.Itoa(config.CommitteeMinSize))
-		ctx.Set("committee-max-size", strconv.Itoa(config.CommitteeMaxSize))
-		ctx.Set("delegate-max-size", strconv.Itoa(config.DelegateMaxSize))
+		if ctx.IsSet("committee-min-size") {
+			config.CommitteeMinSize = ctx.Int("committee-min-size")
+		} else {
+			ctx.Set("committee-min-size", strconv.Itoa(config.CommitteeMinSize))
+		}
+
+		if ctx.IsSet("committee-max-size") {
+			config.CommitteeMaxSize = ctx.Int("committee-max-size")
+		} else {
+			ctx.Set("committee-max-size", strconv.Itoa(config.CommitteeMaxSize))
+		}
+
+		if ctx.IsSet("delegate-max-size") {
+			config.DelegateMaxSize = ctx.Int("committee-max-size")
+		} else {
+			ctx.Set("delegate-max-size", strconv.Itoa(config.DelegateMaxSize))
+		}
 	}
 
 	// set magic
