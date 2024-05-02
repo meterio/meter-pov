@@ -147,98 +147,69 @@ Please check the following:
 - Give a brief title.
 - Explain the major changes you are asking to be code reviewed. Often it is useful to open a second tab in your browser where you can look through the diff yourself to remind yourself of all the changes you have made.
 
-## Deployment Steps
+## Running a devnet with 2 nodes
 
-Right now, only node mode is supported. solo mode is not supported anymore. The next few steps will show you how to setup a cluster with 2 nodes (named as `node1` and `node2`)
+Let's assume you have 2 nodes with different IPs, you'll need to enable these ports:
+* powpool and api on port `8668`, optional if you run PoS chain only
+* RESTful API on port `8669`
+* observe server for prometheus metrics, probe on port `8670`, this port is also used for consensus message passing
+* p2p port `11235` with UDP
+* discover server port `55555` with UDP
 
-1. prepare the binary and copy it to `node1` and `node2` (take a look at [build instruction](./BUILD.md) )
-2. run the binary first with `./bin/meter --network test --verbosity 9`
-3. take a note on the enode id for `node1`, you could find it in log here:
+The next few steps will show you how to setup a devnet with 2 nodes (named as `dev1` and `dev2`)
+
+1. build the binary by `make all` and copy `./bin/meter` to `dev1` and `dev2` (take a look at [build instruction](./BUILD.md) )
+2. choose a folder for meter chain data, refered by `<meter_data>`
+3. collect public key for each node by `./meter public-key --data-dir <meter_data>`
+4. copy `./bin/disco` to `dev` and start the discovery server on it by `disco`, the log should look like this:
 
 ```
-INFO[03-30|10:53:15] start up                                 pkg=p2psrv self="enode://0f73e6fad8ee070940d50ad326067c096696865398843e09d837a11ae2006a1df8688d01e0bd93a4c2db4253e571a514fc6f7c03e16c0b588044fdd082c2a145@[::]:11235?discport=0"
+2024/05/02 17:25:20 INFO UDP listener up net=enode://1d795801b4b31911385b702cf49f432aaddebbd8eeb76f757801c74b34ea477264f8d96cd4a6cf1d0d9a5310dbcb6808b2f3dbcb90eb0141e7505ae81e63040d@[::]:55555
+Running enode://1d795801b4b31911385b702cf49f432aaddebbd8eeb76f757801c74b34ea477264f8d96cd4a6cf1d0d9a5310dbcb6808b2f3dbcb90eb0141e7505ae81e63040d@[::]:55555
 ```
 
-The `enode://xxxx@[::]:11235` part is the enode, replace the `[::]` part with actual ip of `node1`
+The `enode://xxxx@[::]:55555` part is the enode id, replace the `[::]` part with actual ip of `dev1`, ths is `<discovery-server-enode-string>`
 
-4. now you need to prepare a config file named `delegates.json`, a sample file looks like this:
+5. now you need to prepare a config file named `delegates.json`, a sample file looks like this:
 
 ```
 [
-    {
-        "address" : "a0da10fa4e8e810c4ef3f9a3cd8091a7b10e05fd",
-        "pub_key" : "node1-pub-key",
-        "voting_power" : "90",
-        "network_addr" : {
-            "id" : "1000",
-            "ip" : "node1-ip",
-            "port" : 8080,
-            "name" : "nod1"
-        },
-        "accum" : "7689255112978"
-    },
-    {
-        "address" : "d4be94fda23e12ee656b5123c9ac80bbf81971a5",
-        "pub_key" : "node2-pub-key",
-        "voting_power" : "100",
-        "network_addr" : {
-            "id" : "1001",
-            "ip" : "node2-ip",
-            "port" : 8080,
-            "name" : "node2"
-        },
-        "accum" : "2057045235008"
+  {
+    "name": "dev1",
+    "address": "<any-valid-ethereum-address>",
+    "pub_key": "<pubkey-of-dev1>",
+    "voting_power": 100,
+    "network_addr": {
+      "ip": "<ip-of-dev1>",
+      "port": 8670
     }
+  },
+  {
+    "name": "dev-02",
+    "address": "<any-valid-ethereum-address>",
+    "pub_key": "<pubkey-of-dev2>",
+    "voting_power": 100,
+    "network_addr": {
+      "ip": "<ip-of-dev2>",
+      "port": 8670
+    }
+  }
 ]
 
 ```
-
-replace node1-ip with ip of `node1`
-replace node1-pub-key with content from `~/.com.dfinlab.meter/public.key` on `node1`
-replace node2-ip with ip of `node2`
-replace node2-pub-key with content from `~/.com.dfinlab.meter/public.key` on `node2`
-
-5. copy `delegates.json` on to `node1` and `node2`, place it under `~/.com.dfinlab.meter/delegates.json`
+put this file under `<meter_data>/` on `dev1` and `dev2`
 
 6. now you're ready to boot up
 
-on `node1`, use `./bin/meter --network test --verbosity 9`
-on `node2`, use `./bin/meter --network test --verbosity 9 --peers [enode-id-of-node1]`
-
-7. if you see from the log that block has been generated with consensus, everything is up and running!
-
-A sample log for commited block:
+on both nodes, execute 
 
 ```
-INFO[02-12|14:45:40]
-===========================================================
-Block commited at height 1
-===========================================================
- pkg=consensus elapsedTime=707218 bestBlockHeight=1
+./meter --network staging --disco-topic dev --data-dir /etc/pos --committee-min-size 2 --init-configured-delegates --disco-server <discover-server-enode-string>
 
-Block(504 B){
-BlockHeader: Header(0x0000055d29c1adde910544507f7b712370f2a91dcc4b34d21f3b696e4c10f515):
-        Number:                 1
-        ParentID:               0x0000055c3a8556200e83ac9fe80e0323de76f529edeb150613d2af5166dfc12d
-        Timestamp:              1550011540
-        Signer:                 0x7280d2f760ce59c5a2e0bb04eccdef45c6bb7d14
-        Beneficiary:            0x7280d2f760ce59c5a2e0bb04eccdef45c6bb7d14
-        BlockType:              2
-        LastKBlockHieght:       0
-        GasLimit:               10000000
-        GasUsed:                0
-        TotalScore:             1
-        TxsRoot:                0x45b0cfc220ceec5b7c1c62c4d4193d38e4eba48e8815729ce75f9c0ab0e4c1c0
-        StateRoot:              0x7d7cb8edd7a420953caad0a9a90583dd6fc6fc0a52235f2d801ee16d43a3f389
-        ReceiptsRoot:   0x45b0cfc220ceec5b7c1c62c4d4193d38e4eba48e8815729ce75f9c0ab0e4c1c0
-        Signature:              0xfca190d1e2388e52d290ec91777c3e4b2db7b6273ddfd27c344062d14355c92b56d69a2c5da2da39a69e43425c0fa5402928bb41315c0f87fe299bd7820e08db01,
-Transactions: [],
-KBlockData: {0 0x0000000000000000000000000000000000000000 []},
-CommitteeInfo: {[] [] []}
-}
 ```
 
-That's it. The next time, you won't need the `--peers` flag for `node2` any more, since it's already stored in cache. Enjoy!
+7. Idealy, this should do the trick, nodes will find each other with the help of discovery server and get ready for proposing the first block.
+That's it. If you want to see the debug log, use `--verbosity -4` to enable.
 
 ## License
 
