@@ -153,7 +153,7 @@ Let's assume you have 2 nodes with different IPs, you'll need to enable these po
 * powpool and api on port `8668`, optional if you run PoS chain only
 * RESTful API on port `8669`
 * observe server for prometheus metrics, probe on port `8670`, this port is also used for consensus message passing
-* p2p port `11235` with UDP
+* p2p port `11235` with TCP
 * discover server port `55555` with UDP
 
 The next few steps will show you how to setup a devnet with 2 nodes (named as `dev1` and `dev2`)
