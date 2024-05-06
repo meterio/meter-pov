@@ -127,6 +127,7 @@ func main() {
 			noDiscoverFlag,
 			minCommitteeSizeFlag,
 			maxCommitteeSizeFlag,
+			soloFlag,
 			maxDelegateSizeFlag,
 			discoServerFlag,
 			discoTopicFlag,

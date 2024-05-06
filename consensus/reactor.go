@@ -55,6 +55,7 @@ const (
 )
 
 type ReactorConfig struct {
+	SoloMode          bool
 	InitCfgdDelegates bool
 	EpochMBlockCount  uint32
 	MinCommitteeSize  int
@@ -141,6 +142,7 @@ func NewConsensusReactor(ctx *cli.Context, chain *chain.Chain, logDB *logdb.LogD
 
 	if ctx != nil {
 		r.config = ReactorConfig{
+			SoloMode:          ctx.Bool("solo"),
 			InitCfgdDelegates: ctx.Bool("init-configured-delegates"),
 			EpochMBlockCount:  uint32(ctx.Uint("epoch-mblock-count")),
 			MinCommitteeSize:  ctx.Int("committee-min-size"),
@@ -170,6 +172,12 @@ func NewConsensusReactor(ctx *cli.Context, chain *chain.Chain, logDB *logdb.LogD
 func (r *Reactor) OnStart(ctx context.Context) error {
 
 	go r.outQueue.Start(ctx)
+
+	if r.config.SoloMode {
+		r.logger.Info("start pacemaker directly in solo mode")
+		r.pacemaker.Regulate()
+		return nil
+	}
 
 	select {
 	case <-ctx.Done():

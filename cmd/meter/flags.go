@@ -146,6 +146,10 @@ var (
 		Usage: "delegate maximum size",
 		Value: 100,
 	}
+	soloFlag = cli.BoolFlag{
+		Name:  "solo",
+		Usage: "solo node mode",
+	}
 	discoServerFlag = cli.StringSliceFlag{
 		Name:  "disco-server",
 		Usage: "override the default discover servers setting",
