@@ -355,7 +355,7 @@ func (p *Pacemaker) OnReceiveProposal(mi IncomingMsg) {
 
 	// check round
 	// round 0 must be the first after a KBlock
-	if round == 0 && !parent.ProposedBlock.IsKBlock() {
+	if round == 0 && parent.Height != 0 && !parent.ProposedBlock.IsKBlock() {
 		p.logger.Error("round(0) must have a direct KBlock parent")
 		return
 	}

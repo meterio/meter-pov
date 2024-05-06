@@ -44,7 +44,7 @@ func (p *ProposalMap) GetProposalsUpTo(committedBlkID meter.Bytes32, qcHigh *blo
 		result = append([]*block.DraftBlock{head}, result...)
 		head = head.Parent
 	}
-	return make([]*block.DraftBlock, 0)
+	return result
 }
 
 func (p *ProposalMap) Has(blkID meter.Bytes32) bool {
