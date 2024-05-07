@@ -10,26 +10,6 @@
     }
   },
   {
-    "name": "main-02",
-    "address": "0x3256443CF7C7C6c9BF9c874f5f239225E0b3487E",
-    "pub_key": "BEaaRrf4wJZhtGlgmiffJGxn0dcR7mIbS5qMcDBvbfDs/njjV4jdSvibcQdE6agklgenUnMTlA9/6Zd3it1HxWI=:::VB7HSRio7qM9ikpBsDZw4UKRVkxH1jSV6+BE9tq1i+LlIdH/iP3Gf7kwSBTgKxStlglSA9CMNYp4M+XeNXb1jAE=",
-    "voting_power": 100,
-    "network_addr": {
-      "ip": "3.1.136.160",
-      "port": 8670
-    }
-  },
-  {
-    "name": "main-03",
-    "address": "0x824FB717b01B624ac0AbbDb3519E6936019D1C2e",
-    "pub_key": "BEZO/q3aKFSIXgIh50FKN8zlNMk8CKdiYeq+rNLnDIFTpM/LYqAguaDuNzxHTgFXiB/imQLj9ZlFQMK5j/Cj9PE=:::Ptux3rGIa1Isfw7UVy5+LkFzYI4FFV33ssqmO6qTD8ZeocZybNJwKPLIpgCurN2tjQDwGP1YKt1XZ4GLMl1OrwE=",
-    "voting_power": 100,
-    "network_addr": {
-      "ip": "3.1.243.167",
-      "port": 8670
-    }
-  },
-  {
     "name": "main-04",
     "address": "0xE66893147A730ddAf9e0ae42aD7eC8456D1Fc50D",
     "pub_key": "BJmMSFBVnr0JSTo6MhJr5TWlVaKp88tIZhwsn83hnwwAa12WKJrgJLYgmXs3cudZoENDhqpVWLTo9mLogc5fZv4=:::Io+O9rtIHMRB+2b0KAnARYTe7pD+r3U3DrVS9dPEpHgKcLXSpdnkkx8pbfdBCz68s+stkWcajRCEHN0O1tbC4gE=",
