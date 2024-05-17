@@ -1,31 +1,31 @@
 [
   {
-    "name": "main-01",
+    "name": "m01",
     "address": "0xB980Ff36A99C0C3B408279E025d8E2DA7eF65105",
     "pub_key": "BEdvoJsZLZw2mmKPkZIpLQ3B9/L0warwsmmS1dNHSXfDP0vBx6JSYsmuWwj/3so5j/mn9OfTJMMEMO/LtRmSPOo=:::LWilIBiprQWu9CfOxUGME9l09994UozRan3iterG/2zqtUzE6nw2Pv8vpAFJSQTz4fbq2hd5dHrQIjWX574ftAA=",
     "voting_power": 100,
     "network_addr": {
-      "ip": "3.0.39.82",
+      "ip": "18.138.160.172",
       "port": 8670
     }
   },
   {
-    "name": "main-04",
+    "name": "m02",
     "address": "0xE66893147A730ddAf9e0ae42aD7eC8456D1Fc50D",
     "pub_key": "BJmMSFBVnr0JSTo6MhJr5TWlVaKp88tIZhwsn83hnwwAa12WKJrgJLYgmXs3cudZoENDhqpVWLTo9mLogc5fZv4=:::Io+O9rtIHMRB+2b0KAnARYTe7pD+r3U3DrVS9dPEpHgKcLXSpdnkkx8pbfdBCz68s+stkWcajRCEHN0O1tbC4gE=",
     "voting_power": 100,
     "network_addr": {
-      "ip": "3.233.5.46",
+      "ip": "18.232.190.196",
       "port": 8670
     }
   },
   {
-    "name": "main-05",
+    "name": "m03",
     "address": "0x903F577C60796Bac2bab28c71D1cB1fDC6C4c409",
     "pub_key": "BBzIyiEmHlh+k9qbN/jQWmW7CfFzjmnNJPtSVCpPobH+0k/2zgtPic4UcHA7WiOrdWR6aAUML/eVvPH/p4LR2xo=:::PvuNxTb5AFHAQmZHhfJv3lS0i1dpIKNVuyUuaJSzFCtkG/Zhd9N0UAhe9I211GQL09ielD1MHAAvdvqUq/HxngA=",
     "voting_power": 100,
     "network_addr": {
-      "ip": "3.65.53.232",
+      "ip": "35.180.206.186",
       "port": 8670
     }
   }
