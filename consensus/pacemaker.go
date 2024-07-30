@@ -782,6 +782,7 @@ func (p *Pacemaker) mainLoop() {
 		case ti := <-p.roundTimeoutCh:
 			if ti.epoch < p.reactor.curEpoch {
 				p.logger.Info("skip timeout handling due to epoch mismatch", "timeoutRound", ti.round, "timeoutEpoch", ti.epoch, "myEpoch", p.reactor.curEpoch)
+				continue
 			}
 			p.OnRoundTimeout(ti)
 		case newTxID := <-p.newTxCh:
