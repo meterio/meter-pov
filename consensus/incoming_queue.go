@@ -1,7 +1,6 @@
 package consensus
 
 import (
-	sha256 "crypto/sha256"
 	"encoding/hex"
 	"fmt"
 	"log/slog"
@@ -34,7 +33,8 @@ type IncomingMsg struct {
 }
 
 func newIncomingMsg(msg block.ConsensusMessage, peer ConsensusPeer, rawData []byte) *IncomingMsg {
-	msgHash := sha256.Sum256(rawData)
+	msgHash := msg.GetMsgHash()
+	// slog.Info("Incoming Msg", "msg", msg.String(), "msgHash", hex.EncodeToString(msgHash[:]), "rawData", hex.EncodeToString(rawData))
 	shortMsgHash := hex.EncodeToString(msgHash[:])[:8]
 	return &IncomingMsg{
 		Msg:          msg,
@@ -104,7 +104,7 @@ func (q *IncomingQueue) Add(mi IncomingMsg) error {
 		q.logger.Warn(fmt.Sprintf("dropped %s due to cap", dropped.Msg.String()), "from", dropped.Peer.String())
 	}
 
-	q.logger.Info(fmt.Sprintf("recv %s", mi.Msg.String()), "from", mi.Peer.String(), "qlen", len(q.queue))
+	q.logger.Info(fmt.Sprintf("recv %s", mi.Msg.String()), "hash", hex.EncodeToString(mi.Hash[:]), "from", mi.Peer.String(), "qlen", len(q.queue))
 	mi.EnqueueAt = time.Now()
 	mi.ExpireAt = time.Now().Add(IN_QUEUE_TTL)
 	q.queue <- mi
