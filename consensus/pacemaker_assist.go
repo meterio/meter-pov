@@ -144,7 +144,6 @@ func (p *Pacemaker) ValidateProposal(b *block.DraftBlock) error {
 		// FIXME: probably should not handle this proposal any more
 		p.logger.Warn("Empty stage !!!")
 		p.logger.Error("empty stage", "err", err)
-		return err
 	} else if _, err := stage.Commit(); err != nil {
 		p.logger.Warn("commit stage failed: ", "err", err)
 		b.SuccessProcessed = false
