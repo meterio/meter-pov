@@ -9,7 +9,6 @@ import (
 	"bytes"
 	"crypto/ecdsa"
 	"encoding/hex"
-	"errors"
 	"fmt"
 	"log/slog"
 	"time"
@@ -64,19 +63,19 @@ func DecodeMsg(rawHex string) (ConsensusMessage, error) {
 	if err != nil {
 		return nil, err
 	}
-	if len(b) > maxMsgSize {
-		return msg, fmt.Errorf("msg exceeds max size (%d > %d)", len(b), maxMsgSize)
-	}
+	// if len(b) > maxMsgSize {
+	// return msg, fmt.Errorf("msg exceeds max size (%d > %d)", len(b), maxMsgSize)
+	// }
 	err = cdc.UnmarshalBinaryBare(b, &msg)
 	return msg, err
 }
 
 func EncodeMsg(msg ConsensusMessage) (string, error) {
 	raw := cdc.MustMarshalBinaryBare(msg)
-	if len(raw) > maxMsgSize {
-		slog.Error("consensus msg exceeds max size", "raw", len(raw), "maxSize", maxMsgSize)
-		return "", errors.New("msg exceeds max size")
-	}
+	// if len(raw) > maxMsgSize {
+	// slog.Error("consensus msg exceeds max size", "raw", len(raw), "maxSize", maxMsgSize)
+	// return "", errors.New("msg exceeds max size")
+	// }
 	return hex.EncodeToString(raw), nil
 }
 
