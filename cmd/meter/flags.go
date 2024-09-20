@@ -26,12 +26,16 @@ var (
 	}
 	enableStatePruneFlag = cli.BoolFlag{
 		Name:  "enable-state-pruning",
-		Usage: "enable state pruning (default will leave the last 13500000 state untouched and prune the rest)",
+		Usage: "enable state pruning (default will preserve lastest 26280000 state and prune the rest)",
+	}
+	enableBlockPruneFlag = cli.BoolFlag{
+		Name:  "enable-block-pruning",
+		Usage: "enable block pruning (default will preserve latest 26280000 blocks and prune the rest)",
 	}
 	preserveBlocksFlag = cli.IntFlag{
 		Name:  "preserve-blocks",
 		Usage: "state pruning will preserve the last n blocks",
-		Value: int(math.Ceil(365 * 24 * 3600 / 1.77)),
+		Value: int(math.Ceil(365 * 24 * 60 * 60 / 1.8 * 1.5)),
 	}
 	beneficiaryFlag = cli.StringFlag{
 		Name:  "beneficiary",

@@ -96,6 +96,7 @@ func main() {
 				Flags:  []cli.Flag{dataDirFlag, networkFlag},
 				Action: reportStateAction,
 			},
+			{Name: "report-db", Usage: "Scan and give total size separately for blocks/txmetas/receipts/index", Flags: []cli.Flag{dataDirFlag, networkFlag}, Action: reportDBAction},
 			{
 				Name:   "report-index",
 				Usage:  "Scan all index trie and report major metrics such as total size ",
@@ -115,6 +116,7 @@ func main() {
 				Flags:  []cli.Flag{dataDirFlag, networkFlag, beforeFlag},
 				Action: pruneStateAction,
 			},
+			{Name: "prune-blocks", Usage: "Prune block-related storage", Flags: []cli.Flag{dataDirFlag, networkFlag, fromFlag, toFlag}, Action: pruneBlockAction},
 			{
 				Name:   "prune-index",
 				Usage:  "Prune index trie before given block",
@@ -426,6 +428,45 @@ func traverseStorageAction(ctx *cli.Context) error {
 		return iter.Error()
 	}
 	slog.Info("Traverse complete", "nodes", nodes, "slots", slots, "elapsed", meter.PrettyDuration(time.Since(start)))
+	return nil
+}
+
+func pruneBlockAction(ctx *cli.Context) error {
+	mainDB, gene := openMainDB(ctx)
+	defer func() { slog.Info("closing main database..."); mainDB.Close() }()
+
+	meterChain := initChain(ctx, gene, mainDB)
+	fromBlk, err := loadBlockByRevision(meterChain, ctx.String(fromFlag.Name))
+	if err != nil {
+		fatal("could not load block with revision")
+	}
+	toBlk, err := loadBlockByRevision(meterChain, ctx.String(toFlag.Name))
+	if err != nil {
+		fatal("could not load block with revision")
+	}
+	batch := mainDB.NewBatch()
+	for i := fromBlk.Number(); i < toBlk.Number(); i++ {
+		hashKey := append(hashKeyPrefix, numberAsKey(i)...)
+		hash, err := mainDB.Get(hashKey)
+		if err != nil {
+			return err
+		}
+		b, err := meterChain.GetBlock(meter.BytesToBytes32(hash))
+		if err != nil {
+			return err
+		}
+		blkKey := append(blockPrefix, b.ID().Bytes()...)
+		for _, tx := range b.Txs {
+			metaKey := append(txMetaPrefix, tx.ID().Bytes()...)
+			batch.Delete(metaKey)
+		}
+		receiptKey := append(blockReceiptsPrefix, b.ID().Bytes()...)
+
+		batch.Delete(blkKey)
+		batch.Delete(hashKey)
+		batch.Delete(receiptKey)
+	}
+	batch.Write()
 	return nil
 }
 
@@ -901,6 +942,67 @@ func reportIndexAction(ctx *cli.Context) error {
 	// pruner.Compact()
 	slog.Info("Scan complete", "elapsed", meter.PrettyDuration(time.Since(start)), "nodes", totalNodes, "bytes", totalBytes)
 	return nil
+}
+
+func reportDBAction(ctx *cli.Context) error {
+	mainDB, gene := openMainDB(ctx)
+	defer func() { slog.Info("closing main database..."); mainDB.Close() }()
+
+	meterChain := initChain(ctx, gene, mainDB)
+	bestBlock := meterChain.BestBlock()
+	blkKeySize := 0
+	blkSize := 0
+	metaKeySize := 0
+	metaSize := 0
+	receiptKeySize := 0
+	receiptSize := 0
+	hashKeySize := 0
+	hashSize := 0
+
+	for i := uint32(1); i < bestBlock.Number(); i++ {
+		b, _ := meterChain.GetTrunkBlock(i)
+		blkKey := append(blockPrefix, b.ID().Bytes()...)
+		blkKeySize += len(blkKey)
+		blk, err := mainDB.Get(blkKey)
+		if err != nil {
+			panic(err)
+		}
+		blkSize += len(blk)
+
+		for _, tx := range b.Txs {
+			metaKey := append(txMetaPrefix, tx.ID().Bytes()...)
+			metaKeySize += len(metaKey)
+			meta, err := mainDB.Get(metaKey)
+			if err != nil {
+				panic(err)
+			}
+			metaSize += len(meta)
+		}
+
+		receiptKey := append(blockReceiptsPrefix, b.ID().Bytes()...)
+		receiptKeySize += len(receiptKey)
+		receipt, err := mainDB.Get(receiptKey)
+		if err != nil {
+			panic(err)
+		}
+		receiptSize += len(receipt)
+
+		hashKey := append(hashKeyPrefix, numberAsKey(b.Number())...)
+		hashKeySize += len(hashKey)
+		hash, err := mainDB.Get(hashKey)
+		if err != nil {
+			panic(err)
+		}
+		hashSize += len(hash)
+		if i%1000 == 0 {
+			slog.Info("Current", "i", i, "blockTotalSize", blkKeySize+blkSize, "metaTotalSize", metaKeySize+metaSize, "receiptTotalSize", receiptKeySize+receiptSize, "hashTotalSize", hashKeySize+hashSize)
+		}
+
+	}
+	slog.Info("Final", "num", bestBlock.Number(), "blkKeyTotalSize", blkKeySize, "blockTotalSize", blkKeySize+blkSize, "metaTotalSize", metaKeySize+metaSize, "receiptTotalSize", receiptKeySize+receiptSize, "hashTotalSize", hashKeySize+hashSize)
+
+	return nil
+
 }
 
 func reportStateAction(ctx *cli.Context) error {

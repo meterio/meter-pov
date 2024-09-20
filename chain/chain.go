@@ -156,6 +156,12 @@ func New(kv kv.GetPutter, genesisBlock *block.Block, verbose bool) (*Chain, erro
 
 	}
 
+	// Init prune block head
+	_, err := loadPruneBlockHead(kv)
+	if err != nil {
+		savePruneBlockHead(kv, 0)
+	}
+
 	rawBlocksCache := newCache(blockCacheLimit, func(key interface{}) (interface{}, error) {
 		raw, err := loadBlockRaw(kv, key.(meter.Bytes32))
 		if err != nil {
@@ -321,6 +327,39 @@ func (c *Chain) RemoveBlock(blockID meter.Bytes32) error {
 		return removeBlockRaw(c.kv, blockID)
 	}
 	return err
+}
+
+func (c *Chain) PruneBlock(batch kv.Batch, blockID meter.Bytes32) error {
+	b, err := c.getBlock(blockID)
+	if err != nil {
+		return err
+	}
+	if c.BestBlockBeforeIndexFlattern() != nil {
+		// could not delete this special block
+		if b.Number() == c.bestBlockBeforeIndexFlattern.Number() {
+			return nil
+		}
+	}
+	blkKey := append(blockPrefix, blockID.Bytes()...)
+	batch.Delete(blkKey)
+	for _, tx := range b.Txs {
+		metaKey := append(txMetaPrefix, tx.ID().Bytes()...)
+		batch.Delete(metaKey)
+	}
+	receiptKey := append(blockReceiptsPrefix, b.ID().Bytes()...)
+	batch.Delete(receiptKey)
+
+	indexHead, err := c.GetPruneIndexHead()
+	if err != nil {
+		return err
+	}
+	if b.Number() <= indexHead || (c.BestBlockBeforeIndexFlattern() != nil && b.Number() > c.BestBlockBeforeIndexFlattern().Number()) {
+		// if this block has pruned index or it's after falttern
+		// delete related hash as well
+		hashKey := append(hashKeyPrefix, numberAsKey(b.Number())...)
+		batch.Delete(hashKey)
+	}
+	return nil
 }
 
 // AddBlock add a new block into block chain.
@@ -890,6 +929,14 @@ func (c *Chain) GetPruneIndexHead() (uint32, error) {
 
 func (c *Chain) UpdatePruneIndexHead(num uint32) error {
 	return savePruneIndexHead(c.kv, num)
+}
+
+func (c *Chain) GetPruneBlockHead() (uint32, error) {
+	return loadPruneBlockHead(c.kv)
+}
+
+func (c *Chain) UpdatePruneBlockHead(num uint32) error {
+	return savePruneBlockHead(c.kv, num)
 }
 
 func (c *Chain) GetPruneStateHead() (uint32, error) {

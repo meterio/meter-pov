@@ -81,6 +81,8 @@ const (
 	indexPruningBatch = 256
 	// indexFlatterningBatch = 1024
 	GCInterval = 5 * 60 * 1000 // 5 min in millisecond
+
+	blockPruningBatch = 1024
 )
 
 func fullVersion() string {
@@ -135,6 +137,7 @@ func main() {
 			httpsCertFlag,
 			httpsKeyFlag,
 			enableStatePruneFlag,
+			enableBlockPruneFlag,
 			preserveBlocksFlag,
 		},
 		Action: defaultAction,
@@ -237,6 +240,13 @@ func defaultAction(ctx *cli.Context) error {
 	if pruneIndexHead < chain.BestBlockBeforeIndexFlattern().Number() {
 		fmt.Println("!!! Index Trie Pruning ENABLED !!!")
 		go pruneIndexTrie(ctx, mainDB, chain)
+	}
+
+	enableBlockPruning := ctx.Bool(enableBlockPruneFlag.Name)
+	if enableBlockPruning {
+		preserveBlocks := ctx.Int(preserveBlocksFlag.Name)
+		fmt.Println("!!! Block Pruning ENABLED !!!", "preserveBlocks", preserveBlocks)
+		go pruneBlocks(ctx, mainDB, chain, preserveBlocks)
 	}
 
 	enableStatePruning := ctx.Bool(enableStatePruneFlag.Name)
@@ -544,6 +554,53 @@ func pruneIndexTrie(ctx *cli.Context, mainDB *lvldb.LevelDB, meterChain *chain.C
 	}
 	meterChain.UpdatePruneIndexHead(toBlk.Number())
 	slog.Info("Prune index trie completed", "elapsed", meter.PrettyDuration(time.Since(start)), "head", toBlk.Number(), "prunedNodes", prunedNodes, "prunedBytes", prunedBytes)
+}
+
+func pruneBlocks(ctx *cli.Context, mainDB *lvldb.LevelDB, meterChain *chain.Chain, preserveBlocks int) {
+	logger := slog.With("prune", "state")
+	for {
+		best := meterChain.BestBlock()
+		if best.Number() <= uint32(preserveBlocks) {
+			logger.Info("Best < PreserveBlocks, skip pruning for now", "best", best.Number(), "preserveBlocks", preserveBlocks)
+			time.Sleep(8 * time.Hour)
+		}
+		pruneTargetNum := best.Number() - uint32(preserveBlocks)
+
+		var (
+			prunedBytes = uint64(0)
+			start       = time.Now()
+		)
+
+		head, err := meterChain.GetPruneBlockHead()
+		if err != nil {
+			logger.Error("could not get prune index head", "err", err)
+		}
+		logger.Info("Start to prune blocks/txs/receipts", "from", head, "to", pruneTargetNum)
+		batch := mainDB.NewBatch()
+		for i := head + 1; i < pruneTargetNum; i++ {
+			id, err := meterChain.GetTrunkBlockID(i)
+			if err != nil {
+				slog.Error("could not get block id", err)
+				continue
+			}
+			meterChain.PruneBlock(batch, id)
+
+			if batch.Len() >= blockPruningBatch {
+				if err := batch.Write(); err != nil {
+					logger.Error("Error flushing", "err", err)
+					break
+				}
+
+				batch = mainDB.NewBatch()
+				meterChain.UpdatePruneBlockHead(i)
+				logger.Info("Commited batch for block pruning", "len", batch.Len(), "head", i)
+			}
+		}
+		meterChain.UpdatePruneBlockHead(pruneTargetNum)
+
+		logger.Info("Prune blocks/txs/receipts completed, sleep for 1 days", "elapsed", meter.PrettyDuration(time.Since(start)), "head", pruneTargetNum, "prunedBytes", prunedBytes)
+		time.Sleep(24 * time.Hour)
+	}
 }
 
 func pruneStateTrie(ctx *cli.Context, gene *genesis.Genesis, mainDB *lvldb.LevelDB, meterChain *chain.Chain, preserveBlocks int) {

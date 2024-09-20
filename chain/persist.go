@@ -31,6 +31,8 @@ var (
 	pruneStateHeadKey     = []byte("prune-state-head")     // prune state head block num
 	stateSnapshotNumKey   = []byte("state-snapshot-num")   // state snapshot block num
 	bestPowNonceKey       = []byte("best-pow-nonce")       // pow nonce for best kblock
+
+	pruneBlockHeadKey = []byte("prune-block-head") // prune block head num
 )
 
 func numberAsKey(num uint32) []byte {
@@ -228,6 +230,21 @@ func savePruneIndexHead(w kv.Putter, num uint32) error {
 	b := make([]byte, 4)
 	binary.LittleEndian.PutUint32(b, num)
 	return w.Put(pruneIndexHeadKey, b)
+}
+
+func loadPruneBlockHead(r kv.Getter) (uint32, error) {
+	data, err := r.Get(pruneBlockHeadKey)
+	if err != nil {
+		return 0, err
+	}
+	num := binary.LittleEndian.Uint32(data)
+	return num, nil
+}
+
+func savePruneBlockHead(w kv.Putter, num uint32) error {
+	b := make([]byte, 4)
+	binary.LittleEndian.PutUint32(b, num)
+	return w.Put(pruneBlockHeadKey, b)
 }
 
 func loadPruneStateHead(r kv.Getter) (uint32, error) {
