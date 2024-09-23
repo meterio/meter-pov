@@ -193,6 +193,7 @@ func main() {
 				Flags:  []cli.Flag{networkFlag, dataDirFlag, keyFlag, valueFlag},
 				Action: unsafeSetRawAction,
 			},
+			{Name: "unsafe-delete-state", Usage: "Traverse and Delete the entire state trie", Flags: []cli.Flag{networkFlag, dataDirFlag, revisionFlag}, Action: unsafeDeleteStateAction},
 			{
 				Name:   "local-reset",
 				Usage:  "Reset chain with local highest block",
@@ -254,19 +255,20 @@ func traverseStateAction(ctx *cli.Context) error {
 		nodes      int
 		snodes     int
 		accounts   int
-		slots      int
 		codes      int
 		lastReport time.Time
 		start      = time.Now()
 		t, _       = trie.New(blk.StateRoot(), mainDB)
 	)
-	slog.Info("Start to traverse trie", "block", blk.Number(), "stateRoot", blk.StateRoot())
+	slog.Info("Start to traverse state trie", "block", blk.Number(), "stateRoot", blk.StateRoot())
 	iter := t.NodeIterator(nil)
-	leafSize := 0
-	branchSize := 0
+	leafTotalSize := 0
+	branchTotalSize := 0
+	storageTotalSize := 0
 	for iter.Next(true) {
 		nodes += 1
 		if iter.Leaf() {
+			accounts++
 			raw, err := mainDB.Get(iter.LeafKey())
 			if err != nil {
 				slog.Error("Failed to load account leaf", "root", iter.LeafKey(), "err", err)
@@ -275,14 +277,20 @@ func traverseStateAction(ctx *cli.Context) error {
 
 			// slog.Info("Account Leaf", "key", hex.EncodeToString(iter.LeafKey()), "val", hex.EncodeToString(iter.LeafBlob()), "raw", hex.EncodeToString(raw), "parent", iter.Parent(), "path", hex.EncodeToString(iter.Path()))
 			var acc state.Account
+			// pbytes, err := mainDB.Get(iter.Parent().Bytes())
+			// blob := iter.LeafBlob()
+			// slog.Info("parent vs blob", "parent", hex.EncodeToString(pbytes), "leafblob", hex.EncodeToString(blob))
+
 			if err := rlp.DecodeBytes(iter.LeafBlob(), &acc); err != nil {
 				slog.Error("Invalid account encountered during traversal", "err", err)
 				return err
 			}
 			addr := meter.BytesToAddress(raw)
-			slog.Info("Visit account", "addr", addr, "raw", hex.EncodeToString(raw))
-			slog.Info("Leaf node", "hash", iter.Hash(), "key", hex.EncodeToString(iter.LeafKey()), "parent", iter.Parent(), "len", len(iter.LeafKey())+len(raw))
-			leafSize += len(iter.LeafKey()) + len(raw)
+			slog.Info("Visit account", "addr", addr)
+			nodeSize := len(iter.LeafKey()) + len(raw)
+			slog.Info("Leaf node", "leafKey", hex.EncodeToString(iter.LeafKey()), "parent", iter.Parent(), "size", nodeSize)
+			leafTotalSize += nodeSize
+
 			if !bytes.Equal(acc.StorageRoot, []byte{}) {
 				storageTrie, err := trie.New(meter.BytesToBytes32(acc.StorageRoot), mainDB)
 				if err != nil {
@@ -294,23 +302,26 @@ func traverseStateAction(ctx *cli.Context) error {
 
 					snodes += 1
 					if storageIter.Leaf() {
-						slots += 1
-						_, err := mainDB.Get(storageIter.LeafKey())
+						lval, err := mainDB.Get(storageIter.LeafKey())
 						if err != nil {
-							slog.Error("Failed to read storage leaf", "hash", storageIter.Hash(), "err", err)
+							slog.Error("Failed to read storage leaf", "leafKey", hex.EncodeToString(storageIter.LeafKey()), "err", err)
 							return err
 						}
-						// slog.Info("Storage Leaf", "addr", addr, "key", hex.EncodeToString(storageIter.LeafKey()), "parent", storageIter.Parent(), "val", hex.EncodeToString(storageIter.LeafBlob()), "raw", hex.EncodeToString(raw))
+						nodeSize := len(storageIter.LeafKey()) + len(lval)
+						storageTotalSize += nodeSize
+						slog.Info("Storage Leaf", "addr", addr, "leafKey", hex.EncodeToString(storageIter.LeafKey()), "parent", storageIter.Parent(), "size", nodeSize)
 
 					} else {
-						_, err := mainDB.Get(storageIter.Hash().Bytes())
+						val, err := mainDB.Get(storageIter.Hash().Bytes())
 						if err != nil {
 							if storageIter.Hash().String() != "0x0000000000000000000000000000000000000000000000000000000000000000" {
 								slog.Error("Failed to read storage branch", "hash", storageIter.Hash(), "err", err)
 								return err
 							}
 						}
-						// slog.Info("Storage Branch", "addr", addr, "hash", storageIter.Hash(), "val", hex.EncodeToString(raw), "parent", storageIter.Parent())
+						nodeSize := len(storageIter.Hash()) + len(val)
+						storageTotalSize += nodeSize
+						slog.Info("Storage Branch", "addr", addr, "hash", storageIter.Hash(), "parent", storageIter.Parent(), "size", nodeSize)
 					}
 				}
 				if storageIter.Error() != nil {
@@ -326,12 +337,13 @@ func traverseStateAction(ctx *cli.Context) error {
 				codes += 1
 			}
 		} else {
-			raw, _ := mainDB.Get(iter.Hash().Bytes())
-			slog.Info("Branch Node", "hash", iter.Hash(), "val", hex.EncodeToString(raw), "parent", iter.Parent(), "len", len(iter.Hash())+len(raw))
-			branchSize += len(iter.Hash()) + len(raw)
+			val, _ := mainDB.Get(iter.Hash().Bytes())
+			nodeSize := len(iter.Hash()) + len(val)
+			slog.Info("Branch Node", "hash", iter.Hash(), "parent", iter.Parent(), "size", nodeSize)
+			branchTotalSize += nodeSize
 		}
 		if time.Since(lastReport) > time.Second*8 {
-			slog.Info("Still traversing", "nodes", nodes, "accounts", accounts, "snodes", snodes, "slots", slots, "codes", codes, "elapsed", meter.PrettyDuration(time.Since(start)))
+			slog.Info("Still traversing", "nodes", nodes, "accounts", accounts, "snodes", snodes, "codes", codes, "elapsed", meter.PrettyDuration(time.Since(start)))
 			lastReport = time.Now()
 		}
 	}
@@ -339,7 +351,7 @@ func traverseStateAction(ctx *cli.Context) error {
 		slog.Error("Failed to traverse state trie", "root", blk.StateRoot(), "err", iter.Error())
 		return iter.Error()
 	}
-	slog.Info("Traverse completed", "nodes", nodes, "accounts", accounts, "snodes", snodes, "slots", slots, "codes", codes, "branchSize", branchSize, "leafSize", leafSize, "elapsed", meter.PrettyDuration(time.Since(start)))
+	slog.Info("Traverse completed", "nodes", nodes, "accounts", accounts, "snodes", snodes, "codes", codes, "branchTotalSize", branchTotalSize, "leafTotalSize", leafTotalSize, "storageTotalSize", storageTotalSize, "elapsed", meter.PrettyDuration(time.Since(start)))
 	return nil
 }
 
@@ -506,13 +518,13 @@ func pruneAction(ctx *cli.Context) error {
 		b, _ := meterChain.GetTrunkBlock(i)
 		root := b.StateRoot()
 		meterChain.PruneBlock(batch, b.ID())
-		slog.Info(fmt.Sprintf("Pruned block %v", i))
+		slog.Debug(fmt.Sprintf("Pruned block %v", i))
 		if bytes.Equal(root[:], lastRoot[:]) {
 			continue
 		}
 		lastRoot = root
 		pruneStart := time.Now()
-		stat := pruner.Prune(root, batch)
+		stat := pruner.Prune(root, batch, true)
 		prunedNodes += stat.PrunedNodes + stat.PrunedStorageNodes
 		prunedBytes += stat.PrunedNodeBytes + stat.PrunedStorageBytes
 		slog.Info(fmt.Sprintf("Pruned state %v", i), "prunedNodes", stat.PrunedNodes+stat.PrunedStorageNodes, "prunedBytes", stat.PrunedNodeBytes+stat.PrunedStorageBytes, "elapsed", meter.PrettyDuration(time.Since(pruneStart)))
@@ -568,7 +580,7 @@ func pruneIndexAction(ctx *cli.Context) error {
 		stat := pruner.PruneIndexTrie(b.Number(), b.ID(), batch)
 		prunedNodes += stat.Nodes
 		prunedBytes += stat.PrunedNodeBytes
-		slog.Info(fmt.Sprintf("Pruned block %v", i), "prunedNodes", stat.Nodes, "prunedBytes", stat.PrunedNodeBytes, "elapsed", meter.PrettyDuration(time.Since(pruneStart)))
+		slog.Debug(fmt.Sprintf("Pruned block %v", i), "prunedNodes", stat.Nodes, "prunedBytes", stat.PrunedNodeBytes, "elapsed", meter.PrettyDuration(time.Since(pruneStart)))
 		if time.Since(lastReport) > time.Second*8 {
 			slog.Info("Still pruning", "elapsed", meter.PrettyDuration(time.Since(start)), "prunedNodes", prunedNodes, "prunedBytes", prunedBytes)
 			lastReport = time.Now()
@@ -1505,5 +1517,97 @@ func runAccumulatedReceiptSize(ctx *cli.Context) error {
 
 	slog.Info("Finished calculating accumulated receipt size", "totalReceiptSize", receiptSize, "totalHashSize", hashSize, "from", from, "to", to)
 
+	return nil
+}
+
+func unsafeDeleteStateAction(ctx *cli.Context) error {
+	mainDB, gene := openMainDB(ctx)
+	defer func() { slog.Info("closing main database..."); mainDB.Close() }()
+
+	meterChain := initChain(ctx, gene, mainDB)
+
+	blk, err := loadBlockByRevision(meterChain, ctx.String(revisionFlag.Name))
+	if err != nil {
+		fatal("could not load block with revision")
+	}
+	var (
+		nodes      = 0
+		accounts   = 0
+		lastReport time.Time
+		start      = time.Now()
+		t, _       = trie.New(blk.StateRoot(), mainDB)
+	)
+	slog.Info("Start to unsafely traverse and delete state trie", "block", blk.Number(), "stateRoot", blk.StateRoot())
+	iter := t.NodeIterator(nil)
+	codeTotalSize := 0
+	batch := mainDB.NewBatch()
+	for iter.Next(true) {
+		nodes += 1
+		stateKey := iter.Hash().Bytes()
+		if iter.Leaf() {
+			stateKey = iter.LeafKey()
+			accounts++
+			raw, err := mainDB.Get(iter.LeafKey())
+			if err != nil {
+				slog.Error("Failed to load account leaf", "root", iter.LeafKey(), "err", err)
+				return err
+			}
+
+			// slog.Info("Account Leaf", "key", hex.EncodeToString(iter.LeafKey()), "val", hex.EncodeToString(iter.LeafBlob()), "raw", hex.EncodeToString(raw), "parent", iter.Parent(), "path", hex.EncodeToString(iter.Path()))
+			var acc state.Account
+			// pbytes, err := mainDB.Get(iter.Parent().Bytes())
+			// blob := iter.LeafBlob()
+			// slog.Info("parent vs blob", "parent", hex.EncodeToString(pbytes), "leafblob", hex.EncodeToString(blob))
+
+			if err := rlp.DecodeBytes(iter.LeafBlob(), &acc); err != nil {
+				slog.Error("Invalid account encountered during traversal", "err", err)
+				return err
+			}
+			addr := meter.BytesToAddress(raw)
+			slog.Info("Delete account", "addr", addr)
+
+			if !bytes.Equal(acc.StorageRoot, []byte{}) {
+				storageTrie, err := trie.New(meter.BytesToBytes32(acc.StorageRoot), mainDB)
+				if err != nil {
+					slog.Error("Failed to open storage trie", "root", acc.StorageRoot, "err", err)
+					return err
+				}
+				storageIter := storageTrie.NodeIterator(nil)
+				for storageIter.Next(true) {
+					storageKey := storageIter.Hash().Bytes()
+					if storageIter.Leaf() {
+						storageKey = storageIter.LeafKey()
+
+					}
+					batch.Delete(storageKey)
+				}
+			}
+
+			batch.Delete(stateKey)
+
+			if batch.Len() > 1024 {
+				batch.Write()
+				slog.Info("Commit deletion", "len", batch.Len())
+				batch = mainDB.NewBatch()
+			}
+			if !bytes.Equal(acc.CodeHash, []byte{}) {
+				code, err := mainDB.Get(acc.CodeHash)
+				if err != nil {
+					slog.Warn("code is missing for ", "addr", addr)
+					codeTotalSize += len(code)
+				}
+			}
+		}
+
+		if time.Since(lastReport) > time.Second*8 {
+			slog.Info("Still traversing", "nodes", nodes, "accounts", accounts, "elapsed", meter.PrettyDuration(time.Since(start)))
+			lastReport = time.Now()
+		}
+	}
+	if batch.Len() > 0 {
+		batch.Write()
+	}
+
+	slog.Info("Delete state completed", "nodes", nodes, "accounts", accounts, "codeTotalSize", codeTotalSize, "elapsed", meter.PrettyDuration(time.Since(start)))
 	return nil
 }

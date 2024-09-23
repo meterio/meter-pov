@@ -63,7 +63,7 @@ func loadRawAction(ctx *cli.Context) error {
 		slog.Error("could not find key in database", "err", err, "key", key)
 		return nil
 	}
-	slog.Info("Loaded key from db", "key", parsedKey, "val", hex.EncodeToString(raw))
+	slog.Info("Loaded key from db", "key", hex.EncodeToString(parsedKey), "val", hex.EncodeToString(raw))
 	return nil
 }
 

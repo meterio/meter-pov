@@ -203,6 +203,9 @@ func (p *Pruner) updateBloomWithTrie(root meter.Bytes32) {
 			fmt.Println("Invalid account encountered during traversal", "err", err)
 			continue
 		}
+		// val, _ := p.db.Get(iter.LeafKey())
+		// addr := meter.BytesToAddress(val)
+		// p.logger.Info("visit account in bloom generating", "address", addr, "storageRoot", hex.EncodeToString( stateAcc.StorageRoot))
 
 		// handle storage trie
 		if !bytes.Equal(stateAcc.StorageRoot, []byte{}) {
@@ -221,8 +224,9 @@ func (p *Pruner) updateBloomWithTrie(root meter.Bytes32) {
 			for storageIter.Next(true) {
 				storageKey := storageIter.Hash().Bytes()
 				if storageIter.Leaf() {
-					storageKey = iter.LeafKey()
+					storageKey = storageIter.LeafKey()
 				}
+				// p.logger.Info("added to bloom", "key", hex.EncodeToString(storageKey))
 				p.visitedBloom.Put(storageKey)
 				storageVal, err := p.db.Get(storageKey)
 				if err != nil {
@@ -306,7 +310,7 @@ func (p *Pruner) mark(key []byte) {
 }
 
 // prune the trie at block height
-func (p *Pruner) Prune(root meter.Bytes32, batch kv.Batch) *PruneStat {
+func (p *Pruner) Prune(root meter.Bytes32, batch kv.Batch, verbose bool) *PruneStat {
 	// p.logger.Info("start pruning trie", "root", root)
 	t, _ := New(root, p.db)
 	stat := &PruneStat{}
@@ -361,6 +365,14 @@ func (p *Pruner) Prune(root meter.Bytes32, batch kv.Batch) *PruneStat {
 					loaded, _ := p.iter.Get(storageKey)
 					stat.PrunedStorageBytes += uint64(len(loaded) + len(storageKey))
 					stat.PrunedStorageNodes++
+					if verbose {
+						if storageIter.Leaf() {
+							p.logger.Info("Del storage leaf", "leafkey", hex.EncodeToString(storageKey))
+						} else {
+							p.logger.Info("Del storage branch", "hash", hex.EncodeToString(storageKey))
+						}
+					}
+
 					err := batch.Delete(storageKey)
 					if err != nil {
 						p.logger.Error("error deleteing storage node", "err", err)
@@ -376,6 +388,14 @@ func (p *Pruner) Prune(root meter.Bytes32, batch kv.Batch) *PruneStat {
 			loaded, _ := p.iter.Get(stateKey)
 			stat.PrunedNodeBytes += uint64(len(loaded) + len(stateKey))
 			stat.PrunedNodes++
+
+			if verbose {
+				if p.iter.Leaf() {
+					p.logger.Info("Del leaf", "leafkey", hex.EncodeToString(stateKey))
+				} else {
+					p.logger.Info("Del branch", "hash", hex.EncodeToString(stateKey))
+				}
+			}
 			err := batch.Delete(stateKey)
 			if err != nil {
 				p.logger.Error("error deleteing state node", "err", err)

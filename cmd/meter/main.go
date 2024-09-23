@@ -695,7 +695,7 @@ func pruneStateTrie(ctx *cli.Context, gene *genesis.Genesis, mainDB *lvldb.Level
 			lastRoot = root
 			// pruneStart := time.Now()
 			logger.Info("start prune trie", "num", i, "blk", b.ID().ToBlockShortID(), "root", b.StateRoot())
-			stat := pruner.Prune(root, batch)
+			stat := pruner.Prune(root, batch, false)
 			prunedNodes += stat.PrunedNodes + stat.PrunedStorageNodes
 			prunedBytes += stat.PrunedNodeBytes + stat.PrunedStorageBytes
 
