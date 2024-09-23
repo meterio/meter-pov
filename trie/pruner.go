@@ -188,6 +188,10 @@ func (p *Pruner) updateBloomWithTrie(root meter.Bytes32) {
 		}
 		stateTrieSize += len(stateVal)
 
+		if time.Since(lastReport) > time.Second*8 {
+			p.logger.Info("Still generating snap bloom", "nodes", nodes, "elapsed", meter.PrettyDuration(time.Since(start)))
+			lastReport = time.Now()
+		}
 		if !iter.Leaf() {
 			continue
 		}
@@ -317,7 +321,17 @@ func (p *Pruner) Prune(root meter.Bytes32, batch kv.Batch) *PruneStat {
 
 		if p.iter.Leaf() {
 			// leaf node
-			stateKey = p.iter.LeafKey()
+			leafKey := p.iter.LeafKey()
+			if visited, _ := p.visitedBloom.Contain(leafKey); !visited {
+				loaded, _ := p.iter.Get(leafKey)
+				stat.PrunedNodeBytes += uint64(len(loaded) + len(leafKey))
+				stat.PrunedNodes++
+				err := batch.Delete(leafKey)
+				if err != nil {
+					p.logger.Error("error deleteing leaf node", "err", err)
+				}
+				p.logger.Debug("pruned leaf node", "stateKey", leafKey, "len", len(loaded)+len(leafKey), "prunedNodes", stat.PrunedNodes)
+			}
 
 			// prune account storage trie
 			var acc StateAccount
@@ -357,8 +371,8 @@ func (p *Pruner) Prune(root meter.Bytes32, batch kv.Batch) *PruneStat {
 		}
 
 		// delete state nodes not in bloom filter
-		stat.Nodes++
 		if visited, _ := p.visitedBloom.Contain(stateKey); !visited {
+			stat.Nodes++
 			loaded, _ := p.iter.Get(stateKey)
 			stat.PrunedNodeBytes += uint64(len(loaded) + len(stateKey))
 			stat.PrunedNodes++

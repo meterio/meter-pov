@@ -591,9 +591,10 @@ func pruneBlocks(ctx *cli.Context, mainDB *lvldb.LevelDB, meterChain *chain.Chai
 					break
 				}
 
+				logger.Info("Commit batch for block pruning", "len", batch.Len(), "head", i)
 				batch = mainDB.NewBatch()
 				meterChain.UpdatePruneBlockHead(i)
-				logger.Info("Commited batch for block pruning", "len", batch.Len(), "head", i)
+
 			}
 		}
 		meterChain.UpdatePruneBlockHead(pruneTargetNum)
@@ -606,6 +607,7 @@ func pruneBlocks(ctx *cli.Context, mainDB *lvldb.LevelDB, meterChain *chain.Chai
 func pruneStateTrie(ctx *cli.Context, gene *genesis.Genesis, mainDB *lvldb.LevelDB, meterChain *chain.Chain, preserveBlocks int) {
 	creator := state.NewCreator(mainDB)
 	geneBlk, _, _ := gene.Build(creator)
+
 	logger := slog.With("prune", "state")
 	logger.Info("!!! State Trie Pruning Routine Started !!!")
 	for {
@@ -684,6 +686,9 @@ func pruneStateTrie(ctx *cli.Context, gene *genesis.Genesis, mainDB *lvldb.Level
 		for i := pruneStateHead + 1; i < snapNum-1; i++ {
 			b, _ := meterChain.GetTrunkBlock(i)
 			root := b.StateRoot()
+			logger.Info("start prune block", "num", i, "blk", b.ID().ToBlockShortID())
+			meterChain.PruneBlock(batch, b.ID())
+
 			if bytes.Equal(root[:], lastRoot[:]) {
 				continue
 			}
@@ -693,6 +698,7 @@ func pruneStateTrie(ctx *cli.Context, gene *genesis.Genesis, mainDB *lvldb.Level
 			stat := pruner.Prune(root, batch)
 			prunedNodes += stat.PrunedNodes + stat.PrunedStorageNodes
 			prunedBytes += stat.PrunedNodeBytes + stat.PrunedStorageBytes
+
 			// slog.Info(fmt.Sprintf("Pruned block %v", i), "prunedNodes", stat.PrunedNodes+stat.PrunedStorageNodes, "prunedBytes", stat.PrunedNodeBytes+stat.PrunedStorageBytes, "elapsed", meter.PrettyDuration(time.Since(pruneStart)))
 			if time.Since(lastReport) > time.Second*8 {
 				logger.Info("still pruning state trie", "elapsed", meter.PrettyDuration(time.Since(start)), "prunedNodes", prunedNodes, "prunedBytes", prunedBytes)
