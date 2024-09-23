@@ -111,10 +111,10 @@ func main() {
 			// Pruning
 			// TODO: add auto restart feature
 			{
-				Name:   "prune-state",
-				Usage:  "Prune state trie before given block",
-				Flags:  []cli.Flag{dataDirFlag, networkFlag, beforeFlag},
-				Action: pruneStateAction,
+				Name:   "prune",
+				Usage:  "Prune block/tx/receipt/index and state trie within given range",
+				Flags:  []cli.Flag{dataDirFlag, networkFlag, fromFlag, toFlag},
+				Action: pruneAction,
 			},
 			{Name: "prune-blocks", Usage: "Prune block-related storage", Flags: []cli.Flag{dataDirFlag, networkFlag, fromFlag, toFlag}, Action: pruneBlockAction},
 			{
@@ -470,14 +470,23 @@ func pruneBlockAction(ctx *cli.Context) error {
 	return nil
 }
 
-func pruneStateAction(ctx *cli.Context) error {
+func pruneAction(ctx *cli.Context) error {
 	mainDB, gene := openMainDB(ctx)
 	defer func() { slog.Info("closing main database..."); mainDB.Close() }()
 
 	meterChain := initChain(ctx, gene, mainDB)
-	toBlk, err := loadBlockByRevision(meterChain, ctx.String(beforeFlag.Name))
+	fromBlk, err := loadBlockByRevision(meterChain, ctx.String(fromFlag.Name))
 	if err != nil {
 		fatal("could not load block with revision")
+	}
+
+	toBlk, err := loadBlockByRevision(meterChain, ctx.String(toFlag.Name))
+	if err != nil {
+		fatal("could not load block with revision")
+	}
+
+	if fromBlk.Number() > toBlk.Number()-1 {
+		fatal("fromBlk should be <= toBlk-1")
 	}
 	geneBlk, _, _ := gene.Build(state.NewCreator(mainDB))
 	pruner := trie.NewPruner(mainDB, ctx.String(dataDirFlag.Name))
@@ -493,9 +502,11 @@ func pruneStateAction(ctx *cli.Context) error {
 	start := time.Now()
 	var lastReport time.Time
 	batch := mainDB.NewBatch()
-	for i := uint32(1); i < toBlk.Number(); i++ {
+	for i := fromBlk.Number(); i < toBlk.Number()-1; i++ {
 		b, _ := meterChain.GetTrunkBlock(i)
 		root := b.StateRoot()
+		meterChain.PruneBlock(batch, b.ID())
+		slog.Info(fmt.Sprintf("Pruned block %v", i))
 		if bytes.Equal(root[:], lastRoot[:]) {
 			continue
 		}
@@ -504,7 +515,7 @@ func pruneStateAction(ctx *cli.Context) error {
 		stat := pruner.Prune(root, batch)
 		prunedNodes += stat.PrunedNodes + stat.PrunedStorageNodes
 		prunedBytes += stat.PrunedNodeBytes + stat.PrunedStorageBytes
-		slog.Info(fmt.Sprintf("Pruned block %v", i), "prunedNodes", stat.PrunedNodes+stat.PrunedStorageNodes, "prunedBytes", stat.PrunedNodeBytes+stat.PrunedStorageBytes, "elapsed", meter.PrettyDuration(time.Since(pruneStart)))
+		slog.Info(fmt.Sprintf("Pruned state %v", i), "prunedNodes", stat.PrunedNodes+stat.PrunedStorageNodes, "prunedBytes", stat.PrunedNodeBytes+stat.PrunedStorageBytes, "elapsed", meter.PrettyDuration(time.Since(pruneStart)))
 		if time.Since(lastReport) > time.Second*8 {
 			slog.Info("Still pruning", "elapsed", meter.PrettyDuration(time.Since(start)), "prunedNodes", prunedNodes, "prunedBytes", prunedBytes)
 			lastReport = time.Now()
