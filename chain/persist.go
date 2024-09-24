@@ -28,11 +28,10 @@ var (
 	hashKeyPrefix         = []byte("hash")                 // (prefix, block num) -> block hash
 	bestBeforeFlatternKey = []byte("best-before-flattern") // best block hash before index flattern
 	pruneIndexHeadKey     = []byte("prune-index-head")     // prune index head block num
-	pruneStateHeadKey     = []byte("prune-state-head")     // prune state head block num
-	stateSnapshotNumKey   = []byte("state-snapshot-num")   // state snapshot block num
+	pruneHeadKey          = []byte("prune-head")           // prune head block num
+	stateSnapshotNumKey   = []byte("state-snapshot-num")   // snapshot block num
 	bestPowNonceKey       = []byte("best-pow-nonce")       // pow nonce for best kblock
 
-	pruneBlockHeadKey = []byte("prune-block-head") // prune block head num
 )
 
 func numberAsKey(num uint32) []byte {
@@ -232,8 +231,8 @@ func savePruneIndexHead(w kv.Putter, num uint32) error {
 	return w.Put(pruneIndexHeadKey, b)
 }
 
-func loadPruneBlockHead(r kv.Getter) (uint32, error) {
-	data, err := r.Get(pruneBlockHeadKey)
+func loadPruneHead(r kv.Getter) (uint32, error) {
+	data, err := r.Get(pruneHeadKey)
 	if err != nil {
 		return 0, err
 	}
@@ -241,25 +240,10 @@ func loadPruneBlockHead(r kv.Getter) (uint32, error) {
 	return num, nil
 }
 
-func savePruneBlockHead(w kv.Putter, num uint32) error {
+func savePruneHead(w kv.Putter, num uint32) error {
 	b := make([]byte, 4)
 	binary.LittleEndian.PutUint32(b, num)
-	return w.Put(pruneBlockHeadKey, b)
-}
-
-func loadPruneStateHead(r kv.Getter) (uint32, error) {
-	data, err := r.Get(pruneStateHeadKey)
-	if err != nil {
-		return 0, err
-	}
-	num := binary.LittleEndian.Uint32(data)
-	return num, nil
-}
-
-func savePruneStateHead(w kv.Putter, num uint32) error {
-	b := make([]byte, 4)
-	binary.LittleEndian.PutUint32(b, num)
-	return w.Put(pruneStateHeadKey, b)
+	return w.Put(pruneHeadKey, b)
 }
 
 func loadBestBlockIDBeforeFlattern(r kv.Getter) (meter.Bytes32, error) {

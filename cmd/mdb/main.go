@@ -48,7 +48,8 @@ var (
 	hashKeyPrefix         = []byte("hash") // (prefix, block num) -> block hash
 	bestBeforeFlatternKey = []byte("best-before-flattern")
 	pruneIndexHeadKey     = []byte("prune-index-head")
-	pruneStateHeadKey     = []byte("prune-state-head")
+	pruneHeadKey          = []byte("prune-head")
+	stateSnapshotNumKey   = []byte("state-snapshot-num") // snapshot block num
 
 	version   string
 	gitCommit string
@@ -517,26 +518,38 @@ func pruneAction(ctx *cli.Context) error {
 	for i := fromBlk.Number(); i < toBlk.Number()-1; i++ {
 		b, _ := meterChain.GetTrunkBlock(i)
 		root := b.StateRoot()
+
+		// prune block
 		meterChain.PruneBlock(batch, b.ID())
 		slog.Debug(fmt.Sprintf("Pruned block %v", i))
+
+		if time.Since(lastReport) > time.Second*8 {
+			slog.Info("Still pruning", "num", b.Number(), "elapsed", meter.PrettyDuration(time.Since(start)), "prunedNodes", prunedNodes, "prunedBytes", prunedBytes)
+			lastReport = time.Now()
+		}
+
+		// skip the same stateRoot
 		if bytes.Equal(root[:], lastRoot[:]) {
 			continue
 		}
 		lastRoot = root
+
 		pruneStart := time.Now()
 		stat := pruner.Prune(root, batch, true)
 		prunedNodes += stat.PrunedNodes + stat.PrunedStorageNodes
 		prunedBytes += stat.PrunedNodeBytes + stat.PrunedStorageBytes
-		slog.Info(fmt.Sprintf("Pruned state %v", i), "prunedNodes", stat.PrunedNodes+stat.PrunedStorageNodes, "prunedBytes", stat.PrunedNodeBytes+stat.PrunedStorageBytes, "elapsed", meter.PrettyDuration(time.Since(pruneStart)))
+		slog.Info(fmt.Sprintf("Pruned state %v", i), "num", b.Number(), "prunedNodes", stat.PrunedNodes+stat.PrunedStorageNodes, "prunedBytes", stat.PrunedNodeBytes+stat.PrunedStorageBytes, "elapsed", meter.PrettyDuration(time.Since(pruneStart)))
+
 		if time.Since(lastReport) > time.Second*8 {
 			slog.Info("Still pruning", "elapsed", meter.PrettyDuration(time.Since(start)), "prunedNodes", prunedNodes, "prunedBytes", prunedBytes)
 			lastReport = time.Now()
 		}
-		if batch.Len() >= statePruningBatch || i == toBlk.Number() {
+
+		if batch.Len() >= statePruningBatch {
 			if err := batch.Write(); err != nil {
-				slog.Error("Error flushing", "err", err)
+				slog.Error("Error commit pruning batch", "err", err)
 			}
-			slog.Info("commited deletion batch", "len", batch.Len())
+			slog.Info("commited pruning batch", "len", batch.Len())
 
 			batch = mainDB.NewBatch()
 
@@ -548,6 +561,13 @@ func pruneAction(ctx *cli.Context) error {
 		// 	meterChain = initChain(ctx, gene, mainDB)
 		// 	runtime.GC()
 		// }
+	}
+	if batch.Len() > 0 {
+		if err := batch.Write(); err != nil {
+			slog.Error("Error commit pruning batch", "err", err)
+		}
+		slog.Info("commited pruning final batch", "len", batch.Len())
+
 	}
 	// pruner.Compact()
 	slog.Info("Prune complete", "elapsed", meter.PrettyDuration(time.Since(start)), "prunedNodes", prunedNodes, "prunedBytes", prunedBytes)

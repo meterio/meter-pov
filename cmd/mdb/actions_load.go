@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"encoding/binary"
 	"encoding/hex"
 	"fmt"
 	"log/slog"
@@ -218,6 +219,20 @@ func peekAction(ctx *cli.Context) error {
 	fmt.Println("Network: ", network)
 	fmt.Println("-------------------------------")
 
+	head, err := mainDB.Get(pruneIndexHeadKey)
+	if err == nil {
+		fmt.Println("Prune Index Head: ", binary.LittleEndian.Uint32(head), "raw:", hex.EncodeToString(head))
+	}
+
+	head, err = mainDB.Get(pruneHeadKey)
+	if err == nil {
+		fmt.Println("Prune Head: ", binary.LittleEndian.Uint32(head), "raw:", hex.EncodeToString(head))
+	}
+	snapshot, err := mainDB.Get(stateSnapshotNumKey)
+	if err == nil {
+		fmt.Println("Snapshot Num:", binary.LittleEndian.Uint32(snapshot))
+	}
+
 	// Read Best QC
 	val, err := readBestQC(mainDB)
 	if err != nil {
@@ -253,11 +268,11 @@ func peekAction(ctx *cli.Context) error {
 		fmt.Println("Prune Index Head: ", pruneIndexHead)
 	}
 
-	pruneStateHead, err := loadPruneStateHead(mainDB)
+	pruneHead, err := loadPruneHead(mainDB)
 	if err != nil {
 		fmt.Println("could not read prune-state-head")
 	} else {
-		fmt.Println("Prune State Head ", pruneStateHead)
+		fmt.Println("Prune Head ", pruneHead)
 	}
 
 	return nil

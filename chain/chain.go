@@ -7,6 +7,7 @@ package chain
 
 import (
 	"bytes"
+	"encoding/binary"
 	"fmt"
 	"log/slog"
 	"runtime"
@@ -156,12 +157,6 @@ func New(kv kv.GetPutter, genesisBlock *block.Block, verbose bool) (*Chain, erro
 
 	}
 
-	// Init prune block head
-	_, err := loadPruneBlockHead(kv)
-	if err != nil {
-		savePruneBlockHead(kv, 0)
-	}
-
 	rawBlocksCache := newCache(blockCacheLimit, func(key interface{}) (interface{}, error) {
 		raw, err := loadBlockRaw(kv, key.(meter.Bytes32))
 		if err != nil {
@@ -228,6 +223,20 @@ func New(kv kv.GetPutter, genesisBlock *block.Block, verbose bool) (*Chain, erro
 		fmt.Println("Best QC: ", bestQC.String())
 		fmt.Println("Best Before Flattern:", bestBlockBeforeFlattern.CompactString())
 		fmt.Println("Best Pow Nonce:", bestPowNonce)
+		head, err := kv.Get(pruneIndexHeadKey)
+		if err == nil {
+			fmt.Println("Prune Index Head: ", binary.LittleEndian.Uint32(head))
+		}
+
+		head, err = kv.Get(pruneHeadKey)
+		if err == nil {
+			fmt.Println("Prune Head: ", binary.LittleEndian.Uint32(head))
+		}
+		snapshot, err := kv.Get(stateSnapshotNumKey)
+		if err == nil {
+			fmt.Println("Snapshot Num:", binary.LittleEndian.Uint32(snapshot))
+		}
+
 		fmt.Println("---------------------------------------------------------")
 	}
 	c := &Chain{
@@ -931,20 +940,12 @@ func (c *Chain) UpdatePruneIndexHead(num uint32) error {
 	return savePruneIndexHead(c.kv, num)
 }
 
-func (c *Chain) GetPruneBlockHead() (uint32, error) {
-	return loadPruneBlockHead(c.kv)
+func (c *Chain) GetPruneHead() (uint32, error) {
+	return loadPruneHead(c.kv)
 }
 
-func (c *Chain) UpdatePruneBlockHead(num uint32) error {
-	return savePruneBlockHead(c.kv, num)
-}
-
-func (c *Chain) GetPruneStateHead() (uint32, error) {
-	return loadPruneStateHead(c.kv)
-}
-
-func (c *Chain) UpdatePruneStateHead(num uint32) error {
-	return savePruneStateHead(c.kv, num)
+func (c *Chain) UpdatePruneHead(num uint32) error {
+	return savePruneHead(c.kv, num)
 }
 
 func (c *Chain) GetStateSnapshotNum() (uint32, error) {
