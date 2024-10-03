@@ -6,6 +6,9 @@
 package lvldb
 
 import (
+	"encoding/hex"
+	"log/slog"
+
 	"github.com/meterio/meter-pov/kv"
 	"github.com/syndtr/goleveldb/leveldb"
 	dberrors "github.com/syndtr/goleveldb/leveldb/errors"
@@ -106,6 +109,9 @@ func (ldb *LevelDB) NewBatch() kv.Batch {
 	return &levelDBBatch{
 		ldb.db,
 		&leveldb.Batch{},
+		slog.With("pkg", "lvl"),
+		make([]string, 0),
+		make([]string, 0),
 	}
 }
 
@@ -117,39 +123,36 @@ func (ldb *LevelDB) NewIterator(r kv.Range) kv.Iterator {
 	}, &readOpt)
 }
 
-// Stat returns a particular internal stat of the database.
-func (ldb *LevelDB) Stat(property string) (string, error) {
-	return ldb.db.GetProperty(property)
-}
-
-// Compact flattens the underlying data store for the given key range. In essence,
-// deleted and overwritten versions are discarded, and the data is rearranged to
-// reduce the cost of operations needed to access them.
-//
-// A nil start is treated as a key before all keys in the data store; a nil limit
-// is treated as a key after all keys in the data store. If both is nil then it
-// will compact entire data store.
 func (ldb *LevelDB) Compact(start []byte, limit []byte) error {
 	return ldb.db.CompactRange(util.Range{Start: start, Limit: limit})
+}
+
+func (ldb *LevelDB) Stat(property string) (string, error) {
+	return ldb.db.GetProperty(property)
 }
 
 //////
 
 // levelDBBatch wraps batch operations.
 type levelDBBatch struct {
-	db    *leveldb.DB
-	batch *leveldb.Batch
+	db      *leveldb.DB
+	batch   *leveldb.Batch
+	logger  *slog.Logger
+	addKeys []string
+	delKeys []string
 }
 
 // Put adds a put operation.
 func (b *levelDBBatch) Put(key, value []byte) error {
 	b.batch.Put(key, value)
+	b.addKeys = append(b.addKeys, hex.EncodeToString(key))
 	return nil
 }
 
 // Delete adds a delete operation.
 func (b *levelDBBatch) Delete(key []byte) error {
 	b.batch.Delete(key)
+	b.delKeys = append(b.delKeys, hex.EncodeToString(key))
 	return nil
 }
 
@@ -157,6 +160,9 @@ func (b *levelDBBatch) NewBatch() kv.Batch {
 	return &levelDBBatch{
 		b.db,
 		&leveldb.Batch{},
+		slog.With("pkg", "lvl"),
+		make([]string, 0),
+		make([]string, 0),
 	}
 }
 
@@ -167,5 +173,12 @@ func (b *levelDBBatch) Len() int {
 
 // Write perform all ops in this batch.
 func (b *levelDBBatch) Write() error {
-	return b.db.Write(b.batch, &writeOpt)
+	err := b.db.Write(b.batch, &writeOpt)
+	for _, k := range b.addKeys {
+		slog.Info("ADD", "key", k)
+	}
+	for _, k := range b.delKeys {
+		slog.Info("DEL", "key", k)
+	}
+	return err
 }
