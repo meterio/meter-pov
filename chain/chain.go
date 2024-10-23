@@ -358,6 +358,10 @@ func (c *Chain) PruneBlock(batch kv.Batch, blockID meter.Bytes32) error {
 	receiptKey := append(blockReceiptsPrefix, b.ID().Bytes()...)
 	batch.Delete(receiptKey)
 
+	num := block.Number(blockID)
+	hashKey := append(hashKeyPrefix, numberAsKey(num)...)
+	batch.Delete(hashKey)
+
 	indexHead, err := c.GetPruneIndexHead()
 	if err != nil {
 		return err
@@ -945,6 +949,7 @@ func (c *Chain) GetPruneHead() (uint32, error) {
 }
 
 func (c *Chain) UpdatePruneHead(num uint32) error {
+	c.logger.Info("update prune head", "num", num)
 	return savePruneHead(c.kv, num)
 }
 

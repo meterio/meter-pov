@@ -105,14 +105,14 @@ type Pruner struct {
 	iter         PruneIterator
 	db           KeyValueStore
 	dataDir      string
-	visitedBloom *StateBloom // visited bloom filter
+	visitedBloom *stateBloom // visited bloom filter
 	cache        *lru.Cache
 	logger       *slog.Logger
 }
 
 // NewIterator creates a new key-value iterator from a node iterator
 func NewPruner(db KeyValueStore, dataDir string) *Pruner {
-	visitedBloom, _ := NewStateBloomWithSize(256)
+	visitedBloom, _ := newStateBloomWithSize(256)
 	cache, err := lru.New(nodeCacheSize)
 	if err != nil {
 		panic("could not create cache")
@@ -297,7 +297,7 @@ func (p *Pruner) canSkip(key []byte) bool {
 		return true
 	}
 
-	if visited, _ := p.visitedBloom.Contain(key); visited {
+	if visited := p.visitedBloom.Contain(key); visited {
 		p.logger.Debug("skip visited node", "key", hex.EncodeToString(key))
 		return true
 	}
@@ -326,7 +326,7 @@ func (p *Pruner) Prune(root meter.Bytes32, batch kv.Batch, verbose bool) *PruneS
 		if p.iter.Leaf() {
 			// leaf node
 			leafKey := p.iter.LeafKey()
-			if visited, _ := p.visitedBloom.Contain(leafKey); !visited {
+			if visited := p.visitedBloom.Contain(leafKey); !visited {
 				loaded, _ := p.iter.Get(leafKey)
 				stat.PrunedNodeBytes += uint64(len(loaded) + len(leafKey))
 				stat.PrunedNodes++
@@ -335,7 +335,10 @@ func (p *Pruner) Prune(root meter.Bytes32, batch kv.Batch, verbose bool) *PruneS
 					p.logger.Error("error deleteing leaf node", "err", err)
 				}
 				p.logger.Debug("pruned leaf node", "stateKey", leafKey, "len", len(loaded)+len(leafKey), "prunedNodes", stat.PrunedNodes)
+			} else {
+				p.logger.Debug("SKIP leaf", "leafKey", hex.EncodeToString(leafKey))
 			}
+			p.visitedBloom.Put(leafKey)
 
 			// prune account storage trie
 			var acc StateAccount
@@ -361,7 +364,7 @@ func (p *Pruner) Prune(root meter.Bytes32, batch kv.Batch, verbose bool) *PruneS
 				}
 
 				// delete storage nodes not in bloom filter
-				if visited, _ := p.visitedBloom.Contain(storageKey); !visited {
+				if visited := p.visitedBloom.Contain(storageKey); !visited {
 					loaded, _ := p.iter.Get(storageKey)
 					stat.PrunedStorageBytes += uint64(len(loaded) + len(storageKey))
 					stat.PrunedStorageNodes++
@@ -378,12 +381,15 @@ func (p *Pruner) Prune(root meter.Bytes32, batch kv.Batch, verbose bool) *PruneS
 						p.logger.Error("error deleteing storage node", "err", err)
 					}
 					p.logger.Debug("pruned storage node", "storageKey", storageKey, "len", len(loaded)+len(storageKey), "prunedNodes", stat.PrunedStorageNodes)
+				} else {
+					p.logger.Debug("SKIP storage key", "key", hex.EncodeToString(storageKey))
 				}
+				p.visitedBloom.Put(storageKey)
 			}
 		}
 
 		// delete state nodes not in bloom filter
-		if visited, _ := p.visitedBloom.Contain(stateKey); !visited {
+		if visited := p.visitedBloom.Contain(stateKey); !visited {
 			stat.Nodes++
 			loaded, _ := p.iter.Get(stateKey)
 			stat.PrunedNodeBytes += uint64(len(loaded) + len(stateKey))
@@ -391,9 +397,9 @@ func (p *Pruner) Prune(root meter.Bytes32, batch kv.Batch, verbose bool) *PruneS
 
 			if verbose {
 				if p.iter.Leaf() {
-					p.logger.Info("Del leaf", "leafkey", hex.EncodeToString(stateKey))
+					p.logger.Debug("Del leaf", "leafkey", hex.EncodeToString(stateKey))
 				} else {
-					p.logger.Info("Del branch", "hash", hex.EncodeToString(stateKey))
+					p.logger.Debug("Del branch", "hash", hex.EncodeToString(stateKey))
 				}
 			}
 			err := batch.Delete(stateKey)
@@ -401,7 +407,10 @@ func (p *Pruner) Prune(root meter.Bytes32, batch kv.Batch, verbose bool) *PruneS
 				p.logger.Error("error deleteing state node", "err", err)
 			}
 			p.logger.Debug("pruned state node", "stateKey", stateKey, "len", len(loaded)+len(stateKey), "prunedNodes", stat.PrunedNodes)
+		} else {
+			p.logger.Debug("SKIP state key", "stateKey", hex.EncodeToString(stateKey))
 		}
+		p.visitedBloom.Put(stateKey)
 	}
 	p.logger.Info("pruned trie", "root", root, "batch", batch.Len(), "prunedNodes", stat.PrunedNodes+stat.PrunedStorageNodes, "prunedBytes", stat.PrunedNodeBytes+stat.PrunedStorageBytes)
 	// if batch.Len() > 0 {
@@ -754,7 +763,7 @@ func (pit *pruneIterator) nextChild(parent *pruneIteratorState, ancestor meter.B
 					if pit.canSkip(key) {
 						continue
 					}
-					pit.mark(key)
+					// pit.mark(key)
 				}
 				state := &pruneIteratorState{
 					hash:    meter.BytesToBytes32(hash),
@@ -776,7 +785,7 @@ func (pit *pruneIterator) nextChild(parent *pruneIteratorState, ancestor meter.B
 				if pit.canSkip(key) {
 					return parent, pit.path, false
 				}
-				pit.mark(key)
+				// pit.mark(key)
 			}
 			state := &pruneIteratorState{
 				hash:    meter.BytesToBytes32(hash),
