@@ -175,10 +175,10 @@ func (b *levelDBBatch) Len() int {
 func (b *levelDBBatch) Write() error {
 	err := b.db.Write(b.batch, &writeOpt)
 	for _, k := range b.addKeys {
-		slog.Info("ADD", "key", k)
+		slog.Debug("ADD", "key", k)
 	}
 	for _, k := range b.delKeys {
-		slog.Info("DEL", "key", k)
+		slog.Debug("DEL", "key", k)
 	}
 	return err
 }

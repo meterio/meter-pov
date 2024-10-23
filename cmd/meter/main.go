@@ -627,7 +627,7 @@ func pruneState(ctx *cli.Context, gene *genesis.Genesis, mainDB *lvldb.LevelDB, 
 		)
 
 		batch := mainDB.NewBatch()
-		for i := pruneHead + 1; i < snapNum-1; i++ {
+		for i := pruneHead + 1; i < snapNum; i++ {
 			b, _ := meterChain.GetTrunkBlock(i)
 			root := b.StateRoot()
 
@@ -661,7 +661,7 @@ func pruneState(ctx *cli.Context, gene *genesis.Genesis, mainDB *lvldb.LevelDB, 
 				if err := batch.Write(); err != nil {
 					logger.Error("Error commit pruning batch", "err", err)
 				}
-				logger.Info("commited pruning batch", "len", batch.Len(), "head", i)
+				// logger.Info("commited pruning batch", "len", batch.Len(), "head", i)
 
 				batch = mainDB.NewBatch()
 				meterChain.UpdatePruneHead(i)
@@ -672,7 +672,7 @@ func pruneState(ctx *cli.Context, gene *genesis.Genesis, mainDB *lvldb.LevelDB, 
 			if err := batch.Write(); err != nil {
 				logger.Error("Error commit pruning batch", "err", err)
 			}
-			logger.Info("commited final pruning batch", "len", batch.Len(), "head", snapNum-1)
+			// logger.Info("commited final pruning batch", "len", batch.Len(), "head", snapNum-1)
 
 			meterChain.UpdatePruneHead(snapNum - 1)
 

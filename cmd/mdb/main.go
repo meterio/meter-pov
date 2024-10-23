@@ -24,6 +24,7 @@ import (
 	"github.com/meterio/meter-pov/block"
 	"github.com/meterio/meter-pov/chain"
 	"github.com/meterio/meter-pov/consensus"
+	"github.com/meterio/meter-pov/kv"
 	"github.com/meterio/meter-pov/meter"
 	"github.com/meterio/meter-pov/packer"
 	"github.com/meterio/meter-pov/powpool"
@@ -114,10 +115,10 @@ func main() {
 			{
 				Name:   "prune",
 				Usage:  "Prune block/tx/receipt/index and state trie within given range",
-				Flags:  []cli.Flag{dataDirFlag, networkFlag, fromFlag, toFlag},
+				Flags:  []cli.Flag{dataDirFlag, networkFlag, fromFlag, toFlag, pruneAllFlag},
 				Action: pruneAction,
 			},
-			{Name: "prune-blocks", Usage: "Prune block-related storage", Flags: []cli.Flag{dataDirFlag, networkFlag, fromFlag, toFlag}, Action: pruneBlockAction},
+			{Name: "scan", Usage: "Print out all the keys in leveldb", Flags: []cli.Flag{dataDirFlag, networkFlag}, Action: scanAction},
 			{
 				Name:   "prune-index",
 				Usage:  "Prune index trie before given block",
@@ -260,12 +261,14 @@ func traverseStateAction(ctx *cli.Context) error {
 		lastReport time.Time
 		start      = time.Now()
 		t, _       = trie.New(blk.StateRoot(), mainDB)
+		parents    = make(map[string]string)
 	)
 	slog.Info("Start to traverse state trie", "block", blk.Number(), "stateRoot", blk.StateRoot())
 	iter := t.NodeIterator(nil)
 	leafTotalSize := 0
 	branchTotalSize := 0
 	storageTotalSize := 0
+
 	for iter.Next(true) {
 		nodes += 1
 		if iter.Leaf() {
@@ -286,12 +289,14 @@ func traverseStateAction(ctx *cli.Context) error {
 				slog.Error("Invalid account encountered during traversal", "err", err)
 				return err
 			}
-			addr := meter.BytesToAddress(raw)
-			slog.Info("Visit account", "addr", addr)
+
 			nodeSize := len(iter.LeafKey()) + len(raw)
-			slog.Info("Leaf node", "leafKey", hex.EncodeToString(iter.LeafKey()), "parent", iter.Parent(), "size", nodeSize)
+			slog.Info("Leaf", "leafKey", hex.EncodeToString(iter.LeafKey()), "parent", iter.Parent(), "size", nodeSize)
+			parents["0x"+hex.EncodeToString(iter.LeafKey())] = iter.Parent().String()
 			leafTotalSize += nodeSize
 
+			addr := meter.BytesToAddress(raw)
+			slog.Info("Account", "addr", addr)
 			if !bytes.Equal(acc.StorageRoot, []byte{}) {
 				storageTrie, err := trie.New(meter.BytesToBytes32(acc.StorageRoot), mainDB)
 				if err != nil {
@@ -310,7 +315,7 @@ func traverseStateAction(ctx *cli.Context) error {
 						}
 						nodeSize := len(storageIter.LeafKey()) + len(lval)
 						storageTotalSize += nodeSize
-						slog.Info("Storage Leaf", "addr", addr, "leafKey", hex.EncodeToString(storageIter.LeafKey()), "parent", storageIter.Parent(), "size", nodeSize)
+						slog.Info("Storage Leaf", "leafKey", hex.EncodeToString(storageIter.LeafKey()), "parent", storageIter.Parent(), "size", nodeSize)
 
 					} else {
 						val, err := mainDB.Get(storageIter.Hash().Bytes())
@@ -340,7 +345,13 @@ func traverseStateAction(ctx *cli.Context) error {
 		} else {
 			val, _ := mainDB.Get(iter.Hash().Bytes())
 			nodeSize := len(iter.Hash()) + len(val)
-			slog.Info("Branch Node", "hash", iter.Hash(), "parent", iter.Parent(), "size", nodeSize)
+			if bytes.Equal(iter.Hash().Bytes(), blk.StateRoot().Bytes()) {
+				slog.Info("Branch", "hash", iter.Hash(), "parent", "size", nodeSize)
+				parents[iter.Hash().String()] = ""
+			} else {
+				slog.Info("Branch", "hash", iter.Hash(), "parent", iter.Parent(), "size", nodeSize)
+				parents[iter.Hash().String()] = iter.Parent().String()
+			}
 			branchTotalSize += nodeSize
 		}
 		if time.Since(lastReport) > time.Second*8 {
@@ -348,6 +359,7 @@ func traverseStateAction(ctx *cli.Context) error {
 			lastReport = time.Now()
 		}
 	}
+
 	if iter.Error() != nil {
 		slog.Error("Failed to traverse state trie", "root", blk.StateRoot(), "err", iter.Error())
 		return iter.Error()
@@ -444,42 +456,19 @@ func traverseStorageAction(ctx *cli.Context) error {
 	return nil
 }
 
-func pruneBlockAction(ctx *cli.Context) error {
-	mainDB, gene := openMainDB(ctx)
+func scanAction(ctx *cli.Context) error {
+	mainDB, _ := openMainDB(ctx)
 	defer func() { slog.Info("closing main database..."); mainDB.Close() }()
 
-	meterChain := initChain(ctx, gene, mainDB)
-	fromBlk, err := loadBlockByRevision(meterChain, ctx.String(fromFlag.Name))
-	if err != nil {
-		fatal("could not load block with revision")
-	}
-	toBlk, err := loadBlockByRevision(meterChain, ctx.String(toFlag.Name))
-	if err != nil {
-		fatal("could not load block with revision")
-	}
-	batch := mainDB.NewBatch()
-	for i := fromBlk.Number(); i < toBlk.Number(); i++ {
-		hashKey := append(hashKeyPrefix, numberAsKey(i)...)
-		hash, err := mainDB.Get(hashKey)
-		if err != nil {
-			return err
-		}
-		b, err := meterChain.GetBlock(meter.BytesToBytes32(hash))
-		if err != nil {
-			return err
-		}
-		blkKey := append(blockPrefix, b.ID().Bytes()...)
-		for _, tx := range b.Txs {
-			metaKey := append(txMetaPrefix, tx.ID().Bytes()...)
-			batch.Delete(metaKey)
-		}
-		receiptKey := append(blockReceiptsPrefix, b.ID().Bytes()...)
+	from, _ := hex.DecodeString("000000000000000000000000000000000000000000000000000000000000000000")
+	to, _ := hex.DecodeString("ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff")
 
-		batch.Delete(blkKey)
-		batch.Delete(hashKey)
-		batch.Delete(receiptKey)
+	r := kv.NewRange(from, to)
+	iter := mainDB.NewIterator(*r)
+	for iter.Next() {
+		key := iter.Key()
+		slog.Info("Has Key", "key", hex.EncodeToString(key))
 	}
-	batch.Write()
 	return nil
 }
 
@@ -504,7 +493,12 @@ func pruneAction(ctx *cli.Context) error {
 	geneBlk, _, _ := gene.Build(state.NewCreator(mainDB))
 	pruner := trie.NewPruner(mainDB, ctx.String(dataDirFlag.Name))
 
-	pruner.InitForStatePruning(geneBlk.StateRoot(), toBlk.StateRoot(), toBlk.Number())
+	if ctx.Bool(pruneAllFlag.Name) {
+		slog.Info("SKIP init for state pruning")
+	} else {
+		slog.Info("Init for State Pruning")
+		pruner.InitForStatePruning(geneBlk.StateRoot(), toBlk.StateRoot(), toBlk.Number())
+	}
 
 	var (
 		lastRoot    = meter.Bytes32{}
@@ -515,7 +509,7 @@ func pruneAction(ctx *cli.Context) error {
 	start := time.Now()
 	var lastReport time.Time
 	batch := mainDB.NewBatch()
-	for i := fromBlk.Number(); i < toBlk.Number()-1; i++ {
+	for i := fromBlk.Number(); i <= toBlk.Number(); i++ {
 		b, _ := meterChain.GetTrunkBlock(i)
 		root := b.StateRoot()
 

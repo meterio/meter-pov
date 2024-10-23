@@ -34,6 +34,7 @@ var (
 	parentFlag   = cli.StringFlag{Name: "parent", Usage: "the revision for parent block", Value: "best"}
 	ntxsFlag     = cli.Int64Flag{Name: "ntxs", Usage: "the txs to include in proposed block", Value: 200}
 	pkFileFlag   = cli.StringFlag{Name: "pkFile", Usage: "private key file", Value: "/tmp/accounts.txt"}
+	pruneAllFlag = cli.BoolFlag{Name: "prune-all", Usage: "prune all of the blocks/trie"}
 )
 
 // copy from go-ethereum
