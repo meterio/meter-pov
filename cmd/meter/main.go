@@ -570,9 +570,9 @@ func pruneState(ctx *cli.Context, gene *genesis.Genesis, mainDB *lvldb.LevelDB, 
 		pruneHead, _ := meterChain.GetPruneHead() // ignore err, default is 0
 		pruneHeadBefore := pruneHead
 
+		logger.Info("state pruning loop start")
 		// skip blocks with the same stateRoot
 		for pruneHead < bestNum && pruneHead < snapNum {
-			logger.Info("state pruning loop start")
 			cur, err := meterChain.GetTrunkBlock(pruneHead)
 			if err != nil {
 				logger.Error("could not get current block", "num", pruneHead, "err", err)
