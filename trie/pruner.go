@@ -76,10 +76,8 @@ type PruneStat struct {
 	Accounts     int // count of accounts on the target trie
 	StorageNodes int //  count of storage nodes on target trie
 
-	PrunedNodes        int    // count of pruned nodes
-	PrunedNodeBytes    uint64 // size of pruned nodes on target trie
-	PrunedStorageNodes int    // count of pruned storage nodes
-	PrunedStorageBytes uint64 // size of pruned storage on target trie
+	PrunedNodes        int // count of pruned nodes
+	PrunedStorageNodes int // count of pruned storage nodes
 }
 
 type TrieDelta struct {
@@ -92,7 +90,7 @@ type TrieDelta struct {
 }
 
 func (s *PruneStat) String() string {
-	return fmt.Sprintf("Trie: (accounts:%v, nodes:%v, storageNodes:%v)\nPruned (nodes:%v, bytes:%v)\nPruned Storage (nodes:%v, bytes:%v)", s.Accounts, s.Nodes, s.StorageNodes, s.PrunedNodes, s.PrunedNodeBytes, s.PrunedStorageNodes, s.PrunedStorageBytes)
+	return fmt.Sprintf("Trie: (accounts:%v, nodes:%v, storageNodes:%v)\nPruned (nodes:%v)\nPruned Storage (nodes:%v)", s.Accounts, s.Nodes, s.StorageNodes, s.PrunedNodes, s.PrunedStorageNodes)
 }
 
 func numberAsKey(num uint32) []byte {
@@ -178,6 +176,7 @@ func (p *Pruner) updateBloomWithTrie(root meter.Bytes32) {
 		stateKey := iter.Hash().Bytes()
 		if iter.Leaf() {
 			stateKey = iter.LeafKey()
+			p.visitedBloom.Put(iter.Parent().Bytes())
 		}
 		// add every node on state trie
 		p.visitedBloom.Put(stateKey)
@@ -225,6 +224,7 @@ func (p *Pruner) updateBloomWithTrie(root meter.Bytes32) {
 				storageKey := storageIter.Hash().Bytes()
 				if storageIter.Leaf() {
 					storageKey = storageIter.LeafKey()
+					p.visitedBloom.Put(storageIter.Parent().Bytes())
 				}
 				// p.logger.Info("added to bloom", "key", hex.EncodeToString(storageKey))
 				p.visitedBloom.Put(storageKey)
@@ -309,6 +309,23 @@ func (p *Pruner) mark(key []byte) {
 	p.visitedBloom.Put(key)
 }
 
+func (p *Pruner) pruneAndMark(name string, batch kv.Batch, key []byte) bool {
+	var pruned bool
+	if visited := p.visitedBloom.Contain(key); !visited {
+		err := batch.Delete(key)
+		if err != nil {
+			p.logger.Error(fmt.Sprintf("Error deleteing %v", name), "err", err)
+		}
+		p.visitedBloom.Put(key)
+		p.logger.Debug(fmt.Sprintf("pruned %v", name), "key", hex.EncodeToString(key))
+		pruned = true
+	} else {
+		p.logger.Debug(fmt.Sprintf("SKIP %v", name), "key", hex.EncodeToString(key))
+		pruned = false
+	}
+	return pruned
+}
+
 // prune the trie at block height
 func (p *Pruner) Prune(root meter.Bytes32, batch kv.Batch, verbose bool) *PruneStat {
 	// p.logger.Info("start pruning trie", "root", root)
@@ -326,19 +343,15 @@ func (p *Pruner) Prune(root meter.Bytes32, batch kv.Batch, verbose bool) *PruneS
 		if p.iter.Leaf() {
 			// leaf node
 			leafKey := p.iter.LeafKey()
-			if visited := p.visitedBloom.Contain(leafKey); !visited {
-				loaded, _ := p.iter.Get(leafKey)
-				stat.PrunedNodeBytes += uint64(len(loaded) + len(leafKey))
+			parentKey := p.iter.Parent().Bytes()
+
+			if p.pruneAndMark("state leaf", batch, leafKey) {
 				stat.PrunedNodes++
-				err := batch.Delete(leafKey)
-				if err != nil {
-					p.logger.Error("error deleteing leaf node", "err", err)
-				}
-				p.logger.Debug("pruned leaf node", "stateKey", leafKey, "len", len(loaded)+len(leafKey), "prunedNodes", stat.PrunedNodes)
-			} else {
-				p.logger.Debug("SKIP leaf", "leafKey", hex.EncodeToString(leafKey))
 			}
-			p.visitedBloom.Put(leafKey)
+
+			if p.pruneAndMark("state parent", batch, parentKey) {
+				stat.PrunedNodes++
+			}
 
 			// prune account storage trie
 			var acc StateAccount
@@ -361,58 +374,28 @@ func (p *Pruner) Prune(root meter.Bytes32, batch kv.Batch, verbose bool) *PruneS
 
 				if storageIter.Leaf() {
 					storageKey = storageIter.LeafKey()
-				}
-
-				// delete storage nodes not in bloom filter
-				if visited := p.visitedBloom.Contain(storageKey); !visited {
-					loaded, _ := p.iter.Get(storageKey)
-					stat.PrunedStorageBytes += uint64(len(loaded) + len(storageKey))
-					stat.PrunedStorageNodes++
-					if verbose {
-						if storageIter.Leaf() {
-							p.logger.Info("Del storage leaf", "leafkey", hex.EncodeToString(storageKey))
-						} else {
-							p.logger.Info("Del storage branch", "hash", hex.EncodeToString(storageKey))
-						}
+					if p.pruneAndMark("storage leaf", batch, storageKey) {
+						stat.PrunedStorageNodes++
 					}
-
-					err := batch.Delete(storageKey)
-					if err != nil {
-						p.logger.Error("error deleteing storage node", "err", err)
-					}
-					p.logger.Debug("pruned storage node", "storageKey", storageKey, "len", len(loaded)+len(storageKey), "prunedNodes", stat.PrunedStorageNodes)
 				} else {
-					p.logger.Debug("SKIP storage key", "key", hex.EncodeToString(storageKey))
+					if p.pruneAndMark("storage branch", batch, storageKey) {
+						stat.PrunedStorageNodes++
+					}
 				}
-				p.visitedBloom.Put(storageKey)
+
+				parentKey := storageIter.Parent().Bytes()
+				if p.pruneAndMark("storage parent", batch, parentKey) {
+					stat.PrunedStorageNodes++
+				}
 			}
 		}
 
 		// delete state nodes not in bloom filter
-		if visited := p.visitedBloom.Contain(stateKey); !visited {
-			stat.Nodes++
-			loaded, _ := p.iter.Get(stateKey)
-			stat.PrunedNodeBytes += uint64(len(loaded) + len(stateKey))
+		if p.pruneAndMark("state branch", batch, stateKey) {
 			stat.PrunedNodes++
-
-			if verbose {
-				if p.iter.Leaf() {
-					p.logger.Debug("Del leaf", "leafkey", hex.EncodeToString(stateKey))
-				} else {
-					p.logger.Debug("Del branch", "hash", hex.EncodeToString(stateKey))
-				}
-			}
-			err := batch.Delete(stateKey)
-			if err != nil {
-				p.logger.Error("error deleteing state node", "err", err)
-			}
-			p.logger.Debug("pruned state node", "stateKey", stateKey, "len", len(loaded)+len(stateKey), "prunedNodes", stat.PrunedNodes)
-		} else {
-			p.logger.Debug("SKIP state key", "stateKey", hex.EncodeToString(stateKey))
 		}
-		p.visitedBloom.Put(stateKey)
 	}
-	p.logger.Info("pruned trie", "root", root, "batch", batch.Len(), "prunedNodes", stat.PrunedNodes+stat.PrunedStorageNodes, "prunedBytes", stat.PrunedNodeBytes+stat.PrunedStorageBytes)
+	p.logger.Info("pruned trie", "root", root, "batch", batch.Len(), "prunedNodes", stat.PrunedNodes+stat.PrunedStorageNodes)
 	// if batch.Len() > 0 {
 	// 	if err := batch.Write(); err != nil {
 	// 		p.logger.Error("Error flushing", "err", err)
@@ -550,17 +533,14 @@ func (p *Pruner) PruneIndexTrie(blockNum uint32, blockHash meter.Bytes32, batch 
 		hash := p.iter.Hash()
 
 		if !p.iter.Leaf() {
-			loaded, _ := p.iter.Get(hash[:])
 			stat.Nodes++
-			stat.PrunedNodeBytes += uint64(len(loaded) + len(hash))
 			batch.Delete(hash[:])
-			p.logger.Info("Prune node", "hash", hash, "len", len(loaded)+len(hash), "nodes", stat.Nodes, "bytes", stat.PrunedNodeBytes)
+			p.logger.Info("Prune node", "hash", hash, "nodes", stat.Nodes)
 		}
 	}
 	batch.Delete(indexTrieKey)
-	stat.PrunedNodeBytes += uint64(len(root) + len(indexTrieKey))
 	stat.Nodes++
-	p.logger.Info("Pruned index trie", "root", root, "nodes", stat.Nodes, "bytes", stat.PrunedNodeBytes)
+	p.logger.Info("Pruned index trie", "root", root, "nodes", stat.Nodes)
 
 	return stat
 }

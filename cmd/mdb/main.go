@@ -502,7 +502,6 @@ func pruneAction(ctx *cli.Context) error {
 
 	var (
 		lastRoot    = meter.Bytes32{}
-		prunedBytes = uint64(0)
 		prunedNodes = 0
 	)
 
@@ -518,7 +517,7 @@ func pruneAction(ctx *cli.Context) error {
 		slog.Debug(fmt.Sprintf("Pruned block %v", i))
 
 		if time.Since(lastReport) > time.Second*8 {
-			slog.Info("Still pruning", "num", b.Number(), "elapsed", meter.PrettyDuration(time.Since(start)), "prunedNodes", prunedNodes, "prunedBytes", prunedBytes)
+			slog.Info("Still pruning", "num", b.Number(), "elapsed", meter.PrettyDuration(time.Since(start)), "prunedNodes", prunedNodes)
 			lastReport = time.Now()
 		}
 
@@ -531,11 +530,10 @@ func pruneAction(ctx *cli.Context) error {
 		pruneStart := time.Now()
 		stat := pruner.Prune(root, batch, true)
 		prunedNodes += stat.PrunedNodes + stat.PrunedStorageNodes
-		prunedBytes += stat.PrunedNodeBytes + stat.PrunedStorageBytes
-		slog.Info(fmt.Sprintf("Pruned state %v", i), "num", b.Number(), "prunedNodes", stat.PrunedNodes+stat.PrunedStorageNodes, "prunedBytes", stat.PrunedNodeBytes+stat.PrunedStorageBytes, "elapsed", meter.PrettyDuration(time.Since(pruneStart)))
+		slog.Info(fmt.Sprintf("Pruned state %v", i), "num", b.Number(), "prunedNodes", stat.PrunedNodes+stat.PrunedStorageNodes, "elapsed", meter.PrettyDuration(time.Since(pruneStart)))
 
 		if time.Since(lastReport) > time.Second*8 {
-			slog.Info("Still pruning", "elapsed", meter.PrettyDuration(time.Since(start)), "prunedNodes", prunedNodes, "prunedBytes", prunedBytes)
+			slog.Info("Still pruning", "elapsed", meter.PrettyDuration(time.Since(start)), "prunedNodes", prunedNodes)
 			lastReport = time.Now()
 		}
 
@@ -564,7 +562,7 @@ func pruneAction(ctx *cli.Context) error {
 
 	}
 	// pruner.Compact()
-	slog.Info("Prune complete", "elapsed", meter.PrettyDuration(time.Since(start)), "prunedNodes", prunedNodes, "prunedBytes", prunedBytes)
+	slog.Info("Prune complete", "elapsed", meter.PrettyDuration(time.Since(start)), "prunedNodes", prunedNodes)
 	return nil
 }
 
@@ -581,7 +579,6 @@ func pruneIndexAction(ctx *cli.Context) error {
 	pruner := trie.NewPruner(mainDB, ctx.String(dataDirFlag.Name))
 
 	var (
-		prunedBytes = uint64(0)
 		prunedNodes = 0
 	)
 
@@ -593,10 +590,9 @@ func pruneIndexAction(ctx *cli.Context) error {
 		pruneStart := time.Now()
 		stat := pruner.PruneIndexTrie(b.Number(), b.ID(), batch)
 		prunedNodes += stat.Nodes
-		prunedBytes += stat.PrunedNodeBytes
-		slog.Debug(fmt.Sprintf("Pruned block %v", i), "prunedNodes", stat.Nodes, "prunedBytes", stat.PrunedNodeBytes, "elapsed", meter.PrettyDuration(time.Since(pruneStart)))
+		slog.Debug(fmt.Sprintf("Pruned block %v", i), "prunedNodes", stat.Nodes, "elapsed", meter.PrettyDuration(time.Since(pruneStart)))
 		if time.Since(lastReport) > time.Second*8 {
-			slog.Info("Still pruning", "elapsed", meter.PrettyDuration(time.Since(start)), "prunedNodes", prunedNodes, "prunedBytes", prunedBytes)
+			slog.Info("Still pruning", "elapsed", meter.PrettyDuration(time.Since(start)), "prunedNodes", prunedNodes)
 			lastReport = time.Now()
 		}
 		if batch.Len() >= indexPruningBatch || i == toBlk.Number() {
@@ -616,7 +612,7 @@ func pruneIndexAction(ctx *cli.Context) error {
 		// }
 	}
 	// pruner.Compact()
-	slog.Info("Prune complete", "elapsed", meter.PrettyDuration(time.Since(start)), "prunedNodes", prunedNodes, "prunedBytes", prunedBytes)
+	slog.Info("Prune complete", "elapsed", meter.PrettyDuration(time.Since(start)), "prunedNodes", prunedNodes)
 	return nil
 }
 

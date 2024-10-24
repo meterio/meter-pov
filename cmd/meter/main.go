@@ -136,7 +136,7 @@ func main() {
 			epochBlockCountFlag,
 			httpsCertFlag,
 			httpsKeyFlag,
-			enableStatePruneFlag,
+			enablePruningFlag,
 			preserveBlocksFlag,
 		},
 		Action: defaultAction,
@@ -241,10 +241,10 @@ func defaultAction(ctx *cli.Context) error {
 		go pruneIndexTrie(ctx, mainDB, chain)
 	}
 
-	enableStatePruning := ctx.Bool(enableStatePruneFlag.Name)
-	if enableStatePruning {
+	enablePruning := ctx.Bool(enablePruningFlag.Name)
+	if enablePruning {
 		preserveBlocks := ctx.Int(preserveBlocksFlag.Name)
-		fmt.Println("!!! State Trie Pruning ENABLED !!!", "preserveBlocks", preserveBlocks)
+		fmt.Println("!!! Pruning ENABLED !!!", "preserveBlocks", preserveBlocks)
 		go pruneState(ctx, gene, mainDB, chain, preserveBlocks)
 	}
 
@@ -503,7 +503,6 @@ func pruneIndexTrie(ctx *cli.Context, mainDB *lvldb.LevelDB, meterChain *chain.C
 	pruner := trie.NewPruner(mainDB, ctx.String(dataDirFlag.Name))
 
 	var (
-		prunedBytes = uint64(0)
 		prunedNodes = 0
 		start       = time.Now()
 		lastReport  = start
@@ -523,12 +522,11 @@ func pruneIndexTrie(ctx *cli.Context, mainDB *lvldb.LevelDB, meterChain *chain.C
 		// pruneStart := time.Now()
 		stat := pruner.PruneIndexTrie(b.Number(), b.ID(), batch)
 		prunedNodes += stat.Nodes
-		prunedBytes += stat.PrunedNodeBytes
-		// slog.Info(fmt.Sprintf("Pruned block %v", i), "prunedNodes", stat.Nodes, "prunedBytes", stat.PrunedNodeBytes, "elapsed", meter.PrettyDuration(time.Since(pruneStart)))
+		// slog.Info(fmt.Sprintf("Pruned block %v", i), "prunedNodes", stat.Nodes,  "elapsed", meter.PrettyDuration(time.Since(pruneStart)))
 		// time.Sleep(time.Millisecond * 300)
 
 		if time.Since(lastReport) > time.Second*20 {
-			slog.Info("Still pruning index trie", "elapsed", meter.PrettyDuration(time.Since(start)), "head", i, "prunedNodes", prunedNodes, "prunedBytes", prunedBytes)
+			slog.Info("Still pruning index trie", "elapsed", meter.PrettyDuration(time.Since(start)), "head", i, "prunedNodes", prunedNodes)
 			lastReport = time.Now()
 		}
 
@@ -545,7 +543,7 @@ func pruneIndexTrie(ctx *cli.Context, mainDB *lvldb.LevelDB, meterChain *chain.C
 
 	}
 	meterChain.UpdatePruneIndexHead(toBlk.Number())
-	slog.Info("Prune index trie completed", "elapsed", meter.PrettyDuration(time.Since(start)), "head", toBlk.Number(), "prunedNodes", prunedNodes, "prunedBytes", prunedBytes)
+	slog.Info("Prune index trie completed", "elapsed", meter.PrettyDuration(time.Since(start)), "head", toBlk.Number(), "prunedNodes", prunedNodes)
 }
 
 func pruneState(ctx *cli.Context, gene *genesis.Genesis, mainDB *lvldb.LevelDB, meterChain *chain.Chain, preserveBlocks int) {
@@ -620,7 +618,6 @@ func pruneState(ctx *cli.Context, gene *genesis.Genesis, mainDB *lvldb.LevelDB, 
 
 		var (
 			lastRoot    = meter.Bytes32{}
-			prunedBytes = uint64(0)
 			prunedNodes = 0
 			start       = time.Now()
 			lastReport  = start
@@ -635,7 +632,7 @@ func pruneState(ctx *cli.Context, gene *genesis.Genesis, mainDB *lvldb.LevelDB, 
 			logger.Debug("start prune block", "num", i, "blk", b.ID().ToBlockShortID())
 			meterChain.PruneBlock(batch, b.ID())
 			if time.Since(lastReport) > time.Second*8 {
-				logger.Info("still pruning state", "num", i, "elapsed", meter.PrettyDuration(time.Since(start)), "prunedNodes", prunedNodes, "prunedBytes", prunedBytes)
+				logger.Info("still pruning state", "num", i, "elapsed", meter.PrettyDuration(time.Since(start)), "prunedNodes", prunedNodes)
 				lastReport = time.Now()
 			}
 
@@ -649,12 +646,11 @@ func pruneState(ctx *cli.Context, gene *genesis.Genesis, mainDB *lvldb.LevelDB, 
 			// logger.Info("start prune trie", "num", i, "blk", b.ID().ToBlockShortID(), "root", b.StateRoot())
 			stat := pruner.Prune(root, batch, false)
 			prunedNodes += stat.PrunedNodes + stat.PrunedStorageNodes
-			prunedBytes += stat.PrunedNodeBytes + stat.PrunedStorageBytes
 
 			logger.Info("pruned state trie", "num", i, "elapsed", meter.PrettyDuration(time.Since(pruneStart)), "blk", b.ID().ToBlockShortID(), "root", b.StateRoot())
-			// slog.Info(fmt.Sprintf("Pruned block %v", i), "prunedNodes", stat.PrunedNodes+stat.PrunedStorageNodes, "prunedBytes", stat.PrunedNodeBytes+stat.PrunedStorageBytes, "elapsed", meter.PrettyDuration(time.Since(pruneStart)))
+			// slog.Info(fmt.Sprintf("Pruned block %v", i), "elapsed", meter.PrettyDuration(time.Since(pruneStart)))
 			if time.Since(lastReport) > time.Second*8 {
-				logger.Info("still pruning state ", "num", i, "elapsed", meter.PrettyDuration(time.Since(start)), "prunedNodes", prunedNodes, "prunedBytes", prunedBytes)
+				logger.Info("still pruning state ", "num", i, "elapsed", meter.PrettyDuration(time.Since(start)), "prunedNodes", prunedNodes)
 				lastReport = time.Now()
 			}
 			if batch.Len() >= statePruningBatch || i == snapNum-1 {
@@ -677,7 +673,7 @@ func pruneState(ctx *cli.Context, gene *genesis.Genesis, mainDB *lvldb.LevelDB, 
 			meterChain.UpdatePruneHead(snapNum - 1)
 
 		}
-		logger.Info("state pruning loop completed", "elapsed", meter.PrettyDuration(time.Since(start)), "prunedNodes", prunedNodes, "prunedBytes", prunedBytes)
+		logger.Info("state pruning loop completed", "elapsed", meter.PrettyDuration(time.Since(start)), "prunedNodes", prunedNodes)
 		time.Sleep(8 * time.Hour)
 	}
 }

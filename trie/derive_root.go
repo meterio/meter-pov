@@ -4,8 +4,8 @@ import (
 	"bytes"
 	"fmt"
 
-	"github.com/meterio/meter-pov/meter"
 	"github.com/ethereum/go-ethereum/rlp"
+	"github.com/meterio/meter-pov/meter"
 )
 
 // see "github.com/ethereum/go-ethereum/types/derive_sha.go"

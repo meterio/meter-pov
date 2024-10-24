@@ -24,9 +24,9 @@ var (
 		Usage:  "directory for block-chain databases",
 		EnvVar: "METER_DATA_DIR",
 	}
-	enableStatePruneFlag = cli.BoolFlag{
-		Name:  "enable-state-pruning",
-		Usage: "enable state pruning (default will preserve lastest 26280000 state and prune the rest)",
+	enablePruningFlag = cli.BoolFlag{
+		Name:  "enable-pruning",
+		Usage: "enable pruning (default will preserve lastest 26280000 state and prune the rest)",
 	}
 	preserveBlocksFlag = cli.IntFlag{
 		Name:  "preserve-blocks",
