@@ -176,10 +176,11 @@ func (p *Pruner) updateBloomWithTrie(root meter.Bytes32) {
 		stateKey := iter.Hash().Bytes()
 		if iter.Leaf() {
 			stateKey = iter.LeafKey()
-			p.visitedBloom.Put(iter.Parent().Bytes())
 		}
 		// add every node on state trie
 		p.visitedBloom.Put(stateKey)
+		p.visitedBloom.Put(iter.Parent().Bytes())
+
 		stateTrieSize += len(stateKey)
 		stateVal, err := p.db.Get(stateKey)
 		if err != nil {
@@ -224,10 +225,10 @@ func (p *Pruner) updateBloomWithTrie(root meter.Bytes32) {
 				storageKey := storageIter.Hash().Bytes()
 				if storageIter.Leaf() {
 					storageKey = storageIter.LeafKey()
-					p.visitedBloom.Put(storageIter.Parent().Bytes())
 				}
 				// p.logger.Info("added to bloom", "key", hex.EncodeToString(storageKey))
 				p.visitedBloom.Put(storageKey)
+				p.visitedBloom.Put(storageIter.Parent().Bytes())
 				storageVal, err := p.db.Get(storageKey)
 				if err != nil {
 					p.logger.Error("could not load storage", "storageKey", storageKey, "err", err)
@@ -339,17 +340,13 @@ func (p *Pruner) Prune(root meter.Bytes32, batch kv.Batch, verbose bool) *PruneS
 	p.iter = newPruneIterator(t, p.canSkip, p.mark, p.loadOrGet)
 	for p.iter.Next(true) {
 		stateKey := p.iter.Hash().Bytes()
+		parentKey := p.iter.Parent().Bytes()
 
 		if p.iter.Leaf() {
 			// leaf node
 			leafKey := p.iter.LeafKey()
-			parentKey := p.iter.Parent().Bytes()
 
 			if p.pruneAndMark("state leaf", batch, leafKey) {
-				stat.PrunedNodes++
-			}
-
-			if p.pruneAndMark("state parent", batch, parentKey) {
 				stat.PrunedNodes++
 			}
 
@@ -394,6 +391,10 @@ func (p *Pruner) Prune(root meter.Bytes32, batch kv.Batch, verbose bool) *PruneS
 		if p.pruneAndMark("state branch", batch, stateKey) {
 			stat.PrunedNodes++
 		}
+		if p.pruneAndMark("state parent", batch, parentKey) {
+			stat.PrunedNodes++
+		}
+
 	}
 	p.logger.Info("pruned trie", "root", root, "batch", batch.Len(), "prunedNodes", stat.PrunedNodes+stat.PrunedStorageNodes)
 	// if batch.Len() > 0 {

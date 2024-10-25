@@ -440,8 +440,8 @@ func traverseStorageAction(ctx *cli.Context) error {
 			key, _ := mainDB.Get(iter.LeafKey())
 			slog.Info("Storage Leaf", "keyHash", hex.EncodeToString(iter.LeafKey()), "key", hex.EncodeToString(key), "hash", iter.Hash().String(), "val", len(iter.LeafBlob()), "parent", iter.Parent(), "path", hex.EncodeToString(iter.Path()))
 		} else {
-			// raw := ReadTrieNode(mainDB, iter.Hash())
-			// slog.Info("Storage Branch", "hash", iter.Hash().String(), "val", hex.EncodeToString(raw), "parent", iter.Parent())
+			raw := ReadTrieNode(mainDB, iter.Hash())
+			slog.Info("Storage Branch", "hash", iter.Hash().String(), "val", hex.EncodeToString(raw), "parent", iter.Parent())
 		}
 		if time.Since(lastReport) > time.Second*8 {
 			slog.Info("Still traversing", "nodes", nodes, "slots", slots, "elapsed", meter.PrettyDuration(time.Since(start)))
