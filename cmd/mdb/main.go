@@ -527,10 +527,8 @@ func pruneAction(ctx *cli.Context) error {
 		}
 		lastRoot = root
 
-		pruneStart := time.Now()
-		stat := pruner.Prune(root, batch, true)
+		stat := pruner.Prune(b.Number(), b.ID().ToBlockShortID(), root, batch, true)
 		prunedNodes += stat.PrunedNodes + stat.PrunedStorageNodes
-		slog.Info(fmt.Sprintf("Pruned state %v", i), "num", b.Number(), "prunedNodes", stat.PrunedNodes+stat.PrunedStorageNodes, "elapsed", meter.PrettyDuration(time.Since(pruneStart)))
 
 		if time.Since(lastReport) > time.Second*8 {
 			slog.Info("Still pruning", "elapsed", meter.PrettyDuration(time.Since(start)), "prunedNodes", prunedNodes)

@@ -158,18 +158,16 @@ func (p *Pruner) saveBloomFilter(blockNum uint32) error {
 func (p *Pruner) updateBloomWithTrie(root meter.Bytes32) {
 
 	var (
-		nodes           = 0
-		lastReport      time.Time
-		start           = time.Now()
-		stateTrieSize   = 0
-		storageTrieSize = 0
-		codeSize        = 0
+		nodes      = 0
+		lastReport time.Time
+		start      = time.Now()
 	)
 	// add state root
 	stateTrie, _ := New(root, p.db)
 	p.visitedBloom.Put(stateTrie.Root())
+
 	iter := stateTrie.NodeIterator(nil)
-	p.logger.Info("Start generating snapshot", "root", root)
+	p.logger.Info("start traversing state trie for bloom filter", "root", root)
 
 	// add all nodes on state trie to bloom filter
 	for iter.Next(true) {
@@ -181,67 +179,14 @@ func (p *Pruner) updateBloomWithTrie(root meter.Bytes32) {
 		p.visitedBloom.Put(stateKey)
 		p.visitedBloom.Put(iter.Parent().Bytes())
 
-		stateTrieSize += len(stateKey)
-		stateVal, err := p.db.Get(stateKey)
-		if err != nil {
-			p.logger.Error("could not load hash", "stateKey", stateKey, "err", err)
-		}
-		stateTrieSize += len(stateVal)
-
-		if time.Since(lastReport) > time.Second*8 {
-			p.logger.Info("Still generating snap bloom", "nodes", nodes, "elapsed", meter.PrettyDuration(time.Since(start)))
-			lastReport = time.Now()
-		}
-		if !iter.Leaf() {
-			continue
-		}
-
 		nodes++
-		value := iter.LeafBlob()
-		var stateAcc StateAccount
-		if err := rlp.DecodeBytes(value, &stateAcc); err != nil {
-			fmt.Println("Invalid account encountered during traversal", "err", err)
-			continue
-		}
-		// val, _ := p.db.Get(iter.LeafKey())
-		// addr := meter.BytesToAddress(val)
-		// p.logger.Info("visit account in bloom generating", "address", addr, "storageRoot", hex.EncodeToString( stateAcc.StorageRoot))
 
-		// handle storage trie
-		if !bytes.Equal(stateAcc.StorageRoot, []byte{}) {
-			// add storage root
-			p.visitedBloom.Put(stateAcc.StorageRoot)
-
-			// load storage trie
-			storageTrie, err := New(meter.BytesToBytes32(stateAcc.StorageRoot), p.db)
-			if err != nil {
-				fmt.Println("Could not get storage trie")
-				continue
-			}
-
-			// add all nodes on storage trie to bloom filter
-			storageIter := storageTrie.NodeIterator(nil)
-			for storageIter.Next(true) {
-				storageKey := storageIter.Hash().Bytes()
-				if storageIter.Leaf() {
-					storageKey = storageIter.LeafKey()
-				}
-				// p.logger.Info("added to bloom", "key", hex.EncodeToString(storageKey))
-				p.visitedBloom.Put(storageKey)
-				p.visitedBloom.Put(storageIter.Parent().Bytes())
-				storageVal, err := p.db.Get(storageKey)
-				if err != nil {
-					p.logger.Error("could not load storage", "storageKey", storageKey, "err", err)
-				}
-				storageTrieSize += len(storageVal)
-			}
-		}
 		if time.Since(lastReport) > time.Second*8 {
-			p.logger.Info("Still generating snap bloom", "nodes", nodes, "elapsed", meter.PrettyDuration(time.Since(start)))
+			p.logger.Info("still traversing state trie for bloom filter", "nodes", nodes, "elapsed", meter.PrettyDuration(time.Since(start)))
 			lastReport = time.Now()
 		}
 	}
-	p.logger.Info("Snap Bloom completed", "root", root, "stateTrieSize", stateTrieSize, "storageTrieSize", storageTrieSize, "nodes", nodes, "codeSize", codeSize, "elapsed", meter.PrettyDuration(time.Since(start)))
+	p.logger.Info("traverse state trie for bloom filter completed", "root", root, "nodes", nodes, "elapsed", meter.PrettyDuration(time.Since(start)))
 }
 
 func (p *Pruner) PrintStats() {
@@ -318,18 +263,18 @@ func (p *Pruner) pruneAndMark(name string, batch kv.Batch, key []byte) bool {
 			p.logger.Error(fmt.Sprintf("Error deleteing %v", name), "err", err)
 		}
 		p.visitedBloom.Put(key)
-		p.logger.Debug(fmt.Sprintf("pruned %v", name), "key", hex.EncodeToString(key))
+		p.logger.Info(fmt.Sprintf("DEL %v", name), "key", hex.EncodeToString(key))
 		pruned = true
 	} else {
-		p.logger.Debug(fmt.Sprintf("SKIP %v", name), "key", hex.EncodeToString(key))
+		p.logger.Info(fmt.Sprintf("SKIP %v", name), "key", hex.EncodeToString(key))
 		pruned = false
 	}
 	return pruned
 }
 
 // prune the trie at block height
-func (p *Pruner) Prune(root meter.Bytes32, batch kv.Batch, verbose bool) *PruneStat {
-	// p.logger.Info("start pruning trie", "root", root)
+func (p *Pruner) Prune(blkNum uint32, blkID string, root meter.Bytes32, batch kv.Batch, verbose bool) *PruneStat {
+	start := time.Now()
 	t, _ := New(root, p.db)
 	stat := &PruneStat{}
 
@@ -342,67 +287,26 @@ func (p *Pruner) Prune(root meter.Bytes32, batch kv.Batch, verbose bool) *PruneS
 		stateKey := p.iter.Hash().Bytes()
 		parentKey := p.iter.Parent().Bytes()
 
+		stat.Nodes++
 		if p.iter.Leaf() {
 			// leaf node
 			leafKey := p.iter.LeafKey()
-
-			if p.pruneAndMark("state leaf", batch, leafKey) {
+			if p.pruneAndMark("leaf", batch, leafKey) {
 				stat.PrunedNodes++
 			}
 
-			// prune account storage trie
-			var acc StateAccount
-			stat.Accounts++
-			if err := rlp.DecodeBytes(p.iter.LeafBlob(), &acc); err != nil {
-				p.logger.Error("Invalid account encountered during traversal", "err", err)
-				continue
-			}
-			if p.canSkip(acc.StorageRoot) {
-				continue
-			}
-			storageTrie, err := New(meter.BytesToBytes32(acc.StorageRoot), p.db)
-			if err != nil {
-				p.logger.Warn("Could not get storage trie", "err", err)
-				continue
-			}
-			storageIter := newPruneIterator(storageTrie, p.canSkip, p.mark, p.loadOrGet)
-			for storageIter.Next(true) {
-				storageKey := storageIter.Hash().Bytes()
-
-				if storageIter.Leaf() {
-					storageKey = storageIter.LeafKey()
-					if p.pruneAndMark("storage leaf", batch, storageKey) {
-						stat.PrunedStorageNodes++
-					}
-				} else {
-					if p.pruneAndMark("storage branch", batch, storageKey) {
-						stat.PrunedStorageNodes++
-					}
-				}
-
-				parentKey := storageIter.Parent().Bytes()
-				if p.pruneAndMark("storage parent", batch, parentKey) {
-					stat.PrunedStorageNodes++
-				}
+		} else {
+			if p.pruneAndMark("branch", batch, stateKey) {
+				stat.PrunedNodes++
 			}
 		}
 
-		// delete state nodes not in bloom filter
-		if p.pruneAndMark("state branch", batch, stateKey) {
-			stat.PrunedNodes++
-		}
-		if p.pruneAndMark("state parent", batch, parentKey) {
+		if p.pruneAndMark("parent", batch, parentKey) {
 			stat.PrunedNodes++
 		}
 
 	}
-	p.logger.Info("pruned trie", "root", root, "batch", batch.Len(), "prunedNodes", stat.PrunedNodes+stat.PrunedStorageNodes)
-	// if batch.Len() > 0 {
-	// 	if err := batch.Write(); err != nil {
-	// 		p.logger.Error("Error flushing", "err", err)
-	// 	}
-	// 	p.logger.Info("commited deletion batch", "len", batch.Len())
-	// }
+	p.logger.Info("pruned trie", "root", root, "num", blkNum, "blk", blkID, "batch", batch.Len(), "prunedNodes", stat.PrunedNodes+stat.PrunedStorageNodes, "elapsed", meter.PrettyDuration(time.Since(start)))
 
 	return stat
 }

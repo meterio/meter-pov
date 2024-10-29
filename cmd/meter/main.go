@@ -642,12 +642,9 @@ func pruneState(ctx *cli.Context, gene *genesis.Genesis, mainDB *lvldb.LevelDB, 
 			}
 			lastRoot = root
 
-			pruneStart := time.Now()
-			// logger.Info("start prune trie", "num", i, "blk", b.ID().ToBlockShortID(), "root", b.StateRoot())
-			stat := pruner.Prune(root, batch, false)
+			stat := pruner.Prune(b.Number(), b.ID().ToBlockShortID(), root, batch, false)
 			prunedNodes += stat.PrunedNodes + stat.PrunedStorageNodes
 
-			logger.Info("pruned state trie", "num", i, "elapsed", meter.PrettyDuration(time.Since(pruneStart)), "blk", b.ID().ToBlockShortID(), "root", b.StateRoot())
 			// slog.Info(fmt.Sprintf("Pruned block %v", i), "elapsed", meter.PrettyDuration(time.Since(pruneStart)))
 			if time.Since(lastReport) > time.Second*8 {
 				logger.Info("still pruning state ", "num", i, "elapsed", meter.PrettyDuration(time.Since(start)), "prunedNodes", prunedNodes)
