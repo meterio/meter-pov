@@ -100,28 +100,28 @@ func numberAsKey(num uint32) []byte {
 }
 
 type Pruner struct {
-	iter         PruneIterator
-	db           KeyValueStore
-	dataDir      string
-	visitedBloom *stateBloom // visited bloom filter
-	cache        *lru.Cache
-	logger       *slog.Logger
+	iter    PruneIterator
+	db      KeyValueStore
+	dataDir string
+	bloom   *stateBloom // visited bloom filter
+	cache   *lru.Cache
+	logger  *slog.Logger
 }
 
 // NewIterator creates a new key-value iterator from a node iterator
 func NewPruner(db KeyValueStore, dataDir string) *Pruner {
-	visitedBloom, _ := newStateBloomWithSize(256)
+	bloom, _ := newStateBloomWithSize(256)
 	cache, err := lru.New(nodeCacheSize)
 	if err != nil {
 		panic("could not create cache")
 	}
 
 	p := &Pruner{
-		db:           db,
-		dataDir:      dataDir,
-		visitedBloom: visitedBloom,
-		cache:        cache,
-		logger:       slog.Default().With("prune", "trie"),
+		db:      db,
+		dataDir: dataDir,
+		bloom:   bloom,
+		cache:   cache,
+		logger:  slog.Default().With("prune", "trie"),
 	}
 
 	return p
@@ -130,8 +130,8 @@ func NewPruner(db KeyValueStore, dataDir string) *Pruner {
 func (p *Pruner) InitForStatePruning(geneStateRoot, snapStateRoot meter.Bytes32, snapNum uint32) {
 	err := p.loadBloomFilter(snapNum)
 	if err != nil {
-		p.updateBloomWithTrie(geneStateRoot)
-		p.updateBloomWithTrie(snapStateRoot)
+		p.UpdateBloomWithTrie(geneStateRoot)
+		p.UpdateBloomWithTrie(snapStateRoot)
 		p.saveBloomFilter(snapNum)
 	}
 }
@@ -145,26 +145,25 @@ func (p *Pruner) loadBloomFilter(blockNum uint32) error {
 	if err != nil {
 		return err
 	}
-	p.visitedBloom = bloom
+	p.bloom = bloom
 	return nil
 }
 
 func (p *Pruner) saveBloomFilter(blockNum uint32) error {
 	bloomfile := path.Join(p.dataDir, "snapshot", fmt.Sprintf("%v.bloom", blockNum))
 	tmpfile := path.Join(p.dataDir, "snapshot", fmt.Sprintf("%v.tmp", blockNum))
-	return p.visitedBloom.Commit(bloomfile, tmpfile)
+	return p.bloom.Commit(bloomfile, tmpfile)
 }
 
-func (p *Pruner) updateBloomWithTrie(root meter.Bytes32) {
-
+func (p *Pruner) UpdateBloomWithTrie(root meter.Bytes32) {
 	var (
 		nodes      = 0
-		lastReport time.Time
 		start      = time.Now()
+		lastReport = start
 	)
 	// add state root
 	stateTrie, _ := New(root, p.db)
-	p.visitedBloom.Put(stateTrie.Root())
+	p.bloom.Put(stateTrie.Root())
 
 	iter := stateTrie.NodeIterator(nil)
 	p.logger.Info("start traversing state trie for bloom filter", "root", root)
@@ -176,14 +175,47 @@ func (p *Pruner) updateBloomWithTrie(root meter.Bytes32) {
 			stateKey = iter.LeafKey()
 		}
 		// add every node on state trie
-		p.visitedBloom.Put(stateKey)
-		p.visitedBloom.Put(iter.Parent().Bytes())
+		p.bloom.Put(stateKey)
+		p.bloom.Put(iter.Parent().Bytes())
 
 		nodes++
 
 		if time.Since(lastReport) > time.Second*8 {
 			p.logger.Info("still traversing state trie for bloom filter", "nodes", nodes, "elapsed", meter.PrettyDuration(time.Since(start)))
 			lastReport = time.Now()
+		}
+
+		if iter.Leaf() {
+			value := iter.LeafBlob()
+			var acct StateAccount
+			if err := rlp.DecodeBytes(value, &acct); err != nil {
+				fmt.Println("Invalid account encountered during traversal", "err", err)
+				continue
+			}
+
+			if !bytes.Equal(acct.StorageRoot, []byte{}) {
+				storageTrie, err := New(meter.BytesToBytes32(acct.StorageRoot), p.db)
+				if err != nil {
+					fmt.Println("Could not get storage trie")
+					continue
+				}
+
+				storageIter := storageTrie.NodeIterator(nil)
+				for storageIter.Next(true) {
+					storageKey := storageIter.Hash().Bytes()
+					if storageIter.Leaf() {
+						storageKey = storageIter.LeafKey()
+					}
+					// p.logger.Info("added to bloom", "key", hex.EncodeToString(storageKey))
+					p.bloom.Put(storageKey)
+					p.bloom.Put(storageIter.Parent().Bytes())
+
+					if time.Since(lastReport) > time.Second*8 {
+						p.logger.Info("still traversing state trie for bloom filter", "nodes", nodes, "elapsed", meter.PrettyDuration(time.Since(start)))
+						lastReport = time.Now()
+					}
+				}
+			}
 		}
 	}
 	p.logger.Info("traverse state trie for bloom filter completed", "root", root, "nodes", nodes, "elapsed", meter.PrettyDuration(time.Since(start)))
@@ -243,7 +275,7 @@ func (p *Pruner) canSkip(key []byte) bool {
 		return true
 	}
 
-	if visited := p.visitedBloom.Contain(key); visited {
+	if visited := p.bloom.Contain(key); visited {
 		p.logger.Debug("skip visited node", "key", hex.EncodeToString(key))
 		return true
 	}
@@ -251,25 +283,19 @@ func (p *Pruner) canSkip(key []byte) bool {
 	return false
 }
 
-func (p *Pruner) mark(key []byte) {
-	p.visitedBloom.Put(key)
-}
-
-func (p *Pruner) pruneAndMark(name string, batch kv.Batch, key []byte) bool {
-	var pruned bool
-	if visited := p.visitedBloom.Contain(key); !visited {
+func (p *Pruner) pruneAndMark(name string, batch kv.Batch, key []byte) int {
+	if contains := p.bloom.Contain(key); !contains {
 		err := batch.Delete(key)
 		if err != nil {
 			p.logger.Error(fmt.Sprintf("Error deleteing %v", name), "err", err)
 		}
-		p.visitedBloom.Put(key)
+		p.bloom.Put(key)
 		p.logger.Info(fmt.Sprintf("DEL %v", name), "key", hex.EncodeToString(key))
-		pruned = true
+		return 1
 	} else {
 		p.logger.Info(fmt.Sprintf("SKIP %v", name), "key", hex.EncodeToString(key))
-		pruned = false
+		return 0
 	}
-	return pruned
 }
 
 // prune the trie at block height
@@ -282,27 +308,43 @@ func (p *Pruner) Prune(blkNum uint32, blkID string, root meter.Bytes32, batch kv
 		return stat
 	}
 
-	p.iter = newPruneIterator(t, p.canSkip, p.mark, p.loadOrGet)
+	p.iter = newPruneIterator(t, p.canSkip, p.loadOrGet)
 	for p.iter.Next(true) {
-		stateKey := p.iter.Hash().Bytes()
-		parentKey := p.iter.Parent().Bytes()
-
 		stat.Nodes++
 		if p.iter.Leaf() {
 			// leaf node
-			leafKey := p.iter.LeafKey()
-			if p.pruneAndMark("leaf", batch, leafKey) {
-				stat.PrunedNodes++
-			}
-
+			stat.PrunedNodes += p.pruneAndMark("leaf", batch, p.iter.LeafKey())
 		} else {
-			if p.pruneAndMark("branch", batch, stateKey) {
-				stat.PrunedNodes++
-			}
+			// branch
+			stat.PrunedNodes += p.pruneAndMark("branch", batch, p.iter.Hash().Bytes())
 		}
+		// parent
+		stat.PrunedNodes += p.pruneAndMark("parent", batch, p.iter.Parent().Bytes())
 
-		if p.pruneAndMark("parent", batch, parentKey) {
-			stat.PrunedNodes++
+		if p.iter.Leaf() {
+			value := p.iter.LeafBlob()
+			var acct StateAccount
+			if err := rlp.DecodeBytes(value, &acct); err != nil {
+				fmt.Println("Invalid account encountered during traversal", "err", err)
+				continue
+			}
+			if !bytes.Equal(acct.StorageRoot, []byte{}) {
+				storageTrie, err := New(meter.BytesToBytes32(acct.StorageRoot), p.db)
+				if err != nil {
+					fmt.Println("Could not get storage trie")
+					continue
+				}
+
+				storageIter := storageTrie.NodeIterator(nil)
+				for storageIter.Next(true) {
+					if storageIter.Leaf() {
+						stat.PrunedStorageNodes += p.pruneAndMark("storage leaf", batch, storageIter.LeafKey())
+					} else {
+						stat.PrunedStorageNodes += p.pruneAndMark("storage branch", batch, storageIter.Hash().Bytes())
+					}
+					stat.PrunedStorageNodes += p.pruneAndMark("storage parent", batch, storageIter.Parent().Bytes())
+				}
+			}
 		}
 
 	}
@@ -315,7 +357,7 @@ func (p *Pruner) Prune(blkNum uint32, blkID string, root meter.Bytes32, batch kv
 func (p *Pruner) Scan(root meter.Bytes32) *TrieDelta {
 	p.logger.Info("Start scanning", "root", root)
 	t, _ := New(root, p.db)
-	p.iter = newPruneIterator(t, p.canSkip, p.mark, p.loadOrGet)
+	p.iter = newPruneIterator(t, p.canSkip, p.loadOrGet)
 	delta := &TrieDelta{}
 	for p.iter.Next(true) {
 		hash := p.iter.Hash()
@@ -347,7 +389,7 @@ func (p *Pruner) Scan(root meter.Bytes32) *TrieDelta {
 				p.logger.Error("Could not get storage trie", "err", err)
 				continue
 			}
-			storageIter := newPruneIterator(storageTrie, p.canSkip, p.mark, p.loadOrGet)
+			storageIter := newPruneIterator(storageTrie, p.canSkip, p.loadOrGet)
 			for storageIter.Next(true) {
 				shash := storageIter.Hash()
 				if storageIter.Leaf() {
@@ -379,7 +421,7 @@ func (p *Pruner) ScanIndexTrie(blockHash meter.Bytes32) *TrieDelta {
 		panic("could not get index trie root")
 	}
 	t, _ := New(meter.BytesToBytes32(root), p.db)
-	p.iter = newPruneIterator(t, p.canSkip, p.mark, p.loadOrGet)
+	p.iter = newPruneIterator(t, p.canSkip, p.loadOrGet)
 	delta := &TrieDelta{}
 	for p.iter.Next(true) {
 		hash := p.iter.Hash()
@@ -432,7 +474,7 @@ func (p *Pruner) PruneIndexTrie(blockNum uint32, blockHash meter.Bytes32, batch 
 		return &PruneStat{}
 	}
 	t, _ := New(meter.BytesToBytes32(root), p.db)
-	p.iter = newPruneIterator(t, p.canSkip, p.mark, p.loadOrGet)
+	p.iter = newPruneIterator(t, p.canSkip, p.loadOrGet)
 	stat := &PruneStat{}
 	for p.iter.Next(true) {
 		hash := p.iter.Hash()
@@ -479,15 +521,14 @@ type pruneIterator struct {
 	err       error                 // Failure set in case of an internal error in the iterator
 	canSkip   func(key []byte) bool
 	loadOrGet func(key []byte) ([]byte, error)
-	mark      func(key []byte)
 }
 
-func newPruneIterator(trie *Trie, canSkip func([]byte) bool, mark func([]byte), loadOrGet func(key []byte) ([]byte, error)) *pruneIterator {
+func newPruneIterator(trie *Trie, canSkip func([]byte) bool, loadOrGet func(key []byte) ([]byte, error)) *pruneIterator {
 	if trie.Hash() == emptyState {
 		return new(pruneIterator)
 	}
 
-	it := &pruneIterator{trie: trie, canSkip: canSkip, mark: mark, loadOrGet: loadOrGet}
+	it := &pruneIterator{trie: trie, canSkip: canSkip, loadOrGet: loadOrGet}
 	it.err = it.seek(nil)
 	return it
 }

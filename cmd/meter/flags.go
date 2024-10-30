@@ -31,7 +31,7 @@ var (
 	preserveBlocksFlag = cli.IntFlag{
 		Name:  "preserve-blocks",
 		Usage: "state pruning will preserve the last n blocks",
-		Value: int(math.Ceil(365 * 24 * 60 * 60 / 1.8 * 1.5)),
+		Value: int(math.Ceil(365 * 24 * 60 * 60 / 1.8 * 0.5)), // 6 month data
 	}
 	beneficiaryFlag = cli.StringFlag{
 		Name:  "beneficiary",

@@ -553,17 +553,18 @@ func pruneState(ctx *cli.Context, gene *genesis.Genesis, mainDB *lvldb.LevelDB, 
 	logger := slog.With("prune", "state")
 	logger.Info("!!! State Trie Pruning Routine Started !!!")
 	for {
+		best := meterChain.BestBlock()
 		bestNum := meterChain.BestBlock().Number()
 		snapNum, _ := meterChain.GetStateSnapshotNum() // ignore err, default is 0
 		if bestNum < uint32(preserveBlocks) {
 			logger.Info("Best < PreserveBlocks, skip pruning for now", "best", bestNum, "preserveBlocks", preserveBlocks)
-			time.Sleep(8 * time.Hour)
+			time.Sleep(meter.PruneInterval)
 			continue
 		}
 		targetNum := bestNum - uint32(preserveBlocks)
 		if snapNum >= targetNum {
 			logger.Info("Snapshot >= Target, skip pruning for now", "snap", snapNum, "target", targetNum)
-			time.Sleep(8 * time.Hour)
+			time.Sleep(meter.PruneInterval)
 			continue
 		}
 		snapNum = targetNum
@@ -595,12 +596,12 @@ func pruneState(ctx *cli.Context, gene *genesis.Genesis, mainDB *lvldb.LevelDB, 
 		// sanity check for snapNum
 		if snapNum < pruneHead {
 			logger.Info("Snapshot < pruneHead, skip pruning for now", "snap", snapNum, "pruneHead", pruneHead)
-			time.Sleep(8 * time.Hour)
+			time.Sleep(meter.PruneInterval)
 			continue
 		}
 		if snapNum-pruneHead < uint32(math.Ceil(8*3600/1.77)) {
 			logger.Info("Not enough for pruning, skip pruning for now")
-			time.Sleep(8 * time.Hour)
+			time.Sleep(meter.PruneInterval)
 			continue
 		}
 
@@ -611,6 +612,9 @@ func pruneState(ctx *cli.Context, gene *genesis.Genesis, mainDB *lvldb.LevelDB, 
 		pruner := trie.NewPruner(mainDB, ctx.String(dataDirFlag.Name))
 		logger.Info("Generating snapshot bloom", "num", snapNum)
 		pruner.InitForStatePruning(geneBlk.StateRoot(), snapBlk.StateRoot(), snapBlk.Number())
+		if bestNum > snapBlk.Number() {
+			pruner.UpdateBloomWithTrie(best.StateRoot())
+		}
 		logger.Info("Generated snapshot bloom", "num", snapNum)
 
 		meterChain.UpdateStateSnapshotNum(snapNum)
@@ -671,6 +675,6 @@ func pruneState(ctx *cli.Context, gene *genesis.Genesis, mainDB *lvldb.LevelDB, 
 
 		}
 		logger.Info("state pruning loop completed", "elapsed", meter.PrettyDuration(time.Since(start)), "prunedNodes", prunedNodes)
-		time.Sleep(8 * time.Hour)
+		time.Sleep(meter.PruneInterval)
 	}
 }
