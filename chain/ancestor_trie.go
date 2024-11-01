@@ -92,6 +92,7 @@ func (at *ancestorTrie) GetAncestor(descendantID meter.Bytes32, ancestorNum uint
 		// update cache
 		return blockID, err
 	}
+	fmt.Println("could not load hash for", descendantID, ancestorNum)
 
 	// optional
 	if ancestorNum > block.Number(descendantID) {
@@ -104,7 +105,7 @@ func (at *ancestorTrie) GetAncestor(descendantID meter.Bytes32, ancestorNum uint
 
 	root, err := at.rootsCache.GetOrLoad(descendantID)
 	if err != nil {
-		fmt.Println("could not load index root in getAncestor for ", descendantID)
+		fmt.Println("could not load index root in getAncestor for ", descendantID, ancestorNum)
 		return meter.Bytes32{}, errors.WithMessage(err, "load index root in getAncestor")
 	}
 	tr, err := at.trieCache.Get(root.(meter.Bytes32), at.kv, false)

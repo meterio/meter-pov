@@ -629,7 +629,10 @@ func pruneState(ctx *cli.Context, gene *genesis.Genesis, mainDB *lvldb.LevelDB, 
 
 		batch := mainDB.NewBatch()
 		for i := pruneHead + 1; i < snapNum; i++ {
-			b, _ := meterChain.GetTrunkBlock(i)
+			b, err := meterChain.GetTrunkBlock(i)
+			if err != nil {
+				continue
+			}
 			root := b.StateRoot()
 
 			// prune block
@@ -646,8 +649,10 @@ func pruneState(ctx *cli.Context, gene *genesis.Genesis, mainDB *lvldb.LevelDB, 
 			}
 			lastRoot = root
 
-			stat := pruner.Prune(b.Number(), b.ID().ToBlockShortID(), root, batch, false)
-			prunedNodes += stat.PrunedNodes + stat.PrunedStorageNodes
+			if has, _ := mainDB.Has(root.Bytes()); has {
+				stat := pruner.Prune(b.Number(), b.ID().ToBlockShortID(), root, batch, false)
+				prunedNodes += stat.PrunedNodes + stat.PrunedStorageNodes
+			}
 
 			// slog.Info(fmt.Sprintf("Pruned block %v", i), "elapsed", meter.PrettyDuration(time.Since(pruneStart)))
 			if time.Since(lastReport) > time.Second*8 {
