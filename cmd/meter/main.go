@@ -245,7 +245,10 @@ func defaultAction(ctx *cli.Context) error {
 	if enablePruning {
 		preserveBlocks := ctx.Int(preserveBlocksFlag.Name)
 		fmt.Println("!!! Pruning ENABLED !!!", "preserveBlocks", preserveBlocks)
-		go pruneState(ctx, gene, mainDB, chain, preserveBlocks)
+		pruneState(ctx, gene, mainDB, chain, preserveBlocks)
+		pruneHead,err:=chain.GetPruneHead()
+		fmt.Println("!!! Pruning COMPLETED !!!", "pruneHead", pruneHead)
+		return err
 	}
 
 	master, blsCommon := loadNodeMaster(ctx)
