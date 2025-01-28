@@ -215,7 +215,7 @@ func New(kv kv.GetPutter, genesisBlock *block.Block, verbose bool) (*Chain, erro
 
 	if verbose {
 		fmt.Println("---------------------------------------------------------")
-		fmt.Println("                  METER CHAIN INITIALIZED now                ")
+		fmt.Println("                  METER CHAIN INITIALIZED                ")
 		fmt.Println("---------------------------------------------------------")
 		fmt.Println("Config:  ", meter.BlockChainConfig.ToString())
 		fmt.Println("Genesis: ", genesisBlock.ID())
