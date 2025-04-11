@@ -3,13 +3,16 @@ package staking
 import (
 	"bytes"
 	"errors"
+	"math"
 	"math/big"
 	"sort"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/meterio/meter-pov/builtin"
 	"github.com/meterio/meter-pov/meter"
+	"github.com/meterio/meter-pov/runtime/statedb"
 	setypes "github.com/meterio/meter-pov/script/types"
 )
 
@@ -51,6 +54,94 @@ func (s *Staking) distributeValidatorRewards(env *setypes.ScriptEnv, sb *Staking
 		}
 	}
 	state.SetValidatorRewardList(rewardList)
+}
+
+const (
+
+	// auction params
+	totoalRelease = 160000000 //total released 160M MTRG
+	halvingYears  = 4         // halves every 4 years
+	halvingDays   = halvingYears * 365
+	fadeRate      = 0.8 // fade rate 0.8
+
+)
+
+var (
+	// Define the start date
+	startDate = time.Date(2020, 7, 4, 0, 0, 0, 0, time.UTC)
+)
+
+// DailyReward(i) = ln(1/0.8)*0.8^(i/Halving)*40000000/Halving
+func DailyReward(i int) *big.Int {
+	rewardFloat64 := math.Log(1/fadeRate) * math.Pow(fadeRate, (float64(i)/float64(halvingDays))) * 40000000 / halvingDays
+	rewardBigInt, _ := big.NewFloat(0).Mul(big.NewFloat(rewardFloat64), big.NewFloat(1e18)).Int(big.NewInt(0))
+	return rewardBigInt
+}
+
+func ComputeEpochReleaseWithEmissionCurve() (*big.Int, error) {
+	// Get the current date
+	now := time.Now().UTC()
+
+	// Calculate the difference
+	duration := now.Sub(startDate)
+
+	// Convert to days
+	days := int(duration.Hours() / 24)
+
+	// slog.Info("Computer epoch release with emission curve", "days", days)
+	if days > 0 {
+		reward := DailyReward(days)
+		// slog.Info("Daily Reward", "days", days, "reward", reward)
+		epochReward := reward
+		epochReward.Div(epochReward, big.NewInt(24))
+		return epochReward, nil
+	} else {
+		return big.NewInt(0), errors.New("days<0, not valid for emission curve")
+	}
+}
+
+func (s *Staking) distributeMTRGAfterTeslaFork12(env *setypes.ScriptEnv, sb *StakingBody, candidateList *meter.CandidateList, inJailList *meter.InJailList) {
+	validCands := make(map[meter.Address]*big.Int)
+	injails := make(map[meter.Address]bool)
+	totalMTRG, _ := ComputeEpochReleaseWithEmissionCurve()
+
+	for _, injail := range inJailList.InJails {
+		injails[injail.Addr] = true
+	}
+
+	totalVotes := new(big.Int)
+	for _, cand := range candidateList.Candidates {
+		if _, injailed := injails[cand.Addr]; injailed {
+			continue
+		}
+		validCands[cand.Addr] = cand.TotalVotes
+		totalVotes.Add(totalVotes, cand.TotalVotes)
+	}
+
+	for addr, votes := range validCands {
+		mtrg := new(big.Int)
+		mtrg.Mul(totalMTRG, votes)
+		mtrg.Div(mtrg, totalVotes)
+		s.MintMTRG(env, addr, mtrg)
+	}
+
+}
+
+func (s *Staking) MintMTRG(env *setypes.ScriptEnv, addr meter.Address, amount *big.Int) {
+	if amount.Sign() == 0 {
+		return
+	}
+	state := env.GetState()
+	stateDB := statedb.New(state)
+	// in auction, MeterGov is mint action.
+	blockNum := env.GetBlockNum()
+	if meter.IsTeslaFork8(blockNum) {
+		stateDB.MintBalanceAfterFork8(common.Address(addr), amount)
+	} else {
+		stateDB.MintBalance(common.Address(addr), amount)
+	}
+	env.AddTransfer(meter.ZeroAddress, addr, amount, meter.MTRG)
+	return
 }
 
 func (s *Staking) distributeAndAutobidAfterTeslaFork6(env *setypes.ScriptEnv, sb *StakingBody, candidateList *meter.CandidateList, inJailList *meter.InJailList) {
@@ -358,7 +449,9 @@ func (s *Staking) GoverningHandler(env *setypes.ScriptEnv, sb *StakingBody, gas 
 	}
 
 	number := env.GetBlockNum()
-	if meter.IsTeslaFork6(number) {
+	if meter.IsTeslaFork12(number) {
+		s.distributeMTRGAfterTeslaFork12(env, sb, candidateList, inJailList)
+	} else if meter.IsTeslaFork6(number) {
 		s.distributeAndAutobidAfterTeslaFork6(env, sb, candidateList, inJailList)
 	} else {
 		s.distributeValidatorRewards(env, sb, candidateList, inJailList)
