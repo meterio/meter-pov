@@ -6,10 +6,8 @@
 package governor
 
 import (
-	"errors"
 	"fmt"
 	"log/slog"
-	"math"
 	"math/big"
 
 	"github.com/meterio/meter-pov/chain"
@@ -140,23 +138,23 @@ hold off;
 */
 
 // DailyReward(i) = ln(1/0.8)*0.8^(i/Halving)*40000000/Halving
-func DailyReward(i uint64) *big.Int {
-	rewardFloat64 := math.Log(1/fadeRate) * math.Pow(fadeRate, (float64(i)/float64(halvingDays))) * 40000000 / halvingDays
-	rewardBigInt, _ := big.NewFloat(0).Mul(big.NewFloat(rewardFloat64), big.NewFloat(1e18)).Int(big.NewInt(0))
-	return rewardBigInt
-}
+// func DailyReward(i uint64) *big.Int {
+// 	rewardFloat64 := math.Log(1/fadeRate) * math.Pow(fadeRate, (float64(i)/float64(halvingDays))) * 40000000 / halvingDays
+// 	rewardBigInt, _ := big.NewFloat(0).Mul(big.NewFloat(rewardFloat64), big.NewFloat(1e18)).Int(big.NewInt(0))
+// 	return rewardBigInt
+// }
 
-func ComputeEpochReleaseWithEmissionCurve(sequence uint64, baseSequence uint64) (*big.Int, error) {
-	slog.Info("Computer epoch release with emission curve", "sequence", sequence, "baseSequence", baseSequence)
-	i := sequence - baseSequence
-	if i > 0 {
-		reward := DailyReward(i)
-		slog.Info("Daily Reward", "i", i, "reward", reward)
-		return reward, nil
-	} else {
-		return big.NewInt(0), errors.New("sequence < baseSequence, not valid for emission curve")
-	}
-}
+// func ComputeEpochReleaseWithEmissionCurve(sequence uint64, baseSequence uint64) (*big.Int, error) {
+// 	slog.Info("Computer epoch release with emission curve", "sequence", sequence, "baseSequence", baseSequence)
+// 	i := sequence - baseSequence
+// 	if i > 0 {
+// 		reward := DailyReward(i)
+// 		slog.Info("Daily Reward", "i", i, "reward", reward)
+// 		return reward, nil
+// 	} else {
+// 		return big.NewInt(0), errors.New("sequence < baseSequence, not valid for emission curve")
+// 	}
+// }
 
 // calEpochReleaseWithInflation returns the release of MTRG for current epoch, it returns a 0 if curEpoch is less than startEpoch
 // epochRelease = lastEpochRelease + lastEpochRelease * deltaRate
