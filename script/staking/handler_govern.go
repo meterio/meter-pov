@@ -3,6 +3,8 @@ package staking
 import (
 	"bytes"
 	"errors"
+	"fmt"
+	"log/slog"
 	"math"
 	"math/big"
 	"sort"
@@ -14,6 +16,7 @@ import (
 	"github.com/meterio/meter-pov/meter"
 	"github.com/meterio/meter-pov/runtime/statedb"
 	setypes "github.com/meterio/meter-pov/script/types"
+	"github.com/meterio/meter-pov/state"
 )
 
 func (s *Staking) distributeValidatorRewards(env *setypes.ScriptEnv, sb *StakingBody, candidateList *meter.CandidateList, inJailList *meter.InJailList) {
@@ -78,32 +81,36 @@ func DailyReward(i int) *big.Int {
 	return rewardBigInt
 }
 
-func ComputeEpochReleaseWithEmissionCurve() (*big.Int, error) {
-	// Get the current date
-	now := time.Now().UTC()
-
+func ComputeEpochReleaseWithEmissionCurve(state *state.State, blockTime uint64) (*big.Int, error) {
+	fork12Start := builtin.Params.Native(state).Get(meter.KeyTesla_Fork12_Timestamp)
 	// Calculate the difference
-	duration := now.Sub(startDate)
+	duration := uint64(0)
+	days := int(0)
+	slog.Info("compute epoch release with emission curve", "blockTime", blockTime, "fork12Start", fork12Start.Uint64())
+	if blockTime >= fork12Start.Uint64() {
+		duration = blockTime - fork12Start.Uint64()
+		days = int(duration/3600/24) + 1
+		slog.Info("compute", "duration: ", duration, "days:", days)
 
-	// Convert to days
-	days := int(duration.Hours() / 24)
-
-	// slog.Info("Computer epoch release with emission curve", "days", days)
-	if days > 0 {
-		reward := DailyReward(days)
-		// slog.Info("Daily Reward", "days", days, "reward", reward)
-		epochReward := reward
-		epochReward.Div(epochReward, big.NewInt(24))
-		return epochReward, nil
-	} else {
-		return big.NewInt(0), errors.New("days<0, not valid for emission curve")
+		// FIXME: what if PoW got an injection of computing power and epochs are shorter than 1 hour
+		if days >= 0 {
+			reward := DailyReward(days)
+			epochReward := reward
+			epochReward.Div(epochReward, big.NewInt(24))
+			slog.Info("Daily Reward", "days", days, "reward", reward, "epochReward", epochReward)
+			return epochReward, nil
+		} else {
+			return big.NewInt(0), errors.New("days<0, not valid for emission curve")
+		}
 	}
+	return big.NewInt(0), errors.New("not fork12 yet")
 }
 
 func (s *Staking) distributeMTRGAfterTeslaFork12(env *setypes.ScriptEnv, sb *StakingBody, candidateList *meter.CandidateList, inJailList *meter.InJailList) {
+	fmt.Println("distribute MTRG after fork12")
 	validCands := make(map[meter.Address]*big.Int)
 	injails := make(map[meter.Address]bool)
-	totalMTRG, _ := ComputeEpochReleaseWithEmissionCurve()
+	epochRelease, _ := ComputeEpochReleaseWithEmissionCurve(env.GetState(), env.GetBlockCtx().Time)
 
 	for _, injail := range inJailList.InJails {
 		injails[injail.Addr] = true
@@ -118,13 +125,13 @@ func (s *Staking) distributeMTRGAfterTeslaFork12(env *setypes.ScriptEnv, sb *Sta
 		totalVotes.Add(totalVotes, cand.TotalVotes)
 	}
 
+	fmt.Println("epochRelease: ", epochRelease)
+
 	for addr, votes := range validCands {
-		mtrg := new(big.Int)
-		mtrg.Mul(totalMTRG, votes)
-		mtrg.Div(mtrg, totalVotes)
+		mtrg := new(big.Int).Div(new(big.Int).Mul(epochRelease, votes), totalVotes)
+		fmt.Println("release", mtrg.Uint64(), "MTRG  to ", addr)
 		s.MintMTRG(env, addr, mtrg)
 	}
-
 }
 
 func (s *Staking) MintMTRG(env *setypes.ScriptEnv, addr meter.Address, amount *big.Int) {
