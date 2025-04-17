@@ -81,6 +81,8 @@ const (
 	indexPruningBatch = 256
 	// indexFlatterningBatch = 1024
 	GCInterval = 5 * 60 * 1000 // 5 min in millisecond
+
+	blockPruningBatch = 1024
 )
 
 func fullVersion() string {
@@ -134,7 +136,7 @@ func main() {
 			epochBlockCountFlag,
 			httpsCertFlag,
 			httpsKeyFlag,
-			enableStatePruneFlag,
+			enablePruningFlag,
 			preserveBlocksFlag,
 		},
 		Action: defaultAction,
@@ -239,11 +241,14 @@ func defaultAction(ctx *cli.Context) error {
 		go pruneIndexTrie(ctx, mainDB, chain)
 	}
 
-	enableStatePruning := ctx.Bool(enableStatePruneFlag.Name)
-	if enableStatePruning {
+	enablePruning := ctx.Bool(enablePruningFlag.Name)
+	if enablePruning {
 		preserveBlocks := ctx.Int(preserveBlocksFlag.Name)
-		fmt.Println("!!! State Trie Pruning ENABLED !!!", "preserveBlocks", preserveBlocks)
-		go pruneStateTrie(ctx, gene, mainDB, chain, preserveBlocks)
+		fmt.Println("!!! Pruning ENABLED !!!", "preserveBlocks", preserveBlocks)
+		pruneState(ctx, gene, mainDB, chain, preserveBlocks)
+		pruneHead,err:=chain.GetPruneHead()
+		fmt.Println("!!! Pruning COMPLETED !!!", "pruneHead", pruneHead)
+		return err
 	}
 
 	master, blsCommon := loadNodeMaster(ctx)
@@ -259,23 +264,85 @@ func defaultAction(ctx *cli.Context) error {
 	// load preset config
 	if "warringstakes" == ctx.String(networkFlag.Name) {
 		config := preset.TestnetPresetConfig
-		ctx.Set("committee-min-size", strconv.Itoa(config.CommitteeMinSize))
-		ctx.Set("committee-max-size", strconv.Itoa(config.CommitteeMaxSize))
-		ctx.Set("delegate-max-size", strconv.Itoa(config.DelegateMaxSize))
-		ctx.Set("disco-topic", config.DiscoTopic)
-		ctx.Set("disco-server", config.DiscoServer)
+		if ctx.IsSet("committee-min-size") {
+			config.CommitteeMinSize = ctx.Int("committee-min-size")
+		} else {
+			ctx.Set("committee-min-size", strconv.Itoa(config.CommitteeMinSize))
+		}
+
+		if ctx.IsSet("committee-max-size") {
+			config.CommitteeMaxSize = ctx.Int("committee-max-size")
+		} else {
+			ctx.Set("committee-max-size", strconv.Itoa(config.CommitteeMaxSize))
+		}
+
+		if ctx.IsSet("delegate-max-size") {
+			config.DelegateMaxSize = ctx.Int("committee-max-size")
+		} else {
+			ctx.Set("delegate-max-size", strconv.Itoa(config.DelegateMaxSize))
+		}
+
+		if ctx.IsSet("disco-topic") {
+			config.DiscoTopic = ctx.String("disco-topic")
+		} else {
+			ctx.Set("disco-topic", config.DiscoTopic)
+		}
+
+		if ctx.IsSet("disco-server") {
+			config.DiscoServer = ctx.String("disco-server")
+		} else {
+			ctx.Set("disco-server", config.DiscoServer)
+		}
 	} else if "main" == ctx.String(networkFlag.Name) {
 		config := preset.MainnetPresetConfig
-		ctx.Set("committee-min-size", strconv.Itoa(config.CommitteeMinSize))
-		ctx.Set("committee-max-size", strconv.Itoa(config.CommitteeMaxSize))
-		ctx.Set("delegate-max-size", strconv.Itoa(config.DelegateMaxSize))
-		ctx.Set("disco-topic", config.DiscoTopic)
-		ctx.Set("disco-server", config.DiscoServer)
+		if ctx.IsSet("committee-min-size") {
+			config.CommitteeMinSize = ctx.Int("committee-min-size")
+		} else {
+			ctx.Set("committee-min-size", strconv.Itoa(config.CommitteeMinSize))
+		}
+
+		if ctx.IsSet("committee-max-size") {
+			config.CommitteeMaxSize = ctx.Int("committee-max-size")
+		} else {
+			ctx.Set("committee-max-size", strconv.Itoa(config.CommitteeMaxSize))
+		}
+
+		if ctx.IsSet("delegate-max-size") {
+			config.DelegateMaxSize = ctx.Int("committee-max-size")
+		} else {
+			ctx.Set("delegate-max-size", strconv.Itoa(config.DelegateMaxSize))
+		}
+
+		if ctx.IsSet("disco-topic") {
+			config.DiscoTopic = ctx.String("disco-topic")
+		} else {
+			ctx.Set("disco-topic", config.DiscoTopic)
+		}
+
+		if ctx.IsSet("disco-server") {
+			config.DiscoServer = ctx.String("disco-server")
+		} else {
+			ctx.Set("disco-server", config.DiscoServer)
+		}
 	} else if "staging" == ctx.String(networkFlag.Name) {
 		config := preset.MainnetPresetConfig
-		ctx.Set("committee-min-size", strconv.Itoa(config.CommitteeMinSize))
-		ctx.Set("committee-max-size", strconv.Itoa(config.CommitteeMaxSize))
-		ctx.Set("delegate-max-size", strconv.Itoa(config.DelegateMaxSize))
+		if ctx.IsSet("committee-min-size") {
+			config.CommitteeMinSize = ctx.Int("committee-min-size")
+		} else {
+			ctx.Set("committee-min-size", strconv.Itoa(config.CommitteeMinSize))
+		}
+
+		if ctx.IsSet("committee-max-size") {
+			config.CommitteeMaxSize = ctx.Int("committee-max-size")
+		} else {
+			ctx.Set("committee-max-size", strconv.Itoa(config.CommitteeMaxSize))
+		}
+
+		if ctx.IsSet("delegate-max-size") {
+			config.DelegateMaxSize = ctx.Int("committee-max-size")
+		} else {
+			ctx.Set("delegate-max-size", strconv.Itoa(config.DelegateMaxSize))
+		}
 	}
 
 	// set magic
@@ -439,7 +506,6 @@ func pruneIndexTrie(ctx *cli.Context, mainDB *lvldb.LevelDB, meterChain *chain.C
 	pruner := trie.NewPruner(mainDB, ctx.String(dataDirFlag.Name))
 
 	var (
-		prunedBytes = uint64(0)
 		prunedNodes = 0
 		start       = time.Now()
 		lastReport  = start
@@ -459,12 +525,11 @@ func pruneIndexTrie(ctx *cli.Context, mainDB *lvldb.LevelDB, meterChain *chain.C
 		// pruneStart := time.Now()
 		stat := pruner.PruneIndexTrie(b.Number(), b.ID(), batch)
 		prunedNodes += stat.Nodes
-		prunedBytes += stat.PrunedNodeBytes
-		// slog.Info(fmt.Sprintf("Pruned block %v", i), "prunedNodes", stat.Nodes, "prunedBytes", stat.PrunedNodeBytes, "elapsed", meter.PrettyDuration(time.Since(pruneStart)))
+		// slog.Info(fmt.Sprintf("Pruned block %v", i), "prunedNodes", stat.Nodes,  "elapsed", meter.PrettyDuration(time.Since(pruneStart)))
 		// time.Sleep(time.Millisecond * 300)
 
 		if time.Since(lastReport) > time.Second*20 {
-			slog.Info("Still pruning index trie", "elapsed", meter.PrettyDuration(time.Since(start)), "head", i, "prunedNodes", prunedNodes, "prunedBytes", prunedBytes)
+			slog.Info("Still pruning index trie", "elapsed", meter.PrettyDuration(time.Since(start)), "head", i, "prunedNodes", prunedNodes)
 			lastReport = time.Now()
 		}
 
@@ -481,89 +546,143 @@ func pruneIndexTrie(ctx *cli.Context, mainDB *lvldb.LevelDB, meterChain *chain.C
 
 	}
 	meterChain.UpdatePruneIndexHead(toBlk.Number())
-	slog.Info("Prune index trie completed", "elapsed", meter.PrettyDuration(time.Since(start)), "head", toBlk.Number(), "prunedNodes", prunedNodes, "prunedBytes", prunedBytes)
+	slog.Info("Prune index trie completed", "elapsed", meter.PrettyDuration(time.Since(start)), "head", toBlk.Number(), "prunedNodes", prunedNodes)
 }
 
-func pruneStateTrie(ctx *cli.Context, gene *genesis.Genesis, mainDB *lvldb.LevelDB, meterChain *chain.Chain, preserveBlocks int) {
+func pruneState(ctx *cli.Context, gene *genesis.Genesis, mainDB *lvldb.LevelDB, meterChain *chain.Chain, preserveBlocks int) {
 	creator := state.NewCreator(mainDB)
 	geneBlk, _, _ := gene.Build(creator)
+
 	logger := slog.With("prune", "state")
-	logger.Info("!!! State Trie Puring Routine Started !!!")
+	logger.Info("!!! State Trie Pruning Routine Started !!!")
 	for {
+		best := meterChain.BestBlock()
 		bestNum := meterChain.BestBlock().Number()
 		snapNum, _ := meterChain.GetStateSnapshotNum() // ignore err, default is 0
 		if bestNum < uint32(preserveBlocks) {
 			logger.Info("Best < PreserveBlocks, skip pruning for now", "best", bestNum, "preserveBlocks", preserveBlocks)
-			time.Sleep(8 * time.Hour)
+			time.Sleep(meter.PruneInterval)
 			continue
 		}
 		targetNum := bestNum - uint32(preserveBlocks)
-		logger.Info("!!! State Trie Pruning Check !!!", "snap", snapNum, "best", bestNum, "target", targetNum)
 		if snapNum >= targetNum {
 			logger.Info("Snapshot >= Target, skip pruning for now", "snap", snapNum, "target", targetNum)
-			time.Sleep(8 * time.Hour)
+			time.Sleep(meter.PruneInterval)
 			continue
 		}
 		snapNum = targetNum
-		pruneStateHead, _ := meterChain.GetPruneStateHead() // ignore err, default is 0
-		if snapNum < pruneStateHead {
-			logger.Info("Snapshot < pruneStateHead, skip pruning for now", "snap", snapNum, "pruneHead", pruneStateHead)
-			time.Sleep(8 * time.Hour)
+		pruneHead, _ := meterChain.GetPruneHead() // ignore err, default is 0
+		pruneHeadBefore := pruneHead
+
+		logger.Info("state pruning loop start")
+		// skip blocks with the same stateRoot
+		for pruneHead < bestNum && pruneHead < snapNum {
+			cur, err := meterChain.GetTrunkBlock(pruneHead)
+			if err != nil {
+				logger.Error("could not get current block", "num", pruneHead, "err", err)
+				break
+			}
+			nxt, err := meterChain.GetTrunkBlock(pruneHead + 1)
+			if err != nil {
+				logger.Error("could not get next block", "num", pruneHead, "err", err)
+				break
+			}
+
+			if bytes.Equal(cur.StateRoot().Bytes(), nxt.StateRoot().Bytes()) {
+				pruneHead++
+			} else {
+				pruneHead = nxt.Number()
+				break
+			}
+		}
+
+		// sanity check for snapNum
+		if snapNum < pruneHead {
+			logger.Info("Snapshot < pruneHead, skip pruning for now", "snap", snapNum, "pruneHead", pruneHead)
+			time.Sleep(meter.PruneInterval)
 			continue
 		}
-		if snapNum-pruneStateHead < uint32(math.Ceil(8*3600/1.77)) {
+		if snapNum-pruneHead < uint32(math.Ceil(8*3600/1.77)) {
 			logger.Info("Not enough for pruning, skip pruning for now")
-			time.Sleep(8 * time.Hour)
+			time.Sleep(meter.PruneInterval)
 			continue
 		}
 
-		snapBlk, _ := meterChain.GetTrunkBlock(targetNum)
+		logger.Info("Ready to prune state", "pruneHead", pruneHead, "pruneHeadBefore", pruneHeadBefore, "snap", snapNum, "to", targetNum, "best", bestNum)
+
+		snapBlk, _ := meterChain.GetTrunkBlock(snapNum)
 
 		pruner := trie.NewPruner(mainDB, ctx.String(dataDirFlag.Name))
-		logger.Info("Load/Generate Snapshot Bloom")
+		logger.Info("Generating snapshot bloom", "num", snapNum)
 		pruner.InitForStatePruning(geneBlk.StateRoot(), snapBlk.StateRoot(), snapBlk.Number())
-		logger.Info("Snapshot Bloom Loaded.")
+		if bestNum > snapBlk.Number() {
+			pruner.UpdateBloomWithTrie(best.StateRoot())
+		}
+		logger.Info("Generated snapshot bloom", "num", snapNum)
 
 		meterChain.UpdateStateSnapshotNum(snapNum)
-		logger.Info("Snapshot Num updated", "snap", snapNum)
+		logger.Info("Updated snapshot num", "snap", snapNum)
 
 		var (
 			lastRoot    = meter.Bytes32{}
-			prunedBytes = uint64(0)
 			prunedNodes = 0
 			start       = time.Now()
 			lastReport  = start
 		)
 
 		batch := mainDB.NewBatch()
-		for i := pruneStateHead + 1; i < snapNum-1; i++ {
-			b, _ := meterChain.GetTrunkBlock(i)
+		for i := pruneHead + 1; i < snapNum; i++ {
+			b, err := meterChain.GetTrunkBlock(i)
+			if err != nil {
+				continue
+			}
 			root := b.StateRoot()
+
+			// prune block
+			logger.Debug("start prune block", "num", i, "blk", b.ID().ToBlockShortID())
+			meterChain.PruneBlock(batch, b.ID())
+			if time.Since(lastReport) > time.Second*8 {
+				logger.Info("still pruning state", "num", i, "elapsed", meter.PrettyDuration(time.Since(start)), "prunedNodes", prunedNodes)
+				lastReport = time.Now()
+			}
+
+			// skip the same stateRoot
 			if bytes.Equal(root[:], lastRoot[:]) {
 				continue
 			}
 			lastRoot = root
-			// pruneStart := time.Now()
-			stat := pruner.Prune(root, batch)
-			prunedNodes += stat.PrunedNodes + stat.PrunedStorageNodes
-			prunedBytes += stat.PrunedNodeBytes + stat.PrunedStorageBytes
-			// slog.Info(fmt.Sprintf("Pruned block %v", i), "prunedNodes", stat.PrunedNodes+stat.PrunedStorageNodes, "prunedBytes", stat.PrunedNodeBytes+stat.PrunedStorageBytes, "elapsed", meter.PrettyDuration(time.Since(pruneStart)))
+
+			if has, _ := mainDB.Has(root.Bytes()); has {
+				stat := pruner.Prune(b.Number(), b.ID().ToBlockShortID(), root, batch, false)
+				prunedNodes += stat.PrunedNodes + stat.PrunedStorageNodes
+			}
+
+			// slog.Info(fmt.Sprintf("Pruned block %v", i), "elapsed", meter.PrettyDuration(time.Since(pruneStart)))
 			if time.Since(lastReport) > time.Second*8 {
-				logger.Info("Still pruning state trie", "elapsed", meter.PrettyDuration(time.Since(start)), "prunedNodes", prunedNodes, "prunedBytes", prunedBytes)
+				logger.Info("still pruning state ", "num", i, "elapsed", meter.PrettyDuration(time.Since(start)), "prunedNodes", prunedNodes)
 				lastReport = time.Now()
 			}
-			if batch.Len() >= statePruningBatch || i == snapNum {
+			if batch.Len() >= statePruningBatch || i == snapNum-1 {
 				if err := batch.Write(); err != nil {
-					logger.Error("Error flushing", "err", err)
+					logger.Error("Error commit pruning batch", "err", err)
 				}
-				logger.Info("Commited batch for state pruning", "len", batch.Len(), "head", i)
+				// logger.Info("commited pruning batch", "len", batch.Len(), "head", i)
 
 				batch = mainDB.NewBatch()
-				meterChain.UpdatePruneStateHead(i)
+				meterChain.UpdatePruneHead(i)
 			}
 
 		}
-		logger.Info("Prune state trie completed", "elapsed", meter.PrettyDuration(time.Since(start)), "prunedNodes", prunedNodes, "prunedBytes", prunedBytes)
-		time.Sleep(8 * time.Hour)
+		if batch.Len() > 0 {
+			if err := batch.Write(); err != nil {
+				logger.Error("Error commit pruning batch", "err", err)
+			}
+			// logger.Info("commited final pruning batch", "len", batch.Len(), "head", snapNum-1)
+
+			meterChain.UpdatePruneHead(snapNum - 1)
+
+		}
+		logger.Info("state pruning loop completed", "elapsed", meter.PrettyDuration(time.Since(start)), "prunedNodes", prunedNodes)
+		time.Sleep(meter.PruneInterval)
 	}
 }

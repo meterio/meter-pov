@@ -156,8 +156,8 @@ func savePruneIndexHead(w kv.Putter, num uint32) error {
 	return w.Put(pruneIndexHeadKey, b)
 }
 
-func loadPruneStateHead(r kv.Getter) (uint32, error) {
-	data, err := r.Get(pruneStateHeadKey)
+func loadPruneHead(r kv.Getter) (uint32, error) {
+	data, err := r.Get(pruneHeadKey)
 	if err != nil {
 		return 0, err
 	}
@@ -165,10 +165,10 @@ func loadPruneStateHead(r kv.Getter) (uint32, error) {
 	return num, nil
 }
 
-func savePruneStateHead(w kv.Putter, num uint32) error {
+func savePruneHead(w kv.Putter, num uint32) error {
 	b := make([]byte, 4)
 	binary.LittleEndian.PutUint32(b, num)
-	return w.Put(pruneStateHeadKey, b)
+	return w.Put(pruneHeadKey, b)
 }
 
 func loadBestBlockIDBeforeFlattern(r kv.Getter) (meter.Bytes32, error) {

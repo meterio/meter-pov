@@ -62,6 +62,8 @@ type PowProbe struct {
 type ChainProbe struct {
 	BestBlock *Block `json:"bestBlock"`
 	BestQC    *QC    `json:"bestQC"`
+	PruneHead uint32 `json:"pruneHead"`
+	Snapshot  uint32 `json:"snapshot"`
 }
 
 func convertQC(qc *block.QuorumCert) (*QC, error) {

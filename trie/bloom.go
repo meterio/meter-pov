@@ -18,24 +18,19 @@ package trie
 
 import (
 	"encoding/binary"
-	"fmt"
+	"errors"
 	"os"
 
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/rawdb"
+	"github.com/ethereum/go-ethereum/log"
 	bloomfilter "github.com/holiman/bloomfilter/v2"
-	"github.com/meterio/meter-pov/metric"
 )
 
-// stateBloomHasher is a wrapper around a byte blob to satisfy the interface API
-// requirements of the bloom library used. It's used to convert a trie hash or
-// contract code hash into a 64 bit mini hash.
-type stateBloomHasher []byte
-
-func (f stateBloomHasher) Write(p []byte) (n int, err error) { panic("not implemented") }
-func (f stateBloomHasher) Sum(b []byte) []byte               { panic("not implemented") }
-func (f stateBloomHasher) Reset()                            { panic("not implemented") }
-func (f stateBloomHasher) BlockSize() int                    { panic("not implemented") }
-func (f stateBloomHasher) Size() int                         { return 8 }
-func (f stateBloomHasher) Sum64() uint64                     { return binary.BigEndian.Uint64(f) }
+// stateBloomHash is used to convert a trie hash or contract code hash into a 64 bit mini hash.
+func stateBloomHash(f []byte) uint64 {
+	return binary.BigEndian.Uint64(f)
+}
 
 // stateBloom is a bloom filter used during the state conversion(snapshot->state).
 // The keys of all generated entries will be recorded here so that in the pruning
@@ -52,7 +47,7 @@ func (f stateBloomHasher) Sum64() uint64                     { return binary.Big
 //
 // After the entire state is generated, the bloom filter should be persisted into
 // the disk. It indicates the whole generation procedure is finished.
-type StateBloom struct {
+type stateBloom struct {
 	bloom *bloomfilter.Filter
 }
 
@@ -60,28 +55,28 @@ type StateBloom struct {
 // The bloom filter will be created by the passing bloom filter size. According
 // to the https://hur.st/bloomfilter/?n=600000000&p=&m=2048MB&k=4, the parameters
 // are picked so that the false-positive rate for mainnet is low enough.
-func NewStateBloomWithSize(size uint64) (*StateBloom, error) {
+func newStateBloomWithSize(size uint64) (*stateBloom, error) {
 	bloom, err := bloomfilter.New(size*1024*1024*8, 4)
 	if err != nil {
 		return nil, err
 	}
-	fmt.Println("Initialized state bloom", "size", metric.StorageSize(float64(bloom.M()/8)))
-	return &StateBloom{bloom: bloom}, nil
+	log.Info("Initialized state bloom", "size", common.StorageSize(float64(bloom.M()/8)))
+	return &stateBloom{bloom: bloom}, nil
 }
 
 // NewStateBloomFromDisk loads the state bloom from the given file.
 // In this case the assumption is held the bloom filter is complete.
-func NewStateBloomFromDisk(filename string) (*StateBloom, error) {
+func NewStateBloomFromDisk(filename string) (*stateBloom, error) {
 	bloom, _, err := bloomfilter.ReadFile(filename)
 	if err != nil {
 		return nil, err
 	}
-	return &StateBloom{bloom: bloom}, nil
+	return &stateBloom{bloom: bloom}, nil
 }
 
 // Commit flushes the bloom filter content into the disk and marks the bloom
 // as complete.
-func (bloom *StateBloom) Commit(filename, tempname string) error {
+func (bloom *stateBloom) Commit(filename, tempname string) error {
 	// Write the bloom out into a temporary file
 	_, err := bloom.bloom.WriteFile(tempname)
 	if err != nil {
@@ -103,20 +98,28 @@ func (bloom *StateBloom) Commit(filename, tempname string) error {
 }
 
 // Put implements the KeyValueWriter interface. But here only the key is needed.
-func (bloom *StateBloom) Put(key []byte) error {
+func (bloom *stateBloom) Put(key []byte) error {
 	// If the key length is not 32bytes, ensure it's contract code
 	// entry with new scheme.
-	bloom.bloom.Add(stateBloomHasher(key))
+	if len(key) != common.HashLength {
+		isCode, codeKey := rawdb.IsCodeKey(key)
+		if !isCode {
+			return errors.New("invalid entry")
+		}
+		bloom.bloom.AddHash(stateBloomHash(codeKey))
+		return nil
+	}
+	bloom.bloom.AddHash(stateBloomHash(key))
 	return nil
 }
 
 // Delete removes the key from the key-value data store.
-func (bloom *StateBloom) Delete(key []byte) error { panic("not supported") }
+func (bloom *stateBloom) Delete(key []byte) error { panic("not supported") }
 
 // Contain is the wrapper of the underlying contains function which
 // reports whether the key is contained.
 // - If it says yes, the key may be contained
 // - If it says no, the key is definitely not contained.
-func (bloom *StateBloom) Contain(key []byte) (bool, error) {
-	return bloom.bloom.Contains(stateBloomHasher(key)), nil
+func (bloom *stateBloom) Contain(key []byte) bool {
+	return bloom.bloom.ContainsHash(stateBloomHash(key))
 }

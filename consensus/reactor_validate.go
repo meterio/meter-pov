@@ -518,9 +518,13 @@ func (r *Reactor) buildKBlockTxs(parentBlock *block.Block, rewards []powpool.Pow
 			r.logger.Info("Stats empty, skip building stats tx", "from", lastKBlockHeight, "to", parentBlock.Number())
 		}
 		state, err := r.stateCreator.NewState(parentBlock.Header().StateRoot())
-		if tx := governor.BuildAuctionControlTx(uint64(best.Number()+1), uint64(best.GetBlockEpoch()+1), chainTag, bestNum, state, r.chain); tx != nil {
-			r.logger.Info(fmt.Sprintf("Built auction control tx: %s", tx.ID().String()), "clauses", len(tx.Clauses()), "uhash", tx.UniteHash())
-			txs = append(txs, tx)
+
+		// auction will sunset after fork12
+		if !meter.IsTeslaFork12(parentBlock.Number()) {
+			if tx := governor.BuildAuctionControlTx(uint64(best.Number()+1), uint64(best.GetBlockEpoch()+1), chainTag, bestNum, state, r.chain); tx != nil {
+				r.logger.Info(fmt.Sprintf("Built auction control tx: %s", tx.ID().String()), "clauses", len(tx.Clauses()), "uhash", tx.UniteHash())
+				txs = append(txs, tx)
+			}
 		}
 
 		// exception for staging and testnet env

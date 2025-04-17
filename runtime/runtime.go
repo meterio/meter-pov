@@ -557,6 +557,23 @@ func (rt *Runtime) EnforceTeslaFork11_Corrections(stateDB *statedb.StateDB, bloc
 	}
 }
 
+func (rt *Runtime) EnforceTeslaFork12_Corrections(stateDB *statedb.StateDB, blockNum *big.Int) {
+	blockNumber := rt.Context().Number
+	log := slog.With("pkg", "fork12")
+	if blockNumber > 0 {
+		// flag is nil or 0, is not do. 1 meas done.
+		enforceFlag := builtin.Params.Native(rt.State()).Get(meter.KeyEnforceTesla_Fork12_Correction)
+
+		if meter.IsMainNet() && meter.IsTeslaFork12(blockNumber) && (enforceFlag == nil || enforceFlag.Sign() == 0) {
+			log.Info("Start fork12 correction")
+
+			builtin.Params.Native(rt.State()).Set(meter.KeyEnforceTesla_Fork12_Correction, big.NewInt(1))
+			builtin.Params.Native(rt.State()).Set(meter.KeyTesla_Fork12_Timestamp, big.NewInt(int64(rt.Context().Time)))
+			log.Info("Finished fork12 correction")
+		}
+	}
+}
+
 func (rt *Runtime) FromNativeContract(caller meter.Address) bool {
 
 	nativeMtrERC20 := builtin.Params.Native(rt.State()).GetAddress(meter.KeyNativeMtrERC20Address)
@@ -997,6 +1014,9 @@ func (rt *Runtime) PrepareClause(
 
 		// tesla fork11
 		rt.EnforceTeslaFork11_Corrections(stateDB, evm.BlockNumber, evm)
+
+		// tesla fork12
+		rt.EnforceTeslaFork12_Corrections(stateDB, evm.BlockNumber)
 
 		// check the restriction of transfer.
 		if rt.restrictTransfer(stateDB, txCtx.Origin, clause.Value(), clause.Token(), rt.ctx.Number) == true {

@@ -237,6 +237,9 @@ func (a *Accounts) batchCall(ctx context.Context, batchCallData *BatchCallData, 
 			ProvedWork: &big.Int{}})
 		go func() {
 			out, _ := exec()
+			// fmt.Println("Output ", out)
+			// fmt.Println("Events:", out.Events)
+			// fmt.Println("Transfers", out.Transfers)
 			vmout <- out
 		}()
 		select {

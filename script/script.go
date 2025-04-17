@@ -61,8 +61,11 @@ func (se *ScriptEngine) StartAllModules() {
 		// start module staking
 		ModuleStakingInit(se)
 
-		// auction
-		ModuleAuctionInit(se)
+		// after fork12 auctions will sunset
+		if !meter.IsTeslaFork12(se.chain.BestBlock().Number()) {
+			// auction
+			ModuleAuctionInit(se)
+		}
 	}
 
 	// accountlock

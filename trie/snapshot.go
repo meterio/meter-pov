@@ -101,7 +101,7 @@ type TrieAccount struct {
 }
 
 type TrieSnapshot struct {
-	Bloom    *StateBloom
+	Bloom    *stateBloom
 	Accounts map[meter.Address]*TrieAccount
 }
 
@@ -111,7 +111,7 @@ type StateSnapshot struct {
 }
 
 func NewTrieSnapshot() *TrieSnapshot {
-	bloom, _ := NewStateBloomWithSize(256)
+	bloom, _ := newStateBloomWithSize(256)
 	return &TrieSnapshot{
 		Bloom: bloom,
 	}
@@ -127,7 +127,7 @@ func NewStateSnapshot() *StateSnapshot {
 }
 
 func (ts *TrieSnapshot) Has(key meter.Bytes32) bool {
-	contain, _ := ts.Bloom.Contain(key[:])
+	contain := ts.Bloom.Contain(key[:])
 	return contain
 }
 

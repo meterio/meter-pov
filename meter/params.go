@@ -22,6 +22,7 @@ const (
 	MaxNPowBlockPerEpoch = 3000 // if too many pow blocks need to be packed in kblock, truncate to the last 3000 pow blocks
 	NEpochPerDay         = 24 * 60 / NPowBlockPerEpoch
 	KBlockEpoch          = 14603 // wrong LastKBlockHeight
+	PruneInterval        = 1 * time.Hour
 
 	// ------------------- Miner Reward ---------------------
 	MaxNClausePerRewardTx = 200 // pack reward tx with maxinum 200 clauses
@@ -151,6 +152,9 @@ var (
 	KeyEnforceTesla_Fork10_Correction = BytesToBytes32([]byte("Tesla_Fork10_Correction")) // unset or 0 is not do yet, 1 is done
 
 	KeyEnforceTesla_Fork11_Correction = BytesToBytes32([]byte("Tesla_Fork11_Correction")) // unset or 0 is not do yet, 1 is done
+
+	KeyEnforceTesla_Fork12_Correction = BytesToBytes32([]byte("Tesla_Fork12_Correction")) // unset or 0 is not do yet, 1 is done
+	KeyTesla_Fork12_Timestamp         = BytesToBytes32([]byte("Tesla_Fork12_Timestamp"))
 	// KeyBaseSequence_AfterFork11       = BytesToBytes32([]byte("BaseSequence_AfterFork11")) // base sequence after fork11
 	// key set transaction fee address
 	// 0x6e73616374696f6e2d6665652d62656e65666963696172792d61646472657373

@@ -7,6 +7,7 @@ package chain
 
 import (
 	"bytes"
+	"encoding/binary"
 	"fmt"
 	"log/slog"
 	"runtime"
@@ -214,7 +215,7 @@ func New(kv kv.GetPutter, genesisBlock *block.Block, verbose bool) (*Chain, erro
 
 	if verbose {
 		fmt.Println("---------------------------------------------------------")
-		fmt.Println("                  METER CHAIN INITIALIZED                ")
+		fmt.Println("                  METER CHAIN INITIALIZED now               ")
 		fmt.Println("---------------------------------------------------------")
 		fmt.Println("Config:  ", meter.BlockChainConfig.ToString())
 		fmt.Println("Genesis: ", genesisBlock.ID())
@@ -222,6 +223,20 @@ func New(kv kv.GetPutter, genesisBlock *block.Block, verbose bool) (*Chain, erro
 		fmt.Println("Best QC: ", bestQC.String())
 		fmt.Println("Best Before Flattern:", bestBlockBeforeFlattern.CompactString())
 		fmt.Println("Best Pow Nonce:", bestPowNonce)
+		head, err := kv.Get(pruneIndexHeadKey)
+		if err == nil {
+			fmt.Println("Prune Index Head: ", binary.LittleEndian.Uint32(head))
+		}
+
+		head, err = kv.Get(pruneHeadKey)
+		if err == nil {
+			fmt.Println("Prune Head: ", binary.LittleEndian.Uint32(head))
+		}
+		snapshot, err := kv.Get(stateSnapshotNumKey)
+		if err == nil {
+			fmt.Println("Snapshot Num:", binary.LittleEndian.Uint32(snapshot))
+		}
+
 		fmt.Println("---------------------------------------------------------")
 	}
 	c := &Chain{
@@ -321,6 +336,43 @@ func (c *Chain) RemoveBlock(blockID meter.Bytes32) error {
 		return removeBlockRaw(c.kv, blockID)
 	}
 	return err
+}
+
+func (c *Chain) PruneBlock(batch kv.Batch, blockID meter.Bytes32) error {
+	b, err := c.getBlock(blockID)
+	if err != nil {
+		return err
+	}
+	if c.BestBlockBeforeIndexFlattern() != nil {
+		// could not delete this special block
+		if b.Number() == c.bestBlockBeforeIndexFlattern.Number() {
+			return nil
+		}
+	}
+	blkKey := append(blockPrefix, blockID.Bytes()...)
+	batch.Delete(blkKey)
+	for _, tx := range b.Txs {
+		metaKey := append(txMetaPrefix, tx.ID().Bytes()...)
+		batch.Delete(metaKey)
+	}
+	receiptKey := append(blockReceiptsPrefix, b.ID().Bytes()...)
+	batch.Delete(receiptKey)
+
+	num := block.Number(blockID)
+	hashKey := append(hashKeyPrefix, numberAsKey(num)...)
+	batch.Delete(hashKey)
+
+	indexHead, err := c.GetPruneIndexHead()
+	if err != nil {
+		return err
+	}
+	if b.Number() <= indexHead || (c.BestBlockBeforeIndexFlattern() != nil && b.Number() > c.BestBlockBeforeIndexFlattern().Number()) {
+		// if this block has pruned index or it's after falttern
+		// delete related hash as well
+		hashKey := append(hashKeyPrefix, numberAsKey(b.Number())...)
+		batch.Delete(hashKey)
+	}
+	return nil
 }
 
 // AddBlock add a new block into block chain.
@@ -892,12 +944,13 @@ func (c *Chain) UpdatePruneIndexHead(num uint32) error {
 	return savePruneIndexHead(c.kv, num)
 }
 
-func (c *Chain) GetPruneStateHead() (uint32, error) {
-	return loadPruneStateHead(c.kv)
+func (c *Chain) GetPruneHead() (uint32, error) {
+	return loadPruneHead(c.kv)
 }
 
-func (c *Chain) UpdatePruneStateHead(num uint32) error {
-	return savePruneStateHead(c.kv, num)
+func (c *Chain) UpdatePruneHead(num uint32) error {
+	c.logger.Info("update prune head", "num", num)
+	return savePruneHead(c.kv, num)
 }
 
 func (c *Chain) GetStateSnapshotNum() (uint32, error) {
