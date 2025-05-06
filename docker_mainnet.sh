@@ -13,19 +13,22 @@ fi
 
 echo "Full version is ${FULL_VERSION}"
 
-docker pull meterio/mainnet-pow:latest
+docker pull meterio/mainnet-pow:24.04
+docker pull meterio/bitcoind-exporter:24.04
+docker pull meterio/run-env:24.04
+docker pull meterio/build-env:24.04
 
 # get ready for a fallback
 docker pull meterio/mainnet:latest
 docker tag meterio/mainnet:latest meterio/mainnet:fallback
 
 # NOTICE: enable these lines if you need to upgrade gear version
-# echo "Building run-env image with tag: latest"
-# docker build -f _docker/run-env.Dockerfile -t meterio/run-env:latest .
-# docker push meterio/run-env:latest
+# echo "Building run-env image with tag: 24.04"
+# docker build -f _docker/run-env.Dockerfile -t meterio/run-env:24.04 .
+# docker push meterio/run-env:24.04
 
-echo "Building mainnet image with tags: tesla and latest"
-docker build -f _docker/mainnet.Dockerfile -t meterio/mainnet:tesla .
+echo "Building mainnet image with tags: tesla and 24.04"
+docker build --platform=linux/amd64 -f _docker/mainnet.Dockerfile -t meterio/mainnet:tesla .
 docker tag meterio/mainnet:tesla meterio/mainnet:latest
 docker tag meterio/mainnet:tesla meterio/mainnet:${FULL_VERSION}
 

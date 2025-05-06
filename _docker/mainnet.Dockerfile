@@ -1,15 +1,14 @@
-FROM meterio/mainnet-pow:latest AS pow
-FROM meterio/bitcoind-exporter:latest as be
+FROM meterio/mainnet-pow:24.04 AS pow
+FROM meterio/bitcoind-exporter:24.04 AS be
 
-# Build PoS with golang 1.22
-FROM meterio/build-env:go1.22 as pos
+FROM meterio/build-env:24.04 AS pos
 RUN go version
 WORKDIR  /meter
 COPY . .
 RUN make all
 
 
-FROM meterio/run-env:latest
+FROM meterio/run-env:24.04
 # copy PoW binary
 COPY --from=pow /usr/local/bin/bitcoind /usr/bin/
 COPY --from=pow /usr/local/bin/bitcoin-cli /usr/bin/
