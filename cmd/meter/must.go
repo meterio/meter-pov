@@ -591,7 +591,7 @@ func printStartupMessage(
 ) {
 	bestBlock := chain.BestBlock()
 
-	fmt.Printf(`Starting %v
+	fmt.Printf(`Starting %v now
     Discover Topic  [ %v ]
     Magic           [ %v p2p & consensus ]
     Network         [ %v %v ]    
