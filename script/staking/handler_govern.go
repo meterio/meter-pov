@@ -86,11 +86,11 @@ func ComputeEpochReleaseWithEmissionCurve(state *state.State, blockTime uint64) 
 	// Calculate the difference
 	duration := uint64(0)
 	days := int(0)
-	slog.Info("compute epoch release with emission curve", "blockTime", blockTime, "fork12Start", fork12Start.Uint64())
+	slog.Info("compute epoch release with emission curve", "blockTime", blockTime, "key", meter.KeyTesla_Fork12_Timestamp, "fork12Start", fork12Start.Uint64())
 	if blockTime >= fork12Start.Uint64() {
 		duration = blockTime - fork12Start.Uint64()
 		days = int(duration/3600/24) + 1
-		slog.Info("compute", "duration: ", duration, "days:", days)
+		slog.Info("compute", "duration", duration, "days:", days)
 
 		// FIXME: what if PoW got an injection of computing power and epochs are shorter than 1 hour
 		if days >= 0 {
