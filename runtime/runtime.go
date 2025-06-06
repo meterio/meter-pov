@@ -1015,6 +1015,7 @@ func (rt *Runtime) PrepareClause(
 		// tesla fork11
 		rt.EnforceTeslaFork11_Corrections(stateDB, evm.BlockNumber, evm)
 
+		rt.logger.Info("runtime time", "time", rt.Context().Time, "number", rt.Context().Number)
 		// tesla fork12
 		rt.EnforceTeslaFork12_Corrections(stateDB, evm.BlockNumber)
 
