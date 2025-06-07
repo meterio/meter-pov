@@ -564,7 +564,7 @@ func (rt *Runtime) EnforceTeslaFork12_Corrections(stateDB *statedb.StateDB, bloc
 		// flag is nil or 0, is not do. 1 meas done.
 		enforceFlag := builtin.Params.Native(rt.State()).Get(meter.KeyEnforceTesla_Fork12_Correction)
 
-		if meter.IsMainNet() && meter.IsTeslaFork12(blockNumber) && (enforceFlag == nil || enforceFlag.Sign() == 0) {
+		if meter.IsTeslaFork12(blockNumber) && (enforceFlag == nil || enforceFlag.Sign() == 0) {
 			log.Info("Start fork12 correction")
 
 			builtin.Params.Native(rt.State()).Set(meter.KeyEnforceTesla_Fork12_Correction, big.NewInt(1))
