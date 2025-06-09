@@ -3,19 +3,18 @@ package staking
 import (
 	"bytes"
 	"errors"
-<<<<<<< HEAD
-=======
 	"fmt"
 	"log/slog"
 	"math"
->>>>>>> 4a892191 (test cases completed for fork12)
 	"math/big"
 	"sort"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/meterio/meter-pov/builtin"
 	"github.com/meterio/meter-pov/meter"
+	"github.com/meterio/meter-pov/runtime/statedb"
 	setypes "github.com/meterio/meter-pov/script/types"
 	"github.com/meterio/meter-pov/state"
 )
@@ -457,7 +456,9 @@ func (s *Staking) GoverningHandler(env *setypes.ScriptEnv, sb *StakingBody, gas 
 	}
 
 	number := env.GetBlockNum()
-	if meter.IsTeslaFork6(number) {
+	if meter.IsTeslaFork12(number) {
+		s.distributeMTRGAfterTeslaFork12(env, sb, candidateList, inJailList)
+	} else if meter.IsTeslaFork6(number) {
 		s.distributeAndAutobidAfterTeslaFork6(env, sb, candidateList, inJailList)
 	} else {
 		s.distributeValidatorRewards(env, sb, candidateList, inJailList)

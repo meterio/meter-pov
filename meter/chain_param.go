@@ -194,6 +194,14 @@ const (
 	TeslaFork11_TestnetStartNum = 55245500 // around 4/26/2024 9:30 AM (PDT)
 )
 
+// Fork 12 fixes include:
+// Disable auction
+// Distribute MTRG with emission curve directly
+const (
+	TeslaFork12_MainnetStartNum = 74785000 // around 6/16/2025 10:00 AM (PDT)
+	TeslaFork12_TestnetStartNum = 75867200 // around 4/21/2025 4:00 PM (PDT)
+)
+
 var (
 	// BlocktChainConfig is the chain parameters to run a node on the main network.
 	BlockChainConfig = &ChainConfig{
@@ -335,4 +343,8 @@ func IsTeslaFork10(blockNum uint32) bool {
 
 func IsTeslaFork11(blockNum uint32) bool {
 	return (BlockChainConfig.IsMainnet() && blockNum > TeslaFork11_MainnetStartNum) || (BlockChainConfig.IsTestnet() && blockNum > TeslaFork11_TestnetStartNum)
+}
+
+func IsTeslaFork12(blockNum uint32) bool {
+	return (BlockChainConfig.IsMainnet() && blockNum > TeslaFork12_MainnetStartNum) || (BlockChainConfig.IsTestnet() && blockNum > TeslaFork12_TestnetStartNum)
 }

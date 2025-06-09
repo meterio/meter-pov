@@ -557,8 +557,6 @@ func (rt *Runtime) EnforceTeslaFork11_Corrections(stateDB *statedb.StateDB, bloc
 	}
 }
 
-<<<<<<< HEAD
-=======
 func (rt *Runtime) EnforceTeslaFork12_Corrections(stateDB *statedb.StateDB, blockNum *big.Int) {
 	blockNumber := rt.Context().Number
 	log := slog.With("pkg", "fork12")
@@ -566,17 +564,18 @@ func (rt *Runtime) EnforceTeslaFork12_Corrections(stateDB *statedb.StateDB, bloc
 		// flag is nil or 0, is not do. 1 meas done.
 		enforceFlag := builtin.Params.Native(rt.State()).Get(meter.KeyEnforceTesla_Fork12_Correction)
 
-		if meter.IsMainNet() && meter.IsTeslaFork12(blockNumber) && (enforceFlag == nil || enforceFlag.Sign() == 0) {
+		if meter.IsTeslaFork12(blockNumber) && (enforceFlag == nil || enforceFlag.Sign() == 0) {
 			log.Info("Start fork12 correction")
 
+			log.Info("set fork12 correction", "value", 1)
 			builtin.Params.Native(rt.State()).Set(meter.KeyEnforceTesla_Fork12_Correction, big.NewInt(1))
+			log.Info("set fork12 start timestamp", "value", rt.Context().Time)
 			builtin.Params.Native(rt.State()).Set(meter.KeyTesla_Fork12_Timestamp, big.NewInt(int64(rt.Context().Time)))
 			log.Info("Finished fork12 correction")
 		}
 	}
 }
 
->>>>>>> 4a892191 (test cases completed for fork12)
 func (rt *Runtime) FromNativeContract(caller meter.Address) bool {
 
 	nativeMtrERC20 := builtin.Params.Native(rt.State()).GetAddress(meter.KeyNativeMtrERC20Address)
