@@ -90,12 +90,13 @@ func ComputeEpochReleaseWithEmissionCurve(state *state.State, blockTime uint64) 
 	if blockTime >= fork12Start.Uint64() {
 		duration = blockTime - fork12Start.Uint64()
 		days = int(duration/3600/24) + 1
-		slog.Info("compute", "duration: ", duration, "days:", days)
+		slog.Info("compute", "duration", duration, "days", days)
 
 		// FIXME: what if PoW got an injection of computing power and epochs are shorter than 1 hour
 		if days >= 0 {
 			reward := DailyReward(days)
-			epochReward := reward
+			epochReward := big.NewInt(0)
+			epochReward.SetBytes(reward.Bytes())
 			epochReward.Div(epochReward, big.NewInt(24))
 			slog.Info("Daily Reward", "days", days, "reward", reward, "epochReward", epochReward)
 			return epochReward, nil
@@ -107,7 +108,7 @@ func ComputeEpochReleaseWithEmissionCurve(state *state.State, blockTime uint64) 
 }
 
 func (s *Staking) distributeMTRGAfterTeslaFork12(env *setypes.ScriptEnv, sb *StakingBody, candidateList *meter.CandidateList, inJailList *meter.InJailList) {
-	fmt.Println("distribute MTRG after fork12")
+	s.logger.Info("distribute MTRG after fork12")
 	validCands := make(map[meter.Address]*big.Int)
 	injails := make(map[meter.Address]bool)
 	epochRelease, _ := ComputeEpochReleaseWithEmissionCurve(env.GetState(), env.GetBlockCtx().Time)
@@ -125,11 +126,12 @@ func (s *Staking) distributeMTRGAfterTeslaFork12(env *setypes.ScriptEnv, sb *Sta
 		totalVotes.Add(totalVotes, cand.TotalVotes)
 	}
 
-	fmt.Println("epochRelease: ", epochRelease)
+	s.logger.Info(fmt.Sprintf("total release MTRG in current epoch: %v", epochRelease))
+	s.logger.Info(fmt.Sprintf("total votes (wei): %v", totalVotes))
 
 	for addr, votes := range validCands {
 		mtrg := new(big.Int).Div(new(big.Int).Mul(epochRelease, votes), totalVotes)
-		fmt.Println("release", mtrg.Uint64(), "MTRG  to ", addr)
+		s.logger.Info(fmt.Sprintf("released %v MTRG(wei) to %v", mtrg, addr), "votes", votes)
 		s.MintMTRG(env, addr, mtrg)
 	}
 }
