@@ -198,7 +198,7 @@ const (
 // Disable auction
 // Distribute MTRG with emission curve directly
 const (
-	TeslaFork12_MainnetStartNum = 74785000 // around 6/16/2025 10:00 AM (PDT)
+	TeslaFork12_MainnetStartNum = 74769000 // around 6/16/2025 2:00 PM (PDT)
 	TeslaFork12_TestnetStartNum = 75867200 // around 4/21/2025 4:00 PM (PDT)
 )
 
