@@ -129,7 +129,20 @@ func (s *Staking) distributeMTRGAfterTeslaFork12(env *setypes.ScriptEnv, sb *Sta
 	s.logger.Info(fmt.Sprintf("total release MTRG in current epoch: %v", epochRelease))
 	s.logger.Info(fmt.Sprintf("total votes (wei): %v", totalVotes))
 
-	for addr, votes := range validCands {
+	sortedCands := make([]meter.Address, 0)
+	for addr := range validCands {
+		sortedCands = append(sortedCands, addr)
+	}
+	sort.SliceStable(sortedCands, func(i, j int) bool {
+		if bytes.Compare(sortedCands[i].Bytes(), sortedCands[j].Bytes()) > 0 {
+			return true
+		} else {
+			return false
+		}
+	})
+
+	for _, addr := range sortedCands {
+		votes := validCands[addr]
 		mtrg := new(big.Int).Div(new(big.Int).Mul(epochRelease, votes), totalVotes)
 		s.logger.Info(fmt.Sprintf("released %v MTRG(wei) to %v", mtrg, addr), "votes", votes)
 		s.MintMTRG(env, addr, mtrg)
