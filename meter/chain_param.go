@@ -202,7 +202,7 @@ const (
 // Fork13
 const (
 	TeslaFork13_MainnetStartNum = 99999999
-	TeslaFork13_TestnetStartNum = 99999999
+	TeslaFork13_TestnetStartNum = 78846000
 )
 
 var (
