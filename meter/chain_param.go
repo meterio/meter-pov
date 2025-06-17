@@ -199,6 +199,12 @@ const (
 	TeslaFork12_TestnetStartNum = 75867200 // around 4/21/2025 4:00 PM (PDT)
 )
 
+// Fork13
+const (
+	TeslaFork13_MainnetStartNum = 99999999
+	TeslaFork13_TestnetStartNum = 99999999
+)
+
 var (
 	// BlocktChainConfig is the chain parameters to run a node on the main network.
 	BlockChainConfig = &ChainConfig{
@@ -344,4 +350,8 @@ func IsTeslaFork11(blockNum uint32) bool {
 
 func IsTeslaFork12(blockNum uint32) bool {
 	return (BlockChainConfig.IsMainnet() && blockNum > TeslaFork12_MainnetStartNum) || (BlockChainConfig.IsTestnet() && blockNum > TeslaFork12_TestnetStartNum)
+}
+
+func IsTeslaFork13(blockNum uint32) bool {
+	return (BlockChainConfig.IsMainnet() && blockNum > TeslaFork13_MainnetStartNum) || (BlockChainConfig.IsTestnet() && blockNum > TeslaFork13_TestnetStartNum)
 }

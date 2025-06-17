@@ -134,6 +134,103 @@ func (s *Staking) distributeMTRGAfterTeslaFork12(env *setypes.ScriptEnv, sb *Sta
 	}
 }
 
+func (s *Staking) distributeMTRGAfterTeslaFork13(env *setypes.ScriptEnv, sb *StakingBody, delegateList *meter.DelegateList, inJailList *meter.InJailList) {
+	s.logger.Info("distribute MTRG after fork13")
+	validDelegates := make(map[meter.Address]*meter.Delegate)
+	injails := make(map[meter.Address]bool)
+	epochRelease, _ := ComputeEpochReleaseWithEmissionCurve(env.GetState(), env.GetBlockCtx().Time)
+
+	for _, injail := range inJailList.InJails {
+		injails[injail.Addr] = true
+	}
+
+	totalVotes := new(big.Int)
+	for _, d := range delegateList.Delegates {
+		if _, injailed := injails[d.Address]; injailed {
+			continue
+		}
+		validDelegates[d.Address] = d
+		totalVotes.Add(totalVotes, d.VotingPower)
+	}
+
+	s.logger.Info(fmt.Sprintf("total release MTRG in current epoch: %v", epochRelease))
+	s.logger.Info(fmt.Sprintf("total votes (wei): %v", totalVotes))
+
+	releaseMap := make(map[meter.Address]*big.Int)
+
+	for addr, delegate := range validDelegates {
+		votes := delegate.VotingPower
+		comissionRate := big.NewInt(int64(delegate.Commission)) // unit: 1e9
+		mtrg := new(big.Int).Div(new(big.Int).Mul(epochRelease, votes), totalVotes)
+		s.logger.Info(fmt.Sprintf("reward %v MTRG(wei) to delegate %v", mtrg, addr), "votes", votes)
+
+		// build shares map for each delegate
+		// calculate total shares along the way
+		sharesMap := make(map[meter.Address]*big.Int)
+		totalShares := new(big.Int)
+		for _, dist := range delegate.DistList {
+			if _, exist := sharesMap[dist.Address]; !exist {
+				sharesMap[dist.Address] = new(big.Int)
+			}
+			shares := big.NewInt(int64(dist.Shares))
+			totalShares = new(big.Int).Add(totalShares, shares)
+			sharesMap[dist.Address] = new(big.Int).Add(sharesMap[dist.Address], shares)
+		}
+
+		// set default entry for delegate
+		if _, exist := releaseMap[delegate.Address]; !exist {
+			releaseMap[delegate.Address] = new(big.Int)
+		}
+
+		s.logger.Info(fmt.Sprintf("total shares is %v", totalShares))
+
+		for voterAddr, shares := range sharesMap {
+			// reward for voter is
+			// reward = mtrg * shares / totalShares
+			reward := new(big.Int).Mul(mtrg, shares)
+			reward.Div(reward, totalShares)
+
+			// set default entry for voter
+			if _, exist := releaseMap[voterAddr]; !exist {
+				releaseMap[voterAddr] = new(big.Int)
+			}
+			if bytes.Equal(voterAddr.Bytes(), addr.Bytes()) {
+				// self
+				s.logger.Info(fmt.Sprintf("reward for %v is %v", voterAddr, reward), "shares", shares)
+				releaseMap[voterAddr] = new(big.Int).Add(releaseMap[voterAddr], reward)
+			} else {
+				// voter
+				comission := new(big.Int).Mul(reward, comissionRate)
+				comission.Div(comission, big.NewInt(1e9))
+
+				actualReward := new(big.Int).Sub(reward, comission)
+
+				s.logger.Info(fmt.Sprintf("actual reward for %v is %v, paying comission %v", voterAddr, actualReward, comission), "shares", shares)
+				releaseMap[delegate.Address] = new(big.Int).Add(releaseMap[delegate.Address], comission)
+				releaseMap[voterAddr] = new(big.Int).Add(releaseMap[voterAddr], actualReward)
+			}
+		}
+	}
+
+	sortedAddrs := make([]meter.Address, 0)
+	for addr := range releaseMap {
+		sortedAddrs = append(sortedAddrs, addr)
+	}
+
+	sort.SliceStable(sortedAddrs, func(i, j int) bool {
+		if bytes.Compare(sortedAddrs[i].Bytes(), sortedAddrs[j].Bytes()) < 0 {
+			return true
+		} else {
+			return false
+		}
+	})
+
+	for _, addr := range sortedAddrs {
+		s.logger.Info(fmt.Sprintf("released %v MTRG(wei) to %v", releaseMap[addr], addr))
+		s.MintMTRG(env, addr, releaseMap[addr])
+	}
+}
+
 func (s *Staking) MintMTRG(env *setypes.ScriptEnv, addr meter.Address, amount *big.Int) {
 	if amount.Sign() == 0 {
 		return
@@ -448,6 +545,7 @@ func (s *Staking) GoverningHandler(env *setypes.ScriptEnv, sb *StakingBody, gas 
 	bucketList := state.GetBucketList()
 	stakeholderList := state.GetStakeHolderList()
 	inJailList := state.GetInJailList()
+	delegateList := state.GetDelegateList()
 
 	if gas < meter.ClauseGas {
 		leftOverGas = 0
@@ -456,7 +554,9 @@ func (s *Staking) GoverningHandler(env *setypes.ScriptEnv, sb *StakingBody, gas 
 	}
 
 	number := env.GetBlockNum()
-	if meter.IsTeslaFork12(number) {
+	if meter.IsTeslaFork13(number) {
+		s.distributeMTRGAfterTeslaFork13(env, sb, delegateList, inJailList)
+	} else if meter.IsTeslaFork12(number) {
 		s.distributeMTRGAfterTeslaFork12(env, sb, candidateList, inJailList)
 	} else if meter.IsTeslaFork6(number) {
 		s.distributeAndAutobidAfterTeslaFork6(env, sb, candidateList, inJailList)
