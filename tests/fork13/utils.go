@@ -33,6 +33,26 @@ type balanceKey struct {
 	token meter.Address
 }
 
+var (
+	dist1_self = meter.Distributor{Address: meter.BytesToAddress([]byte{1}), Shares: 100, Autobid: 0}
+	dist1_1    = meter.Distributor{Address: meter.BytesToAddress([]byte{1, 1, 1}), Shares: 100, Autobid: 0}
+	dist1_2    = meter.Distributor{Address: meter.BytesToAddress([]byte{2, 2, 2}), Shares: 100, Autobid: 10}
+	dist1_3    = meter.Distributor{Address: meter.BytesToAddress([]byte{3, 3, 3}), Shares: 500, Autobid: 100}
+	d1         = &meter.Delegate{Name: []byte("d1"), Address: meter.BytesToAddress([]byte{1}), VotingPower: big.NewInt(10000), Commission: 3e7, DistList: []*meter.Distributor{&dist1_self, &dist1_1, &dist1_2, &dist1_3}}
+
+	dist2_self1 = meter.Distributor{Address: meter.BytesToAddress([]byte{2}), Shares: 1234, Autobid: 0}
+	dist2_self2 = meter.Distributor{Address: meter.BytesToAddress([]byte{2}), Shares: 4321, Autobid: 0}
+	dist2_self3 = meter.Distributor{Address: meter.BytesToAddress([]byte{2}), Shares: 1111, Autobid: 0}
+	d2          = &meter.Delegate{Name: []byte("d2"), Address: meter.BytesToAddress([]byte{2}), VotingPower: big.NewInt(10000), Commission: 5e7, DistList: []*meter.Distributor{&dist2_self1, &dist2_self2, &dist2_self3}}
+
+	dist3_1 = meter.Distributor{Address: meter.BytesToAddress([]byte{3, 3, 3}), Shares: 300, Autobid: 0}
+	dist3_2 = meter.Distributor{Address: meter.BytesToAddress([]byte{2, 2, 2}), Shares: 100, Autobid: 100}
+	dist3_3 = meter.Distributor{Address: meter.BytesToAddress([]byte{1, 1, 1}), Shares: 500, Autobid: 50}
+	d3      = &meter.Delegate{Name: []byte("d3"), Address: meter.BytesToAddress([]byte{3}), VotingPower: big.NewInt(10000), Commission: 8e7, DistList: []*meter.Distributor{&dist3_1, &dist3_2, &dist3_3}}
+
+	testDelegateList = meter.NewDelegateList([]*meter.Delegate{d1, d2, d3})
+)
+
 func initRuntimeAfterFork13() *tests.TestEnv {
 	tests.InitLogger()
 	kv, _ := lvldb.NewMem()
@@ -52,25 +72,7 @@ func initRuntimeAfterFork13() *tests.TestEnv {
 		state.SetStorage(tests.MTRGSysContractAddr, meter.BytesToBytes32([]byte{1}), meter.BytesToBytes32(builtin.MeterTracker.Address[:]))
 		builtin.Params.Native(state).SetAddress(meter.KeySystemContractAddress1, tests.MTRGSysContractAddr)
 
-		dist1_self := meter.Distributor{Address: meter.BytesToAddress([]byte{1}), Shares: 100, Autobid: 0}
-		dist1_1 := meter.Distributor{Address: meter.BytesToAddress([]byte{1, 1, 1}), Shares: 100, Autobid: 0}
-		dist1_2 := meter.Distributor{Address: meter.BytesToAddress([]byte{2, 2, 2}), Shares: 100, Autobid: 10}
-		dist1_3 := meter.Distributor{Address: meter.BytesToAddress([]byte{3, 3, 3}), Shares: 500, Autobid: 100}
-		d1 := &meter.Delegate{Name: []byte("d1"), Address: meter.BytesToAddress([]byte{1}), VotingPower: big.NewInt(10000), Commission: 3e7, DistList: []*meter.Distributor{&dist1_self, &dist1_1, &dist1_2, &dist1_3}}
-
-		dist2_self1 := meter.Distributor{Address: meter.BytesToAddress([]byte{2}), Shares: 1234, Autobid: 0}
-		dist2_self2 := meter.Distributor{Address: meter.BytesToAddress([]byte{2}), Shares: 4321, Autobid: 0}
-		dist2_self3 := meter.Distributor{Address: meter.BytesToAddress([]byte{2}), Shares: 1111, Autobid: 0}
-		d2 := &meter.Delegate{Name: []byte("d2"), Address: meter.BytesToAddress([]byte{2}), VotingPower: big.NewInt(10000), Commission: 5e7, DistList: []*meter.Distributor{&dist2_self1, &dist2_self2, &dist2_self3}}
-
-		dist3_1 := meter.Distributor{Address: meter.BytesToAddress([]byte{3, 3, 3}), Shares: 300, Autobid: 0}
-		dist3_2 := meter.Distributor{Address: meter.BytesToAddress([]byte{2, 2, 2}), Shares: 100, Autobid: 100}
-		dist3_3 := meter.Distributor{Address: meter.BytesToAddress([]byte{1, 1, 1}), Shares: 500, Autobid: 50}
-		d3 := &meter.Delegate{Name: []byte("d3"), Address: meter.BytesToAddress([]byte{3}), VotingPower: big.NewInt(10000), Commission: 8e7, DistList: []*meter.Distributor{&dist3_1, &dist3_2, &dist3_3}}
-
-		delegateList := meter.NewDelegateList([]*meter.Delegate{d1, d2, d3})
-
-		state.SetDelegateList(delegateList)
+		state.SetDelegateList(testDelegateList)
 		// MeterTracker / ScriptEngine will be initialized on fork11
 
 		// testing env set up like this:
