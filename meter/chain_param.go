@@ -204,7 +204,7 @@ const (
 
 // Fork13
 const (
-	TeslaFork13_MainnetStartNum = 99999999
+	TeslaFork13_MainnetStartNum = 74838000 // around 6/17/2025 8:00 PM (PDT)
 	TeslaFork13_TestnetStartNum = 99999999
 )
 
