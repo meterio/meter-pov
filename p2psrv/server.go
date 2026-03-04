@@ -187,7 +187,7 @@ func (s *Server) listenDiscV5() (err error) {
 		}
 	}
 
-	network, err := discv5.ListenUDP(s.opts.PrivateKey, conn, realaddr, "", s.opts.NetRestrict)
+	network, err := discv5.ListenUDP(s.opts.PrivateKey, conn, realaddr, "", s.opts.NetRestrict, nil)
 	if err != nil {
 		return err
 	}

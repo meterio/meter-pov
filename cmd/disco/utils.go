@@ -6,12 +6,16 @@
 package main
 
 import (
+	"bufio"
 	"crypto/ecdsa"
+	"fmt"
 	"os"
 	"os/user"
 	"path/filepath"
+	"strings"
 
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/meterio/meter-pov/p2psrv/discv5"
 )
 
 func loadOrGenerateKeyFile(keyFile string) (key *ecdsa.PrivateKey, err error) {
@@ -59,4 +63,26 @@ func mustHomeDir() string {
 	}
 
 	return filepath.Base(os.Args[0])
+}
+
+func loadBanlistFile(path string) (*discv5.Banlist, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+
+	entries := make([]string, 0)
+	scanner := bufio.NewScanner(f)
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+		entries = append(entries, line)
+	}
+	if err := scanner.Err(); err != nil {
+		return nil, fmt.Errorf("read banlist: %w", err)
+	}
+	return discv5.NewBanlist(entries)
 }

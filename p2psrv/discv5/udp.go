@@ -227,15 +227,16 @@ type udp struct {
 	ourEndpoint rpcEndpoint
 	nat         nat.Interface
 	net         *Network
+	banlist     *Banlist
 }
 
 // ListenUDP returns a new table that listens for UDP packets on laddr.
-func ListenUDP(priv *ecdsa.PrivateKey, conn conn, realaddr *net.UDPAddr, nodeDBPath string, netrestrict *netutil.Netlist) (*Network, error) {
-	transport, err := listenUDP(priv, conn, realaddr)
+func ListenUDP(priv *ecdsa.PrivateKey, conn conn, realaddr *net.UDPAddr, nodeDBPath string, netrestrict *netutil.Netlist, banlist *Banlist) (*Network, error) {
+	transport, err := listenUDP(priv, conn, realaddr, banlist)
 	if err != nil {
 		return nil, err
 	}
-	net, err := newNetwork(transport, priv.PublicKey, nodeDBPath, netrestrict)
+	net, err := newNetwork(transport, priv.PublicKey, nodeDBPath, netrestrict, banlist)
 	if err != nil {
 		return nil, err
 	}
@@ -245,8 +246,8 @@ func ListenUDP(priv *ecdsa.PrivateKey, conn conn, realaddr *net.UDPAddr, nodeDBP
 	return net, nil
 }
 
-func listenUDP(priv *ecdsa.PrivateKey, conn conn, realaddr *net.UDPAddr) (*udp, error) {
-	return &udp{conn: conn, priv: priv, ourEndpoint: makeEndpoint(realaddr, uint16(realaddr.Port))}, nil
+func listenUDP(priv *ecdsa.PrivateKey, conn conn, realaddr *net.UDPAddr, banlist *Banlist) (*udp, error) {
+	return &udp{conn: conn, priv: priv, ourEndpoint: makeEndpoint(realaddr, uint16(realaddr.Port)), banlist: banlist}, nil
 }
 
 func (t *udp) localAddr() *net.UDPAddr {
@@ -382,6 +383,10 @@ func (t *udp) readLoop() {
 			// Shut down the loop for permament errors.
 			slog.Debug(fmt.Sprintf("Read error: %v", err))
 			return
+		}
+		if t.banlist != nil && t.banlist.Contains(from.IP) {
+			slog.Debug("Dropping banned discovery packet", "from", from.IP)
+			continue
 		}
 		t.handlePacket(from, buf[:nbytes])
 	}

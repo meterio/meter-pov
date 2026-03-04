@@ -49,6 +49,10 @@ var (
 			Name:  "netrestrict",
 			Usage: "restrict network communication to the given IP networks (CIDR masks)",
 		},
+		cli.StringFlag{
+			Name:  "banlist",
+			Usage: "file path containing blocked IPs/CIDRs, one per line",
+		},
 		cli.IntFlag{
 			Name:  "verbosity",
 			Value: int(0),
@@ -87,6 +91,13 @@ func run(ctx *cli.Context) error {
 			return errors.Wrap(err, "-netrestrict")
 		}
 	}
+	var banlist *discv5.Banlist
+	if banFile := ctx.String("banlist"); banFile != "" {
+		banlist, err = loadBanlistFile(banFile)
+		if err != nil {
+			return errors.Wrap(err, "-banlist")
+		}
+	}
 
 	addr, err := net.ResolveUDPAddr("udp", ctx.String("addr"))
 	if err != nil {
@@ -107,7 +118,7 @@ func run(ctx *cli.Context) error {
 			realAddr = &net.UDPAddr{IP: ext, Port: realAddr.Port}
 		}
 	}
-	net, err := discv5.ListenUDP(key, conn, realAddr, "", restrictList)
+	net, err := discv5.ListenUDP(key, conn, realAddr, "", restrictList, banlist)
 	if err != nil {
 		return err
 	}

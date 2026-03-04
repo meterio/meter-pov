@@ -57,6 +57,7 @@ type Network struct {
 	db          *nodeDB // database of known nodes
 	conn        transport
 	netrestrict *netutil.Netlist
+	banlist     *Banlist
 
 	closed           chan struct{}          // closed when loop is done
 	closeReq         chan struct{}          // 'request to close'
@@ -132,7 +133,7 @@ type timeoutEvent struct {
 	node *Node
 }
 
-func newNetwork(conn transport, ourPubkey ecdsa.PublicKey, dbPath string, netrestrict *netutil.Netlist) (*Network, error) {
+func newNetwork(conn transport, ourPubkey ecdsa.PublicKey, dbPath string, netrestrict *netutil.Netlist, banlist *Banlist) (*Network, error) {
 	ourID := PubkeyID(&ourPubkey)
 
 	var db *nodeDB
@@ -148,6 +149,7 @@ func newNetwork(conn transport, ourPubkey ecdsa.PublicKey, dbPath string, netres
 		db:               db,
 		conn:             conn,
 		netrestrict:      netrestrict,
+		banlist:          banlist,
 		tab:              tab,
 		topictab:         newTopicTable(db, tab.self),
 		ticketStore:      newTicketStore(),
@@ -729,6 +731,9 @@ func (net *Network) internNodeFromNeighbours(sender *net.UDPAddr, rn rpcNode) (n
 	}
 	if rn.UDP <= lowPort {
 		return nil, errors.New("low port")
+	}
+	if net.banlist != nil && net.banlist.Contains(rn.IP) {
+		return nil, errors.New("banned by ip")
 	}
 	n = net.nodes[rn.ID]
 	if n == nil {
