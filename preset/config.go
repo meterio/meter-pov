@@ -28,7 +28,7 @@ var (
 	}
 
 	TestnetPresetConfig = &PresetConfig{
-		CommitteeMinSize: 3,
+		CommitteeMinSize: 1,
 		CommitteeMaxSize: 300,
 		DelegateMaxSize:  500,
 		DiscoServer:      "enode://20cd29b988266dfee6a2afc25086aaf5b2019f44d0845bac9beebe13ee3752bf2380f932fe9c153497d36d866fe591fa246c0baf817547ecc3ebe6014f895792@34.31.117.124:55555",
