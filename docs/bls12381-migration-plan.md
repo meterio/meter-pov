@@ -32,19 +32,35 @@ with the Ethereum ecosystem.
 ### Where BLS is used today
 
 ```
-types/bls_common.go        — BlsCommon wrapper (sign, verify, aggregate)
-types/validator.go         — Validator.BlsPubKey  (bls.PublicKey)
-types/delegate.go          — Delegate.BlsPubKey   (bls.PublicKey)
-block/block.go             — Block.VerifyQC       (ThresholdVerify)
-consensus/reactor.go       — key loading, committee formation
-consensus/pacemaker_propose.go — signing proposal blocks
-cmd/meter/must.go          — key generation at startup
-script/staking/*           — on-chain pubkey storage and retrieval
+types/bls_common.go                   — BlsCommon wrapper (sign, verify, aggregate, SplitPubKey)
+types/validator.go                    — Validator.BlsPubKey (bls.PublicKey)
+types/delegate.go                     — Delegate.BlsPubKey (bls.PublicKey); LoadDelegatesFile
+block/block.go                        — Block.VerifyQC (ThresholdVerify)
+consensus/reactor.go                  — key loading, committee formation, VerifyQC dispatch
+consensus/pacemaker.go                — instantiates QCVoteManager/TCVoteManager with bls.System
+consensus/pacemaker_send.go           — blsCommon.SignHash for vote and wish-vote messages
+consensus/pacemaker_propose.go        — signing proposal blocks
+consensus/pacemaker_assist.go         — TC signature verification (bls.PublicKey slice + SigFromBytes)
+consensus/qc_vote_manager.go          — holds bls.System; deserialises + aggregates QC vote sigs
+consensus/tc_vote_manager.go          — holds bls.System; deserialises + aggregates TC vote sigs
+consensus/reactor_assist.go           — SplitPubKey for committee member loading
+consensus/reactor_bootstrap_committee.go — SplitPubKey for bootstrap committee
+consensus/governor/stats_tx.go        — ComputeDoubleSigner (direct bls.Verify); combinePubKey
+cmd/meter/key_loader.go               — load/save PBC params, pairing, system, keys from keystore
+cmd/meter/utils.go                    — writeOutKeys, GetBlsSystem
+cmd/meter/must.go                     — node startup, passes BlsCommon to reactor
+cmd/mdb/main.go                       — block explorer tool (NewBlsCommon)
+script/staking/*                      — on-chain pubkey storage and retrieval
 ```
 
 Serialised BLS pubkeys appear in two places on-chain:
 1. **Staking contract storage** — registered by each validator candidate
 2. **Block `CommitteeInfo`** — packed into the first MBlock of each epoch
+
+The `comboPubKey` string format `"base64(ecdsa_pub):::base64(pbc_bls_pub)"` is written to
+`delegates.json` and to on-chain staking candidate records. `SplitPubKey` in
+`bls_common.go` parses this format and calls `system.PubKeyFromBytes` — an
+implementation-specific call that must be updated post-fork.
 
 ---
 
@@ -133,13 +149,25 @@ activated.
 **Files changed**:
 
 ```
-types/bls_common.go       — implement BLSCommon interface; wrap old calls
-types/validator.go        — Validator.BlsPubKey: bls.PublicKey → BLSPublicKey
-types/delegate.go         — Delegate.BlsPubKey: bls.PublicKey → BLSPublicKey
-block/block.go            — VerifyQC: use interface ThresholdVerify
-consensus/reactor.go      — use interface throughout
-consensus/pacemaker_propose.go — signing via interface
-cmd/meter/must.go         — key loading via interface
+types/bls_common.go                   — implement BLSCommon interface; wrap old calls; update SplitPubKey
+types/validator.go                    — Validator.BlsPubKey: bls.PublicKey → BLSPublicKey
+types/delegate.go                     — Delegate.BlsPubKey: bls.PublicKey → BLSPublicKey
+block/block.go                        — VerifyQC: use interface ThresholdVerify ([][]byte pubkeys)
+consensus/reactor.go                  — use interface throughout
+consensus/pacemaker.go                — pass blsCommon to QCVoteManager/TCVoteManager instead of bls.System
+consensus/pacemaker_send.go           — already uses blsCommon.SignHash; no change needed
+consensus/pacemaker_propose.go        — signing via interface
+consensus/pacemaker_assist.go         — TC verify: bls.PublicKey slice → [][]byte via BlsPubKeyBytes
+consensus/qc_vote_manager.go          — replace bls.System with BLSCommon interface; update Aggregate
+consensus/tc_vote_manager.go          — replace bls.System with BLSCommon interface; update Aggregate
+consensus/reactor_assist.go           — SplitPubKey call site: update to interface
+consensus/reactor_bootstrap_committee.go — SplitPubKey call site: update to interface
+consensus/governor/stats_tx.go        — ComputeDoubleSigner: replace direct bls.Verify with interface;
+                                        combinePubKey: replace *bls.PublicKey with BLSPublicKey
+cmd/meter/key_loader.go               — add BLS12-381 key load/save alongside existing PBC keys
+cmd/meter/utils.go                    — update writeOutKeys, GetBlsSystem to interface
+cmd/meter/must.go                     — pass updated BlsCommon to reactor
+cmd/mdb/main.go                       — update NewBlsCommon() usage
 ```
 
 **Key changes in detail**:
@@ -156,8 +184,47 @@ type BlsCommon struct {
 }
 ```
 
+`SplitPubKey` must also be updated: currently it calls `cc.GetSystem().PubKeyFromBytes`
+which is a PBC-specific call. The updated version should route through the interface.
+
 *`types/validator.go`*: `BlsPubKey bls.PublicKey` becomes `BlsPubKey BLSPublicKey`.
 `BlsPubKeyBytes []byte` is already present and becomes the canonical representation.
+
+**Important**: `Delegate.BlsPubKey` has a JSON struct tag (`"bsl_pubkey"`) but is
+actually a CGo type that cannot be JSON-marshalled. The field is populated via
+`SplitPubKey` not from JSON. Changing the type to `BLSPublicKey` (interface) is
+safe, but the JSON tag should be removed to avoid confusion.
+
+*`consensus/qc_vote_manager.go` and `tc_vote_manager.go`*: These are the hot path
+for signature aggregation. Currently they hold `bls.System` directly and call
+`bls.Aggregate`. They must accept `BLSCommon` so the correct aggregation
+implementation is used post-fork:
+
+```go
+// Before
+type QCVoteManager struct {
+    system bls.System
+    ...
+}
+func NewQCVoteManager(system bls.System, committeeSize uint32) *QCVoteManager
+
+// After
+type QCVoteManager struct {
+    blsCommon *types.BlsCommon
+    ...
+}
+func NewQCVoteManager(blsCommon *types.BlsCommon, committeeSize uint32) *QCVoteManager
+```
+
+*`pacemaker_assist.go`*: TC verification currently builds a `[]bls.PublicKey` slice
+and calls `blsCommon.System.SigFromBytes`. Both must change to use `[][]byte`
+(from `BlsPubKeyBytes`) and the interface `SigFromBytes`.
+
+*`consensus/governor/stats_tx.go`*: `ComputeDoubleSigner` calls `bls.Verify`
+directly (bypassing `BlsCommon`). It also takes `*bls.PublicKey` in `combinePubKey`.
+Both must be routed through the interface. Note: double-sign evidence embedded in
+pre-fork blocks uses PBC signatures — `ComputeDoubleSigner` needs to detect which
+implementation to use based on the block height of the evidence.
 
 *`block/block.go`*:
 
@@ -165,7 +232,7 @@ type BlsCommon struct {
 // Before
 valid, err := blsCommon.ThresholdVerify(sig, escortQC.VoterMsgHash, pubkeys)
 
-// After (pubkeys is now []BLSPublicKey → trivially [][]byte via .Bytes())
+// After (pubkeys is now [][]byte via BlsPubKeyBytes)
 valid, err := blsCommon.ThresholdVerify(sigBytes, escortQC.VoterMsgHash, pubkeyBytes)
 ```
 
@@ -174,8 +241,8 @@ PR the network behaviour is identical to before.
 
 **Testing requirements**:
 - All existing consensus tests pass
-- `go build ./...` succeeds without libgmp on a clean Ubuntu image (the PBC CGo
-  is still linked; this is a compile check, not a removal)
+- `go build ./...` succeeds without libgmp on a clean Ubuntu image (PBC CGo is
+  still linked; this is a compile check, not a removal)
 
 ---
 
@@ -189,6 +256,7 @@ use the PBC key. After the fork height (set in PR 5), the new key takes over.
 
 ```
 script/staking/handler.go            — parse BlsPubKey2 from candidate tx
+script/staking/handler_candidateUpdate.go — parse BlsPubKey2 in update tx
 script/staking/types.go              — Candidate struct: add BlsPubKey2 []byte
 script/staking/staking_state.go      — store/load BlsPubKey2 in state
 builtin/gen/...                      — regenerated ABI bindings if applicable
@@ -287,12 +355,49 @@ entry `bls12381_privkey` alongside the existing `bls_privkey`.
 and new blocks. The `blsCommon` passed to `VerifyQC` always holds both
 implementations; only the pubkey slice selection (above) changes per block.
 
+**`QCVoteManager` / `TCVoteManager` re-initialisation**:
+
+Both vote managers are instantiated in `pacemaker.go:601,606` at the start of
+each epoch. After the fork, they must be instantiated with the BLS12-381-backed
+`BlsCommon`. Since `BlsCommon.impl` is already swapped in `UpdateCurEpoch` (see
+above), no additional change is needed here — the vote managers pick up the right
+implementation via the interface.
+
+**`pre-fork quorum check`** (from Open Question #4):
+
+Add a guard in `PrepareEnvForPacemaker` that counts how many current committee
+members have `BlsPubKey2` registered. If the count is below the 2/3 threshold,
+log a warning and refuse to cross the fork height. Concretely:
+
+```go
+if meter.IsTeslaFork14(nextEpochFirstBlock) && !r.hasEnoughBLS12381Keys() {
+    return errors.New("cannot cross BLS fork: fewer than 2/3 of committee have registered BLS12-381 keys")
+}
+```
+
+**`comboPubKey` string format post-fork**:
+
+The `delegates.json` file and on-chain staking records store
+`"base64(ecdsa):::base64(bls_pub)"`. Post-fork, the BLS bytes are 48-byte
+BLS12-381 points. The `:::` separator format is reused — `SplitPubKey` routes
+the second part through `PubKeyFromBytes` on the active implementation, so it
+works transparently as long as the implementation is switched first.
+
+**`api/node/types.go`**:
+
+`CsPubKey string` is exposed in the node REST API (committee info endpoint).
+Post-fork its value changes from a ~132-char hex string (66 bytes) to a 96-char
+hex string (48 bytes). External consumers (dashboards, explorers) should be
+notified of this length change.
+
 **Testing requirements**:
 - A node crossing the fork height produces valid BLS12-381-signed blocks
 - A node that was offline during the fork can sync across it from a peer
 - Pre-fork blocks still verify correctly after the fork
 - A validator without `BlsPubKey2` is excluded from committee post-fork (not
   added to the signing set; block still reaches quorum if ≥2/3 have migrated)
+- `ComputeDoubleSigner` correctly handles double-sign evidence from pre-fork
+  blocks (PBC signatures) when called post-fork
 
 ---
 
@@ -307,8 +412,32 @@ testnet before setting a mainnet height.
 ```
 meter/fork_config.go              — set TeslaFork14 testnet height
 cmd/meter/keygen_bls12381.go      — new subcommand: meter keygen-bls12381
-docs/bls12381-validator-guide.md  — step-by-step for validators
+docs/bls12381-validator-guide.md  — step-by-step for validators (key gen,
+                                    candidateUpdate submission, timeline)
 ```
+
+**Keystore format change** (`cmd/meter/key_loader.go`):
+
+The existing keystore stores these fields:
+
+```
+params      — PBC pairing parameters (ASCII, ~200 bytes)
+pairing     — (derived at load time, not stored)
+system      — PBC G2 generator bytes
+public_key  — PBC G2 compressed pubkey bytes
+private_key — PBC Zr element bytes
+```
+
+After this PR the keystore gains two new fields:
+
+```
+bls12381_public_key   — 48 bytes (BLS12-381 G1 compressed)
+bls12381_private_key  — 32 bytes (BLS12-381 scalar)
+```
+
+Old keystores without these fields are valid: the node will log a warning and
+refuse to start if it is past the fork height without BLS12-381 keys present,
+prompting the operator to run `meter keygen-bls12381`.
 
 **`meter keygen-bls12381` subcommand**:
 
@@ -400,6 +529,10 @@ then `mainnet` after a successful testnet epoch crossing.
 | Historical sync broken by fork-gate bug | Medium | Extensive sync tests (PR 4 requirements); keep old impl indefinitely |
 | BLS12-381 aggregate sig verification slower than PBC | Low | blst threshold-verify 101 signers ≈ 1.5ms; PBC ≈ 8ms. Net improvement. |
 | Key derivation collides (HKDF produces weak key) | Very Low | HKDF-SHA256 is standard; add a sanity check that derived key ≠ 0 |
+| TC (timeout cert) path broken post-fork | Medium | `pacemaker_assist.go` TC verify path needs same dual-path as QC; covered in PR 2 scope but easy to miss |
+| Pre-fork double-sign evidence rejected post-fork | Medium | `ComputeDoubleSigner` uses raw `bls.Verify`; needs fork-height branch to use correct impl for evidence blocks |
+| `QCVoteManager`/`TCVoteManager` not re-initialised at fork epoch | Medium | Verify vote managers are re-created each epoch in `pacemaker.go`; they are (lines 601,606), so switching `blsCommon.impl` is sufficient |
+| External API consumers break on pubkey length change | Low | `CsPubKey` in node API changes from 132 to 96 hex chars; notify dashboard/explorer operators |
 
 ---
 
