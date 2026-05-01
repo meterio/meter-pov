@@ -9,21 +9,36 @@ import (
 )
 
 type ProposalMap struct {
-	proposals map[meter.Bytes32]*block.DraftBlock
-	chain     *Chain
-	logger    slog.Logger
+	proposals    map[meter.Bytes32]*block.DraftBlock
+	byNum        map[uint32][]*block.DraftBlock  // secondary index: block number → drafts
+	byHeightRound map[uint64]*block.DraftBlock   // secondary index: (height<<32|round) → draft
+	chain        *Chain
+	logger       slog.Logger
 }
 
 func NewProposalMap(c *Chain) *ProposalMap {
 	return &ProposalMap{
-		proposals: make(map[meter.Bytes32]*block.DraftBlock),
-		chain:     c,
-		logger:    *slog.With("pkg", "pmap"),
+		proposals:     make(map[meter.Bytes32]*block.DraftBlock),
+		byNum:         make(map[uint32][]*block.DraftBlock),
+		byHeightRound: make(map[uint64]*block.DraftBlock),
+		chain:         c,
+		logger:        *slog.With("pkg", "pmap"),
 	}
 }
 
+func heightRoundKey(height uint32, round uint32) uint64 {
+	return uint64(height)<<32 | uint64(round)
+}
+
 func (p *ProposalMap) Add(blk *block.DraftBlock) {
-	p.proposals[blk.ProposedBlock.ID()] = blk
+	id := blk.ProposedBlock.ID()
+	p.proposals[id] = blk
+
+	num := blk.ProposedBlock.Number()
+	p.byNum[num] = append(p.byNum[num], blk)
+
+	key := heightRoundKey(blk.Height, blk.Round)
+	p.byHeightRound[key] = blk
 }
 
 func (p *ProposalMap) GetProposalsUpTo(committedBlkID meter.Bytes32, qcHigh *block.QuorumCert) []*block.DraftBlock {
@@ -99,12 +114,11 @@ func BlockMatchDraftQC(b *block.DraftBlock, escortQC *block.QuorumCert) bool {
 }
 
 func (p *ProposalMap) GetOneByEscortQC(qc *block.QuorumCert) *block.DraftBlock {
-	for key := range p.proposals {
-		draftBlk := p.proposals[key]
-		if draftBlk.Height == qc.QCHeight && draftBlk.Round == qc.QCRound {
-			if match := BlockMatchDraftQC(draftBlk, qc); match {
-				return draftBlk
-			}
+	// O(1) lookup via secondary index instead of O(n) scan
+	key := heightRoundKey(qc.QCHeight, qc.QCRound)
+	if draftBlk, ok := p.byHeightRound[key]; ok {
+		if match := BlockMatchDraftQC(draftBlk, qc); match {
+			return draftBlk
 		}
 	}
 
@@ -134,43 +148,53 @@ func (p *ProposalMap) Len() int {
 }
 
 func (p *ProposalMap) CleanAll() {
-	for key := range p.proposals {
-		delete(p.proposals, key)
-	}
+	p.proposals = make(map[meter.Bytes32]*block.DraftBlock)
+	p.byNum = make(map[uint32][]*block.DraftBlock)
+	p.byHeightRound = make(map[uint64]*block.DraftBlock)
 }
 
 func (p *ProposalMap) PruneUpTo(lastCommitted *block.DraftBlock) {
-	for k := range p.proposals {
-		draftBlk := p.proposals[k]
-		if draftBlk.ProposedBlock.Number() < lastCommitted.Height {
-			delete(p.proposals, draftBlk.ProposedBlock.ID())
+	// Use byNum index to find blocks below the committed height — O(height range) instead of O(n)
+	for num := range p.byNum {
+		if num > lastCommitted.Height {
+			continue
 		}
-		if draftBlk.ProposedBlock.Number() == lastCommitted.Height {
-			// clean up not-finalized block
-			// return tx to txpool
-			if !draftBlk.ProposedBlock.ID().Equal(lastCommitted.ProposedBlock.ID()) {
-				draftBlk.ReturnTxsToPool()
-
-				// only prune state trie if it's not the same as the committed one
-				// if !draftBlk.ProposedBlock.StateRoot().Equal(lastCommitted.ProposedBlock.StateRoot()) {
-				// draftBlk.Stage.Revert()
-				// }
-
-				// delete from proposal map
+		drafts := p.byNum[num]
+		for _, draftBlk := range drafts {
+			if num < lastCommitted.Height {
 				delete(p.proposals, draftBlk.ProposedBlock.ID())
+				delete(p.byHeightRound, heightRoundKey(draftBlk.Height, draftBlk.Round))
 			} else {
-				draftBlk.Committed = true
+				// num == lastCommitted.Height
+				if !draftBlk.ProposedBlock.ID().Equal(lastCommitted.ProposedBlock.ID()) {
+					draftBlk.ReturnTxsToPool()
+					delete(p.proposals, draftBlk.ProposedBlock.ID())
+					delete(p.byHeightRound, heightRoundKey(draftBlk.Height, draftBlk.Round))
+				} else {
+					draftBlk.Committed = true
+				}
+			}
+		}
+		if num < lastCommitted.Height {
+			delete(p.byNum, num)
+		} else {
+			// keep only the committed block in byNum for this height
+			committed := p.proposals[lastCommitted.ProposedBlock.ID()]
+			if committed != nil {
+				p.byNum[num] = []*block.DraftBlock{committed}
+			} else {
+				delete(p.byNum, num)
 			}
 		}
 	}
 }
 
 func (p *ProposalMap) GetDraftByNum(num uint32) []*block.DraftBlock {
-	result := make([]*block.DraftBlock, 0)
-	for _, prop := range p.proposals {
-		if prop.ProposedBlock.Number() == num {
-			result = append(result, prop)
-		}
+	// O(1) lookup via secondary index instead of O(n) scan
+	if drafts, ok := p.byNum[num]; ok {
+		result := make([]*block.DraftBlock, len(drafts))
+		copy(result, drafts)
+		return result
 	}
-	return result
+	return make([]*block.DraftBlock, 0)
 }
