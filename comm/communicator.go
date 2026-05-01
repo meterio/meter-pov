@@ -37,6 +37,17 @@ var (
 	})
 )
 
+const (
+	// broadcastWorkers is the number of goroutines permanently servicing
+	// outbound block/tx sends.  Replaces the previous pattern of spawning
+	// one goroutine per peer per broadcast.
+	broadcastWorkers = 32
+	// broadcastQueueSize is the channel buffer for pending send tasks.
+	// Tasks dropped when the queue is full are safe to discard — the peer
+	// will receive the block/tx via the announce / re-request path.
+	broadcastQueueSize = 512
+)
+
 // Communicator communicates with remote p2p peers to exchange blocks and txs, etc.
 type Communicator struct {
 	chain  *chain.Chain
@@ -56,11 +67,16 @@ type Communicator struct {
 
 	magic  [4]byte
 	logger *slog.Logger
+
+	// broadcastCh is a fixed-size task queue consumed by broadcastWorkers
+	// goroutines.  Using a pool avoids creating O(peers) goroutines per block.
+	broadcastCh chan func()
 }
 
 // New create a new Communicator instance.
 func New(ctx context.Context, chain *chain.Chain, txPool *txpool.TxPool, powPool *powpool.PowPool, configTopic string, magic [4]byte) *Communicator {
-	return &Communicator{
+	broadcastCh := make(chan func(), broadcastQueueSize)
+	c := &Communicator{
 		chain:   chain,
 		txPool:  txPool,
 		powPool: powPool,
@@ -72,7 +88,18 @@ func New(ctx context.Context, chain *chain.Chain, txPool *txpool.TxPool, powPool
 		configTopic:    configTopic,
 		magic:          magic,
 		logger:         slog.With("pkg", "comm"),
+		broadcastCh:    broadcastCh,
 	}
+	// Start the fixed worker pool.  Workers exit when broadcastCh is closed
+	// (i.e. when Stop is called).
+	for i := 0; i < broadcastWorkers; i++ {
+		go func() {
+			for fn := range broadcastCh {
+				fn()
+			}
+		}()
+	}
+	return c
 }
 
 // Synced returns a channel indicates if synchronization process passed.
@@ -178,6 +205,7 @@ func (c *Communicator) Stop() {
 	// c.cancel()
 	c.feedScope.Close()
 	c.goes.Wait()
+	close(c.broadcastCh)
 }
 
 type txsToSync struct {
@@ -294,23 +322,33 @@ func (c *Communicator) BroadcastBlock(blk *block.EscortedBlock) {
 	for _, peer := range toPropagate {
 		peer := peer
 		peer.MarkBlock(blk.Block.ID())
-		c.goes.Go(func() {
+		task := func() {
 			c.logger.Debug(fmt.Sprintf("propagate %s to %s", blk.Block.ShortID(), meter.Addr2IP(peer.RemoteAddr())))
 			if err := proto.NotifyNewBlock(c.ctx, peer, blk); err != nil {
 				peer.logger.Error(fmt.Sprintf("Failed to propagate %s", blk.Block.ShortID()), "err", err)
 			}
-		})
+		}
+		select {
+		case c.broadcastCh <- task:
+		default:
+			// Pool saturated — peer will receive the block via announce/sync path.
+		}
 	}
 
 	for _, peer := range toAnnounce {
 		peer := peer
 		peer.MarkBlock(blk.Block.ID())
-		c.goes.Go(func() {
+		task := func() {
 			c.logger.Debug(fmt.Sprintf("announce %s to %s", blk.Block.ShortID(), meter.Addr2IP(peer.RemoteAddr())))
 			if err := proto.NotifyNewBlockID(c.ctx, peer, blk.Block.ID()); err != nil {
 				peer.logger.Error(fmt.Sprintf("Failed to announce %s", blk.Block.ShortID()), "err", err)
 			}
-		})
+		}
+		select {
+		case c.broadcastCh <- task:
+		default:
+			// Pool saturated — peer will receive the block via re-request.
+		}
 	}
 }
 
