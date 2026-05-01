@@ -112,6 +112,12 @@ type Trie struct {
 	// new nodes are tagged with the current generation and unloaded
 	// when their generation is older than than cachegen-cachelimit.
 	cachegen, cachelimit uint16
+
+	// Root hash cache. hashDirty is set to true whenever the trie is
+	// modified (TryUpdate / TryDelete). Hash() returns cachedHash
+	// directly when hashDirty is false, avoiding a full tree traversal.
+	cachedHash meter.Bytes32
+	hashDirty  bool
 }
 
 // SetCacheLimit sets the number of 'cache generations' to keep.
@@ -132,7 +138,7 @@ func (t *Trie) newFlag() nodeFlag {
 // New will panic if db is nil and returns a MissingNodeError if root does
 // not exist in the database. Accessing the trie loads nodes from db on demand.
 func New(root meter.Bytes32, db Database) (*Trie, error) {
-	trie := &Trie{db: db, originalRoot: root}
+	trie := &Trie{db: db, originalRoot: root, cachedHash: root, hashDirty: false}
 	if (root != meter.Bytes32{}) && root != emptyRoot {
 		if db == nil {
 			panic("trie.New: cannot use existing root without a database")
@@ -247,6 +253,7 @@ func (t *Trie) TryUpdate(key, value []byte) error {
 		}
 		t.root = n
 	}
+	t.hashDirty = true
 	return nil
 }
 
@@ -335,6 +342,7 @@ func (t *Trie) TryDelete(key []byte) error {
 		return err
 	}
 	t.root = n
+	t.hashDirty = true
 	return nil
 }
 
@@ -481,13 +489,20 @@ func (t *Trie) Root() []byte { return t.Hash().Bytes() }
 
 // Hash returns the root hash of the trie. It does not write to the
 // database and can be used even if the trie doesn't have one.
+// The result is cached after the first call and reused until the trie
+// is modified via TryUpdate or TryDelete.
 func (t *Trie) Hash() meter.Bytes32 {
+	if !t.hashDirty {
+		return t.cachedHash
+	}
 	hash, cached, err := t.hashRoot(nil)
 	if err != nil {
 		panic("get hashRoot failed")
 	}
 	t.root = cached
-	return meter.BytesToBytes32(hash.(hashNode))
+	t.cachedHash = meter.BytesToBytes32(hash.(hashNode))
+	t.hashDirty = false
+	return t.cachedHash
 }
 
 // Commit writes all nodes to the trie's database.
@@ -516,7 +531,9 @@ func (t *Trie) CommitTo(db DatabaseWriter) (root meter.Bytes32, err error) {
 	}
 	t.root = cached
 	t.cachegen++
-	return meter.BytesToBytes32(hash.(hashNode)), nil
+	t.cachedHash = meter.BytesToBytes32(hash.(hashNode))
+	t.hashDirty = false
+	return t.cachedHash, nil
 }
 
 func (t *Trie) hashRoot(db DatabaseWriter) (node, node, error) {
