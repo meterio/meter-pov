@@ -46,7 +46,7 @@ import (
 )
 
 var (
-	validQCs, _ = lru.New(256)
+	validQCs, _ = lru.New(2048)
 )
 
 const (
