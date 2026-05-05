@@ -127,6 +127,7 @@ func main() {
 			powUserFlag,
 			powPassFlag,
 			noDiscoverFlag,
+			soloFlag,
 			minCommitteeSizeFlag,
 			maxCommitteeSizeFlag,
 			maxDelegateSizeFlag,

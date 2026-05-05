@@ -131,6 +131,10 @@ var (
 		Name:  "no-discover",
 		Usage: "disable auto discovery mode",
 	}
+	soloFlag = cli.BoolFlag{
+		Name:  "solo",
+		Usage: "run in solo mode: no discovery, no peer sync, start consensus immediately",
+	}
 	minCommitteeSizeFlag = cli.IntFlag{
 		Name:  "committee-min-size",
 		Usage: "committee minimum size",
