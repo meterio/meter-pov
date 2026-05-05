@@ -38,6 +38,8 @@ type OutgoingQueue struct {
 	logger  *slog.Logger
 	queue   chan (OutgoingParcel)
 	clients map[string]*http.Client
+	ctx     context.Context
+	cancel  context.CancelFunc
 }
 
 func NewOutgoingQueue() *OutgoingQueue {
@@ -50,10 +52,32 @@ func NewOutgoingQueue() *OutgoingQueue {
 
 func (q *OutgoingQueue) Add(to ConsensusPeer, msg block.ConsensusMessage, rawMsg []byte, relay bool) {
 	q.logger.Debug(fmt.Sprintf("add %s msg to out queue", msg.GetType()), "to", to, "len", len(q.queue), "cap", cap(q.queue))
+	
+	// Check if we're shutting down
+	if q.ctx != nil {
+		select {
+		case <-q.ctx.Done():
+			q.logger.Debug("outgoing queue is shutting down, discarding message", "to", to, "msgType", msg.GetType())
+			return
+		default:
+		}
+	}
+	// Store context for shutdown checks in Add()
+	q.ctx = ctx
+	
+	
 	for len(q.queue) >= cap(q.queue) {
 		p := <-q.queue
 		q.logger.Info(fmt.Sprintf(`%s msg dropped due to cap ...`, p.msgType))
 	}
+	
+	// Try to send, but recover if channel is closed
+	defer func() {
+		if r := recover(); r != nil {
+			q.logger.Warn("recovered from panic when sending to outgoing queue", "panic", r)
+		}
+	}()
+	
 	q.queue <- OutgoingParcel{to: to, msgType: msg.GetType(), msgSummary: msg.String(), rawMsg: rawMsg, relay: relay, enqueueAt: time.Now(), expireAt: time.Now().Add(OUT_QUEUE_TTL)}
 }
 
