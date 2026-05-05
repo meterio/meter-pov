@@ -53,13 +53,14 @@ type Communicator struct {
 
 	powPool     *powpool.PowPool
 	configTopic string
+	solo        bool
 
 	magic  [4]byte
 	logger *slog.Logger
 }
 
 // New create a new Communicator instance.
-func New(ctx context.Context, chain *chain.Chain, txPool *txpool.TxPool, powPool *powpool.PowPool, configTopic string, magic [4]byte) *Communicator {
+func New(ctx context.Context, chain *chain.Chain, txPool *txpool.TxPool, powPool *powpool.PowPool, configTopic string, magic [4]byte, solo bool) *Communicator {
 	return &Communicator{
 		chain:   chain,
 		txPool:  txPool,
@@ -71,6 +72,7 @@ func New(ctx context.Context, chain *chain.Chain, txPool *txpool.TxPool, powPool
 		announcementCh: make(chan *announcement),
 		configTopic:    configTopic,
 		magic:          magic,
+		solo:           solo,
 		logger:         slog.With("pkg", "comm"),
 	}
 }
@@ -82,6 +84,12 @@ func (c *Communicator) Synced() <-chan struct{} {
 
 // Sync start synchronization process.
 func (c *Communicator) Sync(handler HandleBlockStream) {
+	if c.solo {
+		c.logger.Info("solo mode: skipping peer sync, marking as synced immediately")
+		c.onceSynced.Do(func() { close(c.syncedCh) })
+		return
+	}
+
 	const initSyncInterval = 500 * time.Millisecond
 	const syncInterval = 6 * time.Second
 

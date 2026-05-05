@@ -311,22 +311,33 @@ func newP2PComm(cliCtx *cli.Context, ctx context.Context, chain *chain.Chain, tx
 		os.Exit(1)
 	}
 
+	solo := cliCtx.Bool("solo")
+
 	// if the discoverServerFlag is not set, use default hardcoded nodes
 	var BootstrapNodes []*enode.Node
-	if overrided == true {
+	if solo {
+		BootstrapNodes = nil
+	} else if overrided == true {
 		BootstrapNodes = discoSvr
 	} else {
 		BootstrapNodes = bootstrapNodes
 	}
 
+	maxPeers := cliCtx.Int(maxPeersFlag.Name)
+	noDiscovery := cliCtx.Bool("no-discover")
+	if solo {
+		maxPeers = 0
+		noDiscovery = true
+	}
+
 	opts := &p2psrv.Options{
 		Name:           meter.MakeName("meter", fullVersion()),
 		PrivateKey:     key,
-		MaxPeers:       cliCtx.Int(maxPeersFlag.Name),
+		MaxPeers:       maxPeers,
 		ListenAddr:     fmt.Sprintf(":%v", cliCtx.Int(p2pPortFlag.Name)),
 		BootstrapNodes: BootstrapNodes,
 		NAT:            nat,
-		NoDiscovery:    cliCtx.Bool("no-discover"),
+		NoDiscovery:    noDiscovery,
 	}
 
 	peersCachePath := filepath.Join(instanceDir, "peers.cache")
@@ -365,7 +376,7 @@ func newP2PComm(cliCtx *cli.Context, ctx context.Context, chain *chain.Chain, tx
 	topic := cliCtx.String("disco-topic")
 
 	return &p2pComm{
-		comm:           comm.New(ctx, chain, txPool, powPool, topic, magic),
+		comm:           comm.New(ctx, chain, txPool, powPool, topic, magic, solo),
 		p2pSrv:         p2psrv.New(opts),
 		peersCachePath: peersCachePath,
 	}
