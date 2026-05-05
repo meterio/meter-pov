@@ -62,9 +62,6 @@ func (q *OutgoingQueue) Add(to ConsensusPeer, msg block.ConsensusMessage, rawMsg
 		default:
 		}
 	}
-	// Store context for shutdown checks in Add()
-	q.ctx = ctx
-	
 	
 	for len(q.queue) >= cap(q.queue) {
 		p := <-q.queue
@@ -84,6 +81,9 @@ func (q *OutgoingQueue) Add(to ConsensusPeer, msg block.ConsensusMessage, rawMsg
 func (q *OutgoingQueue) Start(ctx context.Context) {
 	q.logger.Info(`outgoing queue started`)
 
+	// Store context for shutdown checks in Add()
+	q.ctx = ctx
+	
 	for i := 1; i <= WORKER_CONCURRENCY; i++ {
 		worker := NewOutgoingWorker(i)
 		q.WaitGroup.Add(1)

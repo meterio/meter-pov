@@ -13,7 +13,6 @@ import (
 	"encoding/base64"
 	b64 "encoding/base64"
 	"encoding/binary"
-	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
@@ -39,7 +38,6 @@ import (
 	"github.com/meterio/meter-pov/logdb"
 	"github.com/meterio/meter-pov/meter"
 	"github.com/meterio/meter-pov/packer"
-	"github.com/meterio/meter-pov/powpool"
 	"github.com/meterio/meter-pov/state"
 	"github.com/meterio/meter-pov/txpool"
 	"github.com/meterio/meter-pov/types"
@@ -337,25 +335,6 @@ func (r *Reactor) PrepareEnvForPacemaker() error {
 		return err
 	}
 	r.logger.Info("prepare env for pacemaker", "nonce", r.curNonce, "bestK", bestKBlock.Number(), "bestIsKBlock", bestIsKBlock, "epoch", r.curEpoch)
-
-	var info *powpool.PowBlockInfo
-	if bestKBlock.Number() == 0 {
-		info = powpool.GetPowGenesisBlockInfo()
-	} else {
-		info = powpool.NewPowBlockInfoFromPosKBlock(bestKBlock)
-	}
-	r.logger.Info("Powpool prepare to add kframe, and notify PoW chain to pick head", "powHeight", info.PowHeight, "powRawBlock", hex.EncodeToString(info.PowRaw))
-	pool := powpool.GetGlobPowPoolInst()
-	// pool.Wash()
-	pool.InitialAddKframe(info)
-	r.logger.Info("Powpool initial added kframe", "bestK", bestKBlock.Number(), "powHeight", info.PowHeight)
-	if r.inCommittee {
-		//kblock is already added to pool, should start with next one
-		// startHeight := info.PowHeight + 1
-		// r.logger.Info("Replay pow blocks", "fromHeight", startHeight)
-		// pool.ReplayFrom(int32(startHeight))
-		pool.WaitForSync()
-	}
 
 	return nil
 }
