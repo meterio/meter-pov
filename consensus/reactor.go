@@ -107,6 +107,8 @@ type Reactor struct {
 
 	inQueue  *IncomingQueue
 	outQueue *OutgoingQueue
+
+	ctx context.Context
 }
 
 // NewConsensusReactor returns a new Reactor with config
@@ -168,6 +170,7 @@ func NewConsensusReactor(ctx *cli.Context, chain *chain.Chain, logDB *logdb.LogD
 // OnStart implements BaseService by subscribing to events, which later will be
 // broadcasted to other peers and starting state if we're not in fast sync.
 func (r *Reactor) OnStart(ctx context.Context) error {
+	r.ctx = ctx
 
 	go r.outQueue.Start(ctx)
 

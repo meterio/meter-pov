@@ -37,6 +37,7 @@ type OutgoingQueue struct {
 	sync.WaitGroup
 	logger  *slog.Logger
 	queue   chan (OutgoingParcel)
+	done    chan struct{}
 	clients map[string]*http.Client
 }
 
@@ -44,6 +45,7 @@ func NewOutgoingQueue() *OutgoingQueue {
 	return &OutgoingQueue{
 		logger:  slog.With("pkg", "out"),
 		queue:   make(chan (OutgoingParcel), 2048),
+		done:    make(chan struct{}),
 		clients: make(map[string]*http.Client),
 	}
 }
@@ -51,10 +53,18 @@ func NewOutgoingQueue() *OutgoingQueue {
 func (q *OutgoingQueue) Add(to ConsensusPeer, msg block.ConsensusMessage, rawMsg []byte, relay bool) {
 	q.logger.Debug(fmt.Sprintf("add %s msg to out queue", msg.GetType()), "to", to, "len", len(q.queue), "cap", cap(q.queue))
 	for len(q.queue) >= cap(q.queue) {
-		p := <-q.queue
-		q.logger.Info(fmt.Sprintf(`%s msg dropped due to cap ...`, p.msgType))
+		select {
+		case <-q.done:
+			return
+		case p := <-q.queue:
+			q.logger.Info(fmt.Sprintf(`%s msg dropped due to cap ...`, p.msgType))
+		}
 	}
-	q.queue <- OutgoingParcel{to: to, msgType: msg.GetType(), msgSummary: msg.String(), rawMsg: rawMsg, relay: relay, enqueueAt: time.Now(), expireAt: time.Now().Add(OUT_QUEUE_TTL)}
+	select {
+	case <-q.done:
+		return
+	case q.queue <- OutgoingParcel{to: to, msgType: msg.GetType(), msgSummary: msg.String(), rawMsg: rawMsg, relay: relay, enqueueAt: time.Now(), expireAt: time.Now().Add(OUT_QUEUE_TTL)}:
+	}
 }
 
 func (q *OutgoingQueue) Start(ctx context.Context) {
@@ -66,6 +76,7 @@ func (q *OutgoingQueue) Start(ctx context.Context) {
 		go worker.Run(ctx, q.queue, &q.WaitGroup)
 	}
 	<-ctx.Done()
+	close(q.done)
 	close(q.queue)
 	q.WaitGroup.Wait()
 }

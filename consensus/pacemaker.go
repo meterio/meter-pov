@@ -827,6 +827,12 @@ func (p *Pacemaker) mainLoop() {
 			p.mainLoopStarted = false
 			return
 
+		case <-p.reactor.ctx.Done():
+			p.logger.Info("context done, stopping pacemaker main loop")
+			p.cancelAllPendingBroadcast()
+			p.mainLoopStarted = false
+			return
+
 		}
 	}
 }
