@@ -6,6 +6,7 @@
 package consensus
 
 import (
+	"encoding/binary"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -18,7 +19,6 @@ import (
 	"github.com/meterio/meter-pov/chain"
 	"github.com/meterio/meter-pov/meter"
 	"github.com/meterio/meter-pov/packer"
-	"github.com/meterio/meter-pov/powpool"
 	"github.com/meterio/meter-pov/types"
 )
 
@@ -129,16 +129,15 @@ func (p *Pacemaker) CreateLeaf(parent *block.DraftBlock, justify *block.DraftQC,
 	}
 
 	proposeKBlock := false
-	var powResults *powpool.PowResult
 	if !parentBlock.IsKBlock() && (parentBlock.Number()+1-parentBlock.LastKBlockHeight()) >= p.minMBlocks && !timeout {
-		proposeKBlock, powResults = powpool.GetGlobPowPoolInst().GetPowDecision()
+		proposeKBlock = true
 	}
 	// propose appropriate block info
 	if proposeKBlock {
-		kblockData := &block.KBlockData{Nonce: uint64(powResults.Nonce), Data: powResults.Raw}
-		rewards := powResults.Rewards
+		nonce := binary.BigEndian.Uint64(parentBlock.ID().Bytes()[:8])
+		kblockData := &block.KBlockData{Nonce: nonce, Data: []block.PowRawBlock{}}
 		p.logger.Info(fmt.Sprintf("proposing KBlock on R:%v with QCHigh(#%v,R:%v), Parent(%v,R:%v)", round, justify.QC.QCHeight, justify.QC.QCRound, parent.ProposedBlock.ID().ToBlockShortID(), parent.Round))
-		return p.buildKBlock(uint64(targetTime.Unix()), parent, justify, round, kblockData, rewards)
+		return p.buildKBlock(uint64(targetTime.Unix()), parent, justify, round, kblockData)
 	} else {
 		if !parent.ProposedBlock.IsKBlock() { // only check round if parent is not KBlock
 			if p.reactor.curEpoch != 0 && round != 0 && round <= justify.QC.QCRound {

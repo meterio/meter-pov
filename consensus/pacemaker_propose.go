@@ -14,7 +14,6 @@ import (
 	"github.com/meterio/meter-pov/block"
 	"github.com/meterio/meter-pov/meter"
 	"github.com/meterio/meter-pov/packer"
-	"github.com/meterio/meter-pov/powpool"
 	"github.com/meterio/meter-pov/runtime"
 	"github.com/meterio/meter-pov/tx"
 )
@@ -280,7 +279,7 @@ func (p *Pacemaker) packMBlock() error {
 	return nil
 }
 
-func (p *Pacemaker) buildKBlock(ts uint64, parent *block.DraftBlock, justify *block.DraftQC, round uint32, kblockData *block.KBlockData, rewards []powpool.PowReward) (error, *block.DraftBlock) {
+func (p *Pacemaker) buildKBlock(ts uint64, parent *block.DraftBlock, justify *block.DraftQC, round uint32, kblockData *block.KBlockData) (error, *block.DraftBlock) {
 	parentBlock := parent.ProposedBlock
 	qc := justify.QC
 	best := parentBlock
@@ -297,7 +296,7 @@ func (p *Pacemaker) buildKBlock(ts uint64, parent *block.DraftBlock, justify *bl
 		return errors.New("state creater not ready"), nil
 	}
 
-	txs := p.reactor.buildKBlockTxs(parentBlock, rewards, chainTag, bestNum, curEpoch, best, state)
+	txs := p.reactor.buildKBlockTxs(parentBlock, chainTag, bestNum, curEpoch, best, state)
 
 	pker := p.reactor.packer
 	if pker == nil {
