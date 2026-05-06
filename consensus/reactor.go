@@ -61,6 +61,7 @@ type ReactorConfig struct {
 	MaxCommitteeSize  int
 	MaxDelegateSize   int
 	InitDelegates     []*types.Delegate
+	Solo              bool
 }
 
 // -----------------------------------------------------------------------------
@@ -149,6 +150,7 @@ func NewConsensusReactor(ctx *cli.Context, chain *chain.Chain, logDB *logdb.LogD
 			MaxCommitteeSize:  ctx.Int("committee-max-size"),
 			MaxDelegateSize:   ctx.Int("delegate-max-size"),
 			InitDelegates:     initDelegates,
+			Solo:              ctx.Bool("solo"),
 		}
 	}
 
@@ -443,6 +445,15 @@ func (r *Reactor) GetConsensusDelegates() ([]*types.Delegate, []*types.Delegate)
 			r.delegateSource = fromDelegatesFile
 			r.peakFirst3Delegates("Loaded delegates from file as fallback", delegates)
 		}
+	}
+
+	// In solo mode, override all delegate IPs to localhost so consensus
+	// messages are routed locally regardless of what IP is registered on-chain.
+	if r.config.Solo {
+		for _, d := range delegates {
+			d.NetAddr.IP = net.ParseIP("127.0.0.1")
+		}
+		r.logger.Info("solo mode: overriding delegate IPs to 127.0.0.1 for consensus")
 	}
 
 	defer r.mapMutex.Unlock()
