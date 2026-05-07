@@ -188,6 +188,18 @@ func meterReceiptToEthReceipt(receipt *tx.Receipt, t *tx.Transaction, meta *chai
 		contractAddress = addr.String()
 	}
 
+	txType := "0x0"
+	if t.IsEthTx() {
+		if ethTx, err := t.GetEthTx(); err == nil {
+			switch ethTx.Type() {
+			case 2:
+				txType = "0x2"
+			case 1:
+				txType = "0x1"
+			}
+		}
+	}
+
 	result := map[string]interface{}{
 		"transactionHash":   t.ID().String(),
 		"transactionIndex":  hexUint64(meta.Index),
@@ -201,7 +213,7 @@ func meterReceiptToEthReceipt(receipt *tx.Receipt, t *tx.Transaction, meta *chai
 		"logs":              logs,
 		"logsBloom":         zeroBloom,
 		"status":            status,
-		"type":              "0x0",
+		"type":              txType,
 		"effectiveGasPrice": hexBig(gasPrice),
 	}
 

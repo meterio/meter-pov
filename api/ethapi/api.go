@@ -130,6 +130,9 @@ func (api *EthAPI) GetStorageAt(addr common.Address, key string, blockNrOrHash s
 	if err != nil {
 		return "0x0", err
 	}
+	// Pad key to 32 bytes (clients may send "0x1" instead of "0x000...001").
+	key = strings.TrimPrefix(key, "0x")
+	key = fmt.Sprintf("0x%064s", key)
 	k, err := meter.ParseBytes32(key)
 	if err != nil {
 		return "0x0", fmt.Errorf("invalid storage key: %v", err)
@@ -311,6 +314,16 @@ func (api *EthAPI) GetBlockTransactionCountByNumber(blockNr string) (string, err
 	return hexUint64(uint64(len(blk.Txs))), nil
 }
 
+// revertError implements rpc.DataError so geth serialises it as code=3 with data.
+type revertError struct {
+	reason string
+	data   string
+}
+
+func (e *revertError) Error() string      { return "execution reverted: " + e.reason }
+func (e *revertError) ErrorCode() int     { return 3 }
+func (e *revertError) ErrorData() interface{} { return e.data }
+
 func (api *EthAPI) Call(args CallArgs, blockNrOrHash string) (string, error) {
 	header, err := api.resolveBlockNumber(blockNrOrHash)
 	if err != nil {
@@ -319,6 +332,9 @@ func (api *EthAPI) Call(args CallArgs, blockNrOrHash string) (string, error) {
 	output, err := api.execCall(args, header)
 	if err != nil {
 		return "0x", err
+	}
+	if output.VMErr != nil {
+		return "0x", &revertError{reason: output.VMErr.Error(), data: hexutil.Encode(output.Data)}
 	}
 	return hexutil.Encode(output.Data), nil
 }
@@ -336,8 +352,16 @@ func (api *EthAPI) EstimateGas(args CallArgs, blockNrOrHash *string) (string, er
 	if err != nil {
 		return "0x0", err
 	}
+	if output.VMErr != nil {
+		return "0x0", &revertError{reason: output.VMErr.Error(), data: hexutil.Encode(output.Data)}
+	}
 
-	gasUsed := args.gasLimit() - output.LeftOverGas
+	// Determine the gas limit actually used by execCall.
+	effectiveGasLimit := api.callGasLimit
+	if args.Gas != nil && uint64(*args.Gas) > 0 && uint64(*args.Gas) < api.callGasLimit {
+		effectiveGasLimit = uint64(*args.Gas)
+	}
+	gasUsed := effectiveGasLimit - output.LeftOverGas
 	// Add intrinsic gas
 	data := args.dataBytes()
 	intrinsic := uint64(21000)
@@ -422,18 +446,21 @@ func (api *EthAPI) FeeHistory(blockCount hexutil.Uint64, newestBlock string, rew
 
 	baseFees := make([]string, 0, count+1)
 	gasUsedRatios := make([]float64, 0, count)
+	rewards := make([][]string, 0, count)
 
 	for i := startNum; i <= endNum; i++ {
 		h, err := api.chain.GetTrunkBlockHeader(uint32(i))
 		if err != nil {
 			baseFees = append(baseFees, "0x0")
 			gasUsedRatios = append(gasUsedRatios, 0)
+			rewards = append(rewards, emptyRewards(rewardPercentiles))
 			continue
 		}
 		s, err := api.stateCreator.NewState(h.StateRoot())
 		if err != nil {
 			baseFees = append(baseFees, "0x0")
 			gasUsedRatios = append(gasUsedRatios, 0)
+			rewards = append(rewards, emptyRewards(rewardPercentiles))
 			continue
 		}
 		baseGas := builtin.Params.Native(s).Get(meter.KeyBaseGasPrice)
@@ -445,14 +472,16 @@ func (api *EthAPI) FeeHistory(blockCount hexutil.Uint64, newestBlock string, rew
 			ratio = float64(gasUsed) / float64(gasLimit)
 		}
 		gasUsedRatios = append(gasUsedRatios, ratio)
+		rewards = append(rewards, emptyRewards(rewardPercentiles))
 	}
 	// One extra baseFee for the next block
 	baseFees = append(baseFees, baseFees[len(baseFees)-1])
 
 	return map[string]interface{}{
-		"oldestBlock":  hexUint64(startNum),
+		"oldestBlock":   hexUint64(startNum),
 		"baseFeePerGas": baseFees,
 		"gasUsedRatio":  gasUsedRatios,
+		"reward":        rewards,
 	}, nil
 }
 
@@ -906,6 +935,14 @@ func (api *EthAPI) buildPendingTx(t *tx.Transaction) map[string]interface{} {
 		"type":             "0x0",
 		"chainId":          hexBig(api.chainID),
 	}
+}
+
+func emptyRewards(percentiles []float64) []string {
+	r := make([]string, len(percentiles))
+	for i := range r {
+		r[i] = "0x0"
+	}
+	return r
 }
 
 func (api *EthAPI) queryLogs(fromBlock, toBlock uint32, addresses []common.Address, topics [][]common.Hash) ([]interface{}, error) {
