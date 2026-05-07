@@ -11,6 +11,7 @@ import (
 	"math/big"
 	"net"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/ethereum/go-ethereum/rpc"
@@ -68,10 +69,21 @@ func StartEthRPC(
 		panic(fmt.Sprintf("listen eth-rpc addr [%v]: %v", addr, err))
 	}
 
-	handler := server.WebsocketHandler([]string{"*"})
+	wsHandler := server.WebsocketHandler([]string{"*"})
+	httpHandler := newCORSHandler(server)
+	// combined dispatches WebSocket upgrades to wsHandler, plain HTTP to httpHandler.
+	// This allows clients to connect via ws://host:port/ (MetaMask, ethers.js default)
+	// as well as ws://host:port/ws.
+	combined := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.EqualFold(r.Header.Get("Upgrade"), "websocket") {
+			wsHandler.ServeHTTP(w, r)
+		} else {
+			httpHandler.ServeHTTP(w, r)
+		}
+	})
 	mux := http.NewServeMux()
-	mux.Handle("/ws", handler)
-	mux.Handle("/", newCORSHandler(server))
+	mux.Handle("/ws", combined)
+	mux.Handle("/", combined)
 
 	srv := &http.Server{
 		Handler:      mux,
