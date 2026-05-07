@@ -8,6 +8,7 @@ package ethapi
 import (
 	"context"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"log/slog"
 	"math/big"
@@ -18,6 +19,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/meterio/meter-pov/block"
 	"github.com/meterio/meter-pov/builtin"
 	"github.com/meterio/meter-pov/chain"
@@ -248,8 +250,17 @@ func (api *EthAPI) GetTransactionReceipt(hash common.Hash) (interface{}, error) 
 	if err != nil {
 		return nil, err
 	}
+	// compute cumulativeGasUsed by summing all receipts up to this tx
+	allReceipts, _ := api.chain.GetBlockReceipts(txMeta.BlockID)
+	cumGasUsed := uint64(0)
+	for i, r := range allReceipts {
+		cumGasUsed += r.GasUsed
+		if uint64(i) == txMeta.Index {
+			break
+		}
+	}
 	baseGasPrice := api.getBaseGasPrice(header)
-	return meterReceiptToEthReceipt(receipt, t, txMeta, header, api.chainID, baseGasPrice), nil
+	return meterReceiptToEthReceipt(receipt, t, txMeta, header, api.chainID, baseGasPrice, cumGasUsed), nil
 }
 
 func (api *EthAPI) GetTransactionByBlockNumberAndIndex(blockNr string, index hexutil.Uint) (interface{}, error) {
@@ -371,41 +382,27 @@ func (api *EthAPI) GetLogs(filter LogFilterArgs) ([]interface{}, error) {
 	fromBlock := uint32(0)
 	toBlock := api.chain.BestBlock().Number()
 
-	if filter.FromBlock != nil {
-		n, err := api.blockNumberToUint32(*filter.FromBlock)
-		if err == nil {
-			fromBlock = n
+	if filter.BlockHash != nil {
+		header, err := api.chain.GetBlockHeader(meter.Bytes32(*filter.BlockHash))
+		if err != nil {
+			return nil, nil
 		}
-	}
-	if filter.ToBlock != nil {
-		n, err := api.blockNumberToUint32(*filter.ToBlock)
-		if err == nil {
-			toBlock = n
+		fromBlock = header.Number()
+		toBlock = header.Number()
+	} else {
+		if filter.FromBlock != nil {
+			if n, err := api.blockNumberToUint32(*filter.FromBlock); err == nil {
+				fromBlock = n
+			}
+		}
+		if filter.ToBlock != nil {
+			if n, err := api.blockNumberToUint32(*filter.ToBlock); err == nil {
+				toBlock = n
+			}
 		}
 	}
 
-	addresses := filter.Addresses
-	if len(addresses) == 0 {
-		return api.queryLogs(fromBlock, toBlock, nil, filter.Topics)
-	}
-	if len(addresses) <= 10 {
-		return api.queryLogs(fromBlock, toBlock, addresses, filter.Topics)
-	}
-	// Chunk addresses 10-at-a-time
-	var allLogs []interface{}
-	for i := 0; i < len(addresses); i += 10 {
-		end := i + 10
-		if end > len(addresses) {
-			end = len(addresses)
-		}
-		chunk := addresses[i:end]
-		logs, err := api.queryLogs(fromBlock, toBlock, chunk, filter.Topics)
-		if err != nil {
-			return nil, err
-		}
-		allLogs = append(allLogs, logs...)
-	}
-	return allLogs, nil
+	return api.queryLogs(fromBlock, toBlock, filter.Addresses, filter.Topics)
 }
 
 func (api *EthAPI) FeeHistory(blockCount hexutil.Uint64, newestBlock string, rewardPercentiles []float64) (map[string]interface{}, error) {
@@ -474,14 +471,103 @@ func (api *EthAPI) GetBlockReceipts(blockNr string) ([]interface{}, error) {
 	}
 	baseGasPrice := api.getBaseGasPrice(header)
 	result := make([]interface{}, 0, len(blk.Txs))
+	cumGasUsed := uint64(0)
 	for i, t := range blk.Txs {
 		if i >= len(receipts) {
 			break
 		}
+		cumGasUsed += receipts[i].GasUsed
 		meta := &chain.TxMeta{BlockID: header.ID(), Index: uint64(i)}
-		result = append(result, meterReceiptToEthReceipt(receipts[i], t, meta, header, api.chainID, baseGasPrice))
+		result = append(result, meterReceiptToEthReceipt(receipts[i], t, meta, header, api.chainID, baseGasPrice, cumGasUsed))
 	}
 	return result, nil
+}
+
+// ---------- WebSocket Subscriptions ----------
+
+// NewHeads sends a notification each time a new block is appended to the chain.
+// Mapped to eth_subscribe("newHeads") by the geth rpc.Server.
+func (api *EthAPI) NewHeads(ctx context.Context) (*rpc.Subscription, error) {
+	notifier, supported := rpc.NotifierFromContext(ctx)
+	if !supported {
+		return &rpc.Subscription{}, rpc.ErrNotificationsUnsupported
+	}
+	sub := notifier.CreateSubscription()
+	go func() {
+		ticker := api.chain.NewTicker()
+		for {
+			select {
+			case <-sub.Err():
+				return
+			case <-ticker.C():
+				best := api.chain.BestBlock()
+				blk, err := api.buildEthBlock(best, false)
+				if err != nil {
+					return
+				}
+				notifier.Notify(sub.ID, blk) //nolint:errcheck
+			}
+		}
+	}()
+	return sub, nil
+}
+
+// Logs sends a notification for each log matching the filter.
+// Mapped to eth_subscribe("logs", filter) by the geth rpc.Server.
+func (api *EthAPI) Logs(ctx context.Context, filter LogSubFilter) (*rpc.Subscription, error) {
+	notifier, supported := rpc.NotifierFromContext(ctx)
+	if !supported {
+		return &rpc.Subscription{}, rpc.ErrNotificationsUnsupported
+	}
+	sub := notifier.CreateSubscription()
+	go func() {
+		best := api.chain.BestBlock()
+		blockReader := api.chain.NewBlockReader(best.ID())
+		ticker := api.chain.NewTicker()
+		for {
+			blocks, err := blockReader.Read()
+			if err != nil {
+				return
+			}
+			for _, blk := range blocks {
+				header := blk.Header()
+				receipts, err := api.chain.GetBlockReceipts(blk.ID())
+				if err != nil {
+					continue
+				}
+				logIndex := 0
+				for i, receipt := range receipts {
+					if i >= len(blk.Txs) {
+						break
+					}
+					t := blk.Txs[i]
+					meta := &chain.TxMeta{BlockID: header.ID(), Index: uint64(i)}
+					for _, output := range receipt.Outputs {
+						for _, event := range output.Events {
+							if matchesLogFilter(event, filter) {
+								notifier.Notify(sub.ID, meterLogToEthLog(event, header, t, meta, logIndex)) //nolint:errcheck
+							}
+							logIndex++
+						}
+					}
+				}
+			}
+			if len(blocks) == 0 {
+				select {
+				case <-sub.Err():
+					return
+				case <-ticker.C():
+				}
+			} else {
+				select {
+				case <-sub.Err():
+					return
+				default:
+				}
+			}
+		}
+	}()
+	return sub, nil
 }
 
 // ---------- Net / Web3 / RPC / EVM ----------
@@ -528,6 +614,43 @@ func (api *EVMAPI) Revert(id string) bool {
 	return true
 }
 
+// ---------- Debug / Trace ----------
+
+// DebugAPI implements debug_* methods. Tracing requires a native tracer
+// implementation; for now these return stubs so clients don't hard-error.
+type DebugAPI struct{}
+
+func (api *DebugAPI) TraceTransaction(hash common.Hash, params interface{}) (interface{}, error) {
+	return map[string]interface{}{
+		"gas":         "0x0",
+		"returnValue": "",
+		"structLogs":  []interface{}{},
+	}, nil
+}
+
+func (api *DebugAPI) StorageRangeAt(blkHash common.Hash, txIndex int, addr common.Address, keyStart string, maxResult int) (interface{}, error) {
+	return map[string]interface{}{
+		"storage": map[string]interface{}{},
+		"nextKey": nil,
+	}, nil
+}
+
+// TraceAPI implements trace_* methods (Parity-style tracing).
+// These proxy calls are stubs until native tracing is implemented.
+type TraceAPI struct{}
+
+func (api *TraceAPI) Filter(filter interface{}) ([]interface{}, error) {
+	return []interface{}{}, nil
+}
+
+func (api *TraceAPI) Transaction(hash common.Hash) ([]interface{}, error) {
+	return []interface{}{}, nil
+}
+
+func (api *TraceAPI) Block(blockNr string) ([]interface{}, error) {
+	return []interface{}{}, nil
+}
+
 // ---------- Helpers ----------
 
 type CallArgs struct {
@@ -557,12 +680,71 @@ func (args CallArgs) dataBytes() []byte {
 	return nil
 }
 
+// TopicFilter handles the Ethereum topics encoding where each position can be
+// null (match any), a single hash, or an array of hashes (OR match).
+type TopicFilter [][]common.Hash
+
+func (t *TopicFilter) UnmarshalJSON(data []byte) error {
+	if string(data) == "null" {
+		return nil
+	}
+	var raw []json.RawMessage
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return err
+	}
+	result := make([][]common.Hash, len(raw))
+	for i, r := range raw {
+		if string(r) == "null" {
+			result[i] = nil
+			continue
+		}
+		var single common.Hash
+		if err := json.Unmarshal(r, &single); err == nil {
+			result[i] = []common.Hash{single}
+			continue
+		}
+		var arr []common.Hash
+		if err := json.Unmarshal(r, &arr); err != nil {
+			return err
+		}
+		result[i] = arr
+	}
+	*t = TopicFilter(result)
+	return nil
+}
+
+// AddressOrArray handles a JSON field that can be a single address or array of addresses.
+type AddressOrArray []common.Address
+
+func (a *AddressOrArray) UnmarshalJSON(data []byte) error {
+	if string(data) == "null" {
+		return nil
+	}
+	var single common.Address
+	if err := json.Unmarshal(data, &single); err == nil {
+		*a = AddressOrArray{single}
+		return nil
+	}
+	var arr []common.Address
+	if err := json.Unmarshal(data, &arr); err != nil {
+		return err
+	}
+	*a = AddressOrArray(arr)
+	return nil
+}
+
 type LogFilterArgs struct {
-	FromBlock *string          `json:"fromBlock"`
-	ToBlock   *string          `json:"toBlock"`
-	Addresses []common.Address `json:"address"`
-	Topics    [][]common.Hash  `json:"topics"`
-	BlockHash *common.Hash     `json:"blockHash"`
+	FromBlock *string        `json:"fromBlock"`
+	ToBlock   *string        `json:"toBlock"`
+	Addresses AddressOrArray `json:"address"`
+	Topics    TopicFilter    `json:"topics"`
+	BlockHash *common.Hash   `json:"blockHash"`
+}
+
+// LogSubFilter is used for eth_subscribe("logs", filter).
+type LogSubFilter struct {
+	Addresses AddressOrArray `json:"address"`
+	Topics    TopicFilter    `json:"topics"`
 }
 
 func (api *EthAPI) execCall(args CallArgs, header *block.Header) (*runtime.Output, error) {
@@ -727,22 +909,7 @@ func (api *EthAPI) buildPendingTx(t *tx.Transaction) map[string]interface{} {
 }
 
 func (api *EthAPI) queryLogs(fromBlock, toBlock uint32, addresses []common.Address, topics [][]common.Hash) ([]interface{}, error) {
-	var criteriaSet []*logdb.EventCriteria
-
-	if len(addresses) == 0 && len(topics) == 0 {
-		criteriaSet = []*logdb.EventCriteria{{}}
-	} else if len(addresses) == 0 {
-		c := &logdb.EventCriteria{}
-		api.applyTopics(c, topics)
-		criteriaSet = []*logdb.EventCriteria{c}
-	} else {
-		for _, addr := range addresses {
-			a := meter.Address(addr)
-			c := &logdb.EventCriteria{Address: &a}
-			api.applyTopics(c, topics)
-			criteriaSet = append(criteriaSet, c)
-		}
-	}
+	criteriaSet := buildCriteriaSet(addresses, topics)
 
 	filter := &logdb.EventFilter{
 		CriteriaSet: criteriaSet,
@@ -761,15 +928,15 @@ func (api *EthAPI) queryLogs(fromBlock, toBlock uint32, addresses []common.Addre
 
 	result := make([]interface{}, 0, len(events))
 	for _, ev := range events {
-		topics := make([]string, 0)
+		evTopics := make([]string, 0)
 		for _, t := range ev.Topics {
 			if t != nil {
-				topics = append(topics, t.String())
+				evTopics = append(evTopics, t.String())
 			}
 		}
 		result = append(result, map[string]interface{}{
 			"address":          ev.Address.String(),
-			"topics":           topics,
+			"topics":           evTopics,
 			"data":             hexutil.Encode(ev.Data),
 			"blockHash":        ev.BlockID.String(),
 			"blockNumber":      hexUint64(uint64(ev.BlockNumber)),
@@ -782,12 +949,70 @@ func (api *EthAPI) queryLogs(fromBlock, toBlock uint32, addresses []common.Addre
 	return result, nil
 }
 
-func (api *EthAPI) applyTopics(c *logdb.EventCriteria, topics [][]common.Hash) {
+// buildCriteriaSet builds a logdb criteria set from addresses and topics,
+// correctly expanding OR-topic positions into multiple criteria.
+func buildCriteriaSet(addresses []common.Address, topics [][]common.Hash) []*logdb.EventCriteria {
+	// Start with one criteria per address (or one with no address filter).
+	bases := make([]*logdb.EventCriteria, 0)
+	if len(addresses) == 0 {
+		bases = append(bases, &logdb.EventCriteria{})
+	} else {
+		for _, addr := range addresses {
+			a := meter.Address(addr)
+			bases = append(bases, &logdb.EventCriteria{Address: &a})
+		}
+	}
+
+	// For each topic position, expand OR values into multiple criteria.
 	for i, topicList := range topics {
 		if i >= 5 || len(topicList) == 0 {
-			continue
+			continue // nil/empty means match any — leave criteria.Topics[i] as nil
 		}
-		t := meter.Bytes32(topicList[0])
-		c.Topics[i] = &t
+		expanded := make([]*logdb.EventCriteria, 0, len(bases)*len(topicList))
+		for _, base := range bases {
+			for _, topic := range topicList {
+				c := *base // shallow copy — safe since we only set new pointers
+				t := meter.Bytes32(topic)
+				c.Topics[i] = &t
+				expanded = append(expanded, &c)
+			}
+		}
+		bases = expanded
 	}
+	return bases
+}
+
+// matchesLogFilter reports whether an event matches a log subscription filter.
+func matchesLogFilter(event *tx.Event, filter LogSubFilter) bool {
+	if len(filter.Addresses) > 0 {
+		found := false
+		for _, addr := range filter.Addresses {
+			if meter.Address(addr) == event.Address {
+				found = true
+				break
+			}
+		}
+		if !found {
+			return false
+		}
+	}
+	for i, topicList := range filter.Topics {
+		if len(topicList) == 0 {
+			continue // null = match any
+		}
+		if i >= len(event.Topics) {
+			return false
+		}
+		found := false
+		for _, topic := range topicList {
+			if meter.Bytes32(topic) == event.Topics[i] {
+				found = true
+				break
+			}
+		}
+		if !found {
+			return false
+		}
+	}
+	return true
 }

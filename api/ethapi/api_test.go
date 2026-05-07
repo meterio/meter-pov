@@ -7,7 +7,6 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/meterio/meter-pov/logdb"
 	"github.com/meterio/meter-pov/meter"
 	"github.com/stretchr/testify/assert"
 )
@@ -200,69 +199,70 @@ func TestEthAPI_GetFilterChanges_NotFound(t *testing.T) {
 	assert.Equal(t, []string{}, hashes)
 }
 
-// ---------- applyTopics tests ----------
+// ---------- buildCriteriaSet tests ----------
 
-func TestApplyTopics(t *testing.T) {
-	api := &EthAPI{}
-
-	t.Run("empty topics", func(t *testing.T) {
-		c := &logdb.EventCriteria{}
-		api.applyTopics(c, nil)
-		for _, topic := range c.Topics {
+func TestBuildCriteriaSet(t *testing.T) {
+	t.Run("no addresses no topics", func(t *testing.T) {
+		cs := buildCriteriaSet(nil, nil)
+		assert.Equal(t, 1, len(cs))
+		assert.Nil(t, cs[0].Address)
+		for _, topic := range cs[0].Topics {
 			assert.Nil(t, topic)
 		}
 	})
 
-	t.Run("single topic", func(t *testing.T) {
-		c := &logdb.EventCriteria{}
-		topicHash := common.HexToHash("0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef")
-		api.applyTopics(c, [][]common.Hash{{topicHash}})
-		assert.NotNil(t, c.Topics[0])
-		assert.Equal(t, meter.Bytes32(topicHash), *c.Topics[0])
-		assert.Nil(t, c.Topics[1])
+	t.Run("single address no topics", func(t *testing.T) {
+		addr := common.HexToAddress("0xdeadbeef")
+		cs := buildCriteriaSet([]common.Address{addr}, nil)
+		assert.Equal(t, 1, len(cs))
+		assert.NotNil(t, cs[0].Address)
 	})
 
-	t.Run("multiple topics", func(t *testing.T) {
-		c := &logdb.EventCriteria{}
-		topic0 := common.HexToHash("0xaaaa")
-		topic1 := common.HexToHash("0xbbbb")
-		topic2 := common.HexToHash("0xcccc")
-		api.applyTopics(c, [][]common.Hash{{topic0}, {topic1}, {topic2}})
-		assert.NotNil(t, c.Topics[0])
-		assert.NotNil(t, c.Topics[1])
-		assert.NotNil(t, c.Topics[2])
-		assert.Nil(t, c.Topics[3])
-		assert.Nil(t, c.Topics[4])
+	t.Run("single topic exact match", func(t *testing.T) {
+		h := common.HexToHash("0x1234")
+		cs := buildCriteriaSet(nil, [][]common.Hash{{h}})
+		assert.Equal(t, 1, len(cs))
+		assert.NotNil(t, cs[0].Topics[0])
+		assert.Equal(t, meter.Bytes32(h), *cs[0].Topics[0])
 	})
 
-	t.Run("empty topic list skipped", func(t *testing.T) {
-		c := &logdb.EventCriteria{}
-		topic1 := common.HexToHash("0xdddd")
-		api.applyTopics(c, [][]common.Hash{{}, {topic1}})
-		assert.Nil(t, c.Topics[0])
-		assert.NotNil(t, c.Topics[1])
+	t.Run("OR topics expand into multiple criteria", func(t *testing.T) {
+		h1 := common.HexToHash("0x1111")
+		h2 := common.HexToHash("0x2222")
+		cs := buildCriteriaSet(nil, [][]common.Hash{{h1, h2}})
+		assert.Equal(t, 2, len(cs))
+		assert.Equal(t, meter.Bytes32(h1), *cs[0].Topics[0])
+		assert.Equal(t, meter.Bytes32(h2), *cs[1].Topics[0])
 	})
 
-	t.Run("more than 5 topics truncated", func(t *testing.T) {
-		c := &logdb.EventCriteria{}
+	t.Run("two addresses times two OR topics", func(t *testing.T) {
+		a1 := common.HexToAddress("0x1111")
+		a2 := common.HexToAddress("0x2222")
+		h1 := common.HexToHash("0xaaaa")
+		h2 := common.HexToHash("0xbbbb")
+		cs := buildCriteriaSet([]common.Address{a1, a2}, [][]common.Hash{{h1, h2}})
+		// 2 addresses × 2 topic OR values = 4 criteria
+		assert.Equal(t, 4, len(cs))
+	})
+
+	t.Run("empty topic slot means match any", func(t *testing.T) {
+		h1 := common.HexToHash("0xdddd")
+		cs := buildCriteriaSet(nil, [][]common.Hash{{}, {h1}})
+		assert.Equal(t, 1, len(cs))
+		assert.Nil(t, cs[0].Topics[0])
+		assert.NotNil(t, cs[0].Topics[1])
+	})
+
+	t.Run("more than 5 topic positions truncated", func(t *testing.T) {
 		topics := make([][]common.Hash, 7)
 		for i := range topics {
 			topics[i] = []common.Hash{common.HexToHash("0x01")}
 		}
-		api.applyTopics(c, topics)
-		// Only first 5 should be set
+		cs := buildCriteriaSet(nil, topics)
+		assert.Equal(t, 1, len(cs))
 		for i := 0; i < 5; i++ {
-			assert.NotNil(t, c.Topics[i])
+			assert.NotNil(t, cs[0].Topics[i])
 		}
-	})
-
-	t.Run("multiple hashes in topic uses first", func(t *testing.T) {
-		c := &logdb.EventCriteria{}
-		h1 := common.HexToHash("0x1111")
-		h2 := common.HexToHash("0x2222")
-		api.applyTopics(c, [][]common.Hash{{h1, h2}})
-		assert.NotNil(t, c.Topics[0])
-		assert.Equal(t, meter.Bytes32(h1), *c.Topics[0])
 	})
 }
 

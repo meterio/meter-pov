@@ -268,7 +268,7 @@ func TestMeterReceiptToEthReceipt_Success(t *testing.T) {
 		},
 	}
 
-	result := meterReceiptToEthReceipt(receipt, trx, meta, header, chainID, baseGasPrice)
+	result := meterReceiptToEthReceipt(receipt, trx, meta, header, chainID, baseGasPrice, receipt.GasUsed)
 
 	assert.Equal(t, trx.ID().String(), result["transactionHash"])
 	assert.Equal(t, header.ID().String(), result["blockHash"])
@@ -308,7 +308,7 @@ func TestMeterReceiptToEthReceipt_Reverted(t *testing.T) {
 		Outputs:  []*tx.Output{},
 	}
 
-	result := meterReceiptToEthReceipt(receipt, trx, meta, header, big.NewInt(82), big.NewInt(0))
+	result := meterReceiptToEthReceipt(receipt, trx, meta, header, big.NewInt(82), big.NewInt(0), receipt.GasUsed)
 	assert.Equal(t, "0x0", result["status"]) // reverted
 }
 
@@ -327,7 +327,7 @@ func TestMeterReceiptToEthReceipt_ContractCreation(t *testing.T) {
 		Outputs:  []*tx.Output{},
 	}
 
-	result := meterReceiptToEthReceipt(receipt, trx, meta, header, big.NewInt(82), big.NewInt(0))
+	result := meterReceiptToEthReceipt(receipt, trx, meta, header, big.NewInt(82), big.NewInt(0), receipt.GasUsed)
 
 	// Contract creation should produce a contract address
 	assert.NotNil(t, result["contractAddress"])
@@ -368,7 +368,7 @@ func TestMeterReceiptToEthReceipt_MultipleEventsAcrossOutputs(t *testing.T) {
 		},
 	}
 
-	result := meterReceiptToEthReceipt(receipt, trx, meta, header, big.NewInt(82), big.NewInt(0))
+	result := meterReceiptToEthReceipt(receipt, trx, meta, header, big.NewInt(82), big.NewInt(0), receipt.GasUsed)
 
 	logs, ok := result["logs"].([]interface{})
 	assert.True(t, ok)

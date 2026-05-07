@@ -56,7 +56,7 @@ func meterBlockToEthBlock(blk *block.Block, receipts tx.Receipts, expanded bool,
 		"extraData":        "0x",
 		"difficulty":       "0x0",
 		"uncles":           []string{},
-		"baseFeePerGas":    "0x0",
+		"baseFeePerGas":    hexBig(baseGasPrice),
 	}
 
 	if expanded {
@@ -156,7 +156,7 @@ func meterTxToEthTx(t *tx.Transaction, meta *chain.TxMeta, header *block.Header,
 	return result
 }
 
-func meterReceiptToEthReceipt(receipt *tx.Receipt, t *tx.Transaction, meta *chain.TxMeta, header *block.Header, chainID *big.Int, baseGasPrice *big.Int) map[string]interface{} {
+func meterReceiptToEthReceipt(receipt *tx.Receipt, t *tx.Transaction, meta *chain.TxMeta, header *block.Header, chainID *big.Int, baseGasPrice *big.Int, cumulativeGasUsed uint64) map[string]interface{} {
 	origin, _ := t.Signer()
 	clauses := t.Clauses()
 
@@ -196,7 +196,7 @@ func meterReceiptToEthReceipt(receipt *tx.Receipt, t *tx.Transaction, meta *chai
 		"from":              origin.String(),
 		"to":                to,
 		"gasUsed":           hexUint64(receipt.GasUsed),
-		"cumulativeGasUsed": hexUint64(receipt.GasUsed),
+		"cumulativeGasUsed": hexUint64(cumulativeGasUsed),
 		"contractAddress":   contractAddress,
 		"logs":              logs,
 		"logsBloom":         zeroBloom,

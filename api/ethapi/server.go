@@ -56,6 +56,12 @@ func StartEthRPC(
 	if err := server.RegisterName("evm", &EVMAPI{}); err != nil {
 		panic(fmt.Sprintf("register evm namespace: %v", err))
 	}
+	if err := server.RegisterName("debug", &DebugAPI{}); err != nil {
+		panic(fmt.Sprintf("register debug namespace: %v", err))
+	}
+	if err := server.RegisterName("trace", &TraceAPI{}); err != nil {
+		panic(fmt.Sprintf("register trace namespace: %v", err))
+	}
 
 	listener, err := net.Listen("tcp", addr)
 	if err != nil {
