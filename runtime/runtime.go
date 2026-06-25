@@ -672,6 +672,43 @@ func (rt *Runtime) restrictTransfer(stateDB *statedb.StateDB, addr meter.Address
 	}
 }
 
+// rejectInvalidNativeValue enforces, from TeslaFork14 onward, two native-token
+// invariants that the EVM's single CALLVALUE model cannot represent safely:
+//  1. Only MTR and MTRG are valid native tokens; any other token identifier is
+//     rejected outright.
+//  2. Non-MTR native value (e.g. MTRG, the governance token) may not be delivered
+//     as CALLVALUE into contract code, because the EVM cannot distinguish which
+//     native token a CALLVALUE represents. Such value is only allowed when sent to
+//     a plain externally-owned account (EOA).
+//
+// Returns true when the clause must be rejected.
+func (rt *Runtime) rejectInvalidNativeValue(stateDB *statedb.StateDB, clause *tx.Clause, blockNum uint32) bool {
+	if !meter.IsTeslaFork14(blockNum) {
+		return false
+	}
+
+	token := clause.Token()
+
+	// (1) only MTR and MTRG are valid native tokens
+	if token != meter.MTR && token != meter.MTRG {
+		return true
+	}
+
+	// (2) non-MTR native value may not be delivered as CALLVALUE to contract code
+	if token != meter.MTR && clause.Value().Sign() != 0 {
+		to := clause.To()
+		if to == nil {
+			// contract creation: the constructor would observe msg.value
+			return true
+		}
+		if len(stateDB.GetCode(common.Address(*to))) > 0 {
+			return true
+		}
+	}
+
+	return false
+}
+
 // SetVMConfig config VM.
 // Returns this runtime.
 func (rt *Runtime) SetVMConfig(config vm.Config) *Runtime {
@@ -1081,6 +1118,26 @@ func (rt *Runtime) PrepareClause(
 				LeftOverGas:     leftOverGas,
 				RefundGas:       stateDB.GetRefund(),
 				VMErr:           errors.New("account is restricted to transfer"),
+				ContractAddress: contractAddr,
+			}
+			return output, false
+		}
+
+		// reject clauses carrying an unknown native token, or delivering non-MTR
+		// native value as CALLVALUE into contract code. See rejectInvalidNativeValue.
+		if rt.rejectInvalidNativeValue(stateDB, clause, rt.ctx.Number) {
+			var leftOverGas uint64
+			if gas > meter.ClauseGas {
+				leftOverGas = gas - meter.ClauseGas
+			} else {
+				leftOverGas = 0
+			}
+
+			output := &Output{
+				Data:            []byte{},
+				LeftOverGas:     leftOverGas,
+				RefundGas:       stateDB.GetRefund(),
+				VMErr:           errors.New("invalid native token transfer"),
 				ContractAddress: contractAddr,
 			}
 			return output, false
