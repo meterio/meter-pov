@@ -215,9 +215,6 @@ const (
 //     Fork14 corrects this at a coordinated future block so all nodes write the
 //     same state (setting it retroactively at the passed Fork13 height would fork
 //     the chain).
-//  2. Reject native-token transfers that carry an unknown token identifier or that
-//     send MTRG (governance) value into a contract, which the EVM single-CALLVALUE
-//     model cannot represent safely.
 const (
 	TeslaFork14_MainnetStartNum = 95627400
 	TeslaFork14_TestnetStartNum = 99056000
