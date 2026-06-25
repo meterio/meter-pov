@@ -211,7 +211,7 @@ const (
 // contract code. Fork-gated so historical blocks replay unchanged.
 const (
 	TeslaFork14_MainnetStartNum = 99999999 // FIXME: set to activation block before release
-	TeslaFork14_TestnetStartNum = 99999999 // FIXME: set to activation block before release
+	TeslaFork14_TestnetStartNum = 99056000
 )
 
 var (
