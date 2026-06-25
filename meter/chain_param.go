@@ -208,6 +208,15 @@ const (
 	TeslaFork13_TestnetStartNum = 99999999
 )
 
+// Fork14
+// Native multi-token value handling: reject clauses carrying an unknown native
+// token byte, and reject non-MTR native value delivered as CALLVALUE into
+// contract code. Fork-gated so historical blocks replay unchanged.
+const (
+	TeslaFork14_MainnetStartNum = 95538800
+	TeslaFork14_TestnetStartNum = 99999999 // FIXME: set to activation block before release
+)
+
 var (
 	// BlocktChainConfig is the chain parameters to run a node on the main network.
 	BlockChainConfig = &ChainConfig{
@@ -357,4 +366,8 @@ func IsTeslaFork12(blockNum uint32) bool {
 
 func IsTeslaFork13(blockNum uint32) bool {
 	return (BlockChainConfig.IsMainnet() && blockNum > TeslaFork13_MainnetStartNum) || (BlockChainConfig.IsTestnet() && blockNum > TeslaFork13_TestnetStartNum)
+}
+
+func IsTeslaFork14(blockNum uint32) bool {
+	return (BlockChainConfig.IsMainnet() && blockNum > TeslaFork14_MainnetStartNum) || (BlockChainConfig.IsTestnet() && blockNum > TeslaFork14_TestnetStartNum)
 }
