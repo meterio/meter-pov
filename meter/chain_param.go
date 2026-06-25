@@ -208,6 +208,21 @@ const (
 	TeslaFork13_TestnetStartNum = 99999999
 )
 
+// Fork14 fixes include:
+//  1. Set the Fork13 correction flag (KeyEnforceTesla_Fork13_Correction).
+//     The mainnet-deployed Fork13 correction had a copy-paste bug: it wrote the
+//     Fork12 key instead of the Fork13 key, so the Fork13 flag was never set.
+//     Fork14 corrects this at a coordinated future block so all nodes write the
+//     same state (setting it retroactively at the passed Fork13 height would fork
+//     the chain).
+//  2. Reject native-token transfers that carry an unknown token identifier or that
+//     send MTRG (governance) value into a contract, which the EVM single-CALLVALUE
+//     model cannot represent safely.
+const (
+	TeslaFork14_MainnetStartNum = 95538800
+	TeslaFork14_TestnetStartNum = 99056000
+)
+
 var (
 	// BlocktChainConfig is the chain parameters to run a node on the main network.
 	BlockChainConfig = &ChainConfig{
@@ -357,4 +372,8 @@ func IsTeslaFork12(blockNum uint32) bool {
 
 func IsTeslaFork13(blockNum uint32) bool {
 	return (BlockChainConfig.IsMainnet() && blockNum > TeslaFork13_MainnetStartNum) || (BlockChainConfig.IsTestnet() && blockNum > TeslaFork13_TestnetStartNum)
+}
+
+func IsTeslaFork14(blockNum uint32) bool {
+	return (BlockChainConfig.IsMainnet() && blockNum > TeslaFork14_MainnetStartNum) || (BlockChainConfig.IsTestnet() && blockNum > TeslaFork14_TestnetStartNum)
 }
