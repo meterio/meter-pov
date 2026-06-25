@@ -219,7 +219,7 @@ const (
 //     send MTRG (governance) value into a contract, which the EVM single-CALLVALUE
 //     model cannot represent safely.
 const (
-	TeslaFork14_MainnetStartNum = 95538800
+	TeslaFork14_MainnetStartNum = 95627400
 	TeslaFork14_TestnetStartNum = 99056000
 )
 
