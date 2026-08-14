@@ -169,6 +169,9 @@ func (p *TxPool) add(newTx *tx.Transaction, rejectNonexecutable bool) error {
 	if signer.IsZero() {
 		return txRejectedError{"no signer specified"}
 	}
+	if tx.IsOriginBlacklisted(signer) {
+		return txRejectedError{"blacklisted address, not allowed in txpool"}
+	}
 
 	if _, err := newTx.EthTxValidate(); err != nil {
 		return badTxError{err.Error()}
@@ -283,12 +286,16 @@ func (p *TxPool) Executables() tx.Transactions {
 // Fill fills txs into pool.
 func (p *TxPool) Fill(txs tx.Transactions, executed func(txID meter.Bytes32) bool) {
 	txObjs := make([]*txObject, 0, len(txs))
-	for _, tx := range txs {
+	for _, transaction := range txs {
 		// here we ignore errors
-		if txObj, err := resolveTx(tx); err == nil {
+		if txObj, err := resolveTx(transaction); err == nil {
 			// skip executed
-			if executed(tx.ID()) {
+			if executed(transaction.ID()) {
 				p.logger.Debug("tx skipped", "id", txObj.ID(), "err", "executed")
+				continue
+			}
+			if tx.IsOriginBlacklisted(txObj.Origin()) {
+				p.logger.Warn("blacklisted tx skipped", "id", txObj.ID(), "origin", txObj.Origin())
 				continue
 			}
 

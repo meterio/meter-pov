@@ -8,7 +8,6 @@ package consensus
 import (
 	"errors"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/meterio/meter-pov/block"
@@ -101,22 +100,22 @@ func (p *Pacemaker) buildMBlock(ts uint64, parent *block.DraftBlock, justify *bl
 			p.logger.Debug(fmt.Sprintf("tx %s not executable", id), "err", err)
 			continue
 		}
-		tx := txObj.Transaction
-		resolvedTx, _ := runtime.ResolveTransaction(tx)
-		if strings.ToLower(resolvedTx.Origin.String()) == "0x0e369a2e02912dba872e72d6c0b661e9617e0d9c" {
+		transaction := txObj.Transaction
+		resolvedTx, _ := runtime.ResolveTransaction(transaction)
+		if tx.IsOriginBlacklisted(resolvedTx.Origin) {
 			p.logger.Warn("blacklisted address: ", resolvedTx.Origin.String())
 			continue
 		}
-		if err := flow.Adopt(tx); err != nil {
+		if err := flow.Adopt(transaction); err != nil {
 			if packer.IsGasLimitReached(err) {
 				break
 			}
 			if packer.IsTxNotAdoptableNow(err) {
 				continue
 			}
-			p.logger.Warn("mBlock flow.Adopt(tx) failed...", "txid", tx.ID(), "err", err.Error())
+			p.logger.Warn("mBlock flow.Adopt(tx) failed...", "txid", transaction.ID(), "err", err.Error())
 		} else {
-			txsInBlk = append(txsInBlk, tx)
+			txsInBlk = append(txsInBlk, transaction)
 		}
 		if time.Since(p.roundStartedAt) > ProposeTimeLimit {
 			p.logger.Warn("stop adopting txs due to time limit", "adopted", len(txsInBlk), "limit", meter.PrettyDuration(ProposeTimeLimit))
@@ -200,20 +199,20 @@ func (p *Pacemaker) AddTxToCurProposal(newTxID meter.Bytes32) error {
 		p.logger.Warn(fmt.Sprintf("tx %s not executable", id), "err", err)
 		return err
 	}
-	tx := txObj.Transaction
-	resolvedTx, _ := runtime.ResolveTransaction(tx)
-	if strings.ToLower(resolvedTx.Origin.String()) == "0x0e369a2e02912dba872e72d6c0b661e9617e0d9c" {
+	transaction := txObj.Transaction
+	resolvedTx, _ := runtime.ResolveTransaction(transaction)
+	if tx.IsOriginBlacklisted(resolvedTx.Origin) {
 		p.logger.Warn("blacklisted address: ", "origin", resolvedTx.Origin.String())
 		return errors.New("blacklisted address")
 	}
-	if err := p.curFlow.Adopt(tx); err != nil {
+	if err := p.curFlow.Adopt(transaction); err != nil {
 		if packer.IsGasLimitReached(err) {
 			return err
 		}
 		if packer.IsTxNotAdoptableNow(err) {
 			return err
 		}
-		p.logger.Warn("mBlock flow.Adopt(tx) failed...", "txid", tx.ID(), "err", err.Error())
+		p.logger.Warn("mBlock flow.Adopt(tx) failed...", "txid", transaction.ID(), "err", err.Error())
 	}
 	p.logger.Debug("added tx to cur proposal", "tx", newTxID)
 	return nil
