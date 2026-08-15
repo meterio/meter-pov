@@ -199,7 +199,7 @@ type PeerSet struct {
 	m       map[enode.ID]*Peer
 	d       map[enode.ID]string
 	counter DirectionCount
-	lock    sync.Mutex
+	lock    sync.RWMutex
 }
 
 // NewSet create a peer set instance.
@@ -226,8 +226,8 @@ func (ps *PeerSet) Add(peer *Peer, dir string) {
 
 // Find find peer for given nodeID.
 func (ps *PeerSet) Find(nodeID enode.ID) *Peer {
-	ps.lock.Lock()
-	defer ps.lock.Unlock()
+	ps.lock.RLock()
+	defer ps.lock.RUnlock()
 	return ps.m[nodeID]
 }
 
@@ -251,17 +251,16 @@ func (ps *PeerSet) Remove(nodeID enode.ID) *Peer {
 	return nil
 }
 
-// Slice dumps all peers into a slice.
-// The dumped slice is a random permutation.
+// Slice dumps all peers into a randomly permuted slice.
+// Used for broadcast where random ordering distributes propagation evenly.
 func (ps *PeerSet) Slice() Peers {
-	ps.lock.Lock()
-	defer ps.lock.Unlock()
+	ps.lock.RLock()
+	defer ps.lock.RUnlock()
 
 	ret := make(Peers, len(ps.m))
 	perm := rand.Perm(len(ps.m))
 	i := 0
 	for _, s := range ps.m {
-		// randomly
 		ret[perm[i]] = s
 		i++
 	}
@@ -270,14 +269,14 @@ func (ps *PeerSet) Slice() Peers {
 
 // Len returns length of set.
 func (ps *PeerSet) Len() int {
-	ps.lock.Lock()
-	defer ps.lock.Unlock()
+	ps.lock.RLock()
+	defer ps.lock.RUnlock()
 
 	return len(ps.m)
 }
 
 func (ps *PeerSet) DirectionCount() DirectionCount {
-	ps.lock.Lock()
-	defer ps.lock.Unlock()
+	ps.lock.RLock()
+	defer ps.lock.RUnlock()
 	return ps.counter
 }
