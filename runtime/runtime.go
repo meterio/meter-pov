@@ -587,7 +587,7 @@ func (rt *Runtime) EnforceTeslaFork13_Corrections(stateDB *statedb.StateDB, bloc
 			log.Info("Start fork13 correction")
 
 			log.Info("set fork13 correction", "value", 1)
-			builtin.Params.Native(rt.State()).Set(meter.KeyEnforceTesla_Fork12_Correction, big.NewInt(1))
+			builtin.Params.Native(rt.State()).Set(meter.KeyEnforceTesla_Fork13_Correction, big.NewInt(1))
 			log.Info("Finished fork13 correction")
 		}
 	}
