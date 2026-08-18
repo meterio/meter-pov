@@ -105,7 +105,13 @@ func (c *Communicator) handleRPC(peer *Peer, msg *p2p.Msg, write func(interface{
 				}
 			}
 			if escortQC != nil && blk != nil {
-				bbytes, _ := rlp.EncodeToBytes(&block.EscortedBlock{Block: blk, EscortQC: escortQC})
+				var bbytes []byte
+				if cached, ok := c.encodedBlocksCache.Get(blk.ID()); ok {
+					bbytes = cached.([]byte)
+				} else {
+					bbytes, _ = rlp.EncodeToBytes(&block.EscortedBlock{Block: blk, EscortQC: escortQC})
+					c.encodedBlocksCache.Add(blk.ID(), bbytes)
+				}
 				result = append(result, rlp.RawValue(bbytes))
 			}
 
@@ -164,10 +170,16 @@ func (c *Communicator) handleRPC(peer *Peer, msg *p2p.Msg, write func(interface{
 				}
 				escortQC = nxtBlk.QC
 			}
-			raw, err := rlp.EncodeToBytes(&block.EscortedBlock{Block: blk, EscortQC: escortQC})
-			if err != nil {
-				c.logger.Error("could not encode escorted block")
-				break
+			var raw []byte
+			if cached, ok := c.encodedBlocksCache.Get(blk.ID()); ok {
+				raw = cached.([]byte)
+			} else {
+				raw, err = rlp.EncodeToBytes(&block.EscortedBlock{Block: blk, EscortQC: escortQC})
+				if err != nil {
+					c.logger.Error("could not encode escorted block")
+					break
+				}
+				c.encodedBlocksCache.Add(blk.ID(), raw)
 			}
 			result = append(result, rlp.RawValue(raw))
 			num++

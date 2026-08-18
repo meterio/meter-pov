@@ -17,6 +17,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/event"
 	"github.com/ethereum/go-ethereum/p2p"
+	lru "github.com/hashicorp/golang-lru"
 	"github.com/meterio/meter-pov/block"
 	"github.com/meterio/meter-pov/chain"
 	"github.com/meterio/meter-pov/co"
@@ -56,22 +57,28 @@ type Communicator struct {
 
 	magic  [4]byte
 	logger *slog.Logger
+
+	// encodedBlocksCache caches RLP-encoded EscortedBlock bytes keyed by block ID.
+	// Blocks are immutable once on-chain, so cached bytes are always valid.
+	encodedBlocksCache *lru.Cache
 }
 
 // New create a new Communicator instance.
 func New(ctx context.Context, chain *chain.Chain, txPool *txpool.TxPool, powPool *powpool.PowPool, configTopic string, magic [4]byte) *Communicator {
+	encodedBlocksCache, _ := lru.New(512)
 	return &Communicator{
 		chain:   chain,
 		txPool:  txPool,
 		powPool: powPool,
 		ctx:     ctx,
 		// cancel:         cancel,
-		peerSet:        newPeerSet(),
-		syncedCh:       make(chan struct{}),
-		announcementCh: make(chan *announcement),
-		configTopic:    configTopic,
-		magic:          magic,
-		logger:         slog.With("pkg", "comm"),
+		peerSet:            newPeerSet(),
+		syncedCh:           make(chan struct{}),
+		announcementCh:     make(chan *announcement),
+		configTopic:        configTopic,
+		magic:              magic,
+		logger:             slog.With("pkg", "comm"),
+		encodedBlocksCache: encodedBlocksCache,
 	}
 }
 
