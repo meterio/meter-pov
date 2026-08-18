@@ -46,6 +46,17 @@ var (
 
 	EmptyRuntimeBytecode = []byte{0x60, 0x60, 0x60, 0x40, 0x52, 0x60, 0x02, 0x56}
 	log                  = slog.Default().With("pkg", "rt")
+
+	// fork8DoneFlag is set to 1 the first time EnforceTeslaFork8_LiquidStaking
+	// confirms the correction has been applied. After that the per-clause state
+	// lookup is skipped entirely for the lifetime of the process.
+	fork8DoneFlag uint32
+	// forkNDoneFlags mirror the same pattern for forks 9-13.
+	fork9DoneFlag  uint32
+	fork10DoneFlag uint32
+	fork11DoneFlag uint32
+	fork12DoneFlag uint32
+	fork13DoneFlag uint32
 )
 
 func init() {
@@ -279,6 +290,12 @@ func (rt *Runtime) EnforceTeslaFork6_Corrections() {
 }
 
 func (rt *Runtime) EnforceTeslaFork8_LiquidStaking(stateDB *statedb.StateDB, blockNum *big.Int) {
+	// Fast path: once the correction has been applied in this process, skip the
+	// per-clause state lookup entirely.  The flag transitions from 0→1 exactly
+	// once and never reverts.
+	if atomic.LoadUint32(&fork8DoneFlag) == 1 {
+		return
+	}
 	blockNumber := rt.Context().Number
 	log := slog.With("pkg", "fork8")
 	if blockNumber > 0 {
@@ -380,12 +397,16 @@ func (rt *Runtime) EnforceTeslaFork8_LiquidStaking(stateDB *statedb.StateDB, blo
 
 			// builtin.Params.Native(rt.State()).SetAddress(meter.KeySystemContractAddress2, meter.ScriptEngineSysContractAddr)
 			builtin.Params.Native(rt.State()).Set(meter.KeyEnforceTesla_Fork8_Correction, big.NewInt(1))
+			atomic.StoreUint32(&fork8DoneFlag, 1)
 			log.Info("Finished fork8 correction")
 		}
 	}
 }
 
 func (rt *Runtime) EnforceTeslaFork9_Corrections(stateDB *statedb.StateDB, blockNum *big.Int) {
+	if atomic.LoadUint32(&fork9DoneFlag) == 1 {
+		return
+	}
 	blockNumber := rt.Context().Number
 	log := slog.With("pkg", "fork9")
 	if blockNumber > 0 {
@@ -417,12 +438,16 @@ func (rt *Runtime) EnforceTeslaFork9_Corrections(stateDB *statedb.StateDB, block
 
 			// builtin.Params.Native(rt.State()).SetAddress(meter.KeySystemContractAddress2, meter.ScriptEngineSysContractAddr)
 			builtin.Params.Native(rt.State()).Set(meter.KeyEnforceTesla_Fork9_Correction, big.NewInt(1))
+			atomic.StoreUint32(&fork9DoneFlag, 1)
 			log.Info("Finished fork9 correction")
 		}
 	}
 }
 
 func (rt *Runtime) EnforceTeslaFork10_Corrections(stateDB *statedb.StateDB, blockNum *big.Int) {
+	if atomic.LoadUint32(&fork10DoneFlag) == 1 {
+		return
+	}
 	blockNumber := rt.Context().Number
 	log := slog.With("pkg", "fork10")
 	if blockNumber > 0 {
@@ -487,12 +512,16 @@ func (rt *Runtime) EnforceTeslaFork10_Corrections(stateDB *statedb.StateDB, bloc
 			}
 
 			builtin.Params.Native(rt.State()).Set(meter.KeyEnforceTesla_Fork10_Correction, big.NewInt(1))
+			atomic.StoreUint32(&fork10DoneFlag, 1)
 			log.Info("Finished fork10 correction")
 		}
 	}
 }
 
 func (rt *Runtime) EnforceTeslaFork11_Corrections(stateDB *statedb.StateDB, blockNum *big.Int, evm *vm.EVM) {
+	if atomic.LoadUint32(&fork11DoneFlag) == 1 {
+		return
+	}
 	blockNumber := rt.Context().Number
 	log := slog.With("pkg", "fork11")
 	if blockNumber > 0 {
@@ -552,12 +581,16 @@ func (rt *Runtime) EnforceTeslaFork11_Corrections(stateDB *statedb.StateDB, bloc
 			// log.Info("Update base sequence", "curSequence", curSequence)
 
 			builtin.Params.Native(rt.State()).Set(meter.KeyEnforceTesla_Fork11_Correction, big.NewInt(1))
+			atomic.StoreUint32(&fork11DoneFlag, 1)
 			log.Info("Finished fork11 correction")
 		}
 	}
 }
 
 func (rt *Runtime) EnforceTeslaFork12_Corrections(stateDB *statedb.StateDB, blockNum *big.Int) {
+	if atomic.LoadUint32(&fork12DoneFlag) == 1 {
+		return
+	}
 	blockNumber := rt.Context().Number
 	log := slog.With("pkg", "fork12")
 	if blockNumber > 0 {
@@ -569,6 +602,7 @@ func (rt *Runtime) EnforceTeslaFork12_Corrections(stateDB *statedb.StateDB, bloc
 
 			log.Info("set fork12 correction", "value", 1)
 			builtin.Params.Native(rt.State()).Set(meter.KeyEnforceTesla_Fork12_Correction, big.NewInt(1))
+			atomic.StoreUint32(&fork12DoneFlag, 1)
 			log.Info("set fork12 start timestamp", "value", rt.Context().Time)
 			builtin.Params.Native(rt.State()).Set(meter.KeyTesla_Fork12_Timestamp, big.NewInt(int64(rt.Context().Time)))
 			log.Info("Finished fork12 correction")
@@ -577,6 +611,9 @@ func (rt *Runtime) EnforceTeslaFork12_Corrections(stateDB *statedb.StateDB, bloc
 }
 
 func (rt *Runtime) EnforceTeslaFork13_Corrections(stateDB *statedb.StateDB, blockNum *big.Int) {
+	if atomic.LoadUint32(&fork13DoneFlag) == 1 {
+		return
+	}
 	blockNumber := rt.Context().Number
 	log := slog.With("pkg", "fork13")
 	if blockNumber > 0 {
@@ -587,7 +624,8 @@ func (rt *Runtime) EnforceTeslaFork13_Corrections(stateDB *statedb.StateDB, bloc
 			log.Info("Start fork13 correction")
 
 			log.Info("set fork13 correction", "value", 1)
-			builtin.Params.Native(rt.State()).Set(meter.KeyEnforceTesla_Fork12_Correction, big.NewInt(1))
+			builtin.Params.Native(rt.State()).Set(meter.KeyEnforceTesla_Fork13_Correction, big.NewInt(1))
+			atomic.StoreUint32(&fork13DoneFlag, 1)
 			log.Info("Finished fork13 correction")
 		}
 	}
