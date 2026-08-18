@@ -33,6 +33,7 @@ import (
 	"github.com/google/uuid"
 	isatty "github.com/mattn/go-isatty"
 	"github.com/meterio/meter-pov/api"
+	"github.com/meterio/meter-pov/api/ethapi"
 	"github.com/meterio/meter-pov/api/doc"
 	"github.com/meterio/meter-pov/chain"
 	"github.com/meterio/meter-pov/cmd/meter/node"
@@ -134,6 +135,7 @@ func main() {
 			discoTopicFlag,
 			initCfgdDelegatesFlag,
 			epochBlockCountFlag,
+			ethRPCAddrFlag,
 			httpsCertFlag,
 			httpsKeyFlag,
 			enablePruningFlag,
@@ -395,6 +397,10 @@ func defaultAction(ctx *cli.Context) error {
 
 	apiURL, srvCloser := startAPIServer(ctx, apiHandler, chain.GenesisBlock().ID())
 	defer func() { slog.Info("stopping API server..."); srvCloser() }()
+
+	ethRPCURL, ethRPCCloser := ethapi.StartEthRPC(chain, stateCreator, txPool, logDB, uint64(ctx.Int(apiCallGasLimitFlag.Name)), ctx.String(ethRPCAddrFlag.Name))
+	defer func() { slog.Info("stopping ETH JSON-RPC server..."); ethRPCCloser() }()
+	slog.Info("ETH JSON-RPC", "url", ethRPCURL)
 
 	observeURL, observeSrvCloser := startObserveServer(ctx, reactor, pubkey, p2pcom.comm, chain, stateCreator)
 	defer func() { slog.Info("closing Observe Server ..."); observeSrvCloser() }()

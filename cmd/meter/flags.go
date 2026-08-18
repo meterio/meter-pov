@@ -164,6 +164,11 @@ var (
 		Usage: "mblock count between epochs",
 		Value: 1200,
 	}
+	ethRPCAddrFlag = cli.StringFlag{
+		Name:  "eth-rpc-addr",
+		Value: "localhost:8545",
+		Usage: "ETH JSON-RPC service listening address",
+	}
 	httpsCertFlag = cli.StringFlag{
 		Name:  "https-cert",
 		Usage: "path for https cert file (default is meterio.crt)",
